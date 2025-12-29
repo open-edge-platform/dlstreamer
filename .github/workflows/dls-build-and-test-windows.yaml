@@ -45,8 +45,8 @@ jobs:
     - name: Init submodules
       run: |
         cd dlstreamer-repo
-        git submodule update --init dlstreamer-repo/thirdparty/spdlog
-        git submodule update --init dlstreamer-repo/thirdparty/googletest
+        git submodule update --init thirdparty/spdlog
+        git submodule update --init thirdparty/googletest
 
     - name: Copy DL Streamer repo
       shell: powershell
@@ -55,7 +55,7 @@ jobs:
             Remove-Item -Recurse -Force $target
         }
         New-Item -ItemType Directory -Path ${{ env.DLS_REPO_TARGET_DIRECTORY }} | Out-Null
-        Copy-Item -Path "dlstreamer-repo\dl-streamer\*" -Destination ${{ env.DLS_REPO_TARGET_DIRECTORY }} -Recurse -Force
+        Copy-Item -Path "dlstreamer-repo\*" -Destination ${{ env.DLS_REPO_TARGET_DIRECTORY }} -Recurse -Force
 
     # ======================================================== BUILDING PART ========================================================
     - name: 📦 Build DL Streamer DLLs
@@ -80,7 +80,7 @@ jobs:
         Copy-Item -Path "$source\*" -Destination $target -Recurse -Force
 
         # Copy script
-        $scriptSource = "$PWD\dlstreamer-repo\dl-streamer\scripts\setup_dls_env.ps1"
+        $scriptSource = "$PWD\dlstreamer-repo\scripts\setup_dls_env.ps1"
         $scriptDest = Join-Path $target "setup_dls_env.ps1"
         Copy-Item -Path $scriptSource -Destination $scriptDest -Force
 

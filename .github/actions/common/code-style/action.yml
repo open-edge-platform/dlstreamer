@@ -31,8 +31,8 @@ runs:
       env:
         target_dir: ${{ inputs.target_dir }}
       run: |
-        chmod +x .github/actions/common/code-style/entrypoint.sh
-        ./.github/actions/common/code-style/entrypoint.sh "${target_dir}" || echo "STYLE_ISSUES=true" >> $GITHUB_OUTPUT
+        chmod +x ${target_dir}/.github/actions/common/code-style/entrypoint.sh
+        ${target_dir}/.github/actions/common/code-style/entrypoint.sh "${target_dir}" || echo "STYLE_ISSUES=true" >> $GITHUB_OUTPUT
       shell: bash
 
     - name: Analyze code style results

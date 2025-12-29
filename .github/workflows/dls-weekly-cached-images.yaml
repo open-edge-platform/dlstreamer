@@ -294,6 +294,7 @@ jobs:
         dev_debug_img: ghcr.io/${{ github.repository }}/intel/edge-ai-dlstreamer@${{ steps.digest.outputs.digest }}
       run: |
         cosign sign --yes ${dev_debug_img}
+
     - name: Clean up
       if: always()
       env:

@@ -53,16 +53,23 @@ jobs:
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 #5.0.0
         with:
           persist-credentials: false
+          path: dlstreamer-repo
 
       - name: Remove thirdparty folder
-        run: rm -rf thirdparty
+        run: |
+          rm -rf dlstreamer-repo/thirdparty
+          rm -rf thirdparty
 
       - name: Code-style action
-        uses: ./.github/actions/common/code-style
+        uses: ./dlstreamer-repo/.github/actions/common/code-style
         with:
-          target_dir: "."
+          target_dir: "dlstreamer-repo"
           name: 'DLS_code-style-check-report'
           fail-on-findings: true
+
+      - name: Clean up
+        run: |
+          sudo rm -rf dlstreamer-repo
 
   dls-check-license-headers:
     permissions:
@@ -75,13 +82,18 @@ jobs:
       with:
         persist-credentials: false
         fetch-depth: 0
+        path: dlstreamer-repo
 
     - name: Check license headers
-      uses: ./.github/actions/common/license-namespace-checker
+      uses: ./dlstreamer-repo/.github/actions/common/license-namespace-checker
       with:
         name: 'DLS_license-check-report'
-        path: '.'
+        path: 'dlstreamer-repo'
         fail-on-findings: true
+
+    - name: Clean up
+      run: |
+        sudo rm -rf dlstreamer-repo
 
   # dls-static-code-analysis:
   #   permissions:
@@ -90,7 +102,7 @@ jobs:
   #     contents: read
   #     packages: read
   #   name: "DLS SCAN: static code analysis"
-  #   uses: ./.github/workflows/codeql.yaml
+  #   uses: dlstreamer-repo/.github/workflows/codeql.yaml
 
   dls-static-code-analysis-for-c-cpp:
     permissions:
@@ -118,15 +130,18 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
+          path: dlstreamer-repo
 
       - name: Fetch main branch for comparison
         run: |
+          cd dlstreamer-repo
           git fetch origin master
 
       - name: Detect changes in docker directory
         id: check
         run: |
           echo "🔍 Checking for changes in 'docker/'..."
+          cd dlstreamer-repo
           CHANGED_FILES=$(git diff --name-only origin/master...HEAD -- 'docker/')
 
           if [ -n "${CHANGED_FILES}" ]; then
@@ -138,6 +153,10 @@ jobs:
             echo "✅ No docker-related changes."
             echo "docker_changed=false" >> "$GITHUB_OUTPUT"
           fi
+
+      - name: Clean up
+        run: |
+          sudo rm -rf dlstreamer-repo
 
   dls-trivy-config-scan:
     permissions:
@@ -182,25 +201,26 @@ jobs:
       matrix:
         include:
           - name: dlstreamer_ubuntu22
-            dockerfile: docker/ubuntu/ubuntu22.Dockerfile
+            dockerfile: dlstreamer-repo/docker/ubuntu/ubuntu22.Dockerfile
             output-file: hadolint-dlstreamer_ubuntu22.json
           - name: dlstreamer_ubuntu24
-            dockerfile: docker/ubuntu/ubuntu24.Dockerfile
+            dockerfile: dlstreamer-repo/docker/ubuntu/ubuntu24.Dockerfile
             output-file: hadolint-dlstreamer_ubuntu24.json
           - name: dlstreamer_fedora41
-            dockerfile: docker/fedora41/fedora41.Dockerfile
+            dockerfile: dlstreamer-repo/docker/fedora41/fedora41.Dockerfile
             output-file: hadolint-dlstreamer_fedora41.json
           - name: dlstreamer-testing-ubuntu
-            dockerfile: docker/ubuntu/ubuntu-testing.Dockerfile
+            dockerfile: dlstreamer-repo/docker/ubuntu/ubuntu-testing.Dockerfile
             output-file: hadolint-dlstreamer-testing-ubuntu.json
     steps:
       - name: Check out dlstreamer repository
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 #5.0.0
         with:
           persist-credentials: false
+          path: dlstreamer-repo
 
       - name: Run Hadolint Action
-        uses: ./.github/actions/common/hadolint
+        uses: ./dlstreamer-repo/.github/actions/common/hadolint
         with:
           dockerfile: ${{ matrix.dockerfile }}
           output-file: ${{ matrix.output-file }}
@@ -208,6 +228,10 @@ jobs:
           enable-reviewdog: true
           github_token: ${{ secrets.GITHUB_TOKEN }}
           fail-on-findings: true
+
+      - name: Clean up
+        run: |
+          sudo rm -rf dlstreamer-repo
 
   dls-pylint:
     permissions:
@@ -231,6 +255,10 @@ jobs:
           enable-reviewdog: true
           github_token: ${{ secrets.GITHUB_TOKEN }}
           fail-on-findings: true
+
+      - name: Clean up
+        run: |
+          sudo rm -rf dlstreamer-repo
 
   dls-shellcheck:
     permissions:
