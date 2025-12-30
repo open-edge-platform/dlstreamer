@@ -44,6 +44,7 @@
 #include "renderer/cpu/create_renderer.h"
 
 #include <exception>
+#include <iomanip>
 #include <string>
 #include <typeinfo>
 #ifndef ENABLE_VAAPI
@@ -115,7 +116,7 @@ InferenceBackend::MemoryType memoryTypeFromCaps(GstCaps *caps) {
 } // namespace
 
 struct Impl {
-    Impl(GstVideoInfo *info, InferenceBackend::MemoryType mem_type);
+    Impl(GstVideoInfo *info, InferenceBackend::MemoryType mem_type, GstElement *element, bool disp_avgfps);
     bool extract_primitives(GstBuffer *buffer);
     int get_num_primitives() const;
     bool render(GstBuffer *buffer);
@@ -133,7 +134,7 @@ struct Impl {
     void preparePrimsForKeypointConnections(GstStructure *s, const std::vector<float> &keypoints_data,
                                             const std::vector<uint32_t> &dims, const std::vector<float> &confidence,
                                             const GVA::Rect<double> &rectangle, std::vector<render::Prim> &prims) const;
-
+    void find_gvafpscounter_element();
     std::unique_ptr<Renderer> createRenderer(std::shared_ptr<ColorConverter> converter);
 
     std::unique_ptr<Renderer> createGPURenderer(dlstreamer::ImageFormat format,
@@ -144,6 +145,8 @@ struct Impl {
     std::unique_ptr<Renderer> createOpenCVRenderer(std::shared_ptr<ColorConverter> converter);
 
     GstVideoInfo *_vinfo;
+    GstElement *_element;
+    GstElement *_gvafpscounter_element;
     std::string _backend_type;
     InferenceBackend::MemoryType _mem_type;
 
@@ -163,9 +166,10 @@ struct Impl {
         const double scale = 1.0;
     } _font;
     const bool _obb = false;
+    bool _disp_avgfps = false;
 };
 
-enum { PROP_0, PROP_DEVICE, PROP_OBB };
+enum { PROP_0, PROP_DEVICE, PROP_OBB, PROP_DISP_AVGFPS };
 
 G_DEFINE_TYPE_WITH_CODE(GstGvaWatermarkImpl, gst_gva_watermark_impl, GST_TYPE_BASE_TRANSFORM,
                         GST_DEBUG_CATEGORY_INIT(gst_gva_watermark_impl_debug_category, "gvawatermarkimpl", 0,
@@ -189,6 +193,9 @@ void gst_gva_watermark_impl_set_property(GObject *object, guint prop_id, const G
     case PROP_OBB:
         gvawatermark->obb = g_value_get_boolean(value);
         break;
+    case PROP_DISP_AVGFPS:
+        gvawatermark->disp_avgfps = g_value_get_boolean(value);
+        break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
         break;
@@ -210,6 +217,9 @@ void gst_gva_watermark_impl_get_property(GObject *object, guint prop_id, GValue 
         break;
     case PROP_OBB:
         g_value_set_boolean(value, self->obb);
+        break;
+    case PROP_DISP_AVGFPS:
+        g_value_set_boolean(value, self->disp_avgfps);
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -326,7 +336,8 @@ static gboolean gst_gva_watermark_impl_set_caps(GstBaseTransform *trans, GstCaps
 #endif
 
     try {
-        gvawatermark->impl = std::make_shared<Impl>(&gvawatermark->info, mem_type);
+        gvawatermark->impl =
+            std::make_shared<Impl>(&gvawatermark->info, mem_type, GST_ELEMENT(trans), gvawatermark->disp_avgfps);
     } catch (const std::exception &e) {
         GST_ELEMENT_ERROR(gvawatermark, CORE, FAILED, ("Could not initialize"),
                           ("Cannot create watermark instance. %s", Utils::createNestedErrorMsg(e).c_str()));
@@ -662,9 +673,17 @@ static void gst_gva_watermark_impl_class_init(GstGvaWatermarkImplClass *klass) {
                                                          "If true, draw oriented bounding box instead of object mask",
                                                          false,
                                                          (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+    g_object_class_install_property(
+        gobject_class, PROP_DISP_AVGFPS,
+        g_param_spec_boolean("disp-avgfps", "Display Average FPS",
+                             "If true, display the average FPS read from gvafpscounter element on the output video."
+                             "The gvafpscounter element must be present in the pipeline."
+                             "e.g. gwatermark ! gvafpscounter ! ...",
+                             false, (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 }
 
-Impl::Impl(GstVideoInfo *info, InferenceBackend::MemoryType mem_type) : _vinfo(info), _mem_type(mem_type) {
+Impl::Impl(GstVideoInfo *info, InferenceBackend::MemoryType mem_type, GstElement *element, bool disp_avgfps)
+    : _vinfo(info), _element(element), _mem_type(mem_type), _disp_avgfps(disp_avgfps) {
     assert(_vinfo);
     if (GST_VIDEO_INFO_COLORIMETRY(_vinfo).matrix == GstVideoColorMatrix::GST_VIDEO_COLOR_MATRIX_UNKNOWN)
         throw std::runtime_error("GST_VIDEO_COLOR_MATRIX_UNKNOWN");
@@ -680,6 +699,10 @@ Impl::Impl(GstVideoInfo *info, InferenceBackend::MemoryType mem_type) : _vinfo(i
 
     _renderer = createRenderer(std::move(converter));
     _renderer_opencv = createOpenCVRenderer(std::move(converterBGR));
+
+    // Find gvafpscounter element in the pipeline
+    if (_disp_avgfps)
+        find_gvafpscounter_element();
 }
 
 size_t get_keypoint_index_by_name(const gchar *target_name, GValueArray *names) {
@@ -695,6 +718,52 @@ size_t get_keypoint_index_by_name(const gchar *target_name, GValueArray *names) 
     }
 
     return names->n_values;
+}
+
+void Impl::find_gvafpscounter_element() {
+    _gvafpscounter_element = nullptr;
+
+    if (!_element)
+        return;
+
+    GstObject *parent = GST_OBJECT_PARENT(GST_ELEMENT(_element));
+    GstElement *pipeline = nullptr;
+    // Traverse up the hierarchy to find the pipeline
+    while (parent && !GST_IS_PIPELINE(parent)) {
+        parent = GST_OBJECT_PARENT(parent);
+    }
+    if (parent && GST_IS_PIPELINE(parent)) {
+        pipeline = GST_ELEMENT(parent);
+    }
+    if (pipeline) {
+        GstIterator *it = gst_bin_iterate_elements(GST_BIN(pipeline));
+        GValue value = G_VALUE_INIT;
+        gboolean done = FALSE;
+        while (!done) {
+            switch (gst_iterator_next(it, &value)) {
+            case GST_ITERATOR_OK: {
+                GstElement *element = GST_ELEMENT(g_value_get_object(&value));
+                const gchar *factory_name = GST_OBJECT_NAME(gst_element_get_factory(element));
+                if (g_str_has_prefix(factory_name, "gvafpscounter")) {
+                    _gvafpscounter_element = element;
+                    // No need to continue searching
+                    done = TRUE;
+                }
+                g_value_reset(&value);
+                break;
+            }
+            case GST_ITERATOR_RESYNC:
+                gst_iterator_resync(it);
+                break;
+            case GST_ITERATOR_ERROR:
+            case GST_ITERATOR_DONE:
+                done = TRUE;
+                break;
+            }
+        }
+        g_value_unset(&value);
+        gst_iterator_free(it);
+    }
 }
 
 bool Impl::extract_primitives(GstBuffer *buffer) {
@@ -791,7 +860,8 @@ void Impl::preparePrimsForRoi(GVA::RegionOfInterest &roi, std::vector<render::Pr
     //     rect.h *= _vinfo->height;
     // } else {
     //     auto rect_u32 = roi.rect();
-    //     rect = {safe_convert<double>(rect_u32.x), safe_convert<double>(rect_u32.y), safe_convert<double>(rect_u32.w),
+    //     rect = {safe_convert<double>(rect_u32.x), safe_convert<double>(rect_u32.y),
+    //     safe_convert<double>(rect_u32.w),
     //             safe_convert<double>(rect_u32.h)};
     // }
     clip_rect(rect.x, rect.y, rect.w, rect.h, _vinfo);
@@ -828,6 +898,19 @@ void Impl::preparePrimsForRoi(GVA::RegionOfInterest &roi, std::vector<render::Pr
         if (pos.y < 0)
             pos.y = rect.y + 30.f;
         prims.emplace_back(render::Text(text.str(), pos, _font.type, _font.scale, color));
+    }
+
+    if (_gvafpscounter_element != nullptr) {
+        std::ostringstream fpstext;
+        gfloat avg_fps = 0.0f;
+        g_object_get(_gvafpscounter_element, "avg-fps", &avg_fps, NULL);
+        if (avg_fps > 0.0f) {
+            fpstext << "[avg " << std::fixed << std::setprecision(1) << avg_fps << " FPS]";
+            if (fpstext.str().size() != 0) {
+                cv::Point2f pos(_vinfo->width * 0.7, _vinfo->height - 20.f);
+                prims.emplace_back(render::Text(fpstext.str(), pos, _font.type, _font.scale * 0.7, indexToColor(1)));
+            }
+        }
     }
 }
 

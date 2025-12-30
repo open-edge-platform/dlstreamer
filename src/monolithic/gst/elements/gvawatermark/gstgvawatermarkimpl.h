@@ -41,6 +41,7 @@ struct _GstGvaWatermarkImpl {
     GstVideoInfo info;
     gchar *device;
     bool obb;
+    bool disp_avgfps;
     std::shared_ptr<struct Impl> impl;
     InferenceBackend::MemoryType negotiated_mem_type = InferenceBackend::MemoryType::ANY;
 

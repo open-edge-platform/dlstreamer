@@ -69,6 +69,11 @@ Element Properties:
   device              : Supported devices are CPU and GPU. Default is CPU on system memory and GPU on video memory
                         flags: readable, writable
                         String. Default: null
+  disp-avgfps         : If true, display the average FPS read from gvafpscounter element on the output video.
+                        The gvafpscounter element must be present in the pipeline.
+                        e.g. ... ! gwatermark disp-avgfps=true ! gvafpscounter ! ...
+                        flags: readable, writable
+                        Boolean. Default: false
   message-forward     : Forwards all children messages
                         flags: readable, writable
                         Boolean. Default: false

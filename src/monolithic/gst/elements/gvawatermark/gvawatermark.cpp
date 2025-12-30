@@ -21,7 +21,7 @@ GST_DEBUG_CATEGORY_STATIC(gst_gva_watermark_debug_category);
 
 #define DEFAULT_DEVICE "CPU"
 
-enum { PROP_0, PROP_DEVICE, PROP_OBB };
+enum { PROP_0, PROP_DEVICE, PROP_OBB, PROP_DISP_AVGFPS };
 
 G_DEFINE_TYPE_WITH_CODE(GstGvaWatermark, gst_gva_watermark, GST_TYPE_BIN,
                         GST_DEBUG_CATEGORY_INIT(gst_gva_watermark_debug_category, "gvawatermark", 0,
@@ -97,6 +97,13 @@ static void gst_gva_watermark_class_init(GstGvaWatermarkClass *klass) {
                                                          "If true, draw oriented bounding box instead of object mask",
                                                          false,
                                                          (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+    g_object_class_install_property(
+        gobject_class, PROP_DISP_AVGFPS,
+        g_param_spec_boolean("disp-avgfps", "Display Average FPS",
+                             "If true, display the average FPS read from gvafpscounter element on the output video.\n"
+                             "\t\t\tThe gvafpscounter element must be present in the pipeline.\n"
+                             "\t\t\te.g. ... ! gwatermark ! gvafpscounter ! ...",
+                             false, (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 }
 
 static void gst_gva_watermark_init(GstGvaWatermark *self) {
@@ -176,6 +183,10 @@ void gst_gva_watermark_set_property(GObject *object, guint property_id, const GV
         gvawatermark->obb = g_value_get_boolean(value);
         g_object_set(gvawatermark->watermarkimpl, "obb", gvawatermark->obb, nullptr);
         break;
+    case PROP_DISP_AVGFPS:
+        gvawatermark->disp_avgfps = g_value_get_boolean(value);
+        g_object_set(gvawatermark->watermarkimpl, "disp-avgfps", gvawatermark->disp_avgfps, nullptr);
+        break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
         break;
@@ -193,6 +204,9 @@ void gst_gva_watermark_get_property(GObject *object, guint property_id, GValue *
         break;
     case PROP_OBB:
         g_value_set_boolean(value, gvawatermark->obb);
+        break;
+    case PROP_DISP_AVGFPS:
+        g_value_set_boolean(value, gvawatermark->disp_avgfps);
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
