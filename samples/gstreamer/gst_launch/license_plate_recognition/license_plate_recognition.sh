@@ -17,6 +17,18 @@ else
   echo "MODELS_PATH: $MODELS_PATH"
 fi
 
+# List help message
+if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
+  echo "Usage: $0 [INPUT] [DEVICE] [OUTPUT]"
+  echo ""
+  echo "Arguments:"
+  echo "  INPUT     - Input source (default: Pexels video URL)"
+  echo "  DEVICE    - Device (default: GPU). Supported: CPU, GPU"
+  echo "  OUTPUT    - Output type (default: fps). Supported: display, display-async, fps, json, display-and-json, file"
+  echo ""
+  exit 0
+fi
+
 # Command-line parameters
 INPUT=${1:-https://github.com/open-edge-platform/edge-ai-resources/raw/main/videos/ParkingVideo.mp4}
 DEVICE=${2:-GPU}     # Device for decode and inference in OpenVINO(TM) format, examples: AUTO, CPU, GPU, GPU.0
@@ -65,9 +77,9 @@ else
 fi
 
 if [[ $OUTPUT == "display" ]]; then
-  SINK_ELEMENT="gvawatermark ! videoconvert ! gvafpscounter ! autovideosink"
+  SINK_ELEMENT="vapostproc ! gvawatermark ! videoconvert ! gvafpscounter ! autovideosink"
 elif [[ $OUTPUT == "display-async" ]]; then
-  SINK_ELEMENT="gvawatermark ! videoconvert ! gvafpscounter ! autovideosink sync=false"
+  SINK_ELEMENT="vapostproc ! gvawatermark ! videoconvert ! gvafpscounter ! autovideosink sync=false"
 elif [[ $OUTPUT == "fps" ]]; then
   SINK_ELEMENT="gvafpscounter ! fakesink async=false "
 elif [[ $OUTPUT == "json" ]]; then
@@ -75,7 +87,7 @@ elif [[ $OUTPUT == "json" ]]; then
   SINK_ELEMENT="gvametaconvert ! gvametapublish file-format=json-lines file-path=output.json ! fakesink async=false"
 elif [[ $OUTPUT == "display-and-json" ]]; then
   rm -f output.json
-  SINK_ELEMENT="gvawatermark ! gvametaconvert ! gvametapublish file-format=json-lines file-path=output.json ! videoconvert ! gvafpscounter ! autovideosink sync=false"
+  SINK_ELEMENT="vapostproc ! gvawatermark ! gvametaconvert ! gvametapublish file-format=json-lines file-path=output.json ! videoconvert ! gvafpscounter ! autovideosink sync=false"
 elif [[ $OUTPUT == "file" ]]; then
   FILE="$(basename ${INPUT%.*})"
   rm -f "lpr_${FILE}_${DEVICE}.mp4"
@@ -87,7 +99,7 @@ elif [[ $OUTPUT == "file" ]]; then
     echo "Error - VA-API H.264 encoder not found."
     exit
   fi
-  SINK_ELEMENT="gvawatermark ! gvafpscounter ! ${ENCODER} ! h264parse ! mp4mux ! filesink location=lpr_${FILE}_${DEVICE}.mp4"
+  SINK_ELEMENT="vapostproc ! gvawatermark ! gvafpscounter ! ${ENCODER} ! h264parse ! mp4mux ! filesink location=lpr_${FILE}_${DEVICE}.mp4"
 else
   echo Error wrong value for OUTPUT parameter
   echo Valid values: "display" - render to screen, "fps" - print FPS, "json" - write to output.json, "display-and-json" - render to screen and write to output.json

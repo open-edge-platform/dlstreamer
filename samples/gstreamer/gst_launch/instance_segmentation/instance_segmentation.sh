@@ -26,6 +26,20 @@ OUTPUT="file"
 BENCHMARK_SINK=""
 OUTPUT_DIRECTORY=""
 
+show_usage() {
+    echo "Usage: $0 [--model MODEL] [--device DEVICE] [--input INPUT] [--output OUTPUT] [--benchmark_sink BENCHMARK_SINK] [--output-directory OUTPUT_DIRECTORY]"
+    echo ""
+    echo "Arguments:"
+    echo "  --model MODEL                     - Model to use (default: mask_rcnn_inception_resnet_v2_atrous_coco). Allowed: ${ALLOWED_MODELS[*]}"
+    echo "  --device DEVICE                   - Device to use (default: CPU). Allowed: ${ALLOWED_DEVICES[*]}"
+    echo "  --input INPUT                     - Input source (default: Pexels video URL)"
+    echo "  --output OUTPUT                   - Output type (default: file). Allowed: ${ALLOWED_OUTPUTS[*]}"
+    echo "  --benchmark_sink BENCHMARK_SINK   - Benchmark sink element (default: empty)"
+    echo "  --output-directory OUTPUT_DIRECTORY - Directory to save output files (default: current directory)"
+    echo "  --help                            - Show this help message"
+    echo ""
+}
+
 # Function to check if an item is in an array
 containsElement () {
   local element match="$1"
@@ -74,6 +88,10 @@ while [[ "$#" -gt 0 ]]; do
         --output-directory)
             OUTPUT_DIRECTORY="$2"
             shift
+            ;;
+        --help)
+            show_usage
+            exit 0
             ;;
         *)
             echo "Unknown parameter passed: $1"
@@ -150,12 +168,12 @@ if [[ `uname` != "MINGW64"* ]]; then
         exit
     fi
 fi
-sink_elements["file"]="gvawatermark ! gvafpscounter ! ${ENCODER} ! h264parse ! mp4mux ! filesink location=${OUTPUT_DIRECTORY}instance_segmentation_${FILE}_${DEVICE}.mp4"
-sink_elements['display']="gvawatermark ! videoconvertscale ! gvafpscounter ! autovideosink sync=false"
+sink_elements["file"]="vapostproc ! gvawatermark ! gvafpscounter ! ${ENCODER} ! h264parse ! mp4mux ! filesink location=${OUTPUT_DIRECTORY}instance_segmentation_${FILE}_${DEVICE}.mp4"
+sink_elements['display']="vapostproc ! gvawatermark ! videoconvertscale ! gvafpscounter ! autovideosink sync=false"
 sink_elements['fps']="gvafpscounter ! fakesink sync=false"
 sink_elements['json']="gvametaconvert add-tensor-data=true ! gvametapublish file-format=json-lines file-path=${OUTPUT_DIRECTORY}output.json ! fakesink sync=false"
-sink_elements['display-and-json']="gvawatermark ! gvametaconvert add-tensor-data=true ! gvametapublish file-format=json-lines file-path=${OUTPUT_DIRECTORY}instance_segmentation_${FILE}_${DEVICE}.json ! videoconvert ! gvafpscounter ! autovideosink sync=false"
-sink_elements["jpeg"]="gvawatermark ! jpegenc ! multifilesink location=${OUTPUT_DIRECTORY}instance_segmentation_${FILE}_${DEVICE}_%05d.jpeg"
+sink_elements['display-and-json']="vapostproc ! gvawatermark ! gvametaconvert add-tensor-data=true ! gvametapublish file-format=json-lines file-path=${OUTPUT_DIRECTORY}instance_segmentation_${FILE}_${DEVICE}.json ! videoconvert ! gvafpscounter ! autovideosink sync=false"
+sink_elements["jpeg"]="vapostproc ! gvawatermark ! jpegenc ! multifilesink location=${OUTPUT_DIRECTORY}instance_segmentation_${FILE}_${DEVICE}_%05d.jpeg"
 SINK_ELEMENT=${sink_elements[$OUTPUT]}
 
 # Construct the GStreamer pipeline

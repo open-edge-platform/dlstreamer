@@ -29,6 +29,20 @@ SUPPORTED_MODELS=(
   "clip-vit-base-patch32"
 )
 
+# Print help message
+if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
+    echo "Usage: $0 [SOURCE_FILE] [DEVICE] [OUTPUT] [MODEL] [PREPROCESSING_BACKEND]"
+    echo ""
+    echo "Arguments:"
+    echo "  SOURCE_FILE            - Input source (default: Pexels video URL)"
+    echo "  DEVICE                 - Device (default: CPU). Supported: CPU, GPU"
+    echo "  OUTPUT                 - Output type (default: json). Supported: json, fps"
+    echo "  MODEL                  - Model name (default: clip-vit-large-patch14). Supported: ${SUPPORTED_MODELS[*]}"
+    echo "  PREPROCESSING_BACKEND  - Preprocessing backend (default: opencv). Supported: ie, opencv, va, va-surface-sharing"
+    echo ""
+    exit 0
+fi
+
 # Arguments
 SOURCE_FILE=${1:-$DEFAULT_SOURCE}
 DEVICE=${2:-$DEFAULT_DEVICE}

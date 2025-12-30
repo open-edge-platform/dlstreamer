@@ -18,6 +18,18 @@ else
 	echo "MODELS_PATH: $MODELS_PATH"
 fi
 
+# Check help message
+if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
+	echo "Usage: $0 [DEVICE] [OUTPUT] [INPUT]"
+	echo ""
+	echo "Arguments:"
+	echo "  DEVICE    - Device (default: GPU). Supported: CPU, GPU, NPU"
+	echo "  OUTPUT    - Output type (default: file). Supported: file, display, fps, json, display-and-json"
+	echo "  INPUT     - Input source (default: Pexels video URL)"
+	echo ""
+	exit 0
+fi
+
 DETECT_MODEL="centerface"
 DETECT_MODEL_PATH="$MODELS_PATH/public/$DETECT_MODEL/FP32/$DETECT_MODEL.xml"
 
@@ -89,9 +101,9 @@ if [[ "$OUTPUT" == "file" ]]; then
 		echo "Error - VA-API H.264 encoder not found."
 		exit 1
 	fi
-	SINK_ELEMENT="gvawatermark ! gvafpscounter ! ${ENCODER} ! h264parse ! mp4mux ! filesink location=$OUTPUT_FILE"
+	SINK_ELEMENT="vapostproc ! gvawatermark ! gvafpscounter ! ${ENCODER} ! h264parse ! mp4mux ! filesink location=$OUTPUT_FILE"
 elif [[ "$OUTPUT" == "display" ]] || [[ -z $OUTPUT ]]; then
-	SINK_ELEMENT="gvawatermark ! videoconvertscale ! gvafpscounter ! autovideosink sync=false"
+	SINK_ELEMENT="vapostproc ! gvawatermark ! videoconvertscale ! gvafpscounter ! autovideosink sync=false"
 elif [[ "$OUTPUT" == "fps" ]]; then
 	SINK_ELEMENT="gvafpscounter ! fakesink async=false"
 elif [[ "$OUTPUT" == "json" ]]; then
@@ -105,7 +117,7 @@ elif [[ "$OUTPUT" == "display-and-json" ]]; then
 	if [ -f "$OUTPUT_FILE" ]; then
 		rm "$OUTPUT_FILE"
 	fi
-	SINK_ELEMENT="gvawatermark ! gvametaconvert add-tensor-data=true ! gvametapublish file-format=json-lines file-path=$OUTPUT_FILE ! videoconvert ! gvafpscounter ! autovideosink sync=false"
+	SINK_ELEMENT="vapostproc ! gvawatermark ! gvametaconvert add-tensor-data=true ! gvametapublish file-format=json-lines file-path=$OUTPUT_FILE ! videoconvert ! gvafpscounter ! autovideosink sync=false"
 else
 	echo Error wrong value for SINK_ELEMENT parameter
 	echo Valid values: "file" - render to file, "display" - render to screen, "fps" - print FPS, "json" - write to json file, "display-and-json" - render to screen and write to json file

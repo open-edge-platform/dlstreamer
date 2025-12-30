@@ -14,6 +14,20 @@ else
   echo "MODELS_PATH: $MODELS_PATH"
 fi
 
+# List help message
+if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
+  echo "Usage: $0 [INPUT] [METHOD] [OUTPUT] [FORMAT] [TOPIC]"
+  echo ""
+  echo "Arguments:"
+  echo "  INPUT     - Input source (default: Pexels video URL)"
+  echo "  METHOD    - Metapublish method (default: file). Supported: file, kafka, mqtt"
+  echo "  OUTPUT    - Output destination (default: stdout for file, localhost:9092 for kafka, localhost:1883 for mqtt)"
+  echo "  FORMAT    - Output format (default: json for file, json-lines for kafka and mqtt). Supported: json, json-lines"
+  echo "  TOPIC     - Topic name (default: dlstreamer). Required for kafka and mqtt"
+  echo ""
+  exit 0
+fi
+
 INPUT=${1:-https://github.com/intel-iot-devkit/sample-videos/raw/master/head-pose-face-detection-female-and-male.mp4}
 METHOD=${2:-file} # Accepts: file, kafka, mqtt
 OUTPUT=${3} # Path to file if method==file, host and port of message broker if method==kafka/mqtt. Default: "stdout" for file, "localhost:9092" for kafka, and "localhost:1883" for mqtt
