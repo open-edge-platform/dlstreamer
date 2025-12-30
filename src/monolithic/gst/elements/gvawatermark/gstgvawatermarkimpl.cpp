@@ -144,7 +144,7 @@ struct Impl {
 
     GstVideoInfo *_vinfo;
     GstElement *_element;
-    GstElement *_gvafpscounter_element;
+    GstElement *_gvafpscounter_element = nullptr;
     std::string _backend_type;
     InferenceBackend::MemoryType _mem_type;
 
@@ -719,7 +719,6 @@ size_t get_keypoint_index_by_name(const gchar *target_name, GValueArray *names) 
 }
 
 void Impl::find_gvafpscounter_element() {
-    _gvafpscounter_element = nullptr;
 
     if (!_element)
         return;
