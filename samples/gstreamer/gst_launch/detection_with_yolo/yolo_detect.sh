@@ -17,6 +17,22 @@ else
   echo "MODELS_PATH: $MODELS_PATH"
 fi
 
+# List help message
+if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
+  echo "Usage: $0 [MODEL] [DEVICE] [INPUT] [OUTPUT] [PPBKEND] [PRECISION]"
+  echo ""
+  echo "Arguments:"
+  echo "  MODEL     - Model name (default: yolox_s)"
+  echo "            Supported: yolo_all, yolox-tiny, yolox_s, yolov7, yolov8s, yolov8n-obb, yolov8n-seg, yolov9c, yolov10s, yolo11s, yolo11s-obb, yolo11s-seg, yolo11s-pose"
+  echo "  DEVICE    - Device (default: GPU). Supported: CPU, GPU, NPU"
+  echo "  INPUT     - Input source (default: Pexels video URL)"
+  echo "  OUTPUT    - Output type (default: file). Supported: file, display, fps, json, display-and-json"
+  echo "  PPBKEND   - Preprocessing backend (default: auto). Supported: ie, opencv, va, va-surface-sharing"
+  echo "  PRECISION - Model precision (default: INT8). Supported: INT8, FP32, FP16"
+  echo ""
+  exit 0
+fi 
+
 MODEL=${1:-"yolox_s"}   # Supported values: yolo_all, yolox-tiny, yolox_s, yolov7, yolov8s, yolov8n-obb, yolov8n-seg, yolov9c, yolov10s, yolo11s, yolo11s-obb, yolo11s-seg, yolo11s-pose
 DEVICE=${2:-"GPU"}      # Supported values: CPU, GPU, NPU
 INPUT=${3:-"https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4"}
@@ -121,9 +137,9 @@ if [[ "$OUTPUT" == "file" ]]; then
     echo "Error - VA-API H.264 encoder not found."
     exit 1
   fi
-  SINK_ELEMENT="gvawatermark ! gvafpscounter ! ${ENCODER} ! h264parse ! mp4mux ! filesink location=yolo_${FILE}_${MODEL}_${PRECISION}_${DEVICE}.mp4"
+  SINK_ELEMENT="vapostproc ! gvawatermark ! gvafpscounter ! ${ENCODER} ! h264parse ! mp4mux ! filesink location=yolo_${FILE}_${MODEL}_${PRECISION}_${DEVICE}.mp4"
 elif [[ "$OUTPUT" == "display" ]] || [[ -z $OUTPUT ]]; then
-  SINK_ELEMENT="gvawatermark ! videoconvertscale ! gvafpscounter ! autovideosink sync=false"
+  SINK_ELEMENT="vapostproc ! gvawatermark ! videoconvertscale ! gvafpscounter ! autovideosink sync=false"
 elif [[ "$OUTPUT" == "fps" ]]; then
   SINK_ELEMENT="gvafpscounter ! fakesink async=false"
 elif [[ "$OUTPUT" == "json" ]]; then
@@ -131,7 +147,7 @@ elif [[ "$OUTPUT" == "json" ]]; then
   SINK_ELEMENT="gvametaconvert add-tensor-data=true ! gvametapublish file-format=json-lines file-path=output.json ! fakesink async=false"
 elif [[ "$OUTPUT" == "display-and-json" ]]; then
   rm -f output.json
-  SINK_ELEMENT="gvawatermark ! gvametaconvert add-tensor-data=true ! gvametapublish file-format=json-lines file-path=output.json ! videoconvert ! gvafpscounter ! autovideosink sync=false"
+  SINK_ELEMENT="vapostproc ! gvawatermark ! gvametaconvert add-tensor-data=true ! gvametapublish file-format=json-lines file-path=output.json ! videoconvert ! gvafpscounter ! autovideosink sync=false"
 else
   echo Error wrong value for SINK_ELEMENT parameter
   echo Valid values: "file" - render to file, "display" - render to screen, "fps" - print FPS, "json" - write to output.json, "display-and-json" - render to screen and write to output.json

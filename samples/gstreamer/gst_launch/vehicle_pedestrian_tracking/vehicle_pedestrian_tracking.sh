@@ -14,6 +14,20 @@ else
   echo "MODELS_PATH: $MODELS_PATH"
 fi
 
+# Print help message
+if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
+  echo "Usage: $0 [INPUT] [DETECTION_INTERVAL] [DEVICE] [OUTPUT] [TRACKING_TYPE]"
+  echo ""
+  echo "Arguments:"
+  echo "  INPUT               - Input source (default: Pexels video URL)"
+  echo "  DETECTION_INTERVAL  - Object detection interval (default: 3). 1 means detection every frame, 2 means detection every second frame, etc."
+  echo "  DEVICE              - Device for decode and inference in OpenVINO(TM) format (default: AUTO). Supported: AUTO, CPU, GPU, GPU.0"
+  echo "  OUTPUT              - Output type (default: display-async). Supported: display, display-async, fps, json, display-and-json, file"
+  echo "  TRACKING_TYPE       - Object tracking type (default: short-term-imageless). Supported: short-term-imageless, zero-term, zero-term-imageless"
+  echo ""
+  exit 0
+fi
+
 # Command-line parameters
 INPUT=${1:-https://github.com/intel-iot-devkit/sample-videos/raw/master/person-bicycle-car-detection.mp4} # Input file or URL
 DETECTION_INTERVAL=${2:-3}     # Object detection interval: 1 means detection every frame, 2 means detection every second frame, etc.
@@ -46,9 +60,9 @@ else
 fi
 
 if [[ $OUTPUT == "display" ]]; then
-  SINK_ELEMENT="gvawatermark ! videoconvert ! gvafpscounter ! autovideosink"
+  SINK_ELEMENT="vapostproc ! gvawatermark ! videoconvert ! gvafpscounter ! autovideosink"
 elif [[ $OUTPUT == "display-async" ]]; then
-  SINK_ELEMENT="gvawatermark ! videoconvert ! gvafpscounter ! autovideosink sync=false"
+  SINK_ELEMENT="vapostproc ! gvawatermark ! videoconvert ! gvafpscounter ! autovideosink sync=false"
 elif [[ $OUTPUT == "fps" ]]; then
   SINK_ELEMENT="gvafpscounter ! fakesink async=false "
 elif [[ $OUTPUT == "json" ]]; then
@@ -56,7 +70,7 @@ elif [[ $OUTPUT == "json" ]]; then
   SINK_ELEMENT="gvametaconvert ! gvametapublish file-format=json-lines file-path=output.json ! fakesink async=false"
 elif [[ $OUTPUT == "display-and-json" ]]; then
   rm -f output.json
-  SINK_ELEMENT="gvawatermark ! gvametaconvert ! gvametapublish file-format=json-lines file-path=output.json ! videoconvert ! gvafpscounter ! autovideosink sync=false"
+  SINK_ELEMENT="vapostproc ! gvawatermark ! gvametaconvert ! gvametapublish file-format=json-lines file-path=output.json ! videoconvert ! gvafpscounter ! autovideosink sync=false"
 elif [[ $OUTPUT == "file" ]]; then
   FILE="$(basename ${INPUT%.*})"
   rm -f "vehicle_pedestrian_tracking_${FILE}_${DEVICE}.mp4"
@@ -68,7 +82,7 @@ elif [[ $OUTPUT == "file" ]]; then
     echo "Error - VA-API H.264 encoder not found."
     exit
   fi
-  SINK_ELEMENT="gvawatermark ! gvafpscounter ! ${ENCODER} ! avimux name=mux ! filesink location=vehicle_pedestrian_tracking_${FILE}_${DEVICE}.mp4"
+  SINK_ELEMENT="vapostproc ! gvawatermark ! gvafpscounter ! ${ENCODER} ! avimux name=mux ! filesink location=vehicle_pedestrian_tracking_${FILE}_${DEVICE}.mp4"
 else
   echo Error wrong value for OUTPUT parameter
   echo Valid values: "display" - render to screen, "fps" - print FPS, "json" - write to output.json, "display-and-json" - render to screen and write to output.json
