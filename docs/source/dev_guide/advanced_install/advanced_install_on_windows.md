@@ -3,14 +3,13 @@
 The instructions below are intended for building Deep Learning Streamer Pipeline Framework
 from the source code provided in
 
-[Open Edge Platform repository](https://github.com/open-edge-platform/edge-ai-libraries.git).
+[Open Edge Platform repository](https://github.com/open-edge-platform/dlstreamer.git).
 
 ## Step 1: Clone Deep Learning Streamer repository
 
 ```bash
-git clone https://github.com/open-edge-platform/edge-ai-libraries.git
-cd edge-ai-libraries
-git submodule update --init libraries/dl-streamer/thirdparty/spdlog
+git clone --recursive https://github.com/open-edge-platform/dlstreamer.git
+cd dlstreamer
 ```
 
 ## Step 2: Run installation script

@@ -95,9 +95,8 @@ pip install meson==1.4.1 ninja==1.11.1.1
 
 ```bash
 cd ~
-git clone https://github.com/open-edge-platform/edge-ai-libraries.git
-cd edge-ai-libraries
-git submodule update --init libraries/dl-streamer/thirdparty/spdlog
+git clone --recursive https://github.com/open-edge-platform/dlstreamer.git
+cd dlstreamer
 ```
 
 ## Step 5: Install OpenVINO™ Toolkit
@@ -107,7 +106,7 @@ git submodule update --init libraries/dl-streamer/thirdparty/spdlog
 <!--hide_directive:sync: tab1hide_directive-->
 
   ```bash
-  cd ~/edge-ai-libraries/libraries/dl-streamer
+  cd ~/dlstreamer
   sudo ./scripts/install_dependencies/install_openvino.sh
   ```
 
@@ -203,12 +202,12 @@ Set up the required environment variables:
 
   ```bash
   export LIBVA_DRIVER_NAME=iHD
-  export GST_PLUGIN_PATH="/opt/intel/dlstreamer/Release/lib:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0:$HOME/edge-ai-libraries/libraries/dl-streamer/build/intel64/Release/lib:$HOME/edge-ai-libraries/libraries/dl-streamer/build/deps/gstreamer-bin/lib/gstreamer-1.0:$GST_PLUGIN_PATH"
-  export LD_LIBRARY_PATH="/opt/intel/dlstreamer/Release/lib:/opt/intel/dlstreamer/gstreamer/lib:/opt/intel/dlstreamer/opencv/lib:/opt/intel/dlstreamer/rdkafka/lib:$HOME/edge-ai-libraries/libraries/dl-streamer/build/intel64/Release/lib:$HOME/edge-ai-libraries/libraries/dl-streamer/build/deps/gstreamer-bin/lib:$HOME/edge-ai-libraries/libraries/dl-streamer/build/deps/opencv-bin/lib:$HOME/edge-ai-libraries/libraries/dl-streamer/build/deps/rdkafka-bin/lib:$LD_LIBRARY_PATH"
+  export GST_PLUGIN_PATH="/opt/intel/dlstreamer/Release/lib:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0:$HOME/dlstreamer/build/intel64/Release/lib:$HOME/dlstreamer/build/deps/gstreamer-bin/lib/gstreamer-1.0:$GST_PLUGIN_PATH"
+  export LD_LIBRARY_PATH="/opt/intel/dlstreamer/Release/lib:/opt/intel/dlstreamer/gstreamer/lib:/opt/intel/dlstreamer/opencv/lib:/opt/intel/dlstreamer/rdkafka/lib:$HOME/dlstreamer/build/intel64/Release/lib:$HOME/dlstreamer/build/deps/gstreamer-bin/lib:$HOME/dlstreamer/build/deps/opencv-bin/lib:$HOME/dlstreamer/build/deps/rdkafka-bin/lib:$LD_LIBRARY_PATH"
   export LIBVA_DRIVERS_PATH="/usr/lib/x86_64-linux-gnu/dri"
   export GST_VA_ALL_DRIVERS="1"
-  export PATH="/opt/intel/dlstreamer/Release/bin:/opt/intel/dlstreamer/gstreamer/bin:/opt/intel/dlstreamer/opencv/bin:$HOME/edge-ai-libraries/libraries/dl-streamer/build/intel64/Release/bin:$HOME/edge-ai-libraries/libraries/dl-streamer/build/deps/gstreamer-bin/bin:$HOME/edge-ai-libraries/libraries/dl-streamer/build/deps/opencv-bin/bin:$HOME/.local/bin:$HOME/python3venv/bin:$PATH"
-  export PKG_CONFIG_PATH="/opt/intel/dlstreamer/Release/lib/pkgconfig:/opt/intel/dlstreamer/gstreamer/lib/pkgconfig::$HOME/edge-ai-libraries/libraries/dl-streamer/build/intel64/Release/lib/pkgconfig:$HOME/edge-ai-libraries/libraries/dl-streamer/build/deps/gstreamer-bin/lib/pkgconfig:$PKG_CONFIG_PATH"
+  export PATH="/opt/intel/dlstreamer/Release/bin:/opt/intel/dlstreamer/gstreamer/bin:/opt/intel/dlstreamer/opencv/bin:$HOME/dlstreamer/build/intel64/Release/bin:$HOME/dlstreamer/build/deps/gstreamer-bin/bin:$HOME/dlstreamer/build/deps/opencv-bin/bin:$HOME/.local/bin:$HOME/python3venv/bin:$PATH"
+  export PKG_CONFIG_PATH="/opt/intel/dlstreamer/Release/lib/pkgconfig:/opt/intel/dlstreamer/gstreamer/lib/pkgconfig::$HOME/dlstreamer/build/intel64/Release/lib/pkgconfig:$HOME/dlstreamer/build/deps/gstreamer-bin/lib/pkgconfig:$PKG_CONFIG_PATH"
   export GST_PLUGIN_FEATURE_RANK=${GST_PLUGIN_FEATURE_RANK},ximagesink:MAX
   export GI_TYPELIB_PATH="/opt/intel/dlstreamer/gstreamer/lib/girepository-1.0:/usr/lib/x86_64-linux-gnu/girepository-1.0gi"
   export PYTHONPATH="/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:/opt/intel/dlstreamer/python:/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:$PYTHONPATH"
@@ -220,12 +219,12 @@ Set up the required environment variables:
 
   ```bash
   export LIBVA_DRIVER_NAME=iHD
-  export GST_PLUGIN_PATH="/opt/intel/dlstreamer/Release/lib:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0:$HOME/edge-ai-libraries/libraries/dl-streamer/build/intel64/Release/lib:$HOME/edge-ai-libraries/libraries/dl-streamer/build/deps/gstreamer-bin/lib/gstreamer-1.0:$GST_PLUGIN_PATH"
-  export LD_LIBRARY_PATH="/opt/intel/dlstreamer/Release/lib:/opt/intel/dlstreamer/gstreamer/lib:/opt/intel/dlstreamer/opencv/lib:$HOME/edge-ai-libraries/libraries/dl-streamer/build/intel64/Release/lib:$HOME/edge-ai-libraries/libraries/dl-streamer/build/deps/gstreamer-bin/lib:$HOME/edge-ai-libraries/libraries/dl-streamer/build/deps/opencv-bin/lib:$HOME/edge-ai-libraries/libraries/dl-streamer/build/deps/rdkafka-bin/lib:$LD_LIBRARY_PATH"
+  export GST_PLUGIN_PATH="/opt/intel/dlstreamer/Release/lib:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0:$HOME/dlstreamer/build/intel64/Release/lib:$HOME/dlstreamer/build/deps/gstreamer-bin/lib/gstreamer-1.0:$GST_PLUGIN_PATH"
+  export LD_LIBRARY_PATH="/opt/intel/dlstreamer/Release/lib:/opt/intel/dlstreamer/gstreamer/lib:/opt/intel/dlstreamer/opencv/lib:$HOME/dlstreamer/build/intel64/Release/lib:$HOME/dlstreamer/build/deps/gstreamer-bin/lib:$HOME/dlstreamer/build/deps/opencv-bin/lib:$HOME/dlstreamer/build/deps/rdkafka-bin/lib:$LD_LIBRARY_PATH"
   export LIBVA_DRIVERS_PATH="/usr/lib64/dri-nonfree"
   export GST_VA_ALL_DRIVERS="1"
-  export PATH="/opt/intel/dlstreamer/Release/bin:/opt/intel/dlstreamer/gstreamer/bin:/opt/intel/dlstreamer/opencv/bin:$HOME/edge-ai-libraries/libraries/dl-streamer/build/intel64/Release/bin:$HOME/edge-ai-libraries/libraries/dl-streamer/build/deps/gstreamer-bin/bin:$HOME/edge-ai-libraries/libraries/dl-streamer/build/deps/opencv-bin/bin:$HOME/.local/bin:$HOME/python3venv/bin:$PATH"
-  export PKG_CONFIG_PATH="/opt/intel/dlstreamer/Release/lib/pkgconfig:/opt/intel/dlstreamer/gstreamer/lib/pkgconfig::$HOME/edge-ai-libraries/libraries/dl-streamer/build/intel64/Release/lib/pkgconfig:$HOME/edge-ai-libraries/libraries/dl-streamer/build/deps/gstreamer-bin/lib/pkgconfig:$PKG_CONFIG_PATH"
+  export PATH="/opt/intel/dlstreamer/Release/bin:/opt/intel/dlstreamer/gstreamer/bin:/opt/intel/dlstreamer/opencv/bin:$HOME/dlstreamer/build/intel64/Release/bin:$HOME/dlstreamer/build/deps/gstreamer-bin/bin:$HOME/dlstreamer/build/deps/opencv-bin/bin:$HOME/.local/bin:$HOME/python3venv/bin:$PATH"
+  export PKG_CONFIG_PATH="/opt/intel/dlstreamer/Release/lib/pkgconfig:/opt/intel/dlstreamer/gstreamer/lib/pkgconfig::$HOME/dlstreamer/build/intel64/Release/lib/pkgconfig:$HOME/dlstreamer/build/deps/gstreamer-bin/lib/pkgconfig:$PKG_CONFIG_PATH"
   export GST_PLUGIN_FEATURE_RANK=${GST_PLUGIN_FEATURE_RANK},ximagesink:MAX
   export PYTHONPATH="/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:/opt/intel/dlstreamer/python:/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:$PYTHONPATH"
   ```
@@ -248,12 +247,12 @@ Set up the required environment variables:
 
   ```bash
   export LIBVA_DRIVER_NAME=iHD
-  export GST_PLUGIN_PATH="/opt/intel/dlstreamer/Release/lib:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0:$HOME/edge-ai-libraries/libraries/dl-streamer/build/intel64/Release/lib:$HOME/edge-ai-libraries/libraries/dl-streamer/build/deps/gstreamer-bin/lib/gstreamer-1.0:$GST_PLUGIN_PATH"
-  export LD_LIBRARY_PATH="/opt/intel/dlstreamer/Release/lib:/opt/intel/dlstreamer/gstreamer/lib:/opt/intel/dlstreamer/opencv/lib:$HOME/edge-ai-libraries/libraries/dl-streamer/build/intel64/Release/lib:$HOME/edge-ai-libraries/libraries/dl-streamer/build/deps/gstreamer-bin/lib:$HOME/edge-ai-libraries/libraries/dl-streamer/build/deps/opencv-bin/lib:$HOME/edge-ai-libraries/libraries/dl-streamer/build/deps/rdkafka-bin/lib:$LD_LIBRARY_PATH"
+  export GST_PLUGIN_PATH="/opt/intel/dlstreamer/Release/lib:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0:$HOME/dlstreamer/build/intel64/Release/lib:$HOME/dlstreamer/build/deps/gstreamer-bin/lib/gstreamer-1.0:$GST_PLUGIN_PATH"
+  export LD_LIBRARY_PATH="/opt/intel/dlstreamer/Release/lib:/opt/intel/dlstreamer/gstreamer/lib:/opt/intel/dlstreamer/opencv/lib:$HOME/dlstreamer/build/intel64/Release/lib:$HOME/dlstreamer/build/deps/gstreamer-bin/lib:$HOME/dlstreamer/build/deps/opencv-bin/lib:$HOME/dlstreamer/build/deps/rdkafka-bin/lib:$LD_LIBRARY_PATH"
   export LIBVA_DRIVERS_PATH="/usr/lib/dri"
   export GST_VA_ALL_DRIVERS="1"
-  export PATH="/opt/intel/dlstreamer/Release/bin:/opt/intel/dlstreamer/gstreamer/bin:/opt/intel/dlstreamer/opencv/bin:$HOME/edge-ai-libraries/libraries/dl-streamer/build/intel64/Release/bin:$HOME/edge-ai-libraries/libraries/dl-streamer/build/deps/gstreamer-bin/bin:$HOME/edge-ai-libraries/libraries/dl-streamer/build/deps/opencv-bin/bin:$HOME/.local/bin:$HOME/python3venv/bin:$PATH"
-  export PKG_CONFIG_PATH="/opt/intel/dlstreamer/Release/lib/pkgconfig:/opt/intel/dlstreamer/gstreamer/lib/pkgconfig::$HOME/edge-ai-libraries/libraries/dl-streamer/build/intel64/Release/lib/pkgconfig:$HOME/edge-ai-libraries/libraries/dl-streamer/build/deps/gstreamer-bin/lib/pkgconfig:$PKG_CONFIG_PATH"
+  export PATH="/opt/intel/dlstreamer/Release/bin:/opt/intel/dlstreamer/gstreamer/bin:/opt/intel/dlstreamer/opencv/bin:$HOME/dlstreamer/build/intel64/Release/bin:$HOME/dlstreamer/build/deps/gstreamer-bin/bin:$HOME/dlstreamer/build/deps/opencv-bin/bin:$HOME/.local/bin:$HOME/python3venv/bin:$PATH"
+  export PKG_CONFIG_PATH="/opt/intel/dlstreamer/Release/lib/pkgconfig:/opt/intel/dlstreamer/gstreamer/lib/pkgconfig::$HOME/dlstreamer/build/intel64/Release/lib/pkgconfig:$HOME/dlstreamer/build/deps/gstreamer-bin/lib/pkgconfig:$PKG_CONFIG_PATH"
   export GST_PLUGIN_FEATURE_RANK=${GST_PLUGIN_FEATURE_RANK},ximagesink:MAX
   export PYTHONPATH="/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:/opt/intel/dlstreamer/python:/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:$PYTHONPATH"
   ```
@@ -275,6 +274,6 @@ sudo apt-get install -y -q --no-install-recommends gcc cmake python3-full python
     libopencv-calib3d-dev libopencv-core-dev libopencv-dnn-dev libgirepository1.0-dev
 
 source ~/python3venv/bin/activate
-cd ~/edge-ai-libraries/libraries/dl-streamer
+cd ~/dlstreamer
 python3 -m pip install -r requirements.txt
 ```

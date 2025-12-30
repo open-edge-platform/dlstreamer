@@ -5,7 +5,7 @@ Summary:        Deep Learning Streamer
 
 License:        Proprietary
 Source0:        %{name}-%{version}.tar.gz
-URL:            https://github.com/open-edge-platform/edge-ai-libraries/tree/main/libraries/dl-streamer
+URL:            https://github.com/open-edge-platform/dlstreamer/tree/master
 Packager:       DL Streamer Team <dlstreamer@intel.com>
 ExclusiveArch: x86_64
 AutoReqProv:    no

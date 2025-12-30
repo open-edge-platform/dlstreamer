@@ -27,10 +27,10 @@ Please refer to [Install Guide](./docs/source/get_started/install/install_guide_
 3. [Compile from source code](./docs/source/dev_guide/advanced_install/advanced_install_guide_compilation.md)
 4. [Build Docker image from source code](./docs/source/dev_guide/advanced_install/advanced_build_docker_image.md)
 
-To see the full list of installed components check the [dockerfile content for Ubuntu24](https://github.com/open-edge-platform/edge-ai-libraries/blob/main/libraries/dl-streamer/docker/ubuntu/ubuntu24.Dockerfile)
+To see the full list of installed components check the [dockerfile content for Ubuntu24](https://github.com/open-edge-platform/dlstreamer/blob/master/docker/ubuntu/ubuntu24.Dockerfile)
 
 ## Samples
-[Samples](https://github.com/open-edge-platform/edge-ai-libraries/tree/main/libraries/dl-streamer/samples) available for C/C++ and Python programming, and as gst-launch command lines and scripts.
+[Samples](https://github.com/open-edge-platform/dlstreamer/tree/master/samples) available for C/C++ and Python programming, and as gst-launch command lines and scripts.
 
 ## NN models
 DL Streamer supports NN models in OpenVINO™ IR and ONNX* formats.
