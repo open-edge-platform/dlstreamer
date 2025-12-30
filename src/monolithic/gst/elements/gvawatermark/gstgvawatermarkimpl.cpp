@@ -30,7 +30,6 @@
 #include <safe_arithmetic.hpp>
 
 #include "gva_caps.h"
-#include "gva_utils.h"
 #include "inference_backend/buffer_mapper.h"
 #include "so_loader.h"
 #include "utils.h"
@@ -44,7 +43,6 @@
 #include "renderer/cpu/create_renderer.h"
 
 #include <exception>
-#include <iomanip>
 #include <string>
 #include <typeinfo>
 #ifndef ENABLE_VAAPI
@@ -700,7 +698,7 @@ Impl::Impl(GstVideoInfo *info, InferenceBackend::MemoryType mem_type, GstElement
     _renderer = createRenderer(std::move(converter));
     _renderer_opencv = createOpenCVRenderer(std::move(converterBGR));
 
-    // Find gvafpscounter element in the pipeline
+    // Find gvafpscounter element in the pipeline to put avg-fps on output video
     if (_disp_avgfps)
         find_gvafpscounter_element();
 }
@@ -852,18 +850,6 @@ void Impl::preparePrimsForRoi(GVA::RegionOfInterest &roi, std::vector<render::Pr
     GVA::Rect<double> rect = {safe_convert<double>(rect_u32.x), safe_convert<double>(rect_u32.y),
                               safe_convert<double>(rect_u32.w), safe_convert<double>(rect_u32.h)};
 
-    // auto rect = roi.normalized_rect(_vinfo->width, _vinfo->height);
-    // if (rect.w && rect.h) {
-    //     rect.x *= _vinfo->width;
-    //     rect.y *= _vinfo->height;
-    //     rect.w *= _vinfo->width;
-    //     rect.h *= _vinfo->height;
-    // } else {
-    //     auto rect_u32 = roi.rect();
-    //     rect = {safe_convert<double>(rect_u32.x), safe_convert<double>(rect_u32.y),
-    //     safe_convert<double>(rect_u32.w),
-    //             safe_convert<double>(rect_u32.h)};
-    // }
     clip_rect(rect.x, rect.y, rect.w, rect.h, _vinfo);
 
     std::ostringstream text;
@@ -900,6 +886,7 @@ void Impl::preparePrimsForRoi(GVA::RegionOfInterest &roi, std::vector<render::Pr
         prims.emplace_back(render::Text(text.str(), pos, _font.type, _font.scale, color));
     }
 
+    // put avg-fps from gvafpscounter element
     if (_gvafpscounter_element != nullptr) {
         std::ostringstream fpstext;
         gfloat avg_fps = 0.0f;
