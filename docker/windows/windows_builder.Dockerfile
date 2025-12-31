@@ -46,10 +46,10 @@ RUN `
 
 # Download OpenVINO
 RUN `
-    curl -SL --output openvino.zip https://storage.openvinotoolkit.org/repositories/openvino/packages/2025.3/windows/openvino_toolkit_windows_2025.3.0.19807.44526285f24_x86_64.zip 
+    curl -SL --output openvino.zip https://storage.openvinotoolkit.org/repositories/openvino/packages/2025.4/windows/openvino_toolkit_windows_2025.4.0.20398.8fdad55727d_x86_64.zip
     && powershell -command "Expand-Archive -Path \"openvino.zip\" -DestinationPath \"C:\" " `
     && del /q openvino.zip `
-    && move openvino_toolkit_windows_2025.3.0.19807.44526285f24_x86_64 openvino
+    && move openvino_toolkit_windows_2025.4.0.20398.8fdad55727d_x86_64 openvino
 
 # Install git and vcpkg
 ENV VCPKG_ROOT="C:\vcpkg"
