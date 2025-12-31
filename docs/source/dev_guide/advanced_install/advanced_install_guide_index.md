@@ -12,7 +12,7 @@
   - [Step 6: Build OpenCV](./advanced_install_guide_compilation.md#optional-step-6-install-openvino-genai-only-for-ubuntu)
   - [Step 7: Clone Intel® DL Streamer repository](./advanced_install_guide_compilation.md#step-7-build-deep-learning-streamer)
   - [Step 8: Install OpenVINO™ Toolkit](./advanced_install_guide_compilation.md#step-8-install-deep-learning-streamer-optional)
-  - [Step 9: Build Intel DLStreamer](./advanced_install_guide_compilation.md#step-9-set-up-environment)
+  - [Step 9: Build Intel DL Streamer](./advanced_install_guide_compilation.md#step-9-set-up-environment)
   - [Step 10: Set up environment](./advanced_install_guide_compilation.md#step-10-install-python-dependencies-optional)
 - [Ubuntu advanced installation - build Docker image](./advanced_build_docker_image.md)
   - [Step 1: Install prerequisites](./advanced_build_docker_image.md#step-1-install-prerequisites)

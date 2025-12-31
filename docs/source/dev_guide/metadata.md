@@ -6,13 +6,13 @@ for object detection and classification use cases (the
 [gvadetect](../elements/gvadetect.md), [gvaclassify](../elements/gvaclassify.md) elements),
 and define two custom metadata types:
 
-- [GstGVATensorMeta](https://github.com/open-edge-platform/edge-ai-libraries/tree/main/libraries/dl-streamer/include/dlstreamer/gst/metadata/gva_tensor_meta.h)
+- [GstGVATensorMeta](https://github.com/open-edge-platform/dlstreamer/blob/master/include/dlstreamer/gst/metadata/gva_tensor_meta.h)
 
   For output of the [gvainference](../elements/gvainference.md) element performing generic
   inference on any model with an image-compatible input layer and any format of
   output layer(s)
 
-- [GstGVAJSONMeta](https://github.com/open-edge-platform/edge-ai-libraries/tree/main/libraries/dl-streamer/include/dlstreamer/gst/metadata/gva_json_meta.h)
+- [GstGVAJSONMeta](https://github.com/open-edge-platform/dlstreamer/blob/master/include/dlstreamer/gst/metadata/gva_json_meta.h)
 
   For output of the [gvametaconvert](../elements/gvametaconvert.md) element performing
   conversion of `GstVideoRegionOfInterestMeta` into the JSON format
@@ -60,7 +60,7 @@ gst-launch-1.0 --gst-plugin-path ${GST_PLUGIN_PATH} \
 ```
 
 > **NOTE:** More examples can be found in the
-> [gst_launch](https://github.com/open-edge-platform/edge-ai-libraries/tree/main/libraries/dl-streamer/samples/gstreamer/gst_launch)
+> [gst_launch](https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/gst_launch)
 > folder.
 
 If the `gvadetect` element detected three faces, it will attach three

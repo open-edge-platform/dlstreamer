@@ -4,8 +4,8 @@ This article describes how to prepare models from the **YOLO** family for
 integration with the Deep Learning Streamer pipeline.
 
 > **NOTE:** The instructions provided below are comprehensive, but for convenience,
->  it is recommended to use the
-> [download_public_models.sh](https://github.com/open-edge-platform/edge-ai-libraries/tree/main/libraries/dl-streamer/samples/download_public_models.sh)
+> it is recommended to use the
+> [download_public_models.sh](https://github.com/open-edge-platform/dlstreamer/blob/master/samples/download_public_models.sh)
 > script. This script will download all supported Yolo models and perform
 > the necessary conversions automatically.
 >

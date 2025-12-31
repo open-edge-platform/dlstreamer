@@ -14,7 +14,7 @@ Follow the instructions in
 ## Step 2: Download Dockerfiles
 
 All Dockerfiles are in
-[DLStreamer GitHub repository](https://github.com/open-edge-platform/edge-ai-libraries/tree/main/libraries/dl-streamer/docker).
+[DLStreamer GitHub repository](https://github.com/open-edge-platform/dlstreamer/tree/master/docker).
 
 <!--hide_directive::::{tab-set}
 :::{tab-item}hide_directive--> Ubuntu24 debian/dev Dockerfile

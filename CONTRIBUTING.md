@@ -1,7 +1,7 @@
 
-# DL streamer Contributor Guide
+# DL Streamer Contributor Guide
 
-The following are guidelines for contributing to the Dlstreamer project, including the code of conduct, submitting issues, and contributing code.  
+The following are guidelines for contributing to the DL Streamer project, including the code of conduct, submitting issues, and contributing code.
 
 # Table of Contents
 
@@ -15,15 +15,15 @@ The following are guidelines for contributing to the Dlstreamer project, includi
 
 # Code of Conduct
 
-This project and everyone participating in it are governed by the [`CODE_OF_CONDUCT`](CODE_OF_CONDUCT.md) document. By participating, you are expected to adhere to this code.  
+This project and everyone participating in it are governed by the [`CODE_OF_CONDUCT`](CODE_OF_CONDUCT.md) document. By participating, you are expected to adhere to this code.
 
-# Security 
+# Security
 
-Read the [`Security Policy`](SECURITY.md).  
+Read the [`Security Policy`](SECURITY.md).
 
 # Get Started
 
-Clone the repository and follow the [`README`](README.md) to get started with the sample applications of interest.  
+Clone the repository and follow the [`README`](README.md) to get started with the sample applications of interest.
 
 ```
     git clone https://github.com/open-edge-platform/dlstreamer.git
@@ -34,18 +34,18 @@ Clone the repository and follow the [`README`](README.md) to get started with th
 
 ## Contribute Code Changes
 
-> If you want to help improve Dlstreamer, choose one of the issues reported in [`GitHub Issues`](issues) and create a [`Pull Request`](pulls) to address it.  
+> If you want to help improve DL Streamer, choose one of the issues reported in [`GitHub Issues`](issues) and create a [`Pull Request`](pulls) to address it.
 > Note: Please check that the change hasn't been implemented before you start working on it.
 
 ## Improve Documentation
 
 The easiest way to help with the `Developer Guide` and `User Guide` is to review it and provide feedback on the
-existing articles. Whether you notice a mistake, see the possibility of improving the text, or think more 
+existing articles. Whether you notice a mistake, see the possibility of improving the text, or think more
 information should be added, you can reach out to discuss the potential changes.
 
 ## Report Bugs
 
-If you encounter a bug, open an issue in [`Github Issues`](issues). Provide the following information to help us 
+If you encounter a bug, open an issue in [`Github Issues`](issues). Provide the following information to help us
 understand and resolve the issue quickly:
 
 - A clear and descriptive title
@@ -59,7 +59,7 @@ understand and resolve the issue quickly:
 
 Intel welcomes suggestions for new features and improvements. Follow these steps to make a suggestion:
 
-- Check if there's already a similar suggestion in [`Github Issues`](issues).  
+- Check if there's already a similar suggestion in [`Github Issues`](issues).
 - If not, open a new issue and provide the following information:
    - A clear and descriptive title
    - A detailed description of the enhancement
@@ -75,7 +75,7 @@ Before submitting a pull request, ensure you follow these guidelines:
 - Test your changes thoroughly.
 - Document your changes (in code, readme, etc.).
 - Submit your pull request, detailing the changes and linking to any relevant issues.
-- Wait for a review. Intel will review your pull request as soon as possible and provide you with feedback. 
+- Wait for a review. Intel will review your pull request as soon as possible and provide you with feedback.
 You can expect a merge once your changes are validated with automatic tests and approved by maintainers.
 
 # Development Guidelines

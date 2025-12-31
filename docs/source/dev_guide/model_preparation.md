@@ -3,9 +3,9 @@
 When getting started with Deep Learning Streamer, the best way to obtain a
 collection of models ready for use in video analytics pipelines is to
 run
-[download_omz_models.sh](https://github.com/open-edge-platform/edge-ai-libraries/tree/main/libraries/dl-streamer/samples/download_omz_models.sh)
+[download_omz_models.sh](https://github.com/open-edge-platform/dlstreamer/blob/master/samples/download_omz_models.sh)
 and
-[download_public_models.sh](https://github.com/open-edge-platform/edge-ai-libraries/tree/main/libraries/dl-streamer/samples/download_public_models.sh).
+[download_public_models.sh](https://github.com/open-edge-platform/dlstreamer/blob/master/samples/download_public_models.sh).
 These scripts will download models from
 [Open Model Zoo](https://github.com/openvinotoolkit/open_model_zoo) and other
 sources, handle the necessary conversions and put model files in a
@@ -15,7 +15,7 @@ This way, you will be able to easily perform the most popular tasks,
 such as object detection and classification, instance segmentation, face
 localization and many others. For examples of how to set up Deep
 Learning Streamer pipelines that carry out these functions, refer to the
-[sample directory](https://github.com/open-edge-platform/edge-ai-libraries/tree/main/libraries/dl-streamer/samples/gstreamer/gst_launch).
+[sample directory](https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/gst_launch).
 
 If you are interested in designing custom pipelines, make sure to review the
 [Supported Models](../supported_models.md) table for

@@ -9,10 +9,10 @@ Custom operations may be required in two scenarios:
 1. **New or rarely used operations** - Operations from frameworks (TensorFlow, PyTorch, ONNX, etc.) that are not yet supported in OpenVINO™
 2. **User-defined operations** - Custom operations created specifically for a model using framework extension capabilities
 
-The `ov-extension-lib` parameter is available in the following DLStreamer elements:
+The `ov-extension-lib` parameter is available in the following DL Streamer elements:
 
 - `gvadetect` - Object detection
-- `gvaclassify` - Object classification  
+- `gvaclassify` - Object classification
 - `gvainference` - Generic inference
 
 ## Prerequisites

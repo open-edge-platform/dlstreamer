@@ -1,8 +1,8 @@
-# ① Memory Interop and C++ abstract interfaces
+# Memory Interop and C++ abstract interfaces
 
-Deep Learning Streamer provides independent sub-component for zero-copy
+Deep Learning Streamer (DL Streamer) provides an independent sub-component for zero-copy
 buffer sharing and memory interop between various frameworks and memory
-handles on CPU and GPU
+handles on the CPU and GPU.
 
 - CPU memory `void*`
 - FFmpeg `AVFrame`
@@ -17,10 +17,10 @@ handles on CPU and GPU
 
 The memory interop sub-component is available via APT installation
 `sudo apt install intel-dlstreamer-cpp` and on
-[github](https://github.com/open-edge-platform/edge-ai-libraries/tree/main/libraries/dl-streamer/include/dlstreamer).
+[github](https://github.com/open-edge-platform/dlstreamer/tree/master/include/dlstreamer).
 
-> **Note:** This sub-component implemented as C++ header-only library. Python
-> bindings for this library coming in next releases.
+> **Note:** This sub-component is implemented as a C++ header-only library. Python
+> bindings for this library will be coming in future releases.
 
 ## Why memory interop library?
 
@@ -97,14 +97,11 @@ pre-allocated native memory object to C++ constructor (wrap already
 allocated object) or passing allocation parameters to C++ constructor
 (allocate new memory).
 
-Many examples how to allocate memory and create and use memory mappers
-can be found by searching word `mapper` in [samples
-https://github.com/open-edge-platform/edge-ai-libraries/tree/main/libraries/dl-streamer/samples\>]{.title-ref}\_\_
-and [src
-https://github.com/open-edge-platform/edge-ai-libraries/tree/main/libraries/dl-streamer/src\>]{.title-ref}\_\_
-folders on github source code, for example FFmpeg+DPCPP sample
-[rgb_to_grayscale
-https://github.com/open-edge-platform/edge-ai-libraries/tree/main/libraries/dl-streamer/samples/ffmpeg_dpcpp/rgb_to_grayscale\>]()
+Many examples on how to allocate memory and create and use memory mappers
+can be found by searching for the word `mapper` in [samples](https://github.com/open-edge-platform/dlstreamer/tree/master/samples)
+and [src](https://github.com/open-edge-platform/dlstreamer/tree/master/src)
+folders on github source code, like for example in the FFmpeg+DPCPP sample
+[rgb_to_grayscale](https://github.com/open-edge-platform/dlstreamer/tree/master/samples/ffmpeg_dpcpp/rgb_to_grayscale)
 and almost every C++ element.
 
 There is special mapper

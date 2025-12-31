@@ -27,7 +27,7 @@ The complete solution leverages:
   | [gvamotiondetect](./docs/source/elements/gvamotiondetect.md) | Performs lightweight motion detection on NV12 video frames and emits motion regions of interest (ROIs) as analytics metadata. |
   | [gvapython](./docs/source/elements/gvapython.md) | Provides a callback to execute user-defined Python functions on every   frame. Can be used for metadata conversion, inference post-processing, and other tasks. |
   | [gvarealsense](./docs/source/elements/gvarealsense.md) | Provides integration with Intel RealSense cameras, enabling video and depth stream capture for use in GStreamer pipelines. |
-  | [gvatrack](./docs/source/elements/gvatrack.md) | Performs object tracking using zero-term, or imageless tracking algorithms.   Assigns unique object IDs to the tracked objects. | 
+  | [gvatrack](./docs/source/elements/gvatrack.md) | Performs object tracking using zero-term, or imageless tracking algorithms.   Assigns unique object IDs to the tracked objects. |
   | [gvawatermark](./docs/source/elements/gvawatermark.md) | Overlays the metadata on the video frame to visualize the inference   results. |
 
 For the details on supported platforms, please refer to [System Requirements](./docs/source/get_started/system_requirements.md).
@@ -236,7 +236,7 @@ For installing Pipeline Framework with the prebuilt binaries or Docker\* or to b
 |[preview] Enabled Intel® Arc™ B-Series Graphics [products formerly Battlemage] | Validated with Ubuntu 24.04, 6.12.3-061203-generic and the latest Intel® Graphics Compute Runtime for oneAPI Level Zero and OpenCL™ Driver v24.52.32224.5 + the latest public Intel Graphics Media Driver version + pre-rerelease Intel® Graphics Memory Management Library version |
 | OpenVINO 2024.6 support | Update to the latest version of OpenVINO |
 | Updated NPU driver | Updated NPU driver to 1.10.1 version. |
-| Bug fixing | Running multiple gstreamer pipeline objects in the same process on dGPU leads to error; DLStreamer docker image build is failing (2024.2.2 and 2024.3.0 versions); Fixed installation scripts: minor fixes of GPU, NPU installation section; Updated documentation: cleanup, added missed parts, added DLS system requirements |
+| Bug fixing | Running multiple gstreamer pipeline objects in the same process on dGPU leads to error; DL Streamer docker image build is failing (2024.2.2 and 2024.3.0 versions); Fixed installation scripts: minor fixes of GPU, NPU installation section; Updated documentation: cleanup, added missed parts, added DLS system requirements |
 
 
 # Deep Learning Streamer (DL Streamer) Pipeline Framework Release 2024.3.0
@@ -322,7 +322,7 @@ For installing Pipeline Framework with the prebuilt binaries or Docker\* or to b
 |----------------|------------------------|
 | [#425](https://github.com/dlstreamer/dlstreamer/issues/425) | when using inference-region=roi-list vs full-frame in my classification pipeline, classification data does not get published |
 | [#432](https://github.com/dlstreamer/dlstreamer/issues/432) | Installation issues with gst-ugly plugins |
-| [#397](https://github.com/dlstreamer/dlstreamer/issues/397) | Installation Error DLStreamer - Both Debian Packages and Compile from Sources |
+| [#397](https://github.com/dlstreamer/dlstreamer/issues/397) | Installation Error DL Streamer - Both Debian Packages and Compile from Sources |
 | Internal findings | custom efficientnetb0 fix, issue with selection region before inference, Geti classification model fix, dGPU vah264enc element not found error fix, sample: face_detection_and_classifiation fix|
 
 ## Deep Learning Streamer (DL Streamer) Pipeline Framework Release 2024.1.1
@@ -331,8 +331,8 @@ For installing Pipeline Framework with the prebuilt binaries or Docker\* or to b
 
 | **Title**      | **High-level description**      |
 |----------------|---------------------------------|
-| Missing git package | Git package added to DLStreamer docker runtime image |
-| VTune when running DLStreamer | Publish instructions to install and run VTune to analyze media + gpu when running DLStreamer  |
+| Missing git package | Git package added to DL Streamer docker runtime image |
+| VTune when running DL Streamer | Publish instructions to install and run VTune to analyze media + gpu when running DL Streamer  |
 | Update NPU drivers to version 1.5.0 | Update NPU driver version inside docker images|
 | Instance_segmentation sample | Add new Mask-RCNN segmentation sample |
 | Documentation updates | Enhance Performance Guide and Model Preparation section |
@@ -355,7 +355,7 @@ For installing Pipeline Framework with the prebuilt binaries or Docker\* or to b
 | Update OpenVINO version to latest one (2024.2.0) | Update OpenVINO version to latest one (2024.2.0) |
 | Release docker images on DockerHUB: runtime and dev | Release docker images on DockerHUB: runtime and dev |
 | Bugs fixing | Bug fixed: GPU not detected in Docker container Dlstreamer - MTL platform; Updated docker images with proper GPU and NPU packages; yolo5 model failed with batch-size >1; Remove excessive ‘mbind failed:...’ warning logs |
-| Documentation updates | Added sample applications for Mask-RCNN instance segmentation. Added list of supported models from Open Model Zoo and public repos. Added scripts to generate DLStreamer-consumable models from public repos. Document usage of ModelAPI properties in OpenVINO IR (model.xml) instead of creating custom model_proc files. Updated installation instructions for docker images. |
+| Documentation updates | Added sample applications for Mask-RCNN instance segmentation. Added list of supported models from Open Model Zoo and public repos. Added scripts to generate DL Streamer-consumable models from public repos. Document usage of ModelAPI properties in OpenVINO IR (model.xml) instead of creating custom model_proc files. Updated installation instructions for docker images. |
 
 ### Fixed issues
 
@@ -407,8 +407,8 @@ For installing Pipeline Framework with the prebuilt binaries or Docker\* or to b
 |----------------|------------------------|-----------------|-------------------------|
 | 390 | [How to install packages with sudo inside the docker container intel/dlstreamer:latest](https://github.com/dlstreamer/dlstreamer/issues/390) | start the container as mentioned above with root-user `(-u 0) docker run -it -u 0 --rm`... and then are able to update binaries | All |
 | 392 | [installation error dlstreamer with openvino 2023.2](https://github.com/dlstreamer/dlstreamer/issues/392) | 2024.0 version supports API 2.0 so I highly recommend to check it and in case if this problem is still valid please raise new issue | All |
-| 393 | [Debian file location for DL streamer 2022.3](https://github.com/dlstreamer/dlstreamer/issues/393) | Error no longer occurring for user | All |
-| 394 | [Custom YoloV5m Accuracy Drop in dlstreamer with model proc](https://github.com/dlstreamer/dlstreamer/issues/394) | Procedure to transform crowdhuman_yolov5m.pt model to the openvino version that can be used directly in DLstreamer with Yolo_v7 converter (no layer cutting required) * `git clone https://github.com/ultralytics/yolov5 * cd yolov5 * pip install -r requirements.txt openvino-dev * python export.py --weights crowdhuman_yolov5m.pt --include openvino` | All |
+| 393 | [Debian file location for DL Streamer 2022.3](https://github.com/dlstreamer/dlstreamer/issues/393) | Error no longer occurring for user | All |
+| 394 | [Custom YoloV5m Accuracy Drop in dlstreamer with model proc](https://github.com/dlstreamer/dlstreamer/issues/394) | Procedure to transform crowdhuman_yolov5m.pt model to the openvino version that can be used directly in DL Streamer with Yolo_v7 converter (no layer cutting required) * `git clone https://github.com/ultralytics/yolov5 * cd yolov5 * pip install -r requirements.txt openvino-dev * python export.py --weights crowdhuman_yolov5m.pt --include openvino` | All |
 | 396 | [Segfault when reuse same model with same model-instance-id.](https://github.com/dlstreamer/dlstreamer/issues/396) | 2024.0 version supports API 2.0 so I highly recommend to check it and in case if this problem is still valid please raise new issue | All |
 | 404 | [How to generate model proc file for yolov8?](https://github.com/dlstreamer/dlstreamer/issues/404) | Added as a feature in this release | All |
 | 406 | [yolox support](https://github.com/dlstreamer/dlstreamer/issues/406) | Added as a feature in this release | All |

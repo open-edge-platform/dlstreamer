@@ -20,10 +20,9 @@ a working example is described at each step, to help understand the applied modi
   - [Video Processing Elements](#video-processing-elements)
   - [Metadata Elements](#metadata-elements)
   - [Multiple Input Streams](#multiple-input-streams)
-- [DeepStream to DLStreamer Mapping](#deepstream-to-dlstreamer-mapping)
-  - [Element Mapping](#element-mapping-table)
-  - [Property Mapping](#property-mapping-table)
-
+- [DeepStream to DL Streamer Mapping](#deepstream-to-dl-streamer-mapping)
+  - [Element Mapping](#element-mapping)
+  - [Property Mapping](#property-mapping)
 
 ## Preparing Your Model
 
@@ -37,7 +36,7 @@ a working example is described at each step, to help understand the applied modi
 ### Command Line Applications
 
 The following sections show how to convert a DeepStream pipeline to
-the DLStreamer. The DeepStream pipeline is taken from one of the
+a DL Streamer one. The DeepStream pipeline is taken from one of the
 [examples](https://github.com/NVIDIA-AI-IOT/deepstream_reference_apps). It
 reads a video stream from the input file, decodes it, runs inference,
 overlays the inferences on the video, re-encodes and outputs a new .mp4
@@ -61,11 +60,11 @@ pipeline.
 
 ### Python Applications
 
-While GStreamer command line allows quick demonstration of a running pipeline, fine-grain control typically involves using a GStreamer pipeline object in a programmable way: either Python or C/C++ code. 
+While GStreamer command line allows quick demonstration of a running pipeline, fine-grain control typically involves using a GStreamer pipeline object in a programmable way: either Python or C/C++ code.
 
-This section illustrates how to convert [DeepStream Python example](https://github.com/NVIDIA-AI-IOT/deepstream_python_apps/tree/master/apps/deepstream-test1) into [DLStreamer Python example](https://github.com/open-edge-platform/edge-ai-libraries/tree/main/libraries/dl-streamer/python/hello_dlstreamer). Both applications implement same functionality, yet they use DeepStream or DLStreamer elements as illustrated in a table below. The elements in __bold__ are vendor-specific, while others are regular GStreamer elements.
+This section illustrates how to convert a [DeepStream Python example](https://github.com/NVIDIA-AI-IOT/deepstream_python_apps/tree/master/apps/deepstream-test1) into a [DL Streamer Python example](https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/python/hello_dlstreamer). Both applications implement the same functionality, yet they use DeepStream or DLStreamer elements as illustrated in the table below. The elements in __bold__ are vendor-specific, while others are regular GStreamer elements.
 
-| DeepStream Element | DLStreamer Element | Function |
+| DeepStream Element | DL Streamer Element | Function |
 |---|---|---|
 | filesrc | filesrc | Read video file |
 | h264parse ! __nvv4l2decoder__ | decodebin3 | Decode video file |
@@ -82,8 +81,8 @@ pipeline.add(element)
 element.link(next_element)
 ```
 
-Please note DeepStream and DLStreamer applications use same set of regular GStreamer library functions to construct pipelines. 
-The difference is in what elements are created and linked. In addition, DLStreamer `decodebin3` element uses late linking within a callback function.
+Please note DeepStream and DL Streamer applications use same set of regular GStreamer library functions to construct pipelines.
+The difference is in what elements are created and linked. In addition, DL Streamer `decodebin3` element uses late linking within a callback function.
 
 <table>
 <thead>
@@ -123,7 +122,7 @@ pipeline.add(decoder)
 ...
 source.link(decoder)
 decoder.connect("pad-added",
-  lambda element, pad, data: element.link(data) if pad.get_name().find("video") != -1 and not pad.is_linked() else None, 
+  lambda element, pad, data: element.link(data) if pad.get_name().find("video") != -1 and not pad.is_linked() else None,
   detect)
 </code></pre></td>
 </tr>
@@ -154,7 +153,7 @@ watermarksinkpad.add_probe(Gst.PadProbeType.BUFFER, watermark_sink_pad_buffer_pr
 </tbody>
 </table>
 
-The probe function iterates over prediction metadata found by the AI model. Here, DeepStream and DLStreamer implementation differ significantly. DeepStream sample uses DeepStream-specific structures for batches of frames, frames and objects within a frame. On the contrary, DLStreamer sample uses regular GStreamer data structures from [GstAnalytics metadata library](https://gstreamer.freedesktop.org/documentation/analytics/index.html?gi-language=python#analytics-metadata-library). Please also note DLStreamer handler runs on per-frame frequency while DeepStream sample runs on per-batch (of frames) frequency. 
+The probe function iterates over prediction metadata found by the AI model. Here, DeepStream and DL Streamer implementation differ significantly. DeepStream sample uses DeepStream-specific structures for batches of frames, frames and objects within a frame. In contrast, DL Streamer sample uses regular GStreamer data structures from [GstAnalytics metadata library](https://gstreamer.freedesktop.org/documentation/analytics/index.html?gi-language=python#analytics-metadata-library). Please also note DL Streamer handler runs on per-frame frequency while DeepStream sample runs on per-batch (of frames) frequency.
 
 <table>
 <thead>
@@ -178,7 +177,7 @@ while l_frame is not None:
       ... process object metadata
 </code></pre></td>
 <td><pre><code>
-# no batch meta in DLStreamer, probes run per-frame
+# no batch meta in DL Streamer, probes run per-frame
 ...
 frame_meta = GstAnalytics.buffer_get_analytics_relation_meta(buffer)
 for obj in frame_meta:
@@ -189,7 +188,7 @@ for obj in frame_meta:
 </table>
 
 The last table compares pipeline execution logic. Both applications set the pipeline state to `PLAYING` and run the main GStreamer event loop.
-DeepStream sample invokes a predefined event loop from a DeepStream library, while DLStreamer application explicitly adds the message processing loop. 
+DeepStream sample invokes a predefined event loop from a DeepStream library, while DL Streamer application explicitly adds the message processing loop.
 Both implementations keep running the pipeline until end-of-stream message is received.
 
 <table>
@@ -228,7 +227,7 @@ while not terminate:
   if msg:
     if msg.type == Gst.MessageType.ERROR:
       ... handle errors
-      terminate = True                
+      terminate = True
     if msg.type == Gst.MessageType.EOS:
       terminate = True
 pipeline.set_state(Gst.State.NULL)
@@ -303,7 +302,7 @@ output the region of interests. `batch-size` is also added for consistency
 with what was removed above (the default value is `1` so it is not
 needed). The `config-file-path` property is replaced with `model` and
 `model-proc` properties as described in
-[Configuring Model for Deep Learning Streamer](#configuring-model-for-deep-learning-streamer)
+[Preparing Your Model](#preparing-your-model)
 above.
 
 ```shell
@@ -425,14 +424,14 @@ filesrc ! decode ! gvadetect model-instance-id=model1 model=./model.xml batch-si
 filesrc ! decode ! gvadetect model-instance-id=model1 ! encode ! filesink
 ```
 
-## DeepStream to DLStreamer Mapping
+## DeepStream to DL Streamer Mapping
 
 ### Element Mapping
 
 The table below provides quick reference for mapping typical DeepStream
 elements to Deep Learning Streamer elements or GStreamer.
 
-| DeepStream Element | DLStreamer Element |
+| DeepStream Element | DL Streamer Element |
 |---|---|
 | [nvinfer](https://docs.nvidia.com/metropolis/deepstream/dev-guide/text/DS_plugin_gst-nvinfer.html) | [gvadetect](../elements/gvadetect), [gvaclassify](../elements/gvaclassify.md), [gvainference](../elements/gvainference.md) |
 | [nvdsosd](https://docs.nvidia.com/metropolis/deepstream/dev-guide/text/DS_plugin_gst-nvdsosd.html) | [gvawatermark](../elements/gvawatermark.md) |

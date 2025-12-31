@@ -80,7 +80,7 @@ For example, the screenshot below shows that whole pipeline duration was
 took 9.068s of whole pipeline execution and was called 300 times
 (Because input media file had 300 frames.). 4.110s of this inference
 was taken by Inference completion callback (`completion_callback_lambda`)
-where DLStreamer processes inference results from OV. And about 0.445s
+where DL Streamer processes inference results from OV. And about 0.445s
 for Submitting image. This means that the remaining time 9.068 - 4.110 -
 0.445 = 4.513s was taken by executing inference inside OV.
 

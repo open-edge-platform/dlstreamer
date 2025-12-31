@@ -1,19 +1,19 @@
 # PyTorch tensor inference
 
-DLStreamer supports PyTorch inference backend via the
+Deep Learning Streamer (DL Streamer) supports PyTorch inference backend via the
 `pytorch_tensor_inference` GStreamer element implemented in Python.
-Element description can be found in
-[Elements 2.0 reference](elements_list) .
+Element description can be found in [Elements 2.0 reference](elements_list).
 
 ## Prior to the first run
 
 Before using `pytorch_tensor_inference`, make sure that all of the
 following requirements are met. Visit
-[Install Guide](../get_started/install/install_guide_ubuntu.md) for more information about installing DLStreamer.
+[Install Guide](../get_started/install/install_guide_ubuntu.md) for more information about
+installing DL Streamer.
 
 1. `intel-dlstreamer-gst-python3-plugin-loader` and
-   `intel-dlstreamer-gst-python3` packages are installed. If not, add
-   DLStreamer apt repository and install the following packages:
+   `intel-dlstreamer-gst-python3` packages are installed. If not, add a DL Streamer apt
+   repository and install the following packages:
 
    ```bash
    apt-get update
@@ -28,7 +28,7 @@ following requirements are met. Visit
    python3 -m pip install -r requirements.txt
    ```
 
-3. DLStreamer environment has been configured. If not:
+3. DL Streamer environment has been configured. If not:
 
    ```bash
    source /opt/intel/dlstreamer/setupvars.sh
@@ -70,7 +70,7 @@ model. To obtain the size of the output tensors during caps negotiations
 phase, inference is performed on an random tensor, the size of which
 will be set in accordance with the capabilities.
 
-## DLStreamer pipelines with pytorch_tensor_inference
+## DL Streamer pipelines with pytorch_tensor_inference
 
 Below is an example using the `pytorch_tensor_inference` element in
 pipeline to classify objects. This example uses the `resnet50` model

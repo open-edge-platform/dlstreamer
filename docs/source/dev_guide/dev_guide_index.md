@@ -54,7 +54,7 @@
   - [Configuring Model for Intel® DL Streamer](./converting_deepstream_to_dlstreamer.md#configuring-model-for-deep-learning-streamer)
   - [GStreamer Pipeline Adjustments](./converting_deepstream_to_dlstreamer.md#gstreamer-pipeline-adjustments)
   - [Multiple Input Streams](./converting_deepstream_to_dlstreamer.md#multiple-input-streams)
-  - [DeepStream to DLStreamer Elements Mapping Cheetsheet](./converting_deepstream_to_dlstreamer.md#deepstream-to-dlstreamer-elements-mapping-cheetsheet)
+  - [DeepStream to DL Streamer Elements Mapping Cheetsheet](./converting_deepstream_to_dlstreamer.md#deepstream-to-dlstreamer-elements-mapping-cheetsheet)
 - [How to Contribute](./how_to_contribute.md)
   - [Coding Style](./coding_style.md)
 - [Latency Tracer](./latency_tracer.md)
