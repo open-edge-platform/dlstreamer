@@ -36,7 +36,7 @@ a working example is described at each step, to help understand the applied modi
 ### Command Line Applications
 
 The following sections show how to convert a DeepStream pipeline to
-the DL Streamer. The DeepStream pipeline is taken from one of the
+a DL Streamer one. The DeepStream pipeline is taken from one of the
 [examples](https://github.com/NVIDIA-AI-IOT/deepstream_reference_apps). It
 reads a video stream from the input file, decodes it, runs inference,
 overlays the inferences on the video, re-encodes and outputs a new .mp4
@@ -62,7 +62,7 @@ pipeline.
 
 While GStreamer command line allows quick demonstration of a running pipeline, fine-grain control typically involves using a GStreamer pipeline object in a programmable way: either Python or C/C++ code.
 
-This section illustrates how to convert [DeepStream Python example](https://github.com/NVIDIA-AI-IOT/deepstream_python_apps/tree/master/apps/deepstream-test1) into [DL Streamer Python example](https://github.com/open-edge-platform/edge-ai-libraries/tree/main/libraries/dl-streamer/python/hello_dlstreamer). Both applications implement same functionality, yet they use DeepStream or DLStreamer elements as illustrated in a table below. The elements in __bold__ are vendor-specific, while others are regular GStreamer elements.
+This section illustrates how to convert a [DeepStream Python example](https://github.com/NVIDIA-AI-IOT/deepstream_python_apps/tree/master/apps/deepstream-test1) into a [DL Streamer Python example](https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/python/hello_dlstreamer). Both applications implement the same functionality, yet they use DeepStream or DLStreamer elements as illustrated in the table below. The elements in __bold__ are vendor-specific, while others are regular GStreamer elements.
 
 | DeepStream Element | DL Streamer Element | Function |
 |---|---|---|

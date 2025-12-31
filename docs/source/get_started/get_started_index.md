@@ -15,8 +15,7 @@
   - [Exercise 3: Use object tracking to improve performance](./tutorial.md#exercise-3-use-object-tracking-to-improve-performance-object-tracking)
   - [Exercise 4: Publish Inference Results](./tutorial.md#exercise-4-publish-inference-results)
   - [Next Steps](./tutorial.md#additional-resources)
-- [Samples](https://github.com/open-edge-platform/edge-ai-libraries/tree/main/libraries/dl-streamer/samples/gstreamer/README.md)
-
+- [Samples](https://github.com/open-edge-platform/dlstreamer/blob/master/samples/gstreamer/README.md)
 
 <!--hide_directive
 :::{toctree}
@@ -26,6 +25,6 @@
 system_requirements
 install/install_guide_index
 tutorial
-Samples <https://github.com/open-edge-platform/edge-ai-libraries/tree/main/libraries/dl-streamer/samples/gstreamer/README.md>
+Samples <https://github.com/open-edge-platform/dlstreamer/blob/master/samples/gstreamer/README.md>
 :::
 hide_directive-->

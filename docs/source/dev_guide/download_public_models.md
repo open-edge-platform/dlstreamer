@@ -1,7 +1,7 @@
 # Download Public Models
 
 This page provides instructions on how to use the
-[samples/download_public_models.sh](https://github.com/open-edge-platform/edge-ai-libraries/tree/main/libraries/dl-streamer/samples/download_public_models.sh)
+[samples/download_public_models.sh](https://github.com/open-edge-platform/dlstreamer/blob/master/samples/download_public_models.sh)
 script to download the following models:
 
 - [YOLO](https://docs.ultralytics.com/models/)
@@ -18,7 +18,7 @@ export MODELS_PATH=/path/to/models
 ```
 
 You can refer to the list of
-[supported models](https://github.com/open-edge-platform/edge-ai-libraries/tree/main/libraries/dl-streamer/samples/download_public_models.sh#L20).
+[supported models](https://github.com/open-edge-platform/dlstreamer/blob/master/samples/download_public_models.sh#L23).
 
 For example, to download the YOLOv11s model, use:
 

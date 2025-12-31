@@ -5,7 +5,7 @@ CLIP models for integration with the Deep Learning Streamer pipeline.
 
 > **NOTE:** The instructions provided below are comprehensive, but for convenience,
 > it is recommended to use the
-> [download_public_models.sh](https://github.com/open-edge-platform/edge-ai-libraries/tree/main/libraries/dl-streamer/samples/download_public_models.sh)
+> [download_public_models.sh](https://github.com/open-edge-platform/dlstreamer/blob/master/samples/download_public_models.sh)
 > script. This script will download all supported models and perform the
 > necessary conversions automatically. See [download_public_models](./download_public_models.md) for more information.
 
@@ -149,5 +149,5 @@ ov.save_model(ov_model, MODEL + ".xml")
 
 ## 3. Model usage
 
-See the [generate_frame_embeddings.sh](https://github.com/open-edge-platform/edge-ai-libraries/blob/main/libraries/dl-streamer/samples/gstreamer/gst_launch/lvm/generate_frame_embeddings.sh) sample for detailed
+See the [generate_frame_embeddings.sh](https://github.com/open-edge-platform/dlstreamer/blob/master/samples/gstreamer/gst_launch/lvm/generate_frame_embeddings.sh) sample for detailed
 examples of Deep Learning Streamer pipelines using the model.

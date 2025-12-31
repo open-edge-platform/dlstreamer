@@ -70,7 +70,7 @@ deploy, and benchmark. They require:
 
 **DL Streamer** uses OpenVINO™ Runtime inference back-end,
 optimized for Intel hardware platforms and supports over
-[70 NN Intel and open-source community pre-trained models](https://github.com/open-edge-platform/edge-ai-libraries/blob/main/libraries/dl-streamer/docs/scripts/supported_models.json), and models converted
+[70 NN Intel and open-source community pre-trained models](https://github.com/open-edge-platform/dlstreamer/blob/master/docs/scripts/supported_models.json), and models converted
 [from other training frameworks](https://docs.openvino.ai/2024/openvino-workflow/model-preparation/convert-model-to-ir.html).
 These models include object detection, object classification, human pose
 detection, sound classification, semantic segmentation, and other use

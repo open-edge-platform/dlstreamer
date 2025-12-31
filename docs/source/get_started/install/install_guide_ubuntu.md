@@ -119,7 +119,7 @@ sudo apt-get install intel-dlstreamer
 use!**
 
 To see the full list of installed components check the
-[Dockerfile content for Ubuntu 24](https://github.com/open-edge-platform/edge-ai-libraries/blob/main/libraries/dl-streamer/docker/ubuntu/ubuntu24.Dockerfile)
+[Dockerfile content for Ubuntu 24](https://github.com/open-edge-platform/dlstreamer/blob/master/docker/ubuntu/ubuntu24.Dockerfile)
 
 ### [Optional] Step 4: Python dependencies
 
@@ -270,7 +270,7 @@ xhost local:root
 setfacl -m user:1000:r ~/.Xauthority
 ```
 
-> **NOTE**: If you want to build Docker image from DL Streamer Dockerfiles, please
+> **NOTE**: If you want to build Docker image from DLStreamer Dockerfiles, please
 > follow [the instructions](../../dev_guide/advanced_install/advanced_build_docker_image.md).
 
 ### Step 4: Pull the Deep Learning Streamer Docker image from Docker Hub

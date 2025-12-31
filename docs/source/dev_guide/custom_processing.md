@@ -6,7 +6,7 @@ plugins is stored under frame [Metadata](./metadata.md) using a flexible
 [GstStructure](https://gstreamer.freedesktop.org/documentation/gstreamer/gststructure.html)
 key-value container.
 The **GVA::Tensor** C++ class with
-[header-only implementation](https://github.com/open-edge-platform/edge-ai-libraries/tree/main/libraries/dl-streamer/include/dlstreamer/gst/videoanalytics/tensor.h#L38)
+[header-only implementation](https://github.com/open-edge-platform/dlstreamer/tree/master/include/dlstreamer/gst/videoanalytics/tensor.h#L38)
 helps C++ applications access the tensor data.
 
 The integration of DL model inference into real application typically
@@ -55,7 +55,7 @@ The C/C++ application can either:
   consumption
 
 The pad probe callback is demonstrated in the
-[draw_face_attributes](https://github.com/open-edge-platform/edge-ai-libraries/tree/main/libraries/dl-streamer/samples/gstreamer/cpp/draw_face_attributes/main.cpp) C++ sample.
+[draw_face_attributes](https://github.com/open-edge-platform/dlstreamer/blob/master/samples/gstreamer/cpp/draw_face_attributes/main.cpp) C++ sample.
 
 ## 2. Set C/Python callback in the middle of GStreamer pipeline
 
@@ -95,13 +95,13 @@ Refer to the
 a GStreamer plugin.
 
 If the frame processing function is implemented in C++, it can utilize the
-[GVA::Tensor](https://github.com/open-edge-platform/edge-ai-libraries/tree/main/libraries/dl-streamer/include/dlstreamer/gst/videoanalytics/tensor.h#L38)
+[GVA::Tensor](https://github.com/open-edge-platform/dlstreamer/blob/master/include/dlstreamer/gst/videoanalytics/tensor.h#L38)
 helper class.
 
 ## 5. Modify source code of post-processors for gvadetect/gvaclassify elements
 
 You can add new or modify any suitable existing
-[post-processor](https://github.com/open-edge-platform/edge-ai-libraries/tree/main/libraries/dl-streamer/src/monolithic/gst/inference_elements/common/post_processor/blob_to_meta_converter.cpp)
+[post-processor](https://github.com/open-edge-platform/dlstreamer/blob/master/src/monolithic/gst/inference_elements/common/post_processor/blob_to_meta_converter.cpp)
 for `gvadetect`/`gvaclassify` elements.
 
 ## 6. Create custom post-processing library
@@ -113,7 +113,7 @@ flexibility and modularity while maintaining clean separation between
 the core framework and custom processing logic.
 
 Practical examples of implementations are demonstrated in the
-[sample](https://github.com/open-edge-platform/edge-ai-libraries/tree/main/libraries/dl-streamer/samples/gstreamer/gst_launch/custom_postproc).
+[sample](https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/gst_launch/custom_postproc).
 
 **Important Requirements**
 
@@ -134,14 +134,14 @@ At this time, only **detection** and **classification** tasks are supported:
 
 - **Object Detection** (`GstAnalyticsODMtd`) - works only with the
    `gvadetect` element (see [*Detection* sample][detection_sample]).
-   
-   [detection_sample]: https://github.com/open-edge-platform/edge-ai-libraries/blob/main/libraries/dl-streamer/samples/gstreamer/gst_launch/custom_postproc/detect/README.md
+
+   [detection_sample]: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/gst_launch/custom_postproc/detect/
 
 - **Classification** (`GstAnalyticsClsMtd`) - works with both the
   [gvadetect](../elements/gvadetect.md) and
   [gvaclassify](../elements/gvaclassify.md) elements (see [*Classification* sample][classify_sample]).
 
-  [classify_sample]: https://github.com/open-edge-platform/edge-ai-libraries/blob/main/libraries/dl-streamer/samples/gstreamer/gst_launch/custom_postproc/classify/README.md
+  [classify_sample]: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/gst_launch/custom_postproc/classify/
 
 **Implementation Requirements**
 
@@ -149,7 +149,7 @@ Your custom library must export a `Convert` function with the following
 signature:
 
 ```c
-void Convert(GstTensorMeta *outputTensors,  
+void Convert(GstTensorMeta *outputTensors,
              const GstStructure *network,
              const GstStructure *params,
              GstAnalyticsRelationMeta *relationMeta);
