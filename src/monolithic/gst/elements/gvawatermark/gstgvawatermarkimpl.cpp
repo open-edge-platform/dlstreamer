@@ -114,7 +114,8 @@ InferenceBackend::MemoryType memoryTypeFromCaps(GstCaps *caps) {
 } // namespace
 
 struct Impl {
-    Impl(GstVideoInfo *info, InferenceBackend::MemoryType mem_type, GstElement *element, bool disp_avgfps);
+    Impl(GstVideoInfo *info, InferenceBackend::MemoryType mem_type, GstElement *element, bool disp_avgfps,
+         gchar *displ_cfg);
     bool extract_primitives(GstBuffer *buffer);
     int get_num_primitives() const;
     bool render(GstBuffer *buffer);
@@ -133,6 +134,7 @@ struct Impl {
                                             const std::vector<uint32_t> &dims, const std::vector<float> &confidence,
                                             const GVA::Rect<double> &rectangle, std::vector<render::Prim> &prims) const;
     void find_gvafpscounter_element();
+    void parse_displ_config();
     std::unique_ptr<Renderer> createRenderer(std::shared_ptr<ColorConverter> converter);
 
     std::unique_ptr<Renderer> createGPURenderer(dlstreamer::ImageFormat format,
@@ -165,9 +167,13 @@ struct Impl {
     } _font;
     const bool _obb = false;
     bool _disp_avgfps = false;
-};
+    gchar *_displ_cfg = nullptr;
 
-enum { PROP_0, PROP_DEVICE, PROP_OBB, PROP_DISP_AVGFPS };
+    struct DisplCfg {
+        bool show_labels = true;
+        double text_scale = 1.0;
+    } _displCfg;
+};
 
 G_DEFINE_TYPE_WITH_CODE(GstGvaWatermarkImpl, gst_gva_watermark_impl, GST_TYPE_BASE_TRANSFORM,
                         GST_DEBUG_CATEGORY_INIT(gst_gva_watermark_impl_debug_category, "gvawatermarkimpl", 0,
@@ -176,6 +182,8 @@ G_DEFINE_TYPE_WITH_CODE(GstGvaWatermarkImpl, gst_gva_watermark_impl, GST_TYPE_BA
 static void gst_gva_watermark_impl_init(GstGvaWatermarkImpl *gvawatermark) {
     gvawatermark->device = DEFAULT_DEVICE;
     gvawatermark->obb = false;
+    gvawatermark->disp_avgfps = false;
+    gvawatermark->displ_cfg = nullptr;
 }
 
 void gst_gva_watermark_impl_set_property(GObject *object, guint prop_id, const GValue *value, GParamSpec *pspec) {
@@ -193,6 +201,10 @@ void gst_gva_watermark_impl_set_property(GObject *object, guint prop_id, const G
         break;
     case PROP_DISP_AVGFPS:
         gvawatermark->disp_avgfps = g_value_get_boolean(value);
+        break;
+    case PROP_CFG:
+        g_free(gvawatermark->displ_cfg);
+        gvawatermark->displ_cfg = g_value_dup_string(value);
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -218,6 +230,9 @@ void gst_gva_watermark_impl_get_property(GObject *object, guint prop_id, GValue 
         break;
     case PROP_DISP_AVGFPS:
         g_value_set_boolean(value, self->disp_avgfps);
+        break;
+    case PROP_CFG:
+        g_value_set_string(value, self->displ_cfg);
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -334,8 +349,8 @@ static gboolean gst_gva_watermark_impl_set_caps(GstBaseTransform *trans, GstCaps
 #endif
 
     try {
-        gvawatermark->impl =
-            std::make_shared<Impl>(&gvawatermark->info, mem_type, GST_ELEMENT(trans), gvawatermark->disp_avgfps);
+        gvawatermark->impl = std::make_shared<Impl>(&gvawatermark->info, mem_type, GST_ELEMENT(trans),
+                                                    gvawatermark->disp_avgfps, gvawatermark->displ_cfg);
     } catch (const std::exception &e) {
         GST_ELEMENT_ERROR(gvawatermark, CORE, FAILED, ("Could not initialize"),
                           ("Cannot create watermark instance. %s", Utils::createNestedErrorMsg(e).c_str()));
@@ -660,28 +675,45 @@ static void gst_gva_watermark_impl_class_init(GstGvaWatermarkImplClass *klass) {
     base_transform_class->transform_ip = GST_DEBUG_FUNCPTR(gst_gva_watermark_impl_transform_ip);
     base_transform_class->propose_allocation = GST_DEBUG_FUNCPTR(gst_gva_watermark_impl_propose_allocation);
 
+    const auto kDefaultGParamFlags =
+        static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | G_PARAM_CONSTRUCT);
+
     g_object_class_install_property(
         gobject_class, PROP_DEVICE,
         g_param_spec_string(
             "device", "Target device",
             "Supported devices are CPU and GPU. Default is CPU on system memory and GPU on video memory",
-            DEFAULT_DEVICE, (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+            DEFAULT_DEVICE, kDefaultGParamFlags));
+
     g_object_class_install_property(gobject_class, PROP_OBB,
                                     g_param_spec_boolean("obb", "Oriented Bounding Box",
                                                          "If true, draw oriented bounding box instead of object mask",
-                                                         false,
-                                                         (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+                                                         false, kDefaultGParamFlags));
+
     g_object_class_install_property(
         gobject_class, PROP_DISP_AVGFPS,
         g_param_spec_boolean("disp-avgfps", "Display Average FPS",
                              "If true, display the average FPS read from gvafpscounter element on the output video."
                              "The gvafpscounter element must be present in the pipeline."
                              "e.g. gwatermark ! gvafpscounter ! ...",
-                             false, (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+                             false, kDefaultGParamFlags));
+
+    g_object_class_install_property(
+        gobject_class, PROP_CFG,
+        g_param_spec_string(
+            "cfg", "Watermark display configuration",
+            "Comma separated list of KEY=VALUE parameters specific to. Please see user guide for more details.\n"
+            "\t\t\tAvailable options: \n"
+            "\t\t\tshow-labels=true|false - enable/disable display of text labels (default true)\n"
+            "\t\t\ttext-scale=<0.1-2.0> - scale factor for text labels (default 1.0)\n"
+            "\t\t\te.g.: cfg=show-labels=off\n"
+            "\t\t\te.g.: cfg=text-scale=0.5",
+            "show-labels=true,text-scale=1.0", kDefaultGParamFlags));
 }
 
-Impl::Impl(GstVideoInfo *info, InferenceBackend::MemoryType mem_type, GstElement *element, bool disp_avgfps)
-    : _vinfo(info), _element(element), _mem_type(mem_type), _disp_avgfps(disp_avgfps) {
+Impl::Impl(GstVideoInfo *info, InferenceBackend::MemoryType mem_type, GstElement *element, bool disp_avgfps,
+           gchar *displ_cfg)
+    : _vinfo(info), _element(element), _mem_type(mem_type), _disp_avgfps(disp_avgfps), _displ_cfg(displ_cfg) {
     assert(_vinfo);
     if (GST_VIDEO_INFO_COLORIMETRY(_vinfo).matrix == GstVideoColorMatrix::GST_VIDEO_COLOR_MATRIX_UNKNOWN)
         throw std::runtime_error("GST_VIDEO_COLOR_MATRIX_UNKNOWN");
@@ -701,6 +733,10 @@ Impl::Impl(GstVideoInfo *info, InferenceBackend::MemoryType mem_type, GstElement
     // Find gvafpscounter element in the pipeline to put avg-fps on output video
     if (_disp_avgfps)
         find_gvafpscounter_element();
+
+    // Parse display configuration
+    if (_displ_cfg)
+        parse_displ_config();
 }
 
 size_t get_keypoint_index_by_name(const gchar *target_name, GValueArray *names) {
@@ -878,15 +914,17 @@ void Impl::preparePrimsForRoi(GVA::RegionOfInterest &roi, std::vector<render::Pr
         prims.emplace_back(render::Rect(bbox_rect, color, _thickness, roi.rotation()));
 
     // put text
-    if (text.str().size() != 0) {
-        cv::Point2f pos(rect.x, rect.y - 5.f);
-        if (pos.y < 0)
-            pos.y = rect.y + 30.f;
-        prims.emplace_back(render::Text(text.str(), pos, _font.type, _font.scale, color));
-    }
+    if (_displCfg.show_labels)
+        if (text.str().size() != 0) {
+            cv::Point2f pos(rect.x, rect.y - 5.f);
+            if (pos.y < 0)
+                pos.y = rect.y + 30.f;
+            double scale = (_displCfg.text_scale != _font.scale) ? _displCfg.text_scale : _font.scale;
+            prims.emplace_back(render::Text(text.str(), pos, _font.type, scale, color));
+        }
 
     // put avg-fps from gvafpscounter element
-    if (_gvafpscounter_element != nullptr) {
+    if (_disp_avgfps && _gvafpscounter_element != nullptr) {
         std::ostringstream fpstext;
         gfloat avg_fps = 0.0f;
         g_object_get(_gvafpscounter_element, "avg-fps", &avg_fps, NULL);
@@ -1092,6 +1130,38 @@ void Impl::preparePrimsForKeypointConnections(GstStructure *s, const std::vector
 
     g_value_array_free(point_connections);
     g_value_array_free(point_names);
+}
+
+void Impl::parse_displ_config() {
+    // Parse watermark display configuration
+    std::string displcfg_str = std::string(_displ_cfg);
+    auto cfg = Utils::stringToMap(displcfg_str);
+    auto iter = cfg.end();
+    try {
+        iter = cfg.find("text-scale");
+        if (iter != cfg.end()) {
+            _displCfg.text_scale = std::stof(iter->second);
+            if (_displCfg.text_scale > 2.0 || _displCfg.text_scale < 0.1) {
+                _displCfg.text_scale = 1.0;
+                GST_WARNING(
+                    "[gvawatermarkimpl] 'text-scale' parameter value is out of range (0.1, 2.0], set to default 1.0");
+            }
+            cfg.erase(iter);
+        }
+        iter = cfg.find("show-labels");
+        if (iter != cfg.end()) {
+            if (iter->second == "true" || iter->second == "false") {
+                _displCfg.show_labels = (iter->second == "true");
+            }
+            cfg.erase(iter);
+        }
+    } catch (...) {
+        if (iter == cfg.end())
+            std::throw_with_nested(
+                std::runtime_error("[gvawatermarkimpl] Error occured while parsing key/value parameters"));
+        std::throw_with_nested(
+            std::runtime_error("[gvawatermarkimpl] Invalid value provided for parameter: " + iter->first));
+    }
 }
 
 std::unique_ptr<Renderer> Impl::createRenderer(std::shared_ptr<ColorConverter> converter) {
