@@ -21,7 +21,7 @@ All Dockerfiles are in
 <!--hide_directive:sync: tab1hide_directive-->
 
   ```bash
-  wget https://raw.githubusercontent.com/open-edge-platform/edge-ai-libraries/main/libraries/dl-streamer/docker/ubuntu/ubuntu24.Dockerfile
+  wget https://raw.githubusercontent.com/open-edge-platform/dlstreamer/master/docker/ubuntu/ubuntu24.Dockerfile
   ```
 
 <!--hide_directive:::
@@ -29,7 +29,7 @@ All Dockerfiles are in
 <!--hide_directive:sync: tab2hide_directive-->
 
   ```bash
-  wget https://raw.githubusercontent.com/open-edge-platform/edge-ai-libraries/main/libraries/dl-streamer/docker/ubuntu/ubuntu22.Dockerfile
+  wget https://raw.githubusercontent.com/open-edge-platform/dlstreamer/master/docker/ubuntu/ubuntu22.Dockerfile
   ```
 
 <!--hide_directive:::

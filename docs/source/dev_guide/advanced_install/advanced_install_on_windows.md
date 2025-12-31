@@ -14,9 +14,16 @@ cd dlstreamer
 
 ## Step 2: Run installation script
 
-### Build script details:
+Open PowerShell as administrator and run the `/build_dlstreamer_dlls.ps1` script.
 
-- The script will install automatically following dependencies if they don't exist:
+```
+cd ./dlstreamer/
+./scripts/build_dlstreamer_dlls.ps1
+```
+
+### Details of the build script
+
+- The script will install the following dependencies:
   | Required dependency | Path |
   | -------- | ------- |
   | Temporary downloaded files | C:\\dlstreamer_tmp |
@@ -39,16 +46,4 @@ cd dlstreamer
   - LIBVA_DRIVER_NAME
   - LIBVA_DRIVERS_PATH
 
-- The script assues that proxy is properly configured
-
-
-### Run PowerShell with administrative privileges and execute:
-
-```
-cd ./libraries/dl-streamer/
-./scripts/build_dlstreamer_dlls.ps1
-```
-
-
-
-
+- The script assumes that the proxy is properly configured
