@@ -30,6 +30,7 @@ struct _GstGvaWatermark {
     GstPad *srcpad;
     gchar *device;
     bool obb;
+    bool disp_avgfps;
 
     bool use_watermarkimpl_only;
 
