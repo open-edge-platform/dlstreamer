@@ -29,6 +29,7 @@ struct _GstGvaWatermark {
     GstPad *sinkpad;
     GstPad *srcpad;
     gchar *device;
+    gchar *displ_cfg;
     bool obb;
     bool disp_avgfps;
 

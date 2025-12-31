@@ -5,6 +5,7 @@
  ******************************************************************************/
 
 #include "gvawatermark.h"
+#include "gstgvawatermarkimpl.h"
 #include "gvawatermarkcaps.h"
 
 #include "scope_guard.h"
@@ -20,8 +21,6 @@ GST_DEBUG_CATEGORY_STATIC(gst_gva_watermark_debug_category);
 #define GST_CAT_DEFAULT gst_gva_watermark_debug_category
 
 #define DEFAULT_DEVICE "CPU"
-
-enum { PROP_0, PROP_DEVICE, PROP_OBB, PROP_DISP_AVGFPS };
 
 G_DEFINE_TYPE_WITH_CODE(GstGvaWatermark, gst_gva_watermark, GST_TYPE_BIN,
                         GST_DEBUG_CATEGORY_INIT(gst_gva_watermark_debug_category, "gvawatermark", 0,
@@ -40,7 +39,6 @@ static GstStateChangeReturn gva_watermark_change_state(GstElement *element, GstS
 static gboolean gst_gva_watermark_sink_event(GstPad *pad, GstObject *parent, GstEvent *event);
 
 namespace {
-
 static const gchar *get_caps_str_with_feature(CapsFeature mem_type) {
     if (mem_type == VA_SURFACE_CAPS_FEATURE)
         return "video/x-raw(" VASURFACE_FEATURE_STR "), format=" WATERMARK_PREFERRED_REMOTE_FORMAT;
@@ -87,23 +85,37 @@ static void gst_gva_watermark_class_init(GstGvaWatermarkClass *klass) {
     gobject_class->get_property = gst_gva_watermark_get_property;
     gobject_class->finalize = gst_gva_watermark_finalize;
 
-    g_object_class_install_property(
-        gobject_class, PROP_DEVICE,
-        g_param_spec_string("device", "Target device", "CPU or GPU. Default is CPU.", DEFAULT_DEVICE,
-                            static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+    const auto kDefaultGParamFlags =
+        static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | G_PARAM_CONSTRUCT);
+
+    g_object_class_install_property(gobject_class, PROP_DEVICE,
+                                    g_param_spec_string("device", "Target device", "CPU or GPU. Default is CPU.",
+                                                        DEFAULT_DEVICE, kDefaultGParamFlags));
 
     g_object_class_install_property(gobject_class, PROP_OBB,
                                     g_param_spec_boolean("obb", "Oriented Bounding Box",
                                                          "If true, draw oriented bounding box instead of object mask",
-                                                         false,
-                                                         (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+                                                         false, kDefaultGParamFlags));
     g_object_class_install_property(
         gobject_class, PROP_DISP_AVGFPS,
-        g_param_spec_boolean("disp-avgfps", "Display Average FPS",
-                             "If true, display the average FPS read from gvafpscounter element on the output video.\n"
-                             "\t\t\tThe gvafpscounter element must be present in the pipeline.\n"
-                             "\t\t\te.g. ... ! gwatermark ! gvafpscounter ! ...",
-                             false, (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+        g_param_spec_boolean(
+            "disp-avgfps", "Display Average FPS",
+            "If true, display the average FPS read from gvafpscounter element on the output video, (default false)\n"
+            "\t\t\tThe gvafpscounter element must be present in the pipeline.\n"
+            "\t\t\te.g.: ... ! gwatermark ! gvafpscounter ! ...",
+            false, kDefaultGParamFlags));
+
+    g_object_class_install_property(
+        gobject_class, PROP_CFG,
+        g_param_spec_string(
+            "cfg", "Watermark display configuration",
+            "Comma separated list of KEY=VALUE parameters specific to. Please see user guide for more details.\n"
+            "\t\t\tAvailable options: \n"
+            "\t\t\tshow-labels=true|false - enable/disable display of text labels (default true)\n"
+            "\t\t\ttext-scale=<0.1-2.0> - scale factor for text labels (default 1.0)\n"
+            "\t\t\te.g.: cfg=show-labels=off\n"
+            "\t\t\te.g.: cfg=text-scale=0.5",
+            "show-labels=true,text-scale=1.0", kDefaultGParamFlags));
 }
 
 static void gst_gva_watermark_init(GstGvaWatermark *self) {
@@ -187,6 +199,11 @@ void gst_gva_watermark_set_property(GObject *object, guint property_id, const GV
         gvawatermark->disp_avgfps = g_value_get_boolean(value);
         g_object_set(gvawatermark->watermarkimpl, "disp-avgfps", gvawatermark->disp_avgfps, nullptr);
         break;
+    case PROP_CFG:
+        g_free(gvawatermark->displ_cfg);
+        gvawatermark->displ_cfg = g_value_dup_string(value);
+        g_object_set(gvawatermark->watermarkimpl, "cfg", gvawatermark->displ_cfg, nullptr);
+        break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
         break;
@@ -208,6 +225,9 @@ void gst_gva_watermark_get_property(GObject *object, guint property_id, GValue *
     case PROP_DISP_AVGFPS:
         g_value_set_boolean(value, gvawatermark->disp_avgfps);
         break;
+    case PROP_CFG:
+        g_value_set_string(value, gvawatermark->displ_cfg);
+        break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
         break;
@@ -226,6 +246,9 @@ void gst_gva_watermark_finalize(GObject *object) {
 
     g_free(gvawatermark->device);
     gvawatermark->device = nullptr;
+
+    g_free(gvawatermark->displ_cfg);
+    gvawatermark->displ_cfg = nullptr;
 
     G_OBJECT_CLASS(gst_gva_watermark_parent_class)->finalize(object);
 }

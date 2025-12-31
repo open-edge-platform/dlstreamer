@@ -40,6 +40,7 @@ struct _GstGvaWatermarkImpl {
     GstBaseTransform base_transform;
     GstVideoInfo info;
     gchar *device;
+    gchar *displ_cfg;
     bool obb;
     bool disp_avgfps;
     std::shared_ptr<struct Impl> impl;
@@ -62,6 +63,8 @@ struct _GstGvaWatermarkImplClass {
 };
 
 GType gst_gva_watermark_impl_get_type(void);
+
+enum { PROP_0, PROP_DEVICE, PROP_OBB, PROP_DISP_AVGFPS, PROP_CFG };
 
 G_END_DECLS
 

@@ -66,6 +66,14 @@ Element Properties:
   async-handling      : The bin will handle Asynchronous state changes
                         flags: readable, writable
                         Boolean. Default: false
+  cfg                 : Comma separated list of KEY=VALUE parameters specific to. Please see user guide for more details.
+                        Available options:
+                        show-labels=true|false - enable/disable display of text labels (default true)
+                        text-scale=<0.1-2.0> - scale factor for text labels (default 1.0)
+                        e.g.: cfg=show-labels=off
+                        e.g.: cfg=text-scale=0.5
+                        flags: readable, writable
+                        String. Default: "show-labels=true,text-scale=1.0"
   device              : Supported devices are CPU and GPU. Default is CPU on system memory and GPU on video memory
                         flags: readable, writable
                         String. Default: null
