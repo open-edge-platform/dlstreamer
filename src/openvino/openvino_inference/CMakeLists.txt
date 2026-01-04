@@ -11,6 +11,7 @@ if(WIN32)
     pkg_check_modules(GSTD3D11 gstreamer-d3d11-1.0>=1.16 REQUIRED)
 endif()
 pkg_search_module(VA va libva REQUIRED)
+find_package(OpenCL REQUIRED)
 
 add_library(${TARGET_NAME} OBJECT openvino_inference.cpp)
 set_compile_flags(${TARGET_NAME})
@@ -20,6 +21,7 @@ PRIVATE
     openvino::runtime
     dlstreamer_api
     dlstreamer_logger
+    OpenCL::OpenCL
 )
 
 if(WIN32)

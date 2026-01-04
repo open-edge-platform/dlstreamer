@@ -179,7 +179,8 @@ static GstCaps *gva_base_inference_transform_caps(GstBaseTransform *trans, GstPa
             GstCapsFeatures *features = gst_caps_get_features(filtered, i);
             if ((gst_caps_features_contains(features, "memory:VASurface")) ||
                 (gst_caps_features_contains(features, "memory:VAMemory")) ||
-                (gst_caps_features_contains(features, "memory:DMABuf"))) {
+                (gst_caps_features_contains(features, "memory:DMABuf")) ||
+                (gst_caps_features_contains(features, "memory:D3D11Memory"))) {
                 gst_caps_remove_structure(filtered, i);
                 GST_WARNING("Filtered out structure %d from caps, it contains unsupported memory type", i);
             }
@@ -862,7 +863,8 @@ gboolean gva_base_inference_set_caps(GstBaseTransform *trans, GstCaps *incaps, G
     if ((base_inference->device && g_strcmp0(base_inference->device, "CPU") == 0 &&
          ((gst_caps_features_contains(gst_caps_get_features(incaps, 0), "memory:VASurface")) ||
           (gst_caps_features_contains(gst_caps_get_features(incaps, 0), "memory:VAMemory")) ||
-          (gst_caps_features_contains(gst_caps_get_features(incaps, 0), "memory:DMABuf"))))) {
+          (gst_caps_features_contains(gst_caps_get_features(incaps, 0), "memory:DMABuf")) ||
+          (gst_caps_features_contains(gst_caps_get_features(incaps, 0), "memory:D3D11Memory"))))) {
         GST_ELEMENT_WARNING(base_inference, RESOURCE, SETTINGS,
                             ("Refusing caps other than SYSTEM_MEMORY_CAPS because device is set to CPU"),
                             ("Set device property to a hardware accelerator (e.g., GPU) to enable VA memory types."));
