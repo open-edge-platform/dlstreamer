@@ -1,5 +1,5 @@
 # ==============================================================================
-# Copyright (C) 2024-2025 Intel Corporation
+# Copyright (C) 2024-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
@@ -13,7 +13,7 @@ import itertools
 import datetime
 from functools import reduce
 
-COPYRIGHT_YEAR = "2025"
+COPYRIGHT_YEAR = "2026"
 
 def check_copyright_year(copyright_patterns):
     def check(content):
@@ -166,3 +166,4 @@ def main():
 
 if __name__ == "__main__":
     sys.exit(main())
+
