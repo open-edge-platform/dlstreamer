@@ -1,6 +1,10 @@
 {
     "dependencies": [
-        "opencv",
+        {
+            "name": "opencv4",
+            "default-features": false,
+            "features": ["world", "opencl", "calib3d", "dshow", "fs", "intrinsics", "msmf", "thread", "win32ui"]
+        },
         "pkgconf",
         "opencl",
         "dlfcn-win32",
