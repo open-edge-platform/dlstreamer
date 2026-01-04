@@ -31,7 +31,7 @@ Follow the instructions in
       linux-libc-dev libpmix2t64 libhwloc15 libhwloc-plugins libxcb1-dev libx11-xcb-dev \
       ffmpeg libpaho-mqtt-dev libopencv-dev libpostproc-dev libavfilter-dev libavdevice-dev \
       libswscale-dev libswresample-dev libavutil-dev libavformat-dev libavcodec-dev libtbb12 libxml2-dev libopencv-dev \
-      ocl-icd-opencl-dev opencl-headers
+      ocl-icd-opencl-dev
   ```
 
 <!--hide_directive:::

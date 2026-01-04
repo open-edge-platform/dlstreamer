@@ -96,7 +96,7 @@ RUN \
     linux-libc-dev=\* libpmix2=\* libhwloc15=\* libhwloc-plugins=\* libxcb1-dev=\* libx11-xcb-dev=\* \
     ffmpeg=\* libpaho-mqtt-dev=\* libpostproc-dev=\* libavfilter-dev=\* libavdevice-dev=\* \
     libswscale-dev=\* libswresample-dev=\* libavutil-dev=\* libavformat-dev=\* libavcodec-dev=\* libxml2-dev=\* libsoup-3.0-0=\* \
-    ocl-icd-opencl-dev=\* opencl-headers=\* && \
+    ocl-icd-opencl-dev=\* && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
