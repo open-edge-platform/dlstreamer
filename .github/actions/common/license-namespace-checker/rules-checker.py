@@ -13,7 +13,7 @@ import itertools
 import datetime
 from functools import reduce
 
-COPYRIGHT_YEAR = "2026"
+COPYRIGHT_YEAR = str(datetime.datetime.now().year)
 
 def check_copyright_year(copyright_patterns):
     def check(content):
@@ -166,4 +166,5 @@ def main():
 
 if __name__ == "__main__":
     sys.exit(main())
+
 
