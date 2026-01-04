@@ -173,7 +173,7 @@ Write-Host 'Setting variables: LIBVA_DRIVER_NAME, LIBVA_DRIVERS_PATH, Path (for 
 [Environment]::SetEnvironmentVariable('LIBVA_DRIVERS_PATH', (Get-Item .).FullName + '\Microsoft.Direct3D.VideoAccelerationCompatibilityPack.1.0.2\build\native\x64\bin\', [System.EnvironmentVariableTarget]::User)
 $USER_PATH = [Environment]::GetEnvironmentVariable('Path', 'User')
 $pathEntries = $USER_PATH -split ';'
-if (-Not ($pathEntries -contains 'VideoAccelerationCompatibilityPack')) {
+if (-Not ($pathEntries -contains [Environment]::GetEnvironmentVariable('LIBVA_DRIVERS_PATH', 'User'))) {
 	[Environment]::SetEnvironmentVariable('Path', $USER_PATH + ';' + [Environment]::GetEnvironmentVariable('LIBVA_DRIVERS_PATH', 'User'), [System.EnvironmentVariableTarget]::User)
 	Write-Host 'Added LIBVA drivers path to User Path variable'
 }
@@ -256,3 +256,4 @@ try {
 }
 
 Write-Host "DLStreamer is ready"
+
