@@ -1,5 +1,5 @@
 # ==============================================================================
-# Copyright (C) 2018-2025 Intel Corporation
+# Copyright (C) 2018-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
@@ -25,6 +25,7 @@ target_include_directories(${TARGET_NAME}
 PRIVATE
     ${GSTREAMER_INCLUDE_DIRS}
     ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/../elements/gvagenai/
     ${CMAKE_CURRENT_SOURCE_DIR}/../elements/gvametaaggregate/
     ${CMAKE_CURRENT_SOURCE_DIR}/../elements/gvametaconvert/
     ${CMAKE_CURRENT_SOURCE_DIR}/../elements/gvametapublish/
@@ -47,5 +48,9 @@ PRIVATE
     gstdlstreamer_bins
     gvametapublish
 )
+
+if(ENABLE_GENAI)
+    target_link_libraries(${TARGET_NAME} PRIVATE gvagenai)
+endif()
 
 install(TARGETS ${TARGET_NAME} DESTINATION ${DLSTREAMER_PLUGINS_INSTALL_PATH})
