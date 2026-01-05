@@ -42,7 +42,7 @@ struct _GstGvaWatermarkImpl {
     gchar *device;
     gchar *displ_cfg;
     bool obb;
-    bool disp_avgfps;
+    bool displ_avgfps;
     std::shared_ptr<struct Impl> impl;
     InferenceBackend::MemoryType negotiated_mem_type = InferenceBackend::MemoryType::ANY;
 
@@ -64,7 +64,7 @@ struct _GstGvaWatermarkImplClass {
 
 GType gst_gva_watermark_impl_get_type(void);
 
-enum { PROP_0, PROP_DEVICE, PROP_OBB, PROP_DISP_AVGFPS, PROP_CFG };
+enum { PROP_0, PROP_DEVICE, PROP_OBB, PROP_DISPL_AVGFPS, PROP_DISPL_CFG };
 
 G_END_DECLS
 

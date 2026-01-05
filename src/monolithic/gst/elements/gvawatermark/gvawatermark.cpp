@@ -97,25 +97,24 @@ static void gst_gva_watermark_class_init(GstGvaWatermarkClass *klass) {
                                                          "If true, draw oriented bounding box instead of object mask",
                                                          false, kDefaultGParamFlags));
     g_object_class_install_property(
-        gobject_class, PROP_DISP_AVGFPS,
+        gobject_class, PROP_DISPL_AVGFPS,
         g_param_spec_boolean(
-            "disp-avgfps", "Display Average FPS",
+            "displ-avgfps", "Display Average FPS",
             "If true, display the average FPS read from gvafpscounter element on the output video, (default false)\n"
             "\t\t\tThe gvafpscounter element must be present in the pipeline.\n"
-            "\t\t\te.g.: ... ! gwatermark ! gvafpscounter ! ...",
+            "\t\t\te.g.: ... ! gvawatermark displ-avgfps=true ! gvafpscounter ! ...",
             false, kDefaultGParamFlags));
 
     g_object_class_install_property(
-        gobject_class, PROP_CFG,
-        g_param_spec_string(
-            "cfg", "Watermark display configuration",
-            "Comma separated list of KEY=VALUE parameters specific to. Please see user guide for more details.\n"
-            "\t\t\tAvailable options: \n"
-            "\t\t\tshow-labels=true|false - enable/disable display of text labels (default true)\n"
-            "\t\t\ttext-scale=<0.1-2.0> - scale factor for text labels (default 1.0)\n"
-            "\t\t\te.g.: cfg=show-labels=off\n"
-            "\t\t\te.g.: cfg=text-scale=0.5",
-            "show-labels=true,text-scale=1.0", kDefaultGParamFlags));
+        gobject_class, PROP_DISPL_CFG,
+        g_param_spec_string("displ-cfg", "Gvawatermark display configuration",
+                            "Comma separated list of KEY=VALUE parameters of displayed notations.\n"
+                            "\t\t\tAvailable options: \n"
+                            "\t\t\tshow-labels=true|false - enable/disable display of text labels (default true)\n"
+                            "\t\t\ttext-scale=<0.1-2.0> - scale factor for text labels (default 1.0)\n"
+                            "\t\t\te.g.: displ-cfg=show-labels=off\n"
+                            "\t\t\te.g.: displ-cfg=text-scale=0.5",
+                            "show-labels=true,text-scale=1.0", kDefaultGParamFlags));
 }
 
 static void gst_gva_watermark_init(GstGvaWatermark *self) {
@@ -195,14 +194,14 @@ void gst_gva_watermark_set_property(GObject *object, guint property_id, const GV
         gvawatermark->obb = g_value_get_boolean(value);
         g_object_set(gvawatermark->watermarkimpl, "obb", gvawatermark->obb, nullptr);
         break;
-    case PROP_DISP_AVGFPS:
-        gvawatermark->disp_avgfps = g_value_get_boolean(value);
-        g_object_set(gvawatermark->watermarkimpl, "disp-avgfps", gvawatermark->disp_avgfps, nullptr);
+    case PROP_DISPL_AVGFPS:
+        gvawatermark->displ_avgfps = g_value_get_boolean(value);
+        g_object_set(gvawatermark->watermarkimpl, "displ-avgfps", gvawatermark->displ_avgfps, nullptr);
         break;
-    case PROP_CFG:
+    case PROP_DISPL_CFG:
         g_free(gvawatermark->displ_cfg);
         gvawatermark->displ_cfg = g_value_dup_string(value);
-        g_object_set(gvawatermark->watermarkimpl, "cfg", gvawatermark->displ_cfg, nullptr);
+        g_object_set(gvawatermark->watermarkimpl, "displ-cfg", gvawatermark->displ_cfg, nullptr);
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
@@ -222,10 +221,10 @@ void gst_gva_watermark_get_property(GObject *object, guint property_id, GValue *
     case PROP_OBB:
         g_value_set_boolean(value, gvawatermark->obb);
         break;
-    case PROP_DISP_AVGFPS:
-        g_value_set_boolean(value, gvawatermark->disp_avgfps);
+    case PROP_DISPL_AVGFPS:
+        g_value_set_boolean(value, gvawatermark->displ_avgfps);
         break;
-    case PROP_CFG:
+    case PROP_DISPL_CFG:
         g_value_set_string(value, gvawatermark->displ_cfg);
         break;
     default:

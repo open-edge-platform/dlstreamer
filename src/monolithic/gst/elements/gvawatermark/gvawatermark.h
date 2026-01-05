@@ -31,7 +31,7 @@ struct _GstGvaWatermark {
     gchar *device;
     gchar *displ_cfg;
     bool obb;
-    bool disp_avgfps;
+    bool displ_avgfps;
 
     bool use_watermarkimpl_only;
 

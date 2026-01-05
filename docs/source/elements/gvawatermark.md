@@ -66,20 +66,20 @@ Element Properties:
   async-handling      : The bin will handle Asynchronous state changes
                         flags: readable, writable
                         Boolean. Default: false
-  cfg                 : Comma separated list of KEY=VALUE parameters specific to. Please see user guide for more details.
+  displ-cfg           : Comma separated list of KEY=VALUE parameters of displayed notations.
                         Available options:
                         show-labels=true|false - enable/disable display of text labels (default true)
                         text-scale=<0.1-2.0> - scale factor for text labels (default 1.0)
-                        e.g.: cfg=show-labels=off
-                        e.g.: cfg=text-scale=0.5
+                        e.g.: displ-cfg=show-labels=off
+                        e.g.: displ-cfg=text-scale=0.5
                         flags: readable, writable
                         String. Default: "show-labels=true,text-scale=1.0"
   device              : Supported devices are CPU and GPU. Default is CPU on system memory and GPU on video memory
                         flags: readable, writable
                         String. Default: null
-  disp-avgfps         : If true, display the average FPS read from gvafpscounter element on the output video.
+  displ-avgfps        : If true, display the average FPS read from gvafpscounter element on the output video.
                         The gvafpscounter element must be present in the pipeline.
-                        e.g. ... ! gwatermark disp-avgfps=true ! gvafpscounter ! ...
+                        e.g. ... ! gvawatermark displ-avgfps=true ! gvafpscounter ! ...
                         flags: readable, writable
                         Boolean. Default: false
   message-forward     : Forwards all children messages
