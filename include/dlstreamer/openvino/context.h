@@ -9,9 +9,12 @@
 #include "dlstreamer/base/context.h"
 #include "dlstreamer/tensor.h"
 
-#include <openvino/openvino.hpp>
-#include <openvino/runtime/intel_gpu/properties.hpp>
-#include <openvino/runtime/intel_gpu/remote_properties.hpp>
+#ifdef _WIN32
+#include <gst/d3d11/gstd3d11device.h>
+#include <openvino/runtime/intel_gpu/ocl/dx.hpp>
+#else
+#include <openvino/runtime/intel_gpu/ocl/va.hpp>
+#endif
 
 namespace dlstreamer {
 
@@ -33,17 +36,23 @@ class OpenVINOContext : public BaseContext {
     OpenVINOContext(ov::Core core, const std::string &device, ContextPtr context) : BaseContext(MemoryType::OpenVINO) {
         ov::AnyMap context_params;
         if (device.find("GPU") != std::string::npos && context) {
+#ifdef _WIN32
+            auto d3d_device = context->handle(BaseContext::key::d3d_device);
+            if (d3d_device) {
+                auto gst_device = static_cast<GstD3D11Device *>(d3d_device);
+                _remote_context = ov::intel_gpu::ocl::D3DContext(core, gst_d3d11_device_get_device_handle(gst_device));
+            }
+#else
             auto va_display = context->handle(BaseContext::key::va_display);
-            //_remote_context = ov::intel_gpu::ocl::VAContext(core, va_display);
             if (va_display) {
                 int tile_id =
                     static_cast<int>(reinterpret_cast<intptr_t>(context->handle(BaseContext::key::va_tile_id)));
-                context_params = {{ov::intel_gpu::context_type.name(), "VA_SHARED"},
-                                  {ov::intel_gpu::va_device.name(), static_cast<void *>(va_display)},
-                                  {ov::intel_gpu::tile_id.name(), tile_id}};
+                _remote_context = ov::intel_gpu::ocl::VAContext(core, static_cast<void *>(va_display), tile_id);
             }
+#endif
         }
-        _remote_context = core.create_context(device, context_params);
+        if (!_remote_context)
+            _remote_context = core.get_default_context(device);
     }
 
     OpenVINOContext(ov::CompiledModel compiled_model) : BaseContext(MemoryType::OpenVINO) {

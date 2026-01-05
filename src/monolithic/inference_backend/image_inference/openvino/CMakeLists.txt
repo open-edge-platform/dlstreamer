@@ -9,6 +9,7 @@ set (TARGET_NAME "image_inference_openvino")
 # FIXME: update macro below
 find_package(PkgConfig REQUIRED)
 find_package(OpenVINO REQUIRED Runtime)
+find_package(OpenCL REQUIRED)
 
 set(OpenVINO_MIN_VERSION "2024.0.0")
 if(${OpenVINO_VERSION} VERSION_LESS ${OpenVINO_MIN_VERSION})
@@ -44,6 +45,7 @@ PUBLIC
         utils
         logger
         dlstreamer_logger
+        OpenCL::OpenCL
 )
 
 if(WIN32)

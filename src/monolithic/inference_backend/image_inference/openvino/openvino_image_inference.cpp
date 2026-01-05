@@ -9,7 +9,9 @@
 #include <openvino/runtime/properties.hpp>
 
 #include <dlstreamer/openvino/context.h>
-#include <dlstreamer/vaapi/context.h>
+#ifdef _WIN32
+#include <dlstreamer/d3d11/context.h>
+#endif
 // For logger_name
 #include <dlstreamer/element.h>
 
@@ -1417,20 +1419,39 @@ class OpenVinoNewApiImpl {
 
     dlstreamer::ContextPtr create_remote_context() {
         // FIXME: invert to reduce nesting
-        if (is_device_gpu() && !is_device_multi() &&
-            (_memory_type == MemoryType::VAAPI || _memory_type == MemoryType::SYSTEM)) {
-            if (_app_context) {
-                try {
-                    dlstreamer::VAAPIContextPtr vaapi_ctx = dlstreamer::VAAPIContext::create(_app_context);
-                    _openvino_context = std::make_shared<dlstreamer::OpenVINOContext>(core(), _device, vaapi_ctx);
-                } catch (std::exception &e) {
-                    GVA_ERROR("Exception occurred when creating OpenVINO™ toolkit remote context: %s", e.what());
-                    std::throw_with_nested(std::runtime_error("couldn't create OV remote context"));
-                }
+        if (is_device_gpu() && !is_device_multi()) {
+#ifdef _WIN32
+            if (_memory_type == MemoryType::D3D11 || _memory_type == MemoryType::SYSTEM) {
+                if (_app_context) {
+                    try {
+                        dlstreamer::D3D11ContextPtr d3d11_ctx = dlstreamer::D3D11Context::create(_app_context);
+                        _openvino_context = std::make_shared<dlstreamer::OpenVINOContext>(core(), _device, d3d11_ctx);
+                    } catch (std::exception &e) {
+                        GVA_ERROR("Exception occurred when creating OpenVINO™ toolkit remote context: %s", e.what());
+                        std::throw_with_nested(std::runtime_error("couldn't create OV remote context"));
+                    }
 
-            } else if (_memory_type == MemoryType::VAAPI) {
-                throw std::runtime_error("Display must be provided for GPU device with vaapi-surface-sharing backend");
+                } else if (_memory_type == MemoryType::D3D11) {
+                    throw std::runtime_error("Display must be provided for GPU device with d3d11 backend");
+                }
             }
+#else
+            if (_memory_type == MemoryType::VAAPI || _memory_type == MemoryType::SYSTEM) {
+                if (_app_context) {
+                    try {
+                        dlstreamer::VAAPIContextPtr vaapi_ctx = dlstreamer::VAAPIContext::create(_app_context);
+                        _openvino_context = std::make_shared<dlstreamer::OpenVINOContext>(core(), _device, vaapi_ctx);
+                    } catch (std::exception &e) {
+                        GVA_ERROR("Exception occurred when creating OpenVINO™ toolkit remote context: %s", e.what());
+                        std::throw_with_nested(std::runtime_error("couldn't create OV remote context"));
+                    }
+
+                } else if (_memory_type == MemoryType::VAAPI) {
+                    throw std::runtime_error(
+                        "Display must be provided for GPU device with vaapi-surface-sharing backend");
+                }
+            }
+#endif
         }
         return _openvino_context;
     }

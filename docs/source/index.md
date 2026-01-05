@@ -6,7 +6,7 @@ framework, and it is used for creating complex media analytics pipelines for the
 or at the Edge. DL Streamer consists of:
 
 - [Deep Learning Streamer Pipeline
-  Framework](https://github.com/open-edge-platform/edge-ai-libraries/tree/main/libraries/dl-streamer)
+  Framework](https://github.com/open-edge-platform/dlstreamer/tree/master)
   for designing, creating, building, and running media analytics
   pipelines. It includes C++ and Python APIs.
 - [Deep Learning Streamer Pipeline
