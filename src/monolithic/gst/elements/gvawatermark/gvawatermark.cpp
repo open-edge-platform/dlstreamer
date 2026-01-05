@@ -114,7 +114,7 @@ static void gst_gva_watermark_class_init(GstGvaWatermarkClass *klass) {
                             "\t\t\ttext-scale=<0.1-2.0> - scale factor for text labels (default 1.0)\n"
                             "\t\t\te.g.: displ-cfg=show-labels=off\n"
                             "\t\t\te.g.: displ-cfg=text-scale=0.5",
-                            "show-labels=true,text-scale=1.0", kDefaultGParamFlags));
+                            nullptr, kDefaultGParamFlags));
 }
 
 static void gst_gva_watermark_init(GstGvaWatermark *self) {
