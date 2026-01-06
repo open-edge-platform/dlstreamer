@@ -319,10 +319,23 @@ def main():
         logger.info(f"📏 Output: 128-dimensional L2-normalized feature vector")
         logger.info(f"🎯 Optimized for DeepSORT person re-identification")
         
+        # Clean up downloaded model.py
+        model_py_path = Path(__file__).parent / 'model.py'
+        if model_py_path.exists():
+            model_py_path.unlink()
+            logger.info("🧹 Cleaned up temporary model.py file")
+        
     except Exception as e:
         logger.error(f"❌ Conversion failed: {e}")
         import traceback
         traceback.print_exc()
+        
+        # Clean up on failure too
+        model_py_path = Path(__file__).parent / 'model.py'
+        if model_py_path.exists():
+            model_py_path.unlink()
+            logger.info("🧹 Cleaned up temporary model.py file")
+        
         return 1
     
     return 0
