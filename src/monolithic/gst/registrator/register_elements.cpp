@@ -30,12 +30,6 @@
 #include "gva_json_meta.h"
 #include "gva_tensor_meta.h"
 
-#include "inference_backend/logger.h"
-#include "logger_functions.h"
-
-#include "gvametapublish.hpp"
-#include "gvametapublishfile.hpp"
-
 static gboolean plugin_init(GstPlugin *plugin) {
     set_log_function(GST_logger);
 
@@ -67,12 +61,6 @@ static gboolean plugin_init(GstPlugin *plugin) {
         return FALSE;
     if (!gst_element_register(plugin, "gvawatermark3d", GST_RANK_NONE, GST_TYPE_GVAWATERMARK3D))
         return FALSE;
-#if _MSC_VER
-    if (!gst_element_register(plugin, "gvametapublish", GST_RANK_NONE, GST_TYPE_GVA_META_PUBLISH))
-        return FALSE;
-    if (!gst_element_register(plugin, "gvametapublishfile", GST_RANK_NONE, GST_TYPE_GVA_META_PUBLISH_FILE))
-        return FALSE;
-#endif
 
     // register metadata
     gst_gva_json_meta_get_info();

@@ -28,9 +28,6 @@ PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/../elements/gvagenai/
     ${CMAKE_CURRENT_SOURCE_DIR}/../elements/gvametaaggregate/
     ${CMAKE_CURRENT_SOURCE_DIR}/../elements/gvametaconvert/
-    ${CMAKE_CURRENT_SOURCE_DIR}/../elements/gvametapublish/
-    ${CMAKE_CURRENT_SOURCE_DIR}/../elements/gvametapublish/base/
-    ${CMAKE_CURRENT_SOURCE_DIR}/../elements/gvametapublish/file/
     ${CMAKE_CURRENT_SOURCE_DIR}/../elements/gvatrack/
     ${CMAKE_CURRENT_SOURCE_DIR}/../elements/gvawatermark/
     ${CMAKE_CURRENT_SOURCE_DIR}/../elements/gvawatermark3d/
@@ -47,8 +44,6 @@ PRIVATE
     inference_elements
     audio_inference_elements
     gvatrack
-    gstdlstreamer_bins
-    gvametapublish
 )
 
 if(ENABLE_GENAI)
