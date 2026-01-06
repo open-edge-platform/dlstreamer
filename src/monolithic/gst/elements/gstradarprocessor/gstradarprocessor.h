@@ -11,6 +11,7 @@
 #include <gst/gst.h>
 #include <vector>
 #include <complex>
+#include "libradar.h"
 
 G_BEGIN_DECLS
 
@@ -49,6 +50,17 @@ struct _GstRadarProcessor {
     // Processing buffers
     std::vector<std::complex<float>> input_data;
     std::vector<std::complex<float>> output_data;
+
+    // Radar parameters for libradar
+    RadarParam radar_param;
+    RadarCube radar_cube;
+    RadarPointClouds radar_point_clouds;
+    ClusterResult cluster_result;
+    RadarHandle* radar_handle;
+    TrackingResult tracking_result;
+
+    // Buffer for TrackingResult
+    std::vector<TrackingDescription> tracking_desc_buf;
 };
 
 struct _GstRadarProcessorClass {
