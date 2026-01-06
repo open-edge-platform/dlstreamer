@@ -9,6 +9,7 @@
 #include <cstring>
 #include <numeric>
 #include <algorithm>
+#include <sys/time.h>
 
 GST_DEBUG_CATEGORY_STATIC(gst_radar_processor_debug);
 #define GST_CAT_DEFAULT gst_radar_processor_debug
@@ -99,6 +100,10 @@ static void gst_radar_processor_init(GstRadarProcessor *filter) {
     
     filter->last_frame_time = GST_CLOCK_TIME_NONE;
     filter->frame_duration = GST_CLOCK_TIME_NONE;
+    
+    filter->frame_id = 0;
+    filter->total_frames = 0;
+    filter->total_processing_time = 0.0;
 }
 
 static void gst_radar_processor_finalize(GObject *object) {
@@ -201,6 +206,16 @@ static gboolean gst_radar_processor_stop(GstBaseTransform *trans) {
 
     GST_DEBUG_OBJECT(filter, "Stopping radar processor");
 
+    // Print statistics
+    if (filter->total_frames > 0) {
+        gdouble avg_time = filter->total_processing_time / filter->total_frames;
+        GST_INFO_OBJECT(filter, "=== Radar Processor Statistics ===");
+        GST_INFO_OBJECT(filter, "Total frames processed: %" G_GUINT64_FORMAT, filter->total_frames);
+        GST_INFO_OBJECT(filter, "Total processing time: %.3f seconds", filter->total_processing_time);
+        GST_INFO_OBJECT(filter, "Average time per frame: %.3f ms", avg_time * 1000.0);
+        GST_INFO_OBJECT(filter, "===================================");
+    }
+
     filter->input_data.clear();
     filter->output_data.clear();
     filter->last_frame_time = GST_CLOCK_TIME_NONE;
@@ -245,6 +260,10 @@ static void dc_removal(std::complex<float> *data, size_t count) {
 static GstFlowReturn gst_radar_processor_transform_ip(GstBaseTransform *trans, GstBuffer *buffer) {
     GstRadarProcessor *filter = GST_RADAR_PROCESSOR(trans);
 
+    // Start timing for this frame
+    struct timeval start_time, end_time;
+    gettimeofday(&start_time, NULL);
+
     // Frame rate control
     if (filter->frame_duration != GST_CLOCK_TIME_NONE) {
         GstClock *clock = gst_element_get_clock(GST_ELEMENT(trans));
@@ -282,7 +301,7 @@ static GstFlowReturn gst_radar_processor_transform_ip(GstBaseTransform *trans, G
     std::complex<float> *input_ptr = reinterpret_cast<std::complex<float>*>(map.data);
     std::copy(input_ptr, input_ptr + filter->input_data.size(), filter->input_data.begin());
 
-    GST_DEBUG_OBJECT(filter, "Processing frame: TRN=%u, Chirps=%u, Samples=%u",
+    GST_DEBUG_OBJECT(filter, "Processing frame #%" G_GUINT64_FORMAT ":TRN=%u, Chirps=%u, Samples=%u", filter->frame_id,
                     filter->trn, filter->num_chirps, filter->adc_samples);
 
     // Reorder from trn*c*s to c*trn*s and apply DC removal
@@ -316,7 +335,19 @@ static GstFlowReturn gst_radar_processor_transform_ip(GstBaseTransform *trans, G
 
     gst_buffer_unmap(buffer, &map);
 
-    GST_LOG_OBJECT(filter, "Frame processed successfully");
+    // Calculate processing time
+    gettimeofday(&end_time, NULL);
+    gdouble frame_time = (end_time.tv_sec - start_time.tv_sec) + 
+                         (end_time.tv_usec - start_time.tv_usec) / 1000000.0;
+    
+    // Update statistics
+    filter->total_processing_time += frame_time;
+    filter->total_frames++;
+    
+    GST_DEBUG_OBJECT(filter, "Frame #%" G_GUINT64_FORMAT " processed successfully in %.3f ms",
+                   filter->frame_id, frame_time * 1000.0);
+    
+    filter->frame_id++;
 
     return GST_FLOW_OK;
 }

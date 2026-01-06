@@ -41,6 +41,11 @@ struct _GstRadarProcessor {
     GstClockTime last_frame_time;
     GstClockTime frame_duration;
 
+    // Frame statistics
+    guint64 frame_id;
+    guint64 total_frames;
+    gdouble total_processing_time;
+
     // Processing buffers
     std::vector<std::complex<float>> input_data;
     std::vector<std::complex<float>> output_data;
