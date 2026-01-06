@@ -8,6 +8,7 @@ Samples separated into several categories
 1. gst_launch command-line samples (samples construct GStreamer pipeline via [gst-launch-1.0](https://gstreamer.freedesktop.org/documentation/tools/gst-launch.html) command-line utility)
     * [Face Detection And Classification Sample](./gst_launch/face_detection_and_classification/README.md) - constructs object detection and classification pipeline example with [gvadetect](https://dlstreamer.github.io/elements/gvadetect.html) and [gvaclassify](https://dlstreamer.github.io/elements/gvaclassify.html) elements to detect faces and estimate age, gender, emotions and landmark points
     * [Audio Event Detection Sample](./gst_launch/audio_detect/README.md) - constructs audio event detection pipeline example with [gvaaudiodetect](https://dlstreamer.github.io/elements/gvaaudiodetect.html) element and uses [gvametaconvert](https://dlstreamer.github.io/elements/gvametaconvert.html), [gvametapublish](https://dlstreamer.github.io/elements/gvametapublish.html) elements to convert audio event metadata with inference results into JSON format and to print on standard out
+    * [Detection with Yolo](./gst_launch/detection_with_yolo/README.md) - demonstrates how to use publicly available YOLO models for object detection with/without hardware acceleration
 2. Benchmark
     * [Benchmark Sample](./benchmark/README.md) - measures overall performance of single-channel or multi-channel video analytics pipelines
 
