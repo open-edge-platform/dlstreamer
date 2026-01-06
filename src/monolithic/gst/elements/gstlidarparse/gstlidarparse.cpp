@@ -206,8 +206,23 @@ static gboolean gst_lidar_parse_start(GstBaseTransform *trans) {
     if (g_file_test(upstream_location, G_FILE_TEST_IS_REGULAR)) {
         filter->is_single_file = TRUE; 
         GST_INFO_OBJECT(filter, "Location is a single file. is_single_file set to TRUE.");
-    } 
+    }
 
+    if (g_str_has_suffix(upstream_location, ".pcd")) {
+        filter->file_type = FILE_TYPE_PCD;
+        GST_INFO_OBJECT(filter, "File type set to PCD.");
+    } else if (g_str_has_suffix(upstream_location, ".bin")) {
+        filter->file_type = FILE_TYPE_BIN;
+        GST_INFO_OBJECT(filter, "File type set to BIN.");
+    } else {
+        GST_ERROR_OBJECT(filter, "Unsupported file type for location: %s", upstream_location);
+        g_free(upstream_location);
+        gst_object_unref(upstream_element);
+        gst_object_unref(peer_pad);
+        return FALSE;
+    }
+
+    g_free(upstream_location);
     gst_object_unref(upstream_element);
     gst_object_unref(peer_pad);
 
