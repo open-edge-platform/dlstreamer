@@ -13,61 +13,70 @@
 
 using json = nlohmann::json;
 
+enum WinType { Hanning = 1, Hamming = 2, Cheyshev = 3 };
+enum AoaEstimationType { FFT = 1, MUSIC = 2, DBF = 3, CAPON = 4 };
+enum CfarMethod { CA_CFAR = 1, SO_CFAR = 2, GO_CFAR = 3, OS_CFAR = 4 };
+
 class RadarConfig {
 public:
-    // Basic radar parameters
-    unsigned int num_rx;
-    unsigned int num_tx;
-    unsigned int start_frequency;
-    unsigned int idle;
-    unsigned int adc_start_time;
-    unsigned int ramp_end_time;
-    unsigned int freq_slope_const;
-    unsigned int adc_samples;
-    unsigned int adc_sample_rate;
-    unsigned int num_chirps;
-    unsigned int fps;
+    // Basic radar parameters (match RadarParam types)
+    int num_rx;                    // rn
+    int num_tx;                    // tn
+    double start_frequency;        // startFreq
+    double idle;                   // idle
+    double adc_start_time;         // adcStartTime
+    double ramp_end_time;          // rampEndTime
+    double freq_slope_const;       // freqSlopeConst
+    int adc_samples;               // sn
+    double adc_sample_rate;        // adcSampleRate
+    int num_chirps;                // cn
+    float fps;                     // fps
 
     // Detection parameters
-    unsigned int range_win_type;
-    unsigned int doppler_win_type;
-    unsigned int aoa_estimation_type;
-    unsigned int doppler_cfar_method;
-    unsigned int doppler_pfa;
-    unsigned int doppler_win_guard_len;
-    unsigned int doppler_win_train_len;
-    unsigned int range_cfar_method;
-    unsigned int range_pfa;
-    unsigned int range_win_guard_len;
-    unsigned int range_win_train_len;
+    WinType range_win_type;
+    WinType doppler_win_type;
+    AoaEstimationType aoa_estimation_type;  // doaType
+    CfarMethod doppler_cfar_method;
+    float doppler_pfa;             // dFAR
+    int doppler_win_guard_len;     // dGWL
+    int doppler_win_train_len;     // dTWL
+    CfarMethod range_cfar_method;
+    float range_pfa;               // rFAR
+    int range_win_guard_len;       // rGWL
+    int range_win_train_len;       // rTWL
 
     // Clustering parameters
-    double eps;
-    unsigned int weight;
-    unsigned int min_points_in_cluster;
-    unsigned int max_clusters;
-    unsigned int max_points;
+    float eps;                     // eps
+    float weight;                  // weight
+    int min_points_in_cluster;     // mpc
+    int max_clusters;              // mc
+    int max_points;                // mp
 
     // Tracking parameters
-    unsigned int tracker_association_threshold;
-    double measurement_noise_variance;
-    unsigned int time_per_frame;
-    unsigned int iir_forget_factor;
-    unsigned int tracker_active_threshold;
-    unsigned int tracker_forget_threshold;
+    float tracker_association_threshold;  // tat
+    float measurement_noise_variance;     // mnv (was double)
+    float time_per_frame;          // tpf
+    float iir_forget_factor;       // iff
+    int tracker_active_threshold;  // at
+    int tracker_forget_threshold;  // ft
 
     RadarConfig() : 
-        num_rx(4), num_tx(2), start_frequency(77), idle(4),
-        adc_start_time(6), ramp_end_time(32), freq_slope_const(30),
-        adc_samples(256), adc_sample_rate(10000), num_chirps(64), fps(10),
-        range_win_type(1), doppler_win_type(1), aoa_estimation_type(1),
-        doppler_cfar_method(1), doppler_pfa(2), doppler_win_guard_len(4),
-        doppler_win_train_len(8), range_cfar_method(1), range_pfa(3),
+        num_rx(4), num_tx(2), start_frequency(77.0), idle(4.0),
+        adc_start_time(6.0), ramp_end_time(32.0), freq_slope_const(30.0),
+        adc_samples(256), adc_sample_rate(10000.0), num_chirps(64), fps(10.0),
+        range_win_type(static_cast<WinType>(1)), 
+        doppler_win_type(static_cast<WinType>(1)), 
+        aoa_estimation_type(static_cast<AoaEstimationType>(1)),
+        doppler_cfar_method(static_cast<CfarMethod>(1)), 
+        doppler_pfa(2.0), doppler_win_guard_len(4),
+        doppler_win_train_len(8), 
+        range_cfar_method(static_cast<CfarMethod>(1)), 
+        range_pfa(3.0),
         range_win_guard_len(6), range_win_train_len(10),
-        eps(5.0), weight(0), min_points_in_cluster(5), max_clusters(20),
-        max_points(1000), tracker_association_threshold(2),
-        measurement_noise_variance(0.1), time_per_frame(10),
-        iir_forget_factor(1), tracker_active_threshold(0),
+        eps(5.0), weight(0.0), min_points_in_cluster(5), max_clusters(20),
+        max_points(1000), tracker_association_threshold(2.0),
+        measurement_noise_variance(0.1), time_per_frame(10.0),
+        iir_forget_factor(1.0), tracker_active_threshold(0),
         tracker_forget_threshold(0) {}
 
     bool load_from_json(const std::string& filename) {

@@ -180,6 +180,73 @@ static gboolean gst_radar_processor_start(GstBaseTransform *trans) {
         filter->adc_samples = config.adc_samples;
         filter->trn = filter->num_rx * filter->num_tx;
 
+        // Initialize RadarParam with config values
+        filter->radar_param.startFreq = config.start_frequency;
+        filter->radar_param.idle = config.idle;
+        filter->radar_param.adcStartTime = config.adc_start_time;
+        filter->radar_param.rampEndTime = config.ramp_end_time;
+        filter->radar_param.freqSlopeConst = config.freq_slope_const;
+        filter->radar_param.adcSampleRate = config.adc_sample_rate;
+        filter->radar_param.rn = config.num_rx;
+        filter->radar_param.tn = config.num_tx;
+        filter->radar_param.sn = config.adc_samples;
+        filter->radar_param.cn = config.num_chirps;
+        filter->radar_param.fps = config.fps;
+
+        filter->radar_param.dFAR = config.doppler_pfa;
+        filter->radar_param.rFAR = config.range_pfa;
+        filter->radar_param.dGWL = config.doppler_win_guard_len;
+        filter->radar_param.dTWL = config.doppler_win_train_len;
+        filter->radar_param.rGWL = config.range_win_guard_len;
+        filter->radar_param.rTWL = config.range_win_train_len;
+        // JSON uses 1-based indexing, RadarDoaType enum is 0-based
+        filter->radar_param.doaType = (RadarDoaType)(config.aoa_estimation_type - 1);
+
+        filter->radar_param.eps = config.eps;
+        filter->radar_param.weight = config.weight;
+        filter->radar_param.mpc = config.min_points_in_cluster;
+        filter->radar_param.mc = config.max_clusters;
+        filter->radar_param.mp = config.max_points;
+
+        filter->radar_param.tat = config.tracker_association_threshold;
+        filter->radar_param.mnv = config.measurement_noise_variance;
+        filter->radar_param.tpf = config.time_per_frame;
+        filter->radar_param.iff = config.iir_forget_factor;
+        filter->radar_param.at = config.tracker_active_threshold;
+        filter->radar_param.ft = config.tracker_forget_threshold;
+
+        // Initialize RadarCube
+        filter->radar_cube.rn = config.num_rx;
+        filter->radar_cube.tn = config.num_tx;
+        filter->radar_cube.sn = config.adc_samples;
+        filter->radar_cube.cn = config.num_chirps;
+        filter->radar_cube.mat = nullptr;  // Will be set to output_data in transform
+
+        // Initialize RadarPointClouds 
+        filter->radar_point_clouds.len = 0;
+        filter->radar_point_clouds.maxLen = config.max_points;
+        filter->radar_point_clouds.rangeIdx = nullptr; //(ushort*)ALIGN_ALLOC(64, sizeof(ushort) * config.max_points)
+        filter->radar_point_clouds.speedIdx = nullptr; //(ushort*)ALIGN_ALLOC(64, sizeof(ushort) * config.max_points)
+        filter->radar_point_clouds.range = nullptr;    //(float*)ALIGN_ALLOC(64, sizeof(float) * config.max_points)
+        filter->radar_point_clouds.speed = nullptr;    //(float*)ALIGN_ALLOC(64, sizeof(float) * config.max_points)
+        filter->radar_point_clouds.angle = nullptr;    //(float*)ALIGN_ALLOC(64, sizeof(float) * config.max_points)
+        filter->radar_point_clouds.snr = nullptr;      //(float*)ALIGN_ALLOC(64, sizeof(float) * config.max_points)
+
+        // Initialize ClusterResult
+        filter->cluster_result.n = 0;
+        filter->cluster_result.idx = nullptr; //(int*)ALIGN_ALLOC(64, sizeof(int) * config.max_clusters)
+        filter->cluster_result.cd = nullptr;  //(ClusterDescription*)ALIGN_ALLOC(64, sizeof(ClusterDescription) * config.max_clusters)
+
+        // Initialize radar handle
+        filter->radar_handle = nullptr;
+
+        // Initialize TrackingResult
+        const int maxTrackingLen = 64;
+        filter->tracking_desc_buf.resize(maxTrackingLen);
+        filter->tracking_result.len = 0;
+        filter->tracking_result.maxLen = maxTrackingLen;
+        filter->tracking_result.td = filter->tracking_desc_buf.data();
+
         GST_INFO_OBJECT(filter, "Loaded radar config: RX=%u, TX=%u, Chirps=%u, Samples=%u, TRN=%u",
                        filter->num_rx, filter->num_tx, filter->num_chirps, 
                        filter->adc_samples, filter->trn);
@@ -218,6 +285,7 @@ static gboolean gst_radar_processor_stop(GstBaseTransform *trans) {
 
     filter->input_data.clear();
     filter->output_data.clear();
+    filter->tracking_desc_buf.clear();
     filter->last_frame_time = GST_CLOCK_TIME_NONE;
 
     return TRUE;
@@ -332,6 +400,10 @@ static GstFlowReturn gst_radar_processor_transform_ip(GstBaseTransform *trans, G
 
     // Copy processed data back to buffer
     std::copy(filter->output_data.begin(), filter->output_data.end(), input_ptr);
+
+    // Update RadarCube mat pointer to output_data
+    // std::complex<float> and cfloat have compatible memory layout
+    filter->radar_cube.mat = reinterpret_cast<cfloat*>(filter->output_data.data());
 
     gst_buffer_unmap(buffer, &map);
 
