@@ -100,8 +100,6 @@ on your system.
 **Deep Learning Streamer** is already used by many partners and customers
 leading solutions, including [Open Visual
 Cloud](https://github.com/OpenVisualCloud) Media Analytics services,
-[NTT Software Innovation
-Center](https://www.global.ntt/innovation/innovating-today/),
 [Videonetics Technology Pvt. Limited](https://www.videonetics.com/),
 AIVID TECHVISION and others.
 
