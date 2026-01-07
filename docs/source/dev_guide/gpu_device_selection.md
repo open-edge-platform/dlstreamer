@@ -2,22 +2,22 @@
 
 This article describes how to select a GPU device on a multi-GPU system.
 
-## 1. Media (VA based) elements
+## 1. Media (VAAPI based) elements
 
-The [GStreamer VA plugin](https://gstreamer.freedesktop.org/documentation/va/index.html)
-supports the `GST_VA_DRM_DEVICE` environment variable, which allows
-selecting a GPU device for VA elements (and `decodebin3` element in case
-it internally works on VA elements).
+The [GStreamer VAAPI plugin](https://gstreamer.freedesktop.org/documentation/vaapi/index.html)
+supports the `GST_VAAPI_DRM_DEVICE` environment variable, which allows
+selecting a GPU device for VAAPI elements (and `decodebin3` element in case
+it internally works on VAAPI elements).
 
-The `GST_VA_DRM_DEVICE` environment variable expects the GPU device
+The `GST_VAAPI_DRM_DEVICE` environment variable expects the GPU device
 driver path. The `/dev/dri/renderD128` path typically represents the first
 GPU device on the system, `/dev/dri/renderD129` represents the second, etc.
 
-For example, the following command forces VA elements (and
+For example, the following command forces VAAPI elements (and
 `decodebin3`) to use the second GPU device:
 
 ```bash
-export GST_VA_DRM_DEVICE=/dev/dri/renderD129
+export GST_VAAPI_DRM_DEVICE=/dev/dri/renderD129
 ```
 
 ## 2. Inference (OpenVINO™ based) elements
@@ -37,15 +37,15 @@ gst-launch-1.0 "... ! decodebin3 ! gvadetect device=GPU.1 ! ..."
 ### Automatic selection
 
 For running both video decoding and inference on GPU, select the GPU
-device by setting the environment variable for the VA decode element, and
+device by setting the environment variable for the VAAPI decode element, and
 setting `device=GPU` for all inference elements. This will enable inference
-elements to query the VA context from the VA decode element and
+elements to query the VAAPI context from the VAAPI decode element and
 automatically run inference and pre-processing on the same GPU device as
 video decoding (GPU device affinity). For example, to select the second GPU
 device for decoding and inference:
 
 ```bash
-export GST_VA_DRM_DEVICE=/dev/dri/renderD129
+export GST_VAAPI_DRM_DEVICE=/dev/dri/renderD129
 gst-launch-1.0 "... ! decodebin3 ! gvadetect device=GPU ! ..."
 ```
 
