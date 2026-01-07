@@ -389,8 +389,18 @@ static GstFlowReturn gst_lidar_parse_transform(GstBaseTransform *trans, GstBuffe
         g_mutex_unlock(&filter->mutex);
         return GST_FLOW_ERROR;
     }*/
+    
+    GstClockTime exit_lidarparse_timestamp = GST_CLOCK_TIME_NONE;
+    if (GstClock *clock = gst_element_get_clock(GST_ELEMENT(filter))) {
+        exit_lidarparse_timestamp = gst_clock_get_time(clock);
+        GST_DEBUG_OBJECT(filter, "exit_ts from element clock: %" GST_TIME_FORMAT, GST_TIME_ARGS(exit_lidarparse_timestamp));
+        gst_object_unref(clock);
+    } else {
+        exit_lidarparse_timestamp = gst_util_get_timestamp();
+        GST_DEBUG_OBJECT(filter, "exit_ts from gst_util_get_timestamp: %" GST_TIME_FORMAT, GST_TIME_ARGS(exit_lidarparse_timestamp));
+    }
 
-    LidarMeta *lidar_meta = add_lidar_meta(outbuf, point_count, float_data, frame_id);
+    LidarMeta *lidar_meta = add_lidar_meta(outbuf, point_count, float_data, frame_id, exit_lidarparse_timestamp);
     if (!lidar_meta) {
         GST_ERROR_OBJECT(filter, "Failed to add lidar meta to buffer");
         g_mutex_unlock(&filter->mutex);
@@ -406,6 +416,7 @@ static GstFlowReturn gst_lidar_parse_transform(GstBaseTransform *trans, GstBuffe
         std::ostringstream oss;
         oss << "lidar_point_count=" << lidar_meta->lidar_point_count
             << " frame_id=" << lidar_meta->frame_id
+            << " exit_ts=" << lidar_meta->exit_lidarparse_timestamp << "ns"
             << " preview(" << preview_len << "/" << count << "):";
 
         for (gsize i = 0; i < preview_len; ++i) {
