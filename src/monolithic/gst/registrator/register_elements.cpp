@@ -22,6 +22,8 @@
 #include "gstgvatrack.h"
 #include "gstgvawatermarkimpl.h"
 #include "gvawatermark.h"
+#include "gvawatermark3d.h"
+#include "gvadeskew.h"
 #include "inference_backend/logger.h"
 #include "logger_functions.h"
 
@@ -60,6 +62,10 @@ static gboolean plugin_init(GstPlugin *plugin) {
     if (!gst_element_register(plugin, "gvawatermarkimpl", GST_RANK_NONE, GST_TYPE_GVA_WATERMARK_IMPL))
         return FALSE;
     if (!gst_element_register(plugin, "gvametaaggregate", GST_RANK_NONE, GST_TYPE_GVA_META_AGGREGATE))
+        return FALSE;
+    if (!gst_element_register(plugin, "gvadeskew", GST_RANK_NONE, GST_TYPE_GVADESKEW))
+        return FALSE;
+    if (!gst_element_register(plugin, "gvawatermark3d", GST_RANK_NONE, GST_TYPE_GVAWATERMARK3D))
         return FALSE;
 #if _MSC_VER
     if (!gst_element_register(plugin, "gvametapublish", GST_RANK_NONE, GST_TYPE_GVA_META_PUBLISH))
