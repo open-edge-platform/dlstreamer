@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2018-2025 Intel Corporation
+ * Copyright (C) 2018-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -27,12 +27,12 @@
 #include "safe_arithmetic.hpp"
 #include "utils.h"
 
+#ifndef _WIN32
 #ifdef ENABLE_VAAPI
 #include <dlstreamer/vaapi/context.h>
-#include <openvino/runtime/intel_gpu/properties.hpp>
-#include <openvino/runtime/intel_npu/properties.hpp>
 #ifdef ENABLE_GPU_TILE_AFFINITY
 #include "vaapi_utils.h"
+#endif
 #endif
 #endif
 
