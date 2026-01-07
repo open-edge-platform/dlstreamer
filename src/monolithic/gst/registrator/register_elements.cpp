@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2018-2025 Intel Corporation
+ * Copyright (C) 2018-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -11,6 +11,7 @@
 #include "gstgvaaudiodetect.h"
 #ifdef ENABLE_GENAI
 #include "gstgvaaudiotranscribe.h"
+#include "gstgvagenai.h"
 #endif
 #include "gstgvaclassify.h"
 #include "gstgvadetect.h"
@@ -46,6 +47,8 @@ static gboolean plugin_init(GstPlugin *plugin) {
         return FALSE;
 #ifdef ENABLE_GENAI
     if (!gst_element_register(plugin, "gvaaudiotranscribe", GST_RANK_NONE, gst_gva_audio_transcribe_get_type()))
+        return FALSE;
+    if (!gst_element_register(plugin, "gvagenai", GST_RANK_NONE, GST_TYPE_GVAGENAI))
         return FALSE;
 #endif
     if (!gst_element_register(plugin, "gvatrack", GST_RANK_NONE, GST_TYPE_GVA_TRACK))
