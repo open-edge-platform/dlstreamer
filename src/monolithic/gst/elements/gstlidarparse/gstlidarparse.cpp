@@ -328,11 +328,11 @@ static GstFlowReturn gst_lidar_parse_transform(GstBaseTransform *trans, GstBuffe
     }
 
     gst_buffer_remove_all_memory(outbuf);
-    if (!gst_buffer_copy_into(outbuf, inbuf, GST_BUFFER_COPY_ALL, 0, -1)) {
+    /*if (!gst_buffer_copy_into(outbuf, inbuf, GST_BUFFER_COPY_ALL, 0, -1)) {
         GST_ERROR_OBJECT(filter, "Failed to copy input buffer to output buffer");
         g_mutex_unlock(&filter->mutex);
         return GST_FLOW_ERROR;
-    }
+    }*/
 
     LidarMeta *lidar_meta = add_lidar_meta(outbuf, point_count, float_data);
     if (!lidar_meta) {
