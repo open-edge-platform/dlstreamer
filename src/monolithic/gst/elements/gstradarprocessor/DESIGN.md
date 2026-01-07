@@ -49,7 +49,7 @@ For every incoming buffer:
 *   TRN = Num_RX * Num_TX.
 
 ### 4.3. Pre-processing (Data Layout Transformation)
-The raw input data typically arrives in `TRN * Chirps * Samples` layout. The element transforms this into a `Chirps * TRN * Samples` layout, which constitutes the `RadarCube`.
+The raw input data typically arrives in `Chirps * TRN * Samples` layout. The element transforms this into a `TRN * Chirps * Samples` layout, which constitutes the `RadarCube`.
 
 ### 4.4. Signal Conditioning (DC Removal)
 To remove static clutter or leakage:
