@@ -294,14 +294,14 @@ static GstFlowReturn gst_lidar_parse_transform(GstBaseTransform *trans, GstBuffe
 
     GST_INFO_OBJECT(filter, "Processing file #%lu (stride=%d)", filter->current_index, filter->stride);
     filter->current_index++;
-
+    
+    GstMapInfo in_map;
     size_t num_floats = 0;
     size_t point_count = 0;
     std::vector<float> float_data;
 
     if (filter->file_type == FILE_TYPE_BIN) {
         // Process BIN file
-        GstMapInfo in_map;
         if (!gst_buffer_map(inbuf, &in_map, GST_MAP_READ)) {
             GST_ERROR_OBJECT(filter, "Failed to map input buffer for reading");
             g_mutex_unlock(&filter->mutex);
@@ -322,9 +322,64 @@ static GstFlowReturn gst_lidar_parse_transform(GstBaseTransform *trans, GstBuffe
         float_data.assign(data, data + num_floats);
         gst_buffer_unmap(inbuf, &in_map);
     } else if (filter->file_type == FILE_TYPE_PCD) {
-        // Process PCD file (example logic, adjust as needed)
-        GST_INFO_OBJECT(filter, "Processing PCD file");
-        // Add PCD-specific parsing logic here
+        // Map input for PCD parsing
+        GstMapInfo in_map;
+        if (!gst_buffer_map(inbuf, &in_map, GST_MAP_READ)) {
+            GST_ERROR_OBJECT(filter, "Failed to map input buffer for reading (PCD)");
+            g_mutex_unlock(&filter->mutex);
+            return GST_FLOW_ERROR;
+        }
+
+        // Detect PCD format (ASCII or binary) using the header
+        const size_t header_len = std::min(in_map.size, static_cast<size_t>(4096));
+        std::string header(reinterpret_cast<const char *>(in_map.data), header_len);
+        bool is_ascii = header.find("DATA ascii") != std::string::npos;
+
+        if (is_ascii) {
+            GST_INFO_OBJECT(filter, "Detected ASCII PCD format.");
+            std::istringstream iss(std::string(reinterpret_cast<const char *>(in_map.data), in_map.size));
+            std::string line;
+            while (std::getline(iss, line)) {
+                if (line.empty() || line[0] == '#') continue;
+                float x, y, z, i;
+                if (std::istringstream(line) >> x >> y >> z >> i) {
+                    float_data.insert(float_data.end(), {x, y, z, i});
+                }
+            }
+        } else {
+            GST_INFO_OBJECT(filter, "Detected binary PCD format.");
+            const size_t token_pos = header.find("DATA binary");
+            if (token_pos == std::string::npos) {
+                GST_ERROR_OBJECT(filter, "Failed to locate binary data section in PCD file.");
+                gst_buffer_unmap(inbuf, &in_map);
+                g_mutex_unlock(&filter->mutex);
+                return GST_FLOW_ERROR;
+            }
+
+            size_t newline_pos = header.find('\n', token_pos);
+            if (newline_pos == std::string::npos) {
+                GST_ERROR_OBJECT(filter, "Binary PCD header missing newline after DATA binary");
+                gst_buffer_unmap(inbuf, &in_map);
+                g_mutex_unlock(&filter->mutex);
+                return GST_FLOW_ERROR;
+            }
+
+            const size_t payload_offset = newline_pos + 1;
+            if (payload_offset >= in_map.size) {
+                GST_ERROR_OBJECT(filter, "Binary PCD payload offset out of range");
+                gst_buffer_unmap(inbuf, &in_map);
+                g_mutex_unlock(&filter->mutex);
+                return GST_FLOW_ERROR;
+            }
+
+            const size_t num_points = (in_map.size - payload_offset) / (4 * sizeof(float));
+            const float *data = reinterpret_cast<const float *>(in_map.data + payload_offset);
+            float_data.assign(data, data + num_points * 4);
+        }
+
+        gst_buffer_unmap(inbuf, &in_map);
+        num_floats = float_data.size();
+        point_count = num_floats / 4;
     }
 
     gst_buffer_remove_all_memory(outbuf);
