@@ -341,21 +341,23 @@ static GstFlowReturn gst_lidar_parse_transform(GstBaseTransform *trans, GstBuffe
         return GST_FLOW_ERROR;
     }
 
-    // Debug dump: print lidar_point_count and first few floats
-    GstMapInfo out_map;
-    if (gst_buffer_map(outbuf, &out_map, GST_MAP_READ)) {
-        const float *f = reinterpret_cast<const float *>(out_map.data);
-        gsize n = out_map.size / sizeof(float);
-        gsize dump = MIN(n, 5); 
+    // Debug dump: print lidar_point_count and first few floats from meta data
+    if (!lidar_meta->lidar_data.empty()) {
+        const auto &values = lidar_meta->lidar_data;
+        const gsize count = values.size();
+        const gsize preview_len = std::min<gsize>(count, 5);
+
         std::ostringstream oss;
-        oss << "lidar_point_count=" << lidar_meta->lidar_point_count << " dump(" << dump << "/" << n << "): ";
-        for (gsize i = 0; i < dump; ++i) {
-            oss << std::fixed << std::setprecision(6) << f[i] << " ";
+        oss << "lidar_point_count=" << lidar_meta->lidar_point_count
+            << " preview(" << preview_len << "/" << count << "):";
+
+        for (gsize i = 0; i < preview_len; ++i) {
+            oss << " " << std::fixed << std::setprecision(6) << values[i];
         }
+
         GST_INFO_OBJECT(filter, "%s", oss.str().c_str());
-        gst_buffer_unmap(outbuf, &out_map);
     } else {
-        GST_WARNING_OBJECT(filter, "Failed to map outbuf for dump");
+        GST_INFO_OBJECT(filter, "lidar_point_count=0 preview(0/0): <empty>");
     }
 
     GST_INFO_OBJECT(filter, "Successfully processed lidar buffer with %u floats", lidar_meta->lidar_point_count);
