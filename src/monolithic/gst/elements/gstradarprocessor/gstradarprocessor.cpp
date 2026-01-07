@@ -365,14 +365,14 @@ static GstFlowReturn gst_radar_processor_transform_ip(GstBaseTransform *trans, G
         return GST_FLOW_ERROR;
     }
 
-    // Copy input data (trn*c*s layout)
+    // Copy input data (c*trn*s layout)
     std::complex<float> *input_ptr = reinterpret_cast<std::complex<float>*>(map.data);
     std::copy(input_ptr, input_ptr + filter->input_data.size(), filter->input_data.begin());
 
     GST_DEBUG_OBJECT(filter, "Processing frame #%" G_GUINT64_FORMAT ":TRN=%u, Chirps=%u, Samples=%u", filter->frame_id,
                     filter->trn, filter->num_chirps, filter->adc_samples);
 
-    // Reorder from trn*c*s to c*trn*s and apply DC removal
+    // Reorder from c*trn*s to trn*c*s and apply DC removal
     for (guint c = 0; c < filter->num_chirps; c++) {
         for (guint t = 0; t < filter->trn; t++) {
             // Apply DC removal on each 256-sample segment
@@ -380,19 +380,19 @@ static GstFlowReturn gst_radar_processor_transform_ip(GstBaseTransform *trans, G
             
             // Extract samples for this chirp and channel
             for (guint s = 0; s < filter->adc_samples; s++) {
-                // Input layout: trn*c*s
-                size_t input_idx = t * filter->num_chirps * filter->adc_samples + 
-                                  c * filter->adc_samples + s;
+                // Input layout: c*trn*s
+                size_t input_idx = c * filter->trn * filter->adc_samples + 
+                                   t * filter->adc_samples + s;
                 temp_samples[s] = filter->input_data[input_idx];
             }
             
             // Apply DC removal
             dc_removal(temp_samples, filter->adc_samples);
             
-            // Copy to output with new layout: c*trn*s
+            // Copy to output with new layout: trn*c*s
             for (guint s = 0; s < filter->adc_samples; s++) {
-                size_t output_idx = c * filter->trn * filter->adc_samples + 
-                                   t * filter->adc_samples + s;
+                size_t output_idx = t * filter->num_chirps * filter->adc_samples + 
+                                  c * filter->adc_samples + s;
                 filter->output_data[output_idx] = temp_samples[s];
             }
         }
