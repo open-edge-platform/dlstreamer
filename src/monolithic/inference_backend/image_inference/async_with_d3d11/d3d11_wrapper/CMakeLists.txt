@@ -1,5 +1,5 @@
 # ==============================================================================
-# Copyright (C) 2025 Intel Corporation
+# Copyright (C) 2025-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
@@ -26,22 +26,15 @@ if(WIN32)
         target_include_directories(${TARGET_NAME}
         PUBLIC
                 ${CMAKE_CURRENT_SOURCE_DIR}
-                ${VA_INCLUDE_DIRS}
                 ${GSTD3D11_INCLUDE_DIRS}
-        PRIVATE
-                ${VADRM_INCLUDE_DIRS}
         )
 
         target_link_libraries(${TARGET_NAME}
         PUBLIC
                 logger
-                pre_proc
-                opencv_pre_proc
                 utils
                 d3d11
                 dxgi
                 ${GSTD3D11_LIBRARIES}
-        PRIVATE
-                utils
         )
 endif()

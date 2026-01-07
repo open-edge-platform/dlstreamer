@@ -1,5 +1,5 @@
 # ==============================================================================
-# Copyright (C) 2018-2025 Intel Corporation
+# Copyright (C) 2018-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
@@ -93,7 +93,7 @@ PUBLIC
     model_proc
 )
 
-if(${ENABLE_VAAPI})
+if(${ENABLE_VAAPI} AND NOT(WIN32))
     target_link_libraries(${TARGET_NAME} PRIVATE va_api_wrapper image_inference_async)
 endif()
 

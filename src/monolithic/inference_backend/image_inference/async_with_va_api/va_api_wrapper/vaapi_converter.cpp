@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2018-2025 Intel Corporation
+ * Copyright (C) 2018-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -10,20 +10,13 @@
 #include "safe_arithmetic.hpp"
 #include "utils.h"
 
-#if !(_MSC_VER)
 #include <drm/drm_fourcc.h>
-#endif
 
 #include <va/va_drmcommon.h>
 
 #include <cstring>
 #include <stdexcept>
 #include <string>
-
-#if _MSC_VER
-#include <io.h>
-#define close _close
-#endif
 
 using namespace InferenceBackend;
 
@@ -81,11 +74,7 @@ VASurfaceID ConvertVASurfaceFromDifferentDriverContext(VaDpyWrapper src_display,
     drm_fd_out = drm_fd;
     external.buffers = &drm_fd;
     external.data_size = object.size;
-#if !(_MSC_VER)
     external.flags = object.drm_format_modifier == DRM_FORMAT_MOD_LINEAR ? 0 : VA_SURFACE_EXTBUF_DESC_ENABLE_TILING;
-#else
-    external.flags = 0;
-#endif
     uint32_t k = 0;
     for (uint32_t i = 0; i < drm_descriptor.num_layers; i++) {
         for (uint32_t j = 0; j < drm_descriptor.layers[i].num_planes; j++) {

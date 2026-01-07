@@ -15,12 +15,11 @@
 #ifndef _MSC_VER
 #include <dlstreamer/gst/context.h>
 #include <dlstreamer/vaapi/context.h>
-#include <va/va.h>
+#include <opencv2/core/va_intel.hpp>
 #endif
 
 #include <opencv2/core.hpp>
 #include <opencv2/core/ocl.hpp>
-#include <opencv2/core/va_intel.hpp>
 #include <opencv2/imgproc.hpp>
 
 G_BEGIN_DECLS
