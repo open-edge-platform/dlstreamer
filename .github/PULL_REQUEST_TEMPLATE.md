@@ -15,8 +15,8 @@ Please describe the tests that you ran to verify your changes. Provide instructi
 
 ### Checklist:
 
-- [ ] I agree to use the APACHE-2.0 license for my code changes.
-- [ ] I have not introduced any 3rd party components incompatible with APACHE-2.0. 
+- [ ] I agree to use the MIT license for my code changes.
+- [ ] I have not introduced any 3rd party components incompatible with MIT. 
 - [ ] I have not included any company confidential information, trade secret, password or security token. 
 - [ ] I have performed a self-review of my code.
 
