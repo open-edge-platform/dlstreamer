@@ -14,8 +14,7 @@ GST_DEBUG_CATEGORY_STATIC(gst_lidar_parse_debug);
 enum {
     PROP_0,
     PROP_STRIDE,
-    PROP_FRAME_RATE,
-    PROP_FILE_TYPE // New property for file type
+    PROP_FRAME_RATE
 };
 
 static GstStaticPadTemplate sink_template = GST_STATIC_PAD_TEMPLATE(
@@ -83,12 +82,6 @@ static void gst_lidar_parse_class_init(GstLidarParseClass *klass) {
                           0.0, G_MAXFLOAT, 0.0,
                           (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
-    g_object_class_install_property(gobject_class, PROP_FILE_TYPE,
-        g_param_spec_enum("file-type", "File Type",
-                      "Specifies the type of input file: BIN for binary files, PCD for point cloud data files.",
-                      file_type_get_type(), FILE_TYPE_BIN,
-                      (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
-
     gst_element_class_set_static_metadata(gstelement_class,
         "Lidar Binary Parser",
         "Filter/Converter",
@@ -121,7 +114,6 @@ static void gst_lidar_parse_finalize(GObject *object) {
     g_mutex_clear(&filter->mutex);
 
     filter->current_index = 0;
-    filter->is_single_file = FALSE;
 
     G_OBJECT_CLASS(gst_lidar_parse_parent_class)->finalize(object);
 }
@@ -136,9 +128,6 @@ static void gst_lidar_parse_set_property(GObject *object, guint prop_id,
             break;
         case PROP_FRAME_RATE:
             filter->frame_rate = g_value_get_float(value);
-            break;
-        case PROP_FILE_TYPE:
-            filter->file_type = (FileType)g_value_get_enum(value);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -156,9 +145,6 @@ static void gst_lidar_parse_get_property(GObject *object, guint prop_id,
             break;
         case PROP_FRAME_RATE:  
             g_value_set_float(value, filter->frame_rate);
-            break;
-        case PROP_FILE_TYPE:
-            g_value_set_enum(value, filter->file_type);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -189,7 +175,6 @@ static gboolean gst_lidar_parse_start(GstBaseTransform *trans) {
         return FALSE;
     }
 
-    // Get location from upstream
     gchar *upstream_location = NULL;
     g_object_get(upstream_element, "location", &upstream_location, NULL);
 
