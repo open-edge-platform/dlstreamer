@@ -75,20 +75,22 @@ set MODELS_PATH=C:\models
 
 ## Running
 
+The script supports named parameters using the `--name=value` format. All parameters are optional and can be specified in any order.
+
 ```batch
-yolo_detect.bat [MODEL] [DEVICE] [INPUT] [OUTPUT] [PPBKEND] [PRECISION]
+yolo_detect.bat [OPTIONS]
 ```
 
 ### Parameters
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| MODEL | yolox_s | Model name (see supported models above) |
-| DEVICE | GPU | Inference device: CPU, GPU, NPU |
-| INPUT | Pexels video URL | Input video file or URL |
-| OUTPUT | display | Output type: file, display, fps, json, display-and-json |
-| PPBKEND | auto | Pre-processing backend: ie, opencv, d3d11 |
-| PRECISION | INT8 | Model precision: INT8, FP32, FP16 |
+| --model | yolox_s | Model name (see supported models above) |
+| --device | GPU | Inference device: CPU, GPU, NPU |
+| --input | Pexels video URL | Input video file or URL |
+| --output | display | Output type: file, display, fps, json, display-and-json |
+| --ppbkend | auto | Pre-processing backend: ie, opencv, d3d11 |
+| --precision | FP16 | Model precision: INT8, FP32, FP16 |
 
 ### Examples
 
@@ -99,32 +101,42 @@ yolo_detect.bat
 
 Run yolo11s model with GPU inference:
 ```batch
-yolo_detect.bat yolo11s GPU
+yolo_detect.bat --model=yolo11s
 ```
 
 Run with local video file:
 ```batch
-yolo_detect.bat yolo11s GPU C:\videos\test.mp4
+yolo_detect.bat --model=yolo11s --input=C:\videos\test.mp4
 ```
 
 Run with CPU and save to file:
 ```batch
-yolo_detect.bat yolo11s CPU C:\videos\test.mp4 file
+yolo_detect.bat --model=yolo11s --device=CPU --input=C:\videos\test.mp4 --output=file
 ```
 
 Run with explicit D3D11 backend:
 ```batch
-yolo_detect.bat yolo11s GPU C:\videos\test.mp4 display d3d11
+yolo_detect.bat --model=yolo11s --ppbkend=d3d11
 ```
 
 Run in FPS-only mode (benchmark):
 ```batch
-yolo_detect.bat yolo11s GPU C:\videos\test.mp4 fps
+yolo_detect.bat --model=yolo11s --output=fps
 ```
 
 Run with FP32 precision:
 ```batch
-yolo_detect.bat yolo11s GPU C:\videos\test.mp4 display d3d11 FP32
+yolo_detect.bat --model=yolo11s --precision=FP32
+```
+
+Specify only the preprocessing backend:
+```batch
+yolo_detect.bat --ppbkend=opencv
+```
+
+Multiple parameters in any order:
+```batch
+yolo_detect.bat --device=NPU --precision=INT8 --model=yolo11s --output=fps
 ```
 
 ### Output Types

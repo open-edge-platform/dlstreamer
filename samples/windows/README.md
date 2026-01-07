@@ -2,6 +2,11 @@
 
 This folder contains Windows-specific samples and scripts for Intel® Deep Learning Streamer (Intel® DL Streamer).
 
+## Requirements
+
+- Python 3.12 or Python 3.11 (Python 3.13 is not yet supported by openvino-dev)
+- pip install openvino-dev[onnx]
+
 ## Download Models
 
 Before running samples, download the required models by running:

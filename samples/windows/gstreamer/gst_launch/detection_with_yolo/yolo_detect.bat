@@ -8,7 +8,7 @@
 @REM ==============================================================================
 
 @echo off
-setlocal EnableDelayedExpansion
+setlocal
 
 @REM Check MODELS_PATH
 if NOT DEFINED MODELS_PATH (
@@ -31,9 +31,10 @@ set OUTPUT=%4
 if [%OUTPUT%]==[] set OUTPUT=display
 
 set PPBKEND=%5
+if [%PPBKEND%]==[] set PPBKEND=d3d11
 
 set PRECISION=%6
-if [%PRECISION%]==[] set PRECISION=INT8
+if [%PRECISION%]==[] set PRECISION=FP16
 
 @REM Show help
 if "%MODEL%"=="--help" goto :show_help
@@ -49,7 +50,7 @@ echo             Supported: yolox-tiny, yolox_s, yolov5s, yolov5su, yolov7, yolo
 echo   DEVICE    - Device (default: GPU). Supported: CPU, GPU, NPU
 echo   INPUT     - Input source (default: Pexels video URL)
 echo   OUTPUT    - Output type (default: display). Supported: file, display, fps, json, display-and-json
-echo   PPBKEND   - Preprocessing backend (default: auto). Supported: ie, opencv, d3d11
+echo   PPBKEND   - Preprocessing backend (default: auto). Supported: ie, opencv for CPU, d3d11 for GPU/NPU
 echo   PRECISION - Model precision (default: INT8). Supported: INT8, FP32, FP16
 echo.
 EXIT /B 0
@@ -80,14 +81,13 @@ if NOT "%PRECISION%"=="INT8" if NOT "%PRECISION%"=="FP32" if NOT "%PRECISION%"==
 
 @REM Set model-proc file based on model
 set MODEL_PROC=
-if "%MODEL%"=="yolox-tiny" set MODEL_PROC=%~dp0..\..\model_proc\public\yolo-x.json
-if "%MODEL%"=="yolox_s" set MODEL_PROC=%~dp0..\..\model_proc\public\yolo-x.json
-if "%MODEL%"=="yolov5s" set MODEL_PROC=%~dp0..\..\model_proc\public\yolo-v7.json
-if "%MODEL%"=="yolov5su" set MODEL_PROC=%~dp0..\..\model_proc\public\yolo-v8.json
-if "%MODEL%"=="yolov7" set MODEL_PROC=%~dp0..\..\model_proc\public\yolo-v7.json
-
-@REM Set model path
-set MODEL_PATH=%MODELS_PATH%\public\%MODEL%\%PRECISION%\%MODEL%.xml
+if "%MODEL%"=="yolox-tiny" set MODEL_PROC=%~dp0..\..\..\..\gstreamer\model_proc\public\yolo-x.json
+if "%MODEL%"=="yolox_s" set MODEL_PROC=%~dp0..\..\..\..\gstreamer\model_proc\public\yolo-x.json
+if "%MODEL%"=="yolov5s" set MODEL_PROC=%~dp0..\..\..\..\gstreamer\model_proc\public\yolo-v7.json
+if "%MODEL%"=="yolov5su" set MODEL_PROC=%~dp0..\..\..\..\gstreamer\model_proc\public\yolo-v8.json
+if "%MODEL%"=="yolov7" set MODEL_PROC=%~dp0..\..\..\..\gstreamer\model_proc\public\yolo-v7.json
+@REM Set model path (strip quotes from MODELS_PATH)
+set MODEL_PATH=%MODELS_PATH:"=%\public\%MODEL%\%PRECISION%\%MODEL%.xml
 
 @REM Check if model exists
 if NOT EXIST "%MODEL_PATH%" (
@@ -100,14 +100,12 @@ if NOT EXIST "%MODEL_PATH%" (
 set SOURCE_ELEMENT=
 echo %INPUT% | findstr /C:"://" >nul
 if %ERRORLEVEL%==0 (
-    set SOURCE_ELEMENT=urisourcebin buffer-size=4096 uri=%INPUT%
+    set SOURCE_ELEMENT=urisourcebin uri=%INPUT%
 ) else (
     set INPUT_PATH=%INPUT:\=/%
-    set SOURCE_ELEMENT=filesrc location=!INPUT_PATH!
+    set SOURCE_ELEMENT=filesrc location=%INPUT_PATH%
 )
 
-@REM Set decode element - prefer D3D11 decoder on Windows for GPU acceleration
-set DECODE_ELEMENT=decodebin3
 
 @REM Set pre-process backend based on device
 @REM On Windows: use d3d11 for GPU/NPU, ie for CPU
@@ -136,19 +134,19 @@ if "%MODEL%"=="yolov10s" if "%DEVICE%"=="GPU" (
 @REM Set sink element based on output type
 if "%OUTPUT%"=="file" (
     for %%F in ("%INPUT%") do set FILENAME=%%~nF
-    set OUTPUT_FILE=yolo_!FILENAME!_%MODEL%_%PRECISION%_%DEVICE%.mp4
-    if EXIST "!OUTPUT_FILE!" del "!OUTPUT_FILE!"
-    set SINK_ELEMENT=d3d11convert ! gvawatermark ! gvafpscounter ! d3d11h264enc ! h264parse ! mp4mux ! filesink location=!OUTPUT_FILE!
+    set OUTPUT_FILE=yolo_%FILENAME%_%MODEL%_%PRECISION%_%DEVICE%.mp4
+    if EXIST "%OUTPUT_FILE%" del "%OUTPUT_FILE%"
+    set SINK_ELEMENT=! queue ! d3d11convert ! gvawatermark ! gvafpscounter ! d3d11h264enc ! h264parse ! mp4mux ! filesink location=%OUTPUT_FILE%
 ) else if "%OUTPUT%"=="display" (
-    set SINK_ELEMENT=d3d11convert ! gvawatermark ! videoconvert ! gvafpscounter ! autovideosink sync=false
+    set SINK_ELEMENT=! queue ! d3d11convert ! gvawatermark ! videoconvert ! gvafpscounter ! d3d11videosink sync=false
 ) else if "%OUTPUT%"=="fps" (
-    set SINK_ELEMENT=gvafpscounter ! fakesink async=false
+    set SINK_ELEMENT=! queue ! gvafpscounter ! fakesink async=false
 ) else if "%OUTPUT%"=="json" (
     if EXIST "output.json" del "output.json"
-    set SINK_ELEMENT=gvametaconvert add-tensor-data=true ! gvametapublish file-format=json-lines file-path=output.json ! fakesink async=false
+    set SINK_ELEMENT=! queue ! gvametaconvert add-tensor-data=true ! gvametapublish file-format=json-lines file-path=output.json ! fakesink async=false
 ) else if "%OUTPUT%"=="display-and-json" (
     if EXIST "output.json" del "output.json"
-    set SINK_ELEMENT=d3d11convert ! gvawatermark ! gvametaconvert add-tensor-data=true ! gvametapublish file-format=json-lines file-path=output.json ! videoconvert ! gvafpscounter ! autovideosink sync=false
+    set SINK_ELEMENT=! queue ! d3d11convert ! gvawatermark ! gvametaconvert add-tensor-data=true ! gvametapublish file-format=json-lines file-path=output.json ! videoconvert ! gvafpscounter ! d3d11videosink sync=false
 ) else (
     echo [91mERROR: Invalid OUTPUT parameter[0m
     echo Valid values: file, display, fps, json, display-and-json
@@ -160,26 +158,21 @@ set MODEL_PATH=%MODEL_PATH:\=/%
 if DEFINED MODEL_PROC set MODEL_PROC=%MODEL_PROC:\=/%
 
 @REM Build pipeline
-set PIPELINE=gst-launch-1.0 %SOURCE_ELEMENT% ! %DECODE_ELEMENT% ! gvadetect model="%MODEL_PATH%"
+set MODEL_PROC_PART=
+if DEFINED MODEL_PROC set MODEL_PROC_PART= model-proc=%MODEL_PROC%
 
-if DEFINED MODEL_PROC (
-    set PIPELINE=!PIPELINE! model-proc="%MODEL_PROC%"
-)
+set IE_CONFIG_PART=
+if DEFINED IE_CONFIG set IE_CONFIG_PART= %IE_CONFIG%
 
-set PIPELINE=!PIPELINE! device=%DEVICE% pre-process-backend=%PREPROC_BACKEND%
-
-if DEFINED IE_CONFIG (
-    set PIPELINE=!PIPELINE! %IE_CONFIG%
-)
-
-set PIPELINE=!PIPELINE! ! queue ! %SINK_ELEMENT%
+@REM Build complete pipeline in one line
+set PIPELINE=gst-launch-1.0 %SOURCE_ELEMENT% ! decodebin3 ! gvadetect model=%MODEL_PATH% %MODEL_PROC_PART% device=%DEVICE% pre-process-backend=%PREPROC_BACKEND% %IE_CONFIG_PART% %SINK_ELEMENT%
 
 @REM Run pipeline
 echo.
 echo Running pipeline:
-echo !PIPELINE!
+echo %PIPELINE%
 echo.
 
-!PIPELINE!
+%PIPELINE%
 
 EXIT /B %ERRORLEVEL%
