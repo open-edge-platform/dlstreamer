@@ -3,6 +3,7 @@
 
 #include <gst/gst.h>
 #include <vector>
+#include <cstddef>
 
 
 G_BEGIN_DECLS
@@ -11,6 +12,7 @@ typedef struct _LidarMeta {
     GstMeta meta;
     guint lidar_point_count;
     std::vector<float> lidar_data;
+    size_t frame_id;
 } LidarMeta;
 
 GType lidar_meta_api_get_type(void);
@@ -20,7 +22,7 @@ const GstMetaInfo *lidar_meta_get_info(void);
 #define LIDAR_META_INFO (lidar_meta_get_info())
 #define LIDAR_META_CAPS "application/x-lidarmeta"
 
-LidarMeta *add_lidar_meta(GstBuffer *buffer, guint lidar_point_count, const std::vector<float> &lidar_data);
+LidarMeta *add_lidar_meta(GstBuffer *buffer, guint lidar_point_count, const std::vector<float> &lidar_data, size_t frame_id);
 
 G_END_DECLS
 

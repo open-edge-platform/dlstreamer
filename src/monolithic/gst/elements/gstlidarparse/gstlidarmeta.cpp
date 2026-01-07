@@ -18,6 +18,7 @@ static gboolean lidar_meta_init(GstMeta *meta, gpointer params, GstBuffer *buffe
     LidarMeta *lidar_meta = (LidarMeta *)meta;
     new (&lidar_meta->lidar_data) std::vector<float>();
     lidar_meta->lidar_point_count = 0;
+    lidar_meta->frame_id = 0;
     return TRUE;
 }
 
@@ -43,13 +44,13 @@ const GstMetaInfo *lidar_meta_get_info(void) {
     return meta_info;
 }
 
-LidarMeta *add_lidar_meta(GstBuffer *buffer, guint lidar_point_count, const std::vector<float> &lidar_data) {
+LidarMeta *add_lidar_meta(GstBuffer *buffer, guint lidar_point_count, const std::vector<float> &lidar_data, size_t frame_id) {
     if (!buffer) {
         GST_WARNING("Cannot add meta to NULL buffer");
         return nullptr;
     }
 
-    GST_DEBUG("Adding LidarMeta to buffer with lidar_point_count=%u", lidar_point_count);
+    GST_DEBUG("Adding LidarMeta to buffer with lidar_point_count=%u frame_id=%zu", lidar_point_count, frame_id);
 
     LidarMeta *meta = (LidarMeta *)gst_buffer_add_meta(buffer, LIDAR_META_INFO, NULL);
     if (!meta) {
@@ -59,9 +60,10 @@ LidarMeta *add_lidar_meta(GstBuffer *buffer, guint lidar_point_count, const std:
 
     meta->lidar_point_count = lidar_point_count;
     meta->lidar_data = lidar_data;
+    meta->frame_id = frame_id;
 
-    GST_DEBUG("LidarMeta added successfully: lidar_point_count=%u, lidar_data_size=%zu", 
-              meta->lidar_point_count, meta->lidar_data.size());
+    GST_DEBUG("LidarMeta added successfully: lidar_point_count=%u, lidar_data_size=%zu, frame_id=%zu", 
+              meta->lidar_point_count, meta->lidar_data.size(), meta->frame_id);
 
     return meta;
 }

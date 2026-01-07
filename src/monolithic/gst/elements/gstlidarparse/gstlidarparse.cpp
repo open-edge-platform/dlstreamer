@@ -292,6 +292,7 @@ static GstFlowReturn gst_lidar_parse_transform(GstBaseTransform *trans, GstBuffe
 
     last_frame_time = gst_clock_get_time(gst_system_clock_obtain());
 
+    const size_t frame_id = filter->current_index;
     GST_INFO_OBJECT(filter, "Processing file #%lu (stride=%d)", filter->current_index, filter->stride);
     filter->current_index++;
     
@@ -389,7 +390,7 @@ static GstFlowReturn gst_lidar_parse_transform(GstBaseTransform *trans, GstBuffe
         return GST_FLOW_ERROR;
     }*/
 
-    LidarMeta *lidar_meta = add_lidar_meta(outbuf, point_count, float_data);
+    LidarMeta *lidar_meta = add_lidar_meta(outbuf, point_count, float_data, frame_id);
     if (!lidar_meta) {
         GST_ERROR_OBJECT(filter, "Failed to add lidar meta to buffer");
         g_mutex_unlock(&filter->mutex);
@@ -404,6 +405,7 @@ static GstFlowReturn gst_lidar_parse_transform(GstBaseTransform *trans, GstBuffe
 
         std::ostringstream oss;
         oss << "lidar_point_count=" << lidar_meta->lidar_point_count
+            << " frame_id=" << lidar_meta->frame_id
             << " preview(" << preview_len << "/" << count << "):";
 
         for (gsize i = 0; i < preview_len; ++i) {
