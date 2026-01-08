@@ -68,7 +68,7 @@ jobs:
       shell: powershell
       run: |
         $target = "${{ env.DLS_TARGET_DIRECTORY }}"
-        $source = "C:\dlstreamer_tmp\build\intel64\Release\bin\Release"
+        $source = "C:\dlstreamer_tmp\build\intel64\Release\bin"
         Write-Host "`nContents of source directory ($source):"
         Get-ChildItem -Path $source -Recurse
         if (Test-Path $target) {
