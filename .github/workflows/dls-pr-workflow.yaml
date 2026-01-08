@@ -297,7 +297,7 @@ jobs:
           path: dlstreamer-repo
 
       - name: Run yamlint
-        uses: ./dlstreamer-repo/.github/actions/common/yamllint
+        uses: open-edge-platform/dlstreamer/.github/actions/shellcheck
         with:
           path: dlstreamer-repo
           output-file: yamllint-report.txt
