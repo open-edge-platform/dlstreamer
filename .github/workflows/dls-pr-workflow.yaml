@@ -274,7 +274,7 @@ jobs:
           fetch-depth: 0
 
       - name: Run shellcheck
-        uses: open-edge-platform/dlstreamer/.github/actions/common/shellcheck@master
+        uses: open-edge-platform/dlstreamer/.github/actions/common/shellcheck
         with:
           path: .
           output-file: shellcheck-report.txt
