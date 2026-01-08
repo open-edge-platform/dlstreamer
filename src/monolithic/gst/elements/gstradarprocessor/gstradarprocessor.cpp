@@ -10,6 +10,7 @@
 #include <numeric>
 #include <algorithm>
 #include <sys/time.h>
+#include <dlfcn.h>
 
 GST_DEBUG_CATEGORY_STATIC(gst_radar_processor_debug);
 #define GST_CAT_DEFAULT gst_radar_processor_debug
@@ -64,7 +65,7 @@ static void gst_radar_processor_class_init(GstRadarProcessorClass *klass) {
     g_object_class_install_property(gobject_class, PROP_RADAR_CONFIG,
         g_param_spec_string("radar-config", "Radar Config",
                            "Path to radar configuration JSON file",
-                           NULL,
+                           nullptr,
                            (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
     g_object_class_install_property(gobject_class, PROP_FRAME_RATE,
@@ -89,7 +90,7 @@ static void gst_radar_processor_class_init(GstRadarProcessorClass *klass) {
 }
 
 static void gst_radar_processor_init(GstRadarProcessor *filter) {
-    filter->radar_config = NULL;
+    filter->radar_config = nullptr;
     filter->frame_rate = DEFAULT_FRAME_RATE;
     
     filter->num_rx = 0;
@@ -104,6 +105,17 @@ static void gst_radar_processor_init(GstRadarProcessor *filter) {
     filter->frame_id = 0;
     filter->total_frames = 0;
     filter->total_processing_time = 0.0;
+    
+    filter->radar_buffer = nullptr;
+    filter->radar_buffer_size = 0;
+    
+    filter->libradar_handle = nullptr;
+    filter->radarGetMemSize_fn = nullptr;
+    filter->radarInitHandle_fn = nullptr;
+    filter->radarDetection_fn = nullptr;
+    filter->radarClustering_fn = nullptr;
+    filter->radarTracking_fn = nullptr;
+    filter->radarDestroyHandle_fn = nullptr;
 }
 
 static void gst_radar_processor_finalize(GObject *object) {
@@ -112,6 +124,16 @@ static void gst_radar_processor_finalize(GObject *object) {
     g_free(filter->radar_config);
     filter->input_data.clear();
     filter->output_data.clear();
+
+    if (filter->radar_buffer) {
+        free(filter->radar_buffer);
+        filter->radar_buffer = nullptr;
+    }
+
+    if (filter->libradar_handle) {
+        dlclose(filter->libradar_handle);
+        filter->libradar_handle = nullptr;
+    }
 
     G_OBJECT_CLASS(gst_radar_processor_parent_class)->finalize(object);
 }
@@ -258,6 +280,96 @@ static gboolean gst_radar_processor_start(GstBaseTransform *trans) {
 
         GST_INFO_OBJECT(filter, "Allocated buffers for %zu complex samples", total_samples);
 
+        // Initialize libradar handle
+        filter->radar_buffer_size = 0;
+
+        // Load libradar.so dynamically
+        const char* libradar_path = "/usr/lib/libradar.so";
+        filter->libradar_handle = dlopen(libradar_path, RTLD_LAZY);
+        if (!filter->libradar_handle) {
+            GST_ERROR_OBJECT(filter, "Failed to load library %s: %s", libradar_path, dlerror());
+            return FALSE;
+        }
+        GST_INFO_OBJECT(filter, "Successfully loaded %s", libradar_path);
+
+        // Load function pointers
+        filter->radarGetMemSize_fn = (RadarErrorCode (*)(RadarParam*, ulong*))dlsym(filter->libradar_handle, "radarGetMemSize");
+        if (!filter->radarGetMemSize_fn) {
+            GST_ERROR_OBJECT(filter, "Failed to find symbol 'radarGetMemSize': %s", dlerror());
+            dlclose(filter->libradar_handle);
+            filter->libradar_handle = nullptr;
+            return FALSE;
+        }
+
+        filter->radarInitHandle_fn = (RadarErrorCode (*)(RadarHandle**, RadarParam*, void*, ulong))dlsym(filter->libradar_handle, "radarInitHandle");
+        if (!filter->radarInitHandle_fn) {
+            GST_ERROR_OBJECT(filter, "Failed to find symbol 'radarInitHandle': %s", dlerror());
+            dlclose(filter->libradar_handle);
+            filter->libradar_handle = nullptr;
+            return FALSE;
+        }
+
+        filter->radarDetection_fn = (RadarErrorCode (*)(RadarHandle*, RadarCube*, RadarPointClouds*))dlsym(filter->libradar_handle, "radarDetection");
+        if (!filter->radarDetection_fn) {
+            GST_ERROR_OBJECT(filter, "Failed to find symbol 'radarDetection': %s", dlerror());
+            dlclose(filter->libradar_handle);
+            filter->libradar_handle = nullptr;
+            return FALSE;
+        }
+
+        filter->radarClustering_fn = (RadarErrorCode (*)(RadarHandle*, RadarPointClouds*, ClusterResult*))dlsym(filter->libradar_handle, "radarClustering");
+        if (!filter->radarClustering_fn) {
+            GST_ERROR_OBJECT(filter, "Failed to find symbol 'radarClustering': %s", dlerror());
+            dlclose(filter->libradar_handle);
+            filter->libradar_handle = nullptr;
+            return FALSE;
+        }
+
+        filter->radarTracking_fn = (RadarErrorCode (*)(RadarHandle*, ClusterResult*, TrackingResult*))dlsym(filter->libradar_handle, "radarTracking");
+        if (!filter->radarTracking_fn) {
+            GST_ERROR_OBJECT(filter, "Failed to find symbol 'radarTracking': %s", dlerror());
+            dlclose(filter->libradar_handle);
+            filter->libradar_handle = nullptr;
+            return FALSE;
+        }
+
+        filter->radarDestroyHandle_fn = (RadarErrorCode (*)(RadarHandle*))dlsym(filter->libradar_handle, "radarDestroyHandle");
+        if (!filter->radarDestroyHandle_fn) {
+            GST_ERROR_OBJECT(filter, "Failed to find symbol 'radarDestroyHandle': %s", dlerror());
+            dlclose(filter->libradar_handle);
+            filter->libradar_handle = nullptr;
+            return FALSE;
+        }
+
+        GST_INFO_OBJECT(filter, "All libradar function symbols loaded successfully");
+
+        RadarErrorCode ret = filter->radarGetMemSize_fn(&filter->radar_param, &filter->radar_buffer_size);
+        if (ret != R_SUCCESS || filter->radar_buffer_size == 0) {
+            GST_ERROR_OBJECT(filter, "Failed to get radar memory size, error code: %d", ret);
+            return FALSE;
+        }
+
+        GST_INFO_OBJECT(filter, "Radar memory size required: %lu bytes", filter->radar_buffer_size);
+
+        // Allocate aligned memory buffer
+        if (posix_memalign(&filter->radar_buffer, 64, filter->radar_buffer_size) != 0) {
+            GST_ERROR_OBJECT(filter, "Failed to allocate aligned memory buffer");
+            filter->radar_buffer = nullptr;
+            return FALSE;
+        }
+
+        // Initialize radar handle
+        ret = filter->radarInitHandle_fn(&filter->radar_handle, &filter->radar_param, 
+                             filter->radar_buffer, filter->radar_buffer_size);
+        if (ret != R_SUCCESS) {
+            GST_ERROR_OBJECT(filter, "Failed to initialize radar handle, error code: %d", ret);
+            free(filter->radar_buffer);
+            filter->radar_buffer = nullptr;
+            return FALSE;
+        }
+
+        GST_INFO_OBJECT(filter, "Radar handle initialized successfully");
+
     } catch (const std::exception &e) {
         GST_ERROR_OBJECT(filter, "Exception loading config: %s", e.what());
         return FALSE;
@@ -283,6 +395,31 @@ static gboolean gst_radar_processor_stop(GstBaseTransform *trans) {
         GST_INFO_OBJECT(filter, "===================================");
     }
 
+    // Destroy radar handle
+    if (filter->radar_handle && filter->radarDestroyHandle_fn) {
+        RadarErrorCode ret = filter->radarDestroyHandle_fn(filter->radar_handle);
+        if (ret != R_SUCCESS) {
+            GST_WARNING_OBJECT(filter, "Failed to destroy radar handle, error code: %d", ret);
+        } else {
+            GST_INFO_OBJECT(filter, "Radar handle destroyed successfully");
+        }
+        filter->radar_handle = nullptr;
+    }
+
+    // Close dynamic library
+    if (filter->libradar_handle) {
+        dlclose(filter->libradar_handle);
+        filter->libradar_handle = nullptr;
+        GST_INFO_OBJECT(filter, "libradar.so unloaded");
+    }
+
+    // Free radar buffer
+    if (filter->radar_buffer) {
+        free(filter->radar_buffer);
+        filter->radar_buffer = nullptr;
+    }
+    filter->radar_buffer_size = 0;
+
     filter->input_data.clear();
     filter->output_data.clear();
     filter->tracking_desc_buf.clear();
@@ -296,9 +433,9 @@ static GstCaps *gst_radar_processor_transform_caps(GstBaseTransform *trans,
                                                     GstCaps *caps,
                                                     GstCaps *filter) {
     if (direction == GST_PAD_SINK) {
-        return gst_caps_new_simple("application/x-radar-processed", NULL, NULL);
+        return gst_caps_new_simple("application/x-radar-processed", nullptr, nullptr);
     } else {
-        return gst_caps_new_simple("application/octet-stream", NULL, NULL);
+        return gst_caps_new_simple("application/octet-stream", nullptr, nullptr);
     }
 }
 
@@ -330,7 +467,7 @@ static GstFlowReturn gst_radar_processor_transform_ip(GstBaseTransform *trans, G
 
     // Start timing for this frame
     struct timeval start_time, end_time;
-    gettimeofday(&start_time, NULL);
+    gettimeofday(&start_time, nullptr);
 
     // Frame rate control
     if (filter->frame_duration != GST_CLOCK_TIME_NONE) {
@@ -398,17 +535,46 @@ static GstFlowReturn gst_radar_processor_transform_ip(GstBaseTransform *trans, G
         }
     }
 
-    // Copy processed data back to buffer
-    std::copy(filter->output_data.begin(), filter->output_data.end(), input_ptr);
-
     // Update RadarCube mat pointer to output_data
     // std::complex<float> and cfloat have compatible memory layout
     filter->radar_cube.mat = reinterpret_cast<cfloat*>(filter->output_data.data());
+    
+    // Call radar processing functions
+    RadarErrorCode ret;
+    
+    // 1. Radar Detection
+    ret = filter->radarDetection_fn(filter->radar_handle, &filter->radar_cube, &filter->radar_point_clouds);
+    if (ret != R_SUCCESS) {
+        GST_ERROR_OBJECT(filter, "radarDetection failed with error code: %d", ret);
+        gst_buffer_unmap(buffer, &map);
+        return GST_FLOW_ERROR;
+    }
+    GST_DEBUG_OBJECT(filter, "radarDetection completed, detected %d points", filter->radar_point_clouds.len);
+    
+    // 2. Radar Clustering
+    ret = filter->radarClustering_fn(filter->radar_handle, &filter->radar_point_clouds, &filter->cluster_result);
+    if (ret != R_SUCCESS) {
+        GST_ERROR_OBJECT(filter, "radarClustering failed with error code: %d", ret);
+        gst_buffer_unmap(buffer, &map);
+        return GST_FLOW_ERROR;
+    }
+    GST_DEBUG_OBJECT(filter, "radarClustering completed, found %d clusters", filter->cluster_result.n);
+    
+    // 3. Radar Tracking
+    ret = filter->radarTracking_fn(filter->radar_handle, &filter->cluster_result, &filter->tracking_result);
+    if (ret != R_SUCCESS) {
+        GST_ERROR_OBJECT(filter, "radarTracking failed with error code: %d", ret);
+        gst_buffer_unmap(buffer, &map);
+        return GST_FLOW_ERROR;
+    }
+    GST_DEBUG_OBJECT(filter, "radarTracking completed, tracking %d objects", filter->tracking_result.len);
 
+    // Copy processed data back to buffer
+    std::copy(filter->output_data.begin(), filter->output_data.end(), input_ptr);
     gst_buffer_unmap(buffer, &map);
 
     // Calculate processing time
-    gettimeofday(&end_time, NULL);
+    gettimeofday(&end_time, nullptr);
     gdouble frame_time = (end_time.tv_sec - start_time.tv_sec) + 
                          (end_time.tv_usec - start_time.tv_usec) / 1000000.0;
     
