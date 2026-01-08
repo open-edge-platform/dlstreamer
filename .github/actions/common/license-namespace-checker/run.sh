@@ -14,7 +14,7 @@ SCRIPT_DIR=$(dirname "$(readlink -f "$0")")
 
 if [ -z "${SOURCE_DIR}" ]; then
     echo "ERROR: Path to source dir should be provided!"
-    exit -1
+    exit 1
 fi
 
 git config --global --add safe.directory "${SOURCE_DIR}"
