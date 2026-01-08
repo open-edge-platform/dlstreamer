@@ -118,7 +118,7 @@ runs:
       if: ${{ inputs.enable-reviewdog == 'true' }}
       uses: reviewdog/action-shellcheck@4c07458293ac342d477251099501a718ae5ef86e # 1.32.0
       with:
-        path: ${{ inputs.path }}
+        path: .
         github_token: ${{ inputs.github_token }}
         reporter: github-pr-review
         level: warning
