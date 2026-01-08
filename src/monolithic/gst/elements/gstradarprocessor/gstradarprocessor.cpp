@@ -5,6 +5,7 @@
  ******************************************************************************/
 
 #include "gstradarprocessor.h"
+#include "gstradarprocessormeta.h"
 #include "radar_config.hpp"
 #include <cstring>
 #include <numeric>
@@ -572,6 +573,19 @@ static GstFlowReturn gst_radar_processor_transform_ip(GstBaseTransform *trans, G
     // Copy processed data back to buffer
     std::copy(filter->output_data.begin(), filter->output_data.end(), input_ptr);
     gst_buffer_unmap(buffer, &map);
+    
+    // Add radar processing results as metadata to the buffer
+    GstRadarProcessorMeta *meta = gst_buffer_add_radar_processor_meta(buffer,
+                                                                       filter->frame_id,
+                                                                       &filter->radar_point_clouds,
+                                                                       &filter->cluster_result,
+                                                                       &filter->tracking_result);
+    if (meta) {
+        GST_DEBUG_OBJECT(filter, "Added radar metadata: %d points, %d clusters, %d tracked objects",
+                       meta->point_clouds_len, meta->num_clusters, meta->num_tracked_objects);
+    } else {
+        GST_WARNING_OBJECT(filter, "Failed to add radar metadata to buffer");
+    }
 
     // Calculate processing time
     gettimeofday(&end_time, nullptr);
