@@ -97,7 +97,7 @@ drivers. For more details see [prerequisites](#prerequisites).
   sudo bash -c 'echo "deb [signed-by=/usr/share/keyrings/intel-gpg-archive-keyring.gpg] https://apt.repos.intel.com/openvino/2025 ubuntu24 main" | sudo tee /etc/apt/sources.list.d/intel-openvino-2025.list'
   ```
 
-  > **NOTE:** If you have OpenVINO™ installed in any version other than 2025.3.0,
+  > **NOTE:** If you have OpenVINO™ installed in any version other than 2025.4.0,
   > please uninstall the OpenVINO™ packages using the following commands.
 
   ```bash

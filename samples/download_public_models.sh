@@ -214,11 +214,11 @@ pip install --no-cache-dir --upgrade pip
 
 # Install OpenVINO module with compatible numpy version
 pip install --no-cache-dir "numpy<2.5.0,>=1.16.6" || handle_error $LINENO
-pip install --no-cache-dir openvino==2025.3.0 || handle_error $LINENO
+pip install --no-cache-dir openvino==2025.4.0 || handle_error $LINENO
 
 pip install --no-cache-dir onnx || handle_error $LINENO
 pip install --no-cache-dir seaborn || handle_error $LINENO
-# Install compatible NNCF version for OpenVINO 2025.3.0
+# Install compatible NNCF version for OpenVINO 2025.4.0
 pip install --no-cache-dir "nncf>=2.14.0,<3.0.0" || handle_error $LINENO
 
 # Check and upgrade ultralytics if necessary

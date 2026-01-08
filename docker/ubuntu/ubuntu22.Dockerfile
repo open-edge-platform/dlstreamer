@@ -40,7 +40,7 @@ LABEL description="This is the development image of Deep Learning Streamer (DL S
 LABEL vendor="Intel Corporation"
 
 ARG GST_VERSION=1.26.6
-ARG OPENVINO_VERSION=2025.3.0
+ARG OPENVINO_VERSION=2025.4.0
 ARG REALSENSE_VERSION=v2.57.4
 
 ARG DLSTREAMER_VERSION=2025.2.0
@@ -375,7 +375,7 @@ RUN \
 
 # OpenVINO Gen AI
 ARG OPENVINO_GENAI_VER=openvino_genai_ubuntu22_${OPENVINO_VERSION}.0_x86_64
-ARG OPENVINO_GENAI_PKG=https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/2025.3/linux/${OPENVINO_GENAI_VER}.tar.gz
+ARG OPENVINO_GENAI_PKG=https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/2025.4/linux/${OPENVINO_GENAI_VER}.tar.gz
 
 RUN curl -L ${OPENVINO_GENAI_PKG} | tar -xz && \
     mv ${OPENVINO_GENAI_VER} /opt/intel/openvino_genai

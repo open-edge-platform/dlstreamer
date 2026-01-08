@@ -9,7 +9,7 @@ param(
 )
 
 $GSTREAMER_VERSION = "1.26.6"
-$OPENVINO_VERSION = "2025.3"
+$OPENVINO_VERSION = "2025.4"
 $OPENVINO_DEST_FOLDER = "C:\\openvino"
 $GSTREAMER_DEST_FOLDER = "C:\\gstreamer"
 $DLSTREAMER_TMP = "C:\\dlstreamer_tmp"
