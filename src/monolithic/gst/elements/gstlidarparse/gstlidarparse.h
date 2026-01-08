@@ -31,6 +31,7 @@ struct _GstLidarParse {
 
     size_t current_index;
     gboolean is_single_file;
+    guint stream_id;
 };
 
 struct _GstLidarParseClass {

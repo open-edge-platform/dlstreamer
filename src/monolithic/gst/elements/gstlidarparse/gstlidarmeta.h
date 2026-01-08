@@ -14,6 +14,7 @@ typedef struct _LidarMeta {
     std::vector<float> lidar_data;
     size_t frame_id;
     GstClockTime exit_lidarparse_timestamp;
+    guint stream_id;
 } LidarMeta;
 
 GType lidar_meta_api_get_type(void);
@@ -23,7 +24,7 @@ const GstMetaInfo *lidar_meta_get_info(void);
 #define LIDAR_META_INFO (lidar_meta_get_info())
 #define LIDAR_META_CAPS "application/x-lidarmeta"
 
-LidarMeta *add_lidar_meta(GstBuffer *buffer, guint lidar_point_count, const std::vector<float> &lidar_data, size_t frame_id, GstClockTime exit_lidarparse_timestamp);
+LidarMeta *add_lidar_meta(GstBuffer *buffer, guint lidar_point_count, const std::vector<float> &lidar_data, size_t frame_id, GstClockTime exit_lidarparse_timestamp, guint stream_id);
 
 G_END_DECLS
 
