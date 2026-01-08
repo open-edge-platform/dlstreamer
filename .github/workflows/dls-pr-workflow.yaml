@@ -274,7 +274,7 @@ jobs:
           fetch-depth: 0
 
       - name: Run shellcheck
-        uses: .github/actions/common/shellcheck
+        uses: actions/common/shellcheck
         with:
           path: .
           output-file: shellcheck-report.txt
