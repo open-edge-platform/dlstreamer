@@ -33,6 +33,8 @@ PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/../elements/gvametapublish/file/
     ${CMAKE_CURRENT_SOURCE_DIR}/../elements/gvatrack/
     ${CMAKE_CURRENT_SOURCE_DIR}/../elements/gvawatermark/
+    ${CMAKE_CURRENT_SOURCE_DIR}/../elements/gvawatermark3d/
+    ${CMAKE_CURRENT_SOURCE_DIR}/../elements/gvadeskew/
 )
 
 target_link_directories(${TARGET_NAME} PUBLIC ${VA_LIBRARY_DIRS})

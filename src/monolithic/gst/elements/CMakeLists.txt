@@ -1,5 +1,5 @@
 # ==============================================================================
-# Copyright (C) 2018-2025 Intel Corporation
+# Copyright (C) 2018-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
@@ -11,6 +11,7 @@ find_package(PkgConfig REQUIRED)
 pkg_check_modules(GSTREAMER gstreamer-1.0>=1.16 REQUIRED)
 pkg_check_modules(GSTVIDEO gstreamer-video-1.0>=1.16 REQUIRED)
 pkg_check_modules(GSTALLOC gstreamer-allocators-1.0 REQUIRED)
+pkg_search_module(VA va libva REQUIRED)
 if(${ENABLE_AUDIO_INFERENCE_ELEMENTS})
         pkg_check_modules(GSTAUDIO gstreamer-audio-1.0>=1.16 REQUIRED)
 endif()
@@ -24,6 +25,10 @@ file (GLOB MAIN_SRC
     gvawatermark/renderer/*.cpp
     gvawatermark/renderer/cpu/*.cpp
     gvawatermark/*.c
+    gvawatermark3d/*.cpp
+    gvawatermark3d/*.c
+    gvadeskew/*.cpp
+    gvadeskew/*.c
 )
 
 file (GLOB MAIN_HEADERS
@@ -32,6 +37,8 @@ file (GLOB MAIN_HEADERS
     gvawatermark/*.h
     gvawatermark/renderer/*.h
     gvawatermark/renderer/cpu/*.h
+    gvawatermark3d/*.h
+    gvadeskew/*.h
 )
 
 if(${ENABLE_AUDIO_INFERENCE_ELEMENTS})
@@ -55,6 +62,8 @@ PUBLIC
     gvawatermark
     gvawatermark/renderer
     gvametaaggregate
+    gvawatermark3d
+    gvadeskew
 PRIVATE
     ${GSTREAMER_INCLUDE_DIRS}
     ${GSTVIDEO_INCLUDE_DIRS}
@@ -100,8 +109,6 @@ add_subdirectory(gvaattachroi)
 add_subdirectory(gvametapublish)
 add_subdirectory(gvapython)
 add_subdirectory(gvatrack)
-add_subdirectory(gvadeskew)
-add_subdirectory(gvawatermark3d)
 add_subdirectory(gvamotiondetect)
 if(ENABLE_REALSENSE)
     add_subdirectory(gvarealsense)
