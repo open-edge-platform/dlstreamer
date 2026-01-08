@@ -137,12 +137,13 @@ jobs:
         export GI_TYPELIB_PATH="/opt/intel/dlstreamer/gstreamer/lib/girepository-1.0:/usr/lib/x86_64-linux-gnu/girepository-1.0gi"
         export PYTHONPATH="/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:/opt/intel/dlstreamer/python:/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:$PYTHONPATH"
 
-        echo "Sourcing OpenVINO environment..."
-        source /opt/intel/openvino_2025/setupvars.sh
-
         echo "Verifying DL Streamer installation..."
-        gst-inspect-1.0 | grep gva || echo "GVA plugins not found"
-        gst-inspect-1.0 gvadetect || echo "gvadetect plugin not available"
+        gst-inspect-1.0 | grep gva
+        gst-inspect-1.0 gvadetect
+        gst-inspect-1.0 gvawatermark3d
+        gst-inspect-1.0 gvapython
+        gst-inspect-1.0 gvamotiondetect
+        gst-inspect-1.0 gvafpscounter
 
     # ======================================================== CLEANUP PART ========================================================
     - name: Clean up
