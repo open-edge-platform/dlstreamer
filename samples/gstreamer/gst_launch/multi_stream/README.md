@@ -1,7 +1,7 @@
-# Video streams from multiple cameeras (gst-launch command line)
+# Video streams from multiple cameras (gst-launch command line)
 
 This sample demonstrates how to construct multi-stream pipeline via `gst-launch-1.0` command-line utility using detection and classification models.
-It combines four pipelines. By default, the first streams run on NPU [Intel® Core™ Ultra processors] and the other two using the GPU device.
+It combines four pipelines. By default, the first two streams run on NPU [Intel® Core™ Ultra processors] and the other two using the GPU device.
 
 ## How It Works
 This sample utilizes GStreamer command-line tool `gst-launch-1.0` which can build and run GStreamer pipeline described in a string format.
@@ -65,9 +65,9 @@ gvadetect model=${DETECTION_MODEL} device=GPU pre-process-backend=vaapi-surface-
 gvawatermark ! gvafpscounter ! vaapih264enc ! h264parse ! mp4mux ! filesink location=${OUTPUT_VIDEO_FILE_4}
 ```
 
-The next pipeline illustrates how to construct a plipeline with multiple AI models and a single video stream.
+The next pipeline illustrates how to construct a pipeline with multiple AI models and a single video stream.
 In addition, this pipeline runs AI inference every 3 frames ('inference-inteval=3') and uses 'gvatrack' to keep analytics results for non-inferenced frames.
-The example also batches inference requests ('batch-size=8') to maximize AI model throughput at the expense of single-reqeust lantency.
+The example also batches inference requests ('batch-size=8') to maximize AI model throughput at the expense of single-request lantency.
 
 ```sh
 gst-launch-1.0 \
