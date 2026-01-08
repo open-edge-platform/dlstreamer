@@ -95,35 +95,23 @@ jobs:
         sudo ./scripts/install_dependencies/install_openvino.sh
         echo "Installing OpenVINO dependencies..."
         sudo -E /opt/intel/openvino_2025/install_dependencies/install_openvino_dependencies.sh
-        echo "Setting OpenVINO environment variables..."
-        echo "INTEL_OPENVINO_DIR=/opt/intel/openvino_2025" >> $GITHUB_ENV
-        echo "OPENVINO_LIB_PATHS=/opt/intel/openvino_2025/runtime/lib/intel64:/opt/intel/openvino_2025/runtime/3rdparty/tbb/lib" >> $GITHUB_ENV
-        echo "LD_LIBRARY_PATH=/opt/intel/openvino_2025/runtime/lib/intel64:/opt/intel/openvino_2025/runtime/3rdparty/tbb/lib:$LD_LIBRARY_PATH" >> $GITHUB_ENV
-        echo "PYTHONPATH=/opt/intel/openvino_2025/python/python3:$PYTHONPATH" >> $GITHUB_ENV
+        echo "Sourcing OpenVINO environment..."
+        source /opt/intel/openvino_2025/setupvars.sh
 
     - name: Build DL Streamer using make build
       run: |
         cd ${{ env.DLS_REL_PATH }}
+        echo "Sourcing OpenVINO environment..."
+        source /opt/intel/openvino_2025/setupvars.sh
+        echo "Activarting Python virtual environment..."
         source ~/python3venv/bin/activate
+        echo "Building DL Streamer using make build..."
         make build
 
     - name: Install DL Streamer
       run: |
         cd ${{ env.DLS_REL_PATH }}
         sudo -E make install
-
-    - name: Set up environment for Docker builds
-      run: |
-        echo "LIBVA_DRIVER_NAME=iHD" >> $GITHUB_ENV
-        echo "GST_PLUGIN_PATH=/opt/intel/dlstreamer/Release/lib:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0:$HOME/dlstreamer/build/intel64/Release/lib:$HOME/dlstreamer/build/deps/gstreamer-bin/lib/gstreamer-1.0:$GST_PLUGIN_PATH" >> $GITHUB_ENV
-        echo "LD_LIBRARY_PATH=/opt/intel/dlstreamer/Release/lib:/opt/intel/dlstreamer/gstreamer/lib:/opt/intel/dlstreamer/opencv/lib:/opt/intel/dlstreamer/rdkafka/lib:$HOME/dlstreamer/build/intel64/Release/lib:$HOME/dlstreamer/build/deps/gstreamer-bin/lib:$HOME/dlstreamer/build/deps/opencv-bin/lib:$HOME/dlstreamer/build/deps/rdkafka-bin/lib:$LD_LIBRARY_PATH" >> $GITHUB_ENV
-        echo "LIBVA_DRIVERS_PATH=/usr/lib/x86_64-linux-gnu/dri" >> $GITHUB_ENV
-        echo "GST_VA_ALL_DRIVERS=1" >> $GITHUB_ENV
-        echo "PATH=/opt/intel/dlstreamer/Release/bin:/opt/intel/dlstreamer/gstreamer/bin:/opt/intel/dlstreamer/opencv/bin:$HOME/dlstreamer/build/intel64/Release/bin:$HOME/dlstreamer/build/deps/gstreamer-bin/bin:$HOME/dlstreamer/build/deps/opencv-bin/bin:$HOME/.local/bin:$HOME/python3venv/bin:$PATH" >> $GITHUB_ENV
-        echo "PKG_CONFIG_PATH=/opt/intel/dlstreamer/Release/lib/pkgconfig:/opt/intel/dlstreamer/gstreamer/lib/pkgconfig::$HOME/dlstreamer/build/intel64/Release/lib/pkgconfig:$HOME/dlstreamer/build/deps/gstreamer-bin/lib/pkgconfig:$PKG_CONFIG_PATH" >> $GITHUB_ENV
-        echo "GST_PLUGIN_FEATURE_RANK=${GST_PLUGIN_FEATURE_RANK},ximagesink:MAX" >> $GITHUB_ENV
-        echo "GI_TYPELIB_PATH=/opt/intel/dlstreamer/gstreamer/lib/girepository-1.0:/usr/lib/x86_64-linux-gnu/girepository-1.0gi" >> $GITHUB_ENV
-        echo "PYTHONPATH=/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:/opt/intel/dlstreamer/python:/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:$PYTHONPATH" >> $GITHUB_ENV
 
     - name: Install Python dependencies
       run: |
@@ -137,6 +125,21 @@ jobs:
 
     - name: Verify DL Streamer installation
       run: |
+        echo "Setting up DL Streamer environment..."
+        export LIBVA_DRIVER_NAME=iHD
+        export GST_PLUGIN_PATH="/opt/intel/dlstreamer/Release/lib:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0:$HOME/dlstreamer/build/intel64/Release/lib:$HOME/dlstreamer/build/deps/gstreamer-bin/lib/gstreamer-1.0:$GST_PLUGIN_PATH"
+        export LD_LIBRARY_PATH="/opt/intel/dlstreamer/Release/lib:/opt/intel/dlstreamer/gstreamer/lib:/opt/intel/dlstreamer/opencv/lib:/opt/intel/dlstreamer/rdkafka/lib:$HOME/dlstreamer/build/intel64/Release/lib:$HOME/dlstreamer/build/deps/gstreamer-bin/lib:$HOME/dlstreamer/build/deps/opencv-bin/lib:$HOME/dlstreamer/build/deps/rdkafka-bin/lib:$LD_LIBRARY_PATH"
+        export LIBVA_DRIVERS_PATH="/usr/lib/x86_64-linux-gnu/dri"
+        export GST_VA_ALL_DRIVERS="1"
+        export PATH="/opt/intel/dlstreamer/Release/bin:/opt/intel/dlstreamer/gstreamer/bin:/opt/intel/dlstreamer/opencv/bin:$HOME/dlstreamer/build/intel64/Release/bin:$HOME/dlstreamer/build/deps/gstreamer-bin/bin:$HOME/dlstreamer/build/deps/opencv-bin/bin:$HOME/.local/bin:$HOME/python3venv/bin:$PATH"
+        export PKG_CONFIG_PATH="/opt/intel/dlstreamer/Release/lib/pkgconfig:/opt/intel/dlstreamer/gstreamer/lib/pkgconfig::$HOME/dlstreamer/build/intel64/Release/lib/pkgconfig:$HOME/dlstreamer/build/deps/gstreamer-bin/lib/pkgconfig:$PKG_CONFIG_PATH"
+        export GST_PLUGIN_FEATURE_RANK=${GST_PLUGIN_FEATURE_RANK},ximagesink:MAX
+        export GI_TYPELIB_PATH="/opt/intel/dlstreamer/gstreamer/lib/girepository-1.0:/usr/lib/x86_64-linux-gnu/girepository-1.0gi"
+        export PYTHONPATH="/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:/opt/intel/dlstreamer/python:/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:$PYTHONPATH"
+
+        echo "Sourcing OpenVINO environment..."
+        source /opt/intel/openvino_2025/setupvars.sh
+
         echo "Verifying DL Streamer installation..."
         gst-inspect-1.0 | grep gva || echo "GVA plugins not found"
         gst-inspect-1.0 gvadetect || echo "gvadetect plugin not available"
