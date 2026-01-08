@@ -83,9 +83,9 @@ runs:
             echo "- 📝 **Notes**: $note_count" >> $GITHUB_STEP_SUMMARY
           fi
 
-          if [ "$total" -gt 0 ]; then
+          if [ "$error_count" -gt 0 ]; then
             echo "" >> $GITHUB_STEP_SUMMARY
-            echo "⚠️ **Please review the ShellCheck report artifact and consider fixing the issues.**" >> $GITHUB_STEP_SUMMARY
+            echo "⚠️ **Please review the ShellCheck report artifact and fix the errors.**" >> $GITHUB_STEP_SUMMARY
           else
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "✅ **No issues found!**" >> $GITHUB_STEP_SUMMARY
