@@ -3,7 +3,7 @@ run-name: "[DLS] PR  workflow (by @${{ github.actor }} via ${{ github.event_name
 on:
   push:
     branches:
-      - 'main'
+      - 'master'
     paths:
       - 'cmake/**'
       - 'docker/**'
@@ -77,23 +77,23 @@ jobs:
     name: "DLS SCAN: check license headers"
     runs-on: ubuntu-latest
     steps:
-      - name: Check out dlstreamer repository
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 #5.0.0
-        with:
-          persist-credentials: false
-          fetch-depth: 0
-          path: dlstreamer-repo
+    - name: Check out dlstreamer repository
+      uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 #5.0.0
+      with:
+        persist-credentials: false
+        fetch-depth: 0
+        path: dlstreamer-repo
 
-      - name: Check license headers
-        uses: ./dlstreamer-repo/.github/actions/common/license-namespace-checker
-        with:
-          name: 'DLS_license-check-report'
-          path: 'dlstreamer-repo'
-          fail-on-findings: true
+    - name: Check license headers
+      uses: ./dlstreamer-repo/.github/actions/common/license-namespace-checker
+      with:
+        name: 'DLS_license-check-report'
+        path: 'dlstreamer-repo'
+        fail-on-findings: true
 
-      - name: Clean up
-        run: |
-          sudo rm -rf dlstreamer-repo
+    - name: Clean up
+      run: |
+        sudo rm -rf dlstreamer-repo
 
   # dls-static-code-analysis:
   #   permissions:
@@ -135,14 +135,14 @@ jobs:
       - name: Fetch main branch for comparison
         run: |
           cd dlstreamer-repo
-          git fetch origin main
+          git fetch origin master
 
       - name: Detect changes in docker directory
         id: check
         run: |
           echo "🔍 Checking for changes in 'docker/'..."
           cd dlstreamer-repo
-          CHANGED_FILES=$(git diff --name-only origin/main...HEAD -- 'docker/')
+          CHANGED_FILES=$(git diff --name-only origin/master...HEAD -- 'docker/')
 
           if [ -n "${CHANGED_FILES}" ]; then
             echo "📄 Changed Docker-related files:"
@@ -201,25 +201,26 @@ jobs:
       matrix:
         include:
           - name: dlstreamer_ubuntu22
-            dockerfile: ./docker/ubuntu/ubuntu22.Dockerfile
+            dockerfile: dlstreamer-repo/docker/ubuntu/ubuntu22.Dockerfile
             output-file: hadolint-dlstreamer_ubuntu22.json
           - name: dlstreamer_ubuntu24
-            dockerfile: ./docker/ubuntu/ubuntu24.Dockerfile
+            dockerfile: dlstreamer-repo/docker/ubuntu/ubuntu24.Dockerfile
             output-file: hadolint-dlstreamer_ubuntu24.json
           - name: dlstreamer_fedora41
-            dockerfile: ./docker/fedora41/fedora41.Dockerfile
+            dockerfile: dlstreamer-repo/docker/fedora41/fedora41.Dockerfile
             output-file: hadolint-dlstreamer_fedora41.json
           - name: dlstreamer-testing-ubuntu
-            dockerfile: ./docker/ubuntu/ubuntu-testing.Dockerfile
+            dockerfile: dlstreamer-repo/docker/ubuntu/ubuntu-testing.Dockerfile
             output-file: hadolint-dlstreamer-testing-ubuntu.json
     steps:
       - name: Check out dlstreamer repository
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 #5.0.0
         with:
           persist-credentials: false
+          path: dlstreamer-repo
 
       - name: Run Hadolint Action
-        uses: ./.github/actions/common/hadolint
+        uses: ./dlstreamer-repo/.github/actions/common/hadolint
         with:
           dockerfile: ${{ matrix.dockerfile }}
           output-file: ${{ matrix.output-file }}
@@ -227,6 +228,10 @@ jobs:
           enable-reviewdog: true
           github_token: ${{ secrets.GITHUB_TOKEN }}
           fail-on-findings: true
+
+      - name: Clean up
+        run: |
+          sudo rm -rf dlstreamer-repo
 
   dls-pylint:
     permissions:
@@ -289,16 +294,21 @@ jobs:
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 #5.0.0
         with:
           persist-credentials: false
+          path: dlstreamer-repo
 
       - name: Run yamlint
-        uses: ./.github/actions/common/yamllint
+        uses: ./dlstreamer-repo/.github/actions/common/yamllint
         with:
-          path: .
+          path: dlstreamer-repo
           output-file: yamllint-report.txt
           name: DLS_yamlint
           enable-reviewdog: true
           github_token: ${{ secrets.GITHUB_TOKEN }}
           fail-on-findings: true
+
+      - name: Clean up
+        run: |
+          sudo rm -rf dlstreamer-repo
 
   dls-clamav:
     permissions:
@@ -306,56 +316,56 @@ jobs:
     name: "DLS SCAN: ClamAV antivirus"
     runs-on: ubuntu-latest
     steps:
-      - name: Check out dlstreamer repository
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 #5.0.0
-        with:
-          persist-credentials: false
-          path: dlstreamer-repo
+    - name: Check out dlstreamer repository
+      uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 #5.0.0
+      with:
+        persist-credentials: false
+        path: dlstreamer-repo
 
-      - name: ClamAV scan
-        id: clamav-dls-scan
-        uses: open-edge-platform/orch-ci/.github/actions/security/clamav@76700c2fb6d547733b9218d9638dca43f5296399 # 0.1.52
-        with:
-          scan-scope: all
-          paths: dlstreamer-repo
-          report_suffix: "DLS_ClamAV_antivirus_report"
-          fail-on-findings: true
+    - name: ClamAV scan
+      id: clamav-dls-scan
+      uses: open-edge-platform/orch-ci/.github/actions/security/clamav@76700c2fb6d547733b9218d9638dca43f5296399 # 0.1.52
+      with:
+        scan-scope: all
+        paths: dlstreamer-repo
+        report_suffix: "DLS_ClamAV_antivirus_report"
+        fail-on-findings: true
 
-      - name: Analyze ClamAV results
-        if: always()
-        env:
-          REPORT_PATH: ${{ steps.clamav-dls-scan.outputs.report_path }}
-        run: |
-          if [ -n "$REPORT_PATH" ] && [ -f "$REPORT_PATH" ]; then
-            echo "📄 Found ClamAV report: $REPORT_PATH"
+    - name: Analyze ClamAV results
+      if: always()
+      env:
+        REPORT_PATH: ${{ steps.clamav-dls-scan.outputs.report_path }}
+      run: |
+        if [ -n "$REPORT_PATH" ] && [ -f "$REPORT_PATH" ]; then
+          echo "📄 Found ClamAV report: $REPORT_PATH"
 
-            # Extract scan summary using jq
-            files_scanned=$(jq -r '.scan_summary.files_scanned // 0' "$REPORT_PATH" 2>/dev/null || echo "0")
-            threats_found=$(jq -r '.scan_summary.threats_found // 0' "$REPORT_PATH" 2>/dev/null || echo "0")
+          # Extract scan summary using jq
+          files_scanned=$(jq -r '.scan_summary.files_scanned // 0' "$REPORT_PATH" 2>/dev/null || echo "0")
+          threats_found=$(jq -r '.scan_summary.threats_found // 0' "$REPORT_PATH" 2>/dev/null || echo "0")
 
-            echo "### ClamAV Antivirus Scan Results" >> $GITHUB_STEP_SUMMARY
+          echo "### ClamAV Antivirus Scan Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- 📁 **Files scanned**: $files_scanned" >> $GITHUB_STEP_SUMMARY
+          echo "- 🦠 **Threats found**: $threats_found" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "$threats_found" -gt 0 ]; then
+            echo "❌ **Security Alert**: Malware or threats detected!" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-            echo "- 📁 **Files scanned**: $files_scanned" >> $GITHUB_STEP_SUMMARY
-            echo "- 🦠 **Threats found**: $threats_found" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-
-            if [ "$threats_found" -gt 0 ]; then
-              echo "❌ **Security Alert**: Malware or threats detected!" >> $GITHUB_STEP_SUMMARY
-              echo "" >> $GITHUB_STEP_SUMMARY
-              echo "⚠️ **Action Required**: Review the ClamAV report artifact for details." >> $GITHUB_STEP_SUMMARY
-            else
-              echo "✅ **All files are clean - no threats detected!**" >> $GITHUB_STEP_SUMMARY
-            fi
+            echo "⚠️ **Action Required**: Review the ClamAV report artifact for details." >> $GITHUB_STEP_SUMMARY
           else
-            echo "### ClamAV Antivirus Scan Results" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "⚠️ **ClamAV report not found at path: ${REPORT_PATH:-not provided}**" >> $GITHUB_STEP_SUMMARY
+            echo "✅ **All files are clean - no threats detected!**" >> $GITHUB_STEP_SUMMARY
           fi
+        else
+          echo "### ClamAV Antivirus Scan Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "⚠️ **ClamAV report not found at path: ${REPORT_PATH:-not provided}**" >> $GITHUB_STEP_SUMMARY
+        fi
 
-      - name: Clean up
-        if: always()
-        run: |
-          sudo rm -rf dlstreamer-repo
+    - name: Clean up
+      if: always()
+      run: |
+        sudo rm -rf dlstreamer-repo
 
   dls-bandit:
     permissions:
@@ -363,23 +373,30 @@ jobs:
     name: "DLS SCAN: Bandit"
     runs-on: ubuntu-latest
     steps:
-      - name: Check out dlstreamer repository
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 #5.0.0
-        with:
-          persist-credentials: false
+    - name: Check out dlstreamer repository
+      uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 #5.0.0
+      with:
+        persist-credentials: false
 
-      - name: Run Bandit scan
-        uses: open-edge-platform/orch-ci/.github/actions/security/bandit@76700c2fb6d547733b9218d9638dca43f5296399 # 0.1.52
-        with:
-          scan-scope: "changed"
-          severity-level: "HIGH"
-          confidence-level: "HIGH"
-          output-format: "txt"
-          fail-on-findings: true
-          paths: .
-          report_suffix: dlstreamer
+    - name: Run Bandit scan
+      uses: open-edge-platform/orch-ci/.github/actions/security/bandit@76700c2fb6d547733b9218d9638dca43f5296399 # 0.1.52
+      with:
+        scan-scope: "changed"
+        severity-level: "HIGH"
+        confidence-level: "HIGH"
+        output-format: "txt"
+        fail-on-findings: true
+        paths: .
+        report_suffix: dlstreamer
 
   # -------------------------------------------------------- BUILDS & TESTS ---------------------------------------------------------
+  dls-build-sources-make-build:
+    permissions:
+      contents: read
+      packages: read
+    name: "DLS BUILD: make build"
+    uses: ./.github/workflows/dls-build-sources-make-build.yaml
+
   dls-build-dev-images-and-run-unit-tests:
     permissions:
       contents: read
