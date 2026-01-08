@@ -14,6 +14,7 @@ pkg_check_modules(GSTREAMER_BASE REQUIRED gstreamer-base-1.0)
 
 add_library(gstradarprocessor SHARED
     gstradarprocessor.cpp
+    gstradarprocessormeta.c
 )
 
 target_include_directories(gstradarprocessor

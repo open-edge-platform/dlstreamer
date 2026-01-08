@@ -54,6 +54,9 @@ main()
   echo "Installing libradar..."
   _install_libradar
   
+  echo "Sourcing oneAPI environment variables..."
+  source /opt/intel/oneapi/setvars.sh
+  
   echo "Radar dependencies installation completed successfully!"
 }
 
