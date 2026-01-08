@@ -34,6 +34,7 @@ PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/../elements/gvatrack/
     ${CMAKE_CURRENT_SOURCE_DIR}/../elements/gvawatermark/
     ${CMAKE_CURRENT_SOURCE_DIR}/../elements/gvawatermark3d/
+    ${CMAKE_CURRENT_SOURCE_DIR}/../elements/gvamotiondetect/
     ${CMAKE_CURRENT_SOURCE_DIR}/../elements/gvadeskew/
 )
 

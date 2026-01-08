@@ -12,6 +12,9 @@ pkg_check_modules(GSTREAMER gstreamer-1.0>=1.16 REQUIRED)
 pkg_check_modules(GSTVIDEO gstreamer-video-1.0>=1.16 REQUIRED)
 pkg_check_modules(GSTALLOC gstreamer-allocators-1.0 REQUIRED)
 pkg_search_module(VA va libva REQUIRED)
+if(NOT MSVC)
+  pkg_check_modules(GSTVA REQUIRED IMPORTED_TARGET gstreamer-va-1.0)
+endif()
 if(${ENABLE_AUDIO_INFERENCE_ELEMENTS})
         pkg_check_modules(GSTAUDIO gstreamer-audio-1.0>=1.16 REQUIRED)
 endif()
@@ -31,6 +34,13 @@ file (GLOB MAIN_SRC
     gvadeskew/*.c
 )
 
+# gvamotiondetect platform-specific source
+if(MSVC OR WIN32)
+    list(APPEND MAIN_SRC gvamotiondetect/gvamotiondetect_win.cpp)
+else()
+    list(APPEND MAIN_SRC gvamotiondetect/gvamotiondetect.cpp)
+endif()
+
 file (GLOB MAIN_HEADERS
     gvametaconvert/*.h
     gvametaaggregate/*.h
@@ -39,6 +49,7 @@ file (GLOB MAIN_HEADERS
     gvawatermark/renderer/cpu/*.h
     gvawatermark3d/*.h
     gvadeskew/*.h
+    gvamotiondetect/*.h
 )
 
 if(${ENABLE_AUDIO_INFERENCE_ELEMENTS})
@@ -64,10 +75,12 @@ PUBLIC
     gvametaaggregate
     gvawatermark3d
     gvadeskew
+    gvamotiondetect
 PRIVATE
     ${GSTREAMER_INCLUDE_DIRS}
     ${GSTVIDEO_INCLUDE_DIRS}
     ${GSTALLOC_INCLUDE_DIRS}
+    ${CMAKE_SOURCE_DIR}/thirdparty/itt/include
 )
 
 if(${ENABLE_AUDIO_INFERENCE_ELEMENTS})
@@ -91,6 +104,9 @@ PRIVATE
     json-hpp
     json-schema-validator
     utils
+    dlstreamer_gst
+    dlstreamer_gst_meta
+    gstvideoanalyticsmeta
 )
 
 if(${ENABLE_AUDIO_INFERENCE_ELEMENTS})
@@ -105,11 +121,32 @@ if(WIN32)
         target_link_libraries(${TARGET_NAME} PRIVATE d3d11_wrapper image_inference_async_d3d11)
 endif()
 
+# gvamotiondetect specific dependencies
+if(NOT MSVC)
+  target_link_libraries(${TARGET_NAME} PRIVATE PkgConfig::GSTVA dlstreamer_vaapi)
+  pkg_check_modules(LIBVA QUIET IMPORTED_TARGET libva)
+  if (LIBVA_FOUND)
+    target_link_libraries(${TARGET_NAME} PRIVATE PkgConfig::LIBVA)
+  else()
+    find_library(LIBVA_LIB va)
+    if (LIBVA_LIB)
+      target_link_libraries(${TARGET_NAME} PRIVATE ${LIBVA_LIB})
+    endif()
+  endif()
+endif()
+
+find_package(OpenCL QUIET)
+if (OpenCL_FOUND)
+  target_link_libraries(${TARGET_NAME} PRIVATE OpenCL::OpenCL)
+  target_compile_definitions(${TARGET_NAME} PRIVATE HAVE_OPENCL_LOADER=1)
+endif()
+
+target_compile_definitions(${TARGET_NAME} PRIVATE INTEL_NO_ITTNOTIFY_API)
+
 add_subdirectory(gvaattachroi)
 add_subdirectory(gvametapublish)
 add_subdirectory(gvapython)
 add_subdirectory(gvatrack)
-add_subdirectory(gvamotiondetect)
 if(ENABLE_REALSENSE)
     add_subdirectory(gvarealsense)
 endif()

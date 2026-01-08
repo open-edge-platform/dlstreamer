@@ -1,11 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2025 Intel Corporation
- *
- * SPDX-License-Identifier: MIT
- ******************************************************************************/
-
-/*******************************************************************************
- * Copyright (C) 2025 Intel Corporation
+ * Copyright (C) 2025-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -573,10 +567,3 @@ static void gst_gva_motion_detect_init(GstGvaMotionDetect *self) {
     self->frame_index = 0;
     g_mutex_init(&self->meta_mutex);
 }
-
-static gboolean plugin_init(GstPlugin *plugin) {
-    return gst_element_register(plugin, "gvamotiondetect", GST_RANK_NONE, GST_TYPE_GVA_MOTION_DETECT);
-}
-
-GST_PLUGIN_DEFINE(GST_VERSION_MAJOR, GST_VERSION_MINOR, gvamotiondetect, PRODUCT_FULL_NAME " gvamotiondetect element",
-                  plugin_init, PLUGIN_VERSION, PLUGIN_LICENSE, PACKAGE_NAME, GST_PACKAGE_ORIGIN)
