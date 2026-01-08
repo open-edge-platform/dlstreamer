@@ -274,7 +274,7 @@ jobs:
           fetch-depth: 0
 
       - name: Run shellcheck
-        uses: actions/common/shellcheck
+        uses: open-edge-platform/dlstreamer/.github/actions/shellcheck@master
         with:
           path: .
           output-file: shellcheck-report.txt
@@ -297,7 +297,7 @@ jobs:
           path: dlstreamer-repo
 
       - name: Run yamlint
-        uses: open-edge-platform/dlstreamer/.github/actions/shellcheck@master
+        uses: ./dlstreamer-repo/.github/actions/common/yamllint
         with:
           path: dlstreamer-repo
           output-file: yamllint-report.txt
