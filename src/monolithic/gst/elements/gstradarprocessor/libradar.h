@@ -104,13 +104,15 @@ typedef struct TrackingResult{
     TrackingDescription*    td;
 }TrackingResult;
 typedef struct RadarHandle RadarHandle;
-RadarErrorCode radarGetMemSize(RadarParam* rp, ulong* sz);
-RadarErrorCode radarInitHandle(RadarHandle** h, RadarParam* rp, void* buf, ulong sz);
-RadarErrorCode radarDetection(RadarHandle* h, RadarCube* c, RadarPointClouds* rr);
-RadarErrorCode radarClustering(RadarHandle* h, RadarPointClouds* rr, ClusterResult* cr);
-RadarErrorCode radarTracking(RadarHandle* h, ClusterResult* cr, TrackingResult* tr);
+
+// Function declarations commented out - using dynamic loading (dlopen) instead of static linking
+//RadarErrorCode radarGetMemSize(RadarParam* rp, ulong* sz);
+//RadarErrorCode radarInitHandle(RadarHandle** h, RadarParam* rp, void* buf, ulong sz);
+//RadarErrorCode radarDetection(RadarHandle* h, RadarCube* c, RadarPointClouds* rr);
+//RadarErrorCode radarClustering(RadarHandle* h, RadarPointClouds* rr, ClusterResult* cr);
+//RadarErrorCode radarTracking(RadarHandle* h, ClusterResult* cr, TrackingResult* tr);
 //RadarErrorCode radarProcFrame(RadarHandle* h, RadarCube* c, RadarPointClouds* rr, ClusterResult* cr, TrackingResult* tr);
-RadarErrorCode radarDestroyHandle(RadarHandle* h);
+//RadarErrorCode radarDestroyHandle(RadarHandle* h);
 #if defined(__cplusplus)
 };
 #endif

@@ -51,16 +51,28 @@ struct _GstRadarProcessor {
     std::vector<std::complex<float>> input_data;
     std::vector<std::complex<float>> output_data;
 
-    // Radar parameters for libradar
+    // [libradar.so required] Radar parameters for libradar.so
     RadarParam radar_param;
     RadarCube radar_cube;
     RadarPointClouds radar_point_clouds;
     ClusterResult cluster_result;
     RadarHandle* radar_handle;
     TrackingResult tracking_result;
-
-    // Buffer for TrackingResult
+    // [libradar.so required] Buffer for TrackingResult
     std::vector<TrackingDescription> tracking_desc_buf;
+
+    // [libradar.so required] Memory buffer for libradar
+    void* radar_buffer;
+    ulong radar_buffer_size;
+
+    // Dynamic library handle and function pointers
+    void* libradar_handle;
+    RadarErrorCode (*radarGetMemSize_fn)(RadarParam*, ulong*);
+    RadarErrorCode (*radarInitHandle_fn)(RadarHandle**, RadarParam*, void*, ulong);
+    RadarErrorCode (*radarDetection_fn)(RadarHandle*, RadarCube*, RadarPointClouds*);
+    RadarErrorCode (*radarClustering_fn)(RadarHandle*, RadarPointClouds*, ClusterResult*);
+    RadarErrorCode (*radarTracking_fn)(RadarHandle*, ClusterResult*, TrackingResult*);
+    RadarErrorCode (*radarDestroyHandle_fn)(RadarHandle*);
 };
 
 struct _GstRadarProcessorClass {
