@@ -155,7 +155,7 @@ prepare_models_list() {
     for model in "${models_array[@]}"; do
         model=$(echo "$model" | xargs)  # Trim whitespace
 
-        if ! [[ " ${SUPPORTED_MODELS[*]} " =~ " $model " ]]; then
+        if ! [[ " ${SUPPORTED_MODELS[*]} " =~ $model ]]; then
             echo "Unsupported model: $model" >&2
             exit 1
         fi
