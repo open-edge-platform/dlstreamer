@@ -104,7 +104,6 @@ PRIVATE
     json-hpp
     json-schema-validator
     utils
-    dlstreamer_gst
     dlstreamer_gst_meta
     gstvideoanalyticsmeta
 )
@@ -119,26 +118,6 @@ endif()
 
 if(WIN32)
         target_link_libraries(${TARGET_NAME} PRIVATE d3d11_wrapper image_inference_async_d3d11)
-endif()
-
-# gvamotiondetect specific dependencies
-if(NOT MSVC)
-  target_link_libraries(${TARGET_NAME} PRIVATE PkgConfig::GSTVA dlstreamer_vaapi)
-  pkg_check_modules(LIBVA QUIET IMPORTED_TARGET libva)
-  if (LIBVA_FOUND)
-    target_link_libraries(${TARGET_NAME} PRIVATE PkgConfig::LIBVA)
-  else()
-    find_library(LIBVA_LIB va)
-    if (LIBVA_LIB)
-      target_link_libraries(${TARGET_NAME} PRIVATE ${LIBVA_LIB})
-    endif()
-  endif()
-endif()
-
-find_package(OpenCL QUIET)
-if (OpenCL_FOUND)
-  target_link_libraries(${TARGET_NAME} PRIVATE OpenCL::OpenCL)
-  target_compile_definitions(${TARGET_NAME} PRIVATE HAVE_OPENCL_LOADER=1)
 endif()
 
 target_compile_definitions(${TARGET_NAME} PRIVATE INTEL_NO_ITTNOTIFY_API)
