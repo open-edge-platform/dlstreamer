@@ -12,7 +12,7 @@ env:
 jobs:
   build:
     name: "Build from sources using make build on ${{ matrix.ubuntu_version }}"
-    runs-on: self-hosted
+    runs-on: ${{ matrix.os }}
     permissions:
       contents: read
       packages: read
