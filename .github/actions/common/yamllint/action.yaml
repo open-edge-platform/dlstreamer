@@ -63,6 +63,10 @@ runs:
           case "$warning_count" in ''|*[!0-9]*) warning_count=0 ;; esac || true
           total=$((error_count + warning_count)) || total=0
 
+          # Export error_count for use in the final step
+          echo "error_count=$error_count" >> $GITHUB_OUTPUT
+          echo "total_count=$total" >> $GITHUB_OUTPUT
+
           echo "### Yamllint Results for ${name}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "- **Total Issues**: $total" >> $GITHUB_STEP_SUMMARY

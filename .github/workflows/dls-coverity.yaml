@@ -1,3 +1,4 @@
+# yamllint disable rule:line-length
 name: "[DLS] Coverity (C/C++)"
 run-name: "[DLS] Coverity (C/C++)"
 on:
