@@ -390,6 +390,13 @@ jobs:
         report_suffix: dlstreamer
 
   # -------------------------------------------------------- BUILDS & TESTS ---------------------------------------------------------
+  dls-build-sources-make-build:
+    permissions:
+      contents: read
+      packages: read
+    name: "DLS BUILD: make build"
+    uses: ./.github/workflows/dls-build-sources-make-build.yaml
+
   dls-build-dev-images-and-run-unit-tests:
     permissions:
       contents: read
