@@ -1,6 +1,6 @@
 # Windows Samples
 
-This folder contains Windows-specific samples and scripts for Intel® Deep Learning Streamer (Intel® DL Streamer).
+This folder contains Windows-specific samples and scripts for Deep Learning Streamer (DL Streamer).
 
 ## Requirements
 
