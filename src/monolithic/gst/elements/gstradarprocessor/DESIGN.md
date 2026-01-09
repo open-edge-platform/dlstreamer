@@ -11,13 +11,13 @@ The element is designed to work in a pipeline where raw radar data is fed frame-
 ```bash
 multifilesrc location="/home/user/qianlong/raddet/radar/%06d.bin" start-index=559 ! \
 application/octet-stream ! \
-radarprocessor radar-config=config.json frame-rate=10 process-interval=1 ! \
+radarprocessor radar-config=config.json frame-rate=10 ! \
 gvafpscounter ! \
 gvametapublish file-path=result/radar_output.json ! \
 fakesink
 ```
 *   **Input:** Raw binary radar data (one file per frame).
-*   **Output:** The input buffer is passed through, with processing results attached as metadata (future implementation) or published via `gvametapublish`.
+*   **Output:** The input buffer is passed through with processing results attached as custom GStreamer metadata.
 
 ### 2.2 Interface
 *   **Element Name:** `radarprocessor`
@@ -31,7 +31,6 @@ fakesink
 | :---           | :---   | :---        |
 | `radar-config`   | String  | Path to the Radar Configuration JSON file. This file contains critical parameters for signal interpretation (RX/TX count, samples, chirps) and algorithm tuning (CFAR thresholds, clustering parameters). |
 | `frame-rate`     | Double  | Target frame rate for the output. If set > 0, the element will throttle processing to match this rate. Default is 0 (no limit). |
-| `process-interval` | Integer | Interval for processing frames (e.g., 1 = process every frame, 2 = process every other frame). Useful for reducing CPU load. Default is 1. |
 
 ## 4. Functional Description
 
@@ -69,9 +68,18 @@ The element maintains internal counters:
 ### 4.7. Core Algorithm Execution
 The element prepares the data structures for `libradar` and executes the processing chain:
 1.  **RadarCube Preparation:** Maps the pre-processed data to `RadarCube`.
-2.  **Detection:** (Planned) Calls `radarDetection` to generate `RadarPointClouds`.
-3.  **Clustering:** (Planned) Calls `radarClustering` to generate `ClusterResult`.
-4.  **Tracking:** (Planned) Calls `radarTracking` to generate `TrackingResult`.
+2.  **Detection:** Calls `radarDetection` to generate `RadarPointClouds` containing detected reflection points.
+3.  **Clustering:** Calls `radarClustering` to generate `ClusterResult` grouping nearby points into objects.
+4.  **Tracking:** Calls `radarTracking` to generate `TrackingResult` for object tracking over time.
+
+### 4.8. Metadata Attachment
+After processing completes, the element attaches a custom `GstRadarProcessorMeta` to the output buffer containing:
+*   **frame_id:** Sequential frame identifier.
+*   **RadarPointClouds:** Arrays of ranges, speeds, angles, and SNR values.
+*   **ClusterResult:** Cluster centers (cx, cy), sizes (rx, ry), and average velocities.
+*   **TrackingResult:** Tracked object IDs, positions (x, y), and velocities (vx, vy).
+
+The metadata is implemented with proper lifecycle management (init/free callbacks) and deep-copies all dynamic arrays to ensure data integrity throughout the pipeline.
 
 ## 5. Data Structures
 
@@ -82,7 +90,35 @@ The element manages the lifecycle of the following key structures defined in `li
 *   **ClusterResult:** Grouped point clouds representing objects.
 *   **TrackingResult:** Object tracking over time.
 
-## 6. Output & Metadata (Future Work)
-The processed results (`PointClouds`, `ClusterResult`, `TrackingResult`) will be:
-1.  Attached to the GStreamer buffer as custom metadata.
-2.  Compatible with `gvametapublish` to publish results via MQTT/Kafka for downstream consumption.
+## 6. Output & Metadata
+
+The processed results are attached to each GStreamer buffer as custom metadata (`GstRadarProcessorMeta`):
+
+### 6.1. Metadata Structure
+The custom metadata type is registered with the GStreamer metadata API and contains:
+*   **frame_id** (guint64): Sequential frame number.
+*   **RadarPointClouds**: Detected radar points with the following arrays:
+    *   `ranges[]`: Distance to each reflection point.
+    *   `speeds[]`: Doppler velocity of each point.
+    *   `angles[]`: Azimuth angle of each point.
+    *   `snrs[]`: Signal-to-noise ratio for each detection.
+*   **ClusterResult**: Grouped point clouds with:
+    *   `cx[]`, `cy[]`: Cluster center coordinates.
+    *   `rx[]`, `ry[]`: Cluster extents.
+    *   `av[]`: Average velocity per cluster.
+*   **TrackingResult**: Multi-frame object tracking with:
+    *   `tracker_ids[]`: Unique identifier for each tracked object.
+    *   `x[]`, `y[]`: Current position estimates.
+    *   `vx[]`, `vy[]`: Velocity vectors.
+
+### 6.2. Metadata Lifecycle
+*   **Registration:** Metadata API type is registered using `gst_meta_api_type_register()` with proper initialization.
+*   **Initialization:** `gst_radar_processor_meta_init()` sets all pointers to NULL and counts to zero.
+*   **Allocation:** `gst_buffer_add_radar_processor_meta()` creates metadata and performs deep-copy of all arrays.
+*   **Cleanup:** `gst_radar_processor_meta_free()` releases all dynamically allocated arrays using `g_free()`.
+
+### 6.3. Downstream Consumption
+The metadata can be consumed by downstream GStreamer elements:
+*   Custom elements can retrieve metadata using `gst_buffer_get_meta()` with `GST_RADAR_PROCESSOR_META_API_TYPE`.
+*   `gvametapublish` can publish the data to MQTT/Kafka for external processing.
+*   Visualization elements can render point clouds, clusters, and tracking information in real-time.
