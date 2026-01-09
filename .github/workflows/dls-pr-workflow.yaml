@@ -271,22 +271,17 @@ jobs:
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 #5.0.0
         with:
           persist-credentials: false
-          path: dlstreamer-repo
           fetch-depth: 0
 
       - name: Run shellcheck
-        uses: ./dlstreamer-repo/.github/actions/common/shellcheck
+        uses: ./.github/actions/common/shellcheck
         with:
-          path: dlstreamer-repo
+          path: .
           output-file: shellcheck-report.txt
           name: DLS_shellcheck
           enable-reviewdog: true
           github_token: ${{ secrets.GITHUB_TOKEN }}
           fail-on-findings: true
-
-      - name: Clean up
-        run: |
-          sudo rm -rf dlstreamer-repo
 
   dls-yamllint:
     permissions:

@@ -1,5 +1,16 @@
 # Deep Learning Streamer
 
+<!--hide_directive
+<div class="component_card_widget">
+  <a class="icon_github" href="https://github.com/open-edge-platform/dlstreamer">
+     GitHub project
+  </a>
+  <a class="icon_document" href="https://github.com/open-edge-platform/dlstreamer/blob/master/README.md">
+     Readme
+  </a>
+</div>
+hide_directive-->
+
 **Deep Learning Streamer (DL Streamer)** is an open-source
 streaming media analytics framework. It is based on GStreamer\* multimedia
 framework, and it is used for creating complex media analytics pipelines for the Cloud
