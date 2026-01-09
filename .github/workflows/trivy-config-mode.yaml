@@ -1,4 +1,3 @@
-# yamllint disable rule:line-length
 name: "[SCANS] Trivy Dockerfile Config Scan"
 run-name: "[SCANS] Trivy Dockerfile Config Scan (by @${{ github.actor }} via ${{ github.event_name }})"
 on:

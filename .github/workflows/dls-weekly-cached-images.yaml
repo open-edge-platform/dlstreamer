@@ -1,4 +1,3 @@
-# yamllint disable rule:line-length
 name: "[DLS] [U22/U24] Build weekly cache imgs"
 run-name: "[DLS] [U22/U24] Build weekly cache imgs"
 on:

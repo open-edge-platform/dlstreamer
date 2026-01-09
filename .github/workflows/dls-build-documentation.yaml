@@ -1,4 +1,3 @@
-# yamllint disable rule:line-length
 name: "[DLS] Documentation PR workflow"
 run-name: "[DLS] Documentation PR workflow (by @${{ github.actor }} via ${{ github.event_name }})"
 on:

@@ -1,0 +1,10 @@
+rules:
+  line-length:
+    max: 80
+    level: warning
+    ignore: |
+      .github/workflows/*.yml
+      .github/workflows/*.yaml
+      .github/actions/common/*.yml
+      .github/actions/common/*.yaml
+      docs/scripts/all_models.yaml

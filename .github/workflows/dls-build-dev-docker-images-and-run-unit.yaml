@@ -1,4 +1,3 @@
-# yamllint disable rule:line-length
 name: "[DLS] [U22/24] Build dev imgs and run Unit Tests"
 run-name: "[DLS] [U22/24] Build dev imgs and run Unit Tests(by ${{ github.actor }})"
 on:
