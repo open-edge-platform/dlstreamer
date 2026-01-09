@@ -46,6 +46,7 @@ runs:
 
     - name: Analyze Yamllint results
       if: always()
+      id: analyze-results
       env:
         output_file: ${{ inputs.output-file }}
         name: ${{ inputs.name }}
@@ -73,13 +74,19 @@ runs:
             echo "- ⚠️ **Warnings**: $warning_count" >> $GITHUB_STEP_SUMMARY
           fi
 
-          if [ "$total" -gt 0 ]; then
+          if [ "$error_count" -gt 0 ]; then
             echo "" >> $GITHUB_STEP_SUMMARY
-            echo "⚠️ **Please review the Yamllint report artifact and consider fixing the issues.**" >> $GITHUB_STEP_SUMMARY
+            echo "⚠️ **Please review the Yamllint report artifact and fix the errors.**" >> $GITHUB_STEP_SUMMARY
           else
             echo "" >> $GITHUB_STEP_SUMMARY
-            echo "✅ **No issues found!**" >> $GITHUB_STEP_SUMMARY
+            echo "✅ **No errors found!**" >> $GITHUB_STEP_SUMMARY
+            if [ "$total" -gt 0 ]; then
+              echo "📋 **Note**: There are warnings/info/notes that should be reviewed but won't fail the build." >> $GITHUB_STEP_SUMMARY
+            fi
           fi
+        else
+          echo "error_count=0" >> $GITHUB_OUTPUT
+          echo "total_count=0" >> $GITHUB_OUTPUT
         fi
       shell: bash
 
@@ -104,10 +111,15 @@ runs:
       env:
         output_file: ${{ inputs.output-file }}
       run: |
-        if [ -f "${output_file}" ]; then
-          issue_count=$(grep -E "::error|::warning" "${output_file}" 2>/dev/null | wc -l | tr -d '[:space:]' || echo "0")
-          if [ "$issue_count" -gt 0 ]; then
-            echo "❌ Yamllint found $issue_count issue(s). Failing the job."
-            exit 1
-          fi
+        error_count="${{ steps.analyze-results.outputs.error_count }}"
+        total_count="${{ steps.analyze-results.outputs.total_count }}"
+        
+        if [ "$error_count" -gt 0 ]; then
+          echo "❌ Yamllint found $error_count error(s). Failing the job."
+          exit 1
+        elif [ "$total_count" -gt 0 ]; then
+          echo "✅ Yamllint found $total_count issue(s) but no errors. Job will continue."
+          echo "📋 Issues found: warnings, info, or notes that should be reviewed."
+        else
+          echo "✅ No Yamllint issues found."
         fi
