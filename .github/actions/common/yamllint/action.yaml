@@ -36,7 +36,7 @@ runs:
         path: ${{ inputs.path }}
         output_file: ${{ inputs.output-file }}
       run: |
-        yamllint ${path} 2>&1 | tee ${output_file} || true
+        yamllint -c ${path}/.yamllint ${path} 2>&1 | tee ${output_file} || true
         if [ ! -f "${output_file}" ]; then
           echo "No YAML files found or yamllint produced no output" > ${output_file}
         fi
