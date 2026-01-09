@@ -1,20 +1,14 @@
 # ==============================================================================
-# Copyright (C) 2018-2025 Intel Corporation
+# Copyright (C) 2018-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
 
 set (TARGET_NAME "image_inference_openvino")
 
-# FIXME: update macro below
 find_package(PkgConfig REQUIRED)
 find_package(OpenVINO REQUIRED Runtime)
 find_package(OpenCL REQUIRED)
-
-set(OpenVINO_MIN_VERSION "2024.0.0")
-if(${OpenVINO_VERSION} VERSION_LESS ${OpenVINO_MIN_VERSION})
-        message(FATAL_ERROR "OpenVINO version should be >= ${OpenVINO_MIN_VERSION}. Found: ${OpenVINO_VERSION}")
-endif()
 
 file (GLOB MAIN_SRC
         ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp
@@ -52,7 +46,7 @@ if(WIN32)
     target_link_libraries(${TARGET_NAME} PUBLIC d3d11)
 endif()
 
-if (${ENABLE_VAAPI} AND ${OpenVINO_VERSION} VERSION_GREATER_EQUAL "2023.3")
+if (${ENABLE_VAAPI} AND NOT(WIN32))
         add_definitions(-DENABLE_GPU_TILE_AFFINITY)
         target_link_libraries(${TARGET_NAME} PUBLIC va_api_wrapper)
 endif()

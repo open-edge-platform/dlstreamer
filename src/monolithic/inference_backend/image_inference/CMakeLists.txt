@@ -1,5 +1,5 @@
 # ==============================================================================
-# Copyright (C) 2018-2025 Intel Corporation
+# Copyright (C) 2018-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
@@ -8,7 +8,7 @@ set (TARGET_NAME "image_inference")
 
 add_subdirectory(openvino)
 
-if(${ENABLE_VAAPI})
+if(${ENABLE_VAAPI} AND NOT(WIN32))
         add_subdirectory(async_with_va_api)
 endif()
 

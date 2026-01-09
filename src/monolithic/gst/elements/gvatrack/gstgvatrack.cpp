@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2018-2025 Intel Corporation
+ * Copyright (C) 2018-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -15,7 +15,7 @@
 #include <dlstreamer/gst/context.h>
 #include <dlstreamer/memory_mapper_factory.h>
 
-#ifdef ENABLE_VAAPI
+#if !defined(_WIN32) && defined(ENABLE_VAAPI)
 #include <dlstreamer/vaapi/context.h>
 #endif
 
@@ -66,7 +66,7 @@ static dlstreamer::MemoryMapperPtr create_mapper(GstGvaTrack *gva_track, dlstrea
     if (!gpu_device)
         return BufferMapperFactory::createMapper(InferenceBackend::MemoryType::SYSTEM);
 
-#ifdef ENABLE_VAAPI
+#if !defined(_WIN32) && defined(ENABLE_VAAPI)
     // GPU tracker expects VASurface or VAMemory as input.
     if (gva_track->caps_feature == VA_SURFACE_CAPS_FEATURE || gva_track->caps_feature == VA_MEMORY_CAPS_FEATURE)
         return BufferMapperFactory::createMapper(InferenceBackend::MemoryType::VAAPI, context);

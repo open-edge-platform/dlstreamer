@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2018-2025 Intel Corporation
+ * Copyright (C) 2018-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -40,7 +40,7 @@
 #include <thread>
 #include <vector>
 
-#ifdef ENABLE_VAAPI
+#if defined(ENABLE_VAAPI) && !defined(_WIN32)
 #include "vaapi_utils.h"
 #endif
 
@@ -693,7 +693,7 @@ dlstreamer::ContextPtr createVaDisplay(GvaBaseInference *gva_base_inference) {
 
     const std::string device(gva_base_inference->device);
     dlstreamer::ContextPtr display = nullptr;
-
+#ifndef _WIN32
     if ((gva_base_inference->priv->va_display) &&
         (canReuseSharedVADispCtx(gva_base_inference, MAX_STREAMS_SHARING_VADISPLAY))) {
         // Reuse existing VADisplay context (i.e. priv->va_display) if it fits
@@ -715,7 +715,7 @@ dlstreamer::ContextPtr createVaDisplay(GvaBaseInference *gva_base_inference) {
                          "No shared VADisplay found for device '%s', failed to create or retrieve a VADisplay context.",
                          device.c_str());
     }
-
+#endif
     return display;
 }
 
