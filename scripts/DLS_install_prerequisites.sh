@@ -5,7 +5,7 @@
 # SPDX-License-Identifier: MIT
 # ==============================================================================
 
-npu_driver_version='1.23.0'
+npu_driver_version='1.28.0'
 reinstall_npu_driver='no'  # Default value for reinstalling the NPU driver
 on_host_or_docker='host'
 
@@ -539,9 +539,9 @@ install_npu() {
         wget https://github.com/intel/linux-npu-driver/releases/download/v1.23.0/linux-npu-driver-v1.23.0.20250827-17270089246-ubuntu2204.tar.gz
         tar -xf linux-npu-driver-v1.23.0.20250827-17270089246-ubuntu2204.tar.gz
     elif [ "$ubuntu_version" == "24.04" ]; then
-        wget https://github.com/oneapi-src/level-zero/releases/download/v1.22.4/level-zero_1.22.4+u24.04_amd64.deb
-        wget https://github.com/intel/linux-npu-driver/releases/download/v1.23.0/linux-npu-driver-v1.23.0.20250827-17270089246-ubuntu2404.tar.gz
-        tar -xf linux-npu-driver-v1.23.0.20250827-17270089246-ubuntu2404.tar.gz
+        wget https://github.com/oneapi-src/level-zero/releases/download/v1.24.2/level-zero_1.24.2+u24.04_amd64.deb
+        wget https://github.com/intel/linux-npu-driver/releases/download/v1.28.0/linux-npu-driver-v1.28.0.20251218-20347000698-ubuntu2404.tar.gz
+        tar -xf linux-npu-driver-v1.28.0.20251218-20347000698-ubuntu2404.tar.gz
     fi
     $SUDO_PREFIX apt update
     $SUDO_PREFIX apt install libtbb12
