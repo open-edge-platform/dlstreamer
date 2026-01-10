@@ -642,13 +642,13 @@ convnext-tiny:
   Source framework: PyTorch\*
   Type: Classification
   demo_apps:
-  - classification_demo
-  - classification_benchmark_demo
-  - classification_benchmark_demo
+    - classification_demo
+    - classification_benchmark_demo
+    - classification_benchmark_demo
   demo_urls:
-  - https://github.com/openvinotoolkit/open_model_zoo/tree/master//demos/classification_demo/python
-  - https://github.com/openvinotoolkit/open_model_zoo/tree/master//demos/classification_benchmark_demo/cpp_gapi
-  - https://github.com/openvinotoolkit/open_model_zoo/tree/master//demos/classification_benchmark_demo/cpp
+    - https://github.com/openvinotoolkit/open_model_zoo/tree/master//demos/classification_demo/python
+    - https://github.com/openvinotoolkit/open_model_zoo/tree/master//demos/classification_benchmark_demo/cpp_gapi
+    - https://github.com/openvinotoolkit/open_model_zoo/tree/master//demos/classification_benchmark_demo/cpp
   description: 'The "convnext-tiny" model is tiny version of ConvNeXt model, constructed
     entirely from standard ConvNet modules. ConvNeXt is accurate, efficient, scalable
     and very simple in design. The model is pre-trained for image classification task
@@ -831,8 +831,8 @@ drn-d-38:
   Source framework: PyTorch\*
   Type: Semantic segmentation
   demo_apps:
-  - segmentation_demo
-  - segmentation_demo
+    - segmentation_demo
+    - segmentation_demo
   demo_urls:
     - https://github.com/openvinotoolkit/open_model_zoo/tree/master//demos/segmentation_demo/cpp
     - https://github.com/openvinotoolkit/open_model_zoo/tree/master//demos/segmentation_demo/python
@@ -2208,7 +2208,7 @@ instance-segmentation-person-0007:
   description: Instance segmentation model for one class - person. PointRend based
     architecture with EfficientNet-B1 backbone and lightweight Bbox and Mask heads.
   labels:
-  - person
+    - person
   license: https://raw.githubusercontent.com/openvinotoolkit/open_model_zoo/master/LICENSE
   name: instance-segmentation-person-0007
   openvino_devices: CPU
@@ -3819,7 +3819,7 @@ quartznet-15x5-en:
   demo_apps:
     - speech_recognition_quartznet_demo
   demo_urls:
-  - https://github.com/openvinotoolkit/open_model_zoo/tree/master//demos/speech_recognition_quartznet_demo/python
+    - https://github.com/openvinotoolkit/open_model_zoo/tree/master//demos/speech_recognition_quartznet_demo/python
   license: https://raw.githubusercontent.com/NVIDIA/NeMo/main/LICENSE
   name: quartznet-15x5-en
   openvino_devices: CPU
@@ -5587,4 +5587,3 @@ torchvision.models.detection.ssdlite320_mobilenet_v3_large:
   dlstreamer_gst_openvino: object_detect model=ssdlite320_mobilenet_v3_large.xml device=CPU
   dlstreamer_gst_pytorch: object_detect model=torchvision.models.detection.ssdlite320_mobilenet_v3_large device=CPU
   dlstreamer_ffmpeg_openvino: $DLSTREAMER_DIR/samples/ffmpeg_openvino/cpp/decode_resize_inference/build_and_run.sh VIDEO_FILE ssdlite320_mobilenet_v3_large.xml
-
