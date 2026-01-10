@@ -362,10 +362,10 @@ jobs:
             echo "⚠️ **ClamAV report not found at path: ${REPORT_PATH:-not provided}**" >> $GITHUB_STEP_SUMMARY
           fi
 
-    - name: Clean up
-      if: always()
-      run: |
-        sudo rm -rf dlstreamer-repo
+      - name: Clean up
+        if: always()
+        run: |
+          sudo rm -rf dlstreamer-repo
 
   dls-bandit:
     permissions:
