@@ -74,22 +74,22 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 #4.6.2
         if: always()
         with:
-         name: docs_linkcheck_report
-         path: ./docs/build-linkcheck/
+          name: docs_linkcheck_report
+          path: ./docs/build-linkcheck/
 
       - name: Upload specific links checker report
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 #4.6.2
         if: always()
         with:
-         name: docs_specific_links_checker_report
-         path: ./docs/specific_links_checker_report.txt
+          name: docs_specific_links_checker_report
+          path: ./docs/specific_links_checker_report.txt
 
       - name: Upload spelling report
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 #4.6.2
         if: always()
         with:
-         name: docs_spelling_report
-         path: ./docs/build-spelling/
+          name: docs_spelling_report
+          path: ./docs/build-spelling/
 
       - name: Upload pages
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 #4.6.2

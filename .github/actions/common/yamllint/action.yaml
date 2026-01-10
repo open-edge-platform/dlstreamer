@@ -117,7 +117,7 @@ runs:
       run: |
         error_count="${{ steps.analyze-results.outputs.error_count }}"
         total_count="${{ steps.analyze-results.outputs.total_count }}"
-        
+
         if [ "$error_count" -gt 0 ]; then
           echo "❌ Yamllint found $error_count error(s). Failing the job."
           exit 1

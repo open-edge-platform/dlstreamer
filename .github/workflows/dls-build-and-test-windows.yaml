@@ -34,92 +34,92 @@ jobs:
           - runner_labels: [self-hosted, dlstreamer, ARL, windows] # Build and run tests on Arrow Lake system with Ubuntu 24
             runner_print_label: ARL
     steps:
-    - name: Check out dlstreamer repository
-      uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 #5.0.0
-      with:
-        persist-credentials: false
-        path: dlstreamer-repo
-        submodules: false
-        fetch-depth: 1
+      - name: Check out dlstreamer repository
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 #5.0.0
+        with:
+          persist-credentials: false
+          path: dlstreamer-repo
+          submodules: false
+          fetch-depth: 1
 
-    - name: Init submodules
-      run: |
-        cd dlstreamer-repo
-        git submodule update --init thirdparty/spdlog
-        git submodule update --init thirdparty/googletest
+      - name: Init submodules
+        run: |
+          cd dlstreamer-repo
+          git submodule update --init thirdparty/spdlog
+          git submodule update --init thirdparty/googletest
 
-    - name: Copy DL Streamer repo
-      shell: powershell
-      run: |
-        if (Test-Path ${{ env.DLS_REPO_TARGET_DIRECTORY }}) {
-            Remove-Item -Recurse -Force $target
-        }
-        New-Item -ItemType Directory -Path ${{ env.DLS_REPO_TARGET_DIRECTORY }} | Out-Null
-        Copy-Item -Path "dlstreamer-repo\*" -Destination ${{ env.DLS_REPO_TARGET_DIRECTORY }} -Recurse -Force
+      - name: Copy DL Streamer repo
+        shell: powershell
+        run: |
+          if (Test-Path ${{ env.DLS_REPO_TARGET_DIRECTORY }}) {
+              Remove-Item -Recurse -Force $target
+          }
+          New-Item -ItemType Directory -Path ${{ env.DLS_REPO_TARGET_DIRECTORY }} | Out-Null
+          Copy-Item -Path "dlstreamer-repo\*" -Destination ${{ env.DLS_REPO_TARGET_DIRECTORY }} -Recurse -Force
 
-    # ======================================================== BUILDING PART ========================================================
-    - name: 📦 Build DL Streamer DLLs
-      shell: powershell
-      run: |
-        cd ${{ env.DLS_REPO_TARGET_DIRECTORY }}
-        & ./scripts/build_dlstreamer_dlls.ps1
+      # ======================================================== BUILDING PART ========================================================
+      - name: 📦 Build DL Streamer DLLs
+        shell: powershell
+        run: |
+          cd ${{ env.DLS_REPO_TARGET_DIRECTORY }}
+          & ./scripts/build_dlstreamer_dlls.ps1
 
-    - name: Copy DLLs
-      shell: powershell
-      run: |
-        $target = "${{ env.DLS_TARGET_DIRECTORY }}"
-        $source = "C:\dlstreamer_tmp\build\intel64\Release\bin"
-        Write-Host "`nContents of source directory ($source):"
-        Get-ChildItem -Path $source -Recurse
-        if (Test-Path $target) {
-            Remove-Item -Recurse -Force $target
-        }
+      - name: Copy DLLs
+        shell: powershell
+        run: |
+          $target = "${{ env.DLS_TARGET_DIRECTORY }}"
+          $source = "C:\dlstreamer_tmp\build\intel64\Release\bin"
+          Write-Host "`nContents of source directory ($source):"
+          Get-ChildItem -Path $source -Recurse
+          if (Test-Path $target) {
+              Remove-Item -Recurse -Force $target
+          }
 
-        # Copy DLLs
-        New-Item -ItemType Directory -Path $target | Out-Null
-        Copy-Item -Path "$source\*" -Destination $target -Recurse -Force
+          # Copy DLLs
+          New-Item -ItemType Directory -Path $target | Out-Null
+          Copy-Item -Path "$source\*" -Destination $target -Recurse -Force
 
-        # Copy script
-        $scriptSource = "$PWD\dlstreamer-repo\scripts\setup_dls_env.ps1"
-        $scriptDest = Join-Path $target "setup_dls_env.ps1"
-        Copy-Item -Path $scriptSource -Destination $scriptDest -Force
+          # Copy script
+          $scriptSource = "$PWD\dlstreamer-repo\scripts\setup_dls_env.ps1"
+          $scriptDest = Join-Path $target "setup_dls_env.ps1"
+          Copy-Item -Path $scriptSource -Destination $scriptDest -Force
 
-        Write-Host "`nContents of target directory after copying ($target):"
-        Get-ChildItem -Path $target -Recurse
+          Write-Host "`nContents of target directory after copying ($target):"
+          Get-ChildItem -Path $target -Recurse
 
-    - name: Print list of DLLs with sizes
-      shell: powershell
-      run: |
-        $files = Get-ChildItem -Path ${{ env.DLS_TARGET_DIRECTORY }} -Recurse -Filter *.dll -File
+      - name: Print list of DLLs with sizes
+        shell: powershell
+        run: |
+          $files = Get-ChildItem -Path ${{ env.DLS_TARGET_DIRECTORY }} -Recurse -Filter *.dll -File
 
-        $table = $files | ForEach-Object {
-            "| $($_.Name) | $([math]::Round($_.Length / 1KB, 2)) KB |"
-        }
-        $count = $files.Count
+          $table = $files | ForEach-Object {
+              "| $($_.Name) | $([math]::Round($_.Length / 1KB, 2)) KB |"
+          }
+          $count = $files.Count
 
-        $summary = @()
-        $summary += "### List of built DLL files"
-        $summary += ""
-        $summary += "| File |  Size  |"
-        $summary += "|------|--------|"
-        $summary += $table
-        $summary += ""
-        $summary += "**Count of files:** $count"
+          $summary = @()
+          $summary += "### List of built DLL files"
+          $summary += ""
+          $summary += "| File |  Size  |"
+          $summary += "|------|--------|"
+          $summary += $table
+          $summary += ""
+          $summary += "**Count of files:** $count"
 
-        $summary -join "`n" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+          $summary -join "`n" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
 
-    # ======================================================== CLEAUP PART ========================================================
-    - name: Clean up
-      if: always()
-      shell: powershell
-      run: |
-        Remove-Item -Path .\dlstreamer-repo\ -Force -Recurse
-        if (Test-Path "C:\dlstreamer_tmp\build") {
-            Remove-Item -Recurse -Force "C:\dlstreamer_tmp\build"
-        }
-        if (Test-Path ${{ env.DLS_TARGET_DIRECTORY }}) {
-            Remove-Item -Recurse -Force ${{ env.DLS_TARGET_DIRECTORY }}
-        }
-        if (Test-Path ${{ env.DLS_REPO_TARGET_DIRECTORY }}) {
-            Remove-Item -Recurse -Force ${{ env.DLS_REPO_TARGET_DIRECTORY }}
-        }
+      # ======================================================== CLEAUP PART ========================================================
+      - name: Clean up
+        if: always()
+        shell: powershell
+        run: |
+          Remove-Item -Path .\dlstreamer-repo\ -Force -Recurse
+          if (Test-Path "C:\dlstreamer_tmp\build") {
+              Remove-Item -Recurse -Force "C:\dlstreamer_tmp\build"
+          }
+          if (Test-Path ${{ env.DLS_TARGET_DIRECTORY }}) {
+              Remove-Item -Recurse -Force ${{ env.DLS_TARGET_DIRECTORY }}
+          }
+          if (Test-Path ${{ env.DLS_REPO_TARGET_DIRECTORY }}) {
+              Remove-Item -Recurse -Force ${{ env.DLS_REPO_TARGET_DIRECTORY }}
+          }
