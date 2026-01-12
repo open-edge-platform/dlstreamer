@@ -7,7 +7,7 @@
 set(TARGET_NAME "gvarealsense")
 
 pkg_search_module(VA va libva REQUIRED)
-find_package(OpenCV REQUIRED core imgproc calib3d)
+find_package(OpenCV REQUIRED core imgproc)
 find_package(realsense2)
 
 file(GLOB REALSENSE_SRC
