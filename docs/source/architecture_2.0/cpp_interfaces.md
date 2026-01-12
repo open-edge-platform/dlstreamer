@@ -17,7 +17,7 @@ handles on the CPU and GPU.
 
 The memory interop sub-component is available via APT installation
 `sudo apt install intel-dlstreamer-cpp` and on
-[github](https://github.com/open-edge-platform/dlstreamer/tree/master/include/dlstreamer).
+[github](https://github.com/open-edge-platform/dlstreamer/tree/main/include/dlstreamer).
 
 > **Note:** This sub-component is implemented as a C++ header-only library. Python
 > bindings for this library will be coming in future releases.
@@ -98,10 +98,10 @@ allocated object) or passing allocation parameters to C++ constructor
 (allocate new memory).
 
 Many examples on how to allocate memory and create and use memory mappers
-can be found by searching for the word `mapper` in [samples](https://github.com/open-edge-platform/dlstreamer/tree/master/samples)
-and [src](https://github.com/open-edge-platform/dlstreamer/tree/master/src)
+can be found by searching for the word `mapper` in [samples](https://github.com/open-edge-platform/dlstreamer/tree/main/samples)
+and [src](https://github.com/open-edge-platform/dlstreamer/tree/main/src)
 folders on github source code, like for example in the FFmpeg+DPCPP sample
-[rgb_to_grayscale](https://github.com/open-edge-platform/dlstreamer/tree/master/samples/ffmpeg_dpcpp/rgb_to_grayscale)
+[rgb_to_grayscale](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/ffmpeg_dpcpp/rgb_to_grayscale)
 and almost every C++ element.
 
 There is special mapper

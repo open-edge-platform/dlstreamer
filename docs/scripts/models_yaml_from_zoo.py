@@ -13,7 +13,7 @@ from argparse import ArgumentParser
 from jsonschema import validate
 
 OV_MODEL_ZOO_URL = 'https://github.com/openvinotoolkit/open_model_zoo/tree/master/'
-DLSTREAMER_URL='https://github.com/open-edge-platform/dlstreamer/tree/master/'
+DLSTREAMER_URL='https://github.com/open-edge-platform/dlstreamer/tree/main/'
 PIPELINE_ZOO_URL='https://github.com/dlstreamer/pipeline-zoo-models/tree/main/'
 
 dldt_str = 'dl' + 'dt'

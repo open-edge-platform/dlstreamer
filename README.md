@@ -27,16 +27,16 @@ Please refer to [Install Guide](./docs/source/get_started/install/install_guide_
 3. [Compile from source code](./docs/source/dev_guide/advanced_install/advanced_install_guide_compilation.md)
 4. [Build Docker image from source code](./docs/source/dev_guide/advanced_install/advanced_build_docker_image.md)
 
-To see the full list of installed components check the [dockerfile content for Ubuntu24](https://github.com/open-edge-platform/dlstreamer/blob/master/docker/ubuntu/ubuntu24.Dockerfile)
+To see the full list of installed components check the [dockerfile content for Ubuntu24](https://github.com/open-edge-platform/dlstreamer/blob/main/docker/ubuntu/ubuntu24.Dockerfile)
 
 ## Samples
-[Samples](https://github.com/open-edge-platform/dlstreamer/tree/master/samples) available for C/C++ and Python programming, and as gst-launch command lines and scripts.
+[Samples](https://github.com/open-edge-platform/dlstreamer/tree/main/samples) available for C/C++ and Python programming, and as gst-launch command lines and scripts.
 
 ## NN models
 DL Streamer supports NN models in OpenVINO™ IR and ONNX* formats.
 List of [supported models](./docs/source/supported_models.md) which include LVM, object detection, object classification, human pose detection, sound classification, semantic segmentation, and other use cases on SSD, MobileNet, YOLO, Tiny YOLO, EfficientDet, ResNet, FasterRCNN and other backbones also pre-trained with [Intel® Geti™ Software](<https://www.intel.com/content/www/us/en/developer/tools/tiber/edge-platform/model-builder.html>)
 
-Or you can start from over 70 pre-trained models in [OpenVINO™ Open Model Zoo](https://docs.openvino.ai/latest/omz_models_group_intel.html) and corresponding model-proc files (pre- and post-processing specification) in [/opt/intel/dlstreamer/samples/model_proc](https://github.com/dlstreamer/dlstreamer/tree/master/samples/model_proc) folder.
+Or you can start from over 70 pre-trained models in [OpenVINO™ Open Model Zoo](https://docs.openvino.ai/latest/omz_models_group_intel.html) and corresponding model-proc files (pre- and post-processing specification) in [/opt/intel/dlstreamer/samples/model_proc](https://github.com/dlstreamer/dlstreamer/tree/main/samples/model_proc) folder.
 These models include object detection, object classification, human pose detection, sound classification, semantic segmentation, and other use cases on SSD, MobileNet, YOLO, Tiny YOLO, EfficientDet, ResNet, FasterRCNN and other backbones.
 
 ## Other Useful Links

@@ -5,7 +5,7 @@
   <a class="icon_github" href="https://github.com/open-edge-platform/dlstreamer">
      GitHub project
   </a>
-  <a class="icon_document" href="https://github.com/open-edge-platform/dlstreamer/blob/master/README.md">
+  <a class="icon_document" href="https://github.com/open-edge-platform/dlstreamer/blob/main/README.md">
      Readme
   </a>
 </div>
@@ -17,7 +17,7 @@ framework, and it is used for creating complex media analytics pipelines for the
 or at the Edge. DL Streamer consists of:
 
 - [Deep Learning Streamer Pipeline
-  Framework](https://github.com/open-edge-platform/dlstreamer/tree/master)
+  Framework](https://github.com/open-edge-platform/dlstreamer/tree/main)
   for designing, creating, building, and running media analytics
   pipelines. It includes C++ and Python APIs.
 - [Deep Learning Streamer Pipeline
@@ -81,7 +81,7 @@ deploy, and benchmark. They require:
 
 **DL Streamer** uses OpenVINO™ Runtime inference back-end,
 optimized for Intel hardware platforms and supports over
-[70 NN Intel and open-source community pre-trained models](https://github.com/open-edge-platform/dlstreamer/blob/master/docs/scripts/supported_models.json), and models converted
+[70 NN Intel and open-source community pre-trained models](https://github.com/open-edge-platform/dlstreamer/blob/main/docs/scripts/supported_models.json), and models converted
 [from other training frameworks](https://docs.openvino.ai/2024/openvino-workflow/model-preparation/convert-model-to-ir.html).
 These models include object detection, object classification, human pose
 detection, sound classification, semantic segmentation, and other use
@@ -91,7 +91,7 @@ FasterRCNN, and other models.
 **DL Streamer** provides over two dozen samples, demos and
 reference apps for the most common media analytics use cases. They are
 included in
-[Deep Learning Streamer Pipeline Framework](https://github.com/open-edge-platform/dlstreamer/tree/master),
+[Deep Learning Streamer Pipeline Framework](https://github.com/open-edge-platform/dlstreamer/tree/main),
 [Deep Learning Streamer Pipeline Server](https://github.com/open-edge-platform/edge-ai-libraries/tree/main/microservices/dlstreamer-pipeline-server),
 [Open Visual Cloud](https://github.com/OpenVisualCloud), and
 [Intel® Edge Software Hub](https://www.intel.com/content/www/us/en/edge-computing/edge-software-hub.html)
