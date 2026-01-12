@@ -30,6 +30,8 @@ struct _GstRadarProcessor {
     // Properties
     gchar *radar_config;
     gdouble frame_rate;
+    gboolean publish_result;
+    gchar *publish_path;
 
     // Radar parameters from config
     guint num_rx;

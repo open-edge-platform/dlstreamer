@@ -19,10 +19,14 @@ GST_DEBUG_CATEGORY_STATIC(gst_radar_processor_debug);
 enum {
     PROP_0,
     PROP_RADAR_CONFIG,
-    PROP_FRAME_RATE
+    PROP_FRAME_RATE,
+    PROP_PUBLISH_RESULT,
+    PROP_PUBLISH_PATH
 };
 
 #define DEFAULT_FRAME_RATE 0.0
+#define DEFAULT_PUBLISH_RESULT FALSE
+#define DEFAULT_PUBLISH_PATH "radar_results.json"
 
 static GstStaticPadTemplate sink_template = GST_STATIC_PAD_TEMPLATE(
     "sink",
@@ -75,6 +79,18 @@ static void gst_radar_processor_class_init(GstRadarProcessorClass *klass) {
                            0.0, G_MAXDOUBLE, DEFAULT_FRAME_RATE,
                            (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
+    g_object_class_install_property(gobject_class, PROP_PUBLISH_RESULT,
+        g_param_spec_boolean("publish-result", "Publish Result",
+                           "Publish radar processing results to JSON file",
+                           DEFAULT_PUBLISH_RESULT,
+                           (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+
+    g_object_class_install_property(gobject_class, PROP_PUBLISH_PATH,
+        g_param_spec_string("publish-path", "Publish Path",
+                           "Path to JSON file for publishing results",
+                           DEFAULT_PUBLISH_PATH,
+                           (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+
     gst_element_class_set_static_metadata(gstelement_class,
         "Radar Signal Processor",
         "Filter/Converter",
@@ -93,6 +109,8 @@ static void gst_radar_processor_class_init(GstRadarProcessorClass *klass) {
 static void gst_radar_processor_init(GstRadarProcessor *filter) {
     filter->radar_config = nullptr;
     filter->frame_rate = DEFAULT_FRAME_RATE;
+    filter->publish_result = DEFAULT_PUBLISH_RESULT;
+    filter->publish_path = g_strdup(DEFAULT_PUBLISH_PATH);
     
     filter->num_rx = 0;
     filter->num_tx = 0;
@@ -123,6 +141,7 @@ static void gst_radar_processor_finalize(GObject *object) {
     GstRadarProcessor *filter = GST_RADAR_PROCESSOR(object);
 
     g_free(filter->radar_config);
+    g_free(filter->publish_path);
     filter->input_data.clear();
     filter->output_data.clear();
 
@@ -156,6 +175,13 @@ static void gst_radar_processor_set_property(GObject *object, guint prop_id,
                 filter->frame_duration = GST_CLOCK_TIME_NONE;
             }
             break;
+        case PROP_PUBLISH_RESULT:
+            filter->publish_result = g_value_get_boolean(value);
+            break;
+        case PROP_PUBLISH_PATH:
+            g_free(filter->publish_path);
+            filter->publish_path = g_value_dup_string(value);
+            break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
             break;
@@ -172,6 +198,12 @@ static void gst_radar_processor_get_property(GObject *object, guint prop_id,
             break;
         case PROP_FRAME_RATE:
             g_value_set_double(value, filter->frame_rate);
+            break;
+        case PROP_PUBLISH_RESULT:
+            g_value_set_boolean(value, filter->publish_result);
+            break;
+        case PROP_PUBLISH_PATH:
+            g_value_set_string(value, filter->publish_path);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -440,6 +472,81 @@ static GstCaps *gst_radar_processor_transform_caps(GstBaseTransform *trans,
     }
 }
 
+// Publish radar metadata to JSON file
+static gboolean publish_radar_metadata_to_json(GstRadarProcessor *filter, GstRadarProcessorMeta *meta) {
+    if (!filter->publish_path) {
+        GST_WARNING_OBJECT(filter, "No publish path specified");
+        return FALSE;
+    }
+
+    FILE *fp = fopen(filter->publish_path, "w");
+    if (!fp) {
+        GST_ERROR_OBJECT(filter, "Failed to open file %s for writing", filter->publish_path);
+        return FALSE;
+    }
+
+    // Write JSON header
+    fprintf(fp, "{\n");
+    fprintf(fp, "  \"frame_id\": %" G_GUINT64_FORMAT ",\n", meta->frame_id);
+    fprintf(fp, "  \"timestamp\": %" G_GUINT64_FORMAT ",\n", g_get_real_time());
+    
+    // Write point clouds
+    fprintf(fp, "  \"point_clouds\": {\n");
+    fprintf(fp, "    \"count\": %d,\n", meta->point_clouds_len);
+    fprintf(fp, "    \"points\": [\n");
+    for (gint i = 0; i < meta->point_clouds_len; i++) {
+        fprintf(fp, "      {\n");
+        fprintf(fp, "        \"range\": %.3f,\n", meta->ranges[i]);
+        fprintf(fp, "        \"speed\": %.3f,\n", meta->speeds[i]);
+        fprintf(fp, "        \"angle\": %.3f,\n", meta->angles[i]);
+        fprintf(fp, "        \"snr\": %.3f\n", meta->snrs[i]);
+        fprintf(fp, "      }%s\n", (i < meta->point_clouds_len - 1) ? "," : "");
+    }
+    fprintf(fp, "    ]\n");
+    fprintf(fp, "  },\n");
+    
+    // Write clusters
+    fprintf(fp, "  \"clusters\": {\n");
+    fprintf(fp, "    \"count\": %d,\n", meta->num_clusters);
+    fprintf(fp, "    \"data\": [\n");
+    for (gint i = 0; i < meta->num_clusters; i++) {
+        fprintf(fp, "      {\n");
+        fprintf(fp, "        \"center_x\": %.3f,\n", meta->cluster_cx[i]);
+        fprintf(fp, "        \"center_y\": %.3f,\n", meta->cluster_cy[i]);
+        fprintf(fp, "        \"radius_x\": %.3f,\n", meta->cluster_rx[i]);
+        fprintf(fp, "        \"radius_y\": %.3f,\n", meta->cluster_ry[i]);
+        fprintf(fp, "        \"avg_velocity\": %.3f\n", meta->cluster_av[i]);
+        fprintf(fp, "      }%s\n", (i < meta->num_clusters - 1) ? "," : "");
+    }
+    fprintf(fp, "    ]\n");
+    fprintf(fp, "  },\n");
+    
+    // Write tracked objects
+    fprintf(fp, "  \"tracked_objects\": {\n");
+    fprintf(fp, "    \"count\": %d,\n", meta->num_tracked_objects);
+    fprintf(fp, "    \"objects\": [\n");
+    for (gint i = 0; i < meta->num_tracked_objects; i++) {
+        fprintf(fp, "      {\n");
+        fprintf(fp, "        \"id\": %d,\n", meta->tracker_ids[i]);
+        fprintf(fp, "        \"position_x\": %.3f,\n", meta->tracker_x[i]);
+        fprintf(fp, "        \"position_y\": %.3f,\n", meta->tracker_y[i]);
+        fprintf(fp, "        \"velocity_x\": %.3f,\n", meta->tracker_vx[i]);
+        fprintf(fp, "        \"velocity_y\": %.3f\n", meta->tracker_vy[i]);
+        fprintf(fp, "      }%s\n", (i < meta->num_tracked_objects - 1) ? "," : "");
+    }
+    fprintf(fp, "    ]\n");
+    fprintf(fp, "  }\n");
+    
+    fprintf(fp, "}\n");
+    
+    fclose(fp);
+    
+    GST_DEBUG_OBJECT(filter, "Published frame #%" G_GUINT64_FORMAT " metadata to %s", 
+                    meta->frame_id, filter->publish_path);
+    
+    return TRUE;
+}
+
 // DC removal function: removes mean from real and imaginary parts
 static void dc_removal(std::complex<float> *data, size_t count) {
     if (count == 0) return;
@@ -583,6 +690,13 @@ static GstFlowReturn gst_radar_processor_transform_ip(GstBaseTransform *trans, G
     if (meta) {
         GST_DEBUG_OBJECT(filter, "Added radar metadata: %d points, %d clusters, %d tracked objects",
                        meta->point_clouds_len, meta->num_clusters, meta->num_tracked_objects);
+        
+        // Publish metadata to JSON file if enabled
+        if (filter->publish_result) {
+            if (!publish_radar_metadata_to_json(filter, meta)) {
+                GST_WARNING_OBJECT(filter, "Failed to publish radar metadata to JSON file");
+            }
+        }
     } else {
         GST_WARNING_OBJECT(filter, "Failed to add radar metadata to buffer");
     }
