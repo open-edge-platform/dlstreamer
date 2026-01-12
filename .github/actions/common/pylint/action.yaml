@@ -31,12 +31,17 @@ runs:
       with:
         python-version: '3.11'
 
-    - name: Install Pylint
+    - name: Init host test environement and pylint
       run: |
-        python -m pip install --upgrade pip
-        pip install pylint
         sudo apt install -y libcairo2-dev libgirepository1.0-dev libopencv-dev
-        pip install -r ${{ inputs.path }}/requirements.txt
+        if [ -d "$HOME/.virtualenvs" ]; then
+          echo "Directory $HOME/.virtualenvs exists - removing it"
+          rm -rf $HOME/.virtualenvs
+        fi
+        mkdir -p $HOME/.virtualenvs/dlstreamer
+        python3 -m venv $HOME/.virtualenvs/dlstreamer
+        $HOME/.virtualenvs/dlstreamer/bin/pip install --no-cache-dir --upgrade pip -r ${{ inputs.path }}/requirements.txt
+        $HOME/.virtualenvs/dlstreamer/bin/pip install pylint
 
       shell: bash
 
