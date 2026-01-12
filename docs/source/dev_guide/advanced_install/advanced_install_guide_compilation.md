@@ -22,7 +22,7 @@ Follow the instructions in
 
   ```bash
   sudo apt-get update && \
-  sudo apt-get install -y wget curl vainfo xz-utils python3-pip python3-gi gcc-multilib libglib2.0-dev \
+  sudo apt-get install -y wget vainfo xz-utils python3-pip python3-gi gcc-multilib libglib2.0-dev \
       flex bison autoconf automake libtool libogg-dev make g++ libva-dev yasm libglx-dev libdrm-dev \
       python-gi-dev python3-dev unzip libgflags-dev libcurl4-openssl-dev \
       libgirepository1.0-dev libx265-dev libx264-dev libde265-dev gudev-1.0 libusb-1.0 nasm python3-venv \
@@ -40,7 +40,7 @@ Follow the instructions in
 
   ```bash
   sudo apt-get update && \
-  sudo apt-get install -y wget curl vainfo xz-utils python3-pip python3-gi gcc-multilib libglib2.0-dev \
+  sudo apt-get install -y wget vainfo xz-utils python3-pip python3-gi gcc-multilib libglib2.0-dev \
       flex bison autoconf automake libtool libogg-dev make g++ libva-dev yasm libglx-dev libdrm-dev \
       python-gi-dev python3-dev unzip libgflags-dev \
       libgirepository1.0-dev libx265-dev libx264-dev libde265-dev gudev-1.0 libusb-1.0 nasm python3-venv \
