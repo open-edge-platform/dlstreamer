@@ -233,7 +233,7 @@ jobs:
       contents: read
       pull-requests: write
     name: "DLS SCAN: pylint"
-    runs-on: [self-hosted,ubuntu24]
+    runs-on: ubuntu-latest
     steps:
       - name: Check out dlstreamer repository
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 #5.0.0
