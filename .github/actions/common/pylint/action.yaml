@@ -28,6 +28,7 @@ runs:
   steps:
     - name: Init host test environement and pylint
       run: |
+        sudo apt-get update
         sudo apt install -y libcairo2-dev libgirepository1.0-dev libopencv-dev
         if [ -d "$HOME/.virtualenvs" ]; then
           echo "Directory $HOME/.virtualenvs exists - removing it"
@@ -36,7 +37,6 @@ runs:
         python3 -m venv $HOME/.virtualenvs/dlstreamer
         $HOME/.virtualenvs/dlstreamer/bin/pip install --no-cache-dir --upgrade pip -r ${{ inputs.path }}/requirements.txt
         $HOME/.virtualenvs/dlstreamer/bin/pip install pylint
-
       shell: bash
 
     - name: Run pylint
