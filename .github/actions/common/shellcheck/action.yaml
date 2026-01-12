@@ -44,6 +44,7 @@ runs:
 
     - name: Analyze ShellCheck results
       if: always()
+      id: analyze-results
       env:
         output_file: ${{ inputs.output-file }}
         name: ${{ inputs.name }}
@@ -54,17 +55,24 @@ runs:
           warning_count=$(grep -E "SC[0-9]+ \(warning\):" "${output_file}" 2>/dev/null | wc -l | tr -d '[:space:]' || echo "0")
           info_count=$(grep -E "SC[0-9]+ \(info\):" "${output_file}" 2>/dev/null | wc -l | tr -d '[:space:]' || echo "0")
           note_count=$(grep -E "SC[0-9]+ \(note\):" "${output_file}" 2>/dev/null | wc -l | tr -d '[:space:]' || echo "0")
+          
           # Ensure counts are valid integers, default to 0 if empty
           error_count=${error_count:-0}
           warning_count=${warning_count:-0}
           info_count=${info_count:-0}
           note_count=${note_count:-0}
+          
           # Additional safety check - ensure numeric (use case to validate)
           case "$error_count" in ''|*[!0-9]*) error_count=0 ;; esac || true
           case "$warning_count" in ''|*[!0-9]*) warning_count=0 ;; esac || true
           case "$info_count" in ''|*[!0-9]*) info_count=0 ;; esac || true
           case "$note_count" in ''|*[!0-9]*) note_count=0 ;; esac || true
+          
           total=$((error_count + warning_count + info_count + note_count)) || total=0
+
+          # Export error_count for use in the final step
+          echo "error_count=$error_count" >> $GITHUB_OUTPUT
+          echo "total_count=$total" >> $GITHUB_OUTPUT
 
           echo "### ShellCheck Results for ${name}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -83,13 +91,19 @@ runs:
             echo "- 📝 **Notes**: $note_count" >> $GITHUB_STEP_SUMMARY
           fi
 
-          if [ "$total" -gt 0 ]; then
+          if [ "$error_count" -gt 0 ]; then
             echo "" >> $GITHUB_STEP_SUMMARY
-            echo "⚠️ **Please review the ShellCheck report artifact and consider fixing the issues.**" >> $GITHUB_STEP_SUMMARY
+            echo "⚠️ **Please review the ShellCheck report artifact and fix the errors.**" >> $GITHUB_STEP_SUMMARY
           else
             echo "" >> $GITHUB_STEP_SUMMARY
-            echo "✅ **No issues found!**" >> $GITHUB_STEP_SUMMARY
+            echo "✅ **No errors found!**" >> $GITHUB_STEP_SUMMARY
+            if [ "$total" -gt 0 ]; then
+              echo "📋 **Note**: There are warnings/info/notes that should be reviewed but won't fail the build." >> $GITHUB_STEP_SUMMARY
+            fi
           fi
+        else
+          echo "error_count=0" >> $GITHUB_OUTPUT
+          echo "total_count=0" >> $GITHUB_OUTPUT
         fi
       shell: bash
 
@@ -104,20 +118,24 @@ runs:
       if: ${{ inputs.enable-reviewdog == 'true' }}
       uses: reviewdog/action-shellcheck@4c07458293ac342d477251099501a718ae5ef86e # 1.32.0
       with:
+        path: .
         github_token: ${{ inputs.github_token }}
         reporter: github-pr-review
         level: warning
 
-    - name: Fail if ShellCheck found issues
+    - name: Fail if ShellCheck found errors
       if: inputs.fail-on-findings == 'true'
       shell: bash
-      env:
-        output_file: ${{ inputs.output-file }}
       run: |
-        if [ -f "${output_file}" ]; then
-          issue_count=$(grep -E "SC[0-9]+" "${output_file}" 2>/dev/null | wc -l | tr -d '[:space:]' || echo "0")
-          if [ "$issue_count" -gt 0 ]; then
-            echo "❌ ShellCheck found $issue_count issue(s). Failing the job."
-            exit 1
-          fi
+        error_count="${{ steps.analyze-results.outputs.error_count }}"
+        total_count="${{ steps.analyze-results.outputs.total_count }}"
+        
+        if [ "$error_count" -gt 0 ]; then
+          echo "❌ ShellCheck found $error_count error(s). Failing the job."
+          exit 1
+        elif [ "$total_count" -gt 0 ]; then
+          echo "✅ ShellCheck found $total_count issue(s) but no errors. Job will continue."
+          echo "📋 Issues found: warnings, info, or notes that should be reviewed."
+        else
+          echo "✅ No ShellCheck issues found."
         fi

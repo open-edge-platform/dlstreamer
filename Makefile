@@ -65,6 +65,7 @@ build: dependencies ## Compile Deep Learning Streamer
 install: build ## Build and install Deep Learning Streamer
 	@echo "Installing Deep Learning Streamer"
 	@mkdir -p ${DLSTREAMER_INSTALL_PREFIX}
+	@rm -rf ${DLSTREAMER_INSTALL_PREFIX}/*
 	@cmake \
 		-B build/deps \
 		-DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
