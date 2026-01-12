@@ -165,8 +165,6 @@ jobs:
           export GST_PLUGIN_FEATURE_RANK=${GST_PLUGIN_FEATURE_RANK},ximagesink:MAX
           export GI_TYPELIB_PATH="/opt/intel/dlstreamer/gstreamer/lib/girepository-1.0:/usr/lib/x86_64-linux-gnu/girepository-1.0gi"
           export PYTHONPATH="/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:/opt/intel/dlstreamer/python:/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:$PYTHONPATH"
-          echo "Checking environment exports..."
-          export
           echo " "
 
           echo "Verifying DL Streamer installation..."
