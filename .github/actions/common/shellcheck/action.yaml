@@ -55,19 +55,19 @@ runs:
           warning_count=$(grep -E "SC[0-9]+ \(warning\):" "${output_file}" 2>/dev/null | wc -l | tr -d '[:space:]' || echo "0")
           info_count=$(grep -E "SC[0-9]+ \(info\):" "${output_file}" 2>/dev/null | wc -l | tr -d '[:space:]' || echo "0")
           note_count=$(grep -E "SC[0-9]+ \(note\):" "${output_file}" 2>/dev/null | wc -l | tr -d '[:space:]' || echo "0")
-          
+
           # Ensure counts are valid integers, default to 0 if empty
           error_count=${error_count:-0}
           warning_count=${warning_count:-0}
           info_count=${info_count:-0}
           note_count=${note_count:-0}
-          
+
           # Additional safety check - ensure numeric (use case to validate)
           case "$error_count" in ''|*[!0-9]*) error_count=0 ;; esac || true
           case "$warning_count" in ''|*[!0-9]*) warning_count=0 ;; esac || true
           case "$info_count" in ''|*[!0-9]*) info_count=0 ;; esac || true
           case "$note_count" in ''|*[!0-9]*) note_count=0 ;; esac || true
-          
+
           total=$((error_count + warning_count + info_count + note_count)) || total=0
 
           # Export error_count for use in the final step
@@ -129,7 +129,7 @@ runs:
       run: |
         error_count="${{ steps.analyze-results.outputs.error_count }}"
         total_count="${{ steps.analyze-results.outputs.total_count }}"
-        
+
         if [ "$error_count" -gt 0 ]; then
           echo "❌ ShellCheck found $error_count error(s). Failing the job."
           exit 1
