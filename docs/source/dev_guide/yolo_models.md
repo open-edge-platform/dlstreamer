@@ -5,7 +5,7 @@ integration with the Deep Learning Streamer pipeline.
 
 > **NOTE:** The instructions provided below are comprehensive, but for convenience,
 > it is recommended to use the
-> [download_public_models.sh](https://github.com/open-edge-platform/dlstreamer/blob/master/samples/download_public_models.sh)
+> [download_public_models.sh](https://github.com/open-edge-platform/dlstreamer/blob/main/samples/download_public_models.sh)
 > script. This script will download all supported Yolo models and perform
 > the necessary conversions automatically.
 >
@@ -129,6 +129,6 @@ ovc yolox_s.onnx --compress_to_fp16=False
 ## 7. Model usage
 
 See
-[Samples](https://github.com/dlstreamer/dlstreamer/tree/master/samples/gstreamer/gst_launch/detection_with_yolo)
+[Samples](https://github.com/dlstreamer/dlstreamer/tree/main/samples/gstreamer/gst_launch/detection_with_yolo)
 for detailed examples of Deep Learning Streamer pipelines using different
 Yolo models.

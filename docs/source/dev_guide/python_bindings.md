@@ -17,14 +17,14 @@ connecting elements programmatically), set the pad probe callback(s) on
 source or sink pad of any element in the pipeline, etc.
 
 See the
-[draw_face_attributes.py](https://github.com/open-edge-platform/dlstreamer/blob/master/samples/gstreamer/python/draw_face_attributes/draw_face_attributes.py)
+[draw_face_attributes.py](https://github.com/open-edge-platform/dlstreamer/blob/main/samples/gstreamer/python/draw_face_attributes/draw_face_attributes.py)
 Python sample.
 
 ## 2. Video-analytics specific Python bindings
 
 As GVA plugin registers inference specific metadata, another
 Python library -
-[gstgva](https://github.com/open-edge-platform/dlstreamer/tree/master/python/gstgva)
+[gstgva](https://github.com/open-edge-platform/dlstreamer/tree/main/python/gstgva)
 in this repository is complementary to *pygst* and additionally provides
 Python bindings for GVA specific types such as *GstGVATensorMeta* and
 *GstGVAJSONMeta* and access to inference specific fields in
@@ -70,7 +70,7 @@ The *gvapython* element is implemented in "C" language as a normal GStreamer
 element and it invokes Python functions via "C" interface (Python.h).
 
 See the samples for the *gvapython* element in
-[face_detection_and_classification](https://github.com/dlstreamer/dlstreamer/tree/master/samples/gstreamer/gst_launch/gvapython/face_detection_and_classification) folder.
+[face_detection_and_classification](https://github.com/dlstreamer/dlstreamer/tree/main/samples/gstreamer/gst_launch/gvapython/face_detection_and_classification) folder.
 
 ## 4. Performance considerations
 

@@ -29,8 +29,8 @@ YOLOv5:
   task_type: detection
   readme: https://dlstreamer.github.io/dev_guide/yolo_models.html
   source_readme: https://github.com/ultralytics/yolov5/releases/tag/v7.0
-  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/labels/coco_80cl.txt
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/public/yolo-v5.json
+  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/labels/coco_80cl.txt
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/public/yolo-v5.json
   files:
     - source: https://github.com/ultralytics/yolov5/releases/download/v7.0/yolov5s.pt
 YOLOv7:
@@ -39,8 +39,8 @@ YOLOv7:
   task_type: detection
   readme: https://dlstreamer.github.io/dev_guide/yolo_models.html
   source_readme: https://github.com/WongKinYiu/yolov7
-  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/labels/coco_80cl.txt
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/public/yolo-v7.json
+  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/labels/coco_80cl.txt
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/public/yolo-v7.json
 YOLOv8:
   source: public
   format: pytorch
@@ -96,8 +96,8 @@ YOLOX:
   task_type: detection
   readme: https://dlstreamer.github.io/dev_guide/yolo_models.html
   source_readme: https://github.com/Megvii-BaseDetection/YOLOX
-  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/labels/coco_80cl.txt
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/public/yolo-x.json
+  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/labels/coco_80cl.txt
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/public/yolo-x.json
 ch_PP-OCRv4_rec_infer:
   source: public
   format: paddle
@@ -139,7 +139,7 @@ mask_rcnn_inception_resnet_v2_atrous_coco:
   source: public
   task_type: instance_segmentation
   tf_devices: CPU
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/public/mask-rcnn.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/public/mask-rcnn.json
 mask_rcnn_resnet50_atrous_coco:
   Source framework: TensorFlow\*
   Type: Instance segmentation
@@ -157,7 +157,7 @@ mask_rcnn_resnet50_atrous_coco:
   source: public
   task_type: instance_segmentation
   tf_devices: CPU
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/public/mask-rcnn.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/public/mask-rcnn.json
 
 efficientnet-v2-b0:
   Source framework: PyTorch\*
@@ -170,9 +170,9 @@ efficientnet-v2-b0:
   - https://github.com/openvinotoolkit/open_model_zoo/tree/master//demos/classification_demo/python
   - https://github.com/openvinotoolkit/open_model_zoo/tree/master//demos/classification_benchmark_demo/cpp_gapi
   - https://github.com/openvinotoolkit/open_model_zoo/tree/master//demos/classification_benchmark_demo/cpp
-  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/labels/imagenet_2012.txt
+  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/labels/imagenet_2012.txt
   license: https://raw.githubusercontent.com/rwightman/pytorch-image-models/master/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/public/preproc-aspect-ratio.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/public/preproc-aspect-ratio.json
   name: efficientnet-v2-b0
   openvino_devices: CPU
   pytorch_devices: CPU
@@ -190,9 +190,9 @@ efficientnet-v2-s:
   - https://github.com/openvinotoolkit/open_model_zoo/tree/master//demos/classification_demo/python
   - https://github.com/openvinotoolkit/open_model_zoo/tree/master//demos/classification_benchmark_demo/cpp_gapi
   - https://github.com/openvinotoolkit/open_model_zoo/tree/master//demos/classification_benchmark_demo/cpp
-  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/labels/imagenet_2012.txt
+  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/labels/imagenet_2012.txt
   license: https://raw.githubusercontent.com/rwightman/pytorch-image-models/master/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/public/preproc-aspect-ratio.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/public/preproc-aspect-ratio.json
   name: efficientnet-v2-s
   openvino_devices: CPU
   pytorch_devices: CPU
@@ -246,7 +246,7 @@ aclnet:
     The model output for "AclNet" is the sound classifier output for the 53 different
     environmental sound classes from the internal sound database.'
   license: https://raw.githubusercontent.com/opencv/open_model_zoo/master/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/public/aclnet.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/public/aclnet.json
   name: aclnet
   openvino_devices: CPU
   readme: https://github.com/openvinotoolkit/open_model_zoo/tree/master//models/public/aclnet
@@ -290,7 +290,7 @@ action-recognition-0001:
   - https://github.com/openvinotoolkit/open_model_zoo/tree/master//demos/action_recognition_demo/python
   description: General-purpose action recognition model for Kinetics-400 dataset based
     on Video Transformer Network approach.
-  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/labels/kinetics_400.txt
+  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/labels/kinetics_400.txt
   license: https://raw.githubusercontent.com/openvinotoolkit/open_model_zoo/master/LICENSE
   module: custom_evaluators.sequential_action_recognition_evaluator.SequentialActionRecognitionEvaluator
   name: action-recognition-0001
@@ -319,7 +319,7 @@ age-gender-recognition-retail-0013:
   - https://github.com/openvinotoolkit/open_model_zoo/tree/master//demos/interactive_face_detection_demo/cpp
   description: Age & gender classification. Used in Audience Analytics.
   license: https://raw.githubusercontent.com/openvinotoolkit/open_model_zoo/master/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/intel/age-gender-recognition-retail-0013.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/intel/age-gender-recognition-retail-0013.json
   name: age-gender-recognition-retail-0013
   openvino_devices: CPU, GPU
   readme: https://github.com/openvinotoolkit/open_model_zoo/tree/master//models/intel/age-gender-recognition-retail-0013
@@ -336,7 +336,7 @@ anti-spoof-mn3:
   - https://github.com/openvinotoolkit/open_model_zoo/tree/master//demos/interactive_face_detection_demo/cpp_gapi
   - https://github.com/openvinotoolkit/open_model_zoo/tree/master//demos/interactive_face_detection_demo/cpp
   license: https://raw.githubusercontent.com/kirillProkofiev/training_extensions/kp/antispoofing/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/public/anti-spoof-mn3.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/public/anti-spoof-mn3.json
   name: anti-spoof-mn3
   openvino_devices: CPU, GPU
   readme: https://github.com/openvinotoolkit/open_model_zoo/tree/master//models/public/anti-spoof-mn3
@@ -743,9 +743,9 @@ densenet-121-tf:
     group of models designed to perform image classification. For details, see TensorFlow*
     API docs <https://www.tensorflow.org/api_docs/python/tf/keras/applications/DenseNet121>,
     repository <https://github.com/tensorflow/tensorflow> and paper <https://arxiv.org/abs/1608.06993>.
-  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/labels/imagenet_2012.txt
+  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/labels/imagenet_2012.txt
   license: https://raw.githubusercontent.com/tensorflow/tensorflow/master/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/public/preproc-aspect-ratio.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/public/preproc-aspect-ratio.json
   name: densenet-121-tf
   openvino_devices: CPU, GPU
   readme: https://github.com/openvinotoolkit/open_model_zoo/tree/master//models/public/densenet-121-tf
@@ -797,9 +797,9 @@ dla-34:
     PyTorch*. All DLA (Deep Layer Aggregation) classification models have been pre-trained
     on the ImageNet dataset. For details about this family of models, check out the
     Code for the CVPR Paper "Deep Layer Aggregation" <https://github.com/ucbdrive/dla>.
-  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/labels/imagenet_2012.txt
+  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/labels/imagenet_2012.txt
   license: https://raw.githubusercontent.com/ucbdrive/dla/master/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/public/preproc-aspect-ratio.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/public/preproc-aspect-ratio.json
   name: dla-34
   openvino_devices: CPU, GPU
   pytorch_devices: CPU
@@ -815,7 +815,7 @@ driver-action-recognition-adas-0002:
   - https://github.com/openvinotoolkit/open_model_zoo/tree/master//demos/action_recognition_demo/python
   - https://github.com/openvinotoolkit/open_model_zoo/tree/master//demos/action_recognition_demo/python
   description: Video Transformer Network for driver action recognition.
-  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/labels/driver_actions.txt
+  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/labels/driver_actions.txt
   license: https://raw.githubusercontent.com/openvinotoolkit/open_model_zoo/master/LICENSE
   module: custom_evaluators.sequential_action_recognition_evaluator.SequentialActionRecognitionEvaluator
   name: driver-action-recognition-adas-0002
@@ -873,7 +873,7 @@ efficientdet-d0-tf:
     All the EfficientDet models have been pre-trained on the Common Objects in Context
     (COCO) <https://cocodataset.org/#home> image database. For details about this
     family of models, check out the Google AutoML repository <https://github.com/google/automl/tree/master/efficientdet>.
-  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/labels/coco_91cl.txt
+  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/labels/coco_91cl.txt
   license: https://raw.githubusercontent.com/google/automl/master/LICENSE
   name: efficientdet-d0-tf
   openvino_devices: CPU, GPU
@@ -898,7 +898,7 @@ efficientdet-d1-tf:
     All the EfficientDet models have been pre-trained on the Common Objects in Context
     (COCO) <https://cocodataset.org/#home> image database. For details about this
     family of models, check out the Google AutoML repository <https://github.com/google/automl/tree/master/efficientdet>.
-  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/labels/coco_91cl.txt
+  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/labels/coco_91cl.txt
   license: https://raw.githubusercontent.com/google/automl/master/LICENSE
   name: efficientdet-d1-tf
   openvino_devices: CPU, GPU
@@ -923,9 +923,9 @@ efficientnet-b0:
     TensorFlow*. All the EfficientNet models have been pre-trained on the ImageNet
     image database. For details about this family of models, check out the TensorFlow
     Cloud TPU repository <https://github.com/tensorflow/tpu/tree/master/models/official/efficientnet>.
-  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/labels/imagenet_2012.txt
+  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/labels/imagenet_2012.txt
   license: https://raw.githubusercontent.com/tensorflow/tpu/master/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/public/preproc-aspect-ratio.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/public/preproc-aspect-ratio.json
   name: efficientnet-b0
   openvino_devices: CPU, GPU
   readme: https://github.com/openvinotoolkit/open_model_zoo/tree/master//models/public/efficientnet-b0
@@ -963,9 +963,9 @@ efficientnet-b0-pytorch:
 
     The model output for "efficientnet-b0-pytorch" is the typical object classifier
     output for 1000 different classifications matching those in the ImageNet database.'
-  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/labels/imagenet_2012.txt
+  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/labels/imagenet_2012.txt
   license: https://raw.githubusercontent.com/rwightman/gen-efficientnet-pytorch/a36e2b2cd1bd122a508a6fffeaa7606890f8c882/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/public/preproc-aspect-ratio.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/public/preproc-aspect-ratio.json
   name: efficientnet-b0-pytorch
   openvino_devices: CPU, GPU
   pytorch_devices: CPU
@@ -988,7 +988,7 @@ emotions-recognition-retail-0003:
   - https://github.com/openvinotoolkit/open_model_zoo/tree/master//demos/interactive_face_detection_demo/cpp
   description: Recognizes 5 emotions for a face. Targeted for Retail Audience Analytics.
   license: https://raw.githubusercontent.com/openvinotoolkit/open_model_zoo/master/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/intel/emotions-recognition-retail-0003.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/intel/emotions-recognition-retail-0003.json
   name: emotions-recognition-retail-0003
   openvino_devices: CPU, GPU
   readme: https://github.com/openvinotoolkit/open_model_zoo/tree/master//models/intel/emotions-recognition-retail-0003
@@ -1044,7 +1044,7 @@ face-detection-0200:
   - https://github.com/openvinotoolkit/open_model_zoo/tree/master//demos/object_detection_demo/python
   description: Face Detection based on MobileNetV2 (SSD).
   license: https://raw.githubusercontent.com/openvinotoolkit/open_model_zoo/master/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/intel/face-detection-0200.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/intel/face-detection-0200.json
   name: face-detection-0200
   openvino_devices: CPU, GPU
   readme: https://github.com/openvinotoolkit/open_model_zoo/tree/master//models/intel/face-detection-0200
@@ -1061,7 +1061,7 @@ face-detection-0202:
   - https://github.com/openvinotoolkit/open_model_zoo/tree/master//demos/object_detection_demo/python
   description: Face Detection based on MobileNetV2 (SSD).
   license: https://raw.githubusercontent.com/openvinotoolkit/open_model_zoo/master/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/intel/face-detection-0202.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/intel/face-detection-0202.json
   name: face-detection-0202
   openvino_devices: CPU, GPU
   readme: https://github.com/openvinotoolkit/open_model_zoo/tree/master//models/intel/face-detection-0202
@@ -1078,7 +1078,7 @@ face-detection-0204:
   - https://github.com/openvinotoolkit/open_model_zoo/tree/master//demos/object_detection_demo/python
   description: Face Detection based on MobileNetV2 (SSD).
   license: https://raw.githubusercontent.com/openvinotoolkit/open_model_zoo/master/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/intel/face-detection-0204.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/intel/face-detection-0204.json
   name: face-detection-0204
   openvino_devices: CPU, GPU
   readme: https://github.com/openvinotoolkit/open_model_zoo/tree/master//models/intel/face-detection-0204
@@ -1095,7 +1095,7 @@ face-detection-0205:
   - https://github.com/openvinotoolkit/open_model_zoo/tree/master//demos/object_detection_demo/python
   description: Face Detection based on MobileNetV2 (FCOS).
   license: https://raw.githubusercontent.com/openvinotoolkit/open_model_zoo/master/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/intel/face-detection-0205.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/intel/face-detection-0205.json
   name: face-detection-0205
   openvino_devices: CPU, GPU
   readme: https://github.com/openvinotoolkit/open_model_zoo/tree/master//models/intel/face-detection-0205
@@ -1112,7 +1112,7 @@ face-detection-0206:
   - https://github.com/openvinotoolkit/open_model_zoo/tree/master//demos/object_detection_demo/python
   description: Face Detection based on ResNet152 (ATSS).
   license: https://raw.githubusercontent.com/openvinotoolkit/open_model_zoo/master/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/intel/face-detection-0206.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/intel/face-detection-0206.json
   name: face-detection-0206
   openvino_devices: CPU, GPU
   readme: https://github.com/openvinotoolkit/open_model_zoo/tree/master//models/intel/face-detection-0206
@@ -1154,7 +1154,7 @@ face-detection-adas-0001:
   description: Face Detection (MobileNet with reduced channels + SSD with weights
     sharing)
   license: https://raw.githubusercontent.com/openvinotoolkit/open_model_zoo/master/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/intel/face-detection-adas-0001.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/intel/face-detection-adas-0001.json
   name: face-detection-adas-0001
   openvino_devices: CPU, GPU
   readme: https://github.com/openvinotoolkit/open_model_zoo/tree/master//models/intel/face-detection-adas-0001
@@ -1188,7 +1188,7 @@ face-detection-retail-0004:
   description: Face Detection (SqNet1.0modif+single scale) without BatchNormalization
     trained with negatives.
   license: https://raw.githubusercontent.com/openvinotoolkit/open_model_zoo/master/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/intel/face-detection-retail-0004.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/intel/face-detection-retail-0004.json
   name: face-detection-retail-0004
   openvino_devices: CPU, GPU
   readme: https://github.com/openvinotoolkit/open_model_zoo/tree/master//models/intel/face-detection-retail-0004
@@ -1221,7 +1221,7 @@ face-detection-retail-0005:
   - https://github.com/openvinotoolkit/open_model_zoo/tree/master//demos/interactive_face_detection_demo/cpp
   description: Face Detection based on MobileNetV2.
   license: https://raw.githubusercontent.com/openvinotoolkit/open_model_zoo/master/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/intel/face-detection-retail-0005.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/intel/face-detection-retail-0005.json
   name: face-detection-retail-0005
   openvino_devices: CPU, GPU
   readme: https://github.com/openvinotoolkit/open_model_zoo/tree/master//models/intel/face-detection-retail-0005
@@ -1329,7 +1329,7 @@ facial-landmarks-35-adas-0002:
   description: Custom-architecture convolutional neural network for 35 facial landmarks
     estimation.
   license: https://raw.githubusercontent.com/openvinotoolkit/open_model_zoo/master/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/intel/facial-landmarks-35-adas-0002.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/intel/facial-landmarks-35-adas-0002.json
   name: facial-landmarks-35-adas-0002
   openvino_devices: CPU, GPU
   readme: https://github.com/openvinotoolkit/open_model_zoo/tree/master//models/intel/facial-landmarks-35-adas-0002
@@ -1344,7 +1344,7 @@ facial-landmarks-98-detection-0001:
   - https://github.com/openvinotoolkit/open_model_zoo/tree/master//demos/gaze_estimation_demo/cpp
   description: Landmark's detection. 98 points. Trained on the internal dataset
   license: https://raw.githubusercontent.com/openvinotoolkit/open_model_zoo/master/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/intel/facial-landmarks-98-detection-0001.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/intel/facial-landmarks-98-detection-0001.json
   name: facial-landmarks-98-detection-0001
   openvino_devices: CPU, GPU
   readme: https://github.com/openvinotoolkit/open_model_zoo/tree/master//models/intel/facial-landmarks-98-detection-0001
@@ -1402,9 +1402,9 @@ faster_rcnn_inception_resnet_v2_atrous_coco:
   - https://github.com/openvinotoolkit/open_model_zoo/tree/master//demos/object_detection_demo/python
   description: Faster R-CNN with Inception ResNet v2 Atrous version. Used for object
     detection. For details see the paper <https://arxiv.org/abs/1506.01497>.
-  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/labels/coco_91cl_bkgr.txt
+  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/labels/coco_91cl_bkgr.txt
   license: https://raw.githubusercontent.com/tensorflow/models/master/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/public/preproc-image-info.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/public/preproc-image-info.json
   name: faster_rcnn_inception_resnet_v2_atrous_coco
   openvino_devices: CPU
   readme: https://github.com/openvinotoolkit/open_model_zoo/tree/master//models/public/faster_rcnn_inception_resnet_v2_atrous_coco
@@ -1423,9 +1423,9 @@ faster_rcnn_resnet50_coco:
   - https://github.com/openvinotoolkit/open_model_zoo/tree/master//demos/object_detection_demo/python
   description: Faster R-CNN ResNet-50 model. Used for object detection. For details,
     see the paper <https://arxiv.org/abs/1506.01497>.
-  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/labels/coco_91cl_bkgr.txt
+  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/labels/coco_91cl_bkgr.txt
   license: https://raw.githubusercontent.com/tensorflow/models/master/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/public/preproc-image-info.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/public/preproc-image-info.json
   name: faster_rcnn_resnet50_coco
   openvino_devices: CPU, GPU
   readme: https://github.com/openvinotoolkit/open_model_zoo/tree/master//models/public/faster_rcnn_resnet50_coco
@@ -1641,9 +1641,9 @@ googlenet-v1-tf:
     model has been pre-trained on the ImageNet image database. For details about this
     family of models, check out the paper <https://arxiv.org/abs/1602.07261>, repository
     <https://github.com/tensorflow/models/tree/master/research/slim>.
-  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/labels/imagenet_2012.txt
+  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/labels/imagenet_2012.txt
   license: https://github.com/tensorflow/models/blob/master/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/public/preproc-aspect-ratio.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/public/preproc-aspect-ratio.json
   name: googlenet-v1-tf
   openvino_devices: CPU, GPU
   readme: https://github.com/openvinotoolkit/open_model_zoo/tree/master//models/public/googlenet-v1-tf
@@ -1667,9 +1667,9 @@ googlenet-v2-tf:
     model has been pre-trained on the ImageNet image database. For details about this
     family of models, check out the paper <https://arxiv.org/abs/1602.07261>, repository
     <https://github.com/tensorflow/models/tree/master/research/slim>.
-  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/labels/imagenet_2012_bkgr.txt
+  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/labels/imagenet_2012_bkgr.txt
   license: https://github.com/tensorflow/models/blob/master/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/public/preproc-aspect-ratio.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/public/preproc-aspect-ratio.json
   name: googlenet-v2-tf
   openvino_devices: CPU, GPU
   readme: https://github.com/openvinotoolkit/open_model_zoo/tree/master//models/public/googlenet-v2-tf
@@ -1689,9 +1689,9 @@ googlenet-v3:
   description: The "googlenet-v3" model is the first of the Inception family of models
     designed to perform image classification. For details about this family of models,
     check out the paper <https://arxiv.org/abs/1602.07261>.
-  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/labels/imagenet_2012_bkgr.txt
+  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/labels/imagenet_2012_bkgr.txt
   license: https://raw.githubusercontent.com/tensorflow/models/master/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/public/preproc-aspect-ratio.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/public/preproc-aspect-ratio.json
   name: googlenet-v3
   openvino_devices: CPU, GPU
   readme: https://github.com/openvinotoolkit/open_model_zoo/tree/master//models/public/googlenet-v3
@@ -1714,9 +1714,9 @@ googlenet-v3-pytorch:
   - https://github.com/openvinotoolkit/open_model_zoo/tree/master//demos/classification_benchmark_demo/cpp_gapi
   - https://github.com/openvinotoolkit/open_model_zoo/tree/master//demos/classification_benchmark_demo/cpp
   - https://github.com/openvinotoolkit/open_model_zoo/tree/master//demos/classification_benchmark_demo/cpp
-  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/labels/imagenet_2012.txt
+  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/labels/imagenet_2012.txt
   license: https://raw.githubusercontent.com/pytorch/vision/master/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/public/preproc-aspect-ratio.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/public/preproc-aspect-ratio.json
   name: googlenet-v3-pytorch
   openvino_devices: CPU, GPU
   pytorch_devices: CPU
@@ -1740,9 +1740,9 @@ googlenet-v4-tf:
     the "googlenet-v4-tf" model has been pre-trained on the ImageNet image database.
     For details about this family of models, check out the paper <https://arxiv.org/abs/1602.07261>,
     repository <https://github.com/tensorflow/models/tree/master/research/slim>.
-  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/labels/imagenet_2012_bkgr.txt
+  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/labels/imagenet_2012_bkgr.txt
   license: https://github.com/tensorflow/models/blob/master/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/public/preproc-aspect-ratio.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/public/preproc-aspect-ratio.json
   name: googlenet-v4-tf
   openvino_devices: CPU, GPU
   readme: https://github.com/openvinotoolkit/open_model_zoo/tree/master//models/public/googlenet-v4-tf
@@ -1850,9 +1850,9 @@ hbonet-0.25:
   - https://github.com/openvinotoolkit/open_model_zoo/tree/master//demos/classification_benchmark_demo/cpp
   description: The "hbonet-0.25" model is one of the classification models from repository
     <https://github.com/d-li14/HBONet> with "width_mult=0.25"
-  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/labels/imagenet_2012.txt
+  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/labels/imagenet_2012.txt
   license: https://github.com/d-li14/HBONet/blob/master/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/public/preproc-aspect-ratio.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/public/preproc-aspect-ratio.json
   name: hbonet-0.25
   openvino_devices: CPU, GPU
   pytorch_devices: CPU
@@ -1873,9 +1873,9 @@ hbonet-1.0:
   - https://github.com/openvinotoolkit/open_model_zoo/tree/master//demos/classification_benchmark_demo/cpp
   description: The "hbonet-1.0" model is one of the classification models from repository
     <https://github.com/d-li14/HBONet> with "width_mult=1.0"
-  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/labels/imagenet_2012.txt
+  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/labels/imagenet_2012.txt
   license: https://github.com/d-li14/HBONet/blob/master/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/public/preproc-aspect-ratio.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/public/preproc-aspect-ratio.json
   name: hbonet-1.0
   openvino_devices: CPU, GPU
   pytorch_devices: CPU
@@ -1945,7 +1945,7 @@ horizontal-text-detection-0001:
   - https://github.com/openvinotoolkit/open_model_zoo/tree/master//demos/text_detection_demo/cpp
   description: Horizontal text detector based on FCOS with light MobileNetV2 backbone
   license: https://raw.githubusercontent.com/openvinotoolkit/open_model_zoo/master/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/intel/horizontal-text-detection-0001.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/intel/horizontal-text-detection-0001.json
   name: horizontal-text-detection-0001
   openvino_devices: CPU, GPU
   readme: https://github.com/openvinotoolkit/open_model_zoo/tree/master//models/intel/horizontal-text-detection-0001
@@ -1993,7 +1993,7 @@ human-pose-estimation-0001:
   - https://github.com/openvinotoolkit/open_model_zoo/tree/master//demos/human_pose_estimation_demo/python
   description: 2D human pose estimation with tuned mobilenet backbone (based on OpenPose).
   license: https://raw.githubusercontent.com/openvinotoolkit/open_model_zoo/master/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/intel/human-pose-estimation-0001.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/intel/human-pose-estimation-0001.json
   name: human-pose-estimation-0001
   openvino_devices: CPU, GPU
   readme: https://github.com/openvinotoolkit/open_model_zoo/tree/master//models/intel/human-pose-estimation-0001
@@ -2183,9 +2183,9 @@ inception-resnet-v2-tf:
   description: The "inception-resnet-v2" model is one of the Inception family of models
     designed to perform image classification. For details about this family of models,
     check out the paper <https://arxiv.org/abs/1602.07261>.
-  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/labels/imagenet_2012_bkgr.txt
+  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/labels/imagenet_2012_bkgr.txt
   license: https://raw.githubusercontent.com/tensorflow/models/master/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/public/preproc-aspect-ratio.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/public/preproc-aspect-ratio.json
   name: inception-resnet-v2-tf
   openvino_devices: CPU, GPU
   readme: https://github.com/openvinotoolkit/open_model_zoo/tree/master//models/public/inception-resnet-v2-tf
@@ -2234,7 +2234,7 @@ instance-segmentation-security-0002:
   - https://github.com/openvinotoolkit/open_model_zoo/tree/master//demos/whiteboard_inpainting_demo/python
   description: General purpose instance segmentation model. Mask R-CNN with ResNet50
     backbone -  FPN -  RPN -  detection and segmentation heads.
-  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/labels/coco_80cl.txt
+  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/labels/coco_80cl.txt
   license: https://raw.githubusercontent.com/openvinotoolkit/open_model_zoo/master/LICENSE
   name: instance-segmentation-security-0002
   openvino_devices: CPU
@@ -2260,7 +2260,7 @@ instance-segmentation-security-0091:
   - https://github.com/openvinotoolkit/open_model_zoo/tree/master//demos/whiteboard_inpainting_demo/python
   description: General purpose instance segmentation model. Cascade Mask R-CNN with
     ResNet101 backbone and deformable convolution V2.
-  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/labels/coco_80cl.txt
+  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/labels/coco_80cl.txt
   license: https://raw.githubusercontent.com/openvinotoolkit/open_model_zoo/master/LICENSE
   name: instance-segmentation-security-0091
   openvino_devices: CPU
@@ -2284,7 +2284,7 @@ instance-segmentation-security-0228:
   - https://github.com/openvinotoolkit/open_model_zoo/tree/master//demos/whiteboard_inpainting_demo/python
   description: General purpose instance segmentation model. Mask R-CNN with ResNet101
     backbone and light FPN -  RPN -  detection and segmentation heads.
-  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/labels/coco_80cl.txt
+  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/labels/coco_80cl.txt
   license: https://raw.githubusercontent.com/openvinotoolkit/open_model_zoo/master/LICENSE
   name: instance-segmentation-security-0228
   openvino_devices: CPU
@@ -2308,7 +2308,7 @@ instance-segmentation-security-1039:
   - https://github.com/openvinotoolkit/open_model_zoo/tree/master//demos/whiteboard_inpainting_demo/python
   description: General purpose instance segmentation model. Mask R-CNN with EfficientNet-B2
     backbone and light FPN -  RPN -  detection and segmentation heads.
-  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/labels/coco_80cl.txt
+  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/labels/coco_80cl.txt
   license: https://raw.githubusercontent.com/openvinotoolkit/open_model_zoo/master/LICENSE
   name: instance-segmentation-security-1039
   openvino_devices: CPU
@@ -2332,7 +2332,7 @@ instance-segmentation-security-1040:
   - https://github.com/openvinotoolkit/open_model_zoo/tree/master//demos/whiteboard_inpainting_demo/python
   description: General purpose instance segmentation model. Mask R-CNN with EfficientNet-B2
     backbone and light FPN -  RPN -  detection and segmentation heads.
-  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/labels/coco_80cl.txt
+  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/labels/coco_80cl.txt
   license: https://raw.githubusercontent.com/openvinotoolkit/open_model_zoo/master/LICENSE
   name: instance-segmentation-security-1040
   openvino_devices: CPU
@@ -2354,7 +2354,7 @@ landmarks-regression-retail-0009:
   description: Landmark's detection. Used in Smart Classroom. The model is identical
     to 0002 but trained on internal dataset with improved regression loss.
   license: https://raw.githubusercontent.com/openvinotoolkit/open_model_zoo/master/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/intel/landmarks-regression-retail-0009.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/intel/landmarks-regression-retail-0009.json
   name: landmarks-regression-retail-0009
   openvino_devices: CPU, GPU
   readme: https://github.com/openvinotoolkit/open_model_zoo/tree/master//models/intel/landmarks-regression-retail-0009
@@ -2423,7 +2423,7 @@ license-plate-recognition-barrier-0007:
   description: This model uses a small-footprint network trained end-to-end to recognize
     Chinese license plates in traffic.
   license: https://raw.githubusercontent.com/opencv/training_toolbox_tensorflow/develop/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/intel/license-plate-recognition-barrier-0007.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/intel/license-plate-recognition-barrier-0007.json
   name: license-plate-recognition-barrier-0007
   openvino_devices: CPU
   readme: https://github.com/openvinotoolkit/open_model_zoo/tree/master//models/public/license-plate-recognition-barrier-0007
@@ -2522,9 +2522,9 @@ mixnet-l:
     All the MixNet models have been pretrained on the ImageNet* image database. For
     details about this family of models, check out the TensorFlow Cloud TPU repository
     <https://github.com/tensorflow/tpu/tree/master/models/official/mnasnet/mixnet>.
-  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/labels/imagenet_2012.txt
+  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/labels/imagenet_2012.txt
   license: https://raw.githubusercontent.com/tensorflow/tpu/master/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/public/preproc-aspect-ratio.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/public/preproc-aspect-ratio.json
   name: mixnet-l
   openvino_devices: CPU, GPU
   readme: https://github.com/openvinotoolkit/open_model_zoo/tree/master//models/public/mixnet-l
@@ -2545,9 +2545,9 @@ mobilenet-v1-0.25-128:
     use cases. They can be built upon for classification, detection, embeddings and
     segmentation similar to how other popular large scale models are used. For details,
     see paper <https://arxiv.org/abs/1704.04861>.'
-  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/labels/imagenet_2012_bkgr.txt
+  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/labels/imagenet_2012_bkgr.txt
   license: https://raw.githubusercontent.com/tensorflow/models/master/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/public/preproc-aspect-ratio.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/public/preproc-aspect-ratio.json
   name: mobilenet-v1-0.25-128
   openvino_devices: CPU, GPU
   readme: https://github.com/openvinotoolkit/open_model_zoo/tree/master//models/public/mobilenet-v1-0.25-128
@@ -2568,9 +2568,9 @@ mobilenet-v1-1.0-224-tf:
     use cases. They can be built upon for classification, detection, embeddings and
     segmentation similar to how other popular large scale models are used. For details,
     see the paper <https://arxiv.org/abs/1704.04861>.'
-  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/labels/imagenet_2012_bkgr.txt
+  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/labels/imagenet_2012_bkgr.txt
   license: https://raw.githubusercontent.com/tensorflow/models/master/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/public/preproc-aspect-ratio.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/public/preproc-aspect-ratio.json
   name: mobilenet-v1-1.0-224-tf
   openvino_devices: CPU, GPU
   readme: https://github.com/openvinotoolkit/open_model_zoo/tree/master//models/public/mobilenet-v1-1.0-224-tf
@@ -2591,9 +2591,9 @@ mobilenet-v2-1.0-224:
     a variety of use cases. They can be used for classification, detection, embeddings,
     and segmentation like other popular large-scale models. For details, see the paper
     <https://arxiv.org/abs/1704.04861>.'
-  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/labels/imagenet_2012_bkgr.txt
+  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/labels/imagenet_2012_bkgr.txt
   license: https://raw.githubusercontent.com/tensorflow/models/master/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/public/preproc-aspect-ratio.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/public/preproc-aspect-ratio.json
   name: mobilenet-v2-1.0-224
   openvino_devices: CPU, GPU
   readme: https://github.com/openvinotoolkit/open_model_zoo/tree/master//models/public/mobilenet-v2-1.0-224
@@ -2614,9 +2614,9 @@ mobilenet-v2-1.4-224:
     use cases. They can be built upon for classification, detection, embeddings and
     segmentation similar to how other popular large scale models are used. For details,
     see the paper <https://arxiv.org/abs/1704.04861>.'
-  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/labels/imagenet_2012_bkgr.txt
+  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/labels/imagenet_2012_bkgr.txt
   license: https://raw.githubusercontent.com/tensorflow/models/master/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/public/preproc-aspect-ratio.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/public/preproc-aspect-ratio.json
   name: mobilenet-v2-1.4-224
   openvino_devices: CPU, GPU
   readme: https://github.com/openvinotoolkit/open_model_zoo/tree/master//models/public/mobilenet-v2-1.4-224
@@ -2645,9 +2645,9 @@ mobilenet-v2-pytorch:
 
     The model output is typical object classifier for the 1000 different classifications
     matching with those in the ImageNet database.'
-  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/labels/imagenet_2012.txt
+  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/labels/imagenet_2012.txt
   license: https://raw.githubusercontent.com/pytorch/vision/master/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/public/preproc-aspect-ratio.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/public/preproc-aspect-ratio.json
   name: mobilenet-v2-pytorch
   openvino_devices: CPU, GPU
   pytorch_devices: CPU
@@ -2667,9 +2667,9 @@ mobilenet-v3-large-1.0-224-tf:
     of MobileNets, based on a combination of complementary search techniques as well
     as a novel architecture design. "mobilenet-v3-large-1.0-224-tf" is targeted for
     high resource use cases. For details see paper <https://arxiv.org/abs/1905.02244>.'
-  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/labels/imagenet_2012.txt
+  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/labels/imagenet_2012.txt
   license: https://raw.githubusercontent.com/tensorflow/models/master/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/public/preproc-aspect-ratio.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/public/preproc-aspect-ratio.json
   name: mobilenet-v3-large-1.0-224-tf
   openvino_devices: CPU, GPU
   readme: https://github.com/openvinotoolkit/open_model_zoo/tree/master//models/public/mobilenet-v3-large-1.0-224-tf
@@ -2689,9 +2689,9 @@ mobilenet-v3-small-1.0-224-tf:
     of MobileNets, based on a combination of complementary search techniques as well
     as a novel architecture design. "mobilenet-v3-small-1.0-224-tf" is targeted for
     low resource use cases. For details see paper <https://arxiv.org/abs/1905.02244>.'
-  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/labels/imagenet_2012.txt
+  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/labels/imagenet_2012.txt
   license: https://raw.githubusercontent.com/tensorflow/models/master/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/public/preproc-aspect-ratio.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/public/preproc-aspect-ratio.json
   name: mobilenet-v3-small-1.0-224-tf
   openvino_devices: CPU, GPU
   readme: https://github.com/openvinotoolkit/open_model_zoo/tree/master//models/public/mobilenet-v3-small-1.0-224-tf
@@ -2714,7 +2714,7 @@ mobilenet-yolo-v4-syg:
     paper of MobileNetV2<https://arxiv.org/abs/1801.04381> and YOLOv4<https://arxiv.org/abs/2004.10934>
   license: https://raw.githubusercontent.com/david8862/keras-YOLOv3-model-set/master/LICENSE
   mAP: 86.35%
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/public/mobilenet-yolo-v4-syg.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/public/mobilenet-yolo-v4-syg.json
   name: mobilenet-yolo-v4-syg
   openvino_devices: CPU
   readme: https://github.com/openvinotoolkit/open_model_zoo/tree/master//models/public/mobilenet-yolo-v4-syg
@@ -2922,9 +2922,9 @@ nfnet-f0:
 
     For details see repository <https://github.com/rwightman/pytorch-image-models>
     and paper <https://arxiv.org/abs/2102.06171>.'
-  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/labels/imagenet_2012.txt
+  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/labels/imagenet_2012.txt
   license: https://raw.githubusercontent.com/rwightman/pytorch-image-models/master/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/public/preproc-aspect-ratio.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/public/preproc-aspect-ratio.json
   name: nfnet-f0
   openvino_devices: CPU, GPU
   readme: https://github.com/openvinotoolkit/open_model_zoo/tree/master//models/public/nfnet-f0
@@ -2981,7 +2981,7 @@ open-closed-eye-0001:
   - https://github.com/openvinotoolkit/open_model_zoo/tree/master//demos/gaze_estimation_demo/cpp
   description: Fully convolutional network for recognition of eye state ('open', 'closed').
   license: https://raw.githubusercontent.com/opencv/openvino_training_extensions/develop/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/public/open-closed-eye-0001.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/public/open-closed-eye-0001.json
   name: open-closed-eye-0001
   openvino_devices: CPU
   readme: https://github.com/openvinotoolkit/open_model_zoo/tree/master//models/public/open-closed-eye-0001
@@ -3007,7 +3007,7 @@ pedestrian-and-vehicle-detector-adas-0001:
   description: Pedestrian and Vehicle detector based on ssd + mobilenet with reduced
     channels number.
   license: https://raw.githubusercontent.com/openvinotoolkit/open_model_zoo/master/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/intel/pedestrian-and-vehicle-detector-adas-0001.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/intel/pedestrian-and-vehicle-detector-adas-0001.json
   name: pedestrian-and-vehicle-detector-adas-0001
   openvino_devices: CPU, GPU
   readme: https://github.com/openvinotoolkit/open_model_zoo/tree/master//models/intel/pedestrian-and-vehicle-detector-adas-0001
@@ -3031,7 +3031,7 @@ pedestrian-detection-adas-0002:
   description: Pedestrian detector based on ssd + mobilenet with reduced channels
     number.
   license: https://raw.githubusercontent.com/openvinotoolkit/open_model_zoo/master/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/intel/pedestrian-detection-adas-0002.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/intel/pedestrian-detection-adas-0002.json
   name: pedestrian-detection-adas-0002
   openvino_devices: CPU, GPU
   readme: https://github.com/openvinotoolkit/open_model_zoo/tree/master//models/intel/pedestrian-detection-adas-0002
@@ -3060,7 +3060,7 @@ person-attributes-recognition-crossroad-0230:
   description: Pedestrian attributes recognition based on a PVANet with hyperfeatures
     backbone + classification head
   license: https://raw.githubusercontent.com/openvinotoolkit/open_model_zoo/master/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/intel/person-attributes-recognition-crossroad-0230.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/intel/person-attributes-recognition-crossroad-0230.json
   name: person-attributes-recognition-crossroad-0230
   openvino_devices: CPU, GPU
   readme: https://github.com/openvinotoolkit/open_model_zoo/tree/master//models/intel/person-attributes-recognition-crossroad-0230
@@ -3087,7 +3087,7 @@ person-attributes-recognition-crossroad-0234:
   - https://github.com/openvinotoolkit/open_model_zoo/tree/master//demos/crossroad_camera_demo/cpp
   description: Pedestrian attributes recognition based on ResNet-50 backbone
   license: https://raw.githubusercontent.com/openvinotoolkit/open_model_zoo/master/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/intel/person-attributes-recognition-crossroad-0234.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/intel/person-attributes-recognition-crossroad-0234.json
   name: person-attributes-recognition-crossroad-0234
   openvino_devices: CPU, GPU
   readme: https://github.com/openvinotoolkit/open_model_zoo/tree/master//models/intel/person-attributes-recognition-crossroad-0234
@@ -3114,7 +3114,7 @@ person-attributes-recognition-crossroad-0238:
   - https://github.com/openvinotoolkit/open_model_zoo/tree/master//demos/crossroad_camera_demo/cpp
   description: Pedestrian attributes recognition based on Inception V3 backbone
   license: https://raw.githubusercontent.com/openvinotoolkit/open_model_zoo/master/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/intel/person-attributes-recognition-crossroad-0238.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/intel/person-attributes-recognition-crossroad-0238.json
   name: person-attributes-recognition-crossroad-0238
   openvino_devices: CPU, GPU
   readme: https://github.com/openvinotoolkit/open_model_zoo/tree/master//models/intel/person-attributes-recognition-crossroad-0238
@@ -3153,7 +3153,7 @@ person-detection-0200:
   - https://github.com/openvinotoolkit/open_model_zoo/tree/master//demos/social_distance_demo/cpp
   description: MobileNetV2-SSD with two heads and clustered priors for 256x256 resolution.
   license: https://raw.githubusercontent.com/openvinotoolkit/open_model_zoo/master/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/intel/person-detection-0200.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/intel/person-detection-0200.json
   name: person-detection-0200
   openvino_devices: CPU, GPU
   readme: https://github.com/openvinotoolkit/open_model_zoo/tree/master//models/intel/person-detection-0200
@@ -3174,7 +3174,7 @@ person-detection-0201:
   - https://github.com/openvinotoolkit/open_model_zoo/tree/master//demos/social_distance_demo/cpp
   description: MobileNetV2-SSD with two heads and clustered priors for 384x384 resolution.
   license: https://raw.githubusercontent.com/openvinotoolkit/open_model_zoo/master/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/intel/person-detection-0201.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/intel/person-detection-0201.json
   name: person-detection-0201
   openvino_devices: CPU, GPU
   readme: https://github.com/openvinotoolkit/open_model_zoo/tree/master//models/intel/person-detection-0201
@@ -3195,7 +3195,7 @@ person-detection-0202:
   - https://github.com/openvinotoolkit/open_model_zoo/tree/master//demos/social_distance_demo/cpp
   description: MobileNetV2-SSD with two heads and clustered priors for 512x512 resolution.
   license: https://raw.githubusercontent.com/openvinotoolkit/open_model_zoo/master/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/intel/person-detection-0202.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/intel/person-detection-0202.json
   name: person-detection-0202
   openvino_devices: CPU, GPU
   readme: https://github.com/openvinotoolkit/open_model_zoo/tree/master//models/intel/person-detection-0202
@@ -3214,7 +3214,7 @@ person-detection-0203:
   - https://github.com/openvinotoolkit/open_model_zoo/tree/master//demos/pedestrian_tracker_demo/cpp
   description: Person Detection based on MobileNetV2 (ATSS) on 864x480 resolution.
   license: https://raw.githubusercontent.com/openvinotoolkit/open_model_zoo/master/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/intel/person-detection-0203.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/intel/person-detection-0203.json
   name: person-detection-0203
   openvino_devices: CPU, GPU
   readme: https://github.com/openvinotoolkit/open_model_zoo/tree/master//models/intel/person-detection-0203
@@ -3381,7 +3381,7 @@ person-detection-asl-0001:
   - https://github.com/openvinotoolkit/open_model_zoo/tree/master//demos/gesture_recognition_demo/python
   description: Person detector (ShuffleNetv2 backbone and FCOS head) for ASL scenario
   license: https://raw.githubusercontent.com/openvinotoolkit/open_model_zoo/master/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/intel/person-detection-0203.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/intel/person-detection-0203.json
   name: person-detection-asl-0001
   openvino_devices: CPU, GPU
   readme: https://github.com/openvinotoolkit/open_model_zoo/tree/master//models/intel/person-detection-asl-0001
@@ -3470,7 +3470,7 @@ person-detection-retail-0013:
   - https://github.com/openvinotoolkit/open_model_zoo/tree/master//demos/social_distance_demo/cpp
   description: Pedestrian detection (RMNet with lrelu + SSD)
   license: https://raw.githubusercontent.com/openvinotoolkit/open_model_zoo/master/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/intel/person-detection-retail-0013.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/intel/person-detection-retail-0013.json
   name: person-detection-retail-0013
   openvino_devices: CPU, GPU
   readme: https://github.com/openvinotoolkit/open_model_zoo/tree/master//models/intel/person-detection-retail-0013
@@ -3585,7 +3585,7 @@ person-vehicle-bike-detection-2000:
   - https://github.com/openvinotoolkit/open_model_zoo/tree/master//demos/pedestrian_tracker_demo/cpp
   description: MobileNetV2-SSD with two heads and clustered priors for 256x256 resolution.
   license: https://raw.githubusercontent.com/openvinotoolkit/open_model_zoo/master/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/intel/person-vehicle-bike-detection-2000.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/intel/person-vehicle-bike-detection-2000.json
   name: person-vehicle-bike-detection-2000
   openvino_devices: CPU, GPU
   readme: https://github.com/openvinotoolkit/open_model_zoo/tree/master//models/intel/person-vehicle-bike-detection-2000
@@ -3604,7 +3604,7 @@ person-vehicle-bike-detection-2001:
   - https://github.com/openvinotoolkit/open_model_zoo/tree/master//demos/pedestrian_tracker_demo/cpp
   description: MobileNetV2-SSD with two heads and clustered priors for 384x484 resolution.
   license: https://raw.githubusercontent.com/openvinotoolkit/open_model_zoo/master/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/intel/person-vehicle-bike-detection-2001.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/intel/person-vehicle-bike-detection-2001.json
   name: person-vehicle-bike-detection-2001
   openvino_devices: CPU, GPU
   readme: https://github.com/openvinotoolkit/open_model_zoo/tree/master//models/intel/person-vehicle-bike-detection-2001
@@ -3623,7 +3623,7 @@ person-vehicle-bike-detection-2002:
   - https://github.com/openvinotoolkit/open_model_zoo/tree/master//demos/pedestrian_tracker_demo/cpp
   description: MobileNetV2-SSD with two heads and clustered priors for 512x512 resolution.
   license: https://raw.githubusercontent.com/openvinotoolkit/open_model_zoo/master/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/intel/person-vehicle-bike-detection-2002.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/intel/person-vehicle-bike-detection-2002.json
   name: person-vehicle-bike-detection-2002
   openvino_devices: CPU, GPU
   readme: https://github.com/openvinotoolkit/open_model_zoo/tree/master//models/intel/person-vehicle-bike-detection-2002
@@ -3643,7 +3643,7 @@ person-vehicle-bike-detection-2003:
   description: Person Vehicle Bike Detection based on MobileNetV2 (ATSS) on 864x480
     resolution.
   license: https://raw.githubusercontent.com/openvinotoolkit/open_model_zoo/master/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/intel/person-vehicle-bike-detection-2003.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/intel/person-vehicle-bike-detection-2003.json
   name: person-vehicle-bike-detection-2003
   openvino_devices: CPU, GPU
   readme: https://github.com/openvinotoolkit/open_model_zoo/tree/master//models/intel/person-vehicle-bike-detection-2003
@@ -3663,7 +3663,7 @@ person-vehicle-bike-detection-2004:
   description: Person Vehicle Bike Detection based on MobileNetV2 (ATSS) on 448x256
     resolution.
   license: https://raw.githubusercontent.com/openvinotoolkit/open_model_zoo/master/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/intel/person-vehicle-bike-detection-2004.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/intel/person-vehicle-bike-detection-2004.json
   name: person-vehicle-bike-detection-2004
   openvino_devices: CPU, GPU
   readme: https://github.com/openvinotoolkit/open_model_zoo/tree/master//models/intel/person-vehicle-bike-detection-2004
@@ -3696,7 +3696,7 @@ person-vehicle-bike-detection-crossroad-0078:
     detection architecture -  RMNet backbone and learnable image downscale block (person-vehicle-bike-detection-crossroad-0066
     with extra pooling)
   license: https://raw.githubusercontent.com/openvinotoolkit/open_model_zoo/master/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/intel/person-vehicle-bike-detection-crossroad-0078.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/intel/person-vehicle-bike-detection-crossroad-0078.json
   name: person-vehicle-bike-detection-crossroad-0078
   openvino_devices: CPU, GPU
   readme: https://github.com/openvinotoolkit/open_model_zoo/tree/master//models/intel/person-vehicle-bike-detection-crossroad-0078
@@ -3728,7 +3728,7 @@ person-vehicle-bike-detection-crossroad-1016:
   description: Multiclass (person -  vehicle -  non-vehicle) detector based on SSD
     detection architecture -  MobileNetV2 backbone)
   license: https://raw.githubusercontent.com/openvinotoolkit/open_model_zoo/master/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/intel/person-vehicle-bike-detection-crossroad-1016.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/intel/person-vehicle-bike-detection-crossroad-1016.json
   name: person-vehicle-bike-detection-crossroad-1016
   openvino_devices: CPU, GPU
   readme: https://github.com/openvinotoolkit/open_model_zoo/tree/master//models/intel/person-vehicle-bike-detection-crossroad-1016
@@ -3766,7 +3766,7 @@ person-vehicle-bike-detection-crossroad-yolov3-1020:
   - https://github.com/openvinotoolkit/open_model_zoo/tree/master//demos/single_human_pose_estimation_demo/python
   description: YOLO v3 finetuned for person-vehicle-bike detection task
   license: https://raw.githubusercontent.com/openvinotoolkit/open_model_zoo/master/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/intel/person-vehicle-bike-detection-crossroad-yolov3-1020.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/intel/person-vehicle-bike-detection-crossroad-yolov3-1020.json
   name: person-vehicle-bike-detection-crossroad-yolov3-1020
   openvino_devices: CPU, GPU
   readme: https://github.com/openvinotoolkit/open_model_zoo/tree/master//models/intel/person-vehicle-bike-detection-crossroad-yolov3-1020
@@ -3783,7 +3783,7 @@ product-detection-0001:
   - https://github.com/openvinotoolkit/open_model_zoo/tree/master//demos/object_detection_demo/python
   description: Product detection based on MobileNetV2.
   license: https://raw.githubusercontent.com/openvinotoolkit/open_model_zoo/master/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/intel/product-detection-0001.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/intel/product-detection-0001.json
   name: product-detection-0001
   openvino_devices: CPU, GPU
   readme: https://github.com/openvinotoolkit/open_model_zoo/tree/master//models/intel/product-detection-0001
@@ -3845,9 +3845,9 @@ regnetx-3.2gf:
     model was pre-trained in PyTorch*. All RegNet classification models have been
     pre-trained on the ImageNet dataset. For details about this family of models,
     check out the Codebase for Image Classification Research <https://github.com/facebookresearch/pycls>.
-  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/labels/imagenet_2012.txt
+  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/labels/imagenet_2012.txt
   license: https://raw.githubusercontent.com/facebookresearch/pycls/master/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/public/preproc-aspect-ratio.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/public/preproc-aspect-ratio.json
   name: regnetx-3.2gf
   openvino_devices: CPU, GPU
   pytorch_devices: CPU
@@ -3881,9 +3881,9 @@ repvgg-a0:
     matching with those in the ImageNet database.
 
     For details see repository <https://github.com/DingXiaoH/RepVGG> and paper <https://arxiv.org/abs/2101.03697>.'
-  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/labels/imagenet_2012.txt
+  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/labels/imagenet_2012.txt
   license: https://raw.githubusercontent.com/DingXiaoH/RepVGG/main/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/public/preproc-aspect-ratio.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/public/preproc-aspect-ratio.json
   name: repvgg-a0
   openvino_devices: CPU, GPU
   pytorch_devices: CPU
@@ -3917,9 +3917,9 @@ repvgg-b1:
     matching with those in the ImageNet database.
 
     For details see repository <https://github.com/DingXiaoH/RepVGG> and paper <https://arxiv.org/abs/2101.03697>.'
-  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/labels/imagenet_2012.txt
+  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/labels/imagenet_2012.txt
   license: https://raw.githubusercontent.com/DingXiaoH/RepVGG/main/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/public/preproc-aspect-ratio.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/public/preproc-aspect-ratio.json
   name: repvgg-b1
   openvino_devices: CPU, GPU
   pytorch_devices: CPU
@@ -3953,9 +3953,9 @@ repvgg-b3:
     matching with those in the ImageNet database.
 
     For details see repository <https://github.com/DingXiaoH/RepVGG> and paper <https://arxiv.org/abs/2101.03697>.'
-  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/labels/imagenet_2012.txt
+  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/labels/imagenet_2012.txt
   license: https://raw.githubusercontent.com/DingXiaoH/RepVGG/main/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/public/preproc-aspect-ratio.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/public/preproc-aspect-ratio.json
   name: repvgg-b3
   openvino_devices: CPU, GPU
   pytorch_devices: CPU
@@ -3986,9 +3986,9 @@ resnest-50-pytorch:
 
     For details see repository <https://github.com/zhanghang1989/ResNeSt> and paper
     <https://arxiv.org/abs/2004.08955>.'
-  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/labels/imagenet_2012.txt
+  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/labels/imagenet_2012.txt
   license: https://raw.githubusercontent.com/zhanghang1989/ResNeSt/master/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/public/preproc-aspect-ratio.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/public/preproc-aspect-ratio.json
   name: resnest-50-pytorch
   openvino_devices: CPU, GPU
   pytorch_devices: CPU
@@ -4017,9 +4017,9 @@ resnet-18-pytorch:
 
     The model output is typical object classifier for the 1000 different classifications
     matching with those in the ImageNet database.'
-  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/labels/imagenet_2012.txt
+  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/labels/imagenet_2012.txt
   license: https://raw.githubusercontent.com/pytorch/vision/master/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/public/preproc-aspect-ratio.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/public/preproc-aspect-ratio.json
   name: resnet-18-pytorch
   openvino_devices: CPU, GPU
   pytorch_devices: CPU
@@ -4048,9 +4048,9 @@ resnet-34-pytorch:
 
     The model output is typical object classifier for the 1000 different classifications
     matching with those in the ImageNet database.'
-  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/labels/imagenet_2012.txt
+  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/labels/imagenet_2012.txt
   license: https://raw.githubusercontent.com/pytorch/vision/master/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/public/preproc-aspect-ratio.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/public/preproc-aspect-ratio.json
   name: resnet-34-pytorch
   openvino_devices: CPU, GPU
   pytorch_devices: CPU
@@ -4079,9 +4079,9 @@ resnet-50-pytorch:
 
     The model output is typical object classifier for the 1000 different classifications
     matching with those in the ImageNet database.'
-  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/labels/imagenet_2012.txt
+  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/labels/imagenet_2012.txt
   license: https://raw.githubusercontent.com/pytorch/vision/master/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/public/preproc-aspect-ratio.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/public/preproc-aspect-ratio.json
   name: resnet-50-pytorch
   openvino_devices: CPU, GPU
   pytorch_devices: CPU
@@ -4102,9 +4102,9 @@ resnet-50-tf:
     classification model pre-trained on the ImageNet dataset. Originally redistributed
     in Saved model format, converted to frozen graph using "tf.graph_util" module.
     For details see paper <https://arxiv.org/abs/1512.03385>, repository <https://github.com/tensorflow/models/tree/v2.2.0/official/r1/resnet>.'
-  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/labels/imagenet_2012_bkgr.txt
+  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/labels/imagenet_2012_bkgr.txt
   license: https://raw.githubusercontent.com/tensorflow/models/master/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/public/preproc-aspect-ratio.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/public/preproc-aspect-ratio.json
   name: resnet-50-tf
   openvino_devices: CPU, GPU
   readme: https://github.com/openvinotoolkit/open_model_zoo/tree/master//models/public/resnet-50-tf
@@ -4125,7 +4125,7 @@ resnet18-xnor-binary-onnx-0001:
   - https://github.com/openvinotoolkit/open_model_zoo/tree/master//demos/classification_benchmark_demo/cpp
   description: ResNet-18 Binary with XNOR weight binarization
   license: https://raw.githubusercontent.com/openvinotoolkit/open_model_zoo/master/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/intel/resnet18-xnor-binary-onnx-0001.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/intel/resnet18-xnor-binary-onnx-0001.json
   name: resnet18-xnor-binary-onnx-0001
   openvino_devices: CPU, GPU
   readme: https://github.com/openvinotoolkit/open_model_zoo/tree/master//models/intel/resnet18-xnor-binary-onnx-0001
@@ -4147,7 +4147,7 @@ resnet50-binary-0001:
   description: ResNet-50 Binary
   fp32 conv MFlops: '960'
   license: https://raw.githubusercontent.com/openvinotoolkit/open_model_zoo/master/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/intel/resnet50-binary-0001.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/intel/resnet50-binary-0001.json
   name: resnet50-binary-0001
   openvino_devices: CPU, GPU
   readme: https://github.com/openvinotoolkit/open_model_zoo/tree/master//models/intel/resnet50-binary-0001
@@ -4190,7 +4190,7 @@ retinanet-tf:
   description: RetinaNet is the dense object detection model with ResNet50 backbone,
     originally trained on Keras*, then converted to TensorFlow* protobuf format. For
     details, see paper <https://arxiv.org/abs/1708.02002>, repository <https://github.com/fizyr/keras-retinanet>.
-  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/labels/coco_80cl.txt
+  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/labels/coco_80cl.txt
   license: https://raw.githubusercontent.com/fizyr/keras-retinanet/master/LICENSE
   name: retinanet-tf
   openvino_devices: CPU
@@ -4221,9 +4221,9 @@ rexnet-v1-x1.0:
     with those in the ImageNet database.
 
     For details see repository <https://github.com/clovaai/rexnet> and paper <https://arxiv.org/pdf/2007.00992.pdf>.'
-  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/labels/imagenet_2012.txt
+  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/labels/imagenet_2012.txt
   license: https://raw.githubusercontent.com/clovaai/rexnet/master/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/public/preproc-aspect-ratio.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/public/preproc-aspect-ratio.json
   name: rexnet-v1-x1.0
   openvino_devices: CPU
   pytorch_devices: CPU
@@ -4245,10 +4245,10 @@ rfcn-resnet101-coco-tf:
   description: R-FCN ResNet-101 model, pre-trained on Common Objects in Context (COCO)
     <https://cocodataset.org/#home> dataset. Used for object detection. For details,
     see the paper <https://arxiv.org/abs/1605.06409>.
-  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/labels/coco_91cl_bkgr.txt
+  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/labels/coco_91cl_bkgr.txt
   license: https://raw.githubusercontent.com/tensorflow/models/master/LICENSE
   mAP: 45.02%
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/public/preproc-image-info.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/public/preproc-image-info.json
   name: rfcn-resnet101-coco-tf
   openvino_devices: CPU, GPU
   readme: https://github.com/openvinotoolkit/open_model_zoo/tree/master//models/public/rfcn-resnet101-coco-tf
@@ -4301,9 +4301,9 @@ shufflenet-v2-x1.0:
 
     The model output is typical object classifier for the 1000 different classifications
     matching with those in the ImageNet database.'
-  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/labels/imagenet_2012.txt
+  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/labels/imagenet_2012.txt
   license: https://raw.githubusercontent.com/pytorch/vision/master/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/public/preproc-aspect-ratio.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/public/preproc-aspect-ratio.json
   name: shufflenet-v2-x1.0
   openvino_devices: CPU, GPU
   pytorch_devices: CPU
@@ -4319,7 +4319,7 @@ single-human-pose-estimation-0001:
   - https://github.com/openvinotoolkit/open_model_zoo/tree/master//demos/single_human_pose_estimation_demo/python
   description: Single human pose estimation model based on paper <https://arxiv.org/abs/1906.04104>.
   license: https://raw.githubusercontent.com/opencv/openvino_training_extensions/develop/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/public/single-human-pose-estimation-0001.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/public/single-human-pose-estimation-0001.json
   name: single-human-pose-estimation-0001
   openvino_devices: CPU, GPU
   pytorch_devices: CPU
@@ -4503,7 +4503,7 @@ ssd_mobilenet_v1_coco:
   - https://github.com/openvinotoolkit/open_model_zoo/tree/master//demos/single_human_pose_estimation_demo/python
   description: The "ssd_mobilenet_v1_coco" model is a Single-Shot multibox Detection
     (SSD) <https://arxiv.org/abs/1801.04381> network intended to perform object detection.
-  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/labels/coco_91cl_bkgr.txt
+  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/labels/coco_91cl_bkgr.txt
   license: https://raw.githubusercontent.com/tensorflow/models/master/LICENSE
   name: ssd_mobilenet_v1_coco
   openvino_devices: CPU, GPU
@@ -4528,7 +4528,7 @@ ssd_mobilenet_v1_fpn_coco:
   - https://github.com/openvinotoolkit/open_model_zoo/tree/master//demos/single_human_pose_estimation_demo/python
   description: MobileNetV1 FPN is used for object detection. For details, see the
     paper <https://arxiv.org/abs/1807.03284>.
-  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/labels/coco_91cl_bkgr.txt
+  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/labels/coco_91cl_bkgr.txt
   license: https://raw.githubusercontent.com/tensorflow/models/master/LICENSE
   name: ssd_mobilenet_v1_fpn_coco
   openvino_devices: CPU, GPU
@@ -4554,7 +4554,7 @@ ssdlite_mobilenet_v2:
   description: 'The "ssdlite_mobilenet_v2" model is used for object detection. For
     details, see the paper <https://arxiv.org/abs/1801.04381>, MobileNetV2: Inverted
     Residuals and Linear Bottlenecks.'
-  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/labels/coco_91cl_bkgr.txt
+  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/labels/coco_91cl_bkgr.txt
   license: https://raw.githubusercontent.com/tensorflow/models/master/LICENSE
   name: ssdlite_mobilenet_v2
   openvino_devices: CPU, GPU
@@ -4584,9 +4584,9 @@ swin-tiny-patch4-window7-224:
 
     More details provided in the paper <https://arxiv.org/pdf/2103.14030.pdf> and
     repository <https://github.com/rwightman/pytorch-image-models>.'
-  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/labels/imagenet_2012.txt
+  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/labels/imagenet_2012.txt
   license: https://raw.githubusercontent.com/rwightman/pytorch-image-models/master/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/public/preproc-aspect-ratio.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/public/preproc-aspect-ratio.json
   name: swin-tiny-patch4-window7-224
   openvino_devices: CPU, GPU
   pytorch_devices: CPU
@@ -4872,7 +4872,7 @@ vehicle-attributes-recognition-barrier-0039:
   - https://github.com/openvinotoolkit/open_model_zoo/tree/master//demos/security_barrier_camera_demo/cpp
   description: Vehicle attributes recognition with modified ResNet10 backbone
   license: https://raw.githubusercontent.com/openvinotoolkit/open_model_zoo/master/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/intel/vehicle-attributes-recognition-barrier-0039.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/intel/vehicle-attributes-recognition-barrier-0039.json
   name: vehicle-attributes-recognition-barrier-0039
   openvino_devices: CPU, GPU
   readme: https://github.com/openvinotoolkit/open_model_zoo/tree/master//models/intel/vehicle-attributes-recognition-barrier-0039
@@ -4901,7 +4901,7 @@ vehicle-attributes-recognition-barrier-0042:
   gray: 77.47%
   green: 81.82%
   license: https://raw.githubusercontent.com/openvinotoolkit/open_model_zoo/master/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/intel/vehicle-attributes-recognition-barrier-0042.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/intel/vehicle-attributes-recognition-barrier-0042.json
   name: vehicle-attributes-recognition-barrier-0042
   openvino_devices: CPU, GPU
   readme: https://github.com/openvinotoolkit/open_model_zoo/tree/master//models/intel/vehicle-attributes-recognition-barrier-0042
@@ -4923,7 +4923,7 @@ vehicle-detection-0200:
   - https://github.com/openvinotoolkit/open_model_zoo/tree/master//demos/object_detection_demo/python
   description: MobileNetV2-SSD with two heads and clustered priors for 256x256 resolution.
   license: https://raw.githubusercontent.com/openvinotoolkit/open_model_zoo/master/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/intel/vehicle-detection-0200.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/intel/vehicle-detection-0200.json
   name: vehicle-detection-0200
   openvino_devices: CPU, GPU
   readme: https://github.com/openvinotoolkit/open_model_zoo/tree/master//models/intel/vehicle-detection-0200
@@ -4940,7 +4940,7 @@ vehicle-detection-0201:
   - https://github.com/openvinotoolkit/open_model_zoo/tree/master//demos/object_detection_demo/python
   description: MobileNetV2-SSD with two heads and clustered priors for 384x384 resolution.
   license: https://raw.githubusercontent.com/openvinotoolkit/open_model_zoo/master/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/intel/vehicle-detection-0201.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/intel/vehicle-detection-0201.json
   name: vehicle-detection-0201
   openvino_devices: CPU, GPU
   readme: https://github.com/openvinotoolkit/open_model_zoo/tree/master//models/intel/vehicle-detection-0201
@@ -4957,7 +4957,7 @@ vehicle-detection-0202:
   - https://github.com/openvinotoolkit/open_model_zoo/tree/master//demos/object_detection_demo/python
   description: MobileNetV2-SSD with two heads and clustered priors for 512x512 resolution.
   license: https://raw.githubusercontent.com/openvinotoolkit/open_model_zoo/master/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/intel/vehicle-detection-0202.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/intel/vehicle-detection-0202.json
   name: vehicle-detection-0202
   openvino_devices: CPU, GPU
   readme: https://github.com/openvinotoolkit/open_model_zoo/tree/master//models/intel/vehicle-detection-0202
@@ -4983,7 +4983,7 @@ vehicle-detection-adas-0002:
   description: Vehicle detector based on SSD + MobileNet with reduced number of channels
     and depthwise head.
   license: https://raw.githubusercontent.com/openvinotoolkit/open_model_zoo/master/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/intel/vehicle-detection-adas-0002.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/intel/vehicle-detection-adas-0002.json
   name: vehicle-detection-adas-0002
   openvino_devices: CPU, GPU
   readme: https://github.com/openvinotoolkit/open_model_zoo/tree/master//models/intel/vehicle-detection-adas-0002
@@ -5007,7 +5007,7 @@ vehicle-license-plate-detection-barrier-0106:
   - https://github.com/openvinotoolkit/open_model_zoo/tree/master//demos/object_detection_demo/python
   description: Multiclass (vehicle -  license plates) detector based on MobileNetV2+SSD
   license: https://raw.githubusercontent.com/openvinotoolkit/open_model_zoo/master/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/intel/vehicle-license-plate-detection-barrier-0106.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/intel/vehicle-license-plate-detection-barrier-0106.json
   name: vehicle-license-plate-detection-barrier-0106
   openvino_devices: CPU, GPU
   readme: https://github.com/openvinotoolkit/open_model_zoo/tree/master//models/intel/vehicle-license-plate-detection-barrier-0106
@@ -5032,7 +5032,7 @@ vehicle-license-plate-detection-barrier-0123:
   description: This is a MobileNetV2 + SSD-based vehicle and (Chinese) license plate
     detector for the "Barrier" use case.
   license: https://raw.githubusercontent.com/opencv/training_toolbox_tensorflow/develop/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/public/vehicle-license-plate-detection-barrier-0123.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/public/vehicle-license-plate-detection-barrier-0123.json
   name: vehicle-license-plate-detection-barrier-0123
   openvino_devices: CPU, GPU
   readme: https://github.com/openvinotoolkit/open_model_zoo/tree/master//models/public/vehicle-license-plate-detection-barrier-0123
@@ -5126,7 +5126,7 @@ weld-porosity-detection-0001:
   - https://github.com/openvinotoolkit/open_model_zoo/tree/master//demos/action_recognition_demo/python
   description: ResNet18 based network for porosity weld recognition.
   license: https://raw.githubusercontent.com/openvinotoolkit/open_model_zoo/master/LICENSE
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/intel/weld-porosity-detection-0001.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/intel/weld-porosity-detection-0001.json
   name: weld-porosity-detection-0001
   openvino_devices: CPU, GPU
   readme: https://github.com/openvinotoolkit/open_model_zoo/tree/master//models/intel/weld-porosity-detection-0001
@@ -5397,10 +5397,10 @@ yolo-v3-tf:
     from this repository <https://github.com/david8862/keras-YOLOv3-model-set> and
     converted to TensorFlow* framework. This model was pre-trained on Common Objects
     in Context (COCO) <https://cocodataset.org/#home> dataset with 80 classes.
-  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/labels/coco_80cl.txt
+  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/labels/coco_80cl.txt
   license: https://raw.githubusercontent.com/david8862/keras-YOLOv3-model-set/master/LICENSE
   mAP: 62.27%
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/public/yolo-v3-tf.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/public/yolo-v3-tf.json
   name: yolo-v3-tf
   openvino_devices: CPU, GPU
   readme: https://github.com/openvinotoolkit/open_model_zoo/tree/master//models/public/yolo-v3-tf
@@ -5448,10 +5448,10 @@ yolo-v3-tiny-tf:
     Keras* from this repository <https://github.com/david8862/keras-YOLOv3-model-set>
     and converted to TensorFlow* framework. This model was pre-trained on Common Objects
     in Context (COCO) <https://cocodataset.org/#home> dataset with 80 classes.
-  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/labels/coco_80cl.txt
+  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/labels/coco_80cl.txt
   license: https://raw.githubusercontent.com/david8862/keras-YOLOv3-model-set/master/LICENSE
   mAP: 35.9%
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/public/yolo-v3-tiny-tf.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/public/yolo-v3-tiny-tf.json
   name: yolo-v3-tiny-tf
   openvino_devices: CPU, GPU
   readme: https://github.com/openvinotoolkit/open_model_zoo/tree/master//models/public/yolo-v3-tiny-tf
@@ -5474,10 +5474,10 @@ yolo-v4-tf:
     For details see repository <https://github.com/david8862/keras-YOLOv3-model-set>.
     This model was pre-trained on Common Objects in Context (COCO) <https://cocodataset.org/#home>
     dataset with 80 classes.'
-  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/labels/coco_80cl.txt
+  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/labels/coco_80cl.txt
   license: https://raw.githubusercontent.com/david8862/keras-YOLOv3-model-set/master/LICENSE
   mAP: 71.23%
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/public/yolo-v4-tf.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/public/yolo-v4-tf.json
   name: yolo-v4-tf
   openvino_devices: CPU, GPU
   readme: https://github.com/openvinotoolkit/open_model_zoo/tree/master//models/public/yolo-v4-tf
@@ -5500,10 +5500,10 @@ yolo-v4-tiny-tf:
     For details see repository <https://github.com/david8862/keras-YOLOv3-model-set>.
     This model was pre-trained on Common Objects in Context (COCO) <https://cocodataset.org/#home>
     dataset with 80 classes.'
-  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/labels/coco_80cl.txt
+  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/labels/coco_80cl.txt
   license: https://raw.githubusercontent.com/david8862/keras-YOLOv3-model-set/master/LICENSE
   mAP: 40.37%
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/public/yolo-v4-tiny-tf.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/public/yolo-v4-tiny-tf.json
   name: yolo-v4-tiny-tf
   openvino_devices: CPU, GPU
   readme: https://github.com/openvinotoolkit/open_model_zoo/tree/master//models/public/yolo-v4-tiny-tf
@@ -5566,13 +5566,13 @@ mobilenetv2-7:
   format: onnx
   task_type: classification
   readme: https://github.com/onnx/models/tree/main/validated/vision/classification/mobilenet
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/onnx/mobilenetv2-7.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/onnx/mobilenetv2-7.json
 emotion-ferplus-8:
   source: public
   format: onnx
   task_type: classification
   readme: https://github.com/onnx/models/tree/main/validated/vision/body_analysis/emotion_ferplus
-  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/onnx/emotion-ferplus-8.json
+  model-proc: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc/onnx/emotion-ferplus-8.json
 
 # TorchVision models
 torchvision.models.detection.ssdlite320_mobilenet_v3_large:
@@ -5581,7 +5581,7 @@ torchvision.models.detection.ssdlite320_mobilenet_v3_large:
   task_type: detection
   readme: https://pytorch.org/vision/main/models/generated/torchvision.models.detection.ssdlite320_mobilenet_v3_large.html
   GFLOPs: '0.583'
-  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/labels/coco_80cl.txt
+  labels-file: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/labels/coco_80cl.txt
   dlstreamer_support: gva, gst_openvino, gst_pytorch, ffmpeg_openvino
   dlstreamer_gva: gvadetect model=ssdlite320_mobilenet_v3_large.xml device=CPU
   dlstreamer_gst_openvino: object_detect model=ssdlite320_mobilenet_v3_large.xml device=CPU
