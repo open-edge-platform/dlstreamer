@@ -34,7 +34,8 @@ runs:
     - name: Install Pylint
       run: |
         python -m pip install --upgrade pip
-        pip install pylint numpy
+        pip install pylint
+        sudo apt install -y libcairo2-dev libgirepository1.0-dev libopencv-dev
         pip install -r ${{ inputs.path }}/requirements.txt
 
       shell: bash
