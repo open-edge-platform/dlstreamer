@@ -7,8 +7,8 @@
 import unittest
 import os
 
-from pipeline_runner import TestPipelineRunner
-from utils import BBox, get_model_path
+from tests.unit_tests.tests_gstgva.pipeline_runner import TestPipelineRunner
+from tests.unit_tests.tests_gstgva.utils import BBox, get_model_path
 
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 IMAGE_PATH = os.path.join(SCRIPT_DIR, "test_files", "cup.jpg")

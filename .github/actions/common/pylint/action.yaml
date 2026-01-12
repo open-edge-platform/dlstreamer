@@ -36,7 +36,7 @@ runs:
         fi
         python3 -m venv $HOME/.virtualenvs/dlstreamer
         $HOME/.virtualenvs/dlstreamer/bin/pip install --no-cache-dir --upgrade pip -r ${{ inputs.path }}/requirements.txt
-        $HOME/.virtualenvs/dlstreamer/bin/pip install pylint yaml jsonschema torch utils openvino nncf model
+        $HOME/.virtualenvs/dlstreamer/bin/pip install pylint PyYAML jsonschema torch openvino nncf
       shell: bash
 
     - name: Run pylint
