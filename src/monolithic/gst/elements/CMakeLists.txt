@@ -80,7 +80,6 @@ PRIVATE
     ${GSTREAMER_INCLUDE_DIRS}
     ${GSTVIDEO_INCLUDE_DIRS}
     ${GSTALLOC_INCLUDE_DIRS}
-    ${CMAKE_SOURCE_DIR}/thirdparty/itt/include
 )
 
 if(${ENABLE_AUDIO_INFERENCE_ELEMENTS})
@@ -108,6 +107,13 @@ PRIVATE
     gstvideoanalyticsmeta
 )
 
+if(NOT MSVC)
+    target_link_libraries(${TARGET_NAME} PRIVATE
+        ${GSTVA_LIBRARIES}
+        dlstreamer_vaapi
+    )
+endif()
+
 if(${ENABLE_AUDIO_INFERENCE_ELEMENTS})
         target_link_libraries(${TARGET_NAME} PRIVATE ${GSTAUDIO_LIBRARIES})
 endif()
@@ -119,8 +125,6 @@ endif()
 if(WIN32)
         target_link_libraries(${TARGET_NAME} PRIVATE d3d11_wrapper image_inference_async_d3d11)
 endif()
-
-target_compile_definitions(${TARGET_NAME} PRIVATE INTEL_NO_ITTNOTIFY_API)
 
 add_subdirectory(gvaattachroi)
 add_subdirectory(gvametapublish)
