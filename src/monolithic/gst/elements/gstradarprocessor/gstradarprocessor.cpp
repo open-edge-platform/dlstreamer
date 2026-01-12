@@ -511,6 +511,7 @@ static gboolean publish_radar_metadata_to_json(GstRadarProcessor *filter, GstRad
     fprintf(fp, "    \"data\": [\n");
     for (gint i = 0; i < meta->num_clusters; i++) {
         fprintf(fp, "      {\n");
+        fprintf(fp, "        \"index\": %d,\n", meta->cluster_idx[i]);
         fprintf(fp, "        \"center_x\": %.3f,\n", meta->cluster_cx[i]);
         fprintf(fp, "        \"center_y\": %.3f,\n", meta->cluster_cy[i]);
         fprintf(fp, "        \"radius_x\": %.3f,\n", meta->cluster_rx[i]);

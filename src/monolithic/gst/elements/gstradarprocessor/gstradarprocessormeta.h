@@ -41,6 +41,7 @@ struct _GstRadarProcessorMeta {
     
     // Cluster result
     gint num_clusters;
+    gint *cluster_idx;   // cluster indices
     gfloat *cluster_cx;  // center x
     gfloat *cluster_cy;  // center y
     gfloat *cluster_rx;  // radius x

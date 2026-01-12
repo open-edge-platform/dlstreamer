@@ -11,9 +11,8 @@ The element is designed to work in a pipeline where raw radar data is fed frame-
 ```bash
 multifilesrc location="/home/user/qianlong/raddet/radar/%06d.bin" start-index=559 ! \
 application/octet-stream ! \
-radarprocessor radar-config=config.json frame-rate=10 ! \
+radarprocessor radar-config=config.json frame-rate=10 publish-result=true publish-path=radar_output.json ! \
 gvafpscounter ! \
-gvametapublish file-path=result/radar_output.json ! \
 fakesink
 ```
 *   **Input:** Raw binary radar data (one file per frame).
@@ -27,10 +26,12 @@ fakesink
 
 ## 3. Properties
 
-| Property Name  | Type   | Description |
-| :---           | :---   | :---        |
+| Property Name    | Type    | Description |
+| :---             | :---    | :---        |
 | `radar-config`   | String  | Path to the Radar Configuration JSON file. This file contains critical parameters for signal interpretation (RX/TX count, samples, chirps) and algorithm tuning (CFAR thresholds, clustering parameters). |
 | `frame-rate`     | Double  | Target frame rate for the output. If set > 0, the element will throttle processing to match this rate. Default is 0 (no limit). |
+| `publish-result` | Boolean | Enable publishing radar processing results to JSON file. Default is FALSE. |
+| `publish-path`   | String  | Path to JSON file for publishing results. Default is "radar_results.json". |
 
 ## 4. Functional Description
 
@@ -76,10 +77,16 @@ The element prepares the data structures for `libradar` and executes the process
 After processing completes, the element attaches a custom `GstRadarProcessorMeta` to the output buffer containing:
 *   **frame_id:** Sequential frame identifier.
 *   **RadarPointClouds:** Arrays of ranges, speeds, angles, and SNR values.
-*   **ClusterResult:** Cluster centers (cx, cy), sizes (rx, ry), and average velocities.
+*   **ClusterResult:** Cluster centers (cx, cy), sizes (rx, ry), average velocities, and cluster indices.
 *   **TrackingResult:** Tracked object IDs, positions (x, y), and velocities (vx, vy).
 
 The metadata is implemented with proper lifecycle management (init/free callbacks) and deep-copies all dynamic arrays to ensure data integrity throughout the pipeline.
+
+### 4.9. Results Publishing
+When `publish-result` is enabled, the element publishes processing results to a JSON file specified by `publish-path`:
+*   Each frame's results are appended to the JSON array.
+*   The JSON output contains frame_id, point clouds, clustering results (including point-to-cluster mapping), and tracking results.
+*   Publishing happens synchronously after metadata attachment to ensure data consistency.
 
 ## 5. Data Structures
 
@@ -103,6 +110,7 @@ The custom metadata type is registered with the GStreamer metadata API and conta
     *   `angles[]`: Azimuth angle of each point.
     *   `snrs[]`: Signal-to-noise ratio for each detection.
 *   **ClusterResult**: Grouped point clouds with:
+    *   `cluster_idx[]`: Cluster index for each point cloud (mapping points to clusters).
     *   `cx[]`, `cy[]`: Cluster center coordinates.
     *   `rx[]`, `ry[]`: Cluster extents.
     *   `av[]`: Average velocity per cluster.
@@ -119,6 +127,6 @@ The custom metadata type is registered with the GStreamer metadata API and conta
 
 ### 6.3. Downstream Consumption
 The metadata can be consumed by downstream GStreamer elements:
+*   **fakesink**: Simple sink for testing and benchmarking without visualization.
+*   **3ddatarender** (in development): Real-time visualization element that renders tracked objects in Cartesian coordinate system.
 *   Custom elements can retrieve metadata using `gst_buffer_get_meta()` with `GST_RADAR_PROCESSOR_META_API_TYPE`.
-*   `gvametapublish` can publish the data to MQTT/Kafka for external processing.
-*   Visualization elements can render point clouds, clusters, and tracking information in real-time.

@@ -33,6 +33,7 @@ gst_radar_processor_meta_init(GstMeta *meta, gpointer params, GstBuffer *buffer)
     radar_meta->snrs = NULL;
     
     radar_meta->num_clusters = 0;
+    radar_meta->cluster_idx = NULL;
     radar_meta->cluster_cx = NULL;
     radar_meta->cluster_cy = NULL;
     radar_meta->cluster_rx = NULL;
@@ -61,6 +62,7 @@ gst_radar_processor_meta_free(GstMeta *meta, GstBuffer *buffer)
     g_free(radar_meta->snrs);
     
     // Free cluster arrays
+    g_free(radar_meta->cluster_idx);
     g_free(radar_meta->cluster_cx);
     g_free(radar_meta->cluster_cy);
     g_free(radar_meta->cluster_rx);
@@ -148,6 +150,7 @@ gst_buffer_add_radar_processor_meta(GstBuffer *buffer,
     if (cluster_result && cluster_result->n > 0 && cluster_result->cd) {
         meta->num_clusters = cluster_result->n;
         
+        meta->cluster_idx = g_new(gint, cluster_result->n);
         meta->cluster_cx = g_new(gfloat, cluster_result->n);
         meta->cluster_cy = g_new(gfloat, cluster_result->n);
         meta->cluster_rx = g_new(gfloat, cluster_result->n);
@@ -155,6 +158,7 @@ gst_buffer_add_radar_processor_meta(GstBuffer *buffer,
         meta->cluster_av = g_new(gfloat, cluster_result->n);
         
         for (gint i = 0; i < cluster_result->n; i++) {
+            meta->cluster_idx[i] = cluster_result->idx ? cluster_result->idx[i] : i;
             meta->cluster_cx[i] = cluster_result->cd[i].cx;
             meta->cluster_cy[i] = cluster_result->cd[i].cy;
             meta->cluster_rx[i] = cluster_result->cd[i].rx;
