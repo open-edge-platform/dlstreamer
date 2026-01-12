@@ -6,7 +6,7 @@ plugins is stored under frame [Metadata](./metadata.md) using a flexible
 [GstStructure](https://gstreamer.freedesktop.org/documentation/gstreamer/gststructure.html)
 key-value container.
 The **GVA::Tensor** C++ class with
-[header-only implementation](https://github.com/open-edge-platform/dlstreamer/tree/master/include/dlstreamer/gst/videoanalytics/tensor.h#L38)
+[header-only implementation](https://github.com/open-edge-platform/dlstreamer/tree/main/include/dlstreamer/gst/videoanalytics/tensor.h#L38)
 helps C++ applications access the tensor data.
 
 The integration of DL model inference into real application typically
@@ -55,7 +55,7 @@ The C/C++ application can either:
   consumption
 
 The pad probe callback is demonstrated in the
-[draw_face_attributes](https://github.com/open-edge-platform/dlstreamer/blob/master/samples/gstreamer/cpp/draw_face_attributes/main.cpp) C++ sample.
+[draw_face_attributes](https://github.com/open-edge-platform/dlstreamer/blob/main/samples/gstreamer/cpp/draw_face_attributes/main.cpp) C++ sample.
 
 ## 2. Set C/Python callback in the middle of GStreamer pipeline
 
@@ -86,7 +86,7 @@ The [gvapython element](../elements/gvapython.md) takes reference to user provid
 script with a function to be called on every frame processing.
 
 The callback function can attach/modify metadata as demonstrated in the
-[sample](https://github.com/dlstreamer/dlstreamer/tree/master/samples/gstreamer/gst_launch/gvapython/face_detection_and_classification).
+[sample](https://github.com/dlstreamer/dlstreamer/tree/main/samples/gstreamer/gst_launch/gvapython/face_detection_and_classification).
 
 ## 4. Insert new GStreamer element implemented on C/C++
 
@@ -95,13 +95,13 @@ Refer to the
 a GStreamer plugin.
 
 If the frame processing function is implemented in C++, it can utilize the
-[GVA::Tensor](https://github.com/open-edge-platform/dlstreamer/blob/master/include/dlstreamer/gst/videoanalytics/tensor.h#L38)
+[GVA::Tensor](https://github.com/open-edge-platform/dlstreamer/blob/main/include/dlstreamer/gst/videoanalytics/tensor.h#L38)
 helper class.
 
 ## 5. Modify source code of post-processors for gvadetect/gvaclassify elements
 
 You can add new or modify any suitable existing
-[post-processor](https://github.com/open-edge-platform/dlstreamer/blob/master/src/monolithic/gst/inference_elements/common/post_processor/blob_to_meta_converter.cpp)
+[post-processor](https://github.com/open-edge-platform/dlstreamer/blob/main/src/monolithic/gst/inference_elements/common/post_processor/blob_to_meta_converter.cpp)
 for `gvadetect`/`gvaclassify` elements.
 
 ## 6. Create custom post-processing library
@@ -113,7 +113,7 @@ flexibility and modularity while maintaining clean separation between
 the core framework and custom processing logic.
 
 Practical examples of implementations are demonstrated in the
-[sample](https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/gst_launch/custom_postproc).
+[sample](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch/custom_postproc).
 
 **Important Requirements**
 
@@ -135,13 +135,13 @@ At this time, only **detection** and **classification** tasks are supported:
 - **Object Detection** (`GstAnalyticsODMtd`) - works only with the
    `gvadetect` element (see [*Detection* sample][detection_sample]).
 
-   [detection_sample]: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/gst_launch/custom_postproc/detect/
+   [detection_sample]: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch/custom_postproc/detect/
 
 - **Classification** (`GstAnalyticsClsMtd`) - works with both the
   [gvadetect](../elements/gvadetect.md) and
   [gvaclassify](../elements/gvaclassify.md) elements (see [*Classification* sample][classify_sample]).
 
-  [classify_sample]: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/gst_launch/custom_postproc/classify/
+  [classify_sample]: https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch/custom_postproc/classify/
 
 **Implementation Requirements**
 

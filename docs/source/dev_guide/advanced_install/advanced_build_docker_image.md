@@ -14,14 +14,14 @@ Follow the instructions in
 ## Step 2: Download Dockerfiles
 
 All Dockerfiles are in
-[DLStreamer GitHub repository](https://github.com/open-edge-platform/dlstreamer/tree/master/docker).
+[DLStreamer GitHub repository](https://github.com/open-edge-platform/dlstreamer/tree/main/docker).
 
 <!--hide_directive::::{tab-set}
 :::{tab-item}hide_directive--> Ubuntu24 debian/dev Dockerfile
 <!--hide_directive:sync: tab1hide_directive-->
 
   ```bash
-  wget https://raw.githubusercontent.com/open-edge-platform/dlstreamer/master/docker/ubuntu/ubuntu24.Dockerfile
+  wget https://raw.githubusercontent.com/open-edge-platform/dlstreamer/main/docker/ubuntu/ubuntu24.Dockerfile
   ```
 
 <!--hide_directive:::
@@ -29,7 +29,7 @@ All Dockerfiles are in
 <!--hide_directive:sync: tab2hide_directive-->
 
   ```bash
-  wget https://raw.githubusercontent.com/open-edge-platform/dlstreamer/master/docker/ubuntu/ubuntu22.Dockerfile
+  wget https://raw.githubusercontent.com/open-edge-platform/dlstreamer/main/docker/ubuntu/ubuntu22.Dockerfile
   ```
 
 <!--hide_directive:::
