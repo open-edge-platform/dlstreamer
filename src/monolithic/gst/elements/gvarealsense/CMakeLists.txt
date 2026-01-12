@@ -7,7 +7,7 @@
 set(TARGET_NAME "gvarealsense")
 
 pkg_search_module(VA va libva REQUIRED)
-find_package(OpenCV REQUIRED core imgproc)
+find_package(OpenCV REQUIRED core imgproc calib3d)
 find_package(realsense2)
 
 file(GLOB REALSENSE_SRC
@@ -18,7 +18,7 @@ file(GLOB REALSENSE_HEADERS
     *.h
 )
 
-add_library(gvarealsense SHARED gvarealsense.cpp gvarealsense.h gvarealsense_utils.cpp gvarealsense_utils.h 
+add_library(gvarealsense SHARED gvarealsense.cpp gvarealsense.h gvarealsense_utils.cpp gvarealsense_utils.h
             gvarealsense_pcd.h gvarealsense_pcd.cpp )
 set_compile_flags(${TARGET_NAME})
 
