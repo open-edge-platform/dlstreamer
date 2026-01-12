@@ -154,15 +154,6 @@ jobs:
 
       - name: Verify DL Streamer installation
         run: |
-          echo "Activating Python virtual environment..."
-          source ~/python3venv/bin/activate
-          echo " "
-          echo "Sourcing OpenVINO environment..."
-          source /opt/intel/openvino_2025/setupvars.sh
-          echo " "
-          echo "Sourcing OpenVINO GenAI environment..."
-          source /opt/intel/openvino_genai/setupvars.sh
-          echo " "
           echo "Setting up DL Streamer environment..."
           export LIBVA_DRIVER_NAME=iHD
           export GST_PLUGIN_PATH="/opt/intel/dlstreamer/Release/lib:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0:$GST_PLUGIN_PATH"
