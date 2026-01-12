@@ -112,7 +112,7 @@ runs:
       with:
         github_token: ${{ inputs.github_token }}
         reporter: github-pr-review
-        level: warning
+        level: error
         hadolint_flags: ${{ inputs.dockerfile }}
 
     - name: Fail if Hadolint found issues

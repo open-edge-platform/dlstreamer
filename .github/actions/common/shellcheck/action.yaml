@@ -121,7 +121,7 @@ runs:
         path: .
         github_token: ${{ inputs.github_token }}
         reporter: github-pr-review
-        level: warning
+        level: error
 
     - name: Fail if ShellCheck found errors
       if: inputs.fail-on-findings == 'true'
