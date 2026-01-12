@@ -53,7 +53,7 @@ jobs:
         if [[ ${{ matrix.ubuntu_version }} == "ubuntu22" ]]; then
           echo "Executing Ubuntu 22.04 specific setup..."
           sudo apt-get update && \
-          sudo apt-get install -y wget curl vainfo xz-utils python3-pip python3-gi gcc-multilib libglib2.0-dev \
+          sudo apt-get install -y wget vainfo xz-utils python3-pip python3-gi gcc-multilib libglib2.0-dev \
               flex bison autoconf automake libtool libogg-dev make g++ libva-dev yasm libglx-dev libdrm-dev \
               python-gi-dev python3-dev unzip libgflags-dev \
               libgirepository1.0-dev libx265-dev libx264-dev libde265-dev gudev-1.0 libusb-1.0 nasm python3-venv \
@@ -66,7 +66,7 @@ jobs:
         elif [[ ${{ matrix.ubuntu_version }} == "ubuntu24" ]]; then
           echo "Executing Ubuntu 24.04 specific setup..."
           sudo apt-get update && \
-          sudo apt-get install -y wget curl vainfo xz-utils python3-pip python3-gi gcc-multilib libglib2.0-dev \
+          sudo apt-get install -y wget vainfo xz-utils python3-pip python3-gi gcc-multilib libglib2.0-dev \
               flex bison autoconf automake libtool libogg-dev make g++ libva-dev yasm libglx-dev libdrm-dev \
               python-gi-dev python3-dev unzip libgflags-dev libcurl4-openssl-dev \
               libgirepository1.0-dev libx265-dev libx264-dev libde265-dev gudev-1.0 libusb-1.0 nasm python3-venv \
@@ -103,12 +103,12 @@ jobs:
         echo "Installing OpenVINO GenAI for ${{ matrix.ubuntu_version }}..."
         if [[ ${{ matrix.ubuntu_version }} == "ubuntu22" ]]; then
           echo "Executing Ubuntu 22.04 specific setup..."
-          curl -L https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/2025.4/linux/openvino_genai_ubuntu22_2025.4.0.0_x86_64.tar.gz | tar -xz
+          wget -O- https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/2025.4/linux/openvino_genai_ubuntu22_2025.4.0.0_x86_64.tar.gz | tar -xz
           mv openvino_genai_ubuntu22_2025.4.0.0_x86_64 /opt/intel/openvino_genai
           source /opt/intel/openvino_genai/setupvars.sh
         elif [[ ${{ matrix.ubuntu_version }} == "ubuntu24" ]]; then
           echo "Executing Ubuntu 24.04 specific setup..."
-          curl -L https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/2025.4/linux/openvino_genai_ubuntu24_2025.4.0.0_x86_64.tar.gz | tar -xz
+          wget -O- https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/2025.4/linux/openvino_genai_ubuntu24_2025.4.0.0_x86_64.tar.gz | tar -xz
           sudo mv openvino_genai_ubuntu24_2025.4.0.0_x86_64 /opt/intel/openvino_genai
           source /opt/intel/openvino_genai/setupvars.sh
         else
@@ -160,7 +160,15 @@ jobs:
         export GI_TYPELIB_PATH="/opt/intel/dlstreamer/gstreamer/lib/girepository-1.0:/usr/lib/x86_64-linux-gnu/girepository-1.0gi"
         export PYTHONPATH="/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:/opt/intel/dlstreamer/python:/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:$PYTHONPATH"
 
+        echo "Activating Python virtual environment..."
         source ~/python3venv/bin/activate
+        echo " "
+        echo "Sourcing OpenVINO environment..."
+        source /opt/intel/openvino_2025/setupvars.sh
+        echo " "
+        echo "Sourcing OpenVINO GenAI environment..."
+        source /opt/intel/openvino_genai/setupvars.sh
+        echo " "
 
         echo "Verifying DL Streamer installation..."
         gst-inspect-1.0 | grep gva

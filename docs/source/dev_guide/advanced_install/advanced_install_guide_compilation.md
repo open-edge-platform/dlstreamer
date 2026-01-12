@@ -158,7 +158,7 @@ there is need to install [OpenVINO GenAI archive](https://docs.openvino.ai/2025/
 <!--hide_directive:sync: tab1hide_directive-->
 
   ```bash
-  curl -L https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/2025.4/linux/openvino_genai_ubuntu24_2025.4.0.0_x86_64.tar.gz | tar -xz &&
+  wget -O- https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/2025.4/linux/openvino_genai_ubuntu24_2025.4.0.0_x86_64.tar.gz | tar -xz &&
   sudo mv openvino_genai_ubuntu24_2025.4.0.0_x86_64 /opt/intel/openvino_genai
   source /opt/intel/openvino_genai/setupvars.sh
   ```
@@ -168,7 +168,7 @@ there is need to install [OpenVINO GenAI archive](https://docs.openvino.ai/2025/
 <!--hide_directive:sync: tab2hide_directive-->
 
 ```bash
-curl -L https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/2025.4/linux/openvino_genai_ubuntu22_2025.4.0.0_x86_64.tar.gz | tar -xz &&
+wget -O- https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/2025.4/linux/openvino_genai_ubuntu22_2025.4.0.0_x86_64.tar.gz | tar -xz &&
 mv openvino_genai_ubuntu22_2025.4.0.0_x86_64 /opt/intel/openvino_genai
 source /opt/intel/openvino_genai/setupvars.sh
 ```
