@@ -201,26 +201,25 @@ jobs:
       matrix:
         include:
           - name: dlstreamer_ubuntu22
-            dockerfile: dlstreamer-repo/docker/ubuntu/ubuntu22.Dockerfile
+            dockerfile: ./docker/ubuntu/ubuntu22.Dockerfile
             output-file: hadolint-dlstreamer_ubuntu22.json
           - name: dlstreamer_ubuntu24
-            dockerfile: dlstreamer-repo/docker/ubuntu/ubuntu24.Dockerfile
+            dockerfile: ./docker/ubuntu/ubuntu24.Dockerfile
             output-file: hadolint-dlstreamer_ubuntu24.json
           - name: dlstreamer_fedora41
-            dockerfile: dlstreamer-repo/docker/fedora41/fedora41.Dockerfile
+            dockerfile: ./docker/fedora41/fedora41.Dockerfile
             output-file: hadolint-dlstreamer_fedora41.json
           - name: dlstreamer-testing-ubuntu
-            dockerfile: dlstreamer-repo/docker/ubuntu/ubuntu-testing.Dockerfile
+            dockerfile: ./docker/ubuntu/ubuntu-testing.Dockerfile
             output-file: hadolint-dlstreamer-testing-ubuntu.json
     steps:
       - name: Check out dlstreamer repository
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 #5.0.0
         with:
           persist-credentials: false
-          path: dlstreamer-repo
 
       - name: Run Hadolint Action
-        uses: ./dlstreamer-repo/.github/actions/common/hadolint
+        uses: ./.github/actions/common/hadolint
         with:
           dockerfile: ${{ matrix.dockerfile }}
           output-file: ${{ matrix.output-file }}
@@ -228,10 +227,6 @@ jobs:
           enable-reviewdog: true
           github_token: ${{ secrets.GITHUB_TOKEN }}
           fail-on-findings: true
-
-      - name: Clean up
-        run: |
-          sudo rm -rf dlstreamer-repo
 
   dls-pylint:
     permissions:
