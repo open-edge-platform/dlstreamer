@@ -26,17 +26,9 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - name: Init host test environement and pylint
+    - name: Install pylint
       run: |
-        sudo apt-get update
-        sudo apt install -y libcairo2-dev libgirepository1.0-dev libopencv-dev
-        if [ -d "$HOME/.virtualenvs" ]; then
-          echo "Directory $HOME/.virtualenvs exists - removing it"
-          rm -rf $HOME/.virtualenvs
-        fi
-        python3 -m venv $HOME/.virtualenvs/dlstreamer
-        $HOME/.virtualenvs/dlstreamer/bin/pip install --no-cache-dir --upgrade pip -r ${{ inputs.path }}/requirements.txt
-        $HOME/.virtualenvs/dlstreamer/bin/pip install pylint PyYAML jsonschema torch openvino nncf
+        $HOME/.virtualenvs/dlstreamer/bin/pip install pylint
       shell: bash
 
     - name: Run pylint
@@ -54,7 +46,7 @@ runs:
           echo "📝 Found Python files, running pylint..."
           # Save full output to temporary file first
           temp_output="${output_file}.full"
-          export PYTHONPATH=${path}/python:
+          echo "PYTHONPATH is ${PYTHONPATH}"
           find "${path}" -name "*.py" -not -path "*/venv/*" -print0 | xargs -0 $HOME/.virtualenvs/dlstreamer/bin/pylint 2>&1 | tee "${temp_output}" || true
           # Filter only errors (E) and fatal (F) issues to the main output file
           if [ -f "${temp_output}" ]; then
