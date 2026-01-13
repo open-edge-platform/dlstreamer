@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2025 Intel Corporation
+ * Copyright (C) 2025-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -275,7 +275,7 @@ static GstCaps *gst_gva_motion_detect_transform_caps(GstBaseTransform *, GstPadD
 // -----------------------------------------------------------------------------
 // VA API helper functions
 // Map GST buffer to VA surface (using mapper + fallback) and return VASurfaceID
-static VASurfaceID gva_motion_detect_get_surface(GstGvaMotionDetect *self, GstBuffer *buf) {
+static VASurfaceID gva_motion_detect_get_surface([[maybe_unused]] GstGvaMotionDetect *self, GstBuffer *buf) {
     if (!buf)
         return VA_INVALID_SURFACE;
     VASurfaceID sid = gst_va_buffer_get_surface(buf);
@@ -308,8 +308,8 @@ static bool gva_motion_detect_convert_from_surface(GstGvaMotionDetect *self, VAS
 }
 
 // Write cv::UMat back into the VA surface; returns false on failure
-static bool gva_motion_detect_write_to_surface(GstGvaMotionDetect *self, const cv::UMat &src, VASurfaceID sid,
-                                               int width, int height) {
+[[maybe_unused]] static bool gva_motion_detect_write_to_surface(GstGvaMotionDetect *self, const cv::UMat &src,
+                                                                VASurfaceID sid, int width, int height) {
     if (sid == VA_INVALID_SURFACE || !self->va_dpy)
         return false;
     try {
@@ -453,7 +453,8 @@ static gboolean gst_gva_motion_detect_start(GstBaseTransform *trans) {
     return TRUE;
 }
 
-static gboolean gst_gva_motion_detect_set_caps(GstBaseTransform *trans, GstCaps *incaps, GstCaps *outcaps) {
+static gboolean gst_gva_motion_detect_set_caps(GstBaseTransform *trans, GstCaps *incaps,
+                                               [[maybe_unused]] GstCaps *outcaps) {
     GstGvaMotionDetect *self = GST_GVA_MOTION_DETECT(trans);
     if (!gst_video_info_from_caps(&self->vinfo, incaps))
         return FALSE;
@@ -1115,10 +1116,3 @@ static void gst_gva_motion_detect_process_and_attach(GstGvaMotionDetect *self, G
     if (!stable.empty())
         gst_gva_motion_detect_attach_rois(self, buf, stable, width, height);
 }
-
-static gboolean plugin_init(GstPlugin *plugin) {
-    return gst_element_register(plugin, "gvamotiondetect", GST_RANK_NONE, GST_TYPE_GVA_MOTION_DETECT);
-}
-
-GST_PLUGIN_DEFINE(GST_VERSION_MAJOR, GST_VERSION_MINOR, gvamotiondetect, PRODUCT_FULL_NAME " gvamotiondetect element",
-                  plugin_init, PLUGIN_VERSION, PLUGIN_LICENSE, PACKAGE_NAME, GST_PACKAGE_ORIGIN)

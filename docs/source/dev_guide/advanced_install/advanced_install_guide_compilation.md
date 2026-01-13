@@ -30,7 +30,7 @@ Follow the instructions in
       libssh2-1-dev cmake git valgrind numactl libvpx-dev libopus-dev libsrtp2-dev libxv-dev \
       linux-libc-dev libpmix2t64 libhwloc15 libhwloc-plugins libxcb1-dev libx11-xcb-dev \
       ffmpeg libpaho-mqtt-dev libopencv-dev libpostproc-dev libavfilter-dev libavdevice-dev \
-      libswscale-dev libswresample-dev libavutil-dev libavformat-dev libavcodec-dev libtbb12 libxml2-dev libopencv-dev \
+      libswscale-dev libswresample-dev libavutil-dev libavformat-dev libavcodec-dev libtbb12 libxml2-dev \
       ocl-icd-opencl-dev
   ```
 
@@ -85,21 +85,21 @@ Follow the instructions in
 Create a Python virtual environment and install required Python
 packages:
 
-```bash
-python3 -m venv ~/python3venv
-source ~/python3venv/bin/activate
+  ```bash
+  python3 -m venv ~/python3venv
+  source ~/python3venv/bin/activate
 
-pip install --upgrade pip==24.0
-pip install meson==1.4.1 ninja==1.11.1.1
-```
+  pip install --upgrade pip==24.0
+  pip install meson==1.4.1 ninja==1.11.1.1
+  ```
 
 ## Step 4: Clone Deep Learning Streamer repository
 
-```bash
-cd ~
-git clone --recursive https://github.com/open-edge-platform/dlstreamer.git
-cd dlstreamer
-```
+  ```bash
+  cd ~
+  git clone --recursive https://github.com/open-edge-platform/dlstreamer.git
+  cd dlstreamer
+  ```
 
 ## Step 5: Install OpenVINO™ Toolkit
 
@@ -158,7 +158,7 @@ there is need to install [OpenVINO GenAI archive](https://docs.openvino.ai/2025/
 <!--hide_directive:sync: tab1hide_directive-->
 
   ```bash
-  curl -L https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/2025.4/linux/openvino_genai_ubuntu24_2025.4.0.0_x86_64.tar.gz | tar -xz &&
+  wget -O- https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/2025.4/linux/openvino_genai_ubuntu24_2025.4.0.0_x86_64.tar.gz | tar -xz &&
   sudo mv openvino_genai_ubuntu24_2025.4.0.0_x86_64 /opt/intel/openvino_genai
   source /opt/intel/openvino_genai/setupvars.sh
   ```
@@ -167,11 +167,11 @@ there is need to install [OpenVINO GenAI archive](https://docs.openvino.ai/2025/
 :::{tab-item}hide_directive--> Ubuntu 22
 <!--hide_directive:sync: tab2hide_directive-->
 
-```bash
-curl -L https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/2025.4/linux/openvino_genai_ubuntu22_2025.4.0.0_x86_64.tar.gz | tar -xz &&
-mv openvino_genai_ubuntu22_2025.4.0.0_x86_64 /opt/intel/openvino_genai
-source /opt/intel/openvino_genai/setupvars.sh
-```
+  ```bash
+  wget -O- https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/2025.4/linux/openvino_genai_ubuntu22_2025.4.0.0_x86_64.tar.gz | tar -xz &&
+  sudo mv openvino_genai_ubuntu22_2025.4.0.0_x86_64 /opt/intel/openvino_genai
+  source /opt/intel/openvino_genai/setupvars.sh
+  ```
 
 <!--hide_directive:::
 ::::hide_directive-->
@@ -180,9 +180,9 @@ source /opt/intel/openvino_genai/setupvars.sh
 
 To build DL Streamer is it recommended to use the provided makefile for ease of use:
 
-```bash
-make build
-```
+  ```bash
+  make build
+  ```
 
 Running this command will build any major missing dependencies and then compile DL Streamer itself.
 
@@ -190,9 +190,9 @@ Running this command will build any major missing dependencies and then compile 
 
 After building DL Streamer you can install it on your local system by running:
 
-```bash
-sudo -E make install
-```
+  ```bash
+  sudo -E make install
+  ```
 
 ## Step 9: Set up environment
 
@@ -270,12 +270,12 @@ Set up the required environment variables:
 If you intend to use Python elements or samples, you need to install the
 necessary dependencies using the following commands:
 
-```bash
-sudo apt-get install -y -q --no-install-recommends gcc cmake python3-full python-gi-dev python3-dev python3-pip \
-    libglib2.0-dev libcairo2-dev libopencv-objdetect-dev libopencv-photo-dev libopencv-stitching-dev libopencv-video-dev \
-    libopencv-calib3d-dev libopencv-core-dev libopencv-dnn-dev libgirepository1.0-dev
+  ```bash
+  sudo apt-get install -y -q --no-install-recommends gcc cmake python3-full python-gi-dev python3-dev python3-pip \
+      libglib2.0-dev libcairo2-dev libopencv-objdetect-dev libopencv-photo-dev libopencv-stitching-dev libopencv-video-dev \
+      libopencv-calib3d-dev libopencv-core-dev libopencv-dnn-dev libgirepository1.0-dev
 
-source ~/python3venv/bin/activate
-cd ~/dlstreamer
-python3 -m pip install -r requirements.txt
-```
+  source ~/python3venv/bin/activate
+  cd ~/dlstreamer
+  python3 -m pip install -r requirements.txt
+  ```

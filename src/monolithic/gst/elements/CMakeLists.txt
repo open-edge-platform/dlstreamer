@@ -6,12 +6,15 @@
 
 set (TARGET_NAME "elements")
 
-find_package(OpenCV REQUIRED core imgproc)
+find_package(OpenCV REQUIRED core imgproc calib3d)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(GSTREAMER gstreamer-1.0>=1.16 REQUIRED)
 pkg_check_modules(GSTVIDEO gstreamer-video-1.0>=1.16 REQUIRED)
 pkg_check_modules(GSTALLOC gstreamer-allocators-1.0 REQUIRED)
 pkg_search_module(VA va libva REQUIRED)
+if(NOT MSVC)
+  pkg_check_modules(GSTVA REQUIRED IMPORTED_TARGET gstreamer-va-1.0)
+endif()
 if(${ENABLE_AUDIO_INFERENCE_ELEMENTS})
         pkg_check_modules(GSTAUDIO gstreamer-audio-1.0>=1.16 REQUIRED)
 endif()
@@ -31,6 +34,13 @@ file (GLOB MAIN_SRC
     gvadeskew/*.c
 )
 
+# gvamotiondetect platform-specific source
+if(MSVC OR WIN32)
+    list(APPEND MAIN_SRC gvamotiondetect/gvamotiondetect_win.cpp)
+else()
+    list(APPEND MAIN_SRC gvamotiondetect/gvamotiondetect.cpp)
+endif()
+
 file (GLOB MAIN_HEADERS
     gvametaconvert/*.h
     gvametaaggregate/*.h
@@ -39,6 +49,7 @@ file (GLOB MAIN_HEADERS
     gvawatermark/renderer/cpu/*.h
     gvawatermark3d/*.h
     gvadeskew/*.h
+    gvamotiondetect/*.h
 )
 
 if(${ENABLE_AUDIO_INFERENCE_ELEMENTS})
@@ -64,6 +75,7 @@ PUBLIC
     gvametaaggregate
     gvawatermark3d
     gvadeskew
+    gvamotiondetect
 PRIVATE
     ${GSTREAMER_INCLUDE_DIRS}
     ${GSTVIDEO_INCLUDE_DIRS}
@@ -91,7 +103,16 @@ PRIVATE
     json-hpp
     json-schema-validator
     utils
+    dlstreamer_gst_meta
+    gstvideoanalyticsmeta
 )
+
+if(NOT MSVC)
+    target_link_libraries(${TARGET_NAME} PRIVATE
+        ${GSTVA_LIBRARIES}
+        dlstreamer_vaapi
+    )
+endif()
 
 if(${ENABLE_AUDIO_INFERENCE_ELEMENTS})
         target_link_libraries(${TARGET_NAME} PRIVATE ${GSTAUDIO_LIBRARIES})
@@ -109,7 +130,6 @@ add_subdirectory(gvaattachroi)
 add_subdirectory(gvametapublish)
 add_subdirectory(gvapython)
 add_subdirectory(gvatrack)
-add_subdirectory(gvamotiondetect)
 if(ENABLE_REALSENSE)
     add_subdirectory(gvarealsense)
 endif()

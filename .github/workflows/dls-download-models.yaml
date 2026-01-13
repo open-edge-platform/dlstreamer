@@ -53,7 +53,6 @@ jobs:
           LABELS_ARRAY=$(echo "$LABELS" | jq -Rc 'split(",")')
           echo "Runners lables array: $LABELS_ARRAY"
           echo "runners=$LABELS_ARRAY" >> $GITHUB_OUTPUT
-
   update_linux_hosts:
     name: Update on Linux runners
     needs: setup-runners
@@ -66,177 +65,163 @@ jobs:
     runs-on:
       - ${{ matrix.runner }}
     steps:
-    - name: Get script
-      uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 #5.0.0
-      with:
-        persist-credentials: false
-        path: dlstreamer-repo
+      - name: Get script
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 #5.0.0
+        with:
+          persist-credentials: false
+          path: dlstreamer-repo
 
-    - name: Download only specific model
-      env:
-        model_path: ${{ inputs.specific_model_path }}
-        model_name: ${{ inputs.specific_model_name }}
-      if: ${{ inputs.models_to_download == 'specific_model' }}
-      run: |
-        MODEL_PATH=$model_path
-        MODEL_NAME=$model_name
-        export MODELS_PATH=${{ env.MODELS_PATH }}
-        echo "MODEL_PATH=$MODEL_PATH"
-        echo "MODEL_NAME=$MODEL_NAME"
-        echo "Downloading specific model ${{ env.MODELS_PATH }}/$MODEL_PATH/$MODEL_NAME"  >> $GITHUB_STEP_SUMMARY
-        if [ -d "${{ env.MODELS_PATH }}/$MODEL_PATH/$MODEL_NAME" ]; then
-          echo "Removing $MODEL_NAME directory"
-          rm -rf "${{ env.MODELS_PATH }}/$MODEL_PATH/$MODEL_NAME"
-
-          if [[ "$MODEL_PATH" == "public" ]]; then
-            ./dlstreamer-repo/samples/download_public_models.sh "$MODEL_NAME" coco128
-          elif [[ "$MODEL_PATH" == "omz" ]]; then
-            mkdir -p .virtualenvs/dlstreamer
-            python3 -m venv .virtualenvs/dlstreamer
-            source .virtualenvs/dlstreamer/bin/activate
-            pip3 install --no-cache-dir --upgrade tensorflow==2.19.1 openvino-dev[onnx]==2024.6.0 torch==2.8.0
-            export MODELS_PATH=${{ env.MODELS_PATH }}
-            ./dlstreamer-repo/samples/download_omz_models.sh $MODEL_NAME
-            deactivate
+      - name: Download only specific model
+        env:
+          model_path: ${{ inputs.specific_model_path }}
+          model_name: ${{ inputs.specific_model_name }}
+        if: ${{ inputs.models_to_download == 'specific_model' }}
+        run: |
+          MODEL_PATH=$model_path
+          MODEL_NAME=$model_name
+          export MODELS_PATH=${{ env.MODELS_PATH }}
+          echo "MODEL_PATH=$MODEL_PATH"
+          echo "MODEL_NAME=$MODEL_NAME"
+          echo "Downloading specific model ${{ env.MODELS_PATH }}/$MODEL_PATH/$MODEL_NAME"  >> $GITHUB_STEP_SUMMARY
+          if [ -d "${{ env.MODELS_PATH }}/$MODEL_PATH/$MODEL_NAME" ]; then
+            echo "Removing $MODEL_NAME directory"
+            rm -rf "${{ env.MODELS_PATH }}/$MODEL_PATH/$MODEL_NAME"
+            if [[ "$MODEL_PATH" == "public" ]]; then
+              ./dlstreamer-repo/samples/download_public_models.sh "$MODEL_NAME" coco128
+            elif [[ "$MODEL_PATH" == "omz" ]]; then
+              mkdir -p .virtualenvs/dlstreamer
+              python3 -m venv .virtualenvs/dlstreamer
+              source .virtualenvs/dlstreamer/bin/activate
+              pip3 install --no-cache-dir --upgrade tensorflow==2.19.1 openvino-dev[onnx]==2024.6.0 torch==2.8.0
+              export MODELS_PATH=${{ env.MODELS_PATH }}
+              ./dlstreamer-repo/samples/download_omz_models.sh $MODEL_NAME
+              deactivate
+            fi
           fi
-        fi
-
-    - name: Prepare directories - public models
-      if: ${{ inputs.models_to_download == 'public' || inputs.models_to_download == 'all' || github.event_name == 'schedule' }}
-      run: |
-        # Prepare directories with backup of existing ones
-        # 1) mv public_old public_old_old
-        # 2) mv public public_old
-
-        if [ -d "${{ env.MODELS_PATH }}/public_old" ]; then
-          echo "Changing directories names: public_old -> public_old_old"
-          [ -d "${{ env.MODELS_PATH }}/public_old_old" ] && rm -r "${{ env.MODELS_PATH }}/public_old_old"
-          mv "${{ env.MODELS_PATH }}/public_old" "${{ env.MODELS_PATH }}/public_old_old"
-        fi
-        if [ -d "${{ env.MODELS_PATH }}/public" ]; then
-          echo "Changing directories names: public -> public_old"
-          [ -d "${{ env.MODELS_PATH }}/public_old" ] && rm -r "${{ env.MODELS_PATH }}/public_old"
-          mv "${{ env.MODELS_PATH }}/public" "${{ env.MODELS_PATH }}/public_old"
-        fi
-
-    - name: Prepare directories - OMZ models
-      if: ${{ inputs.models_to_download == 'omz' || inputs.models_to_download == 'all' || github.event_name == 'schedule'  }}
-      run: |
-        # Prepare directories with backup of existing ones
-        # 1) mv intel intel_old
-        # 2) mv intel_old intel_old_old
-
-        if [ -d "${{ env.MODELS_PATH }}/intel_old" ]; then
-          echo "Changing directories names: intel_old -> intel_old_old"
-          [ -d "${{ env.MODELS_PATH }}/intel_old_old" ] && rm -r "${{ env.MODELS_PATH }}/intel_old_old"
-          mv "${{ env.MODELS_PATH }}/intel_old" "${{ env.MODELS_PATH }}/intel_old_old"
-        fi
-        if [ -d "${{ env.MODELS_PATH }}/intel" ]; then
-          echo "Changing directories names: intel -> intel_old"
-          [ -d "${{ env.MODELS_PATH }}/intel_old" ] && rm -r "${{ env.MODELS_PATH }}/intel_old"
-          mv "${{ env.MODELS_PATH }}/intel" "${{ env.MODELS_PATH }}/intel_old"
-        fi
-
-    - name: Download public models
-      id: download-public
-      if: ${{ inputs.models_to_download == 'public' || inputs.models_to_download == 'all' || github.event_name == 'schedule'  }}
-      run: |
-        export MODELS_PATH=${{ env.MODELS_PATH }}
-        echo "Downloading public models"
-        ./dlstreamer-repo/samples/download_public_models.sh all coco128
-
-    - name: Download OMZ models (setup venv, dependencies and download)
-      id: download-omz
-      if: ${{ inputs.models_to_download == 'omz' || inputs.models_to_download == 'all' || github.event_name == 'schedule'  }}
-      run: |
-        mkdir -p .virtualenvs/dlstreamer
-        python3 -m venv .virtualenvs/dlstreamer
-        source .virtualenvs/dlstreamer/bin/activate
-        pip3 install --no-cache-dir --upgrade tensorflow==2.19.1 openvino-dev[onnx]==2024.6.0 torch==2.8.0
-        export MODELS_PATH=${{ env.MODELS_PATH }}
-        ./dlstreamer-repo/samples/download_omz_models.sh
-        deactivate
-
-    - name: Verify public models downloading
-      id: verify-public
-      if: >
-          steps.download-public.outcome == 'success' &&
-          (inputs.models_to_download == 'public' || inputs.models_to_download == 'all' || github.event_name == 'schedule')
-      run: |
-        if [ -z "$( ls -A ${{ env.MODELS_PATH }}/public )" ]; then
-          echo "Public models not downloaded correctly - directory not created ❌"
-          echo "Public models not downloaded - directory not created ❌" >> $GITHUB_STEP_SUMMARY
-          exit 1
-        else
-          echo "Public models directory created"
-          echo "Public models directory created" >> $GITHUB_STEP_SUMMARY
-          DIR_SIZE_MB=$(du -sm "${{ env.MODELS_PATH }}/public" | cut -f1)
-          echo "Public models directory size: ${DIR_SIZE_MB} MB"
-          echo "Public models directory size: ${DIR_SIZE_MB} MB" >> $GITHUB_STEP_SUMMARY
-          if [ "$DIR_SIZE_MB" -ge "${{ env.MODELS_DIR_MIN_SIZE_MB }}" ]; then
-            echo "Public models downloaded ✅"
-            echo "Public models downloaded ✅" >> $GITHUB_STEP_SUMMARY
+      - name: Prepare directories - public models
+        if: ${{ inputs.models_to_download == 'public' || inputs.models_to_download == 'all' || github.event_name == 'schedule' }}
+        run: |
+          # Prepare directories with backup of existing ones
+          # 1) mv public_old public_old_old
+          # 2) mv public public_old
+          if [ -d "${{ env.MODELS_PATH }}/public_old" ]; then
+            echo "Changing directories names: public_old -> public_old_old"
+            [ -d "${{ env.MODELS_PATH }}/public_old_old" ] && rm -r "${{ env.MODELS_PATH }}/public_old_old"
+            mv "${{ env.MODELS_PATH }}/public_old" "${{ env.MODELS_PATH }}/public_old_old"
+          fi
+          if [ -d "${{ env.MODELS_PATH }}/public" ]; then
+            echo "Changing directories names: public -> public_old"
+            [ -d "${{ env.MODELS_PATH }}/public_old" ] && rm -r "${{ env.MODELS_PATH }}/public_old"
+            mv "${{ env.MODELS_PATH }}/public" "${{ env.MODELS_PATH }}/public_old"
+          fi
+      - name: Prepare directories - OMZ models
+        if: ${{ inputs.models_to_download == 'omz' || inputs.models_to_download == 'all' || github.event_name == 'schedule'  }}
+        run: |
+          # Prepare directories with backup of existing ones
+          # 1) mv intel intel_old
+          # 2) mv intel_old intel_old_old
+          if [ -d "${{ env.MODELS_PATH }}/intel_old" ]; then
+            echo "Changing directories names: intel_old -> intel_old_old"
+            [ -d "${{ env.MODELS_PATH }}/intel_old_old" ] && rm -r "${{ env.MODELS_PATH }}/intel_old_old"
+            mv "${{ env.MODELS_PATH }}/intel_old" "${{ env.MODELS_PATH }}/intel_old_old"
+          fi
+          if [ -d "${{ env.MODELS_PATH }}/intel" ]; then
+            echo "Changing directories names: intel -> intel_old"
+            [ -d "${{ env.MODELS_PATH }}/intel_old" ] && rm -r "${{ env.MODELS_PATH }}/intel_old"
+            mv "${{ env.MODELS_PATH }}/intel" "${{ env.MODELS_PATH }}/intel_old"
+          fi
+      - name: Download public models
+        id: download-public
+        if: ${{ inputs.models_to_download == 'public' || inputs.models_to_download == 'all' || github.event_name == 'schedule'  }}
+        run: |
+          export MODELS_PATH=${{ env.MODELS_PATH }}
+          echo "Downloading public models"
+          ./dlstreamer-repo/samples/download_public_models.sh all coco128
+      - name: Download OMZ models (setup venv, dependencies and download)
+        id: download-omz
+        if: ${{ inputs.models_to_download == 'omz' || inputs.models_to_download == 'all' || github.event_name == 'schedule'  }}
+        run: |
+          mkdir -p .virtualenvs/dlstreamer
+          python3 -m venv .virtualenvs/dlstreamer
+          source .virtualenvs/dlstreamer/bin/activate
+          pip3 install --no-cache-dir --upgrade tensorflow==2.19.1 openvino-dev[onnx]==2024.6.0 torch==2.8.0
+          export MODELS_PATH=${{ env.MODELS_PATH }}
+          ./dlstreamer-repo/samples/download_omz_models.sh
+          deactivate
+      - name: Verify public models downloading
+        id: verify-public
+        if: >
+            steps.download-public.outcome == 'success' &&
+            (inputs.models_to_download == 'public' || inputs.models_to_download == 'all' || github.event_name == 'schedule')
+        run: |
+          if [ -z "$( ls -A ${{ env.MODELS_PATH }}/public )" ]; then
+            echo "Public models not downloaded correctly - directory not created ❌"
+            echo "Public models not downloaded - directory not created ❌" >> $GITHUB_STEP_SUMMARY
+            exit 1
           else
-            Public models not downloaded correctly - directory too small ❌"
-            Public models not downloaded correctly - directory too small ❌" >> $GITHUB_STEP_SUMMARY
-           fi
-        fi
-
-    - name: Verify OMZ models downloading
-      id: verify-omz
-      if: >
-          steps.download-omz.outcome == 'success' &&
-          (inputs.models_to_download == 'omz' || inputs.models_to_download == 'all' || github.event_name == 'schedule')
-      run: |
-        if [ -z "$( ls -A ${{ env.MODELS_PATH }}/intel )" ]; then
-          echo "Open Model Zoo models not downloaded correctly - directory not created ❌"
-          echo "Open Model Zoo models not downloaded - directory not created ❌" >> $GITHUB_STEP_SUMMARY
-          exit 1
-        else
-          echo "Open Model Zoo models directory created"
-          echo "Open Model Zoo models directory created" >> $GITHUB_STEP_SUMMARY
-          DIR_SIZE_MB=$(du -sm "${{ env.MODELS_PATH }}/intel" | cut -f1)
-          echo "Open Model Zoo models directory size: ${DIR_SIZE_MB} MB"
-          echo "Open Model Zoo models directory size: ${DIR_SIZE_MB} MB" >> $GITHUB_STEP_SUMMARY
-          if [ "$DIR_SIZE_MB" -ge "${{ env.MODELS_DIR_MIN_SIZE_MB }}" ]; then
-            echo "Open Model Zoo models downloaded ✅"
-            echo "Open Model Zoo models downloaded ✅" >> $GITHUB_STEP_SUMMARY
+            echo "Public models directory created"
+            echo "Public models directory created" >> $GITHUB_STEP_SUMMARY
+            DIR_SIZE_MB=$(du -sm "${{ env.MODELS_PATH }}/public" | cut -f1)
+            echo "Public models directory size: ${DIR_SIZE_MB} MB"
+            echo "Public models directory size: ${DIR_SIZE_MB} MB" >> $GITHUB_STEP_SUMMARY
+            if [ "$DIR_SIZE_MB" -ge "${{ env.MODELS_DIR_MIN_SIZE_MB }}" ]; then
+              echo "Public models downloaded ✅"
+              echo "Public models downloaded ✅" >> $GITHUB_STEP_SUMMARY
+            else
+              Public models not downloaded correctly - directory too small ❌"
+              Public models not downloaded correctly - directory too small ❌" >> $GITHUB_STEP_SUMMARY
+            fi
+          fi
+      - name: Verify OMZ models downloading
+        id: verify-omz
+        if: >
+            steps.download-omz.outcome == 'success' &&
+            (inputs.models_to_download == 'omz' || inputs.models_to_download == 'all' || github.event_name == 'schedule')
+        run: |
+          if [ -z "$( ls -A ${{ env.MODELS_PATH }}/intel )" ]; then
+            echo "Open Model Zoo models not downloaded correctly - directory not created ❌"
+            echo "Open Model Zoo models not downloaded - directory not created ❌" >> $GITHUB_STEP_SUMMARY
+            exit 1
           else
-            Open Model Zoo models not downloaded correctly - directory too small ❌"
-            Open Model Zoo models not downloaded correctly - directory too small ❌" >> $GITHUB_STEP_SUMMARY
-           fi
-        fi
-
-    - name: Manage public models directories after success
-      if: ${{ steps.verify-public.outcome == 'success' && steps.download-public.outcome == 'success' }}
-      run: |
-        [ -d "${{ env.MODELS_PATH }}/public_old_old" ] &&  rm -rf "${{ env.MODELS_PATH }}/public_old_old"
-        echo "New public models set up ✅" >> $GITHUB_STEP_SUMMARY
-
-    - name: Manage OMZ models directories after success
-      if: ${{ steps.verify-omz.outcome == 'success' && steps.download-omz.outcome == 'success' }}
-      run: |
-        [ -d "${{ env.MODELS_PATH }}/intel_old_old" ] &&  rm -rf "${{ env.MODELS_PATH }}/intel_old_old"
-        echo "New Open Model Zoo models set up ✅" >> $GITHUB_STEP_SUMMARY
-
-    - name: Restore public models directories after fail
-      if: ${{ always() && steps.download-public.outcome != 'skipped' && !(steps.verify-public.outcome == 'success' && steps.download-public.outcome == 'success') }}
-      run: |
-        [ -d "${{ env.MODELS_PATH }}/public" ] && rm -rf "${{ env.MODELS_PATH }}/public"
-        [ -d "${{ env.MODELS_PATH }}/public_old" ] && mv "${{ env.MODELS_PATH }}/public_old" "${{ env.MODELS_PATH }}/public"
-        [ -d "${{ env.MODELS_PATH }}/public_old_old" ] && mv "${{ env.MODELS_PATH }}/public_old_old" "${{ env.MODELS_PATH }}/public_old"
-        echo "Old public models restored" >> $GITHUB_STEP_SUMMARY
-
-    - name: Restore OMZ models directories after fail
-      if: ${{ always() && steps.download-omz.outcome != 'skipped' && !(steps.verify-omz.outcome == 'success' && steps.download-omz.outcome == 'success') }}
-      run: |
-        [ -d "${{ env.MODELS_PATH }}/intel" ] && rm -rf "${{ env.MODELS_PATH }}/intel"
-        [ -d "${{ env.MODELS_PATH }}/intel_old" ] && mv "${{ env.MODELS_PATH }}/intel_old" "${{ env.MODELS_PATH }}/intel"
-        [ -d "${{ env.MODELS_PATH }}/intel_old_old" ] && mv "${{ env.MODELS_PATH }}/intel_old_old" "${{ env.MODELS_PATH }}/intel_old"
-        echo "Old Open Model Zoo models restored" >> $GITHUB_STEP_SUMMARY
-
-    - name: Clean up
-      if: always()
-      run: |
-        rm -rf dlstreamer-repo .virtualenvs
-        rm -rf $HOME/.virtualenvs
+            echo "Open Model Zoo models directory created"
+            echo "Open Model Zoo models directory created" >> $GITHUB_STEP_SUMMARY
+            DIR_SIZE_MB=$(du -sm "${{ env.MODELS_PATH }}/intel" | cut -f1)
+            echo "Open Model Zoo models directory size: ${DIR_SIZE_MB} MB"
+            echo "Open Model Zoo models directory size: ${DIR_SIZE_MB} MB" >> $GITHUB_STEP_SUMMARY
+            if [ "$DIR_SIZE_MB" -ge "${{ env.MODELS_DIR_MIN_SIZE_MB }}" ]; then
+              echo "Open Model Zoo models downloaded ✅"
+              echo "Open Model Zoo models downloaded ✅" >> $GITHUB_STEP_SUMMARY
+            else
+              Open Model Zoo models not downloaded correctly - directory too small ❌"
+              Open Model Zoo models not downloaded correctly - directory too small ❌" >> $GITHUB_STEP_SUMMARY
+            fi
+          fi
+      - name: Manage public models directories after success
+        if: ${{ steps.verify-public.outcome == 'success' && steps.download-public.outcome == 'success' }}
+        run: |
+          [ -d "${{ env.MODELS_PATH }}/public_old_old" ] &&  rm -rf "${{ env.MODELS_PATH }}/public_old_old"
+          echo "New public models set up ✅" >> $GITHUB_STEP_SUMMARY
+      - name: Manage OMZ models directories after success
+        if: ${{ steps.verify-omz.outcome == 'success' && steps.download-omz.outcome == 'success' }}
+        run: |
+          [ -d "${{ env.MODELS_PATH }}/intel_old_old" ] &&  rm -rf "${{ env.MODELS_PATH }}/intel_old_old"
+          echo "New Open Model Zoo models set up ✅" >> $GITHUB_STEP_SUMMARY
+      - name: Restore public models directories after fail
+        if: ${{ always() && steps.download-public.outcome != 'skipped' && !(steps.verify-public.outcome == 'success' && steps.download-public.outcome == 'success') }}
+        run: |
+          [ -d "${{ env.MODELS_PATH }}/public" ] && rm -rf "${{ env.MODELS_PATH }}/public"
+          [ -d "${{ env.MODELS_PATH }}/public_old" ] && mv "${{ env.MODELS_PATH }}/public_old" "${{ env.MODELS_PATH }}/public"
+          [ -d "${{ env.MODELS_PATH }}/public_old_old" ] && mv "${{ env.MODELS_PATH }}/public_old_old" "${{ env.MODELS_PATH }}/public_old"
+          echo "Old public models restored" >> $GITHUB_STEP_SUMMARY
+      - name: Restore OMZ models directories after fail
+        if: ${{ always() && steps.download-omz.outcome != 'skipped' && !(steps.verify-omz.outcome == 'success' && steps.download-omz.outcome == 'success') }}
+        run: |
+          [ -d "${{ env.MODELS_PATH }}/intel" ] && rm -rf "${{ env.MODELS_PATH }}/intel"
+          [ -d "${{ env.MODELS_PATH }}/intel_old" ] && mv "${{ env.MODELS_PATH }}/intel_old" "${{ env.MODELS_PATH }}/intel"
+          [ -d "${{ env.MODELS_PATH }}/intel_old_old" ] && mv "${{ env.MODELS_PATH }}/intel_old_old" "${{ env.MODELS_PATH }}/intel_old"
+          echo "Old Open Model Zoo models restored" >> $GITHUB_STEP_SUMMARY
+      - name: Clean up
+        if: always()
+        run: |
+          rm -rf dlstreamer-repo .virtualenvs
+          rm -rf $HOME/.virtualenvs

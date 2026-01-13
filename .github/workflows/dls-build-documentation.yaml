@@ -26,12 +26,10 @@ jobs:
       - name: Run build script
         run: |
           ./docs/build_html.sh "actions-gh-pages:latest" gh-pages
-
       - name: Documentation build summary
         if: always()
         run: |
           summary_content=""
-
           # Check if index.html for documentation exists
           index_file_path='./docs/build-html/index.html'
           if [ -f "$index_file_path" ]; then
@@ -41,7 +39,6 @@ jobs:
           fi
           echo "$result"
           summary_content+="$result\n"
-
           # Check broken links in linkcheck
           linkcheck_file_path='./docs/build-linkcheck/output.txt'
           broken_count=$(grep -o '\[broken\]' "$linkcheck_file_path" | wc -l)
@@ -52,15 +49,12 @@ jobs:
           fi
           echo "$result"
           summary_content+="$result\n"
-
           # Spelling
           result="Spelling: check report from artifacts"
           echo "$result"
           summary_content+="$result\n"
-
           echo "### Building with Sphinx results" >> $GITHUB_STEP_SUMMARY
           echo -e "$summary_content" >> $GITHUB_STEP_SUMMARY
-
       - name: Check specific links
         if: always()
         run: |
@@ -69,27 +63,26 @@ jobs:
           summary=$(grep -E '✅ All links are working\.|❌ [0-9]+ broken link\(s\)' specific_links_checker_report.txt | tail -n 1)
           echo "### Extra links checker" >> $GITHUB_STEP_SUMMARY
           echo "$summary" >> $GITHUB_STEP_SUMMARY
-
       - name: Upload linkcheck report
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 #4.6.2
         if: always()
         with:
-         name: docs_linkcheck_report
-         path: ./docs/build-linkcheck/
+          name: docs_linkcheck_report
+          path: ./docs/build-linkcheck/
 
       - name: Upload specific links checker report
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 #4.6.2
         if: always()
         with:
-         name: docs_specific_links_checker_report
-         path: ./docs/specific_links_checker_report.txt
+          name: docs_specific_links_checker_report
+          path: ./docs/specific_links_checker_report.txt
 
       - name: Upload spelling report
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 #4.6.2
         if: always()
         with:
-         name: docs_spelling_report
-         path: ./docs/build-spelling/
+          name: docs_spelling_report
+          path: ./docs/build-spelling/
 
       - name: Upload pages
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 #4.6.2

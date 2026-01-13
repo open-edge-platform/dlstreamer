@@ -46,283 +46,258 @@ jobs:
             runner_labels: [self-hosted, dlstreamer, ARL, ubuntu24] # Build and run tests on Arrow Lake system with Ubuntu 24
             runner_print_label: ARL
     steps:
-    - name: Initial environment clean
-      run: |
-        sudo rm -rf dlstreamer-repo
+      - name: Initial environment clean
+        run: |
+          sudo rm -rf dlstreamer-repo
+      - name: Check out dlstreamer repository
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 #5.0.0
+        with:
+          persist-credentials: false
+          path: dlstreamer-repo
 
-    - name: Check out dlstreamer repository
-      uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 #5.0.0
-      with:
-        persist-credentials: false
-        path: dlstreamer-repo
+      - name: Init submodules
+        run: |
+          cd dlstreamer-repo
+          git submodule update --init thirdparty/spdlog
+      - name: Check out test repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 #4.2.2
+        with:
+          repository: open-edge-platform/dl-streamer-tests
+          persist-credentials: false
+          ref: ${{ inputs.test-repo-branch }}
+          path: dl-streamer-tests-repo
 
-    - name: Init submodules
-      run: |
-        cd dlstreamer-repo
-        git submodule update --init thirdparty/spdlog
+      - name: Copy DL Streamer tests repo
+        run: |
+          cp -r dl-streamer-tests-repo/functional_tests $PWD/$DLS_REL_PATH/tests
+      # ======================================================== BUILDING PART ========================================================
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 #3.11.1
 
-    - name: Check out test repository
-      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 #4.2.2
-      with:
-        repository: open-edge-platform/dl-streamer-tests
-        persist-credentials: false
-        ref: ${{ inputs.test-repo-branch }}
-        path: dl-streamer-tests-repo
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef #3.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Copy DL Streamer tests repo
-      run: |
-        cp -r dl-streamer-tests-repo/functional_tests $PWD/$DLS_REL_PATH/tests
-
-
-    # ======================================================== BUILDING PART ========================================================
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 #3.11.1
-
-    - name: Log in to GitHub Container Registry
-      uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef #3.6.0
-      with:
-        registry: ghcr.io
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
-
-    - name: 🚢 Build deb final img with cache from GHCR
-      env:
-        deb_final_img: ghcr.io/${{ github.repository }}/deb-final-img-${{ matrix.ubuntu_version }}:${{ github.sha }}
-        deb_final_img_cached: ghcr.io/${{ github.repository }}/deb-final-img-${{ matrix.ubuntu_version }}:buildcache
-      run: |
-        docker buildx build \
-          --load \
-          --target dlstreamer \
-          --tag "${deb_final_img}" \
-          --cache-from="${deb_final_img_cached}" \
-          --build-arg DLSTREAMER_VERSION=${{ env.dlstreamer-version }} \
-          --build-arg DLSTREAMER_BUILD_NUMBER=deb-pkg-${{ matrix.ubuntu_version }} \
-          -f ${{ matrix.path_dockerfile }} \
+      - name: 🚢 Build deb final img with cache from GHCR
+        env:
+          deb_final_img: ghcr.io/${{ github.repository }}/deb-final-img-${{ matrix.ubuntu_version }}:${{ github.sha }}
+          deb_final_img_cached: ghcr.io/${{ github.repository }}/deb-final-img-${{ matrix.ubuntu_version }}:buildcache
+        run: |
+          docker buildx build \
+            --load \
+            --target dlstreamer \
+            --tag "${deb_final_img}" \
+            --cache-from="${deb_final_img_cached}" \
+            --build-arg DLSTREAMER_VERSION=${{ env.dlstreamer-version }} \
+            --build-arg DLSTREAMER_BUILD_NUMBER=deb-pkg-${{ matrix.ubuntu_version }} \
+            -f ${{ matrix.path_dockerfile }} \
+            ${{ env.DLS_REL_PATH }}
+      - name: Build dlstreamer img with python
+        env:
+          deb_final_img: ghcr.io/${{ github.repository }}/deb-final-img-${{ matrix.ubuntu_version }}:${{ github.sha }}
+          deb_final_testing_img: ghcr.io/${{ github.repository }}/deb-final-testing-img-${{ matrix.ubuntu_version }}:${{ github.sha }}
+        id: dlstreamer-with-python
+        run: |
+          docker build \
+          -f $DLS_REL_PATH/docker/ubuntu/ubuntu-testing.Dockerfile \
+          -t $deb_final_testing_img \
+          --build-arg BASE_IMAGE=$deb_final_img \
           ${{ env.DLS_REL_PATH }}
-
-    - name: Build dlstreamer img with python
-      env:
-        deb_final_img: ghcr.io/${{ github.repository }}/deb-final-img-${{ matrix.ubuntu_version }}:${{ github.sha }}
-        deb_final_testing_img: ghcr.io/${{ github.repository }}/deb-final-testing-img-${{ matrix.ubuntu_version }}:${{ github.sha }}
-      id: dlstreamer-with-python
-      run: |
-        docker build \
-        -f $DLS_REL_PATH/docker/ubuntu/ubuntu-testing.Dockerfile \
-        -t $deb_final_testing_img \
-        --build-arg BASE_IMAGE=$deb_final_img \
-        ${{ env.DLS_REL_PATH }}
-
-    - name: 📦 Extract .deb packages using script
-      env:
-        deb_final_img: ghcr.io/${{ github.repository }}/deb-final-img-${{ matrix.ubuntu_version }}:${{ github.sha }}
-      run: |
-        chmod +x ${{ env.DLS_REL_PATH }}/scripts/extract_and_verify_debs.sh
-        ${{ env.DLS_REL_PATH }}/scripts/extract_and_verify_debs.sh ${deb_final_img}
-        ls
-        cp -r deb_packages ${{ env.DLS_REL_PATH }}
-
-
-    # ======================================================== DOCKER TESTING PART ========================================================
-    - name: Check models
-      run: |
-        echo "## 📂 ${{ matrix.runner_print_label }} Environment checks" >> $GITHUB_STEP_SUMMARY
-        echo "Test repo branch: $test_repo_branch" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        if [ -d "${{ env.MODELS_PATH }}" ] && [ "$(ls -A "${{ env.MODELS_PATH }}")" ]; then
-          echo "Models: found ✅" >> $GITHUB_STEP_SUMMARY
-        else
-          echo "Models: folder not found or it is empty ❌" >> $GITHUB_STEP_SUMMARY
-          exit 1
-        fi
-
-    - name: Check videos
-      run: |
-        if [ -d "${{ env.VIDEO_INPUTS_PATH }}" ] && [ "$(ls -A "${{ env.VIDEO_INPUTS_PATH }}")" ]; then
-          echo "Tests input videos: found ✅" >> $GITHUB_STEP_SUMMARY
-        else
-          echo "Tests input videos: folder not found or it is empty ❌" >> $GITHUB_STEP_SUMMARY
-          exit 1
-        fi
-
-    - name: Init docker tests configurations
-      run: |
-        echo "## 🚢 ${{ matrix.runner_print_label }} Docker tests summary" >> $GITHUB_STEP_SUMMARY
-        if [[ ${{ matrix.runner_print_label }} == "TGL" ]]; then
-          echo "DOCKER_TEST_CONFIGS=docker/aliveness_TGL.json" >> $GITHUB_ENV
-          echo "Selected test configuration file: docker/aliveness_TGL.json" >> $GITHUB_STEP_SUMMARY
-        elif [[ ${{ matrix.runner_print_label }} == "ARL" ]]; then
-          echo "DOCKER_TEST_CONFIGS=docker/aliveness_ARL.json" >> $GITHUB_ENV
-          echo "Selected test configuration file: docker/aliveness_ARL.json" >> $GITHUB_STEP_SUMMARY
-        else
-          echo "Test configuration file: not found ❌" >> $GITHUB_STEP_SUMMARY
-          echo "❌ Cannot assign correct test configuration JSON file for runner based on label: ${{ matrix.runner_print_label }}"
-          echo "Please review and fix! Exiting..."
-          exit 1
-        fi
-
-    - name: 🚀 Run Docker tests
-      id: run_docker_tests
-      env:
-        deb_final_testing_img: ghcr.io/${{ github.repository }}/deb-final-testing-img-${{ matrix.ubuntu_version }}:${{ github.sha }}
-        DOCKER_TEST_CONFIGS: ${{ env.DOCKER_TEST_CONFIGS }}
-      run: |
-        cd $PWD/$DLS_REL_PATH/tests
-        mkdir functional_tests_results
-        cd functional_tests_results
-        DLS_TESTS_RESULTS_PATH=$PWD
-        echo "DLS_TESTS_RESULTS_PATH=$DLS_TESTS_RESULTS_PATH" >> $GITHUB_ENV
-        cd ../functional_tests
-
-        ./run_tests.sh \
-          --models-path=${{ env.MODELS_PATH }} \
-          --video-examples-path=${{ env.VIDEO_INPUTS_PATH }} \
-          --test-configs="$DOCKER_TEST_CONFIGS" \
-          --results-path="$DLS_TESTS_RESULTS_PATH" \
-          --report-name="DLS_functional_tests_${{ matrix.runner_print_label }}_docker_${{ matrix.ubuntu_version }}_results" \
-          --image-name="${deb_final_testing_img}"
-
-    - name: Upload Docker test results
-      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 #4.6.2
-      if: steps.run_docker_tests.outcome == 'success'
-      with:
-        name: DLS_functional_tests_${{ matrix.runner_print_label }}_docker_${{ matrix.ubuntu_version }}_results
-        path: "${{ env.DLS_TESTS_RESULTS_PATH }}"
-
-    - name: Print Docker tests summary in workflow
-      if: steps.run_docker_tests.outcome == 'success'
-      env:
-        dls_tests_results_path: ${{ env.DLS_TESTS_RESULTS_PATH }}
-        test_repo_branch: ${{ inputs.test-repo-branch }}
-      run: |
-        sed 's/\[pass\]/:white_check_mark:/g; s/\[\! FAIL \!\]/:x:/g' "${dls_tests_results_path}"/DLS_functional_tests_${{ matrix.runner_print_label }}_docker_${{ matrix.ubuntu_version }}_results.txt >> $GITHUB_STEP_SUMMARY
-
-    - name: Clean up tests results
-      if: always ()
-      env:
-        DLS_TESTS_RESULTS_PATH: ${{ env.DLS_TESTS_RESULTS_PATH }}
-      run: |
-        rm -rf "$DLS_TESTS_RESULTS_PATH"
-
-
-    # ======================================================== OH HOST TESTING PART ========================================================
-    - name: Link DL Streamer to home directory
-      run: |
-        ln -s $PWD/$DLS_REL_PATH $HOME
-
-    - name: Install DL Streamer on-host
-      run: |
-        $DLS_REL_PATH/tests/scripts/installation-on-host-entrypoint.sh $DLS_REL_PATH/deb_packages
-
-    - name: 👋 Test hello_dlstreamer script on host
-      id: test_hello_dlstreamer_script
-      run: |
-        mkdir -p $DLS_REL_PATH/test_hello_dlstreamer
-        cd $DLS_REL_PATH/test_hello_dlstreamer
-        export MODELS_PATH=${{ env.MODELS_PATH }}
-        echo "Running hello_dlstreamer.sh on CPU with model yolo11s"
-        /opt/intel/dlstreamer/scripts/hello_dlstreamer.sh --output=file --device=CPU --model=yolo11s --precision=INT8
-        OUTPUT_FILE_FOUND=0
-        echo "## 💻 ${{ matrix.runner_print_label }} On host tests summary" >> $GITHUB_STEP_SUMMARY
-        for file in *.mp4; do
-            # Check if the file exists and is at least 1kB in size
-            if [[ -f "$file" && $(stat --printf="%s" "$file") -ge 1024 ]]; then
-                echo "✅ Valid .mp4 file found: $file"
-                echo "Testing hello_dlstreamer.sh script: PASS ✅" >> $GITHUB_STEP_SUMMARY
-                OUTPUT_FILE_FOUND=1
-            fi
-        done
-        if [[ $OUTPUT_FILE_FOUND -eq 0 ]]; then
-            echo "❌ No .mp4 file(s) found or it has less than 1kB size. Exiting..."
-            echo "Testing hello_dlstreamer.sh script: FAIL ❌" >> $GITHUB_STEP_SUMMARY
+      - name: 📦 Extract .deb packages using script
+        env:
+          deb_final_img: ghcr.io/${{ github.repository }}/deb-final-img-${{ matrix.ubuntu_version }}:${{ github.sha }}
+        run: |
+          chmod +x ${{ env.DLS_REL_PATH }}/scripts/extract_and_verify_debs.sh
+          ${{ env.DLS_REL_PATH }}/scripts/extract_and_verify_debs.sh ${deb_final_img}
+          ls
+          cp -r deb_packages ${{ env.DLS_REL_PATH }}
+      # ======================================================== DOCKER TESTING PART ========================================================
+      - name: Check models
+        run: |
+          echo "## 📂 ${{ matrix.runner_print_label }} Environment checks" >> $GITHUB_STEP_SUMMARY
+          echo "Test repo branch: $test_repo_branch" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -d "${{ env.MODELS_PATH }}" ] && [ "$(ls -A "${{ env.MODELS_PATH }}")" ]; then
+            echo "Models: found ✅" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "Models: folder not found or it is empty ❌" >> $GITHUB_STEP_SUMMARY
             exit 1
-        fi
+          fi
+      - name: Check videos
+        run: |
+          if [ -d "${{ env.VIDEO_INPUTS_PATH }}" ] && [ "$(ls -A "${{ env.VIDEO_INPUTS_PATH }}")" ]; then
+            echo "Tests input videos: found ✅" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "Tests input videos: folder not found or it is empty ❌" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+      - name: Init docker tests configurations
+        run: |
+          echo "## 🚢 ${{ matrix.runner_print_label }} Docker tests summary" >> $GITHUB_STEP_SUMMARY
+          if [[ ${{ matrix.runner_print_label }} == "TGL" ]]; then
+            echo "DOCKER_TEST_CONFIGS=docker/aliveness_TGL.json" >> $GITHUB_ENV
+            echo "Selected test configuration file: docker/aliveness_TGL.json" >> $GITHUB_STEP_SUMMARY
+          elif [[ ${{ matrix.runner_print_label }} == "ARL" ]]; then
+            echo "DOCKER_TEST_CONFIGS=docker/aliveness_ARL.json" >> $GITHUB_ENV
+            echo "Selected test configuration file: docker/aliveness_ARL.json" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "Test configuration file: not found ❌" >> $GITHUB_STEP_SUMMARY
+            echo "❌ Cannot assign correct test configuration JSON file for runner based on label: ${{ matrix.runner_print_label }}"
+            echo "Please review and fix! Exiting..."
+            exit 1
+          fi
+      - name: 🚀 Run Docker tests
+        id: run_docker_tests
+        env:
+          deb_final_testing_img: ghcr.io/${{ github.repository }}/deb-final-testing-img-${{ matrix.ubuntu_version }}:${{ github.sha }}
+          DOCKER_TEST_CONFIGS: ${{ env.DOCKER_TEST_CONFIGS }}
+        run: |
+          cd $PWD/$DLS_REL_PATH/tests
+          mkdir functional_tests_results
+          cd functional_tests_results
+          DLS_TESTS_RESULTS_PATH=$PWD
+          echo "DLS_TESTS_RESULTS_PATH=$DLS_TESTS_RESULTS_PATH" >> $GITHUB_ENV
+          cd ../functional_tests
+          ./run_tests.sh \
+            --models-path=${{ env.MODELS_PATH }} \
+            --video-examples-path=${{ env.VIDEO_INPUTS_PATH }} \
+            --test-configs="$DOCKER_TEST_CONFIGS" \
+            --results-path="$DLS_TESTS_RESULTS_PATH" \
+            --report-name="DLS_functional_tests_${{ matrix.runner_print_label }}_docker_${{ matrix.ubuntu_version }}_results" \
+            --image-name="${deb_final_testing_img}"
+      - name: Upload Docker test results
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 #4.6.2
+        if: steps.run_docker_tests.outcome == 'success'
+        with:
+          name: DLS_functional_tests_${{ matrix.runner_print_label }}_docker_${{ matrix.ubuntu_version }}_results
+          path: "${{ env.DLS_TESTS_RESULTS_PATH }}"
 
-    - name: Upload hello_dlstreamer output video
-      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 #4.6.2
-      if: steps.test_hello_dlstreamer_script.outcome == 'success'
-      with:
-        name: DLS_hello_dlstreamer_output_video_${{ matrix.runner_print_label }}_${{ matrix.ubuntu_version }}_CPU_yolo11s
-        path: ${{ env.DLS_REL_PATH }}/test_hello_dlstreamer
+      - name: Print Docker tests summary in workflow
+        if: steps.run_docker_tests.outcome == 'success'
+        env:
+          dls_tests_results_path: ${{ env.DLS_TESTS_RESULTS_PATH }}
+          test_repo_branch: ${{ inputs.test-repo-branch }}
+        run: |
+          sed 's/\[pass\]/:white_check_mark:/g; s/\[\! FAIL \!\]/:x:/g' "${dls_tests_results_path}"/DLS_functional_tests_${{ matrix.runner_print_label }}_docker_${{ matrix.ubuntu_version }}_results.txt >> $GITHUB_STEP_SUMMARY
+      - name: Clean up tests results
+        if: always ()
+        env:
+          DLS_TESTS_RESULTS_PATH: ${{ env.DLS_TESTS_RESULTS_PATH }}
+        run: |
+          rm -rf "$DLS_TESTS_RESULTS_PATH"
+      # ======================================================== OH HOST TESTING PART ========================================================
+      - name: Link DL Streamer to home directory
+        run: |
+          ln -s $PWD/$DLS_REL_PATH $HOME
+      - name: Install DL Streamer on-host
+        run: |
+          $DLS_REL_PATH/tests/scripts/installation-on-host-entrypoint.sh $DLS_REL_PATH/deb_packages
+      - name: 👋 Test hello_dlstreamer script on host
+        id: test_hello_dlstreamer_script
+        run: |
+          mkdir -p $DLS_REL_PATH/test_hello_dlstreamer
+          cd $DLS_REL_PATH/test_hello_dlstreamer
+          export MODELS_PATH=${{ env.MODELS_PATH }}
+          echo "Running hello_dlstreamer.sh on CPU with model yolo11s"
+          /opt/intel/dlstreamer/scripts/hello_dlstreamer.sh --output=file --device=CPU --model=yolo11s --precision=INT8
+          OUTPUT_FILE_FOUND=0
+          echo "## 💻 ${{ matrix.runner_print_label }} On host tests summary" >> $GITHUB_STEP_SUMMARY
+          for file in *.mp4; do
+              # Check if the file exists and is at least 1kB in size
+              if [[ -f "$file" && $(stat --printf="%s" "$file") -ge 1024 ]]; then
+                  echo "✅ Valid .mp4 file found: $file"
+                  echo "Testing hello_dlstreamer.sh script: PASS ✅" >> $GITHUB_STEP_SUMMARY
+                  OUTPUT_FILE_FOUND=1
+              fi
+          done
+          if [[ $OUTPUT_FILE_FOUND -eq 0 ]]; then
+              echo "❌ No .mp4 file(s) found or it has less than 1kB size. Exiting..."
+              echo "Testing hello_dlstreamer.sh script: FAIL ❌" >> $GITHUB_STEP_SUMMARY
+              exit 1
+          fi
+      - name: Upload hello_dlstreamer output video
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 #4.6.2
+        if: steps.test_hello_dlstreamer_script.outcome == 'success'
+        with:
+          name: DLS_hello_dlstreamer_output_video_${{ matrix.runner_print_label }}_${{ matrix.ubuntu_version }}_CPU_yolo11s
+          path: ${{ env.DLS_REL_PATH }}/test_hello_dlstreamer
 
-    - name: Init on host tests configurations
-      run: |
-        if [[ ${{ matrix.runner_print_label }} == "TGL" ]]; then
-          echo "HOST_TEST_CONFIGS=on_host/samples_TGL.json" >> $GITHUB_ENV
-          echo "Selected test configuration file: on_host/samples_TGL.json" >> $GITHUB_STEP_SUMMARY
-        elif [[ ${{ matrix.runner_print_label }} == "ARL" ]]; then
-          echo "HOST_TEST_CONFIGS=on_host/samples_ARL.json" >> $GITHUB_ENV
-          echo "Selected test configuration file: on_host/samples_ARL.json" >> $GITHUB_STEP_SUMMARY
-        else
-          echo "Test configuration file: not found ❌" >> $GITHUB_STEP_SUMMARY
-          echo "❌ Cannot assign correct test configuration JSON file for runner based on label: ${{ matrix.runner_print_label }}"
-          echo "Please review and fix! Exiting..."
-          exit 1
-        fi
+      - name: Init on host tests configurations
+        run: |
+          if [[ ${{ matrix.runner_print_label }} == "TGL" ]]; then
+            echo "HOST_TEST_CONFIGS=on_host/samples_TGL.json" >> $GITHUB_ENV
+            echo "Selected test configuration file: on_host/samples_TGL.json" >> $GITHUB_STEP_SUMMARY
+          elif [[ ${{ matrix.runner_print_label }} == "ARL" ]]; then
+            echo "HOST_TEST_CONFIGS=on_host/samples_ARL.json" >> $GITHUB_ENV
+            echo "Selected test configuration file: on_host/samples_ARL.json" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "Test configuration file: not found ❌" >> $GITHUB_STEP_SUMMARY
+            echo "❌ Cannot assign correct test configuration JSON file for runner based on label: ${{ matrix.runner_print_label }}"
+            echo "Please review and fix! Exiting..."
+            exit 1
+          fi
+      - name: Init host test environemtnt
+        run: |
+          sudo apt install -y libcairo2-dev libgirepository1.0-dev
+          if [[ ${{ matrix.ubuntu_version }} == "ubuntu24" ]]; then
+              sudo apt install -y libopencv-dev
+          fi
+          if [ -d "$HOME/.virtualenvs" ]; then
+            echo "Directory $HOME/.virtualenvs exists - removing it"
+            rm -rf $HOME/.virtualenvs
+          fi
+          mkdir -p $HOME/.virtualenvs/dlstreamer
+          python3 -m venv $HOME/.virtualenvs/dlstreamer
+          $HOME/.virtualenvs/dlstreamer/bin/pip install --no-cache-dir --upgrade pip -r $DLS_REL_PATH/requirements.txt
+      - name: 🚀 Run on host tests
+        id: run_onhost_tests
+        env:
+          HOST_TEST_CONFIGS: ${{ env.HOST_TEST_CONFIGS }}
+        run: |
+          cd $PWD/$DLS_REL_PATH/tests
+          mkdir functional_tests_results
+          cd functional_tests_results
+          DLS_TESTS_RESULTS_PATH=$PWD
+          echo "DLS_TESTS_RESULTS_PATH=$DLS_TESTS_RESULTS_PATH" >> $GITHUB_ENV
+          cd ../functional_tests
+          source $HOME/.virtualenvs/dlstreamer/bin/activate
+          ./run_tests.sh \
+            --models-path=${{ env.MODELS_PATH }} \
+            --video-examples-path=${{ env.VIDEO_INPUTS_PATH }} \
+            --test-configs="$HOST_TEST_CONFIGS" \
+            --results-path="$DLS_TESTS_RESULTS_PATH" \
+            --report-name="DLS_functional_tests_${{ matrix.runner_print_label }}_on_host_${{ matrix.ubuntu_version }}_results" \
+            --on-host
+          deactivate
+      - name: Upload host test results
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 #4.6.2
+        if: steps.run_onhost_tests.outcome == 'success'
+        with:
+          name: DLS_functional_tests_${{ matrix.runner_print_label }}_on_host_${{ matrix.ubuntu_version }}_results
+          path: "${{ env.DLS_TESTS_RESULTS_PATH }}"
 
-    - name: Init host test environemtnt
-      run: |
-        sudo apt install -y libcairo2-dev libgirepository1.0-dev
-        if [[ ${{ matrix.ubuntu_version }} == "ubuntu24" ]]; then
-            sudo apt install -y libopencv-dev
-        fi
-        if [ -d "$HOME/.virtualenvs" ]; then
-          echo "Directory $HOME/.virtualenvs exists - removing it"
+      - name: Print host tests summary in workflow
+        if: steps.run_onhost_tests.outcome == 'success'
+        env:
+          dls_tests_results_path: ${{ env.DLS_TESTS_RESULTS_PATH }}
+          test_repo_branch: ${{ inputs.test-repo-branch }}
+        run: |
+          sed 's/\[pass\]/:white_check_mark:/g; s/\[\! FAIL \!\]/:x:/g' "${dls_tests_results_path}"/DLS_functional_tests_${{ matrix.runner_print_label }}_on_host_${{ matrix.ubuntu_version }}_results.txt >> $GITHUB_STEP_SUMMARY
+      - name: Uninstall dlstreamer
+        if: always ()
+        run: |
+          $DLS_REL_PATH/tests/scripts/uninstall-dlstreamer.sh
+      # ======================================================== CLEAUP PART ========================================================
+      - name: Clean up
+        env:
+          deb_final_img: ghcr.io/${{ github.repository }}/deb-final-img-${{ matrix.ubuntu_version }}:${{ github.sha }}
+        if: always()
+        run: |
           rm -rf $HOME/.virtualenvs
-        fi
-        mkdir -p $HOME/.virtualenvs/dlstreamer
-        python3 -m venv $HOME/.virtualenvs/dlstreamer
-        $HOME/.virtualenvs/dlstreamer/bin/pip install --no-cache-dir --upgrade pip -r $DLS_REL_PATH/requirements.txt
-
-    - name: 🚀 Run on host tests
-      id: run_onhost_tests
-      env:
-        HOST_TEST_CONFIGS: ${{ env.HOST_TEST_CONFIGS }}
-      run: |
-        cd $PWD/$DLS_REL_PATH/tests
-        mkdir functional_tests_results
-        cd functional_tests_results
-        DLS_TESTS_RESULTS_PATH=$PWD
-        echo "DLS_TESTS_RESULTS_PATH=$DLS_TESTS_RESULTS_PATH" >> $GITHUB_ENV
-        cd ../functional_tests
-
-        source $HOME/.virtualenvs/dlstreamer/bin/activate
-        ./run_tests.sh \
-          --models-path=${{ env.MODELS_PATH }} \
-          --video-examples-path=${{ env.VIDEO_INPUTS_PATH }} \
-          --test-configs="$HOST_TEST_CONFIGS" \
-          --results-path="$DLS_TESTS_RESULTS_PATH" \
-          --report-name="DLS_functional_tests_${{ matrix.runner_print_label }}_on_host_${{ matrix.ubuntu_version }}_results" \
-          --on-host
-        deactivate
-
-    - name: Upload host test results
-      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 #4.6.2
-      if: steps.run_onhost_tests.outcome == 'success'
-      with:
-        name: DLS_functional_tests_${{ matrix.runner_print_label }}_on_host_${{ matrix.ubuntu_version }}_results
-        path: "${{ env.DLS_TESTS_RESULTS_PATH }}"
-
-    - name: Print host tests summary in workflow
-      if: steps.run_onhost_tests.outcome == 'success'
-      env:
-        dls_tests_results_path: ${{ env.DLS_TESTS_RESULTS_PATH }}
-        test_repo_branch: ${{ inputs.test-repo-branch }}
-      run: |
-        sed 's/\[pass\]/:white_check_mark:/g; s/\[\! FAIL \!\]/:x:/g' "${dls_tests_results_path}"/DLS_functional_tests_${{ matrix.runner_print_label }}_on_host_${{ matrix.ubuntu_version }}_results.txt >> $GITHUB_STEP_SUMMARY
-
-    - name: Uninstall dlstreamer
-      if: always ()
-      run: |
-        $DLS_REL_PATH/tests/scripts/uninstall-dlstreamer.sh
-
-    # ======================================================== CLEAUP PART ========================================================
-    - name: Clean up
-      env:
-        deb_final_img: ghcr.io/${{ github.repository }}/deb-final-img-${{ matrix.ubuntu_version }}:${{ github.sha }}
-      if: always()
-      run: |
-        rm -rf $HOME/.virtualenvs
-        docker rmi ${deb_final_img} || true
-        sudo rm -f $HOME/dlstreamer-repo
-        rm -rf dlstreamer-repo
-        rm -rf $HOME/dl-streamer-tests-repo
+          docker rmi ${deb_final_img} || true
+          sudo rm -f $HOME/dlstreamer-repo
+          rm -rf dlstreamer-repo
+          rm -rf $HOME/dl-streamer-tests-repo
