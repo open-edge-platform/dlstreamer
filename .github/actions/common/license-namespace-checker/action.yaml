@@ -23,11 +23,11 @@ runs:
         REPO_PATH: ${{ inputs.path }}
       run: |
         cd "${REPO_PATH}"
-        if [ "$(git rev-parse --abbrev-ref HEAD)" != "master" ]; then
-          git fetch origin master:master
-          echo "Fetched master branch"
+        if [ "$(git rev-parse --abbrev-ref HEAD)" != "main" ]; then
+          git fetch origin main:main
+          echo "Fetched main branch"
         fi
-        changed_files=$(git diff --name-only master...$GITHUB_SHA -- '*.h' '*.hpp' '*.c' '*.cpp' '*.sh' '*.py' '*.txt' | grep -E '.*\.(h|hpp|c|cpp|sh|py|txt)$' || true)
+        changed_files=$(git diff --name-only main...$GITHUB_SHA -- '*.h' '*.hpp' '*.c' '*.cpp' '*.sh' '*.py' '*.txt' | grep -E '.*\.(h|hpp|c|cpp|sh|py|txt)$' || true)
         echo "Performed git diff"
         if [ -n "$changed_files" ]; then
           # Add changed files list to the GITHUB_OUTPUT separated by spaces

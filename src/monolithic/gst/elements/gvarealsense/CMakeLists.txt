@@ -17,7 +17,7 @@ file(GLOB REALSENSE_HEADERS
     *.h
 )
 
-add_library(gvarealsense SHARED gvarealsense.cpp gvarealsense.h gvarealsense_utils.cpp gvarealsense_utils.h 
+add_library(gvarealsense SHARED gvarealsense.cpp gvarealsense.h gvarealsense_utils.cpp gvarealsense_utils.h
             gvarealsense_pcd.h gvarealsense_pcd.cpp )
 set_compile_flags(${TARGET_NAME})
 

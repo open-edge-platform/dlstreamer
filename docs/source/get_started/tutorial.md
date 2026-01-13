@@ -611,7 +611,7 @@ analytics pipelines with Deep Learning Streamer Pipeline Framework!
 
 ## Additional Resources
 
-- [Samples overview](https://github.com/open-edge-platform/dlstreamer/blob/master/samples/gstreamer/README.md)
+- [Samples overview](https://github.com/open-edge-platform/dlstreamer/blob/main/samples/gstreamer/README.md)
 - [Elements](../elements/elements.md)
 - [How to create model-proc file](../dev_guide/how_to_create_model_proc_file.md)
 
