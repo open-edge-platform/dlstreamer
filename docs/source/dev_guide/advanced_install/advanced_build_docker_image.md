@@ -11,32 +11,18 @@ Ubuntu22/24 from Deep Learning Streamer Dockerfiles.
 Follow the instructions in
 [the prerequisites](../../get_started/install/install_guide_ubuntu.md#prerequisites) section.
 
-## Step 2: Download Dockerfiles
+## Step 2: Clone dlstreamer repository
 
-All Dockerfiles are in
-[DLStreamer GitHub repository](https://github.com/open-edge-platform/dlstreamer/tree/main/docker).
-
-<!--hide_directive::::{tab-set}
-:::{tab-item}hide_directive--> Ubuntu24 debian/dev Dockerfile
-<!--hide_directive:sync: tab1hide_directive-->
-
-  ```bash
-  wget https://raw.githubusercontent.com/open-edge-platform/dlstreamer/main/docker/ubuntu/ubuntu24.Dockerfile
-  ```
-
-<!--hide_directive:::
-:::{tab-item}hide_directive--> Ubuntu22 debian/dev Dockerfile
-<!--hide_directive:sync: tab2hide_directive-->
-
-  ```bash
-  wget https://raw.githubusercontent.com/open-edge-platform/dlstreamer/main/docker/ubuntu/ubuntu22.Dockerfile
-  ```
-
-<!--hide_directive:::
-::::hide_directive-->
+```bash
+git clone https://github.com/open-edge-platform/dlstreamer.git
+cd dlstreamer
+git submodule update --init --recursive
+```
 
 ## Step 3: Build Docker image
 
+All Dockerfiles are in
+[DLStreamer GitHub repository](https://github.com/open-edge-platform/dlstreamer/tree/main/docker).
 Build a Docker image from a Dockerfile, using the template command-line, as follows:
 
 ```bash
@@ -47,12 +33,12 @@ For example, you can build a Docker debian image from the **ubuntu22.Dockerfile*
 **dlstreamer-ubuntu22**, and using the current directory as the build context.
 
 ```bash
-docker build -f ubuntu22.Dockerfile -t dlstreamer-ubuntu22 .
+docker build -f docker/ubuntu/ubuntu22.Dockerfile -t dlstreamer-ubuntu22 .
 ```
 
 You can build a Docker development image from the **ubuntu22.Dockerfile**, naming it
 **dlstreamer-dev-ubuntu22**, and using the current directory as the build context:
 
 ```bash
-docker build --target dlstreamer-dev -f ubuntu22.Dockerfile -t dlstreamer-dev-ubuntu22 .
+docker build --target dlstreamer-dev -f docker/ubuntu/ubuntu22.Dockerfile -t dlstreamer-dev-ubuntu22 .
 ```
