@@ -137,18 +137,8 @@ jobs:
       - name: Init docker tests configurations
         run: |
           echo "## 🚢 ${{ matrix.runner_print_label }} Docker tests summary" >> $GITHUB_STEP_SUMMARY
-          if [[ ${{ matrix.runner_print_label }} == "TGL" ]]; then
-            echo "DOCKER_TEST_CONFIGS=docker/aliveness_TGL.json" >> $GITHUB_ENV
-            echo "Selected test configuration file: docker/aliveness_TGL.json" >> $GITHUB_STEP_SUMMARY
-          elif [[ ${{ matrix.runner_print_label }} == "ARL" ]]; then
-            echo "DOCKER_TEST_CONFIGS=docker/aliveness_ARL.json" >> $GITHUB_ENV
-            echo "Selected test configuration file: docker/aliveness_ARL.json" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "Test configuration file: not found ❌" >> $GITHUB_STEP_SUMMARY
-            echo "❌ Cannot assign correct test configuration JSON file for runner based on label: ${{ matrix.runner_print_label }}"
-            echo "Please review and fix! Exiting..."
-            exit 1
-          fi
+          echo "DOCKER_TEST_CONFIGS=aliveness_config.json" >> $GITHUB_ENV
+          echo "Selected test configuration file: $DOCKER_TEST_CONFIGS" >> $GITHUB_STEP_SUMMARY
       - name: 🚀 Run Docker tests
         id: run_docker_tests
         env:
@@ -164,7 +154,8 @@ jobs:
           ./run_tests.sh \
             --models-path=${{ env.MODELS_PATH }} \
             --video-examples-path=${{ env.VIDEO_INPUTS_PATH }} \
-            --test-configs="$DOCKER_TEST_CONFIGS" \
+            --meta-configs="$DOCKER_TEST_CONFIGS" \
+            --platform-type="${{ matrix.runner_print_label }}" \
             --results-path="$DLS_TESTS_RESULTS_PATH" \
             --report-name="DLS_functional_tests_${{ matrix.runner_print_label }}_docker_${{ matrix.ubuntu_version }}_results" \
             --image-name="${deb_final_testing_img}"
@@ -227,18 +218,8 @@ jobs:
 
       - name: Init on host tests configurations
         run: |
-          if [[ ${{ matrix.runner_print_label }} == "TGL" ]]; then
-            echo "HOST_TEST_CONFIGS=on_host/samples_TGL.json" >> $GITHUB_ENV
-            echo "Selected test configuration file: on_host/samples_TGL.json" >> $GITHUB_STEP_SUMMARY
-          elif [[ ${{ matrix.runner_print_label }} == "ARL" ]]; then
-            echo "HOST_TEST_CONFIGS=on_host/samples_ARL.json" >> $GITHUB_ENV
-            echo "Selected test configuration file: on_host/samples_ARL.json" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "Test configuration file: not found ❌" >> $GITHUB_STEP_SUMMARY
-            echo "❌ Cannot assign correct test configuration JSON file for runner based on label: ${{ matrix.runner_print_label }}"
-            echo "Please review and fix! Exiting..."
-            exit 1
-          fi
+          echo "HOST_TEST_CONFIGS=samples_config.json" >> $GITHUB_ENV
+          echo "Selected test configuration file: $HOST_TEST_CONFIGS" >> $GITHUB_STEP_SUMMARY
       - name: Init host test environemtnt
         run: |
           sudo apt install -y libcairo2-dev libgirepository1.0-dev
@@ -267,7 +248,8 @@ jobs:
           ./run_tests.sh \
             --models-path=${{ env.MODELS_PATH }} \
             --video-examples-path=${{ env.VIDEO_INPUTS_PATH }} \
-            --test-configs="$HOST_TEST_CONFIGS" \
+            --meta-configs="$HOST_TEST_CONFIGS" \
+            --platform-type="${{ matrix.runner_print_label }}" \
             --results-path="$DLS_TESTS_RESULTS_PATH" \
             --report-name="DLS_functional_tests_${{ matrix.runner_print_label }}_on_host_${{ matrix.ubuntu_version }}_results" \
             --on-host
