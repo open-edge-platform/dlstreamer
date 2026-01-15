@@ -445,7 +445,7 @@ For more detailed instructions please refer to [DL Streamer Pipeline Framework i
 
 ## Samples
 
-The [samples](https://github.com/open-edge-platform/dlstreamer/tree/master/samples) folder in DL Streamer Pipeline Framework repository contains command line, C++ and Python examples.
+The [samples](https://github.com/open-edge-platform/dlstreamer/tree/main/samples) folder in DL Streamer Pipeline Framework repository contains command line, C++ and Python examples.
 
 ## Legal Information
 

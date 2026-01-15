@@ -3,12 +3,13 @@ CONTRIBUTING.md     @pmalatyn
 CODE_OF_CONDUCT.md  @pmalatyn
 SECURITY.md         @pmalatyn
 README.md           @tbujewsk @open-edge-platform/open-edge-platform-docs-write
+
 ## dlstreamer worfklows ##
 /.github/workflows/* @tbujewsk @nszczygl9 @dmichalo @yangjianfeng1208
 ## dlstreamer repo ##
 * @tbujewsk @OskarFiedot @marcin-wadolkowski @nszczygl9 @dmichalo @msmiatac @jmotow @pbartosik @mholowni @qianlongding @BaoHuiling @yunowo @ZiningLi @yangjianfeng1208 @oonyshch @walidbarakat
-
 ## Documentation files ##
-/docs/* @tbujewsk @OskarFiedot @marcin-wadolkowski @nszczygl9 @dmichalo @msmiatac @jmotow @pbartosik @mholowni @qianlongding @BaoHuiling @yunowo @ZiningLi @yangjianfeng1208 @oonyshch @walidbarakat @open-edge-platform/open-edge-platform-docs-write
+/docs/ @tbujewsk @OskarFiedot @marcin-wadolkowski @nszczygl9 @dmichalo @msmiatac @jmotow @pbartosik @mholowni @qianlongding @BaoHuiling @yunowo @ZiningLi @yangjianfeng1208 @oonyshch @walidbarakat @open-edge-platform/open-edge-platform-docs-write
+
 
 
