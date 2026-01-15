@@ -22,5 +22,5 @@ if ERRORLEVEL 1 (
 )
 
 mkdir "%MODELS_PATH%"
-omz_downloader --list "%~dp0\models_omz_samples.lst" -o "%MODELS_PATH%"
-omz_converter --list "%~dp0\models_omz_samples.lst" -o "%MODELS_PATH%" -d "%MODELS_PATH%"
+omz_downloader --list "%~dp0..\models_omz_samples.lst" -o "%MODELS_PATH%"
+omz_converter --list "%~dp0..\models_omz_samples.lst" -o "%MODELS_PATH%" -d "%MODELS_PATH%"

@@ -69,8 +69,8 @@ formats described above:
 
 | Model | Model-proc | 2nd layer format |
 |---|---|---|
-| [Faster-RCNN](https://github.com/openvinotoolkit/open_model_zoo/tree/master/models/public/faster_rcnn_resnet50_coco) | [preproc-image-info.json](https://github.com/open-edge-platform/dlstreamer/blob/master/samples/gstreamer/model_proc/public/preproc-image-info.json) | image_info |
-| [license-plate-recognition-barrier-0007](https://github.com/openvinotoolkit/open_model_zoo/tree/master/models/public/license-plate-recognition-barrier-0007) | [license-plate-recognition-barrier-0007.json](https://github.com/open-edge-platform/dlstreamer/blob/master/samples/gstreamer/model_proc/intel/license-plate-recognition-barrier-0007.json) | sequence_index |
+| [Faster-RCNN](https://github.com/openvinotoolkit/open_model_zoo/tree/master/models/public/faster_rcnn_resnet50_coco) | [preproc-image-info.json](https://github.com/open-edge-platform/dlstreamer/blob/main/samples/gstreamer/model_proc/public/preproc-image-info.json) | image_info |
+| [license-plate-recognition-barrier-0007](https://github.com/openvinotoolkit/open_model_zoo/tree/master/models/public/license-plate-recognition-barrier-0007) | [license-plate-recognition-barrier-0007.json](https://github.com/open-edge-platform/dlstreamer/blob/main/samples/gstreamer/model_proc/intel/license-plate-recognition-barrier-0007.json) | sequence_index |
 
 ### Model requires more advance image pre-processing
 
@@ -91,11 +91,10 @@ some of the operations described above:
 
 | Model | Model-proc | Operation |
 |---|---|---|
-| [MobileNet](https://github.com/onnx/models/blob/main/validated/vision/classification/mobilenet) | [mobilenetv2-7.json](https://github.com/open-edge-platform/dlstreamer/blob/master/samples/gstreamer/model_proc/onnx/mobilenetv2-7.json)   | normalization |
-| [single-human-pose-estimation-0001](https://github.com/openvinotoolkit/open_model_zoo/tree/master/models/public/single-human-pose-estimation-0001) | [single-human-pose-estimation-0001.json](https://github.com/open-edge-platform/dlstreamer/blob/master/samples/gstreamer/model_proc/public/single-human-pose-estimation-0001.json)  | padding |
+| [MobileNet](https://github.com/onnx/models/blob/main/validated/vision/classification/mobilenet) | [mobilenetv2-7.json](https://github.com/open-edge-platform/dlstreamer/blob/main/samples/gstreamer/model_proc/onnx/mobilenetv2-7.json)   | normalization |
+| [single-human-pose-estimation-0001](https://github.com/openvinotoolkit/open_model_zoo/tree/master/models/public/single-human-pose-estimation-0001) | [single-human-pose-estimation-0001.json](https://github.com/open-edge-platform/dlstreamer/blob/main/samples/gstreamer/model_proc/public/single-human-pose-estimation-0001.json)  | padding |
 
-For more details, see the
-[model-proc documentation](./model_proc_file.md).
+For more details, see the [model-proc documentation](./model_proc_file.md).
 
 ## How to define post-processing
 
@@ -106,7 +105,7 @@ converter in *"output_postproc"* for separate processing. For example:
 
 | Model | Model-proc |
 |---|---|
-| [age-gender-recognition-retail-0013](https://github.com/openvinotoolkit/open_model_zoo/tree/master/models/intel/age-gender-recognition-retail-0013)   |[age-gender-recognition-retail-0013.json](https://github.com/open-edge-platform/dlstreamer/blob/master/samples/gstreamer/model_proc/intel/age-gender-recognition-retail-0013.json) |
+| [age-gender-recognition-retail-0013](https://github.com/openvinotoolkit/open_model_zoo/tree/master/models/intel/age-gender-recognition-retail-0013)   |[age-gender-recognition-retail-0013.json](https://github.com/open-edge-platform/dlstreamer/blob/main/samples/gstreamer/model_proc/intel/age-gender-recognition-retail-0013.json) |
 
 For joint processing of blobs from several output layers, it is enough
 to specify only one converter and the *"layer_names": ["layer_name_1", .. , "layer_name_n"]*
@@ -116,7 +115,7 @@ Example:
 
 | Model | Model-proc |
 |---|---|
-| [YOLOv3](https://github.com/openvinotoolkit/open_model_zoo/tree/master/models/public/yolo-v3-tf) |[yolo-v3-tf.json](https://github.com/open-edge-platform/dlstreamer/blob/master/samples/gstreamer/model_proc/public/yolo-v3-tf.json) |
+| [YOLOv3](https://github.com/openvinotoolkit/open_model_zoo/tree/master/models/public/yolo-v3-tf) |[yolo-v3-tf.json](https://github.com/open-edge-platform/dlstreamer/blob/main/samples/gstreamer/model_proc/public/yolo-v3-tf.json) |
 
 > **NOTE:** In this example, you will not find the use of the *"layer_names"*
 > field, because it is not necessary to specify it when the
@@ -154,9 +153,9 @@ Examples of labels in model-proc files:
 
 | Dataset | Model | Model-proc |
 |---|---|---|
-| ImageNet | [resnet-18-pytorch](https://github.com/openvinotoolkit/open_model_zoo/tree/master/models/public/resnet-18-pytorch) | [preproc-aspect-ratio.json](https://github.com/open-edge-platform/dlstreamer/blob/master/samples/gstreamer/model_proc/public/preproc-aspect-ratio.json) |
-| COCO | [YOLOv2](https://github.com/openvinotoolkit/open_model_zoo/tree/master/models/public/yolo-v2-tf) |[yolo-v2-tf.json](https://github.com/open-edge-platform/dlstreamer/blob/master/samples/gstreamer/model_proc/public/yolo-v2-tf.json) |
-| PASCAL VOC | [yolo-v2-ava-0001](https://github.com/openvinotoolkit/open_model_zoo/tree/master/models/intel/yolo-v2-ava-0001) | [yolo-v2-ava-0001.json](https://github.com/open-edge-platform/dlstreamer/blob/master/samples/gstreamer/model_proc/intel/yolo-v2-ava-0001.json) |
+| ImageNet | [resnet-18-pytorch](https://github.com/openvinotoolkit/open_model_zoo/tree/master/models/public/resnet-18-pytorch) | [preproc-aspect-ratio.json](https://github.com/open-edge-platform/dlstreamer/blob/main/samples/gstreamer/model_proc/public/preproc-aspect-ratio.json) |
+| COCO | [YOLOv2](https://github.com/openvinotoolkit/open_model_zoo/tree/master/models/public/yolo-v2-tf) |[yolo-v2-tf.json](https://github.com/open-edge-platform/dlstreamer/blob/main/samples/gstreamer/model_proc/public/yolo-v2-tf.json) |
+| PASCAL VOC | [yolo-v2-ava-0001](https://github.com/openvinotoolkit/open_model_zoo/tree/master/models/intel/yolo-v2-ava-0001) | [yolo-v2-ava-0001.json](https://github.com/open-edge-platform/dlstreamer/blob/main/samples/gstreamer/model_proc/intel/yolo-v2-ava-0001.json) |
 
 ## Practice
 
