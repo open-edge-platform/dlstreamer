@@ -2,25 +2,7 @@
 
 This article describes how to select a GPU device on a multi-GPU system.
 
-## 1. Media (VAAPI based) elements
-
-The [GStreamer VAAPI plugin](https://gstreamer.freedesktop.org/documentation/vaapi/index.html)
-supports the `GST_VAAPI_DRM_DEVICE` environment variable, which allows
-selecting a GPU device for VAAPI elements (and `decodebin3` element in case
-it internally works on VAAPI elements).
-
-The `GST_VAAPI_DRM_DEVICE` environment variable expects the GPU device
-driver path. The `/dev/dri/renderD128` path typically represents the first
-GPU device on the system, `/dev/dri/renderD129` represents the second, etc.
-
-For example, the following command forces VAAPI elements (and
-`decodebin3`) to use the second GPU device:
-
-```bash
-export GST_VAAPI_DRM_DEVICE=/dev/dri/renderD129
-```
-
-## 2. Inference (OpenVINO™ based) elements
+## 1. Inference (OpenVINO™ based) elements
 
 ### Explicit selection
 
@@ -49,7 +31,7 @@ export GST_VAAPI_DRM_DEVICE=/dev/dri/renderD129
 gst-launch-1.0 "... ! decodebin3 ! gvadetect device=GPU ! ..."
 ```
 
-## 3. Media and Inference elements for GStreamer 1.24.0 and later versions
+## 2. Media and Inference elements for GStreamer 1.24.0 and later versions
 
 > **NOTE:** Starting with
 > [GStreamer 1.24 version](https://gstreamer.freedesktop.org/releases/1.24/),

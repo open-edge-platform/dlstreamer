@@ -532,7 +532,7 @@ setup_npu() {
 install_npu() {
     local ubuntu_version="${1:-$(lsb_release -rs)}"
     $SUDO_PREFIX rm -rf ./npu_debs
-    mkdir -p ./npu_debs && cd npu_debs
+    mkdir -p ./npu_debs && cd npu_debs || exit
     dpkg --purge --force-remove-reinstreq intel-driver-compiler-npu intel-fw-npu intel-level-zero-npu
     if [ "$ubuntu_version" == "22.04" ]; then
         wget https://github.com/oneapi-src/level-zero/releases/download/v1.22.4/level-zero_1.22.4+u22.04_amd64.deb
