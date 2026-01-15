@@ -319,7 +319,7 @@ that GStreamer and Deep Learning Streamer are running
 gst-inspect-1.0 gvadetect
 ```
 
-If your can see the documentation of `gvadetect` element, the
+If you can see the documentation of `gvadetect` element, the
 installation process is completed.
 
 ![image](gvadetect_sample_help.png)
