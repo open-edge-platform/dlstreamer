@@ -5,7 +5,8 @@
 # SPDX-License-Identifier: MIT
 # ==============================================================================
 
-npu_driver_version='1.28.0'
+npu_driver_version_u24='https://github.com/intel/linux-npu-driver/releases/download/v1.28.0/linux-npu-driver-v1.28.0.20251218-20347000698-ubuntu2404.tar.gz'
+npu_driver_version_u22='https://github.com/intel/linux-npu-driver/releases/download/v1.26.0/linux-npu-driver-v1.26.0.20251125-19665715237-ubuntu2204.tar.gz'
 reinstall_npu_driver='no'  # Default value for reinstalling the NPU driver
 on_host_or_docker='host'
 
@@ -530,19 +531,11 @@ setup_npu() {
 }
 
 install_npu() {
-    local ubuntu_version="${1:-$(lsb_release -rs)}"
     $SUDO_PREFIX rm -rf ./npu_debs
     mkdir -p ./npu_debs && cd npu_debs || exit
-    dpkg --purge --force-remove-reinstreq intel-driver-compiler-npu intel-fw-npu intel-level-zero-npu
-    if [ "$ubuntu_version" == "22.04" ]; then
-        wget https://github.com/oneapi-src/level-zero/releases/download/v1.22.4/level-zero_1.22.4+u22.04_amd64.deb
-        wget https://github.com/intel/linux-npu-driver/releases/download/v1.23.0/linux-npu-driver-v1.23.0.20250827-17270089246-ubuntu2204.tar.gz
-        tar -xf linux-npu-driver-v1.23.0.20250827-17270089246-ubuntu2204.tar.gz
-    elif [ "$ubuntu_version" == "24.04" ]; then
-        wget https://github.com/oneapi-src/level-zero/releases/download/v1.24.2/level-zero_1.24.2+u24.04_amd64.deb
-        wget https://github.com/intel/linux-npu-driver/releases/download/v1.28.0/linux-npu-driver-v1.28.0.20251218-20347000698-ubuntu2404.tar.gz
-        tar -xf linux-npu-driver-v1.28.0.20251218-20347000698-ubuntu2404.tar.gz
-    fi
+    $SUDO_PREFIX dpkg --purge --force-remove-reinstreq intel-driver-compiler-npu intel-fw-npu intel-level-zero-npu
+    wget $npu_driver_version
+    tar -xf linux-npu-driver-v*
     $SUDO_PREFIX apt update
     $SUDO_PREFIX apt install libtbb12
     $SUDO_PREFIX  $SUDO_PREFIX dpkg -i *.deb
@@ -561,6 +554,15 @@ if [ "$on_host_or_docker" == "host" ]; then
     # Detect Ubuntu version
     ubuntu_version=$(lsb_release -rs)
 
+    # Set correct NPU driver version
+    if [[ "$ubuntu_version" == "22.04" ]]; then
+        npu_driver_version="$npu_driver_version_u22"
+    elif [[ "$ubuntu_version" == "24.04" ]]; then
+        npu_driver_version="$npu_driver_version_u24"
+    else
+        echo_color "Unsupported Ubuntu version: $ubuntu_version" "bred"
+        exit 1
+    fi
     # Get the CPU family and model information
     cpu_family=$(grep -m 1 'cpu family' /proc/cpuinfo | awk '{print $4}')
     cpu_model=$(grep -m 1 'model' /proc/cpuinfo | awk '{print $3}')
@@ -655,7 +657,7 @@ if [ "$on_host_or_docker" == "docker_ubuntu22" ] || [ "$on_host_or_docker" == "d
     fi
 
     # Install NPU and check version
-    install_npu "$ubuntu_version"
+    install_npu
     installed_version=$(get_installed_version "$package_name")
     echo "Installed version of $package_name is $installed_version"
     exit 0
@@ -838,16 +840,15 @@ then
     fi
 
     if [[ "$reinstall_npu_driver" =~ ^[Yy][Ee][Ss]$ ]]; then
-        #setup_npu
         install_npu
-        need_to_reboot=1
         installed_version=$(get_installed_version "$package_name")
         installed_version=$(echo "$installed_version" | grep -oP '^\d+\.\d+\.\d+')
 
     elif [[ -z "$installed_version" || "$npu_driver_version" != "$installed_version" ]]; then
         echo_color "The installation of the NPU driver was skipped." "bred"
-        echo_color "It is recommended to install version $npu_driver_version. You can rerun the script with --reinstall-npu-driver=yes to have the script reinstall the driver for you." "bred"
+        echo_color "It is recommended to install version $npu_driver_version." "bred"
         echo_color "Reboot after installation will be required." "bred"
+
     else
         echo_color "Intel NPU driver is in $installed_version version and ready to use." "bgreen"
     fi

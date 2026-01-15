@@ -92,7 +92,7 @@ for file in /usr/share/keyrings/intel-graphics*; do
 done
 
 chmod +x "$PREREQUISITES_SCRIPT_PATH"/DLS_install_prerequisites.sh
-"$PREREQUISITES_SCRIPT_PATH"/DLS_install_prerequisites.sh --reinstall-npu-driver=no
+"$PREREQUISITES_SCRIPT_PATH"/DLS_install_prerequisites.sh --reinstall-npu-driver=yes
 
 # Configure repositories before installation
 echo_color "Starting to configure OpenVINO™ repository access before DL Streamer installation" "blue"
