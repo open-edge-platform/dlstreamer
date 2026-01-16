@@ -1,0 +1,63 @@
+gst-launch-1.0 filesrc location=$VIDEO_EXAMPLES_DIR/Pexels_Videos_4786.mp4 ! decodebin ! vapostproc ! "video/x-raw(memory:VAMemory)" ! queue ! gvadetect batch-size=4 device=GPU pre-process-backend=vaapi-surface-sharing model=$MODELS_PATH/public/yolo11s/FP32/yolo11s.xml ! queue ! vapostproc ! gvawatermark ! gvafpscounter ! vah264enc ! h264parse ! mp4mux ! filesink location=$RESULTS_DIR/detection.mp4
+
+gst-launch-1.0 filesrc location=$VIDEO_EXAMPLES_DIR/Pexels_Videos_4786.mp4 ! decodebin ! vapostproc ! "video/x-raw(memory:VAMemory)" ! identity eos-after=10 ! queue ! gvadetect batch-size=4 device=GPU pre-process-backend=vaapi-surface-sharing model=$MODELS_PATH/public/yolo11s/FP32/yolo11s.xml ! queue ! vapostproc ! gvawatermark ! gvafpscounter ! videoconvert ! jpegenc ! multifilesink post-messages=true location=$RESULTS_DIR/detection-%03d.jpeg
+
+
+gst-launch-1.0 -e \
+  videotestsrc is-live=true do-timestamp=true pattern=smpte ! \
+    video/x-raw,framerate=30/1,width=1280,height=720 ! queue ! \
+    vapostproc ! "video/x-raw(memory:VAMemory)" ! queue ! \
+    gvadetect device=GPU pre-process-backend=vaapi-surface-sharing \
+      model=$MODELS_PATH/public/yolo11s/FP32/yolo11s.xml \
+      model-instance-id=inf0 batch-size=4 ! \
+    queue ! gvafpscounter ! fakesink sync=false \
+  videotestsrc is-live=true do-timestamp=true pattern=ball ! \
+    video/x-raw,framerate=30/1,width=1280,height=720 ! queue ! \
+    vapostproc ! "video/x-raw(memory:VAMemory)" ! queue ! \
+    gvadetect device=GPU pre-process-backend=vaapi-surface-sharing \
+      model=$MODELS_PATH/public/yolo11s/FP32/yolo11s.xml \
+      model-instance-id=inf0 batch-size=4 ! \
+    queue ! gvafpscounter ! fakesink sync=false
+
+
+
+
+gst-launch-1.0 -e \
+  filesrc location=$VIDEO_EXAMPLES_DIR/Pexels_Videos_4786.mp4 ! decodebin name=d1 \
+    d1. ! queue ! videorate ! video/x-raw,framerate=30/1 ! \
+      clocksync ! \
+      vapostproc ! "video/x-raw(memory:VAMemory)" ! queue ! \
+      gvadetect device=GPU pre-process-backend=vaapi-surface-sharing \
+        model=$MODELS_PATH/public/yolo11s/FP32/yolo11s.xml \
+        model-instance-id=inf0 batch-size=4 scheduling-policy=latency ! \
+      queue ! vapostproc ! gvawatermark ! gvafpscounter ! \
+      vah264enc ! h264parse ! mp4mux ! \
+      filesink location=$RESULTS_DIR/detection_streamA_rt.mp4 \
+  filesrc location=$VIDEO_EXAMPLES_DIR/Pexels_Videos_4786.mp4 ! decodebin name=d2 \
+    d2. ! queue ! videorate ! video/x-raw,framerate=30/1 ! \
+      clocksync ! \
+      vapostproc ! "video/x-raw(memory:VAMemory)" ! queue ! \
+      gvadetect device=GPU pre-process-backend=vaapi-surface-sharing \
+        model=$MODELS_PATH/public/yolo11s/FP32/yolo11s.xml \
+        model-instance-id=inf0 batch-size=4 scheduling-policy=latency ! \
+      queue ! vapostproc ! gvawatermark ! gvafpscounter ! \
+      vah264enc ! h264parse ! mp4mux ! \
+      filesink location=$RESULTS_DIR/detection_streamB_rt.mp4
+
+
+
+gst-launch-1.0 -e \
+  filesrc location=$VIDEO_EXAMPLES_DIR/Pexels_Videos_4786.mp4 ! decodebin name=d1 \
+    d1. ! queue ! videorate ! video/x-raw,framerate=30/1 ! \
+      vapostproc ! "video/x-raw(memory:VAMemory)" ! queue ! \
+      gvadetect device=GPU pre-process-backend=vaapi-surface-sharing \
+        model=$MODELS_PATH/public/yolo11s/FP32/yolo11s.xml \
+        model-instance-id=inf0 batch-size=4 scheduling-policy=latency ! \
+      queue ! fakesink sync=false \
+  filesrc location=$VIDEO_EXAMPLES_DIR/Pexels_Videos_4786.mp4 ! decodebin name=d2 \
+    d2. ! queue ! videorate ! video/x-raw,framerate=30/1 ! \
+      vapostproc ! "video/x-raw(memory:VAMemory)" ! queue ! \
+      gvadetect device=GPU pre-process-backend=vaapi-surface-sharing \
+        model=$MODELS_PATH/public/yolo11s/FP32/yolo11s.xml \
+        model-instance-id=inf0 batch-size=4 scheduling-policy=latency ! \
+      queue ! fakesink sync=false

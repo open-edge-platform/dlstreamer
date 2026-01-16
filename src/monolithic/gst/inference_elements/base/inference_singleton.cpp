@@ -79,6 +79,7 @@ void fillElementProps(GvaBaseInference *targetElem, GvaBaseInference *masterElem
     COPY_GSTRING(targetElem->device, masterElem->device);
     COPY_GSTRING(targetElem->model_proc, masterElem->model_proc);
     targetElem->batch_size = masterElem->batch_size;
+    targetElem->batch_timeout = masterElem->batch_timeout;
     targetElem->inference_interval = masterElem->inference_interval;
     targetElem->no_block = masterElem->no_block;
     targetElem->nireq = masterElem->nireq;
