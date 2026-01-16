@@ -21,7 +21,7 @@ static GstStaticPadTemplate sink_template = GST_STATIC_PAD_TEMPLATE(
     "sink",
     GST_PAD_SINK,
     GST_PAD_ALWAYS,
-    GST_STATIC_CAPS_ANY
+    GST_STATIC_CAPS("application/octet-stream")
 );
 
 static GstStaticPadTemplate src_template = GST_STATIC_PAD_TEMPLATE(
@@ -41,6 +41,7 @@ static gboolean gst_lidar_parse_start(GstBaseTransform *trans);
 static gboolean gst_lidar_parse_stop(GstBaseTransform *trans);
 static GstFlowReturn gst_lidar_parse_transform(GstBaseTransform *trans, GstBuffer *inbuf, GstBuffer *outbuf);
 static gboolean gst_lidar_parse_sink_event(GstBaseTransform *trans, GstEvent *event);
+static GstCaps *gst_lidar_parse_transform_caps(GstBaseTransform *trans, GstPadDirection direction, GstCaps *caps, GstCaps *filter);
 
 static void gst_lidar_parse_class_init(GstLidarParseClass *klass);
 static void gst_lidar_parse_init(GstLidarParse *filter);
@@ -95,6 +96,7 @@ static void gst_lidar_parse_class_init(GstLidarParseClass *klass) {
     base_transform_class->stop = GST_DEBUG_FUNCPTR(gst_lidar_parse_stop);
     base_transform_class->transform = GST_DEBUG_FUNCPTR(gst_lidar_parse_transform);
     base_transform_class->sink_event = GST_DEBUG_FUNCPTR(gst_lidar_parse_sink_event);
+    base_transform_class->transform_caps = GST_DEBUG_FUNCPTR(gst_lidar_parse_transform_caps);
     base_transform_class->passthrough_on_same_caps = FALSE;
 }
 
@@ -452,6 +454,24 @@ static GstFlowReturn gst_lidar_parse_transform(GstBaseTransform *trans, GstBuffe
     g_mutex_unlock(&filter->mutex);
 
     return GST_FLOW_OK;
+}
+
+static GstCaps *gst_lidar_parse_transform_caps(GstBaseTransform *trans, GstPadDirection direction, GstCaps *caps, GstCaps *filter) {
+    GstCaps *result = nullptr;
+
+    if (direction == GST_PAD_SINK) {
+        result = gst_caps_from_string(LIDAR_META_CAPS);
+    } else {
+        result = gst_caps_from_string("application/octet-stream");
+    }
+
+    if (filter) {
+        GstCaps *tmp = gst_caps_intersect_full(result, filter, GST_CAPS_INTERSECT_FIRST);
+        gst_caps_unref(result);
+        result = tmp;
+    }
+
+    return result;
 }
 
 
