@@ -488,48 +488,6 @@ get_latest_version_github() {
   echo "$latest_version"
 }
 
-
-setup_npu() {
-
-    # Change to the temporary directory
-    pushd "$temp_dir" > /dev/null || handle_error "Failed to change to temporary directory"
-
-    update_package_lists
-    install_packages libtbb12
-
-    REPO1="intel/linux-npu-driver"
-    REPO2="oneapi-src/level-zero"
-
-    TAG1=$(get_latest_version_github "$REPO1")
-    TAG2=$(get_latest_version_github "$REPO2")
-
-    FILTER1="$ubuntu_version"
-
-    # Get .deb package URLs for each repository
-    DEB_URLS1=$(get_deb_urls_no_api "$REPO1" "$TAG1" "$FILTER1")
-    DEB_URLS2=$(get_deb_urls_no_api "$REPO2" "$TAG2" "$FILTER1")
-
-    # Merge the results into a single array
-    package_urls=()
-    while IFS= read -r url; do
-        package_urls+=("$url")
-    done <<< "$DEB_URLS1"
-
-    while IFS= read -r url; do
-        package_urls+=("$url")
-    done <<< "$DEB_URLS2"
-
-    # Iterate over the list of package URLs and download each one
-    for package_url in "${package_urls[@]}"; do
-        download_deb_package "$package_url" "$APT_GET_TIMEOUT"
-        install_deb_package "$package_url" "$APT_GET_TIMEOUT"
-    done
-
-
-    # Return to the original directory
-    popd > /dev/null || handle_error "Failed to return to original directory"
-}
-
 install_npu() {
     $SUDO_PREFIX rm -rf ./npu_debs
     mkdir -p ./npu_debs && cd npu_debs || exit
@@ -538,7 +496,15 @@ install_npu() {
     tar -xf ./linux-npu-driver-v*
     $SUDO_PREFIX apt update
     $SUDO_PREFIX apt install libtbb12
-    $SUDO_PREFIX  $SUDO_PREFIX dpkg -i *.deb
+    $SUDO_PREFIX dpkg -i *.deb
+
+    for pkg in intel-driver-compiler-npu intel-fw-npu intel-level-zero-npu; do
+        dpkg -s "$pkg" >/dev/null 2>&1 || {
+            echo_color "NPU package not installed: $pkg" "red"
+            return 1
+        }
+    done
+
     cd ..
     rm -rf ./npu_debs
     $SUDO_PREFIX apt-get clean
@@ -806,9 +772,10 @@ then
             echo "The installed version is $installed_version. "
 
             intel_npu=$(lspci | grep -i 'Intel' | grep 'NPU' | rev | cut -d':' -f1 | rev)
-
+            echo_color "intel_npu value is: "$intel_npu"" "green"      
             if [ -n "$intel_npu" ]; then
                 intel_npu="Intel® NPU"
+                echo_color "intel_npu value is: "$intel_npu"" "green"
             fi
 
             line_to_add="export ZE_ENABLE_ALT_DRIVERS=libze_intel_npu.so"
