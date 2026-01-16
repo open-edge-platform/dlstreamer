@@ -754,6 +754,37 @@ then
     # In this case we know that NPU must be present in the system, so we can proceed with the installation
     echo_color " This system contains a Neural Processing Unit." "green"
 
+    intel_npu=$(lspci | grep -i 'Intel' | grep 'NPU' | rev | cut -d':' -f1 | rev)
+    if [ -n "$intel_npu" ]; then
+        intel_npu="Intel® NPU"
+        echo_color "intel_npu value is: "$intel_npu"" "green"
+    fi
+
+    line_to_add="export ZE_ENABLE_ALT_DRIVERS=libze_intel_npu.so"
+
+    # Define the .bash_profile file path for the current user
+    bash_profile="${HOME}/.bash_profile"
+
+    # Check if .bash_profile exists, create it if it does not
+    if [ ! -f "$bash_profile" ]; then
+        # If .bash_profile does not exist, check for .profile
+        if [ ! -f "${HOME}/.profile" ]; then
+            # Neither .bash_profile nor .profile exists, create .bash_profile
+            touch "$bash_profile"
+        else
+            # .profile exists, so use that instead
+            bash_profile="${HOME}/.profile"
+        fi
+    fi
+
+    # Check if the line already exists in .bash_profile to avoid duplicates
+    if ! grep -qF -- "$line_to_add" "$bash_profile"; then
+        # If the line does not exist, append it to .bash_profile
+        echo "$line_to_add" >> "$bash_profile"
+        # shellcheck disable=SC1090
+        source "$bash_profile"
+    fi
+
     repo="intel/linux-npu-driver"  # Replace with the GitHub repository in the format "owner/repo"
     package_name="intel-driver-compiler-npu"
 
@@ -767,41 +798,8 @@ then
     else
         echo "Latest version of '$package_name' from GitHub: $latest_version. The last version which supports Ubuntu22 is 1.26.0"
         echo "DLStreamer is tested on $npu_driver_version. Checking if installed version of $package_name is $npu_driver_version."
-
         if [ "$npu_driver_version" == "$installed_version" ]; then
             echo "The installed version is $installed_version. "
-
-            intel_npu=$(lspci | grep -i 'Intel' | grep 'NPU' | rev | cut -d':' -f1 | rev)
-            echo_color "intel_npu value is: "$intel_npu"" "green"      
-            if [ -n "$intel_npu" ]; then
-                intel_npu="Intel® NPU"
-                echo_color "intel_npu value is: "$intel_npu"" "green"
-            fi
-
-            line_to_add="export ZE_ENABLE_ALT_DRIVERS=libze_intel_npu.so"
-
-            # Define the .bash_profile file path for the current user
-            bash_profile="${HOME}/.bash_profile"
-
-            # Check if .bash_profile exists, create it if it does not
-            if [ ! -f "$bash_profile" ]; then
-                # If .bash_profile does not exist, check for .profile
-                if [ ! -f "${HOME}/.profile" ]; then
-                    # Neither .bash_profile nor .profile exists, create .bash_profile
-                    touch "$bash_profile"
-                else
-                    # .profile exists, so use that instead
-                    bash_profile="${HOME}/.profile"
-                fi
-            fi
-
-            # Check if the line already exists in .bash_profile to avoid duplicates
-            if ! grep -qF -- "$line_to_add" "$bash_profile"; then
-                # If the line does not exist, append it to .bash_profile
-                echo "$line_to_add" >> "$bash_profile"
-                # shellcheck disable=SC1090
-                source "$bash_profile"
-            fi
         else
             echo "The installed version is not $npu_driver_version, installed version is $installed_version"
         fi
