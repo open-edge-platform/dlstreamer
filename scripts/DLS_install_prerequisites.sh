@@ -798,7 +798,7 @@ then
     if [ -z "$installed_version" ]; then
         echo "The package '$package_name' is not installed."
     else
-        echo "Latest version of '$package_name' from GitHub: $latest_version"
+        echo "Latest version of '$package_name' from GitHub: $latest_version. The last version which supports Ubuntu22 is 1.26.0"
         echo "DLStreamer is tested on $npu_driver_version. Checking if installed version of $package_name is $npu_driver_version."
 
         if [ "$npu_driver_version" == "$installed_version" ]; then
@@ -846,9 +846,7 @@ then
 
     elif [[ -z "$installed_version" || "$npu_driver_version" != "$installed_version" ]]; then
         echo_color "The installation of the NPU driver was skipped." "bred"
-        echo_color "It is recommended to install version $npu_driver_version." "bred"
-        echo_color "Reboot after installation will be required." "bred"
-
+        echo_color "It is recommended to install version $npu_driver_version. You can rerun the script with --reinstall-npu-driver=yes to have the script reinstall the driver for you." "bred"
     else
         echo_color "Intel NPU driver is in $installed_version version and ready to use." "bgreen"
     fi
