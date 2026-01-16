@@ -171,7 +171,7 @@ update_package_lists() {
 
     # Update the package lists with a timeout and capture the output
     local update_output
-    update_output=$(timeout --foreground $APT_UPDATE_TIMEOUT $SUDO_PREFIX apt-get update 2>&1)
+    update_output=$(timeout --foreground "$APT_UPDATE_TIMEOUT" "$SUDO_PREFIX" apt-get update 2>&1)
     local update_exit_code=$?
 
     # Display the output
@@ -208,7 +208,7 @@ install_packages() {
 
     # Run apt-get install and use tee to duplicate the output to the log file
     # while still displaying it to the user
-    timeout --foreground $APT_GET_TIMEOUT $SUDO_PREFIX apt-get install -y --allow-downgrades "$@" 2>&1 | tee "$log_file"
+    timeout --foreground "$APT_GET_TIMEOUT" "$SUDO_PREFIX" apt-get install -y --allow-downgrades "$@" 2>&1 | tee "$log_file"
     local status=${PIPESTATUS[0]}
 
     # Check the exit status of the apt-get install command
@@ -338,9 +338,9 @@ setup_gpu(){
     # Additional packages for Ubuntu 22.04/24.04
     if [ "$ubuntu_version" == "24.04" ]; then
         $SUDO_PREFIX apt-get install -y --no-install-recommends software-properties-common
-        $SUDO_PREFIX add-apt-repository -y $INTEL_CL_GPU_REPO_URL
+        $SUDO_PREFIX add-apt-repository -y "$INTEL_CL_GPU_REPO_URL"
         $SUDO_PREFIX apt update
-        echo "Snapshot: 20251125T030400Z" | $SUDO_PREFIX tee -a /etc/apt/sources.list.d/$INTEL_GPU_LIST
+        echo "Snapshot: 20251125T030400Z" | $SUDO_PREFIX tee -a "/etc/apt/sources.list.d/$INTEL_GPU_LIST"
         $SUDO_PREFIX apt update
         install_packages intel-metrics-discovery intel-gsc libvpl2 \
             libze-intel-gpu1=25.40.35563.7-1~24.04~ppa1 libze1=1.24.3-1~24.04~ppa1 intel-opencl-icd=25.40.35563.7-1~24.04~ppa1 clinfo=3.0.23.01.25-1build1 \
@@ -534,8 +534,8 @@ install_npu() {
     $SUDO_PREFIX rm -rf ./npu_debs
     mkdir -p ./npu_debs && cd npu_debs || exit
     $SUDO_PREFIX dpkg --purge --force-remove-reinstreq intel-driver-compiler-npu intel-fw-npu intel-level-zero-npu
-    wget $npu_driver_version
-    tar -xf linux-npu-driver-v*
+    wget "$npu_driver_version"
+    tar -xf -- linux-npu-driver-v*
     $SUDO_PREFIX apt update
     $SUDO_PREFIX apt install libtbb12
     $SUDO_PREFIX  $SUDO_PREFIX dpkg -i *.deb
@@ -544,6 +544,7 @@ install_npu() {
     $SUDO_PREFIX apt-get clean
     $SUDO_PREFIX rm -rf /var/lib/apt/lists/*
     $SUDO_PREFIX rm -f /etc/ssl/certs/Intel*
+    echo_color "Succesfully installed NPU driver version: "$npu_driver_version" "green"
 }
 
 # ***********************************************************************
@@ -806,7 +807,7 @@ then
 
             intel_npu=$(lspci | grep -i 'Intel' | grep 'NPU' | rev | cut -d':' -f1 | rev)
 
-            if [ -z "$intel_npu" ]; then
+            if [ -n "$intel_npu" ]; then
                 intel_npu="Intel® NPU"
             fi
 

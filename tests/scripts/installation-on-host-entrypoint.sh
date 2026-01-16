@@ -53,8 +53,8 @@ docker ps -a
 
 #Remove gstreamer .cache
 echo_color "Checking $HOME/.cache/gstreamer-1.0/..." "blue"
-if [ -f $HOME/.cache/gstreamer-1.0/ ]; then
-    sudo rm -rf $HOME/.cache/gstreamer-1.0/
+if [ -f "$HOME/.cache/gstreamer-1.0/" ]; then
+    sudo rm -rf "$HOME/.cache/gstreamer-1.0/"
     echo_color "Removed $HOME/.cache/gstreamer-1.0/" "blue"
 fi
 
@@ -122,7 +122,7 @@ sudo apt-get update
 echo_color  "Completed: sudo apt update" "magenta"
 
 echo_color "Executing: sudo apt install -y ./intel-dlstreamer*" "blue"
-cd $DEB_PKGS_PATH
+cd "$DEB_PKGS_PATH"
 sudo apt install -y ./intel-dlstreamer*
 echo_color "Completed: sudo apt install -y ./intel-dlstreamer*" "magenta"
 
@@ -175,5 +175,4 @@ if gst-inspect-1.0 gvadetect &> /dev/null; then
     echo_color " DL Streamer verification successful" "green"
 else
     handle_error " DL Streamer verification failed"
-    exit 1
 fi
