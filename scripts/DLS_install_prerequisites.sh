@@ -544,7 +544,7 @@ install_npu() {
     $SUDO_PREFIX apt-get clean
     $SUDO_PREFIX rm -rf /var/lib/apt/lists/*
     $SUDO_PREFIX rm -f /etc/ssl/certs/Intel*
-    echo_color "Succesfully installed NPU driver version: "$npu_driver_version" "green"
+    echo_color "Succesfully installed NPU driver version: "$npu_driver_version" "green""
 }
 
 # ***********************************************************************
