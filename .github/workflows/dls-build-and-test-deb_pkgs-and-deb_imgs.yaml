@@ -20,7 +20,7 @@ env:
   dlstreamer-version: "2025.2.0"
   MODELS_PATH: "$HOME/models"
   VIDEO_INPUTS_PATH: "$HOME/videos"
-  DLS_REL_PATH: "./dlstreamer-repo"
+  DLS_REL_PATH: "./dlstreamer"
 
 jobs:
   build:
@@ -48,16 +48,16 @@ jobs:
     steps:
       - name: Initial environment clean
         run: |
-          sudo rm -rf dlstreamer-repo
+          sudo rm -rf dlstreamer
       - name: Check out dlstreamer repository
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 #5.0.0
         with:
           persist-credentials: false
-          path: dlstreamer-repo
+          path: dlstreamer
 
       - name: Init submodules
         run: |
-          cd dlstreamer-repo
+          cd dlstreamer-
           git submodule update --init thirdparty/spdlog
       - name: Check out test repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 #4.2.2
@@ -280,6 +280,6 @@ jobs:
         run: |
           rm -rf $HOME/.virtualenvs
           docker rmi ${deb_final_img} || true
-          sudo rm -f $HOME/dlstreamer-repo
-          rm -rf dlstreamer-repo
+          sudo rm -f $HOME/dlstreamer
+          rm -rf dlstreamer
           rm -rf $HOME/dl-streamer-tests-repo
