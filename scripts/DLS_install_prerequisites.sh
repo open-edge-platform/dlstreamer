@@ -535,7 +535,7 @@ install_npu() {
     mkdir -p ./npu_debs && cd npu_debs || exit
     $SUDO_PREFIX dpkg --purge --force-remove-reinstreq intel-driver-compiler-npu intel-fw-npu intel-level-zero-npu
     wget "$npu_driver_version"
-    tar -xf -- linux-npu-driver-v*
+    tar -xf ./linux-npu-driver-v*
     $SUDO_PREFIX apt update
     $SUDO_PREFIX apt install libtbb12
     $SUDO_PREFIX  $SUDO_PREFIX dpkg -i *.deb
@@ -544,7 +544,7 @@ install_npu() {
     $SUDO_PREFIX apt-get clean
     $SUDO_PREFIX rm -rf /var/lib/apt/lists/*
     $SUDO_PREFIX rm -f /etc/ssl/certs/Intel*
-    echo_color "Succesfully installed NPU driver version: "$npu_driver_version" "green""
+    echo_color "Succesfully installed NPU driver version: "$npu_driver_version"" "green"
 }
 
 # ***********************************************************************
