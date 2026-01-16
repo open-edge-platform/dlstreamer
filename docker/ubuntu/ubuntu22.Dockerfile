@@ -77,7 +77,7 @@ RUN \
 WORKDIR /tmp/npu_deps
 
 RUN curl -LO https://github.com/intel/linux-npu-driver/releases/download/v1.26.0/linux-npu-driver-v1.26.0.20251125-19665715237-ubuntu2204.tar.gz && \
-    tar -xf linux-npu-driver-v1.26.0.20251125-19665715237-ubuntu2204 && \
+    tar -xf linux-npu-driver-v1.26.0.20251125-19665715237-ubuntu2204.tar.gz && \
     dpkg -i ./*.deb && \
     rm -rf /var/lib/apt/lists/* /tmp/npu_deps
 
@@ -514,7 +514,7 @@ RUN \
 WORKDIR /tmp/npu_deps
 
 RUN curl -LO https://github.com/intel/linux-npu-driver/releases/download/v1.26.0/linux-npu-driver-v1.26.0.20251125-19665715237-ubuntu2204.tar.gz && \
-    tar -xf linux-npu-driver-v1.26.0.20251125-19665715237-ubuntu2204 && \
+    tar -xf linux-npu-driver-v1.26.0.20251125-19665715237-ubuntu2204.tar.gz && \
     dpkg -i ./*.deb && \
     rm -rf /var/lib/apt/lists/* /tmp/npu_deps
 
