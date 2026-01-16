@@ -755,11 +755,6 @@ then
     echo_color " This system contains a Neural Processing Unit." "green"
 
     intel_npu=$(lspci | grep -i 'Intel' | grep 'NPU' | rev | cut -d':' -f1 | rev)
-    if [ -n "$intel_npu" ]; then
-        intel_npu="Intel® NPU"
-        echo_color "intel_npu value is: "$intel_npu"" "green"
-    fi
-
     line_to_add="export ZE_ENABLE_ALT_DRIVERS=libze_intel_npu.so"
 
     # Define the .bash_profile file path for the current user
