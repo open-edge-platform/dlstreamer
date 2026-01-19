@@ -11,6 +11,7 @@ npu_driver_version_u22_pkg='https://github.com/intel/linux-npu-driver/releases/d
 npu_driver_version_u22="1.26.0"
 npu_driver_version_u24="1.28.0"
 reinstall_npu_driver='no'  # Default value for reinstalling the NPU driver
+SUDO_PREFIX="sudo"
 echo "Reinstall NPU driver: $reinstall_npu_driver"
 
 # Show help message
