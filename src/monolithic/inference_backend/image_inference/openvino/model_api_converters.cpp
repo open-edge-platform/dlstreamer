@@ -131,6 +131,26 @@ bool convertYoloMeta2ModelApi(const std::string model_file, ov::AnyMap &modelCon
         modelConfig["model_type"] = ov::Any(model_type);
     }
 
+    // set reshape size if model is dynamic
+    std::string dynamic = yaml_json.contains("dynamic") && yaml_json["dynamic"].is_string()
+                              ? yaml_json["dynamic"].get<std::string>()
+                              : "";
+    if (dynamic == "true") {
+        std::vector<int> imgsz;
+        if (yaml_json.contains("imgsz") && yaml_json["imgsz"].is_array()) {
+            for (const auto &val : yaml_json["imgsz"]) {
+                if (val.is_string()) {
+                    int value = std::stoi(val.get<std::string>());
+                    imgsz.push_back(value);
+                }
+            }
+        }
+        if (imgsz.size() == 2)
+            modelConfig["reshape"] = ov::Any(imgsz);
+        else
+            GST_ERROR("Unexpected reshape size: %ld", imgsz.size());
+    }
+
     return true;
 }
 
@@ -323,6 +343,25 @@ std::map<std::string, GstStructure *> get_model_info_preproc(const std::shared_p
             gst_structure_set_value(s, "reverse_input_channels", &gvalue);
             GST_INFO("[get_model_info_preproc] reverse_input_channels: %s", element.second.as<std::string>().c_str());
             g_value_unset(&gvalue);
+        }
+        if (element.first == "reshape") {
+            std::vector<int> size_values = element.second.as<std::vector<int>>();
+            if (size_values.size() == 2) {
+                GValue gvalue = G_VALUE_INIT;
+                g_value_init(&gvalue, GST_TYPE_ARRAY);
+
+                for (const int &size_value : size_values) {
+                    GValue item = G_VALUE_INIT;
+                    g_value_init(&item, G_TYPE_INT);
+                    g_value_set_int(&item, size_value);
+                    gst_value_array_append_value(&gvalue, &item);
+                    GST_INFO("[get_model_info_preproc] reshape: %d", size_value);
+                    g_value_unset(&item);
+                }
+
+                gst_structure_set_value(s, "reshape_size", &gvalue);
+                g_value_unset(&gvalue);
+            }
         }
     }
 

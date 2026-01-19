@@ -492,6 +492,18 @@ void UpdateConfigWithLayerInfo(const std::vector<ModelInputProcessorInfo::Ptr> &
             }
             config[KEY_BASE][KEY_MODEL_FORMAT] = color_space;
         }
+
+        // Set image resize parameters
+        const GValue *garray = gst_structure_get_value(it->params, "reshape_size");
+        if (garray && gst_value_array_get_size(garray) == 2) {
+            const GValue *height = gst_value_array_get_value(garray, 0);
+            const GValue *width = gst_value_array_get_value(garray, 1);
+
+            config[KEY_BASE][KEY_RESHAPE] = "1";
+            config[KEY_BASE][KEY_RESHAPE_STATIC] = "1";
+            config[KEY_BASE][KEY_RESHAPE_WIDTH] = std::to_string(g_value_get_int(width));
+            config[KEY_BASE][KEY_RESHAPE_HEIGHT] = std::to_string(g_value_get_int(height));
+        }
     }
 }
 
@@ -685,8 +697,8 @@ bool canReuseSharedVADispCtx(GvaBaseInference *gva_base_inference, size_t max_st
 }
 
 // Returns a dlstreamer::ContextPtr representing a VA display context.
-// The returned shared pointer may either reference a shared VA display (if reuse is possible) or a newly created one.
-// The caller is responsible for holding the returned pointer for as long as the VA display context is needed.
+// The returned shared pointer may either reference a shared VA display (if reuse is possible) or a newly created
+// one. The caller is responsible for holding the returned pointer for as long as the VA display context is needed.
 // If a shared VA display is reused, its lifetime is managed by all holders of the shared pointer.
 dlstreamer::ContextPtr createVaDisplay(GvaBaseInference *gva_base_inference) {
     assert(gva_base_inference);

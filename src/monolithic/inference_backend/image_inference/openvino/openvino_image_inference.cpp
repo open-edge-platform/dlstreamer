@@ -297,6 +297,13 @@ struct ConfigHelper {
         return std::stoi(it->second);
     }
 
+    bool reshape_static() const {
+        const auto it = base_config.find(KEY_RESHAPE);
+        if (it == base_config.cend())
+            return false;
+        return std::stoi(it->second);
+    }
+
     const std::string &base_get_or_empty(const std::string &key) const {
         const auto it = base_config.find(key);
         if (it == base_config.cend())
@@ -778,7 +785,7 @@ class OpenVinoNewApiImpl {
 
         auto [reshape_width, reshape_height] = config.reshape_size();
         if (config.need_reshape() && (reshape_width || reshape_height))
-            reshape_model(reshape_height, reshape_width);
+            reshape_model(reshape_height, reshape_width, config.reshape_static());
 
         auto ppp = ov::preprocess::PrePostProcessor(_model);
         configure_model_inputs(config, ppp);
@@ -790,7 +797,7 @@ class OpenVinoNewApiImpl {
         auto [img_width, img_height] = config.image_size();
         if (img_width == 0 && img_height == 0 && config.pp_type() == ImagePreprocessorType::IE) {
             auto [frame_width, frame_height] = config.frame_size();
-            reshape_model(frame_height, frame_width);
+            reshape_model(frame_height, frame_width, true);
         }
 
         _batch_size = config.batch_size();
@@ -1011,7 +1018,7 @@ class OpenVinoNewApiImpl {
         }
     }
 
-    void reshape_model(size_t image_height, size_t image_width) {
+    void reshape_model(size_t image_height, size_t image_width, bool reshape_static) {
         std::map<ov::Output<ov::Node>, ov::PartialShape> port_to_shape;
 
         for (const ov::Output<ov::Node> &input : _model->inputs()) {
@@ -1021,7 +1028,7 @@ class OpenVinoNewApiImpl {
             if (layout.empty())
                 throw std::runtime_error(fmt::format("Reshape: couldn't determine input layout"));
 
-            if (input.get_partial_shape().is_static()) {
+            if (input.get_partial_shape().is_static() || reshape_static) {
                 if (image_height > 0)
                     shape[ov::layout::height_idx(layout)] = image_height;
                 if (image_width > 0)
