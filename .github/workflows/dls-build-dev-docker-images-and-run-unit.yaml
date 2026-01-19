@@ -121,9 +121,9 @@ jobs:
         run: |
           IMAGE_NAME=${dev_debug_img}
           if [ "${{ matrix.ubuntu_version }}" == "ubuntu22" ]; then
-            EXPECTED_SIZE_MB={{ vars.EXPECTED_SIZE_MB_DEV_U22 }}
+            EXPECTED_SIZE_MB=${{ vars.EXPECTED_SIZE_MB_DEV_U22 }}
           elif [ "${{ matrix.ubuntu_version }}" == "ubuntu24" ]; then
-            EXPECTED_SIZE_MB={{ vars.EXPECTED_SIZE_MB_DEV_U24 }}
+            EXPECTED_SIZE_MB=${{ vars.EXPECTED_SIZE_MB_DEV_U24 }}
           fi
 
           IMAGE_SIZE_BYTES=$(docker image inspect "$IMAGE_NAME" --format='{{.Size}}')
