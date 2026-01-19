@@ -23,5 +23,3 @@ std::map<std::string, GstStructure *> get_model_info_postproc(const std::shared_
                                                               const std::string model_file);
 
 } // namespace ModelApiConverters
-
-

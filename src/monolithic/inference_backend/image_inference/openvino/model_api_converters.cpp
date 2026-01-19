@@ -91,7 +91,7 @@ bool yaml2Json(const std::string yaml_file, nlohmann::json &yaml_json) {
 // Convert input YOLO metadata file into Model API format
 bool convertYoloMeta2ModelApi(const std::string model_file, ov::AnyMap &modelConfig) {
     const std::vector<std::pair<std::string, std::string>> model_types = {
-        {"YOLOv8", "yolo_v8"}, {"YOLOv10", "yolo_v10"}, {"YOLO11", "yolo_v8"}, {"YOLO26", "yolo_v26"}};        
+        {"YOLOv8", "yolo_v8"}, {"YOLOv10", "yolo_v10"}, {"YOLO11", "yolo_v8"}, {"YOLO26", "yolo_v26"}};
     const std::vector<std::pair<std::string, std::string>> task_types = {
         {"detection", ""}, {"segmentation", "seg"}, {"pose", "pose"}, {"obb", "obb"}};
 
@@ -110,16 +110,17 @@ bool convertYoloMeta2ModelApi(const std::string model_file, ov::AnyMap &modelCon
     // derive model type from description and model task
     std::string model_type = "";
     for (const auto &model_type_pair : model_types) {
-        std::string description = yaml_json.contains("description") && yaml_json["description"].is_string() 
-                                    ? yaml_json["description"].get<std::string>()
-                                    : "";
+        std::string description = yaml_json.contains("description") && yaml_json["description"].is_string()
+                                      ? yaml_json["description"].get<std::string>()
+                                      : "";
         if (!description.empty() && description.find(model_type_pair.first) != std::string::npos) {
             model_type = model_type_pair.second;
             break;
         }
     }
     for (const auto &task_type_pair : task_types) {
-        std::string task = yaml_json.contains("task") && yaml_json["task"].is_string() ? yaml_json["task"].get<std::string>() : "";
+        std::string task =
+            yaml_json.contains("task") && yaml_json["task"].is_string() ? yaml_json["task"].get<std::string>() : "";
         if (!task.empty() && task.find(task_type_pair.first) != std::string::npos) {
             model_type = model_type + "_" + task_type_pair.second;
             break;
@@ -138,7 +139,7 @@ bool convertThirdPartyModelConfig(const std::string model_file, ov::AnyMap &mode
     bool updated = false;
 
     if (!modelConfig.empty()) {
-        if (modelConfig["model_type"] == "YOLO" ) {
+        if (modelConfig["model_type"] == "YOLO") {
             updated = convertYoloMeta2ModelApi(model_file, modelConfig);
         }
     }
