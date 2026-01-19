@@ -5,8 +5,10 @@
 # SPDX-License-Identifier: MIT
 # ==============================================================================
 
-npu_driver_version_u24='https://github.com/intel/linux-npu-driver/releases/download/v1.28.0/linux-npu-driver-v1.28.0.20251218-20347000698-ubuntu2404.tar.gz'
-npu_driver_version_u22='https://github.com/intel/linux-npu-driver/releases/download/v1.26.0/linux-npu-driver-v1.26.0.20251125-19665715237-ubuntu2204.tar.gz'
+npu_driver_version_u24_pkg='https://github.com/intel/linux-npu-driver/releases/download/v1.28.0/linux-npu-driver-v1.28.0.20251218-20347000698-ubuntu2404.tar.gz'
+npu_driver_version_u22_pkg='https://github.com/intel/linux-npu-driver/releases/download/v1.26.0/linux-npu-driver-v1.26.0.20251125-19665715237-ubuntu2204.tar.gz'
+npu_driver_version_u22="1.26.0"
+npu_driver_version_u24="1.28.0"
 reinstall_npu_driver='no'  # Default value for reinstalling the NPU driver
 on_host_or_docker='host'
 
@@ -492,7 +494,7 @@ install_npu() {
     $SUDO_PREFIX rm -rf ./npu_debs
     mkdir -p ./npu_debs && cd npu_debs || exit
     $SUDO_PREFIX dpkg --purge --force-remove-reinstreq intel-driver-compiler-npu intel-fw-npu intel-level-zero-npu
-    wget "$npu_driver_version"
+    wget "$npu_driver_version_pkg"
     tar -xf ./linux-npu-driver-v*
     $SUDO_PREFIX apt update
     $SUDO_PREFIX apt install libtbb12
@@ -523,8 +525,10 @@ if [ "$on_host_or_docker" == "host" ]; then
 
     # Set correct NPU driver version
     if [[ "$ubuntu_version" == "22.04" ]]; then
+        npu_driver_version_pkg="$npu_driver_version_u22_pkg"
         npu_driver_version="$npu_driver_version_u22"
     elif [[ "$ubuntu_version" == "24.04" ]]; then
+        npu_driver_version_pkg="$npu_driver_version_u24_pkg"
         npu_driver_version="$npu_driver_version_u24"
     else
         echo_color "Unsupported Ubuntu version: $ubuntu_version" "bred"
@@ -791,8 +795,8 @@ then
     if [ -z "$installed_version" ]; then
         echo "The package '$package_name' is not installed."
     else
-        echo "Latest version of '$package_name' from GitHub: $latest_version. The last version which supports Ubuntu22 is 1.26.0"
-        echo "DLStreamer is tested on $npu_driver_version. Checking if installed version of $package_name is $npu_driver_version."
+        echo "Latest version of '$package_name' from GitHub: $latest_version. The last version which supports Ubuntu22 is $npu_driver_version_u22"
+        echo "Checking if installed version of $package_name is $npu_driver_version."
         if [ "$npu_driver_version" == "$installed_version" ]; then
             echo "The installed version is $installed_version. "
         else
