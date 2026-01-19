@@ -28,7 +28,7 @@ static GstStaticPadTemplate src_template = GST_STATIC_PAD_TEMPLATE(
     "src",
     GST_PAD_SRC,
     GST_PAD_ALWAYS,
-    GST_STATIC_CAPS(LIDAR_META_CAPS) 
+    GST_STATIC_CAPS("application/x-lidar")
 );
 
 static void gst_lidar_parse_set_property(GObject *object, guint prop_id,
@@ -217,14 +217,14 @@ static gboolean gst_lidar_parse_start(GstBaseTransform *trans) {
     gst_object_unref(peer_pad);
 
     GstPad *src_pad = GST_BASE_TRANSFORM_SRC_PAD(trans);
-    GstCaps *forced_caps = gst_caps_from_string(LIDAR_META_CAPS);
+    GstCaps *forced_caps = gst_caps_from_string("application/x-lidar");
     if (!forced_caps) {
-        GST_ERROR_OBJECT(filter, "Failed to create LIDAR_META_CAPS");
+        GST_ERROR_OBJECT(filter, "Failed to create application/x-lidar caps");
         return FALSE;
     }
 
     if (!gst_pad_set_caps(src_pad, forced_caps)) {
-        GST_ERROR_OBJECT(filter, "Failed to set src caps to LIDAR_META_CAPS");
+        GST_ERROR_OBJECT(filter, "Failed to set src caps to application/x-lidar");
         gst_caps_unref(forced_caps);
         return FALSE;
     }
@@ -477,7 +477,7 @@ static GstCaps *gst_lidar_parse_transform_caps(GstBaseTransform *trans, GstPadDi
     GstCaps *result = nullptr;
 
     if (direction == GST_PAD_SINK) {
-        result = gst_caps_from_string(LIDAR_META_CAPS);
+        result = gst_caps_from_string("application/x-lidar");
     } else {
         result = gst_caps_from_string("application/octet-stream");
     }
@@ -495,9 +495,9 @@ static gboolean gst_lidar_parse_set_caps(GstBaseTransform *trans, GstCaps *incap
     GstLidarParse *filter = GST_LIDAR_PARSE(trans);
 
     GstPad *src_pad = GST_BASE_TRANSFORM_SRC_PAD(trans);
-    GstCaps *forced_caps = gst_caps_from_string(LIDAR_META_CAPS);
+    GstCaps *forced_caps = gst_caps_from_string("application/x-lidar");
     if (!forced_caps) {
-        GST_ERROR_OBJECT(filter, "Failed to create LIDAR_META_CAPS");
+        GST_ERROR_OBJECT(filter, "Failed to create application/x-lidar caps");
         return FALSE;
     }
 
@@ -505,7 +505,7 @@ static gboolean gst_lidar_parse_set_caps(GstBaseTransform *trans, GstCaps *incap
     gst_caps_unref(forced_caps);
 
     if (!ok) {
-        GST_ERROR_OBJECT(filter, "Failed to set src caps to LIDAR_META_CAPS");
+        GST_ERROR_OBJECT(filter, "Failed to set src caps to application/x-lidar");
     }
 
     return ok;
