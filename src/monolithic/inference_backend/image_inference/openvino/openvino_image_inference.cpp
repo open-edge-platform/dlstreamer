@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2018-2025 Intel Corporation
+ * Copyright (C) 2018-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -17,8 +17,8 @@
 
 #include <spdlog/fmt/bundled/ranges.h>
 
-#include "openvino_image_inference.h"
 #include "model_api_converters.h"
+#include "openvino_image_inference.h"
 
 #include "config.h"
 #include "inference_backend/logger.h"

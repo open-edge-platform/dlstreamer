@@ -6,9 +6,9 @@
 
 #include "model_api_converters.h"
 
+#include "utils.h"
 #include <fstream>
 #include <regex>
-#include "utils.h"
 
 namespace ModelApiConverters {
 
@@ -19,7 +19,7 @@ bool yaml2Json(const std::string yaml_file, nlohmann::json &yaml_json) {
     std::ifstream file(yaml_file);
     if (!file.is_open()) {
         GST_ERROR("Failed to open yaml file: %s", yaml_file.c_str());
-        return false; 
+        return false;
     }
 
     try {
@@ -27,29 +27,29 @@ bool yaml2Json(const std::string yaml_file, nlohmann::json &yaml_json) {
         std::stringstream buffer;
         buffer << file.rdbuf();
         std::string yaml_content = buffer.str();
-                
+
         std::istringstream yaml_stream(yaml_content);
         std::string line;
         std::string current_key;
-                
+
         while (std::getline(yaml_stream, line)) {
             // Skip empty lines and comments
             if (line.empty() || line[0] == '#')
                 continue;
-                    
+
             // Remove leading/trailing whitespace
             size_t first = line.find_first_not_of(" \t");
             size_t last = line.find_last_not_of(" \t\r\n");
             if (first == std::string::npos)
                 continue;
             line = line.substr(first, last - first + 1);
-                    
+
             // Parse key-value pairs
             size_t colon_pos = line.find(':');
             if (colon_pos != std::string::npos) {
                 std::string key = line.substr(0, colon_pos);
                 std::string value = line.substr(colon_pos + 1);
-                        
+
                 // Read value
                 size_t val_start = value.find_first_not_of(" \t");
                 if (val_start != std::string::npos) {
@@ -64,7 +64,7 @@ bool yaml2Json(const std::string yaml_file, nlohmann::json &yaml_json) {
                             size_t item_first = line.find_first_not_of(" \t");
                             if (item_first == std::string::npos || line[item_first] != '-')
                                 break;
-                                    
+
                             size_t item_start = line.find_first_not_of(" \t", item_first + 1);
                             if (item_start != std::string::npos) {
                                 std::string item = line.substr(item_start);
@@ -79,7 +79,7 @@ bool yaml2Json(const std::string yaml_file, nlohmann::json &yaml_json) {
                 }
             }
         }
-                
+
     } catch (const std::exception &e) {
         GST_ERROR("Failed to parse YAML file: %s", e.what());
         return false;
@@ -91,17 +91,9 @@ bool yaml2Json(const std::string yaml_file, nlohmann::json &yaml_json) {
 // Convert input YOLO metadata file into Model API format
 bool convertYoloMeta2ModelApi(const std::string model_file, ov::AnyMap &modelConfig) {
     const std::vector<std::pair<std::string, std::string>> model_types = {
-        {"YOLOv8", "yolo_v8"}, 
-        {"YOLOv10", "yolo_v10"}, 
-        {"YOLO11", "yolo_v8"}, 
-        {"YOLO26", "yolo_v26"}
-    };
+        {"YOLOv8", "yolo_v8"}, {"YOLOv10", "yolo_v10"}, {"YOLO11", "yolo_v8"}, {"YOLO26", "yolo_v26"}};        
     const std::vector<std::pair<std::string, std::string>> task_types = {
-        {"detection", ""}, 
-        {"segmentation", "seg"}, 
-        {"pose", "pose"}, 
-        {"obb", "obb"}
-    };
+        {"detection", ""}, {"segmentation", "seg"}, {"pose", "pose"}, {"obb", "obb"}};
 
     std::filesystem::path metadata_file(model_file);
     metadata_file.replace_filename("metadata.yaml");
@@ -119,27 +111,25 @@ bool convertYoloMeta2ModelApi(const std::string model_file, ov::AnyMap &modelCon
     std::string model_type = "";
     for (const auto &model_type_pair : model_types) {
         std::string description = yaml_json.contains("description") && yaml_json["description"].is_string() 
-            ? yaml_json["description"].get<std::string>() 
-            : "";
+                                    ? yaml_json["description"].get<std::string>()
+                                    : "";
         if (!description.empty() && description.find(model_type_pair.first) != std::string::npos) {
             model_type = model_type_pair.second;
             break;
         }
     }
     for (const auto &task_type_pair : task_types) {
-        std::string task = yaml_json.contains("task") && yaml_json["task"].is_string() 
-            ? yaml_json["task"].get<std::string>() 
-            : "";
+        std::string task = yaml_json.contains("task") && yaml_json["task"].is_string() ? yaml_json["task"].get<std::string>() : "";
         if (!task.empty() && task.find(task_type_pair.first) != std::string::npos) {
             model_type = model_type + "_" + task_type_pair.second;
             break;
         }
-    }   
+    }
 
     if (!model_type.empty()) {
         modelConfig["model_type"] = ov::Any(model_type);
     }
-                
+
     return true;
 }
 
@@ -179,8 +169,9 @@ std::vector<std::string> split(const std::string &s, const std::string &delimite
 }
 
 // Parse Model API metadata and return pre-processing GstStructure
-std::map<std::string, GstStructure *>
-get_model_info_preproc(const std::shared_ptr<ov::Model> model, const std::string model_file, const gchar *pre_proc_config) {
+std::map<std::string, GstStructure *> get_model_info_preproc(const std::shared_ptr<ov::Model> model,
+                                                             const std::string model_file,
+                                                             const gchar *pre_proc_config) {
     std::map<std::string, GstStructure *> res;
     std::string layer_name("ANY");
     GstStructure *s = nullptr;
@@ -195,7 +186,7 @@ get_model_info_preproc(const std::shared_ptr<ov::Model> model, const std::string
         if (nncfConfig.count("quantization") && (modelVersion != runtimeVersion))
             g_warning("Model quantization runtime (%s) does not match current runtime (%s). Results may be "
                       "inaccurate. Please re-quantize the model with the current runtime version.",
-                       modelVersion.c_str(), runtimeVersion.c_str());
+                      modelVersion.c_str(), runtimeVersion.c_str());
     }
 
     if (model->has_rt_info({"model_info"})) {
@@ -313,8 +304,7 @@ get_model_info_preproc(const std::shared_ptr<ov::Model> model, const std::string
             g_value_init(&gvalue, G_TYPE_STRING);
             g_value_set_string(&gvalue, element.second.as<std::string>().c_str());
             gst_structure_set_value(s, "color_space", &gvalue);
-            GST_INFO("[get_model_info_preproc] reverse_input_channels: %s",
-                     element.second.as<std::string>().c_str());
+            GST_INFO("[get_model_info_preproc] reverse_input_channels: %s", element.second.as<std::string>().c_str());
             GST_INFO("[get_model_info_preproc] color_space: %s", g_value_get_string(&gvalue));
             g_value_unset(&gvalue);
         }
@@ -330,8 +320,7 @@ get_model_info_preproc(const std::shared_ptr<ov::Model> model, const std::string
                 g_value_set_int(&gvalue, gint(true));
 
             gst_structure_set_value(s, "reverse_input_channels", &gvalue);
-            GST_INFO("[get_model_info_preproc] reverse_input_channels: %s",
-                      element.second.as<std::string>().c_str());
+            GST_INFO("[get_model_info_preproc] reverse_input_channels: %s", element.second.as<std::string>().c_str());
             g_value_unset(&gvalue);
         }
     }
@@ -346,7 +335,8 @@ get_model_info_preproc(const std::shared_ptr<ov::Model> model, const std::string
 }
 
 // Parse Model API metadata and return post-processing GstStructure
-std::map<std::string, GstStructure *> get_model_info_postproc(const std::shared_ptr<ov::Model> model, const std::string model_file) {
+std::map<std::string, GstStructure *> get_model_info_postproc(const std::shared_ptr<ov::Model> model,
+                                                              const std::string model_file) {
     std::map<std::string, GstStructure *> res;
     std::string layer_name("ANY");
     GstStructure *s = nullptr;
