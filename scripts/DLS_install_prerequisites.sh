@@ -792,30 +792,21 @@ then
     installed_version=$(get_installed_version "$package_name")
     installed_version=$(echo "$installed_version" | grep -oP '^\d+\.\d+\.\d+') # This extracts the version number in the format X.Y.Z
 
-    if [ -z "$installed_version" ]; then
-        echo "The package '$package_name' is not installed."
-    else
-        echo "Latest version of '$package_name' from GitHub: $latest_version. The last version which supports Ubuntu22 is $npu_driver_version_u22"
-        echo "Checking if installed version of $package_name is $npu_driver_version."
-        if [ "$npu_driver_version" == "$installed_version" ]; then
-            echo "The installed version is $installed_version. "
-        else
-            echo "The installed version is not $npu_driver_version, installed version is $installed_version"
-        fi
-    fi
+    echo "Latest version of '$package_name' from GitHub: $latest_version. DLStreamer is tested with $npu_driver_version_u24 on Ubuntu24 and $npu_driver_version_u22 on Ubuntu22. The last version which supports Ubuntu22 is $npu_driver_version_u22"
 
     if [[ "$reinstall_npu_driver" =~ ^[Yy][Ee][Ss]$ ]]; then
+        echo_color "Reinstalling NPU driver..." "green"
         install_npu
-        installed_version=$(get_installed_version "$package_name")
-        installed_version=$(echo "$installed_version" | grep -oP '^\d+\.\d+\.\d+')
-
-    elif [[ -z "$installed_version" || "$npu_driver_version" != "$installed_version" ]]; then
-        echo_color "The installation of the NPU driver was skipped." "bred"
-        echo_color "It is recommended to install version $npu_driver_version. You can rerun the script with --reinstall-npu-driver=yes to have the script reinstall the driver for you." "bred"
+    elif [ -z "$installed_version" ]; then
+        echo_color "NPU driver is not installed." "bred"
+        echo_color "It is recommended to install version $npu_driver_version. You can rerun the script with --reinstall-npu-driver=yes to install the driver." "bred"
+    elif [ "$npu_driver_version" != "$installed_version" ]; then
+        echo_color "NPU driver version mismatch detected." "bred"
+        echo_color "Installed: $installed_version, Recommended: $npu_driver_version" "bred"
+        echo_color "You can rerun the script with --reinstall-npu-driver=yes to update the driver." "bred"
     else
-        echo_color "Intel NPU driver is in $installed_version version and ready to use." "bgreen"
+        echo_color "Intel NPU driver is already installed in the correct version ($installed_version) and ready to use." "green"
     fi
-fi
 
 if [ "$need_to_reboot" -eq 1 ]; then
   echo_color "\n A reboot is required!." "bred"
