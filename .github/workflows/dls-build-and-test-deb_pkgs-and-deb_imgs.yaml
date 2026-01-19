@@ -278,7 +278,44 @@ jobs:
         with:
           name: DLS_functional_tests_${{ matrix.runner_print_label }}_on_host_${{ matrix.ubuntu_version }}_results
           path: "${{ env.DLS_TESTS_RESULTS_PATH }}"
+      - name: Check Docker image size
+        id: check-size
+        env:
+          deb_final_img: ghcr.io/${{ github.repository }}/deb-final-img-${{ matrix.ubuntu_version }}:${{ github.sha }}        
+        run: |
+          IMAGE_NAME="${deb_final_img}"
+          if [ "${{ inputs.ubuntu_version }}" == "ubuntu22" ]; then
+            EXPECTED_SIZE_MB={{ vars.EXPECTED_SIZE_MB_DEB_U22 }}
+          elif [ "${{ inputs.ubuntu_version }}" == "ubuntu24" ]; then
+            EXPECTED_SIZE_MB={{ vars.EXPECTED_SIZE_MB_DEB_U24 }}
+          fi
 
+          IMAGE_SIZE_BYTES=$(docker image inspect "$IMAGE_NAME" --format='{{.Size}}')
+          IMAGE_SIZE_MB=$((IMAGE_SIZE_BYTES / 1024 / 1024))
+
+          echo "Actual image size: ${IMAGE_SIZE_MB} MB"
+          echo "Expected size: ${EXPECTED_SIZE_MB} MB"
+          DIFF=$(( IMAGE_SIZE_MB - EXPECTED_SIZE_MB ))
+          ABS_DIFF=${DIFF#-}
+          echo "Difference: ${ABS_DIFF} MB"
+
+          THRESHOLD_SIZE_MB=100
+          if [ "$ABS_DIFF" -gt "$THRESHOLD_SIZE_MB" ]; then
+            echo "❌ Image size difference exceeds allowed threshold: ${THRESHOLD_SIZE_MB}MB (difference: ${ABS_DIFF} MB)"
+            echo "IMAGE_SIZE_MB=$IMAGE_SIZE_MB" >> $GITHUB_ENV
+            exit 1
+          else
+            echo "IMAGE_SIZE_MB=$IMAGE_SIZE_MB" >> $GITHUB_ENV
+            echo "✅ Image size within allowed threshold: ${THRESHOLD_SIZE_MB}MB."
+          fi
+      - name: Print image size summary
+        env:
+          IMAGE_SIZE_MB: ${IMAGE_SIZE_MB}
+        run:
+          echo "Current Docker image size:" >> $GITHUB_STEP_SUMMARY
+          echo "**${IMAGE_SIZE_MB} MB**" >> $GITHUB_STEP_SUMMARY
+          echo "Expected Docker image size:" >> $GITHUB_STEP_SUMMARY
+          echo "**{{ vars.EXPECTED_SIZE_MB_DEB_U24 }} MB**" >> $GITHUB_STEP_SUMMARY
       - name: Print host tests summary in workflow
         if: steps.run_onhost_tests.outcome == 'success'
         env:
