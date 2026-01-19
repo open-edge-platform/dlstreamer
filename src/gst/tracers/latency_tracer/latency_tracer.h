@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2023 Intel Corporation
+ * Copyright (C) 2023-2025 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -28,19 +28,15 @@ struct LatencyTracer {
 
     /*< private >*/
     GstElement *pipeline;
-    GstElement *sink_element;
-    guint frame_count;
-    gdouble toal_latency;
-    gdouble min;
-    gdouble max;
-    gdouble interval_total;
-    gdouble interval_min;
-    gdouble interval_max;
-    guint interval_frame_count;
-    GstClockTime interval_init_time;
     gint interval;
-    GstClockTime first_frame_init_ts;
     LatencyTracerFlags flags;
+    gpointer branch_stats; // Map of source-sink pairs to their statistics (void* to avoid C++ in header)
+    gpointer sources_list;  // List of source elements (void* to avoid C++ in header)
+    gpointer sinks_list;    // List of sink elements (void* to avoid C++ in header)
+    
+    // Performance optimization caches
+    gpointer element_type_cache;  // Map<GstElement*, ElementType> - cache element types for O(1) lookup
+    gpointer topology_cache;      // Map<GstElement*, GstElement*> - cache sink->source mappings for O(1) lookup
 };
 
 struct LatencyTracerClass {
