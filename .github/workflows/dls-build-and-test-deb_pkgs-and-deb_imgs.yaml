@@ -57,7 +57,7 @@ jobs:
 
       - name: Init submodules
         run: |
-          cd dlstreamer-
+          cd dlstreamer
           git submodule update --init thirdparty/spdlog
       - name: Check out test repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 #4.2.2
