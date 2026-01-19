@@ -807,6 +807,7 @@ then
     else
         echo_color "Intel NPU driver is already installed in the correct version ($installed_version) and ready to use." "green"
     fi
+fi
 
 if [ "$need_to_reboot" -eq 1 ]; then
   echo_color "\n A reboot is required!." "bred"
