@@ -377,12 +377,11 @@ install_npu() {
     $SUDO_PREFIX apt-get clean
     $SUDO_PREFIX rm -rf /var/lib/apt/lists/*
     $SUDO_PREFIX rm -f /etc/ssl/certs/Intel*
-    echo_color "Successfully installed NPU driver version: "$npu_driver_version"" "green"
+    echo_color "Successfully installed NPU driver version: $npu_driver_version." "green"
 }
 
 #-----------------------STEP 1-------------------------------------------
 echo_color "This script will install the necessary GPU and NPU drivers that have been tested and verified to work with DLStreamer." "green"
-need_to_reboot=0
 need_to_logout=0
 
 # Detect Ubuntu version
