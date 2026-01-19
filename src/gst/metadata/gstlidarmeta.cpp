@@ -1,4 +1,4 @@
-#include "gstlidarmeta.h"
+#include <dlstreamer/gst/metadata/gstlidarmeta.h>
 #include <gst/gst.h>
 #include <vector>
 #include <new>

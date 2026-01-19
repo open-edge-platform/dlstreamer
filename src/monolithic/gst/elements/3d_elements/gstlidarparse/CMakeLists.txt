@@ -5,12 +5,13 @@ project(gstlidarparse)
 
 add_library(gstlidarparse SHARED
     gstlidarparse.cpp
-    gstlidarmeta.cpp
+    ${CMAKE_SOURCE_DIR}/src/gst/metadata/gstlidarmeta.cpp
 )
 
 target_include_directories(gstlidarparse
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}
+        ${CMAKE_SOURCE_DIR}/include
         ${GSTREAMER_INCLUDE_DIRS}
 )
 
