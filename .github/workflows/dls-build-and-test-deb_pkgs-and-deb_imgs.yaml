@@ -278,6 +278,17 @@ jobs:
         with:
           name: DLS_functional_tests_${{ matrix.runner_print_label }}_on_host_${{ matrix.ubuntu_version }}_results
           path: "${{ env.DLS_TESTS_RESULTS_PATH }}"
+      - name: Print host tests summary in workflow
+        if: steps.run_onhost_tests.outcome == 'success'
+        env:
+          dls_tests_results_path: ${{ env.DLS_TESTS_RESULTS_PATH }}
+          test_repo_branch: ${{ inputs.test-repo-branch }}
+        run: |
+          sed 's/\[pass\]/:white_check_mark:/g; s/\[\! FAIL \!\]/:x:/g' "${dls_tests_results_path}"/DLS_functional_tests_${{ matrix.runner_print_label }}_on_host_${{ matrix.ubuntu_version }}_results.txt >> $GITHUB_STEP_SUMMARY
+      - name: Uninstall dlstreamer
+        if: always ()
+        run: |
+          $DLS_REL_PATH/tests/scripts/uninstall-dlstreamer.sh
       - name: Check Docker image size
         id: check-size
         env:
@@ -309,6 +320,7 @@ jobs:
             echo "✅ Image size within allowed threshold: ${THRESHOLD_SIZE_MB}MB."
           fi
       - name: Print image size summary
+        if: always ()
         env:
           IMAGE_SIZE_MB: ${IMAGE_SIZE_MB}
         run:
@@ -316,19 +328,9 @@ jobs:
           echo "**${IMAGE_SIZE_MB} MB**" >> $GITHUB_STEP_SUMMARY
           echo "Expected Docker image size:" >> $GITHUB_STEP_SUMMARY
           echo "**{{ vars.EXPECTED_SIZE_MB_DEB_U24 }} MB**" >> $GITHUB_STEP_SUMMARY
-      - name: Print host tests summary in workflow
-        if: steps.run_onhost_tests.outcome == 'success'
-        env:
-          dls_tests_results_path: ${{ env.DLS_TESTS_RESULTS_PATH }}
-          test_repo_branch: ${{ inputs.test-repo-branch }}
-        run: |
-          sed 's/\[pass\]/:white_check_mark:/g; s/\[\! FAIL \!\]/:x:/g' "${dls_tests_results_path}"/DLS_functional_tests_${{ matrix.runner_print_label }}_on_host_${{ matrix.ubuntu_version }}_results.txt >> $GITHUB_STEP_SUMMARY
-      - name: Uninstall dlstreamer
-        if: always ()
-        run: |
-          $DLS_REL_PATH/tests/scripts/uninstall-dlstreamer.sh
       # ======================================================== CLEAUP PART ========================================================
       - name: Clean up
+        if: always ()
         env:
           deb_final_img: ghcr.io/${{ github.repository }}/deb-final-img-${{ matrix.ubuntu_version }}:${{ github.sha }}
         if: always()

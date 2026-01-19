@@ -145,6 +145,7 @@ jobs:
             echo "✅ Image size within allowed threshold: ${THRESHOLD_SIZE_MB}MB."
           fi
       - name: Print image size summary
+        if: always ()
         env:
           IMAGE_SIZE_MB: ${IMAGE_SIZE_MB}
         run:
