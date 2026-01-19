@@ -1,7 +1,7 @@
 
 # g3dlidarparse
 
-Parses binary lidar data to vector float format with stride and frame rate control.
+A GST element designed for LiDAR point-cloud ingestion. It reads raw LiDAR frames (BIN/PCD), applies stride/frame-rate thinning, and outputs buffers enriched with LidarMeta (points, frame_id, timestamps, stream_id) for downstream fusion, analytics, or visualization.
 
 ```sh
 Factory Details:
