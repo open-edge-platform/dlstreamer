@@ -1,5 +1,5 @@
-#ifndef GST_LIDARMETA_H
-#define GST_LIDARMETA_H
+#ifndef G3D_LIDARMETA_H
+#define G3D_LIDARMETA_H
 
 #include <gst/gst.h>
 #include <vector>
@@ -27,4 +27,4 @@ LidarMeta *add_lidar_meta(GstBuffer *buffer, guint lidar_point_count, const std:
 
 G_END_DECLS
 
-#endif // GST_LIDARMETA_H
+#endif // G3D_LIDARMETA_H
