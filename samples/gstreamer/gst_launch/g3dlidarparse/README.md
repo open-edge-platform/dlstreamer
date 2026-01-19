@@ -15,20 +15,24 @@ This sample builds a GStreamer pipeline using the following elements:
 You can enable detailed logging for the LiDAR parser using `GST_DEBUG`:
 
 ```sh
-export GST_DEBUG=lidarparse:5
+export GST_DEBUG=g3dlidarparse:5
 ```
 
 ## Running
 ```sh
-./g3dlidarparse.sh [FILE_LOCATION]
+./g3dlidarparse.sh [LOCATION] [START_INDEX] [STRIDE] [FRAME_RATE]
 ```
 or
 ```sh
-GST_DEBUG=lidarparse:5 gst-launch-1.0 multifilesrc location="velodyne/%06d.bin" start-index=260 caps=application/octet-stream ! lidarparse stride=5 frame-rate=5 ! fakesink
+GST_DEBUG=g3dlidarparse:5 gst-launch-1.0 multifilesrc location="velodyne/%06d.bin" start-index=260 caps=application/octet-stream ! g3dlidarparse stride=5 frame-rate=5 ! fakesink
+```
+or
+```sh
+GST_DEBUG=g3dlidarparse:5 gst-launch-1.0 multifilesrc location="pcd/%06d.pcd" start-index=1 caps=application/octet-stream ! g3dlidarparse stride=5 frame-rate=5 ! fakesink
 ```
 
 Where:
-* `location` points to a sequence of `.bin` files (zero-padded index)
+* `location` points to a sequence of `.bin` or `.pcd` files (zero-padded index)
 * `start-index` selects the starting frame index
 * `stride` controls how often frames are processed
 * `frame-rate` throttles the output frame rate
