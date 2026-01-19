@@ -42,6 +42,7 @@ static gboolean gst_lidar_parse_stop(GstBaseTransform *trans);
 static GstFlowReturn gst_lidar_parse_transform(GstBaseTransform *trans, GstBuffer *inbuf, GstBuffer *outbuf);
 static gboolean gst_lidar_parse_sink_event(GstBaseTransform *trans, GstEvent *event);
 static GstCaps *gst_lidar_parse_transform_caps(GstBaseTransform *trans, GstPadDirection direction, GstCaps *caps, GstCaps *filter);
+static gboolean gst_lidar_parse_set_caps(GstBaseTransform *trans, GstCaps *incaps, GstCaps *outcaps);
 
 static void gst_lidar_parse_class_init(GstLidarParseClass *klass);
 static void gst_lidar_parse_init(GstLidarParse *filter);
@@ -97,6 +98,7 @@ static void gst_lidar_parse_class_init(GstLidarParseClass *klass) {
     base_transform_class->transform = GST_DEBUG_FUNCPTR(gst_lidar_parse_transform);
     base_transform_class->sink_event = GST_DEBUG_FUNCPTR(gst_lidar_parse_sink_event);
     base_transform_class->transform_caps = GST_DEBUG_FUNCPTR(gst_lidar_parse_transform_caps);
+    base_transform_class->set_caps = GST_DEBUG_FUNCPTR(gst_lidar_parse_set_caps);
     base_transform_class->passthrough_on_same_caps = FALSE;
 }
 
@@ -213,6 +215,21 @@ static gboolean gst_lidar_parse_start(GstBaseTransform *trans) {
     g_free(upstream_location);
     gst_object_unref(upstream_element);
     gst_object_unref(peer_pad);
+
+    GstPad *src_pad = GST_BASE_TRANSFORM_SRC_PAD(trans);
+    GstCaps *forced_caps = gst_caps_from_string(LIDAR_META_CAPS);
+    if (!forced_caps) {
+        GST_ERROR_OBJECT(filter, "Failed to create LIDAR_META_CAPS");
+        return FALSE;
+    }
+
+    if (!gst_pad_set_caps(src_pad, forced_caps)) {
+        GST_ERROR_OBJECT(filter, "Failed to set src caps to LIDAR_META_CAPS");
+        gst_caps_unref(forced_caps);
+        return FALSE;
+    }
+
+    gst_caps_unref(forced_caps);
 
     return TRUE;
 }
@@ -472,6 +489,26 @@ static GstCaps *gst_lidar_parse_transform_caps(GstBaseTransform *trans, GstPadDi
     }
 
     return result;
+}
+
+static gboolean gst_lidar_parse_set_caps(GstBaseTransform *trans, GstCaps *incaps, GstCaps *outcaps) {
+    GstLidarParse *filter = GST_LIDAR_PARSE(trans);
+
+    GstPad *src_pad = GST_BASE_TRANSFORM_SRC_PAD(trans);
+    GstCaps *forced_caps = gst_caps_from_string(LIDAR_META_CAPS);
+    if (!forced_caps) {
+        GST_ERROR_OBJECT(filter, "Failed to create LIDAR_META_CAPS");
+        return FALSE;
+    }
+
+    gboolean ok = gst_pad_set_caps(src_pad, forced_caps);
+    gst_caps_unref(forced_caps);
+
+    if (!ok) {
+        GST_ERROR_OBJECT(filter, "Failed to set src caps to LIDAR_META_CAPS");
+    }
+
+    return ok;
 }
 
 
