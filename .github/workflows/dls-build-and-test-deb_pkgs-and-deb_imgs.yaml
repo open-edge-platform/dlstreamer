@@ -333,7 +333,6 @@ jobs:
         if: always ()
         env:
           deb_final_img: ghcr.io/${{ github.repository }}/deb-final-img-${{ matrix.ubuntu_version }}:${{ github.sha }}
-        if: always()
         run: |
           rm -rf $HOME/.virtualenvs
           docker rmi ${deb_final_img} || true
