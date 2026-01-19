@@ -5,7 +5,7 @@
 # SPDX-License-Identifier: MIT
 # ==============================================================================
 
-echo "This script will install the necessary GPU and NPU drivers that have been tested and verified to work with DLStreamer." "green"
+echo_color "This script will install the necessary GPU and NPU drivers that have been tested and verified to work with DLStreamer." "green"
 npu_driver_version_u24_pkg='https://github.com/intel/linux-npu-driver/releases/download/v1.28.0/linux-npu-driver-v1.28.0.20251218-20347000698-ubuntu2404.tar.gz'
 npu_driver_version_u22_pkg='https://github.com/intel/linux-npu-driver/releases/download/v1.26.0/linux-npu-driver-v1.26.0.20251125-19665715237-ubuntu2204.tar.gz'
 npu_driver_version_u22="1.26.0"
