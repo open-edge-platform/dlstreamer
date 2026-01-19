@@ -1,4 +1,3 @@
-
 # g3dlidarparse
 
 A GST element designed for LiDAR point-cloud ingestion. It reads raw LiDAR frames (BIN/PCD), applies stride/frame-rate thinning, and outputs buffers enriched with LidarMeta (points, frame_id, timestamps, stream_id) for downstream fusion, analytics, or visualization.
