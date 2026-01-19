@@ -117,9 +117,9 @@ jobs:
       - name: Check Docker image size
         id: check-size
         env:
-          deb_final_img: ghcr.io/${{ github.repository }}/deb-final-img-${{ matrix.ubuntu_version }}:${{ github.sha }}        
+          dev_debug_img: ghcr.io/${{ github.repository }}/dev-debug-img-${{ matrix.ubuntu_version }}:${{ github.sha }}
         run: |
-          IMAGE_NAME="${deb_final_img}"
+          IMAGE_NAME=${dev_debug_img}
           if [ "${{ inputs.ubuntu_version }}" == "ubuntu22" ]; then
             EXPECTED_SIZE_MB={{ vars.EXPECTED_SIZE_MB_DEV_U22 }}
           elif [ "${{ inputs.ubuntu_version }}" == "ubuntu24" ]; then
