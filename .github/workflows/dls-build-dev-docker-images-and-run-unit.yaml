@@ -120,9 +120,9 @@ jobs:
           dev_debug_img: ghcr.io/${{ github.repository }}/dev-debug-img-${{ matrix.ubuntu_version }}:${{ github.sha }}
         run: |
           IMAGE_NAME=${dev_debug_img}
-          if [ "${{ inputs.ubuntu_version }}" == "ubuntu22" ]; then
+          if [ "${{ matrix.ubuntu_version }}" == "ubuntu22" ]; then
             EXPECTED_SIZE_MB={{ vars.EXPECTED_SIZE_MB_DEV_U22 }}
-          elif [ "${{ inputs.ubuntu_version }}" == "ubuntu24" ]; then
+          elif [ "${{ matrix.ubuntu_version }}" == "ubuntu24" ]; then
             EXPECTED_SIZE_MB={{ vars.EXPECTED_SIZE_MB_DEV_U24 }}
           fi
 
