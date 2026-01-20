@@ -1,0 +1,5 @@
+{
+    "1.1.1.1": " ! rtph264depay ! h264parse ! avdec_h264 ! videoconvert ! autovideosink",
+    "1.1.1.2": "PIPELINE_COMMAND_2",
+    "1.1.1.3": "PIPELINE_COMMAND_3"
+}

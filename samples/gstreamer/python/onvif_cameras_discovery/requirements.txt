@@ -1,0 +1,2 @@
+onvif-zeep
+urllib
