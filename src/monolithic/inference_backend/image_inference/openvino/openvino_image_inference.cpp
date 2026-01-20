@@ -298,7 +298,7 @@ struct ConfigHelper {
     }
 
     bool reshape_static() const {
-        const auto it = base_config.find(KEY_RESHAPE);
+        const auto it = base_config.find(KEY_RESHAPE_STATIC);
         if (it == base_config.cend())
             return false;
         return std::stoi(it->second);
