@@ -145,11 +145,11 @@ jobs:
             echo "✅ Image size within allowed threshold: ${THRESHOLD_SIZE_MB}MB."
           fi
       - name: Print image size summary
-        if: always ()
+        if: always()
         env:
-          IMAGE_SIZE_MB: ${IMAGE_SIZE_MB}
-          EXPECTED_SIZE_MB: ${EXPECTED_SIZE_MB}
-        run:
+          IMAGE_SIZE_MB: ${{ env.IMAGE_SIZE_MB }}
+          EXPECTED_SIZE_MB: ${{ env.EXPECTED_SIZE_MB }}
+        run: |
           echo "### Current Docker ${{ matrix.ubuntu_version }}-dev image size:" >> $GITHUB_STEP_SUMMARY
           echo "**${IMAGE_SIZE_MB} MB**" >> $GITHUB_STEP_SUMMARY
           echo "Expected Docker ${{ matrix.ubuntu_version }}-dev image size:" >> $GITHUB_STEP_SUMMARY

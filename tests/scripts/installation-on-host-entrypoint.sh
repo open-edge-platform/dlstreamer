@@ -43,9 +43,6 @@ handle_error() {
 # Stop and remove all running Docker containers
 echo_color "Stopping all running Docker containers" "blue"
 docker ps -q | xargs -r docker stop || true
-echo_color "Removing all stopped Docker containers" "blue"
-docker ps -a -q | xargs -r docker rm || true
-docker system prune -a -f
 
 # List remaining Docker containers
 echo_color "Listing all remaining Docker containers" "blue"
