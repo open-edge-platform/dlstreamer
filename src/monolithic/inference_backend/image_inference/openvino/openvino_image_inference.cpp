@@ -797,7 +797,7 @@ class OpenVinoNewApiImpl {
         auto [img_width, img_height] = config.image_size();
         if (img_width == 0 && img_height == 0 && config.pp_type() == ImagePreprocessorType::IE) {
             auto [frame_width, frame_height] = config.frame_size();
-            reshape_model(frame_height, frame_width, true);
+            reshape_model(frame_height, frame_width, false);
         }
 
         _batch_size = config.batch_size();
@@ -1040,7 +1040,7 @@ class OpenVinoNewApiImpl {
 
             GVA_INFO("Reshaping model input %s from %s to %s", input.get_any_name().c_str(),
                      input.get_partial_shape().to_string().c_str(), shape.to_string().c_str());
-            port_to_shape[input] = shape;
+            port_to_shape.emplace(input, std::move(shape));
         }
         _model->reshape(port_to_shape);
         print_input_and_outputs_info(*_model);
@@ -1465,7 +1465,7 @@ std::map<std::string, std::vector<size_t>> OpenVINOImageInference::GetModelOutpu
 }
 
 std::map<std::string, GstStructure *> OpenVINOImageInference::GetModelInfoPostproc() const {
-    auto info = ModelApiConverters::get_model_info_postproc(_impl->_model, _impl->_model_path);
+    auto info = ModelApiConverters::get_model_info_postproc(std::move(_impl->_model), _impl->_model_path);
     return info;
 }
 
@@ -1477,7 +1477,7 @@ std::map<std::string, GstStructure *> OpenVINOImageInference::GetModelInfoPrepro
     }
     std::shared_ptr<ov::Model> model = OpenVinoNewApiImpl::core().read_model(model_file);
 
-    auto info = ModelApiConverters::get_model_info_preproc(model, model_file, pre_proc_config);
+    auto info = ModelApiConverters::get_model_info_preproc(std::move(model), model_file, pre_proc_config);
     return info;
 }
 
