@@ -311,23 +311,24 @@ jobs:
           echo "Difference: ${ABS_DIFF} MB"
 
           THRESHOLD_SIZE_MB=100
+          echo "IMAGE_SIZE_MB=$IMAGE_SIZE_MB" >> $GITHUB_ENV
+          echo "EXPECTED_SIZE_MB=$EXPECTED_SIZE_MB" >> $GITHUB_ENV
           if [ "$ABS_DIFF" -gt "$THRESHOLD_SIZE_MB" ]; then
             echo "❌ Image size difference exceeds allowed threshold: ${THRESHOLD_SIZE_MB}MB (difference: ${ABS_DIFF} MB)"
-            echo "IMAGE_SIZE_MB=$IMAGE_SIZE_MB" >> $GITHUB_ENV
             exit 1
           else
-            echo "IMAGE_SIZE_MB=$IMAGE_SIZE_MB" >> $GITHUB_ENV
             echo "✅ Image size within allowed threshold: ${THRESHOLD_SIZE_MB}MB."
           fi
       - name: Print image size summary
         if: always ()
         env:
           IMAGE_SIZE_MB: ${IMAGE_SIZE_MB}
+          EXPECTED_SIZE_MB: ${EXPECTED_SIZE_MB}
         run:
-          echo "Current Docker image size:" >> $GITHUB_STEP_SUMMARY
+          echo "### Current Docker ${{ matrix.ubuntu_version }}-deb image size:" >> $GITHUB_STEP_SUMMARY
           echo "**${IMAGE_SIZE_MB} MB**" >> $GITHUB_STEP_SUMMARY
-          echo "Expected Docker image size:" >> $GITHUB_STEP_SUMMARY
-          echo "**{{ vars.EXPECTED_SIZE_MB_DEB_U24 }} MB**" >> $GITHUB_STEP_SUMMARY
+          echo "Expected Docker ${{ matrix.ubuntu_version }}-deb image size:" >> $GITHUB_STEP_SUMMARY
+          echo "**${EXPECTED_SIZE_MB} MB**" >> $GITHUB_STEP_SUMMARY
       # ======================================================== CLEAUP PART ========================================================
       - name: Clean up
         if: always ()
