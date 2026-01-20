@@ -10,7 +10,13 @@ import logging
 logger = logging.getLogger(__name__)
 
 class DeviceGenerator:
-    def __init__(self, pipeline):
+    def __init__(self):
+        self.tracked_elements = []
+        self.devices = []
+        self.pipeline = []
+        self.first_iteration = True
+
+    def init_pipeline(self, pipeline):
         self.tracked_elements = []
         self.devices = Core().available_devices
         self.pipeline = pipeline.copy()
@@ -48,6 +54,11 @@ class DeviceGenerator:
         if end_of_variants:
             raise StopIteration
 
+        # log device combinations
+        devices = self.tracked_elements.copy()
+        devices = list(map(lambda e: self.devices[e["device_idx"]], devices)) # transform device indices into names
+        logger.info(f"Testing device combination: {devices}")
+
         # Prepare pipeline output
         pipeline = self.pipeline.copy()
         for element in self.tracked_elements:
@@ -74,12 +85,20 @@ class DeviceGenerator:
             # Apply current configuration 
             parameters["device"] = device
             parameters = assemble_parameters(parameters)
-            pipeline[idx] = f" vapostproc ! {memory} ! {element_type} {parameters}"
+            pipeline[idx] = f" {element_type} {parameters}"
+            pipeline.insert(idx, f" {memory} ")
+            pipeline.insert(idx, f" vapostproc ")
 
         return pipeline
 
 class BatchGenerator:
-    def __init__(self, pipeline):
+    def __init__(self):
+        self.tracked_elements = []
+        self.batches = []
+        self.pipeline = []
+        self.first_iteration = True
+
+    def init_pipeline(self, pipeline):
         self.tracked_elements = []
         self.batches = [1, 2, 4, 8, 16, 32]
         self.pipeline = pipeline.copy()
@@ -117,6 +136,12 @@ class BatchGenerator:
         if end_of_variants:
             raise StopIteration
 
+        # log device combinations
+        batches = self.tracked_elements.copy()
+        batches = list(map(lambda e: self.batches[e["batch_idx"]], batches)) # transform batch indices into batches
+        logger.info(f"Testing batch combination: {batches}")
+        logger.debug(f"{str(self.tracked_elements)}, {str(self.pipeline)}")
+
         # Prepare pipeline output
         pipeline = self.pipeline.copy()
         for element in self.tracked_elements:
@@ -135,7 +160,13 @@ class BatchGenerator:
         return pipeline
 
 class NireqGenerator:
-    def __init__(self, pipeline):
+    def __init__(self):
+        self.tracked_elements = []
+        self.nireqs = []
+        self.pipeline = []
+        self.first_iteration = True
+
+    def init_pipeline(self, pipeline):
         self.tracked_elements = []
         self.nireqs = range(1, 9)
         self.pipeline = pipeline.copy()
@@ -172,6 +203,11 @@ class NireqGenerator:
         # of available nireqs, then we have run out of variants
         if end_of_variants:
             raise StopIteration
+
+        # log device combinations
+        nireqs = self.tracked_elements.copy()
+        nireqs = list(map(lambda e: self.nireqs[e["nireq_idx"]], nireqs)) # transform nireq indices into nireqs
+        logger.info(f"Testing nireq combination: {nireqs}")
 
         # Prepare pipeline output
         pipeline = self.pipeline.copy()

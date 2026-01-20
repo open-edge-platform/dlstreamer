@@ -56,17 +56,16 @@ def get_optimized_pipeline(pipeline, search_duration = 300, sample_duration = 10
     pipeline = pipeline.split(" ! ") 
 
     generators = [
-        DeviceGenerator(pipeline),
-        BatchGenerator(pipeline),
-        NireqGenerator(pipeline)
-        # add_batch_suggestions.init(pipeline),
-        # add_nireq_suggestions.init(pipeline),
+        DeviceGenerator(),
+        BatchGenerator(),
+        NireqGenerator()
     ]
 
     best_pipeline = pipeline
     best_fps = fps
     start_time = time.time()
     for generator in generators:
+        generator.init_pipeline(best_pipeline)
         for pipeline in generator:
             cur_time = time.time()
             if cur_time - start_time > search_duration:
@@ -161,21 +160,3 @@ def process_bus(bus):
         else:
             logger.error("Other message: %s", str(message))
         message = bus.pop()
-
-####################################### Utils #####################################################
-
-# def log_parameters_of_interest(pipeline):
-#     for element in pipeline:
-#         if "gvadetect" in element:
-#             parameters = parse_element_parameters(element)
-#             logger.info("Found Gvadetect, device: %s, batch size: %s, nireqs: %s",
-#                         parameters.get("device", "not set"),
-#                         parameters.get("batch-size", "not set"),
-#                         parameters.get("nireq", "not set"))
-
-#         if "gvaclassify" in element:
-#             parameters = parse_element_parameters(element)
-#             logger.info("Found Gvaclassify, device: %s, batch size: %s, nireqs: %s",
-#                         parameters.get("device", "not set"),
-#                         parameters.get("batch-size", "not set"),
-#                         parameters.get("nireq", "not set"))
