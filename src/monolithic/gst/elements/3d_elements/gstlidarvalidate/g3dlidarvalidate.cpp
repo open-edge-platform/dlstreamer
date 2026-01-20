@@ -1,13 +1,13 @@
-#include "gstlidarvalidate.h"
-#include "gstlidarmeta.h"
+#include "g3dlidarvalidate.h"
+#include <dlstreamer/gst/metadata/g3dlidarmeta.h>
 
 #include <gst/gst.h>
 #include <algorithm>
 #include <sstream>
 #include <iomanip>
 
-GST_DEBUG_CATEGORY_STATIC(gst_lidar_validate_debug);
-#define GST_CAT_DEFAULT gst_lidar_validate_debug
+GST_DEBUG_CATEGORY_STATIC(gst_g3d_lidar_validate_debug);
+#define GST_CAT_DEFAULT gst_g3d_lidar_validate_debug
 
 enum {
     PROP_0,
@@ -21,27 +21,27 @@ static GstStaticPadTemplate sink_template = GST_STATIC_PAD_TEMPLATE(
     "sink",
     GST_PAD_SINK,
     GST_PAD_ALWAYS,
-    GST_STATIC_CAPS(LIDAR_META_CAPS)
+    GST_STATIC_CAPS("application/x-lidar")
 );
 
-static void gst_lidar_validate_set_property(GObject *object, guint prop_id, const GValue *value, GParamSpec *pspec);
-static void gst_lidar_validate_get_property(GObject *object, guint prop_id, GValue *value, GParamSpec *pspec);
-static GstFlowReturn gst_lidar_validate_render(GstBaseSink *sink, GstBuffer *buffer);
-static gboolean gst_lidar_validate_start(GstBaseSink *sink);
-static gboolean gst_lidar_validate_stop(GstBaseSink *sink);
+static void gst_g3d_lidar_validate_set_property(GObject *object, guint prop_id, const GValue *value, GParamSpec *pspec);
+static void gst_g3d_lidar_validate_get_property(GObject *object, guint prop_id, GValue *value, GParamSpec *pspec);
+static GstFlowReturn gst_g3d_lidar_validate_render(GstBaseSink *sink, GstBuffer *buffer);
+static gboolean gst_g3d_lidar_validate_start(GstBaseSink *sink);
+static gboolean gst_g3d_lidar_validate_stop(GstBaseSink *sink);
 static gboolean plugin_init(GstPlugin *plugin);
 
-G_DEFINE_TYPE(GstLidarValidate, gst_lidar_validate, GST_TYPE_BASE_SINK);
+G_DEFINE_TYPE(GstG3DLidarValidate, gst_g3d_lidar_validate, GST_TYPE_BASE_SINK);
 
-static void gst_lidar_validate_class_init(GstLidarValidateClass *klass) {
+static void gst_g3d_lidar_validate_class_init(GstG3DLidarValidateClass *klass) {
     GObjectClass *gobject_class = G_OBJECT_CLASS(klass);
     GstElementClass *gstelement_class = GST_ELEMENT_CLASS(klass);
     GstBaseSinkClass *basesink_class = GST_BASE_SINK_CLASS(klass);
 
-    GST_DEBUG_CATEGORY_INIT(gst_lidar_validate_debug, "lidarvalidate", 0, "Lidar Meta Validator");
+    GST_DEBUG_CATEGORY_INIT(gst_g3d_lidar_validate_debug, "g3dlidarvalidate", 0, "G3D Lidar Meta Validator");
 
-    gobject_class->set_property = gst_lidar_validate_set_property;
-    gobject_class->get_property = gst_lidar_validate_get_property;
+    gobject_class->set_property = gst_g3d_lidar_validate_set_property;
+    gobject_class->get_property = gst_g3d_lidar_validate_get_property;
 
     g_object_class_install_property(gobject_class, PROP_EXPECTED_POINTS,
         g_param_spec_uint("expected-point-count", "Expected Point Count",
@@ -68,19 +68,19 @@ static void gst_lidar_validate_class_init(GstLidarValidateClass *klass) {
                              (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
     gst_element_class_set_static_metadata(gstelement_class,
-        "Lidar Meta Validator",
+        "G3D Lidar Meta Validator",
         "Sink/Debug",
-        "Validates presence and consistency of LidarMeta coming from lidarparse",
+        "Validates presence and consistency of LidarMeta coming from g3dlidarparse",
         "Open Edge Platform");
 
     gst_element_class_add_static_pad_template(gstelement_class, &sink_template);
 
-    basesink_class->render = GST_DEBUG_FUNCPTR(gst_lidar_validate_render);
-    basesink_class->start = GST_DEBUG_FUNCPTR(gst_lidar_validate_start);
-    basesink_class->stop = GST_DEBUG_FUNCPTR(gst_lidar_validate_stop);
+    basesink_class->render = GST_DEBUG_FUNCPTR(gst_g3d_lidar_validate_render);
+    basesink_class->start = GST_DEBUG_FUNCPTR(gst_g3d_lidar_validate_start);
+    basesink_class->stop = GST_DEBUG_FUNCPTR(gst_g3d_lidar_validate_stop);
 }
 
-static void gst_lidar_validate_init(GstLidarValidate *self) {
+static void gst_g3d_lidar_validate_init(GstG3DLidarValidate *self) {
     self->expected_point_count = 0;
     self->preview_count = 8;
     self->fail_on_mismatch = TRUE;
@@ -89,24 +89,24 @@ static void gst_lidar_validate_init(GstLidarValidate *self) {
     self->frames_with_meta = 0;
 }
 
-static gboolean gst_lidar_validate_start(GstBaseSink *sink) {
-    GstLidarValidate *self = GST_LIDAR_VALIDATE(sink);
+static gboolean gst_g3d_lidar_validate_start(GstBaseSink *sink) {
+    GstG3DLidarValidate *self = GST_G3D_LIDAR_VALIDATE(sink);
     self->frames_seen = 0;
     self->frames_with_meta = 0;
-    GST_INFO_OBJECT(self, "[START] lidarvalidate ready");
+    GST_INFO_OBJECT(self, "[START] g3dlidarvalidate ready");
     return TRUE;
 }
 
-static gboolean gst_lidar_validate_stop(GstBaseSink *sink) {
-    GstLidarValidate *self = GST_LIDAR_VALIDATE(sink);
+static gboolean gst_g3d_lidar_validate_stop(GstBaseSink *sink) {
+    GstG3DLidarValidate *self = GST_G3D_LIDAR_VALIDATE(sink);
     GST_INFO_OBJECT(self,
                     "[STOP] frames_seen=%" G_GUINT64_FORMAT " frames_with_meta=%" G_GUINT64_FORMAT,
                     self->frames_seen, self->frames_with_meta);
     return TRUE;
 }
 
-static void gst_lidar_validate_set_property(GObject *object, guint prop_id, const GValue *value, GParamSpec *pspec) {
-    GstLidarValidate *self = GST_LIDAR_VALIDATE(object);
+static void gst_g3d_lidar_validate_set_property(GObject *object, guint prop_id, const GValue *value, GParamSpec *pspec) {
+    GstG3DLidarValidate *self = GST_G3D_LIDAR_VALIDATE(object);
 
     switch (prop_id) {
         case PROP_EXPECTED_POINTS:
@@ -127,8 +127,8 @@ static void gst_lidar_validate_set_property(GObject *object, guint prop_id, cons
     }
 }
 
-static void gst_lidar_validate_get_property(GObject *object, guint prop_id, GValue *value, GParamSpec *pspec) {
-    GstLidarValidate *self = GST_LIDAR_VALIDATE(object);
+static void gst_g3d_lidar_validate_get_property(GObject *object, guint prop_id, GValue *value, GParamSpec *pspec) {
+    GstG3DLidarValidate *self = GST_G3D_LIDAR_VALIDATE(object);
 
     switch (prop_id) {
         case PROP_EXPECTED_POINTS:
@@ -149,8 +149,8 @@ static void gst_lidar_validate_get_property(GObject *object, guint prop_id, GVal
     }
 }
 
-static GstFlowReturn gst_lidar_validate_render(GstBaseSink *sink, GstBuffer *buffer) {
-    GstLidarValidate *self = GST_LIDAR_VALIDATE(sink);
+static GstFlowReturn gst_g3d_lidar_validate_render(GstBaseSink *sink, GstBuffer *buffer) {
+    GstG3DLidarValidate *self = GST_G3D_LIDAR_VALIDATE(sink);
     self->frames_seen++;
 
     LidarMeta *meta = (LidarMeta *)gst_buffer_get_meta(buffer, LIDAR_META_API_TYPE);
@@ -208,18 +208,18 @@ static GstFlowReturn gst_lidar_validate_render(GstBaseSink *sink, GstBuffer *buf
 }
 
 static gboolean plugin_init(GstPlugin *plugin) {
-    return gst_element_register(plugin, "lidarvalidate", GST_RANK_NONE, GST_TYPE_LIDAR_VALIDATE);
+    return gst_element_register(plugin, "g3dlidarvalidate", GST_RANK_NONE, GST_TYPE_G3D_LIDAR_VALIDATE);
 }
 
 #ifndef PACKAGE
-#define PACKAGE "lidarvalidate"
+#define PACKAGE "g3dlidarvalidate"
 #endif
 
 GST_PLUGIN_DEFINE(
     GST_VERSION_MAJOR,
     GST_VERSION_MINOR,
-    lidarvalidate,
-    "Lidar Meta Validator",
+    g3dlidarvalidate,
+    "G3D Lidar Meta Validator",
     plugin_init,
     "1.0",
     "LGPL",

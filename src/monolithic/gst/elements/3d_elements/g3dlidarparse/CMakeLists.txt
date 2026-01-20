@@ -1,25 +1,26 @@
 cmake_minimum_required(VERSION 3.5)
 
-project(gstlidarparse)
+project(g3dlidarparse)
 
 
-add_library(gstlidarparse SHARED
-    gstlidarparse.cpp
-    gstlidarmeta.cpp
+add_library(g3dlidarparse SHARED
+    g3dlidarparse.cpp
 )
 
-target_include_directories(gstlidarparse
+target_include_directories(g3dlidarparse
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}
+        ${CMAKE_SOURCE_DIR}/include
         ${GSTREAMER_INCLUDE_DIRS}
 )
 
-target_link_libraries(gstlidarparse
+target_link_libraries(g3dlidarparse
     PRIVATE
         ${GSTREAMER_LIBRARIES}
         ${GSTVIDEO_LIBRARIES}
+    dlstreamer_gst_meta
 )
 
-install(TARGETS gstlidarparse
+install(TARGETS g3dlidarparse
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}/gstreamer-1.0
 )

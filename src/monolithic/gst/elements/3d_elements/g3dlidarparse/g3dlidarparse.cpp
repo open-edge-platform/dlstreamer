@@ -1,5 +1,5 @@
-#include "gstlidarmeta.h" 
-#include "gstlidarparse.h"
+#include <dlstreamer/gst/metadata/g3dlidarmeta.h>
+#include "g3dlidarparse.h"
 #include <string.h>
 #include <vector>
 #include <fstream>
@@ -8,8 +8,8 @@
 #include <sstream>
 #include <gst/gstinfo.h> 
 
-GST_DEBUG_CATEGORY_STATIC(gst_lidar_parse_debug);
-#define GST_CAT_DEFAULT gst_lidar_parse_debug
+GST_DEBUG_CATEGORY_STATIC(gst_g3d_lidar_parse_debug);
+#define GST_CAT_DEFAULT gst_g3d_lidar_parse_debug
 
 enum {
     PROP_0,
@@ -21,31 +21,33 @@ static GstStaticPadTemplate sink_template = GST_STATIC_PAD_TEMPLATE(
     "sink",
     GST_PAD_SINK,
     GST_PAD_ALWAYS,
-    GST_STATIC_CAPS_ANY
+    GST_STATIC_CAPS("application/octet-stream")
 );
 
 static GstStaticPadTemplate src_template = GST_STATIC_PAD_TEMPLATE(
     "src",
     GST_PAD_SRC,
     GST_PAD_ALWAYS,
-    GST_STATIC_CAPS(LIDAR_META_CAPS) 
+    GST_STATIC_CAPS("application/x-lidar")
 );
 
-static void gst_lidar_parse_set_property(GObject *object, guint prop_id,
+static void gst_g3d_lidar_parse_set_property(GObject *object, guint prop_id,
                                          const GValue *value, GParamSpec *pspec);
-static void gst_lidar_parse_get_property(GObject *object, guint prop_id,
+static void gst_g3d_lidar_parse_get_property(GObject *object, guint prop_id,
                                          GValue *value, GParamSpec *pspec);
-static void gst_lidar_parse_finalize(GObject *object);
+static void gst_g3d_lidar_parse_finalize(GObject *object);
 
-static gboolean gst_lidar_parse_start(GstBaseTransform *trans);
-static gboolean gst_lidar_parse_stop(GstBaseTransform *trans);
-static GstFlowReturn gst_lidar_parse_transform(GstBaseTransform *trans, GstBuffer *inbuf, GstBuffer *outbuf);
-static gboolean gst_lidar_parse_sink_event(GstBaseTransform *trans, GstEvent *event);
+static gboolean gst_g3d_lidar_parse_start(GstBaseTransform *trans);
+static gboolean gst_g3d_lidar_parse_stop(GstBaseTransform *trans);
+static GstFlowReturn gst_g3d_lidar_parse_transform(GstBaseTransform *trans, GstBuffer *inbuf, GstBuffer *outbuf);
+static gboolean gst_g3d_lidar_parse_sink_event(GstBaseTransform *trans, GstEvent *event);
+static GstCaps *gst_g3d_lidar_parse_transform_caps(GstBaseTransform *trans, GstPadDirection direction, GstCaps *caps, GstCaps *filter);
+static gboolean gst_g3d_lidar_parse_set_caps(GstBaseTransform *trans, GstCaps *incaps, GstCaps *outcaps);
 
-static void gst_lidar_parse_class_init(GstLidarParseClass *klass);
-static void gst_lidar_parse_init(GstLidarParse *filter);
+static void gst_g3d_lidar_parse_class_init(GstG3DLidarParseClass *klass);
+static void gst_g3d_lidar_parse_init(GstG3DLidarParse *filter);
 
-G_DEFINE_TYPE(GstLidarParse, gst_lidar_parse, GST_TYPE_BASE_TRANSFORM);
+G_DEFINE_TYPE(GstG3DLidarParse, gst_g3d_lidar_parse, GST_TYPE_BASE_TRANSFORM);
 
 GType file_type_get_type(void) {
     static GType file_type = 0;
@@ -60,14 +62,14 @@ GType file_type_get_type(void) {
     return file_type;
 }
 
-static void gst_lidar_parse_class_init(GstLidarParseClass *klass) {
+static void gst_g3d_lidar_parse_class_init(GstG3DLidarParseClass *klass) {
     GObjectClass *gobject_class = G_OBJECT_CLASS(klass);
     GstElementClass *gstelement_class = GST_ELEMENT_CLASS(klass);
     GstBaseTransformClass *base_transform_class = GST_BASE_TRANSFORM_CLASS(klass);
 
-    gobject_class->set_property = gst_lidar_parse_set_property;
-    gobject_class->get_property = gst_lidar_parse_get_property;
-    gobject_class->finalize = gst_lidar_parse_finalize;
+    gobject_class->set_property = gst_g3d_lidar_parse_set_property;
+    gobject_class->get_property = gst_g3d_lidar_parse_get_property;
+    gobject_class->finalize = gst_g3d_lidar_parse_finalize;
 
 
     g_object_class_install_property(gobject_class, PROP_STRIDE,
@@ -83,22 +85,24 @@ static void gst_lidar_parse_class_init(GstLidarParseClass *klass) {
                           (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
     gst_element_class_set_static_metadata(gstelement_class,
-        "Lidar Binary Parser",
+        "G3D Lidar Parser",
         "Filter/Converter",
-        "Parses binary lidar data to vector float format with stride and frame rate control",
+        "Parses binary lidar data to vector float format with stride and frame rate control (g3dlidarparse)",
         "Your Name <your.email@example.com>");
 
     gst_element_class_add_static_pad_template(gstelement_class, &sink_template);
     gst_element_class_add_static_pad_template(gstelement_class, &src_template);
 
-    base_transform_class->start = GST_DEBUG_FUNCPTR(gst_lidar_parse_start);
-    base_transform_class->stop = GST_DEBUG_FUNCPTR(gst_lidar_parse_stop);
-    base_transform_class->transform = GST_DEBUG_FUNCPTR(gst_lidar_parse_transform);
-    base_transform_class->sink_event = GST_DEBUG_FUNCPTR(gst_lidar_parse_sink_event);
+    base_transform_class->start = GST_DEBUG_FUNCPTR(gst_g3d_lidar_parse_start);
+    base_transform_class->stop = GST_DEBUG_FUNCPTR(gst_g3d_lidar_parse_stop);
+    base_transform_class->transform = GST_DEBUG_FUNCPTR(gst_g3d_lidar_parse_transform);
+    base_transform_class->sink_event = GST_DEBUG_FUNCPTR(gst_g3d_lidar_parse_sink_event);
+    base_transform_class->transform_caps = GST_DEBUG_FUNCPTR(gst_g3d_lidar_parse_transform_caps);
+    base_transform_class->set_caps = GST_DEBUG_FUNCPTR(gst_g3d_lidar_parse_set_caps);
     base_transform_class->passthrough_on_same_caps = FALSE;
 }
 
-static void gst_lidar_parse_init(GstLidarParse *filter) {
+static void gst_g3d_lidar_parse_init(GstG3DLidarParse *filter) {
     filter->stride = 1;
     filter->frame_rate = 0.0;
     g_mutex_init(&filter->mutex);
@@ -109,19 +113,19 @@ static void gst_lidar_parse_init(GstLidarParse *filter) {
     filter->stream_id = 0;
 }
 
-static void gst_lidar_parse_finalize(GObject *object) {
-    GstLidarParse *filter = GST_LIDAR_PARSE(object);
+static void gst_g3d_lidar_parse_finalize(GObject *object) {
+    GstG3DLidarParse *filter = GST_G3D_LIDAR_PARSE(object);
 
     g_mutex_clear(&filter->mutex);
 
     filter->current_index = 0;
 
-    G_OBJECT_CLASS(gst_lidar_parse_parent_class)->finalize(object);
+    G_OBJECT_CLASS(gst_g3d_lidar_parse_parent_class)->finalize(object);
 }
 
-static void gst_lidar_parse_set_property(GObject *object, guint prop_id,
+static void gst_g3d_lidar_parse_set_property(GObject *object, guint prop_id,
                                          const GValue *value, GParamSpec *pspec) {
-    GstLidarParse *filter = GST_LIDAR_PARSE(object);
+    GstG3DLidarParse *filter = GST_G3D_LIDAR_PARSE(object);
 
     switch (prop_id) {
         case PROP_STRIDE:
@@ -136,9 +140,9 @@ static void gst_lidar_parse_set_property(GObject *object, guint prop_id,
     }
 }
 
-static void gst_lidar_parse_get_property(GObject *object, guint prop_id,
+static void gst_g3d_lidar_parse_get_property(GObject *object, guint prop_id,
                                          GValue *value, GParamSpec *pspec) {
-    GstLidarParse *filter = GST_LIDAR_PARSE(object);
+    GstG3DLidarParse *filter = GST_G3D_LIDAR_PARSE(object);
 
     switch (prop_id) {
         case PROP_STRIDE:
@@ -153,8 +157,8 @@ static void gst_lidar_parse_get_property(GObject *object, guint prop_id,
     }
 }
 
-static gboolean gst_lidar_parse_start(GstBaseTransform *trans) {
-    GstLidarParse *filter = GST_LIDAR_PARSE(trans);
+static gboolean gst_g3d_lidar_parse_start(GstBaseTransform *trans) {
+    GstG3DLidarParse *filter = GST_G3D_LIDAR_PARSE(trans);
 
     GST_DEBUG_OBJECT(filter, "Starting lidar parser");
     GST_INFO_OBJECT(filter, "[START] lidarparse");
@@ -212,11 +216,26 @@ static gboolean gst_lidar_parse_start(GstBaseTransform *trans) {
     gst_object_unref(upstream_element);
     gst_object_unref(peer_pad);
 
+    GstPad *src_pad = GST_BASE_TRANSFORM_SRC_PAD(trans);
+    GstCaps *forced_caps = gst_caps_from_string("application/x-lidar");
+    if (!forced_caps) {
+        GST_ERROR_OBJECT(filter, "Failed to create application/x-lidar caps");
+        return FALSE;
+    }
+
+    if (!gst_pad_set_caps(src_pad, forced_caps)) {
+        GST_ERROR_OBJECT(filter, "Failed to set src caps to application/x-lidar");
+        gst_caps_unref(forced_caps);
+        return FALSE;
+    }
+
+    gst_caps_unref(forced_caps);
+
     return TRUE;
 }
 
-static gboolean gst_lidar_parse_stop(GstBaseTransform *trans) {
-    GstLidarParse *filter = GST_LIDAR_PARSE(trans);
+static gboolean gst_g3d_lidar_parse_stop(GstBaseTransform *trans) {
+    GstG3DLidarParse *filter = GST_G3D_LIDAR_PARSE(trans);
 
     GST_INFO_OBJECT(filter, "[STOP] Stopping lidar parser");
     filter->current_index = 0;
@@ -227,8 +246,8 @@ static gboolean gst_lidar_parse_stop(GstBaseTransform *trans) {
 }
 
 
-static gboolean gst_lidar_parse_sink_event(GstBaseTransform *trans, GstEvent *event) {
-    GstLidarParse *filter = GST_LIDAR_PARSE(trans);
+static gboolean gst_g3d_lidar_parse_sink_event(GstBaseTransform *trans, GstEvent *event) {
+    GstG3DLidarParse *filter = GST_G3D_LIDAR_PARSE(trans);
     
     switch (GST_EVENT_TYPE(event)) {
         case GST_EVENT_STREAM_START: {
@@ -258,11 +277,11 @@ static gboolean gst_lidar_parse_sink_event(GstBaseTransform *trans, GstEvent *ev
             break;
     }
     
-    return GST_BASE_TRANSFORM_CLASS(gst_lidar_parse_parent_class)->sink_event(trans, event);
+    return GST_BASE_TRANSFORM_CLASS(gst_g3d_lidar_parse_parent_class)->sink_event(trans, event);
 }
 
-static GstFlowReturn gst_lidar_parse_transform(GstBaseTransform *trans, GstBuffer *inbuf, GstBuffer *outbuf) {
-    GstLidarParse *filter = GST_LIDAR_PARSE(trans);
+static GstFlowReturn gst_g3d_lidar_parse_transform(GstBaseTransform *trans, GstBuffer *inbuf, GstBuffer *outbuf) {
+    GstG3DLidarParse *filter = GST_G3D_LIDAR_PARSE(trans);
     g_mutex_lock(&filter->mutex);
 
     // Stride control
@@ -454,21 +473,59 @@ static GstFlowReturn gst_lidar_parse_transform(GstBaseTransform *trans, GstBuffe
     return GST_FLOW_OK;
 }
 
+static GstCaps *gst_g3d_lidar_parse_transform_caps(GstBaseTransform *trans, GstPadDirection direction, GstCaps *caps, GstCaps *filter) {
+    GstCaps *result = nullptr;
+
+    if (direction == GST_PAD_SINK) {
+        result = gst_caps_from_string("application/x-lidar");
+    } else {
+        result = gst_caps_from_string("application/octet-stream");
+    }
+
+    if (filter) {
+        GstCaps *tmp = gst_caps_intersect_full(result, filter, GST_CAPS_INTERSECT_FIRST);
+        gst_caps_unref(result);
+        result = tmp;
+    }
+
+    return result;
+}
+
+static gboolean gst_g3d_lidar_parse_set_caps(GstBaseTransform *trans, GstCaps *incaps, GstCaps *outcaps) {
+    GstG3DLidarParse *filter = GST_G3D_LIDAR_PARSE(trans);
+
+    GstPad *src_pad = GST_BASE_TRANSFORM_SRC_PAD(trans);
+    GstCaps *forced_caps = gst_caps_from_string("application/x-lidar");
+    if (!forced_caps) {
+        GST_ERROR_OBJECT(filter, "Failed to create application/x-lidar caps");
+        return FALSE;
+    }
+
+    gboolean ok = gst_pad_set_caps(src_pad, forced_caps);
+    gst_caps_unref(forced_caps);
+
+    if (!ok) {
+        GST_ERROR_OBJECT(filter, "Failed to set src caps to application/x-lidar");
+    }
+
+    return ok;
+}
+
 
 static gboolean plugin_init(GstPlugin *plugin) {
-    GST_DEBUG_CATEGORY_INIT(gst_lidar_parse_debug, "lidarparse", 0, "Lidar Binary Parser");
+    GST_DEBUG_CATEGORY_INIT(gst_g3d_lidar_parse_debug, "g3dlidarparse", 0, "Lidar Binary Parser");
 
-    return gst_element_register(plugin, "lidarparse", GST_RANK_NONE, GST_TYPE_LIDAR_PARSE);
+    return gst_element_register(plugin, "g3dlidarparse", GST_RANK_NONE, GST_TYPE_G3D_LIDAR_PARSE);
 }
 
 #ifndef PACKAGE
-#define PACKAGE "lidarparse"
+#define PACKAGE "g3dlidarparse"
 #endif
 
 GST_PLUGIN_DEFINE(
     GST_VERSION_MAJOR,
     GST_VERSION_MINOR,
-    lidarparse,
+    g3dlidarparse,
     "Lidar Binary Parser",
     plugin_init,
     "1.0",

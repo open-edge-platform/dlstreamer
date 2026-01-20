@@ -1,4 +1,4 @@
-#include "gstlidarmeta.h"
+#include <dlstreamer/gst/metadata/g3dlidarmeta.h>
 #include <gst/gst.h>
 #include <vector>
 #include <new>
@@ -15,6 +15,8 @@ GType lidar_meta_api_get_type(void) {
 }
 
 static gboolean lidar_meta_init(GstMeta *meta, gpointer params, GstBuffer *buffer) {
+    (void)params;
+    (void)buffer;
     LidarMeta *lidar_meta = (LidarMeta *)meta;
     new (&lidar_meta->lidar_data) std::vector<float>();
     lidar_meta->lidar_point_count = 0;
@@ -25,6 +27,7 @@ static gboolean lidar_meta_init(GstMeta *meta, gpointer params, GstBuffer *buffe
 }
 
 static void lidar_meta_free(GstMeta *meta, GstBuffer *buffer) {
+    (void)buffer;
     LidarMeta *lidar_meta = (LidarMeta *)meta;
     lidar_meta->lidar_data.~vector();
 }
