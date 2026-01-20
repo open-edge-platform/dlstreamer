@@ -31,12 +31,12 @@ struct LatencyTracer {
     gint interval;
     LatencyTracerFlags flags;
     gpointer branch_stats; // Map of source-sink pairs to their statistics (void* to avoid C++ in header)
-    gpointer sources_list;  // List of source elements (void* to avoid C++ in header)
-    gpointer sinks_list;    // List of sink elements (void* to avoid C++ in header)
+    gpointer sources_list; // List of source elements (void* to avoid C++ in header)
+    gpointer sinks_list;   // List of sink elements (void* to avoid C++ in header)
     
     // Performance optimization caches
-    gpointer element_type_cache;  // Map<GstElement*, ElementType> - cache element types for O(1) lookup
-    gpointer topology_cache;      // Map<GstElement*, GstElement*> - cache sink->source mappings for O(1) lookup
+    gpointer element_type_cache; // Map<GstElement*, ElementType> - cache element types for O(1) lookup
+    gpointer topology_cache;     // Map<GstElement*, GstElement*> - cache sink->source mappings for O(1) lookup
 };
 
 struct LatencyTracerClass {
