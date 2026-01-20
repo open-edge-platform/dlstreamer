@@ -325,10 +325,14 @@ jobs:
           IMAGE_SIZE_MB: ${{ env.IMAGE_SIZE_MB }}
           EXPECTED_SIZE_MB: ${{ env.EXPECTED_SIZE_MB }}
         run: |
-          echo "### Current Docker ${{ matrix.ubuntu_version }}-deb image size:" >> $GITHUB_STEP_SUMMARY
-          echo "**${IMAGE_SIZE_MB} MB**" >> $GITHUB_STEP_SUMMARY
-          echo "Expected Docker ${{ matrix.ubuntu_version }}-deb image size:" >> $GITHUB_STEP_SUMMARY
-          echo "**${EXPECTED_SIZE_MB} MB**" >> $GITHUB_STEP_SUMMARY
+          {
+            echo "## 🐳 Docker image size"
+            echo ""
+            echo "| Image | Size |"
+            echo "|-------|------|"
+            echo "| Current Docker ${{ matrix.ubuntu_version }}-deb | **${IMAGE_SIZE_MB} MB** |"
+            echo "| Expected Docker ${{ matrix.ubuntu_version }}-deb | **${EXPECTED_SIZE_MB} MB** |"
+          } >> "$GITHUB_STEP_SUMMARY"
       # ======================================================== CLEAUP PART ========================================================
       - name: Clean up
         if: always ()
@@ -340,4 +344,4 @@ jobs:
           sudo rm -f $HOME/dlstreamer-repo
           rm -rf dlstreamer-repo
           rm -rf $HOME/dl-streamer-tests-repo
-          sudo docker system prune -a -f
+          docker system prune -a -f
