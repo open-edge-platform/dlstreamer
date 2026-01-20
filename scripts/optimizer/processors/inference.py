@@ -140,7 +140,6 @@ class BatchGenerator:
         batches = self.tracked_elements.copy()
         batches = list(map(lambda e: self.batches[e["batch_idx"]], batches)) # transform batch indices into batches
         logger.info(f"Testing batch combination: {batches}")
-        logger.debug(f"{str(self.tracked_elements)}, {str(self.pipeline)}")
 
         # Prepare pipeline output
         pipeline = self.pipeline.copy()
