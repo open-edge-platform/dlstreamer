@@ -40,7 +40,7 @@ logger.info("GStreamer version: %d.%d.%d",
 def get_optimized_pipeline(pipeline, search_duration = 300, sample_duration = 10):
     # Test for tee element presence
     if re.search("[^a-zA-Z]tee[^a-zA-Z]", pipeline):
-        raise RuntimeError("Pipelines containing the tee element are currently no supported!")
+        raise RuntimeError("Pipelines containing the tee element are currently not supported!")
 
     pipeline = pipeline.split("!")
 
