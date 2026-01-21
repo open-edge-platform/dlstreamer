@@ -4,26 +4,26 @@
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
 
-#include "gstradarprocessormeta.h"
+#include "gstradarprocessmeta.h"
 #include <string.h>
 
 GType
-gst_radar_processor_meta_api_get_type(void)
+gst_radar_process_meta_api_get_type(void)
 {
     static GType type = 0;
     static const gchar *tags[] = { NULL };
 
     if (g_once_init_enter(&type)) {
-        GType _type = gst_meta_api_type_register("GstRadarProcessorMetaAPI", tags);
+        GType _type = gst_meta_api_type_register("GstRadarProcessMetaAPI", tags);
         g_once_init_leave(&type, _type);
     }
     return type;
 }
 
 static gboolean
-gst_radar_processor_meta_init(GstMeta *meta, gpointer params, GstBuffer *buffer)
+gst_radar_process_meta_init(GstMeta *meta, gpointer params, GstBuffer *buffer)
 {
-    GstRadarProcessorMeta *radar_meta = (GstRadarProcessorMeta *)meta;
+    GstRadarProcessMeta *radar_meta = (GstRadarProcessMeta *)meta;
     
     radar_meta->frame_id = 0;
     radar_meta->point_clouds_len = 0;
@@ -51,9 +51,9 @@ gst_radar_processor_meta_init(GstMeta *meta, gpointer params, GstBuffer *buffer)
 }
 
 static void
-gst_radar_processor_meta_free(GstMeta *meta, GstBuffer *buffer)
+gst_radar_process_meta_free(GstMeta *meta, GstBuffer *buffer)
 {
-    GstRadarProcessorMeta *radar_meta = (GstRadarProcessorMeta *)meta;
+    GstRadarProcessMeta *radar_meta = (GstRadarProcessMeta *)meta;
     
     // Free point clouds arrays
     g_free(radar_meta->ranges);
@@ -78,10 +78,10 @@ gst_radar_processor_meta_free(GstMeta *meta, GstBuffer *buffer)
 }
 
 static gboolean
-gst_radar_processor_meta_transform(GstBuffer *transbuf, GstMeta *meta,
+gst_radar_process_meta_transform(GstBuffer *transbuf, GstMeta *meta,
                                    GstBuffer *buffer, GQuark type, gpointer data)
 {
-    GstRadarProcessorMeta *src_meta = (GstRadarProcessorMeta *)meta;
+    GstRadarProcessMeta *src_meta = (GstRadarProcessMeta *)meta;
     
     // For now, we don't transform the metadata
     // Could be implemented to copy metadata to transformed buffer if needed
@@ -89,36 +89,36 @@ gst_radar_processor_meta_transform(GstBuffer *transbuf, GstMeta *meta,
 }
 
 const GstMetaInfo *
-gst_radar_processor_meta_get_info(void)
+gst_radar_process_meta_get_info(void)
 {
     static const GstMetaInfo *meta_info = NULL;
 
     if (g_once_init_enter(&meta_info)) {
         const GstMetaInfo *mi = gst_meta_register(
-            GST_RADAR_PROCESSOR_META_API_TYPE,
-            "GstRadarProcessorMeta",
-            sizeof(GstRadarProcessorMeta),
-            gst_radar_processor_meta_init,
-            gst_radar_processor_meta_free,
-            gst_radar_processor_meta_transform);
+            GST_RADAR_PROCESS_META_API_TYPE,
+            "GstRadarProcessMeta",
+            sizeof(GstRadarProcessMeta),
+            gst_radar_process_meta_init,
+            gst_radar_process_meta_free,
+            gst_radar_process_meta_transform);
         g_once_init_leave(&meta_info, mi);
     }
     return meta_info;
 }
 
-GstRadarProcessorMeta *
-gst_buffer_add_radar_processor_meta(GstBuffer *buffer,
+GstRadarProcessMeta *
+gst_buffer_add_radar_process_meta(GstBuffer *buffer,
                                    guint64 frame_id,
                                    const RadarPointClouds *point_clouds,
                                    const ClusterResult *cluster_result,
                                    const TrackingResult *tracking_result)
 {
-    GstRadarProcessorMeta *meta;
+    GstRadarProcessMeta *meta;
 
     g_return_val_if_fail(GST_IS_BUFFER(buffer), NULL);
 
-    meta = (GstRadarProcessorMeta *)gst_buffer_add_meta(buffer,
-                                                         GST_RADAR_PROCESSOR_META_INFO,
+    meta = (GstRadarProcessMeta *)gst_buffer_add_meta(buffer,
+                                                         GST_RADAR_PROCESS_META_INFO,
                                                          NULL);
     if (!meta)
         return NULL;

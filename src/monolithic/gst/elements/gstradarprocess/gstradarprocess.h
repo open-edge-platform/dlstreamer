@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
 
-#ifndef __GST_RADAR_PROCESSOR_H__
-#define __GST_RADAR_PROCESSOR_H__
+#ifndef __GST_RADAR_PROCESS_H__
+#define __GST_RADAR_PROCESS_H__
 
 #include <gst/base/gstbasetransform.h>
 #include <gst/gst.h>
@@ -15,16 +15,16 @@
 
 G_BEGIN_DECLS
 
-#define GST_TYPE_RADAR_PROCESSOR (gst_radar_processor_get_type())
-#define GST_RADAR_PROCESSOR(obj) (G_TYPE_CHECK_INSTANCE_CAST((obj), GST_TYPE_RADAR_PROCESSOR, GstRadarProcessor))
-#define GST_RADAR_PROCESSOR_CLASS(klass) (G_TYPE_CHECK_CLASS_CAST((klass), GST_TYPE_RADAR_PROCESSOR, GstRadarProcessorClass))
-#define GST_IS_RADAR_PROCESSOR(obj) (G_TYPE_CHECK_INSTANCE_TYPE((obj), GST_TYPE_RADAR_PROCESSOR))
-#define GST_IS_RADAR_PROCESSOR_CLASS(klass) (G_TYPE_CHECK_CLASS_TYPE((klass), GST_TYPE_RADAR_PROCESSOR))
+#define GST_TYPE_RADAR_PROCESS (gst_radar_process_get_type())
+#define GST_RADAR_PROCESS(obj) (G_TYPE_CHECK_INSTANCE_CAST((obj), GST_TYPE_RADAR_PROCESS, GstRadarProcess))
+#define GST_RADAR_PROCESS_CLASS(klass) (G_TYPE_CHECK_CLASS_CAST((klass), GST_TYPE_RADAR_PROCESS, GstRadarProcessClass))
+#define GST_IS_RADAR_PROCESS(obj) (G_TYPE_CHECK_INSTANCE_TYPE((obj), GST_TYPE_RADAR_PROCESS))
+#define GST_IS_RADAR_PROCESS_CLASS(klass) (G_TYPE_CHECK_CLASS_TYPE((klass), GST_TYPE_RADAR_PROCESS))
 
-typedef struct _GstRadarProcessor GstRadarProcessor;
-typedef struct _GstRadarProcessorClass GstRadarProcessorClass;
+typedef struct _GstRadarProcess GstRadarProcess;
+typedef struct _GstRadarProcessClass GstRadarProcessClass;
 
-struct _GstRadarProcessor {
+struct _GstRadarProcess {
     GstBaseTransform parent;
 
     // Properties
@@ -77,12 +77,12 @@ struct _GstRadarProcessor {
     RadarErrorCode (*radarDestroyHandle_fn)(RadarHandle*);
 };
 
-struct _GstRadarProcessorClass {
+struct _GstRadarProcessClass {
     GstBaseTransformClass parent_class;
 };
 
-GType gst_radar_processor_get_type(void);
+GType gst_radar_process_get_type(void);
 
 G_END_DECLS
 
-#endif /* __GST_RADAR_PROCESSOR_H__ */
+#endif /* __GST_RADAR_PROCESS_H__ */

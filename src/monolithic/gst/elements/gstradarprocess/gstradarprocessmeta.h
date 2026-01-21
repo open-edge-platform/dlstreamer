@@ -4,21 +4,21 @@
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
 
-#ifndef __GST_RADAR_PROCESSOR_META_H__
-#define __GST_RADAR_PROCESSOR_META_H__
+#ifndef __GST_RADAR_PROCESS_META_H__
+#define __GST_RADAR_PROCESS_META_H__
 
 #include <gst/gst.h>
 #include "libradar.h"
 
 G_BEGIN_DECLS
 
-#define GST_RADAR_PROCESSOR_META_API_TYPE (gst_radar_processor_meta_api_get_type())
-#define GST_RADAR_PROCESSOR_META_INFO (gst_radar_processor_meta_get_info())
+#define GST_RADAR_PROCESS_META_API_TYPE (gst_radar_process_meta_api_get_type())
+#define GST_RADAR_PROCESS_META_INFO (gst_radar_process_meta_get_info())
 
-typedef struct _GstRadarProcessorMeta GstRadarProcessorMeta;
+typedef struct _GstRadarProcessMeta GstRadarProcessMeta;
 
 /**
- * GstRadarProcessorMeta:
+ * GstRadarProcessMeta:
  * @meta: parent #GstMeta
  * @frame_id: Frame ID
  * @point_clouds: Radar point clouds detection results
@@ -27,7 +27,7 @@ typedef struct _GstRadarProcessorMeta GstRadarProcessorMeta;
  *
  * Custom metadata for radar processing results
  */
-struct _GstRadarProcessorMeta {
+struct _GstRadarProcessMeta {
     GstMeta meta;
 
     guint64 frame_id;
@@ -57,10 +57,10 @@ struct _GstRadarProcessorMeta {
     gfloat *tracker_vy;     // sHat[3]
 };
 
-GType gst_radar_processor_meta_api_get_type(void);
-const GstMetaInfo *gst_radar_processor_meta_get_info(void);
+GType gst_radar_process_meta_api_get_type(void);
+const GstMetaInfo *gst_radar_process_meta_get_info(void);
 
-GstRadarProcessorMeta *gst_buffer_add_radar_processor_meta(GstBuffer *buffer,
+GstRadarProcessMeta *gst_buffer_add_radar_process_meta(GstBuffer *buffer,
                                                            guint64 frame_id,
                                                            const RadarPointClouds *point_clouds,
                                                            const ClusterResult *cluster_result,
@@ -68,4 +68,4 @@ GstRadarProcessorMeta *gst_buffer_add_radar_processor_meta(GstBuffer *buffer,
 
 G_END_DECLS
 
-#endif /* __GST_RADAR_PROCESSOR_META_H__ */
+#endif /* __GST_RADAR_PROCESS_META_H__ */

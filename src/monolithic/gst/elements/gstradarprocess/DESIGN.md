@@ -1,7 +1,7 @@
-# Design Document: GstRadarProcessor Element
+# Design Document: GstRadarProcess Element
 
 ## 1. Introduction
-The `radarprocessor` is a GStreamer element designed to process millimeter-wave (mmWave) radar signal data. It acts as a bridge between raw radar data ingestion (typically from file sources) and advanced radar signal processing algorithms provided by `libradar`. The element handles data reordering, pre-processing, and interfaces with the underlying radar library to generate point clouds, clusters, and tracking data.
+The `radarprocess` is a GStreamer element designed to process millimeter-wave (mmWave) radar signal data. It acts as a bridge between raw radar data ingestion (typically from file sources) and advanced radar signal processing algorithms provided by `libradar`. The element handles data reordering, pre-processing, and interfaces with the underlying radar library to generate point clouds, clusters, and tracking data.
 
 ## 2. Architecture Overview
 
@@ -11,7 +11,7 @@ The element is designed to work in a pipeline where raw radar data is fed frame-
 ```bash
 multifilesrc location="/home/user/qianlong/raddet/radar/%06d.bin" start-index=559 ! \
 application/octet-stream ! \
-radarprocessor radar-config=config.json frame-rate=10 publish-result=true publish-path=radar_output.json ! \
+radarprocess radar-config=config.json frame-rate=10 publish-result=true publish-path=radar_output.json ! \
 gvafpscounter ! \
 fakesink
 ```
@@ -19,7 +19,7 @@ fakesink
 *   **Output:** The input buffer is passed through with processing results attached as custom GStreamer metadata.
 
 ### 2.2 Interface
-*   **Element Name:** `radarprocessor`
+*   **Element Name:** `radarprocess`
 *   **Classification:** `Filter/Converter`
 *   **Sink Pad (Input):** `application/octet-stream`
 *   **Source Pad (Output):** `application/x-radar-processed`
@@ -35,7 +35,7 @@ fakesink
 
 ## 4. Functional Description
 
-The `radarprocessor` performs the following sequential operations for each buffer:
+The `radarprocess` performs the following sequential operations for each buffer:
 
 ### 4.1. Configuration & Validation (Initialization)
 On the `start` event, the element parses the `radar-config` JSON file.
@@ -74,7 +74,7 @@ The element prepares the data structures for `libradar` and executes the process
 4.  **Tracking:** Calls `radarTracking` to generate `TrackingResult` for object tracking over time.
 
 ### 4.8. Metadata Attachment
-After processing completes, the element attaches a custom `GstRadarProcessorMeta` to the output buffer containing:
+After processing completes, the element attaches a custom `GstRadarProcessMeta` to the output buffer containing:
 *   **frame_id:** Sequential frame identifier.
 *   **RadarPointClouds:** Arrays of ranges, speeds, angles, and SNR values.
 *   **ClusterResult:** Cluster centers (cx, cy), sizes (rx, ry), average velocities, and cluster indices.
@@ -99,7 +99,7 @@ The element manages the lifecycle of the following key structures defined in `li
 
 ## 6. Output & Metadata
 
-The processed results are attached to each GStreamer buffer as custom metadata (`GstRadarProcessorMeta`):
+The processed results are attached to each GStreamer buffer as custom metadata (`GstRadarProcessMeta`):
 
 ### 6.1. Metadata Structure
 The custom metadata type is registered with the GStreamer metadata API and contains:
@@ -121,12 +121,12 @@ The custom metadata type is registered with the GStreamer metadata API and conta
 
 ### 6.2. Metadata Lifecycle
 *   **Registration:** Metadata API type is registered using `gst_meta_api_type_register()` with proper initialization.
-*   **Initialization:** `gst_radar_processor_meta_init()` sets all pointers to NULL and counts to zero.
-*   **Allocation:** `gst_buffer_add_radar_processor_meta()` creates metadata and performs deep-copy of all arrays.
-*   **Cleanup:** `gst_radar_processor_meta_free()` releases all dynamically allocated arrays using `g_free()`.
+*   **Initialization:** `gst_radar_process_meta_init()` sets all pointers to NULL and counts to zero.
+*   **Allocation:** `gst_buffer_add_radar_process_meta()` creates metadata and performs deep-copy of all arrays.
+*   **Cleanup:** `gst_radar_process_meta_free()` releases all dynamically allocated arrays using `g_free()`.
 
 ### 6.3. Downstream Consumption
 The metadata can be consumed by downstream GStreamer elements:
 *   **fakesink**: Simple sink for testing and benchmarking without visualization.
 *   **3ddatarender** (in development): Real-time visualization element that renders tracked objects in Cartesian coordinate system.
-*   Custom elements can retrieve metadata using `gst_buffer_get_meta()` with `GST_RADAR_PROCESSOR_META_API_TYPE`.
+*   Custom elements can retrieve metadata using `gst_buffer_get_meta()` with `GST_RADAR_PROCESS_META_API_TYPE`.

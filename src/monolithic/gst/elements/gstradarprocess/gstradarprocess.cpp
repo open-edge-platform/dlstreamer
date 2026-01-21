@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
 
-#include "gstradarprocessor.h"
-#include "gstradarprocessormeta.h"
+#include "gstradarprocess.h"
+#include "gstradarprocessmeta.h"
 #include "radar_config.hpp"
 #include <cstring>
 #include <numeric>
@@ -13,8 +13,8 @@
 #include <sys/time.h>
 #include <dlfcn.h>
 
-GST_DEBUG_CATEGORY_STATIC(gst_radar_processor_debug);
-#define GST_CAT_DEFAULT gst_radar_processor_debug
+GST_DEBUG_CATEGORY_STATIC(gst_radar_process_debug);
+#define GST_CAT_DEFAULT gst_radar_process_debug
 
 enum {
     PROP_0,
@@ -42,30 +42,30 @@ static GstStaticPadTemplate src_template = GST_STATIC_PAD_TEMPLATE(
     GST_STATIC_CAPS("application/x-radar-processed")
 );
 
-static void gst_radar_processor_set_property(GObject *object, guint prop_id,
+static void gst_radar_process_set_property(GObject *object, guint prop_id,
                                              const GValue *value, GParamSpec *pspec);
-static void gst_radar_processor_get_property(GObject *object, guint prop_id,
+static void gst_radar_process_get_property(GObject *object, guint prop_id,
                                              GValue *value, GParamSpec *pspec);
-static void gst_radar_processor_finalize(GObject *object);
+static void gst_radar_process_finalize(GObject *object);
 
-static gboolean gst_radar_processor_start(GstBaseTransform *trans);
-static gboolean gst_radar_processor_stop(GstBaseTransform *trans);
-static GstFlowReturn gst_radar_processor_transform_ip(GstBaseTransform *trans, GstBuffer *buffer);
-static GstCaps *gst_radar_processor_transform_caps(GstBaseTransform *trans,
+static gboolean gst_radar_process_start(GstBaseTransform *trans);
+static gboolean gst_radar_process_stop(GstBaseTransform *trans);
+static GstFlowReturn gst_radar_process_transform_ip(GstBaseTransform *trans, GstBuffer *buffer);
+static GstCaps *gst_radar_process_transform_caps(GstBaseTransform *trans,
                                                     GstPadDirection direction,
                                                     GstCaps *caps,
                                                     GstCaps *filter);
 
-G_DEFINE_TYPE(GstRadarProcessor, gst_radar_processor, GST_TYPE_BASE_TRANSFORM);
+G_DEFINE_TYPE(GstRadarProcess, gst_radar_process, GST_TYPE_BASE_TRANSFORM);
 
-static void gst_radar_processor_class_init(GstRadarProcessorClass *klass) {
+static void gst_radar_process_class_init(GstRadarProcessClass *klass) {
     GObjectClass *gobject_class = G_OBJECT_CLASS(klass);
     GstElementClass *gstelement_class = GST_ELEMENT_CLASS(klass);
     GstBaseTransformClass *base_transform_class = GST_BASE_TRANSFORM_CLASS(klass);
 
-    gobject_class->set_property = gst_radar_processor_set_property;
-    gobject_class->get_property = gst_radar_processor_get_property;
-    gobject_class->finalize = gst_radar_processor_finalize;
+    gobject_class->set_property = gst_radar_process_set_property;
+    gobject_class->get_property = gst_radar_process_get_property;
+    gobject_class->finalize = gst_radar_process_finalize;
 
     g_object_class_install_property(gobject_class, PROP_RADAR_CONFIG,
         g_param_spec_string("radar-config", "Radar Config",
@@ -92,7 +92,7 @@ static void gst_radar_processor_class_init(GstRadarProcessorClass *klass) {
                            (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
     gst_element_class_set_static_metadata(gstelement_class,
-        "Radar Signal Processor",
+        "Radar Signal Process",
         "Filter/Converter",
         "Processes millimeter wave radar signals with DC removal and reordering",
         "Intel Corporation");
@@ -100,13 +100,13 @@ static void gst_radar_processor_class_init(GstRadarProcessorClass *klass) {
     gst_element_class_add_static_pad_template(gstelement_class, &sink_template);
     gst_element_class_add_static_pad_template(gstelement_class, &src_template);
 
-    base_transform_class->start = GST_DEBUG_FUNCPTR(gst_radar_processor_start);
-    base_transform_class->stop = GST_DEBUG_FUNCPTR(gst_radar_processor_stop);
-    base_transform_class->transform_ip = GST_DEBUG_FUNCPTR(gst_radar_processor_transform_ip);
-    base_transform_class->transform_caps = GST_DEBUG_FUNCPTR(gst_radar_processor_transform_caps);
+    base_transform_class->start = GST_DEBUG_FUNCPTR(gst_radar_process_start);
+    base_transform_class->stop = GST_DEBUG_FUNCPTR(gst_radar_process_stop);
+    base_transform_class->transform_ip = GST_DEBUG_FUNCPTR(gst_radar_process_transform_ip);
+    base_transform_class->transform_caps = GST_DEBUG_FUNCPTR(gst_radar_process_transform_caps);
 }
 
-static void gst_radar_processor_init(GstRadarProcessor *filter) {
+static void gst_radar_process_init(GstRadarProcess *filter) {
     filter->radar_config = nullptr;
     filter->frame_rate = DEFAULT_FRAME_RATE;
     filter->publish_result = DEFAULT_PUBLISH_RESULT;
@@ -137,8 +137,8 @@ static void gst_radar_processor_init(GstRadarProcessor *filter) {
     filter->radarDestroyHandle_fn = nullptr;
 }
 
-static void gst_radar_processor_finalize(GObject *object) {
-    GstRadarProcessor *filter = GST_RADAR_PROCESSOR(object);
+static void gst_radar_process_finalize(GObject *object) {
+    GstRadarProcess *filter = GST_RADAR_PROCESS(object);
 
     g_free(filter->radar_config);
     g_free(filter->publish_path);
@@ -155,12 +155,12 @@ static void gst_radar_processor_finalize(GObject *object) {
         filter->libradar_handle = nullptr;
     }
 
-    G_OBJECT_CLASS(gst_radar_processor_parent_class)->finalize(object);
+    G_OBJECT_CLASS(gst_radar_process_parent_class)->finalize(object);
 }
 
-static void gst_radar_processor_set_property(GObject *object, guint prop_id,
+static void gst_radar_process_set_property(GObject *object, guint prop_id,
                                              const GValue *value, GParamSpec *pspec) {
-    GstRadarProcessor *filter = GST_RADAR_PROCESSOR(object);
+    GstRadarProcess *filter = GST_RADAR_PROCESS(object);
 
     switch (prop_id) {
         case PROP_RADAR_CONFIG:
@@ -188,9 +188,9 @@ static void gst_radar_processor_set_property(GObject *object, guint prop_id,
     }
 }
 
-static void gst_radar_processor_get_property(GObject *object, guint prop_id,
+static void gst_radar_process_get_property(GObject *object, guint prop_id,
                                              GValue *value, GParamSpec *pspec) {
-    GstRadarProcessor *filter = GST_RADAR_PROCESSOR(object);
+    GstRadarProcess *filter = GST_RADAR_PROCESS(object);
 
     switch (prop_id) {
         case PROP_RADAR_CONFIG:
@@ -211,10 +211,10 @@ static void gst_radar_processor_get_property(GObject *object, guint prop_id,
     }
 }
 
-static gboolean gst_radar_processor_start(GstBaseTransform *trans) {
-    GstRadarProcessor *filter = GST_RADAR_PROCESSOR(trans);
+static gboolean gst_radar_process_start(GstBaseTransform *trans) {
+    GstRadarProcess *filter = GST_RADAR_PROCESS(trans);
 
-    GST_DEBUG_OBJECT(filter, "Starting radar processor");
+    GST_DEBUG_OBJECT(filter, "Starting radar process");
 
     if (!filter->radar_config) {
         GST_ERROR_OBJECT(filter, "No radar config file specified");
@@ -413,15 +413,15 @@ static gboolean gst_radar_processor_start(GstBaseTransform *trans) {
     return TRUE;
 }
 
-static gboolean gst_radar_processor_stop(GstBaseTransform *trans) {
-    GstRadarProcessor *filter = GST_RADAR_PROCESSOR(trans);
+static gboolean gst_radar_process_stop(GstBaseTransform *trans) {
+    GstRadarProcess *filter = GST_RADAR_PROCESS(trans);
 
-    GST_DEBUG_OBJECT(filter, "Stopping radar processor");
+    GST_DEBUG_OBJECT(filter, "Stopping radar process");
 
     // Print statistics
     if (filter->total_frames > 0) {
         gdouble avg_time = filter->total_processing_time / filter->total_frames;
-        GST_INFO_OBJECT(filter, "=== Radar Processor Statistics ===");
+        GST_INFO_OBJECT(filter, "=== Radar Process Statistics ===");
         GST_INFO_OBJECT(filter, "Total frames processed: %" G_GUINT64_FORMAT, filter->total_frames);
         GST_INFO_OBJECT(filter, "Total processing time: %.3f seconds", filter->total_processing_time);
         GST_INFO_OBJECT(filter, "Average time per frame: %.3f ms", avg_time * 1000.0);
@@ -461,7 +461,7 @@ static gboolean gst_radar_processor_stop(GstBaseTransform *trans) {
     return TRUE;
 }
 
-static GstCaps *gst_radar_processor_transform_caps(GstBaseTransform *trans,
+static GstCaps *gst_radar_process_transform_caps(GstBaseTransform *trans,
                                                     GstPadDirection direction,
                                                     GstCaps *caps,
                                                     GstCaps *filter) {
@@ -473,7 +473,7 @@ static GstCaps *gst_radar_processor_transform_caps(GstBaseTransform *trans,
 }
 
 // Publish radar metadata to JSON file
-static gboolean publish_radar_metadata_to_json(GstRadarProcessor *filter, GstRadarProcessorMeta *meta) {
+static gboolean publish_radar_metadata_to_json(GstRadarProcess *filter, GstRadarProcessMeta *meta) {
     if (!filter->publish_path) {
         GST_WARNING_OBJECT(filter, "No publish path specified");
         return FALSE;
@@ -571,8 +571,8 @@ static void dc_removal(std::complex<float> *data, size_t count) {
     }
 }
 
-static GstFlowReturn gst_radar_processor_transform_ip(GstBaseTransform *trans, GstBuffer *buffer) {
-    GstRadarProcessor *filter = GST_RADAR_PROCESSOR(trans);
+static GstFlowReturn gst_radar_process_transform_ip(GstBaseTransform *trans, GstBuffer *buffer) {
+    GstRadarProcess *filter = GST_RADAR_PROCESS(trans);
 
     // Start timing for this frame
     struct timeval start_time, end_time;
@@ -683,7 +683,7 @@ static GstFlowReturn gst_radar_processor_transform_ip(GstBaseTransform *trans, G
     gst_buffer_unmap(buffer, &map);
     
     // Add radar processing results as metadata to the buffer
-    GstRadarProcessorMeta *meta = gst_buffer_add_radar_processor_meta(buffer,
+    GstRadarProcessMeta *meta = gst_buffer_add_radar_process_meta(buffer,
                                                                        filter->frame_id,
                                                                        &filter->radar_point_clouds,
                                                                        &filter->cluster_result,
@@ -720,22 +720,22 @@ static GstFlowReturn gst_radar_processor_transform_ip(GstBaseTransform *trans, G
 }
 
 static gboolean plugin_init(GstPlugin *plugin) {
-    GST_DEBUG_CATEGORY_INIT(gst_radar_processor_debug, "radarprocessor", 0, 
-                            "Radar Signal Processor");
+    GST_DEBUG_CATEGORY_INIT(gst_radar_process_debug, "radarprocess", 0, 
+                            "Radar Signal Process");
 
-    return gst_element_register(plugin, "radarprocessor", GST_RANK_NONE, 
-                               GST_TYPE_RADAR_PROCESSOR);
+    return gst_element_register(plugin, "radarprocess", GST_RANK_NONE, 
+                               GST_TYPE_RADAR_PROCESS);
 }
 
 #ifndef PACKAGE
-#define PACKAGE "radarprocessor"
+#define PACKAGE "radarprocess"
 #endif
 
 GST_PLUGIN_DEFINE(
     GST_VERSION_MAJOR,
     GST_VERSION_MINOR,
-    radarprocessor,
-    "Radar Signal Processor",
+    radarprocess,
+    "Radar Signal Process",
     plugin_init,
     "1.0",
     "MIT",
