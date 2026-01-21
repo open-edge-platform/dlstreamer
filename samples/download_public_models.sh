@@ -215,7 +215,7 @@ VENV_DIR_QUANT="$HOME/.virtualenvs/dlstreamer-quantization"
 # Create a Python virtual environment if it doesn't exist
 if [ ! -d "$VENV_DIR_QUANT" ]; then
   echo "Creating virtual environment in $VENV_DIR_QUANT..."
-  $PYTHON_CREATE_VENV -m venv "$VENV_DIR_QUANT" || handle_error $VENV_DIR_QUANT
+  $PYTHON_CREATE_VENV -m venv "$VENV_DIR_QUANT" || handle_error $LINENO
 fi
 
 # Activate the virtual environment
@@ -226,17 +226,16 @@ source "$VENV_DIR_QUANT/bin/activate"
 pip install --no-cache-dir --upgrade pip
 
 # Install OpenVINO module with compatible numpy version
-pip install --no-cache-dir "numpy<2.5.0,>=1.16.6" || handle_error $LINENO
+pip install --no-cache-dir numpy==2.2.6 || handle_error $LINENO
 pip install --no-cache-dir openvino==2025.4.0 || handle_error $LINENO
 
-pip install --no-cache-dir onnx || handle_error $LINENO
-pip install --no-cache-dir seaborn || handle_error $LINENO
-# Install compatible NNCF version for OpenVINO 2025.4.0
-pip install --no-cache-dir "nncf>=2.14.0,<3.0.0" || handle_error $LINENO
+pip install --no-cache-dir onnx==1.20.1 || handle_error $LINENO
+pip install --no-cache-dir seaborn==0.13.2 || handle_error $LINENO
+pip install --no-cache-dir nncf==2.19.0 || handle_error $LINENO
 
 # Check and upgrade ultralytics if necessary
 if [[ "${MODEL:-}" =~ yolo.* || "${MODEL:-}" == "all" ]]; then
-  pip install --no-cache-dir --upgrade --extra-index-url https://download.pytorch.org/whl/cpu "ultralytics==8.3.153" "numpy<2.5.0" || handle_error $LINENO
+  pip install --no-cache-dir --upgrade --extra-index-url https://download.pytorch.org/whl/cpu "ultralytics==8.3.153" || handle_error $LINENO
 fi
 
 # Set the name of the virtual environment directory
@@ -260,9 +259,8 @@ pip install --no-cache-dir "numpy<2.0.0,>=1.16.6" || handle_error $LINENO
 pip install --no-cache-dir openvino==2024.6.0 || handle_error $LINENO
 pip install --no-cache-dir openvino-dev==2024.6.0 || handle_error $LINENO
 
-pip install --no-cache-dir onnx || handle_error $LINENO
-pip install --no-cache-dir seaborn || handle_error $LINENO
-# Install compatible NNCF version for OpenVINO 2024.6.0
+pip install --no-cache-dir onnx==1.20.1 || handle_error $LINENO
+pip install --no-cache-dir seaborn==0.13.2 || handle_error $LINENO
 pip install --no-cache-dir "nncf>=2.12.0,<2.14.0" || handle_error $LINENO
 
 # Check and upgrade ultralytics if necessary
