@@ -98,6 +98,26 @@ SUPPORTED_MODELS=(
   "yolo11m-pose"
   "yolo11l-pose"
   "yolo11x-pose"
+  "yolo26n"
+  "yolo26s"
+  "yolo26m"
+  "yolo26l"
+  "yolo26x"
+  "yolo26n-obb"
+  "yolo26s-obb"
+  "yolo26m-obb"
+  "yolo26l-obb"
+  "yolo26x-obb"
+  "yolo26n-seg"
+  "yolo26s-seg"
+  "yolo26m-seg"
+  "yolo26l-seg"
+  "yolo26x-seg"
+  "yolo26n-pose"
+  "yolo26s-pose"
+  "yolo26m-pose"
+  "yolo26l-pose"
+  "yolo26x-pose"
   "centerface"
   "hsemotion"
   "deeplabv3"
@@ -115,6 +135,7 @@ declare -A SUPPORTED_QUANTIZATION_DATASETS
 SUPPORTED_QUANTIZATION_DATASETS=(
   ["coco"]="https://raw.githubusercontent.com/ultralytics/ultralytics/v8.1.0/ultralytics/cfg/datasets/coco.yaml"
   ["coco128"]="https://raw.githubusercontent.com/ultralytics/ultralytics/v8.1.0/ultralytics/cfg/datasets/coco128.yaml"
+  ["coco8"]="https://raw.githubusercontent.com/ultralytics/ultralytics/v8.1.0/ultralytics/cfg/datasets/coco8.yaml"
 )
 
 # Function to display text in a given color
@@ -337,7 +358,7 @@ pip install --no-cache-dir nncf==2.19.0 || handle_error $LINENO
 
 # Check and upgrade ultralytics if necessary
 if [[ "${MODEL:-}" =~ yolo.* || "${MODEL:-}" == "all" ]]; then
-  pip install --no-cache-dir --upgrade --extra-index-url https://download.pytorch.org/whl/cpu "ultralytics==8.3.153" || handle_error $LINENO
+  pip install --no-cache-dir --upgrade --extra-index-url https://download.pytorch.org/whl/cpu "ultralytics==8.4.3" || handle_error $LINENO
 fi
 
 # Set the name of the virtual environment directory
@@ -357,18 +378,16 @@ source "$VENV_DIR/bin/activate"
 pip install --no-cache-dir --upgrade pip
 
 # Install OpenVINO module with compatible numpy version
-pip install --no-cache-dir "numpy<2.0.0,>=1.16.6" || handle_error $LINENO
-pip install --no-cache-dir openvino==2024.6.0 || handle_error $LINENO
-pip install --no-cache-dir openvino-dev==2024.6.0 || handle_error $LINENO
+#pip install --no-cache-dir "numpy<2.0.0,>=1.16.6" || handle_error $LINENO
+pip install --no-cache-dir openvino==2025.4.0 || handle_error $LINENO
 
-pip install --no-cache-dir onnx==1.20.1 || handle_error $LINENO
-pip install --no-cache-dir onnxscript==0.5.7 || handle_error $LINENO
-pip install --no-cache-dir seaborn==0.13.2 || handle_error $LINENO
-pip install --no-cache-dir "nncf>=2.12.0,<2.14.0" || handle_error $LINENO
+#pip install --no-cache-dir onnx==1.20.1 || handle_error $LINENO
+#pip install --no-cache-dir seaborn==0.13.2 || handle_error $LINENO
+#pip install --no-cache-dir "nncf>=2.12.0,<2.14.0" || handle_error $LINENO
 
 # Check and upgrade ultralytics if necessary
 if [[ "${MODEL:-}" =~ yolo.* || "${MODEL:-}" == "all" ]]; then
-  pip install --no-cache-dir --upgrade --extra-index-url https://download.pytorch.org/whl/cpu "ultralytics==8.3.153" "numpy<2.0.0" || handle_error $LINENO
+  pip install --no-cache-dir --upgrade --extra-index-url https://download.pytorch.org/whl/cpu "ultralytics==8.4.3" || handle_error $LINENO
 fi
 
 # Install dependencies for CLIP models
@@ -729,8 +748,7 @@ fi
 # Function to export YOLO model
 export_yolo_model() {
   local MODEL_NAME=$1
-  local MODEL_TYPE=$2
-  local QUANTIZE=$3
+  local QUANTIZE=$2
   MODEL_DIR="$MODELS_PATH/public/$MODEL_NAME"
   DST_FILE1="$MODEL_DIR/FP16/$MODEL_NAME.xml"
   DST_FILE2="$MODEL_DIR/FP32/$MODEL_NAME.xml"
@@ -741,31 +759,24 @@ export_yolo_model() {
     cd "$MODEL_DIR"
     source "$VENV_DIR/bin/activate"
 
-    python3 - <<EOF "$MODEL_NAME" "$MODEL_TYPE"
+    python3 - <<EOF "$MODEL_NAME" "$QUANTIZE"
 from ultralytics import YOLO
-import openvino, sys, shutil, os
+from openvino import Core, save_model
+import openvino as ov
+import sys, shutil, os
 
-model_name = sys.argv[1]
-model_type = sys.argv[2]
-weights = model_name + '.pt'
-
-model = YOLO(weights)
+model = YOLO(sys.argv[1] + '.pt')
 model.info()
-converted_path = model.export(format='openvino')
-converted_model = converted_path + '/' + model_name + '.xml'
-core = openvino.Core()
-ov_model = core.read_model(model=converted_model)
 
-if model_type in ["yolo_v8_seg", "yolo_v11_seg"]:
-    ov_model.output(0).set_names({"boxes"})
-    ov_model.output(1).set_names({"masks"})
+converted_path = model.export(format='openvino', dynamic=True, half=False, int8=False)
+os.rename(converted_path, "FP32")
 
-ov_model.set_rt_info(model_type, ['model_info', 'model_type'])
+converted_path = model.export(format='openvino', dynamic=True, half=True, int8=False)
+os.rename(converted_path, "FP16")
 
-openvino.save_model(ov_model, './FP32/' + model_name + '.xml', compress_to_fp16=False)
-openvino.save_model(ov_model, './FP16/' + model_name + '.xml', compress_to_fp16=True)
-shutil.rmtree(converted_path)
-os.remove(f"{model_name}.pt")
+if sys.argv[2] != "":
+  converted_path = model.export(format='openvino', dynamic=True, half=True, int8=True, data=sys.argv[2] + '.yaml')
+  os.rename(converted_path, "INT8")
 EOF
 
     cd ../..
@@ -773,9 +784,6 @@ EOF
     echo_color "\nModel already exists: $MODEL_DIR.\n" "yellow"
   fi
 
-  if [[ $QUANTIZE != "" ]]; then
-    quantize_yolo_model "$MODEL_NAME"
-  fi
 }
 
 # List of models and their types
@@ -832,17 +840,33 @@ YOLO_MODELS=(
   ["yolo11m-pose"]="yolo_v11_pose"
   ["yolo11l-pose"]="yolo_v11_pose"
   ["yolo11x-pose"]="yolo_v11_pose"
+  ["yolo26n"]="yolo_v26"
+  ["yolo26s"]="yolo_v26"
+  ["yolo26m"]="yolo_v26"
+  ["yolo26l"]="yolo_v26"
+  ["yolo26x"]="yolo_v26"
+  ["yolo26n-obb"]="yolo_v26_obb"
+  ["yolo26s-obb"]="yolo_v26_obb"
+  ["yolo26m-obb"]="yolo_v26_obb"
+  ["yolo26l-obb"]="yolo_v26_obb"
+  ["yolo26x-obb"]="yolo_v26_obb"
+  ["yolo26n-seg"]="yolo_v26_seg"
+  ["yolo26s-seg"]="yolo_v26_seg"
+  ["yolo26m-seg"]="yolo_v26_seg"
+  ["yolo26l-seg"]="yolo_v26_seg"
+  ["yolo26x-seg"]="yolo_v26_seg"
+  ["yolo26n-pose"]="yolo_v26_pose"
+  ["yolo26s-pose"]="yolo_v26_pose"
+  ["yolo26m-pose"]="yolo_v26_pose"
+  ["yolo26l-pose"]="yolo_v26_pose"
+  ["yolo26x-pose"]="yolo_v26_pose"
 )
 
 # Iterate over the models and export them
 for MODEL_NAME in "${!YOLO_MODELS[@]}"; do
   if array_contains "$MODEL_NAME" "${MODELS_TO_PROCESS[@]}" || array_contains "yolo_all" "${MODELS_TO_PROCESS[@]}" || array_contains "all" "${MODELS_TO_PROCESS[@]}"; then
     MODEL_NAME_UPPER=$(echo "$MODEL_NAME" | tr '[:lower:]' '[:upper:]')
-    if [[ $MODEL_NAME_UPPER == *"OBB"* || $MODEL_NAME_UPPER == *"POSE"* || $MODEL_NAME_UPPER == *"SEG"* ]]; then
-      export_yolo_model "$MODEL_NAME" "${YOLO_MODELS[$MODEL_NAME]}" ""
-    else
-      export_yolo_model "$MODEL_NAME" "${YOLO_MODELS[$MODEL_NAME]}" "$QUANTIZE"
-    fi
+    export_yolo_model "$MODEL_NAME" "$QUANTIZE"
   fi
 done
 
