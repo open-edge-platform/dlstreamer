@@ -219,7 +219,7 @@ class NireqGenerator:
             # Get the nireq for this element
             nireq = self.nireqs[element["nireq_idx"]]
 
-            # Apply current configuration 
+            # Apply current configuration
             parameters["nireq"] = str(nireq)
             parameters = assemble_parameters(parameters)
             pipeline[idx] = f" {element_type} {parameters}"
