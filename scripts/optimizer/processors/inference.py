@@ -3,9 +3,9 @@
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
-from openvino import Core
-
 import logging
+
+from openvino import Core
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +29,7 @@ class DeviceGenerator:
     def __iter__(self):
         return self
 
-    def __next__(self) -> list: 
+    def __next__(self) -> list:
         # Prepare the next combination of devices
         end_of_variants = True
         for element in self.tracked_elements:
@@ -38,7 +38,7 @@ class DeviceGenerator:
                 self.first_iteration = False
                 end_of_variants = False
                 break
-                
+
             cur_device_idx = element["device_idx"]
             next_device_idx = (cur_device_idx + 1) % len(self.devices)
             element["device_idx"] = next_device_idx
@@ -57,7 +57,7 @@ class DeviceGenerator:
         # log device combinations
         devices = self.tracked_elements.copy()
         devices = list(map(lambda e: self.devices[e["device_idx"]], devices)) # transform device indices into names
-        logger.info(f"Testing device combination: {devices}")
+        logger.info("Testing device combination: %s", str(devies))
 
         # Prepare pipeline output
         pipeline = self.pipeline.copy()
@@ -70,6 +70,7 @@ class DeviceGenerator:
             device = self.devices[element["device_idx"]]
 
             # Configure an appropriate backend and memory location
+            memory = ""
             if "GPU" in device:
                 parameters["pre-process-backend"] = "va-surface-sharing"
                 memory = "video/x-raw(memory:VAMemory)"
@@ -81,13 +82,13 @@ class DeviceGenerator:
             if "CPU" in device:
                 parameters["pre-process-backend"] = "opencv"
                 memory = "video/x-raw"
-            
-            # Apply current configuration 
+
+            # Apply current configuration
             parameters["device"] = device
             parameters = assemble_parameters(parameters)
             pipeline[idx] = f" {element_type} {parameters}"
             pipeline.insert(idx, f" {memory} ")
-            pipeline.insert(idx, f" vapostproc ")
+            pipeline.insert(idx, " vapostproc ")
 
         return pipeline
 
@@ -111,7 +112,7 @@ class BatchGenerator:
     def __iter__(self):
         return self
 
-    def __next__(self) -> list: 
+    def __next__(self) -> list:
         # Prepare the next combination of batches
         end_of_variants = True
         for element in self.tracked_elements:
@@ -120,7 +121,7 @@ class BatchGenerator:
                 self.first_iteration = False
                 end_of_variants = False
                 break
-                
+
             cur_batch_idx = element["batch_idx"]
             next_batch_idx = (cur_batch_idx + 1) % len(self.batches)
             element["batch_idx"] = next_batch_idx
@@ -139,7 +140,7 @@ class BatchGenerator:
         # log device combinations
         batches = self.tracked_elements.copy()
         batches = list(map(lambda e: self.batches[e["batch_idx"]], batches)) # transform batch indices into batches
-        logger.info(f"Testing batch combination: {batches}")
+        logger.info("Testing batch combination: %s", str(batches))
 
         # Prepare pipeline output
         pipeline = self.pipeline.copy()
@@ -150,8 +151,8 @@ class BatchGenerator:
 
             # Get the batch for this element
             batch = self.batches[element["batch_idx"]]
-            
-            # Apply current configuration 
+
+            # Apply current configuration
             parameters["batch-size"] = str(batch)
             parameters = assemble_parameters(parameters)
             pipeline[idx] = f" {element_type} {parameters}"
@@ -178,7 +179,7 @@ class NireqGenerator:
     def __iter__(self):
         return self
 
-    def __next__(self) -> list: 
+    def __next__(self) -> list:
         # Prepare the next combination of nireqs
         end_of_variants = True
         for element in self.tracked_elements:
@@ -187,7 +188,7 @@ class NireqGenerator:
                 self.first_iteration = False
                 end_of_variants = False
                 break
-                
+
             cur_nireq_idx = element["nireq_idx"]
             next_nireq_idx = (cur_nireq_idx + 1) % len(self.nireqs)
             element["nireq_idx"] = next_nireq_idx
@@ -206,7 +207,7 @@ class NireqGenerator:
         # log device combinations
         nireqs = self.tracked_elements.copy()
         nireqs = list(map(lambda e: self.nireqs[e["nireq_idx"]], nireqs)) # transform nireq indices into nireqs
-        logger.info(f"Testing nireq combination: {nireqs}")
+        logger.info("Testing nireq combination: %s", str(nireqs))
 
         # Prepare pipeline output
         pipeline = self.pipeline.copy()
@@ -217,7 +218,7 @@ class NireqGenerator:
 
             # Get the nireq for this element
             nireq = self.nireqs[element["nireq_idx"]]
-            
+
             # Apply current configuration 
             parameters["nireq"] = str(nireq)
             parameters = assemble_parameters(parameters)
