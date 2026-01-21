@@ -37,8 +37,8 @@ const int YOLOV10_OFFSET_L = 5;  // labels
 
 class YOLOv10Converter : public BlobToROIConverter {
   protected:
-    void parseOutputBlob(const float *data, const std::vector<size_t> &dims,
-                         std::vector<DetectedObject> &objects) const;
+    void parseOutputBlob(const float *data, const std::vector<size_t> &dims, std::vector<DetectedObject> &objects,
+                         bool oob) const;
 
   public:
     YOLOv10Converter(BlobToMetaConverter::Initializer initializer, double confidence_threshold, double iou_threshold)
