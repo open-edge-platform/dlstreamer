@@ -168,16 +168,6 @@ if ($OPENVINO_NEEDS_INSTALL) {
 	Write-Host "################################# OpenVINO GenAI ${OPENVINO_VERSION} already correctly installed ##################################"
 }
 
-Write-Host 'Setting variables: LIBVA_DRIVER_NAME, LIBVA_DRIVERS_PATH, Path (for LIBVA)'
-[Environment]::SetEnvironmentVariable('LIBVA_DRIVER_NAME', 'vaon12', [System.EnvironmentVariableTarget]::User)
-[Environment]::SetEnvironmentVariable('LIBVA_DRIVERS_PATH', (Get-Item .).FullName + '\Microsoft.Direct3D.VideoAccelerationCompatibilityPack.1.0.2\build\native\x64\bin\', [System.EnvironmentVariableTarget]::User)
-$USER_PATH = [Environment]::GetEnvironmentVariable('Path', 'User')
-$pathEntries = $USER_PATH -split ';'
-if (-Not ($pathEntries -contains [Environment]::GetEnvironmentVariable('LIBVA_DRIVERS_PATH', 'User'))) {
-	[Environment]::SetEnvironmentVariable('Path', $USER_PATH + ';' + [Environment]::GetEnvironmentVariable('LIBVA_DRIVERS_PATH', 'User'), [System.EnvironmentVariableTarget]::User)
-	Write-Host 'Added LIBVA drivers path to User Path variable'
-}
-
 Write-Host 'Setting variables: GST_PLUGIN_PATH, Path (for DLLs)'
 $CURRENT_DIR = (Get-Item .).FullName
 [Environment]::SetEnvironmentVariable('GST_PLUGIN_PATH', "C:\gstreamer\1.0\msvc_x86_64\bin;C:\gstreamer\1.0\msvc_x86_64\lib\gstreamer-1.0;$CURRENT_DIR", [System.EnvironmentVariableTarget]::User)
@@ -217,8 +207,6 @@ if (-Not (($pathEntries -contains $OPENVINO_TBB_DIR) -and ($pathEntries -contain
 $env:Path = [System.Environment]::GetEnvironmentVariable('Path','Machine') + ';' + [System.Environment]::GetEnvironmentVariable('Path','User')
 $env:GST_PLUGIN_PATH = [System.Environment]::GetEnvironmentVariable('GST_PLUGIN_PATH','User')
 $env:GST_PLUGIN_SCANNER = [System.Environment]::GetEnvironmentVariable('GST_PLUGIN_SCANNER','User')
-$env:LIBVA_DRIVER_NAME = [System.Environment]::GetEnvironmentVariable('LIBVA_DRIVER_NAME','User')
-$env:LIBVA_DRIVERS_PATH = [System.Environment]::GetEnvironmentVariable('LIBVA_DRIVERS_PATH','User')
 $env:OpenVINO_DIR = [System.Environment]::GetEnvironmentVariable('OpenVINO_DIR','User')
 $env:OPENVINO_LIB_PATHS = [System.Environment]::GetEnvironmentVariable('OPENVINO_LIB_PATHS','User')
 
@@ -229,10 +217,6 @@ Write-Host "GST_PLUGIN_PATH:"
 $env:GST_PLUGIN_PATH
 Write-Host "GST_PLUGIN_SCANNER:"
 $env:GST_PLUGIN_SCANNER
-Write-Host "LIBVA_DRIVER_NAME:"
-$env:LIBVA_DRIVER_NAME
-Write-Host "LIBVA_DRIVERS_PATH:"
-$env:LIBVA_DRIVERS_PATH
 Write-Host "OpenVINO_DIR:"
 $env:OpenVINO_DIR
 Write-Host "OPENVINO_LIB_PATHS:"
