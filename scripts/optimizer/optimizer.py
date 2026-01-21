@@ -50,9 +50,17 @@ def get_optimized_pipeline(pipeline, search_duration = 300, sample_duration = 10
 
     # Make pipeline definition portable across inference devices.
     # Replace elements with known better alternatives.
-    pipeline = " ! ".join(pipeline)
-    pipeline = preprocess_pipeline(pipeline)
-    pipeline = pipeline.split(" ! ") 
+    try:
+        preproc_pipeline = " ! ".join(pipeline)
+        preproc_pipeline = preprocess_pipeline(preproc_pipeline)
+        preproc_pipeline = preproc_pipeline.split(" ! ")
+
+        preproc_fps = sample_pipeline(preproc_pipeline, sample_duration)
+        if preproc_fps > fps:
+            fps = preproc_fps
+            pipeline = preproc_pipeline
+    except Exception as e:
+        logger.warn("Pipeline pre-processing failed, using original pipeline instead")
 
     generators = [
         DeviceGenerator(),
