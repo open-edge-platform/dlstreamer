@@ -216,21 +216,6 @@ static gboolean gst_g3d_lidar_parse_start(GstBaseTransform *trans) {
     gst_object_unref(upstream_element);
     gst_object_unref(peer_pad);
 
-    GstPad *src_pad = GST_BASE_TRANSFORM_SRC_PAD(trans);
-    GstCaps *forced_caps = gst_caps_from_string("application/x-lidar");
-    if (!forced_caps) {
-        GST_ERROR_OBJECT(filter, "Failed to create application/x-lidar caps");
-        return FALSE;
-    }
-
-    if (!gst_pad_set_caps(src_pad, forced_caps)) {
-        GST_ERROR_OBJECT(filter, "Failed to set src caps to application/x-lidar");
-        gst_caps_unref(forced_caps);
-        return FALSE;
-    }
-
-    gst_caps_unref(forced_caps);
-
     return TRUE;
 }
 
@@ -493,22 +478,11 @@ static GstCaps *gst_g3d_lidar_parse_transform_caps(GstBaseTransform *trans, GstP
 
 static gboolean gst_g3d_lidar_parse_set_caps(GstBaseTransform *trans, GstCaps *incaps, GstCaps *outcaps) {
     GstG3DLidarParse *filter = GST_G3D_LIDAR_PARSE(trans);
-
-    GstPad *src_pad = GST_BASE_TRANSFORM_SRC_PAD(trans);
-    GstCaps *forced_caps = gst_caps_from_string("application/x-lidar");
-    if (!forced_caps) {
-        GST_ERROR_OBJECT(filter, "Failed to create application/x-lidar caps");
+    if (!incaps || !outcaps) {
+        GST_ERROR_OBJECT(filter, "Missing caps during set_caps");
         return FALSE;
     }
-
-    gboolean ok = gst_pad_set_caps(src_pad, forced_caps);
-    gst_caps_unref(forced_caps);
-
-    if (!ok) {
-        GST_ERROR_OBJECT(filter, "Failed to set src caps to application/x-lidar");
-    }
-
-    return ok;
+    return TRUE;
 }
 
 
