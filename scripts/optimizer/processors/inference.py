@@ -57,7 +57,7 @@ class DeviceGenerator:
         # log device combinations
         devices = self.tracked_elements.copy()
         devices = list(map(lambda e: self.devices[e["device_idx"]], devices)) # transform device indices into names
-        logger.info("Testing device combination: %s", str(devies))
+        logger.info("Testing device combination: %s", str(devices))
 
         # Prepare pipeline output
         pipeline = self.pipeline.copy()

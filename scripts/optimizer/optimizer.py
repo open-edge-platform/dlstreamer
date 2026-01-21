@@ -3,14 +3,14 @@
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
-from preprocess import preprocess_pipeline
-from processors.inference import DeviceGenerator, BatchGenerator, NireqGenerator
-
 import time
 import logging
 import itertools
 import os
 import re
+
+from preprocess import preprocess_pipeline
+from processors.inference import DeviceGenerator, BatchGenerator, NireqGenerator
 
 import gi
 gi.require_version("Gst", "1.0")
@@ -64,8 +64,8 @@ def get_optimized_pipeline(pipeline, search_duration = 300, sample_duration = 10
         if preproc_fps > fps:
             fps = preproc_fps
             pipeline = preproc_pipeline
-    except Exception as e:
-        logger.warn("Pipeline pre-processing failed, using original pipeline instead")
+    except Exception:
+        logger.error("Pipeline pre-processing failed, using original pipeline instead")
 
     generators = [
         DeviceGenerator(),
