@@ -10,6 +10,7 @@ import time
 import logging
 import itertools
 import os
+import re
 
 import gi
 gi.require_version("Gst", "1.0")
@@ -37,6 +38,10 @@ logger.info("GStreamer version: %d.%d.%d",
 # 6. Any time a better pipeline is found, save it and its performance information.
 # 7. Return the best discovered pipeline.
 def get_optimized_pipeline(pipeline, search_duration = 300, sample_duration = 10):
+    # Test for tee element presence
+    if re.search("[^a-zA-Z]tee[^a-zA-Z]", pipeline):
+        raise RuntimeError("Pipelines containing the tee element are currently no supported!")
+
     pipeline = pipeline.split("!")
 
     # Measure the performance of the original pipeline
