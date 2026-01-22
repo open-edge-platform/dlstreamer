@@ -206,4 +206,3 @@ GST_DEBUG=*:3,g3dradarprocess:5 ./radar_process_sample.sh
 ## See also
 * [Samples overview](../../README.md)
 * [g3dradarprocess element documentation](../../../../docs/source/elements/g3dradarprocess.md)
-* [g3dradarprocess design document](../../../../src/monolithic/gst/3d_elements/g3dradarprocess/DESIGN.md)
