@@ -8,9 +8,13 @@
 #define __GST_RADAR_PROCESS_META_H__
 
 #include <gst/gst.h>
-#include "libradar.h"
 
 G_BEGIN_DECLS
+
+// Forward declarations for libradar types
+typedef struct RadarPointClouds RadarPointClouds;
+typedef struct ClusterResult ClusterResult;
+typedef struct TrackingResult TrackingResult;
 
 #define GST_RADAR_PROCESS_META_API_TYPE (gst_radar_process_meta_api_get_type())
 #define GST_RADAR_PROCESS_META_INFO (gst_radar_process_meta_get_info())

@@ -5,7 +5,7 @@
  ******************************************************************************/
 
 #include "gstradarprocess.h"
-#include "gstradarprocessmeta.h"
+#include "g3d_radarprocess_meta.h"
 #include "radar_config.hpp"
 #include <cstring>
 #include <numeric>
@@ -62,6 +62,9 @@ static void gst_radar_process_class_init(GstRadarProcessClass *klass) {
     GObjectClass *gobject_class = G_OBJECT_CLASS(klass);
     GstElementClass *gstelement_class = GST_ELEMENT_CLASS(klass);
     GstBaseTransformClass *base_transform_class = GST_BASE_TRANSFORM_CLASS(klass);
+
+    GST_DEBUG_CATEGORY_INIT(gst_radar_process_debug, "g3dradarprocess", 0,
+                           "Radar Signal Processing Element");
 
     gobject_class->set_property = gst_radar_process_set_property;
     gobject_class->get_property = gst_radar_process_get_property;

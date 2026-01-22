@@ -28,6 +28,7 @@ foreach(LIB_TYPE IN ITEMS SHARED STATIC)
                         ${GLIB2_INCLUDE_DIRS}
                 PRIVATE
                         ${GSTALLOC_INCLUDE_DIRS}
+                        ${CMAKE_SOURCE_DIR}/src/monolithic/gst/3d_elements/g3dradarprocess
         )
 
         target_link_libraries(${LIB_NAME}

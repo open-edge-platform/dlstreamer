@@ -4,7 +4,8 @@
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
 
-#include "gstradarprocessmeta.h"
+#include "dlstreamer/gst/metadata/g3d_radarprocess_meta.h"
+#include "libradar.h"
 #include <string.h>
 
 GType
@@ -24,6 +25,8 @@ static gboolean
 gst_radar_process_meta_init(GstMeta *meta, gpointer params, GstBuffer *buffer)
 {
     GstRadarProcessMeta *radar_meta = (GstRadarProcessMeta *)meta;
+    (void)params;
+    (void)buffer;
     
     radar_meta->frame_id = 0;
     radar_meta->point_clouds_len = 0;
@@ -54,6 +57,7 @@ static void
 gst_radar_process_meta_free(GstMeta *meta, GstBuffer *buffer)
 {
     GstRadarProcessMeta *radar_meta = (GstRadarProcessMeta *)meta;
+    (void)buffer;
     
     // Free point clouds arrays
     g_free(radar_meta->ranges);
@@ -81,7 +85,11 @@ static gboolean
 gst_radar_process_meta_transform(GstBuffer *transbuf, GstMeta *meta,
                                    GstBuffer *buffer, GQuark type, gpointer data)
 {
-    GstRadarProcessMeta *src_meta = (GstRadarProcessMeta *)meta;
+    (void)transbuf;
+    (void)meta;
+    (void)buffer;
+    (void)type;
+    (void)data;
     
     // For now, we don't transform the metadata
     // Could be implemented to copy metadata to transformed buffer if needed

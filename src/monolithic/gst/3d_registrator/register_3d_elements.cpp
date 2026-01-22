@@ -9,7 +9,7 @@
 #include <gst/gst.h>
 
 #include "gstradarprocess.h"
-#include "gstradarprocessmeta.h"
+#include "g3d_radarprocess_meta.h"
 
 extern "C" {
 

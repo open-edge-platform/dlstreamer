@@ -17,6 +17,8 @@ if(UNIX)
 endif()
 
 target_include_directories(${TARGET_NAME}
+PUBLIC
+    ${DLSTREAMER_BASE_DIR}/include/dlstreamer/gst/metadata
 PRIVATE
     ${GSTREAMER_INCLUDE_DIRS}
     ${CMAKE_CURRENT_SOURCE_DIR}
@@ -28,6 +30,7 @@ target_link_libraries(${TARGET_NAME}
 PRIVATE
     ${GSTREAMER_LIBRARIES}
     g3dradarprocess
+    dlstreamer_gst_meta
 )
 
 install(TARGETS ${TARGET_NAME} DESTINATION ${DLSTREAMER_PLUGINS_INSTALL_PATH})

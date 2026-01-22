@@ -12,7 +12,6 @@ pkg_check_modules(GSTREAMER_BASE REQUIRED gstreamer-base-1.0)
 
 add_library(${TARGET_NAME} STATIC
     gstradarprocess.cpp
-    gstradarprocessmeta.c
 )
 set_compile_flags(${TARGET_NAME})
 
@@ -23,6 +22,7 @@ endif()
 target_include_directories(${TARGET_NAME}
     PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}
+        ${DLSTREAMER_BASE_DIR}/include/dlstreamer/gst/metadata
     PRIVATE
         ${GSTREAMER_INCLUDE_DIRS}
         ${GSTREAMER_BASE_INCLUDE_DIRS}
