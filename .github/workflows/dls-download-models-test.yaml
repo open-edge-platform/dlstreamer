@@ -22,17 +22,17 @@ jobs:
         run: |
           echo "MODELS_PATH=$HOME/models" >> $GITHUB_ENV
 
-      - name: Download single model (yolov8n)
+      - name: Download single model (yolo11s)
         run: |
           cd dlstreamer/samples
-          bash download_public_models.sh yolov8n
+          bash download_public_models.sh yolo11s
 
       - name: Verify model downloaded
         run: |
-          test -f $HOME/models/public/yolov8n/FP32/yolov8n.xml
-          test -f $HOME/models/public/yolov8n/FP32/yolov8n.bin
-          test -f $HOME/models/public/yolov8n/FP16/yolov8n.xml
-          test -f $HOME/models/public/yolov8n/FP16/yolov8n.bin
+          test -f $HOME/models/public/yolo11s/FP32/yolo11s.xml
+          test -f $HOME/models/public/yolo11s/FP32/yolo11s.bin
+          test -f $HOME/models/public/yolo11s/FP16/yolo11s.xml
+          test -f $HOME/models/public/yolo11s/FP16/yolo11s.bin
           echo "✓ Single model download successful"
 
   test-multiple-models:
@@ -49,23 +49,23 @@ jobs:
         run: |
           echo "MODELS_PATH=$HOME/models" >> $GITHUB_ENV
 
-      - name: Download multiple models (yolov8n,centerface)
+      - name: Download multiple models (yolo11s,centerface)
         run: |
           cd dlstreamer/samples
-          bash download_public_models.sh yolov8n,centerface
+          bash download_public_models.sh yolo11s,centerface
 
       - name: Verify models downloaded
         run: |
-          # Verify yolov8n
-          test -f $HOME/models/public/yolov8n/FP32/yolov8n.xml
-          test -f $HOME/models/public/yolov8n/FP16/yolov8n.xml
+          # Verify yolo11s
+          test -f $HOME/models/public/yolo11s/FP32/yolo11s.xml
+          test -f $HOME/models/public/yolo11s/FP16/yolo11s.xml
           # Verify centerface
           test -f $HOME/models/public/centerface/FP32/centerface.xml
           test -f $HOME/models/public/centerface/FP16/centerface.xml
           echo "✓ Multiple models download successful"
 
-  test-model-with-quantization:
-    name: Test model with quantization
+  test-single-model-with-quantization:
+    name: Test single model with quantization
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout repository
@@ -78,20 +78,59 @@ jobs:
         run: |
           echo "MODELS_PATH=$HOME/models" >> $GITHUB_ENV
 
-      - name: Download model with quantization (yolov8n with coco128)
+      - name: Download model with quantization (yolo11s with coco128)
         run: |
           cd dlstreamer/samples
-          bash download_public_models.sh yolov8n coco128
+          bash download_public_models.sh yolo11s coco128
 
       - name: Verify model with INT8 quantization
         run: |
           # Verify FP32 and FP16
-          test -f $HOME/models/public/yolov8n/FP32/yolov8n.xml
-          test -f $HOME/models/public/yolov8n/FP16/yolov8n.xml
+          test -f $HOME/models/public/yolo11s/FP32/yolo11s.xml
+          test -f $HOME/models/public/yolo11s/FP16/yolo11s.xml
           # Verify INT8
+          test -f $HOME/models/public/yolo11s/INT8/yolo11s.xml
+          test -f $HOME/models/public/yolo11s/INT8/yolo11s.bin
+          echo "✓ Model quantization successful"
+
+  test-multiple-models-with-quantization:
+    name: Test multiple models with quantization
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 #5.0.0
+        with:
+          persist-credentials: false
+          path: dlstreamer
+
+      - name: Set up environment
+        run: |
+          echo "MODELS_PATH=$HOME/models" >> $GITHUB_ENV
+
+      - name: Download multiple models with quantization (yolov8n,yolov10n with coco128)
+        run: |
+          cd dlstreamer/samples
+          bash download_public_models.sh yolov8n,yolov10n coco128
+
+      - name: Verify both models with INT8 quantization
+        run: |
+          # Verify yolov8n (FP32, FP16, INT8)
+          test -f $HOME/models/public/yolov8n/FP32/yolov8n.xml
+          test -f $HOME/models/public/yolov8n/FP32/yolov8n.bin
+          test -f $HOME/models/public/yolov8n/FP16/yolov8n.xml
+          test -f $HOME/models/public/yolov8n/FP16/yolov8n.bin
           test -f $HOME/models/public/yolov8n/INT8/yolov8n.xml
           test -f $HOME/models/public/yolov8n/INT8/yolov8n.bin
-          echo "✓ Model quantization successful"
+          
+          # Verify yolov10n (FP32, FP16, INT8)
+          test -f $HOME/models/public/yolov10n/FP32/yolov10n.xml
+          test -f $HOME/models/public/yolov10n/FP32/yolov10n.bin
+          test -f $HOME/models/public/yolov10n/FP16/yolov10n.xml
+          test -f $HOME/models/public/yolov10n/FP16/yolov10n.bin
+          test -f $HOME/models/public/yolov10n/INT8/yolov10n.xml
+          test -f $HOME/models/public/yolov10n/INT8/yolov10n.bin
+          
+          echo "✓ Multiple models with quantization successful"
 
   test-non-yolo-model:
     name: Test non-YOLO model download
@@ -146,35 +185,6 @@ jobs:
           # Verify centerface
           test -f $HOME/models/public/centerface/FP32/centerface.xml
           echo "✓ Mixed models download successful"
-
-  test-yolo-variant-models:
-    name: Test different YOLO variants
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 #5.0.0
-        with:
-          persist-credentials: false
-          path: dlstreamer
-
-      - name: Set up environment
-        run: |
-          echo "MODELS_PATH=$HOME/models" >> $GITHUB_ENV
-
-      - name: Download YOLO variants (yolo11n,yolov10n)
-        run: |
-          cd dlstreamer/samples
-          bash download_public_models.sh yolo11n,yolov10n
-
-      - name: Verify YOLO variants downloaded
-        run: |
-          # Verify yolo11n
-          test -f $HOME/models/public/yolo11n/FP32/yolo11n.xml
-          test -f $HOME/models/public/yolo11n/FP16/yolo11n.xml
-          # Verify yolov10n
-          test -f $HOME/models/public/yolov10n/FP32/yolov10n.xml
-          test -f $HOME/models/public/yolov10n/FP16/yolov10n.xml
-          echo "✓ YOLO variants download successful"
 
   test-help-flag:
     name: Test help flag
@@ -260,17 +270,17 @@ jobs:
         run: |
           echo "MODELS_PATH=$HOME/models" >> $GITHUB_ENV
 
-      - name: Download single model on Ubuntu 22.04 (centerface)
+      - name: Download single model on Ubuntu 22.04 (yolo11s)
         run: |
           cd dlstreamer/samples
-          bash download_public_models.sh centerface
+          bash download_public_models.sh yolo11s
 
       - name: Verify model downloaded and environment works
         run: |
-          test -f $HOME/models/public/centerface/FP32/centerface.xml
-          test -f $HOME/models/public/centerface/FP32/centerface.bin
-          test -f $HOME/models/public/centerface/FP16/centerface.xml
-          test -f $HOME/models/public/centerface/FP16/centerface.bin
+          test -f $HOME/models/public/yolo11s/FP32/yolo11s.xml
+          test -f $HOME/models/public/yolo11s/FP32/yolo11s.bin
+          test -f $HOME/models/public/yolo11s/FP16/yolo11s.xml
+          test -f $HOME/models/public/yolo11s/FP16/yolo11s.bin
           echo "✓ Ubuntu 22.04 compatibility test successful"
           echo "✓ Virtual environment created and packages installed correctly"
   
