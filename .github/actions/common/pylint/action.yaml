@@ -66,13 +66,12 @@ runs:
         path: ${{ inputs.path }}
         name: ${{ inputs.name }}
       run: |
-        temp_output="${{ inputs.output-file }}.full"
         output_file="${{ inputs.output-file }}"
 
-        if [ -f "${temp_output}" ]; then
-          error_count=$(grep -cE "^[^:]+:[0-9]+:[0-9]+: E[0-9]+:" "${temp_output}" 2>/dev/null || echo "0")
-          fatal_count=$(grep -cE "^[^:]+:[0-9]+:[0-9]+: F[0-9]+:" "${temp_output}" 2>/dev/null || echo "0")
-          warning_count=$(grep -cE "^[^:]+:[0-9]+:[0-9]+: W[0-9]+:" "${temp_output}" 2>/dev/null || echo "0")
+        if [ -f "${output_file}" ]; then
+          error_count=$(grep -cE "^[^:]+:[0-9]+:[0-9]+: E[0-9]+:" "${output_file}" 2>/dev/null || echo "0")
+          fatal_count=$(grep -cE "^[^:]+:[0-9]+:[0-9]+: F[0-9]+:" "${output_file}" 2>/dev/null || echo "0")
+          warning_count=$(grep -cE "^[^:]+:[0-9]+:[0-9]+: W[0-9]+:" "${output_file}" 2>/dev/null || echo "0")
           critical_issues=$((error_count + fatal_count))
           echo "critical_issues=$critical_issues" >> $GITHUB_OUTPUT
           echo "warning_count=$warning_count" >> $GITHUB_OUTPUT
@@ -87,7 +86,6 @@ runs:
           else
             echo "✅ **No critical issues found!**" >> $GITHUB_STEP_SUMMARY
           fi
-          rm -f "${temp_output}"
         else
           echo "warning_count=0" >> $GITHUB_OUTPUT
           echo "critical_issues=0" >> $GITHUB_OUTPUT
@@ -113,8 +111,6 @@ runs:
     - name: Fail if Pylint found issues
       if: inputs.fail-on-findings == 'true'
       shell: bash
-      env:
-        output_file: ${{ inputs.output-file }}
       run: |
         critical_issues="${{ steps.analyze-results.outputs.critical_issues }}"
         warning_count="${{ steps.analyze-results.outputs.warning_count }}"
