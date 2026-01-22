@@ -236,7 +236,7 @@ class VideoFrame:
             if mapped_data_size != requested_size:
                 warn(
                     "Size of buffer's data: {}, and requested size: {}\n"
-                    "Let to get shape from video meta...".format(
+                    "Let to get shape from video meta or repack video frame...".format(
                         mapped_data_size, requested_size
                     ),
                     stacklevel=2,
@@ -245,6 +245,7 @@ class VideoFrame:
                 if meta:
                     h, w = meta.height, meta.width
                     requested_size = h * w * bytes_per_pix
+
                 else:
                     warn(
                         "Video meta is {}. Can't get shape.".format(meta), stacklevel=2
@@ -259,9 +260,10 @@ class VideoFrame:
                     )
                 elif is_yuv_format:
                     # In some cases image size after mapping can be larger than expected image size.
-                    # One of the reasons can be vaapi decoder which appends lines to the end of an image
-                    # so the height is multiple of 16. So we need to return an image that has the same
-                    # resolution as in video_info. That's why we drop extra lines added by decoder.
+                    # One of the reasons can be VA-API decoder appends padding to the end of each plane,
+                    # so the height / width is multiple of a specific value(depends on hardware architecture). 
+                    # We need to return an image that has the same resolution as in video_info by dropping
+                    # extra padding added by decoder.
                     yield self.__repack_video_frame(data)
                 else:
                     raise RuntimeError("VideoFrame.data: Corrupted buffer")
@@ -297,7 +299,13 @@ class VideoFrame:
         return x, y, w, h
 
     def __repack_video_frame(self, data):
-        n_planes = self.__video_info.finfo.n_planes
+        meta = self.video_meta()
+        if not meta:
+            raise RuntimeError(
+                "VideoFrame.__repack_video_frame: No video meta available"
+            )
+
+        n_planes = meta.n_planes
         if n_planes not in [2, 3]:
             raise RuntimeError(
                 "VideoFrame.__repack_video_frame: Unsupported number of planes {}".format(
@@ -306,38 +314,67 @@ class VideoFrame:
             )
 
         h, w = self.__video_info.height, self.__video_info.width
-        stride = self.__video_info.stride[0]
         bytes_per_pix = self.__video_info.finfo.pixel_stride[0]
-        input_h = int(len(data) / (w * bytes_per_pix) / 1.5)
 
-        planes = [numpy.ndarray((h, w, bytes_per_pix), buffer=data, dtype=numpy.uint8)]
-        offset = stride * input_h
-        stride = self.__video_info.stride[1]
+        data_flat = numpy.frombuffer(data, dtype=numpy.uint8)
+
+        # Y plane
+        y_stride = meta.stride[0]
+        y_offset = meta.offset[0]
+
+        y_plane = numpy.zeros((h, w, bytes_per_pix), dtype=numpy.uint8)
+        for row in range(h):
+            src_start = y_offset + row * y_stride
+            src_end = src_start + w * bytes_per_pix
+            y_plane[row, :, :] = data_flat[src_start:src_end].reshape(w, bytes_per_pix)
+
+        planes = [y_plane]
 
         if n_planes == 2:
-            uv_plane = self.__extract_plane(
-                ctypes.addressof(data) + offset,
-                stride * input_h // 2,
-                (h // 2, w, bytes_per_pix),
-            )
+            # NV12 format: interleaved UV plane
+            uv_stride = meta.stride[1]
+            uv_offset = meta.offset[1]
+            uv_h = h // 2
+
+            uv_plane = numpy.zeros((uv_h, w, bytes_per_pix), dtype=numpy.uint8)
+            for row in range(uv_h):
+                src_start = uv_offset + row * uv_stride
+                src_end = src_start + w * bytes_per_pix
+                uv_plane[row, :, :] = data_flat[src_start:src_end].reshape(
+                    w, bytes_per_pix
+                )
             planes.append(uv_plane)
         else:
-            shape = (h // 4, w, bytes_per_pix)
-            u_plane = self.__extract_plane(
-                ctypes.addressof(data) + offset, stride * input_h // 2, shape
-            )
+            # I420 format: separate U and V planes
+            u_stride = meta.stride[1]
+            v_stride = meta.stride[2]
+            u_offset = meta.offset[1]
+            v_offset = meta.offset[2]
 
-            offset += stride * input_h // 2
-            stride = self.__video_info.stride[2]
+            uv_h = h // 4
+            uv_w = w
 
-            v_plane = self.__extract_plane(
-                ctypes.addressof(data) + offset, stride * input_h // 2, shape
-            )
+            u_plane = numpy.zeros((uv_h, uv_w, bytes_per_pix), dtype=numpy.uint8)
+            for row in range(uv_h):
+                src_start = u_offset + row * u_stride
+                src_end = src_start + uv_w * bytes_per_pix
+                u_plane[row, :, :] = data_flat[src_start:src_end].reshape(
+                    uv_w, bytes_per_pix
+                )
+
+            v_plane = numpy.zeros((uv_h, uv_w, bytes_per_pix), dtype=numpy.uint8)
+            for row in range(uv_h):
+                src_start = v_offset + row * v_stride
+                src_end = src_start + uv_w * bytes_per_pix
+                v_plane[row, :, :] = data_flat[src_start:src_end].reshape(
+                    uv_w, bytes_per_pix
+                )
 
             planes.append(u_plane)
             planes.append(v_plane)
 
-        return numpy.concatenate(planes)
+        result = numpy.concatenate(planes)
+        return result
 
     @staticmethod
     def __extract_plane(data_ptr, data_size, shape):
