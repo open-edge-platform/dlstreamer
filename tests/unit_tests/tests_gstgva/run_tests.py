@@ -33,6 +33,8 @@ if __name__ == '__main__':
     loader = unittest.TestLoader()
     suite_gstgva = unittest.TestSuite()
 
+    suite_gstgva.addTests(loader.loadTestsFromModule(
+        test_pipeline_optimizer))
     suite_gstgva.addTests(loader.loadTestsFromModule(test_region_of_interest))
     suite_gstgva.addTests(loader.loadTestsFromModule(test_tensor))
     suite_gstgva.addTests(loader.loadTestsFromModule(test_video_frame))
@@ -58,8 +60,6 @@ if __name__ == '__main__':
         test_pipeline_action_recognition))
     suite_gstgva.addTests(loader.loadTestsFromModule(
         test_pipeline_human_pose_estimation))
-    suite_gstgva.addTests(loader.loadTestsFromModule(
-        test_pipeline_optimizer))
 
     runner = unittest.TextTestRunner(verbosity=3)
     result = runner.run(suite_gstgva)
