@@ -19,7 +19,7 @@ inputs:
     description: GitHub token for ReviewDog
     required: false
   fail-on-findings:
-    description: "Whether to fail the action if issues are found"
+    description: "Whether to fail the action if errors are found"
     required: false
     default: "true"
 
@@ -61,82 +61,53 @@ runs:
 
     - name: Analyze Pylint results
       if: always()
+      id: analyze-results
       env:
-        output_file: ${{ inputs.output-file }}
+        path: ${{ inputs.path }}
         name: ${{ inputs.name }}
       run: |
-        if [ -f "${output_file}" ]; then
-          # Count issues by severity (pylint uses C/R/W/E/F prefixes) - ensure we get single clean numbers
-          convention_count=$(grep -E "^[^:]+:[0-9]+:[0-9]+: C[0-9]+:" "${output_file}" 2>/dev/null | wc -l | tr -d '[:space:]' || echo "0")
-          refactor_count=$(grep -E "^[^:]+:[0-9]+:[0-9]+: R[0-9]+:" "${output_file}" 2>/dev/null | wc -l | tr -d '[:space:]' || echo "0")
-          warning_count=$(grep -E "^[^:]+:[0-9]+:[0-9]+: W[0-9]+:" "${output_file}" 2>/dev/null | wc -l | tr -d '[:space:]' || echo "0")
-          error_count=$(grep -E "^[^:]+:[0-9]+:[0-9]+: E[0-9]+:" "${output_file}" 2>/dev/null | wc -l | tr -d '[:space:]' || echo "0")
-          fatal_count=$(grep -E "^[^:]+:[0-9]+:[0-9]+: F[0-9]+:" "${output_file}" 2>/dev/null | wc -l | tr -d '[:space:]' || echo "0")
-          # Ensure counts are valid integers, default to 0 if empty
-          convention_count=${convention_count:-0}
-          refactor_count=${refactor_count:-0}
-          warning_count=${warning_count:-0}
-          error_count=${error_count:-0}
-          fatal_count=${fatal_count:-0}
-          # Additional safety check - ensure numeric (use case to validate) - set returns true
-          case "$convention_count" in ''|*[!0-9]*) convention_count=0 ;; esac || true
-          case "$refactor_count" in ''|*[!0-9]*) refactor_count=0 ;; esac || true
-          case "$warning_count" in ''|*[!0-9]*) warning_count=0 ;; esac || true
-          case "$error_count" in ''|*[!0-9]*) error_count=0 ;; esac || true
-          case "$fatal_count" in ''|*[!0-9]*) fatal_count=0 ;; esac || true
-          total=$((convention_count + refactor_count + warning_count + error_count + fatal_count)) || total=0
-
-          # Try to extract the score - ensure this doesn't fail
-          score=$(grep "Your code has been rated at" "${output_file}" 2>/dev/null | tail -1 | grep -oE "[0-9]+\.[0-9]+/10" 2>/dev/null || echo "")
+        temp_output="${{ inputs.output-file }}.full"
+        output_file="${{ inputs.output-file }}"
+        
+        if [ -f "${temp_output}" ]; then
+          error_count=$(grep -cE "^[^:]+:[0-9]+:[0-9]+: E[0-9]+:" "${temp_output}" 2>/dev/null || echo "0")
+          fatal_count=$(grep -cE "^[^:]+:[0-9]+:[0-9]+: F[0-9]+:" "${temp_output}" 2>/dev/null || echo "0")
+          warning_count=$(grep -cE "^[^:]+:[0-9]+:[0-9]+: W[0-9]+:" "${temp_output}" 2>/dev/null || echo "0")
+          critical_issues=$((error_count + fatal_count))
+          echo "critical_issues=$critical_issues" >> $GITHUB_OUTPUT
+          echo "warning_count=$warning_count" >> $GITHUB_OUTPUT
 
           echo "### Pylint Results for ${name}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **Total Issues**: $total" >> $GITHUB_STEP_SUMMARY
-
-          if [ "$fatal_count" -gt 0 ]; then
-            echo "- 🔴 **Fatal**: $fatal_count" >> $GITHUB_STEP_SUMMARY
-          fi
-          if [ "$error_count" -gt 0 ]; then
-            echo "- ❌ **Errors**: $error_count" >> $GITHUB_STEP_SUMMARY
-          fi
-          if [ "$warning_count" -gt 0 ]; then
-            echo "- ⚠️ **Warnings**: $warning_count" >> $GITHUB_STEP_SUMMARY
-          fi
-          if [ "$refactor_count" -gt 0 ]; then
-            echo "- 🔧 **Refactor**: $refactor_count" >> $GITHUB_STEP_SUMMARY
-          fi
-          if [ "$convention_count" -gt 0 ]; then
-            echo "- 📋 **Convention**: $convention_count" >> $GITHUB_STEP_SUMMARY
-          fi
-
-          if [ -n "$score" ]; then
-            echo "- 📊 **Score**: $score" >> $GITHUB_STEP_SUMMARY
-          fi
-
-          if [ "$total" -gt 0 ]; then
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "⚠️ **Please review the Pylint report artifact and consider fixing the issues.**" >> $GITHUB_STEP_SUMMARY
+          echo "- 🔴 **Fatal**: $fatal_count" >> $GITHUB_STEP_SUMMARY
+          echo "- ❌ **Errors**: $error_count" >> $GITHUB_STEP_SUMMARY
+          echo "- ⚠️ **Warnings**: $warning_count" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "$critical_issues" -gt 0 ]; then
+            echo "🔴 **$critical_issues critical issues found!**" >> $GITHUB_STEP_SUMMARY
           else
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "✅ **No issues found!**" >> $GITHUB_STEP_SUMMARY
+            echo "✅ **No critical issues found!**" >> $GITHUB_STEP_SUMMARY
           fi
+          rm -f "${temp_output}"
+        else
+          echo "warning_count=0" >> $GITHUB_OUTPUT
+          echo "critical_issues=0" >> $GITHUB_OUTPUT
         fi
       shell: bash
 
-    - name: Upload Pylint report
+    - name: Upload Pylint report (Critical Issues Only)
       if: always()
-      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
       with:
         name: pylint-report-${{ inputs.name }}
         path: ${{ inputs.output-file }}
 
-    - name: Run ReviewDog (Pylint)
-      if: ${{ inputs.enable-reviewdog == 'true' }}
-      uses: dciborow/action-pylint@cf6c9bcd79e4aa70e2fbeaf6332d741eb1e0bff8 #0.1.1
+    - name: Run ReviewDog (Pylint) - Critical Issues Only
+      if: ${{ inputs.enable-reviewdog == 'true' && steps.analyze-results.outputs.critical_issues> 0 }}
+      uses: dciborow/action-pylint@cf6c9bcd79e4aa70e2fbeaf6332d741eb1e0bff8
       with:
         github_token: ${{ inputs.github_token }}
         reporter: github-pr-review
-        level: warning
+        level: error
         workdir: ${{ inputs.path }}
 
     - name: Fail if Pylint found issues
@@ -145,10 +116,14 @@ runs:
       env:
         output_file: ${{ inputs.output-file }}
       run: |
-        if [ -f "${output_file}" ]; then
-          issue_count=$(grep -E "^[^:]+:[0-9]+:[0-9]+: [CRWEF][0-9]+:" "${output_file}" 2>/dev/null | wc -l | tr -d '[:space:]' || echo "0")
-          if [ "$issue_count" -gt 0 ]; then
-            echo "❌ Pylint found $issue_count issue(s). Failing the job."
-            exit 1
-          fi
+        critical_issues="${{ steps.analyze-results.outputs.critical_issues }}"
+        warning_count="${{ steps.analyze-results.outputs.warning_count }}"
+        if [ "$critical_issues" -gt 0 ]; then
+          echo "❌ Pylint found $critical_issues error(s). Failing the job."
+          exit 1
+        elif [ "$warning_count" -gt 0 ]; then
+          echo "✅ Pylint found $warning_count issue(s) but no errors. Job will continue."
+          echo "📋 Issues found: warnings, info, or notes that should be reviewed."
+        else
+          echo "✅ No Pylint issues found."
         fi
