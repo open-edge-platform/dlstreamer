@@ -30,6 +30,8 @@ Samples separated into several categories
     * [Open Close Valve Sample](./python/open_close_valve/README.md) - constructs pipeline with two sinks. On of them has [GStreamer valve element](https://gstreamer.freedesktop.org/documentation/coreelements/valve.html?gi-language=python), which is managed based object detection result and opened/closed by callback.
 4. Benchmark
     * [Benchmark Sample](./benchmark/README.md) - measures overall performance of single-channel or multi-channel video analytics pipelines
+5. Concurrent use of DL Streamer and DeepStream
+	* [Concurrent use Sample](./concurrent/README.md) - runs pipelines on DL Streamer and/or DeepStream
 
 ## How To Build And Run
 
