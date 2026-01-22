@@ -37,8 +37,6 @@ PRIVATE
     ${PYGOBJECT_INCLUDE_DIRS}
 )
 
-target_link_directories(${TARGET_NAME} PUBLIC ${VA_LIBRARY_DIRS})
-
 target_link_libraries(${TARGET_NAME}
 PRIVATE
     ${GSTREAMER_LIBRARIES}

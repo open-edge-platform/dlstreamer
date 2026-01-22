@@ -1,15 +1,16 @@
 # ==============================================================================
-# Copyright (C) 2025-2025 Intel Corporation
+# Copyright (C) 2025-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
-from preprocess import preprocess_pipeline
-from processors.inference import add_device_suggestions, add_batch_suggestions, add_nireq_suggestions, parse_element_parameters # pylint: disable=line-too-long
-
 import time
 import logging
 import itertools
 import os
+import re
+
+from preprocess import preprocess_pipeline
+from processors.inference import DeviceGenerator, BatchGenerator, NireqGenerator
 
 import gi
 gi.require_version("Gst", "1.0")
@@ -31,13 +32,16 @@ logger.info("GStreamer version: %d.%d.%d",
 # Steps of pipeline optimization:
 # 1. Measure the baseline pipeline's performace.
 # 2. Pre-process the pipeline to cover cases where we're certain of the best alternative.
-# 3. Prepare a set of processors providing alternatives for elements.
-# 3. Run the processors in sequence and test their effect on the pipeline.
-# 5. For every processor create a cartesian product of the suggestions
-#    and start running the combinations to measure performance.
+# 3. Prepare a set of generators providing alternatives for elements.
+# 4. Iterate over the generators
+# 5. Iterate over the suggestions from every processor
 # 6. Any time a better pipeline is found, save it and its performance information.
 # 7. Return the best discovered pipeline.
 def get_optimized_pipeline(pipeline, search_duration = 300, sample_duration = 10):
+    # Test for tee element presence
+    if re.search("[^a-zA-Z]tee[^a-zA-Z]", pipeline):
+        raise RuntimeError("Pipelines containing the tee element are currently not supported!")
+
     pipeline = pipeline.split("!")
 
     # Measure the performance of the original pipeline
@@ -51,58 +55,48 @@ def get_optimized_pipeline(pipeline, search_duration = 300, sample_duration = 10
 
     # Make pipeline definition portable across inference devices.
     # Replace elements with known better alternatives.
-    pipeline = "!".join(pipeline)
-    pipeline = preprocess_pipeline(pipeline)
-    pipeline = pipeline.split("!")
+    try:
+        preproc_pipeline = " ! ".join(pipeline)
+        preproc_pipeline = preprocess_pipeline(preproc_pipeline)
+        preproc_pipeline = preproc_pipeline.split(" ! ")
 
-    processors = [
-        add_device_suggestions,
-        add_batch_suggestions,
-        add_nireq_suggestions,
+        preproc_fps = sample_pipeline(preproc_pipeline, sample_duration)
+        if preproc_fps > fps:
+            fps = preproc_fps
+            pipeline = preproc_pipeline
+    except Exception:
+        logger.error("Pipeline pre-processing failed, using original pipeline instead")
+
+    generators = [
+        DeviceGenerator(),
+        BatchGenerator(),
+        NireqGenerator()
     ]
 
-    search_end_time = time.time() + search_duration
-    for processor in processors:
-        remaining_duration = search_end_time - time.time()
-        if search_end_time <= time.time():
-            break
+    best_pipeline = pipeline
+    best_fps = fps
+    start_time = time.time()
+    for generator in generators:
+        generator.init_pipeline(best_pipeline)
+        for pipeline in generator:
+            cur_time = time.time()
+            if cur_time - start_time > search_duration:
+                break
 
-        suggestions = prepare_suggestions(pipeline)
-        processor(suggestions)
-        pipeline, fps = explore_pipelines(suggestions, fps, remaining_duration, sample_duration)
+            try:
+                fps = sample_pipeline(pipeline, sample_duration)
+
+                if fps > best_fps:
+                    best_fps = fps
+                    best_pipeline = pipeline
+
+            except Exception as e:
+                logger.debug("Pipeline failed to start: %s", e)
 
     # Reconstruct the pipeline as a single string and return it.
-    return "!".join(pipeline), fps
+    return "!".join(best_pipeline), best_fps
 
 ##################################### Pipeline Running ############################################
-
-def explore_pipelines(suggestions, base_fps, search_duration, sample_duration):
-    start_time = time.time()
-    combinations = itertools.product(*suggestions)
-    # first element is the original pipeline, use it as baseline
-    best_pipeline = list(next(combinations))
-    best_fps = base_fps
-    for combination in combinations:
-        combination = list(combination)
-        # re-slice the pipeline to handle cases where a suggestion added multiple elements
-        combination = "!".join(combination).split("!")
-        log_parameters_of_interest(combination)
-
-        try:
-            fps = sample_pipeline(combination, sample_duration)
-
-            if fps > best_fps:
-                best_fps = fps
-                best_pipeline = combination
-
-        except Exception as e:
-            logger.debug("Pipeline failed to start: %s", e)
-
-        cur_time = time.time()
-        if cur_time - start_time > search_duration:
-            break
-
-    return best_pipeline, best_fps
 
 def sample_pipeline(pipeline, sample_duration):
     pipeline = pipeline.copy()
@@ -178,35 +172,3 @@ def process_bus(bus):
         else:
             logger.error("Other message: %s", str(message))
         message = bus.pop()
-
-####################################### Utils #####################################################
-
-def prepare_suggestions(pipeline):
-    # Prepare the suggestions structure
-    # Suggestions structure:
-    #   [
-    #       ["element1 param1=value1", "element1 param1=value2", ...other variants],
-    #       ["element2 param1=value1", "element2 param1=value2", ...other variants],
-    #       ["element3 param1=value1", "element3 param1=value2", ...other variants],
-    #       ...other pipeline elements
-    #   ]
-    suggestions = []
-    for element in pipeline:
-        suggestions.append([element])
-    return suggestions
-
-def log_parameters_of_interest(pipeline):
-    for element in pipeline:
-        if "gvadetect" in element:
-            parameters = parse_element_parameters(element)
-            logger.info("Found Gvadetect, device: %s, batch size: %s, nireqs: %s",
-                        parameters.get("device", "not set"),
-                        parameters.get("batch-size", "not set"),
-                        parameters.get("nireq", "not set"))
-
-        if "gvaclassify" in element:
-            parameters = parse_element_parameters(element)
-            logger.info("Found Gvaclassify, device: %s, batch size: %s, nireqs: %s",
-                        parameters.get("device", "not set"),
-                        parameters.get("batch-size", "not set"),
-                        parameters.get("nireq", "not set"))

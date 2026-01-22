@@ -103,7 +103,7 @@ runs:
       with:
         github_token: ${{ inputs.github_token }}
         reporter: github-pr-review
-        level: warning
+        level: error
 
     - name: Fail if Yamllint found issues
       if: inputs.fail-on-findings == 'true'
