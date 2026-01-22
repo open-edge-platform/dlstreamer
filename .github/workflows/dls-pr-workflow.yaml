@@ -382,6 +382,13 @@ jobs:
           paths: .
           report_suffix: dlstreamer
 
+  dls-download-models:
+    permissions:
+      contents: read
+      packages: read
+    name: "DLS TEST: models download"
+    uses: ./.github/workflows/dls-download-models-test.yaml
+
   # -------------------------------------------------------- BUILDS & TESTS ---------------------------------------------------------
   dls-build-sources-make-build:
     permissions:
