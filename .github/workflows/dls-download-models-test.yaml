@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout repository
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 #5.0.0
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # 5.0.0
         with:
           persist-credentials: false
           path: dlstreamer
@@ -40,7 +40,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout repository
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 #5.0.0
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # 5.0.0
         with:
           persist-credentials: false
           path: dlstreamer
@@ -69,7 +69,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout repository
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 #5.0.0
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # 5.0.0
         with:
           persist-credentials: false
           path: dlstreamer
@@ -98,7 +98,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout repository
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 #5.0.0
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # 5.0.0
         with:
           persist-credentials: false
           path: dlstreamer
@@ -121,7 +121,7 @@ jobs:
           test -f $HOME/models/public/yolov8n/FP16/yolov8n.bin
           test -f $HOME/models/public/yolov8n/INT8/yolov8n.xml
           test -f $HOME/models/public/yolov8n/INT8/yolov8n.bin
-          
+
           # Verify yolov10n (FP32, FP16, INT8)
           test -f $HOME/models/public/yolov10n/FP32/yolov10n.xml
           test -f $HOME/models/public/yolov10n/FP32/yolov10n.bin
@@ -129,7 +129,7 @@ jobs:
           test -f $HOME/models/public/yolov10n/FP16/yolov10n.bin
           test -f $HOME/models/public/yolov10n/INT8/yolov10n.xml
           test -f $HOME/models/public/yolov10n/INT8/yolov10n.bin
-          
+
           echo "✓ Multiple models with quantization successful"
 
   test-non-yolo-model:
@@ -137,7 +137,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout repository
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 #5.0.0
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # 5.0.0
         with:
           persist-credentials: false
           path: dlstreamer
@@ -162,7 +162,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout repository
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 #5.0.0
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # 5.0.0
         with:
           persist-credentials: false
           path: dlstreamer
@@ -191,7 +191,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout repository
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 #5.0.0
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # 5.0.0
         with:
           persist-credentials: false
           path: dlstreamer
@@ -216,7 +216,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout repository
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 #5.0.0
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # 5.0.0
         with:
           persist-credentials: false
           path: dlstreamer
@@ -237,7 +237,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout repository
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 #5.0.0
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # 5.0.0
         with:
           persist-credentials: false
           path: dlstreamer
@@ -261,7 +261,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout repository
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 #5.0.0
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # 5.0.0
         with:
           persist-credentials: false
           path: dlstreamer
@@ -283,4 +283,3 @@ jobs:
           test -f $HOME/models/public/yolo11s/FP16/yolo11s.bin
           echo "✓ Ubuntu 22.04 compatibility test successful"
           echo "✓ Virtual environment created and packages installed correctly"
-  
