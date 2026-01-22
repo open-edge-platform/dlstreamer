@@ -11,6 +11,7 @@ find_package(PkgConfig REQUIRED)
 pkg_check_modules(GSTREAMER gstreamer-1.0>=1.16 REQUIRED)
 pkg_check_modules(GSTVIDEO gstreamer-video-1.0>=1.16 REQUIRED)
 pkg_check_modules(GSTALLOC gstreamer-allocators-1.0 REQUIRED)
+pkg_check_modules(GSTRTP gstreamer-rtp-1.0 REQUIRED)
 pkg_search_module(VA va libva REQUIRED)
 if(NOT MSVC)
   pkg_check_modules(GSTVA REQUIRED IMPORTED_TARGET gstreamer-va-1.0)
@@ -80,6 +81,7 @@ PRIVATE
     ${GSTREAMER_INCLUDE_DIRS}
     ${GSTVIDEO_INCLUDE_DIRS}
     ${GSTALLOC_INCLUDE_DIRS}
+    ${GSTRTP_INCLUDE_DIRS}
 )
 
 if(${ENABLE_AUDIO_INFERENCE_ELEMENTS})
@@ -94,6 +96,7 @@ PRIVATE
     ${GSTREAMER_LIBRARIES}
     ${GSTVIDEO_LIBRARIES}
     ${GSTALLOC_LIBRARIES}
+    ${GSTRTP_LIBRARIES}
     ${OpenCV_LIBS}
     dlstreamer_api
     common
