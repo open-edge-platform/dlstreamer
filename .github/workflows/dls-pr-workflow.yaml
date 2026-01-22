@@ -385,7 +385,6 @@ jobs:
   dls-download-models:
     permissions:
       contents: read
-      packages: read
     name: "DLS TEST: models download"
     uses: ./.github/workflows/dls-download-models-test.yaml
 
