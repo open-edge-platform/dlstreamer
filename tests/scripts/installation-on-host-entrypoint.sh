@@ -43,9 +43,6 @@ handle_error() {
 # Stop and remove all running Docker containers
 echo_color "Stopping all running Docker containers" "blue"
 docker ps -q | xargs -r docker stop || true
-echo_color "Removing all stopped Docker containers" "blue"
-docker ps -a -q | xargs -r docker rm || true
-docker system prune -a -f
 
 # List remaining Docker containers
 echo_color "Listing all remaining Docker containers" "blue"
@@ -53,8 +50,8 @@ docker ps -a
 
 #Remove gstreamer .cache
 echo_color "Checking $HOME/.cache/gstreamer-1.0/..." "blue"
-if [ -f $HOME/.cache/gstreamer-1.0/ ]; then
-    sudo rm -rf $HOME/.cache/gstreamer-1.0/
+if [ -f "$HOME/.cache/gstreamer-1.0/" ]; then
+    sudo rm -rf "$HOME/.cache/gstreamer-1.0/"
     echo_color "Removed $HOME/.cache/gstreamer-1.0/" "blue"
 fi
 
@@ -92,7 +89,7 @@ for file in /usr/share/keyrings/intel-graphics*; do
 done
 
 chmod +x "$PREREQUISITES_SCRIPT_PATH"/DLS_install_prerequisites.sh
-"$PREREQUISITES_SCRIPT_PATH"/DLS_install_prerequisites.sh --reinstall-npu-driver=no
+"$PREREQUISITES_SCRIPT_PATH"/DLS_install_prerequisites.sh --reinstall-npu-driver=yes
 
 # Configure repositories before installation
 echo_color "Starting to configure OpenVINO™ repository access before DL Streamer installation" "blue"
@@ -122,7 +119,7 @@ sudo apt-get update
 echo_color  "Completed: sudo apt update" "magenta"
 
 echo_color "Executing: sudo apt install -y ./intel-dlstreamer*" "blue"
-cd $DEB_PKGS_PATH
+cd "$DEB_PKGS_PATH"
 sudo apt install -y ./intel-dlstreamer*
 echo_color "Completed: sudo apt install -y ./intel-dlstreamer*" "magenta"
 
@@ -175,5 +172,4 @@ if gst-inspect-1.0 gvadetect &> /dev/null; then
     echo_color " DL Streamer verification successful" "green"
 else
     handle_error " DL Streamer verification failed"
-    exit 1
 fi

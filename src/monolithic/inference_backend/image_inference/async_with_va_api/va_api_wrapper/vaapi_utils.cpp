@@ -1,14 +1,12 @@
 /*******************************************************************************
- * Copyright (C) 2022-2025 Intel Corporation
+ * Copyright (C) 2022-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
 
 #include <assert.h>
 #include <fcntl.h>
-#if !(_MSC_VER)
 #include <glob.h>
-#endif
 #include <string.h>
 
 #include <scope_guard.h>
@@ -17,10 +15,8 @@
 namespace internal {
 
 VaApiLibBinderImpl::VaApiLibBinderImpl() {
-#if !(_MSC_VER)
     _libva_so = SharedObject::getLibrary("libva.so.2");
     _libva_drm_so = SharedObject::getLibrary("libva-drm.so.2");
-#endif
 }
 
 VADisplay VaApiLibBinderImpl::GetDisplayDRM(int file_descriptor) {
@@ -40,11 +36,7 @@ VAStatus VaApiLibBinderImpl::Terminate(VADisplay dpy) {
 }
 
 std::function<const char *(VAStatus)> VaApiLibBinderImpl::StatusToStrFunc() {
-#if !(_MSC_VER)
     return _libva_so->getFunction<const char *(VAStatus)>("vaErrorStr");
-#else
-    return nullptr;
-#endif
 }
 
 } /* namespace internal */
@@ -86,7 +78,6 @@ void initializeVaDisplay(VaDpyWrapper display) {
 
 // this function supports only CPU rendering for now in WIN32 environment
 dlstreamer::VAAPIContextPtr vaApiCreateVaDisplay(uint32_t relative_device_index) {
-#if !(_MSC_VER)
     static const char *DEV_DRI_RENDER_PATTERN = "/dev/dri/renderD*";
 
     glob_t globbuf;
@@ -127,9 +118,6 @@ dlstreamer::VAAPIContextPtr vaApiCreateVaDisplay(uint32_t relative_device_index)
     };
 
     return {new dlstreamer::VAAPIContext(display), deleter};
-#else
-    return nullptr;
-#endif
 }
 
 internal::VaApiLibBinderImpl &VaApiLibBinder::get() {

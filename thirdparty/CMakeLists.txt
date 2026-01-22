@@ -1,5 +1,5 @@
 # ==============================================================================
-# Copyright (C) 2018-2025 Intel Corporation
+# Copyright (C) 2018-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
@@ -36,7 +36,11 @@ if(${ENABLE_TESTS})
 endif()
 
 # Populate json dependency
-set(nlohmann_json_VERSION v3.12.0)
+FetchContent_Declare(
+    nlohmann_json
+    URL https://github.com/nlohmann/json/archive/v3.12.0.zip
+)
+FetchContent_MakeAvailable(nlohmann_json)
 FetchContent_Declare(
     json_schema_validator
     URL https://github.com/pboettch/json-schema-validator/archive/2.4.0.tar.gz
