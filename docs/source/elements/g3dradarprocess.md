@@ -46,7 +46,6 @@ Process radar data from binary files and display FPS:
 gst-launch-1.0 multifilesrc location="radar/%06d.bin" start-index=559 ! \
   application/octet-stream ! \
   g3dradarprocess radar-config=config.json frame-rate=10 ! \
-  gvafpscounter ! \
   fakesink
 ```
 
@@ -59,7 +58,6 @@ gst-launch-1.0 multifilesrc location="radar/%06d.bin" ! \
   application/octet-stream ! \
   g3dradarprocess radar-config=config.json frame-rate=10 \
     publish-result=true publish-path=radar_output.json ! \
-  gvafpscounter ! \
   fakesink
 ```
 
