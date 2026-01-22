@@ -251,8 +251,6 @@ validate_models() {
             exit 1
         fi
     done
-    # Return models (newline-separated for mapfile)
-    printf '%s\n' "${models_array[@]}"
 }
 
 prepare_models_list() {
