@@ -255,6 +255,15 @@ validate_models() {
     printf '%s\n' "${models_array[@]}"
 }
 
+prepare_models_list() {
+    local models_input="$1"
+    local models_array
+    # Split input by comma into array
+    IFS=',' read -ra models_array <<< "$models_input"
+    # Return models (newline-separated for mapfile)
+    printf '%s\n' "${models_array[@]}"
+}
+
 # Function to check if array contains element
 array_contains() {
     local element="$1"
