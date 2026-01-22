@@ -12,6 +12,7 @@ endif()
 add_subdirectory(runtime_feature_toggling)
 add_subdirectory(common)
 add_subdirectory(elements)
+add_subdirectory(elements/3d_registrator)
 add_subdirectory(inference_elements)
 add_subdirectory(registrator)
 

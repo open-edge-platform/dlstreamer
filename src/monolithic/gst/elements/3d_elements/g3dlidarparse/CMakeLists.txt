@@ -2,11 +2,11 @@ cmake_minimum_required(VERSION 3.5)
 
 project(g3dlidarparse)
 
-
-add_library(g3dlidarparse SHARED
+add_library(g3dlidarparse STATIC
     g3dlidarparse.cpp
     ${CMAKE_SOURCE_DIR}/src/gst/metadata/g3dlidarmeta.cpp
 )
+set_compile_flags(g3dlidarparse)
 
 target_include_directories(g3dlidarparse
     PRIVATE
@@ -16,11 +16,7 @@ target_include_directories(g3dlidarparse
 )
 
 target_link_libraries(g3dlidarparse
-    PRIVATE
+    PUBLIC
         ${GSTREAMER_LIBRARIES}
         ${GSTVIDEO_LIBRARIES}
-)
-
-install(TARGETS g3dlidarparse
-    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}/gstreamer-1.0
 )

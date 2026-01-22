@@ -63,6 +63,7 @@ GType file_type_get_type(void) {
 }
 
 static void gst_g3d_lidar_parse_class_init(GstG3DLidarParseClass *klass) {
+    GST_DEBUG_CATEGORY_INIT(gst_g3d_lidar_parse_debug, "g3dlidarparse", 0, "Lidar Binary Parser");
     GObjectClass *gobject_class = G_OBJECT_CLASS(klass);
     GstElementClass *gstelement_class = GST_ELEMENT_CLASS(klass);
     GstBaseTransformClass *base_transform_class = GST_BASE_TRANSFORM_CLASS(klass);
@@ -88,7 +89,7 @@ static void gst_g3d_lidar_parse_class_init(GstG3DLidarParseClass *klass) {
         "G3D Lidar Parser",
         "Filter/Converter",
         "Parses binary lidar data to vector float format with stride and frame rate control (g3dlidarparse)",
-        "Your Name <your.email@example.com>");
+        "Intel Corporation");
 
     gst_element_class_add_static_pad_template(gstelement_class, &sink_template);
     gst_element_class_add_static_pad_template(gstelement_class, &src_template);
@@ -459,6 +460,8 @@ static GstFlowReturn gst_g3d_lidar_parse_transform(GstBaseTransform *trans, GstB
 }
 
 static GstCaps *gst_g3d_lidar_parse_transform_caps(GstBaseTransform *trans, GstPadDirection direction, GstCaps *caps, GstCaps *filter) {
+    (void)trans;
+    (void)caps;
     GstCaps *result = nullptr;
 
     if (direction == GST_PAD_SINK) {
@@ -484,26 +487,3 @@ static gboolean gst_g3d_lidar_parse_set_caps(GstBaseTransform *trans, GstCaps *i
     }
     return TRUE;
 }
-
-
-static gboolean plugin_init(GstPlugin *plugin) {
-    GST_DEBUG_CATEGORY_INIT(gst_g3d_lidar_parse_debug, "g3dlidarparse", 0, "Lidar Binary Parser");
-
-    return gst_element_register(plugin, "g3dlidarparse", GST_RANK_NONE, GST_TYPE_G3D_LIDAR_PARSE);
-}
-
-#ifndef PACKAGE
-#define PACKAGE "g3dlidarparse"
-#endif
-
-GST_PLUGIN_DEFINE(
-    GST_VERSION_MAJOR,
-    GST_VERSION_MINOR,
-    g3dlidarparse,
-    "Lidar Binary Parser",
-    plugin_init,
-    "1.0",
-    "LGPL",
-    "dlstreamer",
-    "https://github.com/dlstreamer/dlstreamer"
-)

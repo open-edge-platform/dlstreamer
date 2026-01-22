@@ -11,9 +11,9 @@ Factory Details:
 	Author                   Your Name <your.email@example.com>
 
 Plugin Details:
-	Name                     g3dlidarparse
-	Description              Lidar Binary Parser
-	Filename                 /usr/local/lib/gstreamer-1.0/libg3dlidarparse.so
+	Name                     gst3delements
+	Description              3D elements (g3dlidarparse, lidarmeta)
+	Filename                 /usr/local/lib/gstreamer-1.0/libgst3delements.so
 	Version                  1.0
 	License                  LGPL
 	Source module            dlstreamer
