@@ -718,27 +718,3 @@ static GstFlowReturn gst_radar_process_transform_ip(GstBaseTransform *trans, Gst
 
     return GST_FLOW_OK;
 }
-
-static gboolean plugin_init(GstPlugin *plugin) {
-    GST_DEBUG_CATEGORY_INIT(gst_radar_process_debug, "radarprocess", 0, 
-                            "Radar Signal Process");
-
-    return gst_element_register(plugin, "radarprocess", GST_RANK_NONE, 
-                               GST_TYPE_RADAR_PROCESS);
-}
-
-#ifndef PACKAGE
-#define PACKAGE "radarprocess"
-#endif
-
-GST_PLUGIN_DEFINE(
-    GST_VERSION_MAJOR,
-    GST_VERSION_MINOR,
-    radarprocess,
-    "Radar Signal Process",
-    plugin_init,
-    "1.0",
-    "MIT",
-    "dlstreamer",
-    "https://github.com/dlstreamer/dlstreamer"
-)

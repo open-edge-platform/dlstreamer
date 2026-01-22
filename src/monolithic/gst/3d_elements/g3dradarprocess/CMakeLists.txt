@@ -4,34 +4,34 @@
 # SPDX-License-Identifier: MIT
 # ==============================================================================
 
-cmake_minimum_required(VERSION 3.5)
-
-project(gstradarprocess)
+set(TARGET_NAME "g3dradarprocess")
 
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(GSTREAMER REQUIRED gstreamer-1.0)
 pkg_check_modules(GSTREAMER_BASE REQUIRED gstreamer-base-1.0)
 
-add_library(gstradarprocess SHARED
+add_library(${TARGET_NAME} STATIC
     gstradarprocess.cpp
     gstradarprocessmeta.c
 )
+set_compile_flags(${TARGET_NAME})
 
-target_include_directories(gstradarprocess
-    PRIVATE
+if(UNIX)
+    target_compile_options(${TARGET_NAME} PRIVATE -Wno-error=unused-variable -Wno-error=unused-parameter)
+endif()
+
+target_include_directories(${TARGET_NAME}
+    PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}
+    PRIVATE
         ${GSTREAMER_INCLUDE_DIRS}
         ${GSTREAMER_BASE_INCLUDE_DIRS}
         ${DLSTREAMER_BASE_DIR}/thirdparty/json/include
 )
 
-target_link_libraries(gstradarprocess
+target_link_libraries(${TARGET_NAME}
     PRIVATE
         ${GSTREAMER_LIBRARIES}
         ${GSTREAMER_BASE_LIBRARIES}
         json-hpp
-)
-
-install(TARGETS gstradarprocess
-    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}/gstreamer-1.0
 )
