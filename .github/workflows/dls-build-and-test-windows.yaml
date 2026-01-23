@@ -331,7 +331,7 @@ jobs:
       run: |
         $RUNNER_NAME = "${{ runner.name }}"
         if ($RUNNER_NAME -like "*ARL*") {
-            $TEST_CONFIGS = "on_host/samples_ARL_Windows.json"
+            $TEST_CONFIGS = "common/samples_windows.json"
         } else {
             Write-Error "Unknown runner $RUNNER_NAME to get config. Exiting..."
             exit 1
