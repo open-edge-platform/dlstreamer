@@ -1,3 +1,9 @@
+/*******************************************************************************
+ * Copyright (C) 2026 Intel Corporation
+ *
+ * SPDX-License-Identifier: MIT
+ ******************************************************************************/
+
 #ifndef LIBRADAR_H
 #define LIBRADAR_H
 #if defined(__cplusplus)
