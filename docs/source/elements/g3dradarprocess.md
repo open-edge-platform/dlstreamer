@@ -2,7 +2,7 @@
 
 Processes millimeter-wave (mmWave) radar signal data and generates point clouds, clusters, and tracking results. 
 The element acts as a bridge between raw radar data ingestion and advanced radar signal processing algorithms, 
-handling data reordering, pre-processing, DC removal, and interfacing with the underlying radar library.
+handling data reordering, pre-processing, DC (Direct Current) removal, and interfacing with the underlying radar library.
 
 ## Overview
 
