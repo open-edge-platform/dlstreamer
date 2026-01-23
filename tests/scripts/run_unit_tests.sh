@@ -87,6 +87,8 @@ popd
 SRC_DIR=$build_dir/..
 
 pushd "$SRC_DIR"/tests/tests_gstgva
+echo "Showing optimizer dir:"
+ls /home/dlstreamer/dlstreamer/scripts/optimizer
 py.test --junitxml="$result_path"/python_tests_results.xml || ret_code=$?
 popd
 
