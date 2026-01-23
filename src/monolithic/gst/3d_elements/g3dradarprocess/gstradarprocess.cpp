@@ -12,6 +12,10 @@
 #include <algorithm>
 #include <sys/time.h>
 #include <dlfcn.h>
+#include <fstream>
+#include <nlohmann/json.hpp>
+
+using json = nlohmann::json;
 
 GST_DEBUG_CATEGORY_STATIC(gst_radar_process_debug);
 #define GST_CAT_DEFAULT gst_radar_process_debug
@@ -490,73 +494,69 @@ static gboolean publish_radar_metadata_to_json(GstRadarProcess *filter, GstRadar
         return FALSE;
     }
 
-    FILE *fp = fopen(filter->publish_path, "w");
-    if (!fp) {
-        GST_ERROR_OBJECT(filter, "Failed to open file %s for writing", filter->publish_path);
+    try {
+        // Build JSON object
+        json j;
+        j["frame_id"] = meta->frame_id;
+        j["timestamp"] = g_get_real_time();
+        
+        // Add point clouds
+        j["point_clouds"]["count"] = meta->point_clouds_len;
+        j["point_clouds"]["points"] = json::array();
+        for (gint i = 0; i < meta->point_clouds_len; i++) {
+            json point;
+            point["range"] = meta->ranges[i];
+            point["speed"] = meta->speeds[i];
+            point["angle"] = meta->angles[i];
+            point["snr"] = meta->snrs[i];
+            j["point_clouds"]["points"].push_back(point);
+        }
+        
+        // Add clusters
+        j["clusters"]["count"] = meta->num_clusters;
+        j["clusters"]["data"] = json::array();
+        for (gint i = 0; i < meta->num_clusters; i++) {
+            json cluster;
+            cluster["index"] = meta->cluster_idx[i];
+            cluster["center_x"] = meta->cluster_cx[i];
+            cluster["center_y"] = meta->cluster_cy[i];
+            cluster["radius_x"] = meta->cluster_rx[i];
+            cluster["radius_y"] = meta->cluster_ry[i];
+            cluster["avg_velocity"] = meta->cluster_av[i];
+            j["clusters"]["data"].push_back(cluster);
+        }
+        
+        // Add tracked objects
+        j["tracked_objects"]["count"] = meta->num_tracked_objects;
+        j["tracked_objects"]["objects"] = json::array();
+        for (gint i = 0; i < meta->num_tracked_objects; i++) {
+            json tracker;
+            tracker["id"] = meta->tracker_ids[i];
+            tracker["position_x"] = meta->tracker_x[i];
+            tracker["position_y"] = meta->tracker_y[i];
+            tracker["velocity_x"] = meta->tracker_vx[i];
+            tracker["velocity_y"] = meta->tracker_vy[i];
+            j["tracked_objects"]["objects"].push_back(tracker);
+        }
+        
+        // Write to file with 2-space indentation
+        std::ofstream file(filter->publish_path);
+        if (!file.is_open()) {
+            GST_ERROR_OBJECT(filter, "Failed to open file %s for writing", filter->publish_path);
+            return FALSE;
+        }
+        file << j.dump(2) << std::endl;
+        file.close();
+        
+        GST_DEBUG_OBJECT(filter, "Published frame #%" G_GUINT64_FORMAT " metadata to %s", 
+                        meta->frame_id, filter->publish_path);
+        
+        return TRUE;
+        
+    } catch (const std::exception &e) {
+        GST_ERROR_OBJECT(filter, "Exception while writing JSON: %s", e.what());
         return FALSE;
     }
-
-    // Write JSON header
-    fprintf(fp, "{\n");
-    fprintf(fp, "  \"frame_id\": %" G_GUINT64_FORMAT ",\n", meta->frame_id);
-    fprintf(fp, "  \"timestamp\": %" G_GUINT64_FORMAT ",\n", g_get_real_time());
-    
-    // Write point clouds
-    fprintf(fp, "  \"point_clouds\": {\n");
-    fprintf(fp, "    \"count\": %d,\n", meta->point_clouds_len);
-    fprintf(fp, "    \"points\": [\n");
-    for (gint i = 0; i < meta->point_clouds_len; i++) {
-        fprintf(fp, "      {\n");
-        fprintf(fp, "        \"range\": %.3f,\n", meta->ranges[i]);
-        fprintf(fp, "        \"speed\": %.3f,\n", meta->speeds[i]);
-        fprintf(fp, "        \"angle\": %.3f,\n", meta->angles[i]);
-        fprintf(fp, "        \"snr\": %.3f\n", meta->snrs[i]);
-        fprintf(fp, "      }%s\n", (i < meta->point_clouds_len - 1) ? "," : "");
-    }
-    fprintf(fp, "    ]\n");
-    fprintf(fp, "  },\n");
-    
-    // Write clusters
-    fprintf(fp, "  \"clusters\": {\n");
-    fprintf(fp, "    \"count\": %d,\n", meta->num_clusters);
-    fprintf(fp, "    \"data\": [\n");
-    for (gint i = 0; i < meta->num_clusters; i++) {
-        fprintf(fp, "      {\n");
-        fprintf(fp, "        \"index\": %d,\n", meta->cluster_idx[i]);
-        fprintf(fp, "        \"center_x\": %.3f,\n", meta->cluster_cx[i]);
-        fprintf(fp, "        \"center_y\": %.3f,\n", meta->cluster_cy[i]);
-        fprintf(fp, "        \"radius_x\": %.3f,\n", meta->cluster_rx[i]);
-        fprintf(fp, "        \"radius_y\": %.3f,\n", meta->cluster_ry[i]);
-        fprintf(fp, "        \"avg_velocity\": %.3f\n", meta->cluster_av[i]);
-        fprintf(fp, "      }%s\n", (i < meta->num_clusters - 1) ? "," : "");
-    }
-    fprintf(fp, "    ]\n");
-    fprintf(fp, "  },\n");
-    
-    // Write tracked objects
-    fprintf(fp, "  \"tracked_objects\": {\n");
-    fprintf(fp, "    \"count\": %d,\n", meta->num_tracked_objects);
-    fprintf(fp, "    \"objects\": [\n");
-    for (gint i = 0; i < meta->num_tracked_objects; i++) {
-        fprintf(fp, "      {\n");
-        fprintf(fp, "        \"id\": %d,\n", meta->tracker_ids[i]);
-        fprintf(fp, "        \"position_x\": %.3f,\n", meta->tracker_x[i]);
-        fprintf(fp, "        \"position_y\": %.3f,\n", meta->tracker_y[i]);
-        fprintf(fp, "        \"velocity_x\": %.3f,\n", meta->tracker_vx[i]);
-        fprintf(fp, "        \"velocity_y\": %.3f\n", meta->tracker_vy[i]);
-        fprintf(fp, "      }%s\n", (i < meta->num_tracked_objects - 1) ? "," : "");
-    }
-    fprintf(fp, "    ]\n");
-    fprintf(fp, "  }\n");
-    
-    fprintf(fp, "}\n");
-    
-    fclose(fp);
-    
-    GST_DEBUG_OBJECT(filter, "Published frame #%" G_GUINT64_FORMAT " metadata to %s", 
-                    meta->frame_id, filter->publish_path);
-    
-    return TRUE;
 }
 
 // DC removal function: removes mean from real and imaginary parts
