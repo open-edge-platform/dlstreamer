@@ -1,6 +1,9 @@
 name: "[DLS] [U22/24] Build dev imgs and run Unit Tests"
 run-name: "[DLS] [U22/24] Build dev imgs and run Unit Tests(by ${{ github.actor }})"
 on:
+  push:
+    branches:
+      - 'nsz-add-optimizer-unittest'
   workflow_call:
   workflow_dispatch:
 permissions: {}
