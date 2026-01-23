@@ -90,11 +90,10 @@ bool yaml2Json(const std::string yaml_file, nlohmann::json &yaml_json) {
 
 // Convert input YOLO metadata file into Model API format
 bool convertYoloMeta2ModelApi(const std::string model_file, ov::AnyMap &modelConfig) {
-    const std::vector<std::pair<std::string, std::string>> model_types = {{"YOLOv8", "yolo_v8"},
-                                                                          {"YOLOv9", "yolo_v8"},
-                                                                          {"YOLOv10", "yolo_v10"},
-                                                                          {"YOLO11", "yolo_v8"},
-                                                                          {"YOLO26", "yolo_v26"}};
+    const std::vector<std::pair<std::string, std::string>> model_types = {
+        {"YOLOv8", "yolo_v8"}, {"YOLOv9", "yolo_v8"},  {"YOLOv10", "yolo_v10"},
+        {"YOLO11", "yolo_v8"}, {"YOLO26", "yolo_v26"}, {"YOLOe-26", "yolo_v26"}};
+
     const std::vector<std::pair<std::string, std::string>> task_types = {
         {"detect", ""}, {"segment", "_seg"}, {"pose", "_pose"}, {"obb", "_obb"}};
 
@@ -413,7 +412,6 @@ std::map<std::string, GstStructure *> get_model_info_postproc(const std::shared_
 
     for (auto &element : modelConfig) {
         if (element.first.find("model_type") != std::string::npos) {
-            std::cout << "model_type: " << element.second.as<std::string>() << std::endl;
             GValue gvalue = G_VALUE_INIT;
             g_value_init(&gvalue, G_TYPE_STRING);
             g_value_set_string(&gvalue, element.second.as<std::string>().c_str());
