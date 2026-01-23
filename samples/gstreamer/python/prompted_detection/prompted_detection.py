@@ -4,12 +4,15 @@
 # SPDX-License-Identifier: MIT
 # ==============================================================================
 
-import sys, os, gi
+import sys
+import os
+import gi
 gi.require_version("Gst", "1.0")
 gi.require_version("GstAnalytics", "1.0")
-from gi.repository import GLib, GObject, Gst, GstAnalytics  
-from ultralytics import YOLO, YOLOE
+from gi.repository import GLib, Gst, GstAnalytics
+from ultralytics import YOLO
 
+# wrapper to run the gstreamer pipeline loop
 def pipeline_loop(pipeline):
     print("Starting Pipeline \n")
     bus = pipeline.get_bus()
@@ -22,15 +25,15 @@ def pipeline_loop(pipeline):
                 _, debug_info = msg.parse_error()
                 print(f"Error received from element {msg.src.get_name()}")
                 print(f"Debug info: {debug_info}")
-                terminate = True                
+                terminate = True
             if msg.type == Gst.MessageType.EOS:
-                print(f"Pipeline complete.")
+                print("Pipeline complete.")
                 terminate = True
     pipeline.set_state(Gst.State.NULL)
-    return
 
+# called for each new frame received by appsink
+# implements user-defined processing of detection results
 def on_new_sample(sink, user_data):
-    # called for each new frame received by appsink
     sample = sink.emit('pull-sample')
     if sample:
         # get analytics metadata attached to frame buffer
@@ -46,10 +49,11 @@ def on_new_sample(sink, user_data):
 
     return Gst.FlowReturn.Flushing
 
+# download PyTorch model, convert to OpenVINO IR, create and run gstreamer pipeline
 def main(args):
     # Check input arguments
     if len(args) != 3:
-        sys.stderr.write("usage: %s <LOCAL_VIDEO_FILE> <OBJECT_TO_FIND>\n" % args[0])
+        sys.stderr.write(f"usage: {args[0]} <LOCAL_VIDEO_FILE> <OBJECT_TO_FIND>\n")
         sys.exit(1)
 
     if not os.path.isfile(args[1]):
@@ -63,7 +67,7 @@ def main(args):
     model.set_classes(names, model.get_text_pe(names))
     exported_model_path = model.export(format="openvino", dynamic=True, half=True)
     model_file = f"{exported_model_path}/{weights}.xml"
-    
+
     # Create GStreamer pipeline, pass input video file and OpenVINO model file
     Gst.init(None)
     pipeline = Gst.parse_launch(
@@ -71,11 +75,11 @@ def main(args):
             f"gvadetect model={model_file} device=GPU batch-size=4 ! queue ! "
             f"appsink emit-signals=true name=appsink0"
         )
-    
+
     # register user-defined callback function to process results
     appsink = pipeline.get_by_name("appsink0")
     appsink.connect("new-sample", on_new_sample, None)
-        
+
     # execute gstreamer pipeline
     pipeline_loop(pipeline)
 
