@@ -108,7 +108,7 @@ if [ ! -d "${DATA_PATH}/radar" ]; then
     echo "ERROR: Radar data directory not found: ${DATA_PATH}/radar" >&2
     echo "" >&2
     echo "Please download the radar data first:" >&2
-    echo "  cd ${DLSTREAMER_ROOT}" >&2
+    echo "  cd \"${DLSTREAMER_ROOT}\"" >&2
     echo "  wget --no-proxy https://af01p-igk.devtools.intel.com/artifactory/platform_hero-igk-local/RadarData/Radar_raddet_data.zip" >&2
     echo "  unzip Radar_raddet_data.zip" >&2
     echo "  rm Radar_raddet_data.zip" >&2
@@ -128,7 +128,7 @@ if ! command -v icpx &> /dev/null && [ ! -d "/opt/intel/oneapi" ]; then
     echo "The g3dradarprocess element requires oneAPI and libradar." >&2
     echo "" >&2
     echo "To install dependencies, run:" >&2
-    echo "  ${DLSTREAMER_ROOT}/scripts/install_radar_dependencies.sh" >&2
+    echo "  \"${DLSTREAMER_ROOT}/scripts/install_radar_dependencies.sh\"" >&2
     echo "" >&2
     echo "If already installed, source the environment:" >&2
     echo "  source /opt/intel/oneapi/setvars.sh" >&2
@@ -177,7 +177,7 @@ echo "Starting radar signal processing..."
 echo "Press Ctrl+C to stop"
 echo ""
 
-gst-launch-1.0 ${PIPELINE}
+eval gst-launch-1.0 "${PIPELINE}"
 
 # Check if output file was created
 if [ "${PUBLISH_RESULT}" = "true" ] && [ -f "${OUTPUT_PATH}" ]; then
@@ -189,7 +189,7 @@ if [ "${PUBLISH_RESULT}" = "true" ] && [ -f "${OUTPUT_PATH}" ]; then
     if command -v jq &> /dev/null; then
         echo "========================================"
         echo "Sample output (first frame):"
-        jq '.[0]' "${OUTPUT_PATH}" 2>/dev/null || cat "${OUTPUT_PATH}" | head -20
+        jq '.[0]' "${OUTPUT_PATH}" 2>/dev/null || head -20 < "${OUTPUT_PATH}"
     fi
 fi
 
