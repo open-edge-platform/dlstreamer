@@ -5,13 +5,6 @@
 # ==============================================================================
 
 import unittest
-import sys
-import os
-
-print("=== DEBUG INFO ===")
-print(f"PYTHONPATH: {os.environ.get('PYTHONPATH', 'NOT SET')}")
-print("==================")
-
 from optimizer import get_optimized_pipeline
 from utils import get_model_path
 
