@@ -17,6 +17,7 @@ Samples separated into several categories
     * [Deployment of Geti™ models](./gst_launch/geti_deployment/README.md) - demonstrates how to deploy models trained with Intel® Geti™ Platform for object detection, anomaly detection and classification tasks
     * [Multi-camera deployments](./gst_launch/multi_stream/README.md) - demonstrates how to handle video streams from multiple cameras with one instance of DL Streamer application
     * [gvaattachroi](./gst_launch/gvaattachroi/README.md) - demonstrates how to use gvaattachroi to define the regions on which the inference should be performed
+    * [FPS Throttle](./gst_launch/gvafpsthrottle/README.md) - demonstrates how to use [gvafpsthrottle](../../../docs/source/elements/gvafpsthrottle.md) element to throttle framerate independent of sink synchronization and without frame duplication or dropping
     * [LVM embeddings](./gst_launch/lvm/README.md) - demonstrates generation of image embeddings using the Large Vision CLIP model
     * [License Plate Recognition Sample](./gst_launch/license_plate_recognition/README.md) - demonstrates the use of the Yolo detector together with the optical character recognition model
     * [Vision Language Model Sample](./gst_launch/gvagenai/README.md) - demonstrates how to use the `gvagenai` element with MiniCPM-V for video summerization
