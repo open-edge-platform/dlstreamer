@@ -20,7 +20,7 @@ env:
   dlstreamer-version: "2025.2.0"
   MODELS_PATH: "$HOME/models"
   VIDEO_INPUTS_PATH: "$HOME/videos"
-  DLS_REL_PATH: "./dlstreamer-repo"
+  DLS_REL_PATH: "./dlstreamer"
 
 jobs:
   build:
@@ -48,16 +48,16 @@ jobs:
     steps:
       - name: Initial environment clean
         run: |
-          sudo rm -rf dlstreamer-repo
+          sudo rm -rf dlstreamer
       - name: Check out dlstreamer repository
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 #5.0.0
         with:
           persist-credentials: false
-          path: dlstreamer-repo
+          path: dlstreamer
 
       - name: Init submodules
         run: |
-          cd dlstreamer-repo
+          cd dlstreamer
           git submodule update --init thirdparty/spdlog
       - name: Check out test repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 #4.2.2
@@ -137,18 +137,8 @@ jobs:
       - name: Init docker tests configurations
         run: |
           echo "## 🚢 ${{ matrix.runner_print_label }} Docker tests summary" >> $GITHUB_STEP_SUMMARY
-          if [[ ${{ matrix.runner_print_label }} == "TGL" ]]; then
-            echo "DOCKER_TEST_CONFIGS=docker/aliveness_TGL.json" >> $GITHUB_ENV
-            echo "Selected test configuration file: docker/aliveness_TGL.json" >> $GITHUB_STEP_SUMMARY
-          elif [[ ${{ matrix.runner_print_label }} == "ARL" ]]; then
-            echo "DOCKER_TEST_CONFIGS=docker/aliveness_ARL.json" >> $GITHUB_ENV
-            echo "Selected test configuration file: docker/aliveness_ARL.json" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "Test configuration file: not found ❌" >> $GITHUB_STEP_SUMMARY
-            echo "❌ Cannot assign correct test configuration JSON file for runner based on label: ${{ matrix.runner_print_label }}"
-            echo "Please review and fix! Exiting..."
-            exit 1
-          fi
+          echo "DOCKER_TEST_CONFIGS=aliveness_config.json" >> $GITHUB_ENV
+          echo "Selected test configuration file: $DOCKER_TEST_CONFIGS" >> $GITHUB_STEP_SUMMARY
       - name: 🚀 Run Docker tests
         id: run_docker_tests
         env:
@@ -164,7 +154,8 @@ jobs:
           ./run_tests.sh \
             --models-path=${{ env.MODELS_PATH }} \
             --video-examples-path=${{ env.VIDEO_INPUTS_PATH }} \
-            --test-configs="$DOCKER_TEST_CONFIGS" \
+            --meta-configs="$DOCKER_TEST_CONFIGS" \
+            --platform-type="${{ matrix.runner_print_label }}" \
             --results-path="$DLS_TESTS_RESULTS_PATH" \
             --report-name="DLS_functional_tests_${{ matrix.runner_print_label }}_docker_${{ matrix.ubuntu_version }}_results" \
             --image-name="${deb_final_testing_img}"
@@ -227,18 +218,8 @@ jobs:
 
       - name: Init on host tests configurations
         run: |
-          if [[ ${{ matrix.runner_print_label }} == "TGL" ]]; then
-            echo "HOST_TEST_CONFIGS=on_host/samples_TGL.json" >> $GITHUB_ENV
-            echo "Selected test configuration file: on_host/samples_TGL.json" >> $GITHUB_STEP_SUMMARY
-          elif [[ ${{ matrix.runner_print_label }} == "ARL" ]]; then
-            echo "HOST_TEST_CONFIGS=on_host/samples_ARL.json" >> $GITHUB_ENV
-            echo "Selected test configuration file: on_host/samples_ARL.json" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "Test configuration file: not found ❌" >> $GITHUB_STEP_SUMMARY
-            echo "❌ Cannot assign correct test configuration JSON file for runner based on label: ${{ matrix.runner_print_label }}"
-            echo "Please review and fix! Exiting..."
-            exit 1
-          fi
+          echo "HOST_TEST_CONFIGS=samples_config.json" >> $GITHUB_ENV
+          echo "Selected test configuration file: $HOST_TEST_CONFIGS" >> $GITHUB_STEP_SUMMARY
       - name: Init host test environemtnt
         run: |
           sudo apt install -y libcairo2-dev libgirepository1.0-dev
@@ -267,7 +248,8 @@ jobs:
           ./run_tests.sh \
             --models-path=${{ env.MODELS_PATH }} \
             --video-examples-path=${{ env.VIDEO_INPUTS_PATH }} \
-            --test-configs="$HOST_TEST_CONFIGS" \
+            --meta-configs="$HOST_TEST_CONFIGS" \
+            --platform-type="${{ matrix.runner_print_label }}" \
             --results-path="$DLS_TESTS_RESULTS_PATH" \
             --report-name="DLS_functional_tests_${{ matrix.runner_print_label }}_on_host_${{ matrix.ubuntu_version }}_results" \
             --on-host
@@ -341,7 +323,7 @@ jobs:
         run: |
           rm -rf $HOME/.virtualenvs
           docker rmi ${deb_final_img} || true
-          sudo rm -f $HOME/dlstreamer-repo
-          rm -rf dlstreamer-repo
+          sudo rm -f $HOME/dlstreamer
+          rm -rf dlstreamer
           rm -rf $HOME/dl-streamer-tests-repo
           docker system prune -a -f

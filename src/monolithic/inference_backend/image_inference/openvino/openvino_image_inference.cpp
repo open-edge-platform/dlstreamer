@@ -17,6 +17,7 @@
 
 #include <spdlog/fmt/bundled/ranges.h>
 
+#include "model_api_converters.h"
 #include "openvino_image_inference.h"
 
 #include "config.h"
@@ -138,26 +139,6 @@ struct fmt::formatter<ov::AnyMap::value_type> {
 };
 
 namespace {
-
-std::vector<std::string> split(const std::string &s, const std::string &delimiters) {
-    std::regex re("[" + delimiters + "]+");
-    std::sregex_token_iterator first{s.begin(), s.end(), re, -1}, last;
-    return {first, last};
-}
-
-std::vector<std::string> extractNumbers(const std::string &s) {
-    // Regular expression to match numbers, including negative and floating-point numbers
-    std::regex re(R"([-+]?\d*\.?\d+)");
-    std::sregex_iterator begin(s.begin(), s.end(), re);
-    std::sregex_iterator end;
-
-    std::vector<std::string> numbers;
-    for (std::sregex_iterator i = begin; i != end; ++i) {
-        numbers.push_back(i->str());
-    }
-
-    return numbers;
-}
 
 const InputImageLayerDesc::Ptr
 getImagePreProcInfo(const std::map<std::string, InferenceBackend::InputLayerDesc::Ptr> &input_preprocessors) {
@@ -316,6 +297,13 @@ struct ConfigHelper {
         return std::stoi(it->second);
     }
 
+    bool reshape_static() const {
+        const auto it = base_config.find(KEY_RESHAPE_STATIC);
+        if (it == base_config.cend())
+            return false;
+        return std::stoi(it->second);
+    }
+
     const std::string &base_get_or_empty(const std::string &key) const {
         const auto it = base_config.find(key);
         if (it == base_config.cend())
@@ -467,7 +455,8 @@ class OpenVinoNewApiImpl {
         }
 
         // read model & configure model
-        _model = core().read_model(config.model_path());
+        _model_path = config.model_path();
+        _model = core().read_model(_model_path);
 
         {
             size_t bs;
@@ -507,307 +496,6 @@ class OpenVinoNewApiImpl {
             auto name = node.get_names().size() > 0 ? node.get_any_name() : std::string("output");
             res.emplace(name, std::move(shape));
         }
-        return res;
-    }
-
-    // convert ov::Any to GstStructure
-    auto get_model_info_postproc() const {
-        std::map<std::string, GstStructure *> res;
-        std::string layer_name("ANY");
-        GstStructure *s = nullptr;
-        ov::AnyMap modelConfig;
-
-        if (_model->has_rt_info({"model_info"})) {
-            modelConfig = _model->get_rt_info<ov::AnyMap>("model_info");
-            s = gst_structure_new_empty(layer_name.data());
-        }
-
-        // the parameter parsing loop may use locale-dependent floating point conversion
-        // save current locale and restore after the loop
-        std::string oldlocale = std::setlocale(LC_ALL, nullptr);
-        std::setlocale(LC_ALL, "C");
-
-        for (auto &element : modelConfig) {
-            if (element.first.find("model_type") != std::string::npos) {
-                GValue gvalue = G_VALUE_INIT;
-                g_value_init(&gvalue, G_TYPE_STRING);
-                g_value_set_string(&gvalue, element.second.as<std::string>().c_str());
-                gst_structure_set_value(s, "converter", &gvalue);
-                GST_INFO("[get_model_info_postproc] model_type: %s", element.second.as<std::string>().c_str());
-                GST_INFO("[get_model_info_postproc] converter: %s", g_value_get_string(&gvalue));
-                g_value_unset(&gvalue);
-            }
-            if ((element.first.find("multilabel") != std::string::npos) &&
-                (element.second.as<std::string>().find("True") != std::string::npos)) {
-                GValue gvalue = G_VALUE_INIT;
-                g_value_init(&gvalue, G_TYPE_STRING);
-                const gchar *oldvalue = gst_structure_get_string(s, "method");
-                if ((oldvalue != nullptr) && (strcmp(oldvalue, "softmax") == 0))
-                    g_value_set_string(&gvalue, "softmax_multi");
-                else
-                    g_value_set_string(&gvalue, "multi");
-                gst_structure_set_value(s, "method", &gvalue);
-                GST_INFO("[get_model_info_postproc] multilabel: %s", element.second.as<std::string>().c_str());
-                GST_INFO("[get_model_info_postproc] method: %s", g_value_get_string(&gvalue));
-                g_value_unset(&gvalue);
-            }
-            if ((element.first.find("output_raw_scores") != std::string::npos) &&
-                (element.second.as<std::string>().find("True") != std::string::npos)) {
-                GValue gvalue = G_VALUE_INIT;
-                g_value_init(&gvalue, G_TYPE_STRING);
-                const gchar *oldvalue = gst_structure_get_string(s, "method");
-                if ((oldvalue != nullptr) && (strcmp(oldvalue, "multi") == 0))
-                    g_value_set_string(&gvalue, "softmax_multi");
-                else
-                    g_value_set_string(&gvalue, "softmax");
-                gst_structure_set_value(s, "method", &gvalue);
-                GST_INFO("[get_model_info_postproc] output_raw_scores: %s", element.second.as<std::string>().c_str());
-                GST_INFO("[get_model_info_postproc] method: %s", g_value_get_string(&gvalue));
-                g_value_unset(&gvalue);
-            }
-            if (element.first.find("confidence_threshold") != std::string::npos) {
-                GValue gvalue = G_VALUE_INIT;
-                g_value_init(&gvalue, G_TYPE_DOUBLE);
-                g_value_set_double(&gvalue, element.second.as<double>());
-                gst_structure_set_value(s, "confidence_threshold", &gvalue);
-                GST_INFO("[get_model_info_postproc] confidence_threshold: %f", element.second.as<double>());
-                g_value_unset(&gvalue);
-            }
-            if (element.first.find("iou_threshold") != std::string::npos) {
-                GValue gvalue = G_VALUE_INIT;
-                g_value_init(&gvalue, G_TYPE_DOUBLE);
-                g_value_set_double(&gvalue, element.second.as<double>());
-                gst_structure_set_value(s, "iou_threshold", &gvalue);
-                GST_INFO("[get_model_info_postproc] iou_threshold: %f", element.second.as<double>());
-                g_value_unset(&gvalue);
-            }
-            if (element.first.find("image_threshold") != std::string::npos) {
-                GValue gvalue = G_VALUE_INIT;
-                g_value_init(&gvalue, G_TYPE_DOUBLE);
-                g_value_set_double(&gvalue, element.second.as<double>());
-                gst_structure_set_value(s, "image_threshold", &gvalue);
-                GST_INFO("[get_model_info_postproc] image_threshold: %f", element.second.as<double>());
-                g_value_unset(&gvalue);
-            }
-            if (element.first.find("pixel_threshold") != std::string::npos) {
-                GValue gvalue = G_VALUE_INIT;
-                g_value_init(&gvalue, G_TYPE_DOUBLE);
-                g_value_set_double(&gvalue, element.second.as<double>());
-                gst_structure_set_value(s, "pixel_threshold", &gvalue);
-                GST_INFO("[get_model_info_postproc] pixel_threshold: %f", element.second.as<double>());
-                g_value_unset(&gvalue);
-            }
-            if (element.first.find("normalization_scale") != std::string::npos) {
-                GValue gvalue = G_VALUE_INIT;
-                g_value_init(&gvalue, G_TYPE_DOUBLE);
-                g_value_set_double(&gvalue, element.second.as<double>());
-                gst_structure_set_value(s, "normalization_scale", &gvalue);
-                GST_INFO("[get_model_info_postproc] normalization_scale: %f", element.second.as<double>());
-                g_value_unset(&gvalue);
-            }
-            if (element.first.find("task") != std::string::npos) {
-                GValue gvalue = G_VALUE_INIT;
-                g_value_init(&gvalue, G_TYPE_STRING);
-                g_value_set_string(&gvalue, element.second.as<std::string>().c_str());
-                gst_structure_set_value(s, "anomaly_task", &gvalue);
-                GST_INFO("[get_model_info_postproc] anomaly_task: %s", element.second.as<std::string>().c_str());
-                g_value_unset(&gvalue);
-            }
-            if (element.first.find("labels") != std::string::npos) {
-                GValue gvalue = G_VALUE_INIT;
-                g_value_init(&gvalue, GST_TYPE_ARRAY);
-                std::string labels_string = element.second.as<std::string>();
-                std::vector<std::string> labels = split(labels_string, ",; ");
-                for (auto &el : labels) {
-                    GValue label = G_VALUE_INIT;
-                    g_value_init(&label, G_TYPE_STRING);
-                    g_value_set_string(&label, el.c_str());
-                    gst_value_array_append_value(&gvalue, &label);
-                    g_value_unset(&label);
-                    GST_INFO("[get_model_info_postproc] label: %s", el.c_str());
-                }
-                gst_structure_set_value(s, "labels", &gvalue);
-                g_value_unset(&gvalue);
-            }
-        }
-
-        // restore system locale
-        std::setlocale(LC_ALL, oldlocale.c_str());
-
-        if (s != nullptr)
-            res[layer_name] = s;
-
-        return res;
-    }
-
-    // convert ov::Any to GstStructure
-    static std::map<std::string, GstStructure *>
-    get_model_info_preproc(const std::string model_file, const gchar *pre_proc_config, const gchar *ov_extension_lib) {
-        std::map<std::string, GstStructure *> res;
-        std::string layer_name("ANY");
-        GstStructure *s = nullptr;
-        ov::AnyMap modelConfig;
-
-        if (ov_extension_lib && ov_extension_lib[0] != '\0') {
-            core().add_extension(ov_extension_lib);
-        }
-
-        std::shared_ptr<ov::Model> _model;
-        _model = core().read_model(model_file);
-
-        // Warn if model quantization runtime does not match current runtime
-        if (_model->has_rt_info({"nncf"})) {
-            const ov::AnyMap nncfConfig = _model->get_rt_info<const ov::AnyMap>("nncf");
-            const std::string modelVersion = _model->get_rt_info<const std::string>("Runtime_version");
-            const std::string runtimeVersion = ov::get_openvino_version().buildNumber;
-
-            if (nncfConfig.count("quantization") && (modelVersion != runtimeVersion))
-                g_warning("Model quantization runtime (%s) does not match current runtime (%s). Results may be "
-                          "inaccurate. Please re-quantize the model with the current runtime version.",
-                          modelVersion.c_str(), runtimeVersion.c_str());
-        }
-
-        if (_model->has_rt_info({"model_info"})) {
-            modelConfig = _model->get_rt_info<ov::AnyMap>("model_info");
-            s = gst_structure_new_empty(layer_name.data());
-        }
-
-        // override model config with command line pre-processing parameters if provided
-        auto pre_proc_params = Utils::stringToMap(pre_proc_config);
-        for (auto &item : pre_proc_params) {
-            if (modelConfig.find(item.first) != modelConfig.end()) {
-                modelConfig[item.first] = item.second;
-            }
-        }
-
-        // the parameter parsing loop may use locale-dependent floating point conversion
-        // save current locale and restore after the loop
-        std::string oldlocale = std::setlocale(LC_ALL, nullptr);
-        std::setlocale(LC_ALL, "C");
-
-        for (auto &element : modelConfig) {
-            if (element.first == "scale_values") {
-                std::vector<std::string> values = extractNumbers(element.second.as<std::string>());
-                if (values.size() == 1) {
-                    GValue gvalue = G_VALUE_INIT;
-                    g_value_init(&gvalue, G_TYPE_DOUBLE);
-                    g_value_set_double(&gvalue, element.second.as<double>());
-                    gst_structure_set_value(s, "scale", &gvalue);
-                    GST_INFO("[get_model_info_preproc] scale: %f", element.second.as<double>());
-                    g_value_unset(&gvalue);
-                } else if (values.size() == 3) {
-
-                    std::vector<double> scale_values;
-                    // If there are three values, use them directly
-                    for (const std::string &valueStr : values) {
-                        scale_values.push_back(std::stod(valueStr));
-                    }
-                    // Create a GST_TYPE_ARRAY to hold the scale values
-                    GValue gvalue = G_VALUE_INIT;
-                    g_value_init(&gvalue, GST_TYPE_ARRAY);
-                    for (double scale_value : scale_values) {
-                        GValue item = G_VALUE_INIT;
-                        g_value_init(&item, G_TYPE_DOUBLE);
-                        g_value_set_double(&item, scale_value);
-                        gst_value_array_append_value(&gvalue, &item);
-                        GST_INFO("[get_model_info_preproc] scale_values: %f", scale_value);
-                        g_value_unset(&item);
-                    }
-
-                    // Set the array in the GstStructure
-                    gst_structure_set_value(s, "std", &gvalue);
-                    g_value_unset(&gvalue);
-                } else {
-                    throw std::runtime_error("Invalid number of scale values. Expected 1 or 3 values.");
-                }
-            }
-            if (element.first == "mean_values") {
-                std::vector<std::string> values = extractNumbers(element.second.as<std::string>());
-                std::vector<double> scale_values;
-
-                if (values.size() == 3) {
-                    // If there are three values, use them directly
-                    for (const std::string &valueStr : values) {
-                        scale_values.push_back(std::stod(valueStr));
-                    }
-                } else {
-                    throw std::runtime_error("Invalid number of mean values. Expected 3 values.");
-                }
-
-                // Create a GST_TYPE_ARRAY to hold the scale values
-                GValue gvalue = G_VALUE_INIT;
-                g_value_init(&gvalue, GST_TYPE_ARRAY);
-                for (double scale_value : scale_values) {
-                    GValue item = G_VALUE_INIT;
-                    g_value_init(&item, G_TYPE_DOUBLE);
-                    g_value_set_double(&item, scale_value);
-                    gst_value_array_append_value(&gvalue, &item);
-                    g_value_unset(&item);
-                }
-
-                // Set the array in the GstStructure
-                gst_structure_set_value(s, "mean", &gvalue);
-                GST_INFO("[get_model_info_preproc] mean: %s", g_value_get_string(&gvalue));
-                g_value_unset(&gvalue);
-            }
-            if (element.first == "resize_type") {
-                GValue gvalue = G_VALUE_INIT;
-                g_value_init(&gvalue, G_TYPE_STRING);
-
-                if (element.second.as<std::string>() == "crop") {
-                    g_value_set_string(&gvalue, "central-resize");
-                    gst_structure_set_value(s, "crop", &gvalue);
-                }
-                if (element.second.as<std::string>() == "fit_to_window_letterbox") {
-                    g_value_set_string(&gvalue, "aspect-ratio");
-                    gst_structure_set_value(s, "resize", &gvalue);
-                }
-                if (element.second.as<std::string>() == "fit_to_window") {
-                    g_value_set_string(&gvalue, "aspect-ratio-pad");
-                    gst_structure_set_value(s, "resize", &gvalue);
-                }
-                if (element.second.as<std::string>() == "standard") {
-                    g_value_set_string(&gvalue, "no-aspect-ratio");
-                    gst_structure_set_value(s, "resize", &gvalue);
-                }
-                GST_INFO("[get_model_info_preproc] resize_type: %s", element.second.as<std::string>().c_str());
-                GST_INFO("[get_model_info_preproc] resize: %s", g_value_get_string(&gvalue));
-                g_value_unset(&gvalue);
-            }
-            if (element.first == "color_space") {
-                GValue gvalue = G_VALUE_INIT;
-                g_value_init(&gvalue, G_TYPE_STRING);
-                g_value_set_string(&gvalue, element.second.as<std::string>().c_str());
-                gst_structure_set_value(s, "color_space", &gvalue);
-                GST_INFO("[get_model_info_preproc] reverse_input_channels: %s",
-                         element.second.as<std::string>().c_str());
-                GST_INFO("[get_model_info_preproc] color_space: %s", g_value_get_string(&gvalue));
-                g_value_unset(&gvalue);
-            }
-            if (element.first == "reverse_input_channels") {
-                GValue gvalue = G_VALUE_INIT;
-                g_value_init(&gvalue, G_TYPE_INT);
-                g_value_set_int(&gvalue, gint(false));
-
-                std::transform(element.second.as<std::string>().begin(), element.second.as<std::string>().end(),
-                               element.second.as<std::string>().begin(), ::tolower);
-
-                if (element.second.as<std::string>() == "yes" || element.second.as<std::string>() == "true")
-                    g_value_set_int(&gvalue, gint(true));
-
-                gst_structure_set_value(s, "reverse_input_channels", &gvalue);
-                GST_INFO("[get_model_info_preproc] reverse_input_channels: %s",
-                         element.second.as<std::string>().c_str());
-                g_value_unset(&gvalue);
-            }
-        }
-
-        // restore system locale
-        std::setlocale(LC_ALL, oldlocale.c_str());
-
-        if (s != nullptr)
-            res[layer_name] = s;
-
         return res;
     }
 
@@ -1072,6 +760,7 @@ class OpenVinoNewApiImpl {
 
   protected:
     std::shared_ptr<ov::Model> _model;
+    std::string _model_path;
     std::string _model_format;
     std::string _device;
     std::string _image_input_name;
@@ -1096,7 +785,7 @@ class OpenVinoNewApiImpl {
 
         auto [reshape_width, reshape_height] = config.reshape_size();
         if (config.need_reshape() && (reshape_width || reshape_height))
-            reshape_model(reshape_height, reshape_width);
+            reshape_model(reshape_height, reshape_width, config.reshape_static());
 
         auto ppp = ov::preprocess::PrePostProcessor(_model);
         configure_model_inputs(config, ppp);
@@ -1108,7 +797,7 @@ class OpenVinoNewApiImpl {
         auto [img_width, img_height] = config.image_size();
         if (img_width == 0 && img_height == 0 && config.pp_type() == ImagePreprocessorType::IE) {
             auto [frame_width, frame_height] = config.frame_size();
-            reshape_model(frame_height, frame_width);
+            reshape_model(frame_height, frame_width, false);
         }
 
         _batch_size = config.batch_size();
@@ -1329,7 +1018,7 @@ class OpenVinoNewApiImpl {
         }
     }
 
-    void reshape_model(size_t image_height, size_t image_width) {
+    void reshape_model(size_t image_height, size_t image_width, bool reshape_static) {
         std::map<ov::Output<ov::Node>, ov::PartialShape> port_to_shape;
 
         for (const ov::Output<ov::Node> &input : _model->inputs()) {
@@ -1339,7 +1028,7 @@ class OpenVinoNewApiImpl {
             if (layout.empty())
                 throw std::runtime_error(fmt::format("Reshape: couldn't determine input layout"));
 
-            if (input.get_partial_shape().is_static()) {
+            if (input.get_partial_shape().is_static() || reshape_static) {
                 if (image_height > 0)
                     shape[ov::layout::height_idx(layout)] = image_height;
                 if (image_width > 0)
@@ -1776,14 +1465,19 @@ std::map<std::string, std::vector<size_t>> OpenVINOImageInference::GetModelOutpu
 }
 
 std::map<std::string, GstStructure *> OpenVINOImageInference::GetModelInfoPostproc() const {
-    auto info = _impl->get_model_info_postproc();
+    auto info = ModelApiConverters::get_model_info_postproc(_impl->_model, _impl->_model_path);
     return info;
 }
 
 std::map<std::string, GstStructure *> OpenVINOImageInference::GetModelInfoPreproc(const std::string model_file,
                                                                                   const gchar *pre_proc_config,
                                                                                   const gchar *ov_extension_lib) {
-    auto info = OpenVinoNewApiImpl::get_model_info_preproc(model_file, pre_proc_config, ov_extension_lib);
+    if (ov_extension_lib && ov_extension_lib[0] != '\0') {
+        OpenVinoNewApiImpl::core().add_extension(ov_extension_lib);
+    }
+    std::shared_ptr<ov::Model> model = OpenVinoNewApiImpl::core().read_model(model_file);
+
+    auto info = ModelApiConverters::get_model_info_preproc(std::move(model), model_file, pre_proc_config);
     return info;
 }
 

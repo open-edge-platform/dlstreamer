@@ -105,6 +105,8 @@ SUPPORTED_MODELS=(
   "clip-vit-base-patch16"
   "clip-vit-base-patch32"
   "ch_PP-OCRv4_rec_infer" # PaddlePaddle OCRv4 multilingual model
+  "pallet_defect_detection" # Custom model for pallet defect detection
+  "colorcls2" # Color classification model
   "mars-small128" # DeepSORT person re-identification model (uses convert_mars_deepsort.py)
 )
 
@@ -146,7 +148,94 @@ handle_error() {
     exit 1
 }
 
-prepare_models_list() {
+# Function to display help message
+show_help() {
+    cat << EOF
+$(echo_color "Usage:" "cyan")
+  $0 [MODEL] [QUANTIZE]
+
+$(echo_color "Arguments:" "cyan")
+  MODEL      Model name(s) to download. Can be:
+             - Single model: yolov8n
+             - Multiple models (comma-separated): yolov8n,yolov8s,centerface
+             - Special keywords: 'all' (all models) or 'yolo_all' (all YOLO models)
+             - Default: 'all'
+
+  QUANTIZE   Optional. Quantization dataset for INT8 models.
+             Supported values: coco, coco128
+             Leave empty to skip quantization.
+
+$(echo_color "Environment:" "cyan")
+  MODELS_PATH    Required. Path where models will be downloaded.
+                 Example: export MODELS_PATH=/path/to/models
+
+$(echo_color "Examples:" "cyan")
+  # Download all models
+  export MODELS_PATH=~/models
+  $0 all
+
+  # Download specific models
+  export MODELS_PATH=~/models
+  $0 yolov8n,yolov8s
+
+  # Download multiple models with quantization
+  export MODELS_PATH=~/models
+  $0 yolov8n,yolov8s,yolov10n coco128
+
+  # Download with quantization (single model)
+  export MODELS_PATH=~/models
+  $0 yolov8n coco128
+
+  # Download all YOLO models
+  export MODELS_PATH=~/models
+  $0 yolo_all
+
+$(echo_color "Supported Models:" "cyan")
+
+EOF
+
+    echo_color "  YOLO Models:" "yellow"
+    printf "    "
+    local count=0
+    for model in "${SUPPORTED_MODELS[@]}"; do
+        if [[ $model =~ ^yolo ]]; then
+            printf "%-30s" "$model"
+            ((count++))
+            if ((count % 3 == 0)); then
+                printf "\n    "
+            fi
+        fi
+    done
+    echo -e "\n"
+
+    echo_color "  Computer Vision Models:" "yellow"
+    printf "    "
+    count=0
+    for model in "${SUPPORTED_MODELS[@]}"; do
+        if [[ ! $model =~ ^yolo && $model != "all" ]]; then
+            printf "%-30s" "$model"
+            ((count++))
+            if ((count % 3 == 0)); then
+                printf "\n    "
+            fi
+        fi
+    done
+    echo -e "\n"
+
+    echo_color "  Special Keywords:" "yellow"
+    printf "    %-30s - Download all available models\n" "all"
+    printf "    %-30s - Download all YOLO models\n" "yolo_all"
+    echo ""
+}
+
+# Check for help argument
+if [[ "${MODEL}" == "-h" || "${MODEL}" == "--help" ]]; then
+    show_help
+    exit 0
+fi
+
+# Function to validate models
+validate_models() {
     local models_input="$1"
     local models_array
     # Split input by comma into array
@@ -156,12 +245,21 @@ prepare_models_list() {
         model=$(echo "$model" | xargs)  # Trim whitespace
 
         if ! [[ " ${SUPPORTED_MODELS[*]} " =~ $model ]]; then
-            echo "Unsupported model: $model" >&2
+            echo_color "Error: Unsupported model '$model'" "red"
+            echo ""
+            show_help
             exit 1
         fi
     done
-    # Return models (space-separated)
-    echo "${models_array[@]}"
+}
+
+prepare_models_list() {
+    local models_input="$1"
+    local models_array
+    # Split input by comma into array
+    IFS=',' read -ra models_array <<< "$models_input"
+    # Return models (newline-separated for mapfile)
+    printf '%s\n' "${models_array[@]}"
 }
 
 # Function to check if array contains element
@@ -179,6 +277,9 @@ array_contains() {
 
 # Trap errors and call handle_error
 trap 'handle_error "- line $LINENO"' ERR
+
+# Validate models before processing
+validate_models "$MODEL"
 
 # Prepare models list
 mapfile -t MODELS_TO_PROCESS < <(prepare_models_list "$MODEL")
@@ -230,6 +331,7 @@ pip install --no-cache-dir numpy==2.2.6 || handle_error $LINENO
 pip install --no-cache-dir openvino==2025.4.0 || handle_error $LINENO
 
 pip install --no-cache-dir onnx==1.20.1 || handle_error $LINENO
+pip install --no-cache-dir onnxscript==0.5.7 || handle_error $LINENO
 pip install --no-cache-dir seaborn==0.13.2 || handle_error $LINENO
 pip install --no-cache-dir nncf==2.19.0 || handle_error $LINENO
 
@@ -260,6 +362,7 @@ pip install --no-cache-dir openvino==2024.6.0 || handle_error $LINENO
 pip install --no-cache-dir openvino-dev==2024.6.0 || handle_error $LINENO
 
 pip install --no-cache-dir onnx==1.20.1 || handle_error $LINENO
+pip install --no-cache-dir onnxscript==0.5.7 || handle_error $LINENO
 pip install --no-cache-dir seaborn==0.13.2 || handle_error $LINENO
 pip install --no-cache-dir "nncf>=2.12.0,<2.14.0" || handle_error $LINENO
 
@@ -990,6 +1093,56 @@ os.remove('${MODEL_NAME}.zip')
     cd -
   else
     echo_color "\nModel already exists: $MODEL_DIR.\n" "yellow"
+  fi
+fi
+
+# Pallet Defect Detection model
+if array_contains "pallet_defect_detection" "${MODELS_TO_PROCESS[@]}" || array_contains "all" "${MODELS_TO_PROCESS[@]}"; then
+  MODEL_NAME="pallet_defect_detection"
+  MODEL_DIR="$MODELS_PATH/public/$MODEL_NAME"
+  DST_FILE1="$MODEL_DIR/INT8/$MODEL_NAME.xml"
+
+  if [[ ! -f "$DST_FILE1" ]]; then
+    echo "Downloading and converting: ${MODEL_DIR}"
+    mkdir -p "$MODEL_DIR"
+    cd "$MODEL_DIR"
+
+    curl -L -k -o ${MODEL_NAME}.zip 'https://github.com/open-edge-platform/edge-ai-resources/raw/main/models/INT8/pallet_defect_detection.zip'
+    python3 -c "
+import zipfile
+import os
+with zipfile.ZipFile('${MODEL_NAME}.zip', 'r') as zip_ref:
+    zip_ref.extractall('.')
+os.remove('${MODEL_NAME}.zip')
+"
+
+    mkdir -p INT8
+    cp deployment/Detection/model/model.bin INT8/${MODEL_NAME}.bin
+    cp deployment/Detection/model/model.xml INT8/${MODEL_NAME}.xml
+    cp deployment/Detection/model/config.json INT8/config.json
+    chmod -R u+w deployment example_code
+    rm -rf deployment example_code
+    rm -f LICENSE README.md sample_image.jpg
+    cd -
+  else
+    echo_color "\nModel already exists: $MODEL_DIR.\n" "yellow"
+  fi
+fi
+
+# Colorcls2 model
+if array_contains "colorcls2" "${MODELS_TO_PROCESS[@]}" || array_contains "all" "${MODELS_TO_PROCESS[@]}"; then
+  MODEL_NAME="colorcls2"
+  MODEL_DIR="$MODELS_PATH/public/$MODEL_NAME/FP32"
+
+  if [[ ! -f "$MODEL_DIR/$MODEL_NAME.xml" ]]; then
+    echo "Downloading: ${MODEL_DIR}"
+    mkdir -p "$MODEL_DIR"
+    cd "$MODEL_DIR"
+    curl -L -k -o 'colorcls2.bin' 'https://github.com/open-edge-platform/edge-ai-suites/raw/main/metro-ai-suite/metro-vision-ai-app-recipe/smart-parking/src/dlstreamer-pipeline-server/models/colorcls2/colorcls2.bin'
+    curl -L -k -o 'colorcls2.xml' 'https://github.com/open-edge-platform/edge-ai-suites/raw/main/metro-ai-suite/metro-vision-ai-app-recipe/smart-parking/src/dlstreamer-pipeline-server/models/colorcls2/colorcls2.xml'
+    cd -
+  else
+    echo_color "\nModel already exists: $MODEL_DIR/$MODEL_NAME.xml.\n" "yellow"
   fi
 fi
 

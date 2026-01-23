@@ -65,14 +65,14 @@ if ($GSTREAMER_NEEDS_INSTALL) {
 		Write-Host "Using existing GStreamer runtime installer: $GSTREAMER_RUNTIME_INSTALLER"
 	} else {
 		Write-Host "Downloading GStreamer runtime installer..."
-		Invoke-WebRequest -OutFile $GSTREAMER_RUNTIME_INSTALLER -Uri https://gstreamer.freedesktop.org/data/pkg/windows/${GSTREAMER_VERSION}/msvc/gstreamer-1.0-msvc-x86_64-${GSTREAMER_VERSION}.msi
+		Invoke-WebRequest -UserAgent "curl" -OutFile $GSTREAMER_RUNTIME_INSTALLER -Uri https://gstreamer.freedesktop.org/data/pkg/windows/${GSTREAMER_VERSION}/msvc/gstreamer-1.0-msvc-x86_64-${GSTREAMER_VERSION}.msi
 	}
 
 	if (Test-Path $GSTREAMER_DEVEL_INSTALLER) {
 		Write-Host "Using existing GStreamer development installer: $GSTREAMER_DEVEL_INSTALLER"
 	} else {
 		Write-Host "Downloading GStreamer development installer..."
-		Invoke-WebRequest -OutFile $GSTREAMER_DEVEL_INSTALLER -Uri https://gstreamer.freedesktop.org/data/pkg/windows/${GSTREAMER_VERSION}/msvc/gstreamer-1.0-devel-msvc-x86_64-${GSTREAMER_VERSION}.msi
+		Invoke-WebRequest -UserAgent "curl" -OutFile $GSTREAMER_DEVEL_INSTALLER -Uri https://gstreamer.freedesktop.org/data/pkg/windows/${GSTREAMER_VERSION}/msvc/gstreamer-1.0-devel-msvc-x86_64-${GSTREAMER_VERSION}.msi
 	}
 
 	if ($GSTREAMER_INSTALL_MODE -eq "fresh") {

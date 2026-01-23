@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2024-2025 Intel Corporation
+ * Copyright (C) 2024-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -20,7 +20,7 @@
 using namespace post_processing;
 
 void YOLOv10Converter::parseOutputBlob(const float *data, const std::vector<size_t> &dims,
-                                       std::vector<DetectedObject> &objects) const {
+                                       std::vector<DetectedObject> &objects, bool oob) const {
 
     size_t dims_size = dims.size();
     size_t input_width = getModelInputImageInfo().width;
@@ -51,8 +51,9 @@ void YOLOv10Converter::parseOutputBlob(const float *data, const std::vector<size
             float y1 = output_data[YOLOV10_OFFSET_Y1];
             float x2 = output_data[YOLOV10_OFFSET_X2] - x1;
             float y2 = output_data[YOLOV10_OFFSET_Y2] - y1;
+            float r = oob ? output_data[YOLOV10_OFFSET_L + 1] : 0;
 
-            objects.push_back(DetectedObject(x1, y1, x2, y2, 0, box_score, normLabelId,
+            objects.push_back(DetectedObject(x1, y1, x2, y2, r, box_score, normLabelId,
                                              BlobToMetaConverter::getLabelByLabelId(normLabelId), 1.0f / input_width,
                                              1.0f / input_height, false));
         }
@@ -78,7 +79,7 @@ TensorsTable YOLOv10Converter::convert(const OutputBlobs &output_blobs) {
 
                 size_t unbatched_size = blob->GetSize() / batch_size;
                 parseOutputBlob(reinterpret_cast<const float *>(blob->GetData()) + unbatched_size * batch_number,
-                                blob->GetDims(), objects);
+                                blob->GetDims(), objects, false);
             }
         }
 
