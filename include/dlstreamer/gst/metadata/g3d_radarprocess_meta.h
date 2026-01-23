@@ -35,40 +35,39 @@ struct _GstRadarProcessMeta {
     GstMeta meta;
 
     guint64 frame_id;
-    
+
     // Point clouds
     gint point_clouds_len;
     gfloat *ranges;
     gfloat *speeds;
     gfloat *angles;
     gfloat *snrs;
-    
+
     // Cluster result
     gint num_clusters;
-    gint *cluster_idx;   // cluster indices
-    gfloat *cluster_cx;  // center x
-    gfloat *cluster_cy;  // center y
-    gfloat *cluster_rx;  // radius x
-    gfloat *cluster_ry;  // radius y
-    gfloat *cluster_av;  // average velocity
-    
+    gint *cluster_idx;  // cluster indices
+    gfloat *cluster_cx; // center x
+    gfloat *cluster_cy; // center y
+    gfloat *cluster_rx; // radius x
+    gfloat *cluster_ry; // radius y
+    gfloat *cluster_av; // average velocity
+
     // Tracking result
     gint num_tracked_objects;
     gint *tracker_ids;
-    gfloat *tracker_x;      // sHat[0]
-    gfloat *tracker_y;      // sHat[1]
-    gfloat *tracker_vx;     // sHat[2]
-    gfloat *tracker_vy;     // sHat[3]
+    gfloat *tracker_x;  // sHat[0]
+    gfloat *tracker_y;  // sHat[1]
+    gfloat *tracker_vx; // sHat[2]
+    gfloat *tracker_vy; // sHat[3]
 };
 
 GType gst_radar_process_meta_api_get_type(void);
 const GstMetaInfo *gst_radar_process_meta_get_info(void);
 
-GstRadarProcessMeta *gst_buffer_add_radar_process_meta(GstBuffer *buffer,
-                                                           guint64 frame_id,
-                                                           const RadarPointClouds *point_clouds,
-                                                           const ClusterResult *cluster_result,
-                                                           const TrackingResult *tracking_result);
+GstRadarProcessMeta *gst_buffer_add_radar_process_meta(GstBuffer *buffer, guint64 frame_id,
+                                                       const RadarPointClouds *point_clouds,
+                                                       const ClusterResult *cluster_result,
+                                                       const TrackingResult *tracking_result);
 
 G_END_DECLS
 

@@ -27,7 +27,6 @@ target_include_directories(${TARGET_NAME}
     PRIVATE
         ${GSTREAMER_INCLUDE_DIRS}
         ${GSTREAMER_BASE_INCLUDE_DIRS}
-        ${DLSTREAMER_BASE_DIR}/thirdparty/json/include
 )
 
 target_link_libraries(${TARGET_NAME}
@@ -36,3 +35,9 @@ target_link_libraries(${TARGET_NAME}
         ${GSTREAMER_BASE_LIBRARIES}
         json-hpp
 )
+
+if(WIN32)
+    find_package(dlfcn-win32 REQUIRED)
+    target_include_directories(${TARGET_NAME} PRIVATE ${dlfcn-win32_INCLUDE_DIRS})
+    target_link_libraries(${TARGET_NAME} PRIVATE ${dlfcn-win32_LIBRARIES})
+endif()

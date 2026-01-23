@@ -7,58 +7,40 @@
 #include "gstradarprocess.h"
 #include "g3d_radarprocess_meta.h"
 #include "radar_config.hpp"
-#include <cstring>
-#include <numeric>
 #include <algorithm>
-#include <sys/time.h>
+#include <cstring>
 #include <dlfcn.h>
 #include <fstream>
 #include <nlohmann/json.hpp>
+#include <numeric>
+#include <sys/time.h>
 
 using json = nlohmann::json;
 
 GST_DEBUG_CATEGORY_STATIC(gst_radar_process_debug);
 #define GST_CAT_DEFAULT gst_radar_process_debug
 
-enum {
-    PROP_0,
-    PROP_RADAR_CONFIG,
-    PROP_FRAME_RATE,
-    PROP_PUBLISH_RESULT,
-    PROP_PUBLISH_PATH
-};
+enum { PROP_0, PROP_RADAR_CONFIG, PROP_FRAME_RATE, PROP_PUBLISH_RESULT, PROP_PUBLISH_PATH };
 
 #define DEFAULT_FRAME_RATE 0.0
 #define DEFAULT_PUBLISH_RESULT FALSE
 #define DEFAULT_PUBLISH_PATH "radar_results.json"
 
-static GstStaticPadTemplate sink_template = GST_STATIC_PAD_TEMPLATE(
-    "sink",
-    GST_PAD_SINK,
-    GST_PAD_ALWAYS,
-    GST_STATIC_CAPS("application/octet-stream")
-);
+static GstStaticPadTemplate sink_template =
+    GST_STATIC_PAD_TEMPLATE("sink", GST_PAD_SINK, GST_PAD_ALWAYS, GST_STATIC_CAPS("application/octet-stream"));
 
-static GstStaticPadTemplate src_template = GST_STATIC_PAD_TEMPLATE(
-    "src",
-    GST_PAD_SRC,
-    GST_PAD_ALWAYS,
-    GST_STATIC_CAPS("application/x-radar-processed")
-);
+static GstStaticPadTemplate src_template =
+    GST_STATIC_PAD_TEMPLATE("src", GST_PAD_SRC, GST_PAD_ALWAYS, GST_STATIC_CAPS("application/x-radar-processed"));
 
-static void gst_radar_process_set_property(GObject *object, guint prop_id,
-                                             const GValue *value, GParamSpec *pspec);
-static void gst_radar_process_get_property(GObject *object, guint prop_id,
-                                             GValue *value, GParamSpec *pspec);
+static void gst_radar_process_set_property(GObject *object, guint prop_id, const GValue *value, GParamSpec *pspec);
+static void gst_radar_process_get_property(GObject *object, guint prop_id, GValue *value, GParamSpec *pspec);
 static void gst_radar_process_finalize(GObject *object);
 
 static gboolean gst_radar_process_start(GstBaseTransform *trans);
 static gboolean gst_radar_process_stop(GstBaseTransform *trans);
 static GstFlowReturn gst_radar_process_transform_ip(GstBaseTransform *trans, GstBuffer *buffer);
-static GstCaps *gst_radar_process_transform_caps(GstBaseTransform *trans,
-                                                    GstPadDirection direction,
-                                                    GstCaps *caps,
-                                                    GstCaps *filter);
+static GstCaps *gst_radar_process_transform_caps(GstBaseTransform *trans, GstPadDirection direction, GstCaps *caps,
+                                                 GstCaps *filter);
 
 G_DEFINE_TYPE(GstRadarProcess, gst_radar_process, GST_TYPE_BASE_TRANSFORM);
 
@@ -67,42 +49,35 @@ static void gst_radar_process_class_init(GstRadarProcessClass *klass) {
     GstElementClass *gstelement_class = GST_ELEMENT_CLASS(klass);
     GstBaseTransformClass *base_transform_class = GST_BASE_TRANSFORM_CLASS(klass);
 
-    GST_DEBUG_CATEGORY_INIT(gst_radar_process_debug, "g3dradarprocess", 0,
-                           "Radar Signal Processing Element");
+    GST_DEBUG_CATEGORY_INIT(gst_radar_process_debug, "g3dradarprocess", 0, "Radar Signal Processing Element");
 
     gobject_class->set_property = gst_radar_process_set_property;
     gobject_class->get_property = gst_radar_process_get_property;
     gobject_class->finalize = gst_radar_process_finalize;
 
     g_object_class_install_property(gobject_class, PROP_RADAR_CONFIG,
-        g_param_spec_string("radar-config", "Radar Config",
-                           "Path to radar configuration JSON file",
-                           nullptr,
-                           (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+                                    g_param_spec_string("radar-config", "Radar Config",
+                                                        "Path to radar configuration JSON file", nullptr,
+                                                        (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
-    g_object_class_install_property(gobject_class, PROP_FRAME_RATE,
-        g_param_spec_double("frame-rate", "Frame Rate",
-                           "Frame rate for output (0 = no limit)",
-                           0.0, G_MAXDOUBLE, DEFAULT_FRAME_RATE,
-                           (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+    g_object_class_install_property(
+        gobject_class, PROP_FRAME_RATE,
+        g_param_spec_double("frame-rate", "Frame Rate", "Frame rate for output (0 = no limit)", 0.0, G_MAXDOUBLE,
+                            DEFAULT_FRAME_RATE, (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
-    g_object_class_install_property(gobject_class, PROP_PUBLISH_RESULT,
-        g_param_spec_boolean("publish-result", "Publish Result",
-                           "Publish radar processing results to JSON file",
-                           DEFAULT_PUBLISH_RESULT,
-                           (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+    g_object_class_install_property(
+        gobject_class, PROP_PUBLISH_RESULT,
+        g_param_spec_boolean("publish-result", "Publish Result", "Publish radar processing results to JSON file",
+                             DEFAULT_PUBLISH_RESULT, (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
-    g_object_class_install_property(gobject_class, PROP_PUBLISH_PATH,
-        g_param_spec_string("publish-path", "Publish Path",
-                           "Path to JSON file for publishing results",
-                           DEFAULT_PUBLISH_PATH,
-                           (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+    g_object_class_install_property(
+        gobject_class, PROP_PUBLISH_PATH,
+        g_param_spec_string("publish-path", "Publish Path", "Path to JSON file for publishing results",
+                            DEFAULT_PUBLISH_PATH, (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
-    gst_element_class_set_static_metadata(gstelement_class,
-        "Radar Signal Process",
-        "Filter/Converter",
-        "Processes millimeter wave radar signals with DC removal and reordering",
-        "Intel Corporation");
+    gst_element_class_set_static_metadata(gstelement_class, "Radar Signal Process", "Filter/Converter",
+                                          "Processes millimeter wave radar signals with DC removal and reordering",
+                                          "Intel Corporation");
 
     gst_element_class_add_static_pad_template(gstelement_class, &sink_template);
     gst_element_class_add_static_pad_template(gstelement_class, &src_template);
@@ -118,23 +93,23 @@ static void gst_radar_process_init(GstRadarProcess *filter) {
     filter->frame_rate = DEFAULT_FRAME_RATE;
     filter->publish_result = DEFAULT_PUBLISH_RESULT;
     filter->publish_path = g_strdup(DEFAULT_PUBLISH_PATH);
-    
+
     filter->num_rx = 0;
     filter->num_tx = 0;
     filter->num_chirps = 0;
     filter->adc_samples = 0;
     filter->trn = 0;
-    
+
     filter->last_frame_time = GST_CLOCK_TIME_NONE;
     filter->frame_duration = GST_CLOCK_TIME_NONE;
-    
+
     filter->frame_id = 0;
     filter->total_frames = 0;
     filter->total_processing_time = 0.0;
-    
+
     filter->radar_buffer = nullptr;
     filter->radar_buffer_size = 0;
-    
+
     filter->libradar_handle = nullptr;
     filter->radarGetMemSize_fn = nullptr;
     filter->radarInitHandle_fn = nullptr;
@@ -165,56 +140,54 @@ static void gst_radar_process_finalize(GObject *object) {
     G_OBJECT_CLASS(gst_radar_process_parent_class)->finalize(object);
 }
 
-static void gst_radar_process_set_property(GObject *object, guint prop_id,
-                                             const GValue *value, GParamSpec *pspec) {
+static void gst_radar_process_set_property(GObject *object, guint prop_id, const GValue *value, GParamSpec *pspec) {
     GstRadarProcess *filter = GST_RADAR_PROCESS(object);
 
     switch (prop_id) {
-        case PROP_RADAR_CONFIG:
-            g_free(filter->radar_config);
-            filter->radar_config = g_value_dup_string(value);
-            break;
-        case PROP_FRAME_RATE:
-            filter->frame_rate = g_value_get_double(value);
-            if (filter->frame_rate > 0.0) {
-                filter->frame_duration = (GstClockTime)(GST_SECOND / filter->frame_rate);
-            } else {
-                filter->frame_duration = GST_CLOCK_TIME_NONE;
-            }
-            break;
-        case PROP_PUBLISH_RESULT:
-            filter->publish_result = g_value_get_boolean(value);
-            break;
-        case PROP_PUBLISH_PATH:
-            g_free(filter->publish_path);
-            filter->publish_path = g_value_dup_string(value);
-            break;
-        default:
-            G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
-            break;
+    case PROP_RADAR_CONFIG:
+        g_free(filter->radar_config);
+        filter->radar_config = g_value_dup_string(value);
+        break;
+    case PROP_FRAME_RATE:
+        filter->frame_rate = g_value_get_double(value);
+        if (filter->frame_rate > 0.0) {
+            filter->frame_duration = (GstClockTime)(GST_SECOND / filter->frame_rate);
+        } else {
+            filter->frame_duration = GST_CLOCK_TIME_NONE;
+        }
+        break;
+    case PROP_PUBLISH_RESULT:
+        filter->publish_result = g_value_get_boolean(value);
+        break;
+    case PROP_PUBLISH_PATH:
+        g_free(filter->publish_path);
+        filter->publish_path = g_value_dup_string(value);
+        break;
+    default:
+        G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+        break;
     }
 }
 
-static void gst_radar_process_get_property(GObject *object, guint prop_id,
-                                             GValue *value, GParamSpec *pspec) {
+static void gst_radar_process_get_property(GObject *object, guint prop_id, GValue *value, GParamSpec *pspec) {
     GstRadarProcess *filter = GST_RADAR_PROCESS(object);
 
     switch (prop_id) {
-        case PROP_RADAR_CONFIG:
-            g_value_set_string(value, filter->radar_config);
-            break;
-        case PROP_FRAME_RATE:
-            g_value_set_double(value, filter->frame_rate);
-            break;
-        case PROP_PUBLISH_RESULT:
-            g_value_set_boolean(value, filter->publish_result);
-            break;
-        case PROP_PUBLISH_PATH:
-            g_value_set_string(value, filter->publish_path);
-            break;
-        default:
-            G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
-            break;
+    case PROP_RADAR_CONFIG:
+        g_value_set_string(value, filter->radar_config);
+        break;
+    case PROP_FRAME_RATE:
+        g_value_set_double(value, filter->frame_rate);
+        break;
+    case PROP_PUBLISH_RESULT:
+        g_value_set_boolean(value, filter->publish_result);
+        break;
+    case PROP_PUBLISH_PATH:
+        g_value_set_string(value, filter->publish_path);
+        break;
+    default:
+        G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+        break;
     }
 }
 
@@ -282,9 +255,9 @@ static gboolean gst_radar_process_start(GstBaseTransform *trans) {
         filter->radar_cube.tn = config.num_tx;
         filter->radar_cube.sn = config.adc_samples;
         filter->radar_cube.cn = config.num_chirps;
-        filter->radar_cube.mat = nullptr;  // Will be set to output_data in transform
+        filter->radar_cube.mat = nullptr; // Will be set to output_data in transform
 
-        // Initialize RadarPointClouds 
+        // Initialize RadarPointClouds
         filter->radar_point_clouds.len = 0;
         filter->radar_point_clouds.maxLen = config.max_points;
         filter->radar_point_clouds.rangeIdx = nullptr; //(ushort*)ALIGN_ALLOC(64, sizeof(ushort) * config.max_points)
@@ -297,7 +270,8 @@ static gboolean gst_radar_process_start(GstBaseTransform *trans) {
         // Initialize ClusterResult
         filter->cluster_result.n = 0;
         filter->cluster_result.idx = nullptr; //(int*)ALIGN_ALLOC(64, sizeof(int) * config.max_clusters)
-        filter->cluster_result.cd = nullptr;  //(ClusterDescription*)ALIGN_ALLOC(64, sizeof(ClusterDescription) * config.max_clusters)
+        filter->cluster_result.cd =
+            nullptr; //(ClusterDescription*)ALIGN_ALLOC(64, sizeof(ClusterDescription) * config.max_clusters)
 
         // Initialize radar handle
         filter->radar_handle = nullptr;
@@ -309,9 +283,8 @@ static gboolean gst_radar_process_start(GstBaseTransform *trans) {
         filter->tracking_result.maxLen = maxTrackingLen;
         filter->tracking_result.td = filter->tracking_desc_buf.data();
 
-        GST_INFO_OBJECT(filter, "Loaded radar config: RX=%u, TX=%u, Chirps=%u, Samples=%u, TRN=%u",
-                       filter->num_rx, filter->num_tx, filter->num_chirps, 
-                       filter->adc_samples, filter->trn);
+        GST_INFO_OBJECT(filter, "Loaded radar config: RX=%u, TX=%u, Chirps=%u, Samples=%u, TRN=%u", filter->num_rx,
+                        filter->num_tx, filter->num_chirps, filter->adc_samples, filter->trn);
 
         // Allocate buffers
         size_t total_samples = filter->trn * filter->num_chirps * filter->adc_samples;
@@ -326,9 +299,9 @@ static gboolean gst_radar_process_start(GstBaseTransform *trans) {
         // Load libradar.so dynamically
         // Use library name without path to let the system search via LD_LIBRARY_PATH
 #ifdef _WIN32
-        const char* libradar_name = "libradar.dll";
+        const char *libradar_name = "libradar.dll";
 #else
-        const char* libradar_name = "libradar.so";
+        const char *libradar_name = "libradar.so";
 #endif
         filter->libradar_handle = dlopen(libradar_name, RTLD_LAZY);
         if (!filter->libradar_handle) {
@@ -341,7 +314,8 @@ static gboolean gst_radar_process_start(GstBaseTransform *trans) {
         GST_INFO_OBJECT(filter, "Successfully loaded %s", libradar_name);
 
         // Load function pointers
-        filter->radarGetMemSize_fn = (RadarErrorCode (*)(RadarParam*, ulong*))dlsym(filter->libradar_handle, "radarGetMemSize");
+        filter->radarGetMemSize_fn =
+            (RadarErrorCode (*)(RadarParam *, ulong *))dlsym(filter->libradar_handle, "radarGetMemSize");
         if (!filter->radarGetMemSize_fn) {
             GST_ERROR_OBJECT(filter, "Failed to find symbol 'radarGetMemSize': %s", dlerror());
             dlclose(filter->libradar_handle);
@@ -349,7 +323,8 @@ static gboolean gst_radar_process_start(GstBaseTransform *trans) {
             return FALSE;
         }
 
-        filter->radarInitHandle_fn = (RadarErrorCode (*)(RadarHandle**, RadarParam*, void*, ulong))dlsym(filter->libradar_handle, "radarInitHandle");
+        filter->radarInitHandle_fn = (RadarErrorCode (*)(RadarHandle **, RadarParam *, void *, ulong))dlsym(
+            filter->libradar_handle, "radarInitHandle");
         if (!filter->radarInitHandle_fn) {
             GST_ERROR_OBJECT(filter, "Failed to find symbol 'radarInitHandle': %s", dlerror());
             dlclose(filter->libradar_handle);
@@ -357,7 +332,8 @@ static gboolean gst_radar_process_start(GstBaseTransform *trans) {
             return FALSE;
         }
 
-        filter->radarDetection_fn = (RadarErrorCode (*)(RadarHandle*, RadarCube*, RadarPointClouds*))dlsym(filter->libradar_handle, "radarDetection");
+        filter->radarDetection_fn = (RadarErrorCode (*)(RadarHandle *, RadarCube *, RadarPointClouds *))dlsym(
+            filter->libradar_handle, "radarDetection");
         if (!filter->radarDetection_fn) {
             GST_ERROR_OBJECT(filter, "Failed to find symbol 'radarDetection': %s", dlerror());
             dlclose(filter->libradar_handle);
@@ -365,7 +341,8 @@ static gboolean gst_radar_process_start(GstBaseTransform *trans) {
             return FALSE;
         }
 
-        filter->radarClustering_fn = (RadarErrorCode (*)(RadarHandle*, RadarPointClouds*, ClusterResult*))dlsym(filter->libradar_handle, "radarClustering");
+        filter->radarClustering_fn = (RadarErrorCode (*)(RadarHandle *, RadarPointClouds *, ClusterResult *))dlsym(
+            filter->libradar_handle, "radarClustering");
         if (!filter->radarClustering_fn) {
             GST_ERROR_OBJECT(filter, "Failed to find symbol 'radarClustering': %s", dlerror());
             dlclose(filter->libradar_handle);
@@ -373,7 +350,8 @@ static gboolean gst_radar_process_start(GstBaseTransform *trans) {
             return FALSE;
         }
 
-        filter->radarTracking_fn = (RadarErrorCode (*)(RadarHandle*, ClusterResult*, TrackingResult*))dlsym(filter->libradar_handle, "radarTracking");
+        filter->radarTracking_fn = (RadarErrorCode (*)(RadarHandle *, ClusterResult *, TrackingResult *))dlsym(
+            filter->libradar_handle, "radarTracking");
         if (!filter->radarTracking_fn) {
             GST_ERROR_OBJECT(filter, "Failed to find symbol 'radarTracking': %s", dlerror());
             dlclose(filter->libradar_handle);
@@ -381,7 +359,8 @@ static gboolean gst_radar_process_start(GstBaseTransform *trans) {
             return FALSE;
         }
 
-        filter->radarDestroyHandle_fn = (RadarErrorCode (*)(RadarHandle*))dlsym(filter->libradar_handle, "radarDestroyHandle");
+        filter->radarDestroyHandle_fn =
+            (RadarErrorCode (*)(RadarHandle *))dlsym(filter->libradar_handle, "radarDestroyHandle");
         if (!filter->radarDestroyHandle_fn) {
             GST_ERROR_OBJECT(filter, "Failed to find symbol 'radarDestroyHandle': %s", dlerror());
             dlclose(filter->libradar_handle);
@@ -407,8 +386,8 @@ static gboolean gst_radar_process_start(GstBaseTransform *trans) {
         }
 
         // Initialize radar handle
-        ret = filter->radarInitHandle_fn(&filter->radar_handle, &filter->radar_param, 
-                             filter->radar_buffer, filter->radar_buffer_size);
+        ret = filter->radarInitHandle_fn(&filter->radar_handle, &filter->radar_param, filter->radar_buffer,
+                                         filter->radar_buffer_size);
         if (ret != R_SUCCESS) {
             GST_ERROR_OBJECT(filter, "Failed to initialize radar handle, error code: %d", ret);
             free(filter->radar_buffer);
@@ -476,10 +455,8 @@ static gboolean gst_radar_process_stop(GstBaseTransform *trans) {
     return TRUE;
 }
 
-static GstCaps *gst_radar_process_transform_caps(GstBaseTransform *trans,
-                                                    GstPadDirection direction,
-                                                    GstCaps *caps,
-                                                    GstCaps *filter) {
+static GstCaps *gst_radar_process_transform_caps(GstBaseTransform *trans, GstPadDirection direction, GstCaps *caps,
+                                                 GstCaps *filter) {
     if (direction == GST_PAD_SINK) {
         return gst_caps_new_simple("application/x-radar-processed", nullptr, nullptr);
     } else {
@@ -499,7 +476,7 @@ static gboolean publish_radar_metadata_to_json(GstRadarProcess *filter, GstRadar
         json j;
         j["frame_id"] = meta->frame_id;
         j["timestamp"] = g_get_real_time();
-        
+
         // Add point clouds
         j["point_clouds"]["count"] = meta->point_clouds_len;
         j["point_clouds"]["points"] = json::array();
@@ -511,7 +488,7 @@ static gboolean publish_radar_metadata_to_json(GstRadarProcess *filter, GstRadar
             point["snr"] = meta->snrs[i];
             j["point_clouds"]["points"].push_back(point);
         }
-        
+
         // Add clusters
         j["clusters"]["count"] = meta->num_clusters;
         j["clusters"]["data"] = json::array();
@@ -525,7 +502,7 @@ static gboolean publish_radar_metadata_to_json(GstRadarProcess *filter, GstRadar
             cluster["avg_velocity"] = meta->cluster_av[i];
             j["clusters"]["data"].push_back(cluster);
         }
-        
+
         // Add tracked objects
         j["tracked_objects"]["count"] = meta->num_tracked_objects;
         j["tracked_objects"]["objects"] = json::array();
@@ -538,7 +515,7 @@ static gboolean publish_radar_metadata_to_json(GstRadarProcess *filter, GstRadar
             tracker["velocity_y"] = meta->tracker_vy[i];
             j["tracked_objects"]["objects"].push_back(tracker);
         }
-        
+
         // Write to file with 2-space indentation
         std::ofstream file(filter->publish_path);
         if (!file.is_open()) {
@@ -547,12 +524,12 @@ static gboolean publish_radar_metadata_to_json(GstRadarProcess *filter, GstRadar
         }
         file << j.dump(2) << std::endl;
         file.close();
-        
-        GST_DEBUG_OBJECT(filter, "Published frame #%" G_GUINT64_FORMAT " metadata to %s", 
-                        meta->frame_id, filter->publish_path);
-        
+
+        GST_DEBUG_OBJECT(filter, "Published frame #%" G_GUINT64_FORMAT " metadata to %s", meta->frame_id,
+                         filter->publish_path);
+
         return TRUE;
-        
+
     } catch (const std::exception &e) {
         GST_ERROR_OBJECT(filter, "Exception while writing JSON: %s", e.what());
         return FALSE;
@@ -561,24 +538,24 @@ static gboolean publish_radar_metadata_to_json(GstRadarProcess *filter, GstRadar
 
 // DC removal function: removes mean from real and imaginary parts
 static void dc_removal(std::complex<float> *data, size_t count) {
-    if (count == 0) return;
+    if (count == 0)
+        return;
 
     // Calculate mean of real and imaginary parts
     float real_sum = 0.0f;
     float imag_sum = 0.0f;
-    
+
     for (size_t i = 0; i < count; i++) {
         real_sum += data[i].real();
         imag_sum += data[i].imag();
     }
-    
+
     float real_avg = real_sum / count;
     float imag_avg = imag_sum / count;
-    
+
     // Subtract mean from each sample
     for (size_t i = 0; i < count; i++) {
-        data[i] = std::complex<float>(data[i].real() - real_avg, 
-                                      data[i].imag() - imag_avg);
+        data[i] = std::complex<float>(data[i].real() - real_avg, data[i].imag() - imag_avg);
     }
 }
 
@@ -614,42 +591,39 @@ static GstFlowReturn gst_radar_process_transform_ip(GstBaseTransform *trans, Gst
     }
 
     size_t expected_size = filter->trn * filter->num_chirps * filter->adc_samples * sizeof(std::complex<float>);
-    
+
     if (map.size != expected_size) {
-        GST_ERROR_OBJECT(filter, "Buffer size mismatch: got %zu bytes, expected %zu bytes",
-                        map.size, expected_size);
+        GST_ERROR_OBJECT(filter, "Buffer size mismatch: got %zu bytes, expected %zu bytes", map.size, expected_size);
         gst_buffer_unmap(buffer, &map);
         return GST_FLOW_ERROR;
     }
 
     // Copy input data (c*trn*s layout)
-    std::complex<float> *input_ptr = reinterpret_cast<std::complex<float>*>(map.data);
+    std::complex<float> *input_ptr = reinterpret_cast<std::complex<float> *>(map.data);
     std::copy(input_ptr, input_ptr + filter->input_data.size(), filter->input_data.begin());
 
     GST_DEBUG_OBJECT(filter, "Processing frame #%" G_GUINT64_FORMAT ":TRN=%u, Chirps=%u, Samples=%u", filter->frame_id,
-                    filter->trn, filter->num_chirps, filter->adc_samples);
+                     filter->trn, filter->num_chirps, filter->adc_samples);
 
     // Reorder from c*trn*s to trn*c*s and apply DC removal
     for (guint c = 0; c < filter->num_chirps; c++) {
         for (guint t = 0; t < filter->trn; t++) {
             // Apply DC removal on each 256-sample segment
             std::complex<float> temp_samples[256];
-            
+
             // Extract samples for this chirp and channel
             for (guint s = 0; s < filter->adc_samples; s++) {
                 // Input layout: c*trn*s
-                size_t input_idx = c * filter->trn * filter->adc_samples + 
-                                   t * filter->adc_samples + s;
+                size_t input_idx = c * filter->trn * filter->adc_samples + t * filter->adc_samples + s;
                 temp_samples[s] = filter->input_data[input_idx];
             }
-            
+
             // Apply DC removal
             dc_removal(temp_samples, filter->adc_samples);
-            
+
             // Copy to output with new layout: trn*c*s
             for (guint s = 0; s < filter->adc_samples; s++) {
-                size_t output_idx = t * filter->num_chirps * filter->adc_samples + 
-                                  c * filter->adc_samples + s;
+                size_t output_idx = t * filter->num_chirps * filter->adc_samples + c * filter->adc_samples + s;
                 filter->output_data[output_idx] = temp_samples[s];
             }
         }
@@ -657,11 +631,11 @@ static GstFlowReturn gst_radar_process_transform_ip(GstBaseTransform *trans, Gst
 
     // Update RadarCube mat pointer to output_data
     // std::complex<float> and cfloat have compatible memory layout
-    filter->radar_cube.mat = reinterpret_cast<cfloat*>(filter->output_data.data());
-    
+    filter->radar_cube.mat = reinterpret_cast<cfloat *>(filter->output_data.data());
+
     // Call radar processing functions
     RadarErrorCode ret;
-    
+
     // 1. Radar Detection
     ret = filter->radarDetection_fn(filter->radar_handle, &filter->radar_cube, &filter->radar_point_clouds);
     if (ret != R_SUCCESS) {
@@ -670,7 +644,7 @@ static GstFlowReturn gst_radar_process_transform_ip(GstBaseTransform *trans, Gst
         return GST_FLOW_ERROR;
     }
     GST_DEBUG_OBJECT(filter, "radarDetection completed, detected %d points", filter->radar_point_clouds.len);
-    
+
     // 2. Radar Clustering
     ret = filter->radarClustering_fn(filter->radar_handle, &filter->radar_point_clouds, &filter->cluster_result);
     if (ret != R_SUCCESS) {
@@ -679,7 +653,7 @@ static GstFlowReturn gst_radar_process_transform_ip(GstBaseTransform *trans, Gst
         return GST_FLOW_ERROR;
     }
     GST_DEBUG_OBJECT(filter, "radarClustering completed, found %d clusters", filter->cluster_result.n);
-    
+
     // 3. Radar Tracking
     ret = filter->radarTracking_fn(filter->radar_handle, &filter->cluster_result, &filter->tracking_result);
     if (ret != R_SUCCESS) {
@@ -692,17 +666,14 @@ static GstFlowReturn gst_radar_process_transform_ip(GstBaseTransform *trans, Gst
     // Copy processed data back to buffer
     std::copy(filter->output_data.begin(), filter->output_data.end(), input_ptr);
     gst_buffer_unmap(buffer, &map);
-    
+
     // Add radar processing results as metadata to the buffer
-    GstRadarProcessMeta *meta = gst_buffer_add_radar_process_meta(buffer,
-                                                                       filter->frame_id,
-                                                                       &filter->radar_point_clouds,
-                                                                       &filter->cluster_result,
-                                                                       &filter->tracking_result);
+    GstRadarProcessMeta *meta = gst_buffer_add_radar_process_meta(buffer, filter->frame_id, &filter->radar_point_clouds,
+                                                                  &filter->cluster_result, &filter->tracking_result);
     if (meta) {
         GST_DEBUG_OBJECT(filter, "Added radar metadata: %d points, %d clusters, %d tracked objects",
-                       meta->point_clouds_len, meta->num_clusters, meta->num_tracked_objects);
-        
+                         meta->point_clouds_len, meta->num_clusters, meta->num_tracked_objects);
+
         // Publish metadata to JSON file if enabled
         if (filter->publish_result) {
             if (!publish_radar_metadata_to_json(filter, meta)) {
@@ -715,16 +686,15 @@ static GstFlowReturn gst_radar_process_transform_ip(GstBaseTransform *trans, Gst
 
     // Calculate processing time
     gettimeofday(&end_time, nullptr);
-    gdouble frame_time = (end_time.tv_sec - start_time.tv_sec) + 
-                         (end_time.tv_usec - start_time.tv_usec) / 1000000.0;
-    
+    gdouble frame_time = (end_time.tv_sec - start_time.tv_sec) + (end_time.tv_usec - start_time.tv_usec) / 1000000.0;
+
     // Update statistics
     filter->total_processing_time += frame_time;
     filter->total_frames++;
-    
-    GST_DEBUG_OBJECT(filter, "Frame #%" G_GUINT64_FORMAT " processed successfully in %.3f ms",
-                   filter->frame_id, frame_time * 1000.0);
-    
+
+    GST_DEBUG_OBJECT(filter, "Frame #%" G_GUINT64_FORMAT " processed successfully in %.3f ms", filter->frame_id,
+                     frame_time * 1000.0);
+
     filter->frame_id++;
 
     return GST_FLOW_OK;

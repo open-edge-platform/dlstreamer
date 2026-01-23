@@ -7,11 +7,11 @@
 #ifndef __GST_RADAR_PROCESS_H__
 #define __GST_RADAR_PROCESS_H__
 
+#include <complex>
+#include <dlstreamer/radar/libradar.h>
 #include <gst/base/gstbasetransform.h>
 #include <gst/gst.h>
 #include <vector>
-#include <complex>
-#include <dlstreamer/radar/libradar.h>
 
 G_BEGIN_DECLS
 
@@ -58,23 +58,23 @@ struct _GstRadarProcess {
     RadarCube radar_cube;
     RadarPointClouds radar_point_clouds;
     ClusterResult cluster_result;
-    RadarHandle* radar_handle;
+    RadarHandle *radar_handle;
     TrackingResult tracking_result;
     // [libradar.so required] Buffer for TrackingResult
     std::vector<TrackingDescription> tracking_desc_buf;
 
     // [libradar.so required] Memory buffer for libradar
-    void* radar_buffer;
+    void *radar_buffer;
     ulong radar_buffer_size;
 
     // Dynamic library handle and function pointers
-    void* libradar_handle;
-    RadarErrorCode (*radarGetMemSize_fn)(RadarParam*, ulong*);
-    RadarErrorCode (*radarInitHandle_fn)(RadarHandle**, RadarParam*, void*, ulong);
-    RadarErrorCode (*radarDetection_fn)(RadarHandle*, RadarCube*, RadarPointClouds*);
-    RadarErrorCode (*radarClustering_fn)(RadarHandle*, RadarPointClouds*, ClusterResult*);
-    RadarErrorCode (*radarTracking_fn)(RadarHandle*, ClusterResult*, TrackingResult*);
-    RadarErrorCode (*radarDestroyHandle_fn)(RadarHandle*);
+    void *libradar_handle;
+    RadarErrorCode (*radarGetMemSize_fn)(RadarParam *, ulong *);
+    RadarErrorCode (*radarInitHandle_fn)(RadarHandle **, RadarParam *, void *, ulong);
+    RadarErrorCode (*radarDetection_fn)(RadarHandle *, RadarCube *, RadarPointClouds *);
+    RadarErrorCode (*radarClustering_fn)(RadarHandle *, RadarPointClouds *, ClusterResult *);
+    RadarErrorCode (*radarTracking_fn)(RadarHandle *, ClusterResult *, TrackingResult *);
+    RadarErrorCode (*radarDestroyHandle_fn)(RadarHandle *);
 };
 
 struct _GstRadarProcessClass {

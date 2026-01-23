@@ -8,8 +8,8 @@
 
 #include <gst/gst.h>
 
-#include "gstradarprocess.h"
 #include "g3d_radarprocess_meta.h"
+#include "gstradarprocess.h"
 
 extern "C" {
 
@@ -25,8 +25,7 @@ static gboolean plugin_init(GstPlugin *plugin) {
     return TRUE;
 }
 
-GST_PLUGIN_DEFINE(GST_VERSION_MAJOR, GST_VERSION_MINOR, 3delements, 
-                  "DL Streamer 3D Elements", plugin_init,
+GST_PLUGIN_DEFINE(GST_VERSION_MAJOR, GST_VERSION_MINOR, 3delements, "DL Streamer 3D Elements", plugin_init,
                   PLUGIN_VERSION, PLUGIN_LICENSE, PACKAGE_NAME, GST_PACKAGE_ORIGIN)
 
 } // extern "C"
