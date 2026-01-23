@@ -131,7 +131,8 @@ RUN \
     pytest==8.3.3 \
     pluggy==1.5.0 \
     exceptiongroup==1.2.2 \
-    iniconfig==2.0.0
+    iniconfig==2.0.0 \
+    openvino=2025.4.1
 
 # hadolint ignore=DL3002
 USER root
