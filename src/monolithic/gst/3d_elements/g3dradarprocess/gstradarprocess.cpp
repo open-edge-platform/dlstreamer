@@ -315,7 +315,7 @@ static gboolean gst_radar_process_start(GstBaseTransform *trans) {
 
         // Load function pointers
         filter->radarGetMemSize_fn =
-            (RadarErrorCode (*)(RadarParam *, ulong *))dlsym(filter->libradar_handle, "radarGetMemSize");
+            (RadarErrorCode(*)(RadarParam *, ulong *))dlsym(filter->libradar_handle, "radarGetMemSize");
         if (!filter->radarGetMemSize_fn) {
             GST_ERROR_OBJECT(filter, "Failed to find symbol 'radarGetMemSize': %s", dlerror());
             dlclose(filter->libradar_handle);
@@ -323,7 +323,7 @@ static gboolean gst_radar_process_start(GstBaseTransform *trans) {
             return FALSE;
         }
 
-        filter->radarInitHandle_fn = (RadarErrorCode (*)(RadarHandle **, RadarParam *, void *, ulong))dlsym(
+        filter->radarInitHandle_fn = (RadarErrorCode(*)(RadarHandle **, RadarParam *, void *, ulong))dlsym(
             filter->libradar_handle, "radarInitHandle");
         if (!filter->radarInitHandle_fn) {
             GST_ERROR_OBJECT(filter, "Failed to find symbol 'radarInitHandle': %s", dlerror());
@@ -332,7 +332,7 @@ static gboolean gst_radar_process_start(GstBaseTransform *trans) {
             return FALSE;
         }
 
-        filter->radarDetection_fn = (RadarErrorCode (*)(RadarHandle *, RadarCube *, RadarPointClouds *))dlsym(
+        filter->radarDetection_fn = (RadarErrorCode(*)(RadarHandle *, RadarCube *, RadarPointClouds *))dlsym(
             filter->libradar_handle, "radarDetection");
         if (!filter->radarDetection_fn) {
             GST_ERROR_OBJECT(filter, "Failed to find symbol 'radarDetection': %s", dlerror());
@@ -341,7 +341,7 @@ static gboolean gst_radar_process_start(GstBaseTransform *trans) {
             return FALSE;
         }
 
-        filter->radarClustering_fn = (RadarErrorCode (*)(RadarHandle *, RadarPointClouds *, ClusterResult *))dlsym(
+        filter->radarClustering_fn = (RadarErrorCode(*)(RadarHandle *, RadarPointClouds *, ClusterResult *))dlsym(
             filter->libradar_handle, "radarClustering");
         if (!filter->radarClustering_fn) {
             GST_ERROR_OBJECT(filter, "Failed to find symbol 'radarClustering': %s", dlerror());
@@ -350,7 +350,7 @@ static gboolean gst_radar_process_start(GstBaseTransform *trans) {
             return FALSE;
         }
 
-        filter->radarTracking_fn = (RadarErrorCode (*)(RadarHandle *, ClusterResult *, TrackingResult *))dlsym(
+        filter->radarTracking_fn = (RadarErrorCode(*)(RadarHandle *, ClusterResult *, TrackingResult *))dlsym(
             filter->libradar_handle, "radarTracking");
         if (!filter->radarTracking_fn) {
             GST_ERROR_OBJECT(filter, "Failed to find symbol 'radarTracking': %s", dlerror());
@@ -360,7 +360,7 @@ static gboolean gst_radar_process_start(GstBaseTransform *trans) {
         }
 
         filter->radarDestroyHandle_fn =
-            (RadarErrorCode (*)(RadarHandle *))dlsym(filter->libradar_handle, "radarDestroyHandle");
+            (RadarErrorCode(*)(RadarHandle *))dlsym(filter->libradar_handle, "radarDestroyHandle");
         if (!filter->radarDestroyHandle_fn) {
             GST_ERROR_OBJECT(filter, "Failed to find symbol 'radarDestroyHandle': %s", dlerror());
             dlclose(filter->libradar_handle);
