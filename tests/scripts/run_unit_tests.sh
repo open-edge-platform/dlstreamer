@@ -32,7 +32,7 @@ fi
 
 if [[ -z "$LD_LIBRARY_PATH" ]]; then
   # shellcheck source=/dev/null
-  source "/opt/intel/openvino_2024/setupvars.sh"
+  source "/opt/intel/openvino_2025/setupvars.sh"
 fi
 
 [ -z "$MODELS_PATH" ] && echo "MODELS_PATH env is not set. Some tests may fail."
@@ -87,7 +87,6 @@ popd
 SRC_DIR=$build_dir/..
 
 pushd "$SRC_DIR"/tests/tests_gstgva
-source /opt/intel/openvino_genai/setupvars.sh
 py.test --junitxml="$result_path"/python_tests_results.xml || ret_code=$?
 popd
 
