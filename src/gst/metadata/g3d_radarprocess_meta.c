@@ -5,7 +5,7 @@
  ******************************************************************************/
 
 #include "dlstreamer/gst/metadata/g3d_radarprocess_meta.h"
-#include "libradar.h"
+#include <dlstreamer/radar/libradar.h>
 #include <string.h>
 
 GType

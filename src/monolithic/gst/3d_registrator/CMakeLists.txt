@@ -19,11 +19,6 @@ endif()
 target_include_directories(${TARGET_NAME}
 PUBLIC
     ${DLSTREAMER_BASE_DIR}/include/dlstreamer/gst/metadata
-PRIVATE
-    ${GSTREAMER_INCLUDE_DIRS}
-    ${CMAKE_CURRENT_SOURCE_DIR}
-    ${CMAKE_CURRENT_SOURCE_DIR}/../3d_elements/g3dradarprocess/
-    ${CMAKE_BINARY_DIR}/configs
 )
 
 target_link_libraries(${TARGET_NAME}

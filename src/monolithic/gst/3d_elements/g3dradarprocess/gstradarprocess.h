@@ -11,7 +11,7 @@
 #include <gst/gst.h>
 #include <vector>
 #include <complex>
-#include "libradar.h"
+#include <dlstreamer/radar/libradar.h>
 
 G_BEGIN_DECLS
 

@@ -200,8 +200,6 @@ GST_DEBUG=*:3,g3dradarprocess:5 ./radar_process_sample.sh
 ## Performance Considerations
 
 - **Frame Rate Control**: Use `--frame-rate` to throttle processing and match real-time requirements
-- **Data Path**: Place radar data on fast storage (SSD) for optimal I/O performance
-- **CPU Usage**: Radar processing is CPU-intensive; ensure sufficient CPU resources are available
 - **oneAPI**: The element leverages Intel oneAPI for optimized signal processing
 
 ## See also

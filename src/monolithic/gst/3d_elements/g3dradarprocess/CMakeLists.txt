@@ -22,6 +22,7 @@ endif()
 target_include_directories(${TARGET_NAME}
     PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}
+        ${DLSTREAMER_BASE_DIR}/include
         ${DLSTREAMER_BASE_DIR}/include/dlstreamer/gst/metadata
     PRIVATE
         ${GSTREAMER_INCLUDE_DIRS}
