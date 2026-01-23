@@ -68,6 +68,10 @@ cv::Mat OpenCV_VPP::CustomImageConvert(const cv::Mat &orig_image, const int src_
     try {
         cv::Mat processed_image = orig_image;
 
+        if (src_color_format == FOURCC_BGR) {
+            cv::cvtColor(processed_image, processed_image, cv::COLOR_BGR2RGB);
+        }
+
         // Invoke user-defined callback if it exists
         if (user_callback) {
             processed_image = user_callback(orig_image);
