@@ -64,12 +64,13 @@ The `g3dradarprocess` element requires Intel oneAPI Base Toolkit and the `librad
 This script will:
 1. Install Intel oneAPI Base Toolkit
 2. Install `libradar` from Intel SED repository
-3. Source the oneAPI environment variables
+3. Create the radar environment setup script
 
-> **NOTE**: After installation, you may need to manually source oneAPI environment in new terminal sessions:
+> **IMPORTANT**: After installation completes, you must source the environment setup script:
 > ```bash
-> source /opt/intel/oneapi/setvars.sh
+> source setup_radar_env.sh
 > ```
+> This configures `LD_LIBRARY_PATH` for libradar and oneAPI environment variables. You'll need to source this script in each new terminal session before using `g3dradarprocess`.
 
 ## Running the Sample
 
@@ -164,9 +165,9 @@ No such element or plugin 'g3dradarprocess'
 ```
 Error loading radar processing library
 ```
-- **Solution**: Run `./scripts/install_radar_dependencies.sh` and source oneAPI environment:
+- **Solution**: Run `./scripts/install_radar_dependencies.sh` and source the radar environment:
   ```bash
-  source /opt/intel/oneapi/setvars.sh
+  source setup_radar_env.sh
   ```
 
 **Invalid buffer size:**

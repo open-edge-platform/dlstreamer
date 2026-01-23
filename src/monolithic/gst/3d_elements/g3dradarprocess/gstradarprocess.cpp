@@ -320,13 +320,21 @@ static gboolean gst_radar_process_start(GstBaseTransform *trans) {
         filter->radar_buffer_size = 0;
 
         // Load libradar.so dynamically
-        const char* libradar_path = "/usr/lib/libradar.so";
-        filter->libradar_handle = dlopen(libradar_path, RTLD_LAZY);
+        // Use library name without path to let the system search via LD_LIBRARY_PATH
+#ifdef _WIN32
+        const char* libradar_name = "libradar.dll";
+#else
+        const char* libradar_name = "libradar.so";
+#endif
+        filter->libradar_handle = dlopen(libradar_name, RTLD_LAZY);
         if (!filter->libradar_handle) {
-            GST_ERROR_OBJECT(filter, "Failed to load library %s: %s", libradar_path, dlerror());
+            GST_ERROR_OBJECT(filter, "Failed to load library %s: %s", libradar_name, dlerror());
+            GST_ERROR_OBJECT(filter, "Make sure libradar is installed and library paths are configured:");
+            GST_ERROR_OBJECT(filter, "  1. Run: scripts/install_radar_dependencies.sh");
+            GST_ERROR_OBJECT(filter, "  2. Or set LD_LIBRARY_PATH to include libradar directory");
             return FALSE;
         }
-        GST_INFO_OBJECT(filter, "Successfully loaded %s", libradar_path);
+        GST_INFO_OBJECT(filter, "Successfully loaded %s", libradar_name);
 
         // Load function pointers
         filter->radarGetMemSize_fn = (RadarErrorCode (*)(RadarParam*, ulong*))dlsym(filter->libradar_handle, "radarGetMemSize");

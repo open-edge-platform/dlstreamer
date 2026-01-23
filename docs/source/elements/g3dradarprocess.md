@@ -124,32 +124,6 @@ The metadata can be consumed by downstream GStreamer elements:
 ## Element Details (gst-inspect-1.0)
 
 ```
-Factory Details:
-  Rank                     none (0)
-  Long-name                Radar Signal Process
-  Klass                    Filter/Converter
-  Description              Processes millimeter wave radar signals with DC removal and reordering
-  Author                   Intel Corporation
-
-Plugin Details:
-  Name                     3delements
-  Description              DL Streamer 3D Elements
-  Filename                 /opt/intel/dlstreamer/Release/lib/libgst3delements.so
-  Version                  2025.2.0
-  License                  MIT/X11
-  Source module            dlstreamer
-  Binary package           Deep Learning Streamer elements
-  Origin URL               https://github.com/open-edge-platform/dlstreamer/tree/main
-
-GObject
- +----GInitiallyUnowned
-       +----GstObject
-             +----GstElement
-                   +----GstBaseTransform
-                         +----GstRadarProcess
-
-Element Flags:
-
 Pad Templates:
   SINK template: 'sink'
     Availability: Always

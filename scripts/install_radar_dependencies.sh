@@ -46,6 +46,43 @@ _install_libradar()
   popd
 }
 
+_create_env_setup_script()
+{
+  # Find libradar.so location
+  LIBRADAR_PATH=$(dpkg -L libradar 2>/dev/null | grep -E "libradar\.so(\.[0-9]+)?$" | head -1 || echo "")
+  
+  if [ -z "$LIBRADAR_PATH" ]; then
+    echo "WARNING: Could not locate libradar.so"
+    return 1
+  fi
+  
+  LIBRADAR_DIR=$(dirname "$LIBRADAR_PATH")
+  echo "Found libradar at: $LIBRADAR_PATH"
+  
+  # Create environment setup script for LD_LIBRARY_PATH and source oneAPI environment
+  ENV_SETUP_FILE="${SCRIPT_DIR}/../setup_radar_env.sh"
+  cat > "$ENV_SETUP_FILE" << EOF
+#!/bin/bash
+# Radar Dependencies Environment Setup
+# Source this file to set up environment variables for radar processing
+
+# Add libradar to library path
+export LD_LIBRARY_PATH="${LIBRADAR_DIR}:\${LD_LIBRARY_PATH}"
+
+# Source oneAPI environment if available
+if [ -f "/opt/intel/oneapi/setvars.sh" ]; then
+  source /opt/intel/oneapi/setvars.sh --force
+fi
+
+echo "Radar environment variables configured!"
+echo "  LD_LIBRARY_PATH includes: ${LIBRADAR_DIR}"
+EOF
+  
+  chmod +x "$ENV_SETUP_FILE"
+  echo ""
+  echo "Environment setup script created at: $ENV_SETUP_FILE"
+}
+
 main()
 {
   echo "Installing Intel oneAPI..."
@@ -54,18 +91,18 @@ main()
   echo "Installing libradar..."
   _install_libradar
   
-  echo "Sourcing oneAPI environment variables..."
-  if [ -f "/opt/intel/oneapi/setvars.sh" ]; then
-    source /opt/intel/oneapi/setvars.sh
-    echo "oneAPI environment variables sourced successfully!"
-  else
-    echo "WARNING: /opt/intel/oneapi/setvars.sh not found."
-    echo "You may need to manually source the oneAPI environment in your shell:"
-    echo "  source /opt/intel/oneapi/setvars.sh"
-  fi
+  echo ""
+  echo "Creating environment setup script..."
+  _create_env_setup_script
   
   echo ""
+  echo "========================================"
   echo "Radar dependencies installation completed successfully!"
+  echo "========================================"
+  echo ""
+  echo "IMPORTANT: Before using g3dradarprocess, source the environment setup script:"
+  echo "  source ${SCRIPT_DIR}/../setup_radar_env.sh"
+  echo ""
 }
 
 main "$@"
