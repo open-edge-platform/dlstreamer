@@ -10,10 +10,7 @@ import os
 
 print("=== DEBUG INFO ===")
 print(f"PYTHONPATH: {os.environ.get('PYTHONPATH', 'NOT SET')}")
-print(f"sys.path: {sys.path}")
 print("==================")
-
-sys.path.insert(0, '/home/dlstreamer/dlstreamer/scripts/optimizer')
 
 from optimizer import get_optimized_pipeline
 from utils import get_model_path

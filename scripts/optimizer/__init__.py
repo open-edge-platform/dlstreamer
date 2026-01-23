@@ -4,4 +4,6 @@
 # SPDX-License-Identifier: MIT
 # ==============================================================================
 
-__all__ = [get_optimized_pipeline, preprocess_pipeline]
+from .optimizer import get_optimized_pipeline, preprocess_pipeline
+
+__all__ = ["get_optimized_pipeline", "preprocess_pipeline"]
