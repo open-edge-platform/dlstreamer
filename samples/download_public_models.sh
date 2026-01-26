@@ -857,6 +857,15 @@ export_and_quantize_yolo_model() {
   DST_FILE1="$MODEL_DIR/FP16/$MODEL_NAME.xml"
   DST_FILE2="$MODEL_DIR/FP32/$MODEL_NAME.xml"
 
+  # Check if quantization should be skipped for segmentation models with small datasets
+  local QUANTIZE_PARAM="$QUANTIZE"
+  if [[ "$MODEL_NAME" =~ -seg$ ]] && [[ -n "$QUANTIZE" ]] && [[ "$QUANTIZE" =~ ^(coco8|coco128)$ ]]; then
+    echo_color "⚠️  INT8 quantization is not supported for segmentation models (${MODEL_NAME}) with small datasets (${QUANTIZE})" "yellow"
+    echo_color "    Use 'coco' dataset for INT8 quantization of segmentation models." "yellow"
+    echo_color "    Skipping quantization. Only FP32 and FP16 models will be exported.\n" "yellow"
+    QUANTIZE_PARAM=""
+  fi
+
   if [[ ! -f "$DST_FILE1" || ! -f "$DST_FILE2" ]]; then
     display_header "Downloading ${MODEL_NAME^^} model"
     echo "Downloading and converting: ${MODEL_DIR}"
@@ -864,7 +873,7 @@ export_and_quantize_yolo_model() {
     mkdir -p "$MODEL_DIR"
     cd "$MODEL_DIR"
 
-    python3 - <<EOF "$MODEL_NAME" "$QUANTIZE"
+    python3 - <<EOF "$MODEL_NAME" "$QUANTIZE_PARAM"
 from ultralytics import YOLO
 from openvino import Core, save_model
 import openvino as ov
