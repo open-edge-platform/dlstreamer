@@ -332,6 +332,7 @@ static bool parseViTForImageClassification(const nlohmann::json &config_json, co
 
     // Model type is always "label" for ViTForImageClassification
     modelConfig["model_type"] = ov::Any(std::string("label"));
+    modelConfig["output_raw_scores"] = ov::Any(std::string("True"));
 
     // Parse label2id mapping to extract labels ordered by their IDs
     if (config_json.contains("label2id") && config_json["label2id"].is_object()) {
