@@ -133,9 +133,9 @@ SUPPORTED_MODELS=(
 # Corresponds to files in 'datasets' directory
 declare -A SUPPORTED_QUANTIZATION_DATASETS
 SUPPORTED_QUANTIZATION_DATASETS=(
-  ["coco"]="https://raw.githubusercontent.com/ultralytics/ultralytics/v8.1.0/ultralytics/cfg/datasets/coco.yaml"
-  ["coco128"]="https://raw.githubusercontent.com/ultralytics/ultralytics/v8.1.0/ultralytics/cfg/datasets/coco128.yaml"
-  ["coco8"]="https://raw.githubusercontent.com/ultralytics/ultralytics/v8.1.0/ultralytics/cfg/datasets/coco8.yaml"
+  ["coco"]="https://raw.githubusercontent.com/ultralytics/ultralytics/v8.4.0/ultralytics/cfg/datasets/coco.yaml"
+  ["coco128"]="https://raw.githubusercontent.com/ultralytics/ultralytics/v8.4.0/ultralytics/cfg/datasets/coco128.yaml"
+  ["coco8"]="https://raw.githubusercontent.com/ultralytics/ultralytics/v8.4.0/ultralytics/cfg/datasets/coco8.yaml"
 )
 
 # Function to display text in a given color
@@ -400,7 +400,7 @@ pip install --no-cache-dir tqdm==4.67.1       || handle_error $LINENO
 
 # Check and upgrade ultralytics if necessary
 if [[ "${MODEL:-}" =~ yolo.* || "${MODEL:-}" == "all" ]]; then
-  pip install --no-cache-dir --upgrade --extra-index-url https://download.pytorch.org/whl/cpu "ultralytics==8.4.3" || handle_error $LINENO
+  pip install --no-cache-dir --upgrade --extra-index-url https://download.pytorch.org/whl/cpu "ultralytics==8.4.7" || handle_error $LINENO
 fi
 
 # Install PyTorch CPU version
@@ -881,7 +881,7 @@ os.rename(converted_path, "FP16")
 
 if sys.argv[2] != "":
   print("\033[36m[*] Starting INT8 quantization for " + sys.argv[1] + "...\033[0m")
-  converted_path = model.export(format='openvino', dynamic=True, half=True, int8=True, data=sys.argv[2] + '.yaml')
+  converted_path = model.export(format='openvino', dynamic=True, half=False, int8=True, data=sys.argv[2] + '.yaml')
   os.rename(converted_path, "INT8")
   print("\033[32m[+] INT8 quantization completed for " + sys.argv[1] + "\033[0m")
 EOF
