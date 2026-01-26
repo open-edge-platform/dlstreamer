@@ -1,0 +1,285 @@
+name: "[DLS] Test models downloading"
+run-name: "[DLS] Test models downloading (by @${{ github.actor }} via ${{ github.event_name }})"
+on:
+  workflow_dispatch:
+
+  workflow_call:
+
+permissions: {}
+
+jobs:
+  test-single-model:
+    name: Test single model download
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # 5.0.0
+        with:
+          persist-credentials: false
+          path: dlstreamer
+
+      - name: Set up environment
+        run: |
+          echo "MODELS_PATH=$HOME/models" >> $GITHUB_ENV
+
+      - name: Download single model (yolo11s)
+        run: |
+          cd dlstreamer/samples
+          bash download_public_models.sh yolo11s
+
+      - name: Verify model downloaded
+        run: |
+          test -f $HOME/models/public/yolo11s/FP32/yolo11s.xml
+          test -f $HOME/models/public/yolo11s/FP32/yolo11s.bin
+          test -f $HOME/models/public/yolo11s/FP16/yolo11s.xml
+          test -f $HOME/models/public/yolo11s/FP16/yolo11s.bin
+          echo "✓ Single model download successful"
+
+  test-multiple-models:
+    name: Test multiple models download
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # 5.0.0
+        with:
+          persist-credentials: false
+          path: dlstreamer
+
+      - name: Set up environment
+        run: |
+          echo "MODELS_PATH=$HOME/models" >> $GITHUB_ENV
+
+      - name: Download multiple models (yolo11s,centerface)
+        run: |
+          cd dlstreamer/samples
+          bash download_public_models.sh yolo11s,centerface
+
+      - name: Verify models downloaded
+        run: |
+          # Verify yolo11s
+          test -f $HOME/models/public/yolo11s/FP32/yolo11s.xml
+          test -f $HOME/models/public/yolo11s/FP16/yolo11s.xml
+          # Verify centerface
+          test -f $HOME/models/public/centerface/FP32/centerface.xml
+          test -f $HOME/models/public/centerface/FP16/centerface.xml
+          echo "✓ Multiple models download successful"
+
+  test-single-model-with-quantization:
+    name: Test single model with quantization
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # 5.0.0
+        with:
+          persist-credentials: false
+          path: dlstreamer
+
+      - name: Set up environment
+        run: |
+          echo "MODELS_PATH=$HOME/models" >> $GITHUB_ENV
+
+      - name: Download model with quantization (yolo11s with coco128)
+        run: |
+          cd dlstreamer/samples
+          bash download_public_models.sh yolo11s coco128
+
+      - name: Verify model with INT8 quantization
+        run: |
+          # Verify FP32 and FP16
+          test -f $HOME/models/public/yolo11s/FP32/yolo11s.xml
+          test -f $HOME/models/public/yolo11s/FP16/yolo11s.xml
+          # Verify INT8
+          test -f $HOME/models/public/yolo11s/INT8/yolo11s.xml
+          test -f $HOME/models/public/yolo11s/INT8/yolo11s.bin
+          echo "✓ Model quantization successful"
+
+  test-multiple-models-with-quantization:
+    name: Test multiple models with quantization
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # 5.0.0
+        with:
+          persist-credentials: false
+          path: dlstreamer
+
+      - name: Set up environment
+        run: |
+          echo "MODELS_PATH=$HOME/models" >> $GITHUB_ENV
+
+      - name: Download multiple models with quantization (yolov8n,yolov10n with coco128)
+        run: |
+          cd dlstreamer/samples
+          bash download_public_models.sh yolov8n,yolov10n coco128
+
+      - name: Verify both models with INT8 quantization
+        run: |
+          # Verify yolov8n (FP32, FP16, INT8)
+          test -f $HOME/models/public/yolov8n/FP32/yolov8n.xml
+          test -f $HOME/models/public/yolov8n/FP32/yolov8n.bin
+          test -f $HOME/models/public/yolov8n/FP16/yolov8n.xml
+          test -f $HOME/models/public/yolov8n/FP16/yolov8n.bin
+          test -f $HOME/models/public/yolov8n/INT8/yolov8n.xml
+          test -f $HOME/models/public/yolov8n/INT8/yolov8n.bin
+
+          # Verify yolov10n (FP32, FP16, INT8)
+          test -f $HOME/models/public/yolov10n/FP32/yolov10n.xml
+          test -f $HOME/models/public/yolov10n/FP32/yolov10n.bin
+          test -f $HOME/models/public/yolov10n/FP16/yolov10n.xml
+          test -f $HOME/models/public/yolov10n/FP16/yolov10n.bin
+          test -f $HOME/models/public/yolov10n/INT8/yolov10n.xml
+          test -f $HOME/models/public/yolov10n/INT8/yolov10n.bin
+
+          echo "✓ Multiple models with quantization successful"
+
+  test-non-yolo-model:
+    name: Test non-YOLO model download
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # 5.0.0
+        with:
+          persist-credentials: false
+          path: dlstreamer
+
+      - name: Set up environment
+        run: |
+          echo "MODELS_PATH=$HOME/models" >> $GITHUB_ENV
+
+      - name: Download non-YOLO model (hsemotion)
+        run: |
+          cd dlstreamer/samples
+          bash download_public_models.sh hsemotion
+
+      - name: Verify model downloaded
+        run: |
+          test -f $HOME/models/public/hsemotion/FP16/hsemotion.xml
+          test -f $HOME/models/public/hsemotion/FP16/hsemotion.bin
+          echo "✓ Non-YOLO model download successful"
+
+  test-mixed-models:
+    name: Test mixed YOLO and non-YOLO models
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # 5.0.0
+        with:
+          persist-credentials: false
+          path: dlstreamer
+
+      - name: Set up environment
+        run: |
+          echo "MODELS_PATH=$HOME/models" >> $GITHUB_ENV
+
+      - name: Download mixed models (yolov10n,hsemotion,centerface)
+        run: |
+          cd dlstreamer/samples
+          bash download_public_models.sh yolov10n,hsemotion,centerface
+
+      - name: Verify all models downloaded
+        run: |
+          # Verify yolov10n
+          test -f $HOME/models/public/yolov10n/FP32/yolov10n.xml
+          # Verify hsemotion
+          test -f $HOME/models/public/hsemotion/FP16/hsemotion.xml
+          # Verify centerface
+          test -f $HOME/models/public/centerface/FP32/centerface.xml
+          echo "✓ Mixed models download successful"
+
+  test-help-flag:
+    name: Test help flag
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # 5.0.0
+        with:
+          persist-credentials: false
+          path: dlstreamer
+
+      - name: Test help flag
+        run: |
+          cd dlstreamer/samples
+          bash download_public_models.sh --help
+          bash download_public_models.sh -h
+
+      - name: Verify help output
+        run: |
+          cd dlstreamer/samples
+          output=$(bash download_public_models.sh --help)
+          echo "$output" | grep -q "Usage:"
+          echo "$output" | grep -q "Arguments:"
+          echo "$output" | grep -q "MODELS_PATH"
+          echo "✓ Help flag test successful"
+
+  test-missing-models-path:
+    name: Test missing MODELS_PATH
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # 5.0.0
+        with:
+          persist-credentials: false
+          path: dlstreamer
+
+      - name: Test script without MODELS_PATH
+        run: |
+          cd dlstreamer/samples
+          unset MODELS_PATH
+          if bash download_public_models.sh yolov8n 2>&1 | grep -q "MODELS_PATH is not specified"; then
+            echo "✓ Script correctly handles missing MODELS_PATH"
+          else
+            echo "✗ Script did not handle missing MODELS_PATH correctly"
+            exit 1
+          fi
+
+  test-invalid-model-name:
+    name: Test invalid model name
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # 5.0.0
+        with:
+          persist-credentials: false
+          path: dlstreamer
+
+      - name: Set up environment
+        run: |
+          echo "MODELS_PATH=$HOME/models" >> $GITHUB_ENV
+
+      - name: Test invalid model name
+        run: |
+          cd dlstreamer/samples
+          if bash download_public_models.sh invalid_model_xyz 2>&1 | grep -q "Unsupported model"; then
+            echo "✓ Script correctly handles invalid model name"
+          else
+            echo "✗ Script did not handle invalid model name correctly"
+            exit 1
+          fi
+
+  test-ubuntu-2204-compatibility:
+    name: Test Ubuntu 22.04 compatibility
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # 5.0.0
+        with:
+          persist-credentials: false
+          path: dlstreamer
+
+      - name: Set up environment
+        run: |
+          echo "MODELS_PATH=$HOME/models" >> $GITHUB_ENV
+
+      - name: Download single model on Ubuntu 22.04 (yolo11s)
+        run: |
+          cd dlstreamer/samples
+          bash download_public_models.sh yolo11s
+
+      - name: Verify model downloaded and environment works
+        run: |
+          test -f $HOME/models/public/yolo11s/FP32/yolo11s.xml
+          test -f $HOME/models/public/yolo11s/FP32/yolo11s.bin
+          test -f $HOME/models/public/yolo11s/FP16/yolo11s.xml
+          test -f $HOME/models/public/yolo11s/FP16/yolo11s.bin
+          echo "✓ Ubuntu 22.04 compatibility test successful"
+          echo "✓ Virtual environment created and packages installed correctly"
