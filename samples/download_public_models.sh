@@ -857,11 +857,12 @@ export_and_quantize_yolo_model() {
   DST_FILE1="$MODEL_DIR/FP16/$MODEL_NAME.xml"
   DST_FILE2="$MODEL_DIR/FP32/$MODEL_NAME.xml"
 
-  # Check if quantization should be skipped for segmentation models with small datasets
+  # Check if quantization should be skipped for segmentation/pose models with small datasets
   local QUANTIZE_PARAM="$QUANTIZE"
-  if [[ "$MODEL_NAME" =~ -seg$ ]] && [[ -n "$QUANTIZE" ]] && [[ "$QUANTIZE" =~ ^(coco8|coco128)$ ]]; then
-    echo_color "⚠️  INT8 quantization is not supported for segmentation models (${MODEL_NAME}) with small datasets (${QUANTIZE})" "yellow"
-    echo_color "    Use 'coco' dataset for INT8 quantization of segmentation models." "yellow"
+  if [[ "$MODEL_NAME" =~ -(seg|pose)$ ]] && [[ -n "$QUANTIZE" ]] && [[ "$QUANTIZE" =~ ^(coco8|coco128)$ ]]; then
+    echo_color "⚠️  INT8 quantization is not supported for segmentation/pose models (${MODEL_NAME}) with small datasets (${QUANTIZE})" "yellow"
+    echo_color "    Small datasets are missing required metadata (masks for seg, keypoints for pose)." "yellow"
+    echo_color "    Use 'coco' dataset (>5000 images with full annotations) for INT8 quantization." "yellow"
     echo_color "    Skipping quantization. Only FP32 and FP16 models will be exported.\n" "yellow"
     QUANTIZE_PARAM=""
   fi
