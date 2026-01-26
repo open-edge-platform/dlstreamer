@@ -15,7 +15,7 @@ else
 fi
 
 INPUT=${1:-https://github.com/intel-iot-devkit/sample-videos/raw/master/head-pose-face-detection-female-and-male.mp4}
-DEVICE=${2:-CPU}
+DEVICE=${2:-GPU}
 OUTPUT=${3:-display} # Supported values: display, fps
 
 SCRIPTDIR="$(dirname "$(realpath "$0")")"
@@ -45,7 +45,7 @@ echo Running sample with the following parameters:
 echo GST_PLUGIN_PATH="${GST_PLUGIN_PATH}"
 
 read -r PIPELINE << EOM
-gst-launch-1.0 $SOURCE_ELEMENT ! decodebin3 ! gvainference model=$DETECT_MODEL_PATH device=$DEVICE ! queue ! gvapython module=$PYTHON_SCRIPT ! $SINK_ELEMENT 
+gst-launch-1.0 $SOURCE_ELEMENT ! decodebin3 ! gvadetect model=$DETECT_MODEL_PATH device=$DEVICE ! queue ! gvapython module=$PYTHON_SCRIPT ! $SINK_ELEMENT 
 EOM
 
 echo "${PIPELINE}"

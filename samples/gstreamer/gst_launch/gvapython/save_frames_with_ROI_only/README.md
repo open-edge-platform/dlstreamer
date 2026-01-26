@@ -3,7 +3,7 @@
 This sample demonstrates [gvapython](../../../../../docs/source/elements/gvapython.md) element with custom Python script to save video frames containing detected objects. It showcases practical post-processing use case where frames with regions of interest (ROI) are automatically saved to disk.
 
 ## How It Works
-In this sample the `gvapython` element is inserted after `gvainference` element running object detection. The Python script (`simple_frame_saver.py`) processes each frame and saves it to disk when:
+In this sample the `gvapython` element is inserted after `gvadetect` element running object detection. The Python script (`simple_frame_saver.py`) processes each frame and saves it to disk when:
 * At least one object is detected with confidence above threshold (default: 0.5)
 * Sufficient time has elapsed since the last save (default: 2.0 seconds)
 
@@ -57,7 +57,7 @@ The sample takes three command-line *optional* parameters:
    
    If parameter is not specified, the sample by default streams video example from HTTPS link (utilizing `urisourcebin` element) so requires internet connection.
 
-2. [DEVICE] to specify device for detection.
+2. [DEVICE] to specify device for detection. Default GPU.
    Please refer to OpenVINO™ toolkit documentation for supported devices.
    https://docs.openvinotoolkit.org/latest/openvino_docs_IE_DG_supported_plugins_Supported_Devices.html
    
