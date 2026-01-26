@@ -135,13 +135,13 @@ jobs:
           deb_final_testing_img: ghcr.io/${{ github.repository }}/deb-final-testing-img-${{ matrix.ubuntu_version }}:${{ github.sha }}
           DOCKER_TEST_CONFIGS: ${{ env.DOCKER_TEST_CONFIGS }}
         run: |
-          mkdir $PWD/$DLS_REL_PATH/tests/functional_tests/optimizer/optimizer_results
           ls $PWD/$DLS_REL_PATH/tests
-          ls $PWD/$DLS_REL_PATH/tests/functional_tests
+          mkdir $PWD/$DLS_REL_PATH/tests/optimizer/optimizer_results
+          ls $PWD/$DLS_REL_PATH/tests
           docker run --rm \
-            -v $PWD/$DLS_REL_PATH/tests/functional_tests/optimizer/scripts:/workspace/test_scripts \
-            -v $PWD/$DLS_REL_PATH/tests/functional_tests/optimizer/goldens:/workspace/goldens \
-            -v dl-streamer-tests-repo/functional_tests/optimizer/optimizer_results:/workspace/test_results \
+            -v $PWD/$DLS_REL_PATH/tests/optimizer/scripts:/workspace/test_scripts \
+            -v $PWD/$DLS_REL_PATH/tests/optimizer/goldens:/workspace/goldens \
+            -v $PWD/$DLS_REL_PATH/tests/optimizer/optimizer_results:/workspace/test_results \
             -v ${{ env.MODELS_PATH }}:/home/dlstreamer/models \
             -w /workspace \
             ${deb_final_testing_img} \
@@ -151,7 +151,7 @@ jobs:
         if: steps.run_docker_tests.outcome == 'success'
         with:
           name: DLS_optimizer_${{ matrix.runner_print_label }}_${{ matrix.ubuntu_version }}_results
-          path: "dl-streamer-tests-repo/functional_tests/optimizer/optimizer_results/comparison_report.txt"
+          path: "$PWD/$DLS_REL_PATH/tests/optimizer/optimizer_results/comparison_report.txt"
 
       # ======================================================== OH HOST TESTING PART ========================================================
       - name: Link DL Streamer to home directory
