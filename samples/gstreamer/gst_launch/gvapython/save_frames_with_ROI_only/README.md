@@ -65,8 +65,8 @@ The sample takes three command-line *optional* parameters:
    https://docs.openvinotoolkit.org/latest/openvino_inference_engine_ie_bridges_python_sample_hello_query_device_README.html
 
 3. [SINK_ELEMENT] to choose between render mode and fps throughput mode:
-   * display - render (default)
-   * fps - FPS only
+   * fps - FPS only(default)
+   * display - render
 
 ## Sample Output
 

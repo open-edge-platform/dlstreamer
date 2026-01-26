@@ -16,7 +16,7 @@ fi
 
 INPUT=${1:-https://github.com/intel-iot-devkit/sample-videos/raw/master/head-pose-face-detection-female-and-male.mp4}
 DEVICE=${2:-GPU}
-OUTPUT=${3:-display} # Supported values: display, fps
+OUTPUT=${3:-fps} # Supported values: display, fps
 
 SCRIPTDIR="$(dirname "$(realpath "$0")")"
 PYTHON_SCRIPT=$SCRIPTDIR/postproc_callbacks/simple_frame_saver.py
