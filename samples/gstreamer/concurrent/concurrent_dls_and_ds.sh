@@ -34,7 +34,16 @@ gvaclassify model=/working_dir/public/ch_PP-OCRv4_rec_infer/FP32/ch_PP-OCRv4_rec
 ! queue ! vapostproc ! gvawatermark ! gvafpscounter ! vah264enc bitrate=2000 ! h264parse ! mp4mux ! filesink location=/working_dir/${OUTPUT}_dls.mp4"
 
 
-DEEPSTREAM_PIPELINES[LPR]="gst-launch-1.0 ${SOURCE} ! qtdemux ! h264parse ! nvv4l2decoder ! m.sink_0 nvstreammux name=m batch-size=1 width=1920 height=1080 batched-push-timeout=40000 ! queue ! nvvideoconvert ! video/x-raw\(memory:NVMM\),format=RGBA ! nvinfer config-file-path= /working_dir/deepstream_tao_apps/configs/nvinfer/trafficcamnet_tao/pgie_trafficcamnet_config.txt unique-id=1 ! queue ! nvinfer config-file-path=/working_dir/deepstream_tao_apps/configs/nvinfer/LPD_us_tao/sgie_lpd_DetectNet2_us.txt unique-id=2 ! queue ! nvinfer config-file-path=/working_dir/deepstream_tao_apps/configs/nvinfer/lpr_us_tao/sgie_lpr_us_config.txt unique-id=3 ! queue ! nvdsosd display-text=1 display-bbox=1 display-mask=0 process-mode=1 ! nvvideoconvert ! video/x-raw\(memory:NVMM\),format=NV12 ! nvv4l2h264enc bitrate=2000000 ! h264parse ! qtmux ! filesink location=/working_dir/${OUTPUT}_ds.mp4 sync=false"
+DEEPSTREAM_PIPELINES[LPR]="gst-launch-1.0 ${SOURCE} ! qtdemux ! h264parse ! nvv4l2decoder ! m.sink_0 nvstreammux \
+name=m batch-size=1 width=1920 height=1080 batched-push-timeout=40000 ! queue ! nvvideoconvert \
+! video/x-raw\(memory:NVMM\),format=RGBA ! nvinfer \
+config-file-path=/working_dir/deepstream_tao_apps/configs/nvinfer/trafficcamnet_tao/pgie_trafficcamnet_config.txt \
+unique-id=1 ! queue ! nvinfer \
+config-file-path=/working_dir/deepstream_tao_apps/configs/nvinfer/LPD_us_tao/sgie_lpd_DetectNet2_us.txt unique-id=2 \
+! queue ! nvinfer config-file-path=/working_dir/deepstream_tao_apps/configs/nvinfer/lpr_us_tao/sgie_lpr_us_config.txt \
+unique-id=3 ! queue ! nvdsosd display-text=1 display-bbox=1 display-mask=0 process-mode=1 ! nvvideoconvert \
+! video/x-raw\(memory:NVMM\),format=NV12 ! nvv4l2h264enc bitrate=2000000 ! h264parse ! qtmux \
+! filesink location=/working_dir/${OUTPUT}_ds.mp4 sync=false"
 
 # Check if pipeline is valid
 if [[ ! ${DLSTREAMER_PIPELINES[${PIPELINE}]} || ! ${DEEPSTREAM_PIPELINES[${PIPELINE}]} ]]; then
