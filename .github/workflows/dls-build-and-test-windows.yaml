@@ -113,7 +113,7 @@ jobs:
         include:
           - runner_labels: [self-hosted, dlstreamer, ARL, windows] # Build and run tests on Arrow Lake system with Ubuntu 24
             runner_print_label: ARL
-    env: 
+    env:
       OPENVINO_RUNTIME_DIRECTORY: 'C:\openvino\runtime'
       DLSTREAMER_DIRECTORY: 'C:\dlstreamer'
       GSTREAMER_DIRECTORY: 'C:\gstreamer'
@@ -126,292 +126,320 @@ jobs:
       PYTHON_VERSION: '3.12.7'
 
     steps:
-    - name: Checkout DLStreamer test repository
-      uses: actions/checkout@v4
-      with:
-        repository: open-edge-platform/dl-streamer-tests
-        path: ${{ github.workspace }}/dls_test_repo
-        ref: windows_functional_test
-
-    - name: Set up Python ${{ env.PYTHON_VERSION }}
-      uses: actions/setup-python@v5
-      id: cp312
-      with:
-        python-version: ${{ env.PYTHON_VERSION }}
-        cache: 'pip'
-
-    - name: Capture Python path
-      shell: powershell
-      run: |
-        $actualPath = "${{ steps.cp312.outputs.python-path }}"
-        Write-Host "Detected Python Path: $actualPath"
-        echo "PYTHON_EXE_PATH=$actualPath" >> $env:GITHUB_ENV
-
-    - name: Verify resource directories (Models and Videos)
-      shell: powershell
-      run: |
-        $Resources = @(
-            @{ Name = "Models"; Path = "${{ env.MODELS_PATH }}" },
-            @{ Name = "Video Inputs"; Path = "${{ env.VIDEO_INPUTS_PATH }}" }
-        )
-
-        $errorCount = 0
-
-        foreach ($res in $Resources) {
-            Write-Host "Checking $($res.Name) directory: $($res.Path)..."
+      - name: Checkout DLStreamer test repository
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 #5.0.0
+        with:
+          repository: open-edge-platform/dl-streamer-tests
+          path: ${{ github.workspace }}/dls_test_repo
+          ref: ${{ inputs.test-repo-branch }}
+          persist-credentials: false
+  
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 #5.0.0
+        id: cp312
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+  
+      - name: Capture Python path
+        env:
+          RAW_PYTHON_PATH: ${{ steps.cp312.outputs.python-path }}
+        shell: powershell
+        run: |
+          $actualPath = "$env:RAW_PYTHON_PATH"
+          Write-Host "Detected Python Path: $actualPath"
+          echo "PYTHON_EXE_PATH=$actualPath" >> $env:GITHUB_ENV
+  
+      - name: Verify resource directories (Models and Videos)
+        shell: powershell
+        run: |
+          $Resources = @(
+              @{ Name = "Models"; Path = "${{ env.MODELS_PATH }}" },
+              @{ Name = "Video Inputs"; Path = "${{ env.VIDEO_INPUTS_PATH }}" }
+          )
+  
+          $errorCount = 0
+  
+          foreach ($res in $Resources) {
+              Write-Host "Checking $($res.Name) directory: $($res.Path)..."
+              
+              if (-not (Test-Path $res.Path)) {
+                  Write-Host "::error:: $($res.Name) directory NOT found at $($res.Path)"
+                  $errorCount++
+                  continue
+              }
+  
+              $hasFiles = Get-ChildItem -Path $res.Path -Recurse -File -ErrorAction SilentlyContinue | Select-Object -First 1
+              if (-not $hasFiles) {
+                  Write-Host "::error:: $($res.Name) directory is EMPTY at $($res.Path)"
+                  $errorCount++
+              } else {
+                  Write-Host "✓ $($res.Name) directory is valid and has files."
+              }
+          }
+  
+          if ($errorCount -gt 0) {
+              Write-Error "Resource validation failed. $errorCount directories are missing or empty."
+              exit 1
+          }
+  
+      - name: Check out DLStreamer Windows dependencies
+        shell: powershell
+        run: |
+          $deps = @{
+            "OpenVINO Runtime" = $env:OPENVINO_RUNTIME_DIRECTORY
+            "DLStreamer"       = $env:DLSTREAMER_DIRECTORY
+            "GStreamer"        = $env:GSTREAMER_DIRECTORY
+            "Build Tools"      = $env:BUILD_TOOLS_DIRECTORY
+            "vcpkg"            = $env:VCPKG_DIRECTORY
+            "Python Executable"= $env:PYTHON_EXE_PATH
+          }
+  
+          "### Dependency Check Results" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+          "| Dependency Name | Status | Expected Path |" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+          "| :--- | :---: | :--- |" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+  
+          $errorCount = 0
+          Write-Host "Checking dependencies..."
+  
+          foreach ($name in $deps.Keys) {
+            $path = $deps[$name]
+            $exists = Test-Path $path
             
-            if (-not (Test-Path $res.Path)) {
-                Write-Host "::error:: $($res.Name) directory NOT found at $($res.Path)"
-                $errorCount++
-                continue
-            }
-
-            $hasFiles = Get-ChildItem -Path $res.Path -Recurse -File -ErrorAction SilentlyContinue | Select-Object -First 1
-            if (-not $hasFiles) {
-                Write-Host "::error:: $($res.Name) directory is EMPTY at $($res.Path)"
-                $errorCount++
+            if ($exists) {
+              $status = "Found"
+              Write-Host "✓ $name found at $path"
             } else {
-                Write-Host "✓ $($res.Name) directory is valid and has files."
+              $status = "**Missing**"
+              Write-Host "X $name NOT found at $path"
+              $errorCount++
             }
-        }
-
-        if ($errorCount -gt 0) {
-            Write-Error "Resource validation failed. $errorCount directories are missing or empty."
-            exit 1
-        }
-
-    - name: Check out DLStreamer Windows dependencies
-      shell: powershell
-      run: |
-        $deps = @{
-          "OpenVINO Runtime" = $env:OPENVINO_RUNTIME_DIRECTORY
-          "DLStreamer"       = $env:DLSTREAMER_DIRECTORY
-          "GStreamer"        = $env:GSTREAMER_DIRECTORY
-          "Build Tools"      = $env:BUILD_TOOLS_DIRECTORY
-          "vcpkg"            = $env:VCPKG_DIRECTORY
-          "Python Executable"= $env:PYTHON_EXE_PATH
-        }
-
-        "### Dependency Check Results" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
-        "| Dependency Name | Status | Expected Path |" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
-        "| :--- | :---: | :--- |" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
-
-        $errorCount = 0
-        Write-Host "Checking dependencies..."
-
-        foreach ($name in $deps.Keys) {
-          $path = $deps[$name]
-          $exists = Test-Path $path
-          
-          if ($exists) {
-            $status = "Found"
-            Write-Host "✓ $name found at $path"
-          } else {
-            $status = "**Missing**"
-            Write-Host "X $name NOT found at $path"
-            $errorCount++
+            
+            "| $name | $status | ``$path`` |" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
           }
-          
-          "| $name | $status | ``$path`` |" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
-        }
-
-        if ($errorCount -gt 0) {
-          Write-Host "----------------------------------------------"
-          Write-Host "Error: $errorCount dependencies are missing!"
-          Write-Error "Workflow failed due to missing dependencies. Please check the Job Summary for details."
-          exit 1
-        }
-
-    - name: Setup Windows PATH for following tests
-      shell: powershell
-      run: |
-        $customPaths = @(
-          "${env:OPENVINO_RUNTIME_DIRECTORY}\bin\intel64\Release",
-          "${env:OPENVINO_RUNTIME_DIRECTORY}\3rdparty\tbb\bin",
-          "${env:DLSTREAMER_DIRECTORY}",
-          "${env:GSTREAMER_DIRECTORY}\1.0\msvc_x86_64\bin",
-          "${env:BUILD_TOOLS_DIRECTORY}\MSBuild\Current\Bin\amd64",
-          "${env:BUILD_TOOLS_DIRECTORY}\VC\Tools\MSVC\14.44.35207\bin\HostX86\x86",
-          "${env:BUILD_TOOLS_DIRECTORY}\Common7\IDE",
-          "${env:BUILD_TOOLS_DIRECTORY}\Common7\Tools",
-          "${env:VCPKG_DIRECTORY}",
-          "C:\Windows\system32",
-          "C:\Windows"
-        )
-        foreach ($p in $customPaths) {
-          echo "$p" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-        }
-        "### Configured PATH Locations" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
-        foreach ($p in $customPaths) {
-          "- ``$p``" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
-        }
-
-    - name: Validate DLStreamer elements
-      shell: powershell
-      run: |
-        [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-
-        $elements = @(
-          "gvadetect", 
-          "gvametapublish", 
-          "gvaclassify", 
-          "gvawatermark", 
-          "gvawatermark3d", 
-          "gvagenai"
-        )
-
-        "### DLStreamer Elements Availability" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
-        "| Element Name | Status | Details |" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
-        "| :--- | :---: | :--- |" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
-
-        $allFound = $true
-        $summaryRows = @()
-
-        foreach ($el in $elements) {
-          Write-Host "Inspecting $el..."
-          gst-inspect-1.0.exe $el > $null 2>&1
-          $result = $? 
-
-          if ($result) {
-            $statusEmoji = "True"
-            $detail = "Available"
-          } else {
-            $statusEmoji = "False"
-            $detail = "Missing or Plugin Path Error"
-            $allFound = $false
+  
+          if ($errorCount -gt 0) {
+            Write-Host "----------------------------------------------"
+            Write-Host "Error: $errorCount dependencies are missing!"
+            Write-Error "Workflow failed due to missing dependencies. Please check the Job Summary for details."
+            exit 1
           }
-
-          "| $el | $statusEmoji | $detail |" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
-        }
-
-        if (-not $allFound) {
-          Write-Error "CRITICAL: Some DLStreamer elements are missing. Check the Job Summary for details."
-          exit 1
-        }
-
-    - name: Install Python dependencies in VENV
-      shell: powershell
-      run: |
-        $PythonExe = "${{ env.PYTHON_EXE_PATH }}"
-        $TestRepoDir = "${{ github.workspace }}/dls_test_repo"
-        $RequirementsFile = Join-Path $TestRepoDir "functional_tests\pipeline_test\requirements.txt"
-
-        Write-Host "Using Python: $PythonExe"
-        Write-Host "Creating virtual environment..."
-        & $PythonExe -m venv .venv
-        $VenvPython = Join-Path (Get-Location) ".venv\Scripts\python.exe"
-
-        Write-Host "Installing dependencies into venv..."
-        & $VenvPython -m pip install --upgrade pip
-
-        $ReqFile = Join-Path "${{ github.workspace }}/dls_test_repo" "functional_tests\pipeline_test\requirements.txt"
-        & $VenvPython -m pip install -r $ReqFile
-        & $VenvPython -m pip install tqdm==4.67.1 numpy==2.2.0 opencv-python==4.11.0.86
-
-        echo "VENV_PYTHON=$VenvPython" >> $env:GITHUB_ENV
-
-    - name: Create test results directory
-      shell: powershell
-      run: |
-        $resultsDir = "${{ env.TESTS_RESULTS_DIRECTORY }}"
-        if (Test-Path $resultsDir) {
-            Write-Host "Cleaning existing results directory..."
-            Remove-Item -Recurse -Force $resultsDir -ErrorAction SilentlyContinue
-        }
-        New-Item -ItemType Directory -Path $resultsDir -Force | Out-Null
-        
-        $internalResults = "${{ github.workspace }}/dls_test_repo/functional_tests/pipeline_test/results"
-        if (-not (Test-Path $internalResults)) {
-            New-Item -ItemType Directory -Path $internalResults -Force | Out-Null
-        }
-
-    - name: Run functional tests with powershell
-      id: run-tests
-      shell: powershell
-      run: |
-        $RUNNER_NAME = "${{ runner.name }}"
-        if ($RUNNER_NAME -like "*ARL*") {
-            $TEST_CONFIGS = "common/samples_windows.json"
-        } else {
-            Write-Error "Unknown runner $RUNNER_NAME to get config. Exiting..."
-            exit 1
-        }
-
-        $DLS_TEST_REPO = "${{ github.workspace }}/dls_test_repo"
-        $MODELS_DIR = "${{ env.MODELS_PATH }}"
-        $DLS_REPO = "${{ env.DLS_REPO_TARGET_DIRECTORY }}"
-        $RESULTS_DIR = "${{ env.TESTS_RESULTS_DIRECTORY }}"
-
-        $env:MODELS_PATH = $MODELS_DIR
-        $env:LABELS_PATH = "$DLS_REPO\samples\labels"
-        $env:MODEL_PROC_PATH = "$DLS_REPO\samples\gstreamer\model_proc"
-        $env:MODEL_PROCS_PATH = "$DLS_REPO\samples\gstreamer\model_proc"
-
-        Write-Host "---------------- STARTING TESTS ----------------"
-        cd "$DLS_TEST_REPO\functional_tests\pipeline_test"
-        & "${{ env.VENV_PYTHON }}" -u -m regression_test `
-            -c "./configs_ov2/$TEST_CONFIGS" `
-            --disable_tqdm `
-            --output-type json `
-            --results-path="$RESULTS_DIR" `
-            --xlsx-report="$RESULTS_DIR\test_results_on_host_Windows_ARL_tests_results.xlsx"
-
-        if (Test-Path "results") {
-            Move-Item -Path "results" -Destination "$RESULTS_DIR\metadata" -Force
-        }
-
-    - name: Upload tests results to Artifacts
-      if: always()
-      uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
-      with:
-        name: test_results_on_host_Windows_ARL_tests_results
-        path: ${{ env.TESTS_RESULTS_DIRECTORY }}
-
-    - name: Show results and check for failures
-      if: always()
-      shell: powershell
-      run: |
-        $reportDirectory = "${{ env.TESTS_RESULTS_DIRECTORY }}"
-        $reportFile = Join-Path $reportDirectory "test_results_on_host_Windows_ARL_tests_results.txt"
-        
-        if (-not (Test-Path $reportFile)) {
-          Write-Error "Report file not found: $reportFile"
-          exit 1
-        }
-
-        $content = Get-Content -Path $reportFile -Raw
-        
-        $hasFailures = $content -match '\[! FAIL !\]'
-
-        $displayContent = $content -replace '\[pass\]', ':white_check_mark:'
-        $displayContent = $displayContent -replace '\[! FAIL !\]', ':x:'
-
-        "## Test summary for: $(Split-Path $reportFile -Leaf)" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
-        $displayContent | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
-
-        if ($hasFailures) {
-            Write-Host "--------------------------------------------------"
-            Write-Host "CRITICAL: Detected failed test cases in the report!"
-            Write-Host "--------------------------------------------------"
-            exit 1
-        } else {
-            Write-Host "All test cases passed according to the report."
-        }
-    # ======================================================== CLEAUP PART ========================================================
-    - name: Clean up
-      if: always()
-      shell: powershell
-      run: |
-        $PathsToClean = @(
-            "C:\dlstreamer_tmp\build",
-            "${{ env.TESTS_RESULTS_DIRECTORY }}",
-            "${{ env.DLS_TARGET_DIRECTORY }}",
-            "${{ env.DLS_REPO_TARGET_DIRECTORY }}"
-        )
-
-        $PathsToClean | ForEach-Object {
-            if (Test-Path $_) {
-                Write-Host "Cleaning up: $_"
-                Remove-Item -Recurse -Force $_ -ErrorAction SilentlyContinue
+  
+      - name: Setup Windows PATH for following tests
+        shell: powershell
+        run: |
+          $customPaths = @(
+            "${env:OPENVINO_RUNTIME_DIRECTORY}\bin\intel64\Release",
+            "${env:OPENVINO_RUNTIME_DIRECTORY}\3rdparty\tbb\bin",
+            "${env:DLSTREAMER_DIRECTORY}",
+            "${env:GSTREAMER_DIRECTORY}\1.0\msvc_x86_64\bin",
+            "${env:BUILD_TOOLS_DIRECTORY}\MSBuild\Current\Bin\amd64",
+            "${env:BUILD_TOOLS_DIRECTORY}\VC\Tools\MSVC\14.44.35207\bin\HostX86\x86",
+            "${env:BUILD_TOOLS_DIRECTORY}\Common7\IDE",
+            "${env:BUILD_TOOLS_DIRECTORY}\Common7\Tools",
+            "${env:VCPKG_DIRECTORY}",
+            "C:\Windows\system32",
+            "C:\Windows"
+          )
+          foreach ($p in $customPaths) {
+            echo "$p" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          }
+          "### Configured PATH Locations" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+          foreach ($p in $customPaths) {
+            "- ``$p``" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+          }
+  
+      - name: Validate DLStreamer elements
+        shell: powershell
+        run: |
+          [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+  
+          $elements = @(
+            "gvadetect",
+            "gvametapublish",
+            "gvaclassify",
+            "gvawatermark",
+            "gvawatermark3d",
+            "gvagenai"
+          )
+  
+          "### DLStreamer Elements Availability" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+          "| Element Name | Status | Details |" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+          "| :--- | :---: | :--- |" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+  
+          $allFound = $true
+          $summaryRows = @()
+  
+          foreach ($el in $elements) {
+            Write-Host "Inspecting $el..."
+            gst-inspect-1.0.exe $el > $null 2>&1
+            $result = $?
+  
+            if ($result) {
+              $statusEmoji = "True"
+              $detail = "Available"
+            } else {
+              $statusEmoji = "False"
+              $detail = "Missing or Plugin Path Error"
+              $allFound = $false
             }
-        }
+  
+            "| $el | $statusEmoji | $detail |" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+          }
+  
+          if (-not $allFound) {
+            Write-Error "CRITICAL: Some DLStreamer elements are missing. Check the Job Summary for details."
+            exit 1
+          }
+  
+      - name: Install Python dependencies in VENV
+        shell: powershell
+        env:
+          WORKSPACE: ${{ github.workspace }}
+        run: |
+          $PythonExe = $env:PYTHON_EXE_PATH
+          $TestRepoDir = Join-Path $env:WORKSPACE "dls_test_repo"
+          $RequirementsFile = Join-Path $TestRepoDir "functional_tests\pipeline_test\requirements.txt"
+  
+          Write-Host "Using Python: $PythonExe"
+          Write-Host "Creating virtual environment..."
+          
+          & $PythonExe -m venv .venv
+          $VenvPython = Join-Path (Get-Location) ".venv\Scripts\python.exe"
+  
+          Write-Host "Installing dependencies into venv..."
+          & $VenvPython -m pip install --upgrade pip
+  
+          if (Test-Path $RequirementsFile) {
+              & $VenvPython -m pip install -r $RequirementsFile
+          } else {
+              Write-Error "Requirements file not found at $RequirementsFile"
+              exit 1
+          }
+  
+          & $VenvPython -m pip install tqdm==4.67.1 numpy==2.2.0 opencv-python==4.11.0.86
+  
+          "VENV_PYTHON=$VenvPython" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+  
+      - name: Create test results directory
+        shell: powershell
+        env:
+          RESULTS_DIR_BASE: ${{ env.TESTS_RESULTS_DIRECTORY }}
+          WORKSPACE: ${{ github.workspace }}
+          RUNNER_NAME: ${{ runner.name }}
+        run: |
+          $resultsDir = $env:RESULTS_DIR_BASE
+          
+          if (Test-Path $resultsDir) {
+              Write-Host "Cleaning existing results directory..."
+              Remove-Item -Recurse -Force $resultsDir -ErrorAction SilentlyContinue
+          }
+          New-Item -ItemType Directory -Path $resultsDir -Force | Out-Null
+          
+          $internalResults = Join-Path $env:WORKSPACE "dls_test_repo/functional_tests/pipeline_test/results"
+          
+          if (-not (Test-Path $internalResults)) {
+              New-Item -ItemType Directory -Path $internalResults -Force | Out-Null
+          }
+  
+          $CurrentRunner = $env:RUNNER_NAME
+          Write-Host "Running on: $CurrentRunner"
+  
+      - name: Run functional tests with powershell
+        id: run-tests
+        shell: powershell
+        env:
+          RUNNER_NAME: ${{ runner.name }}
+          WORKSPACE: ${{ github.workspace }}
+          MODELS_DIR: ${{ env.MODELS_PATH }}
+          DLS_REPO_TARGET: ${{ env.DLS_REPO_TARGET_DIRECTORY }}
+          RESULTS_DIR_BASE: ${{ env.TESTS_RESULTS_DIRECTORY }}
+          PYTHON_VENV_EXE: ${{ env.VENV_PYTHON }}
+        run: |
+          $CurrentRunner = $env:RUNNER_NAME
+          if ($CurrentRunner -like "*ARL*") {
+              $TEST_CONFIGS = "common/samples_windows.json"
+          } else {
+              Write-Error "Unknown runner $CurrentRunner to get config. Exiting..."
+              exit 1
+          }
+  
+          $DLS_TEST_REPO = Join-Path $env:WORKSPACE "dls_test_repo"
+          $RESULTS_DIR = $env:RESULTS_DIR_BASE
+          $DLS_REPO = $env:DLS_REPO_TARGET
+  
+          $env:MODELS_PATH = $env:MODELS_DIR
+          $env:LABELS_PATH = Join-Path $DLS_REPO "samples\labels"
+          $env:MODEL_PROC_PATH = Join-Path $DLS_REPO "samples\gstreamer\model_proc"
+          $env:MODEL_PROCS_PATH = $env:MODEL_PROC_PATH
+  
+          Write-Host "---------------- STARTING TESTS ----------------"
+          $TestPath = Join-Path $DLS_TEST_REPO "functional_tests\pipeline_test"
+          Set-Location $TestPath
+          
+          & $env:PYTHON_VENV_EXE -u -m regression_test `
+              -c "./configs_ov2/$TEST_CONFIGS" `
+              --disable_tqdm `
+              --output-type json `
+              --results-path="$RESULTS_DIR" `
+              --xlsx-report="$RESULTS_DIR\test_results_on_host_Windows_ARL_tests_results.xlsx"
+  
+          if (Test-Path "results") {
+              Move-Item -Path "results" -Destination (Join-Path $RESULTS_DIR "metadata") -Force
+          }
+  
+      - name: Upload tests results to Artifacts
+        if: always()
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        with:
+          name: test_results_on_host_Windows_ARL_tests_results
+          path: ${{ env.TESTS_RESULTS_DIRECTORY }}
+  
+      - name: Show results and check for failures
+        if: always()
+        shell: powershell
+        run: |
+          $reportDirectory = "${{ env.TESTS_RESULTS_DIRECTORY }}"
+          $reportFile = Join-Path $reportDirectory "test_results_on_host_Windows_ARL_tests_results.txt"
+          
+          if (-not (Test-Path $reportFile)) {
+            Write-Error "Report file not found: $reportFile"
+            exit 1
+          }
+  
+          $content = Get-Content -Path $reportFile -Raw
+          
+          $hasFailures = $content -match '\[! FAIL !\]'
+  
+          $displayContent = $content -replace '\[pass\]', ':white_check_mark:'
+          $displayContent = $displayContent -replace '\[! FAIL !\]', ':x:'
+  
+          "## Test summary for: $(Split-Path $reportFile -Leaf)" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+          $displayContent | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+  
+          if ($hasFailures) {
+              Write-Host "--------------------------------------------------"
+              Write-Host "CRITICAL: Detected failed test cases in the report!"
+              Write-Host "--------------------------------------------------"
+              exit 1
+          } else {
+              Write-Host "All test cases passed according to the report."
+          }
+      # ======================================================== CLEAUP PART ========================================================
+      - name: Clean up
+        if: always()
+        shell: powershell
+        run: |
+          $PathsToClean = @(
+              "C:\dlstreamer_tmp\build",
+              "${{ env.TESTS_RESULTS_DIRECTORY }}",
+              "${{ env.DLS_TARGET_DIRECTORY }}",
+              "${{ env.DLS_REPO_TARGET_DIRECTORY }}"
+          )
+  
+          $PathsToClean | ForEach-Object {
+              if (Test-Path $_) {
+                  Write-Host "Cleaning up: $_"
+                  Remove-Item -Recurse -Force $_ -ErrorAction SilentlyContinue
+              }
+          }
