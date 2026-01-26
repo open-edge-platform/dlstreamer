@@ -1024,6 +1024,8 @@ EOF
   fi
 fi
 
+
+# ================================= CLIP models FP32 =================================
 mapfile -t CLIP_MODELS < <(printf "%s\n" "${SUPPORTED_MODELS[@]}" | grep '^clip-vit-')
 for MODEL_NAME in "${CLIP_MODELS[@]}"; do
   if [ "$MODEL" == "$MODEL_NAME" ] || [ "$MODEL" == "all" ]; then
