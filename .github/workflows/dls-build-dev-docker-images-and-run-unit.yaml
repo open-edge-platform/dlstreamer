@@ -6,12 +6,12 @@ on:
       - 'nsz-add-opt-fun-test'
   workflow_call:
   workflow_dispatch:
-  DLS_REL_PATH: "./dlstreamer-repo"
 
 permissions: {}
 env:
   MODELS_PATH: "/home/runner/models"
   VIDEO_INPUTS_PATH: "/home/runner/videos"
+  DLS_REL_PATH: "./dlstreamer-repo"
 
 jobs:
   build:
