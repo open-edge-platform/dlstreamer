@@ -113,11 +113,14 @@ jobs:
           ls $PWD/$DLS_REL_PATH/tests/functional_tests
           mkdir $PWD/$DLS_REL_PATH/tests/functional_tests/optimizer_tests/optimizer_results
           ls $PWD/$DLS_REL_PATH/tests/functional_tests/optimizer_tests
+          RENDER_GROUP_ID=$(getent group render | awk -F: '{printf "%s\n", $3}')
           docker run --rm \
             -v $PWD/$DLS_REL_PATH/tests/functional_tests/optimizer_tests/scripts:/workspace/test_scripts \
             -v $PWD/$DLS_REL_PATH/tests/functional_tests/optimizer_tests/goldens:/workspace/goldens \
             -v $PWD/$DLS_REL_PATH/tests/functional_tests/optimizer_tests/optimizer_results:/workspace/test_results \
             -v ${{ env.MODELS_PATH }}:/home/dlstreamer/models \
+            --device=/dev/dri \
+            --group-add "$RENDER_GROUP_ID" \
             -w /workspace \
             ${dev_debug_img} \
             bash /workspace/test_scripts/run_optimizer_tests.sh
