@@ -45,7 +45,7 @@ echo Running sample with the following parameters:
 echo GST_PLUGIN_PATH="${GST_PLUGIN_PATH}"
 
 read -r PIPELINE << EOM
-gst-launch-1.0 $SOURCE_ELEMENT ! decodebin3 ! gvadetect model=$DETECT_MODEL_PATH device=$DEVICE ! queue ! gvapython module=$PYTHON_SCRIPT ! $SINK_ELEMENT 
+gst-launch-1.0 $SOURCE_ELEMENT ! decodebin3 ! gvadetect model=$DETECT_MODEL_PATH device=$DEVICE ! queue ! gvapython module=$PYTHON_SCRIPT class=FrameSaver function=process_frame ! $SINK_ELEMENT 
 EOM
 
 echo "${PIPELINE}"

@@ -1,5 +1,5 @@
 # ==============================================================================
-# Copyright (C) 2018-2025 Intel Corporation
+# Copyright (C) 2018-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
@@ -261,7 +261,7 @@ class VideoFrame:
                 elif is_yuv_format:
                     # In some cases image size after mapping can be larger than expected image size.
                     # One of the reasons can be VA-API decoder appends padding to the end of each plane,
-                    # so the height / width is multiple of a specific value(depends on hardware architecture). 
+                    # so the height / width is multiple of a specific value(depends on hardware architecture).
                     # We need to return an image that has the same resolution as in video_info by dropping
                     # extra padding added by decoder.
                     yield self.__repack_video_frame(data)
@@ -373,8 +373,7 @@ class VideoFrame:
             planes.append(u_plane)
             planes.append(v_plane)
 
-        result = numpy.concatenate(planes)
-        return result
+        return numpy.concatenate(planes)
 
     @staticmethod
     def __extract_plane(data_ptr, data_size, shape):
