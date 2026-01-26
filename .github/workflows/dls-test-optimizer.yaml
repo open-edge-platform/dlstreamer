@@ -1,4 +1,4 @@
-me: "[DLS] [U22/24] Build and test optimizer"
+name: "[DLS] [U22/24] Build and test optimizer"
 run-name: "[DLS] [U22/24] Build and test optimizer (by ${{ github.actor }})"
 on:
   push:
