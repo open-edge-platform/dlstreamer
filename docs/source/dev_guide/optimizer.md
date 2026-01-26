@@ -6,6 +6,13 @@ Currently the DLS Optimizer focuses mainly on DL Streamer elements, specifically
 
 Multi-stream pipelines (those utilizing the `tee` element) are also currently not supported.
 
+## Prerequisites
+Before using the DLS Optimizer, ensure you have the OpenVINO Python module installed.
+You can install it by running the following command:
+```bash
+pip install openvino
+```
+
 ## Using the optimizer as a tool
 > Note: This example assumes your working directory is the optimizer directory `/opt/intel/dlstreamer/scripts/optimizer`
 ```

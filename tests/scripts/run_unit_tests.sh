@@ -1,6 +1,6 @@
 #!/bin/bash
 # ==============================================================================
-# Copyright (C) 2018-2025 Intel Corporation
+# Copyright (C) 2018-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
@@ -28,11 +28,6 @@ fi
 
 if [ ! -d "$result_path" ]; then
   mkdir -p "$result_path"
-fi
-
-if [[ -z "$LD_LIBRARY_PATH" ]]; then
-  # shellcheck source=/dev/null
-  source "/opt/intel/openvino_2024/setupvars.sh"
 fi
 
 [ -z "$MODELS_PATH" ] && echo "MODELS_PATH env is not set. Some tests may fail."

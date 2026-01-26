@@ -11,52 +11,6 @@ npu_driver_version_u22="1.26.0"
 npu_driver_version_u24="1.28.0"
 reinstall_npu_driver='no'  # Default value for reinstalling the NPU driver
 SUDO_PREFIX="sudo"
-echo "Reinstall NPU driver: $reinstall_npu_driver"
-
-# Show help message
-show_help() {
-    cat <<EOF
-
-Usage: $(basename "$0") [OPTIONS]
-
-Script for installing and configuring prerequisites for DL Streamer
-
-Options:
-  -h, --help                                                  Show this help message and exit
-  --reinstall-npu-driver=[yes|no]                             (Re)install Intel® NPU driver (default: no)
-  --on-host-or-docker=[host|docker_ubuntu22|docker_ubuntu24]  Script execution on host or in Docker container (default: host)
-
-Examples:
-  $(basename "$0")
-  $(basename "$0") --reinstall-npu-driver=yes
-  $(basename "$0") --reinstall-npu-driver=yes --on-host-or-docker=docker_ubuntu24
-  $(basename "$0") --help
-
-EOF
-}
-
-# Parse command-line arguments
-for i in "$@"; do
-    case $i in
-        -h|--help)
-            show_help
-            exit 0
-        ;;
-        --reinstall-npu-driver=*)
-            reinstall_npu_driver="${i#*=}"
-            shift
-        ;;
-        --on-host-or-docker=*)
-            on_host_or_docker="${i#*=}"
-            shift
-        ;;
-        *)
-            echo "Unknown option: $i"
-            show_help
-            exit 1
-        ;;
-    esac
-done
 
 # Define the Intel® repository URL, keyring path, and key URL
 INTEL_CL_GPU_KEY_URL="https://repositories.intel.com/gpu/intel-graphics.key"
@@ -100,6 +54,53 @@ handle_error() {
     echo -e "\e[31mError occurred: $1\e[0m"
     exit 1
 }
+
+# Function to display help message
+show_help() {
+    cat <<EOF
+$(echo_color "Usage:" "cyan")
+  $(basename "$0") [OPTIONS]
+
+$(echo_color "Description:" "cyan")
+  Script for installing and configuring prerequisites for DL Streamer
+
+$(echo_color "Options:" "cyan")
+  -h, --help                         Show this help message and exit
+  --reinstall-npu-driver=[yes|no]    (Re)install Intel® NPU driver (default: no)
+
+$(echo_color "Examples:" "cyan")
+  # Run with default settings
+  $(basename "$0")
+
+  # Reinstall NPU driver
+  $(basename "$0") --reinstall-npu-driver=yes
+
+  # Show this help message
+  $(basename "$0") --help
+
+EOF
+}
+
+# Parse command-line arguments
+for i in "$@"; do
+    case $i in
+        -h|--help)
+            show_help
+            exit 0
+        ;;
+        --reinstall-npu-driver=*)
+            reinstall_npu_driver="${i#*=}"
+            shift
+        ;;
+        *)
+            echo "Unknown option: $i"
+            show_help
+            exit 1
+        ;;
+    esac
+done
+
+echo "Reinstall NPU driver: $reinstall_npu_driver"
 
 # ***********************************************************************
 # Function to download the Intel® repository GPG key with a timeout

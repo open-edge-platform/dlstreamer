@@ -61,7 +61,7 @@ class DeviceGenerator:
 
         # Prepare pipeline output
         pipeline = self.pipeline.copy()
-        for element in self.tracked_elements:
+        for element in reversed(self.tracked_elements):
             # Get the pipeline element we're modifying
             idx = element["index"]
             (element_type, parameters) = parse_element_parameters(pipeline[idx])

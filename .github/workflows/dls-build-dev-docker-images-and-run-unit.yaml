@@ -101,14 +101,14 @@ jobs:
             -v ${{ env.VIDEO_INPUTS_PATH }}:${MAPPED_VIDEO_EXAMPLES_DIR} \
             -v ${{ env.MODELS_PATH }}:${MAPPED_MODELS_PATH} \
             -v $PWD/${RESULTS_DIR}:${MAPPED_RESULTS_DIR}        \
-            -v $PWD/dlstreamer-repo/tests/scripts:/home/dlstreamer/dlstreamer/scripts  \
+            -v $PWD/dlstreamer-repo/tests/scripts:/home/dlstreamer/dlstreamer/tests-scripts \
             -v $PWD/dlstreamer-repo/tests/unit_tests:/home/dlstreamer/dlstreamer/tests \
             -e VIDEO_EXAMPLES_DIR=${MAPPED_VIDEO_EXAMPLES_DIR}  \
             -w /home/dlstreamer/dlstreamer  \
             -e MODELS_PATH=${MAPPED_MODELS_PATH} \
             -e MODELS_PROC_PATH=/home/dlstreamer/dlstreamer/samples/gstreamer/model_proc \
             ${dev_debug_img} \
-            scripts/run_unit_tests.sh "" "" ${MAPPED_RESULTS_DIR}
+            tests-scripts/run_unit_tests.sh "" "" ${MAPPED_RESULTS_DIR}
       #this script creates output file called unit_test_summary.txt
       - name: Run python script to get Unit Test results
         env:
