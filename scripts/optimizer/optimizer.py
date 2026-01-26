@@ -52,6 +52,7 @@ def get_optimized_pipeline(pipeline, search_duration = 300, sample_duration = 10
         raise RuntimeError("Provided pipeline is not valid") from e
 
     logger.info("FPS: %.2f", fps)
+    initial_fps = fps
 
     # Make pipeline definition portable across inference devices.
     # Replace elements with known better alternatives.
@@ -94,6 +95,7 @@ def get_optimized_pipeline(pipeline, search_duration = 300, sample_duration = 10
                 logger.debug("Pipeline failed to start: %s", e)
 
     # Reconstruct the pipeline as a single string and return it.
+    logger.info("Initial pipeline FPS: %.2f", initial_fps)
     return "!".join(best_pipeline), best_fps
 
 ##################################### Pipeline Running ############################################
