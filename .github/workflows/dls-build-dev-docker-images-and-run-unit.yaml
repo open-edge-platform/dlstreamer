@@ -6,6 +6,8 @@ on:
       - 'nsz-add-opt-fun-test'
   workflow_call:
   workflow_dispatch:
+  DLS_REL_PATH: "./dlstreamer-repo"
+
 permissions: {}
 env:
   MODELS_PATH: "/home/runner/models"
@@ -41,6 +43,19 @@ jobs:
           cd dlstreamer-repo
           git submodule update --init thirdparty/spdlog
           git submodule update --init thirdparty/googletest
+
+      - name: Check out test repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 #4.2.2
+        with:
+          repository: open-edge-platform/dl-streamer-tests
+          persist-credentials: false
+          ref: nsz-optimizer-tests
+          path: dl-streamer-tests-repo
+
+      - name: Copy DL Streamer tests repo
+        run: |
+          cp -r dl-streamer-tests-repo/functional_tests $PWD/$DLS_REL_PATH/tests
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 #3.11.1
 
