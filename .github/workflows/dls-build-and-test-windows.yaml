@@ -50,7 +50,8 @@ jobs:
       - name: Copy DL Streamer repo
         shell: powershell
         run: |
-          if (Test-Path ${{ env.DLS_REPO_TARGET_DIRECTORY }}) {
+          $target = "${{ env.DLS_TARGET_DIRECTORY }}"
+          if (Test-Path $target) {
               Remove-Item -Recurse -Force $target
           }
           New-Item -ItemType Directory -Path ${{ env.DLS_REPO_TARGET_DIRECTORY }} | Out-Null
