@@ -260,19 +260,17 @@ class VideoFrame:
                     )
                 elif is_yuv_format:
                     # In some cases image size after mapping can be larger than expected image size.
-                    # One of the reasons can be VA-API decoder appends padding to the end of each plane,
-                    # so the height / width is multiple of a specific value(depends on hardware architecture).
-                    # We need to return an image that has the same resolution as in video_info by dropping
-                    # extra padding added by decoder.
+                    # One of the reasons can be VA-API decoder appends padding to the end of each
+                    # plane, so the height / width is multiple of a specific value (depends on
+                    # hardware architecture). We need to return an image that has the same
+                    # resolution as in video_info by dropping extra padding added by decoder.
                     yield self.__repack_video_frame(data)
                 else:
                     raise RuntimeError("VideoFrame.data: Corrupted buffer")
             except TypeError as e:
                 warn(
                     str(e)
-                    + "\nSize of buffer's data: {}, and requested size: {}".format(
-                        mapped_data_size, requested_size
-                    ),
+                    + f"\nSize of buffer's data: {mapped_data_size}, and requested size: {requested_size}",
                     stacklevel=2,
                 )
                 raise e
@@ -308,9 +306,7 @@ class VideoFrame:
         n_planes = meta.n_planes
         if n_planes not in [2, 3]:
             raise RuntimeError(
-                "VideoFrame.__repack_video_frame: Unsupported number of planes {}".format(
-                    n_planes
-                )
+                f"VideoFrame.__repack_video_frame: Unsupported number of planes {n_planes}"
             )
 
         h, w = self.__video_info.height, self.__video_info.width
@@ -374,13 +370,6 @@ class VideoFrame:
             planes.append(v_plane)
 
         return numpy.concatenate(planes)
-
-    @staticmethod
-    def __extract_plane(data_ptr, data_size, shape):
-        plane_raw = ctypes.cast(
-            data_ptr, ctypes.POINTER(ctypes.c_byte * data_size)
-        ).contents
-        return numpy.ndarray(shape, buffer=plane_raw, dtype=numpy.uint8)
 
     @staticmethod
     def __get_label_by_label_id(region_tensor: Gst.Structure, label_id: int) -> str:
