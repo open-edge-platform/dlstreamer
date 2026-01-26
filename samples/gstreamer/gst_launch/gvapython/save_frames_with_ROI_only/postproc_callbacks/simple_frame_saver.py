@@ -22,7 +22,7 @@ gi.require_version("GstVideo", "1.0")
 # Configuration
 OUTPUT_DIR = "saved_frames"
 SAVE_INTERVAL = 2.0  # Minimum seconds between saves
-MIN_CONFIDENCE = 0.1
+MIN_CONFIDENCE = 0.5
 
 # Initialize
 os.makedirs(OUTPUT_DIR, exist_ok=True)
