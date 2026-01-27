@@ -72,7 +72,7 @@ def run_single_streamer(gst_command: List[str]) -> subprocess.Popen:
 
 def prepare_commandline(camera_rtsp_url: str, pipeline_elements: str) -> List[str]:
     """Prepare GStreamer command line from RTSP URL and pipeline elements.
-    
+
     Args:
         camera_rtsp_url: The RTSP stream URL
         pipeline_elements: GStreamer pipeline elements as a string
@@ -83,13 +83,13 @@ def prepare_commandline(camera_rtsp_url: str, pipeline_elements: str) -> List[st
 
     if not camera_rtsp_url or not pipeline_elements:
         raise ValueError("URL and pipeline elements cannot be empty!")
-    
+
     # Build command as list to avoid shell injection
     command = ["gst-launch-1.0", "rtspsrc", f"location={camera_rtsp_url}"]
-    
+
     # Safely parse pipeline elements
     command.extend(shlex.split(pipeline_elements))
-    
+
     return command
 
 
@@ -115,8 +115,8 @@ if __name__ == "__main__":
         camera_obj = ONVIFCamera(camera['hostname'], camera['port'], args.user, args.password)
 
         # Get DL Streamer command line from config.json
-        command = dls_discovery.get_commandline_by_key("config.json", camera['hostname'])
-        if not command:
+        command_json = dls_discovery.get_commandline_by_key("config.json", camera['hostname'])
+        if not command_json:
             print(f"No command line found for {camera['hostname']}, skipping...")
             continue
 
@@ -128,7 +128,7 @@ if __name__ == "__main__":
                 print(f"No RTSP URL found for profile {profile.name}, skipping...")
                 continue
 
-            commandline_executed = prepare_commandline(rtsp_url, command)
+            commandline_executed = prepare_commandline(rtsp_url, command_json)
             print(f"Executing command line for {camera['hostname']}: {commandline_executed}")
             running_process = run_single_streamer(commandline_executed)
             if running_process:
