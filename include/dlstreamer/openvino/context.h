@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2022-2025 Intel Corporation
+ * Copyright (C) 2022-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -15,6 +15,7 @@
 #else
 #include <openvino/runtime/intel_gpu/ocl/va.hpp>
 #endif
+#include <openvino/runtime/intel_npu/properties.hpp>
 
 namespace dlstreamer {
 
@@ -108,7 +109,11 @@ using OpenVINOContextPtr = std::shared_ptr<OpenVINOContext>;
 #include "dlstreamer/openvino/mappers/cpu_to_openvino.h"
 #include "dlstreamer/openvino/mappers/opencl_to_openvino.h"
 #include "dlstreamer/openvino/mappers/openvino_to_cpu.h"
+#ifndef _WIN32
 #include "dlstreamer/openvino/mappers/vaapi_to_openvino.h"
+#else
+#include "dlstreamer/openvino/mappers/d3d11_to_openvino.h"
+#endif
 
 namespace dlstreamer {
 
@@ -121,8 +126,13 @@ MemoryMapperPtr OpenVINOContext::get_mapper(const ContextPtr &input_context, con
     auto output_type = output_context ? output_context->memory_type() : MemoryType::CPU;
     if (input_type == MemoryType::CPU && output_type == MemoryType::OpenVINO)
         return std::make_shared<MemoryMapperCPUToOpenVINO>(input_context, output_context);
+#ifndef _WIN32
     if (input_type == MemoryType::VAAPI && output_type == MemoryType::OpenVINO)
         return std::make_shared<MemoryMapperVAAPIToOpenVINO>(input_context, output_context);
+#else
+    if (input_type == MemoryType::D3D11 && output_type == MemoryType::OpenVINO)
+        return std::make_shared<MemoryMapperD3D11ToOpenVINO>(input_context, output_context);
+#endif
     if (input_type == MemoryType::OpenCL && output_type == MemoryType::OpenVINO)
         return std::make_shared<MemoryMapperOpenCLToOpenVINO>(input_context, output_context);
     if (input_type == MemoryType::OpenVINO && output_type == MemoryType::CPU)

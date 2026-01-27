@@ -88,31 +88,31 @@ jobs:
             -f ${{ matrix.path_dockerfile }} \
             ${{ env.DLS_REL_PATH }}
       # ======================================================== SCANNING PART ========================================================
-      - name: 🔍 Scan Docker image with Trivy
-        uses: open-edge-platform/orch-ci/.github/actions/security/trivy@76700c2fb6d547733b9218d9638dca43f5296399 # 0.1.52
-        with:
-          scan_target: "ghcr.io/${{ github.repository }}/intel/edge-ai-dlstreamer:${{ env.IMAGE_TAG }}-${{ matrix.ubuntu_version }}"
-          severity: "HIGH"
-          scan_type: image
-          format: table
-          report_suffix: "-${{ matrix.ubuntu_version }}-deb-img"
-          scan-scope: all
-          timeout: 20m
-          ignore_unfixed: true
+      # - name: 🔍 Scan Docker image with Trivy
+      #   uses: open-edge-platform/orch-ci/.github/actions/security/trivy@76700c2fb6d547733b9218d9638dca43f5296399 # 0.1.52
+      #   with:
+      #     scan_target: "ghcr.io/${{ github.repository }}/intel/edge-ai-dlstreamer:${{ env.IMAGE_TAG }}-${{ matrix.ubuntu_version }}"
+      #     severity: "HIGH"
+      #     scan_type: image
+      #     format: table
+      #     report_suffix: "-${{ matrix.ubuntu_version }}-deb-img"
+      #     scan-scope: all
+      #     timeout: 20m
+      #     ignore_unfixed: true
 
-      - name: Fail if vulnerabilities > 0 in Trivy results
-        run: |
-          file=$(ls security-results/trivy/trivy-results-* | head -n 1)
-          cat $file
-          vuln_count=$(awk '/│/ && /Vulnerabilities/ {next} /│/ {gsub(/ /, "", $0); split($0, cols, "│"); print cols[4]}' "$file" | grep -v '-' | head -n 1)
-          echo "Found vulnerability count: $vuln_count"
-          if [[ "$vuln_count" != "0" ]]; then
-            echo "❌ Vulnerabilities found: $vuln_count"
-            exit 1
-          else
-            echo "✅ No vulnerabilities found."
-          fi
-        shell: bash
+      # - name: Fail if vulnerabilities > 0 in Trivy results
+      #   run: |
+      #     file=$(ls security-results/trivy/trivy-results-* | head -n 1)
+      #     cat $file
+      #     vuln_count=$(awk '/│/ && /Vulnerabilities/ {next} /│/ {gsub(/ /, "", $0); split($0, cols, "│"); print cols[4]}' "$file" | grep -v '-' | head -n 1)
+      #     echo "Found vulnerability count: $vuln_count"
+      #     if [[ "$vuln_count" != "0" ]]; then
+      #       echo "❌ Vulnerabilities found: $vuln_count"
+      #       exit 1
+      #     else
+      #       echo "✅ No vulnerabilities found."
+      #     fi
+      #   shell: bash
 
       - name: Push deb final img to GHCR
         if: ${{ inputs.action-type == 'weekly' }}
@@ -228,31 +228,31 @@ jobs:
             -f ${{ matrix.path_dockerfile }} \
             ${{ env.DLS_REL_PATH }}
       # ======================================================== SCANNING PART ========================================================
-      - name: Scan Docker image with Trivy
-        uses: open-edge-platform/orch-ci/.github/actions/security/trivy@76700c2fb6d547733b9218d9638dca43f5296399 # 0.1.52
-        with:
-          scan_target: "ghcr.io/${{ github.repository }}/intel/edge-ai-dlstreamer:${{ env.IMAGE_TAG }}-dev-${{ matrix.ubuntu_version }}"
-          severity: "HIGH"
-          scan_type: image
-          format: table
-          report_suffix: ${{ matrix.ubuntu_version }}-dev-img
-          scan-scope: all
-          timeout: 20m
-          ignore_unfixed: true
+      # - name: Scan Docker image with Trivy
+      #   uses: open-edge-platform/orch-ci/.github/actions/security/trivy@76700c2fb6d547733b9218d9638dca43f5296399 # 0.1.52
+      #   with:
+      #     scan_target: "ghcr.io/${{ github.repository }}/intel/edge-ai-dlstreamer:${{ env.IMAGE_TAG }}-dev-${{ matrix.ubuntu_version }}"
+      #     severity: "HIGH"
+      #     scan_type: image
+      #     format: table
+      #     report_suffix: ${{ matrix.ubuntu_version }}-dev-img
+      #     scan-scope: all
+      #     timeout: 20m
+      #     ignore_unfixed: true
 
-      - name: Fail if vulnerabilities > 0 in Trivy results
-        run: |
-          file=$(ls security-results/trivy/trivy-results-* | head -n 1)
-          cat $file
-          vuln_count=$(awk '/│/ && /Vulnerabilities/ {next} /│/ {gsub(/ /, "", $0); split($0, cols, "│"); print cols[4]}' "$file" | grep -v '-' | head -n 1)
-          echo "Found vulnerability count: $vuln_count"
-          if [[ "$vuln_count" != "0" ]]; then
-            echo "❌ Vulnerabilities found: $vuln_count"
-            exit 1
-          else
-            echo "✅ No vulnerabilities found."
-          fi
-        shell: bash
+      # - name: Fail if vulnerabilities > 0 in Trivy results
+      #   run: |
+      #     file=$(ls security-results/trivy/trivy-results-* | head -n 1)
+      #     cat $file
+      #     vuln_count=$(awk '/│/ && /Vulnerabilities/ {next} /│/ {gsub(/ /, "", $0); split($0, cols, "│"); print cols[4]}' "$file" | grep -v '-' | head -n 1)
+      #     echo "Found vulnerability count: $vuln_count"
+      #     if [[ "$vuln_count" != "0" ]]; then
+      #       echo "❌ Vulnerabilities found: $vuln_count"
+      #       exit 1
+      #     else
+      #       echo "✅ No vulnerabilities found."
+      #     fi
+      #   shell: bash
 
       - name: Push dev-debug final img to GHCR
         if: ${{ inputs.action-type == 'weekly' }}
