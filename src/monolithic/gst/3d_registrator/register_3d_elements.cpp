@@ -11,7 +11,7 @@
 #include <gst/gst.h>
 
 #include "g3dlidarparse.h"
-#include <dlstreamer/gst/metadata/g3dlidarmeta.h>
+#include "g3dlidarmeta.h"
 extern "C" {
 
 
