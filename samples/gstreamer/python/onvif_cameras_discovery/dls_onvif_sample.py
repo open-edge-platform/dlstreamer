@@ -85,12 +85,12 @@ def prepare_commandline(camera_rtsp_url: str, pipeline_elements: str) -> List[st
         raise ValueError("URL and pipeline elements cannot be empty!")
 
     # Build command as list to avoid shell injection
-    command = ["gst-launch-1.0", "rtspsrc", f"location={camera_rtsp_url}"]
+    prepared_command = ["gst-launch-1.0", "rtspsrc", f"location={camera_rtsp_url}"]
 
     # Safely parse pipeline elements
-    command.extend(shlex.split(pipeline_elements))
+    prepared_command.extend(shlex.split(pipeline_elements))
 
-    return command
+    return prepared_command
 
 
 if __name__ == "__main__":
