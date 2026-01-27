@@ -1,19 +1,26 @@
-################################################################################
-#  Copyright (C) 2026 Intel Corporation
-#
-#  SPDX-License-Identifier: MIT
-################################################################################
+'''
+Utility functions for discovering and managing ONVIF cameras on the network.
 
-from onvif import ONVIFCamera
+This module provides functionality to:
+- Discover ONVIF-compliant cameras using WS-Discovery multicast protocol
+- Parse and extract camera network information from discovery responses
+- Query camera media profiles including video/audio encoder settings and PTZ capabilities
+- Retrieve RTSP streaming URIs for camera profiles
+- Load and manage camera commands from JSON configuration files
+'''
+# ==============================================================================
+# Copyright (C) 2025 Intel Corporation
+#
+# SPDX-License-Identifier: MIT
+# ==============================================================================
 import xml.etree.ElementTree as ET
 from urllib.parse import urlparse
 import socket
 import time
 import re
 import json
-from typing import Optional, Dict, List
+from typing import Optional, List
 from  dls_onvif_data import ONVIFProfile
-
 
 def get_commandline_by_key(file_path: str, key: str, verbose = False) -> Optional[str]:
     """
@@ -35,10 +42,6 @@ def get_commandline_by_key(file_path: str, key: str, verbose = False) -> Optiona
             if verbose:
                 print(f"Found command for key {key}")
             return command
-        else:
-            if verbose:
-                print(f"No command found for key {key}")
-            return None
 
     except FileNotFoundError:
         if verbose:
@@ -48,10 +51,12 @@ def get_commandline_by_key(file_path: str, key: str, verbose = False) -> Optiona
         if verbose:
             print(f"JSON parsing error: {e}")
         return None
-    except Exception as e:
+    except Exception as e: # pylint: disable=broad-exception-caught
         if verbose:
             print(f"Unexpected error: {e}")
         return None
+
+    return None
 
 
 
@@ -72,15 +77,14 @@ def extract_xaddrs(xml_string):
 
         if xaddrs_element is not None:
             return xaddrs_element.text
-        else:
-            return None
 
-    except Exception as e:
+    except Exception as e: # pylint: disable=broad-exception-caught
         print(f"Error parsing XML: {e}")
         return None
+    return None
 
 def parse_xaddrs_url(xaddrs):
-    """Parsuj URL XAddrs na komponenty"""
+    """Parse XAddrs URL into components"""
 
     parsed = urlparse(xaddrs)
 
@@ -94,12 +98,12 @@ def parse_xaddrs_url(xaddrs):
     }
 
 
-def discover_onvif_cameras():
+def discover_onvif_cameras( verbose: bool = False) -> List[dict]: # pylint: disable=too-many-nested-blocks,too-many-locals
     """Find ONVIF cameras in the local network using WS-Discovery."""
 
     # Multicast discovery
-    MCAST_GRP = '239.255.255.250'
-    MCAST_PORT = 3702
+    MCAST_GRP = '239.255.255.250'   # pylint: disable=invalid-name
+    MCAST_PORT = 3702               # pylint: disable=invalid-name
 
     # WS-Discovery Probe message
     probe_message = '''<?xml version="1.0" encoding="UTF-8"?>
@@ -122,7 +126,7 @@ def discover_onvif_cameras():
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     sock.settimeout(5)
 
-    try:
+    try: # pylint: disable=too-many-nested-blocks
         cameras = []
 
         # Send probe
@@ -133,19 +137,22 @@ def discover_onvif_cameras():
         while time.time() - start_time < 5:  # 5 seconds to respond
             try:
                 data, addr = sock.recvfrom(4096)
-                print(f"Response from {addr}" )
-                print(f"Data: {data.decode('utf-8', errors='ignore')}" )
+                if verbose:
+                    print(f"Response from {addr}" )
+                    print(f"Data: {data.decode('utf-8', errors='ignore')}" )
 
                 response = data.decode('utf-8', errors='ignore')
-                extractedXaddr = extract_xaddrs(response)
+                extracted_xaddr = extract_xaddrs(response)
 
-                parsed_url = parse_xaddrs_url(extractedXaddr)
+                parsed_url = parse_xaddrs_url(extracted_xaddr)
 
-                print("=== Parsed XAddrs ===")
+                if verbose:
+                    print("Parsed XAddrs URL:")
                 for key, value in parsed_url.items():
                     print(f"{key}: {value}")
 
-                print("=====================")
+                if verbose:
+                    print("=====================")
                 if 'ProbeMatches' in response and 'XAddrs' in response:
                     # Extract IP address
                     ip_match = re.search(r'http://([0-9.]+)', response)
@@ -155,25 +162,44 @@ def discover_onvif_cameras():
                         "hostname": ip,
                         "port": parsed_url['port']
                         })
-                        camera_dict = {"hostname": ip, "port": parsed_url['port']
-                    }
-                        #cameras.append(json_output)
+                        camera_dict = {"hostname": ip, "port": parsed_url['port']}
                         cameras.append(camera_dict)
-                        print(json_output)
-
+                        if verbose:
+                            print(json_output)
             except socket.timeout:
                 continue
-
         return cameras
-
     finally:
         sock.close()
 
+def camera_profiles(client, verbose = False): # pylint: disable=too-many-statements, too-many-locals, too-many-branches
+    """
+    This function queries an ONVIF camera for its available media profiles and extracts
+    detailed configuration information including video encoder settings, audio configurations,
+    PTZ capabilities, and RTSP streaming URIs.
 
+    Args:
+        client: An ONVIF client instance used to communicate with the camera device.
+        verbose (bool, optional): If True, prints detailed profile information to stdout.
+            Defaults to False.
 
-def camera_profiles(client, verbose = False):
-    """Function lists media profiles of the ONVIF device."""
+    Returns:
+        List[ONVIFProfile]: A list of ONVIFProfile objects containing the extracted profile
+            information. Each profile includes:
+            - Basic profile information (name, token, fixed status)
+            - Video source configuration (name, token, source token, bounds)
+            - Video encoder settings (resolution, quality, bitrate, framerate, codec details)
+            - Audio source and encoder configurations (if available)
+            - PTZ configuration (if available)
+            - RTSP stream URI
+
+    Raises:
+        Exception: May raise exceptions related to ONVIF service communication failures,
+            particularly when retrieving stream URIs.
+    """
+
     media_service = client.create_media_service()
+
     profiles = media_service.GetProfiles()
 
     onvif_profiles: List[ONVIFProfile] = []
@@ -190,55 +216,71 @@ def camera_profiles(client, verbose = False):
         # Fixed profile indicator
         if hasattr(profile, 'fixed') and profile.fixed is not None:
             onvif_profile.fixed = profile.fixed
-            if verbose:
-                print(f"    Fixed: {profile.fixed}")
 
         # Video Source Configuration
         if hasattr(profile, 'VideoSourceConfiguration') and profile.VideoSourceConfiguration:
             vsc = profile.VideoSourceConfiguration
-            if verbose:
-                print(f"    Video Source:")
-                print(f"      Name: {vsc.Name}")
-                print(f"      Token: {vsc.token}")
-                print(f"      SourceToken: {vsc.SourceToken}")
+            onvif_profile.vsc_name = vsc.Name
+            onvif_profile.vsc_token = vsc.token
+            onvif_profile.vsc_source_token = vsc.SourceToken
             if hasattr(vsc, 'Bounds') and vsc.Bounds:
-                if verbose:
-                    print(f"      Bounds: {vsc.Bounds.x}x{vsc.Bounds.y} "
-                          f"{vsc.Bounds.width}x{vsc.Bounds.height}")
+                onvif_profile.vsc_bounds = {
+                    'x': vsc.Bounds.x,
+                    'y': vsc.Bounds.y,
+                    'width': vsc.Bounds.width,
+                    'height': vsc.Bounds.height
+                }
 
         # Video Encoder Configuration
         if hasattr(profile, 'VideoEncoderConfiguration') and profile.VideoEncoderConfiguration:
             vec = profile.VideoEncoderConfiguration
+            onvif_profile.vec_name = vec.Name
+            onvif_profile.vec_token = vec.token
+            onvif_profile.vec_encoding = vec.Encoding
             if verbose:
-                print(f"    Video Encoder:")
+                print("    Video Encoder:")
                 print(f"      Name: {vec.Name}")
                 print(f"      Token: {vec.token}")
                 print(f"      Encoding: {vec.Encoding}")
             if hasattr(vec, 'Resolution') and vec.Resolution:
+                onvif_profile.vec_resolution = {
+                    'width': vec.Resolution.Width,
+                    'height': vec.Resolution.Height}
                 if verbose:
                     print(f"      Resolution: {vec.Resolution.Width}x{vec.Resolution.Height}")
             if hasattr(vec, 'Quality'):
+                onvif_profile.vec_quality = vec.Quality
                 if verbose:
                     print(f"      Quality: {vec.Quality}")
             if hasattr(vec, 'RateControl') and vec.RateControl:
+                onvif_profile.vec_framerate_limit = vec.RateControl.FrameRateLimit
+                onvif_profile.vec_bitrate_limit = vec.RateControl.BitrateLimit
                 if verbose:
                     print(f"      FrameRate Limit: {vec.RateControl.FrameRateLimit}")
                     print(f"      Bitrate Limit: {vec.RateControl.BitrateLimit}")
                 if hasattr(vec.RateControl, 'EncodingInterval'):
+                    onvif_profile.vec_encoding_interval = vec.RateControl.EncodingInterval
                     if verbose:
                         print(f"      Encoding Interval: {vec.RateControl.EncodingInterval}")
             if hasattr(vec, 'H264') and vec.H264:
+                onvif_profile.vec_h264_profile = vec.H264.H264Profile
+                onvif_profile.vec_h264_gop_length = vec.H264.GovLength
                 if verbose:
                     print(f"      H264 Profile: {vec.H264.H264Profile}")
                     print(f"      GOP Size: {vec.H264.GovLength}")
             elif hasattr(vec, 'MPEG4') and vec.MPEG4:
-                if verbose: 
+                onvif_profile.vec_mpeg4_profile = vec.MPEG4.Mpeg4Profile
+                onvif_profile.vec_mpeg4_gop_length = vec.MPEG4.Gov
+                if verbose:
                     print(f"      MPEG4 Profile: {vec.MPEG4.Mpeg4Profile}")
                     print(f"      GOP Size: {vec.MPEG4.GovLength}")
-        
+
         # Audio Source Configuration
         if hasattr(profile, 'AudioSourceConfiguration') and profile.AudioSourceConfiguration:
             asc = profile.AudioSourceConfiguration
+            onvif_profile.asc_name = asc.Name
+            onvif_profile.asc_token = asc.token
+            onvif_profile.asc_source_token = asc.SourceToken
             if verbose:
                 print(f"      Name: {asc.Name}")
                 print(f"      Token: {asc.token}")
@@ -247,26 +289,31 @@ def camera_profiles(client, verbose = False):
         # Audio Encoder Configuration
         if hasattr(profile, 'AudioEncoderConfiguration') and profile.AudioEncoderConfiguration:
             aec = profile.AudioEncoderConfiguration
+            onvif_profile.aec_name = aec.Name
+            onvif_profile.aec_token = aec.token
+            onvif_profile.aec_encoding = aec.Encoding
             if verbose:
-                print(f"    Audio Encoder:")
+                print("    Audio Encoder:")
                 print(f"      Name: {aec.Name}")
                 print(f"      Token: {aec.token}")
                 print(f"      Encoding: {aec.Encoding}")
             if hasattr(aec, 'Bitrate'):
+                onvif_profile.aec_bitrate = aec.Bitrate
                 if verbose:
                     print(f"      Bitrate: {aec.Bitrate}")
             if hasattr(aec, 'SampleRate'):
+                onvif_profile.aec_sample_rate = aec.SampleRate
                 if verbose:
                     print(f"      SampleRate: {aec.SampleRate}")
 
         # PTZ Configuration
         if hasattr(profile, 'PTZConfiguration') and profile.PTZConfiguration:
             ptz = profile.PTZConfiguration
-            profile._ptz_name = ptz.Name
-            profile._ptz_token = ptz.token
-            profile._ptz_node_token = ptz.NodeToken
+            onvif_profile.ptz_name = ptz.Name
+            onvif_profile.ptz_token = ptz.token
+            onvif_profile.ptz_node_token = ptz.NodeToken
             if verbose:
-                print(f"    PTZ:")
+                print("    PTZ:")
                 print(f"      Name: {ptz.Name}")
                 print(f"      Token: {ptz.token}")
                 print(f"      NodeToken: {ptz.NodeToken}")
@@ -275,95 +322,32 @@ def camera_profiles(client, verbose = False):
         try:
             stream_setup = {'Stream': 'RTP-Unicast', 'Transport': {'Protocol': 'RTSP'}}
             rtsp_uri = media_service.GetStreamUri({'StreamSetup': stream_setup,
-                                                    'ProfileToken': profile.token})
+                                'ProfileToken': profile.token})
             onvif_profile.rtsp_url = rtsp_uri.Uri
-            if verbose: 
+            if verbose:
                 print(f"        Stream URI: {rtsp_uri.Uri}")
-        except Exception as e:
+        except AttributeError as e:
+            # Profile or media service missing expected attributes
+            if verbose:
+                print(f"    Stream URI: AttributeError - {e}")
+        except KeyError as e:
+            # Missing required keys in stream setup or response
+            if verbose:
+                print(f"    Stream URI: KeyError - {e}")
+        except TimeoutError as e:
+            # Network timeout when contacting camera
+            if verbose:
+                print(f"    Stream URI: TimeoutError - {e}")
+        except ConnectionError as e:
+            # Connection issues with the camera
+            if verbose:
+                print(f"    Stream URI: ConnectionError - {e}")
+        except Exception as e:  # pylint: disable=broad-exception-caught
             if verbose:
                 print(f"    Stream URI: Error - {e}")
-
         if verbose:
             print("  ----------------------- ")
 
         onvif_profiles.append(onvif_profile)
 
     return onvif_profiles
-
-
-
-def camera_capabilities(client, verbose = False):
-    """Function lists capabilities of the ONVIF device."""
-    capabilities = client.devicemgmt.GetCapabilities({'Category': 'All'})
-
-    # Analytics
-    if hasattr(capabilities, 'Analytics') and capabilities.Analytics:
-        if verbose:
-            print(f"  Analytics:")
-            print(f"    XAddr: {capabilities.Analytics.XAddr}")
-            print(f"    RuleSupport: {capabilities.Analytics.RuleSupport}")
-            print(f"    AnalyticsModuleSupport: {capabilities.Analytics.AnalyticsModuleSupport}")
-
-    # Device
-    if hasattr(capabilities, 'Device') and capabilities.Device:
-        if verbose:
-            print(f"  Device:")
-            print(f"    XAddr: {capabilities.Device.XAddr}")
-        if hasattr(capabilities.Device, 'Network'):
-            if verbose:
-                print(f"    Network: {capabilities.Device.Network}")
-        if hasattr(capabilities.Device, 'System'):
-            if verbose:
-                print(f"    System: {capabilities.Device.System}")
-        if hasattr(capabilities.Device, 'IO'):
-            if verbose:
-                print(f"    IO: {capabilities.Device.IO}")
-        if hasattr(capabilities.Device, 'Security'):
-            if verbose:
-                print(f"    Security: {capabilities.Device.Security}")
-
-    # Events
-    if hasattr(capabilities, 'Events') and capabilities.Events:
-        if verbose:
-            print(f"  Events:")
-            print(f"    XAddr: {capabilities.Events.XAddr}")
-        if hasattr(capabilities.Events, 'WSSubscriptionPolicySupport'):
-            if verbose:
-                print(f"    WSSubscriptionPolicySupport: "
-                      f"{capabilities.Events.WSSubscriptionPolicySupport}")
-        if hasattr(capabilities.Events, 'WSPullPointSupport'):
-            if verbose:
-                print(f"    WSPullPointSupport: {capabilities.Events.WSPullPointSupport}")
-        if hasattr(capabilities.Events, 'WSPausableSubscriptionManagerInterfaceSupport'):
-            if verbose:
-                print(f"    WSPausableSubscriptionManagerInterfaceSupport: "
-                      f"{capabilities.Events.WSPausableSubscriptionManagerInterfaceSupport}")
-
-    # Imaging
-    if hasattr(capabilities, 'Imaging') and capabilities.Imaging:
-        if verbose:
-            print(f"  Imaging:")
-            print(f"    XAddr: {capabilities.Imaging.XAddr}")
-
-    # Media
-    if hasattr(capabilities, 'Media') and capabilities.Media:
-        if verbose:
-            print(f"  Media:")
-        print(f"    XAddr: {capabilities.Media.XAddr}")
-        if hasattr(capabilities.Media, 'StreamingCapabilities'):
-            if verbose:
-                print(f"    StreamingCapabilities: {capabilities.Media.StreamingCapabilities}")
-
-    # PTZ
-    if hasattr(capabilities, 'PTZ') and capabilities.PTZ:
-        if verbose:
-            print(f"  PTZ:")
-            print(f"    XAddr: {capabilities.PTZ.XAddr}")
-
-    # Extension
-    if hasattr(capabilities, 'Extension') and capabilities.Extension:
-        if verbose:
-            print(f"  Extension: {capabilities.Extension}")
-
-    if verbose:
-        print("  ----------------------- ")

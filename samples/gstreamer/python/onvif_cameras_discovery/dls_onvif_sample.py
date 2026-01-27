@@ -1,19 +1,20 @@
-################################################################################
-#  Copyright (C) 2026 Intel Corporation
+'''
+This module discovers ONVIF cameras on the network and launches GStreamer DL Streamer
+pipelines for each discovered camera profile. It manages multiple streaming processes
+concurrently and handles their output in separate threads.
+'''
+# ==============================================================================
+# Copyright (C) 2025 Intel Corporation
 #
-#  SPDX-License-Identifier: MIT
-################################################################################
-
+# SPDX-License-Identifier: MIT
+# ==============================================================================
 import argparse
-import dls_onvif_data
-import dls_onvif_discovery_utils as dls_discovery
-import json
-from typing import Optional, Dict, List
 import subprocess
 import threading
-from onvif import ONVIFCamera
+from onvif import ONVIFCamera   # pylint: disable=import-error
+import dls_onvif_discovery_utils as dls_discovery
 
-def run_single_streamer(command: str) -> subprocess.Popen:
+def run_single_streamer(gst_command: str) -> subprocess.Popen:
     """Runs a single DL Streamer in non-blocking mode"""
 
     def read_output(pipe, prefix, camera_id):
@@ -22,15 +23,14 @@ def run_single_streamer(command: str) -> subprocess.Popen:
             for line in iter(pipe.readline, ''):
                 if line:
                     print(f"[{camera_id}] {prefix}: {line.strip()}")
-        except Exception as e:
+        except Exception as e: # pylint: disable=broad-exception-caught
             print(f"[{camera_id}] Error reading {prefix}: {e}")
         finally:
             pipe.close()
 
     try:
-        print(f"Starting DL Streamer with command: {command}")
-        process = subprocess.Popen(
-            command,
+        process = subprocess.Popen( # pylint: disable=consider-using-with
+            gst_command,
             shell=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -43,36 +43,36 @@ def run_single_streamer(command: str) -> subprocess.Popen:
 
         # Start threads to read stdout and stderr
         threading.Thread(
-            target=read_output, 
-            args=(process.stdout, "OUT", camera_id), 
+            target=read_output,
+            args=(process.stdout, "OUT", camera_id),
             daemon=True
         ).start()
 
         threading.Thread(
-            target=read_output, 
-            args=(process.stderr, "ERR", camera_id), 
+            target=read_output,
+            args=(process.stderr, "ERR", camera_id),
             daemon=True
         ).start()
 
         return process
 
-    except Exception as e:
+    except Exception as e: # pylint: disable=broad-exception-caught
         print(f"Error starting DL Streamer: {e}")
         return None
 
 
-def prepare_commandline(rtsp_url: str, pipeline_elements: str) -> str:
+def prepare_commandline(camera_rtsp_url: str, pipeline_elements: str) -> str:
     """Prepare GStreamer command line from RTSP URL and pipeline elements.
     Args:
-        rtsp_url: The RTSP stream URL
+        camera_rtsp_url: The RTSP stream URL
         pipeline_elements: GStreamer pipeline elements as a string
     Returns:
         Complete GStreamer command line string
     """
 
-    if not rtsp_url or not pipeline_elements:
+    if not camera_rtsp_url or not pipeline_elements:
         raise ValueError("URL and pipeline elements cannot be empty!")
-    return f"gst-launch-1.0 rtspsrc location={rtsp_url} {pipeline_elements}"
+    return f"gst-launch-1.0 rtspsrc location={camera_rtsp_url} {pipeline_elements}"
 
 
 if __name__ == "__main__":
@@ -80,24 +80,20 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='ONVIF Camera Discovery')
     parser.add_argument('--verbose', type=bool, default=False,
                         help='If False then no verbose output, if True then verbose output')
+    parser.add_argument('--user', type=str, help='ONVIF camera username')
+    parser.add_argument('--password', type=str, help='ONVIF camera password')
     args = parser.parse_args()
 
-    # Set verbosity level
-    dls_onvif_data.VERBOSE = args.verbose
 
     # List to store all running processes
     running_processes = []
 
-    # Start discovery
+    # Start discovery (send broadcast):
     cameras = dls_discovery.discover_onvif_cameras()
 
     for camera in cameras:
-        camera_obj = ONVIFCamera(camera['hostname'], camera['port'], 'admin', 'admin')
-        dls_discovery.camera_capabilities(camera_obj)
-
-    for camera in cameras:
         # Get ONVIF camera capabilities:
-        camera_obj = ONVIFCamera(camera['hostname'], camera['port'], 'admin', 'admin')
+        camera_obj = ONVIFCamera(camera['hostname'], camera['port'], args.user, args.password)
 
         # Get DL Streamer command line from config.json
         command = dls_discovery.get_commandline_by_key("config.json", camera['hostname'])
@@ -106,7 +102,7 @@ if __name__ == "__main__":
             continue
 
         # Get camera profiles and start DL Streamer for each profile
-        profiles = dls_discovery.camera_profiles(camera_obj, True)
+        profiles = dls_discovery.camera_profiles(camera_obj, args.verbose)
         for i, profile in enumerate(profiles, 1):
             rtsp_url = profile.rtsp_url
             if not rtsp_url:
@@ -115,25 +111,23 @@ if __name__ == "__main__":
 
             commandline_executed = prepare_commandline(rtsp_url, command)
             print(f"Executing command line for {camera['hostname']}: {commandline_executed}")
-            process = run_single_streamer(commandline_executed)
-            if process:
-                running_processes.append(process)
+            running_process = run_single_streamer(commandline_executed)
+            if running_process:
+                running_processes.append(running_process)
 
     # Keep script running and wait for all processes
     if running_processes:
-        print(f"\n{len(running_processes)} DL Streamer process(es) started.")
         print("Press Ctrl+C to stop all processes and exit.\n")
         try:
             # Wait for all processes to complete
-            for process in running_processes:
-                process.wait()
+            for active_process in running_processes:
+                active_process.wait()
         except KeyboardInterrupt:
             print("\n\nStopping all processes...")
-            for process in running_processes:
-                if process.poll() is None:  # If process is still running
-                    process.terminate()
-                    print(f"Terminated process PID: {process.pid}")
+            for process_problem in running_processes:
+                if process_problem.poll() is None:  # If process is still running
+                    process_problem.terminate()
+                    print(f"Terminated process PID: {process_problem.pid}")
             print("All processes stopped.")
     else:
         print("No processes started.")
-
