@@ -167,7 +167,7 @@ jobs:
       - name: Run Optimizer on host
         if: always()
         run: |
-          $DLS_REL_PATH/tests/functional_tests/optimizer_tests/run_optimizer_tests.sh
+          $DLS_REL_PATH/tests/functional_tests/optimizer_tests/scripts/run_optimizer_tests.sh
 
       - name: Upload host test results
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 #4.6.2
