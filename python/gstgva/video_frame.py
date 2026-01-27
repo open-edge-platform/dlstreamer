@@ -318,11 +318,11 @@ class VideoFrame:
         y_stride = meta.stride[0]
         y_offset = meta.offset[0]
 
-        y_plane = numpy.zeros((h, w, bytes_per_pix), dtype=numpy.uint8)
-        for row in range(h):
-            src_start = y_offset + row * y_stride
-            src_end = src_start + w * bytes_per_pix
-            y_plane[row, :, :] = data_flat[src_start:src_end].reshape(w, bytes_per_pix)
+        y_plane = numpy.lib.stride_tricks.as_strided(
+            data_flat[y_offset:],
+            shape=(h, w, bytes_per_pix),
+            strides=(y_stride, bytes_per_pix, 1)
+        ).copy()
 
         planes = [y_plane]
 
@@ -332,13 +332,11 @@ class VideoFrame:
             uv_offset = meta.offset[1]
             uv_h = h // 2
 
-            uv_plane = numpy.zeros((uv_h, w, bytes_per_pix), dtype=numpy.uint8)
-            for row in range(uv_h):
-                src_start = uv_offset + row * uv_stride
-                src_end = src_start + w * bytes_per_pix
-                uv_plane[row, :, :] = data_flat[src_start:src_end].reshape(
-                    w, bytes_per_pix
-                )
+            uv_plane = numpy.lib.stride_tricks.as_strided(
+                data_flat[uv_offset:],
+                shape=(uv_h, w, bytes_per_pix),
+                strides=(uv_stride, bytes_per_pix, 1)
+            ).copy()
             planes.append(uv_plane)
         else:
             # I420 format: separate U and V planes
@@ -350,21 +348,17 @@ class VideoFrame:
             uv_h = h // 4
             uv_w = w
 
-            u_plane = numpy.zeros((uv_h, uv_w, bytes_per_pix), dtype=numpy.uint8)
-            for row in range(uv_h):
-                src_start = u_offset + row * u_stride
-                src_end = src_start + uv_w * bytes_per_pix
-                u_plane[row, :, :] = data_flat[src_start:src_end].reshape(
-                    uv_w, bytes_per_pix
-                )
+            u_plane = numpy.lib.stride_tricks.as_strided(
+                data_flat[u_offset:],
+                shape=(uv_h, uv_w, bytes_per_pix),
+                strides=(u_stride, bytes_per_pix, 1)
+            ).copy()
 
-            v_plane = numpy.zeros((uv_h, uv_w, bytes_per_pix), dtype=numpy.uint8)
-            for row in range(uv_h):
-                src_start = v_offset + row * v_stride
-                src_end = src_start + uv_w * bytes_per_pix
-                v_plane[row, :, :] = data_flat[src_start:src_end].reshape(
-                    uv_w, bytes_per_pix
-                )
+            v_plane = numpy.lib.stride_tricks.as_strided(
+                data_flat[v_offset:],
+                shape=(uv_h, uv_w, bytes_per_pix),
+                strides=(v_stride, bytes_per_pix, 1)
+            ).copy()
 
             planes.append(u_plane)
             planes.append(v_plane)
