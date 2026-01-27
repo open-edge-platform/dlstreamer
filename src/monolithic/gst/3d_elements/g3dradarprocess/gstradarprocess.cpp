@@ -9,11 +9,16 @@
 #include "radar_config.hpp"
 #include <algorithm>
 #include <cstring>
+#ifndef _WIN32
 #include <dlfcn.h>
+#include <sys/time.h>
+#else
+#include <windows.h>
+#endif
 #include <fstream>
 #include <nlohmann/json.hpp>
 #include <numeric>
-#include <sys/time.h>
+#include <chrono>
 
 using json = nlohmann::json;
 
@@ -300,70 +305,141 @@ static gboolean gst_radar_process_start(GstBaseTransform *trans) {
         // Use library name without path to let the system search via LD_LIBRARY_PATH
 #ifdef _WIN32
         const char *libradar_name = "libradar.dll";
+        filter->libradar_handle = LoadLibraryA(libradar_name);
+        if (!filter->libradar_handle) {
+            GST_ERROR_OBJECT(filter, "Failed to load library %s (Error: %lu)", libradar_name, GetLastError());
 #else
         const char *libradar_name = "libradar.so";
-#endif
         filter->libradar_handle = dlopen(libradar_name, RTLD_LAZY);
         if (!filter->libradar_handle) {
             GST_ERROR_OBJECT(filter, "Failed to load library %s: %s", libradar_name, dlerror());
+#endif
             GST_ERROR_OBJECT(filter, "Make sure libradar is installed and library paths are configured:");
+#ifdef _WIN32
+            GST_ERROR_OBJECT(filter, "  1. Run: scripts\\install_radar_dependencies.sh");
+            GST_ERROR_OBJECT(filter, "  2. Or set PATH to include libradar directory");
+#else
             GST_ERROR_OBJECT(filter, "  1. Run: scripts/install_radar_dependencies.sh");
             GST_ERROR_OBJECT(filter, "  2. Or set LD_LIBRARY_PATH to include libradar directory");
+#endif
             return FALSE;
         }
         GST_INFO_OBJECT(filter, "Successfully loaded %s", libradar_name);
 
         // Load function pointers
+#ifdef _WIN32
+        filter->radarGetMemSize_fn =
+            (RadarErrorCode(*)(RadarParam *, ulong *))GetProcAddress((HMODULE)filter->libradar_handle, "radarGetMemSize");
+#else
         filter->radarGetMemSize_fn =
             (RadarErrorCode(*)(RadarParam *, ulong *))dlsym(filter->libradar_handle, "radarGetMemSize");
+#endif
         if (!filter->radarGetMemSize_fn) {
+#ifdef _WIN32
+            GST_ERROR_OBJECT(filter, "Failed to find symbol 'radarGetMemSize' (Error: %lu)", GetLastError());
+#else
             GST_ERROR_OBJECT(filter, "Failed to find symbol 'radarGetMemSize': %s", dlerror());
+#endif
+#ifdef _WIN32
+            FreeLibrary((HMODULE)filter->libradar_handle);
+#else
             dlclose(filter->libradar_handle);
+#endif
             filter->libradar_handle = nullptr;
             return FALSE;
         }
 
+#ifdef _WIN32
+        filter->radarInitHandle_fn = (RadarErrorCode(*)(RadarHandle **, RadarParam *, void *, ulong))GetProcAddress(
+            (HMODULE)filter->libradar_handle, "radarInitHandle");
+#else
         filter->radarInitHandle_fn = (RadarErrorCode(*)(RadarHandle **, RadarParam *, void *, ulong))dlsym(
             filter->libradar_handle, "radarInitHandle");
+#endif
         if (!filter->radarInitHandle_fn) {
+#ifdef _WIN32
+            GST_ERROR_OBJECT(filter, "Failed to find symbol 'radarInitHandle' (Error: %lu)", GetLastError());
+            FreeLibrary((HMODULE)filter->libradar_handle);
+#else
             GST_ERROR_OBJECT(filter, "Failed to find symbol 'radarInitHandle': %s", dlerror());
             dlclose(filter->libradar_handle);
+#endif
             filter->libradar_handle = nullptr;
             return FALSE;
         }
 
+#ifdef _WIN32
+        filter->radarDetection_fn = (RadarErrorCode(*)(RadarHandle *, RadarCube *, RadarPointClouds *))GetProcAddress(
+            (HMODULE)filter->libradar_handle, "radarDetection");
+#else
         filter->radarDetection_fn = (RadarErrorCode(*)(RadarHandle *, RadarCube *, RadarPointClouds *))dlsym(
             filter->libradar_handle, "radarDetection");
+#endif
         if (!filter->radarDetection_fn) {
+#ifdef _WIN32
+            GST_ERROR_OBJECT(filter, "Failed to find symbol 'radarDetection' (Error: %lu)", GetLastError());
+            FreeLibrary((HMODULE)filter->libradar_handle);
+#else
             GST_ERROR_OBJECT(filter, "Failed to find symbol 'radarDetection': %s", dlerror());
             dlclose(filter->libradar_handle);
+#endif
             filter->libradar_handle = nullptr;
             return FALSE;
         }
 
+#ifdef _WIN32
+        filter->radarClustering_fn = (RadarErrorCode(*)(RadarHandle *, RadarPointClouds *, ClusterResult *))GetProcAddress(
+            (HMODULE)filter->libradar_handle, "radarClustering");
+#else
         filter->radarClustering_fn = (RadarErrorCode(*)(RadarHandle *, RadarPointClouds *, ClusterResult *))dlsym(
             filter->libradar_handle, "radarClustering");
+#endif
         if (!filter->radarClustering_fn) {
+#ifdef _WIN32
+            GST_ERROR_OBJECT(filter, "Failed to find symbol 'radarClustering' (Error: %lu)", GetLastError());
+            FreeLibrary((HMODULE)filter->libradar_handle);
+#else
             GST_ERROR_OBJECT(filter, "Failed to find symbol 'radarClustering': %s", dlerror());
             dlclose(filter->libradar_handle);
+#endif
             filter->libradar_handle = nullptr;
             return FALSE;
         }
 
+#ifdef _WIN32
+        filter->radarTracking_fn = (RadarErrorCode(*)(RadarHandle *, ClusterResult *, TrackingResult *))GetProcAddress(
+            (HMODULE)filter->libradar_handle, "radarTracking");
+#else
         filter->radarTracking_fn = (RadarErrorCode(*)(RadarHandle *, ClusterResult *, TrackingResult *))dlsym(
             filter->libradar_handle, "radarTracking");
+#endif
         if (!filter->radarTracking_fn) {
+#ifdef _WIN32
+            GST_ERROR_OBJECT(filter, "Failed to find symbol 'radarTracking' (Error: %lu)", GetLastError());
+            FreeLibrary((HMODULE)filter->libradar_handle);
+#else
             GST_ERROR_OBJECT(filter, "Failed to find symbol 'radarTracking': %s", dlerror());
             dlclose(filter->libradar_handle);
+#endif
             filter->libradar_handle = nullptr;
             return FALSE;
         }
 
+#ifdef _WIN32
+        filter->radarDestroyHandle_fn =
+            (RadarErrorCode(*)(RadarHandle *))GetProcAddress((HMODULE)filter->libradar_handle, "radarDestroyHandle");
+#else
         filter->radarDestroyHandle_fn =
             (RadarErrorCode(*)(RadarHandle *))dlsym(filter->libradar_handle, "radarDestroyHandle");
+#endif
         if (!filter->radarDestroyHandle_fn) {
+#ifdef _WIN32
+            GST_ERROR_OBJECT(filter, "Failed to find symbol 'radarDestroyHandle' (Error: %lu)", GetLastError());
+            FreeLibrary((HMODULE)filter->libradar_handle);
+#else
             GST_ERROR_OBJECT(filter, "Failed to find symbol 'radarDestroyHandle': %s", dlerror());
             dlclose(filter->libradar_handle);
+#endif
             filter->libradar_handle = nullptr;
             return FALSE;
         }
@@ -379,18 +455,30 @@ static gboolean gst_radar_process_start(GstBaseTransform *trans) {
         GST_INFO_OBJECT(filter, "Radar memory size required: %lu bytes", filter->radar_buffer_size);
 
         // Allocate aligned memory buffer
+#ifdef _WIN32
+        filter->radar_buffer = _aligned_malloc(filter->radar_buffer_size, 64);
+        if (!filter->radar_buffer) {
+            GST_ERROR_OBJECT(filter, "Failed to allocate aligned memory buffer");
+            return FALSE;
+        }
+#else
         if (posix_memalign(&filter->radar_buffer, 64, filter->radar_buffer_size) != 0) {
             GST_ERROR_OBJECT(filter, "Failed to allocate aligned memory buffer");
             filter->radar_buffer = nullptr;
             return FALSE;
         }
+#endif
 
         // Initialize radar handle
         ret = filter->radarInitHandle_fn(&filter->radar_handle, &filter->radar_param, filter->radar_buffer,
                                          filter->radar_buffer_size);
         if (ret != R_SUCCESS) {
             GST_ERROR_OBJECT(filter, "Failed to initialize radar handle, error code: %d", ret);
+#ifdef _WIN32
+            _aligned_free(filter->radar_buffer);
+#else
             free(filter->radar_buffer);
+#endif
             filter->radar_buffer = nullptr;
             return FALSE;
         }
@@ -435,14 +523,23 @@ static gboolean gst_radar_process_stop(GstBaseTransform *trans) {
 
     // Close dynamic library
     if (filter->libradar_handle) {
+#ifdef _WIN32
+        FreeLibrary((HMODULE)filter->libradar_handle);
+        GST_INFO_OBJECT(filter, "libradar.dll unloaded");
+#else
         dlclose(filter->libradar_handle);
-        filter->libradar_handle = nullptr;
         GST_INFO_OBJECT(filter, "libradar.so unloaded");
+#endif
+        filter->libradar_handle = nullptr;
     }
 
     // Free radar buffer
     if (filter->radar_buffer) {
+#ifdef _WIN32
+        _aligned_free(filter->radar_buffer);
+#else
         free(filter->radar_buffer);
+#endif
         filter->radar_buffer = nullptr;
     }
     filter->radar_buffer_size = 0;
@@ -562,9 +659,8 @@ static void dc_removal(std::complex<float> *data, size_t count) {
 static GstFlowReturn gst_radar_process_transform_ip(GstBaseTransform *trans, GstBuffer *buffer) {
     GstRadarProcess *filter = GST_RADAR_PROCESS(trans);
 
-    // Start timing for this frame
-    struct timeval start_time, end_time;
-    gettimeofday(&start_time, nullptr);
+    // Start timing for this frame using std::chrono
+    auto start_time = std::chrono::high_resolution_clock::now();
 
     // Frame rate control
     if (filter->frame_duration != GST_CLOCK_TIME_NONE) {
@@ -684,16 +780,16 @@ static GstFlowReturn gst_radar_process_transform_ip(GstBaseTransform *trans, Gst
         GST_WARNING_OBJECT(filter, "Failed to add radar metadata to buffer");
     }
 
-    // Calculate processing time
-    gettimeofday(&end_time, nullptr);
-    gdouble frame_time = (end_time.tv_sec - start_time.tv_sec) + (end_time.tv_usec - start_time.tv_usec) / 1000000.0;
+    // Calculate processing time using std::chrono
+    auto end_time = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> frame_time = end_time - start_time;
 
     // Update statistics
-    filter->total_processing_time += frame_time;
+    filter->total_processing_time += frame_time.count();
     filter->total_frames++;
 
     GST_DEBUG_OBJECT(filter, "Frame #%" G_GUINT64_FORMAT " processed successfully in %.3f ms", filter->frame_id,
-                     frame_time * 1000.0);
+                     frame_time.count() * 1000.0);
 
     filter->frame_id++;
 
