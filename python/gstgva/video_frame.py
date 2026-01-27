@@ -270,7 +270,8 @@ class VideoFrame:
             except TypeError as e:
                 warn(
                     str(e)
-                    + f"\nSize of buffer's data: {mapped_data_size}, and requested size: {requested_size}",
+                    + f"\nSize of buffer's data: {mapped_data_size}, "
+                    + f"and requested size: {requested_size}",
                     stacklevel=2,
                 )
                 raise e
