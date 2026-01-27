@@ -4,7 +4,7 @@ pipelines for each discovered camera profile. It manages multiple streaming proc
 concurrently and handles their output in separate threads.
 '''
 # ==============================================================================
-# Copyright (C) 2025 Intel Corporation
+# Copyright (C) 2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
