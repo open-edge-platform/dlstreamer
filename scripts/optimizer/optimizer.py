@@ -95,7 +95,7 @@ def get_optimized_pipeline(pipeline, search_duration = 300, sample_duration = 10
                 logger.debug("Pipeline failed to start: %s", e)
 
     # Reconstruct the pipeline as a single string and return it.
-    logger.info("Initial pipeline FPS: %.2f", fps)
+    logger.info("Initial pipeline FPS: %.2f", initial_fps)
     return "!".join(best_pipeline), best_fps
 
 ##################################### Pipeline Running ############################################
