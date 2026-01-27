@@ -47,6 +47,7 @@ def get_optimized_pipeline(pipeline, search_duration = 300, sample_duration = 10
     # Measure the performance of the original pipeline
     try:
         fps = sample_pipeline(pipeline, sample_duration)
+        logger.info("Initial pipeline FPS: %.2f", fps)
     except Exception as e:
         logger.error("Pipeline failed to start, unable to measure fps: %s", e)
         raise RuntimeError("Provided pipeline is not valid") from e
@@ -64,6 +65,8 @@ def get_optimized_pipeline(pipeline, search_duration = 300, sample_duration = 10
         if preproc_fps > fps:
             fps = preproc_fps
             pipeline = preproc_pipeline
+
+        logger.info("Pipeline FPS after preprocessing: %.2f", preproc_fps)
     except Exception:
         logger.error("Pipeline pre-processing failed, using original pipeline instead")
 
