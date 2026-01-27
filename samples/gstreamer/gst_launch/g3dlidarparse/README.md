@@ -10,7 +10,37 @@ This sample builds a GStreamer pipeline using the following elements:
 * [g3dlidarparse](../../../../../docs/source/elements/g3dlidarparse.md) for parsing binary LiDAR data and attaching metadata
 * `fakesink` for terminating the pipeline
 
-## Environment Variables
+## Prerequisites
+
+### 1. Verify DL Streamer Installation
+
+Ensure DL Streamer is properly compiled and the `g3dradarprocess` element is available:
+
+```bash
+gst-inspect-1.0 g3dlidarparse
+```
+
+If the element is found, you should see detailed information about the element, its properties, and pad templates.
+
+### 2. Download Radar Data and Configuration
+
+Download the sample lidar binary dataset: 
+
+```bash
+DATA_DIR=velodyne
+echo "Downloading sample LiDAR frames to ${DATA_DIR}..."
+TMP_DIR=$(mktemp -d)
+git clone --depth 1 --filter=blob:none --sparse https://github.com/open-edge-platform/edge-ai-suites.git "${TMP_DIR}/edge-ai-suites"
+pushd "${TMP_DIR}/edge-ai-suites" >/dev/null
+git sparse-checkout set metro-ai-suite/sensor-fusion-for-traffic-management/ai_inference/test/demo/kitti360/velodyne
+popd >/dev/null
+mkdir -p "${DATA_DIR}"
+cp -a "${TMP_DIR}/edge-ai-suites/metro-ai-suite/sensor-fusion-for-traffic-management/ai_inference/test/demo/kitti360/velodyne"/* "${DATA_DIR}/"
+rm -rf "${TMP_DIR}"
+```
+This will create a `velodyne` directory containing lidar binary files.
+
+### Environment Variables
 
 You can enable detailed logging for the LiDAR parser using `GST_DEBUG`:
 
