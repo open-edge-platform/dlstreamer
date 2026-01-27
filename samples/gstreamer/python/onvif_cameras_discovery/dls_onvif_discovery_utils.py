@@ -5,7 +5,7 @@ This module provides functionality to:
 - Discover ONVIF-compliant cameras using WS-Discovery multicast protocol
 - Parse and extract camera network information from discovery responses
 - Query camera media profiles including video/audio encoder settings and PTZ capabilities
-- Retrieve RTSP streaming URIs for camera profiles
+- Retrieve RTSP streaming URLs for camera profiles
 - Load and manage camera commands from JSON configuration files
 '''
 # ==============================================================================
