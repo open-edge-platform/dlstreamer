@@ -2,7 +2,7 @@
 ONVIF camera profile data structures and configuration management.
 """
 # ==============================================================================
-# Copyright (C) 2025 Intel Corporation
+# Copyright (C) 2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
