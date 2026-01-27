@@ -9,9 +9,10 @@ add_library(g3dlidarparse STATIC
 set_compile_flags(g3dlidarparse)
 
 target_include_directories(g3dlidarparse
-    PRIVATE
+    PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}
         ${CMAKE_SOURCE_DIR}/include
+    PRIVATE
         ${GSTREAMER_INCLUDE_DIRS}
 )
 

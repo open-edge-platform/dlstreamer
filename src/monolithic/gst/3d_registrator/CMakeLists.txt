@@ -19,7 +19,6 @@ endif()
 target_include_directories(${TARGET_NAME}
 PUBLIC
     ${DLSTREAMER_BASE_DIR}/include/dlstreamer/gst/metadata
-    ${CMAKE_SOURCE_DIR}/src/monolithic/gst/3d_elements/g3dlidarparse
 )
 
 target_link_libraries(${TARGET_NAME}
