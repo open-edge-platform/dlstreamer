@@ -65,7 +65,6 @@ def get_optimized_pipeline(pipeline, search_duration = 300, sample_duration = 10
         if preproc_fps > fps:
             fps = preproc_fps
             pipeline = preproc_pipeline
-
     except Exception:
         logger.error("Pipeline pre-processing failed, using original pipeline instead")
 
