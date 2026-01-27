@@ -4,7 +4,7 @@ project(g3dlidarparse)
 
 add_library(g3dlidarparse STATIC
     g3dlidarparse.cpp
-    ${CMAKE_SOURCE_DIR}/src/gst/metadata/g3dlidarmeta.cpp
+    ${CMAKE_SOURCE_DIR}/src/gst/metadata/g3d_lidar_meta.cpp
 )
 set_compile_flags(g3dlidarparse)
 

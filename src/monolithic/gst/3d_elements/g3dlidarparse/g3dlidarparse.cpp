@@ -1,4 +1,4 @@
-#include <dlstreamer/gst/metadata/g3dlidarmeta.h>
+#include <dlstreamer/gst/metadata/g3d_lidar_meta.h>
 #include "g3dlidarparse.h"
 #include <string.h>
 #include <vector>

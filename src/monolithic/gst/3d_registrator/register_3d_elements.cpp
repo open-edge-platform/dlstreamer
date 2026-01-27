@@ -11,7 +11,7 @@
 #include <gst/gst.h>
 
 #include "g3dlidarparse.h"
-#include "g3dlidarmeta.h"
+#include "g3d_lidar_meta.h"
 extern "C" {
 
 
