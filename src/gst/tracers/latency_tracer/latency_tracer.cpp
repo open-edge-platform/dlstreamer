@@ -108,7 +108,7 @@ struct BranchStats {
                   pipeline_name.c_str(), source_name.c_str(), sink_name.c_str(), local_count, frame_latency, avg,
                   local_min, local_max, pipeline_latency, fps);
 
-        gst_tracer_record_log(tr_pipeline, pipeline_name.c_str(), source_name.c_str(), sink_name.c_str(), frame_latency, 
+        gst_tracer_record_log(tr_pipeline, pipeline_name.c_str(), source_name.c_str(), sink_name.c_str(), frame_latency,
                               avg, local_min, local_max, pipeline_latency, fps, local_count);
         cal_log_pipeline_interval(ts, frame_latency, interval);
     }
@@ -128,9 +128,9 @@ struct BranchStats {
             GST_TRACE(
                 "[Latency Tracer Interval] Pipeline: %s, Source: %s -> Sink: %s - Interval: %.2f ms, Avg: %.2f ms, "
                 "Min: %.2f ms, Max: %.2f ms",
-                pipeline_name.c_str(), source_name.c_str(), sink_name.c_str(), ms, interval_avg, interval_min, 
+                pipeline_name.c_str(), source_name.c_str(), sink_name.c_str(), ms, interval_avg, interval_min,
                 interval_max);
-            gst_tracer_record_log(tr_pipeline_interval, pipeline_name.c_str(), source_name.c_str(), sink_name.c_str(), 
+            gst_tracer_record_log(tr_pipeline_interval, pipeline_name.c_str(), source_name.c_str(), sink_name.c_str(),
                                   ms, interval_avg, interval_min, interval_max, pipeline_latency, fps);
             reset_interval(ts);
         }
@@ -149,7 +149,7 @@ struct BranchKeyHash {
         std::size_t h1 = std::hash<GstElement *>{}(std::get<0>(k)); // source
         std::size_t h2 = std::hash<GstElement *>{}(std::get<1>(k)); // sink
         std::size_t h3 = std::hash<GstElement *>{}(std::get<2>(k)); // pipeline
-        
+
         // Combine hashes using boost::hash_combine pattern
         // 0x9e3779b9 is the golden ratio conjugate (φ⁻¹ * 2³²) used for hash mixing
         h1 ^= h2 + 0x9e3779b9 + (h1 << 6) + (h1 >> 2);
@@ -536,7 +536,7 @@ static bool is_in_pipeline(LatencyTracer *lt, GstElement *elem) {
         }
         parent = GST_OBJECT_PARENT(parent);
     }
-    
+
     return false; // Not in any pipeline
 }
 
@@ -889,7 +889,7 @@ static void on_element_change_state_post(LatencyTracer *lt, guint64 ts, GstEleme
 static void on_element_new(LatencyTracer *lt, guint64 ts, GstElement *elem) {
     UNUSED(ts); // Not used for pipeline registration
     UNUSED(lt); // No longer tracking single pipeline instance
-    
+
     // Track all pipelines - no single pipeline restriction
     if (GST_IS_PIPELINE(elem)) {
         GST_INFO("Latency tracer will track pipeline: %s", GST_ELEMENT_NAME(elem));
