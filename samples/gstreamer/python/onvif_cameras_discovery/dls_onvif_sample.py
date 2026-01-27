@@ -9,13 +9,22 @@ concurrently and handles their output in separate threads.
 # SPDX-License-Identifier: MIT
 # ==============================================================================
 import argparse
+import shlex
 import subprocess
 import threading
+from typing import List
 from onvif import ONVIFCamera   # pylint: disable=import-error
 import dls_onvif_discovery_utils as dls_discovery
 
-def run_single_streamer(gst_command: str) -> subprocess.Popen:
-    """Runs a single DL Streamer in non-blocking mode"""
+def run_single_streamer(gst_command: List[str]) -> subprocess.Popen:
+    """Runs a single DL Streamer in non-blocking mode
+    
+    Args:
+        gst_command: List of command arguments (avoids shell injection)
+    
+    Returns:
+        subprocess.Popen object or None on failure
+    """
 
     def read_output(pipe, prefix, camera_id):
         """Read output from pipe in a separate thread"""
@@ -31,7 +40,7 @@ def run_single_streamer(gst_command: str) -> subprocess.Popen:
     try:
         process = subprocess.Popen( # pylint: disable=consider-using-with
             gst_command,
-            shell=True,
+            shell=False,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
@@ -61,23 +70,33 @@ def run_single_streamer(gst_command: str) -> subprocess.Popen:
         return None
 
 
-def prepare_commandline(camera_rtsp_url: str, pipeline_elements: str) -> str:
+def prepare_commandline(camera_rtsp_url: str, pipeline_elements: str) -> List[str]:
     """Prepare GStreamer command line from RTSP URL and pipeline elements.
+    
     Args:
         camera_rtsp_url: The RTSP stream URL
         pipeline_elements: GStreamer pipeline elements as a string
+    
     Returns:
-        Complete GStreamer command line string
+        List of command arguments (safer than shell string)
     """
 
     if not camera_rtsp_url or not pipeline_elements:
         raise ValueError("URL and pipeline elements cannot be empty!")
-    return f"gst-launch-1.0 rtspsrc location={camera_rtsp_url} {pipeline_elements}"
+    
+    # Build command as list to avoid shell injection
+    command = ["gst-launch-1.0", "rtspsrc", f"location={camera_rtsp_url}"]
+    
+    # Safely parse pipeline elements
+    command.extend(shlex.split(pipeline_elements))
+    
+    return command
 
 
 if __name__ == "__main__":
 
-    parser = argparse.ArgumentParser(description='ONVIF Camera Discovery')
+    parser = argparse.ArgumentParser(
+        description='ONVIF Camera Discovery and DL Streamer Pipeline Launcher')
     parser.add_argument('--verbose', type=bool, default=False,
                         help='If False then no verbose output, if True then verbose output')
     parser.add_argument('--user', type=str, help='ONVIF camera username')
