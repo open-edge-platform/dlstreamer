@@ -85,7 +85,7 @@ fi
 
 # Validate and set PREPROC_BACKEND based on DEVICE
 if [[ "$PREPROC_BACKEND" == "" ]]; then
-  PREPROC_BACKEND="ie" # Default value for CPU
+  PREPROC_BACKEND="opencv" # Default value for CPU
   if [[ "$DEVICE" == "GPU" ]]; then
     PREPROC_BACKEND="va-surface-sharing" # Default value for GPU
   fi
