@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2018-2025 Intel Corporation
+ * Copyright (C) 2018-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -16,6 +16,7 @@
 #include "test_utils.h"
 
 #include <gst/video/video.h>
+#include <gst/rtp/rtp.h>
 #include <nlohmann/json.hpp>
 
 using json = nlohmann::json;
@@ -36,6 +37,10 @@ struct TestData {
     uint8_t buffer[8];
     bool ignore_detections;
     std::string add_tensor_data;
+    bool is_rtp_buffer;
+    guint16 rtp_seq;
+    guint32 rtp_timestamp;
+    guint32 rtp_ssrc;
 };
 
 #ifdef AUDIO
@@ -145,6 +150,23 @@ void setup_inbuffer(GstBuffer *inbuffer, gpointer user_data) {
     gst_buffer_add_video_meta(inbuffer, GST_VIDEO_FRAME_FLAG_NONE, GST_VIDEO_INFO_FORMAT(&info),
                               GST_VIDEO_INFO_WIDTH(&info), GST_VIDEO_INFO_HEIGHT(&info));
 
+    if (test_data->is_rtp_buffer) {
+        GstBuffer *rtp_buffer = gst_rtp_buffer_new_allocate(0, 0, 0);
+        ck_assert_msg(rtp_buffer != NULL, "Failed to allocate RTP buffer");
+
+        GstRTPBuffer rtp = GST_RTP_BUFFER_INIT;
+        gboolean ret = gst_rtp_buffer_map(rtp_buffer, GST_MAP_WRITE, &rtp);
+        ck_assert_msg(ret == TRUE, "Failed to map RTP buffer for writing");
+
+        gst_rtp_buffer_set_seq(&rtp, test_data->rtp_seq);
+        gst_rtp_buffer_set_timestamp(&rtp, test_data->rtp_timestamp);
+        gst_rtp_buffer_set_ssrc(&rtp, test_data->rtp_ssrc);
+        gst_rtp_buffer_set_payload_type(&rtp, 96);
+
+        gst_rtp_buffer_unmap(&rtp);
+        gst_buffer_append(inbuffer, rtp_buffer);
+    }
+
     if (test_data->ignore_detections)
         return;
     GstStructure *s =
@@ -192,6 +214,19 @@ void check_outbuffer(GstBuffer *outbuffer, gpointer user_data) {
     ck_assert_msg(strcmp(json_message["resolution"].dump().c_str(), "{\"height\":480,\"width\":640}") == 0,
                   "Message does not contain resolution %s", meta->message);
     ck_assert_msg(json_message["timestamp"] == 0, "Message does not contain timestamp %s", meta->message);
+
+    if (test_data->is_rtp_buffer) {
+        ck_assert_msg(json_message.contains("rtp"), "Message does not contain rtp metadata %s", meta->message);
+        ck_assert_msg(json_message["rtp"]["timestamp"] == test_data->rtp_timestamp,
+                      "RTP timestamp in JSON mismatch: expected %u, got %u",
+                      test_data->rtp_timestamp, json_message["rtp"]["timestamp"].get<guint32>());
+        ck_assert_msg(json_message["rtp"]["ssrc"] == test_data->rtp_ssrc,
+                      "RTP SSRC in JSON mismatch: expected %u, got %u",
+                      test_data->rtp_ssrc, json_message["rtp"]["ssrc"].get<guint32>());
+        ck_assert_msg(json_message["rtp"]["sequence"] == test_data->rtp_seq,
+                      "RTP sequence in JSON mismatch: expected %u, got %u",
+                      test_data->rtp_seq, json_message["rtp"]["sequence"].get<guint16>());
+    }
     if (test_data->ignore_detections) {
         ck_assert_msg(str_meta_message.find("objects") == std::string::npos,
                       "message has detection data. message content %s", meta->message);
@@ -242,6 +277,10 @@ GST_START_TEST(test_metaconvert_all) {
     for (int i = 0; i < G_N_ELEMENTS(test_data); i++) {
         for (const auto &fp : supported_fp) {
             test_data[i].add_tensor_data = "all";
+            test_data[i].is_rtp_buffer = true;
+            test_data[i].rtp_seq = 1234;
+            test_data[i].rtp_timestamp = 5678;
+            test_data[i].rtp_ssrc = 9012;
             run_test("gvametaconvert", VIDEO_CAPS_TEMPLATE_STRING, test_data[i].resolution, &srctemplate, &sinktemplate,
                      setup_inbuffer, check_outbuffer, &test_data[i], "add-tensor-data", TRUE, "tags",
                      "{\"tag_key\":\"tag_val\"}", "source", "test_src", NULL);
