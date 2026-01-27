@@ -207,9 +207,6 @@ bool loadJsonFromModelDir(const std::string &model_file, const std::string &file
     return loadJsonFromFile(file_path, json_out);
 }
 
-// Supported HuggingFace architectures
-const std::vector<std::string> kHfSupportedArchitectures = {"ViTForImageClassification"};
-
 // Return matched HuggingFace architecture name from config.json, empty string otherwise
 std::string getHuggingFaceArchitecture(const nlohmann::json &config_json) {
     auto is_supported = [](const std::string &arch_name) {
