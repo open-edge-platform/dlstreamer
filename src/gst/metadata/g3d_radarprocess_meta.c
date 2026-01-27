@@ -8,7 +8,7 @@
 #include <dlstreamer/radar/libradar.h>
 #include <string.h>
 
-GType gst_radar_process_meta_api_get_type(void) {
+DLS_EXPORT GType gst_radar_process_meta_api_get_type(void) {
     static GType type = 0;
     static const gchar *tags[] = {NULL};
 
@@ -88,7 +88,7 @@ static gboolean gst_radar_process_meta_transform(GstBuffer *transbuf, GstMeta *m
     return FALSE;
 }
 
-const GstMetaInfo *gst_radar_process_meta_get_info(void) {
+DLS_EXPORT const GstMetaInfo *gst_radar_process_meta_get_info(void) {
     static const GstMetaInfo *meta_info = NULL;
 
     if (g_once_init_enter(&meta_info)) {
@@ -100,10 +100,10 @@ const GstMetaInfo *gst_radar_process_meta_get_info(void) {
     return meta_info;
 }
 
-GstRadarProcessMeta *gst_buffer_add_radar_process_meta(GstBuffer *buffer, guint64 frame_id,
-                                                       const RadarPointClouds *point_clouds,
-                                                       const ClusterResult *cluster_result,
-                                                       const TrackingResult *tracking_result) {
+DLS_EXPORT GstRadarProcessMeta *gst_buffer_add_radar_process_meta(GstBuffer *buffer, guint64 frame_id,
+                                                                  const RadarPointClouds *point_clouds,
+                                                                  const ClusterResult *cluster_result,
+                                                                  const TrackingResult *tracking_result) {
     GstRadarProcessMeta *meta;
 
     g_return_val_if_fail(GST_IS_BUFFER(buffer), NULL);

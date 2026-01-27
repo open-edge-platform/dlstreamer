@@ -9,6 +9,12 @@
 
 #include <gst/gst.h>
 
+#if _MSC_VER
+#define DLS_EXPORT __declspec(dllexport)
+#else
+#define DLS_EXPORT __attribute__((visibility("default")))
+#endif
+
 G_BEGIN_DECLS
 
 // Forward declarations for libradar types
@@ -61,13 +67,13 @@ struct _GstRadarProcessMeta {
     gfloat *tracker_vy; // sHat[3]
 };
 
-GType gst_radar_process_meta_api_get_type(void);
-const GstMetaInfo *gst_radar_process_meta_get_info(void);
+DLS_EXPORT GType gst_radar_process_meta_api_get_type(void);
+DLS_EXPORT const GstMetaInfo *gst_radar_process_meta_get_info(void);
 
-GstRadarProcessMeta *gst_buffer_add_radar_process_meta(GstBuffer *buffer, guint64 frame_id,
-                                                       const RadarPointClouds *point_clouds,
-                                                       const ClusterResult *cluster_result,
-                                                       const TrackingResult *tracking_result);
+DLS_EXPORT GstRadarProcessMeta *gst_buffer_add_radar_process_meta(GstBuffer *buffer, guint64 frame_id,
+                                                                  const RadarPointClouds *point_clouds,
+                                                                  const ClusterResult *cluster_result,
+                                                                  const TrackingResult *tracking_result);
 
 G_END_DECLS
 
