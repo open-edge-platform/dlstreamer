@@ -40,6 +40,9 @@ on:
         type: string
         default: "main"
 permissions: {}
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   # ------------------------------------------------------------- SCANs -------------------------------------------------------------
@@ -378,6 +381,12 @@ jobs:
           fail-on-findings: true
           paths: .
           report_suffix: dlstreamer
+
+  dls-download-models:
+    permissions:
+      contents: read
+    name: "DLS TEST: models download"
+    uses: ./.github/workflows/dls-download-models-test.yaml
 
   # -------------------------------------------------------- BUILDS & TESTS ---------------------------------------------------------
   dls-build-sources-make-build:

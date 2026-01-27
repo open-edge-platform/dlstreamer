@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2021-2025 Intel Corporation
+ * Copyright (C) 2021-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -16,6 +16,7 @@
 #include "yolo_v10.h"
 #include "yolo_v11.h"
 #include "yolo_v2.h"
+#include "yolo_v26.h"
 #include "yolo_v3.h"
 #include "yolo_v4.h"
 #include "yolo_v5.h"
@@ -78,9 +79,18 @@ BlobToMetaConverter::Ptr BlobToROIConverter::create(BlobToMetaConverter::Initial
     else if (converter_name == YOLOv8SegConverter::getName() || converter_name == YOLOv11SegConverter::getName())
         return BlobToMetaConverter::Ptr(
             new YOLOv8SegConverter(std::move(initializer), confidence_threshold, iou_threshold));
-    else if (converter_name == YOLOv10Converter::getName())
+    else if (converter_name == YOLOv10Converter::getName() || converter_name == YOLOv26Converter::getName())
         return BlobToMetaConverter::Ptr(
             new YOLOv10Converter(std::move(initializer), confidence_threshold, iou_threshold));
+    else if (converter_name == YOLOv26ObbConverter::getName())
+        return BlobToMetaConverter::Ptr(
+            new YOLOv26ObbConverter(std::move(initializer), confidence_threshold, iou_threshold));
+    else if (converter_name == YOLOv26PoseConverter::getName())
+        return BlobToMetaConverter::Ptr(
+            new YOLOv26PoseConverter(std::move(initializer), confidence_threshold, iou_threshold));
+    else if (converter_name == YOLOv26SegConverter::getName())
+        return BlobToMetaConverter::Ptr(
+            new YOLOv26SegConverter(std::move(initializer), confidence_threshold, iou_threshold));
     else if (converter_name == MaskRCNNConverter::getName())
         return BlobToMetaConverter::Ptr(
             new MaskRCNNConverter(std::move(initializer), confidence_threshold, iou_threshold));

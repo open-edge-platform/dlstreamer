@@ -37,7 +37,7 @@ env:
 jobs:
   setup-runners:
     name: Set runners to execute update
-    runs-on: [self-hosted, ubuntu]
+    runs-on: ubuntu-latest
     outputs:
       runners: ${{ steps.set-labels.outputs.runners }}
     steps:

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2018-2025 Intel Corporation
+ * Copyright (C) 2018-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -173,8 +173,9 @@ __DECLARE_CONFIG_KEY(VPU_DEVICE_ID);
 __DECLARE_CONFIG_KEY(PRE_PROCESSOR_TYPE);
 __DECLARE_CONFIG_KEY(IMAGE_FORMAT);
 __DECLARE_CONFIG_KEY(MODEL_FORMAT);
-__DECLARE_CONFIG_KEY(RESHAPE);
 __DECLARE_CONFIG_KEY(BATCH_SIZE);
+__DECLARE_CONFIG_KEY(RESHAPE);
+__DECLARE_CONFIG_KEY(RESHAPE_STATIC);
 __DECLARE_CONFIG_KEY(RESHAPE_WIDTH);
 __DECLARE_CONFIG_KEY(RESHAPE_HEIGHT);
 __DECLARE_CONFIG_KEY(image);

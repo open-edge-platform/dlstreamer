@@ -11,7 +11,6 @@ find_package(PkgConfig REQUIRED)
 pkg_check_modules(GSTREAMER gstreamer-1.0>=1.16 REQUIRED)
 pkg_check_modules(GSTVIDEO gstreamer-video-1.0>=1.16 REQUIRED)
 pkg_check_modules(GSTALLOC gstreamer-allocators-1.0 REQUIRED)
-pkg_search_module(VA va libva REQUIRED)
 if(NOT MSVC)
   pkg_check_modules(GSTVA REQUIRED IMPORTED_TARGET gstreamer-va-1.0)
 endif()
@@ -116,14 +115,6 @@ endif()
 
 if(${ENABLE_AUDIO_INFERENCE_ELEMENTS})
         target_link_libraries(${TARGET_NAME} PRIVATE ${GSTAUDIO_LIBRARIES})
-endif()
-
-if(${ENABLE_VAAPI})
-        target_link_libraries(${TARGET_NAME} PRIVATE image_inference_async)
-endif()
-
-if(WIN32)
-        target_link_libraries(${TARGET_NAME} PRIVATE d3d11_wrapper image_inference_async_d3d11)
 endif()
 
 add_subdirectory(gvaattachroi)

@@ -1,14 +1,15 @@
 /*******************************************************************************
- * Copyright (C) 2018-2025 Intel Corporation
+ * Copyright (C) 2018-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
 
-#include "image_inference_async/image_inference_async.h"
 #include "openvino_image_inference.h"
 #include "utils.h"
-#ifdef _MSC_VER
+#ifdef _WIN32
 #include "image_inference_async_d3d11/image_inference_async_d3d11.h"
+#else
+#include "image_inference_async/image_inference_async.h"
 #endif
 
 using namespace InferenceBackend;
@@ -105,13 +106,10 @@ ImageInference::Ptr ImageInference::createImageInferenceInstance(MemoryType inpu
 
     ImageInference::Ptr result_inference;
     if (async_mode) {
-#ifdef ENABLE_VAAPI
-#ifndef _MSC_VER
+#ifndef _WIN32
         // Wrap the inference in an asynchronous handler if async mode is enabled
         result_inference = std::make_shared<ImageInferenceAsync>(config, context, std::move(ov_inference));
-#endif
-#endif
-#ifdef _MSC_VER
+#else
         result_inference = std::make_shared<ImageInferenceAsyncD3D11>(config, context, std::move(ov_inference));
 #endif
     } else {
