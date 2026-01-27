@@ -9,7 +9,7 @@ This module provides functionality to:
 - Load and manage camera commands from JSON configuration files
 '''
 # ==============================================================================
-# Copyright (C) 2025 Intel Corporation
+# Copyright (C) 2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
