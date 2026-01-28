@@ -56,6 +56,10 @@ gboolean gst_analytics_relation_meta_add_keypoint_mtd(GstAnalyticsRelationMeta *
                                                       const GstAnalyticsKeypoint *keypoint,
                                                       GstAnalyticsKeypointMtd *keypoint_mtd);
 
+GST_ANALYTICS_META_API
+gboolean gst_analytics_relation_meta_get_keypoint_mtd(GstAnalyticsRelationMeta *meta, guint an_meta_id,
+                                                      GstAnalyticsKeypointMtd *rlt);
+
 /**
  * GstAnalyticsKeypointSkeletonMtd:
  * @id: Instance identifier.
@@ -97,6 +101,10 @@ gboolean gst_analytics_relation_meta_add_keypoint_skeleton_mtd(GstAnalyticsRelat
                                                                const GstAnalyticsKeypointPair *skeletons,
                                                                GstAnalyticsKeypointSkeletonMtd *keypoint_skeleton_mtd);
 
+GST_ANALYTICS_META_API
+gboolean gst_analytics_relation_meta_get_keypoint_skeleton_mtd(GstAnalyticsRelationMeta *meta, guint an_meta_id,
+                                                               GstAnalyticsKeypointSkeletonMtd *rlt);
+
 /**
  * GstAnalyticsKeypointGroupMtd:
  * @id: Instance identifier.
@@ -114,6 +122,9 @@ GST_ANALYTICS_META_API
 GstAnalyticsMtdType gst_analytics_keypointgroup_mtd_get_mtd_type(void);
 
 GST_ANALYTICS_META_API
+GstAnalyticsMtdType gst_analytics_keypoint_group_mtd_get_mtd_type(void);
+
+GST_ANALYTICS_META_API
 gsize gst_analytics_keypointgroup_mtd_get_count(const GstAnalyticsKeypointGroupMtd *handle);
 
 GST_ANALYTICS_META_API
@@ -125,6 +136,10 @@ gboolean gst_analytics_relation_meta_add_keypointgroup_mtd(GstAnalyticsRelationM
                                                            const gsize keypoint_count,
                                                            const GstAnalyticsKeypointMtd *keypoints,
                                                            GstAnalyticsKeypointGroupMtd *keypoints_mtd);
+
+GST_ANALYTICS_META_API
+gboolean gst_analytics_relation_meta_get_keypointgroup_mtd(GstAnalyticsRelationMeta *meta, guint an_meta_id,
+                                                           GstAnalyticsKeypointGroupMtd *rlt);
 
 GST_ANALYTICS_META_API
 gboolean gst_analytics_relation_meta_set_keypointgroup_relations(GstAnalyticsRelationMeta *instance,
