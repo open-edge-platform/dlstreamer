@@ -267,10 +267,10 @@ jobs:
           test_repo_branch: ${{ inputs.test-repo-branch }}
         run: |
           RESULTS_FILE="${dls_tests_results_path}/DLS_functional_tests_${{ matrix.runner_print_label }}_on_host_${{ matrix.ubuntu_version }}_results.txt"
-          
+
           # Add results to summary with emoji replacements
           sed 's/\[pass\]/:white_check_mark:/g; s/\[\! FAIL \!\]/:x:/g' "$RESULTS_FILE" >> $GITHUB_STEP_SUMMARY
-          
+
           # Check for failures and fail if any
           FAILED_COUNT=$(grep "^Failed:" "$RESULTS_FILE" | awk '{print $2}')
           if [ "$FAILED_COUNT" -gt 0 ]; then

@@ -164,15 +164,15 @@ jobs:
           RESULTS_DIR: test-results
         run: |
           RESULTS_FILE="$PWD/${RESULTS_DIR}/unit_test_summary.txt"
-          
+
           # Add results to summary
           echo "## Test Summary for Unit Tests on TGL" >> $GITHUB_STEP_SUMMARY
           cat "$RESULTS_FILE" >> $GITHUB_STEP_SUMMARY
-          
+
           # Check for failures and fail if any
           CTEST_FAILED=$(grep "CTest:" "$RESULTS_FILE" | grep -o "Failed: [0-9]*" | awk '{print $2}')
           PYTEST_FAILED=$(grep "Pytest:" "$RESULTS_FILE" | grep -o "Failed: [0-9]*" | awk '{print $2}')
-          
+
           TOTAL_FAILED=$((CTEST_FAILED + PYTEST_FAILED))
           if [ "$TOTAL_FAILED" -gt 0 ]; then
             echo "::error::$TOTAL_FAILED test(s) failed (CTest: $CTEST_FAILED, Pytest: $PYTEST_FAILED)"
