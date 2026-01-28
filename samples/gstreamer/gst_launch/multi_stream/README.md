@@ -52,10 +52,10 @@ Please note this example uses exact same AI model for both NPU and GPU, yet one 
 ```sh
 gst-launch-1.0 \
 filesrc location=${INPUT_VIDEO_FILE_1} ! decodebin3 ! vaapipostproc ! video/x-raw(memory:VASurface) ! \
-gvadetect model=${DETECTION_MODEL} device=NPU pre-process-backend=ie nireq=4 model-instance-id=inf0 ! queue ! \
+gvadetect model=${DETECTION_MODEL} device=NPU pre-process-backend=opencv nireq=4 model-instance-id=inf0 ! queue ! \
 gvawatermark ! gvafpscounter ! vaapih264enc ! h264parse ! mp4mux ! filesink location=${OUTPUT_VIDEO_FILE_1} \
 filesrc location=${INPUT_VIDEO_FILE_2} ! decodebin3 ! vaapipostproc ! video/x-raw(memory:VASurface) ! \
-gvadetect model=${DETECTION_MODEL} device=NPU pre-process-backend=ie nireq=4 model-instance-id=inf0 ! queue ! \
+gvadetect model=${DETECTION_MODEL} device=NPU pre-process-backend=opencv nireq=4 model-instance-id=inf0 ! queue ! \
 gvawatermark ! gvafpscounter ! vaapih264enc ! h264parse ! mp4mux ! filesink location=${OUTPUT_VIDEO_FILE_2} \
 filesrc location=${INPUT_VIDEO_FILE} ! decodebin3 ! vaapipostproc ! video/x-raw(memory:VASurface) !
 gvadetect model=${$DETECTION_MODEL_3} device=GPU pre-process-backend=vaapi-surface-sharing nireq=4 model-instance-id=inf1 ! queue ! \
