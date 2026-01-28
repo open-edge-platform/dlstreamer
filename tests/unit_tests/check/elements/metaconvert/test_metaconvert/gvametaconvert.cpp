@@ -261,6 +261,7 @@ GST_START_TEST(test_metaconvert_no_detections) {
     for (int i = 0; i < G_N_ELEMENTS(test_data); i++) {
         for (const auto &fp : supported_fp) {
             test_data[i].ignore_detections = true;
+            test_data[i].is_rtp_buffer = false;
             run_test("gvametaconvert", VIDEO_CAPS_TEMPLATE_STRING, test_data[i].resolution, &srctemplate, &sinktemplate,
                      setup_inbuffer, check_outbuffer, &test_data[i], "tags", "{\"tag_key\":\"tag_val\"}", "source",
                      "test_src", "add-empty-results", true, NULL);
