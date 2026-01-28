@@ -112,8 +112,9 @@ static void gst_gva_watermark_class_init(GstGvaWatermarkClass *klass) {
                             "\t\t\tAvailable options: \n"
                             "\t\t\tshow-labels=true|false - enable/disable display of text labels (default true)\n"
                             "\t\t\ttext-scale=<0.1-2.0> - scale factor for text labels (default 1.0)\n"
+                            "\t\t\tthickness=<int> - thickness of bounding box (default 2)\n"
                             "\t\t\te.g.: displ-cfg=show-labels=off\n"
-                            "\t\t\te.g.: displ-cfg=text-scale=0.5",
+                            "\t\t\te.g.: displ-cfg=text-scale=0.5,thickness=3",
                             nullptr, kDefaultGParamFlags));
 }
 

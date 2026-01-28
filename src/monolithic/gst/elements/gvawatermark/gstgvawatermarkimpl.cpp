@@ -156,7 +156,6 @@ struct Impl {
 
     std::vector<render::Prim> prims;
 
-    const int _thickness = 2;
     const double _radius_multiplier = 0.0025;
     const Color _default_color = indexToColor(1);
     // Position for full-frame text
@@ -171,6 +170,8 @@ struct Impl {
 
     struct DisplCfg {
         bool show_labels = true;
+        bool show_objid_only = false;
+        int thickness = 2;
         double text_scale = 1.0;
     } _displCfg;
 };
@@ -705,8 +706,9 @@ static void gst_gva_watermark_impl_class_init(GstGvaWatermarkImplClass *klass) {
                             "\t\t\tAvailable options: \n"
                             "\t\t\tshow-labels=true|false - enable/disable display of text labels (default true)\n"
                             "\t\t\ttext-scale=<0.1-2.0> - scale factor for text labels (default 1.0)\n"
+                            "\t\t\tthickness=<int> - thickness of bounding box (default 2)\n"
                             "\t\t\te.g.: displ-cfg=show-labels=off\n"
-                            "\t\t\te.g.: displ-cfg=text-scale=0.5",
+                            "\t\t\te.g.: displ-cfg=text-scale=0.5,thickness=3",
                             nullptr, kDefaultGParamFlags));
 }
 
@@ -917,7 +919,7 @@ void Impl::preparePrimsForRoi(GVA::RegionOfInterest &roi, std::vector<render::Pr
     Color color = indexToColor(color_index);
     cv::Rect bbox_rect(rect.x, rect.y, rect.w, rect.h);
     if (!_obb)
-        prims.emplace_back(render::Rect(bbox_rect, color, _thickness, roi.rotation()));
+        prims.emplace_back(render::Rect(bbox_rect, color, _displCfg.thickness, roi.rotation()));
 
     // put text
     if (_displCfg.show_labels)
@@ -971,7 +973,8 @@ void Impl::preparePrimsForTensor(const GVA::Tensor &tensor, GVA::Rect<double> re
                 x2 = safe_convert<int>(rect.x + rect.w * data[0]);
                 y2 = safe_convert<int>(rect.y + rect.h * data[1]);
             }
-            prims.emplace_back(render::Line(cv::Point2i(x, y), cv::Point2i(x2, y2), _default_color, _thickness));
+            prims.emplace_back(
+                render::Line(cv::Point2i(x, y), cv::Point2i(x2, y2), _default_color, _displCfg.thickness));
         }
     }
 
@@ -1001,7 +1004,7 @@ void Impl::preparePrimsForTensor(const GVA::Tensor &tensor, GVA::Rect<double> re
             cv::Point2f vertices2f[4];
             rotated.points(vertices2f);
             for (int i = 0; i < 4; i++)
-                prims.emplace_back(render::Line(vertices2f[i], vertices2f[(i + 1) % 4], color, _thickness));
+                prims.emplace_back(render::Line(vertices2f[i], vertices2f[(i + 1) % 4], color, _displCfg.thickness));
         }
     }
 
@@ -1131,7 +1134,7 @@ void Impl::preparePrimsForKeypointConnections(GstStructure *s, const std::vector
         int x2 = safe_convert<int>(rectangle.x + rectangle.w * x2_real);
         int y2 = safe_convert<int>(rectangle.y + rectangle.h * y2_real);
 
-        prims.emplace_back(render::Line(cv::Point2i(x1, y1), cv::Point2i(x2, y2), _default_color, _thickness));
+        prims.emplace_back(render::Line(cv::Point2i(x1, y1), cv::Point2i(x2, y2), _default_color, _displCfg.thickness));
     }
 
     g_value_array_free(point_connections);
@@ -1159,6 +1162,11 @@ void Impl::parse_displ_config() {
             if (iter->second == "true" || iter->second == "false") {
                 _displCfg.show_labels = (iter->second == "true");
             }
+            cfg.erase(iter);
+        }
+        iter = cfg.find("thickness");
+        if (iter != cfg.end()) {
+            _displCfg.thickness = std::stoi(iter->second);
             cfg.erase(iter);
         }
     } catch (...) {
