@@ -46,6 +46,7 @@ mkdir -p "${DATA_DIR}"
 cp -a "${TMP_DIR}/edge-ai-suites/metro-ai-suite/sensor-fusion-for-traffic-management/ai_inference/test/demo/kitti360/velodyne"/* "${DATA_DIR}/"
 rm -rf "${TMP_DIR}"
 ```
+This will create a `velodyne` directory containing the binary files of the lidar data.
 
 ### Environment Variables
 
