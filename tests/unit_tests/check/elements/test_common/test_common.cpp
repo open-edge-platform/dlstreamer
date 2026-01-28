@@ -80,7 +80,7 @@ static void check_incorrect_plugin_caps(const gchar *name, GstStaticPadTemplate 
 static void check_plugin_caps(const gchar *name, GstCaps *caps, gint size, GstStaticPadTemplate *srctemplate,
                               GstStaticPadTemplate *sinktemplate, SetupInBuffCb setup_inbuf,
                               CheckOutBuffCb check_outbuf, gpointer user_data, const gchar *prop, va_list varargs,
-                              gsize expected_size_increase = 0) {
+                              GetExpectedSizeIncreaseCb get_size_increase_cb = NULL) {
     GstElement *plugin = setup_plugin(name, srctemplate, sinktemplate);
     g_object_set_valist(G_OBJECT(plugin), prop, varargs);
 
@@ -91,7 +91,8 @@ static void check_plugin_caps(const gchar *name, GstCaps *caps, gint size, GstSt
     GstBuffer *inbuffer = gst_buffer_new_and_alloc(size);
     if (setup_inbuf) {
         setup_inbuf(inbuffer, user_data);
-    }
+    } // Call callback after setup_inbuf to get the expected size increase
+    gsize expected_size_increase = (get_size_increase_cb != NULL) ? get_size_increase_cb(user_data) : 0;
     GST_BUFFER_TIMESTAMP(inbuffer) = 0;
     ASSERT_BUFFER_REFCOUNT(inbuffer, "inbuffer", 1);
     ck_assert(gst_pad_push(mysrcpad, inbuffer) == GST_FLOW_OK);
@@ -146,7 +147,7 @@ void run_test(const gchar *elem_name, const gchar *caps_string, Resolution resol
         va_list varargs;
         va_start(varargs, prop);
         check_plugin_caps(elem_name, caps, size, srctemplate, sinktemplate, setup_inbuf, check_outbuf, user_data, prop,
-                          varargs);
+                          varargs, NULL);
         va_end(varargs);
 
         gst_caps_unref(caps);
@@ -177,12 +178,10 @@ void run_test_with_size_increase(const gchar *elem_name, const gchar *caps_strin
 
         gst_video_info_from_caps(&info, caps);
         gint size = GST_VIDEO_INFO_SIZE(&info);
-        gsize expected_size_increase = (get_size_increase_cb != NULL) ? get_size_increase_cb(user_data) : 0;
-
         va_list varargs;
         va_start(varargs, prop);
         check_plugin_caps(elem_name, caps, size, srctemplate, sinktemplate, setup_inbuf, check_outbuf, user_data, prop,
-                          varargs, expected_size_increase);
+                          varargs, get_size_increase_cb);
         va_end(varargs);
 
         gst_caps_unref(caps);
