@@ -120,6 +120,25 @@ gboolean gst_analytics_relation_meta_add_keypoint_mtd(GstAnalyticsRelationMeta *
 }
 
 /**
+ * gst_analytics_relation_meta_get_keypoint_mtd:
+ * @meta: Instance of #GstAnalyticsRelationMeta
+ * @an_meta_id: Id of #GstAnalyticsKeypointMtd instance to retrieve
+ * @rlt: (out caller-allocates)(not nullable): Will be filled with relatable meta
+ *
+ * Fill @rlt if a analytics-meta with id == @an_meta_id exist in @meta instance,
+ * otherwise this method return FALSE and @rlt is invalid.
+ *
+ * Returns: TRUE if successful.
+ *
+ * Since: 1.26
+ */
+gboolean gst_analytics_relation_meta_get_keypoint_mtd(GstAnalyticsRelationMeta *meta, guint an_meta_id,
+                                                      GstAnalyticsKeypointMtd *rlt) {
+    return gst_analytics_relation_meta_get_mtd(meta, an_meta_id, gst_analytics_keypoint_mtd_get_mtd_type(),
+                                               (GstAnalyticsKeypointMtd *)rlt);
+}
+
+/**
  * SECTION:gstanalyticskeypointskeletonmtd
  * @title: GstAnalyticsKeypointSkeletonMtd
  * @short_description: An analytics metadata for keypoint skeleton defintion of #GstAnalyticsRelationMeta
@@ -237,6 +256,25 @@ gboolean gst_analytics_relation_meta_add_keypoint_skeleton_mtd(GstAnalyticsRelat
 }
 
 /**
+ * gst_analytics_relation_meta_get_keypoint_skeleton_mtd:
+ * @meta: Instance of #GstAnalyticsRelationMeta
+ * @an_meta_id: Id of #GstAnalyticsKeypointSkeletonMtd instance to retrieve
+ * @rlt: (out caller-allocates)(not nullable): Will be filled with relatable meta
+ *
+ * Fill @rlt if a analytics-meta with id == @an_meta_id exist in @meta instance,
+ * otherwise this method return FALSE and @rlt is invalid.
+ *
+ * Returns: TRUE if successful.
+ *
+ * Since: 1.26
+ */
+gboolean gst_analytics_relation_meta_get_keypoint_skeleton_mtd(GstAnalyticsRelationMeta *meta, guint an_meta_id,
+                                                               GstAnalyticsKeypointSkeletonMtd *rlt) {
+    return gst_analytics_relation_meta_get_mtd(meta, an_meta_id, gst_analytics_keypoint_skeleton_mtd_get_mtd_type(),
+                                               (GstAnalyticsKeypointSkeletonMtd *)rlt);
+}
+
+/**
  * SECTION:gstanalyticskeypointgroupmtd
  * @title: GstAnalyticsKeypointGroupMtd
  * @short_description: An analytics metadata for an ordered group of keypoints inside a #GstAnalyticsRelationMeta
@@ -265,13 +303,28 @@ static const GstAnalyticsMtdImpl keypoint_group_impl = {"keypoint_group", NULL, 
 /**
  * gst_analytics_keypointgroup_mtd_get_mtd_type:
  *
- * Get an id identifying #GstAnalyticsKeypointGropuMtd type.
+ * Get an id identifying #GstAnalyticsKeypointGroupMtd type.
  *
  * Returns: opaque id of #GstAnalyticsMtd type
  *
  * Since: 1.26
  */
 GstAnalyticsMtdType gst_analytics_keypointgroup_mtd_get_mtd_type(void) {
+    return (GstAnalyticsMtdType)&keypoint_group_impl;
+}
+
+/**
+ * gst_analytics_keypoint_group_mtd_get_mtd_type:
+ *
+ * Get an id identifying #GstAnalyticsKeypointGroupMtd type.
+ * For GIR bindings compatibility. Ideally should rename all
+ * keypointgroup to keypoint_group.
+ *
+ * Returns: opaque id of #GstAnalyticsMtd type
+ *
+ * Since: 1.26
+ */
+GstAnalyticsMtdType gst_analytics_keypoint_group_mtd_get_mtd_type(void) {
     return (GstAnalyticsMtdType)&keypoint_group_impl;
 }
 
@@ -359,6 +412,25 @@ gboolean gst_analytics_relation_meta_add_keypointgroup_mtd(GstAnalyticsRelationM
     }
 
     return TRUE;
+}
+
+/**
+ * gst_analytics_relation_meta_get_keypointgroup_mtd:
+ * @meta: Instance of #GstAnalyticsRelationMeta
+ * @an_meta_id: Id of #GstAnalyticsKeypointGroupMtd instance to retrieve
+ * @rlt: (out caller-allocates)(not nullable): Will be filled with relatable meta
+ *
+ * Fill @rlt if a analytics-meta with id == @an_meta_id exist in @meta instance,
+ * otherwise this method return FALSE and @rlt is invalid.
+ *
+ * Returns: TRUE if successful.
+ *
+ * Since: 1.26
+ */
+gboolean gst_analytics_relation_meta_get_keypointgroup_mtd(GstAnalyticsRelationMeta *meta, guint an_meta_id,
+                                                           GstAnalyticsKeypointGroupMtd *rlt) {
+    return gst_analytics_relation_meta_get_mtd(meta, an_meta_id, gst_analytics_keypointgroup_mtd_get_mtd_type(),
+                                               (GstAnalyticsKeypointGroupMtd *)rlt);
 }
 
 /**
