@@ -119,7 +119,7 @@ if [[ ! -e "${PWD}/public/yolov8_license_plate_detector" ]]; then
     eval "${DLSTREAMER_DOCKER}" + '"/opt/intel/dlstreamer/samples/download_public_models.sh yolov8_license_plate_detector,ch_PP-OCRv4_rec_infer"'
 fi
 
-# Check for Intel hardware
+# Check for Intel and Nvidia hardware
 INTEL_GPU=$(lspci -nn | grep -E 'VGA|3D|Display' | grep -i "Intel")
 NVIDIA_GPU=$(lspci -nn | grep -E 'VGA|3D|Display' | grep -i "NVIDIA")
 INTEL_CPU=$(lscpu | grep -i "Intel")
@@ -132,7 +132,7 @@ Using DL Streamer\n---------------------------------------\n\n" "${HARDWARE}"
 
 print_nvidia_detected() {
     printf -- "----------------------------------------\n NVIDIA GPU detected. \
-Using DL Streamer\n----------------------------------------\n\n"
+Using DeepStream\n----------------------------------------\n\n"
 }
 
 eval_dlstreamer_pipeline() {
