@@ -1,3 +1,9 @@
+/*******************************************************************************
+ * Copyright (C) 2026 Intel Corporation
+ *
+ * SPDX-License-Identifier: MIT
+ ******************************************************************************/
+
 #ifndef G3D_LIDARMETA_H
 #define G3D_LIDARMETA_H
 
