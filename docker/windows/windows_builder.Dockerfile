@@ -1,7 +1,7 @@
 # escape=`
 
 # ==============================================================================
-# Copyright (C) 2025 Intel Corporation
+# Copyright (C) 2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
@@ -80,14 +80,6 @@ RUN `
     && "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\Common7\Tools\VsDevCmd.bat" `
     && echo.set(VCPKG_BUILD_TYPE release)>> %VCPKG_ROOT%\triplets\x64-windows.cmake `
     && vcpkg install --triplet x64-windows
-
-# Install libva
-RUN `
-    curl -SL --output nuget.exe https://dist.nuget.org/win-x86-commandline/latest/nuget.exe `
-    && nuget install Microsoft.Direct3D.VideoAccelerationCompatibilityPack `
-    && setx PKG_CONFIG_PATH "%PKG_CONFIG_PATH%;C:\Microsoft.Direct3D.VideoAccelerationCompatibilityPack.1.0.2\build\native\x64\lib\pkgconfig" `
-    && setx LIBVA_DRIVER_NAME "vaon12" `
-    && setx LIBVA_DRIVERS_PATH "C:\Microsoft.Direct3D.VideoAccelerationCompatibilityPack.1.0.2\build\native\x64\bin"
 
 # Build dlstreamer
 RUN `

@@ -1,12 +1,10 @@
 # ==============================================================================
-# Copyright (C) 2022-2025 Intel Corporation
+# Copyright (C) 2022-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
 
 set(TARGET_NAME "batch_create")
-
-pkg_search_module(VA va libva REQUIRED)
 
 if(WIN32)
     find_package(PkgConfig REQUIRED)
@@ -27,7 +25,6 @@ set_compile_flags(${TARGET_NAME})
 target_include_directories(${TARGET_NAME}
 PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
-    ${VA_INCLUDE_DIRS}
 )
 
 if(WIN32)

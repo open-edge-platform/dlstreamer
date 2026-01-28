@@ -1,5 +1,5 @@
 # ==============================================================================
-# Copyright (C) 2022-2025 Intel Corporation
+# Copyright (C) 2022-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
@@ -10,7 +10,6 @@ find_package(OpenVINO REQUIRED)
 if(WIN32)
     pkg_check_modules(GSTD3D11 gstreamer-d3d11-1.0>=1.16 REQUIRED)
 endif()
-pkg_search_module(VA va libva REQUIRED)
 find_package(OpenCL REQUIRED)
 
 add_library(${TARGET_NAME} OBJECT openvino_inference.cpp)
@@ -31,7 +30,6 @@ endif()
 target_include_directories(${TARGET_NAME}
 PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/../../monolithic/inference_backend/include/inference_backend/
-    ${VA_INCLUDE_DIRS}
 )
 
 if(WIN32)

@@ -227,9 +227,7 @@ if (-Not ${env:PATH_SETUP_DONE}) {
 	setx path "${env:VCPKG_ROOT};${env:VCPKG_ROOT}\downloads\tools\cmake-3.30.1-windows\cmake-3.30.1-windows-i386\bin;${env:VCPKG_ROOT}\downloads\tools\python\python-3.12.7-x64-1"
 	${env:PATH_SETUP_DONE} = 1
 }
-setx PKG_CONFIG_PATH "C:\gstreamer\1.0\msvc_x86_64\lib\pkgconfig;C:\libva\Microsoft.Direct3D.VideoAccelerationCompatibilityPack.1.0.2\build\native\x64\lib\pkgconfig"
-setx LIBVA_DRIVER_NAME "vaon12"
-setx LIBVA_DRIVERS_PATH "C:\libva\Microsoft.Direct3D.VideoAccelerationCompatibilityPack.1.0.2\build\native\x64\bin"
+setx PKG_CONFIG_PATH "C:\gstreamer\1.0\msvc_x86_64\lib\pkgconfig"
 C:\BuildTools\Common7\Tools\Launch-VsDevShell.ps1
 $DLSTREAMER_SRC_LOCATION = $PWD.Path
 Write-Host "############################################ DONE ###########################################"
@@ -257,19 +255,6 @@ if (-Not (Get-Command py -errorAction SilentlyContinue)) {
 	Set-Alias -Name python3 -Value python
 	Set-Alias -Name py -Value python
 	py --version
-}
-
-if (-Not (Get-ChildItem -Path "C:\libva" -Filter "Microsoft.Direct3D.VideoAccelerationCompatibilityPack*" -ErrorAction SilentlyContinue)) {
-	Write-Host "####################################### Installing LIBVA #######################################"
-	if (-Not (Test-Path "C:\\libva")) {
-		mkdir C:\libva
-	}
-	Set-Location -Path "C:\libva"
-	Invoke-WebRequest -OutFile "nuget.exe" -Uri https://dist.nuget.org/win-x86-commandline/latest/nuget.exe
-	Start-Process -Wait -FilePath ".\nuget.exe" -ArgumentList "install", "Microsoft.Direct3D.VideoAccelerationCompatibilityPack" -NoNewWindow
-	Write-Host "############################################ Done ###############################################"
-} else {
-	Write-Host "################################## LIBVA already installed #####################################"
 }
 
 Write-Host "#################################### Preparing build directory #####################################"
