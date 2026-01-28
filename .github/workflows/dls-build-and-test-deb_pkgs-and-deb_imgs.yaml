@@ -276,7 +276,7 @@ jobs:
         with:
           name: DLS_functional_tests_${{ matrix.runner_print_label }}_on_host_${{ matrix.ubuntu_version }}_results
           path: "${{ env.DLS_TESTS_RESULTS_PATH }}"
-      - name: Check and display test results
+      - name: Check and display host test results
         if: always ()
         env:
           dls_tests_results_path: ${{ env.DLS_TESTS_RESULTS_PATH }}
