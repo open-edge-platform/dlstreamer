@@ -15,8 +15,8 @@
 #include "region_of_interest.h"
 #include "test_utils.h"
 
-#include <gst/video/video.h>
 #include <gst/rtp/rtp.h>
+#include <gst/video/video.h>
 #include <nlohmann/json.hpp>
 
 using json = nlohmann::json;
@@ -218,14 +218,14 @@ void check_outbuffer(GstBuffer *outbuffer, gpointer user_data) {
     if (test_data->is_rtp_buffer) {
         ck_assert_msg(json_message.contains("rtp"), "Message does not contain rtp metadata %s", meta->message);
         ck_assert_msg(json_message["rtp"]["timestamp"] == test_data->rtp_timestamp,
-                      "RTP timestamp in JSON mismatch: expected %u, got %u",
-                      test_data->rtp_timestamp, json_message["rtp"]["timestamp"].get<guint32>());
+                      "RTP timestamp in JSON mismatch: expected %u, got %u", test_data->rtp_timestamp,
+                      json_message["rtp"]["timestamp"].get<guint32>());
         ck_assert_msg(json_message["rtp"]["ssrc"] == test_data->rtp_ssrc,
-                      "RTP SSRC in JSON mismatch: expected %u, got %u",
-                      test_data->rtp_ssrc, json_message["rtp"]["ssrc"].get<guint32>());
+                      "RTP SSRC in JSON mismatch: expected %u, got %u", test_data->rtp_ssrc,
+                      json_message["rtp"]["ssrc"].get<guint32>());
         ck_assert_msg(json_message["rtp"]["sequence"] == test_data->rtp_seq,
-                      "RTP sequence in JSON mismatch: expected %u, got %u",
-                      test_data->rtp_seq, json_message["rtp"]["sequence"].get<guint16>());
+                      "RTP sequence in JSON mismatch: expected %u, got %u", test_data->rtp_seq,
+                      json_message["rtp"]["sequence"].get<guint16>());
     }
     if (test_data->ignore_detections) {
         ck_assert_msg(str_meta_message.find("objects") == std::string::npos,
