@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2025 Intel Corporation
+ * Copyright (C) 2025-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -303,15 +303,8 @@ static void gst_gvawatermark3d_init(GstGvaWatermark3D *self) {
     self->K = cv::Mat();
 }
 
-static gboolean plugin_init(GstPlugin *plugin) {
-    return gst_element_register(plugin, "gvawatermark3d", GST_RANK_NONE, GST_TYPE_GVAWATERMARK3D);
-}
-
 static void gst_gvawatermark3d_finalize(GObject *object) {
     GstGvaWatermark3D *self = GST_GVAWATERMARK3D(object);
     g_free(self->intrinsics_file);
     G_OBJECT_CLASS(gst_gvawatermark3d_parent_class)->finalize(object);
 }
-
-GST_PLUGIN_DEFINE(GST_VERSION_MAJOR, GST_VERSION_MINOR, gvawatermark3d, PRODUCT_FULL_NAME " gvawatermark3d element",
-                  plugin_init, PLUGIN_VERSION, PLUGIN_LICENSE, PACKAGE_NAME, GST_PACKAGE_ORIGIN)

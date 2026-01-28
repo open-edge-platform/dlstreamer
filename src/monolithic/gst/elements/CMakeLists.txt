@@ -1,16 +1,19 @@
 # ==============================================================================
-# Copyright (C) 2018-2025 Intel Corporation
+# Copyright (C) 2018-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
 
 set (TARGET_NAME "elements")
 
-find_package(OpenCV REQUIRED core imgproc)
+find_package(OpenCV REQUIRED core imgproc calib3d)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(GSTREAMER gstreamer-1.0>=1.16 REQUIRED)
 pkg_check_modules(GSTVIDEO gstreamer-video-1.0>=1.16 REQUIRED)
 pkg_check_modules(GSTALLOC gstreamer-allocators-1.0 REQUIRED)
+if(NOT MSVC)
+  pkg_check_modules(GSTVA REQUIRED IMPORTED_TARGET gstreamer-va-1.0)
+endif()
 if(${ENABLE_AUDIO_INFERENCE_ELEMENTS})
         pkg_check_modules(GSTAUDIO gstreamer-audio-1.0>=1.16 REQUIRED)
 endif()
@@ -24,7 +27,18 @@ file (GLOB MAIN_SRC
     gvawatermark/renderer/*.cpp
     gvawatermark/renderer/cpu/*.cpp
     gvawatermark/*.c
+    gvawatermark3d/*.cpp
+    gvawatermark3d/*.c
+    gvadeskew/*.cpp
+    gvadeskew/*.c
 )
+
+# gvamotiondetect platform-specific source
+if(MSVC OR WIN32)
+    list(APPEND MAIN_SRC gvamotiondetect/gvamotiondetect_win.cpp)
+else()
+    list(APPEND MAIN_SRC gvamotiondetect/gvamotiondetect.cpp)
+endif()
 
 file (GLOB MAIN_HEADERS
     gvametaconvert/*.h
@@ -32,6 +46,9 @@ file (GLOB MAIN_HEADERS
     gvawatermark/*.h
     gvawatermark/renderer/*.h
     gvawatermark/renderer/cpu/*.h
+    gvawatermark3d/*.h
+    gvadeskew/*.h
+    gvamotiondetect/*.h
 )
 
 if(${ENABLE_AUDIO_INFERENCE_ELEMENTS})
@@ -55,6 +72,9 @@ PUBLIC
     gvawatermark
     gvawatermark/renderer
     gvametaaggregate
+    gvawatermark3d
+    gvadeskew
+    gvamotiondetect
 PRIVATE
     ${GSTREAMER_INCLUDE_DIRS}
     ${GSTVIDEO_INCLUDE_DIRS}
@@ -82,27 +102,25 @@ PRIVATE
     json-hpp
     json-schema-validator
     utils
+    dlstreamer_gst_meta
+    gstvideoanalyticsmeta
 )
+
+if(NOT MSVC)
+    target_link_libraries(${TARGET_NAME} PRIVATE
+        ${GSTVA_LIBRARIES}
+        dlstreamer_vaapi
+    )
+endif()
 
 if(${ENABLE_AUDIO_INFERENCE_ELEMENTS})
         target_link_libraries(${TARGET_NAME} PRIVATE ${GSTAUDIO_LIBRARIES})
-endif()
-
-if(${ENABLE_VAAPI})
-        target_link_libraries(${TARGET_NAME} PRIVATE image_inference_async)
-endif()
-
-if(WIN32)
-        target_link_libraries(${TARGET_NAME} PRIVATE d3d11_wrapper image_inference_async_d3d11)
 endif()
 
 add_subdirectory(gvaattachroi)
 add_subdirectory(gvametapublish)
 add_subdirectory(gvapython)
 add_subdirectory(gvatrack)
-add_subdirectory(gvadeskew)
-add_subdirectory(gvawatermark3d)
-add_subdirectory(gvamotiondetect)
 if(ENABLE_REALSENSE)
     add_subdirectory(gvarealsense)
 endif()

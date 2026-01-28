@@ -1,6 +1,6 @@
 #!/bin/bash
 # ==============================================================================
-# Copyright (C) 2024-2025 Intel Corporation
+# Copyright (C) 2024-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
@@ -43,9 +43,6 @@ handle_error() {
 # Stop and remove all running Docker containers
 echo_color "Stopping all running Docker containers" "blue"
 docker ps -q | xargs -r docker stop || true
-echo_color "Removing all stopped Docker containers" "blue"
-docker ps -a -q | xargs -r docker rm || true
-docker system prune -a -f
 
 # List remaining Docker containers
 echo_color "Listing all remaining Docker containers" "blue"
@@ -53,8 +50,8 @@ docker ps -a
 
 #Remove gstreamer .cache
 echo_color "Checking $HOME/.cache/gstreamer-1.0/..." "blue"
-if [ -f $HOME/.cache/gstreamer-1.0/ ]; then
-    sudo rm -rf $HOME/.cache/gstreamer-1.0/
+if [ -f "$HOME/.cache/gstreamer-1.0/" ]; then
+    sudo rm -rf "$HOME/.cache/gstreamer-1.0/"
     echo_color "Removed $HOME/.cache/gstreamer-1.0/" "blue"
 fi
 
@@ -92,7 +89,7 @@ for file in /usr/share/keyrings/intel-graphics*; do
 done
 
 chmod +x "$PREREQUISITES_SCRIPT_PATH"/DLS_install_prerequisites.sh
-"$PREREQUISITES_SCRIPT_PATH"/DLS_install_prerequisites.sh --reinstall-npu-driver=no
+"$PREREQUISITES_SCRIPT_PATH"/DLS_install_prerequisites.sh --reinstall-npu-driver=yes
 
 # Configure repositories before installation
 echo_color "Starting to configure OpenVINO™ repository access before DL Streamer installation" "blue"
@@ -122,7 +119,7 @@ sudo apt-get update
 echo_color  "Completed: sudo apt update" "magenta"
 
 echo_color "Executing: sudo apt install -y ./intel-dlstreamer*" "blue"
-cd $DEB_PKGS_PATH
+cd "$DEB_PKGS_PATH"
 sudo apt install -y ./intel-dlstreamer*
 echo_color "Completed: sudo apt install -y ./intel-dlstreamer*" "magenta"
 
@@ -136,8 +133,7 @@ unset GST_VA_ALL_DRIVERS
 unset MODEL_PROC_PATH
 unset PYTHONPATH
 unset TERM
-unset GST_VAAPI_DRM_DEVICE
-unset GST_VAAPI_ALL_DRIVERS
+
 
 # Display the values of the environment variables
 echo_color "Displaying the values of the environment variables:" "blue"
@@ -149,8 +145,6 @@ echo "GST_VA_ALL_DRIVERS: ${GST_VA_ALL_DRIVERS}"
 echo "MODEL_PROC_PATH: ${MODEL_PROC_PATH}"
 echo "PYTHONPATH: ${PYTHONPATH}"
 echo "TERM: ${TERM}"
-echo "GST_VAAPI_DRM_DEVICE: ${GST_VAAPI_DRM_DEVICE}"
-echo "GST_VAAPI_ALL_DRIVERS: ${GST_VAAPI_ALL_DRIVERS}"
 
 # set environment variables
 echo_color "Setting the environment variables" "blue"
@@ -173,12 +167,9 @@ echo "GST_VA_ALL_DRIVERS: ${GST_VA_ALL_DRIVERS}"
 echo "MODEL_PROC_PATH: ${MODEL_PROC_PATH}"
 echo "PYTHONPATH: ${PYTHONPATH}"
 echo "TERM: ${TERM}"
-echo "GST_VAAPI_DRM_DEVICE: ${GST_VAAPI_DRM_DEVICE}"
-echo "GST_VAAPI_ALL_DRIVERS: ${GST_VAAPI_ALL_DRIVERS}"
 
 if gst-inspect-1.0 gvadetect &> /dev/null; then
     echo_color " DL Streamer verification successful" "green"
 else
     handle_error " DL Streamer verification failed"
-    exit 1
 fi

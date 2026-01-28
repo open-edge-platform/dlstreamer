@@ -1,6 +1,6 @@
 #!/bin/bash
 # ==============================================================================
-# Copyright (C) 2024-2025 Intel Corporation
+# Copyright (C) 2024-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
@@ -90,8 +90,6 @@ unset GST_VA_ALL_DRIVERS
 unset MODEL_PROC_PATH
 unset PYTHONPATH
 unset TERM
-unset GST_VAAPI_DRM_DEVICE
-unset GST_VAAPI_ALL_DRIVERS
 
 # Display the values of the environment variables
 echo_color "Displaying the values of the environment variables:" "blue"
@@ -103,8 +101,7 @@ echo "GST_VA_ALL_DRIVERS: ${GST_VA_ALL_DRIVERS}"
 echo "MODEL_PROC_PATH: ${MODEL_PROC_PATH}"
 echo "PYTHONPATH: ${PYTHONPATH}"
 echo "TERM: ${TERM}"
-echo "GST_VAAPI_DRM_DEVICE: ${GST_VAAPI_DRM_DEVICE}"
-echo "GST_VAAPI_ALL_DRIVERS: ${GST_VAAPI_ALL_DRIVERS}"
+
 
 # set environment variables
 echo_color "Setting the environment variables" "blue"
@@ -130,8 +127,7 @@ echo "GST_VA_ALL_DRIVERS: ${GST_VA_ALL_DRIVERS}"
 echo "MODEL_PROC_PATH: ${MODEL_PROC_PATH}"
 echo "PYTHONPATH: ${PYTHONPATH}"
 echo "TERM: ${TERM}"
-echo "GST_VAAPI_DRM_DEVICE: ${GST_VAAPI_DRM_DEVICE}"
-echo "GST_VAAPI_ALL_DRIVERS: ${GST_VAAPI_ALL_DRIVERS}"
+
 
 if gst-inspect-1.0 gvadetect &> /dev/null; then
     echo_color " DL Streamer verification successful" "green"

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2018-2025 Intel Corporation
+ * Copyright (C) 2018-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -11,6 +11,7 @@
 #include "gstgvaaudiodetect.h"
 #ifdef ENABLE_GENAI
 #include "gstgvaaudiotranscribe.h"
+#include "gstgvagenai.h"
 #endif
 #include "gstgvaclassify.h"
 #include "gstgvadetect.h"
@@ -20,18 +21,15 @@
 #include "gstgvametaconvert.h"
 #include "gstgvatrack.h"
 #include "gstgvawatermarkimpl.h"
+#include "gvadeskew.h"
+#include "gvamotiondetect.h"
 #include "gvawatermark.h"
+#include "gvawatermark3d.h"
 #include "inference_backend/logger.h"
 #include "logger_functions.h"
 
 #include "gva_json_meta.h"
 #include "gva_tensor_meta.h"
-
-#include "inference_backend/logger.h"
-#include "logger_functions.h"
-
-#include "gvametapublish.hpp"
-#include "gvametapublishfile.hpp"
 
 static gboolean plugin_init(GstPlugin *plugin) {
     set_log_function(GST_logger);
@@ -47,6 +45,8 @@ static gboolean plugin_init(GstPlugin *plugin) {
 #ifdef ENABLE_GENAI
     if (!gst_element_register(plugin, "gvaaudiotranscribe", GST_RANK_NONE, gst_gva_audio_transcribe_get_type()))
         return FALSE;
+    if (!gst_element_register(plugin, "gvagenai", GST_RANK_NONE, GST_TYPE_GVAGENAI))
+        return FALSE;
 #endif
     if (!gst_element_register(plugin, "gvatrack", GST_RANK_NONE, GST_TYPE_GVA_TRACK))
         return FALSE;
@@ -58,12 +58,12 @@ static gboolean plugin_init(GstPlugin *plugin) {
         return FALSE;
     if (!gst_element_register(plugin, "gvametaaggregate", GST_RANK_NONE, GST_TYPE_GVA_META_AGGREGATE))
         return FALSE;
-#if _MSC_VER
-    if (!gst_element_register(plugin, "gvametapublish", GST_RANK_NONE, GST_TYPE_GVA_META_PUBLISH))
+    if (!gst_element_register(plugin, "gvadeskew", GST_RANK_NONE, GST_TYPE_GVADESKEW))
         return FALSE;
-    if (!gst_element_register(plugin, "gvametapublishfile", GST_RANK_NONE, GST_TYPE_GVA_META_PUBLISH_FILE))
+    if (!gst_element_register(plugin, "gvawatermark3d", GST_RANK_NONE, GST_TYPE_GVAWATERMARK3D))
         return FALSE;
-#endif
+    if (!gst_element_register(plugin, "gvamotiondetect", GST_RANK_NONE, GST_TYPE_GVA_MOTION_DETECT))
+        return FALSE;
 
     // register metadata
     gst_gva_json_meta_get_info();

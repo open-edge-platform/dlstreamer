@@ -1,13 +1,11 @@
 # ==============================================================================
-# Copyright (C) 2025 Intel Corporation
+# Copyright (C) 2025-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
 
 if(WIN32)
         set (TARGET_NAME "image_inference_async_d3d11")
-
-        find_package(PkgConfig REQUIRED)
 
         file (GLOB MAIN_SRC
                 ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp
@@ -30,7 +28,6 @@ if(WIN32)
         PRIVATE
                 logger
                 d3d11_wrapper
-                ${CMAKE_THREAD_LIBS_INIT}
         )
 
         if(${ENABLE_ITT})

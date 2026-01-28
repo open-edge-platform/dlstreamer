@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2025 Intel Corporation
+ * Copyright (C) 2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -447,11 +447,3 @@ static gboolean gst_gvagenai_set_caps(GstBaseTransform *base, GstCaps *incaps, G
 
     return TRUE;
 }
-
-static gboolean plugin_init(GstPlugin *plugin) {
-    gst_element_register(plugin, "gvagenai", GST_RANK_NONE, GST_TYPE_GVAGENAI);
-    return TRUE;
-}
-
-GST_PLUGIN_DEFINE(GST_VERSION_MAJOR, GST_VERSION_MINOR, gvagenai, PRODUCT_FULL_NAME " GenAI elements", plugin_init,
-                  PLUGIN_VERSION, PLUGIN_LICENSE, PACKAGE_NAME, GST_PACKAGE_ORIGIN)

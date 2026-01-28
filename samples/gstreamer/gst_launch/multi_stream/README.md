@@ -1,21 +1,21 @@
-# Video streams from multiple cameeras (gst-launch command line)
+# Video streams from multiple cameras (gst-launch command line)
 
 This sample demonstrates how to construct multi-stream pipeline via `gst-launch-1.0` command-line utility using detection and classification models.
-It combines four pipelines. By default, the first streams run on NPU [Intel® Core™ Ultra processors] and the other two using the GPU device.
+It combines four pipelines. By default, the first two streams run on NPU [Intel® Core™ Ultra processors] and the other two using the GPU device.
 
 ## How It Works
 This sample utilizes GStreamer command-line tool `gst-launch-1.0` which can build and run GStreamer pipeline described in a string format.
 The string contains a list of GStreamer elements separated by exclamation mark `!`, each element may have properties specified in the format `property`=`value`.
 
-> **NOTE**: Before run please download yolov8s model to `$MODELS_PATH/public/yolov8s/FP16/` location.
+> **NOTE**: Before running, download the yolov8s model to `$MODELS_PATH/public/yolov8s/FP16/`.
 Please follow instruction: [Detection with Yolo](./gst_launch/detection_with_yolo/README.md) how to download Yolov8s model.
 
-This sample builds four GStreamer pipeline of the following elements
+This sample builds for GStreamer a pipeline of the following elements:
 * `filesrc`
 * `decodebin3` for video decoding
 * `videoconvert` for converting video frame into different color formats
 * [gvadetect](../../../../docs/source/elements/gvadetect.md) uses for full-frame object detection and marking objects with labels
-* [gvawatermark](../../../../docs/source/elements/gvawatermark.md) for points and theirs connections visualization
+* [gvawatermark](../../../../docs/source/elements/gvawatermark.md) for points and visualization of their connections
 * `autovideosink` for rendering output video into screen
 > **NOTE**: Each of the two pipelines can run on CPU or GPU or NPU.
 > **NOTE**: `sync=false` property in `autovideosink` element disables real-time synchronization so pipeline runs as fast as possible
@@ -57,17 +57,17 @@ gvawatermark ! gvafpscounter ! vaapih264enc ! h264parse ! mp4mux ! filesink loca
 filesrc location=${INPUT_VIDEO_FILE_2} ! decodebin3 ! vaapipostproc ! video/x-raw(memory:VASurface) ! \
 gvadetect model=${DETECTION_MODEL} device=NPU pre-process-backend=ie nireq=4 model-instance-id=inf0 ! queue ! \
 gvawatermark ! gvafpscounter ! vaapih264enc ! h264parse ! mp4mux ! filesink location=${OUTPUT_VIDEO_FILE_2} \
-filesrc location=${INPUT_VIDEO_FILE} ! decodebin3 vaapipostproc ! video/x-raw(memory:VASurface) !
-gvadetect model={$DETECTION_MODEL_3} device=GPU pre-process-backend=vaapi-surface-sharing nireq=4 model-instance-id=inf1 ! queue ! \
+filesrc location=${INPUT_VIDEO_FILE} ! decodebin3 ! vaapipostproc ! video/x-raw(memory:VASurface) !
+gvadetect model=${$DETECTION_MODEL_3} device=GPU pre-process-backend=vaapi-surface-sharing nireq=4 model-instance-id=inf1 ! queue ! \
 gvawatermark ! gvafpscounter ! vaapih264enc ! h264parse ! mp4mux ! filesink location=${OUTPUT_VIDEO_FILE_3} \
 filesrc location=${INPUT_VIDEO_FILE_4} ! decodebin3 vaapipostproc ! video/x-raw(memory:VASurface) !
 gvadetect model=${DETECTION_MODEL} device=GPU pre-process-backend=vaapi-surface-sharing nireq=4 model-instance-id=inf1 ! queue ! \
 gvawatermark ! gvafpscounter ! vaapih264enc ! h264parse ! mp4mux ! filesink location=${OUTPUT_VIDEO_FILE_4}
 ```
 
-The next pipeline illustrates how to construct a plipeline with multiple AI models and a single video stream.
-In addition, this pipeline runs AI inference every 3 frames ('inference-inteval=3') and uses 'gvatrack' to keep analytics results for non-inferenced frames.
-The example also batches inference requests ('batch-size=8') to maximize AI model throughput at the expense of single-reqeust lantency.
+The next pipeline illustrates how to construct a pipeline with multiple AI models and a single video stream.
+In addition, this pipeline runs AI inference every 3 frames ('inference-interval=3') and uses 'gvatrack' to keep analytics results for non-inferenced frames.
+The example also batches inference requests ('batch-size=8') to maximize AI model throughput at the expense of single-request latency.
 
 ```sh
 gst-launch-1.0 \

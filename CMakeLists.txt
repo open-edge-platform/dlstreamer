@@ -1,5 +1,5 @@
 # ==============================================================================
-# Copyright (C) 2018-2025 Intel Corporation
+# Copyright (C) 2018-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
@@ -44,7 +44,7 @@ set(PLUGIN_VERSION ${PRODUCT_VERSION})
 add_definitions(-DPLUGIN_VERSION="${PLUGIN_VERSION}")
 add_definitions(-DPACKAGE="dlstreamer")
 add_definitions(-DPACKAGE_NAME="Deep Learning Streamer elements")
-add_definitions(-DGST_PACKAGE_ORIGIN="https://github.com/open-edge-platform/dlstreamer/tree/master")
+add_definitions(-DGST_PACKAGE_ORIGIN="https://github.com/open-edge-platform/dlstreamer/tree/main")
 add_definitions(-DPLUGIN_LICENSE="MIT/X11")
 add_definitions(-DPRODUCT_FULL_NAME="Deep Learning Streamer")
 if(WIN32)
@@ -76,11 +76,21 @@ if (NOT(BIN_FOLDER))
     endif()
 endif()
 
-set (CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/${BIN_FOLDER}/${CMAKE_BUILD_TYPE}/lib)
-set (CMAKE_PLUGIN_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/${BIN_FOLDER}/${CMAKE_BUILD_TYPE}/lib/gstreamer-1.0)
-set (CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/${BIN_FOLDER}/${CMAKE_BUILD_TYPE}/lib)
-set (CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/${BIN_FOLDER}/${CMAKE_BUILD_TYPE}/bin)
-set (CMAKE_SAMPLES_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/${BIN_FOLDER}/${CMAKE_BUILD_TYPE}/samples)
+# Use generator expression for build type
+set (CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/${BIN_FOLDER}/$<CONFIG>/lib)
+set (CMAKE_PLUGIN_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/${BIN_FOLDER}/$<CONFIG>/lib/gstreamer-1.0)
+set (CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/${BIN_FOLDER}/$<CONFIG>/lib)
+set (CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/${BIN_FOLDER}/$<CONFIG>/bin)
+set (CMAKE_SAMPLES_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/${BIN_FOLDER}/$<CONFIG>/samples)
+
+# For multi-config generators (Visual Studio), set per-configuration output directories to prevent appending an additional config subdirectory.
+# For single-config generators (Makefiles), CMAKE_CONFIGURATION_TYPES is empty, so this loop is skipped.
+foreach(OUTPUTCONFIG ${CMAKE_CONFIGURATION_TYPES})
+    string(TOUPPER ${OUTPUTCONFIG} OUTPUTCONFIG_UPPER)
+    set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_${OUTPUTCONFIG_UPPER} ${CMAKE_BINARY_DIR}/${BIN_FOLDER}/${OUTPUTCONFIG}/lib)
+    set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY_${OUTPUTCONFIG_UPPER} ${CMAKE_BINARY_DIR}/${BIN_FOLDER}/${OUTPUTCONFIG}/lib)
+    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_${OUTPUTCONFIG_UPPER} ${CMAKE_BINARY_DIR}/${BIN_FOLDER}/${OUTPUTCONFIG}/bin)
+endforeach()
 
 set (DLSTREAMER_LIBRARIES_INSTALL_PATH lib)
 set (DLSTREAMER_PLUGINS_INSTALL_PATH ${DLSTREAMER_LIBRARIES_INSTALL_PATH}/gstreamer-1.0)

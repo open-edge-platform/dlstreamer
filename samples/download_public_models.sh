@@ -1,6 +1,6 @@
 #!/bin/bash
 # ==============================================================================
-# Copyright (C) 2021-2025 Intel Corporation
+# Copyright (C) 2021-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
@@ -105,6 +105,8 @@ SUPPORTED_MODELS=(
   "clip-vit-base-patch16"
   "clip-vit-base-patch32"
   "ch_PP-OCRv4_rec_infer" # PaddlePaddle OCRv4 multilingual model
+  "pallet_defect_detection" # Custom model for pallet defect detection
+  "colorcls2" # Color classification model
   "mars-small128" # DeepSORT person re-identification model (uses convert_mars_deepsort.py)
 )
 
@@ -146,7 +148,94 @@ handle_error() {
     exit 1
 }
 
-prepare_models_list() {
+# Function to display help message
+show_help() {
+    cat << EOF
+$(echo_color "Usage:" "cyan")
+  $0 [MODEL] [QUANTIZE]
+
+$(echo_color "Arguments:" "cyan")
+  MODEL      Model name(s) to download. Can be:
+             - Single model: yolov8n
+             - Multiple models (comma-separated): yolov8n,yolov8s,centerface
+             - Special keywords: 'all' (all models) or 'yolo_all' (all YOLO models)
+             - Default: 'all'
+
+  QUANTIZE   Optional. Quantization dataset for INT8 models.
+             Supported values: coco, coco128
+             Leave empty to skip quantization.
+
+$(echo_color "Environment:" "cyan")
+  MODELS_PATH    Required. Path where models will be downloaded.
+                 Example: export MODELS_PATH=/path/to/models
+
+$(echo_color "Examples:" "cyan")
+  # Download all models
+  export MODELS_PATH=~/models
+  $0 all
+
+  # Download specific models
+  export MODELS_PATH=~/models
+  $0 yolov8n,yolov8s
+
+  # Download multiple models with quantization
+  export MODELS_PATH=~/models
+  $0 yolov8n,yolov8s,yolov10n coco128
+
+  # Download with quantization (single model)
+  export MODELS_PATH=~/models
+  $0 yolov8n coco128
+
+  # Download all YOLO models
+  export MODELS_PATH=~/models
+  $0 yolo_all
+
+$(echo_color "Supported Models:" "cyan")
+
+EOF
+
+    echo_color "  YOLO Models:" "yellow"
+    printf "    "
+    local count=0
+    for model in "${SUPPORTED_MODELS[@]}"; do
+        if [[ $model =~ ^yolo ]]; then
+            printf "%-30s" "$model"
+            ((count++))
+            if ((count % 3 == 0)); then
+                printf "\n    "
+            fi
+        fi
+    done
+    echo -e "\n"
+
+    echo_color "  Computer Vision Models:" "yellow"
+    printf "    "
+    count=0
+    for model in "${SUPPORTED_MODELS[@]}"; do
+        if [[ ! $model =~ ^yolo && $model != "all" ]]; then
+            printf "%-30s" "$model"
+            ((count++))
+            if ((count % 3 == 0)); then
+                printf "\n    "
+            fi
+        fi
+    done
+    echo -e "\n"
+
+    echo_color "  Special Keywords:" "yellow"
+    printf "    %-30s - Download all available models\n" "all"
+    printf "    %-30s - Download all YOLO models\n" "yolo_all"
+    echo ""
+}
+
+# Check for help argument
+if [[ "${MODEL}" == "-h" || "${MODEL}" == "--help" ]]; then
+    show_help
+    exit 0
+fi
+
+# Function to validate models
+validate_models() {
     local models_input="$1"
     local models_array
     # Split input by comma into array
@@ -155,21 +244,46 @@ prepare_models_list() {
     for model in "${models_array[@]}"; do
         model=$(echo "$model" | xargs)  # Trim whitespace
 
-        if ! [[ " ${SUPPORTED_MODELS[*]} " =~ " $model " ]]; then
-            echo "Unsupported model: $model" >&2
+        if ! [[ " ${SUPPORTED_MODELS[*]} " =~ $model ]]; then
+            echo_color "Error: Unsupported model '$model'" "red"
+            echo ""
+            show_help
             exit 1
         fi
     done
-    # Return models (space-separated)
-    echo "${models_array[@]}"
+}
+
+prepare_models_list() {
+    local models_input="$1"
+    local models_array
+    # Split input by comma into array
+    IFS=',' read -ra models_array <<< "$models_input"
+    # Return models (newline-separated for mapfile)
+    printf '%s\n' "${models_array[@]}"
+}
+
+# Function to check if array contains element
+array_contains() {
+    local element="$1"
+    shift
+    local array=("$@")
+    for item in "${array[@]}"; do
+        if [[ "$item" == "$element" ]]; then
+            return 0
+        fi
+    done
+    return 1
 }
 
 # Trap errors and call handle_error
 trap 'handle_error "- line $LINENO"' ERR
 
+# Validate models before processing
+validate_models "$MODEL"
+
 # Prepare models list
-MODELS_TO_PROCESS=($(prepare_models_list "$MODEL"))
-echo "Models to process: ${MODELS_TO_PROCESS[@]}"
+mapfile -t MODELS_TO_PROCESS < <(prepare_models_list "$MODEL")
+echo "Models to process: ${MODELS_TO_PROCESS[*]}"
 
 if ! [[ "${!SUPPORTED_QUANTIZATION_DATASETS[*]}" =~ $QUANTIZE ]]; then
   echo "Unsupported quantization dataset: $QUANTIZE" >&2
@@ -202,7 +316,7 @@ VENV_DIR_QUANT="$HOME/.virtualenvs/dlstreamer-quantization"
 # Create a Python virtual environment if it doesn't exist
 if [ ! -d "$VENV_DIR_QUANT" ]; then
   echo "Creating virtual environment in $VENV_DIR_QUANT..."
-  $PYTHON_CREATE_VENV -m venv "$VENV_DIR_QUANT" || handle_error $VENV_DIR_QUANT
+  $PYTHON_CREATE_VENV -m venv "$VENV_DIR_QUANT" || handle_error $LINENO
 fi
 
 # Activate the virtual environment
@@ -213,17 +327,17 @@ source "$VENV_DIR_QUANT/bin/activate"
 pip install --no-cache-dir --upgrade pip
 
 # Install OpenVINO module with compatible numpy version
-pip install --no-cache-dir "numpy<2.5.0,>=1.16.6" || handle_error $LINENO
-pip install --no-cache-dir openvino==2025.3.0 || handle_error $LINENO
+pip install --no-cache-dir numpy==2.2.6 || handle_error $LINENO
+pip install --no-cache-dir openvino==2025.4.0 || handle_error $LINENO
 
-pip install --no-cache-dir onnx || handle_error $LINENO
-pip install --no-cache-dir seaborn || handle_error $LINENO
-# Install compatible NNCF version for OpenVINO 2025.3.0
-pip install --no-cache-dir "nncf>=2.14.0,<3.0.0" || handle_error $LINENO
+pip install --no-cache-dir onnx==1.20.1 || handle_error $LINENO
+pip install --no-cache-dir onnxscript==0.5.7 || handle_error $LINENO
+pip install --no-cache-dir seaborn==0.13.2 || handle_error $LINENO
+pip install --no-cache-dir nncf==2.19.0 || handle_error $LINENO
 
 # Check and upgrade ultralytics if necessary
 if [[ "${MODEL:-}" =~ yolo.* || "${MODEL:-}" == "all" ]]; then
-  pip install --no-cache-dir --upgrade --extra-index-url https://download.pytorch.org/whl/cpu "ultralytics==8.3.153" "numpy<2.5.0" || handle_error $LINENO
+  pip install --no-cache-dir --upgrade --extra-index-url https://download.pytorch.org/whl/cpu "ultralytics==8.3.153" || handle_error $LINENO
 fi
 
 # Set the name of the virtual environment directory
@@ -247,9 +361,9 @@ pip install --no-cache-dir "numpy<2.0.0,>=1.16.6" || handle_error $LINENO
 pip install --no-cache-dir openvino==2024.6.0 || handle_error $LINENO
 pip install --no-cache-dir openvino-dev==2024.6.0 || handle_error $LINENO
 
-pip install --no-cache-dir onnx || handle_error $LINENO
-pip install --no-cache-dir seaborn || handle_error $LINENO
-# Install compatible NNCF version for OpenVINO 2024.6.0
+pip install --no-cache-dir onnx==1.20.1 || handle_error $LINENO
+pip install --no-cache-dir onnxscript==0.5.7 || handle_error $LINENO
+pip install --no-cache-dir seaborn==0.13.2 || handle_error $LINENO
 pip install --no-cache-dir "nncf>=2.12.0,<2.14.0" || handle_error $LINENO
 
 # Check and upgrade ultralytics if necessary
@@ -381,7 +495,8 @@ EOF
 }
 
 # check if model exists in local directory, download as needed
-if [[ " ${MODELS_TO_PROCESS[@]} " =~ " yolox-tiny " ]] || [[ " ${MODELS_TO_PROCESS[@]} " =~ " yolo_all " ]] || [[ " ${MODELS_TO_PROCESS[@]} " =~ " all " ]]; then  MODEL_NAME="yolox-tiny"
+if array_contains "yolox-tiny" "${MODELS_TO_PROCESS[@]}" || array_contains "yolo_all" "${MODELS_TO_PROCESS[@]}" || array_contains "all" "${MODELS_TO_PROCESS[@]}"; then
+  MODEL_NAME="yolox-tiny"
   MODEL_DIR="$MODELS_PATH/public/$MODEL_NAME"
   DST_FILE1="$MODEL_DIR/FP16/$MODEL_NAME.xml"
   DST_FILE2="$MODEL_DIR/FP32/$MODEL_NAME.xml"
@@ -401,7 +516,8 @@ if [[ " ${MODELS_TO_PROCESS[@]} " =~ " yolox-tiny " ]] || [[ " ${MODELS_TO_PROCE
   fi
 fi
 
-if [[ " ${MODELS_TO_PROCESS[@]} " =~ " yolox_s " ]] || [[ " ${MODELS_TO_PROCESS[@]} " =~ " yolo_all " ]] || [[ " ${MODELS_TO_PROCESS[@]} " =~ " all " ]]; then  MODEL_NAME="yolox_s"
+if array_contains "yolox_s" "${MODELS_TO_PROCESS[@]}" || array_contains "yolo_all" "${MODELS_TO_PROCESS[@]}" || array_contains "all" "${MODELS_TO_PROCESS[@]}"; then
+  MODEL_NAME="yolox_s"
   MODEL_DIR="$MODELS_PATH/public/$MODEL_NAME"
   DST_FILE1="$MODEL_DIR/FP16/$MODEL_NAME.xml"
   DST_FILE2="$MODEL_DIR/FP32/$MODEL_NAME.xml"
@@ -490,7 +606,7 @@ EOF
 YOLOv5u_MODELS=("yolov5nu" "yolov5su" "yolov5mu" "yolov5lu" "yolov5xu" "yolov5n6u" "yolov5s6u" "yolov5m6u" "yolov5l6u" "yolov5x6u")
 
 for MODEL_NAME in "${YOLOv5u_MODELS[@]}"; do
-  if [[ " ${MODELS_TO_PROCESS[@]} " =~ " $MODEL_NAME " ]] || [[ " ${MODELS_TO_PROCESS[@]} " =~ " yolo_all " ]] || [[ " ${MODELS_TO_PROCESS[@]} " =~ " all " ]]; then
+  if array_contains "$MODEL_NAME" "${MODELS_TO_PROCESS[@]}" || array_contains "yolo_all" "${MODELS_TO_PROCESS[@]}" || array_contains "all" "${MODELS_TO_PROCESS[@]}"; then
     export_yolov5_model "$MODEL_NAME"
   fi
 done
@@ -501,7 +617,7 @@ YOLOv5_MODELS=("yolov5n" "yolov5s" "yolov5m" "yolov5l" "yolov5x" "yolov5n6" "yol
 # Check if the model is in the list
 MODEL_IN_LISTv5=false
 for MODEL_NAME in "${YOLOv5_MODELS[@]}"; do
-  if [[ " ${MODELS_TO_PROCESS[@]} " =~ " $MODEL_NAME " ]] || [[ " ${MODELS_TO_PROCESS[@]} " =~ " yolo_all " ]] || [[ " ${MODELS_TO_PROCESS[@]} " =~ " all " ]]; then
+  if array_contains "$MODEL_NAME" "${MODELS_TO_PROCESS[@]}" || array_contains "yolo_all" "${MODELS_TO_PROCESS[@]}" || array_contains "all" "${MODELS_TO_PROCESS[@]}"; then
     MODEL_IN_LISTv5=true
     break
   fi
@@ -516,7 +632,7 @@ if [ "$MODEL_IN_LISTv5" = true ] && [ ! -d "$REPO_DIR" ]; then
 fi
 
 for MODEL_NAME in "${YOLOv5_MODELS[@]}"; do
-  if [[ " ${MODELS_TO_PROCESS[@]} " =~ " $MODEL_NAME " ]] || [[ " ${MODELS_TO_PROCESS[@]} " =~ " yolo_all " ]] || [[ " ${MODELS_TO_PROCESS[@]} " =~ " all " ]]; then
+  if array_contains "$MODEL_NAME" "${MODELS_TO_PROCESS[@]}" || array_contains "yolo_all" "${MODELS_TO_PROCESS[@]}" || array_contains "all" "${MODELS_TO_PROCESS[@]}"; then
     MODEL_DIR="$MODELS_PATH/public/$MODEL_NAME"
     if [ ! -d "$MODEL_DIR" ]; then
       echo "Downloading and converting: ${MODEL_DIR}"
@@ -578,7 +694,8 @@ fi
 
 
 # -------------- YOLOv7 FP32 & FP16
-if [[ " ${MODELS_TO_PROCESS[@]} " =~ " yolov7 " ]] || [[ " ${MODELS_TO_PROCESS[@]} " =~ " yolo_all " ]] || [[ " ${MODELS_TO_PROCESS[@]} " =~ " all " ]]; then  MODEL_NAME="yolov7"
+if array_contains "yolov7" "${MODELS_TO_PROCESS[@]}" || array_contains "yolo_all" "${MODELS_TO_PROCESS[@]}" || array_contains "all" "${MODELS_TO_PROCESS[@]}"; then
+  MODEL_NAME="yolov7"
   MODEL_DIR="$MODELS_PATH/public/$MODEL_NAME"
   DST_FILE1="$MODEL_DIR/FP16/$MODEL_NAME.xml"
   DST_FILE2="$MODEL_DIR/FP32/$MODEL_NAME.xml"
@@ -719,7 +836,7 @@ YOLO_MODELS=(
 
 # Iterate over the models and export them
 for MODEL_NAME in "${!YOLO_MODELS[@]}"; do
-  if [[ " ${MODELS_TO_PROCESS[@]} " =~ " $MODEL_NAME " ]] || [[ " ${MODELS_TO_PROCESS[@]} " =~ " yolo_all " ]] || [[ " ${MODELS_TO_PROCESS[@]} " =~ " all " ]]; then
+  if array_contains "$MODEL_NAME" "${MODELS_TO_PROCESS[@]}" || array_contains "yolo_all" "${MODELS_TO_PROCESS[@]}" || array_contains "all" "${MODELS_TO_PROCESS[@]}"; then
     MODEL_NAME_UPPER=$(echo "$MODEL_NAME" | tr '[:lower:]' '[:upper:]')
     if [[ $MODEL_NAME_UPPER == *"OBB"* || $MODEL_NAME_UPPER == *"POSE"* || $MODEL_NAME_UPPER == *"SEG"* ]]; then
       export_yolo_model "$MODEL_NAME" "${YOLO_MODELS[$MODEL_NAME]}" ""
@@ -730,7 +847,7 @@ for MODEL_NAME in "${!YOLO_MODELS[@]}"; do
 done
 
 
-if [[ " ${MODELS_TO_PROCESS[@]} " =~ " yolov8_license_plate_detector " ]] || [[ " ${MODELS_TO_PROCESS[@]} " =~ " all " ]]; then
+if array_contains "yolov8_license_plate_detector" "${MODELS_TO_PROCESS[@]}" || array_contains "all" "${MODELS_TO_PROCESS[@]}"; then
   MODEL_NAME="yolov8_license_plate_detector"
   MODEL_DIR="$MODELS_PATH/public/$MODEL_NAME"
   DST_FILE1="$MODEL_DIR/FP32/$MODEL_NAME.xml"
@@ -760,7 +877,7 @@ os.remove('${MODEL_NAME}.zip')
   fi
 fi
 
-if [[ " ${MODELS_TO_PROCESS[@]} " =~ " centerface " ]] || [[ " ${MODELS_TO_PROCESS[@]} " =~ " all " ]]; then
+if array_contains "centerface" "${MODELS_TO_PROCESS[@]}" || array_contains "all" "${MODELS_TO_PROCESS[@]}"; then
   MODEL_NAME="centerface"
   MODEL_DIR="$MODELS_PATH/public/$MODEL_NAME"
   DST_FILE1="$MODEL_DIR/FP16/$MODEL_NAME.xml"
@@ -807,7 +924,7 @@ EOF
 fi
 
 #enet_b0_8_va_mtl
-if [[ " ${MODELS_TO_PROCESS[@]} " =~ " hsemotion " ]] || [[ " ${MODELS_TO_PROCESS[@]} " =~ " all " ]]; then
+if array_contains "hsemotion" "${MODELS_TO_PROCESS[@]}" || array_contains "all" "${MODELS_TO_PROCESS[@]}"; then
   MODEL_NAME="hsemotion"
   MODEL_DIR="$MODELS_PATH/public/$MODEL_NAME"
   DST_FILE="$MODEL_DIR/FP16/$MODEL_NAME.xml"
@@ -910,7 +1027,7 @@ EOF
   fi
 done
 
-if [[ " ${MODELS_TO_PROCESS[@]} " =~ " deeplabv3 " ]] || [[ " ${MODELS_TO_PROCESS[@]} " =~ " all " ]]; then
+if array_contains "deeplabv3" "${MODELS_TO_PROCESS[@]}" || array_contains "all" "${MODELS_TO_PROCESS[@]}"; then
   MODEL_NAME="deeplabv3"
   MODEL_DIR="$MODELS_PATH/public/$MODEL_NAME"
   DST_FILE1="$MODEL_DIR/FP32/$MODEL_NAME.xml"
@@ -949,7 +1066,7 @@ EOF
 fi
 
 # PaddlePaddle OCRv4 multilingual model
-if [[ " ${MODELS_TO_PROCESS[@]} " =~ " ch_PP-OCRv4_rec_infer " ]] || [[ " ${MODELS_TO_PROCESS[@]} " =~ " all " ]]; then
+if array_contains "ch_PP-OCRv4_rec_infer" "${MODELS_TO_PROCESS[@]}" || array_contains "all" "${MODELS_TO_PROCESS[@]}"; then
   MODEL_NAME="ch_PP-OCRv4_rec_infer"
   MODEL_DIR="$MODELS_PATH/public/$MODEL_NAME"
   DST_FILE1="$MODEL_DIR/FP16/$MODEL_NAME.xml"
@@ -979,8 +1096,58 @@ os.remove('${MODEL_NAME}.zip')
   fi
 fi
 
+# Pallet Defect Detection model
+if array_contains "pallet_defect_detection" "${MODELS_TO_PROCESS[@]}" || array_contains "all" "${MODELS_TO_PROCESS[@]}"; then
+  MODEL_NAME="pallet_defect_detection"
+  MODEL_DIR="$MODELS_PATH/public/$MODEL_NAME"
+  DST_FILE1="$MODEL_DIR/INT8/$MODEL_NAME.xml"
+
+  if [[ ! -f "$DST_FILE1" ]]; then
+    echo "Downloading and converting: ${MODEL_DIR}"
+    mkdir -p "$MODEL_DIR"
+    cd "$MODEL_DIR"
+
+    curl -L -k -o ${MODEL_NAME}.zip 'https://github.com/open-edge-platform/edge-ai-resources/raw/main/models/INT8/pallet_defect_detection.zip'
+    python3 -c "
+import zipfile
+import os
+with zipfile.ZipFile('${MODEL_NAME}.zip', 'r') as zip_ref:
+    zip_ref.extractall('.')
+os.remove('${MODEL_NAME}.zip')
+"
+
+    mkdir -p INT8
+    cp deployment/Detection/model/model.bin INT8/${MODEL_NAME}.bin
+    cp deployment/Detection/model/model.xml INT8/${MODEL_NAME}.xml
+    cp deployment/Detection/model/config.json INT8/config.json
+    chmod -R u+w deployment example_code
+    rm -rf deployment example_code
+    rm -f LICENSE README.md sample_image.jpg
+    cd -
+  else
+    echo_color "\nModel already exists: $MODEL_DIR.\n" "yellow"
+  fi
+fi
+
+# Colorcls2 model
+if array_contains "colorcls2" "${MODELS_TO_PROCESS[@]}" || array_contains "all" "${MODELS_TO_PROCESS[@]}"; then
+  MODEL_NAME="colorcls2"
+  MODEL_DIR="$MODELS_PATH/public/$MODEL_NAME/FP32"
+
+  if [[ ! -f "$MODEL_DIR/$MODEL_NAME.xml" ]]; then
+    echo "Downloading: ${MODEL_DIR}"
+    mkdir -p "$MODEL_DIR"
+    cd "$MODEL_DIR"
+    curl -L -k -o 'colorcls2.bin' 'https://github.com/open-edge-platform/edge-ai-suites/raw/main/metro-ai-suite/metro-vision-ai-app-recipe/smart-parking/src/dlstreamer-pipeline-server/models/colorcls2/colorcls2.bin'
+    curl -L -k -o 'colorcls2.xml' 'https://github.com/open-edge-platform/edge-ai-suites/raw/main/metro-ai-suite/metro-vision-ai-app-recipe/smart-parking/src/dlstreamer-pipeline-server/models/colorcls2/colorcls2.xml'
+    cd -
+  else
+    echo_color "\nModel already exists: $MODEL_DIR/$MODEL_NAME.xml.\n" "yellow"
+  fi
+fi
+
 # Mars-Small128 DeepSORT Person Re-ID Model
-if [[ " ${MODELS_TO_PROCESS[@]} " =~ " mars-small128 " ]] || [[ " ${MODELS_TO_PROCESS[@]} " =~ " all " ]]; then
+if array_contains "mars-small128" "${MODELS_TO_PROCESS[@]}" || array_contains "all" "${MODELS_TO_PROCESS[@]}"; then
   MODEL_NAME="mars-small128"
   MODEL_DIR="$MODELS_PATH/public/$MODEL_NAME"
 

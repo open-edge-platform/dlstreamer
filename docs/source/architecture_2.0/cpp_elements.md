@@ -25,7 +25,7 @@ interfaces:
 ![c++-interfaces-and-base-classes](../_images/c++-interfaces-and-base-classes.svg)
 
 Many examples how to create C++ elements can be found on the github
-repository in the [src folder](https://github.com/open-edge-platform/dlstreamer/tree/master/src)
+repository in the [src folder](https://github.com/open-edge-platform/dlstreamer/tree/main/src)
 and sub-folders.
 
 ## Element description
@@ -85,7 +85,7 @@ auto ffmpeg_source = create_source(ffmpeg_multi_source, {{"inputs", inputs}}, ff
 ```
 
 See direct programming samples
-[ffmpeg_openvino](https://github.com/open-edge-platform/dlstreamer/tree/master/samples/ffmpeg_openvino)
+[ffmpeg_openvino](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/ffmpeg_openvino)
 and
-[ffmpeg_dpcpp](https://github.com/open-edge-platform/dlstreamer/tree/master/samples/ffmpeg_dpcpp)
+[ffmpeg_dpcpp](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/ffmpeg_dpcpp)
 for examples.
