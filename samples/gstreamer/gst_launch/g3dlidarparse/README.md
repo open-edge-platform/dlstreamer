@@ -1,20 +1,28 @@
-# G3D Lidar Parse Sample (Linux)
+# LiDAR Parsing with g3dlidarparse Element
 
-This sample demonstrates how to construct a LiDAR parsing pipeline using `gst-launch-1.0` on Linux.
+This directory contains a script demonstrating how to use the `g3dlidarparse` element for parsing LiDAR point‑cloud frames.
+
+The `g3dlidarparse` element ingests raw LiDAR frames (BIN/PCD) and attaches `LidarMeta` (points, frame_id, timestamps, stream_id) for downstream fusion, analytics, or visualization.
 
 ## How It Works
-`gst-launch-1.0` is a command-line utility included with the GStreamer media framework. It makes the construction and execution of media pipelines easy based on a simple string format. Pipelines are represented as strings containing the names of GStreamer elements separated by exclamation marks `!`. Users can specify properties of an element using `property`=`value` pairs after an element name and before the next exclamation mark.
 
-This sample builds a GStreamer pipeline using the following elements:
-* `multifilesrc` for reading a sequence of LiDAR frame files
-* [g3dlidarparse](../../../../../docs/source/elements/g3dlidarparse.md) for parsing binary LiDAR data and attaching metadata
-* `fakesink` for terminating the pipeline
+The sample uses the GStreamer command‑line tool `gst-launch-1.0` to build a pipeline string. Elements are separated by `!`, and properties are provided as `property=value` pairs.
+
+This sample builds a pipeline of:
+- `multifilesrc` for reading sequential LiDAR binary files
+- `g3dlidarparse` for parsing LiDAR frames and attaching metadata
+- `fakesink` for discarding output (metadata is attached to buffers)
+
+The `g3dlidarparse` element performs:
+1. **Input parsing**: Reads raw LiDAR frames from `application/octet-stream`
+2. **Frame thinning**: Applies `stride` and `frame-rate` controls
+3. **Metadata attachment**: Emits `LidarMeta` with point cloud data
 
 ## Prerequisites
 
 ### 1. Verify DL Streamer Installation
 
-Ensure DL Streamer is properly compiled and the `g3dradarprocess` element is available:
+Ensure DL Streamer is properly compiled and the `g3dlidarparse` element is available:
 
 ```bash
 gst-inspect-1.0 g3dlidarparse
@@ -22,7 +30,7 @@ gst-inspect-1.0 g3dlidarparse
 
 If the element is found, you should see detailed information about the element, its properties, and pad templates.
 
-### 2. Download Radar Data and Configuration
+### 2. Download Lidar Data and Configuration
 
 Download the sample lidar binary dataset: 
 
@@ -38,18 +46,17 @@ mkdir -p "${DATA_DIR}"
 cp -a "${TMP_DIR}/edge-ai-suites/metro-ai-suite/sensor-fusion-for-traffic-management/ai_inference/test/demo/kitti360/velodyne"/* "${DATA_DIR}/"
 rm -rf "${TMP_DIR}"
 ```
-This will create a `velodyne` directory containing lidar binary files.
 
 ### Environment Variables
-
-You can enable detailed logging for the LiDAR parser using `GST_DEBUG`:
 
 ```sh
 export GST_DEBUG=g3dlidarparse:5
 ```
 
-## Running
-```sh
+## Running the Sample
+
+**Usage:**
+```bash
 ./g3dlidarparse.sh [LOCATION] [START_INDEX] [STRIDE] [FRAME_RATE]
 ```
 or
@@ -74,5 +81,6 @@ The sample:
 * outputs LiDAR parser debug logs and metadata summaries
 
 ## See also
-* [Elements overview](../../../../../docs/source/elements/elements.md)
-* [g3dlidarparse element](../../../../../docs/source/elements/g3dlidarparse.md)
+* [Elements overview](../../../../docs/source/elements/elements.md)
+* [g3dlidarparse element](../../../../docs/source/elements/g3dlidarparse.md)
+* [Samples overview](../../README.md)
