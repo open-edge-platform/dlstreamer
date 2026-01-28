@@ -11,7 +11,7 @@ class ONVIFProfile: #pylint: disable=too-many-instance-attributes, too-many-publ
     """
     Represents an ONVIF profile containing camera configuration details.
 
-    This class encapsulates all configuration information for an ONVIF camera profile,
+    This class encapsulates selected configuration information for an ONVIF camera profile,
     including video source settings, video encoder parameters, PTZ (Pan-Tilt-Zoom) 
     configuration, and RTSP streaming URL. It provides a comprehensive interface for
     accessing and managing camera profile attributes through property decorators.

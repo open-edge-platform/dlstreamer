@@ -14,7 +14,7 @@
 
 ## Overview
 
-This sample demonstrates automatic discovery and streaming from ONVIF-compliant IP cameras using Intel® DL Streamer. The application discovers cameras on the local network, retrieves their streaming profiles, and launches concurrent GStreamer pipelines for video processing.
+This sample demonstrates automatic discovery and streaming from ONVIF-compliant IP cameras using DL Streamer. The application discovers cameras on the local network, retrieves their streaming profiles, and launches concurrent DL Streamer pipelines for video processing.
 
 ### Key Capabilities
 - **Automatic Camera Discovery**: Uses WS-Discovery multicast protocol to find ONVIF cameras
@@ -24,7 +24,7 @@ This sample demonstrates automatic discovery and streaming from ONVIF-compliant 
 - **Graceful Shutdown**: Properly terminates all child processes on exit
 
 ### Technology Stack
-- **ONVIF Protocol**: Industry-standard IP camera communication
+- **ONVIF Protocol**: Industry-standard IP camera communication protocol
 - **WS-Discovery**: Multicast network discovery (SOAP over UDP)
 - **GStreamer**: Multimedia framework for video processing
 - **Python 3.x**: Core implementation language
@@ -396,7 +396,7 @@ parsed = parse_xaddrs_url(xaddrs)
 
 ##### `ONVIFProfile`
 
-Represents a complete ONVIF camera profile with all configuration details.
+Contains ONVIF camera profile data with relevant configuration details for this sample.
 
 **Attributes:**
 
@@ -648,7 +648,7 @@ All processes stopped.
 
 ## License
 
-Copyright (C) 2025 Intel Corporation
+Copyright (C) 2026 Intel Corporation
 
 SPDX-License-Identifier: MIT
 
@@ -659,7 +659,7 @@ SPDX-License-Identifier: MIT
 - **ONVIF Specification**: https://www.onvif.org/specs/core/ONVIF-Core-Specification.pdf
 - **WS-Discovery**: http://docs.oasis-open.org/ws-dd/discovery/1.1/wsdd-discovery-1.1-spec.html
 - **GStreamer Documentation**: https://gstreamer.freedesktop.org/documentation/
-- **Intel® DL Streamer**: https://github.com/dlstreamer/dlstreamer
+- **DL Streamer**: https://github.com/dlstreamer/dlstreamer
 - **onvif-zeep Library**: https://github.com/FalkTannhaeuser/python-onvif-zeep
 
 ---
