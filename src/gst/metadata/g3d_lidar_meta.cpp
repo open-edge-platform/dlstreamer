@@ -1,3 +1,9 @@
+/*******************************************************************************
+ * Copyright (C) 2026 Intel Corporation
+ *
+ * SPDX-License-Identifier: MIT
+ ******************************************************************************/
+ 
 #include <dlstreamer/gst/metadata/g3d_lidar_meta.h>
 #include <gst/gst.h>
 #include <vector>

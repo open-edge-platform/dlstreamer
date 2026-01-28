@@ -1,3 +1,9 @@
+# ==============================================================================
+# Copyright (C) 2026 Intel Corporation
+#
+# SPDX-License-Identifier: MIT
+# ==============================================================================
+
 cmake_minimum_required(VERSION 3.5)
 
 project(g3dlidarparse)
