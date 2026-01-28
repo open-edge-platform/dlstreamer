@@ -36,15 +36,11 @@ cd ./dlstreamer/
   | Git | \%programfiles\%\\Git |
   | vcpkg | C:\\vcpkg |
   | Python | \%programfiles\%\\Python |
-  | NuGet | C:\\libva |
-  | Microsoft.Direct3D.VideoAccelerationCompatibilityPack (libva) | C:\\libva |
   | DL Streamer | C:\\dlstreamer_tmp\\build |
 
 - The script will create or modify following environmental variables:
   - VCPKG_ROOT
   - PATH
   - PKG_CONFIG_PATH
-  - LIBVA_DRIVER_NAME
-  - LIBVA_DRIVERS_PATH
 
 - The script assumes that the proxy is properly configured
