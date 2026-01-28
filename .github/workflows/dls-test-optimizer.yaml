@@ -135,13 +135,13 @@ jobs:
           deb_final_img: ghcr.io/${{ github.repository }}/deb-final-img-${{ matrix.ubuntu_version }}:${{ github.sha }}
         run: |
           ls $PWD/$DLS_REL_PATH/tests/functional_tests
-          mkdir /home/runner/dlstreamer/tests/functional_tests/optimizer_tests/optimizer_results/
+          mkdir /home/runner/optimizer_results/docker
           ls $PWD/$DLS_REL_PATH/tests/functional_tests/optimizer_tests
           RENDER_GROUP_ID=$(getent group render | awk -F: '{printf "%s\n", $3}')
           docker run --rm \
             -v $PWD/$DLS_REL_PATH/tests/functional_tests/optimizer_tests/scripts:/workspace/test_scripts \
             -v $PWD/$DLS_REL_PATH/tests/functional_tests/optimizer_tests/goldens:/workspace/goldens \
-            -v /home/runner/dlstreamer/tests/functional_tests/optimizer_tests/optimizer_results:/workspace/optimizer_results \
+            -v /home/runner/optimizer_results/docker:/workspace/optimizer_results \
             -v ${{ env.MODELS_PATH }}:/home/dlstreamer/models \
             --device=/dev/dri \
             --group-add "$RENDER_GROUP_ID" \
@@ -153,7 +153,7 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 #4.6.2
         with:
           name: DLS_optimizer_Docker_${{ matrix.runner_print_label }}_${{ matrix.ubuntu_version }}_results
-          path: /home/runner/dlstreamer/tests/functional_tests/optimizer_tests/optimizer_results/FINAL_TEST_REPORT.txt
+          path: /home/runner/optimizer_results/docker/FINAL_TEST_REPORT.txt
 
       # ======================================================== OH HOST TESTING PART ========================================================
       - name: Link DL Streamer to home directory
@@ -167,6 +167,7 @@ jobs:
       - name: Run Optimizer on host
         if: always()
         run: |
+          mkdir /home/runner/optimizer_results/host
           export LIBVA_DRIVER_NAME=iHD
           export GST_PLUGIN_PATH=/opt/intel/dlstreamer/lib:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0:/opt/intel/dlstreamer/gstreamer/lib/
           export LD_LIBRARY_PATH=/opt/intel/dlstreamer/gstreamer/lib:/opt/intel/dlstreamer/lib:/opt/intel/dlstreamer/lib/gstreamer-1.0:/usr/lib:/opt/intel/dlstreamer/lib:/opt/opencv:/opt/openh264:/opt/rdkafka:/opt/ffmpeg:/usr/local/lib/gstreamer-1.0:/usr/local/lib
@@ -175,14 +176,14 @@ jobs:
           export PATH=/python3venv/bin:/opt/intel/dlstreamer/gstreamer/bin:/opt/intel/dlstreamer/build/bin:$PATH
           export PYTHONPATH=/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:/home/dlstreamer/dlstreamer/python:/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:
           export TERM=xterm
-          $DLS_REL_PATH/tests/functional_tests/optimizer_tests/scripts/run_optimizer_tests.sh
+          $DLS_REL_PATH/tests/functional_tests/optimizer_tests/scripts/run_optimizer_tests.sh --results-dir "/home/runner/optimizer_results/host"
 
       - name: Upload host test results
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 #4.6.2
         if: always()
         with:
           name: DLS_optimzier_host_${{ matrix.runner_print_label }}_on_host_${{ matrix.ubuntu_version }}_results
-          path: /home/runner/dlstreamer/tests/functional_tests/optimizer_tests/optimizer_results/FINAL_TEST_REPORT.txt
+          path: /home/runner/optimizer_results/host/FINAL_TEST_REPORT.txt
       - name: Uninstall dlstreamer
         if: always ()
         run: |
@@ -241,3 +242,4 @@ jobs:
           rm -rf dlstreamer
           rm -rf $HOME/dl-streamer-tests-repo
           docker system prune -a -f
+          rm -rf /home/runner/optimizer_results
