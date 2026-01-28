@@ -10,7 +10,7 @@
 
 #include <gst/gst.h>
 
-#if !defined(_WIN32)
+#if defined(HAVE_G3DLIDARPARSE)
 #include "g3dlidarparse.h"
 #include "g3d_lidar_meta.h"
 #endif
@@ -18,7 +18,7 @@ extern "C" {
 
 
 static gboolean plugin_init(GstPlugin *plugin) {
-#if !defined(_WIN32)
+#if defined(HAVE_G3DLIDARPARSE)
 	if (!gst_element_register(plugin, "g3dlidarparse", GST_RANK_NONE, GST_TYPE_G3D_LIDAR_PARSE))
 		return FALSE;
 

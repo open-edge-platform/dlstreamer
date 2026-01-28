@@ -24,8 +24,12 @@ PUBLIC
 target_link_libraries(${TARGET_NAME}
 PRIVATE
     ${GSTREAMER_LIBRARIES}
-    g3dlidarparse
     dlstreamer_gst_meta
 )
+
+if(NOT WIN32 AND TARGET g3dlidarparse)
+    target_link_libraries(${TARGET_NAME} PRIVATE g3dlidarparse)
+    target_compile_definitions(${TARGET_NAME} PRIVATE HAVE_G3DLIDARPARSE)
+endif()
 
 install(TARGETS ${TARGET_NAME} DESTINATION ${DLSTREAMER_PLUGINS_INSTALL_PATH})
