@@ -4,4 +4,6 @@
 # SPDX-License-Identifier: MIT
 # ==============================================================================
 
-add_subdirectory(g3dlidarparse)
+if(NOT WIN32)
+	add_subdirectory(g3dlidarparse)
+endif()
