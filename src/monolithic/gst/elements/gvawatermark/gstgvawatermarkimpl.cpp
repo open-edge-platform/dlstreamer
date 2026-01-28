@@ -157,7 +157,7 @@ struct Impl {
     std::vector<render::Prim> prims;
 
     const double _radius_multiplier = 0.0025;
-    const Color _default_color = indexToColor(1);
+    Color _default_color = indexToColor(1);
     // Position for full-frame text
     const cv::Point2f _ff_text_position = cv::Point2f(0, 25.f);
     struct FontCfg {
@@ -170,9 +170,9 @@ struct Impl {
 
     struct DisplCfg {
         bool show_labels = true;
-        bool show_objid_only = false;
-        int thickness = 2;
+        uint thickness = 2;
         double text_scale = 1.0;
+        int color_idx = -1;
     } _displCfg;
 };
 
@@ -706,9 +706,11 @@ static void gst_gva_watermark_impl_class_init(GstGvaWatermarkImplClass *klass) {
                             "\t\t\tAvailable options: \n"
                             "\t\t\tshow-labels=true|false - enable/disable display of text labels (default true)\n"
                             "\t\t\ttext-scale=<0.1-2.0> - scale factor for text labels (default 1.0)\n"
-                            "\t\t\tthickness=<int> - thickness of bounding box (default 2)\n"
+                            "\t\t\tthickness=<uint> - thickness of bounding box (default 2)\n"
+                            "\t\t\tcolor-idx=<int> - color index for bounding box, keypoints, text (default -1 use "
+                            "default colors, 0 - black, 1 - white, 2 - red, 3 - green, 4 - blue)\n"
                             "\t\t\te.g.: displ-cfg=show-labels=off\n"
-                            "\t\t\te.g.: displ-cfg=text-scale=0.5,thickness=3",
+                            "\t\t\te.g.: displ-cfg=text-scale=0.5,thickness=3,color-idx=2",
                             nullptr, kDefaultGParamFlags));
 }
 
@@ -917,6 +919,9 @@ void Impl::preparePrimsForRoi(GVA::RegionOfInterest &roi, std::vector<render::Pr
 
     // put rectangle
     Color color = indexToColor(color_index);
+    if (_displCfg.color_idx >= 0)
+        color = _default_color;
+
     cv::Rect bbox_rect(rect.x, rect.y, rect.w, rect.h);
     if (!_obb)
         prims.emplace_back(render::Rect(bbox_rect, color, _displCfg.thickness, roi.rotation()));
@@ -1167,6 +1172,23 @@ void Impl::parse_displ_config() {
         iter = cfg.find("thickness");
         if (iter != cfg.end()) {
             _displCfg.thickness = std::stoi(iter->second);
+            cfg.erase(iter);
+        }
+        iter = cfg.find("color-idx");
+        if (iter != cfg.end()) {
+            int color_idx = std::stoi(iter->second);
+            if (color_idx >= 0 && color_idx <= 4) {
+                if (color_idx == 0)
+                    _default_color = Color(0, 0, 0); // Black
+                else if (color_idx == 1)
+                    _default_color = Color(255, 255, 255); // White
+                else if (color_idx == 2)
+                    _default_color = Color(255, 0, 0); // Red
+                else if (color_idx == 3)
+                    _default_color = Color(0, 255, 0); // Green
+                else if (color_idx == 4)
+                    _default_color = Color(0, 0, 255); // Blue
+            }
             cfg.erase(iter);
         }
     } catch (...) {
