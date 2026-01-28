@@ -50,6 +50,8 @@ gvatrack
 gvaaudiodetect
 gvaaudiotranscribe
 gvagenai
+g3dradarprocess
+g3dlidarparse
 gvaattachroi
 gvafpscounter
 gvametaaggregate
