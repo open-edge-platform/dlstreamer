@@ -144,15 +144,15 @@ void setup_inbuffer(GstBuffer *inbuffer, gpointer user_data) {
     TestData *test_data = static_cast<TestData *>(user_data);
     ck_assert_msg(test_data != NULL, "Passed data is not TestData");
 
-    // Create RTP buffer if needed (before adding metadata)
     if (test_data->is_rtp_buffer) {
         gsize buffer_size = gst_buffer_get_size(inbuffer);
 
-        GstBuffer *rtp_buffer = gst_rtp_buffer_new_allocate(buffer_size, 0, 0);
-        ck_assert_msg(rtp_buffer != NULL, "Failed to allocate RTP buffer");
+        // Allocate RTP data space in the buffer
+        gst_rtp_buffer_allocate_data(inbuffer, buffer_size, 0, 0);
 
+        // Set RTP header fields
         GstRTPBuffer rtp = GST_RTP_BUFFER_INIT;
-        gboolean ret = gst_rtp_buffer_map(rtp_buffer, GST_MAP_WRITE, &rtp);
+        gboolean ret = gst_rtp_buffer_map(inbuffer, GST_MAP_WRITE, &rtp);
         ck_assert_msg(ret == TRUE, "Failed to map RTP buffer for writing");
 
         gst_rtp_buffer_set_seq(&rtp, test_data->rtp_seq);
@@ -161,8 +161,6 @@ void setup_inbuffer(GstBuffer *inbuffer, gpointer user_data) {
         gst_rtp_buffer_set_payload_type(&rtp, 96);
 
         gst_rtp_buffer_unmap(&rtp);
-        gst_buffer_copy_into(inbuffer, rtp_buffer, GST_BUFFER_COPY_ALL, 0, static_cast<gsize>(-1));
-        gst_buffer_unref(rtp_buffer);
     }
     GstVideoInfo info;
     gst_video_info_set_format(&info, TEST_BUFFER_VIDEO_FORMAT, test_data->resolution.width,
