@@ -46,6 +46,7 @@ gvaaudiotranscribe
 gvagenai
 gvaattachroi
 gvafpscounter
+gvafpsthrottle
 gvametaaggregate
 gvametaconvert
 gvametapublish
