@@ -54,6 +54,7 @@ gvagenai
 g3dradarprocess
 gvaattachroi
 gvafpscounter
+gvafpsthrottle
 gvametaaggregate
 gvametaconvert
 gvametapublish
