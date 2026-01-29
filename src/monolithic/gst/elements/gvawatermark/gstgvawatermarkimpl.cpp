@@ -1009,7 +1009,7 @@ void Impl::preparePrimsForTensor(const GVA::Tensor &tensor, GVA::Rect<double> re
         std::vector<guint> dims = tensor.dims();
         const cv::Size &mask_size{int(dims[1]), int(dims[2])};
         cv::Rect2f box(rect.x, rect.y, rect.w, rect.h);
-        prims.emplace_back(render::SemanticSegmantationMask(mask, mask_size, box));
+        prims.emplace_back(render::SemanticSegmantationMask(mask, mask_size, indexToColor(color_index), box));
     }
 
     preparePrimsForKeypoints(tensor, rect, prims);
