@@ -2,7 +2,7 @@
 
 The `gvafpsthrottle` element throttles framerate by limiting the rate at which buffers pass through. It sleeps between buffers to ensure the pipeline doesn't exceed a specified target framerate, independent of sink synchronization. Unlike `videorate` element which can both increase and decrease framerate, this element does not duplicate or drop frames to match the framerate. It cannot increase FPS, any slowdown in upstream processing cannot be recovered.
 
-```none
+```text
 Pad Templates:
   SINK template: 'sink'
     Availability: Always

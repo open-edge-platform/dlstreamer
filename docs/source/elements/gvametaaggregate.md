@@ -4,7 +4,7 @@ Aggregates inference results from multiple pipeline branches. Data that
 is transferred further along the pipeline is taken from the first sink
 pad of the `gvametaaggregate` element.
 
-```sh
+```bash
 Pad Templates:
   SRC template: 'src'
     Availability: Always
