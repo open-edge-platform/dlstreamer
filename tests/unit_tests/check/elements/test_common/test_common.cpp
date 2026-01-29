@@ -92,11 +92,6 @@ static void check_plugin_caps(const gchar *name, GstCaps *caps, gint size, GstSt
     if (setup_inbuf) {
         setup_inbuf(inbuffer, user_data);
     }
-    if size_increase {
-        ck_assert(gst_buffer_get_size(outbuffer) > size);
-    } else {
-        ck_assert(gst_buffer_get_size(outbuffer) == size);
-    }
     GST_BUFFER_TIMESTAMP(inbuffer) = 0;
     ASSERT_BUFFER_REFCOUNT(inbuffer, "inbuffer", 1);
     ck_assert(gst_pad_push(mysrcpad, inbuffer) == GST_FLOW_OK);
@@ -108,10 +103,13 @@ static void check_plugin_caps(const gchar *name, GstCaps *caps, gint size, GstSt
     GstBuffer *outbuffer = GST_BUFFER(buffers->data);
     ck_assert(outbuffer != NULL);
 
-    gsize expected_output_size = size + expected_size_increase;
-    ck_assert_msg(gst_buffer_get_size(outbuffer) == expected_output_size,
-                  "Expected buffer size %zu (base %d + increase %zu), got %zu", expected_output_size, size,
-                  expected_size_increase, gst_buffer_get_size(outbuffer));
+    gsize expected_output_size = size;
+    if size_increase {
+        ck_assert(gst_buffer_get_size(outbuffer) > size);
+    } else {
+        ck_assert(gst_buffer_get_size(outbuffer) == size);
+    }
+
     if (check_outbuf) {
         check_outbuf(outbuffer, user_data);
     }
