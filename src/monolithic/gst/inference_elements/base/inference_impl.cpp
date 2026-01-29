@@ -971,7 +971,7 @@ bool InferenceImpl::IsRoiSizeValid(const GstVideoRegionOfInterestMeta *roi_meta)
 bool InferenceImpl::IsRoiSizeValid(const GstAnalyticsODMtd roi_meta) {
     gint x, y, w, h;
     if (!gst_analytics_od_mtd_get_location(const_cast<GstAnalyticsODMtd *>(&roi_meta), &x, &y, &w, &h, nullptr)) {
-        std::runtime_error("Failed to get location of od meta");
+        throw std::runtime_error("Failed to get location of od meta");
     }
 
     return w > 1 && h > 1;

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2022-2025 Intel Corporation
+ * Copyright (C) 2022-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -16,7 +16,6 @@
 #ifndef _MSC_VER
 #include "dlstreamer/gst/mappers/gst_to_vaapi.h"
 #else
-#define GST_USE_UNSTABLE_API
 #include "dlstreamer/gst/mappers/gst_to_d3d11.h"
 #endif
 

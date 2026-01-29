@@ -66,6 +66,4 @@ PRIVATE
         ${GSTREAMER_LIBRARIES}
         ${GSTVIDEO_LIBRARIES}
         ${GSTANALYTICS_LIBRARIES}
-        -lopencv_core
-        -lopencv_imgproc
 )
