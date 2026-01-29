@@ -136,15 +136,14 @@ jobs:
           ls $PWD/$DLS_REL_PATH/tests/functional_tests/optimizer_tests
           RENDER_GROUP_ID=$(getent group render | awk -F: '{printf "%s\n", $3}')
           docker run --rm \
-            -v $PWD/$DLS_REL_PATH/tests/functional_tests/optimizer_tests/scripts:/workspace/test_scripts \
-            -v $PWD/$DLS_REL_PATH/tests/functional_tests/optimizer_tests/goldens:/workspace/goldens \
+            -v $PWD/$DLS_REL_PATH/tests/functional_tests/optimizer_tests:/workspace/optimizer_tests \
             -v /home/runner/optimizer_results/docker:/workspace/optimizer_results \
             -v ${{ env.MODELS_PATH }}:/home/dlstreamer/models \
             --device=/dev/dri \
             --group-add "$RENDER_GROUP_ID" \
             -w /workspace \
             ${deb_final_img} \
-            bash /workspace/test_scripts/run_optimizer_tests.sh
+            bash /workspace/optimizer_tests/scripts/run_optimizer_tests.sh --config-file /workspace/optimizer_tests/test_config.json
       - name: Upload Docker test results
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 #4.6.2
@@ -165,15 +164,7 @@ jobs:
         if: always()
         run: |
           mkdir /home/runner/optimizer_results/host
-          export LIBVA_DRIVER_NAME=iHD
-          export GST_PLUGIN_PATH=/opt/intel/dlstreamer/lib:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0:/opt/intel/dlstreamer/gstreamer/lib/
-          export LD_LIBRARY_PATH=/opt/intel/dlstreamer/gstreamer/lib:/opt/intel/dlstreamer/lib:/opt/intel/dlstreamer/lib/gstreamer-1.0:/usr/lib:/opt/intel/dlstreamer/lib:/opt/opencv:/opt/openh264:/opt/rdkafka:/opt/ffmpeg:/usr/local/lib/gstreamer-1.0:/usr/local/lib
-          export LIBVA_DRIVERS_PATH=/usr/lib/x86_64-linux-gnu/dri
-          export GST_VA_ALL_DRIVERS=1
-          export PATH=/python3venv/bin:/opt/intel/dlstreamer/gstreamer/bin:/opt/intel/dlstreamer/build/bin:$PATH
-          export PYTHONPATH=/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:/home/dlstreamer/dlstreamer/python:/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:
-          export TERM=xterm
-          $DLS_REL_PATH/tests/functional_tests/optimizer_tests/scripts/run_optimizer_tests.sh --results-dir "/home/runner/optimizer_results/host"
+          $DLS_REL_PATH/tests/functional_tests/optimizer_tests/scripts/run_optimizer_tests.sh --results-dir "/home/runner/optimizer_results/host" --config-file "$DLS_REL_PATH/tests/functional_tests/optimizer_tests/test_config.json"
 
       - name: Upload host test results
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 #4.6.2
