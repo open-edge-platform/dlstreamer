@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2018-2025 Intel Corporation
+ * Copyright (C) 2018-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -928,7 +928,7 @@ gboolean gva_base_inference_set_caps(GstBaseTransform *trans, GstCaps *incaps, G
                                           "gstreamer-vaapi isn't built with required patches");
             }
         }
-#ifdef _MSC_VER
+#ifdef _WIN32
         if (!base_inference->priv->d3d11_device && (base_inference->caps_feature == D3D11_MEMORY_CAPS_FEATURE)) {
             // Try to query D3D11Device from decoder. Select dlstreamer::MemoryType::D3D11 memory type as default.
             try {
@@ -954,7 +954,7 @@ gboolean gva_base_inference_set_caps(GstBaseTransform *trans, GstCaps *incaps, G
         }
 
         // Create a buffer mapper once we know the target memory type
-#ifdef _MSC_VER
+#ifdef _WIN32
         if (base_inference->caps_feature == D3D11_MEMORY_CAPS_FEATURE) {
             base_inference->priv->buffer_mapper =
                 BufferMapperFactory::createMapper(base_inference->inference->GetInferenceMemoryType(),
