@@ -399,6 +399,7 @@ jobs:
   dls-optimizer-functional-tests:
     permissions:
       contents: read
+      packages: read
     needs: [dls-filter-docker-or-optimizer-related-changes]
     if: needs.dls-filter-docker-or-optimizer-related-changes.outputs.docker_changed == 'true'
     name: "DLS TEST: Optimizer"
