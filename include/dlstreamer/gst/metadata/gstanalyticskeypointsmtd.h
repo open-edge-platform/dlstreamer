@@ -29,7 +29,7 @@ G_BEGIN_DECLS
  *
  * Since: 1.26
  */
-typedef GstAnalyticsMtd GstAnalyticsKeypointMtd;
+typedef struct _GstAnalyticsMtd GstAnalyticsKeypointMtd;
 
 /**
  * GstAnalyticsKeypoint:
@@ -71,7 +71,7 @@ gboolean gst_analytics_relation_meta_get_keypoint_mtd(GstAnalyticsRelationMeta *
  *
  * Since: 1.26
  */
-typedef GstAnalyticsMtd GstAnalyticsKeypointSkeletonMtd;
+typedef struct _GstAnalyticsMtd GstAnalyticsKeypointSkeletonMtd;
 
 /**
  * GstAnalyticsKeypointPair:
@@ -116,7 +116,7 @@ gboolean gst_analytics_relation_meta_get_keypoint_skeleton_mtd(GstAnalyticsRelat
  *
  * Since: 1.26
  */
-typedef GstAnalyticsMtd GstAnalyticsKeypointGroupMtd;
+typedef struct _GstAnalyticsMtd GstAnalyticsKeypointGroupMtd;
 
 GST_ANALYTICS_META_API
 GstAnalyticsMtdType gst_analytics_keypointgroup_mtd_get_mtd_type(void);

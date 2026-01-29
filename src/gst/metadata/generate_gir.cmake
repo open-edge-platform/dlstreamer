@@ -29,6 +29,7 @@ pkg_get_variable(GSTREAMER_GIRDIR gstreamer-1.0 girdir)
 # Source and header files
 set(KEYPOINTS_SOURCES
     "${CMAKE_CURRENT_SOURCE_DIR}/gstanalyticskeypointsmtd.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/gstanalytics_gir.h"
 )
 
 set(KEYPOINTS_HEADERS
