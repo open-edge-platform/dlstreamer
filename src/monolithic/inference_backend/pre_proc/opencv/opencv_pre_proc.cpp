@@ -68,11 +68,6 @@ cv::Mat OpenCV_VPP::CustomImageConvert(const cv::Mat &orig_image, const int src_
     try {
         cv::Mat processed_image = orig_image;
 
-        if (src_color_format == FOURCC_BGR) {
-            // convert to RGB for user processing
-            cv::cvtColor(processed_image, processed_image, cv::COLOR_BGR2RGB);
-        }
-
         // Invoke user-defined callback if it exists
         if (user_callback) {
             processed_image = user_callback(orig_image);
@@ -229,10 +224,6 @@ cv::Mat OpenCV_VPP::CustomImageConvert(const cv::Mat &orig_image, const int src_
         if (image_transform_info)
             image_transform_info->PaddingHasDone(safe_convert<size_t>(shift_x), safe_convert<size_t>(shift_y));
 
-        if (src_color_format == FOURCC_BGR) {
-            // convert back to BGR for user processing
-            cv::cvtColor(processed_image, processed_image, cv::COLOR_RGB2BGR);
-        }
         return result;
     } catch (const std::exception &e) {
         std::throw_with_nested(std::runtime_error("Failed custom image pre-processing."));
