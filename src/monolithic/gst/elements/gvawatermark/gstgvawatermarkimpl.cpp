@@ -61,6 +61,9 @@ GST_DEBUG_CATEGORY_STATIC(gst_gva_watermark_impl_debug_category);
 #define GST_CAT_DEFAULT gst_gva_watermark_impl_debug_category
 
 #define DEFAULT_DEVICE nullptr
+#define DEFAULT_THICKNESS (2)
+#define DEFAULT_TEXT_SCALE (1.0)
+#define DEFAULT_COLOR_IDX (-1)
 
 typedef enum { DEVICE_CPU, DEVICE_GPU, DEVICE_GPU_AUTOSELECTED } DEVICE_SELECTOR;
 
@@ -170,9 +173,9 @@ struct Impl {
 
     struct DisplCfg {
         bool show_labels = true;
-        uint thickness = 2;
-        double text_scale = 1.0;
-        int color_idx = -1;
+        int color_idx = DEFAULT_COLOR_IDX;
+        uint thickness = DEFAULT_THICKNESS;
+        double text_scale = DEFAULT_TEXT_SCALE;
     } _displCfg;
 };
 
@@ -701,17 +704,18 @@ static void gst_gva_watermark_impl_class_init(GstGvaWatermarkImplClass *klass) {
 
     g_object_class_install_property(
         gobject_class, PROP_DISPL_CFG,
-        g_param_spec_string("displ-cfg", "Gvawatermark element display configuration",
-                            "Comma separated list of KEY=VALUE parameters of displayed notations.\n"
-                            "\t\t\tAvailable options: \n"
-                            "\t\t\tshow-labels=true|false - enable/disable display of text labels (default true)\n"
-                            "\t\t\ttext-scale=<0.1-2.0> - scale factor for text labels (default 1.0)\n"
-                            "\t\t\tthickness=<uint> - thickness of bounding box (default 2)\n"
-                            "\t\t\tcolor-idx=<int> - color index for bounding box, keypoints, text (default -1 use "
-                            "default colors, 0 - black, 1 - white, 2 - red, 3 - green, 4 - blue)\n"
-                            "\t\t\te.g.: displ-cfg=show-labels=off\n"
-                            "\t\t\te.g.: displ-cfg=text-scale=0.5,thickness=3,color-idx=2",
-                            nullptr, kDefaultGParamFlags));
+        g_param_spec_string(
+            "displ-cfg", "Gvawatermark element display configuration",
+            "Comma separated list of KEY=VALUE parameters of displayed notations.\n"
+            "\t\t\tAvailable options: \n"
+            "\t\t\tshow-labels=true|false - enable/disable display of text labels (default true)\n"
+            "\t\t\ttext-scale=<0.1-2.0> - scale factor for text labels (default 1.0)\n"
+            "\t\t\tthickness=<uint> - thickness of bounding box (default 2)\n"
+            "\t\t\tcolor-idx=<int> - color index for bounding box, keypoints, text (default -1 - default colors)\n"
+            "\t\t\t (0 - red, 1 - green, 2 - blue)\n"
+            "\t\t\te.g.: displ-cfg=show-labels=off\n"
+            "\t\t\te.g.: displ-cfg=text-scale=0.5,thickness=3,color-idx=2",
+            nullptr, kDefaultGParamFlags));
 }
 
 Impl::Impl(GstVideoInfo *info, InferenceBackend::MemoryType mem_type, GstElement *element, bool displ_avgfps,
@@ -917,11 +921,12 @@ void Impl::preparePrimsForRoi(GVA::RegionOfInterest &roi, std::vector<render::Pr
         }
     }
 
-    // put rectangle
+    // set color
     Color color = indexToColor(color_index);
-    if (_displCfg.color_idx >= 0)
+    if (_displCfg.color_idx != DEFAULT_COLOR_IDX)
         color = _default_color;
 
+    // put rectangle
     cv::Rect bbox_rect(rect.x, rect.y, rect.w, rect.h);
     if (!_obb)
         prims.emplace_back(render::Rect(bbox_rect, color, _displCfg.thickness, roi.rotation()));
@@ -1176,18 +1181,16 @@ void Impl::parse_displ_config() {
         }
         iter = cfg.find("color-idx");
         if (iter != cfg.end()) {
-            int color_idx = std::stoi(iter->second);
-            if (color_idx >= 0 && color_idx <= 4) {
-                if (color_idx == 0)
-                    _default_color = Color(0, 0, 0); // Black
-                else if (color_idx == 1)
-                    _default_color = Color(255, 255, 255); // White
-                else if (color_idx == 2)
+            int _color_idx = std::stoi(iter->second);
+            if (_color_idx >= 0 && _color_idx <= 2) {
+                if (_color_idx == 0)
                     _default_color = Color(255, 0, 0); // Red
-                else if (color_idx == 3)
+                else if (_color_idx == 1)
                     _default_color = Color(0, 255, 0); // Green
-                else if (color_idx == 4)
+                else if (_color_idx == 2)
                     _default_color = Color(0, 0, 255); // Blue
+
+                _displCfg.color_idx = _color_idx;
             }
             cfg.erase(iter);
         }
