@@ -104,7 +104,7 @@ static void check_plugin_caps(const gchar *name, GstCaps *caps, gint size, GstSt
     ck_assert(outbuffer != NULL);
 
     gsize expected_output_size = size;
-    if size_increase {
+    if (size_increase) {
         ck_assert(gst_buffer_get_size(outbuffer) > size);
     } else {
         ck_assert(gst_buffer_get_size(outbuffer) == size);
@@ -149,7 +149,7 @@ void run_test(const gchar *elem_name, const gchar *caps_string, Resolution resol
         va_list varargs;
         va_start(varargs, prop);
         check_plugin_caps(elem_name, caps, size, srctemplate, sinktemplate, setup_inbuf, check_outbuf, user_data, prop,
-                          varargs, NULL);
+                          varargs);
         va_end(varargs);
 
         gst_caps_unref(caps);

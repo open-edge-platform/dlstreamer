@@ -291,8 +291,8 @@ GST_START_TEST(test_metaconvert_all) {
             test_data[i].rtp_ssrc = 9012;
             run_test_with_size_increase("gvametaconvert", VIDEO_CAPS_TEMPLATE_STRING, test_data[i].resolution,
                                         &srctemplate, &sinktemplate, setup_inbuffer, check_outbuffer, &test_data[i],
-                                        get_expected_size_increase, "add-tensor-data", TRUE, "tags",
-                                        "{\"tag_key\":\"tag_val\"}", "source", "test_src", NULL);
+                                        "add-tensor-data", TRUE, "tags", "{\"tag_key\":\"tag_val\"}", "source",
+                                        "test_src", NULL);
         }
     }
 }
