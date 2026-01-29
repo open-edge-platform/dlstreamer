@@ -149,7 +149,7 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 #4.6.2
         with:
           name: DLS_optimizer_Docker_${{ matrix.runner_print_label }}_${{ matrix.ubuntu_version }}_results
-          path: /home/runner/optimizer_results/docker/FINAL_TEST_REPORT.txt
+          path: $OPTIMIZER_TESTS_PATH/optimizer_results/docker/FINAL_TEST_REPORT.txt
 
       # ======================================================== OH HOST TESTING PART ========================================================
       - name: Link DL Streamer to home directory
@@ -171,7 +171,7 @@ jobs:
         if: always()
         with:
           name: DLS_optimzier_host_${{ matrix.runner_print_label }}_on_host_${{ matrix.ubuntu_version }}_results
-          path: /home/runner/optimizer_results/host/FINAL_TEST_REPORT.txt
+          path: $OPTIMIZER_TESTS_PATH/optimizer_results/host/FINAL_TEST_REPORT.txt
       - name: Uninstall dlstreamer
         if: always ()
         run: |
