@@ -230,4 +230,4 @@ jobs:
           rm -rf dlstreamer
           rm -rf $HOME/dl-streamer-tests-repo
           docker system prune -a -f
-          rm -rf /home/runner/optimizer_results
+          rm -rf $OPTIMIZER_TESTS_PATH
