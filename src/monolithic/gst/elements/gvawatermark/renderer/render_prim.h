@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2020-2026 Intel Corporation
+ * Copyright (C) 2020-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -85,14 +85,12 @@ struct InstanceSegmantationMask {
 struct SemanticSegmantationMask {
     std::vector<int64_t> data;
     cv::Size size;
-    cv::Scalar color;
     cv::Rect2f box;
 
     SemanticSegmantationMask() = default;
 
-    SemanticSegmantationMask(const std::vector<int64_t> &data, const cv::Size &size, const cv::Scalar &color,
-                             const cv::Rect2f &box)
-        : data(data), size(size), color(color), box(box) {
+    SemanticSegmantationMask(const std::vector<int64_t> &data, const cv::Size &size, const cv::Rect2f &box)
+        : data(data), size(size), box(box) {
     }
 };
 
