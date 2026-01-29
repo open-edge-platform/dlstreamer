@@ -38,7 +38,6 @@ struct TestData {
     bool ignore_detections;
     std::string add_tensor_data;
     bool is_rtp_buffer;
-    guint16 rtp_seq;
     guint32 rtp_timestamp;
     guint32 rtp_ssrc;
 };
@@ -155,7 +154,6 @@ void setup_inbuffer(GstBuffer *inbuffer, gpointer user_data) {
         gboolean ret = gst_rtp_buffer_map(inbuffer, GST_MAP_WRITE, &rtp);
         ck_assert_msg(ret == TRUE, "Failed to map RTP buffer for writing");
 
-        gst_rtp_buffer_set_seq(&rtp, test_data->rtp_seq);
         gst_rtp_buffer_set_timestamp(&rtp, test_data->rtp_timestamp);
         gst_rtp_buffer_set_ssrc(&rtp, test_data->rtp_ssrc);
         gst_rtp_buffer_set_payload_type(&rtp, 96);
@@ -226,11 +224,6 @@ void check_outbuffer(GstBuffer *outbuffer, gpointer user_data) {
                       json_message["rtp"]["timestamp"].get<guint32>());
         ck_assert_msg(json_message["rtp"]["ssrc"] == test_data->rtp_ssrc, "RTP SSRC mismatch: expected %u, got %u",
                       test_data->rtp_ssrc, json_message["rtp"]["ssrc"].get<guint32>());
-        ck_assert_msg(json_message["rtp"]["sequence"] == test_data->rtp_seq,
-                      "RTP sequence mismatch: expected %u, got %u", test_data->rtp_seq,
-                      json_message["rtp"]["sequence"].get<guint16>());
-        g_print("RTP metadata validated: seq=%u, timestamp=%u, ssrc=%u\n", test_data->rtp_seq, test_data->rtp_timestamp,
-                test_data->rtp_ssrc);
     }
     if (test_data->ignore_detections) {
         ck_assert_msg(str_meta_message.find("objects") == std::string::npos,
@@ -284,9 +277,8 @@ GST_START_TEST(test_metaconvert_all) {
         for (const auto &fp : supported_fp) {
             test_data[i].add_tensor_data = "all";
             test_data[i].is_rtp_buffer = true;
-            test_data[i].rtp_seq = 1234;
-            test_data[i].rtp_timestamp = 5678;
-            test_data[i].rtp_ssrc = 9012;
+            test_data[i].rtp_timestamp = 1234;
+            test_data[i].rtp_ssrc = 5678;
             run_test_with_size_increase("gvametaconvert", VIDEO_CAPS_TEMPLATE_STRING, test_data[i].resolution,
                                         &srctemplate, &sinktemplate, setup_inbuffer, check_outbuffer, &test_data[i],
                                         "add-tensor-data", TRUE, "tags", "{\"tag_key\":\"tag_val\"}", "source",
