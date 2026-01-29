@@ -80,7 +80,7 @@ static void check_incorrect_plugin_caps(const gchar *name, GstStaticPadTemplate 
 static void check_plugin_caps(const gchar *name, GstCaps *caps, gint size, GstStaticPadTemplate *srctemplate,
                               GstStaticPadTemplate *sinktemplate, SetupInBuffCb setup_inbuf,
                               CheckOutBuffCb check_outbuf, gpointer user_data, const gchar *prop, va_list varargs,
-                              GetExpectedSizeIncreaseCb get_size_increase_cb = NULL) {
+                              bool size_increase = false) {
     GstElement *plugin = setup_plugin(name, srctemplate, sinktemplate);
     g_object_set_valist(G_OBJECT(plugin), prop, varargs);
 
@@ -91,8 +91,12 @@ static void check_plugin_caps(const gchar *name, GstCaps *caps, gint size, GstSt
     GstBuffer *inbuffer = gst_buffer_new_and_alloc(size);
     if (setup_inbuf) {
         setup_inbuf(inbuffer, user_data);
-    } // Call callback after setup_inbuf to get the expected size increase
-    gsize expected_size_increase = (get_size_increase_cb != NULL) ? get_size_increase_cb(user_data) : 0;
+    }
+    if size_increase {
+        ck_assert(gst_buffer_get_size(outbuffer) > size);
+    } else {
+        ck_assert(gst_buffer_get_size(outbuffer) == size);
+    }
     GST_BUFFER_TIMESTAMP(inbuffer) = 0;
     ASSERT_BUFFER_REFCOUNT(inbuffer, "inbuffer", 1);
     ck_assert(gst_pad_push(mysrcpad, inbuffer) == GST_FLOW_OK);
@@ -159,7 +163,7 @@ void run_test(const gchar *elem_name, const gchar *caps_string, Resolution resol
 void run_test_with_size_increase(const gchar *elem_name, const gchar *caps_string, Resolution resolution,
                                  GstStaticPadTemplate *srctemplate, GstStaticPadTemplate *sinktemplate,
                                  SetupInBuffCb setup_inbuf, CheckOutBuffCb check_outbuf, gpointer user_data,
-                                 GetExpectedSizeIncreaseCb get_size_increase_cb, const gchar *prop, ...) {
+                                 const gchar *prop, ...) {
     GstCaps *templ = gst_caps_from_string(caps_string);
     GstCaps *allcaps = gst_caps_normalize(templ);
     gint n = gst_caps_get_size(allcaps);
@@ -181,7 +185,7 @@ void run_test_with_size_increase(const gchar *elem_name, const gchar *caps_strin
         va_list varargs;
         va_start(varargs, prop);
         check_plugin_caps(elem_name, caps, size, srctemplate, sinktemplate, setup_inbuf, check_outbuf, user_data, prop,
-                          varargs, get_size_increase_cb);
+                          varargs, true);
         va_end(varargs);
 
         gst_caps_unref(caps);

@@ -28,7 +28,6 @@ struct Resolution {
 
 typedef void (*SetupInBuffCb)(GstBuffer *inbuffer, gpointer user_data);
 typedef void (*CheckOutBuffCb)(GstBuffer *outbuffer, gpointer user_data);
-typedef gsize (*GetExpectedSizeIncreaseCb)(gpointer user_data);
 /**
  * @brief Run simple test based on GstCheck for one element
  * It setups element, generates input buffer and checks output buffer.

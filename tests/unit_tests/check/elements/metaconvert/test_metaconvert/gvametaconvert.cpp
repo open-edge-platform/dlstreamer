@@ -41,7 +41,6 @@ struct TestData {
     guint16 rtp_seq;
     guint32 rtp_timestamp;
     guint32 rtp_ssrc;
-    gsize expected_size_increase = 0; // Size increase due to appended RTP or other data
 };
 
 #ifdef AUDIO
@@ -162,28 +161,9 @@ void setup_inbuffer(GstBuffer *inbuffer, gpointer user_data) {
         gst_rtp_buffer_set_payload_type(&rtp, 96);
 
         gst_rtp_buffer_unmap(&rtp);
-
-        // Copy video data into RTP payload
-        GstMapInfo src_map;
-        gst_buffer_map(inbuffer, &src_map, GST_MAP_READ);
-
-        GstRTPBuffer rtp_read = GST_RTP_BUFFER_INIT;
-        gst_rtp_buffer_map(rtp_buffer, GST_MAP_WRITE, &rtp_read);
-        guint8 *payload = (guint8 *)gst_rtp_buffer_get_payload(&rtp_read);
-        memcpy(payload, src_map.data, buffer_size);
-        gst_rtp_buffer_unmap(&rtp_read);
-
-        gst_buffer_unmap(inbuffer, &src_map);
-
-        // Copy RTP buffer data and metadata into inbuffer using gst_buffer_copy_into
         gst_buffer_copy_into(inbuffer, rtp_buffer, GST_BUFFER_COPY_ALL, 0, static_cast<gsize>(-1));
         gst_buffer_unref(rtp_buffer);
-
-        test_data->expected_size_increase = 0;
-    } else {
-        test_data->expected_size_increase = 0;
     }
-
     GstVideoInfo info;
     gst_video_info_set_format(&info, TEST_BUFFER_VIDEO_FORMAT, test_data->resolution.width,
                               test_data->resolution.height);
@@ -281,14 +261,6 @@ void check_outbuffer(GstBuffer *outbuffer, gpointer user_data) {
 TestData test_data[] = {
     {{640, 480}, {0.29375, 0.54375, 0.40625, 0.94167, 0.8, 0, 0}, {0x7c, 0x94, 0x06, 0x3f, 0x09, 0xd7, 0xf2, 0x3e}}};
 
-gsize get_expected_size_increase(gpointer user_data) {
-    TestData *test_data = static_cast<TestData *>(user_data);
-    if (test_data != NULL) {
-        return test_data->expected_size_increase;
-    }
-    return 0;
-}
-
 GST_START_TEST(test_metaconvert_no_detections) {
     g_print("Starting test: test_metaconvert_no_detections\n");
     std::vector<std::string> supported_fp = {"FP32"};
@@ -317,7 +289,6 @@ GST_START_TEST(test_metaconvert_all) {
             test_data[i].rtp_seq = 1234;
             test_data[i].rtp_timestamp = 5678;
             test_data[i].rtp_ssrc = 9012;
-            test_data[i].expected_size_increase = 0; // Will be set during setup
             run_test_with_size_increase("gvametaconvert", VIDEO_CAPS_TEMPLATE_STRING, test_data[i].resolution,
                                         &srctemplate, &sinktemplate, setup_inbuffer, check_outbuffer, &test_data[i],
                                         get_expected_size_increase, "add-tensor-data", TRUE, "tags",
