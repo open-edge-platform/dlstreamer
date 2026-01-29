@@ -29,7 +29,7 @@ G_BEGIN_DECLS
  *
  * Since: 1.26
  */
-typedef struct _GstAnalyticsMtd GstAnalyticsKeypointMtd;
+typedef GstAnalyticsMtd GstAnalyticsKeypointMtd;
 
 /**
  * GstAnalyticsKeypoint:
@@ -37,7 +37,7 @@ typedef struct _GstAnalyticsMtd GstAnalyticsKeypointMtd;
  * @y: zero-based absolute y pixel coordinate of a keypoint relative to image upper-left corner.
  * @z: normalized depth coordinate of a keypoint, relative to keypoint group center (use 0.0f for 2D keypoints).
  * @v: visibility of a kepoint, normalized <0.0f - not visible, 1.0f - fully visible>.
- * */
+ */
 typedef struct {
     guint x;
     guint y;
@@ -71,7 +71,7 @@ gboolean gst_analytics_relation_meta_get_keypoint_mtd(GstAnalyticsRelationMeta *
  *
  * Since: 1.26
  */
-typedef struct _GstAnalyticsMtd GstAnalyticsKeypointSkeletonMtd;
+typedef GstAnalyticsMtd GstAnalyticsKeypointSkeletonMtd;
 
 /**
  * GstAnalyticsKeypointPair:
@@ -79,7 +79,7 @@ typedef struct _GstAnalyticsMtd GstAnalyticsKeypointSkeletonMtd;
  * @kp2: index of the second keypoint in a skeleton link.
  *
  * A pair of keypoints linked in a skeleton.
- * */
+ */
 typedef struct {
     guint kp1;
     guint kp2;
@@ -116,7 +116,7 @@ gboolean gst_analytics_relation_meta_get_keypoint_skeleton_mtd(GstAnalyticsRelat
  *
  * Since: 1.26
  */
-typedef struct _GstAnalyticsMtd GstAnalyticsKeypointGroupMtd;
+typedef GstAnalyticsMtd GstAnalyticsKeypointGroupMtd;
 
 GST_ANALYTICS_META_API
 GstAnalyticsMtdType gst_analytics_keypointgroup_mtd_get_mtd_type(void);
@@ -135,7 +135,7 @@ GST_ANALYTICS_META_API
 gboolean gst_analytics_relation_meta_add_keypointgroup_mtd(GstAnalyticsRelationMeta *instance,
                                                            const gsize keypoint_count,
                                                            const GstAnalyticsKeypointMtd *keypoints,
-                                                           GstAnalyticsKeypointGroupMtd *keypoints_mtd);
+                                                           GstAnalyticsKeypointGroupMtd *keypoint_group_mtd);
 
 GST_ANALYTICS_META_API
 gboolean gst_analytics_relation_meta_get_keypointgroup_mtd(GstAnalyticsRelationMeta *meta, guint an_meta_id,

@@ -40,7 +40,7 @@ add_custom_command(
     OUTPUT ${GIR_OUTPUT}
     COMMAND ${G_IR_SCANNER}
         --warn-all
-        # --warn-error
+        --warn-error
         --namespace=${GIR_NAMESPACE}
         --nsversion=${GIR_VERSION}
         --identifier-prefix=GstAnalytics
