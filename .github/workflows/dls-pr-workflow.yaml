@@ -144,25 +144,30 @@ jobs:
       - name: Detect changes in docker or optimizer directory
         id: check
         run: |
-          echo "🔍 Checking for changes in 'docker/'..."
+          echo "🔍 Checking for changes in 'docker/' and 'scripts/optimizer'..."
           cd dlstreamer-repo
           CHANGED_FILES_DOCKER=$(git diff --name-only origin/main...HEAD -- 'docker/')
           CHANGED_FILES_OPTIMIZER=$(git diff --name-only origin/main...HEAD -- 'scripts/optimizer')
-          
+
+          echo "docker_changed=false" >> "$GITHUB_OUTPUT"
+          echo "optimizer_changed=false" >> "$GITHUB_OUTPUT"
+
           if [ -n "${CHANGED_FILES_DOCKER}" ]; then
             echo "📄 Changed Docker-related files:"
             echo "${CHANGED_FILES_DOCKER}"
             echo "docker_changed=true" >> "$GITHUB_OUTPUT"
             echo "🟡 Docker-related changes detected."
-          elif [ -n "${CHANGED_FILES_OPTIMIZER}" ]; then
+          fi
+
+          if [ -n "${CHANGED_FILES_OPTIMIZER}" ]; then
             echo "📄 Changed Optimizer-related files:"
             echo "${CHANGED_FILES_OPTIMIZER}"
             echo "optimizer_changed=true" >> "$GITHUB_OUTPUT"
             echo "🟡 Optimizer-related changes detected."
-          else
+          fi
+
+          if [ -z "${CHANGED_FILES_DOCKER}" ] && [ -z "${CHANGED_FILES_OPTIMIZER}" ]; then
             echo "✅ No docker or optimizer related changes."
-            echo "docker_changed=false" >> "$GITHUB_OUTPUT"
-            echo "optimizer_changed=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Clean up
