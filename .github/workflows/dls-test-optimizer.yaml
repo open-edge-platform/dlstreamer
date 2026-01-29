@@ -1,9 +1,6 @@
-name: "[DLS] [U22/24] Build and test optimizer"
-run-name: "[DLS] [U22/24] Build and test optimizer (by ${{ github.actor }})"
+name: "[DLS] [U24] Test optimizer"
+run-name: "[DLS] [U24] Test optimizer (by ${{ github.actor }})"
 on:
-  push:
-    branches:
-      - 'nsz-add-opt-fun-test'
   workflow_call:
     inputs:
       test-repo-branch:
@@ -59,7 +56,7 @@ jobs:
         with:
           repository: open-edge-platform/dl-streamer-tests
           persist-credentials: false
-          ref: nsz-optimizer-tests
+          ref: ${{ inputs.test-repo-branch }}
           path: dl-streamer-tests-repo
 
       - name: Copy DL Streamer tests repo
