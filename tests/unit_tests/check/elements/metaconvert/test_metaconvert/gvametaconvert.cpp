@@ -145,14 +145,11 @@ void setup_inbuffer(GstBuffer *inbuffer, gpointer user_data) {
     TestData *test_data = static_cast<TestData *>(user_data);
     ck_assert_msg(test_data != NULL, "Passed data is not TestData");
 
-    GstVideoInfo info;
-    gst_video_info_set_format(&info, TEST_BUFFER_VIDEO_FORMAT, test_data->resolution.width,
-                              test_data->resolution.height);
-    gst_buffer_add_video_meta(inbuffer, GST_VIDEO_FRAME_FLAG_NONE, GST_VIDEO_INFO_FORMAT(&info),
-                              GST_VIDEO_INFO_WIDTH(&info), GST_VIDEO_INFO_HEIGHT(&info));
-
+    // Create RTP buffer if needed (before adding metadata)
     if (test_data->is_rtp_buffer) {
-        GstBuffer *rtp_buffer = gst_rtp_buffer_new_allocate(0, 0, 0);
+        gsize buffer_size = gst_buffer_get_size(inbuffer);
+
+        GstBuffer *rtp_buffer = gst_rtp_buffer_new_allocate(buffer_size, 0, 0);
         ck_assert_msg(rtp_buffer != NULL, "Failed to allocate RTP buffer");
 
         GstRTPBuffer rtp = GST_RTP_BUFFER_INIT;
@@ -165,10 +162,33 @@ void setup_inbuffer(GstBuffer *inbuffer, gpointer user_data) {
         gst_rtp_buffer_set_payload_type(&rtp, 96);
 
         gst_rtp_buffer_unmap(&rtp);
-        // Capture the RTP buffer size before appending it
-        test_data->expected_size_increase = gst_buffer_get_size(rtp_buffer);
-        gst_buffer_append(inbuffer, rtp_buffer);
+
+        // Copy video data into RTP payload
+        GstMapInfo src_map;
+        gst_buffer_map(inbuffer, &src_map, GST_MAP_READ);
+
+        GstRTPBuffer rtp_read = GST_RTP_BUFFER_INIT;
+        gst_rtp_buffer_map(rtp_buffer, GST_MAP_WRITE, &rtp_read);
+        guint8 *payload = (guint8 *)gst_rtp_buffer_get_payload(&rtp_read);
+        memcpy(payload, src_map.data, buffer_size);
+        gst_rtp_buffer_unmap(&rtp_read);
+
+        gst_buffer_unmap(inbuffer, &src_map);
+
+        // Copy RTP buffer data and metadata into inbuffer using gst_buffer_copy_into
+        gst_buffer_copy_into(inbuffer, rtp_buffer, GST_BUFFER_COPY_ALL, 0, static_cast<gsize>(-1));
+        gst_buffer_unref(rtp_buffer);
+
+        test_data->expected_size_increase = 0;
+    } else {
+        test_data->expected_size_increase = 0;
     }
+
+    GstVideoInfo info;
+    gst_video_info_set_format(&info, TEST_BUFFER_VIDEO_FORMAT, test_data->resolution.width,
+                              test_data->resolution.height);
+    gst_buffer_add_video_meta(inbuffer, GST_VIDEO_FRAME_FLAG_NONE, GST_VIDEO_INFO_FORMAT(&info),
+                              GST_VIDEO_INFO_WIDTH(&info), GST_VIDEO_INFO_HEIGHT(&info));
 
     if (test_data->ignore_detections)
         return;
@@ -219,16 +239,20 @@ void check_outbuffer(GstBuffer *outbuffer, gpointer user_data) {
     ck_assert_msg(json_message["timestamp"] == 0, "Message does not contain timestamp %s", meta->message);
 
     if (test_data->is_rtp_buffer) {
-        ck_assert_msg(json_message.contains("rtp"), "Message does not contain rtp metadata %s", meta->message);
+        // RTP buffer: validate that RTP metadata is extracted and present in JSON
+        ck_assert_msg(json_message.contains("rtp"), "RTP metadata missing from JSON output. Message: %s",
+                      meta->message);
+        ck_assert_msg(json_message["rtp"].contains("timestamp"), "RTP timestamp missing from JSON output");
         ck_assert_msg(json_message["rtp"]["timestamp"] == test_data->rtp_timestamp,
-                      "RTP timestamp in JSON mismatch: expected %u, got %u", test_data->rtp_timestamp,
+                      "RTP timestamp mismatch: expected %u, got %u", test_data->rtp_timestamp,
                       json_message["rtp"]["timestamp"].get<guint32>());
-        ck_assert_msg(json_message["rtp"]["ssrc"] == test_data->rtp_ssrc,
-                      "RTP SSRC in JSON mismatch: expected %u, got %u", test_data->rtp_ssrc,
-                      json_message["rtp"]["ssrc"].get<guint32>());
+        ck_assert_msg(json_message["rtp"]["ssrc"] == test_data->rtp_ssrc, "RTP SSRC mismatch: expected %u, got %u",
+                      test_data->rtp_ssrc, json_message["rtp"]["ssrc"].get<guint32>());
         ck_assert_msg(json_message["rtp"]["sequence"] == test_data->rtp_seq,
-                      "RTP sequence in JSON mismatch: expected %u, got %u", test_data->rtp_seq,
+                      "RTP sequence mismatch: expected %u, got %u", test_data->rtp_seq,
                       json_message["rtp"]["sequence"].get<guint16>());
+        g_print("RTP metadata validated: seq=%u, timestamp=%u, ssrc=%u\n", test_data->rtp_seq, test_data->rtp_timestamp,
+                test_data->rtp_ssrc);
     }
     if (test_data->ignore_detections) {
         ck_assert_msg(str_meta_message.find("objects") == std::string::npos,
