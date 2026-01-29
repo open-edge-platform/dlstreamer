@@ -69,11 +69,12 @@ Element Properties:
   displ-cfg           : Comma separated list of KEY=VALUE parameters of displayed notations.
                         Available options:
                         show-labels=true|false - enable/disable display of text labels (default true)
-                        text-scale=<0.1-2.0> - scale factor for text labels (default 1.0)
+                        thickness=<uint> - thickness of bounding box (default 2)
+                        color-idx=<int> - color index for bounding box, keypoints, text (default -1 - default colors)
+                        (0 - red, 1 - green, 2 - blue)
                         e.g.: displ-cfg=show-labels=off
-                        e.g.: displ-cfg=text-scale=0.5
+                        e.g.: displ-cfg=text-scale=0.5,thickness=3,color-idx=2
                         flags: readable, writable
-                        String. Default: "show-labels=true,text-scale=1.0"
   device              : Supported devices are CPU and GPU. Default is CPU on system memory and GPU on video memory
                         flags: readable, writable
                         String. Default: null

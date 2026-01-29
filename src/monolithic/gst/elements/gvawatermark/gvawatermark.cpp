@@ -107,14 +107,18 @@ static void gst_gva_watermark_class_init(GstGvaWatermarkClass *klass) {
 
     g_object_class_install_property(
         gobject_class, PROP_DISPL_CFG,
-        g_param_spec_string("displ-cfg", "Gvawatermark display configuration",
-                            "Comma separated list of KEY=VALUE parameters of displayed notations.\n"
-                            "\t\t\tAvailable options: \n"
-                            "\t\t\tshow-labels=true|false - enable/disable display of text labels (default true)\n"
-                            "\t\t\ttext-scale=<0.1-2.0> - scale factor for text labels (default 1.0)\n"
-                            "\t\t\te.g.: displ-cfg=show-labels=off\n"
-                            "\t\t\te.g.: displ-cfg=text-scale=0.5",
-                            nullptr, kDefaultGParamFlags));
+        g_param_spec_string(
+            "displ-cfg", "Gvawatermark display configuration",
+            "Comma separated list of KEY=VALUE parameters of displayed notations.\n"
+            "\t\t\tAvailable options: \n"
+            "\t\t\tshow-labels=true|false - enable/disable display of text labels (default true)\n"
+            "\t\t\ttext-scale=<0.1-2.0> - scale factor for text labels (default 1.0)\n"
+            "\t\t\tthickness=<uint> - thickness of bounding box (default 2)\n"
+            "\t\t\tcolor-idx=<int> - color index for bounding box, keypoints, text (default -1 - default colors)\n"
+            "\t\t\t (0 - red, 1 - green, 2 - blue)\n"
+            "\t\t\te.g.: displ-cfg=show-labels=off\n"
+            "\t\t\te.g.: displ-cfg=text-scale=0.5,thickness=3,color-idx=0",
+            nullptr, kDefaultGParamFlags));
 }
 
 static void gst_gva_watermark_init(GstGvaWatermark *self) {

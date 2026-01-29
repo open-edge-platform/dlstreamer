@@ -7,9 +7,17 @@
 #include "gstgvawatermarkimpl.h"
 #include "gvawatermarkcaps.h"
 
-#ifndef _WIN32
+#ifndef _MSC_VER
 #include <dlstreamer/image_info.h>
 #include <gmodule.h>
+#else
+// On Windows try to include libva headers if available; otherwise fall back to minimal constants.
+#if __has_include(<va/va.h>)
+#include <va/va.h>
+#endif
+#ifndef VA_INVALID_SURFACE
+#define VA_INVALID_SURFACE (-1)
+#endif
 #endif
 
 #include <gst/allocators/gstdmabuf.h>
@@ -27,14 +35,8 @@
 #include "utils.h"
 #include "video_frame.h"
 
-#ifndef _WIN32
 #ifdef ENABLE_VAAPI
 #include <dlstreamer/vaapi/mappers/vaapi_to_dma.h>
-#endif
-#else
-#include <dlstreamer/gst/mappers/gst_to_d3d11.h>
-#define GST_USE_UNSTABLE_API
-#include <gst/d3d11/gstd3d11.h>
 #endif
 
 #include "renderer/color_converter.h"
@@ -43,7 +45,7 @@
 #include <exception>
 #include <string>
 #include <typeinfo>
-#if !defined(ENABLE_VAAPI) || defined(_WIN32)
+#ifndef ENABLE_VAAPI
 // VAAPI disabled: provide minimal stub types/constants to satisfy signatures without libva.
 #ifndef VA_INVALID_SURFACE
 #define VA_INVALID_SURFACE (-1)
@@ -59,6 +61,9 @@ GST_DEBUG_CATEGORY_STATIC(gst_gva_watermark_impl_debug_category);
 #define GST_CAT_DEFAULT gst_gva_watermark_impl_debug_category
 
 #define DEFAULT_DEVICE nullptr
+#define DEFAULT_THICKNESS (2)
+#define DEFAULT_TEXT_SCALE (1.0)
+#define DEFAULT_COLOR_IDX (-1)
 
 typedef enum { DEVICE_CPU, DEVICE_GPU, DEVICE_GPU_AUTOSELECTED } DEVICE_SELECTOR;
 
@@ -154,9 +159,8 @@ struct Impl {
 
     std::vector<render::Prim> prims;
 
-    const int _thickness = 2;
     const double _radius_multiplier = 0.0025;
-    const Color _default_color = indexToColor(1);
+    Color _default_color = indexToColor(1);
     // Position for full-frame text
     const cv::Point2f _ff_text_position = cv::Point2f(0, 25.f);
     struct FontCfg {
@@ -169,7 +173,9 @@ struct Impl {
 
     struct DisplCfg {
         bool show_labels = true;
-        double text_scale = 1.0;
+        int color_idx = DEFAULT_COLOR_IDX;
+        uint thickness = DEFAULT_THICKNESS;
+        double text_scale = DEFAULT_TEXT_SCALE;
     } _displCfg;
 };
 
@@ -698,14 +704,18 @@ static void gst_gva_watermark_impl_class_init(GstGvaWatermarkImplClass *klass) {
 
     g_object_class_install_property(
         gobject_class, PROP_DISPL_CFG,
-        g_param_spec_string("displ-cfg", "Gvawatermark element display configuration",
-                            "Comma separated list of KEY=VALUE parameters of displayed notations.\n"
-                            "\t\t\tAvailable options: \n"
-                            "\t\t\tshow-labels=true|false - enable/disable display of text labels (default true)\n"
-                            "\t\t\ttext-scale=<0.1-2.0> - scale factor for text labels (default 1.0)\n"
-                            "\t\t\te.g.: displ-cfg=show-labels=off\n"
-                            "\t\t\te.g.: displ-cfg=text-scale=0.5",
-                            nullptr, kDefaultGParamFlags));
+        g_param_spec_string(
+            "displ-cfg", "Gvawatermark element display configuration",
+            "Comma separated list of KEY=VALUE parameters of displayed notations.\n"
+            "\t\t\tAvailable options: \n"
+            "\t\t\tshow-labels=true|false - enable/disable display of text labels (default true)\n"
+            "\t\t\ttext-scale=<0.1-2.0> - scale factor for text labels (default 1.0)\n"
+            "\t\t\tthickness=<uint> - thickness of bounding box (default 2)\n"
+            "\t\t\tcolor-idx=<int> - color index for bounding box, keypoints, text (default -1 - default colors)\n"
+            "\t\t\t (0 - red, 1 - green, 2 - blue)\n"
+            "\t\t\te.g.: displ-cfg=show-labels=off\n"
+            "\t\t\te.g.: displ-cfg=text-scale=0.5,thickness=3,color-idx=2",
+            nullptr, kDefaultGParamFlags));
 }
 
 Impl::Impl(GstVideoInfo *info, InferenceBackend::MemoryType mem_type, GstElement *element, bool displ_avgfps,
@@ -911,11 +921,15 @@ void Impl::preparePrimsForRoi(GVA::RegionOfInterest &roi, std::vector<render::Pr
         }
     }
 
-    // put rectangle
+    // set color
     Color color = indexToColor(color_index);
+    if (_displCfg.color_idx != DEFAULT_COLOR_IDX)
+        color = _default_color;
+
+    // put rectangle
     cv::Rect bbox_rect(rect.x, rect.y, rect.w, rect.h);
     if (!_obb)
-        prims.emplace_back(render::Rect(bbox_rect, color, _thickness, roi.rotation()));
+        prims.emplace_back(render::Rect(bbox_rect, color, _displCfg.thickness, roi.rotation()));
 
     // put text
     if (_displCfg.show_labels)
@@ -969,7 +983,8 @@ void Impl::preparePrimsForTensor(const GVA::Tensor &tensor, GVA::Rect<double> re
                 x2 = safe_convert<int>(rect.x + rect.w * data[0]);
                 y2 = safe_convert<int>(rect.y + rect.h * data[1]);
             }
-            prims.emplace_back(render::Line(cv::Point2i(x, y), cv::Point2i(x2, y2), _default_color, _thickness));
+            prims.emplace_back(
+                render::Line(cv::Point2i(x, y), cv::Point2i(x2, y2), _default_color, _displCfg.thickness));
         }
     }
 
@@ -999,7 +1014,7 @@ void Impl::preparePrimsForTensor(const GVA::Tensor &tensor, GVA::Rect<double> re
             cv::Point2f vertices2f[4];
             rotated.points(vertices2f);
             for (int i = 0; i < 4; i++)
-                prims.emplace_back(render::Line(vertices2f[i], vertices2f[(i + 1) % 4], color, _thickness));
+                prims.emplace_back(render::Line(vertices2f[i], vertices2f[(i + 1) % 4], color, _displCfg.thickness));
         }
     }
 
@@ -1129,7 +1144,7 @@ void Impl::preparePrimsForKeypointConnections(GstStructure *s, const std::vector
         int x2 = safe_convert<int>(rectangle.x + rectangle.w * x2_real);
         int y2 = safe_convert<int>(rectangle.y + rectangle.h * y2_real);
 
-        prims.emplace_back(render::Line(cv::Point2i(x1, y1), cv::Point2i(x2, y2), _default_color, _thickness));
+        prims.emplace_back(render::Line(cv::Point2i(x1, y1), cv::Point2i(x2, y2), _default_color, _displCfg.thickness));
     }
 
     g_value_array_free(point_connections);
@@ -1156,6 +1171,26 @@ void Impl::parse_displ_config() {
         if (iter != cfg.end()) {
             if (iter->second == "true" || iter->second == "false") {
                 _displCfg.show_labels = (iter->second == "true");
+            }
+            cfg.erase(iter);
+        }
+        iter = cfg.find("thickness");
+        if (iter != cfg.end()) {
+            _displCfg.thickness = std::stoi(iter->second);
+            cfg.erase(iter);
+        }
+        iter = cfg.find("color-idx");
+        if (iter != cfg.end()) {
+            int _color_idx = std::stoi(iter->second);
+            if (_color_idx >= 0 && _color_idx <= 2) {
+                if (_color_idx == 0)
+                    _default_color = Color(255, 0, 0); // Red
+                else if (_color_idx == 1)
+                    _default_color = Color(0, 255, 0); // Green
+                else if (_color_idx == 2)
+                    _default_color = Color(0, 0, 255); // Blue
+
+                _displCfg.color_idx = _color_idx;
             }
             cfg.erase(iter);
         }
