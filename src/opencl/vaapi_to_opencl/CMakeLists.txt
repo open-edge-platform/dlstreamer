@@ -1,5 +1,5 @@
 # ==============================================================================
-# Copyright (C) 2022-2025 Intel Corporation
+# Copyright (C) 2022-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
@@ -7,7 +7,6 @@
 set(TARGET_NAME vaapi_to_opencl)
 
 find_package(OpenCL REQUIRED)
-pkg_search_module(VA va libva REQUIRED)
 
 file(GLOB MAIN_SRC
         ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp
@@ -25,7 +24,6 @@ PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}
 PRIVATE
         ${OpenCL_INCLUDE_DIRS}
-        ${VA_INCLUDE_DIRS}
 )
 
 target_link_libraries(${TARGET_NAME}
