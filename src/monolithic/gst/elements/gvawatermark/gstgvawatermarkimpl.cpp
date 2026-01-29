@@ -8,6 +8,26 @@
 #include "gvawatermarkcaps.h"
 
 #ifndef _WIN32
+#include <dlstreamer/image_info.h>
+#include <gmodule.h>
+#endif
+
+#include <gst/allocators/gstdmabuf.h>
+#include <gst/base/gstbasetransform.h>
+#include <gst/gst.h>
+#include <gst/video/video-color.h>
+#include <gst/video/video-info.h>
+
+#include <inference_backend/logger.h>
+#include <safe_arithmetic.hpp>
+
+#include "gva_caps.h"
+#include "inference_backend/buffer_mapper.h"
+#include "so_loader.h"
+#include "utils.h"
+#include "video_frame.h"
+
+#ifndef _WIN32
 #ifdef ENABLE_VAAPI
 #include <dlstreamer/vaapi/mappers/vaapi_to_dma.h>
 #endif
