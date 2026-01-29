@@ -72,6 +72,15 @@ install: build ## Build and install Deep Learning Streamer
 	@echo "Installing Deep Learning Streamer"
 	@mkdir -p ${DLSTREAMER_INSTALL_PREFIX}
 	@rm -rf ${DLSTREAMER_INSTALL_PREFIX}/*
+	@if [ -f build/deps/.deps_built ]; then \
+		echo "Installing dependencies..."; \
+		cmake \
+			-B build/deps \
+			-DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
+			-DINSTALL_DLSTREAMER=True \
+			-DDLSTREAMER_INSTALL_PREFIX=${DLSTREAMER_INSTALL_PREFIX} \
+			./dependencies; \
+	fi
 	@cp -r build/intel64/${BUILD_TYPE} ${DLSTREAMER_INSTALL_PREFIX}
 	@cp -r samples/ ${DLSTREAMER_INSTALL_PREFIX}
 	@cp -r python/ ${DLSTREAMER_INSTALL_PREFIX}
