@@ -46,7 +46,7 @@ else
 fi
 
 DECODE_ELEMENT="! decodebin3 !"
-PREPROC_BACKEND="ie"
+PREPROC_BACKEND="opencv"
 if [[ "$DEVICE" == "GPU" ]] || [[ "$DEVICE" == "NPU" ]]; then
   DECODE_ELEMENT+=" vapostproc ! video/x-raw(memory:VAMemory) !"
   PREPROC_BACKEND="va-surface-sharing"
