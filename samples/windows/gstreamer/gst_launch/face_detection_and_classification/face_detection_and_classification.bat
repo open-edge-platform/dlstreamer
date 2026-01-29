@@ -16,14 +16,16 @@ if [%DEVICE%]==[] set DEVICE=CPU
 
 set OUTPUT=%3
 if [%OUTPUT%]==[] set OUTPUT=display
-if %OUTPUT%==display (
-  set SINK_ELEMENT=gvawatermark ! videoconvert ! autovideosink sync=false
-) else if %OUTPUT%==fps (
-  set SINK_ELEMENT=gvafpscounter ! fakesink async=false
+
+set JSON_FILE=%4
+if [%JSON_FILE%]==[] set JSON_FILE=output.json
+
+if "%OUTPUT%"=="json" (
+    set "SINK_ELEMENT=gvametaconvert ! gvametapublish file-format=json-lines file-path=%JSON_FILE% ! fakesink async=false"
+) else if "%OUTPUT%"=="fps" (
+    set "SINK_ELEMENT=gvafpscounter ! fakesink async=false"
 ) else (
-  echo Error wrong value for SINK_ELEMENT parameter
-  echo Possible values: display - render, fps - show FPS only
-  EXIT /B 1
+    set "SINK_ELEMENT=gvawatermark ! videoconvert ! autovideosink sync=false"
 )
 
 setlocal EnableDelayedExpansion
