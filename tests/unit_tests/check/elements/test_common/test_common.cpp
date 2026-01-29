@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2018-2025 Intel Corporation
+ * Copyright (C) 2018-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -79,7 +79,8 @@ static void check_incorrect_plugin_caps(const gchar *name, GstStaticPadTemplate 
 }
 static void check_plugin_caps(const gchar *name, GstCaps *caps, gint size, GstStaticPadTemplate *srctemplate,
                               GstStaticPadTemplate *sinktemplate, SetupInBuffCb setup_inbuf,
-                              CheckOutBuffCb check_outbuf, gpointer user_data, const gchar *prop, va_list varargs) {
+                              CheckOutBuffCb check_outbuf, gpointer user_data, const gchar *prop, va_list varargs,
+                              GetExpectedSizeIncreaseCb get_size_increase_cb = NULL) {
     GstElement *plugin = setup_plugin(name, srctemplate, sinktemplate);
     g_object_set_valist(G_OBJECT(plugin), prop, varargs);
 
@@ -90,7 +91,8 @@ static void check_plugin_caps(const gchar *name, GstCaps *caps, gint size, GstSt
     GstBuffer *inbuffer = gst_buffer_new_and_alloc(size);
     if (setup_inbuf) {
         setup_inbuf(inbuffer, user_data);
-    }
+    } // Call callback after setup_inbuf to get the expected size increase
+    gsize expected_size_increase = (get_size_increase_cb != NULL) ? get_size_increase_cb(user_data) : 0;
     GST_BUFFER_TIMESTAMP(inbuffer) = 0;
     ASSERT_BUFFER_REFCOUNT(inbuffer, "inbuffer", 1);
     ck_assert(gst_pad_push(mysrcpad, inbuffer) == GST_FLOW_OK);
@@ -102,7 +104,10 @@ static void check_plugin_caps(const gchar *name, GstCaps *caps, gint size, GstSt
     GstBuffer *outbuffer = GST_BUFFER(buffers->data);
     ck_assert(outbuffer != NULL);
 
-    ck_assert(gst_buffer_get_size(outbuffer) == size);
+    gsize expected_output_size = size + expected_size_increase;
+    ck_assert_msg(gst_buffer_get_size(outbuffer) == expected_output_size,
+                  "Expected buffer size %zu (base %d + increase %zu), got %zu", expected_output_size, size,
+                  expected_size_increase, gst_buffer_get_size(outbuffer));
     if (check_outbuf) {
         check_outbuf(outbuffer, user_data);
     }
@@ -142,7 +147,41 @@ void run_test(const gchar *elem_name, const gchar *caps_string, Resolution resol
         va_list varargs;
         va_start(varargs, prop);
         check_plugin_caps(elem_name, caps, size, srctemplate, sinktemplate, setup_inbuf, check_outbuf, user_data, prop,
-                          varargs);
+                          varargs, NULL);
+        va_end(varargs);
+
+        gst_caps_unref(caps);
+    }
+
+    gst_caps_unref(allcaps);
+}
+
+void run_test_with_size_increase(const gchar *elem_name, const gchar *caps_string, Resolution resolution,
+                                 GstStaticPadTemplate *srctemplate, GstStaticPadTemplate *sinktemplate,
+                                 SetupInBuffCb setup_inbuf, CheckOutBuffCb check_outbuf, gpointer user_data,
+                                 GetExpectedSizeIncreaseCb get_size_increase_cb, const gchar *prop, ...) {
+    GstCaps *templ = gst_caps_from_string(caps_string);
+    GstCaps *allcaps = gst_caps_normalize(templ);
+    gint n = gst_caps_get_size(allcaps);
+
+    for (gint i = 0; i < n; i++) {
+        GstStructure *s = gst_caps_get_structure(allcaps, i);
+        GstCaps *caps = gst_caps_new_empty();
+
+        gst_caps_append_structure(caps, gst_structure_copy(s));
+
+        GstVideoInfo info;
+
+        caps = gst_caps_make_writable(caps);
+        gst_caps_set_simple(caps, "width", G_TYPE_INT, resolution.width, "height", G_TYPE_INT, resolution.height,
+                            "framerate", GST_TYPE_FRACTION, 25, 1, NULL);
+
+        gst_video_info_from_caps(&info, caps);
+        gint size = GST_VIDEO_INFO_SIZE(&info);
+        va_list varargs;
+        va_start(varargs, prop);
+        check_plugin_caps(elem_name, caps, size, srctemplate, sinktemplate, setup_inbuf, check_outbuf, user_data, prop,
+                          varargs, get_size_increase_cb);
         va_end(varargs);
 
         gst_caps_unref(caps);
