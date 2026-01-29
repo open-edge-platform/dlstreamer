@@ -69,6 +69,7 @@ Element Properties:
   displ-cfg           : Comma separated list of KEY=VALUE parameters of displayed notations.
                         Available options:
                         show-labels=true|false - enable/disable display of text labels (default true)
+                        text-scale=<0.1-2.0> - scale factor for text labels (default 1.0)
                         thickness=<uint> - thickness of bounding box (default 2)
                         color-idx=<int> - color index for bounding box, keypoints, text (default -1 - default colors)
                         (0 - red, 1 - green, 2 - blue)
