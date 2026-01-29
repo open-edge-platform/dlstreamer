@@ -401,7 +401,7 @@ jobs:
       contents: read
       packages: read
     needs: [dls-filter-docker-or-optimizer-related-changes]
-    if: needs.dls-filter-docker-or-optimizer-related-changes.outputs.docker_changed == 'true'
+    if: needs.dls-filter-docker-or-optimizer-related-changes.outputs.optimizer_changed == 'true'
     name: "DLS TEST: Optimizer"
     uses: ./.github/workflows/dls-test-optimizer.yaml
     with:
