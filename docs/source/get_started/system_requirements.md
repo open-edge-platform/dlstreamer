@@ -12,6 +12,7 @@ all available processing units:
  [Lunar Lake](https://www.intel.com/content/www/us/en/ark/products/codename/213792/products-formerly-lunar-lake.html) | Intel® Core™ Ultra Processors - series 2 | Integrated Intel® Arc™ B-Series Graphics | Integrated Intel® AI Boost | Ubuntu 24.04.3 LTS (HWE) with kernel version 6.14.0-33
  [Arrow Lake](https://www.intel.com/content/www/us/en/ark/products/codename/225837/products-formerly-arrow-lake.html) | Intel® Core™ Ultra Processors - series 2 | Integrated Intel® Arc™ Graphics | Integrated Intel® AI Boost | Ubuntu 24.04.3 LTS (HWE) with kernel version 6.14.0-33
  [Arrow Lake](https://www.intel.com/content/www/us/en/ark/products/codename/225837/products-formerly-arrow-lake.html) | Intel® Core™ Ultra Processors - series 2 | Integrated Intel® Arc™ Graphics Cards with GPU driver version 32.0.101.8247 | Integrated Intel® AI Boost with NPU driver version 32.0.100.4404 | Windows 11 Pro version 25H2
+ [Panther Lake](https://www.intel.com/content/www/us/en/ark/products/codename/237132/products-formerly-panther-lake.html) | Intel® Core™ Ultra Processors - series 3 | Integrated Intel® Arc™ B390 GPU | Integrated Intel® AI Boost | Ubuntu 24.04.3 LTS (HWE) with kernel version 6.17
 
 Additionally, Deep Learning Streamer releases are validated on the following
 discrete GPUs:
