@@ -23,7 +23,7 @@ shown on [High level bin elements architecture]{.title-ref} graph.
 
 Here's an example of the same pipeline without and with `processbin`:
 
-```sh
+```bash
 # Without processbin
 filesrc location=$FILE ! decodebin3 ! \
 tee name=t t. ! queue !  meta_aggregate name=mux ! fakesink \

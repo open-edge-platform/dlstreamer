@@ -31,6 +31,7 @@ file (GLOB MAIN_SRC
     gvawatermark3d/*.c
     gvadeskew/*.cpp
     gvadeskew/*.c
+    gvafpsthrottle/*.cpp
 )
 
 # gvamotiondetect platform-specific source
@@ -49,6 +50,7 @@ file (GLOB MAIN_HEADERS
     gvawatermark3d/*.h
     gvadeskew/*.h
     gvamotiondetect/*.h
+    gvafpsthrottle/*.hpp
 )
 
 if(${ENABLE_AUDIO_INFERENCE_ELEMENTS})

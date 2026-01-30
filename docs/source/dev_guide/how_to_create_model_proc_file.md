@@ -212,7 +212,7 @@ So, *"input_preproc"* is defined.
 
 > **NOTE:** For an ONNX model, *"input_preproc"* most likely will be as follows:
 
-``` javascript
+```javascript
 "input_preproc": [
     "format": "image",
     "layer_name": "data",

@@ -1,17 +1,17 @@
 # gvatrack
 
-Performs object tracking using zero-term, zero-term-imageless, short-term-imageless or 
-deepsort tracking algorithms. 
+Performs object tracking using zero-term, zero-term-imageless, short-term-imageless or
+deepsort tracking algorithms.
 
 Zero-term tracking assigns unique object IDs and requires object detection to run on every frame.
-Short-term tracking allows for tracking objects between frames, reducing the need to run object detection on each frame. 
+Short-term tracking allows for tracking objects between frames, reducing the need to run object detection on each frame.
 Imageless tracking forms object associations based on the movement and shape of objects, and does not use image data.
-Deep SORT tracking combines motion prediction (Kalman filter) with appearance features (deep learning re-identification) for robust multi-object tracking with reduced ID switches. 
+Deep SORT tracking combines motion prediction (Kalman filter) with appearance features (deep learning re-identification) for robust multi-object tracking with reduced ID switches.
 
 Please refer to [Object Tracking](../dev_guide/object_tracking.md)
 for more information on the element properties.
 
-```sh
+```bash
 Pad Templates:
  SINK template: 'sink'
    Availability: Always

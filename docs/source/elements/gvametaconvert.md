@@ -2,7 +2,7 @@
 
 Converts the metadata structure into JSON format.
 
-```none
+```text
 Pad Templates:
   SRC template: 'src'
     Availability: Always

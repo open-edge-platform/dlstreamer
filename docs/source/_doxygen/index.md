@@ -26,7 +26,7 @@ Any modification you perform using DL Streamer API will affect underlying metada
 
 Video analytics pipeline is a GStreamer pipeline with one or several Deep Learning Streamer elements for inference and additional actions (publishing, rendering, etc.) if needed. Take a look at this pipeline:
 
-```sh
+```bash
 INPUT=video.mp4
 MODEL1=face-detection-adas-0001
 MODEL2=age-gender-recognition-retail-0013

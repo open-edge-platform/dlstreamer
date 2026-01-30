@@ -55,12 +55,12 @@ Below is reference to some low-level interfaces used by Deep Learning
 Streamer memory interop sub-components for zero-copy buffer sharing
 between media frameworks and OpenCL/SYCL
 
-1.  (Linux) [VA-API to
-    DMA-BUF](http://intel.github.io/libva/group__api__core.html#ga404be4f513f3a15b9a831ff561b1b179)
-2.  [DMA-BUF or NT-Handle to
-    Level-zero](https://oneapi-src.github.io/level-zero-spec/level-zero/latest/core/PROG.html#external-memory-import-and-export)
-3.  [OpenCL extension
-    cl_khr_external_memory](https://registry.khronos.org/OpenCL/specs/3.0-unified/html/OpenCL_API.html#cl_khr_external_memory)
+1. (Linux) [VA-API to
+   DMA-BUF](http://intel.github.io/libva/group__api__core.html#ga404be4f513f3a15b9a831ff561b1b179)
+2. [DMA-BUF or NT-Handle to
+   Level-zero](https://oneapi-src.github.io/level-zero-spec/level-zero/latest/core/PROG.html#external-memory-import-and-export)
+3. [OpenCL extension
+   cl_khr_external_memory](https://registry.khronos.org/OpenCL/specs/3.0-unified/html/OpenCL_API.html#cl_khr_external_memory)
 
 ## Memory interop in a few lines - using Deep Learning Streamer
 
@@ -132,7 +132,7 @@ If application uses Deep Learning Streamer memory interop library and
 application based on cmake build system, add `pkg_check_modules` and
 `include_directories` statements like below:
 
-``` none
+```text
 pkg_check_modules(DLSTREAMER dl-streamer REQUIRED)
 include_directories(${DLSTREAMER_INCLUDE_DIRS})
 ```
@@ -142,7 +142,7 @@ For each framework involved in memory interop, add corresponding
 required/documented by framework. For example if using memory interop
 with OpenVINO™, cmake file should contain lines like below
 
-``` none
+```text
 find_package(OpenVINO COMPONENTS runtime)
 include_directories(${OpenVINO_INCLUDE_DIRS})
 link_libraries(openvino::runtime)
@@ -154,7 +154,7 @@ Abstract interfaces are defined in the following header files and
 installed by `sudo apt install intel-dlstreamer-cpp` under folder
 `/opt/intel/dlstreamer/include/dlstreamer`:
 
-``` none
+```text
 include/dlstreamer
 ├── audio_info.h
 ├── context.h
@@ -184,7 +184,7 @@ installed under corresponding subfolders of
 `/opt/intel/dlstreamer/include/dlstreamer` by same package
 `intel-dlstreamer-cpp`:
 
-``` none
+```text
 include/dlstreamer
 ├── ffmpeg
 │   ├── mappers

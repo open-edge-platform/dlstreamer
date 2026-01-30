@@ -32,6 +32,7 @@ PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/../elements/gvawatermark3d/
     ${CMAKE_CURRENT_SOURCE_DIR}/../elements/gvamotiondetect/
     ${CMAKE_CURRENT_SOURCE_DIR}/../elements/gvadeskew/
+    ${CMAKE_CURRENT_SOURCE_DIR}/../elements/gvafpsthrottle/
 )
 
 target_link_libraries(${TARGET_NAME}

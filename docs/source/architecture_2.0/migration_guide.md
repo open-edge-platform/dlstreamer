@@ -48,7 +48,7 @@ elements `video_inference`, `object_detect`, `object_classify`. Any
 existent application automatically switches to architecture 2.0 elements
 if the following environment variable is set:
 
-``` none
+```text
 export DLSTREAMER_GEN=2
 ```
 
@@ -59,7 +59,7 @@ transition the same environment variable will allow to switch back to
 gva\* elements and architecture 1.0 (for significant time period) via
 setting:
 
-``` none
+```text
 export DLSTREAMER_GEN=1
 ```
 

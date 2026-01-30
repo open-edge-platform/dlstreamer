@@ -3,7 +3,7 @@
 Performs object classification. Accepts the ROIs or full frame as
 input and outputs classification results with metadata.
 
-```none
+```text
 Pad Templates:
 SINK template: 'sink'
    Availability: Always
@@ -158,5 +158,5 @@ scheduling-policy   : Scheduling policy across streams sharing same model instan
                         String. Default: null
 share-va-display-ctx: Feature allowing sharing VA Display context across inference elements
                         flags: readable, writable
-                        Boolean. Default: true                        
+                        Boolean. Default: true
 ```

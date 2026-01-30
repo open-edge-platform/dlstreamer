@@ -78,7 +78,7 @@ ovc yolov7.onnx
 
 Model preparation enabling the dynamic batch size:
 
-``` python
+```python
 from ultralytics import YOLO
 from openvino.runtime import Core
 from openvino.runtime import save_model

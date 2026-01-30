@@ -20,7 +20,7 @@ To register C++ element with GStreamer, `register_elements_gst_plugin`
 function is used. It should be called from `plugin_init` function of
 GStreamer plugin, here's an example:
 
-``` cpp
+```cpp
 static gboolean plugin_init(GstPlugin *plugin) {
   return register_elements_gst_plugin(tensor_postproc_label, plugin);
 }

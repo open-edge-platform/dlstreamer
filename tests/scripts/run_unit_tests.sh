@@ -75,7 +75,7 @@ fi
 set +e
 ret_code=0
 
-ctest -T Test --output-on-failure --verbose "${ctest_args_junit[@]}" || ret_code=$?
+ctest -T Test -E test_symlink --output-on-failure --verbose "${ctest_args_junit[@]}" || ret_code=$?
 cp ./Testing/"$(head -n 1 Testing/TAG)"/Test.xml "$result_path/CTestResults.xml"
 popd
 

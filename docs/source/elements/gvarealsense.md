@@ -4,7 +4,7 @@ Reads depth and RGB data from Real Sense camera and provides
 it in a PCD format suitable for further processing in DL Streamer
 pipelines.
 
-```sh
+```bash
 Pad Templates:
   SRC template: 'src'
     Availability: Always

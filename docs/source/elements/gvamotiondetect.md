@@ -2,7 +2,7 @@
 
 Performs lightweight motion detection on NV12 video frames and emits motion regions of interest (ROIs) as analytics metadata. Automatically uses a VA-API (GPU) accelerated path when VAMemory caps are negotiated; otherwise falls back to a system-memory (CPU) path. Designed for low-latency scene motion highlighting and downstream triggering without requiring a full inference model.
 
-```sh
+```bash
 Pad Templates:
   SINK template: 'sink'
     Availability: Always
@@ -115,7 +115,7 @@ Limitations / Future Improvements:
 - No explicit per-ROI confidence beyond binary motion presence (confidence fixed to 1.0 in analytics metadata).
 - Coordinate rounding (3 decimal places) applied for analytics metadata; raw ROI meta stores integer pixel coordinates.
 
-```sh
+```bash
 Plugin Registration:
   Name: gvamotiondetect
   Classification: Filter/Video

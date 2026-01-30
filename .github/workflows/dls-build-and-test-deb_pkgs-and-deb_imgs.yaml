@@ -166,13 +166,23 @@ jobs:
           name: DLS_functional_tests_${{ matrix.runner_print_label }}_docker_${{ matrix.ubuntu_version }}_results
           path: "${{ env.DLS_TESTS_RESULTS_PATH }}"
 
-      - name: Print Docker tests summary in workflow
+      - name: Check and display Docker test results
         if: steps.run_docker_tests.outcome == 'success'
         env:
           dls_tests_results_path: ${{ env.DLS_TESTS_RESULTS_PATH }}
           test_repo_branch: ${{ inputs.test-repo-branch }}
         run: |
-          sed 's/\[pass\]/:white_check_mark:/g; s/\[\! FAIL \!\]/:x:/g' "${dls_tests_results_path}"/DLS_functional_tests_${{ matrix.runner_print_label }}_docker_${{ matrix.ubuntu_version }}_results.txt >> $GITHUB_STEP_SUMMARY
+          RESULTS_FILE="${dls_tests_results_path}/DLS_functional_tests_${{ matrix.runner_print_label }}_docker_${{ matrix.ubuntu_version }}_results.txt"
+
+          # Add results to summary with emoji replacements
+          sed 's/\[pass\]/:white_check_mark:/g; s/\[\! FAIL \!\]/:x:/g' "$RESULTS_FILE" >> $GITHUB_STEP_SUMMARY
+
+          # Check for failures and fail if any
+          FAILED_COUNT=$(grep "^Failed:" "$RESULTS_FILE" | awk '{print $2}')
+          if [ "$FAILED_COUNT" -gt 0 ]; then
+            echo "::error::$FAILED_COUNT test(s) failed"
+            exit 1
+          fi
       - name: Clean up tests results
         if: always ()
         env:
@@ -181,12 +191,15 @@ jobs:
           rm -rf "$DLS_TESTS_RESULTS_PATH"
       # ======================================================== OH HOST TESTING PART ========================================================
       - name: Link DL Streamer to home directory
+        if: always ()
         run: |
           ln -s $PWD/$DLS_REL_PATH $HOME
       - name: Install DL Streamer on-host
+        if: always ()
         run: |
           $DLS_REL_PATH/tests/scripts/installation-on-host-entrypoint.sh $DLS_REL_PATH/deb_packages
       - name: 👋 Test hello_dlstreamer script on host
+        if: always ()
         id: test_hello_dlstreamer_script
         run: |
           mkdir -p $DLS_REL_PATH/test_hello_dlstreamer
@@ -211,16 +224,18 @@ jobs:
           fi
       - name: Upload hello_dlstreamer output video
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 #4.6.2
-        if: steps.test_hello_dlstreamer_script.outcome == 'success'
+        if: always ()
         with:
           name: DLS_hello_dlstreamer_output_video_${{ matrix.runner_print_label }}_${{ matrix.ubuntu_version }}_CPU_yolo11s
           path: ${{ env.DLS_REL_PATH }}/test_hello_dlstreamer
 
       - name: Init on host tests configurations
+        if: always ()
         run: |
           echo "HOST_TEST_CONFIGS=samples_config.json" >> $GITHUB_ENV
           echo "Selected test configuration file: $HOST_TEST_CONFIGS" >> $GITHUB_STEP_SUMMARY
       - name: Init host test environemtnt
+        if: always ()
         run: |
           sudo apt install -y libcairo2-dev libgirepository1.0-dev
           if [[ ${{ matrix.ubuntu_version }} == "ubuntu24" ]]; then
@@ -234,6 +249,7 @@ jobs:
           python3 -m venv $HOME/.virtualenvs/dlstreamer
           $HOME/.virtualenvs/dlstreamer/bin/pip install --no-cache-dir --upgrade pip -r $DLS_REL_PATH/requirements.txt
       - name: 🚀 Run on host tests
+        if: always ()
         id: run_onhost_tests
         env:
           HOST_TEST_CONFIGS: ${{ env.HOST_TEST_CONFIGS }}
@@ -256,22 +272,33 @@ jobs:
           deactivate
       - name: Upload host test results
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 #4.6.2
-        if: steps.run_onhost_tests.outcome == 'success'
+        if: always ()
         with:
           name: DLS_functional_tests_${{ matrix.runner_print_label }}_on_host_${{ matrix.ubuntu_version }}_results
           path: "${{ env.DLS_TESTS_RESULTS_PATH }}"
-      - name: Print host tests summary in workflow
-        if: steps.run_onhost_tests.outcome == 'success'
+      - name: Check and display host test results
+        if: always ()
         env:
           dls_tests_results_path: ${{ env.DLS_TESTS_RESULTS_PATH }}
           test_repo_branch: ${{ inputs.test-repo-branch }}
         run: |
-          sed 's/\[pass\]/:white_check_mark:/g; s/\[\! FAIL \!\]/:x:/g' "${dls_tests_results_path}"/DLS_functional_tests_${{ matrix.runner_print_label }}_on_host_${{ matrix.ubuntu_version }}_results.txt >> $GITHUB_STEP_SUMMARY
+          RESULTS_FILE="${dls_tests_results_path}/DLS_functional_tests_${{ matrix.runner_print_label }}_on_host_${{ matrix.ubuntu_version }}_results.txt"
+
+          # Add results to summary with emoji replacements
+          sed 's/\[pass\]/:white_check_mark:/g; s/\[\! FAIL \!\]/:x:/g' "$RESULTS_FILE" >> $GITHUB_STEP_SUMMARY
+
+          # Check for failures and fail if any
+          FAILED_COUNT=$(grep "^Failed:" "$RESULTS_FILE" | awk '{print $2}')
+          if [ "$FAILED_COUNT" -gt 0 ]; then
+            echo "::error::$FAILED_COUNT test(s) failed"
+            exit 1
+          fi
       - name: Uninstall dlstreamer
         if: always ()
         run: |
           $DLS_REL_PATH/tests/scripts/uninstall-dlstreamer.sh
       - name: Check Docker image size
+        if: always ()
         id: check-size
         env:
           deb_final_img: ghcr.io/${{ github.repository }}/deb-final-img-${{ matrix.ubuntu_version }}:${{ github.sha }}

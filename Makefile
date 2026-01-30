@@ -38,11 +38,17 @@ export GST_PLUGIN_FEATURE_RANK 	:= ${GST_PLUGIN_FEATURE_RANK},ximagesink:MAX
 
 .PHONY: dependencies
 dependencies:
-	cmake \
-		-B build/deps \
-		-DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
-		./dependencies
-	cmake --build build/deps -j$(shell nproc)
+	@if [ ! -f build/deps/.deps_built ]; then \
+		echo "Building dependencies..."; \
+		cmake \
+			-B build/deps \
+			-DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
+			./dependencies; \
+		cmake --build build/deps -j$(shell nproc); \
+		touch build/deps/.deps_built; \
+	else \
+		echo "Dependencies already built, skipping..."; \
+	fi
 
 .PHONY: build
 build: dependencies ## Compile Deep Learning Streamer
@@ -66,12 +72,15 @@ install: build ## Build and install Deep Learning Streamer
 	@echo "Installing Deep Learning Streamer"
 	@mkdir -p ${DLSTREAMER_INSTALL_PREFIX}
 	@rm -rf ${DLSTREAMER_INSTALL_PREFIX}/*
-	@cmake \
-		-B build/deps \
-		-DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
-		-DINSTALL_DLSTREAMER=True \
-		-DDLSTREAMER_INSTALL_PREFIX=${DLSTREAMER_INSTALL_PREFIX} \
-		./dependencies
+	@if [ -f build/deps/.deps_built ]; then \
+		echo "Installing dependencies..."; \
+		cmake \
+			-B build/deps \
+			-DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
+			-DINSTALL_DLSTREAMER=True \
+			-DDLSTREAMER_INSTALL_PREFIX=${DLSTREAMER_INSTALL_PREFIX} \
+			./dependencies; \
+	fi
 	@cp -r build/intel64/${BUILD_TYPE} ${DLSTREAMER_INSTALL_PREFIX}
 	@cp -r samples/ ${DLSTREAMER_INSTALL_PREFIX}
 	@cp -r python/ ${DLSTREAMER_INSTALL_PREFIX}
