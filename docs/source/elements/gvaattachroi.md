@@ -3,7 +3,7 @@
 Provides the ability to define one or more regions of interest to
 perform inference on (instead of the full frame).
 
-``` none
+```text
 Pad Templates:
   SINK template: 'sink'
     Availability: Always
