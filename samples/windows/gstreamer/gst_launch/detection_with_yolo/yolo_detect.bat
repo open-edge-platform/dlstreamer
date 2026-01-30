@@ -1,5 +1,5 @@
 @REM ==============================================================================
-@REM Copyright (C) 2021-2026 Intel Corporation
+@REM Copyright (C) 2026 Intel Corporation
 @REM
 @REM SPDX-License-Identifier: MIT
 @REM ==============================================================================
