@@ -170,7 +170,7 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 #4.6.2
         if: always()
         with:
-          name: DLS_optimzier_host_${{ matrix.runner_print_label }}_on_host_${{ matrix.ubuntu_version }}_results
+          name: DLS_optimzier_host_${{ matrix.runner_print_label }}_${{ matrix.ubuntu_version }}_results
           path: ${{ env.OPTIMIZER_TESTS_PATH }}/optimizer_results/host/FINAL_TEST_REPORT.txt
       - name: Uninstall dlstreamer
         if: always ()
