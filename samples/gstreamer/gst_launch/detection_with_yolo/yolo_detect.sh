@@ -113,7 +113,7 @@ fi
 DECODE_ELEMENT="! decodebin3 !"
 
 if [[ "$PPBKEND" == "" ]]; then
-  PREPROC_BACKEND="opencv" # Default value for CPU
+  PREPROC_BACKEND="opencv"
   if [[ "$DEVICE" == "GPU" ]]; then
     PREPROC_BACKEND="va-surface-sharing"
   fi
