@@ -299,7 +299,7 @@ void RendererNV12::draw_instance_mask(std::vector<cv::Mat> &mats, render::Instan
 
     cv::Rect roi_y(x0_y, y0_y, x1_y - x0_y, y1_y - y0_y);
     cv::Rect roi_u_v(x0_u_v, y0_u_v, x1_u_v - x0_u_v, y1_u_v - y0_u_v);
-    cv::Mat colorMask_u_v(roi_u_v.size(), u_v.type(), mask.color[2]);
+    cv::Mat colorMask_u_v(roi_u_v.size(), u_v.type(), mask.color[1]);
 
     cv::Mat roiSrc_y = y(roi_y);
     cv::Mat roiSrc_u_v = u_v(roi_u_v);
