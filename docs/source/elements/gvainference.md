@@ -2,7 +2,7 @@
 
 Runs deep learning inference using any model with RGB or BGR input.
 
-```none
+```text
 Pad Templates:
   SINK template: 'sink'
     Availability: Always
@@ -150,5 +150,5 @@ Element Properties:
                         String. Default: null
   share-va-display-ctx: Feature allowing sharing VA Display context across inference elements
                         flags: readable, writable
-                        Boolean. Default: true                        
+                        Boolean. Default: true
 ```
