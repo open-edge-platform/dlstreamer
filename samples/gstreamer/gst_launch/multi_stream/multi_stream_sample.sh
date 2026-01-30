@@ -109,7 +109,7 @@ SOURCE_ELEMENT="filesrc location=${INPUT}"
 ### STREAM 1 and 2 ###
 # CPU device
 DECODE_ELEMENT_STR12="decodebin3"
-PREPROC_BACKEND_STR12="ie"
+PREPROC_BACKEND_STR12="opencv"
 # GPU , NPU device
 ## GST-VA ##
 if [[ "$GSTVA" == "VA" ]]; then 
