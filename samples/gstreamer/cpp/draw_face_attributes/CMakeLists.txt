@@ -67,3 +67,10 @@ PRIVATE
         ${GSTVIDEO_LIBRARIES}
         ${GSTANALYTICS_LIBRARIES}
 )
+
+if(NOT WIN32)
+target_link_libraries(${TARGET_NAME} PRIVATE    
+        -lopencv_core
+        -lopencv_imgproc
+)
+endif()
