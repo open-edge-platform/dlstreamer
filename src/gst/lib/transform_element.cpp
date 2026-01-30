@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2022-2025 Intel Corporation
+ * Copyright (C) 2022-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -113,7 +113,7 @@ class GstDlsTransform {
         _parent_class = GST_BASE_TRANSFORM_CLASS(g_type_class_peek_parent(_class_data));
         _logger = log::init_logger(GST_CAT_DEFAULT, nullptr);
         _gst_context = std::make_shared<GSTContext>(&base->element);
-#if !(_MSC_VER)
+#if !(_WIN32)
         _gst_mapper = std::make_shared<MemoryMapperAnyToGST>(nullptr, _gst_context);
 #endif
         //_gst_mapper = std::make_shared<MemoryMapperCache>(_gst_mapper);

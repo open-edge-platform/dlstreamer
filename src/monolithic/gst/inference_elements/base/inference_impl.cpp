@@ -881,7 +881,7 @@ InferenceImpl::InferenceImpl(GvaBaseInference *gva_base_inference) {
 }
 
 dlstreamer::ContextPtr InferenceImpl::GetDisplay(GvaBaseInference *gva_base_inference) {
-#ifdef _MSC_VER
+#ifdef _WIN32
     return gva_base_inference->priv->d3d11_device;
 #else
     return gva_base_inference->priv->va_display;

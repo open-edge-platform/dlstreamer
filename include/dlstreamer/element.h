@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2022-2025 Intel Corporation
+ * Copyright (C) 2022-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -112,7 +112,7 @@ static Element *create_element(DictionaryCPtr params, const ContextPtr &app_cont
 
 } // namespace dlstreamer
 
-#if _MSC_VER
+#if _WIN32
 #define DLS_EXPORT __declspec(dllexport)
 #else
 #define DLS_EXPORT __attribute__((visibility("default")))

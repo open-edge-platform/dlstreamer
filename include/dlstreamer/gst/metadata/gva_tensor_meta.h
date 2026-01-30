@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2018-2025 Intel Corporation
+ * Copyright (C) 2018-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -12,18 +12,13 @@
 #ifndef __GVA_TENSOR_META_H__
 #define __GVA_TENSOR_META_H__
 
+#include "gva_export.h"
 #include <gst/gst.h>
 
 #define GVA_TENSOR_META_API_NAME "GstGVATensorMetaAPI"
 #define GVA_TENSOR_META_IMPL_NAME "GstGVATensorMeta"
 
 #define GVA_TENSOR_MAX_RANK 8
-
-#if _MSC_VER
-#define DLS_EXPORT __declspec(dllexport)
-#else
-#define DLS_EXPORT __attribute__((visibility("default")))
-#endif
 
 G_BEGIN_DECLS
 
