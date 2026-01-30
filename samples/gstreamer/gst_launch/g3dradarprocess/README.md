@@ -14,7 +14,9 @@ The string contains a list of GStreamer elements separated by an exclamation mar
 This sample builds GStreamer pipeline of the following elements:
 - `multifilesrc` for reading sequential radar binary files
 - `g3dradarprocess` for radar signal processing (DC removal, reordering, detection, clustering, tracking)
-- `fakesink` for discarding output (processing results are available as metadata or published to JSON)
+- `gvametaconvert` (optional) for converting metadata to JSON format
+- `gvametapublish` (optional) for publishing JSON results to files, Kafka, MQTT, etc.
+- `fakesink` for discarding output (processing results are available as metadata)
 
 The `g3dradarprocess` element performs the following operations:
 1. **Data Layout Transformation**: Converts raw data from `Chirps * TRN * Samples` to `TRN * Chirps * Samples` layout
@@ -83,8 +85,7 @@ This script will:
 - `-c, --config PATH`: Path to radar configuration JSON file
 - `-f, --frame-rate RATE`: Target frame rate for output (0 = no limit)
 - `-s, --start-index INDEX`: Starting frame index
-- `-p, --publish-result`: Enable publishing results to JSON file
-- `-o, --output PATH`: Path for JSON output file (default: radar_results.json)
+- `-o, --output PATH`: Path for JSON output file (enables metadata publishing)
 - `-h, --help`: Show help message
 
 **Examples:**
@@ -101,12 +102,12 @@ This script will:
 
 3. **Process at 30 FPS with result publishing**
    ```bash
-   ./radar_process_sample.sh --frame-rate 30 --publish-result
+   ./radar_process_sample.sh --frame-rate 30 --output radar_results.json
    ```
 
 4. **Custom starting frame and output path**
    ```bash
-   ./radar_process_sample.sh --start-index 600 --output my_results.json --publish-result
+   ./radar_process_sample.sh --start-index 600 --output my_results.json
    ```
 
 5. **Enable debug logging**
@@ -120,13 +121,25 @@ This script will:
    ```
 
 **Output:**
-- When `--publish-result` is enabled, results are saved to the specified JSON file (default: `radar_results.json`)
+- When `--output` is specified, results are saved to the JSON file using `gvametaconvert` + `gvametapublish`
 - JSON contains frame-by-frame processing results:
   - **frame_id**: Sequential frame identifier
+  - **timestamp**: Processing timestamp
   - **point_clouds**: Detected radar points (ranges, speeds, angles, SNRs)
   - **clusters**: Grouped point clouds representing objects (centers, sizes, velocities)
-  - **tracking**: Tracked object IDs and trajectories
+  - **tracked_objects**: Tracked object IDs and trajectories
 - Console output shows FPS and processing statistics
+
+## Metadata Publishing Architecture
+
+The sample uses DL Streamer's standard metadata publishing mechanism:
+
+```
+g3dradarprocess → gvametaconvert → gvametapublish → fakesink
+      ↓                 ↓                  ↓
+  Adds metadata    Converts to JSON    Publishes to file/Kafka/MQTT
+```
+
 
 ## Understanding the Output
 

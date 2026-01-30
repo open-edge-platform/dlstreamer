@@ -16,7 +16,6 @@ DEFAULT_DATA_PATH="${DLSTREAMER_ROOT}/raddet"
 DEFAULT_CONFIG_PATH="${DLSTREAMER_ROOT}/raddet/RadarConfig_raddet.json"
 DEFAULT_FRAME_RATE="0"
 DEFAULT_START_INDEX="559"
-DEFAULT_PUBLISH_RESULT="false"
 DEFAULT_OUTPUT_PATH="radar_results.json"
 
 # Function to display usage information
@@ -34,16 +33,15 @@ show_usage() {
     echo "                                Default: ${DEFAULT_FRAME_RATE}"
     echo "  -s, --start-index INDEX       Starting frame index"
     echo "                                Default: ${DEFAULT_START_INDEX}"
-    echo "  -p, --publish-result          Enable publishing results to JSON file"
-    echo "  -o, --output PATH             Path for JSON output file"
+    echo "  -o, --output PATH             Path for JSON output file (enables publishing)"
     echo "                                Default: ${DEFAULT_OUTPUT_PATH}"
     echo "  -h, --help                    Show this help message"
     echo ""
     echo "Examples:"
     echo "  $0"
     echo "  $0 --data-path /path/to/raddet --config /path/to/config.json"
-    echo "  $0 --frame-rate 30 --publish-result"
-    echo "  $0 --start-index 600 --output my_results.json --publish-result"
+    echo "  $0 --frame-rate 30 --output results.json"
+    echo "  $0 --start-index 600 --output my_results.json"
     echo "  GST_DEBUG=g3dradarprocess:4 $0 --frame-rate 10"
     echo ""
 }
@@ -53,8 +51,7 @@ DATA_PATH="${DEFAULT_DATA_PATH}"
 CONFIG_PATH="${DEFAULT_CONFIG_PATH}"
 FRAME_RATE="${DEFAULT_FRAME_RATE}"
 START_INDEX="${DEFAULT_START_INDEX}"
-PUBLISH_RESULT="${DEFAULT_PUBLISH_RESULT}"
-OUTPUT_PATH="${DEFAULT_OUTPUT_PATH}"
+OUTPUT_PATH=""
 
 # Parse command-line arguments
 while [[ $# -gt 0 ]]; do
@@ -74,10 +71,6 @@ while [[ $# -gt 0 ]]; do
         -s|--start-index)
             START_INDEX="$2"
             shift 2
-            ;;
-        -p|--publish-result)
-            PUBLISH_RESULT="true"
-            shift
             ;;
         -o|--output)
             OUTPUT_PATH="$2"
@@ -147,9 +140,10 @@ echo "Config file:    ${CONFIG_PATH}"
 echo "File pattern:   ${RADAR_FILES_PATTERN}"
 echo "Start index:    ${START_INDEX}"
 echo "Frame rate:     ${FRAME_RATE} fps (0 = unlimited)"
-echo "Publish result: ${PUBLISH_RESULT}"
-if [ "${PUBLISH_RESULT}" = "true" ]; then
+if [ -n "${OUTPUT_PATH}" ]; then
     echo "Output file:    ${OUTPUT_PATH}"
+else
+    echo "Output file:    (none - processing only)"
 fi
 echo "========================================"
 echo ""
@@ -157,14 +151,15 @@ echo ""
 # Build GStreamer pipeline
 PIPELINE="multifilesrc location=\"${RADAR_FILES_PATTERN}\" start-index=${START_INDEX} ! "
 PIPELINE+="application/octet-stream ! "
-PIPELINE+="g3dradarprocess radar-config=\"${CONFIG_PATH}\" frame-rate=${FRAME_RATE}"
+PIPELINE+="g3dradarprocess radar-config=\"${CONFIG_PATH}\" frame-rate=${FRAME_RATE} ! "
 
-# Add publish properties if enabled
-if [ "${PUBLISH_RESULT}" = "true" ]; then
-    PIPELINE+=" publish-result=true publish-path=\"${OUTPUT_PATH}\""
+# Add metadata publishing if output path is specified
+if [ -n "${OUTPUT_PATH}" ]; then
+    PIPELINE+="gvametaconvert format=json json-indent=2 ! "
+    PIPELINE+="gvametapublish file-format=2 file-path=\"${OUTPUT_PATH}\" ! "
 fi
 
-PIPELINE+=" ! fakesink"
+PIPELINE+="fakesink"
 
 # Print pipeline (useful for debugging)
 if [ -n "${GST_DEBUG:-}" ]; then
@@ -180,7 +175,7 @@ echo ""
 eval gst-launch-1.0 "${PIPELINE}"
 
 # Check if output file was created
-if [ "${PUBLISH_RESULT}" = "true" ] && [ -f "${OUTPUT_PATH}" ]; then
+if [ -n "${OUTPUT_PATH}" ] && [ -f "${OUTPUT_PATH}" ]; then
     echo ""
     echo "========================================"
     echo "Results saved to: ${OUTPUT_PATH}"
@@ -189,7 +184,7 @@ if [ "${PUBLISH_RESULT}" = "true" ] && [ -f "${OUTPUT_PATH}" ]; then
     if command -v jq &> /dev/null; then
         echo "========================================"
         echo "Sample output (first frame):"
-        jq '.[0]' "${OUTPUT_PATH}" 2>/dev/null || head -20 < "${OUTPUT_PATH}"
+        jq '.' "${OUTPUT_PATH}" 2>/dev/null | head -50 || head -20 < "${OUTPUT_PATH}"
     fi
 fi
 

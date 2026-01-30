@@ -11,20 +11,14 @@
 #include <chrono>
 #include <cstring>
 #include <dlfcn.h>
-#include <fstream>
-#include <nlohmann/json.hpp>
 #include <numeric>
-
-using json = nlohmann::json;
 
 GST_DEBUG_CATEGORY_STATIC(gst_radar_process_debug);
 #define GST_CAT_DEFAULT gst_radar_process_debug
 
-enum { PROP_0, PROP_RADAR_CONFIG, PROP_FRAME_RATE, PROP_PUBLISH_RESULT, PROP_PUBLISH_PATH };
+enum { PROP_0, PROP_RADAR_CONFIG, PROP_FRAME_RATE };
 
 #define DEFAULT_FRAME_RATE 0.0
-#define DEFAULT_PUBLISH_RESULT FALSE
-#define DEFAULT_PUBLISH_PATH "radar_results.json"
 
 static GstStaticPadTemplate sink_template =
     GST_STATIC_PAD_TEMPLATE("sink", GST_PAD_SINK, GST_PAD_ALWAYS, GST_STATIC_CAPS("application/octet-stream"));
@@ -65,16 +59,6 @@ static void gst_radar_process_class_init(GstRadarProcessClass *klass) {
         g_param_spec_double("frame-rate", "Frame Rate", "Frame rate for output (0 = no limit)", 0.0, G_MAXDOUBLE,
                             DEFAULT_FRAME_RATE, (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
-    g_object_class_install_property(
-        gobject_class, PROP_PUBLISH_RESULT,
-        g_param_spec_boolean("publish-result", "Publish Result", "Publish radar processing results to JSON file",
-                             DEFAULT_PUBLISH_RESULT, (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
-
-    g_object_class_install_property(
-        gobject_class, PROP_PUBLISH_PATH,
-        g_param_spec_string("publish-path", "Publish Path", "Path to JSON file for publishing results",
-                            DEFAULT_PUBLISH_PATH, (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
-
     gst_element_class_set_static_metadata(gstelement_class, "Radar Signal Process", "Filter/Converter",
                                           "Processes millimeter wave radar signals with DC removal and reordering",
                                           "Intel Corporation");
@@ -91,8 +75,6 @@ static void gst_radar_process_class_init(GstRadarProcessClass *klass) {
 static void gst_radar_process_init(GstRadarProcess *filter) {
     filter->radar_config = nullptr;
     filter->frame_rate = DEFAULT_FRAME_RATE;
-    filter->publish_result = DEFAULT_PUBLISH_RESULT;
-    filter->publish_path = g_strdup(DEFAULT_PUBLISH_PATH);
 
     filter->num_rx = 0;
     filter->num_tx = 0;
@@ -123,7 +105,6 @@ static void gst_radar_process_finalize(GObject *object) {
     GstRadarProcess *filter = GST_RADAR_PROCESS(object);
 
     g_free(filter->radar_config);
-    g_free(filter->publish_path);
     filter->input_data.clear();
     filter->output_data.clear();
 
@@ -156,13 +137,6 @@ static void gst_radar_process_set_property(GObject *object, guint prop_id, const
             filter->frame_duration = GST_CLOCK_TIME_NONE;
         }
         break;
-    case PROP_PUBLISH_RESULT:
-        filter->publish_result = g_value_get_boolean(value);
-        break;
-    case PROP_PUBLISH_PATH:
-        g_free(filter->publish_path);
-        filter->publish_path = g_value_dup_string(value);
-        break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
         break;
@@ -178,12 +152,6 @@ static void gst_radar_process_get_property(GObject *object, guint prop_id, GValu
         break;
     case PROP_FRAME_RATE:
         g_value_set_double(value, filter->frame_rate);
-        break;
-    case PROP_PUBLISH_RESULT:
-        g_value_set_boolean(value, filter->publish_result);
-        break;
-    case PROP_PUBLISH_PATH:
-        g_value_set_string(value, filter->publish_path);
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -480,78 +448,6 @@ static GstCaps *gst_radar_process_transform_caps(GstBaseTransform *trans, GstPad
     }
 }
 
-// Publish radar metadata to JSON file
-static gboolean publish_radar_metadata_to_json(GstRadarProcess *filter, GstRadarProcessMeta *meta) {
-    if (!filter->publish_path) {
-        GST_WARNING_OBJECT(filter, "No publish path specified");
-        return FALSE;
-    }
-
-    try {
-        // Build JSON object
-        json j;
-        j["frame_id"] = meta->frame_id;
-        j["timestamp"] = g_get_real_time();
-
-        // Add point clouds
-        j["point_clouds"]["count"] = meta->point_clouds_len;
-        j["point_clouds"]["points"] = json::array();
-        for (gint i = 0; i < meta->point_clouds_len; i++) {
-            json point;
-            point["range"] = meta->ranges[i];
-            point["speed"] = meta->speeds[i];
-            point["angle"] = meta->angles[i];
-            point["snr"] = meta->snrs[i];
-            j["point_clouds"]["points"].push_back(point);
-        }
-
-        // Add clusters
-        j["clusters"]["count"] = meta->num_clusters;
-        j["clusters"]["data"] = json::array();
-        for (gint i = 0; i < meta->num_clusters; i++) {
-            json cluster;
-            cluster["index"] = meta->cluster_idx[i];
-            cluster["center_x"] = meta->cluster_cx[i];
-            cluster["center_y"] = meta->cluster_cy[i];
-            cluster["radius_x"] = meta->cluster_rx[i];
-            cluster["radius_y"] = meta->cluster_ry[i];
-            cluster["avg_velocity"] = meta->cluster_av[i];
-            j["clusters"]["data"].push_back(cluster);
-        }
-
-        // Add tracked objects
-        j["tracked_objects"]["count"] = meta->num_tracked_objects;
-        j["tracked_objects"]["objects"] = json::array();
-        for (gint i = 0; i < meta->num_tracked_objects; i++) {
-            json tracker;
-            tracker["id"] = meta->tracker_ids[i];
-            tracker["position_x"] = meta->tracker_x[i];
-            tracker["position_y"] = meta->tracker_y[i];
-            tracker["velocity_x"] = meta->tracker_vx[i];
-            tracker["velocity_y"] = meta->tracker_vy[i];
-            j["tracked_objects"]["objects"].push_back(tracker);
-        }
-
-        // Write to file with 2-space indentation
-        std::ofstream file(filter->publish_path);
-        if (!file.is_open()) {
-            GST_ERROR_OBJECT(filter, "Failed to open file %s for writing", filter->publish_path);
-            return FALSE;
-        }
-        file << j.dump(2) << std::endl;
-        file.close();
-
-        GST_DEBUG_OBJECT(filter, "Published frame #%" G_GUINT64_FORMAT " metadata to %s", meta->frame_id,
-                         filter->publish_path);
-
-        return TRUE;
-
-    } catch (const std::exception &e) {
-        GST_ERROR_OBJECT(filter, "Exception while writing JSON: %s", e.what());
-        return FALSE;
-    }
-}
-
 // DC removal function: removes mean from real and imaginary parts
 static void dc_removal(std::complex<float> *data, size_t count) {
     if (count == 0)
@@ -688,13 +584,6 @@ static GstFlowReturn gst_radar_process_transform_ip(GstBaseTransform *trans, Gst
     if (meta) {
         GST_DEBUG_OBJECT(filter, "Added radar metadata: %d points, %d clusters, %d tracked objects",
                          meta->point_clouds_len, meta->num_clusters, meta->num_tracked_objects);
-
-        // Publish metadata to JSON file if enabled
-        if (filter->publish_result) {
-            if (!publish_radar_metadata_to_json(filter, meta)) {
-                GST_WARNING_OBJECT(filter, "Failed to publish radar metadata to JSON file");
-            }
-        }
     } else {
         GST_WARNING_OBJECT(filter, "Failed to add radar metadata to buffer");
     }

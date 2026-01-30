@@ -33,8 +33,6 @@ The configuration file must match the format expected by the underlying `librada
 |-----------------|---------|----------------------------------------------------------------|----------------------|
 | radar-config    | String  | Path to radar configuration JSON file (required)               | null                 |
 | frame-rate      | Double  | Target frame rate for output (0 = no limit)                    | 0                    |
-| publish-result  | Boolean | Enable publishing radar processing results to JSON file        | false                |
-| publish-path    | String  | Path to JSON file for publishing results                       | radar_results.json   |
 
 ## Pipeline Examples
 
@@ -49,16 +47,31 @@ gst-launch-1.0 multifilesrc location="radar/%06d.bin" start-index=559 ! \
   fakesink
 ```
 
-### Processing with Results Publishing
+### Processing with JSON Output
 
-Process radar data and publish results to JSON file:
+Process radar data and publish results to JSON file using `gvametaconvert` and `gvametapublish`:
 
 ```bash
 gst-launch-1.0 multifilesrc location="radar/%06d.bin" ! \
   application/octet-stream ! \
-  g3dradarprocess radar-config=config.json frame-rate=10 \
-    publish-result=true publish-path=radar_output.json ! \
+  g3dradarprocess radar-config=config.json frame-rate=10 ! \
+  gvametaconvert format=json json-indent=2 ! \
+  gvametapublish file-format=2 file-path=radar_output.json ! \
   fakesink
+```
+
+### Processing with Multiple Outputs
+
+Simultaneously publish to JSON file and send to Kafka:
+
+```bash
+gst-launch-1.0 multifilesrc location="radar/%06d.bin" ! \
+  application/octet-stream ! \
+  g3dradarprocess radar-config=config.json ! \
+  gvametaconvert format=json ! \
+  tee name=t \
+  t. ! queue ! gvametapublish file-format=2 file-path=output.json ! fakesink \
+  t. ! queue ! gvametapublish method=kafka address=localhost:9092 topic=radar ! fakesink
 ```
 
 ## Input/Output
@@ -109,14 +122,15 @@ The element performs the following sequential operations for each buffer:
 5. **Detection**: Calls `radarDetection` to generate point clouds
 6. **Clustering**: Calls `radarClustering` to group points into objects
 7. **Tracking**: Calls `radarTracking` for multi-frame object tracking
-8. **Metadata Attachment**: Attaches results as GStreamer metadata
-9. **Frame Rate Control**: Throttles processing if `frame-rate` is set
-10. **Results Publishing**: Optionally publishes results to JSON file
+7. **Metadata Attachment**: Attaches results as GStreamer metadata (`GstRadarProcessMeta`)
+8. **Frame Rate Control**: Throttles processing if `frame-rate` is set
 
 ## Downstream Consumption
 
 The metadata can be consumed by downstream GStreamer elements:
 
+- **gvametaconvert**: Converts `GstRadarProcessMeta` to JSON format
+- **gvametapublish**: Publishes JSON metadata to files, Kafka, MQTT, etc.
 - **fakesink**: Simple sink for testing and benchmarking
 - **3ddatarender** (in development): Real-time visualization element
 - Custom elements can retrieve metadata using `gst_buffer_get_meta()` with `GST_RADAR_PROCESS_META_API_TYPE`
@@ -157,14 +171,6 @@ Element Properties:
   parent              : The parent of the object
                         flags: readable, writable
                         Object of type "GstObject"
-  
-  publish-path        : Path to JSON file for publishing results
-                        flags: readable, writable
-                        String. Default: "radar_results.json"
-  
-  publish-result      : Publish radar processing results to JSON file
-                        flags: readable, writable
-                        Boolean. Default: false
   
   qos                 : Handle Quality-of-Service events
                         flags: readable, writable
