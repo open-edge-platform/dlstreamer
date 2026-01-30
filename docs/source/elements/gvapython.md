@@ -4,7 +4,7 @@ Provides a callback to execute user-defined Python functions on every
 frame. Can be used for metadata conversion, inference post-processing,
 and other tasks.
 
-```sh
+```bash
 Pad Templates:
   SRC template: 'src'
     Availability: Always
