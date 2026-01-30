@@ -123,13 +123,13 @@ def init():
                             "There is no sharp Apache v2 copyright header",
                             lambda x: not x)
 
-    rem_copyright_mit = (r'''REM ==============================================================================\s*\r?''' +
-                        r'''REM Copyright \(C\) (.*) Intel Corporation\s*\r?''' +
-                        r'''REM\s*\r?''' +
-                        r'''REM SPDX-License-Identifier: MIT\s*\r?''' +
-                        r'''REM ==============================================================================\s*\r?''',
-                       "There is no REM MIT copyright header",
-                       lambda x: not x)
+    rem_copyright_mit = (r'''@?REM ==============================================================================\s*\r?''' +
+                        r'''@?REM Copyright \(C\) (.*) Intel Corporation\s*\r?''' +
+                        r'''@?REM\s*\r?''' +
+                        r'''@?REM SPDX-License-Identifier: MIT\s*\r?''' +
+                        r'''@?REM ==============================================================================\s*\r?''',
+                    "There is no REM MIT copyright header",
+                    lambda x: not x)
 
     using_in_header = (
         "using namespace [^;]*;",
