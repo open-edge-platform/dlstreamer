@@ -1,5 +1,5 @@
 # ==============================================================================
-# Copyright (C) 2018-2025 Intel Corporation
+# Copyright (C) 2018-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
@@ -221,6 +221,15 @@ class RegionOfInterest(object):
     # @return list of Tensor instances added to this RegionOfInterest
     def tensors(self) -> List[Tensor]:
         return self._tensors
+
+    ## @brief Get first tensor matching the given name
+    # @param name Tensor name to search for
+    # @return Tensor instance with matching name, None if not found
+    def get_tensor_by_name(self, name: str) -> Tensor | None:
+        for tensor in self.tensors():
+            if tensor.name() == name:
+                return tensor
+        return None
 
     ## @brief Get all Tensor instances added to this RegionOfInterest (in old metadata format)
     # @return list of Tensor instances added to this RegionOfInterest
