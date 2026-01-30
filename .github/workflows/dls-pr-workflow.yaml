@@ -5,6 +5,7 @@ on:
     branches:
       - 'main'
     paths:
+      - '.github/**'
       - 'cmake/**'
       - 'docker/**'
       - 'include/**'
@@ -16,6 +17,7 @@ on:
       - 'thirdparty/**'
   pull_request:
     paths:
+      - '.github/**'
       - 'cmake/**'
       - 'docker/**'
       - 'include/**'

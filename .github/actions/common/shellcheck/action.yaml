@@ -115,7 +115,7 @@ runs:
         path: ${{ inputs.output-file }}
 
     - name: Run ReviewDog (ShellCheck)
-      if: ${{ inputs.enable-reviewdog == 'true' }}
+      if: ${{ inputs.enable-reviewdog == 'true' && steps.analyze-results.outputs.error_count > 0 }}
       uses: reviewdog/action-shellcheck@4c07458293ac342d477251099501a718ae5ef86e # 1.32.0
       with:
         path: .

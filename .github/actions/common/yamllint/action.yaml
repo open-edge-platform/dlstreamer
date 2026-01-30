@@ -98,7 +98,7 @@ runs:
         path: ${{ inputs.output-file }}
 
     - name: Run ReviewDog (Yamllint)
-      if: ${{ inputs.enable-reviewdog == 'true' }}
+      if: ${{ inputs.enable-reviewdog == 'true' && steps.analyze-results.outputs.error_count > 0 }}
       uses: reviewdog/action-yamllint@f01d8a48fd8d89f89895499fca2cff09f9e9e8c0 # 1.21.0
       with:
         github_token: ${{ inputs.github_token }}
