@@ -692,28 +692,13 @@ static void gst_gva_watermark_impl_class_init(GstGvaWatermarkImplClass *klass) {
                                                          "If true, draw oriented bounding box instead of object mask",
                                                          false, kDefaultGParamFlags));
 
-    g_object_class_install_property(
-        gobject_class, PROP_DISPL_AVGFPS,
-        g_param_spec_boolean("displ-avgfps", "Display Average FPS",
-                             "If true, display the average FPS read from gvafpscounter element on the output video."
-                             "The gvafpscounter element must be present in the pipeline."
-                             "e.g. gvawatermark displ-avgfps=true ! gvafpscounter ! ...",
-                             false, kDefaultGParamFlags));
+    g_object_class_install_property(gobject_class, PROP_DISPL_AVGFPS,
+                                    g_param_spec_boolean("displ-avgfps", "Display Average FPS",
+                                                         DISPL_AVGFPS_DESCRIPTION, false, kDefaultGParamFlags));
 
-    g_object_class_install_property(
-        gobject_class, PROP_DISPL_CFG,
-        g_param_spec_string(
-            "displ-cfg", "Gvawatermark element display configuration",
-            "Comma separated list of KEY=VALUE parameters of displayed notations.\n"
-            "\t\t\tAvailable options: \n"
-            "\t\t\tshow-labels=true|false - enable/disable display of text labels (default true)\n"
-            "\t\t\ttext-scale=<0.1-2.0> - scale factor for text labels (default 1.0)\n"
-            "\t\t\tthickness=<uint> - thickness of bounding box (default 2)\n"
-            "\t\t\tcolor-idx=<int> - color index for bounding box, keypoints, text (default -1 - default colors)\n"
-            "\t\t\t (0 - red, 1 - green, 2 - blue)\n"
-            "\t\t\te.g.: displ-cfg=show-labels=off\n"
-            "\t\t\te.g.: displ-cfg=text-scale=0.5,thickness=3,color-idx=2",
-            nullptr, kDefaultGParamFlags));
+    g_object_class_install_property(gobject_class, PROP_DISPL_CFG,
+                                    g_param_spec_string("displ-cfg", "Gvawatermark element display configuration",
+                                                        DISPL_CFG_DESCRIPTION, nullptr, kDefaultGParamFlags));
 }
 
 Impl::Impl(GstVideoInfo *info, InferenceBackend::MemoryType mem_type, GstElement *element, bool displ_avgfps,
@@ -1175,6 +1160,11 @@ void Impl::parse_displ_config() {
         iter = cfg.find("thickness");
         if (iter != cfg.end()) {
             _displCfg.thickness = std::stoi(iter->second);
+            if (_displCfg.thickness < 1 || _displCfg.thickness >= 10) {
+                _displCfg.thickness = DEFAULT_THICKNESS;
+                GST_WARNING("[gvawatermarkimpl] 'thickness' parameter value is out of range [1, 10], set to default %d",
+                            DEFAULT_THICKNESS);
+            }
             cfg.erase(iter);
         }
         iter = cfg.find("color-idx");
@@ -1189,6 +1179,11 @@ void Impl::parse_displ_config() {
                     _default_color = Color(0, 0, 255); // Blue
 
                 _displCfg.color_idx = _color_idx;
+            } else {
+                _displCfg.color_idx = DEFAULT_COLOR_IDX;
+                GST_WARNING("[gvawatermarkimpl] 'color-idx' parameter value is out of range [0, 2], using default "
+                            "colors, set to default %d",
+                            DEFAULT_COLOR_IDX);
             }
             cfg.erase(iter);
         }

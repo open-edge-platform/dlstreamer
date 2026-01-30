@@ -76,6 +76,7 @@ Element Properties:
                         e.g.: displ-cfg=show-labels=false
                         e.g.: displ-cfg=text-scale=0.5,thickness=3,color-idx=2
                         flags: readable, writable
+                        String. Default: null
   device              : Supported devices are CPU and GPU. Default is CPU on system memory and GPU on video memory
                         flags: readable, writable
                         String. Default: null
