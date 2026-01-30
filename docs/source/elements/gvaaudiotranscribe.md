@@ -3,7 +3,7 @@
 Performs audio transcription using OpenVino GenAI Whisper model. for more details on the whisper ASR check out [OpenVino GenAI Documentation](https://docs.openvino.ai/2025/api/genai_api/_autosummary/openvino_genai.WhisperPipeline.html#openvino_genai.WhisperPipeline)
 
 
-```sh
+```bash
 Element Flags:
 
 Pad Templates:

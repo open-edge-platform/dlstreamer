@@ -223,20 +223,18 @@ Write-Host "OPENVINO_LIB_PATHS:"
 $env:OPENVINO_LIB_PATHS
 
 try {
-	if (Test-Path "C:\Users\$env:USERNAME\AppData\Local\Microsoft\Windows\INetCache\gstreamer-1.0\registry.x86_64-msvc.bin") {
+	if (Test-Path "$env:LOCALAPPDATA\Microsoft\Windows\INetCache\gstreamer-1.0\registry.x86_64-msvc.bin") {
 		Write-Host "Clearing existing GStreamer cache"
-		del C:\Users\$env:USERNAME\AppData\Local\Microsoft\Windows\INetCache\gstreamer-1.0\registry.x86_64-msvc.bin
+		del "$env:LOCALAPPDATA\Microsoft\Windows\INetCache\gstreamer-1.0\registry.x86_64-msvc.bin"
 		Write-Host ""
 		Write-Host "Generating GStreamer cache. It may take up to a few minutes for the first run"
 		Write-Host "Please wait for a moment... "
 	}
 	$(gst-inspect-1.0.exe gvadetect)
 } catch {
-	Write-Host "Error caught - clearing a cache and retrying..."
-	mv gstvideoanalytics.dll gstvideoanalytics.dll.old
-	$(gst-inspect-1.0.exe gvadetect)
-	mv gstvideoanalytics.dll.old gstvideoanalytics.dll
-	$(gst-inspect-1.0.exe gvadetect)
+	Write-Host "Error: Failed to inspect gvadetect element."
+    Write-Host "Error details: $_"
+    Write-Host "Please try updating GPU/NPU drivers and rebooting the system."
 }
 
 Write-Host "DLStreamer is ready"
