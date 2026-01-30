@@ -867,6 +867,9 @@ export_and_quantize_yolo_model() {
     QUANTIZE_PARAM=""
   fi
 
+  # Determine model type based on model name
+  local MODEL_TYPE="${YOLO_MODELS[$MODEL_NAME]}"
+
   if [[ ! -f "$DST_FILE1" || ! -f "$DST_FILE2" ]]; then
     display_header "Downloading ${MODEL_NAME^^} model"
     echo "Downloading and converting: ${MODEL_DIR}"
@@ -874,26 +877,56 @@ export_and_quantize_yolo_model() {
     mkdir -p "$MODEL_DIR"
     cd "$MODEL_DIR"
 
-    python3 - <<EOF "$MODEL_NAME" "$QUANTIZE_PARAM"
+    python3 - <<EOF "$MODEL_NAME" "$MODEL_TYPE" "$QUANTIZE_PARAM"
 from ultralytics import YOLO
-from openvino import Core, save_model
-import openvino as ov
-import sys, shutil, os
+import openvino, sys, shutil, os
 
-model = YOLO(sys.argv[1] + '.pt')
+model_name = sys.argv[1]
+model_type = sys.argv[2]
+quantize_dataset = sys.argv[3]
+weights = model_name + '.pt'
+
+model = YOLO(weights)
 model.info()
 
-converted_path = model.export(format='openvino', dynamic=True, half=False, int8=False)
-os.rename(converted_path, "FP32")
+# Export FP32/FP16 (without dynamic for compatibility with DLStreamer preprocessing)
+converted_path = model.export(format='openvino')
+converted_model = converted_path + '/' + model_name + '.xml'
 
-converted_path = model.export(format='openvino', dynamic=True, half=True, int8=False)
-os.rename(converted_path, "FP16")
+core = openvino.Core()
+ov_model = core.read_model(model=converted_model)
 
-if sys.argv[2] != "":
-  print("\033[36m[*] Starting INT8 quantization for " + sys.argv[1] + "...\033[0m")
-  converted_path = model.export(format='openvino', dynamic=True, half=False, int8=True, data=sys.argv[2] + '.yaml')
-  os.rename(converted_path, "INT8")
-  print("\033[32m[+] INT8 quantization completed for " + sys.argv[1] + "\033[0m")
+if model_type in ["yolo_v8_seg", "yolo_v11_seg", "yolo_v26_seg"]:
+    ov_model.output(0).set_names({"boxes"})
+    ov_model.output(1).set_names({"masks"})
+
+ov_model.set_rt_info(model_type, ['model_info', 'model_type'])
+
+openvino.save_model(ov_model, './FP32/' + model_name + '.xml', compress_to_fp16=False)
+openvino.save_model(ov_model, './FP16/' + model_name + '.xml', compress_to_fp16=True)
+
+shutil.rmtree(converted_path)
+
+# Export INT8 if requested
+if quantize_dataset != "":
+    print("\033[36m[*] Starting INT8 quantization for " + model_name + "...\033[0m")
+    
+    converted_path = model.export(format='openvino', half=False, int8=True, data=quantize_dataset + '.yaml')
+    
+    ov_model = core.read_model(model=converted_path + '/' + model_name + '.xml')
+    
+    if model_type in ["yolo_v8_seg", "yolo_v11_seg", "yolo_v26_seg"]:
+        ov_model.output(0).set_names({"boxes"})
+        ov_model.output(1).set_names({"masks"})
+    
+    ov_model.set_rt_info(model_type, ['model_info', 'model_type'])
+    
+    openvino.save_model(ov_model, './INT8/' + model_name + '.xml', compress_to_fp16=False)
+    shutil.rmtree(converted_path)
+    
+    print("\033[32m[+] INT8 quantization completed for " + model_name + "\033[0m")
+
+os.remove(f"{model_name}.pt")
 EOF
 
     cd ../..
