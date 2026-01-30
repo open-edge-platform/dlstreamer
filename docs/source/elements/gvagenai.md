@@ -51,7 +51,7 @@ Generation Config Parameters
 
 Example:
 
-``` none
+```text
 generation-config="max_new_tokens=100,temperature=0.7,do_sample=true"
 ```
 
@@ -84,11 +84,11 @@ Scheduler Config Parameters
 
 Example:
 
-```sh
+```bash
 scheduler-config="max_num_batched_tokens=256,cache_size=10,use_cache_eviction=true"
 ```
 
-```sh
+```bash
 Pad Templates:
   SINK template: 'sink'
     Availability: Always

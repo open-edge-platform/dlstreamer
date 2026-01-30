@@ -78,7 +78,7 @@ from torchvision with default weights and `processbin` element to split
 stream data and merge it with inference results. Visit
 `Elements 2.0 reference <elements_list>` for more information on the `processbin` element.
 
-```sh
+```bash
 filesrc location=input_file.mp4 ! decodebin3 ! \
 processbin \
   preprocess=videoscale ! videoconvert ! video/x-raw,format=RGBP ! tensor_convert ! opencv_tensor_normalize range=<0,1>, mean=<0.485, 0.456, 0.406>, std=<0.229, 0.224, 0.225> \
@@ -98,7 +98,7 @@ specified model. So if it's a file with PyTorch model or a module from
 torchvision, the bin element will automatically use PyTorch inference
 backend internally.
 
-```sh
+```bash
 filesrc location=input_file.mp4 ! decodebin3 ! \
 object_detect model=torchvision.models.detection.ssdlite320_mobilenet_v3_large labels-file=coco_91cl_bkgr.txt ! \
 meta_overlay ! \

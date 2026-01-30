@@ -39,7 +39,7 @@ Deep Learning Streamer Architecture 2.0.
 
 Files installed by 2.0 packages:
 
-``` none
+```text
 intel-dlstreamer-ffmpeg
 `-- opt
     `-- intel
@@ -53,7 +53,7 @@ intel-dlstreamer-ffmpeg
             |   `-- libdlstreamer_ffmpeg.so
 ```
 
-``` none
+```text
 intel-dlstreamer-opencl
 `-- opt
     `-- intel
@@ -70,7 +70,7 @@ intel-dlstreamer-opencl
             |   `-- libdlstreamer_opencl.so
 ```
 
-``` none
+```text
 intel-dlstreamer-opencv
 `-- opt
     `-- intel
@@ -94,7 +94,7 @@ intel-dlstreamer-opencv
             |   `-- libdlstreamer_opencv.so
 ```
 
-``` none
+```text
 intel-dlstreamer-openvino
 `-- opt
     `-- intel
@@ -110,7 +110,7 @@ intel-dlstreamer-openvino
             |   `-- libdlstreamer_openvino.so
 ```
 
-``` none
+```text
 intel-dlstreamer-vaapi
 `-- opt
     `-- intel
@@ -127,7 +127,7 @@ intel-dlstreamer-vaapi
             |   `-- libdlstreamer_vaapi.so
 ```
 
-``` none
+```text
 intel-dlstreamer-dpcpp
 `-- opt
     `-- intel
