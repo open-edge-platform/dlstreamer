@@ -1,6 +1,6 @@
 #!/bin/bash
 # ==============================================================================
-# Copyright (C) 2025 Intel Corporation
+# Copyright (C) 2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
@@ -126,7 +126,7 @@ fi
 ### STREAM 3 and 4 ###
 # CPU device
 DECODE_ELEMENT_STR34="decodebin3"
-PREPROC_BACKEND_STR34="ie"
+PREPROC_BACKEND_STR34="opencv"
 # GPU , NPU device
 ## GST-VA ##
 if [[ "$GSTVA" == "VA" ]]; then 
