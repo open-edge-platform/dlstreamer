@@ -17,6 +17,13 @@ gst-inspect-1.0 utility.
 | [gvagenai](./gvagenai.md)       | Performs inference using GenAI models. It can be used to generate text descriptions from images or video.<br>Example:<br> gst-launch-1.0 … ! decodebin3 ! videoconvert ! gvagenai model=$mGenAI device=GPU ! … OUT<br>                                                                                                                                                                                                                                             |
 
 
+## 3D plugins
+
+| Element        | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+|----------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| [g3dradarprocess](./g3dradarprocess.md) | Processes millimeter-wave (mmWave) radar signal data. Performs data reordering, pre-processing, DC (Direct Current) removal, and interfaces with the radar library to generate point clouds, clusters, and tracking data. Attaches custom metadata containing detected reflection points, clustered objects, and tracked targets to each buffer.<br>Example:<br> gst-launch-1.0 multifilesrc location=radar/%06d.bin ! application/octet-stream ! g3dradarprocess radar-config=config.json frame-rate=10 ! fakesink<br> |
+
+
 ## Auxiliary plugins
 
 | Element          | Description                                                                                                                                                                                                                                                                                                                                                                   |
@@ -44,6 +51,7 @@ gvatrack
 gvaaudiodetect
 gvaaudiotranscribe
 gvagenai
+g3dradarprocess
 gvaattachroi
 gvafpscounter
 gvafpsthrottle

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2018-2025 Intel Corporation
+ * Copyright (C) 2018-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -410,8 +410,11 @@ static gboolean gst_gva_meta_convert_set_caps(GstBaseTransform *trans, GstCaps *
         if (!gvametaconvert->info) {
             gvametaconvert->info = gst_video_info_new();
         }
+    } else if (g_strrstr(name, "application/x-radar-processed")) {
+        // Accept radar data types - no video/audio info needed
+        GST_DEBUG_OBJECT(gvametaconvert, "Accepting radar data type: %s", name);
     } else {
-        GST_ERROR_OBJECT(gvametaconvert, "Invalid input caps");
+        GST_ERROR_OBJECT(gvametaconvert, "Invalid input caps: %s", name);
         return FALSE;
     }
 

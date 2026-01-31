@@ -13,6 +13,7 @@
 #include "audioconverter.h"
 #endif
 #include "convert_tensor.h"
+#include "g3d_radarprocess_meta.h"
 #include "gva_json_meta.h"
 
 #include <gst/analytics/analytics.h>
@@ -423,6 +424,74 @@ json convert_audio_transcription_classification(GstGvaMetaConvert *converter, Gs
     return res;
 }
 
+json convert_radar_process_meta(GstGvaMetaConvert *converter, GstBuffer *buffer) {
+    UNUSED(converter);
+    json result = json::object();
+
+    // Find GstRadarProcessMeta
+    gpointer state = NULL;
+    GstMeta *meta;
+    while ((meta = gst_buffer_iterate_meta_filtered(buffer, &state, GST_RADAR_PROCESS_META_API_TYPE))) {
+        GstRadarProcessMeta *radar_meta = (GstRadarProcessMeta *)meta;
+
+        result["frame_id"] = radar_meta->frame_id;
+        result["timestamp"] = g_get_real_time();
+
+        // Add point clouds
+        json point_clouds_obj = json::object();
+        point_clouds_obj["count"] = radar_meta->point_clouds_len;
+        json points_array = json::array();
+        for (gint i = 0; i < radar_meta->point_clouds_len; i++) {
+            json point;
+            point["range"] = radar_meta->ranges[i];
+            point["speed"] = radar_meta->speeds[i];
+            point["angle"] = radar_meta->angles[i];
+            point["snr"] = radar_meta->snrs[i];
+            points_array.push_back(point);
+        }
+        point_clouds_obj["points"] = points_array;
+        result["point_clouds"] = point_clouds_obj;
+
+        // Add clusters
+        json clusters_obj = json::object();
+        clusters_obj["count"] = radar_meta->num_clusters;
+        json clusters_array = json::array();
+        for (gint i = 0; i < radar_meta->num_clusters; i++) {
+            json cluster;
+            cluster["index"] = radar_meta->cluster_idx[i];
+            cluster["center_x"] = radar_meta->cluster_cx[i];
+            cluster["center_y"] = radar_meta->cluster_cy[i];
+            cluster["radius_x"] = radar_meta->cluster_rx[i];
+            cluster["radius_y"] = radar_meta->cluster_ry[i];
+            cluster["avg_velocity"] = radar_meta->cluster_av[i];
+            clusters_array.push_back(cluster);
+        }
+        clusters_obj["data"] = clusters_array;
+        result["clusters"] = clusters_obj;
+
+        // Add tracked objects
+        json tracked_obj = json::object();
+        tracked_obj["count"] = radar_meta->num_tracked_objects;
+        json tracked_array = json::array();
+        for (gint i = 0; i < radar_meta->num_tracked_objects; i++) {
+            json tracker;
+            tracker["id"] = radar_meta->tracker_ids[i];
+            tracker["position_x"] = radar_meta->tracker_x[i];
+            tracker["position_y"] = radar_meta->tracker_y[i];
+            tracker["velocity_x"] = radar_meta->tracker_vx[i];
+            tracker["velocity_y"] = radar_meta->tracker_vy[i];
+            tracked_array.push_back(tracker);
+        }
+        tracked_obj["objects"] = tracked_array;
+        result["tracked_objects"] = tracked_obj;
+
+        // Only process the first radar meta
+        break;
+    }
+
+    return result;
+}
+
 } // namespace
 
 gboolean to_json(GstGvaMetaConvert *converter, GstBuffer *buffer) {
@@ -439,6 +508,22 @@ gboolean to_json(GstGvaMetaConvert *converter, GstBuffer *buffer) {
     }
 
     try {
+        // Check for radar metadata first
+        json radar_data = convert_radar_process_meta(converter, buffer);
+        if (!radar_data.empty()) {
+            std::string json_message = radar_data.dump(converter->json_indent);
+
+            // Add as GVA JSON meta
+            GstGVAJSONMeta *json_meta = GST_GVA_JSON_META_ADD(buffer);
+            if (json_meta) {
+                json_meta->message = g_strdup(json_message.c_str());
+                GST_INFO_OBJECT(converter, "Radar JSON message: %s", json_message.c_str());
+            } else {
+                GST_ERROR_OBJECT(converter, "Failed to add GVA JSON meta for radar data");
+            }
+            return TRUE;
+        }
+
         if (converter->info) {
             json jframe = get_frame_data(converter, buffer);
             /* objects section */
