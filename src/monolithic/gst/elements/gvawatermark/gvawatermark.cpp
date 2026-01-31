@@ -96,25 +96,13 @@ static void gst_gva_watermark_class_init(GstGvaWatermarkClass *klass) {
                                     g_param_spec_boolean("obb", "Oriented Bounding Box",
                                                          "If true, draw oriented bounding box instead of object mask",
                                                          false, kDefaultGParamFlags));
-    g_object_class_install_property(
-        gobject_class, PROP_DISPL_AVGFPS,
-        g_param_spec_boolean(
-            "displ-avgfps", "Display Average FPS",
-            "If true, display the average FPS read from gvafpscounter element on the output video, (default false)\n"
-            "\t\t\tThe gvafpscounter element must be present in the pipeline.\n"
-            "\t\t\te.g.: ... ! gvawatermark displ-avgfps=true ! gvafpscounter ! ...",
-            false, kDefaultGParamFlags));
+    g_object_class_install_property(gobject_class, PROP_DISPL_AVGFPS,
+                                    g_param_spec_boolean("displ-avgfps", "Display Average FPS",
+                                                         DISPL_AVGFPS_DESCRIPTION, false, kDefaultGParamFlags));
 
-    g_object_class_install_property(
-        gobject_class, PROP_DISPL_CFG,
-        g_param_spec_string("displ-cfg", "Gvawatermark display configuration",
-                            "Comma separated list of KEY=VALUE parameters of displayed notations.\n"
-                            "\t\t\tAvailable options: \n"
-                            "\t\t\tshow-labels=true|false - enable/disable display of text labels (default true)\n"
-                            "\t\t\ttext-scale=<0.1-2.0> - scale factor for text labels (default 1.0)\n"
-                            "\t\t\te.g.: displ-cfg=show-labels=off\n"
-                            "\t\t\te.g.: displ-cfg=text-scale=0.5",
-                            nullptr, kDefaultGParamFlags));
+    g_object_class_install_property(gobject_class, PROP_DISPL_CFG,
+                                    g_param_spec_string("displ-cfg", "Gvawatermark display configuration",
+                                                        DISPL_CFG_DESCRIPTION, nullptr, kDefaultGParamFlags));
 }
 
 static void gst_gva_watermark_init(GstGvaWatermark *self) {
