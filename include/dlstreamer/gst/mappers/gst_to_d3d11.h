@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2025 Intel Corporation
+ * Copyright (C) 2025-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -11,6 +11,7 @@
 #include "dlstreamer/d3d11/tensor.h"
 #include "dlstreamer/gst/frame.h"
 
+#define GST_USE_UNSTABLE_API
 #include <gst/d3d11/gstd3d11.h>
 
 namespace dlstreamer {

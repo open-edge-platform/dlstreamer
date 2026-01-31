@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2021-2024 Intel Corporation
+ * Copyright (C) 2021-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -8,8 +8,8 @@
 
 #include <gst/gst.h>
 
-GST_EXPORT GstStaticPadTemplate gva_meta_publish_sink_template;
-GST_EXPORT GstStaticPadTemplate gva_meta_publish_src_template;
+extern GstStaticPadTemplate gva_meta_publish_sink_template;
+extern GstStaticPadTemplate gva_meta_publish_src_template;
 
 typedef enum { GVA_META_PUBLISH_JSON = 1, GVA_META_PUBLISH_JSON_LINES = 2 } FileFormat;
 
@@ -40,7 +40,7 @@ constexpr auto DEFAULT_SIGNAL_HANDOFFS = false;
 constexpr auto DEFAULT_MAX_CONNECT_ATTEMPTS = 1;
 constexpr auto DEFAULT_MAX_RECONNECT_INTERVAL = 30;
 
-GST_EXPORT const gchar *file_format_to_string(FileFormat format);
+const gchar *file_format_to_string(FileFormat format);
 
-GST_EXPORT GType gva_metapublish_file_format_get_type(void);
+GType gva_metapublish_file_format_get_type(void);
 #define GST_TYPE_GVA_METAPUBLISH_FILE_FORMAT (gva_metapublish_file_format_get_type())

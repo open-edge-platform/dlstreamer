@@ -9,6 +9,8 @@
 #include "dlstreamer/base/context.h"
 #include "dlstreamer/tensor.h"
 
+#define CL_TARGET_OPENCL_VERSION 300
+#define OV_GPU_USE_OPENCL_HPP
 #ifdef _WIN32
 #include <gst/d3d11/gstd3d11device.h>
 #include <openvino/runtime/intel_gpu/ocl/dx.hpp>

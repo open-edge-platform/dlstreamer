@@ -1,5 +1,5 @@
 # ==============================================================================
-# Copyright (C) 2018-2025 Intel Corporation
+# Copyright (C) 2018-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
@@ -66,6 +66,11 @@ PRIVATE
         ${GSTREAMER_LIBRARIES}
         ${GSTVIDEO_LIBRARIES}
         ${GSTANALYTICS_LIBRARIES}
+)
+
+if(NOT WIN32)
+target_link_libraries(${TARGET_NAME} PRIVATE    
         -lopencv_core
         -lopencv_imgproc
 )
+endif()

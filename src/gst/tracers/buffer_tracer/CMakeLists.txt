@@ -1,5 +1,5 @@
 # ==============================================================================
-# Copyright (C) 2018-2024 Intel Corporation
+# Copyright (C) 2018-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
@@ -13,9 +13,6 @@ file (GLOB MAIN_SRC
 file (GLOB MAIN_HEADERS
         ${CMAKE_CURRENT_SOURCE_DIR}/*.h
         )
-
-# TODO: Remove once upgraded to gst-1.18 or higher
-add_definitions(-DGST_USE_UNSTABLE_API)
 
 add_library(${TARGET_NAME} SHARED ${MAIN_SRC} ${MAIN_HEADERS})
 set_compile_flags(${TARGET_NAME})

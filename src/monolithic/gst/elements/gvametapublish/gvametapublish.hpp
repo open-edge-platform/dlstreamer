@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2021-2025 Intel Corporation
+ * Copyright (C) 2021-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -30,6 +30,6 @@ struct GvaMetaPublishClass {
     GstBinClass base;
 };
 
-GST_EXPORT GType gva_meta_publish_get_type(void);
+GType gva_meta_publish_get_type(void);
 
 G_END_DECLS
