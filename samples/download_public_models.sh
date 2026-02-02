@@ -468,7 +468,7 @@ if array_contains "yolox-tiny" "${MODELS_TO_PROCESS[@]}" || array_contains "yolo
     # Create temporary new Python virtual environment for omz tools
     deactivate 2>/dev/null || true
     $PYTHON_CREATE_VENV -m venv "$HOME/.virtualenvs/dlstreamer_openvino_dev" || handle_error $LINENO
-    source "$HOME/.virtualenvs/dlstreamer_openvino_dev/bin/activate"
+    activate_venv "$HOME/.virtualenvs/dlstreamer_openvino_dev"
     python -m pip install --upgrade pip                 || handle_error $LINENO
     pip install --no-cache-dir "openvino-dev==2024.6.0" || handle_error $LINENO
     pip install --no-cache-dir --upgrade --extra-index-url https://download.pytorch.org/whl/cpu torch==2.8.0 torchaudio==2.8.0 torchvision==0.23.0 || handle_error $LINENO
@@ -486,7 +486,7 @@ if array_contains "yolox-tiny" "${MODELS_TO_PROCESS[@]}" || array_contains "yolo
     # Cleanup temporary virtual environment
     deactivate 2>/dev/null || true
     rm -rf "$HOME/.virtualenvs/dlstreamer_openvino_dev" 2>/dev/null || true
-    source "$VENV_DIR/bin/activate"
+    activate_venv "$VENV_DIR"
   else
     echo_color "\nModel already exists: $MODEL_DIR.\n" "yellow"
   fi
@@ -646,7 +646,7 @@ export_yolov5u_model() {
     python3 - <<EOF
 import os
 from ultralytics import YOLO
-from openvino.runtime import Core, save_model
+from openvino import Core, save_model
 
 model_name = "$model_name"
 weights = "$weights"
@@ -730,7 +730,7 @@ for MODEL_NAME in "${YOLOv5_MODELS[@]}"; do
       # Create temporary venv for legacy YOLOv5 export (uses openvino-dev 2024.6.0)
       deactivate 2>/dev/null || true
       $PYTHON_CREATE_VENV -m venv "$HOME/.virtualenvs/dlstreamer_yolov5_legacy" || handle_error $LINENO
-      source "$HOME/.virtualenvs/dlstreamer_yolov5_legacy/bin/activate"
+      activate_venv "$HOME/.virtualenvs/dlstreamer_yolov5_legacy"
       python -m pip install --upgrade pip                        || handle_error $LINENO
       pip install --no-cache-dir "openvino-dev==2024.6.0"        || handle_error $LINENO
       pip install --no-cache-dir --upgrade --extra-index-url https://download.pytorch.org/whl/cpu torch==2.8.0 torchaudio==2.8.0 torchvision==0.23.0 || handle_error $LINENO
@@ -740,8 +740,8 @@ for MODEL_NAME in "${YOLOv5_MODELS[@]}"; do
       python3 export.py --weights "${MODEL_NAME}.pt" --include openvino --img-size 640 --dynamic
       python3 - <<EOF "${MODEL_NAME}"
 import sys, os
-from openvino.runtime import Core
-from openvino.runtime import save_model
+from openvino import Core
+from openvino import save_model
 model_name = sys.argv[1]
 core = Core()
 os.rename(f"{model_name}_openvino_model", f"{model_name}_openvino_modelD")
@@ -893,6 +893,7 @@ export_and_quantize_yolo_model() {
   local MODEL_NAME=$1
   local QUANTIZE=$2
   local MODEL_DIR="$MODELS_PATH/public/$MODEL_NAME"
+  local TMP_DIR="${MODEL_DIR}_tmp"
   local DST_FILE1="$MODEL_DIR/FP16/$MODEL_NAME.xml"
   local DST_FILE2="$MODEL_DIR/FP32/$MODEL_NAME.xml"
 
@@ -972,8 +973,16 @@ gc.collect()
 EOF
 
     cd ..
-    for i in {1..5}; do
-        rm -rf "$TMP_DIR" && break || sleep 1
+    for _i in {1..5}; do
+        if [[ -d "$TMP_DIR" ]]; then
+            if rm -rf "$TMP_DIR"; then
+                break
+            else
+                sleep 1
+            fi
+        else
+            break
+        fi
     done
   else
     echo_color "\nModel already exists: $MODEL_DIR.\n" "yellow"
@@ -1187,9 +1196,14 @@ if array_contains "deeplabv3" "${MODELS_TO_PROCESS[@]}" || array_contains "all" 
   MODEL_DIR="$MODELS_PATH/public/$MODEL_NAME"
   TMP_DIR="${MODEL_DIR}_tmp"
 
-  pip install --no-cache-dir tensorflow || handle_error $LINENO
-
   if [[ ! -f "$MODEL_DIR/FP32/$MODEL_NAME.xml" || ! -f "$MODEL_DIR/FP16/$MODEL_NAME.xml" ]]; then
+    deactivate 2>/dev/null || true
+    $PYTHON_CREATE_VENV -m venv "$HOME/.virtualenvs/dlstreamer_openvino_dev" || handle_error $LINENO
+    activate_venv "$HOME/.virtualenvs/dlstreamer_openvino_dev"
+    python -m pip install --upgrade pip                 || handle_error $LINENO
+    pip install --no-cache-dir "openvino-dev==2024.6.0" || handle_error $LINENO
+    pip install --no-cache-dir tensorflow==2.20.0       || handle_error $LINENO
+
     echo "Processing model in temporary directory: $TMP_DIR"
 
     rm -rf "$TMP_DIR"
@@ -1231,11 +1245,13 @@ EOF
 
     cd "$MODELS_PATH"
     rm -rf "$TMP_DIR"
+    deactivate 2>/dev/null || true
+    rm -rf "$HOME/.virtualenvs/dlstreamer_openvino_dev" 2>/dev/null || true
+    activate_venv "$VENV_DIR"
   else
     echo_color "\nModel already exists: $MODEL_DIR.\n" "yellow"
   fi
 fi
-
 
 # ================================= ch_PP-OCRv4_rec_infer FP32 - Edge AI Resources =================================
 if array_contains "ch_PP-OCRv4_rec_infer" "${MODELS_TO_PROCESS[@]}" || array_contains "all" "${MODELS_TO_PROCESS[@]}"; then
@@ -1248,8 +1264,7 @@ if array_contains "ch_PP-OCRv4_rec_infer" "${MODELS_TO_PROCESS[@]}" || array_con
     echo "Downloading and converting: ${MODEL_DIR}"
     mkdir -p "$MODEL_DIR"
     cd "$MODEL_DIR"
-
-    curl -L -k -o "${MODEL_NAME}.zip" 'https://github.com/open-edge-platform/edge-ai-resources/raw/main/models/license-plate-reader.zip'
+    curl -f -L -k -o "${MODEL_NAME}.zip" 'https://github.com/open-edge-platform/edge-ai-resources/raw/main/models/license-plate-reader.zip'
     python3 -c "
 import zipfile
 import os
@@ -1268,7 +1283,6 @@ os.remove('${MODEL_NAME}.zip')
     echo_color "\nModel already exists: $MODEL_DIR.\n" "yellow"
   fi
 fi
-
 
 # ================================= Pallet Defect Detection INT8 - Edge AI Resources =================================
 if array_contains "pallet_defect_detection" "${MODELS_TO_PROCESS[@]}" || array_contains "all" "${MODELS_TO_PROCESS[@]}"; then
