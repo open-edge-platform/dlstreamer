@@ -1,5 +1,5 @@
 # ==============================================================================
-# Copyright (C) 2018-2025 Intel Corporation
+# Copyright (C) 2018-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
@@ -27,11 +27,14 @@ import test_pipeline_gvapython_vaapi
 
 import test_pipeline_human_pose_estimation
 import test_pipeline_action_recognition
+import test_pipeline_optimizer
 
 if __name__ == '__main__':
     loader = unittest.TestLoader()
     suite_gstgva = unittest.TestSuite()
 
+    suite_gstgva.addTests(loader.loadTestsFromModule(
+        test_pipeline_optimizer))
     suite_gstgva.addTests(loader.loadTestsFromModule(test_region_of_interest))
     suite_gstgva.addTests(loader.loadTestsFromModule(test_tensor))
     suite_gstgva.addTests(loader.loadTestsFromModule(test_video_frame))

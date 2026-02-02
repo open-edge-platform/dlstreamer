@@ -5,7 +5,7 @@ Summary:        Deep Learning Streamer
 
 License:        Proprietary
 Source0:        %{name}-%{version}.tar.gz
-URL:            https://github.com/open-edge-platform/dlstreamer/tree/master
+URL:            https://github.com/open-edge-platform/dlstreamer/tree/main
 Packager:       DL Streamer Team <dlstreamer@intel.com>
 ExclusiveArch: x86_64
 AutoReqProv:    no
@@ -45,7 +45,7 @@ Requires: openexr
 Requires: tbb
 Requires: libsoup3
 Requires: intel-media-driver
-Requires: openvino-2025.3.0
+Requires: openvino-2025.4.0
 
 %description
 This package contains Intel DL Streamer.

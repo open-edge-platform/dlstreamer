@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2021-2025 Intel Corporation
+ * Copyright (C) 2021-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -99,9 +99,6 @@ std::string checkOnNameDeprecation(const std::string &converter_name) {
     const std::string GetiClassification = "Classification";
     const std::string GetiInstanceSegmentation = "MaskRCNN";
     const std::string GetiOBB = "rotated_detection";
-    const std::string YOLOv8 = "YOLOv8";
-    const std::string YOLOv8OBB = "YOLOv8-OBB";
-    const std::string YOLOv8SEG = "YOLOv8-SEG";
     const std::unordered_map<std::string, std::string> deprecatedNameToName = {
         {DetectionOutputConverter::getDeprecatedName(), DetectionOutputConverter::getName()},
         {BoxesLabelsConverter::getDeprecatedName(), BoxesLabelsConverter::getName()},
@@ -116,9 +113,9 @@ std::string checkOnNameDeprecation(const std::string &converter_name) {
         {GetiClassification, LabelConverter::getName()},
         {GetiInstanceSegmentation, MaskRCNNConverter::getName()},
         {GetiOBB, MaskRCNNConverter::getName()},
-        {YOLOv8, YOLOv8Converter::getName()},
-        {YOLOv8OBB, YOLOv8ObbConverter::getName()},
-        {YOLOv8SEG, YOLOv8SegConverter::getName()}};
+        {"YOLOv8", YOLOv8Converter::getName()},
+        {"YOLOv8-OBB", YOLOv8ObbConverter::getName()},
+        {"YOLOv8-SEG", YOLOv8SegConverter::getName()}};
 
     const auto it = deprecatedNameToName.find(converter_name);
     if (it != deprecatedNameToName.cend()) {

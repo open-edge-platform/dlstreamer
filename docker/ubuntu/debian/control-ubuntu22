@@ -10,4 +10,4 @@ Replaces: intel-dlstreamer
 Multi-Arch: same
 Homepage: https://github.com/open-edge-platform/dlstreamer/tree/master
 Description: Intel(R) Deep Learning Streamer
-Depends: ${misc:Depends}, ${shlibs:Depends}, libglib2.0-dev, libjpeg-turbo8, libdrm2, libwayland-bin, libwayland-client0, libx11-6, libpng16-16, libva-drm2, libcurl4, libde265-0, libxext6, libva-x11-2, libgl1, libglx-mesa0, libva-wayland2, openexr, libgudev-1.0-0, vainfo, python3-pip, python3-gi, python3-gi-cairo, libcairo2, libvpx7, libopus0, libsrtp2-1, libxv1, libtbb12, libpaho-mqtt1.3, ffmpeg, libgirepository-1.0-1, libsoup-3.0-0, openvino-2025.3.0
+Depends: ${misc:Depends}, ${shlibs:Depends}, libglib2.0-dev, libjpeg-turbo8, libdrm2, libwayland-bin, libwayland-client0, libx11-6, libpng16-16, libva-drm2, libcurl4, libde265-0, libxext6, libva-x11-2, libgl1, libglx-mesa0, libva-wayland2, openexr, libgudev-1.0-0, vainfo, python3-pip, python3-gi, python3-gi-cairo, libcairo2, libvpx7, libopus0, libsrtp2-1, libxv1, libtbb12, libpaho-mqtt1.3, ffmpeg, libgirepository-1.0-1, libsoup-3.0-0, openvino-2025.4.0

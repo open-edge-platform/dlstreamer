@@ -1,5 +1,5 @@
 # ==============================================================================
-# Copyright (C) 2025 Intel Corporation
+# Copyright (C) 2025-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
@@ -40,8 +40,8 @@ LABEL description="This is the development image of Intel® Deep Learning Stream
 LABEL vendor="Intel Corporation"
 
 ARG GST_VERSION=1.26.6
-ARG OPENVINO_VERSION=2025.3.0
-ARG REALSENSE_VERSION=v2.57.4
+ARG OPENVINO_VERSION=2025.4.0
+ARG REALSENSE_VERSION=v2.57.5
 
 ARG DLSTREAMER_VERSION=2025.2.0
 ARG DLSTREAMER_BUILD_NUMBER
@@ -79,8 +79,8 @@ RUN \
 # Intel NPU drivers and prerequisites installation
 WORKDIR /tmp/npu_deps
 
-RUN curl -LO https://github.com/intel/linux-npu-driver/releases/download/v1.23.0/linux-npu-driver-v1.23.0.20250827-17270089246-ubuntu2404.tar.gz && \
-    tar -xf linux-npu-driver-v1.23.0.20250827-17270089246-ubuntu2404.tar.gz && \
+RUN curl -LO https://github.com/intel/linux-npu-driver/releases/download/v1.28.0/linux-npu-driver-v1.28.0.20251218-20347000698-ubuntu2404.tar.gz && \
+    tar -xf linux-npu-driver-v1.28.0.20251218-20347000698-ubuntu2404.tar.gz && \
     dpkg -i ./*.deb && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /tmp/npu_deps
@@ -131,7 +131,8 @@ RUN \
     pytest==8.3.3 \
     pluggy==1.5.0 \
     exceptiongroup==1.2.2 \
-    iniconfig==2.0.0
+    iniconfig==2.0.0 \
+    openvino==2025.4.1
 
 # hadolint ignore=DL3002
 USER root
@@ -296,7 +297,7 @@ RUN \
     shopt -s dotglob && \
     mv gst-plugins-rs/* . && \
     git checkout "tags/gstreamer-$GST_VERSION" && \
-    curl -sSL --insecure https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.86.0 && \
+    curl -sSL --insecure https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.88.0 && \
     source "$HOME"/.cargo/env && \
     cargo install cargo-c --version=0.10.11 --locked && \
     cargo update && \
@@ -382,7 +383,7 @@ RUN \
 
 # OpenVINO Gen AI
 ARG OPENVINO_GENAI_VER=openvino_genai_ubuntu24_${OPENVINO_VERSION}.0_x86_64
-ARG OPENVINO_GENAI_PKG=https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/2025.3/linux/${OPENVINO_GENAI_VER}.tar.gz
+ARG OPENVINO_GENAI_PKG=https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/2025.4/linux/${OPENVINO_GENAI_VER}.tar.gz
 
 RUN curl -L ${OPENVINO_GENAI_PKG} | tar -xz && \
     mv ${OPENVINO_GENAI_VER} /opt/intel/openvino_genai
@@ -410,7 +411,7 @@ ENV C_INCLUDE_PATH=/usr/local/include:${DLSTREAMER_DIR}/include:${DLSTREAMER_DIR
 ENV CPLUS_INCLUDE_PATH=/usr/local/include:${DLSTREAMER_DIR}/include:${DLSTREAMER_DIR}/include/dlstreamer/gst/metadata:${CPLUS_INCLUDE_PATH}
 ENV GST_PLUGIN_SCANNER=${GSTREAMER_DIR}/bin/gstreamer-1.0/gst-plugin-scanner
 ENV GI_TYPELIB_PATH=${GSTREAMER_DIR}/lib/girepository-1.0
-ENV PYTHONPATH=${GSTREAMER_DIR}/lib/python3/dist-packages:${DLSTREAMER_DIR}/python:${PYTHONPATH}
+ENV PYTHONPATH=${GSTREAMER_DIR}/lib/python3/dist-packages:${DLSTREAMER_DIR}/python:${DLSTREAMER_DIR}/scripts/optimizer:${PYTHONPATH}
 
 # Build DLStreamer
 # hadolint ignore=SC1091
@@ -525,8 +526,8 @@ RUN \
 # Intel NPU drivers and prerequisites installation
 WORKDIR /tmp/npu_deps
 
-RUN curl -LO https://github.com/intel/linux-npu-driver/releases/download/v1.23.0/linux-npu-driver-v1.23.0.20250827-17270089246-ubuntu2404.tar.gz && \
-    tar -xf linux-npu-driver-v1.23.0.20250827-17270089246-ubuntu2404.tar.gz && \
+RUN curl -LO https://github.com/intel/linux-npu-driver/releases/download/v1.28.0/linux-npu-driver-v1.28.0.20251218-20347000698-ubuntu2404.tar.gz && \
+    tar -xf linux-npu-driver-v1.28.0.20251218-20347000698-ubuntu2404.tar.gz && \
     dpkg -i ./*.deb && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /tmp/npu_deps

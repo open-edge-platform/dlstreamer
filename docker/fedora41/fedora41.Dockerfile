@@ -42,8 +42,8 @@ LABEL vendor="Intel Corporation"
 ARG GST_VERSION=1.26.6
 ARG FFMPEG_VERSION=6.1.1
 
-ARG OPENVINO_VERSION=2025.3.0
-ARG REALSENSE_VERSION=v2.57.4
+ARG OPENVINO_VERSION=2025.4.0
+ARG REALSENSE_VERSION=v2.57.5
 
 ARG DLSTREAMER_VERSION=2025.2.0
 ARG DLSTREAMER_BUILD_NUMBER
@@ -67,7 +67,7 @@ RUN \
     python3-gobject-devel python3-devel tbb gnupg2 unzip gflags-devel openssl-devel openssl-devel-engine \
     gobject-introspection-devel x265-devel x264-devel libde265-devel libgudev-devel libusb1 libusb1-devel nasm python3-virtualenv \
     cairo-devel cairo-gobject-devel libXt-devel mesa-libGLES-devel wayland-protocols-devel libcurl-devel which \
-    libssh2-devel cmake git valgrind numactl libvpx-devel opus-devel libsrtp-devel libXv-devel paho-c-devel \
+    libssh2-devel cmake git valgrind numactl libvpx-devel opus-devel libsrtp-devel libXv-devel paho-c-devel ocl-icd-devel \
     kernel-headers pmix pmix-devel hwloc hwloc-libs hwloc-devel libxcb-devel libX11-devel libatomic intel-media-driver libsoup3 && \
     dnf clean all
 
@@ -296,7 +296,7 @@ RUN \
     shopt -s dotglob && \
     mv gst-plugins-rs/* . && \
     git checkout "tags/gstreamer-$GST_VERSION" && \
-    curl -sSL --insecure https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.86.0 && \
+    curl -sSL --insecure https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.88.0 && \
     source "$HOME"/.cargo/env && \
     cargo install cargo-c --version=0.10.11 --locked && \
     cargo update && \

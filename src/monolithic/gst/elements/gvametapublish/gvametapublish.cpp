@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2021-2025 Intel Corporation
+ * Copyright (C) 2021-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -188,7 +188,7 @@ class GvaMetaPublishPrivate {
                 _base,
                 "Failed to create element for method: %s\n\n"
                 "Please refer to 'install_metapublish_dependencies.sh' script to install required dependencies:\n"
-                "https://github.com/open-edge-platform/dlstreamer/tree/master/scripts/"
+                "https://github.com/open-edge-platform/dlstreamer/tree/main/scripts/"
                 "install_metapublish_dependencies.sh\n"
                 "After installation clear GStreamer registry cache to refresh plugins.\n",
                 method_type_to_string(_method));

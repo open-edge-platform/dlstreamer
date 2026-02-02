@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2022-2025 Intel Corporation
+ * Copyright (C) 2022-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -7,9 +7,10 @@
 #pragma once
 
 #include "dlstreamer/gst/mappers/gst_to_cpu.h"
+#ifndef _WIN32
 #include "dlstreamer/gst/mappers/gst_to_dma.h"
 #include "dlstreamer/gst/mappers/gst_to_vaapi.h"
-#ifdef _MSC_VER
+#else
 #include "dlstreamer/gst/mappers/gst_to_d3d11.h"
 #endif
 #include "inference_backend/image.h"
@@ -74,11 +75,14 @@ class BufferToImageMapper final {
         image->height = image_info0.height();
         image->size = size;
         image->type = _memory_type;
+#ifndef _WIN32
         if (_memory_type == MemoryType::VAAPI) {
             image->va_surface_id = dlstreamer::ptr_cast<dlstreamer::VAAPITensor>(tensor0)->va_surface();
             image->va_display = tensor0->context()->handle(dlstreamer::VAAPIContext::key::va_display);
         };
-#ifdef _MSC_VER
+        image->dma_fd = tensor0->handle(dlstreamer::tensor::key::dma_fd, 0);
+        image->drm_format_modifier = tensor0->handle(dlstreamer::tensor::key::drm_modifier, 0);
+#else
         if (_memory_type == MemoryType::D3D11) {
             image->d3d11_texture = dlstreamer::ptr_cast<dlstreamer::D3D11Tensor>(tensor0)->d3d11_texture();
             auto gst_d3d_device =
@@ -86,9 +90,6 @@ class BufferToImageMapper final {
             image->d3d11_device = reinterpret_cast<void *>(gst_d3d11_device_get_device_handle(gst_d3d_device));
         }
 #endif
-        image->dma_fd = tensor0->handle(dlstreamer::tensor::key::dma_fd, 0);
-        image->drm_format_modifier = tensor0->handle(dlstreamer::tensor::key::drm_modifier, 0);
-
         return image;
     }
 
@@ -107,13 +108,14 @@ class BufferMapperFactory {
         switch (memory_type) {
         case InferenceBackend::MemoryType::SYSTEM:
             return std::make_shared<dlstreamer::MemoryMapperGSTToCPU>(nullptr, output_context);
+#ifndef _WIN32
         case InferenceBackend::MemoryType::DMA_BUFFER:
             return std::make_shared<dlstreamer::MemoryMapperGSTToDMA>(nullptr, output_context);
         case InferenceBackend::MemoryType::VAAPI:
             return std::make_shared<dlstreamer::MemoryMapperGSTToVAAPI>(nullptr, output_context);
         case InferenceBackend::MemoryType::USM_DEVICE_POINTER:
             throw std::runtime_error("Not impemented");
-#ifdef _MSC_VER
+#else
         case InferenceBackend::MemoryType::D3D11:
             return std::make_shared<dlstreamer::MemoryMapperGSTToD3D11>(nullptr, output_context);
 #endif

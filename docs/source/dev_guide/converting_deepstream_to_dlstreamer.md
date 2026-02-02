@@ -62,7 +62,7 @@ pipeline.
 
 While GStreamer command line allows quick demonstration of a running pipeline, fine-grain control typically involves using a GStreamer pipeline object in a programmable way: either Python or C/C++ code.
 
-This section illustrates how to convert a [DeepStream Python example](https://github.com/NVIDIA-AI-IOT/deepstream_python_apps/tree/master/apps/deepstream-test1) into a [DL Streamer Python example](https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/python/hello_dlstreamer). Both applications implement the same functionality, yet they use DeepStream or DLStreamer elements as illustrated in the table below. The elements in __bold__ are vendor-specific, while others are regular GStreamer elements.
+This section illustrates how to convert a [DeepStream Python example](https://github.com/NVIDIA-AI-IOT/deepstream_python_apps/tree/master/apps/deepstream-test1) into a [DL Streamer Python example](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/python/hello_dlstreamer). Both applications implement the same functionality, yet they use DeepStream or DLStreamer elements as illustrated in the table below. The elements in __bold__ are vendor-specific, while others are regular GStreamer elements.
 
 | DeepStream Element | DL Streamer Element | Function |
 |---|---|---|

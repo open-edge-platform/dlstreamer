@@ -24,123 +24,160 @@ jobs:
           - path_dockerfile: ./dlstreamer-repo/docker/ubuntu/ubuntu24.Dockerfile
             ubuntu_version: ubuntu24
     steps:
-    - name: Clean before
-      run: |
-        sudo rm -rf dlstreamer-repo
+      - name: Clean before
+        run: |
+          sudo rm -rf dlstreamer-repo
+      - name: Check out dlstreamer repository
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 #5.0.0
+        with:
+          persist-credentials: false
+          path: dlstreamer-repo
 
-    - name: Check out dlstreamer repository
-      uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 #5.0.0
-      with:
-        persist-credentials: false
-        path: dlstreamer-repo
+      - name: Init submodules
+        run: |
+          cd dlstreamer-repo
+          git submodule update --init thirdparty/spdlog
+          git submodule update --init thirdparty/googletest
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 #3.11.1
 
-    - name: Init submodules
-      run: |
-        cd dlstreamer-repo
-        git submodule update --init thirdparty/spdlog
-        git submodule update --init thirdparty/googletest
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef #3.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 #3.11.1
+      - name: Build dev debug img with cache from GHCR
+        env:
+          dev_debug_img: ghcr.io/${{ github.repository }}/dev-debug-img-${{ matrix.ubuntu_version }}:${{ github.sha }}
+          dev_debug_img_cached: ghcr.io/${{ github.repository }}/dev-debug-img-${{ matrix.ubuntu_version }}:buildcache
+        run: |
+          docker buildx build \
+            --load \
+            --target dlstreamer-dev \
+            --tag "${dev_debug_img}" \
+            --cache-from="${dev_debug_img_cached}" \
+            --build-arg BUILD_ARG=Debug \
+            -f ${{ matrix.path_dockerfile }} \
+            ./dlstreamer-repo
+      # ====================================================== UNIT TESTS ============================================================
+      - name: Check models
+        run: |
+          echo "## Basic checks" >> $GITHUB_STEP_SUMMARY
+          if [ -d "${{ env.MODELS_PATH }}" ] && [ "$(ls -A "${{ env.MODELS_PATH }}")" ]; then
+            echo "Models: found ✅" >> $GITHUB_STEP_SUMMARY
+            ls -A "${{ env.MODELS_PATH }}"
+          else
+            echo "Models: folder not found or it is empty ❌" >> $GITHUB_STEP_SUMMARY
+            ls -A "${{ env.MODELS_PATH }}"
+            exit 1
+          fi
+      - name: Check videos
+        run: |
+          if [ -d "${{ env.VIDEO_INPUTS_PATH }}" ] && [ "$(ls -A "${{ env.VIDEO_INPUTS_PATH }}")" ]; then
+            echo "Tests input videos: found ✅" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "Tests input videos: folder not found or it is empty ❌" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+      - name: Create test results folder
+        env:
+          RESULTS_DIR: test-results
+        run: |
+          mkdir -p ${RESULTS_DIR}
+          chmod -R 777 ${RESULTS_DIR}
+      - name: Run tests
+        id: run-tests
+        env:
+          dev_debug_img: ghcr.io/${{ github.repository }}/dev-debug-img-${{ matrix.ubuntu_version }}:${{ github.sha }}
+          MAPPED_MODELS_PATH: /home/dlstreamer/models
+          MAPPED_RESULTS_DIR: /home/dlstreamer/test-results
+          MAPPED_VIDEO_EXAMPLES_DIR: /home/dlstreamer/video-examples
+          RESULTS_DIR: test-results
+        run: |
+          docker run --device /dev/dri --rm \
+            --group-add=$(stat -c "%g" /dev/dri/render*) \
+            -v ${{ env.VIDEO_INPUTS_PATH }}:${MAPPED_VIDEO_EXAMPLES_DIR} \
+            -v ${{ env.MODELS_PATH }}:${MAPPED_MODELS_PATH} \
+            -v $PWD/${RESULTS_DIR}:${MAPPED_RESULTS_DIR}        \
+            -v $PWD/dlstreamer-repo/tests/scripts:/home/dlstreamer/dlstreamer/tests-scripts \
+            -v $PWD/dlstreamer-repo/tests/unit_tests:/home/dlstreamer/dlstreamer/tests \
+            -e VIDEO_EXAMPLES_DIR=${MAPPED_VIDEO_EXAMPLES_DIR}  \
+            -w /home/dlstreamer/dlstreamer  \
+            -e MODELS_PATH=${MAPPED_MODELS_PATH} \
+            -e MODELS_PROC_PATH=/home/dlstreamer/dlstreamer/samples/gstreamer/model_proc \
+            ${dev_debug_img} \
+            tests-scripts/run_unit_tests.sh "" "" ${MAPPED_RESULTS_DIR}
+      #this script creates output file called unit_test_summary.txt
+      - name: Run python script to get Unit Test results
+        env:
+          RESULTS_DIR: test-results
+        run: python3 dlstreamer-repo/tests/scripts/unit_test_results.py $PWD/${RESULTS_DIR}
+      - name: Check Docker image size
+        id: check-size
+        env:
+          dev_debug_img: ghcr.io/${{ github.repository }}/dev-debug-img-${{ matrix.ubuntu_version }}:${{ github.sha }}
+        run: |
+          IMAGE_NAME=${dev_debug_img}
+          if [ "${{ matrix.ubuntu_version }}" == "ubuntu22" ]; then
+            EXPECTED_SIZE_MB=${{ vars.EXPECTED_SIZE_MB_DEV_U22 }}
+          elif [ "${{ matrix.ubuntu_version }}" == "ubuntu24" ]; then
+            EXPECTED_SIZE_MB=${{ vars.EXPECTED_SIZE_MB_DEV_U24 }}
+          fi
 
-    - name: Log in to GitHub Container Registry
-      uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef #3.6.0
-      with:
-        registry: ghcr.io
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
+          IMAGE_SIZE_BYTES=$(docker image inspect "$IMAGE_NAME" --format='{{.Size}}')
+          IMAGE_SIZE_MB=$((IMAGE_SIZE_BYTES / 1024 / 1024))
 
-    - name: Build dev debug img with cache from GHCR
-      env:
-        dev_debug_img: ghcr.io/${{ github.repository }}/dev-debug-img-${{ matrix.ubuntu_version }}:${{ github.sha }}
-        dev_debug_img_cached: ghcr.io/${{ github.repository }}/dev-debug-img-${{ matrix.ubuntu_version }}:buildcache
-      run: |
-        docker buildx build \
-          --load \
-          --target dlstreamer-dev \
-          --tag "${dev_debug_img}" \
-          --cache-from="${dev_debug_img_cached}" \
-          --build-arg BUILD_ARG=Debug \
-          -f ${{ matrix.path_dockerfile }} \
-          ./dlstreamer-repo
+          echo "Actual image size: ${IMAGE_SIZE_MB} MB"
+          echo "Expected size: ${EXPECTED_SIZE_MB} MB"
+          DIFF=$(( IMAGE_SIZE_MB - EXPECTED_SIZE_MB ))
+          ABS_DIFF=${DIFF#-}
+          echo "Difference: ${ABS_DIFF} MB"
 
-    # ====================================================== UNIT TESTS ============================================================
-    - name: Check models
-      run: |
-        echo "## Basic checks" >> $GITHUB_STEP_SUMMARY
-        if [ -d "${{ env.MODELS_PATH }}" ] && [ "$(ls -A "${{ env.MODELS_PATH }}")" ]; then
-          echo "Models: found ✅" >> $GITHUB_STEP_SUMMARY
-          ls -A "${{ env.MODELS_PATH }}"
-        else
-          echo "Models: folder not found or it is empty ❌" >> $GITHUB_STEP_SUMMARY
-          ls -A "${{ env.MODELS_PATH }}"
-          exit 1
-        fi
+          THRESHOLD_SIZE_MB=100
+          echo "IMAGE_SIZE_MB=$IMAGE_SIZE_MB" >> $GITHUB_ENV
+          echo "EXPECTED_SIZE_MB=$EXPECTED_SIZE_MB" >> $GITHUB_ENV
+          if [ "$ABS_DIFF" -gt "$THRESHOLD_SIZE_MB" ]; then
+            echo "❌ Image size difference exceeds allowed threshold: ${THRESHOLD_SIZE_MB}MB (difference: ${ABS_DIFF} MB)"
+            exit 1
+          else
+            echo "✅ Image size within allowed threshold: ${THRESHOLD_SIZE_MB}MB."
+          fi
+      - name: Print image size summary
+        if: always()
+        env:
+          IMAGE_SIZE_MB: ${{ env.IMAGE_SIZE_MB }}
+          EXPECTED_SIZE_MB: ${{ env.EXPECTED_SIZE_MB }}
+        run: |
+          {
+            echo "## 🐳 Docker image size"
+            echo ""
+            echo "| Image | Size |"
+            echo "|-------|------|"
+            echo "| Current Docker ${{ matrix.ubuntu_version }}-deb | **${IMAGE_SIZE_MB} MB** |"
+            echo "| Expected Docker ${{ matrix.ubuntu_version }}-deb | **${EXPECTED_SIZE_MB} MB** |"
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Add test summary to job summary
+        if: always ()
+        env:
+          RESULTS_DIR: test-results
+        run: |
+          echo "## Test Summary for Unit Tests on TGL" >> $GITHUB_STEP_SUMMARY
+          cat $PWD/${RESULTS_DIR}/unit_test_summary.txt >> $GITHUB_STEP_SUMMARY
+      - name: Upload test results
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 #4.6.2
+        if: always ()
+        env:
+          RESULTS_DIR: test-results
+        with:
+          name: DLS_unit_tests_tgl_${{ matrix.ubuntu_version }}
+          path: ${{ env.RESULTS_DIR }}/*.xml
 
-    - name: Check videos
-      run: |
-        if [ -d "${{ env.VIDEO_INPUTS_PATH }}" ] && [ "$(ls -A "${{ env.VIDEO_INPUTS_PATH }}")" ]; then
-          echo "Tests input videos: found ✅" >> $GITHUB_STEP_SUMMARY
-        else
-          echo "Tests input videos: folder not found or it is empty ❌" >> $GITHUB_STEP_SUMMARY
-          exit 1
-        fi
-
-    - name: Create test results folder
-      env:
-        RESULTS_DIR: test-results
-      run: |
-        mkdir -p ${RESULTS_DIR}
-        chmod -R 777 ${RESULTS_DIR}
-
-    - name: Run tests
-      id: run-tests
-      env:
-        dev_debug_img: ghcr.io/${{ github.repository }}/dev-debug-img-${{ matrix.ubuntu_version }}:${{ github.sha }}
-        MAPPED_MODELS_PATH: /home/dlstreamer/models
-        MAPPED_RESULTS_DIR: /home/dlstreamer/test-results
-        MAPPED_VIDEO_EXAMPLES_DIR: /home/dlstreamer/video-examples
-        RESULTS_DIR: test-results
-      run: |
-        docker run --device /dev/dri --rm \
-          --group-add=$(stat -c "%g" /dev/dri/render*) \
-          -v ${{ env.VIDEO_INPUTS_PATH }}:${MAPPED_VIDEO_EXAMPLES_DIR} \
-          -v ${{ env.MODELS_PATH }}:${MAPPED_MODELS_PATH} \
-          -v $PWD/${RESULTS_DIR}:${MAPPED_RESULTS_DIR}        \
-          -v $PWD/dlstreamer-repo/tests/scripts:/home/dlstreamer/dlstreamer/scripts  \
-          -v $PWD/dlstreamer-repo/tests/unit_tests:/home/dlstreamer/dlstreamer/tests \
-          -e VIDEO_EXAMPLES_DIR=${MAPPED_VIDEO_EXAMPLES_DIR}  \
-          -w /home/dlstreamer/dlstreamer  \
-          -e MODELS_PATH=${MAPPED_MODELS_PATH} \
-          -e MODELS_PROC_PATH=/home/dlstreamer/dlstreamer/samples/gstreamer/model_proc \
-          ${dev_debug_img} \
-          scripts/run_unit_tests.sh "" "" ${MAPPED_RESULTS_DIR}
-
-    #this script creates output file called unit_test_summary.txt
-    - name: Run python script to get Unit Test results
-      env:
-        RESULTS_DIR: test-results
-      run: python3 dlstreamer-repo/tests/scripts/unit_test_results.py $PWD/${RESULTS_DIR}
-
-    - name: Add test summary to job summary
-      if: always ()
-      env:
-        RESULTS_DIR: test-results
-      run: |
-        echo "## Test Summary for Unit Tests on TGL" >> $GITHUB_STEP_SUMMARY
-        cat $PWD/${RESULTS_DIR}/unit_test_summary.txt >> $GITHUB_STEP_SUMMARY
-
-    - name: Upload test results
-      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 #4.6.2
-      if: always ()
-      env:
-        RESULTS_DIR: test-results
-      with:
-        name: DLS_unit_tests_tgl_${{ matrix.ubuntu_version }}
-        path: ${{ env.RESULTS_DIR }}/*.xml
-
-    - name: Clean up
-      if: always ()
-      env:
-        RESULTS_DIR: test-results
-      run: sudo rm -rf ${RESULTS_DIR} dlstreamer-repo
+      - name: Clean up
+        if: always ()
+        env:
+          RESULTS_DIR: test-results
+        run: |
+          sudo rm -rf ${RESULTS_DIR} dlstreamer-repo
+          docker system prune -a -f

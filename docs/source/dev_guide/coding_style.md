@@ -1,7 +1,7 @@
 # Coding Style
 
 The Clang formatter is part of the CI setup. You need to ensure proper
-code formatting before your commits are merged to `master`.
+code formatting before your commits are merged to `main`.
 You can install the checker locally and configure your IDE to check
 your code with it. You can also use a configuration file for ``clang-format-7``
 from the root of this project (`.clang-format`).

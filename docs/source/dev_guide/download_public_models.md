@@ -1,7 +1,7 @@
 # Download Public Models
 
 This page provides instructions on how to use the
-[samples/download_public_models.sh](https://github.com/open-edge-platform/dlstreamer/blob/master/samples/download_public_models.sh)
+[samples/download_public_models.sh](https://github.com/open-edge-platform/dlstreamer/blob/main/samples/download_public_models.sh)
 script to download the following models:
 
 - [YOLO](https://docs.ultralytics.com/models/)
@@ -18,8 +18,22 @@ export MODELS_PATH=/path/to/models
 ```
 
 You can refer to the list of
-[supported models](https://github.com/open-edge-platform/dlstreamer/blob/master/samples/download_public_models.sh#L23).
+[supported models](https://github.com/open-edge-platform/dlstreamer/blob/main/samples/download_public_models.sh#L23).
 
+## Download All Models
+
+To download all supported models (FP32 and FP16), run the script without any parameters:
+
+```bash
+./samples/download_public_models.sh
+```
+
+> **NOTE:** This will download all YOLO models, CenterFace, HSEmotion, Deeplabv3,
+> and other supported models. This may take a significant amount of time and disk space.
+
+## Download a Specific Model
+
+To download a specific model, pass the model name as the first parameter.
 For example, to download the YOLOv11s model, use:
 
 ```bash

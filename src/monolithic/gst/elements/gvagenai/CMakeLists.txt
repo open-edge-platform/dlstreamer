@@ -1,5 +1,5 @@
 # ==============================================================================
-# Copyright (C) 2025 Intel Corporation
+# Copyright (C) 2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
@@ -15,7 +15,7 @@ find_package(OpenVINOGenAI REQUIRED)
 find_package(OpenCV REQUIRED)
 
 # Add executable
-add_library(${TARGET_NAME} SHARED
+add_library(${TARGET_NAME} STATIC
     gstgvagenai.cpp
     genai.cpp
     configs.cpp

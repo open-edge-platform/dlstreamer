@@ -26,7 +26,7 @@ resources when additional configuration is required.
 ```bash
 mkdir -p ~/intel/dlstreamer_gst
 cd ~/intel/dlstreamer_gst/
-wget -O DLS_install_prerequisites.sh https://raw.githubusercontent.com/open-edge-platform/dlstreamer/master/scripts/DLS_install_prerequisites.sh && chmod +x DLS_install_prerequisites.sh
+wget -O DLS_install_prerequisites.sh https://raw.githubusercontent.com/open-edge-platform/dlstreamer/main/scripts/DLS_install_prerequisites.sh && chmod +x DLS_install_prerequisites.sh
 ```
 
 ### Step 2: Execute the script and follow its instructions
@@ -97,7 +97,7 @@ drivers. For more details see [prerequisites](#prerequisites).
   sudo bash -c 'echo "deb [signed-by=/usr/share/keyrings/intel-gpg-archive-keyring.gpg] https://apt.repos.intel.com/openvino/2025 ubuntu24 main" | sudo tee /etc/apt/sources.list.d/intel-openvino-2025.list'
   ```
 
-  > **NOTE:** If you have OpenVINO™ installed in any version other than 2025.3.0,
+  > **NOTE:** If you have OpenVINO™ installed in any version other than 2025.4.0,
   > please uninstall the OpenVINO™ packages using the following commands.
 
   ```bash
@@ -119,7 +119,7 @@ sudo apt-get install intel-dlstreamer
 use!**
 
 To see the full list of installed components check the
-[Dockerfile content for Ubuntu 24](https://github.com/open-edge-platform/dlstreamer/blob/master/docker/ubuntu/ubuntu24.Dockerfile)
+[Dockerfile content for Ubuntu 24](https://github.com/open-edge-platform/dlstreamer/blob/main/docker/ubuntu/ubuntu24.Dockerfile)
 
 ### [Optional] Step 4: Python dependencies
 
@@ -172,8 +172,8 @@ following command:
 
   ```bash
   export LIBVA_DRIVER_NAME=iHD
-  export GST_PLUGIN_PATH=/opt/intel/dlstreamer/lib:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0:/opt/intel/dlstreamer/streamer/lib/
-  export LD_LIBRARY_PATH=/opt/intel/dlstreamer/gstreamer/lib:/opt/intel/dlstreamer/lib:/opt/intel/dlstreamer/lib/gstreamer-1.0:/sr/lib:/opt/intel/dlstreamer/lib:/usr/local/lib/gstreamer-1.0:/usr/local/lib:/opt/opencv:/opt/rdkafka
+  export GST_PLUGIN_PATH=/opt/intel/dlstreamer/lib:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0:/opt/intel/dlstreamer/gstreamer/lib/
+  export LD_LIBRARY_PATH=/opt/intel/dlstreamer/gstreamer/lib:/opt/intel/dlstreamer/lib:/opt/intel/dlstreamer/lib/gstreamer-1.0:/usr/lib:/opt/intel/dlstreamer/lib:/usr/local/lib/gstreamer-1.0:/usr/local/lib:/opt/opencv:/opt/rdkafka:/opt/librealsense
   export LIBVA_DRIVERS_PATH=/usr/lib/x86_64-linux-gnu/dri
   export GST_VA_ALL_DRIVERS=1
   export PATH=/opt/intel/dlstreamer/gstreamer/bin:/opt/intel/dlstreamer/bin:$PATH
@@ -186,8 +186,8 @@ following command:
   ```bash
 
   export LIBVA_DRIVER_NAME=iHD
-  export GST_PLUGIN_PATH=/opt/intel/dlstreamer/lib:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0:/opt/intel/dlstreamer/streamer/lib/
-  export LD_LIBRARY_PATH=/opt/intel/dlstreamer/gstreamer/lib:/opt/intel/dlstreamer/lib:/opt/intel/dlstreamer/lib/gstreamer-1.0:/sr/lib:/opt/intel/dlstreamer/lib:/usr/local/lib/gstreamer-1.0:/usr/local/lib:/opt/opencv:/opt/rdkafka
+  export GST_PLUGIN_PATH=/opt/intel/dlstreamer/lib:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0:/opt/intel/dlstreamer/gstreamer/lib/
+  export LD_LIBRARY_PATH=/opt/intel/dlstreamer/gstreamer/lib:/opt/intel/dlstreamer/lib:/opt/intel/dlstreamer/lib/gstreamer-1.0:/usr/lib:/opt/intel/dlstreamer/lib:/usr/local/lib/gstreamer-1.0:/usr/local/lib:/opt/opencv:/opt/rdkafka:/opt/librealsense
   export LIBVA_DRIVERS_PATH=/usr/lib/x86_64-linux-gnu/dri
   export GST_VA_ALL_DRIVERS=1
   export PATH=/opt/intel/dlstreamer/gstreamer/bin:/opt/intel/dlstreamer/bin:$PATH
@@ -200,7 +200,7 @@ following command:
   ```bash
   export LIBVA_DRIVER_NAME=iHD
   export GST_PLUGIN_PATH=/opt/intel/dlstreamer/lib:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0:/opt/intel/dlstreamer/gstreamer/lib/
-  export LD_LIBRARY_PATH=/opt/intel/dlstreamer/gstreamer/lib:/opt/intel/dlstreamer/lib:/opt/intel/dlstreamer/lib/gstreamer-1.0:/usr/lib:/opt/intel/dlstreamer/lib:/usr/local/lib/gstreamer-1.0:/usr/local/lib:/opt/opencv:/opt/rdkafka:/opt/ffmpeg
+  export LD_LIBRARY_PATH=/opt/intel/dlstreamer/gstreamer/lib:/opt/intel/dlstreamer/lib:/opt/intel/dlstreamer/lib/gstreamer-1.0:/usr/lib:/opt/intel/dlstreamer/lib:/usr/local/lib/gstreamer-1.0:/usr/local/lib:/opt/opencv:/opt/rdkafka:/opt/librealsense:/opt/ffmpeg
   export LIBVA_DRIVERS_PATH=/usr/lib64/dri-nonfree
   export GST_VA_ALL_DRIVERS=1
   export PATH=/opt/intel/dlstreamer/gstreamer/bin:/opt/intel/dlstreamer/bin:$PATH
@@ -319,7 +319,7 @@ that GStreamer and Deep Learning Streamer are running
 gst-inspect-1.0 gvadetect
 ```
 
-If your can see the documentation of `gvadetect` element, the
+If you can see the documentation of `gvadetect` element, the
 installation process is completed.
 
 ![image](gvadetect_sample_help.png)

@@ -1,12 +1,11 @@
 # ==============================================================================
-# Copyright (C) 2025 Intel Corporation
+# Copyright (C) 2025-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
 
 set(TARGET_NAME "gvarealsense")
 
-pkg_search_module(VA va libva REQUIRED)
 find_package(OpenCV REQUIRED core imgproc)
 find_package(realsense2)
 
@@ -18,7 +17,7 @@ file(GLOB REALSENSE_HEADERS
     *.h
 )
 
-add_library(gvarealsense SHARED gvarealsense.cpp gvarealsense.h gvarealsense_utils.cpp gvarealsense_utils.h 
+add_library(gvarealsense SHARED gvarealsense.cpp gvarealsense.h gvarealsense_utils.cpp gvarealsense_utils.h
             gvarealsense_pcd.h gvarealsense_pcd.cpp )
 set_compile_flags(${TARGET_NAME})
 
@@ -34,8 +33,6 @@ target_include_directories(${TARGET_NAME}
         ${GSTVIDEO_INCLUDE_DIRS}
         ${GSTALLOC_INCLUDE_DIRS}
 )
-
-target_link_directories(${TARGET_NAME} PUBLIC ${VA_LIBRARY_DIRS})
 
 target_link_libraries(${TARGET_NAME}
     PRIVATE

@@ -7,17 +7,9 @@
 #include "gstgvawatermarkimpl.h"
 #include "gvawatermarkcaps.h"
 
-#ifndef _MSC_VER
+#ifndef _WIN32
 #include <dlstreamer/image_info.h>
 #include <gmodule.h>
-#else
-// On Windows try to include libva headers if available; otherwise fall back to minimal constants.
-#if __has_include(<va/va.h>)
-#include <va/va.h>
-#endif
-#ifndef VA_INVALID_SURFACE
-#define VA_INVALID_SURFACE (-1)
-#endif
 #endif
 
 #include <gst/allocators/gstdmabuf.h>
@@ -35,8 +27,14 @@
 #include "utils.h"
 #include "video_frame.h"
 
+#ifndef _WIN32
 #ifdef ENABLE_VAAPI
 #include <dlstreamer/vaapi/mappers/vaapi_to_dma.h>
+#endif
+#else
+#include <dlstreamer/gst/mappers/gst_to_d3d11.h>
+#define GST_USE_UNSTABLE_API
+#include <gst/d3d11/gstd3d11.h>
 #endif
 
 #include "renderer/color_converter.h"
@@ -45,7 +43,7 @@
 #include <exception>
 #include <string>
 #include <typeinfo>
-#ifndef ENABLE_VAAPI
+#if !defined(ENABLE_VAAPI) || defined(_WIN32)
 // VAAPI disabled: provide minimal stub types/constants to satisfy signatures without libva.
 #ifndef VA_INVALID_SURFACE
 #define VA_INVALID_SURFACE (-1)

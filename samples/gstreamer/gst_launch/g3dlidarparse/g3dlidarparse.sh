@@ -6,9 +6,9 @@
 # ==============================================================================
 set -e
 
-LOCATION=${1:-/home/kpi/velodyne/%06d.bin}
-START_INDEX=${2:-260}
-STRIDE=${3:-5}
+LOCATION=${1:-velodyne/%06d.bin}
+START_INDEX=${2:-250}
+STRIDE=${3:-1}
 FRAME_RATE=${4:-5}
 
 if [ -z "$GST_DEBUG" ]; then
