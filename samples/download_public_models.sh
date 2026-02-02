@@ -428,7 +428,7 @@ if array_contains "yolox-tiny" "${MODELS_TO_PROCESS[@]}" || array_contains "yolo
     cd "$MODELS_PATH"
     echo "Downloading and converting: ${MODEL_DIR}"
 
-    # Create remporary new Python virtual environment for omz tools
+    # Create temporary new Python virtual environment for omz tools
     deactivate 2>/dev/null || true
     $PYTHON_CREATE_VENV -m venv "$HOME/.virtualenvs/dlstreamer_openvino_dev" || handle_error $LINENO
     source "$HOME/.virtualenvs/dlstreamer_openvino_dev/bin/activate"
