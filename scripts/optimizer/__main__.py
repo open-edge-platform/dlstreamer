@@ -32,6 +32,6 @@ try:
     best_pipeline, best_fps = get_optimized_pipeline(pipeline,
                                                      float(args.search_duration),
                                                      float(args.sample_duration))
-    logger.info("\nBest found pipeline: %s \nwith fps: %f.2", best_pipeline, best_fps)
+    logger.info("\nBest found pipeline: %s \nwith fps: %.2f", best_pipeline, best_fps)
 except Exception as e: # pylint: disable=broad-exception-caught
     logger.error("Failed to optimize pipeline: %s", e)
