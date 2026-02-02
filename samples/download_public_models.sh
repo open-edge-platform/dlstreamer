@@ -1183,23 +1183,23 @@ done
 
 # ================================= DeepLabv3 FP16 & FP32 =================================
 if array_contains "deeplabv3" "${MODELS_TO_PROCESS[@]}" || array_contains "all" "${MODELS_TO_PROCESS[@]}"; then
-    MODEL_NAME="deeplabv3"
-    MODEL_DIR="$MODELS_PATH/public/$MODEL_NAME"
-    TMP_DIR="${MODEL_DIR}_tmp"
+  MODEL_NAME="deeplabv3"
+  MODEL_DIR="$MODELS_PATH/public/$MODEL_NAME"
+  TMP_DIR="${MODEL_DIR}_tmp"
 
-    pip install --no-cache-dir tensorflow || handle_error $LINENO
+  pip install --no-cache-dir tensorflow || handle_error $LINENO
 
-    if [[ ! -f "$MODEL_DIR/FP32/$MODEL_NAME.xml" || ! -f "$MODEL_DIR/FP16/$MODEL_NAME.xml" ]]; then
-        echo "Processing model in temporary directory: $TMP_DIR"
+  if [[ ! -f "$MODEL_DIR/FP32/$MODEL_NAME.xml" || ! -f "$MODEL_DIR/FP16/$MODEL_NAME.xml" ]]; then
+    echo "Processing model in temporary directory: $TMP_DIR"
 
-        rm -rf "$TMP_DIR"
-        mkdir -p "$TMP_DIR"
+    rm -rf "$TMP_DIR"
+    mkdir -p "$TMP_DIR"
 
-        cd "$MODELS_PATH"
-        omz_downloader --name "$MODEL_NAME" --output_dir "$TMP_DIR"
-        omz_converter --name "$MODEL_NAME" --download_dir "$TMP_DIR" --output_dir "$TMP_DIR"
+    cd "$MODELS_PATH"
+    omz_downloader --name "$MODEL_NAME" --output_dir "$TMP_DIR"
+    omz_converter --name "$MODEL_NAME" --download_dir "$TMP_DIR" --output_dir "$TMP_DIR"
 
-        python3 - <<EOF "$TMP_DIR" "$MODEL_DIR" "$MODEL_NAME"
+    python3 - <<EOF "$TMP_DIR" "$MODEL_DIR" "$MODEL_NAME"
 import openvino
 import sys, os, shutil
 from pathlib import Path
@@ -1227,13 +1227,13 @@ for precision, compress in [("FP32", False), ("FP16", True)]:
     save_file = target_dir / f"{model_name}.xml"
     openvino.save_model(ov_model, str(save_file), compress_to_fp16=compress)
     print(f"Successfully saved: {save_file}")
-
 EOF
-        cd "$MODELS_PATH"
-        rm -rf "$TMP_DIR"
-    else
-        echo_color "\nModel already exists: $MODEL_DIR.\n" "yellow"
-    fi
+
+    cd "$MODELS_PATH"
+    rm -rf "$TMP_DIR"
+  else
+    echo_color "\nModel already exists: $MODEL_DIR.\n" "yellow"
+  fi
 fi
 
 

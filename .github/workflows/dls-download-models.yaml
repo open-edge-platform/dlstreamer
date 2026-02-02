@@ -256,7 +256,6 @@ jobs:
         with:
           persist-credentials: false
           path: dlstreamer-repo
-          clean: false
 
       - name: Install Python
         uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # 5.0.0
@@ -264,7 +263,6 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
-          clean: false
 
       - name: Capture Python path
         env:
