@@ -953,9 +953,9 @@ gc.collect()
 
 # Export INT8 if requested
 if quantize_dataset != "":
-    print(f"[*] Starting INT8 quantization...")
-    q_path = model.export(format='openvino', half=False, int8=True, data=quantize_dataset + '.yaml')
-    ov_model = core.read_model(model=os.path.join(q_path, model_name + '.xml'))
+    print("\033[36m[*] Starting INT8 quantization for " + model_name + "...\033[0m")
+    converted_path  = model.export(format='openvino', half=False, int8=True, data=quantize_dataset + '.yaml')
+    ov_model = core.read_model(model=os.path.join(converted_path , model_name + '.xml'))
 
     if model_type in ["yolo_v8_seg", "yolo_v11_seg", "yolo_v26_seg"]:
         ov_model.output(0).set_names({"boxes"})
@@ -1192,19 +1192,21 @@ done
 
 # ================================= DeepLabv3 FP16 & FP32 =================================
 if array_contains "deeplabv3" "${MODELS_TO_PROCESS[@]}" || array_contains "all" "${MODELS_TO_PROCESS[@]}"; then
+  display_header "Downloading DeepLabv3 model"
   MODEL_NAME="deeplabv3"
   MODEL_DIR="$MODELS_PATH/public/$MODEL_NAME"
   TMP_DIR="${MODEL_DIR}_tmp"
 
   if [[ ! -f "$MODEL_DIR/FP32/$MODEL_NAME.xml" || ! -f "$MODEL_DIR/FP16/$MODEL_NAME.xml" ]]; then
+    echo "Downloading and converting: ${MODEL_DIR}"
+
+    # Create temporary new Python virtual environment for omz tools
     deactivate 2>/dev/null || true
     $PYTHON_CREATE_VENV -m venv "$HOME/.virtualenvs/dlstreamer_openvino_dev" || handle_error $LINENO
     activate_venv "$HOME/.virtualenvs/dlstreamer_openvino_dev"
     python -m pip install --upgrade pip                 || handle_error $LINENO
     pip install --no-cache-dir "openvino-dev==2024.6.0" || handle_error $LINENO
     pip install --no-cache-dir tensorflow==2.20.0       || handle_error $LINENO
-
-    echo "Processing model in temporary directory: $TMP_DIR"
 
     rm -rf "$TMP_DIR"
     mkdir -p "$TMP_DIR"
@@ -1264,6 +1266,7 @@ if array_contains "ch_PP-OCRv4_rec_infer" "${MODELS_TO_PROCESS[@]}" || array_con
     echo "Downloading and converting: ${MODEL_DIR}"
     mkdir -p "$MODEL_DIR"
     cd "$MODEL_DIR"
+
     curl -f -L -k -o "${MODEL_NAME}.zip" 'https://github.com/open-edge-platform/edge-ai-resources/raw/main/models/license-plate-reader.zip'
     python3 -c "
 import zipfile
