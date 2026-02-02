@@ -78,7 +78,9 @@ enum { PROP_0, PROP_DEVICE, PROP_OBB, PROP_DISPL_AVGFPS, PROP_DISPL_CFG };
     "\t\t\tthickness=<uint 1 to 10> bounding box thickness, default 2\n"                                               \
     "\t\t\tcolor-idx=<int> color index for bounding box, keypoints, and text, default -1 (use default colors: 0 red, " \
     "1 green, 2 blue)\n"                                                                                               \
-    "\t\t\te.g.: displ-cfg=show-labels=false\n"                                                                          \
+    "\t\t\tdraw-txt-bg=<bool> enable or disable displaying text labels background, by enabling it the text color "     \
+    "is set to white, default false\n"                                                                                 \
+    "\t\t\te.g.: displ-cfg=show-labels=false\n"                                                                        \
     "\t\t\te.g.: displ-cfg=text-scale=0.5,thickness=3,color-idx=2"
 
 G_END_DECLS

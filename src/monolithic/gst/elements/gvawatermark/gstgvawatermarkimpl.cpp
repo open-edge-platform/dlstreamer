@@ -171,6 +171,7 @@ struct Impl {
 
     struct DisplCfg {
         bool show_labels = true;
+        bool draw_text_background = false;
         int color_idx = DEFAULT_COLOR_IDX;
         uint thickness = DEFAULT_THICKNESS;
         double text_scale = DEFAULT_TEXT_SCALE;
@@ -725,8 +726,13 @@ Impl::Impl(GstVideoInfo *info, InferenceBackend::MemoryType mem_type, GstElement
         find_gvafpscounter_element();
 
     // Parse display configuration
-    if (_displ_cfg)
+    if (_displ_cfg) {
         parse_displ_config();
+        if (_displCfg.draw_text_background) {
+            _renderer->enable_draw_txt_bg(true);
+            _renderer_opencv->enable_draw_txt_bg(true);
+        }
+    }
 }
 
 size_t get_keypoint_index_by_name(const gchar *target_name, GValueArray *names) {
@@ -1147,6 +1153,13 @@ void Impl::parse_displ_config() {
                 _displCfg.text_scale = 1.0;
                 GST_WARNING(
                     "[gvawatermarkimpl] 'text-scale' parameter value is out of range (0.1, 2.0], set to default 1.0");
+            }
+            cfg.erase(iter);
+        }
+        iter = cfg.find("draw-txt-bg");
+        if (iter != cfg.end()) {
+            if (iter->second == "true" || iter->second == "false") {
+                _displCfg.draw_text_background = (iter->second == "true");
             }
             cfg.erase(iter);
         }
