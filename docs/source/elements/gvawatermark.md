@@ -72,7 +72,7 @@ Element Properties:
                         text-scale=<double 0.1 to 2.0> scale factor for text labels, default 1.0
                         thickness=<uint> bounding box thickness, default 2
                         color-idx=<int> color index for bounding box, keypoints, and text, default -1 (use default colors: 0 red, 1 green, 2 blue)
-                        
+                        draw-txt-bg=<bool> enable or disable displaying text labels background, by enabling it the text color is set to white, default false
                         e.g.: displ-cfg=show-labels=false
                         e.g.: displ-cfg=text-scale=0.5,thickness=3,color-idx=2
                         flags: readable, writable
