@@ -37,6 +37,7 @@ class RendererYUV : public RendererCPU {
     virtual void draw_rectangle(std::vector<cv::Mat> &mats, render::Rect rect) = 0;
     virtual void draw_circle(std::vector<cv::Mat> &mats, render::Circle circle) = 0;
     virtual void draw_text(std::vector<cv::Mat> &mats, render::Text text) = 0;
+    virtual void draw_text_bg(std::vector<cv::Mat> &mats, render::Text text) = 0;
     virtual void draw_line(std::vector<cv::Mat> &mats, render::Line line) = 0;
     virtual void draw_instance_mask(std::vector<cv::Mat> &mats, render::InstanceSegmantationMask mask) = 0;
     virtual void draw_semantic_mask(std::vector<cv::Mat> &mats, render::SemanticSegmantationMask mask) = 0;
@@ -54,6 +55,7 @@ class RendererI420 : public RendererYUV {
     void draw_rectangle(std::vector<cv::Mat> &mats, render::Rect rect) override;
     void draw_circle(std::vector<cv::Mat> &mats, render::Circle circle) override;
     void draw_text(std::vector<cv::Mat> &mats, render::Text text) override;
+    void draw_text_bg(std::vector<cv::Mat> &mats, render::Text text) override;
     void draw_line(std::vector<cv::Mat> &mats, render::Line line) override;
     void draw_instance_mask(std::vector<cv::Mat> &mats, render::InstanceSegmantationMask mask) override;
     void draw_semantic_mask(std::vector<cv::Mat> &mats, render::SemanticSegmantationMask mask) override;
@@ -69,6 +71,7 @@ class RendererNV12 : public RendererYUV {
     void draw_rectangle(std::vector<cv::Mat> &mats, render::Rect rect) override;
     void draw_circle(std::vector<cv::Mat> &mats, render::Circle circle) override;
     void draw_text(std::vector<cv::Mat> &mats, render::Text text) override;
+    void draw_text_bg(std::vector<cv::Mat> &mats, render::Text text) override;
     void draw_line(std::vector<cv::Mat> &mats, render::Line line) override;
     void draw_instance_mask(std::vector<cv::Mat> &mats, render::InstanceSegmantationMask mask) override;
     void draw_semantic_mask(std::vector<cv::Mat> &mats, render::SemanticSegmantationMask mask) override;
@@ -84,6 +87,7 @@ class RendererBGR : public RendererYUV {
     void draw_rectangle(std::vector<cv::Mat> &mats, render::Rect rect) override;
     void draw_circle(std::vector<cv::Mat> &mats, render::Circle circle) override;
     void draw_text(std::vector<cv::Mat> &mats, render::Text text) override;
+    void draw_text_bg(std::vector<cv::Mat> &mats, render::Text text) override;
     void draw_line(std::vector<cv::Mat> &mats, render::Line line) override;
     void draw_instance_mask(std::vector<cv::Mat> &mats, render::InstanceSegmantationMask mask) override;
     void draw_semantic_mask(std::vector<cv::Mat> &mats, render::SemanticSegmantationMask mask) override;
