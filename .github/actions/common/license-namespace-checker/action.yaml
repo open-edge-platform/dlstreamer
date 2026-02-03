@@ -27,7 +27,7 @@ runs:
           git fetch origin main:main
           echo "Fetched main branch"
         fi
-        changed_files=$(git diff --name-only main...$GITHUB_SHA -- '*.h' '*.hpp' '*.c' '*.cpp' '*.sh' '*.py' '*.txt' | grep -E '.*\.(h|hpp|c|cpp|sh|py|txt)$' || true)
+        changed_files=$(git diff --name-only main...$GITHUB_SHA -- '*.h' '*.hpp' '*.c' '*.cpp' '*.sh' '*.py' '*.txt' '*.bat' | grep -E '.*\.(h|hpp|c|cpp|sh|py|txt|bat)$' || true)
         echo "Performed git diff"
         if [ -n "$changed_files" ]; then
           # Add changed files list to the GITHUB_OUTPUT separated by spaces

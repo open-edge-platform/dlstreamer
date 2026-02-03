@@ -1,5 +1,5 @@
 # ==============================================================================
-# Copyright (C) 2018-2025 Intel Corporation
+# Copyright (C) 2018-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
@@ -236,7 +236,7 @@ class VideoFrame:
             if mapped_data_size != requested_size:
                 warn(
                     "Size of buffer's data: {}, and requested size: {}\n"
-                    "Let to get shape from video meta...".format(
+                    "Let to get shape from video meta or repack video frame...".format(
                         mapped_data_size, requested_size
                     ),
                     stacklevel=2,
@@ -245,6 +245,7 @@ class VideoFrame:
                 if meta:
                     h, w = meta.height, meta.width
                     requested_size = h * w * bytes_per_pix
+
                 else:
                     warn(
                         "Video meta is {}. Can't get shape.".format(meta), stacklevel=2
@@ -259,18 +260,18 @@ class VideoFrame:
                     )
                 elif is_yuv_format:
                     # In some cases image size after mapping can be larger than expected image size.
-                    # One of the reasons can be vaapi decoder which appends lines to the end of an image
-                    # so the height is multiple of 16. So we need to return an image that has the same
-                    # resolution as in video_info. That's why we drop extra lines added by decoder.
+                    # One of the reasons can be VA-API decoder appends padding to the end of each
+                    # plane, so the height / width is multiple of a specific value (depends on
+                    # hardware architecture). We need to return an image that has the same
+                    # resolution as in video_info by dropping extra padding added by decoder.
                     yield self.__repack_video_frame(data)
                 else:
                     raise RuntimeError("VideoFrame.data: Corrupted buffer")
             except TypeError as e:
                 warn(
                     str(e)
-                    + "\nSize of buffer's data: {}, and requested size: {}".format(
-                        mapped_data_size, requested_size
-                    ),
+                    + f"\nSize of buffer's data: {mapped_data_size}, "
+                    + f"and requested size: {requested_size}",
                     stacklevel=2,
                 )
                 raise e
@@ -297,54 +298,73 @@ class VideoFrame:
         return x, y, w, h
 
     def __repack_video_frame(self, data):
-        n_planes = self.__video_info.finfo.n_planes
+        meta = self.video_meta()
+        if not meta:
+            raise RuntimeError(
+                "VideoFrame.__repack_video_frame: No video meta available"
+            )
+
+        n_planes = meta.n_planes
         if n_planes not in [2, 3]:
             raise RuntimeError(
-                "VideoFrame.__repack_video_frame: Unsupported number of planes {}".format(
-                    n_planes
-                )
+                f"VideoFrame.__repack_video_frame: Unsupported number of planes {n_planes}"
             )
 
         h, w = self.__video_info.height, self.__video_info.width
-        stride = self.__video_info.stride[0]
         bytes_per_pix = self.__video_info.finfo.pixel_stride[0]
-        input_h = int(len(data) / (w * bytes_per_pix) / 1.5)
 
-        planes = [numpy.ndarray((h, w, bytes_per_pix), buffer=data, dtype=numpy.uint8)]
-        offset = stride * input_h
-        stride = self.__video_info.stride[1]
+        data_flat = numpy.frombuffer(data, dtype=numpy.uint8)
+
+        # Y plane
+        y_stride = meta.stride[0]
+        y_offset = meta.offset[0]
+
+        y_plane = numpy.lib.stride_tricks.as_strided(
+            data_flat[y_offset:],
+            shape=(h, w, bytes_per_pix),
+            strides=(y_stride, bytes_per_pix, 1)
+        ).copy()
+
+        planes = [y_plane]
 
         if n_planes == 2:
-            uv_plane = self.__extract_plane(
-                ctypes.addressof(data) + offset,
-                stride * input_h // 2,
-                (h // 2, w, bytes_per_pix),
-            )
+            # NV12 format: interleaved UV plane
+            uv_stride = meta.stride[1]
+            uv_offset = meta.offset[1]
+            uv_h = h // 2
+
+            uv_plane = numpy.lib.stride_tricks.as_strided(
+                data_flat[uv_offset:],
+                shape=(uv_h, w, bytes_per_pix),
+                strides=(uv_stride, bytes_per_pix, 1)
+            ).copy()
             planes.append(uv_plane)
         else:
-            shape = (h // 4, w, bytes_per_pix)
-            u_plane = self.__extract_plane(
-                ctypes.addressof(data) + offset, stride * input_h // 2, shape
-            )
+            # I420 format: separate U and V planes
+            u_stride = meta.stride[1]
+            v_stride = meta.stride[2]
+            u_offset = meta.offset[1]
+            v_offset = meta.offset[2]
 
-            offset += stride * input_h // 2
-            stride = self.__video_info.stride[2]
+            uv_h = h // 4
+            uv_w = w
 
-            v_plane = self.__extract_plane(
-                ctypes.addressof(data) + offset, stride * input_h // 2, shape
-            )
+            u_plane = numpy.lib.stride_tricks.as_strided(
+                data_flat[u_offset:],
+                shape=(uv_h, uv_w, bytes_per_pix),
+                strides=(u_stride, bytes_per_pix, 1)
+            ).copy()
+
+            v_plane = numpy.lib.stride_tricks.as_strided(
+                data_flat[v_offset:],
+                shape=(uv_h, uv_w, bytes_per_pix),
+                strides=(v_stride, bytes_per_pix, 1)
+            ).copy()
 
             planes.append(u_plane)
             planes.append(v_plane)
 
         return numpy.concatenate(planes)
-
-    @staticmethod
-    def __extract_plane(data_ptr, data_size, shape):
-        plane_raw = ctypes.cast(
-            data_ptr, ctypes.POINTER(ctypes.c_byte * data_size)
-        ).contents
-        return numpy.ndarray(shape, buffer=plane_raw, dtype=numpy.uint8)
 
     @staticmethod
     def __get_label_by_label_id(region_tensor: Gst.Structure, label_id: int) -> str:

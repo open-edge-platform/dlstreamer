@@ -1,5 +1,5 @@
 # ==============================================================================
-# Copyright (C) 2018-2025 Intel Corporation
+# Copyright (C) 2018-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
@@ -179,8 +179,8 @@ class Tensor:
         return self["type"]
 
     ## @brief Get confidence of inference result
-    #  @return confidence of inference result as a float, None if failed to get
-    def confidence(self) -> float:
+    #  @return confidence of inference result as a float or list of floats, None if failed to get
+    def confidence(self) -> float | List[float] | None:
         return self["confidence"]
 
     ## @brief Get label. This label is set for Tensor instances produced by gvaclassify element. It will raise exception

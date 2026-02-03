@@ -102,6 +102,8 @@ void RendererYUV::draw_backend(std::vector<cv::Mat> &image_planes, std::vector<r
         } else if (std::holds_alternative<render::Circle>(p)) {
             draw_circle(image_planes, std::get<render::Circle>(p));
         } else if (std::holds_alternative<render::Text>(p)) {
+            if (draw_txt_bg)
+                draw_text_bg(image_planes, std::get<render::Text>(p));
             draw_text(image_planes, std::get<render::Text>(p));
         } else if (std::holds_alternative<render::InstanceSegmantationMask>(p)) {
             draw_instance_mask(image_planes, std::get<render::InstanceSegmantationMask>(p));
@@ -168,11 +170,39 @@ void RendererI420::draw_text(std::vector<cv::Mat> &mats, render::Text text) {
     cv::Mat &u = mats[1];
     cv::Mat &v = mats[2];
 
-    cv::putText(y, text.text, text.org, text.fonttype, text.fontscale, text.color[0], text.thick);
+    // Set text color, if draw text background is enabled, set text color to white
+    cv::Scalar color =
+        draw_txt_bg ? cv::Scalar(255, 128, 128) : cv::Scalar(text.color[0], text.color[1], text.color[2]);
+
+    cv::putText(y, text.text, text.org, text.fonttype, text.fontscale, color[0], text.thick);
     cv::Point2i pos_u_v(calc_point_for_u_v_planes(text.org));
     int thick = calc_thick_for_u_v_planes(text.thick);
-    cv::putText(u, text.text, pos_u_v, text.fonttype, text.fontscale / 2.0, text.color[1], thick);
-    cv::putText(v, text.text, pos_u_v, text.fonttype, text.fontscale / 2.0, text.color[2], thick);
+    cv::putText(u, text.text, pos_u_v, text.fonttype, text.fontscale / 2.0, color[1], thick);
+    cv::putText(v, text.text, pos_u_v, text.fonttype, text.fontscale / 2.0, color[2], thick);
+}
+
+void RendererI420::draw_text_bg(std::vector<cv::Mat> &mats, render::Text text) {
+    check_planes<3>(mats);
+    cv::Mat &y = mats[0];
+    cv::Mat &u = mats[1];
+    cv::Mat &v = mats[2];
+
+    // Get text size to calculate background rectangle
+    int baseline = 0;
+    cv::Size textSize = cv::getTextSize(text.text, text.fonttype, text.fontscale, text.thick, &baseline);
+
+    // Define background rectangle on Y plane
+    cv::Point bg_tl(text.org.x, text.org.y - textSize.height);
+    cv::Point bg_br(text.org.x + textSize.width, text.org.y + baseline);
+
+    // Draw background on Y plane (use original text,rectangle color for background)
+    cv::rectangle(y, bg_tl, bg_br, text.color[0], cv::FILLED);
+
+    // Draw background on U & V planes (use original text,rectangle color for background)
+    cv::Point2i bg_tl_uv = calc_point_for_u_v_planes(bg_tl);
+    cv::Point2i bg_br_uv = calc_point_for_u_v_planes(bg_br);
+    cv::rectangle(u, bg_tl_uv, bg_br_uv, text.color[1], cv::FILLED);
+    cv::rectangle(v, bg_tl_uv, bg_br_uv, text.color[2], cv::FILLED);
 }
 
 void RendererI420::draw_line(std::vector<cv::Mat> &mats, render::Line line) {
@@ -234,10 +264,36 @@ void RendererNV12::draw_text(std::vector<cv::Mat> &mats, render::Text text) {
     cv::Mat &y = mats[0];
     cv::Mat &u_v = mats[1];
 
-    cv::putText(y, text.text, text.org, text.fonttype, text.fontscale, text.color[0], text.thick);
+    // Set text color, if draw text background is enabled, set text color to white
+    cv::Scalar color =
+        draw_txt_bg ? cv::Scalar(255, 128, 128) : cv::Scalar(text.color[0], text.color[1], text.color[2]);
+
+    cv::putText(y, text.text, text.org, text.fonttype, text.fontscale, color[0], text.thick);
     cv::Point2i pos_u_v(calc_point_for_u_v_planes(text.org));
-    cv::putText(u_v, text.text, pos_u_v, text.fonttype, text.fontscale / 2.0, {text.color[1], text.color[2]},
+    cv::putText(u_v, text.text, pos_u_v, text.fonttype, text.fontscale / 2.0, {color[1], color[2]},
                 calc_thick_for_u_v_planes(text.thick));
+}
+
+void RendererNV12::draw_text_bg(std::vector<cv::Mat> &mats, render::Text text) {
+    check_planes<2>(mats);
+    cv::Mat &y = mats[0];
+    cv::Mat &u_v = mats[1];
+
+    // Get text size to calculate background rectangle
+    int baseline = 0;
+    cv::Size textSize = cv::getTextSize(text.text, text.fonttype, text.fontscale, text.thick, &baseline);
+
+    // Define background rectangle on Y plane
+    cv::Point bg_tl(text.org.x, text.org.y - textSize.height);
+    cv::Point bg_br(text.org.x + textSize.width, text.org.y + baseline);
+
+    // Draw background on Y plane (use original text,rectangle color for background)
+    cv::rectangle(y, bg_tl, bg_br, text.color[0], cv::FILLED);
+
+    // Draw background on U_V plane (use original text,rectangle color for background)
+    cv::Point2i bg_tl_uv = calc_point_for_u_v_planes(bg_tl);
+    cv::Point2i bg_br_uv = calc_point_for_u_v_planes(bg_br);
+    cv::rectangle(u_v, bg_tl_uv, bg_br_uv, {text.color[1], text.color[2]}, cv::FILLED);
 }
 
 void RendererNV12::draw_line(std::vector<cv::Mat> &mats, render::Line line) {
@@ -326,7 +382,22 @@ void RendererBGR::draw_circle(std::vector<cv::Mat> &mats, render::Circle circle)
 }
 
 void RendererBGR::draw_text(std::vector<cv::Mat> &mats, render::Text text) {
-    cv::putText(mats[0], text.text, text.org, text.fonttype, text.fontscale, text.color, text.thick);
+    // Set text color, if draw text background is enabled, set text color to white
+    cv::Scalar color = draw_txt_bg ? cv::Scalar(255, 255, 255) : text.color;
+    cv::putText(mats[0], text.text, text.org, text.fonttype, text.fontscale, color, text.thick);
+}
+
+void RendererBGR::draw_text_bg(std::vector<cv::Mat> &mats, render::Text text) {
+    // Get text size to calculate background rectangle
+    int baseline = 0;
+    cv::Size textSize = cv::getTextSize(text.text, text.fonttype, text.fontscale, text.thick, &baseline);
+
+    // Define background rectangle
+    cv::Point bg_tl(text.org.x, text.org.y - textSize.height);
+    cv::Point bg_br(text.org.x + textSize.width, text.org.y + baseline);
+
+    // Draw background rectangle
+    cv::rectangle(mats[0], bg_tl, bg_br, text.color, cv::FILLED);
 }
 
 void RendererBGR::draw_line(std::vector<cv::Mat> &mats, render::Line line) {
