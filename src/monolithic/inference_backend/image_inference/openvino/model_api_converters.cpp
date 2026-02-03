@@ -603,8 +603,16 @@ std::map<std::string, GstStructure *> get_model_info_preproc(const std::shared_p
             std::transform(element.second.as<std::string>().begin(), element.second.as<std::string>().end(),
                            element.second.as<std::string>().begin(), ::tolower);
 
-            if (element.second.as<std::string>() == "yes" || element.second.as<std::string>() == "true")
+            GValue color_value = G_VALUE_INIT;
+            g_value_init(&color_value, G_TYPE_STRING);
+            if (element.second.as<std::string>() == "yes" || element.second.as<std::string>() == "true") {
                 g_value_set_int(&gvalue, gint(true));
+                g_value_set_string(&color_value, "RGB");
+            } else {
+                g_value_set_string(&color_value, "BGR");
+            }
+            gst_structure_set_value(s, "color_space", &color_value);
+            g_value_unset(&color_value);
 
             gst_structure_set_value(s, "reverse_input_channels", &gvalue);
             GST_INFO("[get_model_info_preproc] reverse_input_channels: %s", element.second.as<std::string>().c_str());
