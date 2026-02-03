@@ -4,50 +4,37 @@
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
 
-#include <dlstreamer/gst/metadata/g3d_lidar_meta.h>
 #include "g3dlidarparse.h"
-#include <string.h>
-#include <vector>
+#include <dlstreamer/gst/metadata/g3d_lidar_meta.h>
 #include <fstream>
-#include <unistd.h> 
+#include <gst/gstinfo.h>
 #include <iomanip>
 #include <sstream>
-#include <gst/gstinfo.h> 
+#include <string.h>
+#include <unistd.h>
+#include <vector>
 
 GST_DEBUG_CATEGORY_STATIC(gst_g3d_lidar_parse_debug);
 #define GST_CAT_DEFAULT gst_g3d_lidar_parse_debug
 
-enum {
-    PROP_0,
-    PROP_STRIDE,
-    PROP_FRAME_RATE
-};
+enum { PROP_0, PROP_STRIDE, PROP_FRAME_RATE };
 
-static GstStaticPadTemplate sink_template = GST_STATIC_PAD_TEMPLATE(
-    "sink",
-    GST_PAD_SINK,
-    GST_PAD_ALWAYS,
-    GST_STATIC_CAPS("application/octet-stream")
-);
+static GstStaticPadTemplate sink_template =
+    GST_STATIC_PAD_TEMPLATE("sink", GST_PAD_SINK, GST_PAD_ALWAYS, GST_STATIC_CAPS("application/octet-stream"));
 
-static GstStaticPadTemplate src_template = GST_STATIC_PAD_TEMPLATE(
-    "src",
-    GST_PAD_SRC,
-    GST_PAD_ALWAYS,
-    GST_STATIC_CAPS("application/x-lidar")
-);
+static GstStaticPadTemplate src_template =
+    GST_STATIC_PAD_TEMPLATE("src", GST_PAD_SRC, GST_PAD_ALWAYS, GST_STATIC_CAPS("application/x-lidar"));
 
-static void gst_g3d_lidar_parse_set_property(GObject *object, guint prop_id,
-                                         const GValue *value, GParamSpec *pspec);
-static void gst_g3d_lidar_parse_get_property(GObject *object, guint prop_id,
-                                         GValue *value, GParamSpec *pspec);
+static void gst_g3d_lidar_parse_set_property(GObject *object, guint prop_id, const GValue *value, GParamSpec *pspec);
+static void gst_g3d_lidar_parse_get_property(GObject *object, guint prop_id, GValue *value, GParamSpec *pspec);
 static void gst_g3d_lidar_parse_finalize(GObject *object);
 
 static gboolean gst_g3d_lidar_parse_start(GstBaseTransform *trans);
 static gboolean gst_g3d_lidar_parse_stop(GstBaseTransform *trans);
 static GstFlowReturn gst_g3d_lidar_parse_transform(GstBaseTransform *trans, GstBuffer *inbuf, GstBuffer *outbuf);
 static gboolean gst_g3d_lidar_parse_sink_event(GstBaseTransform *trans, GstEvent *event);
-static GstCaps *gst_g3d_lidar_parse_transform_caps(GstBaseTransform *trans, GstPadDirection direction, GstCaps *caps, GstCaps *filter);
+static GstCaps *gst_g3d_lidar_parse_transform_caps(GstBaseTransform *trans, GstPadDirection direction, GstCaps *caps,
+                                                   GstCaps *filter);
 static gboolean gst_g3d_lidar_parse_set_caps(GstBaseTransform *trans, GstCaps *incaps, GstCaps *outcaps);
 
 static void gst_g3d_lidar_parse_class_init(GstG3DLidarParseClass *klass);
@@ -59,10 +46,7 @@ GType file_type_get_type(void) {
     static GType file_type = 0;
     if (!file_type) {
         static const GEnumValue values[] = {
-            {FILE_TYPE_BIN, "BIN", "bin"},
-            {FILE_TYPE_PCD, "PCD", "pcd"},
-            {0, NULL, NULL}
-        };
+            {FILE_TYPE_BIN, "BIN", "bin"}, {FILE_TYPE_PCD, "PCD", "pcd"}, {0, NULL, NULL}};
         file_type = g_enum_register_static("FileType", values);
     }
     return file_type;
@@ -78,22 +62,21 @@ static void gst_g3d_lidar_parse_class_init(GstG3DLidarParseClass *klass) {
     gobject_class->get_property = gst_g3d_lidar_parse_get_property;
     gobject_class->finalize = gst_g3d_lidar_parse_finalize;
 
-
-    g_object_class_install_property(gobject_class, PROP_STRIDE,
+    g_object_class_install_property(
+        gobject_class, PROP_STRIDE,
         g_param_spec_int("stride", "Stride",
-                        "Specifies the interval of frames to process, controls processing granularity. 1 means every frame is processed, 2 means every second frame is processed.",
-                        1, G_MAXINT, 1,
-                        (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+                         "Specifies the interval of frames to process, controls processing granularity. 1 means every "
+                         "frame is processed, 2 means every second frame is processed.",
+                         1, G_MAXINT, 1, (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
-    g_object_class_install_property(gobject_class, PROP_FRAME_RATE,
+    g_object_class_install_property(
+        gobject_class, PROP_FRAME_RATE,
         g_param_spec_float("frame-rate", "Frame Rate",
-                          "Desired output frame rate in frames per second. A value of 0 means no frame rate control.",
-                          0.0, G_MAXFLOAT, 0.0,
-                          (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+                           "Desired output frame rate in frames per second. A value of 0 means no frame rate control.",
+                           0.0, G_MAXFLOAT, 0.0, (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
-    gst_element_class_set_static_metadata(gstelement_class,
-        "G3D Lidar Parser",
-        "Filter/Converter",
+    gst_element_class_set_static_metadata(
+        gstelement_class, "G3D Lidar Parser", "Filter/Converter",
         "Parses binary lidar data to vector float format with stride and frame rate control (g3dlidarparse)",
         "Intel Corporation");
 
@@ -130,37 +113,35 @@ static void gst_g3d_lidar_parse_finalize(GObject *object) {
     G_OBJECT_CLASS(gst_g3d_lidar_parse_parent_class)->finalize(object);
 }
 
-static void gst_g3d_lidar_parse_set_property(GObject *object, guint prop_id,
-                                         const GValue *value, GParamSpec *pspec) {
+static void gst_g3d_lidar_parse_set_property(GObject *object, guint prop_id, const GValue *value, GParamSpec *pspec) {
     GstG3DLidarParse *filter = GST_G3D_LIDAR_PARSE(object);
 
     switch (prop_id) {
-        case PROP_STRIDE:
-            filter->stride = g_value_get_int(value);
-            break;
-        case PROP_FRAME_RATE:
-            filter->frame_rate = g_value_get_float(value);
-            break;
-        default:
-            G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
-            break;
+    case PROP_STRIDE:
+        filter->stride = g_value_get_int(value);
+        break;
+    case PROP_FRAME_RATE:
+        filter->frame_rate = g_value_get_float(value);
+        break;
+    default:
+        G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+        break;
     }
 }
 
-static void gst_g3d_lidar_parse_get_property(GObject *object, guint prop_id,
-                                         GValue *value, GParamSpec *pspec) {
+static void gst_g3d_lidar_parse_get_property(GObject *object, guint prop_id, GValue *value, GParamSpec *pspec) {
     GstG3DLidarParse *filter = GST_G3D_LIDAR_PARSE(object);
 
     switch (prop_id) {
-        case PROP_STRIDE:
-            g_value_set_int(value, filter->stride);
-            break;
-        case PROP_FRAME_RATE:  
-            g_value_set_float(value, filter->frame_rate);
-            break;
-        default:
-            G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
-            break;
+    case PROP_STRIDE:
+        g_value_set_int(value, filter->stride);
+        break;
+    case PROP_FRAME_RATE:
+        g_value_set_float(value, filter->frame_rate);
+        break;
+    default:
+        G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+        break;
     }
 }
 
@@ -201,7 +182,7 @@ static gboolean gst_g3d_lidar_parse_start(GstBaseTransform *trans) {
     GST_INFO_OBJECT(filter, "Inherited location from upstream: %s", upstream_location);
 
     if (g_file_test(upstream_location, G_FILE_TEST_IS_REGULAR)) {
-        filter->is_single_file = TRUE; 
+        filter->is_single_file = TRUE;
         GST_INFO_OBJECT(filter, "Location is a single file. is_single_file set to TRUE.");
     }
 
@@ -237,38 +218,37 @@ static gboolean gst_g3d_lidar_parse_stop(GstBaseTransform *trans) {
     return TRUE;
 }
 
-
 static gboolean gst_g3d_lidar_parse_sink_event(GstBaseTransform *trans, GstEvent *event) {
     GstG3DLidarParse *filter = GST_G3D_LIDAR_PARSE(trans);
-    
+
     switch (GST_EVENT_TYPE(event)) {
-        case GST_EVENT_STREAM_START: {
-            const gchar *stream_id = NULL;
-            gst_event_parse_stream_start(event, &stream_id);
+    case GST_EVENT_STREAM_START: {
+        const gchar *stream_id = NULL;
+        gst_event_parse_stream_start(event, &stream_id);
 
-            guint parsed_group_id = 0;
-            if (gst_event_parse_group_id(event, &parsed_group_id)) {
-                filter->stream_id = parsed_group_id;
-            }
-
-            GST_INFO_OBJECT(filter, "Received STREAM_START stream_id=%s parsed_group_id=%u stored_stream_id=%u",
-                            stream_id ? stream_id : "<null>", parsed_group_id, filter->stream_id);
-            break;
+        guint parsed_group_id = 0;
+        if (gst_event_parse_group_id(event, &parsed_group_id)) {
+            filter->stream_id = parsed_group_id;
         }
-        case GST_EVENT_EOS:
-            GST_INFO_OBJECT(filter, "Received EOS event, resetting counters and stopping processing");
-            filter->current_index = 0;
-            break;
-        case GST_EVENT_SEGMENT:
-        case GST_EVENT_FLUSH_START:
-        case GST_EVENT_FLUSH_STOP:
-            filter->current_index = 0;
-            GST_INFO_OBJECT(filter, "Reset counters for event: %s", GST_EVENT_TYPE_NAME(event));
-            break;
-        default:
-            break;
+
+        GST_INFO_OBJECT(filter, "Received STREAM_START stream_id=%s parsed_group_id=%u stored_stream_id=%u",
+                        stream_id ? stream_id : "<null>", parsed_group_id, filter->stream_id);
+        break;
     }
-    
+    case GST_EVENT_EOS:
+        GST_INFO_OBJECT(filter, "Received EOS event, resetting counters and stopping processing");
+        filter->current_index = 0;
+        break;
+    case GST_EVENT_SEGMENT:
+    case GST_EVENT_FLUSH_START:
+    case GST_EVENT_FLUSH_STOP:
+        filter->current_index = 0;
+        GST_INFO_OBJECT(filter, "Reset counters for event: %s", GST_EVENT_TYPE_NAME(event));
+        break;
+    default:
+        break;
+    }
+
     return GST_BASE_TRANSFORM_CLASS(gst_g3d_lidar_parse_parent_class)->sink_event(trans, event);
 }
 
@@ -278,8 +258,8 @@ static GstFlowReturn gst_g3d_lidar_parse_transform(GstBaseTransform *trans, GstB
 
     // Stride control
     if (filter->current_index % filter->stride != 0) {
-        GST_DEBUG_OBJECT(filter, "Skipping file #%lu (stride=%d, remainder=%lu)", 
-                        filter->current_index, filter->stride, filter->current_index % filter->stride);
+        GST_DEBUG_OBJECT(filter, "Skipping file #%lu (stride=%d, remainder=%lu)", filter->current_index, filter->stride,
+                         filter->current_index % filter->stride);
         filter->current_index++;
         g_mutex_unlock(&filter->mutex);
         return GST_BASE_TRANSFORM_FLOW_DROPPED;
@@ -321,7 +301,7 @@ static GstFlowReturn gst_g3d_lidar_parse_transform(GstBaseTransform *trans, GstB
     const size_t frame_id = filter->current_index;
     GST_INFO_OBJECT(filter, "Processing file #%lu (stride=%d)", filter->current_index, filter->stride);
     filter->current_index++;
-    
+
     GstMapInfo in_map;
     size_t num_floats = 0;
     size_t point_count = 0;
@@ -336,8 +316,8 @@ static GstFlowReturn gst_g3d_lidar_parse_transform(GstBaseTransform *trans, GstB
         }
 
         if (in_map.size % sizeof(float) != 0) {
-            GST_ERROR_OBJECT(filter, "Buffer size (%lu) is not a multiple of float size (%lu)",
-                             in_map.size, sizeof(float));
+            GST_ERROR_OBJECT(filter, "Buffer size (%lu) is not a multiple of float size (%lu)", in_map.size,
+                             sizeof(float));
             gst_buffer_unmap(inbuf, &in_map);
             g_mutex_unlock(&filter->mutex);
             return GST_FLOW_ERROR;
@@ -367,7 +347,8 @@ static GstFlowReturn gst_g3d_lidar_parse_transform(GstBaseTransform *trans, GstB
             std::istringstream iss(std::string(reinterpret_cast<const char *>(in_map.data), in_map.size));
             std::string line;
             while (std::getline(iss, line)) {
-                if (line.empty() || line[0] == '#') continue;
+                if (line.empty() || line[0] == '#')
+                    continue;
                 float x, y, z, i;
                 if (std::istringstream(line) >> x >> y >> z >> i) {
                     float_data.insert(float_data.end(), {x, y, z, i});
@@ -415,21 +396,25 @@ static GstFlowReturn gst_g3d_lidar_parse_transform(GstBaseTransform *trans, GstB
         g_mutex_unlock(&filter->mutex);
         return GST_FLOW_ERROR;
     }*/
-    
+
     GstClockTime exit_lidarparse_timestamp = GST_CLOCK_TIME_NONE;
     if (GstClock *clock = gst_element_get_clock(GST_ELEMENT(filter))) {
         exit_lidarparse_timestamp = gst_clock_get_time(clock);
-        GST_DEBUG_OBJECT(filter, "exit_ts from element clock: %" GST_TIME_FORMAT, GST_TIME_ARGS(exit_lidarparse_timestamp));
+        GST_DEBUG_OBJECT(filter, "exit_ts from element clock: %" GST_TIME_FORMAT,
+                         GST_TIME_ARGS(exit_lidarparse_timestamp));
         gst_object_unref(clock);
     } else {
         exit_lidarparse_timestamp = gst_util_get_timestamp();
-        GST_DEBUG_OBJECT(filter, "exit_ts from gst_util_get_timestamp: %" GST_TIME_FORMAT, GST_TIME_ARGS(exit_lidarparse_timestamp));
+        GST_DEBUG_OBJECT(filter, "exit_ts from gst_util_get_timestamp: %" GST_TIME_FORMAT,
+                         GST_TIME_ARGS(exit_lidarparse_timestamp));
     }
 
     GST_DEBUG_OBJECT(filter, "Add meta frame_id=%zu stream_id=%u exit_ts=%" GST_TIME_FORMAT " n_points=%zu stride=%d",
-                     frame_id, filter->stream_id, GST_TIME_ARGS(exit_lidarparse_timestamp), point_count, filter->stride);
+                     frame_id, filter->stream_id, GST_TIME_ARGS(exit_lidarparse_timestamp), point_count,
+                     filter->stride);
 
-    LidarMeta *lidar_meta = add_lidar_meta(outbuf, point_count, float_data, frame_id, exit_lidarparse_timestamp, filter->stream_id);
+    LidarMeta *lidar_meta =
+        add_lidar_meta(outbuf, point_count, float_data, frame_id, exit_lidarparse_timestamp, filter->stream_id);
     if (!lidar_meta) {
         GST_ERROR_OBJECT(filter, "Failed to add lidar meta to buffer");
         g_mutex_unlock(&filter->mutex);
@@ -443,10 +428,8 @@ static GstFlowReturn gst_g3d_lidar_parse_transform(GstBaseTransform *trans, GstB
         const gsize preview_len = std::min<gsize>(count, 5);
 
         std::ostringstream oss;
-        oss << "lidar_point_count=" << lidar_meta->lidar_point_count
-            << " frame_id=" << lidar_meta->frame_id
-            << " stream_id=" << lidar_meta->stream_id
-            << " exit_ts=" << lidar_meta->exit_lidarparse_timestamp << "ns"
+        oss << "lidar_point_count=" << lidar_meta->lidar_point_count << " frame_id=" << lidar_meta->frame_id
+            << " stream_id=" << lidar_meta->stream_id << " exit_ts=" << lidar_meta->exit_lidarparse_timestamp << "ns"
             << " preview(" << preview_len << "/" << count << "):";
 
         for (gsize i = 0; i < preview_len; ++i) {
@@ -465,7 +448,8 @@ static GstFlowReturn gst_g3d_lidar_parse_transform(GstBaseTransform *trans, GstB
     return GST_FLOW_OK;
 }
 
-static GstCaps *gst_g3d_lidar_parse_transform_caps(GstBaseTransform *trans, GstPadDirection direction, GstCaps *caps, GstCaps *filter) {
+static GstCaps *gst_g3d_lidar_parse_transform_caps(GstBaseTransform *trans, GstPadDirection direction, GstCaps *caps,
+                                                   GstCaps *filter) {
     (void)trans;
     (void)caps;
     GstCaps *result = nullptr;

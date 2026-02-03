@@ -12,27 +12,27 @@
 #include "gstradarprocess.h"
 
 #if defined(HAVE_G3DLIDARPARSE)
-#include "g3dlidarparse.h"
 #include "g3d_lidar_meta.h"
+#include "g3dlidarparse.h"
 #endif
 
 extern "C" {
 
 static gboolean plugin_init(GstPlugin *plugin) {
-	// Register element
-	if (!gst_element_register(plugin, "g3dradarprocess", GST_RANK_NONE, GST_TYPE_RADAR_PROCESS))
+    // Register element
+    if (!gst_element_register(plugin, "g3dradarprocess", GST_RANK_NONE, GST_TYPE_RADAR_PROCESS))
         return FALSE;
 #if defined(HAVE_G3DLIDARPARSE)
-	if (!gst_element_register(plugin, "g3dlidarparse", GST_RANK_NONE, GST_TYPE_G3D_LIDAR_PARSE))
-		return FALSE;
+    if (!gst_element_register(plugin, "g3dlidarparse", GST_RANK_NONE, GST_TYPE_G3D_LIDAR_PARSE))
+        return FALSE;
 #endif
 
-	// Register metadata
-	gst_radar_process_meta_get_info();
+    // Register metadata
+    gst_radar_process_meta_get_info();
     gst_radar_process_meta_api_get_type();
 #if defined(HAVE_G3DLIDARPARSE)
-	lidar_meta_get_info();
-	lidar_meta_api_get_type();
+    lidar_meta_get_info();
+    lidar_meta_api_get_type();
 #endif
 
     return TRUE;
