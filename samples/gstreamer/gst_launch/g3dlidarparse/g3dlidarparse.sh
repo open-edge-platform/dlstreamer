@@ -15,8 +15,20 @@ if [ -z "$GST_DEBUG" ]; then
   export GST_DEBUG=g3dlidarparse:5
 fi
 
-PIPELINE="gst-launch-1.0 multifilesrc location=\"${LOCATION}\" start-index=${START_INDEX} caps=application/octet-stream ! \
-  g3dlidarparse stride=${STRIDE} frame-rate=${FRAME_RATE} ! fakesink"
+cmd=(
+  gst-launch-1.0
+  multifilesrc
+  "location=${LOCATION}"
+  "start-index=${START_INDEX}"
+  "caps=application/octet-stream"
+  "!"
+  g3dlidarparse
+  "stride=${STRIDE}"
+  "frame-rate=${FRAME_RATE}"
+  "!"
+  fakesink
+)
 
-echo "${PIPELINE}"
-${PIPELINE}
+printf '%q ' "${cmd[@]}"
+printf '\n'
+"${cmd[@]}"
