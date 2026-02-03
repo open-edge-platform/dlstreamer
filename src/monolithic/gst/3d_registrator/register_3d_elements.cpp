@@ -18,10 +18,15 @@ extern "C" {
 
 
 static gboolean plugin_init(GstPlugin *plugin) {
+	if (!gst_element_register(plugin, "g3dradarprocess", GST_RANK_NONE, GST_TYPE_RADAR_PROCESS))
+        return FALSE;
 #if defined(HAVE_G3DLIDARPARSE)
 	if (!gst_element_register(plugin, "g3dlidarparse", GST_RANK_NONE, GST_TYPE_G3D_LIDAR_PARSE))
 		return FALSE;
-
+#endif
+	gst_radar_process_meta_get_info();
+    gst_radar_process_meta_api_get_type();
+#if defined(HAVE_G3DLIDARPARSE)
 	lidar_meta_get_info();
 	lidar_meta_api_get_type();
 #endif
@@ -34,4 +39,3 @@ GST_PLUGIN_DEFINE(GST_VERSION_MAJOR, GST_VERSION_MINOR, 3delements, "DL Streamer
 
 
 } // extern "C"
-

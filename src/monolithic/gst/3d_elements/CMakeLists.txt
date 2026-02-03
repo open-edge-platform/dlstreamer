@@ -7,3 +7,4 @@
 if(NOT WIN32)
 	add_subdirectory(g3dlidarparse)
 endif()
+add_subdirectory(g3dradarprocess)

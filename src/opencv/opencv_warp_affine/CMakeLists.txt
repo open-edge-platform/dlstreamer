@@ -1,5 +1,5 @@
 # ==============================================================================
-# Copyright (C) 2022-2025 Intel Corporation
+# Copyright (C) 2022-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
@@ -8,7 +8,6 @@ set(TARGET_NAME opencv_warp_affine)
 
 find_package(OpenCV REQUIRED)
 find_package(OpenCL REQUIRED)
-pkg_search_module(VA va libva REQUIRED)
 
 add_library(${TARGET_NAME} STATIC opencv_warp_affine.cpp)
 set_compile_flags(${TARGET_NAME})
@@ -19,7 +18,6 @@ PUBLIC
 PRIVATE
         ${OpenCL_INCLUDE_DIRS}
         ${OpenCV_INCLUDE_DIRS}
-        ${VA_INCLUDE_DIRS}
 )
 
 target_link_libraries(${TARGET_NAME}

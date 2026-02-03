@@ -7,7 +7,7 @@ metadata that passes through the element will not be cached or
 published. It will simply pass through to the next element in the
 pipeline.
 
-```sh
+```bash
 Pad Templates:
   SRC template: 'src'
     Availability: Always
@@ -77,7 +77,7 @@ conform to the following JSON schema. Values specified in the
 configuration file override values assigned to the individual properties
 listed above.
 
-``` json
+```json
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "MQTT Configuration",
