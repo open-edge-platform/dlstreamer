@@ -28,7 +28,7 @@ runs:
   steps:
     - name: Install pylint
       run: |
-        if [ -d "$HOME/.virtualenvs" ]; then
+        if [ -d "$HOME/.virtualenvs/dlstreamer" ]; then
           $HOME/.virtualenvs/dlstreamer/bin/pip install pylint
           source $HOME/.virtualenvs/dlstreamer/bin/activate
         else
