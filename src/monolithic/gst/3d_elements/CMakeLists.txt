@@ -4,7 +4,8 @@
 # SPDX-License-Identifier: MIT
 # ==============================================================================
 
+add_subdirectory(g3dradarprocess)
+
 if(NOT WIN32)
 	add_subdirectory(g3dlidarparse)
 endif()
-add_subdirectory(g3dradarprocess)
