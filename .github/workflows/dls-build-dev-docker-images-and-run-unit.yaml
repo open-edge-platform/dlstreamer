@@ -158,13 +158,26 @@ jobs:
             echo "| Current Docker ${{ matrix.ubuntu_version }}-deb | **${IMAGE_SIZE_MB} MB** |"
             echo "| Expected Docker ${{ matrix.ubuntu_version }}-deb | **${EXPECTED_SIZE_MB} MB** |"
           } >> "$GITHUB_STEP_SUMMARY"
-      - name: Add test summary to job summary
-        if: always ()
+      - name: Check and display unit test results
+        if: always()
         env:
           RESULTS_DIR: test-results
         run: |
+          RESULTS_FILE="$PWD/${RESULTS_DIR}/unit_test_summary.txt"
+
+          # Add results to summary
           echo "## Test Summary for Unit Tests on TGL" >> $GITHUB_STEP_SUMMARY
-          cat $PWD/${RESULTS_DIR}/unit_test_summary.txt >> $GITHUB_STEP_SUMMARY
+          cat "$RESULTS_FILE" >> $GITHUB_STEP_SUMMARY
+
+          # Check for failures and fail if any
+          CTEST_FAILED=$(grep "CTest:" "$RESULTS_FILE" | grep -o "Failed: [0-9]*" | awk '{print $2}')
+          PYTEST_FAILED=$(grep "Pytest:" "$RESULTS_FILE" | grep -o "Failed: [0-9]*" | awk '{print $2}')
+
+          TOTAL_FAILED=$((CTEST_FAILED + PYTEST_FAILED))
+          if [ "$TOTAL_FAILED" -gt 0 ]; then
+            echo "::error::$TOTAL_FAILED test(s) failed (CTest: $CTEST_FAILED, Pytest: $PYTEST_FAILED)"
+            exit 1
+          fi
       - name: Upload test results
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 #4.6.2
         if: always ()

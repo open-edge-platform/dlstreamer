@@ -123,6 +123,14 @@ def init():
                             "There is no sharp Apache v2 copyright header",
                             lambda x: not x)
 
+    rem_copyright_mit = (r'''@?REM ==============================================================================\s*\r?''' +
+                        r'''@?REM Copyright \(C\) (.*) Intel Corporation\s*\r?''' +
+                        r'''@?REM\s*\r?''' +
+                        r'''@?REM SPDX-License-Identifier: MIT\s*\r?''' +
+                        r'''@?REM ==============================================================================\s*\r?''',
+                    "There is no REM MIT copyright header",
+                    lambda x: not x)
+
     using_in_header = (
         "using namespace [^;]*;",
         "There is using in header",
@@ -132,6 +140,9 @@ def init():
         ".*\r$",
         "There is windows line endings in header",
         lambda x: x)
+
+    def rem_copyright_exist(content):
+        return check_any_copyright_header([rem_copyright_mit], content)
 
     def c_copyright_exist(content):
         return check_any_copyright_header([c_copyright_mit, c_copyright_apache], content)
@@ -144,6 +155,7 @@ def init():
     
     year_check_in_c_copyright = check_copyright_year([c_copyright_mit, c_copyright_apache])
     year_check_in_sharp_copyright = check_copyright_year([sharp_copyright_mit, sharp_copyright_apache])
+    year_check_in_rem_copyright = check_copyright_year([rem_copyright_mit])
 
     # Checkers configuration
     # (Rule name, File name pattern,  whole file checkers,     line-by-line checkers)
@@ -155,6 +167,7 @@ def init():
         ("CMakeLists check", "*CMakeLists.txt", [sharp_copyright_exist, year_check_in_sharp_copyright], []),
         ("Python files check", "*.py", [sharp_copyright_exist, year_check_in_sharp_copyright], []),
         ("Shell files check", "*.sh", [sharp_copyright_exist, year_check_in_sharp_copyright], []),
+        ("Batch files check", "*.bat", [rem_copyright_exist, year_check_in_rem_copyright], []),
     ]
     return file_types_descs
 

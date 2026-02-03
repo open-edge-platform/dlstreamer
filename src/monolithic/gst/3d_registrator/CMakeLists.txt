@@ -25,6 +25,7 @@ target_link_libraries(${TARGET_NAME}
 PRIVATE
     ${GSTREAMER_LIBRARIES}
     dlstreamer_gst_meta
+    g3dradarprocess
 )
 
 if(NOT WIN32 AND TARGET g3dlidarparse)

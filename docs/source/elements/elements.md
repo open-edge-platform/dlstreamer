@@ -24,12 +24,20 @@ gst-inspect-1.0 utility.
 
 
 
+## 3D plugins
+
+| Element        | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+|----------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| [g3dradarprocess](./g3dradarprocess.md) | Processes millimeter-wave (mmWave) radar signal data. Performs data reordering, pre-processing, DC (Direct Current) removal, and interfaces with the radar library to generate point clouds, clusters, and tracking data. Attaches custom metadata containing detected reflection points, clustered objects, and tracked targets to each buffer.<br>Example:<br> gst-launch-1.0 multifilesrc location=radar/%06d.bin ! application/octet-stream ! g3dradarprocess radar-config=config.json frame-rate=10 ! fakesink<br> |
+
+
 ## Auxiliary plugins
 
 | Element          | Description                                                                                                                                                                                                                                                                                                                                                                   |
 |------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | [gvaattachroi](./gvaattachroi.md)     | Adds user-defined regions of interest to perform inference on (instead of full frame). Example: monitoring road traffic in a city camera feed; splitting large image into smaller pieces, and running inference on each piece (healthcare cell analytics).<br>Example:<br> gst-launch-1.0 … ! decodebin3 ! gvaattachroi roi=xtl,ytl,xbr,ybr gvadetect inference-region=1 ! … OUT<br> |
 | [gvafpscounter](./gvafpscounter.md)    | Measures frames per second across multiple video streams in a single GStreamer process.<br>Example:<br> gst-launch-1.0 … ! decodebin3 ! gvadetect … ! gvafpscounter ! … OUT<br> |
+| [gvafpsthrottle](./gvafpsthrottle.md)   | Throttles the framerate of video streams by enforcing a maximum frames-per-second (FPS) rate. Useful for rate limiting in pipelines or for testing at specific processing framerates.<br>Example:<br> gst-launch-1.0 … ! decodebin3 ! gvafpsthrottle target-fps=10 ! … OUT<br> |
 | [gvametaaggregate](./gvametaaggregate.md) | Aggregates inference results from multiple pipeline branches.<br>Example:<br> gst-launch-1.0 … ! decodebin3 ! tee name=t t. ! queue ! gvametaaggregate name=a ! gvaclassify … ! gvaclassify … ! gvametaconvert … ! gvametapublish … ! fakesink t. ! queue ! gvadetect … ! a.<br>                                                                                               |
 | [gvametaconvert](./gvametaconvert.md)   | Converts the metadata structure to JSON or raw text formats. Can write output to a file.|
 | [gvametapublish](./gvametapublish.md)   | Publishes the JSON metadata to MQTT or Kafka message brokers or files.<br>Example:<br> gst-launch-1.0 … ! decodebin3 ! gvadetect model=$mDetect device=GPU … ! gvametaconvert format=json … ! gvametapublish … ! … OUT<br> |
@@ -54,6 +62,7 @@ g3dradarprocess
 g3dlidarparse
 gvaattachroi
 gvafpscounter
+gvafpsthrottle
 gvametaaggregate
 gvametaconvert
 gvametapublish

@@ -1,6 +1,6 @@
 #!/bin/bash
 # ==============================================================================
-# Copyright (C) 2021-2025 Intel Corporation
+# Copyright (C) 2021-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
@@ -113,7 +113,7 @@ fi
 DECODE_ELEMENT="! decodebin3 !"
 
 if [[ "$PPBKEND" == "" ]]; then
-  PREPROC_BACKEND="ie"
+  PREPROC_BACKEND="opencv"
   if [[ "$DEVICE" == "GPU" ]]; then
     PREPROC_BACKEND="va-surface-sharing"
   fi
