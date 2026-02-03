@@ -12,6 +12,7 @@
 GType lidar_meta_api_get_type(void) {
     static GType type = 0;
     static const gchar *tags[] = { "lidar", NULL };
+
     if (g_once_init_enter(&type)) {
         GType _type = gst_meta_api_type_register("LidarMetaAPI", tags);
         g_once_init_leave(&type, _type);
@@ -40,13 +41,8 @@ static void lidar_meta_free(GstMeta *meta, GstBuffer *buffer) {
 const GstMetaInfo *lidar_meta_get_info(void) {
     static const GstMetaInfo *meta_info = NULL;
 
-    const GstMetaInfo *existing_info = gst_meta_get_info("LidarMeta");
-    if (existing_info) {
-        return existing_info;
-    }
-
     if (g_once_init_enter(&meta_info)) {
-         const GstMetaInfo *mi = gst_meta_register(
+        const GstMetaInfo *mi = gst_meta_register(
             LIDAR_META_API_TYPE,
             "LidarMeta",
             sizeof(LidarMeta),
