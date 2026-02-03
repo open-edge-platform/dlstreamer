@@ -136,35 +136,6 @@ jobs:
           Write-Host "Detected Python Path: $actualPath"
           echo "PYTHON_EXE_PATH=$actualPath" >> $env:GITHUB_ENV
 
-      - name: Verify resource directories (Models and Videos)
-        shell: powershell
-        run: |
-          $Resources = @(
-              @{ Name = "Models"; Path = "${{ env.MODELS_PATH }}" },
-              @{ Name = "Video Inputs"; Path = "${{ env.VIDEO_INPUTS_PATH }}" }
-          )
-          $errorCount = 0
-          foreach ($res in $Resources) {
-              Write-Host "Checking $($res.Name) directory: $($res.Path)..."
-
-              if (-not (Test-Path $res.Path)) {
-                  Write-Host "::error:: $($res.Name) directory NOT found at $($res.Path)"
-                  $errorCount++
-                  continue
-              }
-              $hasFiles = Get-ChildItem -Path $res.Path -Recurse -File -ErrorAction SilentlyContinue | Select-Object -First 1
-              if (-not $hasFiles) {
-                  Write-Host "::error:: $($res.Name) directory is EMPTY at $($res.Path)"
-                  $errorCount++
-              } else {
-                  Write-Host "[OK] $($res.Name) directory is valid and has files."
-              }
-          }
-          if ($errorCount -gt 0) {
-              Write-Error "Resource validation failed. $errorCount directories are missing or empty."
-              exit 1
-          }
-
       - name: Check out DLStreamer Windows dependencies
         shell: powershell
         run: |
@@ -317,6 +288,35 @@ jobs:
 
           if (-not (Test-Path $internalResults)) {
               New-Item -ItemType Directory -Path $internalResults -Force | Out-Null
+          }
+
+      - name: Verify resource directories (Models and Videos)
+        shell: powershell
+        run: |
+          $Resources = @(
+              @{ Name = "Models"; Path = "${{ env.MODELS_PATH }}" },
+              @{ Name = "Video Inputs"; Path = "${{ env.VIDEO_INPUTS_PATH }}" }
+          )
+          $errorCount = 0
+          foreach ($res in $Resources) {
+              Write-Host "Checking $($res.Name) directory: $($res.Path)..."
+
+              if (-not (Test-Path $res.Path)) {
+                  Write-Host "::error:: $($res.Name) directory NOT found at $($res.Path)"
+                  $errorCount++
+                  continue
+              }
+              $hasFiles = Get-ChildItem -Path $res.Path -Recurse -File -ErrorAction SilentlyContinue | Select-Object -First 1
+              if (-not $hasFiles) {
+                  Write-Host "::error:: $($res.Name) directory is EMPTY at $($res.Path)"
+                  $errorCount++
+              } else {
+                  Write-Host "[OK] $($res.Name) directory is valid and has files."
+              }
+          }
+          if ($errorCount -gt 0) {
+              Write-Error "Resource validation failed. $errorCount directories are missing or empty."
+              exit 1
           }
 
       - name: Run functional tests with powershell
