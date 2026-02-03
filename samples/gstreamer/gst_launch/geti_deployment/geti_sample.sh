@@ -1,6 +1,6 @@
 #!/bin/bash
 # ==============================================================================
-# Copyright (C) 2021-2025 Intel Corporation
+# Copyright (C) 2021-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
@@ -24,7 +24,7 @@ if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
   echo "  MODEL_TYPE       - Model type (default: detection). Supported: rotated-detection, instance-segmentation, detection, geti-detection, classification, geti-classification-single, geti-classification-multi, geti-obb, geti-segmentation, anomaly-detection"
   echo "  MODEL_PATH       - Path to the model XML file relative to MODELS_PATH (default: /home/path/to/your/model.xml)"
   echo "  DEVICE           - Device (default: CPU). Supported: CPU, GPU, NPU"
-  echo "  PREPROC_BACKEND  - Preprocessing backend (default: ie for CPU, va-surface-sharing for GPU, va for NPU). Supported: ie, opencv, va, va-surface-sharing"
+  echo "  PREPROC_BACKEND  - Preprocessing backend (default: opencv for CPU, va-surface-sharing for GPU, va for NPU). Supported: ie, opencv, va, va-surface-sharing"
   echo "  INPUT            - Input source (default: Pexels video URL)"
   echo "  OUTPUT           - Output type (default: file). Supported: file, display, fps, json, display-and-json"
   echo ""
@@ -38,7 +38,7 @@ MODEL_PATH=${2:-/home/path/to/your/model.xml}
 # Supported values: CPU, GPU, NPU
 DEVICE=${3:-CPU}
 # PREPROC_BACKEND can be ie/opencv for CPU or va/va-surface-sharing GPU or va for NPU.
-PREPROC_BACKEND=${4:-"ie"}
+PREPROC_BACKEND=${4:-"opencv"}
 # INPUT can be a file path, a URL, or a video device (e.g., /dev/video0)
 INPUT=${5:-https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4}
 # OUTPUT can be file, display, fps, json, display-and-json
@@ -85,7 +85,7 @@ fi
 
 # Validate and set PREPROC_BACKEND based on DEVICE
 if [[ "$PREPROC_BACKEND" == "" ]]; then
-  PREPROC_BACKEND="ie" # Default value for CPU
+  PREPROC_BACKEND="opencv" # Default value for CPU
   if [[ "$DEVICE" == "GPU" ]]; then
     PREPROC_BACKEND="va-surface-sharing" # Default value for GPU
   fi

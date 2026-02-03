@@ -10,7 +10,8 @@ Samples separated into several categories
     * [Vehicle and Pedestrian Tracking Sample](./gst_launch/vehicle_pedestrian_tracking/README.md) - demonstrates object tracking via [gvatrack](../../../dl-streamer/docs/source/elements/gvatrack.md) element
     * [Human Pose Estimation Sample](./gst_launch/human_pose_estimation/README.md) - demonstrates human pose estimation with full-frame inference via [gvaclassify](../../../dl-streamer/docs/source/elements/gvaclassify.md) element
     * [Metadata Publishing Sample](./gst_launch/metapublish/README.md) - demonstrates how [gvametaconvert](../../../dl-streamer/docs/source/elements/gvametaconvert.md) and [gvametapublish](../../../dl-streamer/docs/source/elements/gvametapublish.md) elements are used for converting metadata with inference results into JSON format and publishing to file or Kafka/MQTT message bus
-    * [gvapython Sample](./gst_launch/gvapython/face_detection_and_classification/README.md) - demonstrates pipeline customization with [gvapython](../../../dl-streamer/docs/source/elements/gvapython.md) element and application provided Python script for inference post-processing
+    * [gvapython face_detection_and_classification Sample](./gst_launch/gvapython/face_detection_and_classification/README.md) - demonstrates pipeline customization with [gvapython](../../../dl-streamer/docs/source/elements/gvapython.md) element and application provided Python script for inference post-processing
+    * [gvapython save frames with ROI Sample](./gst_launch/gvapython/save_frames_with_ROI_only/README.md) - demonstrates [gvapython](../../../dl-streamer/docs/source/elements/gvapython.md) element for saving video frames with detected objects to disk
     * [Action Recognition Sample](./gst_launch/action_recognition/README.md) - demonstrates action recognition via video_inference bin element
     * [Instance Segmentation Sample](./gst_launch/instance_segmentation/README.md) - demonstrates Instance Segmentation via object_detect and object_classify bin elements
     * [Detection with Yolo](./gst_launch/detection_with_yolo/README.md) - demonstrates how to use publicly available Yolo models for object detection and classification
@@ -21,6 +22,7 @@ Samples separated into several categories
     * [LVM embeddings](./gst_launch/lvm/README.md) - demonstrates generation of image embeddings using the Large Vision CLIP model
     * [License Plate Recognition Sample](./gst_launch/license_plate_recognition/README.md) - demonstrates the use of the Yolo detector together with the optical character recognition model
     * [Vision Language Model Sample](./gst_launch/gvagenai/README.md) - demonstrates how to use the `gvagenai` element with MiniCPM-V for video summerization
+    * [Radar Signal Process Sample](./gst_launch/g3dradarprocess/README.md) - demonstrates how to use the `g3dradarprocess` element for millimeter-wave radar signal processing with point cloud detection, clustering, and tracking
     * [Custom Post-Processing Library Sample - Detection](./gst_launch/custom_postproc/detect/README.md) - demonstrates how to create custom post-processing library for YOLOv11 tensor outputs conversion to detection metadata using GStreamer Analytics framework
     * [Custom Post-Processing Library Sample - Classification](./gst_launch/custom_postproc/classify/README.md) - demonstrates how to create custom post-processing library for emotion classification model outputs conversion to classification metadata using GStreamer Analytics framework
 2. C++ samples
