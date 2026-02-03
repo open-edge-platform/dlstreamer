@@ -27,6 +27,7 @@ class FpsCounterPipelineRunner(TestGenericPipelineRunner):
         self.fps_values = []
         self.fps_counter_element = None
         self.timeout_id = None
+        self._state = None
 
     def set_pipeline(self, pipeline):
         """Override to get reference to gvafpscounter element"""
