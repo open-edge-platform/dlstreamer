@@ -27,7 +27,7 @@ wsl --update
 in case you have installed it before.
 
 Visit
-[install-ubuntu-wsl2](https://documentation.ubuntu.com/wsl/en/latest/howto/install-ubuntu-wsl2)
+[install-ubuntu-wsl2](https://documentation.ubuntu.com/wsl/latest/howto/install-ubuntu-wsl2/)
 in case of any Ubuntu-WSL2 installation issues.
 
 ### Step 3: Install Ubuntu 24.04 LTS
