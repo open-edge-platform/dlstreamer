@@ -98,6 +98,26 @@ SUPPORTED_MODELS=(
   "yolo11m-pose"
   "yolo11l-pose"
   "yolo11x-pose"
+  "yolo26n"
+  "yolo26s"
+  "yolo26m"
+  "yolo26l"
+  "yolo26x"
+  "yolo26n-obb"
+  "yolo26s-obb"
+  "yolo26m-obb"
+  "yolo26l-obb"
+  "yolo26x-obb"
+  "yolo26n-seg"
+  "yolo26s-seg"
+  "yolo26m-seg"
+  "yolo26l-seg"
+  "yolo26x-seg"
+  "yolo26n-pose"
+  "yolo26s-pose"
+  "yolo26m-pose"
+  "yolo26l-pose"
+  "yolo26x-pose"
   "centerface"
   "hsemotion"
   "deeplabv3"
@@ -105,14 +125,17 @@ SUPPORTED_MODELS=(
   "clip-vit-base-patch16"
   "clip-vit-base-patch32"
   "ch_PP-OCRv4_rec_infer" # PaddlePaddle OCRv4 multilingual model
+  "pallet_defect_detection" # Custom model for pallet defect detection
+  "colorcls2" # Color classification model
   "mars-small128" # DeepSORT person re-identification model (uses convert_mars_deepsort.py)
 )
 
 # Corresponds to files in 'datasets' directory
 declare -A SUPPORTED_QUANTIZATION_DATASETS
 SUPPORTED_QUANTIZATION_DATASETS=(
-  ["coco"]="https://raw.githubusercontent.com/ultralytics/ultralytics/v8.1.0/ultralytics/cfg/datasets/coco.yaml"
-  ["coco128"]="https://raw.githubusercontent.com/ultralytics/ultralytics/v8.1.0/ultralytics/cfg/datasets/coco128.yaml"
+  ["coco"]="https://raw.githubusercontent.com/ultralytics/ultralytics/v8.4.0/ultralytics/cfg/datasets/coco.yaml"
+  ["coco128"]="https://raw.githubusercontent.com/ultralytics/ultralytics/v8.4.0/ultralytics/cfg/datasets/coco128.yaml"
+  ["coco8"]="https://raw.githubusercontent.com/ultralytics/ultralytics/v8.4.0/ultralytics/cfg/datasets/coco8.yaml"
 )
 
 # Function to display text in a given color
@@ -146,6 +169,16 @@ handle_error() {
     exit 1
 }
 
+# Function to display header in logs
+display_header() {
+    local text="$1"
+    echo ""
+    echo_color "═══════════════════════════════════════════════════════════════" "cyan"
+    echo_color "  $text" "bgreen"
+    echo_color "═══════════════════════════════════════════════════════════════" "cyan"
+    echo ""
+}
+
 # Function to display help message
 show_help() {
     cat << EOF
@@ -160,7 +193,7 @@ $(echo_color "Arguments:" "cyan")
              - Default: 'all'
 
   QUANTIZE   Optional. Quantization dataset for INT8 models.
-             Supported values: coco, coco128
+             Supported values: coco, coco128, coco8
              Leave empty to skip quantization.
 
 $(echo_color "Environment:" "cyan")
@@ -196,7 +229,8 @@ EOF
     printf "    "
     local count=0
     for model in "${SUPPORTED_MODELS[@]}"; do
-        if [[ $model =~ ^yolo ]]; then
+        # Match all YOLO variants but exclude special keywords
+        if [[ $model =~ ^yolo && $model != "yolo_all" ]]; then
             printf "%-30s" "$model"
             ((count++))
             if ((count % 3 == 0)); then
@@ -210,6 +244,7 @@ EOF
     printf "    "
     count=0
     for model in "${SUPPORTED_MODELS[@]}"; do
+        # Exclude YOLO models and special keywords
         if [[ ! $model =~ ^yolo && $model != "all" ]]; then
             printf "%-30s" "$model"
             ((count++))
@@ -232,6 +267,13 @@ if [[ "${MODEL}" == "-h" || "${MODEL}" == "--help" ]]; then
     exit 0
 fi
 
+# Validate QUANTIZE parameter early (fail-fast)
+if [[ -n "$QUANTIZE" ]] && ! [[ "${!SUPPORTED_QUANTIZATION_DATASETS[*]}" =~ $QUANTIZE ]]; then
+  echo "Unsupported quantization dataset: $QUANTIZE" >&2
+  echo "Supported datasets: ${!SUPPORTED_QUANTIZATION_DATASETS[*]}" >&2
+  exit 1
+fi
+
 # Function to validate models
 validate_models() {
     local models_input="$1"
@@ -242,7 +284,16 @@ validate_models() {
     for model in "${models_array[@]}"; do
         model=$(echo "$model" | xargs)  # Trim whitespace
 
-        if ! [[ " ${SUPPORTED_MODELS[*]} " =~ $model ]]; then
+        # Check for exact match in supported models array
+        local found=false
+        for supported_model in "${SUPPORTED_MODELS[@]}"; do
+            if [[ "$model" == "$supported_model" ]]; then
+                found=true
+                break
+            fi
+        done
+
+        if [[ "$found" == false ]]; then
             echo_color "Error: Unsupported model '$model'" "red"
             echo ""
             show_help
@@ -273,6 +324,27 @@ array_contains() {
     return 1
 }
 
+# Function to cleanup temporary directories and virtual environment
+cleanup_temp_dirs() {
+    if [ -n "${DOWNLOAD_CONFIG_DIR:-}" ] && [ -d "$DOWNLOAD_CONFIG_DIR" ]; then
+        echo "Cleaning up temporary directory: $DOWNLOAD_CONFIG_DIR"
+        rm -rf "$DOWNLOAD_CONFIG_DIR" 2>/dev/null || true
+    fi
+    if [ -n "${QUANTIZE_CONFIG_DIR:-}" ] && [ -d "$QUANTIZE_CONFIG_DIR" ]; then
+        echo "Cleaning up temporary directory: $QUANTIZE_CONFIG_DIR"
+        rm -rf "$QUANTIZE_CONFIG_DIR" 2>/dev/null || true
+    fi
+    if [ -n "${VENV_DIR:-}" ] && [ -d "$VENV_DIR" ]; then
+        echo "Cleaning up virtual environment: $VENV_DIR"
+        deactivate 2>/dev/null || true
+        rm -rf "$VENV_DIR" 2>/dev/null || true
+    fi
+}
+
+# Setup cleanup on script exit and interruption
+trap cleanup_temp_dirs EXIT
+trap 'echo "Script interrupted by user"; exit 130' INT TERM
+
 # Trap errors and call handle_error
 trap 'handle_error "- line $LINENO"' ERR
 
@@ -283,15 +355,10 @@ validate_models "$MODEL"
 mapfile -t MODELS_TO_PROCESS < <(prepare_models_list "$MODEL")
 echo "Models to process: ${MODELS_TO_PROCESS[*]}"
 
-if ! [[ "${!SUPPORTED_QUANTIZATION_DATASETS[*]}" =~ $QUANTIZE ]]; then
-  echo "Unsupported quantization dataset: $QUANTIZE" >&2
-  exit 1
-fi
-
 set +u  # Disable nounset option: treat any unset variable as an empty string
 if [ -z "$MODELS_PATH" ]; then
-  echo "MODELS_PATH is not specified"
-  echo "Please set MODELS_PATH env variable with target path to download models"
+  echo_color "MODELS_PATH is not specified" "bred"
+  echo_color "Please set MODELS_PATH env variable with target path to download models" "red"
   exit 1
 fi
 
@@ -308,36 +375,7 @@ else
   export PYTHON_CREATE_VENV=python3
 fi
 
-# Set the name of the virtual environment directory
-VENV_DIR_QUANT="$HOME/.virtualenvs/dlstreamer-quantization"
-
-# Create a Python virtual environment if it doesn't exist
-if [ ! -d "$VENV_DIR_QUANT" ]; then
-  echo "Creating virtual environment in $VENV_DIR_QUANT..."
-  $PYTHON_CREATE_VENV -m venv "$VENV_DIR_QUANT" || handle_error $LINENO
-fi
-
-# Activate the virtual environment
-echo "Activating virtual environment in $VENV_DIR_QUANT..."
-source "$VENV_DIR_QUANT/bin/activate"
-
-# Upgrade pip in the virtual environment
-pip install --no-cache-dir --upgrade pip
-
-# Install OpenVINO module with compatible numpy version
-pip install --no-cache-dir numpy==2.2.6 || handle_error $LINENO
-pip install --no-cache-dir openvino==2025.4.0 || handle_error $LINENO
-
-pip install --no-cache-dir onnx==1.20.1 || handle_error $LINENO
-pip install --no-cache-dir seaborn==0.13.2 || handle_error $LINENO
-pip install --no-cache-dir nncf==2.19.0 || handle_error $LINENO
-
-# Check and upgrade ultralytics if necessary
-if [[ "${MODEL:-}" =~ yolo.* || "${MODEL:-}" == "all" ]]; then
-  pip install --no-cache-dir --upgrade --extra-index-url https://download.pytorch.org/whl/cpu "ultralytics==8.3.153" || handle_error $LINENO
-fi
-
-# Set the name of the virtual environment directory
+# Set the name of the virtual environment directory (single venv for all operations)
 VENV_DIR="$HOME/.virtualenvs/dlstreamer"
 
 # Create a Python virtual environment if it doesn't exist
@@ -350,38 +388,102 @@ fi
 echo "Activating virtual environment in $VENV_DIR..."
 source "$VENV_DIR/bin/activate"
 
-# Upgrade pip in the virtual environment
-pip install --no-cache-dir --upgrade pip
-
-# Install OpenVINO module with compatible numpy version
-pip install --no-cache-dir "numpy<2.0.0,>=1.16.6" || handle_error $LINENO
-pip install --no-cache-dir openvino==2024.6.0 || handle_error $LINENO
-pip install --no-cache-dir openvino-dev==2024.6.0 || handle_error $LINENO
-
-pip install --no-cache-dir onnx==1.20.1 || handle_error $LINENO
-pip install --no-cache-dir seaborn==0.13.2 || handle_error $LINENO
-pip install --no-cache-dir "nncf>=2.12.0,<2.14.0" || handle_error $LINENO
+# Install all required packages for main virtual environment
+pip install --no-cache-dir --upgrade pip      || handle_error $LINENO
+pip install --no-cache-dir numpy==2.2.6       || handle_error $LINENO
+pip install --no-cache-dir openvino==2025.4.0 || handle_error $LINENO
+pip install --no-cache-dir onnx==1.20.1       || handle_error $LINENO
+pip install --no-cache-dir onnxscript==0.5.7  || handle_error $LINENO
+pip install --no-cache-dir seaborn==0.13.2    || handle_error $LINENO
+pip install --no-cache-dir nncf==2.19.0       || handle_error $LINENO
+pip install --no-cache-dir tqdm==4.67.1       || handle_error $LINENO
 
 # Check and upgrade ultralytics if necessary
 if [[ "${MODEL:-}" =~ yolo.* || "${MODEL:-}" == "all" ]]; then
-  pip install --no-cache-dir --upgrade --extra-index-url https://download.pytorch.org/whl/cpu "ultralytics==8.3.153" "numpy<2.0.0" || handle_error $LINENO
+  pip install --no-cache-dir --upgrade --extra-index-url https://download.pytorch.org/whl/cpu "ultralytics==8.4.7" || handle_error $LINENO
 fi
+
+# Install PyTorch CPU version
+pip install --no-cache-dir --upgrade --extra-index-url https://download.pytorch.org/whl/cpu torch==2.8.0 torchaudio==2.8.0 torchvision==0.23.0 || handle_error $LINENO
 
 # Install dependencies for CLIP models
 if [[ "${MODEL:-}" =~ clip.* || "${MODEL:-}" == "all" ]]; then
-  pip install --no-cache-dir --upgrade torch==2.8.0 torchaudio==2.8.0 torchvision==0.23.0 || handle_error $LINENO
   pip install --no-cache-dir transformers || handle_error $LINENO
   pip install --no-cache-dir pillow || handle_error $LINENO
 fi
 
 echo Downloading models to folder "$MODELS_PATH".
-
 set -euo pipefail
-# -------------- YOLOx
 
 
+# ================================= YOLOx-TINY FP16 & FP32 =================================
+if array_contains "yolox-tiny" "${MODELS_TO_PROCESS[@]}" || array_contains "yolo_all" "${MODELS_TO_PROCESS[@]}" || array_contains "all" "${MODELS_TO_PROCESS[@]}"; then
+  display_header "Downloading YOLOx-TINY model"
+  MODEL_NAME="yolox-tiny"
+  MODEL_DIR="$MODELS_PATH/public/$MODEL_NAME"
+  DST_FILE1="$MODEL_DIR/FP16/$MODEL_NAME.xml"
+  DST_FILE2="$MODEL_DIR/FP32/$MODEL_NAME.xml"
+
+  if [[ ! -f "$DST_FILE1" || ! -f "$DST_FILE2" ]]; then
+    cd "$MODELS_PATH"
+    echo "Downloading and converting: ${MODEL_DIR}"
+
+    # Create temporary new Python virtual environment for omz tools
+    deactivate 2>/dev/null || true
+    $PYTHON_CREATE_VENV -m venv "$HOME/.virtualenvs/dlstreamer_openvino_dev" || handle_error $LINENO
+    source "$HOME/.virtualenvs/dlstreamer_openvino_dev/bin/activate"
+    python -m pip install --upgrade pip                 || handle_error $LINENO
+    pip install --no-cache-dir "openvino-dev==2024.6.0" || handle_error $LINENO
+    pip install --no-cache-dir --upgrade --extra-index-url https://download.pytorch.org/whl/cpu torch==2.8.0 torchaudio==2.8.0 torchvision==0.23.0 || handle_error $LINENO
+    pip install --no-cache-dir onnxscript==0.5.7        || handle_error $LINENO
+
+    omz_downloader --name "$MODEL_NAME"
+    omz_converter --name "$MODEL_NAME"
+    cd "$MODEL_DIR"
+
+    # Clean up temporary files created by omz_converter
+    find . -maxdepth 1 -type f -name 'yolox*' -delete 2>/dev/null || true
+    find . -maxdepth 1 -type d -name 'yolox*' -exec rm -rf {} + 2>/dev/null || true
+    rm -rf models utils
+
+    # Cleanup temporary virtual environment
+    deactivate 2>/dev/null || true
+    rm -rf "$HOME/.virtualenvs/dlstreamer_openvino_dev" 2>/dev/null || true
+    source "$VENV_DIR/bin/activate" 
+  else
+    echo_color "\nModel already exists: $MODEL_DIR.\n" "yellow"
+  fi
+fi
+
+# ================================= YOLOx-S FP16 & FP32 =================================
+if array_contains "yolox_s" "${MODELS_TO_PROCESS[@]}" || array_contains "yolo_all" "${MODELS_TO_PROCESS[@]}" || array_contains "all" "${MODELS_TO_PROCESS[@]}"; then
+  display_header "Downloading YOLOx-S model"
+  MODEL_NAME="yolox_s"
+  MODEL_DIR="$MODELS_PATH/public/$MODEL_NAME"
+  DST_FILE1="$MODEL_DIR/FP16/$MODEL_NAME.xml"
+  DST_FILE2="$MODEL_DIR/FP32/$MODEL_NAME.xml"
+
+  if [[ ! -f "$DST_FILE1" || ! -f "$DST_FILE2" ]]; then
+    mkdir -p "$MODEL_DIR"
+    mkdir -p "$MODEL_DIR/FP16"
+    mkdir -p "$MODEL_DIR/FP32"
+    cd "$MODEL_DIR"
+    curl -O -L https://github.com/Megvii-BaseDetection/YOLOX/releases/download/0.1.1rc0/yolox_s.onnx
+    ovc yolox_s.onnx --compress_to_fp16=True
+    mv yolox_s.xml "$MODEL_DIR/FP16"
+    mv yolox_s.bin "$MODEL_DIR/FP16"
+    ovc yolox_s.onnx --compress_to_fp16=False
+    mv yolox_s.xml "$MODEL_DIR/FP32"
+    mv yolox_s.bin "$MODEL_DIR/FP32"
+    rm -f yolox_s.onnx
+  else
+    echo_color "\nModel already exists: $MODEL_DIR.\n" "yellow"
+  fi
+fi
+
+# ================================= YOLOv5*u FP16 & FP32 & INT8 - ULTRALYTICS =================================
 # Function for quantization of YOLO models
-quantize_yolo_model() {
+quantize_yolov5u_model() {
   local MODEL_NAME=$1
   MODEL_DIR="$MODELS_PATH/public/$MODEL_NAME"
   DST_FILE="$MODEL_DIR/INT8/$MODEL_NAME.xml"
@@ -395,10 +497,9 @@ quantize_yolo_model() {
     local DATASET_MANIFEST="$MODELS_PATH/datasets/$QUANTIZE.yaml"
 
     curl -L -o "$DATASET_MANIFEST" ${SUPPORTED_QUANTIZATION_DATASETS[$QUANTIZE]}
-    echo "Quantizing: ${MODEL_DIR}"
+    echo_color "[*] Starting INT8 quantization for $MODEL_NAME..." "cyan"
     mkdir -p "$MODEL_DIR"
 
-    source "$VENV_DIR_QUANT/bin/activate"
     cd "$MODELS_PATH"
     python3 - <<EOF "$MODEL_NAME" "$DATASET_MANIFEST"
 import openvino as ov
@@ -421,18 +522,20 @@ def validate(
     validator.jdict = []
     validator.stats = dict(tp=[], conf=[], pred_cls=[], target_cls=[], target_img=[])
     validator.end2end = False
-    validator.confusion_matrix = ConfusionMatrix(validator.data["nc"])
+    validator.confusion_matrix = ConfusionMatrix(task="detect", names=validator.data.get("names", {}))
     compiled_model = ov.compile_model(model, device_name="CPU")
     output_layer = compiled_model.output(0)
+    total_labels = 0
     for batch_i, batch in enumerate(track(data_loader, description="Validating")):
         if num_samples is not None and batch_i == num_samples:
             break
         batch = validator.preprocess(batch)
+        total_labels += len(batch.get("cls", []))
         preds = torch.from_numpy(compiled_model(batch["img"])[output_layer])
         preds = validator.postprocess(preds)
         validator.update_metrics(preds, batch)
     stats = validator.get_stats()
-    return stats, validator.seen, validator.nt_per_class.sum()
+    return stats, validator.seen, total_labels
 
 def print_statistics(stats: dict[str, float], total_images: int, total_objects: int) -> None:
     mp, mr, map50, mean_ap = (
@@ -455,6 +558,7 @@ validator.data = check_det_dataset(dataset_file)
 validator.stride = 32
 validator.is_coco = True
 validator.class_map = coco80_to_coco91_class
+validator.device = torch.device("cpu")
 
 data_loader = validator.get_dataloader(validator.data["path"], 1)
 
@@ -482,74 +586,24 @@ print_statistics(q_stats, total_images, total_objects)
 quantized_model.set_rt_info(ov.get_version(), "Runtime_version")
 ov.save_model(quantized_model, "./public/" + model_name + "/INT8/" + model_name + ".xml", compress_to_fp16=False)
 EOF
-
-  source "$VENV_DIR/bin/activate"
+    echo_color "[+] INT8 quantization completed for $MODEL_NAME" "green"
   YOLO_CONFIG_DIR=$DOWNLOAD_CONFIG_DIR
   else
     echo_color "\nModel already quantized: $MODEL_DIR.\n" "yellow"
   fi
 }
 
-# check if model exists in local directory, download as needed
-if array_contains "yolox-tiny" "${MODELS_TO_PROCESS[@]}" || array_contains "yolo_all" "${MODELS_TO_PROCESS[@]}" || array_contains "all" "${MODELS_TO_PROCESS[@]}"; then
-  MODEL_NAME="yolox-tiny"
-  MODEL_DIR="$MODELS_PATH/public/$MODEL_NAME"
-  DST_FILE1="$MODEL_DIR/FP16/$MODEL_NAME.xml"
-  DST_FILE2="$MODEL_DIR/FP32/$MODEL_NAME.xml"
-
-  if [[ ! -f "$DST_FILE1" || ! -f "$DST_FILE2" ]]; then
-    cd "$MODELS_PATH"
-    echo "Downloading and converting: ${MODEL_DIR}"
-    source "$VENV_DIR/bin/activate"
-    omz_downloader --name "$MODEL_NAME"
-    omz_converter --name "$MODEL_NAME"
-    cd "$MODEL_DIR"
-    rm -rf yolox*
-    rm -rf models
-    rm -rf utils
-  else
-    echo_color "\nModel already exists: $MODEL_DIR.\n" "yellow"
-  fi
-fi
-
-if array_contains "yolox_s" "${MODELS_TO_PROCESS[@]}" || array_contains "yolo_all" "${MODELS_TO_PROCESS[@]}" || array_contains "all" "${MODELS_TO_PROCESS[@]}"; then
-  MODEL_NAME="yolox_s"
-  MODEL_DIR="$MODELS_PATH/public/$MODEL_NAME"
-  DST_FILE1="$MODEL_DIR/FP16/$MODEL_NAME.xml"
-  DST_FILE2="$MODEL_DIR/FP32/$MODEL_NAME.xml"
-
-  if [[ ! -f "$DST_FILE1" || ! -f "$DST_FILE2" ]]; then
-    mkdir -p "$MODEL_DIR"
-    mkdir -p "$MODEL_DIR/FP16"
-    mkdir -p "$MODEL_DIR/FP32"
-    cd "$MODEL_DIR"
-    curl -O -L https://github.com/Megvii-BaseDetection/YOLOX/releases/download/0.1.1rc0/yolox_s.onnx
-    source "$VENV_DIR/bin/activate"
-    ovc yolox_s.onnx --compress_to_fp16=True
-    mv yolox_s.xml "$MODEL_DIR/FP16"
-    mv yolox_s.bin "$MODEL_DIR/FP16"
-    ovc yolox_s.onnx --compress_to_fp16=False
-    mv yolox_s.xml "$MODEL_DIR/FP32"
-    mv yolox_s.bin "$MODEL_DIR/FP32"
-    rm -rf yolox_s.onnx
-  else
-    echo_color "\nModel already exists: $MODEL_DIR.\n" "yellow"
-  fi
-fi
-
-# -------------- YOLOv5 (ULTRALYTICS) FP32 & INT8
-
-# Function to export YOLOv5 model
-export_yolov5_model() {
+# common method to export YOLOv5u models
+export_yolov5u_model() {
   local model_name=$1
   local model_path="$MODELS_PATH/public/$model_name"
   local weights="${model_name::-1}.pt"  # Remove the last character from the model name to construct the weights filename
 
   if [ ! -f "$model_path/FP32/$model_name.xml" ] || [ ! -f "$model_path/FP16/$model_name.xml" ]; then
+    display_header "Downloading ${model_name^^} model"
     echo "Downloading and converting: ${model_path}"
     mkdir -p "$model_path"
     cd "$model_path"
-    source "$VENV_DIR/bin/activate"
 
     python3 - <<EOF
 import os
@@ -594,20 +648,18 @@ EOF
   fi
 
   if [[ $QUANTIZE != "" ]]; then
-    quantize_yolo_model "$MODEL_NAME"
+    quantize_yolov5u_model "$MODEL_NAME"
   fi
 }
 
-# Model yolov5 FP32 & FP16
 YOLOv5u_MODELS=("yolov5nu" "yolov5su" "yolov5mu" "yolov5lu" "yolov5xu" "yolov5n6u" "yolov5s6u" "yolov5m6u" "yolov5l6u" "yolov5x6u")
-
 for MODEL_NAME in "${YOLOv5u_MODELS[@]}"; do
   if array_contains "$MODEL_NAME" "${MODELS_TO_PROCESS[@]}" || array_contains "yolo_all" "${MODELS_TO_PROCESS[@]}" || array_contains "all" "${MODELS_TO_PROCESS[@]}"; then
-    export_yolov5_model "$MODEL_NAME"
+    export_yolov5u_model "$MODEL_NAME"
   fi
 done
 
-# -------------- YOLOv5 (LEGACY) FP32 & INT8
+# ================================= YOLOv5* FP32 - LEGACY =================================
 YOLOv5_MODELS=("yolov5n" "yolov5s" "yolov5m" "yolov5l" "yolov5x" "yolov5n6" "yolov5s6" "yolov5m6" "yolov5l6" "yolov5x6")
 
 # Check if the model is in the list
@@ -623,22 +675,30 @@ done
 REPO_DIR="$MODELS_PATH/yolov5_repo"
 if [ "$MODEL_IN_LISTv5" = true ] && [ ! -d "$REPO_DIR" ]; then
   git clone https://github.com/ultralytics/yolov5 "$REPO_DIR"
-  pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu torch==2.8.0 torchaudio==2.8.0 torchvision==0.23.0
-  pip install --no-cache-dir -r "$REPO_DIR"/requirements.txt
 fi
 
 for MODEL_NAME in "${YOLOv5_MODELS[@]}"; do
   if array_contains "$MODEL_NAME" "${MODELS_TO_PROCESS[@]}" || array_contains "yolo_all" "${MODELS_TO_PROCESS[@]}" || array_contains "all" "${MODELS_TO_PROCESS[@]}"; then
     MODEL_DIR="$MODELS_PATH/public/$MODEL_NAME"
     if [ ! -d "$MODEL_DIR" ]; then
+      display_header "Downloading ${MODEL_NAME^^} model (Legacy)"
       echo "Downloading and converting: ${MODEL_DIR}"
       mkdir -p "$MODEL_DIR"
       cd "$MODEL_DIR"
       cp -r "$REPO_DIR" yolov5
       cd yolov5
       curl -L -O "https://github.com/ultralytics/yolov5/releases/download/v7.0/${MODEL_NAME}.pt"
-      source "$VENV_DIR/bin/activate"
+      
+      # Create temporary venv for legacy YOLOv5 export (uses openvino-dev 2024.6.0)
+      deactivate 2>/dev/null || true
+      $PYTHON_CREATE_VENV -m venv "$HOME/.virtualenvs/dlstreamer_yolov5_legacy" || handle_error $LINENO
+      source "$HOME/.virtualenvs/dlstreamer_yolov5_legacy/bin/activate"
+      python -m pip install --upgrade pip                        || handle_error $LINENO
+      pip install --no-cache-dir "openvino-dev==2024.6.0"        || handle_error $LINENO
+      pip install --no-cache-dir --upgrade --extra-index-url https://download.pytorch.org/whl/cpu torch==2.8.0 torchaudio==2.8.0 torchvision==0.23.0 || handle_error $LINENO
+      pip install --no-cache-dir -r "$REPO_DIR"/requirements.txt || handle_error $LINENO
 
+      # Export FP32 model
       python3 export.py --weights "${MODEL_NAME}.pt" --include openvino --img-size 640 --dynamic
       python3 - <<EOF "${MODEL_NAME}"
 import sys, os
@@ -656,27 +716,16 @@ EOF
       mv "${MODEL_NAME}_openvino_model/${MODEL_NAME}.xml" "$MODEL_DIR/FP32/${MODEL_NAME}.xml"
       mv "${MODEL_NAME}_openvino_model/${MODEL_NAME}.bin" "$MODEL_DIR/FP32/${MODEL_NAME}.bin"
 
-# # Quantization to INT8 temporarily disabled - causes error which breaks execution
-#       mkdir -p "$MODEL_DIR/INT8"
-#       python3 export.py --weights "${MODEL_NAME}.pt" --include openvino --img-size 640 --dynamic --int8
-#       python3 - <<EOF "${MODEL_NAME}"
-# import sys, os
-# from openvino.runtime import Core
-# from openvino.runtime import save_model
-# model_name = sys.argv[1]
-# core = Core()
-# os.rename(f"{model_name}_int8_openvino_model", f"{model_name}_int8_openvino_modelD")
-# model = core.read_model(f"{model_name}_int8_openvino_modelD/{model_name}.xml")
-# model.reshape([-1, 3, 640, 640])
-# save_model(model, f"{model_name}_int8_openvino_model/{model_name}.xml")
-# EOF
-
-
-#       mv "${MODEL_NAME}_int8_openvino_model/${MODEL_NAME}.xml" "$MODEL_DIR/INT8/${MODEL_NAME}.xml"
-#       mv "${MODEL_NAME}_int8_openvino_model/${MODEL_NAME}.bin" "$MODEL_DIR/INT8/${MODEL_NAME}.bin"
-
+      # Cleanup temporary virtual environment and return to main venv
       cd ..
       rm -rf yolov5
+      deactivate 2>/dev/null || true
+      rm -rf "$HOME/.virtualenvs/dlstreamer_yolov5_legacy" 2>/dev/null || true
+      source "$VENV_DIR/bin/activate"
+      
+      # INT8 quantization not supported for legacy YOLOv5 models
+      # (incompatible output format with Ultralytics validator)
+      # Use YOLOv5u models for INT8 quantization instead
     else
       echo_color "\nModel already exists: $MODEL_DIR.\n" "yellow"
     fi
@@ -689,17 +738,15 @@ if [ "$MODEL_IN_LISTv5" = true ]; then
 fi
 
 
-# -------------- YOLOv7 FP32 & FP16
+# ================================= YOLOv7* FP16 & FP32 =================================
 if array_contains "yolov7" "${MODELS_TO_PROCESS[@]}" || array_contains "yolo_all" "${MODELS_TO_PROCESS[@]}" || array_contains "all" "${MODELS_TO_PROCESS[@]}"; then
+  display_header "Downloading YOLOv7 model"
   MODEL_NAME="yolov7"
   MODEL_DIR="$MODELS_PATH/public/$MODEL_NAME"
   DST_FILE1="$MODEL_DIR/FP16/$MODEL_NAME.xml"
   DST_FILE2="$MODEL_DIR/FP32/$MODEL_NAME.xml"
 
   if [[ ! -f "$DST_FILE1" || ! -f "$DST_FILE2" ]]; then
-    source "$VENV_DIR/bin/activate"
-    pip install --no-cache-dir onnx
-    pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1  || handle_error $LINENO
     mkdir -p "$MODEL_DIR"
     mkdir -p "$MODEL_DIR/FP16"
     mkdir -p "$MODEL_DIR/FP32"
@@ -707,6 +754,10 @@ if array_contains "yolov7" "${MODELS_TO_PROCESS[@]}" || array_contains "yolo_all
     echo "Downloading and converting: ${MODEL_DIR}"
     git clone https://github.com/WongKinYiu/yolov7.git
     cd yolov7
+    
+    # Patch for PyTorch 2.6+ compatibility (weights_only parameter)
+    sed -i 's/torch\.load(w, map_location=map_location)/torch.load(w, map_location=map_location, weights_only=False)/g' models/experimental.py
+    
     python3 export.py --weights  yolov7.pt  --grid --dynamic-batch
     ovc yolov7.onnx --compress_to_fp16=True
     mv yolov7.xml "$MODEL_DIR/FP16"
@@ -716,64 +767,12 @@ if array_contains "yolov7" "${MODELS_TO_PROCESS[@]}" || array_contains "yolo_all
     mv yolov7.bin "$MODEL_DIR/FP32"
     cd ..
     rm -rf yolov7
-    pip install --no-cache-dir --upgrade torch==2.8.0 torchaudio==2.8.0 torchvision==0.23.0 || handle_error $LINENO
   else
     echo_color "\nModel already exists: $MODEL_DIR.\n" "yellow"
   fi
 fi
 
-# Function to export YOLO model
-export_yolo_model() {
-  local MODEL_NAME=$1
-  local MODEL_TYPE=$2
-  local QUANTIZE=$3
-  MODEL_DIR="$MODELS_PATH/public/$MODEL_NAME"
-  DST_FILE1="$MODEL_DIR/FP16/$MODEL_NAME.xml"
-  DST_FILE2="$MODEL_DIR/FP32/$MODEL_NAME.xml"
-
-  if [[ ! -f "$DST_FILE1" || ! -f "$DST_FILE2" ]]; then
-    echo "Downloading and converting: ${MODEL_DIR}"
-    mkdir -p "$MODEL_DIR"
-    cd "$MODEL_DIR"
-    source "$VENV_DIR/bin/activate"
-
-    python3 - <<EOF "$MODEL_NAME" "$MODEL_TYPE"
-from ultralytics import YOLO
-import openvino, sys, shutil, os
-
-model_name = sys.argv[1]
-model_type = sys.argv[2]
-weights = model_name + '.pt'
-
-model = YOLO(weights)
-model.info()
-converted_path = model.export(format='openvino')
-converted_model = converted_path + '/' + model_name + '.xml'
-core = openvino.Core()
-ov_model = core.read_model(model=converted_model)
-
-if model_type in ["yolo_v8_seg", "yolo_v11_seg"]:
-    ov_model.output(0).set_names({"boxes"})
-    ov_model.output(1).set_names({"masks"})
-
-ov_model.set_rt_info(model_type, ['model_info', 'model_type'])
-
-openvino.save_model(ov_model, './FP32/' + model_name + '.xml', compress_to_fp16=False)
-openvino.save_model(ov_model, './FP16/' + model_name + '.xml', compress_to_fp16=True)
-shutil.rmtree(converted_path)
-os.remove(f"{model_name}.pt")
-EOF
-
-    cd ../..
-  else
-    echo_color "\nModel already exists: $MODEL_DIR.\n" "yellow"
-  fi
-
-  if [[ $QUANTIZE != "" ]]; then
-    quantize_yolo_model "$MODEL_NAME"
-  fi
-}
-
+# ================================= YOLOv8* and newer FP16 & FP32 & INT8 =================================
 # List of models and their types
 declare -A YOLO_MODELS
 YOLO_MODELS=(
@@ -828,22 +827,126 @@ YOLO_MODELS=(
   ["yolo11m-pose"]="yolo_v11_pose"
   ["yolo11l-pose"]="yolo_v11_pose"
   ["yolo11x-pose"]="yolo_v11_pose"
+  ["yolo26n"]="yolo_v26"
+  ["yolo26s"]="yolo_v26"
+  ["yolo26m"]="yolo_v26"
+  ["yolo26l"]="yolo_v26"
+  ["yolo26x"]="yolo_v26"
+  ["yolo26n-obb"]="yolo_v26_obb"
+  ["yolo26s-obb"]="yolo_v26_obb"
+  ["yolo26m-obb"]="yolo_v26_obb"
+  ["yolo26l-obb"]="yolo_v26_obb"
+  ["yolo26x-obb"]="yolo_v26_obb"
+  ["yolo26n-seg"]="yolo_v26_seg"
+  ["yolo26s-seg"]="yolo_v26_seg"
+  ["yolo26m-seg"]="yolo_v26_seg"
+  ["yolo26l-seg"]="yolo_v26_seg"
+  ["yolo26x-seg"]="yolo_v26_seg"
+  ["yolo26n-pose"]="yolo_v26_pose"
+  ["yolo26s-pose"]="yolo_v26_pose"
+  ["yolo26m-pose"]="yolo_v26_pose"
+  ["yolo26l-pose"]="yolo_v26_pose"
+  ["yolo26x-pose"]="yolo_v26_pose"
 )
+
+# Function to export YOLO model
+export_and_quantize_yolo_model() {
+  local MODEL_NAME=$1
+  local QUANTIZE=$2
+  MODEL_DIR="$MODELS_PATH/public/$MODEL_NAME"
+  DST_FILE1="$MODEL_DIR/FP16/$MODEL_NAME.xml"
+  DST_FILE2="$MODEL_DIR/FP32/$MODEL_NAME.xml"
+
+  # Check if quantization should be skipped for segmentation/pose models with small datasets
+  local QUANTIZE_PARAM="$QUANTIZE"
+  if [[ "$MODEL_NAME" =~ -(seg|pose)$ ]] && [[ -n "$QUANTIZE" ]] && [[ "$QUANTIZE" =~ ^(coco8|coco128)$ ]]; then
+    echo_color "⚠️  INT8 quantization is not supported for segmentation/pose models (${MODEL_NAME}) with small datasets (${QUANTIZE})" "yellow"
+    echo_color "    Small datasets are missing required metadata (masks for seg, keypoints for pose)." "yellow"
+    echo_color "    Use 'coco' dataset (>5000 images with full annotations) for INT8 quantization." "yellow"
+    echo_color "    Skipping quantization. Only FP32 and FP16 models will be exported.\n" "yellow"
+    QUANTIZE_PARAM=""
+  fi
+
+  # Determine model type based on model name
+  local MODEL_TYPE="${YOLO_MODELS[$MODEL_NAME]}"
+
+  if [[ ! -f "$DST_FILE1" || ! -f "$DST_FILE2" ]]; then
+    display_header "Downloading ${MODEL_NAME^^} model"
+    echo "Downloading and converting: ${MODEL_DIR}"
+    
+    mkdir -p "$MODEL_DIR"
+    cd "$MODEL_DIR"
+
+    python3 - <<EOF "$MODEL_NAME" "$MODEL_TYPE" "$QUANTIZE_PARAM"
+from ultralytics import YOLO
+import openvino, sys, shutil, os
+
+model_name = sys.argv[1]
+model_type = sys.argv[2]
+quantize_dataset = sys.argv[3]
+weights = model_name + '.pt'
+
+model = YOLO(weights)
+model.info()
+
+# Export FP32/FP16 (without dynamic for compatibility with DLStreamer preprocessing)
+converted_path = model.export(format='openvino')
+converted_model = converted_path + '/' + model_name + '.xml'
+
+core = openvino.Core()
+ov_model = core.read_model(model=converted_model)
+
+if model_type in ["yolo_v8_seg", "yolo_v11_seg", "yolo_v26_seg"]:
+    ov_model.output(0).set_names({"boxes"})
+    ov_model.output(1).set_names({"masks"})
+
+ov_model.set_rt_info(model_type, ['model_info', 'model_type'])
+
+openvino.save_model(ov_model, './FP32/' + model_name + '.xml', compress_to_fp16=False)
+openvino.save_model(ov_model, './FP16/' + model_name + '.xml', compress_to_fp16=True)
+
+shutil.rmtree(converted_path)
+
+# Export INT8 if requested
+if quantize_dataset != "":
+    print("\033[36m[*] Starting INT8 quantization for " + model_name + "...\033[0m")
+    
+    converted_path = model.export(format='openvino', half=False, int8=True, data=quantize_dataset + '.yaml')
+    
+    ov_model = core.read_model(model=converted_path + '/' + model_name + '.xml')
+    
+    if model_type in ["yolo_v8_seg", "yolo_v11_seg", "yolo_v26_seg"]:
+        ov_model.output(0).set_names({"boxes"})
+        ov_model.output(1).set_names({"masks"})
+    
+    ov_model.set_rt_info(model_type, ['model_info', 'model_type'])
+    
+    openvino.save_model(ov_model, './INT8/' + model_name + '.xml', compress_to_fp16=False)
+    shutil.rmtree(converted_path)
+    
+    print("\033[32m[+] INT8 quantization completed for " + model_name + "\033[0m")
+
+os.remove(f"{model_name}.pt")
+EOF
+
+    cd ../..
+  else
+    echo_color "\nModel already exists: $MODEL_DIR.\n" "yellow"
+  fi
+
+}
 
 # Iterate over the models and export them
 for MODEL_NAME in "${!YOLO_MODELS[@]}"; do
   if array_contains "$MODEL_NAME" "${MODELS_TO_PROCESS[@]}" || array_contains "yolo_all" "${MODELS_TO_PROCESS[@]}" || array_contains "all" "${MODELS_TO_PROCESS[@]}"; then
-    MODEL_NAME_UPPER=$(echo "$MODEL_NAME" | tr '[:lower:]' '[:upper:]')
-    if [[ $MODEL_NAME_UPPER == *"OBB"* || $MODEL_NAME_UPPER == *"POSE"* || $MODEL_NAME_UPPER == *"SEG"* ]]; then
-      export_yolo_model "$MODEL_NAME" "${YOLO_MODELS[$MODEL_NAME]}" ""
-    else
-      export_yolo_model "$MODEL_NAME" "${YOLO_MODELS[$MODEL_NAME]}" "$QUANTIZE"
-    fi
+    export_and_quantize_yolo_model "$MODEL_NAME" "$QUANTIZE"
   fi
 done
 
 
+# ================================= YOLOv8 License Plate Detector FP32 - Edge AI Resources =================================
 if array_contains "yolov8_license_plate_detector" "${MODELS_TO_PROCESS[@]}" || array_contains "all" "${MODELS_TO_PROCESS[@]}"; then
+  display_header "Downloading YOLOv8 License Plate Detector model"
   MODEL_NAME="yolov8_license_plate_detector"
   MODEL_DIR="$MODELS_PATH/public/$MODEL_NAME"
   DST_FILE1="$MODEL_DIR/FP32/$MODEL_NAME.xml"
@@ -853,7 +956,7 @@ if array_contains "yolov8_license_plate_detector" "${MODELS_TO_PROCESS[@]}" || a
     mkdir -p "$MODEL_DIR"
     cd "$MODEL_DIR"
 
-    curl -L -k -o ${MODEL_NAME}.zip 'https://github.com/open-edge-platform/edge-ai-resources/raw/main/models/license-plate-reader.zip'
+    curl -L -k -o "${MODEL_NAME}.zip" 'https://github.com/open-edge-platform/edge-ai-resources/raw/main/models/license-plate-reader.zip'
     python3 -c "
 import zipfile
 import os
@@ -873,7 +976,9 @@ os.remove('${MODEL_NAME}.zip')
   fi
 fi
 
+# ================================= CenterFace FP16 & FP32 =================================
 if array_contains "centerface" "${MODELS_TO_PROCESS[@]}" || array_contains "all" "${MODELS_TO_PROCESS[@]}"; then
+  display_header "Downloading CenterFace model"
   MODEL_NAME="centerface"
   MODEL_DIR="$MODELS_PATH/public/$MODEL_NAME"
   DST_FILE1="$MODEL_DIR/FP16/$MODEL_NAME.xml"
@@ -885,7 +990,6 @@ if array_contains "centerface" "${MODELS_TO_PROCESS[@]}" || array_contains "all"
     cd "$MODEL_DIR"
     git clone https://github.com/Star-Clouds/CenterFace.git
     cd CenterFace/models/onnx
-    source "$VENV_DIR/bin/activate"
     ovc centerface.onnx --input "[1,3,768,1280]"
     mv centerface.xml "$MODEL_DIR"
     mv centerface.bin "$MODEL_DIR"
@@ -919,8 +1023,9 @@ EOF
   fi
 fi
 
-#enet_b0_8_va_mtl
+# ================================= HSEmotion FP16 =================================
 if array_contains "hsemotion" "${MODELS_TO_PROCESS[@]}" || array_contains "all" "${MODELS_TO_PROCESS[@]}"; then
+  display_header "Downloading HSEmotion model"
   MODEL_NAME="hsemotion"
   MODEL_DIR="$MODELS_PATH/public/$MODEL_NAME"
   DST_FILE="$MODEL_DIR/FP16/$MODEL_NAME.xml"
@@ -931,7 +1036,6 @@ if array_contains "hsemotion" "${MODELS_TO_PROCESS[@]}" || array_contains "all" 
     cd "$MODEL_DIR"
     git clone https://github.com/av-savchenko/face-emotion-recognition.git
     cd face-emotion-recognition/models/affectnet_emotions/onnx
-    source "$VENV_DIR/bin/activate"
 
     ovc enet_b0_8_va_mtl.onnx --input "[16,3,224,224]"
     mkdir "$MODEL_DIR/FP16/"
@@ -963,6 +1067,8 @@ EOF
   fi
 fi
 
+
+# ================================= CLIP models FP32 =================================
 mapfile -t CLIP_MODELS < <(printf "%s\n" "${SUPPORTED_MODELS[@]}" | grep '^clip-vit-')
 for MODEL_NAME in "${CLIP_MODELS[@]}"; do
   if [ "$MODEL" == "$MODEL_NAME" ] || [ "$MODEL" == "all" ]; then
@@ -970,14 +1076,14 @@ for MODEL_NAME in "${CLIP_MODELS[@]}"; do
     DST_FILE="$MODEL_DIR/FP32/$MODEL_NAME.xml"
 
     if [ ! -f "$DST_FILE" ]; then
+      display_header "Downloading ${MODEL_NAME^^} model"
       echo "Downloading and converting: ${MODEL_DIR}"
       mkdir -p "$MODEL_DIR/FP32"
       cd "$MODEL_DIR/FP32"
       IMAGE_URL="https://storage.openvinotoolkit.org/data/test_data/images/car.png"
-      IMAGE_PATH=car.png
-      curl -L -o $IMAGE_PATH $IMAGE_URL
+      IMAGE_PATH="car.png"
+      curl -L -o "$IMAGE_PATH" "$IMAGE_URL"
       echo "Image downloaded to $IMAGE_PATH"
-      source "$VENV_DIR/bin/activate"
       python3 - <<EOF "$MODEL_NAME" "$IMAGE_PATH"
 from transformers import CLIPProcessor, CLIPVisionModel
 import PIL
@@ -1023,18 +1129,27 @@ EOF
   fi
 done
 
+
+# ================================= DeepLabv3 FP16 & FP32 =================================
 if array_contains "deeplabv3" "${MODELS_TO_PROCESS[@]}" || array_contains "all" "${MODELS_TO_PROCESS[@]}"; then
+  display_header "Downloading DeepLabv3 model"
   MODEL_NAME="deeplabv3"
   MODEL_DIR="$MODELS_PATH/public/$MODEL_NAME"
   DST_FILE1="$MODEL_DIR/FP32/$MODEL_NAME.xml"
   DST_FILE2="$MODEL_DIR/FP16/$MODEL_NAME.xml"
 
-  pip install --no-cache-dir tensorflow || handle_error $LINENO
-
   if [[ ! -f "$DST_FILE1" || ! -f "$DST_FILE2" ]]; then
     cd "$MODELS_PATH"
     echo "Downloading and converting: ${MODEL_DIR}"
-    source "$VENV_DIR/bin/activate"
+
+    # Create temporary new Python virtual environment for omz tools
+    deactivate 2>/dev/null || true
+    $PYTHON_CREATE_VENV -m venv "$HOME/.virtualenvs/dlstreamer_openvino_dev" || handle_error $LINENO
+    source "$HOME/.virtualenvs/dlstreamer_openvino_dev/bin/activate"
+    python -m pip install --upgrade pip                 || handle_error $LINENO
+    pip install --no-cache-dir "openvino-dev==2024.6.0" || handle_error $LINENO
+    pip install --no-cache-dir tensorflow==2.20.0       || handle_error $LINENO
+
     omz_downloader --name "$MODEL_NAME"
     omz_converter --name "$MODEL_NAME"
     cd "$MODEL_DIR"
@@ -1056,23 +1171,30 @@ shutil.rmtree('FP16')
 openvino.save_model(ov_model, './FP32/' + 'deeplabv3.xml', compress_to_fp16=False)
 openvino.save_model(ov_model, './FP16/' + 'deeplabv3.xml', compress_to_fp16=True)
 EOF
+
+    # Cleanup temporary virtual environment
+    deactivate 2>/dev/null || true
+    rm -rf "$HOME/.virtualenvs/dlstreamer_openvino_dev" 2>/dev/null || true
+    source "$VENV_DIR/bin/activate" 
   else
     echo_color "\nModel already exists: $MODEL_DIR.\n" "yellow"
   fi
 fi
 
-# PaddlePaddle OCRv4 multilingual model
+
+# ================================= ch_PP-OCRv4_rec_infer FP32 - Edge AI Resources =================================
 if array_contains "ch_PP-OCRv4_rec_infer" "${MODELS_TO_PROCESS[@]}" || array_contains "all" "${MODELS_TO_PROCESS[@]}"; then
+  display_header "Downloading PaddlePaddle OCRv4 model"
   MODEL_NAME="ch_PP-OCRv4_rec_infer"
   MODEL_DIR="$MODELS_PATH/public/$MODEL_NAME"
-  DST_FILE1="$MODEL_DIR/FP16/$MODEL_NAME.xml"
+  DST_FILE1="$MODEL_DIR/FP32/$MODEL_NAME.xml"
 
   if [[ ! -f "$DST_FILE1" ]]; then
     echo "Downloading and converting: ${MODEL_DIR}"
     mkdir -p "$MODEL_DIR"
     cd "$MODEL_DIR"
 
-    curl -L -k -o ${MODEL_NAME}.zip 'https://github.com/open-edge-platform/edge-ai-resources/raw/main/models/license-plate-reader.zip'
+    curl -L -k -o "${MODEL_NAME}.zip" 'https://github.com/open-edge-platform/edge-ai-resources/raw/main/models/license-plate-reader.zip'
     python3 -c "
 import zipfile
 import os
@@ -1092,8 +1214,64 @@ os.remove('${MODEL_NAME}.zip')
   fi
 fi
 
-# Mars-Small128 DeepSORT Person Re-ID Model
+
+# ================================= Pallet Defect Detection INT8 - Edge AI Resources =================================
+if array_contains "pallet_defect_detection" "${MODELS_TO_PROCESS[@]}" || array_contains "all" "${MODELS_TO_PROCESS[@]}"; then
+  display_header "Downloading Pallet Defect Detection model"
+  MODEL_NAME="pallet_defect_detection"
+  MODEL_DIR="$MODELS_PATH/public/$MODEL_NAME"
+  DST_FILE1="$MODEL_DIR/INT8/$MODEL_NAME.xml"
+
+  if [[ ! -f "$DST_FILE1" ]]; then
+    echo "Downloading and converting: ${MODEL_DIR}"
+    mkdir -p "$MODEL_DIR"
+    cd "$MODEL_DIR"
+
+    curl -L -k -o "${MODEL_NAME}.zip" 'https://github.com/open-edge-platform/edge-ai-resources/raw/main/models/INT8/pallet_defect_detection.zip'
+    python3 -c "
+import zipfile
+import os
+with zipfile.ZipFile('${MODEL_NAME}.zip', 'r') as zip_ref:
+    zip_ref.extractall('.')
+os.remove('${MODEL_NAME}.zip')
+"
+
+    mkdir -p INT8
+    cp deployment/Detection/model/model.bin INT8/${MODEL_NAME}.bin
+    cp deployment/Detection/model/model.xml INT8/${MODEL_NAME}.xml
+    cp deployment/Detection/model/config.json INT8/config.json
+    chmod -R u+w deployment example_code
+    rm -rf deployment example_code
+    rm -f LICENSE README.md sample_image.jpg
+    cd -
+  else
+    echo_color "\nModel already exists: $MODEL_DIR.\n" "yellow"
+  fi
+fi
+
+
+# ================================= Colorcls2 FP32 - Edge AI Suites =================================
+if array_contains "colorcls2" "${MODELS_TO_PROCESS[@]}" || array_contains "all" "${MODELS_TO_PROCESS[@]}"; then
+  display_header "Downloading Colorcls2 model"
+  MODEL_NAME="colorcls2"
+  MODEL_DIR="$MODELS_PATH/public/$MODEL_NAME/FP32"
+
+  if [[ ! -f "$MODEL_DIR/$MODEL_NAME.xml" ]]; then
+    echo "Downloading: ${MODEL_DIR}"
+    mkdir -p "$MODEL_DIR"
+    cd "$MODEL_DIR"
+    curl -L -k -o 'colorcls2.bin' 'https://github.com/open-edge-platform/edge-ai-suites/raw/main/metro-ai-suite/metro-vision-ai-app-recipe/smart-parking/src/dlstreamer-pipeline-server/models/colorcls2/colorcls2.bin'
+    curl -L -k -o 'colorcls2.xml' 'https://github.com/open-edge-platform/edge-ai-suites/raw/main/metro-ai-suite/metro-vision-ai-app-recipe/smart-parking/src/dlstreamer-pipeline-server/models/colorcls2/colorcls2.xml'
+    cd -
+  else
+    echo_color "\nModel already exists: $MODEL_DIR/$MODEL_NAME.xml.\n" "yellow"
+  fi
+fi
+
+
+# ================================= Mars-Small128 FP32 & INT8 =================================
 if array_contains "mars-small128" "${MODELS_TO_PROCESS[@]}" || array_contains "all" "${MODELS_TO_PROCESS[@]}"; then
+  display_header "Downloading Mars-Small128 model"
   MODEL_NAME="mars-small128"
   MODEL_DIR="$MODELS_PATH/public/$MODEL_NAME"
 
@@ -1115,31 +1293,12 @@ if array_contains "mars-small128" "${MODELS_TO_PROCESS[@]}" || array_contains "a
     mkdir -p "$MODEL_DIR"
     cd "$MODEL_DIR"
 
-    # Activate virtual environment
-    source "$VENV_DIR/bin/activate"
-
-    # Install dependencies for converter script
-    pip install --no-cache-dir torch openvino nncf gdown || handle_error $LINENO
-
     echo_color "Running Mars-Small128 converter..." "blue"
     python3 "$CONVERTER_SCRIPT" --output-dir "$MODEL_DIR" --precision both || handle_error $LINENO
 
-    echo_color "✅ Mars-Small128 conversion completed" "green"
-    echo_color "═══════════════════════════════════════════════════" "cyan"
-    echo_color "📁 Output directory: $MODEL_DIR" "blue"
-    echo_color "📏 Models: mars_small128_fp32.xml, mars_small128_int8.xml" "blue"
-    echo_color "🎯 Usage: DeepSORT person re-identification tracking" "blue"
-    echo_color "═══════════════════════════════════════════════════" "cyan"
-
+    echo_color "Mars-Small128 conversion completed" "green"
     cd ../..
   else
     echo_color "\nModel already exists: $MODEL_DIR.\n" "yellow"
   fi
 fi
-
-# Deactivate and remove venvs
-echo "Removing Python virtual environments..."
-deactivate
-rm -r $VENV_DIR
-rm -r $VENV_DIR_QUANT
-echo "Removed"

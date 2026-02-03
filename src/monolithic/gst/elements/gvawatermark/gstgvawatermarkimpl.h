@@ -12,7 +12,7 @@
 #include <gst/video/video.h>
 #include <memory>
 
-#ifndef _MSC_VER
+#ifndef _WIN32
 #include <dlstreamer/gst/context.h>
 #include <dlstreamer/vaapi/context.h>
 #include <opencv2/core/va_intel.hpp>
@@ -45,7 +45,7 @@ struct _GstGvaWatermarkImpl {
     std::shared_ptr<struct Impl> impl;
     InferenceBackend::MemoryType negotiated_mem_type = InferenceBackend::MemoryType::ANY;
 
-#ifndef _MSC_VER
+#ifndef _WIN32
     VADisplay va_dpy = nullptr;
     std::shared_ptr<dlstreamer::GSTContext> gst_ctx;
     std::shared_ptr<dlstreamer::VAAPIContext> vaapi_ctx;
@@ -64,6 +64,24 @@ struct _GstGvaWatermarkImplClass {
 GType gst_gva_watermark_impl_get_type(void);
 
 enum { PROP_0, PROP_DEVICE, PROP_OBB, PROP_DISPL_AVGFPS, PROP_DISPL_CFG };
+
+#define DISPL_AVGFPS_DESCRIPTION                                                                                       \
+    "If true, display the average FPS read from gvafpscounter element on the output video, (default false)\n"          \
+    "\t\t\tThe gvafpscounter element must be present in the pipeline.\n"                                               \
+    "\t\t\te.g.: ... ! gvawatermark displ-avgfps=true ! gvafpscounter ! ..."
+
+#define DISPL_CFG_DESCRIPTION                                                                                          \
+    "Comma separated list of KEY=VALUE parameters of displayed notations.\n"                                           \
+    "\t\t\tAvailable options: \n"                                                                                      \
+    "\t\t\tshow-labels=<bool> enable or disable displaying text labels, default true\n"                                \
+    "\t\t\ttext-scale=<double 0.1 to 2.0> scale factor for text labels, default 1.0\n"                                 \
+    "\t\t\tthickness=<uint 1 to 10> bounding box thickness, default 2\n"                                               \
+    "\t\t\tcolor-idx=<int> color index for bounding box, keypoints, and text, default -1 (use default colors: 0 red, " \
+    "1 green, 2 blue)\n"                                                                                               \
+    "\t\t\tdraw-txt-bg=<bool> enable or disable displaying text labels background, by enabling it the text color "     \
+    "is set to white, default false\n"                                                                                 \
+    "\t\t\te.g.: displ-cfg=show-labels=false\n"                                                                        \
+    "\t\t\te.g.: displ-cfg=text-scale=0.5,thickness=3,color-idx=2"
 
 G_END_DECLS
 

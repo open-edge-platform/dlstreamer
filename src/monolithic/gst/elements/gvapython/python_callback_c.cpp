@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2020-2025 Intel Corporation
+ * Copyright (C) 2020-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -9,8 +9,16 @@
 #include "python_callback.h"
 
 #include "utils.h"
+#include <filesystem>
 #include <nlohmann/json.hpp>
 using nlohmann::json;
+
+G_BEGIN_DECLS
+
+GST_DEBUG_CATEGORY_EXTERN(gst_gva_python_debug_category);
+#define GST_CAT_DEFAULT gst_gva_python_debug_category
+
+G_END_DECLS
 
 namespace {
 
@@ -144,10 +152,10 @@ PythonCallback *create_python_callback(const char *module_path, const char *clas
     auto context_initializer = PythonContextInitializer();
     context_initializer.initialize();
     // add user-specified callback module into Python path
-    const char *filename = strrchr(module_path, '/');
-    if (filename) {
-        std::string dir(module_path, filename);
-        context_initializer.extendPath(dir);
+    auto path = std::filesystem::path(module_path);
+    auto parent_path = path.parent_path();
+    if (!parent_path.empty()) {
+        context_initializer.extendPath(parent_path.string());
     }
 
     try {

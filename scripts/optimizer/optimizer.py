@@ -215,7 +215,7 @@ def sample_pipeline(pipelines, sample_duration):
 
     del pipeline
     fps = fps_counter.get_property("avg-fps")
-    logger.debug("Sampled fps: %f.2", fps)
+    logger.debug("Sampled fps: %.2f", fps)
     return fps
 
 def process_bus(bus):
