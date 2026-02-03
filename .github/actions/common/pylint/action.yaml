@@ -76,6 +76,7 @@ runs:
       shell: bash
 
     - name: Analyze Pylint results
+      id: analyze-results
       if: always()
       env:
         path: ${{ inputs.path }}
