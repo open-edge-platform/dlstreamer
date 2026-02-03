@@ -6,4 +6,5 @@
 
 if(NOT WIN32)
 	add_subdirectory(g3dlidarparse)
+	add_subdirectory(gstlidarvalidate)
 endif()

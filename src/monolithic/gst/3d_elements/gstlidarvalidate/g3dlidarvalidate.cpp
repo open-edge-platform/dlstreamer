@@ -1,5 +1,5 @@
 #include "g3dlidarvalidate.h"
-#include <dlstreamer/gst/metadata/g3dlidarmeta.h>
+#include <dlstreamer/gst/metadata/g3d_lidar_meta.h>
 
 #include <gst/gst.h>
 #include <algorithm>
@@ -29,7 +29,6 @@ static void gst_g3d_lidar_validate_get_property(GObject *object, guint prop_id, 
 static GstFlowReturn gst_g3d_lidar_validate_render(GstBaseSink *sink, GstBuffer *buffer);
 static gboolean gst_g3d_lidar_validate_start(GstBaseSink *sink);
 static gboolean gst_g3d_lidar_validate_stop(GstBaseSink *sink);
-static gboolean plugin_init(GstPlugin *plugin);
 
 G_DEFINE_TYPE(GstG3DLidarValidate, gst_g3d_lidar_validate, GST_TYPE_BASE_SINK);
 
@@ -207,22 +206,4 @@ static GstFlowReturn gst_g3d_lidar_validate_render(GstBaseSink *sink, GstBuffer 
     return GST_FLOW_OK;
 }
 
-static gboolean plugin_init(GstPlugin *plugin) {
-    return gst_element_register(plugin, "g3dlidarvalidate", GST_RANK_NONE, GST_TYPE_G3D_LIDAR_VALIDATE);
-}
 
-#ifndef PACKAGE
-#define PACKAGE "g3dlidarvalidate"
-#endif
-
-GST_PLUGIN_DEFINE(
-    GST_VERSION_MAJOR,
-    GST_VERSION_MINOR,
-    g3dlidarvalidate,
-    "G3D Lidar Meta Validator",
-    plugin_init,
-    "1.0",
-    "LGPL",
-    "dlstreamer",
-    "https://github.com/dlstreamer/dlstreamer"
-)

@@ -32,4 +32,9 @@ if(NOT WIN32 AND TARGET g3dlidarparse)
     target_compile_definitions(${TARGET_NAME} PRIVATE HAVE_G3DLIDARPARSE)
 endif()
 
+if(NOT WIN32 AND TARGET g3dlidarvalidate)
+    target_link_libraries(${TARGET_NAME} PRIVATE g3dlidarvalidate)
+    target_compile_definitions(${TARGET_NAME} PRIVATE HAVE_G3DLIDARVALIDATE)
+endif()
+
 install(TARGETS ${TARGET_NAME} DESTINATION ${DLSTREAMER_PLUGINS_INSTALL_PATH})

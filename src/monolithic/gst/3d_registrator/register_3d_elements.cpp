@@ -14,6 +14,9 @@
 #include "g3dlidarparse.h"
 #include "g3d_lidar_meta.h"
 #endif
+#if defined(HAVE_G3DLIDARVALIDATE)
+#include "g3dlidarvalidate.h"
+#endif
 extern "C" {
 
 
@@ -24,6 +27,10 @@ static gboolean plugin_init(GstPlugin *plugin) {
 
 	lidar_meta_get_info();
 	lidar_meta_api_get_type();
+#endif
+#if defined(HAVE_G3DLIDARVALIDATE)
+	if (!gst_element_register(plugin, "g3dlidarvalidate", GST_RANK_NONE, GST_TYPE_G3D_LIDAR_VALIDATE))
+		return FALSE;
 #endif
     return TRUE;
 }
