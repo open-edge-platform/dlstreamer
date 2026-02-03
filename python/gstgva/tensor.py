@@ -11,20 +11,17 @@ import ctypes
 import numpy
 import gi
 from typing import List
-from warnings import warn
 
 gi.require_version("Gst", "1.0")
 gi.require_version("GstAnalytics", "1.0")
 
 from enum import Enum
-from gi.repository import GObject, Gst, GstAnalytics, GLib
+from gi.repository import GObject, GstAnalytics, GLib
 from .util import (
     libgst,
     libgobject,
+    libglib,
     G_VALUE_ARRAY_POINTER,
-    GValueArray,
-    GValue,
-    G_VALUE_POINTER,
 )
 from .util import GVATensorMeta
 
@@ -145,7 +142,7 @@ class Tensor:
         if gvalue:
             gvariant = libgobject.g_value_get_variant(gvalue)
             nbytes = ctypes.c_size_t()
-            data_ptr = libgobject.g_variant_get_fixed_array(
+            data_ptr = libglib.g_variant_get_fixed_array(
                 gvariant, ctypes.byref(nbytes), 1
             )
             array_type = ctypes.c_ubyte * nbytes.value
