@@ -7,13 +7,16 @@
 
 #include "config.h"
 
-
 #include <gst/gst.h>
+
+#include "g3d_radarprocess_meta.h"
+#include "gstradarprocess.h"
 
 #if defined(HAVE_G3DLIDARPARSE)
 #include "g3dlidarparse.h"
 #include "g3d_lidar_meta.h"
 #endif
+
 extern "C" {
 
 
