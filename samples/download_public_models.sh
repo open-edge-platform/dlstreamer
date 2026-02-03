@@ -533,7 +533,7 @@ quantize_yolov5u_model() {
     mkdir -p "$MODELS_PATH/datasets"
     local DATASET_MANIFEST="$MODELS_PATH/datasets/$QUANTIZE.yaml"
 
-    curl -L -o "$DATASET_MANIFEST" ${SUPPORTED_QUANTIZATION_DATASETS[$QUANTIZE]}
+    curl -L -o "$DATASET_MANIFEST" "${SUPPORTED_QUANTIZATION_DATASETS[$QUANTIZE]}"
     echo_color "[*] Starting INT8 quantization for $MODEL_NAME..." "cyan"
     mkdir -p "$MODEL_DIR"
 
@@ -911,6 +911,8 @@ export_and_quantize_yolo_model() {
 
   if [[ ! -f "$DST_FILE1" || ! -f "$DST_FILE2" ]]; then
     display_header "Downloading ${MODEL_NAME^^} model"
+    echo "Downloading and converting: ${MODEL_DIR}"
+
     rm -rf "$TMP_DIR"
     mkdir -p "$TMP_DIR"
     mkdir -p "$MODEL_DIR"
@@ -929,6 +931,7 @@ final_out_dir = sys.argv[4]
 weights = model_name + '.pt'
 
 model = YOLO(weights)
+model.info()
 
 converted_path = model.export(format='openvino')
 converted_model = os.path.join(converted_path, model_name + '.xml')
@@ -1267,7 +1270,7 @@ if array_contains "ch_PP-OCRv4_rec_infer" "${MODELS_TO_PROCESS[@]}" || array_con
     mkdir -p "$MODEL_DIR"
     cd "$MODEL_DIR"
 
-    curl -f -L -k -o "${MODEL_NAME}.zip" 'https://github.com/open-edge-platform/edge-ai-resources/raw/main/models/license-plate-reader.zip'
+    curl -L -k -o "${MODEL_NAME}.zip" 'https://github.com/open-edge-platform/edge-ai-resources/raw/main/models/license-plate-reader.zip'
     python3 -c "
 import zipfile
 import os
