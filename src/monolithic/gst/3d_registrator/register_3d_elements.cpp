@@ -19,7 +19,7 @@
 extern "C" {
 
 static gboolean plugin_init(GstPlugin *plugin) {
-	// Register g3dradarprocess element
+	// Register element
 	if (!gst_element_register(plugin, "g3dradarprocess", GST_RANK_NONE, GST_TYPE_RADAR_PROCESS))
         return FALSE;
 #if defined(HAVE_G3DLIDARPARSE)
