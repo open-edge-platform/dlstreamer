@@ -7,13 +7,8 @@
 #ifndef __GST_RADAR_PROCESS_META_H__
 #define __GST_RADAR_PROCESS_META_H__
 
+#include "gva_export.h"
 #include <gst/gst.h>
-
-#if _MSC_VER
-#define DLS_EXPORT __declspec(dllexport)
-#else
-#define DLS_EXPORT __attribute__((visibility("default")))
-#endif
 
 G_BEGIN_DECLS
 

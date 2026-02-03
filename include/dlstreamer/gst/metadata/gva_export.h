@@ -6,7 +6,7 @@
 
 #ifndef GVA_EXPORT_H
 
-#if _WIN32
+#ifdef _WIN32
 #define DLS_EXPORT __declspec(dllexport)
 #else
 #define DLS_EXPORT __attribute__((visibility("default")))
