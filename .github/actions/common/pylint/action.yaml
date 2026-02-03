@@ -50,7 +50,11 @@ runs:
           echo "📝 Found Python files, running pylint..."
           # Save full output to temporary file first
           temp_output="${output_file}.full"
-          echo "PYTHONPATH is ${PYTHONPATH}"
+          if [ -d "$HOME/.virtualenvs/dlstreamer" ]; then
+            source $HOME/.virtualenvs/dlstreamer/bin/activate
+            export PYTHONPATH=/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:/opt/intel/dlstreamer/python:/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:
+            echo "PYTHONPATH is ${PYTHONPATH}"
+          fi
           find "${path}" -name "*.py" -not -path "*/venv/*" -print0 | xargs -0 pylint 2>&1 | tee "${temp_output}" || true
           # Filter only errors (E) and fatal (F) issues to the main output file
           if [ -f "${temp_output}" ]; then

@@ -250,6 +250,7 @@ jobs:
           $HOME/.virtualenvs/dlstreamer/bin/pip install --no-cache-dir --upgrade pip -r $DLS_REL_PATH/requirements.txt
 
       - name: Run pylint
+        if: ${{ matrix.runner_print_label == 'ARL' }}
         uses: ./dlstreamer/.github/actions/common/pylint
         with:
           path: dlstreamer
