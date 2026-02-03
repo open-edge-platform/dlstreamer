@@ -176,32 +176,26 @@ jobs:
             "vcpkg"            = $env:VCPKG_DIRECTORY
             "Python Executable"= $env:PYTHON_EXE_PATH
           }
-          "### Dependency Check Results" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
-          "| Dependency Name | Status | Expected Path |" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
-          "| :--- | :---: | :--- |" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
 
           $errorCount = 0
-          Write-Host "Checking dependencies..."
+          Write-Host "--- Dependency Check ---" -ForegroundColor Cyan
+
           foreach ($name in $deps.Keys) {
             $path = $deps[$name]
-            $exists = Test-Path $path
-            if ($exists) {
-              $status = "Found"
-              Write-Host "[OK] $name found at $path"
+            if (![string]::IsNullOrWhiteSpace($path) -and (Test-Path $path)) {
+              Write-Host "[OK] $name found at: $path" -ForegroundColor Green
             } else {
-              $status = "**Missing**"
-              Write-Host "[Missing] $name NOT found at $path"
+              Write-Host "[Error] $name NOT found at: $path" -ForegroundColor Red
               $errorCount++
             }
-            "| $name | $status | ``$path`` |" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
           }
 
           if ($errorCount -gt 0) {
-            Write-Host "----------------------------------------------"
-            Write-Host "Error: $errorCount dependencies are missing!"
-            Write-Error "Workflow failed due to missing dependencies. Please check the Job Summary for details."
-            exit 1
+            Write-Host "----------------------------------------------" -ForegroundColor Red
+            Write-Host "Error: $errorCount dependencies are missing!" -ForegroundColor Red
+            throw "Workflow failed due to $errorCount missing dependencies."
           }
+          Write-Host "All dependencies verified successfully." -ForegroundColor Green
 
       - name: Setup static Windows PATH for following tests
         shell: powershell
@@ -219,17 +213,18 @@ jobs:
             "C:\Windows\system32",
             "C:\Windows"
           )
+
+          Write-Host "Updating GITHUB_PATH with the following locations:" -ForegroundColor Cyan
           foreach ($p in $customPaths) {
             echo "$p" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+            Write-Host "Adding to PATH: $p"
           }
 
           $gstPluginPath = "${env:GSTREAMER_DIRECTORY}\1.0\msvc_x86_64\lib\gstreamer-1.0;${env:DLS_DLL_TARGET_DIRECTORY}"
           echo "GST_PLUGIN_PATH=$gstPluginPath" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-
-          "### Configured PATH Locations" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
-          foreach ($p in $customPaths) {
-            "- ``$p``" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
-          }
+          
+          Write-Host "----------------------------------------------"
+          Write-Host "Successfully configured GST_PLUGIN_PATH=$gstPluginPath" -ForegroundColor Green
 
       - name: Validate DLStreamer elements
         shell: powershell
