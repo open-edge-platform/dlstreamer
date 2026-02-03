@@ -36,6 +36,7 @@ static gboolean gst_g3d_lidar_parse_sink_event(GstBaseTransform *trans, GstEvent
 static GstCaps *gst_g3d_lidar_parse_transform_caps(GstBaseTransform *trans, GstPadDirection direction, GstCaps *caps,
                                                    GstCaps *filter);
 static gboolean gst_g3d_lidar_parse_set_caps(GstBaseTransform *trans, GstCaps *incaps, GstCaps *outcaps);
+static gboolean gst_g3d_lidar_parse_find_upstream_location(GstBaseTransform *trans, gchar **location_out);
 
 static void gst_g3d_lidar_parse_class_init(GstG3DLidarParseClass *klass);
 static void gst_g3d_lidar_parse_init(GstG3DLidarParse *filter);
@@ -151,31 +152,10 @@ static gboolean gst_g3d_lidar_parse_start(GstBaseTransform *trans) {
     GST_DEBUG_OBJECT(filter, "Starting lidar parser");
     GST_INFO_OBJECT(filter, "[START] lidarparse");
 
-    GstPad *sink_pad = GST_BASE_TRANSFORM_SINK_PAD(trans);
-    GstPad *peer_pad = gst_pad_get_peer(sink_pad);
-
-    if (!peer_pad) {
-        GST_ERROR_OBJECT(filter, "No upstream element connected");
-        GST_INFO_OBJECT(filter, "[START] Failed: No upstream element");
-        return FALSE;
-    }
-
-    GstElement *upstream_element = gst_pad_get_parent_element(peer_pad);
-    if (!upstream_element) {
-        GST_ERROR_OBJECT(filter, "Failed to get upstream element");
-        gst_object_unref(peer_pad);
-        GST_INFO_OBJECT(filter, "[START] Failed: Cannot get upstream element");
-        return FALSE;
-    }
-
     gchar *upstream_location = NULL;
-    g_object_get(upstream_element, "location", &upstream_location, NULL);
-
-    if (!upstream_location) {
-        GST_ERROR_OBJECT(filter, "Upstream element does not have a 'location' property");
-        gst_object_unref(upstream_element);
-        gst_object_unref(peer_pad);
-        GST_INFO_OBJECT(filter, "[START] Failed: No location property in upstream");
+    if (!gst_g3d_lidar_parse_find_upstream_location(trans, &upstream_location)) {
+        GST_ERROR_OBJECT(filter, "Failed to find upstream element with 'location' property");
+        GST_INFO_OBJECT(filter, "[START] Failed: No location property in upstream chain");
         return FALSE;
     }
 
@@ -195,16 +175,58 @@ static gboolean gst_g3d_lidar_parse_start(GstBaseTransform *trans) {
     } else {
         GST_ERROR_OBJECT(filter, "Unsupported file type for location: %s", upstream_location);
         g_free(upstream_location);
-        gst_object_unref(upstream_element);
-        gst_object_unref(peer_pad);
         return FALSE;
     }
 
     g_free(upstream_location);
-    gst_object_unref(upstream_element);
-    gst_object_unref(peer_pad);
 
     return TRUE;
+}
+
+static gboolean gst_g3d_lidar_parse_find_upstream_location(GstBaseTransform *trans, gchar **location_out) {
+    if (!location_out) {
+        return FALSE;
+    }
+
+    *location_out = NULL;
+
+    GstPad *sink_pad = GST_BASE_TRANSFORM_SINK_PAD(trans);
+    GstPad *peer_pad = gst_pad_get_peer(sink_pad);
+    if (!peer_pad) {
+        return FALSE;
+    }
+
+    GstElement *current_element = NULL;
+    GstPad *current_peer = peer_pad;
+
+    while (current_peer) {
+        current_element = gst_pad_get_parent_element(current_peer);
+        if (!current_element) {
+            gst_object_unref(current_peer);
+            return FALSE;
+        }
+
+        GParamSpec *pspec = g_object_class_find_property(G_OBJECT_GET_CLASS(current_element), "location");
+        if (pspec) {
+            g_object_get(current_element, "location", location_out, NULL);
+            gst_object_unref(current_element);
+            gst_object_unref(current_peer);
+            return (*location_out != NULL);
+        }
+
+        GstPad *element_sink = gst_element_get_static_pad(current_element, "sink");
+        gst_object_unref(current_element);
+        gst_object_unref(current_peer);
+
+        if (!element_sink) {
+            return FALSE;
+        }
+
+        current_peer = gst_pad_get_peer(element_sink);
+        gst_object_unref(element_sink);
+    }
+
+    return FALSE;
 }
 
 static gboolean gst_g3d_lidar_parse_stop(GstBaseTransform *trans) {
