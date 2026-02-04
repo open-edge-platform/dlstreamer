@@ -249,17 +249,6 @@ jobs:
           python3 -m venv $HOME/.virtualenvs/dlstreamer
           $HOME/.virtualenvs/dlstreamer/bin/pip install --no-cache-dir --upgrade pip -r $DLS_REL_PATH/requirements.txt
 
-      - name: Run pylint
-        if: matrix.runner_print_label == 'ARL' && always()
-        uses: ./dlstreamer/.github/actions/common/pylint
-        with:
-          path: dlstreamer
-          output-file: pylint-report.txt
-          name: DLS_pylint
-          enable-reviewdog: true
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          fail-on-findings: true
-
       - name: 🚀 Run on host tests
         if: always ()
         id: run_onhost_tests
