@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2022-2025 Intel Corporation
+ * Copyright (C) 2022-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -13,7 +13,7 @@
 #include "dlstreamer/gst/mappers/gst_to_opencl.h"
 #include "dlstreamer/gst/utils.h"
 #include "dlstreamer/utils.h"
-#ifndef _MSC_VER
+#ifndef _WIN32
 #include "dlstreamer/gst/mappers/gst_to_vaapi.h"
 #else
 #define GST_USE_UNSTABLE_API
@@ -50,7 +50,7 @@ class GSTContextQuery : public BaseContext {
 
     handle_t handle(std::string_view key) const noexcept override {
         handle_t value = 0;
-#ifndef _MSC_VER
+#ifndef _WIN32
         if (key == BaseContext::key::va_display) {
             GstObject *display_obj = nullptr;
             if (gst_structure_get(_structure, VAAPI_DISPLAY_FIELD_NAME, GST_TYPE_OBJECT, &display_obj, NULL)) {
@@ -96,7 +96,7 @@ class GSTContextQuery : public BaseContext {
     static constexpr auto D3D11_CONTEXT_NAME = "gst.d3d11.device.handle";
 
     const char *get_context_name(MemoryType memory_type) {
-#ifndef _MSC_VER
+#ifndef _WIN32
         if (memory_type == MemoryType::VA) {
             // Load GST-VA and reuse VAAPI path.
             set_memory_type(MemoryType::VAAPI);
@@ -167,7 +167,7 @@ class GSTContext : public BaseContext {
         auto output_type = output_context ? output_context->memory_type() : MemoryType::CPU;
         if (input_type == MemoryType::GST && output_type == MemoryType::CPU)
             mapper = std::make_shared<MemoryMapperGSTToCPU>(input_context, output_context);
-#ifndef _MSC_VER
+#ifndef _WIN32
         if (input_type == MemoryType::GST && output_type == MemoryType::VAAPI)
             mapper = std::make_shared<MemoryMapperGSTToVAAPI>(input_context, output_context);
 #else

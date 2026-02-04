@@ -235,8 +235,36 @@ std::string getHuggingFaceArchitecture(const nlohmann::json &config_json) {
     return {};
 }
 
-static bool parseViTForImageClassification(const nlohmann::json &config_json, const nlohmann::json &preproc_json,
-                                           ov::AnyMap &modelConfig) {
+static bool parseHFlabels(const nlohmann::json &config_json, ov::AnyMap &modelConfig) {
+
+    // Parse label2id mapping to extract labels ordered by their IDs
+    if (config_json.contains("label2id") && config_json["label2id"].is_object()) {
+        std::vector<std::pair<int, std::string>> id_labels;
+        for (auto it = config_json["label2id"].begin(); it != config_json["label2id"].end(); ++it) {
+            if (!it.value().is_number_integer())
+                continue;
+            std::string label = it.key();
+            std::replace(label.begin(), label.end(), ' ', '_');
+            id_labels.emplace_back(it.value().get<int>(), label);
+        }
+        std::sort(id_labels.begin(), id_labels.end(), [](const auto &a, const auto &b) { return a.first < b.first; });
+
+        if (!id_labels.empty()) {
+            std::ostringstream labels_stream;
+            for (size_t i = 0; i < id_labels.size(); ++i) {
+                if (i)
+                    labels_stream << ' ';
+                labels_stream << id_labels[i].second;
+            }
+            modelConfig["labels"] = ov::Any(labels_stream.str());
+        }
+    }
+
+    return true;
+}
+
+static bool parseHFpreprocessing(const nlohmann::json &config_json, const nlohmann::json &preproc_json,
+                                 ov::AnyMap &modelConfig) {
     // Setting up preprocessing parameters
 
     // Set reshape size from preprocessor_config.json size field
@@ -324,35 +352,6 @@ static bool parseViTForImageClassification(const nlohmann::json &config_json, co
         modelConfig["reverse_input_channels"] = ov::Any(std::string("true"));
     }
 
-    // Setting up postprocessing parameters
-
-    // Model type is always "label" for ViTForImageClassification
-    modelConfig["model_type"] = ov::Any(std::string("label"));
-    modelConfig["output_raw_scores"] = ov::Any(std::string("True"));
-
-    // Parse label2id mapping to extract labels ordered by their IDs
-    if (config_json.contains("label2id") && config_json["label2id"].is_object()) {
-        std::vector<std::pair<int, std::string>> id_labels;
-        for (auto it = config_json["label2id"].begin(); it != config_json["label2id"].end(); ++it) {
-            if (!it.value().is_number_integer())
-                continue;
-            std::string label = it.key();
-            std::replace(label.begin(), label.end(), ' ', '_');
-            id_labels.emplace_back(it.value().get<int>(), label);
-        }
-        std::sort(id_labels.begin(), id_labels.end(), [](const auto &a, const auto &b) { return a.first < b.first; });
-
-        if (!id_labels.empty()) {
-            std::ostringstream labels_stream;
-            for (size_t i = 0; i < id_labels.size(); ++i) {
-                if (i)
-                    labels_stream << ' ';
-                labels_stream << id_labels[i].second;
-            }
-            modelConfig["labels"] = ov::Any(labels_stream.str());
-        }
-    }
-
     return true;
 }
 
@@ -366,41 +365,54 @@ bool convertHuggingFaceMeta2ModelApi(const std::string &model_file, ov::AnyMap &
     if (architecture.empty())
         return false;
 
-    if (architecture == "ViTForImageClassification") {
-        nlohmann::json preproc_json;
-        if (!loadJsonFromModelDir(model_file, "preprocessor_config.json", preproc_json))
-            return false;
-
-        return parseViTForImageClassification(config_json, preproc_json, modelConfig);
+    // Check if architecture is supported
+    if (std::find(ModelApiConverters::kHfSupportedArchitectures.begin(),
+                  ModelApiConverters::kHfSupportedArchitectures.end(),
+                  architecture) == ModelApiConverters::kHfSupportedArchitectures.end()) {
+        GST_ERROR("Unsupported HuggingFace architecture: %s", architecture.c_str());
+        return false;
     }
 
-    return false;
+    nlohmann::json preproc_json;
+    if (!loadJsonFromModelDir(model_file, "preprocessor_config.json", preproc_json)) {
+        GST_ERROR("Failed to load preprocessor_config.json for HuggingFace model: %s", model_file.c_str());
+        return false;
+    }
+
+    if (!parseHFpreprocessing(config_json, preproc_json, modelConfig)) {
+        GST_ERROR("Failed to parse HuggingFace preprocessing configuration.");
+        return false;
+    }
+
+    if (architecture == "ViTForImageClassification") {
+        // Model type is always "label" for ViTForImageClassification
+        modelConfig["model_type"] = ov::Any(std::string("label"));
+        modelConfig["output_raw_scores"] = ov::Any(std::string("True"));
+    } else if ((architecture == "RTDetrForObjectDetection") || (architecture == "RtDetrV2ForObjectDetection")) {
+        modelConfig["model_type"] = ov::Any(std::string("rtdetr"));
+        modelConfig["output_raw_scores"] = ov::Any(std::string("False"));
+    }
+
+    if (!parseHFlabels(config_json, modelConfig)) {
+        GST_ERROR("Failed to parse HuggingFace labels.");
+        return false;
+    }
+
+    return true;
 }
 
-// Helper function to check XML for HuggingFace metadata
+// Helper function to check for HuggingFace metadata
 bool isHuggingFaceModel(const std::string &model_file) {
-    std::filesystem::path model_path(model_file);
-    if (model_path.extension() != ".xml") {
-        model_path.replace_extension(".xml");
-    }
 
-    if (!std::filesystem::exists(model_path))
+    nlohmann::json config_json;
+    if (!loadJsonFromModelDir(model_file, "config.json", config_json))
         return false;
 
-    std::ifstream xml_stream(model_path.string());
-    if (!xml_stream.is_open()) {
-        GST_ERROR("Failed to open XML model file: %s", model_path.string().c_str());
+    // Check if config.json contains "transformaers_version" field
+    if (config_json.contains("transformers_version"))
+        return true;
+    else
         return false;
-    }
-
-    std::string line;
-    while (std::getline(xml_stream, line)) {
-        if (line.find("transformers_version") != std::string::npos) {
-            return true;
-        }
-    }
-
-    return false;
 }
 
 // Convert third-party input metadata config files into Model API format

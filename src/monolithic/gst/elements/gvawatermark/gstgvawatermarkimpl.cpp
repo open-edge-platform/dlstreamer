@@ -332,7 +332,7 @@ static gboolean gst_gva_watermark_impl_set_caps(GstBaseTransform *trans, GstCaps
 
     gvawatermark->impl.reset();
 
-#if defined(ENABLE_VAAPI) && !defined(_MSC_VER)
+#if defined(ENABLE_VAAPI) && !defined(_WIN32)
     VaApiDisplayPtr va_dpy;
     if (mem_type == MemoryType::VAAPI) {
         // Prefer context obtained via set_context
@@ -411,7 +411,7 @@ static void gst_gva_watermark_impl_set_context(GstElement *elem, GstContext *con
     const gchar *ctx_type = gst_context_get_context_type(context);
     const GstStructure *s = gst_context_get_structure(context);
 
-#if defined(ENABLE_VAAPI) && !defined(_MSC_VER)
+#if defined(ENABLE_VAAPI) && !defined(_WIN32)
     if (!self->gst_ctx)
         self->gst_ctx = std::make_shared<dlstreamer::GSTContext>(GST_ELEMENT(self));
 
@@ -461,7 +461,7 @@ static void gst_gva_watermark_impl_set_context(GstElement *elem, GstContext *con
             }
         }
     }
-#endif // ENABLE_VAAPI && !_MSC_VER
+#endif // ENABLE_VAAPI && !_WIN32
 
     GST_ELEMENT_CLASS(gst_gva_watermark_impl_parent_class)->set_context(elem, context);
 }
@@ -551,7 +551,7 @@ static GstFlowReturn gst_gva_watermark_impl_transform_ip(GstBaseTransform *trans
     bool negotiated_is_va =
         (mt == InferenceBackend::MemoryType::VAAPI || mt == InferenceBackend::MemoryType::DMA_BUFFER);
     bool buffer_is_va_like = negotiated_is_va && buffer_has_va(buf);
-#if defined(ENABLE_VAAPI) && !defined(_MSC_VER)
+#if defined(ENABLE_VAAPI) && !defined(_WIN32)
     bool have_va_context = (gvawatermark->vaapi_ctx || gvawatermark->va_dpy);
 #else
     bool have_va_context = false;
@@ -576,7 +576,7 @@ static GstFlowReturn gst_gva_watermark_impl_transform_ip(GstBaseTransform *trans
         }
 
 // VA/GPU render path only when VAAPI enabled
-#if defined(ENABLE_VAAPI) && !defined(_MSC_VER)
+#if defined(ENABLE_VAAPI) && !defined(_WIN32)
         if (use_gpu_path) {
             GST_TRACE_OBJECT(gvawatermark, "Using VA/GPU render path");
 

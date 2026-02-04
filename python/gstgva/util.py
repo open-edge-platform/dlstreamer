@@ -1,21 +1,24 @@
 # ==============================================================================
-# Copyright (C) 2018-2025 Intel Corporation
+# Copyright (C) 2018-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
 
 import ctypes
 from contextlib import contextmanager
+import platform
 import weakref
 import gi
 gi.require_version('GstVideo', '1.0')
 gi.require_version('GstAudio', '1.0')
-gi.require_version('GLib', '2.0')
 gi.require_version('Gst', '1.0')
-from gi.repository import GstVideo, GstAudio, GLib, GObject, Gst
+from gi.repository import GstVideo, GstAudio, GObject, Gst
 
 # libgstreamer
-libgst = ctypes.CDLL("libgstreamer-1.0.so.0")
+if platform.system() == 'Windows':
+    libgst = ctypes.CDLL("gstreamer-1.0-0.dll")
+else:
+    libgst = ctypes.CDLL("libgstreamer-1.0.so.0")
 
 GST_PADDING = 4
 GST_VAAPI_VIDEO_MEMORY_NAME = "GstVaapiVideoMemory"
@@ -246,7 +249,10 @@ class GstStructureHandle:
 
 
 # libgobject
-libgobject = ctypes.CDLL("libgobject-2.0.so.0")
+if platform.system() == 'Windows':
+    libgobject = ctypes.CDLL("gobject-2.0-0.dll")
+else:
+    libgobject = ctypes.CDLL("libgobject-2.0.so.0")
 
 
 class GList(ctypes.Structure):
@@ -272,14 +278,6 @@ libgobject.g_value_get_int.argtypes = [ctypes.c_void_p]
 libgobject.g_value_get_int.restype = ctypes.c_void_p
 libgobject.g_value_set_variant.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
 libgobject.g_value_set_variant.restype = None
-libgobject.g_variant_get_fixed_array.argtypes = [
-    ctypes.c_void_p, ctypes.POINTER(ctypes.c_size_t), ctypes.c_size_t]
-libgobject.g_variant_get_fixed_array.restype = ctypes.c_void_p
-libgobject.g_list_remove.argtypes = [GLIST_POINTER, ctypes.c_void_p]
-libgobject.g_list_remove.restypes = GLIST_POINTER
-libgobject.g_variant_new_fixed_array.argtypes = [
-    ctypes.c_void_p, ctypes.c_void_p, ctypes.c_size_t, ctypes.c_size_t]
-libgobject.g_variant_new_fixed_array.restype = ctypes.c_void_p
 libgobject.g_value_array_new.argtypes = [ctypes.c_size_t]
 libgobject.g_value_array_new.restype = G_VALUE_ARRAY_POINTER
 libgobject.g_value_init.argtypes = [ctypes.c_void_p, ctypes.c_size_t]
@@ -298,12 +296,26 @@ libgobject.g_value_get_float.argtypes = [G_VALUE_POINTER]
 libgobject.g_value_get_float.restype = ctypes.c_float
 
 # libglib
-libglib = ctypes.CDLL("libglib-2.0.so.0")
+if platform.system() == 'Windows':
+    libglib = ctypes.CDLL("glib-2.0-0.dll")
+else:
+    libglib = ctypes.CDLL("libglib-2.0.so.0")
 libglib.g_strdup.argtypes = [ctypes.c_char_p]
 libglib.g_strdup.restype = ctypes.c_void_p
+libglib.g_variant_get_fixed_array.argtypes = [
+    ctypes.c_void_p, ctypes.POINTER(ctypes.c_size_t), ctypes.c_size_t]
+libglib.g_variant_get_fixed_array.restype = ctypes.c_void_p
+libglib.g_variant_new_fixed_array.argtypes = [
+    ctypes.c_void_p, ctypes.c_void_p, ctypes.c_size_t, ctypes.c_size_t]
+libglib.g_variant_new_fixed_array.restype = ctypes.c_void_p
+libglib.g_list_remove.argtypes = [GLIST_POINTER, ctypes.c_void_p]
+libglib.g_list_remove.restype = GLIST_POINTER
 
 # libgstvideo
-libgstvideo = ctypes.CDLL("libgstvideo-1.0.so.0")
+if platform.system() == 'Windows':
+    libgstvideo = ctypes.CDLL("gstvideo-1.0-0.dll")
+else:
+    libgstvideo = ctypes.CDLL("libgstvideo-1.0.so.0")
 
 # VideoRegionOfInterestMeta
 class VideoRegionOfInterestMeta(ctypes.Structure):
@@ -436,4 +448,3 @@ if hasattr(GstVideo.VideoInfo, 'new_from_caps'):
 AudioInfoFromCaps = _AudioInfoFromCaps_Legacy
 if hasattr(GstAudio.AudioInfo, 'new_from_caps'):
     AudioInfoFromCaps = _AudioInfoFromCaps
-    
