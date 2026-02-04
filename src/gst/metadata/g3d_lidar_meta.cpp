@@ -9,7 +9,7 @@
 #include <new>
 #include <vector>
 
-GType lidar_meta_api_get_type(void) {
+DLS_EXPORT GType lidar_meta_api_get_type(void) {
     static GType type = 0;
     static const gchar *tags[] = {"lidar", NULL};
 
@@ -38,7 +38,7 @@ static void lidar_meta_free(GstMeta *meta, GstBuffer *buffer) {
     lidar_meta->lidar_data.~vector();
 }
 
-const GstMetaInfo *lidar_meta_get_info(void) {
+DLS_EXPORT const GstMetaInfo *lidar_meta_get_info(void) {
     static const GstMetaInfo *meta_info = NULL;
 
     if (g_once_init_enter(&meta_info)) {
@@ -49,7 +49,7 @@ const GstMetaInfo *lidar_meta_get_info(void) {
     return meta_info;
 }
 
-LidarMeta *add_lidar_meta(GstBuffer *buffer, guint lidar_point_count, const std::vector<float> &lidar_data,
+DLS_EXPORT LidarMeta *add_lidar_meta(GstBuffer *buffer, guint lidar_point_count, const std::vector<float> &lidar_data,
                           size_t frame_id, GstClockTime exit_lidarparse_timestamp, guint stream_id) {
     if (!buffer) {
         GST_WARNING("Cannot add meta to NULL buffer");

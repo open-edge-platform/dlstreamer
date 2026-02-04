@@ -11,7 +11,6 @@
 #include <iomanip>
 #include <sstream>
 #include <string.h>
-#include <unistd.h>
 #include <vector>
 
 GST_DEBUG_CATEGORY_STATIC(gst_g3d_lidar_parse_debug);
