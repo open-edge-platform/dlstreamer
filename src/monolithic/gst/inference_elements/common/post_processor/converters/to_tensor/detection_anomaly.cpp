@@ -78,16 +78,6 @@ TensorsTable DetectionAnomalyConverter::convert(const OutputBlobs &output_blobs)
                                          std::to_string(labels.size()));
 
             pred_label = labels[pred_score > image_threshold_norm ? 1 : 0];
-            /*
-            if (pred_label == "Anomaly") {
-                // write segmentation mask to a PNG image buffer
-                g_print("Anomalous frame detected. Writing segmentation mask to a PNG image buffer... _ %d _\n",
-                        lbl_anomaly_cnt);
-                std::vector<uchar> buf;
-                char filename[256];
-                snprintf(filename, sizeof(filename), "/home/labrat/anomaly_tmp/segmask_%d.png", lbl_anomaly_cnt);
-                cv::imwrite(filename, seg_mask);
-            }*/
 
             logParamsStats(pred_label, pred_score, image_threshold_norm);
 
