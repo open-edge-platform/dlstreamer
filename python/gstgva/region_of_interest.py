@@ -8,13 +8,12 @@
 #  @brief This file contains gstgva.region_of_interest.RegionOfInterest class to control region of interest for particular gstgva.video_frame.VideoFrame with gstgva.tensor.Tensor instances attached
 
 import ctypes
-import numpy
 from typing import List
 from collections import namedtuple
 
 from .tensor import Tensor
 from .util import VideoRegionOfInterestMeta, GstStructureHandle
-from .util import libgst, libgobject, libgstvideo, GLIST_POINTER
+from .util import libgst, libgstvideo
 
 import gi
 
@@ -22,7 +21,7 @@ gi.require_version("GstVideo", "1.0")
 gi.require_version("GLib", "2.0")
 gi.require_version("Gst", "1.0")
 gi.require_version("GstAnalytics", "1.0")
-from gi.repository import GstVideo, GLib, GObject, Gst, GstAnalytics
+from gi.repository import GLib, Gst, GstAnalytics
 
 Rect = namedtuple("Rect", "x y w h")
 
