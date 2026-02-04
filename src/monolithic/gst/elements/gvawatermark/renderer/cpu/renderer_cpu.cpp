@@ -343,14 +343,14 @@ void RendererNV12::draw_instance_mask(std::vector<cv::Mat> &mats, render::Instan
     cv::Mat binaryMask_y;
     cv::threshold(resized_y({cv::Point(x0_y - extended_box.x, y0_y - extended_box.y),
                              cv::Point(x1_y - extended_box.x, y1_y - extended_box.y)}),
-                  binaryMask_y, 0.5f, 1.0f, cv::THRESH_BINARY);
+                  binaryMask_y, 0.794f, 1.0f, cv::THRESH_BINARY);
     binaryMask_y.convertTo(binaryMask_y, y.type());
 
     cv::Mat binaryMask_u_v;
     auto extended_box_u_v = calc_point_for_u_v_planes(cv::Point(extended_box.x, extended_box.y));
     cv::threshold(resized_u_v({cv::Point((x0_u_v - extended_box_u_v.x), (y0_u_v - extended_box_u_v.y)),
                                cv::Point((x1_u_v - extended_box_u_v.x), (y1_u_v - extended_box_u_v.y))}),
-                  binaryMask_u_v, 0.5f, 1.0f, cv::THRESH_BINARY);
+                  binaryMask_u_v, 0.794f, 1.0f, cv::THRESH_BINARY);
     binaryMask_u_v.convertTo(binaryMask_u_v, u_v.type());
 
     cv::Rect roi_y(x0_y, y0_y, x1_y - x0_y, y1_y - y0_y);

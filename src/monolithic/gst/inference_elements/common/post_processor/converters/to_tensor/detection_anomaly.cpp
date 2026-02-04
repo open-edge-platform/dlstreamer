@@ -32,8 +32,10 @@ TensorsTable DetectionAnomalyConverter::convert(const OutputBlobs &output_blobs)
 
         double pred_score = 0.0;
         double image_threshold_norm = normalize(image_threshold, 0.0f);
+        double pixel_threshold_norm =
+            image_threshold_norm; // Pixel level threshold used to segment anomalous regions in the image
         cv::Mat anomaly_map;
-        cv::Mat pred_mask;
+        cv::Mat seg_mask;
         std::string pred_label = "";
 
         for (const auto &blob_iter : output_blobs) {
@@ -64,9 +66,13 @@ TensorsTable DetectionAnomalyConverter::convert(const OutputBlobs &output_blobs)
 
             anomaly_map = cv::Mat((int)img_height, (int)img_width, CV_32FC1, const_cast<float *>(data));
             anomaly_map = anomaly_map / normalization_scale;
-            anomaly_map = cv::min(cv::max(anomaly_map, 0.f), 1.f);
-            //  find the max predicted score
+            anomaly_map = cv::min(cv::max(anomaly_map, 0.f), 1.f); // [0, 1] normalization
+            // find the the highest anomaly score in the anomaly map
             cv::minMaxLoc(anomaly_map, NULL, &pred_score);
+
+            // create segmentation mask from anomaly map using pixel-level threshold
+            cv::threshold(anomaly_map, seg_mask, pixel_threshold_norm, 1.0f, cv::THRESH_BINARY);
+            // seg_mask.convertTo(seg_mask, CV_8UC1, 255);
 
             const auto &labels = getLabels();
             if (labels.size() != DEF_TOTAL_LABELS_COUNT)
@@ -74,6 +80,16 @@ TensorsTable DetectionAnomalyConverter::convert(const OutputBlobs &output_blobs)
                                          std::to_string(labels.size()));
 
             pred_label = labels[pred_score > image_threshold_norm ? 1 : 0];
+            /*
+            if (pred_label == "Anomaly") {
+                // write segmentation mask to a PNG image buffer
+                g_print("Anomalous frame detected. Writing segmentation mask to a PNG image buffer... _ %d _\n",
+                        lbl_anomaly_cnt);
+                std::vector<uchar> buf;
+                char filename[256];
+                snprintf(filename, sizeof(filename), "/home/labrat/anomaly_tmp/segmask_%d.png", lbl_anomaly_cnt);
+                cv::imwrite(filename, seg_mask);
+            }*/
 
             logParamsStats(pred_label, pred_score, image_threshold_norm);
 
@@ -87,6 +103,22 @@ TensorsTable DetectionAnomalyConverter::convert(const OutputBlobs &output_blobs)
                 gst_structure_set(classification_result.gst_structure(), "tensor_id", G_TYPE_INT,
                                   safe_convert<int>(frame_index), "type", G_TYPE_STRING, "classification_result",
                                   "precision", G_TYPE_INT, static_cast<int>(blob->GetPrecision()), NULL);
+
+                // Add segmentation mask data if anomaly detected
+                if (pred_label == "Anomaly") {
+                    g_print("Anomalous frame detected, image height %d(%ld), image width %d(%ld) ... _ %d _\n",
+                            seg_mask.rows, img_height, seg_mask.cols, img_width, lbl_anomaly_cnt);
+                    // Convert seg_mask to float for compatibility with watermark renderer
+                    // cv::Mat seg_mask_float;
+                    // seg_mask.convertTo(seg_mask_float, CV_32F, 1.0f / 255.0f); // normalize to [0, 1]
+
+                    classification_result.set_format("segmentation_mask");
+                    classification_result.set_dims(
+                        {safe_convert<uint32_t>(seg_mask.cols), safe_convert<uint32_t>(seg_mask.rows)});
+                    classification_result.set_precision(GVA::Tensor::Precision::FP32);
+                    classification_result.set_data(reinterpret_cast<const void *>(seg_mask.data),
+                                                   seg_mask.rows * seg_mask.cols * sizeof(float));
+                }
 
                 std::vector<GstStructure *> tensors{classification_result.gst_structure()};
                 tensors_table[frame_index].push_back(tensors);
