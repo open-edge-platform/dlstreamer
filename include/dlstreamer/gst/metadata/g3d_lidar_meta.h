@@ -32,7 +32,7 @@ DLS_EXPORT const GstMetaInfo *lidar_meta_get_info(void);
 #define LIDAR_META_INFO (lidar_meta_get_info())
 
 DLS_EXPORT LidarMeta *add_lidar_meta(GstBuffer *buffer, guint lidar_point_count, const std::vector<float> &lidar_data,
-                          size_t frame_id, GstClockTime exit_lidarparse_timestamp, guint stream_id);
+                                     size_t frame_id, GstClockTime exit_lidarparse_timestamp, guint stream_id);
 
 G_END_DECLS
 

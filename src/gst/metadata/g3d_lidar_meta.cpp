@@ -50,7 +50,7 @@ DLS_EXPORT const GstMetaInfo *lidar_meta_get_info(void) {
 }
 
 DLS_EXPORT LidarMeta *add_lidar_meta(GstBuffer *buffer, guint lidar_point_count, const std::vector<float> &lidar_data,
-                          size_t frame_id, GstClockTime exit_lidarparse_timestamp, guint stream_id) {
+                                     size_t frame_id, GstClockTime exit_lidarparse_timestamp, guint stream_id) {
     if (!buffer) {
         GST_WARNING("Cannot add meta to NULL buffer");
         return nullptr;
