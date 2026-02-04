@@ -102,8 +102,10 @@ echo %INPUT% | findstr /C:"://" >nul
 if %ERRORLEVEL%==0 (
     set SOURCE_ELEMENT=urisourcebin uri=%INPUT%
 ) else (
-    set "SOURCE_ELEMENT=filesrc location=%INPUT:\=/%"
+    set INPUT_PATH=%INPUT:\=/%
+    set SOURCE_ELEMENT=filesrc location=%INPUT_PATH%
 )
+
 
 @REM Set pre-process backend based on device
 @REM On Windows: use d3d11 for GPU/NPU, ie for CPU

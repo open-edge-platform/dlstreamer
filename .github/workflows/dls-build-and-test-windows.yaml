@@ -17,12 +17,21 @@ on:
         default: "main"
 permissions: {}
 env:
-  DLS_TARGET_DIRECTORY: 'C:\dlstreamer'
   DLS_REPO_TARGET_DIRECTORY: 'C:\dlstreamer_repo'
+  DLS_BUILD_DIRECTORY: 'C:\dlstreamer_tmp\build'
+  DLS_DLL_TARGET_DIRECTORY: 'C:\dlstreamer'
+  OPENVINO_RUNTIME_DIRECTORY: 'C:\openvino\runtime'
+  GSTREAMER_DIRECTORY: 'C:\gstreamer'
+  BUILD_TOOLS_DIRECTORY: 'C:\BuildTools'
+  VCPKG_DIRECTORY: 'C:\vcpkg'
+  MODELS_PATH: 'C:\models'
+  VIDEO_INPUTS_PATH: 'C:\videos'
+  TESTS_RESULTS_DIRECTORY: 'C:\dlstreamer_test_results'
+  PYTHON_VERSION: '3.12.7'
 
 jobs:
-  DLS_Building:
-    name: "[${{ matrix.runner_print_label }}] Build Windows DLLs"
+  DLS_Building_and_Testing:
+    name: "[${{ matrix.runner_print_label }}] Build and Test Windows DLLs"
     runs-on: ${{ matrix.runner_labels }}
     permissions:
       contents: read
@@ -30,7 +39,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # Build and run tests on Arrow Lake system with Ubuntu 24
           - runner_labels: [self-hosted, dlstreamer, ARL, windows]
             runner_print_label: ARL
     steps:
@@ -68,8 +76,8 @@ jobs:
       - name: Copy DLLs
         shell: powershell
         run: |
-          $target = "${{ env.DLS_TARGET_DIRECTORY }}"
-          $source = "C:\dlstreamer_tmp\build\intel64\Release\bin"
+          $target = "${{ env.DLS_DLL_TARGET_DIRECTORY }}"
+          $source = "${{ env.DLS_BUILD_DIRECTORY }}\intel64\Release\bin"
           Write-Host "`nContents of source directory ($source):"
           Get-ChildItem -Path $source -Recurse
           if (Test-Path $target) {
@@ -88,7 +96,7 @@ jobs:
       - name: Print list of DLLs with sizes
         shell: powershell
         run: |
-          $files = Get-ChildItem -Path ${{ env.DLS_TARGET_DIRECTORY }} -Recurse -Filter *.dll -File
+          $files = Get-ChildItem -Path ${{ env.DLS_DLL_TARGET_DIRECTORY }} -Recurse -Filter *.dll -File
           $table = $files | ForEach-Object {
               "| $($_.Name) | $([math]::Round($_.Length / 1KB, 2)) KB |"
           }
@@ -104,29 +112,6 @@ jobs:
           $summary -join "`n" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
 
 # ======================================================== TESTING PART ========================================================
-  DLS_Testing:
-    name: "[${{ matrix.runner_print_label }}] DLStreamer Testing on Windows"
-    runs-on: ${{ matrix.runner_labels }}
-    needs: DLS_Building
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - runner_labels: [self-hosted, dlstreamer, ARL, windows]  # Build and run tests on Arrow Lake system with Ubuntu 24
-            runner_print_label: ARL
-    env:
-      OPENVINO_RUNTIME_DIRECTORY: 'C:\openvino\runtime'
-      DLSTREAMER_DIRECTORY: 'C:\dlstreamer'
-      GSTREAMER_DIRECTORY: 'C:\gstreamer'
-      BUILD_TOOLS_DIRECTORY: 'C:\BuildTools'
-      VCPKG_DIRECTORY: 'C:\vcpkg'
-      GST_PLUGIN_PATH: 'C:\dlstreamer'
-      MODELS_PATH: 'C:\models'
-      VIDEO_INPUTS_PATH: 'C:\videos'
-      TESTS_RESULTS_DIRECTORY: 'C:\dlstreamer_test_results'
-      PYTHON_VERSION: '3.12.7'
-
-    steps:
       - name: Checkout DLStreamer test repository
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # 5.0.0
         with:
@@ -135,7 +120,7 @@ jobs:
           ref: ${{ inputs.test-repo-branch }}
           persist-credentials: false
 
-      - name: Set up Python ${{ env.PYTHON_VERSION }}
+      - name: Install Python
         uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # 5.0.0
         id: cp312
         with:
@@ -158,9 +143,7 @@ jobs:
               @{ Name = "Models"; Path = "${{ env.MODELS_PATH }}" },
               @{ Name = "Video Inputs"; Path = "${{ env.VIDEO_INPUTS_PATH }}" }
           )
-
           $errorCount = 0
-
           foreach ($res in $Resources) {
               Write-Host "Checking $($res.Name) directory: $($res.Path)..."
 
@@ -169,16 +152,14 @@ jobs:
                   $errorCount++
                   continue
               }
-
               $hasFiles = Get-ChildItem -Path $res.Path -Recurse -File -ErrorAction SilentlyContinue | Select-Object -First 1
               if (-not $hasFiles) {
                   Write-Host "::error:: $($res.Name) directory is EMPTY at $($res.Path)"
                   $errorCount++
               } else {
-                  Write-Host "✓ $($res.Name) directory is valid and has files."
+                  Write-Host "[OK] $($res.Name) directory is valid and has files."
               }
           }
-
           if ($errorCount -gt 0) {
               Write-Error "Resource validation failed. $errorCount directories are missing or empty."
               exit 1
@@ -189,33 +170,29 @@ jobs:
         run: |
           $deps = @{
             "OpenVINO Runtime" = $env:OPENVINO_RUNTIME_DIRECTORY
-            "DLStreamer"       = $env:DLSTREAMER_DIRECTORY
+            "DLStreamer"       = $env:DLS_DLL_TARGET_DIRECTORY
             "GStreamer"        = $env:GSTREAMER_DIRECTORY
             "Build Tools"      = $env:BUILD_TOOLS_DIRECTORY
             "vcpkg"            = $env:VCPKG_DIRECTORY
             "Python Executable"= $env:PYTHON_EXE_PATH
           }
-
           "### Dependency Check Results" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
           "| Dependency Name | Status | Expected Path |" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
           "| :--- | :---: | :--- |" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
 
           $errorCount = 0
           Write-Host "Checking dependencies..."
-
           foreach ($name in $deps.Keys) {
             $path = $deps[$name]
             $exists = Test-Path $path
-
             if ($exists) {
               $status = "Found"
-              Write-Host "✓ $name found at $path"
+              Write-Host "[OK] $name found at $path"
             } else {
               $status = "**Missing**"
-              Write-Host "X $name NOT found at $path"
+              Write-Host "[Missing] $name NOT found at $path"
               $errorCount++
             }
-
             "| $name | $status | ``$path`` |" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
           }
 
@@ -226,13 +203,13 @@ jobs:
             exit 1
           }
 
-      - name: Setup Windows PATH for following tests
+      - name: Setup static Windows PATH for following tests
         shell: powershell
         run: |
           $customPaths = @(
             "${env:OPENVINO_RUNTIME_DIRECTORY}\bin\intel64\Release",
             "${env:OPENVINO_RUNTIME_DIRECTORY}\3rdparty\tbb\bin",
-            "${env:DLSTREAMER_DIRECTORY}",
+            "${env:DLS_DLL_TARGET_DIRECTORY}",
             "${env:GSTREAMER_DIRECTORY}\1.0\msvc_x86_64\bin",
             "${env:BUILD_TOOLS_DIRECTORY}\MSBuild\Current\Bin\amd64",
             "${env:BUILD_TOOLS_DIRECTORY}\VC\Tools\MSVC\14.44.35207\bin\HostX86\x86",
@@ -245,6 +222,10 @@ jobs:
           foreach ($p in $customPaths) {
             echo "$p" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
           }
+
+          $gstPluginPath = "${env:GSTREAMER_DIRECTORY}\1.0\msvc_x86_64\lib\gstreamer-1.0;${env:DLS_DLL_TARGET_DIRECTORY}"
+          echo "GST_PLUGIN_PATH=$gstPluginPath" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
           "### Configured PATH Locations" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
           foreach ($p in $customPaths) {
             "- ``$p``" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
@@ -254,7 +235,7 @@ jobs:
         shell: powershell
         run: |
           [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-
+          Write-Host "Current GST_PLUGIN_PATH: $env:GST_PLUGIN_PATH"
           $elements = @(
             "gvadetect",
             "gvametapublish",
@@ -343,9 +324,6 @@ jobs:
               New-Item -ItemType Directory -Path $internalResults -Force | Out-Null
           }
 
-          $CurrentRunner = $env:RUNNER_NAME
-          Write-Host "Running on: $CurrentRunner"
-
       - name: Run functional tests with powershell
         id: run-tests
         shell: powershell
@@ -432,9 +410,9 @@ jobs:
         shell: powershell
         run: |
           $PathsToClean = @(
-              "C:\dlstreamer_tmp\build",
+              "${{ env.DLS_BUILD_DIRECTORY }}",
               "${{ env.TESTS_RESULTS_DIRECTORY }}",
-              "${{ env.DLS_TARGET_DIRECTORY }}",
+              "${{ env.DLS_DLL_TARGET_DIRECTORY }}",
               "${{ env.DLS_REPO_TARGET_DIRECTORY }}"
           )
 
