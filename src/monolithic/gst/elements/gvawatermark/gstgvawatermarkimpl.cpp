@@ -159,10 +159,6 @@ struct Impl {
     Color _default_color = indexToColor(1);
     // Position for full-frame text
     const cv::Point2f _ff_text_position = cv::Point2f(0, 25.f);
-    struct FontCfg {
-        const int type = cv::FONT_HERSHEY_TRIPLEX;
-        const double scale = 1.0;
-    } _font;
     const bool _obb = false;
     bool _displ_avgfps = false;
     gchar *_displ_cfg = nullptr;
@@ -172,7 +168,8 @@ struct Impl {
         bool draw_text_background = false;
         int color_idx = DEFAULT_COLOR_IDX;
         uint thickness = DEFAULT_THICKNESS;
-        double text_scale = DEFAULT_TEXT_SCALE;
+        int font_type = cv::FONT_HERSHEY_TRIPLEX;
+        double font_scale = DEFAULT_TEXT_SCALE;
     } _displCfg;
 };
 
@@ -830,7 +827,8 @@ bool Impl::extract_primitives(GstBuffer *buffer) {
     }
 
     if (ff_text.tellp() != 0)
-        prims.emplace_back(render::Text(ff_text.str(), _ff_text_position, _font.type, _font.scale, _default_color));
+        prims.emplace_back(
+            render::Text(ff_text.str(), _ff_text_position, _displCfg.font_type, _displCfg.font_scale, _default_color));
 
     return true;
 }
@@ -924,8 +922,7 @@ void Impl::preparePrimsForRoi(GVA::RegionOfInterest &roi, std::vector<render::Pr
             cv::Point2f pos(rect.x, rect.y - 5.f);
             if (pos.y < 0)
                 pos.y = rect.y + 30.f;
-            double scale = (_displCfg.text_scale != _font.scale) ? _displCfg.text_scale : _font.scale;
-            prims.emplace_back(render::Text(text.str(), pos, _font.type, scale, color));
+            prims.emplace_back(render::Text(text.str(), pos, _displCfg.font_type, _displCfg.font_scale, color));
         }
 
     // put avg-fps from gvafpscounter element
@@ -937,7 +934,8 @@ void Impl::preparePrimsForRoi(GVA::RegionOfInterest &roi, std::vector<render::Pr
             fpstext << "[avg " << std::fixed << std::setprecision(1) << avg_fps << " FPS]";
             if (fpstext.str().size() != 0) {
                 cv::Point2f pos(_vinfo->width * 0.7, _vinfo->height - 20.f);
-                prims.emplace_back(render::Text(fpstext.str(), pos, _font.type, _font.scale * 0.7, indexToColor(1)));
+                prims.emplace_back(
+                    render::Text(fpstext.str(), pos, _displCfg.font_type, _displCfg.font_scale * 0.7, indexToColor(1)));
             }
         }
     }
@@ -1144,42 +1142,34 @@ void Impl::parse_displ_config() {
     auto cfg = Utils::stringToMap(displcfg_str);
     auto iter = cfg.end();
     try {
-        iter = cfg.find("text-scale");
-        if (iter != cfg.end()) {
-            _displCfg.text_scale = std::stof(iter->second);
-            if (_displCfg.text_scale > 2.0 || _displCfg.text_scale < 0.1) {
-                _displCfg.text_scale = 1.0;
-                GST_WARNING(
-                    "[gvawatermarkimpl] 'text-scale' parameter value is out of range (0.1, 2.0], set to default 1.0");
-            }
+        if (iter = cfg.find("show-labels"); iter != cfg.end()) {
+            _displCfg.show_labels = (iter->second != "false");
             cfg.erase(iter);
         }
-        iter = cfg.find("draw-txt-bg");
-        if (iter != cfg.end()) {
-            if (iter->second == "true" || iter->second == "false") {
-                _displCfg.draw_text_background = (iter->second == "true");
+
+        if (_displCfg.show_labels) {
+            if (iter = cfg.find("font-scale"); iter != cfg.end()) {
+                _displCfg.font_scale = std::stof(iter->second);
+                if (_displCfg.font_scale > 2.0 || _displCfg.font_scale < 0.1) {
+                    GST_WARNING("[gvawatermarkimpl] 'font-scale' parameter value is out of range (0.1, 2.0], using "
+                                "default 1.0");
+                }
+                cfg.erase(iter);
             }
-            cfg.erase(iter);
-        }
-        iter = cfg.find("show-labels");
-        if (iter != cfg.end()) {
-            if (iter->second == "true" || iter->second == "false") {
-                _displCfg.show_labels = (iter->second == "true");
+            if (iter = cfg.find("draw-txt-bg"); iter != cfg.end()) {
+                _displCfg.draw_text_background = (iter->second != "false");
+                cfg.erase(iter);
             }
-            cfg.erase(iter);
         }
-        iter = cfg.find("thickness");
-        if (iter != cfg.end()) {
+        if (iter = cfg.find("thickness"); iter != cfg.end()) {
             _displCfg.thickness = std::stoi(iter->second);
             if (_displCfg.thickness < 1 || _displCfg.thickness >= 10) {
-                _displCfg.thickness = DEFAULT_THICKNESS;
-                GST_WARNING("[gvawatermarkimpl] 'thickness' parameter value is out of range [1, 10], set to default %d",
+                GST_WARNING("[gvawatermarkimpl] 'thickness' parameter value is out of range [1, 10], using default %d",
                             DEFAULT_THICKNESS);
             }
             cfg.erase(iter);
         }
-        iter = cfg.find("color-idx");
-        if (iter != cfg.end()) {
+        if (iter = cfg.find("color-idx"); iter != cfg.end()) {
             int _color_idx = std::stoi(iter->second);
             if (_color_idx >= 0 && _color_idx <= 2) {
                 if (_color_idx == 0)
@@ -1191,9 +1181,8 @@ void Impl::parse_displ_config() {
 
                 _displCfg.color_idx = _color_idx;
             } else {
-                _displCfg.color_idx = DEFAULT_COLOR_IDX;
                 GST_WARNING("[gvawatermarkimpl] 'color-idx' parameter value is out of range [0, 2], using default "
-                            "colors, set to default %d",
+                            "colors %d",
                             DEFAULT_COLOR_IDX);
             }
             cfg.erase(iter);
