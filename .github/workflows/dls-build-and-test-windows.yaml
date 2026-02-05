@@ -24,8 +24,8 @@ env:
   GSTREAMER_DIRECTORY: 'C:\gstreamer'
   BUILD_TOOLS_DIRECTORY: 'C:\BuildTools'
   VCPKG_DIRECTORY: 'C:\vcpkg'
-  MODELS_PATH: 'C:\models'
-  VIDEO_INPUTS_PATH: 'C:\videos'
+  MODELS_PATH: 'C:\models\models'
+  VIDEO_INPUTS_PATH: 'C:\videos\videos'
   TESTS_RESULTS_DIRECTORY: 'C:\dlstreamer_test_results'
   PYTHON_VERSION: '3.12.7'
 
