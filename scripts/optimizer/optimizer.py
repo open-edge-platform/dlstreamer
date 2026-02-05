@@ -46,7 +46,7 @@ class DLSOptimizer:
     def set_sample_duration(self, duration):
         self._sample_duration = duration
 
-    def set_multistrea_fps_limit(self, limit):
+    def set_multistream_fps_limit(self, limit):
         self._multistream_fps_limit = limit
 
     ################################### Main Logic ################################################

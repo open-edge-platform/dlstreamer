@@ -50,7 +50,7 @@ logger = logging.getLogger(__name__)
 optimizer = DLSOptimizer()
 optimizer.set_search_duration(args.search_duration)
 optimizer.set_sample_duration(args.sample_duration)
-optimizer.set_multistrea_fps_limit(args.multistream_fps_limit)
+optimizer.set_multistream_fps_limit(args.multistream_fps_limit)
 
 pipeline = " ".join(args.PIPELINE)
     
