@@ -66,7 +66,7 @@ if __name__ == '__main__':
         test_pipeline_gvafpsthrottle))
     suite_gstgva.addTests(loader.loadTestsFromModule(
         test_pipeline_g3dradarprocess))
-    
+
     runner = unittest.TextTestRunner(verbosity=3)
     result = runner.run(suite_gstgva)
 
@@ -76,3 +76,4 @@ if __name__ == '__main__':
     else:
         print("GVA-python tests has failed.")
         exit(1)
+
