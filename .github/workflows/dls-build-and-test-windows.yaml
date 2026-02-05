@@ -42,6 +42,30 @@ jobs:
           - runner_labels: [self-hosted, dlstreamer, ARL, windows]
             runner_print_label: ARL
     steps:
+      - name: Initialize Emojis
+        shell: powershell
+        run: |
+          $emojis = @{
+            "EPASS"    = [char]0x2705  # ✅
+            "EFAIL"    = [char]0x274C  # ❌
+            "EWARN"    = [char]0x26A0  # ⚠️
+            "EINFO"    = [char]0x2139  # ℹ️
+            "EROCKET"  = [System.Char]::ConvertFromUtf32(0x1F680)  # 🚀
+            "EBOX"     = [System.Char]::ConvertFromUtf32(0x1F4E6)  # 📦
+            "EGEAR"    = [System.Char]::ConvertFromUtf32(0x2699)   # ⚙️ (Setup/Settings)
+            "ESEARCH"  = [System.Char]::ConvertFromUtf32(0x1F50D)  # 🔍 (Validate/Inspect)
+            "ERUN"     = [System.Char]::ConvertFromUtf32(0x1F3C3)  # 🏃 (Running/Action)
+            "ECHART"   = [System.Char]::ConvertFromUtf32(0x1F4CA)  # 📊 (Results/Stats)
+            "EMEMO"    = [System.Char]::ConvertFromUtf32(0x1F4DD)  # 📝 (Summary/Notes)
+            "ESTETH"   = [System.Char]::ConvertFromUtf32(0x1FA7A)  # 🩺 (Health Check/Elements)
+          }
+          $lines = New-Object System.Collections.Generic.List[string]
+          foreach ($name in $emojis.Keys) {
+            $lines.Add("$name=$($emojis[$name])")
+          }
+          $utf8NoBom = New-Object System.Text.UTF8Encoding $false
+          [System.IO.File]::AppendAllLines($env:GITHUB_ENV, $lines, $utf8NoBom)
+
       - name: Check out dlstreamer repository
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # 5.0.0
         with:
@@ -67,7 +91,7 @@ jobs:
           Copy-Item -Path "dlstreamer-repo\*" -Destination ${{ env.DLS_REPO_TARGET_DIRECTORY }} -Recurse -Force
 
       # ======================================================== BUILDING PART ========================================================
-      - name: 📦 Build DLStreamer DLLs
+      - name: "${{ env.EBOX }} Build DLStreamer DLLs"
         shell: powershell
         run: |
           cd ${{ env.DLS_REPO_TARGET_DIRECTORY }}
@@ -93,25 +117,38 @@ jobs:
           Write-Host "`nContents of target directory after copying ($target):"
           Get-ChildItem -Path $target -Recurse
 
-      - name: Print list of DLLs with sizes
+      - name: "${{ env.EBOX }} Print list of DLLs with sizes"
         shell: powershell
         run: |
-          $files = Get-ChildItem -Path ${{ env.DLS_DLL_TARGET_DIRECTORY }} -Recurse -Filter *.dll -File
-          $table = $files | ForEach-Object {
-              "| $($_.Name) | $([math]::Round($_.Length / 1KB, 2)) KB |"
-          }
-          $count = $files.Count
-          $summary = @()
-          $summary += "### List of built DLL files"
-          $summary += ""
-          $summary += "| File |  Size  |"
-          $summary += "|------|--------|"
-          $summary += $table
-          $summary += ""
-          $summary += "**Count of files:** $count"
-          $summary -join "`n" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+          $dllDir = "${{ env.DLS_DLL_TARGET_DIRECTORY }}"
+          $files = Get-ChildItem -Path $dllDir -Recurse -Filter *.dll -File
 
-# ======================================================== TESTING PART ========================================================
+          $summaryLines = New-Object System.Collections.Generic.List[string]
+          $summaryLines.Add("## $($env:EBOX) Build Artifacts")
+          $summaryLines.Add("")
+          $summaryLines.Add("**Total DLLs found:** $($files.Count)")
+          $summaryLines.Add("")
+
+          $summaryLines.Add("<details>")
+          $summaryLines.Add("<summary>Detail DLL List (Click to expand)</summary>")
+          $summaryLines.Add("")
+
+          $summaryLines.Add("| File Name | Size |")
+          $summaryLines.Add("| :--- | :--- |")
+
+          foreach ($file in $files) {
+              $size = [math]::Round($file.Length / 1KB, 2)
+              $summaryLines.Add("| $($file.Name) | $size KB |")
+          }
+
+          $summaryLines.Add("")
+          $summaryLines.Add("</details>")
+          $summaryLines.Add("")
+
+          $utf8NoBom = New-Object System.Text.UTF8Encoding $false
+          [System.IO.File]::AppendAllLines($env:GITHUB_STEP_SUMMARY, $summaryLines, $utf8NoBom)
+
+      # ======================================================== TESTING PART ========================================================
       - name: Checkout DLStreamer test repository
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # 5.0.0
         with:
@@ -120,7 +157,7 @@ jobs:
           ref: ${{ inputs.test-repo-branch }}
           persist-credentials: false
 
-      - name: Install Python
+      - name: "Install Python v${{ env.PYTHON_VERSION }}"
         uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # 5.0.0
         id: cp312
         with:
@@ -168,7 +205,7 @@ jobs:
           }
           Write-Host "All dependencies verified successfully." -ForegroundColor Green
 
-      - name: Setup static Windows PATH for following tests
+      - name: "${{ env.EGEAR }} Setup static Windows PATH for following tests"
         shell: powershell
         run: |
           $customPaths = @(
@@ -197,47 +234,41 @@ jobs:
           Write-Host "----------------------------------------------"
           Write-Host "Successfully configured GST_PLUGIN_PATH=$gstPluginPath" -ForegroundColor Green
 
-      - name: Validate DLStreamer elements
+      - name: "${{ env.ESEARCH }} Validate DLStreamer elements"
         shell: powershell
         run: |
           [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-          Write-Host "Current GST_PLUGIN_PATH: $env:GST_PLUGIN_PATH"
-          $elements = @(
-            "gvadetect",
-            "gvametapublish",
-            "gvaclassify",
-            "gvawatermark",
-            "gvawatermark3d",
-            "gvagenai"
-          )
-
-          "### DLStreamer Elements Availability" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
-          "| Element Name | Status | Details |" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
-          "| :--- | :---: | :--- |" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
-
+          $elements = @("gvadetect", "gvametapublish", "gvaclassify", "gvawatermark", "gvawatermark3d", "gvagenai")
           $allFound = $true
-          $summaryRows = @()
+
+          $lines = New-Object System.Collections.Generic.List[string]
+          $lines.Add("")
+          $lines.Add("## $($env:ESTETH) DLStreamer Elements Availability")
+          $lines.Add("")
+          $lines.Add("| Element Name | Status | Details |")
+          $lines.Add("| :--- | :---: | :--- |")
 
           foreach ($el in $elements) {
-            Write-Host "Inspecting $el..."
-            gst-inspect-1.0.exe $el > $null 2>&1
-            $result = $?
-
-            if ($result) {
-              $statusEmoji = "True"
-              $detail = "Available"
-            } else {
-              $statusEmoji = "False"
-              $detail = "Missing or Plugin Path Error"
-              $allFound = $false
-            }
-
-            "| $el | $statusEmoji | $detail |" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+              Write-Host "Inspecting $el..."
+              gst-inspect-1.0.exe $el > $null 2>&1
+              if ($?) {
+                  $statusEmoji = $env:EPASS
+                  $detail = "Available"
+              } else {
+                  $statusEmoji = $env:EFAIL
+                  $detail = "Missing or Plugin Path Error"
+                  $allFound = $false
+              }
+              $lines.Add("| $el | $statusEmoji | $detail |")
           }
 
+          $lines.Add("")
+          $utf8NoBom = New-Object System.Text.UTF8Encoding $false
+          [System.IO.File]::AppendAllLines($env:GITHUB_STEP_SUMMARY, $lines, $utf8NoBom)
+
           if (-not $allFound) {
-            Write-Error "CRITICAL: Some DLStreamer elements are missing. Check the Job Summary for details."
-            exit 1
+              Write-Host "::error::CRITICAL: Some DLStreamer elements are missing!"
+              exit 1
           }
 
       - name: Install Python dependencies in VENV
@@ -319,7 +350,7 @@ jobs:
               exit 1
           }
 
-      - name: Run functional tests with powershell
+      - name: "${{ env.ERUN }} Run functional tests with powershell"
         id: run-tests
         shell: powershell
         env:
@@ -369,36 +400,39 @@ jobs:
           name: test_results_on_host_Windows_ARL_tests_results
           path: ${{ env.TESTS_RESULTS_DIRECTORY }}
 
-      - name: Show results and check for failures
+      - name: "${{ env.ECHART }} Show results and check for failures"
         if: always()
         shell: powershell
         run: |
+          [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+
           $reportDirectory = "${{ env.TESTS_RESULTS_DIRECTORY }}"
           $reportFile = Join-Path $reportDirectory "test_results_on_host_Windows_ARL_tests_results.txt"
-
           if (-not (Test-Path $reportFile)) {
             Write-Error "Report file not found: $reportFile"
             exit 1
           }
 
-          $content = Get-Content -Path $reportFile -Raw
+          $content = Get-Content -Path $reportFile -Raw -Encoding utf8
 
           $hasFailures = $content -match '\[! FAIL !\]'
 
-          $displayContent = $content -replace '\[pass\]', ':white_check_mark:'
-          $displayContent = $displayContent -replace '\[! FAIL !\]', ':x:'
+          $displayContent = $content -replace '\[pass\]', "$($env:EPASS)"
+          $displayContent = $displayContent -replace '\[! FAIL !\]', "$($env:EFAIL)"
 
-          "## Test summary for: $(Split-Path $reportFile -Leaf)" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
-          $displayContent | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+          $summaryHeader = "## $($env:EMEMO) Test summary for: $(Split-Path $reportFile -Leaf)"
+          $utf8NoBom = New-Object System.Text.UTF8Encoding $false
+          [System.IO.File]::AppendAllText($env:GITHUB_STEP_SUMMARY, "$summaryHeader`n$displayContent", $utf8NoBom)
 
           if ($hasFailures) {
               Write-Host "--------------------------------------------------"
-              Write-Host "CRITICAL: Detected failed test cases in the report!"
+              Write-Host "$($env:EFAIL) CRITICAL: Detected failed test cases in the report!"
               Write-Host "--------------------------------------------------"
               exit 1
           } else {
-              Write-Host "All test cases passed according to the report."
+              Write-Host "$($env:EPASS) All test cases passed according to the report."
           }
+
       # ======================================================== CLEAUP PART ========================================================
       - name: Clean up
         if: always()
