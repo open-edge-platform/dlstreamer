@@ -53,7 +53,7 @@ optimizer.set_sample_duration(args.sample_duration)
 optimizer.set_multistream_fps_limit(args.multistream_fps_limit)
 
 pipeline = " ".join(args.PIPELINE)
-    
+
 #logger.info("\nBest found pipeline: %s \nwith fps: %.2f\nwith batches: %d", pipeline, fps, batches)
 try:
     match args.mode:

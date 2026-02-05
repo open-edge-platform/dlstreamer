@@ -118,13 +118,13 @@ class DLSOptimizer:
         best_pipeline = initial_pipeline
         best_fps = 0
         best_streams = 0
-        for streams in range(1, 65):            
+        for streams in range(1, 65):
             pipeline, fps = self._optimize_pipeline(initial_pipeline, 0, start_time, streams)
             if fps > self._multistream_fps_limit:
                 best_fps = fps
                 best_pipeline = pipeline
                 best_streams = streams
-            else: 
+            else:
                 break
 
         return "!".join(best_pipeline), best_fps, best_streams
@@ -132,7 +132,7 @@ class DLSOptimizer:
     def _optimize_pipeline(self, starting_pipeline, starting_fps, start_time, streams):
         best_pipeline = starting_pipeline
         best_fps = starting_fps
-        
+
         for generator in self._generators:
             generator.init_pipeline(best_pipeline)
             for pipeline in generator:
