@@ -10,6 +10,7 @@ setlocal
 
 set INPUT=%1
 if [%INPUT%]==[] set INPUT=%~dp0how_are_you_doing.wav
+set OUTPUT=%2
 
 if NOT DEFINED AUDIO_MODELS_PATH (
     if NOT DEFINED MODELS_PATH (
@@ -40,11 +41,18 @@ if NOT EXIST "%MODEL_PROC_PATH%" (
 set MODEL_PATH=%MODEL_PATH:\=/%
 set MODEL_PROC_PATH=%MODEL_PROC_PATH:\=/%
 
+if [%OUTPUT%]==[] (
+    set "PUBLISH_ELEMENT=gvametapublish file-format=json-lines"
+) else (
+    set OUTPUT=!OUTPUT:\=/!
+    set "PUBLISH_ELEMENT=gvametapublish file-format=json-lines file-path=!OUTPUT!"
+)
+
 setlocal DISABLEDELAYEDEXPANSION
 set PIPELINE=gst-launch-1.0 %SOURCE_ELEMENT% ! ^
 decodebin3 ! audioresample ! audioconvert ! audio/x-raw, channels=1,format=S16LE,rate=16000 ! audiomixer output-buffer-duration=100000000 ! ^
 gvaaudiodetect model="%MODEL_PATH%" model-proc="%MODEL_PROC_PATH%" sliding-window=0.2 ^
-! gvametaconvert ! gvametapublish file-format=json-lines ! fakesink
+! gvametaconvert ! %PUBLISH_ELEMENT% ! fakesink
 setlocal ENABLEDELAYEDEXPANSION
 
 echo !PIPELINE!

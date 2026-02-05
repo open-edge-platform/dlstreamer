@@ -156,7 +156,7 @@ void IterativeFpsCounter::PrintFPS(FILE *output, double sec, bool eos) {
     } else {
         fprintf(output, "FpsCounter(last %.2fsec): ", sec);
     }
-    fprintf(output, "total=%.2f fps, number-streams=%ld, per-stream=%.2f fps", total, num_frames.size(),
+    fprintf(output, "total=%.2f fps, number-streams=%zu, per-stream=%.2f fps", total, num_frames.size(),
             total / num_frames.size());
     if (num_frames.size() > 1 && print_each_stream) {
         fprintf(output, " (");
