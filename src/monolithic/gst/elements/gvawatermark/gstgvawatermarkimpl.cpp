@@ -33,8 +33,6 @@
 #endif
 #else
 #include <dlstreamer/gst/mappers/gst_to_d3d11.h>
-#define GST_USE_UNSTABLE_API
-#include <gst/d3d11/gstd3d11.h>
 #endif
 
 #include "renderer/color_converter.h"
