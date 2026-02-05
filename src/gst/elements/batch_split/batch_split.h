@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -32,6 +32,6 @@ typedef struct _TensorSplitBatchClass {
     GstBaseTransformClass base_class;
 } TensorSplitBatchClass;
 
-GST_EXPORT GType batch_split_get_type(void);
+GType batch_split_get_type(void);
 
 G_END_DECLS
