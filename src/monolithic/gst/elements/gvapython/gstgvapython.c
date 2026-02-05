@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2020-2022 Intel Corporation
+ * Copyright (C) 2020-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -17,7 +17,7 @@
     "Provides a callback to execute user-defined Python functions on every frame. "                                    \
     "Can be used for metadata conversion, inference post-processing, and other tasks."
 
-GST_DEBUG_CATEGORY_STATIC(gst_gva_python_debug_category);
+GST_DEBUG_CATEGORY(gst_gva_python_debug_category);
 #define GST_CAT_DEFAULT gst_gva_python_debug_category
 
 enum { PROP_0, PROP_MODULE, PROP_CLASS, PROP_FUNCTION, PROP_ARGUMENT, PROP_KW_ARGUMENT };
