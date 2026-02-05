@@ -29,6 +29,7 @@ import test_pipeline_human_pose_estimation
 import test_pipeline_action_recognition
 import test_pipeline_optimizer
 import test_pipeline_gvafpsthrottle
+import test_pipeline_g3dradarprocess
 
 if __name__ == '__main__':
     loader = unittest.TestLoader()
@@ -63,7 +64,9 @@ if __name__ == '__main__':
         test_pipeline_human_pose_estimation))
     suite_gstgva.addTests(loader.loadTestsFromModule(
         test_pipeline_gvafpsthrottle))
-
+    suite_gstgva.addTests(loader.loadTestsFromModule(
+        test_pipeline_g3dradarprocess))
+    
     runner = unittest.TextTestRunner(verbosity=3)
     result = runner.run(suite_gstgva)
 
