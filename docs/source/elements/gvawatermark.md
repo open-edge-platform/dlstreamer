@@ -73,8 +73,9 @@ Element Properties:
                         thickness=<uint> bounding box thickness, default 2
                         color-idx=<int> color index for bounding box, keypoints, and text, default -1 (use default colors: 0 red, 1 green, 2 blue)
                         draw-txt-bg=<bool> enable or disable displaying text labels background, by enabling it the text color is set to white, default false
+                        font-type=<string> font type for text labels, default triplex. Supported fonts: simplex, plain, duplex, complex, triplex, complex_small, script_simplex, script_complex
                         e.g.: displ-cfg=show-labels=false
-                        e.g.: displ-cfg=font-scale=0.5,thickness=3,color-idx=2
+                        e.g.: displ-cfg=font-scale=0.5,thickness=3,color-idx=2,font-type=plain
                         flags: readable, writable
                         String. Default: null
   device              : Supported devices are CPU and GPU. Default is CPU on system memory and GPU on video memory

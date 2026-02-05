@@ -38,6 +38,7 @@
 #include "renderer/color_converter.h"
 #include "renderer/cpu/create_renderer.h"
 
+#include <array>
 #include <exception>
 #include <string>
 #include <typeinfo>
@@ -162,6 +163,16 @@ struct Impl {
     const bool _obb = false;
     bool _displ_avgfps = false;
     gchar *_displ_cfg = nullptr;
+
+    static constexpr std::array<std::pair<const char *, int>, 8> supportedFonts = {
+        {{"simplex", cv::FONT_HERSHEY_SIMPLEX},
+         {"plain", cv::FONT_HERSHEY_PLAIN},
+         {"duplex", cv::FONT_HERSHEY_DUPLEX},
+         {"complex", cv::FONT_HERSHEY_COMPLEX},
+         {"triplex", cv::FONT_HERSHEY_TRIPLEX},
+         {"complex_small", cv::FONT_HERSHEY_COMPLEX_SMALL},
+         {"script_simplex", cv::FONT_HERSHEY_SCRIPT_SIMPLEX},
+         {"script_complex", cv::FONT_HERSHEY_SCRIPT_COMPLEX}}};
 
     struct DisplCfg {
         bool show_labels = true;
@@ -1153,6 +1164,18 @@ void Impl::parse_displ_config() {
                 if (_displCfg.font_scale > 2.0 || _displCfg.font_scale < 0.1) {
                     GST_WARNING("[gvawatermarkimpl] 'font-scale' parameter value is out of range (0.1, 2.0], using "
                                 "default 1.0");
+                }
+                cfg.erase(iter);
+            }
+            if (iter = cfg.find("font-type"); iter != cfg.end()) {
+                auto font_it = std::find_if(supportedFonts.begin(), supportedFonts.end(),
+                                            [&](const auto &font) { return iter->second == font.first; });
+
+                if (font_it != supportedFonts.end()) {
+                    _displCfg.font_type = font_it->second;
+                } else {
+                    GST_WARNING("[gvawatermarkimpl] 'font-type' parameter value is not supported, using default "
+                                "'HERSHEY_TRIPLEX'");
                 }
                 cfg.erase(iter);
             }
