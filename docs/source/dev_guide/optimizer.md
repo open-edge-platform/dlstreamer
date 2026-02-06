@@ -6,7 +6,7 @@ Optimizations involve modifying inference elements that are part of DL Streamer,
 Modification of inference elements currently covers:
 - Discovering more suitable devices
 - Adjusting the batching of frames in an element
-- Adjusting the number of inference requests done simultanously (nireqs)
+- Adjusting the number of inference requests done simultaneously (nireqs)
 
 ## Limitations
 Currently the DLS Optimizer focuses mainly on DL Streamer elements, specifically the `gvadetect` and `gvaclassify`. The produced pipeline could still have potential for further optimization by transforming other elements.
