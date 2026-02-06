@@ -28,6 +28,7 @@ env:
   VIDEO_INPUTS_PATH: 'C:\videos\videos'
   TESTS_RESULTS_DIRECTORY: 'C:\dlstreamer_test_results'
   PYTHON_VERSION: '3.12.7'
+  DLL_EXPECTED_COUNT: 16
 
 jobs:
   DLS_Building_and_Testing:
@@ -123,10 +124,22 @@ jobs:
           $dllDir = "${{ env.DLS_DLL_TARGET_DIRECTORY }}"
           $files = Get-ChildItem -Path $dllDir -Recurse -Filter *.dll -File
 
+          $expectedCount = ${{ env.DLL_EXPECTED_COUNT }}
+          $actualCount = $files.Count
+          $isMismatch = $actualCount -ne $expectedCount
+
           $summaryLines = New-Object System.Collections.Generic.List[string]
           $summaryLines.Add("## $($env:EBOX) Build Artifacts")
           $summaryLines.Add("")
-          $summaryLines.Add("**Total DLLs found:** $($files.Count)")
+          if ($isMismatch) {
+              $statusMsg = "**Total DLLs found:** $actualCount ($($env:EWARN) **Expect: $expectedCount**)"
+              $summaryLines.Add($statusMsg)
+              Write-Host "::warning title=DLL Count Mismatch::Detected $actualCount DLLs, but expected $expectedCount."
+          } else {
+              $statusMsg = "**Total DLLs found:** $actualCount (Expect: $expectedCount $($env:EPASS))"
+              $summaryLines.Add($statusMsg)
+              Write-Host "[OK] Total DLLs found: $actualCount (Expect: $expectedCount)" -ForegroundColor Green
+          }
           $summaryLines.Add("")
 
           $summaryLines.Add("<details>")
@@ -350,7 +363,7 @@ jobs:
               exit 1
           }
 
-      - name: "${{ env.ERUN }} Run functional tests with powershell"
+      - name: "${{ env.EROCKET }} Run functional tests with powershell"
         id: run-tests
         shell: powershell
         env:
@@ -430,11 +443,11 @@ jobs:
 
           if ($hasFailures) {
               Write-Host "--------------------------------------------------"
-              Write-Host "$($env:EFAIL) CRITICAL: Detected failed test cases in the report!"
+              Write-Host "::error:: CRITICAL: Detected failed test cases in the report!"
               Write-Host "--------------------------------------------------"
               exit 1
           } else {
-              Write-Host "$($env:EPASS) All test cases passed according to the report."
+              Write-Host "[OK] All test cases passed according to the report."
           }
 
       # ======================================================== CLEAUP PART ========================================================
