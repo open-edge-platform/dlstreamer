@@ -1,0 +1,53 @@
+{
+    "RadarBasicConfig": [
+        {
+            "numRx": 4,
+            "numTx": 2,
+            "Start_frequency": 77,
+            "idle": 4,
+            "adcStartTime":6,
+            "rampEndTime":32,
+            "freqSlopeConst":30,
+            "adcSamples":256,
+            "adcSampleRate":10000,
+            "numChirps":64,
+            "fps":10
+
+        }
+    ],
+    "RadarDetectionConfig": [
+        {
+            "RangeWinType": 1,
+            "DopplerWinType": 1,
+            "AoaEstimationType": 2,
+            "DopplerCfarMethod": 1,
+            "DopplerPfa":2,
+            "DopplerWinGuardLen":4,
+            "DopplerWinTrainLen":8,
+            "RangeCfarMethod":1,
+            "RangePfa":3,
+            "RangeWinGuardLen":6,
+            "RangeWinTrainLen":10 
+        }
+    ],
+    "RadarClusteringConfig": [
+        {
+            "eps": 5.0,
+            "weight": 0,
+            "minPointsInCluster": 5,
+            "maxClusters": 20,
+            "maxPoints":1000
+
+        }
+    ],
+    "RadarTrackingConfig": [
+        {
+            "trackerAssociationThreshold": 2,
+            "measurementNoiseVariance": 0.1,
+            "timePerFrame": 10,
+            "iirForgetFactor": 1,
+            "trackerActiveThreshold": 0,
+            "trackerForgetThreshold": 0
+        }
+    ]
+}
