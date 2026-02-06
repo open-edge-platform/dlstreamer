@@ -142,7 +142,7 @@ if process:
 
 ---
 
-##### `prepare_commandline(camera_rtsp_url: str, pipeline_elements: str) -> str`
+##### `prepare_commandline(camera_rtsp_url: str, pipeline_elements: str) -> List[str]`
 
 Constructs a complete GStreamer command line from RTSP URL and pipeline elements.
 
@@ -151,7 +151,7 @@ Constructs a complete GStreamer command line from RTSP URL and pipeline elements
 - `pipeline_elements` (str): GStreamer pipeline chain (e.g., `! decodebin ! autovideosink`)
 
 **Returns:**
-- `str`: Complete command line ready for execution
+- `List[str]`: Complete command line ready for execution
 
 **Raises:**
 - `ValueError`: If either parameter is empty or None
@@ -266,7 +266,7 @@ Queries an ONVIF camera for available media profiles and extracts detailed confi
 
 **Returns:**
 - `List[ONVIFProfile]`: List of profile objects containing:
-  - Profile metadata (name, token, fixed status)
+  - Profile metadata (name, token, fixed status, video_source_configuration, video_encoder_configuration)
   - Video source configuration
   - Video encoder settings (codec, resolution, bitrate, quality)
   - Audio configurations (if available)
@@ -280,8 +280,6 @@ Queries an ONVIF camera for available media profiles and extracts detailed confi
 | **Profile** | name, token, fixed |
 | **Video Source** | name, token, source_token, bounds (x, y, width, height) |
 | **Video Encoder** | encoding (H264/H265/MJPEG), resolution, quality, framerate_limit, bitrate_limit, GOP length |
-| **Audio Source** | name, token, source_token |
-| **Audio Encoder** | encoding, bitrate, sample_rate |
 | **PTZ** | name, token, node_token |
 | **Streaming** | rtsp_url |
 
@@ -405,6 +403,8 @@ Contains ONVIF camera profile data with relevant configuration details for this 
 | `name` | str | Profile name |
 | `token` | str | Unique profile identifier |
 | `fixed` | bool | Whether profile is immutable |
+| `video_source_configuration` |  str | Video source configuration of the ONVIF profile |
+| `video_encoder_configuration` | str | Video encoder configuration of the ONVIF profile |
 | `rtsp_url` | str | RTSP streaming endpoint |
 | **Video Source Configuration** |
 | `vsc_name` | str | Video source name |
@@ -417,23 +417,14 @@ Contains ONVIF camera profile data with relevant configuration details for this 
 | `vec_encoding` | str | Codec (H264, H265, MJPEG, etc.) |
 | `vec_resolution` | dict | Resolution (width, height) |
 | `vec_quality` | int | Quality level (1-100) |
-| `vec_framerate_limit` | int | Maximum framerate |
-| `vec_bitrate_limit` | int | Maximum bitrate (kbps) |
-| `vec_encoding_interval` | int | Encoding interval |
-| `vec_h264_profile` | str | H.264 profile (Baseline/Main/High) |
-| `vec_h264_gop_length` | int | Group of Pictures length |
-| `vec_mpeg4_profile` | str | MPEG-4 profile |
-| `vec_mpeg4_gop_length` | int | MPEG-4 GOP length |
-| **Audio Source Configuration** |
-| `asc_name` | str | Audio source name |
-| `asc_token` | str | Audio source token |
-| `asc_source_token` | str | Audio source reference |
+| `vec_rate_control` | int | Rate control of the Video Encoder Configuration |
+| `vec_multicast` | int | Multicast of the Video Encoder Configuration |
 | **Audio Encoder Configuration** |
 | `aec_name` | str | Audio encoder name |
-| `aec_token` | str | Audio encoder token |
-| `aec_encoding` | str | Audio codec (AAC, G711, etc.) |
-| `aec_bitrate` | int | Audio bitrate |
-| `aec_sample_rate` | int | Audio sample rate (Hz) |
+| `aec_token` | str | Audio encoder token  |
+| `aec_encoding` | str | Encoding of the audio encoder configuration |
+| `aec_bitrate` | int | Bitrate of the audio encoder configuration |
+| `aec_sample_rate` | int | Sample rate of the audio encoder configuration |
 | **PTZ Configuration** |
 | `ptz_name` | str | PTZ configuration name |
 | `ptz_token` | str | PTZ configuration token |

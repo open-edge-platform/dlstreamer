@@ -104,6 +104,7 @@ def discover_onvif_cameras( verbose: bool = False) -> List[dict]: # pylint: disa
     # Multicast discovery
     MCAST_GRP = '239.255.255.250'   # pylint: disable=invalid-name
     MCAST_PORT = 3702               # pylint: disable=invalid-name
+    SOCKET_TIMEOUT = 5              # pylint: disable=invalid-name
 
     # WS-Discovery Probe message
     probe_message = '''<?xml version="1.0" encoding="UTF-8"?>
@@ -124,7 +125,7 @@ def discover_onvif_cameras( verbose: bool = False) -> List[dict]: # pylint: disa
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    sock.settimeout(5)
+    sock.settimeout(SOCKET_TIMEOUT)
 
     try: # pylint: disable=too-many-nested-blocks
         cameras = []
@@ -132,10 +133,18 @@ def discover_onvif_cameras( verbose: bool = False) -> List[dict]: # pylint: disa
         # Send probe
         sock.sendto(probe_message.encode(), (MCAST_GRP, MCAST_PORT))
 
-        # Listen for responses
+        # Listen for responses from multiple cameras
+        # WS-Discovery multicast responses come from different cameras on the network
+        # We need to collect all responses within the timeout window
         start_time = time.time()
-        while time.time() - start_time < 5:  # 5 seconds to respond
+        while time.time() - start_time < SOCKET_TIMEOUT:  # time to collect all camera responses
             try:
+                # Adjust remaining timeout for the socket
+                remaining_time = SOCKET_TIMEOUT - (time.time() - start_time)
+                if remaining_time <= 0:
+                    break
+                sock.settimeout(remaining_time)
+
                 data, addr = sock.recvfrom(4096)
                 if verbose:
                     print(f"Response from {addr}" )
@@ -167,7 +176,11 @@ def discover_onvif_cameras( verbose: bool = False) -> List[dict]: # pylint: disa
                         if verbose:
                             print(json_output)
             except socket.timeout:
-                continue
+                # Timeout means no more responses are coming, exit the loop
+                break
+
+        if verbose:
+            print(f"Discovery complete. Found {len(cameras)} camera(s).")
         return cameras
     finally:
         sock.close()
