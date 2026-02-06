@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2024-2025 Intel Corporation
+ * Copyright (C) 2024-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -281,10 +281,10 @@ void YOLOv8SegConverter::parseOutputBlob(const float *boxes_data, const std::vec
 
             // crop composed mask to fit into object bounding box
             cv::Mat cropped_mask;
-            int cx = x * mask_width / input_width;
-            int cy = y * mask_height / input_height;
-            int cw = w * mask_width / input_width;
-            int ch = h * mask_height / input_height;
+            int cx = std::max(int(x * mask_width / input_width), int(0));
+            int cy = std::max(int(y * mask_height / input_height), int(0));
+            int cw = std::min(int(w * mask_width / input_width), int(mask_width - cx));
+            int ch = std::min(int(h * mask_height / input_height), int(mask_height - cy));
             composed_mask(cv::Rect(cx, cy, cw, ch)).copyTo(cropped_mask);
 
             // apply sigmoid activation
@@ -321,16 +321,31 @@ TensorsTable YOLOv8SegConverter::convert(const OutputBlobs &output_blobs) {
         const auto &model_input_image_info = getModelInputImageInfo();
         size_t batch_size = model_input_image_info.batch_size;
 
+        InferenceBackend::OutputBlob::Ptr boxes_blob = nullptr;
+        InferenceBackend::OutputBlob::Ptr masks_blob = nullptr;
+
+        for (const auto &blob_iter : output_blobs) {
+            const InferenceBackend::OutputBlob::Ptr blob = blob_iter.second;
+            std::vector<size_t> dims = blob->GetDims();
+            // mask blob has shape: [batch, mask_count, height/4, width/4]
+            if ((dims.size() == 4) && (dims[0] == batch_size) && (dims[2] == getModelInputImageInfo().height / 4) &&
+                (dims[3] == getModelInputImageInfo().width / 4)) {
+                masks_blob = InferenceBackend::OutputBlob::Ptr(blob);
+            }
+            // boxes blob has shape: [batch, 5 + class_count + mask_count, num_boxes]
+            if ((dims.size() == 3) && (dims[0] == batch_size)) {
+                boxes_blob = InferenceBackend::OutputBlob::Ptr(blob);
+            }
+        }
+
+        if (boxes_blob == nullptr || masks_blob == nullptr) {
+            std::throw_with_nested(std::runtime_error("Failed to intentify output blobs for yolo8-seg converter."));
+        }
+
         DetectedObjectsTable objects_table(batch_size);
 
         for (size_t batch_number = 0; batch_number < batch_size; ++batch_number) {
             auto &objects = objects_table[batch_number];
-
-            const InferenceBackend::OutputBlob::Ptr &boxes_blob = output_blobs.at(TENSORS_BOXES_KEY);
-            const InferenceBackend::OutputBlob::Ptr &masks_blob = output_blobs.at(TENSORS_MASKS_KEY);
-
-            if ((not boxes_blob) || (not masks_blob))
-                throw std::invalid_argument("Output blob is nullptr.");
 
             size_t boxes_unbatched_size = boxes_blob->GetSize() / batch_size;
             size_t masks_unbatched_size = masks_blob->GetSize() / batch_size;

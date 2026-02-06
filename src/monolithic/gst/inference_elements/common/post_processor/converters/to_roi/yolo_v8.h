@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2024-2025 Intel Corporation
+ * Copyright (C) 2024-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -35,9 +35,6 @@ const int YOLOV8_OFFSET_Y = 1;  // y coordinate of bounding box center
 const int YOLOV8_OFFSET_W = 2;  // width of bounding box center
 const int YOLOV8_OFFSET_H = 3;  // height of bounding box center
 const int YOLOV8_OFFSET_CS = 4; // class probability
-
-const std::string TENSORS_BOXES_KEY = "boxes";
-const std::string TENSORS_MASKS_KEY = "masks";
 
 class YOLOv8Converter : public BlobToROIConverter {
   protected:
