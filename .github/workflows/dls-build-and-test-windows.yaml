@@ -420,6 +420,10 @@ jobs:
           $displayContent = $content -replace '\[pass\]', "$($env:EPASS)"
           $displayContent = $displayContent -replace '\[! FAIL !\]', "$($env:EFAIL)"
 
+          Write-Host "==================== TEST DETAILS ====================" -ForegroundColor Cyan
+          Write-Host $displayContent
+          Write-Host "======================================================" -ForegroundColor Cyan
+
           $summaryHeader = "## $($env:EMEMO) Test summary for: $(Split-Path $reportFile -Leaf)"
           $utf8NoBom = New-Object System.Text.UTF8Encoding $false
           [System.IO.File]::AppendAllText($env:GITHUB_STEP_SUMMARY, "$summaryHeader`n$displayContent", $utf8NoBom)
