@@ -62,6 +62,17 @@ GST_DEBUG_CATEGORY_STATIC(gst_gva_watermark_impl_debug_category);
 #define DEFAULT_TEXT_SCALE (1.0)
 #define DEFAULT_COLOR_IDX (-1)
 
+// Font scale validation ranges
+#define MIN_FONT_SCALE (0.1)
+#define MAX_FONT_SCALE (2.0)
+#define MIN_THICKNESS (1)
+#define MAX_THICKNESS (10)
+
+// Color index constants
+#define COLOR_IDX_RED (0)
+#define COLOR_IDX_GREEN (1)
+#define COLOR_IDX_BLUE (2)
+
 typedef enum { DEVICE_CPU, DEVICE_GPU, DEVICE_GPU_AUTOSELECTED } DEVICE_SELECTOR;
 
 namespace {
@@ -1161,9 +1172,10 @@ void Impl::parse_displ_config() {
         if (_displCfg.show_labels) {
             if (iter = cfg.find("font-scale"); iter != cfg.end()) {
                 _displCfg.font_scale = std::stof(iter->second);
-                if (_displCfg.font_scale > 2.0 || _displCfg.font_scale < 0.1) {
-                    GST_WARNING("[gvawatermarkimpl] 'font-scale' parameter value is out of range (0.1, 2.0], using "
-                                "default 1.0");
+                if (_displCfg.font_scale > MAX_FONT_SCALE || _displCfg.font_scale < MIN_FONT_SCALE) {
+                    GST_WARNING("[gvawatermarkimpl] 'font-scale' parameter value is out of range (%.1f, %.1f], using "
+                                "default %.1f",
+                                MIN_FONT_SCALE, MAX_FONT_SCALE, DEFAULT_TEXT_SCALE);
                 }
                 cfg.erase(iter);
             }
@@ -1186,27 +1198,27 @@ void Impl::parse_displ_config() {
         }
         if (iter = cfg.find("thickness"); iter != cfg.end()) {
             _displCfg.thickness = std::stoi(iter->second);
-            if (_displCfg.thickness < 1 || _displCfg.thickness >= 10) {
-                GST_WARNING("[gvawatermarkimpl] 'thickness' parameter value is out of range [1, 10], using default %d",
-                            DEFAULT_THICKNESS);
+            if (_displCfg.thickness < MIN_THICKNESS || _displCfg.thickness >= MAX_THICKNESS) {
+                GST_WARNING("[gvawatermarkimpl] 'thickness' parameter value is out of range [%d, %d), using default %d",
+                            MIN_THICKNESS, MAX_THICKNESS, DEFAULT_THICKNESS);
             }
             cfg.erase(iter);
         }
         if (iter = cfg.find("color-idx"); iter != cfg.end()) {
             int _color_idx = std::stoi(iter->second);
-            if (_color_idx >= 0 && _color_idx <= 2) {
-                if (_color_idx == 0)
+            if (_color_idx >= COLOR_IDX_RED && _color_idx <= COLOR_IDX_BLUE) {
+                if (_color_idx == COLOR_IDX_RED)
                     _default_color = Color(255, 0, 0); // Red
-                else if (_color_idx == 1)
+                else if (_color_idx == COLOR_IDX_GREEN)
                     _default_color = Color(0, 255, 0); // Green
-                else if (_color_idx == 2)
+                else if (_color_idx == COLOR_IDX_BLUE)
                     _default_color = Color(0, 0, 255); // Blue
 
                 _displCfg.color_idx = _color_idx;
             } else {
-                GST_WARNING("[gvawatermarkimpl] 'color-idx' parameter value is out of range [0, 2], using default "
+                GST_WARNING("[gvawatermarkimpl] 'color-idx' parameter value is out of range [%d, %d], using default "
                             "colors %d",
-                            DEFAULT_COLOR_IDX);
+                            COLOR_IDX_RED, COLOR_IDX_BLUE, DEFAULT_COLOR_IDX);
             }
             cfg.erase(iter);
         }
