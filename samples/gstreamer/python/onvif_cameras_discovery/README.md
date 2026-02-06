@@ -542,6 +542,23 @@ sudo apt-get install intel-media-va-driver-non-free
 ```
 
 ---
+**Docker**
+
+
+To run the Docker image with network access for ONVIF camera discovery:
+
+```bash
+docker run --rm -it --network host  <image_name>
+```
+
+**Command Explanation:**
+- `--network host`: Enables host network mode for multicast discovery and direct camera access
+- `--rm`: Automatically removes container after exit
+- `-it`: Interactive terminal mode
+
+**Note:** Host network mode is required for WS-Discovery multicast (239.255.255.250:3702) to function properly.
+
+---
 
 ## Usage Examples
 
