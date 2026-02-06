@@ -33,8 +33,6 @@
 #endif
 #else
 #include <dlstreamer/gst/mappers/gst_to_d3d11.h>
-#define GST_USE_UNSTABLE_API
-#include <gst/d3d11/gstd3d11.h>
 #endif
 
 #include "renderer/color_converter.h"
@@ -59,6 +57,9 @@ GST_DEBUG_CATEGORY_STATIC(gst_gva_watermark_impl_debug_category);
 #define GST_CAT_DEFAULT gst_gva_watermark_impl_debug_category
 
 #define DEFAULT_DEVICE nullptr
+#define DEFAULT_THICKNESS (2)
+#define DEFAULT_TEXT_SCALE (1.0)
+#define DEFAULT_COLOR_IDX (-1)
 
 typedef enum { DEVICE_CPU, DEVICE_GPU, DEVICE_GPU_AUTOSELECTED } DEVICE_SELECTOR;
 
@@ -154,9 +155,8 @@ struct Impl {
 
     std::vector<render::Prim> prims;
 
-    const int _thickness = 2;
     const double _radius_multiplier = 0.0025;
-    const Color _default_color = indexToColor(1);
+    Color _default_color = indexToColor(1);
     // Position for full-frame text
     const cv::Point2f _ff_text_position = cv::Point2f(0, 25.f);
     struct FontCfg {
@@ -169,7 +169,10 @@ struct Impl {
 
     struct DisplCfg {
         bool show_labels = true;
-        double text_scale = 1.0;
+        bool draw_text_background = false;
+        int color_idx = DEFAULT_COLOR_IDX;
+        uint thickness = DEFAULT_THICKNESS;
+        double text_scale = DEFAULT_TEXT_SCALE;
     } _displCfg;
 };
 
@@ -327,7 +330,7 @@ static gboolean gst_gva_watermark_impl_set_caps(GstBaseTransform *trans, GstCaps
 
     gvawatermark->impl.reset();
 
-#if defined(ENABLE_VAAPI) && !defined(_MSC_VER)
+#if defined(ENABLE_VAAPI) && !defined(_WIN32)
     VaApiDisplayPtr va_dpy;
     if (mem_type == MemoryType::VAAPI) {
         // Prefer context obtained via set_context
@@ -406,7 +409,7 @@ static void gst_gva_watermark_impl_set_context(GstElement *elem, GstContext *con
     const gchar *ctx_type = gst_context_get_context_type(context);
     const GstStructure *s = gst_context_get_structure(context);
 
-#if defined(ENABLE_VAAPI) && !defined(_MSC_VER)
+#if defined(ENABLE_VAAPI) && !defined(_WIN32)
     if (!self->gst_ctx)
         self->gst_ctx = std::make_shared<dlstreamer::GSTContext>(GST_ELEMENT(self));
 
@@ -456,7 +459,7 @@ static void gst_gva_watermark_impl_set_context(GstElement *elem, GstContext *con
             }
         }
     }
-#endif // ENABLE_VAAPI && !_MSC_VER
+#endif // ENABLE_VAAPI && !_WIN32
 
     GST_ELEMENT_CLASS(gst_gva_watermark_impl_parent_class)->set_context(elem, context);
 }
@@ -546,7 +549,7 @@ static GstFlowReturn gst_gva_watermark_impl_transform_ip(GstBaseTransform *trans
     bool negotiated_is_va =
         (mt == InferenceBackend::MemoryType::VAAPI || mt == InferenceBackend::MemoryType::DMA_BUFFER);
     bool buffer_is_va_like = negotiated_is_va && buffer_has_va(buf);
-#if defined(ENABLE_VAAPI) && !defined(_MSC_VER)
+#if defined(ENABLE_VAAPI) && !defined(_WIN32)
     bool have_va_context = (gvawatermark->vaapi_ctx || gvawatermark->va_dpy);
 #else
     bool have_va_context = false;
@@ -571,7 +574,7 @@ static GstFlowReturn gst_gva_watermark_impl_transform_ip(GstBaseTransform *trans
         }
 
 // VA/GPU render path only when VAAPI enabled
-#if defined(ENABLE_VAAPI) && !defined(_MSC_VER)
+#if defined(ENABLE_VAAPI) && !defined(_WIN32)
         if (use_gpu_path) {
             GST_TRACE_OBJECT(gvawatermark, "Using VA/GPU render path");
 
@@ -688,24 +691,13 @@ static void gst_gva_watermark_impl_class_init(GstGvaWatermarkImplClass *klass) {
                                                          "If true, draw oriented bounding box instead of object mask",
                                                          false, kDefaultGParamFlags));
 
-    g_object_class_install_property(
-        gobject_class, PROP_DISPL_AVGFPS,
-        g_param_spec_boolean("displ-avgfps", "Display Average FPS",
-                             "If true, display the average FPS read from gvafpscounter element on the output video."
-                             "The gvafpscounter element must be present in the pipeline."
-                             "e.g. gvawatermark displ-avgfps=true ! gvafpscounter ! ...",
-                             false, kDefaultGParamFlags));
+    g_object_class_install_property(gobject_class, PROP_DISPL_AVGFPS,
+                                    g_param_spec_boolean("displ-avgfps", "Display Average FPS",
+                                                         DISPL_AVGFPS_DESCRIPTION, false, kDefaultGParamFlags));
 
-    g_object_class_install_property(
-        gobject_class, PROP_DISPL_CFG,
-        g_param_spec_string("displ-cfg", "Gvawatermark element display configuration",
-                            "Comma separated list of KEY=VALUE parameters of displayed notations.\n"
-                            "\t\t\tAvailable options: \n"
-                            "\t\t\tshow-labels=true|false - enable/disable display of text labels (default true)\n"
-                            "\t\t\ttext-scale=<0.1-2.0> - scale factor for text labels (default 1.0)\n"
-                            "\t\t\te.g.: displ-cfg=show-labels=off\n"
-                            "\t\t\te.g.: displ-cfg=text-scale=0.5",
-                            nullptr, kDefaultGParamFlags));
+    g_object_class_install_property(gobject_class, PROP_DISPL_CFG,
+                                    g_param_spec_string("displ-cfg", "Gvawatermark element display configuration",
+                                                        DISPL_CFG_DESCRIPTION, nullptr, kDefaultGParamFlags));
 }
 
 Impl::Impl(GstVideoInfo *info, InferenceBackend::MemoryType mem_type, GstElement *element, bool displ_avgfps,
@@ -732,8 +724,13 @@ Impl::Impl(GstVideoInfo *info, InferenceBackend::MemoryType mem_type, GstElement
         find_gvafpscounter_element();
 
     // Parse display configuration
-    if (_displ_cfg)
+    if (_displ_cfg) {
         parse_displ_config();
+        if (_displCfg.draw_text_background) {
+            _renderer->enable_draw_txt_bg(true);
+            _renderer_opencv->enable_draw_txt_bg(true);
+        }
+    }
 }
 
 size_t get_keypoint_index_by_name(const gchar *target_name, GValueArray *names) {
@@ -911,11 +908,15 @@ void Impl::preparePrimsForRoi(GVA::RegionOfInterest &roi, std::vector<render::Pr
         }
     }
 
-    // put rectangle
+    // set color
     Color color = indexToColor(color_index);
+    if (_displCfg.color_idx != DEFAULT_COLOR_IDX)
+        color = _default_color;
+
+    // put rectangle
     cv::Rect bbox_rect(rect.x, rect.y, rect.w, rect.h);
     if (!_obb)
-        prims.emplace_back(render::Rect(bbox_rect, color, _thickness, roi.rotation()));
+        prims.emplace_back(render::Rect(bbox_rect, color, _displCfg.thickness, roi.rotation()));
 
     // put text
     if (_displCfg.show_labels)
@@ -969,7 +970,8 @@ void Impl::preparePrimsForTensor(const GVA::Tensor &tensor, GVA::Rect<double> re
                 x2 = safe_convert<int>(rect.x + rect.w * data[0]);
                 y2 = safe_convert<int>(rect.y + rect.h * data[1]);
             }
-            prims.emplace_back(render::Line(cv::Point2i(x, y), cv::Point2i(x2, y2), _default_color, _thickness));
+            prims.emplace_back(
+                render::Line(cv::Point2i(x, y), cv::Point2i(x2, y2), _default_color, _displCfg.thickness));
         }
     }
 
@@ -999,7 +1001,7 @@ void Impl::preparePrimsForTensor(const GVA::Tensor &tensor, GVA::Rect<double> re
             cv::Point2f vertices2f[4];
             rotated.points(vertices2f);
             for (int i = 0; i < 4; i++)
-                prims.emplace_back(render::Line(vertices2f[i], vertices2f[(i + 1) % 4], color, _thickness));
+                prims.emplace_back(render::Line(vertices2f[i], vertices2f[(i + 1) % 4], color, _displCfg.thickness));
         }
     }
 
@@ -1129,7 +1131,7 @@ void Impl::preparePrimsForKeypointConnections(GstStructure *s, const std::vector
         int x2 = safe_convert<int>(rectangle.x + rectangle.w * x2_real);
         int y2 = safe_convert<int>(rectangle.y + rectangle.h * y2_real);
 
-        prims.emplace_back(render::Line(cv::Point2i(x1, y1), cv::Point2i(x2, y2), _default_color, _thickness));
+        prims.emplace_back(render::Line(cv::Point2i(x1, y1), cv::Point2i(x2, y2), _default_color, _displCfg.thickness));
     }
 
     g_value_array_free(point_connections);
@@ -1152,10 +1154,47 @@ void Impl::parse_displ_config() {
             }
             cfg.erase(iter);
         }
+        iter = cfg.find("draw-txt-bg");
+        if (iter != cfg.end()) {
+            if (iter->second == "true" || iter->second == "false") {
+                _displCfg.draw_text_background = (iter->second == "true");
+            }
+            cfg.erase(iter);
+        }
         iter = cfg.find("show-labels");
         if (iter != cfg.end()) {
             if (iter->second == "true" || iter->second == "false") {
                 _displCfg.show_labels = (iter->second == "true");
+            }
+            cfg.erase(iter);
+        }
+        iter = cfg.find("thickness");
+        if (iter != cfg.end()) {
+            _displCfg.thickness = std::stoi(iter->second);
+            if (_displCfg.thickness < 1 || _displCfg.thickness >= 10) {
+                _displCfg.thickness = DEFAULT_THICKNESS;
+                GST_WARNING("[gvawatermarkimpl] 'thickness' parameter value is out of range [1, 10], set to default %d",
+                            DEFAULT_THICKNESS);
+            }
+            cfg.erase(iter);
+        }
+        iter = cfg.find("color-idx");
+        if (iter != cfg.end()) {
+            int _color_idx = std::stoi(iter->second);
+            if (_color_idx >= 0 && _color_idx <= 2) {
+                if (_color_idx == 0)
+                    _default_color = Color(255, 0, 0); // Red
+                else if (_color_idx == 1)
+                    _default_color = Color(0, 255, 0); // Green
+                else if (_color_idx == 2)
+                    _default_color = Color(0, 0, 255); // Blue
+
+                _displCfg.color_idx = _color_idx;
+            } else {
+                _displCfg.color_idx = DEFAULT_COLOR_IDX;
+                GST_WARNING("[gvawatermarkimpl] 'color-idx' parameter value is out of range [0, 2], using default "
+                            "colors, set to default %d",
+                            DEFAULT_COLOR_IDX);
             }
             cfg.erase(iter);
         }
