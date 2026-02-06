@@ -25,7 +25,8 @@ target_link_libraries(${TARGET_NAME}
 PRIVATE
     ${GSTREAMER_LIBRARIES}
     g3dradarprocess
+    g3dlidarparse
     dlstreamer_gst_meta
 )
-
+           
 install(TARGETS ${TARGET_NAME} DESTINATION ${DLSTREAMER_PLUGINS_INSTALL_PATH})

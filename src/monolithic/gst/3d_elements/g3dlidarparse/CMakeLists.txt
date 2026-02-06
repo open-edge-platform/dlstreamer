@@ -1,0 +1,28 @@
+# ==============================================================================
+# Copyright (C) 2026 Intel Corporation
+#
+# SPDX-License-Identifier: MIT
+# ==============================================================================
+
+
+project(g3dlidarparse)
+
+add_library(g3dlidarparse STATIC
+    g3dlidarparse.cpp
+)
+set_compile_flags(g3dlidarparse)
+
+target_include_directories(g3dlidarparse
+    PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}
+        ${CMAKE_SOURCE_DIR}/include
+        ${DLSTREAMER_BASE_DIR}/include/dlstreamer/gst/metadata
+    PRIVATE
+        ${GSTREAMER_INCLUDE_DIRS}
+)
+
+target_link_libraries(g3dlidarparse
+    PUBLIC
+        ${GSTREAMER_LIBRARIES}
+        ${GSTVIDEO_LIBRARIES}
+)
