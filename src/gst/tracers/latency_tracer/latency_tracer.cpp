@@ -735,6 +735,10 @@ static void add_latency_meta(LatencyTracer *lt, LatencyTracerMeta *meta, guint64
 }
 
 static void do_push_buffer_pre(LatencyTracer *lt, guint64 ts, GstPad *pad, GstBuffer *buffer) {
+    // EOS
+    if (!buffer)
+        return;
+
     // OPTIMIZATION D: Early exit if no flags enabled (skip all processing when tracer is disabled)
     if (!(lt->flags & (LATENCY_TRACER_FLAG_ELEMENT | LATENCY_TRACER_FLAG_PIPELINE))) {
         return;
@@ -816,6 +820,7 @@ static void do_push_buffer_pre(LatencyTracer *lt, guint64 ts, GstPad *pad, GstBu
 }
 
 static void do_pull_range_post(LatencyTracer *lt, guint64 ts, GstPad *pad, GstBuffer *buffer) {
+    // EOS
     if (!buffer)
         return;
     GstElement *elem = get_real_pad_parent(pad);
