@@ -234,12 +234,12 @@ TensorsTable YOLOv26SegConverter::convert(const OutputBlobs &output_blobs) {
             const InferenceBackend::OutputBlob::Ptr blob = blob_iter.second;
             std::vector<size_t> dims = blob->GetDims();
             // mask blob has shape: [batch, mask_count, height/4, width/4]
-            if ((dims.size() == 4) && (dims[2] == getModelInputImageInfo().height / 4) &&
+            if ((dims.size() == 4) && (dims[0] == batch_size) && (dims[2] == getModelInputImageInfo().height / 4) &&
                 (dims[3] == getModelInputImageInfo().width / 4)) {
                 masks_blob = InferenceBackend::OutputBlob::Ptr(blob);
             }
             // boxes blob has shape: [batch, num_boxes, 6 + mask_count] where default mask_count=32
-            if ((dims.size() == 3) && (dims[2] == YOLOV26_OFFSET_L + 1 + 32)) {
+            if ((dims.size() == 3) && (dims[0] == batch_size)) {
                 boxes_blob = InferenceBackend::OutputBlob::Ptr(blob);
             }
         }

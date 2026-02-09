@@ -16,7 +16,6 @@
 #ifndef _WIN32
 #include "dlstreamer/gst/mappers/gst_to_vaapi.h"
 #else
-#define GST_USE_UNSTABLE_API
 #include "dlstreamer/gst/mappers/gst_to_d3d11.h"
 #endif
 
