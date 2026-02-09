@@ -7,10 +7,10 @@ This sample demonstrates how to download face detection and classification model
 The script demonstrates the full flow for preparing models and running a DL Streamer pipeline in Python. Each stage is marked in code with STEP comments:
 
 **STEP 1 — Prepare face detection model**
-Download the YOLOv8 face detector from Hugging Face and export it to OpenVINO IR.
+Download the YOLOv8 face detector from Hugging Face and export it to OpenVINO IR using the Ultralytics exporter.
 
-**STEP 2 — Prepare classification model**
-Download the face age classifier, export it to OpenVINO IR, and save the `preprocessor_config.json` alongside the model.
+**STEP 2 — Prepare the classification model**
+Use optimum-cli to download the face age classifier from Hugging Face and export it to OpenVINO IR.
 
 **STEP 3 — Build and run the pipeline**
 Construct a GStreamer pipeline with `gvadetect` and `gvaclassify`, run inference, and write an annotated MP4 output.
@@ -34,7 +34,7 @@ This project pins all dependencies in [requirements.txt](requirements.txt) for d
 
 1. Create and activate a virtual environment:
 ```code
-   python -m venv .venv
+   python3 -m venv .venv
    source .venv/bin/activate
    ```
 
@@ -50,13 +50,13 @@ If you need to update dependencies, regenerate the pinned versions in [requireme
 Provide a local video file:
 
 ```code
-python face_detection_and_classification.py /path/to/video.mp4
+python3 face_detection_and_classification.py /path/to/video.mp4
 ```
 
 Or run without arguments to download and use a default video:
 
 ```code
-python face_detection_and_classification.py
+python3 face_detection_and_classification.py
 ```
 
 The output video will be saved alongside the input file with the suffix `_output.mp4`.
