@@ -332,37 +332,38 @@ jobs:
           Set-Content -Path $keyPath -Value $cleanKey -Encoding Ascii
 
           $folders = @("intel", "public")
-          $remotePrefix = ":sftp,host='$env:REMOTE_HOST',user='$env:REMOTE_USER',key_file='$keyPath',ask_password=false:"
 
-          $rawBase = "C:\models"
-          $base = Join-Path $rawBase "models"
+          $fixedKeyPath = $keyPath.Replace('\', '/')
+          $remotePrefix = ":sftp,host='$env:REMOTE_HOST',user='$env:REMOTE_USER',key_file='$fixedKeyPath',ask_password=false:"
+          $base = Join-Path "C:\models" "models"
 
           if (Get-Content $keyPath | Select-Object -First 1 | Select-String "BEGIN") {
-              Write-Host "[OK] Private key file format looks valid (found BEGIN header)."
+              Write-Host "[OK] Private key format looks valid."
           } else {
-              Write-Error "[ERROR] Private key file is corrupted or empty!"
-          }
-
-          Write-Host "--- Checking Remote: $remotePath ---"
-          $check = rclone lsf "$remotePrefix$remotePath" --max-depth 1
-          if ([string]::IsNullOrWhiteSpace($check)) {
-              Write-Host "[ERROR] Still no key found or directory empty. Detailed Debug:"
-              rclone lsf "$remotePrefix$remotePath" -vv --max-depth 1
-              continue
+              Write-Error "[ERROR] Private key file is corrupted!"
+              exit 1
           }
 
           foreach ($folder in $folders) {
               $remotePath = "$($env:REMOTE_BASE)/$folder"
               $localPath = Join-Path $base $folder
 
-              Write-Host "--- Checking Remote: $remotePath ---"
+              Write-Host "`n--- Checking Remote: $remotePath ---"
 
+              $testPath = rclone lsf "$remotePrefix$remotePath" --max-depth 1 2>$null
+
+              if ($null -eq $testPath -or [string]::IsNullOrWhiteSpace($testPath)) {
+                  Write-Host "[SKIP] Remote directory '$remotePath' not found or empty. Skipping." -ForegroundColor Yellow
+                  continue 
+              }
+
+              Write-Host "Syncing from $remotePath to $localPath"
               rclone copy "$remotePrefix$remotePath" "$localPath" `
-                --multi-thread-streams 4 `
-                --transfers 4 `
-                --sftp-ask-password=false `
-                --verbose `
-                --stats-log-level NOTICE
+                  --multi-thread-streams 4 `
+                  --transfers 4 `
+                  --sftp-ask-password=false `
+                  --verbose `
+                  --stats-log-level NOTICE
           }
 
           if (Test-Path $keyPath) { Remove-Item $keyPath }
