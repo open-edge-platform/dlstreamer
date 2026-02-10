@@ -15,15 +15,6 @@ on:
           - public
           - omz
           - specific_model
-      specific_os:
-        description: 'Which OS to use for downloading? (all/linux/windows)'
-        required: false
-        default: 'all'
-        type: choice
-        options:
-          - all
-          - linux
-          - windows
       specific_model_name:
         description: 'What SPECIFIC model do you want to download?'
         required: false
@@ -82,7 +73,6 @@ jobs:
           echo "windows_runners=$WIN_ARRAY" >> $GITHUB_OUTPUT
 
   update_linux_hosts:
-    if: ${{ !inputs.specific_os || inputs.specific_os == 'all' || inputs.specific_os == 'linux' }}
     name: Update on Linux runners
     needs: setup-runners
     permissions:
@@ -90,7 +80,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        runner: ${{ fromJson(needs.setup-runners.outputs.runners) }}
+        runner: ${{ fromJson(needs.setup-runners.outputs.linux_runners) }}
     runs-on:
       - ${{ matrix.runner }}
     steps:
@@ -256,7 +246,6 @@ jobs:
           rm -rf $HOME/.virtualenvs
 
   update_windows_hosts:
-    if: ${{ !inputs.specific_os || inputs.specific_os == 'all' || inputs.specific_os == 'windows' }}
     name: Update on Windows runners
     needs: [setup-runners, update_linux_hosts]
     permissions:
