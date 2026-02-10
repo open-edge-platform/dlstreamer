@@ -322,7 +322,6 @@ jobs:
           REMOTE_USER: ${{ secrets.DLS_MODEL_SYNC_SSH_USER }}
           REMOTE_HOST: ${{ secrets.DLS_MODEL_SYNC_SSH_HOST }}
           SSH_KEY_CONTENT: ${{ secrets.DLS_MODEL_SYNC_SSH_PRIVATE_KEY }}
-          REMOTE_BASE: "/home/user/models/models"
         run: |
           $ErrorActionPreference = "Continue"
           [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -344,8 +343,10 @@ jobs:
               exit 1
           }
 
+          $remoteUser = $env:REMOTE_USER
+          $remoteBase = "/home/$remoteUser/models/models"
           foreach ($folder in $folders) {
-              $remotePath = "$($env:REMOTE_BASE)/$folder"
+              $remotePath = "$remoteBase/$folder"
               $localPath = Join-Path $base $folder
 
               Write-Host "`n--- Checking Remote: $remotePath ---"
