@@ -21,7 +21,27 @@ gi.require_version("GstVideo", "1.0")
 gi.require_version("GLib", "2.0")
 gi.require_version("Gst", "1.0")
 gi.require_version("GstAnalytics", "1.0")
-from gi.repository import GLib, Gst, GstAnalytics
+gi.require_version("DLStreamerMeta", "1.0")
+
+from gi.repository import GstVideo, GLib, GObject, Gst, GstAnalytics, DLStreamerMeta
+
+# Register Keypoint metadata
+from gi.overrides import GstAnalytics as GstAnalyticsOverride
+GstAnalyticsOverride._wrap_mtd(
+    DLStreamerMeta,
+    'KeypointMtd',
+    DLStreamerMeta.relation_meta_get_keypoint_mtd
+)
+GstAnalyticsOverride._wrap_mtd(
+    DLStreamerMeta,
+    'KeypointGroupMtd',
+    DLStreamerMeta.relation_meta_get_keypointgroup_mtd
+)
+GstAnalyticsOverride._wrap_mtd(
+    DLStreamerMeta,
+    'KeypointSkeletonMtd',
+    DLStreamerMeta.relation_meta_get_keypoint_skeleton_mtd
+)
 
 Rect = namedtuple("Rect", "x y w h")
 
