@@ -594,7 +594,7 @@ class Tensor {
     bool convert_to_meta(GstAnalyticsMtd *mtd, GstAnalyticsODMtd *od_mtd, GstAnalyticsRelationMeta *meta) const {
 
         if (name() == "keypoints") {
-            GstAnalyticsKeypointGroupMtd *keypoint_group_mtd = mtd;
+            GstAnalyticsKeypointGroupMtd *keypoint_group_mtd = reinterpret_cast<GstAnalyticsKeypointGroupMtd *>(mtd);
             const std::vector<guint> dimensions = dims();
             const std::vector<float> positions = data<float>();
             const std::vector<float> confidence = get_vector<float>("confidence");
@@ -718,8 +718,9 @@ class Tensor {
                 gpointer state = NULL;
 
                 // check if skeleton meta already exists
-                while (gst_analytics_relation_meta_iterate(
-                    meta, &state, gst_analytics_keypoint_skeleton_mtd_get_mtd_type(), &skeleton_mtd)) {
+                while (gst_analytics_relation_meta_iterate(meta, &state,
+                                                           gst_analytics_keypoint_skeleton_mtd_get_mtd_type(),
+                                                           reinterpret_cast<GstAnalyticsMtd *>(&skeleton_mtd))) {
                     if (gst_analytics_keypoint_skeleton_mtd_get_count(&skeleton_mtd) == skeleton_count) {
                         found = true;
                         break;
@@ -765,7 +766,7 @@ class Tensor {
         if (gst_analytics_mtd_get_mtd_type(&mtd) == gst_analytics_keypointgroup_mtd_get_mtd_type()) {
 
             // read keypoint metadata
-            GstAnalyticsKeypointGroupMtd *keypoint_group_mtd = &mtd;
+            GstAnalyticsKeypointGroupMtd *keypoint_group_mtd = reinterpret_cast<GstAnalyticsKeypointGroupMtd *>(&mtd);
             gsize keypoint_count = gst_analytics_keypointgroup_mtd_get_count(keypoint_group_mtd);
             gsize keypoint_dimension = 2;
             std::vector<GstAnalyticsKeypoint> keypoints;
@@ -829,7 +830,8 @@ class Tensor {
             GstAnalyticsKeypointSkeletonMtd skeleton_mtd;
             if (gst_analytics_relation_meta_get_direct_related(
                     keypoint_group_mtd->meta, keypoint_group_mtd->id, GST_ANALYTICS_REL_TYPE_RELATE_TO,
-                    gst_analytics_keypoint_skeleton_mtd_get_mtd_type(), nullptr, &skeleton_mtd)) {
+                    gst_analytics_keypoint_skeleton_mtd_get_mtd_type(), nullptr,
+                    reinterpret_cast<GstAnalyticsMtd *>(&skeleton_mtd))) {
 
                 gsize skeleton_count = gst_analytics_keypoint_skeleton_mtd_get_count(&skeleton_mtd);
                 point_connections.resize(2 * skeleton_count);

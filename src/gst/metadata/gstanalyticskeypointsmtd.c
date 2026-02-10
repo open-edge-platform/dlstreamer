@@ -68,7 +68,7 @@ GstAnalyticsMtdType gst_analytics_keypoint_mtd_get_mtd_type(void) {
 /**
  * gst_analytics_keypoint_mtd_get:
  * @handle: instance
- * @keypoint: (out): data structure describing keypoint attributes
+ * @keypoint: (out caller-allocates): data structure describing keypoint attributes
  *
  * Retrieve keypoint attributes.
  *
@@ -94,7 +94,7 @@ gboolean gst_analytics_keypoint_mtd_get(const GstAnalyticsKeypointMtd *handle, G
  * gst_analytics_relation_meta_add_keypoint_mtd:
  * @instance: Instance of #GstAnalyticsRelationMeta where to add keypoint metadata.
  * @keypoint: keypoint attributes to store as metadata.
- * @keypoint_mtd: (out) (not nullable): Handle updated to newly added keypoint meta.
+ * @keypoint_mtd: (out caller-allocates) (not nullable): Handle updated to newly added keypoint meta.
  *
  * Add analytic keypoint metadata to @instance.
  *
@@ -110,8 +110,8 @@ gboolean gst_analytics_relation_meta_add_keypoint_mtd(GstAnalyticsRelationMeta *
     g_return_val_if_fail(keypoint != NULL, FALSE);
 
     gsize size = sizeof(GstAnalyticsKeypoint);
-    GstAnalyticsKeypoint *keypoint_data =
-        (GstAnalyticsKeypoint *)gst_analytics_relation_meta_add_mtd(instance, &keypoint_impl, size, keypoint_mtd);
+    GstAnalyticsKeypoint *keypoint_data = (GstAnalyticsKeypoint *)gst_analytics_relation_meta_add_mtd(
+        instance, &keypoint_impl, size, (GstAnalyticsMtd *)keypoint_mtd);
     g_return_val_if_fail(keypoint_data != NULL, FALSE);
 
     memcpy(keypoint_data, keypoint, sizeof(GstAnalyticsKeypoint));
@@ -136,7 +136,7 @@ GST_ANALYTICS_META_API
 gboolean gst_analytics_relation_meta_get_keypoint_mtd(GstAnalyticsRelationMeta *meta, guint an_meta_id,
                                                       GstAnalyticsKeypointMtd *rlt) {
     return gst_analytics_relation_meta_get_mtd(meta, an_meta_id, gst_analytics_keypoint_mtd_get_mtd_type(),
-                                               (GstAnalyticsKeypointMtd *)rlt);
+                                               (GstAnalyticsMtd *)rlt);
 }
 
 /**
@@ -198,7 +198,7 @@ gsize gst_analytics_keypoint_skeleton_mtd_get_count(const GstAnalyticsKeypointSk
 /**
  * gst_analytics_keypoint_skeleton_mtd_get:
  * @handle: instance handle
- * @segment: a pair of keypoint indices representing a skeleton segment
+ * @segment: (out caller-allocates): a pair of keypoint indices representing a skeleton segment
  * @index: skeleton segment index, must be < gst_analytics_keypoint_skeleton_mtd_get_count
  *
  * Get pair of keypoint indices for a skeleton link at @index
@@ -227,7 +227,7 @@ gboolean gst_analytics_keypoint_skeleton_mtd_get(const GstAnalyticsKeypointSkele
  * @skeleton_count: number of skeleton segments that connect keypoints
  * @skeletons: (array length=skeleton_count): keypoint pair indices representing skeleton segments
  * example: < {0, 2}, {0, 5}, ...>
- * @keypoint_skeleton_mtd: (out) (not nullable): Handle updated to newly added keypoint info.
+ * @keypoint_skeleton_mtd: (out caller-allocates) (not nullable): Handle updated to newly added keypoint info.
  *
  * Add analytic keypoint metadata to @instance.
  * Returns: Added successfully
@@ -245,7 +245,7 @@ gboolean gst_analytics_relation_meta_add_keypoint_skeleton_mtd(GstAnalyticsRelat
     gsize size = sizeof(GstAnalyticsKeypointSkeletonData) + data_size;
 
     GstAnalyticsKeypointSkeletonData *data = (GstAnalyticsKeypointSkeletonData *)gst_analytics_relation_meta_add_mtd(
-        instance, &keypoint_skeleton_impl, size, keypoint_skeleton_mtd);
+        instance, &keypoint_skeleton_impl, size, (GstAnalyticsMtd *)keypoint_skeleton_mtd);
 
     g_return_val_if_fail(data != NULL, FALSE);
 
@@ -273,7 +273,7 @@ GST_ANALYTICS_META_API
 gboolean gst_analytics_relation_meta_get_keypoint_skeleton_mtd(GstAnalyticsRelationMeta *meta, guint an_meta_id,
                                                                GstAnalyticsKeypointSkeletonMtd *rlt) {
     return gst_analytics_relation_meta_get_mtd(meta, an_meta_id, gst_analytics_keypoint_skeleton_mtd_get_mtd_type(),
-                                               (GstAnalyticsKeypointSkeletonMtd *)rlt);
+                                               (GstAnalyticsMtd *)rlt);
 }
 
 /**
@@ -353,7 +353,7 @@ gsize gst_analytics_keypointgroup_mtd_get_count(const GstAnalyticsKeypointGroupM
 /**
  * gst_analytics_keypointgroup_mtd_get_keypoint_mtd:
  * @handle: handle to keypoint group metadata
- * @keypoint_mtd: (out): handle to keypoint metadata at @index position in this keypoint group
+ * @keypoint_mtd: (out caller-allocates): handle to keypoint metadata at @index position in this keypoint group
  * @index: keypoint index, must be < gst_analytics_keypointgroup_mtd_get_keypoints_count
  *
  * Get keypoint metadata handle at @index
@@ -384,7 +384,7 @@ gboolean gst_analytics_keypointgroup_mtd_get_keypoint_mtd(const GstAnalyticsKeyp
  * @instance: Instance of #GstAnalyticsRelationMeta where to add classification instance
  * @keypoint_count: number of keypoints to add
  * @keypoints: (array length=keypoint_count): metadata handles for individual keypoints
- * @keypoint_group_mtd: (out) (not nullable): Handle updated to newly added keypoint group meta.
+ * @keypoint_group_mtd: (out caller-allocates) (not nullable): Handle updated to newly added keypoint group meta.
  *
  * Add analytic keypoint metadata to @instance.
  * Returns: TRUE if valid keypoint group handle returned, FALSE if the call failed
@@ -403,7 +403,7 @@ gboolean gst_analytics_relation_meta_add_keypointgroup_mtd(GstAnalyticsRelationM
     gsize size = sizeof(GstAnalyticsKeypointGroupData) + data_size;
     GstAnalyticsKeypointGroupData *keypoint_group_data =
         (GstAnalyticsKeypointGroupData *)gst_analytics_relation_meta_add_mtd(instance, &keypoint_group_impl, size,
-                                                                             keypoint_group_mtd);
+                                                                             (GstAnalyticsMtd *)keypoint_group_mtd);
     g_return_val_if_fail(keypoint_group_data != NULL, FALSE);
 
     // store ids of individual keypoints in data array
@@ -434,7 +434,7 @@ GST_ANALYTICS_META_API
 gboolean gst_analytics_relation_meta_get_keypointgroup_mtd(GstAnalyticsRelationMeta *meta, guint an_meta_id,
                                                            GstAnalyticsKeypointGroupMtd *rlt) {
     return gst_analytics_relation_meta_get_mtd(meta, an_meta_id, gst_analytics_keypointgroup_mtd_get_mtd_type(),
-                                               (GstAnalyticsKeypointGroupMtd *)rlt);
+                                               (GstAnalyticsMtd *)rlt);
 }
 
 /**
