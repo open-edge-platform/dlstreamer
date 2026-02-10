@@ -62,7 +62,8 @@ class DetectionAnomalyConverter : public BlobToTensorConverter {
             throw std::runtime_error("<rt_info><model_info> pixel_threshold parameter undefined");
     }
 
-    void logParamsStats(const std::string &pred_label, const double &pred_score, const double &image_threshold_norm);
+    void logParamsStats(const std::string &pred_label, const double &pred_score_normalized, const double &pred_score,
+                        const double &image_threshold);
 };
 
 } // namespace post_processing
