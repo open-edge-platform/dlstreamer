@@ -258,7 +258,7 @@ jobs:
   update_windows_hosts:
     if: ${{ !inputs.specific_os || inputs.specific_os == 'all' || inputs.specific_os == 'windows' }}
     name: Update on Windows runners
-    needs: update_linux_hosts
+    needs: [setup-runners, update_linux_hosts]
     permissions:
       contents: read
     strategy:
