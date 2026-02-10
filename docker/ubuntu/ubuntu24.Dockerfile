@@ -410,7 +410,7 @@ ENV LC_NUMERIC=C
 ENV C_INCLUDE_PATH=/usr/local/include:${DLSTREAMER_DIR}/include:${DLSTREAMER_DIR}/include/dlstreamer/gst/metadata:${C_INCLUDE_PATH}
 ENV CPLUS_INCLUDE_PATH=/usr/local/include:${DLSTREAMER_DIR}/include:${DLSTREAMER_DIR}/include/dlstreamer/gst/metadata:${CPLUS_INCLUDE_PATH}
 ENV GST_PLUGIN_SCANNER=${GSTREAMER_DIR}/bin/gstreamer-1.0/gst-plugin-scanner
-ENV GI_TYPELIB_PATH=${GSTREAMER_DIR}/lib/girepository-1.0
+ENV GI_TYPELIB_PATH=${GSTREAMER_DIR}/lib/girepository-1.0:${DLSTREAMER_DIR}/build/src/gst/metadata/
 ENV PYTHONPATH=${GSTREAMER_DIR}/lib/python3/dist-packages:${DLSTREAMER_DIR}/python:${DLSTREAMER_DIR}/scripts/optimizer:${PYTHONPATH}
 
 # Build DLStreamer
