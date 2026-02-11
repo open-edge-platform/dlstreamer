@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2018-2025 Intel Corporation
+ * Copyright (C) 2018-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -40,6 +40,7 @@ typedef struct _GvaBaseInference {
     gboolean share_va_display_ctx;
     guint inference_interval;
     guint batch_size;
+    gint batch_timeout;
     guint reshape_width;
     guint reshape_height;
     guint nireq;
