@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2018-2025 Intel Corporation
+ * Copyright (C) 2018-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -35,6 +35,7 @@ class OpenVINOImageInference : public InferenceBackend::ImageInference {
     const std::string &GetModelName() const override;
 
     size_t GetBatchSize() const override;
+    int GetBatchTimeout() const;
     size_t GetNireq() const override;
 
     void GetModelImageInputInfo(size_t &width, size_t &height, size_t &batch_size, int &format,
@@ -77,6 +78,7 @@ class OpenVINOImageInference : public InferenceBackend::ImageInference {
     std::string image_layer;
 
     int batch_size;
+    int batch_timeout;
     int nireq;
     SafeQueue<std::shared_ptr<BatchRequest>> freeRequests;
 
