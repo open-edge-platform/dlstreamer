@@ -7,8 +7,10 @@
 import unittest
 import os
 
+# pylint: disable=import-error
 from pipeline_runner import TestPipelineRunner
 from utils import BBox, get_model_path
+# pylint: enable=import-error
 
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 IMAGE_PATH = os.path.join(SCRIPT_DIR, "test_files", "cup.jpg")

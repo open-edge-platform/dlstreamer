@@ -4,7 +4,9 @@
 # SPDX-License-Identifier: MIT
 # ==============================================================================
 
+# pylint: disable=import-error
 from pipeline_runner import TestGenericPipelineRunner
+# pylint: enable=import-error
 import os
 import unittest
 

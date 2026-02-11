@@ -7,8 +7,10 @@
 import unittest
 import os
 
+# pylint: disable=import-error
 from pipeline_runner import TestGenericPipelineRunner
 from utils import *
+# pylint: enable=import-error
 
 import gi
 
