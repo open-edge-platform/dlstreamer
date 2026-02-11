@@ -25,7 +25,7 @@
 #define WATERMARK_DMA_BUFFER_CAPS
 #endif
 
-#if _WIN32
+#ifdef _WIN32
 #define WATERMARK_D3D11_CAPS                                                                                           \
     GST_VIDEO_CAPS_MAKE_WITH_FEATURES(D3D11MEMORY_FEATURE_STR, "{ BGRx, RGBA, BGRA, BGR, NV12, I420 }") "; "
 #else

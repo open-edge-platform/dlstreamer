@@ -1,5 +1,5 @@
 # ==============================================================================
-# Copyright (C) 2018-2024 Intel Corporation
+# Copyright (C) 2018-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
@@ -20,9 +20,6 @@ file (GLOB MAIN_HEADERS
 
 add_library(${TARGET_NAME} SHARED ${MAIN_SRC} ${MAIN_HEADERS})
 set_compile_flags(${TARGET_NAME})
-
-# TODO: Remove once upgraded to gst-1.18 or higher
-add_definitions(-DGST_USE_UNSTABLE_API)
 
 target_include_directories(${TARGET_NAME}
 PUBLIC
