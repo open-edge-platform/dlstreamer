@@ -607,6 +607,8 @@ std::map<std::string, GstStructure *> get_model_info_preproc(const std::shared_p
                 g_value_set_string(&color_value, "BGR");
             }
             gst_structure_set_value(s, "color_space", &color_value);
+            GST_INFO("[get_model_info_preproc] (reverse_input_channels) color_space: %s",
+                     g_value_get_string(&color_value));
             g_value_unset(&color_value);
         }
         if (element.first == "reshape") {
