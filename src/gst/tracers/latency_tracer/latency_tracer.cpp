@@ -759,7 +759,7 @@ static void do_push_buffer_pre(LatencyTracer *lt, guint64 ts, GstPad *pad, GstBu
             add_latency_meta(lt, meta, ts, buffer, elem);
             meta = LATENCY_TRACER_META_GET(buffer);
             if (!meta)
-                return;  // Buffer wasn't writable, skip
+                return; // Buffer wasn't writable, skip
         }
         // Don't return early - continue to check for sink peer
         if (!meta)
