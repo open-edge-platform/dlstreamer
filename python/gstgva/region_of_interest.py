@@ -11,10 +11,6 @@ import ctypes
 from typing import List
 from collections import namedtuple
 
-from .tensor import Tensor
-from .util import VideoRegionOfInterestMeta, GstStructureHandle
-from .util import libgst, libgstvideo
-
 import gi
 
 gi.require_version("GstVideo", "1.0")
@@ -23,10 +19,18 @@ gi.require_version("Gst", "1.0")
 gi.require_version("GstAnalytics", "1.0")
 gi.require_version("DLStreamerMeta", "1.0")
 
+# GObject Introspection modules are dynamically generated, pylint cannot introspect them
+# pylint: disable=no-name-in-module,unused-import
 from gi.repository import GstVideo, GLib, GObject, Gst, GstAnalytics, DLStreamerMeta
+from gi.overrides import GstAnalytics as GstAnalyticsOverride
+# pylint: enable=no-name-in-module,unused-import
+
+from .tensor import Tensor
+from .util import VideoRegionOfInterestMeta, GstStructureHandle
+from .util import libgst, libgstvideo
 
 # Register Keypoint metadata
-from gi.overrides import GstAnalytics as GstAnalyticsOverride
+# pylint: disable=protected-access
 GstAnalyticsOverride._wrap_mtd(
     DLStreamerMeta,
     'KeypointMtd',
@@ -42,6 +46,7 @@ GstAnalyticsOverride._wrap_mtd(
     'KeypointSkeletonMtd',
     DLStreamerMeta.relation_meta_get_keypoint_skeleton_mtd
 )
+# pylint: enable=protected-access
 
 Rect = namedtuple("Rect", "x y w h")
 
