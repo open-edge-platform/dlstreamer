@@ -20,7 +20,7 @@ gi.require_version("GstAnalytics", "1.0")
 gi.require_version("DLStreamerMeta", "1.0")
 
 # GObject Introspection modules are dynamically generated, pylint cannot introspect them
-# pylint: disable=no-name-in-module,unused-import
+# pylint: disable=no-name-in-module,unused-import,wrong-import-position
 from gi.repository import GstVideo, GLib, GObject, Gst, GstAnalytics, DLStreamerMeta
 from gi.overrides import GstAnalytics as GstAnalyticsOverride
 # pylint: enable=no-name-in-module,unused-import
@@ -31,6 +31,7 @@ from .util import libgst, libgstvideo
 
 # Register Keypoint metadata
 # pylint: disable=protected-access
+# pylint: enable=wrong-import-position
 GstAnalyticsOverride._wrap_mtd(
     DLStreamerMeta,
     'KeypointMtd',
