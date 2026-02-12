@@ -43,7 +43,6 @@ if(GENERATE_GIR_FROM_SOURCE)
     # Source and header files
     set(KEYPOINTS_SOURCES
         "${CMAKE_CURRENT_SOURCE_DIR}/gstanalyticskeypointsmtd.c"
-        "${CMAKE_CURRENT_SOURCE_DIR}/gstanalytics_gir.h"
     )
 
     set(KEYPOINTS_HEADERS
