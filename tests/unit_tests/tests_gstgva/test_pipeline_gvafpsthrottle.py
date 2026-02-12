@@ -9,7 +9,6 @@ import os
 
 # pylint: disable=import-error
 from pipeline_runner import TestGenericPipelineRunner
-from utils import BBox, get_model_path, get_model_proc_path
 # pylint: enable=import-error
 
 import gi
