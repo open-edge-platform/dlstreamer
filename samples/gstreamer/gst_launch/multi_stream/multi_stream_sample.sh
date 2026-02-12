@@ -25,8 +25,8 @@ if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
   echo "  INPUT             - Input source (default: Pexels video URL)"
   echo "  DEVICE_STREAM_12  - Device for stream 1 & 2 (default: NPU). Supported: CPU, GPU, NPU"
   echo "  DEVICE_STREAM_34  - Device for stream 3 & 4 (default: GPU). Supported: CPU, GPU, NPU"
-  echo "  MODEL_1          - Model for stream 1 & 2 (default: yolov8s). Supported: yolox-tiny, yolox_s, yolov7, yolov8s, yolov9c"
-  echo "  MODEL_2          - Model for stream 3 & 4 (default: yolov8s). Supported: yolox-tiny, yolox_s, yolov7, yolov8s, yolov9c"
+  echo "  MODEL_1          - Model for stream 1 & 2 (default: yolov8s). Supported: yolox-tiny, yolox_s, yolov7, yolov8s, yolov9c, yolo11s, yolo26s"
+  echo "  MODEL_2          - Model for stream 3 & 4 (default: yolov8s). Supported: yolox-tiny, yolox_s, yolov7, yolov8s, yolov9c, yolo11s, yolo26s"
   echo "  OUTPUT           - Output type (default: file). Supported: file, json"
   echo ""
   exit 0
@@ -35,8 +35,8 @@ fi
 INPUT=${1:-"https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4"}
 DEVICE_STREAM_12=${2:-"NPU"}    # Supported values: CPU, GPU, NPU
 DEVICE_STREAM_34=${3:-"GPU"}    # Supported values: CPU, GPU, NPU
-MODEL_1=${4:-"yolov8s"}         # Supported values: yolox-tiny, yolox_s, yolov7, yolov8s, yolov9c
-MODEL_2=${5:-"yolov8s"}         # Supported values: yolox-tiny, yolox_s, yolov7, yolov8s, yolov9c
+MODEL_1=${4:-"yolov8s"}         # Supported values: yolox-tiny, yolox_s, yolov7, yolov8s, yolov9c, yolo11s, yolo26s
+MODEL_2=${5:-"yolov8s"}         # Supported values: yolox-tiny, yolox_s, yolov7, yolov8s, yolov9c, yolo11s, yolo26s
 OUTPUT=${6:-"file"}             # Supported values: file, json
 GSTVA="VA"
 
@@ -57,8 +57,10 @@ declare -A MODEL_PROC_FILES=(
   ["yolox-tiny"]="../../model_proc/public/yolo-x.json"
   ["yolox_s"]="../../model_proc/public/yolo-x.json"
   ["yolov7"]="../../model_proc/public/yolo-v7.json"
-  ["yolov8s"]="../../model_proc/public/yolo-v8.json"
-  ["yolov9c"]="../../model_proc/public/yolo-v8.json"
+  ["yolov8s"]=""
+  ["yolov9c"]=""
+  ["yolo11s"]=""
+  ["yolo26s"]=""
 )
 
 if ! [[ "${!MODEL_PROC_FILES[*]}" =~ $MODEL_1 ]]; then
@@ -71,16 +73,16 @@ if ! [[ "${!MODEL_PROC_FILES[*]}" =~ $MODEL_2 ]]; then
 fi
 
 #### Model #1
-MODEL_1_PROC=""
-if ! [ -z ${MODEL_PROC_FILES[$MODEL_1]} ]; then
-  MODEL_1_PROC=$(realpath "${MODEL_PROC_FILES[$MODEL_1]}")
+MODEL_1_PROC="${MODEL_PROC_FILES[$MODEL_1]}"
+if [ ! -z "$MODEL_1_PROC" ]; then
+  MODEL_1_PROC=$(realpath "$MODEL_1_PROC")
 fi
 MODEL_1_PATH="${MODELS_PATH}/public/$MODEL_1/FP16/$MODEL_1.xml"
 
 #### Model #2
-MODEL_2_PROC=""
-if ! [ -z ${MODEL_PROC_FILES[$MODEL_2]} ]; then
-  MODEL_2_PROC=$(realpath "${MODEL_PROC_FILES[$MODEL_2]}")
+MODEL_2_PROC="${MODEL_PROC_FILES[$MODEL_2]}"
+if [ ! -z "$MODEL_2_PROC" ]; then
+  MODEL_2_PROC=$(realpath "$MODEL_2_PROC")
 fi
 MODEL_2_PATH="${MODELS_PATH}/public/$MODEL_2/FP16/$MODEL_2.xml"
 
@@ -94,8 +96,18 @@ if [ ! -f $MODEL_2_PATH ]; then
   exit 
 fi
 
-MODEL_1_PATH_PROC="model=${MODEL_1_PATH} model-proc=${MODEL_1_PROC}"
-MODEL_2_PATH_PROC="model=${MODEL_2_PATH} model-proc=${MODEL_2_PROC}"
+# Build model parameters - add model-proc only if it's set
+if [ -z "$MODEL_1_PROC" ]; then
+  MODEL_1_PATH_PROC="model=${MODEL_1_PATH}"
+else
+  MODEL_1_PATH_PROC="model=${MODEL_1_PATH} model-proc=${MODEL_1_PROC}"
+fi
+
+if [ -z "$MODEL_2_PROC" ]; then
+  MODEL_2_PATH_PROC="model=${MODEL_2_PATH}"
+else
+  MODEL_2_PATH_PROC="model=${MODEL_2_PATH} model-proc=${MODEL_2_PROC}"
+fi
 
 cd - 1>/dev/null
 
