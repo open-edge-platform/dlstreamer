@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -12,6 +12,6 @@
 
 G_BEGIN_DECLS
 
-GST_EXPORT GType batch_create_get_type(void);
+GType batch_create_get_type(void);
 
 G_END_DECLS

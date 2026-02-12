@@ -112,7 +112,7 @@ static Element *create_element(DictionaryCPtr params, const ContextPtr &app_cont
 
 } // namespace dlstreamer
 
-#if _WIN32
+#ifdef _WIN32
 #define DLS_EXPORT __declspec(dllexport)
 #else
 #define DLS_EXPORT __attribute__((visibility("default")))

@@ -1,5 +1,5 @@
-name: "[DLS] [WIN] Build Windows DLLs"
-run-name: "[DLS] [WIN] Build Windows DLLs (by ${{ github.actor }})"
+name: "[DLS] [WIN] Build and Test on Windows"
+run-name: "[DLS] [WIN] Build and Test on Windows (by ${{ github.actor }})"
 on:
   workflow_call:
     inputs:
@@ -17,13 +17,22 @@ on:
         default: "main"
 permissions: {}
 env:
-  DLS_TARGET_DIRECTORY: C:\dlstreamer
-  DLS_REPO_TARGET_DIRECTORY: C:\dlstreamer_repo
-
+  DLS_REPO_TARGET_DIRECTORY: 'C:\dlstreamer_repo'
+  DLS_BUILD_DIRECTORY: 'C:\dlstreamer_tmp\build'
+  DLS_DLL_TARGET_DIRECTORY: 'C:\dlstreamer'
+  OPENVINO_RUNTIME_DIRECTORY: 'C:\openvino\runtime'
+  GSTREAMER_DIRECTORY: 'C:\gstreamer'
+  BUILD_TOOLS_DIRECTORY: 'C:\BuildTools'
+  VCPKG_DIRECTORY: 'C:\vcpkg'
+  MODELS_PATH: 'C:\models\models'
+  VIDEO_INPUTS_PATH: 'C:\videos\videos'
+  TESTS_RESULTS_DIRECTORY: 'C:\dlstreamer_test_results'
+  PYTHON_VERSION: '3.12.7'
+  DLL_EXPECTED_COUNT: 16
 
 jobs:
-  build:
-    name: "[${{ matrix.runner_print_label }}] Build Windows DLLs"
+  DLS_Building_and_Testing:
+    name: "[${{ matrix.runner_print_label }}] Build and Test Windows DLLs"
     runs-on: ${{ matrix.runner_labels }}
     permissions:
       contents: read
@@ -31,11 +40,35 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - runner_labels: [self-hosted, dlstreamer, ARL, windows] # Build and run tests on Arrow Lake system with Ubuntu 24
+          - runner_labels: [self-hosted, dlstreamer, ARL, windows]
             runner_print_label: ARL
     steps:
+      - name: Initialize Emojis
+        shell: powershell
+        run: |
+          $emojis = @{
+            "EPASS"    = [char]0x2705  # ✅
+            "EFAIL"    = [char]0x274C  # ❌
+            "EWARN"    = [char]0x26A0  # ⚠️
+            "EINFO"    = [char]0x2139  # ℹ️
+            "EROCKET"  = [System.Char]::ConvertFromUtf32(0x1F680)  # 🚀
+            "EBOX"     = [System.Char]::ConvertFromUtf32(0x1F4E6)  # 📦
+            "EGEAR"    = [System.Char]::ConvertFromUtf32(0x2699)   # ⚙️ (Setup/Settings)
+            "ESEARCH"  = [System.Char]::ConvertFromUtf32(0x1F50D)  # 🔍 (Validate/Inspect)
+            "ERUN"     = [System.Char]::ConvertFromUtf32(0x1F3C3)  # 🏃 (Running/Action)
+            "ECHART"   = [System.Char]::ConvertFromUtf32(0x1F4CA)  # 📊 (Results/Stats)
+            "EMEMO"    = [System.Char]::ConvertFromUtf32(0x1F4DD)  # 📝 (Summary/Notes)
+            "ESTETH"   = [System.Char]::ConvertFromUtf32(0x1FA7A)  # 🩺 (Health Check/Elements)
+          }
+          $lines = New-Object System.Collections.Generic.List[string]
+          foreach ($name in $emojis.Keys) {
+            $lines.Add("$name=$($emojis[$name])")
+          }
+          $utf8NoBom = New-Object System.Text.UTF8Encoding $false
+          [System.IO.File]::AppendAllLines($env:GITHUB_ENV, $lines, $utf8NoBom)
+
       - name: Check out dlstreamer repository
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 #5.0.0
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # 5.0.0
         with:
           persist-credentials: false
           path: dlstreamer-repo
@@ -47,7 +80,8 @@ jobs:
           cd dlstreamer-repo
           git submodule update --init thirdparty/spdlog
           git submodule update --init thirdparty/googletest
-      - name: Copy DL Streamer repo
+
+      - name: Copy DLStreamer repo
         shell: powershell
         run: |
           $target = "${{ env.DLS_REPO_TARGET_DIRECTORY }}"
@@ -56,17 +90,19 @@ jobs:
           }
           New-Item -ItemType Directory -Path ${{ env.DLS_REPO_TARGET_DIRECTORY }} | Out-Null
           Copy-Item -Path "dlstreamer-repo\*" -Destination ${{ env.DLS_REPO_TARGET_DIRECTORY }} -Recurse -Force
+
       # ======================================================== BUILDING PART ========================================================
-      - name: 📦 Build DL Streamer DLLs
+      - name: "${{ env.EBOX }} Build DLStreamer DLLs"
         shell: powershell
         run: |
           cd ${{ env.DLS_REPO_TARGET_DIRECTORY }}
           & ./scripts/build_dlstreamer_dlls.ps1
+
       - name: Copy DLLs
         shell: powershell
         run: |
-          $target = "${{ env.DLS_TARGET_DIRECTORY }}"
-          $source = "C:\dlstreamer_tmp\build\intel64\Release\bin"
+          $target = "${{ env.DLS_DLL_TARGET_DIRECTORY }}"
+          $source = "${{ env.DLS_BUILD_DIRECTORY }}\intel64\Release\bin"
           Write-Host "`nContents of source directory ($source):"
           Get-ChildItem -Path $source -Recurse
           if (Test-Path $target) {
@@ -81,35 +117,354 @@ jobs:
           Copy-Item -Path $scriptSource -Destination $scriptDest -Force
           Write-Host "`nContents of target directory after copying ($target):"
           Get-ChildItem -Path $target -Recurse
-      - name: Print list of DLLs with sizes
+
+      - name: "${{ env.EBOX }} Print list of DLLs with sizes"
         shell: powershell
         run: |
-          $files = Get-ChildItem -Path ${{ env.DLS_TARGET_DIRECTORY }} -Recurse -Filter *.dll -File
-          $table = $files | ForEach-Object {
-              "| $($_.Name) | $([math]::Round($_.Length / 1KB, 2)) KB |"
+          $dllDir = "${{ env.DLS_DLL_TARGET_DIRECTORY }}"
+          $files = Get-ChildItem -Path $dllDir -Recurse -Filter *.dll -File
+
+          $expectedCount = ${{ env.DLL_EXPECTED_COUNT }}
+          $actualCount = $files.Count
+          $isMismatch = $actualCount -ne $expectedCount
+
+          $summaryLines = New-Object System.Collections.Generic.List[string]
+          $summaryLines.Add("## $($env:EBOX) Build Artifacts")
+          $summaryLines.Add("")
+          if ($isMismatch) {
+              $statusMsg = "**Total DLLs found:** $actualCount ($($env:EWARN) **Expect: $expectedCount**)"
+              $summaryLines.Add($statusMsg)
+              Write-Host "::warning title=DLL Count Mismatch::Detected $actualCount DLLs, but expected $expectedCount."
+          } else {
+              $statusMsg = "**Total DLLs found:** $actualCount (Expect: $expectedCount $($env:EPASS))"
+              $summaryLines.Add($statusMsg)
+              Write-Host "[OK] Total DLLs found: $actualCount (Expect: $expectedCount)" -ForegroundColor Green
           }
-          $count = $files.Count
-          $summary = @()
-          $summary += "### List of built DLL files"
-          $summary += ""
-          $summary += "| File |  Size  |"
-          $summary += "|------|--------|"
-          $summary += $table
-          $summary += ""
-          $summary += "**Count of files:** $count"
-          $summary -join "`n" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+          $summaryLines.Add("")
+
+          $summaryLines.Add("<details>")
+          $summaryLines.Add("<summary>Detail DLL List (Click to expand)</summary>")
+          $summaryLines.Add("")
+
+          $summaryLines.Add("| File Name | Size |")
+          $summaryLines.Add("| :--- | :--- |")
+
+          foreach ($file in $files) {
+              $size = [math]::Round($file.Length / 1KB, 2)
+              $summaryLines.Add("| $($file.Name) | $size KB |")
+          }
+
+          $summaryLines.Add("")
+          $summaryLines.Add("</details>")
+          $summaryLines.Add("")
+
+          $utf8NoBom = New-Object System.Text.UTF8Encoding $false
+          [System.IO.File]::AppendAllLines($env:GITHUB_STEP_SUMMARY, $summaryLines, $utf8NoBom)
+
+      # ======================================================== TESTING PART ========================================================
+      - name: Checkout DLStreamer test repository
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # 5.0.0
+        with:
+          repository: open-edge-platform/dl-streamer-tests
+          path: ${{ github.workspace }}/dls_test_repo
+          ref: ${{ inputs.test-repo-branch }}
+          persist-credentials: false
+
+      - name: "Install Python v${{ env.PYTHON_VERSION }}"
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # 5.0.0
+        id: cp312
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Capture Python path
+        env:
+          RAW_PYTHON_PATH: ${{ steps.cp312.outputs.python-path }}
+        shell: powershell
+        run: |
+          $actualPath = "$env:RAW_PYTHON_PATH"
+          Write-Host "Detected Python Path: $actualPath"
+          echo "PYTHON_EXE_PATH=$actualPath" >> $env:GITHUB_ENV
+
+      - name: Check out DLStreamer Windows dependencies
+        shell: powershell
+        run: |
+          $deps = @{
+            "OpenVINO Runtime" = $env:OPENVINO_RUNTIME_DIRECTORY
+            "DLStreamer"       = $env:DLS_DLL_TARGET_DIRECTORY
+            "GStreamer"        = $env:GSTREAMER_DIRECTORY
+            "Build Tools"      = $env:BUILD_TOOLS_DIRECTORY
+            "vcpkg"            = $env:VCPKG_DIRECTORY
+            "Python Executable"= $env:PYTHON_EXE_PATH
+          }
+
+          $errorCount = 0
+          Write-Host "--- Dependency Check ---" -ForegroundColor Cyan
+
+          foreach ($name in $deps.Keys) {
+            $path = $deps[$name]
+            if (![string]::IsNullOrWhiteSpace($path) -and (Test-Path $path)) {
+              Write-Host "[OK] $name found at: $path" -ForegroundColor Green
+            } else {
+              Write-Host "[Error] $name NOT found at: $path" -ForegroundColor Red
+              $errorCount++
+            }
+          }
+
+          if ($errorCount -gt 0) {
+            Write-Host "----------------------------------------------" -ForegroundColor Red
+            Write-Host "Error: $errorCount dependencies are missing!" -ForegroundColor Red
+            throw "Workflow failed due to $errorCount missing dependencies."
+          }
+          Write-Host "All dependencies verified successfully." -ForegroundColor Green
+
+      - name: "${{ env.EGEAR }} Setup static Windows PATH for following tests"
+        shell: powershell
+        run: |
+          $customPaths = @(
+            "${env:OPENVINO_RUNTIME_DIRECTORY}\bin\intel64\Release",
+            "${env:OPENVINO_RUNTIME_DIRECTORY}\3rdparty\tbb\bin",
+            "${env:DLS_DLL_TARGET_DIRECTORY}",
+            "${env:GSTREAMER_DIRECTORY}\1.0\msvc_x86_64\bin",
+            "${env:BUILD_TOOLS_DIRECTORY}\MSBuild\Current\Bin\amd64",
+            "${env:BUILD_TOOLS_DIRECTORY}\VC\Tools\MSVC\14.44.35207\bin\HostX86\x86",
+            "${env:BUILD_TOOLS_DIRECTORY}\Common7\IDE",
+            "${env:BUILD_TOOLS_DIRECTORY}\Common7\Tools",
+            "${env:VCPKG_DIRECTORY}",
+            "C:\Windows\system32",
+            "C:\Windows"
+          )
+
+          Write-Host "Updating GITHUB_PATH with the following locations:" -ForegroundColor Cyan
+          foreach ($p in $customPaths) {
+            echo "$p" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+            Write-Host "Adding to PATH: $p"
+          }
+
+          $gstPluginPath = "${env:GSTREAMER_DIRECTORY}\1.0\msvc_x86_64\lib\gstreamer-1.0;${env:DLS_DLL_TARGET_DIRECTORY}"
+          echo "GST_PLUGIN_PATH=$gstPluginPath" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+          Write-Host "----------------------------------------------"
+          Write-Host "Successfully configured GST_PLUGIN_PATH=$gstPluginPath" -ForegroundColor Green
+
+      - name: "${{ env.ESEARCH }} Validate DLStreamer elements"
+        shell: powershell
+        run: |
+          [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+          $elements = @("gvadetect", "gvametapublish", "gvaclassify", "gvawatermark", "gvawatermark3d", "gvagenai")
+          $allFound = $true
+
+          $lines = New-Object System.Collections.Generic.List[string]
+          $lines.Add("")
+          $lines.Add("## $($env:ESTETH) DLStreamer Elements Availability")
+          $lines.Add("")
+          $lines.Add("| Element Name | Status | Details |")
+          $lines.Add("| :--- | :---: | :--- |")
+
+          foreach ($el in $elements) {
+              Write-Host "Inspecting $el..."
+              gst-inspect-1.0.exe $el > $null 2>&1
+              if ($?) {
+                  $statusEmoji = $env:EPASS
+                  $detail = "Available"
+              } else {
+                  $statusEmoji = $env:EFAIL
+                  $detail = "Missing or Plugin Path Error"
+                  $allFound = $false
+              }
+              $lines.Add("| $el | $statusEmoji | $detail |")
+          }
+
+          $lines.Add("")
+          $utf8NoBom = New-Object System.Text.UTF8Encoding $false
+          [System.IO.File]::AppendAllLines($env:GITHUB_STEP_SUMMARY, $lines, $utf8NoBom)
+
+          if (-not $allFound) {
+              Write-Host "::error::CRITICAL: Some DLStreamer elements are missing!"
+              exit 1
+          }
+
+      - name: Install Python dependencies in VENV
+        shell: powershell
+        env:
+          WORKSPACE: ${{ github.workspace }}
+        run: |
+          $PythonExe = $env:PYTHON_EXE_PATH
+          $TestRepoDir = Join-Path $env:WORKSPACE "dls_test_repo"
+          $RequirementsFile = Join-Path $TestRepoDir "functional_tests\pipeline_test\requirements.txt"
+
+          Write-Host "Using Python: $PythonExe"
+          Write-Host "Creating virtual environment..."
+
+          & $PythonExe -m venv .venv
+          $VenvPython = Join-Path (Get-Location) ".venv\Scripts\python.exe"
+
+          Write-Host "Installing dependencies into venv..."
+          & $VenvPython -m pip install --upgrade pip
+
+          if (Test-Path $RequirementsFile) {
+              & $VenvPython -m pip install -r $RequirementsFile
+          } else {
+              Write-Error "Requirements file not found at $RequirementsFile"
+              exit 1
+          }
+
+          & $VenvPython -m pip install tqdm==4.67.1 numpy==2.2.0 opencv-python==4.11.0.86
+
+          "VENV_PYTHON=$VenvPython" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Create test results directory
+        shell: powershell
+        env:
+          RESULTS_DIR_BASE: ${{ env.TESTS_RESULTS_DIRECTORY }}
+          WORKSPACE: ${{ github.workspace }}
+          RUNNER_NAME: ${{ runner.name }}
+        run: |
+          $resultsDir = $env:RESULTS_DIR_BASE
+
+          if (Test-Path $resultsDir) {
+              Write-Host "Cleaning existing results directory..."
+              Remove-Item -Recurse -Force $resultsDir -ErrorAction SilentlyContinue
+          }
+          New-Item -ItemType Directory -Path $resultsDir -Force | Out-Null
+
+          $internalResults = Join-Path $env:WORKSPACE "dls_test_repo/functional_tests/pipeline_test/results"
+
+          if (-not (Test-Path $internalResults)) {
+              New-Item -ItemType Directory -Path $internalResults -Force | Out-Null
+          }
+
+      - name: Verify resource directories (Models and Videos)
+        shell: powershell
+        run: |
+          $Resources = @(
+              @{ Name = "Models"; Path = "${{ env.MODELS_PATH }}" },
+              @{ Name = "Video Inputs"; Path = "${{ env.VIDEO_INPUTS_PATH }}" }
+          )
+          $errorCount = 0
+          foreach ($res in $Resources) {
+              Write-Host "Checking $($res.Name) directory: $($res.Path)..."
+
+              if (-not (Test-Path $res.Path)) {
+                  Write-Host "::error:: $($res.Name) directory NOT found at $($res.Path)"
+                  $errorCount++
+                  continue
+              }
+              $hasFiles = Get-ChildItem -Path $res.Path -Recurse -File -ErrorAction SilentlyContinue | Select-Object -First 1
+              if (-not $hasFiles) {
+                  Write-Host "::error:: $($res.Name) directory is EMPTY at $($res.Path)"
+                  $errorCount++
+              } else {
+                  Write-Host "[OK] $($res.Name) directory is valid and has files."
+              }
+          }
+          if ($errorCount -gt 0) {
+              Write-Error "Resource validation failed. $errorCount directories are missing or empty."
+              exit 1
+          }
+
+      - name: "${{ env.EROCKET }} Run functional tests with powershell"
+        id: run-tests
+        shell: powershell
+        env:
+          RUNNER_NAME: ${{ runner.name }}
+          WORKSPACE: ${{ github.workspace }}
+          MODELS_DIR: ${{ env.MODELS_PATH }}
+          DLS_REPO_TARGET: ${{ env.DLS_REPO_TARGET_DIRECTORY }}
+          RESULTS_DIR_BASE: ${{ env.TESTS_RESULTS_DIRECTORY }}
+          PYTHON_VENV_EXE: ${{ env.VENV_PYTHON }}
+        run: |
+          $CurrentRunner = $env:RUNNER_NAME
+          if ($CurrentRunner -like "*ARL*") {
+              $TEST_CONFIGS = "common/samples_windows.json"
+          } else {
+              Write-Error "Unknown runner $CurrentRunner to get config. Exiting..."
+              exit 1
+          }
+
+          $DLS_TEST_REPO = Join-Path $env:WORKSPACE "dls_test_repo"
+          $RESULTS_DIR = $env:RESULTS_DIR_BASE
+          $DLS_REPO = $env:DLS_REPO_TARGET
+
+          $env:MODELS_PATH = $env:MODELS_DIR
+          $env:LABELS_PATH = Join-Path $DLS_REPO "samples\labels"
+          $env:MODEL_PROC_PATH = Join-Path $DLS_REPO "samples\gstreamer\model_proc"
+          $env:MODEL_PROCS_PATH = $env:MODEL_PROC_PATH
+
+          Write-Host "---------------- STARTING TESTS ----------------"
+          $TestPath = Join-Path $DLS_TEST_REPO "functional_tests\pipeline_test"
+          Set-Location $TestPath
+
+          & $env:PYTHON_VENV_EXE -u -m regression_test `
+              -c "./configs_ov2/$TEST_CONFIGS" `
+              --disable_tqdm `
+              --output-type json `
+              --results-path="$RESULTS_DIR" `
+              --xlsx-report="$RESULTS_DIR\test_results_on_host_Windows_ARL_tests_results.xlsx"
+
+          if (Test-Path "results") {
+              Move-Item -Path "results" -Destination (Join-Path $RESULTS_DIR "metadata") -Force
+          }
+
+      - name: Upload tests results to Artifacts
+        if: always()
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4  # v5.0.0
+        with:
+          name: test_results_on_host_Windows_ARL_tests_results
+          path: ${{ env.TESTS_RESULTS_DIRECTORY }}
+
+      - name: "${{ env.ECHART }} Show results and check for failures"
+        if: always()
+        shell: powershell
+        run: |
+          [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+
+          $reportDirectory = "${{ env.TESTS_RESULTS_DIRECTORY }}"
+          $reportFile = Join-Path $reportDirectory "test_results_on_host_Windows_ARL_tests_results.txt"
+          if (-not (Test-Path $reportFile)) {
+            Write-Error "Report file not found: $reportFile"
+            exit 1
+          }
+
+          $content = Get-Content -Path $reportFile -Raw -Encoding utf8
+
+          $hasFailures = $content -match '\[! FAIL !\]'
+
+          $displayContent = $content -replace '\[pass\]', "$($env:EPASS)"
+          $displayContent = $displayContent -replace '\[! FAIL !\]', "$($env:EFAIL)"
+
+          Write-Host "==================== TEST DETAILS ====================" -ForegroundColor Cyan
+          Write-Host $displayContent
+          Write-Host "======================================================" -ForegroundColor Cyan
+
+          $summaryHeader = "## $($env:EMEMO) Test summary for: $(Split-Path $reportFile -Leaf)"
+          $utf8NoBom = New-Object System.Text.UTF8Encoding $false
+          [System.IO.File]::AppendAllText($env:GITHUB_STEP_SUMMARY, "$summaryHeader`n$displayContent", $utf8NoBom)
+
+          if ($hasFailures) {
+              Write-Host "--------------------------------------------------"
+              Write-Host "::error:: CRITICAL: Detected failed test cases in the report!"
+              Write-Host "--------------------------------------------------"
+              exit 1
+          } else {
+              Write-Host "[OK] All test cases passed according to the report."
+          }
+
       # ======================================================== CLEAUP PART ========================================================
       - name: Clean up
         if: always()
         shell: powershell
         run: |
-          Remove-Item -Path .\dlstreamer-repo\ -Force -Recurse
-          if (Test-Path "C:\dlstreamer_tmp\build") {
-              Remove-Item -Recurse -Force "C:\dlstreamer_tmp\build"
-          }
-          if (Test-Path ${{ env.DLS_TARGET_DIRECTORY }}) {
-              Remove-Item -Recurse -Force ${{ env.DLS_TARGET_DIRECTORY }}
-          }
-          if (Test-Path ${{ env.DLS_REPO_TARGET_DIRECTORY }}) {
-              Remove-Item -Recurse -Force ${{ env.DLS_REPO_TARGET_DIRECTORY }}
+          $PathsToClean = @(
+              "${{ env.DLS_BUILD_DIRECTORY }}",
+              "${{ env.TESTS_RESULTS_DIRECTORY }}",
+              "${{ env.DLS_DLL_TARGET_DIRECTORY }}",
+              "${{ env.DLS_REPO_TARGET_DIRECTORY }}"
+          )
+
+          $PathsToClean | ForEach-Object {
+              if (Test-Path $_) {
+                  Write-Host "Cleaning up: $_"
+                  Remove-Item -Recurse -Force $_ -ErrorAction SilentlyContinue
+              }
           }
