@@ -96,3 +96,73 @@ Element Properties:
                         flags: readable, writable
                         Object of type "GstObject"
 ```
+
+## Visual Examples
+
+The following examples demonstrate how different `displ-cfg` parameters affect the watermark appearance:
+
+### Font Scale
+
+Controls the size of text labels displayed on detected objects.
+
+**Small Font Scale (`font-scale=0.7`)**
+![Text Scale 0.7](../_images/text-scale-0-7.png)
+
+**Large Font Scale (`font-scale=2.0`)**  
+![Text Scale 2.0](../_images/text-scale-2-0.png)
+
+### Label Display
+
+**Labels Disabled (`show-labels=false`)**
+![Disabled Labels](../_images/gvawatermark-disabled-labels.png)
+
+*Shows only bounding boxes without text labels*
+
+### Text Background
+
+**Text Background Enabled (`draw-txt-bg=true`)**
+![Text Background](../_images/show-text-background.png)
+
+*White background makes text more readable over complex backgrounds*
+
+### Color Index
+
+**Red Color (`color-idx=0`)**
+![Color Index Red](../_images/color-idx-zero.png)
+
+*Uses red color for bounding boxes and text*
+
+### Font Types
+
+**Font Comparison**
+![Font Types](../_images/simple-complex-font.png)
+
+*Comparison of different font types (simplex vs complex)*
+
+**Default Triplex Font**
+![Triplex Font](../_images/triplex-font.png)
+
+*The default triplex font provides good readability*
+
+### FPS Display
+
+**Average FPS Display (`displ-avgfps=true`)**
+![Show FPS](../_images/show-avg-fps.png)
+
+*Displays average FPS counter when `gvafpscounter` element is present in pipeline*
+
+### Configuration Examples
+
+```bash
+# Minimal labels with smaller font
+displ-cfg=show-labels=false
+
+# Large text with background
+displ-cfg=font-scale=2.0,draw-txt-bg=true
+
+# Colored thin boxes with simple font  
+displ-cfg=color-idx=0,thickness=1,font-type=simplex
+
+# Complete custom styling
+displ-cfg=font-scale=1.5,thickness=3,color-idx=2,font-type=complex,draw-txt-bg=true
+```
