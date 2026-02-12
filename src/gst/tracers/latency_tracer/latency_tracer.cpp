@@ -735,6 +735,10 @@ static void add_latency_meta(LatencyTracer *lt, LatencyTracerMeta *meta, guint64
 }
 
 static void do_push_buffer_pre(LatencyTracer *lt, guint64 ts, GstPad *pad, GstBuffer *buffer) {
+    // EOS
+    if (!buffer)
+        return;
+
     // OPTIMIZATION D: Early exit if no flags enabled (skip all processing when tracer is disabled)
     if (!(lt->flags & (LATENCY_TRACER_FLAG_ELEMENT | LATENCY_TRACER_FLAG_PIPELINE))) {
         return;
@@ -749,8 +753,17 @@ static void do_push_buffer_pre(LatencyTracer *lt, guint64 ts, GstPad *pad, GstBu
         // Check if this is a source element using cached type
         if (is_source_element_cached(lt, elem)) {
             add_latency_meta(lt, meta, ts, buffer, elem);
+        } else {
+            // Re-stamp: buffer lost its metadata (decoder/converter created new buffer)
+            // Use current timestamp so downstream latency is still tracked
+            add_latency_meta(lt, meta, ts, buffer, elem);
+            meta = LATENCY_TRACER_META_GET(buffer);
+            if (!meta)
+                return; // Buffer wasn't writable, skip
         }
-        return;
+        // Don't return early - continue to check for sink peer
+        if (!meta)
+            return;
     }
     if (lt->flags & LATENCY_TRACER_FLAG_ELEMENT) {
         ElementStats *stats = ElementStats::from_element(elem);
@@ -807,6 +820,9 @@ static void do_push_buffer_pre(LatencyTracer *lt, guint64 ts, GstPad *pad, GstBu
 }
 
 static void do_pull_range_post(LatencyTracer *lt, guint64 ts, GstPad *pad, GstBuffer *buffer) {
+    // EOS
+    if (!buffer)
+        return;
     GstElement *elem = get_real_pad_parent(pad);
     if (!is_in_pipeline(lt, elem))
         return;
