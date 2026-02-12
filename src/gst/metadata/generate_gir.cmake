@@ -118,13 +118,9 @@ add_custom_target(keypoints_introspection ALL
 # Use the same location where GStreamer installs its GIR files
 pkg_get_variable(GSTREAMER_PREFIX gstreamer-1.0 prefix)
 
-if(GSTREAMER_PREFIX)
-    set(GIR_INSTALL_DIR "${GSTREAMER_PREFIX}/share/gir-1.0")
-    set(TYPELIB_INSTALL_DIR "${GSTREAMER_PREFIX}/lib/girepository-1.0")
-else()
-    set(GIR_INSTALL_DIR "${CMAKE_INSTALL_PREFIX}/share/gir-1.0")
-    set(TYPELIB_INSTALL_DIR "${CMAKE_INSTALL_PREFIX}/lib/girepository-1.0")
-endif()
+set(GIR_INSTALL_DIR "${CMAKE_INSTALL_PREFIX}/share/gir-1.0")
+set(TYPELIB_INSTALL_DIR "${CMAKE_INSTALL_PREFIX}/lib/girepository-1.0")
+
 
 install(FILES ${GIR_OUTPUT}
     DESTINATION ${GIR_INSTALL_DIR}

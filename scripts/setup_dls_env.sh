@@ -14,7 +14,7 @@ export LD_LIBRARY_PATH=/opt/intel/dlstreamer/gstreamer/lib:/opt/intel/dlstreamer
 export GST_VA_ALL_DRIVERS=1
 export PATH=/opt/intel/dlstreamer/gstreamer/bin:/opt/intel/dlstreamer/bin:$PATH
 export GST_PLUGIN_FEATURE_RANK=${GST_PLUGIN_FEATURE_RANK},ximagesink:MAX
-export GI_TYPELIB_PATH=/opt/intel/dlstreamer/gstreamer/lib/girepository-1.0:/usr/lib/x86_64-linux-gnu/girepository-1.0
+export GI_TYPELIB_PATH=/opt/intel/dlstreamer/gstreamer/lib/girepository-1.0:/opt/intel/dlstreamer/lib/girepository-1.0:/usr/lib/x86_64-linux-gnu/girepository-1.0
 if [ "$ID" == "fedora" ] || [ "$ID" == "rhel" ]; then
     export LIBVA_DRIVERS_PATH=/usr/lib64/dri-nonfree
     export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/ffmpeg
