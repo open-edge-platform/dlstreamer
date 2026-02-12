@@ -16,14 +16,14 @@ This sample demonstrates how to capture video stream from a 3D RealSense™ Dept
     ```
 - **Verify** if Real Sense camera works. 
 
-    For example, the details of camera /dev/video0 can be examined using the following method:
+    For example, camera /dev/video0 details can be examined using the following methods:
 
     ```
     v4l2-ctl --device=/dev/video0 --all
     # or
     media-ctl -d /dev/media0 -p
     ```
-    and video can be:
+    and video can be played:
     ```
     ffplay /dev/video0
     ```
@@ -35,19 +35,20 @@ This sample demonstrates how to capture video stream from a 3D RealSense™ Dept
 
 ## Usage
 
-### Using the sample script (recommended)
-
-The `sample_realsense.sh` script provides a convenient wrapper for capturing video from RealSense cameras with additional features:
+The `sample_realsense.sh` script provides a convenient wrapper for capturing depth data from RealSense cameras and saving it as PCD (Point Cloud Data) files separately for each video frame:
 
 ```bash
-# Basic usage - display frame data to console
+# Basic usage - capture 5 frames (default) to RS-frame_XXXXXX.pcd files
 ./sample_realsense.sh --camera /dev/video0
 
-# Save to file
-./sample_realsense.sh --camera /dev/video0 --file output.raw
+# Capture specific number of frames
+./sample_realsense.sh --camera /dev/video0 --eos-frame 10
 
-# Save to file with size limit (stops when file reaches 100 MB)
-./sample_realsense.sh --camera /dev/video0 --file output.raw --max-size 100
+# Use custom output file name pattern
+./sample_realsense.sh --camera /dev/video0 --core-name MyCapture
+
+# Combine options
+./sample_realsense.sh --camera /dev/video0 --eos-frame 20 --core-name test-run
 
 # Display help
 ./sample_realsense.sh --help
@@ -55,35 +56,39 @@ The `sample_realsense.sh` script provides a convenient wrapper for capturing vid
 
 **Script options:**
 - `--camera <device>` - Camera device path (default: /dev/video0)
-- `--file <path>` - Output file path (optional, uses fakesink if not specified)
-- `--max-size <MB>` - Maximum file size in megabytes (requires --file)
+- `--eos-frame <number>` - The frame number treated as EOS (default: 5). Must be greater than 0.
+- `--core-name <name>` - Base name for output PCD files (default: RS-frame). Final file name format: `<core-name>_XXXXXX.pcd`, where XXXXXX is a 6-digit frame number.
 - `--help` - Display usage information
+
+**Output:** Files are saved as `<core-name>_XXXXXX.pcd` where XXXXXX is a 6-digit frame number.
+
+**Note:** Depending on pipeline behavior, the EOS (End of Stream) signal can be generated before the last frame is saved to the file.
 
 **Features:**
 - Automatic validation of camera device availability
 - Verification of gvarealsense element installation
-- Automatic removal of existing output files to prevent data corruption
-- File size monitoring and automatic pipeline shutdown when limit is reached
+- Automatic frame counting with FPS display (gvafpscounter)
+- Saves depth data as standard PCD (Point Cloud Data) files
 
 ### Direct gst-launch usage
 
 Alternatively, you can use `gst-launch-1.0` directly:
 
 ```bash
-gst-launch-1.0 gvarealsense camera=/dev/video0 ! queue ! fakesink dump=true
+gst-launch-1.0 gvarealsense camera="/dev/video0" ! queue ! identity eos-after=10 ! gvafpscounter ! multifilesink location="RS-frame_%06d.pcd"
 ```
 
 ## Pipeline Elements
 
 - `gvarealsense` - source element for Intel RealSense camera
 - `queue` - buffering element for thread decoupling
-- `fakesink` - test sink that displays buffer metadata when dump=true
+- `identity` - pass-through element with eos-after property to limit frame count; the pipeline stops after reaching the EOS frame number. 
+- `gvafpscounter` - displays frame rate statistics
+- `multifilesink` - saves each frame as a separate PCD file
 
 </br>
 
-**Note**: The Intel RealSense™ 3D Depth Camera generates substantial data volumes during operation. Please ensure adequate disk space is available before initiating capture sessions.
-
-**Note**: When using the `--max-size` option, the output file may exceed the specified size limit. This is normal behavior due to buffering and should not be a cause for concern.
+**Note**: The Intel RealSense™ 3D Depth Camera generates substantial data volumes during operation. Each PCD file can be several megabytes in size. Please ensure adequate disk space is available before initiating capture sessions.
 
 ## Finding Your Camera Device
 
@@ -103,7 +108,7 @@ v4l2-ctl --device=/dev/video0 --all
 
 ## Stopping the Pipeline
 
-Press **Ctrl+C** (SIGINT) to gracefully stop the pipeline at any time. When using `--max-size`, the pipeline will automatically stop when the file size limit is reached.
+The pipeline automatically stops after capturing the specified number of frames (using `identity eos-after` property). You can also press **Ctrl+C** (SIGINT) to stop it manually at any time.
 
 ## Troubleshooting
 
@@ -125,27 +130,36 @@ Press **Ctrl+C** (SIGINT) to gracefully stop the pipeline at any time. When usin
 - Ensure DL Streamer is properly installed with RealSense support
 - Check that `librealsense2` is installed: `dpkg -l | grep librealsense2`
 
-### File size limit not working
+### Invalid core name
 
-**Issue:** Pipeline continues running after reaching `--max-size`
-
-**Notes:**
-- The `--max-size` option requires `--file` to be specified
-- The script monitors file size every 0.5 seconds, so slight overrun is expected
-- File size is checked in bytes (1 MB = 1,048,576 bytes)
-
-### Permission denied when writing to file
-
-**Error:** Cannot write to output file
+**Error:** `ERROR: Invalid file core name.`
 
 **Solution:**
-- Check write permissions in the target directory
-- Ensure you have sufficient disk space: `df -h`
-- If the file exists and is locked, the script will attempt to remove it automatically
+- Core name must contain only alphanumeric characters, dots (.), dashes (-), and underscores (_)
+- Avoid special characters, spaces, or path separators
+- Example valid names: `test-run`, `capture_01`, `my.data`
+
+### Invalid EOS frame number
+
+**Error:** `ERROR: The frame number treated as EOS must be greater than 0.`
+
+**Solution:**
+- Specify a positive integer value for `--eos-frame`
+- The script will reset to the default value (5) if an invalid value is provided
+
+### Permission denied when writing files
+
+**Error:** Cannot write files to current directory
+
+**Solution:**
+- Check write permissions in the current directory: `ls -ld .`
+- Ensure you have sufficient disk space: `df -h .`
+- Consider running from a directory where you have write permissions
 
 ## Performance Considerations
 
 - **Data rate:** RealSense cameras can generate 10-100 MB/s depending on resolution and frame rate
-- **File size limits:** Use `--max-size` for long captures to prevent disk overflow
-- **Monitoring:** The script checks file size every 0.5 seconds when `--max-size` is used
-- **Cleanup:** Existing output files are automatically removed to prevent data corruption
+- **File size:** Each file can be several megabytes. Plan accordingly when capturing many frames
+- **Frame limit:** Use `--eos-frame` to control the number of frames captured
+- **File naming:** Files are named with a 6-digit sequential number (e.g., RS-frame_000000.pcd, RS-frame_000001.pcd, ...)
+- **FPS monitoring:** The script uses gvafpscounter to display frame rate information during capture

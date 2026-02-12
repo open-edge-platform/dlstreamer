@@ -8,22 +8,24 @@
 set -euo pipefail
 
 
-CAMERA="/dev/video0"  # Camera device (default: /dev/video0)
-FILENAME=""           # Output file (empty = use fakesink)
-FILE_SIZE_MB=""       # Max file size in MB (empty = run indefinitely)
-DUMP_ARGS=""          # Arguments for sink element (filesink or fakesink)
-
+CAMERA="/dev/video0"                        # Camera device (default: /dev/video0)
+EOS_FRAME_DEFAULT=5                         # TheDefault value of frame number 
+                                            # treated as EOS (default: 5)
+EOS_FRAME=$EOS_FRAME_DEFAULT
+FILE_CORE_NAME_DEFAULT="RS-frame"           # Base name for output files (used with multifilesink)
+FILE_CORE_NAME=$FILE_CORE_NAME_DEFAULT
+PIPELINE_TAIL=""                            # Arguments for sink element (identity and multifilesink)
 
 display_help() {
     echo "Usage: $0 [OPTIONS]"
     echo ""
     echo "Options:"
-    echo "  --camera <value>     Specify camera device (default: /dev/video0)"
-    echo "  --file <value>       Specify file to save output (default: none, uses fakesink)"
-    echo "  --max-size <value>   Maximum file size in MB (only with --file, default: unlimited)"
-    echo "  --help               Show this help message"
+    echo "  --camera <value>        Specify camera device (default: /dev/video0)"
+    echo "  --eos-frame <value>     The frame number treated as EOS (default: 5)"
+    echo "  --core-name <value>     Base name for output PCD files (default: RS-frame)."
+    echo "                          Example: RS-frame_000001.pcd, RS-frame_000002.pcd"
+    echo "  --help                  Show this help message"
 }
-
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
@@ -32,14 +34,34 @@ while [[ $# -gt 0 ]]; do
             CAMERA="$2"
             shift 2
             ;;
-        --file)
-            FILENAME="$2"
+
+        --eos-frame)
+            EOS_FRAME="$2"
+            # Check if EOS_FRAME is greater than 0
+            if [ "$EOS_FRAME" -le 0 ]; then
+                echo "ERROR: The frame number treated as EOS must be greater than 0." >&2
+                EOS_FRAME=$EOS_FRAME_DEFAULT
+                echo "Resetting EOS frame number to default value: $EOS_FRAME."
+            fi
+
             shift 2
             ;;
-        --max-size)
-            FILE_SIZE_MB="$2"
+
+        --core-name)
+            FILE_CORE_NAME="$2"
+
+            # Validate FILE_CORE_NAME for valid filename characters
+            if [[ "$2" =~ ^[a-zA-Z0-9._-]+$ ]]; then
+                FILE_CORE_NAME="$2"
+            else
+                echo "ERROR: Invalid file core name." >&2
+                echo "Resetting core name to default value: $FILE_CORE_NAME"
+                FILE_CORE_NAME=$FILE_CORE_NAME_DEFAULT
+            fi
+
             shift 2
             ;;
+
         --help)
             display_help
             exit 0
@@ -52,77 +74,44 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-
 # Check if camera device exists
 if [ ! -e "$CAMERA" ]; then
     echo "ERROR: Camera device $CAMERA not found!" >&2
     echo "------------------------" >&2
     echo "| Available video devices:" >&2
     echo "------------------------" >&2
-    echo "|" $(ls /dev/video* 2>/dev/null || echo "No video devices found.") 
+    echo "|" $(ls /dev/video* 2>/dev/null || echo "No video devices found.")
     echo "|------------------------" >&2
-    echo "Please specify a valid camera device using the --camera option." >&2
+    echo "Please specify a valid camera device using the --camera option."
     exit 1
 fi
 
 # Verify if gvarealsense element is available in the system:
 if ! gst-inspect-1.0 gvarealsense > /dev/null 2>&1; then
     echo "ERROR: gvarealsense element not found!" >&2
-    echo "You can verify by running: gst-inspect-1.0 | grep gvarealsense 2>/dev/null && echo "Element gvarealsense found"" >&2
+    echo "You can verify by running: gst-inspect-1.0 | grep gvarealsense 2>/dev/null && echo 'Element gvarealsense found'" >&2
     exit 1
 fi
 
-
-# Remove existing output file if it exists (to avoid appending to old data)
-if [ -n "$FILENAME" ] && [ -f "$FILENAME" ]; then
-    echo "Removing existing file: $FILENAME"
-    rm -f "$FILENAME"
-fi
+# Display defined parameters for debugging purposes
+echo "-------------------------------------------------" >&2
+echo "Defined parameters:"
+echo "                Camera device: $CAMERA"
+echo "  Frame number treated as EOS: $EOS_FRAME"
+echo "        Output file core name: $FILE_CORE_NAME"
+echo "-------------------------------------------------" >&2
 
 # Build GStreamer pipeline command
-COMMAND_LINE="gst-launch-1.0 gvarealsense camera=\"$CAMERA\" ! queue ! "
+PIPELINE_TAIL="identity eos-after=$EOS_FRAME ! gvafpscounter ! multifilesink location=\"${FILE_CORE_NAME}_%06d.pcd\""
+COMMAND_LINE="gst-launch-1.0 gvarealsense camera=\"$CAMERA\" ! queue !"
 
-# Add filesink if output file is specified, otherwise use fakesink
-if [ -n "$FILENAME" ]; then
-    echo "Output will be saved to file: $FILENAME"
-    DUMP_ARGS="filesink location=$FILENAME"
-else
-    DUMP_ARGS="fakesink dump=true"
-fi
-
-# Add dump arguments to the command line
-COMMAND_LINE="$COMMAND_LINE $DUMP_ARGS"
+COMMAND_LINE="$COMMAND_LINE $PIPELINE_TAIL"
 
 # Display the final command line for debugging purposes
 echo "Executing command line: $COMMAND_LINE"
 
-# If file size limit is specified, run the pipeline in the background and monitor file size
-if [ -n "$FILE_SIZE_MB" ] && [ -n "$FILENAME" ]; then
-    echo "Pipeline will stop when file reaches $FILE_SIZE_MB MB"
-    
-    # Start pipeline in background
-    bash -c "$COMMAND_LINE" &
-    PID=$!
-    
-    # Monitor file size
-    MAX_SIZE_BYTES=$((FILE_SIZE_MB * 1024 * 1024))
-    while kill -0 $PID 2>/dev/null; do
-        if [ -f "$FILENAME" ]; then
-            FILE_SIZE=$(stat -c%s "$FILENAME" 2>/dev/null || echo 0)
-            if [ "$FILE_SIZE" -ge "$MAX_SIZE_BYTES" ]; then
-                echo "File size limit reached: $FILE_SIZE_MB MB"
-                # Send SIGINT to the process group to ensure gst-launch receives it
-                kill -INT -$PID 2>/dev/null || kill -INT $PID
-                break
-            fi
-        fi
-        sleep 0.5
-    done
-    
-    wait $PID 2>/dev/null || true
-else
-    # If no file size limit, just run the command line directly
-    eval "$COMMAND_LINE"
-fi
+# Execute the GStreamer pipeline command
+eval "$COMMAND_LINE"
+
 
 
