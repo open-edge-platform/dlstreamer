@@ -237,7 +237,7 @@ def process_bus(bus):
 
 ##################################### Compatibility ###############################################
 
-def get_optimized_pipeline(pipeline, search_duration, sample_duration):
+def get_optimized_pipeline(pipeline, search_duration = 300, sample_duration = 10):
     optimizer = DLSOptimizer()
     optimizer.search_duration = search_duration
     optimizer.sample_duration = sample_duration
