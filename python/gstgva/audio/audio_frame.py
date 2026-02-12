@@ -19,7 +19,9 @@ gi.require_version('Gst', '1.0')
 gi.require_version("GstAudio", "1.0")
 gi.require_version('GObject', '2.0')
 
+# pylint: disable=no-name-in-module
 from gi.repository import GObject, Gst, GstAudio
+# pylint: enable=no-name-in-module
 from .audio_event_meta import AudioEventMeta
 from .audio_event import AudioEvent
 from ..util import GVATensorMeta

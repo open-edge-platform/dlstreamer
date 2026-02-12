@@ -20,7 +20,9 @@ import gi
 gi.require_version('GstAudio', '1.0')
 gi.require_version('GLib', '2.0')
 gi.require_version('Gst', '1.0')
+# pylint: disable=no-name-in-module
 from gi.repository import GstAudio, GLib, GObject, Gst
+# pylint: enable=no-name-in-module
 
 Segment = namedtuple("Segment", "start_time end_time")
 

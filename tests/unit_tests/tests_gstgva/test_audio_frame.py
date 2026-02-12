@@ -13,7 +13,9 @@ import numpy as np
 gi.require_version('Gst', '1.0')
 gi.require_version('GstAudio', '1.0')
 
+# pylint: disable=no-name-in-module
 from gi.repository import Gst, GstAudio
+# pylint: enable=no-name-in-module
 from gstgva.audio.audio_frame import AudioFrame
 from gstgva.audio.audio_event_meta import AudioEventMeta
 
