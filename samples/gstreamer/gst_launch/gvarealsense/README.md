@@ -10,7 +10,7 @@ This sample demonstrates how to capture video stream from a 3D RealSense™ Dept
 ### Real Sense SDK 2.0
 - **Install the RealSense drivers and libraries** to enable communication with Intel RealSense cameras:
 
-    ```
+    ```bash
     sudo apt install librealsense2-dkms
     sudo apt install librealsense2
     ```
@@ -18,18 +18,18 @@ This sample demonstrates how to capture video stream from a 3D RealSense™ Dept
 
     For example, camera /dev/video0 details can be examined using the following methods:
 
-    ```
+    ```bash
     v4l2-ctl --device=/dev/video0 --all
     # or
     media-ctl -d /dev/media0 -p
     ```
     and video can be played:
-    ```
+    ```bash
     ffplay /dev/video0
     ```
 
 - **Verify** if gvarealsense is installed properly in the system
-    ```
+    ```bash
     gst-inspect-1.0 | grep gvarealsense 2>/dev/null && echo "Element gvarealsense found"
     ```
 
