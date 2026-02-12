@@ -554,6 +554,15 @@ RUN \
     chown -R dlstreamer: /opt && \
     chmod -R u+rw /opt
 
+# Install onvif-zeep Python package
+RUN \
+    apt-get update && \
+    apt-get install -y -q --no-install-recommends python3-pip=\* && \
+    pip3 install --no-cache-dir --break-system-packages onvif-zeep==0.2.12 && \
+    cp -r /usr/local/lib/python3.12/site-packages/wsdl /usr/local/lib/python3.12/dist-packages/ && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
 # DL Streamer environment variables
 ENV LIBVA_DRIVER_NAME=iHD
 ENV GST_PLUGIN_PATH=/opt/intel/dlstreamer/lib:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0:/opt/intel/dlstreamer/gstreamer/lib/

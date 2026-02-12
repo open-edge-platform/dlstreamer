@@ -773,84 +773,25 @@ if array_contains "yolov7" "${MODELS_TO_PROCESS[@]}" || array_contains "yolo_all
 fi
 
 # ================================= YOLOv8* and newer FP16 & FP32 & INT8 =================================
-# List of models and their types
-declare -A YOLO_MODELS
-YOLO_MODELS=(
-  ["yolov8n"]="yolo_v8"
-  ["yolov8s"]="yolo_v8"
-  ["yolov8m"]="yolo_v8"
-  ["yolov8l"]="yolo_v8"
-  ["yolov8x"]="yolo_v8"
-  ["yolov8n-obb"]="yolo_v8_obb"
-  ["yolov8s-obb"]="yolo_v8_obb"
-  ["yolov8m-obb"]="yolo_v8_obb"
-  ["yolov8l-obb"]="yolo_v8_obb"
-  ["yolov8x-obb"]="yolo_v8_obb"
-  ["yolov8n-seg"]="yolo_v8_seg"
-  ["yolov8s-seg"]="yolo_v8_seg"
-  ["yolov8m-seg"]="yolo_v8_seg"
-  ["yolov8l-seg"]="yolo_v8_seg"
-  ["yolov8x-seg"]="yolo_v8_seg"
-  ["yolov8n-pose"]="yolo_v8_pose"
-  ["yolov8s-pose"]="yolo_v8_pose"
-  ["yolov8m-pose"]="yolo_v8_pose"
-  ["yolov8l-pose"]="yolo_v8_pose"
-  ["yolov8x-pose"]="yolo_v8_pose"
-  ["yolov9t"]="yolo_v8"
-  ["yolov9s"]="yolo_v8"
-  ["yolov9m"]="yolo_v8"
-  ["yolov9c"]="yolo_v8"
-  ["yolov9e"]="yolo_v8"
-  ["yolov10n"]="yolo_v10"
-  ["yolov10s"]="yolo_v10"
-  ["yolov10m"]="yolo_v10"
-  ["yolov10b"]="yolo_v10"
-  ["yolov10l"]="yolo_v10"
-  ["yolov10x"]="yolo_v10"
-  ["yolo11n"]="yolo_v11"
-  ["yolo11s"]="yolo_v11"
-  ["yolo11m"]="yolo_v11"
-  ["yolo11l"]="yolo_v11"
-  ["yolo11x"]="yolo_v11"
-  ["yolo11n-obb"]="yolo_v11_obb"
-  ["yolo11s-obb"]="yolo_v11_obb"
-  ["yolo11m-obb"]="yolo_v11_obb"
-  ["yolo11l-obb"]="yolo_v11_obb"
-  ["yolo11x-obb"]="yolo_v11_obb"
-  ["yolo11n-seg"]="yolo_v11_seg"
-  ["yolo11s-seg"]="yolo_v11_seg"
-  ["yolo11m-seg"]="yolo_v11_seg"
-  ["yolo11l-seg"]="yolo_v11_seg"
-  ["yolo11x-seg"]="yolo_v11_seg"
-  ["yolo11n-pose"]="yolo_v11_pose"
-  ["yolo11s-pose"]="yolo_v11_pose"
-  ["yolo11m-pose"]="yolo_v11_pose"
-  ["yolo11l-pose"]="yolo_v11_pose"
-  ["yolo11x-pose"]="yolo_v11_pose"
-  ["yolo26n"]="yolo_v26"
-  ["yolo26s"]="yolo_v26"
-  ["yolo26m"]="yolo_v26"
-  ["yolo26l"]="yolo_v26"
-  ["yolo26x"]="yolo_v26"
-  ["yolo26n-obb"]="yolo_v26_obb"
-  ["yolo26s-obb"]="yolo_v26_obb"
-  ["yolo26m-obb"]="yolo_v26_obb"
-  ["yolo26l-obb"]="yolo_v26_obb"
-  ["yolo26x-obb"]="yolo_v26_obb"
-  ["yolo26n-seg"]="yolo_v26_seg"
-  ["yolo26s-seg"]="yolo_v26_seg"
-  ["yolo26m-seg"]="yolo_v26_seg"
-  ["yolo26l-seg"]="yolo_v26_seg"
-  ["yolo26x-seg"]="yolo_v26_seg"
-  ["yolo26n-pose"]="yolo_v26_pose"
-  ["yolo26s-pose"]="yolo_v26_pose"
-  ["yolo26m-pose"]="yolo_v26_pose"
-  ["yolo26l-pose"]="yolo_v26_pose"
-  ["yolo26x-pose"]="yolo_v26_pose"
+YOLO_V8_AND_LATER_MODELS=(
+  "yolov8n" "yolov8s" "yolov8m" "yolov8l" "yolov8x"
+  "yolov8n-obb" "yolov8s-obb" "yolov8m-obb" "yolov8l-obb" "yolov8x-obb"
+  "yolov8n-seg" "yolov8s-seg" "yolov8m-seg" "yolov8l-seg" "yolov8x-seg"
+  "yolov8n-pose" "yolov8s-pose" "yolov8m-pose" "yolov8l-pose" "yolov8x-pose"
+  "yolov9t" "yolov9s" "yolov9m" "yolov9c" "yolov9e"
+  "yolov10n" "yolov10s" "yolov10m" "yolov10b" "yolov10l" "yolov10x"
+  "yolo11n" "yolo11s" "yolo11m" "yolo11l" "yolo11x"
+  "yolo11n-obb" "yolo11s-obb" "yolo11m-obb" "yolo11l-obb" "yolo11x-obb"
+  "yolo11n-seg" "yolo11s-seg" "yolo11m-seg" "yolo11l-seg" "yolo11x-seg"
+  "yolo11n-pose" "yolo11s-pose" "yolo11m-pose" "yolo11l-pose" "yolo11x-pose"
+  "yolo26n" "yolo26s" "yolo26m" "yolo26l" "yolo26x"
+  "yolo26n-obb" "yolo26s-obb" "yolo26m-obb" "yolo26l-obb" "yolo26x-obb"
+  "yolo26n-seg" "yolo26s-seg" "yolo26m-seg" "yolo26l-seg" "yolo26x-seg"
+  "yolo26n-pose" "yolo26s-pose" "yolo26m-pose" "yolo26l-pose" "yolo26x-pose"
 )
 
-# Function to export YOLO model
-export_and_quantize_yolo_model() {
+# Function to export YOLOv8 and later models
+export_and_quantize_yolov8_and_later_model() {
   local MODEL_NAME=$1
   local QUANTIZE=$2
   MODEL_DIR="$MODELS_PATH/public/$MODEL_NAME"
@@ -867,9 +808,6 @@ export_and_quantize_yolo_model() {
     QUANTIZE_PARAM=""
   fi
 
-  # Determine model type based on model name
-  local MODEL_TYPE="${YOLO_MODELS[$MODEL_NAME]}"
-
   if [[ ! -f "$DST_FILE1" || ! -f "$DST_FILE2" ]]; then
     display_header "Downloading ${MODEL_NAME^^} model"
     echo "Downloading and converting: ${MODEL_DIR}"
@@ -877,52 +815,30 @@ export_and_quantize_yolo_model() {
     mkdir -p "$MODEL_DIR"
     cd "$MODEL_DIR"
 
-    python3 - <<EOF "$MODEL_NAME" "$MODEL_TYPE" "$QUANTIZE_PARAM"
+    python3 - <<EOF "$MODEL_NAME" "$QUANTIZE_PARAM"
 from ultralytics import YOLO
-import openvino, sys, shutil, os
+import openvino, sys, os
 
 model_name = sys.argv[1]
-model_type = sys.argv[2]
-quantize_dataset = sys.argv[3]
-weights = model_name + '.pt'
+quantize_dataset = sys.argv[2]
 
-model = YOLO(weights)
+model = YOLO(model_name + '.pt')
 model.info()
 
-# Export FP32/FP16 (without dynamic for compatibility with DLStreamer preprocessing)
-converted_path = model.export(format='openvino')
-converted_model = converted_path + '/' + model_name + '.xml'
+print("Exporting FP32 model...")
+converted_path = model.export(format='openvino', dynamic=True, half=False, int8=False)
+os.rename(converted_path, "FP32")
 
-core = openvino.Core()
-ov_model = core.read_model(model=converted_model)
-
-if model_type in ["yolo_v8_seg", "yolo_v11_seg", "yolo_v26_seg"]:
-    ov_model.output(0).set_names({"boxes"})
-    ov_model.output(1).set_names({"masks"})
-
-ov_model.set_rt_info(model_type, ['model_info', 'model_type'])
-
-openvino.save_model(ov_model, './FP32/' + model_name + '.xml', compress_to_fp16=False)
-openvino.save_model(ov_model, './FP16/' + model_name + '.xml', compress_to_fp16=True)
-
-shutil.rmtree(converted_path)
+print("Exporting FP16 model...")
+converted_path = model.export(format='openvino', dynamic=True, half=True, int8=False)
+os.rename(converted_path, "FP16")
 
 # Export INT8 if requested
 if quantize_dataset != "":
     print("\033[36m[*] Starting INT8 quantization for " + model_name + "...\033[0m")
     
-    converted_path = model.export(format='openvino', half=False, int8=True, data=quantize_dataset + '.yaml')
-    
-    ov_model = core.read_model(model=converted_path + '/' + model_name + '.xml')
-    
-    if model_type in ["yolo_v8_seg", "yolo_v11_seg", "yolo_v26_seg"]:
-        ov_model.output(0).set_names({"boxes"})
-        ov_model.output(1).set_names({"masks"})
-    
-    ov_model.set_rt_info(model_type, ['model_info', 'model_type'])
-    
-    openvino.save_model(ov_model, './INT8/' + model_name + '.xml', compress_to_fp16=False)
-    shutil.rmtree(converted_path)
+    converted_path = model.export(format='openvino', dynamic=True, half=False, int8=True, data=quantize_dataset + '.yaml')
+    os.rename(converted_path, "INT8")
     
     print("\033[32m[+] INT8 quantization completed for " + model_name + "\033[0m")
 
@@ -937,9 +853,9 @@ EOF
 }
 
 # Iterate over the models and export them
-for MODEL_NAME in "${!YOLO_MODELS[@]}"; do
+for MODEL_NAME in "${YOLO_V8_AND_LATER_MODELS[@]}"; do
   if array_contains "$MODEL_NAME" "${MODELS_TO_PROCESS[@]}" || array_contains "yolo_all" "${MODELS_TO_PROCESS[@]}" || array_contains "all" "${MODELS_TO_PROCESS[@]}"; then
-    export_and_quantize_yolo_model "$MODEL_NAME" "$QUANTIZE"
+    export_and_quantize_yolov8_and_later_model "$MODEL_NAME" "$QUANTIZE"
   fi
 done
 
