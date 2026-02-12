@@ -9,7 +9,7 @@
 # and attached gstgva.region_of_interest.RegionOfInterest and gstgva.tensor.Tensor instances
 
 import ctypes
-import numpy
+import numpy # pylint: disable=import-error
 from contextlib import contextmanager
 from typing import List
 from warnings import warn

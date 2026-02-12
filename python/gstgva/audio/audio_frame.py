@@ -9,7 +9,7 @@
 # and attached gstgva.audio_event.AudioEvent and gstgva.tensor.Tensor instances
 
 import ctypes
-import numpy
+import numpy # pylint: disable=import-error
 from contextlib import contextmanager
 from typing import List
 from warnings import warn

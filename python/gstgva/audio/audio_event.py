@@ -8,7 +8,7 @@
 #  @brief This file contains gstgva.audio_event.AudioEvent class to control audio events for particular gstgva.audio_frame.AudioFrame with gstgva.tensor.Tensor instances attached
 
 import ctypes
-import numpy
+import numpy # pylint: disable=import-error
 from typing import List
 from collections import namedtuple
 
