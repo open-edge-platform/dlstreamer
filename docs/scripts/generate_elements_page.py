@@ -15,7 +15,8 @@ import re
 import sys
 import gi
 gi.require_version('Gst', '1.0')
-from gi.repository import Gst # pylint: disable=no-name-in-module, wrong-import-position
+gi.require_version('GLib', '2.0')
+from gi.repository import Gst, GLib # pylint: disable=no-name-in-module, wrong-import-position
 
 import inspect
 
