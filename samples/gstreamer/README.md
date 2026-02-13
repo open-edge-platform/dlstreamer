@@ -36,6 +36,8 @@ Samples separated into several categories
     * [ONVIF Camera Discovery Sample](./python/onvif_cameras_discovery/README.md) - demonstrates automatic discovery of ONVIF-compatible cameras on the network and launches corresponding DL Streamer pipelines for video analysis.
 4. Benchmark
     * [Benchmark Sample](./benchmark/README.md) - measures overall performance of single-channel or multi-channel video analytics pipelines
+5. Concurrent use of DL Streamer and DeepStream
+	* [Concurrent use Sample](./concurrent/README.md) - runs pipelines on DL Streamer and/or DeepStream
 
 ## How To Build And Run
 
