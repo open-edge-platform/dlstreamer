@@ -27,82 +27,146 @@ logger.info("GStreamer version: %d.%d.%d",
             gst_version.minor,
             gst_version.micro)
 
-####################################### Main Logic ################################################
+################################### Init and config ###############################################
 
-# Steps of pipeline optimization:
-# 1. Measure the baseline pipeline's performace.
-# 2. Pre-process the pipeline to cover cases where we're certain of the best alternative.
-# 3. Prepare a set of generators providing alternatives for elements.
-# 4. Iterate over the generators
-# 5. Iterate over the suggestions from every processor
-# 6. Any time a better pipeline is found, save it and its performance information.
-# 7. Return the best discovered pipeline.
-def get_optimized_pipeline(pipeline, search_duration = 300, sample_duration = 10):
-    # Test for tee element presence
-    if re.search("[^a-zA-Z]tee[^a-zA-Z]", pipeline):
-        raise RuntimeError("Pipelines containing the tee element are currently not supported!")
+class DLSOptimizer:
+    def __init__(self):
+        self._search_duration = 300
+        self._sample_duration = 10
+        self._multistream_fps_limit = 30
+        self._generators = {
+            "device": DeviceGenerator(),
+            "batch": BatchGenerator(),
+            "nireq": NireqGenerator()
+        }
 
-    pipeline = pipeline.split("!")
+    def set_search_duration(self, duration):
+        self._search_duration = duration
 
-    # Measure the performance of the original pipeline
-    try:
-        fps = sample_pipeline(pipeline, sample_duration)
-    except Exception as e:
-        logger.error("Pipeline failed to start, unable to measure fps: %s", e)
-        raise RuntimeError("Provided pipeline is not valid") from e
+    def set_sample_duration(self, duration):
+        self._sample_duration = duration
 
-    logger.info("FPS: %.2f", fps)
-    initial_fps = fps
+    def set_multistream_fps_limit(self, limit):
+        self._multistream_fps_limit = limit
 
-    # Make pipeline definition portable across inference devices.
-    # Replace elements with known better alternatives.
-    try:
-        preproc_pipeline = " ! ".join(pipeline)
-        preproc_pipeline = preprocess_pipeline(preproc_pipeline)
-        preproc_pipeline = preproc_pipeline.split(" ! ")
+    ################################### Main Logic ################################################
 
-        preproc_fps = sample_pipeline(preproc_pipeline, sample_duration)
-        if preproc_fps > fps:
-            fps = preproc_fps
-            pipeline = preproc_pipeline
-    except Exception:
-        logger.error("Pipeline pre-processing failed, using original pipeline instead")
+    # Steps of pipeline optimization:
+    # 1. Measure the baseline pipeline's performace.
+    # 2. Pre-process the pipeline to cover cases where we're certain of the best alternative.
+    # 3. Prepare a set of generators providing alternatives for elements.
+    # 4. Iterate over the generators
+    # 5. Iterate over the suggestions from every processor
+    # 6. Any time a better pipeline is found, save it and its performance information.
+    # 7. Return the best discovered pipeline.
+    def optimize_for_fps(self, pipeline):
+        # Test for tee element presence
+        if re.search("[^a-zA-Z]tee[^a-zA-Z]", pipeline):
+            raise RuntimeError("Pipelines containing the tee element are currently not supported!")
 
-    generators = [
-        DeviceGenerator(),
-        BatchGenerator(),
-        NireqGenerator()
-    ]
+        pipeline = pipeline.split("!")
 
-    best_pipeline = pipeline
-    best_fps = fps
-    start_time = time.time()
-    for generator in generators:
-        generator.init_pipeline(best_pipeline)
-        for pipeline in generator:
-            cur_time = time.time()
-            if cur_time - start_time > search_duration:
+        # Measure the performance of the original pipeline
+        try:
+            fps = sample_pipeline([pipeline], self._sample_duration)
+        except Exception as e:
+            logger.error("Pipeline failed to start, unable to measure fps: %s", e)
+            raise RuntimeError("Provided pipeline is not valid") from e
+
+        logger.info("FPS: %.2f", fps)
+        initial_fps = fps
+
+        # Replace elements with known better alternatives.
+        try:
+            preproc_pipeline = " ! ".join(pipeline)
+            preproc_pipeline = preprocess_pipeline(preproc_pipeline)
+            preproc_pipeline = preproc_pipeline.split(" ! ")
+
+            preproc_fps = sample_pipeline([preproc_pipeline], self._sample_duration)
+            if preproc_fps > fps:
+                fps = preproc_fps
+                pipeline = preproc_pipeline
+        except Exception:
+            logger.error("Pipeline pre-processing failed, using original pipeline instead")
+
+        start_time = time.time()
+        (best_pipeline, best_fps) = self._optimize_pipeline(pipeline, fps, start_time, 1)
+
+        # Reconstruct the pipeline as a single string and return it.
+        logger.info("Initial pipeline FPS: %.2f", initial_fps)
+        logger.info("pipeline: %s", str(best_pipeline))
+        return "!".join(best_pipeline), best_fps
+
+    def optimize_for_streams(self, initial_pipeline):
+        # Test for tee element presence
+        if re.search("[^a-zA-Z]tee[^a-zA-Z]", initial_pipeline):
+            raise RuntimeError("Pipelines containing the tee element are currently not supported!")
+
+        # Configure inference generators for multi-stream batching
+        self._generators["device"].force_instance_id(True)
+        self._generators["batch"].force_instance_id(True)
+        self._generators["nireq"].force_instance_id(True)
+
+        initial_pipeline = initial_pipeline.split("!")
+
+        # Replace elements with known better alternatives.
+        try:
+            preproc_pipeline = " ! ".join(initial_pipeline)
+            preproc_pipeline = preprocess_pipeline(preproc_pipeline)
+            preproc_pipeline = preproc_pipeline.split(" ! ")
+
+            sample_pipeline([preproc_pipeline], self._sample_duration)
+        except Exception:
+            logger.error("Pipeline pre-processing failed, using original pipeline instead")
+
+        start_time = time.time()
+        best_pipeline = initial_pipeline
+        best_fps = 0
+        best_streams = 0
+        for streams in range(1, 65):
+            pipeline, fps = self._optimize_pipeline(initial_pipeline, 0, start_time, streams)
+            if fps > self._multistream_fps_limit:
+                best_fps = fps
+                best_pipeline = pipeline
+                best_streams = streams
+            else:
                 break
 
-            try:
-                fps = sample_pipeline(pipeline, sample_duration)
+        return "!".join(best_pipeline), best_fps, best_streams
 
-                if fps > best_fps:
-                    best_fps = fps
-                    best_pipeline = pipeline
+    def _optimize_pipeline(self, starting_pipeline, starting_fps, start_time, streams):
+        best_pipeline = starting_pipeline
+        best_fps = starting_fps
 
-            except Exception as e:
-                logger.debug("Pipeline failed to start: %s", e)
+        for generator in self._generators.values():
+            generator.init_pipeline(best_pipeline)
+            for pipeline in generator:
+                cur_time = time.time()
+                if cur_time - start_time > self._search_duration:
+                    break
 
-    # Reconstruct the pipeline as a single string and return it.
-    logger.info("Initial pipeline FPS: %.2f", initial_fps)
-    return "!".join(best_pipeline), best_fps
+                pipelines = []
+                for _ in range(0, streams):
+                    pipelines.append(pipeline)
+
+                try:
+                    fps = sample_pipeline(pipelines, self._sample_duration)
+
+                    if fps > best_fps:
+                        best_fps = fps
+                        best_pipeline = pipeline
+
+                except Exception as e:
+                    logger.debug("Pipeline failed to start: %s", e)
+
+        return best_pipeline, best_fps
 
 ##################################### Pipeline Running ############################################
 
-def sample_pipeline(pipeline, sample_duration):
-    pipeline = pipeline.copy()
+def sample_pipeline(pipelines, sample_duration):
+    pipelines = pipelines.copy()
 
+    pipeline = pipelines[0]
     # check if there is an fps counter in the pipeline, add one otherwise
     has_fps_counter = False
     for element in pipeline:
@@ -112,10 +176,11 @@ def sample_pipeline(pipeline, sample_duration):
     if not has_fps_counter:
         for i, element in enumerate(reversed(pipeline)):
             if "gvadetect" in element or "gvaclassify" in element:
-                pipeline.insert(len(pipeline) - i, " gvafpscounter " )
+                pipeline.insert(len(pipeline) - i, " queue ! gvafpscounter " )
                 break
 
-    pipeline = "!".join(pipeline)
+    pipelines = list(map(lambda pipeline: "!".join(pipeline), pipelines))
+    pipeline = " ".join(pipelines)
     logger.debug("Testing: %s", pipeline)
 
     pipeline = Gst.parse_launch(pipeline)
@@ -174,3 +239,11 @@ def process_bus(bus):
         else:
             logger.error("Other message: %s", str(message))
         message = bus.pop()
+
+##################################### Compatibility ###############################################
+
+def get_optimized_pipeline(pipeline, search_duration = 300, sample_duration = 10):
+    optimizer = DLSOptimizer()
+    optimizer.search_duration = search_duration
+    optimizer.sample_duration = sample_duration
+    return optimizer.optimize_for_fps(pipeline)
