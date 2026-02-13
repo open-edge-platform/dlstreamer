@@ -122,9 +122,13 @@ bool convertYoloMeta2ModelApi(const std::string model_file, ov::AnyMap &modelCon
             break;
         }
     }
-    if (!type_found && yaml_json.contains("description") && yaml_json["description"].is_string()) {
-        throw std::runtime_error("Unsupported YOLO model type: " + yaml_json["description"].get<std::string>());
-        return false;
+    if (!type_found) {
+        if (yaml_json.contains("end2end") && yaml_json["end2end"].is_boolean() && yaml_json["end2end"].get<bool>()) {
+            model_type = "yolo_v26";
+        } else {
+            model_type = "yolo_v8";
+        }
+        GST_WARNING("YOLO model type derived from end2end flag: %s", model_type.c_str());
     }
 
     bool task_found = false;

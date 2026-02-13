@@ -34,6 +34,7 @@ export LIBVA_DRIVER_NAME 		:= iHD
 export LIBVA_DRIVERS_PATH 		:= /usr/lib/x86_64-linux-gnu/dri
 export GST_VA_ALL_DRIVERS 		:= 1
 export GST_PLUGIN_FEATURE_RANK 	:= ${GST_PLUGIN_FEATURE_RANK},ximagesink:MAX
+export BUILD_GIRS 				?= OFF
 
 
 .PHONY: dependencies
@@ -64,6 +65,7 @@ build: dependencies ## Compile Deep Learning Streamer
 		-DENABLE_VAAPI=ON \
 		-DENABLE_SAMPLES=ON \
 		-DENABLE_GENAI=${ENABLE_GENAI} \
+		-DGENERATE_GIR_FROM_SOURCE=${BUILD_GIRS} \
 		-DENABLE_TESTS=OFF; \
 	cmake --build build -j$(shell nproc)
 
@@ -87,6 +89,11 @@ install: build ## Build and install Deep Learning Streamer
 	@cp -r scripts/ ${DLSTREAMER_INSTALL_PREFIX}
 	@cp -r include/ ${DLSTREAMER_INSTALL_PREFIX}
 	@cp README.md ${DLSTREAMER_INSTALL_PREFIX}
+	@mkdir -p ${DLSTREAMER_INSTALL_PREFIX}/lib/girepository-1.0
+	@if [ -f build/src/gst/metadata/DLStreamerMeta-1.0.typelib ]; then \
+		echo "Installing typelib file..."; \
+		cp build/src/gst/metadata/DLStreamerMeta-1.0.typelib ${DLSTREAMER_INSTALL_PREFIX}/lib/girepository-1.0/; \
+	fi
 	@echo "Installation successful"
 
 .PHONY: deb
