@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2024-2025 Intel Corporation
+ * Copyright (C) 2024-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -68,7 +68,7 @@ GstAnalyticsMtdType gst_analytics_keypoint_mtd_get_mtd_type(void) {
 /**
  * gst_analytics_keypoint_mtd_get:
  * @handle: instance
- * @keypoint: (out): data structure describing keypoint attributes
+ * @keypoint: (out caller-allocates): data structure describing keypoint attributes
  *
  * Retrieve keypoint attributes.
  *
@@ -91,10 +91,10 @@ gboolean gst_analytics_keypoint_mtd_get(const GstAnalyticsKeypointMtd *handle, G
 }
 
 /**
- * gst_analytics_relation_meta_add_keypointgroup_mtd:
+ * gst_analytics_relation_meta_add_keypoint_mtd:
  * @instance: Instance of #GstAnalyticsRelationMeta where to add keypoint metadata.
  * @keypoint: keypoint attributes to store as metadata.
- * @keypoint_mtd: (out) (not nullable): Handle updated to newly added keypoint meta.
+ * @keypoint_mtd: (out caller-allocates) (not nullable): Handle updated to newly added keypoint meta.
  *
  * Add analytic keypoint metadata to @instance.
  *
@@ -110,13 +110,33 @@ gboolean gst_analytics_relation_meta_add_keypoint_mtd(GstAnalyticsRelationMeta *
     g_return_val_if_fail(keypoint != NULL, FALSE);
 
     gsize size = sizeof(GstAnalyticsKeypoint);
-    GstAnalyticsKeypoint *keypoint_data =
-        (GstAnalyticsKeypoint *)gst_analytics_relation_meta_add_mtd(instance, &keypoint_impl, size, keypoint_mtd);
+    GstAnalyticsKeypoint *keypoint_data = (GstAnalyticsKeypoint *)gst_analytics_relation_meta_add_mtd(
+        instance, &keypoint_impl, size, (GstAnalyticsMtd *)keypoint_mtd);
     g_return_val_if_fail(keypoint_data != NULL, FALSE);
 
     memcpy(keypoint_data, keypoint, sizeof(GstAnalyticsKeypoint));
 
     return TRUE;
+}
+
+/**
+ * gst_analytics_relation_meta_get_keypoint_mtd:
+ * @meta: Instance of #GstAnalyticsRelationMeta
+ * @an_meta_id: Id of #GstAnalyticsKeypointMtd instance to retrieve
+ * @rlt: (out caller-allocates)(not nullable): Will be filled with relatable meta
+ *
+ * Fill @rlt if a analytics-meta with id == @an_meta_id exist in @meta instance,
+ * otherwise this method return FALSE and @rlt is invalid.
+ *
+ * Returns: TRUE if successful.
+ *
+ * Since: 1.26
+ */
+GST_ANALYTICS_META_API
+gboolean gst_analytics_relation_meta_get_keypoint_mtd(GstAnalyticsRelationMeta *meta, guint an_meta_id,
+                                                      GstAnalyticsKeypointMtd *rlt) {
+    return gst_analytics_relation_meta_get_mtd(meta, an_meta_id, gst_analytics_keypoint_mtd_get_mtd_type(),
+                                               (GstAnalyticsMtd *)rlt);
 }
 
 /**
@@ -178,7 +198,7 @@ gsize gst_analytics_keypoint_skeleton_mtd_get_count(const GstAnalyticsKeypointSk
 /**
  * gst_analytics_keypoint_skeleton_mtd_get:
  * @handle: instance handle
- * @segment: a pair of keypoint indices representing a skeleton segment
+ * @segment: (out caller-allocates): a pair of keypoint indices representing a skeleton segment
  * @index: skeleton segment index, must be < gst_analytics_keypoint_skeleton_mtd_get_count
  *
  * Get pair of keypoint indices for a skeleton link at @index
@@ -204,36 +224,56 @@ gboolean gst_analytics_keypoint_skeleton_mtd_get(const GstAnalyticsKeypointSkele
 /**
  * gst_analytics_relation_meta_add_keypoint_skeleton_mtd:
  * @instance: Instance of #GstAnalyticsRelationMeta where to add classification instance
- * @count: number of skeleton segments that connect keypoints
- * @segments: (array of skeleton_count): keypoint pair indices representing skeleton segments,
- * null pointer if skeleton is not defined
+ * @skeleton_count: number of skeleton segments that connect keypoints
+ * @skeletons: (array length=skeleton_count): keypoint pair indices representing skeleton segments
  * example: < {0, 2}, {0, 5}, ...>
- * @keypoint_skeleton_mtd: (out) (not nullable): Handle updated to newly added keypoint info.
+ * @keypoint_skeleton_mtd: (out caller-allocates) (not nullable): Handle updated to newly added keypoint info.
  *
  * Add analytic keypoint metadata to @instance.
  * Returns: Added successfully
  *
  * Since: 1.26
  */
-gboolean gst_analytics_relation_meta_add_keypoint_skeleton_mtd(GstAnalyticsRelationMeta *instance, const gsize count,
-                                                               const GstAnalyticsKeypointPair *segments,
+gboolean gst_analytics_relation_meta_add_keypoint_skeleton_mtd(GstAnalyticsRelationMeta *instance,
+                                                               const gsize skeleton_count,
+                                                               const GstAnalyticsKeypointPair *skeletons,
                                                                GstAnalyticsKeypointSkeletonMtd *keypoint_skeleton_mtd) {
     g_return_val_if_fail(instance, FALSE);
-    g_return_val_if_fail(segments != NULL, FALSE);
+    g_return_val_if_fail(skeletons != NULL, FALSE);
 
-    gsize data_size = sizeof(GstAnalyticsKeypointPair) * count;
+    gsize data_size = sizeof(GstAnalyticsKeypointPair) * skeleton_count;
     gsize size = sizeof(GstAnalyticsKeypointSkeletonData) + data_size;
 
     GstAnalyticsKeypointSkeletonData *data = (GstAnalyticsKeypointSkeletonData *)gst_analytics_relation_meta_add_mtd(
-        instance, &keypoint_skeleton_impl, size, keypoint_skeleton_mtd);
+        instance, &keypoint_skeleton_impl, size, (GstAnalyticsMtd *)keypoint_skeleton_mtd);
 
     g_return_val_if_fail(data != NULL, FALSE);
 
     // fill in skeleton segments array
-    data->count = count;
-    memcpy(data->segments, segments, count * sizeof(GstAnalyticsKeypointPair));
+    data->count = skeleton_count;
+    memcpy(data->segments, skeletons, skeleton_count * sizeof(GstAnalyticsKeypointPair));
 
     return TRUE;
+}
+
+/**
+ * gst_analytics_relation_meta_get_keypoint_skeleton_mtd:
+ * @meta: Instance of #GstAnalyticsRelationMeta
+ * @an_meta_id: Id of #GstAnalyticsKeypointSkeletonMtd instance to retrieve
+ * @rlt: (out caller-allocates)(not nullable): Will be filled with relatable meta
+ *
+ * Fill @rlt if a analytics-meta with id == @an_meta_id exist in @meta instance,
+ * otherwise this method return FALSE and @rlt is invalid.
+ *
+ * Returns: TRUE if successful.
+ *
+ * Since: 1.26
+ */
+GST_ANALYTICS_META_API
+gboolean gst_analytics_relation_meta_get_keypoint_skeleton_mtd(GstAnalyticsRelationMeta *meta, guint an_meta_id,
+                                                               GstAnalyticsKeypointSkeletonMtd *rlt) {
+    return gst_analytics_relation_meta_get_mtd(meta, an_meta_id, gst_analytics_keypoint_skeleton_mtd_get_mtd_type(),
+                                               (GstAnalyticsMtd *)rlt);
 }
 
 /**
@@ -276,6 +316,21 @@ GstAnalyticsMtdType gst_analytics_keypointgroup_mtd_get_mtd_type(void) {
 }
 
 /**
+ * gst_analytics_keypoint_group_mtd_get_mtd_type:
+ *
+ * Get an id identifying #GstAnalyticsKeypointGroupMtd type.
+ * For GIR bindings compatibility. Ideally should rename all
+ * keypointgroup to keypoint_group.
+ *
+ * Returns: opaque id of #GstAnalyticsMtd type
+ *
+ * Since: 1.26
+ */
+GstAnalyticsMtdType gst_analytics_keypoint_group_mtd_get_mtd_type(void) {
+    return (GstAnalyticsMtdType)&keypoint_group_impl;
+}
+
+/**
  * gst_analytics_keypointgroup_mtd_get_count:
  * @handle: instance handle
  *
@@ -298,7 +353,7 @@ gsize gst_analytics_keypointgroup_mtd_get_count(const GstAnalyticsKeypointGroupM
 /**
  * gst_analytics_keypointgroup_mtd_get_keypoint_mtd:
  * @handle: handle to keypoint group metadata
- * @keypoint_mtd: (out) handle to keypoint metadata at @index position in this keypoint group
+ * @keypoint_mtd: (out caller-allocates): handle to keypoint metadata at @index position in this keypoint group
  * @index: keypoint index, must be < gst_analytics_keypointgroup_mtd_get_keypoints_count
  *
  * Get keypoint metadata handle at @index
@@ -327,46 +382,67 @@ gboolean gst_analytics_keypointgroup_mtd_get_keypoint_mtd(const GstAnalyticsKeyp
 /**
  * gst_analytics_relation_meta_add_keypointgroup_mtd:
  * @instance: Instance of #GstAnalyticsRelationMeta where to add classification instance
- * @count: number of keypoints to add
- * @keypoints: (array of count): metadata handles for individual keypoints
- * @keypoint_mtd: (out) (not nullable): Handle updated to newly added keypoint group meta.
+ * @keypoint_count: number of keypoints to add
+ * @keypoints: (array length=keypoint_count): metadata handles for individual keypoints
+ * @keypoint_group_mtd: (out caller-allocates) (not nullable): Handle updated to newly added keypoint group meta.
  *
  * Add analytic keypoint metadata to @instance.
  * Returns: TRUE if valid keypoint group handle returned, FALSE if the call failed
  *
  * Since: 1.26
  */
-gboolean gst_analytics_relation_meta_add_keypointgroup_mtd(GstAnalyticsRelationMeta *instance, const gsize count,
-                                                           const GstAnalyticsKeypointMtd *keypoint_mtd,
+gboolean gst_analytics_relation_meta_add_keypointgroup_mtd(GstAnalyticsRelationMeta *instance,
+                                                           const gsize keypoint_count,
+                                                           const GstAnalyticsKeypointMtd *keypoints,
                                                            GstAnalyticsKeypointGroupMtd *keypoint_group_mtd) {
     g_return_val_if_fail(instance != NULL, FALSE);
-    g_return_val_if_fail(keypoint_mtd != NULL, FALSE);
+    g_return_val_if_fail(keypoints != NULL, FALSE);
 
     // create medatada for individual keypoints in a group and store metadata id
-    gsize data_size = sizeof(guint) * count;
+    gsize data_size = sizeof(guint) * keypoint_count;
     gsize size = sizeof(GstAnalyticsKeypointGroupData) + data_size;
     GstAnalyticsKeypointGroupData *keypoint_group_data =
         (GstAnalyticsKeypointGroupData *)gst_analytics_relation_meta_add_mtd(instance, &keypoint_group_impl, size,
-                                                                             keypoint_group_mtd);
+                                                                             (GstAnalyticsMtd *)keypoint_group_mtd);
     g_return_val_if_fail(keypoint_group_data != NULL, FALSE);
 
     // store ids of individual keypoints in data array
     // metadata instance must be same for keypoints and keypoint group
-    keypoint_group_data->count = count;
-    for (gsize k = 0; k < count; k++) {
-        g_return_val_if_fail(keypoint_mtd->meta == instance, FALSE);
-        keypoint_group_data->ids[k] = keypoint_mtd[k].id;
+    keypoint_group_data->count = keypoint_count;
+    for (gsize k = 0; k < keypoint_count; k++) {
+        g_return_val_if_fail(keypoints->meta == instance, FALSE);
+        keypoint_group_data->ids[k] = keypoints[k].id;
     }
 
     return TRUE;
 }
 
 /**
+ * gst_analytics_relation_meta_get_keypointgroup_mtd:
+ * @meta: Instance of #GstAnalyticsRelationMeta
+ * @an_meta_id: Id of #GstAnalyticsKeypointGroupMtd instance to retrieve
+ * @rlt: (out caller-allocates)(not nullable): Will be filled with relatable meta
+ *
+ * Fill @rlt if a analytics-meta with id == @an_meta_id exist in @meta instance,
+ * otherwise this method return FALSE and @rlt is invalid.
+ *
+ * Returns: TRUE if successful.
+ *
+ * Since: 1.26
+ */
+GST_ANALYTICS_META_API
+gboolean gst_analytics_relation_meta_get_keypointgroup_mtd(GstAnalyticsRelationMeta *meta, guint an_meta_id,
+                                                           GstAnalyticsKeypointGroupMtd *rlt) {
+    return gst_analytics_relation_meta_get_mtd(meta, an_meta_id, gst_analytics_keypointgroup_mtd_get_mtd_type(),
+                                               (GstAnalyticsMtd *)rlt);
+}
+
+/**
  * gst_analytics_relation_meta_set_keypointgroup_relations:
  * @instance: Instance of #GstAnalyticsRelationMeta where to add classification instance.
  * @keypoint_group: Handle to keypoint group metadata.
- * @keypoint_names: (optiona, can be null): Handle to classification metadata with keypoint names.
- * @keypoint_skeleton: (optiona, can be null): Handle to skeleton metadata with skeleton segments.
+ * @keypoint_names: (nullable): Handle to classification metadata with keypoint names.
+ * @keypoint_skeleton: (nullable): Handle to skeleton metadata with skeleton segments.
  *
  * Setup default relations between keypoints, keypoint group, keypoint names and skeleton.
  *

@@ -33,3 +33,6 @@ target_link_libraries(${TARGET_NAME}
 )
 
 install(TARGETS ${TARGET_NAME} DESTINATION ${DLSTREAMER_PLUGINS_INSTALL_PATH})
+
+# Generate GObject Introspection (GIR) files
+include(generate_gir.cmake)
