@@ -123,7 +123,7 @@ class DLSOptimizer:
         best_pipeline = initial_pipeline
         best_fps = 0
         best_streams = 0
-        for streams in range(2, 65):
+        for streams in range(1, 65):
             pipeline, fps = self._optimize_pipeline(initial_pipeline, 0, start_time, streams)
             if fps > self._multistream_fps_limit:
                 best_fps = fps

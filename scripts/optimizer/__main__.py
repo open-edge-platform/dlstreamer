@@ -62,8 +62,15 @@ try:
             logger.info("\nBest found pipeline: %s \nwith fps: %.2f", best_pipeline, best_fps)
         case "streams":
             best_pipeline, best_fps, streams = optimizer.optimize_for_streams(pipeline)
+
+            full_pipeline = []
+            for _ in range(0, streams):
+                full_pipeline.append(best_pipeline)
+
+            full_pipeline = " ".join(full_pipeline)
+
             logger.info("\nBest found pipeline for multi-streams: %s \n" \
                         "with fps: %.2f\n" \
-                        "max achieved streams: %d", best_pipeline, best_fps, streams)
+                        "max achieved streams: %d", full_pipeline, best_fps, streams)
 except Exception as e: # pylint: disable=broad-exception-caught
     logger.error("Failed to optimize pipeline: %s", e)
