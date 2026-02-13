@@ -6,7 +6,6 @@
 
 import unittest
 
-# pylint: disable=import-error
 import test_tensor
 import test_region_of_interest
 import test_video_frame
@@ -31,7 +30,6 @@ import test_pipeline_action_recognition
 import test_pipeline_optimizer
 import test_pipeline_gvafpsthrottle
 import test_pipeline_g3dradarprocess
-# pylint: enable=import-error
 
 if __name__ == '__main__':
     loader = unittest.TestLoader()

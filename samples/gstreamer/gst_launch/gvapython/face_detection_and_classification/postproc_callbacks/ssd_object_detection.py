@@ -7,7 +7,7 @@
 import sys
 import gi
 gi.require_version('Gst', '1.0')
-from gi.repository import Gst, GObject
+from gi.repository import Gst, GObject # pylint: disable=no-name-in-module
 
 from gstgva import VideoFrame
 

@@ -10,7 +10,7 @@ gi.require_version("GstVideo", "1.0")
 gi.require_version("GLib", "2.0")
 gi.require_version("Gst", "1.0")
 gi.require_version("GstAnalytics", "1.0")
-from gi.repository import GLib, Gst, GstAnalytics
+from gi.repository import GLib, Gst, GstAnalytics # pylint: disable=no-name-in-module
 
 def watermark_sink_pad_buffer_probe(pad,info,u_data):
     obj_counter = {}

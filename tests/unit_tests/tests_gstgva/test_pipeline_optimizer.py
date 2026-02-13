@@ -5,10 +5,8 @@
 # ==============================================================================
 
 import unittest
-# pylint: disable=import-error
-from optimizer import get_optimized_pipeline
+from optimizer import get_optimized_pipeline # pylint: disable=no-name-in-module
 from utils import get_model_path
-# pylint: enable=import-error
 
 class TestOptimizer(unittest.TestCase):
     

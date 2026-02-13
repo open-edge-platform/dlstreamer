@@ -16,7 +16,7 @@ gi.require_version('Gst', '1.0')
 from gstgva.region_of_interest import RegionOfInterest, Tensor
 from gstgva.util import VideoRegionOfInterestMeta, libgst
 from gstgva.video_frame import VideoFrame
-from gi.repository import GstVideo, GLib, GObject, Gst
+from gi.repository import GstVideo, GLib, GObject, Gst # pylint: disable=no-name-in-module
 
 Gst.init(sys.argv)
 

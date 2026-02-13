@@ -10,7 +10,7 @@ import gi
 gi.require_version('Gst', '1.0')
 gi.require_version("GstVideo", "1.0")
 gi.require_version("GLib", "2.0")
-from gi.repository import GstVideo, GLib, Gst, GObject
+from gi.repository import GstVideo, GLib, Gst, GObject # pylint: disable=no-name-in-module
 
 from gstgva.util import libgst
 from gstgva.tensor import Tensor

@@ -9,7 +9,7 @@ import gi
 import numpy as np
 
 gi.require_version('Gst', '1.0')
-from gi.repository import GLib, Gst, GObject
+from gi.repository import GLib, Gst, GObject # pylint: disable=no-name-in-module
 
 from gstgva import VideoFrame, Tensor, RegionOfInterest
 Gst.init(sys.argv)
