@@ -14,7 +14,7 @@ from processors.inference import DeviceGenerator, BatchGenerator, NireqGenerator
 
 import gi
 gi.require_version("Gst", "1.0")
-from gi.repository import Gst
+from gi.repository import Gst # pylint: disable=no-name-in-module
 
 ####################################### Init ######################################################
 

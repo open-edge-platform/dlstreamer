@@ -1,5 +1,5 @@
 # ==============================================================================
-# Copyright (C) 2018-2025 Intel Corporation
+# Copyright (C) 2018-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
@@ -9,12 +9,14 @@ import unittest
 import numpy as np
 
 import gi
+import gstgva as va
 gi.require_version('Gst', '1.0')
 gi.require_version("GstVideo", "1.0")
 gi.require_version("GLib", "2.0")
+# pylint: disable=no-name-in-module, wrong-import-position
 from gi.repository import Gst, GstVideo, GLib
+# pylint: enable=no-name-in-module, wrong-import-position
 
-import gstgva as va
 
 Gst.init(sys.argv)
 

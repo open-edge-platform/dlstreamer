@@ -12,7 +12,9 @@ import gi
 gi.require_version('GstVideo', '1.0')
 gi.require_version('GstAudio', '1.0')
 gi.require_version('Gst', '1.0')
+# pylint: disable=no-name-in-module
 from gi.repository import GstVideo, GstAudio, GObject, Gst
+# pylint: enable=no-name-in-module
 
 # libgstreamer
 if platform.system() == 'Windows':

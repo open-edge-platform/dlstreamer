@@ -8,13 +8,12 @@ import unittest
 import os
 
 from pipeline_runner import TestGenericPipelineRunner
-from utils import *
 
 import gi
 
 gi.require_version("Gst", "1.0")
 gi.require_version("GLib", "2.0")
-from gi.repository import Gst, GLib
+from gi.repository import Gst, GLib # pylint: disable=no-name-in-module
 
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 

@@ -46,7 +46,7 @@ runs:
           echo "📝 Found Python files, running pylint..."
           # Save full output to temporary file first
           temp_output="${output_file}.full"
-          find "${path}" -name "*.py" -not -path "*/venv/*" -print0 | xargs -0 pylint 2>&1 | tee "${temp_output}" || true
+          find "${path}" -name "*.py" -not -path "*/venv/*" -print0 | xargs -0 pylint --rcfile="${path}/pylintrc" 2>&1 | tee "${temp_output}" || true
           # Filter only errors (E) and fatal (F) issues to the main output file
           if [ -f "${temp_output}" ]; then
             # Extract errors and fatal issues
