@@ -42,7 +42,6 @@ runs:
         echo "🔍 Searching for Python files in: ${path}"
         python_files=$(find "${path}" -name "*.py" -not -path "*/venv/*" 2>/dev/null || true)
 
-        pip install -r ${path}/requirements.txt
         if [ -n "${python_files}" ]; then
           echo "📝 Found Python files, running pylint..."
           # Save full output to temporary file first

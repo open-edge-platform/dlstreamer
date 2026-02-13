@@ -1,2 +1,7 @@
 [MAIN]
 source-roots = python/gstgva
+
+[MESSAGES CONTROL]
+
+# F0401 = Unable to import module
+disable=F0401
