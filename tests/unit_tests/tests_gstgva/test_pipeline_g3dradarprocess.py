@@ -12,9 +12,9 @@ import gi
 gi.require_version("Gst", "1.0")
 from gi.repository import Gst
 
-# pylint: disable=import-error, wrong-import-position
+# pylint: disable=wrong-import-position
 from pipeline_runner import TestGenericPipelineRunner
-# pylint: enable=import-error, wrong-import-position
+# pylint: enable=wrong-import-position
 
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 

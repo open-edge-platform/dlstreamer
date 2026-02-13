@@ -8,7 +8,7 @@
 #  @brief This file contains gstgva.tensor.Tensor class which contains and describes neural network inference result
 
 import ctypes
-import numpy # pylint: disable=import-error
+import numpy
 import gi
 from typing import List
 

@@ -7,9 +7,7 @@
 import unittest
 import os
 
-# pylint: disable=import-error
 from pipeline_runner import TestGenericPipelineRunner
-# pylint: enable=import-error
 
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 IMAGE_PATH = os.path.join(SCRIPT_DIR, "test_files", "dog_bike_car.jpg")
