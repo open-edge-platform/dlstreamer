@@ -907,6 +907,7 @@ void Impl::preparePrimsForRoi(GVA::RegionOfInterest &roi, std::vector<render::Pr
                               safe_convert<double>(rect_u32.w), safe_convert<double>(rect_u32.h)};
 
     clip_rect(rect.x, rect.y, rect.w, rect.h, _vinfo);
+    bool filtered_out = false;
 
     std::ostringstream text;
     const int object_id = roi.object_id();
@@ -916,36 +917,42 @@ void Impl::preparePrimsForRoi(GVA::RegionOfInterest &roi, std::vector<render::Pr
     }
 
     if (roi.label().size() > 1) {
-        appendStr(text, roi.label());
-        text << int(roi.confidence() * 100) << "%";
-    }
-
-    // Prepare primitives for tensors
-    for (auto &tensor : roi.tensors()) {
-        preparePrimsForTensor(tensor, rect, prims, color_index);
-        if (!tensor.is_detection()) {
-            appendStr(text, tensor.label());
+        if (roi.label().find("car") == std::string::npos) {
+            appendStr(text, roi.label());
+            text << int(roi.confidence() * 100) << "%";
+        } else {
+            filtered_out = true;
         }
     }
 
-    // set color
-    Color color = indexToColor(color_index);
-    if (_displCfg.color_idx != DEFAULT_COLOR_IDX)
-        color = _default_color;
-
-    // put rectangle
-    cv::Rect bbox_rect(rect.x, rect.y, rect.w, rect.h);
-    if (!_obb)
-        prims.emplace_back(render::Rect(bbox_rect, color, _displCfg.thickness, roi.rotation()));
-
-    // put text
-    if (_displCfg.show_labels)
-        if (text.str().size() != 0) {
-            cv::Point2f pos(rect.x, rect.y - 5.f);
-            if (pos.y < 0)
-                pos.y = rect.y + 30.f;
-            prims.emplace_back(render::Text(text.str(), pos, _displCfg.font_type, _displCfg.font_scale, color));
+    if (!filtered_out) {
+        // Prepare primitives for tensors
+        for (auto &tensor : roi.tensors()) {
+            preparePrimsForTensor(tensor, rect, prims, color_index);
+            if (!tensor.is_detection()) {
+                appendStr(text, tensor.label());
+            }
         }
+
+        // set color
+        Color color = indexToColor(color_index);
+        if (_displCfg.color_idx != DEFAULT_COLOR_IDX)
+            color = _default_color;
+
+        // put rectangle
+        cv::Rect bbox_rect(rect.x, rect.y, rect.w, rect.h);
+        if (!_obb)
+            prims.emplace_back(render::Rect(bbox_rect, color, _displCfg.thickness, roi.rotation()));
+
+        // put text
+        if (_displCfg.show_labels)
+            if (text.str().size() != 0) {
+                cv::Point2f pos(rect.x, rect.y - 5.f);
+                if (pos.y < 0)
+                    pos.y = rect.y + 30.f;
+                prims.emplace_back(render::Text(text.str(), pos, _displCfg.font_type, _displCfg.font_scale, color));
+            }
+    }
 
     // put avg-fps from gvafpscounter element
     if (_displ_avgfps) {
