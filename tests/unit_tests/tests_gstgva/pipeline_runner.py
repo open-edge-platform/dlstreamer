@@ -11,6 +11,7 @@ from os.path import isfile, isdir, join
 import unittest
 
 import gi
+import gstgva as va  # noqa
 gi.require_version('Gst', '1.0')
 gi.require_version("GLib", "2.0")
 gi.require_version('GstApp', '1.0')
@@ -18,7 +19,6 @@ gi.require_version("GstVideo", "1.0")
 # pylint: disable=no-name-in-module
 from gi.repository import GLib, Gst, GstApp, GstVideo  # noqa
 # pylint: enable=no-name-in-module
-import gstgva as va  # noqa
 
 Gst.init(None)
 

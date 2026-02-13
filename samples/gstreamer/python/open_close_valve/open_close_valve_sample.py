@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# Copyright (C) 2025 Intel Corporation
+# Copyright (C) 2025-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
@@ -17,9 +17,7 @@ import time
 import gi
 gi.require_version('Gst', '1.0')
 gi.require_version('GstAnalytics', '1.0')
-# pylint: disable=no-name-in-module
-from gi.repository import Gst, GLib, GstAnalytics
-# pylint: enable=no-name-in-module
+from gi.repository import Gst, GLib, GstAnalytics # pylint: disable=no-name-in-module, wrong-import-position
 
 
 class DualStreamController:

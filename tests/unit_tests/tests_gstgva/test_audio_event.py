@@ -6,13 +6,14 @@
 
 import ctypes
 import unittest
-import gi
-gi.require_version('GLib', '2.0')
-from gi.repository import GLib
 from gstgva.util import GList, libgst, GLIST_POINTER
 from gstgva.tensor import Tensor
 from gstgva.audio.audio_event import AudioEvent
 from gstgva.audio.audio_event_meta import AudioEventMeta
+import gi
+gi.require_version('GLib', '2.0')
+from gi.repository import GLib # pylint: disable=no-name-in-module, wrong-import-position
+
 
 class TestAudioEvent(unittest.TestCase):
     tensors_count = 2

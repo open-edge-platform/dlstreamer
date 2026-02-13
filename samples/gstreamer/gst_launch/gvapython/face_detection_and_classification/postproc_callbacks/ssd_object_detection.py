@@ -1,5 +1,5 @@
 # ==============================================================================
-# Copyright (C) 2018-2021 Intel Corporation
+# Copyright (C) 2018-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
@@ -7,7 +7,7 @@
 import sys
 import gi
 gi.require_version('Gst', '1.0')
-from gi.repository import Gst, GObject # pylint: disable=no-name-in-module
+from gi.repository import Gst, GObject # pylint: disable=no-name-in-module, wrong-import-position
 
 from gstgva import VideoFrame
 

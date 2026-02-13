@@ -6,13 +6,6 @@
 # SPDX-License-Identifier: MIT
 # ==============================================================================
 
-import gi
-gi.require_version('Gst', '1.0')
-gi.require_version('GstBase', '1.0')
-gi.require_version('GstVideo', '1.0')
-
-from gi.repository import Gst, GObject, GstBase # pylint: disable=no-name-in-module
-
 import torch
 import numpy as np
 import traceback
@@ -21,6 +14,12 @@ import importlib
 from gstgva import VideoFrame
 from typing import List
 from torchvision.transforms._presets import ImageClassification
+
+import gi
+gi.require_version('Gst', '1.0')
+gi.require_version('GstBase', '1.0')
+gi.require_version('GstVideo', '1.0')
+from gi.repository import Gst, GObject, GstBase # pylint: disable=no-name-in-module, wrong-import-position
 
 
 Gst.init(None)

@@ -10,7 +10,7 @@ import json
 
 import gi
 gi.require_version("Gst", "1.0")
-from gi.repository import Gst # pylint: disable=no-name-in-module
+from gi.repository import Gst # pylint: disable=no-name-in-module, wrong-import-position
 
 from pipeline_runner import TestGenericPipelineRunner # pylint: disable=wrong-import-position
 

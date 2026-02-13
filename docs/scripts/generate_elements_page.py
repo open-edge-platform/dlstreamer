@@ -1,5 +1,5 @@
 # ==============================================================================
-# Copyright (C) 2023 Intel Corporation
+# Copyright (C) 2023-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
@@ -15,7 +15,7 @@ import re
 import sys
 import gi
 gi.require_version('Gst', '1.0')
-from gi.repository import Gst # pylint: disable=no-name-in-module
+from gi.repository import Gst # pylint: disable=no-name-in-module, wrong-import-position
 
 import inspect
 

@@ -6,16 +6,16 @@
 # SPDX-License-Identifier: MIT
 # ==============================================================================
 
-import gi
-gi.require_version('Gst', '1.0')
-gi.require_version('GstBase', '1.0')
-gi.require_version('GstVideo', '1.0')
-
-from gi.repository import Gst, GObject, GLib, GstBase, GstVideo # pylint: disable=no-name-in-module
 import numpy as np
 
 from openvino.runtime import Core, Layout, Type, InferRequest, AsyncInferQueue
 from openvino.preprocess import PrePostProcessor
+
+import gi
+gi.require_version('Gst', '1.0')
+gi.require_version('GstBase', '1.0')
+gi.require_version('GstVideo', '1.0')
+from gi.repository import Gst, GObject, GLib, GstBase, GstVideo # pylint: disable=no-name-in-module, wrong-import-position
 
 Gst.init(None)
 

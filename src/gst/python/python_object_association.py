@@ -10,7 +10,7 @@ import gi
 gi.require_version('Gst', '1.0')
 gi.require_version('GstBase', '1.0')
 gi.require_version('GstVideo', '1.0')
-from gi.repository import Gst, GObject, GstBase, GLib # pylint: disable=no-name-in-module
+from gi.repository import Gst, GObject, GstBase, GLib # pylint: disable=no-name-in-module, wrong-import-position
 
 from gstgva import VideoFrame
 

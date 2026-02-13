@@ -14,7 +14,7 @@ from ultralytics import YOLO
 import gi
 gi.require_version("Gst", "1.0")
 gi.require_version("GstAnalytics", "1.0")
-from gi.repository import Gst # pylint: disable=no-name-in-module,wrong-import-position
+from gi.repository import Gst # pylint: disable=no-name-in-module, wrong-import-position
 
 
 
