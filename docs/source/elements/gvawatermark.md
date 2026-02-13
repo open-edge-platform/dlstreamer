@@ -123,7 +123,7 @@ Controls the size of text labels displayed on detected objects.
 **Text Background Enabled (`draw-txt-bg=true`)**
 ![Text Background](../_images/show-text-background.png)
 
-*White background makes text more readable over complex backgrounds*
+*Blue background makes text more readable over complex backgrounds*
 
 ### Color Index
 
