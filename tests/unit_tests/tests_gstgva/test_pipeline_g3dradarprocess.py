@@ -10,11 +10,9 @@ import json
 
 import gi
 gi.require_version("Gst", "1.0")
-from gi.repository import Gst
+from gi.repository import Gst # pylint: disable=no-name-in-module
 
-# pylint: disable=wrong-import-position
-from pipeline_runner import TestGenericPipelineRunner
-# pylint: enable=wrong-import-position
+from pipeline_runner import TestGenericPipelineRunner # pylint: disable=wrong-import-position
 
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 
