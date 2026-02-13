@@ -34,11 +34,11 @@ class DLSOptimizer:
         self._search_duration = 300
         self._sample_duration = 10
         self._multistream_fps_limit = 30
-        self._generators = [
-            DeviceGenerator(),
-            BatchGenerator(),
-            NireqGenerator()
-        ]
+        self._generators = {
+            "device": DeviceGenerator(),
+            "batch": BatchGenerator(),
+            "nireq": NireqGenerator()
+        }
 
     def set_search_duration(self, duration):
         self._search_duration = duration
@@ -98,9 +98,14 @@ class DLSOptimizer:
         return "!".join(best_pipeline), best_fps
 
     def optimize_for_streams(self, initial_pipeline):
-            # Test for tee element presence
+        # Test for tee element presence
         if re.search("[^a-zA-Z]tee[^a-zA-Z]", initial_pipeline):
             raise RuntimeError("Pipelines containing the tee element are currently not supported!")
+
+        # Configure inference generators for multi-stream batching
+        self._generators["device"].set_instance_id("inf0")
+        self._generators["batch"].set_instance_id("inf0")
+        self._generators["nireq"].set_instance_id("inf0")
 
         initial_pipeline = initial_pipeline.split("!")
 
@@ -118,7 +123,7 @@ class DLSOptimizer:
         best_pipeline = initial_pipeline
         best_fps = 0
         best_streams = 0
-        for streams in range(1, 65):
+        for streams in range(2, 65):
             pipeline, fps = self._optimize_pipeline(initial_pipeline, 0, start_time, streams)
             if fps > self._multistream_fps_limit:
                 best_fps = fps
@@ -133,7 +138,7 @@ class DLSOptimizer:
         best_pipeline = starting_pipeline
         best_fps = starting_fps
 
-        for generator in self._generators:
+        for generator in self._generators.values():
             generator.init_pipeline(best_pipeline)
             for pipeline in generator:
                 cur_time = time.time()
@@ -171,7 +176,7 @@ def sample_pipeline(pipelines, sample_duration):
     if not has_fps_counter:
         for i, element in enumerate(reversed(pipeline)):
             if "gvadetect" in element or "gvaclassify" in element:
-                pipeline.insert(len(pipeline) - i, " gvafpscounter " )
+                pipeline.insert(len(pipeline) - i, " queue ! gvafpscounter " )
                 break
 
     pipelines = list(map(lambda pipeline: "!".join(pipeline), pipelines))
