@@ -42,7 +42,8 @@ class YOLOv10Converter : public BlobToROIConverter {
 
   public:
     YOLOv10Converter(BlobToMetaConverter::Initializer initializer, double confidence_threshold, double iou_threshold)
-        : BlobToROIConverter(std::move(initializer), confidence_threshold, true, iou_threshold) {
+        : BlobToROIConverter(std::move(initializer), confidence_threshold, false, iou_threshold) {
+        // YOLOv10 does not require NMS, this is a non-max suppression free model, so set need_nms to false
     }
 
     const float *parseOutputBlob(const OutputBlobs &output_blobs, const std::string &key, size_t batch_size,
