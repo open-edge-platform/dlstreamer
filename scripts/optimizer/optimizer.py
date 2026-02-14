@@ -103,9 +103,9 @@ class DLSOptimizer:
             raise RuntimeError("Pipelines containing the tee element are currently not supported!")
 
         # Configure inference generators for multi-stream batching
-        self._generators["device"].set_instance_id("inf0")
-        self._generators["batch"].set_instance_id("inf0")
-        self._generators["nireq"].set_instance_id("inf0")
+        self._generators["device"].force_instance_id(True)
+        self._generators["batch"].force_instance_id(True)
+        self._generators["nireq"].force_instance_id(True)
 
         initial_pipeline = initial_pipeline.split("!")
 
