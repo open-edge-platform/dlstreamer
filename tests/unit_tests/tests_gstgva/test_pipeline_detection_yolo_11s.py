@@ -1,5 +1,5 @@
 # ==============================================================================
-# Copyright (C) 2025 Intel Corporation
+# Copyright (C) 2025-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
@@ -16,7 +16,7 @@ IMAGE_PATH = os.path.join(SCRIPT_DIR, "test_files", "dog_bike_car.jpg")
 def make_pipeline_str(model_name):
     PIPELINE_STR = """appsrc name=mysrc \
 ! decodebin ! videoconvert ! video/x-raw,format=BGRA \
-! gvadetect pre-process-backend=ie model={} \
+! gvadetect pre-process-backend=opencv model={} \
 ! gvawatermark \
 ! appsink name=mysink emit-signals=true sync=false """.format(get_model_path(model_name))
     return PIPELINE_STR
@@ -25,10 +25,10 @@ def make_pipeline_str(model_name):
 GOLD_TRUE = [
     BBox(0.16600936461207816, 0.38890058405662487,
          0.4078545726244531, 0.9406926827498019, [], class_id=16),
-    BBox(0.6055093107665357, 0.13401658383886872,
-         0.8919420810698284, 0.2956839696427691, [], class_id=7),
-    BBox(0.1501398097734139, 0.21889342922873212,
-         0.7452847887655665, 0.7433104570456628, [], class_id=1)
+    BBox(0.6063115210281538, 0.12930250608875107,
+         0.8995705738599682, 0.29633996381868855, [], class_id=2),
+    BBox(0.16694023857921714, 0.2259997108479297, 
+         0.7387291779924805, 0.7268751913340168, [], class_id=1)
 ]
 
 GOLD_TRUE_SEG = [

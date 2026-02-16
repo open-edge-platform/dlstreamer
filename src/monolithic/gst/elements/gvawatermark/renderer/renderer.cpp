@@ -62,6 +62,10 @@ void Renderer::convert_prims_color(std::vector<render::Prim> &prims) {
             render::Circle circle = std::get<render::Circle>(p);
             circle.color = _color_converter->convert(circle.color);
             p = circle;
+        } else if (std::holds_alternative<render::InstanceSegmantationMask>(p)) {
+            render::InstanceSegmantationMask mask = std::get<render::InstanceSegmantationMask>(p);
+            mask.color = _color_converter->convert(mask.color);
+            p = mask;
         }
     }
 }
