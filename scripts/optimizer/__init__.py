@@ -4,4 +4,4 @@
 # SPDX-License-Identifier: MIT
 # ==============================================================================
 
-__all__ = [get_optimized_pipeline, preprocess_pipeline]
+__all__ = [DLSOptimizer, preprocess_pipeline]

@@ -7,8 +7,8 @@ It combines four pipelines. By default, the first two streams run on NPU [IntelÂ
 This sample utilizes GStreamer command-line tool `gst-launch-1.0` which can build and run GStreamer pipeline described in a string format.
 The string contains a list of GStreamer elements separated by exclamation mark `!`, each element may have properties specified in the format `property`=`value`.
 
-> **NOTE**: Before running, download the yolov8s model to `$MODELS_PATH/public/yolov8s/FP16/`.
-Please follow instruction: [Detection with Yolo](./gst_launch/detection_with_yolo/README.md) how to download Yolov8s model.
+> **NOTE**: Before running, download the required models to `$MODELS_PATH/public/{model_name}/FP16/`.
+Please follow instruction: [Detection with Yolo](./gst_launch/detection_with_yolo/README.md) how to download YOLO models.
 
 This sample builds for GStreamer a pipeline of the following elements:
 * `filesrc`
@@ -17,6 +17,9 @@ This sample builds for GStreamer a pipeline of the following elements:
 * [gvadetect](../../../../docs/source/elements/gvadetect.md) uses for full-frame object detection and marking objects with labels
 * [gvawatermark](../../../../docs/source/elements/gvawatermark.md) for points and visualization of their connections
 * `autovideosink` for rendering output video into screen
+
+**Supported models**: yolox-tiny, yolox_s, yolov7, yolov8s, yolov9c, yolo11s, yolo26s
+
 > **NOTE**: Each of the two pipelines can run on CPU or GPU or NPU.
 > **NOTE**: `sync=false` property in `autovideosink` element disables real-time synchronization so pipeline runs as fast as possible
 
@@ -37,6 +40,12 @@ Next example uses CPU device and YOLOv8 model for the first two streams and GPU 
 
 ```sh
 ./multi_stream_sample.sh video.mp4 CPU GPU yolov8s yolov9c
+```
+
+Another example uses NPU device and YOLO11 model for the first two streams and GPU and YOLO26 model for two other streams.
+
+```sh
+./multi_stream_sample.sh video.mp4 NPU GPU yolo11s yolo26s
 ```
 
 ## Multi-stream Pipeline Templates

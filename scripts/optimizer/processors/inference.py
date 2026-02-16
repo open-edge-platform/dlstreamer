@@ -15,6 +15,7 @@ class DeviceGenerator:
         self.devices = []
         self.pipeline = []
         self.first_iteration = True
+        self.forced_instance_id = False
 
     def init_pipeline(self, pipeline):
         self.tracked_elements = []
@@ -24,7 +25,14 @@ class DeviceGenerator:
 
         for idx, element in enumerate(self.pipeline):
             if "gvadetect" in element or "gvaclassify" in element:
-                self.tracked_elements.append({"index": idx, "device_idx": 0})
+                self.tracked_elements.append({
+                    "index": idx,
+                    "device_idx": 0,
+                    "instance_id": "inf" + str(idx)
+                })
+
+    def force_instance_id(self, force):
+        self.forced_instance_id = force
 
     def __iter__(self):
         return self
@@ -85,6 +93,10 @@ class DeviceGenerator:
 
             # Apply current configuration
             parameters["device"] = device
+
+            if self.forced_instance_id:
+                parameters["model-instance-id"] = element["instance_id"]
+
             parameters = assemble_parameters(parameters)
             pipeline[idx] = f" {element_type} {parameters}"
             pipeline.insert(idx, f" {memory} ")
@@ -98,6 +110,7 @@ class BatchGenerator:
         self.batches = []
         self.pipeline = []
         self.first_iteration = True
+        self.forced_instance_id = False
 
     def init_pipeline(self, pipeline):
         self.tracked_elements = []
@@ -107,7 +120,14 @@ class BatchGenerator:
 
         for idx, element in enumerate(self.pipeline):
             if "gvadetect" in element or "gvaclassify" in element:
-                self.tracked_elements.append({"index": idx, "batch_idx": 0})
+                self.tracked_elements.append({
+                    "index": idx,
+                    "batch_idx": 0,
+                    "instance_id": "inf" + str(idx)
+                })
+
+    def force_instance_id(self, force):
+        self.forced_instance_id = force
 
     def __iter__(self):
         return self
@@ -154,6 +174,10 @@ class BatchGenerator:
 
             # Apply current configuration
             parameters["batch-size"] = str(batch)
+
+            if self.forced_instance_id:
+                parameters["model-instance-id"] = element["instance_id"]
+
             parameters = assemble_parameters(parameters)
             pipeline[idx] = f" {element_type} {parameters}"
 
@@ -165,6 +189,7 @@ class NireqGenerator:
         self.nireqs = []
         self.pipeline = []
         self.first_iteration = True
+        self.forced_instance_id = False
 
     def init_pipeline(self, pipeline):
         self.tracked_elements = []
@@ -174,7 +199,14 @@ class NireqGenerator:
 
         for idx, element in enumerate(self.pipeline):
             if "gvadetect" in element or "gvaclassify" in element:
-                self.tracked_elements.append({"index": idx, "nireq_idx": 0})
+                self.tracked_elements.append({
+                    "index": idx,
+                    "nireq_idx": 0,
+                    "instance_id": "inf" + str(idx)
+                })
+
+    def force_instance_id(self, force):
+        self.forced_instance_id = force
 
     def __iter__(self):
         return self
@@ -221,6 +253,10 @@ class NireqGenerator:
 
             # Apply current configuration
             parameters["nireq"] = str(nireq)
+
+            if self.forced_instance_id:
+                parameters["model-instance-id"] = element["instance_id"]
+
             parameters = assemble_parameters(parameters)
             pipeline[idx] = f" {element_type} {parameters}"
 

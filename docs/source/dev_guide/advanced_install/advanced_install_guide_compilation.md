@@ -211,7 +211,7 @@ Set up the required environment variables:
   export PATH="/opt/intel/dlstreamer/Release/bin:/opt/intel/dlstreamer/gstreamer/bin:/opt/intel/dlstreamer/opencv/bin:$HOME/dlstreamer/build/intel64/Release/bin:$HOME/dlstreamer/build/deps/gstreamer-bin/bin:$HOME/dlstreamer/build/deps/opencv-bin/bin:$HOME/.local/bin:$HOME/python3venv/bin:$PATH"
   export PKG_CONFIG_PATH="/opt/intel/dlstreamer/Release/lib/pkgconfig:/opt/intel/dlstreamer/gstreamer/lib/pkgconfig::$HOME/dlstreamer/build/intel64/Release/lib/pkgconfig:$HOME/dlstreamer/build/deps/gstreamer-bin/lib/pkgconfig:$PKG_CONFIG_PATH"
   export GST_PLUGIN_FEATURE_RANK=${GST_PLUGIN_FEATURE_RANK},ximagesink:MAX
-  export GI_TYPELIB_PATH="/opt/intel/dlstreamer/gstreamer/lib/girepository-1.0:$HOME/dlstreamer/build/deps/gstreamer-bin/lib/girepository-1.0:/usr/lib/x86_64-linux-gnu/girepository-1.0"
+  export GI_TYPELIB_PATH="/opt/intel/dlstreamer/gstreamer/lib/girepository-1.0:$HOME/dlstreamer/build/src/gst/metadata/:$HOME/dlstreamer/build/deps/gstreamer-bin/lib/girepository-1.0:/usr/lib/x86_64-linux-gnu/girepository-1.0"
   export PYTHONPATH="/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:/opt/intel/dlstreamer/python:/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:$PYTHONPATH"
   ```
 
