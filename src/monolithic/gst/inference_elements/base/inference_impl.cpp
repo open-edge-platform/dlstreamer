@@ -13,6 +13,7 @@
 #include "config.h"
 #include "gmutex_lock_guard.h"
 #include "gst_allocator_wrapper.h"
+#include "gva_base_inference.h"
 #include "gva_base_inference_priv.hpp"
 #include "gva_caps.h"
 #include "gva_utils.h"
@@ -843,7 +844,7 @@ InferenceImpl::Model InferenceImpl::CreateModel(GvaBaseInference *gva_base_infer
 
     // if auto batch size or OpenVINO Automatic Batching was requested, use the actual batch size determined by
     // inference instance
-    if (gva_base_inference->batch_size == 0 || gva_base_inference->batch_timeout > -1)
+    if (gva_base_inference->batch_size == 0 || gva_base_inference->batch_timeout != DEFAULT_BATCH_TIMEOUT)
         gva_base_inference->batch_size = model.inference->GetBatchSize();
 
     return model;

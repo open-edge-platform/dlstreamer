@@ -16,6 +16,8 @@
 #include <gst/gst.h>
 #include <gst/video/video.h>
 
+#define DEFAULT_BATCH_TIMEOUT -1
+
 G_BEGIN_DECLS
 
 #define GST_TYPE_GVA_BASE_INFERENCE_REGION (gst_gva_base_inference_get_inf_region())
