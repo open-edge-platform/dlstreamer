@@ -64,7 +64,7 @@ TensorsTable DetectionAnomalyConverter::convert(const OutputBlobs &output_blobs)
             const size_t img_width = dims[DEF_ANOMALY_TENSOR_LAYOUT_OFFSET_W];
 
             anomaly_map_raw = cv::Mat((int)img_height, (int)img_width, CV_32FC1, const_cast<float *>(data));
-            // Normalize the anomaly map to [0, 1] range
+            // Clamping the anomaly map to [0, 1] range
             anomaly_map_raw = cv::min(cv::max(anomaly_map_raw, 0.f), 1.f);
             // find the the highest anomaly score in the anomaly map
             cv::minMaxLoc(anomaly_map_raw, NULL, &pred_score);
