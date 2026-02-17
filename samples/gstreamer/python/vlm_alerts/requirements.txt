@@ -1,5 +1,5 @@
 --extra-index-url https://download.pytorch.org/whl/cpu
-
+PyGObject==3.50.0
 torch==2.9.0+cpu
 transformers==4.57.6
 optimum==2.1.0
@@ -7,5 +7,6 @@ optimum-intel==1.27.0
 huggingface_hub==0.36.1
 einops
 timm
-openvino==2025.4.0.0
+--extra-index-url https://storage.openvinotoolkit.org/simple/wheels/nightly
+openvino==2025.4.0
 openvino_tokenizers==2025.4.0.0
