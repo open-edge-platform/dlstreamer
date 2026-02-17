@@ -1,17 +1,10 @@
 #!/usr/bin/python3
 
 # ==============================================================================
-# Copyright (C) 2022-2024 Intel Corporation
+# Copyright (C) 2022-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
-
-import gi
-gi.require_version('Gst', '1.0')
-gi.require_version('GstBase', '1.0')
-gi.require_version('GstVideo', '1.0')
-
-from gi.repository import Gst, GObject, GstBase
 
 import torch
 import numpy as np
@@ -21,6 +14,12 @@ import importlib
 from gstgva import VideoFrame
 from typing import List
 from torchvision.transforms._presets import ImageClassification
+
+import gi
+gi.require_version('Gst', '1.0')
+gi.require_version('GstBase', '1.0')
+gi.require_version('GstVideo', '1.0')
+from gi.repository import Gst, GObject, GstBase # pylint: disable=no-name-in-module, wrong-import-position
 
 
 Gst.init(None)

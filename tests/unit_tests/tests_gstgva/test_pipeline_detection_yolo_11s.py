@@ -8,7 +8,7 @@ import unittest
 import os
 
 from pipeline_runner import TestPipelineRunner
-from utils import *
+from utils import get_model_path, BBox
 
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 IMAGE_PATH = os.path.join(SCRIPT_DIR, "test_files", "dog_bike_car.jpg")

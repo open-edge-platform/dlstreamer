@@ -1,5 +1,5 @@
 # ==============================================================================
-# Copyright (C) 2018-2021 Intel Corporation
+# Copyright (C) 2018-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
@@ -8,7 +8,6 @@
 #  @brief This file contains gstgva.audio_event.AudioEvent class to control audio events for particular gstgva.audio_frame.AudioFrame with gstgva.tensor.Tensor instances attached
 
 import ctypes
-import numpy
 from typing import List
 from collections import namedtuple
 
@@ -20,7 +19,9 @@ import gi
 gi.require_version('GstAudio', '1.0')
 gi.require_version('GLib', '2.0')
 gi.require_version('Gst', '1.0')
+# pylint: disable=no-name-in-module
 from gi.repository import GstAudio, GLib, GObject, Gst
+# pylint: enable=no-name-in-module
 
 Segment = namedtuple("Segment", "start_time end_time")
 

@@ -13,7 +13,7 @@ import shlex
 import subprocess
 import threading
 from typing import List
-from onvif import ONVIFCamera   # pylint: disable=import-error
+from onvif import ONVIFCamera
 import dls_onvif_discovery_utils as dls_discovery
 
 def run_single_streamer(gst_command: List[str]) -> subprocess.Popen:

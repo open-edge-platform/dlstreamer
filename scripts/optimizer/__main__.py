@@ -8,7 +8,7 @@ import argparse
 import logging
 import textwrap
 
-from optimizer import DLSOptimizer
+from optimizer import DLSOptimizer # pylint: disable=no-name-in-module
 
 parser = argparse.ArgumentParser(
     prog="DLStreamer Pipeline Optimization Tool",
@@ -34,12 +34,12 @@ parser.add_argument("mode", choices=["fps", "streams"], metavar="MODE",
 parser.add_argument("PIPELINE", nargs="+",
                     help="Pipeline to be analyzed")
 parser.add_argument("--search-duration", default=300, type=float,
-                    help="Duration in seconds of time which should be spent searching for optimized pipelines (default: %(default)s)") # pylint: disable=line-too-long
+                    help="Duration in seconds of time which should be spent searching for optimized pipelines (default: %(default)s)")
 parser.add_argument("--sample-duration", default=10, type=float,
-                    help="Duration in seconds of sampling individual pipelines. Longer duration should offer more stable results (default: %(default)s)") # pylint: disable=line-too-long
+                    help="Duration in seconds of sampling individual pipelines. Longer duration should offer more stable results (default: %(default)s)")
 parser.add_argument("--multistream-fps-limit", default=30, type=float,
-                    help="Minimum amount of fps allowed when optimizing for multiple streams (default: %(default)s)") # pylint: disable=line-too-long
-parser.add_argument("--log-level", default="INFO", choices=["CRITICAL", "FATAL", "ERROR" ,"WARN", "INFO", "DEBUG"], # pylint: disable=line-too-long
+                    help="Minimum amount of fps allowed when optimizing for multiple streams (default: %(default)s)")
+parser.add_argument("--log-level", default="INFO", choices=["CRITICAL", "FATAL", "ERROR" ,"WARN", "INFO", "DEBUG"],
                     help="Minimum used log level (default: %(default)s)")
 
 args=parser.parse_args()

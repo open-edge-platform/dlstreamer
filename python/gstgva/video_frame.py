@@ -23,7 +23,9 @@ gi.require_version("GObject", "2.0")
 gi.require_version("GstAnalytics", "1.0")
 gi.require_version("GLib", "2.0")
 
+# pylint: disable=no-name-in-module
 from gi.repository import Gst, GstVideo, GstAnalytics, GLib
+# pylint: enable=no-name-in-module
 from .util import VideoRegionOfInterestMeta
 from .util import GVATensorMeta
 from .util import GVAJSONMeta

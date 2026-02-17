@@ -16,7 +16,9 @@ gi.require_version("Gst", "1.0")
 gi.require_version("GstAnalytics", "1.0")
 
 from enum import Enum
+# pylint: disable=no-name-in-module
 from gi.repository import GObject, GstAnalytics, GLib
+# pylint: enable=no-name-in-module
 from .util import (
     libgst,
     libgobject,

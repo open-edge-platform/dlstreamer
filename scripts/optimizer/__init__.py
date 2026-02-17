@@ -4,4 +4,4 @@
 # SPDX-License-Identifier: MIT
 # ==============================================================================
 
-__all__ = [DLSOptimizer, preprocess_pipeline]
+__all__ = ['DLSOptimizer', 'preprocess_pipeline'] # pylint: disable=undefined-all-variable
