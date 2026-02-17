@@ -1,5 +1,5 @@
 # ==============================================================================
-# Copyright (C) 2026 Intel Corporation
+# Copyright (C) 2025-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
@@ -22,9 +22,7 @@ VIDEOS_DIR = BASE_DIR / "videos"
 MODELS_DIR = BASE_DIR / "models"
 RESULTS_DIR = BASE_DIR / "results"
 
-
 def ensure_video(path_or_url: str) -> Path:
-    """Download video if URL, otherwise validate local file."""
     p = Path(path_or_url)
     if p.is_file():
         return p.resolve()
@@ -46,7 +44,6 @@ def ensure_video(path_or_url: str) -> Path:
         f.write(r.read())
 
     return local_path.resolve()
-
 
 def ensure_model(model_id: str) -> Path:
     model_name = model_id.split("/")[-1]
@@ -79,7 +76,6 @@ def ensure_model(model_id: str) -> Path:
     return output_dir.resolve()
 
 def pipeline_loop(pipeline: Gst.Element):
-    """Run pipeline until EOS or ERROR."""
     bus = pipeline.get_bus()
     pipeline.set_state(Gst.State.PLAYING)
 
@@ -114,7 +110,6 @@ def run_pipeline(video: Path,
     output_json = RESULTS_DIR / f"{model.name}-{video.stem}.jsonl"
     output_video = RESULTS_DIR / f"{model.name}-{video.stem}.mp4"
 
-    # Use temp file for prompt to avoid GStreamer quoting issues
     fd, prompt_path = tempfile.mkstemp(suffix=".txt")
     with os.fdopen(fd, "w") as f:
         f.write(question)
@@ -122,24 +117,31 @@ def run_pipeline(video: Path,
     generation_cfg = f"max_new_tokens={max_tokens}"
 
     pipeline_str = (
-    f'filesrc location="{video}" ! '
-    f'decodebin3 ! '
-    f'video/x-raw(memory:VAMemory) ! '
-    f'queue ! '
-    f'gvagenai '
-    f'model-path="{model}" '
-    f'device={device} '
-    f'prompt-path="{prompt_path}" '
-    f'generation-config="{generation_cfg}" '
-    f'chunk-size=1 '
-    f'frame-rate={frame_rate} '
-    f'metrics=true '
-    f'! queue ! '
-    f'gvametapublish file-format=json-lines '
-    f'file-path="{output_json}" '
-    f'! fakesink'
+        f'filesrc location="{video}" ! '
+        f'decodebin3 ! '
+        f'videoconvertscale ! '
+        f'video/x-raw,format=BGRx,width=1280,height=720 ! '
+        f'queue ! '
+        f'gvagenai '
+        f'model-path="{model}" '
+        f'device={device} '
+        f'prompt-path="{prompt_path}" '
+        f'generation-config="{generation_cfg}" '
+        f'chunk-size=1 '
+        f'frame-rate={frame_rate} '
+        f'metrics=true '
+        f'! queue ! '
+        f'gvawatermark '
+        f'! queue ! '
+        f'gvametapublish file-format=json-lines '
+        f'file-path="{output_json}" '
+        f'! queue ! '
+        f'videoconvert '
+        f'! vah264enc '
+        f'! h264parse '
+        f'! mp4mux '
+        f'! filesink location="{output_video}"'
     )
-
 
     print("\nPipeline:\n")
     print(pipeline_str)
@@ -161,7 +163,6 @@ def run_pipeline(video: Path,
     print(f"\nJSON output:  {output_json}")
     print(f"Video output: {output_video}")
     return 0
-
 
 def main():
     parser = argparse.ArgumentParser(

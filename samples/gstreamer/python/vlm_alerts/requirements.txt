@@ -1,6 +1,11 @@
 --extra-index-url https://download.pytorch.org/whl/cpu
 
-torch
-transformers
-optimum[openvino]
-huggingface_hub
+torch==2.9.0+cpu
+transformers==4.57.6
+optimum==2.1.0
+optimum-intel==1.27.0
+huggingface_hub==0.36.1
+einops
+timm
+openvino==2025.4.0.0
+openvino_tokenizers==2025.4.0.0
