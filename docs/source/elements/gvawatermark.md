@@ -74,8 +74,13 @@ Element Properties:
                         color-idx=<int> color index for bounding box, keypoints, and text, default -1 (use default colors: 0 red, 1 green, 2 blue)
                         draw-txt-bg=<bool> enable or disable displaying text labels background, by enabling it the text color is set to white, default false
                         font-type=<string> font type for text labels, default triplex. Supported fonts: simplex, plain, duplex, complex, triplex, complex_small, script_simplex, script_complex
+                        enable-blur=<bool> enable ROI blurring for privacy protection, default false
+                        blur-filter=<string> colon-separated list of object labels to blur (e.g., "face:person")
+                        blur-filterout=<string> colon-separated list of labels to exclude from blurring (blur-filter takes precedence)
+                        
                         e.g.: displ-cfg=show-labels=false
                         e.g.: displ-cfg=font-scale=0.5,thickness=3,color-idx=2,font-type=plain
+                        e.g.: displ-cfg=enable-blur=true,blur-filter=face:person
                         flags: readable, writable
                         String. Default: null
   device              : Supported devices are CPU and GPU. Default is CPU on system memory and GPU on video memory
@@ -151,6 +156,72 @@ Controls the size of text labels displayed on detected objects.
 
 *Displays average FPS counter when `gvafpscounter` element is present in pipeline*
 
+### Blur Feature
+
+The gvawatermark element supports privacy protection through region of interest (ROI) blurring using OpenCV GaussianBlur with a 15x15 kernel. This feature is useful for anonymizing faces, license plates, or other sensitive content in video streams.
+
+#### Blur Configuration Parameters
+
+Blur functionality is controlled through the `displ-cfg` parameter with these options:
+
+- **enable-blur=<bool>** - Enable or disable blur feature (default: false)
+- **blur-filter=<string>** - Colon-separated list of object labels to blur (e.g., "person:face")
+- **blur-filterout=<string>** - Colon-separated list of object labels to exclude from blurring
+
+#### Blur Examples
+
+**Basic Blur (All detected objects)**
+```bash
+# Blur all detected ROIs
+displ-cfg=enable-blur=true
+```
+![Basic Blue](../_images/blur-them-all.png)
+
+**Selective Blur (Include specific labels)**
+```bash
+# Blur only faces and persons
+displ-cfg=enable-blur=true,blur-filter=face:person
+```
+![Blur Person](../_images/only-person-blured.png)
+
+```bash
+# Blur only cars
+displ-cfg=enable-blur=true,blur-filter=car
+```
+![Blur Car](../_images/only-car-blured.png)
+
+**Exclude Blur (Blur all except specific labels)**
+```bash
+# Blur all objects except cars and trucks
+displ-cfg=enable-blur=true,blur-filterout=car:truck
+
+# Blur all except persons
+displ-cfg=enable-blur=true,blur-filterout=person
+```
+
+**Combined with Display Options**
+```bash
+# Blur faces with custom display settings
+displ-cfg=enable-blur=true,blur-filter=face,show-labels=false,thickness=1
+
+# Blur with labels and colored boxes
+displ-cfg=enable-blur=true,blur-filter=person:face,color-idx=0,font-scale=0.8
+```
+
+#### Filter Precedence Rules
+
+`blur-filter` takes precedence over `blur-filterout`. When `blur-filter` is specified and not empty, only objects matching those labels will be blurred, and `blur-filterout` is ignored.
+
+1. **blur-filter specified and not empty**: Only labels in blur-filter are blurred
+2. **blur-filter empty or unspecified**: All labels are blurred except those in blur-filterout
+3. **Neither specified**: All detected ROIs are blurred when enable-blur=true
+
+#### Performance Considerations
+
+- GPU/VAAPI acceleration is used when available for better performance
+- CPU fallback ensures compatibility across different hardware configurations
+- Blur processing adds computational overhead; consider impact on pipeline throughput
+
 ### Configuration Examples
 
 ```bash
@@ -165,4 +236,10 @@ displ-cfg=color-idx=0,thickness=1,font-type=simplex
 
 # Complete custom styling
 displ-cfg=font-scale=1.5,thickness=3,color-idx=2,font-type=complex,draw-txt-bg=true
+
+# Privacy protection with blur
+displ-cfg=enable-blur=true,blur-filter=face:person,show-labels=false
+
+# Blur all except specific objects
+displ-cfg=enable-blur=true,blur-filterout=car:truck,thickness=1
 ```
