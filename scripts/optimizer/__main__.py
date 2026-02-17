@@ -8,7 +8,7 @@ import argparse
 import logging
 import textwrap
 
-from optimizer import DLSOptimizer
+from optimizer import DLSOptimizer # pylint: disable=no-name-in-module
 
 parser = argparse.ArgumentParser(
     prog="DLStreamer Pipeline Optimization Tool",
