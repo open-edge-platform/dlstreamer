@@ -746,12 +746,20 @@ std::map<std::string, GstStructure *> get_model_info_postproc(const std::shared_
             GST_INFO("[get_model_info_postproc] normalization_scale: %f", element.second.as<double>());
             g_value_unset(&gvalue);
         }
-        if (element.first.find("task") != std::string::npos) {
+        if (element.first == "task") {
             GValue gvalue = G_VALUE_INIT;
             g_value_init(&gvalue, G_TYPE_STRING);
             g_value_set_string(&gvalue, element.second.as<std::string>().c_str());
             gst_structure_set_value(s, "anomaly_task", &gvalue);
             GST_INFO("[get_model_info_postproc] anomaly_task: %s", element.second.as<std::string>().c_str());
+            g_value_unset(&gvalue);
+        }
+        if (element.first == "task_type") {
+            GValue gvalue = G_VALUE_INIT;
+            g_value_init(&gvalue, G_TYPE_STRING);
+            g_value_set_string(&gvalue, element.second.as<std::string>().c_str());
+            gst_structure_set_value(s, "anomaly_task_type", &gvalue);
+            GST_INFO("[get_model_info_postproc] anomaly_task_type: %s", element.second.as<std::string>().c_str());
             g_value_unset(&gvalue);
         }
         if (element.first.find("labels") != std::string::npos) {
