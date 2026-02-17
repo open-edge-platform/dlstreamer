@@ -230,12 +230,12 @@ jobs:
           path: ${{ env.DLS_REL_PATH }}/test_hello_dlstreamer
 
       - name: Init on host tests configurations
-        if: always ()
+        if: ${{ always() && matrix.ubuntu_version == 'ubuntu24' }}
         run: |
           echo "HOST_TEST_CONFIGS=samples_config.json" >> $GITHUB_ENV
           echo "Selected test configuration file: $HOST_TEST_CONFIGS" >> $GITHUB_STEP_SUMMARY
       - name: Init host test environemtnt
-        if: always ()
+        if: ${{ always() && matrix.ubuntu_version == 'ubuntu24' }}
         run: |
           sudo apt install -y libcairo2-dev libgirepository1.0-dev
           if [[ ${{ matrix.ubuntu_version }} == "ubuntu24" ]]; then
@@ -250,7 +250,7 @@ jobs:
           $HOME/.virtualenvs/dlstreamer/bin/pip install --no-cache-dir --upgrade pip -r $DLS_REL_PATH/requirements.txt
 
       - name: 🚀 Run on host tests
-        if: always ()
+        if: ${{ always() && matrix.ubuntu_version == 'ubuntu24' }}
         id: run_onhost_tests
         env:
           HOST_TEST_CONFIGS: ${{ env.HOST_TEST_CONFIGS }}
@@ -273,12 +273,12 @@ jobs:
           deactivate
       - name: Upload host test results
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 #4.6.2
-        if: always ()
+        if: ${{ always() && matrix.ubuntu_version == 'ubuntu24' }}
         with:
           name: DLS_functional_tests_${{ matrix.runner_print_label }}_on_host_${{ matrix.ubuntu_version }}_results
           path: "${{ env.DLS_TESTS_RESULTS_PATH }}"
       - name: Check and display host test results
-        if: always ()
+        if: ${{ always() && matrix.ubuntu_version == 'ubuntu24' }}
         env:
           dls_tests_results_path: ${{ env.DLS_TESTS_RESULTS_PATH }}
           test_repo_branch: ${{ inputs.test-repo-branch }}
