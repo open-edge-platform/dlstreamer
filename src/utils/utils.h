@@ -16,6 +16,7 @@
 #include <set>
 #include <sstream>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 #ifdef _MSC_VER
@@ -54,6 +55,17 @@ std::string join(Iter begin, Iter end, char delimiter = ',') {
     }
     return result.str();
 }
+
+/**
+ * Parses a label filter configuration string in the format `label1:label2:label3:...`.
+ * Labels values are added to the output set for filtering.
+ *
+ * @param config_str The configuration string to parse (e.g., "person:car:bike").
+ * @param filtered_set Output set that will contain only the relevant labels.
+ * @param delimiter The delimiter used to separate label entries (default is ':').
+ */
+void parseFilterConfig(const std::string &config_str, std::unordered_set<std::string> &filtered_set,
+                       char delimiter = ':');
 
 /**
  * Converts string in format `key1=val1,key2=val2,...` to key/value pairs.

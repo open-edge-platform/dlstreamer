@@ -46,6 +46,15 @@ std::vector<std::string> splitString(const std::string &input, char delimiter) {
     return tokens;
 }
 
+void parseFilterConfig(const std::string &config_str, std::unordered_set<std::string> &filtered_set, char delimiter) {
+    auto labels = splitString(config_str, delimiter);
+    for (const auto &label : labels) {
+        if (filtered_set.count(label) == 0) {
+            filtered_set.insert(label);
+        }
+    }
+}
+
 std::map<std::string, std::string> stringToMap(const std::string &s, char rec_delim /*= ','*/,
                                                char kv_delim /*= '='*/) {
     std::string key, val;

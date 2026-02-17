@@ -82,8 +82,14 @@ enum { PROP_0, PROP_DEVICE, PROP_OBB, PROP_DISPL_AVGFPS, PROP_DISPL_CFG };
     "script_simplex, script_complex), default triplex\n"                                                               \
     "\t\t\tdraw-txt-bg=<bool> enable or disable displaying text labels background, by enabling it the text color "     \
     "is set to white, default false\n"                                                                                 \
+    "\t\t\tshow-roi=<string> colon-separated list of labels to include (only these objects will be shown), "           \
+    "default empty\n"                                                                                                  \
+    "\t\t\thide-roi=<string> colon-separated list of labels to exclude (these objects will be hidden), default "       \
+    "empty\n"                                                                                                          \
     "\t\t\te.g.: displ-cfg=show-labels=false\n"                                                                        \
-    "\t\t\te.g.: displ-cfg=font-scale=0.5,thickness=3,color-idx=2,font-type=simplex"
+    "\t\t\te.g.: displ-cfg=font-scale=0.5,thickness=3,color-idx=2,font-type=simplex\n"                                 \
+    "\t\t\te.g.: displ-cfg=show-labels=true,show-roi=person:car:truck\n"                                               \
+    "\t\t\te.g.: displ-cfg=show-labels=true,hide-roi=bottle:cup"
 
 G_END_DECLS
 

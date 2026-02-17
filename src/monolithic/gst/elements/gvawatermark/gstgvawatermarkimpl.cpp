@@ -40,6 +40,7 @@
 
 #include <array>
 #include <exception>
+#include <optional>
 #include <string>
 #include <typeinfo>
 #if !defined(ENABLE_VAAPI) || defined(_WIN32)
@@ -146,6 +147,8 @@ struct Impl {
                                             const GVA::Rect<double> &rectangle, std::vector<render::Prim> &prims) const;
     void find_gvafpscounter_element();
     void parse_displ_config();
+    inline bool is_ROI_filtered_out(const std::string &label) const;
+
     std::unique_ptr<Renderer> createRenderer(std::shared_ptr<ColorConverter> converter);
 
     std::unique_ptr<Renderer> createGPURenderer(dlstreamer::ImageFormat format,
@@ -192,6 +195,8 @@ struct Impl {
         uint thickness = DEFAULT_THICKNESS;
         int font_type = cv::FONT_HERSHEY_TRIPLEX;
         double font_scale = DEFAULT_TEXT_SCALE;
+        std::optional<std::unordered_set<std::string>> include_labels_filter;
+        std::optional<std::unordered_set<std::string>> exclude_labels_filter;
     } _displCfg;
 };
 
@@ -899,53 +904,61 @@ bool Impl::render_va(cv::Mat *buffer) {
     return true;
 }
 
+inline bool Impl::is_ROI_filtered_out(const std::string &label) const {
+    return _displCfg.include_labels_filter.has_value()
+               ? (_displCfg.include_labels_filter->count(label) == 0)
+               : (_displCfg.exclude_labels_filter.has_value() && _displCfg.exclude_labels_filter->count(label) != 0);
+}
+
 void Impl::preparePrimsForRoi(GVA::RegionOfInterest &roi, std::vector<render::Prim> &prims) const {
-    size_t color_index = roi.label_id();
+    if (!is_ROI_filtered_out(roi.label())) {
+        size_t color_index = roi.label_id();
 
-    auto rect_u32 = roi.rect();
-    GVA::Rect<double> rect = {safe_convert<double>(rect_u32.x), safe_convert<double>(rect_u32.y),
-                              safe_convert<double>(rect_u32.w), safe_convert<double>(rect_u32.h)};
+        auto rect_u32 = roi.rect();
+        GVA::Rect<double> rect = {safe_convert<double>(rect_u32.x), safe_convert<double>(rect_u32.y),
+                                  safe_convert<double>(rect_u32.w), safe_convert<double>(rect_u32.h)};
 
-    clip_rect(rect.x, rect.y, rect.w, rect.h, _vinfo);
+        clip_rect(rect.x, rect.y, rect.w, rect.h, _vinfo);
 
-    std::ostringstream text;
-    const int object_id = roi.object_id();
-    if (object_id > 0) {
-        text << object_id << ": ";
-        color_index = object_id;
-    }
-
-    if (roi.label().size() > 1) {
-        appendStr(text, roi.label());
-        text << int(roi.confidence() * 100) << "%";
-    }
-
-    // Prepare primitives for tensors
-    for (auto &tensor : roi.tensors()) {
-        preparePrimsForTensor(tensor, rect, prims, color_index);
-        if (!tensor.is_detection()) {
-            appendStr(text, tensor.label());
+        std::ostringstream text;
+        const int object_id = roi.object_id();
+        if (object_id > 0) {
+            text << object_id << ": ";
+            color_index = object_id;
         }
-    }
 
-    // set color
-    Color color = indexToColor(color_index);
-    if (_displCfg.color_idx != DEFAULT_COLOR_IDX)
-        color = _default_color;
-
-    // put rectangle
-    cv::Rect bbox_rect(rect.x, rect.y, rect.w, rect.h);
-    if (!_obb)
-        prims.emplace_back(render::Rect(bbox_rect, color, _displCfg.thickness, roi.rotation()));
-
-    // put text
-    if (_displCfg.show_labels)
-        if (text.str().size() != 0) {
-            cv::Point2f pos(rect.x, rect.y - 5.f);
-            if (pos.y < 0)
-                pos.y = rect.y + 30.f;
-            prims.emplace_back(render::Text(text.str(), pos, _displCfg.font_type, _displCfg.font_scale, color));
+        if (roi.label().size() > 1) {
+            appendStr(text, roi.label());
+            text << int(roi.confidence() * 100) << "%";
         }
+
+        // Prepare primitives for tensors
+        for (auto &tensor : roi.tensors()) {
+            preparePrimsForTensor(tensor, rect, prims, color_index);
+            if (!tensor.is_detection()) {
+                appendStr(text, tensor.label());
+            }
+        }
+
+        // set color
+        Color color = indexToColor(color_index);
+        if (_displCfg.color_idx != DEFAULT_COLOR_IDX)
+            color = _default_color;
+
+        // put rectangle
+        cv::Rect bbox_rect(rect.x, rect.y, rect.w, rect.h);
+        if (!_obb)
+            prims.emplace_back(render::Rect(bbox_rect, color, _displCfg.thickness, roi.rotation()));
+
+        // put text
+        if (_displCfg.show_labels)
+            if (text.str().size() != 0) {
+                cv::Point2f pos(rect.x, rect.y - 5.f);
+                if (pos.y < 0)
+                    pos.y = rect.y + 30.f;
+                prims.emplace_back(render::Text(text.str(), pos, _displCfg.font_type, _displCfg.font_scale, color));
+            }
+    }
 
     // put avg-fps from gvafpscounter element
     if (_displ_avgfps) {
@@ -1193,6 +1206,21 @@ void Impl::parse_displ_config() {
             }
             if (iter = cfg.find("draw-txt-bg"); iter != cfg.end()) {
                 _displCfg.draw_text_background = (iter->second != "false");
+                cfg.erase(iter);
+            }
+            if (iter = cfg.find("show-roi"); iter != cfg.end()) {
+                _displCfg.include_labels_filter = std::unordered_set<std::string>();
+                Utils::parseFilterConfig(iter->second, *_displCfg.include_labels_filter);
+                cfg.erase(iter);
+            }
+            if (iter = cfg.find("hide-roi"); iter != cfg.end()) {
+                if (_displCfg.include_labels_filter.has_value() && !(_displCfg.include_labels_filter->empty())) {
+                    GST_WARNING("[gvawatermarkimpl] Both 'show-roi' and 'hide-roi' parameters are set, "
+                                "'hide-roi' will be ignored.");
+                } else {
+                    _displCfg.exclude_labels_filter = std::unordered_set<std::string>();
+                    Utils::parseFilterConfig(iter->second, *_displCfg.exclude_labels_filter);
+                }
                 cfg.erase(iter);
             }
         }
