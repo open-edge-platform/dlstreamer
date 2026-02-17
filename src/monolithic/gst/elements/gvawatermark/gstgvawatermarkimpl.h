@@ -82,8 +82,13 @@ enum { PROP_0, PROP_DEVICE, PROP_OBB, PROP_DISPL_AVGFPS, PROP_DISPL_CFG };
     "script_simplex, script_complex), default triplex\n"                                                               \
     "\t\t\tdraw-txt-bg=<bool> enable or disable displaying text labels background, by enabling it the text color "     \
     "is set to white, default false\n"                                                                                 \
+    "\t\t\tenable-blur=<bool> enable or disable ROI blurring for privacy protection, default false\n"                  \
+    "\t\t\tblur-filter=<string> colon-separated list of object labels to blur (e.g. 'face:person')\n"                  \
+    "\t\t\tblur-filterout=<string> colon-separated list of object labels to exclude from blurring\n"                   \
+    "\t\t\tNOTE: blur-filter takes precedence over blur-filterout when both are specified\n"                           \
     "\t\t\te.g.: displ-cfg=show-labels=false\n"                                                                        \
-    "\t\t\te.g.: displ-cfg=font-scale=0.5,thickness=3,color-idx=2,font-type=simplex"
+    "\t\t\te.g.: displ-cfg=font-scale=0.5,thickness=3,color-idx=2,font-type=simplex\n"                                 \
+    "\t\t\te.g.: displ-cfg=enable-blur=true,blur-filter=face:person"
 
 G_END_DECLS
 

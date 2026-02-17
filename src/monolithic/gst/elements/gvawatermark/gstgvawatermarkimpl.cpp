@@ -185,6 +185,9 @@ struct Impl {
          {"script_simplex", cv::FONT_HERSHEY_SCRIPT_SIMPLEX},
          {"script_complex", cv::FONT_HERSHEY_SCRIPT_COMPLEX}}};
 
+    static std::vector<std::string> blur_filters;
+    static std::vector<std::string> blur_filters_out;
+
     struct DisplCfg {
         bool show_labels = true;
         bool draw_text_background = false;
@@ -192,8 +195,14 @@ struct Impl {
         uint thickness = DEFAULT_THICKNESS;
         int font_type = cv::FONT_HERSHEY_TRIPLEX;
         double font_scale = DEFAULT_TEXT_SCALE;
+        bool enable_blur = false;
+        std::string blur_filter = g_strdup("none");
+        std::string blur_filter_out = g_strdup("none");
     } _displCfg;
 };
+
+std::vector<std::string> Impl::blur_filters;
+std::vector<std::string> Impl::blur_filters_out;
 
 G_DEFINE_TYPE_WITH_CODE(GstGvaWatermarkImpl, gst_gva_watermark_impl, GST_TYPE_BASE_TRANSFORM,
                         GST_DEBUG_CATEGORY_INIT(gst_gva_watermark_impl_debug_category, "gvawatermarkimpl", 0,
@@ -938,6 +947,16 @@ void Impl::preparePrimsForRoi(GVA::RegionOfInterest &roi, std::vector<render::Pr
     if (!_obb)
         prims.emplace_back(render::Rect(bbox_rect, color, _displCfg.thickness, roi.rotation()));
 
+    // put blur
+    if (_displCfg.enable_blur) {
+        const std::string &label = roi.label();
+        if (blur_filters.empty()
+                ? std::find(blur_filters_out.begin(), blur_filters_out.end(), label) == blur_filters_out.end()
+                : std::find(blur_filters.begin(), blur_filters.end(), label) != blur_filters.end()) {
+            prims.emplace_back(render::Blur(bbox_rect));
+        }
+    }
+
     // put text
     if (_displCfg.show_labels)
         if (text.str().size() != 0) {
@@ -1222,6 +1241,23 @@ void Impl::parse_displ_config() {
             }
             cfg.erase(iter);
         }
+        if (iter = cfg.find("enable-blur"); iter != cfg.end()) {
+            _displCfg.enable_blur = (iter->second != "false");
+            cfg.erase(iter);
+        }
+
+        if (_displCfg.enable_blur) {
+            if (iter = cfg.find("blur-filter"); iter != cfg.end()) {
+                _displCfg.blur_filter = iter->second;
+                blur_filters = Utils::splitString(_displCfg.blur_filter, ':');
+                cfg.erase(iter);
+            }
+            if (iter = cfg.find("blur-filterout"); iter != cfg.end()) {
+                _displCfg.blur_filter_out = iter->second;
+                blur_filters_out = Utils::splitString(_displCfg.blur_filter_out, ':');
+                cfg.erase(iter);
+            }
+        }
     } catch (...) {
         if (iter == cfg.end())
             std::throw_with_nested(
@@ -1244,7 +1280,6 @@ std::unique_ptr<Renderer> Impl::createOpenCVRenderer(std::shared_ptr<ColorConver
     auto format = dlstreamer::ImageFormat::BGR;
     return create_cpu_renderer(format, converter, std::move(buf_mapper));
 }
-
 static gboolean plugin_init(GstPlugin *plugin) {
     if (!gst_element_register(plugin, "gvawatermarkimpl", GST_RANK_NONE, GST_TYPE_GVA_WATERMARK_IMPL))
         return FALSE;

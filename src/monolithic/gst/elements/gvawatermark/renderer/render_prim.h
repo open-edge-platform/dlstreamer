@@ -94,6 +94,13 @@ struct SemanticSegmantationMask {
     }
 };
 
-using Prim = std::variant<Text, Rect, Circle, Line, InstanceSegmantationMask, SemanticSegmantationMask>;
+struct Blur {
+    cv::Rect rect;
+    Blur() = default;
+    Blur(const cv::Rect &rect) : rect(rect) {
+    }
+};
+
+using Prim = std::variant<Text, Rect, Circle, Line, InstanceSegmantationMask, SemanticSegmantationMask, Blur>;
 
 } // namespace render
