@@ -144,18 +144,35 @@ Controls the size of text labels displayed on detected objects.
 
 *The default triplex font provides good readability*
 
-### FPS Display
+### Label Filtering
 
-**Average FPS Display (`displ-avgfps=true`)**
-![Show FPS](../_images/show-avg-fps.png)
+You can selectively show or hide detected objects based on their labels using filtering parameters:
 
-*Displays average FPS counter when `gvafpscounter` element is present in pipeline*
+**Include Labels (`show-roi=person:car:truck`)**
+- Only objects with labels "person", "car", or "truck" will be displayed
+- All other detected objects will be hidden
+- Useful for focusing on specific object types
+
+e.g `displ-cfg=show-labels=true,show-roi=car`
+![Car label included](../_images/roi-include-car.png)
+
+**Exclude Labels (`hide-roi=bottle:cup:laptop`)**
+- Objects with labels "bottle", "cup", or "laptop" will be hidden
+- All other detected objects will be displayed
+- Useful for removing distracting or irrelevant objects from the display
+
+e.g `displ-cfg=show-labels=true,hide-roi=car`
+![Car label excluded](../_images/roi-exclude-car.png)
+
+**Filter Priority**
+- If both `show-roi` and `hide-roi` are specified, `show-roi` takes precedence
+- Empty lists mean no filtering is applied
 
 ### Configuration Examples
 
 ```bash
 # Minimal labels with smaller font
-displ-cfg=show-labels=false
+displ-cfg=show-labels=true,show-roi=false
 
 # Large text with background
 displ-cfg=font-scale=2.0,draw-txt-bg=true
@@ -165,4 +182,21 @@ displ-cfg=color-idx=0,thickness=1,font-type=simplex
 
 # Complete custom styling
 displ-cfg=font-scale=1.5,thickness=3,color-idx=2,font-type=complex,draw-txt-bg=true
+
+# Show only specific object types
+displ-cfg=show-labels=true,show-roi=person:car:truck
+
+# Hide specific object types
+displ-cfg=show-labels=true,hide-roi=bottle:cup:laptop
+
+# Combine filtering with styling
+displ-cfg=show-labels=true,show-roi=person:car,font-scale=1.2,color-idx=1
 ```
+
+### FPS Display
+
+**Average FPS Display (`displ-avgfps=true`)**
+![Show FPS](../_images/show-avg-fps.png)
+
+*Displays average FPS counter when `gvafpscounter` element is present in pipeline*
+
