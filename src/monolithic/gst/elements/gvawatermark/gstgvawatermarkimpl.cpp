@@ -60,7 +60,7 @@ GST_DEBUG_CATEGORY_STATIC(gst_gva_watermark_impl_debug_category);
 
 #define DEFAULT_DEVICE nullptr
 #define DEFAULT_THICKNESS (2)
-#define DEFAULT_TEXT_SCALE (1.0)
+#define DEFAULT_TEXT_SCALE (0.5)
 #define DEFAULT_COLOR_IDX (-1)
 
 // Font scale validation ranges
@@ -190,7 +190,7 @@ struct Impl {
 
     struct DisplCfg {
         bool show_labels = true;
-        bool draw_text_background = false;
+        bool draw_text_background = true;
         int color_idx = DEFAULT_COLOR_IDX;
         uint thickness = DEFAULT_THICKNESS;
         int font_type = cv::FONT_HERSHEY_TRIPLEX;

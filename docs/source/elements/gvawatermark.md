@@ -69,10 +69,10 @@ Element Properties:
   displ-cfg           : Comma separated list of KEY=VALUE parameters of displayed notations.
                         Available options:
                         show-labels=<bool> enable or disable displaying text labels, default true
-                        font-scale=<double 0.1 to 2.0> scale factor for text labels, default 1.0
+                        font-scale=<double 0.1 to 2.0> scale factor for text labels, default 0.5
                         thickness=<uint> bounding box thickness, default 2
                         color-idx=<int> color index for bounding box, keypoints, and text, default -1 (use default colors: 0 red, 1 green, 2 blue)
-                        draw-txt-bg=<bool> enable or disable displaying text labels background, by enabling it the text color is set to white, default false
+                        draw-txt-bg=<bool> enable or disable displaying text labels background, by enabling it the text color is set to white, default true
                         font-type=<string> font type for text labels, default triplex. Supported fonts: simplex, plain, duplex, complex, triplex, complex_small, script_simplex, script_complex
                         e.g.: displ-cfg=show-labels=false
                         e.g.: displ-cfg=font-scale=0.5,thickness=3,color-idx=2,font-type=plain
