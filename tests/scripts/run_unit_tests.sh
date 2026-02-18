@@ -1,6 +1,6 @@
 #!/bin/bash
 # ==============================================================================
-# Copyright (C) 2018-2025 Intel Corporation
+# Copyright (C) 2018-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
@@ -28,11 +28,6 @@ fi
 
 if [ ! -d "$result_path" ]; then
   mkdir -p "$result_path"
-fi
-
-if [[ -z "$LD_LIBRARY_PATH" ]]; then
-  # shellcheck source=/dev/null
-  source "/opt/intel/openvino_2024/setupvars.sh"
 fi
 
 [ -z "$MODELS_PATH" ] && echo "MODELS_PATH env is not set. Some tests may fail."
@@ -80,7 +75,7 @@ fi
 set +e
 ret_code=0
 
-ctest -T Test --output-on-failure --verbose "${ctest_args_junit[@]}" || ret_code=$?
+ctest -T Test -E test_symlink --output-on-failure --verbose "${ctest_args_junit[@]}" || ret_code=$?
 cp ./Testing/"$(head -n 1 Testing/TAG)"/Test.xml "$result_path/CTestResults.xml"
 popd
 

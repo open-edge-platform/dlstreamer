@@ -478,18 +478,8 @@ void UpdateConfigWithLayerInfo(const std::vector<ModelInputProcessorInfo::Ptr> &
             config[KEY_BASE][KEY_PIXEL_VALUE_MEAN] = three_doubles_to_str(mean);
         }
 
-        int reverse_channels = 0; // TODO: verify that channel reversal works correctly with mean and std!
-        if (gst_structure_get_int(it->params, "reverse_input_channels", &reverse_channels)) {
-            config[KEY_BASE][KEY_MODEL_FORMAT] = reverse_channels ? "RGB" : "BGR";
-        }
-
         const auto color_space = gst_structure_get_string(it->params, "color_space");
         if (color_space) {
-            // Ensure that reverse_input_channels and color_space are not both defined
-            if (reverse_channels != 0 && color_space != nullptr) {
-                throw std::invalid_argument(
-                    "ERROR: Cannot specify both 'reverse_input_channels' and 'color_space' parameters simultaneously");
-            }
             config[KEY_BASE][KEY_MODEL_FORMAT] = color_space;
         }
 
@@ -881,7 +871,7 @@ InferenceImpl::InferenceImpl(GvaBaseInference *gva_base_inference) {
 }
 
 dlstreamer::ContextPtr InferenceImpl::GetDisplay(GvaBaseInference *gva_base_inference) {
-#ifdef _MSC_VER
+#ifdef _WIN32
     return gva_base_inference->priv->d3d11_device;
 #else
     return gva_base_inference->priv->va_display;
@@ -971,7 +961,7 @@ bool InferenceImpl::IsRoiSizeValid(const GstVideoRegionOfInterestMeta *roi_meta)
 bool InferenceImpl::IsRoiSizeValid(const GstAnalyticsODMtd roi_meta) {
     gint x, y, w, h;
     if (!gst_analytics_od_mtd_get_location(const_cast<GstAnalyticsODMtd *>(&roi_meta), &x, &y, &w, &h, nullptr)) {
-        std::runtime_error("Failed to get location of od meta");
+        throw std::runtime_error("Failed to get location of od meta");
     }
 
     return w > 1 && h > 1;

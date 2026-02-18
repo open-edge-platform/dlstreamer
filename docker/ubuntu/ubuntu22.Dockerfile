@@ -127,7 +127,8 @@ RUN \
     pytest==8.3.3 \
     pluggy==1.5.0 \
     exceptiongroup==1.2.2 \
-    iniconfig==2.0.0
+    iniconfig==2.0.0 \
+    openvino==2025.4.1
 
 # hadolint ignore=DL3002
 USER root
@@ -290,7 +291,7 @@ RUN \
     shopt -s dotglob && \
     mv gst-plugins-rs/* . && \
     git checkout "tags/gstreamer-$GST_VERSION" && \
-    curl -sSL --insecure https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.86.0 && \
+    curl -sSL --insecure https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.88.0 && \
     source "$HOME"/.cargo/env && \
     cargo install cargo-c --version=0.10.11 --locked && \
     cargo update && \
@@ -400,8 +401,8 @@ ENV LC_NUMERIC=C
 ENV C_INCLUDE_PATH=/usr/local/include:${DLSTREAMER_DIR}/include:${DLSTREAMER_DIR}/include/dlstreamer/gst/metadata:${C_INCLUDE_PATH}
 ENV CPLUS_INCLUDE_PATH=/usr/local/include:${DLSTREAMER_DIR}/include:${DLSTREAMER_DIR}/include/dlstreamer/gst/metadata:${CPLUS_INCLUDE_PATH}
 ENV GST_PLUGIN_SCANNER=${GSTREAMER_DIR}/bin/gstreamer-1.0/gst-plugin-scanner
-ENV GI_TYPELIB_PATH=${GSTREAMER_DIR}/lib/girepository-1.0
-ENV PYTHONPATH=${GSTREAMER_DIR}/lib/python3/dist-packages:${DLSTREAMER_DIR}/python:${PYTHONPATH}
+ENV GI_TYPELIB_PATH=${GSTREAMER_DIR}/lib/girepository-1.0:${DLSTREAMER_DIR}/build/src/gst/metadata/
+ENV PYTHONPATH=${GSTREAMER_DIR}/lib/python3/dist-packages:${DLSTREAMER_DIR}/python:${DLSTREAMER_DIR}/scripts/optimizer:${PYTHONPATH}
 
 # Build DLStreamer
 # hadolint ignore=SC1091
@@ -449,6 +450,10 @@ RUN \
     cp -r "${DLSTREAMER_DIR}/include/" /deb-pkg/opt/intel/dlstreamer/ && \
     cp "${DLSTREAMER_DIR}/README.md" /deb-pkg/opt/intel/dlstreamer && \
     cp -rT "${GSTREAMER_DIR}" /deb-pkg/opt/intel/dlstreamer/gstreamer && \
+    mkdir -p /deb-pkg/opt/intel/dlstreamer/lib/girepository-1.0 && \
+    mkdir -p /deb-pkg/opt/intel/dlstreamer/share/gir-1.0 && \
+    cp "${DLSTREAMER_DIR}/girs/DLStreamerMeta-1.0.gir" /deb-pkg/opt/intel/dlstreamer/share/gir-1.0/ && \
+    cp "${DLSTREAMER_DIR}/build/src/gst/metadata/DLStreamerMeta-1.0.typelib" /deb-pkg/opt/intel/dlstreamer/lib/girepository-1.0/ && \
     cp -a /usr/local/lib/libopencv*.so* /deb-pkg/opt/opencv/ && \
     cp -r /usr/local/include/opencv4/* /deb-pkg/opt/opencv/include && \
     cp -a /usr/local/lib/librdkafka*.so* /deb-pkg/opt/rdkafka/ && \
@@ -491,7 +496,7 @@ SHELL ["/bin/bash", "-xo", "pipefail", "-c"]
 # install prerequisites - gcc and cmake are needed to run .cpp samples
 RUN \
     apt-get update && \
-    apt-get install -y -q --no-install-recommends  libtbb12=\* curl=\* gcc=\* cmake=\*  gpg=\* ca-certificates=\* git=\* python3-venv=\* && \
+    apt-get install -y -q --no-install-recommends  libtbb12=\* curl=\* gcc=\* cmake=\*  gpg=\* ca-certificates=\* git=\* python3-venv=\* jq=\* && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -548,9 +553,9 @@ ENV LIBVA_DRIVERS_PATH=/usr/lib/x86_64-linux-gnu/dri
 ENV GST_VA_ALL_DRIVERS=1
 ENV MODEL_PROC_PATH=/opt/intel/dlstreamer/samples/gstreamer/model_proc
 ENV PATH=/python3venv/bin:/opt/intel/dlstreamer/gstreamer/bin:/opt/intel/dlstreamer/bin:$PATH
-ENV PYTHONPATH=/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:/home/dlstreamer/dlstreamer/python:/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:
+ENV PYTHONPATH=/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:/opt/intel/dlstreamer/python:/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:
 ENV TERM=xterm
-ENV GI_TYPELIB_PATH=/opt/intel/dlstreamer/gstreamer/lib/girepository-1.0:/usr/lib/x86_64-linux-gnu/girepository-1.0
+ENV GI_TYPELIB_PATH=/opt/intel/dlstreamer/gstreamer/lib/girepository-1.0:/opt/intel/dlstreamer/lib/girepository-1.0:/usr/lib/x86_64-linux-gnu/girepository-1.0
 
 RUN \
     usermod -a -G video dlstreamer && \

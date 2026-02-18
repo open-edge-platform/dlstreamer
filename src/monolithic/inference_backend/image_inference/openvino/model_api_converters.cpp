@@ -90,11 +90,10 @@ bool yaml2Json(const std::string yaml_file, nlohmann::json &yaml_json) {
 
 // Convert input YOLO metadata file into Model API format
 bool convertYoloMeta2ModelApi(const std::string model_file, ov::AnyMap &modelConfig) {
-    const std::vector<std::pair<std::string, std::string>> model_types = {{"YOLOv8", "yolo_v8"},
-                                                                          {"YOLOv9", "yolo_v8"},
-                                                                          {"YOLOv10", "yolo_v10"},
-                                                                          {"YOLO11", "yolo_v8"},
-                                                                          {"YOLO26", "yolo_v26"}};
+    const std::vector<std::pair<std::string, std::string>> model_types = {
+        {"YOLOv8", "yolo_v8"}, {"YOLOv9", "yolo_v8"},  {"YOLOv10", "yolo_v10"},
+        {"YOLO11", "yolo_v8"}, {"YOLO26", "yolo_v26"}, {"YOLOe-26", "yolo_v26"}};
+
     const std::vector<std::pair<std::string, std::string>> task_types = {
         {"detect", ""}, {"segment", "_seg"}, {"pose", "_pose"}, {"obb", "_obb"}};
 
@@ -123,9 +122,13 @@ bool convertYoloMeta2ModelApi(const std::string model_file, ov::AnyMap &modelCon
             break;
         }
     }
-    if (!type_found && yaml_json.contains("description") && yaml_json["description"].is_string()) {
-        throw std::runtime_error("Unsupported YOLO model type: " + yaml_json["description"].get<std::string>());
-        return false;
+    if (!type_found) {
+        if (yaml_json.contains("end2end") && yaml_json["end2end"].is_boolean() && yaml_json["end2end"].get<bool>()) {
+            model_type = "yolo_v26";
+        } else {
+            model_type = "yolo_v8";
+        }
+        GST_WARNING("YOLO model type derived from end2end flag: %s", model_type.c_str());
     }
 
     bool task_found = false;
@@ -170,6 +173,252 @@ bool convertYoloMeta2ModelApi(const std::string model_file, ov::AnyMap &modelCon
     return true;
 }
 
+// Helper function to return a config file path in the same directory as model_file
+std::string getConfigPath(const std::string &model_file, const std::string &filename) {
+    std::filesystem::path model_path(model_file);
+    std::filesystem::path model_dir = model_path.parent_path();
+    std::filesystem::path config_path = model_dir / filename;
+
+    if (std::filesystem::exists(config_path))
+        return config_path.string();
+    return {};
+}
+
+// Helper function to load JSON from a config file
+bool loadJsonFromFile(const std::string &file_path, nlohmann::json &json_out) {
+    std::ifstream file_stream(file_path);
+    if (!file_stream.is_open()) {
+        GST_ERROR("Failed to open config file: %s", file_path.c_str());
+        return false;
+    }
+
+    try {
+        file_stream >> json_out;
+    } catch (const std::exception &e) {
+        GST_ERROR("Failed to parse config file: %s", e.what());
+        return false;
+    }
+
+    return true;
+}
+
+// Helper function to load JSON from a config file in the same directory as model_file
+bool loadJsonFromModelDir(const std::string &model_file, const std::string &filename, nlohmann::json &json_out) {
+    const std::string file_path = getConfigPath(model_file, filename);
+    if (file_path.empty())
+        return false;
+    return loadJsonFromFile(file_path, json_out);
+}
+
+// Return matched HuggingFace architecture name from config.json, empty string otherwise
+std::string getHuggingFaceArchitecture(const nlohmann::json &config_json) {
+    auto is_supported = [](const std::string &arch_name) {
+        for (const auto &supported : kHfSupportedArchitectures) {
+            if (arch_name == supported)
+                return true;
+        }
+        return false;
+    };
+
+    if (config_json.contains("architectures") && config_json["architectures"].is_array()) {
+        for (const auto &arch : config_json["architectures"]) {
+            if (!arch.is_string())
+                continue;
+            const std::string arch_name = arch.get<std::string>();
+            if (is_supported(arch_name))
+                return arch_name;
+        }
+    }
+
+    if (config_json.contains("architecture") && config_json["architecture"].is_string()) {
+        const std::string arch_name = config_json["architecture"].get<std::string>();
+        if (is_supported(arch_name))
+            return arch_name;
+    }
+
+    return {};
+}
+
+static bool parseHFlabels(const nlohmann::json &config_json, ov::AnyMap &modelConfig) {
+
+    // Parse label2id mapping to extract labels ordered by their IDs
+    if (config_json.contains("label2id") && config_json["label2id"].is_object()) {
+        std::vector<std::pair<int, std::string>> id_labels;
+        for (auto it = config_json["label2id"].begin(); it != config_json["label2id"].end(); ++it) {
+            if (!it.value().is_number_integer())
+                continue;
+            std::string label = it.key();
+            std::replace(label.begin(), label.end(), ' ', '_');
+            id_labels.emplace_back(it.value().get<int>(), label);
+        }
+        std::sort(id_labels.begin(), id_labels.end(), [](const auto &a, const auto &b) { return a.first < b.first; });
+
+        if (!id_labels.empty()) {
+            std::ostringstream labels_stream;
+            for (size_t i = 0; i < id_labels.size(); ++i) {
+                if (i)
+                    labels_stream << ' ';
+                labels_stream << id_labels[i].second;
+            }
+            modelConfig["labels"] = ov::Any(labels_stream.str());
+        }
+    }
+
+    return true;
+}
+
+static bool parseHFpreprocessing(const nlohmann::json &config_json, const nlohmann::json &preproc_json,
+                                 ov::AnyMap &modelConfig) {
+    // Setting up preprocessing parameters
+
+    // Set reshape size from preprocessor_config.json size field
+    if (preproc_json.contains("size") && preproc_json["size"].is_object()) {
+        const auto &size = preproc_json["size"];
+        if (size.contains("height") && size.contains("width") && size["height"].is_number_integer() &&
+            size["width"].is_number_integer()) {
+            const int height = size["height"].get<int>();
+            const int width = size["width"].get<int>();
+            modelConfig["reshape"] = ov::Any(std::vector<int>{height, width});
+        }
+    }
+
+    // Default resize_type to "standard"
+    modelConfig["resize_type"] = ov::Any(std::string("standard"));
+
+    // Check if "do_center_crop": true, then set resize_type to "crop"
+    if (preproc_json.contains("do_center_crop") && preproc_json["do_center_crop"].is_boolean() &&
+        preproc_json["do_center_crop"].get<bool>() == true) {
+        modelConfig["resize_type"] = ov::Any(std::string("crop"));
+
+        if (preproc_json.contains("crop_size") && preproc_json["crop_size"].is_object()) {
+            const auto &size = preproc_json["crop_size"];
+            if (size.contains("height") && size.contains("width") && size["height"].is_number_integer() &&
+                size["width"].is_number_integer()) {
+                const int height = size["height"].get<int>();
+                const int width = size["width"].get<int>();
+                modelConfig["reshape"] = ov::Any(std::vector<int>{height, width});
+            }
+        }
+    }
+
+    // Return an error if modelConfig does not have reshape set
+    if (modelConfig.find("reshape") == modelConfig.end()) {
+        GST_ERROR("HuggingFace ViTForImageClassification image size is not specified in preprocessor_config.json");
+        return false;
+    }
+
+    double rescale_factor = 1.0 / 255.0;
+    if (preproc_json.contains("rescale_factor") && preproc_json["rescale_factor"].is_number()) {
+        rescale_factor = preproc_json["rescale_factor"].get<double>();
+    }
+
+    if (preproc_json.contains("image_mean") && preproc_json["image_mean"].is_array()) {
+        std::vector<std::string> mean_values;
+        for (const auto &val : preproc_json["image_mean"]) {
+            if (val.is_number()) {
+                mean_values.push_back(std::to_string(val.get<double>() / rescale_factor));
+            }
+        }
+        if (!mean_values.empty()) {
+            std::ostringstream mean_values_stream;
+            for (size_t i = 0; i < mean_values.size(); ++i) {
+                if (i)
+                    mean_values_stream << ' ';
+                mean_values_stream << mean_values[i];
+            }
+            modelConfig["mean_values"] = ov::Any(mean_values_stream.str());
+        }
+    }
+
+    if (preproc_json.contains("image_std") && preproc_json["image_std"].is_array()) {
+        std::vector<std::string> std_values;
+        for (const auto &val : preproc_json["image_std"]) {
+            if (val.is_number()) {
+                std_values.push_back(std::to_string(val.get<double>() / rescale_factor));
+            }
+        }
+        if (!std_values.empty()) {
+            std::ostringstream std_values_stream;
+            for (size_t i = 0; i < std_values.size(); ++i) {
+                if (i)
+                    std_values_stream << ' ';
+                std_values_stream << std_values[i];
+            }
+            modelConfig["scale_values"] = ov::Any(std_values_stream.str());
+        }
+    }
+
+    // Check if do_convert_rgb is not false, then set model format to RGB
+    const bool do_convert_rgb =
+        !(preproc_json.contains("do_convert_rgb") && preproc_json["do_convert_rgb"].is_boolean() &&
+          preproc_json["do_convert_rgb"].get<bool>() == false);
+    if (do_convert_rgb) {
+        modelConfig["reverse_input_channels"] = ov::Any(std::string("true"));
+    }
+
+    return true;
+}
+
+// Convert HuggingFace metadata file into Model API format
+bool convertHuggingFaceMeta2ModelApi(const std::string &model_file, ov::AnyMap &modelConfig) {
+    nlohmann::json config_json;
+    if (!loadJsonFromModelDir(model_file, "config.json", config_json))
+        return false;
+
+    const std::string architecture = getHuggingFaceArchitecture(config_json);
+    if (architecture.empty())
+        return false;
+
+    // Check if architecture is supported
+    if (std::find(ModelApiConverters::kHfSupportedArchitectures.begin(),
+                  ModelApiConverters::kHfSupportedArchitectures.end(),
+                  architecture) == ModelApiConverters::kHfSupportedArchitectures.end()) {
+        GST_ERROR("Unsupported HuggingFace architecture: %s", architecture.c_str());
+        return false;
+    }
+
+    nlohmann::json preproc_json;
+    if (!loadJsonFromModelDir(model_file, "preprocessor_config.json", preproc_json)) {
+        GST_ERROR("Failed to load preprocessor_config.json for HuggingFace model: %s", model_file.c_str());
+        return false;
+    }
+
+    if (!parseHFpreprocessing(config_json, preproc_json, modelConfig)) {
+        GST_ERROR("Failed to parse HuggingFace preprocessing configuration.");
+        return false;
+    }
+
+    if (architecture == "ViTForImageClassification") {
+        // Model type is always "label" for ViTForImageClassification
+        modelConfig["model_type"] = ov::Any(std::string("label"));
+        modelConfig["output_raw_scores"] = ov::Any(std::string("True"));
+    } else if ((architecture == "RTDetrForObjectDetection") || (architecture == "RtDetrV2ForObjectDetection")) {
+        modelConfig["model_type"] = ov::Any(std::string("rtdetr"));
+        modelConfig["output_raw_scores"] = ov::Any(std::string("False"));
+    }
+
+    if (!parseHFlabels(config_json, modelConfig)) {
+        GST_ERROR("Failed to parse HuggingFace labels.");
+        return false;
+    }
+
+    return true;
+}
+
+// Helper function to check for HuggingFace metadata
+bool isHuggingFaceModel(const std::string &model_file) {
+
+    nlohmann::json config_json;
+    if (!loadJsonFromModelDir(model_file, "config.json", config_json))
+        return false;
+
+    // Check if config.json contains "transformaers_version" field
+    if (config_json.contains("transformers_version"))
+        return true;
+    else
+        return false;
+}
+
 // Convert third-party input metadata config files into Model API format
 bool convertThirdPartyModelConfig(const std::string model_file, ov::AnyMap &modelConfig) {
     bool updated = false;
@@ -179,6 +428,9 @@ bool convertThirdPartyModelConfig(const std::string model_file, ov::AnyMap &mode
             updated = convertYoloMeta2ModelApi(model_file, modelConfig);
         }
     }
+
+    else if (isHuggingFaceModel(model_file))
+        updated = convertHuggingFaceMeta2ModelApi(model_file, modelConfig);
 
     return updated;
 }
@@ -241,6 +493,8 @@ std::map<std::string, GstStructure *> get_model_info_preproc(const std::shared_p
 
     // override model config with third-party config files (if found)
     convertThirdPartyModelConfig(model_file, modelConfig);
+    if (!modelConfig.empty() && s == nullptr)
+        s = gst_structure_new_empty(layer_name.data());
 
     // the parameter parsing loop may use locale-dependent floating point conversion
     // save current locale and restore after the loop
@@ -346,19 +600,20 @@ std::map<std::string, GstStructure *> get_model_info_preproc(const std::shared_p
             g_value_unset(&gvalue);
         }
         if (element.first == "reverse_input_channels") {
-            GValue gvalue = G_VALUE_INIT;
-            g_value_init(&gvalue, G_TYPE_INT);
-            g_value_set_int(&gvalue, gint(false));
-
             std::transform(element.second.as<std::string>().begin(), element.second.as<std::string>().end(),
                            element.second.as<std::string>().begin(), ::tolower);
 
-            if (element.second.as<std::string>() == "yes" || element.second.as<std::string>() == "true")
-                g_value_set_int(&gvalue, gint(true));
-
-            gst_structure_set_value(s, "reverse_input_channels", &gvalue);
-            GST_INFO("[get_model_info_preproc] reverse_input_channels: %s", element.second.as<std::string>().c_str());
-            g_value_unset(&gvalue);
+            GValue color_value = G_VALUE_INIT;
+            g_value_init(&color_value, G_TYPE_STRING);
+            if (element.second.as<std::string>() == "yes" || element.second.as<std::string>() == "true") {
+                g_value_set_string(&color_value, "RGB");
+            } else {
+                g_value_set_string(&color_value, "BGR");
+            }
+            gst_structure_set_value(s, "color_space", &color_value);
+            GST_INFO("[get_model_info_preproc] (reverse_input_channels) color_space: %s",
+                     g_value_get_string(&color_value));
+            g_value_unset(&color_value);
         }
         if (element.first == "reshape") {
             std::vector<int> size_values = element.second.as<std::vector<int>>();
@@ -405,6 +660,8 @@ std::map<std::string, GstStructure *> get_model_info_postproc(const std::shared_
 
     // update model config with third-party config files (if found)
     convertThirdPartyModelConfig(model_file, modelConfig);
+    if (!modelConfig.empty() && s == nullptr)
+        s = gst_structure_new_empty(layer_name.data());
 
     // the parameter parsing loop may use locale-dependent floating point conversion
     // save current locale and restore after the loop
@@ -413,7 +670,6 @@ std::map<std::string, GstStructure *> get_model_info_postproc(const std::shared_
 
     for (auto &element : modelConfig) {
         if (element.first.find("model_type") != std::string::npos) {
-            std::cout << "model_type: " << element.second.as<std::string>() << std::endl;
             GValue gvalue = G_VALUE_INIT;
             g_value_init(&gvalue, G_TYPE_STRING);
             g_value_set_string(&gvalue, element.second.as<std::string>().c_str());
@@ -490,12 +746,20 @@ std::map<std::string, GstStructure *> get_model_info_postproc(const std::shared_
             GST_INFO("[get_model_info_postproc] normalization_scale: %f", element.second.as<double>());
             g_value_unset(&gvalue);
         }
-        if (element.first.find("task") != std::string::npos) {
+        if (element.first == "task") {
             GValue gvalue = G_VALUE_INIT;
             g_value_init(&gvalue, G_TYPE_STRING);
             g_value_set_string(&gvalue, element.second.as<std::string>().c_str());
             gst_structure_set_value(s, "anomaly_task", &gvalue);
             GST_INFO("[get_model_info_postproc] anomaly_task: %s", element.second.as<std::string>().c_str());
+            g_value_unset(&gvalue);
+        }
+        if (element.first == "task_type") {
+            GValue gvalue = G_VALUE_INIT;
+            g_value_init(&gvalue, G_TYPE_STRING);
+            g_value_set_string(&gvalue, element.second.as<std::string>().c_str());
+            gst_structure_set_value(s, "anomaly_task_type", &gvalue);
+            GST_INFO("[get_model_info_postproc] anomaly_task_type: %s", element.second.as<std::string>().c_str());
             g_value_unset(&gvalue);
         }
         if (element.first.find("labels") != std::string::npos) {

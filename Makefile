@@ -34,15 +34,22 @@ export LIBVA_DRIVER_NAME 		:= iHD
 export LIBVA_DRIVERS_PATH 		:= /usr/lib/x86_64-linux-gnu/dri
 export GST_VA_ALL_DRIVERS 		:= 1
 export GST_PLUGIN_FEATURE_RANK 	:= ${GST_PLUGIN_FEATURE_RANK},ximagesink:MAX
+export BUILD_GIRS 				?= OFF
 
 
 .PHONY: dependencies
 dependencies:
-	cmake \
-		-B build/deps \
-		-DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
-		./dependencies
-	cmake --build build/deps -j$(shell nproc)
+	@if [ ! -f build/deps/.deps_built ]; then \
+		echo "Building dependencies..."; \
+		cmake \
+			-B build/deps \
+			-DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
+			./dependencies; \
+		cmake --build build/deps -j$(shell nproc); \
+		touch build/deps/.deps_built; \
+	else \
+		echo "Dependencies already built, skipping..."; \
+	fi
 
 .PHONY: build
 build: dependencies ## Compile Deep Learning Streamer
@@ -58,6 +65,7 @@ build: dependencies ## Compile Deep Learning Streamer
 		-DENABLE_VAAPI=ON \
 		-DENABLE_SAMPLES=ON \
 		-DENABLE_GENAI=${ENABLE_GENAI} \
+		-DGENERATE_GIR_FROM_SOURCE=${BUILD_GIRS} \
 		-DENABLE_TESTS=OFF; \
 	cmake --build build -j$(shell nproc)
 
@@ -66,18 +74,26 @@ install: build ## Build and install Deep Learning Streamer
 	@echo "Installing Deep Learning Streamer"
 	@mkdir -p ${DLSTREAMER_INSTALL_PREFIX}
 	@rm -rf ${DLSTREAMER_INSTALL_PREFIX}/*
-	@cmake \
-		-B build/deps \
-		-DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
-		-DINSTALL_DLSTREAMER=True \
-		-DDLSTREAMER_INSTALL_PREFIX=${DLSTREAMER_INSTALL_PREFIX} \
-		./dependencies
+	@if [ -f build/deps/.deps_built ]; then \
+		echo "Installing dependencies..."; \
+		cmake \
+			-B build/deps \
+			-DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
+			-DINSTALL_DLSTREAMER=True \
+			-DDLSTREAMER_INSTALL_PREFIX=${DLSTREAMER_INSTALL_PREFIX} \
+			./dependencies; \
+	fi
 	@cp -r build/intel64/${BUILD_TYPE} ${DLSTREAMER_INSTALL_PREFIX}
 	@cp -r samples/ ${DLSTREAMER_INSTALL_PREFIX}
 	@cp -r python/ ${DLSTREAMER_INSTALL_PREFIX}
 	@cp -r scripts/ ${DLSTREAMER_INSTALL_PREFIX}
 	@cp -r include/ ${DLSTREAMER_INSTALL_PREFIX}
 	@cp README.md ${DLSTREAMER_INSTALL_PREFIX}
+	@mkdir -p ${DLSTREAMER_INSTALL_PREFIX}/lib/girepository-1.0
+	@if [ -f build/src/gst/metadata/DLStreamerMeta-1.0.typelib ]; then \
+		echo "Installing typelib file..."; \
+		cp build/src/gst/metadata/DLStreamerMeta-1.0.typelib ${DLSTREAMER_INSTALL_PREFIX}/lib/girepository-1.0/; \
+	fi
 	@echo "Installation successful"
 
 .PHONY: deb

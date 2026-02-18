@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2018-2025 Intel Corporation
+ * Copyright (C) 2018-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -156,7 +156,7 @@ void IterativeFpsCounter::PrintFPS(FILE *output, double sec, bool eos) {
     } else {
         fprintf(output, "FpsCounter(last %.2fsec): ", sec);
     }
-    fprintf(output, "total=%.2f fps, number-streams=%ld, per-stream=%.2f fps", total, num_frames.size(),
+    fprintf(output, "total=%.2f fps, number-streams=%zu, per-stream=%.2f fps", total, num_frames.size(),
             total / num_frames.size());
     if (num_frames.size() > 1 && print_each_stream) {
         fprintf(output, " (");
@@ -280,7 +280,7 @@ ReadPipeFpsCounter::ReadPipeFpsCounter(const char *pipe_name, std::function<void
             char name[ELEMENT_NAME_MAX_SIZE];
             while (true) {
                 int nbytes = pipe->read(name, ELEMENT_NAME_MAX_SIZE);
-#if !(_MSC_VER)
+#ifndef _WIN32
                 // If there's not enough data - wait for 10 ms
                 if (nbytes < ELEMENT_NAME_MAX_SIZE) {
                     std::this_thread::sleep_for(std::chrono::milliseconds(10));

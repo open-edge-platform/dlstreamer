@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2025 Intel Corporation
+ * Copyright (C) 2025-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -31,10 +31,11 @@ TensorsTable DetectionAnomalyConverter::convert(const OutputBlobs &output_blobs)
         tensors_table.resize(batch_size);
 
         double pred_score = 0.0;
-        double image_threshold_norm = normalize(image_threshold, 0.0f);
         cv::Mat anomaly_map;
+        cv::Mat anomaly_map_raw;
         cv::Mat pred_mask;
         std::string pred_label = "";
+        bool publish_pred_mask = false;
 
         for (const auto &blob_iter : output_blobs) {
             OutputBlob::Ptr blob = blob_iter.second;
@@ -62,31 +63,57 @@ TensorsTable DetectionAnomalyConverter::convert(const OutputBlobs &output_blobs)
             const size_t img_height = dims[DEF_ANOMALY_TENSOR_LAYOUT_OFFSET_H];
             const size_t img_width = dims[DEF_ANOMALY_TENSOR_LAYOUT_OFFSET_W];
 
-            anomaly_map = cv::Mat((int)img_height, (int)img_width, CV_32FC1, const_cast<float *>(data));
-            anomaly_map = anomaly_map / normalization_scale;
-            anomaly_map = cv::min(cv::max(anomaly_map, 0.f), 1.f);
-            //  find the max predicted score
-            cv::minMaxLoc(anomaly_map, NULL, &pred_score);
+            anomaly_map_raw = cv::Mat((int)img_height, (int)img_width, CV_32FC1, const_cast<float *>(data));
+            // Clamping the anomaly map to [0, 1] range
+            anomaly_map_raw = cv::min(cv::max(anomaly_map_raw, 0.f), 1.f);
+            // find the the highest anomaly score in the anomaly map
+            cv::minMaxLoc(anomaly_map_raw, NULL, &pred_score);
 
             const auto &labels = getLabels();
             if (labels.size() != DEF_TOTAL_LABELS_COUNT)
                 throw std::runtime_error("Anomaly-detection converter: Expected 2 labels, got: " +
                                          std::to_string(labels.size()));
 
-            pred_label = labels[pred_score > image_threshold_norm ? 1 : 0];
+            // classify using normalized threshold comparison
+            pred_label = labels[pred_score > (image_threshold) ? 1 : 0];
 
-            logParamsStats(pred_label, pred_score, image_threshold_norm);
+            // normalize the score to [0, 1] range using the provided normalization scale and image threshold
+            double pred_score_normalized = normalize(pred_score, image_threshold);
+            // invert score for Normal predictions
+            if (pred_label == "Normal") {
+                pred_score_normalized = 1.0 - pred_score_normalized;
+            }
+
+            // Log the parameters and statistics
+            logParamsStats(pred_label, pred_score_normalized, pred_score, image_threshold);
 
             const std::string layer_name = blob_iter.first;
             for (size_t frame_index = 0; frame_index < batch_size; ++frame_index) {
                 GVA::Tensor classification_result = createTensor();
 
                 classification_result.set_string("label", pred_label);
-                classification_result.set_double("confidence", pred_score);
+                classification_result.set_double("confidence", pred_score_normalized);
 
                 gst_structure_set(classification_result.gst_structure(), "tensor_id", G_TYPE_INT,
                                   safe_convert<int>(frame_index), "type", G_TYPE_STRING, "classification_result",
                                   "precision", G_TYPE_INT, static_cast<int>(blob->GetPrecision()), NULL);
+
+                // Add segmentation mask data if anomaly detected
+                if (pred_label == "Anomaly" && publish_pred_mask) {
+
+                    // Create binary mask by thresholding the anomaly map with pixel_threshold
+                    // anomaly_map_raw is already normalized to [0, 1], so the pixel_threshold can be directly applied
+
+                    pred_mask = anomaly_map_raw >= pixel_threshold;
+                    pred_mask.convertTo(pred_mask, CV_8U); // Convert to uint8 (0 and 255)
+
+                    classification_result.set_format("segmentation_mask");
+                    classification_result.set_dims(
+                        {safe_convert<uint32_t>(pred_mask.cols), safe_convert<uint32_t>(pred_mask.rows)});
+                    classification_result.set_precision(GVA::Tensor::Precision::U8);
+                    classification_result.set_data(reinterpret_cast<const void *>(pred_mask.data),
+                                                   pred_mask.rows * pred_mask.cols * sizeof(uint8_t));
+                }
 
                 std::vector<GstStructure *> tensors{classification_result.gst_structure()};
                 tensors_table[frame_index].push_back(tensors);
@@ -102,8 +129,8 @@ TensorsTable DetectionAnomalyConverter::convert(const OutputBlobs &output_blobs)
     return tensors_table;
 }
 
-void DetectionAnomalyConverter::logParamsStats(const std::string &pred_label, const double &pred_score,
-                                               const double &image_threshold_norm) {
+void DetectionAnomalyConverter::logParamsStats(const std::string &pred_label, const double &pred_score_normalized,
+                                               const double &pred_score, const double &image_threshold) {
     if (pred_label == "Normal" || pred_label == "Anomaly") {
         if (pred_label == "Normal") {
             lbl_normal_cnt++;
@@ -116,8 +143,8 @@ void DetectionAnomalyConverter::logParamsStats(const std::string &pred_label, co
                                  pred_label);
     }
 
-    GVA_INFO("pred_label: %s, pred_score: %f, image_threshold: %f, "
-             "image_threshold_norm: %f, normalization_scale: %f, #normal: %u, #anomaly: %u",
-             pred_label.c_str(), pred_score, image_threshold, image_threshold_norm, normalization_scale, lbl_normal_cnt,
-             lbl_anomaly_cnt);
+    GVA_WARNING("pred_label: %s, pred_score_normalized: %f, pred_score: %f, image_threshold: %f, "
+                "normalization_scale: %f, #normal: %u, #anomaly: %u",
+                pred_label.c_str(), pred_score_normalized, pred_score, image_threshold, normalization_scale,
+                lbl_normal_cnt, lbl_anomaly_cnt);
 }

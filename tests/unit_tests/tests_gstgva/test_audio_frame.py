@@ -1,5 +1,5 @@
 # ==============================================================================
-# Copyright (C) 2020-2025 Intel Corporation
+# Copyright (C) 2020-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
@@ -10,12 +10,13 @@ import ctypes
 import gi
 import numpy as np
 
-gi.require_version('Gst', '1.0')
-gi.require_version('GstAudio', '1.0')
-
-from gi.repository import Gst, GstAudio
 from gstgva.audio.audio_frame import AudioFrame
 from gstgva.audio.audio_event_meta import AudioEventMeta
+
+gi.require_version('Gst', '1.0')
+gi.require_version('GstAudio', '1.0')
+from gi.repository import Gst, GstAudio # pylint: disable=no-name-in-module, wrong-import-position
+
 
 Gst.init(sys.argv)
 

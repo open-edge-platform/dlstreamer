@@ -1,5 +1,5 @@
 # ==============================================================================
-# Copyright (C) 2018-2025 Intel Corporation
+# Copyright (C) 2018-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
@@ -11,20 +11,19 @@ import ctypes
 import numpy
 import gi
 from typing import List
-from warnings import warn
 
 gi.require_version("Gst", "1.0")
 gi.require_version("GstAnalytics", "1.0")
 
 from enum import Enum
-from gi.repository import GObject, Gst, GstAnalytics, GLib
+# pylint: disable=no-name-in-module
+from gi.repository import GObject, GstAnalytics, GLib
+# pylint: enable=no-name-in-module
 from .util import (
     libgst,
     libgobject,
+    libglib,
     G_VALUE_ARRAY_POINTER,
-    GValueArray,
-    GValue,
-    G_VALUE_POINTER,
 )
 from .util import GVATensorMeta
 
@@ -145,7 +144,7 @@ class Tensor:
         if gvalue:
             gvariant = libgobject.g_value_get_variant(gvalue)
             nbytes = ctypes.c_size_t()
-            data_ptr = libgobject.g_variant_get_fixed_array(
+            data_ptr = libglib.g_variant_get_fixed_array(
                 gvariant, ctypes.byref(nbytes), 1
             )
             array_type = ctypes.c_ubyte * nbytes.value
@@ -179,8 +178,8 @@ class Tensor:
         return self["type"]
 
     ## @brief Get confidence of inference result
-    #  @return confidence of inference result as a float, None if failed to get
-    def confidence(self) -> float:
+    #  @return confidence of inference result as a float or list of floats, None if failed to get
+    def confidence(self) -> float | List[float] | None:
         return self["confidence"]
 
     ## @brief Get label. This label is set for Tensor instances produced by gvaclassify element. It will raise exception

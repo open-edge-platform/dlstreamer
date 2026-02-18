@@ -1,5 +1,5 @@
 # ==============================================================================
-# Copyright (C) 2018-2025 Intel Corporation
+# Copyright (C) 2018-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
@@ -8,13 +8,8 @@
 #  @brief This file contains gstgva.region_of_interest.RegionOfInterest class to control region of interest for particular gstgva.video_frame.VideoFrame with gstgva.tensor.Tensor instances attached
 
 import ctypes
-import numpy
 from typing import List
 from collections import namedtuple
-
-from .tensor import Tensor
-from .util import VideoRegionOfInterestMeta, GstStructureHandle
-from .util import libgst, libgobject, libgstvideo, GLIST_POINTER
 
 import gi
 
@@ -22,7 +17,37 @@ gi.require_version("GstVideo", "1.0")
 gi.require_version("GLib", "2.0")
 gi.require_version("Gst", "1.0")
 gi.require_version("GstAnalytics", "1.0")
-from gi.repository import GstVideo, GLib, GObject, Gst, GstAnalytics
+gi.require_version("DLStreamerMeta", "1.0")
+
+# GObject Introspection modules are dynamically generated, pylint cannot introspect them
+# pylint: disable=no-name-in-module,unused-import,wrong-import-position
+from gi.repository import GstVideo, GLib, GObject, Gst, GstAnalytics, DLStreamerMeta
+from gi.overrides import GstAnalytics as GstAnalyticsOverride
+# pylint: enable=no-name-in-module,unused-import
+
+from .tensor import Tensor
+from .util import VideoRegionOfInterestMeta, GstStructureHandle
+from .util import libgst, libgstvideo
+
+# Register Keypoint metadata
+# pylint: disable=protected-access
+# pylint: enable=wrong-import-position
+GstAnalyticsOverride._wrap_mtd(
+    DLStreamerMeta,
+    'KeypointMtd',
+    DLStreamerMeta.relation_meta_get_keypoint_mtd
+)
+GstAnalyticsOverride._wrap_mtd(
+    DLStreamerMeta,
+    'KeypointGroupMtd',
+    DLStreamerMeta.relation_meta_get_keypointgroup_mtd
+)
+GstAnalyticsOverride._wrap_mtd(
+    DLStreamerMeta,
+    'KeypointSkeletonMtd',
+    DLStreamerMeta.relation_meta_get_keypoint_skeleton_mtd
+)
+# pylint: enable=protected-access
 
 Rect = namedtuple("Rect", "x y w h")
 
@@ -221,6 +246,15 @@ class RegionOfInterest(object):
     # @return list of Tensor instances added to this RegionOfInterest
     def tensors(self) -> List[Tensor]:
         return self._tensors
+
+    ## @brief Get first tensor matching the given name
+    # @param name Tensor name to search for
+    # @return Tensor instance with matching name, None if not found
+    def get_tensor_by_name(self, name: str) -> Tensor | None:
+        for tensor in self.tensors():
+            if tensor.name() == name:
+                return tensor
+        return None
 
     ## @brief Get all Tensor instances added to this RegionOfInterest (in old metadata format)
     # @return list of Tensor instances added to this RegionOfInterest

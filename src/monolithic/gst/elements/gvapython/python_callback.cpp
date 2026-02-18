@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2020-2025 Intel Corporation
+ * Copyright (C) 2020-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -10,13 +10,20 @@
 #include "gva_utils.h"
 #include "inference_backend/logger.h"
 
+#include <filesystem>
+#include <pygobject-3.0/pygobject.h>
+
+#ifndef _WIN32
 #include <dlfcn.h>
 #include <gmodule.h>
-#ifdef _MSC_VER
-#include <pygobject.h>
-#else
-#include <pygobject-3.0/pygobject.h>
 #endif
+
+G_BEGIN_DECLS
+
+GST_DEBUG_CATEGORY_EXTERN(gst_gva_python_debug_category);
+#define GST_CAT_DEFAULT gst_gva_python_debug_category
+
+G_END_DECLS
 
 namespace {
 PyObject *extractClass(PyObjectWrapper &pluginModule, const char *class_name, const char *args_string,
@@ -66,18 +73,13 @@ gboolean callPython(GstBuffer *buffer, GstCaps *caps, PyObjectWrapper &py_frame_
 // Returns:
 //   A PyObject* pointer to the imported module, or NULL on error.
 PyObject *import_module_full_path(const char *module_name, const char *file_path) {
+    auto module_path = std::filesystem::path(file_path);
 
-    // Allocate memory for the file path with .py extension
-    char *pStr = new char[strlen(file_path) + 3];
-
-    // 0 is test for existence of file
-    sprintf(pStr, "%s", file_path);
-    if (access(pStr, 0) != 0) {
-        sprintf(pStr, "%s.py", file_path);
-        if (access(pStr, 0) != 0) {
-            GST_ERROR("Error: Python module file not found: %s\n", pStr);
-            delete[] pStr;
-
+    // Check if file exists, try with and without .py extension
+    if (!std::filesystem::exists(module_path)) {
+        module_path.replace_extension(".py");
+        if (!std::filesystem::exists(module_path)) {
+            GST_ERROR("Error: Python module file not found: %s\n", module_path.string().c_str());
             return NULL;
         }
     }
@@ -120,24 +122,25 @@ PyObject *import_module_full_path(const char *module_name, const char *file_path
              "    \n"
              "    imported_module = module\n"
              "    success = True\n"
-             "    error_msg = 'OK'\n"
+             "    error_obj = None\n"
              "\n"
              "except Exception as e:\n"
              "    imported_module = None\n"
              "    success = False\n"
-             "    error_msg = f'{type(e).__name__}: {str(e)}'\n",
-             module_name, pStr);
+             "    error_obj = e\n",
+             module_name, module_path.string().c_str());
 
     // Execute the generated Python code
     // in the __main__ module's namespace
     PyObject *main_module = PyImport_AddModule("__main__");
     PyObject *main_dict = PyModule_GetDict(main_module);
 
-    if (PyRun_String(python_code, Py_file_input, main_dict, main_dict) == NULL) {
+    PyObject *result = PyRun_String(python_code, Py_file_input, main_dict, main_dict);
+    if (result == NULL) {
         PyErr_Print();
-        delete[] pStr;
         return NULL;
     }
+    Py_DECREF(result);
 
     // Check result
     PyObject *success = PyDict_GetItemString(main_dict, "success");
@@ -145,17 +148,20 @@ PyObject *import_module_full_path(const char *module_name, const char *file_path
         PyObject *module = PyDict_GetItemString(main_dict, "imported_module");
         if (module != NULL) {
             Py_INCREF(module);
-            delete[] pStr;
             return module;
         }
     } else {
-        PyObject *error = PyDict_GetItemString(main_dict, "error_msg");
-        if (error && PyUnicode_Check(error)) {
-            PyErr_Print();
+        PyObject *error = PyDict_GetItemString(main_dict, "error_obj");
+        if (error) {
+#if PY_VERSION_HEX >= 0x030C0000 /* 3.12 */
+            PyErr_DisplayException(error);
+#else
+            PyObject *tb = PyException_GetTraceback(error);
+            PyErr_Display((PyObject *)Py_TYPE(error), error, tb);
+            Py_XDECREF(tb);
+#endif
         }
     }
-
-    delete[] pStr;
 
     return NULL;
 }
@@ -181,18 +187,27 @@ PythonContextInitializer::~PythonContextInitializer() {
 }
 
 void PythonContextInitializer::initialize() {
-    /* load libpython.so and initilize pygobject */
+#ifndef _WIN32
+    /* load libpython.so, not required on Windows */
     Dl_info libpython_info = Dl_info();
-#if !(_MSC_VER)
     dladdr((void *)Py_IsInitialized, &libpython_info);
     GModule *libpython = g_module_open(libpython_info.dli_fname, G_MODULE_BIND_LAZY);
+#endif
+    /* initialize pygobject */
     if (!pygobject_init(3, 0, 0)) {
+        // print Python error if available
+        if (PyErr_Occurred()) {
+            PyErr_Print();
+            PyErr_Clear();
+        }
         throw std::runtime_error("pygobject_init failed");
     }
+#ifndef _WIN32
     if (libpython) {
         g_module_close(libpython);
     }
 #endif
+
     /* init arguments passed to a python script*/
     static wchar_t tmp[] = L"";
     static wchar_t *empty_argv[] = {tmp};
@@ -214,19 +229,9 @@ PythonCallback::PythonCallback(const char *module_path, const char *class_name, 
         throw std::invalid_argument("module_path cannot be empty");
     }
 
-    const char *filename = strrchr(module_path, '/');
-    if (filename) {
-        ++filename; // shifting next to '/'
-    } else {
-        filename = module_path;
-    }
-
-    const char *extension = strrchr(module_path, '.');
-    if (!extension) {
-        module_name = std::string(filename);
-    } else {
-        module_name = std::string(filename, extension);
-    }
+    auto path = std::filesystem::path(module_path);
+    auto filename = path.filename();
+    module_name = filename.stem().string();
 
     PyObjectWrapper pluginModule = import_module_full_path(module_name.c_str(), module_path);
     if (!(PyObject *)pluginModule) {

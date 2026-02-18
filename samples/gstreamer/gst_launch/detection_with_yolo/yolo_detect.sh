@@ -1,6 +1,6 @@
 #!/bin/bash
 # ==============================================================================
-# Copyright (C) 2021-2025 Intel Corporation
+# Copyright (C) 2021-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
@@ -75,6 +75,14 @@ declare -A MODEL_PROC_FILES=(
   ["yolo11s-seg"]=""
   ["yolo11s-obb"]=""
   ["yolo11s-pose"]=""
+  ["yolo26n"]=""
+  ["yolo26s"]=""
+  ["yolo26m"]=""
+  ["yolo26l"]=""
+  ["yolo26x"]=""
+  ["yolo26s-obb"]=""
+  ["yolo26s-seg"]=""
+  ["yolo26s-pose"]=""
 )
 
 if ! [[ "${!MODEL_PROC_FILES[*]}" =~ $MODEL ]]; then
@@ -113,7 +121,7 @@ fi
 DECODE_ELEMENT="! decodebin3 !"
 
 if [[ "$PPBKEND" == "" ]]; then
-  PREPROC_BACKEND="ie"
+  PREPROC_BACKEND="opencv"
   if [[ "$DEVICE" == "GPU" ]]; then
     PREPROC_BACKEND="va-surface-sharing"
   fi

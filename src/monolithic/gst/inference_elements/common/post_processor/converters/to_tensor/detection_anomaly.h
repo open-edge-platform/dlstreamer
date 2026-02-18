@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2025 Intel Corporation
+ * Copyright (C) 2025-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -20,7 +20,8 @@
 namespace post_processing {
 
 class DetectionAnomalyConverter : public BlobToTensorConverter {
-    double image_threshold;
+    double image_threshold; // Image threshold that is used for classifying an image as anomalous or normal
+    double pixel_threshold; // Pixel threshold that is used for segmenting anomalous regions in the image
     double normalization_scale;
     std::string anomaly_detection_task;
     uint lbl_normal_cnt = 0;
@@ -34,12 +35,10 @@ class DetectionAnomalyConverter : public BlobToTensorConverter {
     }
 
   public:
-    DetectionAnomalyConverter(BlobToMetaConverter::Initializer initializer, double image_threshold,
-                              double normalization_scale, std::string anomaly_detection_task = "")
-        : BlobToTensorConverter(std::move(initializer)), image_threshold(image_threshold),
-          normalization_scale(normalization_scale), anomaly_detection_task(std::move(anomaly_detection_task)) {
+    DetectionAnomalyConverter(BlobToMetaConverter::Initializer initializer)
+        : BlobToTensorConverter(std::move(initializer)) {
+        validateAndLoadParameters();
     }
-
     TensorsTable convert(const OutputBlobs &output_blobs) override;
 
     static std::string getName() {
@@ -47,7 +46,24 @@ class DetectionAnomalyConverter : public BlobToTensorConverter {
     }
 
   private:
-    void logParamsStats(const std::string &pred_label, const double &pred_score, const double &image_threshold_norm);
+    void validateAndLoadParameters() {
+        auto task_cstr = gst_structure_get_string(getModelProcOutputInfo().get(), "anomaly_task");
+        if (std::string(task_cstr ? task_cstr : "") != DEFAULT_ANOMALY_DETECTION_TASK)
+            throw std::runtime_error("<rt_info><model_info> parameter anomaly_task definition error: only "
+                                     "'classification' is currently supported.");
+
+        if (!gst_structure_get_double(getModelProcOutputInfo().get(), "normalization_scale", &normalization_scale))
+            throw std::runtime_error("<rt_info><model_info> normalization_scale parameter undefined");
+
+        if (!gst_structure_get_double(getModelProcOutputInfo().get(), "image_threshold", &image_threshold))
+            throw std::runtime_error("<rt_info><model_info> image_threshold parameter undefined");
+
+        if (!gst_structure_get_double(getModelProcOutputInfo().get(), "pixel_threshold", &pixel_threshold))
+            throw std::runtime_error("<rt_info><model_info> pixel_threshold parameter undefined");
+    }
+
+    void logParamsStats(const std::string &pred_label, const double &pred_score_normalized, const double &pred_score,
+                        const double &image_threshold);
 };
 
 } // namespace post_processing

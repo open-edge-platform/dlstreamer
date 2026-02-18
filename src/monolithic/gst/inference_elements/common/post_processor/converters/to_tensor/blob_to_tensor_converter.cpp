@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2021-2025 Intel Corporation
+ * Copyright (C) 2021-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -45,26 +45,7 @@ BlobToMetaConverter::Ptr BlobToTensorConverter::create(BlobToMetaConverter::Init
     else if (converter_name == PaddleOCRConverter::getName())
         return std::make_unique<PaddleOCRConverter>(std::move(initializer));
     else if (converter_name == DetectionAnomalyConverter::getName()) {
-
-        auto &model_proc_output_info = initializer.model_proc_output_info;
-        if (model_proc_output_info == nullptr)
-            throw std::runtime_error("model_proc_output_info has not been properly initialized.");
-
-        double normalization_scale, image_threshold;
-        if (!gst_structure_get_double(model_proc_output_info.get(), "normalization_scale", &normalization_scale))
-            throw std::runtime_error("<rt_info><model_info> normalization_scale parameter undefined");
-        if (!gst_structure_get_double(model_proc_output_info.get(), "image_threshold", &image_threshold))
-            throw std::runtime_error("<rt_info><model_info> image_threshold parameter undefined");
-
-        const char *anomaly_detection_task_cstr =
-            gst_structure_get_string(model_proc_output_info.get(), "anomaly_task");
-        std::string anomaly_detection_task = anomaly_detection_task_cstr ? anomaly_detection_task_cstr : "";
-        if (anomaly_detection_task != DEFAULT_ANOMALY_DETECTION_TASK)
-            throw std::runtime_error("<rt_info><model_info> parameter anomaly_task definition error: only "
-                                     "'classification' is currently supported.");
-
-        return std::make_unique<DetectionAnomalyConverter>(std::move(initializer), image_threshold, normalization_scale,
-                                                           anomaly_detection_task);
+        return std::make_unique<DetectionAnomalyConverter>(std::move(initializer));
     }
 
     throw std::runtime_error("ToTensorConverter \"" + converter_name + "\" is not implemented.");
