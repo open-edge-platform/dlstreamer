@@ -58,8 +58,8 @@ if (-Not (Test-Path $GSTREAMER_DEST_FOLDER)) {
 if ($GSTREAMER_NEEDS_INSTALL) {
 	Write-Host "##################################### Preparing GStreamer ${GSTREAMER_VERSION} #######################################"
 
-	$GSTREAMER_RUNTIME_INSTALLER = "${DLSTREAMER_TMP}\\gstreamer-1.0-msvc-x86_64_${GSTREAMER_VERSION}.msi"
-	$GSTREAMER_DEVEL_INSTALLER = "${DLSTREAMER_TMP}\\gstreamer-1.0-devel-msvc-x86_64_${GSTREAMER_VERSION}.msi"
+	$GSTREAMER_RUNTIME_INSTALLER = "${DLSTREAMER_TMP}\\gstreamer-1.0-msvc-x86_64-${GSTREAMER_VERSION}.msi"
+	$GSTREAMER_DEVEL_INSTALLER = "${DLSTREAMER_TMP}\\gstreamer-1.0-devel-msvc-x86_64-${GSTREAMER_VERSION}.msi"
 
 	if (Test-Path $GSTREAMER_RUNTIME_INSTALLER) {
 		Write-Host "Using existing GStreamer runtime installer: $GSTREAMER_RUNTIME_INSTALLER"
