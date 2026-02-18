@@ -1,10 +1,11 @@
 # Concurrent usage of DL Streamer and DeepStream.
 
-This tutorial describes how to run DL Streamer and DeepStream simultaneously on a single machine.
+This tutorial explains how to simultaneously run DL Streamer and DeepStream on a single machine for optimal performance.
 
-If a system is equipped with both an NVIDIA GPU and Intel GPU/NPU/CPU, this configuration enables improved performance by distributing workloads across the available hardware. Instead of executing a single pipeline solely with DeepStream, additional processing can be offloaded to Intel accelerators, ensuring more efficient utilization of system resources.
+### Overview
+Systems equipped with both NVIDIA GPUs and Intel hardware (GPU/NPU/CPU) can achieve enhanced performance by distributing workloads across available accelerators. Rather than relying solely on DeepStream for pipeline execution, you can offload additional processing tasks to Intel accelerators, maximizing system resource utilization.
 
-For this purpose, a Python script named concurrent_dls_and_ds.py has been provided. The script assumes that Docker and Python are properly installed and configured on the system. Currently, the only supported operating system is Ubuntu 24.
+A Python script (concurrent_dls_and_ds.py) is provided to facilitate this concurrent setup. It assumes that Docker and Python are properly installed and configured. The Ubuntu 24.04 is currently the only supported operating system.
 
 ## How it works
 
