@@ -66,7 +66,7 @@ Element Properties:
 batch-size          : Number of frames batched together for a single inference. If the batch-size is 0, then it will be set by default to be optimal for the device. Not all models support batching. Use model optimizer to ensure that the model has batching support.
                         flags: readable, writable
                         Unsigned Integer. Range: 0 - 1024 Default: 0
-batch-timeout       : Timeout (ms) for OpenVINO™ Automatic Batching. Waits for batch to accumulate inference requests before execution. On timeout expiry, executes available requests immediately to avoid latency penalty. Value -1 disables timeout, waiting indefinitely for full batch. Note: Not supported with VA backends (pre-process-backend=va or va-surface-sharing).
+batch-timeout       : Timeout (ms) for OpenVINO™ Automatic Batching. Waits for batch to accumulate inference requests before execution. If the number of frames collected reaches batch-size, inference is executed with a full batch and the timer is reset. If timeout occurs before collecting all frames specified by batch-size, inference is executed on collected frames individually (as if batch-size=1) and the timer is reset. If batch-timeout is set to 0, it operates as if batch-size were set to 1, executing inference on individual frames. Value -1 disables timeout, waiting indefinitely for full batch. Note: Not supported with VA backends (pre-process-backend=va or va-surface-sharing).
                         flags: readable, writable
                         Integer. Range: -1 - 2147483647 Default: -1
 cpu-throughput-streams: Deprecated. Use ie-config=CPU_THROUGHPUT_STREAMS=<number-streams> instead

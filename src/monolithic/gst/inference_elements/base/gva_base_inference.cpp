@@ -299,7 +299,12 @@ void gva_base_inference_class_init(GvaBaseInferenceClass *klass) {
         g_param_spec_int("batch-timeout", "Batch timeout",
                          "Timeout (ms) for OpenVINO™ Automatic Batching. Waits for batch to accumulate inference "
                          "requests before execution. "
-                         "On timeout expiry, executes available requests immediately to avoid latency penalty. "
+                         "If the number of frames collected reaches batch-size, inference is executed with a full "
+                         "batch and the timer is reset. "
+                         "If timeout occurs before collecting all frames specified by batch-size, inference is "
+                         "executed on collected frames individually (as if batch-size=1) and the timer is reset. "
+                         "If batch-timeout is set to 0, it operates as if batch-size were set to 1, executing "
+                         "inference on individual frames. "
                          "Value -1 disables timeout, waiting indefinitely for full batch. "
                          "Note: Not supported with VA backends (pre-process-backend=va or va-surface-sharing).",
                          DEFAULT_MIN_BATCH_TIMEOUT, DEFAULT_MAX_BATCH_TIMEOUT, DEFAULT_BATCH_TIMEOUT, param_flags));
