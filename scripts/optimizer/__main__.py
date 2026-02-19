@@ -39,6 +39,8 @@ parser.add_argument("--sample-duration", default=10, type=float,
                     help="Duration in seconds of sampling individual pipelines. Longer duration should offer more stable results (default: %(default)s)")
 parser.add_argument("--multistream-fps-limit", default=30, type=float,
                     help="Minimum amount of fps allowed when optimizing for multiple streams (default: %(default)s)")
+parser.add_argument("--enable-cross-stream-batching", action="store_true",
+                    help="Enable cross stream batching for inference elements in fps mode")
 parser.add_argument("--log-level", default="INFO", choices=["CRITICAL", "FATAL", "ERROR" ,"WARN", "INFO", "DEBUG"],
                     help="Minimum used log level (default: %(default)s)")
 
@@ -51,6 +53,7 @@ optimizer = DLSOptimizer()
 optimizer.set_search_duration(args.search_duration)
 optimizer.set_sample_duration(args.sample_duration)
 optimizer.set_multistream_fps_limit(args.multistream_fps_limit)
+optimizer.enable_cross_stream_batching(args.enable_cross_stream_batching)
 
 pipeline = " ".join(args.PIPELINE)
 
