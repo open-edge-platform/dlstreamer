@@ -134,7 +134,7 @@ json get_frame_data(GstGvaMetaConvert *converter, GstBuffer *buffer) {
         guint8 rtp_seq = gst_rtp_buffer_get_seq(&rtpbuffer);
 
         json rtp_info = json::object();
-        rtp_info["timestamp"] = rtp_timestamp;
+        rtp_info["ts"] = rtp_timestamp;
         rtp_info["ssrc"] = rtp_ssrc;
         rtp_info["sequence"] = rtp_seq;
 
