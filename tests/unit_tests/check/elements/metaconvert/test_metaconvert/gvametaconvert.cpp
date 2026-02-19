@@ -218,10 +218,10 @@ void check_outbuffer(GstBuffer *outbuffer, gpointer user_data) {
         // RTP buffer: validate that RTP metadata is extracted and present in JSON
         ck_assert_msg(json_message.contains("rtp"), "RTP metadata missing from JSON output. Message: %s",
                       meta->message);
-        ck_assert_msg(json_message["rtp"].contains("ts"), "RTP timestamp missing from JSON output");
-        ck_assert_msg(json_message["rtp"]["ts"] == test_data->rtp_timestamp,
+        ck_assert_msg(json_message["rtp"].contains("timestamp"), "RTP timestamp missing from JSON output");
+        ck_assert_msg(json_message["rtp"]["timestamp"] == test_data->rtp_timestamp,
                       "RTP timestamp mismatch: expected %u, got %u", test_data->rtp_timestamp,
-                      json_message["rtp"]["ts"].get<guint32>());
+                      json_message["rtp"]["timestamp"].get<guint32>());
         ck_assert_msg(json_message["rtp"]["ssrc"] == test_data->rtp_ssrc, "RTP SSRC mismatch: expected %u, got %u",
                       test_data->rtp_ssrc, json_message["rtp"]["ssrc"].get<guint32>());
     }
