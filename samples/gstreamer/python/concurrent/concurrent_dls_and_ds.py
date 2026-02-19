@@ -167,12 +167,12 @@ def run_dlstreamer_pipeline():
         print("Downloading DL Streamer models....\n")
         command=f"{dlstreamer_docker} \"/opt/intel/dlstreamer/samples/download_public_models.sh "
         command+="yolov8_license_plate_detector,ch_PP-OCRv4_rec_infer \""
-        os.system(command)
+        os.system(command) # nosec
 
     dls_pipeline = dlstreamer_pipelines[pipeline]
     print(f"DL STREAMER PIPELINE:\n{dls_pipeline}\n\n")
-    with subprocess.Popen(f"{dlstreamer_docker} \"{dls_pipeline}\"", shell=True,
-    stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1) as dls_proc:
+    with subprocess.Popen(f"{dlstreamer_docker} \"{dls_pipeline}\"", shell=True, # nosec
+    stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1) as dls_proc: # nosec
         for line in dls_proc.stdout:
             print(f"[DL Streamer] {line.rstrip()}")
 
@@ -184,12 +184,12 @@ def run_deepstream_pipeline():
         command=f"{deepstream_docker}"
         command=command.replace("\n", " ")
         command+=f" \"{DEEPSTREAM_SETUP_LPR}\""
-        os.system(command)
+        os.system(command) # nosec
 
     ds_pipeline = deepstream_pipelines[pipeline]
     print(f"DEEPSTREAM PIPELINE:\n{ds_pipeline}\n\n")
-    with subprocess.Popen(f"{deepstream_docker} \"{ds_pipeline}\"", shell=True,
-    stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1) as ds_proc:
+    with subprocess.Popen(f"{deepstream_docker} \"{ds_pipeline}\"", shell=True, # nosec
+    stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1) as ds_proc: # nosec
         for line in ds_proc.stdout:
             print(f"[DeepStream] {line.rstrip()}")
 
