@@ -27,32 +27,49 @@ on:
         description: "List of runner(s) labels (example: DLS-TGL-02,DLS-ARL-01)"
         required: false
         type: string
+      runner_labels_windows:
+        description: "List of Windows runner(s) labels (example: DLS-ARL-10)"
+        required: false
+        type: string
 
 permissions: {}
 env:
   MODELS_PATH: "$HOME/models"
+  MODELS_PATH_WINDOWS: 'C:\\models'
   MODELS_DIR_MIN_SIZE_MB: 10
   DEFAULT_LABELS: "DLS-ARL-01,DLS-ARL-02,DLS-ARL-03,DLS-TGL-01,DLS-TGL-02,DLS-TGL-03,DLS-TGL-04,DLS-TGL-05"
+  DEFAULT_LABELS_WINDOWS: "DLS-ARL-10"
 
 jobs:
   setup-runners:
     name: Set runners to execute update
     runs-on: ubuntu-latest
     outputs:
-      runners: ${{ steps.set-labels.outputs.runners }}
+      linux_runners: ${{ steps.set-labels.outputs.linux_runners }}
+      windows_runners: ${{ steps.set-labels.outputs.windows_runners }}
     steps:
       - name: Set runners labels
         id: set-labels
         env:
-          user_labels: ${{ inputs.runner_labels }}
+          RAW_LINUX_LABELS: ${{ inputs.runner_labels }}
+          RAW_WIN_LABELS: ${{ inputs.runner_labels_windows }}
+          DEF_LINUX_LABELS: ${{ env.DEFAULT_LABELS }}
+          DEF_WIN_LABELS: ${{ env.DEFAULT_LABELS_WINDOWS }}
         run: |
-          LABELS=$user_labels
-          if [ -z "$LABELS" ]; then
-            LABELS="${{ env.DEFAULT_LABELS }}" # Use default configuration if user didn't set any input labels
+          LINUX_LABELS="$RAW_LINUX_LABELS"
+          if [ -z "$LINUX_LABELS" ]; then
+            LINUX_LABELS="$DEF_LINUX_LABELS"
           fi
-          LABELS_ARRAY=$(echo "$LABELS" | jq -Rc 'split(",")')
-          echo "Runners lables array: $LABELS_ARRAY"
-          echo "runners=$LABELS_ARRAY" >> $GITHUB_OUTPUT
+          LINUX_ARRAY=$(echo "$LINUX_LABELS" | jq -Rc 'split(",")')
+          echo "linux_runners=$LINUX_ARRAY" >> $GITHUB_OUTPUT
+
+          WIN_LABELS="$RAW_WIN_LABELS"
+          if [ -z "$WIN_LABELS" ]; then
+            WIN_LABELS="$DEF_WIN_LABELS"
+          fi
+          WIN_ARRAY=$(echo "$WIN_LABELS" | jq -Rc 'split(",")')
+          echo "windows_runners=$WIN_ARRAY" >> $GITHUB_OUTPUT
+
   update_linux_hosts:
     name: Update on Linux runners
     needs: setup-runners
@@ -61,12 +78,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        runner: ${{ fromJson(needs.setup-runners.outputs.runners) }}
+        runner: ${{ fromJson(needs.setup-runners.outputs.linux_runners) }}
     runs-on:
       - ${{ matrix.runner }}
     steps:
       - name: Get script
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 #5.0.0
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # 5.0.0
         with:
           persist-credentials: false
           path: dlstreamer-repo
@@ -225,3 +242,157 @@ jobs:
         run: |
           rm -rf dlstreamer-repo .virtualenvs
           rm -rf $HOME/.virtualenvs
+
+  update_windows_hosts:
+    name: Update on Windows runners
+    needs: [setup-runners, update_linux_hosts]
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: ${{ fromJson(needs.setup-runners.outputs.windows_runners) }}
+    runs-on:
+      - ${{ matrix.runner }}
+    steps:
+      - name: Initialize Emojis
+        shell: powershell
+        run: |
+          $emojis = @{
+            "EPASS"    = [char]0x2705  # ✅
+            "EFAIL"    = [char]0x274C  # ❌
+            "EWARN"    = [char]0x26A0  # ⚠️
+          }
+          $lines = New-Object System.Collections.Generic.List[string]
+          foreach ($name in $emojis.Keys) {
+            $lines.Add("$name=$($emojis[$name])")
+          }
+          $utf8NoBom = New-Object System.Text.UTF8Encoding $false
+          [System.IO.File]::AppendAllLines($env:GITHUB_ENV, $lines, $utf8NoBom)
+
+      - name: Install Rclone
+        shell: powershell
+        run: |
+          $installDir = "C:\rclone"
+          if (!(Test-Path $installDir)) { New-Item -ItemType Directory -Path $installDir -Force }
+
+          Write-Host "Downloading Rclone..."
+          $zipPath = Join-Path $env:TEMP "rclone.zip"
+          Invoke-WebRequest https://downloads.rclone.org/rclone-current-windows-amd64.zip -OutFile $zipPath
+
+          Write-Host "Extracting..."
+          Expand-Archive $zipPath -DestinationPath $env:TEMP -Force
+
+          $exe = Get-ChildItem -Path $env:TEMP -Filter rclone.exe -Recurse | Select-Object -First 1
+          Copy-Item $exe.FullName -Destination "$installDir\rclone.exe" -Force
+
+          echo "$installDir" >> $env:GITHUB_PATH
+          Write-Host "Rclone is ready at $installDir"
+
+      - name: Verify rclone installation
+        run: rclone version
+
+      - name: Prepare Windows directories (Rotation)
+        shell: powershell
+        run: |
+          $rawBase = "${{ env.MODELS_PATH_WINDOWS }}"
+          $base = Join-Path $rawBase "models"
+
+          if (!(Test-Path $base)) { New-Item -ItemType Directory -Path $base }
+
+          foreach ($type in "public", "intel") {
+              $dir = Join-Path $base $type
+              $old = Join-Path $base "$($type)_old"
+              $old_old = Join-Path $base "$($type)_old_old"
+
+              if (Test-Path $old) {
+                  if (Test-Path $old_old) { Remove-Item -Recurse -Force $old_old }
+                  Rename-Item -Path $old -NewName "$($type)_old_old"
+              }
+              if (Test-Path $dir) {
+                  Rename-Item -Path $dir -NewName "$($type)_old"
+              }
+
+              New-Item -ItemType Directory -Path $dir
+          }
+
+      - name: Sync Models via Rclone (Windows)
+        shell: powershell
+        env:
+          REMOTE_USER: ${{ secrets.DLS_MODEL_SYNC_SSH_USER }}
+          REMOTE_HOST: ${{ secrets.DLS_MODEL_SYNC_SSH_HOST }}
+          SSH_KEY_CONTENT: ${{ secrets.DLS_MODEL_SYNC_SSH_PRIVATE_KEY }}
+        run: |
+          $ErrorActionPreference = "Continue"
+          [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+
+          $keyPath = Join-Path $env:TEMP "id_rsa_rclone"
+          $cleanKey = ($env:SSH_KEY_CONTENT -replace "`r`n", "`n").Trim()
+          Set-Content -Path $keyPath -Value $cleanKey -Encoding Ascii
+
+          $folders = @("intel", "public")
+
+          $fixedKeyPath = $keyPath.Replace('\', '/')
+          $remotePrefix = ":sftp,host='$env:REMOTE_HOST',user='$env:REMOTE_USER',key_file='$fixedKeyPath',ask_password=false:"
+          $base = Join-Path "C:\models" "models"
+
+          if (Get-Content $keyPath | Select-Object -First 1 | Select-String "BEGIN") {
+              Write-Host "[OK] Private key format looks valid."
+          } else {
+              Write-Error "[ERROR] Private key file is corrupted!"
+              exit 1
+          }
+
+          $remoteUser = $env:REMOTE_USER
+          $remoteBase = "/home/$remoteUser/models/models"
+          foreach ($folder in $folders) {
+              $remotePath = "$remoteBase/$folder"
+              $localPath = Join-Path $base $folder
+
+              Write-Host "`n--- Checking Remote: $remotePath ---"
+
+              $testPath = rclone lsf "$remotePrefix$remotePath" --max-depth 1 2>$null
+
+              if ($null -eq $testPath -or [string]::IsNullOrWhiteSpace($testPath)) {
+                  Write-Host "[SKIP] Remote directory '$remotePath' not found or empty. Skipping." -ForegroundColor Yellow
+                  continue 
+              }
+
+              Write-Host "Syncing from $remotePath to $localPath"
+              rclone copy "$remotePrefix$remotePath" "$localPath" `
+                  --multi-thread-streams 4 `
+                  --transfers 4 `
+                  --sftp-ask-password=false `
+                  --verbose `
+                  --stats-log-level NOTICE
+          }
+
+          if (Test-Path $keyPath) { Remove-Item $keyPath }
+
+      - name: Verify and Summarize (Windows)
+        shell: powershell
+        run: |
+          $summary = ""
+          $rawBase = "${{ env.MODELS_PATH_WINDOWS }}"
+          $base = Join-Path $rawBase "models"
+
+          foreach ($type in "public", "intel") {
+              $path = Join-Path $base $type
+              if (Test-Path $path) {
+                  $size = (Get-ChildItem $path -Recurse | Measure-Object -Property Length -Sum).Sum / 1MB
+                  $formattedSize = "{0:N2}" -f $size
+
+                  if ($size -ge ${{ env.MODELS_DIR_MIN_SIZE_MB }}) {
+                      $status = "$type models directory size: $formattedSize MB $($env:EPASS) "
+                  } else {
+                      $status = "$type models directory too small: $formattedSize MB $($env:EFAIL)"
+                  }
+              } else {
+                  $status = "$type directory not found! $($env:EWARN)"
+              }
+
+              Write-Host $status
+              $summary += "$status`n"
+          }
+
+          $summary | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
