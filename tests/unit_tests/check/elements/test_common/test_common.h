@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2018-2026 Intel Corporation
+ * Copyright (C) 2018-2025 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -46,10 +46,6 @@ typedef void (*CheckOutBuffCb)(GstBuffer *outbuffer, gpointer user_data);
 void run_test(const gchar *elem_name, const gchar *caps_string, Resolution resolution,
               GstStaticPadTemplate *srctemplate, GstStaticPadTemplate *sinktemplate, SetupInBuffCb setup_inbuf,
               CheckOutBuffCb check_outbuf, gpointer user_data, const gchar *prop, ...);
-void run_test_with_size_increase(const gchar *elem_name, const gchar *caps_string, Resolution resolution,
-                                 GstStaticPadTemplate *srctemplate, GstStaticPadTemplate *sinktemplate,
-                                 SetupInBuffCb setup_inbuf, CheckOutBuffCb check_outbuf, gpointer user_data,
-                                 const gchar *prop, ...);
 void run_test_fail(const gchar *elem_name, const gchar *caps_string, Resolution resolution,
                    GstStaticPadTemplate *srctemplate, GstStaticPadTemplate *sinktemplate, SetupInBuffCb setup_inbuf,
                    gpointer user_data, const gchar *prop, ...);
