@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2018-2025 Intel Corporation
+ * Copyright (C) 2018-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -356,9 +356,21 @@ class VideoFrame {
         while (
             gst_analytics_relation_meta_iterate(relation_meta, &state, gst_analytics_od_mtd_get_mtd_type(), &od_mtd)) {
             GstVideoRegionOfInterestMeta *roi_meta = gst_buffer_get_video_region_of_interest_meta_id(buffer, od_mtd.id);
+
+            // GstVideoRegionOfInterestMeta should match GstAnalytics until transition to GstAnalytics is complete
+            // a mismatch can occur if external code adds GstAnalytics metadata only
             if (!roi_meta) {
-                throw std::runtime_error(
-                    "GVA::VideoFrame: Failed to get video region of interest meta for object detection metadata");
+                if (!gst_buffer_is_writable(buffer))
+                    throw std::runtime_error("GVA::VideoFrame: Failed to add video region of interest meta.");
+                float confidence;
+                gint x, y, w, h;
+                gst_analytics_od_mtd_get_location(&od_mtd, &x, &y, &w, &h, &confidence);
+                GQuark label = gst_analytics_od_mtd_get_obj_type(&od_mtd);
+                roi_meta = gst_buffer_add_video_region_of_interest_meta(buffer, g_quark_to_string(label), x, y, w, h);
+                if (!roi_meta)
+                    throw std::runtime_error(
+                        "GVA::VideoFrame: Failed to get video region of interest meta for object detection metadata");
+                roi_meta->id = od_mtd.id;
             }
 
             regions.emplace_back(od_mtd, roi_meta);
