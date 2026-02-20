@@ -48,7 +48,7 @@ Options:
     --sample-duration SAMPLE_DURATION   How long should every pipeline be sampled for performance.
     --multistream-fps-limit LIMIT       Minimum fps limit which streams are not allowed to cross
                                         when optimizing for a multi-stream scenario.
-    --enable-cross-stream-batching      Enable cross stream batching for inference elements.
+    --enable-cross-stream-batching      Enable cross stream batching for inference elements in fps mode.
     --log-level LEVEL                   Configure the logging detail level.
 ```
 **`search-duration`** default: `300` seconds \
@@ -62,7 +62,7 @@ Increasing the **multi-stream fps limit** will improve the performance of each i
 but the final result is liable to support less streams overall.
 
 **`enable-cross-stream-batching`** \
-Levy the inference instance feature of DL Streamer to batch work across multiple streams.
+Levy the inference instance feature of DL Streamer to batch work across multiple streams in fps mode.
 
 **`log-level`** default: `INFO` \
 Available **log levels** are: CRITICAL, FATAL, ERROR, WARN, INFO, DEBUG.
@@ -136,7 +136,7 @@ optimizer.set_sample_duration(15)
 **`enable_cross_stream_batching(enable)`**
 - `enable` - Enable the cross stream batching feature, default `False`.
 
-Levy the inference instance feature of DL Streamer to batch work across multiple streams.
+Levy the inference instance feature of DL Streamer to batch work across multiple streams when optimizing for fps.
 ```
 optimizer = DLSOptimizer()
 optimizer.enable_cross_stream_batching(True)

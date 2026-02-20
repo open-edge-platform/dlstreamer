@@ -40,7 +40,7 @@ parser.add_argument("--sample-duration", default=10, type=float,
 parser.add_argument("--multistream-fps-limit", default=30, type=float,
                     help="Minimum amount of fps allowed when optimizing for multiple streams (default: %(default)s)")
 parser.add_argument("--enable-cross-stream-batching", action="store_true",
-                    help="Enable cross stream batching for inference elements")
+                    help="Enable cross stream batching for inference elements in fps mode")
 parser.add_argument("--log-level", default="INFO", choices=["CRITICAL", "FATAL", "ERROR" ,"WARN", "INFO", "DEBUG"],
                     help="Minimum used log level (default: %(default)s)")
 
