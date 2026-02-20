@@ -6,11 +6,11 @@
 
 import sys
 import os
+import subprocess
+import urllib.request
 import gi
 gi.require_version("Gst", "1.0")
-gi.require_version("GstAnalytics", "1.0")
-from gi.repository import GLib, Gst, GstAnalytics, GObject
-from ultralytics import YOLO
+from gi.repository import Gst
 
 # wrapper to run the gstreamer pipeline loop
 def pipeline_loop(pipeline):
@@ -33,34 +33,47 @@ def pipeline_loop(pipeline):
 
 # download PyTorch model, convert to OpenVINO IR, create and run gstreamer pipeline
 def main(video_file):
-    # Download yolo26 detection model from Ultralytics hub and convert to OpenVINO IR
-    ov_model_path = os.path.join(os.getcwd(), "yolo26s_openvino_model/yolo26s.xml")
+    # Download RTDETRv2 model from Hugging Face Model Hub
+    ov_model_path = os.path.join(os.getcwd(), "rtdetr_v2_r50vd/model.xml")
     if not os.path.isfile(ov_model_path):
-        print(f"Downloading and converting YOLO26 model")
-        model = YOLO("yolo26s.pt")
-        exported_model_path = model.export(format="openvino", dynamic=True, half=True)
-        if exported_model_path != ov_model_path:
-            print(f"YOLO26 model exported to {exported_model_path}")
-    
+        print("Downloading PekingU/rtdetr_v2_r50vd from HuggingFace\n")
+        subprocess.run(["optimum-cli", "export", "onnx", "--model", "PekingU/rtdetr_v2_r50vd", 
+                        "--task", "object-detection", "--opset", "18", "--width", "640", "--height", "640", "rtdetr_v2_r50vd",
+            ],check=True)
+        os.chdir("rtdetr_v2_r50vd")
+        subprocess.run(["hf", "download", "PekingU/rtdetr_v2_r50vd", "--include", "preprocessor_config.json", "--local-dir", "."], check=True)
+        subprocess.run(["ovc", "model.onnx"], check=True)
+        os.chdir("..")
+        print(f"Model exported to OpenVINO IR format at: {ov_model_path}\n")
+
     # Create GStreamer pipeline and parametrize with downloaded models and video files
     pipeline = Gst.parse_launch(
         f"filesrc location={video_file} ! decodebin3 ! "
-        f"gvadetect model={ov_model_path} ! gvaanalytics_py ! "
-        f"gvarecorder_py fileprefix=output"
+        f"gvadetect model={ov_model_path} device=GPU batch-size=4 threshold=0.7 ! queue ! "
+        f"gvaanalytics_py distance=500 angle=-135,-45 ! gvawatermark ! "
+        f"gvarecorder_py location=output.mp4 max-time=10"
     )
 
     # execute gstreamer pipeline
     pipeline_loop(pipeline)
 
 if __name__ == '__main__':
+    
     # check input arguments
-    if len(sys.argv) != 2:
-        sys.stderr.write(f"usage: {sys.argv[0]} <LOCAL_VIDEO_FILE>\n")
-        sys.exit(1)
-
-    if not os.path.isfile(sys.argv[1]):
-        sys.stderr.write("Input video file does not exist\n")
-        sys.exit(1)
+    input_video = os.path.join(os.getcwd(), "2431853-hd_1920_1080_25fps.mp4")
+    if len(sys.argv) == 2:
+        input_video = sys.argv[1]
+        if not os.path.isfile(input_video):
+            sys.stderr.write("Input video file does not exist\n")
+            sys.exit(1)
+    elif not os.path.isfile(input_video):
+        print("\nNo input provided. Downloading default video...\n")
+        request = urllib.request.Request(
+            "https://videos.pexels.com/video-files/2431853/2431853-hd_1920_1080_25fps.mp4",
+            headers={"User-Agent": "Mozilla/5.0"},
+        )
+        with urllib.request.urlopen(request) as response, open(input_video, "wb") as output:
+            output.write(response.read())
 
     # check if GST_PLUGIN_PATH includes path to local python elements, if not add it to the environment variable
     if f"{os.getcwd()}/plugins" not in os.environ.get("GST_PLUGIN_PATH", ""):
@@ -74,4 +87,4 @@ if __name__ == '__main__':
         print("GStreamer python plugin not found in registry, check GST_PLUGIN_PATH environment variable")
         sys.exit(1)
 
-    sys.exit(main(sys.argv[1]))
+    sys.exit(main(input_video))
