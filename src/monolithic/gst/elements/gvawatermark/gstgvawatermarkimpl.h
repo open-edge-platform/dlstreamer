@@ -74,16 +74,22 @@ enum { PROP_0, PROP_DEVICE, PROP_OBB, PROP_DISPL_AVGFPS, PROP_DISPL_CFG };
     "Comma separated list of KEY=VALUE parameters of displayed notations.\n"                                           \
     "\t\t\tAvailable options: \n"                                                                                      \
     "\t\t\tshow-labels=<bool> enable or disable displaying text labels, default true\n"                                \
-    "\t\t\tfont-scale=<double 0.1 to 2.0> scale factor for text labels, default 1.0\n"                                 \
+    "\t\t\tfont-scale=<double 0.1 to 2.0> scale factor for text labels, default 0.5\n"                                 \
     "\t\t\tthickness=<uint 1 to 10> bounding box thickness, default 2\n"                                               \
     "\t\t\tcolor-idx=<int> color index for bounding box, keypoints, and text, default -1 (use default colors: 0 red, " \
     "1 green, 2 blue)\n"                                                                                               \
     "\t\t\tfont-type=<string> font type for text labels (simplex, plain, duplex, complex, triplex, complex_small, "    \
     "script_simplex, script_complex), default triplex\n"                                                               \
     "\t\t\tdraw-txt-bg=<bool> enable or disable displaying text labels background, by enabling it the text color "     \
-    "is set to white, default false\n"                                                                                 \
+    "is set to white, default true\n"                                                                                  \
+    "\t\t\tshow-roi=<string> colon-separated list of labels to include (only these objects will be shown), "           \
+    "default empty\n"                                                                                                  \
+    "\t\t\thide-roi=<string> colon-separated list of labels to exclude (these objects will be hidden), default "       \
+    "empty\n"                                                                                                          \
     "\t\t\te.g.: displ-cfg=show-labels=false\n"                                                                        \
-    "\t\t\te.g.: displ-cfg=font-scale=0.5,thickness=3,color-idx=2,font-type=simplex"
+    "\t\t\te.g.: displ-cfg=font-scale=0.5,thickness=3,color-idx=2,font-type=simplex\n"                                 \
+    "\t\t\te.g.: displ-cfg=show-labels=true,show-roi=person:car:truck\n"                                               \
+    "\t\t\te.g.: displ-cfg=show-labels=true,hide-roi=bottle:cup"
 
 G_END_DECLS
 

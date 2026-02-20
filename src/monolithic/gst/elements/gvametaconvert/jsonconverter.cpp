@@ -18,7 +18,6 @@
 
 #include <gst/analytics/analytics.h>
 #include <gst/analytics/gstanalyticsclassificationmtd.h>
-#include <gst/rtp/rtp.h>
 #include <nlohmann/json.hpp>
 
 #include <iomanip>
@@ -124,23 +123,6 @@ json get_frame_data(GstGvaMetaConvert *converter, GstBuffer *buffer) {
 
         if (vtc)
             gst_video_time_code_free(vtc);
-    }
-
-    // Extract RTP timestamp from RTP buffer if available
-    GstRTPBuffer rtpbuffer = GST_RTP_BUFFER_INIT;
-    if (gst_rtp_buffer_map(buffer, GST_MAP_READ, &rtpbuffer)) {
-        guint32 rtp_timestamp = gst_rtp_buffer_get_timestamp(&rtpbuffer);
-        guint32 rtp_ssrc = gst_rtp_buffer_get_ssrc(&rtpbuffer);
-        guint8 rtp_seq = gst_rtp_buffer_get_seq(&rtpbuffer);
-
-        json rtp_info = json::object();
-        rtp_info["timestamp"] = rtp_timestamp;
-        rtp_info["ssrc"] = rtp_ssrc;
-        rtp_info["sequence"] = rtp_seq;
-
-        res["rtp"] = rtp_info;
-
-        gst_rtp_buffer_unmap(&rtpbuffer);
     }
     return res;
 }

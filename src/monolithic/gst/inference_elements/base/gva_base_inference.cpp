@@ -44,6 +44,10 @@
 #define DEFAULT_MAX_BATCH_SIZE 1024
 #define DEFAULT_BATCH_SIZE 0
 
+// Note: DEFAULT_BATCH_TIMEOUT is defined in gva_base_inference.h for external access
+#define DEFAULT_MIN_BATCH_TIMEOUT -1
+#define DEFAULT_MAX_BATCH_TIMEOUT INT_MAX
+
 #define DEFAULT_MIN_RESHAPE_WIDTH 0
 #define DEFAULT_MAX_RESHAPE_WIDTH UINT_MAX
 #define DEFAULT_RESHAPE_WIDTH 0
@@ -90,6 +94,7 @@ enum {
     PROP_INFERENCE_INTERVAL,
     PROP_RESHAPE,
     PROP_BATCH_SIZE,
+    PROP_BATCH_TIMEOUT,
     PROP_RESHAPE_WIDTH,
     PROP_RESHAPE_HEIGHT,
     PROP_NO_BLOCK,
@@ -288,6 +293,21 @@ void gva_base_inference_class_init(GvaBaseInferenceClass *klass) {
                           "Not all models support batching. Use model optimizer to ensure "
                           "that the model has batching support.",
                           DEFAULT_MIN_BATCH_SIZE, DEFAULT_MAX_BATCH_SIZE, DEFAULT_BATCH_SIZE, param_flags));
+
+    g_object_class_install_property(
+        gobject_class, PROP_BATCH_TIMEOUT,
+        g_param_spec_int("batch-timeout", "Batch timeout",
+                         "Timeout (ms) for OpenVINO™ Automatic Batching. Waits for batch to accumulate inference "
+                         "requests before execution. "
+                         "If the number of frames collected reaches batch-size, inference is executed with a full "
+                         "batch and the timer is reset. "
+                         "If timeout occurs before collecting all frames specified by batch-size, inference is "
+                         "executed on collected frames individually (as if batch-size=1) and the timer is reset. "
+                         "If batch-timeout is set to 0, it operates as if batch-size were set to 1, executing "
+                         "inference on individual frames. "
+                         "Value -1 disables timeout, waiting indefinitely for full batch. "
+                         "Note: Not supported with VA backends (pre-process-backend=va or va-surface-sharing).",
+                         DEFAULT_MIN_BATCH_TIMEOUT, DEFAULT_MAX_BATCH_TIMEOUT, DEFAULT_BATCH_TIMEOUT, param_flags));
 
     g_object_class_install_property(
         gobject_class, PROP_INFERENCE_INTERVAL,
@@ -489,6 +509,7 @@ void gva_base_inference_init(GvaBaseInference *base_inference) {
     base_inference->inference_interval = DEFAULT_INFERENCE_INTERVAL;
     base_inference->reshape = DEFAULT_RESHAPE;
     base_inference->batch_size = DEFAULT_BATCH_SIZE;
+    base_inference->batch_timeout = DEFAULT_BATCH_TIMEOUT;
     base_inference->reshape_width = DEFAULT_RESHAPE_WIDTH;
     base_inference->reshape_height = DEFAULT_RESHAPE_HEIGHT;
     base_inference->no_block = DEFAULT_NO_BLOCK;
@@ -618,6 +639,9 @@ void gva_base_inference_set_property(GObject *object, guint property_id, const G
         break;
     case PROP_BATCH_SIZE:
         base_inference->batch_size = g_value_get_uint(value);
+        break;
+    case PROP_BATCH_TIMEOUT:
+        base_inference->batch_timeout = g_value_get_int(value);
         break;
     case PROP_RESHAPE_WIDTH:
         base_inference->reshape_width = g_value_get_uint(value);
@@ -749,6 +773,9 @@ void gva_base_inference_get_property(GObject *object, guint property_id, GValue 
         break;
     case PROP_BATCH_SIZE:
         g_value_set_uint(value, base_inference->batch_size);
+        break;
+    case PROP_BATCH_TIMEOUT:
+        g_value_set_int(value, base_inference->batch_timeout);
         break;
     case PROP_RESHAPE_WIDTH:
         g_value_set_uint(value, base_inference->reshape_width);
@@ -1043,21 +1070,21 @@ gboolean gva_base_inference_start(GstBaseTransform *trans) {
 
     GST_DEBUG_OBJECT(base_inference, "start");
 
-    GST_INFO_OBJECT(base_inference,
-                    "%s inference parameters:\n -- Model: %s\n -- Model proc: %s\n "
-                    "-- Device: %s\n -- Inference interval: %d\n -- Reshape: %s\n -- Batch size: %d\n "
-                    "-- Reshape width: %d\n -- Reshape height: %d\n -- No block: %s\n -- Num of requests: %d\n "
-                    "-- Model instance ID: %s\n -- CPU streams: %d\n -- GPU streams: %d\n -- IE config: %s\n "
-                    "-- Allocator name: %s\n -- Preprocessing type: %s\n -- Object class: %s\n "
-                    "-- Labels: %s\n",
-                    GST_ELEMENT_NAME(GST_ELEMENT_CAST(base_inference)), base_inference->model,
-                    base_inference->model_proc, base_inference->device, base_inference->inference_interval,
-                    base_inference->reshape ? "true" : "false", base_inference->batch_size,
-                    base_inference->reshape_width, base_inference->reshape_height,
-                    base_inference->no_block ? "true" : "false", base_inference->nireq,
-                    base_inference->model_instance_id, base_inference->cpu_streams, base_inference->gpu_streams,
-                    base_inference->ie_config, base_inference->allocator_name, base_inference->pre_proc_type,
-                    base_inference->object_class, base_inference->labels);
+    GST_INFO_OBJECT(
+        base_inference,
+        "%s inference parameters:\n -- Model: %s\n -- Model proc: %s\n "
+        "-- Device: %s\n -- Inference interval: %d\n -- Reshape: %s\n -- Batch size: %d\n -- Batch timeout: %d\n "
+        "-- Reshape width: %d\n -- Reshape height: %d\n -- No block: %s\n -- Num of requests: %d\n "
+        "-- Model instance ID: %s\n -- CPU streams: %d\n -- GPU streams: %d\n -- IE config: %s\n "
+        "-- Allocator name: %s\n -- Preprocessing type: %s\n -- Object class: %s\n "
+        "-- Labels: %s\n",
+        GST_ELEMENT_NAME(GST_ELEMENT_CAST(base_inference)), base_inference->model, base_inference->model_proc,
+        base_inference->device, base_inference->inference_interval, base_inference->reshape ? "true" : "false",
+        base_inference->batch_size, base_inference->batch_timeout, base_inference->reshape_width,
+        base_inference->reshape_height, base_inference->no_block ? "true" : "false", base_inference->nireq,
+        base_inference->model_instance_id, base_inference->cpu_streams, base_inference->gpu_streams,
+        base_inference->ie_config, base_inference->allocator_name, base_inference->pre_proc_type,
+        base_inference->object_class, base_inference->labels);
 
     if (!gva_base_inference_check_properties_correctness(base_inference)) {
         return base_inference->initialized;

@@ -44,10 +44,11 @@
   - [4. Multi-stream pipelines with multiple AI stages](./performance_guide.md#4-multi-stream-pipelines-with-multiple-ai-stages)
   - [5. Multi-stream pipelines with meta-aggregation element](./performance_guide.md#5-multi-stream-pipelines-with-meta-aggregation-element)
   - [6. The Intel® DL Streamer Pipeline Framework performance benchmark results](./performance_guide.md#6-the-deep-learning-streamer-pipeline-framework-performance-benchmark-results)
-- [Profiling with Intel VTune™](./profiling.md)
+- [Profiling with Intel VTune™](./profiling.md
   - [1. Install VTune™](./profiling.md#1-install-vtune)
   - [2. Configure VTune™ host platform, Windows-to-Linux remote profiling method](./profiling.md#2-configure-vtune-host-platform-windows-to-linux-remote-profiling-method)
   - [3. Results Analysis](./profiling.md#3-results-analysis)
+- [Concurrent Use of DL Streamer and DeepStream](./concurrent.md)
 - [Converting NVIDIA DeepStream Pipelines to Intel® Deep Learning Streamer (Intel® DL Streamer) Pipeline Framework](./converting_deepstream_to_dlstreamer.md)
   - [Contents](./converting_deepstream_to_dlstreamer.md#contents)
   - [Preparing Your Model](./converting_deepstream_to_dlstreamer.md#preparing-your-model)
@@ -86,6 +87,7 @@ object_tracking
 gpu_device_selection
 performance_guide
 profiling
+concurrent
 converting_deepstream_to_dlstreamer
 how_to_contribute
 latency_tracer

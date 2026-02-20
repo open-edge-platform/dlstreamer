@@ -69,10 +69,10 @@ Element Properties:
   displ-cfg           : Comma separated list of KEY=VALUE parameters of displayed notations.
                         Available options:
                         show-labels=<bool> enable or disable displaying text labels, default true
-                        font-scale=<double 0.1 to 2.0> scale factor for text labels, default 1.0
+                        font-scale=<double 0.1 to 2.0> scale factor for text labels, default 0.5
                         thickness=<uint> bounding box thickness, default 2
                         color-idx=<int> color index for bounding box, keypoints, and text, default -1 (use default colors: 0 red, 1 green, 2 blue)
-                        draw-txt-bg=<bool> enable or disable displaying text labels background, by enabling it the text color is set to white, default false
+                        draw-txt-bg=<bool> enable or disable displaying text labels background, by enabling it the text color is set to white, default true
                         font-type=<string> font type for text labels, default triplex. Supported fonts: simplex, plain, duplex, complex, triplex, complex_small, script_simplex, script_complex
                         e.g.: displ-cfg=show-labels=false
                         e.g.: displ-cfg=font-scale=0.5,thickness=3,color-idx=2,font-type=plain
@@ -96,3 +96,107 @@ Element Properties:
                         flags: readable, writable
                         Object of type "GstObject"
 ```
+
+## Visual Examples
+
+The following examples demonstrate how different `displ-cfg` parameters affect the watermark appearance:
+
+### Font Scale
+
+Controls the size of text labels displayed on detected objects.
+
+**Small Font Scale (`font-scale=0.7`)**
+![Text Scale 0.7](../_images/text-scale-0-7.png)
+
+**Large Font Scale (`font-scale=2.0`)**  
+![Text Scale 2.0](../_images/text-scale-2-0.png)
+
+### Label Display
+
+**Labels Disabled (`show-labels=false`)**
+![Disabled Labels](../_images/gvawatermark-disabled-labels.png)
+
+*Shows only bounding boxes without text labels*
+
+### Text Background
+
+**Text Background Enabled (`draw-txt-bg=true`)**
+![Text Background](../_images/show-text-background.png)
+
+*Blue background makes text more readable over complex backgrounds*
+
+### Color Index
+
+**Red Color (`color-idx=0`)**
+![Color Index Red](../_images/color-idx-zero.png)
+
+*Uses red color for bounding boxes and text*
+
+### Font Types
+
+**Font Comparison**
+![Font Types](../_images/simple-complex-font.png)
+
+*Comparison of different font types (simplex vs complex)*
+
+**Default Triplex Font**
+![Triplex Font](../_images/triplex-font.png)
+
+*The default triplex font provides good readability*
+
+### Label Filtering
+
+You can selectively show or hide detected objects based on their labels using filtering parameters:
+
+**Include Labels (`show-roi=person:car:truck`)**
+- Only objects with labels "person", "car", or "truck" will be displayed
+- All other detected objects will be hidden
+- Useful for focusing on specific object types
+
+e.g `displ-cfg=show-labels=true,show-roi=car`
+![Car label included](../_images/roi-include-car.png)
+
+**Exclude Labels (`hide-roi=bottle:cup:laptop`)**
+- Objects with labels "bottle", "cup", or "laptop" will be hidden
+- All other detected objects will be displayed
+- Useful for removing distracting or irrelevant objects from the display
+
+e.g `displ-cfg=show-labels=true,hide-roi=car`
+![Car label excluded](../_images/roi-exclude-car.png)
+
+**Filter Priority**
+- If both `show-roi` and `hide-roi` are specified, `show-roi` takes precedence
+- Empty lists mean no filtering is applied
+
+### Configuration Examples
+
+```bash
+# Minimal labels with smaller font
+displ-cfg=show-labels=true,show-roi=false
+
+# Large text with background
+displ-cfg=font-scale=2.0,draw-txt-bg=true
+
+# Colored thin boxes with simple font  
+displ-cfg=color-idx=0,thickness=1,font-type=simplex
+
+# Complete custom styling
+displ-cfg=font-scale=1.5,thickness=3,color-idx=2,font-type=complex,draw-txt-bg=true
+
+# Show only specific object types
+displ-cfg=show-labels=true,show-roi=person:car:truck
+
+# Hide specific object types
+displ-cfg=show-labels=true,hide-roi=bottle:cup:laptop
+
+# Combine filtering with styling
+displ-cfg=show-labels=true,show-roi=person:car,font-scale=1.2,color-idx=1
+```
+
+### FPS Display
+
+**Average FPS Display (`displ-avgfps=true`)**
+![Show FPS](../_images/show-avg-fps.png)
+
+*Displays average FPS counter when `gvafpscounter` element is present in pipeline*
+

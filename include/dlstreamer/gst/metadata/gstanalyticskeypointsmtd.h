@@ -30,7 +30,10 @@ G_BEGIN_DECLS
  *
  * Since: 1.26
  */
-typedef struct _GstAnalyticsMtd GstAnalyticsKeypointMtd;
+typedef struct {
+    guint id;
+    GstAnalyticsRelationMeta *meta;
+} GstAnalyticsKeypointMtd;
 
 /**
  * GstAnalyticsKeypoint:
@@ -38,7 +41,7 @@ typedef struct _GstAnalyticsMtd GstAnalyticsKeypointMtd;
  * @y: zero-based absolute y pixel coordinate of a keypoint relative to image upper-left corner.
  * @z: normalized depth coordinate of a keypoint, relative to keypoint group center (use 0.0f for 2D keypoints).
  * @v: visibility of a kepoint, normalized <0.0f - not visible, 1.0f - fully visible>.
- * */
+ */
 typedef struct {
     guint x;
     guint y;
@@ -57,6 +60,10 @@ gboolean gst_analytics_relation_meta_add_keypoint_mtd(GstAnalyticsRelationMeta *
                                                       const GstAnalyticsKeypoint *keypoint,
                                                       GstAnalyticsKeypointMtd *keypoint_mtd);
 
+GST_ANALYTICS_META_API
+gboolean gst_analytics_relation_meta_get_keypoint_mtd(GstAnalyticsRelationMeta *meta, guint an_meta_id,
+                                                      GstAnalyticsKeypointMtd *rlt);
+
 /**
  * GstAnalyticsKeypointSkeletonMtd:
  * @id: Instance identifier.
@@ -68,7 +75,10 @@ gboolean gst_analytics_relation_meta_add_keypoint_mtd(GstAnalyticsRelationMeta *
  *
  * Since: 1.26
  */
-typedef struct _GstAnalyticsMtd GstAnalyticsKeypointSkeletonMtd;
+typedef struct {
+    guint id;
+    GstAnalyticsRelationMeta *meta;
+} GstAnalyticsKeypointSkeletonMtd;
 
 /**
  * GstAnalyticsKeypointPair:
@@ -76,7 +86,7 @@ typedef struct _GstAnalyticsMtd GstAnalyticsKeypointSkeletonMtd;
  * @kp2: index of the second keypoint in a skeleton link.
  *
  * A pair of keypoints linked in a skeleton.
- * */
+ */
 typedef struct {
     guint kp1;
     guint kp2;
@@ -98,6 +108,10 @@ gboolean gst_analytics_relation_meta_add_keypoint_skeleton_mtd(GstAnalyticsRelat
                                                                const GstAnalyticsKeypointPair *skeletons,
                                                                GstAnalyticsKeypointSkeletonMtd *keypoint_skeleton_mtd);
 
+GST_ANALYTICS_META_API
+gboolean gst_analytics_relation_meta_get_keypoint_skeleton_mtd(GstAnalyticsRelationMeta *meta, guint an_meta_id,
+                                                               GstAnalyticsKeypointSkeletonMtd *rlt);
+
 /**
  * GstAnalyticsKeypointGroupMtd:
  * @id: Instance identifier.
@@ -109,10 +123,16 @@ gboolean gst_analytics_relation_meta_add_keypoint_skeleton_mtd(GstAnalyticsRelat
  *
  * Since: 1.26
  */
-typedef struct _GstAnalyticsMtd GstAnalyticsKeypointGroupMtd;
+typedef struct {
+    guint id;
+    GstAnalyticsRelationMeta *meta;
+} GstAnalyticsKeypointGroupMtd;
 
 GST_ANALYTICS_META_API
 GstAnalyticsMtdType gst_analytics_keypointgroup_mtd_get_mtd_type(void);
+
+GST_ANALYTICS_META_API
+GstAnalyticsMtdType gst_analytics_keypoint_group_mtd_get_mtd_type(void);
 
 GST_ANALYTICS_META_API
 gsize gst_analytics_keypointgroup_mtd_get_count(const GstAnalyticsKeypointGroupMtd *handle);
@@ -125,7 +145,11 @@ GST_ANALYTICS_META_API
 gboolean gst_analytics_relation_meta_add_keypointgroup_mtd(GstAnalyticsRelationMeta *instance,
                                                            const gsize keypoint_count,
                                                            const GstAnalyticsKeypointMtd *keypoints,
-                                                           GstAnalyticsKeypointGroupMtd *keypoints_mtd);
+                                                           GstAnalyticsKeypointGroupMtd *keypoint_group_mtd);
+
+GST_ANALYTICS_META_API
+gboolean gst_analytics_relation_meta_get_keypointgroup_mtd(GstAnalyticsRelationMeta *meta, guint an_meta_id,
+                                                           GstAnalyticsKeypointGroupMtd *rlt);
 
 GST_ANALYTICS_META_API
 gboolean gst_analytics_relation_meta_set_keypointgroup_relations(GstAnalyticsRelationMeta *instance,

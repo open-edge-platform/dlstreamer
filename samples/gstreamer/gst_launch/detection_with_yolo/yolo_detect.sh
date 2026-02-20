@@ -75,6 +75,14 @@ declare -A MODEL_PROC_FILES=(
   ["yolo11s-seg"]=""
   ["yolo11s-obb"]=""
   ["yolo11s-pose"]=""
+  ["yolo26n"]=""
+  ["yolo26s"]=""
+  ["yolo26m"]=""
+  ["yolo26l"]=""
+  ["yolo26x"]=""
+  ["yolo26s-obb"]=""
+  ["yolo26s-seg"]=""
+  ["yolo26s-pose"]=""
 )
 
 if ! [[ "${!MODEL_PROC_FILES[*]}" =~ $MODEL ]]; then

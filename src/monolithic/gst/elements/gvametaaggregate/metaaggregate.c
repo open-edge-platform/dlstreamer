@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2021-2025 Intel Corporation
+ * Copyright (C) 2021-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -137,12 +137,13 @@ gboolean copy_one_gst_analytics_mtd(GstAnalyticsRelationMeta *dst, const GstAnal
             return FALSE;
         }
     } else if (mtd_type == gst_analytics_keypointgroup_mtd_get_mtd_type()) {
-        gsize keypoint_count = gst_analytics_keypointgroup_mtd_get_count(mtd);
+        gsize keypoint_count = gst_analytics_keypointgroup_mtd_get_count((const GstAnalyticsKeypointGroupMtd *)mtd);
         GstAnalyticsKeypointMtd *keypoints = g_new(GstAnalyticsKeypointMtd, keypoint_count);
 
         for (gsize i = 0; i < keypoint_count; i++) {
             GstAnalyticsKeypointMtd keypoint_mtd;
-            if (!gst_analytics_keypointgroup_mtd_get_keypoint_mtd(mtd, &keypoint_mtd, i)) {
+            if (!gst_analytics_keypointgroup_mtd_get_keypoint_mtd((const GstAnalyticsKeypointGroupMtd *)mtd,
+                                                                  &keypoint_mtd, i)) {
                 GST_ERROR("Failed to get keypoint mtd from keypoint group mtd");
                 g_free(keypoints);
                 return FALSE;
@@ -162,7 +163,8 @@ gboolean copy_one_gst_analytics_mtd(GstAnalyticsRelationMeta *dst, const GstAnal
             }
         }
 
-        if (!gst_analytics_relation_meta_add_keypointgroup_mtd(dst, keypoint_count, keypoints, new_mtd)) {
+        if (!gst_analytics_relation_meta_add_keypointgroup_mtd(dst, keypoint_count, keypoints,
+                                                               (GstAnalyticsKeypointGroupMtd *)new_mtd)) {
             GST_ERROR("Failed to add keypoint group mtd to relation meta");
             g_free(keypoints);
             return FALSE;
@@ -170,18 +172,21 @@ gboolean copy_one_gst_analytics_mtd(GstAnalyticsRelationMeta *dst, const GstAnal
 
         g_free(keypoints);
     } else if (mtd_type == gst_analytics_keypoint_skeleton_mtd_get_mtd_type()) {
-        gsize skeleton_count = gst_analytics_keypoint_skeleton_mtd_get_count(mtd);
+        gsize skeleton_count =
+            gst_analytics_keypoint_skeleton_mtd_get_count((const GstAnalyticsKeypointSkeletonMtd *)mtd);
         GstAnalyticsKeypointPair *skeletons = g_new(GstAnalyticsKeypointPair, skeleton_count);
 
         for (gsize i = 0; i < skeleton_count; i++) {
-            if (!gst_analytics_keypoint_skeleton_mtd_get(mtd, &skeletons[i], i)) {
+            if (!gst_analytics_keypoint_skeleton_mtd_get((const GstAnalyticsKeypointSkeletonMtd *)mtd, &skeletons[i],
+                                                         i)) {
                 GST_ERROR("Failed to get keypoint pair from keypoint skeleton mtd");
                 g_free(skeletons);
                 return FALSE;
             }
         }
 
-        if (!gst_analytics_relation_meta_add_keypoint_skeleton_mtd(dst, skeleton_count, skeletons, new_mtd)) {
+        if (!gst_analytics_relation_meta_add_keypoint_skeleton_mtd(dst, skeleton_count, skeletons,
+                                                                   (GstAnalyticsKeypointSkeletonMtd *)new_mtd)) {
             GST_ERROR("Failed to add keypoint skeleton mtd to relation meta");
             g_free(skeletons);
             return FALSE;
@@ -276,7 +281,8 @@ gboolean copy_all_gst_analytics_mtd(GstAnalyticsRelationMeta *src, GstAnalyticsR
         }
 
         if (gst_analytics_mtd_get_mtd_type(&rlt_mtd) == gst_analytics_keypointgroup_mtd_get_mtd_type()) {
-            if (!gst_analytics_relation_meta_set_keypointgroup_relations(dst, &rlt_mtd, NULL, NULL)) {
+            if (!gst_analytics_relation_meta_set_keypointgroup_relations(dst, (GstAnalyticsKeypointGroupMtd *)&rlt_mtd,
+                                                                         NULL, NULL)) {
                 GST_ERROR("Failed to set keypoint group relations");
                 return FALSE;
             }
