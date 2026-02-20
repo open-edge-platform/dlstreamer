@@ -16,6 +16,16 @@ if (-Not (Test-Path $DLSTREAMER_TMP)) {
 	mkdir $DLSTREAMER_TMP
 }
 
+# Install Visual Studio Build Tools if not already installed
+if (-Not (Test-Path "C:\\BuildTools")) {
+	Write-Host "###################################### Installing VS BuildTools #######################################"
+	Invoke-WebRequest -OutFile $DLSTREAMER_TMP\\vs_buildtools.exe -Uri https://aka.ms/vs/17/release/vs_buildtools.exe
+	Start-Process -Wait -FilePath $DLSTREAMER_TMP\vs_buildtools.exe -ArgumentList "--quiet", "--wait", "--norestart", "--nocache", "--installPath", "C:\\BuildTools", "--add", "Microsoft.VisualStudio.Component.VC.Tools.x86.x64", "--add", "Microsoft.VisualStudio.ComponentGroup.NativeDesktop.Core"
+	Write-Host "############################################### Done ##################################################"
+} else {
+	Write-Host "################################# VS BuildTools already installed #####################################"
+}
+
 # Check if GStreamer is installed and if it's the correct version
 $GSTREAMER_NEEDS_INSTALL = $false
 $GSTREAMER_INSTALL_MODE = "none"  # values: none | fresh | reinstall
