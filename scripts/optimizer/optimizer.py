@@ -120,7 +120,7 @@ class DLSOptimizer:
         except Exception:
             logger.error("Pipeline pre-processing failed, using original pipeline instead")
 
-        initial_pipeline = add_instance_ids(init_pipeline)
+        initial_pipeline = add_instance_ids(initial_pipeline)
 
         start_time = time.time()
         best_pipeline = initial_pipeline
