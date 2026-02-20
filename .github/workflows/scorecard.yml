@@ -18,7 +18,7 @@ permissions: read-all
 jobs:
   analysis:
     name: Scorecard analysis
-    runs-on: ubuntu-latest
+    runs-on: dlstreamer
     if: github.event.repository.default_branch == github.ref_name || github.event_name == 'pull_request'
     permissions:
       security-events: write
