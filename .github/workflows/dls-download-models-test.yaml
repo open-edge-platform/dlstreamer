@@ -10,7 +10,7 @@ permissions: {}
 jobs:
   test-single-model:
     name: Test single model download
-    runs-on: ubuntu-24.04
+    runs-on: dlstreamer
     steps:
       - name: Checkout repository
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # 5.0.0
@@ -37,7 +37,7 @@ jobs:
 
   test-multiple-models:
     name: Test multiple models download
-    runs-on: ubuntu-24.04
+    runs-on: dlstreamer
     steps:
       - name: Checkout repository
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # 5.0.0
@@ -66,7 +66,7 @@ jobs:
 
   test-single-model-with-quantization:
     name: Test single model with quantization
-    runs-on: ubuntu-24.04
+    runs-on: dlstreamer
     steps:
       - name: Checkout repository
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # 5.0.0
@@ -95,7 +95,7 @@ jobs:
 
   test-multiple-models-with-quantization:
     name: Test multiple models with quantization
-    runs-on: ubuntu-24.04
+    runs-on: dlstreamer
     steps:
       - name: Checkout repository
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # 5.0.0
@@ -134,7 +134,7 @@ jobs:
 
   test-non-yolo-model:
     name: Test non-YOLO model download
-    runs-on: ubuntu-24.04
+    runs-on: dlstreamer
     steps:
       - name: Checkout repository
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # 5.0.0
@@ -159,7 +159,7 @@ jobs:
 
   test-mixed-models:
     name: Test mixed YOLO and non-YOLO models
-    runs-on: ubuntu-24.04
+    runs-on: dlstreamer
     steps:
       - name: Checkout repository
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # 5.0.0
@@ -188,7 +188,7 @@ jobs:
 
   test-help-flag:
     name: Test help flag
-    runs-on: ubuntu-24.04
+    runs-on: dlstreamer
     steps:
       - name: Checkout repository
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # 5.0.0
@@ -213,7 +213,7 @@ jobs:
 
   test-missing-models-path:
     name: Test missing MODELS_PATH
-    runs-on: ubuntu-24.04
+    runs-on: dlstreamer
     steps:
       - name: Checkout repository
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # 5.0.0
@@ -234,7 +234,7 @@ jobs:
 
   test-invalid-model-name:
     name: Test invalid model name
-    runs-on: ubuntu-24.04
+    runs-on: dlstreamer
     steps:
       - name: Checkout repository
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # 5.0.0
