@@ -262,7 +262,7 @@ class NireqGenerator:
 
 ####################################### Utils #####################################################
 
-def add_instance_ids(pipeline):
+def add_instance_ids(pipeline): # pylint: disable=missing-function-docstring
     ids = {}
     index = 0
 
@@ -279,7 +279,7 @@ def add_instance_ids(pipeline):
             parameters["model-instance-id"] = instance_id
             parameters = assemble_parameters(parameters)
             pipeline[idx] = f" {element_type} {parameters} "
-    
+
     return pipeline
 
 # returns element type and parsed parameters

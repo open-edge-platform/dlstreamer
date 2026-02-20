@@ -41,8 +41,9 @@ class DLSOptimizer:
             "nireq": NireqGenerator()
         }
 
-    def merge_inference_instances(self, merge):
-        self.merge_inference_instances = merge
+  
+    def merge_inference_instances(self, merge): # pylint: disable=missing-function-docstring
+        self._merge_inference_instances = merge
 
     def set_search_duration(self, duration):
         self._search_duration = duration
@@ -91,7 +92,7 @@ class DLSOptimizer:
         except Exception:
             logger.error("Pipeline pre-processing failed, using original pipeline instead")
 
-        if self.merge_inference_instances:
+        if self._merge_inference_instances:
             pipeline = add_instance_ids(pipeline)
 
         start_time = time.time()
