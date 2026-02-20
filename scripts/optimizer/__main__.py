@@ -39,6 +39,8 @@ parser.add_argument("--sample-duration", default=10, type=float,
                     help="Duration in seconds of sampling individual pipelines. Longer duration should offer more stable results (default: %(default)s)")
 parser.add_argument("--multistream-fps-limit", default=30, type=float,
                     help="Minimum amount of fps allowed when optimizing for multiple streams (default: %(default)s)")
+parser.add_argument("--merge-inference-instances", action="store_true",
+                    help="Optimizer will attempt to merge models with the same path into shared inference instances")
 parser.add_argument("--log-level", default="INFO", choices=["CRITICAL", "FATAL", "ERROR" ,"WARN", "INFO", "DEBUG"],
                     help="Minimum used log level (default: %(default)s)")
 
@@ -51,6 +53,7 @@ optimizer = DLSOptimizer()
 optimizer.set_search_duration(args.search_duration)
 optimizer.set_sample_duration(args.sample_duration)
 optimizer.set_multistream_fps_limit(args.multistream_fps_limit)
+optimizer.merge_inference_instances(args.merge_inference_instances)
 
 pipeline = " ".join(args.PIPELINE)
 

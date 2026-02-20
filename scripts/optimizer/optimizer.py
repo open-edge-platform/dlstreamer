@@ -41,7 +41,7 @@ class DLSOptimizer:
             "nireq": NireqGenerator()
         }
 
-    def merge_inference_instances(merge):
+    def merge_inference_instances(self, merge):
         self.merge_inference_instances = merge
 
     def set_search_duration(self, duration):
