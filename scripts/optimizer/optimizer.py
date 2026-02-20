@@ -34,7 +34,7 @@ class DLSOptimizer:
         self._search_duration = 300
         self._sample_duration = 10
         self._multistream_fps_limit = 30
-        self._merge_inference_instances = False
+        self._enable_cross_stream_batching = False
         self._generators = {
             "device": DeviceGenerator(),
             "batch": BatchGenerator(),
@@ -42,8 +42,8 @@ class DLSOptimizer:
         }
 
   
-    def merge_inference_instances(self, merge): # pylint: disable=missing-function-docstring
-        self._merge_inference_instances = merge
+    def enable_cross_stream_batching(self, enable): # pylint: disable=missing-function-docstring
+        self._enable_cross_stream_batching = enable
 
     def set_search_duration(self, duration):
         self._search_duration = duration
@@ -92,7 +92,7 @@ class DLSOptimizer:
         except Exception:
             logger.error("Pipeline pre-processing failed, using original pipeline instead")
 
-        if self._merge_inference_instances:
+        if self._enable_cross_stream_batching:
             pipeline = add_instance_ids(pipeline)
 
         start_time = time.time()
