@@ -10,7 +10,7 @@ import os
 import re
 
 from preprocess import preprocess_pipeline
-from processors.inference import DeviceGenerator, BatchGenerator, NireqGenerator
+from processors.inference import DeviceGenerator, BatchGenerator, NireqGenerator, add_instance_ids
 
 import gi
 gi.require_version("Gst", "1.0")
@@ -34,11 +34,15 @@ class DLSOptimizer:
         self._search_duration = 300
         self._sample_duration = 10
         self._multistream_fps_limit = 30
+        self._merge_inference_instances = False
         self._generators = {
             "device": DeviceGenerator(),
             "batch": BatchGenerator(),
             "nireq": NireqGenerator()
         }
+
+    def merge_inference_instances(merge):
+        self.merge_inference_instances = merge
 
     def set_search_duration(self, duration):
         self._search_duration = duration
@@ -56,7 +60,7 @@ class DLSOptimizer:
     # 2. Pre-process the pipeline to cover cases where we're certain of the best alternative.
     # 3. Prepare a set of generators providing alternatives for elements.
     # 4. Iterate over the generators
-    # 5. Iterate over the suggestions from every processor
+    # 5. Iterate over the suggestions from every generator
     # 6. Any time a better pipeline is found, save it and its performance information.
     # 7. Return the best discovered pipeline.
     def optimize_for_fps(self, pipeline):
@@ -82,12 +86,13 @@ class DLSOptimizer:
             preproc_pipeline = preprocess_pipeline(preproc_pipeline)
             preproc_pipeline = preproc_pipeline.split(" ! ")
 
-            preproc_fps = sample_pipeline([preproc_pipeline], self._sample_duration)
-            if preproc_fps > fps:
-                fps = preproc_fps
-                pipeline = preproc_pipeline
+            sample_pipeline([preproc_pipeline], self._sample_duration)
+            pipeline = preproc_pipeline
         except Exception:
             logger.error("Pipeline pre-processing failed, using original pipeline instead")
+
+        if self.merge_inference_instances:
+            pipeline = add_instance_ids(pipeline)
 
         start_time = time.time()
         (best_pipeline, best_fps) = self._optimize_pipeline(pipeline, fps, start_time, 1)
@@ -102,11 +107,6 @@ class DLSOptimizer:
         if re.search("[^a-zA-Z]tee[^a-zA-Z]", initial_pipeline):
             raise RuntimeError("Pipelines containing the tee element are currently not supported!")
 
-        # Configure inference generators for multi-stream batching
-        self._generators["device"].force_instance_id(True)
-        self._generators["batch"].force_instance_id(True)
-        self._generators["nireq"].force_instance_id(True)
-
         initial_pipeline = initial_pipeline.split("!")
 
         # Replace elements with known better alternatives.
@@ -116,8 +116,11 @@ class DLSOptimizer:
             preproc_pipeline = preproc_pipeline.split(" ! ")
 
             sample_pipeline([preproc_pipeline], self._sample_duration)
+            initial_pipeline = preproc_pipeline
         except Exception:
             logger.error("Pipeline pre-processing failed, using original pipeline instead")
+
+        initial_pipeline = add_instance_ids(init_pipeline)
 
         start_time = time.time()
         best_pipeline = initial_pipeline
