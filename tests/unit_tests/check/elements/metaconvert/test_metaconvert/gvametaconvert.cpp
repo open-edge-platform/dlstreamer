@@ -15,6 +15,7 @@
 #include "region_of_interest.h"
 #include "test_utils.h"
 
+#include <gst/rtp/rtp.h>
 #include <gst/video/video.h>
 #include <nlohmann/json.hpp>
 
@@ -36,6 +37,9 @@ struct TestData {
     uint8_t buffer[8];
     bool ignore_detections;
     std::string add_tensor_data;
+    bool is_rtp_buffer;
+    guint32 rtp_timestamp;
+    guint32 rtp_ssrc;
 };
 
 #ifdef AUDIO
@@ -139,6 +143,23 @@ void setup_inbuffer(GstBuffer *inbuffer, gpointer user_data) {
     TestData *test_data = static_cast<TestData *>(user_data);
     ck_assert_msg(test_data != NULL, "Passed data is not TestData");
 
+    if (test_data->is_rtp_buffer) {
+        gsize buffer_size = gst_buffer_get_size(inbuffer);
+
+        // Allocate RTP data space in the buffer
+        gst_rtp_buffer_allocate_data(inbuffer, buffer_size, 0, 0);
+
+        // Set RTP header fields
+        GstRTPBuffer rtp = GST_RTP_BUFFER_INIT;
+        gboolean ret = gst_rtp_buffer_map(inbuffer, GST_MAP_WRITE, &rtp);
+        ck_assert_msg(ret == TRUE, "Failed to map RTP buffer for writing");
+
+        gst_rtp_buffer_set_timestamp(&rtp, test_data->rtp_timestamp);
+        gst_rtp_buffer_set_ssrc(&rtp, test_data->rtp_ssrc);
+        gst_rtp_buffer_set_payload_type(&rtp, 96);
+
+        gst_rtp_buffer_unmap(&rtp);
+    }
     GstVideoInfo info;
     gst_video_info_set_format(&info, TEST_BUFFER_VIDEO_FORMAT, test_data->resolution.width,
                               test_data->resolution.height);
@@ -192,6 +213,18 @@ void check_outbuffer(GstBuffer *outbuffer, gpointer user_data) {
     ck_assert_msg(strcmp(json_message["resolution"].dump().c_str(), "{\"height\":480,\"width\":640}") == 0,
                   "Message does not contain resolution %s", meta->message);
     ck_assert_msg(json_message["timestamp"] == 0, "Message does not contain timestamp %s", meta->message);
+
+    if (test_data->is_rtp_buffer) {
+        // RTP buffer: validate that RTP metadata is extracted and present in JSON
+        ck_assert_msg(json_message.contains("rtp"), "RTP metadata missing from JSON output. Message: %s",
+                      meta->message);
+        ck_assert_msg(json_message["rtp"].contains("timestamp"), "RTP timestamp missing from JSON output");
+        ck_assert_msg(json_message["rtp"]["timestamp"] == test_data->rtp_timestamp,
+                      "RTP timestamp mismatch: expected %u, got %u", test_data->rtp_timestamp,
+                      json_message["rtp"]["timestamp"].get<guint32>());
+        ck_assert_msg(json_message["rtp"]["ssrc"] == test_data->rtp_ssrc, "RTP SSRC mismatch: expected %u, got %u",
+                      test_data->rtp_ssrc, json_message["rtp"]["ssrc"].get<guint32>());
+    }
     if (test_data->ignore_detections) {
         ck_assert_msg(str_meta_message.find("objects") == std::string::npos,
                       "message has detection data. message content %s", meta->message);
@@ -226,6 +259,7 @@ GST_START_TEST(test_metaconvert_no_detections) {
     for (int i = 0; i < G_N_ELEMENTS(test_data); i++) {
         for (const auto &fp : supported_fp) {
             test_data[i].ignore_detections = true;
+            test_data[i].is_rtp_buffer = false;
             run_test("gvametaconvert", VIDEO_CAPS_TEMPLATE_STRING, test_data[i].resolution, &srctemplate, &sinktemplate,
                      setup_inbuffer, check_outbuffer, &test_data[i], "tags", "{\"tag_key\":\"tag_val\"}", "source",
                      "test_src", "add-empty-results", true, NULL);
@@ -242,9 +276,13 @@ GST_START_TEST(test_metaconvert_all) {
     for (int i = 0; i < G_N_ELEMENTS(test_data); i++) {
         for (const auto &fp : supported_fp) {
             test_data[i].add_tensor_data = "all";
-            run_test("gvametaconvert", VIDEO_CAPS_TEMPLATE_STRING, test_data[i].resolution, &srctemplate, &sinktemplate,
-                     setup_inbuffer, check_outbuffer, &test_data[i], "add-tensor-data", TRUE, "tags",
-                     "{\"tag_key\":\"tag_val\"}", "source", "test_src", NULL);
+            test_data[i].is_rtp_buffer = true;
+            test_data[i].rtp_timestamp = 1234;
+            test_data[i].rtp_ssrc = 5678;
+            run_test_with_size_increase("gvametaconvert", VIDEO_CAPS_TEMPLATE_STRING, test_data[i].resolution,
+                                        &srctemplate, &sinktemplate, setup_inbuffer, check_outbuffer, &test_data[i],
+                                        "add-tensor-data", TRUE, "tags", "{\"tag_key\":\"tag_val\"}", "source",
+                                        "test_src", NULL);
         }
     }
 }
