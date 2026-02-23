@@ -24,7 +24,7 @@ env:
 jobs:
   build-dls-deb-img:
     name: Build DLS ${{ matrix.ubuntu_version }} .deb and deb img
-    runs-on: ubuntu-latest
+    runs-on: dlstreamer
     permissions:
       contents: read
       packages: write
@@ -294,7 +294,7 @@ jobs:
     if: ${{ inputs.action-type == 'weekly' }}
     needs: build-dls-deb-img
     name: Build DLS Pipeline Server ${{ matrix.ubuntu_version }} img
-    runs-on: ubuntu-latest
+    runs-on: dlstreamer
     permissions:
       contents: read
       packages: write

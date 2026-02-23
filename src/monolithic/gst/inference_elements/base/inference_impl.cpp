@@ -13,6 +13,7 @@
 #include "config.h"
 #include "gmutex_lock_guard.h"
 #include "gst_allocator_wrapper.h"
+#include "gva_base_inference.h"
 #include "gva_base_inference_priv.hpp"
 #include "gva_caps.h"
 #include "gva_utils.h"
@@ -20,6 +21,7 @@
 #include "inference_backend/pre_proc.h"
 #include "logger_functions.h"
 #include "model_proc_provider.h"
+#include "processor_types.h"
 #include "region_of_interest.h"
 #include "safe_arithmetic.hpp"
 #include "scope_guard.h"
@@ -33,6 +35,7 @@
 #include <gst/analytics/analytics.h>
 #include <map>
 #include <memory>
+#include <openvino/runtime/core.hpp>
 #include <openvino/runtime/properties.hpp>
 #include <regex>
 #include <sstream>
@@ -213,6 +216,11 @@ InferenceConfig CreateNestedInferenceConfig(GvaBaseInference *gva_base_inference
         }
     }
     base[KEY_CAPS_FEATURE] = std::to_string(static_cast<int>(gva_base_inference->caps_feature));
+
+    const int batch_timeout = gva_base_inference->batch_timeout;
+    if (batch_timeout > -1) {
+        inference[ov::auto_batch_timeout.name()] = std::to_string(batch_timeout);
+    }
 
     // add KEY_VAAPI_THREAD_POOL_SIZE, KEY_VAAPI_FAST_SCALE_LOAD_FACTOR elements to preprocessor config
     // other elements from pre_processor info are consumed by model proc info
@@ -834,8 +842,9 @@ InferenceImpl::Model InferenceImpl::CreateModel(GvaBaseInference *gva_base_infer
     model.inference = image_inference;
     model.name = image_inference->GetModelName();
 
-    // if auto batch size was requested, use the actual batch size determined by inference instance
-    if (gva_base_inference->batch_size == 0)
+    // if auto batch size or OpenVINO Automatic Batching was requested, use the actual batch size determined by
+    // inference instance
+    if (gva_base_inference->batch_size == 0 || gva_base_inference->batch_timeout != DEFAULT_BATCH_TIMEOUT)
         gva_base_inference->batch_size = model.inference->GetBatchSize();
 
     return model;
@@ -866,7 +875,8 @@ InferenceImpl::InferenceImpl(GvaBaseInference *gva_base_inference) {
     allocator = CreateAllocator(gva_base_inference->allocator_name);
 
     GVA_INFO("Loading model: device=%s, path=%s", std::string(gva_base_inference->device).c_str(), model_file.c_str());
-    GVA_INFO("Initial settings: batch_size=%u, nireq=%u", gva_base_inference->batch_size, gva_base_inference->nireq);
+    GVA_INFO("Initial settings: batch_size=%u, batch_timeout=%d, nireq=%u", gva_base_inference->batch_size,
+             gva_base_inference->batch_timeout, gva_base_inference->nireq);
     this->model = CreateModel(gva_base_inference, model_file, model_proc, labels_str, custom_preproc_lib);
 }
 
@@ -911,7 +921,7 @@ void InferenceImpl::UpdateModelReshapeInfo(GvaBaseInference *gva_base_inference)
             return;
         }
 
-        if (gva_base_inference->batch_size > 1) {
+        if (gva_base_inference->batch_size > 1 && gva_base_inference->batch_timeout == -1) {
             GVA_WARNING("reshape switched to TRUE because batch-size (%u) is greater than one",
                         gva_base_inference->batch_size);
             gva_base_inference->reshape = true;
