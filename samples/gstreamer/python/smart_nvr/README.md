@@ -6,6 +6,8 @@ The sample detects line hogging events, which may be illegal in certain jurisdic
 The sample focuses on demonstrating how to integrate custom logic into a DLStreamer pipeline. 
 The actual line hogging detection logic is relatively simple and is used only for demonstration purposes.
 
+![Sample Output](smart_nvr_output.jpg)
+
 The individual pipeline stages implement the following functions:
 
 * __filesrc__ element reads the video stream from a local file

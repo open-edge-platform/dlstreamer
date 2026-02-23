@@ -66,15 +66,17 @@ class Recorder(Gst.Bin):
         self._objectlist = []
         self._last_fragment_id = -1
         self.get_static_pad("sink").add_probe(Gst.PadProbeType.BUFFER, self.buffer_probe, 0)
-        self.get_static_pad("sink").add_probe(Gst.PadProbeType.EVENT_DOWNSTREAM, self.event_probe, 0)
+        self._filesink.get_static_pad("video").add_probe(Gst.PadProbeType.EVENT_DOWNSTREAM, self.event_probe, 0)
         self._filesink.connect("format-location", self.format_location_callback, 0)
 
     # store prediction metadata and clear list of detectd objects
     def save_metadata(self, fragment_id):
-        file = open(f"{self._fileprefix}-{fragment_id:02d}.txt", 'w')
-        file.write(f"Objects: {self._objectlist}")
-        file.close()
-        self._objectlist = []
+        if fragment_id > self._last_fragment_id:
+            self._last_fragment_id = fragment_id
+            file = open(f"{self._fileprefix}-{fragment_id:02d}.txt", 'w')
+            file.write(f"Objects: {self._objectlist}")
+            file.close()
+            self._objectlist = []
 
     # method called on each new video buffer received by recorder element
     # collect information on prediction metadata
@@ -95,13 +97,13 @@ class Recorder(Gst.Bin):
     def event_probe(self, pad, info, u_data):
         event = info.get_event()
         if event.type == Gst.EventType.EOS:
-            self.save_metadata(self._last_fragment_id)
+            self.save_metadata(self._last_fragment_id+1)
+
         return Gst.PadProbeReturn.OK
 
     # method called when a new video file fragment is to be generated
     # save metadata for previous video fragment and generate file name for next fragment
     def format_location_callback(self, splitmux, fragment_id, udata):
-        self._last_fragment_id = fragment_id
         if fragment_id > 0:
             self.save_metadata(fragment_id - 1)
 

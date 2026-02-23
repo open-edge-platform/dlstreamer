@@ -213,6 +213,7 @@ RUN \
     -Ddevtools=disabled \
     -Dorc=disabled \
     -Dgpl=enabled \
+    -Dpython=enabled \
     -Dgst-plugins-base:nls=disabled \
     -Dgst-plugins-base:gl=disabled \
     -Dgst-plugins-base:xvideo=enabled \
