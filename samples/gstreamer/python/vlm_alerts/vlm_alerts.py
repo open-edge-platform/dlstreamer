@@ -26,7 +26,7 @@ from typing import Tuple
 
 import gi
 gi.require_version("Gst", "1.0")
-from gi.repository import Gst # pylint: disable=no-name-in-module
+from gi.repository import Gst, GLib # pylint: disable=no-name-in-module, wrong-import-position
 
 BASE_DIR = Path(__file__).resolve().parent
 VIDEOS_DIR = BASE_DIR / "videos"
