@@ -37,9 +37,7 @@ struct TestData {
     uint8_t buffer[8];
     bool ignore_detections;
     std::string add_tensor_data;
-    bool is_rtp_buffer;
-    guint32 rtp_timestamp;
-    guint32 rtp_ssrc;
+    bool add_ntp_meta;
 };
 
 #ifdef AUDIO
@@ -143,22 +141,11 @@ void setup_inbuffer(GstBuffer *inbuffer, gpointer user_data) {
     TestData *test_data = static_cast<TestData *>(user_data);
     ck_assert_msg(test_data != NULL, "Passed data is not TestData");
 
-    if (test_data->is_rtp_buffer) {
-        gsize buffer_size = gst_buffer_get_size(inbuffer);
-
-        // Allocate RTP data space in the buffer
-        gst_rtp_buffer_allocate_data(inbuffer, buffer_size, 0, 0);
-
-        // Set RTP header fields
-        GstRTPBuffer rtp = GST_RTP_BUFFER_INIT;
-        gboolean ret = gst_rtp_buffer_map(inbuffer, GST_MAP_WRITE, &rtp);
-        ck_assert_msg(ret == TRUE, "Failed to map RTP buffer for writing");
-
-        gst_rtp_buffer_set_timestamp(&rtp, test_data->rtp_timestamp);
-        gst_rtp_buffer_set_ssrc(&rtp, test_data->rtp_ssrc);
-        gst_rtp_buffer_set_payload_type(&rtp, 96);
-
-        gst_rtp_buffer_unmap(&rtp);
+    if (test_data->add_ntp_meta) {
+        GstCaps *ntp_caps = gst_caps_new_empty_simple("timestamp/x-ntp");
+        guint64 ntp_timestamp_ns = G_GUINT64_CONSTANT(1771854462174494742);
+        gst_buffer_add_reference_timestamp_meta(inbuffer, ntp_caps, ntp_timestamp_ns, GST_CLOCK_TIME_NONE);
+        gst_caps_unref(ntp_caps);
     }
     GstVideoInfo info;
     gst_video_info_set_format(&info, TEST_BUFFER_VIDEO_FORMAT, test_data->resolution.width,
@@ -214,16 +201,17 @@ void check_outbuffer(GstBuffer *outbuffer, gpointer user_data) {
                   "Message does not contain resolution %s", meta->message);
     ck_assert_msg(json_message["timestamp"] == 0, "Message does not contain timestamp %s", meta->message);
 
-    if (test_data->is_rtp_buffer) {
-        // RTP buffer: validate that RTP metadata is extracted and present in JSON
+    if (test_data->add_ntp_meta) {
         ck_assert_msg(json_message.contains("rtp"), "RTP metadata missing from JSON output. Message: %s",
                       meta->message);
-        ck_assert_msg(json_message["rtp"].contains("timestamp"), "RTP timestamp missing from JSON output");
-        ck_assert_msg(json_message["rtp"]["timestamp"] == test_data->rtp_timestamp,
-                      "RTP timestamp mismatch: expected %u, got %u", test_data->rtp_timestamp,
-                      json_message["rtp"]["timestamp"].get<guint32>());
-        ck_assert_msg(json_message["rtp"]["ssrc"] == test_data->rtp_ssrc, "RTP SSRC mismatch: expected %u, got %u",
-                      test_data->rtp_ssrc, json_message["rtp"]["ssrc"].get<guint32>());
+        ck_assert_msg(json_message["rtp"].contains("sender_ntp_unix_timestamp_ns"),
+                      "NTP Unix timestamp missing from JSON output. Message: %s", meta->message);
+        guint64 expected_unix_ns =
+            G_GUINT64_CONSTANT(1771854462174494742) - (G_GUINT64_CONSTANT(2208988800) * 1000000000);
+        guint64 actual_unix_ns = json_message["rtp"]["sender_ntp_unix_timestamp_ns"].get<guint64>();
+        ck_assert_msg(actual_unix_ns == expected_unix_ns,
+                      "NTP Unix timestamp mismatch: expected %" G_GUINT64_FORMAT ", got %" G_GUINT64_FORMAT,
+                      expected_unix_ns, actual_unix_ns);
     }
     if (test_data->ignore_detections) {
         ck_assert_msg(str_meta_message.find("objects") == std::string::npos,
@@ -276,13 +264,11 @@ GST_START_TEST(test_metaconvert_all) {
     for (int i = 0; i < G_N_ELEMENTS(test_data); i++) {
         for (const auto &fp : supported_fp) {
             test_data[i].add_tensor_data = "all";
-            test_data[i].is_rtp_buffer = true;
-            test_data[i].rtp_timestamp = 1234;
-            test_data[i].rtp_ssrc = 5678;
+            test_data[i].add_ntp_meta = true;
             run_test_with_size_increase("gvametaconvert", VIDEO_CAPS_TEMPLATE_STRING, test_data[i].resolution,
                                         &srctemplate, &sinktemplate, setup_inbuffer, check_outbuffer, &test_data[i],
-                                        "add-tensor-data", TRUE, "tags", "{\"tag_key\":\"tag_val\"}", "source",
-                                        "test_src", NULL);
+                                        "add-tensor-data", TRUE, "add-rtp-timestamp", TRUE, "tags",
+                                        "{\"tag_key\":\"tag_val\"}", "source", "test_src", NULL);
         }
     }
 }
