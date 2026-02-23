@@ -11,15 +11,15 @@
  * This class provides static methods to read from and write to PCD files in ASCII format,
  * specifically handling point clouds where each point contains x, y, z coordinates and RGB color values.
  *
- * - The `read` method parses a PCD file and returns a vector of PointXYZRGB structures.
- * - The `write` method serializes a vector of PointXYZRGB structures into a PCD file.
+ * - The `readFile` method parses a PCD file and returns a vector of PointXYZRGB structures.
+ * - The `writeFile` method serializes a vector of PointXYZRGB structures into a PCD file.
  *
  * Copy operations are deleted to prevent accidental copying, but move operations are allowed.
  *
  * Usage example:
  * @code
- * std::vector<PointXYZRGB> points = GvaRealSensePcd::read("input.pcd");
- * GvaRealSensePcd::write("output.pcd", points);
+ * std::vector<PointXYZRGB> points = GvaRealSensePcd::readFile("input.pcd");
+ * GvaRealSensePcd::writeFile("output.pcd", points);
  * @endcode
  */
 
