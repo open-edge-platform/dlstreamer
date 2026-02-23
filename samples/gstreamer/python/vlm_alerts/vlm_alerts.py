@@ -26,13 +26,12 @@ from typing import Tuple
 
 import gi
 gi.require_version("Gst", "1.0")
-
+from gi.repository import Gst # pylint: disable=no-name-in-module
 
 BASE_DIR = Path(__file__).resolve().parent
 VIDEOS_DIR = BASE_DIR / "videos"
 MODELS_DIR = BASE_DIR / "models"
 RESULTS_DIR = BASE_DIR / "results"
-
 
 @dataclass
 class PipelineConfig:
@@ -150,7 +149,6 @@ def build_pipeline_string(cfg: PipelineConfig) -> Tuple[str, Path, Path, Path]:
 
 def run_pipeline_string(pipeline_str: str) -> int:
     """Execute a GStreamer pipeline string and block until completion."""
-    from gi.repository import Gst, GLib
     Gst.init(None)
 
     try:
