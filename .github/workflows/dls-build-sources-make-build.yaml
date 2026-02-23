@@ -12,7 +12,7 @@ env:
 jobs:
   build:
     name: "Build from sources using make build on ${{ matrix.os }}"
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ matrix.runner }}
     permissions:
       contents: read
       packages: read
@@ -21,7 +21,9 @@ jobs:
       matrix:
         include:
           - os: ubuntu-22.04
+            runner: ubuntu-22.04
           - os: ubuntu-24.04
+            runner: dlstreamer
     steps:
       - name: Initial environment clean
         run: |
