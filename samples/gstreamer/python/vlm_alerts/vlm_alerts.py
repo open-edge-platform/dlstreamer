@@ -1,3 +1,8 @@
+# ==============================================================================
+# Copyright (C) 2026 Intel Corporation
+#
+# SPDX-License-Identifier: MIT
+# ==============================================================================
 #!/usr/bin/env python3
 """
 Run a DLStreamer VLM pipeline on a video and export JSON and MP4 results.
@@ -20,7 +25,6 @@ from pathlib import Path
 from typing import Tuple
 
 import gi
-from gi.repository import Gst, GLib
 gi.require_version("Gst", "1.0")
 
 
@@ -146,6 +150,7 @@ def build_pipeline_string(cfg: PipelineConfig) -> Tuple[str, Path, Path, Path]:
 
 def run_pipeline_string(pipeline_str: str) -> int:
     """Execute a GStreamer pipeline string and block until completion."""
+    from gi.repository import Gst, GLib
     Gst.init(None)
 
     try:
