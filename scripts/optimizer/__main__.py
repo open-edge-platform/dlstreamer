@@ -10,6 +10,17 @@ import textwrap
 
 from optimizer import DLSOptimizer # pylint: disable=no-name-in-module
 
+def validate_devices(allowed_devices):
+    """Validate allowed devices argument."""
+    valid_devices = {"CPU", "GPU", "NPU"}
+    invalid_devices = set(allowed_devices) - valid_devices
+    if invalid_devices:
+        parser.error(f"Invalid device(s): {', '.join(invalid_devices)}. Allowed devices are: CPU, GPU, NPU")
+    
+    if len(allowed_devices) != len(set(allowed_devices)):
+        duplicates = [device for device in set(allowed_devices) if allowed_devices.count(device) > 1]
+        parser.error(f"Duplicate device(s): {', '.join(duplicates)}. Each device can only be specified once")
+
 parser = argparse.ArgumentParser(
     prog="DLStreamer Pipeline Optimization Tool",
     formatter_class=argparse.RawTextHelpFormatter,
@@ -43,8 +54,14 @@ parser.add_argument("--enable-cross-stream-batching", action="store_true",
                     help="Enable cross stream batching for inference elements in fps mode")
 parser.add_argument("--log-level", default="INFO", choices=["CRITICAL", "FATAL", "ERROR" ,"WARN", "INFO", "DEBUG"],
                     help="Minimum used log level (default: %(default)s)")
+parser.add_argument("--allowed-devices", nargs="+", default=["CPU", "GPU", "NPU"],
+                    help="List of allowed devices (CPU, GPU, NPU) to be used by the optimizer. If not specified, all available, detected devices will be used.\n"\
+                        "Tool does not support discrete GPU selection.\n"\
+                        "eg.--allowed-devices CPU NPU,--allowed-devices GPU")
 
 args=parser.parse_args()
+
+validate_devices(args.allowed_devices)
 
 logging.basicConfig(level=args.log_level, format="[%(name)s] [%(levelname)8s] - %(message)s")
 logger = logging.getLogger(__name__)
@@ -54,7 +71,7 @@ optimizer.set_search_duration(args.search_duration)
 optimizer.set_sample_duration(args.sample_duration)
 optimizer.set_multistream_fps_limit(args.multistream_fps_limit)
 optimizer.enable_cross_stream_batching(args.enable_cross_stream_batching)
-
+optimizer.set_allowed_devices(args.allowed_devices)
 pipeline = " ".join(args.PIPELINE)
 
 #logger.info("\nBest found pipeline: %s \nwith fps: %.2f\nwith batches: %d", pipeline, fps, batches)
@@ -62,7 +79,6 @@ try:
     match args.mode:
         case "fps":
             best_pipeline, best_fps = optimizer.optimize_for_fps(pipeline)
-            logger.info("\nBest found pipeline: %s \nwith fps: %.2f", best_pipeline, best_fps)
         case "streams":
             best_pipeline, best_fps, streams = optimizer.optimize_for_streams(pipeline)
 
@@ -72,8 +88,8 @@ try:
 
             full_pipeline = " ".join(full_pipeline)
 
-            logger.info("\nBest found pipeline for multi-streams: %s \n" \
-                        "with fps: %.2f\n" \
-                        "max achieved streams: %d", full_pipeline, best_fps, streams)
+            logger.info("Optimized found pipeline for multi-streams: %s", full_pipeline)
+            logger.info("with fps: %.2f", best_fps)
+            logger.info("max achieved streams: %d", streams)
 except Exception as e: # pylint: disable=broad-exception-caught
     logger.error("Failed to optimize pipeline: %s", e)
