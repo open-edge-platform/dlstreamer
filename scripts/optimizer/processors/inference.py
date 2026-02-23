@@ -13,6 +13,7 @@ class DeviceGenerator:
     def __init__(self):
         self.tracked_elements = []
         self.devices = Core().available_devices
+        logger.info("Devices detected on system: %s", str(self.devices))
         self.device_groups = []
         self.pipeline = []
         self.first_iteration = True
