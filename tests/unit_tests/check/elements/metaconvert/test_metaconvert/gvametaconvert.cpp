@@ -265,7 +265,7 @@ GST_START_TEST(test_metaconvert_all) {
         for (const auto &fp : supported_fp) {
             test_data[i].add_tensor_data = "all";
             test_data[i].add_ntp_meta = true;
-            run_test_with_size_increase("gvametaconvert", VIDEO_CAPS_TEMPLATE_STRING, test_data[i].resolution,
+            run_test("gvametaconvert", VIDEO_CAPS_TEMPLATE_STRING, test_data[i].resolution,
                                         &srctemplate, &sinktemplate, setup_inbuffer, check_outbuffer, &test_data[i],
                                         "add-tensor-data", TRUE, "add-rtp-timestamp", TRUE, "tags",
                                         "{\"tag_key\":\"tag_val\"}", "source", "test_src", NULL);
