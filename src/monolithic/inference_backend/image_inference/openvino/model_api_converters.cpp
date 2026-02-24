@@ -638,8 +638,8 @@ std::map<std::string, GstStructure *> get_model_info_preproc(const std::shared_p
         if (element.first == "pad_value") {
             int pad_value = element.second.as<int>();
             if (pad_value < 0 || pad_value > 255) {
-                GST_INFO("[get_model_info_preproc] Invalid pad value: %d. Expected an integer between 0 and 255.",
-                         pad_value);
+                GST_WARNING("[get_model_info_preproc] Invalid pad value: %d. Expected an integer between 0 and 255.",
+                            pad_value);
                 pad_value = std::clamp(pad_value, 0, 255);
                 GST_INFO("[get_model_info_preproc] ) Pad value after clamping: %d", pad_value);
             }
