@@ -4,10 +4,16 @@
 # SPDX-License-Identifier: MIT
 # ==============================================================================
 
+"""
+This module implements a custom GStreamer sink element to store video stream in files.
+The element splits incoming video into chunks and stores custom metadata summary for each chunk.
+"""
+
 import gi
+
 gi.require_version("Gst", "1.0")
 gi.require_version("GstAnalytics", "1.0")
-from gi.repository import Gst, GObject, GLib, GstAnalytics
+from gi.repository import Gst, GObject, GLib, GstAnalytics  # pylint: disable=no-name-in-module
 Gst.init_python()
 
 class Recorder(Gst.Bin):

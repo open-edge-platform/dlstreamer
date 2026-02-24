@@ -4,13 +4,20 @@
 # SPDX-License-Identifier: MIT
 # ==============================================================================
 
+"""
+This module implements a custom GStreamer Transform element to detect lane hogging events.
+It identifies cars and trucks that intersect with a predefined outer-lane zone and classifies them as 'hogging'
+if no neighboring vehicles are present within a specified distance and angle threshold.
+"""
+
+import gi
 import math
 import numpy as np
 import cv2
-import gi
+
 gi.require_version('GstBase', '1.0')
 gi.require_version("GstAnalytics", "1.0")
-from gi.repository import Gst, GstBase, GObject, GLib, GstAnalytics
+from gi.repository import Gst, GstBase, GObject, GLib, GstAnalytics # pylint: disable=no-name-in-module
 Gst.init_python()
 
 class Analytics(GstBase.BaseTransform):

@@ -12,14 +12,15 @@ This sample application demonstrates how to add custom Python elements to DLStre
   custom detection metadata along with each chunk.
 """
 
-import sys
-import os
-import subprocess
-import urllib.request
 import gi
-gi.require_version("Gst", "1.0")
-from gi.repository import Gst
+import os
 import openvino as ov
+import subprocess
+import sys
+import urllib.request
+
+gi.require_version("Gst", "1.0")
+from gi.repository import Gst   # pylint: disable=no-name-in-module
 
 def pipeline_loop(gst_pipeline):
     """Wrapper to run the gstreamer pipeline loop"""
