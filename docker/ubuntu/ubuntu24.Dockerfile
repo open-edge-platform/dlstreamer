@@ -40,7 +40,7 @@ LABEL description="This is the development image of Intel® Deep Learning Stream
 LABEL vendor="Intel Corporation"
 
 ARG GST_VERSION=1.26.6
-ARG OPENVINO_VERSION=2025.6.0
+ARG OPENVINO_VERSION=2026.0.0
 ARG REALSENSE_VERSION=v2.57.5
 
 ARG DLSTREAMER_VERSION=2025.2.0
