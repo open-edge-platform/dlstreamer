@@ -212,7 +212,7 @@ RUN \
     -Dgst-examples=disabled \
     -Ddevtools=disabled \
     -Dorc=disabled \
-    -Dgpl=enabled \
+    -Dgpl=disabled \
     -Dgst-plugins-base:nls=disabled \
     -Dgst-plugins-base:gl=disabled \
     -Dgst-plugins-base:xvideo=enabled \
