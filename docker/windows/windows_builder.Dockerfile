@@ -46,7 +46,7 @@ RUN `
 
 # Download OpenVINO
 RUN `
-    curl -SL --output openvino.zip https://storage.openvinotoolkit.org/repositories/openvino/packages/2025.4/windows/openvino_toolkit_windows_2025.4.0.20398.8fdad55727d_x86_64.zip
+    curl -SL --output openvino.zip https://storage.openvinotoolkit.org/repositories/openvino/packages/2026.0/windows/openvino_toolkit_windows_2026.0.0.20965.c6d6a13a886_x86_64.zip
     && powershell -command "Expand-Archive -Path \"openvino.zip\" -DestinationPath \"C:\" " `
     && del /q openvino.zip `
     && move openvino_toolkit_windows_2025.4.0.20398.8fdad55727d_x86_64 openvino

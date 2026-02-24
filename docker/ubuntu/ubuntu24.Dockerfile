@@ -132,7 +132,7 @@ RUN \
     pluggy==1.5.0 \
     exceptiongroup==1.2.2 \
     iniconfig==2.0.0 \
-    openvino==2025.6.0
+    openvino==2026.0.0
 
 # hadolint ignore=DL3002
 USER root
