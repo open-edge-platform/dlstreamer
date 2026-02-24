@@ -4,6 +4,14 @@
 # SPDX-License-Identifier: MIT
 # ==============================================================================
 
+"""
+This sample application demonstrates how to add custom Python elements to DLStreamer pipeline.
+- gvaanalytics_py analyzes bounding-box detection results and identifies cars
+  hogging lane in a predefined inspection zone.
+- gvarecorder_py splits the video stream into N-second file chunks and stores
+  custom detection metadata along with each chunk.
+"""
+
 import sys
 import os
 import subprocess

@@ -10,10 +10,10 @@ gi.require_version("GstAnalytics", "1.0")
 from gi.repository import Gst, GObject, GLib, GstAnalytics
 Gst.init_python()
 
-#
-# DLStreamer smart recorder element
-#
 class Recorder(Gst.Bin):
+    """DLStreamer custom Recorder element to split video stream into chunks
+       and store metadata summary for each chunk.
+    """
     __gstmetadata__ = ('GVA Smart Recorder Python','Sink', \
                       'Record video stream to a file', \
                       'Intel DLStreamer')
@@ -72,9 +72,9 @@ class Recorder(Gst.Bin):
         """Store prediction metadata and clear list of detectd objects."""
         if fragment_id > self._last_fragment_id:
             self._last_fragment_id = fragment_id
-            file = open(f"{self._fileprefix}-{fragment_id:02d}.txt", mode='w', encoding="utf-8")
-            file.write(f"Objects: {self._objectlist}")
-            file.close()
+            with open(f"{self._fileprefix}-{fragment_id:02d}.txt", mode='w', encoding="utf-8") as file:
+                file.write(f"Objects: {self._objectlist}")
+                file.close()
             self._objectlist = []
 
     def buffer_probe(self, _pad, info, _user_data):
@@ -83,7 +83,7 @@ class Recorder(Gst.Bin):
         rmeta = GstAnalytics.buffer_get_analytics_relation_meta(buffer)
         if rmeta:
             for mtd in rmeta:
-                if type(mtd) == GstAnalytics.ODMtd:
+                if isinstance(mtd, GstAnalytics.ODMtd):
                     category = GLib.quark_to_string(mtd.get_obj_type())
                     _, confidence = mtd.get_confidence_lvl()
                     if confidence > 0 and category not in self._objectlist:
