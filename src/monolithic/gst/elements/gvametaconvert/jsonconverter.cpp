@@ -132,8 +132,10 @@ json get_frame_data(GstGvaMetaConvert *converter, GstBuffer *buffer) {
 
         // Extract absolute sender NTP time from GstReferenceTimestampMeta if available.
         // Requires rtspsrc with add-reference-timestamp-meta=true.
-        static GstCaps *ntp_caps = gst_caps_new_empty_simple("timestamp/x-ntp");
+        GstCaps *ntp_caps = gst_caps_new_empty_simple("timestamp/x-ntp");
         GstReferenceTimestampMeta *ref_meta = gst_buffer_get_reference_timestamp_meta(buffer, ntp_caps);
+        gst_caps_unref(ntp_caps);
+
         if (ref_meta && GST_CLOCK_TIME_IS_VALID(ref_meta->timestamp)) {
             // NTP epoch is 1900-01-01, Unix epoch is 1970-01-01 (offset = 2208988800 seconds)
             constexpr guint64 NTP_UNIX_OFFSET_NS = G_GUINT64_CONSTANT(2208988800) * GST_SECOND;
