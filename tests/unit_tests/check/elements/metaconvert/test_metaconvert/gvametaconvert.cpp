@@ -143,7 +143,8 @@ void setup_inbuffer(GstBuffer *inbuffer, gpointer user_data) {
 
     if (test_data->add_ntp_meta) {
         GstCaps *ntp_caps = gst_caps_new_empty_simple("timestamp/x-ntp");
-        guint64 ntp_timestamp_ns = G_GUINT64_CONSTANT(1771854462174494742);
+        // NTP timestamp (NTP epoch + some time since 1900)
+        guint64 ntp_timestamp_ns = G_GUINT64_CONSTANT(3980842262174494742);
         gst_buffer_add_reference_timestamp_meta(inbuffer, ntp_caps, ntp_timestamp_ns, GST_CLOCK_TIME_NONE);
         gst_caps_unref(ntp_caps);
     }
@@ -207,7 +208,7 @@ void check_outbuffer(GstBuffer *outbuffer, gpointer user_data) {
         ck_assert_msg(json_message["rtp"].contains("sender_ntp_unix_timestamp_ns"),
                       "NTP Unix timestamp missing from JSON output. Message: %s", meta->message);
         guint64 expected_unix_ns =
-            G_GUINT64_CONSTANT(1771854462174494742) - (G_GUINT64_CONSTANT(2208988800) * 1000000000);
+            G_GUINT64_CONSTANT(3980842262174494742) - (G_GUINT64_CONSTANT(2208988800) * 1000000000);
         guint64 actual_unix_ns = json_message["rtp"]["sender_ntp_unix_timestamp_ns"].get<guint64>();
         ck_assert_msg(actual_unix_ns == expected_unix_ns,
                       "NTP Unix timestamp mismatch: expected %" G_GUINT64_FORMAT ", got %" G_GUINT64_FORMAT,
