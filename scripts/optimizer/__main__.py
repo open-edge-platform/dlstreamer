@@ -7,19 +7,9 @@
 import argparse
 import logging
 import textwrap
+import sys
 
 from optimizer import DLSOptimizer # pylint: disable=no-name-in-module
-
-def validate_devices(allowed_devices):
-    """Validate allowed devices argument."""
-    valid_devices = {"CPU", "GPU", "NPU"}
-    invalid_devices = set(allowed_devices) - valid_devices
-    if invalid_devices:
-        parser.error(f"Invalid device(s): {', '.join(invalid_devices)}. Allowed devices are: CPU, GPU, NPU")
-    
-    if len(allowed_devices) != len(set(allowed_devices)):
-        duplicates = [device for device in set(allowed_devices) if allowed_devices.count(device) > 1]
-        parser.error(f"Duplicate device(s): {', '.join(duplicates)}. Each device can only be specified once")
 
 parser = argparse.ArgumentParser(
     prog="DLStreamer Pipeline Optimization Tool",
@@ -61,17 +51,20 @@ parser.add_argument("--allowed-devices", nargs="+", default=["CPU", "GPU", "NPU"
 
 args=parser.parse_args()
 
-validate_devices(args.allowed_devices)
-
 logging.basicConfig(level=args.log_level, format="[%(name)s] [%(levelname)8s] - %(message)s")
 logger = logging.getLogger(__name__)
 
-optimizer = DLSOptimizer()
-optimizer.set_search_duration(args.search_duration)
-optimizer.set_sample_duration(args.sample_duration)
-optimizer.set_multistream_fps_limit(args.multistream_fps_limit)
-optimizer.enable_cross_stream_batching(args.enable_cross_stream_batching)
-optimizer.set_allowed_devices(args.allowed_devices)
+try:
+    optimizer = DLSOptimizer()
+    optimizer.set_search_duration(args.search_duration)
+    optimizer.set_sample_duration(args.sample_duration)
+    optimizer.set_multistream_fps_limit(args.multistream_fps_limit)
+    optimizer.enable_cross_stream_batching(args.enable_cross_stream_batching)
+    optimizer.set_allowed_devices(args.allowed_devices)
+except Exception as e:
+    logger.error("Failed to configure optimizer: %s", e)
+    sys.exit(1)
+
 pipeline = " ".join(args.PIPELINE)
 
 #logger.info("\nBest found pipeline: %s \nwith fps: %.2f\nwith batches: %d", pipeline, fps, batches)
