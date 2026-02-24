@@ -67,15 +67,12 @@ if [ -f /etc/apt/sources.list.d/intel-gpu-jammy.list ]; then
     echo_color "Removed /etc/apt/sources.list.d/intel-gpu-jammy.list" "blue"
 fi
 
-if [ -f /etc/apt/sources.list.d/intel-openvino-2024.list ]; then
-    sudo rm -rf /etc/apt/sources.list.d/intel-openvino-2024.list
-    echo "Removed /etc/apt/sources.list.d/intel-openvino-2024.list" "blue"
-fi
-
-if [ -f /etc/apt/sources.list.d/intel-openvino-2025.list ]; then
-    sudo rm -rf /etc/apt/sources.list.d/intel-openvino-2025.list
-    echo "Removed /etc/apt/sources.list.d/intel-openvino-2025.list" "blue"
-fi
+for file in /etc/apt/sources.list.d/intel-openvino*.list; do
+    if [ -f "$file" ]; then
+        sudo rm -rf "$file"
+        echo "Removed $file" "blue"
+    fi
+done
 
 if [ -f /etc/apt/sources.list.d/sed.list ]; then
     sudo rm -rf /etc/apt/sources.list.d/sed.list
