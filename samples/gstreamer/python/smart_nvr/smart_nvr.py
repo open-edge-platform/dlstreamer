@@ -9,16 +9,15 @@ import os
 import subprocess
 import urllib.request
 import gi
-import openvino as ov
-from numpy import empty
 gi.require_version("Gst", "1.0")
 from gi.repository import Gst
+import openvino as ov
 
-# wrapper to run the gstreamer pipeline loop
-def pipeline_loop(pipeline):
+def pipeline_loop(gst_pipeline):
+    """Wrapper to run the gstreamer pipeline loop"""
     print("Starting Pipeline \n")
-    bus = pipeline.get_bus()
-    pipeline.set_state(Gst.State.PLAYING)
+    bus = gst_pipeline.get_bus()
+    gst_pipeline.set_state(Gst.State.PLAYING)
     terminate = False
     while not terminate:
         msg = bus.timed_pop_filtered(Gst.CLOCK_TIME_NONE, Gst.MessageType.EOS | Gst.MessageType.ERROR)
@@ -31,10 +30,10 @@ def pipeline_loop(pipeline):
             if msg.type == Gst.MessageType.EOS:
                 print("Pipeline complete.")
                 terminate = True
-    pipeline.set_state(Gst.State.NULL)
+    gst_pipeline.set_state(Gst.State.NULL)
 
 def check_download_video_file():
-    # default location of a local video file
+    """Check if the default video file exists locally, if not, download it."""
     input_video = os.path.join(os.getcwd(), "2431853-hd_1920_1080_25fps.mp4")
 
     # download if local copy does not exist
@@ -51,13 +50,13 @@ def check_download_video_file():
     return input_video
 
 def check_download_detection_model():
-    # default location of a local model file in OpenVINO IR format
+    """Check if the default detection model exists locally, if not, download it."""
     ov_model_path = os.path.join(os.getcwd(), "rtdetr_v2_r50vd/model.xml")
 
     # download RTDETRv2 model from Hugging Face Model Hub if local copy does not exist
     if not os.path.isfile(ov_model_path):
         print("Downloading PekingU/rtdetr_v2_r50vd from HuggingFace\n")
-        subprocess.run(["optimum-cli", "export", "onnx", "--model", "PekingU/rtdetr_v2_r50vd", 
+        subprocess.run(["optimum-cli", "export", "onnx", "--model", "PekingU/rtdetr_v2_r50vd",
                         "--task", "object-detection", "--opset", "18", "--width", "640", "--height", "640", "rtdetr_v2_r50vd",
             ],check=True)
         os.chdir("rtdetr_v2_r50vd")
@@ -78,7 +77,9 @@ if __name__ == '__main__':
     Gst.init(None)
     reg = Gst.Registry.get()
     if not reg.find_plugin("python"):
-        print("GStreamer python plugin not found in registry, check GST_PLUGIN_PATH environment variable")
+        print("GStreamer 'python' plugin not found in registry.")
+        print("Check GST_PLUGIN_PATH includes path to 'libgstpython.so', if error persist please delete GStreamer registry cache.")
+        print(">rm ~/.cache/gstreamer-1.0/registry.x86_64.bin")
         sys.exit(1)
 
     # Download assets
@@ -87,15 +88,15 @@ if __name__ == '__main__':
 
     # Select inference device
     devices = ov.Core().available_devices
-    device = "GPU" if "GPU" in devices else "CPU"
+    DEVICE = "GPU" if "GPU" in devices else "CPU"
 
     # Create GStreamer pipeline and parametrize with downloaded models and video files
-    pipeline_str = f"filesrc location={video_file} ! decodebin3 ! " \
-        f"gvadetect model={detection_model} device={device} batch-size=4 threshold=0.7 ! queue ! " \
+    PIPELINE_STR = f"filesrc location={video_file} ! decodebin3 ! " \
+        f"gvadetect model={detection_model} device={DEVICE} batch-size=4 threshold=0.7 ! queue ! " \
         f"gvaanalytics_py distance=500 angle=-135,-45 ! gvawatermark displ-cfg=draw-txt-bg=true ! " \
         f"gvarecorder_py location=output.mp4 max-time=10"
-    print(f"Constructed Pipeline: \"{pipeline_str}\"")
-    pipeline = Gst.parse_launch(pipeline_str)
+    print(f"Constructed Pipeline: \"{PIPELINE_STR}\"")
+    pipeline = Gst.parse_launch(PIPELINE_STR)
 
     # Execute Gstreamer pipeline
     pipeline_loop(pipeline)

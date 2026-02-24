@@ -4,17 +4,12 @@
 # SPDX-License-Identifier: MIT
 # ==============================================================================
 
-#!/usr/bin/env python
-# -*- Mode: Python -*-
-# vi:si:et:sw=4:sts=4:ts=4
-
 import cv2
 import math
 import numpy as np
 import gi
 gi.require_version('GstBase', '1.0')
 gi.require_version("GstAnalytics", "1.0")
-
 from gi.repository import Gst, GstBase, GObject, GLib, GstAnalytics
 Gst.init_python()
 
@@ -47,7 +42,8 @@ class Analytics(GstBase.BaseTransform):
 
     @zone.setter
     def zone(self, value):
-        self._zone = np.array([int(coord) for coord in value.split(",")], dtype=np.float32).reshape(-1, 2)
+        self._zone = np.array([int(coord) for coord in value.split(",")],
+                              dtype=np.float32).reshape(-1, 2)
 
     @GObject.Property(type=int)
     def distance(self):
@@ -72,6 +68,7 @@ class Analytics(GstBase.BaseTransform):
         self._framecount = 0
 
     def do_transform_ip(self, buffer):
+        """Detect cars in the inspection zone and classify as 'hogging' if no neighbour cars present."""
         self._framecount = self._framecount + 1
 
         # iterate over analytics metadata attached to a frame buffer
@@ -104,7 +101,9 @@ class Analytics(GstBase.BaseTransform):
                             y2center = y2 + h2/2
                             distance = math.sqrt((x2center - xcenter)**2 + (y2center - ycenter)**2)
                             angle = math.degrees(math.atan2(x2center - xcenter, y2center - ycenter))
-                            if (distance > 0) and (distance < self._distance) and (angle > self._angle[0]) and (angle < self._angle[1]):
+                            if ((distance > 0) and (distance < self._distance) and
+                                (angle > self._angle[0]) and (angle < self._angle[1])
+                            ):
                                 neighbour_found = True
                                         
                     # if car in inspection zone and no neigbour cars, classify as 'hogging' 
@@ -112,8 +111,10 @@ class Analytics(GstBase.BaseTransform):
                         rmeta.add_od_mtd(GLib.quark_from_string(f"hogging"), x, y, w, h, confidence)
 
         # draw top and bottom lines of the inspection zone as metadata to be used by gvawatermark element
-        rmeta.add_od_mtd(GLib.quark_from_string(f"start"), self._zone[0,0], self._zone[0,1], self._zone[1,0] - self._zone[0,0], 2, 0)
-        rmeta.add_od_mtd(GLib.quark_from_string(f"stop"), self._zone[3,0], self._zone[3,1], self._zone[2,0] - self._zone[3,0], 2, 0)
+        rmeta.add_od_mtd(GLib.quark_from_string(f"start"),
+                         self._zone[0,0], self._zone[0,1], self._zone[1,0] - self._zone[0,0], 2, 0)
+        rmeta.add_od_mtd(GLib.quark_from_string(f"stop"),
+                         self._zone[3,0], self._zone[3,1], self._zone[2,0] - self._zone[3,0], 2, 0)
 
         return Gst.FlowReturn.OK
 
