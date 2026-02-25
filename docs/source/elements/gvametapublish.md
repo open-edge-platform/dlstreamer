@@ -61,6 +61,9 @@ Element Properties:
   mqtt-config         : Path to the JSON file with MQTT configuration. Required for TLS-secured MQTT connections. See the config file description below.
                         flags: readable, writable
                         String. Default: null
+  disable-proxy       : [method= mqtt] Clear proxy environment variables before connecting to the MQTT broker.
+                        flags: readable, writable
+                        Boolean. Default: true
   name                : The name of the object
                         flags: readable, writable
                         String. Default: "gvametapublish0"
@@ -127,6 +130,10 @@ listed above.
     "ssl_private_key": {
       "type": ["string", "null"],
       "description": "The path to the client's private key file. Default: null."
+    },
+    "disable-proxy": {
+      "type": "boolean",
+      "description": "Clear proxy environment variables before connecting to MQTT. Default: true."
     }
   },
   "required": ["address"]
