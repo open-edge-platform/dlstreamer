@@ -48,27 +48,10 @@ enum {
     PROP_USERNAME,
     PROP_PASSWORD,
     PROP_JSON_CONFIG_FILE,
-    PROP_DISABLE_PROXY,
 };
 
 class GvaMetaPublishMqttPrivate {
   private:
-    void clear_proxy_env_if_needed() {
-        if (!_disable_proxy)
-            return;
-
-        unsetenv("http_proxy");
-        unsetenv("https_proxy");
-        unsetenv("HTTP_PROXY");
-        unsetenv("HTTPS_PROXY");
-        unsetenv("all_proxy");
-        unsetenv("ALL_PROXY");
-        unsetenv("no_proxy");
-        unsetenv("NO_PROXY");
-
-        GST_INFO_OBJECT(_base, "Proxy environment variables were cleared for MQTT connection");
-    }
-
     // MQTT CALLBACKS
     void on_connect_success(MQTTAsync_successData * /*response*/) {
         GST_DEBUG_OBJECT(_base, "Successfully connected to MQTT");
@@ -222,10 +205,6 @@ class GvaMetaPublishMqttPrivate {
         if (j.contains("ssl_private_key_pwd") && !j["ssl_private_key_pwd"].is_null()) {
             _ssl_private_key_pwd = j["ssl_private_key_pwd"].get<std::string>();
         }
-        if (j.contains("disable-proxy") && !j["disable-proxy"].is_null()) {
-            _disable_proxy = j["disable-proxy"].get<bool>();
-        }
-
         return true;
     }
 
@@ -241,8 +220,6 @@ class GvaMetaPublishMqttPrivate {
                 _address = prefix + _address;
             }
         }
-
-        clear_proxy_env_if_needed();
 
         auto sts =
             MQTTAsync_create(&_client, _address.c_str(), _client_id.c_str(), MQTTCLIENT_PERSISTENCE_NONE, nullptr);
@@ -379,9 +356,6 @@ class GvaMetaPublishMqttPrivate {
         case PROP_JSON_CONFIG_FILE: // Handle JSON configuration file property
             _json_config_file = g_value_get_string(value);
             break;
-        case PROP_DISABLE_PROXY:
-            _disable_proxy = g_value_get_boolean(value);
-            break;
         default:
             return false;
         }
@@ -415,9 +389,6 @@ class GvaMetaPublishMqttPrivate {
         case PROP_JSON_CONFIG_FILE: // Handle JSON configuration file property
             g_value_set_string(value, _json_config_file.c_str());
             break;
-        case PROP_DISABLE_PROXY:
-            g_value_set_boolean(value, _disable_proxy);
-            break;
         default:
             return false;
         }
@@ -446,8 +417,6 @@ class GvaMetaPublishMqttPrivate {
     std::string _ssl_client_certificate;
     std::string _ssl_private_key;
     std::string _ssl_private_key_pwd;
-
-    bool _disable_proxy = true;
 
     MQTTAsync _client;
     MQTTAsync_connectOptions _connect_options;
@@ -579,12 +548,6 @@ static void gva_meta_publish_mqtt_class_init(GvaMetaPublishMqttClass *klass) {
     g_object_class_install_property(gobject_class, PROP_JSON_CONFIG_FILE,
                                     g_param_spec_string("mqtt-config", "Config", "[method= mqtt] MQTT config file",
                                                         DEFAULT_MQTTCONFIG_FILE, prm_flags));
-
-    g_object_class_install_property(
-        gobject_class, PROP_DISABLE_PROXY,
-        g_param_spec_boolean("disable-proxy", "Disable Proxy",
-                             "[method= mqtt] Clear proxy environment variables before MQTT connection", TRUE,
-                             prm_flags));
 
     // Override the state change function
     GstElementClass *element_class = GST_ELEMENT_CLASS(klass);
