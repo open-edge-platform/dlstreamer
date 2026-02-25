@@ -374,7 +374,7 @@ RUN apt-get update && apt-get install --no-install-recommends -y gnupg=\* && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 RUN \
-    echo "deb https://apt.repos.intel.com/openvino ubuntu24 main" | tee /etc/apt/sources.list.d/intel-openvino.list && \
+    echo "deb https://apt.repos.intel.com/openvino/2026 ubuntu24 main" | tee /etc/apt/sources.list.d/intel-openvino-2026.list && \
     curl -sSL -O https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB && \
     apt-key add GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB && \
     apt-get update && apt-get install --no-install-recommends -y "openvino-${OPENVINO_VERSION}"=\* && \
@@ -540,8 +540,8 @@ WORKDIR /
 
 RUN curl -fsSL https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB | \
     gpg --dearmor -o /usr/share/keyrings/intel-sw-products.gpg && \
-    echo "deb [signed-by=/usr/share/keyrings/intel-sw-products.gpg] https://apt.repos.intel.com/openvino ubuntu24 main" \
-    > /etc/apt/sources.list.d/intel-openvino.list
+    echo "deb [signed-by=/usr/share/keyrings/intel-sw-products.gpg] https://apt.repos.intel.com/openvino/2026 ubuntu24 main" \
+    > /etc/apt/sources.list.d/intel-openvino-2026.list
 
 RUN mkdir -p /debs
 COPY --from=deb-builder /*.deb /debs/
