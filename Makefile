@@ -10,7 +10,7 @@ SHELL := /bin/bash
 PROJECT_DIRECTORY 			:= ${CURDIR}
 DLSTREAMER_INSTALL_PREFIX 	?= /opt/intel/dlstreamer
 DEPENDENCY_DIR				:= build/deps
-OPENVINO_DIR 				?= /opt/intel/openvino_2025
+OPENVINO_DIR 				?= /opt/intel/openvino_2026
 
 DLSTREAMER_VERSION 	:= 0.0.0
 BUILD_TYPE 			?= Release

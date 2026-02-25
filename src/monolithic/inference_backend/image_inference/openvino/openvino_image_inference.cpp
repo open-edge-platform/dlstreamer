@@ -874,7 +874,7 @@ class OpenVinoNewApiImpl {
             }
 
             auto &in = preproc.input(item.get_any_name());
-            if (in_cfg.type != ov::element::undefined)
+            if (in_cfg.type != ov::element::dynamic)
                 in.tensor().set_element_type(in_cfg.type);
 
             if (in_cfg.data_format == InferenceBackend::KEY_image) {

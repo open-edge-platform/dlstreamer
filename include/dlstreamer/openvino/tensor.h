@@ -25,10 +25,10 @@ class OpenVINOTensor : public BaseTensor {
         set_handle(tensor::key::ov_tensor, reinterpret_cast<handle_t>(&_ov_tensor));
     }
 
-    void *data() const override {
+    void *data() const {
         if (_wait_function)
             _wait_function();
-        return _ov_tensor.data();
+        return const_cast<void *>(_ov_tensor.data());
     }
 
     ov::Tensor ov_tensor() const {
