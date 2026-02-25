@@ -1,0 +1,40 @@
+name: "[DLS] Zizmor Scan"
+run-name: "[DLS] Zizmor Scan"
+
+on:
+  workflow_dispatch: {}
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+  schedule:
+    # Run security checks every day at 2 AM UTC
+    - cron: "0 2 * * *"
+
+# Only run at most 1 workflow concurrently per PR or per branch to keep costs down
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  zizmor-scan:
+    name: "Run Zizmor Scan"
+    permissions:
+      contents: read
+      security-events: write # Needed to upload the results to code-scanning dashboard
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Checkout code"
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - name: "Run Zizmor scan"
+        uses: open-edge-platform/geti-ci/actions/zizmor@3a4b81ea648711eb638b34757427cd3ef71d19f1
+        with:
+          scan-scope: ${{ github.event_name == 'pull_request' && 'changed' || 'all' }}
+          severity-level: ${{ github.event_name == 'pull_request' && 'HIGH' || 'LOW' }}
+          fail-on-findings: ${{ github.event_name == 'pull_request' && 'true' || 'false' }}
