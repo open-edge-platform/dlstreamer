@@ -608,7 +608,7 @@ export_yolov5u_model() {
     python3 - <<EOF
 import os
 from ultralytics import YOLO
-from openvino.runtime import Core, save_model
+from openvino import Core, save_model
 
 model_name = "$model_name"
 weights = "$weights"
@@ -702,8 +702,8 @@ for MODEL_NAME in "${YOLOv5_MODELS[@]}"; do
       python3 export.py --weights "${MODEL_NAME}.pt" --include openvino --img-size 640 --dynamic
       python3 - <<EOF "${MODEL_NAME}"
 import sys, os
-from openvino.runtime import Core
-from openvino.runtime import save_model
+from openvino import Core
+from openvino import save_model
 model_name = sys.argv[1]
 core = Core()
 os.rename(f"{model_name}_openvino_model", f"{model_name}_openvino_modelD")
@@ -1004,7 +1004,7 @@ for MODEL_NAME in "${CLIP_MODELS[@]}"; do
 from transformers import CLIPProcessor, CLIPVisionModel
 import PIL
 import openvino as ov
-from openvino.runtime import PartialShape, Type
+from openvino import PartialShape, Type
 import sys
 import os
 
