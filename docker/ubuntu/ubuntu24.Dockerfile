@@ -92,7 +92,7 @@ RUN \
     apt-get install -y -q --no-install-recommends xz-utils=\* python3-pip=\* python3-gi=\* gcc-multilib=\* libglib2.0-dev=\* \
     flex=\* bison=\* autoconf=\* automake=\* libtool=\* libogg-dev=\* make=\* g++=\* libva-dev=\* yasm=\* libglx-dev=\* libdrm-dev=\* \
     python-gi-dev=\* python3-dev=\* unzip=\* libgflags-dev=\* libcurl4-openssl-dev=\* \
-    libgirepository1.0-dev=\* libx265-dev=\* libx264-dev=\* libde265-dev=\* gudev-1.0=\* libusb-1.0=\* nasm=\* python3-venv=\* \
+    gobject-introspection=\* libgirepository1.0-dev=\* libx265-dev=\* libx264-dev=\* libde265-dev=\* gudev-1.0=\* libusb-1.0=\* nasm=\* python3-venv=\* \
     libcairo2-dev=\* libxt-dev=\* libgirepository1.0-dev=\* libgles2-mesa-dev=\* wayland-protocols=\* \
     libssh2-1-dev=\* cmake=\* git=\* valgrind=\* numactl=\* libvpx-dev=\* libopus-dev=\* libsrtp2-dev=\* libxv-dev=\* \
     linux-libc-dev=\* libpmix2t64=\* libhwloc15=\* libhwloc-plugins=\* libxcb1-dev=\* libx11-xcb-dev=\* \
@@ -213,7 +213,7 @@ RUN \
     -Dgst-examples=disabled \
     -Ddevtools=disabled \
     -Dorc=disabled \
-    -Dgpl=enabled \
+    -Dgpl=disabled \
     -Dgst-plugins-base:nls=disabled \
     -Dgst-plugins-base:gl=disabled \
     -Dgst-plugins-base:xvideo=enabled \
@@ -229,7 +229,7 @@ RUN \
     -Dgst-plugins-good:flac=disabled \
     -Dgst-plugins-good:dv=disabled \
     -Dgst-plugins-good:soup=enabled \
-    -Dgst-plugins-bad:gpl=enabled \
+    -Dgst-plugins-bad:gpl=disabled \
     -Dgst-plugins-bad:va=enabled \
     -Dgst-plugins-bad:doc=disabled \
     -Dgst-plugins-bad:nls=disabled \
@@ -249,7 +249,7 @@ RUN \
     -Dgst-plugins-bad:libde265=enabled \
     -Dgst-plugins-bad:openh264=enabled \
     -Dgst-plugins-bad:uvch264=enabled \
-    -Dgst-plugins-bad:x265=enabled \
+    -Dgst-plugins-bad:x265=disabled \
     -Dgst-plugins-bad:curl=enabled \
     -Dgst-plugins-bad:curl-ssh2=enabled \
     -Dgst-plugins-bad:opus=enabled \
@@ -268,8 +268,8 @@ RUN \
     -Dgst-plugins-bad:soundtouch=disabled \
     -Dgst-plugins-bad:isac=disabled \
     -Dgst-plugins-ugly:nls=disabled \
-    -Dgst-plugins-ugly:x264=enabled \
-    -Dgst-plugins-ugly:gpl=enabled \
+    -Dgst-plugins-ugly:x264=disabled \
+    -Dgst-plugins-ugly:gpl=disabled \
     -Dgstreamer-vaapi:encoders=enabled \
     -Dgstreamer-vaapi:drm=enabled \
     -Dgstreamer-vaapi:glx=enabled \
@@ -410,7 +410,7 @@ ENV LC_NUMERIC=C
 ENV C_INCLUDE_PATH=/usr/local/include:${DLSTREAMER_DIR}/include:${DLSTREAMER_DIR}/include/dlstreamer/gst/metadata:${C_INCLUDE_PATH}
 ENV CPLUS_INCLUDE_PATH=/usr/local/include:${DLSTREAMER_DIR}/include:${DLSTREAMER_DIR}/include/dlstreamer/gst/metadata:${CPLUS_INCLUDE_PATH}
 ENV GST_PLUGIN_SCANNER=${GSTREAMER_DIR}/bin/gstreamer-1.0/gst-plugin-scanner
-ENV GI_TYPELIB_PATH=${GSTREAMER_DIR}/lib/girepository-1.0
+ENV GI_TYPELIB_PATH=${GSTREAMER_DIR}/lib/girepository-1.0:${DLSTREAMER_DIR}/build/src/gst/metadata/
 ENV PYTHONPATH=${GSTREAMER_DIR}/lib/python3/dist-packages:${DLSTREAMER_DIR}/python:${DLSTREAMER_DIR}/scripts/optimizer:${PYTHONPATH}
 
 # Build DLStreamer
@@ -463,6 +463,10 @@ RUN \
     cp -r "${DLSTREAMER_DIR}/include/" /deb-pkg/opt/intel/dlstreamer/ && \
     cp "${DLSTREAMER_DIR}/README.md" /deb-pkg/opt/intel/dlstreamer && \
     cp -rT "${GSTREAMER_DIR}" /deb-pkg/opt/intel/dlstreamer/gstreamer && \
+    mkdir -p /deb-pkg/opt/intel/dlstreamer/lib/girepository-1.0 && \
+    mkdir -p /deb-pkg/opt/intel/dlstreamer/share/gir-1.0 && \
+    cp "${DLSTREAMER_DIR}/girs/DLStreamerMeta-1.0.gir" /deb-pkg/opt/intel/dlstreamer/share/gir-1.0/ && \
+    cp "${DLSTREAMER_DIR}/build/src/gst/metadata/DLStreamerMeta-1.0.typelib" /deb-pkg/opt/intel/dlstreamer/lib/girepository-1.0/ && \
     cp -a /usr/local/lib/libopencv*.so* /deb-pkg/opt/opencv/ && \
     cp -r /usr/local/include/opencv4/* /deb-pkg/opt/opencv/include && \
     cp -a /usr/local/lib/librdkafka*.so* /deb-pkg/opt/rdkafka/ && \
@@ -573,7 +577,7 @@ ENV MODEL_PROC_PATH=/opt/intel/dlstreamer/samples/gstreamer/model_proc
 ENV PATH=/python3venv/bin:/opt/intel/dlstreamer/gstreamer/bin:/opt/intel/dlstreamer/bin:$PATH
 ENV PYTHONPATH=/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:/opt/intel/dlstreamer/python:/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:
 ENV TERM=xterm
-ENV GI_TYPELIB_PATH=/opt/intel/dlstreamer/gstreamer/lib/girepository-1.0:/usr/lib/x86_64-linux-gnu/girepository-1.0
+ENV GI_TYPELIB_PATH=/opt/intel/dlstreamer/gstreamer/lib/girepository-1.0:/opt/intel/dlstreamer/lib/girepository-1.0:/usr/lib/x86_64-linux-gnu/girepository-1.0
 
 RUN \
     usermod -a -G video dlstreamer && \

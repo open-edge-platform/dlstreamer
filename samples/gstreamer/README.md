@@ -24,6 +24,7 @@ Samples separated into several categories
     * [Vision Language Model Sample](./gst_launch/gvagenai/README.md) - demonstrates how to use the `gvagenai` element with MiniCPM-V for video summerization
     * [Radar Signal Process Sample](./gst_launch/g3dradarprocess/README.md) - demonstrates how to use the `g3dradarprocess` element for millimeter-wave radar signal processing with point cloud detection, clustering, and tracking
     * [LiDAR Parse Sample](./gst_launch/g3dlidarparse/README.md) - demonstrates LiDAR parsing pipeline with `g3dlidarparse` element
+    * [Real Sense camera sample](./gst_launch/gvarealsense/README.md) This sample demonstrates how to capture video stream from a 3D RealSense™ Depth Camera using DL Streamer's gvarealsense element.
     * [Custom Post-Processing Library Sample - Detection](./gst_launch/custom_postproc/detect/README.md) - demonstrates how to create custom post-processing library for YOLOv11 tensor outputs conversion to detection metadata using GStreamer Analytics framework
     * [Custom Post-Processing Library Sample - Classification](./gst_launch/custom_postproc/classify/README.md) - demonstrates how to create custom post-processing library for emotion classification model outputs conversion to classification metadata using GStreamer Analytics framework
 2. C++ samples
@@ -35,6 +36,8 @@ Samples separated into several categories
     * [ONVIF Camera Discovery Sample](./python/onvif_cameras_discovery/README.md) - demonstrates automatic discovery of ONVIF-compatible cameras on the network and launches corresponding DL Streamer pipelines for video analysis.
 4. Benchmark
     * [Benchmark Sample](./benchmark/README.md) - measures overall performance of single-channel or multi-channel video analytics pipelines
+5. Concurrent use of DL Streamer and DeepStream
+	* [Concurrent use Sample](./concurrent/README.md) - runs pipelines on DL Streamer and/or DeepStream
 
 ## How To Build And Run
 

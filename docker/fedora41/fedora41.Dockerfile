@@ -212,7 +212,7 @@ RUN \
     -Dgst-examples=disabled \
     -Ddevtools=disabled \
     -Dorc=disabled \
-    -Dgpl=enabled \
+    -Dgpl=disabled \
     -Dgst-plugins-base:nls=disabled \
     -Dgst-plugins-base:gl=disabled \
     -Dgst-plugins-base:xvideo=enabled \
@@ -228,7 +228,7 @@ RUN \
     -Dgst-plugins-good:flac=disabled \
     -Dgst-plugins-good:dv=disabled \
     -Dgst-plugins-good:soup=enabled \
-    -Dgst-plugins-bad:gpl=enabled \
+    -Dgst-plugins-bad:gpl=disabled \
     -Dgst-plugins-bad:va=enabled \
     -Dgst-plugins-bad:doc=disabled \
     -Dgst-plugins-bad:nls=disabled \
@@ -248,7 +248,7 @@ RUN \
     -Dgst-plugins-bad:libde265=enabled \
     -Dgst-plugins-bad:openh264=enabled \
     -Dgst-plugins-bad:uvch264=enabled \
-    -Dgst-plugins-bad:x265=enabled \
+    -Dgst-plugins-bad:x265=disabled \
     -Dgst-plugins-bad:curl=enabled \
     -Dgst-plugins-bad:curl-ssh2=enabled \
     -Dgst-plugins-bad:opus=enabled \
@@ -267,8 +267,8 @@ RUN \
     -Dgst-plugins-bad:soundtouch=disabled \
     -Dgst-plugins-bad:isac=disabled \
     -Dgst-plugins-ugly:nls=disabled \
-    -Dgst-plugins-ugly:x264=enabled \
-    -Dgst-plugins-ugly:gpl=enabled \
+    -Dgst-plugins-ugly:x264=disabled \
+    -Dgst-plugins-ugly:gpl=disabled \
     -Dgstreamer-vaapi:encoders=enabled \
     -Dgstreamer-vaapi:drm=enabled \
     -Dgstreamer-vaapi:glx=enabled \
@@ -401,7 +401,7 @@ ENV LC_NUMERIC=C
 ENV C_INCLUDE_PATH=/usr/local/include:${DLSTREAMER_DIR}/include:${DLSTREAMER_DIR}/include/dlstreamer/gst/metadata:${C_INCLUDE_PATH}
 ENV CPLUS_INCLUDE_PATH=/usr/local/include:${DLSTREAMER_DIR}/include:${DLSTREAMER_DIR}/include/dlstreamer/gst/metadata:${CPLUS_INCLUDE_PATH}
 ENV GST_PLUGIN_SCANNER=${GSTREAMER_DIR}/bin/gstreamer-1.0/gst-plugin-scanner
-ENV GI_TYPELIB_PATH=${GSTREAMER_DIR}/lib/girepository-1.0
+ENV GI_TYPELIB_PATH=${GSTREAMER_DIR}/lib/girepository-1.0:${DLSTREAMER_DIR}/build/src/gst/metadata/
 ENV PYTHONPATH=${GSTREAMER_DIR}/lib/python3/dist-packages:${DLSTREAMER_DIR}/python:${PYTHONPATH}
 
 # Build DLStreamer
@@ -459,6 +459,10 @@ RUN \
     cp -r "${DLSTREAMER_DIR}/include/" /${RPM_PKG_NAME}/opt/intel/dlstreamer/ && \
     cp "${DLSTREAMER_DIR}/README.md" /${RPM_PKG_NAME}/opt/intel/dlstreamer && \
     cp -rT "${GSTREAMER_DIR}" /${RPM_PKG_NAME}/opt/intel/dlstreamer/gstreamer && \
+    mkdir -p /${RPM_PKG_NAME}/opt/intel/dlstreamer/share/gir-1.0/ && \
+    mkdir -p /${RPM_PKG_NAME}/opt/intel/dlstreamer/lib/girepository-1.0/ && \
+    cp "${DLSTREAMER_DIR}/girs/DLStreamerMeta-1.0.gir" /${RPM_PKG_NAME}/opt/intel/dlstreamer/share/gir-1.0/ && \
+    cp "${DLSTREAMER_DIR}/build/src/gst/metadata/DLStreamerMeta-1.0.typelib" /${RPM_PKG_NAME}/opt/intel/dlstreamer/lib/girepository-1.0/ && \
     cp -a /usr/local/lib64/libopencv* /${RPM_PKG_NAME}/opt/opencv/ && \
     cp -a /usr/local/lib/librdkafka* /${RPM_PKG_NAME}/opt/rdkafka/ && \
     cp -a /usr/local/lib64/librealsense* /${RPM_PKG_NAME}/opt/librealsense/ && \
@@ -523,7 +527,7 @@ ENV MODEL_PROC_PATH=/opt/intel/dlstreamer/samples/gstreamer/model_proc
 ENV PATH=/python3venv/bin:/opt/intel/dlstreamer/gstreamer/bin:/opt/intel/dlstreamer/bin:$PATH
 ENV PYTHONPATH=/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:/opt/intel/dlstreamer/python:/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:
 ENV TERM=xterm
-ENV GI_TYPELIB_PATH=/opt/intel/dlstreamer/gstreamer/lib/girepository-1.0:/usr/lib64/girepository-1.0
+ENV GI_TYPELIB_PATH=/opt/intel/dlstreamer/gstreamer/lib/girepository-1.0:/opt/intel/dlstreamer/lib/girepository-1.0:/usr/lib64/girepository-1.0
 
 RUN \
     usermod -a -G video dlstreamer && \

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2018-2025 Intel Corporation
+ * Copyright (C) 2018-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -44,6 +44,15 @@ std::vector<std::string> splitString(const std::string &input, char delimiter) {
     std::vector<std::string> tokens;
     splitString(input, std::back_inserter(tokens), delimiter);
     return tokens;
+}
+
+void parseFilterConfig(const std::string &config_str, std::unordered_set<std::string> &filtered_set, char delimiter) {
+    auto labels = splitString(config_str, delimiter);
+    for (const auto &label : labels) {
+        if (filtered_set.count(label) == 0) {
+            filtered_set.insert(label);
+        }
+    }
 }
 
 std::map<std::string, std::string> stringToMap(const std::string &s, char rec_delim /*= ','*/,

@@ -122,9 +122,13 @@ bool convertYoloMeta2ModelApi(const std::string model_file, ov::AnyMap &modelCon
             break;
         }
     }
-    if (!type_found && yaml_json.contains("description") && yaml_json["description"].is_string()) {
-        throw std::runtime_error("Unsupported YOLO model type: " + yaml_json["description"].get<std::string>());
-        return false;
+    if (!type_found) {
+        if (yaml_json.contains("end2end") && yaml_json["end2end"].is_boolean() && yaml_json["end2end"].get<bool>()) {
+            model_type = "yolo_v26";
+        } else {
+            model_type = "yolo_v8";
+        }
+        GST_WARNING("YOLO model type derived from end2end flag: %s", model_type.c_str());
     }
 
     bool task_found = false;
@@ -596,19 +600,20 @@ std::map<std::string, GstStructure *> get_model_info_preproc(const std::shared_p
             g_value_unset(&gvalue);
         }
         if (element.first == "reverse_input_channels") {
-            GValue gvalue = G_VALUE_INIT;
-            g_value_init(&gvalue, G_TYPE_INT);
-            g_value_set_int(&gvalue, gint(false));
-
             std::transform(element.second.as<std::string>().begin(), element.second.as<std::string>().end(),
                            element.second.as<std::string>().begin(), ::tolower);
 
-            if (element.second.as<std::string>() == "yes" || element.second.as<std::string>() == "true")
-                g_value_set_int(&gvalue, gint(true));
-
-            gst_structure_set_value(s, "reverse_input_channels", &gvalue);
-            GST_INFO("[get_model_info_preproc] reverse_input_channels: %s", element.second.as<std::string>().c_str());
-            g_value_unset(&gvalue);
+            GValue color_value = G_VALUE_INIT;
+            g_value_init(&color_value, G_TYPE_STRING);
+            if (element.second.as<std::string>() == "yes" || element.second.as<std::string>() == "true") {
+                g_value_set_string(&color_value, "RGB");
+            } else {
+                g_value_set_string(&color_value, "BGR");
+            }
+            gst_structure_set_value(s, "color_space", &color_value);
+            GST_INFO("[get_model_info_preproc] (reverse_input_channels) color_space: %s",
+                     g_value_get_string(&color_value));
+            g_value_unset(&color_value);
         }
         if (element.first == "reshape") {
             std::vector<int> size_values = element.second.as<std::vector<int>>();
@@ -741,12 +746,20 @@ std::map<std::string, GstStructure *> get_model_info_postproc(const std::shared_
             GST_INFO("[get_model_info_postproc] normalization_scale: %f", element.second.as<double>());
             g_value_unset(&gvalue);
         }
-        if (element.first.find("task") != std::string::npos) {
+        if (element.first == "task") {
             GValue gvalue = G_VALUE_INIT;
             g_value_init(&gvalue, G_TYPE_STRING);
             g_value_set_string(&gvalue, element.second.as<std::string>().c_str());
             gst_structure_set_value(s, "anomaly_task", &gvalue);
             GST_INFO("[get_model_info_postproc] anomaly_task: %s", element.second.as<std::string>().c_str());
+            g_value_unset(&gvalue);
+        }
+        if (element.first == "task_type") {
+            GValue gvalue = G_VALUE_INIT;
+            g_value_init(&gvalue, G_TYPE_STRING);
+            g_value_set_string(&gvalue, element.second.as<std::string>().c_str());
+            gst_structure_set_value(s, "anomaly_task_type", &gvalue);
+            GST_INFO("[get_model_info_postproc] anomaly_task_type: %s", element.second.as<std::string>().c_str());
             g_value_unset(&gvalue);
         }
         if (element.first.find("labels") != std::string::npos) {
