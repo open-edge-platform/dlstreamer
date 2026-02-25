@@ -45,7 +45,7 @@ Requires: openexr
 Requires: tbb
 Requires: libsoup3
 Requires: intel-media-driver
-Requires: openvino-2025.6.0
+Requires: openvino-2026.0.0
 
 %description
 This package contains Intel DL Streamer.
