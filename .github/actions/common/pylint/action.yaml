@@ -76,10 +76,11 @@ runs:
       env:
         path: ${{ inputs.path }}
         name: ${{ inputs.name }}
+        OUTPUT_FILE: ${{ inputs.output-file }}
       run: |
         # Analyze from the full temporary file for complete statistics
-        temp_output="${{ inputs.output-file }}.full"
-        output_file="${{ inputs.output-file }}"
+        temp_output="${OUTPUT_FILE}.full"
+        output_file="${OUTPUT_FILE}"
 
         if [ -f "${temp_output}" ]; then
           # Count issues by severity from full output
