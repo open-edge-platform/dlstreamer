@@ -97,11 +97,11 @@ if [[ ! " jammy noble " =~  ${VERSION_CODENAME}  ]]; then
     echo_color "Ubuntu version ${VERSION_CODENAME} not supported" "red"
 else
     if [[ "${VERSION_CODENAME}" == "jammy" ]]; then
-        sudo bash -c 'echo "deb [signed-by=/usr/share/keyrings/intel-gpg-archive-keyring.gpg] https://apt.repos.intel.com/openvino/2025 ubuntu22 main" | sudo tee /etc/apt/sources.list.d/intel-openvino-2025.list'
+        sudo bash -c 'echo "deb [signed-by=/usr/share/keyrings/intel-gpg-archive-keyring.gpg] https://apt.repos.intel.com/openvino ubuntu22 main" | sudo tee /etc/apt/sources.list.d/intel-openvino.list'
         echo_color "Completed to configure OpenVINO™ repository access before DL Streamer installation for Ubuntu 22" "magenta"
     fi
     if [[ "${VERSION_CODENAME}" == "noble" ]]; then
-        sudo bash -c 'echo "deb [signed-by=/usr/share/keyrings/intel-gpg-archive-keyring.gpg] https://apt.repos.intel.com/openvino/2025 ubuntu24 main" | sudo tee /etc/apt/sources.list.d/intel-openvino-2025.list'
+        sudo bash -c 'echo "deb [signed-by=/usr/share/keyrings/intel-gpg-archive-keyring.gpg] https://apt.repos.intel.com/openvino ubuntu24 main" | sudo tee /etc/apt/sources.list.d/intel-openvino.list'
         echo_color "Completed to configure OpenVINO™ repository access before DL Streamer installation for Ubuntu 24" "magenta"
     fi
 fi
