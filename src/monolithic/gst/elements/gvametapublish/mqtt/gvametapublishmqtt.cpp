@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2018-2026 Intel Corporation
+ * Copyright (C) 2018-2025 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -18,7 +18,6 @@ using json = nlohmann::json;
 #include <uuid/uuid.h>
 
 #include <cstdint>
-#include <cstdlib>
 #include <string>
 #include <thread>
 
