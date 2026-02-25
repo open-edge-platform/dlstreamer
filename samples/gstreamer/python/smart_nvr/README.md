@@ -80,12 +80,12 @@ The application creates a GStreamer `pipeline` object that combines predefined G
 * __gvawatermark__ - Renders detection results on the video frames
 * __gvarecorder_py__ - Custom Python element that segments the video into 10-second chunks and stores metadata with detected objects and events
 
-The pipeline is configured with the downloaded video file, detection model, and optimal inference device for the current hardware platform.
+The pipeline is configured with the downloaded video file and  detection model, and it uses GPU inference device by default.
 
 ```code
 pipeline = Gst.parse_launch(
         f"filesrc location={video_file} ! decodebin3 ! "
-        f"gvadetect model={detection_model} device={DEVICE} batch-size=4 threshold=0.7 ! queue ! "
+        f"gvadetect model={detection_model} device=GPU batch-size=4 threshold=0.7 ! queue ! "
         f"gvaanalytics_py distance=500 angle=-135,-45 ! gvawatermark displ-cfg=draw-txt-bg=true ! " 
         f"gvarecorder_py location=output.mp4 max-time=10")
 ```

@@ -95,13 +95,9 @@ if __name__ == '__main__':
     video_file = check_download_video_file()
     detection_model = check_download_detection_model()
 
-    # Select inference device
-    devices = ov.Core().available_devices
-    DEVICE = "GPU" if "GPU" in devices else "CPU"
-
     # Create GStreamer pipeline and parametrize with downloaded models and video files
     PIPELINE_STR = f"filesrc location={video_file} ! decodebin3 ! " \
-        f"gvadetect model={detection_model} device={DEVICE} batch-size=4 threshold=0.7 ! queue ! " \
+        f"gvadetect model={detection_model} device=GPU batch-size=4 threshold=0.7 ! queue ! " \
         f"gvaanalytics_py distance=500 angle=-135,-45 ! gvawatermark displ-cfg=draw-txt-bg=true ! " \
         f"gvarecorder_py location=output.mp4 max-time=10"
     print(f"Constructed Pipeline: \"{PIPELINE_STR}\"")
