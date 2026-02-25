@@ -12,14 +12,23 @@ logger = logging.getLogger(__name__)
 class DeviceGenerator:
     def __init__(self):
         self.tracked_elements = []
-        self.devices = []
+        self.devices = Core().available_devices
+        logger.info("Devices detected on system: %s", str(self.devices))
         self.device_groups = []
         self.pipeline = []
         self.first_iteration = True
 
+    def set_allowed_devices(self, devices):
+        _devices = Core().available_devices
+        for device in devices:
+            if not any(device in d for d in _devices):
+                raise RuntimeError("Device %s is not supported by this system! Available devices: %s" % (device, str(_devices))) # pylint: disable=line-too-long
+        self.devices = devices        
+
     def init_pipeline(self, pipeline):
+        logger.info("Devices allowed for optimization: %s", str(self.devices))
+
         self.tracked_elements = []
-        self.devices = Core().available_devices
         self.device_groups = []
         self.pipeline = pipeline.copy()
         self.first_iteration = True

@@ -14,7 +14,7 @@ permissions: {}
 jobs:
   build-docs:
     name: Build DL Streamer documentation
-    runs-on: ubuntu-latest
+    runs-on: dlstreamer
     permissions:
       contents: read
     steps:

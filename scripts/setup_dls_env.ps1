@@ -16,6 +16,37 @@ if (-Not (Test-Path $DLSTREAMER_TMP)) {
 	mkdir $DLSTREAMER_TMP
 }
 
+Write-Host "################################### Checking Visual C++ Runtime #######################################"
+$MSVC_RUNTIME_INSTALLED = $false
+try {
+	$msvcVersion = (Get-ItemProperty -Path "HKLM:\SOFTWARE\Wow6432Node\Microsoft\VisualStudio\14.0\VC\Runtimes\X64" -Name "Version" -ErrorAction SilentlyContinue).Version
+	if ($msvcVersion) {
+		Write-Host "Visual C++ Runtime already installed: $msvcVersion"
+		$MSVC_RUNTIME_INSTALLED = $true
+	}
+}
+catch {
+}
+
+if (-Not $MSVC_RUNTIME_INSTALLED) {
+	Write-Host "Visual C++ Runtime not found, downloading and installing..."
+	$MSVC_INSTALLER = "$DLSTREAMER_TMP\vc_redist.x64.exe"
+	if (-Not (Test-Path $MSVC_INSTALLER)) {
+		Invoke-WebRequest -Uri "https://aka.ms/vc14/vc_redist.x64.exe" -OutFile $MSVC_INSTALLER
+	}
+	$process = Start-Process -Wait -PassThru -FilePath $MSVC_INSTALLER -ArgumentList "/install", "/quiet", "/norestart"
+	if ($process.ExitCode -eq 0 -or $process.ExitCode -eq 3010) {
+		Write-Host "Visual C++ Runtime installed successfully"
+		if ($process.ExitCode -eq 3010) {
+			Write-Host "Note: A system restart may be required to complete the installation"
+		}
+	}
+	else {
+		Write-Error "Visual C++ Runtime installation failed with exit code: $($process.ExitCode)"
+	}
+}
+Write-Host "############################################### Done ##################################################"
+
 # Check if GStreamer is installed and if it's the correct version
 $GSTREAMER_NEEDS_INSTALL = $false
 $GSTREAMER_INSTALL_MODE = "none"  # values: none | fresh | reinstall
