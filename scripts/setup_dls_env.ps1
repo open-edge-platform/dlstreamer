@@ -16,15 +16,36 @@ if (-Not (Test-Path $DLSTREAMER_TMP)) {
 	mkdir $DLSTREAMER_TMP
 }
 
-# Install Visual Studio Build Tools if not already installed
-if (-Not (Test-Path "C:\\BuildTools")) {
-	Write-Host "###################################### Installing VS BuildTools #######################################"
-	Invoke-WebRequest -OutFile $DLSTREAMER_TMP\\vs_buildtools.exe -Uri https://aka.ms/vs/17/release/vs_buildtools.exe
-	Start-Process -Wait -FilePath $DLSTREAMER_TMP\vs_buildtools.exe -ArgumentList "--quiet", "--wait", "--norestart", "--nocache", "--installPath", "C:\\BuildTools", "--add", "Microsoft.VisualStudio.Component.VC.Tools.x86.x64", "--add", "Microsoft.VisualStudio.ComponentGroup.NativeDesktop.Core"
-	Write-Host "############################################### Done ##################################################"
-} else {
-	Write-Host "################################# VS BuildTools already installed #####################################"
+Write-Host "################################### Checking Visual C++ Runtime #######################################"
+$MSVC_RUNTIME_INSTALLED = $false
+try {
+	$msvcVersion = (Get-ItemProperty -Path "HKLM:\SOFTWARE\Wow6432Node\Microsoft\VisualStudio\14.0\VC\Runtimes\X64" -Name "Version" -ErrorAction SilentlyContinue).Version
+	if ($msvcVersion) {
+		Write-Host "Visual C++ Runtime already installed: $msvcVersion"
+		$MSVC_RUNTIME_INSTALLED = $true
+	}
 }
+catch {
+}
+
+if (-Not $MSVC_RUNTIME_INSTALLED) {
+	Write-Host "Visual C++ Runtime not found, downloading and installing..."
+	$MSVC_INSTALLER = "$DLSTREAMER_TMP\vc_redist.x64.exe"
+	if (-Not (Test-Path $MSVC_INSTALLER)) {
+		Invoke-WebRequest -Uri "https://aka.ms/vc14/vc_redist.x64.exe" -OutFile $MSVC_INSTALLER
+	}
+	$process = Start-Process -Wait -PassThru -FilePath $MSVC_INSTALLER -ArgumentList "/install", "/quiet", "/norestart"
+	if ($process.ExitCode -eq 0 -or $process.ExitCode -eq 3010) {
+		Write-Host "Visual C++ Runtime installed successfully"
+		if ($process.ExitCode -eq 3010) {
+			Write-Host "Note: A system restart may be required to complete the installation"
+		}
+	}
+	else {
+		Write-Error "Visual C++ Runtime installation failed with exit code: $($process.ExitCode)"
+	}
+}
+Write-Host "############################################### Done ##################################################"
 
 # Check if GStreamer is installed and if it's the correct version
 $GSTREAMER_NEEDS_INSTALL = $false
