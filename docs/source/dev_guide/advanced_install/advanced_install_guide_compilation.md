@@ -114,7 +114,7 @@ packages:
 
   In case of any problems with the installation scripts, [Follow OpenVINO™
   Toolkit instruction guide
-  here](https://docs.openvino.ai/2026/get-started/install-openvino.html)
+  here](https://docs.openvino.ai/2026/get-started/install-openvino/install-openvino-linux.html)
   to install OpenVINO™ on Linux.
 
   - Environment: **Runtime**
@@ -151,7 +151,7 @@ packages:
 ### [Optional] Step 6: Install OpenVINO™ GenAI (only for Ubuntu)
 
 To use [gvagenai element](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dl-streamer/elements/gvagenai.html)
-there is need to install [OpenVINO GenAI archive](https://docs.openvino.ai/2026/get-started/install-openvino.html) package.
+there is need to install [OpenVINO GenAI archive](https://docs.openvino.ai/2026/get-started/install-openvino/install-openvino-genai.html) package.
 
 <!--hide_directive::::{tab-set}
 :::{tab-item}hide_directive--> Ubuntu 24
