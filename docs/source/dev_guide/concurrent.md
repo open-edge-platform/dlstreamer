@@ -40,9 +40,9 @@ A Python script (`concurrent_dls_and_ds.py`) is provided to facilitate this conc
 python3 ./concurrent_dls_and_ds.py <input> LPR <output>
 ```
 
-- <input> can be an RTSP or HTTPS stream, or a file.
+- `input` can be an RTSP or HTTPS stream, or a file.
 - License Plate Recognition (LPR) is currently the only supported pipeline.
-- <output> is the filename. For example, the `Output.mp4` or `Output` parameters
+- `output` is the filename. For example, the `Output.mp4` or `Output` parameters
   will create the `Output_dls.mp4` (DL Streamer output) and/or `Output_ds.mp4`
   (DeepStream output) files.
 

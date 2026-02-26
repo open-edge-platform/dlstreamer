@@ -54,6 +54,9 @@ class DLSOptimizer:
     def set_multistream_fps_limit(self, limit):
         self._multistream_fps_limit = limit
 
+    def set_allowed_devices(self, devices):
+        self._generators["device"].set_allowed_devices(devices)
+
     ################################### Main Logic ################################################
 
     # Steps of pipeline optimization:
@@ -69,10 +72,12 @@ class DLSOptimizer:
         if re.search("[^a-zA-Z]tee[^a-zA-Z]", pipeline):
             raise RuntimeError("Pipelines containing the tee element are currently not supported!")
 
+        initial_pipeline = pipeline
         pipeline = pipeline.split("!")
 
         # Measure the performance of the original pipeline
         try:
+            logger.info("Measuring performance of the original pipeline...")
             fps = sample_pipeline([pipeline], self._sample_duration)
         except Exception as e:
             logger.error("Pipeline failed to start, unable to measure fps: %s", e)
@@ -87,7 +92,10 @@ class DLSOptimizer:
             preproc_pipeline = preprocess_pipeline(preproc_pipeline)
             preproc_pipeline = preproc_pipeline.split(" ! ")
 
-            sample_pipeline([preproc_pipeline], self._sample_duration)
+            if preproc_pipeline != pipeline:
+                logger.info("Measuring performance of the original pipeline after pre-processing optimizations...")
+                sample_pipeline([preproc_pipeline], self._sample_duration)
+
             pipeline = preproc_pipeline
         except Exception:
             logger.error("Pipeline pre-processing failed, using original pipeline instead")
@@ -95,13 +103,17 @@ class DLSOptimizer:
         if self._enable_cross_stream_batching:
             pipeline = add_instance_ids(pipeline)
 
+        logger.info("Starting optimization process for FPS improvements...")
         start_time = time.time()
         (best_pipeline, best_fps) = self._optimize_pipeline(pipeline, fps, start_time, 1)
 
         # Reconstruct the pipeline as a single string and return it.
-        logger.info("Initial pipeline FPS: %.2f", initial_fps)
-        logger.info("pipeline: %s", str(best_pipeline))
-        return "!".join(best_pipeline), best_fps
+        _reconstructed_pipeline = "!".join(best_pipeline)
+
+        # Display summary of the optimization process, showing the improvement over the original pipeline if any.
+        self._display_summary(_reconstructed_pipeline, best_fps, initial_pipeline, initial_fps)
+
+        return _reconstructed_pipeline, best_fps
 
     def optimize_for_streams(self, initial_pipeline):
         # Test for tee element presence
@@ -164,6 +176,20 @@ class DLSOptimizer:
                     logger.debug("Pipeline failed to start: %s", e)
 
         return best_pipeline, best_fps
+
+    def _display_summary(self, best_pipeline, best_fps, initial_pipeline, initial_fps):
+        logger.info("=============================== SUMMARY ==============================")
+        if best_fps > initial_fps:
+            logger.info("Optimized pipeline found with %.2f fps improvement over the original pipeline.", best_fps - initial_fps)
+            logger.info("Original pipeline FPS: %.2f", initial_fps)
+            logger.info("Optimized pipeline: %s", str(best_pipeline))
+            logger.info("Optimized pipeline FPS: %.2f", best_fps)
+        else:
+            logger.info("No optimized pipeline found that outperforms the original pipeline.")
+            logger.info("Original pipeline: %s", str(initial_pipeline))
+            logger.info("Original pipeline FPS: %.2f", initial_fps)
+        logger.info("======================================================================")
+
 
 ##################################### Pipeline Running ############################################
 
