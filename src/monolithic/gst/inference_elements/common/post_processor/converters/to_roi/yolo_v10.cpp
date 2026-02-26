@@ -28,7 +28,7 @@ void YOLOv10Converter::parseOutputBlob(const float *data, const std::vector<size
     }
 
     size_t dims_size = dims.size();
-    const float *__restrict__ output_data = data;
+    const float *__restrict output_data = data;
 
     const auto [input_width, input_height] =
         std::make_pair(getModelInputImageInfo().width, getModelInputImageInfo().height);
