@@ -382,6 +382,7 @@ setx PKG_CONFIG_PATH "$GSTREAMER_DEST_FOLDER\1.0\msvc_x86_64\lib\pkgconfig"
 $env:PKG_CONFIG_PATH = "$GSTREAMER_DEST_FOLDER\1.0\msvc_x86_64\lib\pkgconfig"
 . "$OPENVINO_DEST_FOLDER\setupvars.ps1"
 $env:MSBUILDDISABLENODEREUSE=1
+$DLSTREAMER_SRC_LOCATION = $PWD.Path
 Write-Section "Done"
 
 # ============================================================================
@@ -392,10 +393,11 @@ if (Test-Path "${DLSTREAMER_TMP}\build") {
 	Remove-Item -LiteralPath "${DLSTREAMER_TMP}\build" -Recurse
 }
 mkdir "${DLSTREAMER_TMP}\build"
+Set-Location -Path "${DLSTREAMER_TMP}\build"
 
 Write-Section "Running CMake"
 $VCPKG_CMAKE = Join-Path $vsPath "VC\vcpkg\scripts\buildsystems\vcpkg.cmake"
-cmake -DCMAKE_TOOLCHAIN_FILE="${VCPKG_CMAKE}" "$PWD"
+cmake -DCMAKE_TOOLCHAIN_FILE="${VCPKG_CMAKE}" "$DLSTREAMER_SRC_LOCATION"
 if ($LASTEXITCODE -eq 0) {
 	Write-Section "Building DL Streamer"
 	cmake --build . --parallel $env:NUMBER_OF_PROCESSORS --target ALL_BUILD --config Release
