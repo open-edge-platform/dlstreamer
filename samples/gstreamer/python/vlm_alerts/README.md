@@ -115,3 +115,10 @@ results/<ModelName>-<video_stem>.mp4
 ```
 
 The `.jsonl` file contains one model response per processed frame and can be used to trigger downstream alerting logic.
+
+### Help
+
+To display all available arguments and defaults:
+
+```bash
+python3 vlm_alerts.py --help

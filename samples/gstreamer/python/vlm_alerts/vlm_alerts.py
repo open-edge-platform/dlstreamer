@@ -19,9 +19,9 @@ from pathlib import Path
 from typing import Tuple, Optional
 
 import gi
-from gi.repository import Gst, GLib, GstPbutils  # pylint: disable=no-name-in-module
 gi.require_version("Gst", "1.0")
 gi.require_version("GstPbutils", "1.0")
+from gi.repository import Gst, GLib, GstPbutils  # pylint: disable=no-name-in-module, wrong-import-position
 
 BASE_DIR = Path(__file__).resolve().parent
 
