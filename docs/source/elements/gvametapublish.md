@@ -127,10 +127,24 @@ listed above.
     "ssl_private_key": {
       "type": ["string", "null"],
       "description": "The path to the client's private key file. Default: null."
-    }
+    },
+    
   },
   "required": ["address"]
 }
+```
+
+**Proxy warning:**
+
+In some environments, the Paho MQTT C client may ignore `no_proxy` and attempt to route MQTT traffic through the
+configured proxy. If you encounter connection or publish failures, disable proxy environment variables for the
+`gst-launch-1.0` process before running the pipeline.
+
+Example (Linux shell):
+
+```bash
+env -u http_proxy -u https_proxy -u HTTP_PROXY -u HTTPS_PROXY -u all_proxy -u ALL_PROXY -u no_proxy -u NO_PROXY \
+  gst-launch-1.0 ...
 ```
 
 **Warning:**
