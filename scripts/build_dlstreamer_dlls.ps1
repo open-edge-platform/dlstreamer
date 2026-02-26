@@ -381,7 +381,8 @@ Write-Section "Setting paths"
 setx PKG_CONFIG_PATH "$GSTREAMER_DEST_FOLDER\1.0\msvc_x86_64\lib\pkgconfig"
 $env:PKG_CONFIG_PATH = "$GSTREAMER_DEST_FOLDER\1.0\msvc_x86_64\lib\pkgconfig"
 . "$OPENVINO_DEST_FOLDER\setupvars.ps1"
-$env:MSBUILDDISABLENODEREUSE=1
+$env:MSBUILDDISABLENODEREUSE = 1
+$env:UseMultiToolTask = "true"
 $DLSTREAMER_SRC_LOCATION = $PWD.Path
 Write-Section "Done"
 
