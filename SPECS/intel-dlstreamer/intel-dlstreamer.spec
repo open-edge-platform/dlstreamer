@@ -72,7 +72,7 @@ cd build
 # Set up PKG_CONFIG_PATH for packages
 export PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig/:/opt/intel/dlstreamer/gstreamer/lib/pkgconfig:/usr/lib/pkgconfig:/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH
 
-source /opt/intel/openvino_2025/setupvars.sh
+source /opt/intel/openvino_2026/setupvars.sh
 # Configure with optimized dependencies
 cmake -DCMAKE_INSTALL_PREFIX=/opt/intel/dlstreamer \
       -DCMAKE_BUILD_TYPE=Release \
