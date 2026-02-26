@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2021-2025 Intel Corporation
+ * Copyright (C) 2021-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -81,10 +81,13 @@ PostProcessorImpl::PostProcessorImpl(Initializer initializer) {
             setDefaultConverter(model_proc_outputs.cbegin()->second, initializer.model_outputs,
                                 initializer.converter_type);
 
-            if ((initializer.converter_type == ConverterType::TO_ROI) &&
-                !gst_structure_has_field(model_proc_outputs.cbegin()->second, "confidence_threshold")) {
-                gst_structure_set(model_proc_outputs.cbegin()->second, "confidence_threshold", G_TYPE_DOUBLE,
-                                  initializer.threshold, NULL);
+            if (initializer.converter_type == ConverterType::TO_ROI) {
+                // Only set threshold if user explicitly provided one OR model has no threshold
+                if (initializer.threshold_explicitly_set || !gst_structure_has_field(model_proc_outputs.cbegin()->second, "confidence_threshold")) {
+                    gst_structure_set(model_proc_outputs.cbegin()->second, "confidence_threshold", G_TYPE_DOUBLE,
+                                      initializer.threshold, NULL);
+                }
+                // Otherwise keep model's existing threshold
             }
 
             const std::vector<std::string> labels =
@@ -102,8 +105,12 @@ PostProcessorImpl::PostProcessorImpl(Initializer initializer) {
                 }
 
                 if (initializer.converter_type == ConverterType::TO_ROI) {
-                    gst_structure_set(model_proc_output.second, "confidence_threshold", G_TYPE_DOUBLE,
-                                      initializer.threshold, NULL);
+                    // Only set threshold if user explicitly provided one OR model has no threshold
+                    if (initializer.threshold_explicitly_set || !gst_structure_has_field(model_proc_output.second, "confidence_threshold")) {
+                        gst_structure_set(model_proc_output.second, "confidence_threshold", G_TYPE_DOUBLE,
+                                          initializer.threshold, NULL);
+                    }
+                    // Otherwise keep model's existing threshold
                 }
 
                 const std::vector<std::string> labels =
