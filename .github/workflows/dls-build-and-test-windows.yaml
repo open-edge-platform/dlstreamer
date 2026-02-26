@@ -20,10 +20,8 @@ env:
   DLS_REPO_TARGET_DIRECTORY: 'C:\dlstreamer_repo'
   DLS_BUILD_DIRECTORY: '$env:TEMP\dlstreamer_tmp\build'
   DLS_DLL_TARGET_DIRECTORY: 'C:\dlstreamer'
-  OPENVINO_RUNTIME_DIRECTORY: 'C:\openvino\runtime'
+  OPENVINO_RUNTIME_DIRECTORY: '$env:LOCALAPPDATA\Programs\openvino\runtime'
   GSTREAMER_DIRECTORY: 'C:\gstreamer'
-  BUILD_TOOLS_DIRECTORY: 'C:\BuildTools'
-  VCPKG_DIRECTORY: 'C:\vcpkg'
   MODELS_PATH: 'C:\models\models'
   VIDEO_INPUTS_PATH: 'C:\videos\videos'
   TESTS_RESULTS_DIRECTORY: 'C:\dlstreamer_test_results'
@@ -193,8 +191,6 @@ jobs:
             "OpenVINO Runtime" = $env:OPENVINO_RUNTIME_DIRECTORY
             "DLStreamer"       = $env:DLS_DLL_TARGET_DIRECTORY
             "GStreamer"        = $env:GSTREAMER_DIRECTORY
-            "Build Tools"      = $env:BUILD_TOOLS_DIRECTORY
-            "vcpkg"            = $env:VCPKG_DIRECTORY
             "Python Executable"= $env:PYTHON_EXE_PATH
           }
 
@@ -226,11 +222,6 @@ jobs:
             "${env:OPENVINO_RUNTIME_DIRECTORY}\3rdparty\tbb\bin",
             "${env:DLS_DLL_TARGET_DIRECTORY}",
             "${env:GSTREAMER_DIRECTORY}\1.0\msvc_x86_64\bin",
-            "${env:BUILD_TOOLS_DIRECTORY}\MSBuild\Current\Bin\amd64",
-            "${env:BUILD_TOOLS_DIRECTORY}\VC\Tools\MSVC\14.44.35207\bin\HostX86\x86",
-            "${env:BUILD_TOOLS_DIRECTORY}\Common7\IDE",
-            "${env:BUILD_TOOLS_DIRECTORY}\Common7\Tools",
-            "${env:VCPKG_DIRECTORY}",
             "C:\Windows\system32",
             "C:\Windows"
           )
@@ -241,7 +232,7 @@ jobs:
             Write-Host "Adding to PATH: $p"
           }
 
-          $gstPluginPath = "${env:GSTREAMER_DIRECTORY}\1.0\msvc_x86_64\lib\gstreamer-1.0;${env:DLS_DLL_TARGET_DIRECTORY}"
+          $gstPluginPath = "${env:DLS_DLL_TARGET_DIRECTORY}"
           echo "GST_PLUGIN_PATH=$gstPluginPath" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
           Write-Host "----------------------------------------------"
