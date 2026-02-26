@@ -57,17 +57,17 @@ This script will:
 
 ## Building and Installing Packages (Developer Testing)
 
-### 1. Install OpenVINO 2025.4
+### 1. Install OpenVINO 2026.0
 
 ```sh
 sudo rm -rf /opt/intel/openvino*
-wget https://storage.openvinotoolkit.org/repositories/openvino/packages/2025.4/linux/openvino_toolkit_ubuntu24_2025.4.0.20398.8fdad55727d_x86_64.tgz
-tar -xvzf openvino_toolkit_ubuntu24_2025.4.0.20398.8fdad55727d_x86_64.tgz
-sudo mv openvino_toolkit_ubuntu24_2025.4.0.20398.8fdad55727d_x86_64 /opt/intel/openvino_2025.4.0
-cd /opt/intel/openvino_2025.4.0/
+wget https://storage.openvinotoolkit.org/repositories/openvino/packages/2026.0/linux/openvino_toolkit_ubuntu24_2026.0.0.20965.c6d6a13a886_x86_64.tgz
+tar -xvzf openvino_toolkit_ubuntu24_2026.0.0.20965.c6d6a13a886_x86_64.tgz
+sudo mv openvino_toolkit_ubuntu24_2026.0.0.20965.c6d6a13a886_x86_64 /opt/intel/openvino_2026.0.0
+cd /opt/intel/openvino_2026.0.0/
 sudo -E python3 -m pip install -r ./python/requirements.txt
 cd /opt/intel
-sudo ln -s openvino_2025.4.0 openvino_2025
+sudo ln -s openvino_2026.0.0 openvino_2026
 ```
 
 ### 2. Uninstall Existing DL Streamer
@@ -108,7 +108,7 @@ sudo dnf install -y --setopt=install_weak_deps=False ~/rpmbuild/RPMS/x86_64/inte
 Set up the environment:
 
 ```sh
-source /opt/intel/openvino_2025/setupvars.sh
+source /opt/intel/openvino_2026/setupvars.sh
 source /opt/intel/dlstreamer/setupvars.sh
 ```
 
@@ -165,7 +165,7 @@ sudo dnf install --setopt=install_weak_deps=False intel-dlstreamer
 Set up the environment:
 
 ```sh
-source /opt/intel/openvino_2025/setupvars.sh
+source /opt/intel/openvino_2026/setupvars.sh
 source /opt/intel/dlstreamer/setupvars.sh
 ```
 
