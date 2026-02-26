@@ -217,9 +217,11 @@ jobs:
       - name: "${{ env.EGEAR }} Setup static Windows PATH for following tests"
         shell: powershell
         run: |
+          $openvinoRuntimeDir = $ExecutionContext.InvokeCommand.ExpandString($env:OPENVINO_RUNTIME_DIRECTORY)
+          
           $customPaths = @(
-            "${env:OPENVINO_RUNTIME_DIRECTORY}\bin\intel64\Release",
-            "${env:OPENVINO_RUNTIME_DIRECTORY}\3rdparty\tbb\bin",
+            "$openvinoRuntimeDir\bin\intel64\Release",
+            "$openvinoRuntimeDir\3rdparty\tbb\bin",
             "${env:DLS_DLL_TARGET_DIRECTORY}",
             "${env:GSTREAMER_DIRECTORY}\1.0\msvc_x86_64\bin",
             "C:\Windows\system32",
