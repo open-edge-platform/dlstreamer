@@ -18,7 +18,7 @@ on:
 permissions: {}
 env:
   DLS_REPO_TARGET_DIRECTORY: 'C:\dlstreamer_repo'
-  DLS_BUILD_DIRECTORY: 'C:\dlstreamer_tmp\build'
+  DLS_BUILD_DIRECTORY: '$env:TEMP\dlstreamer_tmp\build'
   DLS_DLL_TARGET_DIRECTORY: 'C:\dlstreamer'
   OPENVINO_RUNTIME_DIRECTORY: 'C:\openvino\runtime'
   GSTREAMER_DIRECTORY: 'C:\gstreamer'
