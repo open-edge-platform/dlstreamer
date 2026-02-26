@@ -204,6 +204,7 @@ class GvaMetaPublishMqttPrivate {
         if (j.contains("ssl_private_key_pwd") && !j["ssl_private_key_pwd"].is_null()) {
             _ssl_private_key_pwd = j["ssl_private_key_pwd"].get<std::string>();
         }
+
         return true;
     }
 
