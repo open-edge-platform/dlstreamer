@@ -18,7 +18,7 @@ The sample requires Python libraries beyond the DLStreamer distribution to downl
 Install dependencies:
 
 ```sh
-python3 -m venv .smart_nvr_venv --system-site-packages
+python3 -m venv .smart_nvr_venv
 source .smart_nvr_venv/bin/activate
 curl -LO https://raw.githubusercontent.com/openvinotoolkit/openvino.genai/refs/heads/releases/2026/0/samples/export-requirements.txt
 pip install -r export-requirements.txt -r requirements.txt
