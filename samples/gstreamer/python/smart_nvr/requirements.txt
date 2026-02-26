@@ -1,3 +1,4 @@
 PyGObject==3.50.0
+opencv-python-headless
 onnx
 onnxruntime
