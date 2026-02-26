@@ -120,16 +120,21 @@ fi
 
 DECODE_ELEMENT="! decodebin3 !"
 
-if [[ "$PPBKEND" == "" ]]; then
-  PREPROC_BACKEND="opencv"
-  if [[ "$DEVICE" == "GPU" ]]; then
-    PREPROC_BACKEND="va-surface-sharing"
-  fi
+if [[ -z "$PPBKEND" ]]; then
+  case "$DEVICE" in
+    "CPU") PREPROC_BACKEND="opencv" ;;
+    "GPU") PREPROC_BACKEND="va-surface-sharing" ;;
+    "NPU") PREPROC_BACKEND="va" ;;
+    *) echo "Error: Unsupported DEVICE value: $DEVICE"
+       exit 1 ;;
+  esac
 else
-  if [[ "$PPBKEND" == "ie" ]] || [[ "$PPBKEND" == "opencv" ]] || [[ "$PPBKEND" == "va" ]] || [[ "$PPBKEND" == "va-surface-sharing" ]]; then
-    PREPROC_BACKEND=${PPBKEND}
+  valid_backends=("ie" "opencv" "va" "va-surface-sharing")
+  if [[ " ${valid_backends[*]} " =~ " $PPBKEND " ]]; then
+    PREPROC_BACKEND="$PPBKEND"
   else
-    echo "Error wrong value for PREPROC_BACKEND parameter. Supported values: ie | opencv | va | va-surface-sharing".
+    echo "Error: Wrong value for PREPROC_BACKEND parameter."
+    echo "Supported values: ${valid_backends[*]// / | }"
     exit 1
   fi
 fi
