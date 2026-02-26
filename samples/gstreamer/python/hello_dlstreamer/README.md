@@ -4,50 +4,52 @@ This sample demonstrates how to build a Python application that constructs and e
 
 > filesrc -> decodebin3 -> gvadetect -> gvawatermark -> autovideosink
 
-The individual pipeline stages implement the following functions:
+The pipeline stages implement the following functions:
 
-* __filesrc__ element reads video stream from a local file
-* __decodebin3__ element decodes video stream into individual frames
-* __gvadetect__ element runs AI inference object detection for each frame
-* __gvawatermark__ element draws (overlays) object bounding boxes on top of analyzed frames
-* __autovideosink__ element renders video stream on local display
+* __filesrc__ - reads video from a local file
+* __decodebin3__ - decodes video into individual frames
+* __gvadetect__ - runs AI inference for object detection on each frame
+* __gvawatermark__ - overlays object bounding boxes on frames
+* __autovideosink__ - renders the video stream on the display
 
-In addition, the sample uses 'queue' and 'videoconvert' elements to adapt interface between functional stages. The resulting behavior is similar to [hello_dlstreamer.sh](../../scripts/hello_dlstreamer.sh) using command line.
+The sample inserts also `queue` and `videoconvert` elements to adapt interfaces between stages. The resulting behavior is similar to [hello_dlstreamer.sh](../../scripts/hello_dlstreamer.sh).
 
 ## How It Works
 
 ### STEP 1 - Pipeline Construction
 
-First, the application creates a GStreamer `pipeline` object.
-The sample code demonstrates two methods for pipeline creation:
+The application creates a GStreamer `pipeline` object using one of two methods:
 
-* OPTION A: Use `gst_parse_launch` method to construct the pipeline from a string representation. This is the default method. It uses a single API call to create a set of elements and links them together into a pipeline.
+* [OPTION A](./hello_dlstreamer.py): Use `gst_parse_launch` to construct the pipeline from a string (default method).
     ```code
     pipeline = Gst.parse_launch(...)
     ```
 
-* OPTION B: Use a sequence of GStreamer API calls to create individual elements, configure their properties and link together to form a pipeline. This method allows fine-grained control over pipeline elements.
+* [OPTION B](./hello_dlstreamer.py): Use GStreamer API calls to create, configure, and link individual elements.
     ```code
     element = Gst.ElementFactory.make(...)
     element.set_property(...)
     pipeline.add(element)
     element.link(next_element)
     ```
-Both methods are equivalent and produce same output pipeline.
 
-### STEP 2 - Adding custom probe
+Both methods produce equivalent pipelines.
 
-The application registers a custom callback (GStreamer `probe`) on the sink pad of `gvawatermark` element. The GStreamer pipeline will invoke the callback function on each buffer pushed to the sink pad.
+### STEP 2 - Adding Custom Probe
+
+The application registers a custom callback on the sink pad of the `gvawatermark` element. The callback is invoked on each buffer pushed to the pad.
 
 ```code
 watermarksinkpad = watermark.get_static_pad("sink")
 watermarksinkpad.add_probe(watermark_sink_pad_buffer_probe, ...)
 ```
-In this example, the callback function inspects `GstAnalytics` metadata produced by the `gvadetect` element. The callback counts the number of detected objects in each category, and attaches a custom classification string to the processed frame.
 
-### STEP 3 - Pipeline execution
+The callback inspects `GstAnalytics` metadata from `gvadetect`, counts detected objects by category, and attaches a classification string to the frame.
 
-The last step is to run the pipeline. The application sets the pipeline state to `PLAYING` and implements the message processing loop. Once the input video file is fully replayed, the `filesrc` element will send end-of-stream message.
+### STEP 3 - Pipeline Execution
+
+The application sets the pipeline to `PLAYING` state and processes messages until the input completes.
+
 ```code
 pipeline.set_state(Gst.State.PLAYING)
 terminate = False
@@ -59,8 +61,7 @@ pipeline.set_state(Gst.State.NULL)
 
 ## Running
 
-The sample application requires two local files with input video and an object detection model. Here is an example command line to download sample assets.
-Please note the model download step may take up to several minutes as it includes model quantization to INT8.
+The sample requires a video file and an object detection model. Download sample assets with:
 
 ```sh
 cd <python/hello_dlstreamer directory>
@@ -68,12 +69,16 @@ export MODELS_PATH=${PWD}
 wget https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4
 ../../../download_public_models.sh yolo11n coco128
 ```
-Once assets are downloaded to the local disk, the sample application can be started as any other regular python application.
+> **Note:** This may take several seconds depending on your network speed.
+
+Run the application:
 
 ```sh
 python3 ./hello_dlstreamer.py 1192116-sd_640_360_30fps.mp4 public/yolo11n/INT8/yolo11n.xml
 ```
-The sample opens a window and renders a video stream along with object detection annotations - bounding boxes and object classes.
+
+The sample displays the video stream with object detection annotations (bounding boxes and class labels).
+
 
 ## See also
 * [Samples overview](../../README.md)
