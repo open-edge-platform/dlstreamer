@@ -218,7 +218,7 @@ jobs:
         shell: powershell
         run: |
           $openvinoRuntimeDir = $ExecutionContext.InvokeCommand.ExpandString($env:OPENVINO_RUNTIME_DIRECTORY)
-          
+
           $customPaths = @(
             "$openvinoRuntimeDir\bin\intel64\Release",
             "$openvinoRuntimeDir\3rdparty\tbb\bin",
