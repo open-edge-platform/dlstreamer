@@ -114,7 +114,7 @@ packages:
 
   In case of any problems with the installation scripts, [Follow OpenVINO™
   Toolkit instruction guide
-  here](https://docs.openvino.ai/2026/get-started/install-openvino/install-openvino-linux.html)
+  here](https://docs.openvino.ai/2026/get-started/install-openvino/install-openvino-archive-linux.html)
   to install OpenVINO™ on Linux.
 
   - Environment: **Runtime**
