@@ -188,7 +188,7 @@ jobs:
         shell: powershell
         run: |
           $deps = @{
-            "OpenVINO Runtime" = $env:OPENVINO_RUNTIME_DIRECTORY
+            "OpenVINO Runtime" = $ExecutionContext.InvokeCommand.ExpandString($env:OPENVINO_RUNTIME_DIRECTORY)
             "DLStreamer"       = $env:DLS_DLL_TARGET_DIRECTORY
             "GStreamer"        = $env:GSTREAMER_DIRECTORY
             "Python Executable"= $env:PYTHON_EXE_PATH
