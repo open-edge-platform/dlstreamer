@@ -34,7 +34,7 @@ This guide details the steps to:
 
 - Linux system with `dnf` package manager
 - Sudo privileges
-- [OpenVINO 2025.4](https://storage.openvinotoolkit.org/repositories/openvino/packages/2025.4/linux/openvino_toolkit_ubuntu24_2025.4.0.20398.8fdad55727d_x86_64.tgz) prebuilt binary
+- [OpenVINO 2026.0](https://storage.openvinotoolkit.org/repositories/openvino/packages/2026.0/linux/openvino_toolkit_ubuntu24_2026.0.0.20965.c6d6a13a886_x86_64.tgz) prebuilt binary
 
 ---
 
