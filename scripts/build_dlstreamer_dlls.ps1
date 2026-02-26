@@ -378,12 +378,16 @@ else {
 # Final environment setup
 # ============================================================================
 Write-Section "Setting paths"
+$DLSTREAMER_SRC_LOCATION = $PWD.Path
 setx PKG_CONFIG_PATH "$GSTREAMER_DEST_FOLDER\1.0\msvc_x86_64\lib\pkgconfig"
 $env:PKG_CONFIG_PATH = "$GSTREAMER_DEST_FOLDER\1.0\msvc_x86_64\lib\pkgconfig"
+# Load OpenVINO environment variables
 . "$OPENVINO_DEST_FOLDER\setupvars.ps1"
+# Set up VS environment variables
 $env:MSBUILDDISABLENODEREUSE = 1
 $env:UseMultiToolTask = "true"
-$DLSTREAMER_SRC_LOCATION = $PWD.Path
+$VSDEVSHELL = Join-Path $vsPath "Common7\Tools\Launch-VsDevShell.ps1"
+& $VSDEVSHELL -Arch amd64
 Write-Section "Done"
 
 # ============================================================================
