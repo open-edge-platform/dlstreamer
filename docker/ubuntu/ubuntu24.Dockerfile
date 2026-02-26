@@ -40,7 +40,7 @@ LABEL description="This is the development image of Intel® Deep Learning Stream
 LABEL vendor="Intel Corporation"
 
 ARG GST_VERSION=1.26.6
-ARG OPENVINO_VERSION=2025.4.0
+ARG OPENVINO_VERSION=2026.0.0
 ARG REALSENSE_VERSION=v2.57.5
 
 ARG DLSTREAMER_VERSION=2025.2.0
@@ -132,7 +132,7 @@ RUN \
     pluggy==1.5.0 \
     exceptiongroup==1.2.2 \
     iniconfig==2.0.0 \
-    openvino==2025.4.1
+    openvino==2026.0.0
 
 # hadolint ignore=DL3002
 USER root
@@ -213,7 +213,7 @@ RUN \
     -Dgst-examples=disabled \
     -Ddevtools=disabled \
     -Dorc=disabled \
-    -Dgpl=enabled \
+    -Dgpl=disabled \
     -Dgst-plugins-base:nls=disabled \
     -Dgst-plugins-base:gl=disabled \
     -Dgst-plugins-base:xvideo=enabled \
@@ -229,7 +229,7 @@ RUN \
     -Dgst-plugins-good:flac=disabled \
     -Dgst-plugins-good:dv=disabled \
     -Dgst-plugins-good:soup=enabled \
-    -Dgst-plugins-bad:gpl=enabled \
+    -Dgst-plugins-bad:gpl=disabled \
     -Dgst-plugins-bad:va=enabled \
     -Dgst-plugins-bad:doc=disabled \
     -Dgst-plugins-bad:nls=disabled \
@@ -249,7 +249,7 @@ RUN \
     -Dgst-plugins-bad:libde265=enabled \
     -Dgst-plugins-bad:openh264=enabled \
     -Dgst-plugins-bad:uvch264=enabled \
-    -Dgst-plugins-bad:x265=enabled \
+    -Dgst-plugins-bad:x265=disabled \
     -Dgst-plugins-bad:curl=enabled \
     -Dgst-plugins-bad:curl-ssh2=enabled \
     -Dgst-plugins-bad:opus=enabled \
@@ -268,8 +268,8 @@ RUN \
     -Dgst-plugins-bad:soundtouch=disabled \
     -Dgst-plugins-bad:isac=disabled \
     -Dgst-plugins-ugly:nls=disabled \
-    -Dgst-plugins-ugly:x264=enabled \
-    -Dgst-plugins-ugly:gpl=enabled \
+    -Dgst-plugins-ugly:x264=disabled \
+    -Dgst-plugins-ugly:gpl=disabled \
     -Dgstreamer-vaapi:encoders=enabled \
     -Dgstreamer-vaapi:drm=enabled \
     -Dgstreamer-vaapi:glx=enabled \
@@ -374,7 +374,7 @@ RUN apt-get update && apt-get install --no-install-recommends -y gnupg=\* && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 RUN \
-    echo "deb https://apt.repos.intel.com/openvino/2025 ubuntu24 main" | tee /etc/apt/sources.list.d/intel-openvino-2025.list && \
+    echo "deb https://apt.repos.intel.com/openvino ubuntu24 main" | tee /etc/apt/sources.list.d/intel-openvino.list && \
     curl -sSL -O https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB && \
     apt-key add GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB && \
     apt-get update && apt-get install --no-install-recommends -y "openvino-${OPENVINO_VERSION}"=\* && \
@@ -383,7 +383,7 @@ RUN \
 
 # OpenVINO Gen AI
 ARG OPENVINO_GENAI_VER=openvino_genai_ubuntu24_${OPENVINO_VERSION}.0_x86_64
-ARG OPENVINO_GENAI_PKG=https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/2025.4/linux/${OPENVINO_GENAI_VER}.tar.gz
+ARG OPENVINO_GENAI_PKG=https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/2026.0/linux/${OPENVINO_GENAI_VER}.tar.gz
 
 RUN curl -L ${OPENVINO_GENAI_PKG} | tar -xz && \
     mv ${OPENVINO_GENAI_VER} /opt/intel/openvino_genai
@@ -540,8 +540,8 @@ WORKDIR /
 
 RUN curl -fsSL https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB | \
     gpg --dearmor -o /usr/share/keyrings/intel-sw-products.gpg && \
-    echo "deb [signed-by=/usr/share/keyrings/intel-sw-products.gpg] https://apt.repos.intel.com/openvino/2025 ubuntu24 main" \
-    > /etc/apt/sources.list.d/intel-openvino-2025.list
+    echo "deb [signed-by=/usr/share/keyrings/intel-sw-products.gpg] https://apt.repos.intel.com/openvino ubuntu24 main" \
+    > /etc/apt/sources.list.d/intel-openvino.list
 
 RUN mkdir -p /debs
 COPY --from=deb-builder /*.deb /debs/

@@ -1,5 +1,5 @@
 # ==============================================================================
-# Copyright (C) 2025 Intel Corporation
+# Copyright (C) 2025-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
@@ -42,7 +42,7 @@ LABEL vendor="Intel Corporation"
 ARG GST_VERSION=1.26.6
 ARG FFMPEG_VERSION=6.1.1
 
-ARG OPENVINO_VERSION=2025.4.0
+ARG OPENVINO_VERSION=2026.0.0
 ARG REALSENSE_VERSION=v2.57.5
 
 ARG DLSTREAMER_VERSION=2025.2.0
@@ -212,7 +212,7 @@ RUN \
     -Dgst-examples=disabled \
     -Ddevtools=disabled \
     -Dorc=disabled \
-    -Dgpl=enabled \
+    -Dgpl=disabled \
     -Dgst-plugins-base:nls=disabled \
     -Dgst-plugins-base:gl=disabled \
     -Dgst-plugins-base:xvideo=enabled \
@@ -228,7 +228,7 @@ RUN \
     -Dgst-plugins-good:flac=disabled \
     -Dgst-plugins-good:dv=disabled \
     -Dgst-plugins-good:soup=enabled \
-    -Dgst-plugins-bad:gpl=enabled \
+    -Dgst-plugins-bad:gpl=disabled \
     -Dgst-plugins-bad:va=enabled \
     -Dgst-plugins-bad:doc=disabled \
     -Dgst-plugins-bad:nls=disabled \
@@ -248,7 +248,7 @@ RUN \
     -Dgst-plugins-bad:libde265=enabled \
     -Dgst-plugins-bad:openh264=enabled \
     -Dgst-plugins-bad:uvch264=enabled \
-    -Dgst-plugins-bad:x265=enabled \
+    -Dgst-plugins-bad:x265=disabled \
     -Dgst-plugins-bad:curl=enabled \
     -Dgst-plugins-bad:curl-ssh2=enabled \
     -Dgst-plugins-bad:opus=enabled \
@@ -267,8 +267,8 @@ RUN \
     -Dgst-plugins-bad:soundtouch=disabled \
     -Dgst-plugins-bad:isac=disabled \
     -Dgst-plugins-ugly:nls=disabled \
-    -Dgst-plugins-ugly:x264=enabled \
-    -Dgst-plugins-ugly:gpl=enabled \
+    -Dgst-plugins-ugly:x264=disabled \
+    -Dgst-plugins-ugly:gpl=disabled \
     -Dgstreamer-vaapi:encoders=enabled \
     -Dgstreamer-vaapi:drm=enabled \
     -Dgstreamer-vaapi:glx=enabled \
