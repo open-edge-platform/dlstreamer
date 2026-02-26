@@ -83,7 +83,8 @@ PostProcessorImpl::PostProcessorImpl(Initializer initializer) {
 
             if (initializer.converter_type == ConverterType::TO_ROI) {
                 // Only set threshold if user explicitly provided one OR model has no threshold
-                if (initializer.threshold_explicitly_set || !gst_structure_has_field(model_proc_outputs.cbegin()->second, "confidence_threshold")) {
+                if (initializer.threshold_explicitly_set ||
+                    !gst_structure_has_field(model_proc_outputs.cbegin()->second, "confidence_threshold")) {
                     gst_structure_set(model_proc_outputs.cbegin()->second, "confidence_threshold", G_TYPE_DOUBLE,
                                       initializer.threshold, NULL);
                 }
@@ -106,7 +107,8 @@ PostProcessorImpl::PostProcessorImpl(Initializer initializer) {
 
                 if (initializer.converter_type == ConverterType::TO_ROI) {
                     // Only set threshold if user explicitly provided one OR model has no threshold
-                    if (initializer.threshold_explicitly_set || !gst_structure_has_field(model_proc_output.second, "confidence_threshold")) {
+                    if (initializer.threshold_explicitly_set ||
+                        !gst_structure_has_field(model_proc_output.second, "confidence_threshold")) {
                         gst_structure_set(model_proc_output.second, "confidence_threshold", G_TYPE_DOUBLE,
                                           initializer.threshold, NULL);
                     }
