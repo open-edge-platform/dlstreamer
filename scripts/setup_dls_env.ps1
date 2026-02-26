@@ -6,7 +6,7 @@
 # ==============================================================================
 
 $GSTREAMER_VERSION = "1.26.6"
-$OPENVINO_VERSION = "2025.4"
+$OPENVINO_VERSION = "2026.0"
 $GSTREAMER_DEST_FOLDER = "C:\gstreamer"
 $OPENVINO_DEST_FOLDER = "C:\openvino"
 $DLSTREAMER_TMP = "C:\dlstreamer_tmp"
