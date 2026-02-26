@@ -207,7 +207,7 @@ RUN \
     -Dgst-examples=disabled \
     -Ddevtools=disabled \
     -Dorc=disabled \
-    -Dgpl=enabled \
+    -Dgpl=disabled \
     -Dpython=enabled \
     -Dgst-plugins-base:nls=disabled \
     -Dgst-plugins-base:gl=disabled \
@@ -224,7 +224,7 @@ RUN \
     -Dgst-plugins-good:flac=disabled \
     -Dgst-plugins-good:dv=disabled \
     -Dgst-plugins-good:soup=enabled \
-    -Dgst-plugins-bad:gpl=enabled \
+    -Dgst-plugins-bad:gpl=disabled \
     -Dgst-plugins-bad:va=enabled \
     -Dgst-plugins-bad:doc=disabled \
     -Dgst-plugins-bad:nls=disabled \
@@ -244,7 +244,7 @@ RUN \
     -Dgst-plugins-bad:libde265=enabled \
     -Dgst-plugins-bad:openh264=enabled \
     -Dgst-plugins-bad:uvch264=enabled \
-    -Dgst-plugins-bad:x265=enabled \
+    -Dgst-plugins-bad:x265=disabled \
     -Dgst-plugins-bad:curl=enabled \
     -Dgst-plugins-bad:curl-ssh2=enabled \
     -Dgst-plugins-bad:opus=enabled \
@@ -263,8 +263,8 @@ RUN \
     -Dgst-plugins-bad:soundtouch=disabled \
     -Dgst-plugins-bad:isac=disabled \
     -Dgst-plugins-ugly:nls=disabled \
-    -Dgst-plugins-ugly:x264=enabled \
-    -Dgst-plugins-ugly:gpl=enabled \
+    -Dgst-plugins-ugly:x264=disabled \
+    -Dgst-plugins-ugly:gpl=disabled \
     -Dgstreamer-vaapi:encoders=enabled \
     -Dgstreamer-vaapi:drm=enabled \
     -Dgstreamer-vaapi:glx=enabled \
