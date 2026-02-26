@@ -1,10 +1,10 @@
 --extra-index-url https://download.pytorch.org/whl/cpu
 PyGObject==3.50.0
-torch==2.9.0+cpu
+torch==2.10.0+cpu
 transformers==4.57.6
 optimum-intel==1.27.0
 huggingface_hub==0.36.1
-einops
-timm
-openvino==2025.4.0
-openvino_tokenizers==2025.4.0.0
+einops==0.8.2
+timm==1.0.25
+openvino==2026.0.0
+openvino_tokenizers==2026.0.0.0

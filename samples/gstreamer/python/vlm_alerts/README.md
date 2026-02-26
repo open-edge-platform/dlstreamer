@@ -1,76 +1,117 @@
 # VLM Alerts
 
-This sample demonstrates how to download a Vision-Language Model (VLM) from Hugging Face, export it to OpenVINO IR using `optimum-cli`, and run inference in a DL Streamer pipeline.
+This sample demonstrates an edge AI alerting pipeline using Vision-Language Models (VLMs).
 
-The pipeline saves both JSON metadata and an encoded MP4 output.
+It shows how to:
 
-## How It Works
+- Download a VLM from Hugging Face
+- Convert it to OpenVINO IR using `optimum-cli`
+- Run inference inside a DL Streamer pipeline
+- Generate structured JSON alerts per processed frame
+- Produce MP4 output
 
-The script performs three main steps:
+## Use Case: Alert-Based Monitoring
 
-STEP 1 — Prepare input video  
-If a local file is provided, it is used directly.  
-If a URL is provided, the video is downloaded automatically into the `videos/` directory.
+VLMs can help accurately detect rare or contextual events using natural language prompts — for example, detecting a police car in a traffic video.
+This enables alerting for events, like in prompts:
 
-STEP 2 — Prepare VLM model  
+- Is there a police car?
+- Is there smoke or fire?
+- Is a person lying on the ground?
 
-Exported artifacts are stored under:
+## Model Preparation
 
-    models/<ModelName>
+Any image-text-to-text model supported by optimum-intel can be used. Smaller models (1B-4B parameters) are recommended for edge deployment. For example, OpenGVLab/InternVL3_5-2B.
 
-STEP 3 — Build and run the pipeline  
+The script runs:
 
-The GStreamer pipeline includes:
+```bash
+optimum-cli export openvino \
+    --model <model_id> \
+    --task image-text-to-text \
+    --trust-remote-code \
+    <output_dir>
+```
 
-- gvagenai for VLM inference  
-- gvametapublish for JSON output  
-- gvafpscounter for performance display  
-- gvawatermark for overlay  
-- vah264enc for hardware encoding  
+Exported artifacts are stored under `models/<ModelName>/`. 
+The export runs once and is cached. To skip export, pass `--model-path` directly.
 
-The output video and metadata are written to the `results/` directory.
+## Video Preparation
+
+Similarly to model, provide either:
+
+- `--video-path` for a local file
+- `--video-url` to download automatically
+
+Downloaded videos are cached under `videos/`. 
+
+## Pipeline Architecture
+
+The pipeline is built dynamically in Python using `Gst.parse_launch`.
+
+```mermaid
+graph LR
+    A[filesrc] --> B[decodebin3]
+    B --> C[videoconvertscale]
+    C --> D[BGRx 1280x720]
+    D --> E[queue]
+    E --> F[gvagenai]
+    F --> G[queue]
+    G --> H[gvametapublish]
+    H --> I[queue]
+    I --> J[gvafpscounter]
+    J --> K[gvawatermark]
+    K --> L[videoconvert]
+    L --> M[vah264enc]
+    M --> N[h264parse]
+    N --> O[mp4mux]
+    O --> P[filesink]
+```
 
 ## Setup
 
-From the sample directory:
+```bash
+cd samples/gstreamer/python/vlm_alerts
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
 
-    cd samples/gstreamer/python/vlm_alerts
-
-Create and activate a virtual environment:
-
-    python3 -m venv .venv --system-site-packages
-    source .venv/bin/activate
-
-Install dependencies:
-
-    pip install -r requirements.txt
+> A DL Streamer build that includes the `gvagenai` element is required.
 
 ## Running
 
-    python3 ./vlm_alerts.py <input_video_or_url> <hf_model_id> "<question>"
+Required arguments:
+
+- `--prompt`
+- `--video-path` or `--video-url`
+- `--model-id` or `--model-path`
 
 Example:
 
-    python3 ./vlm_alerts.py \
-    https://videos.pexels.com/video-files/2103099/2103099-hd_1280_720_60fps.mp4 \
-    OpenGVLab/InternVL3_5-2B \
-    "Is there a police car? Answer yes or no."
+```bash
+python3 vlm_alerts.py \
+    --video-url https://videos.pexels.com/video-files/2103099/2103099-hd_1280_720_60fps.mp4 \
+    --model-id OpenGVLab/InternVL3_5-2B \
+    --prompt "Is there a police car? Answer yes or no."
+```
+
+Optional arguments:
+
+| Argument | Default | Description |
+|---|---|---|
+| `--device` | `GPU` | Inference device |
+| `--max-tokens` | `20` | Maximum tokens in the model response |
+| `--frame-rate` | `1.0` | Frames per second passed to `gvagenai` |
+| `--videos-dir` | `./videos` | Directory for downloaded videos |
+| `--models-dir` | `./models` | Directory for exported models |
+| `--results-dir` | `./results` | Directory for output files |
 
 ## Output
 
-After execution:
+```
+results/<ModelName>-<video_stem>.jsonl
+results/<ModelName>-<video_stem>.mp4
+```
 
-JSON metadata:
-
-    results/<model>-<video>.jsonl
-
-Annotated video:
-
-    results/<model>-<video>.mp4
-
-## Notes
-
-- Each video and model are downloaded and exported once.
-- Different VLMs can be downloaded. Suggested: OpenGVLab/InternVL3_5-2B, openbmb/MiniCPM-V-4_5, Qwen/Qwen2.5-VL-3B-Instruct.
-- Subsequent runs reuse cached assets.
-- GPU is used by default.
+The `.jsonl` file contains one model response per processed frame and can be used to trigger downstream alerting logic.
