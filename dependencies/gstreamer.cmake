@@ -39,6 +39,7 @@ ExternalProject_Add(
     	                -Ddevtools=disabled
     	                -Dorc=disabled
     	                -Dgpl=disabled
+						-Dpython=enabled
     	                -Dgst-plugins-base:nls=disabled
     	                -Dgst-plugins-base:gl=disabled
     	                -Dgst-plugins-base:xvideo=enabled
