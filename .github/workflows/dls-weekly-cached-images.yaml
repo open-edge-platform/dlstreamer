@@ -43,13 +43,15 @@ jobs:
     steps:
       - name: Determine image tag (input or default)
         id: set-tag
+        env:
+          USER_IMAGE_TAG: ${{ github.event.inputs['image-tag'] }}
         run: |
-          if [ -z "${{ github.event.inputs['image-tag'] }}" ]; then
+          if [ -z "$USER_IMAGE_TAG" ]; then
             echo "No image-tag provided — using default value with commit sha"
             VALUE="${{ github.sha }}"
           else
-            echo "Using provided image-tag: ${{ github.event.inputs['image-tag'] }}"
-            VALUE="${{ github.event.inputs['image-tag'] }}"
+            echo "Using provided image-tag: $USER_IMAGE_TAG"
+            VALUE="$USER_IMAGE_TAG"
           fi
           echo "IMAGE_TAG=$VALUE" >> $GITHUB_ENV
       - name: Check out dlstreamer repository
@@ -184,13 +186,15 @@ jobs:
     steps:
       - name: Determine image tag (input or default)
         id: set-tag
+        env:
+          USER_IMAGE_TAG: ${{ github.event.inputs['image-tag'] }}
         run: |
-          if [ -z "${{ github.event.inputs['image-tag'] }}" ]; then
+          if [ -z "$USER_IMAGE_TAG" ]; then
             echo "No image-tag provided — using default value with commit sha"
             VALUE="${{ github.sha }}"
           else
-            echo "Using provided image-tag: ${{ github.event.inputs['image-tag'] }}"
-            VALUE="${{ github.event.inputs['image-tag'] }}"
+            echo "Using provided image-tag: $USER_IMAGE_TAG"
+            VALUE="$USER_IMAGE_TAG"
           fi
           echo "IMAGE_TAG=$VALUE" >> $GITHUB_ENV
       - name: Check out dlstreamer repository
@@ -306,13 +310,15 @@ jobs:
     steps:
       - name: Determine image tag (input or default)
         id: set-tag
+        env:
+          USER_IMAGE_TAG: ${{ github.event.inputs['image-tag'] }}
         run: |
-          if [ -z "${{ github.event.inputs['image-tag'] }}" ]; then
+          if [ -z "$USER_IMAGE_TAG" ]; then
             echo "No image-tag provided — using default value with commit sha"
             VALUE="${{ github.sha }}"
           else
-            echo "Using provided image-tag: ${{ github.event.inputs['image-tag'] }}"
-            VALUE="${{ github.event.inputs['image-tag'] }}"
+            echo "Using provided image-tag: $USER_IMAGE_TAG"
+            VALUE="$USER_IMAGE_TAG"
           fi
           echo "IMAGE_TAG=$VALUE" >> $GITHUB_ENV
       - name: Check out edge-ai-libraries repository
