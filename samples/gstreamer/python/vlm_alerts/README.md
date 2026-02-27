@@ -56,7 +56,7 @@ graph LR
     C --> D[gvametapublish]
     D --> E[gvafpscounter]
     E --> F[gvawatermark]
-    F --> G[encode (vah264enc + h264parse + mp4mux)]
+    F --> G["encode (vah264enc + h264parse + mp4mux)"]
     G --> H[filesink]
 ```
 
