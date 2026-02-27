@@ -53,6 +53,7 @@ static guint gst_interpret_signals[LAST_SIGNAL] = {0};
 #define DEFAULT_SOURCE NULL
 #define DEFAULT_TAGS NULL
 #define DEFAULT_ADD_EMPTY_DETECTION_RESULTS FALSE
+#define DEFAULT_ADD_RTP_TIMESTAMP FALSE
 #define DEFAULT_JSON_INDENT -1
 #define MIN_JSON_INDENT -1
 #define MAX_JSON_INDENT 10
@@ -73,7 +74,8 @@ enum {
     PROP_ADD_EMPTY_DETECTION_RESULTS,
     PROP_JSON_INDENT,
     PROP_TIMESTAMP_UTC,
-    PROP_TIMESTAMP_MICROSECONDS
+    PROP_TIMESTAMP_MICROSECONDS,
+    PROP_TIMESTAMP_RTP
 };
 
 static const gchar *format_type_to_string(GstGVAMetaconvertFormatType format) {
@@ -206,6 +208,13 @@ static void gst_gva_meta_convert_class_init(GstGvaMetaConvertClass *klass) {
             MIN_JSON_INDENT, MAX_JSON_INDENT, DEFAULT_JSON_INDENT,
             (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
+    g_object_class_install_property(
+        gobject_class, PROP_TIMESTAMP_RTP,
+        g_param_spec_boolean("add-rtp-timestamp", "Add RTP timestamp",
+                             "Include NTP reference timestamp metadata from RTCP Sender Reports in output. Requires "
+                             "add-reference-timestamp-meta=true in rtspsrc.",
+                             DEFAULT_ADD_RTP_TIMESTAMP, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+
     gst_interpret_signals[SIGNAL_HANDOFF] = g_signal_new(
         "handoff", G_TYPE_FROM_CLASS(klass), G_SIGNAL_RUN_LAST, G_STRUCT_OFFSET(GstGvaMetaConvertClass, handoff), NULL,
         NULL, g_cclosure_marshal_generic, G_TYPE_NONE, 1, GST_TYPE_BUFFER | G_SIGNAL_TYPE_STATIC_SCOPE);
@@ -248,6 +257,7 @@ static void gst_gva_meta_convert_reset(GstGvaMetaConvert *gvametaconvert) {
     gvametaconvert->signal_handoffs = DEFAULT_SIGNAL_HANDOFFS;
     gvametaconvert->timestamp_utc = DEFAULT_TIMESTAMP_UTC;
     gvametaconvert->timestamp_microseconds = DEFAULT_TIMESTAMP_MICROSECONDS;
+    gvametaconvert->timestamp_rtp = DEFAULT_ADD_RTP_TIMESTAMP;
     gst_gva_metaconvert_set_format(gvametaconvert, DEFAULT_FORMAT);
     gvametaconvert->info = NULL;
     gvametaconvert->json_indent = DEFAULT_JSON_INDENT;
@@ -315,6 +325,9 @@ void gst_gva_meta_convert_set_property(GObject *object, guint property_id, const
     case PROP_JSON_INDENT:
         gvametaconvert->json_indent = g_value_get_int(value);
         break;
+    case PROP_TIMESTAMP_RTP:
+        gvametaconvert->timestamp_rtp = g_value_get_boolean(value);
+        break;
 
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
@@ -354,6 +367,9 @@ void gst_gva_meta_convert_get_property(GObject *object, guint property_id, GValu
         break;
     case PROP_JSON_INDENT:
         g_value_set_int(value, gvametaconvert->json_indent);
+        break;
+    case PROP_TIMESTAMP_RTP:
+        g_value_set_boolean(value, gvametaconvert->timestamp_rtp);
         break;
 
     default:

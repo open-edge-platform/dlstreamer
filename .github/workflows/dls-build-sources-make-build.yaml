@@ -12,7 +12,7 @@ env:
 jobs:
   build:
     name: "Build from sources using make build on ${{ matrix.os }}"
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ matrix.runner }}
     permissions:
       contents: read
       packages: read
@@ -21,7 +21,9 @@ jobs:
       matrix:
         include:
           - os: ubuntu-22.04
+            runner: ubuntu-22.04
           - os: ubuntu-24.04
+            runner: dlstreamer
     steps:
       - name: Initial environment clean
         run: |
@@ -93,7 +95,7 @@ jobs:
           sudo ./scripts/install_dependencies/install_openvino.sh
           echo " "
           echo "Installing OpenVINO dependencies..."
-          sudo -E /opt/intel/openvino_2025/install_dependencies/install_openvino_dependencies.sh
+          sudo -E /opt/intel/openvino_2026/install_dependencies/install_openvino_dependencies.sh
 
       - name: Install OpenVINO GenAI
         run: |
@@ -101,13 +103,13 @@ jobs:
           echo "Installing OpenVINO GenAI for ${{ matrix.os }}..."
           if [[ ${{ matrix.os }} == "ubuntu-22.04" ]]; then
             echo "Executing Ubuntu 22.04 specific setup..."
-            wget -O- https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/2025.4/linux/openvino_genai_ubuntu22_2025.4.0.0_x86_64.tar.gz | tar -xz
-            sudo mv openvino_genai_ubuntu22_2025.4.0.0_x86_64 /opt/intel/openvino_genai
+            wget -O- https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/2026.0/linux/openvino_genai_ubuntu22_2026.0.0.0_x86_64.tar.gz | tar -xz
+            sudo mv openvino_genai_ubuntu22_2026.0.0.0_x86_64 /opt/intel/openvino_genai
             source /opt/intel/openvino_genai/setupvars.sh
           elif [[ ${{ matrix.os }} == "ubuntu-24.04" ]]; then
             echo "Executing Ubuntu 24.04 specific setup..."
-            wget -O- https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/2025.4/linux/openvino_genai_ubuntu24_2025.4.0.0_x86_64.tar.gz | tar -xz
-            sudo mv openvino_genai_ubuntu24_2025.4.0.0_x86_64 /opt/intel/openvino_genai
+            wget -O- https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/2026.0/linux/openvino_genai_ubuntu24_2026.0.0.0_x86_64.tar.gz | tar -xz
+            sudo mv openvino_genai_ubuntu24_2026.0.0.0_x86_64 /opt/intel/openvino_genai
             source /opt/intel/openvino_genai/setupvars.sh
           else
             echo "Unknown Ubuntu version: ${{ matrix.os }}"
@@ -121,7 +123,7 @@ jobs:
           cd ${{ env.DLS_REL_PATH }}
           echo " "
           echo "Sourcing OpenVINO environment..."
-          source /opt/intel/openvino_2025/setupvars.sh
+          source /opt/intel/openvino_2026/setupvars.sh
           echo " "
           echo "Sourcing OpenVINO GenAI environment..."
           source /opt/intel/openvino_genai/setupvars.sh
@@ -132,7 +134,7 @@ jobs:
       - name: Install DL Streamer
         run: |
           echo "Sourcing OpenVINO environment..."
-          source /opt/intel/openvino_2025/setupvars.sh
+          source /opt/intel/openvino_2026/setupvars.sh
           echo " "
           echo "Sourcing OpenVINO GenAI environment..."
           source /opt/intel/openvino_genai/setupvars.sh

@@ -391,7 +391,7 @@ source "$VENV_DIR/bin/activate"
 # Install all required packages for main virtual environment
 pip install --no-cache-dir --upgrade pip      || handle_error $LINENO
 pip install --no-cache-dir numpy==2.2.6       || handle_error $LINENO
-pip install --no-cache-dir openvino==2025.4.0 || handle_error $LINENO
+pip install --no-cache-dir openvino==2026.0.0 || handle_error $LINENO
 pip install --no-cache-dir onnx==1.20.1       || handle_error $LINENO
 pip install --no-cache-dir onnxscript==0.5.7  || handle_error $LINENO
 pip install --no-cache-dir seaborn==0.13.2    || handle_error $LINENO
@@ -608,7 +608,7 @@ export_yolov5u_model() {
     python3 - <<EOF
 import os
 from ultralytics import YOLO
-from openvino.runtime import Core, save_model
+from openvino import Core, save_model
 
 model_name = "$model_name"
 weights = "$weights"
@@ -702,8 +702,8 @@ for MODEL_NAME in "${YOLOv5_MODELS[@]}"; do
       python3 export.py --weights "${MODEL_NAME}.pt" --include openvino --img-size 640 --dynamic
       python3 - <<EOF "${MODEL_NAME}"
 import sys, os
-from openvino.runtime import Core
-from openvino.runtime import save_model
+from openvino import Core
+from openvino import save_model
 model_name = sys.argv[1]
 core = Core()
 os.rename(f"{model_name}_openvino_model", f"{model_name}_openvino_modelD")
@@ -1004,7 +1004,7 @@ for MODEL_NAME in "${CLIP_MODELS[@]}"; do
 from transformers import CLIPProcessor, CLIPVisionModel
 import PIL
 import openvino as ov
-from openvino.runtime import PartialShape, Type
+from openvino import PartialShape, Type
 import sys
 import os
 
