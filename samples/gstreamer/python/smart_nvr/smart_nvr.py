@@ -98,7 +98,7 @@ if __name__ == '__main__':
     # Create GStreamer pipeline and parametrize with downloaded models and video files
     PIPELINE_STR = f"filesrc location={video_file} ! decodebin3 ! " \
         f"gvadetect model={detection_model} device=GPU batch-size=4 threshold=0.7 ! queue ! " \
-        f"gvaanalytics_py distance=500 angle=-135,-45 ! gvawatermark displ-cfg=draw-txt-bg=true ! " \
+        f"gvaanalytics_py distance=500 angle=-135,-45 ! gvafpscounter ! gvawatermark ! " \
         f"gvarecorder_py location=output.mp4 max-time=10"
     print(f"Constructed Pipeline: \"{PIPELINE_STR}\"")
     pipeline = Gst.parse_launch(PIPELINE_STR)
