@@ -262,7 +262,7 @@ Set up the required environment variables:
 <!--hide_directive:::
 ::::hide_directive-->
 
-> **NOTE:**  For a permament solution, open `\~/.bashrc` and add the variables above
+> **NOTE:**  For a permanent solution, open `\~/.bashrc` and add the variables above
 > to set up Linux to use them for every terminal session.
 
 ## Step 10: Install Python dependencies (optional)
