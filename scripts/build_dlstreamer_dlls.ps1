@@ -91,6 +91,7 @@ if (-Not (Get-Command winget -errorAction SilentlyContinue)) {
 	Install-Module -Name Microsoft.WinGet.Client -Force -Repository PSGallery | Out-Null
 	Write-Host "Using Repair-WinGetPackageManager cmdlet to bootstrap WinGet..."
 	Repair-WinGetPackageManager -AllUsers
+	winget source update
 	Write-Section "Done"
 }
 else {
