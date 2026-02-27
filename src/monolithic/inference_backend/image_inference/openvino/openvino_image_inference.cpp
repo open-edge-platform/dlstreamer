@@ -648,9 +648,9 @@ class OpenVinoNewApiImpl {
         }
 
         // Allocate new tensor in host memory and COPY data if the original tensor is not contigous
-        // - NPU device plugin requires contigous tensors (explicit assert)
-        // - GPU plugin fails in certain cases with non-contigous tensors
-        if (!tensor.is_continuous()) {
+        // - GPU and AUTO plugins fail in certain cases with non-contigous tensors
+        if (!tensor.is_continuous() &&
+            (_device.find("GPU") != std::string::npos || _device.find("AUTO") != std::string::npos)) {
             ov::Tensor sparse_tensor(tensor);
             tensor = ov::Tensor(ov::element::u8, sparse_tensor.get_shape());
             sparse_tensor.copy_to(tensor);
