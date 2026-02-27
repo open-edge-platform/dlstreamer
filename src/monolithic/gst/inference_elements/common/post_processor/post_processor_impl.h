@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2021-2025 Intel Corporation
+ * Copyright (C) 2021-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -41,6 +41,7 @@ class PostProcessorImpl {
         AttachType attach_type;
         bool use_default = true;
         double threshold = 0.5;
+        bool threshold_explicitly_set = false;
 
         std::string custom_postproc_lib;
     };
