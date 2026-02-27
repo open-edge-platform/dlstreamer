@@ -83,6 +83,17 @@ void DetectionOutputConverter::parseOutputBlob(const InferenceBackend::OutputBlo
         float bbox_w = blobElement->bbox_x_max - blobElement->bbox_x_min;
         float bbox_h = blobElement->bbox_y_max - blobElement->bbox_y_min;
 
+        // discard inference results that are invalid
+        if (blobElement->bbox_x_min > 1.0 // x_min beyond max image boundary
+            || blobElement->bbox_y_min > 1.0 // y_min beyond max image boundary
+            || blobElement->bbox_x_max < 0.0 // x_max beyond min image boundary
+            || blobElement->bbox_y_max < 0.0 // y_max beyond min image boundary
+            || bbox_w == 0.0 // invalid width
+            || bbox_y == 0.0 // invalid height
+            ) {
+            continue;
+        }
+
         // TODO: in future we must return to use GVA::VideoFrame
         // GVA::VideoFrame video_frame(frames[image_id]->buffer, frames[image_id]->info);
 
