@@ -10,11 +10,11 @@ This sample showcases how to integrate custom analytics and custom video storage
 
 ```mermaid
 graph LR
-        A[filesrc (GStreamer element)] --> B[decodebin3 (GStreamer element)]
-        B --> C[gvadetect (DLStreamer element)]
-        C --> D[gvaanalytics_py (custom element)]
-        D --> E[gvawatermark (DLStreamer element)]
-        E --> F[gvarecorder_py (custom element)]
+        A["filesrc (GStreamer)"] --> B["decodebin3 (GStreamer)"]
+        B --> C["gvadetect (DLStreamer)"]
+        C --> D["gvaanalytics_py (custom)"]
+        D --> E["gvawatermark (DLStreamer)"]
+        E --> F["gvarecorder_py (custom)"]
 ```
 
 The sample uses the following set of pipeline elements: 
