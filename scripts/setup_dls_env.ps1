@@ -6,8 +6,8 @@
 # ==============================================================================
 
 $GSTREAMER_VERSION = "1.26.6"
-$OPENVINO_VERSION = "2025.4.0"
-$OPENVINO_VERSION_SHORT = "2025.4"
+$OPENVINO_VERSION = "2026.0.0"
+$OPENVINO_VERSION_SHORT = "2026.0"
 $GSTREAMER_DEST_FOLDER = "$env:ProgramFiles\gstreamer"
 $OPENVINO_INSTALL_FOLDER = "$env:LOCALAPPDATA\Programs\openvino"
 $DLSTREAMER_TMP = "$env:TEMP\dlstreamer_tmp"

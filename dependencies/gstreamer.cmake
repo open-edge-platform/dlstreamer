@@ -1,5 +1,5 @@
 # ==============================================================================
-# Copyright (C) 2018-2025 Intel Corporation
+# Copyright (C) 2018-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
@@ -39,6 +39,7 @@ ExternalProject_Add(
     	                -Ddevtools=disabled
     	                -Dorc=disabled
     	                -Dgpl=disabled
+                      -Dpython=enabled
     	                -Dgst-plugins-base:nls=disabled
     	                -Dgst-plugins-base:gl=disabled
     	                -Dgst-plugins-base:xvideo=enabled

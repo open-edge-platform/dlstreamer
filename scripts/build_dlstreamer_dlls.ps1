@@ -9,8 +9,8 @@ param(
 )
 
 $GSTREAMER_VERSION = "1.26.6"
-$OPENVINO_VERSION = "2025.4.0"
-$OPENVINO_VERSION_SHORT = "2025.4"
+$OPENVINO_VERSION = "2026.0.0"
+$OPENVINO_VERSION_SHORT = "2026.0"
 $PYTHON_VERSION = "3.12.7"
 $OPENVINO_DEST_FOLDER = "$env:LOCALAPPDATA\Programs\openvino"
 $GSTREAMER_DEST_FOLDER = "$env:ProgramFiles\gstreamer"
@@ -381,9 +381,9 @@ Write-Section "Setting paths"
 $DLSTREAMER_SRC_LOCATION = $PWD.Path
 setx PKG_CONFIG_PATH "$GSTREAMER_DEST_FOLDER\1.0\msvc_x86_64\lib\pkgconfig"
 $env:PKG_CONFIG_PATH = "$GSTREAMER_DEST_FOLDER\1.0\msvc_x86_64\lib\pkgconfig"
-# Load OpenVINO environment variables
+# Setup OpenVINO environment variables
 . "$OPENVINO_DEST_FOLDER\setupvars.ps1"
-# Set up VS environment variables
+# Setup VS environment variables
 $env:MSBUILDDISABLENODEREUSE = 1
 $env:UseMultiToolTask = "true"
 $VSDEVSHELL = Join-Path $vsPath "Common7\Tools\Launch-VsDevShell.ps1"
