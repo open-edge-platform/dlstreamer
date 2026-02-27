@@ -26,7 +26,7 @@ jobs:
     permissions:
       contents: read
       security-events: write # Needed to upload the results to code-scanning dashboard
-    runs-on: ubuntu-latest
+    runs-on: dlstreamer
     steps:
       - name: "Checkout code"
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
