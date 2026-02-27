@@ -52,28 +52,20 @@ The pipeline is built dynamically in Python using `Gst.parse_launch`.
 ```mermaid
 graph LR
     A[filesrc] --> B[decodebin3]
-    B --> C[videoconvertscale]
-    C --> D[BGRx 1280x720]
-    D --> E[queue]
-    E --> F[gvagenai]
-    F --> G[queue]
-    G --> H[gvametapublish]
-    H --> I[queue]
-    I --> J[gvafpscounter]
-    J --> K[gvawatermark]
-    K --> L[videoconvert]
-    L --> M[vah264enc]
-    M --> N[h264parse]
-    N --> O[mp4mux]
-    O --> P[filesink]
+    B --> C[gvagenai]
+    C --> D[gvametapublish]
+    D --> E[gvafpscounter]
+    E --> F[gvawatermark]
+    F --> G[encode (vah264enc + h264parse + mp4mux)]
+    G --> H[filesink]
 ```
 
 ## Setup
 
 ```bash
 cd samples/gstreamer/python/vlm_alerts
-python3 -m venv .venv
-source .venv/bin/activate
+python3 -m venv .vlm-venv
+source .vlm-venv/bin/activate
 pip install -r requirements.txt
 ```
 
