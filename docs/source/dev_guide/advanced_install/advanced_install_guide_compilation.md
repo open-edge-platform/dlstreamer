@@ -114,7 +114,7 @@ packages:
 
   In case of any problems with the installation scripts, [Follow OpenVINO™
   Toolkit instruction guide
-  here](https://docs.openvino.ai/2025/get-started/install-openvino/install-openvino-archive-linux.html)
+  here](https://docs.openvino.ai/2026/get-started/install-openvino/install-openvino-archive-linux.html)
   to install OpenVINO™ on Linux.
 
   - Environment: **Runtime**
@@ -127,8 +127,8 @@ packages:
   OpenVINO™ Toolkit development environment:
 
   ```bash
-  sudo -E /opt/intel/openvino_2025/install_dependencies/install_openvino_dependencies.sh
-  source /opt/intel/openvino_2025/setupvars.sh
+  sudo -E /opt/intel/openvino_2026/install_dependencies/install_openvino_dependencies.sh
+  source /opt/intel/openvino_2026/setupvars.sh
   ```
 
 <!--hide_directive:::
@@ -136,13 +136,13 @@ packages:
 <!--hide_directive:sync: tab2hide_directive-->
 
   ```bash
-  wget https://storage.openvinotoolkit.org/repositories/openvino/packages/2025.4/linux/openvino_toolkit_ubuntu24_2025.4.0.20398.8fdad55727d_x86_64.tgz
-  tar -xvzf openvino_toolkit_ubuntu24_2025.4.0.20398.8fdad55727d_x86_64.tgz
-  sudo mv openvino_toolkit_ubuntu24_2025.4.0.20398.8fdad55727d_x86_64.tgz /opt/intel/openvino_2025.4.0
-  cd /opt/intel/openvino_2025.4.0/
+  wget https://storage.openvinotoolkit.org/repositories/openvino/packages/2026.0/linux/openvino_toolkit_ubuntu24_2026.0.0.20965.c6d6a13a886_x86_64.tgz
+  tar -xvzf openvino_toolkit_ubuntu24_2026.0.0.20965.c6d6a13a886_x86_64.tgz
+  sudo mv openvino_toolkit_ubuntu24_2026.0.0.20965.c6d6a13a886_x86_64.tgz /opt/intel/openvino_2026.0.0
+  cd /opt/intel/openvino_2026.0.0/
   sudo -E python3 -m pip install -r ./python/requirements.txt
   cd /opt/intel
-  sudo ln -s openvino_2025.4.0 openvino_2025
+  sudo ln -s openvino_2026.0.0 openvino_2026
   ```
 
 <!--hide_directive:::
@@ -151,15 +151,15 @@ packages:
 ### [Optional] Step 6: Install OpenVINO™ GenAI (only for Ubuntu)
 
 To use [gvagenai element](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dl-streamer/elements/gvagenai.html)
-there is need to install [OpenVINO GenAI archive](https://docs.openvino.ai/2025/get-started/install-openvino/install-openvino-genai.html) package.
+there is need to install [OpenVINO GenAI archive](https://docs.openvino.ai/2026/get-started/install-openvino/install-openvino-genai.html) package.
 
 <!--hide_directive::::{tab-set}
 :::{tab-item}hide_directive--> Ubuntu 24
 <!--hide_directive:sync: tab1hide_directive-->
 
   ```bash
-  wget -O- https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/2025.4/linux/openvino_genai_ubuntu24_2025.4.0.0_x86_64.tar.gz | tar -xz &&
-  sudo mv openvino_genai_ubuntu24_2025.4.0.0_x86_64 /opt/intel/openvino_genai
+  wget -O- https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/2026.0/linux/openvino_genai_ubuntu24_2026.0.0.0_x86_64.tar.gz | tar -xz &&
+  sudo mv openvino_genai_ubuntu24_2026.0.0.0_x86_64 /opt/intel/openvino_genai
   source /opt/intel/openvino_genai/setupvars.sh
   ```
 
@@ -168,8 +168,8 @@ there is need to install [OpenVINO GenAI archive](https://docs.openvino.ai/2025/
 <!--hide_directive:sync: tab2hide_directive-->
 
   ```bash
-  wget -O- https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/2025.4/linux/openvino_genai_ubuntu22_2025.4.0.0_x86_64.tar.gz | tar -xz &&
-  sudo mv openvino_genai_ubuntu22_2025.4.0.0_x86_64 /opt/intel/openvino_genai
+  wget -O- https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/2026.0/linux/openvino_genai_ubuntu22_2026.0.0.0_x86_64.tar.gz | tar -xz &&
+  sudo mv openvino_genai_ubuntu22_2026.0.0.0_x86_64 /opt/intel/openvino_genai
   source /opt/intel/openvino_genai/setupvars.sh
   ```
 
@@ -262,7 +262,7 @@ Set up the required environment variables:
 <!--hide_directive:::
 ::::hide_directive-->
 
-> **NOTE:**  For a permament solution, open `\~/.bashrc` and add the variables above
+> **NOTE:**  For a permanent solution, open `\~/.bashrc` and add the variables above
 > to set up Linux to use them for every terminal session.
 
 ## Step 10: Install Python dependencies (optional)
