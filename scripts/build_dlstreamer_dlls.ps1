@@ -337,6 +337,7 @@ if (-Not $gitInstalled) {
 	Write-Section "Done"
 }
 else {
+	git --version
 	Write-Section "Git already installed"
 }
 
@@ -351,6 +352,7 @@ if (-Not $cmakeInstalled) {
 	Write-Section "Done"
 }
 else {
+	cmake --version
 	Write-Section "CMake already installed"
 }
 
@@ -373,6 +375,7 @@ if (-Not (Get-Command python -errorAction SilentlyContinue)) {
 	Write-Section "Done"
 }
 else {
+	python --version
 	Write-Section "Python already installed"
 }
 
