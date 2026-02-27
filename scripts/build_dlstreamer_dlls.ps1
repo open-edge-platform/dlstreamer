@@ -94,6 +94,7 @@ if (-Not (Get-Command winget -errorAction SilentlyContinue)) {
 	Write-Section "Done"
 }
 else {
+	winget source update
 	Write-Section "WinGet already installed"
 }
 
