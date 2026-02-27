@@ -25,7 +25,7 @@ Any image-text-to-text model supported by optimum-intel can be used. Smaller mod
 
 The script runs:
 
-```bash
+```code
 optimum-cli export openvino \
     --model <model_id> \
     --task image-text-to-text \
@@ -62,11 +62,17 @@ graph LR
 
 ## Setup
 
-```bash
+1. Create and activate a virtual environment:
+```code
 cd samples/gstreamer/python/vlm_alerts
 python3 -m venv .vlm-venv
 source .vlm-venv/bin/activate
-pip install -r requirements.txt
+```
+
+2. Install dependencies:
+```code
+curl -LO https://raw.githubusercontent.com/openvinotoolkit/openvino.genai/refs/heads/releases/2026/0/samples/export-requirements.txt
+pip install -r export-requirements.txt PyGObject==3.50.0
 ```
 
 > A DL Streamer build that includes the `gvagenai` element is required.
@@ -81,7 +87,7 @@ Required arguments:
 
 Example:
 
-```bash
+```code
 python3 vlm_alerts.py \
     --video-url https://videos.pexels.com/video-files/2103099/2103099-hd_1280_720_60fps.mp4 \
     --model-id OpenGVLab/InternVL3_5-2B \
@@ -112,5 +118,5 @@ The `.jsonl` file contains one model response per processed frame and can be use
 
 To display all available arguments and defaults:
 
-```bash
+```code
 python3 vlm_alerts.py --help
