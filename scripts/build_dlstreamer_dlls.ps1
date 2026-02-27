@@ -378,6 +378,7 @@ else {
 # Final environment setup
 # ============================================================================
 Write-Section "Setting paths"
+Update-Path
 $DLSTREAMER_SRC_LOCATION = $PWD.Path
 setx PKG_CONFIG_PATH "$GSTREAMER_DEST_FOLDER\1.0\msvc_x86_64\lib\pkgconfig"
 $env:PKG_CONFIG_PATH = "$GSTREAMER_DEST_FOLDER\1.0\msvc_x86_64\lib\pkgconfig"
