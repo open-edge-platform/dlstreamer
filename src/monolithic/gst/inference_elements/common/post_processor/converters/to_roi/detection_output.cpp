@@ -84,13 +84,13 @@ void DetectionOutputConverter::parseOutputBlob(const InferenceBackend::OutputBlo
         float bbox_h = blobElement->bbox_y_max - blobElement->bbox_y_min;
 
         // discard inference results that are invalid
-        if (blobElement->bbox_x_min > 1.0 // x_min beyond max image boundary
+        if (blobElement->bbox_x_min > 1.0    // x_min beyond max image boundary
             || blobElement->bbox_y_min > 1.0 // y_min beyond max image boundary
             || blobElement->bbox_x_max < 0.0 // x_max beyond min image boundary
             || blobElement->bbox_y_max < 0.0 // y_max beyond min image boundary
-            || bbox_w == 0.0 // invalid width
-            || bbox_y == 0.0 // invalid height
-            ) {
+            || bbox_w == 0.0                 // invalid width
+            || bbox_y == 0.0                 // invalid height
+        ) {
             continue;
         }
 
