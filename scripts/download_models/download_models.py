@@ -1,7 +1,10 @@
-#!/usr/bin/env python3
+# ==============================================================================
+# Copyright (C) 2018-2026 Intel Corporation
+#
+# SPDX-License-Identifier: MIT
+# ==============================================================================
 
-"""Download models and prepare for IR conversion.
-"""
+"""Download models and prepare for IR conversion."""
 
 from __future__ import annotations
 
@@ -9,14 +12,13 @@ import argparse
 import json
 import os
 import subprocess
+from typing import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from ultralytics import YOLO
 from transformers import AutoConfig
 from transformers import AutoProcessor
-from optimum.intel import OVModelForImageClassification
 from optimum.intel import OVModelForFeatureExtraction
-from optimum.intel import OVModelForCausalLM
 from huggingface_hub import hf_hub_download
 from openvino import save_model
 from openvino.tools.ovc import convert_model
@@ -42,6 +44,7 @@ class ModelSpec:
     source: str
     outdir: Path
     token: str | None
+    precision: str
 
 
 def parse_args() -> ModelSpec:
@@ -69,6 +72,12 @@ def parse_args() -> ModelSpec:
         default=None,
         help="Hugging Face token for gated/private models",
     )
+    parser.add_argument(
+        "--precision",
+        choices=("fp32", "fp16", "int8"),
+        default="fp32",
+        help="Ultralytics OpenVINO export precision (fp32, fp16, int8)",
+    )
 
     args = parser.parse_args()
     return ModelSpec(
@@ -76,6 +85,7 @@ def parse_args() -> ModelSpec:
         source=args.source,
         outdir=Path(args.outdir),
         token=args.token,
+        precision=args.precision,
     )
 
 
@@ -83,7 +93,11 @@ def dispatch_model_handler(spec: ModelSpec) -> Path:
     if spec.source == "hf":
         return download_hf_model(spec.model, spec.outdir, spec.token)
     if spec.source == "ultralytics":
-        return download_ultralytics_model(spec.model, spec.outdir)
+        return download_ultralytics_model(
+            spec.model,
+            spec.outdir,
+            precision=spec.precision,
+        )
 
     raise ValueError(f"Unsupported source: {spec.source}")
 
@@ -115,7 +129,9 @@ def download_hf_model(model_id: str, outdir: Path, token: str | None) -> Path:
         print(f"Model {model_id} is Gemma3")
         return export_hf_gemma3_to_openvino(export_dir, token)
 
-    if architectures[0].lower() == "phi4mmforcausallm":
+    primary_arch = architectures[0].lower()
+
+    if primary_arch == "phi4mmforcausallm":
         if "phi4mmforcausallm" not in SUPPORTED_GENAI_MODELS:
             raise ValueError("Phi4MM export is not enabled")
         if isinstance(model_ref, Path):
@@ -129,24 +145,55 @@ def download_hf_model(model_id: str, outdir: Path, token: str | None) -> Path:
             "Unsupported HuggingFace architecture: " + ", ".join(architectures)
         )
 
-    if architectures[0].lower() == "vitforimageclassification":
-        export_dir = outdir / Path(model_ref).name
-        print(f"Model {model_id} is a ViT for image classification")
-        return export_hf_vit_to_openvino(model_ref, export_dir, token)
-    if architectures[0].lower() == "clipmodel":
-        if isinstance(model_ref, Path):
-            raise ValueError("CLIP export supports only HuggingFace model IDs")
-        export_dir = outdir / Path(model_ref).name
-        print(f"Model {model_id} is a CLIP model")
-        return export_hf_clip_to_openvino(model_ref, export_dir, token)
-    if architectures[0].lower() in {
-        "rtdetrforobjectdetection",
-        "rtdetrv2forobjectdetection",
-    }:
-        export_dir = outdir / Path(model_ref).name
-        print(f"Model {model_id} is an RT-DETR model")
-        return export_hf_rtdetr_to_openvino(model_ref, export_dir, token)
-    return outdir / Path(model_ref).name
+    return export_supported_hf_architecture(
+        primary_arch=primary_arch,
+        model_id=model_id,
+        model_ref=model_ref,
+        outdir=outdir,
+        token=token,
+    )
+
+
+def require_hf_model_id(model_ref: str | Path, model_name: str) -> str:
+    if isinstance(model_ref, Path):
+        raise ValueError(f"{model_name} export supports only HuggingFace model IDs")
+    return model_ref
+
+
+def export_supported_hf_architecture(
+    primary_arch: str,
+    model_id: str,
+    model_ref: str | Path,
+    outdir: Path,
+    token: str | None,
+) -> Path:
+    export_dir = outdir / Path(model_ref).name
+    handlers: dict[str, tuple[str, Callable[[], Path]]] = {
+        "vitforimageclassification": (
+            "a ViT for image classification",
+            lambda: export_hf_vit_to_openvino(model_ref, export_dir, token),
+        ),
+        "clipmodel": (
+            "a CLIP model",
+            lambda: export_hf_clip_to_openvino(
+                require_hf_model_id(model_ref, "CLIP"),
+                export_dir,
+                token,
+            ),
+        ),
+        "rtdetrforobjectdetection": (
+            "an RT-DETR model",
+            lambda: export_hf_rtdetr_to_openvino(model_ref, export_dir, token),
+        ),
+        "rtdetrv2forobjectdetection": (
+            "an RT-DETR model",
+            lambda: export_hf_rtdetr_to_openvino(model_ref, export_dir, token),
+        ),
+    }
+
+    model_description, export_handler = handlers[primary_arch]
+    print(f"Model {model_id} is {model_description}")
+    return export_handler()
 
 
 def load_hf_architectures(config_path: Path) -> list[str]:
@@ -183,22 +230,51 @@ def load_hf_architectures_from_repo(
     raise ValueError("HuggingFace architectures must be a string or list")
 
 
+def run_optimum_cli_openvino_export(
+    model_ref: str,
+    outdir: Path,
+    token: str | None,
+    *,
+    extra_args: list[str] | None = None,
+    model_name_for_error: str | None = None,
+) -> Path:
+    outdir.mkdir(parents=True, exist_ok=True)
+    command = [
+        "optimum-cli",
+        "export",
+        "openvino",
+        "--model",
+        model_ref,
+    ]
+    if extra_args:
+        command.extend(extra_args)
+    command.append(str(outdir))
+
+    env = os.environ if not token else {**os.environ, "HF_TOKEN": token}
+    try:
+        subprocess.run(
+            command,
+            check=True,
+            env=env,
+        )
+    except FileNotFoundError as exc:
+        export_name = model_name_for_error or model_ref
+        raise ValueError(f"optimum-cli is required for {export_name} export") from exc
+
+    return outdir
+
+
 def export_hf_vit_to_openvino(
     model_ref: str | Path,
     outdir: Path,
     token: str | None,
 ) -> Path:
-    outdir.mkdir(parents=True, exist_ok=True)
-    kwargs: dict[str, str] = {}
-    if isinstance(model_ref, str) and token:
-        kwargs["token"] = token
-    ov_model = OVModelForImageClassification.from_pretrained(
-        str(model_ref),
-        export=True,
-        **kwargs,
+    return run_optimum_cli_openvino_export(
+        model_ref=str(model_ref),
+        outdir=outdir,
+        token=token,
+        model_name_for_error="ViT",
     )
-    ov_model.save_pretrained(str(outdir))
-    return outdir
 
 
 def export_hf_clip_to_openvino(
@@ -273,65 +349,33 @@ def export_hf_phi4mm_to_openvino(
 
     Equivalent to: optimum-cli export openvino --model <id> <outdir>
     """
-    outdir.mkdir(parents=True, exist_ok=True)
-    kwargs: dict[str, str] = {}
-    if token:
-        kwargs["token"] = token
-    ov_model = OVModelForCausalLM.from_pretrained(
-        model_ref,
-        export=True,
-        **kwargs,
+    return run_optimum_cli_openvino_export(
+        model_ref=model_ref,
+        outdir=outdir,
+        token=token,
+        model_name_for_error="Phi4MM",
     )
-    ov_model.save_pretrained(str(outdir))
-    return outdir
 
 
 def export_hf_minicpm_v26_to_openvino(outdir: Path, token: str) -> Path:
     """Export MiniCPM-V-2_6 using optimum-cli with int4 weights."""
-    outdir.mkdir(parents=True, exist_ok=True)
-    command = [
-        "optimum-cli",
-        "export",
-        "openvino",
-        "--model",
-        "openbmb/MiniCPM-V-2_6",
-        "--weight-format",
-        "int4",
-        str(outdir),
-    ]
-    try:
-        subprocess.run(
-            command,
-            check=True,
-            env={**os.environ, "HF_TOKEN": token},
-        )
-    except FileNotFoundError as exc:
-        raise ValueError("optimum-cli is required for MiniCPM-V-2_6 export") from exc
-
-    return outdir
+    return run_optimum_cli_openvino_export(
+        model_ref="openbmb/MiniCPM-V-2_6",
+        outdir=outdir,
+        token=token,
+        extra_args=["--weight-format", "int4"],
+        model_name_for_error="MiniCPM-V-2_6",
+    )
 
 
 def export_hf_gemma3_to_openvino(outdir: Path, token: str) -> Path:
     """Export Gemma3 using optimum-cli."""
-    outdir.mkdir(parents=True, exist_ok=True)
-    command = [
-        "optimum-cli",
-        "export",
-        "openvino",
-        "--model",
-        "google/gemma-3-4b-it",
-        str(outdir),
-    ]
-    try:
-        subprocess.run(
-            command,
-            check=True,
-            env={**os.environ, "HF_TOKEN": token},
-        )
-    except FileNotFoundError as exc:
-        raise ValueError("optimum-cli is required for Gemma3 export") from exc
-
-    return outdir
+    return run_optimum_cli_openvino_export(
+        model_ref="google/gemma-3-4b-it",
+        outdir=outdir,
+        token=token,
+        model_name_for_error="Gemma3",
+    )
 
 
 def is_supported_hf_arch(architectures: list[str]) -> bool:
@@ -341,8 +385,19 @@ def is_supported_hf_arch(architectures: list[str]) -> bool:
     return False
 
 
-def download_ultralytics_model(model_or_path: str, outdir: Path) -> Path:
+def download_ultralytics_model(
+    model_or_path: str,
+    outdir: Path,
+    *,
+    precision: str,
+) -> Path:
     """Download or resolve an Ultralytics model (.pt)."""
+    if precision not in {"fp32", "fp16", "int8"}:
+        raise ValueError("Ultralytics precision must be one of: fp32, fp16, int8")
+
+    half = precision == "fp16"
+    int8 = precision == "int8"
+
     outdir.mkdir(parents=True, exist_ok=True)
     path = Path(model_or_path)
     if path.exists():
@@ -355,7 +410,8 @@ def download_ultralytics_model(model_or_path: str, outdir: Path) -> Path:
         exported_model_path = model.export(
             format="openvino",
             dynamic=True,
-            half=True,
+            half=half,
+            int8=int8,
             project=str(outdir),
         )
     except Exception as exc:
