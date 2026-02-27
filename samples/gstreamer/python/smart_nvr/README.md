@@ -1,19 +1,36 @@
-# Smart Network Video Recorder for Line Hogging
+# Smart Network Video Recorder for Lane Hogging Detection
 
 This sample demonstrates how to build a simple Network Video Recorder (NVR) with custom video analytics using DLStreamer elements.
 It detects line-hogging events—vehicles driving in outer lanes without a neighboring vehicle—which may be illegal in certain jurisdictions.
 
-The event detection logic is straightforward and designed for demonstration purposes. This sample showcases how to integrate custom analytics into a DLStreamer pipeline by:
-- Creating custom detection events by processing prediction results from the `gvadetect` element
-- Segmenting video files into smaller chunks and attaching custom metadata to each segment
-
 ![Sample Output](smart_nvr_output.jpg)
+
+The event detection logic is straightforward and designed for demonstration purposes. 
+This sample showcases how to integrate custom analytics and custom video storage into a DLStreamer pipeline composed of:
+
+```mermaid
+graph LR
+        A[filesrc (GStreamer element)] --> B[decodebin3 (GStreamer element)]
+        B --> C[gvadetect (DLStreamer element)]
+        C --> D[gvaanalytics_py (custom element)]
+        D --> E[gvawatermark (DLStreamer element)]
+        E --> F[gvarecorder_py (custom element)]
+```
+
+The sample uses the following set of pipeline elements: 
+
+* __filesrc__ - GStreamer element that reads the video stream from a local file
+* __decodebin3__ - GStreamer element that decodes the video stream into individual frames
+* __gvadetect__ - DLStreamer inference element that detects vehicles using the RTDETRv2 model
+* __gvaanalytics_py__ - Custom Python element that processes object detection results and identifies lane-hogging vehicles
+* __gvawatermark__ - DLStreamer element that renders detection results and custom objects (lane-hogging vehicles) on video frames
+* __gvarecorder_py__ - Custom Python element that segments the video into 10-second chunks and stores metadata for each segment 
 
 ## Running
 
 ### Prerequisites
 
-The sample requires Python libraries beyond the DLStreamer distribution to download the RTDETRv2 model from HuggingFace and implement custom analytics using NumPy and OpenCV. An active network connection is needed.
+This sample requires Python libraries beyond the DLStreamer distribution to download the RTDETRv2 model from HuggingFace and implement custom analytics logic. An active network connection is required.
 
 Install dependencies:
 
@@ -31,6 +48,7 @@ Run the application with no configuration required. It automatically downloads t
 ```sh
 python3 ./smart_nvr.py
 ```
+
 ### Inspecting Output
 
 The sample generates output video chunks (*.mp4) and corresponding metadata files (*.txt):
@@ -49,46 +67,37 @@ Each metadata file contains the detected objects and events for its correspondin
 Objects: ['car', 'hogging', 'truck']
 ```
 
-To identify line-hogging events, search the metadata files for 'hogging' entries, then review the corresponding video segment to observe the detected behavior.
+To identify lane-hogging events, search the metadata files for 'hogging' entries, then review the corresponding video segment to observe the detected behavior.
 
 ## How It Works
 
 ### STEP 1 - Model Download and Conversion
 
-First, the sample downloads an example video file and the RTDETRv2 object detection model from HuggingFace. 
-The RTDETR PyTorch model is converted to OpenVINO IR (with ONNX as an intermediate step) using the standard HuggingFace toolchain.
-Additionally, the sample downloads 'preprocessor_config.json' along with the model file. 
-DLStreamer inference elements parse this configuration file to set up image preprocessing steps.
+The sample downloads an example video file and the RTDETRv2 object detection model from HuggingFace. 
+The RTDETRv2 PyTorch model is converted to OpenVINO IR (with ONNX as an intermediate step) using the standard HuggingFace toolchain.
+The sample also downloads the `preprocessor_config.json` file, which DLStreamer inference elements use to configure image preprocessing.
 
 ```code
 subprocess.run(["optimum-cli", "export", "onnx", "--model", "PekingU/rtdetr_v2_r50vd", 
-                "--task", "object-detection", "--opset", "18", "--width", "640", "--height", "640", "rtdetr_v2_r50vd"],
-    check=True)
+                                "--task", "object-detection", "--opset", "18", "--width", "640", "--height", "640", "rtdetr_v2_r50vd"],
+        check=True)
 subprocess.run(["hf", "download", "PekingU/rtdetr_v2_r50vd", "--include", "preprocessor_config.json", "--local-dir", "."], check=True)
 subprocess.run(["ovc", "model.onnx"], check=True)
 ```
 
-Note that the sample checks if the video file and model are already downloaded and skips this step in subsequent runs.
+The sample skips this step on subsequent runs if the video file and model are already downloaded.
 
 ### STEP 2 - DLStreamer Pipeline Construction
 
-The application creates a GStreamer `pipeline` object that combines predefined GStreamer and DLStreamer elements with custom Python elements developed for this sample:
-
-* __filesrc__ - Reads the video stream from a local file
-* __decodebin3__ - Decodes the video stream into individual frames
-* __gvadetect__ - Runs vehicle object detection using the RTDETRv2 model
-* __gvaanalytics_py__ - Custom Python element that processes object detection metadata and identifies line-hogging vehicles
-* __gvawatermark__ - Renders detection results on the video frames
-* __gvarecorder_py__ - Custom Python element that segments the video into 10-second chunks and stores metadata with detected objects and events
-
-The pipeline is configured with the downloaded video file and  detection model, and it uses GPU inference device by default.
+The application creates a GStreamer `pipeline` object that combines predefined GStreamer and DLStreamer elements with custom Python elements. 
+The pipeline is configured with the downloaded video file and detection model, and uses GPU inference by default.
 
 ```code
 pipeline = Gst.parse_launch(
-        f"filesrc location={video_file} ! decodebin3 ! "
-        f"gvadetect model={detection_model} device=GPU batch-size=4 threshold=0.7 ! queue ! "
-        f"gvaanalytics_py distance=500 angle=-135,-45 ! gvawatermark displ-cfg=draw-txt-bg=true ! " 
-        f"gvarecorder_py location=output.mp4 max-time=10")
+                f"filesrc location={video_file} ! decodebin3 ! "
+                f"gvadetect model={detection_model} device=GPU batch-size=4 threshold=0.7 ! queue ! "
+                f"gvaanalytics_py distance=500 angle=-135,-45 ! gvawatermark displ-cfg=draw-txt-bg=true ! " 
+                f"gvarecorder_py location=output.mp4 max-time=10")
 ```
 
 ### STEP 3 - Custom Analytics Element
@@ -98,8 +107,8 @@ The `gvaanalytics_py` element is defined in `plugins/python/gvaAnalytics.py`.
 This transform element processes GstAnalytics metadata generated by `gvadetect` and adds custom metadata. It implements the following logic:
 
 - Detects cars or trucks crossing outer lanes (defined by the 'zone' polygon)
-- For vehicles in the outer lane, checks for neighboring vehicles in the left lane using 'distance' and 'angle' parameters
-- Classifies vehicles with no neighboring traffic as line-hogging and inserts a new "hogging" object into the metadata stream
+- For vehicles in the outer lane, checks for neighboring vehicles in the adjacent lane using 'distance' and 'angle' parameters
+- Classifies vehicles with no neighboring traffic as lane-hogging and inserts a new "hogging" object into the metadata stream
 
 ### STEP 4 - Custom Video File Storage Element
 
@@ -122,7 +131,8 @@ The `buffer_probe` callback collects object categories detected by upstream elem
 
 The `event_probe` callback handles end-of-stream events to store metadata for the last video segment. 
 
-The `format_location_callback` is invoked when a new video segment begins. It writes the accumulated metadata to a file associated with that segment.
+The `format_location_callback` is invoked when a new video segment starts. It writes the accumulated metadata to a file associated with that segment.
 
 ## See also
 * [Samples overview](../../README.md)
+
