@@ -72,10 +72,18 @@ function Invoke-DownloadFile {
 Write-Section "Checking Visual C++ Runtime"
 $MSVC_RUNTIME_INSTALLED = $false
 try {
-	$msvcVersion = (Get-ItemProperty -Path "HKLM:\SOFTWARE\Wow6432Node\Microsoft\VisualStudio\14.0\VC\Runtimes\X64" -Name "Version" -ErrorAction SilentlyContinue).Version
-	if ($msvcVersion) {
-		Write-Host "Visual C++ Runtime already installed: $msvcVersion"
-		$MSVC_RUNTIME_INSTALLED = $true
+	$regKey = Get-ItemProperty -Path "HKLM:\SOFTWARE\Wow6432Node\Microsoft\VisualStudio\14.0\VC\Runtimes\X64" -ErrorAction SilentlyContinue
+	if ($regKey -and $regKey.Version) {
+		$major = $regKey.Major
+		$minor = $regKey.Minor
+		if ($major -eq 14 -and $minor -ge 50) {
+			Write-Host "Visual C++ Runtime already installed: $($regKey.Version)"
+			$MSVC_RUNTIME_INSTALLED = $true
+		}
+		else {
+			Write-Host "Visual C++ Runtime version too old: $($regKey.Version)"
+			$MSVC_RUNTIME_INSTALLED = $false
+		}
 	}
 }
 catch {
