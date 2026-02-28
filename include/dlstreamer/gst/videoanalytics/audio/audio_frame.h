@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2018-2025 Intel Corporation
+ * Copyright (C) 2018-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -175,7 +175,8 @@ class AudioFrame {
      * @param confidence detection confidence
      * @return new AudioEvent instance
      */
-    AudioEvent add_event(long start_time, long end_time, std::string label = std::string(), double confidence = 0.0) {
+    AudioEvent add_event(guint64 start_time, guint64 end_time, std::string label = std::string(),
+                         double confidence = 0.0) {
 
         GstGVAAudioEventMeta *meta = gst_gva_buffer_add_audio_event_meta(buffer, label.c_str(), start_time, end_time);
 
