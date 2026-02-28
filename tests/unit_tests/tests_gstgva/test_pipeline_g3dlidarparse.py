@@ -19,28 +19,28 @@ STRIDE = 1
 FRAME_RATE = 5
 
 PIPELINE_TEMPLATE = (
-	"filesrc location={location} "
-	"! capsfilter caps=application/octet-stream "
-	"! g3dlidarparse stride={stride} frame-rate={frame_rate} ! fakesink"
+    "filesrc location={location} "
+    "! capsfilter caps=application/octet-stream "
+    "! g3dlidarparse stride={stride} frame-rate={frame_rate} ! fakesink"
 )
 
 
 class TestG3DLidarParsePipeline(unittest.TestCase):
-	def test_g3dlidarparse_pcd_pipeline(self):
-		pipeline = PIPELINE_TEMPLATE.format(
-			location=PCD_LOCATION,
-			stride=STRIDE,
-			frame_rate=FRAME_RATE,
-		)
+    def test_g3dlidarparse_pcd_pipeline(self):
+        pipeline = PIPELINE_TEMPLATE.format(
+            location=PCD_LOCATION,
+            stride=STRIDE,
+            frame_rate=FRAME_RATE,
+        )
 
-		pipeline_runner = TestGenericPipelineRunner()
-		pipeline_runner.set_pipeline(pipeline)
-		pipeline_runner.run_pipeline()
+        pipeline_runner = TestGenericPipelineRunner()
+        pipeline_runner.set_pipeline(pipeline)
+        pipeline_runner.run_pipeline()
 
-		for e in pipeline_runner.exceptions:
-			print(e)
-		pipeline_runner.assertEqual(len(pipeline_runner.exceptions), 0, "Exceptions have been caught.")
+        for e in pipeline_runner.exceptions:
+            print(e)
+        pipeline_runner.assertEqual(len(pipeline_runner.exceptions), 0, "Exceptions have been caught.")
 
 
 if __name__ == "__main__":
-	unittest.main()
+    unittest.main()
