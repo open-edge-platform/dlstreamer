@@ -341,5 +341,5 @@ catch {
 	Write-Host "Error details: $_"
 	Write-Host "Please try updating GPU/NPU drivers and rebooting the system."
 	Write-Host "Optionally run the command to debug plugin loading:"
-	Write-Host "  $env:GST_DEBUG=`"GST_PLUGIN_LOADING:5,GST_REGISTRY:5`"; gst-inspect-1.0 gvadetect 2>&1 | tee plugin_loading.txt"
+	Write-Host "  `$env:GST_DEBUG=`"GST_PLUGIN_LOADING:5,GST_REGISTRY:5`"; `$env:GST_DEBUG_FILE=`"gst-plugin-loading-%p.log`"; gst-inspect-1.0 gvadetect"
 }
