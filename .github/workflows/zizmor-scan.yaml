@@ -37,4 +37,4 @@ jobs:
         with:
           scan-scope: ${{ github.event_name == 'pull_request' && 'changed' || 'all' }}
           severity-level: ${{ github.event_name == 'pull_request' && 'HIGH' || 'LOW' }}
-          fail-on-findings: ${{ github.event_name == 'pull_request' && 'true' || 'false' }}
+          fail-on-findings: true
