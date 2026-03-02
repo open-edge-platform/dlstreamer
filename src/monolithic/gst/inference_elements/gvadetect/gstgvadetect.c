@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2018-2025 Intel Corporation
+ * Copyright (C) 2018-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -55,6 +55,7 @@ void gst_gva_detect_set_property(GObject *object, guint property_id, const GValu
     switch (property_id) {
     case PROP_THRESHOLD:
         gvadetect->threshold = g_value_get_float(value);
+        gvadetect->threshold_explicitly_set = TRUE;
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
@@ -111,6 +112,7 @@ void gst_gva_detect_init(GstGvaDetect *gvadetect) {
 
     gvadetect->base_inference.type = GST_GVA_DETECT_TYPE;
     gvadetect->threshold = DEFAULT_THRESHOLD;
+    gvadetect->threshold_explicitly_set = FALSE;
 }
 
 static gboolean plugin_init(GstPlugin *plugin) {

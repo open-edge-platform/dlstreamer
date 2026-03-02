@@ -18,6 +18,7 @@
 
 #include <gst/analytics/analytics.h>
 #include <gst/analytics/gstanalyticsclassificationmtd.h>
+#include <gst/rtp/rtp.h>
 #include <nlohmann/json.hpp>
 
 #include <iomanip>
@@ -123,6 +124,30 @@ json get_frame_data(GstGvaMetaConvert *converter, GstBuffer *buffer) {
 
         if (vtc)
             gst_video_time_code_free(vtc);
+    }
+
+    if (converter->timestamp_rtp) {
+        json rtp_info = json::object();
+        bool has_rtp_info = false;
+
+        // Extract absolute sender NTP time from GstReferenceTimestampMeta if available.
+        // Requires rtspsrc with add-reference-timestamp-meta=true.
+        GstCaps *ntp_caps = gst_caps_new_empty_simple("timestamp/x-ntp");
+        GstReferenceTimestampMeta *ref_meta = gst_buffer_get_reference_timestamp_meta(buffer, ntp_caps);
+        gst_caps_unref(ntp_caps);
+
+        if (ref_meta && GST_CLOCK_TIME_IS_VALID(ref_meta->timestamp)) {
+            // NTP epoch is 1900-01-01, Unix epoch is 1970-01-01 (offset = 2208988800 seconds)
+            constexpr guint64 NTP_UNIX_OFFSET_NS = G_GUINT64_CONSTANT(2208988800) * GST_SECOND;
+            if (ref_meta->timestamp >= NTP_UNIX_OFFSET_NS) {
+                guint64 unix_ns = ref_meta->timestamp - NTP_UNIX_OFFSET_NS;
+                rtp_info["sender_ntp_unix_timestamp_ns"] = unix_ns;
+                has_rtp_info = true;
+            }
+        }
+
+        if (has_rtp_info)
+            res["rtp"] = rtp_info;
     }
     return res;
 }

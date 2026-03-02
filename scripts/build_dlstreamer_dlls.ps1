@@ -1,6 +1,6 @@
 #Requires -RunAsAdministrator
 # ==============================================================================
-# Copyright (C) 2025 Intel Corporation
+# Copyright (C) 2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
@@ -9,20 +9,23 @@ param(
 )
 
 $GSTREAMER_VERSION = "1.26.6"
-$OPENVINO_VERSION = "2026.0"
-$OPENVINO_DEST_FOLDER = "C:\\openvino"
-$GSTREAMER_DEST_FOLDER = "C:\\gstreamer"
-$DLSTREAMER_TMP = "C:\\dlstreamer_tmp"
+$OPENVINO_VERSION = "2026.0.0"
+$OPENVINO_VERSION_SHORT = "2026.0"
+$PYTHON_VERSION = "3.12.7"
+$OPENVINO_DEST_FOLDER = "$env:LOCALAPPDATA\Programs\openvino"
+$GSTREAMER_DEST_FOLDER = "$env:ProgramFiles\gstreamer"
+$DLSTREAMER_TMP = "$env:TEMP\dlstreamer_tmp"
 
 if ($useInternalProxy) {
-	$env:HTTP_PROXY="http://proxy-dmz.intel.com:911"
-	$env:HTTPS_PROXY="http://proxy-dmz.intel.com:912"
-	$env:NO_PROXY=""
+	$env:HTTP_PROXY = "http://proxy-dmz.intel.com:911"
+	$env:HTTPS_PROXY = "http://proxy-dmz.intel.com:912"
+	$env:NO_PROXY = ""
 	Write-Host "Proxy set:"
 	Write-Host "- HTTP_PROXY = $env:HTTP_PROXY"
 	Write-Host "- HTTPS_PROXY = $env:HTTPS_PROXY"
 	Write-Host "- NO_PROXY = $env:NO_PROXY"
-} else {
+}
+else {
 	Write-Host "No proxy set"
 }
 
@@ -30,135 +33,241 @@ if (-Not (Test-Path $DLSTREAMER_TMP)) {
 	mkdir $DLSTREAMER_TMP
 }
 
+function Update-Path {
+	$env:PATH = [Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [Environment]::GetEnvironmentVariable("Path", "User")
+}
+
+function Write-Section {
+	param(
+		[string]$Message,
+		[int]$Width = 120
+	)
+	$totalPadding = $Width - $Message.Length - 2
+	if ($totalPadding -lt 0) {
+		Write-Host $Message
+		return
+	}
+	$leftPad = [Math]::Floor($totalPadding / 2.0)
+	$rightPad = [Math]::Ceiling($totalPadding / 2.0)
+	$line = ("#" * $leftPad) + " " + $Message + " " + ("#" * $rightPad)
+	Write-Host $line
+}
+
+function Invoke-DownloadFile {
+	param(
+		[string]$Uri,
+		[string]$OutFile,
+		[string]$UserAgent
+	)
+	if (Test-Path $OutFile) {
+		Write-Host "Using cached: $OutFile"
+		return
+	}
+	$tempFile = "$OutFile.downloading"
+	if (Test-Path $tempFile) {
+		Remove-Item -Path $tempFile -Force
+	}
+	try {
+		$params = @{ Uri = $Uri; OutFile = $tempFile }
+		if ($UserAgent) { $params.UserAgent = $UserAgent }
+		Invoke-WebRequest @params
+		Move-Item -Path $tempFile -Destination $OutFile -Force
+	}
+	catch {
+		if (Test-Path $tempFile) {
+			Remove-Item -Path $tempFile -Force
+		}
+		throw "Download failed for ${Uri}: $_"
+	}
+}
+
+# ============================================================================
+# WinGet
+# ============================================================================
 if (-Not (Get-Command winget -errorAction SilentlyContinue)) {
 	$progressPreference = 'silentlyContinue'
-	Write-Host "######################## Installing WinGet PowerShell module from PSGallery ###########################"
+	Write-Section "Installing WinGet PowerShell module from PSGallery"
 	Install-PackageProvider -Name NuGet -Force | Out-Null
 	Install-Module -Name Microsoft.WinGet.Client -Force -Repository PSGallery | Out-Null
 	Write-Host "Using Repair-WinGetPackageManager cmdlet to bootstrap WinGet..."
 	Repair-WinGetPackageManager -AllUsers
-	Write-Host "########################################### Done ######################################################"
-} else {
-	Write-Host "########################### WinGet PowerShell module already installed ################################"
+	winget source update
+	Write-Section "Done"
+}
+else {
+	winget source update
+	Write-Section "WinGet already installed"
 }
 
-if (-Not (Test-Path "C:\\BuildTools")) {
-	Write-Host "###################################### Installing VS BuildTools #######################################"
-	Invoke-WebRequest -OutFile $DLSTREAMER_TMP\\vs_buildtools.exe -Uri https://aka.ms/vs/17/release/vs_buildtools.exe
-	Start-Process -Wait -FilePath $DLSTREAMER_TMP\vs_buildtools.exe -ArgumentList "--quiet", "--wait", "--norestart", "--nocache", "--installPath", "C:\\BuildTools", "--add", "Microsoft.VisualStudio.Component.VC.Tools.x86.x64", "--add", "Microsoft.VisualStudio.ComponentGroup.NativeDesktop.Core"
-	Write-Host "############################################### Done ##################################################"
-} else {
-	Write-Host "################################# VS BuildTools already installed #####################################"
+# ============================================================================
+# VS BuildTools, vcpkg and Windows SDK
+# ============================================================================
+$vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+$vsInstaller = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vs_installer.exe"
+$vsInstalled = $false
+$vsPath = ""
+if (Test-Path $vswhere) {
+	# Check if all required components are installed
+	$vsPath = & $vswhere -latest -products * -version "[18.0,)" -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 Microsoft.VisualStudio.ComponentGroup.NativeDesktop.Core Microsoft.VisualStudio.Component.Vcpkg Microsoft.VisualStudio.Component.Windows11SDK.26100 -property installationPath
+	if ($vsPath) {
+		$vsInstalled = $true
+	}
 }
 
-if (-Not (Test-Path "${env:ProgramFiles(x86)}\\Windows Kits")) {
-	Write-Host "####################################### Installing Windows SDK #######################################"
-	winget install --source winget --exact --id Microsoft.WindowsSDK.10.0.26100
-	Write-Host "########################################### Done #####################################################"
-} else {
-	Write-Host "################################ Windows SDK already installed #######################################"
+if (-Not $vsInstalled) {
+	Write-Section "Installing VS BuildTools with vcpkg and Windows SDK"
+	Invoke-DownloadFile -OutFile "$DLSTREAMER_TMP\vs_buildtools.exe" -Uri "https://aka.ms/vs/stable/vs_buildtools.exe"
+	$process = Start-Process -Wait -PassThru -FilePath "$DLSTREAMER_TMP\vs_buildtools.exe" -ArgumentList "--quiet", "--wait", "--norestart", "--add", "Microsoft.VisualStudio.Component.VC.Tools.x86.x64", "--add", "Microsoft.VisualStudio.ComponentGroup.NativeDesktop.Core", "--add", "Microsoft.VisualStudio.Component.Vcpkg", "--add", "Microsoft.VisualStudio.Component.Windows11SDK.26100"
+	# VS returns 3010 when installation is successful but requires restart, treat it as success
+	if ($process.ExitCode -ne 0 -and $process.ExitCode -ne 3010) {
+		Write-Error "VS BuildTools installation failed with exit code: $($process.ExitCode)"
+	}
+	Update-Path
+	$vsPath = & $vswhere -latest -products * -version "[18.0,)" -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 Microsoft.VisualStudio.ComponentGroup.NativeDesktop.Core Microsoft.VisualStudio.Component.Vcpkg Microsoft.VisualStudio.Component.Windows11SDK.26100 -property installationPath
 }
+else {
+	Write-Section "Updating VS BuildTools"
+	$process = Start-Process -Wait -PassThru -FilePath $vsInstaller -ArgumentList "update", "--installPath", "`"$vsPath`"", "--quiet", "--norestart"
+	if ($process.ExitCode -ne 0 -and $process.ExitCode -ne 3010) {
+		Write-Error "VS BuildTools update returned exit code: $($process.ExitCode)"
+	}
+}
+Write-Section "Done"
 
-# Check if GStreamer is installed and if it's the correct version
+# ============================================================================
+# GStreamer
+# ============================================================================
 $GSTREAMER_NEEDS_INSTALL = $false
-$GSTREAMER_INSTALL_MODE = "none"  # values: none | fresh | reinstall
-if (-Not (Test-Path $GSTREAMER_DEST_FOLDER)) {
-	Write-Host "GStreamer not found - installation needed"
-	$GSTREAMER_NEEDS_INSTALL = $true
-	$GSTREAMER_INSTALL_MODE = "fresh"
-} else {
-	Write-Host "GStreamer found in folder $GSTREAMER_DEST_FOLDER"
+$GSTREAMER_INSTALL_MODE = "none"  # values: none | fresh | upgrade
 
-	# Check if the correct version is installed
-	$VERSION_SPECIFIC_PATH = "$GSTREAMER_DEST_FOLDER\1.0\msvc_x86_64"
-	if (-Not (Test-Path $VERSION_SPECIFIC_PATH)) {
-		Write-Host "GStreamer installation incomplete - reinstallation needed"
-		$GSTREAMER_NEEDS_INSTALL = $true
-		$GSTREAMER_INSTALL_MODE = "reinstall"
-	} else {
-		# Try to get installed version from pkg-config file
-		$INSTALLED_VERSION = $null
-		$PKG_CONFIG_FILE = "$VERSION_SPECIFIC_PATH\lib\pkgconfig\gstreamer-1.0.pc"
-		if (Test-Path $PKG_CONFIG_FILE) {
-			$VERSION_LINE = Get-Content $PKG_CONFIG_FILE | Select-String "Version:"
-			if ($VERSION_LINE) {
-				$INSTALLED_VERSION = ($VERSION_LINE -split ":")[1].Trim()
+try {
+	$regPath = "HKLM:\SOFTWARE\GStreamer1.0\x86_64"
+	$regInstallDir = (Get-ItemProperty -Path $regPath -Name "InstallDir" -ErrorAction SilentlyContinue).InstallDir
+	$regVersion = (Get-ItemProperty -Path $regPath -Name "Version" -ErrorAction SilentlyContinue).Version
+
+	if ($regInstallDir -and $regVersion) {
+		Write-Host "GStreamer found in registry - InstallDir: $regInstallDir, Version: $regVersion"
+		$GSTREAMER_DEST_FOLDER = $regInstallDir.TrimEnd('\')
+		# Check for conflicting architectures first
+		$expectedPath = "$GSTREAMER_DEST_FOLDER\1.0\msvc_x86_64"
+		$envMsvcX64 = [Environment]::GetEnvironmentVariable('GSTREAMER_1_0_ROOT_MSVC_X86_64', 'Machine')
+
+		if ($envMsvcX64 -and ($envMsvcX64.TrimEnd('\') -ne $expectedPath)) {
+			Write-Host "Warning: GSTREAMER_1_0_ROOT_MSVC_X86_64 points to unexpected location: $envMsvcX64"
+		}
+		$conflictingArchs = @()
+		if ([Environment]::GetEnvironmentVariable('GSTREAMER_1_0_ROOT_MSVC_X86', 'Machine')) {
+			$conflictingArchs += 'msvc_x86'
+		}
+		if ([Environment]::GetEnvironmentVariable('GSTREAMER_1_0_ROOT_MINGW_X86_64', 'Machine')) {
+			$conflictingArchs += 'mingw_x86_64'
+		}
+		if ([Environment]::GetEnvironmentVariable('GSTREAMER_1_0_ROOT_MINGW_X86', 'Machine')) {
+			$conflictingArchs += 'mingw_x86'
+		}
+		if ($conflictingArchs.Count -gt 0) {
+			Write-Host "Warning: Found conflicting GStreamer architectures: $($conflictingArchs -join ', ')"
+			Write-Host "Multiple GStreamer architectures may cause conflicts. Only msvc_x86_64 is supported."
+		}
+
+		# Parse and compare versions
+		$installedParts = $regVersion.Split('.') | ForEach-Object { [int]$_ }
+		$requiredParts = $GSTREAMER_VERSION.Split('.') | ForEach-Object { [int]$_ }
+		$needsUpgrade = $false
+		for ($i = 0; $i -lt [Math]::Max($installedParts.Length, $requiredParts.Length); $i++) {
+			$installedPart = if ($i -lt $installedParts.Length) { $installedParts[$i] } else { 0 }
+			$requiredPart = if ($i -lt $requiredParts.Length) { $requiredParts[$i] } else { 0 }
+			if ($installedPart -lt $requiredPart) {
+				$needsUpgrade = $true
+				break
+			}
+			elseif ($installedPart -gt $requiredPart) {
+				# Installed version is newer, no upgrade needed
+				break
 			}
 		}
 
-		if ($INSTALLED_VERSION -and $INSTALLED_VERSION -ne $GSTREAMER_VERSION) {
-			Write-Host "GStreamer version mismatch - installed: $INSTALLED_VERSION, required: $GSTREAMER_VERSION"
+		if ($needsUpgrade) {
+			Write-Host "GStreamer upgrade available - installed: $regVersion, required: $GSTREAMER_VERSION - upgrading"
 			$GSTREAMER_NEEDS_INSTALL = $true
-			$GSTREAMER_INSTALL_MODE = "reinstall"
-		} elseif ($INSTALLED_VERSION) {
-			Write-Host "GStreamer version $INSTALLED_VERSION verified - correct version installed"
-		} else {
-			Write-Host "Warning: Could not verify GStreamer version, but installation appears complete"
+			$GSTREAMER_INSTALL_MODE = "upgrade"
+		}
+		else {
+			# Verify installation directory structure exists
+			$VERSION_SPECIFIC_PATH = "$GSTREAMER_DEST_FOLDER\1.0\msvc_x86_64"
+			if (-Not (Test-Path $VERSION_SPECIFIC_PATH)) {
+				Write-Host "GStreamer installation incomplete - msvc_x86_64 directory not found - reinstallation needed"
+				$GSTREAMER_NEEDS_INSTALL = $true
+				$GSTREAMER_INSTALL_MODE = "fresh"
+			}
+			else {
+				Write-Host "GStreamer version $regVersion verified (compatible with $GSTREAMER_VERSION)"
+				$GSTREAMER_NEEDS_INSTALL = $false
+			}
 		}
 	}
+ else {
+		Write-Host "GStreamer not found in registry - installation needed"
+		$GSTREAMER_NEEDS_INSTALL = $true
+		$GSTREAMER_INSTALL_MODE = "fresh"
+		$GSTREAMER_DEST_FOLDER = "$env:ProgramFiles\gstreamer"
+	}
+}
+catch {
+	Write-Host "GStreamer registry check failed - assuming not installed"
+	$GSTREAMER_NEEDS_INSTALL = $true
+	$GSTREAMER_INSTALL_MODE = "fresh"
+	$GSTREAMER_DEST_FOLDER = "$env:ProgramFiles\gstreamer"
 }
 
 if ($GSTREAMER_NEEDS_INSTALL) {
-	Write-Host "##################################### Preparing GStreamer ${GSTREAMER_VERSION} #######################################"
+	Write-Section "Preparing GStreamer ${GSTREAMER_VERSION}"
 
-	$GSTREAMER_RUNTIME_INSTALLER = "${DLSTREAMER_TMP}\\gstreamer-1.0-msvc-x86_64-${GSTREAMER_VERSION}.msi"
-	$GSTREAMER_DEVEL_INSTALLER = "${DLSTREAMER_TMP}\\gstreamer-1.0-devel-msvc-x86_64-${GSTREAMER_VERSION}.msi"
+	$GSTREAMER_RUNTIME_INSTALLER = "${DLSTREAMER_TMP}\gstreamer-1.0-msvc-x86_64-${GSTREAMER_VERSION}.msi"
+	$GSTREAMER_DEVEL_INSTALLER = "${DLSTREAMER_TMP}\gstreamer-1.0-devel-msvc-x86_64-${GSTREAMER_VERSION}.msi"
 
-	if (Test-Path $GSTREAMER_RUNTIME_INSTALLER) {
-		Write-Host "Using existing GStreamer runtime installer: $GSTREAMER_RUNTIME_INSTALLER"
-	} else {
-		Write-Host "Downloading GStreamer runtime installer..."
-		Invoke-WebRequest -UserAgent "curl" -OutFile $GSTREAMER_RUNTIME_INSTALLER -Uri https://gstreamer.freedesktop.org/data/pkg/windows/${GSTREAMER_VERSION}/msvc/gstreamer-1.0-msvc-x86_64-${GSTREAMER_VERSION}.msi
-	}
+	Write-Host "Downloading GStreamer runtime installer..."
+	Invoke-DownloadFile -UserAgent "curl/8.5.0" -OutFile $GSTREAMER_RUNTIME_INSTALLER -Uri "https://gstreamer.freedesktop.org/data/pkg/windows/${GSTREAMER_VERSION}/msvc/gstreamer-1.0-msvc-x86_64-${GSTREAMER_VERSION}.msi"
 
-	if (Test-Path $GSTREAMER_DEVEL_INSTALLER) {
-		Write-Host "Using existing GStreamer development installer: $GSTREAMER_DEVEL_INSTALLER"
-	} else {
-		Write-Host "Downloading GStreamer development installer..."
-		Invoke-WebRequest -UserAgent "curl" -OutFile $GSTREAMER_DEVEL_INSTALLER -Uri https://gstreamer.freedesktop.org/data/pkg/windows/${GSTREAMER_VERSION}/msvc/gstreamer-1.0-devel-msvc-x86_64-${GSTREAMER_VERSION}.msi
-	}
+	Write-Host "Downloading GStreamer development installer..."
+	Invoke-DownloadFile -UserAgent "curl/8.5.0" -OutFile $GSTREAMER_DEVEL_INSTALLER -Uri "https://gstreamer.freedesktop.org/data/pkg/windows/${GSTREAMER_VERSION}/msvc/gstreamer-1.0-devel-msvc-x86_64-${GSTREAMER_VERSION}.msi"
 
-	if ($GSTREAMER_INSTALL_MODE -eq "fresh") {
-		if (Test-Path $GSTREAMER_DEST_FOLDER) {
-			Write-Host "Removing existing GStreamer directory remnants before installation..."
-			Remove-Item -LiteralPath $GSTREAMER_DEST_FOLDER -Recurse -Force
-		}
-
+	if ($GSTREAMER_INSTALL_MODE -eq "fresh" -or $GSTREAMER_INSTALL_MODE -eq "upgrade") {
 		Write-Host "Installing GStreamer runtime package..."
-		Start-Process -Wait -FilePath "msiexec" -ArgumentList "/passive", "INSTALLDIR=C:\gstreamer", "/i", $GSTREAMER_RUNTIME_INSTALLER, "/qn"
+		$process = Start-Process -Wait -PassThru -FilePath "msiexec" -ArgumentList "/passive", "/i", $GSTREAMER_RUNTIME_INSTALLER, "/qn"
+		if ($process.ExitCode -ne 0) {
+			Write-Error "GStreamer runtime installation failed with exit code: $($process.ExitCode)"
+		}
 		Write-Host "Installing GStreamer development package..."
-		Start-Process -Wait -FilePath "msiexec" -ArgumentList "/passive", "INSTALLDIR=C:\gstreamer", "/i", $GSTREAMER_DEVEL_INSTALLER, "/qn"
-		(Get-Content C:\gstreamer\1.0\msvc_x86_64\lib\pkgconfig\gstreamer-analytics-1.0.pc).Replace('-lm', '') | Set-Content C:\gstreamer\1.0\msvc_x86_64\lib\pkgconfig\gstreamer-analytics-1.0.pc
-		Write-Host "################################################# GStreamer installation completed ###################################################"
-	} elseif ($GSTREAMER_INSTALL_MODE -eq "reinstall") {
-		Write-Host "#############################################################################################"
-		Write-Host "Detected existing GStreamer installation that doesn't match the required version ${GSTREAMER_VERSION}."
-		Write-Host "Automatic installation is paused until the current GStreamer is removed."
-		Write-Host "Please uninstall the existing GStreamer using Control Panel before proceeding."
-		Write-Host "The required installers have been downloaded for you and will be reused on the next run."
-		Write-Host " "
-		Write-Host "After uninstalling, ensure the old GStreamer installation folder ${GSTREAMER_DEST_FOLDER} is fully removed."
-		Write-Host "Then rerun this script. The new version will install automatically."
-		Write-Host "#############################################################################################"
-		exit 1
-	} else {
-		Write-Warning "Internal state error: unknown GStreamer install mode '$GSTREAMER_INSTALL_MODE'."
-		exit 1
+		$process = Start-Process -Wait -PassThru -FilePath "msiexec" -ArgumentList "/passive", "/i", $GSTREAMER_DEVEL_INSTALLER, "/qn"
+		if ($process.ExitCode -ne 0) {
+			Write-Error "GStreamer development installation failed with exit code: $($process.ExitCode)"
+		}
+		# FIXME: Remove this section after GStreamer 1.28
+		$pkgConfigFile = "$GSTREAMER_DEST_FOLDER\1.0\msvc_x86_64\lib\pkgconfig\gstreamer-analytics-1.0.pc"
+		if (Test-Path $pkgConfigFile) {
+			(Get-Content $pkgConfigFile).Replace('-lm', '') | Set-Content $pkgConfigFile
+		}
+		Write-Section "GStreamer installation completed"
 	}
-} else {
-	Write-Host "################################# GStreamer ${GSTREAMER_VERSION} already installed ##################################"
+}
+else {
+	Write-Section "GStreamer ${GSTREAMER_VERSION} already installed"
 }
 
-# Check if OpenVINO is installed and if it's the correct version
+# ============================================================================
+# OpenVINO
+# ============================================================================
 $OPENVINO_NEEDS_INSTALL = $true
-if (-Not [System.IO.File]::Exists("$OPENVINO_DEST_FOLDER\\setupvars.ps1")) {
+if (-Not (Test-Path "$OPENVINO_DEST_FOLDER\setupvars.ps1")) {
 	Write-Host "OpenVINO not found - installation needed"
 	$OPENVINO_NEEDS_INSTALL = $true
-} else {
+}
+else {
 	Write-Host "OpenVINO found in folder $OPENVINO_DEST_FOLDER"
 
 	# Try to get installed version from version file
-	$VERSION_FILE = "$OPENVINO_DEST_FOLDER\\runtime\\version.txt"
+	$VERSION_FILE = "$OPENVINO_DEST_FOLDER\runtime\version.txt"
 	if (Test-Path $VERSION_FILE) {
 		$VERSION_CONTENT = Get-Content $VERSION_FILE -First 1
 		if ($VERSION_CONTENT) {
@@ -166,22 +275,24 @@ if (-Not [System.IO.File]::Exists("$OPENVINO_DEST_FOLDER\\setupvars.ps1")) {
 				$INSTALLED_VERSION_FULL = ($VERSION_CONTENT -split '-')[0]
 				Write-Host "OpenVINO version $INSTALLED_VERSION_FULL verified - compatible with required $OPENVINO_VERSION"
 				$OPENVINO_NEEDS_INSTALL = $false
-			} else {
+			}
+			else {
 				$INSTALLED_VERSION_FULL = ($VERSION_CONTENT -split '-')[0]
 				Write-Host "OpenVINO version mismatch - installed: $INSTALLED_VERSION_FULL, required: $OPENVINO_VERSION"
 				$OPENVINO_NEEDS_INSTALL = $true
 			}
-		} else {
-			Write-Host "Warning: Could not read OpenVINO version file"
-			$OPENVINO_NEEDS_INSTALL = $false
 		}
-	} else {
-		Write-Host "Warning: Could not find OpenVINO version file, but installation appears complete"
-		$OPENVINO_NEEDS_INSTALL = $false
+		else {
+			$OPENVINO_NEEDS_INSTALL = $true
+		}
+	}
+	else {
+		$OPENVINO_NEEDS_INSTALL = $true
 	}
 }
+
 if ($OPENVINO_NEEDS_INSTALL) {
-	Write-Host "####################################### Installing OpenVINO GenAI ${OPENVINO_VERSION} #######################################"
+	Write-Section "Installing OpenVINO GenAI ${OPENVINO_VERSION}"
 
 	# Remove existing OpenVINO installation if present
 	if (Test-Path "${OPENVINO_DEST_FOLDER}") {
@@ -190,99 +301,120 @@ if ($OPENVINO_NEEDS_INSTALL) {
 	}
 
 	# Check if correct installer is already downloaded
-	$OPENVINO_INSTALLER = "${DLSTREAMER_TMP}\\openvino_genai_windows_${OPENVINO_VERSION}.0.0_x86_64.zip"
-	if (-Not (Test-Path $OPENVINO_INSTALLER)) {
-		Write-Host "Downloading OpenVINO GenAI ${OPENVINO_VERSION}..."
-		Invoke-WebRequest -OutFile $OPENVINO_INSTALLER -Uri "https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/${OPENVINO_VERSION}/windows/openvino_genai_windows_${OPENVINO_VERSION}.0.0_x86_64.zip"
-	} else {
-		Write-Host "Using existing OpenVINO installer: $OPENVINO_INSTALLER"
-	}
+	$OPENVINO_INSTALLER = "${DLSTREAMER_TMP}\openvino_genai_windows_${OPENVINO_VERSION}.0_x86_64.zip"
+	Write-Host "Downloading OpenVINO GenAI ${OPENVINO_VERSION}..."
+	Invoke-DownloadFile -OutFile $OPENVINO_INSTALLER -Uri "https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/${OPENVINO_VERSION_SHORT}/windows/openvino_genai_windows_${OPENVINO_VERSION}.0_x86_64.zip"
 
 	Write-Host "Extracting OpenVINO GenAI ${OPENVINO_VERSION}..."
-	Expand-Archive -Path $OPENVINO_INSTALLER -DestinationPath "C:\" -Force
-	$EXTRACTED_FOLDER = "C:\\openvino_genai_windows_${OPENVINO_VERSION}.0.0_x86_64"
+	$EXTRACTED_FOLDER = "$env:TEMP\openvino_genai_windows_${OPENVINO_VERSION}.0_x86_64"
 	if (Test-Path $EXTRACTED_FOLDER) {
-		# Rename the extracted folder to the final destination name
-		$DEST_FOLDER_NAME = Split-Path $OPENVINO_DEST_FOLDER -Leaf
-		Rename-Item -Path $EXTRACTED_FOLDER -NewName $DEST_FOLDER_NAME
+		Remove-Item -LiteralPath $EXTRACTED_FOLDER -Recurse -Force
 	}
-	Write-Host "############################################ Done ########################################################"
-} else {
-	Write-Host "################################# OpenVINO GenAI ${OPENVINO_VERSION} already correctly installed ##################################"
+	Expand-Archive -Path $OPENVINO_INSTALLER -DestinationPath "$env:TEMP" -Force
+	if (Test-Path $EXTRACTED_FOLDER) {
+		$OPENVINO_PARENT = Split-Path $OPENVINO_DEST_FOLDER -Parent
+		if (-Not (Test-Path $OPENVINO_PARENT)) {
+			New-Item -ItemType Directory -Path $OPENVINO_PARENT -Force | Out-Null
+		}
+		Move-Item -Path $EXTRACTED_FOLDER -Destination $OPENVINO_DEST_FOLDER -Force
+	}
+	Write-Section "Done"
+}
+else {
+	Write-Section "OpenVINO GenAI ${OPENVINO_VERSION} already installed"
 }
 
-if (-Not (Test-Path "C:\\Program Files\\Git")) {
-	Write-Host "####################################### Installing Git #######################################"
-	winget install --id Git.Git -e --source winget
+# ============================================================================
+# Git
+# ============================================================================
+$gitInstalled = (Get-WinGetPackage -Id Git.Git -Source winget -ErrorAction SilentlyContinue).Count -gt 0
+if (-Not $gitInstalled) {
+	Write-Section "Installing Git"
+	Install-WinGetPackage -Id Git.Git -Source winget -Mode Silent
+	Update-Path
+	New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" -Name "LongPathsEnabled" -Value 1 -PropertyType DWORD -Force
 	git config --system core.longpaths true
-	Write-Host "######################################### Done ###############################################"
-} else {
-	Write-Host "############################### Git already installed ########################################"
+	Write-Section "Done"
+}
+else {
+	git --version
+	Write-Section "Git already installed"
 }
 
-Write-Host "###################################### Setting paths ########################################"
-${env:VCPKG_ROOT} = "C:\\vcpkg"
-if (-Not ${env:PATH_SETUP_DONE}) {
-	${env:PATH} = "C:\Program Files\Git\bin;${env:PATH}"
-	setx path "${env:VCPKG_ROOT};${env:VCPKG_ROOT}\downloads\tools\cmake-3.30.1-windows\cmake-3.30.1-windows-i386\bin;${env:VCPKG_ROOT}\downloads\tools\python\python-3.12.7-x64-1"
-	${env:PATH_SETUP_DONE} = 1
+# ============================================================================
+# CMake
+# ============================================================================
+$cmakeInstalled = (Get-WinGetPackage -Id Kitware.CMake -Source winget -ErrorAction SilentlyContinue).Count -gt 0
+if (-Not $cmakeInstalled) {
+	Write-Section "Installing CMake"
+	Install-WinGetPackage -Id Kitware.CMake -Source winget -Mode Silent
+	Update-Path
+	Write-Section "Done"
 }
-setx PKG_CONFIG_PATH "C:\gstreamer\1.0\msvc_x86_64\lib\pkgconfig"
-C:\BuildTools\Common7\Tools\Launch-VsDevShell.ps1
-$DLSTREAMER_SRC_LOCATION = $PWD.Path
-Write-Host "############################################ DONE ###########################################"
-
-if (-Not (Test-Path "${env:VCPKG_ROOT}")) {
-	Write-Host "####################################### Installing VCPKG #######################################"
-	git clone --recursive https://github.com/microsoft/vcpkg.git ${env:VCPKG_ROOT}
-	Set-Location -Path ${env:VCPKG_ROOT}
-	Start-Process -Wait -FilePath powershell.exe -ArgumentList "-file", "${env:VCPKG_ROOT}\scripts\bootstrap.ps1", "-disableMetrics" -NoNewWindow
-	Add-Content -Path ${env:VCPKG_ROOT}\triplets\x64-windows.cmake -Value "`r`nset(VCPKG_BUILD_TYPE release)"
-	Write-Host "############################################ Done ##############################################"
-} else {
-	Write-Host "################################### VCPKG already installed ####################################"
+else {
+	cmake --version
+	Write-Section "CMake already installed"
 }
 
+# ============================================================================
+# Upgrade with winget
+# ============================================================================
+winget upgrade Git.Git Kitware.CMake -e --source winget
+
+# ============================================================================
+# Python
+# ============================================================================
 if (-Not (Get-Command python -errorAction SilentlyContinue)) {
-	Write-Host "####################################### Installing Python #######################################"
-	Invoke-WebRequest -OutFile ${DLSTREAMER_TMP}\\python-3.12.7-amd64.exe -Uri https://www.python.org/ftp/python/3.12.7/python-3.12.7-amd64.exe
-	Start-Process -Wait -FilePath "${DLSTREAMER_TMP}\\python-3.12.7-amd64.exe"  -ArgumentList "/quiet", "InstallAllUsers=1", "PrependPath=1", "Include_test=0" -NoNewWindow
-	Write-Host "############################################## Done #############################################"
-} else {
-	Write-Host "#################################### Python already installed ##################################"
+	Write-Section "Installing Python"
+	Invoke-DownloadFile -OutFile "${DLSTREAMER_TMP}\python-${PYTHON_VERSION}-amd64.exe" -Uri "https://www.python.org/ftp/python/${PYTHON_VERSION}/python-${PYTHON_VERSION}-amd64.exe"
+	$process = Start-Process -Wait -PassThru -FilePath "${DLSTREAMER_TMP}\python-${PYTHON_VERSION}-amd64.exe"  -ArgumentList "/quiet", "InstallAllUsers=1", "PrependPath=1", "Include_test=0"
+	if ($process.ExitCode -ne 0) {
+		Write-Error "Python installation failed with exit code: $($process.ExitCode)"
+	}
+	Update-Path
+	Write-Section "Done"
 }
-if (-Not (Get-Command py -errorAction SilentlyContinue)) {
-	Set-Alias -Name python3 -Value python
-	Set-Alias -Name py -Value python
-	py --version
+else {
+	python --version
+	Write-Section "Python already installed"
 }
 
-Write-Host "#################################### Preparing build directory #####################################"
-if (Test-Path "${DLSTREAMER_TMP}\\build") {
-	Remove-Item -LiteralPath "${DLSTREAMER_TMP}\\build" -Recurse
+# ============================================================================
+# Final environment setup
+# ============================================================================
+Write-Section "Setting paths"
+Update-Path
+$DLSTREAMER_SRC_LOCATION = $PWD.Path
+setx PKG_CONFIG_PATH "$GSTREAMER_DEST_FOLDER\1.0\msvc_x86_64\lib\pkgconfig"
+$env:PKG_CONFIG_PATH = "$GSTREAMER_DEST_FOLDER\1.0\msvc_x86_64\lib\pkgconfig"
+# Setup OpenVINO environment variables
+. "$OPENVINO_DEST_FOLDER\setupvars.ps1"
+# Setup VS environment variables
+$env:MSBUILDDISABLENODEREUSE = 1
+$env:UseMultiToolTask = "true"
+$VSDEVSHELL = Join-Path $vsPath "Common7\Tools\Launch-VsDevShell.ps1"
+& $VSDEVSHELL -Arch amd64
+Write-Section "Done"
+
+# ============================================================================
+# Build DL Streamer
+# ============================================================================
+Write-Section "Preparing build directory"
+if (Test-Path "${DLSTREAMER_TMP}\build") {
+	Remove-Item -LiteralPath "${DLSTREAMER_TMP}\build" -Recurse
 }
-mkdir "${DLSTREAMER_TMP}\\build"
-Write-Host "############################################# Done ##################################################"
+mkdir "${DLSTREAMER_TMP}\build"
+Set-Location -Path "${DLSTREAMER_TMP}\build"
 
-Write-Host "####################################### Configuring VCPKG ###########################################"
-Set-Location -Path "${DLSTREAMER_TMP}\\build"
-Start-Process -Wait -FilePath "vcpkg" -ArgumentList "integrate", "install", "--triplet=x64-windows" -NoNewWindow
-Start-Process -Wait -FilePath "vcpkg" -ArgumentList "install", "--triplet=x64-windows", "--vcpkg-root=${env:VCPKG_ROOT}", "--x-manifest-root=${DLSTREAMER_SRC_LOCATION}" -NoNewWindow
-Start-Process -Wait -FilePath "taskkill" -ArgumentList "/im", "msbuild.exe", "/f", "/t" -NoNewWindow
-Write-Host "########################################## Done #####################################################"
-
-Write-Host "################################## Initializing OpenVINO ############################################"
-& "$OPENVINO_DEST_FOLDER\setupvars.ps1"
-Write-Host "####################################### Done ######################################################"
-
-Write-Host "##################################### Running CMAKE #################################################"
-$exit_code = Start-Process -Wait -FilePath "cmake" -ArgumentList "-DCMAKE_TOOLCHAIN_FILE=${env:VCPKG_ROOT}\scripts\buildsystems\vcpkg.cmake", "${DLSTREAMER_SRC_LOCATION}" -NoNewWindow
-if (-Not $exit_code.ExitCode) {
-	Write-Host "######################################## Done #######################################################"
-	Write-Host "################################# Building DL Streamer ##############################################"
-	cmake --build . -v --parallel 16 --target ALL_BUILD --config Release
-	Write-Host "######################################## Done #######################################################"
-} else {
-	Write-Host "##################################### !CMAKE error! #################################################"
-	exit $exit_code.ExitCode
+Write-Section "Running CMake"
+$VCPKG_CMAKE = Join-Path $vsPath "VC\vcpkg\scripts\buildsystems\vcpkg.cmake"
+cmake -DCMAKE_TOOLCHAIN_FILE="${VCPKG_CMAKE}" "$DLSTREAMER_SRC_LOCATION"
+if ($LASTEXITCODE -eq 0) {
+	Write-Section "Building DL Streamer"
+	cmake --build . --parallel $env:NUMBER_OF_PROCESSORS --target ALL_BUILD --config Release
+	Write-Section "Done"
+}
+else {
+	Write-Section "!CMake error!"
+	exit $LASTEXITCODE
 }

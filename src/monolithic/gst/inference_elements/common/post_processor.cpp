@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2021-2025 Intel Corporation
+ * Copyright (C) 2021-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -201,6 +201,7 @@ PostProcessor::PostProcessor(InferenceImpl *inference_impl, GvaBaseInference *ba
         initializer.converter_type = ConverterType::TO_ROI;
         GstGvaDetect *gva_detect = reinterpret_cast<GstGvaDetect *>(base_inference);
         initializer.threshold = gva_detect->threshold;
+        initializer.threshold_explicitly_set = gva_detect->threshold_explicitly_set;
     } else if (inference_type == InferenceType::GST_GVA_CLASSIFY_TYPE) {
         initializer.converter_type = ConverterType::TO_TENSOR;
     } else if (inference_type == InferenceType::GST_GVA_INFERENCE_TYPE) {

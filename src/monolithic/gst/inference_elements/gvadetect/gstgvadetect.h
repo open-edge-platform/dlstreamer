@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2018-2024 Intel Corporation
+ * Copyright (C) 2018-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -22,6 +22,7 @@ G_BEGIN_DECLS
 typedef struct _GstGvaDetect {
     GvaBaseInference base_inference;
     double threshold;
+    gboolean threshold_explicitly_set;
 } GstGvaDetect;
 
 typedef struct _GstGvaDetectClass {
