@@ -52,12 +52,15 @@ The pipeline is built dynamically in Python using `Gst.parse_launch`.
 ```mermaid
 graph LR
     A[filesrc] --> B[decodebin3]
-    B --> C[gvagenai]
-    C --> D[gvametapublish]
-    D --> E[gvafpscounter]
-    E --> F[gvawatermark]
-    F --> G["encode (vah264enc + h264parse + mp4mux)"]
-    G --> H[filesink]
+    B --> C[videoconvertscale]
+    C --> D[gvagenai]
+    D --> E[gvametapublish]
+    E --> F[queue]
+    F --> G[gvafpscounter]
+    G --> H[identity / meta_inject]
+    H --> I[gvawatermark]
+    I --> J["encode (vah264enc + h264parse + mp4mux)"]
+    J --> K[filesink]
 ```
 
 ## Setup
@@ -113,6 +116,7 @@ results/<ModelName>-<video_stem>.mp4
 ```
 
 The `.jsonl` file contains one model response per processed frame and can be used to trigger downstream alerting logic.
+The `.mp4` file contains the processed video with the resulting text overlaid on each frame.
 
 ### Help
 
@@ -120,3 +124,4 @@ To display all available arguments and defaults:
 
 ```code
 python3 vlm_alerts.py --help
+```

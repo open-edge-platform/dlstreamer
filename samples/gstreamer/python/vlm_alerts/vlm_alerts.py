@@ -9,6 +9,7 @@ Run a DLStreamer VLM pipeline on a video and export JSON and MP4 results.
 """
 
 import argparse
+import json
 import os
 import subprocess
 import sys
@@ -16,18 +17,42 @@ import tempfile
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Tuple, Optional
+from typing import Optional
 
 import gi
 gi.require_version("Gst", "1.0")
 gi.require_version("GstPbutils", "1.0")
-from gi.repository import Gst, GLib, GstPbutils  # pylint: disable=no-name-in-module, wrong-import-position
+gi.require_version("GstAnalytics", "1.0")
+from gi.repository import Gst, GLib, GstPbutils, GstAnalytics  # pylint: disable=no-name-in-module, wrong-import-position
+from gstgva.util import GVAJSONMeta
 
 BASE_DIR = Path(__file__).resolve().parent
 
+def make_vlm_result_overlay_probe():
+    """Return a handoff probe that injects VLM result text as overlay metadata."""
+    last_overlay: list[str] = [""]
+
+    def probe(identity, buffer, _user_data) -> None:
+        for json_meta in GVAJSONMeta.iterate(buffer):
+            try:
+                data = json.loads(json_meta.get_message())
+                result_text = data.get("result", "")
+                if result_text:
+                    last_overlay[0] = result_text.strip().replace("\n", " ")[:120]
+            except (json.JSONDecodeError, AttributeError) as e:
+                print(f"[probe] error: {e}", file=sys.stderr)
+
+        if last_overlay[0]:
+            rmeta = GstAnalytics.buffer_get_analytics_relation_meta(buffer)
+            if not rmeta:
+                rmeta = GstAnalytics.buffer_add_analytics_relation_meta(buffer)
+            if rmeta:
+                rmeta.add_od_mtd(GLib.quark_from_string(last_overlay[0]), 10, 60, 0, 0, 1.0)
+
+    return probe
+
 class VLMAlertsError(Exception):
     """Domain-specific exception for VLM Alerts failures."""
-
 
 @dataclass
 class PipelineConfig:
@@ -57,6 +82,7 @@ def download_video(url: str, target_path: Path) -> None:
 
 
 def validate_video(video_path: Path) -> None:
+    """Raise VLMAlertsError if the file is missing, empty, or not a valid media file."""
     if not video_path.exists() or video_path.stat().st_size == 0:
         raise VLMAlertsError("Video file is missing or empty")
 
@@ -143,7 +169,7 @@ def resolve_model(
     return output_dir.resolve()
 
 
-def build_pipeline_string(cfg: PipelineConfig) -> Tuple[str, Path, Path, Path]:
+def build_pipeline_string(cfg: PipelineConfig) -> tuple[str, Path, Path, Path]:
     """Construct the GStreamer pipeline string and related output paths."""
     cfg.results_dir.mkdir(parents=True, exist_ok=True)
 
@@ -172,12 +198,12 @@ def build_pipeline_string(cfg: PipelineConfig) -> Tuple[str, Path, Path, Path]:
         f'chunk-size=1 '
         f'frame-rate={cfg.frame_rate} '
         f'metrics=true ! '
-        f'queue ! '
         f'gvametapublish file-format=json-lines '
         f'file-path="{output_json}" ! '
         f'queue ! '
         f'gvafpscounter ! '
-        f'gvawatermark displ-cfg=text-scale=0.5 ! '
+        f'identity name=meta_inject signal-handoffs=true ! '
+        f'gvawatermark name=watermark displ-cfg=font-scale=1.5,draw-txt-bg=false,color-idx=0,thickness=2 ! '
         f'videoconvert ! '
         f'vah264enc ! '
         f'h264parse ! '
@@ -204,6 +230,10 @@ def run_pipeline(cfg: PipelineConfig) -> int:
     except GLib.Error as error:
         print("Pipeline parse error:", str(error))
         return 1
+
+    meta_inject = pipeline.get_by_name("meta_inject")
+    if meta_inject:
+        meta_inject.connect("handoff", make_vlm_result_overlay_probe(), None)
 
     bus = pipeline.get_bus()
     pipeline.set_state(Gst.State.PLAYING)
