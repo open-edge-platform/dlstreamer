@@ -55,12 +55,11 @@ graph LR
     B --> C[videoconvertscale]
     C --> D[gvagenai]
     D --> E[gvametapublish]
-    E --> F[queue]
-    F --> G[gvafpscounter]
-    G --> H[identity / meta_inject]
-    H --> I[gvawatermark]
-    I --> J["encode (vah264enc + h264parse + mp4mux)"]
-    J --> K[filesink]
+    E --> F[gvafpscounter]
+    F --> G[identity / meta_inject]
+    G --> H[gvawatermark]
+    H --> I["encode (vah264enc + h264parse + mp4mux)"]
+    I --> J[filesink]
 ```
 
 ## Setup
