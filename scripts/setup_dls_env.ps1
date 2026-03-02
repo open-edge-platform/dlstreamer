@@ -72,10 +72,18 @@ function Invoke-DownloadFile {
 Write-Section "Checking Visual C++ Runtime"
 $MSVC_RUNTIME_INSTALLED = $false
 try {
-	$msvcVersion = (Get-ItemProperty -Path "HKLM:\SOFTWARE\Wow6432Node\Microsoft\VisualStudio\14.0\VC\Runtimes\X64" -Name "Version" -ErrorAction SilentlyContinue).Version
-	if ($msvcVersion) {
-		Write-Host "Visual C++ Runtime already installed: $msvcVersion"
-		$MSVC_RUNTIME_INSTALLED = $true
+	$regKey = Get-ItemProperty -Path "HKLM:\SOFTWARE\Wow6432Node\Microsoft\VisualStudio\14.0\VC\Runtimes\X64" -ErrorAction SilentlyContinue
+	if ($regKey -and $regKey.Version) {
+		$major = $regKey.Major
+		$minor = $regKey.Minor
+		if ($major -eq 14 -and $minor -ge 50) {
+			Write-Host "Visual C++ Runtime already installed: $($regKey.Version)"
+			$MSVC_RUNTIME_INSTALLED = $true
+		}
+		else {
+			Write-Host "Visual C++ Runtime version too old: $($regKey.Version)"
+			$MSVC_RUNTIME_INSTALLED = $false
+		}
 	}
 }
 catch {
@@ -333,5 +341,5 @@ catch {
 	Write-Host "Error details: $_"
 	Write-Host "Please try updating GPU/NPU drivers and rebooting the system."
 	Write-Host "Optionally run the command to debug plugin loading:"
-	Write-Host "  $env:GST_DEBUG=`"GST_PLUGIN_LOADING:5,GST_REGISTRY:5`"; gst-inspect-1.0 gvadetect 2>&1 | tee plugin_loading.txt"
+	Write-Host "  `$env:GST_DEBUG=`"GST_PLUGIN_LOADING:5,GST_REGISTRY:5`"; `$env:GST_DEBUG_FILE=`"gst-plugin-loading-%p.log`"; gst-inspect-1.0 gvadetect"
 }
