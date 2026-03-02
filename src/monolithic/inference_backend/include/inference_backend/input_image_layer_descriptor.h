@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2018-2025 Intel Corporation
+ * Copyright (C) 2018-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -70,13 +70,14 @@ class InputImageLayerDesc {
         Padding(size_t stride) : defined(stride), stride_x(stride), stride_y(stride) {
         }
         Padding(size_t stride, const std::vector<double> &fill_value)
-            : defined(stride), stride_x(stride), stride_y(stride), fill_value(fill_value) {
+            : defined(stride || !fill_value.empty()), stride_x(stride), stride_y(stride), fill_value(fill_value) {
         }
         Padding(size_t stride_x, size_t stride_y)
             : defined(stride_x || stride_y), stride_x(stride_x), stride_y(stride_y) {
         }
         Padding(size_t stride_x, size_t stride_y, const std::vector<double> &fill_value)
-            : defined(stride_x || stride_y), stride_x(stride_x), stride_y(stride_y), fill_value(fill_value) {
+            : defined(stride_x || stride_y || !fill_value.empty()), stride_x(stride_x), stride_y(stride_y),
+              fill_value(fill_value) {
         }
 
         bool isDefined() const {

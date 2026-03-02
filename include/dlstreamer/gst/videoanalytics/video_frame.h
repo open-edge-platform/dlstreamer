@@ -367,19 +367,20 @@ class VideoFrame {
                 gfloat confidence;
                 gint x, y, w, h;
                 GQuark label = gst_analytics_od_mtd_get_obj_type(&od_mtd);
-                gst_analytics_od_mtd_get_location(&od_mtd, &x, &y, &w, &h, &confidence);
-
-                // create GstVideoRegionOfInterestMeta to match GstAnalyticsODMtd
-                GstStructure *detection = gst_structure_new("detection", "x_min", G_TYPE_DOUBLE, double(x), "x_max",
-                                                            G_TYPE_DOUBLE, double(x + w), "y_min", G_TYPE_DOUBLE,
-                                                            double(y), "y_max", G_TYPE_DOUBLE, double(y + h), NULL);
-                gst_structure_set(detection, "confidence", G_TYPE_DOUBLE, double(confidence), NULL);
-                roi_meta = gst_buffer_add_video_region_of_interest_meta(buffer, g_quark_to_string(label), x, y, w, h);
-                if (!roi_meta)
-                    throw std::runtime_error(
-                        "GVA::VideoFrame: Failed to get video region of interest meta for object detection metadata");
-                roi_meta->id = od_mtd.id;
-                gst_video_region_of_interest_meta_add_param(roi_meta, detection);
+                if (gst_analytics_od_mtd_get_location(&od_mtd, &x, &y, &w, &h, &confidence)) {
+                    // create GstVideoRegionOfInterestMeta to match GstAnalyticsODMtd
+                    GstStructure *detection = gst_structure_new("detection", "x_min", G_TYPE_DOUBLE, double(x), "x_max",
+                                                                G_TYPE_DOUBLE, double(x + w), "y_min", G_TYPE_DOUBLE,
+                                                                double(y), "y_max", G_TYPE_DOUBLE, double(y + h), NULL);
+                    gst_structure_set(detection, "confidence", G_TYPE_DOUBLE, double(confidence), NULL);
+                    roi_meta =
+                        gst_buffer_add_video_region_of_interest_meta(buffer, g_quark_to_string(label), x, y, w, h);
+                    if (!roi_meta)
+                        throw std::runtime_error("GVA::VideoFrame: Failed to get video region of interest meta for "
+                                                 "object detection metadata");
+                    roi_meta->id = od_mtd.id;
+                    gst_video_region_of_interest_meta_add_param(roi_meta, detection);
+                }
             }
 
             regions.emplace_back(od_mtd, roi_meta);

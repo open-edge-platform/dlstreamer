@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2018-2025 Intel Corporation
+ * Copyright (C) 2018-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -110,7 +110,7 @@ GstGVAAudioEventMeta *gst_gva_buffer_get_audio_event_meta_id(GstBuffer *buffer, 
  * Returns: (transfer none): the #GstGVAAudioEventMeta on @buffer.
  */
 DLS_EXPORT GstGVAAudioEventMeta *gst_gva_buffer_add_audio_event_meta(GstBuffer *buffer, const gchar *event_type,
-                                                                     gulong start_timestamp, gulong end_timestamp) {
+                                                                     guint64 start_timestamp, guint64 end_timestamp) {
     return gst_gva_buffer_add_audio_event_meta_id(buffer, g_quark_from_string(event_type), start_timestamp,
                                                   end_timestamp);
 }
@@ -128,7 +128,7 @@ DLS_EXPORT GstGVAAudioEventMeta *gst_gva_buffer_add_audio_event_meta(GstBuffer *
  * Returns: (transfer none): the #GstGVAAudioEventMeta on @buffer.
  */
 GstGVAAudioEventMeta *gst_gva_buffer_add_audio_event_meta_id(GstBuffer *buffer, GQuark event_type,
-                                                             gulong start_timestamp, gulong end_timestamp) {
+                                                             guint64 start_timestamp, guint64 end_timestamp) {
     GstGVAAudioEventMeta *event_meta;
 
     g_return_val_if_fail(GST_IS_BUFFER(buffer), NULL);

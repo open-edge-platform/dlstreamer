@@ -34,13 +34,14 @@ This project pins all dependencies in [requirements.txt](requirements.txt) for d
 
 1. Create and activate a virtual environment:
 ```code
-   python3 -m venv .venv
-   source .venv/bin/activate
+   python3 -m venv .face_det_cls_venv
+   source .face_det_cls_venv/bin/activate
    ```
 
 2. Install dependencies:
 ```code
-   pip install -r requirements.txt
+   curl -LO https://raw.githubusercontent.com/openvinotoolkit/openvino.genai/refs/heads/releases/2026/0/samples/export-requirements.txt
+   pip install -r export-requirements.txt -r requirements.txt
    ```
 
 If you need to update dependencies, regenerate the pinned versions in [requirements.txt](requirements.txt) from a known-good environment.
