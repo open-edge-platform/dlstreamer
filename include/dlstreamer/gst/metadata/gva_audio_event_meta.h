@@ -53,10 +53,10 @@ const GstMetaInfo *gst_gva_audio_event_meta_get_info(void);
 GstGVAAudioEventMeta *gst_gva_buffer_get_audio_event_meta_id(GstBuffer *buffer, gint id);
 
 DLS_EXPORT GstGVAAudioEventMeta *gst_gva_buffer_add_audio_event_meta(GstBuffer *buffer, const gchar *event_type,
-                                                                     gulong start_timestamp, gulong end_timestamp);
+                                                                     guint64 start_timestamp, guint64 end_timestamp);
 
 GstGVAAudioEventMeta *gst_gva_buffer_add_audio_event_meta_id(GstBuffer *buffer, GQuark event_type,
-                                                             gulong start_timestamp, gulong end_timestamp);
+                                                             guint64 start_timestamp, guint64 end_timestamp);
 DLS_EXPORT void gst_gva_audio_event_meta_add_param(GstGVAAudioEventMeta *meta, GstStructure *s);
 
 GstStructure *gst_gva_audio_event_meta_get_param(GstGVAAudioEventMeta *meta, const gchar *name);
