@@ -137,9 +137,8 @@ TensorsTable BlobToROIConverter::storeObjects(DetectedObjectsTable &objects_tabl
             runNms(objects);
     
     for (auto &objects : objects_table){
-        const auto new_end = std::remove_if(objects.begin(),
-                                            objects.end(),
-                                            [](auto detection) {return detection.isDetectionValid();});
+        const auto new_end = 
+            std::remove_if(objects.begin(), objects.end(), [](auto detection) {return detection.isDetectionValid();});
         objects.erase(new_end, objects.end());
     }
 
