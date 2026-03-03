@@ -78,6 +78,22 @@ class BlobToROIConverter : public BlobToMetaConverter {
 
             return results;
         }
+
+        bool isDetectionValid() {
+            const double x_min = this->x - this->w / 2.0;
+            const double x_max = this->x + this->w / 2.0;
+            const double y_min = this->y - this->h / 2.0;
+            const double y_max = this->y + this->h / 2.0;
+
+            const bool out_of_bounds = x_min > 1.0            // x_min beyond max image boundary
+                                       || y_min > 1.0          // y_min beyond max image boundary
+                                       || x_max < 0.0          // x_max beyond min image boundary
+                                       || y_max < 0.0          // y_max beyond min image boundary
+                                       || this->w == 0.0   // invalid width
+                                       || this->h == 0.0;  // invalid height
+
+            return !out_of_bounds;
+        }
     };
     using DetectedObjectsTable = std::vector<std::vector<DetectedObject>>;
 
