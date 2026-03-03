@@ -7,6 +7,7 @@
 #include "model_api_converters.h"
 
 #include "utils.h"
+#include <algorithm>
 #include <fstream>
 #include <regex>
 
@@ -633,6 +634,40 @@ std::map<std::string, GstStructure *> get_model_info_preproc(const std::shared_p
                 gst_structure_set_value(s, "reshape_size", &gvalue);
                 g_value_unset(&gvalue);
             }
+        }
+        if (element.first == "pad_value") {
+            int pad_value = element.second.as<int>();
+            if (pad_value < 0 || pad_value > 255) {
+                GST_WARNING("[get_model_info_preproc] Invalid pad value: %d. Expected an integer between 0 and 255.",
+                            pad_value);
+                pad_value = std::clamp(pad_value, 0, 255);
+                GST_INFO("[get_model_info_preproc] ) Pad value after clamping: %d", pad_value);
+            }
+            double d_pad_value = (double)pad_value;
+            std::vector<double> fill_values = {d_pad_value, d_pad_value, d_pad_value};
+            GValue array_value = G_VALUE_INIT;
+            g_value_init(&array_value, GST_TYPE_ARRAY);
+
+            for (const double &fill_value : fill_values) {
+                GValue item = G_VALUE_INIT;
+                g_value_init(&item, G_TYPE_DOUBLE);
+                g_value_set_double(&item, fill_value);
+                gst_value_array_append_value(&array_value, &item);
+                g_value_unset(&item);
+            }
+
+            GstStructure *inner = gst_structure_new_empty("padding");
+            gst_structure_set_value(inner, "fill_value", &array_value);
+            g_value_unset(&array_value);
+
+            GValue gvalue = G_VALUE_INIT;
+            g_value_init(&gvalue, GST_TYPE_STRUCTURE);
+            gst_value_set_structure(&gvalue, inner);
+            gst_structure_set_value(s, "padding", &gvalue);
+
+            gst_structure_free(inner);
+            g_value_unset(&gvalue);
+            GST_INFO("[get_model_info_preproc] pad_value: %d", pad_value);
         }
     }
 

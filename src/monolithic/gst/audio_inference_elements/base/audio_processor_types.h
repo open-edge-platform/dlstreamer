@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2019-2024 Intel Corporation
+ * Copyright (C) 2019-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -23,8 +23,8 @@ typedef struct _GvaAudioBaseInference GvaAudioBaseInference;
 struct AudioInferenceFrame {
     GstBuffer *buffer;
     std::vector<float> samples;
-    gulong startTime;
-    gulong endTime;
+    guint64 startTime;
+    guint64 endTime;
 };
 
 struct AudioInferenceOutput {
