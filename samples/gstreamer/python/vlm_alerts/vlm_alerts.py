@@ -188,7 +188,7 @@ def build_pipeline_string(cfg: PipelineConfig) -> tuple[str, Path, Path, Path]:
         f'filesrc location="{cfg.video}" ! '
         f'decodebin3 ! '
         f'videoconvertscale ! '
-        f'video/x-raw,format=BGRx,width=1280,height=720 ! '
+        f'video/x-raw(memory:VAMemory),format=NV12,width=1280,height=720 ! '
         f'queue ! '
         f'gvagenai '
         f'model-path="{cfg.model}" '
@@ -203,7 +203,7 @@ def build_pipeline_string(cfg: PipelineConfig) -> tuple[str, Path, Path, Path]:
         f'queue ! '
         f'gvafpscounter ! '
         f'identity name=meta_inject signal-handoffs=true ! '
-        f'gvawatermark name=watermark displ-cfg=font-scale=1.5,draw-txt-bg=false,color-idx=0,thickness=2 ! '
+        f'gvawatermark name=watermark displ-cfg=font-scale=1.5,draw-txt-bg=false,color-idx=1,thickness=5 ! '
         f'videoconvert ! '
         f'vah264enc ! '
         f'h264parse ! '
@@ -279,7 +279,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--prompt", required=True, help="Text prompt for VLM")
 
     parser.add_argument("--device", default="GPU")
-    parser.add_argument("--max-tokens", type=int, default=20)
+    parser.add_argument("--max-tokens", type=int, default=1)
     parser.add_argument("--frame-rate", type=float, default=1.0)
 
     parser.add_argument("--videos-dir", type=Path, default=BASE_DIR / "videos")

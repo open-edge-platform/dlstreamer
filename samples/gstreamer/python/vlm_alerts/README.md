@@ -101,7 +101,7 @@ Optional arguments:
 | Argument | Default | Description |
 |---|---|---|
 | `--device` | `GPU` | Inference device |
-| `--max-tokens` | `20` | Maximum tokens in the model response |
+| `--max-tokens` | `1` | Maximum tokens in the model response |
 | `--frame-rate` | `1.0` | Frames per second passed to `gvagenai` |
 | `--videos-dir` | `./videos` | Directory for downloaded videos |
 | `--models-dir` | `./models` | Directory for exported models |
