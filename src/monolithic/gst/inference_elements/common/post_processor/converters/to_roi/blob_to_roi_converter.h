@@ -85,10 +85,10 @@ class BlobToROIConverter : public BlobToMetaConverter {
             const double y_min = this->y - this->h / 2.0;
             const double y_max = this->y + this->h / 2.0;
 
-            const bool out_of_bounds = x_min > 1.0    // x_min beyond max image boundary
-                                      || y_min > 1.0  // y_min beyond max image boundary
-                                      || x_max < 0.0  // x_max beyond min image boundary
-                                      || y_max < 0.0; // y_max beyond min image boundary
+            const bool out_of_bounds = x_min > 1.0     // x_min beyond max image boundary
+                                       || y_min > 1.0  // y_min beyond max image boundary
+                                       || x_max < 0.0  // x_max beyond min image boundary
+                                       || y_max < 0.0; // y_max beyond min image boundary
 
             const bool zero_area = this->w == 0.0     // invalid width
                                    || this->h == 0.0; // invalid height
