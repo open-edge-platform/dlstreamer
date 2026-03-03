@@ -1376,23 +1376,6 @@ bool OpenVINOImageInference::DoNeedImagePreProcessing(const InferenceBackend::Im
     if (image == nullptr)
         return false;
 
-    // workaround for NPU plugin serialization when non-contiguous tensors submitted
-    if ((_impl->_device.find("NPU") != std::string::npos) && (_impl->_memory_type == MemoryType::SYSTEM) &&
-        ((image->format == FourCC::FOURCC_RGBP) || (image->format == FourCC::FOURCC_BGRP))) {
-
-        bool contiguous = (image->planes[1] - image->planes[0] == image->width * image->height) &&
-                          (image->planes[2] - image->planes[1] == image->width * image->height) &&
-                          (image->stride[0] == image->stride[1]) && (image->stride[1] == image->stride[2]) &&
-                          (image->stride[2] == image->width);
-
-        if (!contiguous) {
-            GVA_WARNING("Force OPENCV preprocessor to convert non-contiguous tensors into contigous memory location");
-            pre_processor.reset(
-                InferenceBackend::ImagePreprocessor::Create(InferenceBackend::ImagePreprocessorType::OPENCV, ""));
-            return true;
-        }
-    }
-
     return false;
 }
 
