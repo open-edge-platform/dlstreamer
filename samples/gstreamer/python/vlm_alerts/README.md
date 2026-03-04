@@ -116,13 +116,7 @@ results/<ModelName>-<video_stem>.jsonl
 results/<ModelName>-<video_stem>.mp4
 ```
 
-The `.jsonl` file contains one JSON record per processed frame. Each record includes:
-
-- `result` — model text response
-- `confidence` — per-token geometric mean probability in `[0.0, 1.0]` (present when `--num-beams >= 2`)
-- `timestamp` / `timestamp_seconds` — frame timestamp
-- `metrics` — performance breakdown (when `metrics=true` is set in the pipeline)
-
+The `.jsonl` file contains one JSON record per processed frame. 
 The `.mp4` file contains the processed video with the inference result and confidence percentage overlaid on every frame.
 
 ### Help

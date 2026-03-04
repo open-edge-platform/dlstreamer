@@ -169,7 +169,7 @@ def build_pipeline_string(cfg: PipelineConfig) -> tuple[str, Path, Path, Path]:
         f'filesrc location="{cfg.video}" ! '
         f'decodebin3 ! '
         f'videoconvertscale ! '
-        f'video/x-raw(memory:VAMemory),format=NV12,width=1280,height=720 ! '
+        f'video/x-raw(memory:VAMemory),format=NV12 ! '
         f'queue ! '
         f'gvagenai '
         f'model-path="{cfg.model}" '
