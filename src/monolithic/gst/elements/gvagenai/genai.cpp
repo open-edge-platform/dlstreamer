@@ -180,11 +180,6 @@ void OpenVINOGenAIContext::inference_tensor_vector(const std::string &prompt) {
     }
 
     // Extract confidence score from generation result.
-    // scores[i] = sum of log-probabilities of all tokens in sequence i (beam search / sampling).
-    // For greedy decoding the API fills scores with 0.0 (not computed) — treat as unavailable.
-    // We normalise by sequence length to get the per-token geometric mean probability:
-    //   confidence = exp(sum_log_prob / num_generated_tokens)
-    // last_confidence = -1.0f signals "not available" (greedy or empty scores).
     if (result.scores.empty()) {
         GST_INFO("No scores returned by VLM pipeline (scores vector empty), confidence unavailable");
         last_confidence = -1.0f;
