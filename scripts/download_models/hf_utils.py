@@ -12,21 +12,34 @@ from pathlib import Path
 from typing import Callable
 
 from huggingface_hub import hf_hub_download
+from openvino import PartialShape
+from openvino import Type
 from openvino import save_model
 from openvino.tools.ovc import convert_model
 from optimum.exporters.onnx import main_export
-from optimum.intel import OVModelForFeatureExtraction
+from transformers import CLIPVisionModel
 from transformers import AutoConfig
 from transformers import AutoProcessor
+from PIL import Image
 
 SUPPORTED_HF_MODELS = {
     "vitforimageclassification",
-    "clipmodel",
-    "rtdetrforobjectdetection",
-    "rtdetrv2forobjectdetection",
-    "microsoft/Phi-4-multimodal-instruct",
+    "InternVLChatModel",
+    "LlavaForConditionalGeneration",
+    "LlavaQwen2ForCausalLM",
+    "BunnyQwenForCausalLM",
+    "LlavaNextForConditionalGeneration",
+    "LlavaNextVideoForConditionalGeneration",
+    "MiniCPMO",
     "openbmb/MiniCPM-V-2_6",
+    "Phi3VForCausalLM",
+    "Phi4MMForCausalLM",
+    "Qwen2VLForConditionalGeneration",
+    "Qwen2_5_VLForConditionalGeneration",
     "google/gemma-3-4b-it",
+    "google/gemma-3-12b-it",
+    "google/gemma-3-27b-it",
+    "WhisperForConditionalGeneration",
 }
 
 CUSTOM_CONVERTERS = {
@@ -92,7 +105,6 @@ def custom_conversion(
                 model_id,
                 export_dir,
                 token,
-                extra_args=extra_args,
             ),
         ),
         "rtdetrforobjectdetection": (
@@ -135,28 +147,43 @@ def load_hf_architectures_from_repo(
 
     raise ValueError("HuggingFace architectures must be a string or list")
 
+
 def export_hf_clip_to_openvino(
     model_ref: str,
     outdir: Path,
     token: str | None,
-    extra_args: list[str] | None = None,
 ) -> Path:
     """Export CLIP vision encoder to OpenVINO IR.
 
     This exports only the visual feature extractor (no text encoder).
     """
     outdir.mkdir(parents=True, exist_ok=True)
-    _ = extra_args
-    kwargs: dict[str, str] = {}
-    if token:
-        kwargs["token"] = token
-    ov_model = OVModelForFeatureExtraction.from_pretrained(
-        model_ref,
-        export=True,
-        **kwargs,
-    )
-    ov_model.save_pretrained(str(outdir))
+
+    vision_model = CLIPVisionModel.from_pretrained(model_ref)
+    vision_model.eval()
+
+    img = Image.new("RGB", (224, 224))
     processor = AutoProcessor.from_pretrained(model_ref, token=token)
+    batch = processor.image_processor(images=img, return_tensors="pt")["pixel_values"]
+
+    ov_model = convert_model(vision_model, example_input=batch)
+
+    # Define the input shape explicitly
+    input_shape = PartialShape([-1, batch.shape[1], batch.shape[2], batch.shape[3]])
+
+    # Set the input shape and type explicitly
+    for nn_input in ov_model.inputs:
+        nn_input.get_node().set_partial_shape(PartialShape(input_shape))
+        nn_input.get_node().set_element_type(Type.f32)
+
+    ov_model.set_rt_info("clip_token", ["model_info", "model_type"])
+    ov_model.set_rt_info("68.500,66.632,70.323", ["model_info", "scale_values"])
+    ov_model.set_rt_info("122.771,116.746,104.094", ["model_info", "mean_values"])
+    ov_model.set_rt_info("RGB", ["model_info", "color_space"])
+    ov_model.set_rt_info("crop", ["model_info", "resize_type"])
+    model_name = Path(model_ref).name
+    save_model(ov_model, str(outdir / f"{model_name}.xml"))
+
     processor.save_pretrained(str(outdir))
     return outdir
 
@@ -194,6 +221,7 @@ def export_hf_rtdetr_to_openvino(
     )
 
     ov_model = convert_model(str(model_onnx))
-    save_model(ov_model, str(outdir / "model.xml"))
+    model_name = Path(model_ref).name
+    save_model(ov_model, str(outdir / f"{model_name}.xml"))
     model_onnx.unlink(missing_ok=True)
     return outdir
