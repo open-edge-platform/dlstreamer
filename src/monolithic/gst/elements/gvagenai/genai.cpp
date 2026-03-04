@@ -6,6 +6,8 @@
 
 #include "genai.hpp"
 
+#include <cmath>
+
 GST_DEBUG_CATEGORY_EXTERN(gst_gvagenai_debug);
 #define GST_CAT_DEFAULT gst_gvagenai_debug
 
@@ -177,6 +179,36 @@ void OpenVINOGenAIContext::inference_tensor_vector(const std::string &prompt) {
         last_result += text;
     }
 
+    // Extract confidence score from generation result.
+    // scores[i] = sum of log-probabilities of all tokens in sequence i (beam search / sampling).
+    // For greedy decoding the API fills scores with 0.0 (not computed) — treat as unavailable.
+    // We normalise by sequence length to get the per-token geometric mean probability:
+    //   confidence = exp(sum_log_prob / num_generated_tokens)
+    // last_confidence = -1.0f signals "not available" (greedy or empty scores).
+    if (result.scores.empty()) {
+        GST_INFO("No scores returned by VLM pipeline (scores vector empty), confidence unavailable");
+        last_confidence = -1.0f;
+    } else {
+        const float raw_score = result.scores[0];
+        GST_INFO("VLM scores vector size: %zu, raw score[0]: %f", result.scores.size(), raw_score);
+        for (size_t i = 0; i < result.scores.size(); ++i) {
+            GST_INFO("  score[%zu] = %f", i, result.scores[i]);
+        }
+        if (raw_score >= 0.0f) {
+            // Greedy decoding: scores are filled with 0.0 by the API → not computed
+            GST_INFO("Score is >= 0.0 (greedy decoding), confidence unavailable");
+            last_confidence = -1.0f;
+        } else {
+            // Beam search or sampling: normalise by generated token count for per-token mean
+            const auto num_tokens = static_cast<float>(result.perf_metrics.get_num_generated_tokens());
+            const float divisor = (num_tokens > 0.0f) ? num_tokens : 1.0f;
+            last_confidence = std::exp(raw_score / divisor);
+            // Clamp to [0, 1]
+            last_confidence = std::max(0.0f, std::min(1.0f, last_confidence));
+            GST_INFO("Confidence (exp(%.4f / %.0f tokens)): %.4f", raw_score, divisor, last_confidence);
+        }
+    }
+
     // Update metrics
     if (metrics.load_time == 0) {
         metrics = result.perf_metrics;
@@ -216,10 +248,17 @@ std::string OpenVINOGenAIContext::get_last_result() const {
     return last_result;
 }
 
+float OpenVINOGenAIContext::get_last_confidence() const {
+    return last_confidence;
+}
+
 std::string OpenVINOGenAIContext::create_json_metadata(GstClockTime timestamp, bool include_metrics) {
     auto round_2dp = [](double value) { return std::round(value * 100.0) / 100.0; };
 
     nlohmann::ordered_json json_obj = {{"result", last_result}};
+    if (last_confidence >= 0.0f) {
+        json_obj["confidence"] = round_2dp(last_confidence);
+    }
     if (include_metrics) {
         nlohmann::ordered_json metrics_obj = {
             {"load_time", round_2dp(metrics.get_load_time())},

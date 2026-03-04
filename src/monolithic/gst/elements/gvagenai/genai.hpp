@@ -91,6 +91,14 @@ class OpenVINOGenAIContext {
     std::string get_last_result() const;
 
     /**
+     * @brief Get the confidence score from the last inference.
+     * For beam search / sampling: per-token geometric mean probability in [0, 1].
+     * For greedy decoding (scores filled with 0 by the API): returns -1.0f (unavailable).
+     * @return Confidence in [0.0, 1.0], or -1.0f if unavailable.
+     */
+    float get_last_confidence() const;
+
+    /**
      * @brief Create JSON metadata from the last result and metrics
      * @param timestamp Frame timestamp in nanoseconds (GST_CLOCK_TIME)
      * @param include_metrics Whether to include performance metrics
@@ -105,6 +113,7 @@ class OpenVINOGenAIContext {
     std::optional<ov::genai::SchedulerConfig> scheduler_config = std::nullopt;
     ov::genai::VLMPerfMetrics metrics = {};
     std::string last_result = "";
+    float last_confidence = -1.0f; // -1.0f = unavailable (greedy decoding fills scores with 0)
     std::vector<ov::Tensor> tensor_vector = {};
 };
 

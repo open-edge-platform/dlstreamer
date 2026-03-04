@@ -11,6 +11,9 @@
 
 #include "gva_caps.h"
 #include "gva_json_meta.h"
+#include "gva_tensor_meta.h"
+#include <gst/analytics/gstanalyticsclassificationmtd.h>
+
 
 #include "genai.hpp"
 
@@ -371,54 +374,89 @@ static GstFlowReturn gst_gvagenai_transform_ip(GstBaseTransform *base, GstBuffer
     gst_video_info_from_caps(&info, caps);
     gst_caps_unref(caps);
 
+    auto *context = static_cast<genai::OpenVINOGenAIContext *>(gvagenai->openvino_context);
+
     gvagenai->frame_counter++;
 
     // Calculate frame sampling based on frame_rate
+    gboolean skip_frame = FALSE;
     if (gvagenai->frame_rate > 0) {
         gdouble input_fps = (gdouble)info.fps_n / (gdouble)info.fps_d;
         guint frames_to_skip = (guint)std::ceil(input_fps / gvagenai->frame_rate);
 
-        // Skip frames if needed
         if (frames_to_skip > 0 && (gvagenai->frame_counter % frames_to_skip != 0)) {
             GST_DEBUG_OBJECT(gvagenai, "Skipping frame %u based on frame rate %f", gvagenai->frame_counter,
                              gvagenai->frame_rate);
-            return GST_FLOW_OK;
+            skip_frame = TRUE;
         }
     }
 
-    auto *context = static_cast<genai::OpenVINOGenAIContext *>(gvagenai->openvino_context);
-
-    // Convert frame to tensor and add to vector
-    try {
-        context->add_tensor_to_vector(buf, &info);
-    } catch (const std::exception &e) {
-        GST_ELEMENT_ERROR(gvagenai, STREAM, FAILED, ("Failed to add frame to tensor vector"), ("Error: %s", e.what()));
-        return GST_FLOW_ERROR;
-    }
-
-    // Only process if we've accumulated enough tensors
-    if (context->get_tensor_vector_size() >= gvagenai->chunk_size) {
-        // Process tensor vector
+    // Run inference only on non-skipped frames
+    if (!skip_frame) {
+        // Convert frame to tensor and add to vector
         try {
-            context->inference_tensor_vector(gvagenai->prompt_string);
+            context->add_tensor_to_vector(buf, &info);
         } catch (const std::exception &e) {
-            GST_ELEMENT_ERROR(gvagenai, STREAM, FAILED, ("Failed to inference tensor vector"), ("Error: %s", e.what()));
+            GST_ELEMENT_ERROR(gvagenai, STREAM, FAILED, ("Failed to add frame to tensor vector"), ("Error: %s", e.what()));
             return GST_FLOW_ERROR;
         }
 
-        // Add metadata with the result to the latest frame
-        const GstMetaInfo *meta_info = gst_gva_json_meta_get_info();
-        if (meta_info && gst_buffer_is_writable(buf)) {
-            auto *json_meta = (GstGVAJSONMeta *)gst_buffer_add_meta(buf, meta_info, NULL);
-            json_meta->message =
-                g_strdup(context->create_json_metadata(GST_BUFFER_TIMESTAMP(buf), gvagenai->metrics).c_str());
-            GST_INFO_OBJECT(gvagenai, "Added meta message: %s", json_meta->message);
+        // Only process if we've accumulated enough tensors
+        if (context->get_tensor_vector_size() >= gvagenai->chunk_size) {
+            // Process tensor vector
+            try {
+                context->inference_tensor_vector(gvagenai->prompt_string);
+            } catch (const std::exception &e) {
+                GST_ELEMENT_ERROR(gvagenai, STREAM, FAILED, ("Failed to inference tensor vector"), ("Error: %s", e.what()));
+                return GST_FLOW_ERROR;
+            }
+
+            // Add JSON metadata on inference frames only.
+            const GstMetaInfo *meta_info = gst_gva_json_meta_get_info();
+            if (meta_info && gst_buffer_is_writable(buf)) {
+                auto *json_meta = (GstGVAJSONMeta *)gst_buffer_add_meta(buf, meta_info, NULL);
+                json_meta->message =
+                    g_strdup(context->create_json_metadata(GST_BUFFER_TIMESTAMP(buf), gvagenai->metrics).c_str());
+                GST_INFO_OBJECT(gvagenai, "Added meta message: %s", json_meta->message);
+            }
         } else {
-            GST_WARNING_OBJECT(gvagenai, "Buffer is not writable or failed to get meta info");
+            GST_DEBUG_OBJECT(gvagenai, "Added tensor %u of %u", (guint)context->get_tensor_vector_size(),
+                             gvagenai->chunk_size);
         }
-    } else {
-        GST_DEBUG_OBJECT(gvagenai, "Added tensor %u of %u", (guint)context->get_tensor_vector_size(),
-                         gvagenai->chunk_size);
+    }
+
+    // Add GVATensorMeta on EVERY frame so gvawatermark renders persistently.
+    // Uses the last known result (persists across frames until next inference).
+    std::string last_result = context->get_last_result();
+    if (!last_result.empty() && gst_buffer_is_writable(buf)) {
+        const GstMetaInfo *tensor_meta_info = gst_gva_tensor_meta_get_info();
+        if (tensor_meta_info) {
+            auto *tensor_meta = (GstGVATensorMeta *)gst_buffer_add_meta(buf, tensor_meta_info, NULL);
+            if (tensor_meta && tensor_meta->data) {
+                // Pass 0.0 when confidence is unavailable (greedy decoding) so gvawatermark
+                // renders the label text without a confidence percentage.
+                const float raw_conf = context->get_last_confidence();
+                const double confidence = (raw_conf >= 0.0f) ? static_cast<double>(raw_conf) : 0.0;
+                gst_structure_set(tensor_meta->data,
+                                  "label", G_TYPE_STRING, last_result.c_str(),
+                                  "confidence", G_TYPE_DOUBLE, confidence,
+                                  "model_name", G_TYPE_STRING, "genai",
+                                  NULL);
+            }
+        }
+
+        // Also emit GstAnalyticsClsMtd for proper analytics metadata.
+        GstAnalyticsRelationMeta *rmeta = gst_buffer_get_analytics_relation_meta(buf);
+        if (!rmeta) {
+            rmeta = gst_buffer_add_analytics_relation_meta(buf);
+        }
+        if (rmeta) {
+            GQuark label = g_quark_from_string(last_result.c_str());
+            const float raw_cls_conf = context->get_last_confidence();
+            gfloat cls_confidence = (raw_cls_conf >= 0.0f) ? raw_cls_conf : 0.0f;
+            GstAnalyticsClsMtd cls_mtd = {0, nullptr};
+            gst_analytics_relation_meta_add_cls_mtd(rmeta, 1, &cls_confidence, &label, &cls_mtd);
+        }
     }
 
     return GST_FLOW_OK;

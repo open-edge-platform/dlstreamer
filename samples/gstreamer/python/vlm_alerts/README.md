@@ -7,8 +7,8 @@ It shows how to:
 - Download a VLM from Hugging Face
 - Convert it to OpenVINO IR using `optimum-cli`
 - Run inference inside a DL Streamer pipeline
-- Generate structured JSON alerts per processed frame
-- Produce MP4 output
+- Generate structured JSON alerts per processed frame, including a confidence score
+- Produce MP4 output with the inference result overlaid on each frame
 
 ## Use Case: Alert-Based Monitoring
 
@@ -56,11 +56,12 @@ graph LR
     C --> D[gvagenai]
     D --> E[gvametapublish]
     E --> F[gvafpscounter]
-    F --> G[identity / meta_inject]
-    G --> H[gvawatermark]
-    H --> I["encode (vah264enc + h264parse + mp4mux)"]
-    I --> J[filesink]
+    F --> G[gvawatermark]
+    G --> H["encode (vah264enc + h264parse + mp4mux)"]
+    H --> I[filesink]
 ```
+
+The `gvagenai` element attaches inference results directly as `GstGVATensorMeta`, which `gvawatermark` reads to render the label and confidence percentage on every frame.
 
 ## Setup
 
@@ -74,7 +75,7 @@ source .vlm-venv/bin/activate
 2. Install dependencies:
 ```code
 curl -LO https://raw.githubusercontent.com/openvinotoolkit/openvino.genai/refs/heads/releases/2026/0/samples/export-requirements.txt
-pip install -r export-requirements.txt PyGObject==3.50.0
+pip install -r export-requirements.txt 
 ```
 
 > A DL Streamer build that includes the `gvagenai` element is required.
@@ -102,6 +103,7 @@ Optional arguments:
 |---|---|---|
 | `--device` | `GPU` | Inference device |
 | `--max-tokens` | `1` | Maximum tokens in the model response |
+| `--num-beams` | `4` | Beam search width. Values ≥ 2 enable beam search and produce a confidence score; `1` means greedy decoding with no confidence |
 | `--frame-rate` | `1.0` | Frames per second passed to `gvagenai` |
 | `--videos-dir` | `./videos` | Directory for downloaded videos |
 | `--models-dir` | `./models` | Directory for exported models |
@@ -114,8 +116,14 @@ results/<ModelName>-<video_stem>.jsonl
 results/<ModelName>-<video_stem>.mp4
 ```
 
-The `.jsonl` file contains one model response per processed frame and can be used to trigger downstream alerting logic.
-The `.mp4` file contains the processed video with the resulting text overlaid on each frame.
+The `.jsonl` file contains one JSON record per processed frame. Each record includes:
+
+- `result` — model text response
+- `confidence` — per-token geometric mean probability in `[0.0, 1.0]` (present when `--num-beams >= 2`)
+- `timestamp` / `timestamp_seconds` — frame timestamp
+- `metrics` — performance breakdown (when `metrics=true` is set in the pipeline)
+
+The `.mp4` file contains the processed video with the inference result and confidence percentage overlaid on every frame.
 
 ### Help
 

@@ -172,8 +172,8 @@ struct Impl {
 
     const double _radius_multiplier = 0.0025;
     Color _default_color = indexToColor(1);
-    // Position for full-frame text
-    const cv::Point2f _ff_text_position = cv::Point2f(0, 25.f);
+    // Position for full-frame text (configurable via displ-cfg text-x / text-y)
+    cv::Point2f _ff_text_position = cv::Point2f(0, 25.f);
     const bool _obb = false;
     bool _displ_avgfps = false;
     gchar *_displ_cfg = nullptr;
@@ -1248,6 +1248,14 @@ void Impl::parse_displ_config() {
                             "colors %d",
                             COLOR_IDX_RED, COLOR_IDX_BLUE, DEFAULT_COLOR_IDX);
             }
+            cfg.erase(iter);
+        }
+        if (iter = cfg.find("text-x"); iter != cfg.end()) {
+            _ff_text_position.x = std::stof(iter->second);
+            cfg.erase(iter);
+        }
+        if (iter = cfg.find("text-y"); iter != cfg.end()) {
+            _ff_text_position.y = std::stof(iter->second);
             cfg.erase(iter);
         }
     } catch (...) {

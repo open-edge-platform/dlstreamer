@@ -9,7 +9,6 @@ Run a DLStreamer VLM pipeline on a video and export JSON and MP4 results.
 """
 
 import argparse
-import json
 import os
 import subprocess
 import sys
@@ -22,34 +21,9 @@ from typing import Optional
 import gi
 gi.require_version("Gst", "1.0")
 gi.require_version("GstPbutils", "1.0")
-gi.require_version("GstAnalytics", "1.0")
-from gi.repository import Gst, GLib, GstPbutils, GstAnalytics  # pylint: disable=no-name-in-module, wrong-import-position
-from gstgva.util import GVAJSONMeta
+from gi.repository import Gst, GLib, GstPbutils  # pylint: disable=no-name-in-module, wrong-import-position
 
 BASE_DIR = Path(__file__).resolve().parent
-
-def make_vlm_result_overlay_probe():
-    """Return a handoff probe that injects VLM result text as overlay metadata."""
-    last_overlay: list[str] = [""]
-
-    def probe(identity, buffer, _user_data) -> None:
-        for json_meta in GVAJSONMeta.iterate(buffer):
-            try:
-                data = json.loads(json_meta.get_message())
-                result_text = data.get("result", "")
-                if result_text:
-                    last_overlay[0] = result_text.strip().replace("\n", " ")[:120]
-            except (json.JSONDecodeError, AttributeError) as e:
-                print(f"[probe] error: {e}", file=sys.stderr)
-
-        if last_overlay[0]:
-            rmeta = GstAnalytics.buffer_get_analytics_relation_meta(buffer)
-            if not rmeta:
-                rmeta = GstAnalytics.buffer_add_analytics_relation_meta(buffer)
-            if rmeta:
-                rmeta.add_od_mtd(GLib.quark_from_string(last_overlay[0]), 10, 60, 0, 0, 1.0)
-
-    return probe
 
 class VLMAlertsError(Exception):
     """Domain-specific exception for VLM Alerts failures."""
@@ -61,6 +35,7 @@ class PipelineConfig:
     prompt: str
     device: str
     max_tokens: int
+    num_beams: int
     frame_rate: float
     results_dir: Path
 
@@ -182,7 +157,13 @@ def build_pipeline_string(cfg: PipelineConfig) -> tuple[str, Path, Path, Path]:
     with os.fdopen(fd, "w") as file:
         file.write(cfg.prompt)
 
+    # for a short yes/no answer (max_new_tokens=1), num_beams=4 is a good default.
+    if cfg.num_beams < 1:
+        raise VLMAlertsError("num_beams must be >= 1")
+
     generation_cfg = f"max_new_tokens={cfg.max_tokens}"
+    if cfg.num_beams > 1:
+        generation_cfg += f",num_beams={cfg.num_beams}"
 
     pipeline_str = (
         f'filesrc location="{cfg.video}" ! '
@@ -202,8 +183,8 @@ def build_pipeline_string(cfg: PipelineConfig) -> tuple[str, Path, Path, Path]:
         f'file-path="{output_json}" ! '
         f'queue ! '
         f'gvafpscounter ! '
-        f'identity name=meta_inject signal-handoffs=true ! '
-        f'gvawatermark name=watermark displ-cfg=font-scale=1.5,draw-txt-bg=false,color-idx=1,thickness=5 ! '
+        f'gvawatermark name=watermark '
+        f'displ-cfg=font-scale=1.5,draw-txt-bg=false,color-idx=1,thickness=5,text-y=680 ! '
         f'videoconvert ! '
         f'vah264enc ! '
         f'h264parse ! '
@@ -230,10 +211,6 @@ def run_pipeline(cfg: PipelineConfig) -> int:
     except GLib.Error as error:
         print("Pipeline parse error:", str(error))
         return 1
-
-    meta_inject = pipeline.get_by_name("meta_inject")
-    if meta_inject:
-        meta_inject.connect("handoff", make_vlm_result_overlay_probe(), None)
 
     bus = pipeline.get_bus()
     pipeline.set_state(Gst.State.PLAYING)
@@ -280,6 +257,15 @@ def parse_args() -> argparse.Namespace:
 
     parser.add_argument("--device", default="GPU")
     parser.add_argument("--max-tokens", type=int, default=1)
+    parser.add_argument(
+        "--num-beams",
+        type=int,
+        default=4,
+        help=(
+            "Number of beams for beam search "
+            "(>=2 required for confidence scores; 1 = greedy, no confidence)"
+        ),
+    )
     parser.add_argument("--frame-rate", type=float, default=1.0)
 
     parser.add_argument("--videos-dir", type=Path, default=BASE_DIR / "videos")
@@ -304,12 +290,19 @@ def main() -> int:
         video = resolve_video(args.video_path, args.video_url, args.videos_dir)
         model = resolve_model(args.model_id, args.model_path, args.models_dir)
 
+        if args.num_beams == 1:
+            print(
+                "[warning] --num-beams=1 means greedy decoding: "
+                "confidence will not be available in output."
+            )
+
         config = PipelineConfig(
             video=video,
             model=model,
             prompt=args.prompt,
             device=args.device,
             max_tokens=args.max_tokens,
+            num_beams=args.num_beams,
             frame_rate=args.frame_rate,
             results_dir=args.results_dir,
         )
