@@ -1,4 +1,9 @@
 #!/bin/bash
+# ==============================================================================
+# Copyright (C) 2026 Intel Corporation
+#
+# SPDX-License-Identifier: MIT
+# ==============================================================================
 # Intel DL Streamer Modular Build Script
 set -ex
 
@@ -221,7 +226,7 @@ main() {
     log_info "sudo dnf install -y  --setopt=install_weak_deps=False ~/rpmbuild/RPMS/x86_64/intel-dlstreamer-*.rpm"
     log_info ""
     log_info "To setup environment:"
-    log_info "source /opt/intel/openvino_2025/setupvars.sh"
+    log_info "source /opt/intel/openvino_2026/setupvars.sh"
     log_info "source /opt/intel/dlstreamer/setupvars.sh"
     log_info "Check out the libraries/dl-streamer/docs to try out the getting started and performance guides"
 }

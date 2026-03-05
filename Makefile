@@ -1,5 +1,5 @@
 # ==============================================================================
-# Copyright (C) 2018-2025 Intel Corporation
+# Copyright (C) 2018-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
@@ -10,7 +10,7 @@ SHELL := /bin/bash
 PROJECT_DIRECTORY 			:= ${CURDIR}
 DLSTREAMER_INSTALL_PREFIX 	?= /opt/intel/dlstreamer
 DEPENDENCY_DIR				:= build/deps
-OPENVINO_DIR 				?= /opt/intel/openvino_2025
+OPENVINO_DIR 				?= /opt/intel/openvino_2026
 
 DLSTREAMER_VERSION 	:= 0.0.0
 BUILD_TYPE 			?= Release

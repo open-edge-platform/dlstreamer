@@ -20,7 +20,7 @@ If you are building dlstreamer from source, add "-DENABLE_SAMPLES=ON" to the cma
 If you are building stand alone samples with dlstreamer installed from .deb packages or as a docker image, you can build the sample from source and run it using
 
 ```sh
-source /opt/intel/openvino_2024/setupvars.sh
+source /opt/intel/openvino_2026/setupvars.sh
 source /opt/intel/dlstreamer/gstreamer/setupvars.sh
 ./build_and_run.sh INPUT_VIDEO [MODEL]
 ```

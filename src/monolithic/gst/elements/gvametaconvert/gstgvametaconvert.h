@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2018-2024 Intel Corporation
+ * Copyright (C) 2018-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -45,6 +45,7 @@ struct _GstGvaMetaConvert {
     gboolean signal_handoffs;
     gboolean timestamp_utc;
     gboolean timestamp_microseconds;
+    gboolean timestamp_rtp;
     convert_function_type convert_function;
     GstVideoInfo *info;
 #ifdef AUDIO

@@ -128,7 +128,7 @@ def main(input_video):
         f"filesrc location={input_video} ! decodebin3 ! "
         f"gvadetect model={ov_detection_model_path} device=GPU batch-size=4 ! queue ! "
         f"gvaclassify model={ov_classification_model_path} device=GPU batch-size=4 ! queue ! "
-        f"gvafpscounter ! gvawatermark displ-cfg=text-scale=0.5,draw-txt-bg=true ! "
+        f"gvafpscounter ! gvawatermark ! "
         f"videoconvert ! vah264enc ! h264parse ! mp4mux ! "
         f"filesink location={output_file}"
     )

@@ -15,6 +15,7 @@
 #include "region_of_interest.h"
 #include "test_utils.h"
 
+#include <gst/rtp/rtp.h>
 #include <gst/video/video.h>
 #include <nlohmann/json.hpp>
 
@@ -36,6 +37,7 @@ struct TestData {
     uint8_t buffer[8];
     bool ignore_detections;
     std::string add_tensor_data;
+    bool add_ntp_meta;
 };
 
 #ifdef AUDIO
@@ -139,6 +141,13 @@ void setup_inbuffer(GstBuffer *inbuffer, gpointer user_data) {
     TestData *test_data = static_cast<TestData *>(user_data);
     ck_assert_msg(test_data != NULL, "Passed data is not TestData");
 
+    if (test_data->add_ntp_meta) {
+        GstCaps *ntp_caps = gst_caps_new_empty_simple("timestamp/x-ntp");
+        // NTP timestamp (NTP epoch + some time since 1900)
+        guint64 ntp_timestamp_ns = G_GUINT64_CONSTANT(3980842262174494742);
+        gst_buffer_add_reference_timestamp_meta(inbuffer, ntp_caps, ntp_timestamp_ns, GST_CLOCK_TIME_NONE);
+        gst_caps_unref(ntp_caps);
+    }
     GstVideoInfo info;
     gst_video_info_set_format(&info, TEST_BUFFER_VIDEO_FORMAT, test_data->resolution.width,
                               test_data->resolution.height);
@@ -192,6 +201,19 @@ void check_outbuffer(GstBuffer *outbuffer, gpointer user_data) {
     ck_assert_msg(strcmp(json_message["resolution"].dump().c_str(), "{\"height\":480,\"width\":640}") == 0,
                   "Message does not contain resolution %s", meta->message);
     ck_assert_msg(json_message["timestamp"] == 0, "Message does not contain timestamp %s", meta->message);
+
+    if (test_data->add_ntp_meta) {
+        ck_assert_msg(json_message.contains("rtp"), "RTP metadata missing from JSON output. Message: %s",
+                      meta->message);
+        ck_assert_msg(json_message["rtp"].contains("sender_ntp_unix_timestamp_ns"),
+                      "NTP Unix timestamp missing from JSON output. Message: %s", meta->message);
+        guint64 expected_unix_ns =
+            G_GUINT64_CONSTANT(3980842262174494742) - (G_GUINT64_CONSTANT(2208988800) * 1000000000);
+        guint64 actual_unix_ns = json_message["rtp"]["sender_ntp_unix_timestamp_ns"].get<guint64>();
+        ck_assert_msg(actual_unix_ns == expected_unix_ns,
+                      "NTP Unix timestamp mismatch: expected %" G_GUINT64_FORMAT ", got %" G_GUINT64_FORMAT,
+                      expected_unix_ns, actual_unix_ns);
+    }
     if (test_data->ignore_detections) {
         ck_assert_msg(str_meta_message.find("objects") == std::string::npos,
                       "message has detection data. message content %s", meta->message);
@@ -226,6 +248,7 @@ GST_START_TEST(test_metaconvert_no_detections) {
     for (int i = 0; i < G_N_ELEMENTS(test_data); i++) {
         for (const auto &fp : supported_fp) {
             test_data[i].ignore_detections = true;
+            test_data[i].add_ntp_meta = false;
             run_test("gvametaconvert", VIDEO_CAPS_TEMPLATE_STRING, test_data[i].resolution, &srctemplate, &sinktemplate,
                      setup_inbuffer, check_outbuffer, &test_data[i], "tags", "{\"tag_key\":\"tag_val\"}", "source",
                      "test_src", "add-empty-results", true, NULL);
@@ -242,9 +265,10 @@ GST_START_TEST(test_metaconvert_all) {
     for (int i = 0; i < G_N_ELEMENTS(test_data); i++) {
         for (const auto &fp : supported_fp) {
             test_data[i].add_tensor_data = "all";
+            test_data[i].add_ntp_meta = true;
             run_test("gvametaconvert", VIDEO_CAPS_TEMPLATE_STRING, test_data[i].resolution, &srctemplate, &sinktemplate,
-                     setup_inbuffer, check_outbuffer, &test_data[i], "add-tensor-data", TRUE, "tags",
-                     "{\"tag_key\":\"tag_val\"}", "source", "test_src", NULL);
+                     setup_inbuffer, check_outbuffer, &test_data[i], "add-tensor-data", TRUE, "add-rtp-timestamp", TRUE,
+                     "tags", "{\"tag_key\":\"tag_val\"}", "source", "test_src", NULL);
         }
     }
 }

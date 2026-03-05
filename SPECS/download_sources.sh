@@ -1,4 +1,9 @@
 #!/bin/bash
+# ==============================================================================
+# Copyright (C) 2026 Intel Corporation
+#
+# SPDX-License-Identifier: MIT
+# ==============================================================================
 # Source download Script for Intel DL Streamer and it's dependencies RPM package generation
 set -ex
 

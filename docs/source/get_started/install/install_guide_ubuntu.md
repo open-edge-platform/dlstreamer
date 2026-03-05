@@ -57,7 +57,7 @@ More details about the packages can be found in:
 
 - [Intel® Client GPU](https://dgpu-docs.intel.com/driver/client/overview.html#installing-gpu-packages).
 - [Media](https://github.com/intel/media-driver/releases).
-- [NPU](https://github.com/intel/linux-npu-driver/releases/tag/v1.13.0).
+- [NPU](https://github.com/intel/linux-npu-driver/releases/tag/v1.28.0).
 
 To run Deep Learning Streamer on Intel® Data Center GPU (Flex) you need to use specific
 drivers, and follow the instructions on the
@@ -85,7 +85,7 @@ drivers. For more details see [prerequisites](#prerequisites).
   sudo -E wget -O- https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB | gpg --dearmor | sudo tee /usr/share/keyrings/intel-gpg-archive-keyring.gpg > /dev/null
   sudo -E wget -O- https://apt.repos.intel.com/edgeai/dlstreamer/GPG-PUB-KEY-INTEL-DLS.gpg | sudo tee /usr/share/keyrings/dls-archive-keyring.gpg > /dev/null
   echo "deb [signed-by=/usr/share/keyrings/dls-archive-keyring.gpg] https://apt.repos.intel.com/edgeai/dlstreamer/ubuntu22 ubuntu22 main" | sudo tee /etc/apt/sources.list.d/intel-dlstreamer.list
-  sudo bash -c 'echo "deb [signed-by=/usr/share/keyrings/intel-gpg-archive-keyring.gpg] https://apt.repos.intel.com/openvino/2025 ubuntu22 main" | sudo tee /etc/apt/sources.list.d/intel-openvino-2025.list'
+  sudo bash -c 'echo "deb [signed-by=/usr/share/keyrings/intel-gpg-archive-keyring.gpg] https://apt.repos.intel.com/openvino ubuntu22 main" | sudo tee /etc/apt/sources.list.d/intel-openvino.list'
   ```
 
 - **Ubuntu 24**
@@ -94,10 +94,10 @@ drivers. For more details see [prerequisites](#prerequisites).
   sudo -E wget -O- https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB | gpg --dearmor | sudo tee /usr/share/keyrings/intel-gpg-archive-keyring.gpg > /dev/null
   sudo -E wget -O- https://apt.repos.intel.com/edgeai/dlstreamer/GPG-PUB-KEY-INTEL-DLS.gpg | sudo tee /usr/share/keyrings/dls-archive-keyring.gpg > /dev/null
   echo "deb [signed-by=/usr/share/keyrings/dls-archive-keyring.gpg] https://apt.repos.intel.com/edgeai/dlstreamer/ubuntu24 ubuntu24 main" | sudo tee /etc/apt/sources.list.d/intel-dlstreamer.list
-  sudo bash -c 'echo "deb [signed-by=/usr/share/keyrings/intel-gpg-archive-keyring.gpg] https://apt.repos.intel.com/openvino/2025 ubuntu24 main" | sudo tee /etc/apt/sources.list.d/intel-openvino-2025.list'
+  sudo bash -c 'echo "deb [signed-by=/usr/share/keyrings/intel-gpg-archive-keyring.gpg] https://apt.repos.intel.com/openvino ubuntu24 main" | sudo tee /etc/apt/sources.list.d/intel-openvino.list'
   ```
 
-  > **NOTE:** If you have OpenVINO™ installed in any version other than 2025.4.0,
+  > **NOTE:** If you have OpenVINO™ installed in any version other than 2026.0.0,
   > please uninstall the OpenVINO™ packages using the following commands.
 
   ```bash

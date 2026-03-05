@@ -1,5 +1,5 @@
 # ==============================================================================
-# Copyright (C) 2025 Intel Corporation
+# Copyright (C) 2025-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
@@ -42,7 +42,7 @@ LABEL vendor="Intel Corporation"
 ARG GST_VERSION=1.26.6
 ARG FFMPEG_VERSION=6.1.1
 
-ARG OPENVINO_VERSION=2025.4.0
+ARG OPENVINO_VERSION=2026.0.0
 ARG REALSENSE_VERSION=v2.57.5
 
 ARG DLSTREAMER_VERSION=2025.2.0
@@ -213,6 +213,7 @@ RUN \
     -Ddevtools=disabled \
     -Dorc=disabled \
     -Dgpl=disabled \
+    -Dpython=enabled \
     -Dgst-plugins-base:nls=disabled \
     -Dgst-plugins-base:gl=disabled \
     -Dgst-plugins-base:xvideo=enabled \

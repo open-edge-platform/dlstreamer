@@ -748,12 +748,12 @@ Impl::Impl(GstVideoInfo *info, InferenceBackend::MemoryType mem_type, GstElement
         find_gvafpscounter_element();
 
     // Parse display configuration
-    if (_displ_cfg) {
+    if (_displ_cfg)
         parse_displ_config();
-        if (_displCfg.draw_text_background) {
-            _renderer->enable_draw_txt_bg(true);
-            _renderer_opencv->enable_draw_txt_bg(true);
-        }
+
+    if (_displCfg.draw_text_background) {
+        _renderer->enable_draw_txt_bg(true);
+        _renderer_opencv->enable_draw_txt_bg(true);
     }
 }
 
