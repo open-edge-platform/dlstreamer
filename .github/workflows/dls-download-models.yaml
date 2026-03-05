@@ -344,7 +344,7 @@ jobs:
           }
 
           $remoteUser = $env:REMOTE_USER
-          $remoteBase = "/home/$remoteUser/models/models"
+          $remoteBase = "/home/$remoteUser/models"
           foreach ($folder in $folders) {
               $remotePath = "$remoteBase/$folder"
               $localPath = Join-Path $base $folder
