@@ -351,6 +351,8 @@ jobs:
                   --ignore-size `
                   --multi-thread-streams 4 `
                   --transfers 4 `
+                  --retries 3 `
+                  --retries-sleep 10s `
                   --verbose `
                   --stats-log-level NOTICE
           }
