@@ -14,7 +14,6 @@
 #include "gva_tensor_meta.h"
 #include <gst/analytics/gstanalyticsclassificationmtd.h>
 
-
 #include "genai.hpp"
 
 GST_DEBUG_CATEGORY(gst_gvagenai_debug);
@@ -397,7 +396,8 @@ static GstFlowReturn gst_gvagenai_transform_ip(GstBaseTransform *base, GstBuffer
         try {
             context->add_tensor_to_vector(buf, &info);
         } catch (const std::exception &e) {
-            GST_ELEMENT_ERROR(gvagenai, STREAM, FAILED, ("Failed to add frame to tensor vector"), ("Error: %s", e.what()));
+            GST_ELEMENT_ERROR(gvagenai, STREAM, FAILED, ("Failed to add frame to tensor vector"),
+                              ("Error: %s", e.what()));
             return GST_FLOW_ERROR;
         }
 
@@ -407,7 +407,8 @@ static GstFlowReturn gst_gvagenai_transform_ip(GstBaseTransform *base, GstBuffer
             try {
                 context->inference_tensor_vector(gvagenai->prompt_string);
             } catch (const std::exception &e) {
-                GST_ELEMENT_ERROR(gvagenai, STREAM, FAILED, ("Failed to inference tensor vector"), ("Error: %s", e.what()));
+                GST_ELEMENT_ERROR(gvagenai, STREAM, FAILED, ("Failed to inference tensor vector"),
+                                  ("Error: %s", e.what()));
                 return GST_FLOW_ERROR;
             }
 
@@ -437,11 +438,8 @@ static GstFlowReturn gst_gvagenai_transform_ip(GstBaseTransform *base, GstBuffer
                 // renders the label text without a confidence percentage.
                 const float raw_conf = context->get_last_confidence();
                 const double confidence = (raw_conf >= 0.0f) ? static_cast<double>(raw_conf) : 0.0;
-                gst_structure_set(tensor_meta->data,
-                                  "label", G_TYPE_STRING, last_result.c_str(),
-                                  "confidence", G_TYPE_DOUBLE, confidence,
-                                  "model_name", G_TYPE_STRING, "genai",
-                                  NULL);
+                gst_structure_set(tensor_meta->data, "label", G_TYPE_STRING, last_result.c_str(), "confidence",
+                                  G_TYPE_DOUBLE, confidence, "model_name", G_TYPE_STRING, "genai", NULL);
             }
         }
 
