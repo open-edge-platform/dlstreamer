@@ -11,12 +11,31 @@ from __future__ import annotations
 import argparse
 import os
 import subprocess
+import sys
 from pathlib import Path
 from hf_utils import custom_conversion
 from hf_utils import get_hf_model_support_level
 
 
 def parse_args() -> argparse.Namespace:
+    raw_argv = sys.argv[1:]
+    script_options = {"-h", "--help", "--model", "--outdir", "--token", "--extra_args"}
+    filtered_argv: list[str] = []
+    extracted_extra_args: list[str] = []
+
+    i = 0
+    while i < len(raw_argv):
+        token = raw_argv[i]
+        if token == "--extra_args":
+            i += 1
+            while i < len(raw_argv) and raw_argv[i] not in script_options:
+                extracted_extra_args.append(raw_argv[i])
+                i += 1
+            continue
+
+        filtered_argv.append(token)
+        i += 1
+
     parser = argparse.ArgumentParser(
         description="Download Hugging Face models and convert them to OpenVINO format."
     )
@@ -42,7 +61,10 @@ def parse_args() -> argparse.Namespace:
         help="Additional arguments to pass to optimum-cli export",
     )
 
-    return parser.parse_args()
+    args = parser.parse_args(filtered_argv)
+    if extracted_extra_args:
+        args.extra_args.extend(extracted_extra_args)
+    return args
 
 
 def main() -> int:
