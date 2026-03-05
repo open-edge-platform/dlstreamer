@@ -348,8 +348,7 @@ jobs:
 
               Write-Host "Syncing from $remotePath to $localPath"
               rclone copy "$remotePrefix$remotePath" "$localPath" `
-                  --binary `
-                  --sftp-disable-hash-check `
+                  --checksum `
                   --ignore-size `
                   --multi-thread-streams 4 `
                   --transfers 4 `
