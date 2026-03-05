@@ -6,7 +6,7 @@
 
 set(PRODUCT_COMPANY_NAME "Intel Corporation")
 set(PRODUCT_NAME "Deep Learning Streamer")
-set(PRODUCT_COPYRIGHT "Copyright (C) 2018-${VERSION_MAJOR} Intel Corporation")
+set(PRODUCT_COPYRIGHT "Copyright (C) 2018-2026 Intel Corporation")
 
 # This function generates a version resource (.rc) file from a template and adds it to the given target.
 function(add_vs_version_resource TARGET_NAME)
