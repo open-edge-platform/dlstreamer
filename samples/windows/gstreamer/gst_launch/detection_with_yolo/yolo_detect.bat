@@ -109,7 +109,7 @@ if %ERRORLEVEL%==0 (
 @REM On Windows: use d3d11 for GPU/NPU, ie for CPU
 if [%PPBKEND%]==[] (
     if "%DEVICE%"=="CPU" (
-        set PREPROC_BACKEND=ie
+        set PREPROC_BACKEND=opencv
     ) else (
         set PREPROC_BACKEND=d3d11
     )
