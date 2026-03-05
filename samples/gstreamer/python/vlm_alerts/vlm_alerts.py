@@ -16,7 +16,7 @@ import tempfile
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Tuple, Optional
+from typing import Optional
 
 import gi
 gi.require_version("Gst", "1.0")
@@ -28,7 +28,6 @@ BASE_DIR = Path(__file__).resolve().parent
 class VLMAlertsError(Exception):
     """Domain-specific exception for VLM Alerts failures."""
 
-
 @dataclass
 class PipelineConfig:
     video: Path
@@ -36,6 +35,7 @@ class PipelineConfig:
     prompt: str
     device: str
     max_tokens: int
+    num_beams: int
     frame_rate: float
     results_dir: Path
 
@@ -57,6 +57,7 @@ def download_video(url: str, target_path: Path) -> None:
 
 
 def validate_video(video_path: Path) -> None:
+    """Raise VLMAlertsError if the file is missing, empty, or not a valid media file."""
     if not video_path.exists() or video_path.stat().st_size == 0:
         raise VLMAlertsError("Video file is missing or empty")
 
@@ -143,7 +144,7 @@ def resolve_model(
     return output_dir.resolve()
 
 
-def build_pipeline_string(cfg: PipelineConfig) -> Tuple[str, Path, Path, Path]:
+def build_pipeline_string(cfg: PipelineConfig) -> tuple[str, Path, Path, Path]:
     """Construct the GStreamer pipeline string and related output paths."""
     cfg.results_dir.mkdir(parents=True, exist_ok=True)
 
@@ -156,13 +157,19 @@ def build_pipeline_string(cfg: PipelineConfig) -> Tuple[str, Path, Path, Path]:
     with os.fdopen(fd, "w") as file:
         file.write(cfg.prompt)
 
+    # for a short yes/no answer (max_new_tokens=1), num_beams=4 is a good default.
+    if cfg.num_beams < 1:
+        raise VLMAlertsError("num_beams must be >= 1")
+
     generation_cfg = f"max_new_tokens={cfg.max_tokens}"
+    if cfg.num_beams > 1:
+        generation_cfg += f",num_beams={cfg.num_beams}"
 
     pipeline_str = (
         f'filesrc location="{cfg.video}" ! '
         f'decodebin3 ! '
         f'videoconvertscale ! '
-        f'video/x-raw,format=BGRx,width=1280,height=720 ! '
+        f'video/x-raw(memory:VAMemory),format=NV12 ! '
         f'queue ! '
         f'gvagenai '
         f'model-path="{cfg.model}" '
@@ -172,12 +179,12 @@ def build_pipeline_string(cfg: PipelineConfig) -> Tuple[str, Path, Path, Path]:
         f'chunk-size=1 '
         f'frame-rate={cfg.frame_rate} '
         f'metrics=true ! '
-        f'queue ! '
         f'gvametapublish file-format=json-lines '
         f'file-path="{output_json}" ! '
         f'queue ! '
         f'gvafpscounter ! '
-        f'gvawatermark displ-cfg=text-scale=0.5 ! '
+        f'gvawatermark name=watermark '
+        f'displ-cfg=font-scale=1.5,draw-txt-bg=false,color-idx=1,thickness=5,text-y=680 ! '
         f'videoconvert ! '
         f'vah264enc ! '
         f'h264parse ! '
@@ -249,7 +256,16 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--prompt", required=True, help="Text prompt for VLM")
 
     parser.add_argument("--device", default="GPU")
-    parser.add_argument("--max-tokens", type=int, default=20)
+    parser.add_argument("--max-tokens", type=int, default=1)
+    parser.add_argument(
+        "--num-beams",
+        type=int,
+        default=4,
+        help=(
+            "Number of beams for beam search "
+            "(>=2 required for confidence scores; 1 = greedy, no confidence)"
+        ),
+    )
     parser.add_argument("--frame-rate", type=float, default=1.0)
 
     parser.add_argument("--videos-dir", type=Path, default=BASE_DIR / "videos")
@@ -274,12 +290,19 @@ def main() -> int:
         video = resolve_video(args.video_path, args.video_url, args.videos_dir)
         model = resolve_model(args.model_id, args.model_path, args.models_dir)
 
+        if args.num_beams == 1:
+            print(
+                "[warning] --num-beams=1 means greedy decoding: "
+                "confidence will not be available in output."
+            )
+
         config = PipelineConfig(
             video=video,
             model=model,
             prompt=args.prompt,
             device=args.device,
             max_tokens=args.max_tokens,
+            num_beams=args.num_beams,
             frame_rate=args.frame_rate,
             results_dir=args.results_dir,
         )
