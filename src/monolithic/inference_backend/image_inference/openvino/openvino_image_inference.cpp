@@ -647,15 +647,6 @@ class OpenVinoNewApiImpl {
             tensor = ov::Tensor(tensor, begin, end);
         }
 
-        // Allocate new tensor in host memory and COPY data if the original tensor is not contigous
-        // - NPU device plugin requires contigous tensors (explicit assert)
-        // - GPU plugin fails in certain cases with non-contigous tensors
-        if (!tensor.is_continuous()) {
-            ov::Tensor sparse_tensor(tensor);
-            tensor = ov::Tensor(ov::element::u8, sparse_tensor.get_shape());
-            sparse_tensor.copy_to(tensor);
-        }
-
         return tensor;
     }
 
@@ -1376,8 +1367,9 @@ bool OpenVINOImageInference::DoNeedImagePreProcessing(const InferenceBackend::Im
     if (image == nullptr)
         return false;
 
-    // workaround for NPU plugin serialization when non-contiguous tensors submitted
-    if ((_impl->_device.find("NPU") != std::string::npos) && (_impl->_memory_type == MemoryType::SYSTEM) &&
+    // OV plugins exhibit low peformance (serialization) when VA pre-processor generates non-continous tensors
+    // Add OpenCV pre-rocessor to compress non-continous tensors on top of VA pre-processor which does resize/crop/etc.
+    if ((_impl->_memory_type == MemoryType::SYSTEM) &&
         ((image->format == FourCC::FOURCC_RGBP) || (image->format == FourCC::FOURCC_BGRP))) {
 
         bool contiguous = (image->planes[1] - image->planes[0] == image->width * image->height) &&

@@ -16,6 +16,9 @@ file (GLOB MAIN_HEADERS
 
 add_library(${TARGET_NAME} SHARED ${MAIN_SRC} ${MAIN_HEADERS})
 set_compile_flags(${TARGET_NAME})
+if(WIN32)
+    add_vs_version_resource(${TARGET_NAME})
+endif()
 
 target_include_directories(${TARGET_NAME}
 PUBLIC
