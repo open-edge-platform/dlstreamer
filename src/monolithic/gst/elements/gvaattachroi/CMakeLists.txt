@@ -24,6 +24,9 @@ file (GLOB ATTACHROI_HEADERS
 
 add_library(${TARGET_NAME} SHARED ${ATTACHROI_SRC} ${ATTACHROI_HEADERS})
 set_compile_flags(${TARGET_NAME})
+if(WIN32)
+    add_vs_version_resource(${TARGET_NAME})
+endif()
 
 if(UNIX)
     target_compile_options(${TARGET_NAME} PRIVATE -Wno-error=unused-variable -Wno-error=unused-parameter)

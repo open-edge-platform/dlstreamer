@@ -11,6 +11,9 @@ pkg_check_modules(GSTREAMER gstreamer-1.0>=1.16 REQUIRED)
 
 add_library(${TARGET_NAME} SHARED register_elements.cpp)
 set_compile_flags(${TARGET_NAME})
+if(WIN32)
+    add_vs_version_resource(${TARGET_NAME})
+endif()
 
 if(ENABLE_GENAI)
     target_compile_definitions(${TARGET_NAME} PRIVATE ENABLE_GENAI)

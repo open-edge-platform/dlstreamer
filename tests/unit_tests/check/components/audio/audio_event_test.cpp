@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2020-2025 Intel Corporation
+ * Copyright (C) 2020-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -12,8 +12,8 @@ struct AudioEventTest : public ::testing::Test {
     GstBuffer *buffer;
     GVA::AudioEvent *event;
     GQuark event_type = 0;
-    gulong start_timestamp = 2;
-    gulong end_timestamp = 3;
+    guint64 start_timestamp = 2;
+    guint64 end_timestamp = 3;
 
     void SetUp() {
         buffer = gst_buffer_new_and_alloc(0);
@@ -32,7 +32,7 @@ struct AudioEventTest : public ::testing::Test {
 };
 
 TEST_F(AudioEventTest, AudioEventTestSegment) {
-    GVA::Segment<gulong> seg = event->segment();
+    GVA::Segment<guint64> seg = event->segment();
     ASSERT_EQ(seg.start, start_timestamp);
     ASSERT_EQ(seg.end, end_timestamp);
 }
