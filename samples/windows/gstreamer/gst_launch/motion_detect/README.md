@@ -60,10 +60,10 @@ Notes:
 
 ## Examples
 
-- GPU path with default source and model:
+- CPU path with default source and model:
 ```bat
 set MODELS_PATH=C:\models
-gvamotiondetect_demo.bat GPU DEFAULT . FP32 opencv display
+gvamotiondetect_demo.bat CPU . . FP32 opencv display
 ```
 - CPU path with local file, display output, and custom motion detector options:
 ```bat
