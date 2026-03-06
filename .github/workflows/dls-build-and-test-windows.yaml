@@ -66,7 +66,7 @@ jobs:
           [System.IO.File]::AppendAllLines($env:GITHUB_ENV, $lines, $utf8NoBom)
 
       - name: Check out dlstreamer repository
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # 5.0.0
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # 6.0.2
         with:
           persist-credentials: false
           path: dlstreamer-repo
@@ -161,7 +161,7 @@ jobs:
 
       # ======================================================== TESTING PART ========================================================
       - name: Checkout DLStreamer test repository
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # 5.0.0
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # 6.0.2
         with:
           repository: open-edge-platform/dl-streamer-tests
           path: ${{ github.workspace }}/dls_test_repo
@@ -169,7 +169,7 @@ jobs:
           persist-credentials: false
 
       - name: "Install Python v${{ env.PYTHON_VERSION }}"
-        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # 5.0.0
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # 5.0.0
         id: cp312
         with:
           python-version: ${{ env.PYTHON_VERSION }}
@@ -401,7 +401,7 @@ jobs:
 
       - name: Upload tests results to Artifacts
         if: always()
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4  # v5.0.0
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f  # v7.0.0
         with:
           name: test_results_on_host_Windows_ARL_tests_results
           path: ${{ env.TESTS_RESULTS_DIRECTORY }}

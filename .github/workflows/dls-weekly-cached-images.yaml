@@ -55,7 +55,7 @@ jobs:
           fi
           echo "IMAGE_TAG=$VALUE" >> $GITHUB_ENV
       - name: Check out dlstreamer repository
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 #5.0.0
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6.0.2
         with:
           persist-credentials: false
           path: dlstreamer-repo
@@ -124,7 +124,7 @@ jobs:
           docker push "ghcr.io/${{ github.repository }}/intel/edge-ai-dlstreamer:${IMAGE_TAG}-${{ matrix.ubuntu_version }}"
       - name: Install Cosign
         if: ${{ inputs.action-type == 'weekly' }}
-        uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac # v3.9.1
+        uses: sigstore/cosign-installer@faadad0cce49287aee09b3a48701e75088a2c6ad # v4.0.0
 
       - name: Install skopeo
         if: ${{ inputs.action-type == 'weekly' }}
@@ -198,7 +198,7 @@ jobs:
           fi
           echo "IMAGE_TAG=$VALUE" >> $GITHUB_ENV
       - name: Check out dlstreamer repository
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 #5.0.0
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6.0.2
         with:
           persist-credentials: false
           path: dlstreamer-repo
@@ -266,7 +266,7 @@ jobs:
           docker push "ghcr.io/${{ github.repository }}/intel/edge-ai-dlstreamer:${IMAGE_TAG}-dev-${{ matrix.ubuntu_version }}"
       - name: Install Cosign
         if: ${{ inputs.action-type == 'weekly' }}
-        uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac # v3.9.1
+        uses: sigstore/cosign-installer@faadad0cce49287aee09b3a48701e75088a2c6ad # v4.0.0
 
       - name: Install skopeo
         if: ${{ inputs.action-type == 'weekly' }}
@@ -322,7 +322,7 @@ jobs:
           fi
           echo "IMAGE_TAG=$VALUE" >> $GITHUB_ENV
       - name: Check out edge-ai-libraries repository
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 #5.0.0
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6.0.2
         with:
           repository: open-edge-platform/edge-ai-libraries
           persist-credentials: false
@@ -406,7 +406,7 @@ jobs:
           docker push ghcr.io/${{ github.repository }}/intel/edge-ai-dlstreamer-pipeline-server:${IMAGE_TAG}-${{ matrix.ubuntu_version }}
           docker push ghcr.io/${{ github.repository }}/intel/edge-ai-dlstreamer-pipeline-server:${IMAGE_TAG}-extended-${{ matrix.ubuntu_version }}
       - name: Install Cosign
-        uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac # v3.9.1
+        uses: sigstore/cosign-installer@faadad0cce49287aee09b3a48701e75088a2c6ad # v4.0.0
 
       - name: Install skopeo
         run: sudo apt update && sudo apt install -y skopeo jq
