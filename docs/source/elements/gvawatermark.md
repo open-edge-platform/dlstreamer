@@ -74,8 +74,11 @@ Element Properties:
                         color-idx=<int> color index for bounding box, keypoints, and text, default -1 (use default colors: 0 red, 1 green, 2 blue)
                         draw-txt-bg=<bool> enable or disable displaying text labels background, by enabling it the text color is set to white, default true
                         font-type=<string> font type for text labels, default triplex. Supported fonts: simplex, plain, duplex, complex, triplex, complex_small, script_simplex, script_complex
+                        text-x=<float> x position (pixels) for full-frame text (e.g. from gvagenai), default 0
+                        text-y=<float> y position (pixels) for full-frame text (e.g. from gvagenai), default 25
                         e.g.: displ-cfg=show-labels=false
                         e.g.: displ-cfg=font-scale=0.5,thickness=3,color-idx=2,font-type=plain
+                        e.g.: displ-cfg=text-y=680 (place full-frame text near bottom of a 720p frame)
                         flags: readable, writable
                         String. Default: null
   device              : Supported devices are CPU and GPU. Default is CPU on system memory and GPU on video memory
@@ -191,6 +194,12 @@ displ-cfg=show-labels=true,hide-roi=bottle:cup:laptop
 
 # Combine filtering with styling
 displ-cfg=show-labels=true,show-roi=person:car,font-scale=1.2,color-idx=1
+
+# Move full-frame text (e.g. gvagenai result) to near the bottom of a 720p frame
+displ-cfg=text-y=680
+
+# Combine text position with other options
+displ-cfg=font-scale=1.5,color-idx=1,thickness=5,text-y=680
 ```
 
 ### FPS Display

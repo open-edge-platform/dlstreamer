@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2021-2024 Intel Corporation
+ * Copyright (C) 2021-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -33,10 +33,14 @@ BoxesLabelsConverter::getLabelIdConfidence(const InferenceBackend::OutputBlob::P
     if (!labels_blob->GetData())
         throw std::runtime_error("Output blob data is nullptr.");
 
+    const float *labels_data_fp32;
     const uint32_t *labels_data32;
     const uint64_t *labels_data64;
 
     switch (labels_blob->GetPrecision()) {
+    case InferenceBackend::Blob::Precision::FP32:
+        labels_data_fp32 = reinterpret_cast<const float *>(labels_blob->GetData());
+        return std::make_pair(safe_convert<size_t>(static_cast<uint32_t>(labels_data_fp32[bbox_i])), conf);
     case InferenceBackend::Blob::Precision::U32:
     case InferenceBackend::Blob::Precision::I32:
         labels_data32 = reinterpret_cast<const uint32_t *>(labels_blob->GetData());

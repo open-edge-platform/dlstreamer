@@ -1,5 +1,5 @@
 # ==============================================================================
-# Copyright (C) 2022 Intel Corporation
+# Copyright (C) 2022-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
@@ -16,6 +16,9 @@ add_subdirectory(meta_overlay)
 
 add_library(${TARGET_NAME} SHARED register_elements.cpp)
 set_compile_flags(${TARGET_NAME})
+if(WIN32)
+    add_vs_version_resource(${TARGET_NAME})
+endif()
 
 target_link_libraries(${TARGET_NAME}
 PUBLIC
