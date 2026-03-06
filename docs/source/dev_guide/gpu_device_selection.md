@@ -26,6 +26,9 @@ automatically run inference and pre-processing on the same GPU device as
 video decoding (GPU device affinity). For example, to select the second GPU
 device for decoding and inference:
 
+> **NOTE:** From [GStreamer 1.24 version](https://gstreamer.freedesktop.org/releases/1.24/)
+> VAAPI plugin is deprecated, refer to next section
+
 ```bash
 export GST_VAAPI_DRM_DEVICE=/dev/dri/renderD129
 gst-launch-1.0 "... ! decodebin3 ! gvadetect device=GPU ! ..."
