@@ -47,7 +47,7 @@ The batch script uses positional arguments (not `--param` flags).
 gvamotiondetect_demo.bat [DEVICE] [SOURCE] [MODEL] [PRECISION] [BACKEND] [OUTPUT] [MD_OPTS]
 ```
 
-- `DEVICE`: `GPU` or `CPU`. Default: `CPU`.
+- `DEVICE`: Currently only support `CPU`. Default: `CPU`.
 - `SOURCE`: Local file path or URI. Use `DEFAULT` (or `.` / empty) to use the built-in sample HTTPS video.
 - `MODEL`: Optional OpenVINO XML model path. Use `.` or empty to resolve from `MODELS_PATH`.
 - `PRECISION`: `FP32` / `FP16` / `INT8`. Default: `FP32`.
