@@ -40,7 +40,7 @@ class BoxesLabelsScoresConverter : public BlobToROIConverter {
 
   public:
     BoxesLabelsScoresConverter(BlobToMetaConverter::Initializer initializer, double confidence_threshold)
-        : BlobToROIConverter(std::move(initializer), confidence_threshold, false, 0.0) {
+        : BlobToROIConverter(std::move(initializer), confidence_threshold, true, 0.0) {
     }
 
     TensorsTable convert(const OutputBlobs &output_blobs) override;
