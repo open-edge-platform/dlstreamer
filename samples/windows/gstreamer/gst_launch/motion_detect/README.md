@@ -23,14 +23,17 @@ graph LR
     A[filesrc / urisourcebin] --> B[decodebin3]
     B --> C[gvamotiondetect]
     C --> D[gvadetect]
-    D --> E{Output Branch}
+    D --> E{OUTPUT mode}
 
-    E -->|json| F[gvametaconvert]
-    F --> G[gvametapublish]
-    G --> H[fakesink]
+    E -->|display| F[gvawatermark]
+    F --> G[videoconvert]
+    G --> H[gvafpscounter]
+    H --> I[autovideosink]
 
-    E -->|display| I[gvawatermark]
-    I --> J[autovideosink]
+    E -->|json| J[gvametaconvert]
+    J --> K[gvametapublish]
+    K --> L[gvafpscounter]
+    L --> M[fakesink]
 ```
 
 ## Models
