@@ -8,13 +8,17 @@ This folder contains standalone conversion CLIs:
 
 ## Prerequisites
 
-Use a Python environment with the required packages installed.
+1. Create and activate a virtual environment:
+```code
+   python3 -m venv .model_download_venv
+   source .model_download_venv/bin/activate
+   ```
 
-```bash
-python -m pip install -r requirements.txt
-```
-
-This is the recommended setup because `requirements.txt` pins tested versions and includes the extra PyTorch CPU index.
+2. Install dependencies:
+```code
+   curl -LO https://raw.githubusercontent.com/openvinotoolkit/openvino.genai/refs/heads/releases/2026/0/samples/export-requirements.txt
+   pip install -r export-requirements.txt -r requirements.txt
+   ```
 
 
 ## 1) Hugging Face conversion
