@@ -16,6 +16,35 @@ This sample builds GStreamer pipeline of the following elements
 * `autovideosink` for rendering output video into screen
 > **NOTE**: `sync=false` property in `autovideosink` element disables real-time synchronization so pipeline runs as fast as possible
 
+
+## Pipeline Architecture
+
+This pipeline implements a cascaded inference architecture: a primary `gvadetect` element identifies face regions, which are then processed by three sequential `gvaclassify` elements to extract age/gender, emotions, and facial landmarks. The output branch is selected at start and routes the stream to either a visual display with watermark overlays, a JSON metadata file, or an FPS benchmark sink.
+
+```mermaid
+graph LR
+    A[source] --> B[decodebin3]
+    B --> C[videoconvert]
+    C --> D[gvadetect: Face]
+
+    D --> E[gvaclassify: Age/Gender]
+    E --> F[gvaclassify: Emotions]
+    F --> G[gvaclassify: Landmarks]
+
+    G --> H{OUTPUT mode}
+
+    H -->|display| I[gvawatermark]
+    I --> J[videoconvert]
+    J --> K[autovideosink]
+
+    H -->|json| L[gvametaconvert]
+    L --> M[gvametapublish]
+    M --> N[fakesink]
+
+    H -->|fps| O[gvafpscounter]
+    O --> P[fakesink]
+```
+
 ## Models
 
 The sample uses by default the following pre-trained models from OpenVINO™ Toolkit [Open Model Zoo](https://github.com/openvinotoolkit/open_model_zoo)
