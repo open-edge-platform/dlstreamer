@@ -4,7 +4,7 @@ This README documents the Windows `gvamotiondetect_demo.bat` script, a simple wa
 
 ## How It Works
 
-The script builds and runs a GStreamer pipeline with `gst-launch-1.0`. It supports GPU/CPU inference and accepts a local file or URI source.
+The script builds and runs a GStreamer pipeline with `gst-launch-1.0`. It supports CPU inference and accepts a local file or URI source.
 
 Key elements in the pipeline:
 - `urisourcebin` or `filesrc` + `decodebin3`: input and decoding
