@@ -20,16 +20,15 @@ This pipeline implements a linear audio analytics flow: it decodes and normalize
 
 ```mermaid
 graph LR
-    A[source] --> B[decodebin3]
+    A[source file] --> B[decodebin3]
     B --> C[audioresample]
     C --> D[audioconvert]
     D --> E[audiomixer]
-    E --> F[gvaaudiodetect: aclnet]
+    E --> F[gvaaudiodetect with model]
     F --> G[gvametaconvert]
-    G --> H{Publish Branch}
-
-    H -->|default| I[gvametapublish: stdout]
-    H -->|file| J[gvametapublish: JSON file]
+    G --> H[gvametapublish]
+    H -.->|no OUTPUT arg| I[stdout]
+    H -.->|OUTPUT set| J[JSON file]
     I --> K[fakesink]
     J --> K
 ```
