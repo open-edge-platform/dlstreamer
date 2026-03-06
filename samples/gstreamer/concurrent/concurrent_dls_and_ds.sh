@@ -71,7 +71,7 @@ DLSTREAMER_DOCKER="docker run -i --rm -v ${PWD}:/working_dir ${DEVICE_DRI} ${DEV
 -v ~/.Xauthority:/root/.Xauthority  -v /tmp/.X11-unix/:/tmp/.X11-unix/  -e DISPLAY=$DISPLAY  -v /dev/bus/usb:/dev/bus/usb \
 --env ZE_ENABLE_ALT_DRIVERS=libze_intel_npu.so \
 --env MODELS_PATH=/working_dir \
-intel/dlstreamer:2025.2.0-ubuntu24 /bin/bash -c"
+intel/dlstreamer:2026.0.0-ubuntu24 /bin/bash -c"
 
 DEEPSTREAM_SETUP_LPR=$(cat <<EOF
 if [[ -e "/working_dir/deepstream_tao_apps" ]]; then

@@ -233,7 +233,7 @@ sudo apt install intel-dlstreamer=<VERSION>.<UPDATE>.<PATCH>
 For example
 
 ```bash
-sudo apt install intel-dlstreamer=2025.2.0
+sudo apt install intel-dlstreamer=2026.0.0
 ```
 
 C. List available versions
@@ -279,14 +279,14 @@ Visit the [Deep Learning Streamer image docker hub](https://hub.docker.com/r/int
 select the most appropriate version. By default, the latest docker image points to Ubuntu
 24 version.
 
-For **Ubuntu 22.04**, specify the tag e.g. **2025.2.0-ubuntu22**.
+For **Ubuntu 22.04**, specify the tag e.g. **2026.0.0-ubuntu22**.
 For **Ubuntu 24.04**, use the **latest** tag or specify the version, such as
-**2025.2.0-ubuntu24**.
+**2026.0.0-ubuntu24**.
 
 - **Ubuntu 22**
 
   ```bash
-  docker pull intel/dlstreamer:2025.2.0-ubuntu22
+  docker pull intel/dlstreamer:2026.0.0-ubuntu22
   ```
 
 - **Ubuntu 24**
@@ -303,7 +303,7 @@ a container
 - **Ubuntu 22**
 
   ```bash
-  docker run -it intel/dlstreamer:2025.2.0-ubuntu22
+  docker run -it intel/dlstreamer:2026.0.0-ubuntu22
   ```
 
 - **Ubuntu 24**

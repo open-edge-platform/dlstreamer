@@ -18,7 +18,7 @@ on:
           - 'cache'
 permissions: {}
 env:
-  dlstreamer-version: "2025.2.0"
+  dlstreamer-version: "2026.0.0"
   DLS_REL_PATH: "./dlstreamer-repo"
 
 jobs:
