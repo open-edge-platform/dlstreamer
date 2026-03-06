@@ -348,8 +348,7 @@ jobs:
 
               Write-Host "Syncing from $remotePath to $localPath"
               rclone copy "$remotePrefix$remotePath" "$localPath" `
-                  --checksum `
-                  --ignore-size `
+                  --size-only `
                   --multi-thread-streams 4 `
                   --transfers 4 `
                   --retries 3 `
@@ -414,15 +413,27 @@ jobs:
         shell: powershell
         run: |
           $base = "${{ env.MODELS_PATH_WINDOWS }}\models"
-          Write-Host "--- Final Directory Structure (Top 2 Levels) ---`n"
+          Write-Host "--- Final Directory Structure (Top 2 Levels) with Sizes ---`n"
 
           if (Test-Path $base) {
-              Get-ChildItem -Path $base -Recurse -Depth 1 |
-              Select-Object @{Name="Mode";Expression={$_.Mode}},
-                            @{Name="LastWriteTime";Expression={$_.LastWriteTime.ToString("yyyy-MM-dd HH:mm")}},
-                            @{Name="Size(MB)";Expression={if($_.PSIsContainer){"--"}else{ "{0:N2}" -f ($_.Length / 1MB) }}},
-                            @{Name="Path";Expression={$_.FullName.Replace($base, "models")}} |
-              Format-Table -AutoSize
+              Get-ChildItem -Path $base -Recurse -Depth 1 | ForEach-Object {
+                  $item = $_
+                  $totalSize = 0
+                  
+                  if ($item.PSIsContainer) {
+                      $stats = Get-ChildItem $item.FullName -Recurse -File -ErrorAction SilentlyContinue | Measure-Object -Property Length -Sum
+                      $totalSize = $stats.Sum / 1MB
+                  } else {
+                      $totalSize = $item.Length / 1MB
+                  }
+
+                  [PSCustomObject]@{
+                      Mode          = $item.Mode
+                      LastWriteTime = $item.LastWriteTime.ToString("yyyy-MM-dd HH:mm")
+                      "Size(MB)"    = "{0:N2}" -f $totalSize
+                      Path          = $item.FullName.Replace($base, "models")
+                  }
+              } | Format-Table -AutoSize
           } else {
               Write-Warning "Directory $base does not exist. Nothing to display."
           }
