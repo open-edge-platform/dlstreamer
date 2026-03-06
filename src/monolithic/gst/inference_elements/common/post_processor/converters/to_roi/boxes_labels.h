@@ -28,7 +28,8 @@ class BoxesLabelsConverter : public BoxesLabelsScoresConverter {
     std::pair<size_t, float> getLabelIdConfidence(const InferenceBackend::OutputBlob::Ptr &, size_t, float) const final;
 
   public:
-    BoxesLabelsConverter(BlobToMetaConverter::Initializer initializer, double confidence_threshold, double iou_threshold)
+    BoxesLabelsConverter(BlobToMetaConverter::Initializer initializer, double confidence_threshold,
+                         double iou_threshold)
         : BoxesLabelsScoresConverter(std::move(initializer), confidence_threshold, iou_threshold) {
     }
 

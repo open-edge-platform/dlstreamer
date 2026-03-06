@@ -39,7 +39,8 @@ class BoxesLabelsScoresConverter : public BlobToROIConverter {
                                                                       size_t height) const;
 
   public:
-    BoxesLabelsScoresConverter(BlobToMetaConverter::Initializer initializer, double confidence_threshold, double iou_threshold)
+    BoxesLabelsScoresConverter(BlobToMetaConverter::Initializer initializer, double confidence_threshold,
+                               double iou_threshold)
         : BlobToROIConverter(std::move(initializer), confidence_threshold, true, iou_threshold) {
     }
 

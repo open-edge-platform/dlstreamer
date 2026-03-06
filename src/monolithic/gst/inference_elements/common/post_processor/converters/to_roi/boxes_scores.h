@@ -31,7 +31,8 @@ class BoxesScoresConverter : public BoxesLabelsScoresConverter {
                                                               size_t height) const override final;
 
   public:
-    BoxesScoresConverter(BlobToMetaConverter::Initializer initializer, double confidence_threshold, double iou_threshold)
+    BoxesScoresConverter(BlobToMetaConverter::Initializer initializer, double confidence_threshold,
+                         double iou_threshold)
         : BoxesLabelsScoresConverter(std::move(initializer), confidence_threshold, iou_threshold) {
         const GstStructure *s = getModelProcOutputInfo().get();
         gboolean do_cls_sftm = FALSE;
