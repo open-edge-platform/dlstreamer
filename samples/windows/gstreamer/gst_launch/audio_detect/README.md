@@ -32,8 +32,6 @@ graph LR
     H -->|file| J[gvametapublish: JSON file]
     I --> K[fakesink]
     J --> K
-
-    style F fill:#f9f,stroke:#333,stroke-width:2px
 ```
 
 ## Model

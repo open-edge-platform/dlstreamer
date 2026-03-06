@@ -40,8 +40,6 @@ graph LR
 
     D -->|fps| M[gvafpscounter]
     M --> N[fakesink]
-
-    style C fill:#f9f,stroke:#333,stroke-width:2px
 ```
 
 ## Windows-Specific Features

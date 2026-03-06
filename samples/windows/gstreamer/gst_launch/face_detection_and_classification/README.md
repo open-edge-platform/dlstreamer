@@ -40,8 +40,6 @@ graph LR
     H -->|display| L[gvawatermark]
     L --> M[videoconvert]
     M --> N[autovideosink]
-
-    style D fill:#f9f,stroke:#333,stroke-width:2px
 ```
 
 ## Models

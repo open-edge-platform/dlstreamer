@@ -31,8 +31,6 @@ graph LR
 
     E -->|display| I[gvawatermark]
     I --> J[autovideosink]
-
-    style C fill:#f9f,stroke:#333,stroke-width:2px
 ```
 
 ## Models
