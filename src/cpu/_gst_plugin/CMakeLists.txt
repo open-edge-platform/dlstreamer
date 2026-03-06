@@ -1,5 +1,5 @@
 # ==============================================================================
-# Copyright (C) 2022-2025 Intel Corporation
+# Copyright (C) 2022-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
@@ -10,6 +10,9 @@ file(GLOB_RECURSE ELEMENTS_CPP_FILE "${CMAKE_CURRENT_SOURCE_DIR}/../*/elements.c
 
 add_library(${TARGET_NAME} SHARED register_elements.cpp ${ELEMENTS_CPP_FILE})
 set_compile_flags(${TARGET_NAME})
+if(WIN32)
+    add_vs_version_resource(${TARGET_NAME})
+endif()
 
 target_link_libraries(${TARGET_NAME}
 PRIVATE
