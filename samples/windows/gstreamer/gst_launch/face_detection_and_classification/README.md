@@ -43,6 +43,7 @@ graph LR
 
     H -->|fps| O[gvafpscounter]
     O --> P[fakesink]
+```
 
 ## Models
 

@@ -52,28 +52,6 @@ graph LR
     V --> W[gvametapublish]
     W --> X[gvafpscounter]
     X --> Y[d3d11videosink]
-
-This pipeline illustrates a multi-stage inference: a primary detection node isolates regions of interest, which are then processed by three sequential classification nodes to extract specific attributes. Following metadata generation, the pipeline employs a decision point to divert the stream into either a structured data path for JSON logging or a visual rendering path for live display with overlays.
-
-```mermaid
-graph LR
-    A[source] --> B[decodebin3]
-    B --> C[gvadetect: YOLO]
-    C --> D{Output Branch}
-
-    D -->|display| E[gvawatermark]
-    E --> F[d3d11videosink]
-
-    D -->|file| G[gvawatermark]
-    G --> H[d3d11h264enc]
-    H --> I[filesink]
-
-    D -->|json| J[gvametaconvert]
-    J --> K[gvametapublish]
-    K --> L[fakesink]
-
-    D -->|fps| M[gvafpscounter]
-    M --> N[fakesink]
 ```
 
 ## Windows-Specific Features
