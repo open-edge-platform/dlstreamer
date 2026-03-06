@@ -5,78 +5,89 @@
 @REM ==============================================================================
 
 @echo off
-
 setlocal
 
-set "DEVICE=GPU"
-set "SRC=https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4"
-set "MODEL="
-set "MODEL_NAME=yolov8n"
-set "PRECISION=FP32"
-set "MD_OPTS="
-set "OUTPUT=json"
+set "DEVICE=%~1"
+set "SRC=%~2"
+set "MODEL=%~3"
+set "PRECISION=%~4"
+set "BACKEND=%~5"
+set "OUTPUT=%~6"
+set "MD_OPTS=%~7"
 
-:parse_args
-if "%~1"=="" goto end_parse
-if "%~1"=="--device" (set "DEVICE=%~2" & shift & shift & goto parse_args)
-if "%~1"=="--source" (set "SRC=%~2" & shift & shift & goto parse_args)
-if "%~1"=="--src"    (set "SRC=%~2" & shift & shift & goto parse_args)
-if "%~1"=="--model"  (set "MODEL=%~2" & shift & shift & goto parse_args)
-if "%~1"=="--precision" (set "PRECISION=%~2" & shift & shift & goto parse_args)
-if "%~1"=="--md-opts" (set "MD_OPTS=%~2" & shift & shift & goto parse_args)
-if "%~1"=="--output" (set "OUTPUT=%~2" & shift & shift & goto parse_args)
-if "%~1"=="-h" goto usage
-if "%~1"=="--help" goto usage
-echo Unknown arg: %~1
-goto usage
-:end_parse
+if "%DEVICE%"==""    set "DEVICE=CPU"
+if "%DEVICE%"=="."   set "DEVICE=CPU"
+
+if "%SRC%"==""       set "SRC=DEFAULT"
+if "%SRC%"=="."      set "SRC=DEFAULT"
+if /I "%SRC%"=="DEFAULT" (
+    set "SRC=https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4"
+)
+
+if "%MODEL%"=="."    set "MODEL="
+
+if "%PRECISION%"=="" set "PRECISION=FP32"
+if "%PRECISION%"=="." set "PRECISION=FP32"
+
+if "%BACKEND%"==""   set "BACKEND=opencv"
+if "%BACKEND%"=="."  set "BACKEND=opencv"
+
+if "%OUTPUT%"==""    set "OUTPUT=display"
+if "%OUTPUT%"=="."   set "OUTPUT=display"
+
+set "MODEL_NAME=yolov8n"
 
 if "%MODEL%"=="" (
     if "%MODELS_PATH%"=="" (
-        echo [ERROR] MODELS_PATH not set; export MODELS_PATH or pass --model.
+        echo [ERROR] MODELS_PATH not set and no explicit MODEL path provided.
         exit /b 1
     )
-    set "MODEL=%MODELS_PATH%/public/%MODEL_NAME%/%PRECISION%/%MODEL_NAME%.xml"
-)
-set "MODEL=%MODEL:\=/%"
-
-if "%MD_OPTS%"=="" (set "MD_OPTS_CMD=") else (set "MD_OPTS_CMD=%MD_OPTS%")
-
-echo Running gvamotiondetect demo
-echo  Device   : %DEVICE%
-echo  Source   : %SRC%
-echo  Model    : %MODEL%
-echo  Precision: %PRECISION%
-echo  Output   : %OUTPUT%
-echo  MD opts  : %MD_OPTS%
-echo.
-
-:: Pipeline
-set "BASE_PIPE=urisourcebin uri=%SRC% ! decodebin3"
-
-if /I "%DEVICE%"=="GPU" (
-    set "CAPS_STR=video/x-raw(memory:VAMemory)"
-    set "DET_OPTS=device=GPU"
+    set "MODEL_RAW=%MODELS_PATH%\public\%MODEL_NAME%\%PRECISION%\%MODEL_NAME%.xml"
 ) else (
-    set "CAPS_STR=video/x-raw"
-    set "DET_OPTS=device=CPU pre-process-backend=opencv"
+    set "MODEL_RAW=%MODEL%"
+)
+set "MODEL_FINAL=%MODEL_RAW:\=/%"
+
+echo =======================================
+echo [DEBUG] Parsed Arguments:
+echo   DEVICE:    %DEVICE%
+echo   SRC:       %SRC%
+echo   MODEL:     %MODEL_FINAL%
+echo   PRECISION: %PRECISION%
+echo   BACKEND:   %BACKEND%
+echo   OUTPUT:    %OUTPUT%
+echo   MD_OPTS:   %MD_OPTS%
+echo =======================================
+
+set "SRC_FIXED=%SRC:\=/%"
+echo %SRC% | findstr /C:"://" >nul
+if errorlevel 1 (
+    set "SOURCE_ELEMENT=filesrc location=%SRC_FIXED%"
+) else (
+    set "SOURCE_ELEMENT=urisourcebin uri=%SRC%"
 )
 
 if /I "%OUTPUT%"=="json" (
     if exist output.json del output.json
     set "SINK_STR=gvametaconvert format=json ! gvametapublish method=file file-format=json-lines file-path=output.json ! gvafpscounter ! fakesink"
 ) else (
-    set "SINK_STR=gvafpscounter ! gvawatermark ! vapostproc ! d3d11videosink"
+    set "SINK_STR=gvafpscounter ! autovideosink"
 )
 
-echo Launching pipeline:
-echo gst-launch-1.0 -e %BASE_PIPE% ! %CAPS_STR% ! gvamotiondetect %MD_OPTS_CMD% ! gvadetect model=%MODEL% %DET_OPTS% inference-region=1 ! %SINK_STR%
+echo Running gvamotiondetect demo
+echo Target Device: %DEVICE%
 echo.
 
-gst-launch-1.0 -e %BASE_PIPE% ! %CAPS_STR% ! gvamotiondetect %MD_OPTS_CMD% ! gvadetect model=%MODEL% %DET_OPTS% inference-region=1 ! %SINK_STR%
+gst-launch-1.0 -e ^
+    %SOURCE_ELEMENT% ! ^
+    decodebin3 ! ^
+    gvamotiondetect %MD_OPTS% ! ^
+    gvadetect model="%MODEL_FINAL%" device=%DEVICE% pre-process-backend=%BACKEND% inference-region=1 ! ^
+    %SINK_STR%
 
-exit /b %ERRORLEVEL%
+if %errorlevel% neq 0 (
+    echo [ERROR] Pipeline failed with exit code %errorlevel%
+    exit /b %errorlevel%
+)
 
-:usage
-echo Usage: %~nx0 [--device GPU^|CPU] [--source ^<video^|uri^>] [--model ^<xml^>] [--precision FP32^|FP16^|INT8] [--output display^|json] [--md-opts "prop1=val prop2=val"]
-exit /b 0
+endlocal
