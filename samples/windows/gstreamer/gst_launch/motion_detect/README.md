@@ -32,7 +32,6 @@ graph LR
     E -->|display| I[gvawatermark]
     I --> J[autovideosink]
 
-    %% 仅对 gvamotiondetect 进行视觉突出
     style C fill:#f9f,stroke:#333,stroke-width:2px
 ```
 
