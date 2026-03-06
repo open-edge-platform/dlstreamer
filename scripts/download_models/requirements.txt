@@ -1,0 +1,2 @@
+ultralytics==8.4.3
+optimum-onnx==0.1.0
