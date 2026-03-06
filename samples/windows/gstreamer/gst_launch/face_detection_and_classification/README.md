@@ -19,7 +19,7 @@ This sample builds GStreamer pipeline of the following elements
 
 ## Pipeline Architecture
 
-This pipeline implements a cascaded inference architecture: a primary gvadetect element identifies face regions, which are then processed by three sequential gvaclassify elements to extract age/gender, emotions, and facial landmarks. Metadata is routed through a conditional branch to either a JSON-based file sink or a visual display sink with watermark overlays.
+This pipeline implements a cascaded inference architecture: a primary `gvadetect` element identifies face regions, which are then processed by three sequential `gvaclassify` elements to extract age/gender, emotions, and facial landmarks. The output branch is selected at start and routes the stream to either a visual display with watermark overlays, a JSON metadata file, or an FPS benchmark sink.
 
 ```mermaid
 graph LR
@@ -31,16 +31,18 @@ graph LR
     E --> F[gvaclassify: Emotions]
     F --> G[gvaclassify: Landmarks]
 
-    G --> H{Output Branch}
+    G --> H{OUTPUT mode}
 
-    H -->|json| I[gvametaconvert]
-    I --> J[gvametapublish]
-    J --> K[fakesink]
+    H -->|display| I[gvawatermark]
+    I --> J[videoconvert]
+    J --> K[autovideosink]
 
-    H -->|display| L[gvawatermark]
-    L --> M[videoconvert]
-    M --> N[autovideosink]
-```
+    H -->|json| L[gvametaconvert]
+    L --> M[gvametapublish]
+    M --> N[fakesink]
+
+    H -->|fps| O[gvafpscounter]
+    O --> P[fakesink]
 
 ## Models
 
