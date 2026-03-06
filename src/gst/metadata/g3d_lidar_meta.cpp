@@ -6,7 +6,6 @@
 
 #include <dlstreamer/gst/metadata/g3d_lidar_meta.h>
 #include <gst/gst.h>
-#include <new>
 
 DLS_EXPORT GType lidar_meta_api_get_type(void) {
     static GType type = 0;

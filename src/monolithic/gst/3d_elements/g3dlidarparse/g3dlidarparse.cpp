@@ -488,7 +488,7 @@ static GstFlowReturn gst_g3d_lidar_parse_transform(GstBaseTransform *trans, GstB
                 << "):";
 
             for (gsize i = 0; i < preview_len; ++i) {
-                oss << " " << std::fixed << std::setprecision(6) << verify_floats[i];
+                oss << " " << std::fixed << std::setprecision(6) << float_data[i];
             }
 
             GST_INFO_OBJECT(filter, "%s", oss.str().c_str());
