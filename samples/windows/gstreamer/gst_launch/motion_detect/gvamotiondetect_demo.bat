@@ -66,7 +66,7 @@ if /I NOT "%DEVICE%"=="CPU" (
     exit /b 1
 )
 
-set "GVADET=gvadetect model=%MODEL_FINAL% device=CPU pre-process-backend=opencv inference-region=1"
+set "GVADET=gvadetect model=%MODEL_FINAL% device=CPU pre-process-backend=%BACKEND% inference-region=1"
 set "CAPS_PART=! video/x-raw(memory:SystemMemory) "
 
 set "PIPELINE=gst-launch-1.0 -e %SOURCE_ELEMENT% ! decodebin3 %CAPS_PART% ! gvamotiondetect %MD_OPTS% ! %GVADET% ! %SINK_STR%"
