@@ -16,7 +16,7 @@ G_BEGIN_DECLS
 typedef struct _LidarMeta {
     GstMeta meta;
     guint lidar_point_count; // Number of points in this frame. Each point occupies 4 floats (x, y, z, intensity).
-    size_t frame_id;               // Sequential frame identifier from the source stream.
+    size_t frame_id;         // Sequential frame identifier from the source stream.
     GstClockTime exit_lidarparse_timestamp; // Timestamp (GStreamer clock time) when this buffer exits g3dlidarparse.
     guint stream_id; // Stream identifier (group-id from STREAM_START) for multi-stream pipelines.
 } LidarMeta;

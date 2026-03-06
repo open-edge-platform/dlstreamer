@@ -69,8 +69,9 @@ DLS_EXPORT LidarMeta *add_lidar_meta(GstBuffer *buffer, guint lidar_point_count,
     meta->exit_lidarparse_timestamp = exit_lidarparse_timestamp;
     meta->stream_id = stream_id;
 
-    GST_DEBUG("LidarMeta added successfully: lidar_point_count=%u, frame_id=%zu, stream_id=%u, exit_ts=%" GST_TIME_FORMAT,
-              meta->lidar_point_count, meta->frame_id, meta->stream_id, GST_TIME_ARGS(meta->exit_lidarparse_timestamp));
+    GST_DEBUG(
+        "LidarMeta added successfully: lidar_point_count=%u, frame_id=%zu, stream_id=%u, exit_ts=%" GST_TIME_FORMAT,
+        meta->lidar_point_count, meta->frame_id, meta->stream_id, GST_TIME_ARGS(meta->exit_lidarparse_timestamp));
 
     return meta;
 }
