@@ -29,6 +29,9 @@ set(VERSION_MAJOR 2025)
 set(VERSION_MINOR 2)
 set(VERSION_PATCH 0)
 
+include(cmake/version.cmake)
+include(cmake/vs_version.cmake)
+
 if (NOT DEFINED GIT_INFO OR "${GIT_INFO}" STREQUAL "")
     set(GIT_INFO "0")
     message(INFO "GIT_INFO is undefined. Set default value ${GIT_INFO}.")

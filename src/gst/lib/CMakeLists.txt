@@ -12,6 +12,9 @@ endif()
 
 add_library(${TARGET_NAME} SHARED allocator.cpp transform_element.cpp)
 set_compile_flags(${TARGET_NAME})
+if(WIN32)
+    add_vs_version_resource(${TARGET_NAME})
+endif()
 
 target_include_directories(${TARGET_NAME}
 PUBLIC

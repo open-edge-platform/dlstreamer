@@ -147,6 +147,18 @@ bool convertYoloMeta2ModelApi(const std::string model_file, ov::AnyMap &modelCon
         return false;
     }
 
+    // YOLOv26 OBB models with FP16/FP32 precision are not supported due to
+    // OpenVINO GPU plugin activation function issue producing garbage output
+    if (model_type == "yolo_v26_obb") {
+        std::string int8 =
+            yaml_json.contains("int8") && yaml_json["int8"].is_string() ? yaml_json["int8"].get<std::string>() : "";
+        if (int8 != "true") {
+            throw std::runtime_error(
+                "YOLOv26 OBB model with FP16/FP32 precision is not supported due to an OpenVINO GPU "
+                "plugin issue. Please use INT8 precision instead.");
+        }
+    }
+
     if (!model_type.empty()) {
         modelConfig["model_type"] = ov::Any(model_type);
     }
