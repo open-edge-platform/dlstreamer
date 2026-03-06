@@ -14,6 +14,28 @@ This sample builds a GStreamer pipeline using the following elements
 * [gvametapublish](../../../../../docs/source/elements/gvametapublish.md) for printing detection results to stdout
 * `fakesink` for terminating the pipeline
 
+## Pipeline Architecture
+
+This pipeline implements a linear audio analytics flow: it decodes and normalizes raw audio into a standard mono-channel format (16kHz, S16LE) via resamplers and mixers, then utilizes gvaaudiodetect to perform acoustic event recognition. The metadata is finally converted and routed through a conditional publishing stage that either outputs directly to the console or saves to a JSON file.
+
+```mermaid
+graph LR
+    A[source] --> B[decodebin3]
+    B --> C[audioresample]
+    C --> D[audioconvert]
+    D --> E[audiomixer]
+    E --> F[gvaaudiodetect: aclnet]
+    F --> G[gvametaconvert]
+    G --> H{Publish Branch}
+
+    H -->|default| I[gvametapublish: stdout]
+    H -->|file| J[gvametapublish: JSON file]
+    I --> K[fakesink]
+    J --> K
+
+    style F fill:#f9f,stroke:#333,stroke-width:2px
+```
+
 ## Model
 
 This sample uses the ACLNet model trained for audio event detection and made available through the Open Model Zoo. For more details see [here](https://github.com/openvinotoolkit/open_model_zoo/blob/master/models/public/aclnet/aclnet.md).

@@ -14,10 +14,31 @@ Key elements in the pipeline:
   - `gvametaconvert` + `gvametapublish`: write metadata to `output.json` (JSON Lines)
   - or `autovideosink`: on-screen rendering with FPS counter
 
+## Pipeline Architecture
+
+This pipeline demonstrates DL Streamer motion detection workflow: gvamotiondetect acts as a spatial-temporal filter to identify movement, triggering gvadetect (YOLOv8n) only when necessary to optimize compute resources.
+
+```mermaid
+graph LR
+    A[filesrc / urisourcebin] --> B[decodebin3]
+    B --> C[gvamotiondetect]
+    C --> D[gvadetect]
+    D --> E{Output Branch}
+
+    E -->|json| F[gvametaconvert]
+    F --> G[gvametapublish]
+    G --> H[fakesink]
+
+    E -->|display| I[gvawatermark]
+    I --> J[autovideosink]
+
+    %% 仅对 gvamotiondetect 进行视觉突出
+    style C fill:#f9f,stroke:#333,stroke-width:2px
+```
+
 ## Models
 
-The sample uses YOLOv8n (resolved via `MODELS_PATH`) or other supported object detection model. The necessary conversion to the OpenVINO™ format can be performed by the `download_public_models.sh` script located in the `samples` directory.
-
+The sample uses YOLOv8n (resolved via `MODELS_PATH`) or other supported object detection model with the OpenVINO™ format.
 
 ## Usage
 
