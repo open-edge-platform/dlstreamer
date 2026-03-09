@@ -23,11 +23,11 @@ device by setting the environment variable for the VAAPI decode element, and
 setting `device=GPU` for all inference elements. This will enable inference
 elements to query the VAAPI context from the VAAPI decode element and
 automatically run inference and pre-processing on the same GPU device as
-video decoding (GPU device affinity). For example, to select the second GPU
-device for decoding and inference:
+video decoding (GPU device affinity).
 
-> **NOTE:** From [GStreamer 1.24 version](https://gstreamer.freedesktop.org/releases/1.24/) and [DLS 2024.1.0 version](https://github.com/open-edge-platform/dlstreamer/releases/tag/v2024.1.0)
-> VAAPI plugin is deprecated , refer to the next section.
+> **NOTE:** From [GStreamer 1.24](https://gstreamer.freedesktop.org/releases/1.24/) and [DLS 2024.1.0](https://github.com/open-edge-platform/dlstreamer/releases/tag/v2024.1.0), the VAAPI plugin is deprecated. Refer to the next section for details.
+> If you need to use the legacy VAAPI plugin (which will be removed in [GStreamer 1.28](https://gstreamer.freedesktop.org/releases/1.28/)), VAAPI elements should be used directly (e.g., `vaapih264dec` instead of `decodebin`).
+> Use the [GST_VAAPI_DRM_DEVICE environment variable](https://people.freedesktop.org/~tsaunier/documentation/vaapi/index.html?gi-language=c#environment-variables) to set the decoding device.
 
 
 ## 2. Media and Inference elements for GStreamer 1.24.0 and later versions
