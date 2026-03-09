@@ -76,6 +76,6 @@ gst-launch-1.0 filesrc location=${VIDEO_FILE} ! decodebin3 ! \
 gvadetect model=${MODEL_FILE} device=GPU pre-process-backend=va-surface-sharing ! queue ! gvafpscounter ! fakesink
 ```
 
-> **NOTE:** From [GStreamer 1.24](https://gstreamer.freedesktop.org/releases/1.24/) and [DLS 2024.1.0](https://github.com/open-edge-platform/dlstreamer/releases/tag/v2024.1.0), the VAAPI plugin is deprecated.
+> **NOTE:** From [GStreamer 1.24](https://gstreamer.freedesktop.org/releases/1.24/) and [DLS 2024.1.0](https://github.com/open-edge-platform/dlstreamer/releases/tag/v2024.1.0), the VAAPI plugin is deprecated. The `GST_VAAPI_ALL_DRIVERS` environment variable is deprecated in favor of `GST_VA_ALL_DRIVERS`.
 > If you need to use the legacy VAAPI plugin (which will be removed in [GStreamer 1.28](https://gstreamer.freedesktop.org/releases/1.28/)), VAAPI elements should be used directly (e.g., `vaapih264dec` instead of `decodebin`).
 > Use the [GST_VAAPI_DRM_DEVICE environment variable](https://people.freedesktop.org/~tsaunier/documentation/vaapi/index.html?gi-language=c#environment-variables) to set the decoding device.
