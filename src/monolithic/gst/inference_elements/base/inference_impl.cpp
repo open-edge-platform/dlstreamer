@@ -987,8 +987,9 @@ bool InferenceImpl::IsRoiSizeValid(const GstAnalyticsODMtd roi_meta) {
 void InferenceImpl::SetAffinityMask(uint64_t mask) {
 #ifndef _WIN32
     cpu_set_t cpuset;
-    CPU_ZERO(&cpuset); // Initialize to zero
-    for (int core_id = 0; core_id < 64; ++core_id) {
+    CPU_ZERO(&cpuset);                             // Initialize to zero
+    int num_cores = sysconf(_SC_NPROCESSORS_ONLN); // Get number of available CPU cores
+    for (int core_id = 0; core_id < num_cores; ++core_id) {
         if (mask & (1ULL << core_id)) {
             CPU_SET(core_id, &cpuset); // Add the specific core
         }
