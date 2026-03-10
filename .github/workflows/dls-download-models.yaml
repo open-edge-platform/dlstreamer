@@ -418,7 +418,7 @@ jobs:
               Get-ChildItem -Path $base -Recurse -Depth 1 | ForEach-Object {
                   $item = $_
                   $totalSize = 0
-                  
+
                   if ($item.PSIsContainer) {
                       $stats = Get-ChildItem $item.FullName -Recurse -File -ErrorAction SilentlyContinue | Measure-Object -Property Length -Sum
                       $totalSize = $stats.Sum / 1MB
