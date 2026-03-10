@@ -10,7 +10,7 @@ A Python script (`concurrent_dls_and_ds.py`) is provided to facilitate this conc
 
 ## How it works
 
-1. Using the **intel/dlstreamer:2025.2.0-ubuntu24** image.
+1. Using the **intel/dlstreamer:2026.0.0-ubuntu24** image.
 
    The sample downloads `yolov8_license_plate_detector` and `ch_PP-OCRv4_rec_infer`
    models to `./public` directory if they were not downloaded yet.

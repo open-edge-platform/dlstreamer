@@ -25,8 +25,8 @@ if (NOT CMAKE_BUILD_TYPE)
 endif()
 
 # Define version
-set(VERSION_MAJOR 2025)
-set(VERSION_MINOR 2)
+set(VERSION_MAJOR 2026)
+set(VERSION_MINOR 0)
 set(VERSION_PATCH 0)
 
 include(cmake/version.cmake)

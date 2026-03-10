@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2021-2022 Intel Corporation
+ * Copyright (C) 2021-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -31,8 +31,9 @@ class BoxesScoresConverter : public BoxesLabelsScoresConverter {
                                                               size_t height) const override final;
 
   public:
-    BoxesScoresConverter(BlobToMetaConverter::Initializer initializer, double confidence_threshold)
-        : BoxesLabelsScoresConverter(std::move(initializer), confidence_threshold) {
+    BoxesScoresConverter(BlobToMetaConverter::Initializer initializer, double confidence_threshold,
+                         double iou_threshold)
+        : BoxesLabelsScoresConverter(std::move(initializer), confidence_threshold, iou_threshold) {
         const GstStructure *s = getModelProcOutputInfo().get();
         gboolean do_cls_sftm = FALSE;
         if (gst_structure_has_field(s, "do_cls_softmax")) {
