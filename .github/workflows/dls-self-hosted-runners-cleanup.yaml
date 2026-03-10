@@ -60,19 +60,20 @@ jobs:
         run: |
           set -euo pipefail
 
+          ROOT_SIZE_KB=$(df --output=size / | tail -n 1 | xargs)
           USED_KB_BEFORE=$(df --output=used / | tail -n 1 | xargs)
+          ROOT_USED_PCT_BEFORE=$(awk -v used="$USED_KB_BEFORE" -v total="$ROOT_SIZE_KB" 'BEGIN { if (total > 0) printf "%.2f", (used/total)*100; else printf "0.00" }')
+
+          echo "ROOT_SIZE_KB=${ROOT_SIZE_KB}" >> "$GITHUB_ENV"
           echo "USED_KB_BEFORE=${USED_KB_BEFORE}" >> "$GITHUB_ENV"
+          ROOT_USED_GB_BEFORE=$(awk -v kb="$USED_KB_BEFORE" 'BEGIN { printf "%.2f", kb/1024/1024 }')
+          echo "ROOT_USED_PCT_BEFORE=${ROOT_USED_PCT_BEFORE}" >> "$GITHUB_ENV"
+          echo "ROOT_USED_GB_BEFORE=${ROOT_USED_GB_BEFORE}" >> "$GITHUB_ENV"
 
           echo "## Cleanup on ${{ matrix.runner }}" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "<details>" >> "$GITHUB_STEP_SUMMARY"
-          echo "<summary>Disk usage before (df -h)</summary>" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "\`\`\`text" >> "$GITHUB_STEP_SUMMARY"
-          df -h >> "$GITHUB_STEP_SUMMARY"
-          echo "\`\`\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "</details>" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Disk usage" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Root used before:** ${ROOT_USED_GB_BEFORE} GB (${ROOT_USED_PCT_BEFORE}%)" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Docker cleanup
         shell: bash
@@ -154,21 +155,17 @@ jobs:
 
           USED_KB_AFTER=$(df --output=used / | tail -n 1 | xargs)
           USED_KB_BEFORE=${USED_KB_BEFORE:-0}
+          ROOT_SIZE_KB=${ROOT_SIZE_KB:-0}
 
           FREED_KB=$((USED_KB_BEFORE - USED_KB_AFTER))
           if [ "$FREED_KB" -lt 0 ]; then
             FREED_KB=0
           fi
 
+          ROOT_USED_GB_AFTER=$(awk -v kb="$USED_KB_AFTER" 'BEGIN { printf "%.2f", kb/1024/1024 }')
+          ROOT_USED_PCT_AFTER=$(awk -v used="$USED_KB_AFTER" -v total="$ROOT_SIZE_KB" 'BEGIN { if (total > 0) printf "%.2f", (used/total)*100; else printf "0.00" }')
           FREED_GB=$(awk -v kb="$FREED_KB" 'BEGIN { printf "%.2f", kb/1024/1024 }')
+          FREED_PCT_OF_ROOT=$(awk -v freed="$FREED_KB" -v total="$ROOT_SIZE_KB" 'BEGIN { if (total > 0) printf "%.2f", (freed/total)*100; else printf "0.00" }')
 
-          echo "<details>" >> "$GITHUB_STEP_SUMMARY"
-          echo "<summary>Disk usage after (df -h)</summary>" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "\`\`\`text" >> "$GITHUB_STEP_SUMMARY"
-          df -h >> "$GITHUB_STEP_SUMMARY"
-          echo "\`\`\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "</details>" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "### Freed space" >> "$GITHUB_STEP_SUMMARY"
-          echo "**Freed space:** ${FREED_GB} GB" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Root used after:** ${ROOT_USED_GB_AFTER} GB (${ROOT_USED_PCT_AFTER}%)" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Freed space:** ${FREED_GB} GB (${FREED_PCT_OF_ROOT}% of root filesystem)" >> "$GITHUB_STEP_SUMMARY"
