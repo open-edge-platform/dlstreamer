@@ -43,7 +43,7 @@ jobs:
         run: |
           sudo rm -rf dlstreamer
       - name: Check out dlstreamer repository
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 #5.0.0
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6.0.2
         with:
           persist-credentials: false
           path: dlstreamer
@@ -53,7 +53,7 @@ jobs:
           cd dlstreamer
           git submodule update --init thirdparty/spdlog
       - name: Check out test repository
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 #4.2.2
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6.0.2
         with:
           repository: open-edge-platform/dl-streamer-tests
           persist-credentials: false
@@ -146,7 +146,7 @@ jobs:
             bash /workspace/optimizer_tests/scripts/run_optimizer_tests.sh --config-file "/workspace/optimizer_tests/test_config.json"
       - name: Upload Docker test results
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 #4.6.2
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f #7.0.0
         with:
           name: DLS_optimizer_Docker_${{ matrix.runner_print_label }}_${{ matrix.ubuntu_version }}_results
           path: ${{ env.OPTIMIZER_TESTS_PATH }}/optimizer_results/docker/FINAL_TEST_REPORT.txt
@@ -167,7 +167,7 @@ jobs:
           $OPTIMIZER_TESTS_PATH/functional_tests/optimizer_tests/scripts/run_optimizer_tests.sh --results-dir "$OPTIMIZER_TESTS_PATH/optimizer_results/host" --config-file "$OPTIMIZER_TESTS_PATH/functional_tests/optimizer_tests/test_config.json"
 
       - name: Upload host test results
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 #4.6.2
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f #7.0.0
         if: always()
         with:
           name: DLS_optimzier_host_${{ matrix.runner_print_label }}_${{ matrix.ubuntu_version }}_results

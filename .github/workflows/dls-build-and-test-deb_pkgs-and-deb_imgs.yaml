@@ -50,7 +50,7 @@ jobs:
         run: |
           sudo rm -rf dlstreamer
       - name: Check out dlstreamer repository
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 #5.0.0
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6.0.2
         with:
           persist-credentials: false
           path: dlstreamer
@@ -60,7 +60,7 @@ jobs:
           cd dlstreamer
           git submodule update --init thirdparty/spdlog
       - name: Check out test repository
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 #4.2.2
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6.0.2
         with:
           repository: open-edge-platform/dl-streamer-tests
           persist-credentials: false
@@ -168,7 +168,7 @@ jobs:
             --image-name="${deb_final_testing_img}"
 
       - name: Upload Docker test results
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 #4.6.2
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f #7.0.0
         if: steps.run_docker_tests.outcome == 'success'
         with:
           name: DLS_functional_tests_${{ matrix.runner_print_label }}_docker_${{ matrix.ubuntu_version }}_results
@@ -236,7 +236,7 @@ jobs:
           fi
 
       - name: Upload hello_dlstreamer output video
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 #4.6.2
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f #7.0.0
         if: always ()
         with:
           name: DLS_hello_dlstreamer_output_video_${{ matrix.runner_print_label }}_${{ matrix.ubuntu_version }}_CPU_yolo11s
@@ -291,7 +291,7 @@ jobs:
           deactivate
 
       - name: Upload host test results
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 #4.6.2
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f #7.0.0
         if: always ()
         with:
           name: DLS_functional_tests_${{ matrix.runner_print_label }}_on_host_${{ matrix.ubuntu_version }}_results
