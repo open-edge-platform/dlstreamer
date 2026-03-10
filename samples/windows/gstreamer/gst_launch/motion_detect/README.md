@@ -1,6 +1,6 @@
 # Motion Detect Sample (gst-launch command line)
 
-This README documents the Windows `gvamotiondetect_demo.bat` script, a simple way to run the `gvamotiondetect` element in a GStreamer pipeline, additionally chaining `gvadetect` over motion ROIs.
+This README documents the Windows `motion_detect.bat` script, a simple way to run the `gvamotiondetect` element in a GStreamer pipeline, additionally chaining `gvadetect` over motion ROIs.
 
 ## How It Works
 
@@ -45,7 +45,7 @@ The sample uses YOLOv8n (resolved via `MODELS_PATH`) or other supported object d
 The batch script uses positional arguments (not `--param` flags).
 
 ```bat
-gvamotiondetect_demo.bat [DEVICE] [SOURCE] [MODEL] [PRECISION] [BACKEND] [OUTPUT] [MD_OPTS]
+motion_detect.bat [DEVICE] [SOURCE] [MODEL] [PRECISION] [BACKEND] [OUTPUT] [MD_OPTS]
 ```
 
 - `DEVICE`: Currently only support `CPU`. Default: `CPU`.
@@ -64,16 +64,16 @@ Notes:
 - CPU path with default source and model:
 ```bat
 set MODELS_PATH=C:\models
-gvamotiondetect_demo.bat CPU . . FP32 opencv display
+motion_detect.bat CPU . . FP32 opencv display
 ```
 - CPU path with local file, display output, and custom motion detector options:
 ```bat
 set MODELS_PATH=C:\models
-gvamotiondetect_demo.bat CPU C:\path\to\video.mp4 . FP32 opencv display "motion-threshold=0.07 min-persistence=2"
+motion_detect.bat CPU C:\path\to\video.mp4 . FP32 opencv display "motion-threshold=0.07 min-persistence=2"
 ```
 - Explicit model path:
 ```bat
-gvamotiondetect_demo.bat CPU C:\path\to\video.mp4 C:\path\to\models\yolov8n.xml FP32 opencv json
+motion_detect.bat CPU C:\path\to\video.mp4 C:\path\to\models\yolov8n.xml FP32 opencv json
 ```
 
 ## Motion Detector Options (`--md-opts`)
