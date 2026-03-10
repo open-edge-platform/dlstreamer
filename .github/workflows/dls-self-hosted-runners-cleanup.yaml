@@ -110,7 +110,6 @@ jobs:
             echo "::warning::docker network prune failed"
           fi
 
-          echo "**Cleanup mode:** aggressive" >> "$GITHUB_STEP_SUMMARY"
           if ! docker volume prune -f; then
             echo "::warning::docker volume prune failed"
           fi
