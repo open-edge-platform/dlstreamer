@@ -100,7 +100,9 @@ class BlobToROIConverter : public BlobToMetaConverter {
             for (auto &structure : this->tensors) {
                 GVA::Tensor tensor(structure);
                 // printf("test\n");
-                if (tensor.format() != "keypoints") { continue; };
+                if (tensor.format() != "keypoints") {
+                    continue;
+                };
 
                 const auto keypoints = tensor.data<float>();
                 auto confidences = tensor.get_vector<float>("confidence");
