@@ -13,11 +13,6 @@ on:
         description: "Comma-separated list of Linux runner labels (example: DLS-TGL-01,DLS-ARL-01)"
         required: false
         type: string
-      aggressive_cleanup:
-        description: "Run aggressive Docker cleanup (includes --volumes and system prune -a)?"
-        required: false
-        default: false
-        type: boolean
 
 permissions: {}
 
@@ -86,19 +81,35 @@ jobs:
           RUNNING_CONTAINERS=$(docker ps -q | wc -l)
           echo "Running containers: ${RUNNING_CONTAINERS}" >> "$GITHUB_STEP_SUMMARY"
 
-          # Cleanup safe for nightly maintenance. Running containers are not removed.
-          docker container prune -f || true
-          docker image prune -a -f --filter "until=24h" || true
-          docker builder prune -a -f --filter "until=24h" || true
-          docker network prune -f || true
+          # Do not hide cleanup errors. Log warnings and continue where possible.
+          if ! docker container prune -f; then
+            echo "::warning::docker container prune failed"
+          fi
+          if ! docker image prune -a -f --filter "until=24h"; then
+            echo "::warning::docker image prune failed"
+          fi
+          if ! docker builder prune -a -f --filter "until=24h"; then
+            echo "::warning::docker builder prune failed"
+          fi
+          if ! docker network prune -f; then
+            echo "::warning::docker network prune failed"
+          fi
 
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ inputs.aggressive_cleanup }}" == "true" ]]; then
-            echo "Aggressive cleanup enabled." >> "$GITHUB_STEP_SUMMARY"
-            docker volume prune -f || true
-            docker system prune -a --volumes -f || true
-          else
-            # Keep a conservative default in nightly mode and avoid pruning all volumes.
-            docker volume prune -f || true
+          echo "Aggressive cleanup enabled." >> "$GITHUB_STEP_SUMMARY"
+          if ! docker volume prune -f; then
+            echo "::warning::docker volume prune failed"
+          fi
+          if ! docker system prune -a --volumes -f; then
+            echo "::warning::docker system prune failed"
+          fi
+
+          # Fallback: force remove any remaining unused local volumes.
+          if docker volume ls -q | grep -q .; then
+            for volume in $(docker volume ls -q); do
+              if ! docker ps -aq --filter volume="$volume" | grep -q .; then
+                docker volume rm "$volume" >/dev/null 2>&1 || true
+              fi
+            done
           fi
 
           echo "### Docker usage after" >> "$GITHUB_STEP_SUMMARY"
