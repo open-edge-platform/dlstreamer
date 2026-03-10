@@ -79,7 +79,7 @@ class BlobToROIConverter : public BlobToMetaConverter {
             return results;
         }
 
-        bool isDetectionValid() {
+        bool isDetectionValid() const {
             const double x_min = this->x - this->w * 0.5;
             const double x_max = this->x + this->w * 0.5;
             const double y_min = this->y - this->h * 0.5;
@@ -94,6 +94,35 @@ class BlobToROIConverter : public BlobToMetaConverter {
                                    || this->h == 0.0; // invalid height
 
             return !(out_of_bounds || zero_area);
+        }
+
+        void validateKeypoints() {
+            for (auto &structure : this->tensors) {
+                GVA::Tensor tensor(structure);
+                // printf("test\n");
+                if (tensor.format() != "keypoints") { continue; };
+
+                const auto keypoints = tensor.data<float>();
+                auto confidences = tensor.get_vector<float>("confidence");
+
+                const auto &dimensions = tensor.dims();
+                size_t points_num = dimensions[0];
+                size_t point_dimension = dimensions[1];
+
+                for (size_t i = 0; i < points_num; ++i) {
+                    float x_real = keypoints[point_dimension * i];
+                    float y_real = keypoints[point_dimension * i + 1];
+
+                    // Check whether the keypoint is within the image/ROI + 20% margin on the outside
+                    // Should prevent wildly incorrect keypoints while still allowing those that are
+                    // just slightly out of frame.
+                    if (x_real > 1.0 || x_real < 0.0 || y_real > 1.0 || y_real < 0.0) {
+                        confidences[i] = 0.0;
+                    }
+                }
+
+                tensor.set_vector<float>("confidence", confidences);
+            }
         }
     };
     using DetectedObjectsTable = std::vector<std::vector<DetectedObject>>;

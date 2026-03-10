@@ -140,7 +140,8 @@ TensorsTable BlobToROIConverter::storeObjects(DetectedObjectsTable &objects_tabl
             runNms(objects);
 
     for (auto &objects : objects_table) {
-        std::erase_if(objects, [](auto detection) { return !detection.isDetectionValid(); });
+        std::erase_if(objects, [](auto &detection) { return !detection.isDetectionValid(); });
+        std::for_each(objects.begin(), objects.end(), [](auto &detection) { detection.validateKeypoints(); });
     }
 
     return toTensorsTable(objects_table);
