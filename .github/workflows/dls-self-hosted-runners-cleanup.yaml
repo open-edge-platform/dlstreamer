@@ -58,10 +58,20 @@ jobs:
     steps:
       - name: Collect disk usage before cleanup
         run: |
+          set -euo pipefail
+
+          USED_KB_BEFORE=$(df --output=used / | tail -n 1 | xargs)
+          echo "USED_KB_BEFORE=${USED_KB_BEFORE}" >> "$GITHUB_ENV"
+
           echo "## Cleanup on ${{ matrix.runner }}" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "### Disk usage before" >> "$GITHUB_STEP_SUMMARY"
+          echo "<details>" >> "$GITHUB_STEP_SUMMARY"
+          echo "<summary>Disk usage before (df -h)</summary>" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "\`\`\`text" >> "$GITHUB_STEP_SUMMARY"
           df -h >> "$GITHUB_STEP_SUMMARY"
+          echo "\`\`\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "</details>" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Docker cleanup
@@ -131,5 +141,25 @@ jobs:
       - name: Collect disk usage after cleanup
         if: always()
         run: |
-          echo "### Disk usage after" >> "$GITHUB_STEP_SUMMARY"
+          set -euo pipefail
+
+          USED_KB_AFTER=$(df --output=used / | tail -n 1 | xargs)
+          USED_KB_BEFORE=${USED_KB_BEFORE:-0}
+
+          FREED_KB=$((USED_KB_BEFORE - USED_KB_AFTER))
+          if [ "$FREED_KB" -lt 0 ]; then
+            FREED_KB=0
+          fi
+
+          FREED_GB=$(awk -v kb="$FREED_KB" 'BEGIN { printf "%.2f", kb/1024/1024 }')
+
+          echo "<details>" >> "$GITHUB_STEP_SUMMARY"
+          echo "<summary>Disk usage after (df -h)</summary>" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "\`\`\`text" >> "$GITHUB_STEP_SUMMARY"
           df -h >> "$GITHUB_STEP_SUMMARY"
+          echo "\`\`\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "</details>" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Freed space" >> "$GITHUB_STEP_SUMMARY"
+          echo "freed_space_gb=${FREED_GB}" >> "$GITHUB_STEP_SUMMARY"
