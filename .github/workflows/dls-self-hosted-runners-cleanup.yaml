@@ -1,0 +1,123 @@
+name: "[DLS] Self-hosted runners cleanup"
+run-name: "[DLS] Self-hosted runners cleanup (by @${{ github.actor }} via ${{ github.event_name }})"
+
+on:
+  branch:
+    - dmichalo_RunnersCleanWorkflow
+  schedule:
+    - cron: '0 3 * * *' # Daily at 03:00 UTC
+  workflow_dispatch:
+    inputs:
+      runner_labels:
+        description: "Comma-separated list of Linux runner labels (example: DLS-TGL-01,DLS-ARL-01)"
+        required: false
+        type: string
+      aggressive_cleanup:
+        description: "Run aggressive Docker cleanup (includes --volumes and system prune -a)?"
+        required: false
+        default: false
+        type: boolean
+
+permissions: {}
+
+env:
+  DEFAULT_UBUNTU_RUNNERS: "DLS-ARL-01,DLS-ARL-02,DLS-ARL-03,DLS-TGL-01,DLS-TGL-02,DLS-TGL-03,DLS-TGL-04,DLS-TGL-05"
+
+jobs:
+  setup-runners:
+    name: Set runners to execute cleanup
+    runs-on: ubuntu-latest
+    outputs:
+      linux_runners: ${{ steps.set-labels.outputs.linux_runners }}
+    steps:
+      - name: Set runner labels
+        id: set-labels
+        env:
+          RAW_LINUX_LABELS: ${{ inputs.runner_labels }}
+          DEF_LINUX_LABELS: ${{ env.DEFAULT_UBUNTU_RUNNERS }}
+        run: |
+          LINUX_LABELS="$RAW_LINUX_LABELS"
+          if [ -z "$LINUX_LABELS" ]; then
+            LINUX_LABELS="$DEF_LINUX_LABELS"
+          fi
+
+          # Convert comma-separated labels to JSON array for matrix usage.
+          LINUX_ARRAY=$(echo "$LINUX_LABELS" | jq -Rc 'split(",") | map(gsub("^\\s+|\\s+$";"")) | map(select(length > 0))')
+          echo "linux_runners=$LINUX_ARRAY" >> "$GITHUB_OUTPUT"
+
+          echo "### Selected runners" >> "$GITHUB_STEP_SUMMARY"
+          echo "${LINUX_LABELS}" >> "$GITHUB_STEP_SUMMARY"
+
+  cleanup-ubuntu-runners:
+    name: "Cleanup on ${{ matrix.runner }}"
+    needs: setup-runners
+    runs-on:
+      - ${{ matrix.runner }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: ${{ fromJson(needs.setup-runners.outputs.linux_runners) }}
+
+    steps:
+      - name: Collect disk usage before cleanup
+        run: |
+          echo "## Cleanup on ${{ matrix.runner }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Disk usage before" >> "$GITHUB_STEP_SUMMARY"
+          df -h >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Docker cleanup
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if ! command -v docker >/dev/null 2>&1; then
+            echo "Docker is not installed on this runner."
+            exit 0
+          fi
+
+          echo "### Docker usage before" >> "$GITHUB_STEP_SUMMARY"
+          docker system df >> "$GITHUB_STEP_SUMMARY" || true
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          RUNNING_CONTAINERS=$(docker ps -q | wc -l)
+          echo "Running containers: ${RUNNING_CONTAINERS}" >> "$GITHUB_STEP_SUMMARY"
+
+          # Cleanup safe for nightly maintenance. Running containers are not removed.
+          docker container prune -f || true
+          docker image prune -a -f --filter "until=24h" || true
+          docker builder prune -a -f --filter "until=24h" || true
+          docker network prune -f || true
+
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ inputs.aggressive_cleanup }}" == "true" ]]; then
+            echo "Aggressive cleanup enabled." >> "$GITHUB_STEP_SUMMARY"
+            docker volume prune -f || true
+            docker system prune -a --volumes -f || true
+          else
+            # Keep a conservative default in nightly mode and avoid pruning all volumes.
+            docker volume prune -f || true
+          fi
+
+          echo "### Docker usage after" >> "$GITHUB_STEP_SUMMARY"
+          docker system df >> "$GITHUB_STEP_SUMMARY" || true
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Remove common temporary directories
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          rm -rf "$HOME/dlstreamer" \
+                 "$HOME/dlstreamer-repo" \
+                 "$HOME/dl-streamer-tests-repo" \
+                 "$HOME/test-results" \
+                 "$HOME/.cache/pip" \
+                 "$HOME/.virtualenvs"
+
+      - name: Collect disk usage after cleanup
+        if: always()
+        run: |
+          echo "### Disk usage after" >> "$GITHUB_STEP_SUMMARY"
+          df -h >> "$GITHUB_STEP_SUMMARY"
