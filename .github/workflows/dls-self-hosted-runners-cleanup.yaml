@@ -84,12 +84,17 @@ jobs:
             exit 0
           fi
 
-          echo "### Docker usage before" >> "$GITHUB_STEP_SUMMARY"
+          echo "<details>" >> "$GITHUB_STEP_SUMMARY"
+          echo "<summary>Docker usage before (docker system df)</summary>" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "\`\`\`text" >> "$GITHUB_STEP_SUMMARY"
           docker system df >> "$GITHUB_STEP_SUMMARY" || true
+          echo "\`\`\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "</details>" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
 
           RUNNING_CONTAINERS=$(docker ps -q | wc -l)
-          echo "Running containers: ${RUNNING_CONTAINERS}" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Running containers:** ${RUNNING_CONTAINERS}" >> "$GITHUB_STEP_SUMMARY"
 
           # Do not hide cleanup errors. Log warnings and continue where possible.
           if ! docker container prune -f; then
@@ -105,7 +110,7 @@ jobs:
             echo "::warning::docker network prune failed"
           fi
 
-          echo "Aggressive cleanup enabled." >> "$GITHUB_STEP_SUMMARY"
+          echo "**Cleanup mode:** aggressive" >> "$GITHUB_STEP_SUMMARY"
           if ! docker volume prune -f; then
             echo "::warning::docker volume prune failed"
           fi
@@ -122,8 +127,13 @@ jobs:
             done
           fi
 
-          echo "### Docker usage after" >> "$GITHUB_STEP_SUMMARY"
+          echo "<details>" >> "$GITHUB_STEP_SUMMARY"
+          echo "<summary>Docker usage after (docker system df)</summary>" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "\`\`\`text" >> "$GITHUB_STEP_SUMMARY"
           docker system df >> "$GITHUB_STEP_SUMMARY" || true
+          echo "\`\`\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "</details>" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Remove common temporary directories
@@ -162,4 +172,4 @@ jobs:
           echo "</details>" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "### Freed space" >> "$GITHUB_STEP_SUMMARY"
-          echo "freed_space_gb=${FREED_GB}" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Freed space:** ${FREED_GB} GB" >> "$GITHUB_STEP_SUMMARY"
