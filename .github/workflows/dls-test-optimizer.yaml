@@ -221,7 +221,7 @@ jobs:
             echo "| Current Docker ${{ matrix.ubuntu_version }}-deb | **${IMAGE_SIZE_MB} MB** |"
             echo "| Expected Docker ${{ matrix.ubuntu_version }}-deb | **${EXPECTED_SIZE_MB} MB** |"
           } >> "$GITHUB_STEP_SUMMARY"
-      # ======================================================== CLEAUP PART ========================================================
+      # ======================================================== CLEANUP PART ========================================================
       - name: Clean up
         if: always ()
         env:
