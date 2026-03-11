@@ -24,6 +24,5 @@ PRIVATE
     tensor_postproc_human_pose
     opencv_warp_affine
 )
-endif()
 
 install(TARGETS ${TARGET_NAME} DESTINATION ${DLSTREAMER_PLUGINS_INSTALL_PATH})
