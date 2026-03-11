@@ -1,5 +1,5 @@
 # ==============================================================================
-# Copyright (C) 2022-2025 Intel Corporation
+# Copyright (C) 2022-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
@@ -22,12 +22,6 @@ PRIVATE
     opencv_remove_background
     opencv_tensor_normalize
     tensor_postproc_human_pose
-)
-
-# Only on Windows we have OpenCL so there is need to add opencv_warp_affine dependency
-if(WIN32)
-target_link_libraries(${TARGET_NAME}
-PRIVATE
     opencv_warp_affine
 )
 endif()
