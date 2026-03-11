@@ -115,9 +115,7 @@ class BlobToROIConverter : public BlobToMetaConverter {
                     float x_real = keypoints[point_dimension * i];
                     float y_real = keypoints[point_dimension * i + 1];
 
-                    // Check whether the keypoint is within the image/ROI + 20% margin on the outside
-                    // Should prevent wildly incorrect keypoints while still allowing those that are
-                    // just slightly out of frame.
+                    // Check whether the keypoint is within the image/ROI.
                     if (x_real > 1.0 || x_real < 0.0 || y_real > 1.0 || y_real < 0.0) {
                         confidences[i] = 0.0;
                     }
