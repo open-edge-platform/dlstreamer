@@ -2,9 +2,6 @@ name: "[DLS] Self-hosted runners cleanup"
 run-name: "[DLS] Self-hosted runners cleanup (by @${{ github.actor }} via ${{ github.event_name }})"
 
 on:
-  push:
-    branches:
-      - dmichalo_RunnersCleanWorkflow
   schedule:
     - cron: '0 3 * * *' # Daily at 03:00 UTC
   workflow_dispatch:
