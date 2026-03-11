@@ -19,7 +19,7 @@ env:
 jobs:
   setup-runners:
     name: Set runners to execute cleanup
-    runs-on: ubuntu-latest
+    runs-on: dlstreamer
     outputs:
       linux_runners: ${{ steps.set-labels.outputs.linux_runners }}
     steps:
