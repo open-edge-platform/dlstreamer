@@ -39,8 +39,9 @@ runs:
       if: always()
       env:
         TARGET_DIR: ${{ inputs.target_dir }}
+        STYLE_ISSUES: ${{ steps.code-style-check.outputs.STYLE_ISSUES }}
       run: |
-        if [ "${{ steps.code-style-check.outputs.STYLE_ISSUES }}" == "true" ]; then
+        if [ "${STYLE_ISSUES}" == "true" ]; then
           # Count number of files with style issues
           if [ -f "_output/diff.html" ]; then
             # Try to count files from diff output
