@@ -54,6 +54,8 @@ jobs:
 
     steps:
       - name: Collect disk usage before cleanup
+        env:
+          RUNNER_LABEL: ${{ matrix.runner }}
         run: |
           set -euo pipefail
 
@@ -67,7 +69,7 @@ jobs:
           echo "ROOT_USED_PCT_BEFORE=${ROOT_USED_PCT_BEFORE}" >> "$GITHUB_ENV"
           echo "ROOT_USED_GB_BEFORE=${ROOT_USED_GB_BEFORE}" >> "$GITHUB_ENV"
 
-          echo "## Cleanup on ${{ matrix.runner }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "## Cleanup on ${RUNNER_LABEL}" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "### Disk usage" >> "$GITHUB_STEP_SUMMARY"
           echo "**Root used before:** ${ROOT_USED_GB_BEFORE} GB (${ROOT_USED_PCT_BEFORE}%)" >> "$GITHUB_STEP_SUMMARY"

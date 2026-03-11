@@ -165,9 +165,11 @@ runs:
       shell: bash
       env:
         output_file: ${{ inputs.output-file }}
+        ERROR_COUNT: ${{ steps.analyze-results.outputs.error_count }}
+        TOTAL_COUNT: ${{ steps.analyze-results.outputs.total_count }}
       run: |
-        error_count="${{ steps.analyze-results.outputs.error_count }}"
-        total_count="${{ steps.analyze-results.outputs.total_count }}"
+        error_count="${ERROR_COUNT}"
+        total_count="${TOTAL_COUNT}"
         if [ "$error_count" -gt 0 ]; then
           echo "❌ Pylint found $error_count error(s). Failing the job."
           exit 1

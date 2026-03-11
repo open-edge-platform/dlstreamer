@@ -181,12 +181,15 @@ jobs:
         id: check-size
         env:
           deb_final_img: ghcr.io/${{ github.repository }}/deb-final-img-${{ matrix.ubuntu_version }}:${{ github.sha }}
+          MATRIX_UBUNTU_VERSION: ${{ matrix.ubuntu_version }}
+          EXPECTED_SIZE_MB_DEB_U22: ${{ vars.EXPECTED_SIZE_MB_DEB_U22 }}
+          EXPECTED_SIZE_MB_DEB_U24: ${{ vars.EXPECTED_SIZE_MB_DEB_U24 }}
         run: |
           IMAGE_NAME=${deb_final_img}
-          if [ "${{ matrix.ubuntu_version }}" == "ubuntu22" ]; then
-            EXPECTED_SIZE_MB=${{ vars.EXPECTED_SIZE_MB_DEB_U22 }}
-          elif [ "${{ matrix.ubuntu_version }}" == "ubuntu24" ]; then
-            EXPECTED_SIZE_MB=${{ vars.EXPECTED_SIZE_MB_DEB_U24 }}
+          if [ "${MATRIX_UBUNTU_VERSION}" == "ubuntu22" ]; then
+            EXPECTED_SIZE_MB=${EXPECTED_SIZE_MB_DEB_U22}
+          elif [ "${MATRIX_UBUNTU_VERSION}" == "ubuntu24" ]; then
+            EXPECTED_SIZE_MB=${EXPECTED_SIZE_MB_DEB_U24}
           fi
           IMAGE_SIZE_BYTES=$(docker image inspect "$IMAGE_NAME" --format='{{.Size}}')
           IMAGE_SIZE_MB=$((IMAGE_SIZE_BYTES / 1024 / 1024))
