@@ -5,9 +5,9 @@
  ******************************************************************************/
 /*******************************************************************************
  * @file gvarealsense_pcd.cpp
- * @brief Implementation of GvaRealSensePcdFile class for reading and writing PCD files.
+ * @brief Implementation of GvaRealSensePcd class for reading and writing PCD files.
  *
- * This file contains the implementation of the GvaRealSensePcdFile class, which provides
+ * This file contains the implementation of the GvaRealSensePcd class, which provides
  * static methods to read from and write to PCD (Point Cloud Data) files in ASCII format.
  * The class handles point clouds with XYZ coordinates and RGB color values.
  ******************************************************************************/
@@ -104,11 +104,10 @@ void GvaRealSensePcd::writeFile(const std::string &filename, const std::vector<P
 /**
  * @brief Generates the header string for a PCD (Point Cloud Data) file in ASCII format.
  *
- * The header includes metadata such as version, fields (x, y, z, r, g, b), data types, and placeholders
- * for width and point count. The placeholders ("%d") should be replaced with actual values before writing
- * the header to a file.
+ * The header includes metadata such as version, fields (x, y, z, r, g, b), data types,
+ * and the provided width and point count values.
  *
- * @return A string containing the PCD file header with placeholders for width and point count.
+ * @return A string containing the PCD file header with width and point count values.
  */
 std::string GvaRealSensePcd::getPcdHeader(guint width, guint pointCount) {
     std::string header = "# .PCD v0.7 - Point Cloud Data file format\n";
@@ -129,12 +128,11 @@ std::string GvaRealSensePcd::getPcdHeader(guint width, guint pointCount) {
  * @brief Converts a RealSense depth frame and corresponding RGB frame into a vector of PointXYZRGB.
  *
  * This function generates a 3D point cloud from the provided depth frame using the RealSense SDK.
- * Each point in the resulting vector contains the 3D coordinates (x, y, z) of a point in space.
- * The RGB color values for each point are not currently set (commented out in the implementation).
+ * Each point in the resulting vector contains the 3D coordinates (x, y, z) and RGB color values.
  *
  * @param depthFrame The RealSense depth frame containing depth information.
- * @param rgbFrame The RealSense RGB frame containing color information (currently unused).
- * @return std::vector<PointXYZRGB> A vector containing the 3D points (with uninitialized RGB values).
+ * @param rgbFrame The RealSense RGB frame containing color information.
+ * @return std::vector<PointXYZRGB> A vector containing the 3D points with RGB values.
  */
 std::vector<PointXYZRGB> GvaRealSensePcd::convertToPointXYZRGB(rs2::depth_frame &depthFrame,
                                                                rs2::video_frame &rgbFrame) {

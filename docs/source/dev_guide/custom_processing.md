@@ -340,3 +340,7 @@ support:
 g++ -shared -fPIC -o libcustom_postproc.so custom_postproc.cpp \
   `pkg-config --cflags --libs gstreamer-1.0 gstreamer-analytics-1.0` -ldl -Wl,--no-undefined
 ```
+
+---
+
+**Note:** Python implementation runs within an embedded interpreter using GObject bindings, whereas C/C++ runs as a native shared library loaded directly by the element.

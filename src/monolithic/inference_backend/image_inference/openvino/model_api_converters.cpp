@@ -7,6 +7,7 @@
 #include "model_api_converters.h"
 
 #include "utils.h"
+#include <algorithm>
 #include <fstream>
 #include <regex>
 
@@ -144,6 +145,18 @@ bool convertYoloMeta2ModelApi(const std::string model_file, ov::AnyMap &modelCon
     if (!task_found && yaml_json.contains("task") && yaml_json["task"].is_string()) {
         throw std::runtime_error("Unsupported YOLO model task: " + yaml_json["task"].get<std::string>());
         return false;
+    }
+
+    // YOLOv26 OBB models with FP16/FP32 precision are not supported due to
+    // OpenVINO GPU plugin activation function issue producing garbage output
+    if (model_type == "yolo_v26_obb") {
+        std::string int8 =
+            yaml_json.contains("int8") && yaml_json["int8"].is_string() ? yaml_json["int8"].get<std::string>() : "";
+        if (int8 != "true") {
+            throw std::runtime_error(
+                "YOLOv26 OBB model with FP16/FP32 precision is not supported due to an OpenVINO GPU "
+                "plugin issue. Please use INT8 precision instead.");
+        }
     }
 
     if (!model_type.empty()) {
@@ -600,19 +613,20 @@ std::map<std::string, GstStructure *> get_model_info_preproc(const std::shared_p
             g_value_unset(&gvalue);
         }
         if (element.first == "reverse_input_channels") {
-            GValue gvalue = G_VALUE_INIT;
-            g_value_init(&gvalue, G_TYPE_INT);
-            g_value_set_int(&gvalue, gint(false));
-
             std::transform(element.second.as<std::string>().begin(), element.second.as<std::string>().end(),
                            element.second.as<std::string>().begin(), ::tolower);
 
-            if (element.second.as<std::string>() == "yes" || element.second.as<std::string>() == "true")
-                g_value_set_int(&gvalue, gint(true));
-
-            gst_structure_set_value(s, "reverse_input_channels", &gvalue);
-            GST_INFO("[get_model_info_preproc] reverse_input_channels: %s", element.second.as<std::string>().c_str());
-            g_value_unset(&gvalue);
+            GValue color_value = G_VALUE_INIT;
+            g_value_init(&color_value, G_TYPE_STRING);
+            if (element.second.as<std::string>() == "yes" || element.second.as<std::string>() == "true") {
+                g_value_set_string(&color_value, "RGB");
+            } else {
+                g_value_set_string(&color_value, "BGR");
+            }
+            gst_structure_set_value(s, "color_space", &color_value);
+            GST_INFO("[get_model_info_preproc] (reverse_input_channels) color_space: %s",
+                     g_value_get_string(&color_value));
+            g_value_unset(&color_value);
         }
         if (element.first == "reshape") {
             std::vector<int> size_values = element.second.as<std::vector<int>>();
@@ -632,6 +646,40 @@ std::map<std::string, GstStructure *> get_model_info_preproc(const std::shared_p
                 gst_structure_set_value(s, "reshape_size", &gvalue);
                 g_value_unset(&gvalue);
             }
+        }
+        if (element.first == "pad_value") {
+            int pad_value = element.second.as<int>();
+            if (pad_value < 0 || pad_value > 255) {
+                GST_WARNING("[get_model_info_preproc] Invalid pad value: %d. Expected an integer between 0 and 255.",
+                            pad_value);
+                pad_value = std::clamp(pad_value, 0, 255);
+                GST_INFO("[get_model_info_preproc] ) Pad value after clamping: %d", pad_value);
+            }
+            double d_pad_value = (double)pad_value;
+            std::vector<double> fill_values = {d_pad_value, d_pad_value, d_pad_value};
+            GValue array_value = G_VALUE_INIT;
+            g_value_init(&array_value, GST_TYPE_ARRAY);
+
+            for (const double &fill_value : fill_values) {
+                GValue item = G_VALUE_INIT;
+                g_value_init(&item, G_TYPE_DOUBLE);
+                g_value_set_double(&item, fill_value);
+                gst_value_array_append_value(&array_value, &item);
+                g_value_unset(&item);
+            }
+
+            GstStructure *inner = gst_structure_new_empty("padding");
+            gst_structure_set_value(inner, "fill_value", &array_value);
+            g_value_unset(&array_value);
+
+            GValue gvalue = G_VALUE_INIT;
+            g_value_init(&gvalue, GST_TYPE_STRUCTURE);
+            gst_value_set_structure(&gvalue, inner);
+            gst_structure_set_value(s, "padding", &gvalue);
+
+            gst_structure_free(inner);
+            g_value_unset(&gvalue);
+            GST_INFO("[get_model_info_preproc] pad_value: %d", pad_value);
         }
     }
 
@@ -745,12 +793,20 @@ std::map<std::string, GstStructure *> get_model_info_postproc(const std::shared_
             GST_INFO("[get_model_info_postproc] normalization_scale: %f", element.second.as<double>());
             g_value_unset(&gvalue);
         }
-        if (element.first.find("task") != std::string::npos) {
+        if (element.first == "task") {
             GValue gvalue = G_VALUE_INIT;
             g_value_init(&gvalue, G_TYPE_STRING);
             g_value_set_string(&gvalue, element.second.as<std::string>().c_str());
             gst_structure_set_value(s, "anomaly_task", &gvalue);
             GST_INFO("[get_model_info_postproc] anomaly_task: %s", element.second.as<std::string>().c_str());
+            g_value_unset(&gvalue);
+        }
+        if (element.first == "task_type") {
+            GValue gvalue = G_VALUE_INIT;
+            g_value_init(&gvalue, G_TYPE_STRING);
+            g_value_set_string(&gvalue, element.second.as<std::string>().c_str());
+            gst_structure_set_value(s, "anomaly_task_type", &gvalue);
+            GST_INFO("[get_model_info_postproc] anomaly_task_type: %s", element.second.as<std::string>().c_str());
             g_value_unset(&gvalue);
         }
         if (element.first.find("labels") != std::string::npos) {

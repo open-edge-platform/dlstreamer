@@ -57,11 +57,14 @@ BlobToMetaConverter::Ptr BlobToROIConverter::create(BlobToMetaConverter::Initial
     else if (converter_name == DetectionOutputConverter::getName())
         return BlobToMetaConverter::Ptr(new DetectionOutputConverter(std::move(initializer), confidence_threshold));
     else if (converter_name == BoxesLabelsConverter::getName())
-        return BlobToMetaConverter::Ptr(new BoxesLabelsConverter(std::move(initializer), confidence_threshold));
+        return BlobToMetaConverter::Ptr(
+            new BoxesLabelsConverter(std::move(initializer), confidence_threshold, iou_threshold));
     else if (converter_name == BoxesScoresConverter::getName())
-        return BlobToMetaConverter::Ptr(new BoxesScoresConverter(std::move(initializer), confidence_threshold));
+        return BlobToMetaConverter::Ptr(
+            new BoxesScoresConverter(std::move(initializer), confidence_threshold, iou_threshold));
     else if (converter_name == BoxesConverter::getName())
-        return BlobToMetaConverter::Ptr(new BoxesConverter(std::move(initializer), confidence_threshold));
+        return BlobToMetaConverter::Ptr(
+            new BoxesConverter(std::move(initializer), confidence_threshold, iou_threshold));
     else if (converter_name == YOLOv2Converter::getName() || converter_name == YOLOv3Converter::getName() ||
              converter_name == YOLOv4Converter::getName() || converter_name == YOLOv5Converter::getName())
         return YOLOBaseConverter::create(std::move(initializer), converter_name, confidence_threshold);
@@ -135,6 +138,11 @@ TensorsTable BlobToROIConverter::storeObjects(DetectedObjectsTable &objects_tabl
     if (need_nms)
         for (auto &objects : objects_table)
             runNms(objects);
+
+    for (auto &objects : objects_table) {
+        std::erase_if(objects, [](auto &detection) { return !detection.isDetectionValid(); });
+        std::for_each(objects.begin(), objects.end(), [](auto &detection) { detection.validateKeypoints(); });
+    }
 
     return toTensorsTable(objects_table);
 }

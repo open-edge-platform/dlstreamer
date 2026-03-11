@@ -1,11 +1,11 @@
 # ==============================================================================
-# Copyright (C) 2021-2025 Intel Corporation
+# Copyright (C) 2021-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
 import gi
 gi.require_version('Gst', '1.0')
-from gi.repository import Gst
+from gi.repository import Gst # pylint: disable=no-name-in-module, wrong-import-position
 
 class MyClass:
     def __init__(self):

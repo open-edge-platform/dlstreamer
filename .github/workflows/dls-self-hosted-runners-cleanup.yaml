@@ -1,0 +1,168 @@
+name: "[DLS] Self-hosted runners cleanup"
+run-name: "[DLS] Self-hosted runners cleanup (by @${{ github.actor }} via ${{ github.event_name }})"
+
+on:
+  schedule:
+    - cron: '0 3 * * *' # Daily at 03:00 UTC
+  workflow_dispatch:
+    inputs:
+      runner_labels:
+        description: "Comma-separated list of Linux runner labels (example: DLS-TGL-01,DLS-ARL-01)"
+        required: false
+        type: string
+
+permissions: {}
+
+env:
+  DEFAULT_UBUNTU_RUNNERS: "DLS-ARL-01,DLS-ARL-02,DLS-ARL-03,DLS-TGL-01,DLS-TGL-02,DLS-TGL-03,DLS-TGL-04,DLS-TGL-05"
+
+jobs:
+  setup-runners:
+    name: Set runners to execute cleanup
+    runs-on: dlstreamer
+    outputs:
+      linux_runners: ${{ steps.set-labels.outputs.linux_runners }}
+    steps:
+      - name: Set runner labels
+        id: set-labels
+        env:
+          RAW_LINUX_LABELS: ${{ inputs.runner_labels }}
+          DEF_LINUX_LABELS: ${{ env.DEFAULT_UBUNTU_RUNNERS }}
+        run: |
+          LINUX_LABELS="$RAW_LINUX_LABELS"
+          if [ -z "$LINUX_LABELS" ]; then
+            LINUX_LABELS="$DEF_LINUX_LABELS"
+          fi
+
+          # Convert comma-separated labels to JSON array for matrix usage.
+          LINUX_ARRAY=$(echo "$LINUX_LABELS" | jq -Rc 'split(",") | map(gsub("^\\s+|\\s+$";"")) | map(select(length > 0))')
+          echo "linux_runners=$LINUX_ARRAY" >> "$GITHUB_OUTPUT"
+
+          echo "### Selected runners" >> "$GITHUB_STEP_SUMMARY"
+          echo "${LINUX_LABELS}" >> "$GITHUB_STEP_SUMMARY"
+
+  cleanup-ubuntu-runners:
+    name: "Cleanup on ${{ matrix.runner }}"
+    needs: setup-runners
+    runs-on:
+      - ${{ matrix.runner }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: ${{ fromJson(needs.setup-runners.outputs.linux_runners) }}
+
+    steps:
+      - name: Collect disk usage before cleanup
+        run: |
+          set -euo pipefail
+
+          ROOT_SIZE_KB=$(df --output=size / | tail -n 1 | xargs)
+          USED_KB_BEFORE=$(df --output=used / | tail -n 1 | xargs)
+          ROOT_USED_PCT_BEFORE=$(awk -v used="$USED_KB_BEFORE" -v total="$ROOT_SIZE_KB" 'BEGIN { if (total > 0) printf "%.2f", (used/total)*100; else printf "0.00" }')
+
+          echo "ROOT_SIZE_KB=${ROOT_SIZE_KB}" >> "$GITHUB_ENV"
+          echo "USED_KB_BEFORE=${USED_KB_BEFORE}" >> "$GITHUB_ENV"
+          ROOT_USED_GB_BEFORE=$(awk -v kb="$USED_KB_BEFORE" 'BEGIN { printf "%.2f", kb/1024/1024 }')
+          echo "ROOT_USED_PCT_BEFORE=${ROOT_USED_PCT_BEFORE}" >> "$GITHUB_ENV"
+          echo "ROOT_USED_GB_BEFORE=${ROOT_USED_GB_BEFORE}" >> "$GITHUB_ENV"
+
+          echo "## Cleanup on ${{ matrix.runner }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Disk usage" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Root used before:** ${ROOT_USED_GB_BEFORE} GB (${ROOT_USED_PCT_BEFORE}%)" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Docker cleanup
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if ! command -v docker >/dev/null 2>&1; then
+            echo "Docker is not installed on this runner."
+            exit 0
+          fi
+
+          echo "<details>" >> "$GITHUB_STEP_SUMMARY"
+          echo "<summary>Docker usage before (docker system df)</summary>" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "\`\`\`text" >> "$GITHUB_STEP_SUMMARY"
+          docker system df >> "$GITHUB_STEP_SUMMARY" || true
+          echo "\`\`\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "</details>" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          RUNNING_CONTAINERS=$(docker ps -q | wc -l)
+          echo "**Running containers:** ${RUNNING_CONTAINERS}" >> "$GITHUB_STEP_SUMMARY"
+
+          # Do not hide cleanup errors. Log warnings and continue where possible.
+          if ! docker container prune -f; then
+            echo "::warning::docker container prune failed"
+          fi
+          if ! docker image prune -a -f --filter "until=24h"; then
+            echo "::warning::docker image prune failed"
+          fi
+          if ! docker builder prune -a -f --filter "until=24h"; then
+            echo "::warning::docker builder prune failed"
+          fi
+          if ! docker network prune -f; then
+            echo "::warning::docker network prune failed"
+          fi
+
+          if ! docker volume prune -f; then
+            echo "::warning::docker volume prune failed"
+          fi
+          if ! docker system prune -a --volumes -f; then
+            echo "::warning::docker system prune failed"
+          fi
+
+          # Fallback: force remove any remaining unused local volumes.
+          if docker volume ls -q | grep -q .; then
+            for volume in $(docker volume ls -q); do
+              if ! docker ps -aq --filter volume="$volume" | grep -q .; then
+                docker volume rm "$volume" >/dev/null 2>&1 || true
+              fi
+            done
+          fi
+
+          echo "<details>" >> "$GITHUB_STEP_SUMMARY"
+          echo "<summary>Docker usage after (docker system df)</summary>" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "\`\`\`text" >> "$GITHUB_STEP_SUMMARY"
+          docker system df >> "$GITHUB_STEP_SUMMARY" || true
+          echo "\`\`\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "</details>" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Remove common temporary directories
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          rm -rf "$HOME/dlstreamer" \
+                 "$HOME/dlstreamer-repo" \
+                 "$HOME/dl-streamer-tests-repo" \
+                 "$HOME/test-results" \
+                 "$HOME/.cache/pip" \
+                 "$HOME/.virtualenvs"
+
+      - name: Collect disk usage after cleanup
+        if: always()
+        run: |
+          set -euo pipefail
+
+          USED_KB_AFTER=$(df --output=used / | tail -n 1 | xargs)
+          USED_KB_BEFORE=${USED_KB_BEFORE:-0}
+          ROOT_SIZE_KB=${ROOT_SIZE_KB:-0}
+
+          FREED_KB=$((USED_KB_BEFORE - USED_KB_AFTER))
+          if [ "$FREED_KB" -lt 0 ]; then
+            FREED_KB=0
+          fi
+
+          ROOT_USED_GB_AFTER=$(awk -v kb="$USED_KB_AFTER" 'BEGIN { printf "%.2f", kb/1024/1024 }')
+          ROOT_USED_PCT_AFTER=$(awk -v used="$USED_KB_AFTER" -v total="$ROOT_SIZE_KB" 'BEGIN { if (total > 0) printf "%.2f", (used/total)*100; else printf "0.00" }')
+          FREED_GB=$(awk -v kb="$FREED_KB" 'BEGIN { printf "%.2f", kb/1024/1024 }')
+          FREED_PCT_OF_ROOT=$(awk -v freed="$FREED_KB" -v total="$ROOT_SIZE_KB" 'BEGIN { if (total > 0) printf "%.2f", (freed/total)*100; else printf "0.00" }')
+
+          echo "**Root used after:** ${ROOT_USED_GB_AFTER} GB (${ROOT_USED_PCT_AFTER}%)" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Freed space:** ${FREED_GB} GB (${FREED_PCT_OF_ROOT}% of root filesystem)" >> "$GITHUB_STEP_SUMMARY"

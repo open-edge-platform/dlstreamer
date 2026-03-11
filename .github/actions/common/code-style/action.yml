@@ -37,12 +37,14 @@ runs:
 
     - name: Analyze code style results
       if: always()
+      env:
+        TARGET_DIR: ${{ inputs.target_dir }}
       run: |
         if [ "${{ steps.code-style-check.outputs.STYLE_ISSUES }}" == "true" ]; then
           # Count number of files with style issues
           if [ -f "_output/diff.html" ]; then
             # Try to count files from diff output
-            file_count=$(diff -u --recursive "${{ inputs.target_dir }}" "_styled/${{ inputs.target_dir }}" 2>/dev/null | grep -c "^diff -u" || echo "1+")
+            file_count=$(diff -u --recursive "$TARGET_DIR" "_styled/$TARGET_DIR" 2>/dev/null | grep -c "^diff -u" || echo "1+")
 
             echo "### Code Style Check Results" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY

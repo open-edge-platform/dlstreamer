@@ -5,7 +5,7 @@
 # ==============================================================================
 
 import unittest
-from optimizer import get_optimized_pipeline
+from optimizer import get_optimized_pipeline # pylint: disable=no-name-in-module
 from utils import get_model_path
 
 class TestOptimizer(unittest.TestCase):

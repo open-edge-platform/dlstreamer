@@ -18,13 +18,13 @@ on:
           - 'cache'
 permissions: {}
 env:
-  dlstreamer-version: "2025.2.0"
+  dlstreamer-version: "2026.0.0"
   DLS_REL_PATH: "./dlstreamer-repo"
 
 jobs:
   build-dls-deb-img:
     name: Build DLS ${{ matrix.ubuntu_version }} .deb and deb img
-    runs-on: ubuntu-latest
+    runs-on: dlstreamer
     permissions:
       contents: read
       packages: write
@@ -43,13 +43,15 @@ jobs:
     steps:
       - name: Determine image tag (input or default)
         id: set-tag
+        env:
+          USER_IMAGE_TAG: ${{ github.event.inputs['image-tag'] }}
         run: |
-          if [ -z "${{ github.event.inputs['image-tag'] }}" ]; then
+          if [ -z "$USER_IMAGE_TAG" ]; then
             echo "No image-tag provided — using default value with commit sha"
             VALUE="${{ github.sha }}"
           else
-            echo "Using provided image-tag: ${{ github.event.inputs['image-tag'] }}"
-            VALUE="${{ github.event.inputs['image-tag'] }}"
+            echo "Using provided image-tag: $USER_IMAGE_TAG"
+            VALUE="$USER_IMAGE_TAG"
           fi
           echo "IMAGE_TAG=$VALUE" >> $GITHUB_ENV
       - name: Check out dlstreamer repository
@@ -184,13 +186,15 @@ jobs:
     steps:
       - name: Determine image tag (input or default)
         id: set-tag
+        env:
+          USER_IMAGE_TAG: ${{ github.event.inputs['image-tag'] }}
         run: |
-          if [ -z "${{ github.event.inputs['image-tag'] }}" ]; then
+          if [ -z "$USER_IMAGE_TAG" ]; then
             echo "No image-tag provided — using default value with commit sha"
             VALUE="${{ github.sha }}"
           else
-            echo "Using provided image-tag: ${{ github.event.inputs['image-tag'] }}"
-            VALUE="${{ github.event.inputs['image-tag'] }}"
+            echo "Using provided image-tag: $USER_IMAGE_TAG"
+            VALUE="$USER_IMAGE_TAG"
           fi
           echo "IMAGE_TAG=$VALUE" >> $GITHUB_ENV
       - name: Check out dlstreamer repository
@@ -294,7 +298,7 @@ jobs:
     if: ${{ inputs.action-type == 'weekly' }}
     needs: build-dls-deb-img
     name: Build DLS Pipeline Server ${{ matrix.ubuntu_version }} img
-    runs-on: ubuntu-latest
+    runs-on: dlstreamer
     permissions:
       contents: read
       packages: write
@@ -306,13 +310,15 @@ jobs:
     steps:
       - name: Determine image tag (input or default)
         id: set-tag
+        env:
+          USER_IMAGE_TAG: ${{ github.event.inputs['image-tag'] }}
         run: |
-          if [ -z "${{ github.event.inputs['image-tag'] }}" ]; then
+          if [ -z "$USER_IMAGE_TAG" ]; then
             echo "No image-tag provided — using default value with commit sha"
             VALUE="${{ github.sha }}"
           else
-            echo "Using provided image-tag: ${{ github.event.inputs['image-tag'] }}"
-            VALUE="${{ github.event.inputs['image-tag'] }}"
+            echo "Using provided image-tag: $USER_IMAGE_TAG"
+            VALUE="$USER_IMAGE_TAG"
           fi
           echo "IMAGE_TAG=$VALUE" >> $GITHUB_ENV
       - name: Check out edge-ai-libraries repository

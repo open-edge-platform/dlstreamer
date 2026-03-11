@@ -412,12 +412,6 @@ static GstFlowReturn gst_g3d_lidar_parse_transform(GstBaseTransform *trans, GstB
     }
 
     gst_buffer_remove_all_memory(outbuf);
-    /*if (!gst_buffer_copy_into(outbuf, inbuf, GST_BUFFER_COPY_ALL, 0, -1)) {
-        GST_ERROR_OBJECT(filter, "Failed to copy input buffer to output buffer");
-        g_mutex_unlock(&filter->mutex);
-        return GST_FLOW_ERROR;
-    }*/
-
     GstClockTime exit_lidarparse_timestamp = GST_CLOCK_TIME_NONE;
     if (GstClock *clock = gst_element_get_clock(GST_ELEMENT(filter))) {
         exit_lidarparse_timestamp = gst_clock_get_time(clock);
@@ -434,32 +428,78 @@ static GstFlowReturn gst_g3d_lidar_parse_transform(GstBaseTransform *trans, GstB
                      frame_id, filter->stream_id, GST_TIME_ARGS(exit_lidarparse_timestamp), point_count,
                      filter->stride);
 
-    LidarMeta *lidar_meta =
-        add_lidar_meta(outbuf, point_count, float_data, frame_id, exit_lidarparse_timestamp, filter->stream_id);
+    if (!float_data.empty()) {
+        const gsize payload_size = float_data.size() * sizeof(float);
+        GstMemory *payload_mem = gst_allocator_alloc(NULL, payload_size, NULL);
+        if (!payload_mem) {
+            GST_ERROR_OBJECT(filter, "Failed to allocate output buffer payload (size=%zu)", payload_size);
+            g_mutex_unlock(&filter->mutex);
+            return GST_FLOW_ERROR;
+        }
+
+        GstMapInfo out_map;
+        if (!gst_memory_map(payload_mem, &out_map, GST_MAP_WRITE)) {
+            GST_ERROR_OBJECT(filter, "Failed to map output buffer payload for writing");
+            gst_memory_unref(payload_mem);
+            g_mutex_unlock(&filter->mutex);
+            return GST_FLOW_ERROR;
+        }
+
+        memcpy(out_map.data, float_data.data(), payload_size);
+        gst_memory_unmap(payload_mem, &out_map);
+        gst_buffer_append_memory(outbuf, payload_mem);
+
+        if (gst_debug_category_get_threshold(gst_g3d_lidar_parse_debug) >= GST_LEVEL_DEBUG) {
+            GstMapInfo verify_map;
+            if (!gst_buffer_map(outbuf, &verify_map, GST_MAP_READ)) {
+                GST_ERROR_OBJECT(filter, "Failed to map output buffer payload for verification");
+                g_mutex_unlock(&filter->mutex);
+                return GST_FLOW_ERROR;
+            }
+
+            if (verify_map.size != payload_size) {
+                GST_ERROR_OBJECT(filter, "Payload size mismatch: expected=%zu actual=%zu", payload_size,
+                                 verify_map.size);
+                gst_buffer_unmap(outbuf, &verify_map);
+                g_mutex_unlock(&filter->mutex);
+                return GST_FLOW_ERROR;
+            }
+
+            const gsize float_count = float_data.size();
+            const float *verify_floats = reinterpret_cast<const float *>(verify_map.data);
+            const gsize check_count = std::min<gsize>(float_count, 8);
+
+            for (gsize i = 0; i < check_count; ++i) {
+                if (verify_floats[i] != float_data[i]) {
+                    GST_ERROR_OBJECT(filter, "Payload verification failed at head index %zu", i);
+                    gst_buffer_unmap(outbuf, &verify_map);
+                    g_mutex_unlock(&filter->mutex);
+                    return GST_FLOW_ERROR;
+                }
+            }
+
+            gst_buffer_unmap(outbuf, &verify_map);
+
+            const gsize count = float_data.size();
+            const gsize preview_len = std::min<gsize>(count, 5);
+            std::ostringstream oss;
+            oss << "lidar_point_count=" << point_count << " frame_id=" << frame_id << " stream_id=" << filter->stream_id
+                << " exit_ts=" << exit_lidarparse_timestamp << "ns" << " preview(" << preview_len << "/" << count
+                << "):";
+
+            for (gsize i = 0; i < preview_len; ++i) {
+                oss << " " << std::fixed << std::setprecision(6) << float_data[i];
+            }
+
+            GST_INFO_OBJECT(filter, "%s", oss.str().c_str());
+        }
+    }
+
+    LidarMeta *lidar_meta = add_lidar_meta(outbuf, point_count, frame_id, exit_lidarparse_timestamp, filter->stream_id);
     if (!lidar_meta) {
         GST_ERROR_OBJECT(filter, "Failed to add lidar meta to buffer");
         g_mutex_unlock(&filter->mutex);
         return GST_FLOW_ERROR;
-    }
-
-    // Debug dump: print lidar_point_count and first few floats from meta data
-    if (!lidar_meta->lidar_data.empty()) {
-        const auto &values = lidar_meta->lidar_data;
-        const gsize count = values.size();
-        const gsize preview_len = std::min<gsize>(count, 5);
-
-        std::ostringstream oss;
-        oss << "lidar_point_count=" << lidar_meta->lidar_point_count << " frame_id=" << lidar_meta->frame_id
-            << " stream_id=" << lidar_meta->stream_id << " exit_ts=" << lidar_meta->exit_lidarparse_timestamp << "ns"
-            << " preview(" << preview_len << "/" << count << "):";
-
-        for (gsize i = 0; i < preview_len; ++i) {
-            oss << " " << std::fixed << std::setprecision(6) << values[i];
-        }
-
-        GST_INFO_OBJECT(filter, "%s", oss.str().c_str());
-    } else {
-        GST_INFO_OBJECT(filter, "lidar_point_count=0 preview(0/0): <empty>");
     }
 
     GST_INFO_OBJECT(filter, "Successfully processed lidar buffer with %u floats", lidar_meta->lidar_point_count);

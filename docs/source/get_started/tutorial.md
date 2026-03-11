@@ -273,7 +273,7 @@ Follow these steps if you chose Option #2 (Docker) in Install Guide Ubuntu.
     **Ubuntu 22**
 
     ```bash
-    docker run -it --rm -v ${MODELS_PATH}:/home/dlstreamer/models --env MODELS_PATH=/home/dlstreamer/models intel/dlstreamer:2025.2.0-ubuntu22
+    docker run -it --rm -v ${MODELS_PATH}:/home/dlstreamer/models --env MODELS_PATH=/home/dlstreamer/models intel/dlstreamer:2026.0.0-ubuntu22
     ```
 
     **Ubuntu 24**

@@ -67,6 +67,9 @@ Element Properties:
   batch-size          : Number of frames batched together for a single inference. If the batch-size is 0, then it will be set by default to be optimal for the device. Not all models support batching. Use model optimizer to ensure that the model has batching support.
                         flags: readable, writable
                         Unsigned Integer. Range: 0 - 1024 Default: 0
+  batch-timeout       : Timeout (ms) for OpenVINO™ Automatic Batching. Waits for batch to accumulate inference requests before execution. If the number of frames collected reaches batch-size, inference is executed with a full batch and the timer is reset. If timeout occurs before collecting all frames specified by batch-size, inference is executed on collected frames individually (as if batch-size=1) and the timer is reset. If batch-timeout is set to 0, it operates as if batch-size were set to 1, executing inference on individual frames. Value -1 disables timeout, waiting indefinitely for full batch. Note: Not supported with VA backends (pre-process-backend=va or va-surface-sharing).
+                        flags: readable, writable
+                        Integer. Range: -1 - 2147483647 Default: -1
   cpu-throughput-streams: Deprecated. Use ie-config=CPU_THROUGHPUT_STREAMS=<number-streams> instead
                         flags: readable, writable, deprecated
                         Unsigned Integer. Range: 0 - 4294967295 Default: 0
@@ -149,8 +152,8 @@ Element Properties:
                         String. Default: null
   scheduling-policy   : Scheduling policy across streams sharing same model instance: throughput (select first incoming frame), latency (select frames with earliest presentation time out of the streams sharing same model-instance-id; recommended batch-size less than or equal to the number of streams)
                         flags: readable, writable
-                        String. Default: null
-  share-va-display-ctx: Feature allowing sharing VA Display context across inference elements
+                        String. Default: "throughput"
+  share-va-display-ctx: Whether to share VA Display context across inference elements: true (share context, default), false (do not share context)
                         flags: readable, writable
                         Boolean. Default: true
   threshold           : Threshold for detection results. Only regions of interest with confidence values above the threshold will be added to the frame

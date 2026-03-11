@@ -1,0 +1,10 @@
+[MAIN]
+source-roots = python/gstgva
+
+[MESSAGES CONTROL]
+
+# E0401 = Unable to import module
+disable=E0401
+
+[FORMAT]
+max-line-length=160

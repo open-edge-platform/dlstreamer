@@ -64,7 +64,7 @@ permissions: {}
 jobs:
   trivy-config-scan:
     name: Trivy Dockerfile Config Scan
-    runs-on: ubuntu-latest
+    runs-on: dlstreamer
     permissions:
       contents: read
     steps:

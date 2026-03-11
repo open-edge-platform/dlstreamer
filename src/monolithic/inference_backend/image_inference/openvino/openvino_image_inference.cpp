@@ -5,7 +5,10 @@
  ******************************************************************************/
 
 #include "dlstreamer_logger.h"
+#include "gst/gststructure.h"
+#include "inference_backend/image_inference.h"
 
+#include <cstddef>
 #include <openvino/runtime/properties.hpp>
 
 #include <dlstreamer/openvino/context.h>
@@ -245,6 +248,14 @@ struct ConfigHelper {
 
     int batch_size() const {
         return std::stoi(base_config.at(KEY_BATCH_SIZE));
+    }
+
+    int batch_timeout() const {
+        const auto &inference_config = config.at(InferenceBackend::KEY_INFERENCE);
+        const auto it = inference_config.find(ov::auto_batch_timeout.name());
+        if (it == inference_config.end())
+            return -1;
+        return std::stoi(it->second);
     }
 
     const std::string &image_format() const {
@@ -636,15 +647,6 @@ class OpenVinoNewApiImpl {
             tensor = ov::Tensor(tensor, begin, end);
         }
 
-        // Allocate new tensor in host memory and COPY data if the original tensor is not contigous
-        // - NPU device plugin requires contigous tensors (explicit assert)
-        // - GPU plugin fails in certain cases with non-contigous tensors
-        if (!tensor.is_continuous()) {
-            ov::Tensor sparse_tensor(tensor);
-            tensor = ov::Tensor(ov::element::u8, sparse_tensor.get_shape());
-            sparse_tensor.copy_to(tensor);
-        }
-
         return tensor;
     }
 
@@ -772,7 +774,9 @@ class OpenVinoNewApiImpl {
     InferenceBackend::ImagePreprocessorType _pp_type;
 #endif
     int _nireq = 0;
+    int _auto_batch_num_requests = 0;
     int _batch_size = 0;
+    int _batch_timeout = -1;
 
     size_t _origin_model_in_w = 0;
     size_t _origin_model_in_h = 0;
@@ -807,6 +811,13 @@ class OpenVinoNewApiImpl {
             } catch (...) {
                 _batch_size = 1; // Fallback if optimal batch size property is not supported
             }
+        }
+
+        _batch_timeout = config.batch_timeout();
+
+        if (_batch_timeout > -1) {
+            _auto_batch_num_requests = _batch_size;
+            _batch_size = 1;
         }
 
         GVA_DEBUG("Setting batch size of %d to model", _batch_size);
@@ -854,7 +865,7 @@ class OpenVinoNewApiImpl {
             }
 
             auto &in = preproc.input(item.get_any_name());
-            if (in_cfg.type != ov::element::undefined)
+            if (in_cfg.type != ov::element::dynamic)
                 in.tensor().set_element_type(in_cfg.type);
 
             if (in_cfg.data_format == InferenceBackend::KEY_image) {
@@ -1063,7 +1074,11 @@ class OpenVinoNewApiImpl {
         if (_openvino_context) {
             _compiled_model = core().compile_model(_model, _openvino_context->remote_context(), ov_params);
         } else {
-            _compiled_model = core().compile_model(_model, _device, ov_params);
+            std::string formatted_device = _device;
+            if (_batch_timeout > -1) {
+                formatted_device = fmt::format("BATCH:{}({})", _device, _auto_batch_num_requests);
+            }
+            _compiled_model = core().compile_model(_model, formatted_device, ov_params);
         }
         GVA_INFO("Network loaded to device");
 
@@ -1174,9 +1189,16 @@ OpenVINOImageInference::OpenVINOImageInference(const InferenceBackend::Inference
                                                dlstreamer::ContextPtr context, CallbackFunc callback,
                                                ErrorHandlingFunc error_handler, MemoryType memory_type)
     : context_(context), memory_type(memory_type), callback(callback), handleError(error_handler),
-      batch_size(std::stoi(config.at(KEY_BASE).at(KEY_BATCH_SIZE))), requests_processing_(0U) {
+      batch_size(std::stoi(config.at(KEY_BASE).at(KEY_BATCH_SIZE))), batch_timeout(-1), requests_processing_(0U) {
 
     try {
+        if (config.count(KEY_INFERENCE) > 0) {
+            const auto &inference_config = config.at(KEY_INFERENCE);
+            if (inference_config.count(ov::auto_batch_timeout.name()) > 0) {
+                batch_timeout = std::stoi(inference_config.at(ov::auto_batch_timeout.name()));
+            }
+        }
+
         ConfigHelper cfg_helper(config);
         const auto pp_type = cfg_helper.pp_type();
 #ifndef ENABLE_D3D_NPU_COLOR_CONV
@@ -1189,6 +1211,7 @@ OpenVINOImageInference::OpenVINOImageInference(const InferenceBackend::Inference
         model_name = _impl->_model->get_friendly_name();
         nireq = _impl->_nireq;
         batch_size = _impl->_batch_size;
+        batch_timeout = _impl->_batch_timeout;
         image_layer = _impl->_image_input_name;
 
         for (int i = 0; i < nireq; i++) {
@@ -1344,8 +1367,9 @@ bool OpenVINOImageInference::DoNeedImagePreProcessing(const InferenceBackend::Im
     if (image == nullptr)
         return false;
 
-    // workaround for NPU plugin serialization when non-contiguous tensors submitted
-    if ((_impl->_device.find("NPU") != std::string::npos) && (_impl->_memory_type == MemoryType::SYSTEM) &&
+    // OV plugins exhibit low peformance (serialization) when VA pre-processor generates non-continous tensors
+    // Add OpenCV pre-rocessor to compress non-continous tensors on top of VA pre-processor which does resize/crop/etc.
+    if ((_impl->_memory_type == MemoryType::SYSTEM) &&
         ((image->format == FourCC::FOURCC_RGBP) || (image->format == FourCC::FOURCC_BGRP))) {
 
         bool contiguous = (image->planes[1] - image->planes[0] == image->width * image->height) &&
@@ -1443,6 +1467,10 @@ const std::string &OpenVINOImageInference::GetModelName() const {
 
 size_t OpenVINOImageInference::GetBatchSize() const {
     return safe_convert<size_t>(batch_size);
+}
+
+int OpenVINOImageInference::GetBatchTimeout() const {
+    return batch_timeout;
 }
 
 size_t OpenVINOImageInference::GetNireq() const {

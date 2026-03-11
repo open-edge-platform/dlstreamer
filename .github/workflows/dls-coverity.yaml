@@ -14,7 +14,7 @@ permissions: {}
 
 jobs:
   detect-languages:
-    runs-on: ubuntu-latest
+    runs-on: dlstreamer
     permissions:
       contents: read
     outputs:
@@ -55,7 +55,7 @@ jobs:
 
   coverity-scan:
     needs: detect-languages
-    runs-on: ubuntu-latest
+    runs-on: dlstreamer
     permissions:
       contents: read
     if: needs.detect-languages.outputs.run-analysis == 'true'

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2021-2025 Intel Corporation
+ * Copyright (C) 2021-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -28,8 +28,9 @@ class BoxesLabelsConverter : public BoxesLabelsScoresConverter {
     std::pair<size_t, float> getLabelIdConfidence(const InferenceBackend::OutputBlob::Ptr &, size_t, float) const final;
 
   public:
-    BoxesLabelsConverter(BlobToMetaConverter::Initializer initializer, double confidence_threshold)
-        : BoxesLabelsScoresConverter(std::move(initializer), confidence_threshold) {
+    BoxesLabelsConverter(BlobToMetaConverter::Initializer initializer, double confidence_threshold,
+                         double iou_threshold)
+        : BoxesLabelsScoresConverter(std::move(initializer), confidence_threshold, iou_threshold) {
     }
 
     static bool isValidModelOutputs(const std::map<std::string, std::vector<size_t>> &model_outputs_info);

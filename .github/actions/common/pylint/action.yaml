@@ -46,7 +46,7 @@ runs:
           echo "📝 Found Python files, running pylint..."
           # Save full output to temporary file first
           temp_output="${output_file}.full"
-          find "${path}" -name "*.py" -not -path "*/venv/*" -print0 | xargs -0 pylint 2>&1 | tee "${temp_output}" || true
+          find "${path}" -name "*.py" -not -path "*/venv/*" -print0 | xargs -0 pylint --rcfile="${path}/pylintrc" 2>&1 | tee "${temp_output}" || true
           # Filter only errors (E) and fatal (F) issues to the main output file
           if [ -f "${temp_output}" ]; then
             # Extract errors and fatal issues
@@ -76,10 +76,11 @@ runs:
       env:
         path: ${{ inputs.path }}
         name: ${{ inputs.name }}
+        OUTPUT_FILE: ${{ inputs.output-file }}
       run: |
         # Analyze from the full temporary file for complete statistics
-        temp_output="${{ inputs.output-file }}.full"
-        output_file="${{ inputs.output-file }}"
+        temp_output="${OUTPUT_FILE}.full"
+        output_file="${OUTPUT_FILE}"
 
         if [ -f "${temp_output}" ]; then
           # Count issues by severity from full output

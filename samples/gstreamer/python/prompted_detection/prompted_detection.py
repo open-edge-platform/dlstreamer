@@ -6,11 +6,13 @@
 
 import sys
 import os
+
+from ultralytics import YOLO
 import gi
 gi.require_version("Gst", "1.0")
 gi.require_version("GstAnalytics", "1.0")
-from gi.repository import GLib, Gst, GstAnalytics
-from ultralytics import YOLO
+from gi.repository import GLib, Gst, GstAnalytics # pylint: disable=no-name-in-module, wrong-import-position
+
 
 # wrapper to run the gstreamer pipeline loop
 def pipeline_loop(pipeline):
