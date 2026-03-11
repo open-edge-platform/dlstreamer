@@ -1,7 +1,11 @@
 # Concurrent Use of DL Streamer and DeepStream
 
 This tutorial explains how to simultaneously run DL Streamer and DeepStream on a single machine for optimal performance.
-The purpose of this sample is to demonstrate how additional machine resources can be utilized. For example, if a user runs detection on an NVIDIA GPU, they can simultaneously execute a DL Streamer pipeline on an Intel integrated GPU, NPU, or CPU. This approach enables more efficient utilization of the system's available compute resources.
+This sample has 2 main purposes:
+1. It shows to the DeepStream users that DL Streamer has similar capabilities and can be used with very low investments from their side on the use cases that they need.
+    - This sample adds DL Streamer to the Intel powered setups without disruption of the already configured environment.
+    - It allows to run and compare results of typical use case.
+2. It demonstrates how additional machine resources can be utilized. For example, if a user runs detection on an NVIDIA GPU, they can simultaneously execute a DL Streamer pipeline on an Intel integrated GPU, NPU, or CPU. This approach enables more efficient utilization of the system's available compute resources.
 
 ## Overview
 
