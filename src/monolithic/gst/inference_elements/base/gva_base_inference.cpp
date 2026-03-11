@@ -1115,6 +1115,11 @@ gboolean gva_base_inference_stop(GstBaseTransform *trans) {
                           ("%s", Utils::createNestedErrorMsg(e).c_str()));
     }
 
+    if (self->priv) {
+        self->priv->buffer_mapper.reset();
+        self->priv->va_display.reset();
+    }
+
     return TRUE;
 }
 
