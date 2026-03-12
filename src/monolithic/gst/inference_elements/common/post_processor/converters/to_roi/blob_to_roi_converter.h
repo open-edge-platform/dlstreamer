@@ -99,7 +99,7 @@ class BlobToROIConverter : public BlobToMetaConverter {
         void validateKeypoints() {
             for (auto &structure : this->tensors) {
                 GVA::Tensor tensor(structure);
-                // printf("test\n");
+
                 if (tensor.format() != "keypoints") {
                     continue;
                 };
