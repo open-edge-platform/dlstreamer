@@ -2,36 +2,312 @@
 
 This page lists models supported by Intel® DL Streamer.
 
-The following models used in DL Streamer demos can be conveniently downloaded and converted using the [`download_public_models.sh`]() script:
+## Supported Architectures
 
-<table>
+DL Streamer supports the following model architectures from [GETI](https://docs.geti.intel.com/) and major model hubs such as [Ultralytics](https://www.ultralytics.com/) and [Hugging Face](https://huggingface.co/).
+
+The table provides links to model preparation instructions describing download and conversion steps that can be performed either manually or by using dedicated scripts.
+
+<table style="width: 100%; table-layout: fixed; margin-bottom: 1.5rem;">
+  <colgroup>
+    <col style="width: 16%;">
+    <col style="width: 23%;">
+    <col style="width: 19%;">
+    <col style="width: 23%;">
+    <col style="width: 19%;">
+  </colgroup>
   <tr>
     <th>Category</th>
-    <th>Model Name</th>
+    <th>Architecture</th>
+    <th>Model Preparation</th>
+    <th>Example Model</th>
     <th>Demo App</th>
   </tr>
   <tr>
-    <td>Detection</td>
+    <td rowspan="3" style="vertical-align:middle;">Anomaly Detection</td>
+    <td>Padim</td>
+    <td rowspan="3" style="vertical-align:middle;">GETI</td>
+    <td rowspan="3" style="vertical-align:middle;">&nbsp;</td>
+    <td rowspan="3" style="vertical-align:middle;">&nbsp;</td>
+  </tr>
+  <tr>
+    <td>STFPM</td>
+  </tr>
+  <tr>
+    <td>UFlow</td>
+  </tr>
+  <tr>
+    <td rowspan="13" style="vertical-align:middle;">Detection</td>
+    <td>YOLOv5u</td>
+    <td rowspan="6" style="vertical-align:middle;"><a href="https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/dev_guide/yolo_models.html">Ultralytics</a></td>
+    <td><a href="https://github.com/ultralytics/assets/releases/download/v8.4.0/yolov5nu.pt">yolov5nu.pt</a></td>
+    <td rowspan="6" style="vertical-align:middle;"><a href="https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch/detection_with_yolo">Object Detection and Classification with YOLO</a></td>
+  </tr>
+  <tr>
+    <td>YOLOv8</td>
+    <td><a href="https://github.com/ultralytics/assets/releases/download/v8.4.0/yolov8n.pt">yolov8n.pt</a></td>
+  </tr>
+  <tr>
+    <td>YOLOv9</td>
+    <td><a href="https://github.com/ultralytics/assets/releases/download/v8.4.0/yolov9s.pt">yolov9s.pt</a></td>
+  </tr>
+  <tr>
+    <td>YOLOv10</td>
+    <td><a href="https://github.com/ultralytics/assets/releases/download/v8.4.0/yolov10n.pt">yolov10n.pt</a></td>
+  </tr>
+  <tr>
+    <td>YOLO11</td>
+    <td><a href="https://github.com/ultralytics/assets/releases/download/v8.4.0/yolo11n.pt">yolo11n.pt</a></td>
+  </tr>
+  <tr>
+    <td>YOLO26</td>
+    <td><a href="https://github.com/ultralytics/assets/releases/download/v8.4.0/yolo26n.pt">yolo26n.pt</a></td>
+  </tr>
+  <tr>
+    <td>RTDetrForObjectDetection</td>
+    <td rowspan="2" style="vertical-align:middle;">Hugging Face</td>
+    <td><a href="https://huggingface.co/PekingU/rtdetr_r50vd">PekingU/rrtdetr_r50vd</a></td>
+    <td rowspan="2" style="vertical-align:middle;"><a href="https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/python/smart_nvr">Smart Network Video Recorder for Lane Hogging Detection</a></td>
+  </tr>
+  <tr>
+    <td>RtDetrV2ForObjectDetection</td>
+    <td><a href="https://huggingface.co/PekingU/rtdetr_v2_r18vd">PekingU/rtdetr_v2_r18vd</a></td>
+  </tr>
+  <tr>
+    <td>ATSS with ResNet or MobilenetV2</td>
+    <td rowspan="5" style="vertical-align:middle;">GETI</td>
+    <td rowspan="5" style="vertical-align:middle;">&nbsp;</td>
+    <td rowspan="5" style="vertical-align:middle;">&nbsp;</td>
+  </tr>
+  <tr>
+    <td>SSD with MobilenetV2</td>
+  </tr>
+  <tr>
+    <td>RT-DETR</td>
+  </tr>
+  <tr>
+    <td>YOLOX</td>
+  </tr>
+  <tr>
+    <td>D-Fine</td>
+  </tr>
+  <tr>
+    <td rowspan="4" style="vertical-align:middle;">Image Classification</td>
+    <td>ViTForImageClassification</td>
+    <td>Hugging Face</td>
+    <td><a href="https://huggingface.co/dima806/fairface_age_image_detection">dima806/fairface_age_image_detection</a></td>
+    <td><a href="https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/python/face_detection_and_classification">Face Detection and Classification</a></td>
+  </tr>
+  <tr>
+    <td>Mobilenet-V3</td>
+    <td rowspan="3" style="vertical-align:middle;">GETI</td>
+    <td rowspan="3" style="vertical-align:middle;">&nbsp;</td>
+    <td rowspan="3" style="vertical-align:middle;">&nbsp;</td>
+  </tr>
+  <tr>
+    <td>EfficientNet-B0</td>
+  </tr>
+  <tr>
+    <td>DeitTiny</td>
+  </tr>
+  <tr>
+    <td>Image Embeddings</td>
+    <td>CLIPModel</td>
+    <td><a href="https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/dev_guide/lvms.html">Large Vision Models</a></td>
+    <td><a href="https://huggingface.co/openai/clip-vit-large-patch14">openai/clip-vit-large-patch14</a></td>
+    <td><a href="https://github.com/open-edge-platform/dlstreamer/blob/main/samples/gstreamer/gst_launch/lvm/README.md">Frame Embeddings</a></td>
+  </tr>
+  <tr>
+    <td rowspan="5" style="vertical-align:middle;">Instance Segmentation</td>
+    <td>YOLOv8-seg</td>
+    <td rowspan="3" style="vertical-align:middle;"><a href="https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/dev_guide/yolo_models.html">Ultralytics</a></td>
+    <td><a href="https://github.com/ultralytics/assets/releases/download/v8.4.0/yolov8n-seg.pt">yolov8n-seg.pt</a></td>
+    <td rowspan="3" style="vertical-align:middle;"><a href="https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch/detection_with_yolo">Object Detection and Classification with YOLO</a></td>
+  </tr>
+  <tr>
+    <td>YOLO11-seg</td>
+    <td><a href="https://github.com/ultralytics/assets/releases/download/v8.4.0/yolo11n-seg.pt">yolo11n-seg.pt</a></td>
+  </tr>
+  <tr>
+    <td>YOLO26-seg</td>
+    <td><a href="https://github.com/ultralytics/assets/releases/download/v8.4.0/yolo26n-seg.pt">yolo26n-seg.pt</a></td>
+  </tr>
+  <tr>
+    <td>MaskRCNN with EfficientNet, ResNet50, or Swin Transformer</td>
+    <td rowspan="2" style="vertical-align:middle;">GETI</td>
+    <td rowspan="2" style="vertical-align:middle;">&nbsp;</td>
+    <td rowspan="2" style="vertical-align:middle;">&nbsp;</td>
+  </tr>
+  <tr>
+    <td>RTMDet</td>
+  </tr>
+  <tr>
+    <td rowspan="3" style="vertical-align:middle;">Oriented Detection</td>
+    <td>YOLOv8-obb</td>
+    <td rowspan="3" style="vertical-align:middle;"><a href="https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/dev_guide/yolo_models.html">Ultralytics</a></td>
+    <td><a href="https://github.com/ultralytics/assets/releases/download/v8.4.0/yolov8n-obb.pt">yolov8n-obb.pt</a></td>
+    <td rowspan="3" style="vertical-align:middle;"><a href="https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch/detection_with_yolo">Object Detection and Classification with YOLO</a></td>
+  </tr>
+  <tr>
+    <td>YOLO11-obb</td>
+    <td><a href="https://github.com/ultralytics/assets/releases/download/v8.4.0/yolo11n-obb.pt">yolo11n-obb.pt</a></td>
+  </tr>
+  <tr>
+    <td>YOLO26-obb</td>
+    <td><a href="https://github.com/ultralytics/assets/releases/download/v8.4.0/yolo26n-obb.pt">yolo26n-obb.pt</a></td>
+  </tr>
+  <tr>
+    <td rowspan="3" style="vertical-align:middle;">Pose Estimation</td>
+    <td>YOLOv8-pose</td>
+    <td rowspan="3" style="vertical-align:middle;"><a href="https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/dev_guide/yolo_models.html">Ultralytics</a></td>
+    <td><a href="https://github.com/ultralytics/assets/releases/download/v8.4.0/yolov8n-pose.pt">yolov8n-pose.pt</a></td>
+    <td rowspan="3" style="vertical-align:middle;"><a href="https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch/detection_with_yolo">Object Detection and Classification with YOLO</a></td>
+  </tr>
+  <tr>
+    <td>YOLO11-pose</td>
+    <td><a href="https://github.com/ultralytics/assets/releases/download/v8.4.0/yolo11n-pose.pt">yolo11n-pose.pt</a></td>
+  </tr>
+  <tr>
+    <td>YOLO26-pose</td>
+    <td><a href="https://github.com/ultralytics/assets/releases/download/v8.4.0/yolo26n-pose.pt">yolo26n-pose.pt</a></td>
+  </tr>
+  <tr>
+    <td rowspan="3" style="vertical-align:middle;">Semantic Segmentation</td>
+    <td>Lite-HRNet</td>
+    <td rowspan="3" style="vertical-align:middle;">GETI</td>
+    <td rowspan="3" style="vertical-align:middle;">&nbsp;</td>
+    <td rowspan="3" style="vertical-align:middle;">&nbsp;</td>
+  </tr>
+  <tr>
+    <td>SegNext</td>
+  </tr>
+  <tr>
+    <td>DinoV2</td>
+  </tr>
+  <tr>
+    <td rowspan="13" style="vertical-align:middle;">VLM</td>
+    <td>InternVLChatModel</td>
+    <td rowspan="13" style="vertical-align:middle;"><a href="https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/dev_guide/lvms.html">Large Vision Models</a></td>
+    <td><a href="https://huggingface.co/OpenGVLab/InternVL2-1B">OpenGVLab/InternVL2-1B</a></td>
+    <td rowspan="13" style="vertical-align:middle;"><a href="https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch/gvagenai">Gvagenai Demo</a></td>
+  </tr>
+  <tr>
+    <td>LlavaForConditionalGeneration</td>
+    <td><a href="https://huggingface.co/llava-hf/llava-1.5-7b-hf">llava-hf/llava-1.5-7b-hf</a></td>
+  </tr>
+  <tr>
+    <td>LlavaQwen2ForCausalLM</td>
+    <td><a href="https://huggingface.co/qnguyen3/nanoLLaVA">qnguyen3/nanoLLaVA</a></td>
+  </tr>
+  <tr>
+    <td>BunnyQwenForCausalLM</td>
+    <td><a href="https://huggingface.co/qnguyen3/nanoLLaVA-1.5">qnguyen3/nanoLLaVA-1.5</a></td>
+  </tr>
+  <tr>
+    <td>LlavaNextForConditionalGeneration</td>
+    <td><a href="https://huggingface.co/llava-hf/llava-v1.6-mistral-7b-hf">llava-hf/llava-v1.6-mistral-7b-hf</a></td>
+  </tr>
+  <tr>
+    <td>LlavaNextVideoForConditionalGeneration</td>
+    <td><a href="https://huggingface.co/llava-hf/LLaVA-NeXT-Video-7B-hf">llava-hf/LLaVA-NeXT-Video-7B-hf</a></td>
+  </tr>
+  <tr>
+    <td>MiniCPMO</td>
+    <td><a href="https://huggingface.co/openbmb/MiniCPM-o-2_6">openbmb/MiniCPM-o-2_6</a></td>
+  </tr>
+  <tr>
+    <td>MiniCPMV</td>
+    <td><a href="https://huggingface.co/openbmb/MiniCPM-V-2_6">openbmb/MiniCPM-V-2_6</a></td>
+  </tr>
+  <tr>
+    <td>Phi3VForCausalLM</td>
+    <td><a href="https://huggingface.co/microsoft/Phi-3-vision-128k-instruct">microsoft/Phi-3-vision-128k-instruct</a></td>
+  </tr>
+  <tr>
+    <td>Phi4MMForCausalLM</td>
+    <td><a href="https://huggingface.co/microsoft/Phi-4-multimodal-instruct">microsoft/Phi-4-multimodal-instruct</a></td>
+  </tr>
+  <tr>
+    <td>Qwen2VLForConditionalGeneration</td>
+    <td><a href="https://huggingface.co/Qwen/Qwen2-VL-2B-Instruct">Qwen/Qwen2-VL-2B-Instruct</a></td>
+  </tr>
+  <tr>
+    <td>Qwen2_5_VLForConditionalGeneration</td>
+    <td><a href="https://huggingface.co/Qwen/Qwen2.5-VL-3B-Instruct">Qwen/Qwen2.5-VL-3B-Instruct</a></td>
+  </tr>
+  <tr>
+    <td>Gemma3ForConditionalGeneration</td>
+    <td><a href="https://huggingface.co/google/gemma-3-4b-it">google/gemma-3-4b-it</a></td>
+  </tr>
+</table>
+
+## Additional Models
+
+The following models used in DL Streamer demos can be downloaded and converted using the [`download_public_models.sh`](https://github.com/open-edge-platform/dlstreamer/blob/main/samples/download_public_models.sh) script:
+
+<table style="width: 100%; table-layout: fixed; margin-bottom: 1.5rem;">
+  <colgroup>
+    <col style="width: 16%;">
+    <col style="width: 34%;">
+    <col style="width: 14%;">
+    <col style="width: 16%;">
+    <col style="width: 20%;">
+  </colgroup>
+  <tr>
+    <th>Category</th>
+    <th>Model Name</th>
+    <th>labels-file</th>
+    <th>model-proc</th>
+    <th>Demo App</th>
+  </tr>
+  <tr>
+    <td rowspan="2">Detection</td>
     <td><a href="https://github.com/Star-Clouds/CenterFace/tree/master">centerface</a></td>
-    <td rowspan="2"><a href="https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch/custom_postproc/classify">Custom Post-Processing Library Sample - Classification</a></td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td><a href="https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch/custom_postproc/classify">Custom Post-Processing Library Sample - Classification</a></td>
+  </tr>
+  <tr>
+    <td><a href="https://github.com/WongKinYiu/yolov7">yolov7</a></td>
+    <td><a href="https://github.com/open-edge-platform/dlstreamer/blob/main/samples/labels/coco_80cl.txt">coco_80cl.txt</a></td>
+    <td><a href="https://github.com/open-edge-platform/dlstreamer/blob/main/samples/gstreamer/model_proc/public/yolo-v7.json">yolo-v7.json</a></td>
+    <td><a href="https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch/detection_with_yolo">Object Detection and Classification with YOLO</a></td>
   </tr>
   <tr>
     <td>Emotion Recognition</td>
     <td><a href="https://github.com/av-savchenko/face-emotion-recognition/tree/main">hsemotion</a></td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td><a href="https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch/custom_postproc/classify">Custom Post-Processing Library Sample - Classification</a></td>
   </tr>
   <tr>
     <td>Feature Extraction</td>
     <td><a href="https://github.com/ZQPei/deep_sort_pytorch">mars-small128</a></td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
     <td><a href="https://github.com/open-edge-platform/dlstreamer/blob/main/docs/source/dev_guide/object_tracking.md#deep-sort-tracking">Deep SORT Tracking</a></td>
   </tr>
   <tr>
     <td>Optical Character Recognition</td>
     <td><a href="https://github.com/PaddlePaddle/PaddleOCR">ch_PP-OCRv4_rec_infer</a></td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
     <td><a href="https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch/license_plate_recognition">License Plate Recognition Sample</a></td>
   </tr>
 </table>
 
-<table>
+## Legacy Models
+
+The table below lists supported legacy models from [OpenVINO™ Open Model Zoo](https://github.com/openvinotoolkit/open_model_zoo/). These models can be downloaded using the [`download_omz_models.sh`](https://github.com/open-edge-platform/dlstreamer/blob/main/samples/download_omz_models.sh) script:
+
+<table style="width: 100%; table-layout: fixed; margin-top: 1rem;">
+  <colgroup>
+    <col style="width: 16%;">
+    <col style="width: 34%;">
+    <col style="width: 14%;">
+    <col style="width: 16%;">
+    <col style="width: 20%;">
+  </colgroup>
   <tr>
     <th>Category</th>
     <th>Model Name</th>
@@ -397,7 +673,7 @@ The following models used in DL Streamer demos can be conveniently downloaded an
     <td>&nbsp;</td>
   </tr>
   <tr>
-    <td><a href="https://pytorch.org/vision/main/models/generated/torchvision.models.detection.ssdlite320_mobilenet_v3_large.html">torchvision.models.detection. ssdlite320_mobilenet_v3_large</a></td>
+    <td><a href="https://pytorch.org/vision/main/models/generated/torchvision.models.detection.ssdlite320_mobilenet_v3_large.html">torchvision.models.detection.ssdlite320_mobilenet_v3_large</a></td>
     <td><a href="https://github.com/open-edge-platform/dlstreamer/blob/main/samples/labels/coco_80cl.txt">coco_80cl.txt</a></td>
     <td>&nbsp;</td>
     <td>&nbsp;</td>
@@ -585,6 +861,6 @@ The following models used in DL Streamer demos can be conveniently downloaded an
 
 ## Legal Information
 
-PyTorch, TensorFlow, Caffe, Keras, and MXNet are trademarks or brand names of their respective owners.
+Ultralytics, Hugging Face, PyTorch, TensorFlow, PaddlePaddle, Caffe, Keras, and MXNet are trademarks or brand names of their respective owners.
 All company, product, and service names used on this website are for identification purposes only.
 Use of these names, trademarks, and brands does not imply endorsement.
