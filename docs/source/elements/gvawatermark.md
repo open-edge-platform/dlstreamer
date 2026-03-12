@@ -76,8 +76,13 @@ Element Properties:
                         font-type=<string> font type for text labels, default triplex. Supported fonts: simplex, plain, duplex, complex, triplex, complex_small, script_simplex, script_complex
                         text-x=<float> x position (pixels) for full-frame text (e.g. from gvagenai), default 0
                         text-y=<float> y position (pixels) for full-frame text (e.g. from gvagenai), default 25
+                        enable-blur=<bool> enable ROI blurring for privacy protection, default false
+                        NOTE : this option is supported only for CPU for now.
+                        show-blur-roi=<string> colon-separated list of object labels to blur (e.g., "face:person")
+                        hide-blur-roi=<string> colon-separated list of labels to exclude from blurring (show-blur-roi takes precedence)
                         e.g.: displ-cfg=show-labels=false
                         e.g.: displ-cfg=font-scale=0.5,thickness=3,color-idx=2,font-type=plain
+                        e.g.: displ-cfg=enable-blur=true,show-blur-roi=face:person
                         e.g.: displ-cfg=text-y=680 (place full-frame text near bottom of a 720p frame)
                         flags: readable, writable
                         String. Default: null
@@ -171,6 +176,70 @@ e.g `displ-cfg=show-labels=true,hide-roi=car`
 - If both `show-roi` and `hide-roi` are specified, `show-roi` takes precedence
 - Empty lists mean no filtering is applied
 
+### Blur Feature
+
+The gvawatermark element supports privacy protection through region of interest (ROI) blurring using OpenCV GaussianBlur with a 15x15 kernel. This feature is useful for anonymizing faces, license plates, or other sensitive content in video streams.
+
+#### Blur Configuration Parameters
+
+Blur functionality is controlled through the `displ-cfg` parameter with these options:
+
+- **enable-blur=<bool\>** - Enable or disable blur feature (default: false)
+- **show-blur-roi=<string\>** - Colon-separated list of object labels to blur (e.g., "person:face")
+- **hide-blur-roi=<string\>** - Colon-separated list of object labels to exclude from blurring
+
+#### Blur Examples
+
+**Basic Blur (All detected objects)**
+```bash
+# Blur all detected ROIs
+displ-cfg=enable-blur=true
+```
+![Basic Blue](../_images/blur-them-all.png)
+
+**Selective Blur (Include specific labels)**
+```bash
+# Blur only faces and persons
+displ-cfg=enable-blur=true,show-blur-roi=face:person
+```
+![Blur Person](../_images/only-person-blured.png)
+
+```bash
+# Blur only cars
+displ-cfg=enable-blur=true,show-blur-roi=car
+```
+![Blur Car](../_images/only-car-blured.png)
+
+**Exclude Blur (Blur all except specific labels)**
+```bash
+# Blur all objects except cars and trucks
+displ-cfg=enable-blur=true,hide-blur-roi=car:truck
+
+# Blur all except persons
+displ-cfg=enable-blur=true,hide-blur-roi=person
+```
+
+**Combined with Display Options**
+```bash
+# Blur faces with custom display settings
+displ-cfg=enable-blur=true,show-blur-roi=face,show-labels=false,thickness=1
+
+# Blur with labels and colored boxes
+displ-cfg=enable-blur=true,show-blur-roi=person:face,color-idx=0,font-scale=0.8
+```
+
+#### Filter Precedence Rules
+
+`show-blur-roi` takes precedence over `hide-blur-roi`. When `show-blur-roi` is specified and not empty, only objects matching those labels will be blurred, and `hide-blur-roi` is ignored.
+
+1. **show-blur-roi specified and not empty**: Only labels in show-blur-roi are blurred
+2. **show-blur-roi empty or unspecified**: All labels are blurred except those in hide-blur-roi
+3. **Neither specified**: All detected ROIs are blurred when enable-blur=true
+
+### Performance consideration
+
+**currently objects blur supported only on CPU**
+
 ### Configuration Examples
 
 ```bash
@@ -200,6 +269,12 @@ displ-cfg=text-y=680
 
 # Combine text position with other options
 displ-cfg=font-scale=1.5,color-idx=1,thickness=5,text-y=680
+
+# Privacy protection with blur
+displ-cfg=enable-blur=true,show-blur-roi=face:person,show-labels=false
+
+# Blur all except specific objects
+displ-cfg=enable-blur=true,hide-blur-roi=car:truck,thickness=1
 ```
 
 ### FPS Display

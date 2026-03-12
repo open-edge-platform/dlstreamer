@@ -148,6 +148,7 @@ struct Impl {
     void find_gvafpscounter_element();
     void parse_displ_config();
     inline bool is_ROI_filtered_out(const std::string &label) const;
+    inline bool should_blur_roi(const std::string &label) const;
 
     std::unique_ptr<Renderer> createRenderer(std::shared_ptr<ColorConverter> converter);
 
@@ -197,6 +198,9 @@ struct Impl {
         double font_scale = DEFAULT_TEXT_SCALE;
         std::optional<std::unordered_set<std::string>> include_labels_filter;
         std::optional<std::unordered_set<std::string>> exclude_labels_filter;
+        bool enable_blur = false;
+        std::optional<std::unordered_set<std::string>> include_roi_blur_filter;
+        std::optional<std::unordered_set<std::string>> exclude_roi_blur_filter;
     } _displCfg;
 };
 
@@ -910,6 +914,12 @@ inline bool Impl::is_ROI_filtered_out(const std::string &label) const {
                : (_displCfg.exclude_labels_filter.has_value() && _displCfg.exclude_labels_filter->count(label) != 0);
 }
 
+inline bool Impl::should_blur_roi(const std::string &label) const {
+    return (_displCfg.include_roi_blur_filter.has_value())   ? (_displCfg.include_roi_blur_filter->count(label) != 0)
+           : (_displCfg.exclude_roi_blur_filter.has_value()) ? (_displCfg.exclude_roi_blur_filter->count(label) == 0)
+                                                             : true;
+}
+
 void Impl::preparePrimsForRoi(GVA::RegionOfInterest &roi, std::vector<render::Prim> &prims) const {
     if (!is_ROI_filtered_out(roi.label())) {
         size_t color_index = roi.label_id();
@@ -949,6 +959,9 @@ void Impl::preparePrimsForRoi(GVA::RegionOfInterest &roi, std::vector<render::Pr
         cv::Rect bbox_rect(rect.x, rect.y, rect.w, rect.h);
         if (!_obb)
             prims.emplace_back(render::Rect(bbox_rect, color, _displCfg.thickness, roi.rotation()));
+
+        if (_displCfg.enable_blur && should_blur_roi(roi.label()))
+            prims.emplace_back(render::Blur(bbox_rect));
 
         // put text
         if (_displCfg.show_labels)
@@ -1249,6 +1262,27 @@ void Impl::parse_displ_config() {
                             COLOR_IDX_RED, COLOR_IDX_BLUE, DEFAULT_COLOR_IDX);
             }
             cfg.erase(iter);
+        }
+        if (iter = cfg.find("enable-blur"); iter != cfg.end()) {
+            _displCfg.enable_blur = (iter->second != "false");
+            cfg.erase(iter);
+        }
+        if (_displCfg.enable_blur) {
+            if (iter = cfg.find("show-blur-roi"); iter != cfg.end()) {
+                _displCfg.include_roi_blur_filter = std::unordered_set<std::string>();
+                Utils::parseFilterConfig(iter->second, *_displCfg.include_roi_blur_filter);
+                cfg.erase(iter);
+            }
+            if (iter = cfg.find("hide-blur-roi"); iter != cfg.end()) {
+                if (_displCfg.include_roi_blur_filter.has_value() && !(_displCfg.include_roi_blur_filter->empty())) {
+                    GST_WARNING("[gvawatermarkimpl] Both 'show-blur-roi' and 'hide-blur-roi' parameters are set, "
+                                "'hide-blur-roi' will be ignored.");
+                } else {
+                    _displCfg.exclude_roi_blur_filter = std::unordered_set<std::string>();
+                    Utils::parseFilterConfig(iter->second, *_displCfg.exclude_roi_blur_filter);
+                }
+                cfg.erase(iter);
+            }
         }
         if (iter = cfg.find("text-x"); iter != cfg.end()) {
             _ff_text_position.x = std::stof(iter->second);
