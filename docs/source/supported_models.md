@@ -4,7 +4,7 @@ This page lists models supported by Intel® DL Streamer.
 
 ## Supported Architectures
 
-DL Streamer supports the following model architectures from [GETI](https://docs.geti.intel.com/) and major model hubs such as [Ultralytics](https://www.ultralytics.com/) and [Hugging Face](https://huggingface.co/).
+DL Streamer supports the following model architectures from [GETI](https://docs.geti.intel.com/docs/user-guide/getting-started/use-geti/supported-models) and major model hubs such as [Ultralytics](https://www.ultralytics.com/) and [Hugging Face](https://huggingface.co/).
 
 The table provides links to model preparation instructions describing download and conversion steps that can be performed either manually or by using dedicated scripts.
 
@@ -26,9 +26,9 @@ The table provides links to model preparation instructions describing download a
   <tr>
     <td rowspan="3" style="vertical-align:middle;">Anomaly Detection</td>
     <td>Padim</td>
-    <td rowspan="3" style="vertical-align:middle;">GETI</td>
+    <td rowspan="3" style="vertical-align:middle;"><a href="https://docs.geti.intel.com/docs/user-guide/getting-started/use-geti/supported-models">GETI</a></td>
     <td rowspan="3" style="vertical-align:middle;">&nbsp;</td>
-    <td rowspan="3" style="vertical-align:middle;">&nbsp;</td>
+    <td rowspan="3" style="vertical-align:middle;"><a href="https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch/geti_deployment"> GETI Deployment </a></td>
   </tr>
   <tr>
     <td>STFPM</td>
@@ -37,9 +37,9 @@ The table provides links to model preparation instructions describing download a
     <td>UFlow</td>
   </tr>
   <tr>
-    <td rowspan="13" style="vertical-align:middle;">Detection</td>
+    <td rowspan="16" style="vertical-align:middle;">Detection</td>
     <td>YOLOv5u</td>
-    <td rowspan="6" style="vertical-align:middle;"><a href="https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/dev_guide/yolo_models.html">Ultralytics</a></td>
+    <td rowspan="6" style="vertical-align:middle;"><a href="https://docs.ultralytics.com/integrations/openvino/">Ultralytics Exporter</a></td>
     <td><a href="https://github.com/ultralytics/assets/releases/download/v8.4.0/yolov5nu.pt">yolov5nu.pt</a></td>
     <td rowspan="6" style="vertical-align:middle;"><a href="https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch/detection_with_yolo">Object Detection and Classification with YOLO</a></td>
   </tr>
@@ -64,8 +64,17 @@ The table provides links to model preparation instructions describing download a
     <td><a href="https://github.com/ultralytics/assets/releases/download/v8.4.0/yolo26n.pt">yolo26n.pt</a></td>
   </tr>
   <tr>
+    <td>YOLOE-26</td>
+    <td><a href="https://docs.ultralytics.com/integrations/openvino/">Ultralytics Exporter</a></td>
+    <td><a href="https://github.com/ultralytics/assets/releases/download/v8.4.0/yoloe-26n-seg.pt">yoloe-26n-seg.pt</a></td>
+    <td><a href="https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/python/prompted_detection">Prompt-based Object Detection</a></td>
+  </tr>
+  <tr>
     <td>RTDetrForObjectDetection</td>
-    <td rowspan="2" style="vertical-align:middle;">Hugging Face</td>
+    <td rowspan="2" style="vertical-align:middle;"><a href="https://huggingface.co/docs/optimum-onnx/onnx/usage_guides/export_a_model">Optimum-onnx</a><br>
+    +<br>
+    <a href="https://docs.openvino.ai/2026/openvino-workflow/model-preparation.html#convert-a-model-in-cli-ovc"> OpenVINO ovc </a>
+    </td>
     <td><a href="https://huggingface.co/PekingU/rtdetr_r50vd">PekingU/rrtdetr_r50vd</a></td>
     <td rowspan="2" style="vertical-align:middle;"><a href="https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/python/smart_nvr">Smart Network Video Recorder for Lane Hogging Detection</a></td>
   </tr>
@@ -75,7 +84,7 @@ The table provides links to model preparation instructions describing download a
   </tr>
   <tr>
     <td>ATSS with ResNet or MobilenetV2</td>
-    <td rowspan="5" style="vertical-align:middle;">GETI</td>
+    <td rowspan="5" style="vertical-align:middle;"><a href="https://docs.geti.intel.com/docs/user-guide/getting-started/use-geti/supported-models">GETI</a></td>
     <td rowspan="5" style="vertical-align:middle;">&nbsp;</td>
     <td rowspan="5" style="vertical-align:middle;">&nbsp;</td>
   </tr>
@@ -92,15 +101,44 @@ The table provides links to model preparation instructions describing download a
     <td>D-Fine</td>
   </tr>
   <tr>
+    <td><a href="https://github.com/Star-Clouds/CenterFace/tree/master">CenterFace</a></td>
+    <td><a href="https://github.com/open-edge-platform/dlstreamer/blob/main/samples/download_public_models.sh">download_public_models.sh</a></td>
+    <td><a href="https://github.com/Star-Clouds/CenterFace/blob/master/models/onnx/centerface.onnx">centerface.onnx</a></td>
+    <td><a href="https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch/custom_postproc/classify">Custom Post-Processing Library Sample - Classification</a></td>
+  </tr>
+  <tr>
+    <td><a href="https://github.com/WongKinYiu/yolov7">YOLOv7</a></td>
+    <td><a href="https://github.com/open-edge-platform/dlstreamer/blob/main/samples/download_public_models.sh">download_public_models.sh</a><br>
+        labels-file=<a href="https://github.com/open-edge-platform/dlstreamer/blob/main/samples/labels/coco_80cl.txt">coco_80cl.txt</a><br>
+        model-proc=<a href="https://github.com/open-edge-platform/dlstreamer/blob/main/samples/gstreamer/model_proc/public/yolo-v7.json">yolo-v7.json</a>
+    </td>
+    <td><a href="https://github.com/WongKinYiu/yolov7/releases/download/v0.1/yolov7.pt">yolov7.pt</a></td>
+    <td><a href="https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch/detection_with_yolo">Object Detection and Classification with YOLO</a></td>
+  </tr>
+  <tr>
+    <td>Emotion Recognition</td>
+    <td><a href="https://github.com/av-savchenko/face-emotion-recognition/tree/main">HSEmotion</a></td>
+    <td><a href="https://github.com/open-edge-platform/dlstreamer/blob/main/samples/download_public_models.sh">download_public_models.sh</a></td>
+    <td><a href="https://github.com/sb-ai-lab/EmotiEffLib/blob/main/models/affectnet_emotions/onnx/enet_b0_8_va_mtl.onnx">enet_b0_8_va_mtl.onnx</a></td>
+    <td><a href="https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch/custom_postproc/classify">Custom Post-Processing Library Sample - Classification</a></td>
+  </tr>
+  <tr>
+    <td>Feature Extraction</td>
+    <td><a href="https://github.com/ZQPei/deep_sort_pytorch">Mars-small128</a></td>
+    <td><a href="https://github.com/open-edge-platform/dlstreamer/blob/main/samples/download_public_models.sh">download_public_models.sh</a></td>
+    <td>&nbsp;</td>
+    <td><a href="https://github.com/open-edge-platform/dlstreamer/blob/main/docs/source/dev_guide/object_tracking.md#deep-sort-tracking">Deep SORT Tracking</a></td>
+  </tr>
+  <tr>
     <td rowspan="4" style="vertical-align:middle;">Image Classification</td>
     <td>ViTForImageClassification</td>
-    <td>Hugging Face</td>
+    <td><a href="https://huggingface.co/docs/optimum-intel/en/openvino/export">Optimum-Intel</a></td>
     <td><a href="https://huggingface.co/dima806/fairface_age_image_detection">dima806/fairface_age_image_detection</a></td>
     <td><a href="https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/python/face_detection_and_classification">Face Detection and Classification</a></td>
   </tr>
   <tr>
     <td>Mobilenet-V3</td>
-    <td rowspan="3" style="vertical-align:middle;">GETI</td>
+    <td rowspan="3" style="vertical-align:middle;"><a href="https://docs.geti.intel.com/docs/user-guide/getting-started/use-geti/supported-models">GETI</a></td>
     <td rowspan="3" style="vertical-align:middle;">&nbsp;</td>
     <td rowspan="3" style="vertical-align:middle;">&nbsp;</td>
   </tr>
@@ -113,14 +151,14 @@ The table provides links to model preparation instructions describing download a
   <tr>
     <td>Image Embeddings</td>
     <td>CLIPModel</td>
-    <td><a href="https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/dev_guide/lvms.html">Large Vision Models</a></td>
+    <td><a href="https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/dev_guide/lvms.html">CLIP ViT Conversion</a></td>
     <td><a href="https://huggingface.co/openai/clip-vit-large-patch14">openai/clip-vit-large-patch14</a></td>
     <td><a href="https://github.com/open-edge-platform/dlstreamer/blob/main/samples/gstreamer/gst_launch/lvm/README.md">Frame Embeddings</a></td>
   </tr>
   <tr>
     <td rowspan="5" style="vertical-align:middle;">Instance Segmentation</td>
     <td>YOLOv8-seg</td>
-    <td rowspan="3" style="vertical-align:middle;"><a href="https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/dev_guide/yolo_models.html">Ultralytics</a></td>
+    <td rowspan="3" style="vertical-align:middle;"><a href="https://docs.ultralytics.com/integrations/openvino/">Ultralytics Exporter</a></td>
     <td><a href="https://github.com/ultralytics/assets/releases/download/v8.4.0/yolov8n-seg.pt">yolov8n-seg.pt</a></td>
     <td rowspan="3" style="vertical-align:middle;"><a href="https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch/detection_with_yolo">Object Detection and Classification with YOLO</a></td>
   </tr>
@@ -134,7 +172,7 @@ The table provides links to model preparation instructions describing download a
   </tr>
   <tr>
     <td>MaskRCNN with EfficientNet, ResNet50, or Swin Transformer</td>
-    <td rowspan="2" style="vertical-align:middle;">GETI</td>
+    <td rowspan="2" style="vertical-align:middle;"><a href="https://docs.geti.intel.com/docs/user-guide/getting-started/use-geti/supported-models">GETI</a></td>
     <td rowspan="2" style="vertical-align:middle;">&nbsp;</td>
     <td rowspan="2" style="vertical-align:middle;">&nbsp;</td>
   </tr>
@@ -142,9 +180,16 @@ The table provides links to model preparation instructions describing download a
     <td>RTMDet</td>
   </tr>
   <tr>
+    <td>Optical Character Recognition</td>
+    <td><a href="https://github.com/PaddlePaddle/PaddleOCR">Paddle OCRv4</a></td>
+    <td><a href="https://github.com/open-edge-platform/dlstreamer/blob/main/samples/download_public_models.sh">download_public_models.sh</a></td>
+    <td>ch_PP-OCRv4_rec_infer</td>
+    <td><a href="https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch/license_plate_recognition">License Plate Recognition Sample</a></td>
+  </tr>
+  <tr>
     <td rowspan="3" style="vertical-align:middle;">Oriented Detection</td>
     <td>YOLOv8-obb</td>
-    <td rowspan="3" style="vertical-align:middle;"><a href="https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/dev_guide/yolo_models.html">Ultralytics</a></td>
+    <td rowspan="3" style="vertical-align:middle;"><a href="https://docs.ultralytics.com/integrations/openvino/">Ultralytics Exporter</a></td>
     <td><a href="https://github.com/ultralytics/assets/releases/download/v8.4.0/yolov8n-obb.pt">yolov8n-obb.pt</a></td>
     <td rowspan="3" style="vertical-align:middle;"><a href="https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch/detection_with_yolo">Object Detection and Classification with YOLO</a></td>
   </tr>
@@ -159,7 +204,7 @@ The table provides links to model preparation instructions describing download a
   <tr>
     <td rowspan="3" style="vertical-align:middle;">Pose Estimation</td>
     <td>YOLOv8-pose</td>
-    <td rowspan="3" style="vertical-align:middle;"><a href="https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/dev_guide/yolo_models.html">Ultralytics</a></td>
+    <td rowspan="3" style="vertical-align:middle;"><a href="https://docs.ultralytics.com/integrations/openvino/">Ultralytics Exporter</a></td>
     <td><a href="https://github.com/ultralytics/assets/releases/download/v8.4.0/yolov8n-pose.pt">yolov8n-pose.pt</a></td>
     <td rowspan="3" style="vertical-align:middle;"><a href="https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch/detection_with_yolo">Object Detection and Classification with YOLO</a></td>
   </tr>
@@ -174,7 +219,7 @@ The table provides links to model preparation instructions describing download a
   <tr>
     <td rowspan="3" style="vertical-align:middle;">Semantic Segmentation</td>
     <td>Lite-HRNet</td>
-    <td rowspan="3" style="vertical-align:middle;">GETI</td>
+    <td rowspan="3" style="vertical-align:middle;"><a href="https://docs.geti.intel.com/docs/user-guide/getting-started/use-geti/supported-models">GETI</a></td>
     <td rowspan="3" style="vertical-align:middle;">&nbsp;</td>
     <td rowspan="3" style="vertical-align:middle;">&nbsp;</td>
   </tr>
@@ -187,14 +232,14 @@ The table provides links to model preparation instructions describing download a
   <tr>
     <td>Speech Recognition</td>
     <td>WhisperForConditionalGeneration</td>
-    <td>Hugging Face</td>
+    <td><a href="https://huggingface.co/docs/optimum-intel/en/openvino/export">Optimum-Intel</a></td>
     <td><a href="https://huggingface.co/openai/whisper-tiny">openai/whisper-tiny</a></td>
     <td><a href="https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch/audio_transcribe">Audio Transcription</a></td>
   </tr>
   <tr>
     <td rowspan="13" style="vertical-align:middle;">VLM</td>
     <td>InternVLChatModel</td>
-    <td rowspan="13" style="vertical-align:middle;"><a href="https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/dev_guide/lvms.html">Large Vision Models</a></td>
+    <td rowspan="13" style="vertical-align:middle;"><a href="https://huggingface.co/docs/optimum-intel/en/openvino/export">Optimum-Intel</a></td>
     <td><a href="https://huggingface.co/OpenGVLab/InternVL2-1B">OpenGVLab/InternVL2-1B</a></td>
     <td rowspan="13" style="vertical-align:middle;"><a href="https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch/gvagenai">Gvagenai Demo</a></td>
   </tr>
@@ -245,68 +290,6 @@ The table provides links to model preparation instructions describing download a
   <tr>
     <td>Gemma3ForConditionalGeneration</td>
     <td><a href="https://huggingface.co/google/gemma-3-4b-it">google/gemma-3-4b-it</a></td>
-  </tr>
-  <tr>
-    <td rowspan="3" style="vertical-align:middle;">Zero-shot Detection</td>
-    <td>YOLOE-26</td>
-    <td rowspan="3" style="vertical-align:middle;"><a href="https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/dev_guide/yolo_models.html">Ultralytics</a></td>
-    <td rowspan="3" style="vertical-align:middle;"><a href="https://github.com/ultralytics/assets/releases/download/v8.4.0/yoloe-26n-seg.pt">yoloe-26n-seg.pt</a></td>
-    <td rowspan="3" style="vertical-align:middle;"><a href="https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/python/prompted_detection">Prompt-based Object Detection</a></td>
-  </tr>
-</table>
-
-## Additional Models
-
-The following models used in DL Streamer demos can be downloaded and converted using the [`download_public_models.sh`](https://github.com/open-edge-platform/dlstreamer/blob/main/samples/download_public_models.sh) script:
-
-<table style="width: 100%; table-layout: fixed; margin-bottom: 1.5rem;">
-  <colgroup>
-    <col style="width: 16%;">
-    <col style="width: 34%;">
-    <col style="width: 14%;">
-    <col style="width: 16%;">
-    <col style="width: 20%;">
-  </colgroup>
-  <tr>
-    <th>Category</th>
-    <th>Model Name</th>
-    <th>labels-file</th>
-    <th>model-proc</th>
-    <th>Demo App</th>
-  </tr>
-  <tr>
-    <td rowspan="2">Detection</td>
-    <td><a href="https://github.com/Star-Clouds/CenterFace/tree/master">centerface</a></td>
-    <td>&nbsp;</td>
-    <td>&nbsp;</td>
-    <td><a href="https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch/custom_postproc/classify">Custom Post-Processing Library Sample - Classification</a></td>
-  </tr>
-  <tr>
-    <td><a href="https://github.com/WongKinYiu/yolov7">yolov7</a></td>
-    <td><a href="https://github.com/open-edge-platform/dlstreamer/blob/main/samples/labels/coco_80cl.txt">coco_80cl.txt</a></td>
-    <td><a href="https://github.com/open-edge-platform/dlstreamer/blob/main/samples/gstreamer/model_proc/public/yolo-v7.json">yolo-v7.json</a></td>
-    <td><a href="https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch/detection_with_yolo">Object Detection and Classification with YOLO</a></td>
-  </tr>
-  <tr>
-    <td>Emotion Recognition</td>
-    <td><a href="https://github.com/av-savchenko/face-emotion-recognition/tree/main">hsemotion</a></td>
-    <td>&nbsp;</td>
-    <td>&nbsp;</td>
-    <td><a href="https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch/custom_postproc/classify">Custom Post-Processing Library Sample - Classification</a></td>
-  </tr>
-  <tr>
-    <td>Feature Extraction</td>
-    <td><a href="https://github.com/ZQPei/deep_sort_pytorch">mars-small128</a></td>
-    <td>&nbsp;</td>
-    <td>&nbsp;</td>
-    <td><a href="https://github.com/open-edge-platform/dlstreamer/blob/main/docs/source/dev_guide/object_tracking.md#deep-sort-tracking">Deep SORT Tracking</a></td>
-  </tr>
-  <tr>
-    <td>Optical Character Recognition</td>
-    <td><a href="https://github.com/PaddlePaddle/PaddleOCR">ch_PP-OCRv4_rec_infer</a></td>
-    <td>&nbsp;</td>
-    <td>&nbsp;</td>
-    <td><a href="https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch/license_plate_recognition">License Plate Recognition Sample</a></td>
   </tr>
 </table>
 
