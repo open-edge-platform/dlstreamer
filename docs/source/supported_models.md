@@ -729,7 +729,7 @@ The table below lists supported legacy models from [OpenVINO™ Open Model Zoo](
     <td><a href="https://github.com/open-edge-platform/dlstreamer/blob/main/samples/gstreamer/model_proc/public/yolo-v4-tiny-tf.json">yolo-v4-tiny-tf.json</a></td>
   </tr>
   <tr>
-    <td>Head Pose Estimation</td>
+    <td style="vertical-align:top;">Head Pose Estimation</td>
     <td><a href="https://github.com/openvinotoolkit/open_model_zoo/tree/master/models/intel/head-pose-estimation-adas-0001">head-pose-estimation-adas-0001</a></td>
     <td>&nbsp;</td>
     <td>&nbsp;</td>
@@ -844,14 +844,14 @@ The table below lists supported legacy models from [OpenVINO™ Open Model Zoo](
     <td><a href="https://github.com/open-edge-platform/dlstreamer/blob/main/samples/gstreamer/model_proc/intel/vehicle-attributes-recognition-barrier-0042.json">vehicle-attributes-recognition-barrier-0042.json</a></td>
   </tr>
   <tr>
-    <td>Optical Character Recognition</td>
+    <td style="vertical-align:top;">Optical Character Recognition</td>
     <td><a href="https://github.com/openvinotoolkit/open_model_zoo/tree/master/models/public/license-plate-recognition-barrier-0007">license-plate-recognition-barrier-0007</a></td>
     <td>&nbsp;</td>
     <td><a href="https://github.com/open-edge-platform/dlstreamer/blob/main/samples/gstreamer/model_proc/intel/license-plate-recognition-barrier-0007.json">license-plate-recognition-barrier-0007.json</a></td>
     <td><a href="https://github.com/openvinotoolkit/open_model_zoo/tree/master/demos/security_barrier_camera_demo/cpp">Security Barrier Camera Demo</a></td>
   </tr>
   <tr>
-    <td>Sound Classification</td>
+    <td style="vertical-align:top;">Sound Classification</td>
     <td><a href="https://github.com/openvinotoolkit/open_model_zoo/tree/master/models/public/aclnet">aclnet</a></td>
     <td>&nbsp;</td>
     <td><a href="https://github.com/open-edge-platform/dlstreamer/blob/main/samples/gstreamer/model_proc/public/aclnet.json">aclnet.json</a></td>
