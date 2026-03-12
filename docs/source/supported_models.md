@@ -185,6 +185,13 @@ The table provides links to model preparation instructions describing download a
     <td>DinoV2</td>
   </tr>
   <tr>
+    <td>Speech Recognition</td>
+    <td>WhisperForConditionalGeneration</td>
+    <td>Hugging Face</td>
+    <td><a href="https://huggingface.co/openai/whisper-tiny">openai/whisper-tiny</a></td>
+    <td><a href="https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch/audio_transcribe">Audio Transcription</a></td>
+  </tr>
+  <tr>
     <td rowspan="13" style="vertical-align:middle;">VLM</td>
     <td>InternVLChatModel</td>
     <td rowspan="13" style="vertical-align:middle;"><a href="https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/dev_guide/lvms.html">Large Vision Models</a></td>
@@ -238,6 +245,13 @@ The table provides links to model preparation instructions describing download a
   <tr>
     <td>Gemma3ForConditionalGeneration</td>
     <td><a href="https://huggingface.co/google/gemma-3-4b-it">google/gemma-3-4b-it</a></td>
+  </tr>
+  <tr>
+    <td rowspan="3" style="vertical-align:middle;">Zero-shot Detection</td>
+    <td>YOLOE-26</td>
+    <td rowspan="3" style="vertical-align:middle;"><a href="https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/dev_guide/yolo_models.html">Ultralytics</a></td>
+    <td rowspan="3" style="vertical-align:middle;"><a href="https://github.com/ultralytics/assets/releases/download/v8.4.0/yoloe-26n-seg.pt">yoloe-26n-seg.pt</a></td>
+    <td rowspan="3" style="vertical-align:middle;"><a href="https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/python/prompted_detection">Prompt-based Object Detection</a></td>
   </tr>
 </table>
 
@@ -296,9 +310,9 @@ The following models used in DL Streamer demos can be downloaded and converted u
   </tr>
 </table>
 
-## Legacy Models
+## OMZ Models
 
-The table below lists supported legacy models from [OpenVINO™ Open Model Zoo](https://github.com/openvinotoolkit/open_model_zoo/). These models can be downloaded using the [`download_omz_models.sh`](https://github.com/open-edge-platform/dlstreamer/blob/main/samples/download_omz_models.sh) script:
+The table below lists supported models from [OpenVINO™ Open Model Zoo](https://github.com/openvinotoolkit/open_model_zoo/). These models can be downloaded using the [`download_omz_models.sh`](https://github.com/open-edge-platform/dlstreamer/blob/main/samples/download_omz_models.sh) script:
 
 <table style="width: 100%; table-layout: fixed; margin-top: 1rem;">
   <colgroup>
