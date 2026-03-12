@@ -7,7 +7,7 @@
 **New**
 
 - A sample presenting
-  [concurrent use of DL Streamer and nVidia DeepStream](./dev_guide/concurrent.md).
+  [DL Streamer and DeepStream coexistence](./dev_guide/concurrent.md).
 - Basic support for [ONVIF camera discovery](https://github.com/open-edge-platform/dlstreamer/blob/main/samples/gstreamer/python/onvif_cameras_discovery/README.md).
 - Support for [radar data processing](https://github.com/open-edge-platform/dlstreamer/blob/main/samples/gstreamer/gst_launch/g3dradarprocess/README.md).
 - Rate/flow control on video stream processing.
