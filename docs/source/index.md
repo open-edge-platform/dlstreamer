@@ -31,10 +31,10 @@ classify, track, identify and count objects, events and people. The
 analyzed results can be used to take actions, coordinate events,
 identify patterns and gain insights across multiple domains, including:
 
-- retail store and events facilities analytics
-- warehouse and parking management
-- industrial inspections
-- safety and regulatory compliance
+- retail store and events facilities analytics,
+- warehouse and parking management,
+- industrial inspections,
+- safety and regulatory compliance,
 - security monitoring.
 
 ![image](_images/overview_pipeline_example.png)
