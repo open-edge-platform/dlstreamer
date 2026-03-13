@@ -198,7 +198,7 @@ jobs:
             /MB$/ { printf "%d", $1; next }
             /kB$/ { printf "0"; next }
           ')
-          echo "Actual image size (docker images SIZE): ${SIZE_STR} (~${IMAGE_SIZE_MB} MB)"
+          echo "Actual image size : ${IMAGE_SIZE_MB} MB"
           echo "Expected size: ${EXPECTED_SIZE_MB} MB"
           DIFF=$(( IMAGE_SIZE_MB - EXPECTED_SIZE_MB ))
           ABS_DIFF=${DIFF#-}
