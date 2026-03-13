@@ -8,7 +8,25 @@ DL Streamer supports the following model architectures from [GETI](https://docs.
 
 The table provides links to model preparation instructions describing download and conversion steps that can be performed either manually or by using dedicated scripts.
 
-<table style="width: 100%; min-width: 100%; table-layout: fixed; margin-bottom: 1.5rem; white-space: normal; overflow-wrap: anywhere; word-break: break-word;">
+<style>
+  .supported-architectures-table {
+    display: table !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    table-layout: fixed;
+    margin-bottom: 1.5rem;
+  }
+  .supported-architectures-table th,
+  .supported-architectures-table td,
+  .supported-architectures-table a {
+    min-width: 0;
+    white-space: normal !important;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+</style>
+
+<table class="supported-architectures-table">
   <colgroup>
     <col style="width: 16%;">
     <col style="width: 23%;">
