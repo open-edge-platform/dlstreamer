@@ -1,12 +1,21 @@
 # Concurrent Use of DL Streamer and DeepStream
 
 This tutorial explains how to simultaneously run DL Streamer and DeepStream on a single machine for optimal performance.
+This sample has 2 main purposes:
+1. It shows to the DeepStream users that DL Streamer has similar capabilities and can be used with very low investments from their side on the use cases that they need.
+    - This sample adds DL Streamer to the Intel powered setups without disruption of the already configured environment.
+    - It allows to run and compare results of typical use case.
+2. It demonstrates how additional machine resources can be utilized. For example, if a user runs detection on an NVIDIA GPU, they can simultaneously execute a DL Streamer pipeline on an Intel integrated GPU, NPU, or CPU. This approach enables more efficient utilization of the system's available compute resources.
 
 ## Overview
 
 Systems equipped with both NVIDIA GPUs and Intel hardware (GPU/NPU/CPU) can achieve enhanced performance by distributing workloads across available accelerators. Rather than relying solely on DeepStream for pipeline execution, you can offload additional processing tasks to Intel accelerators, maximizing system resource utilization.
 
-A Python script (`concurrent_dls_and_ds.py`) is provided to facilitate this concurrent setup. It assumes that Docker and Python are properly installed and configured. The Ubuntu 24.04 is currently the only supported operating system.
+A Python script [concurrent_dls_and_ds.py](https://github.com/open-edge-platform/dlstreamer/blob/main/samples/gstreamer/python/concurrent/concurrent_dls_and_ds.py) is provided to facilitate this concurrent setup. It assumes that Docker and Python are properly installed and configured. The Ubuntu 24.04 is currently the only supported operating system.
+
+## Detection algorithm
+
+The DL Streamer pipeline performs license plate detection and subsequently applies OCR to recognize the text. In contrast, the DeepStream pipeline first detects the vehicle, then identifies the license plate within the detected vehicle object, and finally performs OCR to recognize the text.
 
 ## How it works
 
@@ -22,13 +31,13 @@ A Python script (`concurrent_dls_and_ds.py`) is provided to facilitate this conc
    makes a custom library and copies dict.txt to the current directory if `deepstream_tao_apps`
    does not exist.
 
-3. Hardware detection depends on the setup.
+3. Hardware detection depends on the setup. Algorithm is as follows:
 
    - Run pipeline simultaneously on both devices for:
      - both Nvidia and Intel GPUs
-     - Nvidia GPU and Intel NPU
-     - Nvidia GPU with Intel CPU
-   - Run pipeline directly per device for:
+     - if not available then use Nvidia GPU and Intel NPU
+     - if not available then use Nvidia GPU with Intel CPU
+   - If not available then run pipeline directly per device in the following order:
      - Intel GPU
      - Nvidia GPU
      - Intel NPU
