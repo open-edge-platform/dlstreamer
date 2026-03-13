@@ -8,7 +8,7 @@ DL Streamer supports the following model architectures from [GETI](https://docs.
 
 The table provides links to model preparation instructions describing download and conversion steps that can be performed either manually or by using dedicated scripts.
 
-<table width="100%">
+<table style="width: 100%; table-layout: fixed; margin-bottom: 1.5rem;">
   <colgroup>
     <col width="16%">
     <col width="23%">
@@ -37,7 +37,7 @@ The table provides links to model preparation instructions describing download a
     <td>UFlow</td>
   </tr>
   <tr>
-    <td rowspan="16" style="vertical-align:middle;">Detection</td>
+    <td rowspan="18" style="vertical-align:middle;">Detection</td>
     <td>YOLOv5u</td>
     <td rowspan="6" style="vertical-align:middle;"><a href="https://docs.ultralytics.com/integrations/openvino/">Ultralytics Exporter</a></td>
     <td><a href="https://github.com/ultralytics/assets/releases/download/v8.4.0/yolov5nu.pt">yolov5nu.pt</a></td>
