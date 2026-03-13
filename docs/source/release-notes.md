@@ -121,16 +121,17 @@ For installing Pipeline Framework with the prebuilt binaries or Docker\* or to b
 |---|---|
 | Preview Architecture 2.0 Samples | Preview Arch 2.0 samples have known issues with inference results. |
 
-Legal Information
-FFmpeg is an open source project licensed under LGPL and GPL.
-See https://www.ffmpeg.org/legal.html.
-You are solely responsible for determining if your use of FFmpeg requires any additional licenses.
-Intel is not responsible for obtaining any such licenses, nor liable for any licensing fees due, in connection with your use of FFmpeg.
+## Legal Information ##
 
-GStreamer is an open source framework licensed under LGPL.
+* GStreamer is an open source framework licensed under LGPL.
 See https://gstreamer.freedesktop.org/documentation/frequently-asked-questions/licensing.html.
 You are solely responsible for determining if your use of GStreamer requires any additional licenses.
 Intel is not responsible for obtaining any such licenses, nor liable for any licensing fees due, in connection with your use of GStreamer.
+
+* FFmpeg is an open source project licensed under LGPL and GPL.
+See https://www.ffmpeg.org/legal.html.
+You are solely responsible for determining if your use of FFmpeg requires any additional licenses.
+Intel is not responsible for obtaining any such licenses, nor liable for any licensing fees due, in connection with your use of FFmpeg.
 
 <!--hide_directive
 ```{toctree}
