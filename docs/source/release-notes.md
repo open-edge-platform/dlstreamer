@@ -3,16 +3,16 @@
 ## [Preview] Version 2026.0
 
 ## Key highlights:
-•	New elements: gvafpsthrottle, g3dradarprocess, g3dlidarparse
-•	New model support: YOLOv26 (including OBB), RT-DETR, HuggingFace ViT
-•	gvawatermark overhaul: object bluring, text backgrounds, label filtering, extra fonts, thickness/color options, FPS overlay
-•	Inference enhancements: batch timeout, OpenCV tensor compression for all devices, FP32 precision, custom GstAnalytics data API
-•	Windows platform: GPU inference via D3D11, gvapython support, CI integration, build/setup improvements
-•	New Python samples: VLM Alerts, Smart NVR, ONVIF Discovery, face detection/age classification, open-vocabulary detection, RealSense, DL Streamer + DeepStream
-•	Optimizer: multi-stream optimization, cross-stream batching, device selection, refactored with tests
-•	Component updates: OpenVINO 2026.0.0, NPU driver 1.30, RealSense SDK 2.57.5
-•	Library consolidation: merged gvawatermark3d, gvadeskew, gvamotiondetect, gvagenai into gstvideoanalytics
-•	CI: Zizmor security scanning, Windows CI, Docker image size checks
+* New elements: gvafpsthrottle, g3dradarprocess, g3dlidarparse
+* New model support: YOLOv26 (including OBB), RT-DETR, HuggingFace ViT
+* gvawatermark overhaul: object bluring, text backgrounds, label filtering, extra fonts, thickness/color options, FPS overlay
+* Inference enhancements: batch timeout, OpenCV tensor compression for all devices, FP32 precision, custom GstAnalytics data API
+* Windows platform: GPU inference via D3D11, gvapython support, CI integration, build/setup improvements
+* New Python samples: VLM Alerts, Smart NVR, ONVIF Discovery, face detection/age classification, open-vocabulary detection, RealSense, DL Streamer + DeepStream
+* Optimizer: multi-stream optimization, cross-stream batching, device selection, refactored with tests
+* Component updates: OpenVINO 2026.0.0, NPU driver 1.30, RealSense SDK 2.57.5
+* Library consolidation: merged gvawatermark3d, gvadeskew, gvamotiondetect, gvagenai into gstvideoanalytics
+* CI: Zizmor security scanning, Windows CI, Docker image size checks
 
 Deep Learning Streamer (DL Streamer) Pipeline Framework is a streaming media analytics framework, based on GStreamer* multimedia framework, for creating complex media analytics pipelines. It ensures pipeline interoperability and provides optimized media, and inference operations using Intel® Distribution of OpenVINO™ Toolkit Inference Engine backend, across Intel® architecture, CPU, discrete GPU, integrated GPU and NPU.
 The complete solution leverages:
@@ -51,8 +51,9 @@ For installing Pipeline Framework with the prebuilt binaries or Docker\* or to b
 **New in this Release**
 
 | Title | High-level description |
+|---|---|
 | 3D elements (g3dradarprocess, g3dlidarparse) |	New 3D plugin support with g3dradarprocess element for radar data processing and g3dlidarparse element for lidar data parsing, enabling 3D analytics pipelines.|
-| FPS throttle element (gvafpsthrottle) |	New element to throttle the frame rate of a pipeline to a specified FPS value.|
+| FPS throttle element (gvafpsthrottle) |	New element to throttle the frame rate of a pipeline to a specified FPS value. |
 | YOLOv26 model support|	Added converters and post-processing for YOLOv26 models, including oriented bounding box (OBB) support and FP16/FP32 GPU inference. Added YOLOv26 to supported models in samples.|
 | RT-DETR model support |	Added RT-DETR support with dedicated converter implementation for real-time detection transformer models. |
 | HuggingFace ViT classifier support |	Added HuggingFace Vision Transformer (ViT) classifier config parser for inference.|
@@ -119,6 +120,17 @@ For installing Pipeline Framework with the prebuilt binaries or Docker\* or to b
 | Issue | Issue Description |
 |---|---|
 | Preview Architecture 2.0 Samples | Preview Arch 2.0 samples have known issues with inference results. |
+
+Legal Information
+FFmpeg is an open source project licensed under LGPL and GPL.
+See https://www.ffmpeg.org/legal.html.
+You are solely responsible for determining if your use of FFmpeg requires any additional licenses.
+Intel is not responsible for obtaining any such licenses, nor liable for any licensing fees due, in connection with your use of FFmpeg.
+
+GStreamer is an open source framework licensed under LGPL.
+See https://gstreamer.freedesktop.org/documentation/frequently-asked-questions/licensing.html.
+You are solely responsible for determining if your use of GStreamer requires any additional licenses.
+Intel is not responsible for obtaining any such licenses, nor liable for any licensing fees due, in connection with your use of GStreamer.
 
 <!--hide_directive
 ```{toctree}
