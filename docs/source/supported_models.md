@@ -8,14 +8,7 @@ DL Streamer supports the following model architectures from [GETI](https://docs.
 
 The table provides links to model preparation instructions describing download and conversion steps that can be performed either manually or by using dedicated scripts.
 
-<table width="100%" style="table-layout:fixed; width:100%; border-collapse:collapse; margin-bottom:1.5rem;">
-  <colgroup>
-    <col width="16%">
-    <col width="19%">
-    <col width="19%">
-    <col width="21%">
-    <col width="25%">
-  </colgroup>
+<table width="100%">
   <tr>
     <th style="word-break:keep-all; overflow-wrap:normal;">Category</th>
     <th>Architecture</th>
