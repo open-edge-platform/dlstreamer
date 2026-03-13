@@ -8,23 +8,16 @@ DL Streamer supports the following model architectures from [GETI](https://docs.
 
 The table provides links to model preparation instructions describing download and conversion steps that can be performed either manually or by using dedicated scripts.
 
-<table style="width: 100%; table-layout: fixed; margin-bottom: 1.5rem;">
-  <colgroup>
-    <col style="width: 16%;">
-    <col style="width: 23%;">
-    <col style="width: 19%;">
-    <col style="width: 23%;">
-    <col style="width: 19%;">
-  </colgroup>
+<table width="100%">
   <tr>
-    <th>Category</th>
+    <th style="word-break:keep-all; overflow-wrap:normal;">Category</th>
     <th>Architecture</th>
     <th>Model Preparation</th>
     <th>Example Model</th>
     <th>Demo App</th>
   </tr>
   <tr>
-    <td rowspan="3" style="vertical-align:middle;">Anomaly Detection</td>
+    <td rowspan="3" style="vertical-align:middle; word-break:keep-all; overflow-wrap:normal;">Anomaly Detection</td>
     <td>Padim</td>
     <td rowspan="3" style="vertical-align:middle;"><a href="https://docs.geti.intel.com/docs/user-guide/getting-started/use-geti/supported-models">GETI</a></td>
     <td rowspan="3" style="vertical-align:middle;">&nbsp;</td>
@@ -37,7 +30,7 @@ The table provides links to model preparation instructions describing download a
     <td>UFlow</td>
   </tr>
   <tr>
-    <td rowspan="16" style="vertical-align:middle;">Detection</td>
+    <td rowspan="16" style="vertical-align:middle; word-break:keep-all; overflow-wrap:normal;">Detection</td>
     <td>YOLOv5u</td>
     <td rowspan="6" style="vertical-align:middle;"><a href="https://docs.ultralytics.com/integrations/openvino/">Ultralytics Exporter</a></td>
     <td><a href="https://github.com/ultralytics/assets/releases/download/v8.4.0/yolov5nu.pt">yolov5nu.pt</a></td>
@@ -70,17 +63,17 @@ The table provides links to model preparation instructions describing download a
     <td><a href="https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/python/prompted_detection">Prompt-based Object Detection</a></td>
   </tr>
   <tr>
-    <td>RTDetrForObjectDetection</td>
+    <td>RTDetrFor<wbr>ObjectDetection</td>
     <td rowspan="2" style="vertical-align:middle;"><a href="https://huggingface.co/docs/optimum-onnx/onnx/usage_guides/export_a_model">Optimum-onnx</a><br>
     +<br>
     <a href="https://docs.openvino.ai/2026/openvino-workflow/model-preparation.html#convert-a-model-in-cli-ovc"> OpenVINO ovc </a>
     </td>
-    <td><a href="https://huggingface.co/PekingU/rtdetr_r50vd">PekingU/rrtdetr_r50vd</a></td>
+    <td><a href="https://huggingface.co/PekingU/rtdetr_r50vd">PekingU/​rrtdetr_r50vd</a></td>
     <td rowspan="2" style="vertical-align:middle;"><a href="https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/python/smart_nvr">Smart Network Video Recorder for Lane Hogging Detection</a></td>
   </tr>
   <tr>
-    <td>RtDetrV2ForObjectDetection</td>
-    <td><a href="https://huggingface.co/PekingU/rtdetr_v2_r18vd">PekingU/rtdetr_v2_r18vd</a></td>
+    <td>RtDetrV2For<wbr>ObjectDetection</td>
+    <td><a href="https://huggingface.co/PekingU/rtdetr_v2_r18vd">PekingU/​rtdetr_v2_r18vd</a></td>
   </tr>
   <tr>
     <td>ATSS with ResNet or MobilenetV2</td>
@@ -102,13 +95,13 @@ The table provides links to model preparation instructions describing download a
   </tr>
   <tr>
     <td><a href="https://github.com/Star-Clouds/CenterFace/tree/master">CenterFace</a></td>
-    <td><a href="https://github.com/open-edge-platform/dlstreamer/blob/main/samples/download_public_models.sh">download_public_models.sh</a></td>
+    <td><a href="https://github.com/open-edge-platform/dlstreamer/blob/main/samples/download_public_models.sh">download_<wbr>public_<wbr>models.sh</a></td>
     <td><a href="https://github.com/Star-Clouds/CenterFace/blob/master/models/onnx/centerface.onnx">centerface.onnx</a></td>
     <td><a href="https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch/custom_postproc/classify">Custom Post-Processing Library Sample - Classification</a></td>
   </tr>
   <tr>
     <td><a href="https://github.com/WongKinYiu/yolov7">YOLOv7</a></td>
-    <td><a href="https://github.com/open-edge-platform/dlstreamer/blob/main/samples/download_public_models.sh">download_public_models.sh</a><br>
+    <td><a href="https://github.com/open-edge-platform/dlstreamer/blob/main/samples/download_public_models.sh">download_<wbr>public_<wbr>models.sh</a><br>
         labels-file=<a href="https://github.com/open-edge-platform/dlstreamer/blob/main/samples/labels/coco_80cl.txt">coco_80cl.txt</a><br>
         model-proc=<a href="https://github.com/open-edge-platform/dlstreamer/blob/main/samples/gstreamer/model_proc/public/yolo-v7.json">yolo-v7.json</a>
     </td>
@@ -116,24 +109,24 @@ The table provides links to model preparation instructions describing download a
     <td><a href="https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch/detection_with_yolo">Object Detection and Classification with YOLO</a></td>
   </tr>
   <tr>
-    <td>Emotion Recognition</td>
+    <td style="word-break:keep-all; overflow-wrap:normal;">Emotion Recognition</td>
     <td><a href="https://github.com/av-savchenko/face-emotion-recognition/tree/main">HSEmotion</a></td>
-    <td><a href="https://github.com/open-edge-platform/dlstreamer/blob/main/samples/download_public_models.sh">download_public_models.sh</a></td>
+    <td><a href="https://github.com/open-edge-platform/dlstreamer/blob/main/samples/download_public_models.sh">download_<wbr>public_<wbr>models.sh</a></td>
     <td><a href="https://github.com/sb-ai-lab/EmotiEffLib/blob/main/models/affectnet_emotions/onnx/enet_b0_8_va_mtl.onnx">enet_b0_8_va_mtl.onnx</a></td>
     <td><a href="https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch/custom_postproc/classify">Custom Post-Processing Library Sample - Classification</a></td>
   </tr>
   <tr>
-    <td>Feature Extraction</td>
+    <td style="word-break:keep-all; overflow-wrap:normal;">Feature Extraction</td>
     <td><a href="https://github.com/ZQPei/deep_sort_pytorch">Mars-small128</a></td>
-    <td><a href="https://github.com/open-edge-platform/dlstreamer/blob/main/samples/download_public_models.sh">download_public_models.sh</a></td>
+    <td><a href="https://github.com/open-edge-platform/dlstreamer/blob/main/samples/download_public_models.sh">download_<wbr>public_<wbr>models.sh</a></td>
     <td>&nbsp;</td>
     <td><a href="https://github.com/open-edge-platform/dlstreamer/blob/main/docs/source/dev_guide/object_tracking.md#deep-sort-tracking">Deep SORT Tracking</a></td>
   </tr>
   <tr>
-    <td rowspan="4" style="vertical-align:middle;">Image Classification</td>
-    <td>ViTForImageClassification</td>
+    <td rowspan="4" style="vertical-align:middle; word-break:keep-all; overflow-wrap:normal;">Image Classification</td>
+    <td>ViTFor<wbr>ImageClassification</td>
     <td><a href="https://huggingface.co/docs/optimum-intel/en/openvino/export">Optimum-Intel</a></td>
-    <td><a href="https://huggingface.co/dima806/fairface_age_image_detection">dima806/fairface_age_image_detection</a></td>
+    <td><a href="https://huggingface.co/dima806/fairface_age_image_detection">dima806/​fairface_<wbr>age_<wbr>image_<wbr>detection</a></td>
     <td><a href="https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/python/face_detection_and_classification">Face Detection and Classification</a></td>
   </tr>
   <tr>
@@ -149,14 +142,14 @@ The table provides links to model preparation instructions describing download a
     <td>DeitTiny</td>
   </tr>
   <tr>
-    <td>Image Embeddings</td>
+    <td style="word-break:keep-all; overflow-wrap:normal;">Image Embeddings</td>
     <td>CLIPModel</td>
     <td><a href="https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/dev_guide/lvms.html">CLIP ViT Conversion</a></td>
-    <td><a href="https://huggingface.co/openai/clip-vit-large-patch14">openai/clip-vit-large-patch14</a></td>
+    <td><a href="https://huggingface.co/openai/clip-vit-large-patch14">openai/​clip-vit-large-patch14</a></td>
     <td><a href="https://github.com/open-edge-platform/dlstreamer/blob/main/samples/gstreamer/gst_launch/lvm/README.md">Frame Embeddings</a></td>
   </tr>
   <tr>
-    <td rowspan="5" style="vertical-align:middle;">Instance Segmentation</td>
+    <td rowspan="5" style="vertical-align:middle; word-break:keep-all; overflow-wrap:normal;">Instance Segmentation</td>
     <td>YOLOv8-seg</td>
     <td rowspan="3" style="vertical-align:middle;"><a href="https://docs.ultralytics.com/integrations/openvino/">Ultralytics Exporter</a></td>
     <td><a href="https://github.com/ultralytics/assets/releases/download/v8.4.0/yolov8n-seg.pt">yolov8n-seg.pt</a></td>
@@ -180,14 +173,14 @@ The table provides links to model preparation instructions describing download a
     <td>RTMDet</td>
   </tr>
   <tr>
-    <td>Optical Character Recognition</td>
+    <td style="word-break:keep-all; overflow-wrap:normal;">Optical Character Recognition</td>
     <td><a href="https://github.com/PaddlePaddle/PaddleOCR">Paddle OCRv4</a></td>
-    <td><a href="https://github.com/open-edge-platform/dlstreamer/blob/main/samples/download_public_models.sh">download_public_models.sh</a></td>
-    <td>ch_PP-OCRv4_rec_infer</td>
+    <td><a href="https://github.com/open-edge-platform/dlstreamer/blob/main/samples/download_public_models.sh">download_<wbr>public_<wbr>models.sh</a></td>
+    <td>ch_<wbr>PP-OCRv4_<wbr>rec_<wbr>infer</td>
     <td><a href="https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch/license_plate_recognition">License Plate Recognition Sample</a></td>
   </tr>
   <tr>
-    <td rowspan="3" style="vertical-align:middle;">Oriented Detection</td>
+    <td rowspan="3" style="vertical-align:middle; word-break:keep-all; overflow-wrap:normal;">Oriented Detection</td>
     <td>YOLOv8-obb</td>
     <td rowspan="3" style="vertical-align:middle;"><a href="https://docs.ultralytics.com/integrations/openvino/">Ultralytics Exporter</a></td>
     <td><a href="https://github.com/ultralytics/assets/releases/download/v8.4.0/yolov8n-obb.pt">yolov8n-obb.pt</a></td>
@@ -202,7 +195,7 @@ The table provides links to model preparation instructions describing download a
     <td><a href="https://github.com/ultralytics/assets/releases/download/v8.4.0/yolo26n-obb.pt">yolo26n-obb.pt</a></td>
   </tr>
   <tr>
-    <td rowspan="3" style="vertical-align:middle;">Pose Estimation</td>
+    <td rowspan="3" style="vertical-align:middle; word-break:keep-all; overflow-wrap:normal;">Pose Estimation</td>
     <td>YOLOv8-pose</td>
     <td rowspan="3" style="vertical-align:middle;"><a href="https://docs.ultralytics.com/integrations/openvino/">Ultralytics Exporter</a></td>
     <td><a href="https://github.com/ultralytics/assets/releases/download/v8.4.0/yolov8n-pose.pt">yolov8n-pose.pt</a></td>
@@ -217,7 +210,7 @@ The table provides links to model preparation instructions describing download a
     <td><a href="https://github.com/ultralytics/assets/releases/download/v8.4.0/yolo26n-pose.pt">yolo26n-pose.pt</a></td>
   </tr>
   <tr>
-    <td rowspan="3" style="vertical-align:middle;">Semantic Segmentation</td>
+    <td rowspan="3" style="vertical-align:middle; word-break:keep-all; overflow-wrap:normal;">Semantic Segmentation</td>
     <td>Lite-HRNet</td>
     <td rowspan="3" style="vertical-align:middle;"><a href="https://docs.geti.intel.com/docs/user-guide/getting-started/use-geti/supported-models">GETI</a></td>
     <td rowspan="3" style="vertical-align:middle;">&nbsp;</td>
@@ -230,66 +223,66 @@ The table provides links to model preparation instructions describing download a
     <td>DinoV2</td>
   </tr>
   <tr>
-    <td>Speech Recognition</td>
-    <td>WhisperForConditionalGeneration</td>
+    <td style="word-break:keep-all; overflow-wrap:normal;">Speech Recognition</td>
+    <td>WhisperFor<wbr>ConditionalGeneration</td>
     <td><a href="https://huggingface.co/docs/optimum-intel/en/openvino/export">Optimum-Intel</a></td>
-    <td><a href="https://huggingface.co/openai/whisper-tiny">openai/whisper-tiny</a></td>
+    <td><a href="https://huggingface.co/openai/whisper-tiny">openai/​whisper-tiny</a></td>
     <td><a href="https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch/audio_transcribe">Audio Transcription</a></td>
   </tr>
   <tr>
-    <td rowspan="13" style="vertical-align:middle;">VLM</td>
-    <td>InternVLChatModel</td>
+    <td rowspan="13" style="vertical-align:middle; word-break:keep-all; overflow-wrap:normal;">VLM</td>
+    <td>InternVL<wbr>ChatModel</td>
     <td rowspan="13" style="vertical-align:middle;"><a href="https://huggingface.co/docs/optimum-intel/en/openvino/export">Optimum-Intel</a></td>
-    <td><a href="https://huggingface.co/OpenGVLab/InternVL2-1B">OpenGVLab/InternVL2-1B</a></td>
+    <td><a href="https://huggingface.co/OpenGVLab/InternVL2-1B">OpenGVLab/​InternVL2-1B</a></td>
     <td rowspan="13" style="vertical-align:middle;"><a href="https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch/gvagenai">Gvagenai Demo</a></td>
   </tr>
   <tr>
-    <td>LlavaForConditionalGeneration</td>
-    <td><a href="https://huggingface.co/llava-hf/llava-1.5-7b-hf">llava-hf/llava-1.5-7b-hf</a></td>
+    <td>LlavaFor<wbr>ConditionalGeneration</td>
+    <td><a href="https://huggingface.co/llava-hf/llava-1.5-7b-hf">llava-hf/​llava-1.5-7b-hf</a></td>
   </tr>
   <tr>
-    <td>LlavaQwen2ForCausalLM</td>
-    <td><a href="https://huggingface.co/qnguyen3/nanoLLaVA">qnguyen3/nanoLLaVA</a></td>
+    <td>LlavaQwen2For<wbr>CausalLM</td>
+    <td><a href="https://huggingface.co/qnguyen3/nanoLLaVA">qnguyen3/​nanoLLaVA</a></td>
   </tr>
   <tr>
-    <td>BunnyQwenForCausalLM</td>
-    <td><a href="https://huggingface.co/qnguyen3/nanoLLaVA-1.5">qnguyen3/nanoLLaVA-1.5</a></td>
+    <td>BunnyQwenFor<wbr>CausalLM</td>
+    <td><a href="https://huggingface.co/qnguyen3/nanoLLaVA-1.5">qnguyen3/​nanoLLaVA-1.5</a></td>
   </tr>
   <tr>
-    <td>LlavaNextForConditionalGeneration</td>
-    <td><a href="https://huggingface.co/llava-hf/llava-v1.6-mistral-7b-hf">llava-hf/llava-v1.6-mistral-7b-hf</a></td>
+    <td>LlavaNextFor<wbr>ConditionalGeneration</td>
+    <td><a href="https://huggingface.co/llava-hf/llava-v1.6-mistral-7b-hf">llava-hf/​llava-v1.6-mistral-7b-hf</a></td>
   </tr>
   <tr>
-    <td>LlavaNextVideoForConditionalGeneration</td>
-    <td><a href="https://huggingface.co/llava-hf/LLaVA-NeXT-Video-7B-hf">llava-hf/LLaVA-NeXT-Video-7B-hf</a></td>
+    <td>LlavaNextVideoFor<wbr>ConditionalGeneration</td>
+    <td><a href="https://huggingface.co/llava-hf/LLaVA-NeXT-Video-7B-hf">llava-hf/​LLaVA-NeXT-Video-7B-hf</a></td>
   </tr>
   <tr>
     <td>MiniCPMO</td>
-    <td><a href="https://huggingface.co/openbmb/MiniCPM-o-2_6">openbmb/MiniCPM-o-2_6</a></td>
+    <td><a href="https://huggingface.co/openbmb/MiniCPM-o-2_6">openbmb/​MiniCPM-o-2_6</a></td>
   </tr>
   <tr>
     <td>MiniCPMV</td>
-    <td><a href="https://huggingface.co/openbmb/MiniCPM-V-2_6">openbmb/MiniCPM-V-2_6</a></td>
+    <td><a href="https://huggingface.co/openbmb/MiniCPM-V-2_6">openbmb/​MiniCPM-V-2_6</a></td>
   </tr>
   <tr>
-    <td>Phi3VForCausalLM</td>
-    <td><a href="https://huggingface.co/microsoft/Phi-3-vision-128k-instruct">microsoft/Phi-3-vision-128k-instruct</a></td>
+    <td>Phi3VFor<wbr>CausalLM</td>
+    <td><a href="https://huggingface.co/microsoft/Phi-3-vision-128k-instruct">microsoft/​Phi-3-vision-128k-instruct</a></td>
   </tr>
   <tr>
-    <td>Phi4MMForCausalLM</td>
-    <td><a href="https://huggingface.co/microsoft/Phi-4-multimodal-instruct">microsoft/Phi-4-multimodal-instruct</a></td>
+    <td>Phi4MMFor<wbr>CausalLM</td>
+    <td><a href="https://huggingface.co/microsoft/Phi-4-multimodal-instruct">microsoft/​Phi-4-multimodal-instruct</a></td>
   </tr>
   <tr>
-    <td>Qwen2VLForConditionalGeneration</td>
-    <td><a href="https://huggingface.co/Qwen/Qwen2-VL-2B-Instruct">Qwen/Qwen2-VL-2B-Instruct</a></td>
+    <td>Qwen2VLFor<wbr>ConditionalGeneration</td>
+    <td><a href="https://huggingface.co/Qwen/Qwen2-VL-2B-Instruct">Qwen/​Qwen2-VL-2B-Instruct</a></td>
   </tr>
   <tr>
-    <td>Qwen2_5_VLForConditionalGeneration</td>
-    <td><a href="https://huggingface.co/Qwen/Qwen2.5-VL-3B-Instruct">Qwen/Qwen2.5-VL-3B-Instruct</a></td>
+    <td>Qwen2_5_VLFor<wbr>ConditionalGeneration</td>
+    <td><a href="https://huggingface.co/Qwen/Qwen2.5-VL-3B-Instruct">Qwen/​Qwen2.5-VL-3B-Instruct</a></td>
   </tr>
   <tr>
-    <td>Gemma3ForConditionalGeneration</td>
-    <td><a href="https://huggingface.co/google/gemma-3-4b-it">google/gemma-3-4b-it</a></td>
+    <td>Gemma3For<wbr>ConditionalGeneration</td>
+    <td><a href="https://huggingface.co/google/gemma-3-4b-it">google/​gemma-3-4b-it</a></td>
   </tr>
 </table>
 
