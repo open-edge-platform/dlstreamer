@@ -68,12 +68,12 @@ The table provides links to model preparation instructions describing download a
     +<br>
     <a href="https://docs.openvino.ai/2026/openvino-workflow/model-preparation.html#convert-a-model-in-cli-ovc"> OpenVINO ovc </a>
     </td>
-    <td><a href="https://huggingface.co/PekingU/rtdetr_r50vd">PekingU/<wbr>rrtdetr_r50vd</a></td>
+    <td><a href="https://huggingface.co/PekingU/rtdetr_r50vd">PekingU/​rrtdetr_r50vd</a></td>
     <td rowspan="2" style="vertical-align:middle;"><a href="https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/python/smart_nvr">Smart Network Video Recorder for Lane Hogging Detection</a></td>
   </tr>
   <tr>
     <td>RtDetrV2For<wbr>ObjectDetection</td>
-    <td><a href="https://huggingface.co/PekingU/rtdetr_v2_r18vd">PekingU/<wbr>rtdetr_v2_r18vd</a></td>
+    <td><a href="https://huggingface.co/PekingU/rtdetr_v2_r18vd">PekingU/​rtdetr_v2_r18vd</a></td>
   </tr>
   <tr>
     <td>ATSS with ResNet or MobilenetV2</td>
@@ -126,7 +126,7 @@ The table provides links to model preparation instructions describing download a
     <td rowspan="4" style="vertical-align:middle; word-break:keep-all; overflow-wrap:normal;">Image Classification</td>
     <td>ViTFor<wbr>ImageClassification</td>
     <td><a href="https://huggingface.co/docs/optimum-intel/en/openvino/export">Optimum-Intel</a></td>
-    <td><a href="https://huggingface.co/dima806/fairface_age_image_detection">dima806/<wbr>fairface_<wbr>age_<wbr>image_<wbr>detection</a></td>
+    <td><a href="https://huggingface.co/dima806/fairface_age_image_detection">dima806/​fairface_<wbr>age_<wbr>image_<wbr>detection</a></td>
     <td><a href="https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/python/face_detection_and_classification">Face Detection and Classification</a></td>
   </tr>
   <tr>
@@ -145,7 +145,7 @@ The table provides links to model preparation instructions describing download a
     <td style="word-break:keep-all; overflow-wrap:normal;">Image Embeddings</td>
     <td>CLIPModel</td>
     <td><a href="https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/dev_guide/lvms.html">CLIP ViT Conversion</a></td>
-    <td><a href="https://huggingface.co/openai/clip-vit-large-patch14">openai/<wbr>clip-vit-large-patch14</a></td>
+    <td><a href="https://huggingface.co/openai/clip-vit-large-patch14">openai/​clip-vit-large-patch14</a></td>
     <td><a href="https://github.com/open-edge-platform/dlstreamer/blob/main/samples/gstreamer/gst_launch/lvm/README.md">Frame Embeddings</a></td>
   </tr>
   <tr>
@@ -226,63 +226,63 @@ The table provides links to model preparation instructions describing download a
     <td style="word-break:keep-all; overflow-wrap:normal;">Speech Recognition</td>
     <td>WhisperFor<wbr>ConditionalGeneration</td>
     <td><a href="https://huggingface.co/docs/optimum-intel/en/openvino/export">Optimum-Intel</a></td>
-    <td><a href="https://huggingface.co/openai/whisper-tiny">openai/<wbr>whisper-tiny</a></td>
+    <td><a href="https://huggingface.co/openai/whisper-tiny">openai/​whisper-tiny</a></td>
     <td><a href="https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch/audio_transcribe">Audio Transcription</a></td>
   </tr>
   <tr>
     <td rowspan="13" style="vertical-align:middle; word-break:keep-all; overflow-wrap:normal;">VLM</td>
     <td>InternVL<wbr>ChatModel</td>
     <td rowspan="13" style="vertical-align:middle;"><a href="https://huggingface.co/docs/optimum-intel/en/openvino/export">Optimum-Intel</a></td>
-    <td><a href="https://huggingface.co/OpenGVLab/InternVL2-1B">OpenGVLab/<wbr>InternVL2-1B</a></td>
+    <td><a href="https://huggingface.co/OpenGVLab/InternVL2-1B">OpenGVLab/​InternVL2-1B</a></td>
     <td rowspan="13" style="vertical-align:middle;"><a href="https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch/gvagenai">Gvagenai Demo</a></td>
   </tr>
   <tr>
     <td>LlavaFor<wbr>ConditionalGeneration</td>
-    <td><a href="https://huggingface.co/llava-hf/llava-1.5-7b-hf">llava-hf/<wbr>llava-1.5-7b-hf</a></td>
+    <td><a href="https://huggingface.co/llava-hf/llava-1.5-7b-hf">llava-hf/​llava-1.5-7b-hf</a></td>
   </tr>
   <tr>
     <td>LlavaQwen2For<wbr>CausalLM</td>
-    <td><a href="https://huggingface.co/qnguyen3/nanoLLaVA">qnguyen3/<wbr>nanoLLaVA</a></td>
+    <td><a href="https://huggingface.co/qnguyen3/nanoLLaVA">qnguyen3/​nanoLLaVA</a></td>
   </tr>
   <tr>
     <td>BunnyQwenFor<wbr>CausalLM</td>
-    <td><a href="https://huggingface.co/qnguyen3/nanoLLaVA-1.5">qnguyen3/<wbr>nanoLLaVA-1.5</a></td>
+    <td><a href="https://huggingface.co/qnguyen3/nanoLLaVA-1.5">qnguyen3/​nanoLLaVA-1.5</a></td>
   </tr>
   <tr>
     <td>LlavaNextFor<wbr>ConditionalGeneration</td>
-    <td><a href="https://huggingface.co/llava-hf/llava-v1.6-mistral-7b-hf">llava-hf/<wbr>llava-v1.6-mistral-7b-hf</a></td>
+    <td><a href="https://huggingface.co/llava-hf/llava-v1.6-mistral-7b-hf">llava-hf/​llava-v1.6-mistral-7b-hf</a></td>
   </tr>
   <tr>
     <td>LlavaNextVideoFor<wbr>ConditionalGeneration</td>
-    <td><a href="https://huggingface.co/llava-hf/LLaVA-NeXT-Video-7B-hf">llava-hf/<wbr>LLaVA-NeXT-Video-7B-hf</a></td>
+    <td><a href="https://huggingface.co/llava-hf/LLaVA-NeXT-Video-7B-hf">llava-hf/​LLaVA-NeXT-Video-7B-hf</a></td>
   </tr>
   <tr>
     <td>MiniCPMO</td>
-    <td><a href="https://huggingface.co/openbmb/MiniCPM-o-2_6">openbmb/<wbr>MiniCPM-o-2_6</a></td>
+    <td><a href="https://huggingface.co/openbmb/MiniCPM-o-2_6">openbmb/​MiniCPM-o-2_6</a></td>
   </tr>
   <tr>
     <td>MiniCPMV</td>
-    <td><a href="https://huggingface.co/openbmb/MiniCPM-V-2_6">openbmb/<wbr>MiniCPM-V-2_6</a></td>
+    <td><a href="https://huggingface.co/openbmb/MiniCPM-V-2_6">openbmb/​MiniCPM-V-2_6</a></td>
   </tr>
   <tr>
     <td>Phi3VFor<wbr>CausalLM</td>
-    <td><a href="https://huggingface.co/microsoft/Phi-3-vision-128k-instruct">microsoft/<wbr>Phi-3-vision-128k-instruct</a></td>
+    <td><a href="https://huggingface.co/microsoft/Phi-3-vision-128k-instruct">microsoft/​Phi-3-vision-128k-instruct</a></td>
   </tr>
   <tr>
     <td>Phi4MMFor<wbr>CausalLM</td>
-    <td><a href="https://huggingface.co/microsoft/Phi-4-multimodal-instruct">microsoft/<wbr>Phi-4-multimodal-instruct</a></td>
+    <td><a href="https://huggingface.co/microsoft/Phi-4-multimodal-instruct">microsoft/​Phi-4-multimodal-instruct</a></td>
   </tr>
   <tr>
     <td>Qwen2VLFor<wbr>ConditionalGeneration</td>
-    <td><a href="https://huggingface.co/Qwen/Qwen2-VL-2B-Instruct">Qwen/<wbr>Qwen2-VL-2B-Instruct</a></td>
+    <td><a href="https://huggingface.co/Qwen/Qwen2-VL-2B-Instruct">Qwen/​Qwen2-VL-2B-Instruct</a></td>
   </tr>
   <tr>
     <td>Qwen2_5_VLFor<wbr>ConditionalGeneration</td>
-    <td><a href="https://huggingface.co/Qwen/Qwen2.5-VL-3B-Instruct">Qwen/<wbr>Qwen2.5-VL-3B-Instruct</a></td>
+    <td><a href="https://huggingface.co/Qwen/Qwen2.5-VL-3B-Instruct">Qwen/​Qwen2.5-VL-3B-Instruct</a></td>
   </tr>
   <tr>
     <td>Gemma3For<wbr>ConditionalGeneration</td>
-    <td><a href="https://huggingface.co/google/gemma-3-4b-it">google/<wbr>gemma-3-4b-it</a></td>
+    <td><a href="https://huggingface.co/google/gemma-3-4b-it">google/​gemma-3-4b-it</a></td>
   </tr>
 </table>
 
