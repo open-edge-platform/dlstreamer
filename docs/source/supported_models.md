@@ -37,7 +37,7 @@ The table provides links to model preparation instructions describing download a
     <td>UFlow</td>
   </tr>
   <tr>
-    <td rowspan="18" style="vertical-align:middle;">Detection</td>
+    <td rowspan="16" style="vertical-align:middle;">Detection</td>
     <td>YOLOv5u</td>
     <td rowspan="6" style="vertical-align:middle;"><a href="https://docs.ultralytics.com/integrations/openvino/">Ultralytics Exporter</a></td>
     <td><a href="https://github.com/ultralytics/assets/releases/download/v8.4.0/yolov5nu.pt">yolov5nu.pt</a></td>
