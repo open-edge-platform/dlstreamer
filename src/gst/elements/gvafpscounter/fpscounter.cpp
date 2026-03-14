@@ -25,6 +25,24 @@ using seconds_double = std::chrono::duration<double>;
 constexpr int ELEMENT_NAME_MAX_SIZE = 64;
 constexpr double MICRO_TO_MILLI = 0.001;
 constexpr double SECOND_TO_MILLI = 1000.0;
+
+unsigned count_rois(GstBuffer *buffer) {
+    GstAnalyticsRelationMeta *relation_meta = gst_buffer_get_analytics_relation_meta(buffer);
+    size_t count = 0;
+
+    if (relation_meta) {
+        gpointer state = NULL;
+        GstAnalyticsODMtd od_mtd;
+
+        while (
+            gst_analytics_relation_meta_iterate(relation_meta, &state, gst_analytics_od_mtd_get_mtd_type(), &od_mtd)) {
+            ++count;
+        }
+    }
+
+    return count;
+}
+
 } // namespace
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -37,21 +55,7 @@ bool IterativeFpsCounter::NewFrame(const std::string &element_name, FILE *output
     if (output == nullptr)
         return false;
 
-    // Count detected regions of interest
-    GstAnalyticsRelationMeta *relation_meta = gst_buffer_get_analytics_relation_meta(buffer);
-    if (relation_meta) {
-        gpointer state = NULL;
-        GstAnalyticsODMtd od_mtd;
-        size_t count = 0;
-
-        while (
-            gst_analytics_relation_meta_iterate(relation_meta, &state, gst_analytics_od_mtd_get_mtd_type(), &od_mtd)) {
-            ++count;
-        }
-
-        detections += count;
-    }
-
+    detections += count_rois(buffer);
 
     auto now = std::chrono::high_resolution_clock::now();
     if (print_std_dev) {
@@ -174,8 +178,8 @@ void IterativeFpsCounter::PrintFPS(FILE *output, double sec, bool eos) {
     } else {
         fprintf(output, "FpsCounter(last %.2fsec): ", sec);
     }
-    fprintf(output, "total=%.2f fps, number-streams=%zu, per-stream=%.2f fps", total, num_frames.size(),
-            total / num_frames.size());
+    fprintf(output, "total=%.2f fps, number-streams=%zu, per-stream=%.2f fps, detections=%d", total, num_frames.size(),
+            total / num_frames.size(), detections);
     if (num_frames.size() > 1 && print_each_stream) {
         fprintf(output, " (");
         auto num = num_frames.begin();
