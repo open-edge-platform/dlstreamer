@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2018-2025 Intel Corporation
+ * Copyright (C) 2018-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -128,10 +128,9 @@ static void gst_gva_fpscounter_class_init(GstGvaFpscounterClass *klass) {
                                                        DEFAULT_AVG_FPS_MIN, DEFAULT_AVG_FPS_MAX, DEFAULT_AVG_FPS,
                                                        G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
     g_object_class_install_property(gobject_class, PROP_DETECTIONS,
-                                    g_param_spec_uint("detections", "For internal use only",
-                                                       "For internal use only",
-                                                       DEFAULT_MIN_DETECTIONS, DEFAULT_MAX_DETECTIONS, DEFAULT_DETECTIONS,
-                                                       G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
+                                    g_param_spec_uint("detections", "For internal use only", "For internal use only",
+                                                      DEFAULT_MIN_DETECTIONS, DEFAULT_MAX_DETECTIONS,
+                                                      DEFAULT_DETECTIONS, G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
 }
 
 static void gst_gva_fpscounter_init(GstGvaFpscounter *gva_fpscounter) {
