@@ -89,8 +89,10 @@ void fps_counter_new_frame(GstBuffer *buffer, const char *element_name, void *gs
             counter->second->NewFrame(element_name, output, buffer);
             if (gstgvafpscounter && counter->first == "average") {
                 auto iterative_counter = std::dynamic_pointer_cast<IterativeFpsCounter>(counter->second);
-                if (iterative_counter)
+                if (iterative_counter) {
                     ((GstGvaFpscounter *)gstgvafpscounter)->avg_fps = iterative_counter->get_avg_fps();
+                    ((GstGvaFpscounter *)gstgvafpscounter)->detections = iterative_counter->get_detections();
+                }
             }
         }
     } catch (std::exception &e) {

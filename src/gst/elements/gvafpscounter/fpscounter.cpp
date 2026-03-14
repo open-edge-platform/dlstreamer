@@ -17,6 +17,8 @@
 #include <cmath>
 #include <numeric>
 
+#include <gst/analytics/analytics.h>
+
 namespace {
 constexpr double TIME_THRESHOLD = 0.1;
 using seconds_double = std::chrono::duration<double>;
@@ -34,6 +36,22 @@ bool IterativeFpsCounter::NewFrame(const std::string &element_name, FILE *output
         return false;
     if (output == nullptr)
         return false;
+
+    // Count detected regions of interest
+    GstAnalyticsRelationMeta *relation_meta = gst_buffer_get_analytics_relation_meta(buffer);
+    if (relation_meta) {
+        gpointer state = NULL;
+        GstAnalyticsODMtd od_mtd;
+        size_t count = 0;
+
+        while (
+            gst_analytics_relation_meta_iterate(relation_meta, &state, gst_analytics_od_mtd_get_mtd_type(), &od_mtd)) {
+            ++count;
+        }
+
+        detections += count;
+    }
+
 
     auto now = std::chrono::high_resolution_clock::now();
     if (print_std_dev) {
