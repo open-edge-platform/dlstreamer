@@ -72,8 +72,10 @@ runs:
       shell: bash
       env:
         output_file: license-check-report.txt
+        ISSUES_FOUND: ${{ steps.license-check.outputs.ISSUES_FOUND }}
+        CHANGED_FILES: ${{ steps.discover-changes.outputs.changed_files }}
       run: |
-        if [ "${{ steps.license-check.outputs.ISSUES_FOUND }}" == "true" ]; then
+        if [ "${ISSUES_FOUND}" == "true" ]; then
           # Count files with issues
           if [ -f "${output_file}" ]; then
             error_count=$(grep -c "Error:" "${output_file}" 2>/dev/null || echo "0")
@@ -84,7 +86,7 @@ runs:
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "📄 **See job logs for detailed error messages.**" >> $GITHUB_STEP_SUMMARY
           fi
-        elif [ "${{ steps.discover-changes.outputs.changed_files }}" != "" ]; then
+        elif [ -n "${CHANGED_FILES}" ]; then
           echo "### License & Namespace Check Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "✅ **All checked files have correct license headers and namespace usage!**" >> $GITHUB_STEP_SUMMARY

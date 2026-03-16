@@ -12,6 +12,9 @@
 
 namespace {
 
+const int sigmaX = 15;
+const int sigmaY = 15;
+
 const std::vector<cv::Vec3b> PascalVoc21ClColorPalette = {
     cv::Vec3b(0, 0, 0),       // background
     cv::Vec3b(128, 0, 0),     // aeroplane
@@ -109,6 +112,8 @@ void RendererYUV::draw_backend(std::vector<cv::Mat> &image_planes, std::vector<r
             draw_instance_mask(image_planes, std::get<render::InstanceSegmantationMask>(p));
         } else if (std::holds_alternative<render::SemanticSegmantationMask>(p)) {
             draw_semantic_mask(image_planes, std::get<render::SemanticSegmantationMask>(p));
+        } else if (std::holds_alternative<render::Blur>(p)) {
+            blur_rectangle(image_planes, std::get<render::Blur>(p));
         }
     }
 }
@@ -131,6 +136,24 @@ void RendererYUV::draw_rect_y_plane(cv::Mat &y, cv::Point2i pt1, cv::Point2i pt2
     cv::Point2i p1(offset_min_x + pt1.x, offset_min_y + pt1.y);
     cv::Point2i p2(offset_max_x + pt2.x, offset_max_y + pt2.y);
     DrawRotatedRectangle(y, p1, p2, rotation, color, thick);
+}
+
+void RendererI420::blur_rectangle(std::vector<cv::Mat> &mats, render::Blur blur) {
+    check_planes<3>(mats);
+    cv::Mat &y = mats[0];
+    cv::Mat &u = mats[1];
+    cv::Mat &v = mats[2];
+
+    cv::Rect r = blur.rect;
+
+    cv::Mat roi_u(u, cv::Rect(r.x / 2, r.y / 2, r.width / 2, r.height / 2));
+    cv::GaussianBlur(roi_u, roi_u, cv::Size(sigmaX, sigmaY), 0, 0);
+
+    cv::Mat roi_v(v, cv::Rect(r.x / 2, r.y / 2, r.width / 2, r.height / 2));
+    cv::GaussianBlur(roi_v, roi_v, cv::Size(sigmaX, sigmaY), 0, 0);
+
+    cv::Mat roi_y(y, cv::Rect(r.x, r.y, r.width, r.height));
+    cv::GaussianBlur(roi_y, roi_y, cv::Size(sigmaX, sigmaY), 0, 0);
 }
 
 void RendererI420::draw_rectangle(std::vector<cv::Mat> &mats, render::Rect rect) {
@@ -232,6 +255,20 @@ void RendererI420::draw_semantic_mask(std::vector<cv::Mat> &mats, render::Semant
     (void)mask;
     throw std::logic_error("Drawing semantic segmentation masks is not yet supported for I420 video format. "
                            "Currently supported formats: BGR, RGB, BGRx, RGBx, BGRA only.");
+}
+
+void RendererNV12::blur_rectangle(std::vector<cv::Mat> &mats, render::Blur blur) {
+    check_planes<2>(mats);
+    cv::Mat &y = mats[0];
+    cv::Mat &u_v = mats[1];
+
+    cv::Rect r = blur.rect;
+
+    cv::Mat roi_uv(u_v, cv::Rect(r.x / 2, r.y / 2, r.width / 2, r.height / 2));
+    cv::GaussianBlur(roi_uv, roi_uv, cv::Size(sigmaX, sigmaY), 0, 0);
+
+    cv::Mat roi(y, cv::Rect(r.x, r.y, r.width, r.height));
+    cv::GaussianBlur(roi, roi, cv::Size(sigmaX, sigmaY), 0, 0);
 }
 
 void RendererNV12::draw_rectangle(std::vector<cv::Mat> &mats, render::Rect rect) {
@@ -375,6 +412,13 @@ void RendererNV12::draw_semantic_mask(std::vector<cv::Mat> &mats, render::Semant
 
 void RendererBGR::draw_rectangle(std::vector<cv::Mat> &mats, render::Rect rect) {
     DrawRotatedRectangle(mats[0], rect.rect.tl(), rect.rect.br(), rect.rotation, rect.color, rect.thick);
+}
+
+void RendererBGR::blur_rectangle(std::vector<cv::Mat> &mats, render::Blur blur) {
+    cv::Mat &mat = mats[0];
+    cv::Rect r = blur.rect;
+    cv::Mat roi(mat, cv::Rect(r.x, r.y, r.width, r.height));
+    cv::GaussianBlur(roi, roi, cv::Size(sigmaX, sigmaY), 0, 0);
 }
 
 void RendererBGR::draw_circle(std::vector<cv::Mat> &mats, render::Circle circle) {

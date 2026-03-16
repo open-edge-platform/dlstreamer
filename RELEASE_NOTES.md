@@ -274,7 +274,7 @@ For installing Pipeline Framework with the prebuilt binaries or Docker\* or to b
 | Update NPU drivers to version 1.8.0 | Update NPU driver version inside docker images|
 | Yolo 11 | Added support for YOLO 11 model (CPU and GPU only) |
 | GStreamer | GStreamer updated to the 1.24.8 version  |
-| Fix Github issue: [#440](https://github.com/dlstreamer/dlstreamer/issues/440) | gvapython error: Fatal Python error: init_threadstate: thread state already initialized |
+| Fix Github issue: [#440](https://github.com/open-edge-platform/dlstreamer/issues/440) | gvapython error: Fatal Python error: init_threadstate: thread state already initialized |
 
 ## Deep Learning Streamer (DL Streamer) Pipeline Framework Release 2024.2.0
 
@@ -295,10 +295,10 @@ For installing Pipeline Framework with the prebuilt binaries or Docker\* or to b
 
 | **Issue**   | **Issue Description**  |
 |----------------|------------------------|
-|Github issue: [#431](https://github.com/dlstreamer/dlstreamer/issues/431)|WARNING: erroneous pipeline: no element "gvadetect"|
-|Github issue: [#433](https://github.com/dlstreamer/dlstreamer/issues/433)|WARNING: erroneous pipeline: no element "gvaattachroi" inside Docker image 2024.1.2-dev-ubuntu24|
-|Github issue: [#434](https://github.com/dlstreamer/dlstreamer/issues/434)| Proper way to use object-class under gvadetect |
-|Github issue: #[435](https://github.com/dlstreamer/dlstreamer/issues/435)| No such element or plugin 'gvadetect' |
+|Github issue: [#431](https://github.com/open-edge-platform/dlstreamer/issues/431)|WARNING: erroneous pipeline: no element "gvadetect"|
+|Github issue: [#433](https://github.com/open-edge-platform/dlstreamer/issues/433)|WARNING: erroneous pipeline: no element "gvaattachroi" inside Docker image 2024.1.2-dev-ubuntu24|
+|Github issue: [#434](https://github.com/open-edge-platform/dlstreamer/issues/434)| Proper way to use object-class under gvadetect |
+|Github issue: #[435](https://github.com/open-edge-platform/dlstreamer/issues/435)| No such element or plugin 'gvadetect' |
 |Internal findings|installation via option#3 documentation fixes; fixed hangs on MTL NPU for INT8 models; fixed issues with using 4xFlex170 system|
 
 ## Deep Learning Streamer (DL Streamer) Pipeline Framework Release 2024.1.2
@@ -320,9 +320,9 @@ For installing Pipeline Framework with the prebuilt binaries or Docker\* or to b
 
 | **Issue**   | **Issue Description**  |
 |----------------|------------------------|
-| [#425](https://github.com/dlstreamer/dlstreamer/issues/425) | when using inference-region=roi-list vs full-frame in my classification pipeline, classification data does not get published |
-| [#432](https://github.com/dlstreamer/dlstreamer/issues/432) | Installation issues with gst-ugly plugins |
-| [#397](https://github.com/dlstreamer/dlstreamer/issues/397) | Installation Error DL Streamer - Both Debian Packages and Compile from Sources |
+| [#425](https://github.com/open-edge-platform/dlstreamer/issues/425) | when using inference-region=roi-list vs full-frame in my classification pipeline, classification data does not get published |
+| [#432](https://github.com/open-edge-platform/dlstreamer/issues/432) | Installation issues with gst-ugly plugins |
+| [#397](https://github.com/open-edge-platform/dlstreamer/issues/397) | Installation Error DL Streamer - Both Debian Packages and Compile from Sources |
 | Internal findings | custom efficientnetb0 fix, issue with selection region before inference, Geti classification model fix, dGPU vah264enc element not found error fix, sample: face_detection_and_classifiation fix|
 
 ## Deep Learning Streamer (DL Streamer) Pipeline Framework Release 2024.1.1
@@ -361,8 +361,8 @@ For installing Pipeline Framework with the prebuilt binaries or Docker\* or to b
 
 | **Issue \#**   | **Issue Description**  | **Fix**  | **Affected platforms**  |
 |----------------|------------------------|-----------------|-------------------------|
-| 421 | [Can we specify the IOU threshold in yolov8 post-process json like yolov5?](https://github.com/dlstreamer/dlstreamer/issues/421) | Same solution as in [#394](https://github.com/dlstreamer/dlstreamer/issues/394) | All |
-| 420 | [there is a customer's detect model need to support](https://github.com/dlstreamer/dlstreamer/issues/420) | Support for Centerface and HSEmotion added | All |
+| 421 | [Can we specify the IOU threshold in yolov8 post-process json like yolov5?](https://github.com/open-edge-platform/dlstreamer/issues/421) | Same solution as in [#394](https://github.com/open-edge-platform/dlstreamer/issues/394) | All |
+| 420 | [there is a customer's detect model need to support](https://github.com/open-edge-platform/dlstreamer/issues/420) | Support for Centerface and HSEmotion added | All |
 
 ## Deep Learning Streamer (DL Streamer) Pipeline Framework Release 2024.0.2
 
@@ -381,12 +381,12 @@ For installing Pipeline Framework with the prebuilt binaries or Docker\* or to b
 
 | **Issue \#**   | **Issue Description**  | **Fix**  | **Affected platforms**  |
 |----------------|------------------------|-----------------|-------------------------|
-| 407 | [EfficientNet-B1 support](https://github.com/dlstreamer/dlstreamer/issues/407) | We do not plan to support older DL Streamer releases with API1.0, I highly recommend to switch to newer version compatible with latest OpenVINO | All |
-| 410 | [cant run againts my camera feed](https://github.com/dlstreamer/dlstreamer/issues/410) | Config error, user opened a new issue for tracking the yolo issue and was able to see cameras now | All |
-| 412 | [with Docker cmd, cant create and dowload models inside docker](https://github.com/dlstreamer/dlstreamer/issues/412) | Config error. Without $ sign, when assigning a value (using $ to retrieve the value of a variable, e.g. to print the value): `$ export MODELS_PATH=/home/dlstreamer/temp/models1 | All |
-| 413 | [ffmpeg_openvino build failed, LibAV](https://github.com/dlstreamer/dlstreamer/issues/413) | Possible config error, missing libraries but no feedback given for 2 weeks so the issue was closed | All |
-| 415 | [cant run against Efficientnet-b0 due to model exceeds allowable size of 10MB](https://github.com/dlstreamer/dlstreamer/issues/415) | Resolved, user was able to get it running with last suggestion to use implemented RealSense specific gstreamer plugins, like •https://github.com/WKDSMRT/realsense-gstreamer => `realsensesrc` •https://gitlab.com/aivero/legacy/public/gstreamer/gst-realsense => `realsensesrc` A couple years old... | All |
-| 416 | [detection with yolo not available on latest](https://github.com/dlstreamer/dlstreamer/issues/416) | Continue with "merged" command-line, using `videobox` and or `videomixer` (or many different other ways from the internet). You might need to start again... and checking the setup on your HOST. I'm using Ubuntu 22.04LTS. Created a non-root-user. Adding the user to video and render groups. Installed docker and configured to use Docker as non-root (without using "sudo" when using "docker run"). Before starting the container, I just call xhost +. Passing the render-group-id to "docker run" (in my case `--group-add=110`) `docker run -it --net=host --device=/dev/dri --device=/dev/video0 --device=/dev/video1 --group-add=110 -v ~/.Xauthority:/home/dlstreamer/.Xauthority -v /tmp/.X11-unix -e DISPLAY=$DISPLAY -v /dev/bus/usb dlstreamer /bin/bash` (not using `-u 0 --privileged`)  | All |
+| 407 | [EfficientNet-B1 support](https://github.com/open-edge-platform/dlstreamer/issues/407) | We do not plan to support older DL Streamer releases with API1.0, I highly recommend to switch to newer version compatible with latest OpenVINO | All |
+| 410 | [cant run againts my camera feed](https://github.com/open-edge-platform/dlstreamer/issues/410) | Config error, user opened a new issue for tracking the yolo issue and was able to see cameras now | All |
+| 412 | [with Docker cmd, cant create and dowload models inside docker](https://github.com/open-edge-platform/dlstreamer/issues/412) | Config error. Without $ sign, when assigning a value (using $ to retrieve the value of a variable, e.g. to print the value): `$ export MODELS_PATH=/home/dlstreamer/temp/models1 | All |
+| 413 | [ffmpeg_openvino build failed, LibAV](https://github.com/open-edge-platform/dlstreamer/issues/413) | Possible config error, missing libraries but no feedback given for 2 weeks so the issue was closed | All |
+| 415 | [cant run against Efficientnet-b0 due to model exceeds allowable size of 10MB](https://github.com/open-edge-platform/dlstreamer/issues/415) | Resolved, user was able to get it running with last suggestion to use implemented RealSense specific gstreamer plugins, like •https://github.com/WKDSMRT/realsense-gstreamer => `realsensesrc` •https://gitlab.com/aivero/legacy/public/gstreamer/gst-realsense => `realsensesrc` A couple years old... | All |
+| 416 | [detection with yolo not available on latest](https://github.com/open-edge-platform/dlstreamer/issues/416) | Continue with "merged" command-line, using `videobox` and or `videomixer` (or many different other ways from the internet). You might need to start again... and checking the setup on your HOST. I'm using Ubuntu 22.04LTS. Created a non-root-user. Adding the user to video and render groups. Installed docker and configured to use Docker as non-root (without using "sudo" when using "docker run"). Before starting the container, I just call xhost +. Passing the render-group-id to "docker run" (in my case `--group-add=110`) `docker run -it --net=host --device=/dev/dri --device=/dev/video0 --device=/dev/video1 --group-add=110 -v ~/.Xauthority:/home/dlstreamer/.Xauthority -v /tmp/.X11-unix -e DISPLAY=$DISPLAY -v /dev/bus/usb dlstreamer /bin/bash` (not using `-u 0 --privileged`)  | All |
 
 ## Deep Learning Streamer (DL Streamer) Pipeline Framework Release 2024.0.1
 
@@ -405,14 +405,14 @@ For installing Pipeline Framework with the prebuilt binaries or Docker\* or to b
 
 | **Issue \#**   | **Issue Description**  | **Fix**  | **Affected platforms**  |
 |----------------|------------------------|-----------------|-------------------------|
-| 390 | [How to install packages with sudo inside the docker container intel/dlstreamer:latest](https://github.com/dlstreamer/dlstreamer/issues/390) | start the container as mentioned above with root-user `(-u 0) docker run -it -u 0 --rm`... and then are able to update binaries | All |
-| 392 | [installation error dlstreamer with openvino 2023.2](https://github.com/dlstreamer/dlstreamer/issues/392) | 2024.0 version supports API 2.0 so I highly recommend to check it and in case if this problem is still valid please raise new issue | All |
-| 393 | [Debian file location for DL Streamer 2022.3](https://github.com/dlstreamer/dlstreamer/issues/393) | Error no longer occurring for user | All |
-| 394 | [Custom YoloV5m Accuracy Drop in dlstreamer with model proc](https://github.com/dlstreamer/dlstreamer/issues/394) | Procedure to transform crowdhuman_yolov5m.pt model to the openvino version that can be used directly in DL Streamer with Yolo_v7 converter (no layer cutting required) * `git clone https://github.com/ultralytics/yolov5 * cd yolov5 * pip install -r requirements.txt openvino-dev * python export.py --weights crowdhuman_yolov5m.pt --include openvino` | All |
-| 396 | [Segfault when reuse same model with same model-instance-id.](https://github.com/dlstreamer/dlstreamer/issues/396) | 2024.0 version supports API 2.0 so I highly recommend to check it and in case if this problem is still valid please raise new issue | All |
-| 404 | [How to generate model proc file for yolov8?](https://github.com/dlstreamer/dlstreamer/issues/404) | Added as a feature in this release | All |
-| 406 | [yolox support](https://github.com/dlstreamer/dlstreamer/issues/406) | Added as a feature in this release | All |
-| 409 | [ERROR: from element /GstPipeline:pipeline0/GstGvaDetect:gvadetect0: base_inference plugin initialization failed](https://github.com/dlstreamer/dlstreamer/issues/409) | Suggested temporarily - to use a root-user when running the container image, like `docker run -it -u 0 [... .add here your other parameters.. ...]`, to get more permissions | All |
+| 390 | [How to install packages with sudo inside the docker container intel/dlstreamer:latest](https://github.com/open-edge-platform/dlstreamer/issues/390) | start the container as mentioned above with root-user `(-u 0) docker run -it -u 0 --rm`... and then are able to update binaries | All |
+| 392 | [installation error dlstreamer with openvino 2023.2](https://github.com/open-edge-platform/dlstreamer/issues/392) | 2024.0 version supports API 2.0 so I highly recommend to check it and in case if this problem is still valid please raise new issue | All |
+| 393 | [Debian file location for DL Streamer 2022.3](https://github.com/open-edge-platform/dlstreamer/issues/393) | Error no longer occurring for user | All |
+| 394 | [Custom YoloV5m Accuracy Drop in dlstreamer with model proc](https://github.com/open-edge-platform/dlstreamer/issues/394) | Procedure to transform crowdhuman_yolov5m.pt model to the openvino version that can be used directly in DL Streamer with Yolo_v7 converter (no layer cutting required) * `git clone https://github.com/ultralytics/yolov5 * cd yolov5 * pip install -r requirements.txt openvino-dev * python export.py --weights crowdhuman_yolov5m.pt --include openvino` | All |
+| 396 | [Segfault when reuse same model with same model-instance-id.](https://github.com/open-edge-platform/dlstreamer/issues/396) | 2024.0 version supports API 2.0 so I highly recommend to check it and in case if this problem is still valid please raise new issue | All |
+| 404 | [How to generate model proc file for yolov8?](https://github.com/open-edge-platform/dlstreamer/issues/404) | Added as a feature in this release | All |
+| 406 | [yolox support](https://github.com/open-edge-platform/dlstreamer/issues/406) | Added as a feature in this release | All |
+| 409 | [ERROR: from element /GstPipeline:pipeline0/GstGvaDetect:gvadetect0: base_inference plugin initialization failed](https://github.com/open-edge-platform/dlstreamer/issues/409) | Suggested temporarily - to use a root-user when running the container image, like `docker run -it -u 0 [... .add here your other parameters.. ...]`, to get more permissions | All |
 
 ## Deep Learning Streamer (DL Streamer) Pipeline Framework Release 2024.0
 

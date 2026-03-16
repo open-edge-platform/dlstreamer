@@ -55,7 +55,7 @@ jobs:
           fi
           echo "IMAGE_TAG=$VALUE" >> $GITHUB_ENV
       - name: Check out dlstreamer repository
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 #5.0.0
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6.0.2
         with:
           persist-credentials: false
           path: dlstreamer-repo
@@ -198,7 +198,7 @@ jobs:
           fi
           echo "IMAGE_TAG=$VALUE" >> $GITHUB_ENV
       - name: Check out dlstreamer repository
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 #5.0.0
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6.0.2
         with:
           persist-credentials: false
           path: dlstreamer-repo
@@ -322,7 +322,7 @@ jobs:
           fi
           echo "IMAGE_TAG=$VALUE" >> $GITHUB_ENV
       - name: Check out edge-ai-libraries repository
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 #5.0.0
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6.0.2
         with:
           repository: open-edge-platform/edge-ai-libraries
           persist-credentials: false

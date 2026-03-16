@@ -35,7 +35,7 @@ This demo uses the following models from Hugging Face:
 * Face detection: `arnabdhar/YOLOv8-Face-Detection`
 * Classification: `dima806/fairface_age_image_detection`
 
-Exported OpenVINO artifacts are stored locally in the project directory after the first run.
+Exported OpenVINO artifacts are stored in the current working directory after the first run.
 
 ## Reproducible setup
 
