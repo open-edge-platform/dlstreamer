@@ -70,6 +70,28 @@ if "Intel" in lscpu_output:
      - Intel NPU
      - Intel CPU
 
+```mermaid
+flowchart LR
+    A[Start] --> B{Intel GPU and Nvidia GPU exist}
+    B -->|Yes| C[Run DL Streamer and DeepStream]
+	B -->|No| D{Intel NPU and Nvidia GPU exist}
+	D -->|Yes| C
+	D -->|No| E{Intel CPU and Nvidia GPU exist}
+	E -->|Yes| C
+	E -->|No| F{Intel GPU exists}
+	F -->|Yes| G[Run DL Streamer]
+	F -->|No| H{Nvidia GPU exists}
+	H -->|Yes| I[Run DeepStream]
+	H -->|No| J{Intel NPU exists}
+	J -->|Yes| G
+	J -->|No| K{Intel CPU exists}
+	K -->|Yes| G
+	K -->|No| L[Exit]
+	C --> L
+	G --> L
+	I --> L
+```
+
 ## How to use
 
 Running pipelines simultaneously on DL Streamer and DeepStream:
