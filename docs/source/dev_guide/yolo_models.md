@@ -21,7 +21,7 @@ from ultralytics import YOLO
 model = YOLO("yolo.pt")
 
 # Export the model
-model.export(format="openvino")  # creates 'yolo_openvino_model/'
+model.export(format="openvino", int8=True)  # creates 'yolo_int8_openvino_model/'
 ```
 
 The argument passed to `YOLO()` can be either a local PyTorch file or an identifier for a model available from Ultralytics, such as [yolo26n.pt](https://github.com/ultralytics/assets/releases/download/v8.4.0/yolo26n.pt).
