@@ -1,1 +1,3 @@
-:content-doc{path="../../../docs/source/dev_guide/coexisting.md"}
+This is the shell script implementation for running DL Streamer and DeepStream pipelines coexistently.
+
+[Coexistently use of DL Streamer and DeepStream](../../../docs/source/dev_guide/dlstreamer-deepstream-coexistence.md)

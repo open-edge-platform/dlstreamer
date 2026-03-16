@@ -48,7 +48,7 @@
   - [1. Install VTune™](./profiling.md#1-install-vtune)
   - [2. Configure VTune™ host platform, Windows-to-Linux remote profiling method](./profiling.md#2-configure-vtune-host-platform-windows-to-linux-remote-profiling-method)
   - [3. Results Analysis](./profiling.md#3-results-analysis)
-- [Concurrent Use of DL Streamer and DeepStream](./concurrent.md)
+- [Coexistently use of DL Streamer and DeepStream](./dlstreamer-deepstream-coexistence.md)
 - [Converting NVIDIA DeepStream Pipelines to Intel® Deep Learning Streamer (Intel® DL Streamer) Pipeline Framework](./converting_deepstream_to_dlstreamer.md)
   - [Contents](./converting_deepstream_to_dlstreamer.md#contents)
   - [Preparing Your Model](./converting_deepstream_to_dlstreamer.md#preparing-your-model)
