@@ -1,6 +1,6 @@
-# Concurrent Use of DL Streamer and DeepStream
+# Coexisting use of DL Streamer and DeepStream
 
-This tutorial explains how to simultaneously run DL Streamer and DeepStream on a single machine for optimal performance.
+This tutorial explains how to simultaneously or sequentially run DL Streamer and DeepStream on a single machine for optimal performance.
 It serves two main purposes:
 1. It shows DeepStream users that DL Streamer has similar capabilities and can be used for their use cases with very low time and effort investment.
     - The sample adds DL Streamer to Intel-powered setups without disrupting the current environment configuration.
@@ -11,11 +11,38 @@ It serves two main purposes:
 
 Systems equipped with both NVIDIA GPUs and Intel hardware (GPU/NPU/CPU) can achieve enhanced performance by distributing workloads across available accelerators. Rather than relying solely on DeepStream for pipeline execution, you can offload additional processing tasks to Intel accelerators, maximizing system resource utilization.
 
-A Python script [concurrent_dls_and_ds.py](https://github.com/open-edge-platform/dlstreamer/blob/main/samples/gstreamer/python/concurrent/concurrent_dls_and_ds.py) is provided to facilitate this concurrent setup. It assumes that Docker and Python are properly installed and configured. Ubuntu 24.04 is currently the only supported operating system.
+A Python script [coexistence_dls_and_ds.py](https://github.com/open-edge-platform/dlstreamer/blob/main/samples/gstreamer/python/coexistence/coexistence_dls_and_ds.py) is provided to facilitate this coexisting setup. It assumes that Docker and Python are properly installed and configured. Ubuntu 24.04 is currently the only supported operating system.
 
 ## Detection algorithm
 
 The DL Streamer pipeline performs license plate detection and subsequently applies OCR to recognize the text. In contrast, the DeepStream pipeline first detects the vehicle, then identifies the license plate within the detected vehicle object, and finally performs OCR to recognize the text.
+
+## Hardware detection
+
+The list of available GPUs is retrieved using the `lspci -nn` Linux utility.
+NPU detection is performed by verifying the existence of the `/dev/accel` directory.
+CPU information is obtained using the `lscpu` Linux utility.
+
+```python
+# Check for Intel and Nvidia hardware
+lspci_output=os.popen("lspci -nn").read().split("\n")
+video_pattern = re.compile("^.*?(VGA|3D|Display).*$")
+INTEL_GPU=False
+NVIDIA_GPU=False
+INTEL_NPU=False
+INTEL_CPU=False
+for pci_dev in lspci_output:
+    if video_pattern.match(pci_dev) and "Intel" in pci_dev:
+        INTEL_GPU=True
+    elif video_pattern.match(pci_dev) and "NVIDIA" in pci_dev:
+        NVIDIA_GPU=True
+
+if os.path.exists("/dev/accel"):
+    INTEL_NPU=True
+lscpu_output=os.popen("lscpu").read().replace("\n", " ")
+if "Intel" in lscpu_output:
+    INTEL_CPU=True
+```
 
 ## How it works
 
@@ -45,8 +72,16 @@ The DL Streamer pipeline performs license plate detection and subsequently appli
 
 ## How to use
 
+Running pipelines simultaneously on DL Streamer and DeepStream:
+
 ```sh
-python3 ./concurrent_dls_and_ds.py <input> LPR <output>
+python3 ./coexistence_dls_and_ds.py <input> LPR <output> -simultaneously
+```
+
+Running pipelines sequentially on DL Streamer and DeepStream:
+
+```sh
+python3 ./coexistence_dls_and_ds.py <input> LPR <output>
 ```
 
 - `input` can be an RTSP or HTTPS stream, or a file.
@@ -54,6 +89,7 @@ python3 ./concurrent_dls_and_ds.py <input> LPR <output>
 - `output` is the filename. For example, the `Output.mp4` or `Output` parameters
   will create the `Output_dls.mp4` (DL Streamer output) and/or `Output_ds.mp4`
   (DeepStream output) files.
+- Use the `-simultaneously` argument when the user wants to run pipelines concurrently. If the user wants to run pipelines sequentially, no argument is required. 
 
 ## Notes
 
