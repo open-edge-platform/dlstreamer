@@ -46,7 +46,6 @@ echo Usage: yolo_detect.bat [MODEL] [DEVICE] [INPUT] [OUTPUT] [PPBKEND] [PRECISI
 echo.
 echo Arguments:
 echo   MODEL     - Model name (default: yolox_s)
-echo             Supported: yolox-tiny, yolox_s, yolov5s, yolov5su, yolov7, yolov8s, yolov8n-obb, yolov8n-seg, yolov9c, yolov10s, yolo11s, yolo11s-obb, yolo11s-seg, yolo11s-pose
 echo   DEVICE    - Device (default: GPU). Supported: CPU, GPU, NPU
 echo   INPUT     - Input source (default: Pexels video URL)
 echo   OUTPUT    - Output type (default: display). Supported: file, display, fps, json, display-and-json
@@ -59,7 +58,7 @@ EXIT /B 0
 
 @REM Validate model
 set VALID_MODEL=0
-for %%m in (yolox-tiny yolox_s yolov5s yolov5su yolov7 yolov8s yolov8n-obb yolov8n-seg yolov9c yolov10s yolo11s yolo11s-seg yolo11s-obb yolo11s-pose) do (
+for %%m in (yolox-tiny yolox_s yolov5s yolov5su yolov7 yolov8s yolov8n-obb yolov8n-seg yolov9c yolov10s yolo11s yolo11s-seg yolo11s-obb yolo11s-pose yolo26n yolo26s yolo26m yolo26l yolo26x yolo26s-obb) do (
     if "%MODEL%"=="%%m" set VALID_MODEL=1
 )
 if %VALID_MODEL%==0 (
