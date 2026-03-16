@@ -31,6 +31,19 @@
 #include "safe_arithmetic.hpp"
 #include "utils.h"
 
+#include <openvino/op/constant.hpp>
+#include <openvino/op/convert.hpp>
+#include <openvino/op/gather.hpp>
+#include <openvino/op/greater.hpp>
+#include <openvino/op/maximum.hpp>
+#include <openvino/op/multiply.hpp>
+#include <openvino/op/reshape.hpp>
+#include <openvino/op/squeeze.hpp>
+#include <openvino/op/strided_slice.hpp>
+#include <openvino/op/subtract.hpp>
+#include <openvino/op/add.hpp>
+#include <openvino/op/topk.hpp>
+
 #ifndef _WIN32
 #ifdef ENABLE_VAAPI
 #include <dlstreamer/vaapi/context.h>
@@ -823,6 +836,11 @@ class OpenVinoNewApiImpl {
         GVA_DEBUG("Setting batch size of %d to model", _batch_size);
         ov::set_batch(_model, _batch_size);
 
+        // NPU workaround: replace I64-based label outputs with FP32 argmax
+        if (_device.find("NPU") != std::string::npos) {
+            fix_npu_int_output_labels(_model);
+        }
+
         GVA_DEBUG("Model inputs after configuration:");
         size_t idx = 0;
         for (auto &input : _model->inputs()) {
@@ -834,6 +852,162 @@ class OpenVinoNewApiImpl {
         // FIXME:
         auto item = _model->inputs().front();
         _image_input_name = item.get_any_name();
+    }
+
+    /// NPU workaround: replace I64-based label outputs with a pure FP32 argmax.
+    ///
+    /// The NPU plugin cannot correctly compute I64 operations such as the
+    /// TopK-argmax → Squeeze → Reshape → Gather chain that produces per-detection
+    /// class labels.  This function detects that pattern and replaces it with an
+    /// equivalent FP32 computation: Gather the Sigmoid classification scores for
+    /// the selected detections, then compute argmax via iterative Greater/Maximum
+    /// comparisons.  Boxes and all other FP32 paths are left untouched.
+    static void fix_npu_int_output_labels(std::shared_ptr<ov::Model> &model) {
+        for (auto &output : model->outputs()) {
+            // Look for the pattern: Result ← Convert(I64→FP32) ← ... ← Gather ← ... ← TopK
+            auto result_node = output.get_node_shared_ptr();
+            auto producer = result_node->input_value(0);
+            auto producer_node = producer.get_node_shared_ptr();
+
+            // Check for Convert(I64/I32 → FP32)
+            auto convert_op = std::dynamic_pointer_cast<ov::op::v0::Convert>(producer_node);
+            if (!convert_op)
+                continue;
+            auto src_type = convert_op->input_value(0).get_element_type();
+            if (src_type != ov::element::i64 && src_type != ov::element::i32)
+                continue;
+
+            // Trace backward through Reshape nodes to find the Gather
+            auto node = convert_op->input_value(0).get_node_shared_ptr();
+            while (node && node->get_type_info().name != std::string("Gather")) {
+                if (node->get_input_size() == 0)
+                    break;
+                node = node->input_value(0).get_node_shared_ptr();
+            }
+            if (!node || node->get_type_info().name != std::string("Gather"))
+                continue;
+
+            auto gather_node = node;
+            auto gather_indices = gather_node->input_value(1);  // I32 selection indices
+            auto gather_axis = gather_node->input_value(2);
+
+            // Trace Gather data input backward to find TopK (argmax)
+            node = gather_node->input_value(0).get_node_shared_ptr();
+            while (node && node->get_type_info().name != std::string("TopK")) {
+                if (node->get_input_size() == 0)
+                    break;
+                node = node->input_value(0).get_node_shared_ptr();
+            }
+            if (!node || node->get_type_info().name != std::string("TopK"))
+                continue;
+
+            auto topk_node = node;
+            // TopK input 0 is Multiply(Sigmoid(cls), objectness)
+            auto multiply_node = topk_node->input_value(0).get_node_shared_ptr();
+            if (multiply_node->get_type_info().name != std::string("Multiply"))
+                continue;
+
+            // Multiply input 0 is Sigmoid(cls) — the raw classification probabilities
+            auto sigmoid_output = multiply_node->input_value(0);  // [1, N, C]
+            auto sig_shape = sigmoid_output.get_partial_shape();
+            if (sig_shape.rank().get_length() != 3 || sig_shape[2].is_dynamic())
+                continue;
+
+            auto num_anchors = sig_shape[1].get_length();
+            auto num_classes = sig_shape[2].get_length();
+            if (num_classes < 2 || num_classes > 100)
+                continue;
+
+            GVA_INFO("NPU fix: replacing I64 labels output '%s' with FP32 argmax "
+                     "(anchors=%zu, classes=%zu)",
+                     output.get_any_name().c_str(),
+                     static_cast<size_t>(num_anchors),
+                     static_cast<size_t>(num_classes));
+
+            // Reshape Sigmoid from [1, N, C] to [N, C] for Gather on axis 0
+            auto reshape_target = ov::op::v0::Constant::create(
+                ov::element::i32, {2},
+                std::vector<int32_t>{static_cast<int32_t>(num_anchors),
+                                     static_cast<int32_t>(num_classes)});
+            auto sig_2d = std::make_shared<ov::op::v1::Reshape>(
+                sigmoid_output, reshape_target, false);
+
+            // Gather selected detections: [N, C] → [K, C] (K = e.g. 100)
+            auto sig_gathered = std::make_shared<ov::op::v8::Gather>(
+                sig_2d, gather_indices, gather_axis);
+
+            // Determine K from gather output
+            // Reshape to [1, K, C] for slicing
+            auto neg_one = ov::op::v0::Constant::create(
+                ov::element::i32, {3},
+                std::vector<int32_t>{1, -1, static_cast<int32_t>(num_classes)});
+            auto sig_3d = std::make_shared<ov::op::v1::Reshape>(
+                sig_gathered, neg_one, false);
+
+            // Build iterative argmax in FP32:
+            // argmax = 0, max_score = score[:, :, 0]
+            // for c = 1..C-1:
+            //   is_better = Greater(score[:,:,c], max_score)
+            //   is_better_f32 = Convert(is_better, f32)
+            //   not_better = 1 - is_better_f32
+            //   argmax = not_better * argmax + is_better_f32 * c
+            //   max_score = Maximum(max_score, score[:,:,c])
+
+            // Helper: slice class c from [1, K, C] → [1, K, 1]
+            auto slice_class = [&](ov::Output<ov::Node> data, int c) -> ov::Output<ov::Node> {
+                auto begin = ov::op::v0::Constant::create(
+                    ov::element::i32, {3}, std::vector<int32_t>{0, 0, c});
+                auto end = ov::op::v0::Constant::create(
+                    ov::element::i32, {3}, std::vector<int32_t>{0, 0, c + 1});
+                auto strides = ov::op::v0::Constant::create(
+                    ov::element::i32, {3}, std::vector<int32_t>{1, 1, 1});
+                // begin_mask={1,1,0}: ignore begin for dims 0,1 (take all)
+                // end_mask={1,1,0}: ignore end for dims 0,1 (take all)
+                return std::make_shared<ov::op::v1::StridedSlice>(
+                    data, begin, end, strides,
+                    std::vector<int64_t>{1, 1, 0},  // begin_mask
+                    std::vector<int64_t>{1, 1, 0}); // end_mask
+            };
+
+            auto one_f32 = ov::op::v0::Constant::create(ov::element::f32, {}, {1.0f});
+
+            ov::Output<ov::Node> max_score = slice_class(sig_3d, 0); // [1, K, 1]
+            ov::Output<ov::Node> argmax_val = ov::op::v0::Constant::create(
+                ov::element::f32, {1, 1, 1}, {0.0f});
+
+            for (int64_t c = 1; c < num_classes; ++c) {
+                auto sc = slice_class(sig_3d, static_cast<int>(c));
+                // is_better: bool [1, K, 1]
+                auto is_better = std::make_shared<ov::op::v1::Greater>(sc, max_score);
+                auto is_better_f32 = std::make_shared<ov::op::v0::Convert>(
+                    is_better, ov::element::f32);
+                auto not_better = std::make_shared<ov::op::v1::Subtract>(one_f32, is_better_f32);
+
+                auto c_const = ov::op::v0::Constant::create(
+                    ov::element::f32, {}, {static_cast<float>(c)});
+
+                // argmax = not_better * argmax + is_better_f32 * c
+                auto keep_old = std::make_shared<ov::op::v1::Multiply>(not_better, argmax_val);
+                auto set_new = std::make_shared<ov::op::v1::Multiply>(is_better_f32, c_const);
+                argmax_val = std::make_shared<ov::op::v1::Add>(keep_old, set_new);
+
+                // max_score = max(max_score, sc)
+                max_score = std::make_shared<ov::op::v1::Maximum>(max_score, sc);
+            }
+
+            // Squeeze last dim: [1, K, 1] → [1, K]
+            auto squeeze_axis = ov::op::v0::Constant::create(
+                ov::element::i32, {1}, {2});
+            auto argmax_2d = std::make_shared<ov::op::v0::Squeeze>(argmax_val, squeeze_axis);
+
+            // Replace the Result input
+            result_node->input(0).replace_source_output(argmax_2d);
+
+            GVA_INFO("NPU fix: labels output '%s' now uses FP32 argmax",
+                     output.get_any_name().c_str());
+        }
+
+        model->validate_nodes_and_infer_types();
     }
 
     void configure_model_inputs(const ConfigHelper &config, ov::preprocess::PrePostProcessor &preproc) {
