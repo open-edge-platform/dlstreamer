@@ -31,7 +31,7 @@ The DL Streamer pipeline performs license plate detection and subsequently appli
    makes a custom library and copies dict.txt to the current directory if `deepstream_tao_apps`
    does not exist.
 
-3. Hardware detection depends on the setup. Algorithm is as follows:
+3. Hardware detection depends on the setup. The algorithm is as follows:
 
    - Run pipeline simultaneously on both devices for:
      - both Nvidia and Intel GPUs
