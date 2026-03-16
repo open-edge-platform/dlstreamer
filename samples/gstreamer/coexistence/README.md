@@ -1,1 +1,1 @@
-{{ .Page.Resources.GetMatch "*../../../docs/source/dev_guide/coexisting.md*" }}
+:content-doc{path="../../../docs/source/dev_guide/coexisting.md"}
