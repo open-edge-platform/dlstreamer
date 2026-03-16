@@ -11,7 +11,7 @@ It serves two main purposes:
 
 Systems equipped with both NVIDIA GPUs and Intel hardware (GPU/NPU/CPU) can achieve enhanced performance by distributing workloads across available accelerators. Rather than relying solely on DeepStream for pipeline execution, you can offload additional processing tasks to Intel accelerators, maximizing system resource utilization.
 
-A Python script [concurrent_dls_and_ds.py](https://github.com/open-edge-platform/dlstreamer/blob/main/samples/gstreamer/python/concurrent/concurrent_dls_and_ds.py) is provided to facilitate this concurrent setup. It assumes that Docker and Python are properly installed and configured. The Ubuntu 24.04 is currently the only supported operating system.
+A Python script [concurrent_dls_and_ds.py](https://github.com/open-edge-platform/dlstreamer/blob/main/samples/gstreamer/python/concurrent/concurrent_dls_and_ds.py) is provided to facilitate this concurrent setup. It assumes that Docker and Python are properly installed and configured. Ubuntu 24.04 is currently the only supported operating system.
 
 ## Detection algorithm
 
