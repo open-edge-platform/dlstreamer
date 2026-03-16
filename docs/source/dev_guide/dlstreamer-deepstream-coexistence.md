@@ -1,4 +1,4 @@
-# Coexisting use of DL Streamer and DeepStream
+# Coexistently use of DL Streamer and DeepStream
 
 This tutorial explains how to simultaneously or sequentially run DL Streamer and DeepStream on a single machine for optimal performance.
 It serves two main purposes:
