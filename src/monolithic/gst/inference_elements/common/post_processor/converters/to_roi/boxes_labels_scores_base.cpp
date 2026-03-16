@@ -149,6 +149,7 @@ TensorsTable BoxesLabelsScoresConverter::convert(const OutputBlobs &output_blobs
 
         return storeObjects(objects_table);
     } catch (const std::exception &e) {
+        fprintf(stderr, "ATSS inner exception: %s\n", e.what());
         std::throw_with_nested(std::runtime_error("Failed to do ATSS post-processing."));
     }
     return TensorsTable{};
