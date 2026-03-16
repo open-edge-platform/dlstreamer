@@ -21,6 +21,172 @@ read_model("model.xml")  →  modify graph  →  compile_model(model, device)
 
 ---
 
+## Theory: How an OpenVINO Model Graph Works
+
+### What is a model?
+
+An OpenVINO model is a **directed acyclic graph (DAG)** of operations. It is the
+intermediate representation (IR) that OpenVINO uses regardless of the original framework
+(PyTorch, TensorFlow, ONNX). When you call `core.read_model("model.xml")`, OpenVINO
+parses the XML file and builds this graph in memory.
+
+### What is a node?
+
+A **node** is a single operation in the graph. Every node:
+
+- Has a **type** — what computation it performs (e.g. `Sigmoid`, `Gather`, `Multiply`, `Const`)
+- Has a **friendly name** — a human-readable identifier (e.g. `"aten::sigmoid/Sigmoid"`)
+- Has **zero or more input ports** — where it receives data from upstream nodes
+- Has **one or more output ports** — where it sends computed results to downstream nodes
+
+Special node types:
+- **`Parameter`** — model input (no input ports, one output port). Represents external data
+  fed at inference time (e.g. an image tensor).
+- **`Result`** — model output (one input port, no output ports). Each Result exposes a
+  tensor to user code after inference.
+- **`Const`** — constant data embedded in the model (no input ports, one output port).
+  Weights, bias, shape descriptors, etc.
+
+### Anatomy of a node
+
+```
+                        Node ("aten::mul/Multiply")
+                    ┌──────────────────────────────────┐
+                    │           type: Multiply          │
+                    │      friendly_name: aten::mul/... │
+   input port 0 ──►│  input(0)                         │
+  [1,3549,3] FP32   │                          output(0)│──► output port 0
+                    │                                   │   [1,3549,3] FP32
+   input port 1 ──►│  input(1)                         │
+  [1,3549,1] FP32   │                                   │
+                    └──────────────────────────────────┘
+```
+
+Each **input port** is connected to exactly one **output port** of an upstream node.
+Each **output port** can be connected to **multiple** input ports of downstream nodes
+(fan-out).
+
+### Input ports vs output ports
+
+```
+  ┌─────────┐         ┌───────────┐         ┌──────────┐
+  │ Sigmoid  │         │ Multiply  │         │  TopK    │
+  │          │         │           │         │          │
+  │  out(0) ─┼────────►│  in(0)    │         │          │
+  └─────────┘         │           │         │          │
+                      │    out(0) ─┼────────►│  in(0)   │
+  ┌─────────┐         │           │         │          │
+  │ Sigmoid  │         │           │         │  out(0) ─┼──► values  [FP32]
+  │ (obj)    │         │           │         │  out(1) ─┼──► indices [I64]
+  │  out(0) ─┼────────►│  in(1)    │         │          │
+  └─────────┘         └───────────┘         └──────────┘
+```
+
+- **Output port** (`node.output(i)`): represents the i-th tensor produced by this node.
+  Has a **partial shape** and **element type**. May have **tensor names** (from the original model).
+  Most nodes have one output port; `TopK` has two (values and indices).
+
+- **Input port** (`node.input(i)`): represents the i-th tensor consumed by this node.
+  Is connected to exactly one upstream output port. You access the upstream output via
+  `node.input(i).get_source_output()`.
+
+### Key node methods
+
+| Method (Python) | C++ equivalent | Returns | Description |
+|---|---|---|---|
+| `node.get_type_name()` | `node->get_type_info().name` | `str` | Operation type: `"Sigmoid"`, `"Gather"`, etc. |
+| `node.get_friendly_name()` | `node->get_friendly_name()` | `str` | Human-readable name from the model |
+| `node.get_input_size()` | `node->get_input_size()` | `int` | Number of input ports |
+| `node.outputs()` | `node->outputs()` | list of output ports | All output ports |
+| `node.output(i)` | `node->output(i)` | output port | The i-th output port |
+| `node.input(i)` | `node->input(i)` | input port handle | The i-th input port handle |
+
+### Key output port methods
+
+| Method (Python) | C++ equivalent | Returns | Description |
+|---|---|---|---|
+| `out.get_partial_shape()` | `out.get_partial_shape()` | shape | Tensor shape (may contain dynamic dims) |
+| `out.get_element_type()` | `out.get_element_type()` | type | `f32`, `i64`, `bool`, etc. |
+| `out.get_names()` | `out.get_names()` | set of str | Tensor names (e.g. `{"cls_scores"}`) |
+| `out.get_target_inputs()` | `out.get_target_inputs()` | set of input ports | All downstream consumers |
+| `out.get_node()` | `out.get_node_shared_ptr()` | node | The node that owns this output port |
+
+### Key input port methods
+
+| Method (Python) | C++ equivalent | Returns | Description |
+|---|---|---|---|
+| `inp.get_source_output()` | (use `node->input_value(i)`) | output port | The upstream output port connected here |
+| `inp.get_node()` | `inp.get_node()` | node | The node that owns this input port |
+| `inp.replace_source_output(x)` | `inp.replace_source_output(x)` | — | **Rewire**: disconnect old source, connect `x` |
+
+### A complete model graph (simplified ATSS detection)
+
+```
+  Parameter "image"                       Const (weights, biases, ...)
+  [1,3,416,416] FP32                              │
+        │                                         │
+        ▼                                         ▼
+  ┌──────────────────────────────────────────────────┐
+  │              Backbone + Neck (FPN)               │
+  │         (Conv, BatchNorm, ReLU, Add, ...)        │
+  └──────────┬──────────────────────┬────────────────┘
+             │                      │
+             ▼                      ▼
+        ┌─────────┐           ┌──────────┐
+        │ Sigmoid  │           │ Sigmoid  │
+        │  (cls)   │           │  (obj)   │
+        │[1,3549,3]│           │[1,3549,1]│
+        └────┬─────┘           └────┬─────┘
+             │                      │
+             ▼                      ▼
+        ┌────────────────────────────────┐
+        │     Multiply (cls × obj)       │
+        │         [1, 3549, 3]           │
+        └───────────┬────────────────────┘
+                    │
+          ┌─────────┴─────────┐
+          ▼                   ▼
+    ┌───────────┐       ┌──────────┐
+    │ ReduceMax │       │  TopK    │
+    │(max score)│       │(argmax)  │        ┌──────────────┐
+    │[1,3549]   │       │ out(0): FP32│      │ BBox Decode  │
+    └─────┬─────┘       │ out(1): I64 │◄────│  + NMS       │
+          │             └──────┬──────┘      │ [1,100,5]    │
+          ▼                    │             └──────┬───────┘
+    ┌───────────┐              │                    │
+    │   TopK    │              ▼                    │
+    │ (top-100) │        Squeeze → Reshape          │
+    │ indices   │──────►  → Gather(I64) →           │
+    │ [1,100]   │────────────────────────►          │
+    └───────────┘        Reshape → Convert          │
+                         (I64 → FP32)               │
+                              │                     │
+                              ▼                     ▼
+                       Result "labels"       Result "boxes"
+                        [1, 100]              [1, 100, 5]
+```
+
+The **boxes** path (right) is pure FP32 — works on all devices.
+The **labels** path (middle) routes through I64 operations — broken on NPU.
+
+### How data flows at inference
+
+1. User provides input tensor → fills `Parameter` node
+2. Runtime executes nodes in topological order (inputs before dependents)
+3. Each node reads from its input ports, computes, writes to its output ports
+4. `Result` nodes collect final tensors → user reads them after `infer()`
+
+### `get_ordered_ops()` — topological traversal
+
+`model.get_ordered_ops()` returns all nodes sorted topologically:
+- `Parameter` and `Const` nodes first (they have no inputs)
+- Then operations in dependency order (each node appears after all its inputs)
+- `Result` nodes last
+
+This is the order the runtime will execute operations in.
+
+---
+
 ## Key Concepts
 
 ### Graph structure
