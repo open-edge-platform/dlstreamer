@@ -3,6 +3,7 @@
 ## [Preview] Version 2026.0
 
 ## Key highlights:
+
 * New elements: gvafpsthrottle, g3dradarprocess, g3dlidarparse
 * New model support: YOLOv26, YOLO-E, RT-DETR, HuggingFace ViT
 * Streamlined integration with Ultralytics and HuggingFace model hubs

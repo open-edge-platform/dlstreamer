@@ -197,7 +197,7 @@ cd samples
 ./download_public_models.sh yolo11s coco128
 ```
 
-For detailed instructions on downloading models, including the full list of supported models and quantization options, see the [Download Public Models Guide](../../../../../docs/source/dev_guide/download_public_models.md).
+For detailed instructions on downloading models, including the full list of supported models and quantization options, see the [Download Public Models Guide](../../../../../docs/user-guide/dev_guide/download_public_models.md).
 
 > **Note**: Make sure to set your `MODELS_PATH` environment variable in Windows to point to the same location where models were downloaded (e.g., `set MODELS_PATH=C:\models`).
 

@@ -6,7 +6,7 @@
 # ==============================================================================
 
 BUILD_TYPES=${1:-"html,linkcheck,spelling"}
-SOURCE_DIR=${2:-"./source"}
+SOURCE_DIR=${2:-"./user-guide"}
 
 echo "Build types: $BUILD_TYPES"
 
