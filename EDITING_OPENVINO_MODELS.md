@@ -119,6 +119,44 @@ Each **output port** can be connected to **multiple** input ports of downstream 
 | `inp.get_node()` | `inp.get_node()` | node | The node that owns this input port |
 | `inp.replace_source_output(x)` | `inp.replace_source_output(x)` | — | **Rewire**: disconnect old source, connect `x` |
 
+### Key model methods
+
+The model object (`ov.Model` / `ov::Model`) is the top-level container for the graph.
+
+| Method (Python) | C++ equivalent | Returns | Description |
+|---|---|---|---|
+| `model.get_ordered_ops()` | `model->get_ordered_ops()` | list of nodes | All nodes in topological order (inputs first, Results last) |
+| `model.inputs` | `model->inputs()` | list of `ov::Output` | Model inputs — output ports of Parameter nodes (what Parameter produces) |
+| `model.outputs` | `model->outputs()` | list of `ov::Output` | Model outputs — the tensors arriving at Result nodes (what you read after inference) |
+| `model.input(i)` | `model->input(i)` | output port | The i-th model input |
+| `model.output(i)` | `model->output(i)` | output port | The i-th model output |
+| `model.get_parameters()` | `model->get_parameters()` | list of Parameter nodes | All Parameter (input) nodes |
+| `model.get_results()` | `model->get_results()` | list of Result nodes | All Result (output) nodes |
+| `model.add_results([r])` | — | — | Register new Result nodes (adds outputs) |
+| `model.get_friendly_name()` | `model->get_friendly_name()` | str | Model name (e.g. `"Model0"`) |
+| `model.validate_nodes_and_infer_types()` | `model->validate_nodes_and_infer_types()` | — | **Must call after any graph edit** — propagates shapes/types, catches errors |
+
+**Finding nodes by name** — there is no `get_node_by_id()` or `get_node_by_name()`.
+Use `get_ordered_ops()` with a loop:
+
+```python
+# By friendly name (matches "name" attribute in XML)
+for node in model.get_ordered_ops():
+    if node.get_friendly_name() == "aten::sigmoid/Sigmoid":
+        sigmoid = node
+        break
+
+# By output tensor name (matches "names" attribute in XML)
+for node in model.get_ordered_ops():
+    for out in node.outputs():
+        if "cls_scores" in out.get_names():
+            sigmoid = node
+            break
+```
+
+The numeric `id` from the XML file (e.g. `id="456"`) is an internal serialization
+identifier and is **not exposed** in the Python or C++ API.
+
 ### A complete model graph (simplified ATSS detection)
 
 ```
