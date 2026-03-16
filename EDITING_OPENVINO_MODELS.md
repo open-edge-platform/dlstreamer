@@ -31,6 +31,33 @@ read_model("model.xml")  →  modify graph  →  compile_model(model, device)
 - **`Parameter`** nodes = model inputs
 - **`Result`** nodes = model outputs
 
+### Output ports (`ov::Output<ov::Node>`)
+
+Throughout this document, variables like `tensor_a`, `sigmoid_output`, `gathered` etc.
+are **not** raw data arrays — they are **output ports**: references to edges in the graph.
+
+An output port (`ov::Output<ov::Node>` in C++ / `openvino.runtime.Output` in Python) represents
+a point in the graph where a tensor will flow at inference time. When you write:
+
+```python
+a = ops.relu(x)          # a = output port of the new ReLU node
+b = ops.sigmoid(y)       # b = output port of the new Sigmoid node
+c = ops.add(a, b)        # c = output port of Add — connects ReLU and Sigmoid outputs
+```
+
+you are **describing computation structure**, not executing it. No data flows until `infer()`.
+
+You get output ports from:
+- **Creating new nodes:** `ops.relu(x)` returns the output port of the new ReLU
+- **Accessing existing node outputs:** `node.output(0)` — the first output port of `node`
+- **Tracing upstream connections:** `node.input(0).get_source_output()` — the output port
+  that feeds into this node's input 0
+
+All node constructors accept output ports as inputs, enabling chaining:
+```python
+result = ops.squeeze(ops.add(ops.multiply(a, b), ops.multiply(c, d)), axis)
+```
+
 ### The fundamental operation: replace_source_output
 Both Python and C++ use the same core mechanism to rewire the graph:
 
