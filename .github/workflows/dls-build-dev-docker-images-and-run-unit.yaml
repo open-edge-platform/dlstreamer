@@ -129,10 +129,15 @@ jobs:
             EXPECTED_SIZE_MB=${EXPECTED_SIZE_MB_DEV_U24}
           fi
 
-          IMAGE_SIZE_BYTES=$(docker image inspect "$IMAGE_NAME" --format='{{.Size}}')
-          IMAGE_SIZE_MB=$((IMAGE_SIZE_BYTES / 1024 / 1024))
+          # Use 'docker images' SIZE — identical to the SIZE column visible when running 'docker images' manually on the runner
+          SIZE_STR=$(docker images --no-trunc --format '{{.Size}}' "$IMAGE_NAME")
+          IMAGE_SIZE_MB=$(echo "$SIZE_STR" | awk '
+            /GB$/ { printf "%d", $1 * 1024; next }
+            /MB$/ { printf "%d", $1; next }
+            /kB$/ { printf "0"; next }
+          ')
 
-          echo "Actual image size: ${IMAGE_SIZE_MB} MB"
+          echo "Actual image size : ${IMAGE_SIZE_MB} MB"
           echo "Expected size: ${EXPECTED_SIZE_MB} MB"
           DIFF=$(( IMAGE_SIZE_MB - EXPECTED_SIZE_MB ))
           ABS_DIFF=${DIFF#-}
