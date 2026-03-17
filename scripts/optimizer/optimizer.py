@@ -250,7 +250,6 @@ def sample_pipeline(pipelines, sample_duration):
 
     del pipeline
     fps = fps_counter.get_property("avg-fps")
-    detections = fps_counter.get_property("detections")
     logger.debug("Sampled fps: %.2f", fps)
     return fps
 
