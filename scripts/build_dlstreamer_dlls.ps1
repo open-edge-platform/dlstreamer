@@ -81,6 +81,51 @@ function Invoke-DownloadFile {
 	}
 }
 
+function Uninstall-GStreamer {
+	# Check if this is an Inno installation (GStreamer 1.28+)
+	$innoUninstallKey = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\c20a66dc-b249-4e6d-a68a-d0f836b2b3cf_is1"
+	$quietUninstall = (Get-ItemProperty -Path $innoUninstallKey -Name "QuietUninstallString" -ErrorAction SilentlyContinue).QuietUninstallString
+
+	if ($quietUninstall) {
+		Write-Host "Uninstalling GStreamer (Inno)..."
+		if ($quietUninstall -match '^"([^"]+)"\s*(.*)$') {
+			$process = Start-Process -Wait -PassThru -FilePath $Matches[1] -ArgumentList $Matches[2]
+			if ($process.ExitCode -ne 0) {
+				Write-Host "GStreamer uninstall returned exit code: $($process.ExitCode)"
+			}
+		}
+		else {
+			Write-Host "Could not parse QuietUninstallString: $quietUninstall"
+		}
+		# Workaround: GStreamer 1.28.1 uninstaller does not remove registry entries
+		if (Test-Path "HKLM:\SOFTWARE\GStreamer1.0\x86_64") {
+			Remove-Item -Path "HKLM:\SOFTWARE\GStreamer1.0\x86_64" -Recurse -Force
+			Write-Host "Removed GStreamer registry entries"
+		}
+	}
+	else {
+		Write-Host "Uninstalling GStreamer (MSI)..."
+		try {
+			$installer = New-Object -ComObject "WindowsInstaller.Installer"
+			foreach ($upgradeCode in @("{c20a66dc-b249-4e6d-a68a-d0f836b2b3cf}", "{49c4a3aa-249f-453c-b82e-ecd05fac0693}")) {
+				$products = $installer.RelatedProducts($upgradeCode)
+				if ($products) {
+					foreach ($productCode in $products) {
+						$result = Start-Process -Wait -PassThru -FilePath "msiexec" -ArgumentList "/x", $productCode, "/qn", "/norestart"
+						if ($result.ExitCode -ne 0 -and $result.ExitCode -ne 1605) {
+							Write-Host "MSI uninstall returned exit code: $($result.ExitCode)"
+						}
+					}
+				}
+			}
+			[System.Runtime.Interopservices.Marshal]::ReleaseComObject($installer) | Out-Null
+		}
+		catch {
+			Write-Host "Error during MSI uninstall: $_"
+		}
+	}
+}
+
 # ============================================================================
 # WinGet
 # ============================================================================
@@ -138,7 +183,6 @@ Write-Section "Done"
 # GStreamer
 # ============================================================================
 $GSTREAMER_NEEDS_INSTALL = $false
-$GSTREAMER_INSTALL_MODE = "none"  # values: none | fresh | upgrade
 
 try {
 	$regPath = "HKLM:\SOFTWARE\GStreamer1.0\x86_64"
@@ -170,27 +214,11 @@ try {
 			Write-Host "Multiple GStreamer architectures may cause conflicts. Only msvc_x86_64 is supported."
 		}
 
-		# Parse and compare versions
-		$installedParts = $regVersion.Split('.') | ForEach-Object { [int]$_ }
-		$requiredParts = $GSTREAMER_VERSION.Split('.') | ForEach-Object { [int]$_ }
-		$needsUpgrade = $false
-		for ($i = 0; $i -lt [Math]::Max($installedParts.Length, $requiredParts.Length); $i++) {
-			$installedPart = if ($i -lt $installedParts.Length) { $installedParts[$i] } else { 0 }
-			$requiredPart = if ($i -lt $requiredParts.Length) { $requiredParts[$i] } else { 0 }
-			if ($installedPart -lt $requiredPart) {
-				$needsUpgrade = $true
-				break
-			}
-			elseif ($installedPart -gt $requiredPart) {
-				# Installed version is newer, no upgrade needed
-				break
-			}
-		}
-
-		if ($needsUpgrade) {
-			Write-Host "GStreamer upgrade available - installed: $regVersion, required: $GSTREAMER_VERSION - upgrading"
+		if ($regVersion -ne $GSTREAMER_VERSION) {
+			Write-Host "GStreamer version mismatch - installed: $regVersion, required: $GSTREAMER_VERSION"
+			Uninstall-GStreamer
 			$GSTREAMER_NEEDS_INSTALL = $true
-			$GSTREAMER_INSTALL_MODE = "upgrade"
+			$GSTREAMER_DEST_FOLDER = "$env:ProgramFiles\gstreamer"
 		}
 		else {
 			# Verify installation directory structure exists
@@ -198,41 +226,64 @@ try {
 			if (-Not (Test-Path $VERSION_SPECIFIC_PATH)) {
 				Write-Host "GStreamer installation incomplete - msvc_x86_64 directory not found - reinstallation needed"
 				$GSTREAMER_NEEDS_INSTALL = $true
-				$GSTREAMER_INSTALL_MODE = "fresh"
 			}
 			else {
-				Write-Host "GStreamer version $regVersion verified (compatible with $GSTREAMER_VERSION)"
+				Write-Host "GStreamer version $regVersion verified (matches required $GSTREAMER_VERSION)"
 				$GSTREAMER_NEEDS_INSTALL = $false
 			}
 		}
 	}
- else {
+	else {
 		Write-Host "GStreamer not found in registry - installation needed"
 		$GSTREAMER_NEEDS_INSTALL = $true
-		$GSTREAMER_INSTALL_MODE = "fresh"
 		$GSTREAMER_DEST_FOLDER = "$env:ProgramFiles\gstreamer"
 	}
 }
 catch {
 	Write-Host "GStreamer registry check failed - assuming not installed"
 	$GSTREAMER_NEEDS_INSTALL = $true
-	$GSTREAMER_INSTALL_MODE = "fresh"
 	$GSTREAMER_DEST_FOLDER = "$env:ProgramFiles\gstreamer"
 }
 
 if ($GSTREAMER_NEEDS_INSTALL) {
-	Write-Section "Preparing GStreamer ${GSTREAMER_VERSION}"
+	# Determine installer type based on target version
+	$vParts = $GSTREAMER_VERSION.Split('.') | ForEach-Object { [int]$_ }
+	$useExeInstaller = ($vParts[0] -gt 1) -or ($vParts[0] -eq 1 -and $vParts[1] -ge 28)
 
-	$GSTREAMER_RUNTIME_INSTALLER = "${DLSTREAMER_TMP}\gstreamer-1.0-msvc-x86_64-${GSTREAMER_VERSION}.msi"
-	$GSTREAMER_DEVEL_INSTALLER = "${DLSTREAMER_TMP}\gstreamer-1.0-devel-msvc-x86_64-${GSTREAMER_VERSION}.msi"
+	if ($useExeInstaller) {
+		Write-Section "Installing GStreamer ${GSTREAMER_VERSION} (Inno)"
+		$GSTREAMER_INSTALLER = "${DLSTREAMER_TMP}\gstreamer-1.0-msvc-x86_64-${GSTREAMER_VERSION}.exe"
+		Write-Host "Downloading GStreamer installer..."
+		Invoke-DownloadFile -UserAgent "curl/8.5.0" -OutFile $GSTREAMER_INSTALLER -Uri "https://gstreamer.freedesktop.org/data/pkg/windows/${GSTREAMER_VERSION}/msvc/gstreamer-1.0-msvc-x86_64-${GSTREAMER_VERSION}.exe"
 
-	Write-Host "Downloading GStreamer runtime installer..."
-	Invoke-DownloadFile -UserAgent "curl/8.5.0" -OutFile $GSTREAMER_RUNTIME_INSTALLER -Uri "https://gstreamer.freedesktop.org/data/pkg/windows/${GSTREAMER_VERSION}/msvc/gstreamer-1.0-msvc-x86_64-${GSTREAMER_VERSION}.msi"
+		Write-Host "Installing GStreamer..."
+		$process = Start-Process -Wait -PassThru -FilePath $GSTREAMER_INSTALLER -ArgumentList "/SILENT", "/LOG", "/TYPE=full", "/ALLUSERS"
+		if ($process.ExitCode -ne 0) {
+			Write-Error "GStreamer installation failed with exit code: $($process.ExitCode)"
+		}
 
-	Write-Host "Downloading GStreamer development installer..."
-	Invoke-DownloadFile -UserAgent "curl/8.5.0" -OutFile $GSTREAMER_DEVEL_INSTALLER -Uri "https://gstreamer.freedesktop.org/data/pkg/windows/${GSTREAMER_VERSION}/msvc/gstreamer-1.0-devel-msvc-x86_64-${GSTREAMER_VERSION}.msi"
+		# Workaround: GStreamer 1.28.1 writes GSTREAMER_1_0_ROOT_MSVC_X86_64 to wrong registry location, fixed in 1.28.2 https://gitlab.freedesktop.org/gstreamer/cerbero/-/issues/574
+		$wrongRegKey = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager"
+		$rightRegKey = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Environment"
+		$envVarName = "GSTREAMER_1_0_ROOT_MSVC_X86_64"
+		$wrongValue = (Get-ItemProperty -Path $wrongRegKey -Name $envVarName -ErrorAction SilentlyContinue).$envVarName
+		if ($wrongValue) {
+			Write-Host "Fixing $envVarName registry location..."
+			Set-ItemProperty -Path $rightRegKey -Name $envVarName -Value $wrongValue
+			Remove-ItemProperty -Path $wrongRegKey -Name $envVarName
+		}
+	}
+	else {
+		Write-Section "Installing GStreamer ${GSTREAMER_VERSION} (MSI)"
+		$GSTREAMER_RUNTIME_INSTALLER = "${DLSTREAMER_TMP}\gstreamer-1.0-msvc-x86_64-${GSTREAMER_VERSION}.msi"
+		$GSTREAMER_DEVEL_INSTALLER = "${DLSTREAMER_TMP}\gstreamer-1.0-devel-msvc-x86_64-${GSTREAMER_VERSION}.msi"
 
-	if ($GSTREAMER_INSTALL_MODE -eq "fresh" -or $GSTREAMER_INSTALL_MODE -eq "upgrade") {
+		Write-Host "Downloading GStreamer runtime installer..."
+		Invoke-DownloadFile -UserAgent "curl/8.5.0" -OutFile $GSTREAMER_RUNTIME_INSTALLER -Uri "https://gstreamer.freedesktop.org/data/pkg/windows/${GSTREAMER_VERSION}/msvc/gstreamer-1.0-msvc-x86_64-${GSTREAMER_VERSION}.msi"
+
+		Write-Host "Downloading GStreamer development installer..."
+		Invoke-DownloadFile -UserAgent "curl/8.5.0" -OutFile $GSTREAMER_DEVEL_INSTALLER -Uri "https://gstreamer.freedesktop.org/data/pkg/windows/${GSTREAMER_VERSION}/msvc/gstreamer-1.0-devel-msvc-x86_64-${GSTREAMER_VERSION}.msi"
+
 		Write-Host "Installing GStreamer runtime package..."
 		$process = Start-Process -Wait -PassThru -FilePath "msiexec" -ArgumentList "/passive", "/i", $GSTREAMER_RUNTIME_INSTALLER, "/qn"
 		if ($process.ExitCode -ne 0) {
@@ -248,8 +299,14 @@ if ($GSTREAMER_NEEDS_INSTALL) {
 		if (Test-Path $pkgConfigFile) {
 			(Get-Content $pkgConfigFile).Replace('-lm', '') | Set-Content $pkgConfigFile
 		}
-		Write-Section "GStreamer installation completed"
 	}
+
+	# Re-read registry to get actual install location
+	$regInstallDir = (Get-ItemProperty -Path "HKLM:\SOFTWARE\GStreamer1.0\x86_64" -Name "InstallDir" -ErrorAction SilentlyContinue).InstallDir
+	if ($regInstallDir) {
+		$GSTREAMER_DEST_FOLDER = $regInstallDir.TrimEnd('\')
+	}
+	Write-Section "GStreamer installation completed"
 }
 else {
 	Write-Section "GStreamer ${GSTREAMER_VERSION} already installed"
