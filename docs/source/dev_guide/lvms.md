@@ -1,4 +1,4 @@
-# Transformer-Based Models
+# Hugging Face Transformer Models
 
 This article explains how to prepare models based on the [Hugging Face](https://huggingface.co/welcome) [`transformers`](https://github.com/huggingface/transformers) library for integration with the Deep Learning Streamer pipeline.
 
@@ -77,7 +77,18 @@ ov.save_model(ov_model, MODEL + ".xml")
 ```
 Alternatively, you can use the [download_hf_models.py](https://github.com/open-edge-platform/dlstreamer/blob/main/scripts/download_models/download_hf_models.py) script, to perform the above steps automatically.
 
-## Model Usage Samples
+## Model Usage
+
+The choice of the DL Streamer element that should be used to perform the inference with a given model depends on the task. The table below maps the tasks and sample model architectures to the appropriate inference elements.
+
+| Task | Example Architecture | Inference element |
+| --- | --- | --- |
+| Image Classification | ViTForImageClassification | `gvaclassify` |
+| Object Detection | RTDetrForObjectDetection | `gvadetect` |
+| Speech Recognition | WhisperForConditionalGeneration  | `gvaaudiotranscribe` |
+| Image To Text (VLMs) | Phi4MMForCausalLM | `gvagenai` |
+| Image Embeddings | CLIPModel | `gvainference` |
+
 
 See the following samples for detailed examples of DL Streamer pipelines that use transformer-based models:
 1. [Using VLM Models With gvagenai Element](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch/gvagenai)
