@@ -1,6 +1,6 @@
-# Large Vision Model Sample (gst-launch command line)
+# Image Embeddings Generation with ViT (gst-launch command line)
 
-This sample demonstrates the Large Vision Model (CLIP) pipeline constructed via `gst-launch-1.0` command-line utility. It allows the extraction of image embeddings (CLS tokens) for each frame using the Visual Transformer.
+This sample demonstrates the use of Vision Transformer (ViT) in a pipeline constructed via `gst-launch-1.0` command-line utility. It allows the extraction of image embeddings (CLS tokens) for each frame using the Vision Transformer extracted from a CLIP model.
 
 ## How It Works
 

@@ -1,6 +1,8 @@
 # Supported Models
 
-This page lists models supported by Intel® DL Streamer.
+This page lists models supported by DL Streamer. 
+
+> **NOTE:** DL Streamer relies on inference provided by the [OpenVINO™](https://www.intel.com/content/www/us/en/developer/tools/openvino-toolkit/overview.html) toolkit. Whether a particular model can be used on a given platform depends on its compatibility with OpenVINO™. See the [OpenVINO™ documentation](https://docs.openvino.ai/2026/documentation/compatibility-and-support/supported-models.html) for details.
 
 ## Supported Architectures
 
@@ -32,7 +34,7 @@ The table provides links to model preparation instructions describing download a
   <tr>
     <td rowspan="16" style="vertical-align:middle; word-break:keep-all; overflow-wrap:normal;">Detection</td>
     <td>YOLOv5u</td>
-    <td rowspan="6" style="vertical-align:middle;"><a href="https://docs.ultralytics.com/integrations/openvino/">Ultralytics Exporter</a></td>
+      <td rowspan="6" style="vertical-align:middle;"><a href="https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/dev_guide/yolo_models.html">Ultralytics Exporter</a></td>
     <td><a href="https://github.com/ultralytics/assets/releases/download/v8.4.0/yolov5nu.pt">yolov5nu.pt</a></td>
     <td rowspan="6" style="vertical-align:middle;"><a href="https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch/detection_with_yolo">Object Detection and Classification with YOLO</a></td>
   </tr>
@@ -58,15 +60,13 @@ The table provides links to model preparation instructions describing download a
   </tr>
   <tr>
     <td>YOLOE-26</td>
-    <td><a href="https://docs.ultralytics.com/integrations/openvino/">Ultralytics Exporter</a></td>
+      <td><a href="https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/dev_guide/yolo_models.html">Ultralytics Exporter</a></td>
     <td><a href="https://github.com/ultralytics/assets/releases/download/v8.4.0/yoloe-26n-seg.pt">yoloe-26n-seg.pt</a></td>
     <td><a href="https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/python/prompted_detection">Prompt-based Object Detection</a></td>
   </tr>
   <tr>
     <td>RTDetrFor<wbr>ObjectDetection</td>
-    <td rowspan="2" style="vertical-align:middle;"><a href="https://huggingface.co/docs/optimum-onnx/onnx/usage_guides/export_a_model">Optimum-onnx</a><br>
-    +<br>
-    <a href="https://docs.openvino.ai/2026/openvino-workflow/model-preparation.html#convert-a-model-in-cli-ovc"> OpenVINO ovc </a>
+    <td rowspan="2" style="vertical-align:middle;"><a href="https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/dev_guide/lvms.html">Optimum-onnx + OpenVINO ovc </a>
     </td>
     <td><a href="https://huggingface.co/PekingU/rtdetr_r50vd">PekingU/​rrtdetr_r50vd</a></td>
     <td rowspan="2" style="vertical-align:middle;"><a href="https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/python/smart_nvr">Smart Network Video Recorder for Lane Hogging Detection</a></td>
@@ -125,7 +125,7 @@ The table provides links to model preparation instructions describing download a
   <tr>
     <td rowspan="4" style="vertical-align:middle; word-break:keep-all; overflow-wrap:normal;">Image Classification</td>
     <td>ViTFor<wbr>ImageClassification</td>
-    <td><a href="https://huggingface.co/docs/optimum-intel/en/openvino/export">Optimum-Intel</a></td>
+      <td><a href="https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/dev_guide/lvms.html">Optimum-Intel</a></td>
     <td><a href="https://huggingface.co/dima806/fairface_age_image_detection">dima806/​fairface_<wbr>age_<wbr>image_<wbr>detection</a></td>
     <td><a href="https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/python/face_detection_and_classification">Face Detection and Classification</a></td>
   </tr>
@@ -151,7 +151,7 @@ The table provides links to model preparation instructions describing download a
   <tr>
     <td rowspan="5" style="vertical-align:middle; word-break:keep-all; overflow-wrap:normal;">Instance Segmentation</td>
     <td>YOLOv8-seg</td>
-    <td rowspan="3" style="vertical-align:middle;"><a href="https://docs.ultralytics.com/integrations/openvino/">Ultralytics Exporter</a></td>
+      <td rowspan="3" style="vertical-align:middle;"><a href="https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/dev_guide/yolo_models.html">Ultralytics Exporter</a></td>
     <td><a href="https://github.com/ultralytics/assets/releases/download/v8.4.0/yolov8n-seg.pt">yolov8n-seg.pt</a></td>
     <td rowspan="3" style="vertical-align:middle;"><a href="https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch/detection_with_yolo">Object Detection and Classification with YOLO</a></td>
   </tr>
@@ -182,7 +182,7 @@ The table provides links to model preparation instructions describing download a
   <tr>
     <td rowspan="3" style="vertical-align:middle; word-break:keep-all; overflow-wrap:normal;">Oriented Detection</td>
     <td>YOLOv8-obb</td>
-    <td rowspan="3" style="vertical-align:middle;"><a href="https://docs.ultralytics.com/integrations/openvino/">Ultralytics Exporter</a></td>
+      <td rowspan="3" style="vertical-align:middle;"><a href="https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/dev_guide/yolo_models.html">Ultralytics Exporter</a></td>
     <td><a href="https://github.com/ultralytics/assets/releases/download/v8.4.0/yolov8n-obb.pt">yolov8n-obb.pt</a></td>
     <td rowspan="3" style="vertical-align:middle;"><a href="https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch/detection_with_yolo">Object Detection and Classification with YOLO</a></td>
   </tr>
@@ -197,7 +197,7 @@ The table provides links to model preparation instructions describing download a
   <tr>
     <td rowspan="3" style="vertical-align:middle; word-break:keep-all; overflow-wrap:normal;">Pose Estimation</td>
     <td>YOLOv8-pose</td>
-    <td rowspan="3" style="vertical-align:middle;"><a href="https://docs.ultralytics.com/integrations/openvino/">Ultralytics Exporter</a></td>
+      <td rowspan="3" style="vertical-align:middle;"><a href="https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/dev_guide/yolo_models.html">Ultralytics Exporter</a></td>
     <td><a href="https://github.com/ultralytics/assets/releases/download/v8.4.0/yolov8n-pose.pt">yolov8n-pose.pt</a></td>
     <td rowspan="3" style="vertical-align:middle;"><a href="https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch/detection_with_yolo">Object Detection and Classification with YOLO</a></td>
   </tr>
@@ -225,14 +225,14 @@ The table provides links to model preparation instructions describing download a
   <tr>
     <td style="word-break:keep-all; overflow-wrap:normal;">Speech Recognition</td>
     <td>WhisperFor<wbr>ConditionalGeneration</td>
-    <td><a href="https://huggingface.co/docs/optimum-intel/en/openvino/export">Optimum-Intel</a></td>
+      <td><a href="https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/dev_guide/lvms.html">Optimum-Intel</a></td>
     <td><a href="https://huggingface.co/openai/whisper-tiny">openai/​whisper-tiny</a></td>
     <td><a href="https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch/audio_transcribe">Audio Transcription</a></td>
   </tr>
   <tr>
     <td rowspan="13" style="vertical-align:middle; word-break:keep-all; overflow-wrap:normal;">VLM</td>
     <td>InternVL<wbr>ChatModel</td>
-    <td rowspan="13" style="vertical-align:middle;"><a href="https://huggingface.co/docs/optimum-intel/en/openvino/export">Optimum-Intel</a></td>
+      <td rowspan="13" style="vertical-align:middle;"><a href="https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/dev_guide/lvms.html">Optimum-Intel</a></td>
     <td><a href="https://huggingface.co/OpenGVLab/InternVL2-1B">OpenGVLab/​InternVL2-1B</a></td>
     <td rowspan="13" style="vertical-align:middle;"><a href="https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch/gvagenai">Gvagenai Demo</a></td>
   </tr>
