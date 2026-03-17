@@ -17,10 +17,10 @@ if NOT DEFINED MODELS_PATH (
 )
 echo MODELS_PATH: %MODELS_PATH%
 
-set "MODELS_LIST=yolox-tiny yolox_s yolov5s yolov5su yolov7 yolov8s ^
+set MODELS_LIST=yolox-tiny yolox_s yolov5s yolov5su yolov7 yolov8s ^
 yolov8n-obb yolov8n-seg yolov9c yolov10s yolo11s ^
 yolo11s-seg yolo11s-obb yolo11s-pose yolo26n yolo26s ^
-yolo26m yolo26l yolo26x yolo26s-obb yolo26s-seg yolo26s-pose"
+yolo26m yolo26l yolo26x yolo26s-obb yolo26s-seg yolo26s-pose
 
 @REM Parse arguments
 set MODEL=%1
