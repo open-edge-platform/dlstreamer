@@ -12,6 +12,9 @@ declare -A DEEPSTREAM_PIPELINES
 INPUT="$1"
 PIPELINE="$2"
 OUTPUT="$3"
+if [[ ${4} == "-simultaneously" ]]; then
+    SIMULTANEOUSLY=true
+fi
 
 if [[ ${OUTPUT} =~ \.mp4 ]]; then
     OUTPUT="${OUTPUT%.*}"
@@ -35,7 +38,8 @@ gvaclassify model=/working_dir/public/ch_PP-OCRv4_rec_infer/FP32/ch_PP-OCRv4_rec
 
 
 DEEPSTREAM_PIPELINES[LPR]="gst-launch-1.0 ${SOURCE} ! qtdemux ! h264parse ! nvv4l2decoder ! m.sink_0 nvstreammux \
-name=m batch-size=1 width=1920 height=1080 batched-push-timeout=40000 ! queue ! nvvideoconvert \
+name=m batch-size=1 width=1920 height=1080 batched-push-timeout=40000 ! nvdslogger \
+fps-measurement-interval-sec=1 ! queue ! nvvideoconvert \
 ! video/x-raw\(memory:NVMM\),format=RGBA ! nvinfer \
 config-file-path=/working_dir/deepstream_tao_apps/configs/nvinfer/trafficcamnet_tao/pgie_trafficcamnet_config.txt \
 unique-id=1 ! queue ! nvinfer \
@@ -71,7 +75,7 @@ DLSTREAMER_DOCKER="docker run -i --rm -v ${PWD}:/working_dir ${DEVICE_DRI} ${DEV
 -v ~/.Xauthority:/root/.Xauthority  -v /tmp/.X11-unix/:/tmp/.X11-unix/  -e DISPLAY=$DISPLAY  -v /dev/bus/usb:/dev/bus/usb \
 --env ZE_ENABLE_ALT_DRIVERS=libze_intel_npu.so \
 --env MODELS_PATH=/working_dir \
-intel/dlstreamer:2026.0.0-ubuntu24 /bin/bash -c"
+intel/dlstreamer:2025.2.0-ubuntu24 /bin/bash -c"
 
 DEEPSTREAM_SETUP_LPR=$(cat <<EOF
 if [[ -e "/working_dir/deepstream_tao_apps" ]]; then
@@ -137,13 +141,21 @@ Using DeepStream\n----------------------------------------\n\n"
 
 eval_dlstreamer_pipeline() {
     printf 'PIPELINE:\n%s\n\n' "${DLSTREAMER_PIPELINES[${PIPELINE}]}"
-    eval "${DLSTREAMER_DOCKER}" + "\"${DLSTREAMER_PIPELINES[${PIPELINE}]}\"" &
+    if [[ ${SIMULTANEOUSLY} ]]; then
+        eval "${DLSTREAMER_DOCKER}" + "\"${DLSTREAMER_PIPELINES[${PIPELINE}]}\"" &
+    else
+        eval "${DLSTREAMER_DOCKER}" + "\"${DLSTREAMER_PIPELINES[${PIPELINE}]}\""
+    fi
 }
 
 eval_deepstream_pipeline() {
     printf 'PIPELINE:\n%s\n\n' "${DEEPSTREAM_PIPELINES[${PIPELINE}]}"
     eval "${DEEPSTREAM_DOCKER}" + "\"${DEEPSTREAM_SETUP_LPR}\""
-    eval "${DEEPSTREAM_DOCKER}" + "\"${DEEPSTREAM_PIPELINES[${PIPELINE}]}\"" &
+    if [[ ${SIMULTANEOUSLY} ]]; then
+        eval "${DEEPSTREAM_DOCKER}" + "\"${DEEPSTREAM_PIPELINES[${PIPELINE}]}\"" &
+    else
+        eval "${DEEPSTREAM_DOCKER}" + "\"${DEEPSTREAM_PIPELINES[${PIPELINE}]}\""
+    fi
 }
 
 replace_in_dlstreamer_pipeline() {
@@ -195,4 +207,6 @@ elif [[ -n "${INTEL_CPU}" ]]; then
 fi
 
 # wait because of evals with &
-wait
+if [[ ${SIMULTANEOUSLY} ]]; then
+    wait
+fi

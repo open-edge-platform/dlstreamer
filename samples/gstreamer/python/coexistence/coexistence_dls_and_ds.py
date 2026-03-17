@@ -7,7 +7,7 @@
 
 """This script simultaneously executes DL Streamer and DeepStream pipelines based on
 the detected hardware configuration. Usage:
-python3 ./concurrent_dls_and_ds.py <input> LPR <output>"""
+python3 ./concurrent_dls_and_ds.py <input> LPR <output> [-simultaneously]"""
 
 import glob
 import os
@@ -17,12 +17,15 @@ import sys
 import threading
 
 # Get arguments
-if len(sys.argv) != 4:
+if len(sys.argv) not in [4,5]:
     print("Error:\nInvalid number of arguments. Usage:")
-    print("concurrent_dls_and_ds.sh <input> LPR <output>\n")
+    print("concurrent_dls_and_ds.sh <input> LPR <output> [-simultaneously]\n")
     sys.exit()
 
 user_input, pipeline, output_file = sys.argv[1], sys.argv[2], sys.argv[3]
+simultaneously = False
+if len(sys.argv) == 5 and sys.argv[4] == "-simultaneously":
+    simultaneously = True
 
 if output_file.endswith(".mp4"):
     output_file, _ = os.path.splitext(output_file)
@@ -205,20 +208,32 @@ if NVIDIA_GPU and INTEL_GPU:
     print_intel_detected("GPU")
     t1 = threading.Thread(target=run_dlstreamer_pipeline)
     t2 = threading.Thread(target=run_deepstream_pipeline)
-    t1.start()
-    t2.start()
-    t1.join()
-    t2.join()
+    if simultaneously:
+        t1.start()
+        t2.start()
+        t1.join()
+        t2.join()
+    else:
+        t1.start()
+        t1.join()
+        t2.start()
+        t2.join()
 elif NVIDIA_GPU and INTEL_NPU:
     print_nvidia_detected()
     print_intel_detected("NPU")
     replace_in_dlstreamer_pipeline("GPU", "NPU")
     t1 = threading.Thread(target=run_dlstreamer_pipeline)
     t2 = threading.Thread(target=run_deepstream_pipeline)
-    t1.start()
-    t2.start()
-    t1.join()
-    t2.join()
+    if simultaneously:
+        t1.start()
+        t2.start()
+        t1.join()
+        t2.join()
+    else:
+        t1.start()
+        t1.join()
+        t2.start()
+        t2.join()
 elif NVIDIA_GPU and INTEL_CPU:
     print_nvidia_detected()
     print_intel_detected("CPU")
@@ -229,10 +244,16 @@ elif NVIDIA_GPU and INTEL_CPU:
     replace_in_dlstreamer_pipeline("vah264enc bitrate=2000", "openh264enc bitrate=2000000")
     t1 = threading.Thread(target=run_dlstreamer_pipeline)
     t2 = threading.Thread(target=run_deepstream_pipeline)
-    t1.start()
-    t2.start()
-    t1.join()
-    t2.join()
+    if simultaneously:
+        t1.start()
+        t2.start()
+        t1.join()
+        t2.join()
+    else:
+        t1.start()
+        t1.join()
+        t2.start()
+        t2.join()
 elif INTEL_GPU:
     print_intel_detected("GPU")
     t1 = threading.Thread(target=run_dlstreamer_pipeline)
@@ -259,3 +280,4 @@ elif INTEL_CPU:
     t1 = threading.Thread(target=run_dlstreamer_pipeline)
     t1.start()
     t1.join()
+
