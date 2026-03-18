@@ -112,8 +112,8 @@ The complete solution leverages:
   | [gvarealsense](./docs/source/elements/gvarealsense.md) | Provides integration with Intel RealSense cameras, enabling video and depth stream capture for use in GStreamer pipelines. |
   | [gvawatermark](./docs/source/elements/gvawatermark.md) | Overlays the metadata on the video frame to visualize the inference   results. |
 
-For the details on supported platforms, please refer to [System Requirements](./get_started/system_requirements.md).
-For installing Pipeline Framework with the prebuilt binaries or Docker\* or to build the binaries from the open source, refer to [Intel® DL Streamer Pipeline Framework installation guide](./get_started/install/install_guide_index.md).
+For the details on supported platforms, please refer to [System Requirements](./docs/source/get_started/system_requirements.md).
+For installing Pipeline Framework with the prebuilt binaries or Docker\* or to build the binaries from the open source, refer to [Intel® DL Streamer Pipeline Framework installation guide](./docs/source/get_started/install/install_guide_index.md).
 
 ### New in this Release
 

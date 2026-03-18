@@ -40,5 +40,5 @@ info section:
 | `scale` | float | 255.0 | Divide input image values by ‘scale’ before mapping to model input tensor<br>(typically used when model was trained with input data normalized in &lt;0,1&gt; range). | range: [0.0, 1.0] |
 
 You can also refer to
-[OpenVINO™ Model API](https://github.com/openvinotoolkit/model_api/blob/master/docs/source/guides/model-configuration.md)
+[OpenVINO™ Model API](https://github.com/open-edge-platform/model_api/blob/master/docs/source/guides/model-configuration.md)
 for more information on the "model_info" section.

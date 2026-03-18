@@ -22,7 +22,7 @@ The pipeline stages implement the following functions:
 * __gvawatermark__ - overlays object bounding boxes on frames
 * __autovideosink__ - renders the video stream to the display
 
-The sample also inserts `queue` and `videoconvert` elements to adapt interfaces between stages. The resulting behavior is similar to [hello_dlstreamer.sh](../../scripts/hello_dlstreamer.sh).
+The sample also inserts `queue` and `videoconvert` elements to adapt interfaces between stages. The resulting behavior is similar to [hello_dlstreamer.sh](../../../../scripts/hello_dlstreamer.sh).
 
 ## How It Works
 

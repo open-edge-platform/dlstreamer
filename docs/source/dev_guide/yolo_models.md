@@ -86,4 +86,4 @@ ovc yolox_s.onnx --compress_to_fp16=False
 
 ## Model Usage
 
-See [Samples](https://github.com/dlstreamer/dlstreamer/tree/main/samples/gstreamer/gst_launch/detection_with_yolo) for detailed examples of Deep Learning Streamer pipelines using different YOLO models.
+See [Samples](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch/detection_with_yolo) for detailed examples of Deep Learning Streamer pipelines using different YOLO models.

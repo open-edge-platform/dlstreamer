@@ -221,8 +221,8 @@ Ubuntu.
 
 4.  Export the example video file path:
 
-    You may download a sample video from
-    [here](https://github.com/intel-iot-devkit/sample-videos/raw/master/person-bicycle-car-detection.mp4).
+    You can download a sample video from
+    [here](https://raw.githubusercontent.com/intel-iot-devkit/sample-videos/master/person-bicycle-car-detection.mp4).
     If you provide your own video file as input, please make sure
     that it is in h264 or mp4 format. You can also download and use
     freely licensed content from websites such as Pexels\*. Any
