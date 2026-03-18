@@ -88,7 +88,7 @@ home_path = os.environ["HOME"]
 dlstreamer_docker=f"""docker run -i --rm -v {cwd}:/working_dir {DEVICE_DRI} {DEVICE_ACCEL}
 -v {home_path}/.Xauthority:/root/.Xauthority -v /tmp/.X11-unix/:/tmp/.X11-unix/ -e 
 DISPLAY={display} -v /dev/bus/usb:/dev/bus/usb --env ZE_ENABLE_ALT_DRIVERS=libze_intel_npu.so
---env MODELS_PATH=/working_dir intel/dlstreamer:2026.0.0-ubuntu24 /bin/bash -c"""
+--env MODELS_PATH=/working_dir intel/dlstreamer:latest /bin/bash -c"""
 dlstreamer_docker=dlstreamer_docker.replace("\n", " ")
 
 DEEPSTREAM_SETUP_LPR="""
