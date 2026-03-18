@@ -55,6 +55,9 @@ void ROIToFrameAttacher::attach(const TensorsTable &tensors, FramesWrapper &fram
             gst_structure_get_uint(detection_tensor, "w_abs", &w_abs);
             gst_structure_get_uint(detection_tensor, "h_abs", &h_abs);
 
+            if (w_abs == 0 || h_abs == 0)
+                continue;
+
             const gchar *label = gst_structure_get_string(detection_tensor, "label");
 
             GstBuffer **writable_buffer = &frame.buffer;
