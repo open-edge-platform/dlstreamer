@@ -137,7 +137,6 @@ List of the features and components to be deprecated in the future.
 | Model-proc-file| 	end of Q3'2026	| ModelAPI (common with Geti) |
 | GstVideoRegionOfInterest meta + Intel extensions |	end of Q4'2026 |	GstAnalyticsMtd (aka new Collabora meta) |
 | FFMpeg integration samples | end of Q2'2026 | no replacement |
-| Architecture 2.0 elements |	end of Q4'2026 (?)	need to take valuable elements/ideas and deprecate others |
 
 
 ## Legal Information
