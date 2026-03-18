@@ -1,6 +1,6 @@
 # Coexistently use of DL Streamer and DeepStream
 
-This tutorial explains how to simultaneously or sequentially run DL Streamer and DeepStream on a single machine for optimal performance.
+This tutorial explains how to sequentially or simultaneously run DL Streamer and DeepStream on a single machine for optimal performance.
 It serves two main purposes:
 1. It shows DeepStream users that DL Streamer has similar capabilities and can be used for their use cases with very low time and effort investment.
     - The sample adds DL Streamer to Intel-powered setups without disrupting the current environment configuration.
@@ -60,7 +60,7 @@ if "Intel" in lscpu_output:
 
 3. Hardware detection depends on the setup. The algorithm is as follows:
 
-   - Run pipeline simultaneously on both devices for:
+   - Run pipeline sequentially or simultaneously on both devices for:
      - both Nvidia and Intel GPUs
      - if not available then use Nvidia GPU and Intel NPU
      - if not available then use Nvidia GPU with Intel CPU
@@ -94,16 +94,16 @@ flowchart LR
 
 ## How to use
 
-Running pipelines simultaneously on DL Streamer and DeepStream:
-
-```sh
-python3 ./coexistence_dls_and_ds.py <input> LPR <output> -simultaneously
-```
-
 Running pipelines sequentially on DL Streamer and DeepStream:
 
 ```sh
 python3 ./coexistence_dls_and_ds.py <input> LPR <output>
+```
+
+Running pipelines simultaneously on DL Streamer and DeepStream:
+
+```sh
+python3 ./coexistence_dls_and_ds.py <input> LPR <output> -simultaneously
 ```
 
 - `input` can be an RTSP or HTTPS stream, or a file.

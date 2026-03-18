@@ -7,7 +7,7 @@
 
 """This script simultaneously executes DL Streamer and DeepStream pipelines based on
 the detected hardware configuration. Usage:
-python3 ./concurrent_dls_and_ds.py <input> LPR <output> [-simultaneously]"""
+python3 ./coexistence_dls_and_ds.py <input> LPR <output> [-simultaneously]"""
 
 import glob
 import os
@@ -19,7 +19,7 @@ import threading
 # Get arguments
 if len(sys.argv) not in [4,5]:
     print("Error:\nInvalid number of arguments. Usage:")
-    print("concurrent_dls_and_ds.sh <input> LPR <output> [-simultaneously]\n")
+    print("python3 ./coexistence_dls_and_ds.py <input> LPR <output> [-simultaneously]\n")
     sys.exit()
 
 user_input, pipeline, output_file = sys.argv[1], sys.argv[2], sys.argv[3]
@@ -88,7 +88,7 @@ home_path = os.environ["HOME"]
 dlstreamer_docker=f"""docker run -i --rm -v {cwd}:/working_dir {DEVICE_DRI} {DEVICE_ACCEL}
 -v {home_path}/.Xauthority:/root/.Xauthority -v /tmp/.X11-unix/:/tmp/.X11-unix/ -e 
 DISPLAY={display} -v /dev/bus/usb:/dev/bus/usb --env ZE_ENABLE_ALT_DRIVERS=libze_intel_npu.so
---env MODELS_PATH=/working_dir intel/dlstreamer:2025.2.0-ubuntu24 /bin/bash -c"""
+--env MODELS_PATH=/working_dir intel/dlstreamer:2026.0.0-ubuntu24 /bin/bash -c"""
 dlstreamer_docker=dlstreamer_docker.replace("\n", " ")
 
 DEEPSTREAM_SETUP_LPR="""
