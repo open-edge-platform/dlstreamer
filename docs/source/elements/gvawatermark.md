@@ -68,22 +68,29 @@ Element Properties:
                         Boolean. Default: false
   displ-cfg           : Comma separated list of KEY=VALUE parameters of displayed notations.
                         Available options:
-                        show-labels=<bool> enable or disable displaying text labels, default true
-                        font-scale=<double 0.1 to 2.0> scale factor for text labels, default 0.5
-                        thickness=<uint> bounding box thickness, default 2
-                        color-idx=<int> color index for bounding box, keypoints, and text, default -1 (use default colors: 0 red, 1 green, 2 blue)
-                        draw-txt-bg=<bool> enable or disable displaying text labels background, by enabling it the text color is set to white, default true
-                        font-type=<string> font type for text labels, default triplex. Supported fonts: simplex, plain, duplex, complex, triplex, complex_small, script_simplex, script_complex
-                        text-x=<float> x position (pixels) for full-frame text (e.g. from gvagenai), default 0
-                        text-y=<float> y position (pixels) for full-frame text (e.g. from gvagenai), default 25
-                        enable-blur=<bool> enable ROI blurring for privacy protection, default false
-                        NOTE : this option is supported only for CPU for now.
-                        show-blur-roi=<string> colon-separated list of object labels to blur (e.g., "face:person")
-                        hide-blur-roi=<string> colon-separated list of labels to exclude from blurring (show-blur-roi takes precedence)
+                        * show-labels=<bool> enable or disable displaying text labels, default true
+                        * font-scale=<double 0.1 to 2.0> scale factor for text labels, default 0.5
+                        * thickness=<uint> bounding box thickness, default 2
+                        * color-idx=<int> color index for bounding box, keypoints, and text, default -1 (use default colors: 0 red, 1 green, 2 blue)
+                        * font-type=<string> font type for text labels, default triplex. Supported fonts: simplex, plain, duplex, complex, triplex, complex_small, script_simplex, script_complex
+                        * draw-txt-bg=<bool> enable or disable displaying text labels background, by enabling it the text color is set to white, default true
+                        * show-roi=<string> colon-separated list of labels to include (only these objects will be shown), default empty
+                        * hide-roi=<string> colon-separated list of labels to exclude (these objects will be hidden), default empty
+                        * enable-blur=<bool> enable ROI blurring for privacy protection, default false
+                          NOTE : show-blur-roi takes precedence over hide-blur-roi when both are specified
+                          NOTE : this option is supported only for CPU for now.
+                        * show-blur-roi=<string> colon-separated list of object labels to blur (e.g., "face:person")
+                        * hide-blur-roi=<string> colon-separated list of labels to exclude from blurring (show-blur-roi takes precedence)
+                        * text-x=<float> x position (pixels) for full-frame text (e.g. from gvagenai), default 0
+                        * text-y=<float> y position (pixels) for full-frame text (e.g. from gvagenai), default 25
+
                         e.g.: displ-cfg=show-labels=false
                         e.g.: displ-cfg=font-scale=0.5,thickness=3,color-idx=2,font-type=plain
+                        e.g.: displ-cfg=show-labels=true,show-roi=person:car:truck
+                        e.g.: displ-cfg=show-labels=true,hide-roi=bottle:cup
                         e.g.: displ-cfg=enable-blur=true,show-blur-roi=face:person
                         e.g.: displ-cfg=text-y=680 (place full-frame text near bottom of a 720p frame)
+
                         flags: readable, writable
                         String. Default: null
   device              : Supported devices are CPU and GPU. Default is CPU on system memory and GPU on video memory
