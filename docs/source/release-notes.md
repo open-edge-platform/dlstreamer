@@ -25,28 +25,28 @@ The complete solution leverages:
 
   | Element | Description |
   |---|---|
-  | [gvaattachroi](../elements/gvaattachroi.md) | Adds user-defined regions of interest to perform inference on,   instead of full frame. |
-  | [gvaaudiodetect](../elements/gvaaudiodetect.md) | Performs audio event detection using AclNet model. |
-  | [gvaaudiotranscribe](../elements/gvaaudiotranscribe.md) | Performs audio transcription using OpenVino GenAI Whisper model. |
-  | [gvaclassify](../elements/gvaclassify.md) | Performs object classification. Accepts the ROI as an input and   outputs classification results with the ROI metadata. |
-  | [gvadetect](../elements/gvadetect.md) | Performs object detection on a full-frame or region of interest (ROI)   using object detection models such as YOLOv4-v11, MobileNet SSD, Faster-RCNN etc. Outputs the ROI for detected   objects. |
-  | [gvafpscounter](../elements/gvafpscounter.md) | Measures frames per second across multiple streams in a single   process. |
-  | [gvafpsthrottle](../elements/gvafpsthrottle.md) | Throttles the frame rate of a pipeline to a specified FPS value. |
-  | [gvagenai](../elements/gvagenai.md) | Performs inference with Vision Language Models using OpenVINO™ GenAI, accepts video and text prompt as an input, and outputs text description. It can be used to generate text summarization from video. |
-  | [gvainference](../elements/gvainference.md) | Runs deep learning inference on a full-frame or ROI using any model with an RGB or BGR input. |
-  | [gvametaaggregate](../elements/gvametaaggregate.md) | Aggregates inference results from multiple pipeline branches |
-  | [gvametaconvert](../elements/gvametaconvert.md) | Converts the metadata structure to the JSON format. |
-  | [gvametapublish](../elements/gvametapublish.md) | Publishes the JSON metadata to MQTT or Kafka message brokers or   files. |
-  | [gvamotiondetect](../elements/gvamotiondetect.md) | Performs lightweight motion detection on NV12 video frames and emits motion regions of interest (ROIs) as analytics metadata. |
-  | [gvapython](../elements/gvapython.md) | Provides a callback to execute user-defined Python functions on every   frame. Can be used for metadata conversion, inference post-processing, and other tasks. |
-  | [gvarealsense](../elements/gvarealsense.md) | Provides integration with Intel RealSense cameras, enabling video and depth stream capture for use in GStreamer pipelines. |
-  | [gvatrack](../elements//gvatrack.md) | Performs object tracking using zero-term, or imageless tracking algorithms.   Assigns unique object IDs to the tracked objects. |
-  | [gvawatermark](../elements//gvawatermark.md) | Overlays the metadata on the video frame to visualize the inference   results. |
-  | [g3dradarprocess](../elements/g3dradarprocess.md) | Processes 3D radar data for use in analytics pipelines. |
-  | [g3dlidarparse](../elements/g3dlidarparse.md) | Parses 3D lidar data for use in analytics pipelines. |
+  | [gvaattachroi](./elements/gvaattachroi.md) | Adds user-defined regions of interest to perform inference on,   instead of full frame. |
+  | [gvaaudiodetect](./elements/gvaaudiodetect.md) | Performs audio event detection using AclNet model. |
+  | [gvaaudiotranscribe](./elements/gvaaudiotranscribe.md) | Performs audio transcription using OpenVino GenAI Whisper model. |
+  | [gvaclassify](./elements/gvaclassify.md) | Performs object classification. Accepts the ROI as an input and   outputs classification results with the ROI metadata. |
+  | [gvadetect](./elements/gvadetect.md) | Performs object detection on a full-frame or region of interest (ROI)   using object detection models such as YOLOv4-v11, MobileNet SSD, Faster-RCNN etc. Outputs the ROI for detected   objects. |
+  | [gvafpscounter](./elements/gvafpscounter.md) | Measures frames per second across multiple streams in a single   process. |
+  | [gvafpsthrottle](./elements/gvafpsthrottle.md) | Throttles the frame rate of a pipeline to a specified FPS value. |
+  | [gvagenai](./elements/gvagenai.md) | Performs inference with Vision Language Models using OpenVINO™ GenAI, accepts video and text prompt as an input, and outputs text description. It can be used to generate text summarization from video. |
+  | [gvainference](./elements/gvainference.md) | Runs deep learning inference on a full-frame or ROI using any model with an RGB or BGR input. |
+  | [gvametaaggregate](./elements/gvametaaggregate.md) | Aggregates inference results from multiple pipeline branches |
+  | [gvametaconvert](./elements/gvametaconvert.md) | Converts the metadata structure to the JSON format. |
+  | [gvametapublish](./elements/gvametapublish.md) | Publishes the JSON metadata to MQTT or Kafka message brokers or   files. |
+  | [gvamotiondetect](./elements/gvamotiondetect.md) | Performs lightweight motion detection on NV12 video frames and emits motion regions of interest (ROIs) as analytics metadata. |
+  | [gvapython](./elements/gvapython.md) | Provides a callback to execute user-defined Python functions on every   frame. Can be used for metadata conversion, inference post-processing, and other tasks. |
+  | [gvarealsense](./elements/gvarealsense.md) | Provides integration with Intel RealSense cameras, enabling video and depth stream capture for use in GStreamer pipelines. |
+  | [gvatrack](./elements//gvatrack.md) | Performs object tracking using zero-term, or imageless tracking algorithms.   Assigns unique object IDs to the tracked objects. |
+  | [gvawatermark](./elements//gvawatermark.md) | Overlays the metadata on the video frame to visualize the inference   results. |
+  | [g3dradarprocess](./elements/g3dradarprocess.md) | Processes 3D radar data for use in analytics pipelines. |
+  | [g3dlidarparse](./elements/g3dlidarparse.md) | Parses 3D lidar data for use in analytics pipelines. |
 
-For the details on supported platforms, please refer to [System Requirements](../get_started/system_requirements.md).
-For installing Pipeline Framework with the prebuilt binaries or Docker\* or to build the binaries from the open source, refer to [Intel® DL Streamer Pipeline Framework installation guide](../get_started/install/install_guide_index.md).
+For the details on supported platforms, please refer to [System Requirements](./get_started/system_requirements.md).
+For installing Pipeline Framework with the prebuilt binaries or Docker\* or to build the binaries from the open source, refer to [Intel® DL Streamer Pipeline Framework installation guide](./get_started/install/install_guide_index.md).
 
 **New in this Release**
 
@@ -87,13 +87,12 @@ For installing Pipeline Framework with the prebuilt binaries or Docker\* or to b
 | RealSense update	 | Update to Intel RealSense SDK 2.57.5. |
 | Model download script improvements | Simplified YOLO model download script, enhanced INT8 quantization, refactored YOLOv8+ export/quantize, added model validation. |
 
-
 **Fixed**
 
 | **#**   | **Issue Description**  |
 |----------------|------------------------|
 | 1 | Fixed YOLO26 model inference on GPU FP16/FP32. |
-| 2 | Fixed threshold parameter in gvadetect not working with PDD model. | 
+| 2 | Fixed threshold parameter in gvadetect not working with PDD model. |
 | 3 | Fixed yolov8-seg inference result different from OpenVINO. |
 | 4 | Fixed gvapython failing to read yolo-pose keypoint metadata. |
 | 5 | Fixed NV12 frame data in Python by removing padding correctly. |
@@ -121,7 +120,7 @@ For installing Pipeline Framework with the prebuilt binaries or Docker\* or to b
 |---|---|
 | Preview Architecture 2.0 Samples | Preview Arch 2.0 samples have known issues with inference results. |
 
-## Legal Information ##
+## Legal Information
 
 * GStreamer is an open source framework licensed under LGPL.
 See https://gstreamer.freedesktop.org/documentation/frequently-asked-questions/licensing.html.

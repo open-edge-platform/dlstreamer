@@ -57,4 +57,4 @@ The sample
 
 ## See also
 * [Windows Samples overview](../../README.md)
-* [Linux Benchmark Samples](../../../../gstreamer/benchmark/README.md)
+* [Linux Benchmark Samples](../../../gstreamer/benchmark/README.md)

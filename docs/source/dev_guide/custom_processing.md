@@ -86,7 +86,7 @@ The [gvapython element](../elements/gvapython.md) takes reference to user provid
 script with a function to be called on every frame processing.
 
 The callback function can attach/modify metadata as demonstrated in the
-[sample](https://github.com/dlstreamer/dlstreamer/tree/main/samples/gstreamer/gst_launch/gvapython/face_detection_and_classification).
+[sample](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch/gvapython/face_detection_and_classification).
 
 ## 4. Insert new GStreamer element implemented on C/C++
 
