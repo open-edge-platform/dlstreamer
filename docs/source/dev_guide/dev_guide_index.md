@@ -87,7 +87,7 @@ object_tracking
 gpu_device_selection
 performance_guide
 profiling
-concurrent
+dlstreamer-deepstream-coexistence.md
 converting_deepstream_to_dlstreamer
 how_to_contribute
 latency_tracer
