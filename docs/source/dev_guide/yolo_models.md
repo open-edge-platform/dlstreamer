@@ -3,64 +3,37 @@
 This article describes how to prepare models from the **YOLO** family for
 integration with the Deep Learning Streamer pipeline.
 
-> **NOTE:** The instructions provided below are comprehensive, but for convenience,
-> it is recommended to use the
-> [download_public_models.sh](https://github.com/open-edge-platform/dlstreamer/blob/main/samples/download_public_models.sh)
-> script. This script will download all supported Yolo models and perform
-> the necessary conversions automatically.
->
-> See [download_public_models](./download_public_models.md) for more information.
+## Ultralytics Model Preparation
 
-## 1. Set up the framework
+All models supported by the [ultralytics/ultralytics](https://github.com/ultralytics/ultralytics) library can be converted to OpenVINO™ IR format by using the [Ultralytics exporter](https://docs.ultralytics.com/integrations/openvino/). DL Streamer supports many Ultralytics YOLO architectures for tasks such as zero-shot object detection, oriented object detection, segmentation, pose estimation, and more. See the [Supported Models](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/supported_models.html) table for details.
 
-The instructions assume Deep Learning Streamer framework is installed on the
-local system, along with Intel® OpenVINO™ model downloader and converter
-tools, as described in the [Tutorial](../get_started/tutorial.md#setup).
+> **NOTE:** The instructions below are comprehensive, but for convenience, we recommend using the
+> [download_ultralytics_models.py](https://github.com/open-edge-platform/dlstreamer/blob/main/scripts/download_models/download_ultralytics_models.py)
+> script. It can download a YOLO model or read one from a PyTorch file and perform the required conversions automatically.
+> See [Model Conversion Scripts](https://github.com/open-edge-platform/dlstreamer/blob/main/scripts/download_models/README.md) for more information.
 
-For YOLOv5, YOLOv8, YOLOv9, YOLOv10, YOLO11 models you need to
-install the Ultralytics Python package:
-
-```bash
-pip install ultralytics
-```
-
-## 2. YOLOv8, YOLOv9, YOLOv10, YOLO11
-
-Below is a Python script that you can use to convert the recent Ultralytics
-models to the Intel® OpenVINO™ format. Make sure to replace `model_name` and
-`model_type` with the relevant models and types values.
-
-Example for YOLO11 model:
+If you prefer to prepare the model manually, the following minimal Python script converts an Ultralytics model stored in the `yolo.pt` file to IR format:
 
 ```python
 from ultralytics import YOLO
-import openvino, sys, shutil, os
 
-model_name = 'yolo11s'
-model_type = 'yolo_v11'
-weights = model_name + '.pt'
-model = YOLO(weights)
-model.info()
+# Load a YOLO PyTorch model
+model = YOLO("yolo.pt")
 
-converted_path = model.export(format='openvino')
-converted_model = converted_path + '/' + model_name + '.xml'
-
-core = openvino.Core()
-
-ov_model = core.read_model(model=converted_model)
-if model_type in ["YOLOv8-SEG", "yolo_v11_seg"]:
-    ov_model.output(0).set_names({"boxes"})
-    ov_model.output(1).set_names({"masks"})
-ov_model.set_rt_info(model_type, ['model_info', 'model_type'])
-
-openvino.save_model(ov_model, './FP32/' + model_name + '.xml', compress_to_fp16=False)
-openvino.save_model(ov_model, './FP16/' + model_name + '.xml', compress_to_fp16=True)
-
-shutil.rmtree(converted_path)
-os.remove(f"{model_name}.pt")
+# Export the model
+model.export(format="openvino", int8=True)  # creates 'yolo_int8_openvino_model/'
 ```
 
-## 3. YOLOv7
+The argument passed to `YOLO()` can be either a local PyTorch file or an identifier for a model available from Ultralytics, such as [yolo26n.pt](https://github.com/ultralytics/assets/releases/download/v8.4.0/yolo26n.pt).
+
+The directory created by the exporter contains all files required to use the model with the `gvadetect` element. No further modifications are required.
+
+
+## Other YOLO Models
+
+> **NOTE:** To obtain ready-to-use versions of the models described below, we recommend using the [`download_public_models.sh`](https://github.com/open-edge-platform/dlstreamer/blob/main/samples/download_public_models.sh) script. See [Download Public Models](https://github.com/open-edge-platform/dlstreamer/blob/main/docs/source/dev_guide/download_public_models.md) for details.
+
+### YOLOv7
 
 Model preparation:
 
@@ -73,29 +46,15 @@ ovc yolov7.onnx --compress_to_fp16=False
 # Convert the model to OpenVINO format FP16 precision
 ovc yolov7.onnx
 ```
+When used with `gvadetect`, this model requires `label-file=`[`coco_80cl.txt`](https://github.com/open-edge-platform/dlstreamer/blob/main/samples/labels/coco_80cl.txt) and `model-proc=`[`yolo-v7.json`](https://github.com/open-edge-platform/dlstreamer/blob/main/samples/gstreamer/model_proc/public/yolo-v7.json).
 
-## 4. YOLOv5 latest version
+### Older YOLOv5 Versions
 
-Model preparation enabling the dynamic batch size:
+YOLOv5 models trained with `ultralytics/yolov5` are not compatible with the `ultralytics/ultralytics` library or the [download_ultralytics_models.py](https://github.com/open-edge-platform/dlstreamer/blob/main/scripts/download_models/download_ultralytics_models.py) script.
 
-```python
-from ultralytics import YOLO
-from openvino.runtime import Core
-from openvino.runtime import save_model
-model = YOLO("yolov5s.pt")
-model.info()
-model.export(format='openvino', dynamic=True)  # creates 'yolov5su_openvino_model/'
-core = Core()
-model = core.read_model("yolov5su_openvino_model/yolov5su.xml")
-model.reshape([-1, 3, 640, 640])
-save_model(model, "yolov5su.xml")
-```
+Preparing YOLOv5 7.0 from Ultralytics therefore involves two steps.
 
-## 5. YOLOv5 older versions
-
-Model preparation of YOLOv5 7.0 from Ultralytics involves two steps.
-
-1. Convert the PyTorch model to Intel® OpenVINO™ format :
+1. Convert the PyTorch model to Intel® OpenVINO™ format:
 
    ```bash
    git clone https://github.com/ultralytics/yolov5
@@ -104,8 +63,8 @@ Model preparation of YOLOv5 7.0 from Ultralytics involves two steps.
    python3 export.py --weights yolov5s.pt --include openvino --dynamic
    ```
 
-2. Then, reshape the model to enable the dynamic batch size and keep other
-   dimensions fixed:
+2. Then reshape the model to enable a dynamic batch size while keeping the
+   other dimensions fixed:
 
    ```python
    from openvino.runtime import Core
@@ -116,19 +75,15 @@ Model preparation of YOLOv5 7.0 from Ultralytics involves two steps.
    save_model(model, "yolov5s.xml")
    ```
 
-## 6. YOLOX
+### YOLOX
 
-Intel® OpenVINO™ version of the model can be obtained from the ONNX
-file:
+An Intel® OpenVINO™ version of the model can be obtained from the ONNX file:
 
 ```bash
 wget https://github.com/Megvii-BaseDetection/YOLOX/releases/download/0.1.1rc0/yolox_s.onnx
 ovc yolox_s.onnx --compress_to_fp16=False
 ```
 
-## 7. Model usage
+## Model Usage
 
-See
-[Samples](https://github.com/dlstreamer/dlstreamer/tree/main/samples/gstreamer/gst_launch/detection_with_yolo)
-for detailed examples of Deep Learning Streamer pipelines using different
-Yolo models.
+See [Samples](https://github.com/dlstreamer/dlstreamer/tree/main/samples/gstreamer/gst_launch/detection_with_yolo) for detailed examples of Deep Learning Streamer pipelines using different YOLO models.
