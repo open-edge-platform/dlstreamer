@@ -440,13 +440,25 @@ else {
 # Final environment setup
 # ============================================================================
 Write-Section "Setting paths"
-# Ensure GStreamer bin is in user PATH
+# Ensure GStreamer bin is in user PATH for GStreamer 1.28+
 $GSTREAMER_BIN = "$GSTREAMER_DEST_FOLDER\1.0\msvc_x86_64\bin"
 $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
-if ($userPath -split ';' -notcontains $GSTREAMER_BIN) {
-	[Environment]::SetEnvironmentVariable('Path', "$userPath;$GSTREAMER_BIN", [System.EnvironmentVariableTarget]::User)
-	Write-Host "Added to user PATH: $GSTREAMER_BIN"
+$vParts = $GSTREAMER_VERSION.Split('.') | ForEach-Object { [int]$_ }
+if ($vParts[0] -eq 1 -and $vParts[1] -ge 28) {
+	if ($userPath -split ';' -notcontains $GSTREAMER_BIN) {
+		[Environment]::SetEnvironmentVariable('Path', "$userPath;$GSTREAMER_BIN", [System.EnvironmentVariableTarget]::User)
+		Write-Host "Added to user PATH: $GSTREAMER_BIN"
+	}
 }
+else {
+	$pathEntries = $userPath -split ';' | Where-Object { $_ -ne $GSTREAMER_BIN }
+	$newPath = $pathEntries -join ';'
+	if ($newPath -ne $userPath) {
+		[Environment]::SetEnvironmentVariable('Path', $newPath, [System.EnvironmentVariableTarget]::User)
+		Write-Host "Removed from user PATH: $GSTREAMER_BIN"
+	}
+}
+
 Update-Path
 $DLSTREAMER_SRC_LOCATION = $PWD.Path
 setx PKG_CONFIG_PATH "$GSTREAMER_DEST_FOLDER\1.0\msvc_x86_64\lib\pkgconfig"
