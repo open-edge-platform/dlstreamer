@@ -54,7 +54,7 @@ For installing Pipeline Framework with the prebuilt binaries or Docker\* or to b
 |---|---|
 | 3D elements (g3dradarprocess, g3dlidarparse) |	New 3D plugin support with g3dradarprocess element for radar data processing and g3dlidarparse element for lidar data parsing, enabling 3D analytics pipelines.|
 | FPS throttle element (gvafpsthrottle) |	New element to throttle the frame rate of a pipeline to a specified FPS value. |
-| YOLOv26 model support|	Added converters and post-processing for YOLOv26 models, including oriented bounding box (OBB) support and FP16/FP32 GPU inference. Added YOLOv26 to supported models in samples.|
+| YOLOv26 model support|	Added converters and post-processing for YOLOv26 models, including oriented bounding box (OBB) support and INT8 GPU inference. Added YOLOv26 to supported models in samples.|
 | RT-DETR model support |	Added RT-DETR support with dedicated converter implementation for real-time detection transformer models. |
 | HuggingFace ViT classifier support |	Added HuggingFace Vision Transformer (ViT) classifier config parser for inference.|
 | Batch timeout for inference elements |	Added batch-timeout parameter to inference elements, allowing control over batching wait time.|
