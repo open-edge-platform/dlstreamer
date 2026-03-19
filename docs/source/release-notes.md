@@ -4,7 +4,8 @@
 
 ## Key highlights:
 * New elements: gvafpsthrottle, g3dradarprocess, g3dlidarparse
-* New model support: YOLOv26 (including OBB), RT-DETR, HuggingFace ViT
+* New model support: YOLOv26, YOLO-E, RT-DETR, HuggingFace ViT
+* Streamlined integration with Ultralytics and HuggingFace model hubs
 * gvawatermark overhaul: object bluring, text backgrounds, label filtering, extra fonts, thickness/color options, FPS overlay
 * Inference enhancements: batch timeout, OpenCV tensor compression for all devices, FP32 precision, custom GstAnalytics data API
 * Windows platform: GPU inference via D3D11, gvapython support, CI integration, build/setup improvements
@@ -64,6 +65,7 @@ For installing Pipeline Framework with the prebuilt binaries or Docker\* or to b
 | Face detection & age classification sample  | New Python sample for face detection and age classification using HuggingFace models. |
 | Open-vocabulary object detection sample	 | New Python sample with open-vocabulary prompt for object detection. |
 | DL Streamer + DeepStream coexistence sample | New sample demonstrating DL Streamer and DeepStream working in one system. |
+| Motion detect sample (Windows) | New sample demonstrating DL Streamer gvamotiondetect functionality |
 | RealSense element usage sample	| New sample demonstrating gvarealsense element usage. |
 
 
@@ -74,7 +76,7 @@ For installing Pipeline Framework with the prebuilt binaries or Docker\* or to b
 | gvawatermark enhancements|	Major enhancements to the gvawatermark element: display configuration options (thickness, color index), text background support, inclusive/exclusive label filtering, additional font support, average FPS info overlay, and visual documentation.|
 | DLS Optimizer enhancements	 | Optimizer refactored with multi-stream optimization, cross-stream batching, improved FPS reporting, and device selection improvements. |
 | gvametaconvert enhancements| Added reference timestamp meta extraction to gvametaconvert element.|
-| Custom GstAnalytics data | Enabled custom code to add GstAnalytics data outside of DL Streamer components.|
+| ROI object construction enhacement| For existing GstAnalyticsODMtd only, creates GstVideoRegionOfInterestMeta until full GstAnalytics migration|
 | Latency tracer multi-source/sink support|	Extended latency_tracer to support multiple sources and multiple sinks.|
 | Detection anomaly converter |	Refactored and enhanced anomaly logic in DetectionAnomalyConverter.|
 | FP32 precision in BoxesLabelsConverter	| Added FP32 precision support in BoxesLabelsConverter label parsing.|
