@@ -55,11 +55,11 @@ For installing Pipeline Framework with the prebuilt binaries or Docker\* or to b
 | 3D elements (g3dradarprocess, g3dlidarparse) |	New 3D plugin support with g3dradarprocess element for radar data processing and g3dlidarparse element for lidar data parsing, enabling 3D analytics pipelines.|
 | FPS throttle element (gvafpsthrottle) |	New element to throttle the frame rate of a pipeline to a specified FPS value. |
 | YOLOv26 model support|	Added converters and post-processing for YOLOv26 models, including oriented bounding box (OBB) support and INT8 GPU inference. Added YOLOv26 to supported models in samples.|
-| RT-DETR model support |	Added RT-DETR support with dedicated converter implementation for real-time detection transformer models. |
+| RT-DETR model support |	Added RT-DETR support implementation for real-time detection transformer models. |
 | HuggingFace ViT classifier support |	Added HuggingFace Vision Transformer (ViT) classifier config parser for inference.|
 | Batch timeout for inference elements |	Added batch-timeout parameter to inference elements, allowing control over batching wait time.|
 | VLM Alerts sample (Python) | New Python sample for VLM-based alerts with displaying results on produced video. |
-| Smart NVR sample (Python)	 | New Python sample for Smart NVR with prototype elements. |
+| Smart NVR sample (Python)	 | New Python sample for Smart NVR with added custom analytics logic (gvaAnalytics) and custom storage (gvaRecorder) elements. |
 | ONVIF Camera Discovery sample | New sample demonstrating ONVIF camera discovery and DL Streamer pipeline launcher. |
 | Face detection & age classification sample  | New Python sample for face detection and age classification using HuggingFace models. |
 | Open-vocabulary object detection sample	 | New Python sample with open-vocabulary prompt for object detection. |
@@ -80,7 +80,7 @@ For installing Pipeline Framework with the prebuilt binaries or Docker\* or to b
 | FP32 precision in BoxesLabelsConverter	| Added FP32 precision support in BoxesLabelsConverter label parsing.|
 | Bounding box validation |	Added extra validation of bounding boxes to improve robustness.|
 | OpenCV tensor compression for all devices	| Use OpenCV tensor compression for all inference devices, yielding best performance across CPU/GPU/NPU.|
-| Model API refactoring	| Moved Model API parser to separate files; added conversion from third-party metadata to Model API.|
+| Model API refactoring	| Moved Model API parser to separate files; added conversion from Ultralytics and HuggingFace metadata to Model API.|
 | Python samples overview	 | Added overview section for Python samples; updated READMEs. |
 | Tests | Expanded coverage of functional and unit tests. |
 | Windows: GPU inference with D3D11	 | Added support for GPU inference on Windows using D3D11. |
@@ -128,15 +128,15 @@ For installing Pipeline Framework with the prebuilt binaries or Docker\* or to b
 | Preview Architecture 2.0 Samples | Preview Arch 2.0 samples have known issues with inference results. |
 
 
-## Deprecation And Support
+## Legacy Features and Deprecation Timeline
 List of the features and components to be deprecated in the future.
 
 | Feature | End of Support Date | Replacement strategy |
 |---|---|---|
 | OMZ models |	end of Q3'2026	| Use HuggingFace, Ultralytics, TIMM |
 | Model-proc-file| 	end of Q3'2026	| ModelAPI (common with Geti) |
-| GstVideoRegionOfInterest meta + Intel extensions |	end of Q4'2026 |	GstAnalyticsMtd (aka new Collabora meta) |
-| Architecture 2.0 elements |	end of Q4'2026 |	need to take valuable elements/ideas and deprecate others |
+| GstVideoRegionOfInterest meta + Intel extensions |	end of Q4'2026 |	usage of GstAnalyticsMtd  |
+| Architecture 2.0 elements |	end of Q4'2026 |	Preserve essential components and ideas |
 | FFMpeg integration samples | end of Q2'2026 | no replacement |
 
 
