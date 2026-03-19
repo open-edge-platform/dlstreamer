@@ -13,7 +13,7 @@ $OPENVINO_VERSION = "2026.0.0"
 $OPENVINO_VERSION_SHORT = "2026.0"
 $PYTHON_VERSION = "3.12.7"
 $OPENVINO_DEST_FOLDER = "$env:LOCALAPPDATA\Programs\openvino"
-$GSTREAMER_DEST_FOLDER = "$env:ProgramFiles\gstreamer"
+$GSTREAMER_DEST_FOLDER = "$env:ProgramFiles\gstreamer\1.0\msvc_x86_64"
 $DLSTREAMER_TMP = "$env:TEMP\dlstreamer_tmp"
 
 if ($useInternalProxy) {
@@ -192,11 +192,14 @@ try {
 	if ($regInstallDir -and $regVersion) {
 		Write-Host "GStreamer found in registry - InstallDir: $regInstallDir, Version: $regVersion"
 		$GSTREAMER_DEST_FOLDER = $regInstallDir.TrimEnd('\')
-		# Check for conflicting architectures first
-		$expectedPath = "$GSTREAMER_DEST_FOLDER\1.0\msvc_x86_64"
+		# Backward compatibility with 1.26
+		if (-Not $GSTREAMER_DEST_FOLDER.EndsWith('\1.0\msvc_x86_64')) {
+			$GSTREAMER_DEST_FOLDER = "$GSTREAMER_DEST_FOLDER\1.0\msvc_x86_64"
+		}
+		# Check for conflicting architectures
 		$envMsvcX64 = [Environment]::GetEnvironmentVariable('GSTREAMER_1_0_ROOT_MSVC_X86_64', 'Machine')
 
-		if ($envMsvcX64 -and ($envMsvcX64.TrimEnd('\') -ne $expectedPath)) {
+		if ($envMsvcX64 -and ($envMsvcX64.TrimEnd('\') -ne $GSTREAMER_DEST_FOLDER)) {
 			Write-Host "Warning: GSTREAMER_1_0_ROOT_MSVC_X86_64 points to unexpected location: $envMsvcX64"
 		}
 		$conflictingArchs = @()
@@ -218,13 +221,12 @@ try {
 			Write-Host "GStreamer version mismatch - installed: $regVersion, required: $GSTREAMER_VERSION"
 			Uninstall-GStreamer
 			$GSTREAMER_NEEDS_INSTALL = $true
-			$GSTREAMER_DEST_FOLDER = "$env:ProgramFiles\gstreamer"
+			$GSTREAMER_DEST_FOLDER = "$env:ProgramFiles\gstreamer\1.0\msvc_x86_64"
 		}
 		else {
 			# Verify installation directory structure exists
-			$VERSION_SPECIFIC_PATH = "$GSTREAMER_DEST_FOLDER\1.0\msvc_x86_64"
-			if (-Not (Test-Path $VERSION_SPECIFIC_PATH)) {
-				Write-Host "GStreamer installation incomplete - msvc_x86_64 directory not found - reinstallation needed"
+			if (-Not (Test-Path $GSTREAMER_DEST_FOLDER)) {
+				Write-Host "GStreamer installation incomplete - $GSTREAMER_DEST_FOLDER not found - reinstallation needed"
 				$GSTREAMER_NEEDS_INSTALL = $true
 			}
 			else {
@@ -236,13 +238,13 @@ try {
 	else {
 		Write-Host "GStreamer not found in registry - installation needed"
 		$GSTREAMER_NEEDS_INSTALL = $true
-		$GSTREAMER_DEST_FOLDER = "$env:ProgramFiles\gstreamer"
+		$GSTREAMER_DEST_FOLDER = "$env:ProgramFiles\gstreamer\1.0\msvc_x86_64"
 	}
 }
 catch {
 	Write-Host "GStreamer registry check failed - assuming not installed"
 	$GSTREAMER_NEEDS_INSTALL = $true
-	$GSTREAMER_DEST_FOLDER = "$env:ProgramFiles\gstreamer"
+	$GSTREAMER_DEST_FOLDER = "$env:ProgramFiles\gstreamer\1.0\msvc_x86_64"
 }
 
 if ($GSTREAMER_NEEDS_INSTALL) {
@@ -295,7 +297,7 @@ if ($GSTREAMER_NEEDS_INSTALL) {
 			Write-Error "GStreamer development installation failed with exit code: $($process.ExitCode)"
 		}
 		# FIXME: Remove this section after GStreamer 1.28
-		$pkgConfigFile = "$GSTREAMER_DEST_FOLDER\1.0\msvc_x86_64\lib\pkgconfig\gstreamer-analytics-1.0.pc"
+		$pkgConfigFile = "$GSTREAMER_DEST_FOLDER\lib\pkgconfig\gstreamer-analytics-1.0.pc"
 		if (Test-Path $pkgConfigFile) {
 			(Get-Content $pkgConfigFile).Replace('-lm', '') | Set-Content $pkgConfigFile
 		}
@@ -305,6 +307,10 @@ if ($GSTREAMER_NEEDS_INSTALL) {
 	$regInstallDir = (Get-ItemProperty -Path "HKLM:\SOFTWARE\GStreamer1.0\x86_64" -Name "InstallDir" -ErrorAction SilentlyContinue).InstallDir
 	if ($regInstallDir) {
 		$GSTREAMER_DEST_FOLDER = $regInstallDir.TrimEnd('\')
+		# Backward compatibility with 1.26
+		if (-Not $GSTREAMER_DEST_FOLDER.EndsWith('\1.0\msvc_x86_64')) {
+			$GSTREAMER_DEST_FOLDER = "$GSTREAMER_DEST_FOLDER\1.0\msvc_x86_64"
+		}
 	}
 	Write-Section "GStreamer installation completed"
 }
@@ -441,7 +447,7 @@ else {
 # ============================================================================
 Write-Section "Setting paths"
 # Ensure GStreamer bin is in user PATH for GStreamer 1.28+
-$GSTREAMER_BIN = "$GSTREAMER_DEST_FOLDER\1.0\msvc_x86_64\bin"
+$GSTREAMER_BIN = "$GSTREAMER_DEST_FOLDER\bin"
 $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
 $vParts = $GSTREAMER_VERSION.Split('.') | ForEach-Object { [int]$_ }
 if ($vParts[0] -eq 1 -and $vParts[1] -ge 28) {
@@ -461,8 +467,8 @@ else {
 
 Update-Path
 $DLSTREAMER_SRC_LOCATION = $PWD.Path
-setx PKG_CONFIG_PATH "$GSTREAMER_DEST_FOLDER\1.0\msvc_x86_64\lib\pkgconfig"
-$env:PKG_CONFIG_PATH = "$GSTREAMER_DEST_FOLDER\1.0\msvc_x86_64\lib\pkgconfig"
+setx PKG_CONFIG_PATH "$GSTREAMER_DEST_FOLDER\lib\pkgconfig"
+$env:PKG_CONFIG_PATH = "$GSTREAMER_DEST_FOLDER\lib\pkgconfig"
 # Setup OpenVINO environment variables
 . "$OPENVINO_DEST_FOLDER\setupvars.ps1"
 # Setup VS environment variables
