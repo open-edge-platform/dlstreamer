@@ -82,7 +82,7 @@ For installing Pipeline Framework with the prebuilt binaries or Docker\* or to b
 | OpenCV tensor compression for all devices	| Use OpenCV tensor compression for all inference devices, yielding best performance across CPU/GPU/NPU.|
 | Model API refactoring	| Moved Model API parser to separate files; added conversion from third-party metadata to Model API.|
 | Python samples overview	 | Added overview section for Python samples; updated READMEs. |
-Added functional tests and unit tests. |
+| Tests | Expanded coverage of functional and unit tests. |
 | Windows: GPU inference with D3D11	 | Added support for GPU inference on Windows using D3D11. |
 | Windows: gvapython support  | Added Windows support for gvapython element and gstgva Python bindings. |
 | Windows: enhanced build & setup	 | Enhanced Windows build/setup scripts, added remove script, Visual C++ runtime handling, and JSON output for Windows samples. |
