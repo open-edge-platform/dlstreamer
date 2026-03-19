@@ -6,8 +6,9 @@
 * New elements: gvafpsthrottle, g3dradarprocess, g3dlidarparse
 * New model support: YOLOv26, YOLO-E, RT-DETR, HuggingFace ViT
 * Streamlined integration with Ultralytics and HuggingFace model hubs
+* GstAnalytics metadata support: DLStreamer supports GstAnalytics metadata for object detection, classification, tracking and adds custom GstAnalytics extension for keypoints
 * gvawatermark overhaul: object bluring, text backgrounds, label filtering, extra fonts, thickness/color options, FPS overlay
-* Inference enhancements: batch timeout, OpenCV tensor compression for all devices, FP32 precision, custom GstAnalytics data API
+* Inference enhancements: batch timeout, OpenCV tensor compression for all devices
 * Windows platform: GPU inference via D3D11, gvapython support, CI integration, build/setup improvements
 * New Python samples: VLM Alerts, Smart NVR, ONVIF Discovery, face detection/age classification, open-vocabulary detection, RealSense, DL Streamer + DeepStream
 * Optimizer: multi-stream optimization, cross-stream batching, device selection, refactored with tests
