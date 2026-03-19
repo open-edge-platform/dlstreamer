@@ -61,7 +61,7 @@ For installing Pipeline Framework with the prebuilt binaries or Docker\* or to b
 | Batch timeout for inference elements |	Added batch-timeout parameter to inference elements, allowing control over batching wait time.|
 | VLM Alerts sample | New Python sample for VLM-based alerts with displaying results on produced video. |
 | Smart NVR sample (Python)	 | New Python sample for Smart NVR with added custom analytics logic (gvaAnalytics) and custom storage (gvaRecorder) elements. |
-| ONVIF Camera Discovery sample | New sample demonstrating ONVIF camera discovery and DL Streamer pipeline launcher. |
+| ONVIF Camera Discovery sample | New Python sample demonstrating ONVIF camera discovery and DL Streamer pipeline launcher. |
 | Face detection & age classification sample  | New Python sample for face detection and age classification using HuggingFace models. |
 | Open-vocabulary object detection sample	 | New Python sample with open-vocabulary prompt for object detection. |
 | DL Streamer + DeepStream coexistence sample | New sample demonstrating DL Streamer and DeepStream working in one system. |
