@@ -35,7 +35,7 @@ To see the full list of installed components check the [dockerfile content for U
 ## Models
 DL Streamer supports models in OpenVINO™ IR and ONNX* formats, including VLMs, object detection, object classification, human pose detection, sound classification, semantic segmentation, and other use cases on SSD, MobileNet, YOLO, Tiny YOLO, EfficientDet, ResNet, FasterRCNN, and other backbones.
 
-See the full list of [supported models](./docs/source/supported_models.md), including models pre-trained with [Intel® Geti™ Software](<https://www.intel.com/content/www/us/en/developer/tools/tiber/edge-platform/model-builder.html>), or explore over 70 pre-trained models in [OpenVINO™ Open Model Zoo](https://docs.openvino.ai/latest/omz_models_group_intel.html) with corresponding [model-proc files](https://github.com/dlstreamer/dlstreamer/tree/main/samples/model_proc) (pre- and post-processing specifications).
+See the full list of [supported models](./docs/user-guide/supported_models.md), including models pre-trained with [Intel® Geti™ Software](<https://www.intel.com/content/www/us/en/developer/tools/tiber/edge-platform/model-builder.html>), or explore over 70 pre-trained models in [OpenVINO™ Open Model Zoo](https://docs.openvino.ai/latest/omz_models_group_intel.html) with corresponding [model-proc files](https://github.com/dlstreamer/dlstreamer/tree/main/samples/model_proc) (pre- and post-processing specifications).
 
 ## Other Useful Links
 * [Get Started](./docs/user-guide/get_started/get_started_index.md)
