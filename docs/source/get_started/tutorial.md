@@ -217,7 +217,7 @@ Ubuntu.
     If you want to use your own models, you first need to convert them
     to the IR (Intermediate Representation) format. For detailed
     instructions on how to convert models, look
-    [here](https://docs.openvino.ai/2025/openvino-workflow/model-preparation/convert-model-to-ir.html)
+    [here](https://docs.openvino.ai/2026/openvino-workflow/model-preparation/convert-model-to-ir.html)
 
 4.  Export the example video file path:
 
@@ -333,7 +333,7 @@ Follow these steps if you chose Option #2 (Docker) in Install Guide Ubuntu.
 
     If you want to use your own models, first you need to convert them
     in the IR (Intermediate Representation) format. For detailed
-    instructions on how to convert models, look [here](https://docs.openvino.ai/2025/openvino-workflow/model-preparation/convert-model-to-ir.html).
+    instructions on how to convert models, look [here](https://docs.openvino.ai/2026/openvino-workflow/model-preparation/convert-model-to-ir.html).
 
 6.  In the container, export the example video file path:
 
