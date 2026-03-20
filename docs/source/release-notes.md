@@ -76,7 +76,7 @@ For installing Pipeline Framework with the prebuilt binaries or Docker\* or to b
 |---|---|
 | gvawatermark enhancements|	Major enhancements to the gvawatermark element: display configuration options (thickness, color index), text background support, inclusive/exclusive label filtering, additional font support, average FPS info overlay, and visual documentation.|
 | DLS Optimizer enhancements	 | Optimizer refactored with multi-stream optimization, cross-stream batching, improved FPS reporting, and device selection improvements. |
-| gvametaconvert enhancements| Added reference timestamp meta extraction to gvametaconvert element.|
+| gvametaconvert enhancements| Added reference NTP timestamp from RTCP sender meta extraction to gvametaconvert element|
 | ROI object construction enhacement| For existing GstAnalyticsODMtd only, creates GstVideoRegionOfInterestMeta until full GstAnalytics migration|
 | Latency tracer multi-source/sink support|	Extended latency_tracer to support multiple sources and multiple sinks.|
 | Detection anomaly converter |	Refactored and enhanced anomaly logic in DetectionAnomalyConverter.|
