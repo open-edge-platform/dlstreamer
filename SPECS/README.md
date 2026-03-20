@@ -175,8 +175,8 @@ source /opt/intel/dlstreamer/setupvars.sh
 
 After installation, you can try DL Streamer pipelines as described in:
 
-- [Tutorial](../docs/source/get_started/tutorial.md)
-- [Performance Guide](../docs/source/dev_guide/performance_guide.md)
+- [Tutorial](../docs/user-guide/get_started/tutorial.md)
+- [Performance Guide](../docs/user-guide/dev_guide/performance_guide.md)
 
 These resources provide sample pipelines and performance validation steps for DL Streamer GStreamer elements.
 

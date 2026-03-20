@@ -13,25 +13,25 @@ The complete solution leverages:
 
   | Element | Description |
   |---|---|
-  | [gvaattachroi](./docs/source/elements/gvaattachroi.md) | Adds user-defined regions of interest to perform inference on,   instead of full frame. |
-  | [gvaaudiodetect](./docs/source/elements/gvaaudiodetect.md) | Performs audio event detection using AclNet model. |
-  | [gvaaudiotranscribe](./docs/source/elements/gvaaudiotranscribe.md) | Performs audio transcription using OpenVino GenAI Whisper model. |
-  | [gvaclassify](./docs/source/elements/gvaclassify.md) | Performs object classification. Accepts the ROI as an input and   outputs classification results with the ROI metadata. |
-  | [gvadetect](./docs/source/elements/gvadetect.md) | Performs object detection on a full-frame or region of interest (ROI)   using object detection models such as YOLOv4-v11, MobileNet SSD, Faster-RCNN etc. Outputs the ROI for detected   objects. |
-  | [gvafpscounter](./docs/source/elements/gvafpscounter.md) | Measures frames per second across multiple streams in a single   process. |
-  | [gvagenai](./docs/source/elements/gvagenai.md) | Performs inference with Vision Language Models using OpenVINO™ GenAI, accepts video and text prompt as an input, and outputs text description. It can be used to generate text summarization from video. |
-  | [gvainference](./docs/source/elements/gvainference.md) | Runs deep learning inference on a full-frame or ROI using any model with an RGB or BGR input. |
-  | [gvametaaggregate](./docs/source/elements/gvametaaggregate.md) | Aggregates inference results from multiple pipeline branches |
-  | [gvametaconvert](./docs/source/elements/gvametaconvert.md) | Converts the metadata structure to the JSON format. |
-  | [gvametapublish](./docs/source/elements/gvametapublish.md) | Publishes the JSON metadata to MQTT or Kafka message brokers or   files. |
-  | [gvamotiondetect](./docs/source/elements/gvamotiondetect.md) | Performs lightweight motion detection on NV12 video frames and emits motion regions of interest (ROIs) as analytics metadata. |
-  | [gvapython](./docs/source/elements/gvapython.md) | Provides a callback to execute user-defined Python functions on every   frame. Can be used for metadata conversion, inference post-processing, and other tasks. |
-  | [gvarealsense](./docs/source/elements/gvarealsense.md) | Provides integration with Intel RealSense cameras, enabling video and depth stream capture for use in GStreamer pipelines. |
-  | [gvatrack](./docs/source/elements/gvatrack.md) | Performs object tracking using zero-term, or imageless tracking algorithms.   Assigns unique object IDs to the tracked objects. |
-  | [gvawatermark](./docs/source/elements/gvawatermark.md) | Overlays the metadata on the video frame to visualize the inference   results. |
+  | [gvaattachroi](./docs/user-guide/elements/gvaattachroi.md) | Adds user-defined regions of interest to perform inference on,   instead of full frame. |
+  | [gvaaudiodetect](./docs/user-guide/elements/gvaaudiodetect.md) | Performs audio event detection using AclNet model. |
+  | [gvaaudiotranscribe](./docs/user-guide/elements/gvaaudiotranscribe.md) | Performs audio transcription using OpenVino GenAI Whisper model. |
+  | [gvaclassify](./docs/user-guide/elements/gvaclassify.md) | Performs object classification. Accepts the ROI as an input and   outputs classification results with the ROI metadata. |
+  | [gvadetect](./docs/user-guide/elements/gvadetect.md) | Performs object detection on a full-frame or region of interest (ROI)   using object detection models such as YOLOv4-v11, MobileNet SSD, Faster-RCNN etc. Outputs the ROI for detected   objects. |
+  | [gvafpscounter](./docs/user-guide/elements/gvafpscounter.md) | Measures frames per second across multiple streams in a single   process. |
+  | [gvagenai](./docs/user-guide/elements/gvagenai.md) | Performs inference with Vision Language Models using OpenVINO™ GenAI, accepts video and text prompt as an input, and outputs text description. It can be used to generate text summarization from video. |
+  | [gvainference](./docs/user-guide/elements/gvainference.md) | Runs deep learning inference on a full-frame or ROI using any model with an RGB or BGR input. |
+  | [gvametaaggregate](./docs/user-guide/elements/gvametaaggregate.md) | Aggregates inference results from multiple pipeline branches |
+  | [gvametaconvert](./docs/user-guide/elements/gvametaconvert.md) | Converts the metadata structure to the JSON format. |
+  | [gvametapublish](./docs/user-guide/elements/gvametapublish.md) | Publishes the JSON metadata to MQTT or Kafka message brokers or   files. |
+  | [gvamotiondetect](./docs/user-guide/elements/gvamotiondetect.md) | Performs lightweight motion detection on NV12 video frames and emits motion regions of interest (ROIs) as analytics metadata. |
+  | [gvapython](./docs/user-guide/elements/gvapython.md) | Provides a callback to execute user-defined Python functions on every   frame. Can be used for metadata conversion, inference post-processing, and other tasks. |
+  | [gvarealsense](./docs/user-guide/elements/gvarealsense.md) | Provides integration with Intel RealSense cameras, enabling video and depth stream capture for use in GStreamer pipelines. |
+  | [gvatrack](./docs/user-guide/elements/gvatrack.md) | Performs object tracking using zero-term, or imageless tracking algorithms.   Assigns unique object IDs to the tracked objects. |
+  | [gvawatermark](./docs/user-guide/elements/gvawatermark.md) | Overlays the metadata on the video frame to visualize the inference   results. |
 
-For the details on supported platforms, please refer to [System Requirements](./docs/source/get_started/system_requirements.md).
-For installing Pipeline Framework with the prebuilt binaries or Docker\* or to build the binaries from the open source, refer to [Intel® DL Streamer Pipeline Framework installation guide](./docs/source/get_started/install/install_guide_index.md).
+For the details on supported platforms, please refer to [System Requirements](./docs/user-guide/get_started/system_requirements.md).
+For installing Pipeline Framework with the prebuilt binaries or Docker\* or to build the binaries from the open source, refer to [Intel® DL Streamer Pipeline Framework installation guide](./docs/user-guide/get_started/install/install_guide_index.md).
 
 ### New in this Release
   | Title | High-level description |
@@ -97,23 +97,23 @@ The complete solution leverages:
 
   | Element | Description |
   |---|---|
-  | [gvadetect](./docs/source/elements/gvadetect.md) | Performs object detection on a full-frame or region of interest (ROI)   using object detection models such as YOLOv4-v11, MobileNet SSD, Faster-RCNN etc. Outputs the ROI for detected   objects. |
-  | [gvaclassify](./docs/source/elements/gvaclassify.md) | Performs object classification. Accepts the ROI as an input and   outputs classification results with the ROI metadata. |
-  | [gvainference](./docs/source/elements/gvainference.md) | Runs deep learning inference on a full-frame or ROI using any model   with an RGB or BGR input. |
-  | [gvatrack](./docs/source/elements/gvatrack.md) | Performs object tracking using zero-term, or imageless tracking algorithms.   Assigns unique object IDs to the tracked objects. |
-  | [gvaaudiodetect](./docs/source/elements/gvaaudiodetect.md) | Performs audio event detection using AclNet model. |
-  | [gvagenai](./docs/source/elements/gvagenai.md) | Performs inference with Vision Language Models using OpenVINO™ GenAI, accepts video and text prompt as an input, and outputs text description. It can be used to generate text summarization from video. |
-  | [gvaattachroi](./docs/source/elements/gvaattachroi.md) | Adds user-defined regions of interest to perform inference on,   instead of full frame. |
-  | [gvafpscounter](./docs/source/elements/gvafpscounter.md) | Measures frames per second across multiple streams in a single   process. |
-  | [gvametaaggregate](./docs/source/elements/gvametaaggregate.md) | Aggregates inference results from multiple pipeline   branches |
-  | [gvametaconvert](./docs/source/elements/gvametaconvert.md) | Converts the metadata structure to the JSON format. |
-  | [gvametapublish](./docs/source/elements/gvametapublish.md) | Publishes the JSON metadata to MQTT or Kafka message brokers or   files. |
-  | [gvapython](./docs/source/elements/gvapython.md) | Provides a callback to execute user-defined Python functions on every   frame. Can be used for metadata conversion, inference post-processing, and other tasks. |
-  | [gvarealsense](./docs/source/elements/gvarealsense.md) | Provides integration with Intel RealSense cameras, enabling video and depth stream capture for use in GStreamer pipelines. |
-  | [gvawatermark](./docs/source/elements/gvawatermark.md) | Overlays the metadata on the video frame to visualize the inference   results. |
+  | [gvadetect](./docs/user-guide/elements/gvadetect.md) | Performs object detection on a full-frame or region of interest (ROI)   using object detection models such as YOLOv4-v11, MobileNet SSD, Faster-RCNN etc. Outputs the ROI for detected   objects. |
+  | [gvaclassify](./docs/user-guide/elements/gvaclassify.md) | Performs object classification. Accepts the ROI as an input and   outputs classification results with the ROI metadata. |
+  | [gvainference](./docs/user-guide/elements/gvainference.md) | Runs deep learning inference on a full-frame or ROI using any model   with an RGB or BGR input. |
+  | [gvatrack](./docs/user-guide/elements/gvatrack.md) | Performs object tracking using zero-term, or imageless tracking algorithms.   Assigns unique object IDs to the tracked objects. |
+  | [gvaaudiodetect](./docs/user-guide/elements/gvaaudiodetect.md) | Performs audio event detection using AclNet model. |
+  | [gvagenai](./docs/user-guide/elements/gvagenai.md) | Performs inference with Vision Language Models using OpenVINO™ GenAI, accepts video and text prompt as an input, and outputs text description. It can be used to generate text summarization from video. |
+  | [gvaattachroi](./docs/user-guide/elements/gvaattachroi.md) | Adds user-defined regions of interest to perform inference on,   instead of full frame. |
+  | [gvafpscounter](./docs/user-guide/elements/gvafpscounter.md) | Measures frames per second across multiple streams in a single   process. |
+  | [gvametaaggregate](./docs/user-guide/elements/gvametaaggregate.md) | Aggregates inference results from multiple pipeline   branches |
+  | [gvametaconvert](./docs/user-guide/elements/gvametaconvert.md) | Converts the metadata structure to the JSON format. |
+  | [gvametapublish](./docs/user-guide/elements/gvametapublish.md) | Publishes the JSON metadata to MQTT or Kafka message brokers or   files. |
+  | [gvapython](./docs/user-guide/elements/gvapython.md) | Provides a callback to execute user-defined Python functions on every   frame. Can be used for metadata conversion, inference post-processing, and other tasks. |
+  | [gvarealsense](./docs/user-guide/elements/gvarealsense.md) | Provides integration with Intel RealSense cameras, enabling video and depth stream capture for use in GStreamer pipelines. |
+  | [gvawatermark](./docs/user-guide/elements/gvawatermark.md) | Overlays the metadata on the video frame to visualize the inference   results. |
 
-For the details on supported platforms, please refer to [System Requirements](./docs/source/get_started/system_requirements.md).
-For installing Pipeline Framework with the prebuilt binaries or Docker\* or to build the binaries from the open source, refer to [Intel® DL Streamer Pipeline Framework installation guide](./docs/source/get_started/install/install_guide_index.md).
+For the details on supported platforms, please refer to [System Requirements](./docs/user-guide/get_started/system_requirements.md).
+For installing Pipeline Framework with the prebuilt binaries or Docker\* or to build the binaries from the open source, refer to [Intel® DL Streamer Pipeline Framework installation guide](./docs/user-guide/get_started/install/install_guide_index.md).
 
 ### New in this Release
 
@@ -130,7 +130,7 @@ For installing Pipeline Framework with the prebuilt binaries or Docker\* or to b
 | License plate recognition use case support | Added support for models that allow to recognize license plates; [sample](./samples/gstreamer/gst_launch/license_plate_recognition) added as reference.  |
 | Deep Scenario model support | Commercial 3D model support |
 | Anomaly model support | Added support for anomaly model, [sample](./samples/gstreamer/gst_launch/geti_deployment) added as reference, sample added as reference. |
-| RealSense element support | New [gvarealsense](./docs/source/elements/gvarealsense.md) element implementation providing basic integration with Intel RealSense cameras, enabling video and depth stream capture for use in GStreamer pipelines. |
+| RealSense element support | New [gvarealsense](./docs/user-guide/elements/gvarealsense.md) element implementation providing basic integration with Intel RealSense cameras, enabling video and depth stream capture for use in GStreamer pipelines. |
 | OpenVINO 2025.3 version support | Support of recent OpenVINO version added. |
 | GStreamer 1.26.6 version support | Support of recent GStreamer version added. |
 | NPU 1.19 version driver support | Support of recent NPU driver version added. |
@@ -164,23 +164,23 @@ The complete solution leverages:
 
 | Element| Description|
 |--------|------------|
-| [gvadetect](./docs/source/elements/gvadetect.md)| Performs object detection on a full-frame or region of interest (ROI) using object detection models such as YOLOv4-v11, MobileNet SSD, Faster-RCNN etc. Outputs the ROI for detected objects.  |
-| [gvaclassify](./docs/source/elements/gvaclassify.md) | Performs object classification. Accepts the ROI as an input and outputs classification results with the ROI metadata.                                                                      |
-| [gvainference](./docs/source/elements/gvainference.md) | Runs deep learning inference on a full-frame or ROI using any model with an RGB or BGR input.|
-| [gvatrack](./docs/source/elements/gvatrack.md)| Performs object tracking using zero-term, or imageless tracking algorithms. Assigns unique object IDs to the tracked objects.                                                   |
-| [gvaaudiodetect](./docs/source/elements/gvaaudiodetect.md) | Performs audio event detection using AclNet model. |
-| [gvaattachroi](./docs/source/elements/gvaattachroi.md) | Adds user-defined regions of interest to perform inference on, instead of full frame.|
-| [gvafpscounter](./docs/source/elements/gvafpscounter.md) | Measures frames per second across multiple streams in a single process. |
-| [gvametaaggregate](./docs/source/elements/gvametaaggregate.md) | Aggregates inference results from multiple pipeline branches |
-| [gvametaconvert](./docs/source/elements/gvametaconvert.md) | Converts the metadata structure to the JSON format.|
-| [gvametapublish](./docs/source/elements/gvametapublish.md) | Publishes the JSON metadata to MQTT or Kafka message brokers or files. |
-| [gvapython](./docs/source/elements/gvapython.md) | Provides a callback to execute user-defined Python functions on every frame. Can be used for metadata conversion, inference post-processing, and other tasks.|
-| [gvawatermark](./docs/source/elements/gvawatermark.md) | Overlays the metadata on the video frame to visualize the inference results. |
+| [gvadetect](./docs/user-guide/elements/gvadetect.md)| Performs object detection on a full-frame or region of interest (ROI) using object detection models such as YOLOv4-v11, MobileNet SSD, Faster-RCNN etc. Outputs the ROI for detected objects.  |
+| [gvaclassify](./docs/user-guide/elements/gvaclassify.md) | Performs object classification. Accepts the ROI as an input and outputs classification results with the ROI metadata.                                                                      |
+| [gvainference](./docs/user-guide/elements/gvainference.md) | Runs deep learning inference on a full-frame or ROI using any model with an RGB or BGR input.|
+| [gvatrack](./docs/user-guide/elements/gvatrack.md)| Performs object tracking using zero-term, or imageless tracking algorithms. Assigns unique object IDs to the tracked objects.                                                   |
+| [gvaaudiodetect](./docs/user-guide/elements/gvaaudiodetect.md) | Performs audio event detection using AclNet model. |
+| [gvaattachroi](./docs/user-guide/elements/gvaattachroi.md) | Adds user-defined regions of interest to perform inference on, instead of full frame.|
+| [gvafpscounter](./docs/user-guide/elements/gvafpscounter.md) | Measures frames per second across multiple streams in a single process. |
+| [gvametaaggregate](./docs/user-guide/elements/gvametaaggregate.md) | Aggregates inference results from multiple pipeline branches |
+| [gvametaconvert](./docs/user-guide/elements/gvametaconvert.md) | Converts the metadata structure to the JSON format.|
+| [gvametapublish](./docs/user-guide/elements/gvametapublish.md) | Publishes the JSON metadata to MQTT or Kafka message brokers or files. |
+| [gvapython](./docs/user-guide/elements/gvapython.md) | Provides a callback to execute user-defined Python functions on every frame. Can be used for metadata conversion, inference post-processing, and other tasks.|
+| [gvawatermark](./docs/user-guide/elements/gvawatermark.md) | Overlays the metadata on the video frame to visualize the inference results. |
 
 
-For the details of supported platforms, please refer to [System Requirements](./docs/source/get_started/system_requirements.md) section.
+For the details of supported platforms, please refer to [System Requirements](./docs/user-guide/get_started/system_requirements.md) section.
 
-For installing Pipeline Framework with the prebuilt binaries or Docker\* or to build the binaries from the open source, please refer to [DL Streamer Pipeline Framework installation guide](./docs/source/get_started/install/install_guide_index.md)
+For installing Pipeline Framework with the prebuilt binaries or Docker\* or to build the binaries from the open source, please refer to [DL Streamer Pipeline Framework installation guide](./docs/user-guide/get_started/install/install_guide_index.md)
 
 ## New in this Release
 
@@ -431,7 +431,7 @@ For installing Pipeline Framework with the prebuilt binaries or Docker\* or to b
 
 ### System Requirements
 
-Please refer to [DL Streamer documentation](./docs/source/get_started/system_requirements.md).
+Please refer to [DL Streamer documentation](./docs/user-guide/get_started/system_requirements.md).
 
 ## Installation Notes
 
@@ -441,7 +441,7 @@ There are several installation options for Pipeline Framework:
 1. Build Docker image from docker file and run Docker image
 1. Build Pipeline Framework from source code
 
-For more detailed instructions please refer to [DL Streamer Pipeline Framework installation guide](./docs/source/get_started/install/install_guide_index.md).
+For more detailed instructions please refer to [DL Streamer Pipeline Framework installation guide](./docs/user-guide/get_started/install/install_guide_index.md).
 
 ## Samples
 

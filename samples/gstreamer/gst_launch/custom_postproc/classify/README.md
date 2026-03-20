@@ -11,9 +11,9 @@ This sample builds GStreamer pipeline of the following elements:
 * `filesrc` or `urisourcebin` or `v4l2src` for input from file/URL/web-camera
 * `decodebin3` for video decoding
 * `vapostproc` (when using GPU) for video format conversion and VA-API memory handling
-* [gvadetect](../../../../../docs/source/elements/gvadetect.md) for face detection
-* [gvaclassify](../../../../../docs/source/elements/gvaclassify.md) for emotion classification using custom post-processing library
-* [gvawatermark](../../../../../docs/source/elements/gvawatermark.md) for bounding boxes and labels visualization
+* [gvadetect](../../../../../docs/user-guide/elements/gvadetect.md) for face detection
+* [gvaclassify](../../../../../docs/user-guide/elements/gvaclassify.md) for emotion classification using custom post-processing library
+* [gvawatermark](../../../../../docs/user-guide/elements/gvawatermark.md) for bounding boxes and labels visualization
 * Various sink elements depending on output format (`autovideosink` for display, `filesink` for file output, `fakesink` for performance testing)
 
 > **NOTE**: `sync=false` property in `autovideosink` element disables real-time synchronization so pipeline runs as fast as possible
@@ -56,7 +56,7 @@ Or download all available models:
 
 > **NOTE**: Remember to set the `MODELS_PATH` environment variable, which is needed by both the script that downloads the models and the script that runs the sample.
 
-These instructions assume that the DLStreamer framework is installed on your local system, along with the Intel® OpenVINO™ model downloader and converter tools, as described in this [tutorial](../../../../../docs/source/get_started/tutorial.md#setup).
+These instructions assume that the DLStreamer framework is installed on your local system, along with the Intel® OpenVINO™ model downloader and converter tools, as described in this [tutorial](../../../../../docs/user-guide/get_started/tutorial.md#setup).
 
 ## Running
 
@@ -197,7 +197,7 @@ The library:
 ## See also
 
 * [Samples overview](../../../README.md)
-* [DLStreamer documentation](../../../../../docs/source/index.md)
-* [Custom post-processing guide](../../../../../docs/source/dev_guide/custom_processing.md#6-create-custom-post-processing-library)
+* [DLStreamer documentation](../../../../../docs/user-guide/index.md)
+* [Custom post-processing guide](../../../../../docs/user-guide/dev_guide/custom_processing.md#6-create-custom-post-processing-library)
 * [GStreamer Analytics Documentation](https://gstreamer.freedesktop.org/documentation/analytics/index.html?gi-language=c)
 * [Custom Post-Processing to ROI Sample](../detect/README.md)

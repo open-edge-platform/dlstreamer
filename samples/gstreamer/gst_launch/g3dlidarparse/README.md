@@ -32,7 +32,7 @@ If the element is found, you should see detailed information about the element, 
 
 ### 2. Download Lidar Data and Configuration
 
-Download the sample lidar binary dataset: 
+Download the sample lidar binary dataset:
 
 ```bash
 DATA_DIR=velodyne
@@ -82,6 +82,6 @@ The sample:
 * outputs LiDAR parser debug logs and metadata summaries
 
 ## See also
-* [Elements overview](../../../../docs/source/elements/elements.md)
-* [g3dlidarparse element](../../../../docs/source/elements/g3dlidarparse.md)
+* [Elements overview](../../../../docs/user-guide/elements/elements.md)
+* [g3dlidarparse element](../../../../docs/user-guide/elements/g3dlidarparse.md)
 * [Samples overview](../../README.md)
