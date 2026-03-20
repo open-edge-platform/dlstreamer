@@ -49,9 +49,6 @@ ARG BUILD_ARG=Release
 LABEL description="This is the development image of Deep Learning Streamer (DL Streamer) Pipeline Framework"
 LABEL vendor="Intel Corporation"
 
-ARG GST_VERSION=1.26.6
-ARG REALSENSE_VERSION=v2.57.6
-
 ENV DLSTREAMER_DIR=/home/dlstreamer/dlstreamer
 ENV GSTREAMER_DIR=/opt/intel/dlstreamer/gstreamer
 ENV LIBVA_DRIVERS_PATH=/usr/lib/x86_64-linux-gnu/dri
@@ -185,6 +182,8 @@ RUN cp -a /usr/local/lib/libopencv* ./
 
 # ==============================================================================
 FROM opencv-builder AS gstreamer-builder
+
+ARG GST_VERSION=1.26.6
 
 SHELL ["/bin/bash", "-xo", "pipefail", "-c"]
 
@@ -327,6 +326,9 @@ RUN cp -a /usr/local/lib/librdkafka* ./
 
 # ==============================================================================
 FROM builder AS realsense-builder
+
+ARG REALSENSE_VERSION=v2.57.6
+
 SHELL ["/bin/bash", "-xo", "pipefail", "-c"]
 
 # Build librealsense
