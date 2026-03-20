@@ -1,0 +1,85 @@
+---
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+name: "Build Documentation"
+
+on: # yamllint disable-line rule:truthy rule:line-length
+  workflow_call:
+    inputs:
+      docs_directory:
+        description: >-
+          Documentation directory where the job will run, defaults to '.'
+        required: false
+        default: "."
+        type: string
+      simple_mode:
+        description: >-
+          When true, override configuration for simple documentation sites
+        required: false
+        default: true
+        type: boolean
+      exclude_patterns:
+        description: >-
+          Comma separated list of exclude patterns to use during the build,
+          defaults to empty list
+        required: false
+        default: ""
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  build-documentation:
+    permissions:
+      contents: read # minimal privilege required
+    runs-on: ubuntu-latest
+    env:
+      DOCS_DIR: ${{ inputs.docs_directory }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          # Fetch all history, otherwise sporadic issue with missing tags
+          fetch-depth: 0
+          # Fetch tags
+          fetch-tags: true
+          # Checkout the branch that triggered the workflow
+          # to avoid detached HEAD
+          ref: ${{ github.event.pull_request.head.sha || github.head_ref }}
+          persist-credentials: false
+
+      - name: Download template
+        if: ${{ inputs.simple_mode }}
+        shell: bash
+        run: |
+          cd "${GITHUB_WORKSPACE}/${DOCS_DIR}"
+          wget https://docs.openedgeplatform.intel.com/template/template.tar.gz
+          # Override any existing files with template
+          tar xf template.tar.gz
+          if [ -f "dictionary_append.txt" ]; then
+            cat "dictionary_append.txt" >> "dict.txt"
+          fi
+
+      - name: Add exclude patterns
+        env:
+          EXCLUDE: ${{ inputs.exclude_patterns }}
+        shell: bash
+        run: |
+          # Remove any spaces
+          exclude_no_spaces="${EXCLUDE// /}"
+          # Surround patterns with quotes and create Python list
+          exclude_pattern="[\"${exclude_no_spaces//,/\", \"}\"]"
+          conf_files=$(find "${GITHUB_WORKSPACE}" -type f -path "*/docs/conf.py")
+          for conf_file in $conf_files; do
+            echo "exclude_patterns.extend(${exclude_pattern})" >> "$conf_file"
+          done
+
+      - name: Build Documentation
+        env:
+          SIMPLE_MODE: ${{ inputs.simple_mode }}
+        shell: bash
+        run: |
+          cd "${GITHUB_WORKSPACE}/${DOCS_DIR}"
+          make build

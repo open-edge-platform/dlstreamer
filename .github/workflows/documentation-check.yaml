@@ -1,0 +1,41 @@
+---
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+name: Documentation Check
+
+on: # yamllint disable-line rule:truthy
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  filter:
+    permissions:
+      contents: read # needed for actions/checkout
+    runs-on: ubuntu-latest
+    outputs:
+      dlstreamer_documentation_changed: ${{ steps.filter.outputs.dlstreamer_documentation }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - name: Set paths filter
+        id: filter
+        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36
+        with:
+          filters: |
+            dlstreamer_documentation:
+              - 'docs/source/**'
+
+  build-dlstreamer-documentation:
+    permissions:
+      contents: read # needed for actions/checkout
+    needs: filter
+    if: ${{ needs.filter.outputs.dlstreamer_documentation_changed == 'true' }}
+    uses: ./.github/workflows/docs-reusable-workflow.yaml
+    with:
+      docs_directory: .
