@@ -11,14 +11,15 @@
 #                     |
 #                     V
 #                  builder -----------------------------------------------
-#                 /       \                         |                    |
-#                /         \                        |                    |
-#               V           V                       |                    |
-#      gstreamer-builder   opencv-builder           V                    V
-#               |              |                kafka-builder    realsense-builder
-#               |              |                    |                    |
-#    (copy libs) \            / (copy libs)         |                    |
-#                 \          /                      |                    |
+#                     |                             |                    |
+#                     |                             |                    |
+#                     V                             |                    |
+#               opencv-builder                      V                    V
+#               |           |                  kafka-builder    realsense-builder
+#               |           |                       |                    |
+#      gstreamer-builder    | (copy libs)           |                    |
+#                \          |                       |                    |
+#     (copy libs) \         |                       |                    |
 #                  V        V       (copy libs)     |                    |
 #                dlstreamer-dev <-------------------|--------------------|
 #                      |
@@ -306,10 +307,11 @@ RUN \
 FROM builder AS kafka-builder
 
 SHELL ["/bin/bash", "-xo", "pipefail", "-c"]
+ARG KAFKA_VERSION=2.13.2
 
 # Build librdkafka
-RUN curl -sSL https://github.com/edenhill/librdkafka/archive/v2.12.1.tar.gz | tar -xz
-WORKDIR /librdkafka-2.12.1
+RUN curl -sSL https://github.com/edenhill/librdkafka/archive/v${KAFKA_VERSION}.tar.gz | tar -xz
+WORKDIR /librdkafka-${KAFKA_VERSION}
 RUN ./configure &&\
     make && make install
 
