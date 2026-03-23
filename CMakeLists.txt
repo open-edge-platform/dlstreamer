@@ -219,3 +219,7 @@ if(${ENABLE_TESTS} AND NOT(WIN32))
     enable_testing()
     add_subdirectory(tests)
 endif()
+
+if(WIN32)
+    include(cmake/packaging/windows/cpack_windows.cmake)
+endif()
