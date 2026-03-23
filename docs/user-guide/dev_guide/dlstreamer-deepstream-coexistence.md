@@ -73,7 +73,20 @@ if "Intel" in lscpu_output:
      - Intel CPU
 
 ```mermaid
-%%{ init : { "theme" : "base", "themeVariables" : { "background" : "#ffffff" }}}%%
+%%{init: {
+  'theme': 'base',
+  'themeVariables': {
+    'primaryColor': '#ffffff',
+    'primaryTextColor': '#000000',
+    'primaryBorderColor': '#000000',
+    'lineColor': '#000000',
+    'secondaryColor': '#f0f0f0',
+    'tertiaryColor': '#ffffff',
+    'mainBkg': '#ffffff',
+    'nodeTextColor': '#000000',
+    'nodeBorder': '#000000'
+  }
+}%%
 flowchart LR
     A[Start] --> B{Intel GPU and Nvidia GPU exist}
     B -->|Yes| C[Run DL Streamer and DeepStream]
