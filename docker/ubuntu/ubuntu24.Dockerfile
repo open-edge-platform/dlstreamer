@@ -31,15 +31,15 @@
 #                      V
 #                  dlstreamer
 # ==============================================================================
-
 # Possible arguments:
-# - DLSTREAMER_VERSION: version of DL Streamer to be used in the package name
-# - DLSTREAMER_BUILD_NUMBER: build number of the package
-# - GST_VERSION: version of GStreamer to be built and used in the image
-# - OPENVINO_VERSION: version of OpenVINO to be installed in the image
-# - OPENCV_VERSION: version of OpenCV to be built and used in the image
-# - REALSENSE_VERSION: version of RealSense SDK to be built and used in the image
-# - KAFKA_VERSION: version of librdkafka to be built and used in the image
+# DLSTREAMER_VERSION      # DL Streamer
+# DLSTREAMER_BUILD_NUMBER # Build ID
+# GST_VERSION             # GStreamer
+# FFMPEG_VERSION          # FFmpeg
+# OPENVINO_VERSION        # OpenVINO
+# OPENCV_VERSION          # OpenCV
+# REALSENSE_VERSION       # RealSense
+# KAFKA_VERSION           # librdkafka
 ARG DOCKER_REGISTRY
 FROM ${DOCKER_REGISTRY}ubuntu:24.04 AS builder
 
