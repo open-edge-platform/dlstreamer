@@ -4,21 +4,21 @@ Samples are simple applications that demonstrate how to use the Intel® DL Strea
 
 Samples separated into several categories
 1. gst_launch command-line samples (samples construct GStreamer pipeline via [gst-launch-1.0](https://gstreamer.freedesktop.org/documentation/tools/gst-launch.html) command-line utility)
-    * [Face Detection And Classification Sample](./gst_launch/face_detection_and_classification/README.md) - constructs object detection and classification pipeline example with [gvadetect](../../../dl-streamer/docs/source/elements/gvadetect.md) and [gvaclassify](../../../dl-streamer/docs/source/elements/gvaclassify.md) elements to detect faces and estimate age, gender, emotions and landmark points
-    * [Audio Event Detection Sample ](./gst_launch/audio_detect/README.md) - constructs audio event detection pipeline example with [gvaaudiodetect](../../../dl-streamer/docs/source/elements/gvaaudiodetect.md) element and uses  [gvametaconvert](../../../dl-streamer/docs/source/elements/gvametaconvert.md), [gvametapublish](../../../dl-streamer/docs/source/elements/gvametapublish.md) elements to convert audio event metadata with inference results into JSON format and to print on standard out
-    * [Audio Transcription Sample](./gst_launch/audio_transcribe/README.md) - performs audio transcription using OpenVino GenAI model (whisper) with [gvaaudiotranscribe](../../../dl-streamer/docs/source/elements/gvaaudiotranscribe.md)
-    * [Vehicle and Pedestrian Tracking Sample](./gst_launch/vehicle_pedestrian_tracking/README.md) - demonstrates object tracking via [gvatrack](../../../dl-streamer/docs/source/elements/gvatrack.md) element
-    * [Human Pose Estimation Sample](./gst_launch/human_pose_estimation/README.md) - demonstrates human pose estimation with full-frame inference via [gvaclassify](../../../dl-streamer/docs/source/elements/gvaclassify.md) element
-    * [Metadata Publishing Sample](./gst_launch/metapublish/README.md) - demonstrates how [gvametaconvert](../../../dl-streamer/docs/source/elements/gvametaconvert.md) and [gvametapublish](../../../dl-streamer/docs/source/elements/gvametapublish.md) elements are used for converting metadata with inference results into JSON format and publishing to file or Kafka/MQTT message bus
-    * [gvapython face_detection_and_classification Sample](./gst_launch/gvapython/face_detection_and_classification/README.md) - demonstrates pipeline customization with [gvapython](../../../dl-streamer/docs/source/elements/gvapython.md) element and application provided Python script for inference post-processing
-    * [gvapython save frames with ROI Sample](./gst_launch/gvapython/save_frames_with_ROI_only/README.md) - demonstrates [gvapython](../../../dl-streamer/docs/source/elements/gvapython.md) element for saving video frames with detected objects to disk
+    * [Face Detection And Classification Sample](./gst_launch/face_detection_and_classification/README.md) - constructs object detection and classification pipeline example with [gvadetect](../../docs/user-guide/elements/gvadetect.md) and [gvaclassify](../../docs/user-guide/elements/gvaclassify.md) elements to detect faces and estimate age, gender, emotions and landmark points
+    * [Audio Event Detection Sample ](./gst_launch/audio_detect/README.md) - constructs audio event detection pipeline example with [gvaaudiodetect](../../docs/user-guide/elements/gvaaudiodetect.md) element and uses  [gvametaconvert](../../docs/user-guide/elements/gvametaconvert.md), [gvametapublish](../../docs/user-guide/elements/gvametapublish.md) elements to convert audio event metadata with inference results into JSON format and to print on standard out
+    * [Audio Transcription Sample](./gst_launch/audio_transcribe/README.md) - performs audio transcription using OpenVino GenAI model (whisper) with [gvaaudiotranscribe](../..//docs/user-guide/elements/gvaaudiotranscribe.md)
+    * [Vehicle and Pedestrian Tracking Sample](./gst_launch/vehicle_pedestrian_tracking/README.md) - demonstrates object tracking via [gvatrack](../../docs/user-guide/elements/gvatrack.md) element
+    * [Human Pose Estimation Sample](./gst_launch/human_pose_estimation/README.md) - demonstrates human pose estimation with full-frame inference via [gvaclassify](../../docs/user-guide/elements/gvaclassify.md) element
+    * [Metadata Publishing Sample](./gst_launch/metapublish/README.md) - demonstrates how [gvametaconvert](../../docs/user-guide/elements/gvametaconvert.md) and [gvametapublish](../../docs/user-guide/elements/gvametapublish.md) elements are used for converting metadata with inference results into JSON format and publishing to file or Kafka/MQTT message bus
+    * [gvapython face_detection_and_classification Sample](./gst_launch/gvapython/face_detection_and_classification/README.md) - demonstrates pipeline customization with [gvapython](../../docs/user-guide/elements/gvapython.md) element and application provided Python script for inference post-processing
+    * [gvapython save frames with ROI Sample](./gst_launch/gvapython/save_frames_with_ROI_only/README.md) - demonstrates [gvapython](../../docs/user-guide/elements/gvapython.md) element for saving video frames with detected objects to disk
     * [Action Recognition Sample](./gst_launch/action_recognition/README.md) - demonstrates action recognition via video_inference bin element
     * [Instance Segmentation Sample](./gst_launch/instance_segmentation/README.md) - demonstrates Instance Segmentation via object_detect and object_classify bin elements
     * [Detection with Yolo](./gst_launch/detection_with_yolo/README.md) - demonstrates how to use publicly available Yolo models for object detection and classification
     * [Deployment of Geti™ models](./gst_launch/geti_deployment/README.md) - demonstrates how to deploy models trained with Intel® Geti™ Platform for object detection, anomaly detection and classification tasks
     * [Multi-camera deployments](./gst_launch/multi_stream/README.md) - demonstrates how to handle video streams from multiple cameras with one instance of DL Streamer application
     * [gvaattachroi](./gst_launch/gvaattachroi/README.md) - demonstrates how to use gvaattachroi to define the regions on which the inference should be performed
-    * [FPS Throttle](./gst_launch/gvafpsthrottle/README.md) - demonstrates how to use [gvafpsthrottle](../../../docs/source/elements/gvafpsthrottle.md) element to throttle framerate independent of sink synchronization and without frame duplication or dropping
+    * [FPS Throttle](./gst_launch/gvafpsthrottle/README.md) - demonstrates how to use [gvafpsthrottle](../../docs/user-guide/elements/gvafpsthrottle.md) element to throttle framerate independent of sink synchronization and without frame duplication or dropping
     * [Image Embeddings Generation with ViT](./gst_launch/lvm/README.md) - demonstrates how to generate image embeddings using the Vision Transformer component of a CLIP model
     * [License Plate Recognition Sample](./gst_launch/license_plate_recognition/README.md) - demonstrates the use of the Yolo detector together with the optical character recognition model
     * [Using VLM Models With gvagenai Element](./gst_launch/gvagenai/README.md) - demonstrates how to use the `gvagenai` element with MiniCPM-V for video summarization
@@ -36,8 +36,8 @@ Samples separated into several categories
     * [ONVIF Camera Discovery Sample](./python/onvif_cameras_discovery/README.md) - demonstrates automatic discovery of ONVIF-compatible cameras on the network and launches corresponding DL Streamer pipelines for video analysis.
 4. Benchmark
     * [Benchmark Sample](./benchmark/README.md) - measures overall performance of single-channel or multi-channel video analytics pipelines
-5. Concurrent use of DL Streamer and DeepStream
-	* [Concurrent use Sample](./concurrent/README.md) - runs pipelines on DL Streamer and/or DeepStream
+5. Coexistently use of DL Streamer and DeepStream
+    * [Coexistently use Sample](./python/coexistence/README.md) - runs pipelines on DL Streamer and/or DeepStream
 
 ## How To Build And Run
 

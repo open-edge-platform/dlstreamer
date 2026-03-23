@@ -10,7 +10,7 @@ This sample builds GStreamer pipeline of the following elements
 * `filesrc` or `urisourcebin` or `v4l2src` for input from file/URL/web-camera
 * `decodebin3` for video decoding
 * `video_inference` for converting video frame into custom tensor, inferencing using OpenVINO™ toolkit and post process data.
-* [gvawatermark](../../../../docs/source/elements/gvawatermark.md) for labels visualization
+* [gvawatermark](../../../../docs/user-guide/elements/gvawatermark.md) for labels visualization
 * `gvafpscounter` for rendering fps info in terminal
 * `autovideosink` for rendering output video into screen
 > **NOTE**: `sync=false` property in `autovideosink` element disables real-time synchronization so pipeline runs as fast as possible
