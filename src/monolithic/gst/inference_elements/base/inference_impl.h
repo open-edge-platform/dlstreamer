@@ -92,6 +92,7 @@ class InferenceImpl {
     std::list<OutputFrame> output_frames;
     std::mutex output_frames_mutex;
 
+    void SetAffinityMaskToPCores();
     void SetAffinityMask(uint64_t mask);
     void PushOutput();
     bool CheckSrcPadBlocked(GstObject *src);

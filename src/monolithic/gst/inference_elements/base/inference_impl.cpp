@@ -834,8 +834,13 @@ InferenceImpl::Model InferenceImpl::CreateModel(GvaBaseInference *gva_base_infer
         ie_config[KEY_BASE]["frame-height"] = std::to_string(gva_base_inference->info->height);
     }
 
+    // If the user explicitly set core pinning with core_pinning_mask option, apply the specified affinity mask.
     if (gva_base_inference->core_pinning_mask != ~0ULL) {
         SetAffinityMask(gva_base_inference->core_pinning_mask);
+    }
+    else {
+        // Otherwise, set affinity mask to P-cores if possible
+        SetAffinityMaskToPCores();
     }
 
     auto image_inference = ImageInference::createImageInferenceInstance(
@@ -982,9 +987,29 @@ bool InferenceImpl::IsRoiSizeValid(const GstAnalyticsODMtd roi_meta) {
 }
 
 /**
+ * Set affinity mask to P-cores if no affinity mask is set by user and the process affinity mask 
+ * is set to a full mask (16 cores for PTL-H series).
+ */
+void InferenceImpl::SetAffinityMaskToPCores() {
+#ifndef _WIN32
+    if (Utils::isCPUPTLHSeries()) {
+        cpu_set_t process_affinity_mask;
+        CPU_ZERO(&process_affinity_mask);
+        pthread_t current_thread = pthread_self();
+        if(!pthread_getaffinity_np(current_thread, sizeof(cpu_set_t), &process_affinity_mask)) {
+            if (CPU_COUNT(&process_affinity_mask) == TOTAL_CORES_PTL_H) {
+                uint64_t p_cores_mask = 0xF; // Mask for the first 4 cores (P-cores)
+                SetAffinityMask(p_cores_mask);
+            }
+        }
+    }
+#endif
+}
+/**
  * Pins current thread to the CPU core set as specified by affinity mask.
  */
 void InferenceImpl::SetAffinityMask(uint64_t mask) {
+    GVA_INFO("Setting CPU affinity mask to 0x%lx\n", mask);
 #ifndef _WIN32
     cpu_set_t cpuset;
     CPU_ZERO(&cpuset);                             // Initialize to zero

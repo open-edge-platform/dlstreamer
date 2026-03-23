@@ -188,4 +188,27 @@ std::string fixPath(std::string path) {
     return path;
 }
 
+#ifndef _WIN32
+bool isCPUPTLHSeries() {
+    std::ifstream in("/proc/cpuinfo");
+    if (!in.is_open())
+        return false;
+
+    std::string line;
+    const std::string key = "model name"; //e.g. model name      : Intel(R) Core(TM) Ultra X7 358H
+    while (std::getline(in, line)) {
+        if (line.rfind(key, 0) == 0) {
+            auto pos = line.find(':');
+            if (pos != std::string::npos) {
+                std::string value = line.substr(pos + 1);
+                static const std::regex model_regex("\\b3\\d{2}H\\b");
+                if (std::regex_search(value, model_regex))
+                    return true;   // Intel® Core™ Ultra Series 3 processors with 16 cores (H) e.g. 358H
+                return false;
+            }
+        }
+    }
+    return false;
+}
+#endif
 } // namespace Utils
