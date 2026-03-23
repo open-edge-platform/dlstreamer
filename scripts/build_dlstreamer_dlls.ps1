@@ -420,9 +420,46 @@ else {
 }
 
 # ============================================================================
+# NSIS
+# ============================================================================
+$nsisInstalled = (Get-WinGetPackage -Id NSIS.NSIS -Source winget -ErrorAction SilentlyContinue).Count -gt 0
+if (-Not $nsisInstalled) {
+	Write-Section "Installing NSIS"
+	Install-WinGetPackage -Id NSIS.NSIS -Source winget -Mode Silent
+	Update-Path
+	Write-Section "Done"
+}
+else {
+	Write-Section "NSIS already installed"
+}
+
+# Install NSIS plugins
+$NSIS_PLUGINS = "${env:ProgramFiles(X86)}\NSIS\Plugins"
+if (-Not (Test-Path "$NSIS_PLUGINS\x86-unicode\Crypto.dll")) {
+	Invoke-DownloadFile -OutFile "${DLSTREAMER_TMP}\Crypto_plugin.zip" -Uri "https://nsis.sourceforge.io/mediawiki/images/c/cd/Crypto.zip"
+	Expand-Archive -Path "${DLSTREAMER_TMP}\Crypto_plugin.zip" -DestinationPath "${DLSTREAMER_TMP}\Crypto_plugin" -Force
+	Copy-Item -Path "${DLSTREAMER_TMP}\Crypto_plugin\Plugins\*" -Destination "$NSIS_PLUGINS" -Recurse -Force
+}
+if (-Not (Test-Path "$NSIS_PLUGINS\x86-unicode\EnVar.dll")) {
+	Invoke-DownloadFile -OutFile "${DLSTREAMER_TMP}\EnVar_plugin.zip" -Uri "https://nsis.sourceforge.io/mediawiki/images/7/7f/EnVar_plugin.zip"
+	Expand-Archive -Path "${DLSTREAMER_TMP}\EnVar_plugin.zip" -DestinationPath "${DLSTREAMER_TMP}\EnVar_plugin" -Force
+	Copy-Item -Path "${DLSTREAMER_TMP}\EnVar_plugin\*" -Destination "${env:ProgramFiles(X86)}\NSIS" -Recurse -Force
+}
+if (-Not (Test-Path "$NSIS_PLUGINS\x86-unicode\w7tbp.dll")) {
+	Invoke-DownloadFile -OutFile "${DLSTREAMER_TMP}\Win7TaskbarProgress_20091109.zip" -Uri "https://nsis.sourceforge.io/mediawiki/images/6/6f/Win7TaskbarProgress_20091109.zip"
+	Expand-Archive -Path "${DLSTREAMER_TMP}\Win7TaskbarProgress_20091109.zip" -DestinationPath "${DLSTREAMER_TMP}\Win7TaskbarProgress" -Force
+	Copy-Item -Path "${DLSTREAMER_TMP}\Win7TaskbarProgress\w7tbp.dll" -Destination "$NSIS_PLUGINS\x86-unicode" -Force
+}
+if (-Not (Test-Path "$NSIS_PLUGINS\x86-unicode\SysCompImg.dll")) {
+	Invoke-DownloadFile -OutFile "${DLSTREAMER_TMP}\SysCompImg.zip" -Uri "https://nsis.sourceforge.io/mediawiki/images/b/be/SysCompImg.zip"
+	Expand-Archive -Path "${DLSTREAMER_TMP}\SysCompImg.zip" -DestinationPath "${DLSTREAMER_TMP}\SysCompImg" -Force
+	Copy-Item -Path "${DLSTREAMER_TMP}\SysCompImg\*" -Destination "$NSIS_PLUGINS" -Recurse -Force
+}
+
+# ============================================================================
 # Upgrade with winget
 # ============================================================================
-winget upgrade Git.Git Kitware.CMake -e --source winget
+winget upgrade Git.Git Kitware.CMake NSIS.NSIS -e --source winget
 
 # ============================================================================
 # Python
@@ -482,18 +519,48 @@ Write-Section "Done"
 # Build DL Streamer
 # ============================================================================
 Write-Section "Preparing build directory"
-if (Test-Path "${DLSTREAMER_TMP}\build") {
-	Remove-Item -LiteralPath "${DLSTREAMER_TMP}\build" -Recurse
+$DLSTREAMER_BUILD = "${DLSTREAMER_SRC_LOCATION}\build"
+if (Test-Path $DLSTREAMER_BUILD) {
+	Remove-Item -LiteralPath $DLSTREAMER_BUILD -Recurse
 }
-mkdir "${DLSTREAMER_TMP}\build"
-Set-Location -Path "${DLSTREAMER_TMP}\build"
+mkdir $DLSTREAMER_BUILD
 
 Write-Section "Running CMake"
 $VCPKG_CMAKE = Join-Path $vsPath "VC\vcpkg\scripts\buildsystems\vcpkg.cmake"
-cmake -DCMAKE_TOOLCHAIN_FILE="${VCPKG_CMAKE}" "$DLSTREAMER_SRC_LOCATION"
+$buildArgs = @("-DCMAKE_TOOLCHAIN_FILE=$VCPKG_CMAKE", "-S", "$DLSTREAMER_SRC_LOCATION", "-B", "$DLSTREAMER_BUILD")
+if ($env:NSIS_SKIP_COMPRESSION) {
+	$buildArgs += "-DNSIS_SKIP_COMPRESSION=$env:NSIS_SKIP_COMPRESSION"
+}
+if ($env:CODE_SIGN_SCRIPT) {
+	if (-Not (Test-Path $env:CODE_SIGN_SCRIPT)) {
+		Write-Error "CODE_SIGN_SCRIPT not found: $env:CODE_SIGN_SCRIPT"
+		exit 1
+	}
+	$resolvedSignScript = (Resolve-Path $env:CODE_SIGN_SCRIPT).Path
+	$buildArgs += "-DCODE_SIGN_SCRIPT=$resolvedSignScript"
+	Write-Host "Code signing enabled: $resolvedSignScript"
+}
+cmake @buildArgs
 if ($LASTEXITCODE -eq 0) {
 	Write-Section "Building DL Streamer"
-	cmake --build . --parallel $env:NUMBER_OF_PROCESSORS --target ALL_BUILD --config Release
+	cmake --build $DLSTREAMER_BUILD --parallel $env:NUMBER_OF_PROCESSORS --target ALL_BUILD --config Release
+
+	Write-Section "Packaging DL Streamer"
+	cmake --build $DLSTREAMER_BUILD --target download_installer_deps --config Release
+	if ($LASTEXITCODE -ne 0) {
+		Write-Error "Downloading installer dependencies failed with exit code: $LASTEXITCODE"
+		exit $LASTEXITCODE
+	}
+	cmake --build $DLSTREAMER_BUILD --target package_all --config Release
+	if ($LASTEXITCODE -ne 0) {
+		$nsisLog = "$DLSTREAMER_BUILD\_CPack_Packages\win64\NSIS\NSISOutput.log"
+		if (Test-Path $nsisLog) {
+			Write-Section "NSIS Output Log"
+			Get-Content $nsisLog
+		}
+		Write-Error "Packaging failed with exit code: $LASTEXITCODE"
+		exit $LASTEXITCODE
+	}
 	Write-Section "Done"
 }
 else {
