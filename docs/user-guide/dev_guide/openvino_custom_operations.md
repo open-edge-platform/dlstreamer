@@ -22,7 +22,7 @@ Before using custom operations, you need:
 1. **OpenVINO™ Extension Library** - A compiled `.so` file (on Linux) containing the implementation of custom operations
 2. **Model with Custom Operations** - An OpenVINO™ IR model that uses the custom operations defined in the extension library
 
-For information on creating OpenVINO™ extension libraries, refer to the [OpenVINO™ Extensibility documentation](https://docs.openvino.ai/2025/documentation/openvino-extensibility.html).
+For information on creating OpenVINO™ extension libraries, refer to the [OpenVINO™ Extensibility documentation](https://docs.openvino.ai/2026/documentation/openvino-extensibility.html).
 
 ## Usage
 

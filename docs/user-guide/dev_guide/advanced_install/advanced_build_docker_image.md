@@ -11,7 +11,7 @@ Ubuntu22/24 from Deep Learning Streamer Dockerfiles.
 Follow the instructions in
 [the prerequisites](../../get_started/install/install_guide_ubuntu.md#prerequisites) section.
 
-## Step 2: Clone dlstreamer repository
+## Step 2: Clone DL Streamer repository
 
 ```bash
 git clone https://github.com/open-edge-platform/dlstreamer.git

@@ -70,7 +70,7 @@ The *gvapython* element is implemented in "C" language as a normal GStreamer
 element and it invokes Python functions via "C" interface (Python.h).
 
 See the samples for the *gvapython* element in
-[face_detection_and_classification](https://github.com/dlstreamer/dlstreamer/tree/main/samples/gstreamer/gst_launch/gvapython/face_detection_and_classification) folder.
+[face_detection_and_classification](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch/gvapython/face_detection_and_classification) folder.
 
 ## 4. Performance considerations
 

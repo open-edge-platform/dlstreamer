@@ -91,7 +91,7 @@ some of the operations described above:
 
 | Model | Model-proc | Operation |
 |---|---|---|
-| [MobileNet](https://github.com/onnx/models/blob/main/validated/vision/classification/mobilenet) | [mobilenetv2-7.json](https://github.com/open-edge-platform/dlstreamer/blob/main/samples/gstreamer/model_proc/onnx/mobilenetv2-7.json)   | normalization |
+| [MobileNet](https://github.com/onnx/models/tree/main/validated/vision/classification/mobilenet) | [mobilenetv2-7.json](https://github.com/open-edge-platform/dlstreamer/blob/main/samples/gstreamer/model_proc/onnx/mobilenetv2-7.json)   | normalization |
 | [single-human-pose-estimation-0001](https://github.com/openvinotoolkit/open_model_zoo/tree/master/models/public/single-human-pose-estimation-0001) | [single-human-pose-estimation-0001.json](https://github.com/open-edge-platform/dlstreamer/blob/main/samples/gstreamer/model_proc/public/single-human-pose-estimation-0001.json)  | padding |
 
 For more details, see the [model-proc documentation](./model_proc_file.md).

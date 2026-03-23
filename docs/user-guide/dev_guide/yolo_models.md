@@ -5,7 +5,7 @@ integration with the Deep Learning Streamer pipeline.
 
 ## Ultralytics Model Preparation
 
-All models supported by the [ultralytics/ultralytics](https://github.com/ultralytics/ultralytics) library can be converted to OpenVINO™ IR format by using the [Ultralytics exporter](https://docs.ultralytics.com/integrations/openvino/). DL Streamer supports many Ultralytics YOLO architectures for tasks such as zero-shot object detection, oriented object detection, segmentation, pose estimation, and more. See the [Supported Models](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/supported_models.html) table for details.
+All models supported by the [ultralytics/ultralytics](https://github.com/ultralytics/ultralytics) library can be converted to OpenVINO™ IR format by using the [Ultralytics exporter](https://docs.ultralytics.com/integrations/openvino/). DL Streamer supports many Ultralytics YOLO architectures for tasks such as zero-shot object detection, oriented object detection, segmentation, pose estimation, and more. See the [Supported Models](https://docs.openedgeplatform.intel.com/2026.0/edge-ai-libraries/dlstreamer/supported_models.html) table for details.
 
 > **NOTE:** The instructions below are comprehensive, but for convenience, we recommend using the
 > [download_ultralytics_models.py](https://github.com/open-edge-platform/dlstreamer/blob/main/scripts/download_models/download_ultralytics_models.py)
@@ -31,7 +31,7 @@ The directory created by the exporter contains all files required to use the mod
 
 ## Other YOLO Models
 
-> **NOTE:** To obtain ready-to-use versions of the models described below, we recommend using the [`download_public_models.sh`](https://github.com/open-edge-platform/dlstreamer/blob/main/samples/download_public_models.sh) script. See [Download Public Models](https://github.com/open-edge-platform/dlstreamer/blob/main/docs/source/dev_guide/download_public_models.md) for details.
+> **NOTE:** To obtain ready-to-use versions of the models described below, we recommend using the [`download_public_models.sh`](https://github.com/open-edge-platform/dlstreamer/blob/main/samples/download_public_models.sh) script. See [Download Public Models](./download_public_models.md) for details.
 
 ### YOLOv7
 
@@ -86,4 +86,4 @@ ovc yolox_s.onnx --compress_to_fp16=False
 
 ## Model Usage
 
-See [Samples](https://github.com/dlstreamer/dlstreamer/tree/main/samples/gstreamer/gst_launch/detection_with_yolo) for detailed examples of Deep Learning Streamer pipelines using different YOLO models.
+See [Samples](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch/detection_with_yolo) for detailed examples of Deep Learning Streamer pipelines using different YOLO models.

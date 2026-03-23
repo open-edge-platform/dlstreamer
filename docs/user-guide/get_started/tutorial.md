@@ -217,12 +217,12 @@ Ubuntu.
     If you want to use your own models, you first need to convert them
     to the IR (Intermediate Representation) format. For detailed
     instructions on how to convert models, look
-    [here](https://docs.openvino.ai/2025/openvino-workflow/model-preparation/convert-model-to-ir.html)
+    [here](https://docs.openvino.ai/2026/openvino-workflow/model-preparation/convert-model-to-ir.html)
 
 4.  Export the example video file path:
 
-    You may download a sample video from
-    [here](https://github.com/intel-iot-devkit/sample-videos/raw/master/person-bicycle-car-detection.mp4).
+    You can download a sample video from
+    [here](https://raw.githubusercontent.com/intel-iot-devkit/sample-videos/master/person-bicycle-car-detection.mp4).
     If you provide your own video file as input, please make sure
     that it is in h264 or mp4 format. You can also download and use
     freely licensed content from websites such as Pexels\*. Any
@@ -333,7 +333,7 @@ Follow these steps if you chose Option #2 (Docker) in Install Guide Ubuntu.
 
     If you want to use your own models, first you need to convert them
     in the IR (Intermediate Representation) format. For detailed
-    instructions on how to convert models, look [here](https://docs.openvino.ai/2025/openvino-workflow/model-preparation/convert-model-to-ir.html).
+    instructions on how to convert models, look [here](https://docs.openvino.ai/2026/openvino-workflow/model-preparation/convert-model-to-ir.html).
 
 6.  In the container, export the example video file path:
 

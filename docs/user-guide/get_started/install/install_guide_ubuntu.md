@@ -55,13 +55,13 @@ NPU:
 
 More details about the packages can be found in:
 
-- [Intel® Client GPU](https://dgpu-docs.intel.com/driver/client/overview.html#installing-gpu-packages).
+- [Intel® Installing Client GPUs](https://dgpu-docs.intel.com/driver/client/overview.html#installing-client-gpus).
 - [Media](https://github.com/intel/media-driver/releases).
 - [NPU](https://github.com/intel/linux-npu-driver/releases/tag/v1.28.0).
 
 To run Deep Learning Streamer on Intel® Data Center GPU (Flex) you need to use specific
 drivers, and follow the instructions on the
-[Intel® Data Center GPU website](https://dgpu-docs.intel.com/driver/installation.html#installing-data-center-gpu-lts-releases).
+[Intel® Data Center GPU website](https://dgpu-docs.intel.com/driver/installation.html).
 
 ## Option #1: Install Deep Learning Streamer Pipeline Framework from Debian packages using APT repository
 

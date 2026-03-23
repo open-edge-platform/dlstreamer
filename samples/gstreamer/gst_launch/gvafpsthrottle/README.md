@@ -4,7 +4,7 @@ This directory contains sample pipelines demonstrating the use of the `gvafpsthr
 
 The `gvafpsthrottle` element throttles (limits) framerate by capping the maximum rate at which buffers pass through. Note: This element does not duplicate or drop frames to match the framerate. It cannot increase FPS, any slowdown in upstream processing cannot be recovered.
 
-For detailed documentation, see [docs/source/elements/gvafpsthrottle.md](../../../../docs/source/elements/gvafpsthrottle.md).
+For detailed documentation, see [docs/user-guide/elements/gvafpsthrottle.md](../../../../docs/user-guide/elements/gvafpsthrottle.md).
 
 ## Features
 

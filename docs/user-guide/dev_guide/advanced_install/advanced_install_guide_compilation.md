@@ -7,7 +7,7 @@
 The instructions below are intended for building Deep Learning Streamer Pipeline Framework
 from the source code provided in
 
-[Open Edge Platform repository](https://github.com/open-edge-platform/edge-ai-libraries.git).
+[Open Edge Platform repository](https://github.com/open-edge-platform/edge-ai-libraries).
 
 ## Step 1: Install prerequisites (only for Ubuntu)
 
@@ -148,10 +148,10 @@ packages:
 <!--hide_directive:::
 ::::hide_directive-->
 
-### [Optional] Step 6: Install OpenVINO™ GenAI (only for Ubuntu)
+### (Optional) Step 6: Install OpenVINO™ GenAI (only for Ubuntu)
 
-To use [gvagenai element](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dl-streamer/elements/gvagenai.html)
-there is need to install [OpenVINO GenAI archive](https://docs.openvino.ai/2026/get-started/install-openvino/install-openvino-genai.html) package.
+To use [gvagenai element](https://docs.openedgeplatform.intel.com/2026.0/edge-ai-libraries/dlstreamer/elements/gvagenai.html)
+you need to install the [OpenVINO GenAI archive](https://docs.openvino.ai/2026/get-started/install-openvino/install-openvino-genai.html) package.
 
 <!--hide_directive::::{tab-set}
 :::{tab-item}hide_directive--> Ubuntu 24

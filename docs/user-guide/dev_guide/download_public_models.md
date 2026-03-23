@@ -6,7 +6,6 @@ script to download the following models:
 
 - [YOLO](https://docs.ultralytics.com/models/)
 - [CenterFace](https://github.com/Star-Clouds/CenterFace)
-- [HSEmotion](https://github.com/av-savchenko/face-emotion-recognition)
 - [Deeplabv3](https://github.com/openvinotoolkit/open_model_zoo/blob/master/models/public/deeplabv3/README.md#deeplabv3)
 
 The script downloads the models from their respective sources, handles the
