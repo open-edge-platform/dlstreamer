@@ -1,6 +1,6 @@
 # Release Notes: Deep Learning Streamer (DL Streamer) Pipeline Framework Release 2026.0
 
-## [Preview] Version 2026.0
+## Version 2026.0
 
 ## Key highlights:
 
