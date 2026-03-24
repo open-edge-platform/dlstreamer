@@ -1,6 +1,6 @@
 # Benchmark Sample (Windows)
 
-Sample `benchmark.bat` demonstrates [gvafpscounter](../../../../docs/source/elements/gvafpscounter.md) element used to measure overall performance of video analytics pipelines on Windows.
+Sample `benchmark.bat` demonstrates [gvafpscounter](../../../../docs/user-guide/elements/gvafpscounter.md) element used to measure overall performance of video analytics pipelines on Windows.
 
 The sample outputs last and average FPS (Frames Per Second) every second and overall FPS on exit.
 

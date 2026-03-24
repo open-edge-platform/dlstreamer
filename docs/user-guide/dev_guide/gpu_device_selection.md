@@ -9,7 +9,7 @@ This article describes how to select a GPU device on a multi-GPU system.
 In case of video decoding running on CPU and inference running on GPU, the
 `device` property in inference elements enables you to select the GPU device
 according to the
-[OpenVINO™ GPU device naming convention](https://docs.openvino.ai/2024/openvino-workflow/running-inference/inference-devices-and-modes/gpu-device.html#device-naming-convention)
+[OpenVINO™ GPU device naming convention](https://docs.openvino.ai/2026/openvino-workflow/running-inference/inference-devices-and-modes/gpu-device.html#device-naming-convention)
 , with devices enumerated as **GPU.0**, **GPU.1**, etc., for example:
 
 ```bash

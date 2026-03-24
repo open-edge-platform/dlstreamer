@@ -1,5 +1,5 @@
 # ==============================================================================
-# Copyright (C) 2025 Intel Corporation
+# Copyright (C) 2025-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
@@ -27,7 +27,7 @@ if doxyrest_sphinx_dir:
 # -- Project information -----------------------------------------------------
 
 project = "Deep Learning Streamer (DL Streamer)"
-copyright = "2025, Intel Corporation"
+copyright = "2026, Intel Corporation"
 author = "Intel Corporation"
 
 

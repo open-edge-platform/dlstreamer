@@ -1,12 +1,15 @@
 # Release Notes: Deep Learning Streamer (DL Streamer) Pipeline Framework Release 2026.0
 
-## [Preview] Version 2026.0
+## Version 2026.0
 
 ## Key highlights:
+
 * New elements: gvafpsthrottle, g3dradarprocess, g3dlidarparse
-* New model support: YOLOv26 (including OBB), RT-DETR, HuggingFace ViT
+* New model support: YOLOv26, YOLO-E, RT-DETR, HuggingFace ViT
+* Streamlined integration with Ultralytics and HuggingFace model hubs
+* GstAnalytics metadata support: DLStreamer supports GstAnalytics metadata for object detection, classification, tracking and adds custom GstAnalytics extension for keypoints
 * gvawatermark overhaul: object bluring, text backgrounds, label filtering, extra fonts, thickness/color options, FPS overlay
-* Inference enhancements: batch timeout, OpenCV tensor compression for all devices, FP32 precision, custom GstAnalytics data API
+* Inference enhancements: batch timeout, OpenCV tensor compression for all devices
 * Windows platform: GPU inference via D3D11, gvapython support, CI integration, build/setup improvements
 * New Python samples: VLM Alerts, Smart NVR, ONVIF Discovery, face detection/age classification, open-vocabulary detection, RealSense, DL Streamer + DeepStream
 * Optimizer: multi-stream optimization, cross-stream batching, device selection, refactored with tests
@@ -54,38 +57,46 @@ For installing Pipeline Framework with the prebuilt binaries or Docker\* or to b
 |---|---|
 | 3D elements (g3dradarprocess, g3dlidarparse) |	New 3D plugin support with g3dradarprocess element for radar data processing and g3dlidarparse element for lidar data parsing, enabling 3D analytics pipelines.|
 | FPS throttle element (gvafpsthrottle) |	New element to throttle the frame rate of a pipeline to a specified FPS value. |
-| YOLOv26 model support|	Added converters and post-processing for YOLOv26 models, including oriented bounding box (OBB) support and FP16/FP32 GPU inference. Added YOLOv26 to supported models in samples.|
-| RT-DETR model support |	Added RT-DETR support with dedicated converter implementation for real-time detection transformer models. |
+| YOLOv26 model support|	Added converters and post-processing for YOLOv26 models, including oriented bounding box (OBB) support and INT8 GPU inference. Added YOLOv26 to supported models in samples.|
+| RT-DETR model support |	Added RT-DETR support implementation for real-time detection transformer models. |
 | HuggingFace ViT classifier support |	Added HuggingFace Vision Transformer (ViT) classifier config parser for inference.|
-| gvawatermark enhancements|	Major enhancements to the gvawatermark element: display configuration options (thickness, color index), text background support, inclusive/exclusive label filtering, additional font support, average FPS info overlay, and visual documentation.|
 | Batch timeout for inference elements |	Added batch-timeout parameter to inference elements, allowing control over batching wait time.|
-| Reference timestamp metadata|Added reference timestamp meta extraction to gvametaconvert element.|
-| Custom GstAnalytics data	| Enabled custom code to add GstAnalytics data outside of DL Streamer components.|
+| VLM Alerts sample | New Python sample for VLM-based alerts with displaying results on produced video. |
+| Smart NVR sample | New Python sample for Smart NVR with added custom analytics logic (gvaAnalytics) and custom storage (gvaRecorder) elements. |
+| ONVIF Camera Discovery sample | New Python sample demonstrating ONVIF camera discovery and DL Streamer pipeline launcher. |
+| Face detection & age classification sample  | New Python sample for face detection and age classification using HuggingFace models. |
+| Open-vocabulary object detection sample	 | New Python sample with open-vocabulary prompt for object detection. |
+| DL Streamer + DeepStream coexistence sample | New sample demonstrating DL Streamer and DeepStream working in one system. |
+| Motion detect sample (Windows) | New sample demonstrating DL Streamer gvamotiondetect functionality |
+| RealSense element usage sample	| New sample demonstrating gvarealsense element usage. |
+
+
+**Updated in this Release**
+
+| Title | High-level description |
+|---|---|
+| gvawatermark enhancements|	Major enhancements to the gvawatermark element: display configuration options (thickness, color index), text background support, inclusive/exclusive label filtering, additional font support, average FPS info overlay, and visual documentation.|
+| DLS Optimizer enhancements	 | Optimizer refactored with multi-stream optimization, cross-stream batching, improved FPS reporting, and device selection improvements. |
+| gvametaconvert enhancements| Added reference NTP timestamp from RTCP sender meta extraction to gvametaconvert element|
+| ROI object construction enhacement| For existing GstAnalyticsODMtd only, creates GstVideoRegionOfInterestMeta until full GstAnalytics migration|
 | Latency tracer multi-source/sink support|	Extended latency_tracer to support multiple sources and multiple sinks.|
 | Detection anomaly converter |	Refactored and enhanced anomaly logic in DetectionAnomalyConverter.|
 | FP32 precision in BoxesLabelsConverter	| Added FP32 precision support in BoxesLabelsConverter label parsing.|
 | Bounding box validation |	Added extra validation of bounding boxes to improve robustness.|
 | OpenCV tensor compression for all devices	| Use OpenCV tensor compression for all inference devices, yielding best performance across CPU/GPU/NPU.|
-| Model API refactoring	| Moved Model API parser to separate files; added conversion from third-party metadata to Model API.|
-| VLM Alerts sample (Python) | New Python sample for VLM-based alerts with displaying results on produced video. |
-| Smart NVR sample (Python)	 | New Python sample for Smart NVR with prototype elements. |
-| ONVIF Camera Discovery sample | New sample demonstrating ONVIF camera discovery and DL Streamer pipeline launcher. |
-| Face detection & age classification sample  | New Python sample for face detection and age classification using HuggingFace models. |
-| Open-vocabulary object detection sample	 | New Python sample with open-vocabulary prompt for object detection. |
-| RealSense element usage sample	| New sample demonstrating gvarealsense element usage. |
-| DL Streamer + DeepStream concurrent sample | New sample demonstrating concurrent DL Streamer and DeepStream usage. |
+| Model API refactoring	| Moved Model API parser to separate files; added conversion from Ultralytics and HuggingFace metadata to Model API.|
 | Python samples overview	 | Added overview section for Python samples; updated READMEs. |
+| Tests | Expanded coverage of functional and unit tests. |
 | Windows: GPU inference with D3D11	 | Added support for GPU inference on Windows using D3D11. |
 | Windows: gvapython support  | Added Windows support for gvapython element and gstgva Python bindings. |
 | Windows: enhanced build & setup	 | Enhanced Windows build/setup scripts, added remove script, Visual C++ runtime handling, and JSON output for Windows samples. |
 | Windows: CI integration	 | Enabled Windows tests in GitHub Actions workflow, model downloads on Windows. |
-| DL Optimizer enhancements	 | Optimizer refactored with multi-stream optimization, cross-stream batching, improved FPS reporting, and device selection improvements. Added functional tests and unit tests. |
-| CI: Zizmor security scanning |	Added Zizmor GitHub Actions security scanner. |
 | Library consolidation	| Merged gvawatermark3d, gvadeskew, gvamotiondetect, and gvagenai into the gstvideoanalytics library. |
 | OpenVINO update	| Update to OpenVINO 2026.0.0. |
 | NPU driver update	 | Update to NPU driver version 1.30. |
 | RealSense update	 | Update to Intel RealSense SDK 2.57.5. |
 | Model download script improvements | Simplified YOLO model download script, enhanced INT8 quantization, refactored YOLOv8+ export/quantize, added model validation. |
+| CI: Zizmor security scanning |	Added Zizmor GitHub Actions security scanner. |
 
 **Fixed**
 
@@ -119,6 +130,19 @@ For installing Pipeline Framework with the prebuilt binaries or Docker\* or to b
 | Issue | Issue Description |
 |---|---|
 | Preview Architecture 2.0 Samples | Preview Arch 2.0 samples have known issues with inference results. |
+
+
+## Legacy Features and Deprecation Timeline
+List of the features and components to be deprecated in the future.
+
+| Feature | End of Support Date | Replacement strategy |
+|---|---|---|
+| OMZ models |	end of Q3'2026	| Use HuggingFace, Ultralytics, TIMM |
+| Model-proc-file| 	end of Q3'2026	| ModelAPI (common with Geti) |
+| GstVideoRegionOfInterest meta + Intel extensions |	end of Q4'2026 |	usage of GstAnalyticsMtd  |
+| Architecture 2.0 elements |	end of Q4'2026 |	Preserve essential components and ideas |
+| FFMpeg integration samples | end of Q2'2026 | no replacement |
+
 
 ## Legal Information
 

@@ -10,18 +10,21 @@
 #                     |
 #                     |
 #                     V
-#                  builder -----------------------------------------------
-#                     |                             |                    |
-#                     |                             |                    |
-#                     V                             |                    |
-#                ffmpeg-builder                     V                    V
-#                /           \                 kafka-builder     realsense-builder
-#               V             V                     |                    |
-#      gstreamer-builder  opencv-builder            |                    |
-#                \            /                     |                    |
-#      (copy libs)\          /(copy libs)           |                    |
-#                  V        V        (copy libs)    |                    |
-#                dlstreamer-dev <-------------------|--------------------|
+#                  builder ---------------------------------------------
+#                     |                           |                    |
+#                     |                           |                    |
+#                     V                           |                    |
+#                ffmpeg-builder                   V                    V
+#                      |                    kafka-builder     realsense-builder
+#                      V                          |                    |
+#                opencv-builder                   |                    |
+#                 |          |                    |                    |
+#                 V          |                    |                    |
+#         gstreamer-builder  | (copy libs)        |                    |
+#                 |          |                    |                    |
+#     (copy libs) |          |                    |                    |
+#                 V          V      (copy libs)   |                    |
+#                dlstreamer-dev <-----------------|--------------------|
 #                      |
 #                      |
 #                      V
@@ -309,11 +312,13 @@ RUN \
 
 # ==============================================================================
 FROM builder AS kafka-builder
-# Build rdkafka
+
+ARG KAFKA_VERSION=2.13.2
 SHELL ["/bin/bash", "-xo", "pipefail", "-c"]
 
-RUN curl -sSL https://github.com/edenhill/librdkafka/archive/v2.3.0.tar.gz | tar -xz
-WORKDIR /librdkafka-2.3.0
+# Build librdkafka
+RUN curl -sSL https://github.com/edenhill/librdkafka/archive/v${KAFKA_VERSION}.tar.gz | tar -xz
+WORKDIR /librdkafka-${KAFKA_VERSION}
 RUN ./configure && \
     make && make INSTALL=install install
 

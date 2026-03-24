@@ -12,11 +12,11 @@ The sample constructs GStreamer pipelines with the following elements:
 * `filesrc` or `urisourcebin` or `v4l2src` for input from a file, URL, or web camera
 * `decodebin3` to construct a decoding pipeline using available decoders and demuxers via auto-plugging
 * `vapostproc ! video/x-raw(memory:VAMemory)` to facilitate video processing on the GPU
-* [gvadetect](../../../../docs/source/elements/gvadetect.md) for performing object detection using Mask RCNN models
-* [gvawatermark](../../../../docs/source/elements/gvawatermark.md) to visualize segmentation masks on the video
-* [gvafpscounter](../../../../docs/source/elements/gvafpscounter.md) to measure and display frames per second
-* [gvametaconvert](../../../../docs/source/elements/gvametaconvert.md) o transform the metadata into JSON format
-* [gvametapublish](../../../../docs/source/elements/gvametapublish.md) to save the metadata as a JSON file
+* [gvadetect](../../../../docs/user-guide/elements/gvadetect.md) for performing object detection using Mask RCNN models
+* [gvawatermark](../../../../docs/user-guide/elements/gvawatermark.md) to visualize segmentation masks on the video
+* [gvafpscounter](../../../../docs/user-guide/elements/gvafpscounter.md) to measure and display frames per second
+* [gvametaconvert](../../../../docs/user-guide/elements/gvametaconvert.md) o transform the metadata into JSON format
+* [gvametapublish](../../../../docs/user-guide/elements/gvametapublish.md) to save the metadata as a JSON file
 * `vah264enc ! h264parse ! mp4mux` or `vah264lpenc ! h264parse ! mp4mux` to encode the raw video into H.264 bitstream, ensure that the stream is correctly formatted and contains the necessary headers and metadata, and to create the MP4 file structure
 * `jpegenc` for encoding frames as JPEG images
 * `autovideosink` for displaying the output video on the screen

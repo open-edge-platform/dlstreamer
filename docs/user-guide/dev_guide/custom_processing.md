@@ -129,7 +129,6 @@ to the
 
 **Current Support Limitations**
 
-
 At this time, only **detection** and **classification** tasks are supported:
 
 - **Object Detection** (`GstAnalyticsODMtd`) - works only with the

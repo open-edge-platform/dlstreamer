@@ -1,6 +1,6 @@
 # gvapython Sample - Save Frames with ROI Only
 
-This sample demonstrates [gvapython](../../../../../docs/source/elements/gvapython.md) element with custom Python script to save video frames containing detected objects. It showcases practical post-processing use case where frames with regions of interest (ROI) are automatically saved to disk.
+This sample demonstrates [gvapython](../../../../../docs/user-guide/elements/gvapython.md) element with custom Python script to save video frames containing detected objects. It showcases practical post-processing use case where frames with regions of interest (ROI) are automatically saved to disk.
 
 ## How It Works
 In this sample the `gvapython` element is inserted after `gvadetect` element running object detection. The Python script (`simple_frame_saver.py`) processes each frame and saves it to disk when:
@@ -54,13 +54,13 @@ The sample takes three command-line *optional* parameters:
    * local video file
    * web camera device (ex. `/dev/video0`)
    * RTSP camera (URL starting with `rtsp://`) or other streaming source (ex URL starting with `http://`)
-   
+
    If parameter is not specified, the sample by default streams video example from HTTPS link (utilizing `urisourcebin` element) so requires internet connection.
 
 2. [DEVICE] to specify device for detection. Default GPU.
    Please refer to OpenVINO™ toolkit documentation for supported devices.
    https://docs.openvinotoolkit.org/latest/openvino_docs_IE_DG_supported_plugins_Supported_Devices.html
-   
+
    You can find what devices are supported on your system by running following OpenVINO™ toolkit sample:
    https://docs.openvinotoolkit.org/latest/openvino_inference_engine_ie_bridges_python_sample_hello_query_device_README.html
 
@@ -88,4 +88,4 @@ The saved frames are numbered sequentially and include all detected objects with
 
 ## See also
 * [Samples overview](../../../README.md)
-* [gvapython element documentation](../../../../../docs/source/elements/gvapython.md)
+* [gvapython element documentation](../../../../../docs/user-guide/elements/gvapython.md)
