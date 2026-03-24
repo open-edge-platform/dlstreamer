@@ -429,6 +429,9 @@ static gboolean gst_gva_meta_convert_set_caps(GstBaseTransform *trans, GstCaps *
     } else if (g_strrstr(name, "application/x-radar-processed")) {
         // Accept radar data types - no video/audio info needed
         GST_DEBUG_OBJECT(gvametaconvert, "Accepting radar data type: %s", name);
+    } else if (g_strrstr(name, "application/x-lidar")) {
+        // Accept lidar data types - no video/audio info needed
+        GST_DEBUG_OBJECT(gvametaconvert, "Accepting lidar data type: %s", name);
     } else {
         GST_ERROR_OBJECT(gvametaconvert, "Invalid input caps: %s", name);
         return FALSE;

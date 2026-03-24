@@ -7,6 +7,7 @@
 #include "gvametapublishbase.hpp"
 #include "common.hpp"
 
+#include <dlstreamer/gst/metadata/g3d_lidar_meta.h>
 #include <gva_json_meta.h>
 #include <utils.h>
 
@@ -131,6 +132,11 @@ static void gva_meta_publish_base_before_transform(GstBaseTransform *trans, GstB
     GvaMetaPublishBase *self = GVA_META_PUBLISH_BASE(trans);
 
     GST_DEBUG_OBJECT(self, "before transform");
+    if (gst_buffer_get_meta(buffer, LIDAR_META_API_TYPE) && trans->segment.format != GST_FORMAT_TIME) {
+        GST_DEBUG_OBJECT(self, "Skipping stream-time sync for LiDAR buffer with non-time segment format");
+        return;
+    }
+
     GstClockTime timestamp;
 
     // TODO: do we need it?
