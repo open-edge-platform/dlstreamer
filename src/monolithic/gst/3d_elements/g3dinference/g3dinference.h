@@ -26,7 +26,7 @@ struct _GstG3DInference {
 
     gchar *config;
     gchar *device;
-    gchar *model;
+    gchar *backend;
     gfloat score_threshold;
 
     GMutex mutex;

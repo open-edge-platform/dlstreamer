@@ -27,14 +27,14 @@ enum {
     PROP_0,
     PROP_CONFIG,
     PROP_DEVICE,
-    PROP_MODEL,
+    PROP_BACKEND,
     PROP_SCORE_THRESHOLD,
 };
 
 namespace {
 
 constexpr const char *DEFAULT_DEVICE = "CPU";
-constexpr const char *DEFAULT_MODEL = "pointpillars";
+constexpr const char *DEFAULT_BACKEND = "pointpillars";
 constexpr float DEFAULT_SCORE_THRESHOLD = -1.0f;
 constexpr size_t POINT_SIZE = 4;
 constexpr size_t DETECTION_WIDTH = 9;
@@ -219,7 +219,7 @@ PointPillarsRuntime *get_runtime(GstG3DInference *filter) {
 void set_tensor_metadata(GstGVATensorMeta *tensor_meta, const std::vector<float> &detections) {
     gst_structure_set_name(tensor_meta->data, "detection");
     gst_structure_set(tensor_meta->data, "element_id", G_TYPE_STRING, "g3dinference", "model_name", G_TYPE_STRING,
-                      DEFAULT_MODEL, "layer_name", G_TYPE_STRING, "pointpillars_3d_detection", "format", G_TYPE_STRING,
+                      DEFAULT_BACKEND, "layer_name", G_TYPE_STRING, "pointpillars_3d_detection", "format", G_TYPE_STRING,
                       "pointpillars_3d", "precision", G_TYPE_INT, GVA_PRECISION_FP32, "layout", G_TYPE_INT,
                       GVA_LAYOUT_NC, "rank", G_TYPE_INT, 2, NULL);
 
@@ -272,8 +272,9 @@ static void gst_g3d_inference_class_init(GstG3DInferenceClass *klass) {
                                                         DEFAULT_DEVICE,
                                                         (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
-    g_object_class_install_property(gobject_class, PROP_MODEL,
-                                    g_param_spec_string("model", "Model", "3D model backend name", DEFAULT_MODEL,
+    g_object_class_install_property(gobject_class, PROP_BACKEND,
+                                    g_param_spec_string("backend", "Backend", "3D detector backend name",
+                                                        DEFAULT_BACKEND,
                                                         (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
     g_object_class_install_property(
@@ -298,7 +299,7 @@ static void gst_g3d_inference_class_init(GstG3DInferenceClass *klass) {
 static void gst_g3d_inference_init(GstG3DInference *filter) {
     filter->config = NULL;
     filter->device = g_strdup(DEFAULT_DEVICE);
-    filter->model = g_strdup(DEFAULT_MODEL);
+    filter->backend = g_strdup(DEFAULT_BACKEND);
     filter->score_threshold = DEFAULT_SCORE_THRESHOLD;
     filter->initialized = FALSE;
     filter->runtime = NULL;
@@ -315,7 +316,7 @@ static void gst_g3d_inference_finalize(GObject *object) {
 
     g_clear_pointer(&filter->config, g_free);
     g_clear_pointer(&filter->device, g_free);
-    g_clear_pointer(&filter->model, g_free);
+    g_clear_pointer(&filter->backend, g_free);
     g_mutex_clear(&filter->mutex);
 
     G_OBJECT_CLASS(gst_g3d_inference_parent_class)->finalize(object);
@@ -333,9 +334,9 @@ static void gst_g3d_inference_set_property(GObject *object, guint prop_id, const
         g_free(filter->device);
         filter->device = g_value_dup_string(value);
         break;
-    case PROP_MODEL:
-        g_free(filter->model);
-        filter->model = g_value_dup_string(value);
+    case PROP_BACKEND:
+        g_free(filter->backend);
+        filter->backend = g_value_dup_string(value);
         break;
     case PROP_SCORE_THRESHOLD:
         filter->score_threshold = g_value_get_float(value);
@@ -356,8 +357,8 @@ static void gst_g3d_inference_get_property(GObject *object, guint prop_id, GValu
     case PROP_DEVICE:
         g_value_set_string(value, filter->device);
         break;
-    case PROP_MODEL:
-        g_value_set_string(value, filter->model);
+    case PROP_BACKEND:
+        g_value_set_string(value, filter->backend);
         break;
     case PROP_SCORE_THRESHOLD:
         g_value_set_float(value, filter->score_threshold);
@@ -376,8 +377,8 @@ static gboolean gst_g3d_inference_start(GstBaseTransform *trans) {
         return FALSE;
     }
 
-    if (g_ascii_strcasecmp(filter->model, DEFAULT_MODEL) != 0) {
-        GST_ERROR_OBJECT(filter, "Unsupported model backend: %s", filter->model);
+    if (g_ascii_strcasecmp(filter->backend, DEFAULT_BACKEND) != 0) {
+        GST_ERROR_OBJECT(filter, "Unsupported backend: %s", filter->backend);
         return FALSE;
     }
 
