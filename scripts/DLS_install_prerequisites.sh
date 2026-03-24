@@ -295,7 +295,7 @@ setup_gpu(){
     elif [ "$ubuntu_version" == "22.04" ]; then
         echo "Installing GPU drivers for Ubuntu 22.04..."
         configure_repository "$INTEL_CL_GPU_KEY_URL" "$INTEL_GPU_KEYRING_PATH" "$INTEL_CL_GPU_REPO_URL" "$INTEL_GPU_LIST" || handle_error "Failed to configure Intel GPU repository"
-        install_packages libze-intel-gpu1 libze1 intel-opencl-icd clinfo || handle_error "Failed to install GPU drivers for Ubuntu 22.04"
+        install_packages intel-media-va-driver-non-free=25.2.4-1146~22.04 libze-intel-gpu1=25.18.33578.15-1146~22.04 libze1=1.21.9.0-1136~22.04 intel-opencl-icd=25.18.33578.15-1146~22.04 || handle_error "Failed to install GPU drivers for Ubuntu 22.04"
     else
         handle_error "Unsupported Ubuntu version: $ubuntu_version. Only 22.04 and 24.04 are supported."
     fi
