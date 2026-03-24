@@ -28,7 +28,6 @@ enum {
     PROP_CONFIG,
     PROP_DEVICE,
     PROP_MODEL,
-    PROP_ELEMENT_ID,
     PROP_SCORE_THRESHOLD,
 };
 
@@ -36,7 +35,6 @@ namespace {
 
 constexpr const char *DEFAULT_DEVICE = "CPU";
 constexpr const char *DEFAULT_MODEL = "pointpillars";
-constexpr const char *DEFAULT_ELEMENT_ID = "g3dinference";
 constexpr float DEFAULT_SCORE_THRESHOLD = -1.0f;
 constexpr size_t POINT_SIZE = 4;
 constexpr size_t DETECTION_WIDTH = 9;
@@ -204,8 +202,7 @@ void copy_buffer_to_structure(GstStructure *structure, const std::vector<float> 
     if (buffer.empty())
         return;
 
-    GVariant *variant =
-        g_variant_new_fixed_array(G_VARIANT_TYPE_BYTE, buffer.data(), buffer.size() * sizeof(float), 1);
+    GVariant *variant = g_variant_new_fixed_array(G_VARIANT_TYPE_BYTE, buffer.data(), buffer.size() * sizeof(float), 1);
     gsize nbytes = 0;
     gst_structure_set(structure, "data_buffer", G_TYPE_VARIANT, variant, "data", G_TYPE_POINTER,
                       g_variant_get_fixed_array(variant, &nbytes, 1), NULL);
@@ -219,12 +216,12 @@ PointPillarsRuntime *get_runtime(GstG3DInference *filter) {
     return reinterpret_cast<PointPillarsRuntime *>(filter->runtime);
 }
 
-void set_tensor_metadata(GstGVATensorMeta *tensor_meta, const gchar *element_id, const std::vector<float> &detections) {
+void set_tensor_metadata(GstGVATensorMeta *tensor_meta, const std::vector<float> &detections) {
     gst_structure_set_name(tensor_meta->data, "detection");
-    gst_structure_set(tensor_meta->data, "element_id", G_TYPE_STRING, element_id, "model_name", G_TYPE_STRING,
-                      DEFAULT_MODEL, "layer_name", G_TYPE_STRING, "pointpillars_3d_detection", "format",
-                      G_TYPE_STRING, "pointpillars_3d", "precision", G_TYPE_INT, GVA_PRECISION_FP32, "layout",
-                      G_TYPE_INT, GVA_LAYOUT_NC, "rank", G_TYPE_INT, 2, NULL);
+    gst_structure_set(tensor_meta->data, "element_id", G_TYPE_STRING, "g3dinference", "model_name", G_TYPE_STRING,
+                      DEFAULT_MODEL, "layer_name", G_TYPE_STRING, "pointpillars_3d_detection", "format", G_TYPE_STRING,
+                      "pointpillars_3d", "precision", G_TYPE_INT, GVA_PRECISION_FP32, "layout", G_TYPE_INT,
+                      GVA_LAYOUT_NC, "rank", G_TYPE_INT, 2, NULL);
 
     const std::vector<guint> dims = {static_cast<guint>(detections.size() / DETECTION_WIDTH),
                                      static_cast<guint>(DETECTION_WIDTH)};
@@ -276,13 +273,7 @@ static void gst_g3d_inference_class_init(GstG3DInferenceClass *klass) {
                                                         (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
     g_object_class_install_property(gobject_class, PROP_MODEL,
-                                    g_param_spec_string("model", "Model", "3D model backend name",
-                                                        DEFAULT_MODEL,
-                                                        (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
-
-    g_object_class_install_property(gobject_class, PROP_ELEMENT_ID,
-                                    g_param_spec_string("element-id", "Element ID",
-                                                        "Identifier stored in GstGVATensorMeta", DEFAULT_ELEMENT_ID,
+                                    g_param_spec_string("model", "Model", "3D model backend name", DEFAULT_MODEL,
                                                         (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
     g_object_class_install_property(
@@ -291,9 +282,9 @@ static void gst_g3d_inference_class_init(GstG3DInferenceClass *klass) {
                            "Drop detections below this score (-1 keeps postproc output unchanged)", -1.0, 1.0,
                            DEFAULT_SCORE_THRESHOLD, (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
-    gst_element_class_set_static_metadata(gstelement_class, "G3D Inference", "Filter/Analyzer",
-                                          "Runs PointPillars inference on LiDAR point clouds and attaches tensor metadata",
-                                          "Intel Corporation");
+    gst_element_class_set_static_metadata(
+        gstelement_class, "G3D Inference", "Filter/Analyzer",
+        "Runs PointPillars inference on LiDAR point clouds and attaches tensor metadata", "Intel Corporation");
 
     gst_element_class_add_static_pad_template(gstelement_class, &sink_template);
     gst_element_class_add_static_pad_template(gstelement_class, &src_template);
@@ -308,7 +299,6 @@ static void gst_g3d_inference_init(GstG3DInference *filter) {
     filter->config = NULL;
     filter->device = g_strdup(DEFAULT_DEVICE);
     filter->model = g_strdup(DEFAULT_MODEL);
-    filter->element_id = g_strdup(DEFAULT_ELEMENT_ID);
     filter->score_threshold = DEFAULT_SCORE_THRESHOLD;
     filter->initialized = FALSE;
     filter->runtime = NULL;
@@ -326,7 +316,6 @@ static void gst_g3d_inference_finalize(GObject *object) {
     g_clear_pointer(&filter->config, g_free);
     g_clear_pointer(&filter->device, g_free);
     g_clear_pointer(&filter->model, g_free);
-    g_clear_pointer(&filter->element_id, g_free);
     g_mutex_clear(&filter->mutex);
 
     G_OBJECT_CLASS(gst_g3d_inference_parent_class)->finalize(object);
@@ -347,10 +336,6 @@ static void gst_g3d_inference_set_property(GObject *object, guint prop_id, const
     case PROP_MODEL:
         g_free(filter->model);
         filter->model = g_value_dup_string(value);
-        break;
-    case PROP_ELEMENT_ID:
-        g_free(filter->element_id);
-        filter->element_id = g_value_dup_string(value);
         break;
     case PROP_SCORE_THRESHOLD:
         filter->score_threshold = g_value_get_float(value);
@@ -373,9 +358,6 @@ static void gst_g3d_inference_get_property(GObject *object, guint prop_id, GValu
         break;
     case PROP_MODEL:
         g_value_set_string(value, filter->model);
-        break;
-    case PROP_ELEMENT_ID:
-        g_value_set_string(value, filter->element_id);
         break;
     case PROP_SCORE_THRESHOLD:
         g_value_set_float(value, filter->score_threshold);
@@ -456,7 +438,7 @@ static GstFlowReturn gst_g3d_inference_transform_ip(GstBaseTransform *trans, Gst
         if (!tensor_meta || !tensor_meta->data)
             throw std::runtime_error("Failed to allocate GstGVATensorMeta");
 
-        set_tensor_metadata(tensor_meta, filter->element_id ? filter->element_id : DEFAULT_ELEMENT_ID, detections);
+        set_tensor_metadata(tensor_meta, detections);
 
         GST_DEBUG_OBJECT(filter, "Attached PointPillars tensor with %zu detections for frame_id=%zu",
                          detections.size() / DETECTION_WIDTH, lidar_meta->frame_id);
