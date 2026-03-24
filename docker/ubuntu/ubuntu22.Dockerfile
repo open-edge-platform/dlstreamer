@@ -68,8 +68,8 @@ RUN \
 
 RUN \
     apt-get update && \
-    apt-get install -y -q --no-install-recommends libze-intel-gpu1=25.18.33578.15-1146~22.04 libze1=1.21.9.0-1136~22.04 \
-    intel-media-va-driver-non-free=25.2.4-1146~22.04 intel-opencl-icd=25.18.33578.15-1146~22.04  && \
+    apt-get install -y -q --no-install-recommends libze-intel-gpu1 libze1\
+    intel-media-va-driver-non-free intel-opencl-icd  && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -511,8 +511,8 @@ RUN \
 
 RUN \
     apt-get update && \
-    apt-get install -y -q --no-install-recommends libze-intel-gpu1=25.18.33578.15-1146~22.04 libze1=1.21.9.0-1136~22.04 \
-    intel-media-va-driver-non-free=25.2.4-1146~22.04 intel-opencl-icd=25.18.33578.15-1146~22.04  && \
+    apt-get install -y -q --no-install-recommends libze-intel-gpu1 libze1\
+    intel-media-va-driver-non-free intel-opencl-icd  && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 

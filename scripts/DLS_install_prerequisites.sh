@@ -288,15 +288,14 @@ setup_gpu(){
         $SUDO_PREFIX apt-get install -y --no-install-recommends software-properties-common || handle_error "Failed to install software-properties-common"
         $SUDO_PREFIX add-apt-repository -y "$INTEL_CL_GPU_REPO_URL" || handle_error "Failed to add Intel GPU repository"
         $SUDO_PREFIX apt update || handle_error "Failed to update package lists after adding repository"
-        echo "Snapshot: 20251125T030400Z" | $SUDO_PREFIX tee -a "/etc/apt/sources.list.d/$INTEL_GPU_LIST" || handle_error "Failed to add snapshot information"
+        # echo "Snapshot: 20251125T030400Z" | $SUDO_PREFIX tee -a "/etc/apt/sources.list.d/$INTEL_GPU_LIST" || handle_error "Failed to add snapshot information"
         $SUDO_PREFIX apt update || handle_error "Failed to update package lists after adding snapshot"
-        install_packages intel-metrics-discovery intel-gsc libvpl2 \
-            libze-intel-gpu1=25.40.35563.7-1~24.04~ppa1 libze1=1.24.3-1~24.04~ppa1 intel-opencl-icd=25.40.35563.7-1~24.04~ppa1 clinfo=3.0.23.01.25-1build1 \
-            intel-media-va-driver-non-free=25.4.2-1~24.04~ppa1 libmfx-gen1=25.4.0-0ubuntu1~24.04~ppa1 libvpl-tools=1.4.0-0ubuntu1~24.04~ppa1 libva-glx2=2.22.0-1ubuntu1~24.04~ppa1 va-driver-all=2.22.0-1ubuntu1~24.04~ppa1 vainfo=2.22.0-0ubuntu1~24.04~ppa1 || handle_error "Failed to install GPU drivers for Ubuntu 24.04"   
+        install_packages libze-intel-gpu1 libze1 intel-metrics-discovery intel-opencl-icd clinfo intel-gsc \
+            intel-media-va-driver-non-free libmfx-gen1 libvpl2 libvpl-tools libva-glx2 va-driver-all vainfo || handle_error "Failed to install GPU drivers for Ubuntu 24.04"   
     elif [ "$ubuntu_version" == "22.04" ]; then
         echo "Installing GPU drivers for Ubuntu 22.04..."
         configure_repository "$INTEL_CL_GPU_KEY_URL" "$INTEL_GPU_KEYRING_PATH" "$INTEL_CL_GPU_REPO_URL" "$INTEL_GPU_LIST" || handle_error "Failed to configure Intel GPU repository"
-        install_packages clinfo libze-intel-gpu1=25.18.33578.15-1146~22.04 libze1=1.21.9.0-1136~22.04 intel-media-va-driver-non-free=25.2.4-1146~22.04 intel-opencl-icd=25.18.33578.15-1146~22.04 || handle_error "Failed to install GPU drivers for Ubuntu 22.04"
+        install_packages libze-intel-gpu1 libze1 intel-opencl-icd clinfo || handle_error "Failed to install GPU drivers for Ubuntu 22.04"
     else
         handle_error "Unsupported Ubuntu version: $ubuntu_version. Only 22.04 and 24.04 are supported."
     fi
