@@ -14,7 +14,7 @@ A GStreamer element to publish JSON data to a designated file, or a chosen messa
 
    The Docker image built with the Dockerfile includes all necessary dependencies for Kafka/MQTT by default.
    If you are building from source according to the provided instructions, all dependencies should already be satisfied.
-   You can find the source build instructions [here](../../../../../docs/source/dev_guide/advanced_install/advanced_install_guide_compilation.md).
+   You can find the source build instructions [here](../../../../../docs/user-guide/dev_guide/advanced_install/advanced_install_guide_compilation.md).
 
    If you are not following the source instructions, you may need to run the [install_metapublish_dependencies.sh](https://github.com/open-edge-platform/dlstreamer/tree/main/scripts/install_metapublish_dependencies.sh) script and rebuild DL Streamer with the following parameters enabled:
 
