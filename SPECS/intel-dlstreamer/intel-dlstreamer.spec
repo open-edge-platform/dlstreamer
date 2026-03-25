@@ -1,6 +1,6 @@
 %define debug_package %{nil}
 Name:           intel-dlstreamer
-Version:        2025.2.0
+Version:        2026.0.0
 Release:        1%{?dist}
 Summary:        Intel Deep Learning Streamer framework
 
@@ -27,7 +27,7 @@ BuildRequires:  librdkafka-devel
 # Runtime dependencies
 Requires:       paho-mqtt-c-devel >= 1.3.4
 Requires:       ffmpeg >= 6.1.1
-Requires:       gstreamer >= 1.26.1
+Requires:       gstreamer >= 1.26.6
 Requires:       opencv >= 4.12.0
 Requires:       libva2 libva-intel-media-driver
 Requires:       python3 python3-pip python3-gobject
@@ -139,6 +139,8 @@ rm -rf %{buildroot}
 /opt/intel/dlstreamer/lib/pkgconfig/*
 
 %changelog
+* Tue Mar 24 2025 DL Streamer Team <dlstreamer@intel.com> - 2026.0.0-1
+- Update DL Streamer version
 * Wed Dec 02 2025 DL Streamer Team <dlstreamer@intel.com> - 2025.2.0-1
 - Update DL Streamer version
 * Thu Aug 07 2025 DL Streamer Team <dlstreamer@intel.com> - 2025.1.2-1
