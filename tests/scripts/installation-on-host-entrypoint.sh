@@ -74,12 +74,7 @@ cleanup_old_gpu_drivers() {
             $SUDO_PREFIX apt-get remove -y "$package" 2>/dev/null || true
         fi
     done
-    
-    # Force remove problematic packages if standard removal didn't work
-    echo "Force removing any remaining problematic packages..."
-    $SUDO_PREFIX dpkg --remove --force-remove-reinstreq libze1 2>/dev/null || true
-    $SUDO_PREFIX dpkg --remove --force-depends level-zero 2>/dev/null || true
-    
+
     # Fix broken dependencies
     $SUDO_PREFIX apt-get --fix-broken install -y || handle_error "Failed to fix broken dependencies"
     $SUDO_PREFIX apt-get autoremove -y || true
