@@ -76,7 +76,6 @@ cleanup_old_gpu_drivers() {
     done
 
     # Fix broken dependencies
-    $SUDO_PREFIX apt-get --fix-broken install -y || handle_error "Failed to fix broken dependencies"
     $SUDO_PREFIX apt-get autoremove -y || true
     $SUDO_PREFIX apt-get autoclean || true
     $SUDO_PREFIX apt-get update || handle_error "Failed to update package lists"
