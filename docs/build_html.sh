@@ -1,6 +1,6 @@
 #!/bin/bash
 # ==============================================================================
-# Copyright (C) 2022-2025 Intel Corporation
+# Copyright (C) 2022-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
@@ -11,7 +11,7 @@ DOCKER_PRIVATE_REGISTRY=${3:-""}
 
 ROOT="$(realpath "$(dirname "${0}")"/..)"
 DOCS_DIR=$ROOT/docs
-DOXYGEN_DIR=$ROOT/docs/source/_doxygen
+DOXYGEN_DIR=$ROOT/docs/user-guide/_doxygen
 IMAGE_DOCS_DIR=/root/docs
 
 # Copy necessary files located outside of this folder

@@ -43,7 +43,7 @@ You can either:
    [Open Model Zoo](https://github.com/openvinotoolkit/open_model_zoo)
    (already in the IR format).
 2. Use
-   [OpenVINO™ Toolkit Model Conversion](https://docs.openvino.ai/2024/openvino-workflow/model-preparation/convert-model-to-ir.html)
+   [OpenVINO™ Toolkit Model Conversion](https://docs.openvino.ai/2026/openvino-workflow/model-preparation/convert-model-to-ir.html)
    method for converting your model from the training framework format
    (e.g., TensorFlow) to the IR format.
 
@@ -52,7 +52,7 @@ When using a pre-trained model from Open Model Zoo, consider using the
 tool to facilitate the model downloading process.
 
 When converting a custom model, you can optionally utilize the
-[Post-Training Model Optimization and Compression](https://docs.openvino.ai/2024/openvino-workflow/model-optimization.html)
+[Post-Training Model Optimization and Compression](https://docs.openvino.ai/2026/openvino-workflow/model-optimization.html)
 for converting the model into a performance efficient, and more
 hardware-friendly representation. For example you can quantize it from 32-bit
 floating point-precision into 8-bit integer precision. This gives a

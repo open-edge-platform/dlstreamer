@@ -1,4 +1,4 @@
-# ONVIF Camera Discovery Sample 
+# ONVIF Camera Discovery Sample
 
 ## Table of Contents
 1. [Overview](#overview)
@@ -82,14 +82,14 @@ sequenceDiagram
     Camera->>Network: ProbeMatch Response
     Network->>Utils: Parse XML response
     Utils->>Main: Return camera list [{'hostname': IP, 'port': PORT}]
-    
+
     loop For each discovered camera
         Main->>Camera: Create ONVIFCamera(hostname, port, user, pass)
         Main->>Utils: get_commandline_by_key(config.json, hostname)
         Utils->>Main: Return pipeline elements
         Main->>Camera: camera_profiles(camera_obj)
         Camera->>Main: Return profile list with RTSP URLs
-        
+
         loop For each profile
             Main->>Main: prepare_commandline(rtsp_url, pipeline_elements)
             Main->>GStreamer: run_single_streamer(command)
@@ -97,7 +97,7 @@ sequenceDiagram
             Main->>Main: Append to running_processes[]
         end
     end
-    
+
     Main->>User: "Press Ctrl+C to stop..."
     Main->>GStreamer: Wait for all processes
     User->>Main: Ctrl+C (KeyboardInterrupt)
@@ -225,8 +225,8 @@ Discovers ONVIF cameras on the local network using WS-Discovery multicast protoc
 **SOAP Probe Message:**
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
-<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope" 
-               xmlns:wsa="http://schemas.xmlsoap.org/ws/2004/08/addressing" 
+<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope"
+               xmlns:wsa="http://schemas.xmlsoap.org/ws/2004/08/addressing"
                xmlns:tns="http://schemas.xmlsoap.org/ws/2005/04/discovery">
     <soap:Header>
         <wsa:Action>http://schemas.xmlsoap.org/ws/2005/04/discovery/Probe</wsa:Action>
@@ -667,7 +667,7 @@ SPDX-License-Identifier: MIT
 - **ONVIF Specification**: https://www.onvif.org/specs/core/ONVIF-Core-Specification.pdf
 - **WS-Discovery**: http://docs.oasis-open.org/ws-dd/discovery/1.1/wsdd-discovery-1.1-spec.html
 - **GStreamer Documentation**: https://gstreamer.freedesktop.org/documentation/
-- **DL Streamer**: https://github.com/dlstreamer/dlstreamer
+- **DL Streamer**: https://github.com/open-edge-platform/dlstreamer
 - **onvif-zeep Library**: https://github.com/FalkTannhaeuser/python-onvif-zeep
 
 ---

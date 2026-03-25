@@ -34,6 +34,16 @@
 #                      V
 #                  dlstreamer
 # ==============================================================================
+
+# Possible arguments:
+# DLSTREAMER_VERSION      # DL Streamer
+# DLSTREAMER_BUILD_NUMBER # Build ID
+# GST_VERSION             # GStreamer
+# FFMPEG_VERSION          # FFmpeg
+# OPENVINO_VERSION        # OpenVINO
+# OPENCV_VERSION          # OpenCV
+# REALSENSE_VERSION       # RealSense
+# KAFKA_VERSION           # librdkafka
 ARG DOCKER_REGISTRY
 FROM ${DOCKER_REGISTRY}fedora:41 AS builder
 
@@ -41,15 +51,6 @@ ARG BUILD_ARG=Release
 
 LABEL description="This is the development image of Deep Learning Streamer (DL Streamer) Pipeline Framework"
 LABEL vendor="Intel Corporation"
-
-ARG GST_VERSION=1.26.6
-ARG FFMPEG_VERSION=6.1.1
-
-ARG OPENVINO_VERSION=2026.0.0
-ARG REALSENSE_VERSION=v2.57.6
-
-ARG DLSTREAMER_VERSION=2026.0.0
-ARG DLSTREAMER_BUILD_NUMBER
 
 ENV DLSTREAMER_DIR=/home/dlstreamer/dlstreamer
 ENV GSTREAMER_DIR=/opt/intel/dlstreamer/gstreamer
@@ -113,6 +114,8 @@ ENV PATH="/python3venv/bin:${PATH}"
 # ==============================================================================
 FROM builder AS ffmpeg-builder
 #Build ffmpeg
+ARG FFMPEG_VERSION=6.1.1
+
 SHELL ["/bin/bash", "-xo", "pipefail", "-c"]
 
 RUN \
@@ -147,19 +150,21 @@ RUN cp -a /usr/local/lib/libav* ./ && \
 
 # ==============================================================================
 FROM ffmpeg-builder AS opencv-builder
+
+ARG OPENCV_VERSION=4.12.0
 # OpenCV
 SHELL ["/bin/bash", "-xo", "pipefail", "-c"]
 
 WORKDIR /
 
 RUN \
-    curl -sSL --insecure -o opencv.zip https://github.com/opencv/opencv/archive/4.12.0.zip && \
-    curl -sSL --insecure -o opencv_contrib.zip https://github.com/opencv/opencv_contrib/archive/4.12.0.zip && \
+    curl -sSL --insecure -o opencv.zip https://github.com/opencv/opencv/archive/${OPENCV_VERSION}.zip && \
+    curl -sSL --insecure -o opencv_contrib.zip https://github.com/opencv/opencv_contrib/archive/${OPENCV_VERSION}.zip && \
     unzip opencv.zip && \
     unzip opencv_contrib.zip && \
     rm opencv.zip opencv_contrib.zip && \
-    mv opencv-4.12.0 opencv && \
-    mv opencv_contrib-4.12.0 opencv_contrib && \
+    mv opencv-${OPENCV_VERSION} opencv && \
+    mv opencv_contrib-${OPENCV_VERSION} opencv_contrib && \
     mkdir -p opencv/build
 
 WORKDIR /opencv/build
@@ -188,6 +193,8 @@ RUN cp -a /usr/local/lib64/libopencv* ./
 # ==============================================================================
 FROM opencv-builder AS gstreamer-builder
 # Build GStreamer
+ARG GST_VERSION=1.26.6
+
 SHELL ["/bin/bash", "-xo", "pipefail", "-c"]
 WORKDIR /home/dlstreamer
 
@@ -324,10 +331,12 @@ RUN ./configure && \
 
 WORKDIR /copy_libs
 RUN cp -a /usr/local/lib/librdkafka* ./
-# ==============================================================================
 
+# ==============================================================================
 FROM builder AS realsense-builder
-# Build rdkafka
+
+ARG REALSENSE_VERSION=v2.57.6
+
 SHELL ["/bin/bash", "-xo", "pipefail", "-c"]
 
 # Build librealsense
@@ -353,10 +362,14 @@ WORKDIR /copy_libs
 RUN cp -a /usr/local/lib64/librealsense* ./
 
 # ==============================================================================
-
 FROM builder AS dlstreamer-dev
 
+ARG DLSTREAMER_VERSION=2026.0.0
+ARG DLSTREAMER_BUILD_NUMBER
+ARG OPENVINO_VERSION=2026.0.0
+
 SHELL ["/bin/bash", "-xo", "pipefail", "-c"]
+
 
 COPY --from=ffmpeg-builder /copy_libs/ /usr/local/lib/
 COPY --from=ffmpeg-builder /usr/local/lib/pkgconfig/libswresample* /usr/local/lib/pkgconfig/

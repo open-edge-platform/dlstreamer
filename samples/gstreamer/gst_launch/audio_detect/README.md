@@ -9,9 +9,9 @@ This sample builds a GStreamer pipeline using the following elements
 * `filesrc` or `urisourcebin`
 * `decodebin3` for audio decoding
 * `audioresample`, `audioconvert` and `audiomixer` for converting and resizing audio input
-* [gvaaudiodetect](../../../../docs/source/elements/gvaaudiodetect.md) for audio event detection using ACLNet
-* [gvametaconvert](../../../../docs/source/elements/gvametaconvert.md) for converting ACLNet detection results into JSON for further processing and display
-* [gvametapublish](../../../../docs/source/elements/gvametapublish.md) for printing detection results to stdout
+* [gvaaudiodetect](../../../../docs/user-guide/elements/gvaaudiodetect.md) for audio event detection using ACLNet
+* [gvametaconvert](../../../../docs/user-guide/elements/gvametaconvert.md) for converting ACLNet detection results into JSON for further processing and display
+* [gvametapublish](../../../../docs/user-guide/elements/gvametapublish.md) for printing detection results to stdout
 * `fakesink` for terminating the pipeline
 
 ## Model

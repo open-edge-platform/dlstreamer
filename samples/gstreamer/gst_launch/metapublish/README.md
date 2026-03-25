@@ -1,6 +1,6 @@
 # Metadata Publishing Sample (gst-launch command line)
 
-This sample demonstrates how [gvametaconvert](../../../../docs/source/elements/gvametaconvert.md) and [gvametapublish](../../../../docs/source/elements/gvametapublish.md) elements are used in a typical pipeline constructed with Intel® Deep Learning Streamer (Intel® DL Streamer) and GStreamer elements. By placing these elements to the end of a pipeline that performs face detection and emotion classification, you will quickly see how these elements enable publishing of pipeline metadata to an output file, in-memory fifo, or a popular message bus.
+This sample demonstrates how [gvametaconvert](../../../../docs/user-guide/elements/gvametaconvert.md) and [gvametapublish](../../../../docs/user-guide/elements/gvametapublish.md) elements are used in a typical pipeline constructed with Intel® Deep Learning Streamer (Intel® DL Streamer) and GStreamer elements. By placing these elements to the end of a pipeline that performs face detection and emotion classification, you will quickly see how these elements enable publishing of pipeline metadata to an output file, in-memory fifo, or a popular message bus.
 
 These elements are useful for cases where you need to record outcomes (e.g., emitting inferences) of your DL Streamer pipeline to applications running locally or across distributed systems.
 
@@ -11,13 +11,13 @@ The string contains a list of GStreamer elements separated by exclamation mark `
 Overall this sample builds GStreamer pipeline of the following elements:
 * `filesrc` or `urisourcebin` or `v4l2src` for input from file/URL/web-camera
 * `decodebin3` for video decoding
-* [gvadetect](../../../../docs/source/elements/gvadetect.md) for detecting faces using the OpenVINO™ Toolkit Inference Engine
-* [gvaclassify](../../../../docs/source/elements/gvaclassify.md) for recognizing the age and gender of detected faces using the the OpenVINO™ Toolkit Inference Engine.
-* [gvametaconvert](../../../../docs/source/elements/gvametaconvert.md) for conversion of tensor and inference metadata to JSON format.
-* [gvametapublish](../../../../docs/source/elements/gvametapublish.md) for publishing the JSON metadata as output to console, file, fifo, MQTT or Kafka.
+* [gvadetect](../../../../docs/user-guide/elements/gvadetect.md) for detecting faces using the OpenVINO™ Toolkit Inference Engine
+* [gvaclassify](../../../../docs/user-guide/elements/gvaclassify.md) for recognizing the age and gender of detected faces using the the OpenVINO™ Toolkit Inference Engine.
+* [gvametaconvert](../../../../docs/user-guide/elements/gvametaconvert.md) for conversion of tensor and inference metadata to JSON format.
+* [gvametapublish](../../../../docs/user-guide/elements/gvametapublish.md) for publishing the JSON metadata as output to console, file, fifo, MQTT or Kafka.
 * `fakesink` to terminate the pipeline output without actually rendering video frames.
 
-> **NOTE**: The sample sets property 'json-indent=4' in [gvametaconvert](../../../../docs/source/elements/gvametaconvert.md) element for generating JSON in pretty print format with 4 spaces indent. Remove this property to generate JSON without pretty print.
+> **NOTE**: The sample sets property 'json-indent=4' in [gvametaconvert](../../../../docs/user-guide/elements/gvametaconvert.md) element for generating JSON in pretty print format with 4 spaces indent. Remove this property to generate JSON without pretty print.
 
 ## Models
 

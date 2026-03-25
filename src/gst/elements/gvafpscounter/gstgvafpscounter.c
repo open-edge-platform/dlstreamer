@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2018-2025 Intel Corporation
+ * Copyright (C) 2018-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -34,7 +34,8 @@ enum {
     PROP_READ_PIPE,
     PROP_PRINT_STD_DEV,
     PROP_PRINT_LATENCY,
-    PROP_AVG_FPS
+    PROP_AVG_FPS,
+    PROP_DETECTIONS
 };
 
 #define DEFAULT_INTERVAL "1"
@@ -47,6 +48,9 @@ enum {
 #define DEFAULT_AVG_FPS 0.0
 #define DEFAULT_AVG_FPS_MIN 0.0
 #define DEFAULT_AVG_FPS_MAX G_MAXFLOAT
+#define DEFAULT_DETECTIONS 0
+#define DEFAULT_MIN_DETECTIONS 0
+#define DEFAULT_MAX_DETECTIONS UINT_MAX
 
 /* prototypes */
 static void gst_gva_fpscounter_set_property(GObject *object, guint property_id, const GValue *value, GParamSpec *pspec);
@@ -123,6 +127,10 @@ static void gst_gva_fpscounter_class_init(GstGvaFpscounterClass *klass) {
                                                        "The average frames per second, read-only parameter",
                                                        DEFAULT_AVG_FPS_MIN, DEFAULT_AVG_FPS_MAX, DEFAULT_AVG_FPS,
                                                        G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
+    g_object_class_install_property(gobject_class, PROP_DETECTIONS,
+                                    g_param_spec_uint("detections", "For internal use only", "For internal use only",
+                                                      DEFAULT_MIN_DETECTIONS, DEFAULT_MAX_DETECTIONS,
+                                                      DEFAULT_DETECTIONS, G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
 }
 
 static void gst_gva_fpscounter_init(GstGvaFpscounter *gva_fpscounter) {
@@ -137,6 +145,7 @@ static void gst_gva_fpscounter_init(GstGvaFpscounter *gva_fpscounter) {
     gva_fpscounter->print_std_dev = DEFAULT_PRINT_STD_DEV;
     gva_fpscounter->print_latency = DEFAULT_PRINT_LATENCY;
     gva_fpscounter->avg_fps = DEFAULT_AVG_FPS;
+    gva_fpscounter->detections = DEFAULT_DETECTIONS;
 }
 
 void gst_gva_fpscounter_get_property(GObject *object, guint property_id, GValue *value, GParamSpec *pspec) {
@@ -164,6 +173,9 @@ void gst_gva_fpscounter_get_property(GObject *object, guint property_id, GValue 
         break;
     case PROP_AVG_FPS:
         g_value_set_float(value, gvafpscounter->avg_fps);
+        break;
+    case PROP_DETECTIONS:
+        g_value_set_uint(value, gvafpscounter->detections);
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);

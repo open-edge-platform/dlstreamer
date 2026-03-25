@@ -12,9 +12,9 @@ This sample builds GStreamer pipeline of the following elements
 * `filesrc` or `urisourcebin` or `v4l2src` for input from file/URL/web-camera
 * `decodebin3` for video decoding
 * `videoconvert` for converting video frame into different color formats
-* [gvaattachroi](../../../../docs/source/elements/gvaattachroi.md) for defining the areas of interest (one or more) in the input image
-* [gvadetect](../../../../docs/source/elements/gvadetect.md) uses for roi object detection and marking objects with labels
-* [gvawatermark](../../../../docs/source/elements/gvawatermark.md) for points and theirs connections visualization
+* [gvaattachroi](../../../../docs/user-guide/elements/gvaattachroi.md) for defining the areas of interest (one or more) in the input image
+* [gvadetect](../../../../docs/user-guide/elements/gvadetect.md) uses for roi object detection and marking objects with labels
+* [gvawatermark](../../../../docs/user-guide/elements/gvawatermark.md) for points and theirs connections visualization
 * `autovideosink` for rendering output video into screen
 
 > **NOTE**: `sync=false` property in `autovideosink` element disables real-time synchronization so pipeline runs as fast as possible
@@ -22,7 +22,7 @@ This sample builds GStreamer pipeline of the following elements
 ## Model
 
 The sample use YOLOv8s model from Ultralytics. The instructions assume Intel® DL Streamer framework is installed on the local system along with Intel® OpenVINO™ model downloader and converter tools,
-as described here: [Tutorial](../../../../docs/source/get_started/tutorial.md#setup).
+as described here: [Tutorial](../../../../docs/user-guide/get_started/tutorial.md#setup).
 
 For yolov8s model it is also necessary to install the ultralytics python package:
 

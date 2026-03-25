@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2018-2025 Intel Corporation
+ * Copyright (C) 2018-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -26,6 +26,7 @@ struct _GstGvaFpscounter {
     GstBaseTransform base_gvafpscounter;
     gchar *interval;
     guint starting_frame;
+    guint detections;
     gfloat avg_fps;
     gchar *write_pipe;
     gchar *read_pipe;
