@@ -15,719 +15,893 @@ and/or use gtk-doc annotations.  -->
              shared-library="libdlstreamer_gst_meta.so"
              c:identifier-prefixes="GstAnalytics"
              c:symbol-prefixes="gst_analytics">
-    <record name="Keypoint" c:type="GstAnalyticsKeypoint">
-      <source-position filename="include/dlstreamer/gst/metadata/gstanalyticskeypointsmtd.h"
-                       line="50"/>
-      <field name="x" writable="1">
-        <doc xml:space="preserve"
-             filename="include/dlstreamer/gst/metadata/gstanalyticskeypointsmtd.h"
-             line="40">zero-based absolute x pixel coordinate of a keypoint relative to image upper-left corner.</doc>
-        <type name="guint" c:type="guint"/>
-      </field>
-      <field name="y" writable="1">
-        <doc xml:space="preserve"
-             filename="include/dlstreamer/gst/metadata/gstanalyticskeypointsmtd.h"
-             line="41">zero-based absolute y pixel coordinate of a keypoint relative to image upper-left corner.</doc>
-        <type name="guint" c:type="guint"/>
-      </field>
-      <field name="z" writable="1">
-        <doc xml:space="preserve"
-             filename="include/dlstreamer/gst/metadata/gstanalyticskeypointsmtd.h"
-             line="42">normalized depth coordinate of a keypoint, relative to keypoint group center (use 0.0f for 2D keypoints).</doc>
-        <type name="gfloat" c:type="gfloat"/>
-      </field>
-      <field name="v" writable="1">
-        <doc xml:space="preserve"
-             filename="include/dlstreamer/gst/metadata/gstanalyticskeypointsmtd.h"
-             line="43">visibility of a kepoint, normalized &lt;0.0f - not visible, 1.0f - fully visible&gt;.</doc>
-        <type name="gfloat" c:type="gfloat"/>
-      </field>
-    </record>
-    <record name="KeypointGroupMtd"
-            c:type="GstAnalyticsKeypointGroupMtd"
-            version="1.26">
+    <record name="GroupMtd"
+            c:type="GstAnalyticsGroupMtd"
+            disguised="1"
+            opaque="1"
+            version="1.30">
       <doc xml:space="preserve"
-           filename="src/gst/metadata/gstanalyticskeypointsmtd.c"
-           line="279">This type of metadata holds an ordered list of keypoints that compose a keypoint group.
-This metadata is typilcally used in relationship with another metadata to enhance it content.
-
-The method gst_analytics_relation_meta_set_keypointgroup_relations() sets default
-relationsbetween keypoints, keypoint group, keypoint names and skeleton.</doc>
-      <source-position filename="include/dlstreamer/gst/metadata/gstanalyticskeypointsmtd.h"
-                       line="129"/>
-      <field name="id" writable="1">
+           filename="src/gst/metadata/gstanalyticsgroupmtd.c"
+           line="28">This type of metadata define a group of #GstAnalyticsMtd. It allows to
+describe results as composition. Group members are ordered within the group
+and the @semantic_tag allow to define a specific group meaning.
+For example with a semantic_tag = "posture/hand-21-kp", first
+member represent the "wrist", second is the thumb first joint.</doc>
+      <source-position filename="include/dlstreamer/gst/metadata/gstanalyticsgroupmtd.h"
+                       line="43"/>
+      <method name="add_member"
+              c:identifier="gst_analytics_group_mtd_add_member"
+              version="1.30">
         <doc xml:space="preserve"
-             filename="include/dlstreamer/gst/metadata/gstanalyticskeypointsmtd.h"
-             line="117">Instance identifier.</doc>
-        <type name="guint" c:type="guint"/>
-      </field>
-      <field name="meta" writable="1">
-        <doc xml:space="preserve"
-             filename="include/dlstreamer/gst/metadata/gstanalyticskeypointsmtd.h"
-             line="118">Instance of #GstAnalyticsRelationMeta where the analysis-metadata
-identified by @id is stored.</doc>
-        <type name="GstAnalytics.RelationMeta"
-              c:type="GstAnalyticsRelationMeta*"/>
-      </field>
-      <function name="get_mtd_type"
-                c:identifier="gst_analytics_keypoint_group_mtd_get_mtd_type"
-                version="1.26">
-        <doc xml:space="preserve"
-             filename="src/gst/metadata/gstanalyticskeypointsmtd.c"
-             line="318">Get an id identifying #GstAnalyticsKeypointGroupMtd type.
-For GIR bindings compatibility. Ideally should rename all
-keypointgroup to keypoint_group.</doc>
-        <source-position filename="include/dlstreamer/gst/metadata/gstanalyticskeypointsmtd.h"
-                         line="135"/>
+             filename="src/gst/metadata/gstanalyticsgroupmtd.c"
+             line="376">Adding a member to the group.</doc>
+        <source-position filename="include/dlstreamer/gst/metadata/gstanalyticsgroupmtd.h"
+                         line="78"/>
         <return-value transfer-ownership="none">
           <doc xml:space="preserve"
-               filename="src/gst/metadata/gstanalyticskeypointsmtd.c"
-               line="325">opaque id of #GstAnalyticsMtd type</doc>
-          <type name="GstAnalytics.MtdType" c:type="GstAnalyticsMtdType"/>
-        </return-value>
-      </function>
-    </record>
-    <record name="KeypointMtd" c:type="GstAnalyticsKeypointMtd" version="1.26">
-      <doc xml:space="preserve"
-           filename="include/dlstreamer/gst/metadata/gstanalyticskeypointsmtd.h"
-           line="22">Handle to #GstAnalyticsKeypoint data structure.
-This type is generally expected to be allocated on the stack.</doc>
-      <source-position filename="include/dlstreamer/gst/metadata/gstanalyticskeypointsmtd.h"
-                       line="36"/>
-      <field name="id" writable="1">
-        <doc xml:space="preserve"
-             filename="include/dlstreamer/gst/metadata/gstanalyticskeypointsmtd.h"
-             line="24">Instance identifier.</doc>
-        <type name="guint" c:type="guint"/>
-      </field>
-      <field name="meta" writable="1">
-        <doc xml:space="preserve"
-             filename="include/dlstreamer/gst/metadata/gstanalyticskeypointsmtd.h"
-             line="25">Instance of #GstAnalyticsRelationMeta where the analysis-metadata
-identified by @id is stored.</doc>
-        <type name="GstAnalytics.RelationMeta"
-              c:type="GstAnalyticsRelationMeta*"/>
-      </field>
-      <method name="get"
-              c:identifier="gst_analytics_keypoint_mtd_get"
-              version="1.26">
-        <doc xml:space="preserve"
-             filename="src/gst/metadata/gstanalyticskeypointsmtd.c"
-             line="68">Retrieve keypoint attributes.</doc>
-        <source-position filename="include/dlstreamer/gst/metadata/gstanalyticskeypointsmtd.h"
-                         line="56"/>
-        <return-value transfer-ownership="none">
-          <doc xml:space="preserve"
-               filename="src/gst/metadata/gstanalyticskeypointsmtd.c"
-               line="75">TRUE on success, otherwise FALSE.</doc>
+               filename="src/gst/metadata/gstanalyticsgroupmtd.c"
+               line="383">Member added successfully</doc>
           <type name="gboolean" c:type="gboolean"/>
         </return-value>
         <parameters>
           <instance-parameter name="handle" transfer-ownership="none">
             <doc xml:space="preserve"
-                 filename="src/gst/metadata/gstanalyticskeypointsmtd.c"
-                 line="70">instance</doc>
-            <type name="KeypointMtd" c:type="const GstAnalyticsKeypointMtd*"/>
+                 filename="src/gst/metadata/gstanalyticsgroupmtd.c"
+                 line="378">handle of #GstAnalyticsMtd where to add a member</doc>
+            <type name="GroupMtd" c:type="GstAnalyticsGroupMtd*"/>
           </instance-parameter>
-          <parameter name="keypoint"
-                     direction="out"
-                     caller-allocates="1"
-                     transfer-ownership="none">
+          <parameter name="an_meta_id" transfer-ownership="none">
             <doc xml:space="preserve"
-                 filename="src/gst/metadata/gstanalyticskeypointsmtd.c"
-                 line="71">data structure describing keypoint attributes</doc>
-            <type name="Keypoint" c:type="GstAnalyticsKeypoint*"/>
+                 filename="src/gst/metadata/gstanalyticsgroupmtd.c"
+                 line="379">ID of #GstAnalyticsMtd to add as a member</doc>
+            <type name="guint" c:type="guint"/>
           </parameter>
         </parameters>
       </method>
-      <function name="get_mtd_type"
-                c:identifier="gst_analytics_keypoint_mtd_get_mtd_type"
-                version="1.26">
+      <method name="get_member"
+              c:identifier="gst_analytics_group_mtd_get_member"
+              version="1.30">
         <doc xml:space="preserve"
-             filename="src/gst/metadata/gstanalyticskeypointsmtd.c"
-             line="54">Get an id that represents keypoint metadata type</doc>
-        <source-position filename="include/dlstreamer/gst/metadata/gstanalyticskeypointsmtd.h"
-                         line="53"/>
+             filename="src/gst/metadata/gstanalyticsgroupmtd.c"
+             line="195">Get a member from the group by index. Members are ordered within the group
+according to the semantic tag meaning.</doc>
+        <source-position filename="include/dlstreamer/gst/metadata/gstanalyticsgroupmtd.h"
+                         line="62"/>
         <return-value transfer-ownership="none">
           <doc xml:space="preserve"
-               filename="src/gst/metadata/gstanalyticskeypointsmtd.c"
-               line="59">Opaque id of the #GstAnalyticsMtd type</doc>
-          <type name="GstAnalytics.MtdType" c:type="GstAnalyticsMtdType"/>
-        </return-value>
-      </function>
-    </record>
-    <record name="KeypointPair" c:type="GstAnalyticsKeypointPair">
-      <doc xml:space="preserve"
-           filename="include/dlstreamer/gst/metadata/gstanalyticskeypointsmtd.h"
-           line="83">A pair of keypoints linked in a skeleton.</doc>
-      <source-position filename="include/dlstreamer/gst/metadata/gstanalyticskeypointsmtd.h"
-                       line="93"/>
-      <field name="kp1" writable="1">
-        <doc xml:space="preserve"
-             filename="include/dlstreamer/gst/metadata/gstanalyticskeypointsmtd.h"
-             line="85">index of the first keypoint in a skeleton link.</doc>
-        <type name="guint" c:type="guint"/>
-      </field>
-      <field name="kp2" writable="1">
-        <doc xml:space="preserve"
-             filename="include/dlstreamer/gst/metadata/gstanalyticskeypointsmtd.h"
-             line="86">index of the second keypoint in a skeleton link.</doc>
-        <type name="guint" c:type="guint"/>
-      </field>
-    </record>
-    <record name="KeypointSkeletonMtd"
-            c:type="GstAnalyticsKeypointSkeletonMtd"
-            version="1.26">
-      <doc xml:space="preserve"
-           filename="src/gst/metadata/gstanalyticskeypointsmtd.c"
-           line="142">This type of metadata holds skeleton relation between keypoints,
-it is used in relationship with keypoints group metadata.</doc>
-      <source-position filename="include/dlstreamer/gst/metadata/gstanalyticskeypointsmtd.h"
-                       line="81"/>
-      <field name="id" writable="1">
-        <doc xml:space="preserve"
-             filename="include/dlstreamer/gst/metadata/gstanalyticskeypointsmtd.h"
-             line="69">Instance identifier.</doc>
-        <type name="guint" c:type="guint"/>
-      </field>
-      <field name="meta" writable="1">
-        <doc xml:space="preserve"
-             filename="include/dlstreamer/gst/metadata/gstanalyticskeypointsmtd.h"
-             line="70">Instance of #GstAnalyticsRelationMeta where the analysis-metadata
-identified by @id is stored.</doc>
-        <type name="GstAnalytics.RelationMeta"
-              c:type="GstAnalyticsRelationMeta*"/>
-      </field>
-      <method name="get"
-              c:identifier="gst_analytics_keypoint_skeleton_mtd_get"
-              version="1.26">
-        <doc xml:space="preserve"
-             filename="src/gst/metadata/gstanalyticskeypointsmtd.c"
-             line="198">Get pair of keypoint indices for a skeleton link at @index</doc>
-        <source-position filename="include/dlstreamer/gst/metadata/gstanalyticskeypointsmtd.h"
-                         line="102"/>
-        <return-value transfer-ownership="none">
-          <doc xml:space="preserve"
-               filename="src/gst/metadata/gstanalyticskeypointsmtd.c"
-               line="205">TRUE if valid skeleton segment returned for @index, FALSE if the call failed</doc>
+               filename="src/gst/metadata/gstanalyticsgroupmtd.c"
+               line="204">TRUE if member was retrieved successfully, FALSE otherwise (invalid index or error).</doc>
           <type name="gboolean" c:type="gboolean"/>
         </return-value>
         <parameters>
           <instance-parameter name="handle" transfer-ownership="none">
             <doc xml:space="preserve"
-                 filename="src/gst/metadata/gstanalyticskeypointsmtd.c"
-                 line="200">instance handle</doc>
-            <type name="KeypointSkeletonMtd"
-                  c:type="const GstAnalyticsKeypointSkeletonMtd*"/>
+                 filename="src/gst/metadata/gstanalyticsgroupmtd.c"
+                 line="197">handle</doc>
+            <type name="GroupMtd" c:type="const GstAnalyticsGroupMtd*"/>
           </instance-parameter>
-          <parameter name="segment"
-                     direction="out"
-                     caller-allocates="1"
-                     transfer-ownership="none">
-            <doc xml:space="preserve"
-                 filename="src/gst/metadata/gstanalyticskeypointsmtd.c"
-                 line="201">a pair of keypoint indices representing a skeleton segment</doc>
-            <type name="KeypointPair" c:type="GstAnalyticsKeypointPair*"/>
-          </parameter>
           <parameter name="index" transfer-ownership="none">
             <doc xml:space="preserve"
-                 filename="src/gst/metadata/gstanalyticskeypointsmtd.c"
-                 line="202">skeleton segment index, must be &lt; gst_analytics_keypoint_skeleton_mtd_get_count</doc>
+                 filename="src/gst/metadata/gstanalyticsgroupmtd.c"
+                 line="198">Index of the member to retrieve</doc>
             <type name="gsize" c:type="gsize"/>
+          </parameter>
+          <parameter name="member"
+                     direction="out"
+                     caller-allocates="1"
+                     transfer-ownership="none">
+            <doc xml:space="preserve"
+                 filename="src/gst/metadata/gstanalyticsgroupmtd.c"
+                 line="199">Handle updated to the member at @index</doc>
+            <type name="GstAnalytics.Mtd" c:type="GstAnalyticsMtd*"/>
           </parameter>
         </parameters>
       </method>
-      <method name="get_count"
-              c:identifier="gst_analytics_keypoint_skeleton_mtd_get_count"
-              version="1.26">
+      <method name="get_member_count"
+              c:identifier="gst_analytics_group_mtd_get_member_count"
+              version="1.30">
         <doc xml:space="preserve"
-             filename="src/gst/metadata/gstanalyticskeypointsmtd.c"
-             line="178">Get number of skeleton segments</doc>
-        <source-position filename="include/dlstreamer/gst/metadata/gstanalyticskeypointsmtd.h"
-                         line="99"/>
+             filename="src/gst/metadata/gstanalyticsgroupmtd.c"
+             line="173">Get the number of members in the group.</doc>
+        <source-position filename="include/dlstreamer/gst/metadata/gstanalyticsgroupmtd.h"
+                         line="58"/>
         <return-value transfer-ownership="none">
           <doc xml:space="preserve"
-               filename="src/gst/metadata/gstanalyticskeypointsmtd.c"
-               line="183">number of skeleton segments in this instance</doc>
+               filename="src/gst/metadata/gstanalyticsgroupmtd.c"
+               line="179">Number of members in the group, or 0 on error.</doc>
           <type name="gsize" c:type="gsize"/>
         </return-value>
         <parameters>
           <instance-parameter name="handle" transfer-ownership="none">
             <doc xml:space="preserve"
-                 filename="src/gst/metadata/gstanalyticskeypointsmtd.c"
-                 line="180">instance handle</doc>
-            <type name="KeypointSkeletonMtd"
-                  c:type="const GstAnalyticsKeypointSkeletonMtd*"/>
+                 filename="src/gst/metadata/gstanalyticsgroupmtd.c"
+                 line="175">handle</doc>
+            <type name="GroupMtd" c:type="const GstAnalyticsGroupMtd*"/>
           </instance-parameter>
         </parameters>
       </method>
-      <function name="get_mtd_type"
-                c:identifier="gst_analytics_keypoint_skeleton_mtd_get_mtd_type"
-                version="1.26">
+      <method name="get_semantic_tag"
+              c:identifier="gst_analytics_group_mtd_get_semantic_tag"
+              version="1.30">
         <doc xml:space="preserve"
-             filename="src/gst/metadata/gstanalyticskeypointsmtd.c"
-             line="165">Get an id identifying #GstAnalyticsKeypointSkeletonMtd type.</doc>
-        <source-position filename="include/dlstreamer/gst/metadata/gstanalyticskeypointsmtd.h"
-                         line="96"/>
+             filename="src/gst/metadata/gstanalyticsgroupmtd.c"
+             line="124">Get the semantic tag of the group.</doc>
+        <source-position filename="include/dlstreamer/gst/metadata/gstanalyticsgroupmtd.h"
+                         line="90"/>
+        <return-value transfer-ownership="none" nullable="1">
+          <doc xml:space="preserve"
+               filename="src/gst/metadata/gstanalyticsgroupmtd.c"
+               line="130">The semantic tag string, or NULL if not set. The
+   returned string is owned by the group and must not be freed.</doc>
+          <type name="utf8" c:type="const gchar*"/>
+        </return-value>
+        <parameters>
+          <instance-parameter name="handle" transfer-ownership="none">
+            <doc xml:space="preserve"
+                 filename="src/gst/metadata/gstanalyticsgroupmtd.c"
+                 line="126">handle</doc>
+            <type name="GroupMtd" c:type="const GstAnalyticsGroupMtd*"/>
+          </instance-parameter>
+        </parameters>
+      </method>
+      <method name="has_semantic_tag"
+              c:identifier="gst_analytics_group_mtd_has_semantic_tag"
+              version="1.30">
+        <doc xml:space="preserve"
+             filename="src/gst/metadata/gstanalyticsgroupmtd.c"
+             line="98">Check if the group's semantic tag matches @tag. An empty or unset tag never
+matches.</doc>
+        <source-position filename="include/dlstreamer/gst/metadata/gstanalyticsgroupmtd.h"
+                         line="50"/>
         <return-value transfer-ownership="none">
           <doc xml:space="preserve"
-               filename="src/gst/metadata/gstanalyticskeypointsmtd.c"
-               line="170">opaque id of #GstAnalyticsKeypointSkeletonMtd type</doc>
+               filename="src/gst/metadata/gstanalyticsgroupmtd.c"
+               line="106">%TRUE if the group's semantic tag equals @tag.</doc>
+          <type name="gboolean" c:type="gboolean"/>
+        </return-value>
+        <parameters>
+          <instance-parameter name="handle" transfer-ownership="none">
+            <doc xml:space="preserve"
+                 filename="src/gst/metadata/gstanalyticsgroupmtd.c"
+                 line="100">handle</doc>
+            <type name="GroupMtd" c:type="const GstAnalyticsGroupMtd*"/>
+          </instance-parameter>
+          <parameter name="tag" transfer-ownership="none">
+            <doc xml:space="preserve"
+                 filename="src/gst/metadata/gstanalyticsgroupmtd.c"
+                 line="101">tag string to compare against</doc>
+            <type name="utf8" c:type="const gchar*"/>
+          </parameter>
+        </parameters>
+      </method>
+      <method name="iterate"
+              c:identifier="gst_analytics_group_mtd_iterate"
+              version="1.30">
+        <doc xml:space="preserve"
+             filename="src/gst/metadata/gstanalyticsgroupmtd.c"
+             line="234">Iterate over members in the group. If @type is specified, only members
+matching that type are returned. Initialize @state to NULL to start iteration.</doc>
+        <source-position filename="include/dlstreamer/gst/metadata/gstanalyticsgroupmtd.h"
+                         line="66"/>
+        <return-value transfer-ownership="none">
+          <doc xml:space="preserve"
+               filename="src/gst/metadata/gstanalyticsgroupmtd.c"
+               line="247">TRUE if a member was retrieved, FALSE when iteration is complete
+   or an error occurred.</doc>
+          <type name="gboolean" c:type="gboolean"/>
+        </return-value>
+        <parameters>
+          <instance-parameter name="handle" transfer-ownership="none">
+            <doc xml:space="preserve"
+                 filename="src/gst/metadata/gstanalyticsgroupmtd.c"
+                 line="236">Instance of GstAnalyticsGroupMtd to iterate</doc>
+            <type name="GroupMtd" c:type="const GstAnalyticsGroupMtd*"/>
+          </instance-parameter>
+          <parameter name="state"
+                     direction="inout"
+                     caller-allocates="0"
+                     transfer-ownership="full"
+                     nullable="1"
+                     allow-none="1">
+            <doc xml:space="preserve"
+                 filename="src/gst/metadata/gstanalyticsgroupmtd.c"
+                 line="237">Opaque data to store iteration state, initialize to NULL,
+   no need to free it.</doc>
+            <type name="gpointer" c:type="gpointer*"/>
+          </parameter>
+          <parameter name="type" transfer-ownership="none">
+            <doc xml:space="preserve"
+                 filename="src/gst/metadata/gstanalyticsgroupmtd.c"
+                 line="239">Type of GstAnalyticsMtd to iterate on or use
+   %GST_ANALYTICS_MTD_TYPE_ANY for any.</doc>
+            <type name="GstAnalytics.MtdType" c:type="GstAnalyticsMtdType"/>
+          </parameter>
+          <parameter name="member"
+                     direction="out"
+                     caller-allocates="1"
+                     transfer-ownership="none">
+            <doc xml:space="preserve"
+                 filename="src/gst/metadata/gstanalyticsgroupmtd.c"
+                 line="241">Handle updated to iterated
+   group member.</doc>
+            <type name="GstAnalytics.Mtd" c:type="GstAnalyticsMtd*"/>
+          </parameter>
+        </parameters>
+      </method>
+      <method name="semantic_tag_has_prefix"
+              c:identifier="gst_analytics_group_mtd_semantic_tag_has_prefix"
+              version="1.30">
+        <doc xml:space="preserve"
+             filename="src/gst/metadata/gstanalyticsgroupmtd.c"
+             line="147">Check if the group's semantic tag starts with @prefix. An empty or unset tag
+never matches.</doc>
+        <source-position filename="include/dlstreamer/gst/metadata/gstanalyticsgroupmtd.h"
+                         line="54"/>
+        <return-value transfer-ownership="none">
+          <doc xml:space="preserve"
+               filename="src/gst/metadata/gstanalyticsgroupmtd.c"
+               line="155">%TRUE if the group's semantic tag starts with @prefix.</doc>
+          <type name="gboolean" c:type="gboolean"/>
+        </return-value>
+        <parameters>
+          <instance-parameter name="handle" transfer-ownership="none">
+            <doc xml:space="preserve"
+                 filename="src/gst/metadata/gstanalyticsgroupmtd.c"
+                 line="149">handle</doc>
+            <type name="GroupMtd" c:type="const GstAnalyticsGroupMtd*"/>
+          </instance-parameter>
+          <parameter name="prefix" transfer-ownership="none">
+            <doc xml:space="preserve"
+                 filename="src/gst/metadata/gstanalyticsgroupmtd.c"
+                 line="150">prefix string to test against</doc>
+            <type name="utf8" c:type="const gchar*"/>
+          </parameter>
+        </parameters>
+      </method>
+      <method name="set_semantic_tag"
+              c:identifier="gst_analytics_group_mtd_set_semantic_tag"
+              version="1.30">
+        <doc xml:space="preserve"
+             filename="src/gst/metadata/gstanalyticsgroupmtd.c"
+             line="448">Set grouping semantic tag. This gives a context to understand the grouping.
+For example "hand-21-kp", "human-pose-17-kp" that give a specific context
+allowing to understand the grouping semantic. Pass %NULL to clear the tag.</doc>
+        <source-position filename="include/dlstreamer/gst/metadata/gstanalyticsgroupmtd.h"
+                         line="82"/>
+        <return-value transfer-ownership="none">
+          <doc xml:space="preserve"
+               filename="src/gst/metadata/gstanalyticsgroupmtd.c"
+               line="458">TRUE is semantic_tag was set successfully</doc>
+          <type name="gboolean" c:type="gboolean"/>
+        </return-value>
+        <parameters>
+          <instance-parameter name="handle" transfer-ownership="none">
+            <doc xml:space="preserve"
+                 filename="src/gst/metadata/gstanalyticsgroupmtd.c"
+                 line="450">handle of #GstAnalyticsMtd where to set semantic_tag</doc>
+            <type name="GroupMtd" c:type="GstAnalyticsGroupMtd*"/>
+          </instance-parameter>
+          <parameter name="tag"
+                     transfer-ownership="none"
+                     nullable="1"
+                     allow-none="1">
+            <doc xml:space="preserve"
+                 filename="src/gst/metadata/gstanalyticsgroupmtd.c"
+                 line="451">string representing a semantic type of grouping, or %NULL
+  to clear the tag</doc>
+            <type name="utf8" c:type="const char*"/>
+          </parameter>
+        </parameters>
+      </method>
+      <function name="get_mtd_type"
+                c:identifier="gst_analytics_group_mtd_get_mtd_type"
+                version="1.30">
+        <doc xml:space="preserve"
+             filename="src/gst/metadata/gstanalyticsgroupmtd.c"
+             line="83">Get an id identifying #GstAnalyticsMtd type.</doc>
+        <source-position filename="include/dlstreamer/gst/metadata/gstanalyticsgroupmtd.h"
+                         line="47"/>
+        <return-value transfer-ownership="none">
+          <doc xml:space="preserve"
+               filename="src/gst/metadata/gstanalyticsgroupmtd.c"
+               line="88">opaque id of #GstAnalyticsMtd type</doc>
           <type name="GstAnalytics.MtdType" c:type="GstAnalyticsMtdType"/>
         </return-value>
       </function>
     </record>
-    <docsection name="gstanalyticsgeypointmtd">
+    <enumeration name="KeypointDimensions"
+                 version="1.30"
+                 c:type="GstAnalyticsKeypointDimensions">
       <doc xml:space="preserve"
-           filename="src/gst/metadata/gstanalyticskeypointsmtd.c"
-           line="15">This type of metadata holds attributes of a keypoint</doc>
+           filename="include/dlstreamer/gst/metadata/gstanalyticskeypointmtd.h"
+           line="52">Enum value describing supported keypoint dimension.</doc>
+      <source-position filename="include/dlstreamer/gst/metadata/gstanalyticskeypointmtd.h"
+                       line="65"/>
+      <member name="2d"
+              value="2"
+              c:identifier="GST_ANALYTICS_KEYPOINT_DIMENSIONS_2D">
+        <doc xml:space="preserve"
+             filename="include/dlstreamer/gst/metadata/gstanalyticskeypointmtd.h"
+             line="54">keypoints in 2D space with (x,y) coordinates.</doc>
+      </member>
+      <member name="3d"
+              value="3"
+              c:identifier="GST_ANALYTICS_KEYPOINT_DIMENSIONS_3D">
+        <doc xml:space="preserve"
+             filename="include/dlstreamer/gst/metadata/gstanalyticskeypointmtd.h"
+             line="55">keypoints in 3D space with (x,y,z) coordinates.</doc>
+      </member>
+    </enumeration>
+    <record name="KeypointMtdV2"
+            c:type="GstAnalyticsKeypointMtdV2"
+            version="1.30">
+      <doc xml:space="preserve"
+           filename="include/dlstreamer/gst/metadata/gstanalyticskeypointmtd.h"
+           line="39">Handle containing data required to use gst_analytics_keypoint_mtd APIs.
+This type is generally expected to be allocated on the stack.</doc>
+      <source-position filename="include/dlstreamer/gst/metadata/gstanalyticskeypointmtd.h"
+                       line="50"/>
+    </record>
+    <bitfield name="KeypointVisibility"
+              version="1.30"
+              c:type="GstAnalyticsKeypointVisibility">
+      <doc xml:space="preserve"
+           filename="include/dlstreamer/gst/metadata/gstanalyticskeypointmtd.h"
+           line="67">Flags describing the visibility state of a keypoint.</doc>
+      <source-position filename="include/dlstreamer/gst/metadata/gstanalyticskeypointmtd.h"
+                       line="85"/>
+      <member name="unknown"
+              value="0"
+              c:identifier="GST_ANALYTICS_KEYPOINT_VISIBILITY_UNKNOWN">
+        <doc xml:space="preserve"
+             filename="include/dlstreamer/gst/metadata/gstanalyticskeypointmtd.h"
+             line="69">Visibility is not known.</doc>
+      </member>
+      <member name="visible"
+              value="1"
+              c:identifier="GST_ANALYTICS_KEYPOINT_VISIBILITY_VISIBLE">
+        <doc xml:space="preserve"
+             filename="include/dlstreamer/gst/metadata/gstanalyticskeypointmtd.h"
+             line="70">Keypoint is fully visible.</doc>
+      </member>
+      <member name="occluded"
+              value="4"
+              c:identifier="GST_ANALYTICS_KEYPOINT_VISIBILITY_OCCLUDED">
+        <doc xml:space="preserve"
+             filename="include/dlstreamer/gst/metadata/gstanalyticskeypointmtd.h"
+             line="71">Keypoint exists but is
+  occluded.</doc>
+      </member>
+      <member name="projected"
+              value="8"
+              c:identifier="GST_ANALYTICS_KEYPOINT_VISIBILITY_PROJECTED">
+        <doc xml:space="preserve"
+             filename="include/dlstreamer/gst/metadata/gstanalyticskeypointmtd.h"
+             line="73">Keypoint position was
+  projected by the analysis.</doc>
+      </member>
+    </bitfield>
+    <function name="group_mtd_get_mtd_type"
+              c:identifier="gst_analytics_group_mtd_get_mtd_type"
+              moved-to="GroupMtd.get_mtd_type"
+              version="1.30">
+      <doc xml:space="preserve"
+           filename="src/gst/metadata/gstanalyticsgroupmtd.c"
+           line="83">Get an id identifying #GstAnalyticsMtd type.</doc>
+      <source-position filename="include/dlstreamer/gst/metadata/gstanalyticsgroupmtd.h"
+                       line="47"/>
+      <return-value transfer-ownership="none">
+        <doc xml:space="preserve"
+             filename="src/gst/metadata/gstanalyticsgroupmtd.c"
+             line="88">opaque id of #GstAnalyticsMtd type</doc>
+        <type name="GstAnalytics.MtdType" c:type="GstAnalyticsMtdType"/>
+      </return-value>
+    </function>
+    <docsection name="gstanalyticskeypointmtd">
+      <doc xml:space="preserve"
+           filename="src/gst/metadata/gstanalyticskeypointmtd.c"
+           line="37">This metadata type represents individual keypoints with 2D or 3D positions.
+Keypoints can be grouped using #GstAnalyticsGroupMtd with semantic tags
+(e.g., "hand-21-kp", "pose-17-kp", "face-68-kp").
+
+Skeleton links between keypoints are represented as relations using
+GST_ANALYTICS_REL_TYPE_RELATE_TO, allowing standard relation queries
+to traverse the skeleton structure.
+
+## Creating Keypoint Groups
+
+The most common usage is to create a group of keypoints with skeleton structure:
+
+|[&lt;!-- language="C" --&gt;
+GstAnalyticsGroupMtd hand_group;
+gint positions[] = {100, 200, 150, 250, ...}; // 21 x,y pairs for hand
+gfloat confidences[] = {0.9f, 0.85f, 0.95f, ...};
+gint skeleton_pairs[] = {0, 1, 1, 2, 2, 3, ...}; // 20 links (40 values)
+
+gst_analytics_relation_meta_add_keypoints_group(rmeta,
+    "hand-21-kp", GST_ANALYTICS_KEYPOINT_DIMENSIONS_2D,
+    42, positions, 21, confidences, NULL, 40, skeleton_pairs, &amp;hand_group);
+]|
+
+## Iterating Through Keypoints
+
+Iterate keypoints in a group with type filtering:
+
+|[&lt;!-- language="C" --&gt;
+GstAnalyticsMtd member;
+gpointer state = NULL;
+while (gst_analytics_group_mtd_iterate(&amp;hand_group, &amp;state,
+        gst_analytics_keypoint_mtd_get_mtd_type(), &amp;member)) {
+    gint x, y, z;
+    gfloat conf;
+    GstAnalyticsKeypointDimensions dim;
+    gst_analytics_keypoint_mtd_get_position((GstAnalyticsKeypointMtdV2*)&amp;member,
+        &amp;x, &amp;y, &amp;z, &amp;dim);
+    gst_analytics_keypoint_mtd_get_confidence((GstAnalyticsKeypointMtdV2*)&amp;member,
+        &amp;conf);
+    g_print("Keypoint at (%d, %d) confidence: %.2f\n", x, y, conf);
+}
+]|
+
+## Querying Skeleton Links
+
+Verify skeleton connections between keypoints:
+
+|[&lt;!-- language="C" --&gt;
+// Get first two keypoints
+GstAnalyticsMtd wrist_kp, thumb_kp;
+gst_analytics_group_mtd_get_member(&amp;hand_group, 0, &amp;wrist_kp);
+gst_analytics_group_mtd_get_member(&amp;hand_group, 1, &amp;thumb_kp);
+
+// Verify skeleton link exists
+gboolean has_link = gst_analytics_relation_meta_exist(rmeta,
+    wrist_kp.id, thumb_kp.id, 1,
+    GST_ANALYTICS_REL_TYPE_RELATE_TO, NULL);
+if (has_link) {
+    g_print("Skeleton link exists between wrist and thumb\n");
+}
+]|
+
+## Relating Keypoints to Other Metadata
+
+Since keypoints are #GstAnalyticsMtd, they can participate in relations:
+
+|[&lt;!-- language="C" --&gt;
+// Get first keypoint
+GstAnalyticsMtd keypoint;
+gst_analytics_group_mtd_get_member(&amp;hand_group, 0, &amp;keypoint);
+
+// Relate to object detection
+gst_analytics_relation_meta_set_relation(rmeta,
+    GST_ANALYTICS_REL_TYPE_CONTAINED_BY, keypoint.id, od_mtd.id);
+]|</doc>
     </docsection>
-    <function name="keypoint_group_mtd_get_mtd_type"
-              c:identifier="gst_analytics_keypoint_group_mtd_get_mtd_type"
-              moved-to="KeypointGroupMtd.get_mtd_type"
-              version="1.26">
+    <function name="keypoint_mtd_get_confidence"
+              c:identifier="gst_analytics_keypoint_mtd_get_confidence"
+              version="1.30">
       <doc xml:space="preserve"
-           filename="src/gst/metadata/gstanalyticskeypointsmtd.c"
-           line="318">Get an id identifying #GstAnalyticsKeypointGroupMtd type.
-For GIR bindings compatibility. Ideally should rename all
-keypointgroup to keypoint_group.</doc>
-      <source-position filename="include/dlstreamer/gst/metadata/gstanalyticskeypointsmtd.h"
-                       line="135"/>
+           filename="src/gst/metadata/gstanalyticskeypointmtd.c"
+           line="325">Get keypoint confidence.</doc>
+      <source-position filename="include/dlstreamer/gst/metadata/gstanalyticskeypointmtd.h"
+                       line="107"/>
       <return-value transfer-ownership="none">
         <doc xml:space="preserve"
-             filename="src/gst/metadata/gstanalyticskeypointsmtd.c"
-             line="325">opaque id of #GstAnalyticsMtd type</doc>
-        <type name="GstAnalytics.MtdType" c:type="GstAnalyticsMtdType"/>
-      </return-value>
-    </function>
-    <function name="keypoint_mtd_get_mtd_type"
-              c:identifier="gst_analytics_keypoint_mtd_get_mtd_type"
-              moved-to="KeypointMtd.get_mtd_type"
-              version="1.26">
-      <doc xml:space="preserve"
-           filename="src/gst/metadata/gstanalyticskeypointsmtd.c"
-           line="54">Get an id that represents keypoint metadata type</doc>
-      <source-position filename="include/dlstreamer/gst/metadata/gstanalyticskeypointsmtd.h"
-                       line="53"/>
-      <return-value transfer-ownership="none">
-        <doc xml:space="preserve"
-             filename="src/gst/metadata/gstanalyticskeypointsmtd.c"
-             line="59">Opaque id of the #GstAnalyticsMtd type</doc>
-        <type name="GstAnalytics.MtdType" c:type="GstAnalyticsMtdType"/>
-      </return-value>
-    </function>
-    <function name="keypoint_skeleton_mtd_get_mtd_type"
-              c:identifier="gst_analytics_keypoint_skeleton_mtd_get_mtd_type"
-              moved-to="KeypointSkeletonMtd.get_mtd_type"
-              version="1.26">
-      <doc xml:space="preserve"
-           filename="src/gst/metadata/gstanalyticskeypointsmtd.c"
-           line="165">Get an id identifying #GstAnalyticsKeypointSkeletonMtd type.</doc>
-      <source-position filename="include/dlstreamer/gst/metadata/gstanalyticskeypointsmtd.h"
-                       line="96"/>
-      <return-value transfer-ownership="none">
-        <doc xml:space="preserve"
-             filename="src/gst/metadata/gstanalyticskeypointsmtd.c"
-             line="170">opaque id of #GstAnalyticsKeypointSkeletonMtd type</doc>
-        <type name="GstAnalytics.MtdType" c:type="GstAnalyticsMtdType"/>
-      </return-value>
-    </function>
-    <function name="keypointgroup_mtd_get_count"
-              c:identifier="gst_analytics_keypointgroup_mtd_get_count"
-              version="1.26">
-      <doc xml:space="preserve"
-           filename="src/gst/metadata/gstanalyticskeypointsmtd.c"
-           line="333">Get number of keypoints in a keypoint group.</doc>
-      <source-position filename="include/dlstreamer/gst/metadata/gstanalyticskeypointsmtd.h"
-                       line="138"/>
-      <return-value transfer-ownership="none">
-        <doc xml:space="preserve"
-             filename="src/gst/metadata/gstanalyticskeypointsmtd.c"
-             line="338">number of keypoints in this instance of keypoint metadata</doc>
-        <type name="gsize" c:type="gsize"/>
-      </return-value>
-      <parameters>
-        <parameter name="handle" transfer-ownership="none">
-          <doc xml:space="preserve"
-               filename="src/gst/metadata/gstanalyticskeypointsmtd.c"
-               line="335">instance handle</doc>
-          <type name="KeypointGroupMtd"
-                c:type="const GstAnalyticsKeypointGroupMtd*"/>
-        </parameter>
-      </parameters>
-    </function>
-    <function name="keypointgroup_mtd_get_keypoint_mtd"
-              c:identifier="gst_analytics_keypointgroup_mtd_get_keypoint_mtd"
-              version="1.26">
-      <doc xml:space="preserve"
-           filename="src/gst/metadata/gstanalyticskeypointsmtd.c"
-           line="353">Get keypoint metadata handle at @index</doc>
-      <source-position filename="include/dlstreamer/gst/metadata/gstanalyticskeypointsmtd.h"
-                       line="141"/>
-      <return-value transfer-ownership="none">
-        <doc xml:space="preserve"
-             filename="src/gst/metadata/gstanalyticskeypointsmtd.c"
-             line="360">TRUE if valid keypoint handle returned, FALSE if the call failed</doc>
+             filename="src/gst/metadata/gstanalyticskeypointmtd.c"
+             line="332">TRUE if successful, FALSE otherwise</doc>
         <type name="gboolean" c:type="gboolean"/>
       </return-value>
       <parameters>
         <parameter name="handle" transfer-ownership="none">
           <doc xml:space="preserve"
-               filename="src/gst/metadata/gstanalyticskeypointsmtd.c"
-               line="355">handle to keypoint group metadata</doc>
-          <type name="KeypointGroupMtd"
-                c:type="const GstAnalyticsKeypointGroupMtd*"/>
+               filename="src/gst/metadata/gstanalyticskeypointmtd.c"
+               line="327">handle</doc>
+          <type name="KeypointMtdV2"
+                c:type="const GstAnalyticsKeypointMtdV2*"/>
         </parameter>
-        <parameter name="keypoint_mtd"
+        <parameter name="confidence"
                    direction="out"
-                   caller-allocates="1"
-                   transfer-ownership="none">
+                   caller-allocates="0"
+                   transfer-ownership="full">
           <doc xml:space="preserve"
-               filename="src/gst/metadata/gstanalyticskeypointsmtd.c"
-               line="356">handle to keypoint metadata at @index position in this keypoint group</doc>
-          <type name="KeypointMtd" c:type="GstAnalyticsKeypointMtd*"/>
-        </parameter>
-        <parameter name="index" transfer-ownership="none">
-          <doc xml:space="preserve"
-               filename="src/gst/metadata/gstanalyticskeypointsmtd.c"
-               line="357">keypoint index, must be &lt; gst_analytics_keypointgroup_mtd_get_keypoints_count</doc>
-          <type name="gsize" c:type="gsize"/>
+               filename="src/gst/metadata/gstanalyticskeypointmtd.c"
+               line="328">Confidence score</doc>
+          <type name="gfloat" c:type="gfloat*"/>
         </parameter>
       </parameters>
     </function>
-    <function name="keypointgroup_mtd_get_mtd_type"
-              c:identifier="gst_analytics_keypointgroup_mtd_get_mtd_type"
-              version="1.26">
-      <doc xml:space="preserve"
-           filename="src/gst/metadata/gstanalyticskeypointsmtd.c"
-           line="305">Get an id identifying #GstAnalyticsKeypointGropuMtd type.</doc>
-      <source-position filename="include/dlstreamer/gst/metadata/gstanalyticskeypointsmtd.h"
-                       line="132"/>
+    <function name="keypoint_mtd_get_mtd_type_v2"
+              c:identifier="gst_analytics_keypoint_mtd_get_mtd_type_v2">
+      <source-position filename="include/dlstreamer/gst/metadata/gstanalyticskeypointmtd.h"
+                       line="89"/>
       <return-value transfer-ownership="none">
-        <doc xml:space="preserve"
-             filename="src/gst/metadata/gstanalyticskeypointsmtd.c"
-             line="310">opaque id of #GstAnalyticsMtd type</doc>
         <type name="GstAnalytics.MtdType" c:type="GstAnalyticsMtdType"/>
       </return-value>
     </function>
-    <function name="relation_meta_add_keypoint_mtd"
-              c:identifier="gst_analytics_relation_meta_add_keypoint_mtd"
-              version="1.26">
+    <function name="keypoint_mtd_get_position"
+              c:identifier="gst_analytics_keypoint_mtd_get_position"
+              version="1.30">
       <doc xml:space="preserve"
-           filename="src/gst/metadata/gstanalyticskeypointsmtd.c"
-           line="93">Add analytic keypoint metadata to @instance.</doc>
-      <source-position filename="include/dlstreamer/gst/metadata/gstanalyticskeypointsmtd.h"
-                       line="59"/>
+           filename="src/gst/metadata/gstanalyticskeypointmtd.c"
+           line="282">Get keypoint position and dimension.
+See #gst_analytics_relation_meta_add_keypoint_mtd for more details</doc>
+      <source-position filename="include/dlstreamer/gst/metadata/gstanalyticskeypointmtd.h"
+                       line="101"/>
       <return-value transfer-ownership="none">
         <doc xml:space="preserve"
-             filename="src/gst/metadata/gstanalyticskeypointsmtd.c"
-             line="101">TRUE on success, otherwise FALSE.</doc>
+             filename="src/gst/metadata/gstanalyticskeypointmtd.c"
+             line="293">TRUE if successful, FALSE otherwise</doc>
         <type name="gboolean" c:type="gboolean"/>
       </return-value>
       <parameters>
-        <parameter name="instance" transfer-ownership="none">
+        <parameter name="handle" transfer-ownership="none">
           <doc xml:space="preserve"
-               filename="src/gst/metadata/gstanalyticskeypointsmtd.c"
-               line="95">Instance of #GstAnalyticsRelationMeta where to add keypoint metadata.</doc>
-          <type name="GstAnalytics.RelationMeta"
-                c:type="GstAnalyticsRelationMeta*"/>
+               filename="src/gst/metadata/gstanalyticskeypointmtd.c"
+               line="284">handle</doc>
+          <type name="KeypointMtdV2"
+                c:type="const GstAnalyticsKeypointMtdV2*"/>
         </parameter>
-        <parameter name="keypoint" transfer-ownership="none">
-          <doc xml:space="preserve"
-               filename="src/gst/metadata/gstanalyticskeypointsmtd.c"
-               line="96">keypoint attributes to store as metadata.</doc>
-          <type name="Keypoint" c:type="const GstAnalyticsKeypoint*"/>
-        </parameter>
-        <parameter name="keypoint_mtd"
+        <parameter name="x"
                    direction="out"
-                   caller-allocates="1"
-                   transfer-ownership="none">
+                   caller-allocates="0"
+                   transfer-ownership="full">
           <doc xml:space="preserve"
-               filename="src/gst/metadata/gstanalyticskeypointsmtd.c"
-               line="97">Handle updated to newly added keypoint meta.</doc>
-          <type name="KeypointMtd" c:type="GstAnalyticsKeypointMtd*"/>
+               filename="src/gst/metadata/gstanalyticskeypointmtd.c"
+               line="285">X coordinate</doc>
+          <type name="gint" c:type="gint*"/>
+        </parameter>
+        <parameter name="y"
+                   direction="out"
+                   caller-allocates="0"
+                   transfer-ownership="full">
+          <doc xml:space="preserve"
+               filename="src/gst/metadata/gstanalyticskeypointmtd.c"
+               line="286">Y coordinate</doc>
+          <type name="gint" c:type="gint*"/>
+        </parameter>
+        <parameter name="z"
+                   direction="out"
+                   caller-allocates="0"
+                   transfer-ownership="full"
+                   nullable="1">
+          <doc xml:space="preserve"
+               filename="src/gst/metadata/gstanalyticskeypointmtd.c"
+               line="287">Z coordinate, or %NULL to ignore. Always 0 for 2D keypoints.</doc>
+          <type name="gint" c:type="gint*"/>
+        </parameter>
+        <parameter name="dimension"
+                   direction="out"
+                   caller-allocates="0"
+                   transfer-ownership="full">
+          <doc xml:space="preserve"
+               filename="src/gst/metadata/gstanalyticskeypointmtd.c"
+               line="288">Keypoint dimension (2D or 3D)</doc>
+          <type name="KeypointDimensions"
+                c:type="GstAnalyticsKeypointDimensions*"/>
         </parameter>
       </parameters>
     </function>
-    <function name="relation_meta_add_keypoint_skeleton_mtd"
-              c:identifier="gst_analytics_relation_meta_add_keypoint_skeleton_mtd"
-              version="1.26">
+    <function name="keypoint_mtd_get_visibility_flags"
+              c:identifier="gst_analytics_keypoint_mtd_get_visibility_flags"
+              version="1.30">
       <doc xml:space="preserve"
-           filename="src/gst/metadata/gstanalyticskeypointsmtd.c"
-           line="224">Add analytic keypoint metadata to @instance.</doc>
-      <source-position filename="include/dlstreamer/gst/metadata/gstanalyticskeypointsmtd.h"
-                       line="106"/>
-      <return-value transfer-ownership="none">
-        <doc xml:space="preserve"
-             filename="src/gst/metadata/gstanalyticskeypointsmtd.c"
-             line="233">Added successfully</doc>
-        <type name="gboolean" c:type="gboolean"/>
-      </return-value>
-      <parameters>
-        <parameter name="instance" transfer-ownership="none">
-          <doc xml:space="preserve"
-               filename="src/gst/metadata/gstanalyticskeypointsmtd.c"
-               line="226">Instance of #GstAnalyticsRelationMeta where to add classification instance</doc>
-          <type name="GstAnalytics.RelationMeta"
-                c:type="GstAnalyticsRelationMeta*"/>
-        </parameter>
-        <parameter name="skeleton_count" transfer-ownership="none">
-          <doc xml:space="preserve"
-               filename="src/gst/metadata/gstanalyticskeypointsmtd.c"
-               line="227">number of skeleton segments that connect keypoints</doc>
-          <type name="gsize" c:type="const gsize"/>
-        </parameter>
-        <parameter name="skeletons" transfer-ownership="none">
-          <doc xml:space="preserve"
-               filename="src/gst/metadata/gstanalyticskeypointsmtd.c"
-               line="228">keypoint pair indices representing skeleton segments
-example: &lt; {0, 2}, {0, 5}, ...&gt;</doc>
-          <array length="1"
-                 zero-terminated="0"
-                 c:type="const GstAnalyticsKeypointPair*">
-            <type name="KeypointPair" c:type="GstAnalyticsKeypointPair"/>
-          </array>
-        </parameter>
-        <parameter name="keypoint_skeleton_mtd"
-                   direction="out"
-                   caller-allocates="1"
-                   transfer-ownership="none">
-          <doc xml:space="preserve"
-               filename="src/gst/metadata/gstanalyticskeypointsmtd.c"
-               line="230">Handle updated to newly added keypoint info.</doc>
-          <type name="KeypointSkeletonMtd"
-                c:type="GstAnalyticsKeypointSkeletonMtd*"/>
-        </parameter>
-      </parameters>
-    </function>
-    <function name="relation_meta_add_keypointgroup_mtd"
-              c:identifier="gst_analytics_relation_meta_add_keypointgroup_mtd"
-              version="1.26">
-      <doc xml:space="preserve"
-           filename="src/gst/metadata/gstanalyticskeypointsmtd.c"
-           line="382">Add analytic keypoint metadata to @instance.</doc>
-      <source-position filename="include/dlstreamer/gst/metadata/gstanalyticskeypointsmtd.h"
-                       line="145"/>
-      <return-value transfer-ownership="none">
-        <doc xml:space="preserve"
-             filename="src/gst/metadata/gstanalyticskeypointsmtd.c"
-             line="390">TRUE if valid keypoint group handle returned, FALSE if the call failed</doc>
-        <type name="gboolean" c:type="gboolean"/>
-      </return-value>
-      <parameters>
-        <parameter name="instance" transfer-ownership="none">
-          <doc xml:space="preserve"
-               filename="src/gst/metadata/gstanalyticskeypointsmtd.c"
-               line="384">Instance of #GstAnalyticsRelationMeta where to add classification instance</doc>
-          <type name="GstAnalytics.RelationMeta"
-                c:type="GstAnalyticsRelationMeta*"/>
-        </parameter>
-        <parameter name="keypoint_count" transfer-ownership="none">
-          <doc xml:space="preserve"
-               filename="src/gst/metadata/gstanalyticskeypointsmtd.c"
-               line="385">number of keypoints to add</doc>
-          <type name="gsize" c:type="const gsize"/>
-        </parameter>
-        <parameter name="keypoints" transfer-ownership="none">
-          <doc xml:space="preserve"
-               filename="src/gst/metadata/gstanalyticskeypointsmtd.c"
-               line="386">metadata handles for individual keypoints</doc>
-          <array length="1"
-                 zero-terminated="0"
-                 c:type="const GstAnalyticsKeypointMtd*">
-            <type name="KeypointMtd" c:type="GstAnalyticsKeypointMtd"/>
-          </array>
-        </parameter>
-        <parameter name="keypoint_group_mtd"
-                   direction="out"
-                   caller-allocates="1"
-                   transfer-ownership="none">
-          <doc xml:space="preserve"
-               filename="src/gst/metadata/gstanalyticskeypointsmtd.c"
-               line="387">Handle updated to newly added keypoint group meta.</doc>
-          <type name="KeypointGroupMtd"
-                c:type="GstAnalyticsKeypointGroupMtd*"/>
-        </parameter>
-      </parameters>
-    </function>
-    <function name="relation_meta_get_keypoint_mtd"
-              c:identifier="gst_analytics_relation_meta_get_keypoint_mtd"
-              version="1.26">
-      <doc xml:space="preserve"
-           filename="src/gst/metadata/gstanalyticskeypointsmtd.c"
-           line="122">Fill @rlt if a analytics-meta with id == @an_meta_id exist in @meta instance,
-otherwise this method return FALSE and @rlt is invalid.</doc>
-      <source-position filename="include/dlstreamer/gst/metadata/gstanalyticskeypointsmtd.h"
-                       line="64"/>
-      <return-value transfer-ownership="none">
-        <doc xml:space="preserve"
-             filename="src/gst/metadata/gstanalyticskeypointsmtd.c"
-             line="131">TRUE if successful.</doc>
-        <type name="gboolean" c:type="gboolean"/>
-      </return-value>
-      <parameters>
-        <parameter name="meta" transfer-ownership="none">
-          <doc xml:space="preserve"
-               filename="src/gst/metadata/gstanalyticskeypointsmtd.c"
-               line="124">Instance of #GstAnalyticsRelationMeta</doc>
-          <type name="GstAnalytics.RelationMeta"
-                c:type="GstAnalyticsRelationMeta*"/>
-        </parameter>
-        <parameter name="an_meta_id" transfer-ownership="none">
-          <doc xml:space="preserve"
-               filename="src/gst/metadata/gstanalyticskeypointsmtd.c"
-               line="125">Id of #GstAnalyticsKeypointMtd instance to retrieve</doc>
-          <type name="guint" c:type="guint"/>
-        </parameter>
-        <parameter name="rlt"
-                   direction="out"
-                   caller-allocates="1"
-                   transfer-ownership="none">
-          <doc xml:space="preserve"
-               filename="src/gst/metadata/gstanalyticskeypointsmtd.c"
-               line="126">Will be filled with relatable meta</doc>
-          <type name="KeypointMtd" c:type="GstAnalyticsKeypointMtd*"/>
-        </parameter>
-      </parameters>
-    </function>
-    <function name="relation_meta_get_keypoint_skeleton_mtd"
-              c:identifier="gst_analytics_relation_meta_get_keypoint_skeleton_mtd"
-              version="1.26">
-      <doc xml:space="preserve"
-           filename="src/gst/metadata/gstanalyticskeypointsmtd.c"
-           line="259">Fill @rlt if a analytics-meta with id == @an_meta_id exist in @meta instance,
-otherwise this method return FALSE and @rlt is invalid.</doc>
-      <source-position filename="include/dlstreamer/gst/metadata/gstanalyticskeypointsmtd.h"
+           filename="src/gst/metadata/gstanalyticskeypointmtd.c"
+           line="529">Get keypoint visibility flags.</doc>
+      <source-position filename="include/dlstreamer/gst/metadata/gstanalyticskeypointmtd.h"
                        line="112"/>
       <return-value transfer-ownership="none">
         <doc xml:space="preserve"
-             filename="src/gst/metadata/gstanalyticskeypointsmtd.c"
-             line="268">TRUE if successful.</doc>
+             filename="src/gst/metadata/gstanalyticskeypointmtd.c"
+             line="536">TRUE if successful, FALSE otherwise</doc>
         <type name="gboolean" c:type="gboolean"/>
       </return-value>
       <parameters>
-        <parameter name="meta" transfer-ownership="none">
+        <parameter name="handle" transfer-ownership="none">
           <doc xml:space="preserve"
-               filename="src/gst/metadata/gstanalyticskeypointsmtd.c"
-               line="261">Instance of #GstAnalyticsRelationMeta</doc>
-          <type name="GstAnalytics.RelationMeta"
-                c:type="GstAnalyticsRelationMeta*"/>
+               filename="src/gst/metadata/gstanalyticskeypointmtd.c"
+               line="531">handle</doc>
+          <type name="KeypointMtdV2"
+                c:type="const GstAnalyticsKeypointMtdV2*"/>
         </parameter>
-        <parameter name="an_meta_id" transfer-ownership="none">
-          <doc xml:space="preserve"
-               filename="src/gst/metadata/gstanalyticskeypointsmtd.c"
-               line="262">Id of #GstAnalyticsKeypointSkeletonMtd instance to retrieve</doc>
-          <type name="guint" c:type="guint"/>
-        </parameter>
-        <parameter name="rlt"
+        <parameter name="visibility_flags"
                    direction="out"
-                   caller-allocates="1"
-                   transfer-ownership="none">
+                   caller-allocates="0"
+                   transfer-ownership="full">
           <doc xml:space="preserve"
-               filename="src/gst/metadata/gstanalyticskeypointsmtd.c"
-               line="263">Will be filled with relatable meta</doc>
-          <type name="KeypointSkeletonMtd"
-                c:type="GstAnalyticsKeypointSkeletonMtd*"/>
+               filename="src/gst/metadata/gstanalyticskeypointmtd.c"
+               line="532">Visibility flags, a combination of #GstAnalyticsKeypointVisibility values</doc>
+          <type name="guint8" c:type="guint8*"/>
         </parameter>
       </parameters>
     </function>
-    <function name="relation_meta_get_keypointgroup_mtd"
-              c:identifier="gst_analytics_relation_meta_get_keypointgroup_mtd"
-              version="1.26">
+    <function name="relation_meta_add_group_mtd"
+              c:identifier="gst_analytics_relation_meta_add_group_mtd"
+              version="1.30">
       <doc xml:space="preserve"
-           filename="src/gst/metadata/gstanalyticskeypointsmtd.c"
-           line="420">Fill @rlt if a analytics-meta with id == @an_meta_id exist in @meta instance,
-otherwise this method return FALSE and @rlt is invalid.</doc>
-      <source-position filename="include/dlstreamer/gst/metadata/gstanalyticskeypointsmtd.h"
-                       line="151"/>
+           filename="src/gst/metadata/gstanalyticsgroupmtd.c"
+           line="295">Add mtd grouping metadata to @inscance. Use this API when the number of members
+need to be dynamic, otherwise prefer
+@gst_analytics_relation_meta_add_group_mtd_with_size.</doc>
+      <source-position filename="include/dlstreamer/gst/metadata/gstanalyticsgroupmtd.h"
+                       line="70"/>
       <return-value transfer-ownership="none">
         <doc xml:space="preserve"
-             filename="src/gst/metadata/gstanalyticskeypointsmtd.c"
-             line="429">TRUE if successful.</doc>
-        <type name="gboolean" c:type="gboolean"/>
-      </return-value>
-      <parameters>
-        <parameter name="meta" transfer-ownership="none">
-          <doc xml:space="preserve"
-               filename="src/gst/metadata/gstanalyticskeypointsmtd.c"
-               line="422">Instance of #GstAnalyticsRelationMeta</doc>
-          <type name="GstAnalytics.RelationMeta"
-                c:type="GstAnalyticsRelationMeta*"/>
-        </parameter>
-        <parameter name="an_meta_id" transfer-ownership="none">
-          <doc xml:space="preserve"
-               filename="src/gst/metadata/gstanalyticskeypointsmtd.c"
-               line="423">Id of #GstAnalyticsKeypointGroupMtd instance to retrieve</doc>
-          <type name="guint" c:type="guint"/>
-        </parameter>
-        <parameter name="rlt"
-                   direction="out"
-                   caller-allocates="1"
-                   transfer-ownership="none">
-          <doc xml:space="preserve"
-               filename="src/gst/metadata/gstanalyticskeypointsmtd.c"
-               line="424">Will be filled with relatable meta</doc>
-          <type name="KeypointGroupMtd"
-                c:type="GstAnalyticsKeypointGroupMtd*"/>
-        </parameter>
-      </parameters>
-    </function>
-    <function name="relation_meta_set_keypointgroup_relations"
-              c:identifier="gst_analytics_relation_meta_set_keypointgroup_relations"
-              version="1.26">
-      <doc xml:space="preserve"
-           filename="src/gst/metadata/gstanalyticskeypointsmtd.c"
-           line="440">Setup default relations between keypoints, keypoint group, keypoint names and skeleton.
-
-keypoint_group (1) --&gt; GST_ANALYTICS_REL_TYPE_CONTAIN    --&gt; keypoint (N)
-keypoint_group (1) &lt;-- GST_ANALYTICS_REL_TYPE_IS_PART_OF &lt;-- keypoint (N)
-keypoint_group (M) --&gt; GST_ANALYTICS_REL_TYPE_CATEGORY   &lt;-- keypoint_names (1)
-keypoint_group (M) --&gt; GST_ANALYTICS_REL_TYPE_CATEGORY   &lt;-- keypoint_skeleton (1)
-
-keypoint_names and keypoint_skeleton - one instance per frame
-keypoint_group - M instances per frame (for each detectek keypoint group)
-keypoint - N instances per keypoint group (MxN instances per frame)</doc>
-      <source-position filename="include/dlstreamer/gst/metadata/gstanalyticskeypointsmtd.h"
-                       line="155"/>
-      <return-value transfer-ownership="none">
-        <doc xml:space="preserve"
-             filename="src/gst/metadata/gstanalyticskeypointsmtd.c"
-             line="458">TRUE if relations added successfully, FALSE if the call fails</doc>
+             filename="src/gst/metadata/gstanalyticsgroupmtd.c"
+             line="307">TRUE is added successfully, otherwise FALSE.</doc>
         <type name="gboolean" c:type="gboolean"/>
       </return-value>
       <parameters>
         <parameter name="instance" transfer-ownership="none">
           <doc xml:space="preserve"
-               filename="src/gst/metadata/gstanalyticskeypointsmtd.c"
-               line="442">Instance of #GstAnalyticsRelationMeta where to add classification instance.</doc>
+               filename="src/gst/metadata/gstanalyticsgroupmtd.c"
+               line="297">Instance of @GstAnalyticsRelationMeta where to add group_mtd
+   instance</doc>
           <type name="GstAnalytics.RelationMeta"
                 c:type="GstAnalyticsRelationMeta*"/>
         </parameter>
-        <parameter name="keypoint_group" transfer-ownership="none">
+        <parameter name="pre_alloc_size" transfer-ownership="none">
           <doc xml:space="preserve"
-               filename="src/gst/metadata/gstanalyticskeypointsmtd.c"
-               line="443">Handle to keypoint group metadata.</doc>
-          <type name="KeypointGroupMtd"
-                c:type="GstAnalyticsKeypointGroupMtd*"/>
+               filename="src/gst/metadata/gstanalyticsgroupmtd.c"
+               line="299">Slots allocated for group members</doc>
+          <type name="gsize" c:type="gsize"/>
         </parameter>
-        <parameter name="keypoint_names"
+        <parameter name="group_mtd"
+                   direction="out"
+                   caller-allocates="1"
+                   transfer-ownership="none">
+          <doc xml:space="preserve"
+               filename="src/gst/metadata/gstanalyticsgroupmtd.c"
+               line="300">Handle to updated to newly added grouping
+   mtd</doc>
+          <type name="GroupMtd" c:type="GstAnalyticsGroupMtd*"/>
+        </parameter>
+      </parameters>
+    </function>
+    <function name="relation_meta_add_group_mtd_with_size"
+              c:identifier="gst_analytics_relation_meta_add_group_mtd_with_size"
+              version="1.30">
+      <doc xml:space="preserve"
+           filename="src/gst/metadata/gstanalyticsgroupmtd.c"
+           line="335">Add mtd grouping metadata to @inscance. Use this API when the number of
+members is known when adding the group.</doc>
+      <source-position filename="include/dlstreamer/gst/metadata/gstanalyticsgroupmtd.h"
+                       line="74"/>
+      <return-value transfer-ownership="none">
+        <doc xml:space="preserve"
+             filename="src/gst/metadata/gstanalyticsgroupmtd.c"
+             line="346">TRUE is added successfully, otherwise FALSE.</doc>
+        <type name="gboolean" c:type="gboolean"/>
+      </return-value>
+      <parameters>
+        <parameter name="instance" transfer-ownership="none">
+          <doc xml:space="preserve"
+               filename="src/gst/metadata/gstanalyticsgroupmtd.c"
+               line="337">Instance of @GstAnalyticsRelationMeta where to add group_mtd
+   instance</doc>
+          <type name="GstAnalytics.RelationMeta"
+                c:type="GstAnalyticsRelationMeta*"/>
+        </parameter>
+        <parameter name="group_size" transfer-ownership="none">
+          <doc xml:space="preserve"
+               filename="src/gst/metadata/gstanalyticsgroupmtd.c"
+               line="339">Slots reserved for group members</doc>
+          <type name="gsize" c:type="gsize"/>
+        </parameter>
+        <parameter name="group_mtd"
+                   direction="out"
+                   caller-allocates="1"
+                   transfer-ownership="none">
+          <doc xml:space="preserve"
+               filename="src/gst/metadata/gstanalyticsgroupmtd.c"
+               line="340">Handle to updated to newly added grouping
+   mtd</doc>
+          <type name="GroupMtd" c:type="GstAnalyticsGroupMtd*"/>
+        </parameter>
+      </parameters>
+    </function>
+    <function name="relation_meta_add_keypoint_mtd_v2"
+              c:identifier="gst_analytics_relation_meta_add_keypoint_mtd_v2">
+      <source-position filename="include/dlstreamer/gst/metadata/gstanalyticskeypointmtd.h"
+                       line="92"/>
+      <return-value transfer-ownership="none">
+        <type name="gboolean" c:type="gboolean"/>
+      </return-value>
+      <parameters>
+        <parameter name="instance" transfer-ownership="none">
+          <type name="GstAnalytics.RelationMeta"
+                c:type="GstAnalyticsRelationMeta*"/>
+        </parameter>
+        <parameter name="dimension" transfer-ownership="none">
+          <type name="KeypointDimensions"
+                c:type="GstAnalyticsKeypointDimensions"/>
+        </parameter>
+        <parameter name="x" transfer-ownership="none">
+          <type name="gint" c:type="gint"/>
+        </parameter>
+        <parameter name="y" transfer-ownership="none">
+          <type name="gint" c:type="gint"/>
+        </parameter>
+        <parameter name="z" transfer-ownership="none">
+          <type name="gint" c:type="gint"/>
+        </parameter>
+        <parameter name="visibility_flags" transfer-ownership="none">
+          <type name="guint8" c:type="guint8"/>
+        </parameter>
+        <parameter name="confidence" transfer-ownership="none">
+          <type name="gfloat" c:type="gfloat"/>
+        </parameter>
+        <parameter name="keypoint_mtd" transfer-ownership="none">
+          <type name="KeypointMtdV2" c:type="GstAnalyticsKeypointMtdV2*"/>
+        </parameter>
+      </parameters>
+    </function>
+    <function name="relation_meta_add_keypoints_group"
+              c:identifier="gst_analytics_relation_meta_add_keypoints_group"
+              version="1.30">
+      <doc xml:space="preserve"
+           filename="src/gst/metadata/gstanalyticskeypointmtd.c"
+           line="375">Creates a group of keypoints with optional skeleton structure.
+Individual keypoints are created as #GstAnalyticsMtd.
+Skeleton links are represented as RELATE_TO relations between keypoints.
+
+The @skeleton_pairs array contains pairs of keypoint indices that are connected.
+For example, [0, 1, 1, 2, 2, 3] creates links: 0&lt;-&gt;1, 1&lt;-&gt;2, 2&lt;-&gt;3.
+
+See #gst_analytics_relation_meta_add_keypoint_mtd for more details</doc>
+      <source-position filename="include/dlstreamer/gst/metadata/gstanalyticskeypointmtd.h"
+                       line="123"/>
+      <return-value transfer-ownership="none">
+        <doc xml:space="preserve"
+             filename="src/gst/metadata/gstanalyticskeypointmtd.c"
+             line="398">TRUE if successful, FALSE otherwise</doc>
+        <type name="gboolean" c:type="gboolean"/>
+      </return-value>
+      <parameters>
+        <parameter name="instance" transfer-ownership="none">
+          <doc xml:space="preserve"
+               filename="src/gst/metadata/gstanalyticskeypointmtd.c"
+               line="377">Instance of #GstAnalyticsRelationMeta</doc>
+          <type name="GstAnalytics.RelationMeta"
+                c:type="GstAnalyticsRelationMeta*"/>
+        </parameter>
+        <parameter name="semantic_tag" transfer-ownership="none">
+          <doc xml:space="preserve"
+               filename="src/gst/metadata/gstanalyticskeypointmtd.c"
+               line="378">Semantic tag for the group (e.g., "hand-21-kp", "pose-17-kp")</doc>
+          <type name="utf8" c:type="const gchar*"/>
+        </parameter>
+        <parameter name="dimension" transfer-ownership="none">
+          <doc xml:space="preserve"
+               filename="src/gst/metadata/gstanalyticskeypointmtd.c"
+               line="379">2D or 3D keypoints</doc>
+          <type name="KeypointDimensions"
+                c:type="GstAnalyticsKeypointDimensions"/>
+        </parameter>
+        <parameter name="positions_len" transfer-ownership="none">
+          <doc xml:space="preserve"
+               filename="src/gst/metadata/gstanalyticskeypointmtd.c"
+               line="380">length of @positions array.</doc>
+          <type name="gsize" c:type="gsize"/>
+        </parameter>
+        <parameter name="positions" transfer-ownership="none">
+          <doc xml:space="preserve"
+               filename="src/gst/metadata/gstanalyticskeypointmtd.c"
+               line="381">Array of positions [x0, y0, [z0], x1, y1, [z1], ...]</doc>
+          <array length="3" zero-terminated="0" c:type="const gint*">
+            <type name="gint" c:type="gint"/>
+          </array>
+        </parameter>
+        <parameter name="keypoint_count" transfer-ownership="none">
+          <doc xml:space="preserve"
+               filename="src/gst/metadata/gstanalyticskeypointmtd.c"
+               line="382">Number of keypoints</doc>
+          <type name="gsize" c:type="gsize"/>
+        </parameter>
+        <parameter name="confidences"
                    transfer-ownership="none"
                    nullable="1"
                    allow-none="1">
           <doc xml:space="preserve"
-               filename="src/gst/metadata/gstanalyticskeypointsmtd.c"
-               line="444">Handle to classification metadata with keypoint names.</doc>
-          <type name="GstAnalytics.ClsMtd" c:type="GstAnalyticsClsMtd*"/>
+               filename="src/gst/metadata/gstanalyticskeypointmtd.c"
+               line="383">Array of confidence scores [c0, c1, ...] or NULL</doc>
+          <array length="5" zero-terminated="0" c:type="const gfloat*">
+            <type name="gfloat" c:type="gfloat"/>
+          </array>
         </parameter>
-        <parameter name="keypoint_skeleton"
+        <parameter name="visibilities"
                    transfer-ownership="none"
                    nullable="1"
                    allow-none="1">
           <doc xml:space="preserve"
-               filename="src/gst/metadata/gstanalyticskeypointsmtd.c"
-               line="445">Handle to skeleton metadata with skeleton segments.</doc>
-          <type name="KeypointSkeletonMtd"
-                c:type="GstAnalyticsKeypointSkeletonMtd*"/>
+               filename="src/gst/metadata/gstanalyticskeypointmtd.c"
+               line="384">Array of #GstAnalyticsKeypointVisibility flags [v0, v1, ...] or NULL</doc>
+          <array length="5" zero-terminated="0" c:type="const guint8*">
+            <type name="guint8" c:type="guint8"/>
+          </array>
+        </parameter>
+        <parameter name="skeleton_pairs_len" transfer-ownership="none">
+          <doc xml:space="preserve"
+               filename="src/gst/metadata/gstanalyticskeypointmtd.c"
+               line="385">Length of @skeleton_pairs array (must be even, representing pairs of keypoint indices)</doc>
+          <type name="gsize" c:type="gsize"/>
+        </parameter>
+        <parameter name="skeleton_pairs"
+                   transfer-ownership="none"
+                   nullable="1"
+                   allow-none="1">
+          <doc xml:space="preserve"
+               filename="src/gst/metadata/gstanalyticskeypointmtd.c"
+               line="386">Array of keypoint index pairs [kp1_idx, kp2_idx, kp1_idx, kp2_idx, ...] or NULL</doc>
+          <array length="8" zero-terminated="0" c:type="const gint*">
+            <type name="gint" c:type="gint"/>
+          </array>
+        </parameter>
+        <parameter name="group_mtd"
+                   direction="out"
+                   caller-allocates="1"
+                   transfer-ownership="none">
+          <doc xml:space="preserve"
+               filename="src/gst/metadata/gstanalyticskeypointmtd.c"
+               line="387">Handle to newly created group</doc>
+          <type name="GroupMtd" c:type="GstAnalyticsGroupMtd*"/>
+        </parameter>
+      </parameters>
+    </function>
+    <function name="relation_meta_get_group_mtd"
+              c:identifier="gst_analytics_relation_meta_get_group_mtd"
+              version="1.30">
+      <doc xml:space="preserve"
+           filename="src/gst/metadata/gstanalyticsgroupmtd.c"
+           line="480">Retrieve group metadata instance from @meta.</doc>
+      <source-position filename="include/dlstreamer/gst/metadata/gstanalyticsgroupmtd.h"
+                       line="86"/>
+      <return-value transfer-ownership="none">
+        <doc xml:space="preserve"
+             filename="src/gst/metadata/gstanalyticsgroupmtd.c"
+             line="488">TRUE if successful, FALSE otherwise.</doc>
+        <type name="gboolean" c:type="gboolean"/>
+      </return-value>
+      <parameters>
+        <parameter name="meta" transfer-ownership="none">
+          <doc xml:space="preserve"
+               filename="src/gst/metadata/gstanalyticsgroupmtd.c"
+               line="482">Instance of #GstAnalyticsRelationMeta</doc>
+          <type name="GstAnalytics.RelationMeta"
+                c:type="GstAnalyticsRelationMeta*"/>
+        </parameter>
+        <parameter name="an_meta_id" transfer-ownership="none">
+          <doc xml:space="preserve"
+               filename="src/gst/metadata/gstanalyticsgroupmtd.c"
+               line="483">Id of #GstAnalyticsGroupMtd instance to retrieve</doc>
+          <type name="guint" c:type="guint"/>
+        </parameter>
+        <parameter name="rlt"
+                   direction="out"
+                   caller-allocates="1"
+                   transfer-ownership="none">
+          <doc xml:space="preserve"
+               filename="src/gst/metadata/gstanalyticsgroupmtd.c"
+               line="484">Will be filled with group mtd</doc>
+          <type name="GroupMtd" c:type="GstAnalyticsGroupMtd*"/>
+        </parameter>
+      </parameters>
+    </function>
+    <function name="relation_meta_get_keypoint_mtd_v2"
+              c:identifier="gst_analytics_relation_meta_get_keypoint_mtd_v2">
+      <source-position filename="include/dlstreamer/gst/metadata/gstanalyticskeypointmtd.h"
+                       line="117"/>
+      <return-value transfer-ownership="none">
+        <type name="gboolean" c:type="gboolean"/>
+      </return-value>
+      <parameters>
+        <parameter name="meta" transfer-ownership="none">
+          <type name="GstAnalytics.RelationMeta"
+                c:type="GstAnalyticsRelationMeta*"/>
+        </parameter>
+        <parameter name="an_meta_id" transfer-ownership="none">
+          <type name="guint" c:type="guint"/>
+        </parameter>
+        <parameter name="rlt" transfer-ownership="none">
+          <type name="KeypointMtdV2" c:type="GstAnalyticsKeypointMtdV2*"/>
         </parameter>
       </parameters>
     </function>

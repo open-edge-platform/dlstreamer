@@ -42,11 +42,13 @@ if(GENERATE_GIR_FROM_SOURCE)
 
     # Source and header files
     set(KEYPOINTS_SOURCES
-        "${CMAKE_CURRENT_SOURCE_DIR}/gstanalyticskeypointsmtd.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/gstanalyticskeypointmtd.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/gstanalyticsgroupmtd.c"
     )
 
     set(KEYPOINTS_HEADERS
-        "${CMAKE_SOURCE_DIR}/include/dlstreamer/gst/metadata/gstanalyticskeypointsmtd.h"
+        "${CMAKE_SOURCE_DIR}/include/dlstreamer/gst/metadata/gstanalyticskeypointmtd.h"
+        "${CMAKE_SOURCE_DIR}/include/dlstreamer/gst/metadata/gstanalyticsgroupmtd.h"
     )
 
     set(LIB_OUTPUT_DIR "${CMAKE_BINARY_DIR}/intel64/${CMAKE_BUILD_TYPE}/lib")
