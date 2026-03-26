@@ -40,7 +40,7 @@ ARG BUILD_ARG=Release
 LABEL description="This is the development image of Intel® Deep Learning Streamer (Intel® DL Streamer) Pipeline Framework"
 LABEL vendor="Intel Corporation"
 
-ARG GST_VERSION=1.28.1
+ARG GST_VERSION=1.26.11
 ARG OPENVINO_VERSION=2026.0.0
 ARG REALSENSE_VERSION=v2.57.6
 
