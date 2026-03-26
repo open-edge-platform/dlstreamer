@@ -139,7 +139,7 @@ rm -rf %{buildroot}
 /opt/intel/dlstreamer/lib/pkgconfig/*
 
 %changelog
-* Tue Mar 24 2025 DL Streamer Team <dlstreamer@intel.com> - 2026.0.0-1
+* Wed Mar 25 2026 DL Streamer Team <dlstreamer@intel.com> - 2026.0.0-1
 - Update DL Streamer version
 * Wed Dec 02 2025 DL Streamer Team <dlstreamer@intel.com> - 2025.2.0-1
 - Update DL Streamer version
