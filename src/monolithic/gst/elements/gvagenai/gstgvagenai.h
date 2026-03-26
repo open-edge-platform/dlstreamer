@@ -34,6 +34,7 @@ struct _GstGvaGenAI {
     gboolean metrics;
     guint frame_counter;
 
+    gboolean prompt_changed; // flag to indicate if prompt was updated and needs to be reloaded
     gchar *prompt_string;
     void *openvino_context;
 };

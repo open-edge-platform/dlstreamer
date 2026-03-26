@@ -152,6 +152,7 @@ static void gst_gvagenai_init(GstGvaGenAI *gvagenai) {
     gvagenai->metrics = FALSE;
     gvagenai->frame_counter = 0;
     gvagenai->prompt_string = NULL;
+    gvagenai->prompt_changed = FALSE;
     gvagenai->openvino_context = NULL;
 }
 
@@ -220,10 +221,12 @@ static void gst_gvagenai_set_property(GObject *object, guint prop_id, const GVal
     case PROP_PROMPT:
         g_free(gvagenai->prompt);
         gvagenai->prompt = g_value_dup_string(value);
+        gvagenai->prompt_changed = TRUE;
         break;
     case PROP_PROMPT_PATH:
         g_free(gvagenai->prompt_path);
         gvagenai->prompt_path = g_value_dup_string(value);
+        gvagenai->prompt_changed = TRUE;
         break;
     case PROP_GENERATION_CONFIG:
         g_free(gvagenai->generation_config);
@@ -365,6 +368,15 @@ static GstFlowReturn gst_gvagenai_transform_ip(GstBaseTransform *base, GstBuffer
         GST_ELEMENT_ERROR(gvagenai, CORE, STATE_CHANGE, ("Context not initialized"),
                           ("OpenVINO GenAI context is not initialized, element may not have started properly"));
         return GST_FLOW_ERROR;
+    }
+
+    if (gvagenai->prompt_changed) {
+        if (!load_effective_prompt(gvagenai)) {
+            GST_ELEMENT_ERROR(gvagenai, RESOURCE, FAILED, ("Failed to load effective prompt"),
+                              ("Could not load or validate prompt configuration"));
+            return GST_FLOW_ERROR;
+        }
+        gvagenai->prompt_changed = FALSE;
     }
 
     // Get video info from pad
