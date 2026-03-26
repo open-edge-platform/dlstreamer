@@ -189,7 +189,7 @@ RUN cp -a /usr/local/lib/libopencv* ./
 
 FROM opencv-builder AS gstreamer-builder
 
-ARG GST_VERSION=1.26.11
+ARG GST_VERSION=1.28.1
 
 SHELL ["/bin/bash", "-xo", "pipefail", "-c"]
 
@@ -215,7 +215,6 @@ RUN \
     meson setup \
     -Dexamples=disabled \
     -Dtests=disabled \
-    -Dvaapi=enabled \
     -Dlibnice=enabled \
     -Dgst-examples=disabled \
     -Ddevtools=disabled \
