@@ -74,8 +74,6 @@ cleanup_old_gpu_drivers() {
             $SUDO_PREFIX apt-get remove -y "$package" 2>/dev/null || true
         fi
     done
-
-    $SUDO_PREFIX apt update || handle_error "Failed to update package lists"
     
     echo_color "✓ GPU drivers cleanup completed successfully!" "green"
 }
