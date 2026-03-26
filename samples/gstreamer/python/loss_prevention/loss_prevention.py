@@ -37,24 +37,26 @@ from gi.repository import Gst, GLib, GObject, GstAnalytics  # pylint: disable=no
 class GenaiSignalBridge(GObject.Object):
     """Emits 'genai-result' signal carrying analytics text from Path 2."""
     _frame_selection_quark = None
+    _frame_selection_confidence = 0.0
     _frame_selection_pts = 0
     _frame_selection_time = 0
     _vlm_quark = None
+    _vlm_confidence = 0.0
     _vlm_pts = 0
     _vlm_time = 0
-    _vlm_confidence = 0.0
 
     @GObject.Signal(arg_types=(GObject.TYPE_UINT, GObject.TYPE_DOUBLE, GObject.TYPE_UINT64, GObject.TYPE_UINT64))
     def vlm_result(self, label_quark: int, confidence: float, pts: int, system_time_ns: int):
         pass
 
-    @GObject.Signal(arg_types=(GObject.TYPE_UINT, GObject.TYPE_UINT64, GObject.TYPE_UINT64))
-    def frame_selection(self, objects_quark: int, pts: int, system_time_ns: int):
+    @GObject.Signal(arg_types=(GObject.TYPE_UINT, GObject.TYPE_DOUBLE, GObject.TYPE_UINT64, GObject.TYPE_UINT64))
+    def frame_selection(self, objects_quark: int, confidence: float, pts: int, system_time_ns: int):
         pass
 
-def _on_frame_selection(bridge, objects_quark, pts, system_time_ns):
+def _on_frame_selection(bridge, objects_quark, confidence, pts, system_time_ns):
     """Signal handler: log frame-selection event with detected objects."""
     bridge._frame_selection_quark = objects_quark
+    bridge._frame_selection_confidence = confidence
     bridge._frame_selection_pts = pts
     bridge._frame_selection_time = system_time_ns
 
@@ -76,18 +78,21 @@ def _vlm_probe_cb(pad, info, bridge):
         return Gst.PadProbeReturn.OK
 
     labels = []
+    confidence = 0.0
     for mtd in rmeta:
         if isinstance(mtd, GstAnalytics.ODMtd):
             quark = mtd.get_obj_type()
             if quark:
                 label = GLib.quark_to_string(quark)
+                _, confidence_lvl = mtd.get_confidence_lvl()
+                confidence = max(confidence, confidence_lvl)
                 if label:
                     labels.append(label)
 
     if labels:
         objects_str = ", ".join(labels)
         objects_quark = GLib.quark_from_string(objects_str)
-        bridge.emit("frame-selection", objects_quark, int(buf.pts), int(time.time_ns()))
+        bridge.emit("frame-selection", objects_quark, confidence, int(buf.pts), int(time.time_ns()))
 
     return Gst.PadProbeReturn.OK
 
@@ -129,9 +134,9 @@ def _watermark_probe_cb(pad, info, bridge):
             
     # display frame selection output for max 4 seconds  
     if (bridge._frame_selection_quark is not None) and (buf.pts - bridge._frame_selection_pts < 4 * Gst.SECOND):
-        frame_time = (buf.pts) / Gst.SECOND
-        text = f"[{frame_time:.2f} s] Frame selection, detected objects: {GLib.quark_to_string(bridge._frame_selection_quark)}"
-        rmeta.add_od_mtd(GLib.quark_from_string(text), 10, 50, 0, 0, 0.0)
+        frame_time = (bridge._frame_selection_pts) / Gst.SECOND
+        text = f"[{frame_time:.2f} s] Frame selection, detected objects: {GLib.quark_to_string(bridge._frame_selection_quark)} "
+        rmeta.add_od_mtd(GLib.quark_from_string(text), 10, 50, 0, 0, bridge._frame_selection_confidence)
 
         # display VLM classification output for most recently selected frame
         if (bridge._vlm_quark is not None) and (bridge._vlm_pts >= bridge._frame_selection_pts):
@@ -337,7 +342,7 @@ def parse_args() -> argparse.Namespace:
 
     parser.add_argument("--detect-model-id", default="yolo26s", help="Ultralytics model id")
     parser.add_argument("--detect-device", default="GPU", help="Device for YOLO detection")
-    parser.add_argument("--threshold", type=float, default=0.5,
+    parser.add_argument("--threshold", type=float, default=0.4,
                         help="Detection confidence threshold")
     parser.add_argument("--genai-model-path", default=str(MODELS_DIR / "MiniCPM-V-4_5"),
                         help="Path to OpenVINO genai model directory")
