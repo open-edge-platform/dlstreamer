@@ -9,6 +9,7 @@
 #include <gst/gst.h>
 
 #include "gstgvaaudiodetect.h"
+#include "gstgvastreammux.h"
 #ifdef ENABLE_GENAI
 #include "gstgvaaudiotranscribe.h"
 #include "gstgvagenai.h"
@@ -66,6 +67,8 @@ static gboolean plugin_init(GstPlugin *plugin) {
     if (!gst_element_register(plugin, "gvamotiondetect", GST_RANK_NONE, GST_TYPE_GVA_MOTION_DETECT))
         return FALSE;
     if (!gst_element_register(plugin, "gvafpsthrottle", GST_RANK_NONE, GST_TYPE_GVA_FPS_THROTTLE))
+        return FALSE;
+    if (!gst_element_register(plugin, "gvastreammux", GST_RANK_NONE, GST_TYPE_GVA_STREAMMUX))
         return FALSE;
 
     // register metadata
