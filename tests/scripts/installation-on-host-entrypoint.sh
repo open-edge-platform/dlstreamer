@@ -78,7 +78,7 @@ cleanup_old_gpu_drivers() {
     # Fix broken dependencies
     $SUDO_PREFIX apt-get autoremove -y || true
     $SUDO_PREFIX apt-get autoclean || true
-    $SUDO_PREFIX apt-get update || handle_error "Failed to update package lists"
+    $SUDO_PREFIX apt update || handle_error "Failed to update package lists"
     
     echo_color "✓ GPU drivers cleanup completed successfully!" "green"
 }
