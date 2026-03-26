@@ -20,7 +20,7 @@ BuildRequires:  libva-devel libva-intel-media-driver
 BuildRequires:  python3-devel python3-pip
 BuildRequires:  pkgconfig patchelf
 BuildRequires:  opencv-devel >= 4.12.0
-BuildRequires:  gstreamer-devel >= 1.26.1
+BuildRequires:  gstreamer-devel >= 1.26.6
 BuildRequires:  paho-mqtt-c-devel >= 1.3.4
 BuildRequires:  librdkafka-devel
 
