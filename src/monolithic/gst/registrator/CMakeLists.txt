@@ -36,6 +36,7 @@ PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/../elements/gvamotiondetect/
     ${CMAKE_CURRENT_SOURCE_DIR}/../elements/gvadeskew/
     ${CMAKE_CURRENT_SOURCE_DIR}/../elements/gvafpsthrottle/
+    ${CMAKE_CURRENT_SOURCE_DIR}/../elements/gvastreammux/
 )
 
 target_link_libraries(${TARGET_NAME}
@@ -46,6 +47,7 @@ PRIVATE
     inference_elements
     audio_inference_elements
     gvatrack
+    gvastreammux
 )
 
 if(ENABLE_GENAI)
