@@ -185,8 +185,8 @@ class DLSOptimizer:
                 try:
                     fps, detections = sample_pipeline(pipelines, self._sample_duration)
 
-                    if (detections = 0 and detections != starting_detections) 
-                        or detections / starting_detections < self._detections_error_threshold:
+                    if ((detections == 0 and detections != starting_detections) 
+                        or detections / starting_detections < self._detections_error_threshold):
                         logger.debug("Pipeline reporting detections under error margin, skipping")
                         continue
 
