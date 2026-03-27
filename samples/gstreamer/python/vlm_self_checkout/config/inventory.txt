@@ -1,4 +1,4 @@
-# Inventory items for loss prevention sample (one per line)
+# Inventory items for VLM self-checkout sample (one per line)
 Red Apple
 Green Apple
 Coca-Cola Bottle Small

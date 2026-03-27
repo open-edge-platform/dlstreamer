@@ -5,7 +5,7 @@
 # ==============================================================================
 
 """
-Custom GStreamer element for loss-prevention analytics.
+Custom GStreamer element for VLM self-checkout frame selection.
 """
 
 from dataclasses import dataclass, field
@@ -29,10 +29,10 @@ class TrackedObject:
 GST_BASE_TRANSFORM_FLOW_DROPPED = Gst.FlowReturn.CUSTOM_SUCCESS
 
 class FrameSelection(GstBase.BaseTransform):
-    """Frame selection logic for Loss Prevention."""
+    """Frame selection logic for VLM Self Checkout."""
 
     __gstmetadata__ = (
-        "GVA Loss Prevention Python",
+        "GVA VLM Self Checkout Frame Selection",
         "Transform",
         "Passes frames which are tracked for at least N milliseconds and drops the rest",
         "Intel DLStreamer",
@@ -109,9 +109,8 @@ class FrameSelection(GstBase.BaseTransform):
                     item = line.strip()
                     if item and not item.startswith("#"):
                         items.append(item)
-            print(f"[gvalossprevention] Loaded {len(items)} {label} from '{path}'")
         except OSError as e:
-            print(f"[gvalossprevention] ERROR: cannot read {label} file '{path}': {e}")
+            print(f"[gvaframeselection] ERROR: cannot read {label} file '{path}': {e}")
         return items
 
     def _resolve_genai_element(self):
@@ -125,7 +124,7 @@ class FrameSelection(GstBase.BaseTransform):
             return None
         self._genai_element = pipeline.get_by_name(self._genai_name)
         if self._genai_element is None:
-            print(f"[gvalossprevention] WARNING: could not find element named '{self._genai_name}'")
+            print(f"[gvaframeselection] WARNING: could not find element named '{self._genai_name}'")
         return self._genai_element
 
     def _update_genai_prompt(self, prompt_text: str):
@@ -133,12 +132,12 @@ class FrameSelection(GstBase.BaseTransform):
         if not self._genai_element:
             self._resolve_genai_element()
         if self._genai_element is None:
-            print(f"[gvalossprevention] WARNING: cannot update gvagenai prompt because element reference could not be resolved")
+            print(f"[gvaframeselection] WARNING: cannot update gvagenai prompt because element reference could not be resolved")
             return
         self._genai_element.set_property("prompt", prompt_text)
 
     def do_transform_ip(self, buffer):
-        """Frame selection logic for Loss Prevention.
+        """Frame selection logic for VLM Self Checkout.
             1) Select frames with at least one object detected
             2) Select frames with object tracked for > threshold milliseconds
             3) Set gvagenai prompt to classify which item from the inventory is visible in the frame"""
@@ -192,4 +191,4 @@ class FrameSelection(GstBase.BaseTransform):
         return GST_BASE_TRANSFORM_FLOW_DROPPED
 
 GObject.type_register(FrameSelection)
-__gstelementfactory__ = ("gvalossprevention_py", Gst.Rank.NONE, FrameSelection)
+__gstelementfactory__ = ("gvaframeselection_py", Gst.Rank.NONE, FrameSelection)

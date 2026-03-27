@@ -1,28 +1,28 @@
 # VLM-assisted Self Checkout
 
-This sample demonstrates a self-checkout pipeline that combines **YOLO object detection** with a **Vision-Language Model (VLM)** for intelligent item classification — all inside a single DL Streamer GStreamer pipeline.
+This sample demonstrates a self-checkout pipeline that combines **Computer Vision object detection** with a **Vision-Language Model (VLM)** for intelligent item classification — all inside a single DL Streamer GStreamer pipeline.
 
 ![VLM-assisted Self Checkout](vlm_self_checkout.jpg)
 
-The system detects objects on the counter, waits until they are tracked for a configurable duration (1.5sec default), then asks the VLM to identify which inventory item is visible. Example VLM prompt (auto-generated from `inventory.txt`):
+The system detects objects on the counter, waits until they are tracked for a configurable duration, selects inventory items matching detected object category, and finally asks the VLM to identify exact inventory items visible. Example VLM prompt (auto-generated from `inventory.txt`):
 
-> *Which of the following items is visible in this image: Red Apple, Coca-Cola Bottle Small, Yellow Bananas? Reply only with names of detected items. If no items from the list are visible, reply None.*
+> *Which of the following items is visible in this image: Coca-Cola Bottle Small, Coca-Cola Bottle Medium, Coca-Cola Bottle Large? Reply only with names of detected items. If no items from the list are visible, reply None.*
 
-The VLM runs locally on edge device and responds with detailed object classification in real-time within 1-2 seconds (snapshot taken on Intel® Core™ Ultra 285H edge device).
+Both the object detection model and the VLM run locally on the edge AI device. Note that detailed VLM object classification is accomplished in real time within 1–2 seconds (snapshot taken on an Intel® Core™ Ultra 285H edge device).
 
 ## What It Does
 
 1. **Detects** objects in each video frame using a YOLO26s model (`gvadetect`)
 2. **Tracks** detected objects across frames (`gvatrack`) and filters by visibility duration
-3. **Selects** frames of interest for enchanced VLM classification using custom python element (`gvaframeselection_py`) 
-3. **Classifies** tracked items against a known inventory using a VLM (`gvagenai` with MiniCPM-V-4.5)
-4. **Publishes** structured JSONL results and saves snapshot images of classified items
-5. **Writes** an annotated output video with watermarked detection  VLM classification results (`gvawatermark`)
+3. **Selects** frames of interest for enhanced VLM classification using a custom Python element (`gvaframeselection_py`)
+4. **Classifies** tracked items against a known inventory using a VLM (`gvagenai` with MiniCPM-V-4.5)
+5. **Publishes** structured JSONL results and saves snapshot images of classified items
+6. **Writes** an annotated output video with watermarked detection and VLM classification results (`gvawatermark`)
 
 ```mermaid
 flowchart LR
     subgraph Object Detection
-        filesrc["filesrc"] --> decodebin3["decodebin3"]
+        filesrc["📁 filesrc"] --> decodebin3["decodebin3"]
         decodebin3 --> fpsthrottle["gvafpsthrottle\n(30 fps)"]
         fpsthrottle --> gvadetect["gvadetect\n(YOLO26s)"]
         gvadetect --> gvatrack["gvatrack"]
@@ -40,7 +40,7 @@ flowchart LR
 
     subgraph Path2["Path 2 — Frame Selection and VLM"]
         direction LR
-        lossprev["gvalossprevention_py\n(frame selection)"] --> vapostproc["vapostproc\n(640×360)"]
+        lossprev["gvaframeselection_py\n(frame selection)"] --> vapostproc["vapostproc\n(640×360)"]
         vapostproc --> gvagenai["gvagenai\n(MiniCPM-V VLM)"]
         gvagenai --> metapublish["gvametapublish\n(.jsonl)"]
         metapublish --> jpegenc["jpegenc"]
@@ -54,26 +54,22 @@ flowchart LR
 ```
 
 The pipeline uses a **tee** to split into two parallel paths:
-- **Path 1 (Video):** Watermarks detection/VLM results onto frames and encode to a video file stored in local disk
-- **Path 2 (Analytics):** Runs the custom `gvalossprevention_py` frame-selection element, VLM classification, JSONL publishing, and JPEG snapshot export
+- **Path 1 (Video):** Watermarks detection/VLM results onto frames and encodes to a video file stored on local disk
+- **Path 2 (Analytics):** Runs the custom `gvaframeselection_py` frame-selection element, VLM classification, JSONL publishing, and JPEG snapshot export
 
 A **GObject signal bridge** communicates analytics results from Path 2 back to Path 1 for real-time watermark overlay.
 
 
 ## Prerequisites
 
-- DL Streamer with GStreamer Python bindings (`gi`, `GstAnalytics`)
-- Intel GPU (or set `--detect-device CPU --genai-device CPU`)
+- DL Streamer installed on host, or DL Streamer docker image
+- Intel EdgeAI System with integrated GPU/NPU (or set `--detect-device CPU --genai-device CPU`)
 - Python packages listed in `requirements.txt`:
 
 ```bash
+python3 -m venv .vlm-self-checkout-venv
+source .vlm-self-checkout-venv/bin/activate
 pip install -r requirements.txt
-```
-
-For model export, additional packages are listed in `export-requirements.txt`:
-
-```bash
-pip install -r export-requirements.txt
 ```
 
 ## Model Preparation
@@ -101,24 +97,24 @@ To use a different model, pass `--genai-model-path` pointing to any OpenVINO Gen
 Basic usage (downloads a sample video and exports the detection model automatically):
 
 ```bash
-python3 loss_prevention.py
+python3 vlm_self_checkout.py
 ```
 
 With custom model and device settings:
 
 ```bash
-python3 loss_prevention.py \
+python3 vlm_self_checkout.py \
     --video-url https://example.com/checkout.mp4 \
-    --inventory-file my-custom-inventor.txt
+    --inventory-file my-custom-inventory.txt \
     --detect-model-id yolo26s \
     --detect-device GPU \
     --genai-model-path models/MiniCPM-V-4_5/ \
     --genai-device GPU
 ```
 
-## Custom GStreamer Element: `gvalossprevention_py`
+## Custom GStreamer Element: `gvaframeselection_py`
 
-The `plugins/python/gvaLossPrevention.py` file implements a custom `GstBase.BaseTransform` element that provides frame-selection logic:
+The `plugins/python/gvaFrameSelection.py` file implements a custom `GstBase.BaseTransform` element that provides frame-selection logic:
 
 - **Drops** frames with no detected objects
 - **Filters out** excluded object types (configured via `excluded_objects.txt`, e.g., `person`, `dining_table`)
@@ -130,8 +126,8 @@ The `plugins/python/gvaLossPrevention.py` file implements a custom `GstBase.Base
 
 | File | Purpose |
 |---|---|
-| `inventory.txt` | List of known inventory items (one per line). Used to generate targeted VLM prompts. |
-| `excluded_objects.txt` | Object types to ignore during tracking (e.g., `person`, `dining_table`). |
+| `config/inventory.txt` | List of known inventory items (one per line). Used to generate targeted VLM prompts. |
+| `config/excluded_objects.txt` | Object types to ignore during tracking (e.g., `person`, `dining_table`). |
 
 ## Command-Line Arguments
 
@@ -141,8 +137,8 @@ The `plugins/python/gvaLossPrevention.py` file implements a custom `GstBase.Base
 | `--detect-model-id` | `yolo26s` | Ultralytics model id for detection |
 | `--detect-device` | `GPU` | Device for YOLO detection inference |
 | `--threshold` | `0.4` | Detection confidence threshold |
-| `--inventory-file` | `inventory.txt` | Path to inventory items list |
-| `--excluded-objects-file` | `excluded_objects.txt` | Path to excluded object types list |
+| `--inventory-file` | `config/inventory.txt` | Path to inventory items list |
+| `--excluded-objects-file` | `config/excluded_objects.txt` | Path to excluded object types list |
 | `--genai-model-path` | `models/MiniCPM-V-4_5` | Path to OpenVINO GenAI model directory |
 | `--genai-device` | `GPU` | Device for VLM inference |
 | `--genai-prompt` | Self-checkout item description | Initial prompt for VLM inference |
@@ -151,11 +147,6 @@ The `plugins/python/gvaLossPrevention.py` file implements a custom `GstBase.Base
 
 Results are written to the `results/` directory:
 
-- `loss_prevention-<video>.mp4` — annotated output video with watermarked detections and VLM results
-- `loss_prevention-<video>.jsonl` — structured JSON Lines with VLM classification metadata
-- `loss_prevention-<video>-*.jpeg` — snapshot images of frames sent to the VLM
-
-## Output
-
-- **JSON results**: `results/loss_prevention-<video>.jsonl`
-- **Annotated video**: `results/loss_prevention-<video>.mp4`
+- `vlm_self_checkout-<video>.mp4` — annotated output video with watermarked detections and VLM results
+- `vlm_self_checkout-<video>.jsonl` — structured JSON Lines with VLM classification metadata
+- `vlm_self_checkout-<video>-*.jpeg` — snapshot images of frames sent to the VLM

@@ -148,6 +148,7 @@ def _watermark_probe_cb(pad, info, bridge):
 
 
 BASE_DIR = Path(__file__).resolve().parent
+CONFIG_DIR = BASE_DIR / "config"
 VIDEOS_DIR = BASE_DIR / "videos"
 MODELS_DIR = BASE_DIR / "models"
 RESULTS_DIR = BASE_DIR / "results"
@@ -203,9 +204,9 @@ def construct_pipeline(
 ) -> Gst.Pipeline:
     """Construct the GStreamer pipeline, attach probes, and return it."""
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
-    output_video = RESULTS_DIR / f"loss_prevention-{video_file.stem}.mp4"
-    output_files = RESULTS_DIR / f"loss_prevention-{video_file.stem}-%d.jpeg"
-    output_json = RESULTS_DIR / f"loss_prevention-{video_file.stem}.jsonl"
+    output_video = RESULTS_DIR / f"vlm_self_checkout-{video_file.stem}.mp4"
+    output_files = RESULTS_DIR / f"vlm_self_checkout-{video_file.stem}-%d.jpeg"
+    output_json = RESULTS_DIR / f"vlm_self_checkout-{video_file.stem}.jsonl"
 
     pipeline_str = (
         # Source → decode → detect
@@ -229,10 +230,10 @@ def construct_pipeline(
         f'mp4mux ! '
         f'filesink location="{output_video}" '
 
-        # Path 2: analytics — loss prevention filter → VLM description → save snapshots
+        # Path 2: analytics — frame selection filter → VLM classification → save snapshots
         f'detect_tee. ! '
         f'queue ! '
-        f'gvaFrameSelection_py threshold=1500 genai-name=vlm inventory-file="{inventory_file}" excluded-objects-file="{excluded_objects_file}" ! '
+        f'gvaframeselection_py threshold=1500 genai-name=vlm inventory-file="{inventory_file}" excluded-objects-file="{excluded_objects_file}" ! '
         f'vapostproc name=vapostproc ! video/x-raw,format=NV12,width=640,height=360 ! '
         f'gvagenai name=vlm '
         f'model-path="{genai_model}" '
@@ -337,7 +338,7 @@ def run_pipeline(pipeline: Gst.Pipeline) -> None:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="DLStreamer Loss Prevention sample")
+    parser = argparse.ArgumentParser(description="DLStreamer VLM Self Checkout sample")
 
     parser.add_argument("--video-url", default=DEFAULT_VIDEO_URL,
                         help="URL to download a video from (used when --video-path is omitted)")
@@ -346,9 +347,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--detect-device", default="GPU", help="Device for YOLO detection")
     parser.add_argument("--threshold", type=float, default=0.4,
                         help="Detection confidence threshold")
-    parser.add_argument("--inventory-file", default=str(BASE_DIR / "inventory.txt"),
+    parser.add_argument("--inventory-file", default=str(CONFIG_DIR / "inventory.txt"),
                         help="Path to text file listing inventory items, one per line")
-    parser.add_argument("--excluded-objects-file", default=str(BASE_DIR / "excluded_objects.txt"),
+    parser.add_argument("--excluded-objects-file", default=str(CONFIG_DIR / "excluded_objects.txt"),
                         help="Path to text file listing excluded object types, one per line")
     parser.add_argument("--genai-model-path", default=str(MODELS_DIR / "MiniCPM-V-4_5"),
                         help="Path to OpenVINO genai model directory")
