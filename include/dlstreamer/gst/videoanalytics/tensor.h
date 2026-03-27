@@ -14,6 +14,7 @@
 
 #include "../metadata/gstanalyticskeypointsmtd.h"
 #include "../metadata/gstanalyticskeypointmtd.h"
+#include "../metadata/gstanalyticskeypointdescriptor.h"
 #include "../metadata/gva_tensor_meta.h"
 
 #include <gst/analytics/analytics.h>
@@ -594,7 +595,7 @@ class Tensor {
      */
     bool convert_to_meta(GstAnalyticsMtd *mtd, GstAnalyticsODMtd *od_mtd, GstAnalyticsRelationMeta *meta) const {
 
-        if (name() == "keypoints") {
+        if (type() == "keypoints") {
             GstAnalyticsGroupMtd *group_mtd = reinterpret_cast<GstAnalyticsGroupMtd *>(mtd);
             const std::vector<guint> dimensions = dims();
             const std::vector<float> raw_positions = data<float>();
@@ -623,93 +624,26 @@ class Tensor {
                     positions[k * stride + 2] = static_cast<gint>(raw_positions[k * keypoint_dimension + 2]);
             }
 
-            // parse skeleton pairs if defined
-            std::vector<gint> skeleton_pairs;
-            std::vector<GQuark> names;
-            if ((gst_structure_has_field(gst_structure(), "point_names") and
-                 gst_structure_has_field(gst_structure(), "point_connections"))) {
-                GValueArray *point_connections = nullptr;
-                gst_structure_get_array(gst_structure(), "point_connections", &point_connections);
-                GValueArray *point_names = nullptr;
-                gst_structure_get_array(gst_structure(), "point_names", &point_names);
-
-                auto cleanup = [&]() {
-                    if (point_connections)
-                        g_value_array_free(point_connections);
-                    if (point_names)
-                        g_value_array_free(point_names);
-                };
-
-                try {
-                    if (point_names->n_values != keypoint_count) {
-                        cleanup();
-                        throw std::runtime_error("Mismatch between keypoint count and keypoint names");
-                    }
-
-                    names.resize(keypoint_count);
-                    for (gsize n = 0; n < keypoint_count; n++) {
-                        const gchar *pname = g_value_get_string(point_names->values + n);
-                        names[n] = g_quark_from_string(pname);
-                    }
-
-                    gsize skeleton_count = point_connections->n_values / 2;
-                    skeleton_pairs.resize(skeleton_count * 2);
-                    for (gsize s = 0; s < skeleton_count; s++) {
-                        const gchar *point_name_1 = g_value_get_string(point_connections->values + s * 2);
-                        const gchar *point_name_2 = g_value_get_string(point_connections->values + s * 2 + 1);
-                        skeleton_pairs[s * 2]     = -1;
-                        skeleton_pairs[s * 2 + 1] = -1;
-                        for (gsize n = 0; n < point_names->n_values; n++) {
-                            const gchar *pname = g_value_get_string(point_names->values + n);
-                            if (g_strcmp0(pname, point_name_1) == 0)
-                                skeleton_pairs[s * 2] = static_cast<gint>(n);
-                            if (g_strcmp0(pname, point_name_2) == 0)
-                                skeleton_pairs[s * 2 + 1] = static_cast<gint>(n);
-                        }
-                    }
-
-                    cleanup();
-                } catch (...) {
-                    cleanup();
-                    throw;
-                }
+            // look up skeleton connections from descriptor
+            std::string semantic_tag = format();
+            const GstAnalyticsKeypointDescriptor *descriptor =
+                gst_analytics_keypoint_descriptor_find_by_tag(semantic_tag.c_str());
+            gsize skeleton_size = 0;
+            const gint *skeleton_data = NULL;
+            if (descriptor && descriptor->skeleton_connections && descriptor->skeleton_connection_count > 0) {
+                skeleton_size = descriptor->skeleton_connection_count * 2;
+                skeleton_data = descriptor->skeleton_connections;
             }
 
             // create group with keypoints and skeleton in one call
             if (!gst_analytics_relation_meta_add_keypoints_group(meta,
-                    "keypoints", dim,
+                    semantic_tag.c_str(), dim,
                     positions.size(), positions.data(),
                     keypoint_count, confidence.data(),
                     NULL, // visibilities
-                    skeleton_pairs.size(), skeleton_pairs.empty() ? NULL : skeleton_pairs.data(),
+                    skeleton_size, skeleton_data,
                     group_mtd))
                 throw std::runtime_error("Failed to create keypoints group meta");
-
-            // find or create classification meta for point names
-            if (names.size() > 0) {
-                GstAnalyticsClsMtd point_names_mtd;
-                gpointer state = NULL;
-                bool found = false;
-
-                while (gst_analytics_relation_meta_iterate(meta, &state, gst_analytics_cls_mtd_get_mtd_type(),
-                                                           &point_names_mtd)) {
-                    if (gst_analytics_cls_mtd_get_length(&point_names_mtd) == keypoint_count) {
-                        found = true;
-                        break;
-                    }
-                }
-
-                if (!found) {
-                    std::vector<float> names_confidence(keypoint_count, 1.0f);
-                    if (!gst_analytics_relation_meta_add_cls_mtd(meta, keypoint_count, names_confidence.data(),
-                                                                 names.data(), &point_names_mtd))
-                        throw std::runtime_error("Failed to create point names");
-                }
-
-                // relate group to point names classification
-                gst_analytics_relation_meta_set_relation(meta, GST_ANALYTICS_REL_TYPE_RELATE_TO,
-                                                         group_mtd->id, point_names_mtd.id);
-            }
 
             return true;
         } else if (type() == "classification_result") {
@@ -792,22 +726,21 @@ class Tensor {
                 confidences[k] = keypoints[k].conf;
             }
 
-            // read point names from related classification meta
-            std::vector<std::string> point_names(keypoint_count);
+            // read point names from descriptor
+            std::vector<std::string> point_names;
 
-            GstAnalyticsClsMtd point_names_mtd;
-            if (gst_analytics_relation_meta_get_direct_related(
-                    group_mtd->meta, group_mtd->id, GST_ANALYTICS_REL_TYPE_RELATE_TO,
-                    gst_analytics_cls_mtd_get_mtd_type(), nullptr, &point_names_mtd)) {
+            const gchar *semantic_tag = gst_analytics_group_mtd_get_semantic_tag(group_mtd);
+            const GstAnalyticsKeypointDescriptor *descriptor =
+                gst_analytics_keypoint_descriptor_find_by_tag(semantic_tag);
 
-                if (gst_analytics_cls_mtd_get_length(&point_names_mtd) == keypoint_count) {
-                    for (size_t k = 0; k < keypoint_count; k++)
-                        point_names[k] = g_quark_to_string(gst_analytics_cls_mtd_get_quark(&point_names_mtd, k));
-                }
+            if (descriptor && descriptor->point_count == keypoint_count) {
+                point_names.resize(keypoint_count);
+                for (size_t k = 0; k < keypoint_count; k++)
+                    point_names[k] = descriptor->point_names[k];
             }
 
             // reconstruct skeleton from RELATE_TO relations between keypoints
-            std::vector<std::string> point_connections;
+            std::vector<uint32_t> point_connections;
 
             // collect keypoint member IDs in order
             std::vector<guint> kp_ids(keypoint_count);
@@ -823,26 +756,32 @@ class Tensor {
                     GstAnalyticsRelTypes rel = gst_analytics_relation_meta_get_relation(
                         group_mtd->meta, kp_ids[i], kp_ids[j]);
                     if (rel & GST_ANALYTICS_REL_TYPE_RELATE_TO) {
-                        point_connections.push_back(point_names[i]);
-                        point_connections.push_back(point_names[j]);
+                        point_connections.push_back(static_cast<uint32_t>(i));
+                        point_connections.push_back(static_cast<uint32_t>(j));
                     }
                 }
             }
+
+            std::string format_str = (semantic_tag && semantic_tag[0] != '\0')
+                ? std::string(semantic_tag) : std::string("");
 
             // create keypoint tensor
             GstStructure *gst_structure = gst_structure_new_empty("keypoints");
             Tensor tensor(gst_structure);
 
             tensor.set_precision(Precision::FP32);
-            tensor.set_format(std::string("keypoints"));
+            tensor.set_type("keypoints");
+            tensor.set_format(format_str);
 
             tensor.set_dims({static_cast<guint>(keypoint_count), static_cast<guint>(keypoint_dimension)});
             tensor.set_data(reinterpret_cast<const void *>(positions.data()),
                             keypoint_count * keypoint_dimension * sizeof(float));
 
             tensor.set_vector<float>("confidence", confidences);
-            tensor.set_vector<std::string>("point_names", point_names);
-            tensor.set_vector<std::string>("point_connections", point_connections);
+            if (!point_names.empty())
+                tensor.set_vector<std::string>("point_names", point_names);
+            if (!point_connections.empty())
+                tensor.set_vector<uint32_t>("point_connections", point_connections);
 
             return tensor.gst_structure();
 
