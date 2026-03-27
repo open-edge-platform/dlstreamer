@@ -12,7 +12,6 @@
 #include "gst/gstinfo.h"
 #include "utils.h"
 #include <gst/gst.h>
-#include <gstanalyticskeypointsmtd.h>
 #include <gstanalyticskeypointmtd.h>
 #include <gstanalyticsgroupmtd.h>
 
@@ -165,9 +164,6 @@ gboolean copy_one_gst_analytics_mtd(GstAnalyticsRelationMeta *dst, const GstAnal
                 return FALSE;
             }
 
-            // Update group meta pointer in case buffer was reallocated
-            dst_group.meta = new_member.meta;
-
             if (!gst_analytics_group_mtd_add_member(&dst_group, new_member.id)) {
                 GST_ERROR("Failed to add member to group");
                 return FALSE;
@@ -226,6 +222,9 @@ gboolean copy_one_gst_analytics_mtd(GstAnalyticsRelationMeta *dst, const GstAnal
         *new_mtd = *(GstAnalyticsMtd *)&new_kp;
     } else if (mtd_type == gst_analytics_segmentation_mtd_get_mtd_type()) {
         return FALSE; // Segmentation mtds are not supported yet
+    } else {
+        GST_WARNING("Unknown analytics mtd type, skipping");
+        return FALSE;
     }
     return TRUE;
 }
