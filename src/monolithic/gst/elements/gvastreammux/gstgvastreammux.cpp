@@ -5,7 +5,7 @@
  ******************************************************************************/
 
 #include "gstgvastreammux.h"
-#include "gstgvastreammuxmeta.h"
+#include "dlstreamer/gst/metadata/gstgvastreammuxmeta.h"
 
 #include <cstdio>
 #include <string.h>

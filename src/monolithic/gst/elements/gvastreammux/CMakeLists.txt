@@ -13,7 +13,6 @@ pkg_check_modules(GSTREAMER_VIDEO REQUIRED gstreamer-video-1.0)
 
 add_library(${TARGET_NAME} STATIC
     gstgvastreammux.cpp
-    gstgvastreammuxmeta.cpp
 )
 
 target_include_directories(${TARGET_NAME} PUBLIC
@@ -27,4 +26,5 @@ target_link_libraries(${TARGET_NAME}
     ${GSTREAMER_LIBRARIES}
     ${GSTREAMER_BASE_LIBRARIES}
     ${GSTREAMER_VIDEO_LIBRARIES}
+    dlstreamer_gst_meta
 )
