@@ -566,6 +566,7 @@ static GstFlowReturn gst_gva_streammux_collected(GstCollectPads *pads, gpointer 
     gst_gva_streammux_apply_fps_throttle(mux);
 
     /* Round-robin: collect one buffer from each source and push downstream */
+    gboolean any_buffer = FALSE;
     for (collected = pads->data; collected; collected = g_slist_next(collected)) {
         GstCollectData *cdata = (GstCollectData *)collected->data;
         GstBuffer *buf = gst_collect_pads_pop(pads, cdata);
@@ -574,6 +575,7 @@ static GstFlowReturn gst_gva_streammux_collected(GstCollectPads *pads, gpointer 
             GST_LOG_OBJECT(mux, "No buffer from pad %s", GST_PAD_NAME(cdata->pad));
             continue;
         }
+        any_buffer = TRUE;
 
         guint pad_index = GPOINTER_TO_UINT(g_object_get_data(G_OBJECT(cdata->pad), "pad-index"));
 
@@ -592,6 +594,12 @@ static GstFlowReturn gst_gva_streammux_collected(GstCollectPads *pads, gpointer 
             GST_WARNING_OBJECT(mux, "Push failed for source %u: %s", pad_index, gst_flow_get_name(ret));
             break;
         }
+    }
+
+    if (!any_buffer) {
+        GST_INFO_OBJECT(mux, "No buffers collected from any source pads");
+        gst_pad_push_event(mux->srcpad, gst_event_new_eos());
+        return GST_FLOW_EOS;
     }
 
     gst_gva_streammux_update_output_time(mux);
