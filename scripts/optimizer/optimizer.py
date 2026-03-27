@@ -35,6 +35,7 @@ class DLSOptimizer:
         self._sample_duration = 10
         self._multistream_fps_limit = 30
         self._enable_cross_stream_batching = False
+        self._detections_error_threshold = 0.95
         self._generators = {
             "device": DeviceGenerator(),
             "batch": BatchGenerator(),
@@ -57,6 +58,9 @@ class DLSOptimizer:
     def set_allowed_devices(self, devices):
         self._generators["device"].set_allowed_devices(devices)
 
+    def set_detections_error_threshold(self, threshold):
+        self._detections_error_threshold = threshold
+
     ################################### Main Logic ################################################
 
     # Steps of pipeline optimization:
@@ -78,13 +82,12 @@ class DLSOptimizer:
         # Measure the performance of the original pipeline
         try:
             logger.info("Measuring performance of the original pipeline...")
-            fps = sample_pipeline([pipeline], self._sample_duration)
+            initial_fps, initial_detections = sample_pipeline([pipeline], self._sample_duration)
         except Exception as e:
             logger.error("Pipeline failed to start, unable to measure fps: %s", e)
             raise RuntimeError("Provided pipeline is not valid") from e
 
-        logger.info("FPS: %.2f", fps)
-        initial_fps = fps
+        logger.info("FPS: %.2f", initial_fps)
 
         # Replace elements with known better alternatives.
         try:
@@ -105,7 +108,7 @@ class DLSOptimizer:
 
         logger.info("Starting optimization process for FPS improvements...")
         start_time = time.time()
-        (best_pipeline, best_fps) = self._optimize_pipeline(pipeline, fps, start_time, 1)
+        (best_pipeline, best_fps) = self._optimize_pipeline(pipeline, initial_fps, initial_detections, start_time, 1)
 
         # Reconstruct the pipeline as a single string and return it.
         _reconstructed_pipeline = "!".join(best_pipeline)
@@ -121,6 +124,16 @@ class DLSOptimizer:
             raise RuntimeError("Pipelines containing the tee element are currently not supported!")
 
         initial_pipeline = initial_pipeline.split("!")
+
+        # Measure the performance of the original pipeline
+        try:
+            logger.info("Measuring performance of the original pipeline...")
+            initial_fps, initial_detections = sample_pipeline([initial_pipeline], self._sample_duration)
+        except Exception as e:
+            logger.error("Pipeline failed to start, unable to measure fps: %s", e)
+            raise RuntimeError("Provided pipeline is not valid") from e
+
+        logger.info("FPS: %.2f", initial_fps)
 
         # Replace elements with known better alternatives.
         try:
@@ -140,7 +153,11 @@ class DLSOptimizer:
         best_fps = 0
         best_streams = 0
         for streams in range(1, 65):
-            pipeline, fps = self._optimize_pipeline(initial_pipeline, 0, start_time, streams)
+            cur_time = time.time()
+            if cur_time - start_time > self._search_duration:
+                break
+
+            pipeline, fps = self._optimize_pipeline(initial_pipeline, initial_fps, initial_detections, start_time, streams)
             if fps > self._multistream_fps_limit:
                 best_fps = fps
                 best_pipeline = pipeline
@@ -150,7 +167,7 @@ class DLSOptimizer:
 
         return "!".join(best_pipeline), best_fps, best_streams
 
-    def _optimize_pipeline(self, starting_pipeline, starting_fps, start_time, streams):
+    def _optimize_pipeline(self, starting_pipeline, starting_fps, starting_detections, start_time, streams):
         best_pipeline = starting_pipeline
         best_fps = starting_fps
 
@@ -166,7 +183,16 @@ class DLSOptimizer:
                     pipelines.append(pipeline)
 
                 try:
-                    fps = sample_pipeline(pipelines, self._sample_duration)
+                    fps, detections = sample_pipeline(pipelines, self._sample_duration)
+
+                    if starting_detections == 0:
+                        # skip only if we still have zero detections
+                        if detections == 0:
+                            logger.debug("Pipeline reporting detections under error margin, skipping")
+                            continue
+                    elif detections / starting_detections < self._detections_error_threshold:
+                        logger.debug("Pipeline reporting detections under error margin, skipping")
+                        continue
 
                     if fps > best_fps:
                         best_fps = fps
@@ -250,8 +276,9 @@ def sample_pipeline(pipelines, sample_duration):
 
     del pipeline
     fps = fps_counter.get_property("avg-fps")
+    detections = fps_counter.get_property("detections")
     logger.debug("Sampled fps: %.2f", fps)
-    return fps
+    return fps, detections
 
 def process_bus(bus):
     # Process any messages from the bus
@@ -270,10 +297,3 @@ def process_bus(bus):
             logger.error("Other message: %s", str(message))
         message = bus.pop()
 
-##################################### Compatibility ###############################################
-
-def get_optimized_pipeline(pipeline, search_duration = 300, sample_duration = 10):
-    optimizer = DLSOptimizer()
-    optimizer.search_duration = search_duration
-    optimizer.sample_duration = sample_duration
-    return optimizer.optimize_for_fps(pipeline)
