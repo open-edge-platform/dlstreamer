@@ -1,0 +1,3 @@
+# Object types to exclude from loss prevention tracking (one per line)
+person
+dining_table
