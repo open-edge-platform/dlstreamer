@@ -198,6 +198,8 @@ def construct_pipeline(
     genai_model: Path,
     genai_device: str,
     genai_prompt: str,
+    inventory_file: Path,
+    excluded_objects_file: Path,
 ) -> Gst.Pipeline:
     """Construct the GStreamer pipeline, attach probes, and return it."""
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
@@ -230,7 +232,7 @@ def construct_pipeline(
         # Path 2: analytics — loss prevention filter → VLM description → save snapshots
         f'detect_tee. ! '
         f'queue ! '
-        f'gvalossprevention_py threshold=1500 genai-name=vlm ! '
+        f'gvalossprevention_py threshold=1500 genai-name=vlm inventory-file="{inventory_file}" excluded-objects-file="{excluded_objects_file}" ! '
         f'vapostproc name=vapostproc ! video/x-raw,format=NV12,width=640,height=360 ! '
         f'gvagenai name=vlm '
         f'model-path="{genai_model}" '
@@ -344,12 +346,16 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--detect-device", default="GPU", help="Device for YOLO detection")
     parser.add_argument("--threshold", type=float, default=0.4,
                         help="Detection confidence threshold")
+    parser.add_argument("--inventory-file", default=str(BASE_DIR / "inventory.txt"),
+                        help="Path to text file listing inventory items, one per line")
+    parser.add_argument("--excluded-objects-file", default=str(BASE_DIR / "excluded_objects.txt"),
+                        help="Path to text file listing excluded object types, one per line")
     parser.add_argument("--genai-model-path", default=str(MODELS_DIR / "MiniCPM-V-4_5"),
                         help="Path to OpenVINO genai model directory")
     parser.add_argument("--genai-device", default="GPU", help="Device for gvagenai inference")
     parser.add_argument("--genai-prompt",
                         default="Describe the items visible on the self-checkout counter.",
-                        help="Prompt for gvagenai VLM inference")
+                        help="Initial prompt for gvagenai VLM inference")
 
     return parser.parse_args()
 
@@ -359,11 +365,13 @@ def main() -> int:
     video_file = download_video(args.video_url)
     detection_model = download_detection_model(args.detect_model_id)
     genai_model = Path(args.genai_model_path).resolve()
+    inventory_file = Path(args.inventory_file).resolve()
+    excluded_objects_file = Path(args.excluded_objects_file).resolve()
 
     setup_gst_plugins()
     pipeline = construct_pipeline(
         video_file, detection_model, args.detect_device, args.threshold,
-        genai_model, args.genai_device, args.genai_prompt)
+        genai_model, args.genai_device, args.genai_prompt, inventory_file, excluded_objects_file)
     run_pipeline(pipeline)
 
     return 0

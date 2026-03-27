@@ -48,6 +48,8 @@ class LossPreventionAnalytics(GstBase.BaseTransform):
     # Element properties: default values and setters/getters 
     _threshold = 1500  # default threshold in miliseconds
     _genai_name = ""  # name of the gvagenai element to control
+    _inventory_file = ""  # path to inventory file
+    _excluded_objects_file = ""  # path to excluded objects file
 
     @GObject.Property(type=int)
     def threshold(self):
@@ -67,22 +69,50 @@ class LossPreventionAnalytics(GstBase.BaseTransform):
     def genai_name(self, value):
         self._genai_name = value
 
+    @GObject.Property(type=str, nick="inventory-file",
+                      blurb="Path to a text file listing inventory items, one per line")
+    def inventory_file(self):
+        return self._inventory_file
+
+    @inventory_file.setter
+    def inventory_file(self, value):
+        self._inventory_file = value
+        if value:
+            self._inventory = self._parse_file(value, "inventory")
+
+    @GObject.Property(type=str, nick="excluded-objects-file",
+                      blurb="Path to a text file listing excluded object types, one per line")
+    def excluded_objects_file(self):
+        return self._excluded_objects_file
+
+    @excluded_objects_file.setter
+    def excluded_objects_file(self, value):
+        self._excluded_objects_file = value
+        if value:
+            self._excluded_objects = self._parse_file(value, "excluded objects")
+
     def __init__(self):
         super().__init__()
         self._framecount = 0
         self._tracked_objects: dict[int, TrackedObject] = {}  # tracking_id -> TrackedObject
         self._genai_element = None  # resolved reference to the gvagenai element
-        self._excluded_objects = ["person", "dining_table"]  # object types to exclude from publishing
-        self._inventory = [
-            "Red Apple",
-            "Green Apple",
-            "Coca-Cola Bottle Small",
-            "Coca-Cola Bottle Large",
-            "Peeled Pomegranate",
-            "Yellow Bananas",
-            "Yellow Banana",
-            "Coca-Cola Bottle Medium",
-        ]
+        self._excluded_objects = []  # object types to exclude from publishing
+        self._inventory = []
+
+    @staticmethod
+    def _parse_file(path: str, label: str = "items") -> list:
+        """Read items from a text file, one item per line."""
+        items = []
+        try:
+            with open(path, "r") as f:
+                for line in f:
+                    item = line.strip()
+                    if item and not item.startswith("#"):
+                        items.append(item)
+            print(f"[gvalossprevention] Loaded {len(items)} {label} from '{path}'")
+        except OSError as e:
+            print(f"[gvalossprevention] ERROR: cannot read {label} file '{path}': {e}")
+        return items
 
     def _resolve_genai_element(self):
         """Look up the gvagenai element by name from the parent pipeline."""
