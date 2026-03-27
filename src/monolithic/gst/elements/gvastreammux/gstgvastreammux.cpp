@@ -16,20 +16,10 @@ GST_DEBUG_CATEGORY_STATIC(gst_gva_streammux_debug);
 /* Properties */
 enum {
     PROP_0,
-    PROP_MAX_SAME_SOURCE_FRAMES,
     PROP_MAX_FPS,
-    PROP_MIN_FPS,
-    PROP_SYNC_INPUTS,
-    PROP_MAX_LATENCY,
-    PROP_FRAME_DURATION,
 };
 
-#define DEFAULT_MAX_SAME_SOURCE_FRAMES 1
 #define DEFAULT_MAX_FPS 0.0
-#define DEFAULT_MIN_FPS 0.0
-#define DEFAULT_SYNC_INPUTS FALSE
-#define DEFAULT_MAX_LATENCY 0
-#define DEFAULT_FRAME_DURATION GST_CLOCK_TIME_NONE
 
 /* Pad templates */
 #define STREAMMUX_VIDEO_CAPS                                                                                           \
@@ -83,45 +73,17 @@ static void gst_gva_streammux_class_init(GstGvaStreammuxClass *klass) {
 
     /* Properties */
     g_object_class_install_property(
-        gobject_class, PROP_MAX_SAME_SOURCE_FRAMES,
-        g_param_spec_uint("max-same-source-frames", "Max Same Source Frames",
-                          "Maximum number of frames from a single source per batch cycle", 1, G_MAXUINT,
-                          DEFAULT_MAX_SAME_SOURCE_FRAMES, (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
-
-    g_object_class_install_property(
         gobject_class, PROP_MAX_FPS,
-        g_param_spec_double("max-fps", "Max FPS", "Maximum output frame rate (0 = unlimited)", 0.0, G_MAXDOUBLE,
+        g_param_spec_double("max-fps", "Max FPS",
+                            "Maximum output frame rate (0 = unlimited). "
+                            "Only set this when the video source is a local file. "
+                            "Do not set for RTSP or live sources as it may cause pipeline stalls.",
+                            0.0, G_MAXDOUBLE,
                             DEFAULT_MAX_FPS, (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
-
-    g_object_class_install_property(
-        gobject_class, PROP_MIN_FPS,
-        g_param_spec_double("min-fps", "Min FPS", "Minimum output frame rate (0 = no minimum)", 0.0, G_MAXDOUBLE,
-                            DEFAULT_MIN_FPS, (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
-
-    g_object_class_install_property(
-        gobject_class, PROP_SYNC_INPUTS,
-        g_param_spec_boolean("sync-inputs", "Sync Inputs", "Synchronize input streams by buffer timestamps",
-                             DEFAULT_SYNC_INPUTS, (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
-
-    g_object_class_install_property(
-        gobject_class, PROP_MAX_LATENCY,
-        g_param_spec_uint64("max-latency", "Max Latency", "Maximum additional latency in nanoseconds", 0, G_MAXUINT64,
-                            DEFAULT_MAX_LATENCY, (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
-
-    g_object_class_install_property(
-        gobject_class, PROP_FRAME_DURATION,
-        g_param_spec_uint64("frame-duration", "Frame Duration",
-                            "Expected frame duration in nanoseconds (0 or NONE = auto from caps)", 0, G_MAXUINT64,
-                            DEFAULT_FRAME_DURATION, (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 }
 
 static void gst_gva_streammux_init(GstGvaStreammux *mux) {
-    mux->max_same_source_frames = DEFAULT_MAX_SAME_SOURCE_FRAMES;
     mux->max_fps = DEFAULT_MAX_FPS;
-    mux->min_fps = DEFAULT_MIN_FPS;
-    mux->sync_inputs = DEFAULT_SYNC_INPUTS;
-    mux->max_latency = DEFAULT_MAX_LATENCY;
-    mux->frame_duration = DEFAULT_FRAME_DURATION;
 
     mux->num_sink_pads = 0;
     mux->batch_id = 0;
@@ -132,7 +94,6 @@ static void gst_gva_streammux_init(GstGvaStreammux *mux) {
     mux->current_caps = NULL;
     mux->segment_sent = FALSE;
     mux->last_output_time = GST_CLOCK_TIME_NONE;
-    mux->min_fps_duration = GST_CLOCK_TIME_NONE;
     mux->max_fps_duration = GST_CLOCK_TIME_NONE;
 
     g_mutex_init(&mux->lock);
@@ -177,9 +138,6 @@ static void gst_gva_streammux_set_property(GObject *object, guint prop_id, const
     GstGvaStreammux *mux = GST_GVA_STREAMMUX(object);
 
     switch (prop_id) {
-    case PROP_MAX_SAME_SOURCE_FRAMES:
-        mux->max_same_source_frames = g_value_get_uint(value);
-        break;
     case PROP_MAX_FPS:
         mux->max_fps = g_value_get_double(value);
         if (mux->max_fps > 0.0) {
@@ -187,23 +145,6 @@ static void gst_gva_streammux_set_property(GObject *object, guint prop_id, const
         } else {
             mux->max_fps_duration = GST_CLOCK_TIME_NONE;
         }
-        break;
-    case PROP_MIN_FPS:
-        mux->min_fps = g_value_get_double(value);
-        if (mux->min_fps > 0.0) {
-            mux->min_fps_duration = (GstClockTime)(GST_SECOND / mux->min_fps);
-        } else {
-            mux->min_fps_duration = GST_CLOCK_TIME_NONE;
-        }
-        break;
-    case PROP_SYNC_INPUTS:
-        mux->sync_inputs = g_value_get_boolean(value);
-        break;
-    case PROP_MAX_LATENCY:
-        mux->max_latency = g_value_get_uint64(value);
-        break;
-    case PROP_FRAME_DURATION:
-        mux->frame_duration = g_value_get_uint64(value);
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -215,23 +156,8 @@ static void gst_gva_streammux_get_property(GObject *object, guint prop_id, GValu
     GstGvaStreammux *mux = GST_GVA_STREAMMUX(object);
 
     switch (prop_id) {
-    case PROP_MAX_SAME_SOURCE_FRAMES:
-        g_value_set_uint(value, mux->max_same_source_frames);
-        break;
     case PROP_MAX_FPS:
         g_value_set_double(value, mux->max_fps);
-        break;
-    case PROP_MIN_FPS:
-        g_value_set_double(value, mux->min_fps);
-        break;
-    case PROP_SYNC_INPUTS:
-        g_value_set_boolean(value, mux->sync_inputs);
-        break;
-    case PROP_MAX_LATENCY:
-        g_value_set_uint64(value, mux->max_latency);
-        break;
-    case PROP_FRAME_DURATION:
-        g_value_set_uint64(value, mux->frame_duration);
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -443,10 +369,6 @@ static gboolean gst_gva_streammux_src_query(GstPad *pad, GstObject *parent, GstQ
             }
             gst_query_unref(peer_query);
         }
-
-        /* Add our own latency */
-        if (mux->max_latency > 0)
-            min_latency += mux->max_latency;
 
         gst_query_set_latency(query, live, min_latency, max_latency);
         return TRUE;
