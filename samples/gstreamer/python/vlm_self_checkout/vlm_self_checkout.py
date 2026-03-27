@@ -10,7 +10,7 @@ DLStreamer VLM Self-Checkout classification sample.
 Builds a pipeline that:
 1. Reads input video stream (from file) and decodes with decodebin3
 2. Detects objects using traditional computer vision model (gvadetect)
-3. Implements custom frame selection logic in gvaLossPrevention python element
+3. Implements custom frame selection logic in gvaFrameSelection python element
 4. Runs VLM model on selected frames for extended object classification 
 5. Overlays VLM classification results on top of object detection results in output video frames
 6. Saves the annotated video to a file and dumps VLM classification results in a JSONL file
@@ -232,7 +232,7 @@ def construct_pipeline(
         # Path 2: analytics — loss prevention filter → VLM description → save snapshots
         f'detect_tee. ! '
         f'queue ! '
-        f'gvalossprevention_py threshold=1500 genai-name=vlm inventory-file="{inventory_file}" excluded-objects-file="{excluded_objects_file}" ! '
+        f'gvaFrameSelection_py threshold=1500 genai-name=vlm inventory-file="{inventory_file}" excluded-objects-file="{excluded_objects_file}" ! '
         f'vapostproc name=vapostproc ! video/x-raw,format=NV12,width=640,height=360 ! '
         f'gvagenai name=vlm '
         f'model-path="{genai_model}" '

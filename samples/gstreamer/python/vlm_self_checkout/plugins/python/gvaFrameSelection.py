@@ -28,11 +28,11 @@ class TrackedObject:
 # Python equivalent of C macro GST_BASE_TRANSFORM_FLOW_DROPPED
 GST_BASE_TRANSFORM_FLOW_DROPPED = Gst.FlowReturn.CUSTOM_SUCCESS
 
-class LossPreventionAnalytics(GstBase.BaseTransform):
+class FrameSelection(GstBase.BaseTransform):
     """Frame selection logic for Loss Prevention."""
 
     __gstmetadata__ = (
-        "GVA Loss Prevention Analytics Python",
+        "GVA Loss Prevention Python",
         "Transform",
         "Passes frames which are tracked for at least N milliseconds and drops the rest",
         "Intel DLStreamer",
@@ -191,5 +191,5 @@ class LossPreventionAnalytics(GstBase.BaseTransform):
 
         return GST_BASE_TRANSFORM_FLOW_DROPPED
 
-GObject.type_register(LossPreventionAnalytics)
-__gstelementfactory__ = ("gvalossprevention_py", Gst.Rank.NONE, LossPreventionAnalytics)
+GObject.type_register(FrameSelection)
+__gstelementfactory__ = ("gvalossprevention_py", Gst.Rank.NONE, FrameSelection)
