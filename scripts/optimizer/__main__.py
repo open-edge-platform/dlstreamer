@@ -60,6 +60,7 @@ try:
     optimizer = DLSOptimizer()
     optimizer.set_search_duration(args.search_duration)
     optimizer.set_sample_duration(args.sample_duration)
+    optimizer.set_detections_error_threshold(args.detection_threshold)
     optimizer.set_multistream_fps_limit(args.multistream_fps_limit)
     optimizer.enable_cross_stream_batching(args.enable_cross_stream_batching)
     optimizer.set_allowed_devices(args.allowed_devices)

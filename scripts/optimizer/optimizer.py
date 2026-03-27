@@ -35,7 +35,7 @@ class DLSOptimizer:
         self._sample_duration = 10
         self._multistream_fps_limit = 30
         self._enable_cross_stream_batching = False
-        self._detections_error_margin = 0.95
+        self._detections_error_threshold = 0.95
         self._generators = {
             "device": DeviceGenerator(),
             "batch": BatchGenerator(),
@@ -58,8 +58,8 @@ class DLSOptimizer:
     def set_allowed_devices(self, devices):
         self._generators["device"].set_allowed_devices(devices)
 
-    def set_detections_error_margin(self, margin):
-        self._detections_error_margin = margin
+    def set_detections_error_threshold(self, threshold):
+        self._detections_error_threshold = threshold
 
     ################################### Main Logic ################################################
 
@@ -185,10 +185,10 @@ class DLSOptimizer:
                 try:
                     fps, detections = sample_pipeline(pipelines, self._sample_duration)
 
-                    if detections / starting_detections < self._detections_error_margin:
+                    if detections / starting_detections < self._detections_error_threshold:
                         logger.debug("Pipline reporting detections under error margin, skipping")
 
-                    if fps > best_fps and detections / starting_detections > self._detections_error_margin:
+                    if fps > best_fps and detections / starting_detections > self._detections_error_threshold:
                         best_fps = fps
                         best_pipeline = pipeline
 
