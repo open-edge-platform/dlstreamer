@@ -34,7 +34,7 @@ std::string generate_client_id() {
 #ifdef _WIN32
     UUID winuuid;
     UuidCreate(&winuuid);
-    RPC_CSTR szUuid = NULL;
+    RPC_CSTR szUuid = nullptr;
     UuidToStringA(&winuuid, &szUuid);
     std::string result(reinterpret_cast<char *>(szUuid));
     RpcStringFreeA(&szUuid);
