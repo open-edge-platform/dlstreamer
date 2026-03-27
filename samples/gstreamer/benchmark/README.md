@@ -1,6 +1,6 @@
 # Benchmark Samples
 
-Samples `benchmark_one_model.sh` and `benchmark_two_models.sh` demonstrates [gvafpscounter](../../../docs/source/elements/gvafpscounter.md) element used to measure overall performance of multi-stream and multi-process video analytics pipelines.
+Samples `benchmark_one_model.sh` and `benchmark_two_models.sh` demonstrates [gvafpscounter](../../../docs/user-guide/elements/gvafpscounter.md) element used to measure overall performance of multi-stream and multi-process video analytics pipelines.
 
 The sample outputs last and average FPS (Frames Per Second) every second and overall FPS on exit.
 

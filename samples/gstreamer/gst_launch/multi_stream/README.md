@@ -8,14 +8,14 @@ This sample utilizes GStreamer command-line tool `gst-launch-1.0` which can buil
 The string contains a list of GStreamer elements separated by exclamation mark `!`, each element may have properties specified in the format `property`=`value`.
 
 > **NOTE**: Before running, download the required models to `$MODELS_PATH/public/{model_name}/FP16/`.
-Please follow instruction: [Detection with Yolo](./gst_launch/detection_with_yolo/README.md) how to download YOLO models.
+Please follow instruction: [Detection with Yolo](../detection_with_yolo/README.md) how to download YOLO models.
 
 This sample builds for GStreamer a pipeline of the following elements:
 * `filesrc`
 * `decodebin3` for video decoding
 * `videoconvert` for converting video frame into different color formats
-* [gvadetect](../../../../docs/source/elements/gvadetect.md) uses for full-frame object detection and marking objects with labels
-* [gvawatermark](../../../../docs/source/elements/gvawatermark.md) for points and visualization of their connections
+* [gvadetect](../../../../docs/user-guide/elements/gvadetect.md) uses for full-frame object detection and marking objects with labels
+* [gvawatermark](../../../../docs/user-guide/elements/gvawatermark.md) for points and visualization of their connections
 * `autovideosink` for rendering output video into screen
 
 **Supported models**: yolox-tiny, yolox_s, yolov7, yolov8s, yolov9c, yolo11s, yolo26s

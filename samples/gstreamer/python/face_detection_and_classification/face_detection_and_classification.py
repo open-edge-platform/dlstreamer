@@ -12,10 +12,15 @@ from huggingface_hub import hf_hub_download
 from ultralytics import YOLO
 
 import gi
+
 gi.require_version("Gst", "1.0")
 gi.require_version("GstAnalytics", "1.0")
-from gi.repository import Gst # pylint: disable=no-name-in-module, wrong-import-position
+# pylint: disable-next=no-name-in-module, wrong-import-position
+from gi.repository import Gst
 
+
+def get_runtime_dir():
+    return os.getcwd()
 
 
 # Prepare input video file; download default if none provided
@@ -26,7 +31,7 @@ def prepare_input_video(args):
         sys.stderr.write(f"usage: {args[0]} [LOCAL_VIDEO_FILE]\n")
         sys.exit(1)
 
-    current_dir = os.path.dirname(os.path.abspath(__file__))
+    runtime_dir = get_runtime_dir()
 
     if len(args) == 2:
         input_video = args[1]
@@ -35,7 +40,7 @@ def prepare_input_video(args):
             sys.exit(1)
     else:
         default_video_url = "https://videos.pexels.com/video-files/18553046/18553046-hd_1280_720_30fps.mp4"
-        input_video = os.path.join(current_dir, "default_video.mp4")
+        input_video = os.path.join(runtime_dir, "default_video.mp4")
         if not os.path.isfile(input_video):
             print("\nNo input provided. Downloading default video...\n")
             request = urllib.request.Request(
@@ -75,13 +80,13 @@ def pipeline_loop(pipeline):
 # Download PyTorch models, convert to OpenVINO IR, create and run gstreamer pipeline
 def main(input_video):
 
-    current_dir = os.path.dirname(os.path.abspath(__file__))
+    runtime_dir = get_runtime_dir()
 
     # STEP 1: Prepare face detection model (download + export to OpenVINO IR)
 
     # Detection model from Hugging Face Model Hub
     ov_detection_model_path = os.path.join(
-        current_dir, "model_openvino_model", "model.xml"
+        runtime_dir, "model_int8_openvino_model", "model.xml"
     )
     if not os.path.isfile(ov_detection_model_path):
         print(
@@ -90,17 +95,17 @@ def main(input_video):
         model_path = hf_hub_download(
             repo_id="arnabdhar/YOLOv8-Face-Detection",
             filename="model.pt",
-            local_dir=current_dir,
+            local_dir=runtime_dir,
         )
 
         model = YOLO(str(model_path))
-        exported_model_path = model.export(format="openvino", dynamic=True, half=True)
+        exported_model_path = model.export(format="openvino", dynamic=True, int8=True)
         print(f"Model exported to {exported_model_path}\n")
 
     # STEP 2: Prepare classification model (download + export to OpenVINO IR)
 
     ov_classification_model_path = os.path.join(
-        current_dir, "fairface_age_image_detection", "openvino_model.xml"
+        runtime_dir, "fairface_age_image_detection", "openvino_model.xml"
     )
     if not os.path.isfile(ov_classification_model_path):
         print(
@@ -113,7 +118,9 @@ def main(input_video):
                 "openvino",
                 "--model",
                 "dima806/fairface_age_image_detection",
-                "fairface_age_image_detection",
+                os.path.join(runtime_dir, "fairface_age_image_detection"),
+                "--weight-format",
+                "int8",
             ],
             check=True,
         )

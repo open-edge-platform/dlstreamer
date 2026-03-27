@@ -1,12 +1,12 @@
 #!/bin/bash
 # ==============================================================================
-# Copyright (C) 2023 Intel Corporation
+# Copyright (C) 2023-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
 
 BUILD_TYPES=${1:-"html,linkcheck,spelling"}
-SOURCE_DIR=${2:-"./source"}
+SOURCE_DIR=${2:-"./user-guide"}
 
 echo "Build types: $BUILD_TYPES"
 

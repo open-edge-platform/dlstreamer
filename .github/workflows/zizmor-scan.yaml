@@ -35,6 +35,6 @@ jobs:
       - name: "Run Zizmor scan"
         uses: open-edge-platform/geti-ci/actions/zizmor@4d46c7fb444d8fae6390348e76d96bb0749c5632 # zizmor/v0.1.0
         with:
-          scan-scope: ${{ github.event_name == 'pull_request' && 'changed' || 'all' }}
-          severity-level: ${{ github.event_name == 'pull_request' && 'HIGH' || 'LOW' }}
+          scan-scope: all
+          severity-level: LOW
           fail-on-findings: true

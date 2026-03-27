@@ -1,4 +1,4 @@
-# Models with gvagenai Element
+# Using VLM Models With gvagenai Element
 
 This directory contains a script demonstrating how to use the `gvagenai` element with MiniCPM-V 2.6, Phi-4-multimodal-instruct or Gemma 3 for video summarization.
 

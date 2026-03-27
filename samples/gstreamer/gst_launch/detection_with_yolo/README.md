@@ -10,8 +10,8 @@ This sample builds GStreamer pipeline of the following elements
 * `filesrc` or `urisourcebin` or `v4l2src` for input from file/URL/web-camera
 * `decodebin3` for video decoding
 * `videoconvert` for converting video frame into different color formats
-* [gvadetect](../../../../docs/source/elements/gvadetect.md) uses for full-frame object detection and marking objects with labels
-* [gvawatermark](../../../../docs/source/elements/gvawatermark.md) for points and theirs connections visualization
+* [gvadetect](../../../../docs/user-guide/elements/gvadetect.md) uses for full-frame object detection and marking objects with labels
+* [gvawatermark](../../../../docs/user-guide/elements/gvawatermark.md) for points and theirs connections visualization
 * `autovideosink` for rendering output video into screen
 > **NOTE**: `sync=false` property in `autovideosink` element disables real-time synchronization so pipeline runs as fast as possible
 
@@ -19,7 +19,7 @@ This sample builds GStreamer pipeline of the following elements
 
 The samples use YOLO models from different repositories as listed in a table below. The model preparation and conversion method depends on the model source.
 The instructions assume Intel® DL Streamer framework is installed on the local system along with Intel® OpenVINO™ model downloader and converter tools,
-as described here: [Tutorial](../../../../docs/source/get_started/tutorial.md#setup).
+as described here: [Tutorial](../../../../docs/user-guide/get_started/tutorial.md#setup).
 
 For yolov5su, yolov8s (8n-obb,8n-seg), yolov9c, yolov10s and yolo11s (yolo11s-seg, yolo11s-obb) models it is also necessary to install the ultralytics python package:
 

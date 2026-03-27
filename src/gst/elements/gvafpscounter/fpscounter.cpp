@@ -17,12 +17,32 @@
 #include <cmath>
 #include <numeric>
 
+#include <gst/analytics/analytics.h>
+
 namespace {
 constexpr double TIME_THRESHOLD = 0.1;
 using seconds_double = std::chrono::duration<double>;
 constexpr int ELEMENT_NAME_MAX_SIZE = 64;
 constexpr double MICRO_TO_MILLI = 0.001;
 constexpr double SECOND_TO_MILLI = 1000.0;
+
+unsigned count_rois(GstBuffer *buffer) {
+    GstAnalyticsRelationMeta *relation_meta = gst_buffer_get_analytics_relation_meta(buffer);
+    size_t count = 0;
+
+    if (relation_meta) {
+        gpointer state = NULL;
+        GstAnalyticsODMtd od_mtd;
+
+        while (
+            gst_analytics_relation_meta_iterate(relation_meta, &state, gst_analytics_od_mtd_get_mtd_type(), &od_mtd)) {
+            ++count;
+        }
+    }
+
+    return count;
+}
+
 } // namespace
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -34,6 +54,8 @@ bool IterativeFpsCounter::NewFrame(const std::string &element_name, FILE *output
         return false;
     if (output == nullptr)
         return false;
+
+    detections += count_rois(buffer);
 
     auto now = std::chrono::high_resolution_clock::now();
     if (print_std_dev) {
