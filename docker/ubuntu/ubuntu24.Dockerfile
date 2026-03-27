@@ -64,7 +64,7 @@ RUN \
 # Intel GPU client drivers and prerequisites installation
 RUN \
     apt-get update && \
-    apt-get install -y --no-install-recommends software-properties-common && \
+    apt-get install -y --no-install-recommends software-properties-common=0.99.49.4 && \
     add-apt-repository -y ppa:kobuk-team/intel-graphics && \
     apt-get update && \
     echo "Snapshot: 20260324T030400Z" >> /etc/apt/sources.list.d/kobuk-team-ubuntu-intel-graphics-noble.sources && \
@@ -516,7 +516,7 @@ RUN \
 # Intel GPU client drivers and prerequisites installation
 RUN \
     apt-get update && \
-    apt-get install -y --no-install-recommends software-properties-common && \
+    apt-get install -y --no-install-recommends software-properties-common=0.99.49.4 && \
     add-apt-repository -y ppa:kobuk-team/intel-graphics && \
     apt-get update && \
     echo "Snapshot: 20260324T030400Z" >> /etc/apt/sources.list.d/kobuk-team-ubuntu-intel-graphics-noble.sources && \
