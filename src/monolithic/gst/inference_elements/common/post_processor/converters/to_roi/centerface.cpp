@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2024-2025 Intel Corporation
+ * Copyright (C) 2024-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -11,6 +11,7 @@
 #include "inference_backend/logger.h"
 #include "safe_arithmetic.hpp"
 
+#include <dlstreamer/gst/metadata/gstanalyticskeypointdescriptor.h>
 #include <gst/gst.h>
 #include <opencv2/opencv.hpp>
 
@@ -93,10 +94,25 @@ const float *CenterfaceConverter::parseOutputBlob(const OutputBlobs &output_blob
 void CenterfaceConverter::addLandmarksTensor(DetectedObject &detected_object, const float *landmarks,
                                              int num_of_landmarks) const {
     GstStructure *tensor = gst_structure_copy(getModelProcOutputInfo().get());
-    gst_structure_set_name(tensor, "centerface");
+    gst_structure_set_name(tensor, "keypoints");
+    gst_structure_set(tensor, "type", G_TYPE_STRING, "keypoints", NULL);
     gst_structure_set(tensor, "precision", G_TYPE_INT, GVA_PRECISION_FP32, NULL);
-    gst_structure_set(tensor, "format", G_TYPE_STRING, "landmark_points", NULL);
-    gst_structure_set(tensor, "confidence", G_TYPE_DOUBLE, detected_object.confidence, NULL);
+    gst_structure_set(tensor, "format", G_TYPE_STRING, GST_ANALYTICS_KEYPOINT_FACE_CENTERFACE_5, NULL);
+
+    // set per-keypoint confidence as a vector (same value for all landmarks)
+    {
+        GValue gval = G_VALUE_INIT;
+        GValue garr = G_VALUE_INIT;
+        gst_value_array_init(&garr, num_of_landmarks);
+        g_value_init(&gval, G_TYPE_FLOAT);
+        for (int k = 0; k < num_of_landmarks; k++) {
+            g_value_set_float(&gval, static_cast<float>(detected_object.confidence));
+            gst_value_array_append_value(&garr, &gval);
+        }
+        g_value_unset(&gval);
+        gst_structure_set_value(tensor, "confidence", &garr);
+        g_value_unset(&garr);
+    }
 
     GValueArray *data = g_value_array_new(2);
     GValue gvalue = G_VALUE_INIT;
