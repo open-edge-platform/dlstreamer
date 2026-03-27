@@ -5,3 +5,4 @@
 # ==============================================================================
 
 add_subdirectory(test_watermark)
+add_subdirectory(test_properties)
