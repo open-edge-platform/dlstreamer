@@ -117,9 +117,9 @@ void CenterfaceConverter::addLandmarksTensor(DetectedObject &detected_object, co
     GValueArray *data = g_value_array_new(2);
     GValue gvalue = G_VALUE_INIT;
     g_value_init(&gvalue, G_TYPE_UINT);
-    g_value_set_uint(&gvalue, safe_convert<uint32_t>(getModelInputImageInfo().batch_size));
+    g_value_set_uint(&gvalue, safe_convert<uint32_t>(num_of_landmarks));
     g_value_array_append(data, &gvalue);
-    g_value_set_uint(&gvalue, safe_convert<uint32_t>(2 * num_of_landmarks));
+    g_value_set_uint(&gvalue, 2);
     g_value_array_append(data, &gvalue);
     gst_structure_set_array(tensor, "dims", data);
     g_value_array_free(data);

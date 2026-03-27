@@ -107,6 +107,14 @@ class BlobToROIConverter : public BlobToMetaConverter {
                 const auto keypoints = tensor.data<float>();
                 auto confidences = tensor.get_vector<float>("confidence");
 
+                // If all confidence values are identical, treat as a shared detection confidence
+                // and skip per-keypoint zeroing.
+                bool all_same = confidences.size() > 1 &&
+                    std::all_of(confidences.begin(), confidences.end(),
+                                [&](float v) { return v == confidences[0]; });
+                if (all_same)
+                    continue;
+
                 const auto &dimensions = tensor.dims();
                 size_t points_num = dimensions[0];
                 size_t point_dimension = dimensions[1];

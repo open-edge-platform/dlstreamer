@@ -88,7 +88,21 @@ json convert_tensor(const GVA::Tensor &s_tensor) {
         }
     }
     if (s_tensor.has_field("confidence")) {
-        jobject.push_back(json::object_t::value_type("confidence", s_tensor.confidence()));
+        auto conf_vec = s_tensor.confidences();
+        if (conf_vec.size() > 1) {
+            bool all_same = std::all_of(conf_vec.begin(), conf_vec.end(),
+                                        [&](float v) { return v == conf_vec[0]; });
+            if (all_same) {
+                jobject.push_back(json::object_t::value_type("confidence", static_cast<double>(conf_vec[0])));
+            } else {
+                json jarray;
+                for (auto v : conf_vec)
+                    jarray += v;
+                jobject.push_back(json::object_t::value_type("confidence", jarray));
+            }
+        } else {
+            jobject.push_back(json::object_t::value_type("confidence", s_tensor.confidence()));
+        }
     }
     if (s_tensor.has_field("label_id")) {
         jobject.push_back(json::object_t::value_type("label_id", s_tensor.get_int("label_id")));
