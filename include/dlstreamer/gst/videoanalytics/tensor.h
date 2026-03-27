@@ -267,6 +267,20 @@ class Tensor {
     }
 
     /**
+     * @brief Get confidence as a vector of floats
+     * @return vector of confidence values; if stored as an array returns all elements,
+     *         if stored as a scalar returns a single-element vector, empty if field is missing
+     */
+    std::vector<float> confidences() const {
+        const GValue *val = gst_structure_get_value(_structure, "confidence");
+        if (!val)
+            return {};
+        if (GST_VALUE_HOLDS_ARRAY(val))
+            return get_vector<float>("confidence");
+        return {static_cast<float>(get_double("confidence"))};
+    }
+
+    /**
      * @brief Set confidence of detection or classification result
      * @param confidence of inference result
      */
