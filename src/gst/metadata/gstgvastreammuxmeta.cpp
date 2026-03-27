@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
 
-#include "gstgvastreammuxmeta.h"
+#include "dlstreamer/gst/metadata/gstgvastreammuxmeta.h"
 
 static gboolean gst_gva_streammux_meta_init(GstMeta *meta, gpointer params, GstBuffer *buffer) {
     (void)params;
