@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2022-2025 Intel Corporation
+ * Copyright (C) 2022-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -24,7 +24,6 @@ namespace post_processing {
 
 class KeypointsConverter : public BlobToTensorConverter {
   protected:
-    const std::string format;
 
     template <typename T>
     void copyKeypointsToGstStructure(GstStructure *gst_struct, const std::vector<T> &points) const {
@@ -35,8 +34,9 @@ class KeypointsConverter : public BlobToTensorConverter {
         const auto &result_tensor = getModelProcOutputInfo();
         GstStructure *tensor = gst_structure_copy(result_tensor.get());
 
+        gst_structure_set_name(tensor, "keypoints");
+        gst_structure_set(tensor, "type", G_TYPE_STRING, "keypoints", NULL);
         gst_structure_set(tensor, "precision", G_TYPE_INT, precision, NULL);
-        gst_structure_set(tensor, "format", G_TYPE_STRING, format.c_str(), NULL);
 
         GValueArray *data = g_value_array_new(dims.size());
         GValue gvalue = G_VALUE_INIT;
@@ -55,7 +55,7 @@ class KeypointsConverter : public BlobToTensorConverter {
 
   public:
     KeypointsConverter(BlobToMetaConverter::Initializer initializer)
-        : BlobToTensorConverter(std::move(initializer)), format("keypoints") {
+        : BlobToTensorConverter(std::move(initializer)) {
     }
 
     TensorsTable convert(const OutputBlobs &output_blobs) = 0;
