@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2018-2025 Intel Corporation
+ * Copyright (C) 2018-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -29,7 +29,7 @@ class IterativeFpsCounter : public FpsCounter {
     IterativeFpsCounter(unsigned starting_frame, unsigned interval, bool average, bool print_std_dev,
                         bool print_latency)
         : starting_frame(starting_frame), interval(interval), average(average), print_each_stream(true),
-          total_frames(0), avg_fps(0.0), eos_result_reported(false), print_std_dev(print_std_dev),
+          total_frames(0), detections(0), avg_fps(0.0), eos_result_reported(false), print_std_dev(print_std_dev),
           print_latency(print_latency) {
     }
     bool NewFrame(const std::string &element_name, FILE *output, GstBuffer *buffer) override;
@@ -40,6 +40,10 @@ class IterativeFpsCounter : public FpsCounter {
         std::lock_guard<std::mutex> lock(mutex);
         return avg_fps;
     }
+    unsigned get_detections() {
+        std::lock_guard<std::mutex> lock(mutex);
+        return detections;
+    }
 
   protected:
     unsigned starting_frame;
@@ -47,6 +51,7 @@ class IterativeFpsCounter : public FpsCounter {
     bool average;
     bool print_each_stream;
     unsigned total_frames;
+    unsigned detections;
     float avg_fps;
     std::chrono::time_point<std::chrono::high_resolution_clock> init_time;
     std::chrono::time_point<std::chrono::high_resolution_clock> last_time;
