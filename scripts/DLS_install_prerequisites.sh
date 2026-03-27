@@ -291,7 +291,7 @@ setup_gpu(){
         echo "Snapshot: 20260324T030400Z" | $SUDO_PREFIX tee -a "/etc/apt/sources.list.d/$INTEL_GPU_LIST" || handle_error "Failed to add snapshot information"
         $SUDO_PREFIX apt update || handle_error "Failed to update package lists after adding snapshot"
         install_packages intel-metrics-discovery=1.14.183-1~24.04~ppa1 intel-gsc=0.9.5-1~24.04~ppa2 libvpl2=1:2.16.0-1~24.04~ppa1 libze-intel-gpu1=26.05.37020.3-1~24.04~ppa3 libze1=1.27.0-1~24.04~ppa2 intel-opencl-icd=26.05.37020.3-1~24.04~ppa3 clinfo=3.0.23.01.25-1build1 \
-            libmfx-gen1=25.4.0-0ubuntu1~24.04~ppa1 libvpl-tools=1.5.0-1~24.04~ppa1 libva-glx2=2.23.0-1~24.04~ppa5 va-driver-all=2.23.0-1~24.04~ppa5 vainfo=2.23.0-1~24.04~ppa4 || handle_error "Failed to install GPU drivers for Ubuntu 24.04"
+            intel-media-va-driver-non-free=26.1.4-1~24.04~ppa1 libmfx-gen1=25.4.0-0ubuntu1~24.04~ppa1 libvpl-tools=1.5.0-1~24.04~ppa1 libva-glx2=2.23.0-1~24.04~ppa5 va-driver-all=2.23.0-1~24.04~ppa5 vainfo=2.23.0-1~24.04~ppa4 || handle_error "Failed to install GPU drivers for Ubuntu 24.04"
     elif [ "$ubuntu_version" == "22.04" ]; then
         echo "Installing GPU drivers for Ubuntu 22.04..."
         configure_repository "$INTEL_CL_GPU_KEY_URL" "$INTEL_GPU_KEYRING_PATH" "$INTEL_CL_GPU_REPO_URL" "$INTEL_GPU_LIST" || handle_error "Failed to configure Intel GPU repository"
