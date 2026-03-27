@@ -31,12 +31,7 @@ typedef struct _GstGvaStreammuxClass GstGvaStreammuxClass;
  * Each output buffer is tagged with GstGvaStreammuxMeta carrying source_id.
  *
  * Properties:
- *  - max-same-source-frames: max frames from one source per batch cycle (default 1)
- *  - max-fps: maximum output frame rate (0 = unlimited)
- *  - min-fps: minimum output frame rate (0 = no minimum)
- *  - sync-inputs: synchronize input streams by PTS
- *  - max-latency: maximum additional latency in nanoseconds
- *  - frame-duration: expected frame duration in nanoseconds (0 = auto)
+ *  - max-fps: maximum output frame rate (0 = unlimited, for local file sources only)
  */
 struct _GstGvaStreammux {
     GstElement element;
@@ -44,12 +39,7 @@ struct _GstGvaStreammux {
     GstPad *srcpad;
 
     /* Properties */
-    guint max_same_source_frames;
     gdouble max_fps;
-    gdouble min_fps;
-    gboolean sync_inputs;
-    GstClockTime max_latency;
-    GstClockTime frame_duration;
 
     /* Internal state */
     guint num_sink_pads;
@@ -74,7 +64,6 @@ struct _GstGvaStreammux {
 
     /* FPS control */
     GstClockTime last_output_time;
-    GstClockTime min_fps_duration;
     GstClockTime max_fps_duration;
 
     /* Collect pads for synchronized buffer collection */
