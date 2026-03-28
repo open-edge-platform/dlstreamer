@@ -26,6 +26,7 @@ Samples separated into several categories:
     * [Depth Estimation Sample](./gst_launch/depth_estimation/README.md) - demonstrates YOLO11n object detection followed by Depth Anything V2 depth estimation on detected regions
     * [Using VLM Models With gvagenai Element](./gst_launch/gvagenai/README.md) - demonstrates how to use the `gvagenai` element with MiniCPM-V for video summarization
     * [Radar Signal Process Sample](./gst_launch/g3dradarprocess/README.md) - demonstrates how to use the `g3dradarprocess` element for millimeter-wave radar signal processing with point cloud detection, clustering, and tracking
+    * [Multi-Stream Mux/Demux Sample](./gst_launch/stream_mux_and_demux/README.md) - demonstrates how to use `gvastreammux` and `gvastreamdemux` elements for multi-stream video inference through a single shared pipeline with round-robin scheduling and per-source output routing
     * [LiDAR Parse Sample](./gst_launch/g3dlidarparse/README.md) - demonstrates LiDAR parsing pipeline with `g3dlidarparse` element
     * [Real Sense camera sample](./gst_launch/gvarealsense/README.md) This sample demonstrates how to capture video stream from a 3D RealSense™ Depth Camera using DL Streamer's gvarealsense element.
     * [Custom Post-Processing Library Sample - Detection](./gst_launch/custom_postproc/detect/README.md) - demonstrates how to create custom post-processing library for YOLOv11 tensor outputs conversion to detection metadata using GStreamer Analytics framework
