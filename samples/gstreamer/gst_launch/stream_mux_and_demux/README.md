@@ -108,8 +108,8 @@ Download or provide an OpenVINO IR model (`.xml` + `.bin`). For example, using O
    ./stream_mux_demux_sample.sh \
      --model /path/to/model.xml \
      --source file \
-     --input1 /path/to/video0.mp4 \
-     --input2 /path/to/video1.mp4 \
+     --input1 /path/to/video0.h265 \
+     --input2 /path/to/video1.h265 \
      --max-fps 30
    ```
 
@@ -118,8 +118,8 @@ Download or provide an OpenVINO IR model (`.xml` + `.bin`). For example, using O
    GST_DEBUG=gvastreammux:4,gvastreamdemux:4 ./stream_mux_demux_sample.sh \
      --model /path/to/model.xml \
      --source file \
-     --input1 /path/to/video0.mp4 \
-     --input2 /path/to/video1.mp4 \
+     --input1 /path/to/video0.h265 \
+     --input2 /path/to/video1.h265 \
      --max-fps 30 \
      --demux
    ```
