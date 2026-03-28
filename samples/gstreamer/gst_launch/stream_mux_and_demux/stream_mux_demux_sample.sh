@@ -150,8 +150,8 @@ elif [ "${SOURCE_TYPE}" = "file" ]; then
         echo "ERROR: Input file not found: ${INPUT2}" >&2
         exit 1
     fi
-    SOURCE_0="filesrc location=${INPUT1} ! decodebin ! videoconvert"
-    SOURCE_1="filesrc location=${INPUT2} ! decodebin ! videoconvert"
+    SOURCE_0="filesrc location=${INPUT1} ! h265parse ! vah265dec"
+    SOURCE_1="filesrc location=${INPUT2} ! h265parse ! vah265dec"
     echo "=== Multi-Stream File Inference ==="
     echo "  Source 0: ${INPUT1}"
     echo "  Source 1: ${INPUT2}"
