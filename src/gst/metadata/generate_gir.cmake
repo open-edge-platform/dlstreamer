@@ -78,6 +78,13 @@ if(GENERATE_GIR_FROM_SOURCE)
             --pkg=gstreamer-analytics-1.0
             ${KEYPOINTS_HEADERS}
             ${KEYPOINTS_SOURCES}
+        # Workaround for g-ir-scanner limitation: when multiple typedefs alias the
+        # same struct tag (e.g. typedef struct _GstAnalyticsMtd GstAnalyticsGroupMtd /
+        # GstAnalyticsKeypointMtd), only the first typedef gets disguised="1" opaque="1".
+        # The second typedef is left without these attributes, which breaks Python
+        # bindings for caller-allocates out parameters (GI cannot determine allocation
+        # size). See: https://gitlab.gnome.org/GNOME/gobject-introspection/-/issues/101
+        COMMAND python3 ${CMAKE_SOURCE_DIR}/scripts/fix_gir_mtd_fields.py ${GIR_OUTPUT}
         DEPENDS ${KEYPOINTS_SOURCES} ${KEYPOINTS_HEADERS} ${TARGET_NAME}
         COMMENT "Generating GIR file from source for DLStreamerMeta"
     )

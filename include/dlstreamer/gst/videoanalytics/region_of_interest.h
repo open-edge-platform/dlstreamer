@@ -12,7 +12,7 @@
 
 #pragma once
 
-#include "../metadata/gstanalyticskeypointsmtd.h"
+#include "../metadata/gstanalyticskeypointmtd.h"
 #include "tensor.h"
 
 #include <cstdint>

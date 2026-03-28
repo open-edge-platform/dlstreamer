@@ -191,31 +191,31 @@ gboolean copy_one_gst_analytics_mtd(GstAnalyticsRelationMeta *dst, const GstAnal
             GST_ERROR("Failed to add GstAnalyticsTrackingMtd to GstAnalyticsRelationMeta");
             return FALSE;
         }
-    } else if (mtd_type == gst_analytics_keypoint_mtd_get_mtd_type_v2()) {
+    } else if (mtd_type == gst_analytics_keypoint_mtd_get_mtd_type()) {
         gint x, y, z;
         GstAnalyticsKeypointDimensions dim;
         gfloat confidence;
         guint8 visibility;
 
-        if (!gst_analytics_keypoint_mtd_get_position((const GstAnalyticsKeypointMtdV2 *)mtd,
+        if (!gst_analytics_keypoint_mtd_get_position((const GstAnalyticsKeypointMtd *)mtd,
                                                      &x, &y, &z, &dim)) {
             GST_ERROR("Failed to get keypoint position");
             return FALSE;
         }
-        if (!gst_analytics_keypoint_mtd_get_confidence((const GstAnalyticsKeypointMtdV2 *)mtd,
+        if (!gst_analytics_keypoint_mtd_get_confidence((const GstAnalyticsKeypointMtd *)mtd,
                                                        &confidence)) {
             GST_ERROR("Failed to get keypoint confidence");
             return FALSE;
         }
-        if (!gst_analytics_keypoint_mtd_get_visibility_flags((const GstAnalyticsKeypointMtdV2 *)mtd,
+        if (!gst_analytics_keypoint_mtd_get_visibility_flags((const GstAnalyticsKeypointMtd *)mtd,
                                                              &visibility)) {
             GST_ERROR("Failed to get keypoint visibility");
             return FALSE;
         }
 
-        GstAnalyticsKeypointMtdV2 new_kp;
-        if (!gst_analytics_relation_meta_add_keypoint_mtd_v2(dst, dim, x, y, z,
-                                                             visibility, confidence, &new_kp)) {
+        GstAnalyticsKeypointMtd new_kp;
+        if (!gst_analytics_relation_meta_add_keypoint_mtd(dst, dim, x, y, z,
+                                                          visibility, confidence, &new_kp)) {
             GST_ERROR("Failed to add keypoint mtd to relation meta");
             return FALSE;
         }
