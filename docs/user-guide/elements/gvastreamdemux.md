@@ -25,6 +25,12 @@ Key design principles:
 - **Source Count Validation**: On the first buffer, the element checks that the number of requested
   source pads matches `num_sources` in the metadata. A mismatch causes a pipeline error.
 
+> **Important**: Because `gvastreammux` interleaves frames in round-robin order, the downstream
+> inference element (e.g., `gvadetect`) **must** have `inference-interval=1`. Setting
+> `inference-interval` to N > 1 causes certain sources to be consistently skipped from inference.
+> A future enhancement will add frame-dropping logic inside `gvastreammux` to apply the interval
+> uniformly across all input streams.
+
 ## How It Works
 
 1. The pipeline requests source pads (`src_0`, `src_1`, ...) — one per original input source.

@@ -18,6 +18,15 @@ source pad in **round-robin** order. Key design principles:
   `batch_id` (cycle counter), and `num_sources` (total input count). This metadata is required by
   `gvastreamdemux` to route buffers back to per-source branches.
 
+> **Important**: Because frames from all sources are interleaved in round-robin order, the downstream
+> inference element (e.g., `gvadetect`) **must** have `inference-interval=1`. If `inference-interval` is
+> set to N > 1, the element only runs inference on every Nth buffer — which means certain input sources
+> will consistently be skipped. For example, with 2 sources and `inference-interval=2`, only source 0
+> will ever get inference results while source 1 is always skipped.
+>
+> A future enhancement will add frame-dropping logic inside `gvastreammux` itself, applying the interval
+> uniformly across all input streams so that every source gets the same inference coverage.
+
 ## How It Works
 
 1. The pipeline requests sink pads (`sink_0`, `sink_1`, ...) — one per input source.
