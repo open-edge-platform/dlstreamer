@@ -17,7 +17,7 @@ static gboolean gst_gva_streammux_meta_init(GstMeta *meta, gpointer params, GstB
 }
 
 static gboolean gst_gva_streammux_meta_transform(GstBuffer *dest, GstMeta *meta, GstBuffer *buffer, GQuark type,
-                                                  gpointer data) {
+                                                 gpointer data) {
     (void)buffer;
     (void)type;
     (void)data;
@@ -44,9 +44,9 @@ GType gst_gva_streammux_meta_api_get_type(void) {
 const GstMetaInfo *gst_gva_streammux_meta_get_info(void) {
     static const GstMetaInfo *meta_info = NULL;
     if (g_once_init_enter(&meta_info)) {
-        const GstMetaInfo *mi = gst_meta_register(
-            GST_GVA_STREAMMUX_META_API_TYPE, "GstGvaStreammuxMeta", sizeof(GstGvaStreammuxMeta),
-            gst_gva_streammux_meta_init, gst_gva_streammux_meta_free, gst_gva_streammux_meta_transform);
+        const GstMetaInfo *mi = gst_meta_register(GST_GVA_STREAMMUX_META_API_TYPE, "GstGvaStreammuxMeta",
+                                                  sizeof(GstGvaStreammuxMeta), gst_gva_streammux_meta_init,
+                                                  gst_gva_streammux_meta_free, gst_gva_streammux_meta_transform);
         g_once_init_leave(&meta_info, mi);
     }
     return meta_info;
@@ -55,8 +55,7 @@ const GstMetaInfo *gst_gva_streammux_meta_get_info(void) {
 GstGvaStreammuxMeta *gst_buffer_add_gva_streammux_meta(GstBuffer *buffer, guint source_id, guint64 batch_id,
                                                        guint num_sources) {
     g_return_val_if_fail(GST_IS_BUFFER(buffer), NULL);
-    GstGvaStreammuxMeta *meta =
-        (GstGvaStreammuxMeta *)gst_buffer_add_meta(buffer, GST_GVA_STREAMMUX_META_INFO, NULL);
+    GstGvaStreammuxMeta *meta = (GstGvaStreammuxMeta *)gst_buffer_add_meta(buffer, GST_GVA_STREAMMUX_META_INFO, NULL);
     if (meta) {
         meta->source_id = source_id;
         meta->batch_id = batch_id;
