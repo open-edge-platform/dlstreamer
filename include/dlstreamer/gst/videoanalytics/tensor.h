@@ -12,7 +12,6 @@
 #ifndef __TENSOR_H__
 #define __TENSOR_H__
 
-#include "../metadata/gstanalyticskeypointsmtd.h"
 #include "../metadata/gstanalyticskeypointmtd.h"
 #include "../metadata/gstanalyticskeypointdescriptor.h"
 #include "../metadata/gva_tensor_meta.h"
@@ -712,8 +711,8 @@ class Tensor {
             GstAnalyticsMtd member;
             gsize idx = 0;
             while (gst_analytics_group_mtd_iterate(group_mtd, &state,
-                       gst_analytics_keypoint_mtd_get_mtd_type_v2(), &member) && idx < keypoint_count) {
-                GstAnalyticsKeypointMtdV2 *kp = reinterpret_cast<GstAnalyticsKeypointMtdV2 *>(&member);
+                       gst_analytics_keypoint_mtd_get_mtd_type(), &member) && idx < keypoint_count) {
+                GstAnalyticsKeypointMtd *kp = reinterpret_cast<GstAnalyticsKeypointMtd *>(&member);
                 GstAnalyticsKeypointDimensions dim;
                 gst_analytics_keypoint_mtd_get_position(kp, &keypoints[idx].px, &keypoints[idx].py,
                                                         &keypoints[idx].pz, &dim);

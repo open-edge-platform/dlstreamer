@@ -22,12 +22,12 @@
  * Boston, MA 02110-1301, USA.
  */
 
+#ifndef __GST_ANALYTICS_KEYPOINT_MTD_H__
+#define __GST_ANALYTICS_KEYPOINT_MTD_H__
+
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
-
-#ifndef __GST_ANALYTICS_KEYPOINT_MTD_H__
-#define __GST_ANALYTICS_KEYPOINT_MTD_H__
 
 #include <gst/gst.h>
 #include <gst/analytics/analytics-meta-prelude.h>
@@ -37,7 +37,7 @@
 G_BEGIN_DECLS
 
 /**
- * GstAnalyticsKeypointMtdV2:
+ * GstAnalyticsKeypointMtd:
  * @id: Instance identifier.
  * @meta: Instance of #GstAnalyticsRelationMeta where the analytics-metadata
  * identified by @id is stored.
@@ -47,7 +47,7 @@ G_BEGIN_DECLS
  *
  * Since: 1.30
  */
-typedef struct _GstAnalyticsMtd GstAnalyticsKeypointMtdV2;
+typedef struct _GstAnalyticsMtd GstAnalyticsKeypointMtd;
 
 /**
  * GstAnalyticsKeypointDimensions:
@@ -86,38 +86,38 @@ typedef enum {
 
 
 GST_ANALYTICS_META_API
-GstAnalyticsMtdType gst_analytics_keypoint_mtd_get_mtd_type_v2 (void);
+GstAnalyticsMtdType gst_analytics_keypoint_mtd_get_mtd_type (void);
 
 GST_ANALYTICS_META_API
-gboolean gst_analytics_relation_meta_add_keypoint_mtd_v2 (
+gboolean gst_analytics_relation_meta_add_keypoint_mtd (
     GstAnalyticsRelationMeta *instance,
     GstAnalyticsKeypointDimensions dimension,
     gint x, gint y, gint z,
     guint8 visibility_flags,
     gfloat confidence,
-    GstAnalyticsKeypointMtdV2 *keypoint_mtd);
+    GstAnalyticsKeypointMtd *keypoint_mtd);
 
 GST_ANALYTICS_META_API
 gboolean gst_analytics_keypoint_mtd_get_position (
-    const GstAnalyticsKeypointMtdV2 *handle,
+    const GstAnalyticsKeypointMtd *handle,
     gint *x, gint *y, gint *z,
     GstAnalyticsKeypointDimensions *dimension);
 
 GST_ANALYTICS_META_API
 gboolean gst_analytics_keypoint_mtd_get_confidence (
-    const GstAnalyticsKeypointMtdV2 *handle,
+    const GstAnalyticsKeypointMtd *handle,
     gfloat *confidence);
 
 GST_ANALYTICS_META_API
 gboolean gst_analytics_keypoint_mtd_get_visibility_flags (
-    const GstAnalyticsKeypointMtdV2 *handle,
+    const GstAnalyticsKeypointMtd *handle,
     guint8 *visibility_flags);
 
 GST_ANALYTICS_META_API
-gboolean gst_analytics_relation_meta_get_keypoint_mtd_v2 (
+gboolean gst_analytics_relation_meta_get_keypoint_mtd (
     GstAnalyticsRelationMeta *meta,
     guint an_meta_id,
-    GstAnalyticsKeypointMtdV2 *rlt);
+    GstAnalyticsKeypointMtd *rlt);
 
 GST_ANALYTICS_META_API
 gboolean gst_analytics_relation_meta_add_keypoints_group (
