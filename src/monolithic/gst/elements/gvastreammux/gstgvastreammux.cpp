@@ -23,9 +23,9 @@ enum {
 
 /* Pad templates */
 #define STREAMMUX_VIDEO_CAPS                                                                                           \
-    GST_VIDEO_CAPS_MAKE("{ BGRx, BGRA, BGR, NV12, I420, RGB, RGBA, RGBx }") "; "                                      \
-        GST_VIDEO_CAPS_MAKE_WITH_FEATURES("memory:VAMemory", "{ NV12 }") "; "                                          \
-            GST_VIDEO_CAPS_MAKE_WITH_FEATURES("memory:DMABuf", "{ DMA_DRM }") "; "
+    GST_VIDEO_CAPS_MAKE("{ BGRx, BGRA, BGR, NV12, I420, RGB, RGBA, RGBx }")                                            \
+    "; " GST_VIDEO_CAPS_MAKE_WITH_FEATURES("memory:VAMemory", "{ NV12 }") "; " GST_VIDEO_CAPS_MAKE_WITH_FEATURES(      \
+        "memory:DMABuf", "{ DMA_DRM }") "; "
 
 static GstStaticPadTemplate gva_streammux_sink_template =
     GST_STATIC_PAD_TEMPLATE("sink_%u", GST_PAD_SINK, GST_PAD_REQUEST, GST_STATIC_CAPS(STREAMMUX_VIDEO_CAPS));
@@ -38,12 +38,12 @@ static void gst_gva_streammux_set_property(GObject *object, guint prop_id, const
 static void gst_gva_streammux_get_property(GObject *object, guint prop_id, GValue *value, GParamSpec *pspec);
 static void gst_gva_streammux_finalize(GObject *object);
 static GstPad *gst_gva_streammux_request_new_pad(GstElement *element, GstPadTemplate *templ, const gchar *name,
-                                                  const GstCaps *caps);
+                                                 const GstCaps *caps);
 static void gst_gva_streammux_release_pad(GstElement *element, GstPad *pad);
 static GstStateChangeReturn gst_gva_streammux_change_state(GstElement *element, GstStateChange transition);
 static GstFlowReturn gst_gva_streammux_collected(GstCollectPads *pads, gpointer user_data);
 static gboolean gst_gva_streammux_sink_event(GstCollectPads *pads, GstCollectData *data, GstEvent *event,
-                                              gpointer user_data);
+                                             gpointer user_data);
 static gboolean gst_gva_streammux_src_query(GstPad *pad, GstObject *parent, GstQuery *query);
 static gboolean gst_gva_streammux_src_event(GstPad *pad, GstObject *parent, GstEvent *event);
 
@@ -78,8 +78,8 @@ static void gst_gva_streammux_class_init(GstGvaStreammuxClass *klass) {
                             "Maximum output frame rate (0 = unlimited). "
                             "Only set this when the video source is a local file. "
                             "Do not set for RTSP or live sources as it may cause pipeline stalls.",
-                            0.0, G_MAXDOUBLE,
-                            DEFAULT_MAX_FPS, (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+                            0.0, G_MAXDOUBLE, DEFAULT_MAX_FPS,
+                            (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 }
 
 static void gst_gva_streammux_init(GstGvaStreammux *mux) {
@@ -167,7 +167,7 @@ static void gst_gva_streammux_get_property(GObject *object, guint prop_id, GValu
 
 /* Request pad creation */
 static GstPad *gst_gva_streammux_request_new_pad(GstElement *element, GstPadTemplate *templ, const gchar *req_name,
-                                                  const GstCaps *caps) {
+                                                 const GstCaps *caps) {
     (void)caps;
     (void)templ;
     GstGvaStreammux *mux = GST_GVA_STREAMMUX(element);
@@ -277,7 +277,7 @@ static GstStateChangeReturn gst_gva_streammux_change_state(GstElement *element, 
 
 /* Sink event handler through collect pads */
 static gboolean gst_gva_streammux_sink_event(GstCollectPads *pads, GstCollectData *data, GstEvent *event,
-                                              gpointer user_data) {
+                                             gpointer user_data) {
     GstGvaStreammux *mux = GST_GVA_STREAMMUX(user_data);
     gboolean ret = TRUE;
 

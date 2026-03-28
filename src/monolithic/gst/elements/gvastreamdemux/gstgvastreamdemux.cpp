@@ -23,9 +23,9 @@ enum {
 
 /* Pad templates — same video caps as gvastreammux */
 #define STREAMDEMUX_VIDEO_CAPS                                                                                         \
-    GST_VIDEO_CAPS_MAKE("{ BGRx, BGRA, BGR, NV12, I420, RGB, RGBA, RGBx }") "; "                                      \
-        GST_VIDEO_CAPS_MAKE_WITH_FEATURES("memory:VAMemory", "{ NV12 }") "; "                                          \
-            GST_VIDEO_CAPS_MAKE_WITH_FEATURES("memory:DMABuf", "{ DMA_DRM }") "; "
+    GST_VIDEO_CAPS_MAKE("{ BGRx, BGRA, BGR, NV12, I420, RGB, RGBA, RGBx }")                                            \
+    "; " GST_VIDEO_CAPS_MAKE_WITH_FEATURES("memory:VAMemory", "{ NV12 }") "; " GST_VIDEO_CAPS_MAKE_WITH_FEATURES(      \
+        "memory:DMABuf", "{ DMA_DRM }") "; "
 
 static GstStaticPadTemplate gva_streamdemux_sink_template =
     GST_STATIC_PAD_TEMPLATE("sink", GST_PAD_SINK, GST_PAD_ALWAYS, GST_STATIC_CAPS(STREAMDEMUX_VIDEO_CAPS));
@@ -38,7 +38,7 @@ static void gst_gva_streamdemux_set_property(GObject *object, guint prop_id, con
 static void gst_gva_streamdemux_get_property(GObject *object, guint prop_id, GValue *value, GParamSpec *pspec);
 static void gst_gva_streamdemux_finalize(GObject *object);
 static GstPad *gst_gva_streamdemux_request_new_pad(GstElement *element, GstPadTemplate *templ, const gchar *name,
-                                                    const GstCaps *caps);
+                                                   const GstCaps *caps);
 static void gst_gva_streamdemux_release_pad(GstElement *element, GstPad *pad);
 static GstStateChangeReturn gst_gva_streamdemux_change_state(GstElement *element, GstStateChange transition);
 static GstFlowReturn gst_gva_streamdemux_chain(GstPad *pad, GstObject *parent, GstBuffer *buf);
@@ -145,7 +145,7 @@ static void gst_gva_streamdemux_get_property(GObject *object, guint prop_id, GVa
 
 /* Request pad creation: pipeline requests src_0, src_1, etc. */
 static GstPad *gst_gva_streamdemux_request_new_pad(GstElement *element, GstPadTemplate *templ, const gchar *req_name,
-                                                    const GstCaps *caps) {
+                                                   const GstCaps *caps) {
     (void)caps;
     (void)templ;
     GstGvaStreamdemux *demux = GST_GVA_STREAMDEMUX(element);
