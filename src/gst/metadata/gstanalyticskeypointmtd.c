@@ -36,10 +36,10 @@ GST_DEBUG_CATEGORY_EXTERN (gst_analytics_relation_meta_debug);
 
 /**
  * SECTION:gstanalyticskeypointmtd
- * @title: GstAnalyticsKeypointMtdV2
+ * @title: GstAnalyticsKeypointMtd
  * @short_description: Analytics metadata for individual keypoints and keypoint groups
  * @symbols:
- * - GstAnalyticsKeypointMtdV2
+ * - GstAnalyticsKeypointMtd
  * - GstAnalyticsKeypointDimensions
  * - GstAnalyticsKeypointVisibility
  * @see_also: #GstAnalyticsMtd, #GstAnalyticsRelationMeta, #GstAnalyticsGroupMtd
@@ -79,9 +79,9 @@ GST_DEBUG_CATEGORY_EXTERN (gst_analytics_relation_meta_debug);
  *     gint x, y, z;
  *     gfloat conf;
  *     GstAnalyticsKeypointDimensions dim;
- *     gst_analytics_keypoint_mtd_get_position((GstAnalyticsKeypointMtdV2*)&member,
+ *     gst_analytics_keypoint_mtd_get_position((GstAnalyticsKeypointMtd*)&member,
  *         &x, &y, &z, &dim);
- *     gst_analytics_keypoint_mtd_get_confidence((GstAnalyticsKeypointMtdV2*)&member,
+ *     gst_analytics_keypoint_mtd_get_confidence((GstAnalyticsKeypointMtd*)&member,
  *         &conf);
  *     g_print("Keypoint at (%d, %d) confidence: %.2f\n", x, y, conf);
  * }
@@ -227,7 +227,7 @@ static const GstAnalyticsMtdImpl keypoint_impl = {
  * Since: 1.30
  */
 GstAnalyticsMtdType
-gst_analytics_keypoint_mtd_get_mtd_type_v2 (void)
+gst_analytics_keypoint_mtd_get_mtd_type (void)
 {
   return (GstAnalyticsMtdType) & keypoint_impl;
 }
@@ -254,10 +254,10 @@ gst_analytics_keypoint_mtd_get_mtd_type_v2 (void)
  * Since: 1.30
  */
 gboolean
-gst_analytics_relation_meta_add_keypoint_mtd_v2 (GstAnalyticsRelationMeta *
+gst_analytics_relation_meta_add_keypoint_mtd (GstAnalyticsRelationMeta *
     instance, GstAnalyticsKeypointDimensions dimension, gint x, gint y, gint z,
     guint8 visibility_flags, gfloat confidence,
-    GstAnalyticsKeypointMtdV2 * keypoint_mtd)
+    GstAnalyticsKeypointMtd * keypoint_mtd)
 {
   g_return_val_if_fail (instance, FALSE);
   g_return_val_if_fail (keypoint_mtd, FALSE);
@@ -295,7 +295,7 @@ gst_analytics_relation_meta_add_keypoint_mtd_v2 (GstAnalyticsRelationMeta *
  * Since: 1.30
  */
 gboolean
-gst_analytics_keypoint_mtd_get_position (const GstAnalyticsKeypointMtdV2 * handle,
+gst_analytics_keypoint_mtd_get_position (const GstAnalyticsKeypointMtd * handle,
     gint * x, gint * y, gint * z, GstAnalyticsKeypointDimensions * dimension)
 {
   GstAnalyticsKeypointMtdData *keypoint_data;
@@ -334,7 +334,7 @@ gst_analytics_keypoint_mtd_get_position (const GstAnalyticsKeypointMtdV2 * handl
  * Since: 1.30
  */
 gboolean
-gst_analytics_keypoint_mtd_get_confidence (const GstAnalyticsKeypointMtdV2 *
+gst_analytics_keypoint_mtd_get_confidence (const GstAnalyticsKeypointMtd *
     handle, gfloat * confidence)
 {
   GstAnalyticsKeypointMtdData *keypoint_data;
@@ -354,7 +354,7 @@ gst_analytics_keypoint_mtd_get_confidence (const GstAnalyticsKeypointMtdV2 *
 /**
  * gst_analytics_relation_meta_get_keypoint_mtd:
  * @meta: Instance of #GstAnalyticsRelationMeta
- * @an_meta_id: Id of #GstAnalyticsKeypointMtdV2 instance to retrieve
+ * @an_meta_id: Id of #GstAnalyticsKeypointMtd instance to retrieve
  * @rlt: (out caller-allocates)(not nullable): Will be filled with keypoint mtd
  *
  * Retrieve keypoint metadata instance from @meta.
@@ -364,12 +364,12 @@ gst_analytics_keypoint_mtd_get_confidence (const GstAnalyticsKeypointMtdV2 *
  * Since: 1.30
  */
 gboolean
-gst_analytics_relation_meta_get_keypoint_mtd_v2 (GstAnalyticsRelationMeta * meta,
-    guint an_meta_id, GstAnalyticsKeypointMtdV2 * rlt)
+gst_analytics_relation_meta_get_keypoint_mtd (GstAnalyticsRelationMeta * meta,
+    guint an_meta_id, GstAnalyticsKeypointMtd * rlt)
 {
   return gst_analytics_relation_meta_get_mtd (meta, an_meta_id,
-      gst_analytics_keypoint_mtd_get_mtd_type_v2 (),
-      (GstAnalyticsKeypointMtdV2 *) rlt);
+      gst_analytics_keypoint_mtd_get_mtd_type (),
+      (GstAnalyticsKeypointMtd *) rlt);
 }
 
 /**
@@ -410,7 +410,7 @@ gst_analytics_relation_meta_add_keypoints_group (GstAnalyticsRelationMeta *
   gboolean ret;
   gsize i, pos_stride;
   guint *keypoint_ids;
-  GstAnalyticsKeypointMtdV2 kp_mtd;
+  GstAnalyticsKeypointMtd kp_mtd;
 
   g_return_val_if_fail (instance, FALSE);
   g_return_val_if_fail (semantic_tag, FALSE);
@@ -459,7 +459,7 @@ gst_analytics_relation_meta_add_keypoints_group (GstAnalyticsRelationMeta *
         : GST_ANALYTICS_KEYPOINT_VISIBILITY_UNKNOWN;
 
     /* Add keypoint metadata which may trigger buffer reallocation */
-    ret = gst_analytics_relation_meta_add_keypoint_mtd_v2 (instance, dimension,
+    ret = gst_analytics_relation_meta_add_keypoint_mtd (instance, dimension,
         x, y, z, visibility, confidence, &kp_mtd);
     if (!ret) {
       GST_WARNING ("Failed to add keypoint %zu", i);
@@ -538,7 +538,7 @@ gst_analytics_relation_meta_add_keypoints_group (GstAnalyticsRelationMeta *
  * Since: 1.30
  */
 gboolean
-gst_analytics_keypoint_mtd_get_visibility_flags (const GstAnalyticsKeypointMtdV2 *
+gst_analytics_keypoint_mtd_get_visibility_flags (const GstAnalyticsKeypointMtd *
     handle, guint8 * visibility_flags)
 {
   GstAnalyticsKeypointMtdData *keypoint_data;
