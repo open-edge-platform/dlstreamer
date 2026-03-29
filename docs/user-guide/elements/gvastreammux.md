@@ -57,8 +57,8 @@ gst-launch-1.0 \
   ! gvadetect model=model.xml device=GPU \
     pre-process-backend=va-surface-sharing \
   ! queue ! gvafpscounter ! fakesink \
-  filesrc location=video0.mp4 ! decodebin ! videoconvert ! mux.sink_0 \
-  filesrc location=video1.mp4 ! decodebin ! videoconvert ! mux.sink_1
+  filesrc location=video0.h265 ! h265parse ! vah265dec ! mux.sink_0 \
+  filesrc location=video1.h265 ! h265parse ! vah265dec ! mux.sink_1
 ```
 
 ### RTSP Sources (gvastreammux only)
@@ -92,8 +92,8 @@ gst-launch-1.0 \
   ! gvastreamdemux name=demux \
   demux.src_0 ! queue ! gvafpscounter ! fakesink \
   demux.src_1 ! queue ! gvafpscounter ! fakesink \
-  filesrc location=video0.mp4 ! decodebin ! videoconvert ! mux.sink_0 \
-  filesrc location=video1.mp4 ! decodebin ! videoconvert ! mux.sink_1
+  filesrc location=video0.h265 ! h265parse ! vah265dec ! mux.sink_0 \
+  filesrc location=video1.h265 ! h265parse ! vah265dec ! mux.sink_1
 ```
 
 ### RTSP Sources with gvastreamdemux (per-source output)
