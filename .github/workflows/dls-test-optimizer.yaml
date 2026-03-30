@@ -178,6 +178,9 @@ jobs:
 
       # ======================================================== TEST RESULTS SUMMARY ========================================================
       - name: Add optimizer test results to summary
+        env:
+          DOCKER_OUTCOME: ${{ steps.run_optimizer_in_docker.outcome }}
+          HOST_OUTCOME: ${{ steps.run_optimizer_on_host.outcome }}
         if: always()
         run: |
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -187,14 +190,14 @@ jobs:
           echo "|------------------|--------|" >> $GITHUB_STEP_SUMMARY
           
           # Docker test status
-          if [ "${{ steps.run_optimizer_in_docker.outcome }}" == "success" ]; then
+          if [ "$DOCKER_OUTCOME" == "success" ]; then
             echo "| Optimizer in Docker | ✅ **PASSED** |" >> $GITHUB_STEP_SUMMARY
           else
             echo "| Optimizer in Docker | ❌ **FAILED** |" >> $GITHUB_STEP_SUMMARY
           fi
           
           # Host test status
-          if [ "${{ steps.run_optimizer_on_host.outcome }}" == "success" ]; then
+          if [ "$HOST_OUTCOME" == "success" ]; then
             echo "| Optimizer on Host | ✅ **PASSED** |" >> $GITHUB_STEP_SUMMARY
           else
             echo "| Optimizer on Host | ❌ **FAILED** |" >> $GITHUB_STEP_SUMMARY
