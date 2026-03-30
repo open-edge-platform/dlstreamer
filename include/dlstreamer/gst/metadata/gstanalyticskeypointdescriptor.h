@@ -103,25 +103,20 @@ static const char *const _gst_keypoint_openpose18_point_names[] = {
     "eye_r",      "eye_l",      "ear_r",      "ear_l"
 };
 
-/* Skeleton from OpenPose limb_ids_heatmap (peak.cpp). */
 static const int _gst_keypoint_openpose18_skeleton[] = {
-     1,  2,  /* neck        - shoulder_r  */
-     1,  5,  /* neck        - shoulder_l  */
-     2,  3,  /* shoulder_r  - elbow_r     */
-     3,  4,  /* elbow_r     - wrist_r     */
-     5,  6,  /* shoulder_l  - elbow_l     */
-     6,  7,  /* elbow_l     - wrist_l     */
-     1,  8,  /* neck        - hip_r       */
-     8,  9,  /* hip_r       - knee_r      */
-     9, 10,  /* knee_r      - ankle_r     */
-     1, 11,  /* neck        - hip_l       */
-    11, 12,  /* hip_l       - knee_l      */
-    12, 13,  /* knee_l      - ankle_l     */
-     1,  0,  /* neck        - nose        */
-     0, 14,  /* nose        - eye_r       */
-    14, 16,  /* eye_r       - ear_r       */
+     5,  2,  /* shoulder_l  - shoulder_r  */
      0, 15,  /* nose        - eye_l       */
-    15, 17   /* eye_l       - ear_l       */
+     0, 14,  /* nose        - eye_r       */
+    15, 17,  /* eye_l       - ear_l       */
+    14, 16,  /* eye_r       - ear_r       */
+     6,  5,  /* elbow_l     - shoulder_l  */
+     3,  2,  /* elbow_r     - shoulder_r  */
+     7,  6,  /* wrist_l     - elbow_l     */
+     4,  3,  /* wrist_r     - elbow_r     */
+    11, 12,  /* hip_l       - knee_l      */
+     8,  9,  /* hip_r       - knee_r      */
+    12, 13,  /* knee_l      - ankle_l     */
+     9, 10   /* knee_r      - ankle_r     */
 };
 
 static const GstAnalyticsKeypointDescriptor gst_keypoint_descriptor_openpose18 = {
@@ -129,7 +124,45 @@ static const GstAnalyticsKeypointDescriptor gst_keypoint_descriptor_openpose18 =
     _gst_keypoint_openpose18_point_names,
     18,
     _gst_keypoint_openpose18_skeleton,
-    17
+    13
+};
+
+/*
+ * HRNet COCO 17-keypoint body pose
+ *
+ * Keypoint indices:
+ *   0  nose           1  eye_l          2  eye_r
+ *   3  ear_l          4  ear_r          5  shoulder_l
+ *   6  shoulder_r     7  elbow_l        8  elbow_r
+ *   9  wrist_l       10  wrist_r       11  hip_l
+ *  12  hip_r         13  knee_l        14  knee_r
+ *  15  ankle_l       16  ankle_r
+ */
+
+#define GST_ANALYTICS_KEYPOINT_BODY_POSE_HRNET_COCO_17 "body-pose/hrnet-coco-17"
+
+static const int _gst_keypoint_hrnet_coco17_skeleton[] = {
+     5,  6,  /* shoulder_l  - shoulder_r  */
+     0,  1,  /* nose        - eye_l       */
+     0,  2,  /* nose        - eye_r       */
+     1,  3,  /* eye_l       - ear_l       */
+     2,  4,  /* eye_r       - ear_r       */
+     7,  5,  /* elbow_l     - shoulder_l  */
+     8,  6,  /* elbow_r     - shoulder_r  */
+     9,  7,  /* wrist_l     - elbow_l     */
+    10,  8,  /* wrist_r     - elbow_r     */
+    11, 13,  /* hip_l       - knee_l      */
+    12, 14,  /* hip_r       - knee_r      */
+    13, 15,  /* knee_l      - ankle_l     */
+    14, 16   /* knee_r      - ankle_r     */
+};
+
+static const GstAnalyticsKeypointDescriptor gst_keypoint_descriptor_hrnet_coco17 = {
+    GST_ANALYTICS_KEYPOINT_BODY_POSE_HRNET_COCO_17,
+    _gst_keypoint_coco17_point_names,
+    17,
+    _gst_keypoint_hrnet_coco17_skeleton,
+    13
 };
 
 /*
@@ -158,6 +191,7 @@ static const GstAnalyticsKeypointDescriptor gst_keypoint_descriptor_centerface5 
 static const GstAnalyticsKeypointDescriptor *const _gst_keypoint_descriptors[] = {
     &gst_keypoint_descriptor_coco17,
     &gst_keypoint_descriptor_openpose18,
+    &gst_keypoint_descriptor_hrnet_coco17,
     &gst_keypoint_descriptor_centerface5,
     NULL
 };

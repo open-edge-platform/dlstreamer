@@ -11,12 +11,16 @@
 #include "tensor.h"
 #include "video_frame.h"
 
+#include <dlstreamer/gst/metadata/gstanalyticskeypointdescriptor.h>
+
 #include <opencv2/imgproc.hpp>
 #include <opencv2/opencv.hpp>
 
 #include <vector>
 
 using namespace post_processing;
+
+static const GstAnalyticsKeypointDescriptor &openpose18_descriptor = gst_keypoint_descriptor_openpose18;
 
 TensorsTable KeypointsOpenPoseConverter::convert(const OutputBlobs &output_blobs) {
     ITT_TASK(__FUNCTION__);
@@ -64,6 +68,18 @@ TensorsTable KeypointsOpenPoseConverter::convert(const OutputBlobs &output_blobs
 
                 // set coordinates relative output map
                 copyKeypointsToGstStructure(tensor_data, pose.keypoints);
+
+                // set descriptor metadata: format, point names, skeleton connections
+                GVA::Tensor tensor(tensor_data);
+                tensor.set_format(openpose18_descriptor.semantic_tag);
+                std::vector<std::string> names(openpose18_descriptor.point_names,
+                                               openpose18_descriptor.point_names + openpose18_descriptor.point_count);
+                std::vector<uint32_t> connections(
+                    openpose18_descriptor.skeleton_connections,
+                    openpose18_descriptor.skeleton_connections + openpose18_descriptor.skeleton_connection_count * 2);
+                tensor.set_vector<std::string>("point_names", names);
+                tensor.set_vector<uint32_t>("point_connections", connections);
+
                 std::vector<GstStructure *> result{tensor_data};
                 tensor_poses.push_back(result);
             }
