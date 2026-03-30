@@ -18,7 +18,7 @@ inline std::string generate_client_id() {
     RPC_STATUS status = UuidCreate(&uuid);
     if (status != RPC_S_OK && status != RPC_S_UUID_LOCAL_ONLY)
         throw std::runtime_error("UuidCreate failed with status " + std::to_string(status));
-    RPC_WSTR szUuid = NULL;
+    RPC_WSTR szUuid = nullptr;
     status = UuidToStringW(&uuid, &szUuid);
     if (status != RPC_S_OK)
         throw std::runtime_error("UuidToStringW failed with status " + std::to_string(status));
