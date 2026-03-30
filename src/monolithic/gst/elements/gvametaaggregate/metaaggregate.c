@@ -12,8 +12,8 @@
 #include "gst/gstinfo.h"
 #include "utils.h"
 #include <gst/gst.h>
-#include <gstanalyticskeypointmtd.h>
 #include <gstanalyticsgroupmtd.h>
+#include <gstanalyticskeypointmtd.h>
 
 gboolean buffer_attach_roi_meta_from_sink_pad(GstBuffer *buf, const GstVideoInfo *src_pad_video_info,
                                               GstGvaMetaAggregatePad *sink_pad);
@@ -149,10 +149,11 @@ gboolean copy_one_gst_analytics_mtd(GstAnalyticsRelationMeta *dst, const GstAnal
         }
 
         // Copy semantic tag
-        const gchar *tag = gst_analytics_group_mtd_get_semantic_tag(src_group);
+        gchar *tag = gst_analytics_group_mtd_get_semantic_tag(src_group);
         if (tag && tag[0] != '\0') {
             gst_analytics_group_mtd_set_semantic_tag(&dst_group, tag);
         }
+        g_free(tag);
 
         // Iterate all members and copy them using generic copy
         gpointer member_state = NULL;
@@ -197,25 +198,21 @@ gboolean copy_one_gst_analytics_mtd(GstAnalyticsRelationMeta *dst, const GstAnal
         gfloat confidence;
         guint8 visibility;
 
-        if (!gst_analytics_keypoint_mtd_get_position((const GstAnalyticsKeypointMtd *)mtd,
-                                                     &x, &y, &z, &dim)) {
+        if (!gst_analytics_keypoint_mtd_get_position((const GstAnalyticsKeypointMtd *)mtd, &x, &y, &z, &dim)) {
             GST_ERROR("Failed to get keypoint position");
             return FALSE;
         }
-        if (!gst_analytics_keypoint_mtd_get_confidence((const GstAnalyticsKeypointMtd *)mtd,
-                                                       &confidence)) {
+        if (!gst_analytics_keypoint_mtd_get_confidence((const GstAnalyticsKeypointMtd *)mtd, &confidence)) {
             GST_ERROR("Failed to get keypoint confidence");
             return FALSE;
         }
-        if (!gst_analytics_keypoint_mtd_get_visibility_flags((const GstAnalyticsKeypointMtd *)mtd,
-                                                             &visibility)) {
+        if (!gst_analytics_keypoint_mtd_get_visibility_flags((const GstAnalyticsKeypointMtd *)mtd, &visibility)) {
             GST_ERROR("Failed to get keypoint visibility");
             return FALSE;
         }
 
         GstAnalyticsKeypointMtd new_kp;
-        if (!gst_analytics_relation_meta_add_keypoint_mtd(dst, dim, x, y, z,
-                                                          visibility, confidence, &new_kp)) {
+        if (!gst_analytics_relation_meta_add_keypoint_mtd(dst, dim, x, y, z, visibility, confidence, &new_kp)) {
             GST_ERROR("Failed to add keypoint mtd to relation meta");
             return FALSE;
         }
@@ -244,12 +241,11 @@ gboolean copy_all_gst_analytics_mtd(GstAnalyticsRelationMeta *src, GstAnalyticsR
     {
         gpointer grp_state = NULL;
         GstAnalyticsMtd grp_mtd;
-        while (gst_analytics_relation_meta_iterate(src, &grp_state,
-                gst_analytics_group_mtd_get_mtd_type(), &grp_mtd)) {
+        while (gst_analytics_relation_meta_iterate(src, &grp_state, gst_analytics_group_mtd_get_mtd_type(), &grp_mtd)) {
             gpointer member_state = NULL;
             GstAnalyticsMtd member;
-            while (gst_analytics_group_mtd_iterate((const GstAnalyticsGroupMtd *)&grp_mtd,
-                    &member_state, GST_ANALYTICS_MTD_TYPE_ANY, &member)) {
+            while (gst_analytics_group_mtd_iterate((const GstAnalyticsGroupMtd *)&grp_mtd, &member_state,
+                                                   GST_ANALYTICS_MTD_TYPE_ANY, &member)) {
                 g_hash_table_add(group_member_ids, GUINT_TO_POINTER(member.id));
             }
         }
