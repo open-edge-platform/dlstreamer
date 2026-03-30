@@ -23,7 +23,7 @@ if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
   echo ""
   echo "Arguments:"
   echo "  MODEL     - Model name (default: yolox_s)"
-  echo "            Supported: yolo_all, yolox-tiny, yolox_s, yolov7, yolov8s, yolov8n-obb, yolov8n-seg, yolov9c, yolov10s, yolo11s, yolo11s-obb, yolo11s-seg, yolo11s-pose"
+  echo "            Supported: yolo_all, yolox-tiny, yolox_s, yolov7, yolov8s, yolov8n-obb, yolov8n-seg, yolov9c, yolov10s, yolo11s, yolo11s-obb, yolo11s-seg, yolo11s-pose, yolo26n, yolo26s, yolo26m, yolo26l, yolo26x, yolo26s-obb, yolo26s-seg, yolo26s-pose"
   echo "  DEVICE    - Device (default: GPU). Supported: CPU, GPU, NPU"
   echo "  INPUT     - Input source (default: Pexels video URL)"
   echo "  OUTPUT    - Output type (default: file). Supported: file, display, fps, json, display-and-json"
@@ -33,7 +33,7 @@ if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
   exit 0
 fi 
 
-MODEL=${1:-"yolox_s"}   # Supported values: yolo_all, yolox-tiny, yolox_s, yolov7, yolov8s, yolov8n-obb, yolov8n-seg, yolov9c, yolov10s, yolo11s, yolo11s-obb, yolo11s-seg, yolo11s-pose
+MODEL=${1:-"yolox_s"}   # Supported values: yolo_all, yolox-tiny, yolox_s, yolov7, yolov8s, yolov8n-obb, yolov8n-seg, yolov9c, yolov10s, yolo11s, yolo11s-obb, yolo11s-seg, yolo11s-pose, yolo26n, yolo26s, yolo26m, yolo26l, yolo26x, yolo26s-obb, yolo26s-seg, yolo26s-pose
 DEVICE=${2:-"GPU"}      # Supported values: CPU, GPU, NPU
 INPUT=${3:-"https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4"}
 OUTPUT=${4:-"file"}     # Supported values: file, display, fps, json, display-and-json

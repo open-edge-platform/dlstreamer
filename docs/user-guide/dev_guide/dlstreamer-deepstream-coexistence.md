@@ -1,4 +1,4 @@
-# Coexistently use of DL Streamer and DeepStream
+# DL Streamer and DeepStream Coexistence
 
 This tutorial explains how to sequentially or simultaneously run DL Streamer and DeepStream on a single machine for optimal performance.
 It serves two main purposes:
@@ -15,10 +15,12 @@ A Python script [coexistence_dls_and_ds.py](https://github.com/open-edge-platfor
 
 ## Detection algorithm
 
+This example loads both DL Streamer and DeepStream to execute media-analytics pipelines on either or both. It has a DL Streamer pipeline and a DeepStream pipeline that perform the same function.
 The DL Streamer pipeline performs license plate detection and subsequently applies OCR to recognize the text. In contrast, the DeepStream pipeline first detects the vehicle, then identifies the license plate within the detected vehicle object, and finally performs OCR to recognize the text.
 
 ## Hardware detection
 
+The first step for the code is to determine which compute resources are available for running media and analytics.
 The list of available GPUs is retrieved using the `lspci -nn` Linux utility.
 NPU detection is performed by verifying the existence of the `/dev/accel` directory.
 CPU information is obtained using the `lscpu` Linux utility.

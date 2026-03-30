@@ -50,7 +50,7 @@ DLS_EXPORT LidarMeta *add_lidar_meta(GstBuffer *buffer, guint lidar_point_count,
                                      GstClockTime exit_lidarparse_timestamp, guint stream_id) {
     if (!buffer) {
         GST_WARNING("Cannot add meta to NULL buffer");
-        return nullptr;
+        return NULL;
     }
 
     GST_DEBUG(
@@ -60,7 +60,7 @@ DLS_EXPORT LidarMeta *add_lidar_meta(GstBuffer *buffer, guint lidar_point_count,
     LidarMeta *meta = (LidarMeta *)gst_buffer_add_meta(buffer, LIDAR_META_INFO, NULL);
     if (!meta) {
         GST_ERROR("Failed to add LidarMeta to buffer");
-        return nullptr;
+        return NULL;
     }
 
     meta->lidar_point_count = lidar_point_count;
