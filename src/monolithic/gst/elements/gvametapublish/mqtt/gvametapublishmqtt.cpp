@@ -9,6 +9,7 @@
 #include <nlohmann/json.hpp>
 using json = nlohmann::json;
 
+#include "generate_client_id.hpp"
 #include "gvametapublishmqtt.hpp"
 
 #include <common.hpp>
@@ -16,40 +17,12 @@ using json = nlohmann::json;
 
 #include <MQTTAsync.h>
 
-#ifdef _WIN32
-#include <rpc.h>
-#else
-#include <uuid/uuid.h>
-#endif
-
 #include <cstdint>
 #include <string>
 #include <thread>
 
 GST_DEBUG_CATEGORY_STATIC(gva_meta_publish_mqtt_debug_category);
 #define GST_CAT_DEFAULT gva_meta_publish_mqtt_debug_category
-
-namespace {
-std::string generate_client_id() {
-#ifdef _WIN32
-    UUID winuuid;
-    UuidCreate(&winuuid);
-    RPC_CSTR szUuid = NULL;
-    UuidToStringA(&winuuid, &szUuid);
-    std::string result(reinterpret_cast<char *>(szUuid));
-    RpcStringFreeA(&szUuid);
-    return result;
-#else
-    uuid_t binuuid;
-    uuid_generate_random(binuuid);
-    char uuid[37];
-    // 36 character UUID string plus terminating character
-    uuid_unparse(binuuid, uuid);
-    return uuid;
-#endif
-}
-
-} // namespace
 
 /* Properties */
 enum {
