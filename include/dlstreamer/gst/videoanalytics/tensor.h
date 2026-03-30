@@ -12,8 +12,8 @@
 #ifndef __TENSOR_H__
 #define __TENSOR_H__
 
-#include "../metadata/gstanalyticskeypointmtd.h"
 #include "../metadata/gstanalyticskeypointdescriptor.h"
+#include "../metadata/gstanalyticskeypointmtd.h"
 #include "../metadata/gva_tensor_meta.h"
 
 #include <gst/analytics/analytics.h>
@@ -616,9 +616,8 @@ class Tensor {
             const gsize keypoint_count = dimensions[0];
             const gsize keypoint_dimension = dimensions[1];
 
-            GstAnalyticsKeypointDimensions dim = (keypoint_dimension == 3)
-                ? GST_ANALYTICS_KEYPOINT_DIMENSIONS_3D
-                : GST_ANALYTICS_KEYPOINT_DIMENSIONS_2D;
+            GstAnalyticsKeypointDimensions dim =
+                (keypoint_dimension == 3) ? GST_ANALYTICS_KEYPOINT_DIMENSIONS_3D : GST_ANALYTICS_KEYPOINT_DIMENSIONS_2D;
 
             // get screen space coordinates of the parent bounding box
             gint x, y, w, h;
@@ -631,7 +630,7 @@ class Tensor {
             gsize stride = (dim == GST_ANALYTICS_KEYPOINT_DIMENSIONS_3D) ? 3 : 2;
             std::vector<gint> positions(keypoint_count * stride);
             for (gsize k = 0; k < keypoint_count; k++) {
-                positions[k * stride]     = x + static_cast<gint>(w * raw_positions[k * keypoint_dimension]);
+                positions[k * stride] = x + static_cast<gint>(w * raw_positions[k * keypoint_dimension]);
                 positions[k * stride + 1] = y + static_cast<gint>(h * raw_positions[k * keypoint_dimension + 1]);
                 if (stride == 3)
                     positions[k * stride + 2] = static_cast<gint>(raw_positions[k * keypoint_dimension + 2]);
@@ -649,13 +648,10 @@ class Tensor {
             }
 
             // create group with keypoints and skeleton in one call
-            if (!gst_analytics_relation_meta_add_keypoints_group(meta,
-                    semantic_tag.c_str(), dim,
-                    positions.size(), positions.data(),
-                    keypoint_count, confidence.data(),
-                    NULL, // visibilities
-                    skeleton_size, skeleton_data,
-                    group_mtd))
+            if (!gst_analytics_relation_meta_add_keypoints_group(meta, semantic_tag.c_str(), dim, positions.size(),
+                                                                 positions.data(), keypoint_count, confidence.data(),
+                                                                 NULL, // visibilities
+                                                                 skeleton_size, skeleton_data, group_mtd))
                 throw std::runtime_error("Failed to create keypoints group meta");
 
             return true;
@@ -704,18 +700,24 @@ class Tensor {
             }
 
             // read positions and confidences from group members
-            struct KpData { gint px; gint py; gint pz; gfloat conf; };
+            struct KpData {
+                gint px;
+                gint py;
+                gint pz;
+                gfloat conf;
+            };
             std::vector<KpData> keypoints(keypoint_count);
 
             gpointer state = NULL;
             GstAnalyticsMtd member;
             gsize idx = 0;
-            while (gst_analytics_group_mtd_iterate(group_mtd, &state,
-                       gst_analytics_keypoint_mtd_get_mtd_type(), &member) && idx < keypoint_count) {
+            while (gst_analytics_group_mtd_iterate(group_mtd, &state, gst_analytics_keypoint_mtd_get_mtd_type(),
+                                                   &member) &&
+                   idx < keypoint_count) {
                 GstAnalyticsKeypointMtd *kp = reinterpret_cast<GstAnalyticsKeypointMtd *>(&member);
                 GstAnalyticsKeypointDimensions dim;
-                gst_analytics_keypoint_mtd_get_position(kp, &keypoints[idx].px, &keypoints[idx].py,
-                                                        &keypoints[idx].pz, &dim);
+                gst_analytics_keypoint_mtd_get_position(kp, &keypoints[idx].px, &keypoints[idx].py, &keypoints[idx].pz,
+                                                        &dim);
                 gst_analytics_keypoint_mtd_get_confidence(kp, &keypoints[idx].conf);
                 if (keypoints[idx].pz != 0)
                     keypoint_dimension = 3;
@@ -742,9 +744,12 @@ class Tensor {
             // read point names from descriptor
             std::vector<std::string> point_names;
 
-            const gchar *semantic_tag = gst_analytics_group_mtd_get_semantic_tag(group_mtd);
+            gchar *semantic_tag = gst_analytics_group_mtd_get_semantic_tag(group_mtd);
+            std::string format_str =
+                (semantic_tag && semantic_tag[0] != '\0') ? std::string(semantic_tag) : std::string("");
             const GstAnalyticsKeypointDescriptor *descriptor =
                 gst_analytics_keypoint_descriptor_find_by_tag(semantic_tag);
+            g_free(semantic_tag);
 
             if (descriptor && descriptor->point_count == keypoint_count) {
                 point_names.resize(keypoint_count);
@@ -766,17 +771,14 @@ class Tensor {
             // find RELATE_TO links between keypoints (skeleton edges)
             for (gsize i = 0; i < keypoint_count; i++) {
                 for (gsize j = i + 1; j < keypoint_count; j++) {
-                    GstAnalyticsRelTypes rel = gst_analytics_relation_meta_get_relation(
-                        group_mtd->meta, kp_ids[i], kp_ids[j]);
+                    GstAnalyticsRelTypes rel =
+                        gst_analytics_relation_meta_get_relation(group_mtd->meta, kp_ids[i], kp_ids[j]);
                     if (rel & GST_ANALYTICS_REL_TYPE_RELATE_TO) {
                         point_connections.push_back(static_cast<uint32_t>(i));
                         point_connections.push_back(static_cast<uint32_t>(j));
                     }
                 }
             }
-
-            std::string format_str = (semantic_tag && semantic_tag[0] != '\0')
-                ? std::string(semantic_tag) : std::string("");
 
             // create keypoint tensor
             GstStructure *gst_structure = gst_structure_new_empty("keypoints");
