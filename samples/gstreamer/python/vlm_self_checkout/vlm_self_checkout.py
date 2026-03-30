@@ -19,13 +19,14 @@ Builds a pipeline that:
 import argparse
 import os
 import signal
+import subprocess
 import sys
 import time
 import urllib.request
 from pathlib import Path
-from ultralytics import YOLO
 
 import gi
+
 gi.require_version("Gst", "1.0")
 gi.require_version("GstAnalytics", "1.0")
 gi.require_version("GObject", "2.0")
@@ -176,17 +177,57 @@ def download_video(video_url: str) -> Path:
     return local_path.resolve()
 
 
+DOWNLOAD_SCRIPT = Path(__file__).resolve().parents[4] / "scripts" / "download_models" / "download_ultralytics_models.py"
+
 def download_detection_model(model_id: str) -> Path:
-    """Return a path to the YOLO OpenVINO IR model, exporting if needed."""
+    """Return a path to the local file with YOLO OpenVINO IR model.
+    Spawn a separate process, as Ultralytics export will create a new instance of OpenVINO runtime
+    which may clash with OpenVINO runtime instance used by DLStreamer."""
     MODELS_DIR.mkdir(parents=True, exist_ok=True)
-    model_path = Path(f"{MODELS_DIR}/{model_id}_openvino_model/{model_id}.xml")
+    model_path = MODELS_DIR / f"{model_id}_int8_openvino_model" / f"{model_id}.xml"
 
     if not model_path.exists():
-        print(f"[detect] exporting {model_id} to OpenVINO format")
-        model = YOLO(f"{model_id}.pt")
-        exported_path = Path(model.export(format="openvino", dynamic=True, int8=True, data="coco128"))
-        if exported_path.resolve() != model_path.parent.resolve():
-            exported_path.parent.rename(model_path.parent)
+        print(f"[detect] exporting {model_id} to OpenVINO format (subprocess)")
+        pt_file = BASE_DIR / f"{model_id}.pt"
+        result = subprocess.run(
+            [sys.executable, str(DOWNLOAD_SCRIPT),
+             "--model", str(pt_file),
+             "--outdir", str(MODELS_DIR),
+             "--int8"],
+            check=False
+        )
+        if result.returncode != 0:
+            raise RuntimeError(f"YOLO model export failed with exit code {result.returncode}")
+        if not model_path.exists():
+            raise RuntimeError(f"Expected model not found at {model_path} after export")
+
+    return model_path.resolve()
+
+
+def download_vlm_model(model_id: str) -> Path:
+    """Return a path to the VLM OpenVINO model, downloading/exporting via a optimum-cli (separate process."""
+    MODELS_DIR.mkdir(parents=True, exist_ok=True)
+    model_name = model_id.split("/")[-1]
+    model_path = MODELS_DIR / model_name
+
+    if not model_path.exists():
+        print(f"[vlm] downloading and exporting {model_id} to OpenVINO format")
+        command = [
+            "optimum-cli",
+            "export",
+            "openvino",
+            "--model",
+            model_id,
+            "--task",
+            "image-text-to-text",
+            "--trust-remote-code",
+            str(model_path),
+        ]
+        result = subprocess.run(command, check=False)
+        if result.returncode != 0:
+            raise RuntimeError(f"VLM model export failed with exit code {result.returncode}")
+        if not model_path.exists():
+            raise RuntimeError(f"Expected VLM model not found at {model_path} after export")
 
     return model_path.resolve()
 
@@ -351,8 +392,8 @@ def parse_args() -> argparse.Namespace:
                         help="Path to text file listing inventory items, one per line")
     parser.add_argument("--excluded-objects-file", default=str(CONFIG_DIR / "excluded_objects.txt"),
                         help="Path to text file listing excluded object types, one per line")
-    parser.add_argument("--genai-model-path", default=str(MODELS_DIR / "MiniCPM-V-4_5"),
-                        help="Path to OpenVINO genai model directory")
+    parser.add_argument("--vlm-model-id", default="openbmb/MiniCPM-V-4_5",
+                        help="Hugging Face model id for VLM (will be downloaded and exported to OpenVINO)")
     parser.add_argument("--genai-device", default="GPU", help="Device for gvagenai inference")
     parser.add_argument("--genai-prompt",
                         default="Describe the items visible on the self-checkout counter.",
@@ -365,7 +406,7 @@ def main() -> int:
 
     video_file = download_video(args.video_url)
     detection_model = download_detection_model(args.detect_model_id)
-    genai_model = Path(args.genai_model_path).resolve()
+    genai_model = download_vlm_model(args.vlm_model_id)
     inventory_file = Path(args.inventory_file).resolve()
     excluded_objects_file = Path(args.excluded_objects_file).resolve()
 
