@@ -499,6 +499,60 @@ void gva_base_inference_cleanup(GvaBaseInference *base_inference) {
     base_inference->ov_extension_lib = nullptr;
 }
 
+/**
+ * Set the core pinning mask
+ * 1. Get the current process CPU affinity mask to use as the default core pinning mask.
+ * 2. If the process affinity mask includes all available cores, and the CPU is PTL-H series, 
+ *    limit the default core pinning mask to the first 4 cores (the P-Cores) to optimize performance.
+ */
+void set_core_pinning_mask(GvaBaseInference *base_inference) {
+    base_inference->core_pinning_mask = ~0ULL; // by default, all cores are available for pinning
+#ifndef _WIN32    
+    int num_cores = sysconf(_SC_NPROCESSORS_ONLN);
+
+    auto cpu_set_to_bitmask = [&num_cores](const cpu_set_t *cpu_set) -> guint64 {
+        guint64 bitmask = 0;
+        for (int i = 0; i < num_cores; ++i) {
+            if (CPU_ISSET(i, cpu_set)) {
+                bitmask |= (1ULL << i);
+            }
+        }
+        return bitmask;
+    };
+
+    cpu_set_t process_affinity_mask;
+    CPU_ZERO(&process_affinity_mask);
+    pthread_t current_thread = pthread_self();
+    // Get current CPU affinity mask
+    if (!pthread_getaffinity_np(current_thread, sizeof(cpu_set_t), &process_affinity_mask)) {
+        // Successfully got the affinity mask, convert it to bitmask for core pinning
+        base_inference->core_pinning_mask = cpu_set_to_bitmask(&process_affinity_mask);
+        // Check if all cores are available for pinning
+        if(CPU_COUNT(&process_affinity_mask) == num_cores) {
+            // All CPU cores are available for pinning
+            if(Utils::isCPUPTLHSeries() && num_cores == TOTAL_CORES_PTL_H) {
+                base_inference->core_pinning_mask = 0xF; // Pin to first 4 cores , the P-Cores
+            }
+        }
+    }
+    else {
+        GST_WARNING_OBJECT(base_inference, "Failed to get CPU affinity mask, core pinning will not be limited by process affinity");
+    }
+#else
+    DWORD_PTR processAffinityMask = 0;
+    DWORD_PTR systemAffinityMask = 0;
+    HANDLE current_process = GetCurrentProcess();
+    if (GetProcessAffinityMask(current_process, &processAffinityMask, &systemAffinityMask)) {
+        base_inference->core_pinning_mask = processAffinityMask;
+        if (processAffinityMask == systemAffinityMask) {
+            // All CPU cores are available for pinning  
+            //if(Utils::isCPUPTLHSeries()) {
+            //    base_inference->core_pinning_mask = 0xF; // Pin to first 4 cores , the P-Cores
+            //}
+        }  
+#endif    
+}
+
 void gva_base_inference_init(GvaBaseInference *base_inference) {
     GST_DEBUG_OBJECT(base_inference, "gva_base_inference_init");
 
@@ -554,7 +608,8 @@ void gva_base_inference_init(GvaBaseInference *base_inference) {
     base_inference->ov_extension_lib = g_strdup(DEFAULT_OV_EXTENSION_LIB);
 
     base_inference->share_va_display_ctx = DEFAULT_SHARE_VADISPLAY_CTX;
-    base_inference->core_pinning_mask = ~0ULL; // by default, all cores are available for pinning
+
+    set_core_pinning_mask(base_inference);    
 }
 
 GstStateChangeReturn gva_base_inference_change_state(GstElement *element, GstStateChange transition) {

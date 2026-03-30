@@ -188,8 +188,9 @@ std::string fixPath(std::string path) {
     return path;
 }
 
-#ifndef _WIN32
+
 bool isCPUPTLHSeries() {
+#ifndef _WIN32
     std::ifstream in("/proc/cpuinfo");
     if (!in.is_open())
         return false;
@@ -209,6 +210,9 @@ bool isCPUPTLHSeries() {
         }
     }
     return false;
-}
+#else
+    return false; // Add support for Windows
 #endif
+}
+
 } // namespace Utils
