@@ -14,8 +14,8 @@ Both the object detection model and the VLM run locally on the edge AI device. N
 
 1. **Detects** objects in each video frame using a YOLO26s model (`gvadetect`)
 2. **Tracks** detected objects across frames (`gvatrack`) and filters by visibility duration
-3. **Selects** frames of interest for enhanced VLM classification using a custom Python element (`gvaframeselection_py`)
-4. **Classifies** tracked items against a known inventory using a VLM (`gvagenai` with MiniCPM-V-4.5)
+3. **Selects** frames of interest for enhanced VLM classification using a custom Python element (`gvaframeselection_py`, see `plugins/python/gvaFrameSelection.py`)
+4. **Classifies** tracked items against a known inventory using a VLM (`gvagenai` with MiniCPM-V-4.5 or custom model)
 5. **Publishes** structured JSONL results and saves snapshot images of classified items
 6. **Writes** an annotated output video with watermarked detection and VLM classification results (`gvawatermark`)
 
@@ -35,20 +35,20 @@ flowchart LR
         fpscounter --> vah264enc["vah264enc"]
         vah264enc --> h264parse["h264parse"]
         h264parse --> mp4mux["mp4mux"]
-        mp4mux --> filesink["filesink\n(.mp4)"]
+        mp4mux --> filesink["📁 filesink\n(.mp4)"]
     end
 
     subgraph Path2["Path 2 — Frame Selection and VLM"]
         direction LR
-        lossprev["gvaframeselection_py\n(frame selection)"] --> vapostproc["vapostproc\n(640×360)"]
-        vapostproc --> gvagenai["gvagenai\n(MiniCPM-V VLM)"]
-        gvagenai --> metapublish["gvametapublish\n(.jsonl)"]
+        selection["gvaframeselection_py\n(frame selection)"] --> vapostproc["vapostproc\n(640×360)"]
+        vapostproc --> vlm["gvagenai\n(VLM)"]
+        vlm --> metapublish["gvametapublish\n(.jsonl)"]
         metapublish --> jpegenc["jpegenc"]
         jpegenc --> multifilesink["📁 multifilesink\n(.jpeg)"]
     end
 
     tee --> watermark
-    tee --> lossprev
+    tee --> selection
 
     Path2 -. "GObject signal bridge\n(frame-selection / vlm-result)" .-> Path1
 ```
@@ -77,21 +77,21 @@ pip install -r export-requirements.txt -r requirements.txt
 
 ### Detection (YOLO26s)
 
-The script automatically exports `yolo26s.pt` (included in this directory) to OpenVINO IR format under `models/yolo26s_openvino_model/`.
+The script automatically downloads `yolo26s.pt` from the Ultralytics hub and converts to OpenVINO IR format under `models/yolo26s_int8_openvino_model/`.
+Use `--detect-model-id` to select a different object detection model.
+
+```bash
+python3 vlm_self_checkout.py --detect-model-id <yolo_model_id>
+```
 
 ### VLM (MiniCPM-V-4.5)
 
-The default VLM model is **MiniCPM-V-4.5**, expected at `models/MiniCPM-V-4_5/`. Export it with:
+The script automatically downloads `openbmb/MiniCPM-V-4.5` from the HuggingFace hub and converts to OpenVINO IR format under `models/MiniCPM-V-4_5/`.
+Use `--vlm-model-id` to select a different VLM model from HuggingFace hub.
 
 ```bash
-optimum-cli export openvino \
-    --model openbmb/MiniCPM-V-4_5 \
-    --task image-text-to-text \
-    --trust-remote-code \
-    models/MiniCPM-V-4_5/
+python3 vlm_self_checkout.py --vlm-model-id <vlm_model_id>
 ```
-
-To use a different model, pass `--genai-model-path` pointing to any OpenVINO GenAI-compatible model directory.
 
 ## Running the Sample
 
@@ -101,15 +101,15 @@ Basic usage (downloads a sample video and exports the detection model automatica
 python3 vlm_self_checkout.py
 ```
 
-With custom model and device settings:
+With non-default AI models and user-defined input video file (and inventory):
 
 ```bash
 python3 vlm_self_checkout.py \
     --video-url https://example.com/checkout.mp4 \
     --inventory-file my-custom-inventory.txt \
-    --detect-model-id yolo26s \
-    --detect-device GPU \
-    --genai-model-path models/MiniCPM-V-4_5/ \
+    --detect-model-id yolo11s \
+    --detect-device NPU \
+    --vlm-model-id Qwen/Qwen2-VL-2B-Instruct \
     --genai-device GPU
 ```
 
@@ -137,10 +137,10 @@ The `plugins/python/gvaFrameSelection.py` file implements a custom `GstBase.Base
 | `--video-url` | Pexels sample video | URL to download a video from |
 | `--detect-model-id` | `yolo26s` | Ultralytics model id for detection |
 | `--detect-device` | `GPU` | Device for YOLO detection inference |
-| `--threshold` | `0.4` | Detection confidence threshold |
+| `--threshold` | `0.4` | Detection confidence threshold (not frame selection threshold) |
 | `--inventory-file` | `config/inventory.txt` | Path to inventory items list |
 | `--excluded-objects-file` | `config/excluded_objects.txt` | Path to excluded object types list |
-| `--genai-model-path` | `models/MiniCPM-V-4_5` | Path to OpenVINO GenAI model directory |
+| `--vlm-model-id` | `openbmb/MiniCPM-V-4_5` | Hugging Face model ID for VLM (downloaded and exported to OpenVINO) |
 | `--genai-device` | `GPU` | Device for VLM inference |
 | `--genai-prompt` | Self-checkout item description | Initial prompt for VLM inference |
 
