@@ -46,14 +46,14 @@ class FrameSelection(GstBase.BaseTransform):
     )
 
     # Element properties: default values and setters/getters 
-    _threshold = 1500  # default threshold in miliseconds
+    _threshold = 1500  # default threshold in milliseconds
     _genai_name = ""  # name of the gvagenai element to control
     _inventory_file = ""  # path to inventory file
     _excluded_objects_file = ""  # path to excluded objects file
 
     @GObject.Property(type=int)
     def threshold(self):
-        'Number of miliseconds an object must be visible and tracked before publishing.'
+        'Number of milliseconds an object must be visible and tracked before publishing.'
         return self._threshold
 
     @threshold.setter
@@ -61,7 +61,7 @@ class FrameSelection(GstBase.BaseTransform):
         self._threshold = value
 
     @GObject.Property(type=str, nick="genai-name",
-                      blurb="Name of the gvagenai element whose prompt-path to update dynamically")
+                      blurb="Name of the gvagenai element whose prompt to update dynamically")
     def genai_name(self):
         return self._genai_name
 
@@ -102,16 +102,13 @@ class FrameSelection(GstBase.BaseTransform):
     @staticmethod
     def _parse_file(path: str, label: str = "items") -> list:
         """Read items from a text file, one item per line."""
-        items = []
         try:
             with open(path, "r") as f:
-                for line in f:
-                    item = line.strip()
-                    if item and not item.startswith("#"):
-                        items.append(item)
+                return [line.strip() for line in f
+                        if line.strip() and not line.strip().startswith("#")]
         except OSError as e:
             print(f"[gvaframeselection] ERROR: cannot read {label} file '{path}': {e}")
-        return items
+            return []
 
     def _resolve_genai_element(self):
         """Look up the gvagenai element by name from the parent pipeline."""
@@ -120,21 +117,19 @@ class FrameSelection(GstBase.BaseTransform):
         if not self._genai_name:
             return None
         pipeline = self.get_parent()
-        if pipeline is None:
-            return None
-        self._genai_element = pipeline.get_by_name(self._genai_name)
+        if pipeline:
+            self._genai_element = pipeline.get_by_name(self._genai_name)
         if self._genai_element is None:
             print(f"[gvaframeselection] WARNING: could not find element named '{self._genai_name}'")
         return self._genai_element
 
     def _update_genai_prompt(self, prompt_text: str):
         """Set prompt property on the gvagenai element."""
-        if not self._genai_element:
-            self._resolve_genai_element()
-        if self._genai_element is None:
+        elem = self._genai_element or self._resolve_genai_element()
+        if elem:
+            elem.set_property("prompt", prompt_text)
+        else:
             print(f"[gvaframeselection] WARNING: cannot update gvagenai prompt because element reference could not be resolved")
-            return
-        self._genai_element.set_property("prompt", prompt_text)
 
     def do_transform_ip(self, buffer):
         """Frame selection logic for VLM Self Checkout.
@@ -146,7 +141,7 @@ class FrameSelection(GstBase.BaseTransform):
         if state != Gst.State.PLAYING:
             return Gst.FlowReturn.OK
         
-        # Convert frame timestamp to miliseconds
+        # Convert frame timestamp to milliseconds
         self._framecount += 1
         total_miliseconds = buffer.pts // Gst.MSECOND if buffer.pts != Gst.CLOCK_TIME_NONE else 0
 
@@ -156,37 +151,39 @@ class FrameSelection(GstBase.BaseTransform):
             return GST_BASE_TRANSFORM_FLOW_DROPPED
 
         for mtd in rmeta:
-            if isinstance(mtd, GstAnalytics.ODMtd):
-                # skip objects of excluded types (e.g. person, dining_table)
-                if GLib.quark_to_string(mtd.get_obj_type()) in self._excluded_objects:
+            if not isinstance(mtd, GstAnalytics.ODMtd):
+                continue
+            # skip objects of excluded types (e.g. person, dining_table)
+            if GLib.quark_to_string(mtd.get_obj_type()) in self._excluded_objects:
+                continue
+            # find tracker objects associated with detected objects and update their stats
+            for other in rmeta:
+                if not isinstance(other, GstAnalytics.TrackingMtd):
                     continue
-                # find tracker objects associated with detected objects their stats
-                for other in rmeta:
-                    if not isinstance(other, GstAnalytics.TrackingMtd):
-                        continue
-                    rel = rmeta.get_relation(mtd.id, other.id)
-                    if rel == GstAnalytics.RelTypes.RELATE_TO:
-                        success, tracking_id, _, _, _ = other.get_info()
-                        if success:
-                            if tracking_id not in self._tracked_objects:
-                                self._tracked_objects[tracking_id] = TrackedObject(mtd.get_obj_type(), 1, False)
-                                self._tracked_objects[tracking_id].first_seen = total_miliseconds
-                            elif self._tracked_objects[tracking_id].quark == mtd.get_obj_type():
-                                self._tracked_objects[tracking_id].last_seen = total_miliseconds
+                if rmeta.get_relation(mtd.id, other.id) != GstAnalytics.RelTypes.RELATE_TO:
+                    continue
+                success, tracking_id, _, _, _ = other.get_info()
+                if not success:
+                    continue
+                obj_type = mtd.get_obj_type()
+                if tracking_id not in self._tracked_objects:
+                    self._tracked_objects[tracking_id] = TrackedObject(obj_type, first_seen=total_miliseconds)
+                elif self._tracked_objects[tracking_id].quark == obj_type:
+                    self._tracked_objects[tracking_id].last_seen = total_miliseconds
 
-
-        # for other frames check if objects are visible for preconfigured number of frames and publish
-        for self_tracked_id, tracked_obj in self._tracked_objects.items():
-            if (tracked_obj.last_seen - tracked_obj.first_seen) >= self._threshold and not tracked_obj.published:
-                tracked_obj.published = True
-                obj_name = GLib.quark_to_string(tracked_obj.quark).lower()
-                matched_items = [item for item in self._inventory if obj_name in item.lower() or item.lower() in obj_name]
-                if matched_items:
-                    items_list = ", ".join(matched_items)
-                    self._update_genai_prompt(
-                        f"Which of the following items is visible in this image: {items_list}? "
-                        f"Reply only with names of detected items. If no items from the list are visible, reply None.")
-                return Gst.FlowReturn.OK
+        # check if any object has been visible long enough to publish
+        for tracked_obj in self._tracked_objects.values():
+            if tracked_obj.published or (tracked_obj.last_seen - tracked_obj.first_seen) < self._threshold:
+                continue
+            tracked_obj.published = True
+            obj_name = GLib.quark_to_string(tracked_obj.quark).lower()
+            matched_items = [item for item in self._inventory if obj_name in item.lower() or item.lower() in obj_name]
+            if matched_items:
+                items_list = ", ".join(matched_items)
+                self._update_genai_prompt(
+                    f"Which of the following items is visible in this image: {items_list}? "
+                    f"Reply only with names of detected items. If no items from the list are visible, reply None.")
+            return Gst.FlowReturn.OK
 
         return GST_BASE_TRANSFORM_FLOW_DROPPED
 

@@ -32,11 +32,11 @@ gi.require_version("GstAnalytics", "1.0")
 gi.require_version("GObject", "2.0")
 from gi.repository import Gst, GLib, GObject, GstAnalytics  # pylint: disable=no-name-in-module, wrong-import-position
 
-# ---------------------------------------------------------------------------
-# GObject signal bridge for cross-branch analytics communication
-# ---------------------------------------------------------------------------
 class GenaiSignalBridge(GObject.Object):
-    """Emits 'genai-result' signal carrying analytics text from Path 2."""
+    """
+    Cross-branch signal bridge: stores latest frame-selection and VLM results.
+    Signal handlers update the bridge's state directly when signals are emitted.
+    """
     _frame_selection_quark = None
     _frame_selection_confidence = 0.0
     _frame_selection_pts = 0
@@ -48,28 +48,23 @@ class GenaiSignalBridge(GObject.Object):
 
     @GObject.Signal(arg_types=(GObject.TYPE_UINT, GObject.TYPE_DOUBLE, GObject.TYPE_UINT64, GObject.TYPE_UINT64))
     def vlm_result(self, label_quark: int, confidence: float, pts: int, system_time_ns: int):
-        pass
+        self._vlm_quark = label_quark
+        self._vlm_confidence = confidence
+        self._vlm_pts = pts
+        self._vlm_time = system_time_ns
 
     @GObject.Signal(arg_types=(GObject.TYPE_UINT, GObject.TYPE_DOUBLE, GObject.TYPE_UINT64, GObject.TYPE_UINT64))
     def frame_selection(self, objects_quark: int, confidence: float, pts: int, system_time_ns: int):
-        pass
+        self._frame_selection_quark = objects_quark
+        self._frame_selection_confidence = confidence
+        self._frame_selection_pts = pts
+        self._frame_selection_time = system_time_ns
 
-def _on_frame_selection(bridge, objects_quark, confidence, pts, system_time_ns):
-    """Signal handler: log frame-selection event with detected objects."""
-    bridge._frame_selection_quark = objects_quark
-    bridge._frame_selection_confidence = confidence
-    bridge._frame_selection_pts = pts
-    bridge._frame_selection_time = system_time_ns
-
-def _on_vlm_result(bridge, label_quark, confidence, pts, system_time_ns):
-    """Signal handler: log latest vlm result on the bridge."""
-    bridge._vlm_quark = label_quark
-    bridge._vlm_confidence = confidence
-    bridge._vlm_pts = pts
-    bridge._vlm_time = system_time_ns
-
-def _vlm_probe_cb(pad, info, bridge):
-    """Probe on vlm sink: extract detected objects and emit frame-selection signal."""
+def _post_selection_cb(pad, info, bridge):
+    """
+    Probe on gvaframeselection_py src pad: extract detected objects and emit frame-selection signal.
+    Called for each buffer after frame selection logic.
+    """
     buf = info.get_buffer()
     if buf is None:
         return Gst.PadProbeReturn.OK
@@ -81,24 +76,25 @@ def _vlm_probe_cb(pad, info, bridge):
     labels = []
     confidence = 0.0
     for mtd in rmeta:
-        if isinstance(mtd, GstAnalytics.ODMtd):
-            quark = mtd.get_obj_type()
-            if quark:
-                label = GLib.quark_to_string(quark)
-                _, confidence_lvl = mtd.get_confidence_lvl()
-                confidence = max(confidence, confidence_lvl)
-                if label:
-                    labels.append(label)
+        if not isinstance(mtd, GstAnalytics.ODMtd):
+            continue
+        label = GLib.quark_to_string(mtd.get_obj_type())
+        if label:
+            labels.append(label)
+            _, confidence_lvl = mtd.get_confidence_lvl()
+            confidence = max(confidence, confidence_lvl)
 
     if labels:
-        objects_str = ", ".join(labels)
-        objects_quark = GLib.quark_from_string(objects_str)
+        objects_quark = GLib.quark_from_string(", ".join(labels))
         bridge.emit("frame-selection", objects_quark, confidence, int(buf.pts), int(time.time_ns()))
 
     return Gst.PadProbeReturn.OK
 
-def _metapublish_probe_cb(pad, info, bridge):
-    """Probe on gvametapublish sink: extract VLM result and emit signal."""
+def _post_vlm_cb(pad, info, bridge):
+    """
+    Probe on gvagenai src pad: extract VLM result and emit signal.
+    Called for each buffer after VLM model inference.
+    """
     buf = info.get_buffer()
     if buf is None:
         return Gst.PadProbeReturn.OK
@@ -109,33 +105,33 @@ def _metapublish_probe_cb(pad, info, bridge):
 
     # retrieve analysis result from VLM model and emit it via the bridge
     for mtd in rmeta:
-        if (isinstance(mtd, GstAnalytics.ClsMtd)):
-            label_quark = mtd.get_quark(0)
-            if label_quark:
-                bridge.emit("vlm-result", int(label_quark), float(mtd.get_level(0)), int(buf.pts), int(time.time_ns()))
-                break
+        if isinstance(mtd, GstAnalytics.ClsMtd) and mtd.get_quark(0):
+            bridge.emit("vlm-result", int(mtd.get_quark(0)), float(mtd.get_level(0)), int(buf.pts), int(time.time_ns()))
+            break
 
     return Gst.PadProbeReturn.OK
 
 
-def _watermark_probe_cb(pad, info, bridge):
-    """Probe on gvawatermark sink: overlay information from frame-selection and gvagenai results."""
+def _pre_watermark_cb(pad, info, bridge):
+    """
+    Probe on gvawatermark sink pad: overlay information from frame-selection and VLM results.
+    Adds overlay metadata to the frame for display.
+    """
     buf = info.get_buffer()
     if buf is None:
         return Gst.PadProbeReturn.OK
 
     # get (or create) analytics metadata attached to a frame buffer
     rmeta = GstAnalytics.buffer_get_analytics_relation_meta(buf)
+    if not rmeta and buf.make_writable():
+        rmeta = GstAnalytics.buffer_add_analytics_relation_meta(buf)
     if not rmeta:
-        if buf.make_writable():
-            rmeta = GstAnalytics.buffer_add_analytics_relation_meta(buf)
-            if rmeta is None:
-                print("[probes] failed to add analytics metadata to buffer")
-                return Gst.PadProbeReturn.OK
-            
-    # display frame selection output for max 4 seconds  
-    if (bridge._frame_selection_quark is not None) and (buf.pts - bridge._frame_selection_pts < 4 * Gst.SECOND):
-        frame_time = (bridge._frame_selection_pts) / Gst.SECOND
+        print("[probes] failed to add analytics metadata to buffer")
+        return Gst.PadProbeReturn.OK
+
+    # display frame selection output for max 4 seconds
+    if bridge._frame_selection_quark is not None and (buf.pts - bridge._frame_selection_pts) < 4 * Gst.SECOND:
+        frame_time = bridge._frame_selection_pts / Gst.SECOND
         text = f"[{frame_time:.2f} s] Frame selection, detected objects: {GLib.quark_to_string(bridge._frame_selection_quark)} "
         rmeta.add_od_mtd(GLib.quark_from_string(text), 10, 50, 0, 0, bridge._frame_selection_confidence)
 
@@ -161,7 +157,7 @@ def download_video(video_url: str) -> Path:
     """Return a local video path, downloading from URL if needed."""
     VIDEOS_DIR.mkdir(parents=True, exist_ok=True)
     filename = video_url.rstrip("/").split("/")[-1]
-    if not os.path.splitext(filename)[1]:
+    if not Path(filename).suffix:
         filename += ".mp4"
 
     local_path = VIDEOS_DIR / filename
@@ -274,8 +270,8 @@ def construct_pipeline(
         # Path 2: analytics — frame selection filter → VLM classification → save snapshots
         f'detect_tee. ! '
         f'queue ! '
-        f'gvaframeselection_py threshold=1500 genai-name=vlm inventory-file="{inventory_file}" excluded-objects-file="{excluded_objects_file}" ! '
-        f'vapostproc name=vapostproc ! video/x-raw,format=NV12,width=640,height=360 ! '
+        f'gvaframeselection_py name=selection threshold=1500 genai-name=vlm inventory-file="{inventory_file}" excluded-objects-file="{excluded_objects_file}" ! '
+        f'vapostproc ! video/x-raw,format=NV12,width=640,height=360 ! '
         f'gvagenai name=vlm '
         f'model-path="{genai_model}" '
         f'device={genai_device} '
@@ -297,30 +293,13 @@ def construct_pipeline(
         raise RuntimeError(f"Pipeline parse error: {error}") from error
 
     # --- Set up cross-branch analytics signal bridge ---
+    # gvaframeselection and gvagenai output (src) probes will generate signals consumed by watermark input (sink) probe
     bridge = GenaiSignalBridge()
-    bridge.connect("frame-selection", _on_frame_selection)
-    bridge.connect("vlm-result", _on_vlm_result)
-
-    # Attach 'frame-selection' signal producer probe to gvametapublish sink pad (Path 2)
-    vlm = pipeline.get_by_name("vapostproc")
-    if vlm:
-        ga_sink = vlm.get_static_pad("sink")
-        ga_sink.add_probe(Gst.PadProbeType.BUFFER, _vlm_probe_cb, bridge)
-
-    # Attach 'vlm-result' signal producer probe to gvametapublish sink pad (Path 2)
-    metapublish = pipeline.get_by_name("metapublish")
-    if metapublish:
-        mp_sink = metapublish.get_static_pad("sink")
-        mp_sink.add_probe(Gst.PadProbeType.BUFFER, _metapublish_probe_cb, bridge)
-
-    # Attach signal-consumer probe to gvawatermark sink pad (Path 1)
-    watermark = pipeline.get_by_name("watermark")
-    if watermark:
-        wm_sink = watermark.get_static_pad("sink")
-        wm_sink.add_probe(Gst.PadProbeType.BUFFER, _watermark_probe_cb, bridge)
+    pipeline.get_by_name("selection").get_static_pad("src").add_probe(Gst.PadProbeType.BUFFER, _post_selection_cb, bridge)
+    pipeline.get_by_name("vlm").get_static_pad("src").add_probe(Gst.PadProbeType.BUFFER, _post_vlm_cb, bridge)
+    pipeline.get_by_name("watermark").get_static_pad("sink").add_probe(Gst.PadProbeType.BUFFER, _pre_watermark_cb, bridge)
 
     return pipeline
-
 
 def setup_gst_plugins() -> None:
     """Register local Python plugin path and initialise GStreamer."""
@@ -343,7 +322,7 @@ def setup_gst_plugins() -> None:
         )
 
 def run_pipeline(pipeline: Gst.Pipeline) -> None:
-    """Run and block on a GStreamer pipeline."""
+    """Run a GStreamer pipeline and handle user interrupt (Ctrl-C)."""
 
     # Handle Ctrl-C: send EOS so muxers finalize properly
     def _sigint_handler(signum, frame):
