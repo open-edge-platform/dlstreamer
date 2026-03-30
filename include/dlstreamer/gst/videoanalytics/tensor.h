@@ -379,6 +379,8 @@ class Tensor {
     template <typename T>
     std::vector<T> get_vector(const char *field_name) const {
         const GValue *garray = gst_structure_get_value(_structure, field_name);
+        if (!garray || !GST_VALUE_HOLDS_ARRAY(garray))
+            return {};
         guint size = gst_value_array_get_size(garray);
         std::vector<T> result;
         result.resize(size);
