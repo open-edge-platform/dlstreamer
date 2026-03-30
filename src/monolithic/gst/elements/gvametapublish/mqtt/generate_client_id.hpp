@@ -33,7 +33,7 @@ inline std::string generate_client_id() {
 
 inline std::string generate_client_id() {
     // 36 character UUID string plus terminating character
-    static constexpr int kUuidStringLen = UUID_STRING_LEN + 1;
+    static constexpr int kUuidStringLen = UUID_STR_LEN + 1;
     uuid_t binuuid;
     uuid_generate_random(binuuid);
     char uuid[kUuidStringLen];
