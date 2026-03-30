@@ -1,0 +1,20 @@
+diff --git a/subprojects/gst-plugins-bad/sys/va/gstvabasetransform.c b/subprojects/gst-plugins-bad/sys/va/gstvabasetransform.c
+index b249d33be00597f7c8db1616662d8bb334c0793d..6e1633fc331bc00a78c53860dc6f77e982f8b12d 100644
+--- a/subprojects/gst-plugins-bad/sys/va/gstvabasetransform.c
++++ b/subprojects/gst-plugins-bad/sys/va/gstvabasetransform.c
+@@ -534,6 +534,10 @@ gst_va_base_transform_generate_output (GstBaseTransform * trans,
+   gst_video_frame_unmap (&src_frame);
+   gst_video_frame_unmap (&dest_frame);
+
++  /* Copy timestamps and flags from source buffer to destination */
++  gst_buffer_copy_into (buffer, *outbuf,
++      GST_BUFFER_COPY_FLAGS | GST_BUFFER_COPY_TIMESTAMPS, 0, -1);
++
+   res = btrans_klass->copy_metadata (trans, *outbuf, buffer);
+   if (!res)
+     GST_WARNING_OBJECT (self, "failed to copy metadata");
+ 
+
+-- 
+2.43.0
+
