@@ -5,7 +5,7 @@ integration with the Deep Learning Streamer pipeline.
 
 ## Ultralytics Model Preparation
 
-All models supported by the [ultralytics/ultralytics](https://github.com/ultralytics/ultralytics) library can be converted to OpenVINO™ IR format by using the [Ultralytics exporter](https://docs.ultralytics.com/integrations/openvino/). DL Streamer supports many Ultralytics YOLO architectures for tasks such as zero-shot object detection, oriented object detection, segmentation, pose estimation, and more. See the [Supported Models](https://docs.openedgeplatform.intel.com/2026.0/edge-ai-libraries/dlstreamer/supported_models.html) table for details.
+All models supported by the [ultralytics/ultralytics](https://github.com/ultralytics/ultralytics) library can be converted to OpenVINO™ IR format by using the [Ultralytics exporter](https://docs.ultralytics.com/integrations/openvino/). DL Streamer supports many Ultralytics YOLO architectures for tasks such as zero-shot object detection, oriented object detection, segmentation, pose estimation, and more. See the [Supported Models](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/supported_models.html) table for details.
 
 > **NOTE:** The instructions below are comprehensive, but for convenience, we recommend using the
 > [download_ultralytics_models.py](https://github.com/open-edge-platform/dlstreamer/blob/main/scripts/download_models/download_ultralytics_models.py)

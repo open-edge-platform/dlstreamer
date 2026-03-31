@@ -8,17 +8,17 @@
 #define G3D_LIDARMETA_H
 
 #include "gva_export.h"
-#include <cstddef>
 #include <gst/gst.h>
+#include <stddef.h>
 
 G_BEGIN_DECLS
 
 typedef struct _LidarMeta {
     GstMeta meta;
-    guint lidar_point_count; // Number of points in this frame. Each point occupies 4 floats (x, y, z, intensity).
-    size_t frame_id;         // Sequential frame identifier from the source stream.
-    GstClockTime exit_lidarparse_timestamp; // Timestamp (GStreamer clock time) when this buffer exits g3dlidarparse.
-    guint stream_id; // Stream identifier (group-id from STREAM_START) for multi-stream pipelines.
+    guint lidar_point_count; /* Number of points in this frame. Each point occupies 4 floats (x, y, z, intensity). */
+    size_t frame_id;         /* Sequential frame identifier from the source stream. */
+    GstClockTime exit_lidarparse_timestamp; /* Timestamp (GStreamer clock time) when this buffer exits g3dlidarparse. */
+    guint stream_id; /* Stream identifier (group-id from STREAM_START) for multi-stream pipelines. */
 } LidarMeta;
 
 DLS_EXPORT GType lidar_meta_api_get_type(void);
@@ -32,4 +32,4 @@ DLS_EXPORT LidarMeta *add_lidar_meta(GstBuffer *buffer, guint lidar_point_count,
 
 G_END_DECLS
 
-#endif // G3D_LIDARMETA_H
+#endif
