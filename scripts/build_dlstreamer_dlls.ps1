@@ -287,12 +287,12 @@ if ($GSTREAMER_NEEDS_INSTALL) {
 		Invoke-DownloadFile -UserAgent "curl/8.5.0" -OutFile $GSTREAMER_DEVEL_INSTALLER -Uri "https://gstreamer.freedesktop.org/data/pkg/windows/${GSTREAMER_VERSION}/msvc/gstreamer-1.0-devel-msvc-x86_64-${GSTREAMER_VERSION}.msi"
 
 		Write-Host "Installing GStreamer runtime package..."
-		$process = Start-Process -Wait -PassThru -FilePath "msiexec" -ArgumentList "/passive", "/i", $GSTREAMER_RUNTIME_INSTALLER, "/qn"
+		$process = Start-Process -Wait -PassThru -FilePath "msiexec" -ArgumentList "/passive", "/i", $GSTREAMER_RUNTIME_INSTALLER, "/qn", "ADDLOCAL=ALL"
 		if ($process.ExitCode -ne 0) {
 			Write-Error "GStreamer runtime installation failed with exit code: $($process.ExitCode)"
 		}
 		Write-Host "Installing GStreamer development package..."
-		$process = Start-Process -Wait -PassThru -FilePath "msiexec" -ArgumentList "/passive", "/i", $GSTREAMER_DEVEL_INSTALLER, "/qn"
+		$process = Start-Process -Wait -PassThru -FilePath "msiexec" -ArgumentList "/passive", "/i", $GSTREAMER_DEVEL_INSTALLER, "/qn", "ADDLOCAL=ALL"
 		if ($process.ExitCode -ne 0) {
 			Write-Error "GStreamer development installation failed with exit code: $($process.ExitCode)"
 		}
