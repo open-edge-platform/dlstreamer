@@ -73,16 +73,14 @@ main() {
     done
 
     # Download the DL Streamer src code
-    cd ../../..
-    git submodule update --init libraries/dl-streamer/thirdparty/spdlog
-    cd libraries
+    REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+    cd "$REPO_ROOT"
+    git submodule update --init thirdparty/spdlog
     rm -rf ~/intel-dlstreamer-${DLSTREAMER_VERSION}*
-    cp -r dl-streamer ~
-    mv ~/dl-streamer ~/intel-dlstreamer-${DLSTREAMER_VERSION}
+    cp -r "$REPO_ROOT" ~/intel-dlstreamer-${DLSTREAMER_VERSION}
     cd ~
     tar czf intel-dlstreamer-${DLSTREAMER_VERSION}.tar.gz intel-dlstreamer-${DLSTREAMER_VERSION}
-    cd -
-    mv ~/intel-dlstreamer-${DLSTREAMER_VERSION}.tar.gz dl-streamer/SPECS/
+    mv ~/intel-dlstreamer-${DLSTREAMER_VERSION}.tar.gz "$SCRIPT_DIR/"
     log_info ""
 }
 

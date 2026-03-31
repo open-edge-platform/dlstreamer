@@ -120,14 +120,13 @@ jobs:
       DLS_COVERITY_EMAIL: ${{ secrets.DLS_COVERITY_EMAIL }}
       DLS_COVERITY_PROJECT: ${{ secrets.DLS_COVERITY_PROJECT }}
 
-  dls-filter-docker-or-optimizer-related-changes:
+  dls-filter-docker-related-changes:
     permissions:
       contents: read
-    name: "DLS SCAN: detect changes in docker and optimizer dir"
+    name: "DLS SCAN: detect changes in docker dir"
     runs-on: dlstreamer
     outputs:
       docker_changed: ${{ steps.check.outputs.docker_changed }}
-      optimizer_changed: ${{ steps.check.outputs.optimizer_changed }}
     steps:
       - name: Check out dlstreamer repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6.0.2
@@ -141,33 +140,22 @@ jobs:
           cd dlstreamer-repo
           git fetch origin main
 
-      - name: Detect changes in docker or optimizer directory
+      - name: Detect changes in docker  directory
         id: check
         run: |
-          echo "🔍 Checking for changes in 'docker/' and 'scripts/optimizer'..."
+          echo "🔍 Checking for changes in 'docker/' dir"
           cd dlstreamer-repo
           CHANGED_FILES_DOCKER=$(git diff --name-only origin/main...HEAD -- 'docker/')
-          CHANGED_FILES_OPTIMIZER=$(git diff --name-only origin/main...HEAD -- 'scripts/optimizer')
 
           echo "docker_changed=false" >> "$GITHUB_OUTPUT"
-          echo "optimizer_changed=false" >> "$GITHUB_OUTPUT"
 
           if [ -n "${CHANGED_FILES_DOCKER}" ]; then
             echo "📄 Changed Docker-related files:"
             echo "${CHANGED_FILES_DOCKER}"
             echo "docker_changed=true" >> "$GITHUB_OUTPUT"
             echo "🟡 Docker-related changes detected."
-          fi
-
-          if [ -n "${CHANGED_FILES_OPTIMIZER}" ]; then
-            echo "📄 Changed Optimizer-related files:"
-            echo "${CHANGED_FILES_OPTIMIZER}"
-            echo "optimizer_changed=true" >> "$GITHUB_OUTPUT"
-            echo "🟡 Optimizer-related changes detected."
-          fi
-
-          if [ -z "${CHANGED_FILES_DOCKER}" ] && [ -z "${CHANGED_FILES_OPTIMIZER}" ]; then
-            echo "✅ No docker or optimizer related changes."
+          else
+            echo "✅ No docker related changes."
           fi
 
       - name: Clean up
@@ -177,8 +165,8 @@ jobs:
   dls-trivy-config-scan:
     permissions:
       contents: read
-    needs: [dls-filter-docker-or-optimizer-related-changes]
-    if: needs.dls-filter-docker-or-optimizer-related-changes.outputs.docker_changed == 'true'
+    needs: [dls-filter-docker-related-changes]
+    if: needs.dls-filter-docker-related-changes.outputs.docker_changed == 'true'
     name: "DLS SCAN: Trivy ${{ matrix.name }}"
     strategy:
       fail-fast: false
@@ -208,8 +196,8 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
-    needs: [dls-filter-docker-or-optimizer-related-changes]
-    if: needs.dls-filter-docker-or-optimizer-related-changes.outputs.docker_changed == 'true'
+    needs: [dls-filter-docker-related-changes]
+    if: needs.dls-filter-docker-related-changes.outputs.docker_changed == 'true'
     name: "DLS SCAN: Hadolint"
     runs-on: dlstreamer
     strategy:
@@ -405,8 +393,6 @@ jobs:
     permissions:
       contents: read
       packages: read
-    needs: [dls-filter-docker-or-optimizer-related-changes]
-    if: needs.dls-filter-docker-or-optimizer-related-changes.outputs.optimizer_changed == 'true'
     name: "DLS TEST: Optimizer"
     uses: ./.github/workflows/dls-test-optimizer.yaml
     with:
