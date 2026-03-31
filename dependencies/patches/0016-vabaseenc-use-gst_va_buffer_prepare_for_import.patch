@@ -1,0 +1,50 @@
+diff --git a/subprojects/gst-plugins-bad/sys/va/gstvabaseenc.c b/subprojects/gst-plugins-bad/sys/va/gstvabaseenc.c
+index 08ae7f33b6bbcc52b5b8ff73ffb3dfb85cbd6145..2f852a773adabd75b316753a2be9de02ec63026f 100644
+--- a/subprojects/gst-plugins-bad/sys/va/gstvabaseenc.c
++++ b/subprojects/gst-plugins-bad/sys/va/gstvabaseenc.c
+@@ -654,8 +654,8 @@ gst_va_base_enc_handle_frame (GstVideoEncoder * venc,
+ {
+   GstVaBaseEnc *base = GST_VA_BASE_ENC (venc);
+   GstVaBaseEncClass *base_class = GST_VA_BASE_ENC_GET_CLASS (base);
+-  GstFlowReturn ret;
+-  GstBuffer *in_buf = NULL;
++  GstFlowReturn ret = GST_FLOW_ERROR;
++  GstBuffer *in_buf = NULL, *prepared_buf = NULL;
+   GstVideoCodecFrame *frame_encode = NULL;
+ 
+   GST_LOG_OBJECT (venc,
+@@ -671,11 +671,19 @@ gst_va_base_enc_handle_frame (GstVideoEncoder * venc,
+     }
+   }
+ 
+-  ret = gst_va_base_enc_import_input_buffer (base,
+-      frame->input_buffer, &in_buf);
++  prepared_buf = gst_va_buffer_prepare_for_import (frame->input_buffer,
++      base->display);
++  if (!prepared_buf)
++    goto error_buffer_invalid;
++
++  ret = gst_va_base_enc_import_input_buffer (base, prepared_buf, &in_buf);
++
+   if (ret != GST_FLOW_OK)
+     goto error_buffer_invalid;
+ 
++  if (prepared_buf != frame->input_buffer)
++    gst_clear_buffer (&prepared_buf);
++
+   gst_buffer_replace (&frame->input_buffer, in_buf);
+   gst_clear_buffer (&in_buf);
+ 
+@@ -732,6 +740,8 @@ error_buffer_invalid:
+     GST_ELEMENT_ERROR (venc, STREAM, ENCODE,
+         ("Failed to import the input frame: %s.", gst_flow_get_name (ret)),
+         (NULL));
++    if (prepared_buf != frame->input_buffer)
++      gst_clear_buffer (&prepared_buf);
+     gst_clear_buffer (&in_buf);
+     gst_clear_buffer (&frame->output_buffer);
+     gst_video_encoder_finish_frame (venc, frame);
+
+-- 
+2.43.0
+
