@@ -36,14 +36,17 @@ class GenaiSignalBridge(GObject.Object):
     Cross-branch signal bridge: stores latest frame-selection and VLM results.
     Signal handlers update the bridge's state directly when signals are emitted.
     """
-    _frame_selection_quark = None
-    _frame_selection_confidence = 0.0
-    _frame_selection_pts = 0
-    _frame_selection_time = 0
-    _vlm_quark = None
-    _vlm_confidence = 0.0
-    _vlm_pts = 0
-    _vlm_time = 0
+
+    def __init__(self):
+        super().__init__()
+        self._frame_selection_quark = None
+        self._frame_selection_confidence = 0.0
+        self._frame_selection_pts = 0
+        self._frame_selection_time = 0
+        self._vlm_quark = None
+        self._vlm_confidence = 0.0
+        self._vlm_pts = 0
+        self._vlm_time = 0
 
     @GObject.Signal(arg_types=(GObject.TYPE_UINT, GObject.TYPE_DOUBLE, GObject.TYPE_UINT64, GObject.TYPE_UINT64))
     def vlm_result(self, label_quark: int, confidence: float, pts: int, system_time_ns: int):
@@ -100,7 +103,7 @@ def _post_vlm_cb(pad, info, bridge):
 
     rmeta = GstAnalytics.buffer_get_analytics_relation_meta(buf)
     if not rmeta:
-        return Gst.FlowReturn.OK
+        return Gst.PadProbeReturn.OK
 
     # retrieve analysis result from VLM model and emit it via the bridge
     for mtd in rmeta:
@@ -122,11 +125,12 @@ def _pre_watermark_cb(pad, info, bridge):
 
     # get (or create) analytics metadata attached to a frame buffer
     rmeta = GstAnalytics.buffer_get_analytics_relation_meta(buf)
-    if not rmeta and buf.make_writable():
-        rmeta = GstAnalytics.buffer_add_analytics_relation_meta(buf)
     if not rmeta:
-        print("[probes] failed to add analytics metadata to buffer")
-        return Gst.PadProbeReturn.OK
+        if buf.make_writable():
+            rmeta = GstAnalytics.buffer_add_analytics_relation_meta(buf)
+        if not rmeta:
+            print("[probes] failed to add analytics metadata to buffer")
+            return Gst.PadProbeReturn.OK
 
     # display frame selection output for max 4 seconds
     if bridge._frame_selection_quark is not None and (buf.pts - bridge._frame_selection_pts) < 4 * Gst.SECOND:
@@ -306,8 +310,9 @@ def setup_gst_plugins() -> None:
     plugins_dir = str(BASE_DIR / "plugins")
     if plugins_dir not in os.environ.get("GST_PLUGIN_PATH", ""):
         print(f'[plugins] adding "{plugins_dir}" to GST_PLUGIN_PATH')
+        existing_path = os.environ.get("GST_PLUGIN_PATH", "")
         os.environ["GST_PLUGIN_PATH"] = (
-            f"{os.environ.get('GST_PLUGIN_PATH', '')}:{plugins_dir}"
+            f"{existing_path}:{plugins_dir}" if existing_path else plugins_dir
         )
 
     Gst.init(None)
