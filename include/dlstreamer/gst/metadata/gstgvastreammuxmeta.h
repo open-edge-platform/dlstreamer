@@ -7,6 +7,7 @@
 #ifndef __GST_GVA_STREAMMUX_META_H__
 #define __GST_GVA_STREAMMUX_META_H__
 
+#include "gva_export.h"
 #include <gst/gst.h>
 
 G_BEGIN_DECLS
@@ -32,12 +33,12 @@ struct _GstGvaStreammuxMeta {
     guint num_sources;
 };
 
-GType gst_gva_streammux_meta_api_get_type(void);
-const GstMetaInfo *gst_gva_streammux_meta_get_info(void);
+DLS_EXPORT GType gst_gva_streammux_meta_api_get_type(void);
+DLS_EXPORT const GstMetaInfo *gst_gva_streammux_meta_get_info(void);
 
-GstGvaStreammuxMeta *gst_buffer_add_gva_streammux_meta(GstBuffer *buffer, guint source_id, guint64 batch_id,
-                                                       guint num_sources);
-GstGvaStreammuxMeta *gst_buffer_get_gva_streammux_meta(GstBuffer *buffer);
+DLS_EXPORT GstGvaStreammuxMeta *gst_buffer_add_gva_streammux_meta(GstBuffer *buffer, guint source_id, guint64 batch_id,
+                                                                  guint num_sources);
+DLS_EXPORT GstGvaStreammuxMeta *gst_buffer_get_gva_streammux_meta(GstBuffer *buffer);
 
 G_END_DECLS
 
