@@ -144,6 +144,7 @@ jobs:
             -w /workspace \
             ${deb_final_img} \
             bash /workspace/optimizer_tests/scripts/run_optimizer_tests.sh --config-file "/workspace/optimizer_tests/test_config.json"
+
       - name: Upload Docker test results
         if: always()
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f #7.0.0
@@ -151,7 +152,7 @@ jobs:
           name: DLS_optimizer_Docker_${{ matrix.runner_print_label }}_${{ matrix.ubuntu_version }}_results
           path: ${{ env.OPTIMIZER_TESTS_PATH }}/optimizer_results/docker/FINAL_TEST_REPORT.txt
 
-      # ======================================================== OH HOST TESTING PART ========================================================
+      # ======================================================== ON HOST TESTING PART ========================================================
       - name: Link DL Streamer to home directory
         if: always()
         run: |
@@ -160,7 +161,9 @@ jobs:
         if: always()
         run: |
           $DLS_REL_PATH/tests/scripts/installation-on-host-entrypoint.sh $DLS_REL_PATH/deb_packages
+
       - name: Run Optimizer on host
+        id: run_optimizer_on_host
         if: always()
         run: |
           mkdir $OPTIMIZER_TESTS_PATH/optimizer_results/host
@@ -172,6 +175,34 @@ jobs:
         with:
           name: DLS_optimzier_host_${{ matrix.runner_print_label }}_${{ matrix.ubuntu_version }}_results
           path: ${{ env.OPTIMIZER_TESTS_PATH }}/optimizer_results/host/FINAL_TEST_REPORT.txt
+
+      # ======================================================== TEST RESULTS SUMMARY ========================================================
+      - name: Add optimizer test results to summary
+        env:
+          DOCKER_OUTCOME: ${{ steps.run_optimizer_in_docker.outcome }}
+          HOST_OUTCOME: ${{ steps.run_optimizer_on_host.outcome }}
+        if: always()
+        run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 🧪 Optimizer Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Test Environment | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|------------------|--------|" >> $GITHUB_STEP_SUMMARY
+          
+          # Docker test status
+          if [ "$DOCKER_OUTCOME" == "success" ]; then
+            echo "| Optimizer in Docker | ✅ **PASSED** |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Optimizer in Docker | ❌ **FAILED** |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          # Host test status
+          if [ "$HOST_OUTCOME" == "success" ]; then
+            echo "| Optimizer on Host | ✅ **PASSED** |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Optimizer on Host | ❌ **FAILED** |" >> $GITHUB_STEP_SUMMARY
+          fi
+
       - name: Uninstall dlstreamer
         if: always ()
         run: |
