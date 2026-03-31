@@ -9,6 +9,7 @@ import logging
 import textwrap
 import sys
 
+from openvino import Core
 from optimizer import DLSOptimizer # pylint: disable=no-name-in-module
 
 parser = argparse.ArgumentParser(
@@ -46,7 +47,7 @@ parser.add_argument("--enable-cross-stream-batching", action="store_true",
                     help="Enable cross stream batching for inference elements in fps mode")
 parser.add_argument("--log-level", default="INFO", choices=["CRITICAL", "FATAL", "ERROR" ,"WARN", "INFO", "DEBUG"],
                     help="Minimum used log level (default: %(default)s)")
-parser.add_argument("--allowed-devices", nargs="+", default=["CPU", "GPU", "NPU"],
+parser.add_argument("--allowed-devices", nargs="+", default=Core().available_devices,
                     help="List of allowed devices (CPU, GPU, NPU) to be used by the optimizer. If not specified, all available, detected devices will be used.\n"\
                         "Tool does not support discrete GPU selection.\n"\
                         "eg.--allowed-devices CPU NPU,--allowed-devices GPU")
