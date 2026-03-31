@@ -31,7 +31,7 @@ static void gst_gva_streammux_meta_free(GstMeta *meta, GstBuffer *buffer) {
     (void)buffer;
 }
 
-GType gst_gva_streammux_meta_api_get_type(void) {
+DLS_EXPORT GType gst_gva_streammux_meta_api_get_type(void) {
     static GType type = 0;
     static const gchar *tags[] = {NULL};
     if (g_once_init_enter(&type)) {
@@ -41,7 +41,7 @@ GType gst_gva_streammux_meta_api_get_type(void) {
     return type;
 }
 
-const GstMetaInfo *gst_gva_streammux_meta_get_info(void) {
+DLS_EXPORT const GstMetaInfo *gst_gva_streammux_meta_get_info(void) {
     static const GstMetaInfo *meta_info = NULL;
     if (g_once_init_enter(&meta_info)) {
         const GstMetaInfo *mi = gst_meta_register(GST_GVA_STREAMMUX_META_API_TYPE, "GstGvaStreammuxMeta",
@@ -52,8 +52,8 @@ const GstMetaInfo *gst_gva_streammux_meta_get_info(void) {
     return meta_info;
 }
 
-GstGvaStreammuxMeta *gst_buffer_add_gva_streammux_meta(GstBuffer *buffer, guint source_id, guint64 batch_id,
-                                                       guint num_sources) {
+DLS_EXPORT GstGvaStreammuxMeta *gst_buffer_add_gva_streammux_meta(GstBuffer *buffer, guint source_id, guint64 batch_id,
+                                                                  guint num_sources) {
     g_return_val_if_fail(GST_IS_BUFFER(buffer), NULL);
     GstGvaStreammuxMeta *meta = (GstGvaStreammuxMeta *)gst_buffer_add_meta(buffer, GST_GVA_STREAMMUX_META_INFO, NULL);
     if (meta) {
@@ -64,7 +64,7 @@ GstGvaStreammuxMeta *gst_buffer_add_gva_streammux_meta(GstBuffer *buffer, guint 
     return meta;
 }
 
-GstGvaStreammuxMeta *gst_buffer_get_gva_streammux_meta(GstBuffer *buffer) {
+DLS_EXPORT GstGvaStreammuxMeta *gst_buffer_get_gva_streammux_meta(GstBuffer *buffer) {
     g_return_val_if_fail(GST_IS_BUFFER(buffer), NULL);
     return (GstGvaStreammuxMeta *)gst_buffer_get_meta(buffer, GST_GVA_STREAMMUX_META_API_TYPE);
 }
