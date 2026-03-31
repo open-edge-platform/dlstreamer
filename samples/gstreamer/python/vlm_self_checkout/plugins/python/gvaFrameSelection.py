@@ -143,7 +143,7 @@ class FrameSelection(GstBase.BaseTransform):
         
         # Convert frame timestamp to milliseconds
         self._framecount += 1
-        total_miliseconds = buffer.pts // Gst.MSECOND if buffer.pts != Gst.CLOCK_TIME_NONE else 0
+        total_milliseconds = buffer.pts // Gst.MSECOND if buffer.pts != Gst.CLOCK_TIME_NONE else 0
 
         # Drop frame if no object detected
         rmeta = GstAnalytics.buffer_get_analytics_relation_meta(buffer)
@@ -167,9 +167,9 @@ class FrameSelection(GstBase.BaseTransform):
                     continue
                 obj_type = mtd.get_obj_type()
                 if tracking_id not in self._tracked_objects:
-                    self._tracked_objects[tracking_id] = TrackedObject(obj_type, first_seen=total_miliseconds)
+                    self._tracked_objects[tracking_id] = TrackedObject(obj_type, first_seen=total_milliseconds, last_seen=total_milliseconds)
                 elif self._tracked_objects[tracking_id].quark == obj_type:
-                    self._tracked_objects[tracking_id].last_seen = total_miliseconds
+                    self._tracked_objects[tracking_id].last_seen = total_milliseconds
 
         # check if any object has been visible long enough to publish
         for tracked_obj in self._tracked_objects.values():
@@ -184,6 +184,12 @@ class FrameSelection(GstBase.BaseTransform):
                     f"Which of the following items is visible in this image: {items_list}? "
                     f"Reply only with names of detected items. If no items from the list are visible, reply None.")
             return Gst.FlowReturn.OK
+
+        # cleanup list of tracked objects by removing ones not seen for > 10x threshold
+        for tracking_id, tracked_obj in list(self._tracked_objects.items()):
+            if (total_milliseconds - tracked_obj.last_seen) < self._threshold * 10:
+                continue
+            del self._tracked_objects[tracking_id]
 
         return GST_BASE_TRANSFORM_FLOW_DROPPED
 

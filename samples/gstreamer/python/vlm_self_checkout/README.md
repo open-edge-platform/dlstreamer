@@ -15,7 +15,7 @@ Both the object detection model and the VLM run locally on the edge AI device. N
 1. **Detects** objects in each video frame using a YOLO26s model (`gvadetect`)
 2. **Tracks** detected objects across frames (`gvatrack`) and filters by visibility duration
 3. **Selects** frames of interest for enhanced VLM classification using a custom Python element (`gvaframeselection_py`, see `plugins/python/gvaFrameSelection.py`)
-4. **Classifies** tracked items against a known inventory using a VLM (`gvagenai` with MiniCPM-V-4.5 or custom model)
+4. **Classifies** tracked items against a known inventory using a VLM (`gvagenai` with MiniCPM-V 4.5 by default)
 5. **Publishes** structured JSONL results and saves snapshot images of classified items
 6. **Writes** an annotated output video with watermarked detection and VLM classification results (`gvawatermark`)
 
@@ -86,7 +86,7 @@ python3 vlm_self_checkout.py --detect-model-id <yolo_model_id>
 
 ### VLM (MiniCPM-V-4.5)
 
-The script automatically downloads `openbmb/MiniCPM-V-4.5` from the HuggingFace hub and converts to OpenVINO IR format under `models/MiniCPM-V-4_5/`.
+The script automatically downloads `openbmb/MiniCPM-V-4_5` from the HuggingFace hub and converts to OpenVINO IR format under `models/MiniCPM-V-4_5/`.
 Use `--vlm-model-id` to select a different VLM model from HuggingFace hub.
 
 ```bash

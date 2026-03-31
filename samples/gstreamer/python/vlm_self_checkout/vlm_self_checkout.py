@@ -3,7 +3,6 @@
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
-#!/usr/bin/env python3
 """
 DLStreamer VLM Self-Checkout classification sample.
 
@@ -294,6 +293,7 @@ def construct_pipeline(
 
     # --- Set up cross-branch analytics signal bridge ---
     # gvaframeselection and gvagenai output (src) probes will generate signals consumed by watermark input (sink) probe
+    # no need to check if elements exist, as they are created just above and parse_launch would have failed if they were missing
     bridge = GenaiSignalBridge()
     pipeline.get_by_name("selection").get_static_pad("src").add_probe(Gst.PadProbeType.BUFFER, _post_selection_cb, bridge)
     pipeline.get_by_name("vlm").get_static_pad("src").add_probe(Gst.PadProbeType.BUFFER, _post_vlm_cb, bridge)
