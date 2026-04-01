@@ -7,7 +7,7 @@
 include(ExternalProject)
 
 # When changing version, you will also need to change the download hash
-set(DESIRED_VERSION 1.26.6)
+set(DESIRED_VERSION 1.28.1)
 
 # Note: the dependency scripts follow a template, this is left here should other
 # dependencies be added in the future and this file used as a reference.
@@ -33,7 +33,6 @@ ExternalProject_Add(
                         --prefix ${CMAKE_BINARY_DIR}/gstreamer-bin
 		                -Dexamples=disabled
     	                -Dtests=disabled
-    	                -Dvaapi=enabled
     	                -Dlibnice=enabled
     	                -Dgst-examples=disabled
     	                -Ddevtools=disabled
@@ -96,11 +95,6 @@ ExternalProject_Add(
     	                -Dgst-plugins-ugly:nls=disabled
     	                -Dgst-plugins-ugly:x264=disabled
     	                -Dgst-plugins-ugly:gpl=disabled
-    	                -Dgstreamer-vaapi:encoders=enabled
-    	                -Dgstreamer-vaapi:drm=enabled
-    	                -Dgstreamer-vaapi:glx=enabled
-    	                -Dgstreamer-vaapi:wayland=enabled
-    	                -Dgstreamer-vaapi:egl=enabled
 		                --buildtype=release
 		                --libdir=lib/
 		                --libexecdir=bin/
