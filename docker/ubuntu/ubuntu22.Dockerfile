@@ -131,6 +131,7 @@ RUN \
     pluggy==1.5.0 \
     exceptiongroup==1.2.2 \
     iniconfig==2.0.0 \
+    typing-extensions==4.15.0 \
     openvino==2026.0.0
 
 # hadolint ignore=DL3002
