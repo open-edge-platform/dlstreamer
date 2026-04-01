@@ -194,7 +194,7 @@ RUN cp -a /usr/local/lib64/libopencv* ./
 # ==============================================================================
 FROM opencv-builder AS gstreamer-builder
 # Build GStreamer
-ARG GST_VERSION=1.26.10
+ARG GST_VERSION=1.26.11
 
 SHELL ["/bin/bash", "-xo", "pipefail", "-c"]
 WORKDIR /home/dlstreamer
