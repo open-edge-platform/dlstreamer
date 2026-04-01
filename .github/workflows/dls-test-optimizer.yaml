@@ -188,14 +188,14 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Test Environment | Status |" >> $GITHUB_STEP_SUMMARY
           echo "|------------------|--------|" >> $GITHUB_STEP_SUMMARY
-          
+
           # Docker test status
           if [ "$DOCKER_OUTCOME" == "success" ]; then
             echo "| Optimizer in Docker | ✅ **PASSED** |" >> $GITHUB_STEP_SUMMARY
           else
             echo "| Optimizer in Docker | ❌ **FAILED** |" >> $GITHUB_STEP_SUMMARY
           fi
-          
+
           # Host test status
           if [ "$HOST_OUTCOME" == "success" ]; then
             echo "| Optimizer on Host | ✅ **PASSED** |" >> $GITHUB_STEP_SUMMARY
