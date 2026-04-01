@@ -104,7 +104,8 @@ RUN \
     pytest==8.3.3 \
     pluggy==1.5.0 \
     exceptiongroup==1.2.2 \
-    iniconfig==2.0.0
+    iniconfig==2.0.0 \
+    typing-extensions==4.15.0
 
 # hadolint ignore=DL3002
 USER root
