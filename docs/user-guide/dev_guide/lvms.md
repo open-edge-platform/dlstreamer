@@ -2,7 +2,7 @@
 
 This article explains how to prepare models based on the [Hugging Face](https://huggingface.co/welcome) [`transformers`](https://github.com/huggingface/transformers) library for integration with the Deep Learning Streamer pipeline.
 
-Many transformer-based models can be converted to OpenVINO™ IR format using [optimum-cli](https://huggingface.co/docs/optimum-intel/en/openvino/export). DL Streamer supports selected Hugging Face architectures for tasks such as image classification, object detection, audio transcription, and more. See the [Supported Models](https://docs.openedgeplatform.intel.com/2026.0/edge-ai-libraries/dlstreamer/supported_models.html) table for details.
+Many transformer-based models can be converted to OpenVINO™ IR format using [optimum-cli](https://huggingface.co/docs/optimum-intel/en/openvino/export). DL Streamer supports selected Hugging Face architectures for tasks such as image classification, object detection, audio transcription, and more. See the [Supported Models](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/supported_models.html) table for details.
 
 > **NOTE:** The instructions below are comprehensive, but for convenience, we recommend using the
 > [download_hf_models.py](https://github.com/open-edge-platform/dlstreamer/blob/main/scripts/download_models/download_hf_models.py)
@@ -12,7 +12,7 @@ Many transformer-based models can be converted to OpenVINO™ IR format using [o
 
 ## Optimum-Intel Supported Models
 
-The list available [here](https://huggingface.co/docs/optimum-intel/en/openvino/models) includes models that can be converted to IR format with a single `optimum-cli` command. If a model architecture is [supported by DL Streamer](https://docs.openedgeplatform.intel.com/2026.0/edge-ai-libraries/dlstreamer/supported_models.html#supported-architectures), it can typically be prepared as follows:
+The list available [here](https://huggingface.co/docs/optimum-intel/en/openvino/models) includes models that can be converted to IR format with a single `optimum-cli` command. If a model architecture is [supported by DL Streamer](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/supported_models.html#supported-architectures), it can typically be prepared as follows:
 
 ```bash
 optimum-cli export openvino --model provider_id/model_id --weight-format=int8 output_path
