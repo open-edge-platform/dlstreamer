@@ -66,10 +66,10 @@ jobs:
           cp -r dl-streamer-tests-repo/functional_tests $OPTIMIZER_TESTS_PATH
       # ======================================================== BUILDING PART ========================================================
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 #3.11.1
+        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd #4.0.0
 
       - name: Log in to GitHub Container Registry
-        uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef #3.6.0
+        uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 #4.0.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -174,7 +174,7 @@ jobs:
         if: always()
         with:
           name: DLS_optimzier_host_${{ matrix.runner_print_label }}_${{ matrix.ubuntu_version }}_results
-          path: ${{ env.OPTIMIZER_TESTS_PATH }}/optimizer_results/host/FINAL_TEST_REPORT.txt
+          path: ${{ env.OPTIMIZER_TESTS_PATH }}/optimizer_results/host/*
 
       # ======================================================== TEST RESULTS SUMMARY ========================================================
       - name: Add optimizer test results to summary
@@ -188,14 +188,14 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Test Environment | Status |" >> $GITHUB_STEP_SUMMARY
           echo "|------------------|--------|" >> $GITHUB_STEP_SUMMARY
-          
+
           # Docker test status
           if [ "$DOCKER_OUTCOME" == "success" ]; then
             echo "| Optimizer in Docker | ✅ **PASSED** |" >> $GITHUB_STEP_SUMMARY
           else
             echo "| Optimizer in Docker | ❌ **FAILED** |" >> $GITHUB_STEP_SUMMARY
           fi
-          
+
           # Host test status
           if [ "$HOST_OUTCOME" == "success" ]; then
             echo "| Optimizer on Host | ✅ **PASSED** |" >> $GITHUB_STEP_SUMMARY
