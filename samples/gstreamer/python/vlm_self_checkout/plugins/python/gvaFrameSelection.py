@@ -8,7 +8,7 @@
 Custom GStreamer element for VLM self-checkout frame selection.
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 import gi
 
@@ -93,7 +93,6 @@ class FrameSelection(GstBase.BaseTransform):
 
     def __init__(self):
         super().__init__()
-        self._framecount = 0
         self._tracked_objects: dict[int, TrackedObject] = {}  # tracking_id -> TrackedObject
         self._genai_element = None  # resolved reference to the gvagenai element
         self._excluded_objects = []  # object types to exclude from publishing
@@ -142,7 +141,6 @@ class FrameSelection(GstBase.BaseTransform):
             return Gst.FlowReturn.OK
         
         # Convert frame timestamp to milliseconds
-        self._framecount += 1
         total_milliseconds = buffer.pts // Gst.MSECOND if buffer.pts != Gst.CLOCK_TIME_NONE else 0
 
         # Drop frame if no object detected
