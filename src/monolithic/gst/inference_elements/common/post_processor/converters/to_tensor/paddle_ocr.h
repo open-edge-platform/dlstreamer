@@ -402,5 +402,30 @@ class PaddleOCRConverter : public BlobToTensorConverter {
     std::string decodeOutputTensor(const float *item_data);
     std::string decode(const std::vector<int> &text_index);
 
-}; // namespace post_processing
+}; // class PaddleOCRConverter
+
+/*
+PaddleOCRCtcConverter: standard PaddleOCRv5 CTC decoder.
+  - Index 0 is the CTC blank token
+  - Real characters are mapped as vocabulary[index - 1]
+  - Character dictionary is loaded at runtime from config.json (as part of model import)
+  - Sequence length and vocabulary size are derived from the model output tensor shape
+*/
+class PaddleOCRCtcConverter : public BlobToTensorConverter {
+  public:
+    PaddleOCRCtcConverter(BlobToMetaConverter::Initializer initializer);
+    TensorsTable convert(const OutputBlobs &output_blobs) override;
+
+    static std::string getName() {
+        return "paddle_ocr_ctc";
+    }
+
+  private:
+    std::vector<std::string> vocabulary; // loaded from model_proc_output_info character_dict
+    size_t seq_minlen = 1;               // minimum decoded sequence length
+
+    void loadVocabularyFromModelProc();
+    std::pair<std::string, double> ctcDecode(const float *data, size_t seq_len, size_t vocab_size);
+};
+
 } // namespace post_processing
