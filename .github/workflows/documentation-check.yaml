@@ -16,7 +16,7 @@ jobs:
   filter:
     permissions:
       contents: read # needed for actions/checkout
-    runs-on: ubuntu-latest
+    runs-on: dlstreamer
     outputs:
       dlstreamer_documentation_changed: ${{ steps.filter.outputs.dlstreamer_documentation }}
     steps:
