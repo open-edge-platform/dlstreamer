@@ -81,7 +81,9 @@ class PointPillarsRuntime {
         _nn_request.set_input_tensor(0, _voxel_request.get_output_tensor(0));
         _nn_request.set_input_tensor(1, _voxel_request.get_output_tensor(1));
         _nn_request.set_input_tensor(2, _voxel_request.get_output_tensor(2));
-        _nn_request.infer();
+        _nn_request.start_async();
+        // TODO: overlap CPU work here when pipelining multiple frames (e.g., voxel for frame N+1)
+        _nn_request.wait();
 
         _postproc_request.set_input_tensor(0, squeeze_leading_dim(_nn_request.get_output_tensor(0)));
         _postproc_request.set_input_tensor(1, squeeze_leading_dim(_nn_request.get_output_tensor(1)));
