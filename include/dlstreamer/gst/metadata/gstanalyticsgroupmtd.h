@@ -23,9 +23,9 @@
 #ifndef __GST_ANALYTICS_GROUP_MTD_H__
 #define __GST_ANALYTICS_GROUP_MTD_H__
 
-#include <gst/gst.h>
 #include <gst/analytics/analytics-meta-prelude.h>
 #include <gst/analytics/gstanalyticsmeta.h>
+#include <gst/gst.h>
 
 G_BEGIN_DECLS
 
@@ -42,52 +42,45 @@ G_BEGIN_DECLS
  */
 typedef struct _GstAnalyticsMtd GstAnalyticsGroupMtd;
 
+GST_ANALYTICS_META_API
+GstAnalyticsMtdType gst_analytics_group_mtd_get_mtd_type(void);
 
 GST_ANALYTICS_META_API
-GstAnalyticsMtdType gst_analytics_group_mtd_get_mtd_type (void);
+gboolean gst_analytics_group_mtd_has_semantic_tag(const GstAnalyticsGroupMtd *handle, const gchar *tag);
 
 GST_ANALYTICS_META_API
-gboolean gst_analytics_group_mtd_has_semantic_tag (const GstAnalyticsGroupMtd *
-    handle, const gchar * tag);
+gboolean gst_analytics_group_mtd_semantic_tag_has_prefix(const GstAnalyticsGroupMtd *handle, const gchar *prefix);
 
 GST_ANALYTICS_META_API
-gboolean gst_analytics_group_mtd_semantic_tag_has_prefix (const GstAnalyticsGroupMtd *
-    handle, const gchar * prefix);
+gsize gst_analytics_group_mtd_get_member_count(const GstAnalyticsGroupMtd *handle);
 
 GST_ANALYTICS_META_API
-gsize gst_analytics_group_mtd_get_member_count (const GstAnalyticsGroupMtd *
-    handle);
+gboolean gst_analytics_group_mtd_get_member(const GstAnalyticsGroupMtd *handle, gsize index, GstAnalyticsMtd *member);
 
 GST_ANALYTICS_META_API
-gboolean gst_analytics_group_mtd_get_member (const GstAnalyticsGroupMtd *
-    handle, gsize index, GstAnalyticsMtd * member);
+gboolean gst_analytics_group_mtd_iterate(const GstAnalyticsGroupMtd *handle, gpointer *state, GstAnalyticsMtdType type,
+                                         GstAnalyticsMtd *member);
 
 GST_ANALYTICS_META_API
-gboolean gst_analytics_group_mtd_iterate (const GstAnalyticsGroupMtd * handle,
-    gpointer * state, GstAnalyticsMtdType type, GstAnalyticsMtd * member);
+gboolean gst_analytics_relation_meta_add_group_mtd(GstAnalyticsRelationMeta *instance, gsize pre_alloc_size,
+                                                   GstAnalyticsGroupMtd *group_mtd);
 
 GST_ANALYTICS_META_API
-gboolean gst_analytics_relation_meta_add_group_mtd (GstAnalyticsRelationMeta *
-    instance, gsize pre_alloc_size, GstAnalyticsGroupMtd * group_mtd);
+gboolean gst_analytics_relation_meta_add_group_mtd_with_size(GstAnalyticsRelationMeta *instance, gsize group_size,
+                                                             GstAnalyticsGroupMtd *group_mtd);
 
 GST_ANALYTICS_META_API
-gboolean gst_analytics_relation_meta_add_group_mtd_with_size (GstAnalyticsRelationMeta *
-    instance, gsize group_size, GstAnalyticsGroupMtd * group_mtd);
+gboolean gst_analytics_group_mtd_add_member(GstAnalyticsGroupMtd *handle, guint an_meta_id);
 
 GST_ANALYTICS_META_API
-gboolean gst_analytics_group_mtd_add_member (GstAnalyticsGroupMtd * handle,
-    guint an_meta_id);
+gboolean gst_analytics_group_mtd_set_semantic_tag(GstAnalyticsGroupMtd *handle, const char *tag);
 
 GST_ANALYTICS_META_API
-gboolean gst_analytics_group_mtd_set_semantic_tag (GstAnalyticsGroupMtd * handle,
-    const char * tag);
+gboolean gst_analytics_relation_meta_get_group_mtd(GstAnalyticsRelationMeta *meta, guint an_meta_id,
+                                                   GstAnalyticsGroupMtd *rlt);
 
 GST_ANALYTICS_META_API
-gboolean gst_analytics_relation_meta_get_group_mtd (GstAnalyticsRelationMeta * meta,
-    guint an_meta_id, GstAnalyticsGroupMtd * rlt);
-
-GST_ANALYTICS_META_API
-gchar * gst_analytics_group_mtd_get_semantic_tag (const GstAnalyticsGroupMtd * handle);
+gchar *gst_analytics_group_mtd_get_semantic_tag(const GstAnalyticsGroupMtd *handle);
 
 G_END_DECLS
 #endif /* __GST_ANALYTICS_GROUP_MTD_H__ */

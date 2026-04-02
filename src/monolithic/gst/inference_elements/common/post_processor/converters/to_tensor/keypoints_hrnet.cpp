@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2021-2025 Intel Corporation
+ * Copyright (C) 2021-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -82,9 +82,9 @@ TensorsTable KeypointsHRnetConverter::convert(const OutputBlobs &output_blobs) {
             tensor.set_format(hrnet_coco17_descriptor.semantic_tag);
             std::vector<std::string> names(hrnet_coco17_descriptor.point_names,
                                            hrnet_coco17_descriptor.point_names + hrnet_coco17_descriptor.point_count);
-            std::vector<uint32_t> connections(
-                hrnet_coco17_descriptor.skeleton_connections,
-                hrnet_coco17_descriptor.skeleton_connections + hrnet_coco17_descriptor.skeleton_connection_count * 2);
+            std::vector<uint32_t> connections(hrnet_coco17_descriptor.skeleton_connections,
+                                              hrnet_coco17_descriptor.skeleton_connections +
+                                                  hrnet_coco17_descriptor.skeleton_connection_count * 2);
             tensor.set_vector<std::string>("point_names", names);
             tensor.set_vector<uint32_t>("point_connections", connections);
 

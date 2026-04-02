@@ -109,9 +109,8 @@ class BlobToROIConverter : public BlobToMetaConverter {
 
                 // If all confidence values are identical, treat as a shared detection confidence
                 // and skip per-keypoint zeroing.
-                bool all_same = confidences.size() > 1 &&
-                    std::all_of(confidences.begin(), confidences.end(),
-                                [&](float v) { return v == confidences[0]; });
+                bool all_same = confidences.size() > 1 && std::all_of(confidences.begin(), confidences.end(),
+                                                                      [&](float v) { return v == confidences[0]; });
                 if (all_same)
                     continue;
 
