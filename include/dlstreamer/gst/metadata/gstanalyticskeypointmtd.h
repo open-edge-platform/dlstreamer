@@ -29,7 +29,7 @@
 #include "config.h"
 #endif
 
-#include "gstanalyticsgroupmtd.h"
+#include "dlstreamer/gst/metadata/gstanalyticsgroupmtd.h"
 #include <gst/analytics/analytics-meta-prelude.h>
 #include <gst/analytics/gstanalyticsmeta.h>
 #include <gst/gst.h>
