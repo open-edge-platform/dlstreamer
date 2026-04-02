@@ -80,7 +80,6 @@ void updateTensorNameIfNeeded(GstStructure *s, const std::string &default_name) 
     gst_structure_set_name(s, default_name.c_str());
 }
 
-
 std::string checkOnNameDeprecation(const std::string &converter_name) {
     const std::string GetiDetection = "ssd";
     const std::string GetiClassification = "Classification";

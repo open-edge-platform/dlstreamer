@@ -29,10 +29,10 @@
 #include "config.h"
 #endif
 
-#include <gst/gst.h>
+#include "gstanalyticsgroupmtd.h"
 #include <gst/analytics/analytics-meta-prelude.h>
 #include <gst/analytics/gstanalyticsmeta.h>
-#include "gstanalyticsgroupmtd.h"
+#include <gst/gst.h>
 
 G_BEGIN_DECLS
 
@@ -58,10 +58,9 @@ typedef struct _GstAnalyticsMtd GstAnalyticsKeypointMtd;
  *
  * Since: 1.30
  */
-typedef enum
-{
-  GST_ANALYTICS_KEYPOINT_DIMENSIONS_2D = 2,
-  GST_ANALYTICS_KEYPOINT_DIMENSIONS_3D = 3,
+typedef enum {
+    GST_ANALYTICS_KEYPOINT_DIMENSIONS_2D = 2,
+    GST_ANALYTICS_KEYPOINT_DIMENSIONS_3D = 3,
 } GstAnalyticsKeypointDimensions;
 
 /**
@@ -78,60 +77,43 @@ typedef enum
  * Since: 1.30
  */
 typedef enum {
-  GST_ANALYTICS_KEYPOINT_VISIBILITY_UNKNOWN = 0,
-  GST_ANALYTICS_KEYPOINT_VISIBILITY_VISIBLE = 1,
-  GST_ANALYTICS_KEYPOINT_VISIBILITY_OCCLUDED = 1 << 2,
-  GST_ANALYTICS_KEYPOINT_VISIBILITY_PROJECTED = 1 << 3,
+    GST_ANALYTICS_KEYPOINT_VISIBILITY_UNKNOWN = 0,
+    GST_ANALYTICS_KEYPOINT_VISIBILITY_VISIBLE = 1,
+    GST_ANALYTICS_KEYPOINT_VISIBILITY_OCCLUDED = 1 << 2,
+    GST_ANALYTICS_KEYPOINT_VISIBILITY_PROJECTED = 1 << 3,
 } GstAnalyticsKeypointVisibility;
 
+GST_ANALYTICS_META_API
+GstAnalyticsMtdType gst_analytics_keypoint_mtd_get_mtd_type(void);
 
 GST_ANALYTICS_META_API
-GstAnalyticsMtdType gst_analytics_keypoint_mtd_get_mtd_type (void);
+gboolean gst_analytics_relation_meta_add_keypoint_mtd(GstAnalyticsRelationMeta *instance,
+                                                      GstAnalyticsKeypointDimensions dimension, gint x, gint y, gint z,
+                                                      guint8 visibility_flags, gfloat confidence,
+                                                      GstAnalyticsKeypointMtd *keypoint_mtd);
 
 GST_ANALYTICS_META_API
-gboolean gst_analytics_relation_meta_add_keypoint_mtd (
-    GstAnalyticsRelationMeta *instance,
-    GstAnalyticsKeypointDimensions dimension,
-    gint x, gint y, gint z,
-    guint8 visibility_flags,
-    gfloat confidence,
-    GstAnalyticsKeypointMtd *keypoint_mtd);
+gboolean gst_analytics_keypoint_mtd_get_position(const GstAnalyticsKeypointMtd *handle, gint *x, gint *y, gint *z,
+                                                 GstAnalyticsKeypointDimensions *dimension);
 
 GST_ANALYTICS_META_API
-gboolean gst_analytics_keypoint_mtd_get_position (
-    const GstAnalyticsKeypointMtd *handle,
-    gint *x, gint *y, gint *z,
-    GstAnalyticsKeypointDimensions *dimension);
+gboolean gst_analytics_keypoint_mtd_get_confidence(const GstAnalyticsKeypointMtd *handle, gfloat *confidence);
 
 GST_ANALYTICS_META_API
-gboolean gst_analytics_keypoint_mtd_get_confidence (
-    const GstAnalyticsKeypointMtd *handle,
-    gfloat *confidence);
+gboolean gst_analytics_keypoint_mtd_get_visibility_flags(const GstAnalyticsKeypointMtd *handle,
+                                                         guint8 *visibility_flags);
 
 GST_ANALYTICS_META_API
-gboolean gst_analytics_keypoint_mtd_get_visibility_flags (
-    const GstAnalyticsKeypointMtd *handle,
-    guint8 *visibility_flags);
+gboolean gst_analytics_relation_meta_get_keypoint_mtd(GstAnalyticsRelationMeta *meta, guint an_meta_id,
+                                                      GstAnalyticsKeypointMtd *rlt);
 
 GST_ANALYTICS_META_API
-gboolean gst_analytics_relation_meta_get_keypoint_mtd (
-    GstAnalyticsRelationMeta *meta,
-    guint an_meta_id,
-    GstAnalyticsKeypointMtd *rlt);
-
-GST_ANALYTICS_META_API
-gboolean gst_analytics_relation_meta_add_keypoints_group (
-    GstAnalyticsRelationMeta *instance,
-    const gchar *semantic_tag,
-    GstAnalyticsKeypointDimensions dimension,
-    gsize positions_len,
-    const gint *positions,
-    gsize keypoint_count,
-    const gfloat *confidences,
-    const guint8 *visibilities,
-    gsize skeleton_pairs_len,
-    const gint *skeleton_pairs,
-    GstAnalyticsGroupMtd *group_mtd);
+gboolean gst_analytics_relation_meta_add_keypoints_group(GstAnalyticsRelationMeta *instance, const gchar *semantic_tag,
+                                                         GstAnalyticsKeypointDimensions dimension, gsize positions_len,
+                                                         const gint *positions, gsize keypoint_count,
+                                                         const gfloat *confidences, const guint8 *visibilities,
+                                                         gsize skeleton_pairs_len, const gint *skeleton_pairs,
+                                                         GstAnalyticsGroupMtd *group_mtd);
 
 G_END_DECLS
 
