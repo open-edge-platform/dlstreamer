@@ -1,8 +1,7 @@
-
 name: Bug report
 description: Create an issue to help us improve
 title: '[BUG] <Software> - <Summary>'
-labels: ['BUG','TRIAGE']
+labels: ['BUG', 'TRIAGE']
 body:
   - type: markdown
     attributes:

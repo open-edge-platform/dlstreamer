@@ -1,7 +1,7 @@
-name: Feature Request
-description: File a feature request. 
+name: Feature request
+description: File a feature request.
 title: '[FEATURE]: <Software> - <Summary>'
-labels: ['FEATURE','TRIAGE']
+labels: ['FEATURE', 'TRIAGE']
 body:
 
   - type: markdown
@@ -11,7 +11,7 @@ body:
   - type: textarea
     attributes:
       label: Feature Description
-      description: A clear and concise description of the problem or missing capability. 
+      description: A clear and concise description of the problem or missing capability.
     validations:
       required: true
 
