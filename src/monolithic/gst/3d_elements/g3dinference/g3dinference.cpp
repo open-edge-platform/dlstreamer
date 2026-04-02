@@ -67,40 +67,29 @@ class PointPillarsRuntime {
         _compiled_voxel = _core.compile_model(_core.read_model(_voxel_model_path), "CPU");
         _compiled_nn = _core.compile_model(_core.read_model(_nn_model_path), _device);
         _compiled_postproc = _core.compile_model(_core.read_model(_postproc_model_path), "CPU");
+
+        _voxel_request = _compiled_voxel.create_infer_request();
+        _nn_request = _compiled_nn.create_infer_request();
+        _postproc_request = _compiled_postproc.create_infer_request();
     }
 
     std::vector<float> infer(const float *points, size_t point_count, float score_threshold) {
-        ov::InferRequest voxel_request = _compiled_voxel.create_infer_request();
         ov::Tensor points_tensor(ov::element::f32, ov::Shape{point_count, POINT_SIZE}, const_cast<float *>(points));
-        voxel_request.set_input_tensor(0, points_tensor);
-        voxel_request.infer();
+        _voxel_request.set_input_tensor(0, points_tensor);
+        _voxel_request.infer();
 
-        ov::Tensor pillars = voxel_request.get_output_tensor(0);
-        ov::Tensor coors = voxel_request.get_output_tensor(1);
-        ov::Tensor npoints = voxel_request.get_output_tensor(2);
+        _nn_request.set_input_tensor(0, _voxel_request.get_output_tensor(0));
+        _nn_request.set_input_tensor(1, _voxel_request.get_output_tensor(1));
+        _nn_request.set_input_tensor(2, _voxel_request.get_output_tensor(2));
+        _nn_request.infer();
 
-        ov::InferRequest nn_request = _compiled_nn.create_infer_request();
-        nn_request.set_input_tensor(0, pillars);
-        nn_request.set_input_tensor(1, coors);
-        nn_request.set_input_tensor(2, npoints);
-        nn_request.infer();
+        _postproc_request.set_input_tensor(0, squeeze_leading_dim(_nn_request.get_output_tensor(0)));
+        _postproc_request.set_input_tensor(1, squeeze_leading_dim(_nn_request.get_output_tensor(1)));
+        _postproc_request.set_input_tensor(2, squeeze_leading_dim(_nn_request.get_output_tensor(2)));
+        _postproc_request.infer();
 
-        ov::Tensor cls_preds = nn_request.get_output_tensor(0);
-        ov::Tensor box_preds = nn_request.get_output_tensor(1);
-        ov::Tensor dir_cls_preds = nn_request.get_output_tensor(2);
-
-        ov::Tensor squeezed_cls = squeeze_leading_dim(cls_preds);
-        ov::Tensor squeezed_box = squeeze_leading_dim(box_preds);
-        ov::Tensor squeezed_dir = squeeze_leading_dim(dir_cls_preds);
-
-        ov::InferRequest postproc_request = _compiled_postproc.create_infer_request();
-        postproc_request.set_input_tensor(0, squeezed_cls);
-        postproc_request.set_input_tensor(1, squeezed_box);
-        postproc_request.set_input_tensor(2, squeezed_dir);
-        postproc_request.infer();
-
-        return collect_detections(postproc_request.get_output_tensor(0), postproc_request.get_output_tensor(1),
-                                  postproc_request.get_output_tensor(2), score_threshold);
+        return collect_detections(_postproc_request.get_output_tensor(0), _postproc_request.get_output_tensor(1),
+                                  _postproc_request.get_output_tensor(2), score_threshold);
     }
 
   private:
@@ -180,6 +169,9 @@ class PointPillarsRuntime {
     ov::CompiledModel _compiled_voxel;
     ov::CompiledModel _compiled_nn;
     ov::CompiledModel _compiled_postproc;
+    ov::InferRequest _voxel_request;
+    ov::InferRequest _nn_request;
+    ov::InferRequest _postproc_request;
     std::string _device;
     std::string _extension_lib;
     std::string _voxel_model_path;
