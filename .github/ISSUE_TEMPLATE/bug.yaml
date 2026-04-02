@@ -1,4 +1,4 @@
-name: Bug report
+name: Bug Report
 description: Create an issue to help us improve
 title: '[BUG] <Software> - <Summary>'
 labels: ['BUG', 'TRIAGE']
