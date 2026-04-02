@@ -216,10 +216,12 @@ PointPillarsRuntime *get_runtime(GstG3DInference *filter) {
     return reinterpret_cast<PointPillarsRuntime *>(filter->runtime);
 }
 
-void set_tensor_metadata(GstGVATensorMeta *tensor_meta, const std::vector<float> &detections) {
+void set_tensor_metadata(GstGVATensorMeta *tensor_meta, const std::vector<float> &detections,
+                         const char *model_type) {
     gst_structure_set_name(tensor_meta->data, "detection");
     gst_structure_set(tensor_meta->data, "element_id", G_TYPE_STRING, "g3dinference", "model_name", G_TYPE_STRING,
-                      DEFAULT_MODEL_TYPE, "layer_name", G_TYPE_STRING, "pointpillars_3d_detection", "format",
+                      model_type ? model_type : DEFAULT_MODEL_TYPE, "layer_name", G_TYPE_STRING,
+                      "pointpillars_3d_detection", "format",
                       G_TYPE_STRING, "pointpillars_3d", "precision", G_TYPE_INT, GVA_PRECISION_FP32, "layout",
                       G_TYPE_INT, GVA_LAYOUT_NC, "rank", G_TYPE_INT, 2, NULL);
 
@@ -439,7 +441,7 @@ static GstFlowReturn gst_g3d_inference_transform_ip(GstBaseTransform *trans, Gst
         if (!tensor_meta || !tensor_meta->data)
             throw std::runtime_error("Failed to allocate GstGVATensorMeta");
 
-        set_tensor_metadata(tensor_meta, detections);
+        set_tensor_metadata(tensor_meta, detections, filter->model_type);
 
         GST_DEBUG_OBJECT(filter, "Attached PointPillars tensor with %zu detections for frame_id=%zu",
                          detections.size() / DETECTION_WIDTH, lidar_meta->frame_id);

@@ -567,7 +567,7 @@ json convert_lidar_detection_tensor(const GVA::Tensor &tensor) {
               {"theta", data[offset + 6]}}},
             {"confidence", data[offset + 7]},
             {"label_id", static_cast<int>(data[offset + 8])},
-            {"model", {{"name", tensor.model_name()}}},
+            {"model", {{"type", tensor.model_name()}}},
         });
 
         objects.push_back(object);
