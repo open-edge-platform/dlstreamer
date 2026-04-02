@@ -1,7 +1,0 @@
-@INCLUDE = Doxyfile
-INPUT                  = src-api2.0
-IMAGE_PATH             = 
-USE_MDFILE_AS_MAINPAGE =
-HTML_OUTPUT            = html-api2.0
-LATEX_OUTPUT           = latex-api2.0
-XML_OUTPUT             = xml-api2.0
