@@ -40,6 +40,44 @@ handle_error() {
     exit 1
 }
 
+cleanup_old_gpu_drivers() {
+    echo_color "🧹 Cleaning up old GPU drivers and libraries..." "yellow"
+    
+    # List of packages to remove (old versions and conflicting packages)
+    local packages_to_remove=(
+        "intel-metrics-discovery"
+        "intel-gsc" 
+        "libvpl2"
+        "libze-intel-gpu1"
+        "libze1"
+        "intel-opencl-icd"
+        "clinfo"
+        "intel-media-va-driver-non-free"
+        "libmfx-gen1"
+        "libvpl-tools"
+        "libva-glx2"
+        "va-driver-all"
+        "vainfo"
+        "level-zero"
+        "intel-level-zero-gpu"
+        "compute-runtime"
+        "intel-gmmlib"
+        "intel-igc-core"
+        "intel-igc-cm"
+        "intel-ocloc"
+    )
+    
+    echo "Removing old GPU driver packages..."
+    for package in "${packages_to_remove[@]}"; do
+        if dpkg -l | grep -q "^ii.*$package"; then
+            echo "Removing $package..."
+            $SUDO_PREFIX apt-get remove -y "$package" 2>/dev/null || true
+        fi
+    done
+    
+    echo_color "✓ GPU drivers cleanup completed successfully!" "green"
+}
+
 # Stop and remove all running Docker containers
 echo_color "Stopping all running Docker containers" "blue"
 docker ps -q | xargs -r docker stop || true
@@ -84,6 +122,9 @@ for file in /usr/share/keyrings/intel-graphics*; do
         sudo rm -rf "$file"
     fi
 done
+
+# Call this function before installing new drivers
+cleanup_old_gpu_drivers
 
 chmod +x "$PREREQUISITES_SCRIPT_PATH"/DLS_install_prerequisites.sh
 "$PREREQUISITES_SCRIPT_PATH"/DLS_install_prerequisites.sh --reinstall-npu-driver=yes

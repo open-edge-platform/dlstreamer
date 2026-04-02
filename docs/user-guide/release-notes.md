@@ -1,6 +1,6 @@
 # Release Notes: Deep Learning Streamer (DL Streamer) Pipeline Framework Release 2026.0
 
-## [Preview] Version 2026.0
+## Version 2026.0
 
 ## Key highlights:
 
@@ -137,8 +137,9 @@ List of the features and components to be deprecated in the future.
 
 | Feature | End of Support Date | Replacement strategy |
 |---|---|---|
-| OMZ models |	end of Q3'2026	| Use HuggingFace, Ultralytics, TIMM |
-| Model-proc-file| 	end of Q3'2026	| ModelAPI (common with Geti) |
+| OMZ models | end of Q3'2026	| Use HuggingFace, Ultralytics, TIMM |
+| Model-proc-file | end of Q3'2026 | ModelAPI (common with Geti) |
+| WSL support | end of Q3'2026 | native Windows support |
 | GstVideoRegionOfInterest meta + Intel extensions |	end of Q4'2026 |	usage of GstAnalyticsMtd  |
 | Architecture 2.0 elements |	end of Q4'2026 |	Preserve essential components and ideas |
 | FFMpeg integration samples | end of Q2'2026 | no replacement |

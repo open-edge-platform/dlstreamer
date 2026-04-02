@@ -6,6 +6,11 @@
 
 cmake_minimum_required(VERSION 3.20)
 
+if(WIN32)
+    set(VCPKG_OVERLAY_TRIPLETS "${CMAKE_SOURCE_DIR}/cmake/vcpkg/triplets")
+    set(VCPKG_TARGET_TRIPLET "x64-windows-mixed")
+endif()
+
 project(DL_Streamer C CXX)
 
 include_directories("${CMAKE_BINARY_DIR}/deps/install/include;${CMAKE_BINARY_DIR}/deps/gstreamer-bin/include;${CMAKE_BINARY_DIR}/deps/opencv-bin/include")
@@ -112,10 +117,10 @@ option(ENABLE_SAMPLES "Parameter to enable samples building" ON)
 cmake_dependent_option(TREAT_WARNING_AS_ERROR "Treat build warnings as errors" ON "UNIX" OFF)
 cmake_dependent_option(ENABLE_ITT "Enable ITT for tracing" ON "UNIX AND NOT ${CMAKE_SYSTEM_PROCESSOR} STREQUAL aarch64" OFF)
 cmake_dependent_option(ENABLE_VAAPI "Parameter to enable VAAPI for image pre-processing" ON "UNIX" ON)
-cmake_dependent_option(ENABLE_PAHO_INSTALLATION "Enables paho-mqtt3c installation" OFF "UNIX" OFF)
+cmake_dependent_option(ENABLE_PAHO_INSTALLATION "Enables paho-mqtt3c installation" OFF "UNIX" ON "WIN32" OFF)
 cmake_dependent_option(ENABLE_TESTS "Parameter to enable tests building" ON "UNIX" OFF)
 cmake_dependent_option(ENABLE_FUZZING "Parameter to enable fuzzy tests building" OFF "UNIX" OFF)
-cmake_dependent_option(ENABLE_RDKAFKA_INSTALLATION "Enables rdkafka installation" OFF "UNIX" OFF)
+cmake_dependent_option(ENABLE_RDKAFKA_INSTALLATION "Enables rdkafka installation" OFF "UNIX" ON "WIN32" OFF)
 option(ENABLE_AUDIO_INFERENCE_ELEMENTS "Enables audio inference elements" ON)
 option(ENABLE_REALSENSE "Parameter to enable RelaseSense plugin compilation" OFF)
 option(ENABLE_GENAI "Enables GenAI elements" OFF)
