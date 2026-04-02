@@ -10,7 +10,7 @@
  * version 2 of the License, or (at your option) any later version.
  */
 
-#include "gstvideometa_matrix.h"
+#include "dlstreamer/gst/metadata/gstvideometa_matrix.h"
 #include <string.h>
 
 G_GNUC_INTERNAL GST_DEBUG_CATEGORY(gst_analytics_relation_meta_debug);

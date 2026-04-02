@@ -20,7 +20,7 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#include "gstanalyticsgroupmtd.h"
+#include "dlstreamer/gst/metadata/gstanalyticsgroupmtd.h"
 
 GST_DEBUG_CATEGORY_EXTERN(gst_analytics_relation_meta_debug);
 #define GST_CAT_DEFAULT gst_analytics_relation_meta_debug
