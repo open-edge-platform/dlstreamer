@@ -28,7 +28,7 @@
 
 G_BEGIN_DECLS
 
-GQuark gst_video_meta_transform_matrix_get_quark (void);
+GQuark gst_video_meta_transform_matrix_get_quark(void);
 
 /**
  * GST_VIDEO_META_TRANSFORM_IS_MATRIX:
@@ -62,32 +62,28 @@ GQuark gst_video_meta_transform_matrix_get_quark (void);
  * Since: 1.28
  */
 typedef struct {
-  const GstVideoInfo *in_info;
-  GstVideoRectangle in_rectangle;
+    const GstVideoInfo *in_info;
+    GstVideoRectangle in_rectangle;
 
-  const GstVideoInfo *out_info;
-  GstVideoRectangle out_rectangle;
+    const GstVideoInfo *out_info;
+    GstVideoRectangle out_rectangle;
 
-  gfloat matrix[3][3];
+    gfloat matrix[3][3];
 } GstVideoMetaTransformMatrix;
 
-void gst_video_meta_transform_matrix_init (GstVideoMetaTransformMatrix * trans,
-    const GstVideoInfo *in_info, const GstVideoRectangle * in_rectangle,
-    const GstVideoInfo *out_info, const GstVideoRectangle * out_rectangle);
+void gst_video_meta_transform_matrix_init(GstVideoMetaTransformMatrix *trans, const GstVideoInfo *in_info,
+                                          const GstVideoRectangle *in_rectangle, const GstVideoInfo *out_info,
+                                          const GstVideoRectangle *out_rectangle);
 
-gboolean gst_video_meta_transform_matrix_point (const
-    GstVideoMetaTransformMatrix * transform, gint *x, gint *y);
+gboolean gst_video_meta_transform_matrix_point(const GstVideoMetaTransformMatrix *transform, gint *x, gint *y);
 
-gboolean gst_video_meta_transform_matrix_point_clipped (const
-    GstVideoMetaTransformMatrix * transform, gint *x, gint *y);
+gboolean gst_video_meta_transform_matrix_point_clipped(const GstVideoMetaTransformMatrix *transform, gint *x, gint *y);
 
-gboolean gst_video_meta_transform_matrix_rectangle (
-  const GstVideoMetaTransformMatrix * transform,
-  GstVideoRectangle * rect);
+gboolean gst_video_meta_transform_matrix_rectangle(const GstVideoMetaTransformMatrix *transform,
+                                                   GstVideoRectangle *rect);
 
-gboolean gst_video_meta_transform_matrix_rectangle_clipped (
-  const GstVideoMetaTransformMatrix * transform,
-  GstVideoRectangle * rect);
+gboolean gst_video_meta_transform_matrix_rectangle_clipped(const GstVideoMetaTransformMatrix *transform,
+                                                           GstVideoRectangle *rect);
 
 G_END_DECLS
 

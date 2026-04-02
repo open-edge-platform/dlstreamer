@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2020-2025 Intel Corporation
+ * Copyright (C) 2020-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -74,9 +74,9 @@ TensorsTable KeypointsOpenPoseConverter::convert(const OutputBlobs &output_blobs
                 tensor.set_format(openpose18_descriptor.semantic_tag);
                 std::vector<std::string> names(openpose18_descriptor.point_names,
                                                openpose18_descriptor.point_names + openpose18_descriptor.point_count);
-                std::vector<uint32_t> connections(
-                    openpose18_descriptor.skeleton_connections,
-                    openpose18_descriptor.skeleton_connections + openpose18_descriptor.skeleton_connection_count * 2);
+                std::vector<uint32_t> connections(openpose18_descriptor.skeleton_connections,
+                                                  openpose18_descriptor.skeleton_connections +
+                                                      openpose18_descriptor.skeleton_connection_count * 2);
                 tensor.set_vector<std::string>("point_names", names);
                 tensor.set_vector<uint32_t>("point_connections", connections);
 

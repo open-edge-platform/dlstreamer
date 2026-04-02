@@ -216,8 +216,8 @@ void YOLOv8PoseConverter::parseOutputBlob(const float *data, const std::vector<s
             std::vector<std::string> names(coco17_descriptor.point_names,
                                            coco17_descriptor.point_names + coco17_descriptor.point_count);
             std::vector<uint32_t> connections(coco17_descriptor.skeleton_connections,
-                                             coco17_descriptor.skeleton_connections +
-                                                 coco17_descriptor.skeleton_connection_count * 2);
+                                              coco17_descriptor.skeleton_connections +
+                                                  coco17_descriptor.skeleton_connection_count * 2);
             tensor.set_vector<std::string>("point_names", names);
             tensor.set_vector<uint32_t>("point_connections", connections);
 

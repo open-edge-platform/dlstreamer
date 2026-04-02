@@ -22,7 +22,7 @@
 
 #include "gstanalyticsgroupmtd.h"
 
-GST_DEBUG_CATEGORY_EXTERN (gst_analytics_relation_meta_debug);
+GST_DEBUG_CATEGORY_EXTERN(gst_analytics_relation_meta_debug);
 #define GST_CAT_DEFAULT gst_analytics_relation_meta_debug
 
 /**
@@ -58,27 +58,21 @@ typedef struct _GstAnalyticsGroupMtdData GstAnalyticsGroupMtdData;
  *
  * Since 1.30
  */
-struct _GstAnalyticsGroupMtdData
-{
-  GstIdStr semantic_tag;
-  gsize members_len;
-  gsize members_count;
-  gboolean members_allocated;
-  guint *members;
-  guint members_inplace[];
+struct _GstAnalyticsGroupMtdData {
+    GstIdStr semantic_tag;
+    gsize members_len;
+    gsize members_count;
+    gboolean members_allocated;
+    guint *members;
+    guint members_inplace[];
 };
 
-static gboolean gst_analytics_group_mtd_transform (GstBuffer * transbuf,
-    GstAnalyticsMtd * transmtd, GstBuffer * buffer, GQuark type, gpointer data);
-static void gst_analytics_group_mtd_clear (GstBuffer * buffer,
-    GstAnalyticsMtd * mtd);
+static gboolean gst_analytics_group_mtd_transform(GstBuffer *transbuf, GstAnalyticsMtd *transmtd, GstBuffer *buffer,
+                                                  GQuark type, gpointer data);
+static void gst_analytics_group_mtd_clear(GstBuffer *buffer, GstAnalyticsMtd *mtd);
 
 static const GstAnalyticsMtdImpl group_impl = {
-  "grouping-mtd",
-  gst_analytics_group_mtd_transform,
-  gst_analytics_group_mtd_clear,
-  {NULL}
-};
+    "grouping-mtd", gst_analytics_group_mtd_transform, gst_analytics_group_mtd_clear, {NULL}};
 
 /**
  * gst_analytics_group_mtd_get_mtd_type:
@@ -89,10 +83,8 @@ static const GstAnalyticsMtdImpl group_impl = {
  *
  * Since: 1.30
  */
-GstAnalyticsMtdType
-gst_analytics_group_mtd_get_mtd_type (void)
-{
-  return (GstAnalyticsMtdType) & group_impl;
+GstAnalyticsMtdType gst_analytics_group_mtd_get_mtd_type(void) {
+    return (GstAnalyticsMtdType)&group_impl;
 }
 
 /**
@@ -107,18 +99,15 @@ gst_analytics_group_mtd_get_mtd_type (void)
  *
  * Since: 1.30
  */
-gboolean
-gst_analytics_group_mtd_has_semantic_tag (const GstAnalyticsGroupMtd * handle,
-    const gchar * tag)
-{
-  GstAnalyticsGroupMtdData *mtddata;
-  g_return_val_if_fail (handle, FALSE);
-  g_return_val_if_fail (tag, FALSE);
+gboolean gst_analytics_group_mtd_has_semantic_tag(const GstAnalyticsGroupMtd *handle, const gchar *tag) {
+    GstAnalyticsGroupMtdData *mtddata;
+    g_return_val_if_fail(handle, FALSE);
+    g_return_val_if_fail(tag, FALSE);
 
-  mtddata = gst_analytics_relation_meta_get_mtd_data (handle->meta, handle->id);
-  g_return_val_if_fail (mtddata != NULL, FALSE);
+    mtddata = gst_analytics_relation_meta_get_mtd_data(handle->meta, handle->id);
+    g_return_val_if_fail(mtddata != NULL, FALSE);
 
-  return gst_id_str_is_equal_to_str (&mtddata->semantic_tag, tag);
+    return gst_id_str_is_equal_to_str(&mtddata->semantic_tag, tag);
 }
 
 /**
@@ -133,16 +122,14 @@ gst_analytics_group_mtd_has_semantic_tag (const GstAnalyticsGroupMtd * handle,
  *
  * Since: 1.30
  */
-gchar *
-gst_analytics_group_mtd_get_semantic_tag (const GstAnalyticsGroupMtd * handle)
-{
-  GstAnalyticsGroupMtdData *mtddata;
-  g_return_val_if_fail (handle, NULL);
+gchar *gst_analytics_group_mtd_get_semantic_tag(const GstAnalyticsGroupMtd *handle) {
+    GstAnalyticsGroupMtdData *mtddata;
+    g_return_val_if_fail(handle, NULL);
 
-  mtddata = gst_analytics_relation_meta_get_mtd_data (handle->meta, handle->id);
-  g_return_val_if_fail (mtddata != NULL, NULL);
+    mtddata = gst_analytics_relation_meta_get_mtd_data(handle->meta, handle->id);
+    g_return_val_if_fail(mtddata != NULL, NULL);
 
-  return g_strdup (gst_id_str_as_str (&mtddata->semantic_tag));
+    return g_strdup(gst_id_str_as_str(&mtddata->semantic_tag));
 }
 
 /**
@@ -157,18 +144,15 @@ gst_analytics_group_mtd_get_semantic_tag (const GstAnalyticsGroupMtd * handle)
  *
  * Since: 1.30
  */
-gboolean
-gst_analytics_group_mtd_semantic_tag_has_prefix (const GstAnalyticsGroupMtd *
-    handle, const gchar * prefix)
-{
-  GstAnalyticsGroupMtdData *mtddata;
-  g_return_val_if_fail (handle, FALSE);
-  g_return_val_if_fail (prefix, FALSE);
+gboolean gst_analytics_group_mtd_semantic_tag_has_prefix(const GstAnalyticsGroupMtd *handle, const gchar *prefix) {
+    GstAnalyticsGroupMtdData *mtddata;
+    g_return_val_if_fail(handle, FALSE);
+    g_return_val_if_fail(prefix, FALSE);
 
-  mtddata = gst_analytics_relation_meta_get_mtd_data (handle->meta, handle->id);
-  g_return_val_if_fail (mtddata != NULL, FALSE);
+    mtddata = gst_analytics_relation_meta_get_mtd_data(handle->meta, handle->id);
+    g_return_val_if_fail(mtddata != NULL, FALSE);
 
-  return g_str_has_prefix (gst_id_str_as_str (&mtddata->semantic_tag), prefix);
+    return g_str_has_prefix(gst_id_str_as_str(&mtddata->semantic_tag), prefix);
 }
 
 /**
@@ -181,16 +165,14 @@ gst_analytics_group_mtd_semantic_tag_has_prefix (const GstAnalyticsGroupMtd *
  *
  * Since: 1.30
  */
-gsize
-gst_analytics_group_mtd_get_member_count (const GstAnalyticsGroupMtd * handle)
-{
-  GstAnalyticsGroupMtdData *mtddata;
-  g_return_val_if_fail (handle, 0);
+gsize gst_analytics_group_mtd_get_member_count(const GstAnalyticsGroupMtd *handle) {
+    GstAnalyticsGroupMtdData *mtddata;
+    g_return_val_if_fail(handle, 0);
 
-  mtddata = gst_analytics_relation_meta_get_mtd_data (handle->meta, handle->id);
-  g_return_val_if_fail (mtddata != NULL, 0);
+    mtddata = gst_analytics_relation_meta_get_mtd_data(handle->meta, handle->id);
+    g_return_val_if_fail(mtddata != NULL, 0);
 
-  return mtddata->members_count;
+    return mtddata->members_count;
 }
 
 /**
@@ -206,30 +188,27 @@ gst_analytics_group_mtd_get_member_count (const GstAnalyticsGroupMtd * handle)
  *
  * Since: 1.30
  */
-gboolean
-gst_analytics_group_mtd_get_member (const GstAnalyticsGroupMtd * handle,
-    gsize index, GstAnalyticsMtd * member)
-{
-  GstAnalyticsGroupMtdData *mtddata;
-  g_return_val_if_fail (handle, FALSE);
-  g_return_val_if_fail (member, FALSE);
+gboolean gst_analytics_group_mtd_get_member(const GstAnalyticsGroupMtd *handle, gsize index, GstAnalyticsMtd *member) {
+    GstAnalyticsGroupMtdData *mtddata;
+    g_return_val_if_fail(handle, FALSE);
+    g_return_val_if_fail(member, FALSE);
 
-  mtddata = gst_analytics_relation_meta_get_mtd_data (handle->meta, handle->id);
-  g_return_val_if_fail (mtddata != NULL, FALSE);
+    mtddata = gst_analytics_relation_meta_get_mtd_data(handle->meta, handle->id);
+    g_return_val_if_fail(mtddata != NULL, FALSE);
 
-  /* Fix members pointer if using in-place storage after potential reallocation */
-  if (!mtddata->members_allocated) {
-    mtddata->members = mtddata->members_inplace;
-  }
+    /* Fix members pointer if using in-place storage after potential reallocation */
+    if (!mtddata->members_allocated) {
+        mtddata->members = mtddata->members_inplace;
+    }
 
-  if (index >= mtddata->members_count) {
-    return FALSE;
-  }
+    if (index >= mtddata->members_count) {
+        return FALSE;
+    }
 
-  /* Reconstruct handle from stored ID and group's meta */
-  member->id = mtddata->members[index];
-  member->meta = handle->meta;
-  return TRUE;
+    /* Reconstruct handle from stored ID and group's meta */
+    member->id = mtddata->members[index];
+    member->meta = handle->meta;
+    return TRUE;
 }
 
 /**
@@ -250,47 +229,44 @@ gst_analytics_group_mtd_get_member (const GstAnalyticsGroupMtd * handle,
  *
  * Since: 1.30
  */
-gboolean
-gst_analytics_group_mtd_iterate (const GstAnalyticsGroupMtd * handle,
-    gpointer * state, GstAnalyticsMtdType type, GstAnalyticsMtd * member)
-{
-  GstAnalyticsGroupMtdData *mtddata;
-  gsize index;
+gboolean gst_analytics_group_mtd_iterate(const GstAnalyticsGroupMtd *handle, gpointer *state, GstAnalyticsMtdType type,
+                                         GstAnalyticsMtd *member) {
+    GstAnalyticsGroupMtdData *mtddata;
+    gsize index;
 
-  g_return_val_if_fail (handle, FALSE);
-  g_return_val_if_fail (state, FALSE);
-  g_return_val_if_fail (member, FALSE);
+    g_return_val_if_fail(handle, FALSE);
+    g_return_val_if_fail(state, FALSE);
+    g_return_val_if_fail(member, FALSE);
 
-  mtddata = gst_analytics_relation_meta_get_mtd_data (handle->meta, handle->id);
-  g_return_val_if_fail (mtddata != NULL, FALSE);
+    mtddata = gst_analytics_relation_meta_get_mtd_data(handle->meta, handle->id);
+    g_return_val_if_fail(mtddata != NULL, FALSE);
 
-  /* Fix members pointer if using in-place storage after potential reallocation */
-  if (!mtddata->members_allocated) {
-    mtddata->members = mtddata->members_inplace;
-  }
-
-  /* Decode state: use MSB as flag, rest as index */
-  if (*state) {
-    index = ~G_MINSSIZE & (GPOINTER_TO_SIZE (*state) + 1);
-  } else {
-    index = 0;
-    *state = GSIZE_TO_POINTER (G_MINSSIZE | index);
-  }
-
-  /* Iterate through members looking for matching type */
-  for (; index < mtddata->members_count; index++) {
-    /* Reconstruct handle from stored ID and group's meta */
-    member->id = mtddata->members[index];
-    member->meta = handle->meta;
-
-    if (type == GST_ANALYTICS_MTD_TYPE_ANY ||
-        gst_analytics_mtd_get_mtd_type (member) == type) {
-      *state = GSIZE_TO_POINTER (G_MINSSIZE | index);
-      return TRUE;
+    /* Fix members pointer if using in-place storage after potential reallocation */
+    if (!mtddata->members_allocated) {
+        mtddata->members = mtddata->members_inplace;
     }
-  }
 
-  return FALSE;
+    /* Decode state: use MSB as flag, rest as index */
+    if (*state) {
+        index = ~G_MINSSIZE & (GPOINTER_TO_SIZE(*state) + 1);
+    } else {
+        index = 0;
+        *state = GSIZE_TO_POINTER(G_MINSSIZE | index);
+    }
+
+    /* Iterate through members looking for matching type */
+    for (; index < mtddata->members_count; index++) {
+        /* Reconstruct handle from stored ID and group's meta */
+        member->id = mtddata->members[index];
+        member->meta = handle->meta;
+
+        if (type == GST_ANALYTICS_MTD_TYPE_ANY || gst_analytics_mtd_get_mtd_type(member) == type) {
+            *state = GSIZE_TO_POINTER(G_MINSSIZE | index);
+            return TRUE;
+        }
+    }
+
+    return FALSE;
 }
 
 /**
@@ -309,28 +285,25 @@ gst_analytics_group_mtd_iterate (const GstAnalyticsGroupMtd * handle,
  *
  * Since: 1.30
  */
-gboolean
-gst_analytics_relation_meta_add_group_mtd (GstAnalyticsRelationMeta * instance,
-    gsize pre_alloc_size, GstAnalyticsGroupMtd * group_mtd)
-{
-  g_return_val_if_fail (instance, FALSE);
-  g_return_val_if_fail (group_mtd, FALSE);
+gboolean gst_analytics_relation_meta_add_group_mtd(GstAnalyticsRelationMeta *instance, gsize pre_alloc_size,
+                                                   GstAnalyticsGroupMtd *group_mtd) {
+    g_return_val_if_fail(instance, FALSE);
+    g_return_val_if_fail(group_mtd, FALSE);
 
-  GstAnalyticsGroupMtdData *group_mtd_data = (GstAnalyticsGroupMtdData *)
-      gst_analytics_relation_meta_add_mtd (instance, &group_impl,
-      sizeof (GstAnalyticsGroupMtdData), group_mtd);
+    GstAnalyticsGroupMtdData *group_mtd_data = (GstAnalyticsGroupMtdData *)gst_analytics_relation_meta_add_mtd(
+        instance, &group_impl, sizeof(GstAnalyticsGroupMtdData), group_mtd);
 
-  if (group_mtd_data) {
-    group_mtd_data->members_len = pre_alloc_size;
-    group_mtd_data->members = g_malloc_n (pre_alloc_size, sizeof (guint));
-    group_mtd_data->members_count = 0;
-    group_mtd_data->members_allocated = TRUE;
-    gst_id_str_init (&group_mtd_data->semantic_tag);
-  } else {
-    return FALSE;
-  }
+    if (group_mtd_data) {
+        group_mtd_data->members_len = pre_alloc_size;
+        group_mtd_data->members = g_malloc_n(pre_alloc_size, sizeof(guint));
+        group_mtd_data->members_count = 0;
+        group_mtd_data->members_allocated = TRUE;
+        gst_id_str_init(&group_mtd_data->semantic_tag);
+    } else {
+        return FALSE;
+    }
 
-  return TRUE;
+    return TRUE;
 }
 
 /**
@@ -348,30 +321,27 @@ gst_analytics_relation_meta_add_group_mtd (GstAnalyticsRelationMeta * instance,
  *
  * Since: 1.30
  */
-gboolean
-gst_analytics_relation_meta_add_group_mtd_with_size (GstAnalyticsRelationMeta *
-    instance, gsize group_size, GstAnalyticsGroupMtd * group_mtd)
-{
-  g_return_val_if_fail (instance, FALSE);
-  g_return_val_if_fail (group_mtd, FALSE);
+gboolean gst_analytics_relation_meta_add_group_mtd_with_size(GstAnalyticsRelationMeta *instance, gsize group_size,
+                                                             GstAnalyticsGroupMtd *group_mtd) {
+    g_return_val_if_fail(instance, FALSE);
+    g_return_val_if_fail(group_mtd, FALSE);
 
-  gsize members_size = sizeof (guint) * group_size;
-  gsize size = sizeof (GstAnalyticsGroupMtdData) + members_size;
-  GstAnalyticsGroupMtdData *group_data = (GstAnalyticsGroupMtdData *)
-      gst_analytics_relation_meta_add_mtd (instance, &group_impl, size,
-      group_mtd);
+    gsize members_size = sizeof(guint) * group_size;
+    gsize size = sizeof(GstAnalyticsGroupMtdData) + members_size;
+    GstAnalyticsGroupMtdData *group_data =
+        (GstAnalyticsGroupMtdData *)gst_analytics_relation_meta_add_mtd(instance, &group_impl, size, group_mtd);
 
-  if (group_data) {
-    group_data->members_len = group_size;
-    group_data->members_count = 0;
-    group_data->members = group_data->members_inplace;
-    group_data->members_allocated = FALSE;
-    gst_id_str_init (&group_data->semantic_tag);
-  } else {
-    return FALSE;
-  }
+    if (group_data) {
+        group_data->members_len = group_size;
+        group_data->members_count = 0;
+        group_data->members = group_data->members_inplace;
+        group_data->members_allocated = FALSE;
+        gst_id_str_init(&group_data->semantic_tag);
+    } else {
+        return FALSE;
+    }
 
-  return TRUE;
+    return TRUE;
 }
 
 /**
@@ -385,65 +355,57 @@ gst_analytics_relation_meta_add_group_mtd_with_size (GstAnalyticsRelationMeta *
  *
  * Since: 1.30
  */
-gboolean
-gst_analytics_group_mtd_add_member (GstAnalyticsGroupMtd * handle,
-    guint an_meta_id)
-{
-  gboolean ret = TRUE;
-  g_return_val_if_fail (handle, FALSE);
+gboolean gst_analytics_group_mtd_add_member(GstAnalyticsGroupMtd *handle, guint an_meta_id) {
+    gboolean ret = TRUE;
+    g_return_val_if_fail(handle, FALSE);
 
-  GstAnalyticsGroupMtdData *group_data =
-      gst_analytics_relation_meta_get_mtd_data (handle->meta, handle->id);
-  g_return_val_if_fail (group_data != NULL, FALSE);
+    GstAnalyticsGroupMtdData *group_data = gst_analytics_relation_meta_get_mtd_data(handle->meta, handle->id);
+    g_return_val_if_fail(group_data != NULL, FALSE);
 
-  /* Fix members pointer if using in-place storage after potential reallocation */
-  if (!group_data->members_allocated) {
-    group_data->members = group_data->members_inplace;
-  }
+    /* Fix members pointer if using in-place storage after potential reallocation */
+    if (!group_data->members_allocated) {
+        group_data->members = group_data->members_inplace;
+    }
 
-  if (group_data->members_len > group_data->members_count) {
-    /* We can use a slot */
-    group_data->members[group_data->members_count++] = an_meta_id;
-  } else if (group_data->members == group_data->members_inplace) {
-    /* Group size was underestimated and since the members in-place slots be
-     * allocated only when adding the group, we will use dynamic allocation. */
-    gsize new_len = group_data->members_len + 1;
-    GST_WARNING ("Group size under estimated, growing from %zu to %zu fallback"
-        " to dynamic allocation.", group_data->members_count, new_len);
+    if (group_data->members_len > group_data->members_count) {
+        /* We can use a slot */
+        group_data->members[group_data->members_count++] = an_meta_id;
+    } else if (group_data->members == group_data->members_inplace) {
+        /* Group size was underestimated and since the members in-place slots be
+         * allocated only when adding the group, we will use dynamic allocation. */
+        gsize new_len = group_data->members_len + 1;
+        GST_WARNING("Group size under estimated, growing from %zu to %zu fallback"
+                    " to dynamic allocation.",
+                    group_data->members_count, new_len);
 
-    group_data->members = g_malloc_n (new_len, sizeof (guint));
-    memcpy (group_data->members, group_data->members_inplace,
-        group_data->members_count * sizeof (guint));
+        group_data->members = g_malloc_n(new_len, sizeof(guint));
+        memcpy(group_data->members, group_data->members_inplace, group_data->members_count * sizeof(guint));
 
-    group_data->members_len = new_len;
-    group_data->members_allocated = TRUE;
-    group_data->members[group_data->members_count++] = an_meta_id;
-  } else {
-    gsize new_len = group_data->members_len + 1;
-    GST_DEBUG ("Group size under estimated, growing from %zu to %zu",
-        group_data->members_count, new_len);
+        group_data->members_len = new_len;
+        group_data->members_allocated = TRUE;
+        group_data->members[group_data->members_count++] = an_meta_id;
+    } else {
+        gsize new_len = group_data->members_len + 1;
+        GST_DEBUG("Group size under estimated, growing from %zu to %zu", group_data->members_count, new_len);
 
-    group_data->members = g_realloc_n (group_data->members,
-        new_len, sizeof (guint));
-    group_data->members_len = new_len;
-    group_data->members[group_data->members_count++] = an_meta_id;
-  }
+        group_data->members = g_realloc_n(group_data->members, new_len, sizeof(guint));
+        group_data->members_len = new_len;
+        group_data->members[group_data->members_count++] = an_meta_id;
+    }
 
-  ret = gst_analytics_relation_meta_set_relation (handle->meta,
-      GST_ANALYTICS_REL_TYPE_IS_PART_OF, an_meta_id, handle->id);
-  if (!ret) {
-    GST_WARNING ("Failed to create relation from %u to %u", an_meta_id,
-        handle->id);
-  }
+    ret = gst_analytics_relation_meta_set_relation(handle->meta, GST_ANALYTICS_REL_TYPE_IS_PART_OF, an_meta_id,
+                                                   handle->id);
+    if (!ret) {
+        GST_WARNING("Failed to create relation from %u to %u", an_meta_id, handle->id);
+    }
 
-  ret = gst_analytics_relation_meta_set_relation (handle->meta,
-      GST_ANALYTICS_REL_TYPE_CONTAIN, handle->id, an_meta_id);
-  if (!ret) {
-    GST_WARNING ("Failed to create relation from %u to %u", handle->id,
-        an_meta_id);
-  }
+    ret =
+        gst_analytics_relation_meta_set_relation(handle->meta, GST_ANALYTICS_REL_TYPE_CONTAIN, handle->id, an_meta_id);
+    if (!ret) {
+        GST_WARNING("Failed to create relation from %u to %u", handle->id, an_meta_id);
+    }
 
-  return ret;
+    return ret;
 }
 
 /**
@@ -460,22 +422,18 @@ gst_analytics_group_mtd_add_member (GstAnalyticsGroupMtd * handle,
  *
  * Since: 1.30
  */
-gboolean
-gst_analytics_group_mtd_set_semantic_tag (GstAnalyticsGroupMtd * handle,
-    const gchar * tag)
-{
-  g_return_val_if_fail (handle, FALSE);
+gboolean gst_analytics_group_mtd_set_semantic_tag(GstAnalyticsGroupMtd *handle, const gchar *tag) {
+    g_return_val_if_fail(handle, FALSE);
 
-  GstAnalyticsGroupMtdData *group_data =
-      gst_analytics_relation_meta_get_mtd_data (handle->meta, handle->id);
-  g_return_val_if_fail (group_data != NULL, FALSE);
+    GstAnalyticsGroupMtdData *group_data = gst_analytics_relation_meta_get_mtd_data(handle->meta, handle->id);
+    g_return_val_if_fail(group_data != NULL, FALSE);
 
-  if (tag)
-    gst_id_str_set (&group_data->semantic_tag, tag);
-  else
-    gst_id_str_clear (&group_data->semantic_tag);
+    if (tag)
+        gst_id_str_set(&group_data->semantic_tag, tag);
+    else
+        gst_id_str_clear(&group_data->semantic_tag);
 
-  return TRUE;
+    return TRUE;
 }
 
 /**
@@ -490,64 +448,56 @@ gst_analytics_group_mtd_set_semantic_tag (GstAnalyticsGroupMtd * handle,
  *
  * Since: 1.30
  */
-gboolean
-gst_analytics_relation_meta_get_group_mtd (GstAnalyticsRelationMeta * meta,
-    guint an_meta_id, GstAnalyticsGroupMtd * rlt)
-{
-  return gst_analytics_relation_meta_get_mtd (meta, an_meta_id,
-      gst_analytics_group_mtd_get_mtd_type (), (GstAnalyticsGroupMtd *) rlt);
+gboolean gst_analytics_relation_meta_get_group_mtd(GstAnalyticsRelationMeta *meta, guint an_meta_id,
+                                                   GstAnalyticsGroupMtd *rlt) {
+    return gst_analytics_relation_meta_get_mtd(meta, an_meta_id, gst_analytics_group_mtd_get_mtd_type(),
+                                               (GstAnalyticsGroupMtd *)rlt);
 }
 
-static gboolean
-gst_analytics_group_mtd_transform (GstBuffer * transbuf,
-    GstAnalyticsMtd * transmtd, GstBuffer * buffer, GQuark type, gpointer data)
-{
-  (void) transbuf;
-  (void) buffer;
-  (void) type;
-  (void) data;
-  GstAnalyticsGroupMtdData *dst_data;
+static gboolean gst_analytics_group_mtd_transform(GstBuffer *transbuf, GstAnalyticsMtd *transmtd, GstBuffer *buffer,
+                                                  GQuark type, gpointer data) {
+    (void)transbuf;
+    (void)buffer;
+    (void)type;
+    (void)data;
+    GstAnalyticsGroupMtdData *dst_data;
 
-  dst_data =
-      gst_analytics_relation_meta_get_mtd_data (transmtd->meta, transmtd->id);
-  g_return_val_if_fail (dst_data != NULL, FALSE);
+    dst_data = gst_analytics_relation_meta_get_mtd_data(transmtd->meta, transmtd->id);
+    g_return_val_if_fail(dst_data != NULL, FALSE);
 
-  GstIdStr tmp = GST_ID_STR_INIT;
-  gst_id_str_copy_into (&tmp, &dst_data->semantic_tag);
-  gst_id_str_init (&dst_data->semantic_tag);
-  gst_id_str_move (&dst_data->semantic_tag, &tmp);
+    GstIdStr tmp = GST_ID_STR_INIT;
+    gst_id_str_copy_into(&tmp, &dst_data->semantic_tag);
+    gst_id_str_init(&dst_data->semantic_tag);
+    gst_id_str_move(&dst_data->semantic_tag, &tmp);
 
-  /* For dynamically allocated members we need to make an independent copy.
-   * For in-place storage, fix up the pointer to the new location since it
-   * was memcpy'd from the source struct. */
-  if (dst_data->members_allocated) {
-    guint *src_members = dst_data->members;
-    dst_data->members = g_malloc_n (dst_data->members_count, sizeof (guint));
-    memcpy (dst_data->members, src_members,
-        dst_data->members_count * sizeof (guint));
-    dst_data->members_len = dst_data->members_count;
-  } else {
-    dst_data->members = dst_data->members_inplace;
-  }
+    /* For dynamically allocated members we need to make an independent copy.
+     * For in-place storage, fix up the pointer to the new location since it
+     * was memcpy'd from the source struct. */
+    if (dst_data->members_allocated) {
+        guint *src_members = dst_data->members;
+        dst_data->members = g_malloc_n(dst_data->members_count, sizeof(guint));
+        memcpy(dst_data->members, src_members, dst_data->members_count * sizeof(guint));
+        dst_data->members_len = dst_data->members_count;
+    } else {
+        dst_data->members = dst_data->members_inplace;
+    }
 
-  return TRUE;
+    return TRUE;
 }
 
-static void
-gst_analytics_group_mtd_clear (GstBuffer * buffer, GstAnalyticsMtd * mtd)
-{
-  (void) buffer;
-  GstAnalyticsGroupMtdData *groupdata;
-  groupdata = gst_analytics_relation_meta_get_mtd_data (mtd->meta, mtd->id);
-  g_return_if_fail (groupdata != NULL);
+static void gst_analytics_group_mtd_clear(GstBuffer *buffer, GstAnalyticsMtd *mtd) {
+    (void)buffer;
+    GstAnalyticsGroupMtdData *groupdata;
+    groupdata = gst_analytics_relation_meta_get_mtd_data(mtd->meta, mtd->id);
+    g_return_if_fail(groupdata != NULL);
 
-  /* Free members array if it was dynamically allocated.
-     Use the members_allocated flag instead of pointer comparison because
-     after metadata buffer reallocation, members pointer may point to old
-     inplace location. */
-  if (groupdata->members_allocated) {
-    g_free (groupdata->members);
-  }
+    /* Free members array if it was dynamically allocated.
+       Use the members_allocated flag instead of pointer comparison because
+       after metadata buffer reallocation, members pointer may point to old
+       inplace location. */
+    if (groupdata->members_allocated) {
+        g_free(groupdata->members);
+    }
 
-  gst_id_str_clear (&groupdata->semantic_tag);
+    gst_id_str_clear(&groupdata->semantic_tag);
 }

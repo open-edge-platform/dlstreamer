@@ -24,7 +24,6 @@ namespace post_processing {
 
 class KeypointsConverter : public BlobToTensorConverter {
   protected:
-
     template <typename T>
     void copyKeypointsToGstStructure(GstStructure *gst_struct, const std::vector<T> &points) const {
         copy_buffer_to_structure(gst_struct, reinterpret_cast<const void *>(points.data()), sizeof(T) * points.size());
@@ -54,8 +53,7 @@ class KeypointsConverter : public BlobToTensorConverter {
     }
 
   public:
-    KeypointsConverter(BlobToMetaConverter::Initializer initializer)
-        : BlobToTensorConverter(std::move(initializer)) {
+    KeypointsConverter(BlobToMetaConverter::Initializer initializer) : BlobToTensorConverter(std::move(initializer)) {
     }
 
     TensorsTable convert(const OutputBlobs &output_blobs) = 0;
