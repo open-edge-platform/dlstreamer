@@ -27,8 +27,8 @@
 #include "config.h"
 #endif
 
-#include "gstanalyticskeypointmtd.h"
-#include "gstvideometa_matrix.h"
+#include "dlstreamer/gst/metadata/gstanalyticskeypointmtd.h"
+#include "dlstreamer/gst/metadata/gstvideometa_matrix.h"
 #include <gst/video/video.h>
 
 GST_DEBUG_CATEGORY_EXTERN(gst_analytics_relation_meta_debug);
