@@ -1,0 +1,35 @@
+
+name: Bug report
+description: Create an issue to help us improve
+title: '[BUG] <Software> - <Summary>'
+labels: ['BUG','TRIAGE']
+body:
+  - type: markdown
+    attributes:
+      value: <br>To expedite issue processing please search open and closed issues before submitting a new one. Existing issues often contain information about workarounds, resolution, or progress updates.
+
+  - type: textarea
+    attributes:
+      label: Bug Description
+      description: A clear and concise description of what the bug is.
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: System Setup
+      description: Describe your system and software setup. Include any critical video, audio, and model files.
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: Reproducible Steps
+      description: Describe how we can reproduce your issue.
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: Root Cause Analysis
+      description: Provide any initial triage, if possible.
