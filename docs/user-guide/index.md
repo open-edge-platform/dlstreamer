@@ -3,7 +3,7 @@
 <!--hide_directive
 <div class="component_card_widget">
   <a class="icon_github" href="https://github.com/open-edge-platform/dlstreamer">
-     GitHub project
+     GitHub
   </a>
   <a class="icon_document" href="https://github.com/open-edge-platform/dlstreamer/blob/main/README.md">
      Readme
@@ -35,7 +35,7 @@ identify patterns and gain insights across multiple domains, including:
 - warehouse and parking management
 - industrial inspections
 - safety and regulatory compliance
-- security monitoring.
+- security monitoring
 
 ![image](_images/overview_pipeline_example.png)
 
