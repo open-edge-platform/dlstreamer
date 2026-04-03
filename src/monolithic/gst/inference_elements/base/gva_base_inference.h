@@ -40,6 +40,7 @@ typedef struct _GvaBaseInference {
     gboolean no_block;
     gboolean reshape;
     gboolean share_va_display_ctx;
+    guint64 core_pinning_mask;
     guint inference_interval;
     guint batch_size;
     gint batch_timeout;

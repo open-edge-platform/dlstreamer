@@ -834,6 +834,10 @@ InferenceImpl::Model InferenceImpl::CreateModel(GvaBaseInference *gva_base_infer
         ie_config[KEY_BASE]["frame-height"] = std::to_string(gva_base_inference->info->height);
     }
 
+    // Set affinity mask that might set as the result of set_core_pinning_mask() call or 
+    // set by the user directly via the core-pinning attribute.
+    SetAffinityMask(gva_base_inference->core_pinning_mask);
+
     auto image_inference = ImageInference::createImageInferenceInstance(
         memory_type, ie_config, allocator.get(), std::bind(&InferenceImpl::InferenceCompletionCallback, this, _1, _2),
         std::bind(&InferenceImpl::PushFramesIfInferenceFailed, this, _1), std::move(va_dpy));
@@ -975,6 +979,39 @@ bool InferenceImpl::IsRoiSizeValid(const GstAnalyticsODMtd roi_meta) {
     }
 
     return w > 1 && h > 1;
+}
+
+/**
+ * Pins current thread to the CPU core set as specified by affinity mask.
+ */
+void InferenceImpl::SetAffinityMask(uint64_t mask) {
+    GVA_INFO("Setting CPU affinity mask to 0x%lx\n", mask);
+#ifndef _WIN32
+    cpu_set_t cpuset;
+    CPU_ZERO(&cpuset);                             // Initialize to zero
+    int num_cores = sysconf(_SC_NPROCESSORS_ONLN); // Get number of available CPU cores
+    for (int core_id = 0; core_id < num_cores; ++core_id) {
+        if (mask & (1ULL << core_id)) {
+            CPU_SET(core_id, &cpuset); // Add the specific core
+        }
+    }
+
+    pthread_t current_thread = pthread_self(); // Get current thread handle
+    int result = pthread_setaffinity_np(current_thread, sizeof(cpu_set_t), &cpuset);
+
+    if (result != 0) {
+        GVA_ERROR("Error pinning thread: (%d)\n", result);
+    }
+#else
+    DWORD_PTR mask = static_cast<DWORD_PTR>(&mask);
+
+    HANDLE thread = GetCurrentThread(); // Get handle for the current thread
+    DWORD_PTR result = SetThreadAffinityMask(thread, mask);
+
+    if (result == 0) {
+        GVA_ERROR("Error pinning thread: (%d)\n", GetLastError());
+    }
+#endif
 }
 
 /**
