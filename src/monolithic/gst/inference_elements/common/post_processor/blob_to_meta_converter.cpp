@@ -23,6 +23,8 @@
 #include "converters/to_tensor/raw_data_copy.h"
 #include "converters/to_tensor/text.h"
 
+#include <dlstreamer/gst/metadata/gstanalyticskeypointdescriptor.h>
+
 #include "gva_base_inference.h"
 
 #include <gst/gst.h>
@@ -76,22 +78,6 @@ void updateTensorNameIfNeeded(GstStructure *s, const std::string &default_name) 
         return;
 
     gst_structure_set_name(s, default_name.c_str());
-}
-
-size_t getKeypointsNumber(GstStructure *s) {
-    if (s == nullptr || !gst_structure_has_field(s, "point_names"))
-        throw std::runtime_error("\"point_names\" is not defined in model-proc file.");
-
-    GValueArray *point_names = nullptr;
-    gst_structure_get_array(s, "point_names", &point_names);
-    if (!point_names)
-        throw std::runtime_error("\"point_names\" is not defined in model-proc file.");
-
-    size_t kepoints_number = point_names->n_values;
-
-    g_value_array_free(point_names);
-
-    return kepoints_number;
 }
 
 std::string checkOnNameDeprecation(const std::string &converter_name) {
@@ -164,8 +150,9 @@ BlobToMetaConverter::Ptr BlobToMetaConverter::create(Initializer initializer, Co
         return BlobToROIConverter::create(std::move(initializer), converter_name, custom_postproc_lib);
     case ConverterType::TO_TENSOR:
         if (converter_name == KeypointsOpenPoseConverter::getName()) {
-            auto keypoints_number = getKeypointsNumber(tensor.get());
-            return std::make_unique<KeypointsOpenPoseConverter>(std::move(initializer), keypoints_number);
+            return std::make_unique<KeypointsOpenPoseConverter>(std::move(initializer),
+                                                                gst_analytics_keypoint_descriptor_lookup(
+                                                                    GST_ANALYTICS_KEYPOINT_BODY_POSE_OPENPOSE_18)->point_count);
         } else {
             return BlobToTensorConverter::create(std::move(initializer), converter_name, custom_postproc_lib);
         }

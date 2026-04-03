@@ -100,12 +100,19 @@ class BlobToROIConverter : public BlobToMetaConverter {
             for (auto &structure : this->tensors) {
                 GVA::Tensor tensor(structure);
 
-                if (tensor.format() != "keypoints") {
+                if (tensor.type() != "keypoints") {
                     continue;
                 };
 
                 const auto keypoints = tensor.data<float>();
                 auto confidences = tensor.get_vector<float>("confidence");
+
+                // If all confidence values are identical, treat as a shared detection confidence
+                // and skip per-keypoint zeroing.
+                bool all_same = confidences.size() > 1 && std::all_of(confidences.begin(), confidences.end(),
+                                                                      [&](float v) { return v == confidences[0]; });
+                if (all_same)
+                    continue;
 
                 const auto &dimensions = tensor.dims();
                 size_t points_num = dimensions[0];

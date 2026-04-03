@@ -11,6 +11,7 @@
 #include "inference_backend/logger.h"
 #include "safe_arithmetic.hpp"
 
+#include <dlstreamer/gst/metadata/gstanalyticskeypointdescriptor.h>
 #include <dlstreamer/gst/videoanalytics/tensor.h>
 #include <gst/gst.h>
 
@@ -149,14 +150,8 @@ TensorsTable YOLOv8PoseConverter::convert(const OutputBlobs &output_blobs) {
     return TensorsTable{};
 }
 
-static const std::vector<std::string> point_names = {
-    "nose",    "eye_l",   "eye_r", "ear_l", "ear_r",  "shoulder_l", "shoulder_r", "elbow_l", "elbow_r",
-    "wrist_l", "wrist_r", "hip_l", "hip_r", "knee_l", "knee_r",     "ankle_l",    "ankle_r"};
-static const std::vector<std::string> point_connections = {
-    "nose",    "eye_l", "nose",       "eye_r",      "ear_l",      "shoulder_l", "ear_r",   "shoulder_r", "eye_l",
-    "ear_l",   "eye_r", "ear_r",      "shoulder_l", "shoulder_r", "shoulder_l", "hip_l",   "shoulder_r", "hip_r",
-    "hip_l",   "hip_r", "shoulder_l", "elbow_l",    "shoulder_r", "elbow_r",    "elbow_l", "wrist_l",    "elbow_r",
-    "wrist_r", "hip_l", "knee_l",     "hip_r",      "knee_r",     "knee_l",     "ankle_l", "knee_r",     "ankle_r"};
+static const GstAnalyticsKeypointDescriptor *coco17_descriptor =
+    gst_analytics_keypoint_descriptor_lookup(GST_ANALYTICS_KEYPOINT_BODY_POSE_COCO_17);
 
 void YOLOv8PoseConverter::parseOutputBlob(const float *data, const std::vector<size_t> &dims,
                                           std::vector<DetectedObject> &objects) const {
@@ -208,7 +203,8 @@ void YOLOv8PoseConverter::parseOutputBlob(const float *data, const std::vector<s
             GVA::Tensor tensor(gst_structure);
 
             tensor.set_name("keypoints");
-            tensor.set_format("keypoints");
+            tensor.set_type("keypoints");
+            tensor.set_format(coco17_descriptor->semantic_tag);
 
             // set tensor data (positions)
             tensor.set_dims({static_cast<uint32_t>(keypoint_count), 2});
@@ -217,8 +213,14 @@ void YOLOv8PoseConverter::parseOutputBlob(const float *data, const std::vector<s
 
             // set additional tensor properties as vectors: confidence, point names and point connections
             tensor.set_vector<float>("confidence", confidences);
-            tensor.set_vector<std::string>("point_names", point_names);
-            tensor.set_vector<std::string>("point_connections", point_connections);
+
+            std::vector<std::string> names(coco17_descriptor->point_names,
+                                           coco17_descriptor->point_names + coco17_descriptor->point_count);
+            std::vector<uint32_t> connections(coco17_descriptor->skeleton_connections,
+                                              coco17_descriptor->skeleton_connections +
+                                                  coco17_descriptor->skeleton_connection_count * 2);
+            tensor.set_vector<std::string>("point_names", names);
+            tensor.set_vector<uint32_t>("point_connections", connections);
 
             detected_object.tensors.push_back(tensor.gst_structure());
             objects.push_back(detected_object);
