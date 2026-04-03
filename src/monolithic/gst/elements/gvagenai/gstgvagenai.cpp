@@ -373,16 +373,17 @@ static GstFlowReturn gst_gvagenai_transform_ip(GstBaseTransform *base, GstBuffer
     }
 
     GST_OBJECT_LOCK(gvagenai);
+    gboolean _success = TRUE;
     if (gvagenai->prompt_changed) {
-        if (!load_effective_prompt(gvagenai)) {
-            GST_ELEMENT_ERROR(gvagenai, RESOURCE, FAILED, ("Failed to load effective prompt"),
-                              ("Could not load or validate prompt configuration"));
-            GST_OBJECT_UNLOCK(gvagenai);
-            return GST_FLOW_ERROR;
-        }
+        _success = load_effective_prompt(gvagenai);
         gvagenai->prompt_changed = FALSE;
     }
     GST_OBJECT_UNLOCK(gvagenai);
+    if (!_success) {
+        GST_ELEMENT_ERROR(gvagenai, RESOURCE, FAILED, ("Failed to load effective prompt"),
+                          ("Could not load or validate prompt configuration"));
+        return GST_FLOW_ERROR;
+    }
 
     // Get video info from pad
     GstVideoInfo info;

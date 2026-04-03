@@ -438,15 +438,27 @@ bool isPaddleOCRModel(const std::string &model_file) {
     if (!loadJsonFromModelDir(model_file, "config.json", config_json))
         return false;
 
+    bool has_pp_ocr_model_name = false;
+    bool has_ctc_label_decode = false;
+
     // PaddleOCR config.json contains Global.model_name with "PP-OCR" substring
     if (config_json.contains("Global") && config_json["Global"].is_object() &&
         config_json["Global"].contains("model_name") && config_json["Global"]["model_name"].is_string()) {
         const std::string model_name = config_json["Global"]["model_name"].get<std::string>();
-        if (std::regex_search(model_name, std::regex("PP-OCR.*rec")))
-            return true;
+        if (std::regex_search(model_name, std::regex(".*PP-OCR.*rec")))
+            has_pp_ocr_model_name = true;
     }
 
-    return false;
+    // Also check for PostProcess.name == "CTCLabelDecode" with character_dict
+    if (config_json.contains("PostProcess") && config_json["PostProcess"].is_object() &&
+        config_json["PostProcess"].contains("name") && config_json["PostProcess"]["name"].is_string()) {
+        const std::string pp_name = config_json["PostProcess"]["name"].get<std::string>();
+        if (pp_name == "CTCLabelDecode") {
+            has_ctc_label_decode = true;
+        }
+    }
+
+    return has_pp_ocr_model_name && has_ctc_label_decode;
 }
 
 // Convert PaddleOCR config.json metadata into Model API format

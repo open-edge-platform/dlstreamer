@@ -156,8 +156,7 @@ void PaddleOCRCtcConverter::loadVocabularyFromModelProc() {
 
 std::pair<std::string, double> PaddleOCRCtcConverter::ctcDecode(const float *data, size_t seq_len, size_t vocab_size) {
     std::string result;
-    double log_conf_sum = 0.0;
-    int num_chars = 0;
+    std::vector<float> confidences;
     int prev_idx = 0;
 
     for (size_t t = 0; t < seq_len; ++t) {
@@ -165,7 +164,7 @@ std::pair<std::string, double> PaddleOCRCtcConverter::ctcDecode(const float *dat
         const float *row = data + t * vocab_size;
         int max_idx = static_cast<int>(std::max_element(row, row + vocab_size) - row);
 
-        // Element 0 is CTC blank and indicates entire sequence should be skiped
+        // Element 0 is CTC blank and indicates entire sequence should be skipped
         // If current index matches previous index, we also skip it to avoid duplicates
         if (max_idx == 0 || max_idx == prev_idx) {
             prev_idx = max_idx;
@@ -174,25 +173,22 @@ std::pair<std::string, double> PaddleOCRCtcConverter::ctcDecode(const float *dat
         prev_idx = max_idx;
 
         // Convert element index to Vocabulary character index
-        // Vocabulary is 1-based indexed (0 is reserved for CTC blank), so subtract 1
+        // Vocabulary is 1-based indexed, so subtract 1
         size_t char_idx = static_cast<size_t>(max_idx - 1);
         if (char_idx >= vocabulary.size())
             continue;
 
         // Add new character to output label
         result.append(vocabulary[char_idx]);
-
-        // Calculate softmax probability for this character
-        float row_max = row[max_idx];
-        double exp_sum = 0.0;
-        for (size_t v = 0; v < vocab_size; ++v)
-            exp_sum += std::exp(static_cast<double>(row[v] - row_max));
-        log_conf_sum += std::log(1.0 / exp_sum + 1e-10);
-        ++num_chars;
+        confidences.push_back(row[max_idx]);
     }
 
-    // retunr geomean of character confidences as overall confidence score for the sequence
-    double confidence = (num_chars > 0) ? std::exp(log_conf_sum / num_chars) : 0.0;
+    // return mean of character confidences as overall confidence score
+    double confidence = 0.0;
+    if (!confidences.empty()) {
+        confidence = std::accumulate(confidences.begin(), confidences.end(), 0.0f) / confidences.size();
+    }
+
     return {result, confidence};
 }
 
@@ -218,11 +214,13 @@ TensorsTable PaddleOCRCtcConverter::convert(const OutputBlobs &output_blobs) {
             const std::string layer_name = blob_iter.first;
 
             // Output shape: [batch_size, seq_len, vocab_size]
+            // Tensor vocab_size has two additional tokens: CTC Blank token and Padding token
+            // hence its size is bigger than character vocabulary
             const auto &dims = blob->GetDims();
             const size_t vocab_size = (dims.size() == 3) ? dims[2] : 0;
             const size_t seq_len = (dims.size() >= 2) ? dims[1] : 0;
-            if (vocab_size != vocabulary.size() + 2) // +1 for CTC blank token, +1 for 1-based indexing
-                throw std::invalid_argument("Unexpected vocabulary size");
+            if (vocab_size == 0 || seq_len == 0 || vocab_size != vocabulary.size() + 2)
+                throw std::invalid_argument("Unexpected PaddleOCR output tensor dimensions");
 
             for (size_t batch_elem_index = 0; batch_elem_index < batch_size; ++batch_elem_index) {
                 GVA::Tensor classification_result = createTensor();

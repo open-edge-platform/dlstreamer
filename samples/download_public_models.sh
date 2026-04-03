@@ -1148,7 +1148,7 @@ fi
 
 export_ppocr_v5_model() {
   local MODEL_NAME=$1
-  MODEL_DIR="$MODELS_PATH/public/$MODEL_NAME"
+  local MODEL_DIR="$MODELS_PATH/public/$MODEL_NAME"
   local DST_FILE1="$MODEL_DIR/FP32/$MODEL_NAME.xml"
   local DST_FILE2="$MODEL_DIR/FP16/$MODEL_NAME.xml"
 

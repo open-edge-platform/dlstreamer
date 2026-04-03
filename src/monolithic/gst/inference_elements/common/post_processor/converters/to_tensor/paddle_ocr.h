@@ -405,11 +405,11 @@ class PaddleOCRConverter : public BlobToTensorConverter {
 }; // class PaddleOCRConverter
 
 /*
-PaddleOCRCtcConverter: standard PaddleOCRv5 CTC decoder.
-  - Index 0 is the CTC blank token
-  - Real characters are mapped as vocabulary[index - 1]
-  - Character dictionary is loaded at runtime from config.json (as part of model import)
-  - Sequence length and vocabulary size are derived from the model output tensor shape
+PaddleOCRCtc tensor output = [B, L, N] where:
+    B - batch size
+    L - sequence length (maximum number of characters in the recognized text)
+    N - number of elements in the model's character set including two additional tokens:
+        CTC blank token and Padding token.
 */
 class PaddleOCRCtcConverter : public BlobToTensorConverter {
   public:
