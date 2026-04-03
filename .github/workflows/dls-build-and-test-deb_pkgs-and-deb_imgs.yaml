@@ -243,24 +243,6 @@ jobs:
           echo "DOCKER_TEST_CONFIGS=aliveness_config.json" >> $GITHUB_ENV
           echo "Selected test configuration file: $DOCKER_TEST_CONFIGS" >> $GITHUB_STEP_SUMMARY
 
-      - name: Check directories in testing image
-        env:
-          deb_final_testing_img: ghcr.io/${{ github.repository }}/deb-final-testing-img-${{ matrix.ubuntu_version }}:${{ github.sha }}
-        run: |
-          docker run --rm ${deb_final_testing_img} bash -c "
-            echo '=== /home/dlstreamer ===' && \
-            ls -la /home/dlstreamer 2>/dev/null || echo 'Not found'; \
-            echo ''; \
-            echo '=== /home/dlstreamer/dlstreamer (follow symlink) ===' && \
-            ls -laRL /home/dlstreamer/dlstreamer 2>/dev/null | head -40 || echo 'Not found'; \
-            echo ''; \
-            echo '=== /home/dlstreamer/dlstreamer/tests ===' && \
-            ls -laL /home/dlstreamer/dlstreamer/tests 2>/dev/null || echo 'Not found'; \
-            echo ''; \
-            echo '=== /home/dlstreamer/dlstreamer/functional_tests ===' && \
-            ls -laL /home/dlstreamer/dlstreamer/functional_tests 2>/dev/null || echo 'Not found'
-          "
-    
       - name: 🚀 Run Docker tests
         if: needs.setup.outputs.should_run == 'true'
         id: run_docker_tests
@@ -276,8 +258,6 @@ jobs:
           DLS_TESTS_RESULTS_PATH=$PWD
           echo "DLS_TESTS_RESULTS_PATH=$DLS_TESTS_RESULTS_PATH" >> $GITHUB_ENV
           cd ../functional_tests
-          pwd
-          find . -print | sed -e 's;[^/]*/;|____;g;s;____|; |;g'
           ./run_tests.sh \
             --models-path=${{ env.MODELS_PATH }} \
             --video-examples-path=${{ env.VIDEO_INPUTS_PATH }} \
