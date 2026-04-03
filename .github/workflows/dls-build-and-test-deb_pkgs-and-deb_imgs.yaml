@@ -252,7 +252,13 @@ jobs:
             ls -la /home/dlstreamer 2>/dev/null || echo 'Not found'; \
             echo ''; \
             echo '=== /home/dlstreamer/dlstreamer (follow symlink) ===' && \
-            find /home/dlstreamer/dlstreamer -maxdepth 2 -type f -o -type d 2>/dev/null | head -20 || echo 'Not found'
+            ls -laRL /home/dlstreamer/dlstreamer 2>/dev/null | head -40 || echo 'Not found'; \
+            echo ''; \
+            echo '=== /home/dlstreamer/dlstreamer/tests ===' && \
+            ls -laL /home/dlstreamer/dlstreamer/tests 2>/dev/null || echo 'Not found'; \
+            echo ''; \
+            echo '=== /home/dlstreamer/dlstreamer/functional_tests ===' && \
+            ls -laL /home/dlstreamer/dlstreamer/functional_tests 2>/dev/null || echo 'Not found'
           "
     
       - name: 🚀 Run Docker tests
