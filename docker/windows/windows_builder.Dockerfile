@@ -9,7 +9,7 @@
 # Use the Windows Server Core 2022 image.
 FROM mcr.microsoft.com/windows/servercore:ltsc2022
 
-ARG GSTREAMER_VERSION=1.26.6
+ARG GSTREAMER_VERSION=1.26.11
 
 # Restore the default Windows shell for correct batch processing.
 SHELL ["cmd", "/S", "/C"]

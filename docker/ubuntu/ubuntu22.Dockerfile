@@ -131,6 +131,7 @@ RUN \
     pluggy==1.5.0 \
     exceptiongroup==1.2.2 \
     iniconfig==2.0.0 \
+    typing-extensions==4.15.0 \
     openvino==2026.0.0
 
 # hadolint ignore=DL3002
@@ -183,7 +184,7 @@ RUN cp -a /usr/local/lib/libopencv* ./
 # ==============================================================================
 FROM opencv-builder AS gstreamer-builder
 
-ARG GST_VERSION=1.26.6
+ARG GST_VERSION=1.26.11
 
 SHELL ["/bin/bash", "-xo", "pipefail", "-c"]
 

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2026 Intel Corporation
+ * Copyright (C) 2025-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -152,6 +152,7 @@ static void gst_gvagenai_init(GstGvaGenAI *gvagenai) {
     gvagenai->metrics = FALSE;
     gvagenai->frame_counter = 0;
     gvagenai->prompt_string = NULL;
+    gvagenai->prompt_changed = FALSE;
     gvagenai->openvino_context = NULL;
 }
 
@@ -218,8 +219,12 @@ static void gst_gvagenai_set_property(GObject *object, guint prop_id, const GVal
         gvagenai->model_path = g_value_dup_string(value);
         break;
     case PROP_PROMPT:
+        // Lock to synchronize prompt updates with transform function
+        GST_OBJECT_LOCK(gvagenai);
         g_free(gvagenai->prompt);
         gvagenai->prompt = g_value_dup_string(value);
+        gvagenai->prompt_changed = TRUE;
+        GST_OBJECT_UNLOCK(gvagenai);
         break;
     case PROP_PROMPT_PATH:
         g_free(gvagenai->prompt_path);
@@ -366,6 +371,18 @@ static GstFlowReturn gst_gvagenai_transform_ip(GstBaseTransform *base, GstBuffer
                           ("OpenVINO GenAI context is not initialized, element may not have started properly"));
         return GST_FLOW_ERROR;
     }
+
+    GST_OBJECT_LOCK(gvagenai);
+    if (gvagenai->prompt_changed) {
+        if (!load_effective_prompt(gvagenai)) {
+            GST_ELEMENT_ERROR(gvagenai, RESOURCE, FAILED, ("Failed to load effective prompt"),
+                              ("Could not load or validate prompt configuration"));
+            GST_OBJECT_UNLOCK(gvagenai);
+            return GST_FLOW_ERROR;
+        }
+        gvagenai->prompt_changed = FALSE;
+    }
+    GST_OBJECT_UNLOCK(gvagenai);
 
     // Get video info from pad
     GstVideoInfo info;

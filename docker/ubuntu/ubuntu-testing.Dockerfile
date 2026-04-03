@@ -34,10 +34,12 @@ RUN \
 WORKDIR /home/dlstreamer
 USER dlstreamer
 
+COPY ./requirements.txt /home/dlstreamer/requirements.txt
+
 RUN \
     python3 -m venv /python3venv && \
     /python3venv/bin/pip3 install --no-cache-dir --upgrade pip && \
-    /python3venv/bin/pip3 install --no-cache-dir --no-dependencies PyGObject==3.50.0 setuptools==78.1.1 numpy==2.2.0 tqdm==4.67.1 opencv-python==4.11.0.86
+    /python3venv/bin/pip3 install --no-cache-dir --no-dependencies -r /home/dlstreamer/requirements.txt
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD [ "bash", "-c", "pgrep bash > /dev/null || exit 1" ]
