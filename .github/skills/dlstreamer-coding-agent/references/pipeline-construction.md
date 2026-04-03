@@ -1,111 +1,11 @@
 # Pipeline Construction Reference
 
-This reference covers how to build GStreamer pipelines in DLStreamer Python applications.
-
-## Pipeline Construction Approaches
-
-### Approach 1: `Gst.parse_launch` (preferred for most apps)
-
-Build the pipeline from a string that mirrors `gst-launch-1.0` syntax. Use named elements
-(`name=foo`) to retrieve references for probes or property changes later.
-
-```python
-pipeline = Gst.parse_launch(
-    f'filesrc location="{video_file}" ! decodebin3 ! '
-    f'gvadetect model="{model_file}" device=GPU batch-size=4 ! queue ! '
-    f'gvawatermark name=watermark ! videoconvertscale ! autovideosink'
-)
-# Retrieve named elements for probes
-watermark = pipeline.get_by_name("watermark")
-```
-
-Source: `samples/gstreamer/python/hello_dlstreamer/hello_dlstreamer.py`
-
-**When to use:** Any pipeline assembled from known elements. Covers 90% of use cases.
-
-### Approach 2: Programmatic element creation
-
-Create elements individually with `Gst.ElementFactory.make`, set properties, add to pipeline,
-and link manually. Required when linking must happen dynamically (e.g., `decodebin3` pad-added).
-
-```python
-pipeline = Gst.Pipeline()
-source = Gst.ElementFactory.make("filesrc", "file-source")
-decoder = Gst.ElementFactory.make("decodebin3", "media-decoder")
-detect = Gst.ElementFactory.make("gvadetect", "object-detector")
-
-source.set_property("location", video_file)
-detect.set_property("model", model_file)
-detect.set_property("device", "GPU")
-
-pipeline.add(source)
-pipeline.add(decoder)
-pipeline.add(detect)
-source.link(decoder)
-decoder.connect("pad-added",
-    lambda el, pad, sink: el.link(sink)
-        if "video" in pad.get_name() and not pad.is_linked() else None,
-    detect)
-detect.link(queue)
-```
-
-Source: `samples/gstreamer/python/hello_dlstreamer/hello_dlstreamer_full.py`
-
-**When to use:** Only when dynamic pad negotiation or runtime element insertion is needed.
-
-## Pipeline Design Rules
-
-These rules govern how pipelines should be constructed. Follow them in every new application.
-
-### Rule 1 — Prefer VA Memory and GPU/NPU for AI Inference
-
-Keep frames in VA memory throughout the pipeline. Let `decodebin3` auto-select the
-decode format and memory type — do **not** insert explicit caps filters for
-`video/x-raw(memory:VAMemory)` or `format=NV12` between decode and AI elements.
-DLStreamer inference elements (`gvadetect`, `gvaclassify`, `gvagenai`) handle
-memory negotiation automatically.
-
-Prefer `device=GPU` or `device=NPU` for inference elements to keep data on the
-accelerator and avoid unnecessary GPU↔CPU copies.
-
-### Rule 2 — Let GStreamer Auto-Negotiate Pixel Format
-
-Do **not** force pixel formats (e.g. `video/x-raw,format=RGB`, `format=NV12`) in caps
-filters unless a specific element **requires** a particular format (e.g. a custom Python
-element that maps buffers to numpy). DLStreamer AI elements adapt to whatever format
-they receive. Unnecessary format forcing causes extra `videoconvert` copies and can
-break zero-copy paths.
-
-**Exception:** Custom Python elements that call `buffer.map()` to access raw pixels need
-a CPU-accessible format — see the "CPU-Accessible Pixel Formats" section below.
-
-### Rule 3 — Element Usage Guidelines
-
-Choose the correct DLStreamer inference element based on model type:
-
-| Model Type | Element | Examples |
-|------------|---------|----------|
-| Object detection | `gvadetect` | YOLOv8/v11, SSD, RT-DETR, D-FINE |
-| Classification / OCR | `gvaclassify` | ResNet, EfficientNet, CLIP, ViT, PaddleOCR |
-| Vision-Language Models | `gvagenai` | MiniCPM-V, Qwen2.5-VL, InternVL, SmolVLM |
-
-Use `gvaclassify` for OCR models (e.g. PaddleOCR text recognition) when the model's
-input/output can be described by a model-proc file. Only fall back to a custom OpenVINO
-Python element (Pattern 13) when the model requires pre/post-processing that cannot be
-expressed through model-proc.
-
-### Rule 4 — Use `gvametapublish` for JSON Output
-
-Use `gvametapublish` as the standard way to export inference results to JSON:
-
-```
-gvametapublish file-format=json-lines file-path=results.jsonl
-```
-
-Do not write custom file-output logic in pad probes or custom elements when
-`gvametapublish` can handle the use case.
+This reference covers how to build DLStreamer command line pipelines or Python applications.
 
 ## DLStreamer GStreamer Elements
+
+This section lists elements commonly used in DLStreamer pipelines. 
+For full list of DLStreamer elements see also `/home/tjanczak/dlstreamer/docs/user-guide/elements`.
 
 ### Source Elements
 
@@ -159,6 +59,7 @@ Do not write custom file-output logic in pad probes or custom elements when
 
 | Element | Purpose | Key Properties |
 |---------|---------|----------------|
+| `gvametaconvert` | Convert metadata to JSON format | `file-format=json-lines`, `file-path=<path>` |
 | `gvametapublish` | Export inference metadata to file | `file-format=json-lines`, `file-path=<path>` |
 
 ### Flow Control
@@ -183,6 +84,13 @@ Do not write custom file-output logic in pad probes or custom elements when
 | `autovideosink` | Auto-select display sink | `sync=true` |
 | `appsink` | Pull frames into application code | `emit-signals=true`, `name=<name>` |
 | `jpegenc` | Encode frames as JPEG | |
+
+### Custom Logic
+
+If a user pipeline requires custom processing, add new Python GStreamer elements in:  
+- `plugins/python/<element_name>.py`
+
+Do not use 'gvapython' as it is deprecated. 
 
 ## Common Pipeline Patterns
 
@@ -217,9 +125,6 @@ gvafpscounter ! gvawatermark name=watermark ! videoconvert !
 vah264enc ! h264parse ! mp4mux ! filesink location=output.mp4
 ```
 
-> **Note:** No explicit caps filter between `decodebin3` and `gvagenai` — let GStreamer
-> auto-negotiate the format and memory type (see Rules 1 & 2).
-
 ### Pattern 4: Tee → Dual-Branch (display + analytics)
 
 ```
@@ -227,7 +132,7 @@ filesrc location=video.mp4 ! decodebin3 !
 gvadetect model=model.xml device=GPU ! queue ! gvatrack !
 tee name=t
   t. ! queue ! gvawatermark ! videoconvert ! autovideosink
-  t. ! queue ! <analytics_branch> ! filesink location=out.mp4
+  t. ! queue ! <analytics_branch> ! gvametapublish file-path=results.jsonl
 ```
 
 ### Pattern 5: Detect → Track → Custom Python Element
@@ -263,74 +168,112 @@ tee name=detect_tee
   jpegenc ! multifilesink location=snapshots-%d.jpeg
 ```
 
-### Pattern 7: Detect → Custom OpenVINO Element (with pixel access)
+## Pipeline Design Rules
 
-> **Prefer `gvaclassify`** for second-stage models (OCR, classification) when a model-proc
-> file can describe the model's input/output (see Rule 3). Use this custom-element pattern
-> only when the model requires pre/post-processing that `gvaclassify` cannot express.
+These rules govern how pipelines should be constructed. Follow them in every new application.
 
-**When using a custom element that maps buffers to numpy:** Insert
-`videoconvertscale ! video/x-raw,format=BGRx` before the custom element to ensure
-frames are in CPU-accessible BGR format. Without this, frames may be in VA GPU memory
-and cannot be mapped.
+### Rule 1 — Prefer VA Memory and GPU/NPU for AI Inference
 
-```
-filesrc location=video.mp4 ! decodebin3 !
-gvadetect model=detect.xml device=GPU threshold=0.5 ! queue !
-videoconvertscale ! video/x-raw,format=BGRx !
-mycustom_py model-path=model.xml device=CPU results-file=results.jsonl !
-gvafpscounter ! gvawatermark !
-videoconvert ! vah264enc ! h264parse ! mp4mux !
-filesink location=output.mp4
-```
+Keep frames in VA memory throughout the pipeline. Let `decodebin3` auto-select the
+decode format and memory type — do **not** insert explicit caps filters for
+`video/x-raw(memory:VAMemory)` or `format=NV12` between decode and AI elements.
+DLStreamer inference elements (`gvadetect`, `gvaclassify`, `gvagenai`) handle
+memory negotiation automatically.
 
-> **Note:** The forced `format=BGRx` is an intentional exception to Rule 2 — it is
-> required because the custom element calls `buffer.map()` to access raw pixels.
+Prefer `device=GPU` or `device=NPU` for inference elements to keep data on the
+accelerator and avoid unnecessary GPU↔CPU copies.
 
-Source: `samples/gstreamer/python/license_plate_recognition/license_plate_recognition.py`
+### Rule 2 — Let GStreamer Auto-Negotiate Pixel Format
 
-## CPU-Accessible Pixel Formats
+Do **not** force pixel formats (e.g. `video/x-raw,format=RGB`, `format=NV12`) in caps
+filters unless a specific element **requires** a particular format (e.g. a custom Python
+element that maps buffers to numpy). DLStreamer AI elements adapt to whatever format
+they receive. Unnecessary format forcing causes extra `videoconvert` copies and can
+break zero-copy paths.
 
-> **This section applies ONLY to custom Python elements that call `buffer.map()` to access
-> raw pixels.** Standard DLStreamer elements (`gvadetect`, `gvaclassify`, `gvagenai`,
-> `gvawatermark`) handle format negotiation automatically — do NOT insert format caps
-> before them (see Rules 1 & 2).
+**Exception:** Custom Python elements that call `buffer.map()` to access raw pixels need
+a CPU-accessible format — see the "CPU-Accessible Pixel Formats" section below.
 
-When a custom element needs to read pixel data (for cropping, OpenCV processing, or feeding
-a second model), force a CPU-accessible format before the element:
+### Rule 3 — Element Usage Guidelines
 
-```
-videoconvertscale ! video/x-raw,format=BGRx ! my_custom_element_py
-```
+Choose the correct DLStreamer inference element based on model type:
 
-Supported CPU-accessible formats for `np.frombuffer`:
-- `BGRx` / `BGRA`: 4 bytes/pixel, reshape to `(H, W, 4)`, slice `[:, :, :3]` for BGR
-- `BGR` / `RGB`: 3 bytes/pixel, reshape to `(H, W, 3)`
-- `NV12` / `I420`: YUV, use `cv2.cvtColor()` conversion
+| Model Type | Element | Examples |
+|------------|---------|----------|
+| Object detection | `gvadetect` | YOLOv8/v11, SSD, RT-DETR, D-FINE |
+| Classification / OCR | `gvaclassify` | ResNet, EfficientNet, CLIP, ViT, PaddleOCR |
+| Vision-Language Models | `gvagenai` | MiniCPM-V, Qwen2.5-VL, InternVL, SmolVLM |
 
-**⚠ Do NOT use this pattern when the custom element only reads metadata** (bounding boxes,
-labels, confidence). Metadata-only elements should use `Gst.Caps.new_any()` pads and
-skip format conversion to avoid unnecessary GPU→CPU memory copies.
+Use `gvaclassify` for OCR models (e.g. PaddleOCR text recognition) when the model's
+input/output can be described by a model-proc file. Only fall back to a custom OpenVINO
+Python element (Pattern 6) when the model requires pre/post-processing that cannot be
+expressed through model-proc.
 
-## VA Memory Caps Filter
+### Rule 4 — Use queue element after Inference Elements
 
-> **Prefer letting GStreamer auto-negotiate memory type** (see Rule 1). Do not insert
-> explicit `video/x-raw(memory:VAMemory)` caps filters between `decodebin3` and DLStreamer
-> inference elements. `decodebin3` with hardware decode already produces VA memory
-> surfaces, and DLStreamer elements accept them natively.
+Inference elements like `gvadetect` or `gvaclassify` are asynchronous and they process output tensors in the context of OpenVINO inference engine threads. Use `queue` elements following inference elements to transfer processing to another thread. 
 
-When using GPU inference with VA-API acceleration, insert a caps filter to keep frames
-in GPU memory **only if auto-negotiation fails** or a specific upstream element requires it:
+### Rule 5 — Use `gvametapublish` for JSON Output
+
+Use `gvametaconvert` followed by `gvametapublish` as the standard way to export inference results to JSON:
 
 ```
-videoconvertscale ! video/x-raw(memory:VAMemory),format=NV12 ! queue ! gvagenai ...
+gvametaconvert ! gvametapublish file-format=json-lines file-path=results.jsonl
 ```
 
-Or use `vapostproc` for hardware-accelerated scaling:
+Do not write custom file-output logic in pad probes or custom elements when
+`gvametapublish` can handle the use case.
 
+## Python Pipeline Construction Approaches
+
+### Approach 1: `Gst.parse_launch` (preferred for most apps)
+
+Build the pipeline from a string that mirrors `gst-launch-1.0` syntax. Use named elements
+(`name=foo`) to retrieve references for probes or property changes later.
+
+```python
+pipeline = Gst.parse_launch(
+    f'filesrc location="{video_file}" ! decodebin3 ! '
+    f'gvadetect model="{model_file}" device=GPU batch-size=4 ! queue ! '
+    f'gvawatermark name=watermark ! videoconvertscale ! autovideosink'
+)
+# Retrieve named elements for probes
+watermark = pipeline.get_by_name("watermark")
 ```
-vapostproc ! video/x-raw,format=NV12,width=640,height=360 ! gvagenai ...
+
+Source: `samples/gstreamer/python/hello_dlstreamer/hello_dlstreamer.py`
+
+**When to use:** Any pipeline assembled from known elements. Covers 90% of use cases.
+
+### Approach 2: Programmatic element creation
+
+Create elements individually with `Gst.ElementFactory.make`, set properties, add to pipeline,
+and link manually. Required when linking must happen dynamically (e.g., `decodebin3` pad-added).
+
+```python
+pipeline = Gst.Pipeline()
+source = Gst.ElementFactory.make("filesrc", "file-source")
+decoder = Gst.ElementFactory.make("decodebin3", "media-decoder")
+detect = Gst.ElementFactory.make("gvadetect", "object-detector")
+
+source.set_property("location", video_file)
+detect.set_property("model", model_file)
+detect.set_property("device", "GPU")
+
+pipeline.add(source)
+pipeline.add(decoder)
+pipeline.add(detect)
+source.link(decoder)
+decoder.connect("pad-added",
+    lambda el, pad, sink: el.link(sink)
+        if "video" in pad.get_name() and not pad.is_linked() else None,
+    detect)
+detect.link(queue)
 ```
+
+Source: `samples/gstreamer/python/hello_dlstreamer/hello_dlstreamer_full.py`
+
+**When to use:** Only when dynamic pad negotiation or runtime element insertion is needed.
 
 ## Pipeline Event Loop
 

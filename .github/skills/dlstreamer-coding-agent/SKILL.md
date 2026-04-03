@@ -11,11 +11,30 @@ Build new DLStreamer Python video-analytics applications by composing design pat
 ## When to Use
 
 - User describes a vision AI processing pipeline in natural language
-- User wants to create a new sample app derived from existing samples
+- User wants to create a new Python sample application built on DLStreamer
+- User wants to create a new GStreamer command line using DLStreamer elements
 - User wants to combine elements from multiple existing samples (e.g. detection + VLM + recording)
 - User needs to add custom analytics logic or custom GStreamer elements in Python
 
-## Reference Samples
+##  Directory Layout for a New Sample App
+
+```
+<new_sample_app_name>
+├── <app_name>.py or .sh        # Main application (Python or shell script)
+├── <download_models.py or .sh  # Model download script (if not embedded in main application)
+├── README.md                   # Documentation with instructions how to install prerequisites and run the sample
+├── requirements.txt            # Python dependencies (if any, including PyGObject)
+├── plugins/                    # Only if custom GStreamer elements are needed
+│   └── python/
+│       └── <element>.py
+├── config/                     # Only if config files are needed
+│   └── *.txt / *.json
+├── models/                     # Created at runtime (cached model exports)
+├── videos/                     # Created at runtime (cached video downloads)
+└── results/                    # Created at runtime (output files)
+```
+
+## Reference Python Samples
 
 Before generating code, read the relevant existing samples to understand established conventions:
 
@@ -28,14 +47,68 @@ Before generating code, read the relevant existing samples to understand establi
 | vlm_alerts | VLM inference (gvagenai), argparse config, file output | `samples/gstreamer/python/vlm_alerts/` |
 | vlm_self_checkout | Computer Vision detection and VLM classification, multi-branch tee, custom frame selection for VLM | `samples/gstreamer/python/vlm_self_checkout/` |
 | smart_nvr | Custom Python GStreamer elements (analytics + recorder), chunked storage | `samples/gstreamer/python/smart_nvr/` |
-| license_plate_recognition | Detect + custom OpenVINO element, PaddlePaddle model conversion, pixel access in custom element | `samples/gstreamer/python/license_plate_recognition/` |
 | onvif_cameras_discovery | Multi-camera RTSP, ONVIF discovery, subprocess orchestration | `samples/gstreamer/python/onvif_cameras_discovery/` |
+| draw_face_attributes | Detect → multi-classify chain, custom tensor post-processing in pad probe callback | `samples/gstreamer/python/draw_face_attributes/` |
+| coexistence | DL Streamer + DeepStream coexistence, Docker orchestration, multi-framework LPR | `samples/gstreamer/python/coexistence/` |
+
+## Reference Command Line Samples
+
+Before generating code, read the relevant existing samples to understand established conventions:
+
+| Sample | Key Pattern | Path |
+|--------|-------------|------|
+| face_detection_and_classification | Detection + classification chain (`gvadetect` → `gvaclassify`) | `samples/gstreamer/gst_launch/face_detection_and_classification/` |
+| audio_detect | Audio event detection + metadata publish | `samples/gstreamer/gst_launch/audio_detect/` |
+| audio_transcribe | Audio transcription with `gvaaudiotranscribe` | `samples/gstreamer/gst_launch/audio_transcribe/` |
+| vehicle_pedestrian_tracking | Detection + tracking (`gvatrack`) | `samples/gstreamer/gst_launch/vehicle_pedestrian_tracking/` |
+| human_pose_estimation | Full-frame pose estimation/classification | `samples/gstreamer/gst_launch/human_pose_estimation/` |
+| metapublish | Metadata conversion and publish (`gvametaconvert`/`gvametapublish`) | `samples/gstreamer/gst_launch/metapublish/` |
+| gvapython/face_detection_and_classification | Python post-processing via `gvapython` | `samples/gstreamer/gst_launch/gvapython/face_detection_and_classification/` |
+| gvapython/save_frames_with_ROI_only | Save ROI frames with `gvapython` | `samples/gstreamer/gst_launch/gvapython/save_frames_with_ROI_only/` |
+| action_recognition | Action recognition pipeline | `samples/gstreamer/gst_launch/action_recognition/` |
+| instance_segmentation | Instance segmentation pipeline | `samples/gstreamer/gst_launch/instance_segmentation/` |
+| detection_with_yolo | YOLO-based detection/classification | `samples/gstreamer/gst_launch/detection_with_yolo/` |
+| geti_deployment | Intel® Geti™ model deployment | `samples/gstreamer/gst_launch/geti_deployment/` |
+| multi_stream | Multi-camera / multi-stream processing | `samples/gstreamer/gst_launch/multi_stream/` |
+| gvaattachroi | Attach custom ROIs before inference | `samples/gstreamer/gst_launch/gvaattachroi/` |
+| gvafpsthrottle | FPS throttling with `gvafpsthrottle` | `samples/gstreamer/gst_launch/gvafpsthrottle/` |
+| lvm | Image embeddings generation with ViT/CLIP | `samples/gstreamer/gst_launch/lvm/` |
+| license_plate_recognition | License plate recognition (detector + OCR) | `samples/gstreamer/gst_launch/license_plate_recognition/` |
+| gvagenai | VLM usage with `gvagenai` | `samples/gstreamer/gst_launch/gvagenai/` |
+| g3dradarprocess | Radar signal processing | `samples/gstreamer/gst_launch/g3dradarprocess/` |
+| g3dlidarparse | LiDAR parsing pipeline | `samples/gstreamer/gst_launch/g3dlidarparse/` |
+| gvarealsense | RealSense camera capture | `samples/gstreamer/gst_launch/gvarealsense/` |
+| custom_postproc/detect | Custom detection post-processing library | `samples/gstreamer/gst_launch/custom_postproc/detect/` |
+| custom_postproc/classify | Custom classification post-processing library | `samples/gstreamer/gst_launch/custom_postproc/classify/` |
+| face_detection_and_classification_bins | Detection + classification using `processbin`, GPU/CPU VA memory paths | `samples/gstreamer/gst_launch/face_detection_and_classification_bins/` |
+| motion_detect | Motion region detection (`gvamotiondetect`), ROI-restricted inference | `samples/gstreamer/gst_launch/motion_detect/` |
 
 ## Procedure
 
-### Step 1 — Decompose the User Request into Design Patterns
+### Step 1 — Map user Description into DLStreamer Pipeline
 
-Read the [Design Patterns Reference](./references/design-patterns.md) first.
+Generate a proxy pipeline string that captures the user's intent using DLStreamer elements. Use the [Pipeline Construction Reference](./references/pipeline-construction.md) to identify which elements to use for each part of the pipeline (e.g. source, decode, inference, metadata handling, sink).
+
+### Step 2 — Identify AI Models and Generate Model Download scripts
+
+Check what AI models a User wants to use. Search if the models are in the list of models supported by DLStreamer
+
+| Model downloader | Typical Models  | Path |
+|--------|-------------|------|
+| download_public_models.sh | Traditional computer vision models | `samples/download_public_models.sh` |
+| download_hf_models.py | HuggingFace models, including VLM models and Transformer-based detection/classification models (RTDETR, CLIP, ViT) | `scripts/download_models/download_hf_models.py` |
+| download_ultralytics_hf_models.py | Specialized model downloader for Ultralytics YOLO models | `scripts/download_models/download_ultralytics_models.py` |
+
+If a model is found in one of the above scripts, use that script to download the model and add model download instructions to the application README.
+If a model does not exist, check the [Model Preparation Reference](./references/model-preparation.md) for instructions on how to prepare and export the model for DLStreamer, then write a new model download/export script in the application repository and add instructions to the application README.
+
+### Step 3a [Command Line Application] — Construct Command Line Pipeline
+
+If the user asks for a command-line application, construct a `gst-launch-1.0` pipeline string using the identified DLStreamer elements. Follow established conventions for element properties, caps negotiation, and metadata handling as seen in the reference command line samples.
+
+### Step 3b [Python Application] — Decompose the User Request into Design Patterns
+
+If the user asks for a Python application or wants to add custom logic as new Python elements, decompose the requested pipeline into one or more of the design patterns listed in the [Design Patterns Reference](./references/design-patterns.md). This will guide the structure of the application, including how to construct the pipeline, where to add callbacks, and how to handle models and metadata.
 
 Map the user's description to one or more of these patterns:
 
@@ -43,66 +116,42 @@ Map the user's description to one or more of these patterns:
 |---------|---------------|
 | **Pipeline Core** | Always — every app needs source → decode → sink |
 | **AI Inference** | User wants object detection (`gvadetect`), classification/OCR (`gvaclassify`), or VLM (`gvagenai`) |
-| **Pad Probe Callback** | User needs per-frame metadata inspection or custom overlays |
-| **AppSink Callback** | User wants to pull frames into Python for custom processing |
+| **Pad Probe Callback** | User needs simple custom logic, like per-frame metadata inspection or adding overlays |
+| **Custom Python Element** | User needs non-trivial custom analytics logic that runs inside the pipeline |
+| **AppSink Callback** | User wants to continue processing of frames or metadata in their own application |
 | **Dynamic Pipeline Control** | User wants conditional routing, valve, or tee-based branching |
-| **Custom Python Element** | User needs custom analytics logic that runs inside the pipeline |
 | **Cross-Branch Signal Bridge** | User has a tee with branches that must exchange state |
 | **Model Download & Export** | User references HuggingFace, Ultralytics, or optimum-cli models |
 | **Asset Resolution** | User expects auto-download of video or model files |
 | **Multi-Camera / RTSP** | User wants to process multiple camera streams |
 | **File Output (gvametapublish)** | User wants to save JSONL results — use `gvametapublish file-format=json-lines` as default |
-| **Custom OpenVINO Inference** | User needs a model not supported by `gvaclassify` (fallback only — prefer `gvaclassify` with model-proc first) |
-| **Pixel Access in Custom Element** | Custom element needs to read/crop raw frame pixels (not just metadata) |
 
-### Step 1.5 — Verify Model Details Before Writing Code
+### Step 4 [Python Application] — Assemble the Application
 
-Before writing any model download/export code, **always verify HuggingFace repo contents first**:
-
-```python
-from huggingface_hub import list_repo_files
-files = list_repo_files("owner/model-name")
-```
-
-This avoids the common mistake of assuming filenames (e.g. guessing `best.pt` when the
-actual file is `license-plate-finetune-v1s.pt`). Also read the [Common Pitfalls Reference](./references/common-pitfalls.md) to avoid known failure modes.
-
-### Step 2 — Read Relevant Sample Code
-
-Based on the patterns identified, read the actual source files from the samples listed above. Do NOT generate code from memory — always read the current source to pick up the latest API conventions and imports.
-
-For each pattern needed, read the corresponding sample file(s) listed in [Design Patterns Reference](./references/design-patterns.md).
-
-### Step 3 — Assemble the Application
-
-Use the [Application Template](./assets/app-template.py) as a starting skeleton. Compose the application by:
+Read the [Coding Conventions Reference](./references/coding-conventions.md) before writing a Python application.
+Use the [Application Template](./assets/python-app-template.py) as a starting skeleton. Compose the application by:
 
 1. Selecting the appropriate **pipeline construction** approach — see [Pipeline Construction Reference](./references/pipeline-construction.md)
-2. Following the **Pipeline Design Rules** (Rules 1–4) in the Pipeline Construction Reference — prefer auto-negotiation, GPU/NPU inference, `gvaclassify` for OCR, `gvametapublish` for JSON
+2. Following the **Pipeline Design Rules** (Rules 1–5) in the Pipeline Construction Reference — prefer auto-negotiation, GPU/NPU inference, `gvaclassify` for OCR, `gvametapublish` for JSON
 3. Assembling the **pipeline string** from DLStreamer elements listed in the Pipeline Construction Reference
-3. Preparing models using the correct export method — see [Model Preparation Reference](./references/model-preparation.md)
-4. Adding **callbacks/probes** as needed
-5. Adding **custom Python elements** if the user needs inline analytics
-6. Wiring up **argument parsing** and **asset resolution**
-7. Adding the **pipeline event loop**
+4. Preparing models using the correct export method — see [Model Preparation Reference](./references/model-preparation.md)
+5. Adding **callbacks/probes** as needed
+6. Adding **custom Python elements** if the user needs inline analytics
+7. Wiring up **argument parsing** and **asset resolution**
+8. Adding the **pipeline event loop**
 
-**Review [Common Pitfalls Reference](./references/common-pitfalls.md)** before finalizing the code — it lists concrete mistakes and fixes discovered during development of previous samples.
+### Step 5 — Generate Sample Application
 
-### Step 4 — Follow Project Conventions
+Generate sample application following the directory structure outlined at the beginning of this document.
 
-Read the [Coding Conventions Reference](./references/coding-conventions.md) and ensure:
+If an application requires Python dependencies, list them in `requirements.txt` and then create and activate a local Python environment prior to running the application. If OpenVINO python runtime is required, please make sure it is added to `requirements.txt` with same version as OpenVINO runtime installed with DLStreamer.
 
-- Copyright header is present
-- Imports follow the `gi.require_version` pattern
-- Pipeline loop uses `bus.timed_pop_filtered` for EOS/ERROR
-- Custom elements follow the `GstBase.BaseTransform` or `Gst.Bin` pattern
-- argparse is used for non-trivial apps; sys.argv for simple ones
-- Results go to a `results/` subdirectory
+```bash
+python3 -m venv .<app_name-venv>
+source .<app_name-venv>/bin/activate
+pip install -r requirements.txt
+```
 
-### Step 5 — Generate Supporting Files
+Once the environment is set up, follow instructions in generated README.md file and verify the application runs correctly with the generated code. If the user provided a natural language description of the expected output, verify that the output matches the description (e.g. check that JSONL files have the expected fields, check that video outputs have the expected overlays, etc.).
 
-For each new sample app, generate:
-- `<app_name>.py` — main application
-- `README.md` — description, pipeline diagram, running instructions
-- `requirements.txt` — Python dependencies (if any beyond PyGObject)
-- `plugins/python/<element_name>.py` — for any custom GStreamer elements
+

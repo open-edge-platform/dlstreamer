@@ -33,23 +33,6 @@ The `gi.require_version()` calls MUST appear before any `from gi.repository` imp
 
 Call `Gst.init(None)` exactly once, before creating any pipeline or element.
 
-## Directory Layout for a New Sample App
-
-```
-samples/gstreamer/python/<app_name>/
-├── <app_name>.py           # Main application
-├── README.md               # Documentation
-├── requirements.txt        # Python dependencies (if any)
-├── plugins/                # Only if custom GStreamer elements are needed
-│   └── python/
-│       └── <element>.py
-├── config/                 # Only if config files are needed
-│   └── *.txt / *.json
-├── models/                 # Created at runtime (cached model exports)
-├── videos/                 # Created at runtime (cached video downloads)
-└── results/                # Created at runtime (output files)
-```
-
 ## Argument Parsing
 
 **Simple apps (1–2 args):** Use `sys.argv` directly.

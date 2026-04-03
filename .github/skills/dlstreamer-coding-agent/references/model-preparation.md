@@ -1,8 +1,10 @@
 # Model Preparation Reference
 
 DLStreamer inference elements (`gvadetect`, `gvaclassify`, `gvagenai`) consume models in
-**OpenVINO IR format** (`.xml` + `.bin`). Source models come from three ecosystems; each has
-a different download-and-export path.
+**OpenVINO IR format** (`.xml` + `.bin`). Source models come from multiple ecosystems; each has
+a different download-and-export path. In addition, DLStreamer reads pre- and post-processing
+information from the ecosystem model metadata files (Ultralytics, HuggingFace and PaddlePaddle).
+
 
 ## Model Sources and Export Methods
 
@@ -16,7 +18,7 @@ with YOLO, YOLOv8, YOLO11, YOLOE, or YOLO26.
 ```python
 from ultralytics import YOLO
 
-model = YOLO("yolo11n.pt")                                     # download weights
+model = YOLO("yolo11n.pt")                                      # download weights
 path  = model.export(format="openvino", dynamic=True, int8=True) # export to OV IR
 model_file = f"{path}/yolo11n.xml"
 ```
@@ -61,6 +63,22 @@ any HuggingFace `transformers` model.
 
 **Export via optimum-cli (recommended):**
 
+The `optimum-cli` tool from the `optimum-intel` package is the recommended way to export
+HuggingFace models to OpenVINO IR format:
+
+```bash
+# Basic export
+optimum-cli export openvino --model <model_id> <output_dir>
+
+# With INT8 weight quantization
+optimum-cli export openvino --model <model_id> --weight-format int8 <output_dir>
+
+# With INT4 weight quantization (for large models / VLMs)
+optimum-cli export openvino --model <model_id> --weight-format int4 <output_dir>
+```
+
+**Python subprocess pattern:**
+
 ```python
 import subprocess
 subprocess.run([
@@ -74,7 +92,7 @@ model_file = "fairface_age_image_detection/openvino_model.xml"
 
 Source: `samples/gstreamer/python/face_detection_and_classification/face_detection_and_classification.py`
 
-**Export via optimum-cli for ONNX → OpenVINO (two-step):**
+**Export via optimum-cli for ONNX → OpenVINO (two-step, when direct export fails):**
 
 ```python
 subprocess.run([
@@ -88,6 +106,16 @@ subprocess.run(["ovc", "model.onnx"], check=True)
 ```
 
 Source: `samples/gstreamer/python/smart_nvr/smart_nvr.py`
+
+**Common `optimum-cli` task values:**
+
+| Task | Use Case |
+|------|----------|
+| `image-classification` | Image classification models |
+| `object-detection` | Object detection models (DETR, RT-DETR) |
+| `image-text-to-text` | Vision-Language Models (VLM) |
+| `text-generation` | Language models |
+| `automatic-speech-recognition` | Audio transcription (Whisper) |
 
 ### 3. PaddlePaddle Models (OCR, detection, segmentation)
 
@@ -136,20 +164,9 @@ with open(paddle_dir / "config.json") as f:
     config = json.load(f)
 char_dict = config["PostProcess"]["character_dict"]  # list of 18383 characters
 with open(dict_path, "w") as f:
-    f.write("\\n".join(char_dict) + "\\n")
+    f.write("\n".join(char_dict) + "\n")
 ```
 
-**⚠ Common mistake:** Do NOT assume PaddlePaddle uses `.pdmodel` files. Check the repo
-first with `list_repo_files()`. New PP-OCRv5 models use `inference.json` (PIR format).
-
-**⚠ Common mistake:** Do NOT try `ovc inference.json` directly — it will fail with
-"Cannot recognize input model". Always convert through ONNX first.
-
-**Dynamic shapes:** PaddlePaddle models often export with dynamic batch and width dimensions.
-Use `model.reshape()` to set static shapes before compilation. See Pattern 13 in
-Design Patterns Reference.
-
-Source: `samples/gstreamer/python/license_plate_recognition/license_plate_recognition.py`
 
 **Requirements:**
 ```
@@ -162,6 +179,15 @@ paddle2onnx
 **When to use:** User asks for VLM-based alerting, scene description, or image-text inference.
 
 VLM models must be exported with the `image-text-to-text` task:
+
+```bash
+optimum-cli export openvino \
+    --model <model_id> \
+    --task image-text-to-text \
+    --trust-remote-code \
+    --weight-format int4 \
+    <output_dir>
+```
 
 ```python
 import subprocess
@@ -179,53 +205,40 @@ Source: `samples/gstreamer/python/vlm_alerts/vlm_alerts.py`
 Recommended small models for edge: `OpenGVLab/InternVL3_5-2B`, `openbmb/MiniCPM-V-4_5`,
 `Qwen/Qwen2.5-VL-3B-Instruct`, `HuggingFaceTB/SmolVLM2-2.2B-Instruct`.
 
-## IMPORTANT: Verify HuggingFace Model Contents Before Writing Code
+### 5. Audio Models for gvaaudiodetect / gvaaudiotranscribe
 
-**Always check the actual files in a HuggingFace repository before writing download code.**
-Do NOT assume filenames — they vary across repos, even for the same model architecture.
+**When to use:** User asks for audio event detection or audio transcription.
 
-```python
-from huggingface_hub import list_repo_files
-files = list_repo_files("owner/model-name")
-for f in files:
-    print(f)
+For audio transcription with `gvaaudiotranscribe`, Whisper models are used and should be
+exported via `optimum-cli`:
+
+```bash
+optimum-cli export openvino \
+    --model openai/whisper-base \
+    --task automatic-speech-recognition \
+    whisper-base-ov
 ```
 
-Common filename assumptions that fail:
-- `best.pt` → may actually be `license-plate-finetune-v1s.pt` or `model.pt`
-- `model.pdmodel` → may actually be `inference.json` (PaddlePaddle PIR format)
-- `openvino_model.xml` → may need export first, only `.pt` or `.onnx` files available
+### 6. OpenVINO Model Zoo / Open Model Zoo Models
 
-## Caching Convention
+OpenVINO Model Zoo and related models are deprecated. Please discourage users from accessing this repository.
+Recommend a model from HuggingFace Hub instead. 
 
-All samples use a **check-then-download** pattern to avoid redundant exports:
 
-```python
-model_path = MODELS_DIR / f"{model_id}_int8_openvino_model" / f"{model_id}.xml"
-if not model_path.exists():
-    # ... export ...
-return model_path.resolve()
-```
+## Model-Proc Files
 
-Always cache exported models under a `models/` subdirectory relative to the sample app.
+Model-proc (model processing) JSON files are deprecated; please do not use them with inference models. 
 
-## Model Parameters for DLStreamer Elements
+## Weight Compression Guidance
 
-| Element | Property | Value | Notes |
-|---------|----------|-------|-------|
-| `gvadetect` | `model` | path to `.xml` | Object detection model |
-| `gvadetect` | `device` | `GPU`, `CPU`, `NPU` | Inference device |
-| `gvadetect` | `batch-size` | 1–8 | Frames per inference batch |
-| `gvadetect` | `threshold` | 0.0–1.0 | Confidence threshold |
-| `gvadetect` | `pre-process-backend` | `va`, `opencv` | `va` for GPU memory, `opencv` for CPU |
-| `gvaclassify` | `model` | path to `.xml` | Classification model |
-| `gvaclassify` | `model-proc` | path to `.json` | Optional model-proc for label mapping |
-| `gvagenai` | `model-path` | path to model dir | VLM model directory |
-| `gvagenai` | `prompt` | text string | Inline prompt |
-| `gvagenai` | `prompt-path` | path to `.txt` | Prompt from file (use for long prompts) |
-| `gvagenai` | `generation-config` | key=value pairs | e.g. `"max_new_tokens=50,num_beams=4"` |
-| `gvagenai` | `frame-rate` | float | Frames per second to process |
-| `gvagenai` | `chunk-size` | int | Number of frames per inference chunk |
+| Compression | Flag | Best For | Quality Impact |
+|-------------|------|----------|----------------|
+| FP32 | (default) | Maximum accuracy | None |
+| FP16 | `--compress_to_fp16` (ovc) | GPU inference, reduced size | Negligible |
+| INT8 | `--weight-format int8` (optimum-cli) | Balanced size/accuracy | Minor |
+| INT4 | `--weight-format int4` (optimum-cli) | Large LLM/VLM models | Moderate, acceptable for VLMs |
+
+> **Recommendation:** Use INT8 for detection/classification models and INT4 for VLM models.
 
 ## Requirements
 
@@ -233,7 +246,7 @@ Typical `requirements.txt` entries by model source:
 
 ```
 # Ultralytics YOLO
-ultralytics>=8.4
+ultralytics==8.4.7
 --extra-index-url https://download.pytorch.org/whl/cpu
 
 # HuggingFace transformers + OpenVINO export
@@ -244,6 +257,9 @@ huggingface_hub
 paddlepaddle
 paddle2onnx
 openvino  # for ovc model converter
+
+# Open Model Zoo tools
+openvino-dev
 
 # Custom elements with pixel access
 numpy

@@ -28,7 +28,7 @@ pipeline.set_state(Gst.State.NULL)
 
 Attach a probe to an element's pad to inspect or modify per-frame metadata without pulling
 frames out of the pipeline. Used for counting objects, adding overlay text, or making
-runtime decisions.
+runtime decisions such as dropping frames.
 
 ```python
 def my_probe(pad, info, user_data):
@@ -145,6 +145,7 @@ class Controller:
 
 Create a custom in-pipeline analytics element by subclassing `GstBase.BaseTransform`.
 The element processes each buffer in `do_transform_ip` and can read/write metadata.
+Use Custom Python elements instead of Probes if custom logic is complex and/or when it modifies buffers or metadata. 
 
 ```python
 import gi
@@ -245,7 +246,7 @@ __gstelementfactory__ = ("myrecorder_py", Gst.Rank.NONE, MyRecorder)
 ## Pattern 8: Cross-Branch Signal Bridge
 
 When a `tee` splits a pipeline into branches that must exchange state (e.g., detection
-results from branch A control overlay in branch B), use a GObject signal bridge.
+results from branch A control overlay in branch B), use a GObject signal bridge for low-frequency events.
 
 ```python
 class SignalBridge(GObject.Object):
@@ -289,16 +290,15 @@ pipeline_str = (
 )
 ```
 
-> **Note:** No explicit caps filter between `decodebin3` and `gvagenai`. Let GStreamer
-> auto-negotiate memory type and pixel format — `gvagenai` handles this natively.
-
 **Read for reference:** `samples/gstreamer/python/vlm_alerts/vlm_alerts.py`
 
 ---
 
 ## Pattern 10: Asset Resolution (Video + Model Download)
 
-Auto-download video files and models if not cached locally.
+Add Python functions to download assets (such as input video files) and AI models.
+Always cache downloaded files locally, so only first application run requires network connection.
+For AI model download, prioritize using existing download scripts and generate inline only if simple. 
 
 ```python
 from pathlib import Path
@@ -316,6 +316,15 @@ def download_video(url: str) -> Path:
         with urllib.request.urlopen(req, timeout=60) as resp:
             local.write_bytes(resp.read())
     return local.resolve()
+
+def download_model(model_name: str) -> Path:
+    MODELS_DIR.mkdir(parents=True, exist_ok=True)
+    model_path = MODELS_DIR / model_name
+    if not model_path.exists():
+        import subprocess
+        script = Path(__file__).resolve().parents[3] / "download_public_models.sh"
+        subprocess.run([str(script), model_name, str(MODELS_DIR)], check=True)
+    return model_path.resolve()
 ```
 
 **Read for reference:** `samples/gstreamer/python/vlm_self_checkout/vlm_self_checkout.py`
@@ -366,131 +375,6 @@ When building a new app, identify which patterns apply and compose them:
 | Custom analytics + chunked storage | 1 + 4 + 6 + 7 |
 | Detection + VLM on selected frames | 1 + 4 + 5 + 6 + 8 + 9 + 11 |
 | Multi-camera with per-camera AI | 12 + (any above per camera) |
-| Detection + custom model (e.g. OCR) | 1 + 4 + 13 + 14 + 11 |
+| Detection + custom model (e.g. OCR) | 1 + 4 + 6 + 11 |
 
 ---
-
-## Pattern 13: Custom OpenVINO Inference in Python Element
-
-> **Prefer `gvaclassify`** for second-stage models (classification, OCR) whenever the
-> model's input/output can be described by a model-proc file. Use this custom-element
-> pattern only as a **fallback** when the model requires pre/post-processing that
-> `gvaclassify` cannot express (e.g. CTC decoding, custom crop logic, sequence output).
-
-When you need a model that is **not natively supported** by `gvadetect` / `gvaclassify`
-(e.g. OCR text recognition with CTC decoding, depth estimation, pose refinement), create
-a custom `BaseTransform` element that uses OpenVINO Python API directly.
-
-```python
-import openvino as ov
-
-class MyCustomInference(GstBase.BaseTransform):
-    _model_path = ""
-    _device = "CPU"
-
-    @GObject.Property(type=str)
-    def model_path(self):
-        return self._model_path
-
-    @model_path.setter
-    def model_path(self, value):
-        self._model_path = value
-
-    def __init__(self):
-        super().__init__()
-        self._compiled_model = None
-
-    def _load_model(self):
-        if self._compiled_model is not None:
-            return
-        core = ov.Core()
-        model = core.read_model(self._model_path)
-
-        # CRITICAL: Handle dynamic shapes — many converted models have dynamic dims.
-        # Set static shape before compiling for efficient inference.
-        input_info = model.input(0)
-        if input_info.partial_shape.is_dynamic:
-            model.reshape({input_info.any_name: [1, 3, 48, 320]})  # set your shape
-
-        self._compiled_model = core.compile_model(model, self._device)
-
-    def do_transform_ip(self, buffer):
-        self._load_model()
-        # ... crop regions, preprocess, infer, post-process ...
-        return Gst.FlowReturn.OK
-```
-
-**⚠ Common mistake:** Accessing `compiled_model.input(0).shape` on a dynamic-shape model
-raises `RuntimeError: to_shape was called on a dynamic shape`. Always check
-`input_info.partial_shape.is_dynamic` and use `model.reshape()` to set static dimensions
-**before** calling `core.compile_model()`.
-
-**When to use this instead of `gvadetect`/`gvaclassify`:**
-- Models requiring CTC or other sequence decoding not supported by model-proc
-- Models that need custom pre/post-processing not handled by DLStreamer model-proc
-- Two-stage pipelines where the second model processes crops from the first **and**
-  the crop/post-processing logic cannot be expressed through `gvaclassify` model-proc
-
-> **Note:** For OCR models like PaddleOCR, first check if `gvaclassify` with a model-proc
-> file can handle the task. Only use this custom element approach if `gvaclassify`
-> cannot express the required pre/post-processing.
-
-**Read for reference:** `samples/gstreamer/python/license_plate_recognition/plugins/python/gvaocr_py.py`
-
----
-
-## Pattern 14: Pixel Access in Custom Element
-
-When a custom element needs to **read actual pixel values** (not just metadata) — e.g. to
-crop detected regions for a second model — the pipeline must deliver frames in a
-CPU-accessible format.
-
-> **This is an intentional exception** to the auto-negotiation rules. Standard DLStreamer
-> elements (`gvadetect`, `gvaclassify`, `gvagenai`, `gvawatermark`) handle formats
-> natively — only force a format when a custom element calls `buffer.map()`.
-
-**Insert a format conversion before the custom element:**
-
-```
-gvadetect model=... device=GPU ! queue !
-videoconvertscale ! video/x-raw,format=BGRx !
-my_custom_element_py ! ...
-```
-
-**Map buffer pixels in `do_transform_ip`:**
-
-```python
-def _get_frame_bgr(self, buffer):
-    caps = self.sinkpad.get_current_caps()
-    s = caps.get_structure(0)
-    width = s.get_value("width")
-    height = s.get_value("height")
-    fmt = s.get_string("format")
-
-    success, map_info = buffer.map(Gst.MapFlags.READ)
-    if not success:
-        return None
-    try:
-        data = np.frombuffer(map_info.data, dtype=np.uint8)
-        if fmt in ("BGRx", "BGRA"):
-            frame = data.reshape(height, width, 4)[:, :, :3].copy()
-        elif fmt == "NV12":
-            yuv = data.reshape(height * 3 // 2, width)
-            frame = cv2.cvtColor(yuv, cv2.COLOR_YUV2BGR_NV12)
-        # ... handle other formats ...
-    finally:
-        buffer.unmap(map_info)
-    return frame
-```
-
-**⚠ Common mistake:** Without `videoconvertscale ! video/x-raw,format=BGRx`, frames may
-arrive in GPU memory (VA surface) or YUV formats that cannot be mapped to numpy arrays.
-Always force a CPU-accessible format before custom elements that read pixels.
-
-**⚠ Common mistake:** Forgetting `buffer.unmap(map_info)` causes memory leaks and pipeline
-stalls. Always use `try/finally` to ensure unmap.
-
-**When to use:** Any custom element that crops sub-regions, applies OpenCV transforms,
-feeds pixels to an OpenVINO model, or saves images.
-
-**Read for reference:** `samples/gstreamer/python/license_plate_recognition/plugins/python/gvaocr_py.py`
