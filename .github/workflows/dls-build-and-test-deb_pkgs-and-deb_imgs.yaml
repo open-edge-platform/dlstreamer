@@ -314,13 +314,7 @@ jobs:
       - name: Install DL Streamer on-host
         if: always() && needs.setup.outputs.should_run == 'true'
         run: |
-          groups
-          ls -l /dev/dri
-          stat /dev/dri/renderD128
           $DLS_REL_PATH/tests/scripts/installation-on-host-entrypoint.sh $DLS_REL_PATH/deb_packages
-          groups
-          ls -l /dev/dri
-          stat /dev/dri/renderD128
 
       - name: 👋 Test hello_dlstreamer script on host
         if: always() && needs.setup.outputs.should_run == 'true'
@@ -400,6 +394,8 @@ jobs:
           echo "DLS_TESTS_RESULTS_PATH=$DLS_TESTS_RESULTS_PATH" >> $GITHUB_ENV
           cd ../functional_tests
           source $HOME/.virtualenvs/dlstreamer/bin/activate
+          pwd
+          find . -print | sed -e 's;[^/]*/;|____;g;s;____|; |;g'
           ./run_tests.sh \
             --models-path=${{ env.MODELS_PATH }} \
             --video-examples-path=${{ env.VIDEO_INPUTS_PATH }} \
