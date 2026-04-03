@@ -151,7 +151,8 @@ BlobToMetaConverter::Ptr BlobToMetaConverter::create(Initializer initializer, Co
     case ConverterType::TO_TENSOR:
         if (converter_name == KeypointsOpenPoseConverter::getName()) {
             return std::make_unique<KeypointsOpenPoseConverter>(std::move(initializer),
-                                                                gst_keypoint_descriptor_openpose18.point_count);
+                                                                gst_analytics_keypoint_descriptor_lookup(
+                                                                    GST_ANALYTICS_KEYPOINT_BODY_POSE_OPENPOSE_18)->point_count);
         } else {
             return BlobToTensorConverter::create(std::move(initializer), converter_name, custom_postproc_lib);
         }
