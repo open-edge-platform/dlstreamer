@@ -242,7 +242,19 @@ jobs:
           echo "## 🚢 ${runner_print_label} Docker tests summary" >> $GITHUB_STEP_SUMMARY
           echo "DOCKER_TEST_CONFIGS=aliveness_config.json" >> $GITHUB_ENV
           echo "Selected test configuration file: $DOCKER_TEST_CONFIGS" >> $GITHUB_STEP_SUMMARY
-
+          
+      - name: Check directories in testing image
+        env:
+          deb_final_testing_img: ghcr.io/${{ github.repository }}/deb-final-testing-img-${{ matrix.ubuntu_version }}:${{ github.sha }}
+        run: |
+          docker run --rm ${deb_final_testing_img} bash -c "
+            echo '=== /home/dlstreamer ===' && \
+            ls -la /home/dlstreamer 2>/dev/null || echo 'Not found'; \
+            echo ''; \
+            echo '=== /home/dlstreamer/dlstreamer ===' && \
+            ls -la /home/dlstreamer/dlstreamer 2>/dev/null || echo 'Not found'
+          "
+    
       - name: 🚀 Run Docker tests
         if: needs.setup.outputs.should_run == 'true'
         id: run_docker_tests
