@@ -27,7 +27,8 @@
 
 using namespace post_processing;
 
-static const GstAnalyticsKeypointDescriptor &hrnet_coco17_descriptor = gst_keypoint_descriptor_hrnet_coco17;
+static const GstAnalyticsKeypointDescriptor *hrnet_coco17_descriptor =
+    gst_analytics_keypoint_descriptor_lookup(GST_ANALYTICS_KEYPOINT_BODY_POSE_HRNET_COCO_17);
 
 TensorsTable KeypointsHRnetConverter::convert(const OutputBlobs &output_blobs) {
     ITT_TASK(__FUNCTION__);
@@ -79,12 +80,12 @@ TensorsTable KeypointsHRnetConverter::convert(const OutputBlobs &output_blobs) {
 
             // set descriptor metadata: format, point names, skeleton connections
             GVA::Tensor tensor(tensor_data);
-            tensor.set_format(hrnet_coco17_descriptor.semantic_tag);
-            std::vector<std::string> names(hrnet_coco17_descriptor.point_names,
-                                           hrnet_coco17_descriptor.point_names + hrnet_coco17_descriptor.point_count);
-            std::vector<uint32_t> connections(hrnet_coco17_descriptor.skeleton_connections,
-                                              hrnet_coco17_descriptor.skeleton_connections +
-                                                  hrnet_coco17_descriptor.skeleton_connection_count * 2);
+            tensor.set_format(hrnet_coco17_descriptor->semantic_tag);
+            std::vector<std::string> names(hrnet_coco17_descriptor->point_names,
+                                           hrnet_coco17_descriptor->point_names + hrnet_coco17_descriptor->point_count);
+            std::vector<uint32_t> connections(hrnet_coco17_descriptor->skeleton_connections,
+                                              hrnet_coco17_descriptor->skeleton_connections +
+                                                  hrnet_coco17_descriptor->skeleton_connection_count * 2);
             tensor.set_vector<std::string>("point_names", names);
             tensor.set_vector<uint32_t>("point_connections", connections);
 

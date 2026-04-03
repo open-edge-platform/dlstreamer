@@ -150,7 +150,8 @@ TensorsTable YOLOv8PoseConverter::convert(const OutputBlobs &output_blobs) {
     return TensorsTable{};
 }
 
-static const GstAnalyticsKeypointDescriptor &coco17_descriptor = gst_keypoint_descriptor_coco17;
+static const GstAnalyticsKeypointDescriptor *coco17_descriptor =
+    gst_analytics_keypoint_descriptor_lookup(GST_ANALYTICS_KEYPOINT_BODY_POSE_COCO_17);
 
 void YOLOv8PoseConverter::parseOutputBlob(const float *data, const std::vector<size_t> &dims,
                                           std::vector<DetectedObject> &objects) const {
@@ -203,7 +204,7 @@ void YOLOv8PoseConverter::parseOutputBlob(const float *data, const std::vector<s
 
             tensor.set_name("keypoints");
             tensor.set_type("keypoints");
-            tensor.set_format(coco17_descriptor.semantic_tag);
+            tensor.set_format(coco17_descriptor->semantic_tag);
 
             // set tensor data (positions)
             tensor.set_dims({static_cast<uint32_t>(keypoint_count), 2});
@@ -213,11 +214,11 @@ void YOLOv8PoseConverter::parseOutputBlob(const float *data, const std::vector<s
             // set additional tensor properties as vectors: confidence, point names and point connections
             tensor.set_vector<float>("confidence", confidences);
 
-            std::vector<std::string> names(coco17_descriptor.point_names,
-                                           coco17_descriptor.point_names + coco17_descriptor.point_count);
-            std::vector<uint32_t> connections(coco17_descriptor.skeleton_connections,
-                                              coco17_descriptor.skeleton_connections +
-                                                  coco17_descriptor.skeleton_connection_count * 2);
+            std::vector<std::string> names(coco17_descriptor->point_names,
+                                           coco17_descriptor->point_names + coco17_descriptor->point_count);
+            std::vector<uint32_t> connections(coco17_descriptor->skeleton_connections,
+                                              coco17_descriptor->skeleton_connections +
+                                                  coco17_descriptor->skeleton_connection_count * 2);
             tensor.set_vector<std::string>("point_names", names);
             tensor.set_vector<uint32_t>("point_connections", connections);
 
