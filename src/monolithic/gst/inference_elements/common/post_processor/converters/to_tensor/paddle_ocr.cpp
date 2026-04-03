@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2021-2025 Intel Corporation
+ * Copyright (C) 2021-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -14,7 +14,6 @@
 #include <iostream>
 #include <sstream>
 #include <stdexcept>
-
 
 using namespace post_processing;
 using namespace InferenceBackend;
