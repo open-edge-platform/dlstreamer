@@ -1,4 +1,4 @@
-# Hugging Face Transformer Models
+# Transformer Models
 
 This article explains how to prepare models based on the [Hugging Face](https://huggingface.co/welcome) [`transformers`](https://github.com/huggingface/transformers) library for integration with the Deep Learning Streamer pipeline.
 
@@ -8,7 +8,6 @@ Many transformer-based models can be converted to OpenVINO™ IR format using [o
 > [download_hf_models.py](https://github.com/open-edge-platform/dlstreamer/blob/main/scripts/download_models/download_hf_models.py)
 > script. It can download a model from the Hugging Face Hub and perform the required conversions automatically.
 > See [Model Conversion Scripts](https://github.com/open-edge-platform/dlstreamer/blob/main/scripts/download_models/README.md) for more information.
-
 
 ## Optimum-Intel Supported Models
 
@@ -33,6 +32,7 @@ This command creates the `./out/rtdetr_v2_r18vd_onnx/model.onnx` file, which can
 ```bash
 ovc ./out/rtdetr_v2_r18vd_onnx/model.onnx
 ```
+
 The `./out/rtdetr_v2_r18vd_onnx/` directory now contains all files required to use the model with the DL Streamer `gvadetect` element.
 
 ## CLIP Models
@@ -75,6 +75,7 @@ ov_model.set_rt_info("crop", ['model_info', 'resize_type'])
 
 ov.save_model(ov_model, MODEL + ".xml")
 ```
+
 Alternatively, you can use the [download_hf_models.py](https://github.com/open-edge-platform/dlstreamer/blob/main/scripts/download_models/download_hf_models.py) script, to perform the above steps automatically.
 
 ## Model Usage
@@ -89,8 +90,8 @@ The choice of the DL Streamer element that should be used to perform the inferen
 | Image To Text (VLMs) | Phi4MMForCausalLM | `gvagenai` |
 | Image Embeddings | CLIPModel | `gvainference` |
 
-
 See the following samples for detailed examples of DL Streamer pipelines that use transformer-based models:
+
 1. [Using VLM Models With gvagenai Element](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch/gvagenai)
 2. [Image Embeddings Generation with ViT](https://github.com/open-edge-platform/dlstreamer/blob/main/samples/gstreamer/gst_launch/lvm/)
 3. [Face Detection and Classification](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/python/face_detection_and_classification)

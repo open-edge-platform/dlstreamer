@@ -70,7 +70,9 @@ Available **log levels** are: CRITICAL, FATAL, ERROR, WARN, INFO, DEBUG.
 >**Note**\
 >Search duration and sample duration both affect the amount of pipelines that will be explored during the search. \
 >The total amount should be approximately `search_duration / sample_duration` pipelines.
-### Example
+
+**Example:**
+
 ```
  python3 . fps -- urisourcebin buffer-size=4096 uri=https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4 ! decodebin ! gvadetect model=/home/optimizer/models/public/yolo11s/INT8/yolo11s.xml ! queue ! gvawatermark ! fakesink
 [__main__] [    INFO] - GStreamer initialized successfully
@@ -179,7 +181,9 @@ optimizer.optimize_for_streams(pipeline)
 Runs a series of optimization steps on the pipeline searching for a better performing versions.
 
 ---
-### Example
+
+**Example:**
+
 ```python
 from optimizer import get_optimized_pipeline
 

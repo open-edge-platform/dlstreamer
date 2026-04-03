@@ -432,6 +432,98 @@ bool isHuggingFaceModel(const std::string &model_file) {
         return false;
 }
 
+// Detect PaddleOCR text recognition model by checking for PaddlePaddle model name in config.json
+bool isPaddleOCRModel(const std::string &model_file) {
+    nlohmann::json config_json;
+    if (!loadJsonFromModelDir(model_file, "config.json", config_json))
+        return false;
+
+    bool has_pp_ocr_model_name = false;
+    bool has_ctc_label_decode = false;
+
+    // PaddleOCR config.json contains Global.model_name with "PP-OCR" substring
+    if (config_json.contains("Global") && config_json["Global"].is_object() &&
+        config_json["Global"].contains("model_name") && config_json["Global"]["model_name"].is_string()) {
+        const std::string model_name = config_json["Global"]["model_name"].get<std::string>();
+        if (std::regex_search(model_name, std::regex(".*PP-OCR.*rec")))
+            has_pp_ocr_model_name = true;
+    }
+
+    // Also check for PostProcess.name == "CTCLabelDecode" with character_dict
+    if (config_json.contains("PostProcess") && config_json["PostProcess"].is_object() &&
+        config_json["PostProcess"].contains("name") && config_json["PostProcess"]["name"].is_string()) {
+        const std::string pp_name = config_json["PostProcess"]["name"].get<std::string>();
+        if (pp_name == "CTCLabelDecode") {
+            has_ctc_label_decode = true;
+        }
+    }
+
+    return has_pp_ocr_model_name && has_ctc_label_decode;
+}
+
+// Convert PaddleOCR config.json metadata into Model API format
+bool convertPaddleOCRMeta2ModelApi(const std::string &model_file, ov::AnyMap &modelConfig) {
+    nlohmann::json config_json;
+    if (!loadJsonFromModelDir(model_file, "config.json", config_json))
+        return false;
+
+    GST_INFO("Parsing PaddleOCR config file for model: %s", model_file.c_str());
+
+    // Set model type to paddle_ocr_ctc (standard PaddleOCR CTC convention)
+    modelConfig["model_type"] = ov::Any(std::string("paddle_ocr_ctc"));
+
+    // Set default PaddleOCR standard normalization
+    modelConfig["mean_values"] = ov::Any(std::string("127.5, 127.5, 127.5"));
+    modelConfig["scale_values"] = ov::Any(std::string("127.5, 127.5, 127.5"));
+
+    // PaddleOCR preserves aspect ratio and pads to target width
+    modelConfig["resize_type"] = ov::Any(std::string("fit_to_window"));
+
+    // Extract character dictionary from PostProcess.character_dict
+    if (config_json.contains("PostProcess") && config_json["PostProcess"].is_object() &&
+        config_json["PostProcess"].contains("character_dict") &&
+        config_json["PostProcess"]["character_dict"].is_array()) {
+        std::vector<std::string> char_dict;
+        for (const auto &ch : config_json["PostProcess"]["character_dict"]) {
+            if (ch.is_string())
+                char_dict.push_back(ch.get<std::string>());
+        }
+        modelConfig["character_dict"] = ov::Any(char_dict);
+        GST_INFO("Extracted PaddleOCR character dictionary: %zu characters", char_dict.size());
+    }
+
+    // Parse pre-processing metadata from config file
+    if (config_json.contains("PreProcess") && config_json["PreProcess"].is_object() &&
+        config_json["PreProcess"].contains("transform_ops") && config_json["PreProcess"]["transform_ops"].is_array()) {
+        // Extract image color space
+        for (const auto &op : config_json["PreProcess"]["transform_ops"]) {
+            if (op.is_object() && op.contains("DecodeImage") && op["DecodeImage"].is_object() &&
+                op["DecodeImage"].contains("img_mode") && op["DecodeImage"]["img_mode"].is_string()) {
+                const std::string img_mode = op["DecodeImage"]["img_mode"].get<std::string>();
+                if (img_mode == "RGB") {
+                    modelConfig["reverse_input_channels"] = ov::Any(std::string("true"));
+                }
+                break;
+            }
+        }
+        // Extract reshape size from RecResizeImg.image_shape [C, H, W]
+        for (const auto &op : config_json["PreProcess"]["transform_ops"]) {
+            if (op.is_object() && op.contains("RecResizeImg") && op["RecResizeImg"].is_object() &&
+                op["RecResizeImg"].contains("image_shape") && op["RecResizeImg"]["image_shape"].is_array()) {
+                const auto &shape = op["RecResizeImg"]["image_shape"];
+                if (shape.size() == 3 && shape[1].is_number_integer() && shape[2].is_number_integer()) {
+                    const int height = shape[1].get<int>();
+                    const int width = shape[2].get<int>();
+                    modelConfig["reshape"] = ov::Any(std::vector<int>{height, width});
+                }
+                break;
+            }
+        }
+    }
+
+    return true;
+}
+
 // Convert third-party input metadata config files into Model API format
 bool convertThirdPartyModelConfig(const std::string model_file, ov::AnyMap &modelConfig) {
     bool updated = false;
@@ -441,6 +533,9 @@ bool convertThirdPartyModelConfig(const std::string model_file, ov::AnyMap &mode
             updated = convertYoloMeta2ModelApi(model_file, modelConfig);
         }
     }
+
+    else if (isPaddleOCRModel(model_file))
+        updated = convertPaddleOCRMeta2ModelApi(model_file, modelConfig);
 
     else if (isHuggingFaceModel(model_file))
         updated = convertHuggingFaceMeta2ModelApi(model_file, modelConfig);
@@ -823,6 +918,21 @@ std::map<std::string, GstStructure *> get_model_info_postproc(const std::shared_
                 GST_INFO("[get_model_info_postproc] label: %s", el.c_str());
             }
             gst_structure_set_value(s, "labels", &gvalue);
+            g_value_unset(&gvalue);
+        }
+        if (element.first == "character_dict") {
+            std::vector<std::string> char_dict = element.second.as<std::vector<std::string>>();
+            GValue gvalue = G_VALUE_INIT;
+            g_value_init(&gvalue, GST_TYPE_ARRAY);
+            for (const auto &ch : char_dict) {
+                GValue item = G_VALUE_INIT;
+                g_value_init(&item, G_TYPE_STRING);
+                g_value_set_string(&item, ch.c_str());
+                gst_value_array_append_value(&gvalue, &item);
+                g_value_unset(&item);
+            }
+            gst_structure_set_value(s, "character_dict", &gvalue);
+            GST_INFO("[get_model_info_postproc] character_dict: %zu characters", char_dict.size());
             g_value_unset(&gvalue);
         }
     }

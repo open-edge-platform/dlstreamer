@@ -137,7 +137,7 @@ gvadetect model=MODEL1_FILE_PATH.xml model-proc=MODEL1_FILE_PATH.json ! gvaclass
 :maxdepth: 2
 
 yolo_models
-lvms
+transformers
 download_public_models
 :::
 hide_directive-->

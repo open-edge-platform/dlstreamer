@@ -35,7 +35,7 @@ identify patterns and gain insights across multiple domains, including:
 - warehouse and parking management
 - industrial inspections
 - safety and regulatory compliance
-- security monitoring.
+- security monitoring
 
 ![image](_images/overview_pipeline_example.png)
 

@@ -125,6 +125,8 @@ SUPPORTED_MODELS=(
   "clip-vit-base-patch16"
   "clip-vit-base-patch32"
   "ch_PP-OCRv4_rec_infer" # PaddlePaddle OCRv4 multilingual model
+  "PP-OCRv5_server_rec" # PaddlePaddle PP-OCRv5 recognition models
+  "PP-OCRv5_mobile_rec"
   "pallet_defect_detection" # Custom model for pallet defect detection
   "colorcls2" # Color classification model
   "mars-small128" # DeepSORT person re-identification model (uses convert_mars_deepsort.py)
@@ -292,6 +294,11 @@ validate_models() {
                 break
             fi
         done
+
+        # Allow any PP-OCRv5 variant (e.g. en_PP-OCRv5_mobile_rec, latin_PP-OCRv5_mobile_rec)
+        if [[ "$found" == false && "$model" == *"PP-OCRv5"* ]]; then
+            found=true
+        fi
 
         if [[ "$found" == false ]]; then
             echo_color "Error: Unsupported model '$model'" "red"
@@ -1129,6 +1136,85 @@ os.remove('${MODEL_NAME}.zip')
     echo_color "\nModel already exists: $MODEL_DIR.\n" "yellow"
   fi
 fi
+
+
+# ================================= PP-OCRv5 PaddlePaddle models FP32 & FP16 - HuggingFace + paddle2onnx =================================
+# Generic function to download and convert any PaddlePaddle PP-OCRv5 model.
+# All PP-OCRv5 models on HuggingFace share the same structure:
+#   inference.json + inference.pdiparams (PaddlePaddle PIR format)
+#   config.json (contains character_dict for recognition models)
+# HuggingFace repo naming: PaddlePaddle/<model_name>  (e.g. PaddlePaddle/PP-OCRv5_server_rec)
+# For language-specific variants the prefix goes before PP-OCRv5: e.g. en_PP-OCRv5_mobile_rec
+
+export_ppocr_v5_model() {
+  local MODEL_NAME=$1
+  local MODEL_DIR="$MODELS_PATH/public/$MODEL_NAME"
+  local DST_FILE1="$MODEL_DIR/FP32/$MODEL_NAME.xml"
+  local DST_FILE2="$MODEL_DIR/FP16/$MODEL_NAME.xml"
+
+  if [[ ! -f "$DST_FILE1" || ! -f "$DST_FILE2" ]]; then
+    display_header "Downloading PaddlePaddle $MODEL_NAME model"
+    echo "Downloading and converting: ${MODEL_DIR}"
+    mkdir -p "$MODEL_DIR"
+    cd "$MODEL_DIR"
+
+    # Install dependencies (needed for PaddlePaddle PIR → ONNX conversion)
+    pip install --no-cache-dir paddlepaddle paddle2onnx huggingface_hub || handle_error $LINENO
+
+    # Step 1: Download model from HuggingFace
+    echo_color "[1/4] Downloading PaddlePaddle/$MODEL_NAME from HuggingFace..." "cyan"
+    python3 -c "
+from huggingface_hub import snapshot_download
+snapshot_download(repo_id='PaddlePaddle/${MODEL_NAME}', local_dir='paddle_model')
+" || handle_error $LINENO
+
+    # Step 2: Convert PaddlePaddle PIR → ONNX via paddle2onnx
+    echo_color "[2/4] Converting PaddlePaddle → ONNX..." "cyan"
+    paddle2onnx \
+      --model_dir paddle_model \
+      --model_filename inference.json \
+      --params_filename inference.pdiparams \
+      --save_file model.onnx \
+      --opset_version 14 || handle_error $LINENO
+
+    # Step 3: Convert ONNX → OpenVINO IR FP32 & FP16
+    echo_color "[3/4] Converting ONNX → OpenVINO IR (FP32 & FP16)..." "cyan"
+    mkdir -p FP32 FP16
+    ovc model.onnx --output_model "FP32/${MODEL_NAME}.xml" --compress_to_fp16=False || handle_error $LINENO
+    ovc model.onnx --output_model "FP16/${MODEL_NAME}.xml" --compress_to_fp16=True || handle_error $LINENO
+
+    # Step 4: Copy full config.json to output directories
+    echo_color "[4/4] Storing model config.json..." "cyan"
+    for d in FP32 FP16; do
+        if [ -d "$d" ]; then
+            cp paddle_model/config.json "$d/config.json" || handle_error $LINENO
+        fi
+    done
+
+    # Cleanup intermediate files
+    rm -f model.onnx
+    rm -rf paddle_model
+    cd -
+    echo_color "[+] $MODEL_NAME model ready: $MODEL_DIR/{FP32,FP16}/" "green"
+  else
+    echo_color "\nModel already exists: $MODEL_DIR.\n" "yellow"
+  fi
+}
+
+# Well-known PP-OCRv5 models listed in SUPPORTED_MODELS
+PP_OCRV5_MODELS=("PP-OCRv5_server_rec" "PP-OCRv5_mobile_rec" "PP-OCRv5_server_det" "PP-OCRv5_mobile_det")
+for MODEL_NAME in "${PP_OCRV5_MODELS[@]}"; do
+  if array_contains "$MODEL_NAME" "${MODELS_TO_PROCESS[@]}" || array_contains "all" "${MODELS_TO_PROCESS[@]}"; then
+    export_ppocr_v5_model "$MODEL_NAME"
+  fi
+done
+
+# Handle any other PP-OCRv5 variant passed directly (e.g. en_PP-OCRv5_mobile_rec, latin_PP-OCRv5_mobile_rec)
+for MODEL_NAME in "${MODELS_TO_PROCESS[@]}"; do
+  if [[ "$MODEL_NAME" == *"PP-OCRv5"* ]] && ! array_contains "$MODEL_NAME" "${PP_OCRV5_MODELS[@]}"; then
+    export_ppocr_v5_model "$MODEL_NAME"
+  fi
+done
 
 
 # ================================= Pallet Defect Detection INT8 - Edge AI Resources =================================
