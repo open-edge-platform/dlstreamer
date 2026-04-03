@@ -641,7 +641,7 @@ class Tensor {
             // look up skeleton connections from descriptor
             std::string semantic_tag = format();
             const GstAnalyticsKeypointDescriptor *descriptor =
-                gst_analytics_keypoint_descriptor_find_by_tag(semantic_tag.c_str());
+                gst_analytics_keypoint_descriptor_lookup(semantic_tag.c_str());
             gsize skeleton_size = 0;
             const gint *skeleton_data = NULL;
             if (descriptor && descriptor->skeleton_connections && descriptor->skeleton_connection_count > 0) {
@@ -750,7 +750,7 @@ class Tensor {
             std::string format_str =
                 (semantic_tag && semantic_tag[0] != '\0') ? std::string(semantic_tag) : std::string("");
             const GstAnalyticsKeypointDescriptor *descriptor =
-                gst_analytics_keypoint_descriptor_find_by_tag(semantic_tag);
+                gst_analytics_keypoint_descriptor_lookup(semantic_tag);
             g_free(semantic_tag);
 
             if (descriptor && descriptor->point_count == keypoint_count) {
