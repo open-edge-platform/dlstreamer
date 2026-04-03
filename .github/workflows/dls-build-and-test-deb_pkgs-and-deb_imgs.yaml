@@ -158,6 +158,8 @@ jobs:
           DLS_TESTS_RESULTS_PATH=$PWD
           echo "DLS_TESTS_RESULTS_PATH=$DLS_TESTS_RESULTS_PATH" >> $GITHUB_ENV
           cd ../functional_tests
+          pwd
+          find . -print | sed -e 's;[^/]*/;|____;g;s;____|; |;g'
           ./run_tests.sh \
             --models-path=${{ env.MODELS_PATH }} \
             --video-examples-path=${{ env.VIDEO_INPUTS_PATH }} \
@@ -280,8 +282,6 @@ jobs:
           echo "DLS_TESTS_RESULTS_PATH=$DLS_TESTS_RESULTS_PATH" >> $GITHUB_ENV
           cd ../functional_tests
           source $HOME/.virtualenvs/dlstreamer/bin/activate
-          pwd
-          find . -print | sed -e 's;[^/]*/;|____;g;s;____|; |;g'
           ./run_tests.sh \
             --models-path=${{ env.MODELS_PATH }} \
             --video-examples-path=${{ env.VIDEO_INPUTS_PATH }} \
