@@ -34,6 +34,10 @@ def export_yolo_detection(repo_id: str, pt_filename: str) -> Path:
     """Download a YOLO .pt from HuggingFace and export to OpenVINO IR INT8.
 
     Uses Ultralytics YOLO export with INT8 quantization for best performance.
+
+    Note: Ultralytics export() returns a directory whose name varies by quantization
+    settings (e.g. <stem>_int8_openvino_model/ for int8=True). This function
+    normalizes it to a predictable <stem>_openvino/ name.
     """
     model_stem = pt_filename.replace(".pt", "")
     ov_dir = MODELS_DIR / f"{model_stem}_openvino"

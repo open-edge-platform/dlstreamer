@@ -105,10 +105,9 @@ samples when the use case doesn't match any recipe or requires unusual element c
 
 ### Step 1 — Download Latest DLStreamer Docker Image
 
-To avoid managing DLStreamer dependencies, it is recommended to use DLStreamer docker image. 
-Check if the latest DLStreamer image is already available locally or download it using instructions from the [DLStreamer Install Guide](docs/user-guide/get_started/get_started_index.md). Then, run the application inside the DLStreamer container to ensure that the correct version of DLStreamer and OpenVINO runtime are used, and that all necessary GStreamer plugins are available.
- 
-The application should be developed in a local directory on the host machine, and then mounted into the DLStreamer container at runtime. This allows for easy iteration on the code while leveraging the DLStreamer environment for execution. All subsequent steps should be run inside the DLStreamer container.
+Using the DLStreamer Docker image simplifies dependency management. Check if the latest DLStreamer image is available locally; if not, download it following the [DLStreamer Install Guide](docs/user-guide/get_started/get_started_index.md). Don't use docker images older than 1 month to ensure you have the latest DLStreamer features and bug fixes.
+
+Recommended workflow: develop the application locally on your host machine and prepare/export models using a Python virtual environment. Once models are exported to OpenVINO IR format, run the application inside the DLStreamer container with your local directory mounted. This approach maintains development flexibility while leveraging the container for consistent runtime execution.
 
 ### Step 2 — Create Model Download and Export scripts
 
@@ -189,12 +188,25 @@ pip install -r requirements.txt
 python3 <app_name>.py  # or bash <app_name>.sh
 ```
 
->  **Note:** DLStreamer Python samples use PyGObject=3.50.0 which requires the following system library:
-```bash
-sudo apt install libgirepository-1.0-dev
-```
-This dependency is already installed in DLStreamer docker image, but if the user is running the application outside of the container, they need to ensure that this library is installed in their system.
+When running the application inside the container, add write access to the mounted directory as the sample will generate results there.
+Use `-u "$(id -u):$(id -g)"` to run the container as the current user, or pre-create writable
+output directories (`videos/`, `results/`, `models/`) before launching the container.
+Mount also `/dev/dri` for Media and GPU device drivers as well as `/dev/accel` for NPU devices when available in the host system.
+Note DLStreamer container does not come with render or accel group permissions by default, so you need to add them at runtime using `--group-add` flag and `stat` command to query the correct group ID for your system. For example:
 
-Once the environment is set up, follow instructions in generated README.md file and verify the application runs correctly with the generated code. If the user provided a natural language description of the expected output, verify that the output matches the description (e.g. check that JSONL files have the expected fields, check that video outputs have the expected overlays, etc.).
+```bash
+docker run -it --rm \
+    -u "$(id -u):$(id -g)" \
+    -v "$(pwd)":/app -w /app \
+    --device /dev/dri \
+    --group-add $(stat -c "%g" /dev/dri/render*) \
+    --group-add $(stat -c "%g" /dev/dri/card*) \
+    --device /dev/accel \
+    --group-add $(stat -c "%g" /dev/accel/accel*) \
+    intel/dlstreamer:latest \
+    python3 <app_name>.py
+```
+
+Once the environment is set up, update instructions in generated README.md file and verify the application runs correctly when following instructions. If the user provided a natural language description of the expected output, verify that the output matches the description (e.g. check that JSONL files have the expected fields, check that video outputs have the expected overlays, etc.).
 
 

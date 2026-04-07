@@ -61,12 +61,16 @@ Source: `samples/gstreamer/python/prompted_detection/prompted_detection.py`
 If an Ultralytics model is located on the HuggingFace hub, download it first to the local disk and
 then use the Ultralytics model exporter as described in section #1.
 
+> **IMPORTANT:** Do not assume `.pt` file names (e.g. `best.pt`, `model.pt`). HuggingFace repos
+> use varied naming conventions. Always check the actual files in the repo's "Files" tab on
+> huggingface.co before writing the download script.
+
 ```python
 from huggingface_hub import hf_hub_download
 
 model_path = hf_hub_download(
     repo_id="arnabdhar/YOLOv8-Face-Detection",
-    filename="model.pt",
+    filename="model.pt",                  # verify actual filename in HF repo!
     local_dir=local_models_dir,
     )
 ```
@@ -252,7 +256,11 @@ Model-proc (model processing) JSON files are deprecated; please do not use them 
 |-------------|------|----------|----------------|
 | FP32 | (default) | Maximum accuracy | None |
 | FP16 | `half=True` (Ultralytics), `--compress_to_fp16` (ovc) | GPU/NPU inference, reduced size | Negligible |
-| INT8 | `int8=True` (Ultralytics), | GPU/NPU inference, reduced size | Negligible |
+| INT8 | `int8=True` (Ultralytics) | GPU/NPU inference, reduced size | Negligible |
+
+> **Note:** Ultralytics INT8 export (`int8=True`) requires the `nncf` package. Add `nncf>=2.14.0`
+> to `export_requirements.txt` to avoid auto-install delays during export.
+
 | INT8 | `--weight-format int8` (optimum-cli) | HuggingFace transformer models | Minor |
 | INT4 | `--weight-format int4` (optimum-cli) | Large LLM/VLM models | Moderate, acceptable for VLMs |
 
@@ -266,6 +274,7 @@ Typical `requirements.txt` entries by model source:
 ```
 # Ultralytics YOLO
 ultralytics==8.4.7
+nncf>=2.14.0  # required for int8=True quantization
 --extra-index-url https://download.pytorch.org/whl/cpu
 
 # HuggingFace transformers + OpenVINO export
