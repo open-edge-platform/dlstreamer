@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2021-2025 Intel Corporation
+ * Copyright (C) 2021-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -54,6 +54,9 @@ void ROIToFrameAttacher::attach(const TensorsTable &tensors, FramesWrapper &fram
             gst_structure_get_uint(detection_tensor, "y_abs", &y_abs);
             gst_structure_get_uint(detection_tensor, "w_abs", &w_abs);
             gst_structure_get_uint(detection_tensor, "h_abs", &h_abs);
+
+            if (w_abs == 0 || h_abs == 0)
+                continue;
 
             const gchar *label = gst_structure_get_string(detection_tensor, "label");
 

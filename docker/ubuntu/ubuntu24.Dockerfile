@@ -11,14 +11,15 @@
 #                     |
 #                     V
 #                  builder -----------------------------------------------
-#                 /       \                         |                    |
-#                /         \                        |                    |
-#               V           V                       |                    |
-#      gstreamer-builder   opencv-builder           V                    V
-#               |              |                kafka-builder    realsense-builder
-#               |              |                    |                    |
-#    (copy libs) \            / (copy libs)         |                    |
-#                 \          /                      |                    |
+#                     |                             |                    |
+#                     |                             |                    |
+#                     V                             |                    |
+#               opencv-builder                      V                    V
+#               |           |                  kafka-builder    realsense-builder
+#               |           |                       |                    |
+#      gstreamer-builder    | (copy libs)           |                    |
+#                \          |                       |                    |
+#     (copy libs) \         |                       |                    |
 #                  V        V       (copy libs)     |                    |
 #                dlstreamer-dev <-------------------|--------------------|
 #                      |
@@ -30,6 +31,15 @@
 #                      V
 #                  dlstreamer
 # ==============================================================================
+# Possible arguments:
+# DLSTREAMER_VERSION      # DL Streamer
+# DLSTREAMER_BUILD_NUMBER # Build ID
+# GST_VERSION             # GStreamer
+# FFMPEG_VERSION          # FFmpeg
+# OPENVINO_VERSION        # OpenVINO
+# OPENCV_VERSION          # OpenCV
+# REALSENSE_VERSION       # RealSense
+# KAFKA_VERSION           # librdkafka
 ARG DOCKER_REGISTRY
 FROM ${DOCKER_REGISTRY}ubuntu:24.04 AS builder
 
@@ -38,13 +48,6 @@ ARG BUILD_ARG=Release
 
 LABEL description="This is the development image of Intel® Deep Learning Streamer (Intel® DL Streamer) Pipeline Framework"
 LABEL vendor="Intel Corporation"
-
-ARG GST_VERSION=1.26.6
-ARG OPENVINO_VERSION=2026.0.0
-ARG REALSENSE_VERSION=v2.57.5
-
-ARG DLSTREAMER_VERSION=2025.2.0
-ARG DLSTREAMER_BUILD_NUMBER
 
 ENV DLSTREAMER_DIR=/home/dlstreamer/dlstreamer
 ENV GSTREAMER_DIR=/opt/intel/dlstreamer/gstreamer
@@ -64,23 +67,23 @@ RUN \
 # Intel GPU client drivers and prerequisites installation
 RUN \
     apt-get update && \
-    apt-get install -y --no-install-recommends software-properties-common=\* && \
+    apt-get install -y --no-install-recommends software-properties-common=0.99.49.4 && \
     add-apt-repository -y ppa:kobuk-team/intel-graphics && \
     apt-get update && \
-    echo "Snapshot: 20251125T030400Z" >> /etc/apt/sources.list.d/kobuk-team-ubuntu-intel-graphics-noble.sources && \
+    echo "Snapshot: 20260324T030400Z" >> /etc/apt/sources.list.d/kobuk-team-ubuntu-intel-graphics-noble.sources && \
     apt-get update && \
     apt-get install -y --no-install-recommends \
-    intel-metrics-discovery=\* intel-gsc=\* libvpl2=\* \
-    libze-intel-gpu1=25.40.35563.7-1~24.04~ppa1 libze1=1.24.3-1~24.04~ppa1 intel-opencl-icd=25.40.35563.7-1~24.04~ppa1 clinfo=3.0.23.01.25-1build1 \
-    intel-media-va-driver-non-free=25.4.2-1~24.04~ppa1 libmfx-gen1=25.4.0-0ubuntu1~24.04~ppa1 libvpl-tools=1.4.0-0ubuntu1~24.04~ppa1 libva-glx2=2.22.0-1ubuntu1~24.04~ppa1 va-driver-all=2.22.0-1ubuntu1~24.04~ppa1 vainfo=2.22.0-0ubuntu1~24.04~ppa1 && \
+    intel-metrics-discovery=1.14.183-1~24.04~ppa1 intel-gsc=0.9.5-1~24.04~ppa2 libvpl2=1:2.16.0-1~24.04~ppa1 \
+    libze-intel-gpu1=26.05.37020.3-1~24.04~ppa3 libze1=1.27.0-1~24.04~ppa2 intel-opencl-icd=26.05.37020.3-1~24.04~ppa3 clinfo=3.0.23.01.25-1build1 \
+    intel-media-va-driver-non-free=26.1.4-1~24.04~ppa1 libmfx-gen1=25.4.0-0ubuntu1~24.04~ppa1 libvpl-tools=1.5.0-1~24.04~ppa1 libva-glx2=2.23.0-1~24.04~ppa5 va-driver-all=2.23.0-1~24.04~ppa5 vainfo=2.23.0-1~24.04~ppa4 && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
 # Intel NPU drivers and prerequisites installation
 WORKDIR /tmp/npu_deps
 
-RUN curl -LO https://github.com/intel/linux-npu-driver/releases/download/v1.28.0/linux-npu-driver-v1.28.0.20251218-20347000698-ubuntu2404.tar.gz && \
-    tar -xf linux-npu-driver-v1.28.0.20251218-20347000698-ubuntu2404.tar.gz && \
+RUN curl -LO https://github.com/intel/linux-npu-driver/releases/download/v1.30.0/linux-npu-driver-v1.30.0.20260311-22963593310-ubuntu2404.tar.gz && \
+    tar -xf linux-npu-driver-v1.30.0.20260311-22963593310-ubuntu2404.tar.gz && \
     dpkg -i ./*.deb && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /tmp/npu_deps
@@ -132,7 +135,8 @@ RUN \
     pluggy==1.5.0 \
     exceptiongroup==1.2.2 \
     iniconfig==2.0.0 \
-    openvino==2026.0.0
+    typing-extensions==4.15.0 \
+    openvino==2026.0.0    
 
 # hadolint ignore=DL3002
 USER root
@@ -142,19 +146,21 @@ ENV PATH="/python3venv/bin:${PATH}"
 # ==============================================================================
 FROM builder AS opencv-builder
 
+ARG OPENCV_VERSION=4.13.0
+
 SHELL ["/bin/bash", "-xo", "pipefail", "-c"]
 
 # Build OpenCV
 WORKDIR /
 
 RUN \
-    curl -sSL -o opencv.zip https://github.com/opencv/opencv/archive/4.12.0.zip && \
-    curl -sSL -o opencv_contrib.zip https://github.com/opencv/opencv_contrib/archive/4.12.0.zip && \
+    curl -sSL -o opencv.zip https://github.com/opencv/opencv/archive/${OPENCV_VERSION}.zip && \
+    curl -sSL -o opencv_contrib.zip https://github.com/opencv/opencv_contrib/archive/${OPENCV_VERSION}.zip && \
     unzip opencv.zip && \
     unzip opencv_contrib.zip && \
     rm opencv.zip opencv_contrib.zip && \
-    mv opencv-4.12.0 opencv && \
-    mv opencv_contrib-4.12.0 opencv_contrib && \
+    mv opencv-${OPENCV_VERSION} opencv && \
+    mv opencv_contrib-${OPENCV_VERSION} opencv_contrib && \
     mkdir -p opencv/build
 
 WORKDIR /opencv/build
@@ -183,6 +189,8 @@ RUN cp -a /usr/local/lib/libopencv* ./
 # ==============================================================================
 
 FROM opencv-builder AS gstreamer-builder
+
+ARG GST_VERSION=1.26.11
 
 SHELL ["/bin/bash", "-xo", "pipefail", "-c"]
 
@@ -311,11 +319,13 @@ RUN \
 # ==============================================================================
 FROM builder AS kafka-builder
 
+ARG KAFKA_VERSION=2.13.2
+
 SHELL ["/bin/bash", "-xo", "pipefail", "-c"]
 
 # Build librdkafka
-RUN curl -sSL https://github.com/edenhill/librdkafka/archive/v2.12.1.tar.gz | tar -xz
-WORKDIR /librdkafka-2.12.1
+RUN curl -sSL https://github.com/edenhill/librdkafka/archive/v${KAFKA_VERSION}.tar.gz | tar -xz
+WORKDIR /librdkafka-${KAFKA_VERSION}
 RUN ./configure &&\
     make && make install
 
@@ -323,8 +333,10 @@ WORKDIR /copy_libs
 RUN cp -a /usr/local/lib/librdkafka* ./
 
 # ==============================================================================
-
 FROM builder AS realsense-builder
+
+ARG REALSENSE_VERSION=v2.57.6
+
 SHELL ["/bin/bash", "-xo", "pipefail", "-c"]
 
 # Build librealsense
@@ -352,9 +364,11 @@ WORKDIR /copy_libs
 RUN cp -a /usr/local/lib/librealsense* ./
 
 # ==============================================================================
-
 FROM builder AS dlstreamer-dev
 
+ARG DLSTREAMER_VERSION=2026.0.0
+ARG DLSTREAMER_BUILD_NUMBER
+ARG OPENVINO_VERSION=2026.0.0
 # DL Streamer development image and build proccess
 
 SHELL ["/bin/bash", "-xo", "pipefail", "-c"]
@@ -516,23 +530,23 @@ RUN \
 # Intel GPU client drivers and prerequisites installation
 RUN \
     apt-get update && \
-    apt-get install -y --no-install-recommends software-properties-common=\* && \
+    apt-get install -y --no-install-recommends software-properties-common=0.99.49.4 && \
     add-apt-repository -y ppa:kobuk-team/intel-graphics && \
     apt-get update && \
-    echo "Snapshot: 20251125T030400Z" >> /etc/apt/sources.list.d/kobuk-team-ubuntu-intel-graphics-noble.sources && \
+    echo "Snapshot: 20260324T030400Z" >> /etc/apt/sources.list.d/kobuk-team-ubuntu-intel-graphics-noble.sources && \
     apt-get update && \
     apt-get install -y --no-install-recommends \
-    intel-metrics-discovery=\* intel-gsc=\* libvpl2=\* \
-    libze-intel-gpu1=25.40.35563.7-1~24.04~ppa1 libze1=1.24.3-1~24.04~ppa1 intel-opencl-icd=25.40.35563.7-1~24.04~ppa1 clinfo=3.0.23.01.25-1build1 \
-    intel-media-va-driver-non-free=25.4.2-1~24.04~ppa1 libmfx-gen1=25.4.0-0ubuntu1~24.04~ppa1 libvpl-tools=1.4.0-0ubuntu1~24.04~ppa1 libva-glx2=2.22.0-1ubuntu1~24.04~ppa1 va-driver-all=2.22.0-1ubuntu1~24.04~ppa1 vainfo=2.22.0-0ubuntu1~24.04~ppa1 && \
+    intel-metrics-discovery=1.14.183-1~24.04~ppa1 intel-gsc=0.9.5-1~24.04~ppa2 libvpl2=1:2.16.0-1~24.04~ppa1 \
+    libze-intel-gpu1=26.05.37020.3-1~24.04~ppa3 libze1=1.27.0-1~24.04~ppa2 intel-opencl-icd=26.05.37020.3-1~24.04~ppa3 clinfo=3.0.23.01.25-1build1 \
+    intel-media-va-driver-non-free=26.1.4-1~24.04~ppa1 libmfx-gen1=25.4.0-0ubuntu1~24.04~ppa1 libvpl-tools=1.5.0-1~24.04~ppa1 libva-glx2=2.23.0-1~24.04~ppa5 va-driver-all=2.23.0-1~24.04~ppa5 vainfo=2.23.0-1~24.04~ppa4 && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
 # Intel NPU drivers and prerequisites installation
 WORKDIR /tmp/npu_deps
 
-RUN curl -LO https://github.com/intel/linux-npu-driver/releases/download/v1.28.0/linux-npu-driver-v1.28.0.20251218-20347000698-ubuntu2404.tar.gz && \
-    tar -xf linux-npu-driver-v1.28.0.20251218-20347000698-ubuntu2404.tar.gz && \
+RUN curl -LO https://github.com/intel/linux-npu-driver/releases/download/v1.30.0/linux-npu-driver-v1.30.0.20260311-22963593310-ubuntu2404.tar.gz && \
+    tar -xf linux-npu-driver-v1.30.0.20260311-22963593310-ubuntu2404.tar.gz && \
     dpkg -i ./*.deb && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /tmp/npu_deps

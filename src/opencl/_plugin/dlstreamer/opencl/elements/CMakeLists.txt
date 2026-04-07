@@ -12,5 +12,5 @@ endif()
 
 add_library(${TARGET_NAME} SHARED elements.cpp)
 set_compile_flags(${TARGET_NAME})
-target_link_libraries(${TARGET_NAME} PUBLIC opencl_tensor_normalize)
+target_link_libraries(${TARGET_NAME} PUBLIC opencl_tensor_normalize vaapi_to_opencl)
 install(TARGETS ${TARGET_NAME} DESTINATION ${DLSTREAMER_PLUGINS_INSTALL_PATH})

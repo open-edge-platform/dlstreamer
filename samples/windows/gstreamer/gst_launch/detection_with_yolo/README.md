@@ -17,6 +17,43 @@ This sample builds GStreamer pipeline of the following elements:
 
 > **NOTE**: `sync=false` property in `autovideosink` element disables real-time synchronization so pipeline runs as fast as possible
 
+## Pipeline Architecture
+
+This pipeline performs object detection using a YOLO model. After decoding, `gvadetect` runs inference on each frame. The output branch is selected at startup via the `OUTPUT` parameter and determines how detected metadata and video are handled — from live display with overlays, to MP4 file recording, JSON metadata logging, FPS benchmarking, or a combined display-and-JSON mode.
+
+```mermaid
+graph LR
+    A[source] --> B[decodebin3]
+    B --> C[gvadetect: YOLO]
+    C --> D{OUTPUT mode}
+
+    D -->|display| E[d3d11convert]
+    E --> F[gvawatermark]
+    F --> G[gvafpscounter]
+    G --> H[d3d11videosink]
+
+    D -->|file| I[d3d11convert]
+    I --> J[gvawatermark]
+    J --> K[gvafpscounter]
+    K --> L[d3d11h264enc]
+    L --> M[mp4mux]
+    M --> N[filesink]
+
+    D -->|json| O[gvametaconvert]
+    O --> P[gvametapublish]
+    P --> Q[fakesink]
+
+    D -->|fps| R[gvafpscounter]
+    R --> S[fakesink]
+
+    D -->|display-and-json| T[d3d11convert]
+    T --> U[gvawatermark]
+    U --> V[gvametaconvert]
+    V --> W[gvametapublish]
+    W --> X[gvafpscounter]
+    X --> Y[d3d11videosink]
+```
+
 ## Windows-Specific Features
 
 ### D3D11 Pre-processing Backend
@@ -160,7 +197,7 @@ cd samples
 ./download_public_models.sh yolo11s coco128
 ```
 
-For detailed instructions on downloading models, including the full list of supported models and quantization options, see the [Download Public Models Guide](../../../../../docs/source/dev_guide/download_public_models.md).
+For detailed instructions on downloading models, including the full list of supported models and quantization options, see the [Download Public Models Guide](../../../../../docs/user-guide/dev_guide/download_public_models.md).
 
 > **Note**: Make sure to set your `MODELS_PATH` environment variable in Windows to point to the same location where models were downloaded (e.g., `set MODELS_PATH=C:\models`).
 

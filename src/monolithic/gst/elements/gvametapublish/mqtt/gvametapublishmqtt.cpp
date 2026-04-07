@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2018-2025 Intel Corporation
+ * Copyright (C) 2018-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -9,13 +9,13 @@
 #include <nlohmann/json.hpp>
 using json = nlohmann::json;
 
+#include "generate_client_id.hpp"
 #include "gvametapublishmqtt.hpp"
 
 #include <common.hpp>
 #include <safe_arithmetic.hpp>
 
 #include <MQTTAsync.h>
-#include <uuid/uuid.h>
 
 #include <cstdint>
 #include <string>
@@ -23,18 +23,6 @@ using json = nlohmann::json;
 
 GST_DEBUG_CATEGORY_STATIC(gva_meta_publish_mqtt_debug_category);
 #define GST_CAT_DEFAULT gva_meta_publish_mqtt_debug_category
-
-namespace {
-std::string generate_client_id() {
-    uuid_t binuuid;
-    uuid_generate_random(binuuid);
-    char uuid[37];
-    // 36 character UUID string plus terminating character
-    uuid_unparse(binuuid, uuid);
-    return uuid;
-}
-
-} // namespace
 
 /* Properties */
 enum {

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2021-2025 Intel Corporation
+ * Copyright (C) 2021-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -39,8 +39,9 @@ class BoxesLabelsScoresConverter : public BlobToROIConverter {
                                                                       size_t height) const;
 
   public:
-    BoxesLabelsScoresConverter(BlobToMetaConverter::Initializer initializer, double confidence_threshold)
-        : BlobToROIConverter(std::move(initializer), confidence_threshold, false, 0.0) {
+    BoxesLabelsScoresConverter(BlobToMetaConverter::Initializer initializer, double confidence_threshold,
+                               double iou_threshold)
+        : BlobToROIConverter(std::move(initializer), confidence_threshold, true, iou_threshold) {
     }
 
     TensorsTable convert(const OutputBlobs &output_blobs) override;

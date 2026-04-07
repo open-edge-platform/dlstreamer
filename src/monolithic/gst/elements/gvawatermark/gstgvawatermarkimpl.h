@@ -86,10 +86,19 @@ enum { PROP_0, PROP_DEVICE, PROP_OBB, PROP_DISPL_AVGFPS, PROP_DISPL_CFG };
     "default empty\n"                                                                                                  \
     "\t\t\thide-roi=<string> colon-separated list of labels to exclude (these objects will be hidden), default "       \
     "empty\n"                                                                                                          \
+    "\t\t\tenable-blur=<bool> enable or disable ROI blurring for privacy protection, default false\n"                  \
+    "\t\t\tshow-blur-roi=<string> colon-separated list of object labels to blur (e.g. 'face:person')\n"                \
+    "\t\t\thide-blur-roi=<string> colon-separated list of object labels to exclude from blurring\n"                    \
+    "\t\t\tNOTE: show-blur-roi takes precedence over hide-blur-roi when both are specified\n"                          \
+    "\t\t\tNOTE: currently this option is only supported for CPU\n"                                                    \
+    "\t\t\ttext-x=<float> x position (pixels) for full-frame text (e.g. from gvagenai), default 0\n"                   \
+    "\t\t\ttext-y=<float> y position (pixels) for full-frame text (e.g. from gvagenai), default 25\n"                  \
     "\t\t\te.g.: displ-cfg=show-labels=false\n"                                                                        \
-    "\t\t\te.g.: displ-cfg=font-scale=0.5,thickness=3,color-idx=2,font-type=simplex\n"                                 \
+    "\t\t\te.g.: displ-cfg=font-scale=0.5,thickness=3,color-idx=2,font-type=plain\n"                                   \
     "\t\t\te.g.: displ-cfg=show-labels=true,show-roi=person:car:truck\n"                                               \
-    "\t\t\te.g.: displ-cfg=show-labels=true,hide-roi=bottle:cup"
+    "\t\t\te.g.: displ-cfg=show-labels=true,hide-roi=bottle:cup\n"                                                     \
+    "\t\t\te.g.: displ-cfg=enable-blur=true,show-blur-roi=face:person\n"                                               \
+    "\t\t\te.g.: displ-cfg=text-y=680 (place full-frame text near bottom of a 720p frame)\n"
 
 G_END_DECLS
 

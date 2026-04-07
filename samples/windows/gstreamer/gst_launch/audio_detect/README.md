@@ -9,10 +9,29 @@ This sample builds a GStreamer pipeline using the following elements
 * `filesrc` or `urisourcebin`
 * `decodebin3` for audio decoding
 * `audioresample`, `audioconvert` and `audiomixer` for converting and resizing audio input
-* [gvaaudiodetect](../../../../../docs/source/elements/gvaaudiodetect.md) for audio event detection using ACLNet
-* [gvametaconvert](../../../../../docs/source/elements/gvametaconvert.md) for converting ACLNet detection results into JSON for further processing and display
-* [gvametapublish](../../../../../docs/source/elements/gvametapublish.md) for printing detection results to stdout
+* [gvaaudiodetect](../../../../../docs/user-guide/elements/gvaaudiodetect.md) for audio event detection using ACLNet
+* [gvametaconvert](../../../../../docs/user-guide/elements/gvametaconvert.md) for converting ACLNet detection results into JSON for further processing and display
+* [gvametapublish](../../../../../docs/user-guide/elements/gvametapublish.md) for printing detection results to stdout
 * `fakesink` for terminating the pipeline
+
+## Pipeline Architecture
+
+This pipeline implements a linear audio analytics flow: it decodes and normalizes raw audio into a standard mono-channel format (16kHz, S16LE) via resamplers and mixers, then utilizes gvaaudiodetect to perform acoustic event recognition. The metadata is finally converted and routed through a conditional publishing stage that either outputs directly to the console or saves to a JSON file.
+
+```mermaid
+graph LR
+    A[source file] --> B[decodebin3]
+    B --> C[audioresample]
+    C --> D[audioconvert]
+    D --> E[audiomixer]
+    E --> F[gvaaudiodetect with model]
+    F --> G[gvametaconvert]
+    G --> H[gvametapublish]
+    H -.->|no OUTPUT arg| I[stdout]
+    H -.->|OUTPUT set| J[JSON file]
+    I --> K[fakesink]
+    J --> K
+```
 
 ## Model
 
@@ -51,7 +70,7 @@ By default, if no [INPUT_PATH] is specified, the sample uses a local file `how_a
 
 > **NOTE**: The default audio file `how_are_you_doing.wav` is located in the Linux samples folder at:
 > `samples/gstreamer/gst_launch/audio_detect/how_are_you_doing.wav`
-> 
+>
 > Copy this file to the same directory as the batch file, or provide your own audio file as input.
 
 ### Example

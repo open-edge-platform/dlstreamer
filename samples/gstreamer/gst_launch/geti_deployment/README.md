@@ -47,9 +47,9 @@ The set of samples demonstrates how to deploy above models to run inference with
 The 'geti_sample.sh' script sample builds GStreamer pipeline composed of the following elements:
 * `filesrc` or `urisourcebin` or `v4l2src` for input from file/URL/web-camera
 * `decodebin3` for video decoding
-* [gvadetect](../../../../docs/source/elements/gvadetect.md) uses for full-frame object detection and marking objects with labels
-* [gvaclassify](../../../../docs/source/elements/gvaclassify.md) uses for full-frame object classficiation
-* [gvawatermark](../../../../docs/source/elements/gvawatermark.md) for points and theirs connections visualization
+* [gvadetect](../../../../docs/user-guide/elements/gvadetect.md) uses for full-frame object detection and marking objects with labels
+* [gvaclassify](../../../../docs/user-guide/elements/gvaclassify.md) uses for full-frame object classficiation
+* [gvawatermark](../../../../docs/user-guide/elements/gvawatermark.md) for points and theirs connections visualization
 * `autovideosink` for rendering output video into screen
 * `vah264enc` or `vah264lpenc` and `filesink` for encoding video stream and storing in a local file
 > **NOTE**: `sync=false` property in `autovideosink` element disables real-time synchronization so pipeline runs as fast as possible

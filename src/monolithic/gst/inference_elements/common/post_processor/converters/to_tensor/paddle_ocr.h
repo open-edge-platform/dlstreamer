@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2021-2025 Intel Corporation
+ * Copyright (C) 2021-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -402,5 +402,30 @@ class PaddleOCRConverter : public BlobToTensorConverter {
     std::string decodeOutputTensor(const float *item_data);
     std::string decode(const std::vector<int> &text_index);
 
-}; // namespace post_processing
+}; // class PaddleOCRConverter
+
+/*
+PaddleOCRCtc tensor output = [B, L, N] where:
+    B - batch size
+    L - sequence length (maximum number of characters in the recognized text)
+    N - number of elements in the model's character set including two additional tokens:
+        CTC blank token and Padding token.
+*/
+class PaddleOCRCtcConverter : public BlobToTensorConverter {
+  public:
+    PaddleOCRCtcConverter(BlobToMetaConverter::Initializer initializer);
+    TensorsTable convert(const OutputBlobs &output_blobs) override;
+
+    static std::string getName() {
+        return "paddle_ocr_ctc";
+    }
+
+  private:
+    std::vector<std::string> vocabulary; // loaded from model_proc_output_info character_dict
+    size_t seq_minlen = 1;               // minimum decoded sequence length
+
+    void loadVocabularyFromModelProc();
+    std::pair<std::string, double> ctcDecode(const float *data, size_t seq_len, size_t vocab_size);
+};
+
 } // namespace post_processing

@@ -38,13 +38,15 @@ parser.add_argument("--search-duration", default=300, type=float,
                     help="Duration in seconds of time which should be spent searching for optimized pipelines (default: %(default)s)")
 parser.add_argument("--sample-duration", default=10, type=float,
                     help="Duration in seconds of sampling individual pipelines. Longer duration should offer more stable results (default: %(default)s)")
+parser.add_argument("--detection-threshold", default=0.95, type=float,
+                    help="Minimum threshold of detections that tested pipelines are not allowed to cross in order to count as valid alternatives (default: %(default)s)")
 parser.add_argument("--multistream-fps-limit", default=30, type=float,
                     help="Minimum amount of fps allowed when optimizing for multiple streams (default: %(default)s)")
 parser.add_argument("--enable-cross-stream-batching", action="store_true",
                     help="Enable cross stream batching for inference elements in fps mode")
 parser.add_argument("--log-level", default="INFO", choices=["CRITICAL", "FATAL", "ERROR" ,"WARN", "INFO", "DEBUG"],
                     help="Minimum used log level (default: %(default)s)")
-parser.add_argument("--allowed-devices", nargs="+", default=["CPU", "GPU", "NPU"],
+parser.add_argument("--allowed-devices", nargs="+",
                     help="List of allowed devices (CPU, GPU, NPU) to be used by the optimizer. If not specified, all available, detected devices will be used.\n"\
                         "Tool does not support discrete GPU selection.\n"\
                         "eg.--allowed-devices CPU NPU,--allowed-devices GPU")
@@ -58,9 +60,13 @@ try:
     optimizer = DLSOptimizer()
     optimizer.set_search_duration(args.search_duration)
     optimizer.set_sample_duration(args.sample_duration)
+    optimizer.set_detections_error_threshold(args.detection_threshold)
     optimizer.set_multistream_fps_limit(args.multistream_fps_limit)
     optimizer.enable_cross_stream_batching(args.enable_cross_stream_batching)
-    optimizer.set_allowed_devices(args.allowed_devices)
+
+    if args.allowed_devices:
+        optimizer.set_allowed_devices(args.allowed_devices)
+
 except Exception as e:
     logger.error("Failed to configure optimizer: %s", e)
     sys.exit(1)

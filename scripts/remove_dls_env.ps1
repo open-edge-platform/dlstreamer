@@ -173,20 +173,46 @@ if ($RemoveSoftware) {
 		
 		if ($regInstallDir -and $regVersion) {
 			Write-Host "  Found GStreamer $regVersion at $regInstallDir"
-			
-			# WiX upgrade codes for GStreamer packages (x86_64)
-			$GSTREAMER_RUNTIME_UPGRADE_CODE = "{c20a66dc-b249-4e6d-a68a-d0f836b2b3cf}"
-			$GSTREAMER_DEVEL_UPGRADE_CODE = "{49c4a3aa-249f-453c-b82e-ecd05fac0693}"
-			
-			# Use Windows Installer COM object to find related products
-			$installer = New-Object -ComObject "WindowsInstaller.Installer"
-			
-			# Uninstall packages
-			Uninstall-GStreamerPackage -Installer $installer -UpgradeCode $GSTREAMER_RUNTIME_UPGRADE_CODE -PackageName "runtime package"
-			Uninstall-GStreamerPackage -Installer $installer -UpgradeCode $GSTREAMER_DEVEL_UPGRADE_CODE -PackageName "development package"
-			
-			# Release COM object
-			[System.Runtime.Interopservices.Marshal]::ReleaseComObject($installer) | Out-Null
+
+			# Check if this is an Inno installation (GStreamer 1.28+)
+			$innoUninstallKey = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\c20a66dc-b249-4e6d-a68a-d0f836b2b3cf_is1"
+			$quietUninstall = (Get-ItemProperty -Path $innoUninstallKey -Name "QuietUninstallString" -ErrorAction SilentlyContinue).QuietUninstallString
+
+			if ($quietUninstall) {
+				Write-Host "  Uninstalling GStreamer (Inno)..."
+				if ($quietUninstall -match '^"([^"]+)"\s*(.*)$') {
+					$process = Start-Process -Wait -PassThru -FilePath $Matches[1] -ArgumentList $Matches[2]
+					if ($process.ExitCode -eq 0) {
+						Write-Host "  GStreamer uninstalled successfully"
+					}
+					else {
+						Write-Host "  GStreamer uninstall returned exit code: $($process.ExitCode)"
+					}
+				}
+				else {
+					Write-Host "  Could not parse QuietUninstallString: $quietUninstall"
+				}
+				# Workaround: GStreamer 1.28.1 uninstaller does not remove registry entries
+				if (Test-Path "HKLM:\SOFTWARE\GStreamer1.0\x86_64") {
+					Remove-Item -Path "HKLM:\SOFTWARE\GStreamer1.0\x86_64" -Recurse -Force
+					Write-Host "  Removed GStreamer registry entries"
+				}
+			}
+			else {
+				# MSI uninstall (GStreamer < 1.28)
+				$GSTREAMER_RUNTIME_UPGRADE_CODE = "{c20a66dc-b249-4e6d-a68a-d0f836b2b3cf}"
+				$GSTREAMER_DEVEL_UPGRADE_CODE = "{49c4a3aa-249f-453c-b82e-ecd05fac0693}"
+
+				# Use Windows Installer COM object to find related products
+				$installer = New-Object -ComObject "WindowsInstaller.Installer"
+
+				# Uninstall packages
+				Uninstall-GStreamerPackage -Installer $installer -UpgradeCode $GSTREAMER_RUNTIME_UPGRADE_CODE -PackageName "runtime package"
+				Uninstall-GStreamerPackage -Installer $installer -UpgradeCode $GSTREAMER_DEVEL_UPGRADE_CODE -PackageName "development package"
+
+				# Release COM object
+				[System.Runtime.Interopservices.Marshal]::ReleaseComObject($installer) | Out-Null
+			}
 		}
 		else {
 			Write-Host "  GStreamer not found in registry"

@@ -18,7 +18,7 @@ on:
           - 'cache'
 permissions: {}
 env:
-  dlstreamer-version: "2025.2.0"
+  dlstreamer-version: "2026.0.0"
   DLS_REL_PATH: "./dlstreamer-repo"
 
 jobs:
@@ -55,7 +55,7 @@ jobs:
           fi
           echo "IMAGE_TAG=$VALUE" >> $GITHUB_ENV
       - name: Check out dlstreamer repository
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 #5.0.0
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6.0.2
         with:
           persist-credentials: false
           path: dlstreamer-repo
@@ -65,10 +65,10 @@ jobs:
           cd dlstreamer-repo
           git submodule update --init thirdparty/spdlog
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 #3.11.1
+        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd #4.0.0
 
       - name: Log in to GitHub Container Registry
-        uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef #3.6.0
+        uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 #4.0.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -198,7 +198,7 @@ jobs:
           fi
           echo "IMAGE_TAG=$VALUE" >> $GITHUB_ENV
       - name: Check out dlstreamer repository
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 #5.0.0
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6.0.2
         with:
           persist-credentials: false
           path: dlstreamer-repo
@@ -208,10 +208,10 @@ jobs:
           cd dlstreamer-repo
           git submodule update --init thirdparty/spdlog
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 #3.11.1
+        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd #4.0.0
 
       - name: Log in to GitHub Container Registry
-        uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef #3.6.0
+        uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 #4.0.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -322,14 +322,14 @@ jobs:
           fi
           echo "IMAGE_TAG=$VALUE" >> $GITHUB_ENV
       - name: Check out edge-ai-libraries repository
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 #5.0.0
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6.0.2
         with:
           repository: open-edge-platform/edge-ai-libraries
           persist-credentials: false
           path: edge-ai-libraries-repo
 
       - name: Log in to GitHub Container Registry
-        uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef #3.6.0
+        uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 #4.0.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}

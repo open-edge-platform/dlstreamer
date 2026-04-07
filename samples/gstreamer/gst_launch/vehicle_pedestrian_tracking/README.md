@@ -1,6 +1,6 @@
 # Vehicle and Pedestrian Tracking Sample (gst-launch command line)
 
-This sample demonstrates [gvatrack](../../../../docs/source/elements/gvatrack.md) element and object tracking capabilities on example of person and vehicle tracking. Object tracking increases performance by running inference on object detection and classification models less frequently (not every frame).
+This sample demonstrates [gvatrack](../../../../docs/user-guide/elements/gvatrack.md) element and object tracking capabilities on example of person and vehicle tracking. Object tracking increases performance by running inference on object detection and classification models less frequently (not every frame).
 
 ## How It Works
 The sample utilizes GStreamer command-line tool `gst-launch-1.0` which can build and run GStreamer pipeline described in a string format.
@@ -16,10 +16,10 @@ Overall this sample builds GStreamer pipeline of the following elements
 * `filesrc` or `urisourcebin` or `v4l2src` for input from file/URL/web-camera
 * `decodebin3` for video decoding
 * `videoconvert` for converting video frame into different color formats
-* [gvadetect](../../../../docs/source/elements/gvadetect.md) for person and vehicle detection based on OpenVINO™ Toolkit Inference Engine
-* [gvatrack](../../../../docs/source/elements/gvatrack.md) for tracking objects
-* [gvaclassify](../../../../docs/source/elements/gvaclassify.md) inserted into pipeline twice for person and vehicle classification
-* [gvawatermark](../../../../docs/source/elements/gvawatermark.md) for bounding boxes and labels visualization
+* [gvadetect](../../../../docs/user-guide/elements/gvadetect.md) for person and vehicle detection based on OpenVINO™ Toolkit Inference Engine
+* [gvatrack](../../../../docs/user-guide/elements/gvatrack.md) for tracking objects
+* [gvaclassify](../../../../docs/user-guide/elements/gvaclassify.md) inserted into pipeline twice for person and vehicle classification
+* [gvawatermark](../../../../docs/user-guide/elements/gvawatermark.md) for bounding boxes and labels visualization
 * `autovideosink` for rendering output video into screen
 > **NOTE**: `sync=false` property in `autovideosink` element disables real-time synchronization so pipeline runs as fast as possible
 
@@ -59,7 +59,7 @@ If parameter is not specified, the sample by default streams video example from 
 5. [TRACKING_TYPE] to specify tracking type.
     Tracking types available are short-term-imageless, zero-term, zero-term-imageless.
     For more information on tracking types and their difference, please turn to
-    [this guide](../../../../docs/source/dev_guide/object_tracking.md).
+    [this guide](../../../../docs/user-guide/dev_guide/object_tracking.md).
 
 ## Sample Output
 
