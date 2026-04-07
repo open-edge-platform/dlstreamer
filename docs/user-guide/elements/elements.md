@@ -23,6 +23,7 @@ gst-inspect-1.0 utility.
 |----------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | [g3dradarprocess](./g3dradarprocess.md) | Processes millimeter-wave (mmWave) radar signal data. Performs data reordering, pre-processing, DC (Direct Current) removal, and interfaces with the radar library to generate point clouds, clusters, and tracking data. Attaches custom metadata containing detected reflection points, clustered objects, and tracked targets to each buffer.<br>Example:<br> gst-launch-1.0 multifilesrc location=radar/%06d.bin ! application/octet-stream ! g3dradarprocess radar-config=config.json frame-rate=10 ! fakesink<br> |
 | [g3dlidarparse](./g3dlidarparse.md) | Parses 3D LiDAR binary frames and attaches custom metadata with point cloud data. It reads raw LiDAR frames (BIN/PCD), applies stride/frame-rate thinning, and outputs buffers enriched with LidarMeta (points, frame_id, timestamps, stream_id) for downstream fusion, analytics, or visualization.<br>Example:<br> gst-launch-1.0 multifilesrc location="lidar/%06d.bin" caps=application/octet-stream ! g3dlidarparse stride=5 frame-rate=5 ! fakesink<br> |
+| [g3dinference](./g3dinference.md) | Runs PointPillars 3D object detection on LiDAR point clouds produced by `g3dlidarparse`. It consumes `application/x-lidar` buffers with `LidarMeta`, performs OpenVINO inference, and attaches tensor metadata with flattened 3D detections for downstream processing.<br>Example:<br> gst-launch-1.0 multifilesrc location="lidar/%06d.bin" caps=application/octet-stream ! g3dlidarparse ! g3dinference config=pointpillars_ov_config.json device=CPU ! gvametaconvert add-tensor-data=true format=json json-indent=2 !   gvametapublish file-format=2 file-path=pointpillar.json ! fakesink<br> |
 
 ## Auxiliary plugins
 
@@ -53,6 +54,7 @@ gvaaudiotranscribe
 gvagenai
 g3dradarprocess
 g3dlidarparse
+g3dinference
 gvaattachroi
 gvafpscounter
 gvafpsthrottle
