@@ -21,7 +21,7 @@ env:
   DLS_BUILD_DIRECTORY: '$env:TEMP\dlstreamer_tmp\build'
   DLS_DLL_TARGET_DIRECTORY: 'C:\dlstreamer'
   OPENVINO_RUNTIME_DIRECTORY: '$env:LOCALAPPDATA\Programs\openvino\runtime'
-  GSTREAMER_DIRECTORY: 'C:\gstreamer'
+  GSTREAMER_DIRECTORY: 'C:\Program Files\gstreamer'
   MODELS_PATH: 'C:\models\models'
   VIDEO_INPUTS_PATH: 'C:\videos\videos'
   TESTS_RESULTS_DIRECTORY: 'C:\dlstreamer_test_results'

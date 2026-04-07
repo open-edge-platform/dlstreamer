@@ -44,6 +44,8 @@ BlobToMetaConverter::Ptr BlobToTensorConverter::create(BlobToMetaConverter::Init
         return std::make_unique<CLIPTokenConverter>(std::move(initializer));
     else if (converter_name == PaddleOCRConverter::getName())
         return std::make_unique<PaddleOCRConverter>(std::move(initializer));
+    else if (converter_name == PaddleOCRCtcConverter::getName())
+        return std::make_unique<PaddleOCRCtcConverter>(std::move(initializer));
     else if (converter_name == DetectionAnomalyConverter::getName()) {
         return std::make_unique<DetectionAnomalyConverter>(std::move(initializer));
     }

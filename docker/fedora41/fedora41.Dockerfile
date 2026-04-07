@@ -104,7 +104,8 @@ RUN \
     pytest==8.3.3 \
     pluggy==1.5.0 \
     exceptiongroup==1.2.2 \
-    iniconfig==2.0.0
+    iniconfig==2.0.0 \
+    typing-extensions==4.15.0
 
 # hadolint ignore=DL3002
 USER root
@@ -151,7 +152,7 @@ RUN cp -a /usr/local/lib/libav* ./ && \
 # ==============================================================================
 FROM ffmpeg-builder AS opencv-builder
 
-ARG OPENCV_VERSION=4.12.0
+ARG OPENCV_VERSION=4.13.0
 # OpenCV
 SHELL ["/bin/bash", "-xo", "pipefail", "-c"]
 
@@ -193,7 +194,7 @@ RUN cp -a /usr/local/lib64/libopencv* ./
 # ==============================================================================
 FROM opencv-builder AS gstreamer-builder
 # Build GStreamer
-ARG GST_VERSION=1.26.10
+ARG GST_VERSION=1.26.11
 
 SHELL ["/bin/bash", "-xo", "pipefail", "-c"]
 WORKDIR /home/dlstreamer
