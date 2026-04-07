@@ -21,7 +21,7 @@ Build new DLStreamer Python video-analytics applications by composing design pat
 ```
 <new_sample_app_name>
 ├── <app_name>.py or .sh        # Main application (Python or shell script)
-├── <download_models.py or .sh  # Model download script (if not embedded in main application)
+├── <download_models.py or .sh  # Model download script (if not embedded in the main application)
 ├── README.md                   # Documentation with instructions how to install prerequisites and run the sample
 ├── requirements.txt            # Python dependencies (if any, including PyGObject)
 ├── plugins/                    # Only if custom GStreamer elements are needed
@@ -50,7 +50,6 @@ Before generating code, read the relevant existing samples to understand establi
 | onvif_cameras_discovery | Multi-camera RTSP, ONVIF discovery, subprocess orchestration | `samples/gstreamer/python/onvif_cameras_discovery/` |
 | draw_face_attributes | Detect → multi-classify chain, custom tensor post-processing in pad probe callback | `samples/gstreamer/python/draw_face_attributes/` |
 | coexistence | DL Streamer + DeepStream coexistence, Docker orchestration, multi-framework LPR | `samples/gstreamer/python/coexistence/` |
-
 ## Reference Command Line Samples
 
 Before generating code, read the relevant existing samples to understand established conventions:
@@ -85,11 +84,7 @@ Before generating code, read the relevant existing samples to understand establi
 
 ## Procedure
 
-### Step 1 — Map user Description into DLStreamer Pipeline
-
-Generate a proxy pipeline string that captures the user's intent using DLStreamer elements. Use the [Pipeline Construction Reference](./references/pipeline-construction.md) to identify which elements to use for each part of the pipeline (e.g. source, decode, inference, metadata handling, sink).
-
-### Step 2 — Identify AI Models and Generate Model Download scripts
+### Step 1 — Identify AI Models and Generate Model Download scripts
 
 Check what AI models a User wants to use. Search if the models are in the list of models supported by DLStreamer
 
@@ -99,8 +94,26 @@ Check what AI models a User wants to use. Search if the models are in the list o
 | download_hf_models.py | HuggingFace models, including VLM models and Transformer-based detection/classification models (RTDETR, CLIP, ViT) | `scripts/download_models/download_hf_models.py` |
 | download_ultralytics_hf_models.py | Specialized model downloader for Ultralytics YOLO models | `scripts/download_models/download_ultralytics_models.py` |
 
-If a model is found in one of the above scripts, use that script to download the model and add model download instructions to the application README.
+If a model is found in one of the above scripts, extract model download receipie from that script and create a local script in application directory for downloading the specific model; add model download instructions to the application README.
 If a model does not exist, check the [Model Preparation Reference](./references/model-preparation.md) for instructions on how to prepare and export the model for DLStreamer, then write a new model download/export script in the application repository and add instructions to the application README.
+
+Add dependencies to `requirements.txt` if the model download script requires additional Python packages (e.g. HuggingFace transformers, Ultralytics, optimum-cli, etc.). Add comments in `requirements.txt` to indicate which model downloader script requires a specific package. Use specific version numbers for packages to ensure reproducibility.
+
+Run the model download script to verify that the models can be downloaded and exported correctly to OpenVINO IR format. 
+Create and set up a Python virtual environment to isolate dependencies:
+
+```bash
+python3 -m venv .<app_name>-venv
+source .<app_name>-venv/bin/activate
+pip install -r requirements.txt
+python3 download_models.py  # or bash download_models.sh
+```
+
+### Step 2 — Define DLStreamer Pipeline from User Description
+
+Generate a DLStreamer pipeline string that captures the user's intent using DLStreamer elements. Use the [Pipeline Construction Reference](./references/pipeline-construction.md) to identify which elements to use for each part of the pipeline (e.g. source, decode, inference, metadata handling, sink).
+
+<!-- To avoid managing DLStreamer dependencies, it is recommended to download DLStreamer docker image and run the application inside the container. This will ensure that the correct version of DLStreamer and OpenVINO runtime are used, and that all necessary GStreamer plugins are available. Refer to the [DLStreamer Install Guide](docs/user-guide/get_started/get_started_index.md) for instructions on how to set up and run applications inside the DLStreamer container. -->
 
 ### Step 3a [Command Line Application] — Construct Command Line Pipeline
 
@@ -147,9 +160,9 @@ Generate sample application following the directory structure outlined at the be
 If an application requires Python dependencies, list them in `requirements.txt` and then create and activate a local Python environment prior to running the application. If OpenVINO python runtime is required, please make sure it is added to `requirements.txt` with same version as OpenVINO runtime installed with DLStreamer.
 
 ```bash
-python3 -m venv .<app_name-venv>
-source .<app_name-venv>/bin/activate
+source .<app_name>-venv/bin/activate
 pip install -r requirements.txt
+python3 <app_name>.py  # or bash <app_name>.sh
 ```
 
 Once the environment is set up, follow instructions in generated README.md file and verify the application runs correctly with the generated code. If the user provided a natural language description of the expected output, verify that the output matches the description (e.g. check that JSONL files have the expected fields, check that video outputs have the expected overlays, etc.).

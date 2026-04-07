@@ -56,7 +56,24 @@ model_file = f"{path}/yoloe-26s-seg.xml"
 
 Source: `samples/gstreamer/python/prompted_detection/prompted_detection.py`
 
-### 2. HuggingFace Transformer Models (classification / VLM)
+### 2. HuggingFace Ultralytics Models
+
+If an Ultralytic model is located on the HuggingFace hub, download it first to the local disk and
+then use the Ultralytics model exporter as described in secttion #1.
+
+```python
+from huggingface_hub import hf_hub_download
+
+model_path = hf_hub_download(
+    repo_id="arnabdhar/YOLOv8-Face-Detection",
+    filename="model.pt",
+    local_dir=local_models_dir,
+    )
+```
+
+Source: `samples/gstreamer/python/face_detection_and_classification/face_detection_and_classification.py`
+
+### 3. HuggingFace Transformer Models (classification / VLM)
 
 **When to use:** User asks for image classification, age/gender/emotion detection, or
 any HuggingFace `transformers` model.
@@ -117,7 +134,38 @@ Source: `samples/gstreamer/python/smart_nvr/smart_nvr.py`
 | `text-generation` | Language models |
 | `automatic-speech-recognition` | Audio transcription (Whisper) |
 
-### 3. PaddlePaddle Models (OCR, detection, segmentation)
+### 4. Vision-Language Models (VLM) for gvagenai
+
+**When to use:** User asks for VLM-based alerting, scene description, or image-text inference.
+
+VLM models must be exported with the `image-text-to-text` task:
+
+```bash
+optimum-cli export openvino \
+    --model <model_id> \
+    --task image-text-to-text \
+    --trust-remote-code \
+    --weight-format int4 \
+    <output_dir>
+```
+
+```python
+import subprocess
+subprocess.run([
+    "optimum-cli", "export", "openvino",
+    "--model", model_id,                 # e.g. "OpenGVLab/InternVL3_5-2B"
+    "--task", "image-text-to-text",
+    "--trust-remote-code",
+    str(output_dir),
+], check=True)
+```
+
+Source: `samples/gstreamer/python/vlm_alerts/vlm_alerts.py`
+
+Recommended small models for edge: `OpenGVLab/InternVL3_5-2B`, `openbmb/MiniCPM-V-4_5`,
+`Qwen/Qwen2.5-VL-3B-Instruct`, `HuggingFaceTB/SmolVLM2-2.2B-Instruct`.
+
+### 5. PaddlePaddle OCR Models
 
 **When to use:** User asks for OCR (PaddleOCR), or any PaddlePaddle model from HuggingFace.
 
@@ -174,38 +222,7 @@ paddlepaddle
 paddle2onnx
 ```
 
-### 4. Vision-Language Models (VLM) for gvagenai
-
-**When to use:** User asks for VLM-based alerting, scene description, or image-text inference.
-
-VLM models must be exported with the `image-text-to-text` task:
-
-```bash
-optimum-cli export openvino \
-    --model <model_id> \
-    --task image-text-to-text \
-    --trust-remote-code \
-    --weight-format int4 \
-    <output_dir>
-```
-
-```python
-import subprocess
-subprocess.run([
-    "optimum-cli", "export", "openvino",
-    "--model", model_id,                 # e.g. "OpenGVLab/InternVL3_5-2B"
-    "--task", "image-text-to-text",
-    "--trust-remote-code",
-    str(output_dir),
-], check=True)
-```
-
-Source: `samples/gstreamer/python/vlm_alerts/vlm_alerts.py`
-
-Recommended small models for edge: `OpenGVLab/InternVL3_5-2B`, `openbmb/MiniCPM-V-4_5`,
-`Qwen/Qwen2.5-VL-3B-Instruct`, `HuggingFaceTB/SmolVLM2-2.2B-Instruct`.
-
-### 5. Audio Models for gvaaudiodetect / gvaaudiotranscribe
+### 6. Audio Models for gvaaudiodetect / gvaaudiotranscribe
 
 **When to use:** User asks for audio event detection or audio transcription.
 
@@ -219,7 +236,7 @@ optimum-cli export openvino \
     whisper-base-ov
 ```
 
-### 6. OpenVINO Model Zoo / Open Model Zoo Models
+### 7. OpenVINO Model Zoo / Open Model Zoo Models
 
 OpenVINO Model Zoo and related models are deprecated. Please discourage users from accessing this repository.
 Recommend a model from HuggingFace Hub instead. 

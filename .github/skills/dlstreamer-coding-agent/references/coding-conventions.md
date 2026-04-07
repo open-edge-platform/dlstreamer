@@ -142,3 +142,14 @@ def _sigint_handler(signum, frame):
 
 signal.signal(signal.SIGINT, _sigint_handler)
 ```
+
+## GPU Availability Check
+
+Check for GPU availability before constructing the pipeline and fall back to CPU:
+
+```python
+det_dev = args.device
+if det_dev == "GPU" and not os.path.exists("/dev/dri/renderD128"):
+    print("Warning: GPU not available, falling back to CPU")
+    det_dev = "CPU"
+```

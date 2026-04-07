@@ -109,6 +109,7 @@ filesrc location=video.mp4 ! decodebin3 !
 gvadetect model=detect.xml device=GPU batch-size=4 ! queue !
 gvaclassify model=classify.xml device=GPU batch-size=4 ! queue !
 gvafpscounter ! gvawatermark !
+gvametaconvert ! gvametapublish file-format=json-lines file-path=results.jsonl !
 videoconvert ! vah264enc ! h264parse ! mp4mux !
 filesink location=output.mp4
 ```
@@ -204,10 +205,11 @@ Choose the correct DLStreamer inference element based on model type:
 | Classification / OCR | `gvaclassify` | ResNet, EfficientNet, CLIP, ViT, PaddleOCR |
 | Vision-Language Models | `gvagenai` | MiniCPM-V, Qwen2.5-VL, InternVL, SmolVLM |
 
-Use `gvaclassify` for OCR models (e.g. PaddleOCR text recognition) when the model's
-input/output can be described by a model-proc file. Only fall back to a custom OpenVINO
-Python element (Pattern 6) when the model requires pre/post-processing that cannot be
-expressed through model-proc.
+Use `gvaclassify` for OCR models (e.g. PaddleOCR text recognition) and classification
+models. DLStreamer handles pre/post-processing automatically via model metadata —
+no model-proc files are needed (model-proc is deprecated). Only fall back to a custom
+Python element (Pattern 6 in Design Patterns) when the model requires custom
+pre/post-processing that DLStreamer cannot handle automatically.
 
 ### Rule 4 — Use queue element after Inference Elements
 
