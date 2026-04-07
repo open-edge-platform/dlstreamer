@@ -12,7 +12,7 @@ Pipeline:
     gvametaconvert → gvametapublish (JSON Lines) →
     videoconvert → vah264enc → h264parse → mp4mux → filesink
 
-Supports file and HTTP URL inputs.
+Supports file, HTTP URL, and RTSP IP camera inputs.
 """
 
 import argparse
@@ -53,7 +53,9 @@ def parse_args():
 
 
 def prepare_input(source: str) -> str:
-    """Download video if HTTP URL; pass through for local file."""
+    """Download video if HTTP URL; pass through for RTSP or local file."""
+    if source.startswith("rtsp://"):
+        return source
     if source.startswith(("http://", "https://")):
         VIDEOS_DIR.mkdir(parents=True, exist_ok=True)
         name = source.rstrip("/").split("/")[-1]
@@ -78,6 +80,13 @@ def find_model(pattern: str, label: str) -> str:
         sys.stderr.write(f"Error: {label} model not found. Run: python3 download_models.py\n")
         sys.exit(1)
     return str(hits[0])
+
+
+def build_source(src: str) -> str:
+    """Build GStreamer source element string for file or RTSP."""
+    if src.startswith("rtsp://"):
+        return f"rtspsrc location={src} latency=100"
+    return f'filesrc location="{src}"'
 
 
 def run_pipeline(pipeline):
@@ -133,9 +142,10 @@ def main():
 
     # Build and run pipeline
     Gst.init(None)
+    source_el = build_source(input_src)
 
     pipe = (
-        f'filesrc location="{input_src}" ! decodebin3 ! '
+        f"{source_el} ! decodebin3 ! "
         f'gvadetect model="{model_xml}" device={device} '
         f"batch-size=4 threshold={args.threshold} ! queue ! "
         f"gvafpscounter ! gvawatermark ! "

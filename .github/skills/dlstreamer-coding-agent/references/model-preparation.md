@@ -28,14 +28,14 @@ Source: `samples/gstreamer/python/face_detection_and_classification/face_detecti
 **Export pattern — subprocess (when DLStreamer is already loaded):**
 
 Ultralytics export creates a new OpenVINO runtime instance that can clash with DLStreamer's
-runtime. For apps that also run a GStreamer pipeline in the same process, export in a
-**separate subprocess**:
+runtime. The **recommended approach** is to use a separate `download_models.py` script
+(see Design Patterns → Pattern 13) that users run once before starting the pipeline app.
+Alternatively, call the export from a subprocess:
 
 ```python
 import subprocess, sys
 result = subprocess.run(
-    [sys.executable, "export_yolo.py", "--model", "yolo26s.pt",
-     "--outdir", str(MODELS_DIR), "--int8"],
+    [sys.executable, "download_models.py"],
     check=False
 )
 ```
@@ -251,11 +251,13 @@ Model-proc (model processing) JSON files are deprecated; please do not use them 
 | Compression | Flag | Best For | Quality Impact |
 |-------------|------|----------|----------------|
 | FP32 | (default) | Maximum accuracy | None |
-| FP16 | `--compress_to_fp16` (ovc) | GPU inference, reduced size | Negligible |
-| INT8 | `--weight-format int8` (optimum-cli) | Balanced size/accuracy | Minor |
+| FP16 | `half=True` (Ultralytics), `--compress_to_fp16` (ovc) | GPU inference, reduced size | Negligible |
+| INT8 | `int8=True` (Ultralytics), | GPU inference, reduced size | Negligible |
+| INT8 | `--weight-format int8` (optimum-cli) | HuggingFace transformer models | Minor |
 | INT4 | `--weight-format int4` (optimum-cli) | Large LLM/VLM models | Moderate, acceptable for VLMs |
 
-> **Recommendation:** Use INT8 for detection/classification models and INT4 for VLM models.
+> **Recommendation:** Use **INT8** (`int8=True`) for Ultralytics YOLO models. 
+Use INT8 for HuggingFace transformer classification models. Use INT4 for VLM models.
 
 ## Requirements
 

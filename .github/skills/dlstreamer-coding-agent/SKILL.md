@@ -84,6 +84,24 @@ Before generating code, read the relevant existing samples to understand establi
 
 ## Procedure
 
+### Quick Recipes
+
+For common use cases, skip reading reference samples and go straight to file generation
+using these recipes:
+
+| Use Case | Templates | Design Patterns | Key Model Export |
+|----------|-----------|-----------------|------------------|
+| Detection + save video + JSON | `python-app-template.py` | 1 + 4 + 11 | Ultralytics |
+| Detection + classification/OCR + save | `python-app-template.py` + `download-models-template.py` | 1 + 4 + 11 + 13 | YOLO + PaddleOCR/optimum-cli |
+| VLM alerting + save | `python-app-template.py` | 1 + 9 + 11 | optimum-cli INT4 |
+| Detection + custom analytics | `python-app-template.py` | 1 + 4 + 6 + 11 | Ultralytics |
+| Detection + tracking + recording | `python-app-template.py` | 1 + 4 + 5 + 7 | Ultralytics |
+| Multi-camera RTSP | `python-app-template.py` | 1 + 12 | (per camera) |
+
+For use cases matching a recipe above, generate all files directly from the templates
+and model-preparation reference without reading existing samples. Only read reference
+samples when the use case doesn't match any recipe or requires unusual element combinations.
+
 ### Step 1 — Identify AI Models and Generate Model Download scripts
 
 Check what AI models a User wants to use. Search if the models are in the list of models supported by DLStreamer
@@ -95,7 +113,7 @@ Check what AI models a User wants to use. Search if the models are in the list o
 | download_ultralytics_hf_models.py | Specialized model downloader for Ultralytics YOLO models | `scripts/download_models/download_ultralytics_models.py` |
 
 If a model is found in one of the above scripts, extract model download receipie from that script and create a local script in application directory for downloading the specific model; add model download instructions to the application README.
-If a model does not exist, check the [Model Preparation Reference](./references/model-preparation.md) for instructions on how to prepare and export the model for DLStreamer, then write a new model download/export script in the application repository and add instructions to the application README.
+If a model does not exist, check the [Model Preparation Reference](./references/model-preparation.md) for instructions on how to prepare and export the model for DLStreamer, then write a new model download/export script using the [Download Models Template](./assets/download-models-template.py) as a starting point and add instructions to the application README.
 
 Add dependencies to `requirements.txt` if the model download script requires additional Python packages (e.g. HuggingFace transformers, Ultralytics, optimum-cli, etc.). Add comments in `requirements.txt` to indicate which model downloader script requires a specific package. Use specific version numbers for packages to ensure reproducibility.
 
@@ -163,6 +181,11 @@ If an application requires Python dependencies, list them in `requirements.txt` 
 source .<app_name>-venv/bin/activate
 pip install -r requirements.txt
 python3 <app_name>.py  # or bash <app_name>.sh
+```
+
+>  **Note:** PyGObject dependency requires the following system libraries: 
+```bash
+sudo apt install libgirepository-2.0-dev
 ```
 
 Once the environment is set up, follow instructions in generated README.md file and verify the application runs correctly with the generated code. If the user provided a natural language description of the expected output, verify that the output matches the description (e.g. check that JSONL files have the expected fields, check that video outputs have the expected overlays, etc.).

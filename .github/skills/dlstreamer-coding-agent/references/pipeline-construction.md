@@ -37,7 +37,7 @@ For full list of DLStreamer elements see also `/home/tjanczak/dlstreamer/docs/us
 | Element | Purpose | Model Types | Key Properties |
 |---------|---------|-------------|----------------|
 | `gvadetect` | Object detection | YOLO, SSD, RT-DETR, D-FINE | `model`, `device`, `batch-size`, `threshold` |
-| `gvaclassify` | Classification & OCR | ResNet, EfficientNet, CLIP, ViT, PaddleOCR | `model`, `model-proc`, `device`, `batch-size` |
+| `gvaclassify` | Classification & OCR | ResNet, EfficientNet, CLIP, ViT, PaddleOCR | `model`, `device`, `batch-size` |
 | `gvagenai` | VLM / GenAI inference | MiniCPM-V, Qwen2.5-VL, InternVL, SmolVLM | `model-path`, `device`, `prompt`, `generation-config`, `frame-rate`, `chunk-size` |
 
 > **See Rule 3 above** for guidance on choosing the correct element for each model type.
@@ -113,6 +113,11 @@ gvametaconvert ! gvametapublish file-format=json-lines file-path=results.jsonl !
 videoconvert ! vah264enc ! h264parse ! mp4mux !
 filesink location=output.mp4
 ```
+
+> **Multi-device tip:** Inference elements can use different devices. For example, run
+> heavyweight detection on GPU and lightweight OCR/classification on NPU:
+> `gvadetect ... device=GPU` → `gvaclassify ... device=NPU`. This balances load and
+> avoids GPU contention.
 
 ### Pattern 3: VLM Alerting with JSON + Video Output
 
