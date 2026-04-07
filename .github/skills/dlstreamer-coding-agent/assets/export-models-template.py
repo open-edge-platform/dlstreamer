@@ -31,10 +31,9 @@ MODELS_DIR = Path(__file__).resolve().parent / "models"
 
 
 def export_yolo_detection(repo_id: str, pt_filename: str) -> Path:
-    """Download a YOLO .pt from HuggingFace and export to OpenVINO IR FP16.
+    """Download a YOLO .pt from HuggingFace and export to OpenVINO IR INT8.
 
-    Uses Ultralytics YOLO export. Always uses half=True (FP16) because
-    int8=True (nncf quantization) causes core dumps on many platforms.
+    Uses Ultralytics YOLO export with INT8 quantization for best performance.
     """
     model_stem = pt_filename.replace(".pt", "")
     ov_dir = MODELS_DIR / f"{model_stem}_openvino"
@@ -51,7 +50,7 @@ def export_yolo_detection(repo_id: str, pt_filename: str) -> Path:
         repo_id=repo_id, filename=pt_filename, local_dir=str(MODELS_DIR)
     )
 
-    print("[YOLO] Exporting to OpenVINO IR (FP16)...")
+    print("[YOLO] Exporting to OpenVINO IR (INT8)...")
     from ultralytics import YOLO
 
     model = YOLO(str(pt_path))

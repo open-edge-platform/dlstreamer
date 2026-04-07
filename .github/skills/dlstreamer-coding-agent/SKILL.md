@@ -16,14 +16,15 @@ Build new DLStreamer Python video-analytics applications by composing design pat
 - User wants to combine elements from multiple existing samples (e.g. detection + VLM + recording)
 - User needs to add custom analytics logic or custom GStreamer elements in Python
 
-##  Directory Layout for a New Sample App
+## Directory Layout for a New Sample App
 
 ```
 <new_sample_app_name>
 ├── <app_name>.py or .sh        # Main application (Python or shell script)
-├── <download_models.py or .sh  # Model download script (if not embedded in the main application)
+├── export_models.py or .sh     # Model download and export script
+├── requirements.txt            # Python dependencies for the application
+├── export_requirements.txt     # Python dependencies for model export scripts
 ├── README.md                   # Documentation with instructions how to install prerequisites and run the sample
-├── requirements.txt            # Python dependencies (if any, including PyGObject)
 ├── plugins/                    # Only if custom GStreamer elements are needed
 │   └── python/
 │       └── <element>.py
@@ -92,8 +93,8 @@ using these recipes:
 | Use Case | Templates | Design Patterns | Key Model Export |
 |----------|-----------|-----------------|------------------|
 | Detection + save video + JSON | `python-app-template.py` | 1 + 4 + 11 | Ultralytics |
-| Detection + classification/OCR + save | `python-app-template.py` + `download-models-template.py` | 1 + 4 + 11 + 13 | YOLO + PaddleOCR/optimum-cli |
-| VLM alerting + save | `python-app-template.py` | 1 + 9 + 11 | optimum-cli INT4 |
+| Detection + classification/OCR + save | `python-app-template.py` + `export-models-template.py` | 1 + 4 + 11 + 13 | YOLO + PaddleOCR/optimum-cli |
+| VLM alerting + save | `python-app-template.py` | 1 + 9 + 11 | optimum-cli |
 | Detection + custom analytics | `python-app-template.py` | 1 + 4 + 6 + 11 | Ultralytics |
 | Detection + tracking + recording | `python-app-template.py` | 1 + 4 + 5 + 7 | Ultralytics |
 | Multi-camera RTSP | `python-app-template.py` | 1 + 12 | (per camera) |
@@ -102,36 +103,41 @@ For use cases matching a recipe above, generate all files directly from the temp
 and model-preparation reference without reading existing samples. Only read reference
 samples when the use case doesn't match any recipe or requires unusual element combinations.
 
-### Step 1 — Identify AI Models and Generate Model Download scripts
+### Step 1 — Download Latest DLStreamer Docker Image
 
-Check what AI models a User wants to use. Search if the models are in the list of models supported by DLStreamer
+To avoid managing DLStreamer dependencies, it is recommended to use DLStreamer docker image. 
+Check if the latest DLStreamer image is already available locally or download it using instructions from the [DLStreamer Install Guide](docs/user-guide/get_started/get_started_index.md). Then, run the application inside the DLStreamer container to ensure that the correct version of DLStreamer and OpenVINO runtime are used, and that all necessary GStreamer plugins are available.
+ 
+The application should be developed in a local directory on the host machine, and then mounted into the DLStreamer container at runtime. This allows for easy iteration on the code while leveraging the DLStreamer environment for execution. All subsequent steps should be run inside the DLStreamer container.
 
-| Model downloader | Typical Models  | Path |
+### Step 2 — Create Model Download and Export scripts
+
+Check what AI models a User wants to use. Search if the requested or similar models are in the list of models supported by DLStreamer
+
+| Model exporter | Typical Models  | Path |
 |--------|-------------|------|
 | download_public_models.sh | Traditional computer vision models | `samples/download_public_models.sh` |
 | download_hf_models.py | HuggingFace models, including VLM models and Transformer-based detection/classification models (RTDETR, CLIP, ViT) | `scripts/download_models/download_hf_models.py` |
 | download_ultralytics_hf_models.py | Specialized model downloader for Ultralytics YOLO models | `scripts/download_models/download_ultralytics_models.py` |
 
-If a model is found in one of the above scripts, extract model download receipie from that script and create a local script in application directory for downloading the specific model; add model download instructions to the application README.
-If a model does not exist, check the [Model Preparation Reference](./references/model-preparation.md) for instructions on how to prepare and export the model for DLStreamer, then write a new model download/export script using the [Download Models Template](./assets/download-models-template.py) as a starting point and add instructions to the application README.
+If a model is found in one of the above scripts, extract model download recipe from that script and create a local script in application directory for exporting the specific model to OV IR format; add model export instructions to the application README.
+If a model does not exist, check the [Model Preparation Reference](./references/model-preparation.md) for instructions on how to prepare and export the model for DLStreamer, then write a new model download/export script using the [Export Models Template](./assets/export-models-template.py) as a starting point and add instructions to the application README.
 
-Add dependencies to `requirements.txt` if the model download script requires additional Python packages (e.g. HuggingFace transformers, Ultralytics, optimum-cli, etc.). Add comments in `requirements.txt` to indicate which model downloader script requires a specific package. Use specific version numbers for packages to ensure reproducibility.
+Create the `export_requirements.txt` file if the model export script requires additional Python packages (e.g. HuggingFace transformers, Ultralytics, optimum-cli, etc.). Add comments in `export_requirements.txt` to indicate which model export script requires a specific package. Use specific version numbers for packages to ensure reproducibility.
 
-Run the model download script to verify that the models can be downloaded and exported correctly to OpenVINO IR format. 
+Run the model export script to verify that the models can be downloaded and exported correctly to OpenVINO IR format. 
 Create and set up a Python virtual environment to isolate dependencies:
 
 ```bash
-python3 -m venv .<app_name>-venv
-source .<app_name>-venv/bin/activate
-pip install -r requirements.txt
-python3 download_models.py  # or bash download_models.sh
+python3 -m venv .<app_name>-export-venv
+source .<app_name>-export-venv/bin/activate
+pip install -r export_requirements.txt
+python3 export_models.py  # or bash export_models.sh
 ```
 
-### Step 2 — Define DLStreamer Pipeline from User Description
+### Step 3 — Define DLStreamer Pipeline from User Description
 
 Generate a DLStreamer pipeline string that captures the user's intent using DLStreamer elements. Use the [Pipeline Construction Reference](./references/pipeline-construction.md) to identify which elements to use for each part of the pipeline (e.g. source, decode, inference, metadata handling, sink).
-
-<!-- To avoid managing DLStreamer dependencies, it is recommended to download DLStreamer docker image and run the application inside the container. This will ensure that the correct version of DLStreamer and OpenVINO runtime are used, and that all necessary GStreamer plugins are available. Refer to the [DLStreamer Install Guide](docs/user-guide/get_started/get_started_index.md) for instructions on how to set up and run applications inside the DLStreamer container. -->
 
 ### Step 3a [Command Line Application] — Construct Command Line Pipeline
 
@@ -183,10 +189,11 @@ pip install -r requirements.txt
 python3 <app_name>.py  # or bash <app_name>.sh
 ```
 
->  **Note:** PyGObject dependency requires the following system libraries: 
+>  **Note:** DLStreamer Python samples use PyGObject=3.50.0 which requires the following system library:
 ```bash
-sudo apt install libgirepository-2.0-dev
+sudo apt install libgirepository-1.0-dev
 ```
+This dependency is already installed in DLStreamer docker image, but if the user is running the application outside of the container, they need to ensure that this library is installed in their system.
 
 Once the environment is set up, follow instructions in generated README.md file and verify the application runs correctly with the generated code. If the user provided a natural language description of the expected output, verify that the output matches the description (e.g. check that JSONL files have the expected fields, check that video outputs have the expected overlays, etc.).
 

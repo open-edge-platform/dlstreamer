@@ -14,6 +14,7 @@ For full list of DLStreamer elements see also `/home/tjanczak/dlstreamer/docs/us
 | `filesrc` | Read video from local file | `location=<path>` |
 | `rtspsrc` | Read from RTSP camera stream | `location=<rtsp://url>` |
 | `urisourcebin` | Auto-detect source type | `buffer-size=4096 uri=<url>` |
+| `gvafpsthrottle` | Limit input frame rate (typically used with filesrc) | `target-fps=30` |
 
 ### Decode
 
@@ -30,7 +31,6 @@ For full list of DLStreamer elements see also `/home/tjanczak/dlstreamer/docs/us
 | `videoscale` | Resolution scaling only | |
 | `videorate` | Frame rate adjustment | |
 | `vapostproc` | VA-API hardware post-processing | Use before `video/x-raw(memory:VAMemory)` caps |
-| `gvafpsthrottle` | Limit input frame rate | `target-fps=30` |
 
 ### AI Inference (DLStreamer-specific)
 
@@ -94,15 +94,15 @@ Do not use 'gvapython' as it is deprecated.
 
 ## Common Pipeline Patterns
 
-### Pattern 1: Detect → Watermark → Display
+### Pattern 1: Decode → Detect → Watermark → Display
 
 ```
 filesrc location=video.mp4 ! decodebin3 !
-gvadetect model=model.xml device=GPU batch-size=1 ! queue !
+gvadetect model=model.xml device=GPU batch-size=4 ! queue !
 gvawatermark ! videoconvertscale ! autovideosink
 ```
 
-### Pattern 2: Detect → Classify → Encode → Save
+### Pattern 2: Decode → Detect → Classify → Encode → Save
 
 ```
 filesrc location=video.mp4 ! decodebin3 !
@@ -206,7 +206,7 @@ Choose the correct DLStreamer inference element based on model type:
 
 | Model Type | Element | Examples |
 |------------|---------|----------|
-| Object detection | `gvadetect` | YOLOv8/v11, SSD, RT-DETR, D-FINE |
+| Object detection | `gvadetect` | YOLO, SSD, RT-DETR, D-FINE |
 | Classification / OCR | `gvaclassify` | ResNet, EfficientNet, CLIP, ViT, PaddleOCR |
 | Vision-Language Models | `gvagenai` | MiniCPM-V, Qwen2.5-VL, InternVL, SmolVLM |
 

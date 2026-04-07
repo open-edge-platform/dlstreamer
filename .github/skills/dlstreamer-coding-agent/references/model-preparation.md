@@ -58,8 +58,8 @@ Source: `samples/gstreamer/python/prompted_detection/prompted_detection.py`
 
 ### 2. HuggingFace Ultralytics Models
 
-If an Ultralytic model is located on the HuggingFace hub, download it first to the local disk and
-then use the Ultralytics model exporter as described in secttion #1.
+If an Ultralytics model is located on the HuggingFace hub, download it first to the local disk and
+then use the Ultralytics model exporter as described in section #1.
 
 ```python
 from huggingface_hub import hf_hub_download
@@ -251,8 +251,8 @@ Model-proc (model processing) JSON files are deprecated; please do not use them 
 | Compression | Flag | Best For | Quality Impact |
 |-------------|------|----------|----------------|
 | FP32 | (default) | Maximum accuracy | None |
-| FP16 | `half=True` (Ultralytics), `--compress_to_fp16` (ovc) | GPU inference, reduced size | Negligible |
-| INT8 | `int8=True` (Ultralytics), | GPU inference, reduced size | Negligible |
+| FP16 | `half=True` (Ultralytics), `--compress_to_fp16` (ovc) | GPU/NPU inference, reduced size | Negligible |
+| INT8 | `int8=True` (Ultralytics), | GPU/NPU inference, reduced size | Negligible |
 | INT8 | `--weight-format int8` (optimum-cli) | HuggingFace transformer models | Minor |
 | INT4 | `--weight-format int4` (optimum-cli) | Large LLM/VLM models | Moderate, acceptable for VLMs |
 

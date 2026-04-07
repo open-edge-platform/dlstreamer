@@ -368,56 +368,8 @@ When an application uses models from Ultralytics, HuggingFace Transformers, Padd
 or other frameworks with long list of run-time dependencies, create a **separate `download_models.py`**
 script that handles all model download and export. Users run it once before starting the pipeline application.
 
-In addition, model export dependencies may clash model inference dependencies which further
+In addition, model export dependencies may clash with model inference dependencies which further
 justifies splitting these two phases.
-
-Follow this pattern:
-- Keeps the main application clean and focused on pipeline logic
-- Allows re-running model export independently of the pipeline
-- Enables caching (skip export if `.xml` already exists)
-
-```python
-# download_models.py
-from pathlib import Path
-from huggingface_hub import hf_hub_download, snapshot_download
-
-MODELS_DIR = Path(__file__).resolve().parent / "models"
-
-def export_detection_model(variant="s"):
-    """Download and export detection model. Skip if .xml already exists."""
-    ov_dir = MODELS_DIR / f"model_{variant}"
-    xml_files = list(ov_dir.glob("*.xml")) if ov_dir.exists() else []
-    if xml_files:
-        print(f"Model already exists: {xml_files[0]}")
-        return xml_files[0]
-
-    # Download .pt → export to OV IR FP16
-    from ultralytics import YOLO
-    pt_path = hf_hub_download(repo_id="...", filename="model.pt", local_dir=str(MODELS_DIR))
-    model = YOLO(str(pt_path))
-    model.export(format="openvino", dynamic=True, half=True)
-    return list(ov_dir.glob("*.xml"))[0]
-
-def export_ocr_model():
-    """Download PaddleOCR and convert PIR → ONNX → OV IR FP16."""
-    # ... snapshot_download + paddle2onnx + ovc ...
-    pass
-
-def main():
-    det = export_detection_model()
-    ocr = export_ocr_model()
-    print(f"Models ready:\n  Detection: {det}\n  OCR: {ocr}")
-
-if __name__ == "__main__":
-    main()
-```
-
-**Key conventions:**
-- Always check if `.xml` exists before re-exporting (idempotent)
-- Use `int8=True` whenever possible, this improves performance
-- Clean up intermediate files (`.onnx`, paddle model dirs) after conversion
-- Add `argparse` for variant selection if multiple model sizes are available
-- The main pipeline app uses `glob` to find the exported `.xml` at runtime
 
 ---
 
