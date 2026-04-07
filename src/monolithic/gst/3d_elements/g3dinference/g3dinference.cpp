@@ -208,6 +208,21 @@ PointPillarsRuntime *get_runtime(GstG3DInference *filter) {
     return reinterpret_cast<PointPillarsRuntime *>(filter->runtime);
 }
 
+GstClockTime get_exit_g3dinference_timestamp(GstG3DInference *filter) {
+    if (GstClock *clock = gst_element_get_clock(GST_ELEMENT(filter))) {
+        GstClockTime timestamp = gst_clock_get_time(clock);
+        GST_DEBUG_OBJECT(filter, "exit_g3dinference_timestamp from element clock: %" GST_TIME_FORMAT,
+                         GST_TIME_ARGS(timestamp));
+        gst_object_unref(clock);
+        return timestamp;
+    }
+
+    GstClockTime timestamp = gst_util_get_timestamp();
+    GST_DEBUG_OBJECT(filter, "exit_g3dinference_timestamp from gst_util_get_timestamp: %" GST_TIME_FORMAT,
+                     GST_TIME_ARGS(timestamp));
+    return timestamp;
+}
+
 void set_tensor_metadata(GstGVATensorMeta *tensor_meta, const std::vector<float> &detections,
                          const char *model_type) {
     gst_structure_set_name(tensor_meta->data, "detection");
@@ -434,9 +449,13 @@ static GstFlowReturn gst_g3d_inference_transform_ip(GstBaseTransform *trans, Gst
             throw std::runtime_error("Failed to allocate GstGVATensorMeta");
 
         set_tensor_metadata(tensor_meta, detections, filter->model_type);
+        lidar_meta->exit_g3dinference_timestamp = get_exit_g3dinference_timestamp(filter);
 
-        GST_DEBUG_OBJECT(filter, "Attached PointPillars tensor with %zu detections for frame_id=%zu",
-                         detections.size() / DETECTION_WIDTH, lidar_meta->frame_id);
+        GST_DEBUG_OBJECT(filter,
+                         "Attached PointPillars tensor with %zu detections for frame_id=%zu exit_g3dinference_ts=%"
+                         GST_TIME_FORMAT,
+                         detections.size() / DETECTION_WIDTH, lidar_meta->frame_id,
+                         GST_TIME_ARGS(lidar_meta->exit_g3dinference_timestamp));
         g_mutex_unlock(&filter->mutex);
         return GST_FLOW_OK;
     } catch (const std::exception &e) {
