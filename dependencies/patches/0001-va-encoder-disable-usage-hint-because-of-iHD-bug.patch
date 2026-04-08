@@ -1,5 +1,5 @@
 diff --git a/subprojects/gst-plugins-bad/sys/va/gstvabaseenc.c b/subprojects/gst-plugins-bad/sys/va/gstvabaseenc.c
-index c522faf46b701d1dcd776aa2999c001f63e02c4e..08ae7f33b6bbcc52b5b8ff73dfb85cbd6145 100644
+index cefa87dbfe..c8d9956647 100644
 --- a/subprojects/gst-plugins-bad/sys/va/gstvabaseenc.c
 +++ b/subprojects/gst-plugins-bad/sys/va/gstvabaseenc.c
 @@ -218,8 +218,9 @@ _get_sinkpad_pool (GstElement * element, gpointer data)
@@ -7,10 +7,10 @@ index c522faf46b701d1dcd776aa2999c001f63e02c4e..08ae7f33b6bbcc52b5b8ff73dfb85cbd
    allocator = gst_va_allocator_new (base->display, surface_formats);
  
 -  usage_hint = va_get_surface_usage_hint (base->display,
--      VAEntrypointEncSlice, GST_PAD_SINK, FALSE);
+-      klass->entrypoint, GST_PAD_SINK, FALSE);
 +  usage_hint = VA_SURFACE_ATTRIB_USAGE_HINT_GENERIC;
-+  /* va_get_surface_usage_hint (display,
-+     VAEntrypointEncSlice, GST_PAD_SINK, FALSE); */
++  /* va_get_surface_usage_hint (base->display,
++     klass->entrypoint, GST_PAD_SINK, FALSE);*/
  
    base->priv->raw_pool = gst_va_pool_new_with_config (caps, 1, 0, usage_hint,
        GST_VA_FEATURE_AUTO, allocator, &params);
@@ -21,28 +21,24 @@ index c522faf46b701d1dcd776aa2999c001f63e02c4e..08ae7f33b6bbcc52b5b8ff73dfb85cbd
 -  usage_hint = va_get_surface_usage_hint (base->display,
 -      VAEntrypointEncSlice, GST_PAD_SINK, gst_video_is_dma_drm_caps (caps));
 +  usage_hint = VA_SURFACE_ATTRIB_USAGE_HINT_GENERIC;
-+  /* va_get_surface_usage_hint (display,
-+     VAEntrypointEncSlice, GST_PAD_SINK, FALSE); */
++  /* va_get_surface_usage_hint (base->display,
++     VAEntrypointEncSlice, GST_PAD_SINK, gst_video_is_dma_drm_caps (caps));*/
  
    gst_allocation_params_init (&params);
  
 diff --git a/subprojects/gst-plugins-bad/sys/va/gstvaencoder.c b/subprojects/gst-plugins-bad/sys/va/gstvaencoder.c
-index 0e11d5b484270a5260eab3a2c8157fb29aa28182..2535fb4d537ddc4d88db489bef87a3f8e904297b 100644
+index 727ebfb219..854dd203ce 100644
 --- a/subprojects/gst-plugins-bad/sys/va/gstvaencoder.c
 +++ b/subprojects/gst-plugins-bad/sys/va/gstvaencoder.c
-@@ -360,8 +360,9 @@ _create_reconstruct_pool (GstVaDisplay * display, GArray * surface_formats,
+@@ -460,8 +460,9 @@ _get_reconstructed_buffer_pool (GstVaEncoder * self)
+     goto bail;
+   }
  
-   gst_video_info_set_format (&info, format, coded_width, coded_height);
- 
--  usage_hint = va_get_surface_usage_hint (display,
--      VAEntrypointEncSlice, GST_PAD_SINK, FALSE);
+-  usage_hint = va_get_surface_usage_hint (self->display, self->entrypoint,
+-      GST_PAD_SINK, FALSE);
 +  usage_hint = VA_SURFACE_ATTRIB_USAGE_HINT_GENERIC;
-+  /* va_get_surface_usage_hint (display,
-+     VAEntrypointEncSlice, GST_PAD_SINK, FALSE); */
++  /* va_get_surface_usage_hint (self->display, self->entrypoint,
++     GST_PAD_SINK, FALSE); */
  
-   caps = gst_video_info_to_caps (&info);
-   gst_caps_set_features_simple (caps,
-
--- 
-2.43.0
-
+   gst_allocation_params_init (&params);
+ 
