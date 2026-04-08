@@ -1,0 +1,75 @@
+diff --git a/subprojects/gst-plugins-bad/sys/va/gstvacompositor.c b/subprojects/gst-plugins-bad/sys/va/gstvacompositor.c
+index 5e0afe66061c702e981c4b5d4cd7da188f0c9be0..249ee9a7985872b5a1a03bd5b4aa6d35c770c758 100644
+--- a/subprojects/gst-plugins-bad/sys/va/gstvacompositor.c
++++ b/subprojects/gst-plugins-bad/sys/va/gstvacompositor.c
+@@ -910,6 +910,7 @@ gst_va_compositor_sample_next (gpointer data)
+   GstVaCompositorPad *pad;
+   GstBuffer *inbuf;
+   GstBuffer *buf;
++  GstBuffer *prepared_buf;
+   GstFlowReturn res;
+   GstVideoCropMeta *crop = NULL;
+ 
+@@ -936,7 +937,13 @@ gst_va_compositor_sample_next (gpointer data)
+     inbuf = gst_video_aggregator_pad_get_current_buffer (vaggpad);
+     pad = GST_VA_COMPOSITOR_PAD (vaggpad);
+ 
+-    res = gst_va_compositor_import_buffer (generator->comp, pad, inbuf, &buf);
++    prepared_buf = gst_va_buffer_prepare_for_import (inbuf,
++        generator->comp->display);
++    if (!prepared_buf)
++      return &generator->sample;
++
++    res = gst_va_compositor_import_buffer (generator->comp, pad,
++        prepared_buf, &buf);
+     if (res != GST_FLOW_OK)
+       return &generator->sample;
+ 
+@@ -946,6 +953,7 @@ gst_va_compositor_sample_next (gpointer data)
+     /* *INDENT-OFF* */
+     generator->sample = (GstVaComposeSample) {
+       .buffer = buf,
++      .wrapped_buffer = (inbuf != prepared_buf)? prepared_buf : NULL,
+       .input_region = (VARectangle) {
+         .x = crop ? crop->x : 0,
+         .y = crop ? crop->y : 0,
+diff --git a/subprojects/gst-plugins-bad/sys/va/gstvafilter.c b/subprojects/gst-plugins-bad/sys/va/gstvafilter.c
+index 12806e64da4355213a7387691feafdf1ef68f3fd..636ccdc31cea7a752891574b549ad45a2d3bcc6f 100644
+--- a/subprojects/gst-plugins-bad/sys/va/gstvafilter.c
++++ b/subprojects/gst-plugins-bad/sys/va/gstvafilter.c
+@@ -1906,8 +1906,10 @@ gst_va_filter_compose (GstVaFilter * self, GstVaComposeTransaction * tx)
+     status = vaEndPicture (dpy, self->context);
+     if (status != VA_STATUS_SUCCESS) {
+       GST_ERROR_OBJECT (self, "vaEndPicture: %s", vaErrorStr (status));
++      gst_clear_buffer (&sample->wrapped_buffer);
+       return FALSE;
+     }
++    gst_clear_buffer (&sample->wrapped_buffer);
+   }
+ 
+   return TRUE;
+@@ -1917,6 +1919,8 @@ fail_end_pic:
+     status = vaEndPicture (dpy, self->context);
+     if (status != VA_STATUS_SUCCESS)
+       GST_ERROR_OBJECT (self, "vaEndPicture: %s", vaErrorStr (status));
++
++    gst_clear_buffer (&sample->wrapped_buffer);
+     return FALSE;
+   }
+ }
+diff --git a/subprojects/gst-plugins-bad/sys/va/gstvafilter.h b/subprojects/gst-plugins-bad/sys/va/gstvafilter.h
+index 7058dd963fd4cee68516ab8ef746e9db35e943aa..f5ab550e3255fb9f7db2ed2bd93ecc8d7caf14ef 100644
+--- a/subprojects/gst-plugins-bad/sys/va/gstvafilter.h
++++ b/subprojects/gst-plugins-bad/sys/va/gstvafilter.h
+@@ -89,6 +89,7 @@ struct _GstVaComposeSample
+ {
+   /* input buffer (transfer full) */
+   GstBuffer *buffer;
++  GstBuffer *wrapped_buffer;
+ 
+   VARectangle input_region;
+   VARectangle output_region;
+
+-- 
+2.43.0
+

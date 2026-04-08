@@ -1,5 +1,5 @@
 diff --git a/subprojects/gst-plugins-bad/sys/va/gstvabaseenc.c b/subprojects/gst-plugins-bad/sys/va/gstvabaseenc.c
-index c522faf46b70..08ae7f33b6bb 100644
+index c522faf46b701d1dcd776aa2999c001f63e02c4e..08ae7f33b6bbcc52b5b8ff73dfb85cbd6145 100644
 --- a/subprojects/gst-plugins-bad/sys/va/gstvabaseenc.c
 +++ b/subprojects/gst-plugins-bad/sys/va/gstvabaseenc.c
 @@ -218,8 +218,9 @@ _get_sinkpad_pool (GstElement * element, gpointer data)
@@ -27,7 +27,7 @@ index c522faf46b70..08ae7f33b6bb 100644
    gst_allocation_params_init (&params);
  
 diff --git a/subprojects/gst-plugins-bad/sys/va/gstvaencoder.c b/subprojects/gst-plugins-bad/sys/va/gstvaencoder.c
-index 0e11d5b48427..2535fb4d537d 100644
+index 0e11d5b484270a5260eab3a2c8157fb29aa28182..2535fb4d537ddc4d88db489bef87a3f8e904297b 100644
 --- a/subprojects/gst-plugins-bad/sys/va/gstvaencoder.c
 +++ b/subprojects/gst-plugins-bad/sys/va/gstvaencoder.c
 @@ -360,8 +360,9 @@ _create_reconstruct_pool (GstVaDisplay * display, GArray * surface_formats,
@@ -42,3 +42,7 @@ index 0e11d5b48427..2535fb4d537d 100644
  
    caps = gst_video_info_to_caps (&info);
    gst_caps_set_features_simple (caps,
+
+-- 
+2.43.0
+

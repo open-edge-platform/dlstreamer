@@ -1,5 +1,5 @@
 diff --git a/subprojects/gst-plugins-bad/sys/va/gstvavp9enc.c b/subprojects/gst-plugins-bad/sys/va/gstvavp9enc.c
-index fbbf2463be43..637063abf7f0 100644
+index fbbf2463be436a23d4bbe34108226133fe0e8189..637063abf7f02b62cf80adece592146933f55d67 100644
 --- a/subprojects/gst-plugins-bad/sys/va/gstvavp9enc.c
 +++ b/subprojects/gst-plugins-bad/sys/va/gstvavp9enc.c
 @@ -2148,7 +2148,7 @@ gst_va_vp9_enc_reconfig (GstVaBaseEnc * base)
@@ -11,3 +11,7 @@ index fbbf2463be43..637063abf7f0 100644
    }
  
    base->profile = profile;
+
+-- 
+2.43.0
+

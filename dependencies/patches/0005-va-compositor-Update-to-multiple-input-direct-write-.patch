@@ -1,5 +1,5 @@
 diff --git a/subprojects/gst-plugins-bad/sys/va/gstvafilter.c b/subprojects/gst-plugins-bad/sys/va/gstvafilter.c
-index c35ba040cf23..1632906a736c 100644
+index c35ba040cf23c75a82568a0329e3881bf1aa40e0..1632906a736c971a4bd0410b49242723f7be19d8 100644
 --- a/subprojects/gst-plugins-bad/sys/va/gstvafilter.c
 +++ b/subprojects/gst-plugins-bad/sys/va/gstvafilter.c
 @@ -1827,12 +1827,6 @@ gst_va_filter_compose (GstVaFilter * self, GstVaComposeTransaction * tx)
@@ -54,3 +54,7 @@ index c35ba040cf23..1632906a736c 100644
    }
  
    return TRUE;
+
+-- 
+2.43.0
+
