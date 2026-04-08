@@ -29,7 +29,7 @@ from .tensor import Tensor
 from .util import VideoRegionOfInterestMeta, GstStructureHandle
 from .util import libgst, libgstvideo
 
-# Register Keypoint metadata
+# Register custom DLStreamerMeta metadata types
 # pylint: disable=protected-access
 # pylint: enable=wrong-import-position
 GstAnalyticsOverride._wrap_mtd(
@@ -39,13 +39,8 @@ GstAnalyticsOverride._wrap_mtd(
 )
 GstAnalyticsOverride._wrap_mtd(
     DLStreamerMeta,
-    'KeypointGroupMtd',
-    DLStreamerMeta.relation_meta_get_keypointgroup_mtd
-)
-GstAnalyticsOverride._wrap_mtd(
-    DLStreamerMeta,
-    'KeypointSkeletonMtd',
-    DLStreamerMeta.relation_meta_get_keypoint_skeleton_mtd
+    'GroupMtd',
+    DLStreamerMeta.relation_meta_get_group_mtd
 )
 # pylint: enable=protected-access
 
