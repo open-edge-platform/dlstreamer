@@ -1,5 +1,5 @@
 diff --git a/subprojects/gst-plugins-bad/sys/msdk/gstmsdkav1enc.c b/subprojects/gst-plugins-bad/sys/msdk/gstmsdkav1enc.c
-index 2343360caa23..f06367636d46 100644
+index 2343360caa238e4dcb732d3a1894b3429bf66b31..f06367636d46428f651d088132e4d9bfb98a64e2 100644
 --- a/subprojects/gst-plugins-bad/sys/msdk/gstmsdkav1enc.c
 +++ b/subprojects/gst-plugins-bad/sys/msdk/gstmsdkav1enc.c
 @@ -71,12 +71,16 @@ enum
@@ -98,7 +98,7 @@ index 2343360caa23..f06367636d46 100644
  
  gboolean
 diff --git a/subprojects/gst-plugins-bad/sys/msdk/gstmsdkav1enc.h b/subprojects/gst-plugins-bad/sys/msdk/gstmsdkav1enc.h
-index b5f324c0681e..77cfe61c8e53 100644
+index b5f324c0681e58fe3dc3da15cf96352c647b75cd..77cfe61c8e53e001dbcdb07fbd6c92d715619afc 100644
 --- a/subprojects/gst-plugins-bad/sys/msdk/gstmsdkav1enc.h
 +++ b/subprojects/gst-plugins-bad/sys/msdk/gstmsdkav1enc.h
 @@ -49,10 +49,13 @@ struct _GstMsdkAV1Enc
@@ -115,3 +115,7 @@ index b5f324c0681e..77cfe61c8e53 100644
  };
  
  struct _GstMsdkAV1EncClass
+
+-- 
+2.43.0
+
