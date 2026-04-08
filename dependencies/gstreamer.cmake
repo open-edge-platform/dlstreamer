@@ -33,7 +33,6 @@ ExternalProject_Add(
                         --prefix ${CMAKE_BINARY_DIR}/gstreamer-bin
 		                -Dexamples=disabled
     	                -Dtests=disabled
-    	                -Dvaapi=enabled
     	                -Dlibnice=enabled
     	                -Dgst-examples=disabled
     	                -Ddevtools=disabled
@@ -96,11 +95,6 @@ ExternalProject_Add(
     	                -Dgst-plugins-ugly:nls=disabled
     	                -Dgst-plugins-ugly:x264=disabled
     	                -Dgst-plugins-ugly:gpl=disabled
-    	                -Dgstreamer-vaapi:encoders=enabled
-    	                -Dgstreamer-vaapi:drm=enabled
-    	                -Dgstreamer-vaapi:glx=enabled
-    	                -Dgstreamer-vaapi:wayland=enabled
-    	                -Dgstreamer-vaapi:egl=enabled
 		                --buildtype=release
 		                --libdir=lib/
 		                --libexecdir=bin/
