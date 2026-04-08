@@ -1,0 +1,94 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: model-syncer
+  namespace: arc-systems
+spec:
+  selector:
+    matchLabels:
+      app: model-syncer
+  template:
+    metadata:
+      labels:
+        app: model-syncer
+    spec:
+      nodeSelector:
+        dedicated: runner
+      tolerations:
+      - key: "dedicated"
+        operator: "Equal"
+        value: "runner"
+        effect: "NoSchedule"
+      containers:
+      - name: syncer
+        image: ghcr.io/open-edge-platform/dl-streamer-tests/dlstreamer-runner-ubuntu24:latest
+        env:
+          - name: NODE_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: spec.nodeName
+          - name: MASTER_IP
+            value: "${DLS_MODELS_RSYNC_HOST_IP}"
+        command: ["bash", "-c"]
+        args:
+          - |
+            # 1. Configure SSH access
+            mkdir -p ~/.ssh && cp /etc/ssh-key/id_rsa ~/.ssh/id_rsa && chmod 600 ~/.ssh/id_rsa
+            echo "StrictHostKeyChecking no" > ~/.ssh/config
+
+            if [ "$NODE_NAME" = "dls-arl-01" ]; then
+              echo "--- MASTER: Starting download script ---"
+              rm -f /data/SUCCESS.txt
+              
+              # Create a temporary directory for the download process to avoid partial sync issues
+              if [ -d /home/runner/models_new ]; then
+                rm -rf /home/runner/models_new
+              fi
+              mkdir /home/runner/models_new
+
+              # Download public models
+              export MODELS_PATH=/home/runner/models_new
+              cd $HOME/dlstreamer/samples
+              ./download_public_models.sh yolo11s coco128
+
+              # Download OMZ models
+              ./download_omz_models.sh
+              
+              if [ $? -eq 0 ]; then
+                echo "--- MASTER: Download successful, replacing models ---"
+                # Replace old models with new ones
+                rsync -av --delete /home/runner/models_new/ /data/
+                # Clean up temporary directory
+                rm -rf /home/runner/models_new
+                # Mark success
+                touch /data/SUCCESS.txt
+                echo "--- MASTER: Update finished with SUCCESS ---"
+              else
+                echo "--- MASTER: ERROR during download ---"
+                exit 1
+              fi
+            else
+              echo "--- WORKER: Waiting for Master to finish ---"
+              # Wait until the master node creates the SUCCESS.txt file, indicating that the download is complete
+              until ssh runner@${MASTER_IP} "test -f /data/SUCCESS.txt"; do
+                sleep 30
+              done
+              echo "--- WORKER: Master is ready. Syncing via LAN ---"
+              rsync -avz --delete runner@${MASTER_IP}:/home/runner/models/ /home/runner/models/
+            fi
+            echo "Done. Container idling..."
+            sleep infinity
+        volumeMounts:
+        - name: host-data
+          mountPath: /home/runner/models
+        - name: ssh-key
+          mountPath: /etc/ssh-key
+          readOnly: true
+      volumes:
+      - name: host-data
+        hostPath:
+          path: /home/runner/models
+          type: DirectoryOrCreate
+      - name: ssh-key
+        secret:
+          secretName: rsync-ssh-secret
