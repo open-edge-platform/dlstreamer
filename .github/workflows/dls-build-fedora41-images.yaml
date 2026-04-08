@@ -13,7 +13,7 @@ jobs:
     name: "Build f41 img"
     runs-on: dlstreamer
     container:
-      image: fedora:41   
+      image: fedora:41
     permissions:
       contents: read
       packages: read

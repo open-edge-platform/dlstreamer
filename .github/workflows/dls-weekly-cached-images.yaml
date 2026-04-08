@@ -4,14 +4,6 @@ on:
   schedule:
     - cron: '0 5 * * MON' # 5:00 UTC each Monday
   workflow_dispatch:
-    inputs:
-      action-type:
-        description: 'Choose if this run is weekly build or cache update'
-        required: true
-        type: choice
-        options:
-          - 'weekly'
-          - 'cache'
 permissions: {}
 env:
   dlstreamer-version: "2026.0.0"
@@ -24,7 +16,6 @@ jobs:
     permissions:
       contents: read
       packages: write
-      id-token: write
     strategy:
       fail-fast: false
       matrix:
@@ -79,7 +70,6 @@ jobs:
     permissions:
       contents: read
       packages: write
-      id-token: write
     strategy:
       fail-fast: false
       matrix:
@@ -135,7 +125,6 @@ jobs:
     permissions:
       contents: read
       packages: write
-      id-token: write
     steps:
       - name: Initial environment clean
         run: |
