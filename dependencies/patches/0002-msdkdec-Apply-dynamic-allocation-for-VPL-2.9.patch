@@ -1,5 +1,5 @@
 diff --git a/subprojects/gst-plugins-bad/sys/msdk/gstmsdkallocator_d3d.c b/subprojects/gst-plugins-bad/sys/msdk/gstmsdkallocator_d3d.c
-index 4dcf154f486d..9d75364bfc37 100644
+index 4dcf154f486d579c91c7cc524df42491dd214a1d..9d75364bfc37d4bd3c03f4547199b244078c3a52 100644
 --- a/subprojects/gst-plugins-bad/sys/msdk/gstmsdkallocator_d3d.c
 +++ b/subprojects/gst-plugins-bad/sys/msdk/gstmsdkallocator_d3d.c
 @@ -32,6 +32,7 @@
@@ -40,7 +40,7 @@ index 4dcf154f486d..9d75364bfc37 100644
    mfxU32 fourcc = req->Info.FourCC;
    mfxU16 surfaces_num = req->NumFrameSuggested;
 diff --git a/subprojects/gst-plugins-bad/sys/msdk/gstmsdkallocator_libva.c b/subprojects/gst-plugins-bad/sys/msdk/gstmsdkallocator_libva.c
-index c20b8c068dd7..6e40e9d83daf 100644
+index c20b8c068dd7b70804996c638575720be24b19ff..6e40e9d83dafa2c79254867078c31c086f336c9c 100644
 --- a/subprojects/gst-plugins-bad/sys/msdk/gstmsdkallocator_libva.c
 +++ b/subprojects/gst-plugins-bad/sys/msdk/gstmsdkallocator_libva.c
 @@ -54,10 +54,26 @@ gst_msdk_frame_alloc (mfxHDL pthis, mfxFrameAllocRequest * req,
@@ -72,7 +72,7 @@ index c20b8c068dd7..6e40e9d83daf 100644
    mfxU32 fourcc = req->Info.FourCC;
    mfxU16 surfaces_num = req->NumFrameSuggested;
 diff --git a/subprojects/gst-plugins-bad/sys/msdk/gstmsdkdec.c b/subprojects/gst-plugins-bad/sys/msdk/gstmsdkdec.c
-index f167f4e715d0..c4ce079d0758 100644
+index f167f4e715d0b4beedc46073e3e54bce84f51416..c4ce079d0758dc9477ad6ec235ca0c6a6694effa 100644
 --- a/subprojects/gst-plugins-bad/sys/msdk/gstmsdkdec.c
 +++ b/subprojects/gst-plugins-bad/sys/msdk/gstmsdkdec.c
 @@ -175,12 +175,35 @@ gst_msdkdec_free_unlocked_msdk_surfaces (GstMsdkDec * thiz,
@@ -301,7 +301,7 @@ index f167f4e715d0..c4ce079d0758 100644
  
    /* Initialize MSDK decoder before new bufferpool tries to alloc each buffer,
 diff --git a/subprojects/gst-plugins-bad/sys/msdk/gstmsdkdec.h b/subprojects/gst-plugins-bad/sys/msdk/gstmsdkdec.h
-index 6b31b81d8272..e64f397da6e9 100644
+index 6b31b81d8272e1558e7387d6088f9070ea190acd..e64f397da6e96fa686397bc494743fad1cbbe037 100644
 --- a/subprojects/gst-plugins-bad/sys/msdk/gstmsdkdec.h
 +++ b/subprojects/gst-plugins-bad/sys/msdk/gstmsdkdec.h
 @@ -76,6 +76,7 @@ struct _GstMsdkDec
@@ -321,3 +321,7 @@ index 6b31b81d8272..e64f397da6e9 100644
  };
  
  struct _GstMsdkDecClass
+
+-- 
+2.43.0
+

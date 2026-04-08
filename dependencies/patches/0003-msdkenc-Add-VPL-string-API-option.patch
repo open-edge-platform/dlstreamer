@@ -1,5 +1,5 @@
 diff --git a/subprojects/gst-plugins-bad/sys/msdk/gstmsdkenc.c b/subprojects/gst-plugins-bad/sys/msdk/gstmsdkenc.c
-index d201d5f74bef..53b08a6ec5a0 100644
+index d201d5f74bef0c1e87e8bedc604f89e5310eea8d..53b08a6ec5a061210591710d19b924cdd55cf52a 100644
 --- a/subprojects/gst-plugins-bad/sys/msdk/gstmsdkenc.c
 +++ b/subprojects/gst-plugins-bad/sys/msdk/gstmsdkenc.c
 @@ -104,6 +104,7 @@ GST_DEBUG_CATEGORY_EXTERN (gst_msdkenc_debug);
@@ -138,7 +138,7 @@ index d201d5f74bef..53b08a6ec5a0 100644
     * GstMsdkEnc:ext-coding-props
     *
 diff --git a/subprojects/gst-plugins-bad/sys/msdk/gstmsdkenc.h b/subprojects/gst-plugins-bad/sys/msdk/gstmsdkenc.h
-index aa765bd2b7cd..71aee2ad7562 100644
+index aa765bd2b7cde2916da0cca7b9aea70473c753d2..71aee2ad756213f914565eca83a8794804098096 100644
 --- a/subprojects/gst-plugins-bad/sys/msdk/gstmsdkenc.h
 +++ b/subprojects/gst-plugins-bad/sys/msdk/gstmsdkenc.h
 @@ -98,6 +98,7 @@ enum
@@ -167,3 +167,7 @@ index aa765bd2b7cd..71aee2ad7562 100644
  
    GstClockTime start_pts;
    GstClockTime frame_duration;
+
+-- 
+2.43.0
+

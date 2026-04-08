@@ -1,0 +1,121 @@
+diff --git a/subprojects/gst-plugins-bad/gst-libs/gst/va/gstvaallocator.c b/subprojects/gst-plugins-bad/gst-libs/gst/va/gstvaallocator.c
+index c76debce9957363a2b8e7c74b9f5eb7dcfcc6c8a..b84593edb48ead12a853105c97034dd5b876d1e8 100644
+--- a/subprojects/gst-plugins-bad/gst-libs/gst/va/gstvaallocator.c
++++ b/subprojects/gst-plugins-bad/gst-libs/gst/va/gstvaallocator.c
+@@ -1190,6 +1190,97 @@ gst_va_dmabuf_memories_setup (GstVaDisplay * display,
+   return TRUE;
+ }
+ 
++/**
++ * gst_va_buffer_new_wrapped_dmabuf:
++ * @display: a #GstVaDisplay
++ * @buffer: a #GstBuffer containing DMA-BUF memory
++ *
++ * Creates a new buffer that wraps the DMA-BUF memory from @buffer but
++ * associates it with @display's allocator. This is useful for cross-display
++ * scenarios where the input buffer was allocated by a different VA display.
++ *
++ * The returned buffer references the same underlying DMA-BUF file descriptor
++ * (using %GST_FD_MEMORY_FLAG_DONT_CLOSE) without duplicating memory, enabling
++ * zero-copy operation across different VA displays. Video metadata from the
++ * input buffer is copied to the wrapped buffer.
++ *
++ * Common use cases:
++ * - Multi dpy VA video processing pipelines
++ *
++ * Returns: (transfer full) (nullable): a new #GstBuffer wrapping the DMA-BUF
++ *   memory, or %NULL on error or if @buffer does not contain DMA-BUF memory.
++ *
++ * Since: 1.27
++ */
++static GstBuffer *
++gst_va_buffer_new_wrapped_dmabuf (GstVaDisplay * display, GstBuffer * buffer)
++{
++  g_autoptr (GstAllocator) allocator;
++  GstMemory *mem_input, *mem_dma;
++  GstBuffer *wrapped_buf;
++  GstVideoMeta *meta;
++
++  g_return_val_if_fail (GST_IS_VA_DISPLAY (display), NULL);
++  g_return_val_if_fail (GST_IS_BUFFER (buffer), NULL);
++
++  mem_input = gst_buffer_peek_memory (buffer, 0);
++  if (!gst_is_dmabuf_memory (mem_input))
++    return NULL;
++
++  allocator = gst_va_dmabuf_allocator_new (display);
++  mem_dma = gst_dmabuf_allocator_alloc_with_flags (allocator,
++      gst_dmabuf_memory_get_fd (mem_input),
++      gst_buffer_get_size (buffer), GST_FD_MEMORY_FLAG_DONT_CLOSE);
++
++  if (!mem_dma)
++    return NULL;
++
++  wrapped_buf = gst_buffer_new ();
++  gst_buffer_append_memory (wrapped_buf, mem_dma);
++
++  meta = gst_buffer_get_video_meta (buffer);
++  if (meta) {
++    gst_buffer_add_video_meta_full (wrapped_buf,
++        GST_VIDEO_FRAME_FLAG_NONE,
++        meta->format, meta->width, meta->height,
++        meta->n_planes, meta->offset, meta->stride);
++  }
++
++  return wrapped_buf;
++}
++
++/**
++ * gst_va_buffer_prepare_for_import:
++ * @buffer: a #GstBuffer
++ * @display: target #GstVaDisplay
++ *
++ * Prepares a buffer for import to the target display. If threshold is enabled
++ * and the buffer uses a different VA display, creates a wrapped dmabuf buffer.
++ *
++ * Returns: (transfer full) (nullable): prepared buffer, or %NULL on error.
++ *   Caller must check if returned buffer differs from input to manage cleanup.
++ *
++ * Since: 1.27
++ */
++GstBuffer *
++gst_va_buffer_prepare_for_import (GstBuffer * buffer, GstVaDisplay * display)
++{
++  GstMemory *mem;
++
++  g_return_val_if_fail (GST_IS_BUFFER (buffer), NULL);
++  g_return_val_if_fail (display != NULL, NULL);
++
++  mem = gst_buffer_peek_memory (buffer, 0);
++
++  if (gst_is_dmabuf_memory (mem) &&
++      GST_IS_VA_DMABUF_ALLOCATOR (mem->allocator) &&
++      gst_va_allocator_peek_display (mem->allocator) != display) {
++    return gst_va_buffer_new_wrapped_dmabuf (display, buffer);
++  }
++
++  return buffer;
++}
++
+ /*===================== GstVaAllocator / GstVaMemory =========================*/
+ 
+ /**
+diff --git a/subprojects/gst-plugins-bad/gst-libs/gst/va/gstvaallocator.h b/subprojects/gst-plugins-bad/gst-libs/gst/va/gstvaallocator.h
+index fd2b80d90da7189b170963e03c89e76caf179292..c278db66e0ae1f3179209beae658f9b4c8967ec6 100644
+--- a/subprojects/gst-plugins-bad/gst-libs/gst/va/gstvaallocator.h
++++ b/subprojects/gst-plugins-bad/gst-libs/gst/va/gstvaallocator.h
+@@ -64,6 +64,10 @@ gboolean              gst_va_dmabuf_memories_setup        (GstVaDisplay * displa
+                                                            gsize offset[GST_VIDEO_MAX_PLANES],
+                                                            guint usage_hint);
+ 
++GST_VA_API
++GstBuffer *           gst_va_buffer_prepare_for_import    (GstBuffer * buffer,
++                                                           GstVaDisplay * display);
++
+ GST_VA_API
+ guint64               gst_va_dmabuf_get_modifier_for_format (GstVaDisplay * display,
+                                                              GstVideoFormat format,
+
+-- 
+2.43.0
+

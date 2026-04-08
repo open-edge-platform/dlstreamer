@@ -1,5 +1,5 @@
 diff --git a/subprojects/gst-plugins-bad/sys/va/gstvaav1enc.c b/subprojects/gst-plugins-bad/sys/va/gstvaav1enc.c
-index 4e31038e2eb3..51ab98776000 100644
+index 4e31038e2eb351ca4f3bf584b05b468d107d892c..51ab98776000ca6d0c3ae8952304ff6a7b91e1ae 100644
 --- a/subprojects/gst-plugins-bad/sys/va/gstvaav1enc.c
 +++ b/subprojects/gst-plugins-bad/sys/va/gstvaav1enc.c
 @@ -93,6 +93,8 @@ enum
@@ -273,3 +273,7 @@ index 4e31038e2eb3..51ab98776000 100644
    /**
     * GstVaAV1Enc:min-qp:
     *
+
+-- 
+2.43.0
+
