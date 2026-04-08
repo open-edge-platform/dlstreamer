@@ -90,7 +90,7 @@ For full list of DLStreamer elements see also `../../../../docs/user-guide/eleme
 If a user pipeline requires custom processing, add new Python GStreamer elements in:  
 - `plugins/python/<element_name>.py`
 
-Do not use 'gvapython' as it is deprecated. 
+For new development, prefer custom Python GStreamer elements in `plugins/python/` over `gvapython`.
 
 ## Common Pipeline Patterns
 

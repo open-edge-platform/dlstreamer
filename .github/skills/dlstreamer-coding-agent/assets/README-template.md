@@ -7,7 +7,7 @@
 {{DETAILED_DESCRIPTION}}
 
 {{DLSTREAMER_CODING_AGENT_PROMPT}}
-<!-- If the application was generted using DLStreamer Coding Agent, add initial user prompt.
+<!-- If the application was generated using DLStreamer Coding Agent, add initial user prompt.
 -->
 
 ## What It Does
@@ -47,7 +47,7 @@ The pipeline uses the following elements:
 ```bash
 python3 -m venv .{{APP_NAME}}-venv
 source .{{APP_NAME}}-venv/bin/activate
-pip install -r export-requirements.txt -r requirements.txt
+pip install -r export_requirements.txt -r requirements.txt
 ```
 
 ## Model Preparation
