@@ -179,6 +179,7 @@ Use the [Application Template](./assets/python-app-template.py) as a starting sk
 ### Step 5 — Generate Sample Application
 
 Generate sample application following the directory structure outlined at the beginning of this document.
+Use the [README Template](./assets/README-template.md) to generate the `README.md` file — replace `{{PLACEHOLDERS}}` with application-specific content and remove HTML comments.
 
 If an application requires Python dependencies, list them in `requirements.txt` and then create and activate a local Python environment prior to running the application. If OpenVINO python runtime is required, please make sure it is added to `requirements.txt` with same version as OpenVINO runtime installed with DLStreamer.
 
@@ -200,7 +201,6 @@ docker run -it --rm \
     -v "$(pwd)":/app -w /app \
     --device /dev/dri \
     --group-add $(stat -c "%g" /dev/dri/render*) \
-    --group-add $(stat -c "%g" /dev/dri/card*) \
     --device /dev/accel \
     --group-add $(stat -c "%g" /dev/accel/accel*) \
     intel/dlstreamer:latest \
