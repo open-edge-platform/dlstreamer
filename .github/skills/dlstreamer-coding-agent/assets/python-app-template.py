@@ -77,7 +77,7 @@ def find_model(pattern: str, label: str) -> str:
     """Glob for a model .xml inside MODELS_DIR."""
     hits = sorted(MODELS_DIR.glob(pattern))
     if not hits:
-        sys.stderr.write(f"Error: {label} model not found. Run: python3 download_models.py\n")
+        sys.stderr.write(f"Error: {label} model not found. Run: python3 export_models.py\n")
         sys.exit(1)
     return str(hits[0])
 

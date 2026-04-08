@@ -7,7 +7,7 @@
 Download and export AI models for <APPLICATION_NAME>.
 
 Run this script once before starting the pipeline application:
-    python3 download_models.py
+    python3 export_models.py
 """
 
 import argparse

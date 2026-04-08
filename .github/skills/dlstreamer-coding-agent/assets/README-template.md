@@ -6,7 +6,7 @@
 
 {{DETAILED_DESCRIPTION}}
 
-{{DLSTREAMER CODING AGENT PROMPT}}
+{{DLSTREAMER_CODING_AGENT_PROMPT}}
 <!-- If the application was generted using DLStreamer Coding Agent, add initial user prompt.
 -->
 

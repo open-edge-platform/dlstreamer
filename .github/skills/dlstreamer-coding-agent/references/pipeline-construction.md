@@ -5,7 +5,7 @@ This reference covers how to build DLStreamer command line pipelines or Python a
 ## DLStreamer GStreamer Elements
 
 This section lists elements commonly used in DLStreamer pipelines. 
-For full list of DLStreamer elements see also `/home/tjanczak/dlstreamer/docs/user-guide/elements`.
+For full list of DLStreamer elements see also `../../../../docs/user-guide/elements/`.
 
 ### Source Elements
 
@@ -40,7 +40,7 @@ For full list of DLStreamer elements see also `/home/tjanczak/dlstreamer/docs/us
 | `gvaclassify` | Classification & OCR | ResNet, EfficientNet, CLIP, ViT, PaddleOCR | `model`, `device`, `batch-size` |
 | `gvagenai` | VLM / GenAI inference | MiniCPM-V, Qwen2.5-VL, InternVL, SmolVLM | `model-path`, `device`, `prompt`, `generation-config`, `frame-rate`, `chunk-size` |
 
-> **See Rule 3 above** for guidance on choosing the correct element for each model type.
+> **See Rule 3 below** for guidance on choosing the correct element for each model type.
 
 ### Tracking
 

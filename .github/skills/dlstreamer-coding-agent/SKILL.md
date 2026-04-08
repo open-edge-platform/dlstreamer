@@ -105,7 +105,7 @@ samples when the use case doesn't match any recipe or requires unusual element c
 
 ### Step 1 — Download Latest DLStreamer Docker Image
 
-Using the DLStreamer Docker image simplifies dependency management. Check if the latest DLStreamer image is available locally; if not, download it following the [DLStreamer Install Guide](docs/user-guide/get_started/get_started_index.md). Don't use docker images older than 1 month to ensure you have the latest DLStreamer features and bug fixes.
+Using the DLStreamer Docker image simplifies dependency management. Check if the latest DLStreamer image is available locally; if not, download it following the [DLStreamer Install Guide](../../../docs/user-guide/get_started/get_started_index.md). Don't use docker images older than 1 month to ensure you have the latest DLStreamer features and bug fixes.
 
 Recommended workflow: develop the application locally on your host machine and prepare/export models using a Python virtual environment. Once models are exported to OpenVINO IR format, run the application inside the DLStreamer container with your local directory mounted. This approach maintains development flexibility while leveraging the container for consistent runtime execution.
 
@@ -117,7 +117,7 @@ Check what AI models a User wants to use. Search if the requested or similar mod
 |--------|-------------|------|
 | download_public_models.sh | Traditional computer vision models | `samples/download_public_models.sh` |
 | download_hf_models.py | HuggingFace models, including VLM models and Transformer-based detection/classification models (RTDETR, CLIP, ViT) | `scripts/download_models/download_hf_models.py` |
-| download_ultralytics_hf_models.py | Specialized model downloader for Ultralytics YOLO models | `scripts/download_models/download_ultralytics_models.py` |
+| download_ultralytics_models.py | Specialized model downloader for Ultralytics YOLO models | `scripts/download_models/download_ultralytics_models.py` |
 
 If a model is found in one of the above scripts, extract model download recipe from that script and create a local script in application directory for exporting the specific model to OV IR format; add model export instructions to the application README.
 If a model does not exist, check the [Model Preparation Reference](./references/model-preparation.md) for instructions on how to prepare and export the model for DLStreamer, then write a new model download/export script using the [Export Models Template](./assets/export-models-template.py) as a starting point and add instructions to the application README.
