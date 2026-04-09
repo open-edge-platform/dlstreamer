@@ -158,8 +158,8 @@ jobs:
           docker buildx build \
             --target dlstreamer \
             --cache-from=type=registry,ref=${f41_img_cached} \
-            --cache-to=type=registry,ref=${f41_img_cached},mode=max \  
-            --build-arg DLSTREAMER_BUILD_NUMBER=${{ github.run_number }} \ 
+            --cache-to=type=registry,ref=${f41_img_cached},mode=max \
+            --build-arg DLSTREAMER_BUILD_NUMBER=${{ github.run_number }} \
             -f ./dlstreamer-repo/docker/fedora41/fedora41.Dockerfile \
             ${{ env.DLS_REL_PATH }}
 
