@@ -28,7 +28,7 @@ body:
       options:
         - Ubuntu 22.04 (LTS)
         - Ubuntu 24.04 (LTS)
-        - Windows System
+        - Windows 11
         - Other (Please specify in description)
     validations:
       required: true
