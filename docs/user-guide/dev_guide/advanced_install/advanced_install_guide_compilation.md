@@ -150,7 +150,7 @@ packages:
 
 ### (Optional) Step 6: Install OpenVINO™ GenAI (only for Ubuntu)
 
-To use [gvagenai element](https://docs.openedgeplatform.intel.com/2026.0/edge-ai-libraries/dlstreamer/elements/gvagenai.html)
+To use [gvagenai element](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/elements/gvagenai.html)
 you need to install the [OpenVINO GenAI archive](https://docs.openvino.ai/2026/get-started/install-openvino/install-openvino-genai.html) package.
 
 <!--hide_directive::::{tab-set}

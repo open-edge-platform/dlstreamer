@@ -3,7 +3,7 @@
 <!--hide_directive
 <div class="component_card_widget">
   <a class="icon_github" href="https://github.com/open-edge-platform/dlstreamer">
-     GitHub project
+     GitHub
   </a>
   <a class="icon_document" href="https://github.com/open-edge-platform/dlstreamer/blob/main/README.md">
      Readme
@@ -21,7 +21,7 @@ or at the Edge. DL Streamer consists of:
   for designing, creating, building, and running media analytics
   pipelines. It includes C++ and Python APIs.
 - [Deep Learning Streamer Pipeline
-  Server](https://github.com/open-edge-platform/edge-ai-libraries/tree/release-2026.0.0/microservices/dlstreamer-pipeline-server)
+  Server](https://github.com/open-edge-platform/edge-ai-libraries/tree/main/microservices/dlstreamer-pipeline-server)
   for deploying and scaling media analytics pipelines as
   micro-services on one or many compute nodes. It includes REST APIs
   for pipelines management.
@@ -35,7 +35,7 @@ identify patterns and gain insights across multiple domains, including:
 - warehouse and parking management
 - industrial inspections
 - safety and regulatory compliance
-- security monitoring.
+- security monitoring
 
 ![image](_images/overview_pipeline_example.png)
 
@@ -92,7 +92,7 @@ FasterRCNN, and other models.
 reference apps for the most common media analytics use cases. They are
 included in
 [Deep Learning Streamer Pipeline Framework](https://github.com/open-edge-platform/dlstreamer/tree/main),
-[Deep Learning Streamer Pipeline Server](https://github.com/open-edge-platform/edge-ai-libraries/tree/release-2026.0.0/microservices/dlstreamer-pipeline-server),
+[Deep Learning Streamer Pipeline Server](https://github.com/open-edge-platform/edge-ai-libraries/tree/main/microservices/dlstreamer-pipeline-server),
 [Open Visual Cloud](https://github.com/OpenVisualCloud), and
 [Intel® Edge Software Hub](https://www.intel.com/content/www/us/en/edge-computing/edge-software-hub.html)
 The samples demonstrate C++ and/or Python based: Action Recognition, Face Detection and

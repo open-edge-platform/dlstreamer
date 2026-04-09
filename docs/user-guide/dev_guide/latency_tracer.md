@@ -14,7 +14,7 @@ precision in the order of **milliseconds**.
 
 ## Elements and pipeline latency
 
-### Basic configuration
+**Basic configuration:**
 
 Sample pipeline with enabled default latency tracker:
 
@@ -74,13 +74,12 @@ The `latency_tracer` can be configured to show latencies only for elements or a 
   GST_DEBUG="GST_TRACER:7" GST_TRACERS="latency_tracer(flags=element+pipeline)" gst-launch-1.0 ...
   ```
 
-
 ## Interval Configuration
 
 The `latency_tracer` supports interval-based reporting that provides periodic statistics summaries.
 This feature allows to monitor latency trends over time by generating aggregate reports at specified intervals.
 
-### Basic configuration
+**Basic configuration:**
 
 The interval can be configured by `interval` parameter. Its default value is 1000ms (1 second).
 Example of configuring 2 seconds interval:

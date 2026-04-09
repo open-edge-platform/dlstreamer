@@ -32,6 +32,7 @@ SUPPORTED_HF_MODELS = {
     "LlavaNextVideoForConditionalGeneration",
     "MiniCPMO",
     "openbmb/MiniCPM-V-2_6",
+    "openbmb/MiniCPM-V-4_5",
     "Phi3VForCausalLM",
     "Phi4MMForCausalLM",
     "Qwen2VLForConditionalGeneration",

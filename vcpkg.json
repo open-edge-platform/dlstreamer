@@ -3,17 +3,15 @@
         {
             "name": "opencv4",
             "default-features": false,
-            "features": ["world", "opencl", "calib3d", "dshow", "fs", "intrinsics", "msmf", "thread", "win32ui"]
+            "features": ["world", "opencl", "calib3d", "fs", "intrinsics", "thread", "win32ui"]
         },
         "pkgconf",
         "opencl",
         "dlfcn-win32",
-        "fmt"
-    ],
-    "overrides": [
-    {
-        "name": "fmt",
-        "version": "10.2.1"
-    }
-]
+        "paho-mqttpp3",
+        {
+            "name": "librdkafka",
+            "features": ["curl", "ssl", "zlib", "zstd"]
+        }
+    ]
 }

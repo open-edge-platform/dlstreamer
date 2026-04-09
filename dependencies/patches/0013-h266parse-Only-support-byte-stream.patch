@@ -1,0 +1,17 @@
+diff --git a/subprojects/gst-plugins-bad/gst/videoparsers/gsth266parse.c b/subprojects/gst-plugins-bad/gst/videoparsers/gsth266parse.c
+index 8a71ef5be4d692eade3cdd4f82665a3ab1deeb53..c0c18ff6fe6d667e843f4631f1517fcf3968b562 100644
+--- a/subprojects/gst-plugins-bad/gst/videoparsers/gsth266parse.c
++++ b/subprojects/gst-plugins-bad/gst/videoparsers/gsth266parse.c
+@@ -133,7 +133,7 @@ static GstStaticPadTemplate srctemplate = GST_STATIC_PAD_TEMPLATE ("src",
+     GST_PAD_SRC,
+     GST_PAD_ALWAYS,
+     GST_STATIC_CAPS ("video/x-h266, parsed = (boolean) true, "
+-        "stream-format=(string) { vvc1, vvi1, byte-stream }, "
++        "stream-format=(string) { byte-stream }, "
+         "alignment=(string) { au, nal }"));
+ 
+ #define parent_class gst_h266_parse_parent_class
+
+-- 
+2.43.0
+
