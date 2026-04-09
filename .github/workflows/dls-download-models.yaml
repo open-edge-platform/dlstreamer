@@ -24,6 +24,7 @@ on:
       runner_labels:
         description: "List of runner(s) labels (example: DLS-TGL-02,DLS-ARL-01)"
         required: false
+        type: string
       runner_labels_windows:
         description: "List of Windows runner(s) labels (example: DLS-ARL-10)"
         required: false
