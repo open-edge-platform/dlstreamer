@@ -22,6 +22,7 @@ permissions: {}
 
 jobs:
   update:
+    nam:e: Update models on self-hosted runner
     runs-on: dlstreamer
     permissions:
       contents: read
@@ -36,7 +37,7 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # 6.0.2
         with:
           repository: open-edge-platform/dl-streamer-tests
-          branch: ${{ inputs.test-repo-branch }}
+          ref: ${{ inputs.test-repo-branch }}
           persist-credentials: false
           path: dlstreamer-test
           sparse-checkout: |
@@ -56,8 +57,7 @@ jobs:
         env:
           DLS_MODELS_RSYNC_HOST_IP: ${{ secrets.DLS_MODELS_RSYNC_HOST_IP }}
         run: |
-          # cd dlstreamer-test/infrastructure/k8s
-          cd .github/workflows
+          cd dlstreamer-test/infrastructure/k8s
           envsubst < models-syncer-ds.yaml | kubectl apply -f -
           kubectl rollout restart ds model-syncer -n arc-systems
 
