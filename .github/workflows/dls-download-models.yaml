@@ -14,7 +14,7 @@ permissions: {}
 jobs:
   update:
     name: Update models on self-hosted runner
-    runs-on: tgl-ubuntu24
+    runs-on: ubuntu-latest
     permissions:
       contents: read
     steps:
