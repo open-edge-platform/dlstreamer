@@ -22,7 +22,7 @@ permissions: {}
 
 jobs:
   update:
-    nam:e: Update models on self-hosted runner
+    name: Update models on self-hosted runner
     runs-on: dlstreamer
     permissions:
       contents: read
