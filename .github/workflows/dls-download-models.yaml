@@ -44,7 +44,7 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # 6.0.2
         with:
           repository: open-edge-platform/dl-streamer-tests
-          branch: ${{ inputs.test-repo-branch }}
+          ref: ${{ inputs.test-repo-branch }}
           persist-credentials: false
           path: dlstreamer-test
           sparse-checkout: |
@@ -78,7 +78,14 @@ jobs:
       - name: No status files found
         if: always() && steps.check-success.outputs.success_found == 'false' && steps.check-failed.outputs.failed_found == 'false'
         run: |
-          echo "## ⚠️ No status files found" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Neither SUCCESS.txt nor FAILED.txt was found in ${{ env.MODELS_PATH }}" >> $GITHUB_STEP_SUMMARY
-          
+          cd dlstreamer-test/infrastructure/k8s
+          envsubst < models-syncer-ds.yaml | kubectl apply -f -
+          kubectl rollout restart ds model-syncer -n arc-systems
+
+      - name: Live Logs
+        run: |
+          echo "Monitoring sync process..."
+          sleep 20
+
+          kubectl logs -l app=model-syncer -n arc-systems -f --max-log-requests=10 | \
+          sed 's/[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}/X.X.X.X/g'
