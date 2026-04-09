@@ -125,9 +125,14 @@ try:
 
         case "streams":
             start_time = time.time()
-            for (pipeline, fps, _) in optimizer.iter_optimize_for_streams(pipeline):
+            for (pipeline, fps, streams) in optimizer.iter_optimize_for_streams(pipeline):
+                full_pipeline = []
+                for _ in range(0, streams):
+                    full_pipeline.append(pipeline)
+                full_pipeline = " ".join(full_pipeline)
+
                 if args.verbose:
-                    _display_result(pipeline, fps)
+                    _display_result(full_pipeline, fps)
 
                 cur_time = time.time()
                 if cur_time - start_time > args.search_duration:

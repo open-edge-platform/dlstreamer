@@ -61,7 +61,7 @@ class DLSOptimizer:
         return "!".join(self._initial_pipeline), self._initial_fps, SINGLE_STREAM
 
     def get_optimal_pipeline(self):
-        return "!".join(self._initial_pipeline), self._optimal_fps, self._optimal_streams
+        return "!".join(self._optimal_pipeline), self._optimal_fps, self._optimal_streams
 
     def enable_cross_stream_batching(self, enable): # pylint: disable=missing-function-docstring
         self._enable_cross_stream_batching = enable
@@ -157,19 +157,22 @@ class DLSOptimizer:
         best_streams = 0
         for streams in range(1, 128):
             for (pipeline, fps) in self._optimize_pipeline(initial_pipeline, self._initial_fps, self._initial_detections, streams):
+                if fps > self._multistream_fps_limit and (fps > self._optimal_fps or streams > self._optimal_streams):
+                    logger.info(f"limit: {fps > self._multistream_fps_limit}")
+                    logger.info(f"fps: {fps > self._optimal_fps}")
+                    logger.info(f"streams: {streams > self._optimal_streams}")
+                    self._optimal_fps = fps
+                    self._optimal_pipeline = pipeline
+                    self._optimal_streams = streams
+
                 yield "!".join(pipeline), fps, streams
 
-            if fps > self._multistream_fps_limit and (fps > self._optimal_fps or streams > self._optimal_streams):
-                self._optimal_fps = fps
-                self._optimal_pipeline = pipeline
-                self._optimal_streams = streams
-            else:
-                break
 
     def _establish_baseline(self, pipeline):
         # Measure the performance of the original pipeline
         try:
             logger.debug("Measuring performance of the original pipeline...")
+            self._initial_pipeline = pipeline.copy()
             self._initial_fps, self._initial_detections = sample_pipeline([pipeline], self._sample_duration)
             self._optimal_pipeline = []
             self._optimal_fps = 0
