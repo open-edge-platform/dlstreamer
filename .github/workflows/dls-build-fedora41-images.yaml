@@ -53,7 +53,7 @@ jobs:
             --load \
             --target dlstreamer \
             --tag "${f41_img}" \
-            --cache-from="${f41_img_cached}" \
+            --cache-from=type=registry,ref="${f41_img_cached}" \
             -f ./dlstreamer/docker/fedora41/fedora41.Dockerfile \
             ${{ env.DLS_REL_PATH }}
 

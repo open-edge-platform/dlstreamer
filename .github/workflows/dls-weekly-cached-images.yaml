@@ -53,7 +53,7 @@ jobs:
           docker buildx build \
             --target dlstreamer \
             --cache-to=type=registry,ref=${deb_final_img_cached},mode=max \
-            --cache-from="${deb_final_img_cached}" \
+            --cache-from=type=registry,ref=${deb_final_img_cached} \
             --build-arg DLSTREAMER_VERSION=${{ env.dlstreamer-version }} \
             --build-arg DLSTREAMER_BUILD_NUMBER=deb-pkg-${{ matrix.ubuntu_version }} \
             -f ${{ matrix.path_dockerfile }} \
@@ -157,8 +157,9 @@ jobs:
         run: |
           docker buildx build \
             --target dlstreamer \
-            --cache-from="${f41_img_cached}" \
-            --cache-to=type=registry,ref=${f41_img_cached},mode=max \
+            --cache-from=type=registry,ref=${f41_img_cached} \
+            --cache-to=type=registry,ref=${f41_img_cached},mode=max \  
+            --build-arg DLSTREAMER_BUILD_NUMBER=${{ github.run_number }} \ 
             -f ./dlstreamer-repo/docker/fedora41/fedora41.Dockerfile \
             ${{ env.DLS_REL_PATH }}
 
