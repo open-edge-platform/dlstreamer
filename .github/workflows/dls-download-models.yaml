@@ -32,15 +32,15 @@ jobs:
           persist-credentials: false
           path: dlstreamer
 
-      # - name: Check out dlstreamer test repository
-      #   uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # 6.0.2
-      #   with:
-      #     repository: open-edge-platform/dl-streamer-tests
-      #     branch: ${{ inputs.test-repo-branch }}
-      #     persist-credentials: false
-      #     path: dlstreamer-test
-      #     sparse-checkout: |
-      #       infrastructure/k8s
+      - name: Check out dlstreamer test repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # 6.0.2
+        with:
+          repository: open-edge-platform/dl-streamer-tests
+          branch: ${{ inputs.test-repo-branch }}
+          persist-credentials: false
+          path: dlstreamer-test
+          sparse-checkout: |
+            infrastructure/k8s
 
       - name: Set Kubernetes Context
         run: |
