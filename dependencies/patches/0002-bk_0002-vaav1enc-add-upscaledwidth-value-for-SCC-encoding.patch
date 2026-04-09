@@ -1,5 +1,5 @@
 diff --git a/subprojects/gst-plugins-bad/sys/va/gstvaav1enc.c b/subprojects/gst-plugins-bad/sys/va/gstvaav1enc.c
-index 51ab98776..b822edc5e 100644
+index 51ab98776000ca6d0c3ae8952304ff6a7b91e1ae..b822edc5eae19ffccd24c9afda31c0150d566125 100644
 --- a/subprojects/gst-plugins-bad/sys/va/gstvaav1enc.c
 +++ b/subprojects/gst-plugins-bad/sys/va/gstvaav1enc.c
 @@ -3588,6 +3588,7 @@ _av1_fill_frame_header (GstVaAV1Enc * self,
@@ -10,3 +10,7 @@ index 51ab98776..b822edc5e 100644
      .frame_height = self->sequence_hdr.max_frame_height_minus_1 + 1,
      .order_hint = pic_param->order_hint,
      .primary_ref_frame = pic_param->primary_ref_frame,
+
+-- 
+2.43.0
+
