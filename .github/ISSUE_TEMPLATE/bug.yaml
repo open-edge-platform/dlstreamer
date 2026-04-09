@@ -16,7 +16,7 @@ body:
       required: true
   - type: input
     attributes:
-      label: Software Version 
+      label: Software Version
       description: Software version, branch, or tag in the DLStreamer Repository
       placeholder: v2026.0.0 / main branch
     validations:
