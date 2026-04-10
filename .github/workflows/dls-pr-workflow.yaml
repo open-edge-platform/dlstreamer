@@ -75,18 +75,19 @@ jobs:
           echo "🔍 Checking for changes outside documentation and configuration files"
           cd dlstreamer-repo
           CHANGED_FILES_CODE=$(git diff --name-only origin/main...HEAD -- \
-            ':!docs/' \
-            ':!.github/ISSUE_TEMPLATES/' \
-            ':!.github/skills/' \
-            ':!.github/CODEOWNERS' \
-            ':!.github/PULL_REQUEST_TEMPLATE.md' \
-            ':!README.md' \
-            ':!SECURITY.md' \
-            ':!LICENSE' \
-            ':!CONTRIBUTING.md' \
-            ':!CHANGELOG.md' \
-            ':!CODESTYLE.md' \
-            ':!CODE_OF_CONDUCT.md')
+            . \
+            ':(exclude)docs/' \
+            ':(exclude).github/ISSUE_TEMPLATES/' \
+            ':(exclude).github/skills/' \
+            ':(exclude).github/CODEOWNERS' \
+            ':(exclude).github/PULL_REQUEST_TEMPLATE.md' \
+            ':(exclude)README.md' \
+            ':(exclude)SECURITY.md' \
+            ':(exclude)LICENSE' \
+            ':(exclude)CONTRIBUTING.md' \
+            ':(exclude)CHANGELOG.md' \
+            ':(exclude)CODESTYLE.md' \
+            ':(exclude)CODE_OF_CONDUCT.md')
 
           echo "skip_ci=true" >> "$GITHUB_OUTPUT"
 
@@ -521,26 +522,11 @@ jobs:
     if: always()
     steps:
       - name: Summary
+        env:
+          SKIP_CI: ${{ needs.check-skip-ci.outputs.skip_ci }}
         run: |
-          if [ "${{ needs.check-skip-ci.outputs.skip_ci }}" = "true" ]; then
+          if [ "$SKIP_CI" = "true" ]; then
             echo "✅ Only documentation and configuration changes detected - CI jobs skipped successfully"
-            echo "### 📚 Documentation/Configuration-only changes detected" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "All CI jobs were skipped because changes were only in documentation and configuration files:" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "**Allowed files/folders:**" >> $GITHUB_STEP_SUMMARY
-            echo "- \`docs/\` - Documentation folder" >> $GITHUB_STEP_SUMMARY
-            echo "- \`.github/ISSUE_TEMPLATES/\` - Issue templates" >> $GITHUB_STEP_SUMMARY
-            echo "- \`.github/skills/\` - Skills folder" >> $GITHUB_STEP_SUMMARY
-            echo "- \`.github/CODEOWNERS\` - Code owners file" >> $GITHUB_STEP_SUMMARY
-            echo "- \`.github/PULL_REQUEST_TEMPLATE.md\` - PR template" >> $GITHUB_STEP_SUMMARY
-            echo "- \`README.md\` - Main readme file" >> $GITHUB_STEP_SUMMARY
-            echo "- \`SECURITY.md\` - Security policy" >> $GITHUB_STEP_SUMMARY
-            echo "- \`LICENSE\` - License file" >> $GITHUB_STEP_SUMMARY
-            echo "- \`CONTRIBUTING.md\` - Contributing guidelines" >> $GITHUB_STEP_SUMMARY
-            echo "- \`CHANGELOG.md\` - Changelog file" >> $GITHUB_STEP_SUMMARY
-            echo "- \`CODESTYLE.md\` - Codestyle file" >> $GITHUB_STEP_SUMMARY
-            echo "- \`CODE_OF_CONDUCT.md\` - Code of conduct" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "This is expected behavior to save CI resources for documentation and configuration updates." >> $GITHUB_STEP_SUMMARY
           else
