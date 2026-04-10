@@ -84,6 +84,7 @@ WORKDIR /tmp/npu_deps
 
 RUN curl -LO https://github.com/intel/linux-npu-driver/releases/download/v1.32.0/linux-npu-driver-v1.32.0.20260402-23905121947-ubuntu2404.tar.gz && \
     tar -xf linux-npu-driver-v1.32.0.20260402-23905121947-ubuntu2404.tar.gz && \
+    curl -LO https://snapshot.ppa.launchpadcontent.net/kobuk-team/intel-graphics/ubuntu/20260324T100000Z/pool/main/l/level-zero-loader/libze1_1.27.0-1~24.04~ppa2_amd64.deb && \
     dpkg -i ./*.deb && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /tmp/npu_deps
@@ -546,6 +547,7 @@ RUN \
 WORKDIR /tmp/npu_deps
 
 RUN curl -LO https://github.com/intel/linux-npu-driver/releases/download/v1.32.0/linux-npu-driver-v1.32.0.20260402-23905121947-ubuntu2404.tar.gz && \
+    curl -LO https://snapshot.ppa.launchpadcontent.net/kobuk-team/intel-graphics/ubuntu/20260324T100000Z/pool/main/l/level-zero-loader/libze1_1.27.0-1~24.04~ppa2_amd64.deb && \
     tar -xf linux-npu-driver-v1.32.0.20260402-23905121947-ubuntu2404.tar.gz && \
     dpkg -i ./*.deb && \
     apt-get clean && \
