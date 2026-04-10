@@ -364,7 +364,7 @@ install_npu() {
         wget "$npu_libze1_version_pkg"
     fi
     $SUDO_PREFIX apt update
-    $SUDO_PREFIX apt install libtbb12
+    $SUDO_PREFIX apt-get install -y libtbb12
     $SUDO_PREFIX dpkg -i *.deb
 
     for pkg in intel-driver-compiler-npu intel-fw-npu intel-level-zero-npu; do
