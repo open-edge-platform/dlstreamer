@@ -167,7 +167,7 @@ optimizer.set_sample_duration(15)
 ```
 ---
 **`set_detections_error_threshold(threshold)`**
-- `threshold: float` - The throshold of counted detections, between `0.0` and `1.0`, default `0.95`.
+- `threshold: float` - The threshold of counted detections, between `0.0` and `1.0`, default `0.95`.
 
 Minimum threshold of detections that tested pipelines are not allowed to cross in order to count as valid alternatives.
 ```
@@ -204,7 +204,7 @@ optimizer.set_allowed_devices(["CPU", "GPU"])
 ---
 **`optimize_for_fps(pipeline, search_duration) -> optimized_pipeline, fps`**
 - `pipeline: string` - A string containing a valid DL Streamer pipeline.
-- `search_duration: int` - The duration of serching for better pipelines, default `300`.
+- `search_duration: int` - The duration of searching for better pipelines, default `300`.
 - `optimized_pipeline: string` - A string containing the best performing pipeline that has been found during the search.
 - `fps: float` - The measured fps of the best perfmorming pipeline.
 
@@ -231,7 +231,7 @@ pipeline, fps, streams = optimizer.get_optimal_pipeline()
 ---
 **`optimize_for_streams(pipeline, search_duration) -> optimized_pipeline, fps, streams`**
 - `pipeline: string` - A string containing a valid DL Streamer pipeline.
-- `search_duration: int` - The duration of serching for better pipelines, default `300`.
+- `search_duration: int` - The duration of searching for better pipelines, default `300`.
 - `optimized_pipeline: string` - A string containing the best performing pipeline that has been found during the search.
 - `fps: float` - The measured fps of the best perfmorming pipeline.
 - `streams: int` - The number of streams capable of running above the fps limit with the optimized pipeline.
