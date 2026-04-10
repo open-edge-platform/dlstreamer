@@ -28,7 +28,7 @@ if "%1"=="-h" goto :show_help
 goto :parse_args
 
 :show_help
-echo Usage: %~nx0 [SOURCE] [DEVICE] [OUTPUT] [MODEL] [PPBKEND] [PRECISION]
+echo Usage: %~nx0 [SOURCE] [DEVICE] [PRECISION] [MODEL] [PPBKEND] [OUTPUT]
 echo.
 echo Arguments:
 echo   SOURCE      - Input source (default: Pexels video URL)
