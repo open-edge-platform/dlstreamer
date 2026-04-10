@@ -35,7 +35,7 @@ echo   SOURCE      - Input source (default: Pexels video URL)
 echo   DEVICE      - Device (default: CPU). Supported: CPU, GPU, NPU
 echo   PRECISION   - Model precision (default: FP32). Supported: FP32, FP16, INT8
 echo   MODEL       - Model name (default: clip-vit-large-patch14)
-echo   PPBKEND     - Preprocessing backend (default: opencv)
+echo   PPBKEND     - Preprocessing backend (default: opencv for CPU; d3d11 for GPU/NPU)
 echo   OUTPUT      - Output type (default: json). Supported: json, fps
 echo.
 exit /B 0
@@ -90,9 +90,14 @@ if /I "%DEVICE%"=="CPU" (
 )
 
 if /I "%OUTPUT%"=="json" (
-    set "PIPELINE=gst-launch-1.0 %SOURCE_ELEMENT% ! decodebin3 ! %PROC_ELEMENT% ! gvainference model=%MODEL_PATH_GS% device=%DEVICE% pre-process-backend=%PPBKEND% ! gvametaconvert format=json add-tensor-data=true ! gvametapublish method=file file-path=output.json ! fakesink"
-) else (
+    if exist output.json del /f /q output.json
+    set "PIPELINE=gst-launch-1.0 %SOURCE_ELEMENT% ! decodebin3 ! %PROC_ELEMENT% ! gvainference model=%MODEL_PATH_GS% device=%DEVICE% pre-process-backend=%PPBKEND% ! gvametaconvert format=json add-tensor-data=true ! gvametapublish method=file file-format=json-lines file-path=output.json ! fakesink"
+) else if /I "%OUTPUT%"=="fps" (
     set "PIPELINE=gst-launch-1.0 %SOURCE_ELEMENT% ! decodebin3 ! %PROC_ELEMENT% ! gvainference model=%MODEL_PATH_GS% device=%DEVICE% pre-process-backend=%PPBKEND% ! gvafpscounter ! fakesink"
+) else (
+    echo [ERROR] Unsupported output: %OUTPUT%
+    echo Supported outputs: json, fps
+    exit /B 1
 )
 
 echo Pipeline: %PIPELINE%

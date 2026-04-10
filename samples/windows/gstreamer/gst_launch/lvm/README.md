@@ -68,7 +68,7 @@ The sample takes six command-line *optional* parameters:
 | 2 | DEVICE | `CPU`, `GPU`, or `NPU` | `CPU` |
 | 3 | PRECISION | `FP32`, `FP16`, or `INT8` | `FP32` |
 | 4 | MODEL | CLIP model name (see above) | `clip-vit-large-patch14` |
-| 5 | PPBKEND | `opencv` (CPU) or `d3d11` (GPU/NPU) | `opencv` |
+| 5 | PPBKEND | `opencv` (CPU) or `d3d11` (GPU/NPU) | `opencv` for CPU; `d3d11` for GPU/NPU |
 | 6 | OUTPUT | `json` (save embeddings) or `fps` (benchmark) | `json` |
 
 ## Sample Output
