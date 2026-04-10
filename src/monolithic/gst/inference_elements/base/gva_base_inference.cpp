@@ -80,6 +80,8 @@
 
 #define DEFAULT_SHARE_VADISPLAY_CTX TRUE
 
+#define DEFAULT_CORE_PINNING nullptr
+
 G_DEFINE_TYPE_WITH_PRIVATE(GvaBaseInference, gva_base_inference, GST_TYPE_BASE_TRANSFORM);
 
 GST_DEBUG_CATEGORY_STATIC(gva_base_inference_debug_category);
@@ -115,7 +117,8 @@ enum {
     PROP_CUSTOM_PREPROC_LIB,
     PROP_CUSTOM_POSTPROC_LIB,
     PROP_OV_EXTENSION_LIB,
-    PROP_SHARE_VADISPLAY_CTX
+    PROP_SHARE_VADISPLAY_CTX,
+    PROP_CORE_PINNING
 };
 
 GType gst_gva_base_inference_get_inf_region(void) {
@@ -413,6 +416,12 @@ void gva_base_inference_class_init(GvaBaseInferenceClass *klass) {
                              "Whether to share VA Display context across inference elements: "
                              "true (share context, default), false (do not share context)",
                              DEFAULT_SHARE_VADISPLAY_CTX, param_flags));
+
+    g_object_class_install_property(
+        gobject_class, PROP_CORE_PINNING,
+        g_param_spec_string("core-pinning", "Core Pinning",
+                            "List or range of CPU cores to pin this inference element to (e.g., '0-3' or '0,2,3')",
+                            nullptr, param_flags));
 }
 
 void gva_base_inference_cleanup(GvaBaseInference *base_inference) {
@@ -490,6 +499,60 @@ void gva_base_inference_cleanup(GvaBaseInference *base_inference) {
     base_inference->ov_extension_lib = nullptr;
 }
 
+/**
+ * Set the core pinning mask
+ * 1. Get the current process CPU affinity mask to use as the default core pinning mask.
+ * 2. If the process affinity mask includes all available cores, and the CPU is PTL-H series, 
+ *    limit the default core pinning mask to the first 4 cores (the P-Cores) to optimize performance.
+ */
+void set_core_pinning_mask(GvaBaseInference *base_inference) {
+    base_inference->core_pinning_mask = ~0ULL; // by default, all cores are available for pinning
+#ifndef _WIN32    
+    int num_cores = sysconf(_SC_NPROCESSORS_ONLN);
+
+    auto cpu_set_to_bitmask = [&num_cores](const cpu_set_t *cpu_set) -> guint64 {
+        guint64 bitmask = 0;
+        for (int i = 0; i < num_cores; ++i) {
+            if (CPU_ISSET(i, cpu_set)) {
+                bitmask |= (1ULL << i);
+            }
+        }
+        return bitmask;
+    };
+
+    cpu_set_t process_affinity_mask;
+    CPU_ZERO(&process_affinity_mask);
+    pthread_t current_thread = pthread_self();
+    // Get current CPU affinity mask
+    if (!pthread_getaffinity_np(current_thread, sizeof(cpu_set_t), &process_affinity_mask)) {
+        // Successfully got the affinity mask, convert it to bitmask for core pinning
+        base_inference->core_pinning_mask = cpu_set_to_bitmask(&process_affinity_mask);
+        // Check if all cores are available for pinning
+        if(CPU_COUNT(&process_affinity_mask) == num_cores) {
+            // All CPU cores are available for pinning
+            if(Utils::isCPUPTLHSeries() && num_cores == TOTAL_CORES_PTL_H) {
+                base_inference->core_pinning_mask = 0xF; // Pin to first 4 cores , the P-Cores
+            }
+        }
+    }
+    else {
+        GST_WARNING_OBJECT(base_inference, "Failed to get CPU affinity mask, core pinning will not be limited by process affinity");
+    }
+#else
+    DWORD_PTR processAffinityMask = 0;
+    DWORD_PTR systemAffinityMask = 0;
+    HANDLE current_process = GetCurrentProcess();
+    if (GetProcessAffinityMask(current_process, &processAffinityMask, &systemAffinityMask)) {
+        base_inference->core_pinning_mask = processAffinityMask;
+        if (processAffinityMask == systemAffinityMask) {
+            // All CPU cores are available for pinning  
+            //if(Utils::isCPUPTLHSeries()) {
+            //    base_inference->core_pinning_mask = 0xF; // Pin to first 4 cores , the P-Cores
+            //}
+        }  
+#endif    
+}
+
 void gva_base_inference_init(GvaBaseInference *base_inference) {
     GST_DEBUG_OBJECT(base_inference, "gva_base_inference_init");
 
@@ -545,6 +608,8 @@ void gva_base_inference_init(GvaBaseInference *base_inference) {
     base_inference->ov_extension_lib = g_strdup(DEFAULT_OV_EXTENSION_LIB);
 
     base_inference->share_va_display_ctx = DEFAULT_SHARE_VADISPLAY_CTX;
+
+    set_core_pinning_mask(base_inference);    
 }
 
 GstStateChangeReturn gva_base_inference_change_state(GstElement *element, GstStateChange transition) {
@@ -613,6 +678,48 @@ void gva_base_inference_set_labels(GvaBaseInference *base_inference, const gchar
         GST_ELEMENT_WARNING(base_inference, RESOURCE, SETTINGS, ("'labels' can't be changed"),
                             ("You cannot change 'labels' property on base_inference when a file is open"));
     }
+}
+
+// Convert range of integer IDs to bitset representing cores for pinning.
+// Example input: "1-5, 8, 10-12"
+void gva_base_inference_set_core_pinning(GvaBaseInference *base_inference, const gchar *range_str) {
+    guint64 core_mask = 0;
+
+    try {
+        // Split by comma to get individual ranges or numbers
+        std::string str(range_str);
+        std::istringstream iss(str);
+        std::string part;
+
+        // parse input string and set bits in core_pinning accordingly
+        while (std::getline(iss, part, ',')) {
+            // Trim whitespace
+            part.erase(0, part.find_first_not_of(" \t"));
+            part.erase(part.find_last_not_of(" \t") + 1);
+
+            if (part.find('-') != std::string::npos) {
+                // Parse range like "1-5"
+                size_t dash_pos = part.find('-');
+                int start = std::stoi(part.substr(0, dash_pos));
+                int end = std::stoi(part.substr(dash_pos + 1));
+
+                // Set bits in the range
+                for (int i = start; i <= end; i++) {
+                    core_mask |= (1ULL << i);
+                }
+            } else {
+                // Set single bit
+                core_mask |= (1ULL << std::stoi(part));
+            }
+        }
+
+    } catch (const std::exception &e) {
+        GST_ELEMENT_ERROR(base_inference, RESOURCE, SETTINGS, ("Invalid core-pinning format"),
+                          ("Failed to parse core-pinning property: %s", e.what()));
+    }
+
+    // if string parsed without errrors, update core pinning
+    base_inference->core_pinning_mask = core_mask;
 }
 
 void gva_base_inference_set_property(GObject *object, guint property_id, const GValue *value, GParamSpec *pspec) {
@@ -744,6 +851,9 @@ void gva_base_inference_set_property(GObject *object, guint property_id, const G
     case PROP_SHARE_VADISPLAY_CTX:
         base_inference->share_va_display_ctx = g_value_get_boolean(value);
         break;
+    case PROP_CORE_PINNING:
+        gva_base_inference_set_core_pinning(base_inference, g_value_get_string(value));
+        break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
         break;
@@ -837,6 +947,19 @@ void gva_base_inference_get_property(GObject *object, guint property_id, GValue 
     case PROP_SCHEDULING_POLICY:
         g_value_set_string(value, base_inference->scheduling_policy);
         break;
+    case PROP_CORE_PINNING: {
+        // Convert core pinning mask back to string representation for get_property
+        std::string range_str;
+        guint64 mask = base_inference->core_pinning_mask;
+        for (int i = 0; i < 64; i++) {
+            if (mask & (1ULL << i)) {
+                if (!range_str.empty())
+                    range_str += ",";
+                range_str += std::to_string(i);
+            }
+        }
+        g_value_set_string(value, range_str.c_str());
+    } break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
         break;
