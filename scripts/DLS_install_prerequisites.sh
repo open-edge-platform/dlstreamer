@@ -560,12 +560,12 @@ update_package_lists
 #-------------------------STEP 3-------------------------------------------
 #-----------CHECK IF SYSTEM CONTAINS NPU-------------------------------
 
-if $SUDO_PREFIX dmesg | grep -q 'intel_vpu'
+if $SUDO_PREFIX dmesg | grep -i intel_vpu
 then
     # In this case we know that NPU must be present in the system, so we can proceed with the installation
     echo_color " This system contains a Neural Processing Unit." "green"
 
-    intel_npu=$(lspci | grep -i 'Intel' | grep 'NPU' | rev | cut -d':' -f1 | rev)
+    intel_npu=$($SUDO_PREFIX dmesg | grep -i intel_vpu)
     line_to_add="export ZE_ENABLE_ALT_DRIVERS=libze_intel_npu.so"
 
     # Define the .bash_profile file path for the current user
