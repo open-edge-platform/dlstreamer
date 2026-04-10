@@ -11,7 +11,7 @@ env:
 jobs:
   build:
     name: Build dev ${{ matrix.ubuntu_version }} imgs and run unit
-    runs-on: [dls, ubuntu]
+    runs-on: dls-tgl-ubuntu24
     permissions:
       contents: read
       packages: read
