@@ -107,7 +107,7 @@ For common use cases, go straight to file generation using predefined applicatio
 | Custom analytics + chunked storage | `python-app-template.py` | 1 + 4 + 6 + 7 | Ultralytics |
 | Multi-camera RTSP | `python-app-template.py` | 1 + 12 | (per camera) |
 
-### Pattern 1: Decode → Detect → Watermark → Display
+### Example: Decode → Detect → Watermark → Display
 
 ```
 filesrc location=video.mp4 ! decodebin3 !
@@ -115,7 +115,7 @@ gvadetect model=model.xml device=GPU batch-size=4 ! queue !
 gvawatermark ! videoconvertscale ! autovideosink
 ```
 
-### Pattern 2: Decode → Detect → Classify → Encode → Save
+### Example: Decode → Detect → Classify → Encode → Save
 
 ```
 filesrc location=video.mp4 ! decodebin3 !
@@ -127,7 +127,7 @@ videoconvert ! vah264enc ! h264parse ! mp4mux !
 filesink location=output.mp4
 ```
 
-### Pattern 3: VLM Alerting with JSON + Video Output
+### Example: VLM Alerting with JSON + Video Output
 
 ```
 filesrc location=video.mp4 ! decodebin3 !
@@ -139,7 +139,7 @@ gvafpscounter ! gvawatermark name=watermark ! videoconvert !
 vah264enc ! h264parse ! mp4mux ! filesink location=output.mp4
 ```
 
-### Pattern 4: Tee → Dual-Branch (display + analytics)
+### Example: Tee → Dual-Branch (display + analytics)
 
 ```
 filesrc location=video.mp4 ! decodebin3 !
@@ -149,7 +149,7 @@ tee name=t
   t. ! queue ! <analytics_branch> ! gvametapublish file-path=results.jsonl
 ```
 
-### Pattern 5: Detect → Track → Custom Python Element
+### Example: Detect → Track → Custom Python Element
 
 ```
 filesrc location=video.mp4 ! decodebin3 !
@@ -159,7 +159,7 @@ gvafpscounter ! gvawatermark !
 gvarecorder_py location=output.mp4 max-time=10
 ```
 
-### Pattern 6: Detect + VLM (multi-branch with frame selection)
+### Example: Detect + VLM (multi-branch with frame selection)
 
 ```
 filesrc location=video.mp4 ! decodebin3 !
@@ -210,19 +210,16 @@ a CPU-accessible format — see the "CPU-Accessible Pixel Formats" section below
 
 ### Rule 3 — Element Usage Guidelines
 
-Choose the correct DLStreamer inference element based on model type:
+Use the [AI Inference element table](#ai-inference-dlstreamer-specific) above to choose
+the correct DLStreamer inference element for each model type (`gvadetect` for detection,
+`gvaclassify` for classification/OCR, `gvagenai` for VLMs).
 
-| Model Type | Element | Examples |
-|------------|---------|----------|
-| Object detection | `gvadetect` | YOLO, SSD, RT-DETR, D-FINE |
-| Classification / OCR | `gvaclassify` | ResNet, EfficientNet, CLIP, ViT, PaddleOCR |
-| Vision-Language Models | `gvagenai` | MiniCPM-V, Qwen2.5-VL, InternVL, SmolVLM |
-
-Use `gvaclassify` for OCR models (e.g. PaddleOCR text recognition) and classification
+Additional guidance:
+- Use `gvaclassify` for OCR models (e.g. PaddleOCR text recognition) and classification
 models. DLStreamer handles pre/post-processing automatically via model metadata —
-no model-proc files are needed (model-proc is deprecated). Only fall back to a custom
-Python element (Pattern 6 in Design Patterns) when the model requires custom
-pre/post-processing that DLStreamer cannot handle automatically.
+no model-proc files are needed (model-proc is deprecated).
+- Only fall back to a custom Python element (Pattern 6 in Design Patterns) when the model
+requires custom pre/post-processing that DLStreamer cannot handle automatically.
 
 ### Rule 4 — Use queue element after Inference Elements
 

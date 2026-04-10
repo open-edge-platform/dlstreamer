@@ -150,10 +150,6 @@ rec_buffer = buffer.copy_deep()
 rec_buffer.pts = new_pts  # ✓ writable
 ```
 
-## Graceful Shutdown
-
-See the **Interruptible loop** in the [Pipeline Construction Reference](./pipeline-construction.md#pipeline-event-loop).
-
 ## Device Availability Check
 
 Check for GPU/NPU availability before constructing the pipeline. Use the fallback
