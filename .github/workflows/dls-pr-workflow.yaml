@@ -15,6 +15,7 @@ on:
       - 'src/**'
       - 'tests/**'
       - 'thirdparty/**'
+      - 'docs/**'
   pull_request:
     paths:
       - '.github/**'
@@ -27,6 +28,7 @@ on:
       - 'src/**'
       - 'tests/**'
       - 'thirdparty/**'
+      - 'docs/**'
   workflow_call:
     inputs:
       test-repo-branch:
@@ -47,12 +49,64 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+check-skip-ci:
+  permissions:
+    contents: read
+  name: "Check if CI should be skipped"
+  runs-on: dlstreamer
+  outputs:
+    skip_ci: ${{ steps.check.outputs.skip_ci }}
+  steps:
+    - name: Check out dlstreamer repository
+      uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6.0.2
+      with:
+        persist-credentials: false
+        fetch-depth: 0
+        path: dlstreamer-repo
+
+    - name: Fetch main branch for comparison
+      run: |
+        cd dlstreamer-repo
+        git fetch origin main
+
+    - name: Check if changes are only in docs/ and specific documentation files
+      id: check
+      run: |
+        echo "🔍 Checking for changes outside documentation and configuration files"
+        cd dlstreamer-repo
+        CHANGED_FILES_CODE=$(git diff --name-only origin/main...HEAD -- \
+          ':!docs/' \
+          ':!.github/ISSUE_TEMPLATES/' \
+          ':!.github/skills/' \
+          ':!.github/CODEOWNERS' \
+          ':!.github/PULL_REQUEST_TEMPLATE.md' \
+          ':!README.md' \
+          ':!SECURITY.md' \
+          ':!LICENSE' \
+          ':!CONTRIBUTING.md' \
+          ':!CHANGELOG.md' \
+          ':!CODESTYLE.md' \
+          ':!CODE_OF_CONDUCT.md')
+        
+        echo "skip_ci=true" >> "$GITHUB_OUTPUT"
+        
+        if [ -n "${CHANGED_FILES_CODE}" ]; then
+          echo "📄 Changed files outside documentation/configuration:"
+          echo "${CHANGED_FILES_CODE}"
+          echo "skip_ci=false" >> "$GITHUB_OUTPUT"
+          echo "🔄 Code changes detected - running full CI"
+        else
+          echo "✅ All changes are documentation/configuration only - skipping CI jobs"
+        fi
+  
   # ------------------------------------------------------------- SCANS -------------------------------------------------------------
   dls-code-style:
     permissions:
       contents: read
     name: "DLS SCAN: code-style"
     runs-on: dlstreamer
+    needs: check-skip-ci
+    if: needs.check-skip-ci.outputs.skip_ci != 'true'
     steps:
       - name: Check out dlstreamer repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6.0.2
@@ -81,6 +135,8 @@ jobs:
       contents: read
     name: "DLS SCAN: check license headers"
     runs-on: dlstreamer
+    needs: check-skip-ci
+    if: needs.check-skip-ci.outputs.skip_ci != 'true'
     steps:
       - name: Check out dlstreamer repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6.0.2
@@ -100,15 +156,6 @@ jobs:
         run: |
           sudo rm -rf dlstreamer-repo
 
-  # dls-static-code-analysis:
-  #   permissions:
-  #     security-events: write
-  #     actions: read
-  #     contents: read
-  #     packages: read
-  #   name: "DLS SCAN: static code analysis"
-  #   uses: dlstreamer-repo/.github/workflows/codeql.yaml
-
   dls-static-code-analysis-for-c-cpp:
     permissions:
       security-events: write
@@ -116,6 +163,8 @@ jobs:
       contents: read
       packages: read
     name: "DLS SCAN: static C/C++ code analysis"
+    needs: check-skip-ci
+    if: needs.check-skip-ci.outputs.skip_ci != 'true'
     uses: ./.github/workflows/dls-coverity.yaml
     secrets:
       DLS_COVERITY_TOKEN: ${{ secrets.DLS_COVERITY_TOKEN }}
@@ -127,6 +176,8 @@ jobs:
       contents: read
     name: "DLS SCAN: detect changes in docker dir"
     runs-on: dlstreamer
+    needs: check-skip-ci
+    if: needs.check-skip-ci.outputs.skip_ci != 'true'
     outputs:
       docker_changed: ${{ steps.check.outputs.docker_changed }}
     steps:
@@ -167,8 +218,8 @@ jobs:
   dls-trivy-config-scan:
     permissions:
       contents: read
-    needs: [dls-filter-docker-related-changes]
-    if: needs.dls-filter-docker-related-changes.outputs.docker_changed == 'true'
+    needs: [check-skip-ci, dls-filter-docker-related-changes]
+    if: needs.check-skip-ci.outputs.skip_ci != 'true' && needs.dls-filter-docker-related-changes.outputs.docker_changed == 'true'
     name: "DLS SCAN: Trivy ${{ matrix.name }}"
     strategy:
       fail-fast: false
@@ -198,8 +249,8 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
-    needs: [dls-filter-docker-related-changes]
-    if: needs.dls-filter-docker-related-changes.outputs.docker_changed == 'true'
+    needs: [check-skip-ci, dls-filter-docker-related-changes]
+    if: needs.check-skip-ci.outputs.skip_ci != 'true' && needs.dls-filter-docker-related-changes.outputs.docker_changed == 'true'
     name: "DLS SCAN: Hadolint"
     runs-on: dlstreamer
     strategy:
@@ -240,6 +291,8 @@ jobs:
       pull-requests: write
     name: "DLS SCAN: pylint"
     runs-on: dlstreamer
+    needs: check-skip-ci
+    if: needs.check-skip-ci.outputs.skip_ci != 'true'
     steps:
       - name: Check out dlstreamer repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6.0.2
@@ -267,6 +320,8 @@ jobs:
       pull-requests: write
     name: "DLS SCAN: shellcheck"
     runs-on: dlstreamer
+    needs: check-skip-ci
+    if: needs.check-skip-ci.outputs.skip_ci != 'true'
     steps:
       - name: Check out dlstreamer repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6.0.2
@@ -290,6 +345,8 @@ jobs:
       pull-requests: write
     name: "DLS SCAN: yamllint"
     runs-on: dlstreamer
+    needs: check-skip-ci
+    if: needs.check-skip-ci.outputs.skip_ci != 'true'
     steps:
       - name: Check out dlstreamer repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6.0.2
@@ -311,6 +368,8 @@ jobs:
       contents: read
     name: "DLS SCAN: ClamAV antivirus"
     runs-on: dlstreamer
+    needs: check-skip-ci
+    if: needs.check-skip-ci.outputs.skip_ci != 'true'
     steps:
       - name: Check out dlstreamer repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6.0.2
@@ -368,6 +427,8 @@ jobs:
       contents: read
     name: "DLS SCAN: Bandit"
     runs-on: dlstreamer
+    needs: check-skip-ci
+    if: needs.check-skip-ci.outputs.skip_ci != 'true'
     steps:
       - name: Check out dlstreamer repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6.0.2
@@ -389,6 +450,8 @@ jobs:
     permissions:
       contents: read
     name: "DLS TEST: models download"
+    needs: check-skip-ci
+    if: needs.check-skip-ci.outputs.skip_ci != 'true'
     uses: ./.github/workflows/dls-download-models-test.yaml
   #--------------------------------------------------------- - OPTIMIZER -------------------------------------------------------------
   dls-optimizer-functional-tests:
@@ -396,6 +459,8 @@ jobs:
       contents: read
       packages: read
     name: "DLS TEST: Optimizer"
+    needs: check-skip-ci
+    if: needs.check-skip-ci.outputs.skip_ci != 'true'
     uses: ./.github/workflows/dls-test-optimizer.yaml
     with:
       test-repo-branch: ${{ inputs.test-repo-branch }}
@@ -405,6 +470,8 @@ jobs:
       contents: read
       packages: read
     name: "DLS BUILD: fedora41 img"
+    needs: check-skip-ci
+    if: needs.check-skip-ci.outputs.skip_ci != 'true'
     uses: ./.github/workflows/dls-build-fedora41-images.yaml
 
   dls-build-sources-make-build:
@@ -412,6 +479,8 @@ jobs:
       contents: read
       packages: read
     name: "DLS BUILD: make build"
+    needs: check-skip-ci
+    if: needs.check-skip-ci.outputs.skip_ci != 'true'
     uses: ./.github/workflows/dls-build-sources-make-build.yaml
 
   dls-build-dev-images-and-run-unit-tests:
@@ -419,6 +488,8 @@ jobs:
       contents: read
       packages: read
     name: "DLS BUILD: dev imgs & run unit tests"
+    needs: check-skip-ci
+    if: needs.check-skip-ci.outputs.skip_ci != 'true'
     uses: ./.github/workflows/dls-build-dev-docker-images-and-run-unit.yaml
 
   dls-build-and-test-deb-and-deb_img:
@@ -426,6 +497,8 @@ jobs:
       contents: read
       packages: read
     name: "DLS BUILD & TEST: .deb pkgs & img"
+    needs: check-skip-ci
+    if: needs.check-skip-ci.outputs.skip_ci != 'true'
     uses: ./.github/workflows/dls-build-and-test-deb_pkgs-and-deb_imgs.yaml
     with:
       test-repo-branch: ${{ inputs.test-repo-branch }}
@@ -435,6 +508,46 @@ jobs:
       contents: read
       packages: read
     name: "DLS BUILD & TEST: Windows DLLs"
+    needs: check-skip-ci
+    if: needs.check-skip-ci.outputs.skip_ci != 'true'
     uses: ./.github/workflows/dls-build-and-test-windows.yaml
     with:
       test-repo-branch: ${{ inputs.test-repo-branch }}
+
+summary:
+  name: "Workflow Summary"
+  runs-on: dlstreamer
+  needs: check-skip-ci
+  if: always()
+  steps:
+    - name: Summary
+      run: |
+        if [ "${{ needs.check-skip-ci.outputs.skip_ci }}" = "true" ]; then
+          echo "✅ Only documentation and configuration changes detected - CI jobs skipped successfully"
+          echo "### 📚 Documentation/Configuration-only changes detected" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "All CI jobs were skipped because changes were only in documentation and configuration files:" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Allowed files/folders:**" >> $GITHUB_STEP_SUMMARY
+          echo "- \`docs/\` - Documentation folder" >> $GITHUB_STEP_SUMMARY
+          echo "- \`.github/ISSUE_TEMPLATES/\` - Issue templates" >> $GITHUB_STEP_SUMMARY
+          echo "- \`.github/skills/\` - Skills folder" >> $GITHUB_STEP_SUMMARY
+          echo "- \`.github/CODEOWNERS\` - Code owners file" >> $GITHUB_STEP_SUMMARY
+          echo "- \`.github/PULL_REQUEST_TEMPLATE.md\` - PR template" >> $GITHUB_STEP_SUMMARY
+          echo "- \`README.md\` - Main readme file" >> $GITHUB_STEP_SUMMARY
+          echo "- \`SECURITY.md\` - Security policy" >> $GITHUB_STEP_SUMMARY
+          echo "- \`LICENSE\` - License file" >> $GITHUB_STEP_SUMMARY
+          echo "- \`CONTRIBUTING.md\` - Contributing guidelines" >> $GITHUB_STEP_SUMMARY
+          echo "- \`CHANGELOG.md\` - Changelog file" >> $GITHUB_STEP_SUMMARY
+          echo "- \`CODESTYLE.md\` - Codestyle file" >> $GITHUB_STEP_SUMMARY
+          echo "- \`CODE_OF_CONDUCT.md\` - Code of conduct" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "This is expected behavior to save CI resources for documentation and configuration updates." >> $GITHUB_STEP_SUMMARY
+        else
+          echo "🔄 Code changes detected - full CI pipeline executed"
+          echo "### 🔄 Full CI pipeline executed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Changes detected outside documentation and configuration files - all CI jobs were executed." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "This means there were modifications to source code, build files, or other files that require full CI validation." >> $GITHUB_STEP_SUMMARY
+        fi
