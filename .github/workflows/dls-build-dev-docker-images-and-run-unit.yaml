@@ -21,10 +21,10 @@ jobs:
         include:
           - path_dockerfile: ./dlstreamer-repo/docker/ubuntu/ubuntu22.Dockerfile
             ubuntu_version: ubuntu22
-            runner: dls-tgl-ubuntu22
+            runner: tgl-ubuntu22
           - path_dockerfile: ./dlstreamer-repo/docker/ubuntu/ubuntu24.Dockerfile
             ubuntu_version: ubuntu24
-            runner: dls-tgl-ubuntu24
+            runner: tgl-ubuntu24
     steps:
       - name: Clean before
         run: |
