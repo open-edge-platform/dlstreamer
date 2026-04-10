@@ -54,9 +54,6 @@ class DLSOptimizer:
             "nireq": NireqGenerator()
         }
 
-        # deprecated
-        self._search_duration = 300
-
     def get_baseline_pipeline(self):
         return "!".join(self._initial_pipeline), self._initial_fps, SINGLE_STREAM
 
@@ -80,7 +77,7 @@ class DLSOptimizer:
 
     # deprecated
     def set_search_duration(self, duration):
-        self._search_duration = duration
+        pass
 
     ################################### Main Logic ################################################
 
