@@ -60,7 +60,7 @@ set MODELS_PATH=C:\path\to\your\models
 .\generate_frame_embedding.bat [SOURCE] [DEVICE] [PRECISION] [MODEL] [PPBKEND] [OUTPUT]
 ```
 
-The sample takes four command-line *optional* parameters:
+The sample takes six command-line *optional* parameters:
 
 | # | Argument | Description | Default |
 | :--- | :--- | :--- | :--- |
@@ -80,13 +80,13 @@ The sample:
 
 ## See also
 
-* [Samples overview](../../README.md)
+* [Samples overview](../../../README.md)
 
 ## Example Usage
 
 Default execution (CPU, FP32, JSON output):
 ```powershell
-.\generate_frame_embeddings.bat
+.\generate_frame_embedding.bat
 ```
 
 High-performance GPU inference (Intel® Arc™ GPU, FP16):

@@ -3,6 +3,9 @@ setlocal
 
 @REM ==============================================================================
 @REM Copyright (C) 2021-2026 Intel Corporation
+@REM
+@REM SPDX-License-Identifier: MIT
+@REM
 @REM Windows version of CLIP inference script with Precision support
 @REM ==============================================================================
 
@@ -29,7 +32,7 @@ echo Usage: %~nx0 [SOURCE] [DEVICE] [OUTPUT] [MODEL] [PPBKEND] [PRECISION]
 echo.
 echo Arguments:
 echo   SOURCE      - Input source (default: Pexels video URL)
-echo   DEVICE      - Device (default: CPU). Supported: CPU, GPU
+echo   DEVICE      - Device (default: CPU). Supported: CPU, GPU, NPU
 echo   PRECISION   - Model precision (default: FP32). Supported: FP32, FP16, INT8
 echo   MODEL       - Model name (default: clip-vit-large-patch14)
 echo   PPBKEND     - Preprocessing backend (default: opencv)
@@ -68,21 +71,28 @@ echo %SOURCE_FILE% | findstr /C:"://" >nul
 if %ERRORLEVEL%==0 (
     set "SOURCE_ELEMENT=urisourcebin buffer-size=4096 uri=%SOURCE_FILE%"
 ) else (
-    set "SOURCE_ELEMENT=filesrc location=\"%SOURCE_FILE:\=/%\""
+    set "SOURCE_ELEMENT=filesrc location="%SOURCE_FILE:\=/%""
 )
 
 if /I "%DEVICE%"=="CPU" (
-    if /I "%OUTPUT%"=="json" (
-        set "PIPELINE=gst-launch-1.0 %SOURCE_ELEMENT% ! decodebin3 ! videoconvert ! videoscale ! gvainference model=%MODEL_PATH_GS% device=CPU pre-process-backend=opencv ! gvametaconvert format=json add-tensor-data=true ! gvametapublish method=file file-path=output.json ! fakesink"
-    ) else (
-        set "PIPELINE=gst-launch-1.0 %SOURCE_ELEMENT% ! decodebin3 ! videoconvert ! videoscale ! gvainference model=%MODEL_PATH_GS% device=CPU pre-process-backend=opencv ! gvafpscounter ! fakesink"
-    )
+    set "PROC_ELEMENT=videoconvert ! videoscale"
+    set "PPBKEND=opencv"
+) else if /I "%DEVICE%"=="GPU" (
+    if /I "%PPBKEND%"=="opencv" set "PPBKEND=d3d11"
+    set "PROC_ELEMENT=d3d11convert"
+) else if /I "%DEVICE%"=="NPU" (
+    if /I "%PPBKEND%"=="opencv" set "PPBKEND=d3d11"
+    set "PROC_ELEMENT=d3d11convert"
 ) else (
-    if /I "%OUTPUT%"=="json" (
-        set "PIPELINE=gst-launch-1.0 %SOURCE_ELEMENT% ! decodebin3 ! d3d11convert ! gvainference model=%MODEL_PATH_GS% device=%DEVICE% pre-process-backend=%PPBKEND% ! gvametaconvert format=json add-tensor-data=true ! gvametapublish method=file file-path=output.json ! fakesink"
-    ) else (
-        set "PIPELINE=gst-launch-1.0 %SOURCE_ELEMENT% ! decodebin3 ! d3d11convert ! gvainference model=%MODEL_PATH_GS% device=%DEVICE% pre-process-backend=%PPBKEND% ! gvafpscounter ! fakesink"
-    )
+    echo [ERROR] Unsupported device: %DEVICE%
+    echo Supported devices: CPU, GPU, NPU
+    exit /B 1
+)
+
+if /I "%OUTPUT%"=="json" (
+    set "PIPELINE=gst-launch-1.0 %SOURCE_ELEMENT% ! decodebin3 ! %PROC_ELEMENT% ! gvainference model=%MODEL_PATH_GS% device=%DEVICE% pre-process-backend=%PPBKEND% ! gvametaconvert format=json add-tensor-data=true ! gvametapublish method=file file-path=output.json ! fakesink"
+) else (
+    set "PIPELINE=gst-launch-1.0 %SOURCE_ELEMENT% ! decodebin3 ! %PROC_ELEMENT% ! gvainference model=%MODEL_PATH_GS% device=%DEVICE% pre-process-backend=%PPBKEND% ! gvafpscounter ! fakesink"
 )
 
 echo Pipeline: %PIPELINE%
