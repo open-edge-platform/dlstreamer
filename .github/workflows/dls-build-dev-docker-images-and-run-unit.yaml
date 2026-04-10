@@ -11,7 +11,7 @@ env:
 jobs:
   build:
     name: Build dev ${{ matrix.ubuntu_version }} imgs and run unit
-    runs-on: dls-tgl-ubuntu24
+    runs-on: ${{ matrix.runner }}
     permissions:
       contents: read
       packages: read
@@ -21,8 +21,10 @@ jobs:
         include:
           - path_dockerfile: ./dlstreamer-repo/docker/ubuntu/ubuntu22.Dockerfile
             ubuntu_version: ubuntu22
+            runner: dls-tgl-ubuntu22
           - path_dockerfile: ./dlstreamer-repo/docker/ubuntu/ubuntu24.Dockerfile
             ubuntu_version: ubuntu24
+            runner: dls-tgl-ubuntu24
     steps:
       - name: Clean before
         run: |
