@@ -400,6 +400,13 @@ jobs:
     with:
       test-repo-branch: ${{ inputs.test-repo-branch }}
   # -------------------------------------------------------- BUILDS & TESTS ---------------------------------------------------------
+  dls-build-fedora-img:
+    permissions:
+      contents: read
+      packages: read
+    name: "DLS BUILD: fedora41 img"
+    uses: ./.github/workflows/dls-build-fedora41-images.yaml
+
   dls-build-sources-make-build:
     permissions:
       contents: read
