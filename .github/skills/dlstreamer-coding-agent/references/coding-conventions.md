@@ -67,13 +67,18 @@ def parse_args():
 
 ## Plugin Registration
 
-The main app must add the plugins directory to `GST_PLUGIN_PATH` and verify the
-Python plugin loader is available:
+The main app must add the plugins directory to `GST_PLUGIN_PATH`, disable the forked
+plugin scanner, and verify the Python plugin loader is available:
 
 ```python
 plugins_dir = str(Path(__file__).resolve().parent / "plugins")
 if plugins_dir not in os.environ.get("GST_PLUGIN_PATH", ""):
     os.environ["GST_PLUGIN_PATH"] = f"{os.environ.get('GST_PLUGIN_PATH', '')}:{plugins_dir}"
+
+# Prevent GStreamer from forking gst-plugin-scanner (a C subprocess that cannot
+# resolve Python symbols). Scanning in-process lets libgstpython.so find the
+# Python runtime that is already loaded.
+os.environ.setdefault("GST_REGISTRY_FORK", "no")
 
 Gst.init(None)
 
@@ -130,26 +135,34 @@ for mtd in rmeta:
         success, tracking_id, _, _, _ = mtd.get_info()
 ```
 
-## Graceful Shutdown
+## Buffer Mutability in Custom Elements or Pads
 
-For long-running pipelines (RTSP, live sources), handle Ctrl-C by sending EOS:
+In GStreamer ≥ 1.26, `buffer.copy()` returns a **shallow copy** with an immutable read-only data pointer.
+Use `buffer.copy_deep()` when you need to modify buffer timestamps or data:
 
 ```python
-import signal
+# WRONG — raises NotWritableMiniObject in GStreamer ≥ 1.26
+rec_buffer = buffer.copy()
+rec_buffer.pts = new_pts  # ❌ immutable
 
-def _sigint_handler(signum, frame):
-    pipeline.send_event(Gst.Event.new_eos())
-
-signal.signal(signal.SIGINT, _sigint_handler)
+# CORRECT — deep copy creates a fully writable buffer
+rec_buffer = buffer.copy_deep()
+rec_buffer.pts = new_pts  # ✓ writable
 ```
 
-## GPU Availability Check
+## Device Availability Check
 
-Check for GPU availability before constructing the pipeline and fall back to CPU:
+Check for GPU/NPU availability before constructing the pipeline. Use the fallback
+chain NPU → GPU → CPU so the app works on any Intel system:
 
 ```python
-det_dev = args.device
-if det_dev == "GPU" and not os.path.exists("/dev/dri/renderD128"):
-    print("Warning: GPU not available, falling back to CPU")
-    det_dev = "CPU"
+def check_device(requested, label):
+    """Check device availability with fallback chain: NPU → GPU → CPU."""
+    if requested == "NPU" and not os.path.exists("/dev/accel/accel0"):
+        print(f"Warning: NPU not available for {label}, falling back to GPU")
+        requested = "GPU"
+    if requested == "GPU" and not os.path.exists("/dev/dri/renderD128"):
+        print(f"Warning: GPU not available for {label}, falling back to CPU")
+        requested = "CPU"
+    return requested
 ```

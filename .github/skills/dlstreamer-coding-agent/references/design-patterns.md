@@ -145,7 +145,14 @@ class Controller:
 
 Create a custom in-pipeline analytics element by subclassing `GstBase.BaseTransform`.
 The element processes each buffer in `do_transform_ip` and can read/write metadata.
-Use Custom Python elements instead of Probes if custom logic is complex and/or when it modifies buffers or metadata. 
+Use Custom Python elements instead of Probes if custom logic is complex and/or when it modifies buffers or metadata.
+
+Do NOT create a BaseTransform element when its only purpose is to read existing detection/classification metadata
+and pass a simple flag or filtered label to a downstream element. In that case, the downstream element should process metadata directly.
+
+> **Rule of thumb:** A custom BaseTransform element is justified only when it implements
+> **new derived analytics** (e.g. zone intersection, trajectory analysis, dwell-time
+> calculation) that produces metadata not available from existing DLStreamer elements.
 
 ```python
 import gi
@@ -191,12 +198,7 @@ __gstelementfactory__ = ("myanalytics_py", Gst.Rank.NONE, MyAnalytics)
 
 **File location:** Place in `plugins/python/<element_name>.py`
 
-**Registration:** Add the plugins directory to `GST_PLUGIN_PATH`:
-```python
-plugins_dir = str(Path(__file__).resolve().parent / "plugins")
-os.environ["GST_PLUGIN_PATH"] = f"{os.environ.get('GST_PLUGIN_PATH', '')}:{plugins_dir}"
-Gst.init(None)
-```
+**Registration:** See [Plugin Registration](./coding-conventions.md#plugin-registration) in the Coding Conventions Reference.
 
 **Read for reference:** `samples/gstreamer/python/smart_nvr/plugins/python/gvaAnalytics.py`
 
@@ -240,6 +242,13 @@ __gstelementfactory__ = ("myrecorder_py", Gst.Rank.NONE, MyRecorder)
 ```
 
 **Read for reference:** `samples/gstreamer/python/smart_nvr/plugins/python/gvaRecorder.py`
+
+> **Decision shortcut — recording / conditional output:** If the user describes *event-triggered
+> recording*, *conditional saving*, or *numbered output files*, go directly to this pattern.
+> A `Gst.Bin` subclass with an internal `appsrc → encoder → mux → filesink` sub-pipeline is
+> the only approach that can cleanly start/stop recordings and finalize MP4 containers (which
+> require an EOS event to write the moov atom). Do **not** attempt this with pad probes,
+> appsink callbacks, or tee+valve — those patterns cannot manage a secondary pipeline lifecycle.
 
 ---
 
@@ -298,11 +307,28 @@ pipeline_str = (
 
 Add Python functions to download assets (such as input video files) and AI models.
 Always cache downloaded files locally, so only first application run requires network connection.
-For AI model download, prioritize using existing download scripts and generate inline only if simple. 
+For AI model download, prioritize using existing download scripts and generate inline only if simple.
+
+> **Video download method:** Use `subprocess` + `curl` (not `urllib.request`) for video
+> downloads. Many video hosting sites (Pexels, Pixabay, etc.) block Python's `urllib`
+> with HTTP 403 even with a custom `User-Agent`. `curl` with `-L` (follow redirects)
+> and a `Referer` header works reliably.
+
+> **Pexels URLs:** Users often provide the Pexels *page* URL
+> (e.g. `https://www.pexels.com/video/<slug>-<ID>/`). The actual video file is at
+> `https://videos.pexels.com/video-files/<ID>/<ID>-hd_<W>_<H>_<FPS>fps.mp4`
+> but the resolution and FPS **vary per video** — do **not** guess them.
+> You **must** scrape the Pexels page to discover the exact `.mp4` URL.
+> Use `subprocess` to run `curl -s` on the page URL and search the returned HTML
+> for `videos.pexels.com/video-files/` links. The Canva "Edit" links on the page
+> embed the direct video URL as the `file-url=` query parameter, e.g.:
+> `https://www.canva.com/...&file-url=https%3A%2F%2Fvideos.pexels.com%2Fvideo-files%2F9492063%2F9492063-hd_1920_1080_30fps.mp4&...`
+> URL-decode the `file-url` value to get the direct download link.
+> If scraping fails, ask the user for the direct video-file URL.
 
 ```python
 from pathlib import Path
-import urllib.request
+import subprocess
 
 VIDEOS_DIR = Path(__file__).resolve().parent / "videos"
 MODELS_DIR = Path(__file__).resolve().parent / "models"
@@ -312,9 +338,14 @@ def download_video(url: str) -> Path:
     filename = url.rstrip("/").split("/")[-1]
     local = VIDEOS_DIR / filename
     if not local.exists():
-        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-        with urllib.request.urlopen(req, timeout=60) as resp:
-            local.write_bytes(resp.read())
+        print(f"Downloading video: {url}")
+        subprocess.run([
+            "curl", "-L", "-o", str(local),
+            "-H", "Referer: https://www.pexels.com/",
+            "-H", "User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+            url,
+        ], check=True, timeout=300)
+        print(f"Saved to: {local}")
     return local.resolve()
 
 def download_model(model_name: str) -> Path:
@@ -371,22 +402,3 @@ script that handles all model download and export. Users run it once before star
 In addition, model export dependencies may clash with model inference dependencies which further
 justifies splitting these two phases.
 
----
-
-## Composing Patterns
-
-When building a new app, identify which patterns apply and compose them:
-
-| User wants... | Patterns to combine |
-|---------------|---------------------|
-| Simple detection + display | 1 + 4 (detect only) |
-| Detection + classification + save | 1 + 4 + 11 |
-| VLM alerting on video file | 1 + 9 + 10 + 11 |
-| Detection with conditional recording | 1 + 4 + 5 + 7 |
-| Custom analytics + chunked storage | 1 + 4 + 6 + 7 |
-| Detection + VLM on selected frames | 1 + 4 + 5 + 6 + 8 + 9 + 11 |
-| Multi-camera with per-camera AI | 12 + (any above per camera) |
-| Detection + OCR (license plates, text) | 1 + 4 + 10 + 11 + 13 |
-| Detection + custom model (non-OCR) | 1 + 4 + 6 + 11 |
-
----

@@ -222,7 +222,7 @@ with open(dict_path, "w") as f:
 
 **Requirements:**
 ```
-paddlepaddle
+paddlepaddle  # CPU-only variant; use paddlepaddle-gpu if GPU conversion is needed
 paddle2onnx
 ```
 
@@ -257,42 +257,50 @@ Model-proc (model processing) JSON files are deprecated; please do not use them 
 | FP32 | (default) | Maximum accuracy | None |
 | FP16 | `half=True` (Ultralytics), `--compress_to_fp16` (ovc) | GPU/NPU inference, reduced size | Negligible |
 | INT8 | `int8=True` (Ultralytics) | GPU/NPU inference, reduced size | Negligible |
-
-> **Note:** Ultralytics INT8 export (`int8=True`) requires the `nncf` package. Add `nncf>=2.14.0`
-> to `export_requirements.txt` to avoid auto-install delays during export.
-
 | INT8 | `--weight-format int8` (optimum-cli) | HuggingFace transformer models | Minor |
 | INT4 | `--weight-format int4` (optimum-cli) | Large LLM/VLM models | Moderate, acceptable for VLMs |
 
-> **Recommendation:** Use **INT8** (`int8=True`) for Ultralytics YOLO models. 
-Use INT8 for HuggingFace transformer classification models. Use INT4 for VLM models.
+> **Note:** Ultralytics INT8 export (`int8=True`) requires the `nncf` package. Add `nncf>=2.14.0`
+> to `export_requirements.txt` to avoid auto-install delays during export.
+> INT8 export triggers NNCF calibration which may take some time and may appear to hang. For iterative development, use `half=True` (FP16) first; switch to `int8=True` for production builds.
+
+> **Recommendation:** Use **INT8** (`int8=True`) for Ultralytics YOLO models.
+> Use INT8 for HuggingFace transformer classification models. Use INT4 for VLM models.
 
 ## Requirements
+
+Prefer using `==` pins (e.g. `ultralytics==8.4.7`) in `export_requirements.txt`, over open ranges like `>=8.3.0`.
+Open ranges pull untested releases that may change export behavior or break backward compatibility compatibility.
+Copy the latest exact version used by DLStreamer samples.
+
+> **CRITICAL — CPU-only PyTorch:** Always add `--extra-index-url https://download.pytorch.org/whl/cpu` as the
+> **first line** of `export_requirements.txt` (before any package that depends on PyTorch).
+> Without this, pip resolves the default CUDA-enabled PyTorch which downloads unnecessary dependencies and
+> takes a very long time to install. Model export only needs CPU inference.
 
 Typical `requirements.txt` entries by model source:
 
 ```
+# IMPORTANT: CPU-only PyTorch — must appear before any torch-dependent package
+--extra-index-url https://download.pytorch.org/whl/cpu
+
 # Ultralytics YOLO
 ultralytics==8.4.7
-nncf>=2.14.0  # required for int8=True quantization
---extra-index-url https://download.pytorch.org/whl/cpu
+nncf==2.14.0  # required for int8=True quantization
 
 # HuggingFace transformers + OpenVINO export
 optimum[openvino]
 huggingface_hub
 
 # PaddlePaddle models (OCR, etc.)
-paddlepaddle
+paddlepaddle  # CPU-only variant (paddlepaddle-gpu is the GPU package)
 paddle2onnx
-openvino  # for ovc model converter
-
-# Open Model Zoo tools
-openvino-dev
+openvino==<same version as one in DLStreamer>  # for ovc model converter
 
 # Custom elements with pixel access
 numpy
 opencv-python  # or opencv-python-headless
 
 # Common
-PyGObject>=3.50.0
+PyGObject==3.50.0  # 3.50.2 depends on girepository-2.0 and breaks backward-compatibility
 ```
