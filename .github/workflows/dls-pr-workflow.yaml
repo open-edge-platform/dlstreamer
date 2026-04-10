@@ -87,9 +87,9 @@ jobs:
             ':!CHANGELOG.md' \
             ':!CODESTYLE.md' \
             ':!CODE_OF_CONDUCT.md')
-          
+
           echo "skip_ci=true" >> "$GITHUB_OUTPUT"
-          
+
           if [ -n "${CHANGED_FILES_CODE}" ]; then
             echo "📄 Changed files outside documentation/configuration:"
             echo "${CHANGED_FILES_CODE}"
@@ -98,7 +98,7 @@ jobs:
           else
             echo "✅ All changes are documentation/configuration only - skipping CI jobs"
           fi
-  
+
   # ------------------------------------------------------------- SCANS -------------------------------------------------------------
   dls-code-style:
     permissions:
