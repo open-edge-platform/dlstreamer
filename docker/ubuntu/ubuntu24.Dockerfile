@@ -82,8 +82,8 @@ RUN \
 # Intel NPU drivers and prerequisites installation
 WORKDIR /tmp/npu_deps
 
-RUN curl -LO https://github.com/intel/linux-npu-driver/releases/download/v1.30.0/linux-npu-driver-v1.30.0.20260311-22963593310-ubuntu2404.tar.gz && \
-    tar -xf linux-npu-driver-v1.30.0.20260311-22963593310-ubuntu2404.tar.gz && \
+RUN curl -LO https://github.com/intel/linux-npu-driver/releases/download/v1.32.0/linux-npu-driver-v1.32.0.20260402-23905121947-ubuntu2404.tar.gz && \
+    tar -xf linux-npu-driver-v1.32.0.20260402-23905121947-ubuntu2404.tar.gz && \
     dpkg -i ./*.deb && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /tmp/npu_deps
@@ -545,8 +545,8 @@ RUN \
 # Intel NPU drivers and prerequisites installation
 WORKDIR /tmp/npu_deps
 
-RUN curl -LO https://github.com/intel/linux-npu-driver/releases/download/v1.30.0/linux-npu-driver-v1.30.0.20260311-22963593310-ubuntu2404.tar.gz && \
-    tar -xf linux-npu-driver-v1.30.0.20260311-22963593310-ubuntu2404.tar.gz && \
+RUN curl -LO https://github.com/intel/linux-npu-driver/releases/download/v1.32.0/linux-npu-driver-v1.32.0.20260402-23905121947-ubuntu2404.tar.gz && \
+    tar -xf linux-npu-driver-v1.32.0.20260402-23905121947-ubuntu2404.tar.gz && \
     dpkg -i ./*.deb && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /tmp/npu_deps
