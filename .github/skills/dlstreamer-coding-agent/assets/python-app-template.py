@@ -18,6 +18,7 @@ Supports file, HTTP URL, and RTSP IP camera inputs.
 import argparse
 import os
 import signal
+import subprocess
 import sys
 import urllib.request
 from pathlib import Path
@@ -25,6 +26,12 @@ from pathlib import Path
 import gi
 
 gi.require_version("Gst", "1.0")
+
+# Prevent GStreamer from forking gst-plugin-scanner (a C subprocess that cannot
+# resolve Python symbols). Scanning in-process lets libgstpython.so find the
+# Python runtime that is already loaded.
+os.environ.setdefault("GST_REGISTRY_FORK", "no")
+
 from gi.repository import Gst  # pylint: disable=no-name-in-module, wrong-import-position
 
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -62,9 +69,12 @@ def prepare_input(source: str) -> str:
         local = VIDEOS_DIR / name
         if not local.exists():
             print(f"Downloading video: {source}")
-            req = urllib.request.Request(source, headers={"User-Agent": "Mozilla/5.0"})
-            with urllib.request.urlopen(req, timeout=120) as r:  # noqa: S310
-                local.write_bytes(r.read())
+            subprocess.run([
+                "curl", "-L", "-o", str(local),
+                "-H", "Referer: https://www.pexels.com/",
+                "-H", "User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+                source,
+            ], check=True, timeout=300)
             print(f"Saved to: {local}")
         return str(local)
     if not os.path.isfile(source):

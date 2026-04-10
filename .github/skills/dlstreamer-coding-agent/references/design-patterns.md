@@ -145,7 +145,14 @@ class Controller:
 
 Create a custom in-pipeline analytics element by subclassing `GstBase.BaseTransform`.
 The element processes each buffer in `do_transform_ip` and can read/write metadata.
-Use Custom Python elements instead of Probes if custom logic is complex and/or when it modifies buffers or metadata. 
+Use Custom Python elements instead of Probes if custom logic is complex and/or when it modifies buffers or metadata.
+
+Do NOT create a BaseTransform element when its only purpose is to read existing detection/classification metadata
+and pass a simple flag or filtered label to a downstream element. In that case, the downstream element should process metadata directly.
+
+> **Rule of thumb:** A custom BaseTransform element is justified only when it implements
+> **new derived analytics** (e.g. zone intersection, trajectory analysis, dwell-time
+> calculation) that produces metadata not available from existing DLStreamer elements.
 
 ```python
 import gi
@@ -236,6 +243,13 @@ __gstelementfactory__ = ("myrecorder_py", Gst.Rank.NONE, MyRecorder)
 
 **Read for reference:** `samples/gstreamer/python/smart_nvr/plugins/python/gvaRecorder.py`
 
+> **Decision shortcut — recording / conditional output:** If the user describes *event-triggered
+> recording*, *conditional saving*, or *numbered output files*, go directly to this pattern.
+> A `Gst.Bin` subclass with an internal `appsrc → encoder → mux → filesink` sub-pipeline is
+> the only approach that can cleanly start/stop recordings and finalize MP4 containers (which
+> require an EOS event to write the moov atom). Do **not** attempt this with pad probes,
+> appsink callbacks, or tee+valve — those patterns cannot manage a secondary pipeline lifecycle.
+
 ---
 
 ## Pattern 8: Cross-Branch Signal Bridge
@@ -293,11 +307,23 @@ pipeline_str = (
 
 Add Python functions to download assets (such as input video files) and AI models.
 Always cache downloaded files locally, so only first application run requires network connection.
-For AI model download, prioritize using existing download scripts and generate inline only if simple. 
+For AI model download, prioritize using existing download scripts and generate inline only if simple.
+
+> **Video download method:** Use `subprocess` + `curl` (not `urllib.request`) for video
+> downloads. Many video hosting sites (Pexels, Pixabay, etc.) block Python's `urllib`
+> with HTTP 403 even with a custom `User-Agent`. `curl` with `-L` (follow redirects)
+> and a `Referer` header works reliably.
+
+> **Pexels URLs:** Users often provide the Pexels *page* URL
+> (e.g. `https://www.pexels.com/video/<slug>-<ID>/`). The actual video file is at
+> `https://videos.pexels.com/video-files/<ID>/<ID>-hd_1920_1080_<FPS>fps.mp4`.
+> Scrape the page to find the direct `.mp4` link, or ask the user for the direct
+> video-file URL. Common resolutions: `hd_1920_1080_25fps`, `hd_1920_1080_30fps`,
+> `hd_1280_720_60fps`.
 
 ```python
 from pathlib import Path
-import urllib.request
+import subprocess
 
 VIDEOS_DIR = Path(__file__).resolve().parent / "videos"
 MODELS_DIR = Path(__file__).resolve().parent / "models"
@@ -307,9 +333,14 @@ def download_video(url: str) -> Path:
     filename = url.rstrip("/").split("/")[-1]
     local = VIDEOS_DIR / filename
     if not local.exists():
-        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-        with urllib.request.urlopen(req, timeout=60) as resp:
-            local.write_bytes(resp.read())
+        print(f"Downloading video: {url}")
+        subprocess.run([
+            "curl", "-L", "-o", str(local),
+            "-H", "Referer: https://www.pexels.com/",
+            "-H", "User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+            url,
+        ], check=True, timeout=300)
+        print(f"Saved to: {local}")
     return local.resolve()
 
 def download_model(model_name: str) -> Path:

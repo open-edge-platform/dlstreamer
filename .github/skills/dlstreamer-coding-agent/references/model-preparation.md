@@ -269,13 +269,26 @@ Model-proc (model processing) JSON files are deprecated; please do not use them 
 
 ## Requirements
 
+> **CRITICAL — Pin exact versions:** Always use `==` pins (e.g. `ultralytics==8.4.7`) in
+> `export_requirements.txt`, **never** open ranges like `>=8.3.0`. Open ranges pull untested
+> releases that may change export behavior or break DLStreamer compatibility. Copy the exact
+> versions from the table below.
+
+> **CRITICAL — CPU-only PyTorch:** Always add `--extra-index-url https://download.pytorch.org/whl/cpu` as the
+> **first line** of `export_requirements.txt` (before any package that depends on PyTorch).
+> Without this, pip resolves the default CUDA-enabled PyTorch which downloads ~2 GB of
+> unnecessary CUDA dependencies and takes a very long time to install. Model export only
+> needs CPU inference.
+
 Typical `requirements.txt` entries by model source:
 
 ```
+# IMPORTANT: CPU-only PyTorch — must appear before any torch-dependent package
+--extra-index-url https://download.pytorch.org/whl/cpu
+
 # Ultralytics YOLO
 ultralytics==8.4.7
 nncf>=2.14.0  # required for int8=True quantization
---extra-index-url https://download.pytorch.org/whl/cpu
 
 # HuggingFace transformers + OpenVINO export
 optimum[openvino]

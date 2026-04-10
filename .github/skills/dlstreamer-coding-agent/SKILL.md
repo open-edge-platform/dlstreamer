@@ -51,11 +51,16 @@ If a User does not have specific models in mind, try to infer the most likely mo
 4) Expected output (e.g. JSON file with license plate text, annotated video file, etc.)
 5) Performance requirements (e.g. real-time processing, batch processing, etc.)
 
-### Step 2 — Create Model Download and Export Scripts
+### Step 2 — Identify Models and Start Environment Setup (early, async)
 
-> **Parallelization hint:** Steps 2 and 3 are independent and both involve large network
-> downloads. Start them in parallel — e.g. kick off model export in one terminal while
-> pulling the Docker image in another.
+> **Parallelization rule:** Steps 2, 3, and 4 overlap. The venv creation and `pip install`
+> from Step 2 are **network-bound** and take minutes but require **no reasoning**. Start
+> them in an **async terminal** immediately after creating the requirements file, then
+> continue with Steps 3 and 4 (Docker check + pipeline design) while the install runs
+> in the background. Come back to run the actual model export in Step 2b only after
+> `pip install` has finished.
+
+**2a — Create export scripts and kick off venv + pip install**
 
 Check what AI models a User wants to use. Search if the requested or similar models are in the list of models supported by DLStreamer
 
@@ -68,22 +73,36 @@ Check what AI models a User wants to use. Search if the requested or similar mod
 If a model is found in one of the above scripts, extract model download recipe from that script and create a local script in application directory for exporting the specific model to OV IR format; add model export instructions to the application README.
 If a model does not exist, check the [Model Preparation Reference](./references/model-preparation.md) for instructions on how to prepare and export the model for DLStreamer, then write a new model download/export script using the [Export Models Template](./assets/export-models-template.py) as a starting point and add instructions to the application README.
 
-Create the `export_requirements.txt` file if the model export script requires additional Python packages (e.g. HuggingFace transformers, Ultralytics, optimum-cli, etc.). Add comments in `export_requirements.txt` to indicate which model export script requires a specific package. Use specific version numbers for packages to ensure reproducibility.
+Create the `export_requirements.txt` file if the model export script requires additional Python packages (e.g. HuggingFace transformers, Ultralytics, optimum-cli, etc.). Add comments in `export_requirements.txt` to indicate which model export script requires a specific package. Use **exact pinned versions** from the [Model Preparation Reference → Requirements](./references/model-preparation.md#requirements).
 
-Run the model export script to verify that the models can be downloaded and exported correctly to OpenVINO IR format.
-Create and set up a Python virtual environment to isolate dependencies:
+**As soon as** `export_requirements.txt` and `export_models.py` are written, start the
+virtual-environment creation and dependency installation in an **async terminal** so it
+runs in the background while you continue reasoning:
 
 ```bash
-python3 -m venv .<app_name>-export-venv
-source .<app_name>-export-venv/bin/activate
+# Run in async mode — do NOT wait for completion
+python3 -m venv .<app_name>-export-venv && \
+source .<app_name>-export-venv/bin/activate && \
 pip install -r export_requirements.txt
-python3 export_models.py  # or bash export_models.sh
 ```
 
 > **Important:** When running terminal commands that may take a long time (e.g. `pip install`,
 > model downloads, model export), do **not** pipe output through `tail`, `head`, or other
 > filters that hide progress. Let the full output stream to the terminal so the user can
 > see download/install progress and is not left waiting with no feedback.
+
+Now **proceed immediately** to Steps 3 and 4 while `pip install` runs.
+
+**2b — Run model export (after pip install completes)**
+
+After Steps 3 and 4 are done (or earlier, if `pip install` finished), check the async
+terminal output to confirm all dependencies were installed successfully, then run the
+model export:
+
+```bash
+source .<app_name>-export-venv/bin/activate
+python3 export_models.py  # or bash export_models.sh
+```
 
 ### Step 3 — Check and Setup Deployment Environment
 
@@ -186,7 +205,8 @@ Map the user's description to one or more of these patterns:
 | **Pipeline Core** | Always — every app needs source → decode → sink |
 | **AI Inference** | User wants object detection (`gvadetect`), classification/OCR (`gvaclassify`), or VLM (`gvagenai`) |
 | **Pad Probe Callback** | User needs simple custom logic, like per-frame metadata inspection or adding overlays |
-| **Custom Python Element** | User needs non-trivial custom analytics logic that runs inside the pipeline |
+| **Custom Python Element (BaseTransform)** | User needs non-trivial per-frame analytics that reads/writes metadata inside the pipeline. |
+| **Custom Python Element (Bin/Sink)** | User needs to manage a secondary sub-pipeline or implement non-trivial handling of output stream. |
 | **AppSink Callback** | User wants to continue processing of frames or metadata in their own application |
 | **Dynamic Pipeline Control** | User wants conditional routing, valve, or tee-based branching |
 | **Cross-Branch Signal Bridge** | User has a tee with branches that must exchange state |
@@ -241,10 +261,7 @@ docker run -it --rm \
 
 Replace `<WEEKLY_TAG>` with the actual tag discovered in Step 3 (e.g. `2026.1.0-20260407-weekly-ubuntu24`).
 
-> **Known Docker warnings:** GStreamer plugin scanner may emit warnings about Python symbol
-> loading (e.g. `undefined symbol: PyExc_ValueError`) when running inside the DLStreamer
-> Docker container. These are harmless and do not affect pipeline execution.
-```
+
 
 Once the environment is set up, update instructions in generated README.md file and verify the application runs correctly when following instructions. If the user provided a natural language description of the expected output, verify that the output matches the description (e.g. check that JSONL files have the expected fields, check that video outputs have the expected overlays, etc.).
 

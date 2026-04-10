@@ -67,13 +67,18 @@ def parse_args():
 
 ## Plugin Registration
 
-The main app must add the plugins directory to `GST_PLUGIN_PATH` and verify the
-Python plugin loader is available:
+The main app must add the plugins directory to `GST_PLUGIN_PATH`, disable the forked
+plugin scanner, and verify the Python plugin loader is available:
 
 ```python
 plugins_dir = str(Path(__file__).resolve().parent / "plugins")
 if plugins_dir not in os.environ.get("GST_PLUGIN_PATH", ""):
     os.environ["GST_PLUGIN_PATH"] = f"{os.environ.get('GST_PLUGIN_PATH', '')}:{plugins_dir}"
+
+# Prevent GStreamer from forking gst-plugin-scanner (a C subprocess that cannot
+# resolve Python symbols). Scanning in-process lets libgstpython.so find the
+# Python runtime that is already loaded.
+os.environ.setdefault("GST_REGISTRY_FORK", "no")
 
 Gst.init(None)
 
@@ -128,6 +133,21 @@ Reading tracking metadata:
 for mtd in rmeta:
     if isinstance(mtd, GstAnalytics.TrackingMtd):
         success, tracking_id, _, _, _ = mtd.get_info()
+```
+
+## Buffer Mutability in Custom Elements or Pads
+
+In GStreamer ≥ 1.26, `buffer.copy()` returns a **shallow copy** with an immutable
+read-only data pointer. Use copy_deep()` when you need to modify buffer timestamps or data:
+
+```python
+# WRONG — raises NotWritableMiniObject in GStreamer ≥ 1.26
+rec_buffer = buffer.copy()
+rec_buffer.pts = new_pts  # ❌ immutable
+
+# CORRECT — deep copy creates a fully writable buffer
+rec_buffer = buffer.copy_deep()
+rec_buffer.pts = new_pts  # ✓ writable
 ```
 
 ## Graceful Shutdown
