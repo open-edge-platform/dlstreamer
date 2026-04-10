@@ -2,655 +2,462 @@
 
 ## Table of Contents
 1. [Overview](#overview)
-2. [Architecture](#architecture)
-3. [Module Documentation](#module-documentation)
-4. [API Reference](#api-reference)
+2. [What Is Included](#what-is-included)
+3. [Prerequisites](#prerequisites)
+4. [How It Works](#how-it-works)
 5. [Configuration](#configuration)
-6. [Usage Examples](#usage-examples)
-
-
+6. [Running The Sample](#running-the-sample)
+7. [Build Wheel Package](#build-wheel-package)
+8. [Module Documentation](#module-documentation)
+9. [Usage Examples](#usage-examples)
+10. [Troubleshooting](#troubleshooting)
 
 ---
 
 ## Overview
 
-This sample demonstrates automatic discovery and streaming from ONVIF-compliant IP cameras using DL Streamer. The application discovers cameras on the local network, retrieves their streaming profiles, and launches concurrent DL Streamer pipelines for video processing.
+This sample demonstrates automatic discovery and streaming from ONVIF-compliant
+IP cameras using DL Streamer. The application discovers cameras on the local
+network, retrieves their streaming profiles, and launches concurrent GStreamer
+pipelines for video processing.
 
 ### Key Capabilities
 - **Automatic Camera Discovery**: Uses WS-Discovery multicast protocol to find ONVIF cameras
 - **Profile Extraction**: Retrieves detailed video/audio encoder configurations
-- **Concurrent Streaming**: Manages multiple DL Streamer pipelines simultaneously
-- **Thread-safe Output**: Handles stdout/stderr from multiple processes
-- **Graceful Shutdown**: Properly terminates all child processes on exit
+- **Camera Registry**: Unified tracking of cameras, profiles, and pipelines via `DlsOnvifCameraRegistry`
+- **Concurrent Streaming**: Manages multiple GStreamer pipelines simultaneously
+- **Periodic Re-discovery**: Detects added/removed cameras between cycles
+- **Verbose Profile Dump**: Optional detailed profile table (via `--verbose` or `config.json`)
+- **Graceful Shutdown**: Properly terminates all pipelines on exit
 
 ### Technology Stack
 - **ONVIF Protocol**: Industry-standard IP camera communication protocol
 - **WS-Discovery**: Multicast network discovery (SOAP over UDP)
 - **GStreamer**: Multimedia framework for video processing
-- **Python 3.x**: Core implementation language
+- **Python 3.10+**: Core implementation language (asyncio-based)
 
 ---
 
-## Architecture
+## What Is Included
 
-### Component Diagram
+| File | Description |
+|------|-------------|
+| `dls_onvif_sample.py` | Entry point — async discovery loop and pipeline launcher |
+| `dls_onvif_discovery_engine.py` | WS-Discovery, ONVIF profiles, async orchestrator (`DlsOnvifDiscoveryEngine`) |
+| `dls_onvif_camera_entry.py` | Camera + pipeline registry (`DlsOnvifCameraEntry`, `DlsOnvifCameraRegistry`) |
+| `dls_onvif_config_manager.py` | Pipeline configuration loader from `config.json` |
+| `dls_onvif_discovery_thread.py` | GStreamer pipeline lifecycle manager (`DlsLaunchedPipeline`) |
+| `dls_onvif_data.py` | ONVIF profile data structure (`ONVIFProfile`) |
+| `misc.py` | Console output helpers (`print_cameras`) |
+| `config.json` | Maps camera names to hostname, port, and pipeline definitions |
+| `build_whl/` | Wheel packaging configuration |
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    dls_onvif_sample.py                      │
-│                  (Main Orchestrator)                        │
-│  - CLI argument parsing                                     │
-│  - Process lifecycle management                             │
-│  - Multi-threaded output handling                           │
-└────────────────┬────────────────────────────────────────────┘
-                 │
-                 ├─────────────────────────────────────────────┐
-                 │                                             │
-                 ▼                                             ▼
-┌────────────────────────────────┐      ┌──────────────────────────────────┐
-│  dls_onvif_discovery_utils.py  │      │      dls_onvif_data.py          │
-│  (Discovery & Query)           │      │   (Data Structures)             │
-│  - WS-Discovery multicast      │      │   - ONVIFProfile class          │
-│  - XML response parsing        │      │   - Profile properties          │
-│  - Media profile retrieval     │      │   - Configuration storage       │
-│  - RTSP URI extraction         │      │                                  │
-│  - Config file management      │      │                                  │
-└────────────────────────────────┘      └──────────────────────────────────┘
-                 │
-                 ▼
-┌─────────────────────────────────────────────────────────────┐
-│                    config.json                              │
-│  (Pipeline Configuration)                                   │
-│  - Maps camera IPs to GStreamer pipeline elements          │
-└─────────────────────────────────────────────────────────────┘
+---
+
+## Prerequisites
+
+- Python 3.10 or newer
+- GStreamer with Python bindings (`python3-gi`, `gir1.2-gst-1.0`)
+- Network access to ONVIF cameras on the local subnet
+- Valid camera credentials if the device requires authentication
+
+Install Python dependencies:
+
+```bash
+pip install -r requirements.txt
 ```
 
-### Data Flow
+---
+
+## How It Works
+
+1. The sample sends a WS-Discovery probe to `239.255.255.250:3702`.
+2. It parses returned `XAddrs` endpoints and extracts camera hostname and port.
+3. For each discovered camera it creates a `DlsOnvifCameraEntry` in the registry.
+4. It connects via `ONVIFCamera` and retrieves media profiles with RTSP URIs.
+5. It reads the pipeline definition from `config.json` matching the camera's hostname and port.
+6. For every profile with an RTSP URL it launches a GStreamer pipeline:
+
+```text
+rtspsrc location=<rtsp_url> <pipeline definition from config.json>
+```
+
+7. On subsequent discovery cycles, new cameras are added, missing cameras are removed
+   (their pipelines stopped), and existing cameras are updated (`last_seen_at`).
+
+If no pipeline is configured for a discovered camera, that camera is skipped.
+
+### Sequence chart for internal interactions
 
 ```mermaid
 sequenceDiagram
     participant User
-    participant Main as dls_onvif_sample.py
-    participant Utils as discovery_utils
+    participant Sample as dls_onvif_sample.py
+    participant Async as DlsOnvifDiscoveryEngine
+    participant CfgMgr as DlsOnvifConfigManager
+    participant Entry as DlsOnvifCameraEntry
+    participant Registry as DlsOnvifCameraRegistry
+    participant Utils as dls_onvif_discovery_engine.py
     participant Network
     participant Camera as ONVIF Camera
-    participant GStreamer as DL Streamer Process
+    participant Pipeline as DlsLaunchedPipeline
 
-    User->>Main: python dls_onvif_sample.py --user admin --password pass
-    Main->>Utils: discover_onvif_cameras()
-    Utils->>Network: Send WS-Discovery Probe (multicast)
-    Camera->>Network: ProbeMatch Response
-    Network->>Utils: Parse XML response
-    Utils->>Main: Return camera list [{'hostname': IP, 'port': PORT}]
+    User->>Sample: python dls_onvif_sample.py --username admin --password admin
+    Sample->>Async: DlsOnvifDiscoveryEngine()
+    Sample->>Async: init_discovery(config)
+    Async->>CfgMgr: DlsOnvifConfigManager(config_file)
+    Sample->>Async: discover_cameras_iter()
 
-    loop For each discovered camera
-        Main->>Camera: Create ONVIFCamera(hostname, port, user, pass)
-        Main->>Utils: get_commandline_by_key(config.json, hostname)
-        Utils->>Main: Return pipeline elements
-        Main->>Camera: camera_profiles(camera_obj)
-        Camera->>Main: Return profile list with RTSP URLs
+    loop Discovery cycle
+        Async->>CfgMgr: refresh_cameras()
+        Async->>Utils: discover_onvif_cameras_async()
+        Utils->>Network: Send WS-Discovery probe (239.255.255.250:3702)
+        Network-->>Utils: ProbeMatch responses
+        Utils-->>Async: Yield {hostname, port}
 
-        loop For each profile
-            Main->>Main: prepare_commandline(rtsp_url, pipeline_elements)
-            Main->>GStreamer: run_single_streamer(command)
-            GStreamer-->>Main: Return process handle
-            Main->>Main: Append to running_processes[]
+        alt New camera
+            Async->>Entry: DlsOnvifCameraEntry.from_discovery_dict(camera, user, pass)
+            Entry-->>Async: entry
+
+            Note over Async: _create_pipelines_for_entry(entry)
+            Async->>CfgMgr: get_pipeline_definition_by_ip_port(ip, port)
+            CfgMgr-->>Async: pipeline_definition or None
+
+            alt No pipeline configured
+                Async-->>Async: [WARN] skip camera
+            else Pipeline configured
+                Async->>Entry: entry.status = CONNECTING
+                Async->>Camera: ONVIFCamera(ip, port, user, password)
+                Camera-->>Async: camera_obj
+                Async->>Camera: self.camera_profiles(camera_obj)
+                Note right of Camera: GetProfiles + GetStreamUri
+                Camera-->>Async: List[ONVIFProfile]
+                Async->>Entry: entry.profiles = profiles
+
+                loop For each profile with RTSP URL
+                    Async->>Pipeline: DlsLaunchedPipeline(full_pipeline, label)
+                    Async->>Entry: entry.add_pipeline(pipeline)
+                    Async->>Pipeline: asyncio.create_task(pipeline.start())
+                end
+
+                Async->>Entry: entry.mark_streaming()
+            end
+
+            Async->>Registry: registry.add(entry)
+        else Known camera
+            Async->>Entry: existing.touch()
         end
+
+        Note over Async: _remove_stale_cameras(current_ids)
+        Async->>Registry: camera_ids() - current_ids
+        loop For each stale camera
+            Async->>Registry: registry.remove(camera_id)
+            Async->>Entry: entry.stop_all_pipelines()
+            Async->>Entry: entry.mark_removed()
+        end
+
+        Async->>Async: _countdown_to_next_cycle()
     end
 
-    Main->>User: "Press Ctrl+C to stop..."
-    Main->>GStreamer: Wait for all processes
-    User->>Main: Ctrl+C (KeyboardInterrupt)
-    Main->>GStreamer: Terminate all processes
-    Main->>User: "All processes stopped."
+    User->>Sample: Ctrl+C (KeyboardInterrupt)
+    Sample->>Async: release_resources_async()
+    Async->>Registry: registry.stop_all()
+    Async->>Async: cancel + gather _pipeline_tasks
 ```
 
----
-
-## Module Documentation
-
-### 1. `dls_onvif_sample.py`
-
-**Purpose**: Main entry point that orchestrates camera discovery and pipeline execution.
-
-#### Functions
-
-##### `run_single_streamer(gst_command: str) -> subprocess.Popen`
-
-Launches a GStreamer DL Streamer pipeline in non-blocking mode with thread-safe output handling.
-
-**Parameters:**
-- `gst_command` (str): Complete GStreamer command line string
-
-**Returns:**
-- `subprocess.Popen`: Process handle, or `None` on failure
-
-**Implementation Details:**
-- Uses `subprocess.Popen` with `shell=True` for flexible command execution
-- Captures `stdout` and `stderr` to prevent buffer blocking
-- Spawns daemon threads to read output streams asynchronously
-- Tags output with process ID for multi-process identification
-- Uses `bufsize=1` for line-buffered output
-
-**Example:**
-```python
-command = "gst-launch-1.0 rtspsrc location=rtsp://10.0.0.1/stream ! decodebin ! autovideosink"
-process = run_single_streamer(command)
-if process:
-    print(f"Started streamer with PID: {process.pid}")
-```
-
----
-
-##### `prepare_commandline(camera_rtsp_url: str, pipeline_elements: str) -> List[str]`
-
-Constructs a complete GStreamer command line from RTSP URL and pipeline elements.
-
-**Parameters:**
-- `camera_rtsp_url` (str): RTSP stream URL (e.g., `rtsp://10.0.0.1:554/stream`)
-- `pipeline_elements` (str): GStreamer pipeline chain (e.g., `! decodebin ! autovideosink`)
-
-**Returns:**
-- `List[str]`: Complete command line ready for execution
-
-**Raises:**
-- `ValueError`: If either parameter is empty or None
-
-**Example:**
-```python
-rtsp_url = "rtsp://192.168.1.100:554/profile1"
-pipeline = "! rtph264depay ! h264parse ! avdec_h264 ! autovideosink"
-command = prepare_commandline(rtsp_url, pipeline)
-# Result: "gst-launch-1.0 rtspsrc location=rtsp://192.168.1.100:554/profile1 ! rtph264depay ! h264parse ! avdec_h264 ! autovideosink"
-```
-
----
-
-#### Main Execution Flow
-
-```python
-if __name__ == "__main__":
-```
-
-1. **Argument Parsing**
-   - `--verbose`: Enable detailed logging (default: False)
-   - `--user`: ONVIF username for camera authentication
-   - `--password`: ONVIF password for camera authentication
-
-2. **Camera Discovery**
-   - Broadcasts WS-Discovery probe on local network
-   - Collects responses for 5 seconds
-   - Returns list of discovered cameras
-
-3. **Profile Retrieval & Pipeline Launch**
-   - For each camera:
-     - Authenticate using provided credentials
-     - Load pipeline configuration from `config.json`
-     - Query all available media profiles
-     - Extract RTSP URL from each profile
-     - Launch DL Streamer with constructed command
-     - Store process handle in `running_processes[]`
-
-4. **Process Management**
-   - Wait for all processes to complete
-   - Handle `KeyboardInterrupt` (Ctrl+C) gracefully
-   - Terminate all child processes on exit
-   - Report process status
-
----
-
-### 2. `dls_onvif_discovery_utils.py`
-
-**Purpose**: Utility functions for ONVIF camera discovery and media profile management.
-
-#### Functions
-
-##### `discover_onvif_cameras(verbose: bool = False) -> List[dict]`
-
-Discovers ONVIF cameras on the local network using WS-Discovery multicast protocol.
-
-**Parameters:**
-- `verbose` (bool): Enable detailed discovery logging
-
-**Returns:**
-- `List[dict]`: List of camera dictionaries with keys:
-  - `hostname` (str): Camera IP address
-  - `port` (int): ONVIF service port
-
-**Protocol Details:**
-- **Multicast Group**: `239.255.255.250:3702` (ONVIF standard)
-- **Timeout**: 5 seconds for receiving responses
-- **Message Format**: SOAP 1.2 with WS-Discovery extensions
-
-**SOAP Probe Message:**
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope"
-               xmlns:wsa="http://schemas.xmlsoap.org/ws/2004/08/addressing"
-               xmlns:tns="http://schemas.xmlsoap.org/ws/2005/04/discovery">
-    <soap:Header>
-        <wsa:Action>http://schemas.xmlsoap.org/ws/2005/04/discovery/Probe</wsa:Action>
-        <wsa:MessageID>uuid:probe-message</wsa:MessageID>
-        <wsa:To>urn:schemas-xmlsoap-org:ws:2005:04:discovery</wsa:To>
-    </soap:Header>
-    <soap:Body>
-        <tns:Probe>
-            <tns:Types>dn:NetworkVideoTransmitter</tns:Types>
-        </tns:Probe>
-    </soap:Body>
-</soap:Envelope>
-```
-
-**Response Parsing:**
-- Extracts `XAddrs` element containing service endpoint URL
-- Parses hostname and port from URL
-- Filters for valid `ProbeMatches` responses
-- Deduplicates camera entries
-
-**Example:**
-```python
-cameras = discover_onvif_cameras(verbose=True)
-for cam in cameras:
-    print(f"Found camera at {cam['hostname']}:{cam['port']}")
-```
-
----
-
-##### `camera_profiles(client, verbose: bool = False) -> List[ONVIFProfile]`
-
-Queries an ONVIF camera for available media profiles and extracts detailed configuration.
-
-**Parameters:**
-- `client`: ONVIF client instance (from `onvif-zeep` library)
-- `verbose` (bool): Enable detailed profile logging
-
-**Returns:**
-- `List[ONVIFProfile]`: List of profile objects containing:
-  - Profile metadata (name, token, fixed status, video_source_configuration, video_encoder_configuration)
-  - Video source configuration
-  - Video encoder settings (codec, resolution, bitrate, quality)
-  - Audio configurations (if available)
-  - PTZ settings (if available)
-  - RTSP streaming URI
-
-**Retrieved Information:**
-
-| Category | Properties |
-|----------|------------|
-| **Profile** | name, token, fixed |
-| **Video Source** | name, token, source_token, bounds (x, y, width, height) |
-| **Video Encoder** | encoding (H264/H265/MJPEG), resolution, quality, framerate_limit, bitrate_limit, GOP length |
-| **PTZ** | name, token, node_token |
-| **Streaming** | rtsp_url |
-
-**Error Handling:**
-- `AttributeError`: Profile missing expected attributes
-- `KeyError`: Malformed ONVIF response
-- `TimeoutError`: Network communication timeout
-- `ConnectionError`: Camera unreachable
-
-**Example:**
-```python
-from onvif import ONVIFCamera
-
-camera = ONVIFCamera('192.168.1.100', 80, 'admin', 'password')
-profiles = camera_profiles(camera, verbose=True)
-
-for profile in profiles:
-    print(f"Profile: {profile.name}")
-    print(f"  Resolution: {profile.vec_resolution}")
-    print(f"  RTSP URL: {profile.rtsp_url}")
-```
-
----
-
-##### `get_commandline_by_key(file_path: str, key: str, verbose: bool = False) -> Optional[str]`
-
-Retrieves GStreamer pipeline elements from JSON configuration file.
-
-**Parameters:**
-- `file_path` (str): Path to configuration JSON file
-- `key` (str): Lookup key (typically camera IP address)
-- `verbose` (bool): Enable logging
-
-**Returns:**
-- `Optional[str]`: Pipeline elements string, or `None` if key not found
-
-**Configuration Format:**
-```json
-{
-    "192.168.1.100": "! rtph264depay ! h264parse ! avdec_h264 ! videoconvert ! autovideosink",
-    "192.168.1.101": "! rtph264depay ! h264parse ! vaapih264dec ! vaapipostproc ! autovideosink"
-}
-```
-
-**Error Handling:**
-- `FileNotFoundError`: Config file doesn't exist
-- `json.JSONDecodeError`: Invalid JSON syntax
-- Generic exceptions logged and return `None`
-
----
-
-##### `extract_xaddrs(xml_string: str) -> Optional[str]`
-
-Extracts the XAddrs element from WS-Discovery probe response.
-
-**Parameters:**
-- `xml_string` (str): Raw XML response from camera
-
-**Returns:**
-- `Optional[str]`: XAddrs URL or `None` if not found
-
-**Example:**
-```python
-response = '''<?xml version="1.0"?>
-<soap:Envelope>
-    <wsdd:XAddrs>http://192.168.1.100:80/onvif/device_service</wsdd:XAddrs>
-</soap:Envelope>'''
-
-xaddrs = extract_xaddrs(response)
-# Result: "http://192.168.1.100:80/onvif/device_service"
-```
-
----
-
-##### `parse_xaddrs_url(xaddrs: str) -> dict`
-
-Parses XAddrs URL into structured components.
-
-**Parameters:**
-- `xaddrs` (str): Full XAddrs URL string
-
-**Returns:**
-- `dict`: URL components:
-  - `full_url` (str): Complete URL
-  - `scheme` (str): Protocol (http/https)
-  - `hostname` (str): IP address or hostname
-  - `port` (int): Service port
-  - `path` (str): URL path
-  - `base_url` (str): Scheme + netloc
-
-**Example:**
-```python
-xaddrs = "http://192.168.1.100:8080/onvif/device_service"
-parsed = parse_xaddrs_url(xaddrs)
-# Result: {
-#     'full_url': 'http://192.168.1.100:8080/onvif/device_service',
-#     'scheme': 'http',
-#     'hostname': '192.168.1.100',
-#     'port': 8080,
-#     'path': '/onvif/device_service',
-#     'base_url': 'http://192.168.1.100:8080'
-# }
-```
-
----
-
-### 3. `dls_onvif_data.py`
-
-**Purpose**: Data structures for storing ONVIF camera profile information.
-
-#### Classes
-
-##### `ONVIFProfile`
-
-Contains ONVIF camera profile data with relevant configuration details for this sample.
-
-**Attributes:**
-
-| Property | Type | Description |
-|----------|------|-------------|
-| `name` | str | Profile name |
-| `token` | str | Unique profile identifier |
-| `fixed` | bool | Whether profile is immutable |
-| `video_source_configuration` |  str | Video source configuration of the ONVIF profile |
-| `video_encoder_configuration` | str | Video encoder configuration of the ONVIF profile |
-| `rtsp_url` | str | RTSP streaming endpoint |
-| **Video Source Configuration** |
-| `vsc_name` | str | Video source name |
-| `vsc_token` | str | Video source token |
-| `vsc_source_token` | str | Source reference token |
-| `vsc_bounds` | dict | Video bounds (x, y, width, height) |
-| **Video Encoder Configuration** |
-| `vec_name` | str | Encoder configuration name |
-| `vec_token` | str | Encoder configuration token |
-| `vec_encoding` | str | Codec (H264, H265, MJPEG, etc.) |
-| `vec_resolution` | dict | Resolution (width, height) |
-| `vec_quality` | int | Quality level (1-100) |
-| `vec_rate_control` | int | Rate control of the Video Encoder Configuration |
-| `vec_multicast` | int | Multicast of the Video Encoder Configuration |
-| **Audio Encoder Configuration** |
-| `aec_name` | str | Audio encoder name |
-| `aec_token` | str | Audio encoder token  |
-| `aec_encoding` | str | Encoding of the audio encoder configuration |
-| `aec_bitrate` | int | Bitrate of the audio encoder configuration |
-| `aec_sample_rate` | int | Sample rate of the audio encoder configuration |
-| **PTZ Configuration** |
-| `ptz_name` | str | PTZ configuration name |
-| `ptz_token` | str | PTZ configuration token |
-| `ptz_node_token` | str | PTZ node identifier |
-
-**Implementation:**
-- All properties use `@property` decorators for encapsulation
-- Initializes with default values (empty strings, empty dicts, zero integers)
-- Provides getter/setter methods for all attributes
-
-**Example Usage:**
-```python
-profile = ONVIFProfile()
-profile.name = "MainStream"
-profile.vec_resolution = {'width': 1920, 'height': 1080}
-profile.vec_encoding = "H264"
-profile.rtsp_url = "rtsp://192.168.1.100/stream1"
-
-print(f"{profile.name}: {profile.vec_resolution['width']}x{profile.vec_resolution['height']}")
+### Execution Flow
+
+```mermaid
+flowchart TD
+    Start([▶ python dls_onvif_sample.py<br/>--username admin --password admin])
+    ParseArgs[parse_args<br/>--username, --password,<br/>--refresh-rate, --config-file, --verbose]
+    BuildCfg[Build config dict<br/>user, password, refresh_rate,<br/>config_file, verbose]
+    AsyncRun[asyncio.run ➜ main&#40;config&#41;]
+    InitAsync[DlsOnvifDiscoveryEngine&#40;&#41;<br/>Gst.init · create empty Registry]
+    InitDisc[init_discovery&#40;config&#41;<br/>set refresh_rate, username, password, verbose]
+    LoadCfg[DlsOnvifConfigManager&#40;config_file&#41;<br/>parse config.json ➜ camera defs + verbose]
+
+    subgraph LOOP ["♻ Discovery cycle (while is_discovery_running)"]
+        direction TB
+        GC[gc.collect&#40;&#41;]
+        Refresh[config_manager.refresh_cameras&#40;&#41;]
+        Probe[WS-Discovery probe<br/>239.255.255.250:3702]
+        ParseResp[Parse ProbeMatch ➜<br/>Yield hostname, port]
+        CheckKnown{Camera already<br/>in Registry?}
+
+        subgraph NEW_CAM ["New camera path"]
+            direction TB
+            CreateEntry[DlsOnvifCameraEntry<br/>.from_discovery_dict&#40;&#41;]
+            CreatePipe[_create_pipelines_for_entry&#40;entry&#41;]
+            GetDef{config_manager<br/>.get_pipeline_definition<br/>_by_ip_port&#40;ip, port&#41;}
+            NoDef([⚠ WARN skip camera])
+            Connect[ONVIFCamera&#40;ip, port, user, pass&#41;]
+            GetProf[self.camera_profiles&#40;camera_obj&#41;<br/>➜ List of ONVIFProfile]
+            HasProf{Profiles<br/>with RTSP URL?}
+            NoProf([⚠ No streamable profiles])
+
+            subgraph PIPE_LOOP ["For each profile with RTSP URL"]
+                direction TB
+                BuildPL[DlsLaunchedPipeline&#40;<br/>&quot;rtspsrc location=… definition&quot;&#41;]
+                AddPL[entry.add_pipeline&#40;pipeline&#41;]
+                StartPL[asyncio.create_task&#40;<br/>pipeline.start&#40;&#41;&#41;]
+            end
+
+            MarkStream[entry.mark_streaming&#40;&#41;]
+            AddReg[registry.add&#40;entry&#41;]
+        end
+
+        Touch[existing.touch&#40;&#41;<br/>update last_seen_at]
+
+        subgraph STALE ["Remove stale cameras"]
+            direction TB
+            CalcStale[stale = registry.camera_ids&#40;&#41;<br/>− current_ids]
+            RemoveReg[registry.remove&#40;id&#41;]
+            StopPipes[entry.stop_all_pipelines&#40;&#41;]
+            MarkRemoved[entry.mark_removed&#40;&#41;]
+        end
+
+        Countdown[_countdown_to_next_cycle&#40;&#41;<br/>sleep refresh_rate seconds]
+    end
+
+    subgraph SHUTDOWN ["🛑 Ctrl+C ➜ Graceful shutdown"]
+        direction TB
+        StopAll[registry.stop_all&#40;&#41;]
+        CancelTasks[Cancel + gather<br/>_pipeline_tasks]
+        Done([Exit])
+    end
+
+    Start --> ParseArgs --> BuildCfg --> AsyncRun
+    AsyncRun --> InitAsync --> InitDisc --> LoadCfg
+    LoadCfg --> GC
+    GC --> Refresh --> Probe --> ParseResp
+    ParseResp --> CheckKnown
+    CheckKnown -- No --> CreateEntry --> CreatePipe --> GetDef
+    GetDef -- None --> NoDef --> AddReg
+    GetDef -- definition --> Connect --> GetProf --> HasProf
+    HasProf -- No --> NoProf --> AddReg
+    HasProf -- Yes --> BuildPL --> AddPL --> StartPL
+    StartPL --> MarkStream --> AddReg
+    CheckKnown -- Yes --> Touch
+    Touch --> CalcStale
+    AddReg --> CalcStale
+    CalcStale --> RemoveReg --> StopPipes --> MarkRemoved
+    MarkRemoved --> Countdown
+    Countdown -->|next cycle| GC
+    Countdown -->|KeyboardInterrupt| StopAll
+    StopAll --> CancelTasks --> Done
 ```
 
 ---
 
 ## Configuration
 
-### `config.json`
+The sample reads `config.json` from the current working directory (or the path
+given with `--config-file`).
 
-Maps camera IP addresses to custom GStreamer pipeline command lines.
+### Format
 
-**Format:**
 ```json
 {
-    "<camera_ip>": "<gstreamer_pipeline_elements>"
+    "verbose": true,
+    "kitchen": {
+        "hostname": "192.168.1.100",
+        "port": 8080,
+        "definition": " ! rtph264depay ! h264parse ! avdec_h264 ! videoconvert ! autovideosink"
+    },
+    "living_room": {
+        "hostname": "192.168.1.101",
+        "port": 8090,
+        "definition": " ! rtph264depay ! h264parse ! avdec_h264 ! videoconvert ! autovideosink"
+    }
 }
 ```
 
-**Example:**
-```json
-{
-    "192.168.1.100": "! rtph264depay ! h264parse ! avdec_h264 ! videoconvert ! autovideosink",
-    "192.168.1.101": "! rtph264depay ! h264parse ! vaapih264dec ! vaapipostproc ! autovideosink",
-    "192.168.1.102": "! rtph264depay ! h264parse ! video/x-h264 ! mpegtsmux ! filesink location=output.ts"
-}
-```
+| Key | Type | Description |
+|-----|------|-------------|
+| `verbose` | `bool` | Optional. Print detailed profile tables on discovery. |
+| `<camera_name>` | `object` | Named camera entry. |
+| `hostname` | `str` | Camera IP address (must match WS-Discovery result). |
+| `port` | `int` | Camera ONVIF port. |
+| `definition` | `str` | GStreamer pipeline fragment appended after `rtspsrc location=<url>`. |
 
-**Pipeline Elements Breakdown:**
-
-| Element | Purpose |
-|---------|---------|
-| `rtph264depay` | Extracts H.264 stream from RTP packets |
-| `h264parse` | Parses H.264 bitstream |
-| `avdec_h264` | Software H.264 decoder (libav) |
-| `vaapih264dec` | Hardware-accelerated H.264 decoder (VA-API) |
-| `videoconvert` | Converts video format/colorspace |
-| `vaapipostproc` | Hardware video post-processing |
-| `autovideosink` | Automatic video output selection |
-| `filesink` | Saves stream to file |
-
-**Best Practices:**
-- Use hardware decoders (`vaapih264dec`) for better performance
-- Match decoder to camera's codec (H.264, H.265, MJPEG)
-- Include `! videoconvert` before display sinks
-- Test pipelines with `gst-launch-1.0` before adding to config
+Notes:
+- Use a pipeline fragment, not a full `gst-launch-1.0` command.
+- Validate the fragment with `gst-launch-1.0` before adding it to the config.
+- Cameras discovered but not matching any config entry are skipped.
 
 ---
 
-### `requirements.txt`
+## Running The Sample
 
-**Current Dependencies:**
-```
-onvif-zeep
-```
+### Basic usage
 
-**Package Details:**
-
-| Package | Version | Purpose |
-|---------|---------|---------|
-| `onvif-zeep` | Latest | ONVIF client library using Zeep SOAP client |
-
-**Installation:**
 ```bash
-pip install -r requirements.txt
+python dls_onvif_sample.py --username admin --password admin
 ```
 
-**Additional System Requirements:**
-- **GStreamer 1.0+**: Core multimedia framework
-- **GStreamer plugins**: base, good, bad, ugly (for codec support)
-- **VA-API drivers** (optional): For hardware acceleration on Intel platforms
+### With verbose profile output
 
-**Installation Commands (Ubuntu/Debian):**
 ```bash
-# Python dependencies
-pip install onvif-zeep
+python dls_onvif_sample.py --username admin --password admin --verbose
+```
 
-# GStreamer core and plugins
-sudo apt-get install \
-    gstreamer1.0-tools \
-    gstreamer1.0-plugins-base \
-    gstreamer1.0-plugins-good \
-    gstreamer1.0-plugins-bad \
-    gstreamer1.0-plugins-ugly \
-    gstreamer1.0-vaapi
+### With custom config and refresh rate
 
-# Intel Media SDK (optional, for Intel hardware acceleration)
-sudo apt-get install intel-media-va-driver-non-free
+```bash
+python dls_onvif_sample.py \
+    --username admin \
+    --password admin \
+    --config-file /path/to/config.json \
+    --refresh-rate 30 \
+    --verbose
+```
+
+### CLI arguments
+
+| Argument | Default | Description |
+|----------|---------|-------------|
+| `--username` | `$ONVIF_USER` | ONVIF camera username |
+| `--password` | `$ONVIF_PASSWORD` | ONVIF camera password |
+| `--refresh-rate` | `60` | Seconds between discovery cycles |
+| `--config-file` | `config.json` | Path to pipeline configuration JSON |
+| `--verbose` | `false` | Print detailed profile information |
+
+### Behavior
+
+- Discovery runs in a continuous async loop
+- One GStreamer pipeline is started per discovered profile with an RTSP URL
+- New cameras are added and stale cameras are removed between cycles
+- `verbose` can be enabled via CLI (`--verbose`) or `config.json` (`"verbose": true`)
+- `Ctrl+C` gracefully stops all pipelines
+
+---
+
+## Build Wheel Package
+
+Detailed build, install, and test instructions:
+[build_whl/README.md](build_whl/README.md)
+
+Quick build:
+
+```bash
+cd build_whl
+./build_dls_onvif_sample_whl.sh
 ```
 
 ---
-**Docker**
 
+## Module Documentation
 
-To run the Docker image with network access for ONVIF camera discovery:
+### `dls_onvif_sample.py`
 
-```bash
-docker run --rm -it --network host  <image_name>
-```
+Entry point. Parses CLI arguments, initializes `DlsOnvifDiscoveryEngine`,
+runs the async discovery loop, and handles graceful shutdown.
 
-**Command Explanation:**
-- `--network host`: Enables host network mode for multicast discovery and direct camera access
-- `--rm`: Automatically removes container after exit
-- `-it`: Interactive terminal mode
+### `dls_onvif_discovery_engine.py`
 
-**Note:** Host network mode is required for WS-Discovery multicast (239.255.255.250:3702) to function properly.
+Unified discovery module containing:
+
+**Functions:**
+- `discover_onvif_cameras()` — synchronous WS-Discovery probe
+- `discover_onvif_cameras_async()` — async generator wrapper
+- `extract_xaddrs()` / `parse_xaddrs_url()` — XML helpers
+
+**Class `DlsOnvifDiscoveryEngine`:**
+- `camera_profiles(client)` — retrieves ONVIF media profiles and RTSP URIs
+- Manages `DlsOnvifCameraRegistry` for unified camera/pipeline tracking
+- Periodic discovery with configurable refresh rate
+- Creates pipelines per camera profile via `_create_pipelines_for_entry()`
+- Removes stale cameras via `_remove_stale_cameras()`
+- Verbose profile dump via `print_cameras()` (controlled by `verbose` flag)
+
+### `dls_onvif_camera_entry.py`
+
+- `CameraStatus` — enum: `DISCOVERED`, `CONNECTING`, `STREAMING`, `ERROR`, `REMOVED`
+- `DlsOnvifCameraEntry` — dataclass binding camera info, ONVIF profiles, pipelines, and lifecycle metadata
+- `DlsOnvifCameraRegistry` — thread-safe `dict[camera_id, entry]` with CRUD and bulk operations
+
+### `dls_onvif_config_manager.py`
+
+`DlsOnvifConfigManager` — loads `config.json`, exposes `verbose` flag,
+provides `get_pipeline_definition_by_ip_port()`.
+
+### `dls_onvif_discovery_thread.py`
+
+`DlsLaunchedPipeline` — manages a single GStreamer pipeline in a dedicated
+thread with `GLib.MainLoop`. Thread-safe start/stop with lifecycle lock.
+
+### `dls_onvif_data.py`
+
+`ONVIFProfile` — container for ONVIF profile data: video source, video encoder,
+audio encoder, PTZ configuration, and RTSP URL.
+
+### `misc.py`
+
+`print_cameras()` — prints a list of dicts as a formatted ASCII table.
 
 ---
 
 ## Usage Examples
 
-### Basic Usage
+### Pipeline examples for `config.json`
 
-**Discover cameras and launch default pipelines:**
-```bash
-python dls_onvif_sample.py --user admin --password admin123
-```
-
-**With verbose logging:**
-```bash
-python dls_onvif_sample.py --user admin --password admin123 --verbose True
-```
-
----
-
-### Complete Workflow Example
-
-**Step 1: Create configuration file**
-```bash
-cat > config.json << EOF
+**Software decoding + display:**
+```json
 {
-    "192.168.1.100": "! rtph264depay ! h264parse ! avdec_h264 ! videoconvert ! autovideosink"
+    "cam1": {
+        "hostname": "192.168.1.100",
+        "port": 80,
+        "definition": " ! rtph264depay ! h264parse ! avdec_h264 ! videoconvert ! autovideosink"
+    }
 }
-EOF
 ```
-
-**Step 2: Test camera connectivity**
-```bash
-# Manually test RTSP stream
-gst-launch-1.0 rtspsrc location=rtsp://admin:admin123@192.168.1.100/stream ! \
-    rtph264depay ! h264parse ! avdec_h264 ! autovideosink
-```
-
-**Step 3: Run discovery and streaming**
-```bash
-python dls_onvif_sample.py \
-    --user admin \
-    --password admin123 \
-    --verbose True
-```
-
-**Expected Output:**
-```
-Discovered ONVIF cameras:
-Hostname: 192.168.1.100, Port: 80
-DL Streamer started (PID:12345)
-Executing command line for 192.168.1.100: gst-launch-1.0 rtspsrc location=rtsp://192.168.1.100/stream ! rtph264depay ! h264parse ! avdec_h264 ! videoconvert ! autovideosink
-[PID:12345] OUT: Setting pipeline to PAUSED ...
-[PID:12345] OUT: Pipeline is PREROLLING ...
-[PID:12345] OUT: Pipeline is PREROLLED ...
-[PID:12345] OUT: Setting pipeline to PLAYING ...
-[PID:12345] OUT: New clock: GstSystemClock
-
-Press Ctrl+C to stop all processes and exit.
-```
-
-**Step 4: Stop streaming**
-```
-Press Ctrl+C
-
-Stopping all processes...
-Terminated process PID: 12345
-All processes stopped.
-```
-
----
-
-### Advanced Pipeline Examples
 
 **Hardware-accelerated decoding (Intel VA-API):**
 ```json
 {
-    "192.168.1.100": "! rtph264depay ! h264parse ! vaapih264dec ! vaapipostproc ! autovideosink"
+    "cam1": {
+        "hostname": "192.168.1.100",
+        "port": 80,
+        "definition": " ! rtph264depay ! h264parse ! vaapih264dec ! vaapipostproc ! autovideosink"
+    }
 }
 ```
 
 **Save to file:**
 ```json
 {
-    "192.168.1.100": "! rtph264depay ! h264parse ! video/x-h264 ! mp4mux ! filesink location=/tmp/camera1.mp4"
-}
-```
-
-**Multiple operations (display + save):**
-```json
-{
-    "192.168.1.100": "! rtph264depay ! h264parse ! tee name=t ! queue ! avdec_h264 ! autovideosink t. ! queue ! mp4mux ! filesink location=output.mp4"
+    "cam1": {
+        "hostname": "192.168.1.100",
+        "port": 80,
+        "definition": " ! rtph264depay ! h264parse ! video/x-h264 ! mp4mux ! filesink location=/tmp/camera1.mp4"
+    }
 }
 ```
 
 **DL Streamer with object detection:**
 ```json
 {
-    "192.168.1.100": "! rtph264depay ! h264parse ! avdec_h264 ! gvadetect model=/path/to/model.xml ! gvawatermark ! autovideosink"
+    "cam1": {
+        "hostname": "192.168.1.100",
+        "port": 80,
+        "definition": " ! rtph264depay ! h264parse ! avdec_h264 ! gvadetect model=/path/to/model.xml ! gvawatermark ! autovideosink"
+    }
 }
 ```
 
 ---
 
+## Troubleshooting
+
+| Problem | Solution |
+|---------|----------|
+| No cameras found | Check multicast routing, firewall rules, and that cameras support ONVIF WS-Discovery |
+| Camera discovered but skipped | Add a matching entry (hostname + port) to `config.json` |
+| `--verbose True` → `unrecognized arguments` | Use `--verbose` without a value (it's a flag) |
+| `Namespace GstAnalytics not available` | Remove `gi.require_version("GstAnalytics", "1.0")` if present |
+| Authentication failures | Confirm `--username` and `--password` are valid for the target camera |
+| `ModuleNotFoundError: No module named 'gi'` | Install: `sudo apt install python3-gi gir1.2-gst-1.0` |
 
 ---
 
@@ -672,6 +479,4 @@ SPDX-License-Identifier: MIT
 
 ---
 
-## Support
-
-For issues, questions, or contributions, please refer to the main DL Streamer project repository.
+[Deep Learning Streamer (DL Streamer) Python Samples](../README.md)

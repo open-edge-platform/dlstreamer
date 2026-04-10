@@ -1,18 +1,19 @@
-"""
-ONVIF camera profile data structures and configuration management.
-"""
 # ==============================================================================
 # Copyright (C) 2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
+"""
+ONVIF camera profile data structures and configuration management.
+"""
 
-class ONVIFProfile: #pylint: disable=too-many-instance-attributes, too-many-public-methods
+
+class ONVIFProfile:  # pylint: disable=too-many-instance-attributes, too-many-public-methods
     """
     Represents an ONVIF profile containing camera configuration details.
 
     This class encapsulates selected configuration information for an ONVIF camera profile,
-    including video source settings, video encoder parameters, PTZ (Pan-Tilt-Zoom) 
+    including video source settings, video encoder parameters, PTZ (Pan-Tilt-Zoom)
     configuration, and RTSP streaming URL. It provides a comprehensive interface for
     accessing and managing camera profile attributes through property decorators.
 
@@ -46,6 +47,12 @@ class ONVIFProfile: #pylint: disable=too-many-instance-attributes, too-many-publ
     """
 
     def __init__(self):
+        # IP:
+        self.ip_address = ""
+        self._port = 0
+        self._username = ""
+        self._password = ""
+
         # ONVIF Profile details
         self._name = ""
         self._token = ""
@@ -82,6 +89,46 @@ class ONVIFProfile: #pylint: disable=too-many-instance-attributes, too-many-publ
         self._aec_sample_rate = 0
 
     @property
+    def ip(self) -> str:
+        """Get the IP address of the camera."""
+        return self.ip_address
+
+    @ip.setter
+    def ip(self, ip_address: str):
+        """Set the IP address of the camera."""
+        self.ip_address = ip_address
+
+    @property
+    def port(self) -> int:
+        """Get the port of the camera."""
+        return self._port
+
+    @port.setter
+    def port(self, port: int):
+        """Set the port of the camera."""
+        self._port = port
+
+    @property
+    def username(self) -> str:
+        """Get the username for camera authentication."""
+        return self._username
+
+    @username.setter
+    def username(self, username: str):
+        """Set the username for camera authentication."""
+        self._username = username
+
+    @property
+    def password(self) -> str:
+        """Get the password for camera authentication."""
+        return self._password
+
+    @password.setter
+    def password(self, password: str):
+        """Set the password for camera authentication."""
+        self._password = password
+
+    @property
     def name(self) -> str:
         """Get the name of the ONVIF profile."""
         return self._name
@@ -95,6 +142,7 @@ class ONVIFProfile: #pylint: disable=too-many-instance-attributes, too-many-publ
     def token(self) -> str:
         """Get the token of the ONVIF profile."""
         return self._token
+
     @token.setter
     def token(self, token: str):
         """Set the token of the ONVIF profile."""
@@ -104,6 +152,7 @@ class ONVIFProfile: #pylint: disable=too-many-instance-attributes, too-many-publ
     def fixed(self) -> bool:
         """Get if the ONVIF profile is fixed."""
         return self._fixed
+
     @fixed.setter
     def fixed(self, fixed: bool):
         """Set if the ONVIF profile is fixed."""
@@ -113,6 +162,7 @@ class ONVIFProfile: #pylint: disable=too-many-instance-attributes, too-many-publ
     def video_source_configuration(self) -> str:
         """Get the video source configuration of the ONVIF profile."""
         return self._video_source_configuration
+
     @video_source_configuration.setter
     def video_source_configuration(self, video_source_configuration: str):
         """Set the video source configuration of the ONVIF profile."""
@@ -122,6 +172,7 @@ class ONVIFProfile: #pylint: disable=too-many-instance-attributes, too-many-publ
     def video_encoder_configuration(self) -> str:
         """Get the video encoder configuration of the ONVIF profile."""
         return self._video_encoder_configuration
+
     @video_encoder_configuration.setter
     def video_encoder_configuration(self, video_encoder_configuration: str):
         """Set the video encoder configuration of the ONVIF profile."""
@@ -131,6 +182,7 @@ class ONVIFProfile: #pylint: disable=too-many-instance-attributes, too-many-publ
     def rtsp_url(self) -> str:
         """Get the RTSP URL of the ONVIF profile."""
         return self._rtsp_url
+
     @rtsp_url.setter
     def rtsp_url(self, rtsp_url: str):
         """Set the RTSP URL of the ONVIF profile."""
@@ -141,6 +193,7 @@ class ONVIFProfile: #pylint: disable=too-many-instance-attributes, too-many-publ
     def vsc_name(self) -> str:
         """Get the name of the Video Source Configuration."""
         return self._vsc_name
+
     @vsc_name.setter
     def vsc_name(self, vsc_name: str):
         """Set the name of the Video Source Configuration."""
@@ -150,6 +203,7 @@ class ONVIFProfile: #pylint: disable=too-many-instance-attributes, too-many-publ
     def vsc_token(self) -> str:
         """Get the token of the Video Source Configuration."""
         return self._vsc_token
+
     @vsc_token.setter
     def vsc_token(self, vsc_token: str):
         """Set the token of the Video Source Configuration."""
@@ -159,6 +213,7 @@ class ONVIFProfile: #pylint: disable=too-many-instance-attributes, too-many-publ
     def vsc_source_token(self) -> str:
         """Get the source token of the Video Source Configuration."""
         return self._vsc_source_token
+
     @vsc_source_token.setter
     def vsc_source_token(self, vsc_source_token: str):
         """Set the source token of the Video Source Configuration."""
@@ -168,6 +223,7 @@ class ONVIFProfile: #pylint: disable=too-many-instance-attributes, too-many-publ
     def vsc_bounds(self) -> dict:
         """Get the bounds of the Video Source Configuration."""
         return self._vsc_bounds
+
     @vsc_bounds.setter
     def vsc_bounds(self, vsc_bounds: dict):
         """Set the bounds of the Video Source Configuration."""
@@ -178,6 +234,7 @@ class ONVIFProfile: #pylint: disable=too-many-instance-attributes, too-many-publ
     def vec_name(self) -> str:
         """Get the name of the Video Encoder Configuration."""
         return self._vec_name
+
     @vec_name.setter
     def vec_name(self, vec_name: str):
         """Set the name of the Video Encoder Configuration."""
@@ -187,6 +244,7 @@ class ONVIFProfile: #pylint: disable=too-many-instance-attributes, too-many-publ
     def vec_token(self) -> str:
         """Get the token of the Video Encoder Configuration."""
         return self._vec_token
+
     @vec_token.setter
     def vec_token(self, vec_token: str):
         """Set the token of the Video Encoder Configuration."""
@@ -196,6 +254,7 @@ class ONVIFProfile: #pylint: disable=too-many-instance-attributes, too-many-publ
     def vec_encoding(self) -> str:
         """Get the encoding of the Video Encoder Configuration."""
         return self._vec_encoding
+
     @vec_encoding.setter
     def vec_encoding(self, vec_encoding: str):
         """Set the encoding of the Video Encoder Configuration."""
@@ -205,6 +264,7 @@ class ONVIFProfile: #pylint: disable=too-many-instance-attributes, too-many-publ
     def vec_resolution(self) -> dict:
         """Get the resolution of the Video Encoder Configuration."""
         return self._vec_resolution
+
     @vec_resolution.setter
     def vec_resolution(self, vec_resolution: dict):
         """Set the resolution of the Video Encoder Configuration."""
@@ -214,6 +274,7 @@ class ONVIFProfile: #pylint: disable=too-many-instance-attributes, too-many-publ
     def vec_quality(self) -> int:
         """Get the quality of the Video Encoder Configuration."""
         return self._vec_quality
+
     @vec_quality.setter
     def vec_quality(self, vec_quality: int):
         """Set the quality of the Video Encoder Configuration."""
@@ -223,6 +284,7 @@ class ONVIFProfile: #pylint: disable=too-many-instance-attributes, too-many-publ
     def vec_rate_control(self) -> dict:
         """Get the rate control of the Video Encoder Configuration."""
         return self._vec_rate_control
+
     @vec_rate_control.setter
     def vec_rate_control(self, vec_rate_control: dict):
         """Set the rate control of the Video Encoder Configuration."""
@@ -232,6 +294,7 @@ class ONVIFProfile: #pylint: disable=too-many-instance-attributes, too-many-publ
     def vec_multicast(self) -> dict:
         """Get the multicast of the Video Encoder Configuration."""
         return self._vec_multicast
+
     @vec_multicast.setter
     def vec_multicast(self, vec_multicast: dict):
         """Set the multicast of the Video Encoder Configuration."""
@@ -242,6 +305,7 @@ class ONVIFProfile: #pylint: disable=too-many-instance-attributes, too-many-publ
     def ptz_name(self) -> str:
         """Get the name of the PTZ Configuration."""
         return self._ptz_name
+
     @ptz_name.setter
     def ptz_name(self, ptz_name: str):
         """Set the name of the PTZ Configuration."""
@@ -251,6 +315,7 @@ class ONVIFProfile: #pylint: disable=too-many-instance-attributes, too-many-publ
     def ptz_token(self) -> str:
         """Get the token of the PTZ Configuration."""
         return self._ptz_token
+
     @ptz_token.setter
     def ptz_token(self, ptz_token: str):
         """Set the token of the PTZ Configuration."""
@@ -260,6 +325,7 @@ class ONVIFProfile: #pylint: disable=too-many-instance-attributes, too-many-publ
     def ptz_node_token(self) -> str:
         """Get the node token of the PTZ Configuration."""
         return self._ptz_node_token
+
     @ptz_node_token.setter
     def ptz_node_token(self, ptz_node_token: str):
         """Set the node token of the PTZ Configuration."""
@@ -269,6 +335,7 @@ class ONVIFProfile: #pylint: disable=too-many-instance-attributes, too-many-publ
     def aec_name(self) -> str:
         """Get the name of the Audio Encoder Configuration."""
         return self._aec_name
+
     @aec_name.setter
     def aec_name(self, aec_name: str):
         """Set the name of the Audio Encoder Configuration."""
@@ -278,6 +345,7 @@ class ONVIFProfile: #pylint: disable=too-many-instance-attributes, too-many-publ
     def aec_token(self) -> str:
         """Get the token of the Audio Encoder Configuration."""
         return self._aec_token
+
     @aec_token.setter
     def aec_token(self, aec_token: str):
         """Set the token of the Audio Encoder Configuration."""
@@ -287,6 +355,7 @@ class ONVIFProfile: #pylint: disable=too-many-instance-attributes, too-many-publ
     def aec_encoding(self) -> str:
         """Get the encoding of the Audio Encoder Configuration."""
         return self._aec_encoding
+
     @aec_encoding.setter
     def aec_encoding(self, aec_encoding: str):
         """Set the encoding of the Audio Encoder Configuration."""
@@ -296,6 +365,7 @@ class ONVIFProfile: #pylint: disable=too-many-instance-attributes, too-many-publ
     def aec_bitrate(self) -> int:
         """Get the bitrate of the Audio Encoder Configuration."""
         return self._aec_bitrate
+
     @aec_bitrate.setter
     def aec_bitrate(self, aec_bitrate: int):
         """Set the bitrate of the Audio Encoder Configuration."""
@@ -305,6 +375,7 @@ class ONVIFProfile: #pylint: disable=too-many-instance-attributes, too-many-publ
     def aec_sample_rate(self) -> int:
         """Get the sample rate of the Audio Encoder Configuration."""
         return self._aec_sample_rate
+
     @aec_sample_rate.setter
     def aec_sample_rate(self, aec_sample_rate: int):
         """Set the sample rate of the Audio Encoder Configuration."""
