@@ -387,6 +387,13 @@ jobs:
             --on-host
           deactivate
 
+      - name: Collect video files from tests
+        if: always ()
+        run: |
+          echo "Searching for video files in $PWD/$DLS_REL_PATH/tests"
+          find $PWD/$DLS_REL_PATH/tests -type f \( -name "*.mp4" -o -name "*.avi" -o -name "*.mkv" -o -name "*.mov" -o -name "*.webm" \) -exec mv {} ${{ env.DLS_TESTS_RESULTS_PATH }}/ \;
+          echo "Video files moved to ${{ env.DLS_TESTS_RESULTS_PATH }}"
+
       - name: Upload host test results
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f #7.0.0
         env:
