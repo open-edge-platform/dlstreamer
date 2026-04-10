@@ -20,14 +20,6 @@ file (GLOB MAIN_SRC *.cpp)
 
 file (GLOB MAIN_HEADERS *.h)
 
-set(GSTREAMER_INCLUDE_DIR /opt/intel/dlstreamer/gstreamer/include/gstreamer-1.0)
-set(OPENCV_INCLUDE_DIR /usr/include/opencv4)
-set(DLSTREAMER_INCLUDE_DIRS /opt/intel/dlstreamer/include)
-link_directories(${TARGET_NAME} /opt/intel/dlstreamer/lib
-        /opt/intel/dlstreamer/gstreamer/lib
-        /usr/lib/x86_64-linux-gnu
-)
-
 add_executable(${TARGET_NAME} ${MAIN_SRC} ${MAIN_HEADERS})
 
 include(CheckCXXCompilerFlag)
@@ -45,12 +37,12 @@ target_include_directories(${TARGET_NAME}
     PRIVATE
         ${DLSTREAMER_BASE_DIR}/include/dlstreamer/gst
         ${DLSTREAMER_BASE_DIR}/include/
-        ${GSTREAMER_INCLUDE_DIR}
-        ${OPENCV_INCLUDE_DIR}
+        ${OpenCV_INCLUDE_DIRS}
 )
 
 target_include_directories(${TARGET_NAME}
 PRIVATE
+        ${GSTALLOC_INCLUDE_DIRS}
         ${GSTVIDEO_INCLUDE_DIRS}
         ${GSTREAMER_INCLUDE_DIRS}
         ${GLIB2_INCLUDE_DIRS}
@@ -64,6 +56,7 @@ PRIVATE
         ${OpenCV_LIBS}
         ${GLIB2_LIBRARIES}
         ${GSTREAMER_LIBRARIES}
+        ${GSTALLOC_LIBRARIES}
         ${GSTVIDEO_LIBRARIES}
         ${GSTANALYTICS_LIBRARIES}
 )
