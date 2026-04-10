@@ -191,12 +191,7 @@ __gstelementfactory__ = ("myanalytics_py", Gst.Rank.NONE, MyAnalytics)
 
 **File location:** Place in `plugins/python/<element_name>.py`
 
-**Registration:** Add the plugins directory to `GST_PLUGIN_PATH`:
-```python
-plugins_dir = str(Path(__file__).resolve().parent / "plugins")
-os.environ["GST_PLUGIN_PATH"] = f"{os.environ.get('GST_PLUGIN_PATH', '')}:{plugins_dir}"
-Gst.init(None)
-```
+**Registration:** See [Plugin Registration](./coding-conventions.md#plugin-registration) in the Coding Conventions Reference.
 
 **Read for reference:** `samples/gstreamer/python/smart_nvr/plugins/python/gvaAnalytics.py`
 
@@ -371,22 +366,3 @@ script that handles all model download and export. Users run it once before star
 In addition, model export dependencies may clash with model inference dependencies which further
 justifies splitting these two phases.
 
----
-
-## Composing Patterns
-
-When building a new app, identify which patterns apply and compose them:
-
-| User wants... | Patterns to combine |
-|---------------|---------------------|
-| Simple detection + display | 1 + 4 (detect only) |
-| Detection + classification + save | 1 + 4 + 11 |
-| VLM alerting on video file | 1 + 9 + 10 + 11 |
-| Detection with conditional recording | 1 + 4 + 5 + 7 |
-| Custom analytics + chunked storage | 1 + 4 + 6 + 7 |
-| Detection + VLM on selected frames | 1 + 4 + 5 + 6 + 8 + 9 + 11 |
-| Multi-camera with per-camera AI | 12 + (any above per camera) |
-| Detection + OCR (license plates, text) | 1 + 4 + 10 + 11 + 13 |
-| Detection + custom model (non-OCR) | 1 + 4 + 6 + 11 |
-
----

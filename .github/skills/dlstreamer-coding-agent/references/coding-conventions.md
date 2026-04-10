@@ -132,24 +132,21 @@ for mtd in rmeta:
 
 ## Graceful Shutdown
 
-For long-running pipelines (RTSP, live sources), handle Ctrl-C by sending EOS:
+See the **Interruptible loop** in the [Pipeline Construction Reference](./pipeline-construction.md#pipeline-event-loop).
+
+## Device Availability Check
+
+Check for GPU/NPU availability before constructing the pipeline. Use the fallback
+chain NPU → GPU → CPU so the app works on any Intel system:
 
 ```python
-import signal
-
-def _sigint_handler(signum, frame):
-    pipeline.send_event(Gst.Event.new_eos())
-
-signal.signal(signal.SIGINT, _sigint_handler)
-```
-
-## GPU Availability Check
-
-Check for GPU availability before constructing the pipeline and fall back to CPU:
-
-```python
-det_dev = args.device
-if det_dev == "GPU" and not os.path.exists("/dev/dri/renderD128"):
-    print("Warning: GPU not available, falling back to CPU")
-    det_dev = "CPU"
+def check_device(requested, label):
+    """Check device availability with fallback chain: NPU → GPU → CPU."""
+    if requested == "NPU" and not os.path.exists("/dev/accel/accel0"):
+        print(f"Warning: NPU not available for {label}, falling back to GPU")
+        requested = "GPU"
+    if requested == "GPU" and not os.path.exists("/dev/dri/renderD128"):
+        print(f"Warning: GPU not available for {label}, falling back to CPU")
+        requested = "CPU"
+    return requested
 ```

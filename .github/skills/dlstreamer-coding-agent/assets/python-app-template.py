@@ -82,6 +82,17 @@ def find_model(pattern: str, label: str) -> str:
     return str(hits[0])
 
 
+def check_device(requested: str, label: str) -> str:
+    """Check device availability with fallback chain: NPU → GPU → CPU."""
+    if requested == "NPU" and not os.path.exists("/dev/accel/accel0"):
+        print(f"Warning: NPU not available for {label}, falling back to GPU")
+        requested = "GPU"
+    if requested == "GPU" and not os.path.exists("/dev/dri/renderD128"):
+        print(f"Warning: GPU not available for {label}, falling back to CPU")
+        requested = "CPU"
+    return requested
+
+
 def build_source(src: str) -> str:
     """Build GStreamer source element string for file or RTSP."""
     if src.startswith("rtsp://"):
@@ -134,11 +145,8 @@ def main():
     Path(args.output_video).parent.mkdir(parents=True, exist_ok=True)
     Path(args.output_json).parent.mkdir(parents=True, exist_ok=True)
 
-    # GPU fallback
-    device = args.device
-    if device == "GPU" and not os.path.exists("/dev/dri/renderD128"):
-        print("Warning: GPU not available, falling back to CPU")
-        device = "CPU"
+    # Device fallback
+    device = check_device(args.device, "inference")
 
     # Build and run pipeline
     Gst.init(None)

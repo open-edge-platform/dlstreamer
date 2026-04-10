@@ -94,6 +94,19 @@ For new development, prefer custom Python GStreamer elements in `plugins/python/
 
 ## Common Pipeline Patterns
 
+For common use cases, go straight to file generation using predefined application templates and design patterns:
+
+| Use Case | Templates | Design Patterns | Key Model Export |
+|----------|-----------|-----------------|------------------|
+| Detection + save video + JSON | `python-app-template.py` | 1 + 4 + 11 | Ultralytics |
+| Detection + classification/OCR + save | `python-app-template.py` + `export-models-template.py` | 1 + 4 + 11 + 13 | YOLO + PaddleOCR/optimum-cli |
+| VLM alerting + save | `python-app-template.py` | 1 + 9 + 11 | optimum-cli |
+| Detection + custom analytics | `python-app-template.py` | 1 + 4 + 6 + 11 | Ultralytics |
+| Detection + tracking + recording | `python-app-template.py` | 1 + 4 + 5 + 7 | Ultralytics |
+| Detection + VLM on selected frames | `python-app-template.py` | 1 + 4 + 5 + 6 + 8 + 9 + 11 | Ultralytics + optimum-cli |
+| Custom analytics + chunked storage | `python-app-template.py` | 1 + 4 + 6 + 7 | Ultralytics |
+| Multi-camera RTSP | `python-app-template.py` | 1 + 12 | (per camera) |
+
 ### Pattern 1: Decode → Detect → Watermark → Display
 
 ```
@@ -113,11 +126,6 @@ gvametaconvert ! gvametapublish file-format=json-lines file-path=results.jsonl !
 videoconvert ! vah264enc ! h264parse ! mp4mux !
 filesink location=output.mp4
 ```
-
-> **Multi-device tip:** Inference elements can use different devices. For example, run
-> heavyweight detection on GPU and lightweight OCR/classification on NPU:
-> `gvadetect ... device=GPU` → `gvaclassify ... device=NPU`. This balances load and
-> avoids GPU contention.
 
 ### Pattern 3: VLM Alerting with JSON + Video Output
 
@@ -230,6 +238,18 @@ gvametaconvert ! gvametapublish file-format=json-lines file-path=results.jsonl
 
 Do not write custom file-output logic in pad probes or custom elements when
 `gvametapublish` can handle the use case.
+
+### Rule 6 - Device Assignment Strategy for Intel Core Ultra
+
+When targeting Intel Core Ultra processors (which have CPU, GPU, and NPU), assign
+inference devices to balance throughput:
+
+| Model Type | Recommended Device | Rationale |
+|------------|-------------------|-----------|
+| Object detection (YOLO, SSD) | **GPU** | Highest throughput for large models |
+| Classification / OCR | **NPU** or **GPU** | NPU is efficient for smaller models; may free GPU bandwidth |
+| VLM (gvagenai) | **GPU** | VLMs require GPU memory bandwidth |
+| CV + VLM | **NPU** and **GPU** | Run computer vision pipeline on NPU and use GPU for VLMs |
 
 ## Python Pipeline Construction Approaches
 

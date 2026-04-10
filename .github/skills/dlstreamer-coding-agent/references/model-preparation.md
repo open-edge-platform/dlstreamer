@@ -222,7 +222,7 @@ with open(dict_path, "w") as f:
 
 **Requirements:**
 ```
-paddlepaddle
+paddlepaddle  # CPU-only variant; use paddlepaddle-gpu if GPU conversion is needed
 paddle2onnx
 ```
 
@@ -257,15 +257,15 @@ Model-proc (model processing) JSON files are deprecated; please do not use them 
 | FP32 | (default) | Maximum accuracy | None |
 | FP16 | `half=True` (Ultralytics), `--compress_to_fp16` (ovc) | GPU/NPU inference, reduced size | Negligible |
 | INT8 | `int8=True` (Ultralytics) | GPU/NPU inference, reduced size | Negligible |
-
-> **Note:** Ultralytics INT8 export (`int8=True`) requires the `nncf` package. Add `nncf>=2.14.0`
-> to `export_requirements.txt` to avoid auto-install delays during export.
-
 | INT8 | `--weight-format int8` (optimum-cli) | HuggingFace transformer models | Minor |
 | INT4 | `--weight-format int4` (optimum-cli) | Large LLM/VLM models | Moderate, acceptable for VLMs |
 
-> **Recommendation:** Use **INT8** (`int8=True`) for Ultralytics YOLO models. 
-Use INT8 for HuggingFace transformer classification models. Use INT4 for VLM models.
+> **Note:** Ultralytics INT8 export (`int8=True`) requires the `nncf` package. Add `nncf>=2.14.0`
+> to `export_requirements.txt` to avoid auto-install delays during export.
+> INT8 export triggers NNCF calibration which may take some time and may appear to hang. For iterative development, use `half=True` (FP16) first; switch to `int8=True` for production builds.
+
+> **Recommendation:** Use **INT8** (`int8=True`) for Ultralytics YOLO models.
+> Use INT8 for HuggingFace transformer classification models. Use INT4 for VLM models.
 
 ## Requirements
 
@@ -282,12 +282,9 @@ optimum[openvino]
 huggingface_hub
 
 # PaddlePaddle models (OCR, etc.)
-paddlepaddle
+paddlepaddle  # CPU-only variant (paddlepaddle-gpu is the GPU package)
 paddle2onnx
 openvino  # for ovc model converter
-
-# Open Model Zoo tools
-openvino-dev
 
 # Custom elements with pixel access
 numpy
