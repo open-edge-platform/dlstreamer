@@ -871,25 +871,28 @@ int Impl::get_num_primitives() const {
 bool Impl::render(GstBuffer *buffer) {
     ITT_TASK(__FUNCTION__);
 
-    // For D3D11 input, map to system memory temporarily for rendering
+    // Skip render if there are no primitives to draw
+    if (prims.empty()) {
+        return true;
+    }
+
+    // For GPU memory input, map to system memory temporarily for CPU rendering
     GstMapInfo map_info;
     bool mapped = false;
 
-    if (_mem_type == InferenceBackend::MemoryType::D3D11) {
-        // Map D3D11 buffer to system memory for CPU rendering
+    if (_mem_type == InferenceBackend::MemoryType::D3D11 || _mem_type == InferenceBackend::MemoryType::VAAPI) {
+        // Map GPU buffer to system memory for CPU rendering
         if (!gst_buffer_map(buffer, &map_info, GST_MAP_READWRITE)) {
+            GST_WARNING_OBJECT(_element, "Can't map GPU buffer to system memory for rendering; skipping frame");
             return false;
         }
         mapped = true;
     }
 
-    // Skip render if there are no primitives to draw
-    if (!prims.empty()) {
-        auto gstbuffer = std::make_shared<dlstreamer::GSTFrame>(buffer, _vinfo);
-        _renderer->draw(gstbuffer, prims);
-    }
+    auto gstbuffer = std::make_shared<dlstreamer::GSTFrame>(buffer, _vinfo);
+    _renderer->draw(gstbuffer, prims);
 
-    // Unmap D3D11 buffer if it was mapped
+    // Unmap GPU buffer if it was mapped
     if (mapped) {
         gst_buffer_unmap(buffer, &map_info);
     }
