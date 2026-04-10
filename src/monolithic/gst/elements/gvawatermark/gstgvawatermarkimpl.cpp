@@ -883,7 +883,7 @@ bool Impl::render(GstBuffer *buffer) {
     if (_mem_type == InferenceBackend::MemoryType::D3D11 || _mem_type == InferenceBackend::MemoryType::VAAPI) {
         // Map GPU buffer to system memory for CPU rendering
         if (!gst_buffer_map(buffer, &map_info, GST_MAP_READWRITE)) {
-            GST_WARNING_OBJECT(gvawatermark, "Can't map GPU buffer to system memory for rendering; skipping frame");
+            GST_WARNING_OBJECT(_element, "Can't map GPU buffer to system memory for rendering; skipping frame");
             return false;
         }
         mapped = true;
