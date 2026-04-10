@@ -295,7 +295,7 @@ huggingface_hub
 # PaddlePaddle models (OCR, etc.)
 paddlepaddle  # CPU-only variant (paddlepaddle-gpu is the GPU package)
 paddle2onnx
-openvino  # for ovc model converter
+openvino==<same version as one in DLStreamer>  # for ovc model converter
 
 # Custom elements with pixel access
 numpy

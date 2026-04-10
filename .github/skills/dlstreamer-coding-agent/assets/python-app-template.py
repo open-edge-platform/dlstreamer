@@ -20,8 +20,8 @@ import os
 import signal
 import subprocess
 import sys
-import urllib.request
-from pathlib import Path
+from pathlib import Path, PurePosixPath
+from urllib.parse import urlparse
 
 import gi
 
@@ -65,7 +65,7 @@ def prepare_input(source: str) -> str:
         return source
     if source.startswith(("http://", "https://")):
         VIDEOS_DIR.mkdir(parents=True, exist_ok=True)
-        name = source.rstrip("/").split("/")[-1]
+        name = PurePosixPath(urlparse(source).path).name or "video.mp4"
         local = VIDEOS_DIR / name
         if not local.exists():
             print(f"Downloading video: {source}")

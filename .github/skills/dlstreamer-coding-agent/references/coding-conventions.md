@@ -137,8 +137,8 @@ for mtd in rmeta:
 
 ## Buffer Mutability in Custom Elements or Pads
 
-In GStreamer ≥ 1.26, `buffer.copy()` returns a **shallow copy** with an immutable
-read-only data pointer. Use copy_deep()` when you need to modify buffer timestamps or data:
+In GStreamer ≥ 1.26, `buffer.copy()` returns a **shallow copy** with an immutable read-only data pointer.
+Use `buffer.copy_deep()` when you need to modify buffer timestamps or data:
 
 ```python
 # WRONG — raises NotWritableMiniObject in GStreamer ≥ 1.26

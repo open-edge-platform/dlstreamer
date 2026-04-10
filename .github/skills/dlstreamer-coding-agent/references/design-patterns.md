@@ -319,8 +319,8 @@ For AI model download, prioritize using existing download scripts and generate i
 > `https://videos.pexels.com/video-files/<ID>/<ID>-hd_<W>_<H>_<FPS>fps.mp4`
 > but the resolution and FPS **vary per video** — do **not** guess them.
 > You **must** scrape the Pexels page to discover the exact `.mp4` URL.
-> Use `fetch_webpage` (or `curl -s`) on the page URL and search for
-> `videos.pexels.com/video-files/` links. The Canva "Edit" links on the page
+> Use `subprocess` to run `curl -s` on the page URL and search the returned HTML
+> for `videos.pexels.com/video-files/` links. The Canva "Edit" links on the page
 > embed the direct video URL as the `file-url=` query parameter, e.g.:
 > `https://www.canva.com/...&file-url=https%3A%2F%2Fvideos.pexels.com%2Fvideo-files%2F9492063%2F9492063-hd_1920_1080_30fps.mp4&...`
 > URL-decode the `file-url` value to get the direct download link.
