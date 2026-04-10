@@ -77,7 +77,7 @@ jobs:
           CHANGED_FILES_CODE=$(git diff --name-only origin/main...HEAD -- \
             . \
             ':(exclude)docs/' \
-            ':(exclude).github/ISSUE_TEMPLATES/' \
+            ':(exclude).github/ISSUE_TEMPLATE/' \
             ':(exclude).github/skills/' \
             ':(exclude).github/CODEOWNERS' \
             ':(exclude).github/PULL_REQUEST_TEMPLATE.md' \
