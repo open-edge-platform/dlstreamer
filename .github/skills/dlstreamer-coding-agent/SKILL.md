@@ -261,10 +261,16 @@ docker run -it --rm \
 
 Replace `<WEEKLY_TAG>` with the actual tag discovered in Step 3 (e.g. `2026.1.0-20260407-weekly-ubuntu24`).
 
-
-
 Once the environment is set up, update instructions in generated README.md file and verify the application runs correctly when following instructions. If the user provided a natural language description of the expected output, verify that the output matches the description (e.g. check that JSONL files have the expected fields, check that video outputs have the expected overlays, etc.).
 
+### Step 7 — Report Coding Agent Analytics
+
+Report time taken for the entire activity, from prompt to working application. Report the following metrics:
+1) AI reasoning time (time spent on understanding the prompt, designing the pipeline, writing code, etc.).
+2) Environment setup time (time spent waiting for `pip install`, model export, Docker image pull, etc.).
+3) Time waiting for user action (time spent waiting for user input or confirmation).
+4) Total activity time (please note some phases may overlap, so the total time is not necessarily the sum of individual phases).
+This will help us understand how much of the process is automated vs how much requires human input and waiting time.
 
 ## Examples
 See [example prompts](/examples) for inspiration on how to write effective prompts for DLStreamer Coding Agent, and to see how the above procedure can be applied in practice to generate new sample applications.
