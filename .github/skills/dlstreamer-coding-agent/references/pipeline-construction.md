@@ -246,7 +246,7 @@ inference devices to balance throughput:
 | Object detection (YOLO, SSD) | **GPU** | Highest throughput for large models |
 | Classification / OCR | **NPU** or **GPU** | NPU is efficient for smaller models; may free GPU bandwidth |
 | VLM (gvagenai) | **GPU** | VLMs require GPU memory bandwidth |
-| CV + VLM | **NPU** and **GPU** | Run computer vision pipeline on NPU and use GPU for VLMs |
+| CV + VLM | **NPU** and **GPU** | Run entire computer vision pipeline on NPU and let VLMs occupy GPU |
 
 ## Python Pipeline Construction Approaches
 

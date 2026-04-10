@@ -18,7 +18,7 @@ NOTE: This feature is in PREVIEW stage — expect some rough edges and missing f
 - User wants to combine elements from multiple existing samples (e.g. detection + VLM + recording)
 - User needs to add custom analytics logic or custom GStreamer elements in Python
 
-See [example prompts](/examples) for inspiration.
+See [example prompts](./examples) for inspiration.
 
 ## Directory Layout for a New Sample App
 
@@ -45,7 +45,7 @@ See [example prompts](/examples) for inspiration.
 
 The User prompt may be ambiguous or incomplete. Before proceeding further make sure the following details are clarified:
 1) Input source (video file vs RTSP stream, single vs multi-camera, etc.), ask for specific video file if possible
-2) AI model types (detection, classification, OCR, VLM, etc.) and specific models if possible (e.g. "YOLOv8 for detection and PaddleOCRv5 for OCR)
+2) AI model types (detection, classification, OCR, VLM, etc.) and specific models if possible (e.g. "YOLOv8 for detection and PaddleOCRv5 for OCR")
 If a User does not have specific models in mind, try to infer the most likely model choice based on the task description and list of models supported by DLStreamer (`../../../../docs/user-guide/supported_models.md`).
 3) Sequence of operations in the pipeline (e.g. detection → tracking -> classification, or detection + VLM in parallel branches, etc.)
 4) Expected output (e.g. JSON file with license plate text, annotated video file, etc.)
@@ -273,5 +273,5 @@ Report time taken for the entire activity, from prompt to working application. R
 This will help us understand how much of the process is automated vs how much requires human input and waiting time.
 
 ## Examples
-See [example prompts](/examples) for inspiration on how to write effective prompts for DLStreamer Coding Agent, and to see how the above procedure can be applied in practice to generate new sample applications.
+See [example prompts](./examples) for inspiration on how to write effective prompts for DLStreamer Coding Agent, and to see how the above procedure can be applied in practice to generate new sample applications.
 
