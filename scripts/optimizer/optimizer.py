@@ -8,6 +8,7 @@ import logging
 import itertools
 import os
 import re
+import warnings
 
 from preprocess import preprocess_pipeline
 from processors.inference import DeviceGenerator, BatchGenerator, NireqGenerator, add_instance_ids
@@ -77,7 +78,12 @@ class DLSOptimizer:
 
     # deprecated
     def set_search_duration(self, duration):
-        pass
+        warnings.warn(
+            "Function set_search_duration has been deprecated. "
+            "Please pass search duration when calling optimize_for_fps or optimize_for_streams instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
 
     ################################### Main Logic ################################################
 
