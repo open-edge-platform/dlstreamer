@@ -133,7 +133,7 @@ optimizer = DLSOptimizer()
 #### Methods
 **`get_baseline_pipeline() -> pipeline, fps, streams`**
 - `pipeline: string` - The baseline pipeline from which optimization started.
-- `pipeline: float` - Fps measured for the baseline pipeline.
+- `fps: float` - Fps measured for the baseline pipeline.
 - `streams: int` - Number of streams in the baseline pipeline.
 
 Returns information about the original pipeline used in the optimization process. Returned values are meaningless until at least one optimization operation is performed.
@@ -146,7 +146,7 @@ pipeline, fps, streams = optimizer.get_baseline_pipeline()
 ---
 **`get_optimal_pipeline() -> pipeline, fps, streams`**
 - `pipeline: string` - The best pipeline found during optimization.
-- `pipeline: float` - Fps measured for the optimal pipeline.
+- `fps: float` - Fps measured for the optimal pipeline.
 - `streams: int` - Number of streams in the optimal pipeline.
 
 Returns information about the best pipeline found during the optimization process. Returned values are meaningless until at least one optimization operation is performed.
@@ -224,9 +224,10 @@ Runs a series of optimization steps on the pipeline searching for version with b
 ```
 pipeline = "urisourcebin buffer-size=4096 uri=https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4 ! decodebin ! gvadetect model=/home/optimizer/models/public/yolo11s/INT8/yolo11s.xml ! queue ! gvawatermark ! fakesink"
 optimizer = DLSOptimizer()
-for (_, _) in optimizer.iter_optimize_for_fps(pipeline):
-    pass
-pipeline, fps, streams = optimizer.get_optimal_pipeline()
+for (pipeline, fps) in optimizer.iter_optimize_for_fps(pipeline):
+    print(f"Tested: {pipeline} @ {fps}")
+best_pipeline, best_fps, _ = optimizer.get_optimal_pipeline()
+print(f"Optimal pipeline: {best_pipeline} @ {best_fps}")
 ```
 ---
 **`optimize_for_streams(pipeline, search_duration) -> optimized_pipeline, fps, streams`**
@@ -253,9 +254,10 @@ Searching for a version of the input pipeline which can support the highest numb
 ```
 pipeline = "urisourcebin buffer-size=4096 uri=https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4 ! decodebin ! gvadetect model=/home/optimizer/models/public/yolo11s/INT8/yolo11s.xml ! queue ! gvawatermark ! fakesink"
 optimizer = DLSOptimizer()
-for (_, _, _) in optimizer.iter_optimize_for_streams(pipeline):
-    pass
-pipeline, fps, streams = optimizer.get_optimal_pipeline()
+for (pipeline, fps, streams) in optimizer.iter_optimize_for_streams(pipeline):
+    print(f"Tested: {pipeline} @ {streams} & {fps}")
+best_pipeline, best_fps, best_streams = optimizer.get_optimal_pipeline()
+print(f"Optimal pipeline: {best_pipeline} @ {best_streams} & {best_fps}")
 ```
 ---
 
