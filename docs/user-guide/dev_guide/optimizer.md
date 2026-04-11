@@ -58,6 +58,7 @@ Options:
     --log-level LEVEL                   Configure the logging detail level.
     -v, --verbose                       Print information about every candidate pipeline investigated during
                                         optimization process.
+    -o, --output OUTPUT_FILE            Save optimization results to a file in JSON format.
 ```
 **`search-duration`** default: `300` seconds \
 Increasing the **search duration** will increase the chances of discovering more performant pipelines.
@@ -80,6 +81,9 @@ Available **log levels** are: CRITICAL, FATAL, ERROR, WARN, INFO, DEBUG.
 
 **`verbose`** \
 Prints extra information about the candidate pipelines which were examined during the optimization process.
+
+**`output`** \
+Provide a path representing a file which will be used to save results information in JSON format.
 
 >**Note**\
 >Search duration and sample duration both affect the amount of pipelines that will be explored during the search. \
