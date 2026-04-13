@@ -164,9 +164,10 @@ try:
             json_result["baseline"] = {"pipeline": base_pipeline, "fps": base_fps, "streams": base_streams}
             json_result["optimal"] = {"pipeline": best_pipeline, "fps": best_fps, "streams": best_streams}
             _display_summary_streams(best_pipeline, best_fps, best_streams)
+
+    if args.output:
+        with open(args.output, 'w', encoding='utf-8') as f:
+            json.dump(json_result, f, ensure_ascii=False, indent=4)
 except RuntimeError as e: # pylint: disable=broad-exception-caught
     logger.error("Failed to optimize pipeline: %s", e)
 
-if args.output:
-    with open(args.output, 'w', encoding='utf-8') as f:
-        json.dump(json_result, f, ensure_ascii=False, indent=4)
