@@ -131,6 +131,8 @@ class TestG3DInference(unittest.TestCase):
         self.test_dir = tempfile.mkdtemp(prefix="g3dinference_test_")
         self.test_output = os.path.join(self.test_dir, "g3dinference_output.json")
         self.pc_file = os.path.join(self.pointpillars_root, "pointpillars", "dataset", "demo_data", "test", "000002.bin")
+        self.pc_index = int(os.path.splitext(os.path.basename(self.pc_file))[0])
+        self.pc_pattern = os.path.join(os.path.dirname(self.pc_file), "%06d.bin")
         self.config_file = os.path.join(self.test_dir, "pointpillars_ov_config.json")
         self.extension_lib = self.__class__.extension_lib
         self.voxel_model = os.path.join(self.pointpillars_root, "pretrained", "pointpillars_ov_pillar_layer.xml")
@@ -224,8 +226,8 @@ class TestG3DInference(unittest.TestCase):
         self._write_runtime_config()
 
         pipeline = (
-            f'filesrc location="{self.pc_file}" ! '
-            f'application/octet-stream ! '
+            f'multifilesrc location="{self.pc_pattern}" start-index={self.pc_index} stop-index={self.pc_index} '
+            f'caps=application/octet-stream ! '
             f'g3dlidarparse ! '
             f'g3dinference config="{self.config_file}" device=CPU ! '
             f'gvametaconvert add-tensor-data=true format=json json-indent=2 ! '

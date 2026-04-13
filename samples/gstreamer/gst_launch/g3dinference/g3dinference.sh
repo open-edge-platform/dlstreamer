@@ -11,7 +11,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 POINTPILLARS_CACHE_DIR="${POINTPILLARS_CACHE_DIR:-${SCRIPT_DIR}/.pointpillars}"
 DATA_DIR="${POINTPILLARS_CACHE_DIR}/data"
 CONFIG_DIR="${POINTPILLARS_CACHE_DIR}/config"
-START_INDEX="${START_INDEX:-0}"
+START_INDEX_INPUT="${START_INDEX:-}"
+STOP_INDEX_INPUT="${STOP_INDEX:-}"
 STRIDE="${STRIDE:-1}"
 FRAME_RATE="${FRAME_RATE:-5}"
 
@@ -21,7 +22,7 @@ Usage:
 	./g3dinference.sh [SOURCE] [DEVICE] [OUTPUT_JSON] [SCORE_THRESHOLD]
 
 Arguments:
-	SOURCE           Optional. Either a single .bin file or a multifilesrc pattern.
+	SOURCE           Optional. Either a multifilesrc pattern or a numerically named single frame file.
 									 Default: .pointpillars/data/000002.bin
 	DEVICE           Optional. OpenVINO device for g3dinference. Default: CPU
 	OUTPUT_JSON      Optional. JSON output path. Default: .pointpillars/g3dinference_output.json
@@ -29,7 +30,9 @@ Arguments:
 
 Environment:
 	POINTPILLARS_CACHE_DIR    Cache directory containing prepared data/config
-	START_INDEX               Used only when SOURCE is a multifilesrc pattern. Default: 0
+	START_INDEX               Optional multifilesrc start index. Defaults to the source frame index for single-file input,
+	                          otherwise 0.
+	STOP_INDEX                Optional multifilesrc stop index. Defaults to the source frame index for single-file input.
 	STRIDE                    Passed to g3dlidarparse. Default: 1
 	FRAME_RATE                Passed to g3dlidarparse. Default: 5
 	GST_DEBUG                 Defaults to g3dlidarparse:4,g3dinference:5 if unset.
@@ -44,6 +47,9 @@ SOURCE_INPUT="${1:-${DATA_DIR}/000002.bin}"
 DEVICE="${2:-CPU}"
 OUTPUT_JSON="${3:-${POINTPILLARS_CACHE_DIR}/g3dinference_output.json}"
 SCORE_THRESHOLD="${4:--1}"
+MULTIFILE_LOCATION=""
+MULTIFILE_START_INDEX=""
+MULTIFILE_STOP_INDEX=""
 
 POINTPILLARS_CONFIG="${CONFIG_DIR}/pointpillars_ov_config.json"
 
@@ -68,6 +74,30 @@ require_gst_element() {
 	gst-inspect-1.0 "$1" >/dev/null 2>&1 || fail "Required GStreamer element not found: $1"
 }
 
+resolve_multifilesrc_input() {
+	if [[ "${SOURCE_INPUT}" == *%* ]]; then
+		MULTIFILE_LOCATION="${SOURCE_INPUT}"
+		MULTIFILE_START_INDEX="${START_INDEX_INPUT:-0}"
+		MULTIFILE_STOP_INDEX="${STOP_INDEX_INPUT:-}"
+		return
+	fi
+
+	[[ -f "${SOURCE_INPUT}" ]] || fail "Input source file not found: ${SOURCE_INPUT}"
+
+	local file_name stem extension width derived_index
+	file_name="$(basename -- "${SOURCE_INPUT}")"
+	stem="${file_name%.*}"
+	extension="${file_name##*.}"
+
+	[[ "${stem}" =~ ^[0-9]+$ ]] || fail "SOURCE must be a multifilesrc pattern or a numerically named frame file: ${SOURCE_INPUT}"
+
+	width="${#stem}"
+	derived_index="$((10#${stem}))"
+	MULTIFILE_LOCATION="$(dirname -- "${SOURCE_INPUT}")/%0${width}d.${extension}"
+	MULTIFILE_START_INDEX="${START_INDEX_INPUT:-${derived_index}}"
+	MULTIFILE_STOP_INDEX="${STOP_INDEX_INPUT:-${derived_index}}"
+}
+
 validate_pipeline_prereqs() {
 	require_command gst-launch-1.0
 	require_command gst-inspect-1.0
@@ -80,29 +110,23 @@ validate_pipeline_prereqs() {
 build_pipeline_command() {
 	PIPELINE_CMD=(gst-launch-1.0 -e)
 
-	if [[ "${SOURCE_INPUT}" == *%* ]]; then
-		PIPELINE_CMD+=(
-			multifilesrc
-			"location=${SOURCE_INPUT}"
-			"start-index=${START_INDEX}"
-			"caps=application/octet-stream"
-			'!'
-			g3dlidarparse
-			"stride=${STRIDE}"
-			"frame-rate=${FRAME_RATE}"
-		)
-	else
-		PIPELINE_CMD+=(
-			filesrc
-			"location=${SOURCE_INPUT}"
-			'!'
-			application/octet-stream
-			'!'
-			g3dlidarparse
-			"stride=${STRIDE}"
-			"frame-rate=${FRAME_RATE}"
-		)
+	PIPELINE_CMD+=(
+		multifilesrc
+		"location=${MULTIFILE_LOCATION}"
+		"start-index=${MULTIFILE_START_INDEX}"
+	)
+
+	if [[ -n "${MULTIFILE_STOP_INDEX}" ]]; then
+		PIPELINE_CMD+=("stop-index=${MULTIFILE_STOP_INDEX}")
 	fi
+
+	PIPELINE_CMD+=(
+		"caps=application/octet-stream"
+		'!'
+		g3dlidarparse
+		"stride=${STRIDE}"
+		"frame-rate=${FRAME_RATE}"
+	)
 
 	PIPELINE_CMD+=(
 		'!'
@@ -128,11 +152,8 @@ if [[ ! -f "${POINTPILLARS_CONFIG}" ]]; then
 	fail "PointPillars config is missing: ${POINTPILLARS_CONFIG}. Run ./g3dinference_prepare.sh first."
 fi
 
-if [[ ! -e "${SOURCE_INPUT}" && "${SOURCE_INPUT}" != *%* ]]; then
-	fail "Input source file not found: ${SOURCE_INPUT}"
-fi
-
 validate_pipeline_prereqs
+resolve_multifilesrc_input
 
 mkdir -p "$(dirname "${OUTPUT_JSON}")"
 rm -f "${OUTPUT_JSON}"

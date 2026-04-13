@@ -53,6 +53,8 @@ Example configuration:
 
 ## Pipeline Examples
 
+Use `multifilesrc` for LiDAR input, including single-frame runs, so each frame is delivered as one buffer instead of `filesrc` block fragments.
+
 ### Basic LiDAR inference pipeline
 
 ```bash

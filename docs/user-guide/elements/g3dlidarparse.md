@@ -19,6 +19,8 @@ Key operations:
 
 ## Pipeline Examples
 
+Use `multifilesrc` for LiDAR frame input, including single-frame runs, to avoid `filesrc` block-based chunking of raw point-cloud payloads.
+
 ### Basic parsing pipeline
 ```bash
 gst-launch-1.0 multifilesrc location="velodyne/%06d.bin" start-index=250 caps=application/octet-stream ! \
