@@ -37,7 +37,7 @@ runs:
       working-directory: ${{ inputs.working_directory }}
       run: |
         echo "🔍 Checking for changes outside documentation and configuration files"
-        
+
         CHANGED_FILES_CODE=$(git diff --name-only origin/${{ inputs.base_branch }}...HEAD -- \
           . \
           ':(exclude)docs/' \
