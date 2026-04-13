@@ -1,0 +1,85 @@
+name: 'Check Skip CI'
+description: 'Checks if CI should be skipped based on file changes and either skips or continues'
+inputs:
+  job_name:
+    description: 'Name of the job for logging purposes'
+    required: true
+  base_branch:
+    description: 'Base branch to compare against'
+    required: false
+    default: 'main'
+outputs:
+  should_run:
+    description: 'Whether the job should continue running'
+    value: ${{ steps.check.outputs.should_run }}
+  skip_ci:
+    description: 'Whether CI should be skipped globally'
+    value: ${{ steps.check.outputs.skip_ci }}
+  skip_reason:
+    description: 'Reason why the job was skipped'
+    value: ${{ steps.check.outputs.skip_reason }}
+runs:
+  using: 'composite'
+  steps:
+    - name: Fetch base branch for comparison
+      shell: bash
+      run: |
+        git fetch origin ${{ inputs.base_branch }}
+
+    - name: Check if job should run
+      id: check
+      shell: bash
+      run: |
+        echo "🔍 Checking for changes outside documentation and configuration files"
+        
+        CHANGED_FILES_CODE=$(git diff --name-only origin/${{ inputs.base_branch }}...HEAD -- \
+          . \
+          ':(exclude)docs/' \
+          ':(exclude).github/ISSUE_TEMPLATE/' \
+          ':(exclude).github/skills/' \
+          ':(exclude).github/CODEOWNERS' \
+          ':(exclude).github/PULL_REQUEST_TEMPLATE.md' \
+          ':(exclude)README.md' \
+          ':(exclude)SECURITY.md' \
+          ':(exclude)LICENSE' \
+          ':(exclude)CONTRIBUTING.md' \
+          ':(exclude)CHANGELOG.md' \
+          ':(exclude)CODESTYLE.md' \
+          ':(exclude)CODE_OF_CONDUCT.md')
+
+        SKIP_CI=true
+        JOB_NAME="${{ inputs.job_name }}"
+
+        if [ -n "${CHANGED_FILES_CODE}" ]; then
+          echo "📄 Changed files outside documentation/configuration:"
+          echo "${CHANGED_FILES_CODE}"
+          SKIP_CI=false
+          echo "🔄 Code changes detected"
+        else
+          echo "✅ All changes are documentation/configuration only"
+        fi
+
+        echo "skip_ci=${SKIP_CI}" >> "$GITHUB_OUTPUT"
+
+        if [ "$SKIP_CI" = "true" ]; then
+          echo "✅ Skipping $JOB_NAME - only documentation changes detected"
+          echo "should_run=false" >> "$GITHUB_OUTPUT"
+          echo "skip_reason=documentation-only changes" >> "$GITHUB_OUTPUT"
+        else
+          echo "🔄 Running $JOB_NAME - code changes detected"
+          echo "should_run=true" >> "$GITHUB_OUTPUT"
+          echo "skip_reason=" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Mark job as passed when skipped
+      if: steps.check.outputs.should_run == 'false'
+      shell: bash
+      run: |
+        echo "### ✅ Job Skipped Successfully" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Job**: ${{ inputs.job_name }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Reason**: ${{ steps.check.outputs.skip_reason }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Status**: ✅ PASSED (Skipped)" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "This job was intentionally skipped to save CI resources." >> $GITHUB_STEP_SUMMARY
+        exit 0

@@ -4,31 +4,7 @@ on:
   push:
     branches:
       - 'main'
-    paths:
-      - '.github/**'
-      - 'cmake/**'
-      - 'docker/**'
-      - 'include/**'
-      - 'python/**'
-      - 'samples/**'
-      - 'scripts/**'
-      - 'src/**'
-      - 'tests/**'
-      - 'thirdparty/**'
-      - 'docs/**'
   pull_request:
-    paths:
-      - '.github/**'
-      - 'cmake/**'
-      - 'docker/**'
-      - 'include/**'
-      - 'python/**'
-      - 'samples/**'
-      - 'scripts/**'
-      - 'src/**'
-      - 'tests/**'
-      - 'thirdparty/**'
-      - 'docs/**'
   workflow_call:
     inputs:
       test-repo-branch:
@@ -49,13 +25,11 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  check-skip-ci:
+  dls-code-style:
     permissions:
       contents: read
-    name: "Check if CI should be skipped"
+    name: "DLS SCAN: code-style"
     runs-on: dlstreamer
-    outputs:
-      skip_ci: ${{ steps.check.outputs.skip_ci }}
     steps:
       - name: Check out dlstreamer repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6.0.2
@@ -64,64 +38,20 @@ jobs:
           fetch-depth: 0
           path: dlstreamer-repo
 
-      - name: Fetch main branch for comparison
-        run: |
-          cd dlstreamer-repo
-          git fetch origin main
-
-      - name: Check if changes are only in docs/ and specific documentation files
-        id: check
-        run: |
-          echo "🔍 Checking for changes outside documentation and configuration files"
-          cd dlstreamer-repo
-          CHANGED_FILES_CODE=$(git diff --name-only origin/main...HEAD -- \
-            . \
-            ':(exclude)docs/' \
-            ':(exclude).github/ISSUE_TEMPLATE/' \
-            ':(exclude).github/skills/' \
-            ':(exclude).github/CODEOWNERS' \
-            ':(exclude).github/PULL_REQUEST_TEMPLATE.md' \
-            ':(exclude)README.md' \
-            ':(exclude)SECURITY.md' \
-            ':(exclude)LICENSE' \
-            ':(exclude)CONTRIBUTING.md' \
-            ':(exclude)CHANGELOG.md' \
-            ':(exclude)CODESTYLE.md' \
-            ':(exclude)CODE_OF_CONDUCT.md')
-
-          SKIP_CI=true
-
-          if [ -n "${CHANGED_FILES_CODE}" ]; then
-            echo "📄 Changed files outside documentation/configuration:"
-            echo "${CHANGED_FILES_CODE}"
-            SKIP_CI=false
-            echo "🔄 Code changes detected - running full CI"
-          else
-            echo "✅ All changes are documentation/configuration only - skipping CI jobs"
-          fi
-
-          echo "skip_ci=${SKIP_CI}" >> "$GITHUB_OUTPUT"
-  # ------------------------------------------------------------- SCANS -------------------------------------------------------------
-  dls-code-style:
-    permissions:
-      contents: read
-    name: "DLS SCAN: code-style"
-    runs-on: dlstreamer
-    needs: check-skip-ci
-    if: needs.check-skip-ci.outputs.skip_ci != 'true'
-    steps:
-      - name: Check out dlstreamer repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6.0.2
+      - name: Check if should skip CI
+        id: skip-check
+        uses: ./dlstreamer-repo/.github/actions/check-skip-ci
         with:
-          persist-credentials: false
-          path: dlstreamer-repo
+          job_name: "code-style scan"
 
       - name: Remove thirdparty folder
+        if: steps.skip-check.outputs.should_run == 'true'
         run: |
           rm -rf dlstreamer-repo/thirdparty
           rm -rf thirdparty
 
       - name: Code-style action
+        if: steps.skip-check.outputs.should_run == 'true'
         uses: ./dlstreamer-repo/.github/actions/common/code-style
         with:
           target_dir: "dlstreamer-repo"
@@ -129,6 +59,7 @@ jobs:
           fail-on-findings: true
 
       - name: Clean up
+        if: steps.skip-check.outputs.should_run == 'true'
         run: |
           sudo rm -rf dlstreamer-repo
 
@@ -137,8 +68,6 @@ jobs:
       contents: read
     name: "DLS SCAN: check license headers"
     runs-on: dlstreamer
-    needs: check-skip-ci
-    if: needs.check-skip-ci.outputs.skip_ci != 'true'
     steps:
       - name: Check out dlstreamer repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6.0.2
@@ -147,7 +76,14 @@ jobs:
           fetch-depth: 0
           path: dlstreamer-repo
 
+      - name: Check if should skip CI
+        id: skip-check
+        uses: ./dlstreamer-repo/.github/actions/check-skip-ci
+        with:
+          job_name: "license headers check"
+
       - name: Check license headers
+        if: steps.skip-check.outputs.should_run == 'true'
         uses: ./dlstreamer-repo/.github/actions/common/license-namespace-checker
         with:
           name: 'DLS_license-check-report'
@@ -155,6 +91,7 @@ jobs:
           fail-on-findings: true
 
       - name: Clean up
+        if: steps.skip-check.outputs.should_run == 'true'
         run: |
           sudo rm -rf dlstreamer-repo
 
@@ -165,64 +102,33 @@ jobs:
       contents: read
       packages: read
     name: "DLS SCAN: static C/C++ code analysis"
-    needs: check-skip-ci
-    if: needs.check-skip-ci.outputs.skip_ci != 'true'
-    uses: ./.github/workflows/dls-coverity.yaml
-    secrets:
-      DLS_COVERITY_TOKEN: ${{ secrets.DLS_COVERITY_TOKEN }}
-      DLS_COVERITY_EMAIL: ${{ secrets.DLS_COVERITY_EMAIL }}
-      DLS_COVERITY_PROJECT: ${{ secrets.DLS_COVERITY_PROJECT }}
-
-  dls-filter-docker-related-changes:
-    permissions:
-      contents: read
-    name: "DLS SCAN: detect changes in docker dir"
     runs-on: dlstreamer
-    needs: check-skip-ci
-    if: needs.check-skip-ci.outputs.skip_ci != 'true'
-    outputs:
-      docker_changed: ${{ steps.check.outputs.docker_changed }}
     steps:
       - name: Check out dlstreamer repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6.0.2
         with:
           persist-credentials: false
           fetch-depth: 0
-          path: dlstreamer-repo
 
-      - name: Fetch main branch for comparison
-        run: |
-          cd dlstreamer-repo
-          git fetch origin main
+      - name: Check if should skip CI
+        id: skip-check
+        uses: ./.github/actions/check-skip-ci
+        with:
+          job_name: "static C/C++ code analysis"
 
-      - name: Detect changes in docker  directory
-        id: check
-        run: |
-          echo "🔍 Checking for changes in 'docker/' dir"
-          cd dlstreamer-repo
-          CHANGED_FILES_DOCKER=$(git diff --name-only origin/main...HEAD -- 'docker/')
-
-          echo "docker_changed=false" >> "$GITHUB_OUTPUT"
-
-          if [ -n "${CHANGED_FILES_DOCKER}" ]; then
-            echo "📄 Changed Docker-related files:"
-            echo "${CHANGED_FILES_DOCKER}"
-            echo "docker_changed=true" >> "$GITHUB_OUTPUT"
-            echo "🟡 Docker-related changes detected."
-          else
-            echo "✅ No docker related changes."
-          fi
-
-      - name: Clean up
-        run: |
-          sudo rm -rf dlstreamer-repo
+      - name: Run Coverity analysis
+        if: steps.skip-check.outputs.should_run == 'true'
+        uses: ./.github/workflows/dls-coverity.yaml
+        with:
+          DLS_COVERITY_TOKEN: ${{ secrets.DLS_COVERITY_TOKEN }}
+          DLS_COVERITY_EMAIL: ${{ secrets.DLS_COVERITY_EMAIL }}
+          DLS_COVERITY_PROJECT: ${{ secrets.DLS_COVERITY_PROJECT }}
 
   dls-trivy-config-scan:
     permissions:
       contents: read
-    needs: [check-skip-ci, dls-filter-docker-related-changes]
-    if: needs.check-skip-ci.outputs.skip_ci != 'true' && needs.dls-filter-docker-related-changes.outputs.docker_changed == 'true'
     name: "DLS SCAN: Trivy ${{ matrix.name }}"
+    runs-on: dlstreamer
     strategy:
       fail-fast: false
       matrix:
@@ -239,20 +145,33 @@ jobs:
           - name: dlstreamer-testing-ubuntu
             path: dlstreamer-repo/docker/ubuntu/ubuntu-testing.Dockerfile
             output: reports/trivy-DLS-testing-ubuntu.json
-    uses: ./.github/workflows/trivy-config-mode.yaml
-    with:
-      dockerfile-path: ${{ matrix.path }}
-      trivy-report-format: 'json'
-      severity-levels: 'HIGH,CRITICAL'
-      output-report-path: ${{ matrix.output }}
-      name: DLS_${{ matrix.name }}
+    steps:
+      - name: Check out dlstreamer repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6.0.2
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Check if should skip CI
+        id: skip-check
+        uses: ./.github/actions/check-skip-ci
+        with:
+          job_name: "Trivy scan for ${{ matrix.name }}"
+
+      - name: Run Trivy scan
+        if: steps.skip-check.outputs.should_run == 'true'
+        uses: ./.github/workflows/trivy-config-mode.yaml
+        with:
+          dockerfile-path: ${{ matrix.path }}
+          trivy-report-format: 'json'
+          severity-levels: 'HIGH,CRITICAL'
+          output-report-path: ${{ matrix.output }}
+          name: DLS_${{ matrix.name }}
 
   dls-hadolint:
     permissions:
       contents: read
       pull-requests: write
-    needs: [check-skip-ci, dls-filter-docker-related-changes]
-    if: needs.check-skip-ci.outputs.skip_ci != 'true' && needs.dls-filter-docker-related-changes.outputs.docker_changed == 'true'
     name: "DLS SCAN: Hadolint"
     runs-on: dlstreamer
     strategy:
@@ -276,8 +195,16 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6.0.2
         with:
           persist-credentials: false
+          fetch-depth: 0
+
+      - name: Check if should skip CI
+        id: skip-check
+        uses: ./.github/actions/check-skip-ci
+        with:
+          job_name: "Hadolint scan for ${{ matrix.name }}"
 
       - name: Run Hadolint Action
+        if: steps.skip-check.outputs.should_run == 'true'
         uses: ./.github/actions/common/hadolint
         with:
           dockerfile: ${{ matrix.dockerfile }}
@@ -293,16 +220,22 @@ jobs:
       pull-requests: write
     name: "DLS SCAN: pylint"
     runs-on: dlstreamer
-    needs: check-skip-ci
-    if: needs.check-skip-ci.outputs.skip_ci != 'true'
     steps:
       - name: Check out dlstreamer repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6.0.2
         with:
           persist-credentials: false
+          fetch-depth: 0
           path: dlstreamer-repo
 
+      - name: Check if should skip CI
+        id: skip-check
+        uses: ./dlstreamer-repo/.github/actions/check-skip-ci
+        with:
+          job_name: "pylint scan"
+
       - name: Run pylint
+        if: steps.skip-check.outputs.should_run == 'true'
         uses: ./dlstreamer-repo/.github/actions/common/pylint
         with:
           path: dlstreamer-repo
@@ -313,6 +246,7 @@ jobs:
           fail-on-findings: true
 
       - name: Clean up
+        if: steps.skip-check.outputs.should_run == 'true'
         run: |
           sudo rm -rf dlstreamer-repo
 
@@ -322,8 +256,6 @@ jobs:
       pull-requests: write
     name: "DLS SCAN: shellcheck"
     runs-on: dlstreamer
-    needs: check-skip-ci
-    if: needs.check-skip-ci.outputs.skip_ci != 'true'
     steps:
       - name: Check out dlstreamer repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6.0.2
@@ -331,7 +263,14 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
 
+      - name: Check if should skip CI
+        id: skip-check
+        uses: ./.github/actions/check-skip-ci
+        with:
+          job_name: "shellcheck scan"
+
       - name: Run shellcheck
+        if: steps.skip-check.outputs.should_run == 'true'
         uses: ./.github/actions/common/shellcheck
         with:
           path: .
@@ -347,15 +286,21 @@ jobs:
       pull-requests: write
     name: "DLS SCAN: yamllint"
     runs-on: dlstreamer
-    needs: check-skip-ci
-    if: needs.check-skip-ci.outputs.skip_ci != 'true'
     steps:
       - name: Check out dlstreamer repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6.0.2
         with:
           persist-credentials: false
+          fetch-depth: 0
+
+      - name: Check if should skip CI
+        id: skip-check
+        uses: ./.github/actions/check-skip-ci
+        with:
+          job_name: "yamllint scan"
 
       - name: Run yamlint
+        if: steps.skip-check.outputs.should_run == 'true'
         uses: ./.github/actions/common/yamllint
         with:
           path: .
@@ -370,16 +315,22 @@ jobs:
       contents: read
     name: "DLS SCAN: ClamAV antivirus"
     runs-on: dlstreamer
-    needs: check-skip-ci
-    if: needs.check-skip-ci.outputs.skip_ci != 'true'
     steps:
       - name: Check out dlstreamer repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6.0.2
         with:
           persist-credentials: false
+          fetch-depth: 0
           path: dlstreamer-repo
 
+      - name: Check if should skip CI
+        id: skip-check
+        uses: ./dlstreamer-repo/.github/actions/check-skip-ci
+        with:
+          job_name: "ClamAV antivirus scan"
+
       - name: ClamAV scan
+        if: steps.skip-check.outputs.should_run == 'true'
         id: clamav-dls-scan
         uses: open-edge-platform/orch-ci/.github/actions/security/clamav@76700c2fb6d547733b9218d9638dca43f5296399 # 0.1.52
         with:
@@ -389,14 +340,13 @@ jobs:
           fail-on-findings: true
 
       - name: Analyze ClamAV results
-        if: always()
+        if: steps.skip-check.outputs.should_run == 'true' && always()
         env:
           REPORT_PATH: ${{ steps.clamav-dls-scan.outputs.report_path }}
         run: |
           if [ -n "$REPORT_PATH" ] && [ -f "$REPORT_PATH" ]; then
             echo "📄 Found ClamAV report: $REPORT_PATH"
 
-            # Extract scan summary using jq
             files_scanned=$(jq -r '.scan_summary.files_scanned // 0' "$REPORT_PATH" 2>/dev/null || echo "0")
             threats_found=$(jq -r '.scan_summary.threats_found // 0' "$REPORT_PATH" 2>/dev/null || echo "0")
 
@@ -420,7 +370,7 @@ jobs:
           fi
 
       - name: Clean up
-        if: always()
+        if: steps.skip-check.outputs.should_run == 'true'
         run: |
           sudo rm -rf dlstreamer-repo
 
@@ -429,15 +379,21 @@ jobs:
       contents: read
     name: "DLS SCAN: Bandit"
     runs-on: dlstreamer
-    needs: check-skip-ci
-    if: needs.check-skip-ci.outputs.skip_ci != 'true'
     steps:
       - name: Check out dlstreamer repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6.0.2
         with:
           persist-credentials: false
+          fetch-depth: 0
+
+      - name: Check if should skip CI
+        id: skip-check
+        uses: ./.github/actions/check-skip-ci
+        with:
+          job_name: "Bandit scan"
 
       - name: Run Bandit scan
+        if: steps.skip-check.outputs.should_run == 'true'
         uses: open-edge-platform/orch-ci/.github/actions/security/bandit@76700c2fb6d547733b9218d9638dca43f5296399 # 0.1.52
         with:
           scan-scope: "changed"
@@ -452,89 +408,164 @@ jobs:
     permissions:
       contents: read
     name: "DLS TEST: models download"
-    needs: check-skip-ci
-    if: needs.check-skip-ci.outputs.skip_ci != 'true'
-    uses: ./.github/workflows/dls-download-models-test.yaml
-  #--------------------------------------------------------- - OPTIMIZER -------------------------------------------------------------
+    runs-on: dlstreamer
+    steps:
+      - name: Check out dlstreamer repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6.0.2
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Check if should skip CI
+        id: skip-check
+        uses: ./.github/actions/check-skip-ci
+        with:
+          job_name: "models download test"
+
+      - name: Run models download test
+        if: steps.skip-check.outputs.should_run == 'true'
+        uses: ./.github/workflows/dls-download-models-test.yaml
+
   dls-optimizer-functional-tests:
     permissions:
       contents: read
       packages: read
     name: "DLS TEST: Optimizer"
-    needs: check-skip-ci
-    if: needs.check-skip-ci.outputs.skip_ci != 'true'
-    uses: ./.github/workflows/dls-test-optimizer.yaml
-    with:
-      test-repo-branch: ${{ inputs.test-repo-branch }}
-  # -------------------------------------------------------- BUILDS & TESTS ---------------------------------------------------------
+    runs-on: dlstreamer
+    steps:
+      - name: Check out dlstreamer repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6.0.2
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Check if should skip CI
+        id: skip-check
+        uses: ./.github/actions/check-skip-ci
+        with:
+          job_name: "Optimizer tests"
+
+      - name: Run Optimizer tests
+        if: steps.skip-check.outputs.should_run == 'true'
+        uses: ./.github/workflows/dls-test-optimizer.yaml
+        with:
+          test-repo-branch: ${{ inputs.test-repo-branch }}
+
   dls-build-fedora-img:
     permissions:
       contents: read
       packages: read
     name: "DLS BUILD: fedora41 img"
-    needs: check-skip-ci
-    if: needs.check-skip-ci.outputs.skip_ci != 'true'
-    uses: ./.github/workflows/dls-build-fedora41-images.yaml
+    runs-on: dlstreamer
+    steps:
+      - name: Check out dlstreamer repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6.0.2
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Check if should skip CI
+        id: skip-check
+        uses: ./.github/actions/check-skip-ci
+        with:
+          job_name: "Fedora build"
+
+      - name: Run Fedora build
+        if: steps.skip-check.outputs.should_run == 'true'
+        uses: ./.github/workflows/dls-build-fedora41-images.yaml
 
   dls-build-sources-make-build:
     permissions:
       contents: read
       packages: read
     name: "DLS BUILD: make build"
-    needs: check-skip-ci
-    if: needs.check-skip-ci.outputs.skip_ci != 'true'
-    uses: ./.github/workflows/dls-build-sources-make-build.yaml
+    runs-on: dlstreamer
+    steps:
+      - name: Check out dlstreamer repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6.0.2
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Check if should skip CI
+        id: skip-check
+        uses: ./.github/actions/check-skip-ci
+        with:
+          job_name: "make build"
+
+      - name: Run make build
+        if: steps.skip-check.outputs.should_run == 'true'
+        uses: ./.github/workflows/dls-build-sources-make-build.yaml
 
   dls-build-dev-images-and-run-unit-tests:
     permissions:
       contents: read
       packages: read
     name: "DLS BUILD: dev imgs & run unit tests"
-    needs: check-skip-ci
-    if: needs.check-skip-ci.outputs.skip_ci != 'true'
-    uses: ./.github/workflows/dls-build-dev-docker-images-and-run-unit.yaml
+    runs-on: dlstreamer
+    steps:
+      - name: Check out dlstreamer repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6.0.2
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Check if should skip CI
+        id: skip-check
+        uses: ./.github/actions/check-skip-ci
+        with:
+          job_name: "dev images build and unit tests"
+
+      - name: Run dev images build and unit tests
+        if: steps.skip-check.outputs.should_run == 'true'
+        uses: ./.github/workflows/dls-build-dev-docker-images-and-run-unit.yaml
 
   dls-build-and-test-deb-and-deb_img:
     permissions:
       contents: read
       packages: read
     name: "DLS BUILD & TEST: .deb pkgs & img"
-    needs: check-skip-ci
-    if: needs.check-skip-ci.outputs.skip_ci != 'true'
-    uses: ./.github/workflows/dls-build-and-test-deb_pkgs-and-deb_imgs.yaml
-    with:
-      test-repo-branch: ${{ inputs.test-repo-branch }}
+    runs-on: dlstreamer
+    steps:
+      - name: Check out dlstreamer repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6.0.2
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Check if should skip CI
+        id: skip-check
+        uses: ./.github/actions/check-skip-ci
+        with:
+          job_name: ".deb packages build and test"
+
+      - name: Run .deb packages build and test
+        if: steps.skip-check.outputs.should_run == 'true'
+        uses: ./.github/workflows/dls-build-and-test-deb_pkgs-and-deb_imgs.yaml
+        with:
+          test-repo-branch: ${{ inputs.test-repo-branch }}
 
   dls-build-and-test-windows:
     permissions:
       contents: read
       packages: read
     name: "DLS BUILD & TEST: Windows DLLs"
-    needs: check-skip-ci
-    if: needs.check-skip-ci.outputs.skip_ci != 'true'
-    uses: ./.github/workflows/dls-build-and-test-windows.yaml
-    with:
-      test-repo-branch: ${{ inputs.test-repo-branch }}
-
-  summary:
-    name: "Workflow Summary"
     runs-on: dlstreamer
-    needs: check-skip-ci
-    if: always()
     steps:
-      - name: Summary
-        env:
-          SKIP_CI: ${{ needs.check-skip-ci.outputs.skip_ci }}
-        run: |
-          if [ "$SKIP_CI" = "true" ]; then
-            echo "✅ Only documentation and configuration changes detected - CI jobs skipped successfully"
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "This is expected behavior to save CI resources for documentation and configuration updates." >> $GITHUB_STEP_SUMMARY
-          else
-            echo "🔄 Code changes detected - full CI pipeline executed"
-            echo "### 🔄 Full CI pipeline executed" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "Changes detected outside documentation and configuration files - all CI jobs were executed." >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "This means there were modifications to source code, build files, or other files that require full CI validation." >> $GITHUB_STEP_SUMMARY
-          fi
+      - name: Check out dlstreamer repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6.0.2
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Check if should skip CI
+        id: skip-check
+        uses: ./.github/actions/check-skip-ci
+        with:
+          job_name: "Windows build and test"
+
+      - name: Run Windows build and test
+        if: steps.skip-check.outputs.should_run == 'true'
+        uses: ./.github/workflows/dls-build-and-test-windows.yaml
+        with:
+          test-repo-branch: ${{ inputs.test-repo-branch }}
