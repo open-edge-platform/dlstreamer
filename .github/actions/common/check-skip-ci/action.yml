@@ -27,16 +27,17 @@ runs:
   steps:
     - name: Fetch base branch for comparison
       shell: bash
+      working-directory: ${{ inputs.working_directory }}
       run: |
-        cd ${{ inputs.working_directory }}
         git fetch origin ${{ inputs.base_branch }}
 
     - name: Check if job should run
       id: check
       shell: bash
+      working-directory: ${{ inputs.working_directory }}
       run: |
         echo "🔍 Checking for changes outside documentation and configuration files"
-        cd working-directory: ${{ inputs.working_directory }}
+        
         CHANGED_FILES_CODE=$(git diff --name-only origin/${{ inputs.base_branch }}...HEAD -- \
           . \
           ':(exclude)docs/' \
