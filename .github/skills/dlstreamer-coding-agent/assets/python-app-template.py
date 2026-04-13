@@ -32,7 +32,7 @@ gi.require_version("Gst", "1.0")
 # Python runtime that is already loaded.
 os.environ.setdefault("GST_REGISTRY_FORK", "no")
 
-from gi.repository import Gst  # pylint: disable=no-name-in-module, wrong-import-position
+from gi.repository import GLib, Gst  # pylint: disable=no-name-in-module, wrong-import-position
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 MODELS_DIR = SCRIPT_DIR / "models"
@@ -55,7 +55,6 @@ def parse_args():
     p.add_argument("--device", default="GPU", help="Inference device (default: GPU)")
     p.add_argument("--output-video", default=str(RESULTS_DIR / "output.mp4"))
     p.add_argument("--output-json", default=str(RESULTS_DIR / "results.jsonl"))
-    p.add_argument("--threshold", type=float, default=0.5, help="Detection threshold")
     return p.parse_args()
 
 
@@ -113,6 +112,8 @@ def build_source(src: str) -> str:
 def run_pipeline(pipeline):
     """Event loop with SIGINT → EOS for graceful RTSP shutdown."""
 
+    # [Optional] For long-running pipelines, add SIGINT → EOS handler
+    # to set pipeline.set_state(Gst.State.NULL) for immediate stop.
     def _sigint(signum, frame):
         pipeline.send_event(Gst.Event.new_eos())
 
@@ -121,6 +122,11 @@ def run_pipeline(pipeline):
     pipeline.set_state(Gst.State.PLAYING)
     try:
         while True:
+            # [Optional] Add when application processes user commands or
+            # any thread-safe dispatch via GLib.idle_add(). No-op otherwise.
+            while GLib.MainContext.default().iteration(False):
+                pass
+
             msg = bus.timed_pop_filtered(
                 100 * Gst.MSECOND,
                 Gst.MessageType.ERROR | Gst.MessageType.EOS,

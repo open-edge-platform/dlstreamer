@@ -137,18 +137,11 @@ for mtd in rmeta:
 
 ## Buffer Mutability in Custom Elements or Pads
 
-In GStreamer ≥ 1.26, `buffer.copy()` returns a **shallow copy** with an immutable read-only data pointer.
-Use `buffer.copy_deep()` when you need to modify buffer timestamps or data:
+When a custom element adds new metadata, use `buffer.copy()` which does a **shallow copy**
+with an immutable read-only data pointer, no change to underlying buffer data.
 
-```python
-# WRONG — raises NotWritableMiniObject in GStreamer ≥ 1.26
-rec_buffer = buffer.copy()
-rec_buffer.pts = new_pts  # ❌ immutable
-
-# CORRECT — deep copy creates a fully writable buffer
-rec_buffer = buffer.copy_deep()
-rec_buffer.pts = new_pts  # ✓ writable
-```
+Use `buffer.copy_deep()` only when you need to modify acutal buffer data or its timestamp.
+Allocating a new buffer data is a time- and resource-consuming operation and may affect performance.
 
 ## Device Availability Check
 
