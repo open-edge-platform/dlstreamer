@@ -18,6 +18,7 @@
 
 #include "gva_base_inference_priv.hpp"
 #include <memory>
+#include <string_view>
 
 #define DEFAULT_MODEL nullptr
 #define DEFAULT_MODEL_INSTANCE_ID nullptr
@@ -80,7 +81,7 @@
 
 #define DEFAULT_SHARE_VADISPLAY_CTX TRUE
 
-#define DEFAULT_CORE_PINNING nullptr
+#define MAX_CPU_CORES 64
 
 G_DEFINE_TYPE_WITH_PRIVATE(GvaBaseInference, gva_base_inference, GST_TYPE_BASE_TRANSFORM);
 
@@ -687,29 +688,42 @@ void gva_base_inference_set_core_pinning(GvaBaseInference *base_inference, const
 
     try {
         // Split by comma to get individual ranges or numbers
-        std::string str(range_str);
-        std::istringstream iss(str);
-        std::string part;
+        std::string_view sv(range_str);
 
         // parse input string and set bits in core_pinning accordingly
-        while (std::getline(iss, part, ',')) {
-            // Trim whitespace
-            part.erase(0, part.find_first_not_of(" \t"));
-            part.erase(part.find_last_not_of(" \t") + 1);
+        while (!sv.empty()) {
+            // Find next comma-separated token
+            size_t comma_pos = sv.find(',');
+            std::string_view token = sv.substr(0, comma_pos);
+            sv = (comma_pos != std::string_view::npos) ? sv.substr(comma_pos + 1) : std::string_view{};
 
-            if (part.find('-') != std::string::npos) {
+            // Trim whitespace
+            size_t start_pos = token.find_first_not_of(" \t");
+            if (start_pos == std::string_view::npos)
+                continue;
+            token = token.substr(start_pos);
+            token = token.substr(0, token.find_last_not_of(" \t") + 1);
+
+            if (token.find('-') != std::string_view::npos) {
                 // Parse range like "1-5"
-                size_t dash_pos = part.find('-');
-                int start = std::stoi(part.substr(0, dash_pos));
-                int end = std::stoi(part.substr(dash_pos + 1));
+                size_t dash_pos = token.find('-');
+                int start = std::stoi(std::string(token.substr(0, dash_pos)));
+                int end = std::stoi(std::string(token.substr(dash_pos + 1)));
 
                 // Set bits in the range
                 for (int i = start; i <= end; i++) {
-                    core_mask |= (1ULL << i);
+                    if( i >=0 && i < MAX_CPU_CORES) // Ensure we don't shift more than 63 bits
+                        core_mask |= (1ULL << i);
+                    else
+                        GST_WARNING_OBJECT(base_inference, "Core index %d is out of valid range (0-%d) and will be ignored", i, MAX_CPU_CORES - 1);
                 }
             } else {
                 // Set single bit
-                core_mask |= (1ULL << std::stoi(part));
+                int core = std::stoi(std::string(token));
+                if (core >= 0 && core < MAX_CPU_CORES)
+                    core_mask |= (1ULL << core);
+                else
+                    GST_WARNING_OBJECT(base_inference, "Core index %d is out of valid range (0-%d) and will be ignored", core, MAX_CPU_CORES - 1);
             }
         }
 
@@ -951,7 +965,7 @@ void gva_base_inference_get_property(GObject *object, guint property_id, GValue 
         // Convert core pinning mask back to string representation for get_property
         std::string range_str;
         guint64 mask = base_inference->core_pinning_mask;
-        for (int i = 0; i < 64; i++) {
+        for (int i = 0; i < MAX_CPU_CORES i++) {
             if (mask & (1ULL << i)) {
                 if (!range_str.empty())
                     range_str += ",";
