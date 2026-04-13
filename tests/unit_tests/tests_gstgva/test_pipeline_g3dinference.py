@@ -21,6 +21,18 @@ from pipeline_runner import TestGenericPipelineRunner  # pylint: disable=wrong-i
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 DLSTREAMER_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, "..", "..", ".."))
 OPENVINO_CONTRIB_URL = "https://github.com/openvinotoolkit/openvino_contrib.git"
+EXPECTED_DETECTIONS = [
+    {"label_id": 2, "confidence": 0.954, "bbox_3d": {"x": 10.403315544128418, "y": -4.837177753448486, "z": -1.532669186592102, "w": 1.692104697227478, "l": 4.5549397468566895, "h": 1.5184109210968018, "theta": -0.02542771026492119}},
+    {"label_id": 2, "confidence": 0.936, "bbox_3d": {"x": 18.695310592651367, "y": 5.6205010414123535, "z": -2.036820650100708, "w": 1.5274709463119507, "l": 3.4749011993408203, "h": 1.4211682081222534, "theta": 1.534871220588684}},
+    {"label_id": 2, "confidence": 0.918, "bbox_3d": {"x": 28.957921981811523, "y": 5.406683444976807, "z": -2.12335205078125, "w": 1.531412124633789, "l": 3.507960796356201, "h": 1.56046462059021, "theta": 1.5513761043548584}},
+    {"label_id": 2, "confidence": 0.914, "bbox_3d": {"x": 47.77565002441406, "y": -4.002121925354004, "z": -1.5385185480117798, "w": 1.5788333415985107, "l": 3.7427563667297363, "h": 1.4949634075164795, "theta": 0.5784904360771179}},
+    {"label_id": 2, "confidence": 0.900, "bbox_3d": {"x": 23.92894744873047, "y": 5.494050979614258, "z": -2.152738571166992, "w": 1.5495686531066895, "l": 3.7228798866271973, "h": 1.4438520669937134, "theta": 1.5458637475967407}},
+    {"label_id": 2, "confidence": 0.820, "bbox_3d": {"x": 5.6566572189331055, "y": -4.869320392608643, "z": -1.508419394493103, "w": 1.5985325574874878, "l": 4.069395065307617, "h": 1.4478180408477783, "theta": -0.1482767015695572}},
+    {"label_id": 2, "confidence": 0.552, "bbox_3d": {"x": 56.1164436340332, "y": 0.08022300899028778, "z": -1.8877365589141846, "w": 1.688123345375061, "l": 3.9101309776306152, "h": 1.4751232862472534, "theta": 1.5299361944198608}},
+    {"label_id": 2, "confidence": 0.549, "bbox_3d": {"x": 34.539920806884766, "y": 5.468486309051514, "z": -2.2403616905212402, "w": 1.6812094449996948, "l": 4.142858982086182, "h": 1.4964956045150757, "theta": 1.6419190168380737}},
+    {"label_id": 2, "confidence": 0.530, "bbox_3d": {"x": 14.937199592590332, "y": 6.906136989593506, "z": -2.152796745300293, "w": 1.5562783479690552, "l": 3.8965888023376465, "h": 1.4418131113052368, "theta": -3.06831693649292}},
+    {"label_id": 2, "confidence": 0.450, "bbox_3d": {"x": 66.13455963134766, "y": 4.945899486541748, "z": -2.087339401245117, "w": 1.5780829191207886, "l": 4.042502403259277, "h": 1.5297237634658813, "theta": 1.4576448202133179}},
+]
 
 
 def ensure_pointpillars_root():
@@ -107,6 +119,9 @@ def ensure_pointpillars_extension(pointpillars_root):
 
 
 class TestG3DInference(unittest.TestCase):
+    BOX_DELTA = 1e-2
+    CONFIDENCE_DELTA = 2e-2
+
     @classmethod
     def setUpClass(cls):
         cls.pointpillars_root = ensure_pointpillars_root()
@@ -141,6 +156,54 @@ class TestG3DInference(unittest.TestCase):
 
         with open(self.config_file, "w", encoding="utf-8") as handle:
             json.dump(config_payload, handle)
+
+    def _extract_detected_objects(self, payload):
+        objects = payload.get("objects")
+        self.assertIsInstance(objects, list, "JSON output must contain an 'objects' array")
+
+        parsed_objects = []
+        for obj in objects:
+            bbox_3d = obj.get("bbox_3d", {})
+            parsed_objects.append(
+                {
+                    "label_id": obj.get("label_id"),
+                    "confidence": obj.get("confidence"),
+                    "bbox_3d": {
+                        "x": bbox_3d.get("x"),
+                        "y": bbox_3d.get("y"),
+                        "z": bbox_3d.get("z"),
+                        "w": bbox_3d.get("w"),
+                        "l": bbox_3d.get("l"),
+                        "h": bbox_3d.get("h"),
+                        "theta": bbox_3d.get("theta"),
+                    },
+                }
+            )
+
+        return sorted(parsed_objects, key=lambda item: item["confidence"], reverse=True)
+
+    def _assert_detection_matches(self, actual, expected, index):
+        self.assertEqual(actual["label_id"], expected["label_id"], f"label_id mismatch for object {index}")
+        self.assertAlmostEqual(
+            actual["confidence"], expected["confidence"], delta=self.CONFIDENCE_DELTA,
+            msg=f"confidence mismatch for object {index}"
+        )
+
+        for field_name in ("x", "y", "z", "w", "l", "h", "theta"):
+            self.assertAlmostEqual(
+                actual["bbox_3d"][field_name], expected["bbox_3d"][field_name], delta=self.BOX_DELTA,
+                msg=f"bbox_3d.{field_name} mismatch for object {index}"
+            )
+
+    def _assert_detections_match(self, payload):
+        actual_detections = self._extract_detected_objects(payload)
+        self.assertEqual(
+            len(actual_detections), len(EXPECTED_DETECTIONS),
+            f"Expected {len(EXPECTED_DETECTIONS)} objects, got {len(actual_detections)}"
+        )
+
+        for index, (actual, expected) in enumerate(zip(actual_detections, EXPECTED_DETECTIONS)):
+            self._assert_detection_matches(actual, expected, index)
 
     def test_g3dinference_pointpillars_pipeline(self):
         element = Gst.ElementFactory.make("g3dinference", None)
@@ -181,6 +244,8 @@ class TestG3DInference(unittest.TestCase):
             content = handle.read().strip()
             self.assertTrue(content, "Output JSON file is empty")
             payload = json.loads(content)
+
+        self._assert_detections_match(payload)
 
         serialized = json.dumps(payload)
         self.assertIn("pointpillars_3d_detection", serialized)
