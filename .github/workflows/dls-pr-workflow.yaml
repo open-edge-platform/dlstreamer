@@ -25,6 +25,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # ------------------------------------------------------------- SCANS -------------------------------------------------------------
   dls-code-style:
     permissions:
       contents: read
@@ -111,14 +112,13 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
-          path: dlstreamer-repo
 
       - name: Check if should skip CI
         id: skip-check
-        uses: ./dlstreamer-repo/.github/actions/common/check-skip-ci
+        uses: ./.github/actions/common/check-skip-ci
         with:
           job_name: "static C/C++ code analysis"
-          working_directory: "dlstreamer-repo"
+          working_directory: "."
 
       - name: Run Coverity analysis
         if: steps.skip-check.outputs.should_run == 'true'
@@ -202,18 +202,17 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
-          path: dlstreamer-repo
 
       - name: Check if should skip CI
         id: skip-check
-        uses: ./dlstreamer-repo/.github/actions/common/check-skip-ci
+        uses: ./.github/actions/common/check-skip-ci
         with:
           job_name: "Hadolint scan for ${{ matrix.name }}"
-          working_directory: "dlstreamer-repo"
+          working_directory: "."
 
       - name: Run Hadolint Action
         if: steps.skip-check.outputs.should_run == 'true'
-        uses: ./dlstreamer-repo/.github/actions/common/hadolint
+        uses: ./.github/actions/common/hadolint
         with:
           dockerfile: ${{ matrix.dockerfile }}
           output-file: ${{ matrix.output-file }}
@@ -271,18 +270,17 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
-          path: dlstreamer-repo
 
       - name: Check if should skip CI
         id: skip-check
-        uses: ./dlstreamer-repo/.github/actions/common/check-skip-ci
+        uses: ./.github/actions/common/check-skip-ci
         with:
           job_name: "shellcheck scan"
-          working_directory: "dlstreamer-repo"
+          working_directory: "."
 
       - name: Run shellcheck
         if: steps.skip-check.outputs.should_run == 'true'
-        uses: ./dlstreamer-repo/.github/actions/common/shellcheck
+        uses: ./.github/actions/common/shellcheck
         with:
           path: .
           output-file: shellcheck-report.txt
@@ -303,18 +301,17 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
-          path: dlstreamer-repo
 
       - name: Check if should skip CI
         id: skip-check
-        uses: ./dlstreamer-repo/.github/actions/common/check-skip-ci
+        uses: ./.github/actions/common/check-skip-ci
         with:
           job_name: "yamllint scan"
-          working_directory: "dlstreamer-repo"
+          working_directory: "."
 
       - name: Run yamlint
         if: steps.skip-check.outputs.should_run == 'true'
-        uses: ./dlstreamer-repo/.github/actions/common/yamllint
+        uses: ./.github/actions/common/yamllint
         with:
           path: .
           output-file: yamllint-report.txt
@@ -384,7 +381,7 @@ jobs:
           fi
 
       - name: Clean up
-        if: steps.skip-check.outputs.should_run == 'true'
+        if: steps.skip-check.outputs.should_run == 'true' && always()
         run: |
           sudo rm -rf dlstreamer-repo
 
@@ -399,14 +396,13 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
-          path: dlstreamer-repo
 
       - name: Check if should skip CI
         id: skip-check
-        uses: ./dlstreamer-repo/.github/actions/common/check-skip-ci
+        uses: ./.github/actions/common/check-skip-ci
         with:
           job_name: "Bandit scan"
-          working_directory: "dlstreamer-repo"
+          working_directory: "."
 
       - name: Run Bandit scan
         if: steps.skip-check.outputs.should_run == 'true'
@@ -431,14 +427,13 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
-          path: dlstreamer-repo
 
       - name: Check if should skip CI
         id: skip-check
-        uses: ./dlstreamer-repo/.github/actions/common/check-skip-ci
+        uses: ./.github/actions/common/check-skip-ci
         with:
           job_name: "models download test"
-          working_directory: "dlstreamer-repo"
+          working_directory: "."
 
       - name: Run models download test
         if: steps.skip-check.outputs.should_run == 'true'
@@ -456,14 +451,13 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
-          path: dlstreamer-repo
 
       - name: Check if should skip CI
         id: skip-check
-        uses: ./dlstreamer-repo/.github/actions/common/check-skip-ci
+        uses: ./.github/actions/common/check-skip-ci
         with:
           job_name: "Optimizer tests"
-          working_directory: "dlstreamer-repo"
+          working_directory: "."
 
       - name: Run Optimizer tests
         if: steps.skip-check.outputs.should_run == 'true'
@@ -483,14 +477,13 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
-          path: dlstreamer-repo
 
       - name: Check if should skip CI
         id: skip-check
-        uses: ./dlstreamer-repo/.github/actions/common/check-skip-ci
+        uses: ./.github/actions/common/check-skip-ci
         with:
           job_name: "Fedora build"
-          working_directory: "dlstreamer-repo"
+          working_directory: "."
 
       - name: Run Fedora build
         if: steps.skip-check.outputs.should_run == 'true'
@@ -508,14 +501,13 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
-          path: dlstreamer-repo
 
       - name: Check if should skip CI
         id: skip-check
-        uses: ./dlstreamer-repo/.github/actions/common/check-skip-ci
+        uses: ./.github/actions/common/check-skip-ci
         with:
           job_name: "make build"
-          working_directory: "dlstreamer-repo"
+          working_directory: "."
 
       - name: Run make build
         if: steps.skip-check.outputs.should_run == 'true'
@@ -533,14 +525,13 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
-          path: dlstreamer-repo
 
       - name: Check if should skip CI
         id: skip-check
-        uses: ./dlstreamer-repo/.github/actions/common/check-skip-ci
+        uses: ./.github/actions/common/check-skip-ci
         with:
           job_name: "dev images build and unit tests"
-          working_directory: "dlstreamer-repo"
+          working_directory: "."
 
       - name: Run dev images build and unit tests
         if: steps.skip-check.outputs.should_run == 'true'
@@ -558,14 +549,13 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
-          path: dlstreamer-repo
 
       - name: Check if should skip CI
         id: skip-check
-        uses: ./dlstreamer-repo/.github/actions/common/check-skip-ci
+        uses: ./.github/actions/common/check-skip-ci
         with:
           job_name: ".deb packages build and test"
-          working_directory: "dlstreamer-repo"
+          working_directory: "."
 
       - name: Run .deb packages build and test
         if: steps.skip-check.outputs.should_run == 'true'
@@ -585,14 +575,13 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
-          path: dlstreamer-repo
 
       - name: Check if should skip CI
         id: skip-check
-        uses: ./dlstreamer-repo/.github/actions/common/check-skip-ci
+        uses: ./.github/actions/common/check-skip-ci
         with:
           job_name: "Windows build and test"
-          working_directory: "dlstreamer-repo"
+          working_directory: "."
 
       - name: Run Windows build and test
         if: steps.skip-check.outputs.should_run == 'true'
