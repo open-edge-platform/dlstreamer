@@ -984,35 +984,46 @@ bool InferenceImpl::IsRoiSizeValid(const GstAnalyticsODMtd roi_meta) {
 /**
  * Pins current thread to the CPU core set as specified by affinity mask.
  */
-void InferenceImpl::SetAffinityMask(uint64_t mask) {
-    GVA_INFO("Setting CPU affinity mask to 0x%lx\n", mask);
 #ifndef _WIN32
-    cpu_set_t cpuset;
-    CPU_ZERO(&cpuset);                             // Initialize to zero
-    int num_cores = sysconf(_SC_NPROCESSORS_ONLN); // Get number of available CPU cores
-    for (int core_id = 0; core_id < num_cores; ++core_id) {
-        if (mask & (1ULL << core_id)) {
-            CPU_SET(core_id, &cpuset); // Add the specific core
-        }
-    }
+void InferenceImpl::SetAffinityMask(const cpu_set_t &mask) {
+    GVA_INFO("Setting CPU affinity mask (%d cores set)\n", CPU_COUNT(&mask));
 
     pthread_t current_thread = pthread_self(); // Get current thread handle
-    int result = pthread_setaffinity_np(current_thread, sizeof(cpu_set_t), &cpuset);
+    int result = pthread_setaffinity_np(current_thread, sizeof(cpu_set_t), &mask);
 
     if (result != 0) {
         GVA_ERROR("Error pinning thread: (%d)\n", result);
     }
-#else
-    DWORD_PTR mask = static_cast<DWORD_PTR>(&mask);
-
-    HANDLE thread = GetCurrentThread(); // Get handle for the current thread
-    DWORD_PTR result = SetThreadAffinityMask(thread, mask);
-
-    if (result == 0) {
-        GVA_ERROR("Error pinning thread: (%d)\n", GetLastError());
-    }
-#endif
 }
+#else
+void InferenceImpl::SetAffinityMask(const WinCorePinningMask &mask) {
+    // A thread can only belong to one processor group at a time.
+    // Find the first group with cores set and pin to it.
+    HANDLE thread = GetCurrentThread();
+    bool pinned = false;
+
+    for (WORD g = 0; g < mask.num_groups; ++g) {
+        if (mask.group_mask[g] != 0) {
+            GROUP_AFFINITY group_affinity = {};
+            group_affinity.Group = g;
+            group_affinity.Mask = mask.group_mask[g];
+
+            GVA_INFO("Setting CPU affinity to group %u, mask 0x%llx\n", g, (unsigned long long)mask.group_mask[g]);
+
+            if (!SetThreadGroupAffinity(thread, &group_affinity, NULL)) {
+                GVA_ERROR("Error pinning thread to group %u: (%lu)\n", g, GetLastError());
+            } else {
+                pinned = true;
+            }
+            break; // Thread can only be in one group
+        }
+    }
+
+    if (!pinned) {
+        GVA_WARNING("No cores set in affinity mask, thread affinity not changed\n");
+    }
+}
+#endif
 
 /**
  * Acquires output_frames_mutex with std::lock_guard.

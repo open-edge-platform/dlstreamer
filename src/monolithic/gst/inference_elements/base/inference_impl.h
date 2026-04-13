@@ -92,7 +92,11 @@ class InferenceImpl {
     std::list<OutputFrame> output_frames;
     std::mutex output_frames_mutex;
 
-    void SetAffinityMask(uint64_t mask);
+#ifndef _WIN32
+    void SetAffinityMask(const cpu_set_t &mask);
+#else
+    void SetAffinityMask(const WinCorePinningMask &mask);
+#endif
     void PushOutput();
     bool CheckSrcPadBlocked(GstObject *src);
     void PushBufferToSrcPad(OutputFrame &output_frame);
