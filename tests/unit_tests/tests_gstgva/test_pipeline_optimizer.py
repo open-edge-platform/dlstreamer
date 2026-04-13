@@ -14,8 +14,7 @@ class TestOptimizer(unittest.TestCase):
         model_path = get_model_path("yolo11s")
         pipeline = f"urisourcebin buffer-size=4096 uri=https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4 ! decodebin ! gvadetect model={model_path} ! queue ! gvawatermark ! vah264enc ! h264parse ! mp4mux ! fakesink"
         optimizer = DLSOptimizer()
-        optimizer.set_search_duration(45)
-        optimized_pipeline, fps = optimizer.optimize_for_fps(pipeline)
+        optimized_pipeline, fps = optimizer.optimize_for_fps(pipeline, 45)
     
         self.assertIsNotNone(optimized_pipeline, "Optimizer did not return optimized pipeline")
         self.assertIsNotNone(fps, "Optimizer did not return FPS value")

@@ -1,5 +1,5 @@
 # ==============================================================================
-# Copyright (C) 2018-2025 Intel Corporation
+# Copyright (C) 2018-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
@@ -10,6 +10,7 @@ add_subdirectory(classification)
 add_subdirectory(metaconvert)
 add_subdirectory(metapublish)
 add_subdirectory(fpscounter)
+add_subdirectory(watermark)
 add_subdirectory(properties)
 
 if(${ENABLE_AUDIO_INFERENCE_ELEMENTS})
