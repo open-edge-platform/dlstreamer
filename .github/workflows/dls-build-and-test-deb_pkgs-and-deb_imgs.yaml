@@ -25,401 +25,399 @@ env:
 
 jobs:
   build:
-      name: "[${{ matrix.runner_print_label }}] Build and test ${{ matrix.ubuntu_version }} .debs & deb imgs"
-      runs-on: ${{ matrix.runner_labels }}
-      needs: check-changes
-      if: needs.check-changes.outputs.should_run == 'true'
-      permissions:
-        contents: read
-        packages: read
-      strategy:
-        fail-fast: false
-        matrix:
-          include:
-            - path_dockerfile: $DLS_REL_PATH/docker/ubuntu/ubuntu22.Dockerfile
-              ubuntu_version: ubuntu22
-              runner_labels: [self-hosted, dlstreamer, TGL, ubuntu22] # Build and run tests on Tiger Lake system with Ubuntu 22
-              runner_print_label: TGL
-            - path_dockerfile: $DLS_REL_PATH/docker/ubuntu/ubuntu24.Dockerfile
-              ubuntu_version: ubuntu24
-              runner_labels: [self-hosted, dlstreamer, TGL, ubuntu24] # Build and run tests on Tiger Lake system with Ubuntu 24
-              runner_print_label: TGL
-            - path_dockerfile: $DLS_REL_PATH/docker/ubuntu/ubuntu24.Dockerfile
-              ubuntu_version: ubuntu24
-              runner_labels: [self-hosted, dlstreamer, ARL, ubuntu24] # Build and run tests on Arrow Lake system with Ubuntu 24
-              runner_print_label: ARL
-      steps:
-        - name: Check out dlstreamer repository
-          uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6.0.2
-          with:
-            persist-credentials: false
-            fetch-depth: 0
+    name: "[${{ matrix.runner_print_label }}] Build and test ${{ matrix.ubuntu_version }} .debs & deb imgs"
+    runs-on: ${{ matrix.runner_labels }}
+    permissions:
+      contents: read
+      packages: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - path_dockerfile: $DLS_REL_PATH/docker/ubuntu/ubuntu22.Dockerfile
+            ubuntu_version: ubuntu22
+            runner_labels: [self-hosted, dlstreamer, TGL, ubuntu22] # Build and run tests on Tiger Lake system with Ubuntu 22
+            runner_print_label: TGL
+          - path_dockerfile: $DLS_REL_PATH/docker/ubuntu/ubuntu24.Dockerfile
+            ubuntu_version: ubuntu24
+            runner_labels: [self-hosted, dlstreamer, TGL, ubuntu24] # Build and run tests on Tiger Lake system with Ubuntu 24
+            runner_print_label: TGL
+          - path_dockerfile: $DLS_REL_PATH/docker/ubuntu/ubuntu24.Dockerfile
+            ubuntu_version: ubuntu24
+            runner_labels: [self-hosted, dlstreamer, ARL, ubuntu24] # Build and run tests on Arrow Lake system with Ubuntu 24
+            runner_print_label: ARL
+    steps:
+      - name: Check out dlstreamer repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6.0.2
+        with:
+          persist-credentials: false
+          fetch-depth: 0
 
-        - name: Check if should skip CI
-          id: skip-check
-          uses: ./.github/actions/common/check-skip-ci
-          with:
-            job_name: "Build and test .deb pkgs & deb imgs"
-            working_directory: "."
+      - name: Check if should skip CI
+        id: skip-check
+        uses: ./.github/actions/common/check-skip-ci
+        with:
+          job_name: "Build and test .deb pkgs & deb imgs"
+          working_directory: "."
 
-        - name: Initial environment clean
-          if: steps.skip-check.outputs.should_run == 'true'
-          run: |
-            sudo rm -rf dlstreamer
+      - name: Initial environment clean
+        if: steps.skip-check.outputs.should_run == 'true'
+        run: |
+          sudo rm -rf dlstreamer
 
-        - name: Check out dlstreamer repository
-          if: steps.skip-check.outputs.should_run == 'true'
-          uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6.0.2
-          with:
-            persist-credentials: false
-            path: dlstreamer
+      - name: Check out dlstreamer repository
+        if: steps.skip-check.outputs.should_run == 'true'
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6.0.2
+        with:
+          persist-credentials: false
+          path: dlstreamer
 
-        - name: Init submodules
-          if: steps.skip-check.outputs.should_run == 'true'
-          run: |
-            cd dlstreamer
-            git submodule update --init thirdparty/spdlog
+      - name: Init submodules
+        if: steps.skip-check.outputs.should_run == 'true'
+        run: |
+          cd dlstreamer
+          git submodule update --init thirdparty/spdlog
 
-        - name: Check out test repository
-          if: steps.skip-check.outputs.should_run == 'true'
-          uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6.0.2
-          with:
-            repository: open-edge-platform/dl-streamer-tests
-            persist-credentials: false
-            ref: ${{ inputs.test-repo-branch }}
-            path: dl-streamer-tests-repo
+      - name: Check out test repository
+        if: steps.skip-check.outputs.should_run == 'true'
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6.0.2
+        with:
+          repository: open-edge-platform/dl-streamer-tests
+          persist-credentials: false
+          ref: ${{ inputs.test-repo-branch }}
+          path: dl-streamer-tests-repo
 
-        - name: Copy DL Streamer tests repo
-          if: steps.skip-check.outputs.should_run == 'true'
-          run: |
-            cp -r dl-streamer-tests-repo/functional_tests $PWD/$DLS_REL_PATH/tests
+      - name: Copy DL Streamer tests repo
+        if: steps.skip-check.outputs.should_run == 'true'
+        run: |
+          cp -r dl-streamer-tests-repo/functional_tests $PWD/$DLS_REL_PATH/tests
 
-        # ======================================================== BUILDING PART ========================================================
-        - name: Set up Docker Buildx
-          if: steps.skip-check.outputs.should_run == 'true'
-          uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd #4.0.0
+      # ======================================================== BUILDING PART ========================================================
+      - name: Set up Docker Buildx
+        if: steps.skip-check.outputs.should_run == 'true'
+        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd #4.0.0
 
-        - name: Log in to GitHub Container Registry
-          if: steps.skip-check.outputs.should_run == 'true'
-          uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 #4.0.0
-          with:
-            registry: ghcr.io
-            username: ${{ github.actor }}
-            password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Log in to GitHub Container Registry
+        if: steps.skip-check.outputs.should_run == 'true'
+        uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 #4.0.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-        - name: 🚢 Build deb final img with cache from GHCR
-          if: steps.skip-check.outputs.should_run == 'true'
-          env:
-            deb_final_img: ghcr.io/${{ github.repository }}/deb-final-img-${{ matrix.ubuntu_version }}:${{ github.sha }}
-            deb_final_img_cached: ghcr.io/${{ github.repository }}/deb-final-img-${{ matrix.ubuntu_version }}:buildcache
-          run: |
-            docker buildx build \
-              --load \
-              --target dlstreamer \
-              --tag "${deb_final_img}" \
-              --cache-from="${deb_final_img_cached}" \
-              --build-arg DLSTREAMER_VERSION=${{ env.dlstreamer-version }} \
-              --build-arg DLSTREAMER_BUILD_NUMBER=deb-pkg-${{ matrix.ubuntu_version }} \
-              -f ${{ matrix.path_dockerfile }} \
-              ${{ env.DLS_REL_PATH }}
-
-        - name: Build dlstreamer img with python
-          if: steps.skip-check.outputs.should_run == 'true'
-          env:
-            deb_final_img: ghcr.io/${{ github.repository }}/deb-final-img-${{ matrix.ubuntu_version }}:${{ github.sha }}
-            deb_final_testing_img: ghcr.io/${{ github.repository }}/deb-final-testing-img-${{ matrix.ubuntu_version }}:${{ github.sha }}
-          id: dlstreamer-with-python
-          run: |
-            docker build \
-            -f $DLS_REL_PATH/docker/ubuntu/ubuntu-testing.Dockerfile \
-            -t $deb_final_testing_img \
-            --build-arg BASE_IMAGE=$deb_final_img \
+      - name: 🚢 Build deb final img with cache from GHCR
+        if: steps.skip-check.outputs.should_run == 'true'
+        env:
+          deb_final_img: ghcr.io/${{ github.repository }}/deb-final-img-${{ matrix.ubuntu_version }}:${{ github.sha }}
+          deb_final_img_cached: ghcr.io/${{ github.repository }}/deb-final-img-${{ matrix.ubuntu_version }}:buildcache
+        run: |
+          docker buildx build \
+            --load \
+            --target dlstreamer \
+            --tag "${deb_final_img}" \
+            --cache-from="${deb_final_img_cached}" \
+            --build-arg DLSTREAMER_VERSION=${{ env.dlstreamer-version }} \
+            --build-arg DLSTREAMER_BUILD_NUMBER=deb-pkg-${{ matrix.ubuntu_version }} \
+            -f ${{ matrix.path_dockerfile }} \
             ${{ env.DLS_REL_PATH }}
 
-        - name: 📦 Extract .deb packages using script
-          if: steps.skip-check.outputs.should_run == 'true'
-          env:
-            deb_final_img: ghcr.io/${{ github.repository }}/deb-final-img-${{ matrix.ubuntu_version }}:${{ github.sha }}
-          run: |
-            chmod +x ${{ env.DLS_REL_PATH }}/scripts/extract_and_verify_debs.sh
-            ${{ env.DLS_REL_PATH }}/scripts/extract_and_verify_debs.sh ${deb_final_img}
-            ls
-            cp -r deb_packages ${{ env.DLS_REL_PATH }}
+      - name: Build dlstreamer img with python
+        if: steps.skip-check.outputs.should_run == 'true'
+        env:
+          deb_final_img: ghcr.io/${{ github.repository }}/deb-final-img-${{ matrix.ubuntu_version }}:${{ github.sha }}
+          deb_final_testing_img: ghcr.io/${{ github.repository }}/deb-final-testing-img-${{ matrix.ubuntu_version }}:${{ github.sha }}
+        id: dlstreamer-with-python
+        run: |
+          docker build \
+          -f $DLS_REL_PATH/docker/ubuntu/ubuntu-testing.Dockerfile \
+          -t $deb_final_testing_img \
+          --build-arg BASE_IMAGE=$deb_final_img \
+          ${{ env.DLS_REL_PATH }}
 
-        # ======================================================== DOCKER TESTING PART ========================================================
-        - name: Check models
-          if: steps.skip-check.outputs.should_run == 'true'
-          run: |
-            echo "## 📂 ${{ matrix.runner_print_label }} Environment checks" >> $GITHUB_STEP_SUMMARY
-            echo "Test repo branch: $test_repo_branch" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            if [ -d "${{ env.MODELS_PATH }}" ] && [ "$(ls -A "${{ env.MODELS_PATH }}")" ]; then
-              echo "Models: found ✅" >> $GITHUB_STEP_SUMMARY
-            else
-              echo "Models: folder not found or it is empty ❌" >> $GITHUB_STEP_SUMMARY
+      - name: 📦 Extract .deb packages using script
+        if: steps.skip-check.outputs.should_run == 'true'
+        env:
+          deb_final_img: ghcr.io/${{ github.repository }}/deb-final-img-${{ matrix.ubuntu_version }}:${{ github.sha }}
+        run: |
+          chmod +x ${{ env.DLS_REL_PATH }}/scripts/extract_and_verify_debs.sh
+          ${{ env.DLS_REL_PATH }}/scripts/extract_and_verify_debs.sh ${deb_final_img}
+          ls
+          cp -r deb_packages ${{ env.DLS_REL_PATH }}
+
+      # ======================================================== DOCKER TESTING PART ========================================================
+      - name: Check models
+        if: steps.skip-check.outputs.should_run == 'true'
+        run: |
+          echo "## 📂 ${{ matrix.runner_print_label }} Environment checks" >> $GITHUB_STEP_SUMMARY
+          echo "Test repo branch: $test_repo_branch" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -d "${{ env.MODELS_PATH }}" ] && [ "$(ls -A "${{ env.MODELS_PATH }}")" ]; then
+            echo "Models: found ✅" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "Models: folder not found or it is empty ❌" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+
+      - name: Check videos
+        if: steps.skip-check.outputs.should_run == 'true'
+        run: |
+          if [ -d "${{ env.VIDEO_INPUTS_PATH }}" ] && [ "$(ls -A "${{ env.VIDEO_INPUTS_PATH }}")" ]; then
+            echo "Tests input videos: found ✅" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "Tests input videos: folder not found or it is empty ❌" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+
+      - name: Init docker tests configurations
+        if: steps.skip-check.outputs.should_run == 'true'
+        run: |
+          echo "## 🚢 ${{ matrix.runner_print_label }} Docker tests summary" >> $GITHUB_STEP_SUMMARY
+          echo "DOCKER_TEST_CONFIGS=aliveness_config.json" >> $GITHUB_ENV
+          echo "Selected test configuration file: $DOCKER_TEST_CONFIGS" >> $GITHUB_STEP_SUMMARY
+
+      - name: 🚀 Run Docker tests
+        if: steps.skip-check.outputs.should_run == 'true'
+        id: run_docker_tests
+        env:
+          deb_final_testing_img: ghcr.io/${{ github.repository }}/deb-final-testing-img-${{ matrix.ubuntu_version }}:${{ github.sha }}
+          DOCKER_TEST_CONFIGS: ${{ env.DOCKER_TEST_CONFIGS }}
+        run: |
+          cd $PWD/$DLS_REL_PATH/tests
+          mkdir functional_tests_results
+          cd functional_tests_results
+          DLS_TESTS_RESULTS_PATH=$PWD
+          echo "DLS_TESTS_RESULTS_PATH=$DLS_TESTS_RESULTS_PATH" >> $GITHUB_ENV
+          cd ../functional_tests
+          ./run_tests.sh \
+            --models-path=${{ env.MODELS_PATH }} \
+            --video-examples-path=${{ env.VIDEO_INPUTS_PATH }} \
+            --meta-configs="$DOCKER_TEST_CONFIGS" \
+            --platform-type="${{ matrix.runner_print_label }}" \
+            --results-path="$DLS_TESTS_RESULTS_PATH" \
+            --report-name="DLS_functional_tests_${{ matrix.runner_print_label }}_docker_${{ matrix.ubuntu_version }}_results" \
+            --image-name="${deb_final_testing_img}"
+
+      - name: Upload Docker test results
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f #7.0.0
+        if: steps.skip-check.outputs.should_run == 'true' && steps.run_docker_tests.outcome == 'success'
+        with:
+          name: DLS_functional_tests_${{ matrix.runner_print_label }}_docker_${{ matrix.ubuntu_version }}_results
+          path: "${{ env.DLS_TESTS_RESULTS_PATH }}"
+
+      - name: Check and display Docker test results
+        if: steps.skip-check.outputs.should_run == 'true' && steps.run_docker_tests.outcome == 'success'
+        env:
+          dls_tests_results_path: ${{ env.DLS_TESTS_RESULTS_PATH }}
+          test_repo_branch: ${{ inputs.test-repo-branch }}
+        run: |
+          RESULTS_FILE="${dls_tests_results_path}/DLS_functional_tests_${{ matrix.runner_print_label }}_docker_${{ matrix.ubuntu_version }}_results.txt"
+
+          # Add results to summary with emoji replacements
+          sed 's/\[pass\]/:white_check_mark:/g; s/\[\! FAIL \!\]/:x:/g' "$RESULTS_FILE" >> $GITHUB_STEP_SUMMARY
+
+          # Check for failures and fail if any
+          FAILED_COUNT=$(grep "^Failed:" "$RESULTS_FILE" | awk '{print $2}')
+          if [ "$FAILED_COUNT" -gt 0 ]; then
+            echo "::error::$FAILED_COUNT test(s) failed"
+            exit 1
+          fi
+
+      - name: Clean up tests results
+        if: steps.skip-check.outputs.should_run == 'true'
+        env:
+          DLS_TESTS_RESULTS_PATH: ${{ env.DLS_TESTS_RESULTS_PATH }}
+        run: |
+          rm -rf "$DLS_TESTS_RESULTS_PATH"
+
+      # ======================================================== ON HOST TESTING PART ========================================================
+      - name: Link DL Streamer to home directory
+        if: steps.skip-check.outputs.should_run == 'true'
+        run: |
+          TARGET="$HOME/$(basename $DLS_REL_PATH)"
+          if [ -e "$TARGET" ] || [ -L "$TARGET" ]; then
+            rm -rf "$TARGET"
+          fi
+          ln -s "$PWD/$DLS_REL_PATH" "$TARGET"
+
+      - name: Install DL Streamer on-host
+        if: steps.skip-check.outputs.should_run == 'true'
+        run: |
+          $DLS_REL_PATH/tests/scripts/installation-on-host-entrypoint.sh $DLS_REL_PATH/deb_packages
+
+      - name: 👋 Test hello_dlstreamer script on host
+        if: steps.skip-check.outputs.should_run == 'true'
+        id: test_hello_dlstreamer_script
+        run: |
+          mkdir -p $DLS_REL_PATH/test_hello_dlstreamer
+          cd $DLS_REL_PATH/test_hello_dlstreamer
+          export MODELS_PATH=${{ env.MODELS_PATH }}
+          echo "Running hello_dlstreamer.sh on CPU with model yolo11s"
+          /opt/intel/dlstreamer/scripts/hello_dlstreamer.sh --output=file --device=CPU --model=yolo11s --precision=INT8
+          OUTPUT_FILE_FOUND=0
+          echo "## 💻 ${{ matrix.runner_print_label }} On host tests summary" >> $GITHUB_STEP_SUMMARY
+          for file in *.mp4; do
+              # Check if the file exists and is at least 1kB in size
+              if [[ -f "$file" && $(stat --printf="%s" "$file") -ge 1024 ]]; then
+                  echo "✅ Valid .mp4 file found: $file"
+                  echo "Testing hello_dlstreamer.sh script: PASS ✅" >> $GITHUB_STEP_SUMMARY
+                  OUTPUT_FILE_FOUND=1
+              fi
+          done
+          if [[ $OUTPUT_FILE_FOUND -eq 0 ]]; then
+              echo "❌ No .mp4 file(s) found or it has less than 1kB size. Exiting..."
+              echo "Testing hello_dlstreamer.sh script: FAIL ❌" >> $GITHUB_STEP_SUMMARY
               exit 1
-            fi
+          fi
 
-        - name: Check videos
-          if: steps.skip-check.outputs.should_run == 'true'
-          run: |
-            if [ -d "${{ env.VIDEO_INPUTS_PATH }}" ] && [ "$(ls -A "${{ env.VIDEO_INPUTS_PATH }}")" ]; then
-              echo "Tests input videos: found ✅" >> $GITHUB_STEP_SUMMARY
-            else
-              echo "Tests input videos: folder not found or it is empty ❌" >> $GITHUB_STEP_SUMMARY
-              exit 1
-            fi
+      - name: Upload hello_dlstreamer output video
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f #7.0.0
+        if: steps.skip-check.outputs.should_run == 'true'
+        with:
+          name: DLS_hello_dlstreamer_output_video_${{ matrix.runner_print_label }}_${{ matrix.ubuntu_version }}_CPU_yolo11s
+          path: ${{ env.DLS_REL_PATH }}/test_hello_dlstreamer
 
-        - name: Init docker tests configurations
-          if: steps.skip-check.outputs.should_run == 'true'
-          run: |
-            echo "## 🚢 ${{ matrix.runner_print_label }} Docker tests summary" >> $GITHUB_STEP_SUMMARY
-            echo "DOCKER_TEST_CONFIGS=aliveness_config.json" >> $GITHUB_ENV
-            echo "Selected test configuration file: $DOCKER_TEST_CONFIGS" >> $GITHUB_STEP_SUMMARY
+      - name: Init on host tests configurations
+        if: steps.skip-check.outputs.should_run == 'true'
+        run: |
+          if [[ "${{ matrix.runner_print_label }}" == "ARL" ]]; then
+            echo "HOST_TEST_CONFIGS=samples_config.json watermark_config.json" >> $GITHUB_ENV
+          else
+            echo "HOST_TEST_CONFIGS=samples_config.json" >> $GITHUB_ENV
+          fi
+          echo "Selected test configuration file: $HOST_TEST_CONFIGS" >> $GITHUB_STEP_SUMMARY
 
-        - name: 🚀 Run Docker tests
-          if: steps.skip-check.outputs.should_run == 'true'
-          id: run_docker_tests
-          env:
-            deb_final_testing_img: ghcr.io/${{ github.repository }}/deb-final-testing-img-${{ matrix.ubuntu_version }}:${{ github.sha }}
-            DOCKER_TEST_CONFIGS: ${{ env.DOCKER_TEST_CONFIGS }}
-          run: |
-            cd $PWD/$DLS_REL_PATH/tests
-            mkdir functional_tests_results
-            cd functional_tests_results
-            DLS_TESTS_RESULTS_PATH=$PWD
-            echo "DLS_TESTS_RESULTS_PATH=$DLS_TESTS_RESULTS_PATH" >> $GITHUB_ENV
-            cd ../functional_tests
-            ./run_tests.sh \
-              --models-path=${{ env.MODELS_PATH }} \
-              --video-examples-path=${{ env.VIDEO_INPUTS_PATH }} \
-              --meta-configs="$DOCKER_TEST_CONFIGS" \
-              --platform-type="${{ matrix.runner_print_label }}" \
-              --results-path="$DLS_TESTS_RESULTS_PATH" \
-              --report-name="DLS_functional_tests_${{ matrix.runner_print_label }}_docker_${{ matrix.ubuntu_version }}_results" \
-              --image-name="${deb_final_testing_img}"
-
-        - name: Upload Docker test results
-          uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f #7.0.0
-          if: steps.skip-check.outputs.should_run == 'true' && steps.run_docker_tests.outcome == 'success'
-          with:
-            name: DLS_functional_tests_${{ matrix.runner_print_label }}_docker_${{ matrix.ubuntu_version }}_results
-            path: "${{ env.DLS_TESTS_RESULTS_PATH }}"
-
-        - name: Check and display Docker test results
-          if: steps.skip-check.outputs.should_run == 'true' && steps.run_docker_tests.outcome == 'success'
-          env:
-            dls_tests_results_path: ${{ env.DLS_TESTS_RESULTS_PATH }}
-            test_repo_branch: ${{ inputs.test-repo-branch }}
-          run: |
-            RESULTS_FILE="${dls_tests_results_path}/DLS_functional_tests_${{ matrix.runner_print_label }}_docker_${{ matrix.ubuntu_version }}_results.txt"
-
-            # Add results to summary with emoji replacements
-            sed 's/\[pass\]/:white_check_mark:/g; s/\[\! FAIL \!\]/:x:/g' "$RESULTS_FILE" >> $GITHUB_STEP_SUMMARY
-
-            # Check for failures and fail if any
-            FAILED_COUNT=$(grep "^Failed:" "$RESULTS_FILE" | awk '{print $2}')
-            if [ "$FAILED_COUNT" -gt 0 ]; then
-              echo "::error::$FAILED_COUNT test(s) failed"
-              exit 1
-            fi
-
-        - name: Clean up tests results
-          if: steps.skip-check.outputs.should_run == 'true'
-          env:
-            DLS_TESTS_RESULTS_PATH: ${{ env.DLS_TESTS_RESULTS_PATH }}
-          run: |
-            rm -rf "$DLS_TESTS_RESULTS_PATH"
-
-        # ======================================================== ON HOST TESTING PART ========================================================
-        - name: Link DL Streamer to home directory
-          if: steps.skip-check.outputs.should_run == 'true'
-          run: |
-            TARGET="$HOME/$(basename $DLS_REL_PATH)"
-            if [ -e "$TARGET" ] || [ -L "$TARGET" ]; then
-              rm -rf "$TARGET"
-            fi
-            ln -s "$PWD/$DLS_REL_PATH" "$TARGET"
-
-        - name: Install DL Streamer on-host
-          if: steps.skip-check.outputs.should_run == 'true'
-          run: |
-            $DLS_REL_PATH/tests/scripts/installation-on-host-entrypoint.sh $DLS_REL_PATH/deb_packages
-
-        - name: 👋 Test hello_dlstreamer script on host
-          if: steps.skip-check.outputs.should_run == 'true'
-          id: test_hello_dlstreamer_script
-          run: |
-            mkdir -p $DLS_REL_PATH/test_hello_dlstreamer
-            cd $DLS_REL_PATH/test_hello_dlstreamer
-            export MODELS_PATH=${{ env.MODELS_PATH }}
-            echo "Running hello_dlstreamer.sh on CPU with model yolo11s"
-            /opt/intel/dlstreamer/scripts/hello_dlstreamer.sh --output=file --device=CPU --model=yolo11s --precision=INT8
-            OUTPUT_FILE_FOUND=0
-            echo "## 💻 ${{ matrix.runner_print_label }} On host tests summary" >> $GITHUB_STEP_SUMMARY
-            for file in *.mp4; do
-                # Check if the file exists and is at least 1kB in size
-                if [[ -f "$file" && $(stat --printf="%s" "$file") -ge 1024 ]]; then
-                    echo "✅ Valid .mp4 file found: $file"
-                    echo "Testing hello_dlstreamer.sh script: PASS ✅" >> $GITHUB_STEP_SUMMARY
-                    OUTPUT_FILE_FOUND=1
-                fi
-            done
-            if [[ $OUTPUT_FILE_FOUND -eq 0 ]]; then
-                echo "❌ No .mp4 file(s) found or it has less than 1kB size. Exiting..."
-                echo "Testing hello_dlstreamer.sh script: FAIL ❌" >> $GITHUB_STEP_SUMMARY
-                exit 1
-            fi
-
-        - name: Upload hello_dlstreamer output video
-          uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f #7.0.0
-          if: steps.skip-check.outputs.should_run == 'true'
-          with:
-            name: DLS_hello_dlstreamer_output_video_${{ matrix.runner_print_label }}_${{ matrix.ubuntu_version }}_CPU_yolo11s
-            path: ${{ env.DLS_REL_PATH }}/test_hello_dlstreamer
-
-        - name: Init on host tests configurations
-          if: steps.skip-check.outputs.should_run == 'true'
-          run: |
-            if [[ "${{ matrix.runner_print_label }}" == "ARL" ]]; then
-              echo "HOST_TEST_CONFIGS=samples_config.json watermark_config.json" >> $GITHUB_ENV
-            else
-              echo "HOST_TEST_CONFIGS=samples_config.json" >> $GITHUB_ENV
-            fi
-            echo "Selected test configuration file: $HOST_TEST_CONFIGS" >> $GITHUB_STEP_SUMMARY
-
-        - name: Init host test environment
-          if: steps.skip-check.outputs.should_run == 'true'
-          run: |
-            sudo apt install -y libcairo2-dev libgirepository1.0-dev
-            if [[ ${{ matrix.ubuntu_version }} == "ubuntu24" ]]; then
-                sudo apt install -y libopencv-dev
-            fi
-            if [ -d "$HOME/.virtualenvs" ]; then
-              echo "Directory $HOME/.virtualenvs exists - removing it"
-              rm -rf $HOME/.virtualenvs
-            fi
-            mkdir -p $HOME/.virtualenvs/dlstreamer
-            python3 -m venv $HOME/.virtualenvs/dlstreamer
-            $HOME/.virtualenvs/dlstreamer/bin/pip install --no-cache-dir --upgrade pip -r $DLS_REL_PATH/requirements.txt
-
-        - name: 🚀 Run on host tests
-          if: steps.skip-check.outputs.should_run == 'true'
-          id: run_onhost_tests
-          env:
-            HOST_TEST_CONFIGS: ${{ env.HOST_TEST_CONFIGS }}
-          run: |
-            cd $PWD/$DLS_REL_PATH/tests
-            mkdir functional_tests_results
-            cd functional_tests_results
-            DLS_TESTS_RESULTS_PATH=$PWD
-            echo "DLS_TESTS_RESULTS_PATH=$DLS_TESTS_RESULTS_PATH" >> $GITHUB_ENV
-            cd ../functional_tests
-            source $HOME/.virtualenvs/dlstreamer/bin/activate
-            ./run_tests.sh \
-              --models-path=${{ env.MODELS_PATH }} \
-              --video-examples-path=${{ env.VIDEO_INPUTS_PATH }} \
-              --meta-configs="$HOST_TEST_CONFIGS" \
-              --platform-type="${{ matrix.runner_print_label }}" \
-              --results-path="$DLS_TESTS_RESULTS_PATH" \
-              --report-name="DLS_functional_tests_${{ matrix.runner_print_label }}_on_host_${{ matrix.ubuntu_version }}_results" \
-              --on-host
-            deactivate
-
-        - name: Upload host test results
-          uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f #7.0.0
-          if: steps.skip-check.outputs.should_run == 'true'
-          with:
-            name: DLS_functional_tests_${{ matrix.runner_print_label }}_on_host_${{ matrix.ubuntu_version }}_results
-            path: "${{ env.DLS_TESTS_RESULTS_PATH }}"
-
-        - name: Check and display host test results
-          if: steps.skip-check.outputs.should_run == 'true'
-          env:
-            dls_tests_results_path: ${{ env.DLS_TESTS_RESULTS_PATH }}
-            test_repo_branch: ${{ inputs.test-repo-branch }}
-          run: |
-            RESULTS_FILE="${dls_tests_results_path}/DLS_functional_tests_${{ matrix.runner_print_label }}_on_host_${{ matrix.ubuntu_version }}_results.txt"
-
-            # Add results to summary with emoji replacements
-            sed 's/\[pass\]/:white_check_mark:/g; s/\[\! FAIL \!\]/:x:/g' "$RESULTS_FILE" >> $GITHUB_STEP_SUMMARY
-
-            # Check for failures and fail if any
-            FAILED_COUNT=$(grep "^Failed:" "$RESULTS_FILE" | awk '{print $2}')
-            if [ "$FAILED_COUNT" -gt 0 ]; then
-              echo "::error::$FAILED_COUNT test(s) failed"
-              exit 1
-            fi
-
-        - name: Uninstall dlstreamer
-          if: steps.skip-check.outputs.should_run == 'true'
-          run: |
-            $DLS_REL_PATH/tests/scripts/uninstall-dlstreamer.sh
-
-        - name: Check Docker image size
-          if: steps.skip-check.outputs.should_run == 'true'
-          id: check-size
-          env:
-            deb_final_img: ghcr.io/${{ github.repository }}/deb-final-img-${{ matrix.ubuntu_version }}:${{ github.sha }}
-            MATRIX_UBUNTU_VERSION: ${{ matrix.ubuntu_version }}
-            EXPECTED_SIZE_MB_DEB_U22: ${{ vars.EXPECTED_SIZE_MB_DEB_U22 }}
-            EXPECTED_SIZE_MB_DEB_U24: ${{ vars.EXPECTED_SIZE_MB_DEB_U24 }}
-          run: |
-            IMAGE_NAME=${deb_final_img}
-            if [ "${MATRIX_UBUNTU_VERSION}" == "ubuntu22" ]; then
-              EXPECTED_SIZE_MB=${EXPECTED_SIZE_MB_DEB_U22}
-            elif [ "${MATRIX_UBUNTU_VERSION}" == "ubuntu24" ]; then
-              EXPECTED_SIZE_MB=${EXPECTED_SIZE_MB_DEB_U24}
-            fi
-
-            # Use 'docker images' SIZE — identical to the SIZE column visible when running 'docker images' manually on the runner
-            SIZE_STR=$(docker images --no-trunc --format '{{.Size}}' "$IMAGE_NAME")
-            IMAGE_SIZE_MB=$(echo "$SIZE_STR" | awk '
-              /GB$/ { printf "%d", $1 * 1024; next }
-              /MB$/ { printf "%d", $1; next }
-              /kB$/ { printf "0"; next }
-            ')
-
-            echo "Actual image size (docker images SIZE): ${SIZE_STR} (~${IMAGE_SIZE_MB} MB)"
-            echo "Expected size: ${EXPECTED_SIZE_MB} MB"
-            DIFF=$(( IMAGE_SIZE_MB - EXPECTED_SIZE_MB ))
-            ABS_DIFF=${DIFF#-}
-            echo "Difference: ${ABS_DIFF} MB"
-
-            THRESHOLD_SIZE_MB=100
-            echo "IMAGE_SIZE_MB=$IMAGE_SIZE_MB" >> $GITHUB_ENV
-            echo "EXPECTED_SIZE_MB=$EXPECTED_SIZE_MB" >> $GITHUB_ENV
-            if [ "$ABS_DIFF" -gt "$THRESHOLD_SIZE_MB" ]; then
-              echo "❌ Image size difference exceeds allowed threshold: ${THRESHOLD_SIZE_MB}MB (difference: ${ABS_DIFF} MB)"
-              exit 1
-            else
-              echo "✅ Image size within allowed threshold: ${THRESHOLD_SIZE_MB}MB."
-            fi
-
-        - name: Print image size summary
-          if: steps.skip-check.outputs.should_run == 'true'
-          env:
-            IMAGE_SIZE_MB: ${{ env.IMAGE_SIZE_MB }}
-            EXPECTED_SIZE_MB: ${{ env.EXPECTED_SIZE_MB }}
-          run: |
-            {
-              echo "## 🐳 Docker image size"
-              echo ""
-              echo "| Image | Size |"
-              echo "|-------|------|"
-              echo "| Current Docker ${{ matrix.ubuntu_version }}-deb | **${IMAGE_SIZE_MB} MB** |"
-              echo "| Expected Docker ${{ matrix.ubuntu_version }}-deb | **${EXPECTED_SIZE_MB} MB** |"
-            } >> "$GITHUB_STEP_SUMMARY"
-
-        # ======================================================== CLEANUP PART ========================================================
-        - name: Clean up
-          if: steps.skip-check.outputs.should_run == 'true'
-          env:
-            deb_final_img: ghcr.io/${{ github.repository }}/deb-final-img-${{ matrix.ubuntu_version }}:${{ github.sha }}
-          run: |
+      - name: Init host test environment
+        if: steps.skip-check.outputs.should_run == 'true'
+        run: |
+          sudo apt install -y libcairo2-dev libgirepository1.0-dev
+          if [[ ${{ matrix.ubuntu_version }} == "ubuntu24" ]]; then
+              sudo apt install -y libopencv-dev
+          fi
+          if [ -d "$HOME/.virtualenvs" ]; then
+            echo "Directory $HOME/.virtualenvs exists - removing it"
             rm -rf $HOME/.virtualenvs
-            docker rmi ${deb_final_img} || true
-            sudo rm -f $HOME/dlstreamer
-            rm -rf dlstreamer
-            rm -rf $HOME/dl-streamer-tests-repo
-            docker system prune -a -f
+          fi
+          mkdir -p $HOME/.virtualenvs/dlstreamer
+          python3 -m venv $HOME/.virtualenvs/dlstreamer
+          $HOME/.virtualenvs/dlstreamer/bin/pip install --no-cache-dir --upgrade pip -r $DLS_REL_PATH/requirements.txt
+
+      - name: 🚀 Run on host tests
+        if: steps.skip-check.outputs.should_run == 'true'
+        id: run_onhost_tests
+        env:
+          HOST_TEST_CONFIGS: ${{ env.HOST_TEST_CONFIGS }}
+        run: |
+          cd $PWD/$DLS_REL_PATH/tests
+          mkdir functional_tests_results
+          cd functional_tests_results
+          DLS_TESTS_RESULTS_PATH=$PWD
+          echo "DLS_TESTS_RESULTS_PATH=$DLS_TESTS_RESULTS_PATH" >> $GITHUB_ENV
+          cd ../functional_tests
+          source $HOME/.virtualenvs/dlstreamer/bin/activate
+          ./run_tests.sh \
+            --models-path=${{ env.MODELS_PATH }} \
+            --video-examples-path=${{ env.VIDEO_INPUTS_PATH }} \
+            --meta-configs="$HOST_TEST_CONFIGS" \
+            --platform-type="${{ matrix.runner_print_label }}" \
+            --results-path="$DLS_TESTS_RESULTS_PATH" \
+            --report-name="DLS_functional_tests_${{ matrix.runner_print_label }}_on_host_${{ matrix.ubuntu_version }}_results" \
+            --on-host
+          deactivate
+
+      - name: Upload host test results
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f #7.0.0
+        if: steps.skip-check.outputs.should_run == 'true'
+        with:
+          name: DLS_functional_tests_${{ matrix.runner_print_label }}_on_host_${{ matrix.ubuntu_version }}_results
+          path: "${{ env.DLS_TESTS_RESULTS_PATH }}"
+
+      - name: Check and display host test results
+        if: steps.skip-check.outputs.should_run == 'true'
+        env:
+          dls_tests_results_path: ${{ env.DLS_TESTS_RESULTS_PATH }}
+          test_repo_branch: ${{ inputs.test-repo-branch }}
+        run: |
+          RESULTS_FILE="${dls_tests_results_path}/DLS_functional_tests_${{ matrix.runner_print_label }}_on_host_${{ matrix.ubuntu_version }}_results.txt"
+
+          # Add results to summary with emoji replacements
+          sed 's/\[pass\]/:white_check_mark:/g; s/\[\! FAIL \!\]/:x:/g' "$RESULTS_FILE" >> $GITHUB_STEP_SUMMARY
+
+          # Check for failures and fail if any
+          FAILED_COUNT=$(grep "^Failed:" "$RESULTS_FILE" | awk '{print $2}')
+          if [ "$FAILED_COUNT" -gt 0 ]; then
+            echo "::error::$FAILED_COUNT test(s) failed"
+            exit 1
+          fi
+
+      - name: Uninstall dlstreamer
+        if: steps.skip-check.outputs.should_run == 'true'
+        run: |
+          $DLS_REL_PATH/tests/scripts/uninstall-dlstreamer.sh
+
+      - name: Check Docker image size
+        if: steps.skip-check.outputs.should_run == 'true'
+        id: check-size
+        env:
+          deb_final_img: ghcr.io/${{ github.repository }}/deb-final-img-${{ matrix.ubuntu_version }}:${{ github.sha }}
+          MATRIX_UBUNTU_VERSION: ${{ matrix.ubuntu_version }}
+          EXPECTED_SIZE_MB_DEB_U22: ${{ vars.EXPECTED_SIZE_MB_DEB_U22 }}
+          EXPECTED_SIZE_MB_DEB_U24: ${{ vars.EXPECTED_SIZE_MB_DEB_U24 }}
+        run: |
+          IMAGE_NAME=${deb_final_img}
+          if [ "${MATRIX_UBUNTU_VERSION}" == "ubuntu22" ]; then
+            EXPECTED_SIZE_MB=${EXPECTED_SIZE_MB_DEB_U22}
+          elif [ "${MATRIX_UBUNTU_VERSION}" == "ubuntu24" ]; then
+            EXPECTED_SIZE_MB=${EXPECTED_SIZE_MB_DEB_U24}
+          fi
+
+          # Use 'docker images' SIZE — identical to the SIZE column visible when running 'docker images' manually on the runner
+          SIZE_STR=$(docker images --no-trunc --format '{{.Size}}' "$IMAGE_NAME")
+          IMAGE_SIZE_MB=$(echo "$SIZE_STR" | awk '
+            /GB$/ { printf "%d", $1 * 1024; next }
+            /MB$/ { printf "%d", $1; next }
+            /kB$/ { printf "0"; next }
+          ')
+
+          echo "Actual image size (docker images SIZE): ${SIZE_STR} (~${IMAGE_SIZE_MB} MB)"
+          echo "Expected size: ${EXPECTED_SIZE_MB} MB"
+          DIFF=$(( IMAGE_SIZE_MB - EXPECTED_SIZE_MB ))
+          ABS_DIFF=${DIFF#-}
+          echo "Difference: ${ABS_DIFF} MB"
+
+          THRESHOLD_SIZE_MB=100
+          echo "IMAGE_SIZE_MB=$IMAGE_SIZE_MB" >> $GITHUB_ENV
+          echo "EXPECTED_SIZE_MB=$EXPECTED_SIZE_MB" >> $GITHUB_ENV
+          if [ "$ABS_DIFF" -gt "$THRESHOLD_SIZE_MB" ]; then
+            echo "❌ Image size difference exceeds allowed threshold: ${THRESHOLD_SIZE_MB}MB (difference: ${ABS_DIFF} MB)"
+            exit 1
+          else
+            echo "✅ Image size within allowed threshold: ${THRESHOLD_SIZE_MB}MB."
+          fi
+
+      - name: Print image size summary
+        if: steps.skip-check.outputs.should_run == 'true'
+        env:
+          IMAGE_SIZE_MB: ${{ env.IMAGE_SIZE_MB }}
+          EXPECTED_SIZE_MB: ${{ env.EXPECTED_SIZE_MB }}
+        run: |
+          {
+            echo "## 🐳 Docker image size"
+            echo ""
+            echo "| Image | Size |"
+            echo "|-------|------|"
+            echo "| Current Docker ${{ matrix.ubuntu_version }}-deb | **${IMAGE_SIZE_MB} MB** |"
+            echo "| Expected Docker ${{ matrix.ubuntu_version }}-deb | **${EXPECTED_SIZE_MB} MB** |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # ======================================================== CLEANUP PART ========================================================
+      - name: Clean up
+        if: steps.skip-check.outputs.should_run == 'true'
+        env:
+          deb_final_img: ghcr.io/${{ github.repository }}/deb-final-img-${{ matrix.ubuntu_version }}:${{ github.sha }}
+        run: |
+          rm -rf $HOME/.virtualenvs
+          docker rmi ${deb_final_img} || true
+          sudo rm -f $HOME/dlstreamer
+          rm -rf dlstreamer
+          rm -rf $HOME/dl-streamer-tests-repo
+          docker system prune -a -f
