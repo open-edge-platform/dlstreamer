@@ -69,7 +69,7 @@ gvawatermark ! gvafpscounter ! vah264enc ! h264parse ! mp4mux ! filesink locatio
 filesrc location=${INPUT_VIDEO_FILE} ! decodebin3 ! vapostproc ! video/x-raw(memory:VAMemory) !
 gvadetect model=${$DETECTION_MODEL_3} device=GPU pre-process-backend=va-surface-sharing nireq=4 model-instance-id=inf1 ! queue ! \
 gvawatermark ! gvafpscounter ! vah264enc ! h264parse ! mp4mux ! filesink location=${OUTPUT_VIDEO_FILE_3} \
-filesrc location=${INPUT_VIDEO_FILE_4} ! decodebin3 vapostproc ! video/x-raw(memory:VAMemory) !
+filesrc location=${INPUT_VIDEO_FILE_4} ! decodebin3 ! vapostproc ! video/x-raw(memory:VAMemory) !
 gvadetect model=${DETECTION_MODEL} device=GPU pre-process-backend=va-surface-sharing nireq=4 model-instance-id=inf1 ! queue ! \
 gvawatermark ! gvafpscounter ! vah264enc ! h264parse ! mp4mux ! filesink location=${OUTPUT_VIDEO_FILE_4}
 ```
