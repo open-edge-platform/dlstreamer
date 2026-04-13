@@ -25,7 +25,32 @@ outputs:
 runs:
   using: 'composite'
   steps:
+    - name: Check if workflow_dispatch
+      id: dispatch-check
+      shell: bash
+      run: |
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          echo "🚀 Manual workflow dispatch detected - forcing execution"
+          echo "is_dispatch=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "is_dispatch=false" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Handle manual dispatch
+      if: steps.dispatch-check.outputs.is_dispatch == 'true'
+      id: dispatch-handler
+      shell: bash
+      env:
+        JOB_NAME: ${{ inputs.job_name }}
+      run: |
+        echo "🚀 Manual workflow dispatch - skipping file change analysis"
+        echo "should_run=true" >> "$GITHUB_OUTPUT"
+        echo "skip_ci=false" >> "$GITHUB_OUTPUT"
+        echo "skip_reason=" >> "$GITHUB_OUTPUT"
+        echo "🔄 Running $JOB_NAME - manual dispatch"
+
     - name: Fetch base branch for comparison
+      if: steps.dispatch-check.outputs.is_dispatch == 'false'
       shell: bash
       working-directory: ${{ inputs.working_directory }}
       env:
@@ -33,8 +58,9 @@ runs:
       run: |
         git fetch origin $BASE_BRANCH
 
-    - name: Check if job should run
-      id: check
+    - name: Check if job should run based on file changes
+      if: steps.dispatch-check.outputs.is_dispatch == 'false'
+      id: file-check
       shell: bash
       working-directory: ${{ inputs.working_directory }}
       env:
@@ -81,6 +107,20 @@ runs:
           echo "🔄 Running $JOB_NAME - code changes detected"
           echo "should_run=true" >> "$GITHUB_OUTPUT"
           echo "skip_reason=" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Set final outputs
+      id: check
+      shell: bash
+      run: |
+        if [ "${{ steps.dispatch-check.outputs.is_dispatch }}" = "true" ]; then
+          echo "should_run=${{ steps.dispatch-handler.outputs.should_run }}" >> "$GITHUB_OUTPUT"
+          echo "skip_ci=${{ steps.dispatch-handler.outputs.skip_ci }}" >> "$GITHUB_OUTPUT"
+          echo "skip_reason=${{ steps.dispatch-handler.outputs.skip_reason }}" >> "$GITHUB_OUTPUT"
+        else
+          echo "should_run=${{ steps.file-check.outputs.should_run }}" >> "$GITHUB_OUTPUT"
+          echo "skip_ci=${{ steps.file-check.outputs.skip_ci }}" >> "$GITHUB_OUTPUT"
+          echo "skip_reason=${{ steps.file-check.outputs.skip_reason }}" >> "$GITHUB_OUTPUT"
         fi
 
     - name: Mark job as passed when skipped

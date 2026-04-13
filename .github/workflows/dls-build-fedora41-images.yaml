@@ -9,10 +9,9 @@ env:
   DLS_REL_PATH: "./dlstreamer"
 
 jobs:
-  check-changes:
-    name: "Check if build and test needed"
+  setup:
+    name: "Setup F41 build configuration"
     runs-on: dlstreamer
-    if: github.event_name != 'workflow_dispatch'
     outputs:
       should_run: ${{ steps.skip-check.outputs.should_run }}
     steps:
@@ -32,34 +31,45 @@ jobs:
   build:
     name: "Build f41 img"
     runs-on: dlstreamer
-    needs: check-changes
-    if: needs.check-changes.outputs.should_run == 'true'
+    needs: setup
     container:
       image: fedora:41
     permissions:
       contents: read
       packages: read
     steps:
+      - name: Skip or execute based on configuration
+        if: needs.setup.outputs.should_run == 'false'
+        run: |
+          echo "## ✅ F41 Build Skipped" >> $GITHUB_STEP_SUMMARY
+          echo "**Reason:** Only documentation changes detected" >> $GITHUB_STEP_SUMMARY
+          exit 0
+
       - name: Install dependencies
+        if: needs.setup.outputs.should_run == 'true'
         run: |
           dnf update -y
           dnf install -y git docker
 
       - name: Check out dlstreamer repository
+        if: needs.setup.outputs.should_run == 'true'
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6.0.2
         with:
           persist-credentials: false
           path: dlstreamer
 
       - name: Init submodules
+        if: needs.setup.outputs.should_run == 'true'
         run: |
           cd dlstreamer
           git submodule update --init thirdparty/spdlog
 
       - name: Set up Docker Buildx
+        if: needs.setup.outputs.should_run == 'true'
         uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd #4.0.0
 
       - name: Log in to GitHub Container Registry
+        if: needs.setup.outputs.should_run == 'true'
         uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 #4.0.0
         with:
           registry: ghcr.io
@@ -67,6 +77,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: 🚢 Build f41 img with cache from GHCR
+        if: needs.setup.outputs.should_run == 'true'
         env:
           f41_img: ghcr.io/${{ github.repository }}/f41-img:${{ github.sha }}
           f41_img_cached: ghcr.io/${{ github.repository }}/f41-img:buildcache
@@ -80,7 +91,7 @@ jobs:
             ${{ env.DLS_REL_PATH }}
 
       - name: Clean up
-        if: always()
+        if: always() && needs.setup.outputs.should_run == 'true'
         env:
           f41_img: ghcr.io/${{ github.repository }}/f41-img:${{ github.sha }}
         run: |

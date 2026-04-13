@@ -10,10 +10,9 @@ env:
   DLS_REL_PATH: "./dlstreamer-repo"
 
 jobs:
-  check-changes:
-    name: "Check if build and test needed"
+  setup:
+    name: "Setup make build configuration"
     runs-on: dlstreamer
-    if: github.event_name != 'workflow_dispatch'
     outputs:
       should_run: ${{ steps.skip-check.outputs.should_run }}
     steps:
@@ -33,8 +32,7 @@ jobs:
   build:
     name: "Build from sources using make build on ${{ matrix.os }}"
     runs-on: ${{ matrix.runner }}
-    needs: check-changes
-    if: needs.check-changes.outputs.should_run == 'true'
+    needs: setup
     permissions:
       contents: read
       packages: read
@@ -47,29 +45,40 @@ jobs:
           - os: ubuntu-24.04
             runner: dlstreamer
     steps:
+      - name: Skip or execute based on configuration
+        if: needs.setup.outputs.should_run == 'false'
+        run: |
+          echo "## ✅ Make Build Skipped for ${{ matrix.os }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Reason:** Only documentation changes detected" >> $GITHUB_STEP_SUMMARY
+          exit 0
+
       - name: Initial environment clean
+        if: needs.setup.outputs.should_run == 'true'
         run: |
           sudo rm -rf dlstreamer-repo
 
       - name: Check out dlstreamer repository
+        if: needs.setup.outputs.should_run == 'true'
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # 6.0.2
         with:
           persist-credentials: false
           path: dlstreamer-repo
 
       - name: Init submodules
+        if: needs.setup.outputs.should_run == 'true'
         run: |
           cd dlstreamer-repo
           git submodule update --init thirdparty/spdlog
 
-
       # ======================================================== BUILDING PART ========================================================
       - name: Install prerequisites
+        if: needs.setup.outputs.should_run == 'true'
         run: |
           cd ${{ env.DLS_REL_PATH }}/scripts
           ./DLS_install_prerequisites.sh
 
       - name: Install build dependencies
+        if: needs.setup.outputs.should_run == 'true'
         run: |
           echo "Installing build dependencies for ${{ matrix.os }}"
           if [[ ${{ matrix.os }} == "ubuntu-22.04" ]]; then
@@ -104,6 +113,7 @@ jobs:
           fi
 
       - name: Set up a Python environment
+        if: needs.setup.outputs.should_run == 'true'
         run: |
           python3 -m venv ~/python3venv
           source ~/python3venv/bin/activate
@@ -111,6 +121,7 @@ jobs:
           pip install meson==1.4.1 ninja==1.11.1.1
 
       - name: Install OpenVINO
+        if: needs.setup.outputs.should_run == 'true'
         run: |
           cd ${{ env.DLS_REL_PATH }}
           echo "Installing OpenVINO..."
@@ -120,6 +131,7 @@ jobs:
           sudo -E /opt/intel/openvino_2026/install_dependencies/install_openvino_dependencies.sh
 
       - name: Install OpenVINO GenAI
+        if: needs.setup.outputs.should_run == 'true'
         run: |
           cd ${{ env.DLS_REL_PATH }}
           echo "Installing OpenVINO GenAI for ${{ matrix.os }}..."
@@ -139,6 +151,7 @@ jobs:
           fi
 
       - name: Build DL Streamer using make build
+        if: needs.setup.outputs.should_run == 'true'
         run: |
           echo "Activating Python virtual environment..."
           source ~/python3venv/bin/activate
@@ -154,6 +167,7 @@ jobs:
           make build
 
       - name: Install DL Streamer
+        if: needs.setup.outputs.should_run == 'true'
         run: |
           echo "Sourcing OpenVINO environment..."
           source /opt/intel/openvino_2026/setupvars.sh
@@ -167,6 +181,7 @@ jobs:
           sudo -E make install
 
       - name: Install Python dependencies
+        if: needs.setup.outputs.should_run == 'true'
         run: |
           sudo apt-get install -y -q --no-install-recommends gcc cmake python3-full python-gi-dev python3-dev python3-pip \
               libglib2.0-dev libcairo2-dev libopencv-objdetect-dev libopencv-photo-dev libopencv-stitching-dev libopencv-video-dev \
@@ -177,6 +192,7 @@ jobs:
           python3 -m pip install -r requirements.txt
 
       - name: Verify DL Streamer installation
+        if: needs.setup.outputs.should_run == 'true'
         run: |
           echo "Setting up DL Streamer environment..."
           export LIBVA_DRIVER_NAME=iHD
@@ -202,7 +218,7 @@ jobs:
 
       # ======================================================== CLEANUP PART ========================================================
       - name: Clean up
-        if: always()
+        if: always() && needs.setup.outputs.should_run == 'true'
         run: |
           rm -rf ~/python3venv
           sudo rm -rf ${{ env.DLS_REL_PATH }}

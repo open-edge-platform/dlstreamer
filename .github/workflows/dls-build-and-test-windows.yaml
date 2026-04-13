@@ -80,7 +80,6 @@ jobs:
     name: "[${{ matrix.runner_print_label }}] Build and Test Windows DLLs"
     runs-on: ${{ matrix.runner_labels }}
     needs: setup
-    if: github.event_name == 'workflow_dispatch' || needs.setup.outputs.should_run == 'true' || needs.setup.outputs.should_run == 'false'
     permissions:
       contents: read
     strategy:
