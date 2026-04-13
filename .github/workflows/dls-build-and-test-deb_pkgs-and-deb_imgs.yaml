@@ -203,7 +203,11 @@ jobs:
       - name: Link DL Streamer to home directory
         if: always ()
         run: |
-          ln -s $PWD/$DLS_REL_PATH $HOME
+          TARGET="$HOME/$(basename $DLS_REL_PATH)"
+          if [ -e "$TARGET" ] || [ -L "$TARGET" ]; then
+            rm -rf "$TARGET"
+          fi
+          ln -s "$PWD/$DLS_REL_PATH" "$TARGET"
 
       - name: Install DL Streamer on-host
         if: always ()

@@ -1,7 +1,28 @@
 # Design Patterns Reference
 
-Patterns extracted from existing DLStreamer Python sample apps. Each pattern includes
-the canonical source file to read for the latest API usage.
+Patterns initially extracted from existing DLStreamer Python sample apps
+and augmented later with learnings from using DLStreamer Coding Agent.
+Patterns inlcude references to canonical source file to read when applicable.
+
+## Pattern Selection Table
+
+Map the user's description to one or more of these patterns:
+
+| # | Pattern | When to Apply |
+|---|---------|---------------|
+| 1 | **Pipeline Core** | Always — every app needs source → decode → sink |
+| 2 | **Pad Probe Callback** | User needs simple custom logic, like per-frame metadata inspection or adding overlays |
+| 3 | **AppSink Callback** | User wants to continue processing of frames or metadata in their own application |
+| 4 | **Dynamic Pipeline Control** | User wants conditional routing or branching (tee + valve) |
+| 5 | **Custom Python Element (BaseTransform)** | User needs non-trivial per-frame analytics that reads/writes metadata inside the pipeline |
+| 6 | **Custom Python Element (Bin/Sink)** | User needs to manage a secondary sub-pipeline or implement non-trivial handling of output stream |
+| 7 | **Cross-Branch Signal Bridge** | User has a tee with branches that must exchange state |
+| 8 | **VLM Inference (gvagenai)** | User wants Vision-Language Model inference with prompts |
+| 9 | **Asset Resolution** | User expects auto-download of video or model files |
+| 10 | **Multi-Stream / Multi-Camera** | User wants to process multiple camera streams in a single pipeline with shared model and cross-stream batching |
+| 10v | **Multi-Stream Compositor** | User wants to merge multiple streams into a single composite mosaic view (Pattern 10 variant) |
+| 11 | **Separate Model Download Script** | User references HuggingFace, Ultralytics, or optimum-cli models requiring a dedicated export step |
+| 12 | **Pipeline Event Loop** | Always — every app needs a bus loop for EOS/ERROR handling; includes optional SIGINT handler, input looping, and stdin command control |
 
 ---
 
@@ -87,26 +108,7 @@ Pad Probes are mid-pipeline and don't consume the buffer.
 
 ---
 
-## Pattern 4: AI Inference Chain (Detect → Classify)
-
-Chain `gvadetect` and `gvaclassify` to first detect objects, then classify attributes
-of each detected region.
-
-```python
-pipeline_str = (
-    f"filesrc location={video} ! decodebin3 ! "
-    f"gvadetect model={detect_model} device=GPU batch-size=4 ! queue ! "
-    f"gvaclassify model={classify_model} device=GPU batch-size=4 ! queue ! "
-    f"gvafpscounter ! gvawatermark ! "
-    f"videoconvert ! vah264enc ! h264parse ! mp4mux ! filesink location={output}"
-)
-```
-
-**Read for reference:** `samples/gstreamer/python/face_detection_and_classification/face_detection_and_classification.py`
-
----
-
-## Pattern 5: Dynamic Pipeline Control (Tee + Valve)
+## Pattern 4: Dynamic Pipeline Control (Tee + Valve)
 
 Use `tee` to split stream into branches and `valve` to conditionally block/allow
 flow on a branch based on inference results from another branch.
@@ -139,13 +141,37 @@ class Controller:
 
 **Read for reference:** `samples/gstreamer/python/open_close_valve/open_close_valve_sample.py`
 
+> **Preroll deadlock with `valve drop=true`:** When a valve starts with `drop=true`,
+> no buffers reach downstream sinks, which blocks pipeline preroll indefinitely.
+> Always add `async=false` to the terminal sink element (`filesink`, `splitmuxsink`)
+> in valve-gated branches so the pipeline transitions to PLAYING without waiting
+> for a buffer that will never arrive while the valve is closed.
+>
+> ```
+> tee name=t
+>   t. ! queue ! ...  # always-on branch
+>   t. ! queue ! valve name=rec drop=true ! ... ! filesink location=out.mp4 async=false
+> ```
+
 ---
 
-## Pattern 6: Custom Python GStreamer Element (BaseTransform)
+## Pattern 5: Custom Python GStreamer Element (BaseTransform)
 
 Create a custom in-pipeline analytics element by subclassing `GstBase.BaseTransform`.
 The element processes each buffer in `do_transform_ip` and can read/write metadata.
-Use Custom Python elements instead of Probes if custom logic is complex and/or when it modifies buffers or metadata. 
+Use Custom Python elements instead of Probes if custom logic is complex and/or when it modifies buffers or metadata.
+
+Do NOT create a BaseTransform element whose only purpose is to read detection/classification
+metadata, track simple state (e.g. label filtering, cooldown counters, hysteresis), and
+expose the result as a GObject property or "fake" metadata for a downstream element.
+This is a "glue element" anti-pattern — the downstream element (e.g. a Bin/Sink recorder)
+should read GstAnalytics metadata directly from the buffer and implement such logic internally.
+
+> **Rule of thumb:** A custom BaseTransform element is justified only when it implements
+> **new derived analytics** (e.g. zone intersection, trajectory analysis, dwell-time
+> calculation) that produces metadata not available from existing DLStreamer elements
+> or introduces new behavior like dynamic selection of output pads or frame drop/pass.
+
 
 ```python
 import gi
@@ -153,6 +179,8 @@ gi.require_version("GstBase", "1.0")
 gi.require_version("GstAnalytics", "1.0")
 from gi.repository import Gst, GstBase, GObject, GLib, GstAnalytics
 Gst.init_python()
+
+GST_BASE_TRANSFORM_FLOW_DROPPED = Gst.FlowReturn.CUSTOM_SUCCESS
 
 class MyAnalytics(GstBase.BaseTransform):
     __gstmetadata__ = ("My Analytics", "Transform",
@@ -178,12 +206,15 @@ class MyAnalytics(GstBase.BaseTransform):
 
     def do_transform_ip(self, buffer):
         rmeta = GstAnalytics.buffer_get_analytics_relation_meta(buffer)
-        if rmeta:
-            for mtd in rmeta:
-                if isinstance(mtd, GstAnalytics.ODMtd):
-                    # ... custom analytics logic ...
-                    pass
-        return Gst.FlowReturn.OK
+        if not rmeta:
+            return Gst.FlowReturn.OK  # pass frame downstream
+
+        for mtd in rmeta:
+            if isinstance(mtd, GstAnalytics.ODMtd):
+                # ... custom analytics logic ...
+                return Gst.FlowReturn.OK  # pass frame downstream
+
+        return GST_BASE_TRANSFORM_FLOW_DROPPED  # no relevant detections → drop
 
 GObject.type_register(MyAnalytics)
 __gstelementfactory__ = ("myanalytics_py", Gst.Rank.NONE, MyAnalytics)
@@ -191,18 +222,14 @@ __gstelementfactory__ = ("myanalytics_py", Gst.Rank.NONE, MyAnalytics)
 
 **File location:** Place in `plugins/python/<element_name>.py`
 
-**Registration:** Add the plugins directory to `GST_PLUGIN_PATH`:
-```python
-plugins_dir = str(Path(__file__).resolve().parent / "plugins")
-os.environ["GST_PLUGIN_PATH"] = f"{os.environ.get('GST_PLUGIN_PATH', '')}:{plugins_dir}"
-Gst.init(None)
-```
+**Registration:** See [Plugin Registration](./coding-conventions.md#plugin-registration) in the Coding Conventions Reference.
 
-**Read for reference:** `samples/gstreamer/python/smart_nvr/plugins/python/gvaAnalytics.py`
+**Read for reference:** `samples/gstreamer/python/smart_nvr/plugins/python/gvaAnalytics.py`,
+`samples/gstreamer/python/vlm_self_checkout/plugins/python/gvaFrameSelection.py`
 
 ---
 
-## Pattern 7: Custom Python GStreamer Element (Bin / Sink)
+## Pattern 6: Custom Python GStreamer Element (Bin / Sink)
 
 Create a composite element that encapsulates an internal sub-pipeline (e.g., encoder +
 muxer + file sink). Subclass `Gst.Bin` and expose a ghost pad.
@@ -241,9 +268,16 @@ __gstelementfactory__ = ("myrecorder_py", Gst.Rank.NONE, MyRecorder)
 
 **Read for reference:** `samples/gstreamer/python/smart_nvr/plugins/python/gvaRecorder.py`
 
+> **Decision shortcut — recording / conditional output:** If the user describes *event-triggered
+> recording*, *conditional saving*, or *numbered output files*, go directly to this pattern.
+> A `Gst.Bin` subclass with an internal `appsrc → encoder → mux → filesink` sub-pipeline is
+> the only approach that can cleanly start/stop recordings and finalize MP4 containers (which
+> require an EOS event to write the moov atom). Do **not** attempt this with pad probes,
+> appsink callbacks, or tee+valve — those patterns cannot manage a secondary pipeline lifecycle.
+
 ---
 
-## Pattern 8: Cross-Branch Signal Bridge
+## Pattern 7: Cross-Branch Signal Bridge
 
 When a `tee` splits a pipeline into branches that must exchange state (e.g., detection
 results from branch A control overlay in branch B), use a GObject signal bridge for low-frequency events.
@@ -271,7 +305,7 @@ pipeline.get_by_name("watermark").get_static_pad("sink").add_probe(
 
 ---
 
-## Pattern 9: VLM Inference (gvagenai)
+## Pattern 8: VLM Inference (gvagenai)
 
 Use the `gvagenai` element for Vision-Language Model inference. Prompt can be inline or
 from a file. Results attach as GstGVATensorMeta, displayed by `gvawatermark`.
@@ -294,15 +328,54 @@ pipeline_str = (
 
 ---
 
-## Pattern 10: Asset Resolution (Video + Model Download)
+## Pattern 9: Asset Resolution (Video + Model Download)
 
 Add Python functions to download assets (such as input video files) and AI models.
 Always cache downloaded files locally, so only first application run requires network connection.
-For AI model download, prioritize using existing download scripts and generate inline only if simple. 
+For AI model download, prioritize using existing download scripts and generate inline only if simple.
+
+> **Video download method:** Use `subprocess` + `curl` (not `urllib.request`) for video
+> downloads. Many video hosting sites (Pexels, Pixabay, etc.) block Python's `urllib`
+> with HTTP 403 even with a custom `User-Agent`. `curl` with `-L` (follow redirects)
+> and a `Referer` header works reliably.
+
+> **Pexels URLs:** Users often provide the Pexels *page* URL
+> (e.g. `https://www.pexels.com/video/<slug>-<ID>/`). The actual video file is at
+> `https://videos.pexels.com/video-files/<ID>/<ID>-hd_<W>_<H>_<FPS>fps.mp4`
+> but the resolution and FPS **vary per video** — do **not** guess them.
+> You **must** scrape the Pexels page to discover the exact `.mp4` URL.
+> Use `subprocess` to run `curl -s` on the page URL and search the returned HTML
+> for `videos.pexels.com/video-files/` links. The Canva "Edit" links on the page
+> embed the direct video URL as the `file-url=` query parameter, e.g.:
+> `https://www.canva.com/...&file-url=https%3A%2F%2Fvideos.pexels.com%2Fvideo-files%2F9492063%2F9492063-hd_1920_1080_30fps.mp4&...`
+> URL-decode the `file-url` value to get the direct download link.
+> If scraping fails, ask the user for the direct video-file URL.
+
+> **Edge AI Resources videos:** If a user does not provide specific video files, prefer
+> **Pexels direct video-file URLs** (e.g. `https://videos.pexels.com/video-files/<ID>/<ID>-hd_<W>_<H>_<FPS>fps.mp4`)
+> as default test videos. These are reliable, direct-download, and do not require
+> authentication or LFS resolution.
+>
+> As an alternative, videos from `https://github.com/open-edge-platform/edge-ai-resources/tree/main/videos`
+> can be used, but **beware of Git LFS**: `curl -L` on
+> `github.com/.../raw/main/videos/<file>.mp4` may return an HTML redirect page instead
+> of the actual video data if the file is stored in Git LFS. Always verify the downloaded
+> file is a valid video. Use a Python binary header check:
+>
+> ```python
+> with open(local_path, "rb") as f:
+>     header = f.read(64)
+> if b"<html" in header.lower() or b"<!doctype" in header.lower():
+>     # Downloaded file is HTML, not a video
+> ```
+>
+> If LFS downloads fail, fall back to Pexels URLs or mount locally available video files.
+>
+> **Note:** `.ts` files contain audio tracks — apply [Rule 8](./pipeline-construction.md#rule-8--handle-audio-tracks-in-video-only-pipelines) to filter non-fatal audio errors.
 
 ```python
 from pathlib import Path
-import urllib.request
+import subprocess
 
 VIDEOS_DIR = Path(__file__).resolve().parent / "videos"
 MODELS_DIR = Path(__file__).resolve().parent / "models"
@@ -312,9 +385,14 @@ def download_video(url: str) -> Path:
     filename = url.rstrip("/").split("/")[-1]
     local = VIDEOS_DIR / filename
     if not local.exists():
-        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-        with urllib.request.urlopen(req, timeout=60) as resp:
-            local.write_bytes(resp.read())
+        print(f"Downloading video: {url}")
+        subprocess.run([
+            "curl", "-L", "-o", str(local),
+            "-H", "Referer: https://www.pexels.com/",
+            "-H", "User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+            url,
+        ], check=True, timeout=300)
+        print(f"Saved to: {local}")
     return local.resolve()
 
 def download_model(model_name: str) -> Path:
@@ -331,38 +409,96 @@ def download_model(model_name: str) -> Path:
 
 ---
 
-## Pattern 11: File Output (Video + JSON + Snapshots)
+## Pattern 10: Multi-Stream / Multi-Camera (In-Process)
 
-Combine output elements for multi-format results:
+Run multiple camera streams within a **single GStreamer pipeline** so they share model
+instances and benefit from cross-stream batching. This is the preferred approach for
+multi-camera analytics — it maximizes GPU utilization and reduces memory footprint
+compared to per-camera subprocesses.
 
-| Output type | Pipeline elements |
-|-------------|-------------------|
-| Annotated video | `gvawatermark ! videoconvert ! vah264enc ! h264parse ! mp4mux ! filesink` |
-| JSON metadata | `gvametapublish file-format=json-lines file-path=results.jsonl` |
-| JPEG snapshots | `jpegenc ! multifilesink location=snap-%d.jpeg` |
-| Chunked video | `gvarecorder_py location=output.mp4 max-time=10` (custom element) |
+### Model Sharing and Cross-Stream Batching
 
----
-
-## Pattern 12: Multi-Camera / RTSP
-
-For RTSP sources, replace `filesrc ! decodebin3` with `rtspsrc`:
+- **Shared model instance:** Set `model-instance-id=<name>` on inference elements
+  to share the same OpenVINO model instance across all streams.
+  own `model-instance-id`.
+- **Cross-stream batching:** Set `batch-size=<stream_count>` to batch frames from
+  different streams in a single inference call; requires shared model instance.
+- **Scheduling policy for cross-stream batching:** A model shared by `model-instance-id`
+  serves incoming stream on first-in / first-out basis to achieve highest throuhput.
+  This may result in temporal bubbles across streams, expecially during startup phase
+  (some streams may start sooner than others and will get more frames processed).
+  A temporal bubble may create an issue if streams are synchronized later
+  in a pipeline using elements like `vacompositor`. In such , you **must** set
+  `scheduling-policy=latency`  on all inference which use common model-instance-id
+  The `latency` policy processes frames in order of their presentation timestamp,
+  which effectively resolves to round-robin policy.
 
 ```python
-# Single camera in pipeline string:
-f'rtspsrc location={rtsp_url} ! decodebin3 ! ...'
+from pathlib import Path
 
-# Multiple cameras via subprocess orchestration:
-for camera in cameras:
-    cmd = prepare_commandline(camera.rtsp_url, pipeline_elements)
-    process = subprocess.Popen(cmd, shell=False, stdout=subprocess.PIPE, ...)
+def build_pipeline(sources: list, model_xml: str, device: str) -> str:
+    """Build a multi-stream pipeline with shared model and per-stream output."""
+    n = len(sources)
+    parts = []
+    for i, src in enumerate(sources):
+        s = (
+            f'filesrc location="{src}" ! decodebin3 ! '
+            f'gvadetect model="{model_xml}" device={device} '
+            f'model-instance-id=detect_instance0 batch-size={n} ! '
+            f'queue flush-on-eos=true ! '
+            f'gvafpscounter ! fakesink'
+        )
+        parts.append(s)
+    return " ".join(parts)
+
+pipeline = Gst.parse_launch(build_pipeline(cameras, model, "GPU"))
 ```
 
-**Read for reference:** `samples/gstreamer/python/onvif_cameras_discovery/dls_onvif_sample.py`
+### Variant: Multi-Stream Compositor (mosaic output)
+
+To merge all streams into a single composite view, use `vacompositor` to perform
+GPU-accelerated composition entirely in VA memory. This avoids expensive CPU-side
+`videoconvertscale` and achieves significantly higher FPS than the CPU `compositor`.
+
+```python
+def build_compositor_pipeline(sources, model_xml, device, tw=640, th=360):
+    n = len(sources)
+    cols = 2
+    rows = (n + cols - 1) // cols
+
+    # VA compositor with programmatic pad positions (GPU memory throughout)
+    comp = "vacompositor name=comp "
+    for i in range(n):
+        comp += f"sink_{i}::xpos={i % cols * tw} sink_{i}::ypos={i // cols * th} "
+    comp += (
+        "! vah264enc ! h264parse "
+        "! mp4mux fragment-duration=1000 ! filesink location=mosaic.mp4 "
+    )
+
+    # Per-stream branches: decode → infer → scale (VA memory) → compositor
+    for i, src in enumerate(sources):
+        comp += (
+            f'filesrc location="{src}" ! decodebin3 ! '
+            f'gvadetect model="{model_xml}" device={device} '
+            f'model-instance-id=instance0 batch-size={n} '
+            f'scheduling-policy=latency ! '
+            f'queue flush-on-eos=true ! gvafpscounter ! '
+            f'gvametaconvert ! gvametapublish file-format=json-lines '
+            f'file-path="results/cam{i}.jsonl" ! '
+            f'vapostproc ! video/x-raw(memory:VAMemory),width={tw},height={th} ! '
+            f'queue ! comp.sink_{i} '
+        )
+    return comp
+```
+
+> **When to use subprocess orchestration instead:** Only when streams must run as
+> fully independent processes (e.g. different models per camera, fault isolation
+> between cameras, or separate machines). For that approach, see
+> `samples/gstreamer/python/onvif_cameras_discovery/dls_onvif_sample.py`.
 
 ---
 
-## Pattern 13: Separate Model Download Script
+## Pattern 11: Separate Model Download Script
 
 When an application uses models from Ultralytics, HuggingFace Transformers, PaddlePaddle,
 or other frameworks with long list of run-time dependencies, create a **separate `download_models.py`**
@@ -373,20 +509,159 @@ justifies splitting these two phases.
 
 ---
 
-## Composing Patterns
+## Pattern 12: Pipeline Event Loop
 
-When building a new app, identify which patterns apply and compose them:
+Every DLStreamer Python app ends with a pipeline event loop that listens for EOS and
+ERROR messages on the GStreamer bus. The single `run_pipeline()` function below is the
+**canonical implementation** — it includes all optional blocks, each marked with
+`[Optional]`. Remove or keep them based on your application's needs.
 
-| User wants... | Patterns to combine |
-|---------------|---------------------|
-| Simple detection + display | 1 + 4 (detect only) |
-| Detection + classification + save | 1 + 4 + 11 |
-| VLM alerting on video file | 1 + 9 + 10 + 11 |
-| Detection with conditional recording | 1 + 4 + 5 + 7 |
-| Custom analytics + chunked storage | 1 + 4 + 6 + 7 |
-| Detection + VLM on selected frames | 1 + 4 + 5 + 6 + 8 + 9 + 11 |
-| Multi-camera with per-camera AI | 12 + (any above per camera) |
-| Detection + OCR (license plates, text) | 1 + 4 + 10 + 11 + 13 |
-| Detection + custom model (non-OCR) | 1 + 4 + 6 + 11 |
+```python
+import signal
+import sys
+import threading
+from gi.repository import GLib, Gst
 
----
+
+# ── [Optional] Pattern 13: Runtime Command Control (stdin) ───────────────────
+# Accept user commands while the pipeline is running.
+# A daemon thread reads sys.stdin and dispatches to the GLib main loop
+# via GLib.idle_add() — the only thread-safe way to mutate pipeline state.
+
+class CommandReader:
+    """Read commands from stdin and dispatch to the GLib main loop."""
+
+    def __init__(self, pipeline):
+        self.pipeline = pipeline
+        self.shutdown_requested = False
+        self._commands = {
+            "quit": self._quit,
+            # Add app-specific commands here, e.g.:
+            # "record": self._record,
+            # "stop":   self._stop,
+        }
+
+    def start(self):
+        thread = threading.Thread(target=self._read_loop, daemon=True)
+        thread.start()
+
+    def _read_loop(self):
+        try:
+            for line in sys.stdin:
+                parts = line.strip().lower().split()
+                if not parts:
+                    continue
+                handler = self._commands.get(parts[0])
+                if handler:
+                    GLib.idle_add(handler, *parts[1:])
+                else:
+                    print(f"Unknown command: {parts[0]}")
+        except EOFError:
+            pass
+
+    def _quit(self, *args):
+        self.shutdown_requested = True
+        self.pipeline.send_event(Gst.Event.new_eos())
+        return GLib.SOURCE_REMOVE
+
+
+# ── Pipeline event loop ─────────────────────────────────────────────────────
+
+def run_pipeline(pipeline, cmd_reader=None, loop_count=1):
+    """Unified event loop with optional SIGINT handling, looping, and command control.
+
+    Args:
+        cmd_reader:  [Optional] A CommandReader instance. Pass None to disable
+                     stdin command control (Pattern 13).
+        loop_count:  [Optional] 1 = play once (default), N = play N times,
+                     0 = infinite. On EOS, seeks back to start. Ignored for RTSP.
+    """
+    remaining = loop_count - 1  # -1 means infinite when loop_count == 0
+
+    # [Optional] SIGINT → EOS handler for graceful Ctrl+C shutdown.
+    # For long-running pipelines you may prefer SIGINT → set_state(NULL)
+    # for immediate stop, or omit this and rely on the quit command.
+    def _sigint_handler(signum, frame):
+        nonlocal remaining
+        remaining = 0  # stop looping on Ctrl+C
+        pipeline.send_event(Gst.Event.new_eos())
+
+    prev = signal.signal(signal.SIGINT, _sigint_handler)
+    bus = pipeline.get_bus()
+    pipeline.set_state(Gst.State.PLAYING)
+    try:
+        while True:
+            # [Optional] Pump GLib default context so GLib.idle_add() callbacks
+            # fire. Required when using CommandReader (Pattern 13) or any
+            # thread-safe dispatch via GLib.idle_add(). No-op otherwise.
+            while GLib.MainContext.default().iteration(False):
+                pass
+
+            msg = bus.timed_pop_filtered(
+                100 * Gst.MSECOND,
+                Gst.MessageType.ERROR | Gst.MessageType.EOS,
+            )
+
+            # [Optional] Check if shutdown was requested via command or SIGINT
+            if cmd_reader and cmd_reader.shutdown_requested and msg is None:
+                break
+
+            if msg is None:
+                continue
+            if msg.type == Gst.MessageType.ERROR:
+                err, debug = msg.parse_error()
+                raise RuntimeError(f"Pipeline error: {err.message}\nDebug: {debug}")
+            if msg.type == Gst.MessageType.EOS:
+                # [Optional] Loop file inputs by seeking back to start.
+                # Remove this block for single-pass pipelines.
+                if remaining != 0:
+                    if remaining > 0:
+                        remaining -= 1
+                    print(f"Looping input ({remaining if remaining >= 0 else '∞'} remaining)...")
+                    pipeline.seek_simple(
+                        Gst.Format.TIME,
+                        Gst.SeekFlags.FLUSH | Gst.SeekFlags.KEY_UNIT,
+                        0,
+                    )
+                    continue
+                print("Pipeline complete.")
+                break
+    finally:
+        signal.signal(signal.SIGINT, prev)
+        pipeline.set_state(Gst.State.NULL)
+```
+
+### Usage examples
+
+**Minimal (file-based, single pass):**
+```python
+run_pipeline(pipeline)
+```
+
+**Long-running with looping:**
+```python
+run_pipeline(pipeline, loop_count=0)  # loop input videos infinitly, Ctrl+C to stop
+```
+
+**With stdin command control:**
+```python
+cmd_reader = CommandReader(pipeline)
+cmd_reader.start()
+run_pipeline(pipeline, cmd_reader=cmd_reader, loop_count=3)
+```
+
+### Key rules for CommandReader
+
+- **Never** mutate GStreamer element properties or state from the reader thread.
+  Always use `GLib.idle_add(callback, ...)` to schedule work on the main loop.
+- Return `GLib.SOURCE_REMOVE` from `idle_add` callbacks (one-shot execution).
+- Use a `daemon=True` thread so it doesn't block process exit.
+- For Docker testing, pipe commands via a FIFO:
+  `mkfifo /tmp/ctrl && (sleep 10; echo "record 0") > /tmp/ctrl & python3 app.py < /tmp/ctrl`
+
+> **GLib context pump:** `bus.timed_pop_filtered()` does **not** pump the GLib default
+> main context. Without the `GLib.MainContext.default().iteration(False)` call,
+> `GLib.idle_add()` callbacks will be silently queued but **never executed**.
+
+**Read for reference:** `samples/gstreamer/python/hello_dlstreamer/hello_dlstreamer.py`
+
