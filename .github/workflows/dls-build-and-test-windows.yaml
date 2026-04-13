@@ -29,9 +29,31 @@ env:
   DLL_EXPECTED_COUNT: 19
 
 jobs:
+  check-changes:
+    name: "Check if build and test needed"
+    runs-on: dlstreamer
+    if: github.event_name != 'workflow_dispatch'
+    outputs:
+      should_run: ${{ steps.skip-check.outputs.should_run }}
+    steps:
+      - name: Check out dlstreamer repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6.0.2
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Check if should skip CI
+        id: skip-check
+        uses: ./.github/actions/common/check-skip-ci
+        with:
+          job_name: "Build and Test on Windows"
+          working_directory: "."
+
   DLS_Building_and_Testing:
     name: "[${{ matrix.runner_print_label }}] Build and Test Windows DLLs"
     runs-on: ${{ matrix.runner_labels }}
+    needs: check-changes
+    if: needs.check-changes.outputs.should_run == 'true'
     permissions:
       contents: read
     strategy:

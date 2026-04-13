@@ -15,7 +15,9 @@ on:
         required: false
         type: string
         default: "main"
+
 permissions: {}
+
 env:
   dlstreamer-version: "2026.0.0"
   MODELS_PATH: "$HOME/models"
@@ -23,9 +25,31 @@ env:
   DLS_REL_PATH: "./dlstreamer"
 
 jobs:
+  check-changes:
+    name: "Check if build and test needed"
+    runs-on: dlstreamer
+    if: github.event_name != 'workflow_dispatch'
+    outputs:
+      should_run: ${{ steps.skip-check.outputs.should_run }}
+    steps:
+      - name: Check out dlstreamer repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6.0.2
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Check if should skip CI
+        id: skip-check
+        uses: ./.github/actions/common/check-skip-ci
+        with:
+          job_name: "Build and test .deb pkgs & deb imgs"
+          working_directory: "."
+
   build:
     name: "[${{ matrix.runner_print_label }}] Build and test ${{ matrix.ubuntu_version }} .debs & deb imgs"
     runs-on: ${{ matrix.runner_labels }}
+    needs: check-changes
+    if: needs.check-changes.outputs.should_run == 'true'
     permissions:
       contents: read
       packages: read
@@ -49,6 +73,7 @@ jobs:
       - name: Initial environment clean
         run: |
           sudo rm -rf dlstreamer
+
       - name: Check out dlstreamer repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6.0.2
         with:
@@ -59,6 +84,7 @@ jobs:
         run: |
           cd dlstreamer
           git submodule update --init thirdparty/spdlog
+
       - name: Check out test repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6.0.2
         with:
@@ -199,7 +225,7 @@ jobs:
         run: |
           rm -rf "$DLS_TESTS_RESULTS_PATH"
 
-      # ======================================================== OH HOST TESTING PART ========================================================
+      # ======================================================== ON HOST TESTING PART ========================================================
       - name: Link DL Streamer to home directory
         if: always ()
         run: |
@@ -256,7 +282,7 @@ jobs:
           fi
           echo "Selected test configuration file: $HOST_TEST_CONFIGS" >> $GITHUB_STEP_SUMMARY
 
-      - name: Init host test environemtnt
+      - name: Init host test environment
         if: always ()
         run: |
           sudo apt install -y libcairo2-dev libgirepository1.0-dev
@@ -323,6 +349,7 @@ jobs:
         if: always ()
         run: |
           $DLS_REL_PATH/tests/scripts/uninstall-dlstreamer.sh
+
       - name: Check Docker image size
         if: always ()
         id: check-size

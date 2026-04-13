@@ -8,9 +8,31 @@ on:
 permissions: {}
 
 jobs:
+  check-changes:
+    name: "Check if build and test needed"
+    runs-on: dlstreamer
+    if: github.event_name != 'workflow_dispatch'
+    outputs:
+      should_run: ${{ steps.skip-check.outputs.should_run }}
+    steps:
+      - name: Check out dlstreamer repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6.0.2
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Check if should skip CI
+        id: skip-check
+        uses: ./.github/actions/common/check-skip-ci
+        with:
+          job_name: "Test models downloading"
+          working_directory: "."
+
   test-single-model:
     name: Test single model download
     runs-on: dlstreamer
+    needs: check-changes
+    if: needs.check-changes.outputs.should_run == 'true'
     steps:
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # 6.0.2
@@ -38,6 +60,8 @@ jobs:
   test-multiple-models:
     name: Test multiple models download
     runs-on: dlstreamer
+    needs: check-changes
+    if: needs.check-changes.outputs.should_run == 'true'
     steps:
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # 6.0.2
@@ -67,6 +91,8 @@ jobs:
   test-single-model-with-quantization:
     name: Test single model with quantization
     runs-on: dlstreamer
+    needs: check-changes
+    if: needs.check-changes.outputs.should_run == 'true'
     steps:
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # 6.0.2
@@ -96,6 +122,8 @@ jobs:
   test-multiple-models-with-quantization:
     name: Test multiple models with quantization
     runs-on: dlstreamer
+    needs: check-changes
+    if: needs.check-changes.outputs.should_run == 'true'
     steps:
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # 6.0.2
@@ -135,6 +163,8 @@ jobs:
   test-non-yolo-model:
     name: Test non-YOLO model download
     runs-on: dlstreamer
+    needs: check-changes
+    if: needs.check-changes.outputs.should_run == 'true'
     steps:
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # 6.0.2
@@ -160,6 +190,8 @@ jobs:
   test-mixed-models:
     name: Test mixed YOLO and non-YOLO models
     runs-on: dlstreamer
+    needs: check-changes
+    if: needs.check-changes.outputs.should_run == 'true'
     steps:
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # 6.0.2
@@ -189,6 +221,8 @@ jobs:
   test-help-flag:
     name: Test help flag
     runs-on: dlstreamer
+    needs: check-changes
+    if: needs.check-changes.outputs.should_run == 'true'
     steps:
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # 6.0.2
@@ -214,6 +248,8 @@ jobs:
   test-missing-models-path:
     name: Test missing MODELS_PATH
     runs-on: dlstreamer
+    needs: check-changes
+    if: needs.check-changes.outputs.should_run == 'true'
     steps:
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # 6.0.2
@@ -235,6 +271,8 @@ jobs:
   test-invalid-model-name:
     name: Test invalid model name
     runs-on: dlstreamer
+    needs: check-changes
+    if: needs.check-changes.outputs.should_run == 'true'
     steps:
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # 6.0.2
@@ -259,6 +297,8 @@ jobs:
   test-ubuntu-2204-compatibility:
     name: Test Ubuntu 22.04 compatibility
     runs-on: ubuntu-22.04
+    needs: check-changes
+    if: needs.check-changes.outputs.should_run == 'true'
     steps:
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # 6.0.2
