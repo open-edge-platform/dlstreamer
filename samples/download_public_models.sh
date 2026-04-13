@@ -128,6 +128,7 @@ SUPPORTED_MODELS=(
   "pallet_defect_detection" # Custom model for pallet defect detection
   "colorcls2" # Color classification model
   "mars-small128" # DeepSORT person re-identification model (uses convert_mars_deepsort.py)
+  "pointpillars" # PointPillars 3D object detection model
 )
 
 # Corresponds to files in 'datasets' directory
@@ -1214,6 +1215,43 @@ if array_contains "mars-small128" "${MODELS_TO_PROCESS[@]}" || array_contains "a
 
     echo_color "Mars-Small128 conversion completed" "green"
     cd ../..
+  else
+    echo_color "\nModel already exists: $MODEL_DIR.\n" "yellow"
+  fi
+fi
+
+
+# ================================= PointPillars FP16 - OpenVINO Contrib =================================
+if array_contains "pointpillars" "${MODELS_TO_PROCESS[@]}" || array_contains "all" "${MODELS_TO_PROCESS[@]}"; then
+  display_header "Downloading PointPillars model"
+  MODEL_NAME="pointpillars"
+  MODEL_DIR="$MODELS_PATH/public/$MODEL_NAME/FP16"
+  BASE_URL="https://raw.githubusercontent.com/openvinotoolkit/openvino_contrib/master/modules/3d/pointPillars/pretrained"
+  POINTPILLARS_FILES=(
+    "pointpillars_ov_nn.bin"
+    "pointpillars_ov_nn.xml"
+    "pointpillars_ov_pillar_layer.xml"
+    "pointpillars_ov_postproc.xml"
+  )
+
+  MISSING_POINTPILLARS_FILE=false
+  for file_name in "${POINTPILLARS_FILES[@]}"; do
+    if [[ ! -f "$MODEL_DIR/$file_name" ]]; then
+      MISSING_POINTPILLARS_FILE=true
+      break
+    fi
+  done
+
+  if [[ "$MISSING_POINTPILLARS_FILE" == true ]]; then
+    echo "Downloading: ${MODEL_DIR}"
+    mkdir -p "$MODEL_DIR"
+    cd "$MODEL_DIR"
+
+    for file_name in "${POINTPILLARS_FILES[@]}"; do
+      curl -L --fail -o "$file_name" "$BASE_URL/$file_name"
+    done
+
+    cd - >/dev/null
   else
     echo_color "\nModel already exists: $MODEL_DIR.\n" "yellow"
   fi
