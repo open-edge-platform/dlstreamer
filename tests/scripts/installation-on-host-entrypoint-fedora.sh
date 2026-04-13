@@ -107,7 +107,7 @@ echo "TERM: ${TERM}"
 echo_color "Setting the environment variables" "blue"
 export LIBVA_DRIVER_NAME=iHD
 export GST_PLUGIN_PATH=/opt/intel/dlstreamer/lib:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0:/opt/intel/dlstreamer/gstreamer/lib/
-export LD_LIBRARY_PATH=/opt/intel/dlstreamer/gstreamer/lib:/opt/intel/dlstreamer/lib:/opt/intel/dlstreamer/lib/gstreamer-1.0:/usr/lib:/opt/intel/dlstreamer/lib:/opt/opencv:/opt/rdkafka:/opt/ffmpeg:/usr/local/lib
+export LD_LIBRARY_PATH=/opt/intel/dlstreamer/gstreamer/lib:/opt/intel/dlstreamer/lib:/opt/intel/dlstreamer/lib/gstreamer-1.0:/usr/lib:/opt/intel/dlstreamer/lib:/opt/opencv:/opt/rdkafka:/usr/local/lib
 export LIBVA_DRIVERS_PATH=/usr/lib64/dri-nonfree
 export GST_VA_ALL_DRIVERS=1
 export MODEL_PROC_PATH=/opt/intel/dlstreamer/samples/gstreamer/model_proc

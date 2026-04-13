@@ -48,7 +48,7 @@ deploy, and benchmark. They require:
 
 - Deep expertise in multiple domains, including media
   processing and Deep Learning based AI inferencing frameworks and
-  tools (e.g., FFmpeg\*, GStreamer\*, OpenCV\*, OpenVINO™ toolkit,
+  tools (e.g., GStreamer\*, OpenCV\*, OpenVINO™ toolkit,
   PyTorch\*, TensorFlow\*, ONNX\*)
 - System-level SW and HW expertise (e.g., fixed function HW,
   programmable media, host/accelerator buffer sharing, CPU Core &

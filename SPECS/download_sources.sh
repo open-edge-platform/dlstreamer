@@ -62,7 +62,6 @@ main() {
     # Define sources
     declare -A sources=(
         ["https://github.com/eclipse/paho.mqtt.c/archive/v${PAHO_MQTT_VERSION}.tar.gz"]="paho.mqtt.c-${PAHO_MQTT_VERSION}.tar.gz"
-        ["https://ffmpeg.org/releases/ffmpeg-${FFMPEG_VERSION}.tar.gz"]="ffmpeg-${FFMPEG_VERSION}.tar.gz"
         ["https://github.com/opencv/opencv/archive/${OPENCV_VERSION}.tar.gz"]="opencv-${OPENCV_VERSION}.tar.gz"
         ["https://gitlab.freedesktop.org/gstreamer/gstreamer/-/archive/${GSTREAMER_VERSION}/gstreamer-${GSTREAMER_VERSION}.tar.gz"]="gstreamer-${GSTREAMER_VERSION}.tar.gz"
     )

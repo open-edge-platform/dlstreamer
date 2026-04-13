@@ -80,12 +80,3 @@ Instance of C++ element can be created using functions `create_source`,
 context pointer as
 [parameters](./api_ref/namespace_dlstreamer.md)
 
-```cpp
-auto ffmpeg_source = create_source(ffmpeg_multi_source, {{"inputs", inputs}}, ffmpeg_ctx);
-```
-
-See direct programming samples
-[ffmpeg_openvino](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/ffmpeg_openvino)
-and
-[ffmpeg_dpcpp](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/ffmpeg_dpcpp)
-for examples.

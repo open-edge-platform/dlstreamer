@@ -147,7 +147,7 @@ dnf repolist | grep -i EdgeAI
 ### 2. Install Dependencies
 
 ```sh
-sudo dnf install -y paho-mqtt-c ffmpeg gstreamer opencv
+sudo dnf install -y paho-mqtt-c gstreamer opencv
 ```
 
 ### 3. Install DL Streamer

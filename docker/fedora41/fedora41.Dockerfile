@@ -11,10 +11,9 @@
 #                     |
 #                     V
 #                  builder ---------------------------------------------
-#                     |                           |                    |
-#                     |                           |                    |
-#                     V                           |                    |
-#                ffmpeg-builder                   V                    V
+#                      |                          |                    |
+#                      |                          |                    |
+#                      |                          V                    V
 #                      |                    kafka-builder     realsense-builder
 #                      V                          |                    |
 #                opencv-builder                   |                    |
@@ -39,7 +38,6 @@
 # DLSTREAMER_VERSION      # DL Streamer
 # DLSTREAMER_BUILD_NUMBER # Build ID
 # GST_VERSION             # GStreamer
-# FFMPEG_VERSION          # FFmpeg
 # OPENVINO_VERSION        # OpenVINO
 # OPENCV_VERSION          # OpenCV
 # REALSENSE_VERSION       # RealSense
@@ -113,44 +111,7 @@ USER root
 ENV PATH="/python3venv/bin:${PATH}"
 
 # ==============================================================================
-FROM builder AS ffmpeg-builder
-#Build ffmpeg
-ARG FFMPEG_VERSION=6.1.1
-
-SHELL ["/bin/bash", "-xo", "pipefail", "-c"]
-
-RUN \
-    mkdir -p /src/ffmpeg && \
-    curl -sSL --insecure "https://ffmpeg.org/releases/ffmpeg-${FFMPEG_VERSION}.tar.gz" -o "/src/ffmpeg/ffmpeg-${FFMPEG_VERSION}.tar.gz" && \
-    tar -xf "/src/ffmpeg/ffmpeg-${FFMPEG_VERSION}.tar.gz" -C /src/ffmpeg && \
-    rm "/src/ffmpeg/ffmpeg-${FFMPEG_VERSION}.tar.gz"
-
-WORKDIR /src/ffmpeg/ffmpeg-${FFMPEG_VERSION}
-
-RUN \
-    ./configure \
-    --enable-pic \
-    --enable-shared \
-    --enable-static \
-    --enable-avfilter \
-    --enable-vaapi \
-    --extra-cflags="-I/include" \
-    --extra-ldflags="-L/lib" \
-    --extra-libs=-lpthread \
-    --extra-libs=-lm \
-    --bindir="/bin" && \
-    make -j "$(nproc)" && \
-    make install
-
-ENV PKG_CONFIG_PATH=/usr/local/lib/pkgconfig
-
-WORKDIR /copy_libs
-RUN cp -a /usr/local/lib/libav* ./ && \
-    cp -a /usr/local/lib/libswscale* ./ && \
-    cp -a /usr/local/lib/libswresample* ./
-
-# ==============================================================================
-FROM ffmpeg-builder AS opencv-builder
+FROM builder AS opencv-builder
 
 ARG OPENCV_VERSION=4.13.0
 # OpenCV
@@ -371,12 +332,6 @@ ARG OPENVINO_VERSION=2026.0.0
 
 SHELL ["/bin/bash", "-xo", "pipefail", "-c"]
 
-
-COPY --from=ffmpeg-builder /copy_libs/ /usr/local/lib/
-COPY --from=ffmpeg-builder /usr/local/lib/pkgconfig/libswresample* /usr/local/lib/pkgconfig/
-COPY --from=ffmpeg-builder /usr/local/lib/pkgconfig/libav* /usr/local/lib/pkgconfig/
-COPY --from=ffmpeg-builder /usr/local/lib/pkgconfig/libswscale* /usr/local/lib/pkgconfig/
-COPY --from=ffmpeg-builder /usr/local/include/ /usr/local/include/
 COPY --from=gstreamer-builder ${GSTREAMER_DIR} ${GSTREAMER_DIR}
 COPY --from=opencv-builder /usr/local/include/opencv4 /usr/local/include/opencv4
 COPY --from=opencv-builder /copy_libs/ /usr/local/lib64/
@@ -469,7 +424,6 @@ RUN \
     mkdir -p /${RPM_PKG_NAME}/opt/intel/ && \
     mkdir -p /${RPM_PKG_NAME}/opt/opencv/include && \
     mkdir -p /${RPM_PKG_NAME}/opt/rdkafka && \
-    mkdir -p /${RPM_PKG_NAME}/opt/ffmpeg && \
     mkdir -p /${RPM_PKG_NAME}/opt/dlstreamer && \
     mkdir -p /${RPM_PKG_NAME}/opt/librealsense && \
     cp -r "${DLSTREAMER_DIR}/build/intel64/${BUILD_ARG}" /${RPM_PKG_NAME}/opt/intel/dlstreamer && \
@@ -486,9 +440,6 @@ RUN \
     cp -a /usr/local/lib64/libopencv* /${RPM_PKG_NAME}/opt/opencv/ && \
     cp -a /usr/local/lib/librdkafka* /${RPM_PKG_NAME}/opt/rdkafka/ && \
     cp -a /usr/local/lib64/librealsense* /${RPM_PKG_NAME}/opt/librealsense/ && \
-    find /usr/local/lib -regextype grep -regex ".*libav.*so\.[0-9]*$" -exec cp {} /${RPM_PKG_NAME}/opt/ffmpeg \; && \
-    find /usr/local/lib -regextype grep -regex ".*libswscale.*so\.[0-9]*$" -exec cp {} /${RPM_PKG_NAME}/opt/ffmpeg \; && \
-    find /usr/local/lib -regextype grep -regex ".*libswresample.*so\.[0-9]*$" -exec cp {} /${RPM_PKG_NAME}/opt/ffmpeg \; && \
     cp -r /usr/local/include/opencv4/* /${RPM_PKG_NAME}/opt/opencv/include && \
     cp "${DLSTREAMER_DIR}"/LICENSE /${RPM_PKG_NAME}/ && \
     rpmdev-setuptree && \
@@ -540,7 +491,7 @@ RUN \
 
 ENV LIBVA_DRIVER_NAME=iHD
 ENV GST_PLUGIN_PATH=/opt/intel/dlstreamer/lib:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0:/opt/intel/dlstreamer/gstreamer/lib/
-ENV LD_LIBRARY_PATH=/opt/intel/dlstreamer/gstreamer/lib:/opt/intel/dlstreamer/lib:/opt/intel/dlstreamer/lib/gstreamer-1.0:/usr/lib:/opt/intel/dlstreamer/lib:/opt/opencv:/opt/rdkafka:/opt/ffmpeg:/opt/librealsense:/usr/local/lib
+ENV LD_LIBRARY_PATH=/opt/intel/dlstreamer/gstreamer/lib:/opt/intel/dlstreamer/lib:/opt/intel/dlstreamer/lib/gstreamer-1.0:/usr/lib:/opt/intel/dlstreamer/lib:/opt/opencv:/opt/rdkafka:/opt/librealsense:/usr/local/lib
 ENV LIBVA_DRIVERS_PATH=/usr/lib64/dri-nonfree
 ENV GST_VA_ALL_DRIVERS=1
 ENV MODEL_PROC_PATH=/opt/intel/dlstreamer/samples/gstreamer/model_proc

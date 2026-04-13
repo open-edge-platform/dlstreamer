@@ -109,7 +109,7 @@ if [ "$ID" == "ubuntu" ]; then
 elif [ "$ID" == "fedora" ] || [ "$ID" == "rhel" ]; then
     export LIBVA_DRIVERS_PATH=/usr/lib64/dri-nonfree
     export GI_TYPELIB_PATH=/opt/intel/dlstreamer/gstreamer/lib/girepository-1.0:/opt/intel/dlstreamer/lib/girepository-1.0:/usr/lib64/girepository-1.0
-    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/rdkafka:/opt/ffmpeg
+    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/rdkafka
     DLS_VERSION=$(rpm -q --qf '%{VERSION}\n' intel-dlstreamer)
 else
     echo "Unsupported system: $ID $VERSION_ID"
