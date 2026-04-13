@@ -46,10 +46,18 @@ Arguments:
 Options:
     --search-duration SEARCH_DURATION   How long should the optimizer search for better pipelines.
     --sample-duration SAMPLE_DURATION   How long should every pipeline be sampled for performance.
+    --detection-threshold THRESHOLD     Minimum threshold of detections that tested pipelines are
+                                        not allowed to cross in order to count as valid alternatives.
     --multistream-fps-limit LIMIT       Minimum fps limit which streams are not allowed to cross
                                         when optimizing for a multi-stream scenario.
     --enable-cross-stream-batching      Enable cross stream batching for inference elements in fps mode.
+    --allowed-devices ALLOWED_DEVICES   List of allowed devices (CPU, GPU, NPU) to be used by the optimizer.
+                                        If not specified, all available, detected devices will be used.
+                                        Tool does not support discrete GPU selection.
+                                        eg.--allowed-devices CPU NPU,--allowed-devices GPU
     --log-level LEVEL                   Configure the logging detail level.
+    -v, --verbose                       Print information about every candidate pipeline investigated during
+                                        optimization process.
 ```
 **`search-duration`** default: `300` seconds \
 Increasing the **search duration** will increase the chances of discovering more performant pipelines.
@@ -64,8 +72,14 @@ but the final result is liable to support less streams overall.
 **`enable-cross-stream-batching`** \
 Levy the inference instance feature of DL Streamer to batch work across multiple streams in fps mode.
 
+**`allowed-devices`** \
+Allows you to limit the set of devices that will be considered during the optimization process.
+
 **`log-level`** default: `INFO` \
 Available **log levels** are: CRITICAL, FATAL, ERROR, WARN, INFO, DEBUG.
+
+**`verbose`** \
+Prints extra information about the candidate pipelines which were examined during the optimization process.
 
 >**Note**\
 >Search duration and sample duration both affect the amount of pipelines that will be explored during the search. \
@@ -99,14 +113,14 @@ In this case the optimizer started with a pipeline that ran at ~45fps, and found
 
 ## Using the optimizer as a library
 
-The easiest way of importing the optimizer into your scripts is to include it in your `PYTHONPATH` environment variable:
+The easiest way of importing the optimizer into your scripts is to include it in your `PYTHONPATH` environment variable: \
 ```export PYTHONPATH=/opt/intel/dlstreamer/scripts/optimizer```
 
 Targets which are exported in order to facilitate usage inside of scripts:
 
 ### `preprocess_pipeline(pipeline) -> processed_pipeline`
-- `pipeline` - A string containing a valid DL Streamer pipeline.
-- `processed_pipeline` - A string containing the pipeline with all relevant substitutions.
+- `pipeline: string` - A string containing a valid DL Streamer pipeline.
+- `processed_pipeline: string` - A string containing the pipeline with all relevant substitutions.
 
 Perform quick search and replace for known combinations of elements with more performant alternatives.
 
@@ -117,59 +131,111 @@ Initialized without any arguments
 optimizer = DLSOptimizer()
 ```
 #### Methods
-**`set_search_duration(duration)`**
-- `duration` - The duration of searching for optimized pipelines in seconds, default `300`.
+**`get_baseline_pipeline() -> pipeline, fps, streams`**
+- `pipeline: string` - The baseline pipeline from which optimization started.
+- `fps: float` - Fps measured for the baseline pipeline.
+- `streams: int` - Number of streams in the baseline pipeline.
 
-Configures the search duration used in optimization sessions.
+Returns information about the original pipeline used in the optimization process. Returned values are meaningless until at least one optimization operation is performed.
 ```
 optimizer = DLSOptimizer()
-optimizer.set_search_duration(600)
+for (_, _) in optimizer.iter_optimize_for_fps(pipeline):
+    pass
+pipeline, fps, streams = optimizer.get_baseline_pipeline()
 ```
+---
+**`get_optimal_pipeline() -> pipeline, fps, streams`**
+- `pipeline: string` - The best pipeline found during optimization.
+- `fps: float` - Fps measured for the optimal pipeline.
+- `streams: int` - Number of streams in the optimal pipeline.
 
+Returns information about the best pipeline found during the optimization process. Returned values are meaningless until at least one optimization operation is performed.
+```
+optimizer = DLSOptimizer()
+for (_, _) in optimizer.iter_optimize_for_streams(pipeline):
+    pass
+best_pipeline, best_fps, best_streams = optimizer.get_optimal_pipeline()
+```
+---
 **`set_sample_duration(duration)`**
-- `duration` - The duration of sampling each candidate pipeline in seconds, default `10`.
+- `duration: int` - The duration of sampling each candidate pipeline in seconds, default `10`.
 
 Configures the sample duration used in optimization sessions.
 ```
 optimizer = DLSOptimizer()
 optimizer.set_sample_duration(15)
 ```
+---
+**`set_detections_error_threshold(threshold)`**
+- `threshold: float` - The threshold of counted detections, between `0.0` and `1.0`, default `0.95`.
 
+Minimum threshold of detections that tested pipelines are not allowed to cross in order to count as valid alternatives.
+```
+optimizer = DLSOptimizer()
+optimizer.set_detections_error_threshold(0.8)
+```
+---
 **`enable_cross_stream_batching(enable)`**
-- `enable` - Enable the cross stream batching feature, default `False`.
+- `enable: bool` - Enable the cross stream batching feature, default `False`.
 
 Levy the inference instance feature of DL Streamer to batch work across multiple streams when optimizing for fps.
 ```
 optimizer = DLSOptimizer()
 optimizer.enable_cross_stream_batching(True)
 ```
-
+---
 **`set_mutlistream_fps_limit(limit)`**
-- `limit` - The minimum fps limit allowed for individual streams when optimizing for amount of streams, default `30`.
+- `limit: int` - The minimum fps limit allowed for individual streams when optimizing for amount of streams, default `30`.
 
 Configures the minimum fps limit that streams are not allowed to fall below when optimizing for a multi-stream scenario.
 ```
 optimizer = DLSOptimizer()
 optimizer.set_multistream_fps_limit(45)
 ```
+---
+**`set_allowed_devices(devices)`**
+- `devices: list[string]` - A list of device identifiers.
 
-**`optimize_for_fps(pipeline) -> optimized_pipeline, fps`**
-- `pipeline` - A string containing a valid DL Streamer pipeline.
-- `optimized_pipeline` - A string containing the best performing pipeline that has been found during the search.
-- `fps` - The measured fps of the best perfmorming pipeline.
+Limits the set of devices which will be considered during the optimization process.
+```
+optimizer = DLSOptimizer()
+optimizer.set_allowed_devices(["CPU", "GPU"])
+```
+---
+**`optimize_for_fps(pipeline, search_duration) -> optimized_pipeline, fps`**
+- `pipeline: string` - A string containing a valid DL Streamer pipeline.
+- `search_duration: int` - The duration of searching for better pipelines, default `300`.
+- `optimized_pipeline: string` - A string containing the best performing pipeline that has been found during the search.
+- `fps: float` - The measured fps of the best perfmorming pipeline.
 
-Runs a series of optimization steps on the pipeline searching for version with better performance measured by fps.
+Runs a series of optimization steps on the pipeline searching for a version with better performance measured by fps.
 ```
 pipeline = "urisourcebin buffer-size=4096 uri=https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4 ! decodebin ! gvadetect model=/home/optimizer/models/public/yolo11s/INT8/yolo11s.xml ! queue ! gvawatermark ! fakesink"
 optimizer = DLSOptimizer()
 optimizer.optimize_for_fps(pipeline)
 ```
+---
+**`iter_optimize_for_fps(pipeline) -> optimized_pipeline, fps`**
+- `pipeline: string` - A string containing a valid DL Streamer pipeline.
+- `optimized_pipeline: string` - A string containing a candidate pipeline that has been tested.
+- `fps: float` - The measured fps of the candidate pipeline.
 
-**`optimize_for_streams(pipeline) -> optimized_pipeline, fps, streams`**
-- `pipeline` - A string containing a valid DL Streamer pipeline.
-- `optimized_pipeline` - A string containing the best performing pipeline that has been found during the search.
-- `fps` - The measured fps of the best perfmorming pipeline.
-- `streams` - The number of streams capable of running above the fps limit with the optimized pipeline.
+Runs a series of optimization steps on the pipeline searching for version with better performance measured by fps. Returns each and every candidate pipeline that has been considered.
+```
+pipeline = "urisourcebin buffer-size=4096 uri=https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4 ! decodebin ! gvadetect model=/home/optimizer/models/public/yolo11s/INT8/yolo11s.xml ! queue ! gvawatermark ! fakesink"
+optimizer = DLSOptimizer()
+for (pipeline, fps) in optimizer.iter_optimize_for_fps(pipeline):
+    print(f"Tested: {pipeline} @ {fps}")
+best_pipeline, best_fps, _ = optimizer.get_optimal_pipeline()
+print(f"Optimal pipeline: {best_pipeline} @ {best_fps}")
+```
+---
+**`optimize_for_streams(pipeline, search_duration) -> optimized_pipeline, fps, streams`**
+- `pipeline: string` - A string containing a valid DL Streamer pipeline.
+- `search_duration: int` - The duration of searching for better pipelines, default `300`.
+- `optimized_pipeline: string` - A string containing the best performing pipeline that has been found during the search.
+- `fps: float` - The measured fps of the best perfmorming pipeline.
+- `streams: int` - The number of streams capable of running above the fps limit with the optimized pipeline.
 
 Searching for a version of the input pipeline which can support the highest number of concurrent streams.
 ```
@@ -177,9 +243,22 @@ pipeline = "urisourcebin buffer-size=4096 uri=https://videos.pexels.com/video-fi
 optimizer = DLSOptimizer()
 optimizer.optimize_for_streams(pipeline)
 ```
+---
+**`iter_optimize_for_streams(pipeline) -> candidate_pipeline, fps, streams`**
+- `pipeline: string` - A string containing a valid DL Streamer pipeline.
+- `optimized_pipeline: string` - A string containing a candidate pipeline that has been tested.
+- `fps: float` - The measured fps of the candidate pipeline.
+- `streams: int` - The number of streams capable of running above the fps limit with the candidate pipeline.
 
-Runs a series of optimization steps on the pipeline searching for a better performing versions.
-
+Searching for a version of the input pipeline which can support the highest number of concurrent streams. Returns each and every candidate pipeline that has been considered.
+```
+pipeline = "urisourcebin buffer-size=4096 uri=https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4 ! decodebin ! gvadetect model=/home/optimizer/models/public/yolo11s/INT8/yolo11s.xml ! queue ! gvawatermark ! fakesink"
+optimizer = DLSOptimizer()
+for (pipeline, fps, streams) in optimizer.iter_optimize_for_streams(pipeline):
+    print(f"Tested: {pipeline} @ {streams} & {fps}")
+best_pipeline, best_fps, best_streams = optimizer.get_optimal_pipeline()
+print(f"Optimal pipeline: {best_pipeline} @ {best_streams} & {best_fps}")
+```
 ---
 
 **Example:**
@@ -190,9 +269,8 @@ from optimizer import get_optimized_pipeline
 pipeline = "urisourcebin buffer-size=4096 uri=https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4 ! decodebin ! gvadetect model=/home/optimizer/models/public/yolo11s/INT8/yolo11s.xml ! queue ! gvawatermark ! fakesink"
 
 optimizer = DLSOptimizer()
-optimizer.set_search_duration(600)
 optimizer.set_sample_duration(15)
-optimized_pipeline, fps = optimizer.optimize_for_fps(pipeline)
+optimized_pipeline, fps = optimizer.optimize_for_fps(pipeline, search_duration = 600)
 print("Best discovered pipeline: " + optimized_pipeline)
 print("Measured fps: " + fps)
 ```
