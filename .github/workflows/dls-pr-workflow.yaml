@@ -40,7 +40,7 @@ jobs:
 
       - name: Check if should skip CI
         id: skip-check
-        uses: ./dlstreamer-repo/.github/actions/check-skip-ci
+        uses: ./dlstreamer-repo/.github/actions/common/check-skip-ci
         with:
           job_name: "code-style scan"
 
@@ -78,7 +78,7 @@ jobs:
 
       - name: Check if should skip CI
         id: skip-check
-        uses: ./dlstreamer-repo/.github/actions/check-skip-ci
+        uses: ./dlstreamer-repo/.github/actions/common/check-skip-ci
         with:
           job_name: "license headers check"
 
@@ -112,7 +112,7 @@ jobs:
 
       - name: Check if should skip CI
         id: skip-check
-        uses: ./.github/actions/check-skip-ci
+        uses: ./.github/actions/common/check-skip-ci
         with:
           job_name: "static C/C++ code analysis"
 
@@ -154,7 +154,7 @@ jobs:
 
       - name: Check if should skip CI
         id: skip-check
-        uses: ./.github/actions/check-skip-ci
+        uses: ./.github/actions/common/check-skip-ci
         with:
           job_name: "Trivy scan for ${{ matrix.name }}"
 
@@ -199,7 +199,7 @@ jobs:
 
       - name: Check if should skip CI
         id: skip-check
-        uses: ./.github/actions/check-skip-ci
+        uses: ./.github/actions/common/check-skip-ci
         with:
           job_name: "Hadolint scan for ${{ matrix.name }}"
 
@@ -230,7 +230,7 @@ jobs:
 
       - name: Check if should skip CI
         id: skip-check
-        uses: ./dlstreamer-repo/.github/actions/check-skip-ci
+        uses: ./dlstreamer-repo/.github/actions/common/check-skip-ci
         with:
           job_name: "pylint scan"
 
@@ -265,7 +265,7 @@ jobs:
 
       - name: Check if should skip CI
         id: skip-check
-        uses: ./.github/actions/check-skip-ci
+        uses: ./.github/actions/common/check-skip-ci
         with:
           job_name: "shellcheck scan"
 
@@ -295,7 +295,7 @@ jobs:
 
       - name: Check if should skip CI
         id: skip-check
-        uses: ./.github/actions/check-skip-ci
+        uses: ./.github/actions/common/check-skip-ci
         with:
           job_name: "yamllint scan"
 
@@ -325,7 +325,7 @@ jobs:
 
       - name: Check if should skip CI
         id: skip-check
-        uses: ./dlstreamer-repo/.github/actions/check-skip-ci
+        uses: ./dlstreamer-repo/.github/actions/common/check-skip-ci
         with:
           job_name: "ClamAV antivirus scan"
 
@@ -388,7 +388,7 @@ jobs:
 
       - name: Check if should skip CI
         id: skip-check
-        uses: ./.github/actions/check-skip-ci
+        uses: ./.github/actions/common/check-skip-ci
         with:
           job_name: "Bandit scan"
 
@@ -418,7 +418,7 @@ jobs:
 
       - name: Check if should skip CI
         id: skip-check
-        uses: ./.github/actions/check-skip-ci
+        uses: ./.github/actions/common/check-skip-ci
         with:
           job_name: "models download test"
 
@@ -441,7 +441,7 @@ jobs:
 
       - name: Check if should skip CI
         id: skip-check
-        uses: ./.github/actions/check-skip-ci
+        uses: ./.github/actions/common/check-skip-ci
         with:
           job_name: "Optimizer tests"
 
@@ -466,7 +466,7 @@ jobs:
 
       - name: Check if should skip CI
         id: skip-check
-        uses: ./.github/actions/check-skip-ci
+        uses: ./.github/actions/common/check-skip-ci
         with:
           job_name: "Fedora build"
 
@@ -489,7 +489,7 @@ jobs:
 
       - name: Check if should skip CI
         id: skip-check
-        uses: ./.github/actions/check-skip-ci
+        uses: ./.github/actions/common/check-skip-ci
         with:
           job_name: "make build"
 
@@ -512,7 +512,7 @@ jobs:
 
       - name: Check if should skip CI
         id: skip-check
-        uses: ./.github/actions/check-skip-ci
+        uses: ./.github/actions/common/check-skip-ci
         with:
           job_name: "dev images build and unit tests"
 
@@ -535,7 +535,7 @@ jobs:
 
       - name: Check if should skip CI
         id: skip-check
-        uses: ./.github/actions/check-skip-ci
+        uses: ./.github/actions/common/check-skip-ci
         with:
           job_name: ".deb packages build and test"
 
@@ -560,7 +560,7 @@ jobs:
 
       - name: Check if should skip CI
         id: skip-check
-        uses: ./.github/actions/check-skip-ci
+        uses: ./.github/actions/common/check-skip-ci
         with:
           job_name: "Windows build and test"
 
