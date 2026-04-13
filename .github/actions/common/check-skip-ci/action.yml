@@ -4,6 +4,10 @@ inputs:
   job_name:
     description: 'Name of the job for logging purposes'
     required: true
+  working_directory:
+    description: 'Directory where the repository was checked out'
+    required: false
+    default: '.'
   base_branch:
     description: 'Base branch to compare against'
     required: false
@@ -23,12 +27,14 @@ runs:
   steps:
     - name: Fetch base branch for comparison
       shell: bash
+      working-directory: ${{ inputs.working_directory }}
       run: |
         git fetch origin ${{ inputs.base_branch }}
 
     - name: Check if job should run
       id: check
       shell: bash
+      working-directory: ${{ inputs.working_directory }}
       run: |
         echo "🔍 Checking for changes outside documentation and configuration files"
         
