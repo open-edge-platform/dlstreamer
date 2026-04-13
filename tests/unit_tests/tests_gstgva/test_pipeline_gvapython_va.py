@@ -1,5 +1,5 @@
 # ==============================================================================
-# Copyright (C) 2021-2025 Intel Corporation
+# Copyright (C) 2021-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
@@ -12,8 +12,8 @@ SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 IMAGE_PATH = os.path.join(SCRIPT_DIR, "test_files", "cup.jpg")
 MODULE_PATH = os.path.join(SCRIPT_DIR, "test_files", "test_module.py")
 
-PIPELINE_TEMPLATE = "filesrc location={} ! jpegparse ! vaapijpegdec ! vaapipostproc ! video/x-raw(memory:VASurface),format={} ! gvapython module={} class=MyClassVaapi function={} ! {} fakesink sync=false"
-ENCODERS = ["", "vaapipostproc ! vaapijpegenc !"]
+PIPELINE_TEMPLATE = "filesrc location={} ! jpegparse ! vajpegdec ! vapostproc ! video/x-raw(memory:VAMemory),format={} ! gvapython module={} class=MyClassVaapi function={} ! {} fakesink sync=false"
+ENCODERS = ["", "vapostproc ! vajpegenc !"]
 FORMATS = ["NV12", "I420"]
 READ_FUNC = "read_frame_data"
 WRITE_FUNC = "write_frame_data"

@@ -60,18 +60,18 @@ Please note this example uses exact same AI model for both NPU and GPU, yet one 
 
 ```sh
 gst-launch-1.0 \
-filesrc location=${INPUT_VIDEO_FILE_1} ! decodebin3 ! vaapipostproc ! video/x-raw(memory:VASurface) ! \
+filesrc location=${INPUT_VIDEO_FILE_1} ! decodebin3 ! vapostproc ! video/x-raw(memory:VAMemory) ! \
 gvadetect model=${DETECTION_MODEL} device=NPU pre-process-backend=opencv nireq=4 model-instance-id=inf0 ! queue ! \
-gvawatermark ! gvafpscounter ! vaapih264enc ! h264parse ! mp4mux ! filesink location=${OUTPUT_VIDEO_FILE_1} \
-filesrc location=${INPUT_VIDEO_FILE_2} ! decodebin3 ! vaapipostproc ! video/x-raw(memory:VASurface) ! \
+gvawatermark ! gvafpscounter ! vah264enc ! h264parse ! mp4mux ! filesink location=${OUTPUT_VIDEO_FILE_1} \
+filesrc location=${INPUT_VIDEO_FILE_2} ! decodebin3 ! vapostproc ! video/x-raw(memory:VAMemory) ! \
 gvadetect model=${DETECTION_MODEL} device=NPU pre-process-backend=opencv nireq=4 model-instance-id=inf0 ! queue ! \
-gvawatermark ! gvafpscounter ! vaapih264enc ! h264parse ! mp4mux ! filesink location=${OUTPUT_VIDEO_FILE_2} \
-filesrc location=${INPUT_VIDEO_FILE} ! decodebin3 ! vaapipostproc ! video/x-raw(memory:VASurface) !
-gvadetect model=${$DETECTION_MODEL_3} device=GPU pre-process-backend=vaapi-surface-sharing nireq=4 model-instance-id=inf1 ! queue ! \
-gvawatermark ! gvafpscounter ! vaapih264enc ! h264parse ! mp4mux ! filesink location=${OUTPUT_VIDEO_FILE_3} \
-filesrc location=${INPUT_VIDEO_FILE_4} ! decodebin3 vaapipostproc ! video/x-raw(memory:VASurface) !
-gvadetect model=${DETECTION_MODEL} device=GPU pre-process-backend=vaapi-surface-sharing nireq=4 model-instance-id=inf1 ! queue ! \
-gvawatermark ! gvafpscounter ! vaapih264enc ! h264parse ! mp4mux ! filesink location=${OUTPUT_VIDEO_FILE_4}
+gvawatermark ! gvafpscounter ! vah264enc ! h264parse ! mp4mux ! filesink location=${OUTPUT_VIDEO_FILE_2} \
+filesrc location=${INPUT_VIDEO_FILE} ! decodebin3 ! vapostproc ! video/x-raw(memory:VAMemory) !
+gvadetect model=${$DETECTION_MODEL_3} device=GPU pre-process-backend=va-surface-sharing nireq=4 model-instance-id=inf1 ! queue ! \
+gvawatermark ! gvafpscounter ! vah264enc ! h264parse ! mp4mux ! filesink location=${OUTPUT_VIDEO_FILE_3} \
+filesrc location=${INPUT_VIDEO_FILE_4} ! decodebin3 vapostproc ! video/x-raw(memory:VAMemory) !
+gvadetect model=${DETECTION_MODEL} device=GPU pre-process-backend=va-surface-sharing nireq=4 model-instance-id=inf1 ! queue ! \
+gvawatermark ! gvafpscounter ! vah264enc ! h264parse ! mp4mux ! filesink location=${OUTPUT_VIDEO_FILE_4}
 ```
 
 The next pipeline illustrates how to construct a pipeline with multiple AI models and a single video stream.
@@ -80,28 +80,28 @@ The example also batches inference requests ('batch-size=8') to maximize AI mode
 
 ```sh
 gst-launch-1.0 \
-filesrc location=${INPUT_VIDEO_FILE} ! video/x-h265 ! h265parse ! video/x-h265 ! vaapih265dec ! video/x-raw(memory:VASurface) ! \
-gvadetect inference-interval=3 model=${DETECTION_MODEL} device=GPU nireq=4 batch-size=8 ie-config=PERFORMANCE_HINT=THROUGHPUT pre-process-backend=vaapi-surface-sharing ! queue ! \
+filesrc location=${INPUT_VIDEO_FILE} ! video/x-h265 ! h265parse ! video/x-h265 ! vah265dec ! video/x-raw(memory:VAMemory) ! \
+gvadetect inference-interval=3 model=${DETECTION_MODEL} device=GPU nireq=4 batch-size=8 ie-config=PERFORMANCE_HINT=THROUGHPUT pre-process-backend=va-surface-sharing ! queue ! \
 gvatrack tracking-type=short-term-imageless ! queue ! \
-gvaclassify inference-interval=3 model=${CLASSIFICATION_MODEL_1} device=GPU nireq=4 batch-size=8 ie-config=PERFORMANCE_HINT=THROUGHPUT pre-process-backend=vaapi-surface-sharing ! queue ! \
-gvaclassify inference-interval=3 model=${CLASSIFICATION_MODEL_2} device=GPU nireq=4 batch-size=8 ie-config=PERFORMANCE_HINT=THROUGHPUT pre-process-backend=vaapi-surface-sharing ! queue ! \
-gvawatermark ! gvafpscounter ! vaapih264enc ! h264parse ! mp4mux ! filesink location=${OUTPUT_VIDEO_FILE}
+gvaclassify inference-interval=3 model=${CLASSIFICATION_MODEL_1} device=GPU nireq=4 batch-size=8 ie-config=PERFORMANCE_HINT=THROUGHPUT pre-process-backend=va-surface-sharing ! queue ! \
+gvaclassify inference-interval=3 model=${CLASSIFICATION_MODEL_2} device=GPU nireq=4 batch-size=8 ie-config=PERFORMANCE_HINT=THROUGHPUT pre-process-backend=va-surface-sharing ! queue ! \
+gvawatermark ! gvafpscounter ! vah264enc ! h264parse ! mp4mux ! filesink location=${OUTPUT_VIDEO_FILE}
 ```
 
 The last pipeline combines multi-stream and multi-model execution.
 
 ```sh
 gst-launch-1.0 \
-filesrc location=${INPUT_VIDEO_FILE_1} ! video/x-h265 ! h265parse ! video/x-h265 ! vaapih265dec ! video/x-raw(memory:VASurface) ! \
-gvadetect model=${DETECTION_MODEL} device=GPU model-instance-id=inf0 nireq=4 batch-size=8 ie-config=PERFORMANCE_HINT=THROUGHPUT pre-process-backend=vaapi-surface-sharing ! queue ! \
-gvaclassify model=${CLASSIFICATION_MODEL_1} device=GPU model-instance-id=inf1 nireq=4 batch-size=8 ie-config=PERFORMANCE_HINT=THROUGHPUT pre-process-backend=vaapi-surface-sharing ! queue ! \
-gvaclassify model=${CLASSIFICATION_MODEL_2} device=GPU model-instance-id=inf2 nireq=4 batch-size=8 ie-config=PERFORMANCE_HINT=THROUGHPUT pre-process-backend=vaapi-surface-sharing ! queue ! \
-gvawatermark ! gvafpscounter ! vaapih264enc ! h264parse ! mp4mux ! filesink location=${OUTPUT_VIDEO_FILE_1} \
-filesrc location=${INPUT_VIDEO_FILE_2} ! video/x-h265 ! h265parse ! video/x-h265 ! vaapih265dec ! video/x-raw(memory:VASurface) ! \
-gvadetect model=${DETECTION_MODEL} device=GPU model-instance-id=inf0 nireq=4 batch-size=8 ie-config=PERFORMANCE_HINT=THROUGHPUT pre-process-backend=vaapi-surface-sharing ! queue ! \
-gvaclassify model=${CLASSIFICATION_MODEL_1} device=GPU model-instance-id=inf1 nireq=4 batch-size=8 ie-config=PERFORMANCE_HINT=THROUGHPUT pre-process-backend=vaapi-surface-sharing ! queue ! \
-gvaclassify model=${CLASSIFICATION_MODEL_2} device=GPU model-instance-id=inf2 nireq=4 batch-size=8 ie-config=PERFORMANCE_HINT=THROUGHPUT pre-process-backend=vaapi-surface-sharing ! queue ! \
-gvawatermark ! gvafpscounter ! vaapih264enc ! h264parse ! mp4mux ! filesink location=${OUTPUT_VIDEO_FILE_2}
+filesrc location=${INPUT_VIDEO_FILE_1} ! video/x-h265 ! h265parse ! video/x-h265 ! vah265dec ! video/x-raw(memory:VAMemory) ! \
+gvadetect model=${DETECTION_MODEL} device=GPU model-instance-id=inf0 nireq=4 batch-size=8 ie-config=PERFORMANCE_HINT=THROUGHPUT pre-process-backend=va-surface-sharing ! queue ! \
+gvaclassify model=${CLASSIFICATION_MODEL_1} device=GPU model-instance-id=inf1 nireq=4 batch-size=8 ie-config=PERFORMANCE_HINT=THROUGHPUT pre-process-backend=va-surface-sharing ! queue ! \
+gvaclassify model=${CLASSIFICATION_MODEL_2} device=GPU model-instance-id=inf2 nireq=4 batch-size=8 ie-config=PERFORMANCE_HINT=THROUGHPUT pre-process-backend=va-surface-sharing ! queue ! \
+gvawatermark ! gvafpscounter ! vah264enc ! h264parse ! mp4mux ! filesink location=${OUTPUT_VIDEO_FILE_1} \
+filesrc location=${INPUT_VIDEO_FILE_2} ! video/x-h265 ! h265parse ! video/x-h265 ! vah265dec ! video/x-raw(memory:VAMemory) ! \
+gvadetect model=${DETECTION_MODEL} device=GPU model-instance-id=inf0 nireq=4 batch-size=8 ie-config=PERFORMANCE_HINT=THROUGHPUT pre-process-backend=va-surface-sharing ! queue ! \
+gvaclassify model=${CLASSIFICATION_MODEL_1} device=GPU model-instance-id=inf1 nireq=4 batch-size=8 ie-config=PERFORMANCE_HINT=THROUGHPUT pre-process-backend=va-surface-sharing ! queue ! \
+gvaclassify model=${CLASSIFICATION_MODEL_2} device=GPU model-instance-id=inf2 nireq=4 batch-size=8 ie-config=PERFORMANCE_HINT=THROUGHPUT pre-process-backend=va-surface-sharing ! queue ! \
+gvawatermark ! gvafpscounter ! vah264enc ! h264parse ! mp4mux ! filesink location=${OUTPUT_VIDEO_FILE_2}
 ```
 
 ## See also
