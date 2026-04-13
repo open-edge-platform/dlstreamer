@@ -15,7 +15,9 @@ on:
         required: false
         type: string
         default: "main"
+
 permissions: {}
+
 env:
   DLS_REPO_TARGET_DIRECTORY: 'C:\dlstreamer_repo'
   DLS_BUILD_DIRECTORY: '$env:TEMP\dlstreamer_tmp\build'
@@ -29,12 +31,12 @@ env:
   DLL_EXPECTED_COUNT: 19
 
 jobs:
-  check-changes:
-    name: "Check if build and test needed"
+  setup:
+    name: "Setup Windows build configuration"
     runs-on: dlstreamer
-    if: github.event_name != 'workflow_dispatch'
     outputs:
       should_run: ${{ steps.skip-check.outputs.should_run }}
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
     steps:
       - name: Check out dlstreamer repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6.0.2
@@ -49,21 +51,51 @@ jobs:
           job_name: "Build and Test on Windows"
           working_directory: "."
 
-  DLS_Building_and_Testing:
+      - name: Set matrix configuration
+        id: set-matrix
+        run: |
+          if [[ "${{ steps.skip-check.outputs.should_run }}" == "false" ]]; then
+            MATRIX=$(jq -n '{
+              "include": [
+                {
+                  "runner_labels": ["dlstreamer"],
+                  "runner_print_label": "SKIP"
+                }
+              ]
+            }' | jq -c .)
+          else
+            MATRIX=$(jq -n '{
+              "include": [
+                {
+                  "runner_labels": ["self-hosted", "dlstreamer", "ARL", "windows"],
+                  "runner_print_label": "ARL"
+                }
+              ]
+            }' | jq -c .)
+          fi
+          echo "Generated matrix: $MATRIX"
+          echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
+
+  build:
     name: "[${{ matrix.runner_print_label }}] Build and Test Windows DLLs"
     runs-on: ${{ matrix.runner_labels }}
-    needs: check-changes
-    if: needs.check-changes.outputs.should_run == 'true'
+    needs: setup
+    if: github.event_name == 'workflow_dispatch' || needs.setup.outputs.should_run == 'true' || needs.setup.outputs.should_run == 'false'
     permissions:
       contents: read
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - runner_labels: [self-hosted, dlstreamer, ARL, windows]
-            runner_print_label: ARL
+      matrix: ${{ fromJson(needs.setup.outputs.matrix) }}
     steps:
+      - name: Skip or execute based on configuration
+        if: matrix.runner_print_label == 'SKIP'
+        run: |
+          echo "## ✅ Windows Build and Test Skipped" >> $GITHUB_STEP_SUMMARY
+          echo "**Reason:** Only documentation changes detected" >> $GITHUB_STEP_SUMMARY
+          exit 0
+
       - name: Initialize Emojis
+        if: needs.setup.outputs.should_run == 'true'
         shell: powershell
         run: |
           $emojis = @{
@@ -88,6 +120,7 @@ jobs:
           [System.IO.File]::AppendAllLines($env:GITHUB_ENV, $lines, $utf8NoBom)
 
       - name: Check out dlstreamer repository
+        if: needs.setup.outputs.should_run == 'true'
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # 6.0.2
         with:
           persist-credentials: false
@@ -96,12 +129,14 @@ jobs:
           fetch-depth: 1
 
       - name: Init submodules
+        if: needs.setup.outputs.should_run == 'true'
         run: |
           cd dlstreamer-repo
           git submodule update --init thirdparty/spdlog
           git submodule update --init thirdparty/googletest
 
       - name: Copy DLStreamer repo
+        if: needs.setup.outputs.should_run == 'true'
         shell: powershell
         run: |
           $target = "${{ env.DLS_REPO_TARGET_DIRECTORY }}"
@@ -113,12 +148,14 @@ jobs:
 
       # ======================================================== BUILDING PART ========================================================
       - name: "${{ env.EBOX }} Build DLStreamer DLLs"
+        if: needs.setup.outputs.should_run == 'true'
         shell: powershell
         run: |
           cd ${{ env.DLS_REPO_TARGET_DIRECTORY }}
           & ./scripts/build_dlstreamer_dlls.ps1
 
       - name: Copy DLLs
+        if: needs.setup.outputs.should_run == 'true'
         shell: powershell
         run: |
           $target = "${{ env.DLS_DLL_TARGET_DIRECTORY }}"
@@ -139,6 +176,7 @@ jobs:
           Get-ChildItem -Path $target -Recurse
 
       - name: "${{ env.EBOX }} Print list of DLLs with sizes"
+        if: needs.setup.outputs.should_run == 'true'
         shell: powershell
         run: |
           $dllDir = "${{ env.DLS_DLL_TARGET_DIRECTORY }}"
@@ -183,6 +221,7 @@ jobs:
 
       # ======================================================== TESTING PART ========================================================
       - name: Checkout DLStreamer test repository
+        if: needs.setup.outputs.should_run == 'true'
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # 6.0.2
         with:
           repository: open-edge-platform/dl-streamer-tests
@@ -191,6 +230,7 @@ jobs:
           persist-credentials: false
 
       - name: "Install Python v${{ env.PYTHON_VERSION }}"
+        if: needs.setup.outputs.should_run == 'true'
         uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # v6.2.0
         id: cp312
         with:
@@ -198,6 +238,7 @@ jobs:
           cache: 'pip'
 
       - name: Capture Python path
+        if: needs.setup.outputs.should_run == 'true'
         env:
           RAW_PYTHON_PATH: ${{ steps.cp312.outputs.python-path }}
         shell: powershell
@@ -207,6 +248,7 @@ jobs:
           echo "PYTHON_EXE_PATH=$actualPath" >> $env:GITHUB_ENV
 
       - name: Check out DLStreamer Windows dependencies
+        if: needs.setup.outputs.should_run == 'true'
         shell: powershell
         run: |
           $deps = @{
@@ -237,6 +279,7 @@ jobs:
           Write-Host "All dependencies verified successfully." -ForegroundColor Green
 
       - name: "${{ env.EGEAR }} Setup static Windows PATH for following tests"
+        if: needs.setup.outputs.should_run == 'true'
         shell: powershell
         run: |
           $openvinoRuntimeDir = $ExecutionContext.InvokeCommand.ExpandString($env:OPENVINO_RUNTIME_DIRECTORY)
@@ -263,6 +306,7 @@ jobs:
           Write-Host "Successfully configured GST_PLUGIN_PATH=$gstPluginPath" -ForegroundColor Green
 
       - name: "${{ env.ESEARCH }} Validate DLStreamer elements"
+        if: needs.setup.outputs.should_run == 'true'
         shell: powershell
         run: |
           [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -300,6 +344,7 @@ jobs:
           }
 
       - name: Install Python dependencies in VENV
+        if: needs.setup.outputs.should_run == 'true'
         shell: powershell
         env:
           WORKSPACE: ${{ github.workspace }}
@@ -329,6 +374,7 @@ jobs:
           "VENV_PYTHON=$VenvPython" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
       - name: Create test results directory
+        if: needs.setup.outputs.should_run == 'true'
         shell: powershell
         env:
           RESULTS_DIR_BASE: ${{ env.TESTS_RESULTS_DIRECTORY }}
@@ -350,6 +396,7 @@ jobs:
           }
 
       - name: Verify resource directories (Models and Videos)
+        if: needs.setup.outputs.should_run == 'true'
         shell: powershell
         run: |
           $Resources = @(
@@ -379,6 +426,7 @@ jobs:
           }
 
       - name: "${{ env.EROCKET }} Run functional tests with powershell"
+        if: needs.setup.outputs.should_run == 'true'
         id: run-tests
         shell: powershell
         env:
@@ -422,14 +470,14 @@ jobs:
           }
 
       - name: Upload tests results to Artifacts
-        if: always()
+        if: always() && needs.setup.outputs.should_run == 'true'
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f  # v7.0.0
         with:
           name: test_results_on_host_Windows_ARL_tests_results
           path: ${{ env.TESTS_RESULTS_DIRECTORY }}
 
       - name: "${{ env.ECHART }} Show results and check for failures"
-        if: always()
+        if: always() && needs.setup.outputs.should_run == 'true'
         shell: powershell
         run: |
           [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -467,7 +515,7 @@ jobs:
 
       # ======================================================== CLEANUP PART ========================================================
       - name: Clean up
-        if: always()
+        if: always() && needs.setup.outputs.should_run == 'true'
         shell: powershell
         run: |
           $PathsToClean = @(
