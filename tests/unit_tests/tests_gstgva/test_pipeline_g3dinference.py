@@ -252,6 +252,7 @@ class TestG3DInference(unittest.TestCase):
         serialized = json.dumps(payload)
         self.assertIn("pointpillars_3d_detection", serialized)
         self.assertIn("pointpillars_3d", serialized)
+        self.assertIn("FP16", serialized)
         self.assertIn("data", serialized)
 
 
