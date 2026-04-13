@@ -2,7 +2,8 @@
 
 {{APP_DESCRIPTION}}
 
-![{{APP_TITLE}}]({{APP_IMAGE}})
+<!-- Optional: Include a screenshot from the output video. Omit this line if no image is available. -->
+<!-- ![{{APP_TITLE}}]({{APP_IMAGE}}) -->
 
 {{DETAILED_DESCRIPTION}}
 

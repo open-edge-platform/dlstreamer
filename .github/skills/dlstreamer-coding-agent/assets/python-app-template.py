@@ -18,14 +18,21 @@ Supports file, HTTP URL, and RTSP IP camera inputs.
 import argparse
 import os
 import signal
+import subprocess
 import sys
-import urllib.request
-from pathlib import Path
+from pathlib import Path, PurePosixPath
+from urllib.parse import urlparse
 
 import gi
 
 gi.require_version("Gst", "1.0")
-from gi.repository import Gst  # pylint: disable=no-name-in-module, wrong-import-position
+
+# Prevent GStreamer from forking gst-plugin-scanner (a C subprocess that cannot
+# resolve Python symbols). Scanning in-process lets libgstpython.so find the
+# Python runtime that is already loaded.
+os.environ.setdefault("GST_REGISTRY_FORK", "no")
+
+from gi.repository import GLib, Gst  # pylint: disable=no-name-in-module, wrong-import-position
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 MODELS_DIR = SCRIPT_DIR / "models"
@@ -48,7 +55,6 @@ def parse_args():
     p.add_argument("--device", default="GPU", help="Inference device (default: GPU)")
     p.add_argument("--output-video", default=str(RESULTS_DIR / "output.mp4"))
     p.add_argument("--output-json", default=str(RESULTS_DIR / "results.jsonl"))
-    p.add_argument("--threshold", type=float, default=0.5, help="Detection threshold")
     return p.parse_args()
 
 
@@ -58,13 +64,16 @@ def prepare_input(source: str) -> str:
         return source
     if source.startswith(("http://", "https://")):
         VIDEOS_DIR.mkdir(parents=True, exist_ok=True)
-        name = source.rstrip("/").split("/")[-1]
+        name = PurePosixPath(urlparse(source).path).name or "video.mp4"
         local = VIDEOS_DIR / name
         if not local.exists():
             print(f"Downloading video: {source}")
-            req = urllib.request.Request(source, headers={"User-Agent": "Mozilla/5.0"})
-            with urllib.request.urlopen(req, timeout=120) as r:  # noqa: S310
-                local.write_bytes(r.read())
+            subprocess.run([
+                "curl", "-L", "-o", str(local),
+                "-H", "Referer: https://www.pexels.com/",
+                "-H", "User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+                source,
+            ], check=True, timeout=300)
             print(f"Saved to: {local}")
         return str(local)
     if not os.path.isfile(source):
@@ -82,6 +91,17 @@ def find_model(pattern: str, label: str) -> str:
     return str(hits[0])
 
 
+def check_device(requested: str, label: str) -> str:
+    """Check device availability with fallback chain: NPU → GPU → CPU."""
+    if requested == "NPU" and not os.path.exists("/dev/accel/accel0"):
+        print(f"Warning: NPU not available for {label}, falling back to GPU")
+        requested = "GPU"
+    if requested == "GPU" and not os.path.exists("/dev/dri/renderD128"):
+        print(f"Warning: GPU not available for {label}, falling back to CPU")
+        requested = "CPU"
+    return requested
+
+
 def build_source(src: str) -> str:
     """Build GStreamer source element string for file or RTSP."""
     if src.startswith("rtsp://"):
@@ -92,6 +112,8 @@ def build_source(src: str) -> str:
 def run_pipeline(pipeline):
     """Event loop with SIGINT → EOS for graceful RTSP shutdown."""
 
+    # [Optional] For long-running pipelines, add SIGINT → EOS handler
+    # to set pipeline.set_state(Gst.State.NULL) for immediate stop.
     def _sigint(signum, frame):
         pipeline.send_event(Gst.Event.new_eos())
 
@@ -100,6 +122,11 @@ def run_pipeline(pipeline):
     pipeline.set_state(Gst.State.PLAYING)
     try:
         while True:
+            # [Optional] Add when application processes user commands or
+            # any thread-safe dispatch via GLib.idle_add(). No-op otherwise.
+            while GLib.MainContext.default().iteration(False):
+                pass
+
             msg = bus.timed_pop_filtered(
                 100 * Gst.MSECOND,
                 Gst.MessageType.ERROR | Gst.MessageType.EOS,
@@ -134,11 +161,8 @@ def main():
     Path(args.output_video).parent.mkdir(parents=True, exist_ok=True)
     Path(args.output_json).parent.mkdir(parents=True, exist_ok=True)
 
-    # GPU fallback
-    device = args.device
-    if device == "GPU" and not os.path.exists("/dev/dri/renderD128"):
-        print("Warning: GPU not available, falling back to CPU")
-        device = "CPU"
+    # Device fallback
+    device = check_device(args.device, "inference")
 
     # Build and run pipeline
     Gst.init(None)
