@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: MIT
 # ==============================================================================
 """
-DLStreamer <APPLICATION_NAME> pipeline.
+DL Streamer <APPLICATION_NAME> pipeline.
 
 Pipeline:
     filesrc → decodebin3 →
@@ -38,14 +38,34 @@ DEFAULT_VIDEO_URL = "<VIDEO_URL>"
 # ── helpers ──────────────────────────────────────────────────────────────────
 
 
+def detect_devices():
+    """Detect available Intel accelerators on the system."""
+    devices = ["CPU"]  # CPU is always available
+    if any(os.path.exists(f"/dev/dri/renderD{128 + i}") for i in range(16)):
+        devices.append("GPU")
+    if any(os.path.exists(f"/dev/accel/accel{i}") for i in range(8)):
+        devices.append("NPU")
+    return devices
+
+
 def parse_args():
-    p = argparse.ArgumentParser(description="DLStreamer <APPLICATION_NAME>")
+    available = detect_devices()
+    default_device = "GPU" if "GPU" in available else "CPU"
+
+    p = argparse.ArgumentParser(description="DL Streamer <APPLICATION_NAME>")
     p.add_argument(
         "--input",
         default=DEFAULT_VIDEO_URL,
         help="Video file path, HTTP URL, or rtsp:// URI",
     )
-    p.add_argument("--device", default="GPU", help="Inference device (default: GPU)")
+    p.add_argument(
+        "--device",
+        default=default_device,
+        choices=["CPU", "GPU", "NPU"],
+        help=f"Inference device (default: {default_device}, available: {available})",
+    )
+    p.add_argument("--batch-size", type=int, default=0,
+                   help="Inference batch size (0 = auto: GPU=4, NPU=1, CPU=2)")
     p.add_argument("--output-video", default=str(RESULTS_DIR / "output.mp4"))
     p.add_argument("--output-json", default=str(RESULTS_DIR / "results.jsonl"))
     p.add_argument("--threshold", type=float, default=0.5, help="Detection threshold")
@@ -134,11 +154,18 @@ def main():
     Path(args.output_video).parent.mkdir(parents=True, exist_ok=True)
     Path(args.output_json).parent.mkdir(parents=True, exist_ok=True)
 
-    # GPU fallback
+    # Device validation and fallback
+    available = detect_devices()
     device = args.device
-    if device == "GPU" and not os.path.exists("/dev/dri/renderD128"):
-        print("Warning: GPU not available, falling back to CPU")
-        device = "CPU"
+    if device not in available:
+        fallback = "CPU"
+        print(f"Warning: {device} not available, falling back to {fallback}")
+        device = fallback
+
+    # Auto-select batch size based on device if not specified
+    batch_size = args.batch_size
+    if batch_size == 0:
+        batch_size = {"GPU": 4, "NPU": 1, "CPU": 2}.get(device, 2)
 
     # Build and run pipeline
     Gst.init(None)
@@ -147,7 +174,7 @@ def main():
     pipe = (
         f"{source_el} ! decodebin3 ! "
         f'gvadetect model="{model_xml}" device={device} '
-        f"batch-size=4 threshold={args.threshold} ! queue ! "
+        f"batch-size={batch_size} threshold={args.threshold} ! queue ! "
         f"gvafpscounter ! gvawatermark ! "
         f"gvametaconvert ! "
         f'gvametapublish file-format=json-lines file-path="{args.output_json}" ! '

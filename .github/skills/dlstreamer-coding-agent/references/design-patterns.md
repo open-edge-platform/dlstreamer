@@ -1,6 +1,6 @@
 # Design Patterns Reference
 
-Patterns extracted from existing DLStreamer Python sample apps. Each pattern includes
+Patterns extracted from existing DL Streamer Python sample apps. Each pattern includes
 the canonical source file to read for the latest API usage.
 
 ---
@@ -90,16 +90,22 @@ Pad Probes are mid-pipeline and don't consume the buffer.
 ## Pattern 4: AI Inference Chain (Detect → Classify)
 
 Chain `gvadetect` and `gvaclassify` to first detect objects, then classify attributes
-of each detected region.
+of each detected region. For multi-model pipelines, distribute inference across
+devices — see the [Hardware Optimization Reference](./hardware-optimization.md).
 
 ```python
 pipeline_str = (
     f"filesrc location={video} ! decodebin3 ! "
-    f"gvadetect model={detect_model} device=GPU batch-size=4 ! queue ! "
-    f"gvaclassify model={classify_model} device=GPU batch-size=4 ! queue ! "
+    f"gvadetect model={detect_model} device={det_device} batch-size={det_batch} ! queue ! "
+    f"gvaclassify model={classify_model} device={cls_device} batch-size={cls_batch} ! queue ! "
     f"gvafpscounter ! gvawatermark ! "
     f"videoconvert ! vah264enc ! h264parse ! mp4mux ! filesink location={output}"
 )
+```
+
+> **Multi-device tip:** On Intel Core Ultra platforms with NPU, run detection on GPU and
+> classification on NPU: `det_device="GPU"`, `cls_device="NPU"`. This balances load
+> and avoids GPU contention.
 ```
 
 **Read for reference:** `samples/gstreamer/python/face_detection_and_classification/face_detection_and_classification.py`

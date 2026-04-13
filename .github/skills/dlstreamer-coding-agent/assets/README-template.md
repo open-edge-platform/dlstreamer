@@ -7,7 +7,7 @@
 {{DETAILED_DESCRIPTION}}
 
 {{DLSTREAMER_CODING_AGENT_PROMPT}}
-<!-- If the application was generated using DLStreamer Coding Agent, add initial user prompt.
+<!-- If the application was generated using DL Streamer Coding Agent, add initial user prompt.
 -->
 
 ## What It Does
@@ -34,8 +34,8 @@ The pipeline uses the following elements:
 
 * __filesrc__ - GStreamer element that reads the video stream from a local file
 * __decodebin3__ - GStreamer element that decodes the video stream
-* __gvadetect__ - DLStreamer inference element that detects objects using the detection model
-* __gvawatermark__ - DLStreamer element that renders detection results on video frames
+* __gvadetect__ - DL Streamer inference element that detects objects using the detection model
+* __gvawatermark__ - DL Streamer element that renders detection results on video frames
 -->
 
 ## Prerequisites
@@ -49,6 +49,22 @@ python3 -m venv .{{APP_NAME}}-venv
 source .{{APP_NAME}}-venv/bin/activate
 pip install -r export_requirements.txt -r requirements.txt
 ```
+
+## Supported Hardware
+
+{{HARDWARE_TABLE}}
+<!-- Replace with the platforms this sample supports. Example:
+
+| Platform | Accelerators | Recommended Device Args |
+|----------|-------------|------------------------|
+| Intel® Core™ Ultra (Meteor Lake) | CPU, GPU, NPU | `--device GPU` (default) |
+| Intel® Core™ Ultra (Lunar Lake) | CPU, GPU, NPU | `--device GPU` or `--device NPU` for classification |
+| Intel® Core™ Ultra (Panther Lake) | CPU, Xe3 GPU, NPU 5 | `--device GPU` (default) |
+| Intel® Xeon® | CPU | `--device CPU --batch-size 8` |
+| Intel® Arc™ A-Series | CPU, Discrete GPU | `--device GPU --batch-size 8` |
+
+The application auto-detects available accelerators and falls back to CPU if GPU/NPU is not present.
+-->
 
 ## Model Preparation
 
@@ -105,9 +121,9 @@ python3 {{APP_NAME}}.py \
 The sample downloads an example video file and the detection model from HuggingFace.
 The model is converted to OpenVINO IR format using the standard HuggingFace toolchain.
 
-### STEP 2 - DLStreamer Pipeline Construction
+### STEP 2 - DL Streamer Pipeline Construction
 
-The application creates a GStreamer pipeline that combines predefined GStreamer and DLStreamer
+The application creates a GStreamer pipeline that combines predefined GStreamer and DL Streamer
 elements with custom Python elements.
 
 ```python
@@ -139,9 +155,14 @@ pipeline = Gst.parse_launch(
 |---|---|---|
 {{CLI_ARGUMENTS_TABLE}}
 <!-- Example:
-| `--video-url` | Pexels sample video | URL to download a video from |
+| `--input` | Sample video URL | Video file path, HTTP URL, or rtsp:// URI |
+| `--device` | `GPU` (auto-detected) | Inference device: `CPU`, `GPU`, or `NPU` |
+| `--batch-size` | `0` (auto) | Inference batch size (0 = auto: GPU=4, NPU=1, CPU=2) |
 | `--detect-model-id` | `yolo26s` | Ultralytics model id for detection |
 | `--detect-device` | `GPU` | Device for detection inference |
+| `--threshold` | `0.5` | Detection confidence threshold |
+| `--output-video` | `results/output.mp4` | Path for annotated output video |
+| `--output-json` | `results/results.jsonl` | Path for JSON Lines metadata |
 -->
 
 ## Output

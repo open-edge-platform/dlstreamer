@@ -1,6 +1,6 @@
 # Coding Conventions Reference
 
-Conventions extracted from existing DLStreamer Python sample applications.
+Conventions extracted from existing DL Streamer Python sample applications.
 
 ## File Header
 
@@ -47,7 +47,7 @@ if len(args) != 3:
 
 ```python
 def parse_args():
-    parser = argparse.ArgumentParser(description="DLStreamer Sample")
+    parser = argparse.ArgumentParser(description="DL Streamer Sample")
     parser.add_argument("--video-path", help="Path to local video")
     parser.add_argument("--video-url", help="URL to download video")
     parser.add_argument("--device", default="GPU")
@@ -145,11 +145,29 @@ signal.signal(signal.SIGINT, _sigint_handler)
 
 ## GPU Availability Check
 
-Check for GPU availability before constructing the pipeline and fall back to CPU:
+Check for available accelerators before constructing the pipeline:
 
 ```python
-det_dev = args.device
-if det_dev == "GPU" and not os.path.exists("/dev/dri/renderD128"):
-    print("Warning: GPU not available, falling back to CPU")
-    det_dev = "CPU"
+def detect_devices():
+    """Detect available Intel accelerators on the system."""
+    devices = ["CPU"]  # CPU is always available
+    if any(os.path.exists(f"/dev/dri/renderD{128 + i}") for i in range(16)):
+        devices.append("GPU")
+    if any(os.path.exists(f"/dev/accel/accel{i}") for i in range(8)):
+        devices.append("NPU")
+    return devices
 ```
+
+Use this to validate the user's `--device` argument and fall back gracefully:
+
+```python
+available = detect_devices()
+device = args.device
+if device not in available:
+    print(f"Warning: {device} not available, falling back to CPU")
+    device = "CPU"
+```
+
+For multi-model pipelines on platforms with NPU (Intel Core Ultra), distribute
+inference across devices — see the [Hardware Optimization Reference](./hardware-optimization.md)
+for device assignment strategies.

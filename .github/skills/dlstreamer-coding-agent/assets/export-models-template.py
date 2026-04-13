@@ -167,6 +167,78 @@ def export_hf_transformer(model_id: str, weight_format: str = "int8") -> Path:
     return model_xml
 
 
+def convert_from_url(url: str, model_name: str = "") -> Path:
+    """Download a model from URL and convert to OpenVINO IR.
+
+    Supports ONNX, TFLite, TensorFlow SavedModel, and frozen graph formats.
+    For PyTorch (.pt/.pth), raises an error — use export_yolo_detection() for
+    Ultralytics models or provide an ONNX export instead.
+
+    See Model Preparation Reference § 8 for full conversion decision tree.
+    """
+    if not model_name:
+        model_name = url.rstrip("/").split("/")[-1].split("?")[0]
+    model_stem = Path(model_name).stem
+    output_dir = MODELS_DIR / model_stem
+    ir_xml = output_dir / f"{model_stem}.xml"
+
+    if ir_xml.exists():
+        print(f"[URL] Model already exists: {ir_xml}")
+        return ir_xml
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    local_path = output_dir / model_name
+
+    if not local_path.exists():
+        import urllib.request
+        print(f"[URL] Downloading: {url}")
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=300) as resp:  # noqa: S310
+            local_path.write_bytes(resp.read())
+
+    suffix = local_path.suffix.lower()
+
+    if suffix == ".xml" and local_path.with_suffix(".bin").exists():
+        print(f"[URL] Already OpenVINO IR: {local_path}")
+        return local_path
+
+    if suffix == ".onnx":
+        print("[URL] Converting ONNX → OpenVINO IR...")
+        subprocess.run(
+            ["ovc", str(local_path), "--output_model", str(ir_xml), "--compress_to_fp16"],
+            check=True,
+        )
+    elif suffix == ".tflite":
+        print("[URL] Converting TFLite → OpenVINO IR...")
+        subprocess.run(
+            ["ovc", str(local_path), "--output_model", str(ir_xml)],
+            check=True,
+        )
+    elif suffix in (".pb", ""):
+        # TF frozen graph or SavedModel directory
+        print("[URL] Converting TensorFlow → OpenVINO IR...")
+        subprocess.run(
+            ["ovc", str(local_path), "--output_model", str(ir_xml)],
+            check=True,
+        )
+    elif suffix in (".pt", ".pth"):
+        raise ValueError(
+            f"PyTorch model detected ({local_path.name}). "
+            "Use export_yolo_detection() for Ultralytics models, or convert to "
+            "ONNX first (torch.onnx.export) then provide the .onnx URL."
+        )
+    else:
+        # Try ovc directly as a fallback
+        print(f"[URL] Attempting ovc conversion for {suffix} format...")
+        subprocess.run(
+            ["ovc", str(local_path), "--output_model", str(ir_xml)],
+            check=True,
+        )
+
+    print(f"[URL] Model ready: {ir_xml}")
+    return ir_xml
+
+
 # ── CLI ───────────────────────────────────────────────────────────────────────
 
 
@@ -184,6 +256,7 @@ def main():
     # det = export_yolo_detection("repo/name", "model.pt")
     # ocr = export_paddleocr("PaddlePaddle/PP-OCRv5_server_rec")
     # cls = export_hf_transformer("org/model-name", weight_format="int8")
+    # url_model = convert_from_url("https://example.com/model.onnx")
 
     print("\n=== All models ready ===")
 

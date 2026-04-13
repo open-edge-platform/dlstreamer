@@ -1,8 +1,8 @@
 # Model Preparation Reference
 
-DLStreamer inference elements (`gvadetect`, `gvaclassify`, `gvagenai`) consume models in
+DL Streamer inference elements (`gvadetect`, `gvaclassify`, `gvagenai`) consume models in
 **OpenVINO IR format** (`.xml` + `.bin`). Source models come from multiple ecosystems; each has
-a different download-and-export path. In addition, DLStreamer reads pre- and post-processing
+a different download-and-export path. In addition, DL Streamer reads pre- and post-processing
 information from the ecosystem model metadata files (Ultralytics, HuggingFace and PaddlePaddle).
 
 
@@ -25,9 +25,9 @@ model_file = f"{path}/yolo11n.xml"
 
 Source: `samples/gstreamer/python/face_detection_and_classification/face_detection_and_classification.py`
 
-**Export pattern — subprocess (when DLStreamer is already loaded):**
+**Export pattern — subprocess (when DL Streamer is already loaded):**
 
-Ultralytics export creates a new OpenVINO runtime instance that can clash with DLStreamer's
+Ultralytics export creates a new OpenVINO runtime instance that can clash with DL Streamer's
 runtime. The **recommended approach** is to use a separate `download_models.py` script
 (see Design Patterns → Pattern 13) that users run once before starting the pipeline app.
 Alternatively, call the export from a subprocess:
@@ -244,6 +244,131 @@ optimum-cli export openvino \
 
 OpenVINO Model Zoo and related models are deprecated. Please discourage users from accessing this repository.
 Recommend a model from HuggingFace Hub instead. 
+
+
+### 8. Universal Conversion — Non-Native Models (ONNX, TensorFlow, PyTorch, TFLite, PaddlePaddle)
+
+**When to use:** User provides a model URL or file in a format not directly supported by
+DL Streamer (anything other than OpenVINO IR `.xml` + `.bin`). This covers arbitrary models
+from any source — GitHub releases, custom training, academic repos, etc.
+
+**Decision tree — pick the shortest path to OpenVINO IR:**
+
+```
+Source format?
+├── ONNX (.onnx)           → ovc directly
+├── TensorFlow SavedModel  → ovc directly
+├── TensorFlow frozen (.pb)→ ovc directly
+├── TFLite (.tflite)       → ovc directly
+├── PaddlePaddle classic (.pdmodel + .pdiparams) → ovc directly
+├── PaddlePaddle PIR (.json + .pdiparams) → paddle2onnx → ovc
+├── PyTorch (.pt, .pth)    → torch.onnx.export → ovc
+├── HuggingFace repo       → optimum-cli export openvino
+├── Ultralytics (.pt)      → model.export(format="openvino")
+└── JAX / Flax             → jax2tf → TF SavedModel → ovc
+```
+
+**Generic ONNX → OpenVINO IR (most common non-native path):**
+
+```python
+import subprocess
+
+def convert_onnx_to_openvino(onnx_path, output_dir, compress_fp16=True):
+    """Convert any ONNX model to OpenVINO IR format."""
+    cmd = ["ovc", str(onnx_path), "--output_model", str(output_dir / "model.xml")]
+    if compress_fp16:
+        cmd.append("--compress_to_fp16")
+    subprocess.run(cmd, check=True)
+    return output_dir / "model.xml"
+```
+
+**PyTorch → ONNX → OpenVINO IR:**
+
+```python
+import torch
+import subprocess
+
+def convert_pytorch_to_openvino(model, dummy_input, onnx_path, output_dir):
+    """Export PyTorch model to OpenVINO via ONNX."""
+    torch.onnx.export(
+        model, dummy_input, str(onnx_path),
+        opset_version=17,
+        input_names=["input"],
+        output_names=["output"],
+        dynamic_axes={"input": {0: "batch"}, "output": {0: "batch"}},
+    )
+    subprocess.run([
+        "ovc", str(onnx_path),
+        "--output_model", str(output_dir / "model.xml"),
+    ], check=True)
+    return output_dir / "model.xml"
+```
+
+**TensorFlow SavedModel → OpenVINO IR:**
+
+```python
+subprocess.run([
+    "ovc", str(saved_model_dir),
+    "--output_model", str(output_dir / "model.xml"),
+], check=True)
+```
+
+**User-provided URL download + auto-detect + convert:**
+
+```python
+import urllib.request
+from pathlib import Path
+
+def download_and_convert_model(url, output_dir):
+    """Download model from URL and convert to OpenVINO IR."""
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    filename = url.rstrip("/").split("/")[-1].split("?")[0]
+    local_path = output_dir / filename
+
+    if not local_path.exists():
+        print(f"Downloading model: {url}")
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=300) as resp:
+            local_path.write_bytes(resp.read())
+
+    suffix = local_path.suffix.lower()
+    ir_xml = output_dir / "model.xml"
+
+    if suffix == ".xml" and (output_dir / local_path.stem).with_suffix(".bin").exists():
+        return local_path  # Already OpenVINO IR
+
+    if suffix == ".onnx":
+        subprocess.run(["ovc", str(local_path), "--output_model", str(ir_xml)], check=True)
+    elif suffix in (".pt", ".pth"):
+        # Requires model-specific torch.onnx.export — prompt user for input shape
+        raise ValueError(
+            f"PyTorch model detected ({local_path.name}). "
+            "Please provide the model class and input shape for ONNX export."
+        )
+    elif suffix == ".tflite":
+        subprocess.run(["ovc", str(local_path), "--output_model", str(ir_xml)], check=True)
+    else:
+        # Try ovc directly — it supports SavedModel dirs, frozen graphs, etc.
+        subprocess.run(["ovc", str(local_path), "--output_model", str(ir_xml)], check=True)
+
+    return ir_xml
+```
+
+**Requirements for universal conversion:**
+```
+openvino  # provides ovc command-line tool
+# Add per source format:
+# onnx             — for ONNX model loading/validation
+# torch            — for PyTorch export
+# tensorflow       — for TF SavedModel/frozen graph
+# paddle2onnx      — for PaddlePaddle PIR format
+```
+
+> **Key principle:** Always prefer the highest-level exporter available (Ultralytics → HuggingFace
+> optimum-cli → ovc) because they preserve richer metadata (class labels, preprocessing params).
+> Fall back to `ovc` only when no ecosystem-specific exporter exists.
 
 
 ## Model-Proc Files
