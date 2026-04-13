@@ -335,7 +335,7 @@ jobs:
 
       # ======================================================== CLEANUP PART ========================================================
       - name: Clean up
-        if: always()
+        if: always() && needs.setup.outputs.should_run == 'true'
         env:
           deb_final_img: ghcr.io/${{ github.repository }}/deb-final-img-${{ matrix.ubuntu_version }}:${{ github.sha }}
         run: |
