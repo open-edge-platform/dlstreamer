@@ -48,18 +48,18 @@ jobs:
         id: set-matrix
         run: |
           if [[ "${{ steps.skip-check.outputs.should_run }}" == "false" ]]; then
-            MATRIX='{
+            MATRIX=$(jq -n '{
               "include": [
                 {
                   "path_dockerfile": "dummy",
-                  "ubuntu_version": "skip",
+                  "ubuntu_version": "skip", 
                   "runner_labels": ["dlstreamer"],
                   "runner_print_label": "SKIP"
                 }
               ]
-            }'
+            }' | jq -c .)
           else
-            MATRIX='{
+            MATRIX=$(jq -n '{
               "include": [
                 {
                   "path_dockerfile": "./dlstreamer/docker/ubuntu/ubuntu22.Dockerfile",
@@ -68,19 +68,19 @@ jobs:
                   "runner_print_label": "TGL"
                 },
                 {
-                  "path_dockerfile": "./dlstreamer/docker/ubuntu/ubuntu24.Dockerfile",
+                  "path_dockerfile": "./dlstreamer/docker/ubuntu/ubuntu24.Dockerfile", 
                   "ubuntu_version": "ubuntu24",
                   "runner_labels": ["self-hosted", "dlstreamer", "TGL", "ubuntu24"],
                   "runner_print_label": "TGL"
                 },
                 {
                   "path_dockerfile": "./dlstreamer/docker/ubuntu/ubuntu24.Dockerfile",
-                  "ubuntu_version": "ubuntu24",
+                  "ubuntu_version": "ubuntu24", 
                   "runner_labels": ["self-hosted", "dlstreamer", "ARL", "ubuntu24"],
                   "runner_print_label": "ARL"
                 }
               ]
-            }'
+            }' | jq -c .)
           fi
           echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
 
