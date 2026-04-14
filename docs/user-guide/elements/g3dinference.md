@@ -8,7 +8,7 @@ The `g3dinference` element is intended for LiDAR-only 3D detection pipelines whe
 
 Key operations:
 - **LiDAR metadata validation**: Requires `LidarMeta` on each input buffer and validates payload size against `lidar_point_count`
-- **PointPillars inference**: Loads voxel_model, nn_model, postproc_model， voxel_params and extension_lib from a JSON config and executes them in sequence
+- **PointPillars inference**: Loads the `voxel_params`, `extension_lib`, `voxel_model`, `nn_model`, and `postproc_model` entries from a JSON config and executes them in sequence
 - **Tensor metadata attachment**: Attaches detections as `GstGVATensorMeta` with `pointpillars_3d` format
 - **Pipeline integration**: Preserves the LiDAR payload and metadata so downstream elements can combine point clouds, detections, and converted JSON output
 
@@ -103,7 +103,7 @@ The element adds `GstGVATensorMeta` with:
 - `format = pointpillars_3d`
 - `dims = [N, 9]`
 
-Each detection row contains 9 FP32 values. The first dimension `N` is the number of detections in the frame, and the second dimension is fixed at 9 values per detection:
+Each detection row contains 9 values. The first dimension `N` is the number of detections in the frame, and the second dimension is fixed at 9 values per detection.
 
 1. `x`: 3D bounding box center X coordinate
 2. `y`: 3D bounding box center Y coordinate
