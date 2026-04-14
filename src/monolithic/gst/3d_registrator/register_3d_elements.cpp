@@ -12,8 +12,8 @@
 #include "gstradarprocess.h"
 
 #include "g3d_lidar_meta.h"
-#include "g3dlidarparse.h"
 #include "g3dinference.h"
+#include "g3dlidarparse.h"
 
 extern "C" {
 

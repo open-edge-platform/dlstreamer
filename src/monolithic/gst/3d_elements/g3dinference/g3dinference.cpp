@@ -255,14 +255,12 @@ GstClockTime get_exit_g3dinference_timestamp(GstG3DInference *filter) {
     return timestamp;
 }
 
-void set_tensor_metadata(GstGVATensorMeta *tensor_meta, const std::vector<float> &detections,
-                         const char *model_type) {
+void set_tensor_metadata(GstGVATensorMeta *tensor_meta, const std::vector<float> &detections, const char *model_type) {
     gst_structure_set_name(tensor_meta->data, "detection");
     gst_structure_set(tensor_meta->data, "element_id", G_TYPE_STRING, "g3dinference", "model_name", G_TYPE_STRING,
                       model_type ? model_type : DEFAULT_MODEL_TYPE, "layer_name", G_TYPE_STRING,
-                      "pointpillars_3d_detection", "format",
-                      G_TYPE_STRING, "pointpillars_3d", "precision", G_TYPE_INT, GVA_PRECISION_FP16, "layout",
-                      G_TYPE_INT, GVA_LAYOUT_NC, "rank", G_TYPE_INT, 2, NULL);
+                      "pointpillars_3d_detection", "format", G_TYPE_STRING, "pointpillars_3d", "precision", G_TYPE_INT,
+                      GVA_PRECISION_FP16, "layout", G_TYPE_INT, GVA_LAYOUT_NC, "rank", G_TYPE_INT, 2, NULL);
 
     const std::vector<guint> dims = {static_cast<guint>(detections.size() / DETECTION_WIDTH),
                                      static_cast<guint>(DETECTION_WIDTH)};
@@ -308,11 +306,10 @@ static void gst_g3d_inference_class_init(GstG3DInferenceClass *klass) {
                                                         "Path to PointPillars OpenVINO JSON configuration", NULL,
                                                         (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
-    g_object_class_install_property(gobject_class, PROP_DEVICE,
-                                    g_param_spec_string("device", "Device",
-                                                        "OpenVINO device for NN model. Supported values: CPU, GPU, GPU.<id>",
-                                                        DEFAULT_DEVICE,
-                                                        (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+    g_object_class_install_property(
+        gobject_class, PROP_DEVICE,
+        g_param_spec_string("device", "Device", "OpenVINO device for NN model. Supported values: CPU, GPU, GPU.<id>",
+                            DEFAULT_DEVICE, (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
     g_object_class_install_property(gobject_class, PROP_MODEL_TYPE,
                                     g_param_spec_string("model-type", "Model Type", "3D detector model type",
@@ -490,11 +487,11 @@ static GstFlowReturn gst_g3d_inference_transform_ip(GstBaseTransform *trans, Gst
         set_tensor_metadata(tensor_meta, detections, filter->model_type);
         lidar_meta->exit_g3dinference_timestamp = get_exit_g3dinference_timestamp(filter);
 
-        GST_DEBUG_OBJECT(filter,
-                         "Attached PointPillars tensor with %zu detections for frame_id=%zu exit_g3dinference_ts=%"
-                         GST_TIME_FORMAT,
-                         detections.size() / DETECTION_WIDTH, lidar_meta->frame_id,
-                         GST_TIME_ARGS(lidar_meta->exit_g3dinference_timestamp));
+        GST_DEBUG_OBJECT(
+            filter,
+            "Attached PointPillars tensor with %zu detections for frame_id=%zu exit_g3dinference_ts=%" GST_TIME_FORMAT,
+            detections.size() / DETECTION_WIDTH, lidar_meta->frame_id,
+            GST_TIME_ARGS(lidar_meta->exit_g3dinference_timestamp));
         g_mutex_unlock(&filter->mutex);
         return GST_FLOW_OK;
     } catch (const std::exception &e) {
