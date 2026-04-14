@@ -73,4 +73,3 @@ jobs:
           echo "## ⚠️ No status files found" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "Neither SUCCESS.txt nor FAILED.txt was found in ${{ env.MODELS_PATH }}" >> $GITHUB_STEP_SUMMARY
-          
