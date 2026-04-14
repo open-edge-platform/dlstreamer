@@ -5,9 +5,7 @@
 # ==============================================================================
 
 cmake_minimum_required(VERSION 3.20)
-
 project(draw_face_attributes)
-
 set (TARGET_NAME "draw_face_attributes")
 
 find_package(OpenCV OPTIONAL_COMPONENTS core imgproc)
@@ -17,19 +15,21 @@ pkg_check_modules(GSTREAMER gstreamer-1.0>=1.16 REQUIRED)
 pkg_check_modules(GSTVIDEO gstreamer-video-1.0>=1.16 REQUIRED)
 pkg_check_modules(GSTANALYTICS gstreamer-analytics-1.0>=1.16 REQUIRED)
 pkg_check_modules(GLIB2 glib-2.0 REQUIRED)
-pkg_check_modules(GSTALLOC gstreamer-allocators-1.0)
-
-link_directories(
-        ${GSTREAMER_LIBRARY_DIRS}
-        ${GSTVIDEO_LIBRARY_DIRS}
-        ${GSTANALYTICS_LIBRARY_DIRS}
-        ${GLIB2_LIBRARY_DIRS}
-        ${GSTALLOC_LIBRARY_DIRS}
-)
 
 file (GLOB MAIN_SRC *.cpp)
 
 file (GLOB MAIN_HEADERS *.h)
+
+set(DLSTREAMER_BUILD_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../../../build)
+set(GSTREAMER_INCLUDE_DIR /opt/intel/dlstreamer/gstreamer/include/gstreamer-1.0)
+set(OPENCV_INCLUDE_DIR /usr/include/opencv4)
+set(DLSTREAMER_INCLUDE_DIRS /opt/intel/dlstreamer/include)
+link_directories(${TARGET_NAME} /opt/intel/dlstreamer/lib
+        ${DLSTREAMER_BUILD_DIR}/intel64/Release/lib
+        /opt/intel/dlstreamer/Release/lib
+        /opt/intel/dlstreamer/gstreamer/lib
+        /usr/lib/x86_64-linux-gnu
+)
 
 add_executable(${TARGET_NAME} ${MAIN_SRC} ${MAIN_HEADERS})
 
@@ -43,21 +43,17 @@ endif (HAVE_DEPRECATED_ENUM_CONVERSION)
 set_target_properties(${TARGET_NAME} PROPERTIES CMAKE_CXX_STANDARD 23)
 
 # use pkg-config if sample builds as standalone. Otherwise vars DLSTREAMER_INCLUDE_DIRS/etc set by top level cmake
-if(DLSTREAMER_BASE_DIR AND NOT DLSTREAMER_INCLUDE_DIRS)
-        set(DLSTREAMER_INCLUDE_DIRS ${DLSTREAMER_BASE_DIR}/include)
-        target_link_directories(${TARGET_NAME} PRIVATE ${DLSTREAMER_BASE_DIR}/Release/lib)
-endif()
 
 target_include_directories(${TARGET_NAME}
     PRIVATE
         ${DLSTREAMER_BASE_DIR}/include/dlstreamer/gst
         ${DLSTREAMER_BASE_DIR}/include/
-        ${OpenCV_INCLUDE_DIRS}
+        ${GSTREAMER_INCLUDE_DIR}
+        ${OPENCV_INCLUDE_DIR}
 )
 
 target_include_directories(${TARGET_NAME}
 PRIVATE
-        ${GSTALLOC_INCLUDE_DIRS}
         ${GSTVIDEO_INCLUDE_DIRS}
         ${GSTREAMER_INCLUDE_DIRS}
         ${GLIB2_INCLUDE_DIRS}
@@ -71,7 +67,6 @@ PRIVATE
         ${OpenCV_LIBS}
         ${GLIB2_LIBRARIES}
         ${GSTREAMER_LIBRARIES}
-        ${GSTALLOC_LIBRARIES}
         ${GSTVIDEO_LIBRARIES}
         ${GSTANALYTICS_LIBRARIES}
 )
