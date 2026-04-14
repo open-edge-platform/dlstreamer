@@ -36,6 +36,21 @@ runs:
           echo "is_dispatch=false" >> "$GITHUB_OUTPUT"
         fi
 
+    - name: Check if push to main branch
+      id: main-push-check
+      shell: bash
+      env:
+        BASE_BRANCH: ${{ inputs.base_branch }}
+        EVENT_NAME: ${{ github.event_name }}
+        REF: ${{ github.ref }}
+      run: |
+        if [ "${event_name}" = "push" ] && [ "${ref}" = "refs/heads/$BASE_BRANCH" ]; then
+          echo "🔄 Push to $BASE_BRANCH detected - forcing execution"
+          echo "is_main_push=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "is_main_push=false" >> "$GITHUB_OUTPUT"
+        fi
+
     - name: Handle manual dispatch
       if: steps.dispatch-check.outputs.is_dispatch == 'true'
       id: dispatch-handler
@@ -49,8 +64,22 @@ runs:
         echo "skip_reason=workflow dispatch run" >> "$GITHUB_OUTPUT"
         echo "🔄 Running $JOB_NAME - manual dispatch"
 
+    - name: Handle main branch push
+      if: steps.dispatch-check.outputs.is_dispatch == 'false' && steps.main-push-check.outputs.is_main_push == 'true'
+      id: main-push-handler
+      shell: bash
+      env:
+        JOB_NAME: ${{ inputs.job_name }}
+        BASE_BRANCH: ${{ inputs.base_branch }}
+      run: |
+        echo "🔄 Push to $BASE_BRANCH - skipping file change analysis"
+        echo "should_run=true" >> "$GITHUB_OUTPUT"
+        echo "skip_ci=false" >> "$GITHUB_OUTPUT"
+        echo "skip_reason=push to $BASE_BRANCH" >> "$GITHUB_OUTPUT"
+        echo "🔄 Running $JOB_NAME - push to $BASE_BRANCH"
+
     - name: Fetch base branch for comparison
-      if: steps.dispatch-check.outputs.is_dispatch == 'false'
+      if: steps.dispatch-check.outputs.is_dispatch == 'false' && steps.main-push-check.outputs.is_main_push == 'false'
       shell: bash
       working-directory: ${{ inputs.working_directory }}
       env:
@@ -59,7 +88,7 @@ runs:
         git fetch origin $BASE_BRANCH
 
     - name: Check if job should run based on file changes
-      if: steps.dispatch-check.outputs.is_dispatch == 'false'
+      if: steps.dispatch-check.outputs.is_dispatch == 'false' && steps.main-push-check.outputs.is_main_push == 'false'
       id: file-check
       shell: bash
       working-directory: ${{ inputs.working_directory }}
@@ -113,9 +142,13 @@ runs:
       shell: bash
       env:
         IS_DISPATCH: ${{ steps.dispatch-check.outputs.is_dispatch }}
+        IS_MAIN_PUSH: ${{ steps.main-push-check.outputs.is_main_push }}
         DISPATCH_SHOULD_RUN: ${{ steps.dispatch-handler.outputs.should_run }}
         DISPATCH_SKIP_CI: ${{ steps.dispatch-handler.outputs.skip_ci }}
         DISPATCH_SKIP_REASON: ${{ steps.dispatch-handler.outputs.skip_reason }}
+        MAIN_PUSH_SHOULD_RUN: ${{ steps.main-push-handler.outputs.should_run }}
+        MAIN_PUSH_SKIP_CI: ${{ steps.main-push-handler.outputs.skip_ci }}
+        MAIN_PUSH_SKIP_REASON: ${{ steps.main-push-handler.outputs.skip_reason }}
         FILE_SHOULD_RUN: ${{ steps.file-check.outputs.should_run }}
         FILE_SKIP_CI: ${{ steps.file-check.outputs.skip_ci }}
         FILE_SKIP_REASON: ${{ steps.file-check.outputs.skip_reason }}
@@ -124,6 +157,10 @@ runs:
           echo "should_run=${DISPATCH_SHOULD_RUN}" >> "$GITHUB_OUTPUT"
           echo "skip_ci=${DISPATCH_SKIP_CI}" >> "$GITHUB_OUTPUT"
           echo "skip_reason=${DISPATCH_SKIP_REASON}" >> "$GITHUB_OUTPUT"
+        elif [ "${IS_MAIN_PUSH}" = "true" ]; then
+          echo "should_run=${MAIN_PUSH_SHOULD_RUN}" >> "$GITHUB_OUTPUT"
+          echo "skip_ci=${MAIN_PUSH_SKIP_CI}" >> "$GITHUB_OUTPUT"
+          echo "skip_reason=${MAIN_PUSH_SKIP_REASON}" >> "$GITHUB_OUTPUT"
         else
           echo "should_run=${FILE_SHOULD_RUN}" >> "$GITHUB_OUTPUT"
           echo "skip_ci=${FILE_SKIP_CI}" >> "$GITHUB_OUTPUT"
