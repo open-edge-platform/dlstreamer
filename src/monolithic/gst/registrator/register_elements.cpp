@@ -9,8 +9,8 @@
 #include <gst/gst.h>
 
 #include "gstgvaaudiodetect.h"
-#include "gstgvastreammux.h"
 #include "gstgvastreamdemux.h"
+#include "gstgvastreammux.h"
 #ifdef ENABLE_GENAI
 #include "gstgvaaudiotranscribe.h"
 #include "gstgvagenai.h"
