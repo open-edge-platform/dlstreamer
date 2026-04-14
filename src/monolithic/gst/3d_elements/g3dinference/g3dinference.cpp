@@ -82,6 +82,13 @@ class PointPillarsRuntime {
         json config_json;
         stream >> config_json;
 
+        if (config_json.contains("voxel_params")) {
+            GST_WARNING(
+                "Config '%s' contains voxel_params, but g3dinference ignores voxel_params at runtime. "
+                "Voxelization settings must be baked into the exported PointPillars models.",
+                config_path.c_str());
+        }
+
         const std::filesystem::path config_dir = std::filesystem::path(config_path).parent_path();
         auto resolve_path = [&config_dir](const std::string &path_str) {
             const std::filesystem::path path(path_str);

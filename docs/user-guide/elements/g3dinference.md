@@ -25,6 +25,8 @@ Key operations:
 
 The `config` property should point to a PointPillars JSON configuration file. In practice, the file contains the paths to the OpenVINO extension library and the three models used by the runtime. It may also include `voxel_params` for compatibility with the exported PointPillars config format.
 
+> **Warning:** `voxel_params` is kept for compatibility with the exported PointPillars config format. These values are used when exporting the PointPillars models and are already encoded in the generated voxelization model. `g3dinference` does not currently apply `voxel_params` as runtime-tunable settings.
+
 Expected top-level entries:
 
 - `voxel_params`: PointPillars voxelization settings such as `voxel_size`, `point_cloud_range`, `max_num_points`, and `max_voxels`. These values are used when exporting the PointPillars models and are already encoded in the generated voxelization model; `g3dinference` does not currently apply them as runtime-tunable parameters.
@@ -43,10 +45,10 @@ Example configuration:
     "max_num_points": 32,
     "max_voxels": 16000
   },
-  "extension_lib": "/home/kpi/pointPillars/ov_extensions/build/libov_pointpillars_extensions.so",
-  "voxel_model": "/home/kpi/pointPillars/pretrained/pointpillars_ov_pillar_layer.xml",
-  "nn_model": "/home/kpi/pointPillars/pretrained/pointpillars_ov_nn.xml",
-  "postproc_model": "/home/kpi/pointPillars/pretrained/pointpillars_ov_postproc.xml"
+  "extension_lib": "/path/to/pointPillars/ov_extensions/build/libov_pointpillars_extensions.so",
+  "voxel_model": "/path/to/pointPillars/pretrained/pointpillars_ov_pillar_layer.xml",
+  "nn_model": "/path/to/pointPillars/pretrained/pointpillars_ov_nn.xml",
+  "postproc_model": "/path/to/pointPillars/pretrained/pointpillars_ov_postproc.xml"
 }
 ```
 
