@@ -243,7 +243,7 @@ python3 <app_name>.py  # or bash <app_name>.sh
 When running the application inside the container, add write access to the mounted directory as the sample will generate results there.
 Use `-u "$(id -u):$(id -g)"` to run the container as the current user, or pre-create writable
 output directories (`videos/`, `results/`, `models/`) before launching the container.
-Also mount `/dev/dri` for media and GPU device drivers, as well as `/dev/accel` for NPU devices when available on the host system.
+Always mount both `/dev/dri` for media and GPU device drivers and `/dev/accel` for NPU devices. If the pipeline uses NPU for any inference element, every docker run command in the generated README must include both device mounts. Show a GPU-only fallback only as a secondary note for systems without NPU.
 Note that the DLStreamer container does not come with render or accel group permissions by default, so you need to add them at runtime using the `--group-add` flag and the `stat` command to query the correct group ID for your system. For example:
 
 ```bash
