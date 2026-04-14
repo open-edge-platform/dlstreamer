@@ -72,7 +72,7 @@ parser.add_argument("PIPELINE", nargs="+",
                     help="Pipeline to be analyzed")
 parser.add_argument("-v", "--verbose", action="store_true",
                     help="Print more information about the optimization progress")
-parser.add_argument("-o", "--output", nargs="?",
+parser.add_argument("-o", "--output",
                     help="Save optimization results to a file in JSON format")
 parser.add_argument("--search-duration", default=300, type=float,
                     help="Duration in seconds of time which should be spent searching for optimized pipelines (default: %(default)s)")
