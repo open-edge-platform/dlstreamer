@@ -38,7 +38,7 @@ constexpr const char *DEFAULT_DEVICE = "CPU";
 constexpr const char *SUPPORTED_DEVICE_CPU = "CPU";
 constexpr const char *SUPPORTED_DEVICE_GPU = "GPU";
 constexpr const char *DEFAULT_MODEL_TYPE = "pointpillars";
-constexpr float DEFAULT_SCORE_THRESHOLD = -1.0f;
+constexpr float DEFAULT_SCORE_THRESHOLD = 0.0f;
 constexpr size_t POINT_SIZE = 4;
 constexpr size_t DETECTION_WIDTH = 9;
 
@@ -194,7 +194,7 @@ class PointPillarsRuntime {
         std::vector<float> flattened;
         flattened.reserve(count * DETECTION_WIDTH);
         for (size_t index = 0; index < count; ++index) {
-            if (score_threshold >= 0.0f && score_data[index] < score_threshold)
+            if (score_data[index] < score_threshold)
                 continue;
 
             const float *bbox = bbox_data + index * 7;
@@ -342,7 +342,7 @@ static void gst_g3d_inference_class_init(GstG3DInferenceClass *klass) {
     g_object_class_install_property(
         gobject_class, PROP_SCORE_THRESHOLD,
         g_param_spec_float("score-threshold", "Score Threshold",
-                           "Drop detections below this score (-1 keeps postproc output unchanged)", -1.0, 1.0,
+                           "Drop detections below this score (0 keeps all postproc output)", 0.0, 1.0,
                            DEFAULT_SCORE_THRESHOLD, (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
     gst_element_class_set_static_metadata(

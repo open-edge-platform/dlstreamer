@@ -26,7 +26,7 @@ Arguments:
 									 Default: .pointpillars/data/000002.bin
 	DEVICE           Optional. OpenVINO device for g3dinference. Supported values: CPU, GPU, GPU.<id>. Default: CPU
 	OUTPUT_JSON      Optional. JSON output path. Default: .pointpillars/g3dinference_output.json
-	SCORE_THRESHOLD  Optional. Minimum score threshold. Default: -1
+	SCORE_THRESHOLD  Optional. Minimum score threshold. Default: 0
 
 Environment:
 	POINTPILLARS_CACHE_DIR    Cache directory containing prepared data/config
@@ -46,7 +46,7 @@ fi
 SOURCE_INPUT="${1:-${DATA_DIR}/000002.bin}"
 DEVICE="${2:-CPU}"
 OUTPUT_JSON="${3:-${POINTPILLARS_CACHE_DIR}/g3dinference_output.json}"
-SCORE_THRESHOLD="${4:--1}"
+SCORE_THRESHOLD="${4:-0}"
 MULTIFILE_LOCATION=""
 MULTIFILE_START_INDEX=""
 MULTIFILE_STOP_INDEX=""

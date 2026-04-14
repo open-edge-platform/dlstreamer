@@ -22,7 +22,7 @@ The default pipeline is:
 gst-launch-1.0 -e \
 	multifilesrc location=".../%06d.bin" start-index=2 stop-index=2 caps=application/octet-stream ! \
 	g3dlidarparse ! \
-	g3dinference config=".../pointpillars_ov_config.json" device=CPU score-threshold=-1 ! \
+	g3dinference config=".../pointpillars_ov_config.json" device=CPU score-threshold=0 ! \
 	gvametaconvert add-tensor-data=true format=json json-indent=2 ! \
 	gvametapublish file-format=2 file-path=".../g3dinference_output.json" ! \
 	fakesink
@@ -31,6 +31,7 @@ gst-launch-1.0 -e \
 `g3dlidarparse` converts the raw point cloud into `application/x-lidar` with `LidarMeta`. `g3dinference` loads the PointPillars runtime from the generated JSON config, runs inference, and attaches tensor metadata. `gvametaconvert` and `gvametapublish` serialize that metadata to JSON.
 Use `multifilesrc` even for a single frame, because `filesrc` may split the input into block-sized chunks.
 The `device` setting currently supports `CPU`, `GPU`, and `GPU.<id>`.
+The `score-threshold` setting uses `0` to keep all post-processing output unchanged.
 
 ## Prerequisites
 
