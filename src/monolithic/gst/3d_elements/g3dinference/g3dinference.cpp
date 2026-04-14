@@ -14,6 +14,7 @@
 #include <algorithm>
 #include <filesystem>
 #include <fstream>
+#include <memory>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -240,6 +241,21 @@ PointPillarsRuntime *get_runtime(GstG3DInference *filter) {
     return reinterpret_cast<PointPillarsRuntime *>(filter->runtime);
 }
 
+class GstBufferMapGuard {
+    public:
+        GstBufferMapGuard(GstBuffer *buffer, GstMapInfo *map_info) : _buffer(buffer), _map_info(map_info) {
+        }
+
+        ~GstBufferMapGuard() {
+                if (_buffer && _map_info)
+                        gst_buffer_unmap(_buffer, _map_info);
+        }
+
+    private:
+        GstBuffer *_buffer;
+        GstMapInfo *_map_info;
+};
+
 GstClockTime get_exit_g3dinference_timestamp(GstG3DInference *filter) {
     if (GstClock *clock = gst_element_get_clock(GST_ELEMENT(filter))) {
         GstClockTime timestamp = gst_clock_get_time(clock);
@@ -465,20 +481,21 @@ static GstFlowReturn gst_g3d_inference_transform_ip(GstBaseTransform *trans, Gst
         if (!lidar_meta)
             throw std::runtime_error("LidarMeta is missing from input buffer");
 
-        GstMapInfo map_info;
-        if (!gst_buffer_map(buffer, &map_info, GST_MAP_READ))
-            throw std::runtime_error("Failed to map input buffer");
+        std::vector<float> detections;
+        {
+            GstMapInfo map_info;
+            if (!gst_buffer_map(buffer, &map_info, GST_MAP_READ))
+                throw std::runtime_error("Failed to map input buffer");
 
-        const gsize expected_size = static_cast<gsize>(lidar_meta->lidar_point_count) * POINT_SIZE * sizeof(float);
-        if (map_info.size != expected_size) {
-            gst_buffer_unmap(buffer, &map_info);
-            throw std::runtime_error("Input payload size does not match LidarMeta point count");
+            GstBufferMapGuard map_guard(buffer, &map_info);
+
+            const gsize expected_size = static_cast<gsize>(lidar_meta->lidar_point_count) * POINT_SIZE * sizeof(float);
+            if (map_info.size != expected_size)
+                throw std::runtime_error("Input payload size does not match LidarMeta point count");
+
+            const float *points = reinterpret_cast<const float *>(map_info.data);
+            detections = get_runtime(filter)->infer(points, lidar_meta->lidar_point_count, filter->score_threshold);
         }
-
-        const float *points = reinterpret_cast<const float *>(map_info.data);
-        std::vector<float> detections =
-            get_runtime(filter)->infer(points, lidar_meta->lidar_point_count, filter->score_threshold);
-        gst_buffer_unmap(buffer, &map_info);
 
         GstGVATensorMeta *tensor_meta = GST_GVA_TENSOR_META_ADD(buffer);
         if (!tensor_meta || !tensor_meta->data)
