@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2021-2025 Intel Corporation
+ * Copyright (C) 2021-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -11,11 +11,9 @@
 #include <algorithm>
 #include <cmath>
 #include <gst/gst.h>
+#include <iostream>
 #include <sstream>
 #include <stdexcept>
-
-#include <fstream>
-#include <iostream>
 
 using namespace post_processing;
 using namespace InferenceBackend;
@@ -122,4 +120,136 @@ std::string PaddleOCRConverter::decode(const std::vector<int> &text_index) {
     }
 
     return char_list; // Return the decoded text
+}
+
+// ==================== PaddleOCRCtcConverter ====================
+
+PaddleOCRCtcConverter::PaddleOCRCtcConverter(BlobToMetaConverter::Initializer initializer)
+    : BlobToTensorConverter(std::move(initializer)) {
+    loadVocabularyFromModelProc();
+}
+
+void PaddleOCRCtcConverter::loadVocabularyFromModelProc() {
+    GstStructure *s = getModelProcOutputInfo().get();
+    if (!s) {
+        GVA_WARNING("PaddleOCR CTC converter: model_proc_output_info is null — using empty vocabulary");
+        return;
+    }
+
+    const GValue *dict_value = gst_structure_get_value(s, "character_dict");
+    if (!dict_value || !GST_VALUE_HOLDS_ARRAY(dict_value)) {
+        GVA_WARNING("PaddleOCR CTC converter: character_dict not found in model_proc_output_info");
+        return;
+    }
+
+    guint n = gst_value_array_get_size(dict_value);
+    vocabulary.reserve(n);
+    for (guint i = 0; i < n; ++i) {
+        const GValue *item = gst_value_array_get_value(dict_value, i);
+        if (G_VALUE_HOLDS_STRING(item)) {
+            vocabulary.push_back(g_value_get_string(item));
+        }
+    }
+    GVA_INFO("Loaded PaddleOCR character dictionary: %zu characters from model metadata", vocabulary.size());
+}
+
+std::pair<std::string, double> PaddleOCRCtcConverter::ctcDecode(const float *data, size_t seq_len, size_t vocab_size) {
+    std::string result;
+    std::vector<float> confidences;
+    int prev_idx = 0;
+
+    for (size_t t = 0; t < seq_len; ++t) {
+        // find index of maximum confidence logit within the current sequence step
+        const float *row = data + t * vocab_size;
+        int max_idx = static_cast<int>(std::max_element(row, row + vocab_size) - row);
+
+        // Element 0 is CTC blank and indicates entire sequence should be skipped
+        // If current index matches previous index, we also skip it to avoid duplicates
+        if (max_idx == 0 || max_idx == prev_idx) {
+            prev_idx = max_idx;
+            continue;
+        }
+        prev_idx = max_idx;
+
+        // Convert element index to Vocabulary character index
+        // Vocabulary is 1-based indexed, so subtract 1
+        size_t char_idx = static_cast<size_t>(max_idx - 1);
+        if (char_idx >= vocabulary.size())
+            continue;
+
+        // Add new character to output label
+        result.append(vocabulary[char_idx]);
+        confidences.push_back(row[max_idx]);
+    }
+
+    // return mean of character confidences as overall confidence score
+    double confidence = 0.0;
+    if (!confidences.empty()) {
+        confidence = std::accumulate(confidences.begin(), confidences.end(), 0.0f) / confidences.size();
+    }
+
+    return {result, confidence};
+}
+
+TensorsTable PaddleOCRCtcConverter::convert(const OutputBlobs &output_blobs) {
+    ITT_TASK(__FUNCTION__);
+    TensorsTable tensors_table;
+
+    try {
+        const size_t batch_size = getModelInputImageInfo().batch_size;
+        tensors_table.resize(batch_size);
+
+        for (const auto &blob_iter : output_blobs) {
+            OutputBlob::Ptr blob = blob_iter.second;
+            if (!blob) {
+                throw std::invalid_argument("Output blob is empty");
+            }
+
+            const float *data = reinterpret_cast<const float *>(blob->GetData());
+            if (!data) {
+                throw std::invalid_argument("Output blob data is nullptr");
+            }
+
+            const std::string layer_name = blob_iter.first;
+
+            // Output shape: [batch_size, seq_len, vocab_size]
+            // Tensor vocab_size has two additional tokens: CTC Blank token and Padding token
+            // hence its size is bigger than character vocabulary
+            const auto &dims = blob->GetDims();
+            const size_t vocab_size = (dims.size() == 3) ? dims[2] : 0;
+            const size_t seq_len = (dims.size() >= 2) ? dims[1] : 0;
+            if (vocab_size == 0 || seq_len == 0 || vocab_size != vocabulary.size() + 2)
+                throw std::invalid_argument("Unexpected PaddleOCR output tensor dimensions");
+
+            for (size_t batch_elem_index = 0; batch_elem_index < batch_size; ++batch_elem_index) {
+                GVA::Tensor classification_result = createTensor();
+
+                if (!raw_tensor_copying->enabled(RawTensorCopyingToggle::id))
+                    CopyOutputBlobToGstStructure(blob, classification_result.gst_structure(),
+                                                 BlobToMetaConverter::getModelName().c_str(), layer_name.c_str(),
+                                                 batch_size, batch_elem_index);
+
+                const float *item_data = data + batch_elem_index * seq_len * vocab_size;
+                auto [decoded_text, confidence] = ctcDecode(item_data, seq_len, vocab_size);
+
+                if (decoded_text.size() > seq_minlen) {
+                    classification_result.set_string("label", decoded_text);
+                    classification_result.set_double("confidence", confidence);
+                } else {
+                    classification_result.set_string("label", "");
+                    classification_result.set_double("confidence", 0.0);
+                }
+
+                gst_structure_set(classification_result.gst_structure(), "tensor_id", G_TYPE_INT,
+                                  safe_convert<int>(batch_elem_index), "type", G_TYPE_STRING, "classification_result",
+                                  NULL);
+                std::vector<GstStructure *> tensors{classification_result.gst_structure()};
+                tensors_table[batch_elem_index].push_back(tensors);
+            }
+        }
+    } catch (const std::exception &e) {
+        GVA_ERROR("An error occurred in PaddleOCR CTC converter: %s", e.what());
+    }
+
+    return tensors_table;
 }

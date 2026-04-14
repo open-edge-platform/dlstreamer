@@ -1,0 +1,86 @@
+diff --git a/subprojects/gst-plugins-bad/gst-libs/gst/va/gstvadisplay.c b/subprojects/gst-plugins-bad/gst-libs/gst/va/gstvadisplay.c
+index 1a32e3b9c67706005628dfa979c0c279a7857468..a44d207a767ef8a87d8d019c144bd7dc803a4b3e 100644
+--- a/subprojects/gst-plugins-bad/gst-libs/gst/va/gstvadisplay.c
++++ b/subprojects/gst-plugins-bad/gst-libs/gst/va/gstvadisplay.c
+@@ -485,3 +485,36 @@ gst_va_display_check_version (GstVaDisplay * self, guint major, guint minor)
+ 
+   return TRUE;
+ }
++
++/**
++ * parse_threshold_limit_value:
++ *
++ * Reads the "THRESHOLD_LIMIT_VALUE_VADPY" environment variable to
++ * control DMA-BUF import behavior for cross-display VA scenarios.
++ * On non-Linux platforms, this function always returns 0.
++ *
++ * Returns: validated threshold value (0-16), or 0 if not set or invalid
++ *
++ * Since: 1.27
++ */
++gint
++parse_threshold_limit_value (void)
++{
++#ifdef __linux__
++  const gchar *env_str = g_getenv ("THRESHOLD_LIMIT_VALUE_VADPY");
++  gchar *end_ptr;
++  gint value;
++
++  if (!env_str || *env_str == '\0')
++    return 0;
++
++  value = (gint) g_ascii_strtoll (env_str, &end_ptr, 10);
++
++  if (*end_ptr != '\0')
++    return 0;
++
++  return CLAMP (value, 0, 16);
++#else
++  return 0;
++#endif
++}
+diff --git a/subprojects/gst-plugins-bad/gst-libs/gst/va/gstvadisplay.h b/subprojects/gst-plugins-bad/gst-libs/gst/va/gstvadisplay.h
+index de03177ed907d38bf09a06c636d23a6a011dfae5..9e90d6f07a0217e4cd1ed8b12516458a6bd667a4 100644
+--- a/subprojects/gst-plugins-bad/gst-libs/gst/va/gstvadisplay.h
++++ b/subprojects/gst-plugins-bad/gst-libs/gst/va/gstvadisplay.h
+@@ -131,6 +131,8 @@ GST_VA_API
+ gboolean              gst_va_display_check_version        (GstVaDisplay * self,
+                                                            guint major,
+                                                            guint minor);
++GST_VA_API
++gint                  parse_threshold_limit_value         (void);
+ 
+ /**
+  * gst_va_display_is_implementation:
+diff --git a/subprojects/gst-plugins-bad/gst-libs/gst/va/gstvautils.c b/subprojects/gst-plugins-bad/gst-libs/gst/va/gstvautils.c
+index 85910f2b578ba7c9adfc5d23b3f37e4f34367aca..856423e34e0ded198074b2af9049c76cdad784fa 100644
+--- a/subprojects/gst-plugins-bad/gst-libs/gst/va/gstvautils.c
++++ b/subprojects/gst-plugins-bad/gst-libs/gst/va/gstvautils.c
+@@ -315,14 +315,19 @@ gst_va_handle_set_context (GstElement * element, GstContext * context,
+   }
+ 
+   if (display_replacement) {
++
++    const gint vadpy_threshold = parse_threshold_limit_value ();
++
+     if (GST_IS_VA_DISPLAY_DRM (display_replacement)
+-        && !gst_va_display_drm_is_i915 (display_replacement)) {
+-      if (gst_va_display_is_implementation (display_replacement,
+-              GST_VA_IMPLEMENTATION_INTEL_IHD) && !from_neighbor) {
++        && !gst_va_display_drm_is_i915 (display_replacement)
++        && gst_va_display_is_implementation (display_replacement,
++            GST_VA_IMPLEMENTATION_INTEL_IHD) && vadpy_threshold) {
++
++      if (!from_neighbor) {
+         guint ref;
+ 
+         ref = GST_OBJECT_REFCOUNT_VALUE (display_replacement);
+-        if (ref > 4) {
++        if (ref > vadpy_threshold) {
+           gst_object_unref (display_replacement);
+           return FALSE;
+         }
+
+-- 
+2.43.0
+
