@@ -260,7 +260,7 @@ void set_tensor_metadata(GstGVATensorMeta *tensor_meta, const std::vector<float>
     gst_structure_set(tensor_meta->data, "element_id", G_TYPE_STRING, "g3dinference", "model_name", G_TYPE_STRING,
                       model_type ? model_type : DEFAULT_MODEL_TYPE, "layer_name", G_TYPE_STRING,
                       "pointpillars_3d_detection", "format", G_TYPE_STRING, "pointpillars_3d", "precision", G_TYPE_INT,
-                      GVA_PRECISION_FP16, "layout", G_TYPE_INT, GVA_LAYOUT_NC, "rank", G_TYPE_INT, 2, NULL);
+                      GVA_PRECISION_FP32, "layout", G_TYPE_INT, GVA_LAYOUT_NC, "rank", G_TYPE_INT, 2, NULL);
 
     const std::vector<guint> dims = {static_cast<guint>(detections.size() / DETECTION_WIDTH),
                                      static_cast<guint>(DETECTION_WIDTH)};

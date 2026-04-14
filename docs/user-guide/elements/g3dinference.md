@@ -101,9 +101,10 @@ The element adds `GstGVATensorMeta` with:
 - `model_name = pointpillars` or the configured model type
 - `layer_name = pointpillars_3d_detection`
 - `format = pointpillars_3d`
+- `precision = FP32`
 - `dims = [N, 9]`
 
-Each detection row contains 9 values. The first dimension `N` is the number of detections in the frame, and the second dimension is fixed at 9 values per detection.
+Each detection row contains 9 FP32 values. The first dimension `N` is the number of detections in the frame, and the second dimension is fixed at 9 values per detection.
 
 1. `x`: 3D bounding box center X coordinate
 2. `y`: 3D bounding box center Y coordinate
