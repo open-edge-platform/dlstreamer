@@ -24,35 +24,95 @@ env:
   OPTIMIZER_TESTS_PATH: "/home/runner/optimizer"
 
 jobs:
+  setup:
+    name: "Setup optimizer test configuration"
+    runs-on: dlstreamer
+    outputs:
+      should_run: ${{ steps.skip-check.outputs.should_run }}
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - name: Check out dlstreamer repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6.0.2
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Check if should skip CI
+        id: skip-check
+        uses: ./.github/actions/common/check-skip-ci
+        with:
+          job_name: "Test optimizer"
+          working_directory: "."
+
+      - name: Set matrix configuration
+        id: set-matrix
+        env:
+          SHOULD_RUN: ${{ steps.skip-check.outputs.should_run }}
+        shell: bash
+        run: |
+          if [[ "${SHOULD_RUN}" == "false" ]]; then
+            MATRIX=$(jq -n '{
+              "include": [
+                {
+                  "path_dockerfile": "dummy",
+                  "ubuntu_version": "skip",
+                  "runner_labels": ["dlstreamer"],
+                  "runner_print_label": "SKIP"
+                }
+              ]
+            }' | jq -c .)
+          else
+            MATRIX=$(jq -n '{
+              "include": [
+                {
+                  "path_dockerfile": "./dlstreamer/docker/ubuntu/ubuntu24.Dockerfile",
+                  "ubuntu_version": "ubuntu24",
+                  "runner_labels": ["self-hosted", "dlstreamer", "TGL", "ubuntu24"],
+                  "runner_print_label": "TGL"
+                }
+              ]
+            }' | jq -c .)
+          fi
+          echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
+
   build:
     name: "[${{ matrix.runner_print_label }}] Build and test ${{ matrix.ubuntu_version }} .debs & deb imgs"
     runs-on: ${{ matrix.runner_labels }}
+    needs: setup
     permissions:
       contents: read
       packages: read
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - path_dockerfile: $DLS_REL_PATH/docker/ubuntu/ubuntu24.Dockerfile
-            ubuntu_version: ubuntu24
-            runner_labels: [self-hosted, dlstreamer, TGL, ubuntu24] # Build and run tests on Tiger Lake system with Ubuntu 24
-            runner_print_label: TGL
+      matrix: ${{ fromJson(needs.setup.outputs.matrix) }}
     steps:
+      - name: Skip or execute based on configuration
+        if: matrix.runner_print_label == 'SKIP'
+        run: |
+          echo "## ✅ Optimizer Test Skipped" >> $GITHUB_STEP_SUMMARY
+          echo "**Reason:** Changes only in excluded files" >> $GITHUB_STEP_SUMMARY
+          exit 0
+
       - name: Initial environment clean
+        if: matrix.runner_print_label != 'SKIP'
         run: |
           sudo rm -rf dlstreamer
+
       - name: Check out dlstreamer repository
+        if: matrix.runner_print_label != 'SKIP'
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6.0.2
         with:
           persist-credentials: false
           path: dlstreamer
 
       - name: Init submodules
+        if: matrix.runner_print_label != 'SKIP'
         run: |
           cd dlstreamer
           git submodule update --init thirdparty/spdlog
+
       - name: Check out test repository
+        if: matrix.runner_print_label != 'SKIP'
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6.0.2
         with:
           repository: open-edge-platform/dl-streamer-tests
@@ -61,14 +121,18 @@ jobs:
           path: dl-streamer-tests-repo
 
       - name: Copy DL Streamer tests repo
+        if: matrix.runner_print_label != 'SKIP'
         run: |
           mkdir $OPTIMIZER_TESTS_PATH
           cp -r dl-streamer-tests-repo/functional_tests $OPTIMIZER_TESTS_PATH
+
       # ======================================================== BUILDING PART ========================================================
       - name: Set up Docker Buildx
+        if: matrix.runner_print_label != 'SKIP'
         uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd #4.0.0
 
       - name: Log in to GitHub Container Registry
+        if: matrix.runner_print_label != 'SKIP'
         uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 #4.0.0
         with:
           registry: ghcr.io
@@ -76,9 +140,12 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: 🚢 Build deb final img with cache from GHCR
+        if: matrix.runner_print_label != 'SKIP'
         env:
           deb_final_img: ghcr.io/${{ github.repository }}/deb-final-img-${{ matrix.ubuntu_version }}:${{ github.sha }}
           deb_final_img_cached: ghcr.io/${{ github.repository }}/deb-final-img-${{ matrix.ubuntu_version }}:buildcache
+          ubuntu_version: ${{ matrix.ubuntu_version }}
+          path_dockerfile: ${{ matrix.path_dockerfile }}
         run: |
           docker buildx build \
             --load \
@@ -86,10 +153,12 @@ jobs:
             --tag "${deb_final_img}" \
             --cache-from="${deb_final_img_cached}" \
             --build-arg DLSTREAMER_VERSION=${{ env.dlstreamer-version }} \
-            --build-arg DLSTREAMER_BUILD_NUMBER=deb-pkg-${{ matrix.ubuntu_version }} \
-            -f ${{ matrix.path_dockerfile }} \
+            --build-arg DLSTREAMER_BUILD_NUMBER=deb-pkg-${ubuntu_version} \
+            -f ${path_dockerfile} \
             ${{ env.DLS_REL_PATH }}
+
       - name: Build dlstreamer img with python
+        if: matrix.runner_print_label != 'SKIP'
         env:
           deb_final_img: ghcr.io/${{ github.repository }}/deb-final-img-${{ matrix.ubuntu_version }}:${{ github.sha }}
           deb_final_testing_img: ghcr.io/${{ github.repository }}/deb-final-testing-img-${{ matrix.ubuntu_version }}:${{ github.sha }}
@@ -100,7 +169,9 @@ jobs:
           -t $deb_final_testing_img \
           --build-arg BASE_IMAGE=$deb_final_img \
           ${{ env.DLS_REL_PATH }}
+
       - name: 📦 Extract .deb packages using script
+        if: matrix.runner_print_label != 'SKIP'
         env:
           deb_final_img: ghcr.io/${{ github.repository }}/deb-final-img-${{ matrix.ubuntu_version }}:${{ github.sha }}
         run: |
@@ -108,10 +179,14 @@ jobs:
           ${{ env.DLS_REL_PATH }}/scripts/extract_and_verify_debs.sh ${deb_final_img}
           ls
           cp -r deb_packages ${{ env.DLS_REL_PATH }}
+
       # ======================================================== DOCKER TESTING PART ========================================================
       - name: Check models
+        if: matrix.runner_print_label != 'SKIP'
+        env:
+          runner_print_label: ${{ matrix.runner_print_label }}
         run: |
-          echo "## 📂 ${{ matrix.runner_print_label }} Environment checks" >> $GITHUB_STEP_SUMMARY
+          echo "## 📂 ${runner_print_label} Environment checks" >> $GITHUB_STEP_SUMMARY
           echo "Test repo branch: $test_repo_branch" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           if [ -d "${{ env.MODELS_PATH }}" ] && [ "$(ls -A "${{ env.MODELS_PATH }}")" ]; then
@@ -120,7 +195,9 @@ jobs:
             echo "Models: folder not found or it is empty ❌" >> $GITHUB_STEP_SUMMARY
             exit 1
           fi
+
       - name: Check videos
+        if: matrix.runner_print_label != 'SKIP'
         run: |
           if [ -d "${{ env.VIDEO_INPUTS_PATH }}" ] && [ "$(ls -A "${{ env.VIDEO_INPUTS_PATH }}")" ]; then
             echo "Tests input videos: found ✅" >> $GITHUB_STEP_SUMMARY
@@ -128,7 +205,9 @@ jobs:
             echo "Tests input videos: folder not found or it is empty ❌" >> $GITHUB_STEP_SUMMARY
             exit 1
           fi
+
       - name: 🚀 Run optimizer in Docker
+        if: matrix.runner_print_label != 'SKIP'
         id: run_optimizer_in_docker
         env:
           deb_final_img: ghcr.io/${{ github.repository }}/deb-final-img-${{ matrix.ubuntu_version }}:${{ github.sha }}
@@ -146,7 +225,7 @@ jobs:
             bash /workspace/optimizer_tests/scripts/run_optimizer_tests.sh --config-file "/workspace/optimizer_tests/test_config.json"
 
       - name: Upload Docker test results
-        if: always()
+        if: always() && matrix.runner_print_label != 'SKIP'
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f #7.0.0
         with:
           name: DLS_optimizer_Docker_${{ matrix.runner_print_label }}_${{ matrix.ubuntu_version }}_results
@@ -154,34 +233,35 @@ jobs:
 
       # ======================================================== ON HOST TESTING PART ========================================================
       - name: Link DL Streamer to home directory
-        if: always()
+        if: always() && matrix.runner_print_label != 'SKIP'
         run: |
           ln -s $PWD/$DLS_REL_PATH $HOME
+
       - name: Install DL Streamer on-host
-        if: always()
+        if: always() && matrix.runner_print_label != 'SKIP'
         run: |
           $DLS_REL_PATH/tests/scripts/installation-on-host-entrypoint.sh $DLS_REL_PATH/deb_packages
 
       - name: Run Optimizer on host
+        if: always() && matrix.runner_print_label != 'SKIP'
         id: run_optimizer_on_host
-        if: always()
         run: |
           mkdir $OPTIMIZER_TESTS_PATH/optimizer_results/host
           $OPTIMIZER_TESTS_PATH/functional_tests/optimizer_tests/scripts/run_optimizer_tests.sh --results-dir "$OPTIMIZER_TESTS_PATH/optimizer_results/host" --config-file "$OPTIMIZER_TESTS_PATH/functional_tests/optimizer_tests/test_config.json"
 
       - name: Upload host test results
+        if: always() && matrix.runner_print_label != 'SKIP'
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f #7.0.0
-        if: always()
         with:
           name: DLS_optimzier_host_${{ matrix.runner_print_label }}_${{ matrix.ubuntu_version }}_results
           path: ${{ env.OPTIMIZER_TESTS_PATH }}/optimizer_results/host/*
 
       # ======================================================== TEST RESULTS SUMMARY ========================================================
       - name: Add optimizer test results to summary
+        if: always() && matrix.runner_print_label != 'SKIP'
         env:
           DOCKER_OUTCOME: ${{ steps.run_optimizer_in_docker.outcome }}
           HOST_OUTCOME: ${{ steps.run_optimizer_on_host.outcome }}
-        if: always()
         run: |
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "## 🧪 Optimizer Test Results" >> $GITHUB_STEP_SUMMARY
@@ -204,11 +284,12 @@ jobs:
           fi
 
       - name: Uninstall dlstreamer
-        if: always ()
+        if: always() && matrix.runner_print_label != 'SKIP'
         run: |
           $DLS_REL_PATH/tests/scripts/uninstall-dlstreamer.sh
+
       - name: Check Docker image size
-        if: always()
+        if: always() && matrix.runner_print_label != 'SKIP'
         id: check-size
         env:
           deb_final_img: ghcr.io/${{ github.repository }}/deb-final-img-${{ matrix.ubuntu_version }}:${{ github.sha }}
@@ -243,23 +324,26 @@ jobs:
           else
             echo "✅ Image size within allowed threshold: ${THRESHOLD_SIZE_MB}MB."
           fi
+
       - name: Print image size summary
-        if: always()
+        if: always() && matrix.runner_print_label != 'SKIP'
         env:
           IMAGE_SIZE_MB: ${{ env.IMAGE_SIZE_MB }}
           EXPECTED_SIZE_MB: ${{ env.EXPECTED_SIZE_MB }}
+          UBUNTU_VERSION: ${{ matrix.ubuntu_version }}
         run: |
           {
             echo "## 🐳 Docker image size"
             echo ""
             echo "| Image | Size |"
             echo "|-------|------|"
-            echo "| Current Docker ${{ matrix.ubuntu_version }}-deb | **${IMAGE_SIZE_MB} MB** |"
-            echo "| Expected Docker ${{ matrix.ubuntu_version }}-deb | **${EXPECTED_SIZE_MB} MB** |"
+            echo "| Current Docker ${ubuntu_version}-deb | **${IMAGE_SIZE_MB} MB** |"
+            echo "| Expected Docker ${ubuntu_version}-deb | **${EXPECTED_SIZE_MB} MB** |"
           } >> "$GITHUB_STEP_SUMMARY"
+
       # ======================================================== CLEANUP PART ========================================================
       - name: Clean up
-        if: always ()
+        if: always() && needs.setup.outputs.should_run == 'true'
         env:
           deb_final_img: ghcr.io/${{ github.repository }}/deb-final-img-${{ matrix.ubuntu_version }}:${{ github.sha }}
         run: |
