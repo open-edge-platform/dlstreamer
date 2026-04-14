@@ -74,7 +74,7 @@ jobs:
         if: needs.setup.outputs.should_run == 'false'
         run: |
           echo "## ✅ Test Multiple Models Download Skipped" >> $GITHUB_STEP_SUMMARY
-          echo "**Reason:** Only documentation changes detected" >> $GITHUB_STEP_SUMMARY
+          echo "**Reason:** Changes only in excluded files" >> $GITHUB_STEP_SUMMARY
           exit 0
 
       - name: Checkout repository
@@ -115,7 +115,7 @@ jobs:
         if: needs.setup.outputs.should_run == 'false'
         run: |
           echo "## ✅ Test Single Model With Quantization Skipped" >> $GITHUB_STEP_SUMMARY
-          echo "**Reason:** Only documentation changes detected" >> $GITHUB_STEP_SUMMARY
+          echo "**Reason:** Changes only in excluded files" >> $GITHUB_STEP_SUMMARY
           exit 0
 
       - name: Checkout repository
@@ -156,7 +156,7 @@ jobs:
         if: needs.setup.outputs.should_run == 'false'
         run: |
           echo "## ✅ Test Multiple Models With Quantization Skipped" >> $GITHUB_STEP_SUMMARY
-          echo "**Reason:** Only documentation changes detected" >> $GITHUB_STEP_SUMMARY
+          echo "**Reason:** Changes only in excluded files" >> $GITHUB_STEP_SUMMARY
           exit 0
 
       - name: Checkout repository
@@ -207,7 +207,7 @@ jobs:
         if: needs.setup.outputs.should_run == 'false'
         run: |
           echo "## ✅ Test Non-YOLO Model Download Skipped" >> $GITHUB_STEP_SUMMARY
-          echo "**Reason:** Only documentation changes detected" >> $GITHUB_STEP_SUMMARY
+          echo "**Reason:** Changes only in excluded files" >> $GITHUB_STEP_SUMMARY
           exit 0
 
       - name: Checkout repository
@@ -244,7 +244,7 @@ jobs:
         if: needs.setup.outputs.should_run == 'false'
         run: |
           echo "## ✅ Test Mixed Models Download Skipped" >> $GITHUB_STEP_SUMMARY
-          echo "**Reason:** Only documentation changes detected" >> $GITHUB_STEP_SUMMARY
+          echo "**Reason:** Changes only in excluded files" >> $GITHUB_STEP_SUMMARY
           exit 0
 
       - name: Checkout repository
@@ -285,7 +285,7 @@ jobs:
         if: needs.setup.outputs.should_run == 'false'
         run: |
           echo "## ✅ Test Help Flag Skipped" >> $GITHUB_STEP_SUMMARY
-          echo "**Reason:** Only documentation changes detected" >> $GITHUB_STEP_SUMMARY
+          echo "**Reason:** Changes only in excluded files" >> $GITHUB_STEP_SUMMARY
           exit 0
 
       - name: Checkout repository
@@ -321,7 +321,7 @@ jobs:
         if: needs.setup.outputs.should_run == 'false'
         run: |
           echo "## ✅ Test Missing MODELS_PATH Skipped" >> $GITHUB_STEP_SUMMARY
-          echo "**Reason:** Only documentation changes detected" >> $GITHUB_STEP_SUMMARY
+          echo "**Reason:** Changes only in excluded files" >> $GITHUB_STEP_SUMMARY
           exit 0
 
       - name: Checkout repository
@@ -352,7 +352,7 @@ jobs:
         if: needs.setup.outputs.should_run == 'false'
         run: |
           echo "## ✅ Test Invalid Model Name Skipped" >> $GITHUB_STEP_SUMMARY
-          echo "**Reason:** Only documentation changes detected" >> $GITHUB_STEP_SUMMARY
+          echo "**Reason:** Changes only in excluded files" >> $GITHUB_STEP_SUMMARY
           exit 0
 
       - name: Checkout repository
@@ -387,7 +387,7 @@ jobs:
         if: needs.setup.outputs.should_run == 'false'
         run: |
           echo "## ✅ Test Ubuntu 22.04 Compatibility Skipped" >> $GITHUB_STEP_SUMMARY
-          echo "**Reason:** Only documentation changes detected" >> $GITHUB_STEP_SUMMARY
+          echo "**Reason:** Changes only in excluded files" >> $GITHUB_STEP_SUMMARY
           exit 0
 
       - name: Checkout repository
