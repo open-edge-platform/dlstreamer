@@ -19,8 +19,8 @@ READ_FUNC = "read_frame_data"
 WRITE_FUNC = "write_frame_data"
 
 
-class TestGvapythonVaapiMap(unittest.TestCase):
-    def test_gvapython_vaapi_map(self):
+class TestGvapythonVaMap(unittest.TestCase):
+    def test_gvapython_va_map(self):
         for enc in ENCODERS:
             for caps_format in FORMATS:
                 for func_exception in [(READ_FUNC, False), (WRITE_FUNC, True)]:
@@ -32,7 +32,7 @@ class TestGvapythonVaapiMap(unittest.TestCase):
                     pipeline_runner.run_pipeline()
                     if expect_exception:
                         pipeline_runner.assertGreater(
-                            len(pipeline_runner.exceptions), 0, "No exception when mapping VAAPI buffer for writing. Expected at least one.")
+                            len(pipeline_runner.exceptions), 0, "No exception when mapping VA-API buffer for writing. Expected at least one.")
                     else:
                         pipeline_runner.assertEqual(
                             len(pipeline_runner.exceptions), 0, "Exceptions have been caught.")
