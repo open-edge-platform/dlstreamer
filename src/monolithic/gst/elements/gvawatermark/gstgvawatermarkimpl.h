@@ -87,6 +87,8 @@ enum { PROP_0, PROP_DEVICE, PROP_OBB, PROP_DISPL_AVGFPS, PROP_DISPL_CFG };
     "\t\t\thide-roi=<string> colon-separated list of labels to exclude (these objects will be hidden), default "       \
     "empty\n"                                                                                                          \
     "\t\t\tenable-blur=<bool> enable or disable ROI blurring for privacy protection, default false\n"                  \
+    "\t\t\tBlurring is applied only when `enable-blur=true`\n"                                                         \
+    "\t\t\tif no `show-blur-roi` / `hide-blur-roi` filters are set, all ROIs are blurred.\n"                           \
     "\t\t\tshow-blur-roi=<string> colon-separated list of object labels to blur (e.g. 'face:person')\n"                \
     "\t\t\thide-blur-roi=<string> colon-separated list of object labels to exclude from blurring\n"                    \
     "\t\t\tNOTE: show-blur-roi takes precedence over hide-blur-roi when both are specified\n"                          \
