@@ -41,8 +41,10 @@ runs:
       shell: bash
       env:
         BASE_BRANCH: ${{ inputs.base_branch }}
+        EVENT_NAME: ${{ github.event_name }}
+        REF: ${{ github.ref }}
       run: |
-        if [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref }}" = "refs/heads/$BASE_BRANCH" ]; then
+        if [ "${event_name}" = "push" ] && [ "${ref}" = "refs/heads/$BASE_BRANCH" ]; then
           echo "🔄 Push to $BASE_BRANCH detected - forcing execution"
           echo "is_main_push=true" >> "$GITHUB_OUTPUT"
         else
