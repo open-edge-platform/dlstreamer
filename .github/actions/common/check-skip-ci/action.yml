@@ -109,18 +109,26 @@ runs:
         fi
 
     - name: Set final outputs
-      id: check
-      shell: bash
-      run: |
-        if [ "${{ steps.dispatch-check.outputs.is_dispatch }}" = "true" ]; then
-          echo "should_run=${{ steps.dispatch-handler.outputs.should_run }}" >> "$GITHUB_OUTPUT"
-          echo "skip_ci=${{ steps.dispatch-handler.outputs.skip_ci }}" >> "$GITHUB_OUTPUT"
-          echo "skip_reason=${{ steps.dispatch-handler.outputs.skip_reason }}" >> "$GITHUB_OUTPUT"
-        else
-          echo "should_run=${{ steps.file-check.outputs.should_run }}" >> "$GITHUB_OUTPUT"
-          echo "skip_ci=${{ steps.file-check.outputs.skip_ci }}" >> "$GITHUB_OUTPUT"
-          echo "skip_reason=${{ steps.file-check.outputs.skip_reason }}" >> "$GITHUB_OUTPUT"
-        fi
+          id: check
+          shell: bash
+          env:
+            IS_DISPATCH: ${{ steps.dispatch-check.outputs.is_dispatch }}
+            DISPATCH_SHOULD_RUN: ${{ steps.dispatch-handler.outputs.should_run }}
+            DISPATCH_SKIP_CI: ${{ steps.dispatch-handler.outputs.skip_ci }}
+            DISPATCH_SKIP_REASON: ${{ steps.dispatch-handler.outputs.skip_reason }}
+            FILE_SHOULD_RUN: ${{ steps.file-check.outputs.should_run }}
+            FILE_SKIP_CI: ${{ steps.file-check.outputs.skip_ci }}
+            FILE_SKIP_REASON: ${{ steps.file-check.outputs.skip_reason }}
+          run: |
+            if [ "${IS_DISPATCH}" = "true" ]; then
+              echo "should_run=${DISPATCH_SHOULD_RUN}" >> "$GITHUB_OUTPUT"
+              echo "skip_ci=${DISPATCH_SKIP_CI}" >> "$GITHUB_OUTPUT"
+              echo "skip_reason=${DISPATCH_SKIP_REASON}" >> "$GITHUB_OUTPUT"
+            else
+              echo "should_run=${FILE_SHOULD_RUN}" >> "$GITHUB_OUTPUT"
+              echo "skip_ci=${FILE_SKIP_CI}" >> "$GITHUB_OUTPUT"
+              echo "skip_reason=${FILE_SKIP_REASON}" >> "$GITHUB_OUTPUT"
+            fi
 
     - name: Mark job as passed when skipped
       if: steps.check.outputs.should_run == 'false'

@@ -53,8 +53,10 @@ jobs:
 
       - name: Set matrix configuration
         id: set-matrix
+        env:
+          SHOULD_RUN: ${{ steps.skip-check.outputs.should_run }}
         run: |
-          if [[ "${{ steps.skip-check.outputs.should_run }}" == "false" ]]; then
+          if [[ "${SHOULD_RUN}" == "false" ]]; then
             MATRIX=$(jq -n '{
               "include": [
                 {
