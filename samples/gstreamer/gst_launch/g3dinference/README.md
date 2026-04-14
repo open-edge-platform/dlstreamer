@@ -30,6 +30,7 @@ gst-launch-1.0 -e \
 
 `g3dlidarparse` converts the raw point cloud into `application/x-lidar` with `LidarMeta`. `g3dinference` loads the PointPillars runtime from the generated JSON config, runs inference, and attaches tensor metadata. `gvametaconvert` and `gvametapublish` serialize that metadata to JSON.
 Use `multifilesrc` even for a single frame, because `filesrc` may split the input into block-sized chunks.
+The `device` setting currently supports `CPU`, `GPU`, and `GPU.<id>`.
 
 ## Prerequisites
 
@@ -61,6 +62,8 @@ Run the default single-frame sample after preparation:
 ```bash
 ./g3dinference.sh
 ```
+
+The optional `DEVICE` argument currently supports `CPU`, `GPU`, and `GPU.<id>`.
 
 
 ## Asset Locations

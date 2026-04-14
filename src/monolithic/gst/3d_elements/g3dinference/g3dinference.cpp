@@ -34,10 +34,42 @@ enum {
 namespace {
 
 constexpr const char *DEFAULT_DEVICE = "CPU";
+constexpr const char *SUPPORTED_DEVICE_CPU = "CPU";
+constexpr const char *SUPPORTED_DEVICE_GPU = "GPU";
 constexpr const char *DEFAULT_MODEL_TYPE = "pointpillars";
 constexpr float DEFAULT_SCORE_THRESHOLD = -1.0f;
 constexpr size_t POINT_SIZE = 4;
 constexpr size_t DETECTION_WIDTH = 9;
+
+bool is_supported_device(const gchar *device) {
+    if (!device || !*device)
+        return false;
+
+    if (g_ascii_strcasecmp(device, SUPPORTED_DEVICE_CPU) == 0)
+        return true;
+
+    if (g_ascii_strncasecmp(device, SUPPORTED_DEVICE_GPU, strlen(SUPPORTED_DEVICE_GPU)) != 0)
+        return false;
+
+    const gchar *suffix = device + strlen(SUPPORTED_DEVICE_GPU);
+    if (*suffix == '\0')
+        return true;
+
+    if (*suffix != '.')
+        return false;
+
+    ++suffix;
+    if (!g_ascii_isdigit(*suffix))
+        return false;
+
+    while (*suffix) {
+        if (!g_ascii_isdigit(*suffix))
+            return false;
+        ++suffix;
+    }
+
+    return true;
+}
 
 class PointPillarsRuntime {
   public:
@@ -277,7 +309,8 @@ static void gst_g3d_inference_class_init(GstG3DInferenceClass *klass) {
                                                         (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
     g_object_class_install_property(gobject_class, PROP_DEVICE,
-                                    g_param_spec_string("device", "Device", "OpenVINO device for NN model",
+                                    g_param_spec_string("device", "Device",
+                                                        "OpenVINO device for NN model. Supported values: CPU, GPU, GPU.<id>",
                                                         DEFAULT_DEVICE,
                                                         (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
@@ -388,6 +421,12 @@ static gboolean gst_g3d_inference_start(GstBaseTransform *trans) {
 
     if (g_ascii_strcasecmp(filter->model_type, DEFAULT_MODEL_TYPE) != 0) {
         GST_ERROR_OBJECT(filter, "Unsupported model type: %s", filter->model_type);
+        return FALSE;
+    }
+
+    if (!is_supported_device(filter->device)) {
+        GST_ERROR_OBJECT(filter, "Unsupported device: %s. Supported values: CPU, GPU, GPU.<id>",
+                         filter->device ? filter->device : "<null>");
         return FALSE;
     }
 

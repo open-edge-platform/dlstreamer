@@ -17,7 +17,7 @@ Key operations:
 | Property | Type | Description | Default |
 |----------|------|-------------|---------|
 | config | String | Path to the PointPillars JSON configuration file. Required. | null |
-| device | String | OpenVINO device used for the neural network stage. | CPU |
+| device | String | OpenVINO device used for the neural network stage. Currently `CPU`, `GPU`, and `GPU.<id>` are supported. | CPU |
 | model-type | String | 3D detector model type. Currently only `pointpillars` is supported. | pointpillars |
 | score-threshold | Float | Drops detections below this score. `-1` keeps all post-processing output unchanged. | -1.0 |
 
@@ -155,7 +155,7 @@ Element Properties:
                         flags: readable, writable
                         String. Default: null
 
-  device              : OpenVINO device for NN model
+  device              : OpenVINO device for NN model. Supported values: CPU, GPU, GPU.<id>
                         flags: readable, writable
                         String. Default: "CPU"
 

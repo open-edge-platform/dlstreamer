@@ -24,7 +24,7 @@ Usage:
 Arguments:
 	SOURCE           Optional. Either a multifilesrc pattern or a numerically named single frame file.
 									 Default: .pointpillars/data/000002.bin
-	DEVICE           Optional. OpenVINO device for g3dinference. Default: CPU
+	DEVICE           Optional. OpenVINO device for g3dinference. Supported values: CPU, GPU, GPU.<id>. Default: CPU
 	OUTPUT_JSON      Optional. JSON output path. Default: .pointpillars/g3dinference_output.json
 	SCORE_THRESHOLD  Optional. Minimum score threshold. Default: -1
 
@@ -72,6 +72,22 @@ require_command() {
 
 require_gst_element() {
 	gst-inspect-1.0 "$1" >/dev/null 2>&1 || fail "Required GStreamer element not found: $1"
+}
+
+validate_device() {
+	local normalized_device="${DEVICE^^}"
+	case "${normalized_device}" in
+	CPU|GPU|GPU.[0-9]*)
+		if [[ "${normalized_device}" =~ ^GPU\.[0-9]+$ || "${normalized_device}" == "CPU" || "${normalized_device}" == "GPU" ]]; then
+			DEVICE="${normalized_device}"
+		else
+			fail "Unsupported DEVICE: ${DEVICE}. Supported values: CPU, GPU, GPU.<id>"
+		fi
+		;;
+	*)
+		fail "Unsupported DEVICE: ${DEVICE}. Supported values: CPU, GPU, GPU.<id>"
+		;;
+	esac
 }
 
 resolve_multifilesrc_input() {
@@ -153,6 +169,7 @@ if [[ ! -f "${POINTPILLARS_CONFIG}" ]]; then
 fi
 
 validate_pipeline_prereqs
+validate_device
 resolve_multifilesrc_input
 
 mkdir -p "$(dirname "${OUTPUT_JSON}")"
