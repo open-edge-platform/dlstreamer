@@ -8,7 +8,7 @@ The `g3dinference` element is intended for LiDAR-only 3D detection pipelines whe
 
 Key operations:
 - **LiDAR metadata validation**: Requires `LidarMeta` on each input buffer and validates payload size against `lidar_point_count`
-- **PointPillars inference**: Loads the `voxel_params`, `extension_lib`, `voxel_model`, `nn_model`, and `postproc_model` entries from a JSON config and executes them in sequence
+- **PointPillars inference**: Loads the `extension_lib`, `voxel_model`, `nn_model`, and `postproc_model` entries from a JSON config and executes them in sequence. `voxel_params` document the voxelization settings used when exporting the PointPillars models and are not applied separately by `g3dinference` at runtime.
 - **Tensor metadata attachment**: Attaches detections as `GstGVATensorMeta` with `pointpillars_3d` format
 - **Pipeline integration**: Preserves the LiDAR payload and metadata so downstream elements can combine point clouds, detections, and converted JSON output
 
@@ -23,11 +23,11 @@ Key operations:
 
 ## Configuration
 
-The `config` property should point to a PointPillars JSON configuration file. In practice, the file typically contains voxelization parameters together with the paths to the OpenVINO extension library and the three models used by the runtime.
+The `config` property should point to a PointPillars JSON configuration file. In practice, the file contains the paths to the OpenVINO extension library and the three models used by the runtime. It may also include `voxel_params` for compatibility with the exported PointPillars config format.
 
 Expected top-level entries:
 
-- `voxel_params`: PointPillars voxelization settings such as `voxel_size`, `point_cloud_range`, `max_num_points`, and `max_voxels`
+- `voxel_params`: PointPillars voxelization settings such as `voxel_size`, `point_cloud_range`, `max_num_points`, and `max_voxels`. These values are used when exporting the PointPillars models and are already encoded in the generated voxelization model; `g3dinference` does not currently apply them as runtime-tunable parameters.
 - `extension_lib`: Path to the custom OpenVINO extension library
 - `voxel_model`: Path to the voxelization model
 - `nn_model`: Path to the main neural network model
