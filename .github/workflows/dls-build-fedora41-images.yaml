@@ -42,7 +42,7 @@ jobs:
         if: needs.setup.outputs.should_run == 'false'
         run: |
           echo "## ✅ F41 Build Skipped" >> $GITHUB_STEP_SUMMARY
-          echo "**Reason:** Only documentation changes detected" >> $GITHUB_STEP_SUMMARY
+          echo "**Reason:** Changes only in excluded files" >> $GITHUB_STEP_SUMMARY
           exit 0
 
       - name: Install dependencies

@@ -48,6 +48,7 @@ jobs:
         id: set-matrix
         env:
           SHOULD_RUN: ${{ steps.skip-check.outputs.should_run }}
+        shell: bash
         run: |
           if [[ "${SHOULD_RUN}" == "false" ]]; then
             MATRIX=$(jq -n '{
@@ -101,7 +102,7 @@ jobs:
         if: matrix.runner_print_label == 'SKIP'
         run: |
           echo "## ✅ Functional Linux Build and Test Skipped" >> $GITHUB_STEP_SUMMARY
-          echo "**Reason:** Only documentation changes detected" >> $GITHUB_STEP_SUMMARY
+          echo "**Reason:** Changes only in excluded files" >> $GITHUB_STEP_SUMMARY
           exit 0
 
       - name: Initial environment clean
