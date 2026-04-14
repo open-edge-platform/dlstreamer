@@ -184,7 +184,66 @@ class TestG3DInference(unittest.TestCase):
 
         return sorted(parsed_objects, key=lambda item: item["confidence"], reverse=True)
 
+    def _print_detection_debug(self, actual, expected, index):
+        print(f"[g3dinference][debug] object {index}")
+        print(
+            "  label_id: "
+            f"actual={actual['label_id']} expected={expected['label_id']}"
+        )
+        print(
+            "  confidence: "
+            f"actual={actual['confidence']:.6f} expected={expected['confidence']:.6f} "
+            f"delta={actual['confidence'] - expected['confidence']:+.6f}"
+        )
+
+        for field_name in ("x", "y", "z", "w", "l", "h", "theta"):
+            actual_value = actual["bbox_3d"][field_name]
+            expected_value = expected["bbox_3d"][field_name]
+            print(
+                f"  bbox_3d.{field_name}: "
+                f"actual={actual_value:.6f} expected={expected_value:.6f} "
+                f"delta={actual_value - expected_value:+.6f}"
+            )
+
+    def _print_detection_count_debug(self, actual_detections):
+        print(
+            "[g3dinference][debug] detection count mismatch: "
+            f"actual={len(actual_detections)} expected={len(EXPECTED_DETECTIONS)}"
+        )
+        print("[g3dinference][debug] actual detections:")
+        print(json.dumps(actual_detections, indent=2, ensure_ascii=True))
+        print("[g3dinference][debug] expected detections:")
+        print(json.dumps(EXPECTED_DETECTIONS, indent=2, ensure_ascii=True))
+
+    def _print_all_detections_debug(self, actual_detections):
+        print(
+            "[g3dinference][debug] full detection dump: "
+            f"actual={len(actual_detections)} expected={len(EXPECTED_DETECTIONS)}"
+        )
+
+        pair_count = min(len(actual_detections), len(EXPECTED_DETECTIONS))
+        for index in range(pair_count):
+            self._print_detection_debug(actual_detections[index], EXPECTED_DETECTIONS[index], index)
+
+        if len(actual_detections) > pair_count:
+            print("[g3dinference][debug] extra actual detections:")
+            print(json.dumps(actual_detections[pair_count:], indent=2, ensure_ascii=True))
+
+        if len(EXPECTED_DETECTIONS) > pair_count:
+            print("[g3dinference][debug] missing expected detections:")
+            print(json.dumps(EXPECTED_DETECTIONS[pair_count:], indent=2, ensure_ascii=True))
+
     def _assert_detection_matches(self, actual, expected, index):
+        label_mismatch = actual["label_id"] != expected["label_id"]
+        confidence_delta = abs(actual["confidence"] - expected["confidence"])
+        bbox_mismatch = any(
+            abs(actual["bbox_3d"][field_name] - expected["bbox_3d"][field_name]) > self.BOX_DELTA
+            for field_name in ("x", "y", "z", "w", "l", "h", "theta")
+        )
+
+        if label_mismatch or confidence_delta > self.CONFIDENCE_DELTA or bbox_mismatch:
+            self._print_detection_debug(actual, expected, index)
+
         self.assertEqual(actual["label_id"], expected["label_id"], f"label_id mismatch for object {index}")
         self.assertAlmostEqual(
             actual["confidence"], expected["confidence"], delta=self.CONFIDENCE_DELTA,
@@ -199,6 +258,9 @@ class TestG3DInference(unittest.TestCase):
 
     def _assert_detections_match(self, payload):
         actual_detections = self._extract_detected_objects(payload)
+        self._print_all_detections_debug(actual_detections)
+        if len(actual_detections) != len(EXPECTED_DETECTIONS):
+            self._print_detection_count_debug(actual_detections)
         self.assertEqual(
             len(actual_detections), len(EXPECTED_DETECTIONS),
             f"Expected {len(EXPECTED_DETECTIONS)} objects, got {len(actual_detections)}"
