@@ -4,7 +4,7 @@ This sample demonstrates a complete LiDAR-only 3D detection pipeline based on `g
 
 The sample is split into two scripts:
 
-- locate or fetch the PointPillars source tree from `openvino_contrib`
+- locate or fetch the PointPillars source tree from [`openvino_contrib`](https://github.com/openvinotoolkit/openvino_contrib.git)
 - copy the sample point cloud (`000002.bin`) from that source tree
 - copy the PointPillars OpenVINO IR files into `MODELS_PATH/public/pointpillars/FP16`
 - build the required OpenVINO extension library `libov_pointpillars_extensions.so`
