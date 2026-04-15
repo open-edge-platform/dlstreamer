@@ -7,16 +7,19 @@
 import json
 import os
 import shutil
+import struct
 import subprocess
 import sys
 import tempfile
 import unittest
+import ctypes
 
 import gi
 gi.require_version("Gst", "1.0")
-from gi.repository import Gst  # pylint: disable=no-name-in-module, wrong-import-position
+gi.require_version("GLib", "2.0")
+from gi.repository import GLib, Gst  # pylint: disable=no-name-in-module, wrong-import-position
 
-from pipeline_runner import TestGenericPipelineRunner  # pylint: disable=wrong-import-position
+Gst.init(None)
 
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 DLSTREAMER_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, "..", "..", ".."))
@@ -136,6 +139,10 @@ class TestG3DInference(unittest.TestCase):
     def setUpClass(cls):
         cls.pointpillars_root = ensure_pointpillars_root()
         cls.extension_lib = ensure_pointpillars_extension(cls.pointpillars_root)
+        cls._lidar_meta_lib = ctypes.CDLL("libdlstreamer_gst_meta.so")
+        cls._lidar_meta_lib.add_lidar_meta.argtypes = [ctypes.c_void_p, ctypes.c_uint, ctypes.c_size_t, ctypes.c_uint64,
+                                                       ctypes.c_uint]
+        cls._lidar_meta_lib.add_lidar_meta.restype = ctypes.c_void_p
 
     def setUp(self):
         self.test_dir = tempfile.mkdtemp(prefix="g3dinference_test_")
@@ -151,6 +158,13 @@ class TestG3DInference(unittest.TestCase):
 
     def tearDown(self):
         shutil.rmtree(self.test_dir, ignore_errors=True)
+
+    def _write_bin_file(self, file_name, float_values):
+        file_path = os.path.join(self.test_dir, file_name)
+        with open(file_path, "wb") as handle:
+            if float_values:
+                handle.write(struct.pack(f"{len(float_values)}f", *float_values))
+        return file_path
 
     def _write_runtime_config(self):
         config_payload = {
@@ -168,6 +182,164 @@ class TestG3DInference(unittest.TestCase):
 
         with open(self.config_file, "w", encoding="utf-8") as handle:
             json.dump(config_payload, handle)
+
+    def _build_filesrc_pipeline(self, input_path, config_path=None, output_path=None):
+        pipeline = (
+            f'filesrc location="{input_path}" ! '
+            f'capsfilter caps=application/octet-stream ! '
+            f'g3dlidarparse ! '
+            f'g3dinference device=CPU'
+        )
+        if config_path is not None:
+            pipeline += f' config="{config_path}"'
+
+        if output_path is None:
+            return pipeline + ' ! fakesink'
+
+        return (
+            pipeline
+            + f' ! gvametaconvert add-tensor-data=true format=json json-indent=2 '
+            + f'! gvametapublish file-format=2 file-path="{output_path}" ! '
+            + 'fakesink'
+        )
+
+    def _build_appsrc_lidar_pipeline(self, config_path=None, output_path=None):
+        pipeline = 'appsrc name=mysrc emit-signals=true format=time caps=application/x-lidar ! g3dinference device=CPU'
+        if config_path is not None:
+            pipeline += f' config="{config_path}"'
+
+        if output_path is None:
+            return pipeline + ' ! fakesink'
+
+        return (
+            pipeline
+            + f' ! gvametaconvert add-tensor-data=true format=json json-indent=2 '
+            + f'! gvametapublish file-format=2 file-path="{output_path}" ! '
+            + 'fakesink'
+        )
+
+    def _run_pipeline(self, pipeline):
+        exceptions = []
+        gst_pipeline = Gst.parse_launch(pipeline)
+        bus = gst_pipeline.get_bus()
+
+        state_change = gst_pipeline.set_state(Gst.State.PLAYING)
+
+        timeout = 5 * Gst.SECOND
+        drain_timeout = Gst.SECOND // 2
+        saw_error = False
+        saw_eos = False
+
+        while True:
+            wait_timeout = drain_timeout if saw_error else timeout
+            msg = bus.timed_pop_filtered(wait_timeout, Gst.MessageType.ERROR | Gst.MessageType.EOS)
+
+            if msg is None:
+                break
+
+            if msg.type is Gst.MessageType.ERROR:
+                exceptions.append(msg.parse_error())
+                saw_error = True
+                continue
+
+            if msg.type is Gst.MessageType.EOS:
+                saw_eos = True
+                if not saw_error:
+                    break
+
+        if state_change == Gst.StateChangeReturn.FAILURE and not exceptions:
+            exceptions.append((RuntimeError("Pipeline failed to start"), None))
+
+        gst_pipeline.set_state(Gst.State.NULL)
+
+        return exceptions
+
+    def _run_lidar_appsrc_pipeline(self, payload_bytes, lidar_point_count, config_path=None, output_path=None):
+        pipeline = self._build_appsrc_lidar_pipeline(config_path, output_path)
+        exceptions = []
+        gst_pipeline = Gst.parse_launch(pipeline)
+        bus = gst_pipeline.get_bus()
+
+        appsrc = gst_pipeline.get_by_name("mysrc")
+
+        def on_need_data(src, _length):
+            if payload_bytes:
+                buffer = Gst.Buffer.new_allocate(None, len(payload_bytes), None)
+                buffer.fill(0, payload_bytes)
+            else:
+                buffer = Gst.Buffer.new()
+
+            meta = self.__class__._lidar_meta_lib.add_lidar_meta(
+                hash(buffer),
+                lidar_point_count,
+                0,
+                int(Gst.CLOCK_TIME_NONE),
+                0,
+            )
+            self.assertIsNotNone(meta, "Failed to attach LidarMeta")
+
+            src.emit("push-buffer", buffer)
+            src.emit("end-of-stream")
+
+        appsrc.connect("need-data", on_need_data)
+
+        state_change = gst_pipeline.set_state(Gst.State.PLAYING)
+
+        timeout = 5 * Gst.SECOND
+        drain_timeout = Gst.SECOND // 2
+        saw_error = False
+
+        while True:
+            wait_timeout = drain_timeout if saw_error else timeout
+            msg = bus.timed_pop_filtered(wait_timeout, Gst.MessageType.ERROR | Gst.MessageType.EOS)
+
+            if msg is None:
+                break
+
+            if msg.type is Gst.MessageType.ERROR:
+                exceptions.append(msg.parse_error())
+                saw_error = True
+                continue
+
+            if msg.type is Gst.MessageType.EOS and not saw_error:
+                break
+
+        if state_change == Gst.StateChangeReturn.FAILURE and not exceptions:
+            exceptions.append((RuntimeError("Pipeline failed to start"), None))
+
+        gst_pipeline.set_state(Gst.State.NULL)
+
+        return exceptions
+
+    @staticmethod
+    def _format_pipeline_exception(exception):
+        if isinstance(exception, tuple):
+            error = exception[0] if len(exception) > 0 else None
+            debug = exception[1] if len(exception) > 1 else None
+            formatted = []
+            if error is not None:
+                formatted.append(getattr(error, "message", str(error)))
+            if debug:
+                formatted.append(str(debug))
+            if formatted:
+                return " | ".join(formatted)
+        return str(exception)
+
+    def _assert_pipeline_error_contains(self, runner, expected_message):
+        formatted_exceptions = [self._format_pipeline_exception(exception) for exception in runner.exceptions]
+        self.assertNotEqual(len(formatted_exceptions), 0, "Pipeline was expected to fail")
+        joined = "\n".join(formatted_exceptions)
+        self.assertIn(expected_message, joined, f"Expected '{expected_message}' in pipeline errors:\n{joined}")
+
+    def _assert_runtime_assets_exist(self):
+        if not os.path.exists(self.extension_lib):
+            self.skipTest(f"PointPillars extension library not found: {self.extension_lib}")
+        if not os.path.exists(self.voxel_model):
+            self.skipTest(f"PointPillars voxel model not found: {self.voxel_model}")
+        if not os.path.exists(self.nn_model):
+            self.skipTest(f"PointPillars NN model not found: {self.nn_model}")
+        if not os.path.exists(self.postproc_model):
+            self.skipTest(f"PointPillars postproc model not found: {self.postproc_model}")
 
     def _extract_detected_objects(self, payload):
         objects = payload.get("objects")
@@ -286,14 +458,7 @@ class TestG3DInference(unittest.TestCase):
 
         if not os.path.exists(self.pc_file):
             self.skipTest(f"Point cloud file not found: {self.pc_file}")
-        if not os.path.exists(self.extension_lib):
-            self.skipTest(f"PointPillars extension library not found: {self.extension_lib}")
-        if not os.path.exists(self.voxel_model):
-            self.skipTest(f"PointPillars voxel model not found: {self.voxel_model}")
-        if not os.path.exists(self.nn_model):
-            self.skipTest(f"PointPillars NN model not found: {self.nn_model}")
-        if not os.path.exists(self.postproc_model):
-            self.skipTest(f"PointPillars postproc model not found: {self.postproc_model}")
+        self._assert_runtime_assets_exist()
 
         self._write_runtime_config()
 
@@ -307,11 +472,9 @@ class TestG3DInference(unittest.TestCase):
             f'fakesink'
         )
 
-        runner = TestGenericPipelineRunner()
-        runner.set_pipeline(pipeline)
-        runner.run_pipeline()
+        exceptions = self._run_pipeline(pipeline)
 
-        self.assertEqual(len(runner.exceptions), 0, "Pipeline should run without errors")
+        self.assertEqual(len(exceptions), 0, f"Pipeline should run without errors: {exceptions}")
         self.assertTrue(os.path.exists(self.test_output), "Output JSON file was not created")
 
         with open(self.test_output, "r", encoding="utf-8") as handle:
@@ -325,6 +488,72 @@ class TestG3DInference(unittest.TestCase):
         self.assertIn("pointpillars_3d_detection", serialized)
         self.assertIn("pointpillars_3d", serialized)
         self.assertIn("data", serialized)
+
+    def test_g3dinference_empty_point_cloud_pipeline(self):
+        element = Gst.ElementFactory.make("g3dinference", None)
+        if element is None:
+            self.skipTest("g3dinference element not available")
+
+        self._assert_runtime_assets_exist()
+        self._write_runtime_config()
+        empty_pc_file = self._write_bin_file("empty.bin", [])
+        output_path = os.path.join(self.test_dir, "empty_point_cloud_output.json")
+
+        exceptions = self._run_pipeline(self._build_filesrc_pipeline(empty_pc_file, self.config_file, output_path))
+
+        self.assertEqual(len(exceptions), 0, f"Empty point cloud pipeline should complete without errors: {exceptions}")
+
+        if not os.path.exists(output_path):
+            return
+
+        with open(output_path, "r", encoding="utf-8") as handle:
+            content = handle.read().strip()
+            if not content:
+                return
+            payload = json.loads(content)
+
+        self.assertEqual(payload.get("objects", []), [], "Empty point cloud should not produce detections")
+        if "tensors" in payload:
+            self.assertEqual(len(payload["tensors"]), 1, "Expected one serialized tensor for empty point cloud")
+            self.assertEqual(payload["tensors"][0].get("data"), [], "Empty point cloud tensor data must be empty")
+
+    def test_g3dinference_mismatched_lidar_point_count_pipeline(self):
+        element = Gst.ElementFactory.make("g3dinference", None)
+        if element is None:
+            self.skipTest("g3dinference element not available")
+
+        self._assert_runtime_assets_exist()
+        self._write_runtime_config()
+        payload_bytes = struct.pack("4f", 1.0, 2.0, 3.0, 4.0)
+
+        exceptions = self._run_lidar_appsrc_pipeline(payload_bytes, lidar_point_count=2, config_path=self.config_file)
+
+        formatted_exceptions = [self._format_pipeline_exception(exception) for exception in exceptions]
+        self.assertNotEqual(len(formatted_exceptions), 0, "Pipeline was expected to fail")
+        joined = "\n".join(formatted_exceptions)
+        self.assertTrue(
+            "Input payload size does not match LidarMeta point count" in joined
+            or "Internal data stream error" in joined,
+            f"Expected payload mismatch failure in pipeline errors:\n{joined}",
+        )
+
+    def test_g3dinference_missing_config_property_pipeline(self):
+        element = Gst.ElementFactory.make("g3dinference", None)
+        if element is None:
+            self.skipTest("g3dinference element not available")
+
+        if not os.path.exists(self.pc_file):
+            self.skipTest(f"Point cloud file not found: {self.pc_file}")
+
+        exceptions = self._run_pipeline(self._build_filesrc_pipeline(self.pc_file))
+
+        formatted_exceptions = [self._format_pipeline_exception(exception) for exception in exceptions]
+        self.assertNotEqual(len(formatted_exceptions), 0, "Pipeline was expected to fail")
+        joined = "\n".join(formatted_exceptions)
+        self.assertTrue(
+            "Property 'config' is required" in joined or "Pipeline failed to start" in joined,
+            f"Expected missing-config failure in pipeline errors:\n{joined}",
+        )
 
 
 if __name__ == "__main__":

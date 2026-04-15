@@ -113,6 +113,9 @@ class PointPillarsRuntime {
     }
 
     std::vector<float> infer(const float *points, size_t point_count, float score_threshold) {
+        if (point_count == 0)
+            return {};
+
         ov::Tensor points_tensor(ov::element::f32, ov::Shape{point_count, POINT_SIZE}, const_cast<float *>(points));
         _voxel_request.set_input_tensor(0, points_tensor);
         _voxel_request.infer();
@@ -434,18 +437,21 @@ static gboolean gst_g3d_inference_start(GstBaseTransform *trans) {
     GstG3DInference *filter = GST_G3D_INFERENCE(trans);
 
     if (!filter->config || !*filter->config) {
-        GST_ERROR_OBJECT(filter, "Property 'config' is required");
+        GST_ELEMENT_ERROR(filter, RESOURCE, SETTINGS, ("Property 'config' is required"), (nullptr));
         return FALSE;
     }
 
     if (g_ascii_strcasecmp(filter->model_type, DEFAULT_MODEL_TYPE) != 0) {
-        GST_ERROR_OBJECT(filter, "Unsupported model type: %s", filter->model_type);
+        GST_ELEMENT_ERROR(filter, RESOURCE, SETTINGS, ("Unsupported model type: %s", filter->model_type),
+                          (nullptr));
         return FALSE;
     }
 
     if (!is_supported_device(filter->device)) {
-        GST_ERROR_OBJECT(filter, "Unsupported device: %s. Supported values: CPU, GPU, GPU.<id>",
-                         filter->device ? filter->device : "<null>");
+        GST_ELEMENT_ERROR(filter, RESOURCE, SETTINGS,
+                          ("Unsupported device: %s. Supported values: CPU, GPU, GPU.<id>",
+                           filter->device ? filter->device : "<null>"),
+                          (nullptr));
         return FALSE;
     }
 
@@ -459,7 +465,7 @@ static gboolean gst_g3d_inference_start(GstBaseTransform *trans) {
                         filter->device ? filter->device : DEFAULT_DEVICE);
         return TRUE;
     } catch (const std::exception &e) {
-        GST_ERROR_OBJECT(filter, "Failed to initialize PointPillars runtime: %s", e.what());
+        GST_ELEMENT_ERROR(filter, LIBRARY, INIT, ("Failed to initialize PointPillars runtime"), ("%s", e.what()));
         delete get_runtime(filter);
         filter->runtime = NULL;
         filter->initialized = FALSE;
@@ -518,7 +524,7 @@ static GstFlowReturn gst_g3d_inference_transform_ip(GstBaseTransform *trans, Gst
         g_mutex_unlock(&filter->mutex);
         return GST_FLOW_OK;
     } catch (const std::exception &e) {
-        GST_ERROR_OBJECT(filter, "Failed to process LiDAR buffer: %s", e.what());
+        GST_ELEMENT_ERROR(filter, STREAM, FAILED, ("Failed to process LiDAR buffer"), ("%s", e.what()));
         g_mutex_unlock(&filter->mutex);
         return GST_FLOW_ERROR;
     }
