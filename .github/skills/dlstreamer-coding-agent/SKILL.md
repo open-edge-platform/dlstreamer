@@ -262,6 +262,12 @@ Replace `<WEEKLY_TAG>` with the actual tag discovered in Step 3 (e.g. `2026.1.0-
 
 ### Step 7 — Run, Debug and Validate Application
 
+Before running the container, verify that the required host devices are present:
+```bash
+ls /dev/dri/render* /dev/accel/accel* 2>&1
+```
+If `/dev/accel` is missing, the host has no NPU — switch the inference device to GPU for this validation run only; do not modify the README's `docker run` command, which must remain valid for all target systems.
+
 Once the environment is set up, update the instructions in the generated README.md file and verify that the application runs correctly when following them. If the user provided a natural-language description of the expected output, verify that the output matches the description (e.g. check that JSONL files have the expected fields, check that video outputs have the expected overlays, etc.).
 
 If the application is running for a long time (>1 minute), make sure there is some output in the terminal to indicate progress and avoid leaving the user wondering if the application is stuck. Switch focus to the terminal output so the user can see logs and progress.
