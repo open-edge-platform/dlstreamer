@@ -442,8 +442,7 @@ static gboolean gst_g3d_inference_start(GstBaseTransform *trans) {
     }
 
     if (g_ascii_strcasecmp(filter->model_type, DEFAULT_MODEL_TYPE) != 0) {
-        GST_ELEMENT_ERROR(filter, RESOURCE, SETTINGS, ("Unsupported model type: %s", filter->model_type),
-                          (nullptr));
+        GST_ELEMENT_ERROR(filter, RESOURCE, SETTINGS, ("Unsupported model type: %s", filter->model_type), (nullptr));
         return FALSE;
     }
 
