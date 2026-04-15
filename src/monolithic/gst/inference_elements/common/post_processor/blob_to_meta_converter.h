@@ -29,6 +29,7 @@ class BlobToMetaConverter {
 
         GstStructureUniquePtr model_proc_output_info;
         std::vector<std::string> labels;
+        bool skip_raw_tensors = false;
     };
 
   private:
@@ -38,6 +39,7 @@ class BlobToMetaConverter {
 
     GstStructureUniquePtr model_proc_output_info;
     const std::vector<std::string> labels;
+    const bool skip_raw_tensors;
 
   protected:
     const ModelImageInputInfo &getModelInputImageInfo() const {
@@ -52,6 +54,10 @@ class BlobToMetaConverter {
 
     const GstStructureUniquePtr &getModelProcOutputInfo() const {
         return model_proc_output_info;
+    }
+
+    bool shouldSkipRawTensors() const {
+        return skip_raw_tensors;
     }
 
     const std::string &getLabelByLabelId(size_t label_id) const {

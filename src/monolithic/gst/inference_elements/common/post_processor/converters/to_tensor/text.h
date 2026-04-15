@@ -24,10 +24,7 @@ class TextConverter : public BlobToTensorConverter {
     int precision = 2;
 
   public:
-    TextConverter(BlobToMetaConverter::Initializer initializer) : BlobToTensorConverter(std::move(initializer)) {
-        if (!raw_tensor_copying->enabled(RawTensorCopyingToggle::id))
-            GVA_WARNING("%s", RawTensorCopyingToggle::deprecation_message.c_str());
-
+        TextConverter(BlobToMetaConverter::Initializer initializer) : BlobToTensorConverter(std::move(initializer)) {
         GstStructure *s = getModelProcOutputInfo().get();
 
         gst_structure_get_double(s, "text_scale", &scale);

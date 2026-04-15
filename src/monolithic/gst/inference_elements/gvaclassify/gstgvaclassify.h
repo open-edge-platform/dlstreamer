@@ -22,6 +22,7 @@ typedef struct _GstGvaClassify {
     GvaBaseInference base_inference;
     // properties:
     guint reclassify_interval;
+    gboolean skip_raw_tensors;
 
     struct ClassificationHistory *classification_history;
 } GstGvaClassify;

@@ -159,6 +159,9 @@ scale-method        : Scale method to use in pre-preprocessing before inference.
 scheduling-policy   : Scheduling policy across streams sharing same model instance: throughput (select first incoming frame), latency (select frames with earliest presentation time out of the streams sharing same model-instance-id; recommended batch-size less than or equal to the number of streams)
                         flags: readable, writable
                         String. Default: "throughput"
+skip-raw-tensors    : Skip attaching raw output tensors to metadata for gvaclassify post-processing. When false, converters may attach both interpreted results and raw tensor payloads. When true, only interpreted metadata is attached.
+                        flags: readable, writable
+                        Boolean. Default: false
 share-va-display-ctx: Whether to share VA Display context across inference elements: true (share context, default), false (do not share context)
                         flags: readable, writable
                         Boolean. Default: true
