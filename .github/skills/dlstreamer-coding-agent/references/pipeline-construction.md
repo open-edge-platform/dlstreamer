@@ -1,11 +1,13 @@
 # Pipeline Construction Reference
 
-This reference covers how to build DLStreamer command line pipelines or Python applications.
+GStreamer pipeline syntax for DLStreamer video-analytics applications.
+All pipeline examples use standard GStreamer command-line syntax, applicable both to
+`gst-launch-1.0` command-line usage and to `Gst.parse_launch()` in Python applications.
 
 ## DLStreamer GStreamer Elements
 
-This section lists elements commonly used in DLStreamer pipelines. 
-For full list of DLStreamer elements see also `../../../../docs/user-guide/elements/`.
+This section lists elements commonly used in DLStreamer pipelines.
+For the full list of DLStreamer elements, see also `../../../../docs/user-guide/elements/`.
 
 ### Source Elements
 
@@ -106,32 +108,35 @@ To override auto-detection, explicitly set `device=CPU` or `device=GPU`.
 
 ### Custom Logic
 
-If a user pipeline requires custom processing, add new Python GStreamer elements in:  
+If a user pipeline requires custom processing, add new Python GStreamer elements in:
 - `plugins/python/<element_name>.py`
 
 For new development, prefer custom Python GStreamer elements in `plugins/python/` over `gvapython`.
 
 ## Common Pipeline Patterns
 
-For common use cases, go straight to file generation using predefined application templates and design patterns:
+For common use cases, go straight to file generation using predefined application templates and design patterns.
 
-| Use Case | Templates | Design Patterns | Key Model Export |
-|----------|-----------|-----------------|------------------|
-| Detection + save video + JSON | `python-app-template.py` | 1 + 11 | Ultralytics |
-| Detection + save video + JSON + display | `python-app-template.py` | 1 + 4 + 11 | Ultralytics |
-| Detection + classification/OCR + save | `python-app-template.py` + `export-models-template.py` | 1 + 11 + 12 | YOLO + PaddleOCR/optimum-cli |
-| Detection + classification/OCR + save + display | `python-app-template.py` + `export-models-template.py` | 1 + 4 + 11 + 12 | YOLO + PaddleOCR/optimum-cli |
-| VLM alerting + save | `python-app-template.py` | 1 + 9 + 11 | optimum-cli |
-| Detection + custom analytics (single output) | `python-app-template.py` | 1 + 6 + 11 | Ultralytics |
-| Detection + custom analytics + display | `python-app-template.py` | 1 + 4 + 6 + 11 | Ultralytics |
-| Detection + tracking + recording | `python-app-template.py` | 1 + 5 + 6 | Ultralytics |
-| Detection + tracking + recording + display | `python-app-template.py` | 1 + 4 + 5 + 6 + 7 | Ultralytics |
-| Detection + VLM on selected frames | `python-app-template.py` | 1 + 4 + 5 + 6 + 8 + 9 + 11 | Ultralytics + optimum-cli |
-| Custom analytics + chunked storage | `python-app-template.py` | 1 + 6 | Ultralytics |
-| Custom analytics + chunked storage + display | `python-app-template.py` | 1 + 4 + 6 + 7 | Ultralytics |
-| Multi-camera RTSP | `python-app-template.py` | 1 + 12 | (per camera) |
-| Multi-stream composite mosaic | `python-app-template.py` | 1 + 4 + 12 | (per stream) |
-| Multi-stream composite + WebRTC + recording | `python-app-template.py` | 1 + 4 + 6 + 10v + 12 | Ultralytics |
+> **Note:** Patterns 1 (Pipeline Core) and 2 (Pipeline Event Loop) are required by every application.
+> They are listed explicitly in each row below for completeness.
+
+| Use Case | Templates | Design Patterns | Key Model Export | Reference Sample |
+|----------|-----------|-----------------|------------------|------------------|
+| Detection + save video + JSON | `python-app-template.py` | 1 + 2 + 12 | Ultralytics | `detection_with_yolo` (CLI) |
+| Detection + save video + JSON + display | `python-app-template.py` | 1 + 2 + 9 + 12 | Ultralytics | `detection_with_yolo` (CLI) |
+| Detection + classification/OCR + save | `python-app-template.py` + `export-models-template.py` | 1 + 2 + 12 | YOLO + PaddleOCR/optimum-cli | `license_plate_recognition` (CLI), `face_detection_and_classification` (Python) |
+| Detection + classification/OCR + save + display | `python-app-template.py` + `export-models-template.py` | 1 + 2 + 9 + 12 | YOLO + PaddleOCR/optimum-cli | `license_plate_recognition` (CLI), `face_detection_and_classification` (Python) |
+| VLM alerting + save | `python-app-template.py` | 1 + 2 + 11 + 12 | optimum-cli | `vlm_alerts` (Python) |
+| Detection + custom analytics (single output) | `python-app-template.py` | 1 + 2 + 8 + 12 | Ultralytics | `smart_nvr` (Python) |
+| Detection + custom analytics + display | `python-app-template.py` | 1 + 2 + 8 + 9 + 12 | Ultralytics | `smart_nvr` (Python) |
+| Detection + tracking + recording | `python-app-template.py` | 1 + 2 + 7 + 8 | Ultralytics | `smart_nvr` (Python), `vehicle_pedestrian_tracking` (CLI) |
+| Detection + tracking + recording + display | `python-app-template.py` | 1 + 2 + 7 + 8 + 9 + 10 | Ultralytics | `smart_nvr` (Python), `open_close_valve` (Python) |
+| Detection + VLM on selected frames | `python-app-template.py` | 1 + 2 + 7 + 8 + 9 + 11 + 12 | Ultralytics + optimum-cli | `vlm_self_checkout` (Python) |
+| Custom analytics + chunked storage | `python-app-template.py` | 1 + 2 + 8 | Ultralytics | `smart_nvr` (Python) |
+| Custom analytics + chunked storage + display | `python-app-template.py` | 1 + 2 + 8 + 9 + 10 | Ultralytics | `smart_nvr` (Python) |
+| Multi-camera RTSP | `python-app-template.py` | 1 + 2 + 3 | (per camera) | `onvif_cameras_discovery` (Python), `multi_stream` (CLI) |
+| Multi-stream composite mosaic | `python-app-template.py` | 1 + 2 + 4 | (per stream) | `multi_stream` (CLI) |
+| Multi-stream composite + WebRTC + recording | `python-app-template.py` | 1 + 2 + 4 + 8 + 9 | Ultralytics | `multi_stream` (CLI) |
 
 ### Example: Decode → Detect → Watermark → Display
 
@@ -150,13 +155,8 @@ gvafpscounter ! gvawatermark !
 videoconvert ! webrtcsink run-signalling-server=true run-web-server=true signalling-server-port=8443
 ```
 
-> `webrtcsink` has a **built-in** signaling server and web server, but **both default to
-> `false`** — you must set `run-signalling-server=true run-web-server=true` explicitly.
-> The web viewer is at `http://localhost:8080/` (default `web-server-host-addr`).
-> The signaling WebSocket runs on `signalling-server-port` (default 8443).
-> When running in Docker, use `--network host` so both ports are reachable.
-> **Do NOT use** `signaller::address` — it is an object sub-property that cannot be set
-> via `Gst.parse_launch` or `gst-launch-1.0`.
+> See the [`webrtcsink` element entry](#encode--output) above for signaling server
+> configuration, Docker `--network host` requirement, and the `signaller::address` caveat.
 
 ### Example: Decode → Detect → Classify → Encode → Save
 
@@ -190,6 +190,21 @@ gvadetect model=model.xml device=GPU ! queue ! gvatrack !
 tee name=t
   t. ! queue ! gvawatermark ! videoconvert ! autovideosink
   t. ! queue ! <analytics_branch> ! gvametapublish file-path=results.jsonl
+```
+
+### Example: Tee + Valve with Async Sink (conditional recording)
+
+When a valve starts with `drop=true`, no buffers reach downstream sinks, blocking pipeline
+preroll indefinitely. Add `async=false` to the terminal sink in valve-gated branches:
+
+```
+filesrc location=video.mp4 ! decodebin3 !
+gvadetect model=model.xml device=GPU ! queue !
+tee name=t
+  t. ! queue ! gvawatermark ! videoconvert ! autovideosink
+  t. ! queue ! valve name=rec drop=true !
+       videoconvert ! vah264enc ! h264parse ! mp4mux fragment-duration=1000 !
+       filesink location=output.mp4 async=false
 ```
 
 ### Example: Detect → Track → Custom Python Element
@@ -318,12 +333,12 @@ Additional guidance:
 - Use `gvaclassify` for OCR models (e.g. PaddleOCR text recognition) and classification
 models. DLStreamer handles pre/post-processing automatically via model metadata —
 no model-proc files are needed (model-proc is deprecated).
-- Only fall back to a custom Python element (Pattern 5 in Design Patterns) when the model
+- Only fall back to a custom Python element (Pattern 7 in Design Patterns) when the model
 requires custom pre/post-processing that DLStreamer cannot handle automatically.
 
 ### Rule 4 — Use queue element after Inference Elements
 
-Inference elements like `gvadetect` or `gvaclassify` are asynchronous and they process output tensors in the context of OpenVINO inference engine threads. Use `queue` elements following inference elements to transfer processing to another thread. 
+Inference elements like `gvadetect` or `gvaclassify` are asynchronous and they process output tensors in the context of OpenVINO inference engine threads. Use `queue` elements after inference elements to transfer processing to another thread.
 
 ### Rule 5 — Use `gvametapublish` for JSON Output
 
@@ -336,7 +351,7 @@ gvametaconvert ! gvametapublish file-format=json-lines file-path=results.jsonl
 Do not write custom file-output logic in pad probes or custom elements when
 `gvametapublish` can handle the use case.
 
-### Rule 6 - Device Assignment Strategy for Intel Core Ultra
+### Rule 6 — Device Assignment Strategy for Intel Core Ultra
 
 When targeting Intel Core Ultra processors (which have CPU, GPU, and NPU), assign
 inference devices to balance throughput:
@@ -374,22 +389,12 @@ queue flush-on-eos=true
 ### Rule 8 — Handle Audio Tracks in Video-Only Pipelines
 
 Transport stream (`.ts`), Matroska (`.mkv`), and some MP4 files contain audio tracks.
-`decodebin3` attempts to decode **all** tracks and emits `Gst.MessageType.ERROR` if an
-audio codec plugin is unavailable. In video-only analytics pipelines, this error is
-non-fatal and should be filtered in the event loop instead of terminating the pipeline:
+`decodebin3` attempts to decode **all** tracks and emits an error if an audio codec
+plugin is unavailable. In video-only analytics pipelines, this error is non-fatal and
+should be filtered in the application event loop instead of terminating the pipeline.
 
-```python
-if msg.type == Gst.MessageType.ERROR:
-    err, debug = msg.parse_error()
-    src_name = msg.src.get_name().lower()
-    err_text = err.message.lower()
-    # Ignore missing audio decoder / demuxer errors from decodebin
-    if "missing" in err_text or "audio" in src_name:
-        print(f"Warning (non-fatal): {err.message} from {msg.src.get_name()}")
-        continue  # Do NOT terminate the pipeline
-    # Fatal video error — stop pipeline
-    raise RuntimeError(f"Pipeline error: {err.message}\nDebug: {debug}")
-```
+See [Pattern 2: Pipeline Event Loop](./design-patterns.md#pattern-2-pipeline-event-loop)
+in the Design Patterns Reference for the Python implementation of audio-error filtering.
 
 ### Rule 9 — Avoid Unnecessary Tee Splits
 
@@ -411,60 +416,3 @@ diverge in frame selection or processing rate.
 
 See [Common Gotchas](./debugging-hints.md#common-gotchas) in the Debugging Hints Reference for
 a table of known pitfalls (unplayable MP4, audio track crashes, EOS hangs, etc.) and their mitigations.
-
-## Python Pipeline Construction Approaches
-
-### Approach 1: `Gst.parse_launch` (preferred for most apps)
-
-Build the pipeline from a string that mirrors `gst-launch-1.0` syntax. Use named elements
-(`name=foo`) to retrieve references for probes or property changes later.
-
-```python
-pipeline = Gst.parse_launch(
-    f'filesrc location="{video_file}" ! decodebin3 ! '
-    f'gvadetect model="{model_file}" device=GPU batch-size=4 ! queue ! '
-    f'gvawatermark name=watermark ! videoconvertscale ! autovideosink'
-)
-# Retrieve named elements for probes
-watermark = pipeline.get_by_name("watermark")
-```
-
-Source: `samples/gstreamer/python/hello_dlstreamer/hello_dlstreamer.py`
-
-**When to use:** Any pipeline assembled from known elements. Covers 90% of use cases.
-
-### Approach 2: Programmatic element creation
-
-Create elements individually with `Gst.ElementFactory.make`, set properties, add to pipeline,
-and link manually. Required when linking must happen dynamically (e.g., `decodebin3` pad-added).
-
-```python
-pipeline = Gst.Pipeline()
-source = Gst.ElementFactory.make("filesrc", "file-source")
-decoder = Gst.ElementFactory.make("decodebin3", "media-decoder")
-detect = Gst.ElementFactory.make("gvadetect", "object-detector")
-
-source.set_property("location", video_file)
-detect.set_property("model", model_file)
-detect.set_property("device", "GPU")
-
-pipeline.add(source)
-pipeline.add(decoder)
-pipeline.add(detect)
-source.link(decoder)
-decoder.connect("pad-added",
-    lambda el, pad, sink: el.link(sink)
-        if "video" in pad.get_name() and not pad.is_linked() else None,
-    detect)
-detect.link(queue)
-```
-
-Source: `samples/gstreamer/python/hello_dlstreamer/hello_dlstreamer_full.py`
-
-**When to use:** Only when dynamic pad negotiation or runtime element insertion is needed.
-
-## Pipeline Event Loop
-
-See [Pattern 12: Pipeline Event Loop](./design-patterns.md#pattern-12-pipeline-event-loop)
-in the Design Patterns Reference for ready-to-use code for both file-based (simple) and
-long-running/RTSP (interruptible with SIGINT → EOS) variants.

@@ -74,6 +74,16 @@ def prepare_input(source: str) -> str:
                 "-H", "User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
                 source,
             ], check=True, timeout=300)
+            # Verify downloaded file is actual video (not HTML from Git LFS redirect)
+            with open(local, "rb") as f:
+                header = f.read(64)
+            if b"<html" in header.lower() or b"<!doctype" in header.lower():
+                local.unlink()
+                sys.stderr.write(
+                    f"Error: Downloaded file is HTML, not video. "
+                    f"Git LFS redirect detected for {source}. Download manually.\n"
+                )
+                sys.exit(1)
             print(f"Saved to: {local}")
         return str(local)
     if not os.path.isfile(source):
