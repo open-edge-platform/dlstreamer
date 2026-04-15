@@ -83,10 +83,9 @@ class PointPillarsRuntime {
         stream >> config_json;
 
         if (config_json.contains("voxel_params")) {
-            GST_WARNING(
-                "Config '%s' contains voxel_params, but g3dinference ignores voxel_params at runtime. "
-                "Voxelization settings must be baked into the exported PointPillars models.",
-                config_path.c_str());
+            GST_WARNING("Config '%s' contains voxel_params, but g3dinference ignores voxel_params at runtime. "
+                        "Voxelization settings must be baked into the exported PointPillars models.",
+                        config_path.c_str());
         }
 
         const std::filesystem::path config_dir = std::filesystem::path(config_path).parent_path();
@@ -339,11 +338,11 @@ static void gst_g3d_inference_class_init(GstG3DInferenceClass *klass) {
                                                         DEFAULT_MODEL_TYPE,
                                                         (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
-    g_object_class_install_property(
-        gobject_class, PROP_SCORE_THRESHOLD,
-        g_param_spec_float("score-threshold", "Score Threshold",
-                           "Drop detections below this score (0 keeps all postproc output)", 0.0, 1.0,
-                           DEFAULT_SCORE_THRESHOLD, (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+    g_object_class_install_property(gobject_class, PROP_SCORE_THRESHOLD,
+                                    g_param_spec_float("score-threshold", "Score Threshold",
+                                                       "Drop detections below this score (0 keeps all postproc output)",
+                                                       0.0, 1.0, DEFAULT_SCORE_THRESHOLD,
+                                                       (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
     gst_element_class_set_static_metadata(
         gstelement_class, "G3D Inference", "Filter/Analyzer",
