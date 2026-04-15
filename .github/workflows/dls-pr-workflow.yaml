@@ -4,29 +4,7 @@ on:
   push:
     branches:
       - 'main'
-    paths:
-      - '.github/**'
-      - 'cmake/**'
-      - 'docker/**'
-      - 'include/**'
-      - 'python/**'
-      - 'samples/**'
-      - 'scripts/**'
-      - 'src/**'
-      - 'tests/**'
-      - 'thirdparty/**'
   pull_request:
-    paths:
-      - '.github/**'
-      - 'cmake/**'
-      - 'docker/**'
-      - 'include/**'
-      - 'python/**'
-      - 'samples/**'
-      - 'scripts/**'
-      - 'src/**'
-      - 'tests/**'
-      - 'thirdparty/**'
   workflow_call:
     inputs:
       test-repo-branch:
@@ -41,6 +19,7 @@ on:
         required: false
         type: string
         default: "main"
+
 permissions: {}
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -99,15 +78,6 @@ jobs:
       - name: Clean up
         run: |
           sudo rm -rf dlstreamer-repo
-
-  # dls-static-code-analysis:
-  #   permissions:
-  #     security-events: write
-  #     actions: read
-  #     contents: read
-  #     packages: read
-  #   name: "DLS SCAN: static code analysis"
-  #   uses: dlstreamer-repo/.github/workflows/codeql.yaml
 
   dls-static-code-analysis-for-c-cpp:
     permissions:
@@ -385,12 +355,13 @@ jobs:
           paths: .
           report_suffix: dlstreamer
 
+  #---------------------------------------------------------- DOWNLOAD MODELS TESTS -------------------------------------------------------------
   dls-download-models:
     permissions:
       contents: read
     name: "DLS TEST: models download"
     uses: ./.github/workflows/dls-download-models-test.yaml
-  #--------------------------------------------------------- - OPTIMIZER -------------------------------------------------------------
+  #---------------------------------------------------------- OPTIMIZER -------------------------------------------------------------
   dls-optimizer-functional-tests:
     permissions:
       contents: read

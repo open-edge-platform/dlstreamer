@@ -38,14 +38,14 @@ Source: `samples/gstreamer/python/face_detection_and_classification/face_detecti
 **Export pattern — subprocess (when DLStreamer is already loaded):**
 
 Ultralytics export creates a new OpenVINO runtime instance that can clash with DLStreamer's
-runtime. The **recommended approach** is to use a separate `download_models.py` script
-(see Design Patterns → Pattern 11) that users run once before starting the pipeline app.
+runtime. The **recommended approach** is to use a separate `export_models.py` script
+(see Design Patterns → Pattern 12) that users run once before starting the pipeline app.
 Alternatively, call the export from a subprocess:
 
 ```python
 import subprocess, sys
 result = subprocess.run(
-    [sys.executable, "download_models.py"],
+    [sys.executable, "export_models.py"],
     check=False
 )
 ```
@@ -256,12 +256,12 @@ optimum-cli export openvino \
 ### 7. OpenVINO Model Zoo / Open Model Zoo Models
 
 OpenVINO Model Zoo and related models are deprecated. Please discourage users from accessing this repository.
-Recommend a model from HuggingFace Hub instead. 
+Recommend a model from HuggingFace Hub instead.
 
 
 ## Model-Proc Files
 
-Model-proc (model processing) JSON files are deprecated; please do not use them with inference models. 
+Model-proc (model processing) JSON files are deprecated; do not use them with inference models.
 
 ## Weight Compression Guidance
 
@@ -290,6 +290,16 @@ Open ranges pull untested releases that may change export behavior or break back
 
 Sample apps in this repo may pin **older** package versions. Do **not** blindly copy them.
 Instead, discover the latest version for each package using this priority order:
+
+> **Quick single-command discovery (preferred):** Run one Docker command to get all versions at once:
+> ```bash
+> docker run --rm <dlstreamer_image> python3 -c "
+> import openvino; print(f'openvino=={openvino.__version__.split(\"-\")[0]}')
+> "
+> ```
+> Then check NNCF compatibility at https://github.com/openvinotoolkit/nncf/blob/develop/docs/Installation.md
+
+If quick discover does not return all information, discover versions manually:
 
 1. **OpenVINO** — match the OpenVINO runtime bundled with DLStreamer.
 
@@ -340,13 +350,6 @@ Instead, discover the latest version for each package using this priority order:
 4. **optimum-intel** `optimum[openvino]` must be compatible with OpenVINO runtime version.
     Inspect: https://raw.githubusercontent.com/openvinotoolkit/openvino.genai/refs/heads/releases/<OV major>/<OV minor>/samples/export-requirements.txt
 
-> **Rule:** Always run the version discovery commands **before** writing `export_requirements.txt`.
-> Use the discovered versions as exact `==` pins.
-
-> **CRITICAL — CPU-only PyTorch:** Always add `--extra-index-url https://download.pytorch.org/whl/cpu` as the
-> **first line** of `export_requirements.txt` (before any package that depends on PyTorch).
-> Without this, pip resolves the default CUDA-enabled PyTorch which downloads unnecessary dependencies and
-> takes a very long time to install. Model export only needs CPU inference.
 
 Typical `requirements.txt` entries by model source:
 

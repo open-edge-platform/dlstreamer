@@ -45,6 +45,11 @@ The pipeline uses the following elements:
 - Intel EdgeAI System with integrated GPU/NPU (or set device arguments to `CPU`)
 - Python dependencies installed with:
 
+> **Note:** Model export and pipeline runtime use **separate virtual environments** to
+> avoid dependency conflicts. `export_requirements.txt` includes heavy ML frameworks
+> (PyTorch, Ultralytics, PaddlePaddle) needed only once for model conversion.
+> `requirements.txt` contains lightweight runtime dependencies.
+
 ```bash
 python3 -m venv .{{APP_NAME}}-venv
 source .{{APP_NAME}}-venv/bin/activate
