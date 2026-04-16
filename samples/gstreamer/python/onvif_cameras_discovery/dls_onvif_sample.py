@@ -20,9 +20,7 @@ async def main(cmd_line_params):
 
     try:
         async for _ in engine.discover_cameras_iter():
-            await asyncio.sleep(0)
-    except asyncio.CancelledError:
-        pass
+            pass
     finally:
         await engine.release_resources_async()
 

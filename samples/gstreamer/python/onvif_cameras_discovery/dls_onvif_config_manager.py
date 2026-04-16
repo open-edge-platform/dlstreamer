@@ -8,6 +8,7 @@ and configurations. It provides methods to load, save,
 and manipulate the pipeline configurations."""
 
 import json
+from typing import Optional
 
 
 class DlsOnvifConfigManager:
@@ -33,6 +34,15 @@ class DlsOnvifConfigManager:
                     raw = json.load(file)
                 self.verbose = bool(raw.pop("verbose", False))
                 self.cameras = {k: v for k, v in raw.items() if isinstance(v, dict)}
+                for cam_name, cam in self.cameras.items():
+                    try:
+                        cam["port"] = int(cam.get("port") or 80)
+                    except (ValueError, TypeError):
+                        print(
+                            f"[WARN] Invalid port '{cam.get('port')}' "
+                            f"for camera '{cam_name}', defaulting to 80"
+                        )
+                        cam["port"] = 80
         except FileNotFoundError:
             print(
                 f"Configuration file {self._config_file_path} not found. Starting "
@@ -48,15 +58,25 @@ class DlsOnvifConfigManager:
         self.cameras.clear()
         self._load_config()
 
-    def get_pipeline_definition_by_ip_port(self, ip_address: str, port: int) -> str:
+    def get_pipeline_definition_by_ip_port(
+        self, ip_address: str, port: int
+    ) -> Optional[str]:
         """Return the pipeline definition for a camera based on
         its IP address and port."""
 
         for camera in self.cameras.values():
-            print(
-                f"Checking camera: {camera.get('hostname')}:{camera.get('port')} looking for {ip_address}:{port}"
-            )
+            if self.verbose:
+                print(
+                    f"Checking camera: {camera.get('hostname')}:{camera.get('port')}"
+                    f" looking for {ip_address}:{port}",
+                    end="",
+                    flush=True,
+                )
             if camera.get("hostname") == ip_address:
                 if camera.get("port") == port:
+                    if self.verbose:
+                        print(" ... found")
                     return camera.get("definition")
+            if self.verbose:
+                print(" ... not found")
         return None

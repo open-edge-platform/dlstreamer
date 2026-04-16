@@ -14,12 +14,13 @@ Unified module providing:
 # SPDX-License-Identifier: MIT
 # ==============================================================================
 import asyncio
-import gc
 import json
 import socket
+import threading
 import time
+import uuid
 import xml.etree.ElementTree as ET
-from typing import Any, AsyncIterator, List, Optional
+from typing import Any, AsyncIterator, Iterator, List, Optional
 from urllib.parse import urlparse
 
 import gi
@@ -47,14 +48,14 @@ _MCAST_GRP = "239.255.255.250"
 _MCAST_PORT = 3702
 _SOCKET_TIMEOUT = 5
 
-_PROBE_MESSAGE = """<?xml version="1.0" encoding="UTF-8"?>
+_PROBE_TEMPLATE = """<?xml version="1.0" encoding="UTF-8"?>
 <soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope"
                xmlns:wsa="http://schemas.xmlsoap.org/ws/2004/08/addressing"
                xmlns:tns="http://schemas.xmlsoap.org/ws/2005/04/discovery"
                xmlns:dn="http://www.onvif.org/ver10/network/wsdl">
     <soap:Header>
         <wsa:Action>http://schemas.xmlsoap.org/ws/2005/04/discovery/Probe</wsa:Action>
-        <wsa:MessageID>uuid:probe-message</wsa:MessageID>
+        <wsa:MessageID>uuid:{message_id}</wsa:MessageID>
         <wsa:To>urn:schemas-xmlsoap-org:ws:2005:04:discovery</wsa:To>
     </soap:Header>
     <soap:Body>
@@ -115,7 +116,7 @@ def _parse_camera_from_xaddrs(xaddrs: str) -> Optional[dict]:
     """Extract hostname and port from an XAddrs URL string."""
     parsed = parse_xaddrs_url(xaddrs)
     if parsed["hostname"]:
-        return {"hostname": parsed["hostname"], "port": parsed["port"]}
+        return {"hostname": parsed["hostname"], "port": parsed["port"] or 80}
     return None
 
 
@@ -126,16 +127,21 @@ def _parse_camera_from_xaddrs(xaddrs: str) -> Optional[dict]:
 
 def discover_onvif_cameras(
     verbose: bool = False,
-) -> List[dict]:
-    """Find ONVIF cameras in the local network using WS-Discovery."""
+) -> Iterator[dict]:
+    """Find ONVIF cameras in the local network using WS-Discovery.
+
+    Yields each camera dict as soon as it is discovered, enabling
+    incremental processing by callers.
+    """
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     sock.settimeout(_SOCKET_TIMEOUT)
 
     try:
-        cameras = []
-        sock.sendto(_PROBE_MESSAGE.encode(), (_MCAST_GRP, _MCAST_PORT))
+        count = 0
+        probe = _PROBE_TEMPLATE.format(message_id=uuid.uuid4())
+        sock.sendto(probe.encode(), (_MCAST_GRP, _MCAST_PORT))
 
         start_time = time.time()
         while time.time() - start_time < _SOCKET_TIMEOUT:
@@ -155,16 +161,16 @@ def discover_onvif_cameras(
 
                 camera = _parse_camera_from_xaddrs(xaddrs)
                 if camera:
-                    cameras.append(camera)
+                    count += 1
                     if verbose:
                         print(json.dumps(camera))
+                    yield camera
 
             except socket.timeout:
                 break
 
         if verbose:
-            print(f"Discovery complete. Found {len(cameras)} camera(s).")
-        return cameras
+            print(f"Discovery complete. Found {count} camera(s).")
     finally:
         sock.close()
 
@@ -177,9 +183,10 @@ def discover_onvif_cameras(
 async def discover_onvif_cameras_async(verbose: bool = False) -> AsyncIterator[dict]:
     """Find ONVIF cameras in the local network using WS-Discovery, yielding each camera as found.
 
-    This is the async generator counterpart of discover_onvif_cameras(). It runs the
-    blocking socket I/O in a thread-pool executor and yields each camera dict
-    immediately upon discovery.
+    Runs the blocking socket I/O in a daemon thread and publishes each
+    discovered camera incrementally via an ``asyncio.Queue`` so that
+    the caller can start processing cameras before the full discovery
+    pass completes.
 
     Usage::
 
@@ -190,9 +197,24 @@ async def discover_onvif_cameras_async(verbose: bool = False) -> AsyncIterator[d
         dict: ``{"hostname": str, "port": int}`` for every discovered camera.
     """
     loop = asyncio.get_running_loop()
-    cameras = await loop.run_in_executor(None, lambda: discover_onvif_cameras(verbose))
-    for camera in cameras:
-        yield camera
+    queue: asyncio.Queue[dict | None] = asyncio.Queue()
+
+    def worker():
+        try:
+            for camera in discover_onvif_cameras(verbose):
+                loop.call_soon_threadsafe(queue.put_nowait, camera)
+        except Exception as exc:  # pylint: disable=broad-exception-caught
+            print(f"[ERROR] Discovery worker failed: {exc}")
+        finally:
+            loop.call_soon_threadsafe(queue.put_nowait, None)
+
+    threading.Thread(target=worker, daemon=True).start()
+
+    while True:
+        item = await queue.get()
+        if item is None:
+            break
+        yield item
 
 
 # ---------------------------------------------------------------------------
@@ -212,7 +234,6 @@ class DlsOnvifDiscoveryEngine:  # pylint: disable=too-many-instance-attributes
         self.password = None
         self.verbose: bool = False
         self.config_manager = None
-        self._pipeline_tasks: set[asyncio.Task] = set()
 
         Gst.init(None)
 
@@ -259,8 +280,6 @@ class DlsOnvifDiscoveryEngine:  # pylint: disable=too-many-instance-attributes
         self.is_discovery_running = True
 
         while self.is_discovery_running:
-            gc.collect()  # Force garbage collection at the start of each cycle
-            # to free memory from stopped pipelines
 
             self.config_manager.refresh_cameras()  # Refresh camera list from config file
 
@@ -278,7 +297,7 @@ class DlsOnvifDiscoveryEngine:  # pylint: disable=too-many-instance-attributes
                     entry = DlsOnvifCameraEntry.from_discovery_dict(
                         camera, self.username or "", self.password or ""
                     )
-                    self._create_pipelines_for_entry(entry)
+                    await self._create_pipelines_for_entry(entry)
                     self.registry.add(entry)
 
                 yield camera
@@ -304,21 +323,11 @@ class DlsOnvifDiscoveryEngine:  # pylint: disable=too-many-instance-attributes
         return [entry.raw_discovery for entry in self.registry.all_entries()]
 
     async def release_resources_async(self) -> None:
-        """Release resources and await background tasks to completion."""
+        """Release resources held by the discovery engine."""
 
         self.is_discovery_running = False
 
         stop_errors = self.registry.stop_all()
-
-        tasks = tuple(self._pipeline_tasks)
-        for task in tasks:
-            if not task.done():
-                task.cancel()
-
-        if tasks:
-            await asyncio.gather(*tasks, return_exceptions=True)
-
-        self._pipeline_tasks.clear()
 
         if stop_errors:
             raise RuntimeError("; ".join(stop_errors))
@@ -338,19 +347,6 @@ class DlsOnvifDiscoveryEngine:  # pylint: disable=too-many-instance-attributes
             "release_resources() cannot run inside an active event loop. "
             "Use: await release_resources_async()."
         )
-
-    def _on_pipeline_task_done(self, task: asyncio.Task) -> None:
-        """Drop completed pipeline start tasks and report unexpected errors."""
-        self._pipeline_tasks.discard(task)
-
-        if task.cancelled():
-            print("[DEBUG] Pipeline start task was cancelled.")
-            return
-
-        try:
-            task.result()
-        except Exception as error:  # pylint: disable=broad-exception-caught
-            print(f"[ERROR] Pipeline start task failed: {error}")
 
     def camera_profiles(
         self, client
@@ -457,7 +453,7 @@ class DlsOnvifDiscoveryEngine:  # pylint: disable=too-many-instance-attributes
                         print(f"      GOP Size: {vec.H264.GovLength}")
                 elif hasattr(vec, "MPEG4") and vec.MPEG4:
                     onvif_profile.vec_mpeg4_profile = vec.MPEG4.Mpeg4Profile
-                    onvif_profile.vec_mpeg4_gop_length = vec.MPEG4.Gov
+                    onvif_profile.vec_mpeg4_gop_length = vec.MPEG4.GovLength
                     if verbose:
                         print(f"      MPEG4 Profile: {vec.MPEG4.Mpeg4Profile}")
                         print(f"      GOP Size: {vec.MPEG4.GovLength}")
@@ -523,21 +519,21 @@ class DlsOnvifDiscoveryEngine:  # pylint: disable=too-many-instance-attributes
                 onvif_profile.rtsp_url = rtsp_uri.Uri
                 if verbose:
                     print(f"        Stream URI: {rtsp_uri.Uri}")
-            except AttributeError as e:
-                if verbose:
-                    print(f"    Stream URI: AttributeError - {e}")
-            except KeyError as e:
-                if verbose:
-                    print(f"    Stream URI: KeyError - {e}")
-            except TimeoutError as e:
-                if verbose:
-                    print(f"    Stream URI: TimeoutError - {e}")
-            except ConnectionError as e:
-                if verbose:
-                    print(f"    Stream URI: ConnectionError - {e}")
+            except (
+                AttributeError,
+                KeyError,
+                TimeoutError,
+                ConnectionError,
+            ) as e:
+                print(
+                    f"[WARN] Failed to get Stream URI for profile "
+                    f"'{profile.Name}': {type(e).__name__} - {e}"
+                )
             except Exception as e:  # pylint: disable=broad-exception-caught
-                if verbose:
-                    print(f"    Stream URI: Error - {e}")
+                print(
+                    f"[WARN] Failed to get Stream URI for profile "
+                    f"'{profile.Name}': {e}"
+                )
             if verbose:
                 print("  ----------------------- ")
 
@@ -571,13 +567,23 @@ class DlsOnvifDiscoveryEngine:  # pylint: disable=too-many-instance-attributes
         if removed_dicts:
             print_cameras("Removed cameras", removed_dicts)
 
-        gc.collect()
+    def _load_profiles_sync(self, entry: DlsOnvifCameraEntry) -> list:
+        """Connect to camera via ONVIF and retrieve media profiles (blocking)."""
+        camera_obj = ONVIFCamera(
+            entry.hostname,
+            entry.port,
+            self.username,
+            self.password,
+        )
+        return self.camera_profiles(camera_obj)
 
-    def _create_pipelines_for_entry(self, entry: DlsOnvifCameraEntry) -> None:
+    async def _create_pipelines_for_entry(self, entry: DlsOnvifCameraEntry) -> None:
         """Connect to a camera, retrieve profiles, create and start pipelines.
 
         Populates ``entry.profiles`` and ``entry.pipelines`` in-place,
         then schedules async start tasks for each pipeline.
+        The blocking ONVIF interaction is offloaded to a worker thread
+        to keep the event loop responsive.
         """
         camera_ip = entry.hostname
         camera_port = entry.port
@@ -595,14 +601,9 @@ class DlsOnvifDiscoveryEngine:  # pylint: disable=too-many-instance-attributes
 
         entry.status = CameraStatus.CONNECTING
 
-        # Connect to the camera via ONVIF to get profiles
+        # Connect to the camera via ONVIF and get profiles in a worker thread
         try:
-            camera_obj = ONVIFCamera(
-                camera_ip,
-                camera_port,
-                self.username,
-                self.password,
-            )
+            profiles = await asyncio.to_thread(self._load_profiles_sync, entry)
         except Exception as e:  # pylint: disable=broad-exception-caught
             entry.mark_error(
                 f"Failed to connect to ONVIFCamera '{camera_ip}:{camera_port}': {e}"
@@ -610,7 +611,6 @@ class DlsOnvifDiscoveryEngine:  # pylint: disable=too-many-instance-attributes
             print(f"[ERROR] {entry.error_message}")
             return
 
-        profiles = self.camera_profiles(camera_obj)
         if not profiles:
             entry.mark_error(f"No profiles found for camera '{camera_ip}'")
             print(f"[WARN] {entry.error_message}, skipping.")
@@ -668,7 +668,7 @@ class DlsOnvifDiscoveryEngine:  # pylint: disable=too-many-instance-attributes
                 )
                 continue
 
-            full_pipeline = f"rtspsrc location={rtsp_url} {pipeline_definition}"
+            full_pipeline = f'rtspsrc location="{rtsp_url}" {pipeline_definition}'
 
             pipeline = dls_disc_thread.DlsLaunchedPipeline(
                 full_pipeline,
@@ -679,13 +679,20 @@ class DlsOnvifDiscoveryEngine:  # pylint: disable=too-many-instance-attributes
 
             entry.add_pipeline(pipeline)
 
-            pipeline_task = asyncio.create_task(pipeline.start())
-            self._pipeline_tasks.add(pipeline_task)
-            pipeline_task.add_done_callback(self._on_pipeline_task_done)
+            # Start pipelines sequentially to avoid concurrent X11/GStreamer
+            # state transitions which cause heap corruption (SIGABRT) in
+            # ximagesink when multiple threads call gst_x_image_sink_xcontext_get
+            # simultaneously.
+            try:
+                await asyncio.to_thread(pipeline.start)
+            except Exception as e:  # pylint: disable=broad-exception-caught
+                print(
+                    f"[ERROR] Pipeline start failed for {camera_ip}/{profile.name}: {e}"
+                )
 
             print(f"Created pipeline [{i}]: IP={camera_ip}, Profile={profile.name}")
 
-        if entry.pipelines:
+        if entry.active_pipeline_count > 0:
             entry.mark_streaming()
         else:
             entry.mark_error(f"No streamable profiles for '{camera_ip}'")

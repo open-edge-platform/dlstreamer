@@ -166,7 +166,7 @@ class DlsOnvifCameraEntry:  # pylint: disable=too-many-instance-attributes
     ) -> DlsOnvifCameraEntry:
         """Create an entry from the raw dict returned by WS-Discovery."""
         hostname = camera.get("hostname") or camera.get("ip_address", "")
-        port = camera.get("port", 80)
+        port = camera.get("port") or 80
         return cls(
             hostname=hostname,
             port=port,

@@ -1,3 +1,5 @@
+"""Packaging setup for ONVIF cameras discovery sample."""
+
 from pathlib import Path
 
 from setuptools import setup

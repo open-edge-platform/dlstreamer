@@ -75,11 +75,23 @@ class ONVIFProfile:  # pylint: disable=too-many-instance-attributes, too-many-pu
         self._vec_quality = 0
         self._vec_rate_control = {}
         self._vec_multicast = {}
+        self.vec_framerate_limit = 0
+        self.vec_bitrate_limit = 0
+        self.vec_encoding_interval = 0
+        self.vec_h264_profile = ""
+        self.vec_h264_gop_length = 0
+        self.vec_mpeg4_profile = ""
+        self.vec_mpeg4_gop_length = 0
 
         # PTZ Configuration details
         self._ptz_name = ""
         self._ptz_token = ""
         self._ptz_node_token = ""
+
+        # Audio Source Configuration details
+        self.asc_name = ""
+        self.asc_token = ""
+        self.asc_source_token = ""
 
         # Audio Encoder Configuration details
         self._aec_name = ""

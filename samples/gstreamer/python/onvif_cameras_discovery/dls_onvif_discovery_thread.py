@@ -23,7 +23,7 @@ class DlsLaunchedPipeline:  # pylint: disable=too-many-instance-attributes
         self.ip_address: str = ""
         self._lifecycle_lock = threading.Lock()
 
-    async def start(self):
+    def start(self):
         """Start the GStreamer pipeline in a separate thread."""
 
         if not self.definition:
@@ -36,7 +36,9 @@ class DlsLaunchedPipeline:  # pylint: disable=too-many-instance-attributes
                 # loop, ensuring "infinite" operation
                 self.thread = threading.Thread(target=self.loop.run, daemon=True)
                 self.thread.start()
-                _state_change = self.pipeline.set_state(Gst.State.PLAYING)
+                state_change = self.pipeline.set_state(Gst.State.PLAYING)
+                if state_change == Gst.StateChangeReturn.FAILURE:
+                    raise RuntimeError("Pipeline failed to transition to PLAYING")
             except Exception as error:  # pylint: disable=broad-exception-caught
                 print(
                     f"[ERROR] Failed to start pipeline"
@@ -50,10 +52,11 @@ class DlsLaunchedPipeline:  # pylint: disable=too-many-instance-attributes
         if self.pipeline:
             self.pipeline.set_state(Gst.State.NULL)
 
-        self.loop.quit()
+        if self.loop is not None:
+            self.loop.quit()
         self._join_thread_or_raise("startup rollback")
 
-        self.loop = None
+        self.loop = GLib.MainLoop()
         self.pipeline = None
         self.thread = None
 
@@ -74,13 +77,14 @@ class DlsLaunchedPipeline:  # pylint: disable=too-many-instance-attributes
         with self._lifecycle_lock:
             if self.pipeline:
                 self.pipeline.set_state(Gst.State.NULL)
-                self.pipeline.get_state(Gst.CLOCK_TIME_NONE)
+                self.pipeline.get_state(5 * Gst.SECOND)
 
-            self.loop.quit()
+            if self.loop is not None:
+                self.loop.quit()
 
             self._join_thread_or_raise("stop")
 
-            if self.thread.is_alive():
+            if self.thread is not None and self.thread.is_alive():
                 print(
                     f"[WARNING] Pipeline thread for"
                     f" '{self.name}' is still alive"
@@ -89,3 +93,4 @@ class DlsLaunchedPipeline:  # pylint: disable=too-many-instance-attributes
 
             self.pipeline = None
             self.thread = None
+            self.loop = GLib.MainLoop()
