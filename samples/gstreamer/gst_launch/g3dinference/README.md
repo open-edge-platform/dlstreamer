@@ -69,6 +69,13 @@ The optional `DEVICE` argument currently supports `CPU`, `GPU`, and `GPU.<id>`.
 
 ## Asset Locations
 
+The preparation script takes the required PointPillars components from the PointPillars subtree in the `openvino_contrib` repository (`https://github.com/openvinotoolkit/openvino_contrib.git`):
+
+- sample point cloud `000002.bin`: `POINTPILLARS_ROOT/pointpillars/dataset/demo_data/test/000002.bin`
+- OpenVINO IR files `pointpillars_ov_pillar_layer.xml`, `pointpillars_ov_nn.xml`, `pointpillars_ov_postproc.xml`, and `pointpillars_ov_nn.bin`: `POINTPILLARS_ROOT/pretrained/`
+- OpenVINO extension build script: `POINTPILLARS_ROOT/ov_extensions/build.sh`
+- built extension library `libov_pointpillars_extensions.so`: `POINTPILLARS_ROOT/ov_extensions/build/`
+
 By default the script uses:
 
 - models: `MODELS_PATH` if set, otherwise `../models` next to the `dlstreamer` repo
