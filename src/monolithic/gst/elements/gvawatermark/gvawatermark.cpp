@@ -103,6 +103,11 @@ static void gst_gva_watermark_class_init(GstGvaWatermarkClass *klass) {
     g_object_class_install_property(gobject_class, PROP_DISPL_CFG,
                                     g_param_spec_string("displ-cfg", "Gvawatermark display configuration",
                                                         DISPL_CFG_DESCRIPTION, nullptr, kDefaultGParamFlags));
+
+    g_object_class_install_property(gobject_class, PROP_USE_WATERMARK_META,
+                                    g_param_spec_boolean("use-watermark-meta", "Use Watermark Metadata",
+                                                         "If true, use watermark metadata eg. watermarkDrawMeta", false,
+                                                         kDefaultGParamFlags));
 }
 
 static void gst_gva_watermark_init(GstGvaWatermark *self) {
@@ -159,6 +164,7 @@ static void gst_gva_watermark_init(GstGvaWatermark *self) {
     self->is_active_nv12 = false;
     self->device = g_strdup(DEFAULT_DEVICE);
     self->obb = false;
+    self->use_watermark_meta = false;
     self->block_probe_id = 0;
 
     self->use_watermarkimpl_only = true;
@@ -191,6 +197,10 @@ void gst_gva_watermark_set_property(GObject *object, guint property_id, const GV
         gvawatermark->displ_cfg = g_value_dup_string(value);
         g_object_set(gvawatermark->watermarkimpl, "displ-cfg", gvawatermark->displ_cfg, nullptr);
         break;
+    case PROP_USE_WATERMARK_META:
+        gvawatermark->use_watermark_meta = g_value_get_boolean(value);
+        g_object_set(gvawatermark->watermarkimpl, "use-watermark-meta", gvawatermark->use_watermark_meta, nullptr);
+        break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
         break;
@@ -214,6 +224,9 @@ void gst_gva_watermark_get_property(GObject *object, guint property_id, GValue *
         break;
     case PROP_DISPL_CFG:
         g_value_set_string(value, gvawatermark->displ_cfg);
+        break;
+    case PROP_USE_WATERMARK_META:
+        g_value_set_boolean(value, gvawatermark->use_watermark_meta);
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);

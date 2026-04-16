@@ -181,10 +181,10 @@ void RendererI420::draw_circle(std::vector<cv::Mat> &mats, render::Circle circle
     cv::Mat &u = mats[1];
     cv::Mat &v = mats[2];
 
-    cv::circle(y, circle.center, circle.radius, circle.color[0], cv::FILLED);
+    cv::circle(y, circle.center, circle.radius, circle.color[0], circle.thick);
     cv::Point2i pos_u_v(calc_point_for_u_v_planes(circle.center));
-    cv::circle(u, pos_u_v, circle.radius / 2, circle.color[1], cv::FILLED);
-    cv::circle(v, pos_u_v, circle.radius / 2, circle.color[2], cv::FILLED);
+    cv::circle(u, pos_u_v, circle.radius / 2, circle.color[1], calc_thick_for_u_v_planes(circle.thick));
+    cv::circle(v, pos_u_v, circle.radius / 2, circle.color[2], calc_thick_for_u_v_planes(circle.thick));
 }
 
 void RendererI420::draw_text(std::vector<cv::Mat> &mats, render::Text text) {
@@ -291,9 +291,10 @@ void RendererNV12::draw_circle(std::vector<cv::Mat> &mats, render::Circle circle
     cv::Mat &y = mats[0];
     cv::Mat &u_v = mats[1];
 
-    cv::circle(y, circle.center, circle.radius, circle.color[0], cv::FILLED);
+    cv::circle(y, circle.center, circle.radius, circle.color[0], circle.thick);
     cv::Point2i pos_u_v(calc_point_for_u_v_planes(circle.center));
-    cv::circle(u_v, pos_u_v, circle.radius / 2, {circle.color[1], circle.color[2]}, cv::FILLED);
+    cv::circle(u_v, pos_u_v, circle.radius / 2, {circle.color[1], circle.color[2]},
+               calc_thick_for_u_v_planes(circle.thick));
 }
 
 void RendererNV12::draw_text(std::vector<cv::Mat> &mats, render::Text text) {
@@ -422,7 +423,7 @@ void RendererBGR::blur_rectangle(std::vector<cv::Mat> &mats, render::Blur blur) 
 }
 
 void RendererBGR::draw_circle(std::vector<cv::Mat> &mats, render::Circle circle) {
-    cv::circle(mats[0], circle.center, circle.radius, circle.color, cv::FILLED);
+    cv::circle(mats[0], circle.center, circle.radius, circle.color, circle.thick);
 }
 
 void RendererBGR::draw_text(std::vector<cv::Mat> &mats, render::Text text) {
