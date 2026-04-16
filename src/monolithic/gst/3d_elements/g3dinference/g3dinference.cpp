@@ -6,6 +6,7 @@
 
 #include "g3dinference.h"
 
+#include <dlstreamer/gst/buffer_map_guard.h>
 #include <dlstreamer/gst/metadata/g3d_lidar_meta.h>
 #include <dlstreamer/gst/metadata/gva_tensor_meta.h>
 #include <nlohmann/json.hpp>
@@ -249,21 +250,6 @@ LidarMeta *get_lidar_meta(GstBuffer *buffer) {
 PointPillarsRuntime *get_runtime(GstG3DInference *filter) {
     return reinterpret_cast<PointPillarsRuntime *>(filter->runtime);
 }
-
-class GstBufferMapGuard {
-  public:
-    GstBufferMapGuard(GstBuffer *buffer, GstMapInfo *map_info) : _buffer(buffer), _map_info(map_info) {
-    }
-
-    ~GstBufferMapGuard() {
-        if (_buffer && _map_info)
-            gst_buffer_unmap(_buffer, _map_info);
-    }
-
-  private:
-    GstBuffer *_buffer;
-    GstMapInfo *_map_info;
-};
 
 GstClockTime get_exit_g3dinference_timestamp(GstG3DInference *filter) {
     if (GstClock *clock = gst_element_get_clock(GST_ELEMENT(filter))) {
