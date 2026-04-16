@@ -1,5 +1,6 @@
 # Developer Guide
 
+- [Coding Agent (Preview)](./coding_agent.md)
 - [Advanced Installation Guide](./advanced_install/advanced_install_guide_index.md)
   - [Ubuntu advanced installation - prerequisites](./advanced_install/advanced_install_guide_prerequisites.md)
   - [Advanced installation - compilation from source files](./advanced_install/advanced_install_guide_compilation.md)
@@ -70,6 +71,7 @@
 :maxdepth: 2
 :hidden:
 
+coding_agent
 advanced_install/advanced_install_guide_index
 metadata
 model_preparation

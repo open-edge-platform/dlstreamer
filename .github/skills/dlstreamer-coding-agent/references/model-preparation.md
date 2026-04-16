@@ -125,6 +125,10 @@ Source: `samples/gstreamer/python/face_detection_and_classification/face_detecti
 
 **Export via optimum-cli for ONNX → OpenVINO (two-step, when direct export fails):**
 
+> **IMPORTANT:** The `optimum-cli export onnx` command requires `onnx` and `onnxruntime`
+> packages to fix dynamic shapes in the exported model. Always include these in
+> `export_requirements.txt` when using the ONNX export path.
+
 ```python
 subprocess.run([
     "optimum-cli", "export", "onnx",
@@ -367,12 +371,14 @@ ultralytics==8.4.33
 # HuggingFace transformers + OpenVINO export
 optimum[openvino]
 huggingface_hub
+onnx               # required by optimum-cli for ONNX export and dynamic shape fixing
+onnxruntime         # required by optimum-cli for ONNX model validation
 
 # PaddlePaddle models (OCR, etc.) — paddle2onnx → ovc conversion
 paddlepaddle  # CPU-only variant (paddlepaddle-gpu is the GPU package)
 paddle2onnx
-onnx               # required by paddle2onnx for ONNX graph construction
-onnxruntime         # required by paddle2onnx for model validation
+onnx               # (already listed above — shared with optimum-cli)
+onnxruntime         # (already listed above — shared with optimum-cli)
 onnx_graphsurgeon   # required by paddle2onnx for ONNX graph optimization
 
 # Custom elements with pixel access
