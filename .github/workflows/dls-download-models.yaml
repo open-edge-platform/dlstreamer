@@ -18,11 +18,11 @@ jobs:
         run: |
           echo "## 📂 Models folder analysis" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          
+
           if [ -d "${{ env.MODELS_PATH }}" ]; then
             echo "✅ Models folder exists: ${{ env.MODELS_PATH }}" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-            
+
             # List all files in the models folder
             echo "### Files found:" >> $GITHUB_STEP_SUMMARY
             ls -lh ${{ env.MODELS_PATH }} >> $GITHUB_STEP_SUMMARY
