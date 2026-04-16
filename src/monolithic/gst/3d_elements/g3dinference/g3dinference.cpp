@@ -6,8 +6,8 @@
 
 #include "g3dinference.h"
 
-#include <dlstreamer/gst/buffer_map_guard.h>
 #include "gmutex_lock_guard.h"
+#include <dlstreamer/gst/buffer_map_guard.h>
 #include <dlstreamer/gst/metadata/g3d_lidar_meta.h>
 #include <dlstreamer/gst/metadata/gva_tensor_meta.h>
 #include <nlohmann/json.hpp>
@@ -517,11 +517,9 @@ static GstFlowReturn gst_g3d_inference_transform_ip(GstBaseTransform *trans, Gst
 static GstCaps *gst_g3d_inference_transform_caps(GstBaseTransform *trans, GstPadDirection direction, GstCaps *caps,
                                                  GstCaps *filter_caps) {
     (void)trans;
+    (void)direction;
     (void)caps;
     (void)filter_caps;
-
-    if (direction == GST_PAD_SINK)
-        return gst_caps_from_string("application/x-lidar");
 
     return gst_caps_from_string("application/x-lidar");
 }
