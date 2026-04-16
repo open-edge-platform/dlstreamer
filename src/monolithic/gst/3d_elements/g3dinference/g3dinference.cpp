@@ -7,6 +7,7 @@
 #include "g3dinference.h"
 
 #include <dlstreamer/gst/buffer_map_guard.h>
+#include "gmutex_lock_guard.h"
 #include <dlstreamer/gst/metadata/g3d_lidar_meta.h>
 #include <dlstreamer/gst/metadata/gva_tensor_meta.h>
 #include <nlohmann/json.hpp>
@@ -468,7 +469,7 @@ static gboolean gst_g3d_inference_stop(GstBaseTransform *trans) {
 
 static GstFlowReturn gst_g3d_inference_transform_ip(GstBaseTransform *trans, GstBuffer *buffer) {
     GstG3DInference *filter = GST_G3D_INFERENCE(trans);
-    g_mutex_lock(&filter->mutex);
+    GMutexLockGuard lock(&filter->mutex);
 
     try {
         if (!filter->initialized || !get_runtime(filter))
@@ -506,11 +507,9 @@ static GstFlowReturn gst_g3d_inference_transform_ip(GstBaseTransform *trans, Gst
             "Attached PointPillars tensor with %zu detections for frame_id=%zu exit_g3dinference_ts=%" GST_TIME_FORMAT,
             detections.size() / DETECTION_WIDTH, lidar_meta->frame_id,
             GST_TIME_ARGS(lidar_meta->exit_g3dinference_timestamp));
-        g_mutex_unlock(&filter->mutex);
         return GST_FLOW_OK;
     } catch (const std::exception &e) {
         GST_ELEMENT_ERROR(filter, STREAM, FAILED, ("Failed to process LiDAR buffer"), ("%s", e.what()));
-        g_mutex_unlock(&filter->mutex);
         return GST_FLOW_ERROR;
     }
 }
