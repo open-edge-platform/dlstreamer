@@ -117,7 +117,6 @@ in chat. Do NOT silently assume defaults and skip confirmation.
 ### Step 1 — Pull Docker Image (async)
 
 Start the Docker image pull in an **async terminal** immediately after Step 0 completes.
-Use the `<DOCKER_IMAGE>` selected by the user in Step 0 Section 6:
 
 **MANDATORY: Always pull the latest weekly build.** During PREVIEW, the latest weekly
 image may contain critical bug fixes not present in older images. Do NOT reuse a

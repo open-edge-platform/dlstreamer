@@ -71,39 +71,4 @@ The user can confirm or override before proceeding.
 |--------|----------|---------|
 | `Application Type` | Python application or Gstreamer command line? | `Python application` (recommended), `Gstreamer command line` |
 
-## Section 6 — Docker Image
 
-Before presenting this question, fetch the latest available Ubuntu 22 and Ubuntu 24 tags by running in a terminal:
-
-```bash
-curl -s "https://hub.docker.com/v2/repositories/intel/dlstreamer/tags/?page_size=50&ordering=last_updated" \
-  | python3 -c "
-import sys, json
-data = json.load(sys.stdin)
-u24 = u22 = None
-for t in data.get('results', []):
-    name = t['name']
-    if 'sources' in name or 'dev' in name or 'rc' in name or name == 'latest':
-        continue
-    if not u24 and 'ubuntu24' in name:
-        u24 = name
-    if not u22 and 'ubuntu22' in name:
-        u22 = name
-    if u24 and u22:
-        break
-print('UBUNTU24:', u24 or 'not found')
-print('UBUNTU22:', u22 or 'not found')
-"
-```
-
-Present only the two latest tags as options:
-
-| Header | Question | Options |
-|--------|----------|---------|
-| `Docker Image` | Which DL Streamer Docker image? | `intel/dlstreamer:<ubuntu24_tag>` (recommended), `intel/dlstreamer:<ubuntu22_tag>`, allowFreeformInput=true |
-
-> The user can also type a custom tag (e.g. a locally built image).
-> Full tag list: https://hub.docker.com/r/intel/dlstreamer/tags
-
-Store the selected image as `<DOCKER_IMAGE>` for use in all subsequent `docker pull`
-and `docker run` commands.
