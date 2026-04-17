@@ -234,7 +234,7 @@ docker run --init --rm \
     --group-add $(stat -c "%g" /dev/dri/render*) \
     --device /dev/accel \
     --group-add $(stat -c "%g" /dev/accel/accel*) \
-    <DOCKER_IMAGE> \
+    intel/dlstreamer:<WEEKLY_TAG> \
     python3 <app_name>.py
 ```
 
