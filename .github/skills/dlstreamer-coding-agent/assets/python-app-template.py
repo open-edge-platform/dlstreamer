@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: MIT
 # ==============================================================================
 """
-DLStreamer <APPLICATION_NAME> pipeline.
+DL Streamer <APPLICATION_NAME> pipeline.
 
 Pipeline:
     filesrc → decodebin3 →
@@ -46,7 +46,7 @@ DEFAULT_VIDEO_URL = "<VIDEO_URL>"
 
 
 def parse_args():
-    p = argparse.ArgumentParser(description="DLStreamer <APPLICATION_NAME>")
+    p = argparse.ArgumentParser(description="DL Streamer <APPLICATION_NAME>")
     p.add_argument(
         "--input",
         default=DEFAULT_VIDEO_URL,

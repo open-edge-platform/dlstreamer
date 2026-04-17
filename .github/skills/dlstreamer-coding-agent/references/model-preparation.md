@@ -1,8 +1,8 @@
 # Model Preparation Reference
 
-DLStreamer inference elements (`gvadetect`, `gvaclassify`, `gvagenai`) consume models in
+DL Streamer inference elements (`gvadetect`, `gvaclassify`, `gvagenai`) consume models in
 **OpenVINO IR format** (`.xml` + `.bin`). Source models come from multiple ecosystems; each has
-a different download-and-export path. In addition, DLStreamer reads pre- and post-processing
+a different download-and-export path. In addition, DL Streamer reads pre- and post-processing
 information from the ecosystem model metadata files (Ultralytics, HuggingFace and PaddlePaddle).
 
 
@@ -35,9 +35,9 @@ model_file = f"{path}/yolo11n.xml"
 
 Source: `samples/gstreamer/python/face_detection_and_classification/face_detection_and_classification.py`
 
-**Export pattern — subprocess (when DLStreamer is already loaded):**
+**Export pattern — subprocess (when DL Streamer is already loaded):**
 
-Ultralytics export creates a new OpenVINO runtime instance that can clash with DLStreamer's
+Ultralytics export creates a new OpenVINO runtime instance that can clash with DL Streamer's
 runtime. The **recommended approach** is to use a separate `export_models.py` script
 (see Design Patterns → Pattern 12) that users run once before starting the pipeline app.
 Alternatively, call the export from a subprocess:
@@ -305,7 +305,7 @@ Instead, discover the latest version for each package using this priority order:
 
 If quick discover does not return all information, discover versions manually:
 
-1. **OpenVINO** — match the OpenVINO runtime bundled with DLStreamer.
+1. **OpenVINO** — match the OpenVINO runtime bundled with DL Streamer.
 
    **Host install** (OpenVINO is installed separately under `/opt/intel/openvino_*`):
    ```bash
@@ -361,7 +361,7 @@ Typical `requirements.txt` entries by model source:
 # IMPORTANT: CPU-only PyTorch — must appear before any torch-dependent package
 --extra-index-url https://download.pytorch.org/whl/cpu
 
-# OpenVINO Python version (pin to match DLStreamer runtime — query with: python3 -c "import openvino; print(openvino.__version__)")
+# OpenVINO Python version (pin to match DL Streamer runtime — query with: python3 -c "import openvino; print(openvino.__version__)")
 openvino==2026.0.0
 nncf==3.0.0  # required for int8=True quantization (query with: pip show nncf | grep Version)
 
