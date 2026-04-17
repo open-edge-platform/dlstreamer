@@ -43,6 +43,7 @@
 #include <functional>
 #include <iterator>
 #include <regex>
+#include <cstring>
 #include <stdio.h>
 #include <thread>
 
@@ -154,6 +155,89 @@ getImagePreProcInfo(const std::map<std::string, InferenceBackend::InputLayerDesc
     }
 
     return nullptr;
+}
+
+bool need_dynamic_input_tensor(const InputImageLayerDesc::Ptr &pre_proc_info) {
+    return pre_proc_info && pre_proc_info->isAspectRatioMultipleResize();
+}
+
+std::string shape_to_string(const ov::Shape &shape) {
+    return fmt::format("[{}]", fmt::join(shape, ", "));
+}
+
+ov::Shape get_dynamic_input_shape(const Image &src_img, const InputImageLayerDesc::Ptr &pre_proc_info,
+                                  size_t batch_size) {
+    if (!pre_proc_info || !pre_proc_info->hasResizeTargetSize()) {
+        throw std::runtime_error("Dynamic input tensor creation requires resize target size");
+    }
+
+    const auto resize_target = pre_proc_info->getResizeTargetSize();
+    const auto resized_shape = InputImageLayerDesc::CalculateAspectRatioMultipleResize(
+        src_img.width, src_img.height, resize_target.first, resize_target.second, pre_proc_info->getResizeMultiple());
+
+    return {batch_size, 3, resized_shape.second, resized_shape.first};
+}
+
+ov::element::Type get_compiled_input_element_type(const ov::CompiledModel &compiled_model,
+                                                  const std::string &input_name) {
+    const auto &inputs = compiled_model.inputs();
+    for (const auto &input : inputs) {
+        if (input.get_names().count(input_name)) {
+            return input.get_element_type();
+        }
+    }
+
+    if (inputs.size() == 1) {
+        return inputs.front().get_element_type();
+    }
+
+    throw std::runtime_error("Unable to find compiled model input: " + input_name);
+}
+
+ov::Tensor create_dynamic_input_tensor(const ov::CompiledModel &compiled_model, const std::string &input_name,
+                                       const Image &src_img, const InputImageLayerDesc::Ptr &pre_proc_info,
+                                       size_t batch_size) {
+    const ov::Shape tensor_shape = get_dynamic_input_shape(src_img, pre_proc_info, batch_size);
+    const auto resize_target = pre_proc_info->getResizeTargetSize();
+
+    const ov::element::Type element_type = get_compiled_input_element_type(compiled_model, input_name);
+    GVA_DEBUG("Aspect-ratio-multiple resize for input '%s': source=%ux%u target-box=%zux%zu multiple=%zu "
+              "tensor-shape=%zux3x%zux%zu",
+              input_name.c_str(), src_img.width, src_img.height, resize_target.first, resize_target.second,
+              pre_proc_info->getResizeMultiple(), tensor_shape[0], tensor_shape[2], tensor_shape[3]);
+    return ov::Tensor(element_type, tensor_shape);
+}
+
+void validate_dynamic_input_tensor_shape(const ov::Tensor &tensor, const Image &src_img,
+                                         const InputImageLayerDesc::Ptr &pre_proc_info, size_t batch_size) {
+    const ov::Shape expected_shape = get_dynamic_input_shape(src_img, pre_proc_info, batch_size);
+    if (tensor.get_shape() != expected_shape) {
+        throw std::runtime_error(fmt::format("Aspect-ratio-multiple resize produced inconsistent shapes in one batch: "
+                                             "existing={} expected={}",
+                                             shape_to_string(tensor.get_shape()), shape_to_string(expected_shape)));
+    }
+}
+
+void duplicate_batched_tensor_slot(ov::Tensor &tensor, size_t src_index, size_t dst_index) {
+    const ov::Shape &dims = tensor.get_shape();
+    if (dims.empty()) {
+        throw std::runtime_error("Cannot duplicate batch slot for tensor with empty shape");
+    }
+    if (src_index >= dims[0] || dst_index >= dims[0]) {
+        throw std::out_of_range("Batch slot index is out of range");
+    }
+    if (src_index == dst_index) {
+        return;
+    }
+
+    size_t elements_per_item = 1;
+    for (size_t index = 1; index < dims.size(); ++index) {
+        elements_per_item = safe_mul(elements_per_item, dims[index]);
+    }
+    const size_t bytes_per_item = safe_mul(elements_per_item, tensor.get_element_type().size());
+
+    auto *data = static_cast<uint8_t *>(tensor.data());
+    std::memcpy(data + safe_mul(dst_index, bytes_per_item), data + safe_mul(src_index, bytes_per_item), bytes_per_item);
 }
 
 void print_input_and_outputs_info(const ov::Model &network) {
@@ -1313,7 +1397,17 @@ void OpenVINOImageInference::SubmitImageProcessing(const std::string &input_name
 
     // FIXME: single input
     if (request->in_tensors.front().empty()) {
-        request->in_tensors.front().push_back(request->infer_request_new.get_tensor(input_name));
+        if (need_dynamic_input_tensor(pre_proc_info)) {
+            request->in_tensors.front().push_back(
+                create_dynamic_input_tensor(_impl->_compiled_model, input_name, src_img, pre_proc_info,
+                                            safe_convert<size_t>(batch_size)));
+            request->infer_request_new.set_tensor(input_name, request->in_tensors.front().front());
+        } else {
+            request->in_tensors.front().push_back(request->infer_request_new.get_tensor(input_name));
+        }
+    } else if (need_dynamic_input_tensor(pre_proc_info)) {
+        validate_dynamic_input_tensor_shape(request->in_tensors.front().front(), src_img, pre_proc_info,
+                                            safe_convert<size_t>(batch_size));
     }
     const size_t batch_index = request->buffers.size();
     Image dst_img = map_ov_tensor_to_img(request->in_tensors.front().front(), batch_index);
@@ -1524,14 +1618,28 @@ void OpenVINOImageInference::Flush() {
         if (request->buffers.size() > 0) {
             try {
                 // WA: Fill non-complete batch with last element. Can be removed once supported in OV
-                if (batch_size > 1 && !DoNeedImagePreProcessing(nullptr)) {
-                    size_t input_idx = 0;
-                    for (auto &input_vec : request->in_tensors) {
-                        for (int i = input_vec.size(); i < batch_size; i++)
-                            input_vec.push_back(input_vec.back());
-                        // FIXME: move?
-                        request->infer_request_new.set_input_tensors(input_idx, input_vec);
-                        input_idx++;
+                if (batch_size > 1) {
+                    if (DoNeedImagePreProcessing(nullptr)) {
+                        if (!request->in_tensors.empty() && !request->in_tensors.front().empty()) {
+                            ov::Tensor &input_tensor = request->in_tensors.front().front();
+                            const size_t filled_batch = request->buffers.size();
+                            if (filled_batch < safe_convert<size_t>(batch_size) && input_tensor.get_shape().size() >= 1 &&
+                                input_tensor.get_shape()[0] == safe_convert<size_t>(batch_size)) {
+                                for (size_t batch_index = filled_batch; batch_index < safe_convert<size_t>(batch_size);
+                                     ++batch_index) {
+                                    duplicate_batched_tensor_slot(input_tensor, filled_batch - 1, batch_index);
+                                }
+                            }
+                        }
+                    } else {
+                        size_t input_idx = 0;
+                        for (auto &input_vec : request->in_tensors) {
+                            for (int i = input_vec.size(); i < batch_size; i++)
+                                input_vec.push_back(input_vec.back());
+                            // FIXME: move?
+                            request->infer_request_new.set_input_tensors(input_idx, input_vec);
+                            input_idx++;
+                        }
                     }
                 }
 

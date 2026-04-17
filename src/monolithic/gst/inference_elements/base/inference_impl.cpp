@@ -254,9 +254,9 @@ bool IsModelProcSupportedForIE(const std::vector<ModelInputProcessorInfo::Ptr> &
         if (!it || it->format != "image")
             continue;
         auto input_desc = PreProcParamsParser(it->params).parse();
-        if (input_desc &&
-            (input_desc->doNeedDistribNormalization() || input_desc->doNeedCrop() || input_desc->doNeedPadding() ||
-             input_desc->doNeedColorSpaceConversion(static_cast<int>(format))))
+        if (input_desc && (input_desc->isAspectRatioMultipleResize() || input_desc->doNeedDistribNormalization() ||
+                           input_desc->doNeedCrop() || input_desc->doNeedPadding() ||
+                           input_desc->doNeedColorSpaceConversion(static_cast<int>(format))))
             return false;
     }
     return true;
@@ -271,9 +271,21 @@ bool IsModelProcSupportedForVaapi(const std::vector<ModelInputProcessorInfo::Ptr
         auto input_desc = PreProcParamsParser(it->params).parse();
         // In these cases we need to switch to opencv preproc
         // VAAPI converts color to RGBP by default (?)
-        if (input_desc && ((input_desc->getTargetColorSpace() != PreProcColorSpace::BGR &&
+        if (input_desc && (input_desc->isAspectRatioMultipleResize() ||
+                           (input_desc->getTargetColorSpace() != PreProcColorSpace::BGR &&
                             input_desc->getTargetColorSpace() != PreProcColorSpace::RGB &&
                             input_desc->doNeedColorSpaceConversion(static_cast<int>(format)))))
+            return false;
+    }
+    return true;
+}
+
+bool IsModelProcSupportedForD3D11(const std::vector<ModelInputProcessorInfo::Ptr> &model_input_processor_info) {
+    for (const auto &it : model_input_processor_info) {
+        if (!it || it->format != "image")
+            continue;
+        auto input_desc = PreProcParamsParser(it->params).parse();
+        if (input_desc && input_desc->isAspectRatioMultipleResize())
             return false;
     }
     return true;
@@ -305,8 +317,9 @@ bool IsPreprocSupported(ImagePreprocessorType preproc,
         return !isNpu && !isCustomLib &&
                IsModelProcSupportedForVaapiSurfaceSharing(model_input_processor_info, input_video_info);
     case ImagePreprocessorType::OPENCV:
-    case ImagePreprocessorType::D3D11:
         return true;
+    case ImagePreprocessorType::D3D11:
+        return !isCustomLib && IsModelProcSupportedForD3D11(model_input_processor_info);
     case ImagePreprocessorType::AUTO:
     default:
         return false;
@@ -493,7 +506,8 @@ void UpdateConfigWithLayerInfo(const std::vector<ModelInputProcessorInfo::Ptr> &
 
         // Set image resize parameters
         const GValue *garray = gst_structure_get_value(it->params, "reshape_size");
-        if (garray && gst_value_array_get_size(garray) == 2) {
+        if (garray && gst_value_array_get_size(garray) == 2 &&
+            !(input_desc && input_desc->isAspectRatioMultipleResize())) {
             const GValue *height = gst_value_array_get_value(garray, 0);
             const GValue *width = gst_value_array_get_value(garray, 1);
 

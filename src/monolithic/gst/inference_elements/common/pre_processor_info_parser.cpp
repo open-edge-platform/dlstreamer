@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2020-2025 Intel Corporation
+ * Copyright (C) 2020-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -12,6 +12,7 @@
 #include <map>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace {
@@ -49,9 +50,12 @@ InferenceBackend::InputImageLayerDesc::Ptr PreProcParamsParser::parse() const {
     const auto distrib_norm = getDistribNormalization();
 
     const auto padding = getPadding();
+    const auto resize_target_size = getResizeTargetSize();
+    const auto resize_multiple = getResizeMultiple();
 
     return std::make_shared<InferenceBackend::InputImageLayerDesc>(
-        InferenceBackend::InputImageLayerDesc(resize, crop, color_space, range_norm, distrib_norm, padding));
+        InferenceBackend::InputImageLayerDesc(resize, crop, color_space, range_norm, distrib_norm, padding,
+                                              resize_target_size.first, resize_target_size.second, resize_multiple));
 }
 
 PreProcResize PreProcParamsParser::getResize() const {
@@ -69,6 +73,8 @@ PreProcResize PreProcParamsParser::getResize() const {
             resize_val = PreProcResize::NO_ASPECT_RATIO;
         } else if (resize_type == "aspect-ratio-pad") {
             resize_val = PreProcResize::ASPECT_RATIO_PAD;
+        } else if (resize_type == "aspect-ratio-multiple") {
+            resize_val = PreProcResize::ASPECT_RATIO_MULTIPLE;
         } else {
             throw std::runtime_error(std::string("Invalid type of resize: ") + resize_type);
         }
@@ -232,4 +238,31 @@ PreProcPadding PreProcParamsParser::getPadding() const {
     }
 
     return PreProcPadding{};
+}
+
+std::pair<size_t, size_t> PreProcParamsParser::getResizeTargetSize() const {
+    const GValue *garray = gst_structure_get_value(params, "reshape_size");
+    if (!garray || gst_value_array_get_size(garray) != 2) {
+        return {0, 0};
+    }
+
+    const GValue *height = gst_value_array_get_value(garray, 0);
+    const GValue *width = gst_value_array_get_value(garray, 1);
+    if (!height || !width) {
+        throw std::runtime_error("Invalid reshape_size array in model-proc");
+    }
+
+    return {safe_convert<size_t>(g_value_get_int(width)), safe_convert<size_t>(g_value_get_int(height))};
+}
+
+size_t PreProcParamsParser::getResizeMultiple() const {
+    int resize_multiple = 1;
+    if (gst_structure_get_int(params, "resize-multiple", &resize_multiple)) {
+        if (resize_multiple <= 0) {
+            throw std::runtime_error("resize-multiple must be greater than zero");
+        }
+        return safe_convert<size_t>(resize_multiple);
+    }
+
+    return 1;
 }

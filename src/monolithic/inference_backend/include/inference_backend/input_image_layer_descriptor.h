@@ -9,7 +9,10 @@
 #include "image.h"
 #include "safe_arithmetic.hpp"
 
+#include <cmath>
 #include <memory>
+#include <stdexcept>
+#include <utility>
 #include <vector>
 
 namespace InferenceBackend {
@@ -17,7 +20,7 @@ class InputImageLayerDesc {
   public:
     using Ptr = std::shared_ptr<InputImageLayerDesc>;
 
-    enum class Resize { NO, NO_ASPECT_RATIO, ASPECT_RATIO, ASPECT_RATIO_PAD };
+        enum class Resize { NO, NO_ASPECT_RATIO, ASPECT_RATIO, ASPECT_RATIO_PAD, ASPECT_RATIO_MULTIPLE };
     enum class Crop { NO, CENTRAL, CENTRAL_RESIZE, TOP_LEFT, TOP_RIGHT, BOTTOM_LEFT, BOTTOM_RIGHT };
     enum class ColorSpace { NO, RGB, BGR, YUV, GRAYSCALE };
 
@@ -122,6 +125,12 @@ class InputImageLayerDesc {
         : resize(resize), crop(crop), color_space(color_space), range_norm(range_norm), distrib_norm(distrib_norm),
           padding(padding) {
     }
+        InputImageLayerDesc(Resize resize, Crop crop, ColorSpace color_space, const RangeNormalization &range_norm,
+                                                const DistribNormalization &distrib_norm, const Padding &padding, size_t resize_width,
+                                                size_t resize_height, size_t resize_multiple = 1)
+                : resize(resize), crop(crop), color_space(color_space), range_norm(range_norm), distrib_norm(distrib_norm),
+                    padding(padding), resize_width(resize_width), resize_height(resize_height), resize_multiple(resize_multiple) {
+        }
 
     bool isTransformationToBlobSizeDefined() const {
         if (resize != Resize::NO or crop != Crop::NO)
@@ -139,6 +148,18 @@ class InputImageLayerDesc {
     }
     Resize getResizeType() const {
         return resize;
+    }
+    bool isAspectRatioMultipleResize() const {
+        return resize == Resize::ASPECT_RATIO_MULTIPLE;
+    }
+    bool hasResizeTargetSize() const {
+        return resize_width != 0 && resize_height != 0;
+    }
+    std::pair<size_t, size_t> getResizeTargetSize() const {
+        return {resize_width, resize_height};
+    }
+    size_t getResizeMultiple() const {
+        return resize_multiple;
     }
     bool doNeedCrop() const {
         if (crop == Crop::NO or resize == Resize::NO_ASPECT_RATIO)
@@ -186,6 +207,31 @@ class InputImageLayerDesc {
         return padding;
     }
 
+    static std::pair<size_t, size_t> CalculateAspectRatioMultipleResize(size_t input_width, size_t input_height,
+                                                                        size_t target_width, size_t target_height,
+                                                                        size_t multiple) {
+        if (!input_width || !input_height || !target_width || !target_height) {
+            throw std::invalid_argument("Aspect-ratio-multiple resize requires non-zero input and target sizes");
+        }
+        if (!multiple) {
+            throw std::invalid_argument("Aspect-ratio-multiple resize requires non-zero multiple");
+        }
+
+        double scale_height = static_cast<double>(target_height) / static_cast<double>(input_height);
+        double scale_width = static_cast<double>(target_width) / static_cast<double>(input_width);
+
+        if (std::abs(1.0 - scale_width) < std::abs(1.0 - scale_height)) {
+            scale_height = scale_width;
+        } else {
+            scale_width = scale_height;
+        }
+
+        const size_t resized_height = constrainToMultiple(scale_height * static_cast<double>(input_height), multiple);
+        const size_t resized_width = constrainToMultiple(scale_width * static_cast<double>(input_width), multiple);
+
+        return {resized_width, resized_height};
+    }
+
   private:
     Resize resize;
     const Crop crop;
@@ -193,6 +239,18 @@ class InputImageLayerDesc {
     const RangeNormalization range_norm;
     const DistribNormalization distrib_norm;
     const Padding padding;
+    const size_t resize_width = 0;
+    const size_t resize_height = 0;
+    const size_t resize_multiple = 1;
+
+    static size_t constrainToMultiple(double value, size_t multiple) {
+        long long constrained = static_cast<long long>(std::llround(value / static_cast<double>(multiple))) *
+                                static_cast<long long>(multiple);
+        if (constrained <= 0 && value > 0.0) {
+            constrained = static_cast<long long>(multiple);
+        }
+        return safe_convert<size_t>(constrained);
+    }
 
     void setDefaultToBlobSizeTransformationIsItNeed() {
         if (isDefined() and not isTransformationToBlobSizeDefined()) {
