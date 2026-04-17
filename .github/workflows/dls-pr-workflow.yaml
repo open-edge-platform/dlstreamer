@@ -421,12 +421,12 @@ jobs:
     steps:
       - name: Report models download status
         env:
-          dls-download-models-result: ${{ needs.dls-download-models.result }}
+          dls_download_models_result: ${{ needs.dls-download-models.result }}
         run: |
-          if [ "${dls-download-models-result}" == "success" ]; then
+          if [ "${dls_download_models_result}" == "success" ]; then
             echo "✅ Models download completed successfully!"
           else
-            echo "❌ Models download failed with status: ${dls-download-models-result}"
+            echo "❌ Models download failed with status: ${dls_download_models_result}"
             exit 1
           fi
 
@@ -438,12 +438,12 @@ jobs:
     steps:
       - name: Report optimizer tests status
         env:
-          dls-optimizer-functional-tests-result: ${{ needs.dls-optimizer-functional-tests.result }}
+          dls_optimizer_functional_tests_result: ${{ needs.dls-optimizer-functional-tests.result }}
         run: |
-          if [ "${dls-optimizer-functional-tests-result}" == "success" ]; then
+          if [ "${dls_optimizer_functional_tests_result}" == "success" ]; then
             echo "✅ Optimizer tests completed successfully!"
           else
-            echo "❌ Optimizer tests failed with status: ${dls-optimizer-functional-tests-result}"
+            echo "❌ Optimizer tests failed with status: ${dls_optimizer_functional_tests_result}"
             exit 1
           fi
 
@@ -455,12 +455,12 @@ jobs:
     steps:
       - name: Report Fedora build status
         env:
-          dls-build-fedora-img-result: ${{ needs.dls-build-fedora-img.result }}
+          dls_build_fedora_img_result: ${{ needs.dls-build-fedora-img.result }}
         run: |
-          if [ "${dls-build-fedora-img-result}" == "success" ]; then
+          if [ "${dls_build_fedora_img_result}" == "success" ]; then
             echo "✅ Fedora build completed successfully!"
           else
-            echo "❌ Fedora build failed with status: ${dls-build-fedora-img-result}"
+            echo "❌ Fedora build failed with status: ${dls_build_fedora_img_result}"
             exit 1
           fi
 
@@ -472,12 +472,12 @@ jobs:
     steps:
       - name: Report make build status
         env:
-          dls-build-sources-make-build-result: ${{ needs.dls-build-sources-make-build.result }}
+          dls_build_sources_make_build_result: ${{ needs.dls-build-sources-make-build.result }}
         run: |
-          if [ "${dls-build-sources-make-build-result}" == "success" ]; then
+          if [ "${dls_build_sources_make_build_result}" == "success" ]; then
             echo "✅ Make build completed successfully!"
           else
-            echo "❌ Make build failed with status: ${dls-build-sources-make-build-result}"
+            echo "❌ Make build failed with status: ${dls_build_sources_make_build_result}"
             exit 1
           fi
 
@@ -489,12 +489,12 @@ jobs:
     steps:
       - name: Report dev images & unit tests status
         env:
-          dls-build-dev-images-and-run-unit-tests-result: ${{ needs.dls-build-dev-images-and-run-unit-tests.result }}
+          dls_build_dev_images_and_run_unit_tests_result: ${{ needs.dls-build-dev-images-and-run-unit-tests.result }}
         run: |
-          if [ "${dls-build-dev-images-and-run-unit-tests-result}" == "success" ]; then
+          if [ "${dls_build_dev_images_and_run_unit_tests_result}" == "success" ]; then
             echo "✅ Dev images & unit tests completed successfully!"
           else
-            echo "❌ Dev images & unit tests failed with status: ${dls-build-dev-images-and-run-unit-tests-result}"
+            echo "❌ Dev images & unit tests failed with status: ${dls_build_dev_images_and_run_unit_tests_result}"
             exit 1
           fi
 
@@ -506,12 +506,12 @@ jobs:
     steps:
       - name: Report DEB build status
         env:
-          dls-build-and-test-deb-and-deb_img-result: ${{ needs.dls-build-and-test-deb-and-deb_img.result }}
+          dls_build_and_test_deb_and_deb_img_result: ${{ needs.dls-build-and-test-deb-and-deb_img.result }}
         run: |
-          if [ "${dls-build-and-test-deb-and-deb_img-result}" == "success" ]; then
+          if [ "${dls_build_and_test_deb_and_deb_img_result}" == "success" ]; then
             echo "✅ DEB build & test completed successfully!"
           else
-            echo "❌ DEB build & test failed with status: ${dls-build-and-test-deb-and-deb_img-result}"
+            echo "❌ DEB build & test failed with status: ${dls_build_and_test_deb_and_deb_img_result}"
             exit 1
           fi
 
@@ -523,11 +523,11 @@ jobs:
     steps:
       - name: Report Windows build status
         env:
-          dls-build-and-test-windows-result: ${{ needs.dls-build-and-test-windows.result }}
+          dls_build_and_test_windows_result: ${{ needs.dls-build-and-test-windows.result }}
         run: |
-          if [ "${dls-build-and-test-windows-result}" == "success" ]; then
+          if [ "${dls_build_and_test_windows_result}" == "success" ]; then
             echo "✅ Windows build completed successfully!"
           else
-            echo "❌ Windows build failed with status: ${dls-build-and-test-windows-result}"
+            echo "❌ Windows build failed with status: ${dls_build_and_test_windows_result}"
             exit 1
           fi
