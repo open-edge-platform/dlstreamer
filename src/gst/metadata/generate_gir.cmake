@@ -99,12 +99,19 @@ else()
     )
 endif()
 
-# Compile GIR to typelib
+# Compile GIR to typelib.
+# On Windows, override the shared-library name to dlstreamer_gst_meta.dll.
+set(TYPELIB_SHARED_LIB_ARGS)
+if(WIN32)
+    set(TYPELIB_SHARED_LIB_ARGS --shared-library=dlstreamer_gst_meta.dll)
+endif()
+
 add_custom_command(
     OUTPUT ${TYPELIB_OUTPUT}
     COMMAND ${G_IR_COMPILER}
         --output=${TYPELIB_OUTPUT}
         --includedir=${GSTREAMER_GIRDIR}
+        ${TYPELIB_SHARED_LIB_ARGS}
         ${GIR_OUTPUT}
     DEPENDS ${GIR_OUTPUT}
     COMMENT "Compiling GIR to typelib"
