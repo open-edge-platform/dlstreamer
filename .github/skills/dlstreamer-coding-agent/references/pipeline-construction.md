@@ -34,7 +34,13 @@ For the full list of DL Streamer elements, see also `../../../../docs/user-guide
 | `videorate` | Frame rate adjustment | |
 | `vapostproc` | VA-API hardware post-processing | Use before `video/x-raw(memory:VAMemory)` caps |
 
-### AI Inference (DL Streamer-specific)
+> **⚠ `vapostproc` metadata warning:** `vapostproc` does not preserve **GstAnalytics** metadata
+> (bounding boxes, tracking IDs, classification results). Do not place `vapostproc` between
+> elements that produce analytics metadata and elements that read it. On low-throughput branches
+> (e.g. dynamic frame selection for VLM), use `videoconvertscale` instead — the CPU copy cost
+> is negligible when only a few frames per second are processed.
+
+### AI Inference (DLStreamer-specific)
 
 | Element | Purpose | Model Types | Key Properties |
 |---------|---------|-------------|----------------|
@@ -57,10 +63,11 @@ For the full list of DL Streamer elements, see also `../../../../docs/user-guide
 | `gvawatermark` | Draw bounding boxes and labels on video | `device=...`, `displ-cfg=...` |
 | `gvafpscounter` | Print FPS to stdout | (no key properties) |
 
-`gvawatermark` auto-detects the rendering device based on negotiated memory caps.
-When VAMemory caps are negotiated, it renders on the GPU.
-When system memory caps are negotiated, it renders on the CPU.
-To override auto-detection, explicitly set `device=CPU` or `device=GPU`.
+
+> **Always use `gvawatermark` for overlays — including custom annotations.**
+> `gvawatermark` renders **all** `ODMtd` entries from GstAnalytics metadata.
+> Add custom text labels as zero-area boxes:
+> `rmeta.add_od_mtd(GLib.quark_from_string("label"), x, y, 0, 0, confidence)`.
 
 ### Metadata Publishing
 
@@ -170,18 +177,6 @@ videoconvert ! vah264enc ! h264parse ! mp4mux !
 filesink location=output.mp4
 ```
 
-### Example: VLM Alerting with JSON + Video Output
-
-```
-filesrc location=video.mp4 ! decodebin3 !
-gvagenai model-path=model_dir device=GPU prompt-path=prompt.txt
-    generation-config="max_new_tokens=1,num_beams=4"
-    chunk-size=1 frame-rate=1.0 metrics=true !
-gvametapublish file-format=json-lines file-path=results.jsonl ! queue !
-gvafpscounter ! gvawatermark name=watermark ! videoconvert !
-vah264enc ! h264parse ! mp4mux ! filesink location=output.mp4
-```
-
 ### Example: Tee → Dual-Branch (display + analytics)
 
 ```
@@ -274,7 +269,23 @@ queue ! comp.sink_1
   using shared `model-instance-id` with a compositor. Processes frames round-robin without
   waiting to fill a batch, preventing deadlocks.
 
-### Example: Detect + VLM (multi-branch with frame selection)
+### Example: Continous VLM Analysis with JSON + Video Output
+
+```
+filesrc location=video.mp4 ! decodebin3 !
+gvagenai model-path=model_dir device=GPU prompt-path=prompt.txt
+    generation-config="max_new_tokens=1,num_beams=4"
+    chunk-size=1 frame-rate=1.0 metrics=true !
+gvametapublish file-format=json-lines file-path=results.jsonl ! queue !
+gvafpscounter ! gvawatermark name=watermark ! videoconvert !
+vah264enc ! h264parse ! mp4mux ! filesink location=output.mp4
+```
+
+### Example: Detect + VLM with dynamic prompt and/or dynamic frame selection
+
+Use a custom Python element (`gvaframeselection_py`) to select frames for VLM processing.
+Set `chunk-size=1` and do not set `frame-rate` on the `gvagenai` element.
+This way `gvagenai` processes every frame selected by the custom logic.
 
 ```
 filesrc location=video.mp4 ! decodebin3 !
@@ -287,15 +298,27 @@ tee name=detect_tee
   gvawatermark name=watermark ! gvafpscounter !
   vah264enc ! h264parse ! mp4mux ! filesink location=output.mp4
 
-  detect_tee. ! queue !
-  gvaframeselection_py name=selection threshold=1500 !
-  vapostproc ! video/x-raw,format=NV12,width=640,height=360 !
+  detect_tee. ! queue leaky=downstream !
+  gvaframeselection_py !
+  videoconvertscale ! video/x-raw,width={width},height={height} !
   gvagenai name=vlm model-path=vlm_dir device=GPU
-      prompt="Describe items" generation-config="max_new_tokens=50"
+      prompt="Say OK." generation-config="max_new_tokens=2"
       chunk-size=1 metrics=true !
   gvametapublish file-format=json-lines file-path=results.jsonl !
+  gvawatermark device=CPU !
   jpegenc ! multifilesink location=snapshots-%d.jpeg
 ```
+
+**VLM branch design notes:**
+- **Leaky queue:** prevents the slow VLM branch from back-pressuring the real-time video output.
+- **`videoconvertscale` is optional** — only to reduce VLM processing time when frame-level features
+  are analyzed. Omit scaling when preserving the original frame resolution matters for analysis.
+- **Preroll prompt:** initialize with a trivial prompt (`"Say OK."`) and update it
+  programmatically after the pipeline enters PLAYING state.
+- **Tracker fragmentation and redundant VLM queries:** With `zero-term-imageless` tracking,
+  the same object may receive multiple tracking IDs over time, re-triggering the frame-selection
+  threshold and causing duplicate VLM queries. As an alternative, use `tracking-type=zero-term`
+  or `deep-sort` for more stable tracking IDs at higher compute cost.
 
 ## Pipeline Design Rules
 

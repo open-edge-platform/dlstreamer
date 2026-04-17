@@ -116,17 +116,22 @@ questions to the user for clarification before proceeding.
 Start the Docker image pull in an **async terminal** immediately after Step 0 completes.
 Use the `<DOCKER_IMAGE>` selected by the user in Step 0 Section 6:
 
+**MANDATORY: Always pull the latest weekly build.** During PREVIEW, the latest weekly
+image may contain critical bug fixes not present in older images. Do NOT reuse a
+locally cached image without pulling first.
+
 ```bash
-# Run in async mode — do NOT wait for completion
-docker pull <DOCKER_IMAGE>
+WEEKLY_TAG=$(curl -s "https://hub.docker.com/v2/repositories/intel/dlstreamer/tags?name=weekly-ubuntu24&page_size=25&ordering=-last_updated" \
+    | python3 -c "import sys,json; print(sorted([r['name'] for r in json.load(sys.stdin)['results']])[-1])")
+echo "Latest weekly tag: $WEEKLY_TAG"
+docker pull "intel/dlstreamer:${WEEKLY_TAG}"
 ```
 
-If no Docker image was selected (user has a native DL Streamer install), skip this step and verify:
-```bash
-gst-inspect-1.0 gvadetect 2>&1 | grep Version
-```
+If Docker is unavailable, verify a native install: `gst-inspect-1.0 gvadetect 2>&1 | grep Version`.
+If neither exists, follow the [Install Guide](../../../docs/user-guide/get_started/install/install_guide_ubuntu.md#option-2-install-docker-image-from-docker-hub-and-run-it).
 
-> **Proceed immediately** to Step 2 while the pull runs in the background.
+**Workflow:** develop locally, export models in a Python venv, download video files,
+then run the app inside the DLStreamer container with your directory mounted.
 
 ### Step 2 — Prepare Models (async)
 
@@ -217,11 +222,11 @@ Generate all application files following the directory layout defined at the beg
 
 ### Step 5 — Run, Debug and Validate
 
-**Running in Docker (preferred during PREVIEW):**
-Mount the working directory, device drivers, and set correct group permissions:
+**Run in Docker (preferred, especially during PREVIEW):**
 ```bash
-docker run --init -it --rm \
+docker run --init --rm \
     -u "$(id -u):$(id -g)" \
+    -e PYTHONUNBUFFERED=1 \
     -v "$(pwd)":/app -w /app \
     --device /dev/dri \
     --group-add $(stat -c "%g" /dev/dri/render*) \
@@ -230,24 +235,24 @@ docker run --init -it --rm \
     <DOCKER_IMAGE> \
     python3 <app_name>.py
 ```
-Replace `<DOCKER_IMAGE>` with the image selected in Step 0 Section 6. Omit
-`--device /dev/accel` and its `--group-add` when NPU is not available on the host.
-Pre-create writable output directories (`videos/`, `results/`, `models/`) if needed.
+
+> **Autonomous execution — never wait for user confirmation.**
+> Launch in async mode, poll `get_terminal_output` every 15–30s until completion.
+> Only ask the user when a **decision** is needed (e.g. device change after OOM).
+> This applies to all long-running commands: `docker run`, `docker pull`, `pip install`, model export.
+>
+> **Completion detection:** When the terminal returns an exit code (visible in the
+> terminal header or via `get_terminal_output`), the command has **finished** — do NOT
+> continue polling or display "awaiting input". Proceed to next step.
 
 **Running locally (native DL Streamer install):**
 ```bash
 python3 -m venv .<app_name>-venv && source .<app_name>-venv/bin/activate
 pip install -r requirements.txt
-python3 <app_name>.py  # or bash <app_name>.sh
+python3 <app_name>.py
 ```
 
-**Validate:**
-Once the environment is set up, update the instructions in the generated README.md file and verify that the application runs correctly when following them. If the user provided a natural-language description of the expected output, verify that the output matches the description (e.g. check that JSONL files have the expected fields, check that video outputs have the expected overlays, etc.).
-
-If the application is running for a long time (>1 minute), make sure there is some output in the terminal to indicate progress and avoid leaving the user wondering if the application is stuck. Switch focus to the terminal output so the user can see logs and progress.
-If the application has a continuous input stream (RTSP camera source) or large input video files, send an EOS signal to the application.
-
-Refer to the [Debugging Hints](./references/debugging-hints.md) for Docker testing conventions, common gotchas, and the post-run [Validation Checklist](./references/debugging-hints.md#validation-checklist).
+**Validate:** verify output matches the user's expected results. Use the [Debugging Hints](./references/debugging-hints.md) and [Validation Checklist](./references/debugging-hints.md#validation-checklist) for common gotchas. For continuous/long inputs, send EOS to finalize.
 
 ---
 
