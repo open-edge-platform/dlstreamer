@@ -86,7 +86,7 @@ Source: `samples/gstreamer/python/hello_dlstreamer/hello_dlstreamer_full.py`
 
 ## Pattern 2: Pipeline Event Loop
 
-Every DLStreamer Python app ends with a pipeline event loop that listens for EOS and
+Every DL Streamer Python app ends with a pipeline event loop that listens for EOS and
 ERROR messages on the GStreamer bus. The single `run_pipeline()` function below is the
 **canonical implementation** — it includes all optional blocks, each marked with
 `[Optional]`. Remove or keep them based on your application's needs.
@@ -427,7 +427,7 @@ should read GstAnalytics metadata directly from the buffer and implement such lo
 
 > **Rule of thumb:** A custom BaseTransform element is justified only when it implements
 > **new derived analytics** (e.g. zone intersection, trajectory analysis, dwell-time
-> calculation) that produces metadata not available from existing DLStreamer elements
+> calculation) that produces metadata not available from existing DL Streamer elements
 > or introduces new behavior like dynamic selection of output pads or frame drop/pass.
 
 
@@ -463,6 +463,12 @@ class MyAnalytics(GstBase.BaseTransform):
         self._my_param = value
 
     def do_transform_ip(self, buffer):
+        # Do not drop frames before pipeline reaches PLAYING state —
+        # sinks need at least one buffer for preroll to complete.
+        _, state, _ = self.get_state(0)
+        if state != Gst.State.PLAYING:
+            return Gst.FlowReturn.OK
+
         rmeta = GstAnalytics.buffer_get_analytics_relation_meta(buffer)
         if not rmeta:
             return Gst.FlowReturn.OK  # pass frame downstream
