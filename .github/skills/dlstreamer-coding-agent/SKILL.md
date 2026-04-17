@@ -91,30 +91,22 @@ The user's prompt may be ambiguous or incomplete. Clarify the following before p
 
 ### Step 1 — Check Runtime Environment
 
-First, check if a DLStreamer Docker image is already available locally:
+**MANDATORY: Always pull the latest weekly build.** During PREVIEW, the latest weekly
+image may contain critical bug fixes not present in older images. Do NOT reuse a
+locally cached image without pulling first.
+
 ```bash
-docker images | grep dlstreamer
+WEEKLY_TAG=$(curl -s "https://hub.docker.com/v2/repositories/intel/dlstreamer/tags?name=weekly-ubuntu24&page_size=25&ordering=-last_updated" \
+    | python3 -c "import sys,json; print(sorted([r['name'] for r in json.load(sys.stdin)['results']])[-1])")
+echo "Latest weekly tag: $WEEKLY_TAG"
+docker pull "intel/dlstreamer:${WEEKLY_TAG}"
 ```
 
-If a suitable image exists, note its tag for later use. If no image is found, or the image is older than the latest weekly build, pull the latest weekly image:
-```bash
-# Browse available tags at:
-# https://hub.docker.com/r/intel/dlstreamer/tags?name=weekly-ubuntu24
-# Then pull a specific tag, e.g.:
-docker pull intel/dlstreamer:2026.1.0-20260407-weekly-ubuntu24
-```
+If Docker is unavailable, verify a native install: `gst-inspect-1.0 gvadetect 2>&1 | grep Version`.
+If neither exists, follow the [Install Guide](../../../docs/user-guide/get_started/install/install_guide_ubuntu.md#option-2-install-docker-image-from-docker-hub-and-run-it).
 
-***Important*** — While the DLStreamer Coding Agent is still in preview, ALWAYS pull the latest weekly build even if the user already has a DLStreamer image, as the latest weekly build may contain important bug fixes and improvements that are not yet in the official release.
-
-If Docker is not available, check if DLStreamer is installed natively on the host:
-```bash
-gst-inspect-1.0 gvadetect 2>&1 | grep Version
-```
-If the command returns plugin details, verify that the version matches the latest official release.
-
-If neither DLStreamer Docker image nor native installation is available, download and install DLStreamer docker image following the [Install Docker Image guide](../../../docs/user-guide/get_started/install/install_guide_ubuntu.md#option-2-install-docker-image-from-docker-hub-and-run-it).
-
-Recommended workflow: develop the application locally on your host machine and prepare/export models using a Python virtual environment. Once models are exported to OpenVINO IR format, run the application inside the DLStreamer container with your local directory mounted. This approach maintains development flexibility while leveraging the container for consistent runtime execution.
+**Workflow:** develop locally, export models in a Python venv, download video files,
+then run the app inside the DLStreamer container with your directory mounted.
 
 ### Step 2 — Prepare Models (async)
 
@@ -196,11 +188,11 @@ Generate all application files following the directory layout defined at the beg
 
 ### Step 5 — Run, Debug and Validate
 
-**Running in Docker (preferred during PREVIEW):**
-Mount the working directory, device drivers, and set correct group permissions:
+**Run in Docker (preferred, especially during PREVIEW):**
 ```bash
-docker run --init -it --rm \
+docker run --init --rm \
     -u "$(id -u):$(id -g)" \
+    -e PYTHONUNBUFFERED=1 \
     -v "$(pwd)":/app -w /app \
     --device /dev/dri \
     --group-add $(stat -c "%g" /dev/dri/render*) \
@@ -209,22 +201,24 @@ docker run --init -it --rm \
     intel/dlstreamer:<WEEKLY_TAG> \
     python3 <app_name>.py
 ```
-Replace `<WEEKLY_TAG>` with the actual tag discovered in Step 1 (e.g. `2026.1.0-20260407-weekly-ubuntu24`). Pre-create writable output directories (`videos/`, `results/`, `models/`) if needed.
+
+> **Autonomous execution — never wait for user confirmation.**
+> Launch in async mode, poll `get_terminal_output` every 15–30s until completion.
+> Only ask the user when a **decision** is needed (e.g. device change after OOM).
+> This applies to all long-running commands: `docker run`, `docker pull`, `pip install`, model export.
+>
+> **Completion detection:** When the terminal returns an exit code (visible in the
+> terminal header or via `get_terminal_output`), the command has **finished** — do NOT
+> continue polling or display "awaiting input". Proceed to next step.
 
 **Running locally (native DLStreamer install):**
 ```bash
 python3 -m venv .<app_name>-venv && source .<app_name>-venv/bin/activate
 pip install -r requirements.txt
-python3 <app_name>.py  # or bash <app_name>.sh
+python3 <app_name>.py
 ```
 
-**Validate:**
-Once the environment is set up, update the instructions in the generated README.md file and verify that the application runs correctly when following them. If the user provided a natural-language description of the expected output, verify that the output matches the description (e.g. check that JSONL files have the expected fields, check that video outputs have the expected overlays, etc.).
-
-If the application is running for a long time (>1 minute), make sure there is some output in the terminal to indicate progress and avoid leaving the user wondering if the application is stuck. Switch focus to the terminal output so the user can see logs and progress.
-If the application has a continuous input stream (RTSP camera source) or large input video files, send an EOS signal to the application.
-
-Refer to the [Debugging Hints](./references/debugging-hints.md) for Docker testing conventions, common gotchas, and the post-run [Validation Checklist](./references/debugging-hints.md#validation-checklist).
+**Validate:** verify output matches the user's expected results. Use the [Debugging Hints](./references/debugging-hints.md) and [Validation Checklist](./references/debugging-hints.md#validation-checklist) for common gotchas. For continuous/long inputs, send EOS to finalize.
 
 ---
 

@@ -129,6 +129,7 @@ def run_pipeline(pipeline):
 
     prev = signal.signal(signal.SIGINT, _sigint)
     bus = pipeline.get_bus()
+    print("[pipeline] Compiling models, this may take some time...")
     pipeline.set_state(Gst.State.PLAYING)
     try:
         while True:

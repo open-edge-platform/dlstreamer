@@ -463,6 +463,12 @@ class MyAnalytics(GstBase.BaseTransform):
         self._my_param = value
 
     def do_transform_ip(self, buffer):
+        # Do not drop frames before pipeline reaches PLAYING state —
+        # sinks need at least one buffer for preroll to complete.
+        _, state, _ = self.get_state(0)
+        if state != Gst.State.PLAYING:
+            return Gst.FlowReturn.OK
+
         rmeta = GstAnalytics.buffer_get_analytics_relation_meta(buffer)
         if not rmeta:
             return Gst.FlowReturn.OK  # pass frame downstream
