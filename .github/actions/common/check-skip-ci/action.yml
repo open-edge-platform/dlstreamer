@@ -103,7 +103,6 @@ runs:
         CHANGED_FILES_CODE=$(git diff --name-only origin/$BASE_BRANCH...HEAD -- \
           . \
           ':(exclude)docs/' \
-          ':(exclude).github/' \
           ':(exclude).github/ISSUE_TEMPLATE/' \
           ':(exclude).github/skills/' \
           ':(exclude).github/CODEOWNERS' \
