@@ -1,13 +1,13 @@
 # Pipeline Construction Reference
 
-GStreamer pipeline syntax for DLStreamer video-analytics applications.
+GStreamer pipeline syntax for DL Streamer video-analytics applications.
 All pipeline examples use standard GStreamer command-line syntax, applicable both to
 `gst-launch-1.0` command-line usage and to `Gst.parse_launch()` in Python applications.
 
-## DLStreamer GStreamer Elements
+## DL Streamer GStreamer Elements
 
-This section lists elements commonly used in DLStreamer pipelines.
-For the full list of DLStreamer elements, see also `../../../../docs/user-guide/elements/`.
+This section lists elements commonly used in DL Streamer pipelines.
+For the full list of DL Streamer elements, see also `../../../../docs/user-guide/elements/`.
 
 ### Source Elements
 
@@ -329,7 +329,7 @@ These rules govern how pipelines should be constructed. Follow them in every new
 Keep frames in VA memory throughout the pipeline. Let `decodebin3` auto-select the
 decode format and memory type — do **not** insert explicit caps filters for
 `video/x-raw(memory:VAMemory)` or `format=NV12` between decode and AI elements.
-DLStreamer inference elements (`gvadetect`, `gvaclassify`, `gvagenai`) handle
+DL Streamer inference elements (`gvadetect`, `gvaclassify`, `gvagenai`) handle
 memory negotiation automatically.
 
 Prefer `device=GPU` or `device=NPU` for inference elements to keep data on the
@@ -339,7 +339,7 @@ accelerator and avoid unnecessary GPU↔CPU copies.
 
 Do **not** force pixel formats (e.g. `video/x-raw,format=RGB`, `format=NV12`) in caps
 filters unless a specific element **requires** a particular format (e.g. a custom Python
-element that maps buffers to numpy). DLStreamer AI elements adapt to whatever format
+element that maps buffers to numpy). DL Streamer AI elements adapt to whatever format
 they receive. Unnecessary format forcing causes extra `videoconvert` copies and can
 break zero-copy paths.
 
@@ -348,16 +348,16 @@ a CPU-accessible format — see the "CPU-Accessible Pixel Formats" section below
 
 ### Rule 3 — Element Usage Guidelines
 
-Use the [AI Inference element table](#ai-inference-dlstreamer-specific) above to choose
-the correct DLStreamer inference element for each model type (`gvadetect` for detection,
+Use the [AI Inference element table](#ai-inference-dl-streamer-specific) above to choose
+the correct DL Streamer inference element for each model type (`gvadetect` for detection,
 `gvaclassify` for classification/OCR, `gvagenai` for VLMs).
 
 Additional guidance:
 - Use `gvaclassify` for OCR models (e.g. PaddleOCR text recognition) and classification
-models. DLStreamer handles pre/post-processing automatically via model metadata —
+models. DL Streamer handles pre/post-processing automatically via model metadata —
 no model-proc files are needed (model-proc is deprecated).
 - Only fall back to a custom Python element (Pattern 7 in Design Patterns) when the model
-requires custom pre/post-processing that DLStreamer cannot handle automatically.
+requires custom pre/post-processing that DL Streamer cannot handle automatically.
 
 ### Rule 4 — Use queue element after Inference Elements
 
