@@ -105,11 +105,14 @@ Extract the following from the user's prompt:
 | **Application type** | Python app or GStreamer command line | `Python application` |
 | **Docker image** | DL Streamer Docker tag | Latest Ubuntu 24 tag (auto-fetched) |
 
-**If the prompt provides all required info**, proceed directly to Step 1.
+**If the user's prompt explicitly provides all required info** (video input AND model names
+are stated by the user, not inferred), proceed directly to Step 1.
 
-**If any required info is missing**, read the
-[Requirements Questionnaire](./references/questionnaire.md) and present the missing
-questions to the user for clarification before proceeding.
+**If any required info is missing or was inferred via Fast Path** (not explicitly stated
+by the user), you **MUST** present the pre-filled values and ask the user to confirm
+or override before proceeding. Use the interactive question tool if available
+(e.g. `vscode_askQuestions` in VS Code Copilot), otherwise list the values inline
+in chat. Do NOT silently assume defaults and skip confirmation.
 
 ### Step 1 — Pull Docker Image (async)
 
