@@ -22,15 +22,8 @@ See [example prompts](./examples) for inspiration.
 
 ## Directory Layout for a New Sample App
 
-**Output location** — create the sample directory under the correct parent based on application type:
-
-| Application Type | Parent Directory |
-|-----------------|-----------------|
-| Python application | `samples/gstreamer/python/<new_sample_app_name>/` |
-| GStreamer command line | `samples/gstreamer/gst_launch/<new_sample_app_name>/` |
-
 ```
-samples/gstreamer/python/<new_sample_app_name>/   # or gst_launch/ for CLI apps
+<new_sample_app_name>
 ├── <app_name>.py or .sh        # Main application (Python or shell script)
 ├── export_models.py or .sh     # Model download and export script
 ├── requirements.txt            # Python dependencies for the application
@@ -47,7 +40,7 @@ samples/gstreamer/python/<new_sample_app_name>/   # or gst_launch/ for CLI apps
 ```
 
 > **IMPORTANT:** Never create sample apps in the repository root. Always use the appropriate
-> `samples/gstreamer/python/` or `samples/gstreamer/gst_launch/` parent directory.
+> `samples/gstreamer/python/` or `samples/gstreamer/gst_launch/` parent directory. Do this if the skill is invoked from this repo only; if the skill is used by external users, clearly specify in the README.md that they should create a new directory for the sample app following the above layout.
 
 ## Procedure
 
@@ -82,6 +75,7 @@ Each reference document is used in **one primary step** to avoid redundant reads
 | [Sample Index](./references/sample-index.md) | Step 3 | Existing samples to study before generating code |
 | [Design Patterns](./references/design-patterns.md) | Step 3 | Python application structure, patterns, and coding conventions |
 | [Debugging Hints](./references/debugging-hints.md) | Step 5 | Docker testing, common gotchas, validation checklist |
+| [Requirements Questionnaire](./references/questionnaire.md) | Step 0 | Detailed questions to ask when user prompt is incomplete |
 
 ---
 
@@ -89,125 +83,33 @@ Each reference document is used in **one primary step** to avoid redundant reads
 
 Before proceeding with the full procedure, check if the user's prompt maps directly to a row in the
 [Common Pipeline Patterns table](./references/pipeline-construction.md#common-pipeline-patterns).
-If a match is found, **pre-populate** the Step 0 questionnaire with the inferred values
-from the matched row:
+If a match is found:
 
-1. Fill in each questionnaire field with the best-matching value from the pattern row
-   (e.g. model names, tasks, output formats, recommended Docker image)
-2. Mark pre-populated options as `recommended` so the user sees them as defaults
-3. **Still present the questionnaire** via `vscode_askQuestions` for explicit user confirmation
-4. After the user confirms (or overrides), read **only** the specific design patterns,
+1. Pre-fill the Step 0 checklist fields with the inferred values from the matched row
+2. Present the pre-filled values to the user for confirmation (skip the full
+   [Requirements Questionnaire](./references/questionnaire.md) unless info is still missing)
+3. After the user confirms (or overrides), read **only** the specific design patterns,
    reference sections, and model-preparation sections needed for the final selections
-5. Proceed to Steps 1–5 using the confirmed values
+4. Proceed to Steps 1–5 using the confirmed values
 
-This fast path reduces the effort needed to fill in the questionnaire while still giving
-the user a chance to review and override any auto-inferred choices.
+### Step 0 — Gather Requirements
 
-### Step 0 — Gather Requirements Interactively
+Extract the following from the user's prompt:
 
-Use the `vscode_askQuestions` tool to collect pipeline requirements from the user in a
-**single call**. Pre-fill options based on the user's initial prompt where possible,
-but present all questions for explicit confirmation.
+| Required info | Look for | Default if missing |
+|---------------|----------|--------------------|
+| **Video input** | File path, HTTP URL, or RTSP URI | — (must ask) |
+| **AI model(s)** | Model name/URL and task (detection, classification, VLM, OCR, …) | — (must ask) |
+| **Target hardware** | Intel platform, available accelerators (GPU/NPU/CPU) | `Not sure / detect at runtime` |
+| **Output format** | Annotated video, JSON, JPEG snapshots, display window | `All of the above` |
+| **Application type** | Python app or GStreamer command line | `Python application` |
+| **Docker image** | DL Streamer Docker tag | Latest Ubuntu 24 tag (auto-fetched) |
 
-> If the user's prompt matches a Fast Path row, pre-fill these questions with the inferred
-> values and mark them as `recommended`. The user can confirm or override before proceeding.
+**If the prompt provides all required info**, proceed directly to Step 1.
 
-#### Section 1 — Input
-
-| Header | Question | Options |
-|--------|----------|---------|
-| `Input Type` | What type of video input? | `Local file path`, `HTTP URL`, `RTSP stream URI` |
-| `Input Value` | Provide the path or URL (e.g. `/path/to/video.mp4`, `https://...`, `rtsp://...`) | Free text |
-
-#### Section 2 — AI Models
-
-| Header | Question | Options |
-|--------|----------|---------|
-| `Model 1` | First model URL/name (e.g. `yolo11n`, `PaddlePaddle/PP-OCRv5_server_rec`) | Free text |
-| `Model 1 Task` | What does this model do? | `Object detection`, `Classification`, `OCR / text recognition`, `VLM / generative AI`, `Segmentation`, `Pose estimation`, `Other` |
-| `Model 2 (optional)` | Second model URL/name. Leave empty if not needed. | Free text |
-| `Model 2 Task` | What does the second model do? (skip if no Model 2) | Same options as Model 1 Task |
-
-> Add more `Model N` + `Model N Task` pairs only if the use case clearly requires 3+ models.
->
-> The task selection maps directly to DL Streamer elements:
-> | Task | Element |
-> |------|---------|
-> | Object detection | `gvadetect` |
-> | Classification / OCR / Pose estimation / Segmentation | `gvaclassify` |
-> | VLM / generative AI | `gvagenai` |
->
-> The agent auto-infers the source ecosystem (HuggingFace / Ultralytics / direct URL)
-> from the model URL or name — no need to ask the user separately.
-
-#### Section 3 — Target Environment
-
-| Header | Question | Options |
-|--------|----------|---------|
-| `Intel Platform` | What Intel hardware will this run on? | `Intel Core Ultra 3 (Panther Lake) — CPU + Xe3 GPU + NPU`, `Intel Core Ultra 2 (Lunar Lake / Arrow Lake) — CPU + GPU + NPU`, `Intel Core Ultra 1 (Meteor Lake) — CPU + GPU + NPU`, `Intel Core (older, no NPU) — CPU + GPU`, `Intel Xeon (server) — CPU only`, `Intel Arc discrete GPU`, `Not sure / detect at runtime` |
-| `Available Accelerators` | Which accelerators are available? (select all that apply) | `GPU (/dev/dri/renderD128)`, `NPU (/dev/accel/accel0)`, `CPU only` (multiSelect) |
-
-> The agent uses these answers to apply **Rule 6 — Device Assignment Strategy** from
-> [Pipeline Construction Reference](./references/pipeline-construction.md#rule-6--device-assignment-strategy-for-intel-core-ultra)
-> when setting `device=` and `batch-size=` on inference elements.
-> For advanced tuning (multi-GPU selection, pre-process backends, MULTI: device),
-> refer to the docs:
-> - [Performance Guide](../../../docs/user-guide/dev_guide/performance_guide.md) — batch-size, multi-stream, memory types
-> - [GPU Device Selection](../../../docs/user-guide/dev_guide/gpu_device_selection.md) — multi-GPU systems
-> - [Optimizer](../../../docs/user-guide/dev_guide/optimizer.md) — auto-tuning tool
-
-#### Section 4 — Output
-
-| Header | Question | Options |
-|--------|----------|---------|
-| `Output Format` | What outputs do you need? | `Annotated video (.mp4)`, `JSON metadata (.jsonl)`, `JPEG snapshots`, `Display window`, `All of the above` (multiSelect) |
-
-#### Section 5 — Application Type
-
-| Header | Question | Options |
-|--------|----------|---------|
-| `Application Type` | Python application or Gstreamer command line? | `Python application` (recommended), `Gstreamer command line` |
-
-#### Section 6 — Docker Image
-
-Before presenting this question, fetch the latest available tags by running in a terminal:
-
-```bash
-curl -s "https://hub.docker.com/v2/repositories/intel/dlstreamer/tags/?page_size=30&ordering=last_updated" \
-  | python3 -c "
-import sys, json
-data = json.load(sys.stdin)
-release, weekly = [], []
-for t in data.get('results', []):
-    name = t['name']
-    if name in ('latest',) or 'sources' in name or 'dev' in name or 'rc' in name:
-        continue
-    if 'weekly' in name:
-        weekly.append(name)
-    else:
-        release.append(name)
-print('RELEASE:', ' '.join(release[:4]))
-print('WEEKLY:', ' '.join(weekly[:4]))
-"
-```
-
-Use the output to populate the options dynamically:
-
-| Header | Question | Options |
-|--------|----------|---------|
-| `Docker Image` | Which DL Streamer Docker image? | Dynamically populated (see below), allowFreeformInput=true |
-
-**Option construction from fetched tags:**
-1. First option: the latest weekly Ubuntu 24 tag from the `WEEKLY` line — mark as `recommended`
-2. Next 1–2 options: remaining weekly tags (Ubuntu 22, previous week)
-3. Next 2–3 options: release tags from the `RELEASE` line
-4. Prefix all labels with `intel/dlstreamer:`
-
-> The user can also type a custom tag (e.g. a locally built image).
-> Full tag list: https://hub.docker.com/r/intel/dlstreamer/tags
-
-Store the selected image as `<DOCKER_IMAGE>` for use in all subsequent `docker pull`
-and `docker run` commands.
+**If any required info is missing**, read the
+[Requirements Questionnaire](./references/questionnaire.md) and present the missing
+questions to the user for clarification before proceeding.
 
 ### Step 1 — Pull Docker Image (async)
 
