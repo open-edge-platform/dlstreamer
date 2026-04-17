@@ -28,8 +28,10 @@ runs:
     - name: Check if workflow_dispatch
       id: dispatch-check
       shell: bash
+      env:
+        EVENT_NAME: ${{ github.event_name }}
       run: |
-        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+        if [ "${EVENT_NAME}" = "workflow_dispatch" ]; then
           echo "🚀 Manual workflow dispatch detected - forcing execution"
           echo "is_dispatch=true" >> "$GITHUB_OUTPUT"
         else
@@ -44,7 +46,7 @@ runs:
         EVENT_NAME: ${{ github.event_name }}
         REF: ${{ github.ref }}
       run: |
-        if [ "${event_name}" = "push" ] && [ "${ref}" = "refs/heads/$BASE_BRANCH" ]; then
+        if [ "${EVENT_NAME}" = "push" ] && [ "${REF}" = "refs/heads/$BASE_BRANCH" ]; then
           echo "🔄 Push to $BASE_BRANCH detected - forcing execution"
           echo "is_main_push=true" >> "$GITHUB_OUTPUT"
         else
