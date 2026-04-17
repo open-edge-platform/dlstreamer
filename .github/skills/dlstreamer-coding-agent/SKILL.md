@@ -55,7 +55,7 @@ Step 0 (gather requirements — interactive)
   ├──► Step 1  (Docker pull — async) ─────────────────────────────────────────┐
   ├──► Step 2a (export scripts → venv + pip install — async) ──► Step 2b ─────┤──► Step 5 (run & validate)
   ├──► Video download (async, if HTTP URL input) ─────────────────────────────┤
-  └──► Step 3  (design pipeline — reasoning) ──► Step 4 (generate app) ──────┘
+  └──► Step 3  (design pipeline — reasoning) ──► Step 4 (generate app) ───────┘
 ```
 
 **Parallelization rules:**
