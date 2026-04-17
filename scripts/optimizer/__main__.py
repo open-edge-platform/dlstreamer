@@ -9,6 +9,7 @@ import logging
 import textwrap
 import sys
 import time
+import json
 
 from optimizer import DLSOptimizer # pylint: disable=no-name-in-module
 
@@ -71,6 +72,8 @@ parser.add_argument("PIPELINE", nargs="+",
                     help="Pipeline to be analyzed")
 parser.add_argument("-v", "--verbose", action="store_true",
                     help="Print more information about the optimization progress")
+parser.add_argument("-o", "--output",
+                    help="Save optimization results to a file in JSON format")
 parser.add_argument("--search-duration", default=300, type=float,
                     help="Duration in seconds of time which should be spent searching for optimized pipelines (default: %(default)s)")
 parser.add_argument("--sample-duration", default=10, type=float,
@@ -93,6 +96,8 @@ args=parser.parse_args()
 logging.basicConfig(level=args.log_level, format="[%(name)s] [%(levelname)8s] - %(message)s")
 logger = logging.getLogger(__name__)
 
+json_result = {}
+
 try:
     optimizer = DLSOptimizer()
     optimizer.set_sample_duration(args.sample_duration)
@@ -113,8 +118,11 @@ pipeline = " ".join(args.PIPELINE)
 try:
     match args.mode:
         case "fps":
+            json_result["mode"] = "fps"
+            json_result["candidates"] = []
             start_time = time.time()
             for (pipeline, fps) in optimizer.iter_optimize_for_fps(pipeline):
+                json_result["candidates"].append({"pipeline": pipeline, "fps": fps})
                 if args.verbose:
                     _display_result(pipeline, fps)
                 
@@ -124,11 +132,21 @@ try:
 
             base_pipeline, base_fps, _ = optimizer.get_baseline_pipeline()
             best_pipeline, best_fps, _ = optimizer.get_optimal_pipeline()
+            json_result["baseline"] = {"pipeline": base_pipeline, "fps": base_fps}
+            json_result["optimal"] = {"pipeline": best_pipeline, "fps": best_fps}
             _display_summary_fps(best_pipeline, best_fps, base_pipeline, base_fps)
 
         case "streams":
+            json_result["mode"] = "streams"
+            json_result["candidates"] = {}
             start_time = time.time()
             for (pipeline, fps, streams) in optimizer.iter_optimize_for_streams(pipeline):
+                try:
+                    json_result["candidates"][str(streams)].append({"pipeline": pipeline, "fps": fps})
+                except KeyError:
+                    json_result["candidates"][str(streams)] = []
+                    json_result["candidates"][str(streams)].append({"pipeline": pipeline, "fps": fps})
+
                 full_pipeline = []
                 for _ in range(0, streams):
                     full_pipeline.append(pipeline)
@@ -141,7 +159,15 @@ try:
                 if cur_time - start_time > args.search_duration:
                     break
 
-            best_pipeline, best_fps, streams = optimizer.get_optimal_pipeline()
-            _display_summary_streams(best_pipeline, best_fps, streams)
+            base_pipeline, base_fps, base_streams = optimizer.get_baseline_pipeline()
+            best_pipeline, best_fps, best_streams = optimizer.get_optimal_pipeline()
+            json_result["baseline"] = {"pipeline": base_pipeline, "fps": base_fps, "streams": base_streams}
+            json_result["optimal"] = {"pipeline": best_pipeline, "fps": best_fps, "streams": best_streams}
+            _display_summary_streams(best_pipeline, best_fps, best_streams)
+
+    if args.output:
+        with open(args.output, 'w', encoding='utf-8') as f:
+            json.dump(json_result, f, ensure_ascii=False, indent=4)
 except RuntimeError as e: # pylint: disable=broad-exception-caught
     logger.error("Failed to optimize pipeline: %s", e)
+
