@@ -412,108 +412,122 @@ jobs:
     with:
       test-repo-branch: ${{ inputs.test-repo-branch }}
 
-  # -------------------------------------------------------- STATUS CHECKS ---------------------------------------------------------
+# -------------------------------------------------------- STATUS CHECKS ---------------------------------------------------------
   check-download-models-status:
     needs: dls-download-models
     runs-on: dlstreamer
-    name: "✅ Check Models Download Status"
+    name: "Check Models Download Status"
     if: always()
     steps:
       - name: Report models download status
+        env:
+          dls-download-models-result: ${{ needs.dls-download-models.result }}
         run: |
-          if [ "${{ needs.dls-download-models.result }}" == "success" ]; then
+          if [ "${dls-download-models-result}" == "success" ]; then
             echo "✅ Models download completed successfully!"
           else
-            echo "❌ Models download failed with status: ${{ needs.dls-download-models.result }}"
+            echo "❌ Models download failed with status: ${dls-download-models-result}"
             exit 1
           fi
 
   check-optimizer-tests-status:
     needs: dls-optimizer-functional-tests
     runs-on: dlstreamer
-    name: "✅ Check Optimizer Tests Status"
+    name: "Check Optimizer Tests Status"
     if: always()
     steps:
       - name: Report optimizer tests status
+        env:
+          dls-optimizer-functional-tests-result: ${{ needs.dls-optimizer-functional-tests.result }}
         run: |
-          if [ "${{ needs.dls-optimizer-functional-tests.result }}" == "success" ]; then
+          if [ "${dls-optimizer-functional-tests-result}" == "success" ]; then
             echo "✅ Optimizer tests completed successfully!"
           else
-            echo "❌ Optimizer tests failed with status: ${{ needs.dls-optimizer-functional-tests.result }}"
+            echo "❌ Optimizer tests failed with status: ${dls-optimizer-functional-tests-result}"
             exit 1
           fi
 
   check-fedora-build-status:
     needs: dls-build-fedora-img
     runs-on: dlstreamer
-    name: "✅ Check Fedora Build Status"
+    name: "Check Fedora Build Status"
     if: always()
     steps:
       - name: Report Fedora build status
+        env:
+          dls-build-fedora-img-result: ${{ needs.dls-build-fedora-img.result }}
         run: |
-          if [ "${{ needs.dls-build-fedora-img.result }}" == "success" ]; then
+          if [ "${dls-build-fedora-img-result}" == "success" ]; then
             echo "✅ Fedora build completed successfully!"
           else
-            echo "❌ Fedora build failed with status: ${{ needs.dls-build-fedora-img.result }}"
+            echo "❌ Fedora build failed with status: ${dls-build-fedora-img-result}"
             exit 1
           fi
 
   check-make-build-status:
     needs: dls-build-sources-make-build
     runs-on: dlstreamer
-    name: "✅ Check Make Build Status"
+    name: "Check Make Build Status"
     if: always()
     steps:
       - name: Report make build status
+        env:
+          dls-build-sources-make-build-result: ${{ needs.dls-build-sources-make-build.result }}
         run: |
-          if [ "${{ needs.dls-build-sources-make-build.result }}" == "success" ]; then
+          if [ "${dls-build-sources-make-build-result}" == "success" ]; then
             echo "✅ Make build completed successfully!"
           else
-            echo "❌ Make build failed with status: ${{ needs.dls-build-sources-make-build.result }}"
+            echo "❌ Make build failed with status: ${dls-build-sources-make-build-result}"
             exit 1
           fi
 
   check-dev-images-unit-tests-status:
     needs: dls-build-dev-images-and-run-unit-tests
     runs-on: dlstreamer
-    name: "✅ Check Dev Images & Unit Tests Status"
+    name: "Check Dev Images & Unit Tests Status"
     if: always()
     steps:
       - name: Report dev images & unit tests status
+        env:
+          dls-build-dev-images-and-run-unit-tests-result: ${{ needs.dls-build-dev-images-and-run-unit-tests.result }}
         run: |
-          if [ "${{ needs.dls-build-dev-images-and-run-unit-tests.result }}" == "success" ]; then
+          if [ "${dls-build-dev-images-and-run-unit-tests-result}" == "success" ]; then
             echo "✅ Dev images & unit tests completed successfully!"
           else
-            echo "❌ Dev images & unit tests failed with status: ${{ needs.dls-build-dev-images-and-run-unit-tests.result }}"
+            echo "❌ Dev images & unit tests failed with status: ${dls-build-dev-images-and-run-unit-tests-result}"
             exit 1
           fi
 
   check-deb-build-status:
     needs: dls-build-and-test-deb-and-deb_img
     runs-on: dlstreamer
-    name: "✅ Check DEB Build Status"
+    name: "Check DEB Build Status"
     if: always()
     steps:
       - name: Report DEB build status
+        env:
+          dls-build-and-test-deb-and-deb_img-result: ${{ needs.dls-build-and-test-deb-and-deb_img.result }}
         run: |
-          if [ "${{ needs.dls-build-and-test-deb-and-deb_img.result }}" == "success" ]; then
+          if [ "${dls-build-and-test-deb-and-deb_img-result}" == "success" ]; then
             echo "✅ DEB build & test completed successfully!"
           else
-            echo "❌ DEB build & test failed with status: ${{ needs.dls-build-and-test-deb-and-deb_img.result }}"
+            echo "❌ DEB build & test failed with status: ${dls-build-and-test-deb-and-deb_img-result}"
             exit 1
           fi
 
   check-windows-build-status:
     needs: dls-build-and-test-windows
     runs-on: dlstreamer
-    name: "✅ Check Windows Build Status"
+    name: "Check Windows Build Status"
     if: always()
     steps:
       - name: Report Windows build status
+        env:
+          dls-build-and-test-windows-result: ${{ needs.dls-build-and-test-windows.result }}
         run: |
-          if [ "${{ needs.dls-build-and-test-windows.result }}" == "success" ]; then
+          if [ "${dls-build-and-test-windows-result}" == "success" ]; then
             echo "✅ Windows build completed successfully!"
           else
-            echo "❌ Windows build failed with status: ${{ needs.dls-build-and-test-windows.result }}"
+            echo "❌ Windows build failed with status: ${dls-build-and-test-windows-result}"
             exit 1
           fi
