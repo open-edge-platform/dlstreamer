@@ -311,8 +311,8 @@ tee name=detect_tee
 
 **VLM branch design notes:**
 - **Leaky queue:** prevents the slow VLM branch from back-pressuring the real-time video output.
-- **`videoconvertscale` is optional** — only add it if the VLM requires a specific input resolution.
-  Omit scaling when preserving the original frame resolution matters for analysis.
+- **`videoconvertscale` is optional** — only to reduce VLM processing time when frame-level features
+  are analyzed. Omit scaling when preserving the original frame resolution matters for analysis.
 - **Preroll prompt:** initialize with a trivial prompt (`"Say OK."`) and update it
   programmatically after the pipeline enters PLAYING state.
 - **Tracker fragmentation and redundant VLM queries:** With `zero-term-imageless` tracking,
