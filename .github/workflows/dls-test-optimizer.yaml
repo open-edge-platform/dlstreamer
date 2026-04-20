@@ -244,10 +244,24 @@ jobs:
           echo "Testing what Docker can see inside container:"
           SOURCE_PATH=$(realpath "$OPTIMIZER_TESTS_PATH/functional_tests/optimizer_tests")
           echo "Resolved source path: $SOURCE_PATH"
+          
+          # Test without :z flag first
+          echo "Test 1: Mount without :z flag"
           docker run --rm \
-            -v "${SOURCE_PATH}:/workspace/optimizer_tests:z" \
+            -v "${SOURCE_PATH}:/workspace/optimizer_tests" \
             ${deb_final_img} \
             bash -c "ls -laR /workspace/optimizer_tests/ && echo '---' && which bash"
+          
+          echo ""
+          echo "Test 2: Check SELinux status on host"
+          getenforce 2>/dev/null || echo "SELinux not available"
+          
+          echo ""
+          echo "Test 3: Direct file access test"
+          docker run --rm \
+            -v "${SOURCE_PATH}:/workspace/optimizer_tests" \
+            ${deb_final_img} \
+            bash -c "cat /workspace/optimizer_tests/test_config.json 2>&1 || echo 'Cannot read file'"
 
       - name: 🚀 Run optimizer in Docker
         if: matrix.runner_print_label != 'SKIP'
@@ -261,9 +275,9 @@ jobs:
           RESULTS_PATH=$(realpath "$OPTIMIZER_TESTS_PATH/optimizer_results/docker")
           MODELS_REAL_PATH=$(realpath "${{ env.MODELS_PATH }}")
           docker run --rm \
-            -v "${TESTS_PATH}:/workspace/optimizer_tests:z" \
-            -v "${RESULTS_PATH}:/workspace/optimizer_results:z" \
-            -v "${MODELS_REAL_PATH}:/home/dlstreamer/models:z" \
+            -v "${TESTS_PATH}:/workspace/optimizer_tests" \
+            -v "${RESULTS_PATH}:/workspace/optimizer_results" \
+            -v "${MODELS_REAL_PATH}:/home/dlstreamer/models" \
             --device=/dev/dri \
             --group-add "$RENDER_GROUP_ID" \
             -w /workspace \
