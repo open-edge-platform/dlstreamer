@@ -502,7 +502,13 @@ json convert_radar_process_meta(GstGvaMetaConvert *converter, GstBuffer *buffer)
 }
 
 json get_lidar_frame_data(GstGvaMetaConvert *converter, GstBuffer *buffer, LidarMeta *lidar_meta) {
-    assert(converter && buffer && lidar_meta && "Expected valid pointers for LiDAR conversion");
+    if (!converter || !buffer || !lidar_meta) {
+        if (converter)
+            GST_ERROR_OBJECT(converter, "Unexpected null pointer in get_lidar_frame_data");
+        else
+            GST_ERROR("Unexpected null pointer in get_lidar_frame_data");
+        return json::object();
+    }
 
     json result = json::object();
 
