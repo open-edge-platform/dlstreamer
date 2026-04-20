@@ -130,7 +130,9 @@ void gva_meta_publish_base_get_property(GObject *object, guint property_id, GVal
 
 static void gva_meta_publish_base_before_transform(GstBaseTransform *trans, GstBuffer *buffer) {
     GvaMetaPublishBase *self = GVA_META_PUBLISH_BASE(trans);
-
+    // LiDAR pipelines typically run with a non-TIME segment, so the timestamp sync below
+    // does not apply in that case and we return early. If the segment format is TIME,
+    // fall through to the standard sync path.
     GST_DEBUG_OBJECT(self, "before transform");
     if (gst_buffer_get_meta(buffer, LIDAR_META_API_TYPE) && trans->segment.format != GST_FORMAT_TIME) {
         GST_DEBUG_OBJECT(self, "Skipping stream-time sync for LiDAR buffer with non-time segment format");
