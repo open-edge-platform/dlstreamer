@@ -73,7 +73,7 @@ gst-launch-1.0 multifilesrc location="lidar/%06d.bin" caps=application/octet-str
   g3dlidarparse ! \
   g3dinference config=pointpillars_ov_config.json device=GPU score-threshold=0.5 ! \
   gvametaconvert add-tensor-data=true format=json json-indent=2 ! \  
-  gvametapublish file-format=2 file-path=pointpillar.json ! \
+  gvametapublish file-format=2 file-path=pointpillars.json ! \
   fakesink
 ```
 
