@@ -221,8 +221,8 @@ void VaApiConverter::SetupPipelineRegionsWithCustomParams(const InputImageLayerD
     double resize_scale_param_y = 1;
     if (pre_proc_info->doNeedResize() && (src_surface_region.width != input_width_except_padding ||
                                           src_surface_region.height != input_height_except_padding)) {
-        if (pre_proc_info->isAspectRatioMultipleResize()) {
-            throw std::runtime_error("Aspect-ratio-multiple resize is supported only by the OpenCV preprocessor");
+        if (pre_proc_info->isAspectRatioMultipleOfResize()) {
+            throw std::runtime_error("Aspect-ratio-multiple-of resize is supported only by the OpenCV preprocessor");
         }
         double additional_crop_scale_param = 1;
         if (pre_proc_info->doNeedCrop() && pre_proc_info->doNeedResize()) {

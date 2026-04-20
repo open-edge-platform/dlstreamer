@@ -77,15 +77,15 @@ cv::Mat OpenCV_VPP::CustomImageConvert(const cv::Mat &orig_image, const int src_
         if (!pre_proc_info)
             throw std::runtime_error("Pre-processor info for custom image pre-processing is null.");
 
-        if (pre_proc_info->isAspectRatioMultipleResize()) {
+        if (pre_proc_info->isAspectRatioMultipleOfResize()) {
             if (!pre_proc_info->hasResizeTargetSize()) {
-                throw std::runtime_error("Aspect-ratio-multiple resize requires target size metadata");
+                throw std::runtime_error("Aspect-ratio-multiple-of resize requires target size metadata");
             }
             if (pre_proc_info->doNeedCrop()) {
-                throw std::runtime_error("Aspect-ratio-multiple resize does not support crop");
+                throw std::runtime_error("Aspect-ratio-multiple-of resize does not support crop");
             }
             if (pre_proc_info->doNeedPadding()) {
-                throw std::runtime_error("Aspect-ratio-multiple resize does not support padding");
+                throw std::runtime_error("Aspect-ratio-multiple-of resize does not support padding");
             }
         }
 
@@ -115,9 +115,9 @@ cv::Mat OpenCV_VPP::CustomImageConvert(const cv::Mat &orig_image, const int src_
                 additional_crop_scale_param = 1.125;
             }
 
-            if (pre_proc_info->isAspectRatioMultipleResize()) {
+            if (pre_proc_info->isAspectRatioMultipleOfResize()) {
                 const auto resize_target = pre_proc_info->getResizeTargetSize();
-                const auto resized_shape = InputImageLayerDesc::CalculateAspectRatioMultipleResize(
+                const auto resized_shape = InputImageLayerDesc::CalculateAspectRatioMultipleOfResize(
                     safe_convert<size_t>(processed_image.size().width), safe_convert<size_t>(processed_image.size().height),
                     resize_target.first, resize_target.second, pre_proc_info->getResizeMultiple());
                 const cv::Size resized_size(safe_convert<int>(resized_shape.first), safe_convert<int>(resized_shape.second));
@@ -209,7 +209,7 @@ cv::Mat OpenCV_VPP::CustomImageConvert(const cv::Mat &orig_image, const int src_
             ColorSpaceConvert(image_to_insert, image_to_insert, src_color_format, pre_proc_info->getTargetColorSpace());
         }
 
-        if (pre_proc_info->isAspectRatioMultipleResize()) {
+        if (pre_proc_info->isAspectRatioMultipleOfResize()) {
             return image_to_insert;
         }
 

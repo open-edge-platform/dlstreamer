@@ -158,7 +158,7 @@ getImagePreProcInfo(const std::map<std::string, InferenceBackend::InputLayerDesc
 }
 
 bool need_dynamic_input_tensor(const InputImageLayerDesc::Ptr &pre_proc_info) {
-    return pre_proc_info && pre_proc_info->isAspectRatioMultipleResize();
+    return pre_proc_info && pre_proc_info->isAspectRatioMultipleOfResize();
 }
 
 std::string shape_to_string(const ov::Shape &shape) {
@@ -172,7 +172,7 @@ ov::Shape get_dynamic_input_shape(const Image &src_img, const InputImageLayerDes
     }
 
     const auto resize_target = pre_proc_info->getResizeTargetSize();
-    const auto resized_shape = InputImageLayerDesc::CalculateAspectRatioMultipleResize(
+    const auto resized_shape = InputImageLayerDesc::CalculateAspectRatioMultipleOfResize(
         src_img.width, src_img.height, resize_target.first, resize_target.second, pre_proc_info->getResizeMultiple());
 
     return {batch_size, 3, resized_shape.second, resized_shape.first};
@@ -201,7 +201,7 @@ ov::Tensor create_dynamic_input_tensor(const ov::CompiledModel &compiled_model, 
     const auto resize_target = pre_proc_info->getResizeTargetSize();
 
     const ov::element::Type element_type = get_compiled_input_element_type(compiled_model, input_name);
-    GVA_DEBUG("Aspect-ratio-multiple resize for input '%s': source=%ux%u target-box=%zux%zu multiple=%zu "
+    GVA_DEBUG("Aspect-ratio-multiple-of resize for input '%s': source=%ux%u target-box=%zux%zu multiple=%zu "
               "tensor-shape=%zux3x%zux%zu",
               input_name.c_str(), src_img.width, src_img.height, resize_target.first, resize_target.second,
               pre_proc_info->getResizeMultiple(), tensor_shape[0], tensor_shape[2], tensor_shape[3]);
@@ -212,7 +212,7 @@ void validate_dynamic_input_tensor_shape(const ov::Tensor &tensor, const Image &
                                          const InputImageLayerDesc::Ptr &pre_proc_info, size_t batch_size) {
     const ov::Shape expected_shape = get_dynamic_input_shape(src_img, pre_proc_info, batch_size);
     if (tensor.get_shape() != expected_shape) {
-        throw std::runtime_error(fmt::format("Aspect-ratio-multiple resize produced inconsistent shapes in one batch: "
+        throw std::runtime_error(fmt::format("Aspect-ratio-multiple-of resize produced inconsistent shapes in one batch: "
                                              "existing={} expected={}",
                                              shape_to_string(tensor.get_shape()), shape_to_string(expected_shape)));
     }

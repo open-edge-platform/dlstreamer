@@ -254,7 +254,7 @@ bool IsModelProcSupportedForIE(const std::vector<ModelInputProcessorInfo::Ptr> &
         if (!it || it->format != "image")
             continue;
         auto input_desc = PreProcParamsParser(it->params).parse();
-        if (input_desc && (input_desc->isAspectRatioMultipleResize() || input_desc->doNeedDistribNormalization() ||
+        if (input_desc && (input_desc->isAspectRatioMultipleOfResize() || input_desc->doNeedDistribNormalization() ||
                            input_desc->doNeedCrop() || input_desc->doNeedPadding() ||
                            input_desc->doNeedColorSpaceConversion(static_cast<int>(format))))
             return false;
@@ -271,7 +271,7 @@ bool IsModelProcSupportedForVaapi(const std::vector<ModelInputProcessorInfo::Ptr
         auto input_desc = PreProcParamsParser(it->params).parse();
         // In these cases we need to switch to opencv preproc
         // VAAPI converts color to RGBP by default (?)
-        if (input_desc && (input_desc->isAspectRatioMultipleResize() ||
+        if (input_desc && (input_desc->isAspectRatioMultipleOfResize() ||
                            (input_desc->getTargetColorSpace() != PreProcColorSpace::BGR &&
                             input_desc->getTargetColorSpace() != PreProcColorSpace::RGB &&
                             input_desc->doNeedColorSpaceConversion(static_cast<int>(format)))))
@@ -285,7 +285,7 @@ bool IsModelProcSupportedForD3D11(const std::vector<ModelInputProcessorInfo::Ptr
         if (!it || it->format != "image")
             continue;
         auto input_desc = PreProcParamsParser(it->params).parse();
-        if (input_desc && input_desc->isAspectRatioMultipleResize())
+        if (input_desc && input_desc->isAspectRatioMultipleOfResize())
             return false;
     }
     return true;
@@ -507,7 +507,7 @@ void UpdateConfigWithLayerInfo(const std::vector<ModelInputProcessorInfo::Ptr> &
         // Set image resize parameters
         const GValue *garray = gst_structure_get_value(it->params, "reshape_size");
         if (garray && gst_value_array_get_size(garray) == 2 &&
-            !(input_desc && input_desc->isAspectRatioMultipleResize())) {
+            !(input_desc && input_desc->isAspectRatioMultipleOfResize())) {
             const GValue *height = gst_value_array_get_value(garray, 0);
             const GValue *width = gst_value_array_get_value(garray, 1);
 

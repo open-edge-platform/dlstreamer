@@ -303,7 +303,7 @@ static bool parseHFpreprocessing(const nlohmann::json &config_json, const nlohma
     if (preproc_json.contains("keep_aspect_ratio") && preproc_json["keep_aspect_ratio"].is_boolean() &&
         preproc_json["keep_aspect_ratio"].get<bool>() && preproc_json.contains("ensure_multiple_of") &&
         preproc_json["ensure_multiple_of"].is_number_integer()) {
-        modelConfig["resize_type"] = ov::Any(std::string("aspect_ratio_multiple"));
+        modelConfig["resize_type"] = ov::Any(std::string("aspect_ratio_multiple_of"));
         modelConfig["resize_multiple"] = ov::Any(preproc_json["ensure_multiple_of"].get<int>());
     }
 
@@ -399,18 +399,21 @@ bool convertHuggingFaceMeta2ModelApi(const std::string &model_file, ov::AnyMap &
         return false;
     }
 
-    // Set model type based on architecture. This will determine which Model API converter and post-processing logic to apply.
+    // Set model type based on architecture. This will determine which Model API converter and post-processing logic to
+    // apply.
     if (architecture == "ViTForImageClassification") {
         // Model type is always "label" for ViTForImageClassification
         modelConfig["model_type"] = ov::Any(std::string("label"));
-        modelConfig["output_raw_scores"] = ov::Any(std::string("True"));    // meaning the model outputs raw classification scores (logits) that need softmax post-processing
+        modelConfig["output_raw_scores"] = ov::Any(std::string(
+            "True")); // meaning the model outputs raw classification scores (logits) that need softmax post-processing
     } else if ((architecture == "RTDetrForObjectDetection") || (architecture == "RtDetrV2ForObjectDetection")) {
         modelConfig["model_type"] = ov::Any(std::string("rtdetr"));
-        modelConfig["output_raw_scores"] = ov::Any(std::string("False"));   // meaning the model outputs processed detection results (no softmax needed)
-    }
-    else if (architecture == "DepthAnythingForDepthEstimation") {
+        modelConfig["output_raw_scores"] =
+            ov::Any(std::string("False")); // meaning the model outputs processed detection results (no softmax needed)
+    } else if (architecture == "DepthAnythingForDepthEstimation") {
         modelConfig["model_type"] = ov::Any(std::string("depth_estimation"));
-        modelConfig["output_raw_scores"] = ov::Any(std::string("False"));   // meaning the model outputs processed depth estimation results (no softmax needed)
+        modelConfig["output_raw_scores"] = ov::Any(
+            std::string("False")); // meaning the model outputs processed depth estimation results (no softmax needed)
     }
 
     nlohmann::json preproc_json;
@@ -424,7 +427,7 @@ bool convertHuggingFaceMeta2ModelApi(const std::string &model_file, ov::AnyMap &
         GST_ERROR("Failed to parse HuggingFace preprocessing configuration.");
         return false;
     }
-    
+
     // Parse label metadata from config.json and convert to Model API format
     if (!parseHFlabels(config_json, modelConfig)) {
         GST_ERROR("Failed to parse HuggingFace labels.");
@@ -710,8 +713,9 @@ std::map<std::string, GstStructure *> get_model_info_preproc(const std::shared_p
                 g_value_set_string(&gvalue, "no-aspect-ratio");
                 gst_structure_set_value(s, "resize", &gvalue);
             }
-            if (element.second.as<std::string>() == "aspect_ratio_multiple") {
-                g_value_set_string(&gvalue, "aspect-ratio-multiple");
+            if (element.second.as<std::string>() == "aspect_ratio_multiple" ||
+                element.second.as<std::string>() == "aspect_ratio_multiple_of") {
+                g_value_set_string(&gvalue, "aspect-ratio-multiple-of");
                 gst_structure_set_value(s, "resize", &gvalue);
             }
             GST_INFO("[get_model_info_preproc] resize_type: %s", element.second.as<std::string>().c_str());

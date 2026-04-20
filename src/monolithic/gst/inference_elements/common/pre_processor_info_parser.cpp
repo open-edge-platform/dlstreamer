@@ -73,8 +73,8 @@ PreProcResize PreProcParamsParser::getResize() const {
             resize_val = PreProcResize::NO_ASPECT_RATIO;
         } else if (resize_type == "aspect-ratio-pad") {
             resize_val = PreProcResize::ASPECT_RATIO_PAD;
-        } else if (resize_type == "aspect-ratio-multiple") {
-            resize_val = PreProcResize::ASPECT_RATIO_MULTIPLE;
+        } else if (resize_type == "aspect-ratio-multiple" || resize_type == "aspect-ratio-multiple-of") {
+            resize_val = PreProcResize::ASPECT_RATIO_MULTIPLE_OF;
         } else {
             throw std::runtime_error(std::string("Invalid type of resize: ") + resize_type);
         }

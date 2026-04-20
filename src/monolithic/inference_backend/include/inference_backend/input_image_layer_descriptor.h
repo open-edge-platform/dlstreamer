@@ -20,7 +20,7 @@ class InputImageLayerDesc {
   public:
     using Ptr = std::shared_ptr<InputImageLayerDesc>;
 
-        enum class Resize { NO, NO_ASPECT_RATIO, ASPECT_RATIO, ASPECT_RATIO_PAD, ASPECT_RATIO_MULTIPLE };
+        enum class Resize { NO, NO_ASPECT_RATIO, ASPECT_RATIO, ASPECT_RATIO_PAD, ASPECT_RATIO_MULTIPLE_OF };
     enum class Crop { NO, CENTRAL, CENTRAL_RESIZE, TOP_LEFT, TOP_RIGHT, BOTTOM_LEFT, BOTTOM_RIGHT };
     enum class ColorSpace { NO, RGB, BGR, YUV, GRAYSCALE };
 
@@ -149,8 +149,8 @@ class InputImageLayerDesc {
     Resize getResizeType() const {
         return resize;
     }
-    bool isAspectRatioMultipleResize() const {
-        return resize == Resize::ASPECT_RATIO_MULTIPLE;
+    bool isAspectRatioMultipleOfResize() const {
+        return resize == Resize::ASPECT_RATIO_MULTIPLE_OF;
     }
     bool hasResizeTargetSize() const {
         return resize_width != 0 && resize_height != 0;
@@ -207,14 +207,14 @@ class InputImageLayerDesc {
         return padding;
     }
 
-    static std::pair<size_t, size_t> CalculateAspectRatioMultipleResize(size_t input_width, size_t input_height,
-                                                                        size_t target_width, size_t target_height,
-                                                                        size_t multiple) {
+    static std::pair<size_t, size_t> CalculateAspectRatioMultipleOfResize(size_t input_width, size_t input_height,
+                                                                          size_t target_width, size_t target_height,
+                                                                          size_t multiple) {
         if (!input_width || !input_height || !target_width || !target_height) {
-            throw std::invalid_argument("Aspect-ratio-multiple resize requires non-zero input and target sizes");
+            throw std::invalid_argument("Aspect-ratio-multiple-of resize requires non-zero input and target sizes");
         }
         if (!multiple) {
-            throw std::invalid_argument("Aspect-ratio-multiple resize requires non-zero multiple");
+            throw std::invalid_argument("Aspect-ratio-multiple-of resize requires non-zero multiple");
         }
 
         double scale_height = static_cast<double>(target_height) / static_cast<double>(input_height);
