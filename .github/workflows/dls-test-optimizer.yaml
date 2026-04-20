@@ -201,9 +201,10 @@ jobs:
         if: matrix.runner_print_label != 'SKIP'
         env:
           runner_print_label: ${{ matrix.runner_print_label }}
+          test_repo_branch: ${{ inputs.test-repo-branch }}
         run: |
           echo "## 📂 ${runner_print_label} Environment checks" >> $GITHUB_STEP_SUMMARY
-          echo "Test repo branch: ${{ inputs.test-repo-branch }}" >> $GITHUB_STEP_SUMMARY
+          echo "Test repo branch: ${test_repo_branch}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           if [ -d "${{ env.MODELS_PATH }}" ] && [ "$(ls -A "${{ env.MODELS_PATH }}")" ]; then
             echo "Models: found ✅" >> $GITHUB_STEP_SUMMARY
