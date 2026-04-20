@@ -236,6 +236,24 @@ jobs:
           echo "Script permissions:"
           stat "$OPTIMIZER_TESTS_PATH/functional_tests/optimizer_tests/scripts/run_optimizer_tests.sh"
 
+      - name: Reload Docker image to default builder
+        if: matrix.runner_print_label != 'SKIP'
+        env:
+          deb_final_img: ghcr.io/${{ github.repository }}/deb-final-img-${{ matrix.ubuntu_version }}:${{ github.sha }}
+        run: |
+          echo "Current Docker builder:"
+          docker buildx ls
+          echo ""
+          echo "Switching to default builder for runtime..."
+          docker buildx use default || true
+          echo ""
+          echo "Verifying image is available:"
+          docker images | grep deb-final-img || echo "Image needs to be reloaded"
+          echo ""
+          echo "Re-tagging image to ensure it's in local daemon:"
+          docker tag ${deb_final_img} ${deb_final_img}-local || true
+          docker images | grep deb-final-img
+
       - name: Debug - Verify Docker volume mounts
         if: matrix.runner_print_label != 'SKIP'
         env:
@@ -245,23 +263,11 @@ jobs:
           SOURCE_PATH=$(realpath "$OPTIMIZER_TESTS_PATH/functional_tests/optimizer_tests")
           echo "Resolved source path: $SOURCE_PATH"
           
-          # Test without :z flag first
-          echo "Test 1: Mount without :z flag"
+          echo "Test: Volume mount"
           docker run --rm \
             -v "${SOURCE_PATH}:/workspace/optimizer_tests" \
             ${deb_final_img} \
-            bash -c "ls -laR /workspace/optimizer_tests/ && echo '---' && which bash"
-          
-          echo ""
-          echo "Test 2: Check SELinux status on host"
-          getenforce 2>/dev/null || echo "SELinux not available"
-          
-          echo ""
-          echo "Test 3: Direct file access test"
-          docker run --rm \
-            -v "${SOURCE_PATH}:/workspace/optimizer_tests" \
-            ${deb_final_img} \
-            bash -c "cat /workspace/optimizer_tests/test_config.json 2>&1 || echo 'Cannot read file'"
+            bash -c "ls -laR /workspace/optimizer_tests/ && echo '---' && cat /workspace/optimizer_tests/test_config.json 2>&1 | head -5"
 
       - name: 🚀 Run optimizer in Docker
         if: matrix.runner_print_label != 'SKIP'
