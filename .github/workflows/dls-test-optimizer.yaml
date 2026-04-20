@@ -242,8 +242,10 @@ jobs:
           deb_final_img: ghcr.io/${{ github.repository }}/deb-final-img-${{ matrix.ubuntu_version }}:${{ github.sha }}
         run: |
           echo "Testing what Docker can see inside container:"
+          SOURCE_PATH=$(realpath "$OPTIMIZER_TESTS_PATH/functional_tests/optimizer_tests")
+          echo "Resolved source path: $SOURCE_PATH"
           docker run --rm \
-            -v $OPTIMIZER_TESTS_PATH/functional_tests/optimizer_tests:/workspace/optimizer_tests:z \
+            -v "${SOURCE_PATH}:/workspace/optimizer_tests:z" \
             ${deb_final_img} \
             bash -c "ls -laR /workspace/optimizer_tests/ && echo '---' && which bash"
 
@@ -255,10 +257,13 @@ jobs:
         run: |
           mkdir -p $OPTIMIZER_TESTS_PATH/optimizer_results/docker
           RENDER_GROUP_ID=$(getent group render | awk -F: '{printf "%s\n", $3}')
+          TESTS_PATH=$(realpath "$OPTIMIZER_TESTS_PATH/functional_tests/optimizer_tests")
+          RESULTS_PATH=$(realpath "$OPTIMIZER_TESTS_PATH/optimizer_results/docker")
+          MODELS_REAL_PATH=$(realpath "${{ env.MODELS_PATH }}")
           docker run --rm \
-            -v $OPTIMIZER_TESTS_PATH/functional_tests/optimizer_tests:/workspace/optimizer_tests:z \
-            -v $OPTIMIZER_TESTS_PATH/optimizer_results/docker:/workspace/optimizer_results:z \
-            -v ${{ env.MODELS_PATH }}:/home/dlstreamer/models:z \
+            -v "${TESTS_PATH}:/workspace/optimizer_tests:z" \
+            -v "${RESULTS_PATH}:/workspace/optimizer_results:z" \
+            -v "${MODELS_REAL_PATH}:/home/dlstreamer/models:z" \
             --device=/dev/dri \
             --group-add "$RENDER_GROUP_ID" \
             -w /workspace \
