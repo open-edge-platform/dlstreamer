@@ -222,6 +222,20 @@ jobs:
             exit 1
           fi
 
+      - name: Debug - Verify paths before Docker mount
+        if: matrix.runner_print_label != 'SKIP'
+        run: |
+          echo "Verifying source directory before Docker mount:"
+          echo "OPTIMIZER_TESTS_PATH=$OPTIMIZER_TESTS_PATH"
+          echo "Source path: $OPTIMIZER_TESTS_PATH/functional_tests/optimizer_tests"
+          ls -la "$OPTIMIZER_TESTS_PATH/functional_tests/optimizer_tests"
+          echo ""
+          echo "Permissions:"
+          stat "$OPTIMIZER_TESTS_PATH/functional_tests/optimizer_tests"
+          echo ""
+          echo "Script permissions:"
+          stat "$OPTIMIZER_TESTS_PATH/functional_tests/optimizer_tests/scripts/run_optimizer_tests.sh"
+
       - name: Debug - Verify Docker volume mounts
         if: matrix.runner_print_label != 'SKIP'
         env:
@@ -229,9 +243,9 @@ jobs:
         run: |
           echo "Testing what Docker can see inside container:"
           docker run --rm \
-            -v $OPTIMIZER_TESTS_PATH/functional_tests/optimizer_tests:/workspace/optimizer_tests \
+            -v $OPTIMIZER_TESTS_PATH/functional_tests/optimizer_tests:/workspace/optimizer_tests:z \
             ${deb_final_img} \
-            bash -c "ls -laR /workspace/optimizer_tests/ && echo '---' && which bash && echo '---' && file /workspace/optimizer_tests/scripts/run_optimizer_tests.sh"
+            bash -c "ls -laR /workspace/optimizer_tests/ && echo '---' && which bash"
 
       - name: 🚀 Run optimizer in Docker
         if: matrix.runner_print_label != 'SKIP'
@@ -242,9 +256,9 @@ jobs:
           mkdir -p $OPTIMIZER_TESTS_PATH/optimizer_results/docker
           RENDER_GROUP_ID=$(getent group render | awk -F: '{printf "%s\n", $3}')
           docker run --rm \
-            -v $OPTIMIZER_TESTS_PATH/functional_tests/optimizer_tests:/workspace/optimizer_tests \
-            -v $OPTIMIZER_TESTS_PATH/optimizer_results/docker:/workspace/optimizer_results \
-            -v ${{ env.MODELS_PATH }}:/home/dlstreamer/models \
+            -v $OPTIMIZER_TESTS_PATH/functional_tests/optimizer_tests:/workspace/optimizer_tests:z \
+            -v $OPTIMIZER_TESTS_PATH/optimizer_results/docker:/workspace/optimizer_results:z \
+            -v ${{ env.MODELS_PATH }}:/home/dlstreamer/models:z \
             --device=/dev/dri \
             --group-add "$RENDER_GROUP_ID" \
             -w /workspace \
