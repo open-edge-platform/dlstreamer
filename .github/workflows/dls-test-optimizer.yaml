@@ -21,7 +21,7 @@ env:
   MODELS_PATH: "$HOME/models"
   VIDEO_INPUTS_PATH: "$HOME/videos"
   DLS_REL_PATH: "./dlstreamer"
-  OPTIMIZER_TESTS_PATH: "${{ github.workspace }}/../optimizer"
+  OPTIMIZER_TESTS_PATH: "/home/runner/_work/dlstreamer/optimizer"
 
 jobs:
   setup:
@@ -125,6 +125,8 @@ jobs:
         run: |
           mkdir -p $OPTIMIZER_TESTS_PATH
           cp -r dl-streamer-tests-repo/functional_tests $OPTIMIZER_TESTS_PATH
+          # Create symlink for scripts that expect /home/runner/optimizer
+          ln -sf $OPTIMIZER_TESTS_PATH /home/runner/optimizer
 
       # ======================================================== BUILDING PART ========================================================
       - name: Set up Docker Buildx
@@ -263,16 +265,20 @@ jobs:
       - name: Run Optimizer on host
         if: always() && matrix.runner_print_label != 'SKIP'
         id: run_optimizer_on_host
+        env:
+          COMPARE_SCRIPT: "${{ env.OPTIMIZER_TESTS_PATH }}/functional_tests/optimizer_tests/scripts/compare_results.py"
         run: |
           mkdir -p $OPTIMIZER_TESTS_PATH/optimizer_results/host
-          $OPTIMIZER_TESTS_PATH/functional_tests/optimizer_tests/scripts/run_optimizer_tests.sh --results-dir "$OPTIMIZER_TESTS_PATH/optimizer_results/host" --config-file "$OPTIMIZER_TESTS_PATH/functional_tests/optimizer_tests/test_config.json"
+          bash $OPTIMIZER_TESTS_PATH/functional_tests/optimizer_tests/scripts/run_optimizer_tests.sh \
+            --results-dir "$OPTIMIZER_TESTS_PATH/optimizer_results/host" \
+            --config-file "$OPTIMIZER_TESTS_PATH/functional_tests/optimizer_tests/test_config.json"
 
       - name: Upload host test results
         if: always() && matrix.runner_print_label != 'SKIP'
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f #7.0.0
         with:
-          name: DLS_optimzier_host_${{ matrix.runner_print_label }}_${{ matrix.ubuntu_version }}_results
-          path: ${{ env.OPTIMIZER_TESTS_PATH }}/optimizer_results/host/*
+          name: DLS_optimizer_host_${{ matrix.runner_print_label }}_${{ matrix.ubuntu_version }}_results
+          path: /home/runner/_work/dlstreamer/optimizer/optimizer_results/host/*
 
       # ======================================================== TEST RESULTS SUMMARY ========================================================
       - name: Add optimizer test results to summary
