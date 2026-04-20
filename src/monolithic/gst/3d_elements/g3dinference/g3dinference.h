@@ -4,8 +4,7 @@
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
 
-#ifndef __GST_G3D_INFERENCE_H__
-#define __GST_G3D_INFERENCE_H__
+#pragma once
 
 #include <gst/base/gstbasetransform.h>
 #include <gst/gst.h>
@@ -41,5 +40,3 @@ struct _GstG3DInferenceClass {
 GType gst_g3d_inference_get_type(void);
 
 G_END_DECLS
-
-#endif /* __GST_G3D_INFERENCE_H__ */
