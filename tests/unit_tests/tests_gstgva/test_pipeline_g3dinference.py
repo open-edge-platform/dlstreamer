@@ -24,9 +24,12 @@ Gst.init(None)
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 DLSTREAMER_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, "..", "..", ".."))
 OPENVINO_CONTRIB_URL = "https://github.com/openvinotoolkit/openvino_contrib.git"
+POINTPILLARS_OPENVINO_CONTRIB_REVISION = "f3c621350f93a31a08c7657fe75120e3038d15eb"
 # Keep the test offline-friendly by requiring pre-provisioned PointPillars assets by default.
 # Set G3DINFERENCE_ALLOW_DOWNLOAD=1 only for explicit local validation that permits fetching sources.
 ALLOW_POINTPILLARS_DOWNLOAD = os.environ.get("G3DINFERENCE_ALLOW_DOWNLOAD", "").lower() in ("1", "true", "yes")
+# Expected detections were captured from the openvino_contrib PointPillars assets at
+# revision f3c621350f93a31a08c7657fe75120e3038d15eb using demo_data/test/000002.bin.
 EXPECTED_DETECTIONS = [
     {"label_id": 2, "confidence": 0.954, "bbox_3d": {"x": 10.403315544128418, "y": -4.837177753448486, "z": -1.532669186592102, "w": 1.692104697227478, "l": 4.5549397468566895, "h": 1.5184109210968018, "theta": -0.02542771026492119}},
     {"label_id": 2, "confidence": 0.936, "bbox_3d": {"x": 18.695310592651367, "y": 5.6205010414123535, "z": -2.036820650100708, "w": 1.5274709463119507, "l": 3.4749011993408203, "h": 1.4211682081222534, "theta": 1.534871220588684}},
@@ -66,26 +69,38 @@ def ensure_pointpillars_root():
     sparse_root = os.path.join(cache_root, "openvino_contrib")
     checkout_root = os.path.join(sparse_root, "modules", "3d", "pointPillars")
 
-    if os.path.isdir(checkout_root):
-        return checkout_root
-
     git_bin = shutil.which("git")
     if git_bin is None:
         raise unittest.SkipTest("git is required to fetch openvino_contrib for PointPillars")
 
     os.makedirs(cache_root, exist_ok=True)
-    shutil.rmtree(sparse_root, ignore_errors=True)
 
     try:
+        if not os.path.isdir(os.path.join(sparse_root, ".git")):
+            shutil.rmtree(sparse_root, ignore_errors=True)
+            subprocess.run(
+                [git_bin, "clone", "--filter=blob:none", "--sparse", OPENVINO_CONTRIB_URL, sparse_root],
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+            )
         subprocess.run(
-            [git_bin, "clone", "--depth", "1", "--filter=blob:none", "--sparse", OPENVINO_CONTRIB_URL, sparse_root],
+            [git_bin, "-C", sparse_root, "sparse-checkout", "set", "modules/3d/pointPillars"],
             check=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
         )
         subprocess.run(
-            [git_bin, "-C", sparse_root, "sparse-checkout", "set", "modules/3d/pointPillars"],
+            [git_bin, "-C", sparse_root, "fetch", "--depth", "1", "origin", POINTPILLARS_OPENVINO_CONTRIB_REVISION],
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+        )
+        subprocess.run(
+            [git_bin, "-C", sparse_root, "checkout", POINTPILLARS_OPENVINO_CONTRIB_REVISION],
             check=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
