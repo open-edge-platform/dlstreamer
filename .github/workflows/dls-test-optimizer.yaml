@@ -21,7 +21,7 @@ env:
   MODELS_PATH: "$HOME/models"
   VIDEO_INPUTS_PATH: "$HOME/videos"
   DLS_REL_PATH: "./dlstreamer"
-  OPTIMIZER_TESTS_PATH: "/home/runner/optimizer"
+  OPTIMIZER_TESTS_PATH: "${{ github.workspace }}/../optimizer"
 
 jobs:
   setup:
@@ -222,53 +222,6 @@ jobs:
             exit 1
           fi
 
-      - name: Debug - Verify paths before Docker mount
-        if: matrix.runner_print_label != 'SKIP'
-        run: |
-          echo "Verifying source directory before Docker mount:"
-          echo "OPTIMIZER_TESTS_PATH=$OPTIMIZER_TESTS_PATH"
-          echo "Source path: $OPTIMIZER_TESTS_PATH/functional_tests/optimizer_tests"
-          ls -la "$OPTIMIZER_TESTS_PATH/functional_tests/optimizer_tests"
-          echo ""
-          echo "Permissions:"
-          stat "$OPTIMIZER_TESTS_PATH/functional_tests/optimizer_tests"
-          echo ""
-          echo "Script permissions:"
-          stat "$OPTIMIZER_TESTS_PATH/functional_tests/optimizer_tests/scripts/run_optimizer_tests.sh"
-
-      - name: Reload Docker image to default builder
-        if: matrix.runner_print_label != 'SKIP'
-        env:
-          deb_final_img: ghcr.io/${{ github.repository }}/deb-final-img-${{ matrix.ubuntu_version }}:${{ github.sha }}
-        run: |
-          echo "Current Docker builder:"
-          docker buildx ls
-          echo ""
-          echo "Switching to default builder for runtime..."
-          docker buildx use default || true
-          echo ""
-          echo "Verifying image is available:"
-          docker images | grep deb-final-img || echo "Image needs to be reloaded"
-          echo ""
-          echo "Re-tagging image to ensure it's in local daemon:"
-          docker tag ${deb_final_img} ${deb_final_img}-local || true
-          docker images | grep deb-final-img
-
-      - name: Debug - Verify Docker volume mounts
-        if: matrix.runner_print_label != 'SKIP'
-        env:
-          deb_final_img: ghcr.io/${{ github.repository }}/deb-final-img-${{ matrix.ubuntu_version }}:${{ github.sha }}
-        run: |
-          echo "Testing what Docker can see inside container:"
-          SOURCE_PATH=$(realpath "$OPTIMIZER_TESTS_PATH/functional_tests/optimizer_tests")
-          echo "Resolved source path: $SOURCE_PATH"
-          
-          echo "Test: Volume mount"
-          docker run --rm \
-            -v "${SOURCE_PATH}:/workspace/optimizer_tests" \
-            ${deb_final_img} \
-            bash -c "ls -laR /workspace/optimizer_tests/ && echo '---' && cat /workspace/optimizer_tests/test_config.json 2>&1 | head -5"
-
       - name: 🚀 Run optimizer in Docker
         if: matrix.runner_print_label != 'SKIP'
         id: run_optimizer_in_docker
@@ -277,13 +230,10 @@ jobs:
         run: |
           mkdir -p $OPTIMIZER_TESTS_PATH/optimizer_results/docker
           RENDER_GROUP_ID=$(getent group render | awk -F: '{printf "%s\n", $3}')
-          TESTS_PATH=$(realpath "$OPTIMIZER_TESTS_PATH/functional_tests/optimizer_tests")
-          RESULTS_PATH=$(realpath "$OPTIMIZER_TESTS_PATH/optimizer_results/docker")
-          MODELS_REAL_PATH=$(realpath "${{ env.MODELS_PATH }}")
           docker run --rm \
-            -v "${TESTS_PATH}:/workspace/optimizer_tests" \
-            -v "${RESULTS_PATH}:/workspace/optimizer_results" \
-            -v "${MODELS_REAL_PATH}:/home/dlstreamer/models" \
+            -v $OPTIMIZER_TESTS_PATH/functional_tests/optimizer_tests:/workspace/optimizer_tests \
+            -v $OPTIMIZER_TESTS_PATH/optimizer_results/docker:/workspace/optimizer_results \
+            -v ${{ env.MODELS_PATH }}:/home/dlstreamer/models \
             --device=/dev/dri \
             --group-add "$RENDER_GROUP_ID" \
             -w /workspace \
