@@ -552,8 +552,12 @@ json convert_lidar_detection_tensor(const GVA::Tensor &tensor) {
         return objects;
 
     const std::vector<float> data = tensor.data<float>();
-    if (data.size() < detection_count * detection_width)
+    if (data.size() < detection_count * detection_width) {
+        GST_WARNING(
+            "pointpillars tensor data size (%zu) is smaller than expected (%zu x %zu). returning empty detections.",
+            data.size(), detection_count, detection_width);
         return objects;
+    }
 
     for (size_t index = 0; index < detection_count; ++index) {
         const size_t offset = index * detection_width;
