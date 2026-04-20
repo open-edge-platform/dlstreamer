@@ -1306,7 +1306,6 @@ if array_contains "mars-small128" "${MODELS_TO_PROCESS[@]}" || array_contains "a
   fi
 fi
 
-
 # ================================= PointPillars FP16 - OpenVINO Contrib =================================
 if array_contains "pointpillars" "${MODELS_TO_PROCESS[@]}" || array_contains "all" "${MODELS_TO_PROCESS[@]}"; then
   display_header "Downloading PointPillars model"
