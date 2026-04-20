@@ -15,6 +15,7 @@ OPENVINO_DIR 				?= /opt/intel/openvino_2026
 DLSTREAMER_VERSION 	:= 0.0.0
 BUILD_TYPE 			?= Release
 ENABLE_GENAI        := OFF
+ENABLE_TESTS		:= OFF
 
 DOCKER_PRIVATE_REGISTRY := # Empty on purpose
 
@@ -66,7 +67,7 @@ build: dependencies ## Compile Deep Learning Streamer
 		-DENABLE_SAMPLES=ON \
 		-DENABLE_GENAI=${ENABLE_GENAI} \
 		-DGENERATE_GIR_FROM_SOURCE=${BUILD_GIRS} \
-		-DENABLE_TESTS=OFF; \
+		-DENABLE_TESTS=${ENABLE_TESTS}; \
 	cmake --build build -j$(shell nproc)
 
 .PHONY: install
