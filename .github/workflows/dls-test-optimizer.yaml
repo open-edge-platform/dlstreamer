@@ -123,7 +123,7 @@ jobs:
       - name: Copy DL Streamer tests repo
         if: matrix.runner_print_label != 'SKIP'
         run: |
-          mkdir $OPTIMIZER_TESTS_PATH
+          mkdir -p $OPTIMIZER_TESTS_PATH
           cp -r dl-streamer-tests-repo/functional_tests $OPTIMIZER_TESTS_PATH
 
       # ======================================================== BUILDING PART ========================================================
@@ -181,13 +181,29 @@ jobs:
           cp -r deb_packages ${{ env.DLS_REL_PATH }}
 
       # ======================================================== DOCKER TESTING PART ========================================================
+      - name: Debug - Verify optimizer tests structure
+        if: matrix.runner_print_label != 'SKIP'
+        run: |
+          echo "Checking OPTIMIZER_TESTS_PATH structure:"
+          ls -laR $OPTIMIZER_TESTS_PATH/ || echo "OPTIMIZER_TESTS_PATH not found"
+          echo ""
+          echo "Expected test script location:"
+          if [ -f "$OPTIMIZER_TESTS_PATH/functional_tests/optimizer_tests/scripts/run_optimizer_tests.sh" ]; then
+            echo "✅ Test script found at expected location"
+            ls -la "$OPTIMIZER_TESTS_PATH/functional_tests/optimizer_tests/scripts/run_optimizer_tests.sh"
+          else
+            echo "❌ Test script NOT found at: $OPTIMIZER_TESTS_PATH/functional_tests/optimizer_tests/scripts/run_optimizer_tests.sh"
+            echo "Directory contents:"
+            find $OPTIMIZER_TESTS_PATH -name "run_optimizer_tests.sh" || echo "Script not found anywhere"
+          fi
+
       - name: Check models
         if: matrix.runner_print_label != 'SKIP'
         env:
           runner_print_label: ${{ matrix.runner_print_label }}
         run: |
           echo "## 📂 ${runner_print_label} Environment checks" >> $GITHUB_STEP_SUMMARY
-          echo "Test repo branch: $test_repo_branch" >> $GITHUB_STEP_SUMMARY
+          echo "Test repo branch: ${{ inputs.test-repo-branch }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           if [ -d "${{ env.MODELS_PATH }}" ] && [ "$(ls -A "${{ env.MODELS_PATH }}")" ]; then
             echo "Models: found ✅" >> $GITHUB_STEP_SUMMARY
@@ -246,7 +262,7 @@ jobs:
         if: always() && matrix.runner_print_label != 'SKIP'
         id: run_optimizer_on_host
         run: |
-          mkdir $OPTIMIZER_TESTS_PATH/optimizer_results/host
+          mkdir -p $OPTIMIZER_TESTS_PATH/optimizer_results/host
           $OPTIMIZER_TESTS_PATH/functional_tests/optimizer_tests/scripts/run_optimizer_tests.sh --results-dir "$OPTIMIZER_TESTS_PATH/optimizer_results/host" --config-file "$OPTIMIZER_TESTS_PATH/functional_tests/optimizer_tests/test_config.json"
 
       - name: Upload host test results
