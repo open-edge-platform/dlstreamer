@@ -2,7 +2,8 @@
 
 {{APP_DESCRIPTION}}
 
-![{{APP_TITLE}}]({{APP_IMAGE}})
+<!-- Optional: Include a screenshot from the output video. Omit this line if no image is available. -->
+<!-- ![{{APP_TITLE}}]({{APP_IMAGE}}) -->
 
 {{DETAILED_DESCRIPTION}}
 
@@ -43,6 +44,11 @@ The pipeline uses the following elements:
 - DL Streamer installed on host, or DL Streamer docker image
 - Intel EdgeAI System with integrated GPU/NPU (or set device arguments to `CPU`)
 - Python dependencies installed with:
+
+> **Note:** Model export and pipeline runtime use **separate virtual environments** to
+> avoid dependency conflicts. `export_requirements.txt` includes heavy ML frameworks
+> (PyTorch, Ultralytics, PaddlePaddle) needed only once for model conversion.
+> `requirements.txt` contains lightweight runtime dependencies.
 
 ```bash
 python3 -m venv .{{APP_NAME}}-venv

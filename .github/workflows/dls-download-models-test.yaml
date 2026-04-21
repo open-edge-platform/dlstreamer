@@ -2,32 +2,62 @@ name: "[DLS] Test models downloading"
 run-name: "[DLS] Test models downloading (by @${{ github.actor }} via ${{ github.event_name }})"
 on:
   workflow_dispatch:
-
   workflow_call:
 
 permissions: {}
 
 jobs:
+  setup:
+    name: "Setup models downloading test configuration"
+    runs-on: dlstreamer
+    outputs:
+      should_run: ${{ steps.skip-check.outputs.should_run }}
+    steps:
+      - name: Check out dlstreamer repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6.0.2
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Check if should skip CI
+        id: skip-check
+        uses: ./.github/actions/common/check-skip-ci
+        with:
+          job_name: "Test models downloading"
+          working_directory: "."
+
   test-single-model:
     name: Test single model download
     runs-on: dlstreamer
+    needs: setup
     steps:
+      - name: Skip or execute based on configuration
+        if: needs.setup.outputs.should_run == 'false'
+        run: |
+          echo "## ✅ Test Single Model Download Skipped" >> $GITHUB_STEP_SUMMARY
+          echo "**Reason:** Changes only in excluded files" >> $GITHUB_STEP_SUMMARY
+          exit 0
+
       - name: Checkout repository
+        if: needs.setup.outputs.should_run == 'true'
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # 6.0.2
         with:
           persist-credentials: false
           path: dlstreamer
 
       - name: Set up environment
+        if: needs.setup.outputs.should_run == 'true'
         run: |
           echo "MODELS_PATH=$HOME/models" >> $GITHUB_ENV
 
       - name: Download single model (yolo11s)
+        if: needs.setup.outputs.should_run == 'true'
         run: |
           cd dlstreamer/samples
           bash download_public_models.sh yolo11s
 
       - name: Verify model downloaded
+        if: needs.setup.outputs.should_run == 'true'
         run: |
           test -f $HOME/models/public/yolo11s/FP32/yolo11s.xml
           test -f $HOME/models/public/yolo11s/FP32/yolo11s.bin
@@ -38,23 +68,35 @@ jobs:
   test-multiple-models:
     name: Test multiple models download
     runs-on: dlstreamer
+    needs: setup
     steps:
+      - name: Skip or execute based on configuration
+        if: needs.setup.outputs.should_run == 'false'
+        run: |
+          echo "## ✅ Test Multiple Models Download Skipped" >> $GITHUB_STEP_SUMMARY
+          echo "**Reason:** Changes only in excluded files" >> $GITHUB_STEP_SUMMARY
+          exit 0
+
       - name: Checkout repository
+        if: needs.setup.outputs.should_run == 'true'
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # 6.0.2
         with:
           persist-credentials: false
           path: dlstreamer
 
       - name: Set up environment
+        if: needs.setup.outputs.should_run == 'true'
         run: |
           echo "MODELS_PATH=$HOME/models" >> $GITHUB_ENV
 
       - name: Download multiple models (yolo11s,centerface)
+        if: needs.setup.outputs.should_run == 'true'
         run: |
           cd dlstreamer/samples
           bash download_public_models.sh yolo11s,centerface
 
       - name: Verify models downloaded
+        if: needs.setup.outputs.should_run == 'true'
         run: |
           # Verify yolo11s
           test -f $HOME/models/public/yolo11s/FP32/yolo11s.xml
@@ -67,23 +109,35 @@ jobs:
   test-single-model-with-quantization:
     name: Test single model with quantization
     runs-on: dlstreamer
+    needs: setup
     steps:
+      - name: Skip or execute based on configuration
+        if: needs.setup.outputs.should_run == 'false'
+        run: |
+          echo "## ✅ Test Single Model With Quantization Skipped" >> $GITHUB_STEP_SUMMARY
+          echo "**Reason:** Changes only in excluded files" >> $GITHUB_STEP_SUMMARY
+          exit 0
+
       - name: Checkout repository
+        if: needs.setup.outputs.should_run == 'true'
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # 6.0.2
         with:
           persist-credentials: false
           path: dlstreamer
 
       - name: Set up environment
+        if: needs.setup.outputs.should_run == 'true'
         run: |
           echo "MODELS_PATH=$HOME/models" >> $GITHUB_ENV
 
       - name: Download model with quantization (yolo11s with coco128)
+        if: needs.setup.outputs.should_run == 'true'
         run: |
           cd dlstreamer/samples
           bash download_public_models.sh yolo11s coco128
 
       - name: Verify model with INT8 quantization
+        if: needs.setup.outputs.should_run == 'true'
         run: |
           # Verify FP32 and FP16
           test -f $HOME/models/public/yolo11s/FP32/yolo11s.xml
@@ -96,23 +150,35 @@ jobs:
   test-multiple-models-with-quantization:
     name: Test multiple models with quantization
     runs-on: dlstreamer
+    needs: setup
     steps:
+      - name: Skip or execute based on configuration
+        if: needs.setup.outputs.should_run == 'false'
+        run: |
+          echo "## ✅ Test Multiple Models With Quantization Skipped" >> $GITHUB_STEP_SUMMARY
+          echo "**Reason:** Changes only in excluded files" >> $GITHUB_STEP_SUMMARY
+          exit 0
+
       - name: Checkout repository
+        if: needs.setup.outputs.should_run == 'true'
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # 6.0.2
         with:
           persist-credentials: false
           path: dlstreamer
 
       - name: Set up environment
+        if: needs.setup.outputs.should_run == 'true'
         run: |
           echo "MODELS_PATH=$HOME/models" >> $GITHUB_ENV
 
       - name: Download multiple models with quantization (yolov8n,yolov10n with coco128)
+        if: needs.setup.outputs.should_run == 'true'
         run: |
           cd dlstreamer/samples
           bash download_public_models.sh yolov8n,yolov10n coco128
 
       - name: Verify both models with INT8 quantization
+        if: needs.setup.outputs.should_run == 'true'
         run: |
           # Verify yolov8n (FP32, FP16, INT8)
           test -f $HOME/models/public/yolov8n/FP32/yolov8n.xml
@@ -135,23 +201,35 @@ jobs:
   test-non-yolo-model:
     name: Test non-YOLO model download
     runs-on: dlstreamer
+    needs: setup
     steps:
+      - name: Skip or execute based on configuration
+        if: needs.setup.outputs.should_run == 'false'
+        run: |
+          echo "## ✅ Test Non-YOLO Model Download Skipped" >> $GITHUB_STEP_SUMMARY
+          echo "**Reason:** Changes only in excluded files" >> $GITHUB_STEP_SUMMARY
+          exit 0
+
       - name: Checkout repository
+        if: needs.setup.outputs.should_run == 'true'
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # 6.0.2
         with:
           persist-credentials: false
           path: dlstreamer
 
       - name: Set up environment
+        if: needs.setup.outputs.should_run == 'true'
         run: |
           echo "MODELS_PATH=$HOME/models" >> $GITHUB_ENV
 
       - name: Download non-YOLO model (hsemotion)
+        if: needs.setup.outputs.should_run == 'true'
         run: |
           cd dlstreamer/samples
           bash download_public_models.sh hsemotion
 
       - name: Verify model downloaded
+        if: needs.setup.outputs.should_run == 'true'
         run: |
           test -f $HOME/models/public/hsemotion/FP16/hsemotion.xml
           test -f $HOME/models/public/hsemotion/FP16/hsemotion.bin
@@ -160,23 +238,35 @@ jobs:
   test-mixed-models:
     name: Test mixed YOLO and non-YOLO models
     runs-on: dlstreamer
+    needs: setup
     steps:
+      - name: Skip or execute based on configuration
+        if: needs.setup.outputs.should_run == 'false'
+        run: |
+          echo "## ✅ Test Mixed Models Download Skipped" >> $GITHUB_STEP_SUMMARY
+          echo "**Reason:** Changes only in excluded files" >> $GITHUB_STEP_SUMMARY
+          exit 0
+
       - name: Checkout repository
+        if: needs.setup.outputs.should_run == 'true'
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # 6.0.2
         with:
           persist-credentials: false
           path: dlstreamer
 
       - name: Set up environment
+        if: needs.setup.outputs.should_run == 'true'
         run: |
           echo "MODELS_PATH=$HOME/models" >> $GITHUB_ENV
 
       - name: Download mixed models (yolov10n,hsemotion,centerface)
+        if: needs.setup.outputs.should_run == 'true'
         run: |
           cd dlstreamer/samples
           bash download_public_models.sh yolov10n,hsemotion,centerface
 
       - name: Verify all models downloaded
+        if: needs.setup.outputs.should_run == 'true'
         run: |
           # Verify yolov10n
           test -f $HOME/models/public/yolov10n/FP32/yolov10n.xml
@@ -189,20 +279,31 @@ jobs:
   test-help-flag:
     name: Test help flag
     runs-on: dlstreamer
+    needs: setup
     steps:
+      - name: Skip or execute based on configuration
+        if: needs.setup.outputs.should_run == 'false'
+        run: |
+          echo "## ✅ Test Help Flag Skipped" >> $GITHUB_STEP_SUMMARY
+          echo "**Reason:** Changes only in excluded files" >> $GITHUB_STEP_SUMMARY
+          exit 0
+
       - name: Checkout repository
+        if: needs.setup.outputs.should_run == 'true'
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # 6.0.2
         with:
           persist-credentials: false
           path: dlstreamer
 
       - name: Test help flag
+        if: needs.setup.outputs.should_run == 'true'
         run: |
           cd dlstreamer/samples
           bash download_public_models.sh --help
           bash download_public_models.sh -h
 
       - name: Verify help output
+        if: needs.setup.outputs.should_run == 'true'
         run: |
           cd dlstreamer/samples
           output=$(bash download_public_models.sh --help)
@@ -214,14 +315,24 @@ jobs:
   test-missing-models-path:
     name: Test missing MODELS_PATH
     runs-on: dlstreamer
+    needs: setup
     steps:
+      - name: Skip or execute based on configuration
+        if: needs.setup.outputs.should_run == 'false'
+        run: |
+          echo "## ✅ Test Missing MODELS_PATH Skipped" >> $GITHUB_STEP_SUMMARY
+          echo "**Reason:** Changes only in excluded files" >> $GITHUB_STEP_SUMMARY
+          exit 0
+
       - name: Checkout repository
+        if: needs.setup.outputs.should_run == 'true'
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # 6.0.2
         with:
           persist-credentials: false
           path: dlstreamer
 
       - name: Test script without MODELS_PATH
+        if: needs.setup.outputs.should_run == 'true'
         run: |
           cd dlstreamer/samples
           unset MODELS_PATH
@@ -235,18 +346,29 @@ jobs:
   test-invalid-model-name:
     name: Test invalid model name
     runs-on: dlstreamer
+    needs: setup
     steps:
+      - name: Skip or execute based on configuration
+        if: needs.setup.outputs.should_run == 'false'
+        run: |
+          echo "## ✅ Test Invalid Model Name Skipped" >> $GITHUB_STEP_SUMMARY
+          echo "**Reason:** Changes only in excluded files" >> $GITHUB_STEP_SUMMARY
+          exit 0
+
       - name: Checkout repository
+        if: needs.setup.outputs.should_run == 'true'
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # 6.0.2
         with:
           persist-credentials: false
           path: dlstreamer
 
       - name: Set up environment
+        if: needs.setup.outputs.should_run == 'true'
         run: |
           echo "MODELS_PATH=$HOME/models" >> $GITHUB_ENV
 
       - name: Test invalid model name
+        if: needs.setup.outputs.should_run == 'true'
         run: |
           cd dlstreamer/samples
           if bash download_public_models.sh invalid_model_xyz 2>&1 | grep -q "Unsupported model"; then
@@ -259,23 +381,35 @@ jobs:
   test-ubuntu-2204-compatibility:
     name: Test Ubuntu 22.04 compatibility
     runs-on: ubuntu-22.04
+    needs: setup
     steps:
+      - name: Skip or execute based on configuration
+        if: needs.setup.outputs.should_run == 'false'
+        run: |
+          echo "## ✅ Test Ubuntu 22.04 Compatibility Skipped" >> $GITHUB_STEP_SUMMARY
+          echo "**Reason:** Changes only in excluded files" >> $GITHUB_STEP_SUMMARY
+          exit 0
+
       - name: Checkout repository
+        if: needs.setup.outputs.should_run == 'true'
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # 6.0.2
         with:
           persist-credentials: false
           path: dlstreamer
 
       - name: Set up environment
+        if: needs.setup.outputs.should_run == 'true'
         run: |
           echo "MODELS_PATH=$HOME/models" >> $GITHUB_ENV
 
       - name: Download single model on Ubuntu 22.04 (yolo11s)
+        if: needs.setup.outputs.should_run == 'true'
         run: |
           cd dlstreamer/samples
           bash download_public_models.sh yolo11s
 
       - name: Verify model downloaded and environment works
+        if: needs.setup.outputs.should_run == 'true'
         run: |
           test -f $HOME/models/public/yolo11s/FP32/yolo11s.xml
           test -f $HOME/models/public/yolo11s/FP32/yolo11s.bin
