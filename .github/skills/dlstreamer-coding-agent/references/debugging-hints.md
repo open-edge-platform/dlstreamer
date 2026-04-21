@@ -1,6 +1,6 @@
 # Debugging Hints Reference
 
-Common debugging patterns, execution hints, and pitfalls encountered when developing and testing DLStreamer pipelines.
+Common debugging patterns, execution hints, and pitfalls encountered when developing and testing DL Streamer pipelines.
 
 ## Start with Self-contained Validation
 
