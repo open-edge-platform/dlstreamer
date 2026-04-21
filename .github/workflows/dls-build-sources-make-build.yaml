@@ -233,7 +233,7 @@ jobs:
         if: needs.setup.outputs.should_run == 'true'
         env:
           RESULTS_DIR: /home/runner/unit-test-results
-        run: .${{ env.DLS_REL_PATH }}/tests/scripts/run_unit_tests.sh "${{ env.DLS_REL_PATH }}/build" "" "${RESULTS_DIR}"
+        run: ${{ env.DLS_REL_PATH }}/tests/scripts/run_unit_tests.sh "${{ env.DLS_REL_PATH }}/build" "" "${RESULTS_DIR}"
 
       #this script creates output file called unit_test_summary.txt
       - name: Run python script to get Unit Test results
