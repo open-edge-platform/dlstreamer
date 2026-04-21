@@ -66,6 +66,29 @@ DLS_EXPORT const GstMetaInfo *watermark_text_meta_get_info(void);
 DLS_EXPORT GType watermark_text_meta_api_get_type(void);
 
 /**
+ * watermark_text_meta_add:
+ * @buf: a #GstBuffer to attach metadata to
+ * @x: text x position in pixels (top-left)
+ * @y: text y position in pixels (top-left)
+ * @text: text string to render
+ * @font_scale: font scale factor (e.g. 0.7)
+ * @font_type: font type as #WatermarkFontType integer
+ * @r: red color component
+ * @g: green color component
+ * @b: blue color component
+ * @thickness: text stroke thickness
+ * @draw_bg: whether to draw a filled background rectangle behind the text
+ *
+ * Creates and attaches a new #WatermarkTextMeta to @buf.
+ *
+ * Returns: (transfer none) (nullable): the newly added #WatermarkTextMeta, or NULL on error
+ */
+DLS_EXPORT WatermarkTextMeta *watermark_text_meta_add(GstBuffer *buf, guint32 x, guint32 y, const gchar *text,
+                                                      gfloat font_scale, gint font_type,
+                                                      guint8 r, guint8 g, guint8 b, gint thickness,
+                                                      gboolean draw_bg);
+
+/**
  * @def WATERMARK_TEXT_META_INFO
  * @brief This macro calls watermark_text_meta_get_info
  * @return const GstMetaInfo* for registered type

@@ -112,6 +112,8 @@ void RendererYUV::draw_backend(std::vector<cv::Mat> &image_planes, std::vector<r
             draw_instance_mask(image_planes, std::get<render::InstanceSegmantationMask>(p));
         } else if (std::holds_alternative<render::SemanticSegmantationMask>(p)) {
             draw_semantic_mask(image_planes, std::get<render::SemanticSegmantationMask>(p));
+        } else if (std::holds_alternative<render::Polygon>(p)) {
+            draw_polygon(image_planes, std::get<render::Polygon>(p));
         } else if (std::holds_alternative<render::Blur>(p)) {
             blur_rectangle(image_planes, std::get<render::Blur>(p));
         }
@@ -243,6 +245,25 @@ void RendererI420::draw_line(std::vector<cv::Mat> &mats, render::Line line) {
     cv::line(v, pos1_u_v, pos2_u_v, line.color[2], thick);
 }
 
+void RendererI420::draw_polygon(std::vector<cv::Mat> &mats, render::Polygon polygon) {
+    check_planes<3>(mats);
+    cv::Mat &y = mats[0];
+    cv::Mat &u = mats[1];
+    cv::Mat &v = mats[2];
+
+    std::vector<std::vector<cv::Point>> contours = {polygon.points};
+    cv::polylines(y, contours, true, polygon.color[0], polygon.thick);
+
+    std::vector<cv::Point> pts_uv;
+    pts_uv.reserve(polygon.points.size());
+    for (const auto &pt : polygon.points)
+        pts_uv.push_back(calc_point_for_u_v_planes(pt));
+    std::vector<std::vector<cv::Point>> contours_uv = {pts_uv};
+    int thick_uv = calc_thick_for_u_v_planes(polygon.thick);
+    cv::polylines(u, contours_uv, true, polygon.color[1], thick_uv);
+    cv::polylines(v, contours_uv, true, polygon.color[2], thick_uv);
+}
+
 void RendererI420::draw_instance_mask(std::vector<cv::Mat> &mats, render::InstanceSegmantationMask mask) {
     (void)mats;
     (void)mask;
@@ -343,6 +364,23 @@ void RendererNV12::draw_line(std::vector<cv::Mat> &mats, render::Line line) {
     cv::Point2f pos1_u_v(calc_point_for_u_v_planes(line.pt1));
     cv::Point2f pos2_u_v(calc_point_for_u_v_planes(line.pt2));
     cv::line(u_v, pos1_u_v, pos2_u_v, {line.color[1], line.color[2]}, calc_thick_for_u_v_planes(line.thick));
+}
+
+void RendererNV12::draw_polygon(std::vector<cv::Mat> &mats, render::Polygon polygon) {
+    check_planes<2>(mats);
+    cv::Mat &y = mats[0];
+    cv::Mat &u_v = mats[1];
+
+    std::vector<std::vector<cv::Point>> contours = {polygon.points};
+    cv::polylines(y, contours, true, polygon.color[0], polygon.thick);
+
+    std::vector<cv::Point> pts_uv;
+    pts_uv.reserve(polygon.points.size());
+    for (const auto &pt : polygon.points)
+        pts_uv.push_back(calc_point_for_u_v_planes(pt));
+    std::vector<std::vector<cv::Point>> contours_uv = {pts_uv};
+    cv::polylines(u_v, contours_uv, true, {polygon.color[1], polygon.color[2]},
+                  calc_thick_for_u_v_planes(polygon.thick));
 }
 
 void RendererNV12::draw_instance_mask(std::vector<cv::Mat> &mats, render::InstanceSegmantationMask mask) {
@@ -447,6 +485,11 @@ void RendererBGR::draw_text_bg(std::vector<cv::Mat> &mats, render::Text text) {
 
 void RendererBGR::draw_line(std::vector<cv::Mat> &mats, render::Line line) {
     cv::line(mats[0], line.pt1, line.pt2, line.color, line.thick);
+}
+
+void RendererBGR::draw_polygon(std::vector<cv::Mat> &mats, render::Polygon polygon) {
+    std::vector<std::vector<cv::Point>> contours = {polygon.points};
+    cv::polylines(mats[0], contours, true, polygon.color, polygon.thick);
 }
 
 void RendererBGR::draw_instance_mask(std::vector<cv::Mat> &mats, render::InstanceSegmantationMask mask) {

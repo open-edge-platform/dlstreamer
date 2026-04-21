@@ -75,3 +75,21 @@ DLS_EXPORT const GstMetaInfo *watermark_circle_meta_get_info(void) {
     }
     return meta_info;
 }
+
+DLS_EXPORT WatermarkCircleMeta *watermark_circle_meta_add(GstBuffer *buf, guint32 cx, guint32 cy, guint32 radius,
+                                                          guint8 r, guint8 g, guint8 b, gint thickness) {
+    g_return_val_if_fail(buf != NULL, NULL);
+
+    WatermarkCircleMeta *meta = WATERMARK_CIRCLE_META_ADD(buf);
+    if (!meta)
+        return NULL;
+
+    meta->center.x = cx;
+    meta->center.y = cy;
+    meta->radius = radius;
+    meta->r = r;
+    meta->g = g;
+    meta->b = b;
+    meta->thickness = thickness;
+    return meta;
+}

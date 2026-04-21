@@ -90,3 +90,27 @@ DLS_EXPORT const GstMetaInfo *watermark_text_meta_get_info(void) {
     }
     return meta_info;
 }
+
+DLS_EXPORT WatermarkTextMeta *watermark_text_meta_add(GstBuffer *buf, guint32 x, guint32 y, const gchar *text,
+                                                      gfloat font_scale, gint font_type,
+                                                      guint8 r, guint8 g, guint8 b, gint thickness,
+                                                      gboolean draw_bg) {
+    g_return_val_if_fail(buf != NULL, NULL);
+    g_return_val_if_fail(text != NULL, NULL);
+
+    WatermarkTextMeta *meta = WATERMARK_TEXT_META_ADD(buf);
+    if (!meta)
+        return NULL;
+
+    meta->pos.x = x;
+    meta->pos.y = y;
+    meta->text = g_strdup(text);
+    meta->font_scale = font_scale;
+    meta->font_type = font_type;
+    meta->r = r;
+    meta->g = g;
+    meta->b = b;
+    meta->thickness = thickness;
+    meta->draw_bg = draw_bg;
+    return meta;
+}

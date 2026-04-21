@@ -49,6 +49,24 @@ DLS_EXPORT const GstMetaInfo *watermark_circle_meta_get_info(void);
 DLS_EXPORT GType watermark_circle_meta_api_get_type(void);
 
 /**
+ * watermark_circle_meta_add:
+ * @buf: a #GstBuffer to attach metadata to
+ * @cx: center x coordinate in pixels
+ * @cy: center y coordinate in pixels
+ * @radius: circle radius in pixels
+ * @r: red color component
+ * @g: green color component
+ * @b: blue color component
+ * @thickness: line thickness (-1 for filled circle)
+ *
+ * Creates and attaches a new #WatermarkCircleMeta to @buf.
+ *
+ * Returns: (transfer none) (nullable): the newly added #WatermarkCircleMeta, or NULL on error
+ */
+DLS_EXPORT WatermarkCircleMeta *watermark_circle_meta_add(GstBuffer *buf, guint32 cx, guint32 cy, guint32 radius,
+                                                          guint8 r, guint8 g, guint8 b, gint thickness);
+
+/**
  * @def WATERMARK_CIRCLE_META_INFO
  * @brief This macro calls watermark_circle_meta_get_info
  * @return const GstMetaInfo* for registered type

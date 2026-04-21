@@ -54,6 +54,24 @@ DLS_EXPORT const GstMetaInfo *watermark_draw_meta_get_info(void);
 DLS_EXPORT GType watermark_draw_meta_api_get_type(void);
 
 /**
+ * watermark_draw_meta_add:
+ * @buf: a #GstBuffer to attach metadata to
+ * @coords: (array length=n_coords): flat array of interleaved x,y coordinates [x1,y1,x2,y2,...]
+ * @n_coords: number of coordinate values (must be even, n_points = n_coords/2)
+ * @r: red color component
+ * @g: green color component
+ * @b: blue color component
+ * @thickness: line thickness
+ *
+ * Creates and attaches a new #WatermarkDrawMeta to @buf.
+ * Use n_coords=4 for a line (2 points), n_coords>=6 for a polygon.
+ *
+ * Returns: (transfer none) (nullable): the newly added #WatermarkDrawMeta, or NULL on error
+ */
+DLS_EXPORT WatermarkDrawMeta *watermark_draw_meta_add(GstBuffer *buf, const guint32 *coords, guint n_coords,
+                                                      guint8 r, guint8 g, guint8 b, gint thickness);
+
+/**
  * @def WATERMARK_DRAW_META_INFO
  * @brief This macro calls watermark_draw_meta_get_info
  * @return const GstMetaInfo* for registered type

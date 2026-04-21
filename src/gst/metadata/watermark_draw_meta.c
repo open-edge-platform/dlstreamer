@@ -86,3 +86,29 @@ DLS_EXPORT const GstMetaInfo *watermark_draw_meta_get_info(void) {
     }
     return meta_info;
 }
+
+DLS_EXPORT WatermarkDrawMeta *watermark_draw_meta_add(GstBuffer *buf, const guint32 *coords, guint n_coords,
+                                                      guint8 r, guint8 g, guint8 b, gint thickness) {
+    g_return_val_if_fail(buf != NULL, NULL);
+    g_return_val_if_fail(coords != NULL, NULL);
+    g_return_val_if_fail(n_coords >= 4 && n_coords % 2 == 0, NULL);
+
+    guint n_points = n_coords / 2;
+    g_return_val_if_fail(n_points <= WATERMARK_DRAW_MAX_POINTS, NULL);
+
+    WatermarkDrawMeta *meta = WATERMARK_DRAW_META_ADD(buf);
+    if (!meta)
+        return NULL;
+
+    meta->points = g_malloc(sizeof(WatermarkPoint) * n_points);
+    for (guint i = 0; i < n_points; i++) {
+        meta->points[i].x = coords[i * 2];
+        meta->points[i].y = coords[i * 2 + 1];
+    }
+    meta->point_count = n_points;
+    meta->r = r;
+    meta->g = g;
+    meta->b = b;
+    meta->thickness = thickness;
+    return meta;
+}
