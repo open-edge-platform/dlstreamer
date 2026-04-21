@@ -1,5 +1,5 @@
 # ==============================================================================
-# Copyright (C) 2021-2025 Intel Corporation
+# Copyright (C) 2021-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
@@ -14,7 +14,7 @@ SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 PEOPLE_IMAGE_PATH = os.path.join(
     SCRIPT_DIR, "test_files", "people_detection.png")
 CAR_IMAGE_PATH = os.path.join(SCRIPT_DIR, "test_files", "car_detection.png")
-FILE_PATH = os.path.join(SCRIPT_DIR, "meta_vpt.json")
+FILE_PATH = os.path.join("/tmp", "meta_vpt.json")
 
 D_MODEL_NAME = "person-vehicle-bike-detection-crossroad-0078"
 D_MODEL_PATH, D_MODEL_PROC_PATH = get_model_path(
