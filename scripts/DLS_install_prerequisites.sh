@@ -159,7 +159,7 @@ configure_repository() {
 
     echo "Signing the repository..."
     echo "deb [arch=amd64 signed-by=$new_keyring_path] $repo_url" | $SUDO_PREFIX tee "/etc/apt/sources.list.d/$list_name" > /dev/null
-
+    $SUDO_PREFIX apt update || handle_error "Failed to update package after configuring the repository"
 }
 
 # ***********************************************************************

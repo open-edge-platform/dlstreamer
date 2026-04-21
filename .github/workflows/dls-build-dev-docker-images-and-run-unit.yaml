@@ -52,13 +52,13 @@ jobs:
                 {
                   "path_dockerfile": "./dlstreamer-repo/docker/ubuntu/ubuntu22.Dockerfile",
                   "ubuntu_version": "ubuntu22",
-                  "runner_labels": ["dls", "ubuntu"],
+                  "runner_labels": ["tgl-ubuntu22"],
                   "runner_print_label": "TGL"
                 },
                 {
                   "path_dockerfile": "./dlstreamer-repo/docker/ubuntu/ubuntu24.Dockerfile",
                   "ubuntu_version": "ubuntu24",
-                  "runner_labels": ["dls", "ubuntu"],
+                  "runner_labels": ["tgl-ubuntu24"],
                   "runner_print_label": "TGL"
                 }
               ]
