@@ -35,6 +35,7 @@
 #include <dlstreamer/gst/mappers/gst_to_d3d11.h>
 #endif
 
+#include "meta_extractor/meta_extractor.h"
 #include "renderer/color_converter.h"
 #include "renderer/cpu/create_renderer.h"
 
@@ -132,6 +133,9 @@ struct Impl {
     int get_num_primitives() const;
     bool render(GstBuffer *buffer);
     bool render_va(cv::Mat *buffer);
+    void set_use_watermark_meta(bool value) {
+        _use_watermark_meta = value;
+    }
     const std::string &getBackendType() const {
         return _backend_type;
     }
@@ -172,6 +176,7 @@ struct Impl {
     std::vector<render::Prim> prims;
 
     const double _radius_multiplier = 0.0025;
+    bool _use_watermark_meta = false;
     Color _default_color = indexToColor(1);
     // Position for full-frame text (configurable via displ-cfg text-x / text-y)
     cv::Point2f _ff_text_position = cv::Point2f(0, 25.f);
@@ -237,6 +242,8 @@ void gst_gva_watermark_impl_set_property(GObject *object, guint prop_id, const G
         break;
     case PROP_USE_WATERMARK_META:
         gvawatermark->use_watermark_meta = g_value_get_boolean(value);
+        if (gvawatermark->impl)
+            gvawatermark->impl->set_use_watermark_meta(gvawatermark->use_watermark_meta);
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -386,6 +393,7 @@ static gboolean gst_gva_watermark_impl_set_caps(GstBaseTransform *trans, GstCaps
     try {
         gvawatermark->impl = std::make_shared<Impl>(&gvawatermark->info, mem_type, GST_ELEMENT(trans),
                                                     gvawatermark->displ_avgfps, gvawatermark->displ_cfg);
+        gvawatermark->impl->set_use_watermark_meta(gvawatermark->use_watermark_meta);
     } catch (const std::exception &e) {
         GST_ELEMENT_ERROR(gvawatermark, CORE, FAILED, ("Could not initialize"),
                           ("Cannot create watermark instance. %s", Utils::createNestedErrorMsg(e).c_str()));
@@ -871,6 +879,12 @@ bool Impl::extract_primitives(GstBuffer *buffer) {
     if (ff_text.tellp() != 0)
         prims.emplace_back(
             render::Text(ff_text.str(), _ff_text_position, _displCfg.font_type, _displCfg.font_scale, _default_color));
+
+    // Extract and merge any pre-existing watermark metadata from input buffer
+    if (_use_watermark_meta) {
+        auto watermark_prims = MetaExtractor::extractWatermarkPrimitives(buffer);
+        prims.insert(prims.end(), watermark_prims.begin(), watermark_prims.end());
+    }
 
     return true;
 }
