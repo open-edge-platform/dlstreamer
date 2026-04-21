@@ -1,0 +1,356 @@
+<?xml version="1.0"?>
+<!-- This file was automatically generated from C sources - DO NOT EDIT!
+To affect the contents of this file, edit the original C definitions,
+and/or use gtk-doc annotations.  -->
+<repository version="1.2"
+            xmlns="http://www.gtk.org/introspection/core/1.0"
+            xmlns:c="http://www.gtk.org/introspection/c/1.0"
+            xmlns:glib="http://www.gtk.org/introspection/glib/1.0">
+  <include name="Gst" version="1.0"/>
+  <include name="GstVideo" version="1.0"/>
+  <package name="gstreamer-1.0"/>
+  <package name="gstreamer-video-1.0"/>
+  <namespace name="DLStreamerWatermarkMeta"
+             version="1.0"
+             shared-library="libdlstreamer_gst_meta.so"
+             c:identifier-prefixes="Watermark"
+             c:symbol-prefixes="watermark">
+    <function-macro name="CIRCLE_META_ADD"
+                    c:identifier="WATERMARK_CIRCLE_META_ADD"
+                    introspectable="0">
+      <source-position filename="include/dlstreamer/gst/metadata/watermark_circle_meta.h"
+                       line="83"/>
+      <parameters>
+        <parameter name="buf">
+        </parameter>
+      </parameters>
+    </function-macro>
+    <constant name="CIRCLE_META_API_NAME"
+              value="WatermarkCircleMetaAPI"
+              c:type="WATERMARK_CIRCLE_META_API_NAME">
+      <source-position filename="include/dlstreamer/gst/metadata/watermark_circle_meta.h"
+                       line="19"/>
+      <type name="utf8" c:type="gchar*"/>
+    </constant>
+    <function-macro name="CIRCLE_META_GET"
+                    c:identifier="WATERMARK_CIRCLE_META_GET"
+                    introspectable="0">
+      <source-position filename="include/dlstreamer/gst/metadata/watermark_circle_meta.h"
+                       line="64"/>
+      <parameters>
+        <parameter name="buf">
+        </parameter>
+      </parameters>
+    </function-macro>
+    <constant name="CIRCLE_META_IMPL_NAME"
+              value="WatermarkCircleMeta"
+              c:type="WATERMARK_CIRCLE_META_IMPL_NAME">
+      <source-position filename="include/dlstreamer/gst/metadata/watermark_circle_meta.h"
+                       line="20"/>
+      <type name="utf8" c:type="gchar*"/>
+    </constant>
+    <function-macro name="CIRCLE_META_ITERATE"
+                    c:identifier="WATERMARK_CIRCLE_META_ITERATE"
+                    introspectable="0">
+      <source-position filename="include/dlstreamer/gst/metadata/watermark_circle_meta.h"
+                       line="74"/>
+      <parameters>
+        <parameter name="buf">
+        </parameter>
+        <parameter name="state">
+        </parameter>
+      </parameters>
+    </function-macro>
+    <record name="CircleMeta" c:type="WatermarkCircleMeta">
+      <source-position filename="include/dlstreamer/gst/metadata/watermark_circle_meta.h"
+                       line="37"/>
+      <field name="meta" writable="1">
+        <type name="Gst.Meta" c:type="GstMeta"/>
+      </field>
+      <field name="center" writable="1">
+        <type name="Point" c:type="WatermarkPoint"/>
+      </field>
+      <field name="radius" writable="1">
+        <type name="guint32" c:type="guint32"/>
+      </field>
+      <field name="r" writable="1">
+        <type name="guint8" c:type="guint8"/>
+      </field>
+      <field name="g" writable="1">
+        <type name="guint8" c:type="guint8"/>
+      </field>
+      <field name="b" writable="1">
+        <type name="guint8" c:type="guint8"/>
+      </field>
+      <field name="thickness" writable="1">
+        <type name="gint" c:type="gint"/>
+      </field>
+      <function name="get_info" c:identifier="watermark_circle_meta_get_info">
+        <source-position filename="include/dlstreamer/gst/metadata/watermark_circle_meta.h"
+                         line="43"/>
+        <return-value transfer-ownership="none">
+          <type name="Gst.MetaInfo" c:type="const GstMetaInfo*"/>
+        </return-value>
+      </function>
+    </record>
+    <constant name="DRAW_MAX_POINTS"
+              value="128"
+              c:type="WATERMARK_DRAW_MAX_POINTS">
+      <source-position filename="include/dlstreamer/gst/metadata/watermark_draw_meta.h"
+                       line="23"/>
+      <type name="gint" c:type="gint"/>
+    </constant>
+    <function-macro name="DRAW_META_ADD"
+                    c:identifier="WATERMARK_DRAW_META_ADD"
+                    introspectable="0">
+      <source-position filename="include/dlstreamer/gst/metadata/watermark_draw_meta.h"
+                       line="87"/>
+      <parameters>
+        <parameter name="buf">
+        </parameter>
+      </parameters>
+    </function-macro>
+    <constant name="DRAW_META_API_NAME"
+              value="WatermarkDrawMetaAPI"
+              c:type="WATERMARK_DRAW_META_API_NAME">
+      <source-position filename="include/dlstreamer/gst/metadata/watermark_draw_meta.h"
+                       line="20"/>
+      <type name="utf8" c:type="gchar*"/>
+    </constant>
+    <function-macro name="DRAW_META_GET"
+                    c:identifier="WATERMARK_DRAW_META_GET"
+                    introspectable="0">
+      <source-position filename="include/dlstreamer/gst/metadata/watermark_draw_meta.h"
+                       line="69"/>
+      <parameters>
+        <parameter name="buf">
+        </parameter>
+      </parameters>
+    </function-macro>
+    <constant name="DRAW_META_IMPL_NAME"
+              value="WatermarkDrawMeta"
+              c:type="WATERMARK_DRAW_META_IMPL_NAME">
+      <source-position filename="include/dlstreamer/gst/metadata/watermark_draw_meta.h"
+                       line="21"/>
+      <type name="utf8" c:type="gchar*"/>
+    </constant>
+    <function-macro name="DRAW_META_ITERATE"
+                    c:identifier="WATERMARK_DRAW_META_ITERATE"
+                    introspectable="0">
+      <source-position filename="include/dlstreamer/gst/metadata/watermark_draw_meta.h"
+                       line="78"/>
+      <parameters>
+        <parameter name="buf">
+        </parameter>
+        <parameter name="state">
+        </parameter>
+      </parameters>
+    </function-macro>
+    <record name="DrawMeta" c:type="WatermarkDrawMeta">
+      <source-position filename="include/dlstreamer/gst/metadata/watermark_draw_meta.h"
+                       line="42"/>
+      <field name="meta" writable="1">
+        <type name="Gst.Meta" c:type="GstMeta"/>
+      </field>
+      <field name="points" writable="1">
+        <type name="Point" c:type="WatermarkPoint*"/>
+      </field>
+      <field name="point_count" writable="1">
+        <type name="guint" c:type="guint"/>
+      </field>
+      <field name="r" writable="1">
+        <type name="guint8" c:type="guint8"/>
+      </field>
+      <field name="g" writable="1">
+        <type name="guint8" c:type="guint8"/>
+      </field>
+      <field name="b" writable="1">
+        <type name="guint8" c:type="guint8"/>
+      </field>
+      <field name="thickness" writable="1">
+        <type name="gint" c:type="gint"/>
+      </field>
+      <function name="get_info" c:identifier="watermark_draw_meta_get_info">
+        <source-position filename="include/dlstreamer/gst/metadata/watermark_draw_meta.h"
+                         line="48"/>
+        <return-value transfer-ownership="none">
+          <type name="Gst.MetaInfo" c:type="const GstMetaInfo*"/>
+        </return-value>
+      </function>
+    </record>
+    <enumeration name="FontType" c:type="WatermarkFontType">
+      <source-position filename="include/dlstreamer/gst/metadata/watermark_text_meta.h"
+                       line="38"/>
+      <member name="simplex" value="0" c:identifier="WATERMARK_FONT_SIMPLEX">
+      </member>
+      <member name="plain" value="1" c:identifier="WATERMARK_FONT_PLAIN">
+      </member>
+      <member name="duplex" value="2" c:identifier="WATERMARK_FONT_DUPLEX">
+      </member>
+      <member name="complex" value="3" c:identifier="WATERMARK_FONT_COMPLEX">
+      </member>
+      <member name="triplex" value="4" c:identifier="WATERMARK_FONT_TRIPLEX">
+      </member>
+      <member name="complex_small"
+              value="5"
+              c:identifier="WATERMARK_FONT_COMPLEX_SMALL">
+      </member>
+      <member name="script_simplex"
+              value="6"
+              c:identifier="WATERMARK_FONT_SCRIPT_SIMPLEX">
+      </member>
+      <member name="script_complex"
+              value="7"
+              c:identifier="WATERMARK_FONT_SCRIPT_COMPLEX">
+      </member>
+    </enumeration>
+    <record name="Point" c:type="WatermarkPoint">
+      <source-position filename="include/dlstreamer/gst/metadata/watermark_common_meta.h"
+                       line="25"/>
+      <field name="x" writable="1">
+        <type name="guint32" c:type="guint32"/>
+      </field>
+      <field name="y" writable="1">
+        <type name="guint32" c:type="guint32"/>
+      </field>
+    </record>
+    <function-macro name="TEXT_META_ADD"
+                    c:identifier="WATERMARK_TEXT_META_ADD"
+                    introspectable="0">
+      <source-position filename="include/dlstreamer/gst/metadata/watermark_text_meta.h"
+                       line="99"/>
+      <parameters>
+        <parameter name="buf">
+        </parameter>
+      </parameters>
+    </function-macro>
+    <constant name="TEXT_META_API_NAME"
+              value="WatermarkTextMetaAPI"
+              c:type="WATERMARK_TEXT_META_API_NAME">
+      <source-position filename="include/dlstreamer/gst/metadata/watermark_text_meta.h"
+                       line="19"/>
+      <type name="utf8" c:type="gchar*"/>
+    </constant>
+    <function-macro name="TEXT_META_GET"
+                    c:identifier="WATERMARK_TEXT_META_GET"
+                    introspectable="0">
+      <source-position filename="include/dlstreamer/gst/metadata/watermark_text_meta.h"
+                       line="81"/>
+      <parameters>
+        <parameter name="buf">
+        </parameter>
+      </parameters>
+    </function-macro>
+    <constant name="TEXT_META_IMPL_NAME"
+              value="WatermarkTextMeta"
+              c:type="WATERMARK_TEXT_META_IMPL_NAME">
+      <source-position filename="include/dlstreamer/gst/metadata/watermark_text_meta.h"
+                       line="20"/>
+      <type name="utf8" c:type="gchar*"/>
+    </constant>
+    <function-macro name="TEXT_META_ITERATE"
+                    c:identifier="WATERMARK_TEXT_META_ITERATE"
+                    introspectable="0">
+      <source-position filename="include/dlstreamer/gst/metadata/watermark_text_meta.h"
+                       line="90"/>
+      <parameters>
+        <parameter name="buf">
+        </parameter>
+        <parameter name="state">
+        </parameter>
+      </parameters>
+    </function-macro>
+    <record name="TextMeta" c:type="WatermarkTextMeta">
+      <source-position filename="include/dlstreamer/gst/metadata/watermark_text_meta.h"
+                       line="54"/>
+      <field name="meta" writable="1">
+        <type name="Gst.Meta" c:type="GstMeta"/>
+      </field>
+      <field name="pos" writable="1">
+        <type name="Point" c:type="WatermarkPoint"/>
+      </field>
+      <field name="text" writable="1">
+        <type name="utf8" c:type="gchar*"/>
+      </field>
+      <field name="font_scale" writable="1">
+        <type name="gfloat" c:type="gfloat"/>
+      </field>
+      <field name="font_type" writable="1">
+        <type name="gint" c:type="gint"/>
+      </field>
+      <field name="r" writable="1">
+        <type name="guint8" c:type="guint8"/>
+      </field>
+      <field name="g" writable="1">
+        <type name="guint8" c:type="guint8"/>
+      </field>
+      <field name="b" writable="1">
+        <type name="guint8" c:type="guint8"/>
+      </field>
+      <field name="thickness" writable="1">
+        <type name="gint" c:type="gint"/>
+      </field>
+      <field name="draw_bg" writable="1">
+        <type name="gboolean" c:type="gboolean"/>
+      </field>
+      <function name="get_info" c:identifier="watermark_text_meta_get_info">
+        <source-position filename="include/dlstreamer/gst/metadata/watermark_text_meta.h"
+                         line="60"/>
+        <return-value transfer-ownership="none">
+          <type name="Gst.MetaInfo" c:type="const GstMetaInfo*"/>
+        </return-value>
+      </function>
+    </record>
+    <function name="circle_meta_api_get_type"
+              c:identifier="watermark_circle_meta_api_get_type">
+      <source-position filename="include/dlstreamer/gst/metadata/watermark_circle_meta.h"
+                       line="49"/>
+      <return-value transfer-ownership="none">
+        <type name="GType" c:type="GType"/>
+      </return-value>
+    </function>
+    <function name="circle_meta_get_info"
+              c:identifier="watermark_circle_meta_get_info"
+              moved-to="CircleMeta.get_info">
+      <source-position filename="include/dlstreamer/gst/metadata/watermark_circle_meta.h"
+                       line="43"/>
+      <return-value transfer-ownership="none">
+        <type name="Gst.MetaInfo" c:type="const GstMetaInfo*"/>
+      </return-value>
+    </function>
+    <function name="draw_meta_api_get_type"
+              c:identifier="watermark_draw_meta_api_get_type">
+      <source-position filename="include/dlstreamer/gst/metadata/watermark_draw_meta.h"
+                       line="54"/>
+      <return-value transfer-ownership="none">
+        <type name="GType" c:type="GType"/>
+      </return-value>
+    </function>
+    <function name="draw_meta_get_info"
+              c:identifier="watermark_draw_meta_get_info"
+              moved-to="DrawMeta.get_info">
+      <source-position filename="include/dlstreamer/gst/metadata/watermark_draw_meta.h"
+                       line="48"/>
+      <return-value transfer-ownership="none">
+        <type name="Gst.MetaInfo" c:type="const GstMetaInfo*"/>
+      </return-value>
+    </function>
+    <function name="text_meta_api_get_type"
+              c:identifier="watermark_text_meta_api_get_type">
+      <source-position filename="include/dlstreamer/gst/metadata/watermark_text_meta.h"
+                       line="66"/>
+      <return-value transfer-ownership="none">
+        <type name="GType" c:type="GType"/>
+      </return-value>
+    </function>
+    <function name="text_meta_get_info"
+              c:identifier="watermark_text_meta_get_info"
+              moved-to="TextMeta.get_info">
+      <source-position filename="include/dlstreamer/gst/metadata/watermark_text_meta.h"
+                       line="60"/>
+      <return-value transfer-ownership="none">
+        <type name="Gst.MetaInfo" c:type="const GstMetaInfo*"/>
+      </return-value>
+    </function>
+  </namespace>
+</repository>
