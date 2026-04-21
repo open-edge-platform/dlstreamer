@@ -1,20 +1,23 @@
 name: Feature Request
 description: File a feature request.
-title: '[FEATURE]: <Software> - <Summary>'
-labels: ['FEATURE', 'TRIAGE']
+title: '[FEATURE]: '
+labels: ["feature"]
+type: "Feature"
 body:
-
-  - type: markdown
-    attributes:
-      value: <br>To expedite issue processing please search open and closed issues before submitting a new one. Existing issues often contain information about workarounds, resolution, or progress updates.
-
   - type: textarea
     attributes:
       label: Feature Description
       description: A clear and concise description of the problem or missing capability.
     validations:
       required: true
-
+  - type: input
+    attributes:
+      label: Current Software Version
+      description: |
+        What version are you currently using? This helps us understand your context and avoid suggesting features that may already exist in newer versions.
+      placeholder: v2026.0.0 / main branch
+    validations:
+      required: false
   - type: textarea
     attributes:
       label: Solution Description
