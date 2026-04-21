@@ -5582,8 +5582,7 @@ torchvision.models.detection.ssdlite320_mobilenet_v3_large:
   readme: https://pytorch.org/vision/main/models/generated/torchvision.models.detection.ssdlite320_mobilenet_v3_large.html
   GFLOPs: '0.583'
   labels-file: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/labels/coco_80cl.txt
-  dlstreamer_support: gva, gst_openvino, gst_pytorch, ffmpeg_openvino
+  dlstreamer_support: gva, gst_openvino, gst_pytorch
   dlstreamer_gva: gvadetect model=ssdlite320_mobilenet_v3_large.xml device=CPU
   dlstreamer_gst_openvino: object_detect model=ssdlite320_mobilenet_v3_large.xml device=CPU
   dlstreamer_gst_pytorch: object_detect model=torchvision.models.detection.ssdlite320_mobilenet_v3_large device=CPU
-  dlstreamer_ffmpeg_openvino: $DLSTREAMER_DIR/samples/ffmpeg_openvino/cpp/decode_resize_inference/build_and_run.sh VIDEO_FILE ssdlite320_mobilenet_v3_large.xml

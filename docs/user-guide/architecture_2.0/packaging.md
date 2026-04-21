@@ -29,7 +29,6 @@ Deep Learning Streamer Architecture 2.0.
 |---|---|
 | intel-dlstreamer-cpp | libc6-dev |
 | intel-dlstreamer-dpcpp | intel-oneapi-compiler-dpcpp-cpp-runtime, level-zero, intel-level-zero-gpu |
-| intel-dlstreamer-ffmpeg | libavcodec-dev, libavformat-dev, libavutil-dev, libswscale-dev |
 | intel-dlstreamer-opencl | ocl-icd-libopencl1, intel-opencl-icd |
 | intel-dlstreamer-opencv | libopencv-imgproc-dev |
 | intel-dlstreamer-vaapi | intel-media-va-driver-non-free, libva-drm2, libva2 |
@@ -38,20 +37,6 @@ Deep Learning Streamer Architecture 2.0.
 ## Packages content
 
 Files installed by 2.0 packages:
-
-```text
-intel-dlstreamer-ffmpeg
-`-- opt
-    `-- intel
-        `-- dlstreamer
-            |-- include
-            |   `-- dlstreamer
-            |       `-- ffmpeg
-            |           `-- elements
-            |               `-- ffmpeg_multi_source.h
-            |-- lib
-            |   `-- libdlstreamer_ffmpeg.so
-```
 
 ```text
 intel-dlstreamer-opencl
