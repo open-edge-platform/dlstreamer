@@ -17,4 +17,5 @@ class MetaExtractor {
   private:
     static std::vector<render::Prim> extractTextPrimitives(GstBuffer *buffer);
     static std::vector<render::Prim> extractShapePrimitives(GstBuffer *buffer);
+    static std::vector<render::Prim> extractCirclePrimitives(GstBuffer *buffer);
 };

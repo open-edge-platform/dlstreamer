@@ -18,6 +18,9 @@ std::vector<render::Prim> MetaExtractor::extractWatermarkPrimitives(GstBuffer *b
     auto shape_prims = extractShapePrimitives(buffer);
     prims.insert(prims.end(), shape_prims.begin(), shape_prims.end());
 
+    auto circle_prims = extractCirclePrimitives(buffer);
+    prims.insert(prims.end(), circle_prims.begin(), circle_prims.end());
+
     return prims;
 }
 
@@ -42,7 +45,6 @@ std::vector<render::Prim> MetaExtractor::extractTextPrimitives(GstBuffer *buffer
 std::vector<render::Prim> MetaExtractor::extractShapePrimitives(GstBuffer *buffer) {
     std::vector<render::Prim> prims;
 
-    // Extract line/polygon primitives
     gpointer state = nullptr;
     GstMeta *meta = nullptr;
     while ((meta = gst_buffer_iterate_meta_filtered(buffer, &state, watermark_draw_meta_api_get_type()))) {
@@ -65,8 +67,14 @@ std::vector<render::Prim> MetaExtractor::extractShapePrimitives(GstBuffer *buffe
         }
     }
 
-    // Extract circle primitives
-    state = nullptr;
+    return prims;
+}
+
+std::vector<render::Prim> MetaExtractor::extractCirclePrimitives(GstBuffer *buffer) {
+    std::vector<render::Prim> prims;
+
+    gpointer state = nullptr;
+    GstMeta *meta = nullptr;
     while ((meta = gst_buffer_iterate_meta_filtered(buffer, &state, watermark_circle_meta_api_get_type()))) {
         auto circle_meta = (WatermarkCircleMeta *)meta;
         render::Circle circle_prim;
