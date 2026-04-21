@@ -574,8 +574,8 @@ GstFlowReturn gst_gva_meta_aggregate_aggregate(GstAggregator *agg, gboolean time
     output_start_running_time = gst_segment_to_running_time(agg_segment, GST_FORMAT_TIME, output_start_time);
     output_end_running_time = gst_segment_to_running_time(agg_segment, GST_FORMAT_TIME, output_end_time);
 
-    gst_aggregator_selected_samples(agg, output_start_time, GST_CLOCK_TIME_NONE,
-                                    output_end_time - output_start_time, NULL);
+    gst_aggregator_selected_samples(agg, output_start_time, GST_CLOCK_TIME_NONE, output_end_time - output_start_time,
+                                    NULL);
 
     if (output_end_time == output_start_time) {
         flow_ret = GST_FLOW_EOS;
