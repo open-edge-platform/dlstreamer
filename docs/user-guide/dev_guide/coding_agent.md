@@ -78,15 +78,17 @@ The final output is a complete project directory containing:
 ├── videos/                 # Cached input videos
 └── results/                # Output files (JSON, annotated video, etc.)
 ```
+test
+<!--hide_directive
+**Video walkthrough:** The following video illustrates how a license plate recognition
+application can be created in less than 10 minutes.
 
-**Video walkthrough:** The following video illustrates how a license plate recognition application can be created in less than 10 minutes.
-
-<p align="center">
-<video width="70%" controls>
-  <source src="./coding_agent_demo.mp4" type="video/mp4">
-  Your browser does not support the video tag. <a href="./coding_agent_demo.mp4">Download the demo video</a>.
-</video>
-</p>
+:::{video} ./_assets/coding_agent_demo.mp4
+:playsinline:
+:loop:
+:width: 70%
+:align: center
+hide_directive-->
 
 ### 4. How to Write Effective Prompts
 
