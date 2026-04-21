@@ -53,7 +53,7 @@ A[source] --> B[decodebin3]
 ## Running
 ### Prerequisites
 ```powershell
-set MODELS_PATH=C:\path\to\your\models
+$env:MODELS_PATH = 'C:\path\to\your\models'
 ```
 ### Command Line Arguments
 ```powershell
