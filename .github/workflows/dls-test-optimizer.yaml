@@ -183,22 +183,6 @@ jobs:
           cp -r deb_packages ${{ env.DLS_REL_PATH }}
 
       # ======================================================== DOCKER TESTING PART ========================================================
-      - name: Debug - Verify optimizer tests structure
-        if: matrix.runner_print_label != 'SKIP'
-        run: |
-          echo "Checking OPTIMIZER_TESTS_PATH structure:"
-          ls -laR $OPTIMIZER_TESTS_PATH/ || echo "OPTIMIZER_TESTS_PATH not found"
-          echo ""
-          echo "Expected test script location:"
-          if [ -f "$OPTIMIZER_TESTS_PATH/functional_tests/optimizer_tests/scripts/run_optimizer_tests.sh" ]; then
-            echo "✅ Test script found at expected location"
-            ls -la "$OPTIMIZER_TESTS_PATH/functional_tests/optimizer_tests/scripts/run_optimizer_tests.sh"
-          else
-            echo "❌ Test script NOT found at: $OPTIMIZER_TESTS_PATH/functional_tests/optimizer_tests/scripts/run_optimizer_tests.sh"
-            echo "Directory contents:"
-            find $OPTIMIZER_TESTS_PATH -name "run_optimizer_tests.sh" || echo "Script not found anywhere"
-          fi
-
       - name: Check models
         if: matrix.runner_print_label != 'SKIP'
         env:
