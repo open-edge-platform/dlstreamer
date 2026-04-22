@@ -43,7 +43,7 @@ Arguments:
   - Local file path (e.g., `C:\videos\parking.mp4`)
   - URL (e.g., `https://...`)
 - **DEVICE** - Inference device (default: `GPU`)
-  - Supported: `CPU`, `GPU`
+  - Supported: `CPU`, `GPU`, `NPU`
 - **OUTPUT** - Output type (default: `fps`)
   - `display` - Show video with overlay (sync)
   - `display-async` - Show video with overlay (async, faster)
@@ -75,10 +75,23 @@ Arguments:
 .\license_plate_recognition.bat "C:\videos\parking.mp4" CPU fps
 ```
 
+### Run on NPU with display
+```powershell
+.\license_plate_recognition.bat "C:\videos\parking.mp4" NPU display-async
+```
+
 ### Save annotated video
 ```powershell
 .\license_plate_recognition.bat "C:\videos\parking.mp4" GPU file
 ```
+
+## Performance Tips
+
+1. **Use GPU or NPU for best performance** - Hardware acceleration significantly speeds up both detection and OCR
+2. **Use `display-async` instead of `display`** - Async mode improves frame rate
+3. **Pre-process backend**:
+   - CPU: Uses OpenCV (software)
+   - GPU/NPU: Uses D3D11 (hardware accelerated)
 
 ## Pipeline Architecture
 

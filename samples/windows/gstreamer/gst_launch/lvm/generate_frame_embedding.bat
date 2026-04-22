@@ -2,11 +2,9 @@
 setlocal
 
 @REM ==============================================================================
-@REM Copyright (C) 2021-2026 Intel Corporation
+@REM Copyright (C) 2026 Intel Corporation
 @REM
 @REM SPDX-License-Identifier: MIT
-@REM
-@REM Windows version of CLIP inference script with Precision support
 @REM ==============================================================================
 
 set "DEFAULT_SOURCE=https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4"

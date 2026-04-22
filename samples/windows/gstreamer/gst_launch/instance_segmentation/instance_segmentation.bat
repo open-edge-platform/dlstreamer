@@ -1,10 +1,7 @@
 @REM ==============================================================================
-@REM Copyright (C) 2021-2026 Intel Corporation
+@REM Copyright (C) 2026 Intel Corporation
 @REM
 @REM SPDX-License-Identifier: MIT
-@REM ==============================================================================
-@REM This sample refers to a video file by Rihard-Clement-Ciprian Diac via Pexels
-@REM (https://www.pexels.com)
 @REM ==============================================================================
 
 @echo off
@@ -101,7 +98,7 @@ if "%DEVICE%"=="CPU" (
 if "%OUTPUT%"=="file" (
     call :set_file_sink
 ) else if "%OUTPUT%"=="display" (
-    set "SINK_ELEMENT=d3d11convert ! gvawatermark ! videoconvertscale ! gvafpscounter ! autovideosink sync=false"
+    set "SINK_ELEMENT=d3d11convert ! gvawatermark ! videoconvertscale ! gvafpscounter ! d3d11videosink sync=false"
 ) else if "%OUTPUT%"=="fps" (
     set "SINK_ELEMENT=gvafpscounter ! fakesink sync=false"
 ) else if "%OUTPUT%"=="json" (
@@ -109,7 +106,7 @@ if "%OUTPUT%"=="file" (
     set "SINK_ELEMENT=gvametaconvert add-tensor-data=true ! gvametapublish file-format=json-lines file-path=%JSON_FILE% ! fakesink sync=false"
 ) else if "%OUTPUT%"=="display-and-json" (
     if EXIST "%JSON_FILE%" del "%JSON_FILE%"
-    set "SINK_ELEMENT=d3d11convert ! gvawatermark ! gvametaconvert add-tensor-data=true ! gvametapublish file-format=json-lines file-path=%JSON_FILE% ! videoconvert ! gvafpscounter ! autovideosink sync=false"
+    set "SINK_ELEMENT=d3d11convert ! gvawatermark ! gvametaconvert add-tensor-data=true ! gvametapublish file-format=json-lines file-path=%JSON_FILE% ! videoconvert ! gvafpscounter ! d3d11videosink sync=false"
 ) else if "%OUTPUT%"=="jpeg" (
     call :set_jpeg_sink
 ) else (
@@ -124,13 +121,21 @@ setlocal EnableDelayedExpansion
 for %%F in ("%INPUT%") do set FILENAME=%%~nF
 set OUTPUT_FILE=instance_segmentation_!FILENAME!_%DEVICE%.mp4
 if EXIST "!OUTPUT_FILE!" del "!OUTPUT_FILE!"
-endlocal & set "SINK_ELEMENT=d3d11convert ! gvawatermark ! gvafpscounter ! d3d11h264enc ! h264parse ! mp4mux ! filesink location=%OUTPUT_FILE%"
+if "%DEVICE%"=="CPU" (
+    endlocal & set "SINK_ELEMENT=videoconvert ! gvawatermark ! gvafpscounter ! openh264enc ! h264parse ! mp4mux ! filesink location=%OUTPUT_FILE%"
+) else (
+    endlocal & set "SINK_ELEMENT=d3d11convert ! gvawatermark ! gvafpscounter ! d3d11h264enc ! h264parse ! mp4mux ! filesink location=%OUTPUT_FILE%"
+)
 exit /b
 
 :set_jpeg_sink
 setlocal EnableDelayedExpansion
 for %%F in ("%INPUT%") do set FILENAME=%%~nF
-endlocal & set "SINK_ELEMENT=d3d11convert ! gvawatermark ! jpegenc ! multifilesink location=instance_segmentation_%FILENAME%_%DEVICE%_%%05d.jpeg"
+if "%DEVICE%"=="CPU" (
+    endlocal & set "SINK_ELEMENT=videoconvert ! gvawatermark ! jpegenc ! multifilesink location=instance_segmentation_%FILENAME%_%DEVICE%_%%05d.jpeg"
+) else (
+    endlocal & set "SINK_ELEMENT=d3d11convert ! gvawatermark ! videoconvert ! jpegenc ! multifilesink location=instance_segmentation_%FILENAME%_%DEVICE%_%%05d.jpeg"
+)
 exit /b
 
 :continue_after_sink

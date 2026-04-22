@@ -85,6 +85,8 @@ Arguments:
 
 ## Pipeline Architecture
 
+**Note**: Pipeline varies based on device type. GPU/NPU use D3D11 hardware acceleration (`d3d11convert`, `d3d11videosink`, `d3d11h264enc`), while CPU uses software path (`videoconvert`, `autovideosink`, `openh264enc`).
+
 ```mermaid
 graph LR
     A[filesrc/urisourcebin] --> B[decodebin3]
@@ -92,14 +94,20 @@ graph LR
     C --> D[queue]
     D --> E{OUTPUT}
     
-    E -->|display| F1[queue]
+    E -->|display<br/>GPU/NPU| F1[queue]
     F1 --> F2[d3d11convert]
     F2 --> F3[gvawatermark]
     F3 --> F4[videoconvert]
     F4 --> F5[gvafpscounter]
-    F5 --> F6[autovideosink]
+    F5 --> F6[d3d11videosink]
     
-    E -->|file| G1[queue]
+    E -->|display<br/>CPU| F1C[queue]
+    F1C --> F2C[gvawatermark]
+    F2C --> F3C[videoconvert]
+    F3C --> F4C[gvafpscounter]
+    F4C --> F5C[autovideosink]
+    
+    E -->|file<br/>GPU/NPU| G1[queue]
     G1 --> G2[d3d11convert]
     G2 --> G3[gvawatermark]
     G3 --> G4[gvafpscounter]
@@ -107,6 +115,15 @@ graph LR
     G5 --> G6[h264parse]
     G6 --> G7[mp4mux]
     G7 --> G8[filesink]
+    
+    E -->|file<br/>CPU| G1C[queue]
+    G1C --> G2C[videoconvert]
+    G2C --> G3C[gvawatermark]
+    G3C --> G4C[gvafpscounter]
+    G4C --> G5C[openh264enc]
+    G5C --> G6C[h264parse]
+    G6C --> G7C[mp4mux]
+    G7C --> G8C[filesink]
     
     E -->|fps| H1[queue]
     H1 --> H2[gvafpscounter]
@@ -117,14 +134,22 @@ graph LR
     I2 --> I3[gvametapublish]
     I3 --> I4[fakesink]
     
-    E -->|display-and-json| J1[queue]
+    E -->|display-and-json<br/>GPU/NPU| J1[queue]
     J1 --> J2[d3d11convert]
     J2 --> J3[gvawatermark]
     J3 --> J4[gvametaconvert]
     J4 --> J5[gvametapublish]
     J5 --> J6[videoconvert]
     J6 --> J7[gvafpscounter]
-    J7 --> J8[autovideosink]
+    J7 --> J8[d3d11videosink]
+    
+    E -->|display-and-json<br/>CPU| J1C[queue]
+    J1C --> J2C[gvawatermark]
+    J2C --> J3C[gvametaconvert]
+    J3C --> J4C[gvametapublish]
+    J4C --> J5C[videoconvert]
+    J5C --> J6C[gvafpscounter]
+    J6C --> J7C[autovideosink]
 ```
 
 ## Notes

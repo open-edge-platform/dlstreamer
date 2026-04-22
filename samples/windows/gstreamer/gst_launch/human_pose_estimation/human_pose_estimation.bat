@@ -1,5 +1,5 @@
 @REM ==============================================================================
-@REM Copyright (C) 2021-2025 Intel Corporation
+@REM Copyright (C) 2026 Intel Corporation
 @REM
 @REM SPDX-License-Identifier: MIT
 @REM ==============================================================================
@@ -71,7 +71,11 @@ if "%DEVICE%"=="CPU" (
 if "%OUTPUT%"=="file" (
     call :set_file_sink
 ) else if "%OUTPUT%"=="display" (
-    set "SINK_ELEMENT=queue ! d3d11convert ! gvawatermark ! videoconvert ! gvafpscounter ! autovideosink sync=false"
+    if "%DEVICE%"=="CPU" (
+        set "SINK_ELEMENT=queue ! gvawatermark ! videoconvert ! gvafpscounter ! autovideosink sync=false"
+    ) else (
+        set "SINK_ELEMENT=queue ! d3d11convert ! gvawatermark ! videoconvert ! gvafpscounter ! d3d11videosink sync=false"
+    )
 ) else if "%OUTPUT%"=="fps" (
     set "SINK_ELEMENT=queue ! gvafpscounter ! fakesink async=false"
 ) else if "%OUTPUT%"=="json" (
@@ -79,7 +83,11 @@ if "%OUTPUT%"=="file" (
     set "SINK_ELEMENT=queue ! gvametaconvert add-tensor-data=true ! gvametapublish file-format=json-lines file-path=%JSON_FILE% ! fakesink async=false"
 ) else if "%OUTPUT%"=="display-and-json" (
     if EXIST "%JSON_FILE%" del "%JSON_FILE%"
-    set "SINK_ELEMENT=queue ! d3d11convert ! gvawatermark ! gvametaconvert add-tensor-data=true ! gvametapublish file-format=json-lines file-path=%JSON_FILE% ! videoconvert ! gvafpscounter ! autovideosink sync=false"
+    if "%DEVICE%"=="CPU" (
+        set "SINK_ELEMENT=queue ! gvawatermark ! gvametaconvert add-tensor-data=true ! gvametapublish file-format=json-lines file-path=%JSON_FILE% ! videoconvert ! gvafpscounter ! autovideosink sync=false"
+    ) else (
+        set "SINK_ELEMENT=queue ! d3d11convert ! gvawatermark ! gvametaconvert add-tensor-data=true ! gvametapublish file-format=json-lines file-path=%JSON_FILE% ! videoconvert ! gvafpscounter ! d3d11videosink sync=false"
+    )
 ) else (
     echo [91mERROR: Invalid OUTPUT parameter[0m
     echo Valid values: file, display, fps, json, display-and-json
@@ -92,7 +100,11 @@ setlocal EnableDelayedExpansion
 for %%F in ("%INPUT%") do set FILENAME=%%~nF
 set OUTPUT_FILE=human_pose_estimation_!FILENAME!_%DEVICE%.mp4
 if EXIST "!OUTPUT_FILE!" del "!OUTPUT_FILE!"
-endlocal & set "SINK_ELEMENT=queue ! d3d11convert ! gvawatermark ! gvafpscounter ! d3d11h264enc ! h264parse ! mp4mux ! filesink location=%OUTPUT_FILE%"
+if "%DEVICE%"=="CPU" (
+    endlocal & set "SINK_ELEMENT=queue ! videoconvert ! gvawatermark ! gvafpscounter ! openh264enc ! h264parse ! mp4mux ! filesink location=%OUTPUT_FILE%"
+) else (
+    endlocal & set "SINK_ELEMENT=queue ! d3d11convert ! gvawatermark ! gvafpscounter ! d3d11h264enc ! h264parse ! mp4mux ! filesink location=%OUTPUT_FILE%"
+)
 exit /b
 
 :continue_after_sink

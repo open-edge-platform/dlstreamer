@@ -102,6 +102,8 @@ COCO classes include: person, bicycle, car, motorcycle, airplane, bus, train, tr
 
 ## Pipeline Architecture
 
+**Note**: Pipeline varies based on device type. GPU/NPU use D3D11 hardware acceleration (`d3d11convert`, `d3d11videosink`, `d3d11h264enc`), while CPU uses software path (`videoconvert`, `autovideosink`, `openh264enc`).
+
 ```mermaid
 graph LR
     A[filesrc/urisourcebin] --> B[decodebin3]
@@ -109,7 +111,7 @@ graph LR
     C --> D[queue]
     D --> E{OUTPUT}
     
-    E -->|file| F1[d3d11convert]
+    E -->|file<br/>GPU/NPU| F1[d3d11convert]
     F1 --> F2[gvawatermark]
     F2 --> F3[gvafpscounter]
     F3 --> F4[d3d11h264enc]
@@ -117,11 +119,24 @@ graph LR
     F5 --> F6[mp4mux]
     F6 --> F7[filesink]
     
-    E -->|display| G1[d3d11convert]
+    E -->|file<br/>CPU| F1C[videoconvert]
+    F1C --> F2C[gvawatermark]
+    F2C --> F3C[gvafpscounter]
+    F3C --> F4C[openh264enc]
+    F4C --> F5C[h264parse]
+    F5C --> F6C[mp4mux]
+    F6C --> F7C[filesink]
+    
+    E -->|display<br/>GPU/NPU| G1[d3d11convert]
     G1 --> G2[gvawatermark]
     G2 --> G3[videoconvertscale]
     G3 --> G4[gvafpscounter]
-    G4 --> G5[autovideosink]
+    G4 --> G5[d3d11videosink]
+    
+    E -->|display<br/>CPU| G1C[gvawatermark]
+    G1C --> G2C[videoconvertscale]
+    G2C --> G3C[gvafpscounter]
+    G3C --> G4C[autovideosink]
     
     E -->|fps| H1[gvafpscounter]
     H1 --> H2[fakesink]
@@ -130,18 +145,31 @@ graph LR
     I1 --> I2[gvametapublish]
     I2 --> I3[fakesink]
     
-    E -->|display-and-json| J1[d3d11convert]
+    E -->|display-and-json<br/>GPU/NPU| J1[d3d11convert]
     J1 --> J2[gvawatermark]
     J2 --> J3[gvametaconvert]
     J3 --> J4[gvametapublish]
     J4 --> J5[videoconvert]
     J5 --> J6[gvafpscounter]
-    J6 --> J7[autovideosink]
+    J6 --> J7[d3d11videosink]
     
-    E -->|jpeg| K1[d3d11convert]
+    E -->|display-and-json<br/>CPU| J1C[gvawatermark]
+    J1C --> J2C[gvametaconvert]
+    J2C --> J3C[gvametapublish]
+    J3C --> J4C[videoconvert]
+    J4C --> J5C[gvafpscounter]
+    J5C --> J6C[autovideosink]
+    
+    E -->|jpeg<br/>GPU/NPU| K1[d3d11convert]
     K1 --> K2[gvawatermark]
-    K2 --> K3[jpegenc]
-    K3 --> K4[multifilesink]
+    K2 --> K3[videoconvert]
+    K3 --> K4[jpegenc]
+    K4 --> K5[multifilesink]
+    
+    E -->|jpeg<br/>CPU| K1C[videoconvert]
+    K1C --> K2C[gvawatermark]
+    K2C --> K3C[jpegenc]
+    K3C --> K4C[multifilesink]
 ```
 
 ## Performance Tips
