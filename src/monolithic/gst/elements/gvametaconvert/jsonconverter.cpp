@@ -13,8 +13,10 @@
 #include "audioconverter.h"
 #endif
 #include "convert_tensor.h"
+#include "g3d_lidar_meta.h"
 #include "g3d_radarprocess_meta.h"
 #include "gva_json_meta.h"
+#include "gva_tensor_meta.h"
 
 #include <gst/analytics/analytics.h>
 #include <gst/analytics/gstanalyticsclassificationmtd.h>
@@ -499,6 +501,124 @@ json convert_radar_process_meta(GstGvaMetaConvert *converter, GstBuffer *buffer)
     return result;
 }
 
+json get_lidar_frame_data(GstGvaMetaConvert *converter, GstBuffer *buffer, LidarMeta *lidar_meta) {
+    if (!converter || !buffer || !lidar_meta) {
+        if (converter)
+            GST_ERROR_OBJECT(converter, "Unexpected null pointer in get_lidar_frame_data");
+        else
+            GST_ERROR("Unexpected null pointer in get_lidar_frame_data");
+        return json::object();
+    }
+
+    json result = json::object();
+
+    if (converter->source)
+        result["source"] = converter->source;
+    if (converter->tags && json::accept(converter->tags))
+        result["tags"] = json::parse(converter->tags);
+
+    if (converter->base_gvametaconvert.segment.format == GST_FORMAT_TIME && GST_CLOCK_TIME_IS_VALID(buffer->pts)) {
+        GstClockTime timestamp =
+            gst_segment_to_stream_time(&converter->base_gvametaconvert.segment, GST_FORMAT_TIME, buffer->pts);
+        if (timestamp != G_MAXUINT64)
+            result["timestamp"] = timestamp;
+    }
+
+    result["lidar_frame"] = json::object({
+        {"frame_id", lidar_meta->frame_id},
+        {"stream_id", lidar_meta->stream_id},
+        {"point_count", lidar_meta->lidar_point_count},
+        {"exit_lidarparse_timestamp", lidar_meta->exit_lidarparse_timestamp},
+        {"exit_g3dinference_timestamp", lidar_meta->exit_g3dinference_timestamp},
+    });
+
+    return result;
+}
+
+bool is_pointpillars_detection_tensor(const GVA::Tensor &tensor) {
+    if (tensor.format() != "pointpillars_3d")
+        return false;
+    if (tensor.layer_name() != "pointpillars_3d_detection")
+        return false;
+
+    const auto dims = tensor.dims();
+    return dims.size() == 2 && dims[1] == 9;
+}
+
+json convert_lidar_detection_tensor(const GVA::Tensor &tensor) {
+    json objects = json::array();
+
+    const auto dims = tensor.dims();
+    if (dims.size() != 2 || dims[1] != 9)
+        return objects;
+
+    const size_t detection_count = dims[0];
+    const size_t detection_width = dims[1];
+    if (detection_count == 0 || !tensor.has_field("data_buffer"))
+        return objects;
+
+    const std::vector<float> data = tensor.data<float>();
+    if (data.size() < detection_count * detection_width) {
+        GST_WARNING(
+            "pointpillars tensor data size (%zu) is smaller than expected (%zu x %zu). returning empty detections.",
+            data.size(), detection_count, detection_width);
+        return objects;
+    }
+
+    for (size_t index = 0; index < detection_count; ++index) {
+        const size_t offset = index * detection_width;
+        json object = json::object({
+            {"bbox_3d",
+             {{"x", data[offset + 0]},
+              {"y", data[offset + 1]},
+              {"z", data[offset + 2]},
+              {"w", data[offset + 3]},
+              {"l", data[offset + 4]},
+              {"h", data[offset + 5]},
+              {"theta", data[offset + 6]}}},
+            {"confidence", data[offset + 7]},
+            {"label_id", static_cast<int>(data[offset + 8])},
+            {"model", {{"type", tensor.model_name()}}},
+        });
+
+        objects.push_back(object);
+    }
+
+    return objects;
+}
+
+json convert_lidar_inference_meta(GstGvaMetaConvert *converter, GstBuffer *buffer) {
+    LidarMeta *lidar_meta = reinterpret_cast<LidarMeta *>(gst_buffer_get_meta(buffer, LIDAR_META_API_TYPE));
+    if (!lidar_meta)
+        return json::object();
+
+    json result = get_lidar_frame_data(converter, buffer, lidar_meta);
+    json objects = json::array();
+    json tensors = json::array();
+
+    gpointer state = NULL;
+    GstGVATensorMeta *tensor_meta = NULL;
+    while ((tensor_meta = GST_GVA_TENSOR_META_ITERATE(buffer, &state))) {
+        GVA::Tensor tensor(tensor_meta->data);
+        if (is_pointpillars_detection_tensor(tensor)) {
+            json detections = convert_lidar_detection_tensor(tensor);
+            for (auto &detection : detections)
+                objects.push_back(detection);
+        }
+
+        if (converter->add_tensor_data && !tensor.has_field("type") && tensor.has_field("data_buffer")) {
+            tensors.push_back(convert_tensor(tensor));
+        }
+    }
+
+    if (!objects.empty())
+        result["objects"] = objects;
+    if (!tensors.empty())
+        result["tensors"] = tensors;
+
+    return result;
+}
+
 } // namespace
 
 gboolean to_json(GstGvaMetaConvert *converter, GstBuffer *buffer) {
@@ -527,6 +647,27 @@ gboolean to_json(GstGvaMetaConvert *converter, GstBuffer *buffer) {
                 GST_INFO_OBJECT(converter, "Radar JSON message: %s", json_message.c_str());
             } else {
                 GST_ERROR_OBJECT(converter, "Failed to add GVA JSON meta for radar data");
+            }
+            return TRUE;
+        }
+
+        json lidar_data = convert_lidar_inference_meta(converter, buffer);
+        if (!lidar_data.empty()) {
+            const bool has_objects = lidar_data.contains("objects") && !lidar_data["objects"].empty();
+            const bool has_tensors = lidar_data.contains("tensors") && !lidar_data["tensors"].empty();
+
+            if (!has_objects && !has_tensors && !converter->add_empty_detection_results) {
+                GST_DEBUG_OBJECT(converter, "No LiDAR detections found. Not posting JSON message");
+                return TRUE;
+            }
+
+            std::string json_message = lidar_data.dump(converter->json_indent);
+            GstGVAJSONMeta *json_meta = GST_GVA_JSON_META_ADD(buffer);
+            if (json_meta) {
+                json_meta->message = g_strdup(json_message.c_str());
+                GST_INFO_OBJECT(converter, "LiDAR JSON message: %s", json_message.c_str());
+            } else {
+                GST_ERROR_OBJECT(converter, "Failed to add GVA JSON meta for LiDAR data");
             }
             return TRUE;
         }

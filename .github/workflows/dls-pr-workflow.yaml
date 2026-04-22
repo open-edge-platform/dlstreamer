@@ -361,6 +361,7 @@ jobs:
       contents: read
     name: "DLS TEST: models download"
     uses: ./.github/workflows/dls-download-models-test.yaml
+
   #---------------------------------------------------------- OPTIMIZER -------------------------------------------------------------
   dls-optimizer-functional-tests:
     permissions:
@@ -370,6 +371,7 @@ jobs:
     uses: ./.github/workflows/dls-test-optimizer.yaml
     with:
       test-repo-branch: ${{ inputs.test-repo-branch }}
+
   # -------------------------------------------------------- BUILDS & TESTS ---------------------------------------------------------
   dls-build-fedora-img:
     permissions:
@@ -409,3 +411,123 @@ jobs:
     uses: ./.github/workflows/dls-build-and-test-windows.yaml
     with:
       test-repo-branch: ${{ inputs.test-repo-branch }}
+
+# -------------------------------------------------------- STATUS CHECKS ---------------------------------------------------------
+  check-download-models-status:
+    needs: dls-download-models
+    runs-on: dlstreamer
+    name: "Check Models Download Status"
+    if: always()
+    steps:
+      - name: Report models download status
+        env:
+          dls_download_models_result: ${{ needs.dls-download-models.result }}
+        run: |
+          if [ "${dls_download_models_result}" == "success" ]; then
+            echo "✅ Models download completed successfully!"
+          else
+            echo "❌ Models download failed with status: ${dls_download_models_result}"
+            exit 1
+          fi
+
+  check-optimizer-tests-status:
+    needs: dls-optimizer-functional-tests
+    runs-on: dlstreamer
+    name: "Check Optimizer Tests Status"
+    if: always()
+    steps:
+      - name: Report optimizer tests status
+        env:
+          dls_optimizer_functional_tests_result: ${{ needs.dls-optimizer-functional-tests.result }}
+        run: |
+          if [ "${dls_optimizer_functional_tests_result}" == "success" ]; then
+            echo "✅ Optimizer tests completed successfully!"
+          else
+            echo "❌ Optimizer tests failed with status: ${dls_optimizer_functional_tests_result}"
+            exit 1
+          fi
+
+  check-fedora-build-status:
+    needs: dls-build-fedora-img
+    runs-on: dlstreamer
+    name: "Check Fedora Build Status"
+    if: always()
+    steps:
+      - name: Report Fedora build status
+        env:
+          dls_build_fedora_img_result: ${{ needs.dls-build-fedora-img.result }}
+        run: |
+          if [ "${dls_build_fedora_img_result}" == "success" ]; then
+            echo "✅ Fedora build completed successfully!"
+          else
+            echo "❌ Fedora build failed with status: ${dls_build_fedora_img_result}"
+            exit 1
+          fi
+
+  check-make-build-status:
+    needs: dls-build-sources-make-build
+    runs-on: dlstreamer
+    name: "Check Make Build Status"
+    if: always()
+    steps:
+      - name: Report make build status
+        env:
+          dls_build_sources_make_build_result: ${{ needs.dls-build-sources-make-build.result }}
+        run: |
+          if [ "${dls_build_sources_make_build_result}" == "success" ]; then
+            echo "✅ Make build completed successfully!"
+          else
+            echo "❌ Make build failed with status: ${dls_build_sources_make_build_result}"
+            exit 1
+          fi
+
+  check-dev-images-unit-tests-status:
+    needs: dls-build-dev-images-and-run-unit-tests
+    runs-on: dlstreamer
+    name: "Check Dev Images & Unit Tests Status"
+    if: always()
+    steps:
+      - name: Report dev images & unit tests status
+        env:
+          dls_build_dev_images_and_run_unit_tests_result: ${{ needs.dls-build-dev-images-and-run-unit-tests.result }}
+        run: |
+          if [ "${dls_build_dev_images_and_run_unit_tests_result}" == "success" ]; then
+            echo "✅ Dev images & unit tests completed successfully!"
+          else
+            echo "❌ Dev images & unit tests failed with status: ${dls_build_dev_images_and_run_unit_tests_result}"
+            exit 1
+          fi
+
+  check-deb-build-status:
+    needs: dls-build-and-test-deb-and-deb_img
+    runs-on: dlstreamer
+    name: "Check DEB Build Status"
+    if: always()
+    steps:
+      - name: Report DEB build status
+        env:
+          dls_build_and_test_deb_and_deb_img_result: ${{ needs.dls-build-and-test-deb-and-deb_img.result }}
+        run: |
+          if [ "${dls_build_and_test_deb_and_deb_img_result}" == "success" ]; then
+            echo "✅ DEB build & test completed successfully!"
+          else
+            echo "❌ DEB build & test failed with status: ${dls_build_and_test_deb_and_deb_img_result}"
+            exit 1
+          fi
+
+  check-windows-build-status:
+    needs: dls-build-and-test-windows
+    runs-on: dlstreamer
+    name: "Check Windows Build Status"
+    if: always()
+    steps:
+      - name: Report Windows build status
+        env:
+          dls_build_and_test_windows_result: ${{ needs.dls-build-and-test-windows.result }}
+        run: |
+          if [ "${dls_build_and_test_windows_result}" == "success" ]; then
+            echo "✅ Windows build completed successfully!"
+          else
+            echo "❌ Windows build failed with status: ${dls_build_and_test_windows_result}"
+            exit 1
+          fi
