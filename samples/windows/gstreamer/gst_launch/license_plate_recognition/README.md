@@ -11,9 +11,9 @@ The sample uses a two-stage cascaded inference pipeline:
 Pipeline elements:
 - `filesrc` or `urisourcebin` for input
 - `decodebin3` for video decoding
-- [gvadetect](https://dlstreamer.github.io/elements/gvadetect.html) for license plate detection
-- [gvaclassify](https://dlstreamer.github.io/elements/gvaclassify.html) for OCR
-- [gvawatermark](https://dlstreamer.github.io/elements/gvawatermark.html) for visualization
+- `gvadetect` for license plate detection
+- `gvaclassify` for OCR
+- `gvawatermark` for visualization
 
 ## Models
 
@@ -25,144 +25,110 @@ Pipeline elements:
 ## Environment Variables
 
 ```batch
-set MODELS_PATH=C:\models
+$set MODELS_PATH=C:\models\models
 ```
+
+Models should be located at:
+- `%MODELS_PATH%\public\yolov8_license_plate_detector\FP32\yolov8_license_plate_detector.xml`
+- `%MODELS_PATH%\public\ch_PP-OCRv4_rec_infer\FP32\ch_PP-OCRv4_rec_infer.xml`
 
 ## Running
 
 ```batch
-license_plate_recognition.bat [INPUT] [DEVICE] [OUTPUT] [JSON_FILE]
+.\license_plate_recognition.bat [INPUT] [DEVICE] [OUTPUT] [JSON_FILE]
 ```
 
 Arguments:
-- **INPUT** (optional) - Input source (default: GitHub parking video)
-- **DEVICE** (optional) - Inference device (default: GPU). Supported: CPU, GPU
-- **OUTPUT** (optional) - Output type (default: fps)
-  - `display` - Show video (sync)
-  - `display-async` - Show video (async, faster)
-  - `fps` - Benchmark only
-  - `json` - Export metadata
-  - `display-and-json` - Show and export
-  - `file` - Save to MP4
-- **JSON_FILE** (optional) - JSON output filename (default: output.json)
+- **INPUT** - Input source (default: `https://github.com/open-edge-platform/edge-ai-resources/raw/main/videos/ParkingVideo.mp4`)
+  - Local file path (e.g., `C:\videos\parking.mp4`)
+  - URL (e.g., `https://...`)
+- **DEVICE** - Inference device (default: `GPU`)
+  - Supported: `CPU`, `GPU`
+- **OUTPUT** - Output type (default: `fps`)
+  - `display` - Show video with overlay (sync)
+  - `display-async` - Show video with overlay (async, faster)
+  - `fps` - Benchmark mode (no display)
+  - `json` - Export metadata to JSON
+  - `display-and-json` - Display and export
+  - `file` - Save to MP4 file
+- **JSON_FILE** - JSON output filename (default: `output.json`)
 
 ## Examples
 
+### Use default settings (GitHub video, GPU, benchmark mode)
+```batch
+.\license_plate_recognition.bat
+```
+
 ### Display with real-time visualization
 ```batch
-license_plate_recognition.bat C:\videos\parking.mp4 GPU display-async
+.\license_plate_recognition.bat "C:\videos\parking.mp4" GPU display-async
 ```
 
 ### Export recognized plates to JSON
 ```batch
-license_plate_recognition.bat C:\videos\parking.mp4 GPU json plates.json
+.\license_plate_recognition.bat "C:\videos\parking.mp4" GPU json plates.json
 ```
 
-### Benchmark performance
+### Benchmark performance on CPU
 ```batch
-license_plate_recognition.bat C:\videos\parking.mp4 GPU fps
+.\license_plate_recognition.bat "C:\videos\parking.mp4" CPU fps
 ```
 
 ### Save annotated video
 ```batch
-license_plate_recognition.bat C:\videos\parking.mp4 GPU file
-```
-
-### Use CPU inference
-```batch
-license_plate_recognition.bat C:\videos\parking.mp4 CPU display
+.\license_plate_recognition.bat "C:\videos\parking.mp4" GPU file
 ```
 
 ## Pipeline Architecture
 
 ```mermaid
 graph LR
-    A[source] --> B[decodebin3]
-    B --> C[gvadetect: Plate Detection]
-    C --> D[videoconvert]
-    D --> E[gvaclassify: OCR]
-    E --> F{OUTPUT}
+    A[filesrc/urisourcebin] --> B[decodebin3]
+    B --> C[queue]
+    C --> D[gvadetect]
+    D --> E[queue]
+    E --> F[videoconvert]
+    F --> G[gvaclassify]
+    G --> H[queue]
+    H --> I{OUTPUT}
     
-    F -->|display| G[d3d11convert]
-    G --> H[gvawatermark]
-    H --> I[videoconvert]
-    I --> J[gvafpscounter]
-    J --> K[autovideosink]
+    I -->|file| J1[d3d11convert]
+    J1 --> J2[gvawatermark]
+    J2 --> J3[gvafpscounter]
+    J3 --> J4[d3d11h264enc]
+    J4 --> J5[h264parse]
+    J5 --> J6[mp4mux]
+    J6 --> J7[filesink]
     
-    F -->|json| L[gvametaconvert]
-    L --> M[gvametapublish]
-    M --> N[fakesink]
+    I -->|display| K1[d3d11convert]
+    K1 --> K2[gvawatermark]
+    K2 --> K3[videoconvert]
+    K3 --> K4[gvafpscounter]
+    K4 --> K5[autovideosink]
+    
+    I -->|display-async| L1[d3d11convert]
+    L1 --> L2[gvawatermark]
+    L2 --> L3[videoconvert]
+    L3 --> L4[gvafpscounter]
+    L4 --> L5[autovideosink<br/>sync=false]
+    
+    I -->|fps| M1[gvafpscounter]
+    M1 --> M2[fakesink]
+    
+    I -->|json| N1[gvametaconvert]
+    N1 --> N2[gvametapublish]
+    N2 --> N3[fakesink]
+    
+    I -->|display-and-json| O1[d3d11convert]
+    O1 --> O2[gvawatermark]
+    O2 --> O3[gvametaconvert]
+    O3 --> O4[gvametapublish]
+    O4 --> O5[videoconvert]
+    O5 --> O6[gvafpscounter]
+    O6 --> O7[autovideosink<br/>sync=false]
 ```
 
-## Output Format
-
-JSON output contains:
-```json
-{
-  "objects": [
-    {
-      "detection": {
-        "bounding_box": {
-          "x_min": 0.45,
-          "y_min": 0.32,
-          "x_max": 0.58,
-          "y_max": 0.39
-        },
-        "confidence": 0.95,
-        "label": "license_plate"
-      },
-      "classification": {
-        "label": "ABC1234",
-        "confidence": 0.88
-      }
-    }
-  ]
-}
-```
-
-## Supported Languages
-
-The PaddleOCR model supports multiple languages:
-- English
-- Chinese
-- Numbers
-- Special characters (-, space, etc.)
-
-## Performance
-
-Typical performance on Intel hardware:
-- **CPU (Core i7)**: 15-25 FPS
-- **GPU (Iris Xe)**: 40-60 FPS
-- **GPU (Arc A770)**: 80-120 FPS
-
-## Performance Tips
-
-1. **Use GPU device** for best performance
-2. **Preprocessing backend**: 
-   - CPU: `opencv`
-   - GPU: `d3d11` (zero-copy)
-3. **Lower input resolution** if FPS is low
-4. **Limit detection ROI** to known plate locations
-
-## Troubleshooting
-
-### Models not found
-```batch
-cd samples\windows
-download_public_models.bat
-```
-
-### Poor OCR accuracy
-- Ensure good lighting in video
-- Check if plates are visible at sufficient resolution
-- Adjust detection confidence threshold
-
-### Low FPS
-- Use GPU device
-- Reduce video resolution
-- Check system load
-
-### No detections
-- Verify video contains license plates
-- Adjust detection threshold
-- Check model compatibility with plate format
+## See also
+* [Windows Samples overview](../../../README.md)
+* [Linux License Plate Recognition Sample](../../../../gstreamer/gst_launch/license_plate_recognition/README.md)

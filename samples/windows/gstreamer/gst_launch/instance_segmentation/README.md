@@ -7,8 +7,8 @@ This sample demonstrates instance segmentation using Mask R-CNN models on Window
 The sample builds a GStreamer pipeline using:
 - `filesrc` or `urisourcebin` for input
 - `decodebin3` for video decoding
-- [gvadetect](https://dlstreamer.github.io/elements/gvadetect.html) for instance segmentation
-- [gvawatermark](https://dlstreamer.github.io/elements/gvawatermark.html) for mask and bounding box visualization
+- `gvadetect` for instance segmentation
+- `gvawatermark` for mask and bounding box visualization
 - `d3d11convert` for D3D11-accelerated processing
 
 ## Models
@@ -24,48 +24,61 @@ Both models trained on COCO dataset (80 object classes).
 ## Environment Variables
 
 ```batch
-set MODELS_PATH=C:\models
+$set MODELS_PATH=C:\models\models
 ```
+
+Models should be located at:
+- `%MODELS_PATH%\public\mask_rcnn_inception_resnet_v2_atrous_coco\FP16\mask_rcnn_inception_resnet_v2_atrous_coco.xml`
+- `%MODELS_PATH%\public\mask_rcnn_resnet50_atrous_coco\FP16\mask_rcnn_resnet50_atrous_coco.xml`
 
 ## Running
 
 ```batch
-instance_segmentation.bat [MODEL] [DEVICE] [INPUT] [OUTPUT] [JSON_FILE]
+.\instance_segmentation.bat [MODEL] [DEVICE] [INPUT] [OUTPUT] [JSON_FILE]
 ```
 
 Arguments:
-- **MODEL** (optional) - Model name (default: mask_rcnn_inception_resnet_v2_atrous_coco)
-- **DEVICE** (optional) - Inference device (default: CPU). Supported: CPU, GPU, NPU
-- **INPUT** (optional) - Input source (default: Pexels video URL)
-- **OUTPUT** (optional) - Output type (default: file)
-  - `file` - Save to MP4
-  - `display` - Show video
-  - `fps` - Benchmark
-  - `json` - Export metadata
-  - `display-and-json` - Both
+- **MODEL** - Model name (default: `mask_rcnn_inception_resnet_v2_atrous_coco`)
+  - Supported: `mask_rcnn_inception_resnet_v2_atrous_coco`, `mask_rcnn_resnet50_atrous_coco`
+- **DEVICE** - Inference device (default: `CPU`)
+  - Supported: `CPU`, `GPU`, `NPU`
+- **INPUT** - Input source (default: `https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4`)
+  - Local file path (e.g., `C:\videos\street.mp4`)
+  - URL (e.g., `https://...`)
+- **OUTPUT** - Output type (default: `file`)
+  - `file` - Save to MP4 with watermark
+  - `display` - Display video with overlay
+  - `fps` - Benchmark mode (no display)
+  - `json` - Export metadata to JSON
+  - `display-and-json` - Display and export
   - `jpeg` - Save frames as JPEG sequence
-- **JSON_FILE** (optional) - JSON output filename (default: output.json)
+- **JSON_FILE** - JSON output filename (default: `output.json`)
 
 ## Examples
 
-### Default execution (Inception ResNet V2, CPU)
+### Use default settings (Inception ResNet V2, CPU, Pexels video, save to file)
 ```batch
-instance_segmentation.bat
+.\instance_segmentation.bat
 ```
 
-### ResNet50 on GPU
+### ResNet50 on GPU with display
 ```batch
-instance_segmentation.bat mask_rcnn_resnet50_atrous_coco GPU C:\videos\street.mp4 display
+.\instance_segmentation.bat mask_rcnn_resnet50_atrous_coco GPU "C:\videos\street.mp4" display
 ```
 
-### Export segmentation masks as JPEG
+### Export to JSON
 ```batch
-instance_segmentation.bat mask_rcnn_resnet50_atrous_coco GPU C:\videos\street.mp4 jpeg
+.\instance_segmentation.bat mask_rcnn_inception_resnet_v2_atrous_coco CPU "C:\videos\street.mp4" json segmentation.json
 ```
 
-### Benchmark performance
+### Export segmentation masks as JPEG sequence
 ```batch
-instance_segmentation.bat mask_rcnn_resnet50_atrous_coco GPU C:\videos\street.mp4 fps
+.\instance_segmentation.bat mask_rcnn_resnet50_atrous_coco GPU "C:\videos\street.mp4" jpeg
+```
+
+### Benchmark FPS on NPU
+```batch
+.\instance_segmentation.bat mask_rcnn_resnet50_atrous_coco NPU "C:\videos\street.mp4" fps
 ```
 
 ## Output
@@ -78,6 +91,50 @@ The model outputs:
 
 COCO classes include: person, bicycle, car, motorcycle, airplane, bus, train, truck, boat, traffic light, fire hydrant, stop sign, parking meter, bench, bird, cat, dog, horse, sheep, cow, elephant, bear, zebra, giraffe, backpack, umbrella, handbag, tie, suitcase, frisbee, skis, snowboard, sports ball, kite, baseball bat, baseball glove, skateboard, surfboard, tennis racket, bottle, wine glass, cup, fork, knife, spoon, bowl, banana, apple, sandwich, orange, broccoli, carrot, hot dog, pizza, donut, cake, chair, couch, potted plant, bed, dining table, toilet, TV, laptop, mouse, remote, keyboard, cell phone, microwave, oven, toaster, sink, refrigerator, book, clock, vase, scissors, teddy bear, hair drier, toothbrush.
 
+## Pipeline Architecture
+
+```mermaid
+graph LR
+    A[filesrc/urisourcebin] --> B[decodebin3]
+    B --> C[gvadetect]
+    C --> D[queue]
+    D --> E{OUTPUT}
+    
+    E -->|file| F1[d3d11convert]
+    F1 --> F2[gvawatermark]
+    F2 --> F3[gvafpscounter]
+    F3 --> F4[d3d11h264enc]
+    F4 --> F5[h264parse]
+    F5 --> F6[mp4mux]
+    F6 --> F7[filesink]
+    
+    E -->|display| G1[d3d11convert]
+    G1 --> G2[gvawatermark]
+    G2 --> G3[videoconvertscale]
+    G3 --> G4[gvafpscounter]
+    G4 --> G5[autovideosink]
+    
+    E -->|fps| H1[gvafpscounter]
+    H1 --> H2[fakesink]
+    
+    E -->|json| I1[gvametaconvert]
+    I1 --> I2[gvametapublish]
+    I2 --> I3[fakesink]
+    
+    E -->|display-and-json| J1[d3d11convert]
+    J1 --> J2[gvawatermark]
+    J2 --> J3[gvametaconvert]
+    J3 --> J4[gvametapublish]
+    J4 --> J5[videoconvert]
+    J5 --> J6[gvafpscounter]
+    J6 --> J7[autovideosink]
+    
+    E -->|jpeg| K1[d3d11convert]
+    K1 --> K2[gvawatermark]
+    K2 --> K3[jpegenc]
+    K3 --> K4[multifilesink]
+```
+
 ## Performance Tips
 
 1. **Use ResNet50 model** for faster inference
@@ -85,20 +142,6 @@ COCO classes include: person, bicycle, car, motorcycle, airplane, bus, train, tr
 3. **Lower input resolution** reduces processing time
 4. **Preprocessing backend**: Use `d3d11` for GPU, `opencv` for CPU
 
-## Troubleshooting
-
-### Model not found
-Download public models first:
-```batch
-cd samples\windows
-download_public_models.bat
-```
-
-### Low FPS
-- Switch to ResNet50 model
-- Use GPU device
-- Reduce video resolution
-
-### Memory issues
-- Use CPU device with smaller batch size
-- Close other applications
+## See also
+* [Windows Samples overview](../../../README.md)
+* [Linux Instance Segmentation Sample](../../../../gstreamer/gst_launch/instance_segmentation/README.md)

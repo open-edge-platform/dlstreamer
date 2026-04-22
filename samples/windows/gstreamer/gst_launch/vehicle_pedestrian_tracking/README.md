@@ -7,10 +7,10 @@ This sample demonstrates object detection, tracking, and classification pipeline
 The sample builds a GStreamer pipeline using:
 - `filesrc` or `urisourcebin` for input
 - `decodebin3` for video decoding
-- [gvadetect](https://dlstreamer.github.io/elements/gvadetect.html) for object detection (person, vehicle, bike)
-- [gvatrack](https://dlstreamer.github.io/elements/gvatrack.html) for object tracking across frames
-- [gvaclassify](https://dlstreamer.github.io/elements/gvaclassify.html) (2x) for person and vehicle attribute classification
-- [gvawatermark](https://dlstreamer.github.io/elements/gvawatermark.html) for visualization
+- `gvadetect` for object detection (person, vehicle, bike)
+- `gvatrack` for object tracking across frames
+- `gvaclassify` (2x) for person and vehicle attribute classification
+- `gvawatermark` for visualization
 - `d3d11convert` for D3D11-accelerated video processing
 
 ## Models
@@ -25,128 +25,127 @@ The sample uses the following pre-trained models from OpenVINO™ Toolkit [Open 
 ## Environment Variables
 
 ```batch
-set MODELS_PATH=C:\models
+$set MODELS_PATH=C:\models\models
 ```
+
+Models should be located at:
+- `%MODELS_PATH%\intel\person-vehicle-bike-detection-2004\FP32\person-vehicle-bike-detection-2004.xml`
+- `%MODELS_PATH%\intel\person-attributes-recognition-crossroad-0230\FP32\person-attributes-recognition-crossroad-0230.xml`
+- `%MODELS_PATH%\intel\vehicle-attributes-recognition-barrier-0039\FP32\vehicle-attributes-recognition-barrier-0039.xml`
 
 ## Running
 
 ```batch
-vehicle_pedestrian_tracking.bat [INPUT] [DETECTION_INTERVAL] [DEVICE] [OUTPUT] [TRACKING_TYPE] [JSON_FILE]
+.\vehicle_pedestrian_tracking.bat [INPUT] [DETECTION_INTERVAL] [DEVICE] [OUTPUT] [TRACKING_TYPE] [JSON_FILE]
 ```
 
 Arguments:
-- **INPUT** - Input source (default: GitHub sample video)
-- **DETECTION_INTERVAL** - Detection frequency (default: 3)
-  - `1` = detect every frame
+- **INPUT** - Input source (default: `https://github.com/intel-iot-devkit/sample-videos/raw/master/person-bicycle-car-detection.mp4`)
+  - Local file path (e.g., `C:\videos\traffic.mp4`)
+  - URL (e.g., `https://...`)
+- **DETECTION_INTERVAL** - Detection frequency (default: `3`)
+  - `1` = detect every frame (highest accuracy, slowest)
   - `3` = detect every 3rd frame (tracking fills gaps)
   - Higher value = better performance, lower accuracy
-- **DEVICE** - Inference device (default: AUTO)
-  - Supported: AUTO, CPU, GPU, GPU.0
-- **OUTPUT** - Output type (default: display)
-  - `display` - Synchronous display
-  - `display-async` - Fast async display
-  - `fps` - Print FPS only
-  - `json` - Export metadata
-  - `display-and-json` - Both
-  - `file` - Save to MP4
-- **TRACKING_TYPE** - Tracking algorithm (default: short-term-imageless)
+- **DEVICE** - Inference device (default: `AUTO`)
+  - Supported: `AUTO`, `CPU`, `GPU`, `GPU.0`
+- **OUTPUT** - Output type (default: `display`)
+  - `display` - Display with sync
+  - `display-async` - Display async (faster)
+  - `fps` - Benchmark mode (no display)
+  - `json` - Export metadata to JSON
+  - `display-and-json` - Display and export
+  - `file` - Save to MP4 file
+- **TRACKING_TYPE** - Tracking algorithm (default: `short-term-imageless`)
   - `short-term-imageless` - Fast, appearance-free tracking
   - `zero-term` - Detection-only (no tracking)
   - `zero-term-imageless` - Simplified zero-term
-- **JSON_FILE** - JSON output filename (default: output.json)
+- **JSON_FILE** - JSON output filename (default: `output.json`)
 
 ## Examples
 
+### Use default settings (GitHub video, detect every 3rd frame, AUTO device, display)
+```batch
+.\vehicle_pedestrian_tracking.bat
+```
+
 ### Detect every 3rd frame with tracking on GPU
 ```batch
-vehicle_pedestrian_tracking.bat C:\videos\traffic.mp4 3 GPU display-async
+.\vehicle_pedestrian_tracking.bat "C:\videos\traffic.mp4" 3 GPU display-async
 ```
 
 ### High-accuracy mode (detect every frame)
 ```batch
-vehicle_pedestrian_tracking.bat C:\videos\traffic.mp4 1 AUTO display
+.\vehicle_pedestrian_tracking.bat "C:\videos\traffic.mp4" 1 AUTO display
 ```
 
 ### Export tracking data to JSON
 ```batch
-vehicle_pedestrian_tracking.bat C:\videos\traffic.mp4 3 GPU json tracking_results.json
+.\vehicle_pedestrian_tracking.bat "C:\videos\traffic.mp4" 3 GPU json tracking_results.json
 ```
 
-### Performance benchmark
+### Performance benchmark (detect every 10 frames)
 ```batch
-vehicle_pedestrian_tracking.bat C:\videos\traffic.mp4 5 GPU fps
+.\vehicle_pedestrian_tracking.bat "C:\videos\traffic.mp4" 10 GPU fps
+```
+
+### Different tracking algorithm
+```batch
+.\vehicle_pedestrian_tracking.bat "C:\videos\traffic.mp4" 1 GPU display zero-term
 ```
 
 ## Pipeline Architecture
 
 ```mermaid
 graph LR
-    A[source] --> B[decodebin3]
-    B --> C[gvadetect: Detection]
-    C --> D[gvatrack: Tracking]
-    D --> E[gvaclassify: Person Attrs]
-    E --> F[gvaclassify: Vehicle Attrs]
-    F --> G{OUTPUT mode}
+    A[filesrc/urisourcebin] --> B[decodebin3]
+    B --> C[queue]
+    C --> D[gvadetect]
+    D --> E[queue]
+    E --> F[gvatrack]
+    F --> G[queue]
+    G --> H[gvaclassify<br/>person attrs]
+    H --> I[queue]
+    I --> J[gvaclassify<br/>vehicle attrs]
+    J --> K[queue]
+    K --> L{OUTPUT}
     
-    G -->|display| H[d3d11convert]
-    H --> I[gvawatermark]
-    I --> J[videoconvert]
-    J --> K[gvafpscounter]
-    K --> L[autovideosink]
+    L -->|file| M1[d3d11convert]
+    M1 --> M2[gvawatermark]
+    M2 --> M3[gvafpscounter]
+    M3 --> M4[d3d11h264enc]
+    M4 --> M5[h264parse]
+    M5 --> M6[mp4mux]
+    M6 --> M7[filesink]
     
-    G -->|file| M[d3d11convert]
-    M --> N[gvawatermark]
-    N --> O[gvafpscounter]
-    O --> P[d3d11h264enc]
-    P --> Q[mp4mux]
-    Q --> R[filesink]
+    L -->|display| N1[d3d11convert]
+    N1 --> N2[gvawatermark]
+    N2 --> N3[videoconvert]
+    N3 --> N4[gvafpscounter]
+    N4 --> N5[autovideosink]
     
-    G -->|json| S[gvametaconvert]
-    S --> T[gvametapublish]
-    T --> U[fakesink]
+    L -->|display-async| O1[d3d11convert]
+    O1 --> O2[gvawatermark]
+    O2 --> O3[videoconvert]
+    O3 --> O4[gvafpscounter]
+    O4 --> O5[autovideosink<br/>sync=false]
+    
+    L -->|fps| P1[gvafpscounter]
+    P1 --> P2[fakesink]
+    
+    L -->|json| Q1[gvametaconvert]
+    Q1 --> Q2[gvametapublish]
+    Q2 --> Q3[fakesink]
+    
+    L -->|display-and-json| R1[d3d11convert]
+    R1 --> R2[gvawatermark]
+    R2 --> R3[gvametaconvert]
+    R3 --> R4[gvametapublish]
+    R4 --> R5[videoconvert]
+    R5 --> R6[gvafpscounter]
+    R6 --> R7[autovideosink<br/>sync=false]
 ```
 
-## Key Features
-
-### Object Tracking
-The `gvatrack` element maintains object identities across frames:
-- Assigns unique IDs to tracked objects
-- Works even when detection is skipped (via `detection-interval`)
-- Reduces computational cost while maintaining accuracy
-
-### Reclassification Interval
-Classification models run every 10th frame (configurable):
-- Reduces redundant attribute inference
-- Tracking maintains attributes between classifications
-
-### Detected Attributes
-
-**Person:**
-- Gender (is_male)
-- Accessories (has_bag, has_hat, has_backpack)
-
-**Vehicle:**
-- Type (car, bus, truck, van)
-- Color
-
-## Performance Tips
-
-1. **Increase detection interval** (3-10) for better FPS
-2. **Use GPU device** for parallel inference
-3. **Use `zero-term-imageless` tracking** if detection interval is 1
-4. **Reduce video resolution** for faster processing
-
-## Troubleshooting
-
-### Low FPS
-- Increase `DETECTION_INTERVAL` to 5 or higher
-- Switch to GPU device
-- Use smaller input resolution
-
-### Missing detections
-- Decrease `DETECTION_INTERVAL` to 1 or 2
-- Adjust detection threshold in the pipeline
-
-### Track ID switches
-- Use `short-term-imageless` tracking type
-- Decrease `DETECTION_INTERVAL`
+## See also
+* [Windows Samples overview](../../../README.md)
+* [Linux Vehicle and Pedestrian Tracking Sample](../../../../gstreamer/gst_launch/vehicle_pedestrian_tracking/README.md)

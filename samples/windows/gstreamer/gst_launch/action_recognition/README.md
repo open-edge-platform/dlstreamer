@@ -30,46 +30,58 @@ Trained on **Kinetics-400 dataset** (400 human action classes).
 ## Environment Variables
 
 ```batch
-set MODELS_PATH=C:\models
+set MODELS_PATH=C:\models\models
 ```
+
+Models should be located at:
+- Encoder: `%MODELS_PATH%\intel\action-recognition-0001\action-recognition-0001-encoder\FP32\action-recognition-0001-encoder.xml`
+- Decoder: `%MODELS_PATH%\intel\action-recognition-0001\action-recognition-0001-decoder\FP32\action-recognition-0001-decoder.xml`
 
 ## Running
 
 ```batch
-action_recognition.bat [INPUT] [DEVICE] [OUTPUT] [JSON_FILE]
+.\action_recognition.bat [INPUT] [DEVICE] [OUTPUT] [JSON_FILE]
 ```
 
 Arguments:
-- **INPUT** (optional) - Input source (default: Pexels video URL)
-- **DEVICE** (optional) - Inference device (default: CPU). Supported: CPU, GPU, NPU
-- **OUTPUT** (optional) - Output type (default: file)
-  - `file` - Save to MP4
-  - `display` - Show video
-  - `fps` - Benchmark
-  - `json` - Export metadata
-  - `display-and-json` - Show and export
-- **JSON_FILE** (optional) - JSON output filename (default: output.json)
+- **INPUT** - Input source (default: `https://videos.pexels.com/video-files/5144823/5144823-uhd_3840_2160_25fps.mp4`)
+  - Local file path (e.g., `C:\videos\example.mp4`)
+  - URL (e.g., `https://...`)
+- **DEVICE** - Inference device (default: `CPU`)
+  - Supported: `CPU`, `GPU`, `NPU`
+- **OUTPUT** - Output type (default: `file`)
+  - `file` - Save to MP4 with watermark and FPS counter
+  - `display` - Display video with overlay
+  - `fps` - Benchmark mode (no display)
+  - `json` - Export metadata to JSON
+  - `display-and-json` - Display and export metadata
+- **JSON_FILE** - JSON output filename (default: `output.json`)
 
 ## Examples
 
-### Recognize actions and save to file
+### Use default settings (Pexels video, CPU, save to file)
 ```batch
-action_recognition.bat C:\videos\sports.mp4 CPU file
+.\action_recognition.bat
 ```
 
-### Display real-time recognition
+### Recognize actions from local video and save to file
 ```batch
-action_recognition.bat C:\videos\sports.mp4 GPU display
+.\action_recognition.bat "C:\videos\example.mp4" CPU file
+```
+
+### Display real-time recognition on GPU
+```batch
+.\action_recognition.bat "C:\videos\example.mp4" GPU display
 ```
 
 ### Export actions to JSON
 ```batch
-action_recognition.bat C:\videos\sports.mp4 CPU json actions.json
+.\action_recognition.bat "C:\videos\example.mp4" CPU json actions.json
 ```
 
-### Benchmark performance
+### Benchmark FPS on NPU
 ```batch
-action_recognition.bat C:\videos\sports.mp4 GPU fps
+.\action_recognition.bat "C:\videos\example.mp4" NPU fps
 ```
 
 ## Kinetics-400 Action Classes
@@ -92,105 +104,41 @@ Full list: See `kinetics_400.txt` in sample directory.
 
 ```mermaid
 graph LR
-    A[source] --> B[decodebin3]
+    A[filesrc/urisourcebin] --> B[decodebin3]
     B --> C[video_inference]
+    C --> D{OUTPUT}
     
-    subgraph video_inference
-        D[openvino_tensor_inference: Encoder] --> E[tensor_sliding_window]
-        E --> F[openvino_tensor_inference: Decoder]
-        F --> G[tensor_postproc_label]
-    end
+    D -->|file| E1[d3d11convert]
+    E1 --> E2[gvawatermark]
+    E2 --> E3[gvafpscounter]
+    E3 --> E4[d3d11h264enc]
+    E4 --> E5[h264parse]
+    E5 --> E6[mp4mux]
+    E6 --> E7[filesink]
     
-    C --> H{OUTPUT}
-    H -->|file| I[d3d11convert]
-    I --> J[gvawatermark]
-    J --> K[gvafpscounter]
-    K --> L[d3d11h264enc]
-    L --> M[mp4mux]
-    M --> N[filesink]
+    D -->|display| F1[d3d11convert]
+    F1 --> F2[gvawatermark]
+    F2 --> F3[videoconvert]
+    F3 --> F4[gvafpscounter]
+    F4 --> F5[autovideosink]
+    
+    D -->|fps| G1[gvafpscounter]
+    G1 --> G2[fakesink]
+    
+    D -->|json| H1[gvametaconvert]
+    H1 --> H2[gvametapublish]
+    H2 --> H3[fakesink]
+    
+    D -->|display-and-json| I1[d3d11convert]
+    I1 --> I2[gvawatermark]
+    I2 --> I3[gvametaconvert]
+    I3 --> I4[gvametapublish]
+    I4 --> I5[videoconvert]
+    I5 --> I6[gvafpscounter]
+    I6 --> I7[autovideosink]
 ```
 
-## How It Works (Technical Details)
+## See also
+* [Windows Samples overview](../../../README.md)
+* [Linux Action Recognition Sample](../../../../gstreamer/gst_launch/action_recognition/README.md)
 
-### Encoder
-- Processes individual frames
-- Extracts 512-dimensional feature vectors
-- Runs on every input frame
-
-### Sliding Window
-- Buffers 16 consecutive feature vectors
-- Slides with stride of 8 frames
-- Provides temporal context to decoder
-
-### Decoder
-- Processes windowed feature sequences
-- Uses ConvGRU for temporal modeling
-- Outputs action probabilities (400 classes)
-
-### Post-processing
-- Applies softmax to get probabilities
-- Maps to action labels from Kinetics-400
-- Outputs top-1 predicted action
-
-## Performance
-
-Typical performance on Intel hardware:
-- **CPU (Core i7)**: 20-30 FPS (720p)
-- **GPU (Iris Xe)**: 50-80 FPS (720p)
-- **GPU (Arc A770)**: 100-150 FPS (720p)
-
-Input resolution: 224x224 (per frame)
-
-## Performance Tips
-
-1. **Use GPU device** for parallel encoder processing
-2. **Lower video resolution** if FPS is insufficient
-3. **Increase stride** in sliding window (edit pipeline) for faster but less accurate recognition
-4. **Batch processing**: Process multiple videos in sequence
-
-## Limitations
-
-1. **Single person**: Model designed for single-person actions
-2. **Full body**: Actions should show full body or most of body
-3. **Video length**: At least 16 frames (~0.5 sec) for recognition
-4. **Lighting**: Requires reasonable lighting conditions
-
-## Troubleshooting
-
-### Models not found
-```batch
-cd samples\windows
-download_omz_models.bat
-```
-
-### No action detected
-- Ensure video contains recognizable actions from Kinetics-400
-- Check if action is visible for at least 0.5 seconds
-- Verify sufficient video quality
-
-### Low FPS
-- Use GPU device
-- Reduce input video resolution
-- Check system resource usage
-
-### Incorrect classifications
-- Verify action is in Kinetics-400 list
-- Ensure clear visibility of action
-- Check lighting and camera angle
-
-## Advanced Usage
-
-### Custom Labels
-Replace `kinetics_400.txt` with custom label file for different action datasets.
-
-### Modify Temporal Window
-Edit the pipeline's `tensor_sliding_window` parameters:
-- Window size: Number of frames to accumulate
-- Stride: Frame step between windows
-
-### Integration
-The JSON output can be integrated with:
-- Video analytics systems
-- Security monitoring
-- Sports analysis tools
-- Activity logging systems
