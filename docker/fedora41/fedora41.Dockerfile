@@ -482,7 +482,7 @@ RUN \
     mkdir -p /${RPM_PKG_NAME}/opt/intel/dlstreamer/share/gir-1.0/ && \
     mkdir -p /${RPM_PKG_NAME}/opt/intel/dlstreamer/lib/girepository-1.0/ && \
     cp "${DLSTREAMER_DIR}/girs/"*.gir /${RPM_PKG_NAME}/opt/intel/dlstreamer/share/gir-1.0/ && \
-    cp "${DLSTREAMER_DIR}/build/src/gst/metadata/"*".typelib /${RPM_PKG_NAME}/opt/intel/dlstreamer/lib/girepository-1.0/ && \
+    cp "${DLSTREAMER_DIR}/build/src/gst/metadata/"*.typelib /${RPM_PKG_NAME}/opt/intel/dlstreamer/lib/girepository-1.0/ && \
     cp -a /usr/local/lib64/libopencv* /${RPM_PKG_NAME}/opt/opencv/ && \
     cp -a /usr/local/lib/librdkafka* /${RPM_PKG_NAME}/opt/rdkafka/ && \
     cp -a /usr/local/lib64/librealsense* /${RPM_PKG_NAME}/opt/librealsense/ && \
