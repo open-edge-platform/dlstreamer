@@ -43,7 +43,6 @@
 #include <functional>
 #include <iterator>
 #include <regex>
-#include <cstring>
 #include <stdio.h>
 #include <thread>
 
@@ -155,28 +154,6 @@ getImagePreProcInfo(const std::map<std::string, InferenceBackend::InputLayerDesc
     }
 
     return nullptr;
-}
-
-void duplicate_batched_tensor_slot(ov::Tensor &tensor, size_t src_index, size_t dst_index) {
-    const ov::Shape &dims = tensor.get_shape();
-    if (dims.empty()) {
-        throw std::runtime_error("Cannot duplicate batch slot for tensor with empty shape");
-    }
-    if (src_index >= dims[0] || dst_index >= dims[0]) {
-        throw std::out_of_range("Batch slot index is out of range");
-    }
-    if (src_index == dst_index) {
-        return;
-    }
-
-    size_t elements_per_item = 1;
-    for (size_t index = 1; index < dims.size(); ++index) {
-        elements_per_item = safe_mul(elements_per_item, dims[index]);
-    }
-    const size_t bytes_per_item = safe_mul(elements_per_item, tensor.get_element_type().size());
-
-    auto *data = static_cast<uint8_t *>(tensor.data());
-    std::memcpy(data + safe_mul(dst_index, bytes_per_item), data + safe_mul(src_index, bytes_per_item), bytes_per_item);
 }
 
 void print_input_and_outputs_info(const ov::Model &network) {
@@ -1545,29 +1522,18 @@ void OpenVINOImageInference::Flush() {
 
         if (request->buffers.size() > 0) {
             try {
-                // WA: Fill non-complete batch with last element. Can be removed once supported in OV
-                if (batch_size > 1) {
-                    if (DoNeedImagePreProcessing(nullptr)) {
-                        if (!request->in_tensors.empty() && !request->in_tensors.front().empty()) {
-                            ov::Tensor &input_tensor = request->in_tensors.front().front();
-                            const size_t filled_batch = request->buffers.size();
-                            if (filled_batch < safe_convert<size_t>(batch_size) && input_tensor.get_shape().size() >= 1 &&
-                                input_tensor.get_shape()[0] == safe_convert<size_t>(batch_size)) {
-                                for (size_t batch_index = filled_batch; batch_index < safe_convert<size_t>(batch_size);
-                                     ++batch_index) {
-                                    duplicate_batched_tensor_slot(input_tensor, filled_batch - 1, batch_index);
-                                }
-                            }
-                        }
-                    } else {
-                        size_t input_idx = 0;
-                        for (auto &input_vec : request->in_tensors) {
-                            for (int i = input_vec.size(); i < batch_size; i++)
-                                input_vec.push_back(input_vec.back());
-                            // FIXME: move?
-                            request->infer_request_new.set_input_tensors(input_idx, input_vec);
-                            input_idx++;
-                        }
+                // WA: Fill non-complete batch with last element for bypass preprocessing only.
+                // When software preprocessing is used, frames are written directly into the infer-request-owned
+                // batched tensor, so any unfilled tail slots in the last partial batch already contain data from a
+                // previous request reuse.
+                if (batch_size > 1 && !DoNeedImagePreProcessing(nullptr)) {
+                    size_t input_idx = 0;
+                    for (auto &input_vec : request->in_tensors) {
+                        for (int i = input_vec.size(); i < batch_size; i++)
+                            input_vec.push_back(input_vec.back());
+                        // FIXME: move?
+                        request->infer_request_new.set_input_tensors(input_idx, input_vec);
+                        input_idx++;
                     }
                 }
 
