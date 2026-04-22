@@ -7,7 +7,7 @@ on:
 permissions: {}
 env:
   dlstreamer-version: "2026.0.0"
-  DLS_REL_PATH: "./dlstreamer-repo"
+  DLS_REL_PATH: "$HOME/dlstreamer-repo" 
   MODELS_PATH: "$HOME/models"
   VIDEO_INPUTS_PATH: "$HOME/videos"
   RESULTS_DIR: "$HOME/dlstreamer-repo/unit-test-results"
@@ -61,16 +61,19 @@ jobs:
           sudo rm -rf dlstreamer-repo
 
       - name: Check out dlstreamer repository
-        if: needs.setup.outputs.should_run == 'true'
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # 6.0.2
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
           persist-credentials: false
           path: dlstreamer-repo
 
+      - name: Move to home directory
+        run: |
+          mv dlstreamer-repo $HOME/dlstreamer-repo
+
       - name: Init submodules
         if: needs.setup.outputs.should_run == 'true'
         run: |
-          cd dlstreamer-repo
+          cd ${{ env.DLS_REL_PATH }}
           git submodule update --init thirdparty/spdlog
 
       # ======================================================== BUILDING PART ========================================================
@@ -222,15 +225,6 @@ jobs:
           gst-inspect-1.0 gvafpscounter
           gst-inspect-1.0 gvagenai
 
-      - name: Link DL Streamer to home directory
-        if: always() && needs.setup.outputs.should_run == 'true'
-        run: |
-          TARGET="$HOME/$(basename $DLS_REL_PATH)"
-          if [ -e "$TARGET" ] || [ -L "$TARGET" ]; then
-            rm -rf "$TARGET"
-          fi
-          ln -s "$PWD/$DLS_REL_PATH" "$TARGET"
-
       - name: Create test results folder
         if: needs.setup.outputs.should_run == 'true'
         run: |
@@ -259,26 +253,26 @@ jobs:
           export PATH="/opt/intel/dlstreamer/Release/bin:/opt/intel/dlstreamer/gstreamer/bin:/opt/intel/dlstreamer/opencv/bin:$HOME/.local/bin:$HOME/python3venv/bin:$PATH"
           export PKG_CONFIG_PATH="/opt/intel/dlstreamer/Release/lib/pkgconfig:/opt/intel/dlstreamer/gstreamer/lib/pkgconfig:$PKG_CONFIG_PATH"
           export GST_PLUGIN_FEATURE_RANK=${GST_PLUGIN_FEATURE_RANK},ximagesink:MAX
-          export GI_TYPELIB_PATH="$HOME/dlstreamer-repo/build/src/gst/metadata:/opt/intel/dlstreamer/gstreamer/lib/girepository-1.0:/opt/intel/dlstreamer/lib/girepository-1.0:/usr/lib/x86_64-linux-gnu/girepository-1.0"
-          export PYTHONPATH="$HOME/dlstreamer-repo/build/deps/gstreamer-bin/lib/python3/dist-packages:/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:/opt/intel/dlstreamer/python:/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:$PYTHONPATH"
-          export MODELS_PROC_PATH="$HOME/dlstreamer-repo/samples/gstreamer/model_proc"
+          export GI_TYPELIB_PATH="${{ env.DLS_REL_PATH }}/build/src/gst/metadata:/opt/intel/dlstreamer/gstreamer/lib/girepository-1.0:/opt/intel/dlstreamer/lib/girepository-1.0:/usr/lib/x86_64-linux-gnu/girepository-1.0"
+          export PYTHONPATH="${{ env.DLS_REL_PATH }}/build/deps/gstreamer-bin/lib/python3/dist-packages:/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:/opt/intel/dlstreamer/python:/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:$HOME/dlstreamer-repo/scripts/optimizer:$PYTHONPATH"
+          export MODELS_PROC_PATH="${{ env.DLS_REL_PATH }}/samples/gstreamer/model_proc"
           export MODELS_PATH="${{ env.MODELS_PATH }}"
-          export VIDEO_INPUTS_PATH="${{ env.VIDEO_INPUTS_PATH }}"
+          export VIDEO_EXAMPLES_DIR="${{ env.VIDEO_INPUTS_PATH }}"
           echo " "
           source ~/python3venv/bin/activate
-          $HOME/dlstreamer-repo/tests/scripts/run_unit_tests.sh "$HOME/dlstreamer-repo/build" "" "${{ env.RESULTS_DIR }}"
+          ${{ env.DLS_REL_PATH }}/tests/scripts/run_unit_tests.sh "${{ env.DLS_REL_PATH }}/build" "" "${{ env.RESULTS_DIR }}"
 
       #this script creates output file called unit_test_summary.txt
       - name: Run python script to get Unit Test results
         if: always() && needs.setup.outputs.should_run == 'true'
         run: |
           source ~/python3venv/bin/activate
-          python3 $HOME/dlstreamer-repo/tests/scripts/unit_test_results.py ${{ env.RESULTS_DIR }}
+          python3 ${{ env.DLS_REL_PATH }}/tests/scripts/unit_test_results.py ${{ env.RESULTS_DIR }}
 
       # ======================================================== CLEANUP PART ========================================================
       - name: Clean up
         if: always() && needs.setup.outputs.should_run == 'true'
         run: |
           rm -rf ~/python3venv
-          sudo rm -rf ${{ env.DLS_REL_PATH }}
+          rm -rf ${{ env.DLS_REL_PATH }}
           rm -rf ${{ env.RESULTS_DIR }}
