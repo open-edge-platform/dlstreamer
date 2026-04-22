@@ -67,19 +67,19 @@ jobs:
                 {
                   "path_dockerfile": "./dlstreamer/docker/ubuntu/ubuntu22.Dockerfile",
                   "ubuntu_version": "ubuntu22",
-                  "runner_labels": ["self-hosted", "dlstreamer", "TGL", "ubuntu22"],
+                  "runner_labels": ["tgl-ubuntu22"],
                   "runner_print_label": "TGL"
                 },
                 {
                   "path_dockerfile": "./dlstreamer/docker/ubuntu/ubuntu24.Dockerfile",
                   "ubuntu_version": "ubuntu24",
-                  "runner_labels": ["self-hosted", "dlstreamer", "TGL", "ubuntu24"],
+                  "runner_labels": ["tgl-ubuntu24"],
                   "runner_print_label": "TGL"
                 },
                 {
                   "path_dockerfile": "./dlstreamer/docker/ubuntu/ubuntu24.Dockerfile",
                   "ubuntu_version": "ubuntu24",
-                  "runner_labels": ["self-hosted", "dlstreamer", "ARL", "ubuntu24"],
+                  "runner_labels": ["arl-ubuntu24"],
                   "runner_print_label": "ARL"
                 }
               ]
@@ -389,12 +389,9 @@ jobs:
 
       - name: Upload host test results
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f #7.0.0
-        env:
-          runner_print_label: ${{ matrix.runner_print_label }}
-          ubuntu_version: ${{ matrix.ubuntu_version }}
         if: always() && needs.setup.outputs.should_run == 'true'
         with:
-          name: DLS_functional_tests_${runner_print_label}_on_host_${ubuntu_version}_results
+          name: DLS_functional_tests_${{ matrix.runner_print_label }}_on_host_${{ matrix.ubuntu_version }}_results
           path: "${{ env.DLS_TESTS_RESULTS_PATH }}"
 
       - name: Check and display host test results

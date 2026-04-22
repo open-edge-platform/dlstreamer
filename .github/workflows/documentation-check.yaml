@@ -36,7 +36,7 @@ jobs:
       contents: read # needed for actions/checkout
     needs: filter
     if: ${{ needs.filter.outputs.dlstreamer_documentation_changed == 'true' }}
-    runs-on: ubuntu-latest
+    runs-on: dlstreamer
     env:
       DOCS_DIR: .
       SIMPLE_MODE: true

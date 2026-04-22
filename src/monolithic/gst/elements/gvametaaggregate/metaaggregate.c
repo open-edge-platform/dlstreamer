@@ -261,8 +261,8 @@ gboolean copy_all_gst_analytics_mtd(GstAnalyticsRelationMeta *src, GstAnalyticsR
                                                               GST_ANALYTICS_MTD_TYPE_ANY, &state, &rlt_mtd)) {
             gpointer related_new_id = g_hash_table_lookup(id_map, GUINT_TO_POINTER(rlt_mtd.id));
             if (!related_new_id) {
-                GST_ERROR("Failed to find new id for related mtd id %u", rlt_mtd.id);
-                return FALSE;
+                GST_DEBUG("Skipping relation for mtd id %u (e.g. tracking mtd not copied)", rlt_mtd.id);
+                continue;
             }
 
             GstAnalyticsRelTypes rel_type = gst_analytics_relation_meta_get_relation(src, orig_id, rlt_mtd.id);
@@ -573,6 +573,9 @@ GstFlowReturn gst_gva_meta_aggregate_aggregate(GstAggregator *agg, gboolean time
 
     output_start_running_time = gst_segment_to_running_time(agg_segment, GST_FORMAT_TIME, output_start_time);
     output_end_running_time = gst_segment_to_running_time(agg_segment, GST_FORMAT_TIME, output_end_time);
+
+    gst_aggregator_selected_samples(agg, output_start_time, GST_CLOCK_TIME_NONE, output_end_time - output_start_time,
+                                    NULL);
 
     if (output_end_time == output_start_time) {
         flow_ret = GST_FLOW_EOS;

@@ -56,7 +56,7 @@ the pipeline to convert it to Deep Learning Streamer Pipeline Framework. The
 pipeline is broken down into sections based on the elements used in the
 pipeline.
 
-![image](deepstream_mapping_dlstreamer.png)
+![image](./_assets/deepstream_mapping_dlstreamer.png)
 
 ### Python Applications
 
