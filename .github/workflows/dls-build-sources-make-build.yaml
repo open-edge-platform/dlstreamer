@@ -181,7 +181,7 @@ jobs:
 
           cd ${{ env.DLS_REL_PATH }}
           echo "Installing DL Streamer..."
-          sudo -E make install -DENABLE_TESTS=ON
+          sudo -E make install
 
       - name: Install Python dependencies
         if: needs.setup.outputs.should_run == 'true'
