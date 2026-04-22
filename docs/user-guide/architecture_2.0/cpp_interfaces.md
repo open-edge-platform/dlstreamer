@@ -5,7 +5,6 @@ buffer sharing and memory interop between various frameworks and memory
 handles on the CPU and GPU.
 
 - CPU memory `void*`
-- FFmpeg `AVFrame`
 - GStreamer `GstBuffer` and `GstMemory`
 - Level-Zero `USM pointers`
 - OpenCL `cl_mem`
@@ -30,7 +29,7 @@ allocation and task submission. Most frameworks also expose
 export/import interfaces to convert memory objects to/from other memory
 handles:
 
-- High-level media frameworks (FFmpeg, GStreamer) support conversion
+- High-level media frameworks (GStreamer) support conversion
   to/from low-level media handles (VA-API and DirectX surfaces)
 - Low-level media interfaces (VA-API, DirectX) support conversion
   to/from OS-specific general-purpose GPU memory handles such as DMA
@@ -45,7 +44,7 @@ operations submitted via media frameworks and SYCL/OpenCL compute
 kernels submitted into SYCL/OpenCL queue, assuming media and compute
 queues created on same physical GPU device.
 
-Despite multiple stages of memory handles conversion (FFmpeg/GStreamer,
+Despite multiple stages of memory handles conversion (GStreamer,
 VA-API/DirectX, DMA/NT, Level-Zero, SYCL), all converted memory handles
 refer to same physical memory block. Thus writing data into one memory
 handle makes the data available in all other memory handles, assuming
@@ -83,7 +82,6 @@ Tensor / `AAA` Frame and creates output as specific class `BBB` Tensor /
   | Framework / Library | Native memory object | Class implementing [Tensor](./api_ref/class_dlstreamer_Tensor) |  Class implementing [Frame](./api_ref/class_dlstreamer_Frame) |
   | --- | --- | --- | --- |
   |CPU (no framework)|void\*|[CPUTensor](./api_ref/class_dlstreamer_CPUTensor)|[BaseFrame](./api_ref/class_dlstreamer_BaseFrame)|
-  |FFmpeg|AVFrame| |[FFmpegFrame](./api_ref/class_dlstreamer_FFmpegFrame)|
   |GStreamer|GstMemory, GstBuffer|[GSTTensor](./api_ref/class_dlstreamer_GSTTensor)|[GSTFrame](./api_ref/class_dlstreamer_GSTFrame)|
   |Level-zero|void\*|[USMTensor](./api_ref/class_dlstreamer_USMTensor)|[BaseFrame](./api_ref/class_dlstreamer_BaseFrame)|
   |OpenCL|cl_mem|[OpenCLTensor](./api_ref/class_dlstreamer_OpenCLTensor)|[BaseFrame](./api_ref/class_dlstreamer_BaseFrame)|
@@ -100,18 +98,12 @@ allocated object) or passing allocation parameters to C++ constructor
 Many examples on how to allocate memory and create and use memory mappers
 can be found by searching for the word `mapper` in [samples](https://github.com/open-edge-platform/dlstreamer/tree/main/samples)
 and [src](https://github.com/open-edge-platform/dlstreamer/tree/main/src)
-folders on github source code, like for example in the FFmpeg+DPCPP sample
-[rgb_to_grayscale](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/ffmpeg_dpcpp/rgb_to_grayscale)
-and almost every C++ element.
+folders on github source code and almost every C++ element.
 
 There is special mapper
 [MemoryMapperChain](./api_ref/class_dlstreamer_MemoryMapperChain) implementing unified interface
-[MemoryMapper](./api_ref/class_dlstreamer_MemoryMapper) as arbitrary chain of multiple mappers. As examples, FFmpeg
-to DPC++/USM is chain of the following mappers:
-
-![ffmpeg-to-usm-memory-mappers-chain](../_images/c++-interfaces-and-classes.svg)
-
-and GStreamer to OpenCV UMat is chain of the following mappers:
+[MemoryMapper](./api_ref/class_dlstreamer_MemoryMapper) as arbitrary chain of multiple mappers. As examples, 
+GStreamer to OpenCV UMat is chain of the following mappers:
 
 ![gst-to-usm-memory-mappers-chain](../_images/gst-to-usm-memory-mappers-chain.svg)
 
@@ -186,12 +178,6 @@ installed under corresponding subfolders of
 
 ```text
 include/dlstreamer
-├── ffmpeg
-│   ├── mappers
-│   │   └── ffmpeg_to_vaapi.h
-│   ├── context.h
-│   ├── frame.h
-│   └── utils.h
 ├── gst
 │   ├── allocator.h
 │   ├── context.h
