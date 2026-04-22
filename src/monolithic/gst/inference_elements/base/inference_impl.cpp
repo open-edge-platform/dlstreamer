@@ -546,6 +546,8 @@ void UpdateConfigWithLayerInfo(const std::vector<ModelInputProcessorInfo::Ptr> &
             config[KEY_BASE][KEY_MODEL_FORMAT] = color_space;
         }
 
+        // MODEL RESHAPE CONFIGURATION
+
         // When aspect-ratio-multiple-of resize is specified in model-proc,
         // the final shape depends on the source image size, because the resize preserves aspect ratio,
         // keeps one dimension fixed and adjusts the final shape to be multiple of specified value.
@@ -578,16 +580,11 @@ void UpdateConfigWithLayerInfo(const std::vector<ModelInputProcessorInfo::Ptr> &
                                          "image inputs");
         } else {
             // Plain reshape_size uses the configured static width and height directly.
-            const GValue *garray = gst_structure_get_value(it->params, "reshape_size");
-            if (!(garray && gst_value_array_get_size(garray) == 2))
+            if (!(input_desc && input_desc->hasResizeTargetSize()))
                 continue;
 
-            const GValue *height = gst_value_array_get_value(garray, 0);
-            const GValue *width = gst_value_array_get_value(garray, 1);
-
-            resolve_static_reshape_shape(
-                {static_cast<size_t>(g_value_get_int(width)), static_cast<size_t>(g_value_get_int(height))},
-                "reshape_size resolved conflicting static reshape sizes for image inputs");
+            resolve_static_reshape_shape(input_desc->getResizeTargetSize(),
+                                         "reshape_size resolved conflicting static reshape sizes for image inputs");
         }
     }
 
