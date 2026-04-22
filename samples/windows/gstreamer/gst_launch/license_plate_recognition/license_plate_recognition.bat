@@ -1,10 +1,7 @@
 @REM ==============================================================================
-@REM Copyright (C) 2021-2025 Intel Corporation
+@REM Copyright (C) 2026 Intel Corporation
 @REM
 @REM SPDX-License-Identifier: MIT
-@REM ==============================================================================
-@REM This sample refers to a video file by Media Hopper Studio via Pexels
-@REM (https://www.pexels.com)
 @REM ==============================================================================
 
 @echo off
