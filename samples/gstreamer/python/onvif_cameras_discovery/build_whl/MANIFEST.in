@@ -1,4 +1,0 @@
-include ../README.md
-include ../requirements.txt
-include ../config.json
-include ../dls_onvif_sample.jpg

@@ -7,10 +7,9 @@
 4. [How It Works](#how-it-works)
 5. [Configuration](#configuration)
 6. [Running The Sample](#running-the-sample)
-7. [Build Wheel Package](#build-wheel-package)
-8. [Module Documentation](#module-documentation)
-9. [Usage Examples](#usage-examples)
-10. [Troubleshooting](#troubleshooting)
+7. [Module Documentation](#module-documentation)
+8. [Usage Examples](#usage-examples)
+9. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -50,7 +49,6 @@ pipelines for video processing.
 | `dls_onvif_data.py` | ONVIF profile data structure (`ONVIFProfile`) |
 | `misc.py` | Console output helpers (`print_cameras`) |
 | `config.json` | Maps camera names to hostname, port, and pipeline definitions |
-| `build_whl/` | Wheel packaging configuration |
 
 ---
 
@@ -330,20 +328,6 @@ python dls_onvif_sample.py \
 - New cameras are added and stale cameras are removed between cycles
 - `verbose` can be enabled via CLI (`--verbose`) or `config.json` (`"verbose": true`)
 - `Ctrl+C` gracefully stops all pipelines
-
----
-
-## Build Wheel Package
-
-Detailed build, install, and test instructions:
-[build_whl/README.md](build_whl/README.md)
-
-Quick build:
-
-```bash
-cd build_whl
-./build_dls_onvif_sample_whl.sh
-```
 
 ---
 
