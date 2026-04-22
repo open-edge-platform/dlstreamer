@@ -237,6 +237,13 @@ jobs:
           mkdir -p ${{ env.RESULTS_DIR }}
           chmod -R 777 ${{ env.RESULTS_DIR }}
 
+      - name: Debug
+        if: needs.setup.outputs.should_run == 'true'
+        run: |
+          ls /home/runner/dlstreamer-repo
+          ls /home/runner/dlstreamer-repo/build
+          ls
+
       - name: Run Unit tests (ctests)
         if: needs.setup.outputs.should_run == 'true'
         run: |
