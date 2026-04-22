@@ -20,6 +20,7 @@ struct Text {
     double fontscale;
     cv::Scalar color;
     int thick;
+    bool draw_bg = false;
 
     Text() = default;
 

@@ -105,9 +105,10 @@ void RendererYUV::draw_backend(std::vector<cv::Mat> &image_planes, std::vector<r
         } else if (std::holds_alternative<render::Circle>(p)) {
             draw_circle(image_planes, std::get<render::Circle>(p));
         } else if (std::holds_alternative<render::Text>(p)) {
-            if (draw_txt_bg)
-                draw_text_bg(image_planes, std::get<render::Text>(p));
-            draw_text(image_planes, std::get<render::Text>(p));
+            const auto &txt = std::get<render::Text>(p);
+            if (txt.draw_bg)
+                draw_text_bg(image_planes, txt);
+            draw_text(image_planes, txt);
         } else if (std::holds_alternative<render::InstanceSegmantationMask>(p)) {
             draw_instance_mask(image_planes, std::get<render::InstanceSegmantationMask>(p));
         } else if (std::holds_alternative<render::SemanticSegmantationMask>(p)) {
@@ -197,7 +198,7 @@ void RendererI420::draw_text(std::vector<cv::Mat> &mats, render::Text text) {
 
     // Set text color, if draw text background is enabled, set text color to white
     cv::Scalar color =
-        draw_txt_bg ? cv::Scalar(255, 128, 128) : cv::Scalar(text.color[0], text.color[1], text.color[2]);
+        text.draw_bg ? cv::Scalar(255, 128, 128) : cv::Scalar(text.color[0], text.color[1], text.color[2]);
 
     cv::putText(y, text.text, text.org, text.fonttype, text.fontscale, color[0], text.thick);
     cv::Point2i pos_u_v(calc_point_for_u_v_planes(text.org));
@@ -325,7 +326,7 @@ void RendererNV12::draw_text(std::vector<cv::Mat> &mats, render::Text text) {
 
     // Set text color, if draw text background is enabled, set text color to white
     cv::Scalar color =
-        draw_txt_bg ? cv::Scalar(255, 128, 128) : cv::Scalar(text.color[0], text.color[1], text.color[2]);
+        text.draw_bg ? cv::Scalar(255, 128, 128) : cv::Scalar(text.color[0], text.color[1], text.color[2]);
 
     cv::putText(y, text.text, text.org, text.fonttype, text.fontscale, color[0], text.thick);
     cv::Point2i pos_u_v(calc_point_for_u_v_planes(text.org));
@@ -466,7 +467,7 @@ void RendererBGR::draw_circle(std::vector<cv::Mat> &mats, render::Circle circle)
 
 void RendererBGR::draw_text(std::vector<cv::Mat> &mats, render::Text text) {
     // Set text color, if draw text background is enabled, set text color to white
-    cv::Scalar color = draw_txt_bg ? cv::Scalar(255, 255, 255) : text.color;
+    cv::Scalar color = text.draw_bg ? cv::Scalar(255, 255, 255) : text.color;
     cv::putText(mats[0], text.text, text.org, text.fonttype, text.fontscale, color, text.thick);
 }
 

@@ -45,6 +45,7 @@ class SaveOriginalColorConverter : public ColorConverter {
 class RGBtoBGRColorConverter : public ColorConverter {
   public:
     RGBtoBGRColorConverter(const std::vector<Color> &rgb_colors);
+    Color convert(Color input_color) override;
 
   private:
     void convert_colors(const std::vector<Color> &rgb_colors);
@@ -53,6 +54,7 @@ class RGBtoBGRColorConverter : public ColorConverter {
 class RGBtoYUVColorConverter : public ColorConverter {
   public:
     RGBtoYUVColorConverter(const std::vector<Color> &rgb_colors, double Kb, double Kr);
+    Color convert(Color input_color) override;
 
   private:
     double coefficient_matrix[3][3];

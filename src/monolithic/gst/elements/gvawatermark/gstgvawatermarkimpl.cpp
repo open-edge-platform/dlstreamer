@@ -773,11 +773,6 @@ Impl::Impl(GstVideoInfo *info, InferenceBackend::MemoryType mem_type, GstElement
     // Parse display configuration
     if (_displ_cfg)
         parse_displ_config();
-
-    if (_displCfg.draw_text_background) {
-        _renderer->enable_draw_txt_bg(true);
-        _renderer_opencv->enable_draw_txt_bg(true);
-    }
 }
 
 size_t get_keypoint_index_by_name(const gchar *target_name, GValueArray *names) {
@@ -876,9 +871,11 @@ bool Impl::extract_primitives(GstBuffer *buffer) {
         }
     }
 
-    if (ff_text.tellp() != 0)
-        prims.emplace_back(
-            render::Text(ff_text.str(), _ff_text_position, _displCfg.font_type, _displCfg.font_scale, _default_color));
+    if (ff_text.tellp() != 0) {
+        render::Text t(ff_text.str(), _ff_text_position, _displCfg.font_type, _displCfg.font_scale, _default_color);
+        t.draw_bg = _displCfg.draw_text_background;
+        prims.emplace_back(t);
+    }
 
     // Extract and merge any pre-existing watermark metadata from input buffer
     if (_use_watermark_meta) {
@@ -994,7 +991,9 @@ void Impl::preparePrimsForRoi(GVA::RegionOfInterest &roi, std::vector<render::Pr
                 cv::Point2f pos(rect.x, rect.y - 5.f);
                 if (pos.y < 0)
                     pos.y = rect.y + 30.f;
-                prims.emplace_back(render::Text(text.str(), pos, _displCfg.font_type, _displCfg.font_scale, color));
+                render::Text t(text.str(), pos, _displCfg.font_type, _displCfg.font_scale, color);
+                t.draw_bg = _displCfg.draw_text_background;
+                prims.emplace_back(t);
             }
     }
 
@@ -1007,8 +1006,9 @@ void Impl::preparePrimsForRoi(GVA::RegionOfInterest &roi, std::vector<render::Pr
             fpstext << "[avg " << std::fixed << std::setprecision(1) << avg_fps << " FPS]";
             if (fpstext.str().size() != 0) {
                 cv::Point2f pos(_vinfo->width * 0.7, _vinfo->height - 20.f);
-                prims.emplace_back(
-                    render::Text(fpstext.str(), pos, _displCfg.font_type, _displCfg.font_scale * 0.7, indexToColor(1)));
+                render::Text t(fpstext.str(), pos, _displCfg.font_type, _displCfg.font_scale * 0.7, indexToColor(1));
+                t.draw_bg = _displCfg.draw_text_background;
+                prims.emplace_back(t);
             }
         }
     }

@@ -34,8 +34,11 @@ std::vector<render::Prim> MetaExtractor::extractTextPrimitives(GstBuffer *buffer
         render::Text text_prim;
         text_prim.text = text_meta->text;
         text_prim.org = cv::Point((int)text_meta->pos.x, (int)text_meta->pos.y);
+        text_prim.fonttype = text_meta->font_type;
+        text_prim.fontscale = (double)text_meta->font_scale;
         text_prim.color = cv::Scalar((double)text_meta->r, (double)text_meta->g, (double)text_meta->b);
         text_prim.thick = text_meta->thickness;
+        text_prim.draw_bg = (bool)text_meta->draw_bg;
         prims.push_back(text_prim);
     }
 
