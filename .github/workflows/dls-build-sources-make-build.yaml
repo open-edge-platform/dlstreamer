@@ -121,7 +121,7 @@ jobs:
           python3 -m venv ~/python3venv
           source ~/python3venv/bin/activate
           pip install --upgrade pip==24.0
-          pip install meson==1.4.1 ninja==1.11.1.1 pytest=8.3.3
+          pip install meson==1.4.1 ninja==1.11.1.1 pytest==8.3.3
 
       - name: Install OpenVINO
         if: needs.setup.outputs.should_run == 'true'
