@@ -269,10 +269,39 @@ jobs:
           source ~/python3venv/bin/activate
           python3 ${{ env.DLS_REL_PATH }}/tests/scripts/unit_test_results.py ${{ env.RESULTS_DIR }}
 
+      - name: Check and display unit test results
+        if: always() && needs.setup.outputs.should_run == 'true'
+        env:
+          RESULTS_DIR: test-results
+        run: |
+          RESULTS_FILE="${{ env.RESULTS_DIR }}/unit_test_summary.txt"
+
+          # Add results to summary
+          echo "## Test Summary for Unit Tests on TGL" >> $GITHUB_STEP_SUMMARY
+          cat "$RESULTS_FILE" >> $GITHUB_STEP_SUMMARY
+
+          # Check for failures and fail if any
+          CTEST_FAILED=$(grep "CTest:" "$RESULTS_FILE" | grep -o "Failed: [0-9]*" | awk '{print $2}')
+          PYTEST_FAILED=$(grep "Pytest:" "$RESULTS_FILE" | grep -o "Failed: [0-9]*" | awk '{print $2}')
+
+          TOTAL_FAILED=$((CTEST_FAILED + PYTEST_FAILED))
+          if [ "$TOTAL_FAILED" -gt 0 ]; then
+            echo "::error::$TOTAL_FAILED test(s) failed (CTest: $CTEST_FAILED, Pytest: $PYTEST_FAILED)"
+            exit 1
+          fi
+
+      - name: Upload test results
+        if: always() && needs.setup.outputs.should_run == 'true'
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f #7.0.0
+        with:
+          name: DLS_unit_tests_tgl_${{ matrix.ubuntu_version }}
+          path: ${{ env.RESULTS_DIR }}/*.xml
+
       # ======================================================== CLEANUP PART ========================================================
       - name: Clean up
         if: always() && needs.setup.outputs.should_run == 'true'
         run: |
           rm -rf ~/python3venv
+          rm -rf dlstreamer-repo
           rm -rf ${{ env.DLS_REL_PATH }}
           rm -rf ${{ env.RESULTS_DIR }}
