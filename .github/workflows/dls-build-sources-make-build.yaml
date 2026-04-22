@@ -75,6 +75,7 @@ jobs:
         run: |
           cd ${{ env.DLS_REL_PATH }}
           git submodule update --init thirdparty/spdlog
+          git submodule update --init thirdparty/googletest
 
       # ======================================================== BUILDING PART ========================================================
       - name: Install prerequisites
