@@ -78,7 +78,7 @@ The final output is a complete project directory containing:
 ├── videos/                 # Cached input videos
 └── results/                # Output files (JSON, annotated video, etc.)
 ```
-test
+
 <!--hide_directive
 **Video walkthrough:** The following video illustrates how a license plate recognition
 application can be created in less than 10 minutes.
