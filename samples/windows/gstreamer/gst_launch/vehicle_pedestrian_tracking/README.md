@@ -25,7 +25,7 @@ The sample uses the following pre-trained models from OpenVINO™ Toolkit [Open 
 ## Environment Variables
 
 ```PowerShell
-$set MODELS_PATH=C:\models\models
+$set MODELS_PATH = 'C:\models'
 ```
 
 Models should be located at:
@@ -81,7 +81,7 @@ Arguments:
 
 ### Export tracking data to JSON
 ```PowerShell
-.\vehicle_pedestrian_tracking.bat "C:\videos\traffic.mp4" 3 GPU json tracking_results.json
+.\vehicle_pedestrian_tracking.bat "C:\videos\traffic.mp4" 3 GPU json short-term-imageless tracking_results.json
 ```
 
 ### Performance benchmark (detect every 10 frames)

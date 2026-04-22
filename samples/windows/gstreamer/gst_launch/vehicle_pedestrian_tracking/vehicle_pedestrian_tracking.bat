@@ -69,9 +69,13 @@ if "%DEVICE%"=="CPU" (
 ) else if "%DEVICE%"=="GPU" (
     set DECODE_ELEMENT=decodebin3
     set PREPROC_BACKEND=d3d11
-) else (
+) else if "%DEVICE%"=="NPU" (
     set DECODE_ELEMENT=decodebin3
     set PREPROC_BACKEND=d3d11
+) else (
+    echo [91mERROR: Unsupported DEVICE value: %DEVICE%[0m
+    echo Supported DEVICE values: CPU, GPU, NPU
+    EXIT /B 1
 )
 
 @REM Set sink element based on output type

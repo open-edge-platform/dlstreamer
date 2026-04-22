@@ -22,7 +22,7 @@ The sample uses the following pre-trained model from OpenVINO™ Toolkit [Open M
 ## Environment Variables
 
 ```PowerShell
-$set MODELS_PATH=C:\models
+$set MODELS_PATH = 'C:\models'
 ```
 
 Model should be located at:

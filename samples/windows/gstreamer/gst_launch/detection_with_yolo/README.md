@@ -126,6 +126,7 @@ yolo_detect.bat [MODEL] [DEVICE] [INPUT] [OUTPUT] [PPBKEND] [PRECISION]
 | OUTPUT | display | Output type: file, display, fps, json, display-and-json |
 | PPBKEND | auto | Pre-processing backend: ie, opencv, d3d11 |
 | PRECISION | INT8 | Model precision: INT8, FP32, FP16 |
+| BENCHMARK_SINK | (empty) | Optional GStreamer element to insert after decode (e.g., `" ! identity eos-after=100"`) |
 
 ### Examples
 
@@ -162,6 +163,11 @@ yolo_detect.bat yolo11s GPU C:\videos\test.mp4 fps
 Run with FP32 precision:
 ```batch
 yolo_detect.bat yolo11s GPU C:\videos\test.mp4 display d3d11 FP32
+```
+
+Process only first 100 frames (for testing/benchmarking):
+```batch
+yolo_detect.bat yolov8n-seg CPU C:\videos\test.mp4 json opencv FP32 " ! identity eos-after=100"
 ```
 
 ### Output Types

@@ -24,7 +24,7 @@ Both models trained on COCO dataset (80 object classes).
 ## Environment Variables
 
 ```PowerShell
-$set MODELS_PATH=C:\models\models
+$set MODELS_PATH = 'C:\models'
 ```
 
 Models should be located at:
