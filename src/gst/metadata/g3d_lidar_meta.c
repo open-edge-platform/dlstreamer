@@ -25,6 +25,7 @@ static gboolean lidar_meta_init(GstMeta *meta, gpointer params, GstBuffer *buffe
     lidar_meta->lidar_point_count = 0;
     lidar_meta->frame_id = 0;
     lidar_meta->exit_lidarparse_timestamp = GST_CLOCK_TIME_NONE;
+    lidar_meta->exit_g3dinference_timestamp = GST_CLOCK_TIME_NONE;
     lidar_meta->stream_id = 0;
     return TRUE;
 }
