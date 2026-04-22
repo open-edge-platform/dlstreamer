@@ -121,7 +121,7 @@ jobs:
           python3 -m venv ~/python3venv
           source ~/python3venv/bin/activate
           pip install --upgrade pip==24.0
-          pip install meson==1.4.1 ninja==1.11.1.1 pytest==8.3.3
+          pip install meson==1.4.1 ninja==1.11.1.1 pytest==8.3.3 openvino==2026.0.0
 
       - name: Install OpenVINO
         if: needs.setup.outputs.should_run == 'true'
@@ -270,7 +270,7 @@ jobs:
 
       #this script creates output file called unit_test_summary.txt
       - name: Run python script to get Unit Test results
-        if: needs.setup.outputs.should_run == 'true'
+        if: always() && needs.setup.outputs.should_run == 'true'
         run: |
           source ~/python3venv/bin/activate
           python3 $HOME/dlstreamer-repo/tests/scripts/unit_test_results.py ${{ env.RESULTS_DIR }}
