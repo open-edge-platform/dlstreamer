@@ -23,7 +23,7 @@ Both models trained on COCO dataset (80 object classes).
 
 ## Environment Variables
 
-```powershell
+```PowerShell
 $set MODELS_PATH=C:\models\models
 ```
 
@@ -33,7 +33,7 @@ Models should be located at:
 
 ## Running
 
-```powershell
+```PowerShell
 .\instance_segmentation.bat [MODEL] [DEVICE] [INPUT] [OUTPUT] [JSON_FILE] [BENCHMARK_SINK]
 ```
 
@@ -61,32 +61,32 @@ Arguments:
 ## Examples
 
 ### Use default settings (Inception ResNet V2, CPU, Pexels video, save to file)
-```powershell
+```PowerShell
 .\instance_segmentation.bat
 ```
 
 ### ResNet50 on GPU with display
-```powershell
+```PowerShell
 .\instance_segmentation.bat mask_rcnn_resnet50_atrous_coco GPU "C:\videos\street.mp4" display
 ```
 
 ### Export to JSON
-```powershell
+```PowerShell
 .\instance_segmentation.bat mask_rcnn_inception_resnet_v2_atrous_coco CPU "C:\videos\street.mp4" json segmentation.json
 ```
 
 ### Export segmentation masks as JPEG sequence
-```powershell
+```PowerShell
 .\instance_segmentation.bat mask_rcnn_resnet50_atrous_coco GPU "C:\videos\street.mp4" jpeg
 ```
 
 ### Benchmark FPS on NPU
-```powershell
+```PowerShell
 .\instance_segmentation.bat mask_rcnn_resnet50_atrous_coco NPU "C:\videos\street.mp4" fps
 ```
 
 ### Process only first 100 frames (for testing)
-```powershell
+```PowerShell
 .\instance_segmentation.bat mask_rcnn_inception_resnet_v2_atrous_coco CPU "C:\videos\street.mp4" json output.json " ! identity eos-after=100"
 ```
 

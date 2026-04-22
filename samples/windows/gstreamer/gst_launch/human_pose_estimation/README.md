@@ -21,7 +21,7 @@ The sample uses the following pre-trained model from OpenVINO™ Toolkit [Open M
 
 ## Environment Variables
 
-```powershell
+```PowerShell
 $set MODELS_PATH=C:\models
 ```
 
@@ -29,7 +29,7 @@ Model should be located at:
 - `%MODELS_PATH%\intel\human-pose-estimation-0001\FP32\human-pose-estimation-0001.xml`
 ## Running
 
-```powershell
+```PowerShell
 .\human_pose_estimation.bat [INPUT] [DEVICE] [OUTPUT] [JSON_FILE] [BENCHMARK_SINK]
 ```
 
@@ -54,32 +54,32 @@ Arguments:
 ## Examples
 
 ### Use default settings (GitHub video, CPU, display)
-```powershell
+```PowerShell
 .\human_pose_estimation.bat
 ```
 
 ### Display with CPU inference
-```powershell
+```PowerShell
 .\human_pose_estimation.bat "C:\videos\walking.mp4" CPU display
 ```
 
 ### Save to file with GPU inference
-```powershell
+```PowerShell
 .\human_pose_estimation.bat "C:\videos\walking.mp4" GPU file
 ```
 
 ### Export metadata to JSON
-```powershell
+```PowerShell
 .\human_pose_estimation.bat "C:\videos\walking.mp4" CPU json pose_results.json
 ```
 
 ### Process only first 1000 frames (for testing)
-```powershell
+```PowerShell
 .\human_pose_estimation.bat "C:\videos\long_video.mp4" CPU json output.json " ! identity eos-after=1000"
 ```
 
 ### Benchmark FPS on NPU
-```powershell
+```PowerShell
 .\human_pose_estimation.bat "C:\videos\walking.mp4" NPU fps
 ```
 

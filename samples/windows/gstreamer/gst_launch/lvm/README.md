@@ -52,11 +52,11 @@ A[source] --> B[decodebin3]
 
 ## Running
 ### Prerequisites
-```powershell
+```PowerShell
 $env:MODELS_PATH = 'C:\path\to\your\models'
 ```
 ### Command Line Arguments
-```powershell
+```PowerShell
 .\generate_frame_embedding.bat [SOURCE] [DEVICE] [PRECISION] [MODEL] [PPBKEND] [OUTPUT]
 ```
 
@@ -86,16 +86,16 @@ The sample:
 ## Example Usage
 
 Default execution (CPU, FP32, JSON output):
-```powershell
+```PowerShell
 .\generate_frame_embedding.bat
 ```
 
 High-performance GPU inference (Intel® Arc™ GPU, FP16):
-```powershell
+```PowerShell
 .\generate_frame_embedding.bat "C:\you\video\path\sample.mp4" GPU FP16 clip-vit-large-patch14 d3d11 json
 ```
 
 Benchmark throughput (FPS mode):
-```powershell
+```PowerShell
 .\generate_frame_embedding.bat https://example.com/stream.mp4 CPU FP32 clip-vit-base-patch32 opencv fps
 ```
