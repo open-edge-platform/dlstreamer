@@ -29,7 +29,7 @@ Trained on **Kinetics-400 dataset** (400 human action classes).
 
 ## Environment Variables
 
-```batch
+```powershell
 set MODELS_PATH=C:\models\models
 ```
 
@@ -39,7 +39,7 @@ Models should be located at:
 
 ## Running
 
-```batch
+```powershell
 .\action_recognition.bat [INPUT] [DEVICE] [OUTPUT] [JSON_FILE]
 ```
 
@@ -60,27 +60,27 @@ Arguments:
 ## Examples
 
 ### Use default settings (Pexels video, CPU, save to file)
-```batch
+```powershell
 .\action_recognition.bat
 ```
 
 ### Recognize actions from local video and save to file
-```batch
+```powershell
 .\action_recognition.bat "C:\videos\example.mp4" CPU file
 ```
 
 ### Display real-time recognition on GPU
-```batch
+```powershell
 .\action_recognition.bat "C:\videos\example.mp4" GPU display
 ```
 
 ### Export actions to JSON
-```batch
+```powershell
 .\action_recognition.bat "C:\videos\example.mp4" CPU json actions.json
 ```
 
 ### Benchmark FPS on NPU
-```batch
+```powershell
 .\action_recognition.bat "C:\videos\example.mp4" NPU fps
 ```
 

@@ -21,7 +21,7 @@ The sample uses the following pre-trained model from OpenVINO™ Toolkit [Open M
 
 ## Environment Variables
 
-```batch
+```powershell
 $set MODELS_PATH=C:\models
 ```
 
@@ -29,8 +29,8 @@ Model should be located at:
 - `%MODELS_PATH%\intel\human-pose-estimation-0001\FP32\human-pose-estimation-0001.xml`
 ## Running
 
-```batch
-.\human_pose_estimation.bat [INPUT] [DEVICE] [OUTPUT] [JSON_FILE]
+```powershell
+.\human_pose_estimation.bat [INPUT] [DEVICE] [OUTPUT] [JSON_FILE] [BENCHMARK_SINK]
 ```
 
 Arguments:
@@ -46,31 +46,40 @@ Arguments:
   - `json` - Export metadata to JSON
   - `display-and-json` - Show video and save JSON
 - **JSON_FILE** - JSON output filename (default: `output.json`)
+- **BENCHMARK_SINK** - Optional GStreamer element to insert after decode (default: empty)
+  - Example: `" ! identity eos-after=1000"` - Process only first 1000 frames
+  - Example: `" ! identity eos-after=500"` - Process only first 500 frames
+  - Useful for testing/benchmarking with limited frame count
 
 ## Examples
 
 ### Use default settings (GitHub video, CPU, display)
-```batch
+```powershell
 .\human_pose_estimation.bat
 ```
 
 ### Display with CPU inference
-```batch
+```powershell
 .\human_pose_estimation.bat "C:\videos\walking.mp4" CPU display
 ```
 
 ### Save to file with GPU inference
-```batch
+```powershell
 .\human_pose_estimation.bat "C:\videos\walking.mp4" GPU file
 ```
 
 ### Export metadata to JSON
-```batch
+```powershell
 .\human_pose_estimation.bat "C:\videos\walking.mp4" CPU json pose_results.json
 ```
 
+### Process only first 1000 frames (for testing)
+```powershell
+.\human_pose_estimation.bat "C:\videos\long_video.mp4" CPU json output.json " ! identity eos-after=1000"
+```
+
 ### Benchmark FPS on NPU
-```batch
+```powershell
 .\human_pose_estimation.bat "C:\videos\walking.mp4" NPU fps
 ```
 

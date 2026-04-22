@@ -16,7 +16,7 @@ This sample builds a GStreamer pipeline of the following elements:
 - **GPU**: `d3d11convert` (D3D11 backend).
 - **NPU**: `d3d11convert` (D3D11 backend).
 **Inference**: `gvainference` running the CLIP Vision Transformer model.
-**Metadata**: `gvametaconvert` (JSON with tensor data) and gvametapublish (file output).
+**Metadata**: `gvametaconvert` (JSON with tensor data) and `gvametapublish` (file output).
 **Sink**: `fakesink` (default) or `gvafpscounter` for performance measurement.
 
 ## Model

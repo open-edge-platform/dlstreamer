@@ -24,7 +24,7 @@ Pipeline elements:
 
 ## Environment Variables
 
-```batch
+```powershell
 $set MODELS_PATH=C:\models\models
 ```
 
@@ -34,7 +34,7 @@ Models should be located at:
 
 ## Running
 
-```batch
+```powershell
 .\license_plate_recognition.bat [INPUT] [DEVICE] [OUTPUT] [JSON_FILE]
 ```
 
@@ -56,27 +56,27 @@ Arguments:
 ## Examples
 
 ### Use default settings (GitHub video, GPU, benchmark mode)
-```batch
+```powershell
 .\license_plate_recognition.bat
 ```
 
 ### Display with real-time visualization
-```batch
+```powershell
 .\license_plate_recognition.bat "C:\videos\parking.mp4" GPU display-async
 ```
 
 ### Export recognized plates to JSON
-```batch
+```powershell
 .\license_plate_recognition.bat "C:\videos\parking.mp4" GPU json plates.json
 ```
 
 ### Benchmark performance on CPU
-```batch
+```powershell
 .\license_plate_recognition.bat "C:\videos\parking.mp4" CPU fps
 ```
 
 ### Save annotated video
-```batch
+```powershell
 .\license_plate_recognition.bat "C:\videos\parking.mp4" GPU file
 ```
 

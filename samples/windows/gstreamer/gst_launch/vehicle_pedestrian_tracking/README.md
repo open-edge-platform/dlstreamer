@@ -24,7 +24,7 @@ The sample uses the following pre-trained models from OpenVINO™ Toolkit [Open 
 
 ## Environment Variables
 
-```batch
+```powershell
 $set MODELS_PATH=C:\models\models
 ```
 
@@ -35,7 +35,7 @@ Models should be located at:
 
 ## Running
 
-```batch
+```powershell
 .\vehicle_pedestrian_tracking.bat [INPUT] [DETECTION_INTERVAL] [DEVICE] [OUTPUT] [TRACKING_TYPE] [JSON_FILE]
 ```
 
@@ -65,32 +65,32 @@ Arguments:
 ## Examples
 
 ### Use default settings (GitHub video, detect every 3rd frame, AUTO device, display)
-```batch
+```powershell
 .\vehicle_pedestrian_tracking.bat
 ```
 
 ### Detect every 3rd frame with tracking on GPU
-```batch
+```powershell
 .\vehicle_pedestrian_tracking.bat "C:\videos\traffic.mp4" 3 GPU display-async
 ```
 
 ### High-accuracy mode (detect every frame)
-```batch
+```powershell
 .\vehicle_pedestrian_tracking.bat "C:\videos\traffic.mp4" 1 AUTO display
 ```
 
 ### Export tracking data to JSON
-```batch
+```powershell
 .\vehicle_pedestrian_tracking.bat "C:\videos\traffic.mp4" 3 GPU json tracking_results.json
 ```
 
 ### Performance benchmark (detect every 10 frames)
-```batch
+```powershell
 .\vehicle_pedestrian_tracking.bat "C:\videos\traffic.mp4" 10 GPU fps
 ```
 
 ### Different tracking algorithm
-```batch
+```powershell
 .\vehicle_pedestrian_tracking.bat "C:\videos\traffic.mp4" 1 GPU display zero-term
 ```
 

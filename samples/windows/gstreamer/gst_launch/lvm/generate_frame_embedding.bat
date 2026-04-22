@@ -105,3 +105,5 @@ echo Pipeline: %PIPELINE%
 %PIPELINE%
 
 endlocal
+set "EXIT_CODE=%ERRORLEVEL%"
+endlocal & exit /B %EXIT_CODE%

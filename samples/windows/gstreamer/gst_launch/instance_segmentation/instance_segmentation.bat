@@ -23,6 +23,7 @@ set DEVICE=CPU
 set INPUT=https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4
 set OUTPUT=file
 set JSON_FILE=output.json
+set BENCHMARK_SINK=
 
 @REM Parse arguments
 if NOT "%~1"=="" (
@@ -34,18 +35,20 @@ if NOT "%~2"=="" set DEVICE=%~2
 if NOT "%~3"=="" set INPUT=%~3
 if NOT "%~4"=="" set OUTPUT=%~4
 if NOT "%~5"=="" set JSON_FILE=%~5
+if NOT "%~6"=="" set BENCHMARK_SINK=%~6
 goto :skip_help
 
 :show_help
-echo Usage: instance_segmentation.bat [MODEL] [DEVICE] [INPUT] [OUTPUT] [JSON_FILE]
+echo Usage: instance_segmentation.bat [MODEL] [DEVICE] [INPUT] [OUTPUT] [JSON_FILE] [BENCHMARK_SINK]
 echo.
 echo Arguments:
-echo   MODEL     - Model to use (default: mask_rcnn_inception_resnet_v2_atrous_coco)
-echo               Supported: mask_rcnn_inception_resnet_v2_atrous_coco, mask_rcnn_resnet50_atrous_coco
-echo   DEVICE    - Device (default: CPU). Supported: CPU, GPU, NPU
-echo   INPUT     - Input source (default: Pexels video URL)
-echo   OUTPUT    - Output type (default: file). Supported: file, display, fps, json, display-and-json, jpeg
-echo   JSON_FILE - JSON output file name (default: output.json)
+echo   MODEL          - Model to use (default: mask_rcnn_inception_resnet_v2_atrous_coco)
+echo                    Supported: mask_rcnn_inception_resnet_v2_atrous_coco, mask_rcnn_resnet50_atrous_coco
+echo   DEVICE         - Device (default: CPU). Supported: CPU, GPU, NPU
+echo   INPUT          - Input source (default: Pexels video URL)
+echo   OUTPUT         - Output type (default: file). Supported: file, display, fps, json, display-and-json, jpeg
+echo   JSON_FILE      - JSON output file name (default: output.json)
+echo   BENCHMARK_SINK - Optional GStreamer element to add after decode (e.g., " ! identity eos-after=100")
 echo.
 EXIT /B 0
 
@@ -139,9 +142,9 @@ set MODEL_PROC=%MODEL_PROC:\=/%
 @REM Build and run pipeline
 echo.
 echo Running pipeline:
-echo gst-launch-1.0 %SOURCE_ELEMENT% ^! %DECODE_ELEMENT% ^! gvadetect model=%MODEL_PATH% model-proc=%MODEL_PROC% device=%DEVICE% pre-process-backend=%PREPROC_BACKEND% ^! queue ^! %SINK_ELEMENT%
+echo gst-launch-1.0 %SOURCE_ELEMENT% ^! %DECODE_ELEMENT%%BENCHMARK_SINK% ^! gvadetect model=%MODEL_PATH% model-proc=%MODEL_PROC% device=%DEVICE% pre-process-backend=%PREPROC_BACKEND% ^! queue ^! %SINK_ELEMENT%
 echo.
 
-gst-launch-1.0 %SOURCE_ELEMENT% ! %DECODE_ELEMENT% ! gvadetect model=%MODEL_PATH% model-proc=%MODEL_PROC% device=%DEVICE% pre-process-backend=%PREPROC_BACKEND% ! queue ! %SINK_ELEMENT%
+gst-launch-1.0 %SOURCE_ELEMENT% ! %DECODE_ELEMENT%%BENCHMARK_SINK% ! gvadetect model=%MODEL_PATH% model-proc=%MODEL_PROC% device=%DEVICE% pre-process-backend=%PREPROC_BACKEND% ! queue ! %SINK_ELEMENT%
 
 EXIT /B %ERRORLEVEL%

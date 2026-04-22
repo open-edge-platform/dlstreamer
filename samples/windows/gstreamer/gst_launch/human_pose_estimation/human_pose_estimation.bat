@@ -28,19 +28,22 @@ if "%OUTPUT%"=="" set OUTPUT=display
 set JSON_FILE=%~4
 if "%JSON_FILE%"=="" set JSON_FILE=output.json
 
+set BENCHMARK_SINK=%~5
+
 @REM Show help
 if "%INPUT%"=="--help" goto :show_help
 if "%INPUT%"=="-h" goto :show_help
 goto :skip_help
 
 :show_help
-echo Usage: human_pose_estimation.bat [INPUT] [DEVICE] [OUTPUT] [JSON_FILE]
+echo Usage: human_pose_estimation.bat [INPUT] [DEVICE] [OUTPUT] [JSON_FILE] [BENCHMARK_SINK]
 echo.
 echo Arguments:
-echo   INPUT     - Input source (default: GitHub sample video URL)
-echo   DEVICE    - Device (default: CPU). Supported: CPU, GPU, NPU
-echo   OUTPUT    - Output type (default: display). Supported: file, display, fps, json, display-and-json
-echo   JSON_FILE - JSON output file name (default: output.json)
+echo   INPUT          - Input source (default: GitHub sample video URL)
+echo   DEVICE         - Device (default: CPU). Supported: CPU, GPU, NPU
+echo   OUTPUT         - Output type (default: display). Supported: file, display, fps, json, display-and-json
+echo   JSON_FILE      - JSON output file name (default: output.json)
+echo   BENCHMARK_SINK - Optional GStreamer element to add after decode (e.g., " ! identity eos-after=1000")
 echo.
 EXIT /B 0
 
@@ -113,9 +116,9 @@ set MODEL_PROC=%MODEL_PROC:\=/%
 @REM Build and run pipeline
 echo.
 echo Running pipeline:
-echo gst-launch-1.0 %SOURCE_ELEMENT% ^! %DECODE_ELEMENT% ^! gvaclassify model=%MODEL_PATH% model-proc=%MODEL_PROC% device=%DEVICE% inference-region=full-frame pre-process-backend=%PREPROC_BACKEND% ^! %SINK_ELEMENT%
+echo gst-launch-1.0 %SOURCE_ELEMENT% ^! %DECODE_ELEMENT%%BENCHMARK_SINK% ^! gvaclassify model=%MODEL_PATH% model-proc=%MODEL_PROC% device=%DEVICE% inference-region=full-frame pre-process-backend=%PREPROC_BACKEND% ^! %SINK_ELEMENT%
 echo.
 
-gst-launch-1.0 %SOURCE_ELEMENT% ! %DECODE_ELEMENT% ! gvaclassify model=%MODEL_PATH% model-proc=%MODEL_PROC% device=%DEVICE% inference-region=full-frame pre-process-backend=%PREPROC_BACKEND% ! %SINK_ELEMENT%
+gst-launch-1.0 %SOURCE_ELEMENT% ! %DECODE_ELEMENT%%BENCHMARK_SINK% ! gvaclassify model=%MODEL_PATH% model-proc=%MODEL_PROC% device=%DEVICE% inference-region=full-frame pre-process-backend=%PREPROC_BACKEND% ! %SINK_ELEMENT%
 
 EXIT /B %ERRORLEVEL%

@@ -23,7 +23,7 @@ Both models trained on COCO dataset (80 object classes).
 
 ## Environment Variables
 
-```batch
+```powershell
 $set MODELS_PATH=C:\models\models
 ```
 
@@ -33,8 +33,8 @@ Models should be located at:
 
 ## Running
 
-```batch
-.\instance_segmentation.bat [MODEL] [DEVICE] [INPUT] [OUTPUT] [JSON_FILE]
+```powershell
+.\instance_segmentation.bat [MODEL] [DEVICE] [INPUT] [OUTPUT] [JSON_FILE] [BENCHMARK_SINK]
 ```
 
 Arguments:
@@ -53,32 +53,41 @@ Arguments:
   - `display-and-json` - Display and export
   - `jpeg` - Save frames as JPEG sequence
 - **JSON_FILE** - JSON output filename (default: `output.json`)
+- **BENCHMARK_SINK** - Optional GStreamer element to insert after decode (default: empty)
+  - Example: `" ! identity eos-after=100"` - Process only first 100 frames
+  - Example: `" ! identity eos-after=1000"` - Process only first 1000 frames
+  - Useful for testing/benchmarking with limited frame count
 
 ## Examples
 
 ### Use default settings (Inception ResNet V2, CPU, Pexels video, save to file)
-```batch
+```powershell
 .\instance_segmentation.bat
 ```
 
 ### ResNet50 on GPU with display
-```batch
+```powershell
 .\instance_segmentation.bat mask_rcnn_resnet50_atrous_coco GPU "C:\videos\street.mp4" display
 ```
 
 ### Export to JSON
-```batch
+```powershell
 .\instance_segmentation.bat mask_rcnn_inception_resnet_v2_atrous_coco CPU "C:\videos\street.mp4" json segmentation.json
 ```
 
 ### Export segmentation masks as JPEG sequence
-```batch
+```powershell
 .\instance_segmentation.bat mask_rcnn_resnet50_atrous_coco GPU "C:\videos\street.mp4" jpeg
 ```
 
 ### Benchmark FPS on NPU
-```batch
+```powershell
 .\instance_segmentation.bat mask_rcnn_resnet50_atrous_coco NPU "C:\videos\street.mp4" fps
+```
+
+### Process only first 100 frames (for testing)
+```powershell
+.\instance_segmentation.bat mask_rcnn_inception_resnet_v2_atrous_coco CPU "C:\videos\street.mp4" json output.json " ! identity eos-after=100"
 ```
 
 ## Output
