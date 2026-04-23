@@ -42,6 +42,7 @@ class PostProcessorImpl {
         bool use_default = true;
         double threshold = 0.5;
         bool threshold_explicitly_set = false;
+        bool skip_raw_tensors = false;
 
         std::string custom_postproc_lib;
     };

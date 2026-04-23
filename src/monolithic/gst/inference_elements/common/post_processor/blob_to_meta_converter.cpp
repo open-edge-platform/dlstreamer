@@ -131,7 +131,7 @@ std::string checkOnNameDeprecation(const std::string &converter_name) {
 BlobToMetaConverter::BlobToMetaConverter(Initializer initializer)
     : model_name(initializer.model_name), input_image_info(initializer.input_image_info),
       outputs_info(initializer.outputs_info), model_proc_output_info(std::move(initializer.model_proc_output_info)),
-      labels(initializer.labels) {
+      labels(initializer.labels), skip_raw_tensors(initializer.skip_raw_tensors) {
 }
 
 BlobToMetaConverter::Ptr BlobToMetaConverter::create(Initializer initializer, ConverterType converter_type,
