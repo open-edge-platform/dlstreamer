@@ -55,7 +55,8 @@ if ($InputSource -match "^\\\\\?\\usb#") {
     $SOURCE_ELEMENT = "urisourcebin buffer-size=4096 uri=$InputSource"
 } else {
     $INPUT_PATH = $InputSource -replace '\\', '/'
-    $SOURCE_ELEMENT = "filesrc location=$INPUT_PATH"
+    $ESCAPED_INPUT_PATH = $INPUT_PATH -replace '"', '\"'
+    $SOURCE_ELEMENT = "filesrc location=`"$ESCAPED_INPUT_PATH`""
 }
 
 # Set sink element based on output type
