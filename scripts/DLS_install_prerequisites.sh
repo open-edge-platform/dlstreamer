@@ -401,9 +401,6 @@ else
     exit 1
 fi
 
-# Get the CPU family and model information
-cpu_family=$(grep -m 1 'cpu family' /proc/cpuinfo | awk '{print $4}')
-cpu_model=$(grep -m 1 'model' /proc/cpuinfo | awk '{print $3}')
 cpu_model_name=$(lscpu | grep "Model name:" | awk -F: '{print $2}' | xargs)
 
 echo_color "\n CPU is ($cpu_model_name).\n" "yellow"
