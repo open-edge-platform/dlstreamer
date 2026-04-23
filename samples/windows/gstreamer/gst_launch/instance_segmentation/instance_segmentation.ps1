@@ -15,7 +15,7 @@ param(
 
 # Show help
 if ($Model -eq "--help" -or $Model -eq "-h") {
-    Write-Host "Usage: instance_segmentation.ps1 [-Model <model>] [-Device <device>] [-InputSource <path>] [-OutputType <type>] [-JsonFile <file>] [-BenchmarkSink <element>]"
+    Write-Host "Usage: instance_segmentation.ps1 [-Model <model>] [-Device <device>] [-InputSource <path>] [-OutputType <type>] [-JsonFile <file>] [-FrameLimiter <element>]"
     Write-Host ""
     Write-Host "Parameters:"
     Write-Host "  -Model          Model to use (default: mask_rcnn_inception_resnet_v2_atrous_coco)"

@@ -103,7 +103,7 @@ if ($InputSource -match "://") {
     $SOURCE_ELEMENT = "urisourcebin uri=$InputSource"
 } else {
     $INPUT_PATH = $InputSource -replace '\\', '/'
-    $SOURCE_ELEMENT = "filesrc location=$INPUT_PATH"
+    $SOURCE_ELEMENT = "filesrc location=`"$INPUT_PATH`""
 }
 
 # Set pre-process backend based on device

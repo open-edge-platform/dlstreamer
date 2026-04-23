@@ -25,7 +25,7 @@ Pipeline elements:
 ## Environment Variables
 
 ```PowerShell
-$set MODELS_PATH = 'C:\models'
+$set MODELS_PATH = "C:\models"
 ```
 
 Models should be located at:

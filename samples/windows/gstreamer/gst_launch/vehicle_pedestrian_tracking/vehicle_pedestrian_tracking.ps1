@@ -16,12 +16,12 @@ param(
 
 # Show help
 if ($InputSource -eq "--help" -or $InputSource -eq "-h") {
-    Write-Host "Usage: vehicle_pedestrian_tracking.ps1 [-InputSource <path>] [-DetectionInterval <interval>] [-Device <device>] [-OutputType <type>] [-TrackingType <type>] [-JsonFile <file>] [-BenchmarkSink <element>]"
+    Write-Host "Usage: vehicle_pedestrian_tracking.ps1 [-InputSource <path>] [-DetectionInterval <interval>] [-Device <device>] [-OutputType <type>] [-TrackingType <type>] [-JsonFile <file>] [-FrameLimiter <element>]"
     Write-Host ""
     Write-Host "Parameters:"
     Write-Host "  -InputSource        Input source (default: GitHub sample video URL)"
     Write-Host "  -DetectionInterval  Object detection interval (default: 3). 1 means detection every frame, 2 means every second frame, etc."
-    Write-Host "  -Device             Device (default: AUTO). Supported: AUTO, CPU, GPU, GPU.0"
+    Write-Host "  -Device             Device (default: AUTO). Supported: AUTO, CPU, GPU, NPU"
     Write-Host "  -OutputType         Output type (default: display). Supported: display, display-async, fps, json, display-and-json, file"
     Write-Host "  -TrackingType       Object tracking type (default: short-term-imageless). Supported: short-term-imageless, zero-term, zero-term-imageless"
     Write-Host "  -JsonFile           JSON output file name (default: output.json)"

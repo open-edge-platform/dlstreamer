@@ -16,7 +16,7 @@ param(
 
 # Show help
 if ($InputSource -eq "--help" -or $InputSource -eq "-h") {
-    Write-Host "Usage: generate_frame_embedding.ps1 [-InputSource <path>] [-Device <device>] [-Precision <precision>] [-Model <model>] [-PreprocessBackend <backend>] [-OutputType <type>] [-BenchmarkSink <element>]"
+    Write-Host "Usage: generate_frame_embedding.ps1 [-InputSource <path>] [-Device <device>] [-Precision <precision>] [-Model <model>] [-PreprocessBackend <backend>] [-OutputType <type>] [-FrameLimiter <element>]"
     Write-Host ""
     Write-Host "Parameters:"
     Write-Host "  -InputSource        Input source (default: Pexels video URL)"

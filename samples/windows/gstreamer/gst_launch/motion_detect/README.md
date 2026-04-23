@@ -88,7 +88,7 @@ $env:MODELS_PATH = "C:\models"
 `-MotionDetectOptions` lets you pass properties directly to the `gvamotiondetect` element. Provide them as a space-separated list in quotes:
 
 ```PowerShell
--MotionDetectOptions "motion-threshold=0.07 min-persistence=2"
+.\motion_detect.ps1 -MotionDetectOptions "motion-threshold=0.07 min-persistence=2"
 ```
 
 - `motion-threshold`: Float in [0..1]. Sensitivity of motion detection; lower values detect smaller changes, higher values reduce false positives. Example: `0.05` (more sensitive) vs `0.10` (less sensitive).
