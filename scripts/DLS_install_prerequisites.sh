@@ -427,25 +427,6 @@ case "$ubuntu_version" in
 esac
 
 
-# Check if the CPU is Intel Family 6 Model 189 (Lunar Lake)
-if [[ "$cpu_family" == "6" && "$cpu_model" == "189" ]]; then
-
-    check_kernel_version
-    status=$?
-
-    if [ $status -eq 0 ]; then
-        echo_color " Kernel 6.12 or higher detected." "green"
-    else
-        echo_color "\n WARNING!" "red"
-        echo_color "\n Deep Learning Streamer on Lunar Lake family processors has only been tested with the 6.12 kernel. We strongly recommend updating the kernel version before proceeding." "red"
-        read -p " Quit installation? [y/n] " -n 1 -r
-        echo
-        if [[ $REPLY =~ ^[Yy]$ ]]; then
-            exit
-        fi
-    fi
-fi
-
 #-----------------------STEP 2-------------------------------------------
 
 # Inform the user about the upcoming package installation
