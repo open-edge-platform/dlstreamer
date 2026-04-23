@@ -70,7 +70,7 @@ jobs:
             MATRIX=$(jq -n '{
               "include": [
                 {
-                  "runner_labels": ["self-hosted", "dlstreamer", "ARL", "windows"],
+                  "runner_labels": ["arl-windows"],
                   "runner_print_label": "ARL"
                 }
               ]
