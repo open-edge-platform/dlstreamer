@@ -87,6 +87,11 @@ DLS_EXPORT const GstMetaInfo *watermark_draw_meta_get_info(void) {
     return meta_info;
 }
 
+// Helper function to add WatermarkDrawMeta to buffer with given parameters
+// coords is a flat array of interleaved x,y coordinates: [x1,y1,x2,y2,...]
+// n_coords is the number of coordinate values (must be even, n_points = n_coords/2)
+// max supported points is WATERMARK_DRAW_MAX_POINTS - 128 so n_coords must be <= 256
+// r,g,b are color components, thickness is line thickness
 DLS_EXPORT WatermarkDrawMeta *watermark_draw_meta_add(GstBuffer *buf, const guint32 *coords, guint n_coords, guint8 r,
                                                       guint8 g, guint8 b, gint thickness) {
     g_return_val_if_fail(buf != NULL, NULL);

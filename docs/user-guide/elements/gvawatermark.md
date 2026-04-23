@@ -306,7 +306,7 @@ a Python callback or a custom GStreamer element without modifying pixel data man
 
 | Type | Description |
 |------|-------------|
-| `WatermarkDrawMeta` | Polygon or polyline defined by an ordered list of (x, y) coordinate pairs |
+| `WatermarkDrawMeta` | Polygon or polyline defined by an ordered list of (x, y) coordinate pairs (max amount of pairs is 128) |
 | `WatermarkCircleMeta` | Circle defined by center (cx, cy), radius, color, and thickness |
 | `WatermarkTextMeta` | Text label at position (x, y) with font, scale, color, and optional background |
 
