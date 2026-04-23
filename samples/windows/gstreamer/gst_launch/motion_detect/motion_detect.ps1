@@ -77,7 +77,7 @@ if ($InputSource -match "://") {
     $SOURCE_ELEMENT = "urisourcebin uri=$InputSource"
 } else {
     $SRC_FIXED = $InputSource -replace '\\', '/'
-    $SOURCE_ELEMENT = "filesrc location=$SRC_FIXED"
+    $SOURCE_ELEMENT = "filesrc location=`"$SRC_FIXED`""
 }
 
 # Set sink element based on output type

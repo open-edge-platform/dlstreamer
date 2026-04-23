@@ -107,7 +107,7 @@ This sample requires the following environment variable to be set:
 
 Example:
 ```PowerShell
-$set MODELS_PATH = 'C:\models'
+$set MODELS_PATH = "C:\models"
 ```
 
 ## Running

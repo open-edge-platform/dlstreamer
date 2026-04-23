@@ -14,7 +14,7 @@ param(
 
 # Show help
 if ($InputSource -eq "--help" -or $InputSource -eq "-h") {
-    Write-Host "Usage: license_plate_recognition.ps1 [-InputSource <path>] [-Device <device>] [-OutputType <type>] [-JsonFile <file>] [-BenchmarkSink <element>]"
+    Write-Host "Usage: license_plate_recognition.ps1 [-InputSource <path>] [-Device <device>] [-OutputType <type>] [-JsonFile <file>] [-FrameLimiter <element>]"
     Write-Host ""
     Write-Host "Parameters:"
     Write-Host "  -InputSource    Input source (default: GitHub parking video URL)"

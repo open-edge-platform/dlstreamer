@@ -103,6 +103,8 @@ Parameters:
 
 ## Pipeline Architecture
 
+**Note**: Pipeline varies based on device type. GPU/NPU use D3D11 hardware acceleration (`d3d11convert`, `d3d11videosink`, `d3d11h264enc`), while CPU uses software path (`videoconvert`, `autovideosink`, `openh264enc`).
+
 ```mermaid
 graph LR
     A[filesrc/urisourcebin] --> B[decodebin3]
@@ -114,7 +116,7 @@ graph LR
     G --> H[queue]
     H --> I{OUTPUT}
     
-    I -->|file| J1[d3d11convert]
+    I -->|file<br/>GPU/NPU| J1[d3d11convert]
     J1 --> J2[gvawatermark]
     J2 --> J3[gvafpscounter]
     J3 --> J4[d3d11h264enc]
@@ -122,17 +124,35 @@ graph LR
     J5 --> J6[mp4mux]
     J6 --> J7[filesink]
     
-    I -->|display| K1[d3d11convert]
+    I -->|file<br/>CPU| J1C[videoconvert]
+    J1C --> J2C[gvawatermark]
+    J2C --> J3C[gvafpscounter]
+    J3C --> J4C[openh264enc]
+    J4C --> J5C[h264parse]
+    J5C --> J6C[mp4mux]
+    J6C --> J7C[filesink]
+    
+    I -->|display<br/>GPU/NPU| K1[d3d11convert]
     K1 --> K2[gvawatermark]
     K2 --> K3[videoconvert]
     K3 --> K4[gvafpscounter]
-    K4 --> K5[autovideosink]
+    K4 --> K5[d3d11videosink]
     
-    I -->|display-async| L1[d3d11convert]
+    I -->|display<br/>CPU| K1C[gvawatermark]
+    K1C --> K2C[videoconvert]
+    K2C --> K3C[gvafpscounter]
+    K3C --> K4C[autovideosink]
+    
+    I -->|display-async<br/>GPU/NPU| L1[d3d11convert]
     L1 --> L2[gvawatermark]
     L2 --> L3[videoconvert]
     L3 --> L4[gvafpscounter]
-    L4 --> L5[autovideosink<br/>sync=false]
+    L4 --> L5[d3d11videosink<br/>sync=false]
+    
+    I -->|display-async<br/>CPU| L1C[gvawatermark]
+    L1C --> L2C[videoconvert]
+    L2C --> L3C[gvafpscounter]
+    L3C --> L4C[autovideosink<br/>sync=false]
     
     I -->|fps| M1[gvafpscounter]
     M1 --> M2[fakesink]
@@ -141,13 +161,20 @@ graph LR
     N1 --> N2[gvametapublish]
     N2 --> N3[fakesink]
     
-    I -->|display-and-json| O1[d3d11convert]
+    I -->|display-and-json<br/>GPU/NPU| O1[d3d11convert]
     O1 --> O2[gvawatermark]
     O2 --> O3[gvametaconvert]
     O3 --> O4[gvametapublish]
     O4 --> O5[videoconvert]
     O5 --> O6[gvafpscounter]
-    O6 --> O7[autovideosink<br/>sync=false]
+    O6 --> O7[d3d11videosink<br/>sync=false]
+    
+    I -->|display-and-json<br/>CPU| O1C[gvawatermark]
+    O1C --> O2C[gvametaconvert]
+    O2C --> O3C[gvametapublish]
+    O3C --> O4C[videoconvert]
+    O4C --> O5C[gvafpscounter]
+    O5C --> O6C[autovideosink<br/>sync=false]
 ```
 
 ## See also

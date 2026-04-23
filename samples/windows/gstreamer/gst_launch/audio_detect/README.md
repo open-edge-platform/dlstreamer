@@ -48,7 +48,7 @@ This sample requires one of the following environment variables to be set:
 
 Example:
 ```PowerShell
-$set MODELS_PATH = 'C:\models'
+$set MODELS_PATH = "C:\models"
 ```
 
 ## Model Proc
