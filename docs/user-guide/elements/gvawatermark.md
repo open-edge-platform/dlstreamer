@@ -304,11 +304,11 @@ a Python callback or a custom GStreamer element without modifying pixel data man
 
 ### Metadata Types
 
-| Type | Description |
-|------|-------------|
-| `WatermarkDrawMeta` | Polygon or polyline defined by an ordered list of (x, y) coordinate pairs (max amount of pairs is 128) |
-| `WatermarkCircleMeta` | Circle defined by center (cx, cy), radius, color, and thickness |
-| `WatermarkTextMeta` | Text label at position (x, y) with font, scale, color, and optional background |
+| Type                  | python name                          | Description |
+|-----------------------|--------------------------------------|-------------|
+| `WatermarkDrawMeta`   | `DLStreamerWatermarkMeta.DrawMeta`   | Polygon or polyline defined by an ordered list of (x, y) coordinate pairs (max amount of pairs is 128) |
+| `WatermarkCircleMeta` | `DLStreamerWatermarkMeta.CircleMeta` | Circle defined by center (cx, cy), radius, color, and thickness |
+| `WatermarkTextMeta`   | `DLStreamerWatermarkMeta.TextMeta`   | Text label at position (x, y) with font, scale, color, and optional background |
 
 A thickness of `-1` fills the shape (circle). For `WatermarkDrawMeta`, two points draw a line segment;
 three or more points draw a polygon.
