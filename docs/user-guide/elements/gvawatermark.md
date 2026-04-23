@@ -77,6 +77,7 @@ Element Properties:
                         * show-roi=<string> colon-separated list of labels to include (only these objects will be shown), default empty
                         * hide-roi=<string> colon-separated list of labels to exclude (these objects will be hidden), default empty
                         * enable-blur=<bool> enable ROI blurring for privacy protection, default false
+                          NOTE : Blurring is applied only when "enable-blur=true"; if no "show-blur-roi" / "hide-blur-roi" filters are set, all ROIs are blurred
                           NOTE : show-blur-roi takes precedence over hide-blur-roi when both are specified
                           NOTE : this option is supported only for CPU for now.
                         * show-blur-roi=<string> colon-separated list of object labels to blur (e.g., "face:person")
@@ -194,7 +195,8 @@ The gvawatermark element supports privacy protection through region of interest 
 
 Blur functionality is controlled through the `displ-cfg` parameter with these options:
 
-- **enable-blur=<bool\>** - Enable or disable blur feature (default: false)
+- **enable-blur=<bool\>** - Enable or disable blur feature (default: false) Blurring is applied only when "enable-blur=true"; if no "show-blur-roi" / "hide-blur-roi" filters are set, all ROIs are blurred.
+
 - **show-blur-roi=<string\>** - Colon-separated list of object labels to blur (e.g., "person:face")
 - **hide-blur-roi=<string\>** - Colon-separated list of object labels to exclude from blurring
 

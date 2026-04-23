@@ -210,9 +210,6 @@ add_subdirectory(python)
 
 if(${ENABLE_SAMPLES})
     add_subdirectory(samples/gstreamer)
-    #add_subdirectory(samples/ffmpeg_openvino/cpp/decode_inference)
-    #add_subdirectory(samples/ffmpeg_openvino/cpp/decode_resize_inference)
-    #add_subdirectory(samples/ffmpeg_dpcpp/rgb_to_grayscale)
 endif()
 
 if(${ENABLE_TESTS} AND NOT(WIN32))

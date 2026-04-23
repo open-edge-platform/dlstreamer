@@ -1,11 +1,11 @@
 # Debugging Hints Reference
 
-Common debugging patterns, execution hints, and pitfalls encountered when developing and testing DLStreamer pipelines.
+Common debugging patterns, execution hints, and pitfalls encountered when developing and testing DL Streamer pipelines.
 
 ## Start with Self-contained Validation
 
-If an application uses external inputs/outputs (USB or RTPS cameras, WebRTC output, MQTT bus),
-ALWAYS start with simulating external components by local input / otput files.
+If an application uses external inputs/outputs (USB or RTSP cameras, WebRTC output, MQTT bus),
+ALWAYS start by simulating external components with local input / output files.
 Only if an application works in self-contained environment, then start full e2e validation with external elements.
 
 ## Docker Testing Conventions
@@ -52,22 +52,10 @@ the prescriptive rules (Rules 7 and 8) that prevent many of these issues.
 | Docker stdin closed (`< /dev/null`) | `input()` / `sys.stdin.readline()` raises `EOFError` | Guard stdin reads with `try/except EOFError` |
 | Multi-stream shared model without batching | Frames serialized, low GPU utilization | Set `model-instance-id=shared` + `batch-size=N` on all streams |
 | `buffer.copy()` immutable in GStreamer ≥ 1.26 | Cannot modify PTS/DTS on copied buffer | Use `buffer.copy_deep()` for writable copies |
-| Short input video finishes too fast | Not enough data to validate long-running features (e.g. event-based recording, chunked output) | Add a `--loop N` CLI argument that seeks back to the start on EOS instead of stopping — see implementation below |
+| Short input video finishes too fast | Not enough data to validate long-running features (e.g. event-based recording, chunked output) | Use the `loop_count` parameter of `run_pipeline()` to replay the file — see [Pattern 2: Pipeline Event Loop](./design-patterns.md#pattern-2-pipeline-event-loop) |
 | `valve drop=true` blocks preroll | Pipeline hangs at READY→PLAYING because downstream sinks never receive a buffer | Add `async=false` to the terminal sink (`filesink`, `splitmuxsink`) in valve-gated branches so it does not wait for preroll |
-| `GLib.idle_add` callbacks never fire | Commands dispatched via `GLib.idle_add()` are silently queued but never executed | When using `bus.timed_pop_filtered()` instead of a GLib main loop, pump the default context each iteration — see [Pattern 12: Pipeline Event Loop](./design-patterns.md#pattern-12-pipeline-event-loop) |
+| `GLib.idle_add` callbacks never fire | Commands dispatched via `GLib.idle_add()` are silently queued but never executed | When using `bus.timed_pop_filtered()` instead of a GLib main loop, pump the default context each iteration — see [Pattern 2: Pipeline Event Loop](./design-patterns.md#pattern-2-pipeline-event-loop) |
 | GitHub LFS video URLs return HTML | `curl -L` on `github.com/.../raw/main/file.mp4` may return an HTML redirect page instead of video data for Git LFS-hosted files | Use Pexels direct video-file URLs or local files from existing samples for default test videos. Fall back to `edge-ai-resources` only if confirmed to work with `curl -L` |
-
-## Pipeline Event Loop
-
-See [Pattern 12: Pipeline Event Loop](./design-patterns.md#pattern-12-pipeline-event-loop)
-in the Design Patterns Reference for ready-to-use event loop code (simple + interruptible variants).
-
-## Looping Short Input Videos
-
-When a test video is too short to exercise features like event-based recording or multi-segment
-output, use the `loop_count` parameter of `run_pipeline()` to replay the file multiple times
-without restarting the pipeline. See [Pattern 12: Pipeline Event Loop](./design-patterns.md#pattern-12-pipeline-event-loop)
-for the implementation.
 
 ## Validation Checklist
 

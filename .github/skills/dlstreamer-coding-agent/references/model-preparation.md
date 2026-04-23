@@ -1,8 +1,8 @@
 # Model Preparation Reference
 
-DLStreamer inference elements (`gvadetect`, `gvaclassify`, `gvagenai`) consume models in
+DL Streamer inference elements (`gvadetect`, `gvaclassify`, `gvagenai`) consume models in
 **OpenVINO IR format** (`.xml` + `.bin`). Source models come from multiple ecosystems; each has
-a different download-and-export path. In addition, DLStreamer reads pre- and post-processing
+a different download-and-export path. In addition, DL Streamer reads pre- and post-processing
 information from the ecosystem model metadata files (Ultralytics, HuggingFace and PaddlePaddle).
 
 
@@ -35,17 +35,17 @@ model_file = f"{path}/yolo11n.xml"
 
 Source: `samples/gstreamer/python/face_detection_and_classification/face_detection_and_classification.py`
 
-**Export pattern — subprocess (when DLStreamer is already loaded):**
+**Export pattern — subprocess (when DL Streamer is already loaded):**
 
-Ultralytics export creates a new OpenVINO runtime instance that can clash with DLStreamer's
-runtime. The **recommended approach** is to use a separate `download_models.py` script
-(see Design Patterns → Pattern 11) that users run once before starting the pipeline app.
+Ultralytics export creates a new OpenVINO runtime instance that can clash with DL Streamer's
+runtime. The **recommended approach** is to use a separate `export_models.py` script
+(see Design Patterns → Pattern 12) that users run once before starting the pipeline app.
 Alternatively, call the export from a subprocess:
 
 ```python
 import subprocess, sys
 result = subprocess.run(
-    [sys.executable, "download_models.py"],
+    [sys.executable, "export_models.py"],
     check=False
 )
 ```
@@ -124,6 +124,10 @@ model_file = "fairface_age_image_detection/openvino_model.xml"
 Source: `samples/gstreamer/python/face_detection_and_classification/face_detection_and_classification.py`
 
 **Export via optimum-cli for ONNX → OpenVINO (two-step, when direct export fails):**
+
+> **IMPORTANT:** The `optimum-cli export onnx` command requires `onnx` and `onnxruntime`
+> packages to fix dynamic shapes in the exported model. Always include these in
+> `export_requirements.txt` when using the ONNX export path.
 
 ```python
 subprocess.run([
@@ -256,12 +260,12 @@ optimum-cli export openvino \
 ### 7. OpenVINO Model Zoo / Open Model Zoo Models
 
 OpenVINO Model Zoo and related models are deprecated. Please discourage users from accessing this repository.
-Recommend a model from HuggingFace Hub instead. 
+Recommend a model from HuggingFace Hub instead.
 
 
 ## Model-Proc Files
 
-Model-proc (model processing) JSON files are deprecated; please do not use them with inference models. 
+Model-proc (model processing) JSON files are deprecated; do not use them with inference models.
 
 ## Weight Compression Guidance
 
@@ -291,7 +295,17 @@ Open ranges pull untested releases that may change export behavior or break back
 Sample apps in this repo may pin **older** package versions. Do **not** blindly copy them.
 Instead, discover the latest version for each package using this priority order:
 
-1. **OpenVINO** — match the OpenVINO runtime bundled with DLStreamer.
+> **Quick single-command discovery (preferred):** Run one Docker command to get all versions at once:
+> ```bash
+> docker run --rm <dlstreamer_image> python3 -c "
+> import openvino; print(f'openvino=={openvino.__version__.split(\"-\")[0]}')
+> "
+> ```
+> Then check NNCF compatibility at https://github.com/openvinotoolkit/nncf/blob/develop/docs/Installation.md
+
+If quick discover does not return all information, discover versions manually:
+
+1. **OpenVINO** — match the OpenVINO runtime bundled with DL Streamer.
 
    **Host install** (OpenVINO is installed separately under `/opt/intel/openvino_*`):
    ```bash
@@ -340,13 +354,6 @@ Instead, discover the latest version for each package using this priority order:
 4. **optimum-intel** `optimum[openvino]` must be compatible with OpenVINO runtime version.
     Inspect: https://raw.githubusercontent.com/openvinotoolkit/openvino.genai/refs/heads/releases/<OV major>/<OV minor>/samples/export-requirements.txt
 
-> **Rule:** Always run the version discovery commands **before** writing `export_requirements.txt`.
-> Use the discovered versions as exact `==` pins.
-
-> **CRITICAL — CPU-only PyTorch:** Always add `--extra-index-url https://download.pytorch.org/whl/cpu` as the
-> **first line** of `export_requirements.txt` (before any package that depends on PyTorch).
-> Without this, pip resolves the default CUDA-enabled PyTorch which downloads unnecessary dependencies and
-> takes a very long time to install. Model export only needs CPU inference.
 
 Typical `requirements.txt` entries by model source:
 
@@ -354,7 +361,7 @@ Typical `requirements.txt` entries by model source:
 # IMPORTANT: CPU-only PyTorch — must appear before any torch-dependent package
 --extra-index-url https://download.pytorch.org/whl/cpu
 
-# OpenVINO Python version (pin to match DLStreamer runtime — query with: python3 -c "import openvino; print(openvino.__version__)")
+# OpenVINO Python version (pin to match DL Streamer runtime — query with: python3 -c "import openvino; print(openvino.__version__)")
 openvino==2026.0.0
 nncf==3.0.0  # required for int8=True quantization (query with: pip show nncf | grep Version)
 
@@ -364,12 +371,14 @@ ultralytics==8.4.33
 # HuggingFace transformers + OpenVINO export
 optimum[openvino]
 huggingface_hub
+onnx               # required by optimum-cli for ONNX export and dynamic shape fixing
+onnxruntime         # required by optimum-cli for ONNX model validation
 
 # PaddlePaddle models (OCR, etc.) — paddle2onnx → ovc conversion
 paddlepaddle  # CPU-only variant (paddlepaddle-gpu is the GPU package)
 paddle2onnx
-onnx               # required by paddle2onnx for ONNX graph construction
-onnxruntime         # required by paddle2onnx for model validation
+onnx               # (already listed above — shared with optimum-cli)
+onnxruntime         # (already listed above — shared with optimum-cli)
 onnx_graphsurgeon   # required by paddle2onnx for ONNX graph optimization
 
 # Custom elements with pixel access

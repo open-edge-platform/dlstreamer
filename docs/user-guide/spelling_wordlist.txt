@@ -75,10 +75,6 @@ embeddings
 Entrypoint
 enum
 exe
-FFmpeg
-ffmpeg
-FFmpegContext
-FFmpegFrame
 filesrc
 filesystem
 fourcc
@@ -164,7 +160,6 @@ MemoryMapperCPUToOpenVINO
 MemoryMapperDMAToOpenCL
 MemoryMapperDMAToUSM
 MemoryMapperDMAToVAAPI
-MemoryMapperFFMPEGToVAAPI
 MemoryMapperGSTToDMA
 MemoryMapperGSTToOpenCL
 MemoryMapperGSTToVAAPI
