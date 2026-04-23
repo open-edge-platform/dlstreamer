@@ -32,6 +32,8 @@ std::vector<render::Prim> MetaExtractor::extractTextPrimitives(GstBuffer *buffer
     while ((meta = gst_buffer_iterate_meta_filtered(buffer, &state, watermark_text_meta_api_get_type()))) {
         auto text_meta = (WatermarkTextMeta *)meta;
         render::Text text_prim;
+        if (!text_meta->text)
+            continue;
         text_prim.text = text_meta->text;
         text_prim.org = cv::Point((int)text_meta->pos.x, (int)text_meta->pos.y);
         text_prim.fonttype = text_meta->font_type;
@@ -52,6 +54,8 @@ std::vector<render::Prim> MetaExtractor::extractShapePrimitives(GstBuffer *buffe
     GstMeta *meta = nullptr;
     while ((meta = gst_buffer_iterate_meta_filtered(buffer, &state, watermark_draw_meta_api_get_type()))) {
         auto draw_meta = (WatermarkDrawMeta *)meta;
+        if (!draw_meta->points)
+            continue;
         if (draw_meta->point_count == 2) {
             render::Line line_prim;
             line_prim.pt1 = cv::Point((int)draw_meta->points[0].x, (int)draw_meta->points[0].y);
