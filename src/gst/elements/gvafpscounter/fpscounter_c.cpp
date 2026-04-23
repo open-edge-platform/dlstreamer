@@ -41,10 +41,10 @@ void fps_counter_create_iterative(const char *intervals, bool print_std_dev, boo
 
 void fps_counter_create_average(unsigned int starting_frame, unsigned int interval) {
     try {
+        std::lock_guard<std::mutex> lock(channels_mutex);
         if (not fps_counters.count("average")) {
-            std::shared_ptr<FpsCounter> fps_counter = nullptr;
-            fps_counter = std::make_shared<IterativeFpsCounter>(starting_frame, interval, true, false, false);
-            fps_counters.insert({"average", fps_counter});
+            fps_counters.insert(
+                {"average", std::make_shared<IterativeFpsCounter>(starting_frame, interval, true, false, false)});
         }
     } catch (std::exception &e) {
         GVA_ERROR("Error during creation average fpscounter: %s", Utils::createNestedErrorMsg(e).c_str());
@@ -53,10 +53,9 @@ void fps_counter_create_average(unsigned int starting_frame, unsigned int interv
 
 void fps_counter_create_writepipe(const char *pipe_name) {
     try {
+        std::lock_guard<std::mutex> lock(channels_mutex);
         if (not fps_counters.count("writepipe")) {
-            std::shared_ptr<FpsCounter> fps_counter = nullptr;
-            fps_counter = std::make_shared<WritePipeFpsCounter>(pipe_name);
-            fps_counters.insert({"writepipe", fps_counter});
+            fps_counters.insert({"writepipe", std::make_shared<WritePipeFpsCounter>(pipe_name)});
         }
     } catch (std::exception &e) {
         GVA_ERROR("Error during creation writepipe fpscounter: %s", Utils::createNestedErrorMsg(e).c_str());
@@ -65,18 +64,17 @@ void fps_counter_create_writepipe(const char *pipe_name) {
 
 void fps_counter_create_readpipe(void *fpscounter, const char *pipe_name) {
     try {
+        std::lock_guard<std::mutex> lock(channels_mutex);
         if (not fps_counters.count("readpipe")) {
             auto pipe_complete_lambda = [=]() {
                 fps_counter_eos(GST_ELEMENT_NAME(GST_BASE_TRANSFORM(fpscounter)));
-                // Pushing an EOS event downstream to signal that we're done.
                 bool handled = gst_pad_push_event(GST_BASE_TRANSFORM(fpscounter)->srcpad, gst_event_new_eos());
                 if (!handled)
                     throw std::runtime_error("FpsCounter ReadPipe: EOS event wasn't handled. Spinning...");
             };
             auto new_message_lambda = [](const char *name) { fps_counter_new_frame(NULL, name, NULL); };
-            std::shared_ptr<FpsCounter> fps_counter = nullptr;
-            fps_counter = std::make_shared<ReadPipeFpsCounter>(pipe_name, new_message_lambda, pipe_complete_lambda);
-            fps_counters.insert({"readpipe", fps_counter});
+            fps_counters.insert({"readpipe", std::make_shared<ReadPipeFpsCounter>(pipe_name, new_message_lambda,
+                                                                                  pipe_complete_lambda)});
         }
     } catch (std::exception &e) {
         GVA_ERROR("Error during creation readpipe fpscounter: %s", Utils::createNestedErrorMsg(e).c_str());
@@ -85,6 +83,7 @@ void fps_counter_create_readpipe(void *fpscounter, const char *pipe_name) {
 
 void fps_counter_new_frame(GstBuffer *buffer, const char *element_name, void *gstgvafpscounter) {
     try {
+        std::lock_guard<std::mutex> lock(channels_mutex);
         for (auto counter = fps_counters.begin(); counter != fps_counters.end(); ++counter) {
             counter->second->NewFrame(element_name, output, buffer);
             if (gstgvafpscounter && counter->first == "average") {
@@ -102,6 +101,7 @@ void fps_counter_new_frame(GstBuffer *buffer, const char *element_name, void *gs
 
 void fps_counter_eos(const char *element_name) {
     try {
+        std::lock_guard<std::mutex> lock(channels_mutex);
         for (auto counter = fps_counters.begin(); counter != fps_counters.end(); ++counter)
             counter->second->EOS(element_name, output);
     } catch (std::exception &e) {

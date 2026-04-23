@@ -42,6 +42,7 @@
 
 #include <functional>
 #include <iterator>
+#include <mutex>
 #include <regex>
 #include <stdio.h>
 #include <thread>
@@ -754,10 +755,16 @@ class OpenVinoNewApiImpl {
         return 0;
     }
 
-    // Singleton core object
     static ov::Core &core() {
         static ov::Core ovcore;
         return ovcore;
+    }
+
+    // Serializes compile_model / create_context calls that trigger device plugin init.
+    // read_model is intentionally NOT serialized — it is a pure XML parse.
+    static std::mutex &compile_mutex() {
+        static std::mutex m;
+        return m;
     }
 
   protected:
@@ -809,7 +816,7 @@ class OpenVinoNewApiImpl {
             try {
                 _batch_size = core().get_property(config.device(), ov::optimal_batch_size);
             } catch (...) {
-                _batch_size = 1; // Fallback if optimal batch size property is not supported
+                _batch_size = 1;
             }
         }
 
@@ -1071,14 +1078,17 @@ class OpenVinoNewApiImpl {
         }
 
         // print_input_and_outputs_info(*_model);
-        if (_openvino_context) {
-            _compiled_model = core().compile_model(_model, _openvino_context->remote_context(), ov_params);
-        } else {
-            std::string formatted_device = _device;
-            if (_batch_timeout > -1) {
-                formatted_device = fmt::format("BATCH:{}({})", _device, _auto_batch_num_requests);
+        {
+            std::lock_guard<std::mutex> lock(compile_mutex());
+            if (_openvino_context) {
+                _compiled_model = core().compile_model(_model, _openvino_context->remote_context(), ov_params);
+            } else {
+                std::string formatted_device = _device;
+                if (_batch_timeout > -1) {
+                    formatted_device = fmt::format("BATCH:{}({})", _device, _auto_batch_num_requests);
+                }
+                _compiled_model = core().compile_model(_model, formatted_device, ov_params);
             }
-            _compiled_model = core().compile_model(_model, formatted_device, ov_params);
         }
         GVA_INFO("Network loaded to device");
 
@@ -1129,6 +1139,7 @@ class OpenVinoNewApiImpl {
                 if (_app_context) {
                     try {
                         dlstreamer::D3D11ContextPtr d3d11_ctx = dlstreamer::D3D11Context::create(_app_context);
+                        std::lock_guard<std::mutex> lock(compile_mutex());
                         _openvino_context = std::make_shared<dlstreamer::OpenVINOContext>(core(), _device, d3d11_ctx);
                     } catch (std::exception &e) {
                         GVA_ERROR("Exception occurred when creating OpenVINO™ toolkit remote context: %s", e.what());
@@ -1144,6 +1155,7 @@ class OpenVinoNewApiImpl {
                 if (_app_context) {
                     try {
                         dlstreamer::VAAPIContextPtr vaapi_ctx = dlstreamer::VAAPIContext::create(_app_context);
+                        std::lock_guard<std::mutex> lock(compile_mutex());
                         _openvino_context = std::make_shared<dlstreamer::OpenVINOContext>(core(), _device, vaapi_ctx);
                     } catch (std::exception &e) {
                         GVA_ERROR("Exception occurred when creating OpenVINO™ toolkit remote context: %s", e.what());
