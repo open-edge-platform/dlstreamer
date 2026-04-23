@@ -68,7 +68,7 @@ class ImageInferenceAsyncD3D11 : public ImageInference {
     DXGI_FORMAT _dst_format = DXGI_FORMAT_UNKNOWN;
     uint32_t _dst_width = 0, _dst_height = 0;
 
-    // Converter on the dst device. Created lazily on first SubmitImage.
+    // Converter on the dst device. Created lazily; recreated on source dimension/format change.
     std::unique_ptr<D3D11Converter> _converter;
     std::mutex _converter_mutex;
 

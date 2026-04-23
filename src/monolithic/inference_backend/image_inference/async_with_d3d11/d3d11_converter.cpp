@@ -37,7 +37,8 @@ GstVideoFormat DXGIFormatToGst(DXGI_FORMAT format) {
 
 D3D11Converter::D3D11Converter(GstD3D11Device *device, uint32_t src_width, uint32_t src_height, DXGI_FORMAT src_format,
                                uint32_t dst_width, uint32_t dst_height, DXGI_FORMAT dst_format)
-    : _device(device), _src_width(src_width), _src_height(src_height), _dst_width(dst_width), _dst_height(dst_height) {
+    : _device(device), _src_width(src_width), _src_height(src_height), _dst_width(dst_width), _dst_height(dst_height),
+      _src_format(src_format) {
 
     if (!device)
         throw std::invalid_argument("D3D11Converter: device is null");

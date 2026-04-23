@@ -58,6 +58,19 @@ DXGI_FORMAT FourCCToDXGI(int fourcc) {
     }
 }
 
+int DXGIToFourCC(DXGI_FORMAT format) {
+    switch (format) {
+    case DXGI_FORMAT_B8G8R8A8_UNORM:
+        return FourCC::FOURCC_BGRA;
+    case DXGI_FORMAT_R8G8B8A8_UNORM:
+        return FourCC::FOURCC_RGBA;
+    case DXGI_FORMAT_NV12:
+        return FourCC::FOURCC_NV12;
+    default:
+        return FourCC::FOURCC_BGRA;
+    }
+}
+
 const InputImageLayerDesc::Ptr
 getImagePreProcInfo(const std::map<std::string, InferenceBackend::InputLayerDesc::Ptr> &input_preprocessors) {
     const auto image_it = input_preprocessors.find("image");
@@ -73,15 +86,22 @@ getImagePreProcInfo(const std::map<std::string, InferenceBackend::InputLayerDesc
 void AllocateTexturePool(GstD3D11Device *device, const D3D11_TEXTURE2D_DESC &desc, size_t count,
                          std::vector<GstMemory *> &out) {
     auto *allocator = GST_D3D11_ALLOCATOR(g_object_new(gst_d3d11_allocator_get_type(), nullptr));
-    for (size_t i = 0; i < count; i++) {
-        GstMemory *mem = gst_d3d11_allocator_alloc(allocator, device, &desc);
-        if (!mem) {
-            gst_object_unref(allocator);
-            throw std::runtime_error("D3D11: Failed to allocate texture");
+    std::vector<GstMemory *> allocated;
+    try {
+        for (size_t i = 0; i < count; i++) {
+            GstMemory *mem = gst_d3d11_allocator_alloc(allocator, device, &desc);
+            if (!mem)
+                throw std::runtime_error("D3D11: Failed to allocate texture");
+            allocated.push_back(mem);
         }
-        out.push_back(mem);
+    } catch (...) {
+        for (auto *m : allocated)
+            gst_memory_unref(m);
+        gst_object_unref(allocator);
+        throw;
     }
     gst_object_unref(allocator);
+    out.insert(out.end(), allocated.begin(), allocated.end());
 }
 
 } // namespace
@@ -168,7 +188,7 @@ ImageInferenceAsyncD3D11::~ImageInferenceAsyncD3D11() {
 
 void ImageInferenceAsyncD3D11::EnsureConverter(uint32_t src_width, uint32_t src_height, DXGI_FORMAT src_format) {
     std::lock_guard lk(_converter_mutex);
-    if (_converter)
+    if (_converter && _converter->IsCompatible(src_width, src_height, src_format))
         return;
     _converter = std::make_unique<D3D11Converter>(_gst_device, src_width, src_height, src_format, _dst_width,
                                                   _dst_height, _dst_format);
@@ -182,7 +202,7 @@ ImageInferenceAsyncD3D11::GetCrossDeviceResources(GstD3D11Device *src_gst_device
     auto *src_device = gst_d3d11_device_get_device_handle(src_gst_device);
     std::lock_guard lk(_cross_device_mutex);
     auto it = _cross_device_resources.find(src_device);
-    if (it != _cross_device_resources.end())
+    if (it != _cross_device_resources.end() && it->second->converter->IsCompatible(src_width, src_height, src_format))
         return *it->second;
 
     auto res = std::make_unique<CrossDeviceResources>();
@@ -209,7 +229,8 @@ GstBuffer *ImageInferenceAsyncD3D11::WrapSourceTexture(const Image &src_image, G
         throw std::invalid_argument("WrapSourceTexture: null texture");
 
     auto *allocator = GST_D3D11_ALLOCATOR(g_object_new(gst_d3d11_allocator_get_type(), nullptr));
-    GstMemory *mem = gst_d3d11_allocator_alloc_wrapped(allocator, device, src_image.d3d11_texture, 0, nullptr, nullptr);
+    GstMemory *mem = gst_d3d11_allocator_alloc_wrapped(allocator, device, src_image.d3d11_texture,
+                                                       src_image.d3d11_subresource_index, nullptr, nullptr);
     gst_object_unref(allocator);
     if (!mem)
         throw std::runtime_error("WrapSourceTexture: Failed to wrap D3D11 texture");
@@ -227,7 +248,7 @@ void ImageInferenceAsyncD3D11::BuildSurfaceSharingImage(IFrameBase::Ptr &frame, 
     image->type = MemoryType::D3D11;
     image->width = _dst_width;
     image->height = _dst_height;
-    image->format = FourCC::FOURCC_NV12;
+    image->format = DXGIToFourCC(_dst_format);
     image->d3d11_texture = static_cast<ID3D11Texture2D *>(ov_texture);
     image->gst_d3d11_device = _gst_device;
     image->d3d11_subresource_index = 0;
@@ -252,14 +273,12 @@ void ImageInferenceAsyncD3D11::BuildSystemMemoryImage(IFrameBase::Ptr &frame, Gs
     guint stride = 0;
     gst_d3d11_memory_get_resource_stride(GST_D3D11_MEMORY_CAST(dst_mem), &stride);
 
+    image->format = DXGIToFourCC(_dst_texture_desc.Format);
     image->planes[0] = map_info.data;
     image->stride[0] = stride;
     if (_dst_texture_desc.Format == DXGI_FORMAT_NV12) {
         image->planes[1] = map_info.data + stride * _dst_height;
         image->stride[1] = stride;
-        image->format = FourCC::FOURCC_NV12;
-    } else {
-        image->format = FourCC::FOURCC_BGRA;
     }
 
     frame->SetImage(std::shared_ptr<Image>(image.release(), [release_mem, dst_mem, map_info](Image *img) mutable {
