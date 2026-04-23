@@ -22,10 +22,7 @@ namespace post_processing {
 
 class DepthConverter : public BlobToTensorConverter {
   public:
-    DepthConverter(BlobToMetaConverter::Initializer initializer) : BlobToTensorConverter(std::move(initializer)) {
-  if (!raw_tensor_copying->enabled(RawTensorCopyingToggle::id))
-            GVA_WARNING("%s", RawTensorCopyingToggle::deprecation_message.c_str());
-    }
+    DepthConverter(BlobToMetaConverter::Initializer initializer);
 
     TensorsTable convert(const OutputBlobs &output_blobs) override;
 

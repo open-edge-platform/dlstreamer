@@ -13,9 +13,9 @@
 #include "tensor.h"
 
 #include <algorithm>
-#include <cstdint>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <exception>
 #include <limits>
 #include <string>
@@ -260,7 +260,7 @@ TensorsTable DepthConverter::convert(const OutputBlobs &model_outputs) {
             depth_summary.set_type("depth_result");
             depth_summary.set_format("depth_summary");
 
-            if (!raw_tensor_copying->enabled(RawTensorCopyingToggle::id)) {
+            if (!skipRawTensors()) {
                 CopyOutputBlobToGstStructure(output_blob, depth_summary.gst_structure(),
                                              BlobToMetaConverter::getModelName().c_str(), output_name.c_str(),
                                              batch_size, batch_index);
