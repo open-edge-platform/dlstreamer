@@ -57,19 +57,20 @@ $set MODELS_PATH = 'C:\models'
 ```
 ### Command Line Arguments
 ```PowerShell
-.\generate_frame_embedding.bat [SOURCE] [DEVICE] [PRECISION] [MODEL] [PPBKEND] [OUTPUT]
+.\generate_frame_embedding.ps1 [-InputSource <path>] [-Device <device>] [-Precision <precision>] [-Model <model>] [-PreprocessBackend <backend>] [-OutputType <type>] [-FrameLimiter <element>]
 ```
 
-The sample takes six command-line *optional* parameters:
+The sample takes the following *optional* parameters:
 
-| # | Argument | Description | Default |
-| :--- | :--- | :--- | :--- |
-| 1 | SOURCE | Local file path or HTTPS URL | Pexels Video URL |
-| 2 | DEVICE | `CPU`, `GPU`, or `NPU` | `CPU` |
-| 3 | PRECISION | `FP32`, `FP16`, or `INT8` | `FP32` |
-| 4 | MODEL | CLIP model name (see above) | `clip-vit-large-patch14` |
-| 5 | PPBKEND | `opencv` (CPU) or `d3d11` (GPU/NPU) | `opencv` for CPU; `d3d11` for GPU/NPU |
-| 6 | OUTPUT | `json` (save embeddings) or `fps` (benchmark) | `json` |
+| Parameter | Description | Default |
+| :--- | :--- | :--- |
+| -InputSource | Local file path or HTTPS URL | Pexels Video URL |
+| -Device | `CPU`, `GPU`, or `NPU` | `CPU` |
+| -Precision | `FP32`, `FP16`, or `INT8` | `FP32` |
+| -Model | CLIP model name (see above) | `clip-vit-large-patch14` |
+| -PreprocessBackend | `opencv` (CPU) or `d3d11` (GPU/NPU) | `opencv` for CPU; `d3d11` for GPU/NPU |
+| -OutputType | `json` (save embeddings) or `fps` (benchmark) | `json` |
+| -FrameLimiter | Optional GStreamer element to insert after decode | empty |
 
 ## Sample Output
 
@@ -87,15 +88,20 @@ The sample:
 
 Default execution (CPU, FP32, JSON output):
 ```PowerShell
-.\generate_frame_embedding.bat
+.\generate_frame_embedding.ps1
 ```
 
 High-performance GPU inference (Intel® Arc™ GPU, FP16):
 ```PowerShell
-.\generate_frame_embedding.bat "C:\you\video\path\sample.mp4" GPU FP16 clip-vit-large-patch14 d3d11 json
+.\generate_frame_embedding.ps1 -InputSource "C:\you\video\path\sample.mp4" -Device GPU -Precision FP16 -Model clip-vit-large-patch14 -PreprocessBackend d3d11 -OutputType json
 ```
 
 Benchmark throughput (FPS mode):
 ```PowerShell
-.\generate_frame_embedding.bat https://example.com/stream.mp4 CPU FP32 clip-vit-base-patch32 opencv fps
+.\generate_frame_embedding.ps1 -InputSource https://example.com/stream.mp4 -Device CPU -Precision FP32 -Model clip-vit-base-patch32 -PreprocessBackend opencv -OutputType fps
+```
+
+Process only first 1000 frames (for testing):
+```PowerShell
+.\generate_frame_embedding.ps1 -InputSource "C:\videos\sample.mp4" -Device GPU -OutputType json -FrameLimiter " ! identity eos-after=1000"
 ```

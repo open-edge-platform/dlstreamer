@@ -35,54 +35,62 @@ Models should be located at:
 ## Running
 
 ```PowerShell
-.\license_plate_recognition.bat [INPUT] [DEVICE] [OUTPUT] [JSON_FILE]
+.\license_plate_recognition.ps1 [-InputSource <path>] [-Device <device>] [-OutputType <type>] [-JsonFile <file>] [-FrameLimiter <element>]
 ```
 
-Arguments:
-- **INPUT** - Input source (default: `https://github.com/open-edge-platform/edge-ai-resources/raw/main/videos/ParkingVideo.mp4`)
+Parameters:
+- **-InputSource** - Input source (default: `https://github.com/open-edge-platform/edge-ai-resources/raw/main/videos/ParkingVideo.mp4`)
   - Local file path (e.g., `C:\videos\parking.mp4`)
   - URL (e.g., `https://...`)
-- **DEVICE** - Inference device (default: `GPU`)
+- **-Device** - Inference device (default: `GPU`)
   - Supported: `CPU`, `GPU`, `NPU`
-- **OUTPUT** - Output type (default: `fps`)
+- **-OutputType** - Output type (default: `fps`)
   - `display` - Show video with overlay (sync)
   - `display-async` - Show video with overlay (async, faster)
   - `fps` - Benchmark mode (no display)
   - `json` - Export metadata to JSON
   - `display-and-json` - Display and export
   - `file` - Save to MP4 file
-- **JSON_FILE** - JSON output filename (default: `output.json`)
+- **-JsonFile** - JSON output filename (default: `output.json`)
+- **-FrameLimiter** - Optional GStreamer element to insert after decode (default: empty)
+  - Example: `" ! identity eos-after=1000"` - Process only first 1000 frames
+  - Useful for testing/benchmarking with limited frame count
 
 ## Examples
 
 ### Use default settings (GitHub video, GPU, benchmark mode)
 ```PowerShell
-.\license_plate_recognition.bat
+.\license_plate_recognition.ps1
 ```
 
 ### Display with real-time visualization
 ```PowerShell
-.\license_plate_recognition.bat "C:\videos\parking.mp4" GPU display-async
+.\license_plate_recognition.ps1 -InputSource "C:\videos\parking.mp4" -Device GPU -OutputType display-async
 ```
 
 ### Export recognized plates to JSON
 ```PowerShell
-.\license_plate_recognition.bat "C:\videos\parking.mp4" GPU json plates.json
+.\license_plate_recognition.ps1 -InputSource "C:\videos\parking.mp4" -Device GPU -OutputType json -JsonFile plates.json
 ```
 
 ### Benchmark performance on CPU
 ```PowerShell
-.\license_plate_recognition.bat "C:\videos\parking.mp4" CPU fps
+.\license_plate_recognition.ps1 -InputSource "C:\videos\parking.mp4" -Device CPU -OutputType fps
 ```
 
 ### Run on NPU with display
 ```PowerShell
-.\license_plate_recognition.bat "C:\videos\parking.mp4" NPU display-async
+.\license_plate_recognition.ps1 -InputSource "C:\videos\parking.mp4" -Device NPU -OutputType display-async
 ```
 
 ### Save annotated video
 ```PowerShell
-.\license_plate_recognition.bat "C:\videos\parking.mp4" GPU file
+.\license_plate_recognition.ps1 -InputSource "C:\videos\parking.mp4" -Device GPU -OutputType file
+```
+
+### Process only first 1000 frames (for testing)
+```PowerShell
+.\license_plate_recognition.ps1 -InputSource "C:\videos\parking.mp4" -Device GPU -OutputType json -FrameLimiter " ! identity eos-after=1000"
 ```
 
 ## Performance Tips

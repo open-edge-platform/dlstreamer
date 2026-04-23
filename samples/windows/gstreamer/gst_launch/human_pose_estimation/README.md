@@ -30,23 +30,23 @@ Model should be located at:
 ## Running
 
 ```PowerShell
-.\human_pose_estimation.bat [INPUT] [DEVICE] [OUTPUT] [JSON_FILE] [BENCHMARK_SINK]
+.\human_pose_estimation.ps1 [-InputSource <path>] [-Device <device>] [-OutputType <type>] [-JsonFile <file>] [-FrameLimiter <element>]
 ```
 
-Arguments:
-- **INPUT** - Input source (default: `https://github.com/intel-iot-devkit/sample-videos/raw/master/face-demographics-walking.mp4`)
+Parameters:
+- **-InputSource** - Input source (default: `https://github.com/intel-iot-devkit/sample-videos/raw/master/face-demographics-walking.mp4`)
   - Local file path (e.g., `C:\videos\video.mp4`)
   - URL (e.g., `https://...`)
-- **DEVICE** - Device for inference (default: `CPU`)
+- **-Device** - Device for inference (default: `CPU`)
   - Supported: `CPU`, `GPU`, `NPU`
-- **OUTPUT** - Output type (default: `display`)
+- **-OutputType** - Output type (default: `display`)
   - `display` - Show video with pose overlay
   - `file` - Save to MP4 file
   - `fps` - Benchmark mode (no display)
   - `json` - Export metadata to JSON
   - `display-and-json` - Show video and save JSON
-- **JSON_FILE** - JSON output filename (default: `output.json`)
-- **BENCHMARK_SINK** - Optional GStreamer element to insert after decode (default: empty)
+- **-JsonFile** - JSON output filename (default: `output.json`)
+- **-FrameLimiter** - Optional GStreamer element to insert after decode (default: empty)
   - Example: `" ! identity eos-after=1000"` - Process only first 1000 frames
   - Example: `" ! identity eos-after=500"` - Process only first 500 frames
   - Useful for testing/benchmarking with limited frame count
@@ -55,32 +55,32 @@ Arguments:
 
 ### Use default settings (GitHub video, CPU, display)
 ```PowerShell
-.\human_pose_estimation.bat
+.\human_pose_estimation.ps1
 ```
 
 ### Display with CPU inference
 ```PowerShell
-.\human_pose_estimation.bat "C:\videos\walking.mp4" CPU display
+.\human_pose_estimation.ps1 -InputSource "C:\videos\walking.mp4" -Device CPU -OutputType display
 ```
 
 ### Save to file with GPU inference
 ```PowerShell
-.\human_pose_estimation.bat "C:\videos\walking.mp4" GPU file
+.\human_pose_estimation.ps1 -InputSource "C:\videos\walking.mp4" -Device GPU -OutputType file
 ```
 
 ### Export metadata to JSON
 ```PowerShell
-.\human_pose_estimation.bat "C:\videos\walking.mp4" CPU json pose_results.json
+.\human_pose_estimation.ps1 -InputSource "C:\videos\walking.mp4" -Device CPU -OutputType json -JsonFile pose_results.json
 ```
 
 ### Process only first 1000 frames (for testing)
 ```PowerShell
-.\human_pose_estimation.bat "C:\videos\long_video.mp4" CPU json output.json " ! identity eos-after=1000"
+.\human_pose_estimation.ps1 -InputSource "C:\videos\long_video.mp4" -Device CPU -OutputType json -FrameLimiter " ! identity eos-after=1000"
 ```
 
 ### Benchmark FPS on NPU
 ```PowerShell
-.\human_pose_estimation.bat "C:\videos\walking.mp4" NPU fps
+.\human_pose_estimation.ps1 -InputSource "C:\videos\walking.mp4" -Device NPU -OutputType fps
 ```
 
 ## Pipeline Architecture

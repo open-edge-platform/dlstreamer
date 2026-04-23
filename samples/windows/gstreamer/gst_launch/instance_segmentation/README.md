@@ -34,26 +34,26 @@ Models should be located at:
 ## Running
 
 ```PowerShell
-.\instance_segmentation.bat [MODEL] [DEVICE] [INPUT] [OUTPUT] [JSON_FILE] [BENCHMARK_SINK]
+.\instance_segmentation.ps1 [-Model <model>] [-Device <device>] [-InputSource <path>] [-OutputType <type>] [-JsonFile <file>] [-FrameLimiter <element>]
 ```
 
-Arguments:
-- **MODEL** - Model name (default: `mask_rcnn_inception_resnet_v2_atrous_coco`)
+Parameters:
+- **-Model** - Model name (default: `mask_rcnn_inception_resnet_v2_atrous_coco`)
   - Supported: `mask_rcnn_inception_resnet_v2_atrous_coco`, `mask_rcnn_resnet50_atrous_coco`
-- **DEVICE** - Inference device (default: `CPU`)
+- **-Device** - Inference device (default: `CPU`)
   - Supported: `CPU`, `GPU`, `NPU`
-- **INPUT** - Input source (default: `https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4`)
+- **-InputSource** - Input source (default: `https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4`)
   - Local file path (e.g., `C:\videos\street.mp4`)
   - URL (e.g., `https://...`)
-- **OUTPUT** - Output type (default: `file`)
+- **-OutputType** - Output type (default: `file`)
   - `file` - Save to MP4 with watermark
   - `display` - Display video with overlay
   - `fps` - Benchmark mode (no display)
   - `json` - Export metadata to JSON
   - `display-and-json` - Display and export
   - `jpeg` - Save frames as JPEG sequence
-- **JSON_FILE** - JSON output filename (default: `output.json`)
-- **BENCHMARK_SINK** - Optional GStreamer element to insert after decode (default: empty)
+- **-JsonFile** - JSON output filename (default: `output.json`)
+- **-FrameLimiter** - Optional GStreamer element to insert after decode (default: empty)
   - Example: `" ! identity eos-after=100"` - Process only first 100 frames
   - Example: `" ! identity eos-after=1000"` - Process only first 1000 frames
   - Useful for testing/benchmarking with limited frame count
@@ -62,32 +62,32 @@ Arguments:
 
 ### Use default settings (Inception ResNet V2, CPU, Pexels video, save to file)
 ```PowerShell
-.\instance_segmentation.bat
+.\instance_segmentation.ps1
 ```
 
 ### ResNet50 on GPU with display
 ```PowerShell
-.\instance_segmentation.bat mask_rcnn_resnet50_atrous_coco GPU "C:\videos\street.mp4" display
+.\instance_segmentation.ps1 -Model mask_rcnn_resnet50_atrous_coco -Device GPU -InputSource "C:\videos\street.mp4" -OutputType display
 ```
 
 ### Export to JSON
 ```PowerShell
-.\instance_segmentation.bat mask_rcnn_inception_resnet_v2_atrous_coco CPU "C:\videos\street.mp4" json segmentation.json
+.\instance_segmentation.ps1 -Model mask_rcnn_inception_resnet_v2_atrous_coco -Device CPU -InputSource "C:\videos\street.mp4" -OutputType json -JsonFile segmentation.json
 ```
 
 ### Export segmentation masks as JPEG sequence
 ```PowerShell
-.\instance_segmentation.bat mask_rcnn_resnet50_atrous_coco GPU "C:\videos\street.mp4" jpeg
+.\instance_segmentation.ps1 -Model mask_rcnn_resnet50_atrous_coco -Device GPU -InputSource "C:\videos\street.mp4" -OutputType jpeg
 ```
 
 ### Benchmark FPS on NPU
 ```PowerShell
-.\instance_segmentation.bat mask_rcnn_resnet50_atrous_coco NPU "C:\videos\street.mp4" fps
+.\instance_segmentation.ps1 -Model mask_rcnn_resnet50_atrous_coco -Device NPU -InputSource "C:\videos\street.mp4" -OutputType fps
 ```
 
 ### Process only first 100 frames (for testing)
 ```PowerShell
-.\instance_segmentation.bat mask_rcnn_inception_resnet_v2_atrous_coco CPU "C:\videos\street.mp4" json output.json " ! identity eos-after=100"
+.\instance_segmentation.ps1 -Model mask_rcnn_inception_resnet_v2_atrous_coco -Device CPU -InputSource "C:\videos\street.mp4" -OutputType json -FrameLimiter " ! identity eos-after=100"
 ```
 
 ## Output

@@ -36,62 +36,70 @@ Models should be located at:
 ## Running
 
 ```PowerShell
-.\vehicle_pedestrian_tracking.bat [INPUT] [DETECTION_INTERVAL] [DEVICE] [OUTPUT] [TRACKING_TYPE] [JSON_FILE]
+.\vehicle_pedestrian_tracking.ps1 [-InputSource <path>] [-DetectionInterval <interval>] [-Device <device>] [-OutputType <type>] [-TrackingType <type>] [-JsonFile <file>] [-FrameLimiter <element>]
 ```
 
-Arguments:
-- **INPUT** - Input source (default: `https://github.com/intel-iot-devkit/sample-videos/raw/master/person-bicycle-car-detection.mp4`)
+Parameters:
+- **-InputSource** - Input source (default: `https://github.com/intel-iot-devkit/sample-videos/raw/master/person-bicycle-car-detection.mp4`)
   - Local file path (e.g., `C:\videos\traffic.mp4`)
   - URL (e.g., `https://...`)
-- **DETECTION_INTERVAL** - Detection frequency (default: `3`)
+- **-DetectionInterval** - Detection frequency (default: `3`)
   - `1` = detect every frame (highest accuracy, slowest)
   - `3` = detect every 3rd frame (tracking fills gaps)
   - Higher value = better performance, lower accuracy
-- **DEVICE** - Inference device (default: `AUTO`)
-  - Supported: `AUTO`, `CPU`, `GPU`, `GPU.0`
-- **OUTPUT** - Output type (default: `display`)
+- **-Device** - Inference device (default: `AUTO`)
+  - Supported: `AUTO`, `CPU`, `GPU`, `GPU.0`, `NPU`
+- **-OutputType** - Output type (default: `display`)
   - `display` - Display with sync
   - `display-async` - Display async (faster)
   - `fps` - Benchmark mode (no display)
   - `json` - Export metadata to JSON
   - `display-and-json` - Display and export
   - `file` - Save to MP4 file
-- **TRACKING_TYPE** - Tracking algorithm (default: `short-term-imageless`)
+- **-TrackingType** - Tracking algorithm (default: `short-term-imageless`)
   - `short-term-imageless` - Fast, appearance-free tracking
   - `zero-term` - Detection-only (no tracking)
   - `zero-term-imageless` - Simplified zero-term
-- **JSON_FILE** - JSON output filename (default: `output.json`)
+- **-JsonFile** - JSON output filename (default: `output.json`)
+- **-FrameLimiter** - Optional GStreamer element to insert after decode (default: empty)
+  - Example: `" ! identity eos-after=1000"` - Process only first 1000 frames
+  - Useful for testing/benchmarking with limited frame count
 
 ## Examples
 
 ### Use default settings (GitHub video, detect every 3rd frame, AUTO device, display)
 ```PowerShell
-.\vehicle_pedestrian_tracking.bat
+.\vehicle_pedestrian_tracking.ps1
 ```
 
 ### Detect every 3rd frame with tracking on GPU
 ```PowerShell
-.\vehicle_pedestrian_tracking.bat "C:\videos\traffic.mp4" 3 GPU display-async
+.\vehicle_pedestrian_tracking.ps1 -InputSource "C:\videos\traffic.mp4" -DetectionInterval 3 -Device GPU -OutputType display-async
 ```
 
 ### High-accuracy mode (detect every frame)
 ```PowerShell
-.\vehicle_pedestrian_tracking.bat "C:\videos\traffic.mp4" 1 AUTO display
+.\vehicle_pedestrian_tracking.ps1 -InputSource "C:\videos\traffic.mp4" -DetectionInterval 1 -Device AUTO -OutputType display
 ```
 
 ### Export tracking data to JSON
 ```PowerShell
-.\vehicle_pedestrian_tracking.bat "C:\videos\traffic.mp4" 3 GPU json short-term-imageless tracking_results.json
+.\vehicle_pedestrian_tracking.ps1 -InputSource "C:\videos\traffic.mp4" -DetectionInterval 3 -Device GPU -OutputType json -TrackingType short-term-imageless -JsonFile tracking_results.json
 ```
 
 ### Performance benchmark (detect every 10 frames)
 ```PowerShell
-.\vehicle_pedestrian_tracking.bat "C:\videos\traffic.mp4" 10 GPU fps
+.\vehicle_pedestrian_tracking.ps1 -InputSource "C:\videos\traffic.mp4" -DetectionInterval 10 -Device GPU -OutputType fps
 ```
 
 ### Different tracking algorithm
 ```PowerShell
-.\vehicle_pedestrian_tracking.bat "C:\videos\traffic.mp4" 1 GPU display zero-term
+.\vehicle_pedestrian_tracking.ps1 -InputSource "C:\videos\traffic.mp4" -DetectionInterval 1 -Device GPU -OutputType display -TrackingType zero-term
+```
+
+### Process only first 1000 frames (for testing)
+```PowerShell
+.\vehicle_pedestrian_tracking.ps1 -InputSource "C:\videos\traffic.mp4" -DetectionInterval 10 -Device GPU -OutputType json -FrameLimiter " ! identity eos-after=1000"
 ```
 
 ## Pipeline Architecture
