@@ -242,7 +242,7 @@ jobs:
           echo "Showing workspace"
           ls
 
-      - name: Run Unit tests (ctests)
+      - name: Run Unit tests (ctests and pytests)
         if: needs.setup.outputs.should_run == 'true'
         run: |
           echo "Setting up DL Streamer environment..."
@@ -272,8 +272,6 @@ jobs:
 
       - name: Check and display unit test results
         if: always() && needs.setup.outputs.should_run == 'true'
-        env:
-          RESULTS_DIR: test-results
         run: |
           RESULTS_FILE="${{ env.RESULTS_DIR }}/unit_test_summary.txt"
 
