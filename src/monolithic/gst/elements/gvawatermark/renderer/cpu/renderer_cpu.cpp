@@ -253,7 +253,7 @@ void RendererI420::draw_polygon(std::vector<cv::Mat> &mats, render::Polygon poly
     cv::Mat &v = mats[2];
 
     std::vector<std::vector<cv::Point>> contours = {polygon.points};
-    cv::polylines(y, contours, true, polygon.color[0], polygon.thick);
+    cv::drawContours(y, contours, 0, polygon.color[0], polygon.thick);
 
     std::vector<cv::Point> pts_uv;
     pts_uv.reserve(polygon.points.size());
@@ -261,8 +261,8 @@ void RendererI420::draw_polygon(std::vector<cv::Mat> &mats, render::Polygon poly
         pts_uv.push_back(calc_point_for_u_v_planes(pt));
     std::vector<std::vector<cv::Point>> contours_uv = {pts_uv};
     int thick_uv = calc_thick_for_u_v_planes(polygon.thick);
-    cv::polylines(u, contours_uv, true, polygon.color[1], thick_uv);
-    cv::polylines(v, contours_uv, true, polygon.color[2], thick_uv);
+    cv::drawContours(u, contours_uv, 0, polygon.color[1], thick_uv);
+    cv::drawContours(v, contours_uv, 0, polygon.color[2], thick_uv);
 }
 
 void RendererI420::draw_instance_mask(std::vector<cv::Mat> &mats, render::InstanceSegmantationMask mask) {
@@ -373,15 +373,15 @@ void RendererNV12::draw_polygon(std::vector<cv::Mat> &mats, render::Polygon poly
     cv::Mat &u_v = mats[1];
 
     std::vector<std::vector<cv::Point>> contours = {polygon.points};
-    cv::polylines(y, contours, true, polygon.color[0], polygon.thick);
+    cv::drawContours(y, contours, 0, polygon.color[0], polygon.thick);
 
     std::vector<cv::Point> pts_uv;
     pts_uv.reserve(polygon.points.size());
     for (const auto &pt : polygon.points)
         pts_uv.push_back(calc_point_for_u_v_planes(pt));
     std::vector<std::vector<cv::Point>> contours_uv = {pts_uv};
-    cv::polylines(u_v, contours_uv, true, {polygon.color[1], polygon.color[2]},
-                  calc_thick_for_u_v_planes(polygon.thick));
+    cv::drawContours(u_v, contours_uv, 0, {polygon.color[1], polygon.color[2]},
+                     calc_thick_for_u_v_planes(polygon.thick));
 }
 
 void RendererNV12::draw_instance_mask(std::vector<cv::Mat> &mats, render::InstanceSegmantationMask mask) {
@@ -490,7 +490,7 @@ void RendererBGR::draw_line(std::vector<cv::Mat> &mats, render::Line line) {
 
 void RendererBGR::draw_polygon(std::vector<cv::Mat> &mats, render::Polygon polygon) {
     std::vector<std::vector<cv::Point>> contours = {polygon.points};
-    cv::polylines(mats[0], contours, true, polygon.color, polygon.thick);
+    cv::drawContours(mats[0], contours, 0, polygon.color, polygon.thick);
 }
 
 void RendererBGR::draw_instance_mask(std::vector<cv::Mat> &mats, render::InstanceSegmantationMask mask) {
