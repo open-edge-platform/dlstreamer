@@ -68,8 +68,8 @@ DLS_EXPORT GType watermark_draw_meta_api_get_type(void);
  *
  * Returns: (transfer none) (nullable): the newly added #WatermarkDrawMeta, or NULL on error
  */
-DLS_EXPORT WatermarkDrawMeta *watermark_draw_meta_add(GstBuffer *buf, const guint32 *coords, guint n_coords,
-                                                      guint8 r, guint8 g, guint8 b, gint thickness);
+DLS_EXPORT WatermarkDrawMeta *watermark_draw_meta_add(GstBuffer *buf, const guint32 *coords, guint n_coords, guint8 r,
+                                                      guint8 g, guint8 b, gint thickness);
 
 /**
  * @def WATERMARK_DRAW_META_INFO

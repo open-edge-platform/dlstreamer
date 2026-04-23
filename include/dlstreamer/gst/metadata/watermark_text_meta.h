@@ -84,9 +84,8 @@ DLS_EXPORT GType watermark_text_meta_api_get_type(void);
  * Returns: (transfer none) (nullable): the newly added #WatermarkTextMeta, or NULL on error
  */
 DLS_EXPORT WatermarkTextMeta *watermark_text_meta_add(GstBuffer *buf, guint32 x, guint32 y, const gchar *text,
-                                                      gfloat font_scale, gint font_type,
-                                                      guint8 r, guint8 g, guint8 b, gint thickness,
-                                                      gboolean draw_bg);
+                                                      gfloat font_scale, gint font_type, guint8 r, guint8 g, guint8 b,
+                                                      gint thickness, gboolean draw_bg);
 
 /**
  * @def WATERMARK_TEXT_META_INFO

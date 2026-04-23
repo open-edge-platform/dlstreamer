@@ -87,8 +87,8 @@ DLS_EXPORT const GstMetaInfo *watermark_draw_meta_get_info(void) {
     return meta_info;
 }
 
-DLS_EXPORT WatermarkDrawMeta *watermark_draw_meta_add(GstBuffer *buf, const guint32 *coords, guint n_coords,
-                                                      guint8 r, guint8 g, guint8 b, gint thickness) {
+DLS_EXPORT WatermarkDrawMeta *watermark_draw_meta_add(GstBuffer *buf, const guint32 *coords, guint n_coords, guint8 r,
+                                                      guint8 g, guint8 b, gint thickness) {
     g_return_val_if_fail(buf != NULL, NULL);
     g_return_val_if_fail(coords != NULL, NULL);
     g_return_val_if_fail(n_coords >= 4 && n_coords % 2 == 0, NULL);

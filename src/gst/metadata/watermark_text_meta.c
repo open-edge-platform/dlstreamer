@@ -92,9 +92,8 @@ DLS_EXPORT const GstMetaInfo *watermark_text_meta_get_info(void) {
 }
 
 DLS_EXPORT WatermarkTextMeta *watermark_text_meta_add(GstBuffer *buf, guint32 x, guint32 y, const gchar *text,
-                                                      gfloat font_scale, gint font_type,
-                                                      guint8 r, guint8 g, guint8 b, gint thickness,
-                                                      gboolean draw_bg) {
+                                                      gfloat font_scale, gint font_type, guint8 r, guint8 g, guint8 b,
+                                                      gint thickness, gboolean draw_bg) {
     g_return_val_if_fail(buf != NULL, NULL);
     g_return_val_if_fail(text != NULL, NULL);
 
