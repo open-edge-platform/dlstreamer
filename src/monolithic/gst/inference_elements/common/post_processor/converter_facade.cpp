@@ -9,6 +9,10 @@
 #include "blob_to_meta_converter.h"
 #include "meta_attacher.h"
 
+#include "converters/to_tensor/keypoints_3d.h"
+#include "converters/to_tensor/keypoints_hrnet.h"
+#include "converters/to_tensor/keypoints_openpose.h"
+
 #include "gva_base_inference.h"
 
 #include <gst/gst.h>
@@ -74,7 +78,8 @@ CoordinatesRestorer::Ptr ConverterFacade::createCoordinatesRestorer(ConverterTyp
         const gchar *converter = gst_structure_get_string(model_proc_output_info, "converter");
         if (converter) {
             const std::string name(converter);
-            if (name == "keypoints_openpose" || name == "keypoints_hrnet" || name == "keypoints_3d")
+            if (name == KeypointsOpenPoseConverter::getName() || name == KeypointsHRnetConverter::getName() ||
+                name == Keypoints3DConverter::getName())
                 return CoordinatesRestorer::Ptr(new KeypointsCoordinatesRestorer(input_image_info, attach_type));
         }
     }
