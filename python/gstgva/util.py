@@ -280,6 +280,9 @@ libgobject.g_value_get_int.argtypes = [ctypes.c_void_p]
 libgobject.g_value_get_int.restype = ctypes.c_void_p
 libgobject.g_value_set_variant.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
 libgobject.g_value_set_variant.restype = None
+libgobject.g_value_set_pointer = libgobject.g_value_set_pointer
+libgobject.g_value_set_pointer.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
+libgobject.g_value_set_pointer.restype = None
 libgobject.g_value_array_new.argtypes = [ctypes.c_size_t]
 libgobject.g_value_array_new.restype = G_VALUE_ARRAY_POINTER
 libgobject.g_value_init.argtypes = [ctypes.c_void_p, ctypes.c_size_t]
@@ -296,6 +299,8 @@ libgobject.g_value_get_uint.argtypes = [G_VALUE_POINTER]
 libgobject.g_value_get_uint.restype = ctypes.c_uint
 libgobject.g_value_get_float.argtypes = [G_VALUE_POINTER]
 libgobject.g_value_get_float.restype = ctypes.c_float
+libgobject.g_value_get_string.argtypes = [G_VALUE_POINTER]
+libgobject.g_value_get_string.restype = ctypes.c_char_p
 
 # libglib
 if platform.system() == 'Windows':
@@ -310,6 +315,8 @@ libglib.g_variant_get_fixed_array.restype = ctypes.c_void_p
 libglib.g_variant_new_fixed_array.argtypes = [
     ctypes.c_void_p, ctypes.c_void_p, ctypes.c_size_t, ctypes.c_size_t]
 libglib.g_variant_new_fixed_array.restype = ctypes.c_void_p
+libglib.g_variant_type_new.argtypes = [ctypes.c_char_p]
+libglib.g_variant_type_new.restype = ctypes.c_void_p
 libglib.g_list_remove.argtypes = [GLIST_POINTER, ctypes.c_void_p]
 libglib.g_list_remove.restype = GLIST_POINTER
 
