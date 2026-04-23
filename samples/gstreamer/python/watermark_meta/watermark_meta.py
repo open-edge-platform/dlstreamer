@@ -89,7 +89,7 @@ class WatermarkMetaAdder(GstBase.BaseTransform):
             text="No background text",
             font_scale=0.7,
             font_type=1,  # cv::FONT_HERSHEY_PLAIN
-            r=0, g=200, b=200, thickness=1, draw_bg=False)
+            r=0, g=200, b=200, thickness=2, draw_bg=False)
 
         return Gst.FlowReturn.OK
 
