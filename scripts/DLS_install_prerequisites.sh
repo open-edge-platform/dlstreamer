@@ -406,7 +406,7 @@ cpu_family=$(grep -m 1 'cpu family' /proc/cpuinfo | awk '{print $4}')
 cpu_model=$(grep -m 1 'model' /proc/cpuinfo | awk '{print $3}')
 cpu_model_name=$(lscpu | grep "Model name:" | awk -F: '{print $2}' | xargs)
 
-echo_color "\n CPU is Intel Family $cpu_family Model $cpu_model ($cpu_model_name).\n" "yellow"
+echo_color "\n CPU is ($cpu_model_name).\n" "yellow"
 
 # Choose the package list based on the Ubuntu version
 case "$ubuntu_version" in
