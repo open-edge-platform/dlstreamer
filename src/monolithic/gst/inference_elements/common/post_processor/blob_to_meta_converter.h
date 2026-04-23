@@ -56,7 +56,9 @@ class BlobToMetaConverter {
         return model_proc_output_info;
     }
 
-    bool shouldSkipRawTensors() const {
+    // Returns true if converter should skip adding raw tensors to metadata (inference results).
+    // This is used for optimization when raw tensors are large (like depth maps) and not needed in post-processing.
+    bool skipRawTensors() const {
         return skip_raw_tensors;
     }
 

@@ -197,7 +197,7 @@ void LabelConverter::ExecuteMethod(const T *data, const std::string &layer_name,
     for (size_t frame_index = 0; frame_index < batch_size; ++frame_index) {
         GVA::Tensor classification_result = createTensor();
 
-        if (!shouldSkipRawTensors())
+        if (!skipRawTensors())
             CopyOutputBlobToGstStructure(blob, classification_result.gst_structure(),
                                          BlobToMetaConverter::getModelName().c_str(), layer_name.c_str(), batch_size,
                                          frame_index);
