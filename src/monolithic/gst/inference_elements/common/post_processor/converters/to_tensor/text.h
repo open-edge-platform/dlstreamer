@@ -24,7 +24,7 @@ class TextConverter : public BlobToTensorConverter {
     int precision = 2;
 
   public:
-        TextConverter(BlobToMetaConverter::Initializer initializer) : BlobToTensorConverter(std::move(initializer)) {
+    TextConverter(BlobToMetaConverter::Initializer initializer) : BlobToTensorConverter(std::move(initializer)) {
         GstStructure *s = getModelProcOutputInfo().get();
 
         gst_structure_get_double(s, "text_scale", &scale);

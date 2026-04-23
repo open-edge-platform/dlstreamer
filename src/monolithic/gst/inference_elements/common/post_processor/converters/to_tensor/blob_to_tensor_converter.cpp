@@ -97,4 +97,3 @@ GVA::Tensor BlobToTensorConverter::createTensor() const {
 
     return GVA::Tensor(tensor_data);
 }
-
