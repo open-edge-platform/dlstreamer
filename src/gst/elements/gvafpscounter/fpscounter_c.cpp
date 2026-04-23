@@ -68,6 +68,7 @@ void fps_counter_create_readpipe(void *fpscounter, const char *pipe_name) {
         if (not fps_counters.count("readpipe")) {
             auto pipe_complete_lambda = [=]() {
                 fps_counter_eos(GST_ELEMENT_NAME(GST_BASE_TRANSFORM(fpscounter)));
+                // Pushing an EOS event downstream to signal that we're done.
                 bool handled = gst_pad_push_event(GST_BASE_TRANSFORM(fpscounter)->srcpad, gst_event_new_eos());
                 if (!handled)
                     throw std::runtime_error("FpsCounter ReadPipe: EOS event wasn't handled. Spinning...");
