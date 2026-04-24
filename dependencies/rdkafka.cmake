@@ -12,15 +12,11 @@ set(DESIRED_VERSION 2.12.1)
 ExternalProject_Add(
     rdkafka
     PREFIX ${CMAKE_BINARY_DIR}/rdkafka
-    URL     https://github.com/edenhill/librdkafka/archive/v${DESIRED_VERSION}.tar.gz
+    URL     https://github.com/confluentinc/librdkafka/archive/v${DESIRED_VERSION}.tar.gz
     URL_MD5 86ed3acd2f9d9046250dea654cee59a8
     DOWNLOAD_EXTRACT_TIMESTAMP TRUE
-    BUILD_IN_SOURCE 1
-    BUILD_COMMAND make
-    INSTALL_COMMAND make install
     TEST_COMMAND    ""
-    CONFIGURE_COMMAND   ./configure
-                        --prefix=${CMAKE_BINARY_DIR}/rdkafka-bin
+    CMAKE_ARGS -DCMAKE_INSTALL_PREFIX:PATH=${CMAKE_BINARY_DIR}/opencv-bin
 )
 
 if (INSTALL_DLSTREAMER)

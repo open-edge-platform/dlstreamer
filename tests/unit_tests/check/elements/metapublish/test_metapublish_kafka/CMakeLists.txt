@@ -10,7 +10,7 @@ include_directories("${CMAKE_BINARY_DIR}/deps/install/include;${CMAKE_BINARY_DIR
 
 
 find_package(PkgConfig REQUIRED)
-pkg_check_modules(RDKAFKA rdkafka++ REQUIRED)
+find_package(RdKafka 2.12.1...<2.14 REQUIRED)
 pkg_check_modules(GSTBASE gstreamer-base-1.0>=1.16 REQUIRED)
 pkg_check_modules(GSTREAMER gstreamer-1.0>=1.16 REQUIRED)
 
@@ -32,7 +32,7 @@ target_link_libraries(${TARGET_NAME}
 PRIVATE
     gtest
     gmock
-    ${RDKAFKA_LIBRARIES}
+    RdKafka::rdkafka++
     gvametapublishkafka
     ${GSTREAMER_LIBRARIES}
     ${GSTBASE_LIBRARIES}
