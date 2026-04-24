@@ -80,6 +80,10 @@ json convert_tensor(const GVA::Tensor &s_tensor) {
     if (!format_value.empty()) {
         jobject.push_back(json::object_t::value_type("format", format_value));
     }
+    std::string type_value = s_tensor.type();
+    if (!type_value.empty()) {
+        jobject.push_back(json::object_t::value_type("type", type_value));
+    }
 
     if (!s_tensor.is_detection()) {
         std::string label_value = s_tensor.label();

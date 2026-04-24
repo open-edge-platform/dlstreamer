@@ -289,7 +289,7 @@ json convert_frame_tensors(GstGvaMetaConvert *converter, GstBuffer *buffer) {
     const std::vector<GVA::Tensor> tensors = video_frame.tensors();
     json array = json::array();
     for (auto &tensor : video_frame.tensors()) {
-        if (!tensor.has_field("type")) {
+        if (!tensor.has_field("type") || tensor.type() == "keypoints") {
             array.push_back(convert_tensor(tensor));
         }
     }
@@ -606,7 +606,8 @@ json convert_lidar_inference_meta(GstGvaMetaConvert *converter, GstBuffer *buffe
                 objects.push_back(detection);
         }
 
-        if (converter->add_tensor_data && !tensor.has_field("type") && tensor.has_field("data_buffer")) {
+        if (converter->add_tensor_data && (!tensor.has_field("type") || tensor.type() == "keypoints") &&
+            tensor.has_field("data_buffer")) {
             tensors.push_back(convert_tensor(tensor));
         }
     }
