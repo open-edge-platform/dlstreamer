@@ -8,15 +8,11 @@
 
 #include "itracker.h"
 #include <dlstreamer/base/memory_mapper.h>
-#include <dlstreamer/context.h>
-#include <gva_utils.h>
 
 #include <opencv2/opencv.hpp>
-#include <openvino/openvino.hpp>
 
 #include <deque>
 #include <memory>
-#include <unordered_map>
 #include <vector>
 
 namespace DeepSortWrapper {
@@ -29,6 +25,10 @@ constexpr float DEFAULT_MAX_COSINE_DISTANCE = 0.2f; // Maximum cosine distance f
 constexpr int DEFAULT_NN_BUDGET = 100;
 constexpr int DEFAULT_FEATURES_VECTOR_SIZE_128 = 128;
 
+// Chi-square inverse 95% quantile for Mahalanobis gating
+constexpr float CHI2INV95_2DOF = 5.9915f;  // 2 DOF (position only: x, y)
+constexpr float INFTY_COST = 1e5f;
+
 // Track states
 enum class TrackState { Tentative = 1, Confirmed = 2, Deleted = 3 };
 
@@ -38,18 +38,22 @@ struct Detection {
     float confidence;
     std::vector<float> feature;
     int class_id;
+    int region_index; // Original index into frame_meta.regions() for writing back track ID
 
-    Detection(const cv::Rect_<float> &bbox, float confidence, const std::vector<float> &feature, int class_id = -1)
-        : bbox(bbox), confidence(confidence), feature(feature), class_id(class_id) {
+    Detection(const cv::Rect_<float> &bbox, float confidence, const std::vector<float> &feature, int class_id = -1,
+             int region_index = -1)
+        : bbox(bbox), confidence(confidence), feature(feature), class_id(class_id), region_index(region_index) {
     }
 };
 
 // Track structure for Deep SORT
 class Track {
   public:
-    Track(const cv::Rect_<float> &bbox, int track_id, int n_init, int max_age, const std::vector<float> &feature);
+    Track(const cv::Rect_<float> &bbox, int track_id, int n_init, int max_age, const std::vector<float> &feature,
+          int nn_budget = DEFAULT_NN_BUDGET);
 
     void update(const Detection &detection);
+    void predict();
     void mark_missed();
     bool is_tentative() const {
         return state_ == TrackState::Tentative;
@@ -74,6 +78,14 @@ class Track {
     const std::deque<std::vector<float>> &features() const {
         return features_;
     }
+
+    // Project state distribution to measurement space
+    std::pair<cv::Mat, cv::Mat> project() const;
+
+    // Compute squared Mahalanobis distances between state and measurements
+    std::vector<float> gating_distance(const std::vector<Detection> &detections,
+                                       const std::vector<int> &detection_indices,
+                                       bool only_position = false) const;
 
     std::string state_str() const {
         switch (state_) {
@@ -108,25 +120,14 @@ class Track {
     std::deque<std::vector<float>> features_;
 
     void initiate(const cv::Rect_<float> &bbox);
-    void predict();
 };
 
-// Deep SORT feature extractor using OpenVINO
-class FeatureExtractor {
-  public:
-    FeatureExtractor(const std::string &model_path, const std::string &device = "CPU");
-    ~FeatureExtractor() = default;
-
-    std::vector<float> extract(const cv::Mat &image, const cv::Rect &bbox);
-    std::vector<std::vector<float>> extract_batch(const cv::Mat &image, const std::vector<cv::Rect> &bboxes);
-
-  private:
-    ov::Core core_;
-    ov::CompiledModel compiled_model_;
-    ov::InferRequest infer_request_;
-
-    int input_height_;
-    int input_width_;
+// Re-ID gallery entry: stores info from a deleted track for re-identification
+struct GalleryEntry {
+    int track_id;
+    std::deque<std::vector<float>> features;
+    cv::Rect_<float> last_bbox;
+    int deletion_frame;
 };
 
 // Deep SORT tracker implementation
@@ -147,6 +148,10 @@ class DeepSortTracker : public ITracker {
     std::vector<std::unique_ptr<Track>> tracks_;
     int next_id_;
 
+    // Re-ID gallery: deleted tracks saved for re-identification
+    std::vector<GalleryEntry> reid_gallery_;
+    int reid_max_age_; // How long to keep gallery entries (frames). 0 = disabled.
+
     // Parameters
     float max_iou_distance_;
     int max_age_;
@@ -154,6 +159,7 @@ class DeepSortTracker : public ITracker {
     float max_cosine_distance_;
     int nn_budget_;
     std::string dptrckcfg_;
+    std::string object_class_; // Filter: only track detections with this label (empty = track all)
 
     // Memory mapper for buffer access
     dlstreamer::MemoryMapperPtr buffer_mapper_;
@@ -169,8 +175,28 @@ class DeepSortTracker : public ITracker {
     // Hungarian algorithm for assignment
     void hungarian_assignment(const std::vector<std::vector<float>> &cost_matrix,
                               std::vector<std::pair<int, int>> &assignments);
-    void hungarian_assignment_greedy(const std::vector<std::vector<float>> &cost_matrix,
-                                     std::vector<std::pair<int, int>> &assignments);
+
+    // Matching cascade for confirmed tracks (appearance-based + Mahalanobis gating)
+    void matching_cascade(const std::vector<Detection> &detections,
+                          const std::vector<int> &track_indices,
+                          const std::vector<int> &detection_indices,
+                          std::vector<std::pair<int, int>> &matches,
+                          std::vector<int> &unmatched_tracks,
+                          std::vector<int> &unmatched_detections);
+
+    // IoU-based matching for second stage (unconfirmed + recently-missed tracks)
+    void min_cost_matching_iou(const std::vector<Detection> &detections,
+                               const std::vector<int> &track_indices,
+                               const std::vector<int> &detection_indices,
+                               std::vector<std::pair<int, int>> &matches,
+                               std::vector<int> &unmatched_tracks,
+                               std::vector<int> &unmatched_detections);
+
+    // Gate cost matrix using Mahalanobis distance
+    void gate_cost_matrix(std::vector<std::vector<float>> &cost_matrix,
+                          const std::vector<Detection> &detections,
+                          const std::vector<int> &track_indices,
+                          const std::vector<int> &detection_indices);
 
     void parse_dps_trck_config();
 };
