@@ -1,3 +1,25 @@
 {
-    "192.168.1.100": " ! rtph264depay ! h264parse ! avdec_h264 ! videoconvert ! autovideosink"
+    "verbose": true,
+    "kitchen": {
+        "hostname": "192.168.1.100",
+        "port": 8080,
+        "definition": " ! rtph264depay ! h264parse ! avdec_h264 ! videoconvert ! autovideosink"
+    },
+    "living_room": {
+        "hostname": "192.168.1.101",
+        "port": 8090,
+        "definition": " ! rtph264depay ! h264parse ! avdec_h264 ! videoconvert ! autovideosink"
+    },
+    "cars": {
+        "hostname": "10.91.106.215",
+        "port": 8080,
+        "definition": " ! rtph264depay ! h264parse ! avdec_h264 ! videoconvert ! autovideosink"
+    },
+
+
+    "camera_249": {
+        "hostname": "10.91.106.249",
+        "port": 1000,
+        "definition": " ! rtph264depay ! h264parse ! avdec_h264 ! videoconvert ! autovideosink"
+    }
 }
