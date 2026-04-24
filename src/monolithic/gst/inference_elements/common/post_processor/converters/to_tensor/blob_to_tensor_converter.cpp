@@ -7,6 +7,7 @@
 #include "blob_to_tensor_converter.h"
 #include "clip_token_converter.h"
 #include "custom_to_tensor.h"
+#include "depth.h"
 #include "detection_anomaly.h"
 #include "docTR_ocr.h"
 #include "keypoints_3d.h"
@@ -64,6 +65,8 @@ BlobToMetaConverter::Ptr BlobToTensorConverter::create(BlobToMetaConverter::Init
         return std::make_unique<TextConverter>(std::move(initializer));
     else if (converter_name == SemanticMaskConverter::getName())
         return std::make_unique<SemanticMaskConverter>(std::move(initializer));
+    else if (converter_name == DepthConverter::getName())
+        return std::make_unique<DepthConverter>(std::move(initializer));
     else if (converter_name == docTROCRConverter::getName())
         return std::make_unique<docTROCRConverter>(std::move(initializer));
     else if (converter_name == CLIPTokenConverter::getName())

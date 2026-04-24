@@ -77,6 +77,18 @@ cv::Mat OpenCV_VPP::CustomImageConvert(const cv::Mat &orig_image, const int src_
         if (!pre_proc_info)
             throw std::runtime_error("Pre-processor info for custom image pre-processing is null.");
 
+        if (pre_proc_info->isAspectRatioMultipleOfResize()) {
+            if (!pre_proc_info->hasResizeTargetSize()) {
+                throw std::runtime_error("Aspect-ratio-multiple-of resize requires target size metadata");
+            }
+            if (pre_proc_info->doNeedCrop()) {
+                throw std::runtime_error("Aspect-ratio-multiple-of resize does not support crop");
+            }
+            if (pre_proc_info->doNeedPadding()) {
+                throw std::runtime_error("Aspect-ratio-multiple-of resize does not support padding");
+            }
+        }
+
         // Padding
         int padding_x = 0;
         int padding_y = 0;
@@ -103,27 +115,45 @@ cv::Mat OpenCV_VPP::CustomImageConvert(const cv::Mat &orig_image, const int src_
                 additional_crop_scale_param = 1.125;
             }
 
-            double resize_scale_param_x =
-                safe_convert<double>(input_size_except_padding.width) / processed_image.size().width;
-            double resize_scale_param_y =
-                safe_convert<double>(input_size_except_padding.height) / processed_image.size().height;
+            if (pre_proc_info->isAspectRatioMultipleOfResize()) {
+                const auto resize_target = pre_proc_info->getResizeTargetSize();
+                const auto resized_shape = InputImageLayerDesc::CalculateAspectRatioMultipleOfResize(
+                    safe_convert<size_t>(processed_image.size().width), safe_convert<size_t>(processed_image.size().height),
+                    resize_target.first, resize_target.second, pre_proc_info->getResizeMultiple());
+                const cv::Size resized_size(safe_convert<int>(resized_shape.first), safe_convert<int>(resized_shape.second));
 
-            if ((pre_proc_info->getResizeType() == InputImageLayerDesc::Resize::ASPECT_RATIO) ||
-                (pre_proc_info->getResizeType() == InputImageLayerDesc::Resize::ASPECT_RATIO_PAD)) {
-                resize_scale_param_x = resize_scale_param_y = std::min(resize_scale_param_x, resize_scale_param_y);
+                ITT_TASK("cv::resize");
+                cv::resize(processed_image, image_to_insert, resized_size);
+
+                if (image_transform_info) {
+                    image_transform_info->ResizeHasDone(
+                        safe_convert<double>(resized_shape.first) / processed_image.size().width,
+                        safe_convert<double>(resized_shape.second) / processed_image.size().height);
+                }
+            } else {
+
+                double resize_scale_param_x =
+                    safe_convert<double>(input_size_except_padding.width) / processed_image.size().width;
+                double resize_scale_param_y =
+                    safe_convert<double>(input_size_except_padding.height) / processed_image.size().height;
+
+                if ((pre_proc_info->getResizeType() == InputImageLayerDesc::Resize::ASPECT_RATIO) ||
+                    (pre_proc_info->getResizeType() == InputImageLayerDesc::Resize::ASPECT_RATIO_PAD)) {
+                    resize_scale_param_x = resize_scale_param_y = std::min(resize_scale_param_x, resize_scale_param_y);
+                }
+
+                resize_scale_param_x *= additional_crop_scale_param;
+                resize_scale_param_y *= additional_crop_scale_param;
+
+                cv::Size after_resize(processed_image.size().width * resize_scale_param_x,
+                                      processed_image.size().height * resize_scale_param_y);
+
+                ITT_TASK("cv::resize");
+                cv::resize(processed_image, image_to_insert, after_resize);
+
+                if (image_transform_info)
+                    image_transform_info->ResizeHasDone(resize_scale_param_x, resize_scale_param_y);
             }
-
-            resize_scale_param_x *= additional_crop_scale_param;
-            resize_scale_param_y *= additional_crop_scale_param;
-
-            cv::Size after_resize(processed_image.size().width * resize_scale_param_x,
-                                  processed_image.size().height * resize_scale_param_y);
-
-            ITT_TASK("cv::resize");
-            cv::resize(processed_image, image_to_insert, after_resize);
-
-            if (image_transform_info)
-                image_transform_info->ResizeHasDone(resize_scale_param_x, resize_scale_param_y);
         }
 
         // Crop
@@ -177,6 +207,10 @@ cv::Mat OpenCV_VPP::CustomImageConvert(const cv::Mat &orig_image, const int src_
         // Color Space Conversion
         if (pre_proc_info->doNeedColorSpaceConversion(src_color_format)) {
             ColorSpaceConvert(image_to_insert, image_to_insert, src_color_format, pre_proc_info->getTargetColorSpace());
+        }
+
+        if (pre_proc_info->isAspectRatioMultipleOfResize()) {
+            return image_to_insert;
         }
 
         // Set background color

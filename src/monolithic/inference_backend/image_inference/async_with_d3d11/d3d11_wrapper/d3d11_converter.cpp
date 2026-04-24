@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2025 Intel Corporation
+ * Copyright (C) 2025-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -67,6 +67,9 @@ void D3D11Converter::SetupProcessorStreamsWithCustomParams(const InputImageLayer
     double resize_scale_param_y = 1;
     if (pre_proc_info->doNeedResize() &&
         (src_rect_width != input_width_except_padding || src_rect_height != input_height_except_padding)) {
+        if (pre_proc_info->isAspectRatioMultipleOfResize()) {
+            throw std::runtime_error("Aspect-ratio-multiple-of resize is supported only by the OpenCV preprocessor");
+        }
         double additional_crop_scale_param = 1;
         if (pre_proc_info->doNeedCrop() && pre_proc_info->doNeedResize()) {
             additional_crop_scale_param = 1.125;

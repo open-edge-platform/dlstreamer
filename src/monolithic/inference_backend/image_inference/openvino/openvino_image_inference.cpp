@@ -786,7 +786,6 @@ class OpenVinoNewApiImpl {
     ImageInference::ErrorHandlingFunc _error_handler;
 
     void configure_model(const ConfigHelper &config) {
-
         auto [reshape_width, reshape_height] = config.reshape_size();
         if (config.need_reshape() && (reshape_width || reshape_height))
             reshape_model(reshape_height, reshape_width, config.reshape_static());
@@ -1523,7 +1522,10 @@ void OpenVINOImageInference::Flush() {
 
         if (request->buffers.size() > 0) {
             try {
-                // WA: Fill non-complete batch with last element. Can be removed once supported in OV
+                // WA: Fill non-complete batch with last element for bypass preprocessing only.
+                // When software preprocessing is used, frames are written directly into the infer-request-owned
+                // batched tensor, so any unfilled tail slots in the last partial batch already contain data from a
+                // previous request reuse.
                 if (batch_size > 1 && !DoNeedImagePreProcessing(nullptr)) {
                     size_t input_idx = 0;
                     for (auto &input_vec : request->in_tensors) {
