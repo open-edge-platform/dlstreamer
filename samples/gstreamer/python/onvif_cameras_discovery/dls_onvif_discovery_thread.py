@@ -5,7 +5,7 @@
 # ==============================================================================
 """GStreamer pipeline launcher and lifecycle manager for discovered cameras."""
 import threading
-from gi.repository import Gst, GLib
+from gi.repository import Gst, GLib  # pylint: disable=no-name-in-module
 
 
 class DlsLaunchedPipeline:  # pylint: disable=too-many-instance-attributes

@@ -26,9 +26,9 @@ from urllib.parse import urlparse
 import gi
 
 gi.require_version("Gst", "1.0")
-from gi.repository import Gst  # pylint: disable=wrong-import-position
+from gi.repository import Gst  # pylint: disable=wrong-import-position,no-name-in-module
 
-from onvif import ONVIFCamera  # pylint: disable=wrong-import-position
+from onvif import ONVIFCamera  # pylint: disable=wrong-import-position,import-error
 
 from dls_onvif_data import ONVIFProfile  # pylint: disable=wrong-import-position
 import dls_onvif_discovery_thread as dls_disc_thread  # pylint: disable=wrong-import-position
