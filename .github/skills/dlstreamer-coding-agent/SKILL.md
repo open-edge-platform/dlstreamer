@@ -1,6 +1,6 @@
 ---
 name: dlstreamer-coding-agent
-description: "Build new DLStreamer Python video-analytics applications. Use when: user describes a vision AI pipeline, wants to create a new sample app, combine elements from existing samples, add detection/classification/VLM/tracking/alerts/recording to a video pipeline, or create custom GStreamer elements in Python. Translates natural-language pipeline descriptions into working DLStreamer Python code using established design patterns."
+description: "Build new DLStreamer Python video-analytics applications. Use when: user describes a vision AI pipeline, wants to create a new sample app, combine elements from existing samples, add detection/classification/VLM/tracking/alerts/recording to a video pipeline, create custom GStreamer elements in Python, export or prepare AI models (Ultralytics/HuggingFace/optimum-cli), set up multi-camera RTSP or ONVIF streaming, add metadata publishing (JSON/MQTT/Kafka), create recording/NVR solutions, or run DLStreamer in Docker. Also covers: object tracking, pose estimation, action recognition, license plate recognition/OCR, instance segmentation, radar/LiDAR/RealSense sensor pipelines, and GPU/NPU performance tuning."
 argument-hint: "Describe the vision AI pipeline you want to build (e.g. 'detect faces in RTSP stream and save alerts as JSON')"
 ---
 
@@ -15,6 +15,11 @@ Build new DLStreamer Python video-analytics applications by composing design pat
 - User wants to create a new GStreamer command line using DLStreamer elements
 - User wants to combine elements from multiple existing samples (e.g. detection + VLM + recording)
 - User needs to add custom analytics logic or custom GStreamer elements in Python
+- User wants to export or prepare AI models for DLStreamer (Ultralytics, HuggingFace, optimum-cli)
+- User wants to set up multi-camera RTSP or ONVIF streaming
+- User needs to add metadata publishing (JSON, MQTT, Kafka) to a pipeline
+- User wants to create a recording/NVR solution with chunked video storage
+- User asks how to run a DLStreamer application in a Docker container
 
 ## Directory Layout for a New Sample App
 
@@ -51,6 +56,7 @@ Before generating code, read the relevant existing samples to understand establi
 | onvif_cameras_discovery | Multi-camera RTSP, ONVIF discovery, subprocess orchestration | `samples/gstreamer/python/onvif_cameras_discovery/` |
 | draw_face_attributes | Detect → multi-classify chain, custom tensor post-processing in pad probe callback | `samples/gstreamer/python/draw_face_attributes/` |
 | coexistence | DL Streamer + DeepStream coexistence, Docker orchestration, multi-framework LPR | `samples/gstreamer/python/coexistence/` |
+
 ## Reference Command Line Samples
 
 Before generating code, read the relevant existing samples to understand established conventions:
@@ -98,6 +104,9 @@ using these recipes:
 | Detection + custom analytics | `python-app-template.py` | 1 + 4 + 6 + 11 | Ultralytics |
 | Detection + tracking + recording | `python-app-template.py` | 1 + 4 + 5 + 7 | Ultralytics |
 | Multi-camera RTSP | `python-app-template.py` | 1 + 12 | (per camera) |
+| Detection + VLM reasoning | `python-app-template.py` + `export-models-template.py` | 1 + 4 + 8 + 9 + 11 + 13 | Ultralytics + optimum-cli |
+| Detection + pad probe counting | `python-app-template.py` | 1 + 4 + 2 + 11 | Ultralytics |
+| Detection + dynamic NVR recording | `python-app-template.py` | 1 + 4 + 5 + 6 + 7 + 11 | Ultralytics |
 
 For use cases matching a recipe above, generate all files directly from the templates
 and model-preparation reference without reading existing samples. Only read reference
@@ -152,8 +161,10 @@ Map the user's description to one or more of these patterns:
 |---------|---------------|
 | **Pipeline Core** | Always — every app needs source → decode → sink |
 | **AI Inference** | User wants object detection (`gvadetect`), classification/OCR (`gvaclassify`), or VLM (`gvagenai`) |
+| **VLM Inference** | User wants vision-language model reasoning (`gvagenai`) — prompt-based scene description or alerting |
 | **Pad Probe Callback** | User needs simple custom logic, like per-frame metadata inspection or adding overlays |
 | **Custom Python Element** | User needs non-trivial custom analytics logic that runs inside the pipeline |
+| **Custom Python Bin/Sink** | User needs a custom recording sink, chunked file writer, or pipeline-as-element wrapper |
 | **AppSink Callback** | User wants to continue processing of frames or metadata in their own application |
 | **Dynamic Pipeline Control** | User wants conditional routing, valve, or tee-based branching |
 | **Cross-Branch Signal Bridge** | User has a tee with branches that must exchange state |
@@ -171,10 +182,11 @@ Use the [Application Template](./assets/python-app-template.py) as a starting sk
 2. Following the **Pipeline Design Rules** (Rules 1–5) in the Pipeline Construction Reference — prefer auto-negotiation, GPU/NPU inference, `gvaclassify` for OCR, `gvametapublish` for JSON
 3. Assembling the **pipeline string** from DLStreamer elements listed in the Pipeline Construction Reference
 4. Preparing models using the correct export method — see [Model Preparation Reference](./references/model-preparation.md)
-5. Adding **callbacks/probes** as needed
-6. Adding **custom Python elements** if the user needs inline analytics
-7. Wiring up **argument parsing** and **asset resolution**
-8. Adding the **pipeline event loop**
+5. Creating **`requirements.txt`** with runtime Python dependencies (e.g. `openvino`, `numpy`) — keep separate from `export_requirements.txt`
+6. Adding **callbacks/probes** as needed
+7. Adding **custom Python elements** if the user needs inline analytics
+8. Wiring up **argument parsing** and **asset resolution**
+9. Adding the **pipeline event loop**
 
 ### Step 5 — Generate Sample Application
 
@@ -201,8 +213,8 @@ docker run -it --rm \
     -v "$(pwd)":/app -w /app \
     --device /dev/dri \
     --group-add $(stat -c "%g" /dev/dri/render*) \
-    --device /dev/accel \
-    --group-add $(stat -c "%g" /dev/accel/accel*) \
+    --device /dev/accel \                             # only if NPU available
+    --group-add $(stat -c "%g" /dev/accel/accel*) \   # only if NPU available
     intel/dlstreamer:latest \
     python3 <app_name>.py
 ```
