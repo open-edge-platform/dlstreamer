@@ -772,11 +772,18 @@ class Tensor {
             // find RELATE_TO links between keypoints (skeleton edges)
             for (gsize i = 0; i < keypoint_count; i++) {
                 for (gsize j = i + 1; j < keypoint_count; j++) {
-                    GstAnalyticsRelTypes rel =
+                    GstAnalyticsRelTypes rel_ij =
                         gst_analytics_relation_meta_get_relation(group_mtd->meta, kp_ids[i], kp_ids[j]);
-                    if (rel & GST_ANALYTICS_REL_TYPE_RELATE_TO) {
+                    if (rel_ij & GST_ANALYTICS_REL_TYPE_RELATE_TO) {
                         point_connections.push_back(static_cast<uint32_t>(i));
                         point_connections.push_back(static_cast<uint32_t>(j));
+                        continue;
+                    }
+                    GstAnalyticsRelTypes rel_ji =
+                        gst_analytics_relation_meta_get_relation(group_mtd->meta, kp_ids[j], kp_ids[i]);
+                    if (rel_ji & GST_ANALYTICS_REL_TYPE_RELATE_TO) {
+                        point_connections.push_back(static_cast<uint32_t>(j));
+                        point_connections.push_back(static_cast<uint32_t>(i));
                     }
                 }
             }
