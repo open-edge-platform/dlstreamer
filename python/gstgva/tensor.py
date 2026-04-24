@@ -14,10 +14,11 @@ from typing import List
 
 gi.require_version("Gst", "1.0")
 gi.require_version("GstAnalytics", "1.0")
+gi.require_version("DLStreamerMeta", "1.0")
 
 from enum import Enum
 # pylint: disable=no-name-in-module
-from gi.repository import GObject, GstAnalytics, GLib
+from gi.repository import GObject, GstAnalytics, GLib, DLStreamerMeta
 # pylint: enable=no-name-in-module
 from .util import (
     libgst,
@@ -260,6 +261,9 @@ class Tensor:
                         value.append(libgobject.g_value_get_float(g_value))
                     elif g_value.contents.g_type == hash(GObject.TYPE_UINT):
                         value.append(libgobject.g_value_get_uint(g_value))
+                    elif g_value.contents.g_type == hash(GObject.TYPE_STRING):
+                        s = libgobject.g_value_get_string(g_value)
+                        value.append(s.decode("utf-8") if s else "")
                     else:
                         raise TypeError("Unsupported value type for GValue array")
                 libgst.g_value_array_free(gvalue_array)
@@ -299,6 +303,87 @@ class Tensor:
     ## @brief Set Tensor instance's name
     def set_name(self, name: str) -> None:
         libgst.gst_structure_set_name(self.__structure, name.encode("utf-8"))
+
+    ## @brief Set inference result blob dimensions info
+    #  @param dims list of dimensions
+    def set_dims(self, dims: List[int]) -> None:
+        self.set_vector("dims", dims, value_type="uint")
+
+    ## @brief Set raw data buffer as inference output data
+    #  @param data raw bytes or numpy array to store
+    def set_data(self, data) -> None:
+        if isinstance(data, numpy.ndarray):
+            data = data.tobytes()
+        vtype = libglib.g_variant_type_new(b'y')
+        variant = libglib.g_variant_new_fixed_array(vtype, data, len(data), 1)
+        gvalue_variant = GObject.Value()
+        gvalue_variant.init(GObject.TYPE_VARIANT)
+        libgobject.g_value_set_variant(hash(gvalue_variant), variant)
+        libgst.gst_structure_set_value(
+            self.__structure, b"data_buffer", hash(gvalue_variant))
+        nbytes = ctypes.c_size_t()
+        data_ptr = libglib.g_variant_get_fixed_array(variant, ctypes.byref(nbytes), 1)
+        gvalue_pointer = GObject.Value()
+        gvalue_pointer.init(GObject.TYPE_POINTER)
+        libgobject.g_value_set_pointer(hash(gvalue_pointer), data_ptr)
+        libgst.gst_structure_set_value(
+            self.__structure, b"data", hash(gvalue_pointer))
+
+    ## @brief Set inference output blob precision
+    #  @param precision PRECISION enum value
+    def set_precision(self, precision: 'Tensor.PRECISION') -> None:
+        self["precision"] = int(precision.value)
+
+    ## @brief Set tensor type as a string
+    #  @param type_str type of tensor
+    def set_type(self, type_str: str) -> None:
+        self["type"] = type_str
+
+    ## @brief Set data format
+    #  @param format_str format string
+    def set_format(self, format_str: str) -> None:
+        self["format"] = format_str
+
+    ## @brief Set confidence of detection or classification result
+    #  @param confidence confidence value
+    def set_confidence(self, confidence: float) -> None:
+        self["confidence"] = float(confidence)
+
+    ## @brief Set a GValueArray field on the underlying GstStructure
+    #  @param field_name name of the field
+    #  @param data list of values to store
+    #  @param value_type type hint: "float", "uint", or "string". If None, inferred from first element.
+    def set_vector(self, field_name: str, data: list, value_type: str = None) -> None:
+        if not data:
+            return
+        if value_type is None:
+            first = data[0]
+            if isinstance(first, float):
+                value_type = "float"
+            elif isinstance(first, int):
+                value_type = "uint"
+            elif isinstance(first, str):
+                value_type = "string"
+            else:
+                raise TypeError(f"Unsupported element type: {type(first)}")
+
+        gvalue_array = libgobject.g_value_array_new(len(data))
+        for item in data:
+            gval = GObject.Value()
+            if value_type == "float":
+                gval.init(GObject.TYPE_FLOAT)
+                gval.set_float(float(item))
+            elif value_type == "uint":
+                gval.init(GObject.TYPE_UINT)
+                gval.set_uint(int(item))
+            elif value_type == "string":
+                gval.init(GObject.TYPE_STRING)
+                gval.set_string(str(item))
+            else:
+                raise TypeError(f"Unsupported value_type: {value_type}")
+            libgobject.g_value_array_append(gvalue_array, hash(gval))
+        libgst.gst_structure_set_array(
+            self.__structure, field_name.encode("utf-8"), gvalue_array)
 
     ## @brief Get inference result blob layout as a string
     #  @return layout as a string, "ANY" if can't be read
@@ -403,10 +488,70 @@ class Tensor:
             yield Tensor(tensor_meta.data)
 
     def convert_to_meta(
-        self, relation_meta: GstAnalytics.RelationMeta
+        self, relation_meta: GstAnalytics.RelationMeta, od_meta: GstAnalytics.ODMtd = None
     ) -> GstAnalytics.Mtd | None:
+        ## @brief Convert this tensor to GstAnalytics metadata
+        #  @param relation_meta GstAnalyticsRelationMeta to attach the metadata to
+        #  @param od_meta parent object-detection metadata (required for keypoints)
+        #  @return GstAnalyticsMtd on success, None if tensor type is not supported
         mtd = None
-        if self.type() == "classification_result":
+        if self.type() == "keypoints":
+            dimensions = self.dims()
+            raw_data = self.data()
+            confidence_val = self.confidence()
+            keypoint_count = list(dimensions)[0]
+            keypoint_dimension = list(dimensions)[1]
+
+            dim = DLStreamerMeta.KeypointDimensions(keypoint_dimension)
+
+            # get screen space coordinates of the parent bounding box
+            if od_meta is None:
+                raise ValueError("od_meta is required for keypoints conversion")
+            success, x, y, w, h, conf = od_meta.get_location()
+            if not success:
+                raise RuntimeError("Failed to read object detection meta")
+
+            # convert float positions to integer pixel coordinates
+            stride = 3 if dim == DLStreamerMeta.KeypointDimensions(3) else 2
+            positions = []
+            for k in range(keypoint_count):
+                px = x + int(w * raw_data[k * keypoint_dimension])
+                py = y + int(h * raw_data[k * keypoint_dimension + 1])
+                positions.append(px)
+                positions.append(py)
+                if stride == 3:
+                    pz = int(raw_data[k * keypoint_dimension + 2])
+                    positions.append(pz)
+
+            # confidences
+            if isinstance(confidence_val, list):
+                confidences = confidence_val
+            elif confidence_val is not None:
+                confidences = [confidence_val]
+            else:
+                confidences = [0.0] * keypoint_count
+
+            # look up skeleton connections from descriptor
+            semantic_tag = self.format() or ""
+            descriptor = DLStreamerMeta.KeypointDescriptor.lookup(semantic_tag)
+            skeleton = None
+            if descriptor and descriptor.get_skeleton_connection_count() > 0:
+                skeleton = []
+                for i in range(descriptor.get_skeleton_connection_count()):
+                    ok, from_idx, to_idx = descriptor.get_skeleton_connection(i)
+                    if ok:
+                        skeleton.append(from_idx)
+                        skeleton.append(to_idx)
+
+            ok, group_mtd = DLStreamerMeta.relation_meta_add_keypoints_group(
+                relation_meta, semantic_tag, dim,
+                positions, confidences, None, skeleton)
+            if not ok:
+                raise RuntimeError("Failed to create keypoints group meta")
+
+            mtd = group_mtd
+
+        elif self.type() == "classification_result":
             confidence_level = (
                 self.confidence() if self.confidence() is not None else 0.0
             )
@@ -426,6 +571,114 @@ class Tensor:
 
     @staticmethod
     def convert_to_tensor(mtd: GstAnalytics.Mtd) -> ctypes.c_void_p | None:
+        ## @brief Convert GstAnalytics metadata back to a GstStructure tensor
+        #  @param mtd GstAnalyticsMtd (GroupMtd for keypoints, ClsMtd for classification)
+        #  @return pointer to newly created GstStructure, or None if metadata type is not supported
+        if type(mtd) == DLStreamerMeta.GroupMtd:
+            group_mtd = mtd
+            keypoint_count = group_mtd.get_member_count()
+            if keypoint_count == 0:
+                return None
+
+            keypoint_dimension = 2
+
+            # find parent bounding box
+            x, y, w, h = 0, 0, 0, 0
+            for rlt_mtd in group_mtd.meta:
+                if rlt_mtd.id == group_mtd.id or type(rlt_mtd) != GstAnalytics.ODMtd:
+                    continue
+                rel = group_mtd.meta.get_relation(group_mtd.id, rlt_mtd.id)
+                if rel == GstAnalytics.RelTypes.IS_PART_OF:
+                    success, x, y, w, h, _ = rlt_mtd.get_location()
+                    if not success:
+                        raise RuntimeError("Failed to read object detection meta")
+                    break
+
+            # read positions and confidences from group members
+            kp_data = []
+            kp_type = DLStreamerMeta.KeypointMtd.get_mtd_type()
+            state = None
+            while True:
+                ok, state, member = group_mtd.iterate(state, kp_type)
+                if not ok:
+                    break
+                ok, kp = DLStreamerMeta.relation_meta_get_keypoint_mtd(
+                    group_mtd.meta, member.id)
+                if not ok:
+                    continue
+                ok, px, py, pz, dim = kp.get_position()
+                if not ok:
+                    continue
+                ok, conf = kp.get_confidence()
+                if not ok:
+                    conf = 0.0
+                if pz != 0:
+                    keypoint_dimension = 3
+                kp_data.append((px, py, pz, conf))
+
+            keypoint_count = len(kp_data)
+            if keypoint_count == 0:
+                return None
+
+            # convert to float position/confidence arrays
+            positions = []
+            confidences = []
+            for px, py, pz, conf in kp_data:
+                positions.append((px - x) / w if w > 0 else 0.0)
+                positions.append((py - y) / h if h > 0 else 0.0)
+                if keypoint_dimension == 3:
+                    positions.append(float(pz))
+                confidences.append(conf)
+
+            # read point names from descriptor
+            semantic_tag = group_mtd.get_semantic_tag() or ""
+            descriptor = DLStreamerMeta.KeypointDescriptor.lookup(semantic_tag) if semantic_tag else None
+            point_names = []
+            if descriptor and descriptor.get_point_count() == keypoint_count:
+                point_names = [descriptor.get_point_name(k) for k in range(keypoint_count)]
+
+            # reconstruct skeleton from RELATE_TO relations between keypoints
+            kp_ids = []
+            for k in range(keypoint_count):
+                ok, m = group_mtd.get_member(k)
+                if ok:
+                    kp_ids.append(m.id)
+                else:
+                    kp_ids.append(None)
+
+            point_connections = []
+            for i in range(keypoint_count):
+                for j in range(i + 1, keypoint_count):
+                    if kp_ids[i] is not None and kp_ids[j] is not None:
+                        rel_ij = group_mtd.meta.get_relation(kp_ids[i], kp_ids[j])
+                        if rel_ij == GstAnalytics.RelTypes.RELATE_TO:
+                            point_connections.append(i)
+                            point_connections.append(j)
+                            continue
+                        rel_ji = group_mtd.meta.get_relation(kp_ids[j], kp_ids[i])
+                        if rel_ji == GstAnalytics.RelTypes.RELATE_TO:
+                            point_connections.append(j)
+                            point_connections.append(i)
+
+            # create keypoint tensor
+            structure = libgst.gst_structure_new_empty("keypoints".encode("utf-8"))
+            tensor = Tensor(structure)
+
+            tensor.set_precision(Tensor.PRECISION.FP32)
+            tensor.set_type("keypoints")
+            tensor.set_format(semantic_tag)
+
+            tensor.set_dims([keypoint_count, keypoint_dimension])
+            tensor.set_data(numpy.array(positions, dtype=numpy.float32))
+
+            tensor.set_vector("confidence", confidences, value_type="float")
+            if point_names:
+                tensor.set_vector("point_names", point_names, value_type="string")
+            if point_connections:
+                tensor.set_vector("point_connections", point_connections, value_type="uint")
+
+            return tensor.get_structure()
+
         structure = libgst.gst_structure_new_empty("tensor".encode("utf-8"))
         tensor = Tensor(structure)
 
@@ -451,24 +704,23 @@ class Tensor:
                     result_confidence = confidence
 
             tensor.set_name("classification")
-            tensor.set_label(result_label)
             tensor["type"] = "classification_result"
+            tensor.set_label(result_label)
             tensor["confidence"] = result_confidence
 
             cls_descriptor_mtd = None
-            for cls_descriptor_mtd in mtd.meta:
+            for rlt_mtd in mtd.meta:
                 if (
-                    cls_descriptor_mtd.id == mtd.id
-                    or type(cls_descriptor_mtd) != GstAnalytics.ClsMtd
+                    rlt_mtd.id == mtd.id
+                    or type(rlt_mtd) != GstAnalytics.ClsMtd
                 ):
                     continue
 
-                rel = mtd.meta.get_relation(mtd.id, cls_descriptor_mtd.id)
+                rel = mtd.meta.get_relation(mtd.id, rlt_mtd.id)
 
                 if rel == GstAnalytics.RelTypes.RELATE_TO:
+                    cls_descriptor_mtd = rlt_mtd
                     break
-
-                cls_descriptor_mtd = None
 
             if class_count == 1 and cls_descriptor_mtd is not None:
                 label_id = cls_descriptor_mtd.get_index_by_quark(

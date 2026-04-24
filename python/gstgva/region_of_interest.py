@@ -22,32 +22,13 @@ gi.require_version("DLStreamerMeta", "1.0")
 # GObject Introspection modules are dynamically generated, pylint cannot introspect them
 # pylint: disable=no-name-in-module,unused-import,wrong-import-position
 from gi.repository import GstVideo, GLib, GObject, Gst, GstAnalytics, DLStreamerMeta
-from gi.overrides import GstAnalytics as GstAnalyticsOverride
 # pylint: enable=no-name-in-module,unused-import
 
 from .tensor import Tensor
 from .util import VideoRegionOfInterestMeta, GstStructureHandle
 from .util import libgst, libgstvideo
-
-# Register Keypoint metadata
-# pylint: disable=protected-access
+from . import meta_registry  # noqa: F401 — registers DLStreamerMeta types with GstAnalytics
 # pylint: enable=wrong-import-position
-GstAnalyticsOverride._wrap_mtd(
-    DLStreamerMeta,
-    'KeypointMtd',
-    DLStreamerMeta.relation_meta_get_keypoint_mtd
-)
-GstAnalyticsOverride._wrap_mtd(
-    DLStreamerMeta,
-    'KeypointGroupMtd',
-    DLStreamerMeta.relation_meta_get_keypointgroup_mtd
-)
-GstAnalyticsOverride._wrap_mtd(
-    DLStreamerMeta,
-    'KeypointSkeletonMtd',
-    DLStreamerMeta.relation_meta_get_keypoint_skeleton_mtd
-)
-# pylint: enable=protected-access
 
 Rect = namedtuple("Rect", "x y w h")
 
@@ -76,6 +57,7 @@ class RegionOfInterest(object):
                 tensor = Tensor(tensor_structure)
                 if (
                     tensor.name() != "object_id"
+                    and tensor.type() != "keypoints"
                     and tensor.type() != "classification_result"
                 ):
                     self._tensors.append(tensor)
@@ -326,7 +308,7 @@ class RegionOfInterest(object):
             raise ValueError("RegionOfInterest:add_tensor: Invalid tensor structure")
         libgstvideo.gst_video_region_of_interest_meta_add_param(self.meta(), s)
 
-        tensor_mtd = tensor.convert_to_meta(self.__od_meta.meta)
+        tensor_mtd = tensor.convert_to_meta(self.__od_meta.meta, self.__od_meta)
         if tensor_mtd is not None:
             if not self.__od_meta.meta.set_relation(
                 GstAnalytics.RelTypes.CONTAIN, self.__od_meta.id, tensor_mtd.id
