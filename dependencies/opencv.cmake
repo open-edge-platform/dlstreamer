@@ -27,7 +27,6 @@ ExternalProject_Add(
     PREFIX ${CMAKE_BINARY_DIR}/opencv
     URL     https://github.com/opencv/opencv/archive/${DESIRED_VERSION}.zip
     URL_MD5 3774391cd16823fd4c51078cfee36e8b
-    DOWNLOAD_EXTRACT_TIMESTAMP TRUE
     CMAKE_GENERATOR     Ninja
     TEST_COMMAND        ""
     INSTALL_COMMAND     ninja install

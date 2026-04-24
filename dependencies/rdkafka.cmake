@@ -14,7 +14,6 @@ ExternalProject_Add(
     PREFIX ${CMAKE_BINARY_DIR}/rdkafka
     URL     https://github.com/confluentinc/librdkafka/archive/v${DESIRED_VERSION}.tar.gz
     URL_MD5 86ed3acd2f9d9046250dea654cee59a8
-    DOWNLOAD_EXTRACT_TIMESTAMP TRUE
     TEST_COMMAND    ""
     CMAKE_ARGS -DCMAKE_INSTALL_PREFIX:PATH=${CMAKE_BINARY_DIR}/opencv-bin
 )
