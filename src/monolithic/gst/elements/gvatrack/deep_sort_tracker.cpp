@@ -41,6 +41,13 @@
 #include <set>
 #include <sstream>
 
+GST_DEBUG_CATEGORY_STATIC(deep_sort_debug);
+#define GST_CAT_DEFAULT deep_sort_debug
+
+static void __attribute__((constructor)) init_debug_category(void) {
+    GST_DEBUG_CATEGORY_INIT(deep_sort_debug, "deepsort", 0, "Deep SORT tracker");
+}
+
 namespace DeepSortWrapper {
 
 // Track implementation
