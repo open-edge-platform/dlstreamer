@@ -650,10 +650,15 @@ class Tensor:
             for i in range(keypoint_count):
                 for j in range(i + 1, keypoint_count):
                     if kp_ids[i] is not None and kp_ids[j] is not None:
-                        rel = group_mtd.meta.get_relation(kp_ids[i], kp_ids[j])
-                        if rel == GstAnalytics.RelTypes.RELATE_TO:
+                        rel_ij = group_mtd.meta.get_relation(kp_ids[i], kp_ids[j])
+                        if rel_ij == GstAnalytics.RelTypes.RELATE_TO:
                             point_connections.append(i)
                             point_connections.append(j)
+                            continue
+                        rel_ji = group_mtd.meta.get_relation(kp_ids[j], kp_ids[i])
+                        if rel_ji == GstAnalytics.RelTypes.RELATE_TO:
+                            point_connections.append(j)
+                            point_connections.append(i)
 
             # create keypoint tensor
             structure = libgst.gst_structure_new_empty("keypoints".encode("utf-8"))

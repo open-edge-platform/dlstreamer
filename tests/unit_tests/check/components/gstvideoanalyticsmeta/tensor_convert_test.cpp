@@ -77,10 +77,16 @@ static const float CLS_DATA[] = {
     0.01f, 0.02f, 0.05f, 0.03f, 0.10f, 0.534f, 0.08f, 0.06f, 0.04f, 0.076f,
 };
 
-// ── Helper: get the COCO-17 descriptor ──────────────────────────────────────
+// ── Helper: get keypoint descriptors ─────────────────────────────────────────
 
 static const GstAnalyticsKeypointDescriptor *coco17_descriptor() {
     const auto *desc = gst_analytics_keypoint_descriptor_lookup(GST_ANALYTICS_KEYPOINT_BODY_POSE_COCO_17);
+    g_assert(desc != nullptr);
+    return desc;
+}
+
+static const GstAnalyticsKeypointDescriptor *openpose18_descriptor() {
+    const auto *desc = gst_analytics_keypoint_descriptor_lookup(GST_ANALYTICS_KEYPOINT_BODY_POSE_OPENPOSE_18);
     g_assert(desc != nullptr);
     return desc;
 }
@@ -603,6 +609,94 @@ TEST_F(KeypointFullRoundtripTest, FullRoundtrip) {
     auto orig_names = original.get_vector<std::string>("point_names");
     auto rest_names = restored.get_vector<std::string>("point_names");
     EXPECT_EQ(rest_names, orig_names);
+
+    gst_structure_free(orig_s);
+    gst_structure_free(restored_s);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// OpenPose-18 skeleton roundtrip (covers descriptors with from_idx > to_idx)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// OpenPose-18 has 18 keypoints; simplified normalized positions for testing
+static const float OPENPOSE18_POSITIONS_NORM[] = {
+    0.49f, 0.14f, // nose
+    0.50f, 0.20f, // neck
+    0.40f, 0.21f, // shoulder_r
+    0.30f, 0.31f, // elbow_r
+    0.25f, 0.41f, // wrist_r
+    0.60f, 0.21f, // shoulder_l
+    0.70f, 0.31f, // elbow_l
+    0.75f, 0.41f, // wrist_l
+    0.43f, 0.50f, // hip_r
+    0.42f, 0.65f, // knee_r
+    0.41f, 0.80f, // ankle_r
+    0.57f, 0.50f, // hip_l
+    0.58f, 0.65f, // knee_l
+    0.59f, 0.80f, // ankle_l
+    0.45f, 0.12f, // eye_r
+    0.55f, 0.12f, // eye_l
+    0.40f, 0.11f, // ear_r
+    0.60f, 0.11f, // ear_l
+};
+
+static const float OPENPOSE18_CONFIDENCES[] = {
+    0.95f, 0.93f, 0.91f, 0.88f, 0.85f, 0.92f, 0.89f, 0.86f, 0.90f,
+    0.87f, 0.84f, 0.90f, 0.87f, 0.84f, 0.80f, 0.82f, 0.78f, 0.79f,
+};
+
+static constexpr gsize OPENPOSE18_COUNT = 18;
+
+static GstStructure *build_openpose18_keypoint_structure() {
+    const auto *desc = openpose18_descriptor();
+    GstStructure *s = gst_structure_new_empty("keypoints");
+    GVA::Tensor tensor(s);
+
+    tensor.set_type("keypoints");
+    tensor.set_format(desc->semantic_tag);
+    tensor.set_dims({static_cast<guint>(OPENPOSE18_COUNT), static_cast<guint>(KEYPOINT_DIM)});
+    tensor.set_data(OPENPOSE18_POSITIONS_NORM, OPENPOSE18_COUNT * KEYPOINT_DIM * sizeof(float));
+    tensor.set_precision(GVA::Tensor::Precision::FP32);
+    tensor.set_vector<float>("confidence",
+                             std::vector<float>(OPENPOSE18_CONFIDENCES, OPENPOSE18_CONFIDENCES + OPENPOSE18_COUNT));
+    tensor.set_vector<std::string>("point_names",
+                                   std::vector<std::string>(desc->point_names, desc->point_names + desc->point_count));
+    tensor.set_vector<uint32_t>(
+        "point_connections", std::vector<uint32_t>(desc->skeleton_connections,
+                                                   desc->skeleton_connections + desc->skeleton_connection_count * 2));
+
+    return s;
+}
+
+TEST_F(KeypointFullRoundtripTest, OpenPose18SkeletonRoundtrip) {
+    // OpenPose-18 has pairs like (5,2), (6,5), etc. where from_idx > to_idx.
+    // This test verifies that directional RELATE_TO relations are correctly
+    // reconstructed during convert_to_tensor.
+    GstStructure *orig_s = build_openpose18_keypoint_structure();
+    GVA::Tensor original(orig_s);
+
+    // tensor → meta
+    GstAnalyticsGroupMtd group_mtd = {};
+    ASSERT_TRUE(original.convert_to_meta(reinterpret_cast<GstAnalyticsMtd *>(&group_mtd), &od_mtd, rmeta));
+    gst_analytics_relation_meta_set_relation(rmeta, GST_ANALYTICS_REL_TYPE_IS_PART_OF, group_mtd.id, od_mtd.id);
+
+    // meta → tensor
+    GstStructure *restored_s = GVA::Tensor::convert_to_tensor(*reinterpret_cast<GstAnalyticsMtd *>(&group_mtd));
+    ASSERT_NE(restored_s, nullptr);
+    GVA::Tensor restored(restored_s);
+
+    // Verify all 13 skeleton pairs survive the roundtrip
+    auto orig_conn = original.get_vector<uint32_t>("point_connections");
+    auto rest_conn = restored.get_vector<uint32_t>("point_connections");
+
+    std::set<std::pair<uint32_t, uint32_t>> orig_pairs, rest_pairs;
+    for (size_t i = 0; i < orig_conn.size(); i += 2)
+        orig_pairs.emplace(orig_conn[i], orig_conn[i + 1]);
+    for (size_t i = 0; i < rest_conn.size(); i += 2)
+        rest_pairs.emplace(rest_conn[i], rest_conn[i + 1]);
+
+    EXPECT_EQ(orig_pairs.size(), 13u) << "OpenPose-18 should have 13 skeleton connections";
+    EXPECT_EQ(rest_pairs, orig_pairs) << "All skeleton pairs including reversed ones must survive roundtrip";
 
     gst_structure_free(orig_s);
     gst_structure_free(restored_s);
