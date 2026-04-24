@@ -1,7 +1,7 @@
 # Uninstall Guide Windows
 
-DL Streamer can be uninstalled from **Windows Settings > Apps > Installed apps**,
-and search for "Deep Learning Streamer". Click on the three dots menu and select "Uninstall".
+Open **Windows Settings > Apps > Installed apps**, then search for "Deep Learning Streamer".
+Click on the three dots menu and select "Uninstall".
 Follow the on-screen instructions to complete the uninstallation process.
 
 The uninstaller removes all files, environment variables, and registry keys.
@@ -10,7 +10,7 @@ There is an option on the uninstall confirmation page to uninstall GStreamer.
 The uninstaller also supports silent mode via command line:
 
 ```ps1
-& "C:\Program Files\Intel\dlstreamer\Uninstall.exe /S"
+& "C:\Program Files\Intel\dlstreamer\Uninstall.exe" /S
 ```
 
 ------------------------------------------------------------------------

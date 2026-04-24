@@ -25,8 +25,8 @@ The installer provides the following components:
 
 | Component | Description | Selected by Default |
 |---|---|---|
-| **GStreamer** | GStreamer multimedia framework (system-wide installation). | Required |
-| **Runtime** | DL Streamer runtime libraries and plugins. | Required |
+| **GStreamer** | GStreamer multimedia framework (system-wide installation). | Yes (Required) |
+| **Runtime** | DL Streamer runtime libraries and plugins. | Yes (Required) |
 | **Python Bindings** | Python binding library and files. | Yes |
 | **Environment Variables** | Set up `DLSTREAMER_DIR`, `GST_PLUGIN_PATH`, and `PATH` environment variables for the current user. | Yes |
 | **Samples** | Sample applications and scripts. | Yes |
