@@ -5,7 +5,7 @@
 # ==============================================================================
 
 cmake_minimum_required(VERSION 3.20)
-
+project(draw_face_attributes)
 set (TARGET_NAME "draw_face_attributes")
 
 find_package(OpenCV OPTIONAL_COMPONENTS core imgproc)
@@ -20,10 +20,13 @@ file (GLOB MAIN_SRC *.cpp)
 
 file (GLOB MAIN_HEADERS *.h)
 
+set(DLSTREAMER_BUILD_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../../../build)
 set(GSTREAMER_INCLUDE_DIR /opt/intel/dlstreamer/gstreamer/include/gstreamer-1.0)
 set(OPENCV_INCLUDE_DIR /usr/include/opencv4)
 set(DLSTREAMER_INCLUDE_DIRS /opt/intel/dlstreamer/include)
 link_directories(${TARGET_NAME} /opt/intel/dlstreamer/lib
+        ${DLSTREAMER_BUILD_DIR}/intel64/Release/lib
+        /opt/intel/dlstreamer/Release/lib
         /opt/intel/dlstreamer/gstreamer/lib
         /usr/lib/x86_64-linux-gnu
 )
