@@ -35,6 +35,7 @@
 #include <dlstreamer/gst/mappers/gst_to_d3d11.h>
 #endif
 
+#include "meta_extractor/meta_extractor.h"
 #include "renderer/color_converter.h"
 #include "renderer/cpu/create_renderer.h"
 
@@ -132,6 +133,9 @@ struct Impl {
     int get_num_primitives() const;
     bool render(GstBuffer *buffer);
     bool render_va(cv::Mat *buffer);
+    void set_use_watermark_meta(bool value) {
+        _use_watermark_meta = value;
+    }
     const std::string &getBackendType() const {
         return _backend_type;
     }
@@ -172,6 +176,7 @@ struct Impl {
     std::vector<render::Prim> prims;
 
     const double _radius_multiplier = 0.0025;
+    bool _use_watermark_meta = false;
     Color _default_color = indexToColor(1);
     // Position for full-frame text (configurable via displ-cfg text-x / text-y)
     cv::Point2f _ff_text_position = cv::Point2f(0, 25.f);
@@ -235,6 +240,11 @@ void gst_gva_watermark_impl_set_property(GObject *object, guint prop_id, const G
         g_free(gvawatermark->displ_cfg);
         gvawatermark->displ_cfg = g_value_dup_string(value);
         break;
+    case PROP_USE_WATERMARK_META:
+        gvawatermark->use_watermark_meta = g_value_get_boolean(value);
+        if (gvawatermark->impl)
+            gvawatermark->impl->set_use_watermark_meta(gvawatermark->use_watermark_meta);
+        break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
         break;
@@ -262,6 +272,9 @@ void gst_gva_watermark_impl_get_property(GObject *object, guint prop_id, GValue 
         break;
     case PROP_DISPL_CFG:
         g_value_set_string(value, self->displ_cfg);
+        break;
+    case PROP_USE_WATERMARK_META:
+        g_value_set_boolean(value, self->use_watermark_meta);
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -380,6 +393,7 @@ static gboolean gst_gva_watermark_impl_set_caps(GstBaseTransform *trans, GstCaps
     try {
         gvawatermark->impl = std::make_shared<Impl>(&gvawatermark->info, mem_type, GST_ELEMENT(trans),
                                                     gvawatermark->displ_avgfps, gvawatermark->displ_cfg);
+        gvawatermark->impl->set_use_watermark_meta(gvawatermark->use_watermark_meta);
     } catch (const std::exception &e) {
         GST_ELEMENT_ERROR(gvawatermark, CORE, FAILED, ("Could not initialize"),
                           ("Cannot create watermark instance. %s", Utils::createNestedErrorMsg(e).c_str()));
@@ -726,6 +740,11 @@ static void gst_gva_watermark_impl_class_init(GstGvaWatermarkImplClass *klass) {
     g_object_class_install_property(gobject_class, PROP_DISPL_CFG,
                                     g_param_spec_string("displ-cfg", "Gvawatermark element display configuration",
                                                         DISPL_CFG_DESCRIPTION, nullptr, kDefaultGParamFlags));
+
+    g_object_class_install_property(gobject_class, PROP_USE_WATERMARK_META,
+                                    g_param_spec_boolean("use-watermark-meta", "Use Watermark Metadata",
+                                                         "If true, use watermark metadata eg. watermarkDrawMeta", false,
+                                                         kDefaultGParamFlags));
 }
 
 Impl::Impl(GstVideoInfo *info, InferenceBackend::MemoryType mem_type, GstElement *element, bool displ_avgfps,
@@ -754,11 +773,6 @@ Impl::Impl(GstVideoInfo *info, InferenceBackend::MemoryType mem_type, GstElement
     // Parse display configuration
     if (_displ_cfg)
         parse_displ_config();
-
-    if (_displCfg.draw_text_background) {
-        _renderer->enable_draw_txt_bg(true);
-        _renderer_opencv->enable_draw_txt_bg(true);
-    }
 }
 
 size_t get_keypoint_index_by_name(const gchar *target_name, GValueArray *names) {
@@ -857,9 +871,17 @@ bool Impl::extract_primitives(GstBuffer *buffer) {
         }
     }
 
-    if (ff_text.tellp() != 0)
-        prims.emplace_back(
-            render::Text(ff_text.str(), _ff_text_position, _displCfg.font_type, _displCfg.font_scale, _default_color));
+    if (ff_text.tellp() != 0) {
+        render::Text t(ff_text.str(), _ff_text_position, _displCfg.font_type, _displCfg.font_scale, _default_color);
+        t.draw_bg = _displCfg.draw_text_background;
+        prims.emplace_back(t);
+    }
+
+    // Extract and merge any pre-existing watermark metadata from input buffer
+    if (_use_watermark_meta) {
+        auto watermark_prims = MetaExtractor::extractWatermarkPrimitives(buffer);
+        prims.insert(prims.end(), watermark_prims.begin(), watermark_prims.end());
+    }
 
     return true;
 }
@@ -972,7 +994,9 @@ void Impl::preparePrimsForRoi(GVA::RegionOfInterest &roi, std::vector<render::Pr
                 cv::Point2f pos(rect.x, rect.y - 5.f);
                 if (pos.y < 0)
                     pos.y = rect.y + 30.f;
-                prims.emplace_back(render::Text(text.str(), pos, _displCfg.font_type, _displCfg.font_scale, color));
+                render::Text t(text.str(), pos, _displCfg.font_type, _displCfg.font_scale, color);
+                t.draw_bg = _displCfg.draw_text_background;
+                prims.emplace_back(t);
             }
     }
 
@@ -985,8 +1009,9 @@ void Impl::preparePrimsForRoi(GVA::RegionOfInterest &roi, std::vector<render::Pr
             fpstext << "[avg " << std::fixed << std::setprecision(1) << avg_fps << " FPS]";
             if (fpstext.str().size() != 0) {
                 cv::Point2f pos(_vinfo->width * 0.7, _vinfo->height - 20.f);
-                prims.emplace_back(
-                    render::Text(fpstext.str(), pos, _displCfg.font_type, _displCfg.font_scale * 0.7, indexToColor(1)));
+                render::Text t(fpstext.str(), pos, _displCfg.font_type, _displCfg.font_scale * 0.7, indexToColor(1));
+                t.draw_bg = _displCfg.draw_text_background;
+                prims.emplace_back(t);
             }
         }
     }
