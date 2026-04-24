@@ -66,6 +66,7 @@ class ImageInferenceAsyncD3D11 : public ImageInference {
 
     D3D11_TEXTURE2D_DESC _dst_texture_desc = {};
     DXGI_FORMAT _dst_format = DXGI_FORMAT_UNKNOWN;
+    int _dst_fourcc = 0;
     uint32_t _dst_width = 0, _dst_height = 0;
 
     // Converter on the dst device. Created lazily; recreated on source dimension/format change.

@@ -138,6 +138,7 @@ ImageInferenceAsyncD3D11::ImageInferenceAsyncD3D11(const InferenceBackend::Infer
 
     _surface_sharing = (static_cast<MemoryType>(memory_type) == MemoryType::D3D11);
 
+    _dst_fourcc = format;
     _dst_format = FourCCToDXGI(format);
     if (_dst_format == DXGI_FORMAT_UNKNOWN) {
         GVA_WARNING("D3D11: Format %d has no DXGI equivalent, using BGRA", format);
@@ -248,7 +249,7 @@ void ImageInferenceAsyncD3D11::BuildSurfaceSharingImage(IFrameBase::Ptr &frame, 
     image->type = MemoryType::D3D11;
     image->width = _dst_width;
     image->height = _dst_height;
-    image->format = DXGIToFourCC(_dst_format);
+    image->format = _dst_fourcc;
     image->d3d11_texture = static_cast<ID3D11Texture2D *>(ov_texture);
     image->gst_d3d11_device = _gst_device;
     image->d3d11_subresource_index = 0;
@@ -319,7 +320,7 @@ void ImageInferenceAsyncD3D11::ShareTextureToDstDevice(IFrameBase::Ptr &frame, G
     image->type = MemoryType::D3D11;
     image->width = _dst_width;
     image->height = _dst_height;
-    image->format = FourCC::FOURCC_NV12;
+    image->format = _dst_fourcc;
     image->d3d11_texture = shared_texture.Get();
     image->gst_d3d11_device = _gst_device;
     image->d3d11_subresource_index = 0;
