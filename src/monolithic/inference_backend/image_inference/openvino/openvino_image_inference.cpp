@@ -820,6 +820,22 @@ class OpenVinoNewApiImpl {
             }
         }
 
+        // NPU achieves throughput via multiple async inference requests rather than
+        // model-level batching. A static batched graph (ov::set_batch(N>1)) hurts
+        // performance by ~3x and can fail the VCL compiler for N>=16. Translate the
+        // user's batch-size into nireq so the NPU sees a batch-1 graph.
+        // NPU saturates at ~4 concurrent async requests; use that as a lower bound.
+        static constexpr int NPU_MIN_NIREQ = 4;
+        if (_device.find("NPU") != std::string::npos && _batch_size > 1) {
+            int requested_nireq = std::max(_batch_size, NPU_MIN_NIREQ);
+            if (_nireq == 0 || _nireq < requested_nireq)
+                _nireq = requested_nireq;
+            GVA_WARNING("NPU: model-level batching is inefficient on NPU hardware. "
+                        "Clamping batch-size from %d to 1 and using nireq=%d for async throughput.",
+                        _batch_size, _nireq);
+            _batch_size = 1;
+        }
+
         _batch_timeout = config.batch_timeout();
 
         if (_batch_timeout > -1) {
@@ -1078,10 +1094,7 @@ class OpenVinoNewApiImpl {
         }
 
         // print_input_and_outputs_info(*_model);
-        {
-            // npu plugin init is not re-entrant — serialize compile_model for npu only
-            auto lock =
-                is_device_npu() ? std::unique_lock<std::mutex>(compile_mutex()) : std::unique_lock<std::mutex>();
+        auto do_compile = [&]() {
             if (_openvino_context) {
                 _compiled_model = core().compile_model(_model, _openvino_context->remote_context(), ov_params);
             } else {
@@ -1091,6 +1104,12 @@ class OpenVinoNewApiImpl {
                 }
                 _compiled_model = core().compile_model(_model, formatted_device, ov_params);
             }
+        };
+        if (_device.find("NPU") != std::string::npos) {
+            std::lock_guard<std::mutex> lock(compile_mutex());
+            do_compile();
+        } else {
+            do_compile();
         }
         GVA_INFO("Network loaded to device");
 
@@ -1127,10 +1146,6 @@ class OpenVinoNewApiImpl {
 
     bool is_device_gpu() const {
         return _device.find("GPU") != std::string::npos;
-    }
-
-    bool is_device_npu() const {
-        return _device.find("NPU") != std::string::npos;
     }
 
     bool is_device_multi() const {
