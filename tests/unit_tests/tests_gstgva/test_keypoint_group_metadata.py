@@ -4,6 +4,8 @@
 # SPDX-License-Identifier: MIT
 # ==============================================================================
 
+"""Unit tests for DLStreamerMeta.KeypointMtd, GroupMtd and keypoints group API."""
+
 import sys
 import unittest
 
@@ -12,7 +14,7 @@ gi.require_version('Gst', '1.0')
 gi.require_version('GstAnalytics', '1.0')
 gi.require_version('DLStreamerMeta', '1.0')
 
-from gi.repository import Gst, GstAnalytics, DLStreamerMeta
+from gi.repository import Gst, GstAnalytics, DLStreamerMeta  # pylint: disable=no-name-in-module
 
 # Import gstgva.region_of_interest to trigger _wrap_mtd() registration
 # which makes type() return proper DLStreamerMeta types during iteration

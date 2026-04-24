@@ -490,13 +490,17 @@ class Tensor:
     def convert_to_meta(
         self, relation_meta: GstAnalytics.RelationMeta, od_meta: GstAnalytics.ODMtd = None
     ) -> GstAnalytics.Mtd | None:
+        ## @brief Convert this tensor to GstAnalytics metadata
+        #  @param relation_meta GstAnalyticsRelationMeta to attach the metadata to
+        #  @param od_meta parent object-detection metadata (required for keypoints)
+        #  @return GstAnalyticsMtd on success, None if tensor type is not supported
         mtd = None
         if self.type() == "keypoints":
             dimensions = self.dims()
             raw_data = self.data()
             confidence_val = self.confidence()
-            keypoint_count = dimensions[0]
-            keypoint_dimension = dimensions[1]
+            keypoint_count = list(dimensions)[0]
+            keypoint_dimension = list(dimensions)[1]
 
             dim = DLStreamerMeta.KeypointDimensions(keypoint_dimension)
 
@@ -567,6 +571,9 @@ class Tensor:
 
     @staticmethod
     def convert_to_tensor(mtd: GstAnalytics.Mtd) -> ctypes.c_void_p | None:
+        ## @brief Convert GstAnalytics metadata back to a GstStructure tensor
+        #  @param mtd GstAnalyticsMtd (GroupMtd for keypoints, ClsMtd for classification)
+        #  @return pointer to newly created GstStructure, or None if metadata type is not supported
         if type(mtd) == DLStreamerMeta.GroupMtd:
             group_mtd = mtd
             keypoint_count = group_mtd.get_member_count()

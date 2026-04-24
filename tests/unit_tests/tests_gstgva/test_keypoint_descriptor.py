@@ -4,6 +4,8 @@
 # SPDX-License-Identifier: MIT
 # ==============================================================================
 
+"""Unit tests for DLStreamerMeta.KeypointDescriptor and related Python bindings."""
+
 import sys
 import unittest
 
@@ -12,7 +14,7 @@ gi.require_version('Gst', '1.0')
 gi.require_version('GstAnalytics', '1.0')
 gi.require_version('DLStreamerMeta', '1.0')
 
-from gi.repository import Gst, GstAnalytics, DLStreamerMeta
+from gi.repository import Gst, GstAnalytics, DLStreamerMeta  # pylint: disable=no-name-in-module
 
 Gst.init(sys.argv)
 
