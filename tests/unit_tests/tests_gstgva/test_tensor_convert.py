@@ -448,5 +448,104 @@ class KeypointFullRoundtripTestCase(unittest.TestCase):
         self.assertEqual(rest_pairs, orig_pairs)
 
 
+# ── OpenPose-18 roundtrip (covers descriptors with from_idx > to_idx) ───────
+
+# Simplified normalized positions for 18 OpenPose keypoints
+OPENPOSE18_POSITIONS_NORM = [
+    0.49, 0.14,  # nose
+    0.50, 0.20,  # neck
+    0.40, 0.21,  # shoulder_r
+    0.30, 0.31,  # elbow_r
+    0.25, 0.41,  # wrist_r
+    0.60, 0.21,  # shoulder_l
+    0.70, 0.31,  # elbow_l
+    0.75, 0.41,  # wrist_l
+    0.43, 0.50,  # hip_r
+    0.42, 0.65,  # knee_r
+    0.41, 0.80,  # ankle_r
+    0.57, 0.50,  # hip_l
+    0.58, 0.65,  # knee_l
+    0.59, 0.80,  # ankle_l
+    0.45, 0.12,  # eye_r
+    0.55, 0.12,  # eye_l
+    0.40, 0.11,  # ear_r
+    0.60, 0.11,  # ear_l
+]
+
+OPENPOSE18_CONFIDENCES = [
+    0.95, 0.93, 0.91, 0.88, 0.85, 0.92, 0.89, 0.86, 0.90,
+    0.87, 0.84, 0.90, 0.87, 0.84, 0.80, 0.82, 0.78, 0.79,
+]
+
+OPENPOSE18_COUNT = 18
+
+
+def _openpose18_descriptor():
+    """Look up the OpenPose-18 keypoint descriptor."""
+    desc = DLStreamerMeta.KeypointDescriptor.lookup("body-pose/openpose-18")
+    assert desc is not None
+    return desc
+
+
+def _build_openpose18_keypoint_tensor():
+    """Create a keypoints Tensor using the OpenPose-18 descriptor."""
+    desc = _openpose18_descriptor()
+    structure = libgst.gst_structure_new_empty(b"keypoints")
+    tensor = Tensor(structure)
+
+    tensor.set_type("keypoints")
+    tensor.set_format(desc.get_semantic_tag())
+    tensor.set_dims([OPENPOSE18_COUNT, KEYPOINT_DIM])
+    tensor.set_data(numpy.array(OPENPOSE18_POSITIONS_NORM, dtype=numpy.float32))
+    tensor.set_precision(Tensor.PRECISION.FP32)
+    tensor.set_vector("confidence", OPENPOSE18_CONFIDENCES, value_type="float")
+    tensor.set_vector("point_names", _descriptor_point_names(desc), value_type="string")
+    tensor.set_vector("point_connections", _descriptor_skeleton(desc), value_type="uint")
+
+    return tensor
+
+
+class OpenPose18SkeletonRoundtripTestCase(unittest.TestCase):
+    """Roundtrip test using OpenPose-18 descriptor which has skeleton pairs
+    where from_idx > to_idx (e.g. (5,2), (6,5), (3,2), (7,6), (4,3)).
+    This verifies that directional RELATE_TO relations are correctly
+    reconstructed during convert_to_tensor."""
+
+    def setUp(self):
+        self.buffer = Gst.Buffer.new_allocate(None, 0, None)
+        self.rmeta = GstAnalytics.buffer_add_analytics_relation_meta(self.buffer)
+        ok, self.od_mtd = self.rmeta.add_od_mtd(
+            GLib.quark_from_string("person"), OD_X, OD_Y, OD_W, OD_H, 0.9)
+
+    def test_skeleton_roundtrip_preserves_reversed_pairs(self):
+        """All 13 OpenPose-18 skeleton pairs must survive the roundtrip,
+        including those where the first index is greater than the second."""
+        original = _build_openpose18_keypoint_tensor()
+
+        # tensor → meta
+        group = original.convert_to_meta(self.rmeta, self.od_mtd)
+        self.assertIsNotNone(group)
+
+        self.rmeta.set_relation(
+            GstAnalytics.RelTypes.IS_PART_OF,
+            group.id, self.od_mtd.id)
+
+        # meta → tensor
+        structure = Tensor.convert_to_tensor(group)
+        self.assertIsNotNone(structure)
+        restored = Tensor(structure)
+
+        orig_pc = list(original["point_connections"])
+        rest_pc = list(restored["point_connections"])
+
+        orig_pairs = set(zip(orig_pc[::2], orig_pc[1::2]))
+        rest_pairs = set(zip(rest_pc[::2], rest_pc[1::2]))
+
+        self.assertEqual(len(orig_pairs), 13,
+                         "OpenPose-18 should have 13 skeleton connections")
+        self.assertEqual(rest_pairs, orig_pairs,
+                         "All skeleton pairs including reversed ones must survive roundtrip")
+
+
 if __name__ == '__main__':
     unittest.main()
