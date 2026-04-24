@@ -18,6 +18,7 @@
 
 #include "gva_base_inference_priv.hpp"
 #include <memory>
+#include <string_view>
 
 #define DEFAULT_MODEL nullptr
 #define DEFAULT_MODEL_INSTANCE_ID nullptr
@@ -115,7 +116,8 @@ enum {
     PROP_CUSTOM_PREPROC_LIB,
     PROP_CUSTOM_POSTPROC_LIB,
     PROP_OV_EXTENSION_LIB,
-    PROP_SHARE_VADISPLAY_CTX
+    PROP_SHARE_VADISPLAY_CTX,
+    PROP_CORE_PINNING
 };
 
 GType gst_gva_base_inference_get_inf_region(void) {
@@ -413,6 +415,12 @@ void gva_base_inference_class_init(GvaBaseInferenceClass *klass) {
                              "Whether to share VA Display context across inference elements: "
                              "true (share context, default), false (do not share context)",
                              DEFAULT_SHARE_VADISPLAY_CTX, param_flags));
+
+    g_object_class_install_property(
+        gobject_class, PROP_CORE_PINNING,
+        g_param_spec_string("core-pinning", "Core Pinning",
+                            "List or range of CPU cores to pin this inference element to (e.g., '0-3' or '0,2,3')",
+                            nullptr, param_flags));
 }
 
 void gva_base_inference_cleanup(GvaBaseInference *base_inference) {
@@ -490,6 +498,77 @@ void gva_base_inference_cleanup(GvaBaseInference *base_inference) {
     base_inference->ov_extension_lib = nullptr;
 }
 
+/**
+ * Set the core pinning mask
+ * 1. Get the current process CPU affinity mask to use as the default core pinning mask.
+ * 2. If the process affinity mask includes all available cores, and the CPU is PTL-H series, 
+ *    limit the default core pinning mask to the first 4 cores (the P-Cores) to optimize performance.
+ */
+void set_core_pinning_mask(GvaBaseInference *base_inference) {
+#ifndef _WIN32
+    // Default: all cores available
+    int num_cores = sysconf(_SC_NPROCESSORS_ONLN);
+    CPU_ZERO(&base_inference->core_pinning_mask);
+    for (int i = 0; i < num_cores; ++i)
+        CPU_SET(i, &base_inference->core_pinning_mask);
+
+    cpu_set_t process_affinity_mask;
+    CPU_ZERO(&process_affinity_mask);
+    pthread_t current_thread = pthread_self();
+    // Get current CPU affinity mask
+    if (!pthread_getaffinity_np(current_thread, sizeof(cpu_set_t), &process_affinity_mask)) {
+        // Successfully got the affinity mask, use it directly for core pinning
+        base_inference->core_pinning_mask = process_affinity_mask;
+        // Check if all cores are available for pinning
+        if(CPU_COUNT(&process_affinity_mask) == num_cores) {
+            // All CPU cores are available for pinning
+            if(Utils::isCPUPTLHSeries() && num_cores == TOTAL_CORES_PTL_H) {
+                CPU_ZERO(&base_inference->core_pinning_mask);
+                for (int i = 0; i < 4; ++i)  // Pin to first 4 cores, the P-Cores
+                    CPU_SET(i, &base_inference->core_pinning_mask);
+            }
+        }
+    }
+    else {
+        GST_WARNING_OBJECT(base_inference, "Failed to get CPU affinity mask, core pinning will not be limited by process affinity");
+    }
+#else
+    memset(&base_inference->core_pinning_mask, 0, sizeof(WinCorePinningMask));
+    WORD num_groups = GetActiveProcessorGroupCount();
+    base_inference->core_pinning_mask.num_groups = num_groups;
+
+    // Default: set all cores in all groups
+    int total_cores = 0;
+    for (WORD g = 0; g < num_groups; ++g) {
+        DWORD count = GetActiveProcessorCount(g);
+        total_cores += count;
+        base_inference->core_pinning_mask.group_mask[g] = ((KAFFINITY)1 << count) - 1;
+        if (count == sizeof(KAFFINITY) * 8)
+            base_inference->core_pinning_mask.group_mask[g] = ~(KAFFINITY)0;
+    }
+
+    // Get current process affinity mask to refine the default
+    DWORD_PTR processAffinityMask = 0;
+    DWORD_PTR systemAffinityMask = 0;
+    HANDLE current_process = GetCurrentProcess();
+    if (GetProcessAffinityMask(current_process, &processAffinityMask, &systemAffinityMask)) {
+        // Use process affinity as the core pinning mask (applies to group 0 for legacy API)
+        if (num_groups == 1) {
+            base_inference->core_pinning_mask.group_mask[0] = processAffinityMask;
+        }
+
+        // Only apply PTL-H optimization if all cores are available for pinning
+        if (processAffinityMask == systemAffinityMask) {
+            if (Utils::isCPUPTLHSeries() && total_cores == TOTAL_CORES_PTL_H) {
+                memset(&base_inference->core_pinning_mask, 0, sizeof(WinCorePinningMask));
+                base_inference->core_pinning_mask.num_groups = num_groups;
+                base_inference->core_pinning_mask.group_mask[0] = 0xF; // Pin to first 4 cores, the P-Cores
+            }
+        }
+    }
+#endif    
+}
+
 void gva_base_inference_init(GvaBaseInference *base_inference) {
     GST_DEBUG_OBJECT(base_inference, "gva_base_inference_init");
 
@@ -545,6 +624,8 @@ void gva_base_inference_init(GvaBaseInference *base_inference) {
     base_inference->ov_extension_lib = g_strdup(DEFAULT_OV_EXTENSION_LIB);
 
     base_inference->share_va_display_ctx = DEFAULT_SHARE_VADISPLAY_CTX;
+
+    set_core_pinning_mask(base_inference);    
 }
 
 GstStateChangeReturn gva_base_inference_change_state(GstElement *element, GstStateChange transition) {
@@ -613,6 +694,130 @@ void gva_base_inference_set_labels(GvaBaseInference *base_inference, const gchar
         GST_ELEMENT_WARNING(base_inference, RESOURCE, SETTINGS, ("'labels' can't be changed"),
                             ("You cannot change 'labels' property on base_inference when a file is open"));
     }
+}
+
+// Convert range of integer IDs to cpu_set_t representing cores for pinning.
+// Example input: "1-5, 8, 10-12"
+void gva_base_inference_set_core_pinning(GvaBaseInference *base_inference, const gchar *range_str) {
+#ifndef _WIN32
+    cpu_set_t core_mask;
+    CPU_ZERO(&core_mask);
+    int num_cores = sysconf(_SC_NPROCESSORS_ONLN);
+
+    try {
+        // Split by comma to get individual ranges or numbers
+        std::string_view sv(range_str);
+
+        // parse input string and set bits in core_pinning accordingly
+        while (!sv.empty()) {
+            // Find next comma-separated token
+            size_t comma_pos = sv.find(',');
+            std::string_view token = sv.substr(0, comma_pos);
+            sv = (comma_pos != std::string_view::npos) ? sv.substr(comma_pos + 1) : std::string_view{};
+
+            // Trim whitespace
+            size_t start_pos = token.find_first_not_of(" \t");
+            if (start_pos == std::string_view::npos)
+                continue;
+            token = token.substr(start_pos);
+            token = token.substr(0, token.find_last_not_of(" \t") + 1);
+
+            if (token.find('-') != std::string_view::npos) {
+                // Parse range like "1-5"
+                size_t dash_pos = token.find('-');
+                int start = std::stoi(std::string(token.substr(0, dash_pos)));
+                int end = std::stoi(std::string(token.substr(dash_pos + 1)));
+
+                // Set bits in the range
+                for (int i = start; i <= end; i++) {
+                    if (i >= 0 && i < num_cores)
+                        CPU_SET(i, &core_mask);
+                    else
+                        GST_WARNING_OBJECT(base_inference, "Core index %d is out of valid range (0-%d) and will be ignored", i, num_cores - 1);
+                }
+            } else {
+                // Set single core
+                int core = std::stoi(std::string(token));
+                if (core >= 0 && core < num_cores)
+                    CPU_SET(core, &core_mask);
+                else
+                    GST_WARNING_OBJECT(base_inference, "Core index %d is out of valid range (0-%d) and will be ignored", core, num_cores - 1);
+            }
+        }
+
+    } catch (const std::exception &e) {
+        GST_ELEMENT_ERROR(base_inference, RESOURCE, SETTINGS, ("Invalid core-pinning format"),
+                          ("Failed to parse core-pinning property: %s", e.what()));
+        return;
+    }
+
+    // if string parsed without errors, update core pinning
+    base_inference->core_pinning_mask = core_mask;
+#else
+    // Windows: use GROUP_AFFINITY to support 64+ cores across processor groups
+    WinCorePinningMask core_mask;
+    memset(&core_mask, 0, sizeof(WinCorePinningMask));
+    WORD num_groups = GetActiveProcessorGroupCount();
+    core_mask.num_groups = num_groups;
+
+    // Calculate total cores and per-group core counts
+    int group_start[MAX_WIN_PROCESSOR_GROUPS] = {};
+    int total_cores = 0;
+    for (WORD g = 0; g < num_groups; ++g) {
+        group_start[g] = total_cores;
+        total_cores += GetActiveProcessorCount(g);
+    }
+
+    try {
+        std::string_view sv(range_str);
+
+        while (!sv.empty()) {
+            size_t comma_pos = sv.find(',');
+            std::string_view token = sv.substr(0, comma_pos);
+            sv = (comma_pos != std::string_view::npos) ? sv.substr(comma_pos + 1) : std::string_view{};
+
+            size_t start_pos = token.find_first_not_of(" \t");
+            if (start_pos == std::string_view::npos)
+                continue;
+            token = token.substr(start_pos);
+            token = token.substr(0, token.find_last_not_of(" \t") + 1);
+
+            auto set_core = [&](int core_id) {
+                if (core_id < 0 || core_id >= total_cores) {
+                    GST_WARNING_OBJECT(base_inference, "Core index %d is out of valid range (0-%d) and will be ignored", core_id, total_cores - 1);
+                    return;
+                }
+                // Find which group this core belongs to
+                for (WORD g = 0; g < num_groups; ++g) {
+                    int group_size = (int)GetActiveProcessorCount(g);
+                    if (core_id >= group_start[g] && core_id < group_start[g] + group_size) {
+                        int local_core = core_id - group_start[g];
+                        core_mask.group_mask[g] |= ((KAFFINITY)1 << local_core);
+                        break;
+                    }
+                }
+            };
+
+            if (token.find('-') != std::string_view::npos) {
+                size_t dash_pos = token.find('-');
+                int start = std::stoi(std::string(token.substr(0, dash_pos)));
+                int end = std::stoi(std::string(token.substr(dash_pos + 1)));
+
+                for (int i = start; i <= end; i++)
+                    set_core(i);
+            } else {
+                set_core(std::stoi(std::string(token)));
+            }
+        }
+
+    } catch (const std::exception &e) {
+        GST_ELEMENT_ERROR(base_inference, RESOURCE, SETTINGS, ("Invalid core-pinning format"),
+                          ("Failed to parse core-pinning property: %s", e.what()));
+        return;
+    }
+
+    base_inference->core_pinning_mask = core_mask;
+#endif
 }
 
 void gva_base_inference_set_property(GObject *object, guint property_id, const GValue *value, GParamSpec *pspec) {
@@ -744,6 +949,9 @@ void gva_base_inference_set_property(GObject *object, guint property_id, const G
     case PROP_SHARE_VADISPLAY_CTX:
         base_inference->share_va_display_ctx = g_value_get_boolean(value);
         break;
+    case PROP_CORE_PINNING:
+        gva_base_inference_set_core_pinning(base_inference, g_value_get_string(value));
+        break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
         break;
@@ -837,6 +1045,34 @@ void gva_base_inference_get_property(GObject *object, guint property_id, GValue 
     case PROP_SCHEDULING_POLICY:
         g_value_set_string(value, base_inference->scheduling_policy);
         break;
+    case PROP_CORE_PINNING: {
+        // Convert core pinning mask back to string representation for get_property
+        std::string range_str;
+#ifndef _WIN32
+        int num_cores = sysconf(_SC_NPROCESSORS_ONLN);
+        for (int i = 0; i < num_cores; i++) {
+            if (CPU_ISSET(i, &base_inference->core_pinning_mask)) {
+                if (!range_str.empty())
+                    range_str += ",";
+                range_str += std::to_string(i);
+            }
+        }
+#else
+        int global_core = 0;
+        for (WORD g = 0; g < base_inference->core_pinning_mask.num_groups; ++g) {
+            DWORD group_size = GetActiveProcessorCount(g);
+            for (DWORD i = 0; i < group_size; ++i) {
+                if (base_inference->core_pinning_mask.group_mask[g] & ((KAFFINITY)1 << i)) {
+                    if (!range_str.empty())
+                        range_str += ",";
+                    range_str += std::to_string(global_core);
+                }
+                global_core++;
+            }
+        }
+#endif
+        g_value_set_string(value, range_str.c_str());
+    } break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
         break;

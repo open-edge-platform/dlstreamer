@@ -14,6 +14,10 @@
 #include <unistd.h>
 #endif
 
+#ifdef _WIN32
+#include <intrin.h>
+#endif
+
 #include <cassert>
 #include <filesystem>
 #include <fstream>
@@ -186,6 +190,48 @@ std::string fixPath(std::string path) {
         return std::getenv("HOME") + path.substr(1);
 
     return path;
+}
+
+
+bool isCPUPTLHSeries() {
+    std::string brand_str;
+
+#ifndef _WIN32
+    std::ifstream in("/proc/cpuinfo");
+    if (!in.is_open())
+        return false;
+
+    std::string line;
+    const std::string key = "model name"; //e.g. model name      : Intel(R) Core(TM) Ultra X7 358H
+    while (std::getline(in, line)) {
+        if (line.rfind(key, 0) == 0) {
+            auto pos = line.find(':');
+            if (pos != std::string::npos) {
+                brand_str = line.substr(pos + 1);
+                break;
+            }
+        }
+    }
+#else
+    // Windows: use CPUID to get processor brand string
+    int cpuInfo[4] = {};
+    char brand[49] = {};
+
+    // CPUID leaves 0x80000002-0x80000004 return the 48-char processor brand string
+    for (int i = 0; i < 3; ++i) {
+        __cpuid(cpuInfo, 0x80000002 + i);
+        memcpy(brand + i * 16, cpuInfo, 16);
+    }
+    brand[48] = '\0';
+    brand_str = brand;
+#endif
+
+    if (brand_str.empty())
+        return false;
+
+    // Match "3xxH" pattern (e.g. "358H") in the brand string
+    static const std::regex model_regex("\\b3\\d{2}H\\b");
+    return std::regex_search(brand_str, model_regex);
 }
 
 } // namespace Utils
