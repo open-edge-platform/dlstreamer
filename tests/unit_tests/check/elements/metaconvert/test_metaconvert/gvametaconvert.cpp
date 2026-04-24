@@ -6,6 +6,9 @@
 
 #include <gstgvametaconvert.h>
 
+#include <dlstreamer/gst/metadata/g3d_lidar_meta.h>
+#include <dlstreamer/gst/metadata/gva_tensor_meta.h>
+
 #include "test_common.h"
 
 #include "glib.h"
@@ -18,6 +21,9 @@
 #include <gst/rtp/rtp.h>
 #include <gst/video/video.h>
 #include <nlohmann/json.hpp>
+
+#include <cmath>
+#include <vector>
 
 using json = nlohmann::json;
 
@@ -39,6 +45,194 @@ struct TestData {
     std::string add_tensor_data;
     bool add_ntp_meta;
 };
+
+namespace {
+
+constexpr size_t kPointPillarsDetectionWidth = 9;
+constexpr guint kPointPillarsFrameId = 17;
+constexpr guint kPointPillarsPointCount = 1024;
+constexpr guint kPointPillarsStreamId = 5;
+constexpr GstClockTime kPointPillarsLidarParseTs = 11 * GST_MSECOND;
+constexpr GstClockTime kPointPillarsInferenceTs = 13 * GST_MSECOND;
+constexpr float kFloatTolerance = 1e-6f;
+
+const std::vector<float> kPointPillarsDetections = {10.5f, -4.25f, -1.75f, 1.6f, 4.2f, 1.4f, 0.25f, 0.95f, 2.0f};
+
+GValueArray *vector_to_gvalue_array(const std::vector<guint> &values) {
+    GValueArray *array = g_value_array_new(values.size());
+    for (guint value : values) {
+        GValue item = G_VALUE_INIT;
+        g_value_init(&item, G_TYPE_UINT);
+        g_value_set_uint(&item, value);
+        g_value_array_append(array, &item);
+        g_value_unset(&item);
+    }
+    return array;
+}
+
+void copy_buffer_to_structure(GstStructure *structure, const void *buffer, size_t size) {
+    GVariant *variant = g_variant_new_fixed_array(G_VARIANT_TYPE_BYTE, buffer, size, 1);
+    gsize n_elem = 0;
+    gst_structure_set(structure, "data_buffer", G_TYPE_VARIANT, variant, "data", G_TYPE_POINTER,
+                      g_variant_get_fixed_array(variant, &n_elem, 1), NULL);
+}
+
+void assert_close(double actual, double expected, const char *message) {
+    ck_assert_msg(std::abs(actual - expected) < kFloatTolerance, "%s: expected %.6f, got %.6f", message, expected,
+                  actual);
+}
+
+void assert_json_float(const json &jvalue, double expected, const char *message) {
+    ck_assert_msg(jvalue.is_number(), "%s: expected numeric value", message);
+    assert_close(jvalue.get<double>(), expected, message);
+}
+
+struct PointPillarsTestData {
+    Resolution resolution;
+    std::vector<float> detections;
+    bool add_tensor_data;
+};
+
+void setup_pointpillars_inbuffer(GstBuffer *inbuffer, gpointer user_data) {
+    PointPillarsTestData *test_data = static_cast<PointPillarsTestData *>(user_data);
+    ck_assert_msg(test_data != NULL, "Passed data is not PointPillarsTestData");
+
+    GstVideoInfo info;
+    gst_video_info_set_format(&info, TEST_BUFFER_VIDEO_FORMAT, test_data->resolution.width,
+                              test_data->resolution.height);
+    gst_buffer_add_video_meta(inbuffer, GST_VIDEO_FRAME_FLAG_NONE, GST_VIDEO_INFO_FORMAT(&info),
+                              GST_VIDEO_INFO_WIDTH(&info), GST_VIDEO_INFO_HEIGHT(&info));
+
+    LidarMeta *lidar_meta = add_lidar_meta(inbuffer, kPointPillarsPointCount, kPointPillarsFrameId,
+                                           kPointPillarsLidarParseTs, kPointPillarsStreamId);
+    ck_assert_msg(lidar_meta != NULL, "Failed to attach LidarMeta");
+    lidar_meta->exit_g3dinference_timestamp = kPointPillarsInferenceTs;
+
+    GstGVATensorMeta *tensor_meta = GST_GVA_TENSOR_META_ADD(inbuffer);
+    ck_assert_msg(tensor_meta != NULL, "Failed to attach GstGVATensorMeta");
+
+    gst_structure_set_name(tensor_meta->data, "detection");
+    gst_structure_set(tensor_meta->data, "element_id", G_TYPE_STRING, "g3dinference", "model_name", G_TYPE_STRING,
+                      "pointpillars", "layer_name", G_TYPE_STRING, "pointpillars_3d_detection", "format", G_TYPE_STRING,
+                      "pointpillars_3d", "precision", G_TYPE_INT, GVA_PRECISION_FP32, "layout", G_TYPE_INT,
+                      GVA_LAYOUT_NC, "rank", G_TYPE_INT, 2, NULL);
+
+    GValueArray *dims = vector_to_gvalue_array(
+        {static_cast<guint>(test_data->detections.size() / kPointPillarsDetectionWidth), kPointPillarsDetectionWidth});
+    gst_structure_set_array(tensor_meta->data, "dims", dims);
+    g_value_array_free(dims);
+
+    copy_buffer_to_structure(tensor_meta->data, test_data->detections.data(),
+                             test_data->detections.size() * sizeof(float));
+}
+
+void check_pointpillars_outbuffer(GstBuffer *outbuffer, gpointer user_data) {
+    PointPillarsTestData *test_data = static_cast<PointPillarsTestData *>(user_data);
+    ck_assert_msg(test_data != NULL, "Passed data is not PointPillarsTestData");
+
+    GstGVAJSONMeta *meta = GST_GVA_JSON_META_GET(outbuffer);
+    ck_assert_msg(meta != NULL, "No meta found");
+    ck_assert_msg(meta->message != NULL, "No message in meta");
+
+    json json_message = json::parse(meta->message);
+    ck_assert_msg(json_message.contains("lidar_frame"), "LiDAR JSON must contain lidar_frame. Message: %s",
+                  meta->message);
+    ck_assert_msg(!json_message.contains("resolution"), "LiDAR JSON should not contain video resolution. Message: %s",
+                  meta->message);
+
+    const json &lidar_frame = json_message["lidar_frame"];
+    ck_assert_msg(lidar_frame["frame_id"] == kPointPillarsFrameId, "Unexpected frame_id. Message: %s", meta->message);
+    ck_assert_msg(lidar_frame["stream_id"] == kPointPillarsStreamId, "Unexpected stream_id. Message: %s",
+                  meta->message);
+    ck_assert_msg(lidar_frame["point_count"] == kPointPillarsPointCount, "Unexpected point_count. Message: %s",
+                  meta->message);
+    ck_assert_msg(lidar_frame["exit_lidarparse_timestamp"] == kPointPillarsLidarParseTs,
+                  "Unexpected exit_lidarparse_timestamp. Message: %s", meta->message);
+    ck_assert_msg(lidar_frame["exit_g3dinference_timestamp"] == kPointPillarsInferenceTs,
+                  "Unexpected exit_g3dinference_timestamp. Message: %s", meta->message);
+
+    ck_assert_msg(json_message.contains("objects"), "LiDAR JSON must contain objects. Message: %s", meta->message);
+    const json &objects = json_message["objects"];
+    ck_assert_msg(objects.is_array() && objects.size() == 1, "Expected exactly one 3D object. Message: %s",
+                  meta->message);
+
+    const json &object = objects[0];
+    ck_assert_msg(object.contains("bbox_3d"), "3D object must contain bbox_3d. Message: %s", meta->message);
+    ck_assert_msg(!object.contains("detection"), "3D object must not use legacy detection schema. Message: %s",
+                  meta->message);
+    ck_assert_msg(object["model"]["type"] == "pointpillars", "Unexpected model type. Message: %s", meta->message);
+    ck_assert_msg(object["label_id"] == 2, "Unexpected label_id. Message: %s", meta->message);
+    assert_json_float(object["confidence"], 0.95, "Unexpected PointPillars confidence");
+
+    const json &bbox = object["bbox_3d"];
+    assert_json_float(bbox["x"], 10.5, "Unexpected bbox_3d.x");
+    assert_json_float(bbox["y"], -4.25, "Unexpected bbox_3d.y");
+    assert_json_float(bbox["z"], -1.75, "Unexpected bbox_3d.z");
+    assert_json_float(bbox["w"], 1.6, "Unexpected bbox_3d.w");
+    assert_json_float(bbox["l"], 4.2, "Unexpected bbox_3d.l");
+    assert_json_float(bbox["h"], 1.4, "Unexpected bbox_3d.h");
+    assert_json_float(bbox["theta"], 0.25, "Unexpected bbox_3d.theta");
+
+    if (test_data->add_tensor_data) {
+        ck_assert_msg(json_message.contains("tensors"),
+                      "LiDAR JSON must contain tensors when add-tensor-data=true. Message: %s", meta->message);
+        const json &tensors = json_message["tensors"];
+        ck_assert_msg(tensors.is_array() && tensors.size() == 1, "Expected exactly one tensor. Message: %s",
+                      meta->message);
+
+        const json &tensor = tensors[0];
+        ck_assert_msg(tensor["name"] == "detection", "Unexpected tensor name. Message: %s", meta->message);
+        ck_assert_msg(tensor["model_name"] == "pointpillars", "Unexpected tensor model_name. Message: %s",
+                      meta->message);
+        ck_assert_msg(tensor["layer_name"] == "pointpillars_3d_detection", "Unexpected tensor layer_name. Message: %s",
+                      meta->message);
+        ck_assert_msg(tensor["format"] == "pointpillars_3d", "Unexpected tensor format. Message: %s", meta->message);
+        ck_assert_msg(tensor["precision"] == "FP32", "Unexpected tensor precision. Message: %s", meta->message);
+        ck_assert_msg(tensor["layout"] == "NC", "Unexpected tensor layout. Message: %s", meta->message);
+        ck_assert_msg(tensor["dims"].is_array() && tensor["dims"].size() == 2, "Unexpected tensor dims. Message: %s",
+                      meta->message);
+        ck_assert_msg(tensor["dims"][0] == 1 && tensor["dims"][1] == 9, "Unexpected tensor dims values. Message: %s",
+                      meta->message);
+        ck_assert_msg(tensor["data"].is_array() && tensor["data"].size() == kPointPillarsDetectionWidth,
+                      "Unexpected tensor data length. Message: %s", meta->message);
+        for (size_t i = 0; i < test_data->detections.size(); ++i) {
+            assert_json_float(tensor["data"][i], test_data->detections[i], "Unexpected PointPillars tensor data");
+        }
+    } else {
+        ck_assert_msg(!json_message.contains("tensors"),
+                      "LiDAR JSON must not contain tensors when add-tensor-data=false. Message: %s", meta->message);
+    }
+}
+
+void assert_legacy_detection_object(const json &object, const TestData *test_data, const char *message) {
+    ck_assert_msg(object.contains("detection"), "%s", message);
+    ck_assert_msg(object.contains("tensors"), "%s", message);
+    ck_assert_msg(!object.contains("bbox_3d"), "%s", message);
+
+    const json &detection = object["detection"];
+    ck_assert_msg(detection.contains("bounding_box"), "%s", message);
+    ck_assert_msg(!detection.contains("bbox_3d"), "%s", message);
+    assert_json_float(detection["bounding_box"]["x_min"], test_data->box.x_min, "Unexpected legacy x_min");
+    assert_json_float(detection["bounding_box"]["x_max"], test_data->box.x_max, "Unexpected legacy x_max");
+    assert_json_float(detection["bounding_box"]["y_min"], test_data->box.y_min, "Unexpected legacy y_min");
+    assert_json_float(detection["bounding_box"]["y_max"], test_data->box.y_max, "Unexpected legacy y_max");
+    assert_json_float(detection["confidence"], test_data->box.confidence, "Unexpected legacy confidence");
+    ck_assert_msg(detection["label_id"] == test_data->box.label_id, "%s", message);
+
+    const json &tensors = object["tensors"];
+    ck_assert_msg(tensors.is_array() && tensors.size() == 1, "%s", message);
+    const json &tensor = tensors[0];
+    ck_assert_msg(tensor["name"] == "detection", "%s", message);
+    ck_assert_msg(tensor["model_name"] == "model_name", "%s", message);
+    ck_assert_msg(tensor["layer_name"] == "layer_name", "%s", message);
+    ck_assert_msg(tensor["precision"] == "FP32", "%s", message);
+    assert_json_float(tensor["confidence"], test_data->box.confidence, "Unexpected legacy tensor confidence");
+    ck_assert_msg(tensor["label_id"] == test_data->box.label_id, "%s", message);
+    ck_assert_msg(tensor.contains("data") && tensor["data"].is_array() && tensor["data"].size() == 2, "%s", message);
+    ck_assert_msg(!tensor.contains("format"), "%s", message);
+}
+
+} // namespace
 
 #ifdef AUDIO
 #include "gva_audio_event_meta.h"
@@ -224,6 +418,13 @@ void check_outbuffer(GstBuffer *outbuffer, gpointer user_data) {
                       "message has no detection data. message content %s", meta->message);
         ck_assert_msg(str_meta_message.find("tensor") != std::string::npos,
                       "message has no tensor data. message content %s", meta->message);
+        ck_assert_msg(json_message.contains("objects"), "Legacy JSON must contain objects. Message: %s", meta->message);
+        ck_assert_msg(json_message["objects"].is_array() && json_message["objects"].size() == 1,
+                      "Legacy JSON must contain exactly one object. Message: %s", meta->message);
+        assert_legacy_detection_object(json_message["objects"][0], test_data,
+                                       "Legacy metaconvert output format changed unexpectedly");
+        ck_assert_msg(!json_message.contains("tensors"),
+                      "Legacy ROI path should not create top-level tensors. Message: %s", meta->message);
     } else if (test_data->add_tensor_data == "tensor") {
         ck_assert_msg(str_meta_message.find("objects") == std::string::npos,
                       "message has detection data. message content %s", meta->message);
@@ -240,6 +441,8 @@ void check_outbuffer(GstBuffer *outbuffer, gpointer user_data) {
 
 TestData test_data[] = {
     {{640, 480}, {0.29375, 0.54375, 0.40625, 0.94167, 0.8, 0, 0}, {0x7c, 0x94, 0x06, 0x3f, 0x09, 0xd7, 0xf2, 0x3e}}};
+
+PointPillarsTestData pointpillars_test_data = {{640, 480}, kPointPillarsDetections, true};
 
 GST_START_TEST(test_metaconvert_no_detections) {
     g_print("Starting test: test_metaconvert_no_detections\n");
@@ -275,6 +478,15 @@ GST_START_TEST(test_metaconvert_all) {
 
 GST_END_TEST;
 
+GST_START_TEST(test_metaconvert_pointpillars_3d) {
+    g_print("Starting test: test_metaconvert_pointpillars_3d\n");
+    run_test("gvametaconvert", VIDEO_CAPS_TEMPLATE_STRING, pointpillars_test_data.resolution, &srctemplate,
+             &sinktemplate, setup_pointpillars_inbuffer, check_pointpillars_outbuffer, &pointpillars_test_data,
+             "add-tensor-data", TRUE, NULL);
+}
+
+GST_END_TEST;
+
 static Suite *metaconvert_suite(void) {
     Suite *s = suite_create("metaconvert");
     TCase *tc_chain = tcase_create("general");
@@ -282,6 +494,7 @@ static Suite *metaconvert_suite(void) {
     suite_add_tcase(s, tc_chain);
     tcase_add_test(tc_chain, test_metaconvert_no_detections);
     tcase_add_test(tc_chain, test_metaconvert_all);
+    tcase_add_test(tc_chain, test_metaconvert_pointpillars_3d);
 #ifdef AUDIO
     tcase_add_test(tc_chain, test_metaconvert_audio);
 #endif

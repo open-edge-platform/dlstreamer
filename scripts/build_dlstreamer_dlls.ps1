@@ -5,7 +5,8 @@
 # SPDX-License-Identifier: MIT
 # ==============================================================================
 param(
-	[switch]$useInternalProxy
+	[switch]$useInternalProxy,
+	[switch]$setEnv
 )
 
 $GSTREAMER_VERSION = "1.28.2"
@@ -495,6 +496,29 @@ if ($LASTEXITCODE -eq 0) {
 	Write-Section "Building DL Streamer"
 	cmake --build . --parallel $env:NUMBER_OF_PROCESSORS --target ALL_BUILD --config Release
 	Write-Section "Done"
+
+	if ($setEnv) {
+		Write-Section "Setting DL Streamer developer environment variables"
+		$DLS_BIN = "$DLSTREAMER_BUILD\intel64\Release\bin"
+		$OV_BIN = "$OPENVINO_DEST_FOLDER\runtime\bin\intel64\Release"
+		$OV_TBB = "$OPENVINO_DEST_FOLDER\runtime\3rdparty\tbb\bin"
+
+		$pathsToAdd = @($DLS_BIN, $OV_BIN, $OV_TBB)
+		$userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+		$existingEntries = $userPath -split ';'
+		foreach ($p in $pathsToAdd) {
+			if ($existingEntries -notcontains $p) {
+				$userPath = "$userPath;$p"
+				Write-Host "Added to user PATH: $p"
+			}
+		}
+		[Environment]::SetEnvironmentVariable('Path', $userPath, [System.EnvironmentVariableTarget]::User)
+
+		[Environment]::SetEnvironmentVariable('GST_PLUGIN_PATH', $DLS_BIN, [System.EnvironmentVariableTarget]::User)
+		Write-Host "Set GST_PLUGIN_PATH = $DLS_BIN"
+
+		Write-Section "Done"
+	}
 }
 else {
 	Write-Section "!CMake error!"

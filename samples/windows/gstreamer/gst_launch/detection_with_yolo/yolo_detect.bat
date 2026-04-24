@@ -41,22 +41,25 @@ if [%PPBKEND%]==[] set PPBKEND=d3d11
 set PRECISION=%6
 if [%PRECISION%]==[] set PRECISION=FP16
 
+set BENCHMARK_SINK=%~7
+
 @REM Show help
 if "%MODEL%"=="--help" goto :show_help
 if "%MODEL%"=="-h" goto :show_help
 goto :skip_help
 
 :show_help
-echo Usage: yolo_detect.bat [MODEL] [DEVICE] [INPUT] [OUTPUT] [PPBKEND] [PRECISION]
+echo Usage: yolo_detect.bat [MODEL] [DEVICE] [INPUT] [OUTPUT] [PPBKEND] [PRECISION] [BENCHMARK_SINK]
 echo.
 echo Arguments:
-echo   MODEL     - Model name (default: yolox_s)
-echo               Supported: %MODELS_LIST%
-echo   DEVICE    - Device (default: GPU). Supported: CPU, GPU, NPU
-echo   INPUT     - Input source (default: Pexels video URL)
-echo   OUTPUT    - Output type (default: display). Supported: file, display, fps, json, display-and-json
-echo   PPBKEND   - Preprocessing backend (default: auto). Supported: ie, opencv for CPU, d3d11 for GPU/NPU
-echo   PRECISION - Model precision (default: INT8). Supported: INT8, FP32, FP16
+echo   MODEL          - Model name (default: yolox_s)
+echo                    Supported: %MODELS_LIST%
+echo   DEVICE         - Device (default: GPU). Supported: CPU, GPU, NPU
+echo   INPUT          - Input source (default: Pexels video URL)
+echo   OUTPUT         - Output type (default: display). Supported: file, display, fps, json, display-and-json
+echo   PPBKEND        - Preprocessing backend (default: auto). Supported: ie, opencv for CPU, d3d11 for GPU/NPU
+echo   PRECISION      - Model precision (default: INT8). Supported: INT8, FP32, FP16
+echo   BENCHMARK_SINK - Optional GStreamer element to add after decode (e.g., " ! identity eos-after=100")
 echo.
 EXIT /B 0
 
@@ -170,7 +173,7 @@ set IE_CONFIG_PART=
 if DEFINED IE_CONFIG set IE_CONFIG_PART= %IE_CONFIG%
 
 @REM Build complete pipeline in one line
-set PIPELINE=gst-launch-1.0 %SOURCE_ELEMENT% ! decodebin3 ! gvadetect model=%MODEL_PATH% %MODEL_PROC_PART% device=%DEVICE% pre-process-backend=%PREPROC_BACKEND% %IE_CONFIG_PART% %SINK_ELEMENT%
+set PIPELINE=gst-launch-1.0 %SOURCE_ELEMENT% ! decodebin3%BENCHMARK_SINK% ! gvadetect model=%MODEL_PATH% %MODEL_PROC_PART% device=%DEVICE% pre-process-backend=%PREPROC_BACKEND% %IE_CONFIG_PART% %SINK_ELEMENT%
 
 @REM Run pipeline
 echo.
