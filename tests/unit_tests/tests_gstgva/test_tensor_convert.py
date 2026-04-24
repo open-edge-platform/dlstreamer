@@ -17,7 +17,7 @@ gi.require_version('Gst', '1.0')
 gi.require_version('GstAnalytics', '1.0')
 gi.require_version('DLStreamerMeta', '1.0')
 
-from gi.repository import Gst, GstAnalytics, GLib, DLStreamerMeta
+from gi.repository import Gst, GstAnalytics, GLib, DLStreamerMeta  # pylint: disable=no-name-in-module
 
 # Trigger _wrap_mtd() registration for DLStreamerMeta types
 from gstgva.region_of_interest import RegionOfInterest  # noqa: F401
@@ -290,8 +290,8 @@ class KeypointConvertToTensorTestCase(unittest.TestCase):
 
     def test_confidences_roundtrip(self):
         t = self._roundtrip_tensor()
-        orig_conf = self.original.confidence()
-        rest_conf = t.confidence()
+        orig_conf = list(self.original.confidence())
+        rest_conf = list(t.confidence())
         self.assertEqual(len(rest_conf), len(orig_conf))
         for k in range(len(orig_conf)):
             self.assertAlmostEqual(rest_conf[k], orig_conf[k], places=3,
@@ -303,8 +303,8 @@ class KeypointConvertToTensorTestCase(unittest.TestCase):
 
     def test_skeleton_roundtrip(self):
         t = self._roundtrip_tensor()
-        orig_conn = self.original["point_connections"]
-        rest_conn = t["point_connections"]
+        orig_conn = list(self.original["point_connections"])
+        rest_conn = list(t["point_connections"])
         # Order of pairs may differ due to relation iteration order
         orig_pairs = set(zip(orig_conn[::2], orig_conn[1::2]))
         rest_pairs = set(zip(rest_conn[::2], rest_conn[1::2]))
@@ -362,6 +362,7 @@ class ClassificationConvertToTensorTestCase(unittest.TestCase):
         self.assertIsNotNone(self.cls_mtd)
 
     def _roundtrip_tensor(self):
+        """Perform convert_to_tensor and return result as Tensor object."""
         structure = Tensor.convert_to_tensor(self.cls_mtd)
         self.assertIsNotNone(structure)
         return Tensor(structure)
@@ -431,8 +432,8 @@ class KeypointFullRoundtripTestCase(unittest.TestCase):
                 msg=f"position[{i}] roundtrip mismatch")
 
         # Verify confidences match
-        orig_conf = original.confidence()
-        rest_conf = restored.confidence()
+        orig_conf = list(original.confidence())
+        rest_conf = list(restored.confidence())
         self.assertEqual(len(orig_conf), len(rest_conf))
         for i in range(len(orig_conf)):
             self.assertAlmostEqual(
@@ -440,8 +441,10 @@ class KeypointFullRoundtripTestCase(unittest.TestCase):
                 msg=f"confidence[{i}] roundtrip mismatch")
 
         # Verify skeleton connections match (order may differ)
-        orig_pairs = set(zip(original["point_connections"][::2], original["point_connections"][1::2]))
-        rest_pairs = set(zip(restored["point_connections"][::2], restored["point_connections"][1::2]))
+        orig_pc = list(original["point_connections"])
+        rest_pc = list(restored["point_connections"])
+        orig_pairs = set(zip(orig_pc[::2], orig_pc[1::2]))
+        rest_pairs = set(zip(rest_pc[::2], rest_pc[1::2]))
         self.assertEqual(rest_pairs, orig_pairs)
 
 

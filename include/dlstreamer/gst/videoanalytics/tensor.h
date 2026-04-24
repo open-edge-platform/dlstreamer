@@ -749,8 +749,7 @@ class Tensor {
             gchar *semantic_tag = gst_analytics_group_mtd_get_semantic_tag(group_mtd);
             std::string format_str =
                 (semantic_tag && semantic_tag[0] != '\0') ? std::string(semantic_tag) : std::string("");
-            const GstAnalyticsKeypointDescriptor *descriptor =
-                gst_analytics_keypoint_descriptor_lookup(semantic_tag);
+            const GstAnalyticsKeypointDescriptor *descriptor = gst_analytics_keypoint_descriptor_lookup(semantic_tag);
             g_free(semantic_tag);
 
             if (descriptor && descriptor->point_count == keypoint_count) {

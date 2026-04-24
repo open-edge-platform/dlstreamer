@@ -77,6 +77,7 @@ def fix_record(record):
 
 
 def main():
+    """Parse a GIR file, fix Mtd records and write the result back."""
     if len(sys.argv) != 2:
         print(f"Usage: {sys.argv[0]} <gir-file>", file=sys.stderr)
         sys.exit(1)

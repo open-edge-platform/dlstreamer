@@ -62,10 +62,9 @@ static const float KEYPOINT_POSITIONS_NORM[] = {
 };
 
 static const float KEYPOINT_CONFIDENCES[] = {
-    0.97998046875f, 0.9677734375f, 0.8984375f, 0.888671875f, 0.416259765625f,
-    0.9921875f,     0.98388671875f, 0.9677734375f, 0.91845703125f, 0.947265625f,
-    0.88818359375f, 0.97412109375f, 0.96240234375f, 0.0f,          0.71826171875f,
-    0.0f,           0.0f,
+    0.97998046875f, 0.9677734375f,  0.8984375f,   0.888671875f,   0.416259765625f, 0.9921875f,     0.98388671875f,
+    0.9677734375f,  0.91845703125f, 0.947265625f, 0.88818359375f, 0.97412109375f,  0.96240234375f, 0.0f,
+    0.71826171875f, 0.0f,           0.0f,
 };
 
 // Classification test data — from real pipeline output
@@ -75,8 +74,7 @@ static constexpr int CLS_LABEL_ID = 5;
 static constexpr int CLS_TENSOR_ID = 0;
 // Classification softmax output data (1x10 tensor)
 static const float CLS_DATA[] = {
-    0.01f, 0.02f, 0.05f, 0.03f, 0.10f,
-    0.534f, 0.08f, 0.06f, 0.04f, 0.076f,
+    0.01f, 0.02f, 0.05f, 0.03f, 0.10f, 0.534f, 0.08f, 0.06f, 0.04f, 0.076f,
 };
 
 // ── Helper: get the COCO-17 descriptor ──────────────────────────────────────
@@ -107,11 +105,10 @@ static GstStructure *build_keypoint_structure() {
     tensor.set_vector<float>("confidence",
                              std::vector<float>(KEYPOINT_CONFIDENCES, KEYPOINT_CONFIDENCES + KEYPOINT_COUNT));
     tensor.set_vector<std::string>("point_names",
-                                   std::vector<std::string>(desc->point_names,
-                                                            desc->point_names + desc->point_count));
-    tensor.set_vector<uint32_t>("point_connections",
-                                std::vector<uint32_t>(desc->skeleton_connections,
-                                                      desc->skeleton_connections + desc->skeleton_connection_count * 2));
+                                   std::vector<std::string>(desc->point_names, desc->point_names + desc->point_count));
+    tensor.set_vector<uint32_t>(
+        "point_connections", std::vector<uint32_t>(desc->skeleton_connections,
+                                                   desc->skeleton_connections + desc->skeleton_connection_count * 2));
 
     return s;
 }
@@ -300,7 +297,9 @@ struct KeypointConvertToTensorTest : public ::testing::Test {
             gst_buffer_unref(buffer);
     }
 
-    GVA::Tensor original_tensor() { return GVA::Tensor(orig_s); }
+    GVA::Tensor original_tensor() {
+        return GVA::Tensor(orig_s);
+    }
 
     GVA::Tensor roundtrip_tensor() {
         GstStructure *result = GVA::Tensor::convert_to_tensor(*reinterpret_cast<GstAnalyticsMtd *>(&group_mtd));
@@ -359,8 +358,7 @@ TEST_F(KeypointConvertToTensorTest, ConfidencesRoundtrip) {
     ASSERT_EQ(rest_conf.size(), orig_conf.size());
 
     for (size_t k = 0; k < orig_conf.size(); k++) {
-        EXPECT_FLOAT_EQ(rest_conf[k], orig_conf[k])
-            << "keypoint " << k << " confidence roundtrip mismatch";
+        EXPECT_FLOAT_EQ(rest_conf[k], orig_conf[k]) << "keypoint " << k << " confidence roundtrip mismatch";
     }
 }
 
@@ -394,8 +392,7 @@ TEST_F(KeypointConvertToTensorTest, EmptyGroupReturnsNullptr) {
     GstAnalyticsGroupMtd empty_group = {};
     gst_analytics_relation_meta_add_group_mtd(rmeta, 0, &empty_group);
 
-    GstStructure *result =
-        GVA::Tensor::convert_to_tensor(*reinterpret_cast<GstAnalyticsMtd *>(&empty_group));
+    GstStructure *result = GVA::Tensor::convert_to_tensor(*reinterpret_cast<GstAnalyticsMtd *>(&empty_group));
     EXPECT_EQ(result, nullptr);
 }
 
@@ -487,11 +484,12 @@ struct ClassificationConvertToTensorTest : public ::testing::Test {
             gst_buffer_unref(buffer);
     }
 
-    GVA::Tensor original_tensor() { return GVA::Tensor(orig_s); }
+    GVA::Tensor original_tensor() {
+        return GVA::Tensor(orig_s);
+    }
 
     GVA::Tensor roundtrip_tensor() {
-        GstStructure *result =
-            GVA::Tensor::convert_to_tensor(*reinterpret_cast<GstAnalyticsMtd *>(&cls_mtd));
+        GstStructure *result = GVA::Tensor::convert_to_tensor(*reinterpret_cast<GstAnalyticsMtd *>(&cls_mtd));
         EXPECT_NE(result, nullptr);
         return GVA::Tensor(result);
     }
@@ -521,8 +519,6 @@ TEST_F(ClassificationConvertToTensorTest, ConfidenceMatches) {
     // confidence goes through: double → gfloat (in ClsMtd) → double (in tensor)
     EXPECT_NEAR(t.confidence(), orig.confidence(), 1e-6);
 }
-
-
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Full roundtrip: tensor → meta → tensor
@@ -562,8 +558,7 @@ TEST_F(KeypointFullRoundtripTest, FullRoundtrip) {
     gst_analytics_relation_meta_set_relation(rmeta, GST_ANALYTICS_REL_TYPE_IS_PART_OF, group_mtd.id, od_mtd.id);
 
     // meta → tensor
-    GstStructure *restored_s =
-        GVA::Tensor::convert_to_tensor(*reinterpret_cast<GstAnalyticsMtd *>(&group_mtd));
+    GstStructure *restored_s = GVA::Tensor::convert_to_tensor(*reinterpret_cast<GstAnalyticsMtd *>(&group_mtd));
     ASSERT_NE(restored_s, nullptr);
     GVA::Tensor restored(restored_s);
 

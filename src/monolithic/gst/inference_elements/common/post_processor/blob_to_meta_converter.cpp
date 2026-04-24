@@ -150,9 +150,9 @@ BlobToMetaConverter::Ptr BlobToMetaConverter::create(Initializer initializer, Co
         return BlobToROIConverter::create(std::move(initializer), converter_name, custom_postproc_lib);
     case ConverterType::TO_TENSOR:
         if (converter_name == KeypointsOpenPoseConverter::getName()) {
-            return std::make_unique<KeypointsOpenPoseConverter>(std::move(initializer),
-                                                                gst_analytics_keypoint_descriptor_lookup(
-                                                                    GST_ANALYTICS_KEYPOINT_BODY_POSE_OPENPOSE_18)->point_count);
+            return std::make_unique<KeypointsOpenPoseConverter>(
+                std::move(initializer),
+                gst_analytics_keypoint_descriptor_lookup(GST_ANALYTICS_KEYPOINT_BODY_POSE_OPENPOSE_18)->point_count);
         } else {
             return BlobToTensorConverter::create(std::move(initializer), converter_name, custom_postproc_lib);
         }

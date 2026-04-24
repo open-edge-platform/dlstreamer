@@ -48,9 +48,8 @@ static const gint _coco17_skeleton[] = {
     14, 16  /* knee_r      - ankle_r     */
 };
 
-static const GstAnalyticsKeypointDescriptor _descriptor_coco17 = {
-    GST_ANALYTICS_KEYPOINT_BODY_POSE_COCO_17, _coco17_point_names, 17,
-    _coco17_skeleton, 18};
+static const GstAnalyticsKeypointDescriptor _descriptor_coco17 = {GST_ANALYTICS_KEYPOINT_BODY_POSE_COCO_17,
+                                                                  _coco17_point_names, 17, _coco17_skeleton, 18};
 
 /* ===== OpenPose 18-keypoint body pose ===== */
 
@@ -75,8 +74,7 @@ static const gint _openpose18_skeleton[] = {
 };
 
 static const GstAnalyticsKeypointDescriptor _descriptor_openpose18 = {
-    GST_ANALYTICS_KEYPOINT_BODY_POSE_OPENPOSE_18, _openpose18_point_names, 18,
-    _openpose18_skeleton, 13};
+    GST_ANALYTICS_KEYPOINT_BODY_POSE_OPENPOSE_18, _openpose18_point_names, 18, _openpose18_skeleton, 13};
 
 /* ===== HRNet COCO 17-keypoint body pose ===== */
 
@@ -97,26 +95,18 @@ static const gint _hrnet_coco17_skeleton[] = {
 };
 
 static const GstAnalyticsKeypointDescriptor _descriptor_hrnet_coco17 = {
-    GST_ANALYTICS_KEYPOINT_BODY_POSE_HRNET_COCO_17, _coco17_point_names, 17,
-    _hrnet_coco17_skeleton, 13};
+    GST_ANALYTICS_KEYPOINT_BODY_POSE_HRNET_COCO_17, _coco17_point_names, 17, _hrnet_coco17_skeleton, 13};
 
 /* ===== CenterFace 5-point facial landmarks ===== */
 
-static const char *const _centerface5_point_names[] = {
-    "eye_l", "eye_r", "nose_tip", "mouth_l", "mouth_r"};
+static const char *const _centerface5_point_names[] = {"eye_l", "eye_r", "nose_tip", "mouth_l", "mouth_r"};
 
-static const GstAnalyticsKeypointDescriptor _descriptor_centerface5 = {
-    GST_ANALYTICS_KEYPOINT_FACE_CENTERFACE_5, _centerface5_point_names, 5,
-    NULL, 0};
+static const GstAnalyticsKeypointDescriptor _descriptor_centerface5 = {GST_ANALYTICS_KEYPOINT_FACE_CENTERFACE_5,
+                                                                       _centerface5_point_names, 5, NULL, 0};
 
 /* Registry of all known keypoint descriptors */
 static const GstAnalyticsKeypointDescriptor *const _descriptors[] = {
-    &_descriptor_coco17,
-    &_descriptor_openpose18,
-    &_descriptor_hrnet_coco17,
-    &_descriptor_centerface5,
-    NULL
-};
+    &_descriptor_coco17, &_descriptor_openpose18, &_descriptor_hrnet_coco17, &_descriptor_centerface5, NULL};
 
 /* ===== Public API ===== */
 
@@ -130,14 +120,12 @@ static const GstAnalyticsKeypointDescriptor *const _descriptors[] = {
  * Returns: (transfer none) (nullable): the matching
  *   #GstAnalyticsKeypointDescriptor, or %NULL if not found.
  */
-const GstAnalyticsKeypointDescriptor *
-gst_analytics_keypoint_descriptor_lookup (const gchar *semantic_tag)
-{
+const GstAnalyticsKeypointDescriptor *gst_analytics_keypoint_descriptor_lookup(const gchar *semantic_tag) {
     if (!semantic_tag)
         return NULL;
 
     for (const GstAnalyticsKeypointDescriptor *const *it = _descriptors; *it; ++it) {
-        if ((*it)->semantic_tag && strcmp ((*it)->semantic_tag, semantic_tag) == 0)
+        if ((*it)->semantic_tag && strcmp((*it)->semantic_tag, semantic_tag) == 0)
             return *it;
     }
     return NULL;
@@ -151,10 +139,8 @@ gst_analytics_keypoint_descriptor_lookup (const gchar *semantic_tag)
  *
  * Returns: (transfer none) (nullable): the semantic tag, or %NULL.
  */
-const gchar *
-gst_analytics_keypoint_descriptor_get_semantic_tag (const GstAnalyticsKeypointDescriptor *desc)
-{
-    g_return_val_if_fail (desc != NULL, NULL);
+const gchar *gst_analytics_keypoint_descriptor_get_semantic_tag(const GstAnalyticsKeypointDescriptor *desc) {
+    g_return_val_if_fail(desc != NULL, NULL);
     return desc->semantic_tag;
 }
 
@@ -166,10 +152,8 @@ gst_analytics_keypoint_descriptor_get_semantic_tag (const GstAnalyticsKeypointDe
  *
  * Returns: the number of keypoints.
  */
-gsize
-gst_analytics_keypoint_descriptor_get_point_count (const GstAnalyticsKeypointDescriptor *desc)
-{
-    g_return_val_if_fail (desc != NULL, 0);
+gsize gst_analytics_keypoint_descriptor_get_point_count(const GstAnalyticsKeypointDescriptor *desc) {
+    g_return_val_if_fail(desc != NULL, 0);
     return desc->point_count;
 }
 
@@ -183,11 +167,8 @@ gst_analytics_keypoint_descriptor_get_point_count (const GstAnalyticsKeypointDes
  * Returns: (transfer none) (nullable): the keypoint name, or %NULL if
  *   @index is out of range.
  */
-const gchar *
-gst_analytics_keypoint_descriptor_get_point_name (const GstAnalyticsKeypointDescriptor *desc,
-                                                  gsize index)
-{
-    g_return_val_if_fail (desc != NULL, NULL);
+const gchar *gst_analytics_keypoint_descriptor_get_point_name(const GstAnalyticsKeypointDescriptor *desc, gsize index) {
+    g_return_val_if_fail(desc != NULL, NULL);
     if (index >= desc->point_count)
         return NULL;
     return desc->point_names[index];
@@ -201,10 +182,8 @@ gst_analytics_keypoint_descriptor_get_point_name (const GstAnalyticsKeypointDesc
  *
  * Returns: the number of skeleton connection pairs.
  */
-gsize
-gst_analytics_keypoint_descriptor_get_skeleton_connection_count (const GstAnalyticsKeypointDescriptor *desc)
-{
-    g_return_val_if_fail (desc != NULL, 0);
+gsize gst_analytics_keypoint_descriptor_get_skeleton_connection_count(const GstAnalyticsKeypointDescriptor *desc) {
+    g_return_val_if_fail(desc != NULL, 0);
     return desc->skeleton_connection_count;
 }
 
@@ -223,15 +202,11 @@ gst_analytics_keypoint_descriptor_get_skeleton_connection_count (const GstAnalyt
  * Returns: %TRUE if the connection was retrieved successfully,
  *   %FALSE if @index is out of range or @desc has no skeleton.
  */
-gboolean
-gst_analytics_keypoint_descriptor_get_skeleton_connection (const GstAnalyticsKeypointDescriptor *desc,
-                                                           gsize index,
-                                                           gint *from_idx,
-                                                           gint *to_idx)
-{
-    g_return_val_if_fail (desc != NULL, FALSE);
-    g_return_val_if_fail (from_idx != NULL, FALSE);
-    g_return_val_if_fail (to_idx != NULL, FALSE);
+gboolean gst_analytics_keypoint_descriptor_get_skeleton_connection(const GstAnalyticsKeypointDescriptor *desc,
+                                                                   gsize index, gint *from_idx, gint *to_idx) {
+    g_return_val_if_fail(desc != NULL, FALSE);
+    g_return_val_if_fail(from_idx != NULL, FALSE);
+    g_return_val_if_fail(to_idx != NULL, FALSE);
 
     if (index >= desc->skeleton_connection_count || desc->skeleton_connections == NULL)
         return FALSE;
