@@ -6,6 +6,9 @@
 
 set (TARGET_NAME "test_metapublish_kafka")
 
+include_directories("${CMAKE_BINARY_DIR}/deps/install/include;${CMAKE_BINARY_DIR}/deps/gstreamer-bin/include;${CMAKE_BINARY_DIR}/deps/opencv-bin/include;${CMAKE_BINARY_DIR}/deps/rdkafka-bin/include")
+
+
 find_package(PkgConfig REQUIRED)
 find_library(KAFKA rdkafka++ REQUIRED)
 pkg_check_modules(GSTBASE gstreamer-base-1.0>=1.16 REQUIRED)
