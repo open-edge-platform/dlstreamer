@@ -19,7 +19,7 @@ function Assert-Status {
         Write-Host "    $details" -ForegroundColor Yellow
     }
     Write-Host "`nAborting" -ForegroundColor Red
-    exit 1
+    throw $message
 }
 
 function Invoke-Python {
@@ -55,7 +55,7 @@ $locateCode = "import gstreamer_python, os; " +
 "print(os.path.dirname(gstreamer_python.__file__))"
 $r = Invoke-Python $locateCode
 Assert-Status "gstreamer-python package is not installed" $r.ok `
-    "Install dependencies: pip install -r $requirementsTxt"
+    "Install dependencies: python -m pip install -r `"$requirementsTxt`""
 $candidate = Join-Path $r.output "Lib\site-packages"
 Assert-Status "gstreamer-python site-packages not found" (Test-Path $candidate) `
     "Expected at: $candidate"
@@ -90,8 +90,20 @@ foreach ($p in @($gstPythonSitePackages, $dlsPythonDir)) {
     if ($p -and ($parts -notcontains $p)) { $parts += $p }
 }
 $env:PYTHONPATH = $parts -join ";"
-$env:PYGI_DLL_DIRS = $gstBin
-$env:GI_TYPELIB_PATH = $dlsTypelibDir
+
+$pygiParts = @()
+if ($env:PYGI_DLL_DIRS) {
+    $pygiParts += ($env:PYGI_DLL_DIRS -split ";" | Where-Object { $_ })
+}
+if ($pygiParts -notcontains $gstBin) { $pygiParts += $gstBin }
+$env:PYGI_DLL_DIRS = $pygiParts -join ";"
+
+$typelibParts = @()
+if ($env:GI_TYPELIB_PATH) {
+    $typelibParts += ($env:GI_TYPELIB_PATH -split ";" | Where-Object { $_ })
+}
+if ($typelibParts -notcontains $dlsTypelibDir) { $typelibParts += $dlsTypelibDir }
+$env:GI_TYPELIB_PATH = $typelibParts -join ";"
 
 Write-Host "PYTHONPATH:" -ForegroundColor Gray
 foreach ($p in $parts) { Write-Host "    $p" -ForegroundColor Gray }
