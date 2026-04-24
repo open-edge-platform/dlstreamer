@@ -65,7 +65,7 @@ Make sure to select the option to add Python to `PATH` during installation.
 
 ```powershell
 cd $env:DLSTREAMER_DIR
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
 ```
 
 ### Run the Python environment setup script
