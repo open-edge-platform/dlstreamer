@@ -15,6 +15,9 @@ project(DL_Streamer C CXX)
 
 include_directories("${CMAKE_BINARY_DIR}/deps/install/include;${CMAKE_BINARY_DIR}/deps/gstreamer-bin/include;${CMAKE_BINARY_DIR}/deps/opencv-bin/include;${CMAKE_BINARY_DIR}/deps/rdkafka-bin/include")
 
+execute_process(COMMAND ls -la /home/runner/dlstreamer-repo/build/deps/gstreamer-bin/lib/
+                COMMAND_ECHO STDOUT)
+
 if (WIN32)
     add_compile_options("$<$<C_COMPILER_ID:MSVC>:/utf-8>")
     add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/utf-8>")
