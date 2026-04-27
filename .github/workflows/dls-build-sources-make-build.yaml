@@ -10,7 +10,7 @@ env:
   DLS_REL_PATH: "$HOME/dlstreamer-repo"
   MODELS_PATH: "$HOME/models"
   VIDEO_INPUTS_PATH: "$HOME/videos"
-  RESULTS_DIR: "home/runner/dlstreamer-repo/unit-test-results"
+  RESULTS_DIR: "/home/runner/dlstreamer-repo/unit-test-results"
 
 jobs:
   setup:
