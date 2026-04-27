@@ -10,7 +10,7 @@ env:
   DLS_REL_PATH: "$HOME/dlstreamer-repo"
   MODELS_PATH: "$HOME/models"
   VIDEO_INPUTS_PATH: "$HOME/videos"
-  RESULTS_DIR: "$HOME/dlstreamer-repo/unit-test-results"
+  RESULTS_DIR: "home/runner/dlstreamer-repo/unit-test-results"
 
 jobs:
   setup:
@@ -218,9 +218,6 @@ jobs:
           export GST_PLUGIN_FEATURE_RANK=${GST_PLUGIN_FEATURE_RANK},ximagesink:MAX
           export GI_TYPELIB_PATH="$HOME/dlstreamer-repo/build/src/gst/metadata:/opt/intel/dlstreamer/gstreamer/lib/girepository-1.0:/opt/intel/dlstreamer/lib/girepository-1.0:/usr/lib/x86_64-linux-gnu/girepository-1.0"
           export PYTHONPATH="$HOME/dlstreamer-repo/build/deps/gstreamer-bin/lib/python3/dist-packages:/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:/opt/intel/dlstreamer/python:/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:$PYTHONPATH"
-          export MODELS_PROC_PATH="$HOME/dlstreamer-repo/samples/gstreamer/model_proc"
-          export MODELS_PATH="${{ env.MODELS_PATH }}"
-          export VIDEO_INPUTS_PATH="${{ env.VIDEO_INPUTS_PATH }}"
           echo " "
 
           echo "Verifying DL Streamer installation..."
@@ -272,7 +269,7 @@ jobs:
           RESULTS_FILE="${{ env.RESULTS_DIR }}/unit_test_summary.txt"
 
           # Add results to summary
-          echo "## Test Summary for Unit Tests on TGL" >> $GITHUB_STEP_SUMMARY
+          echo "## Test Summary for Unit Tests on ${{ matrix.runner }}" >> $GITHUB_STEP_SUMMARY
           cat "$RESULTS_FILE" >> $GITHUB_STEP_SUMMARY
 
           # Check for failures and fail if any
