@@ -8,6 +8,7 @@
 #include "copy_blob_to_gststruct.h"
 #include "inference_backend/logger.h"
 #include "safe_arithmetic.hpp"
+#include "tensor.h"
 #include <algorithm>
 #include <cmath>
 #include <gst/gst.h>
@@ -89,7 +90,8 @@ TensorsTable docTROCRConverter::convert(const OutputBlobs &output_blobs) {
 
                 // Set metadata for the tensor in the GstStructure
                 gst_structure_set(classification_result.gst_structure(), "tensor_id", G_TYPE_INT,
-                                  safe_convert<int>(frame_index), "type", G_TYPE_STRING, "classification_result", NULL);
+                                  safe_convert<int>(frame_index), "type", G_TYPE_STRING,
+                                  GVA::TENSOR_TYPE_CLASSIFICATION, NULL);
                 std::vector<GstStructure *> tensors{classification_result.gst_structure()};
                 tensors_table[frame_index].push_back(tensors);
             }

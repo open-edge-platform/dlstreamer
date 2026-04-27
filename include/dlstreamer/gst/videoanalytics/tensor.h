@@ -27,6 +27,11 @@
 
 namespace GVA {
 
+/// Tensor type string for keypoints data (e.g. human pose estimation results)
+constexpr const char *TENSOR_TYPE_KEYPOINTS = "keypoints";
+/// Tensor type string for classification results
+constexpr const char *TENSOR_TYPE_CLASSIFICATION = "classification_result";
+
 /**
  * @brief This class represents tensor - map-like storage for inference result information, such as output blob
  * description (output layer dims, layout, rank, precision, etc.), inference result in a raw and interpreted forms.
@@ -610,7 +615,7 @@ class Tensor {
      */
     bool convert_to_meta(GstAnalyticsMtd *mtd, GstAnalyticsODMtd *od_mtd, GstAnalyticsRelationMeta *meta) const {
 
-        if (type() == "keypoints") {
+        if (type() == TENSOR_TYPE_KEYPOINTS) {
             GstAnalyticsGroupMtd *group_mtd = reinterpret_cast<GstAnalyticsGroupMtd *>(mtd);
             const std::vector<guint> dimensions = dims();
             const std::vector<float> raw_positions = data<float>();
@@ -657,7 +662,7 @@ class Tensor {
                 throw std::runtime_error("Failed to create keypoints group meta");
 
             return true;
-        } else if (type() == "classification_result") {
+        } else if (type() == TENSOR_TYPE_CLASSIFICATION) {
             GstAnalyticsClsMtd *cls_mtd = mtd;
             gfloat confidence = this->confidence();
             GQuark label = g_quark_from_string(this->label().c_str());
@@ -789,11 +794,11 @@ class Tensor {
             }
 
             // create keypoint tensor
-            GstStructure *gst_structure = gst_structure_new_empty("keypoints");
+            GstStructure *gst_structure = gst_structure_new_empty(TENSOR_TYPE_KEYPOINTS);
             Tensor tensor(gst_structure);
 
             tensor.set_precision(Precision::FP32);
-            tensor.set_type("keypoints");
+            tensor.set_type(TENSOR_TYPE_KEYPOINTS);
             tensor.set_format(format_str);
 
             tensor.set_dims({static_cast<guint>(keypoint_count), static_cast<guint>(keypoint_dimension)});
@@ -813,7 +818,7 @@ class Tensor {
             gsize class_count = gst_analytics_cls_mtd_get_length(cls_mtd);
 
             GstStructure *tensor = gst_structure_new_empty("classification");
-            gst_structure_set(tensor, "type", G_TYPE_STRING, "classification_result", NULL);
+            gst_structure_set(tensor, "type", G_TYPE_STRING, TENSOR_TYPE_CLASSIFICATION, NULL);
 
             gfloat result_confidence = 0;
             std::string result_label;

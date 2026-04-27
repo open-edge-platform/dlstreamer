@@ -22,7 +22,7 @@ from gi.repository import Gst, GstAnalytics, GLib, DLStreamerMeta  # pylint: dis
 # Trigger _wrap_mtd() registration for DLStreamerMeta types
 from gstgva.region_of_interest import RegionOfInterest  # noqa: F401
 
-from gstgva.tensor import Tensor
+from gstgva.tensor import Tensor, TENSOR_TYPE_KEYPOINTS, TENSOR_TYPE_CLASSIFICATION
 from gstgva.util import libgst
 
 Gst.init(sys.argv)
@@ -93,7 +93,7 @@ def _descriptor_skeleton(desc):
 def _build_keypoint_tensor():
     """Create a keypoints Tensor matching real pipeline output structure."""
     desc = _coco17_descriptor()
-    structure = libgst.gst_structure_new_empty(b"keypoints")
+    structure = libgst.gst_structure_new_empty(TENSOR_TYPE_KEYPOINTS.encode("utf-8"))
     tensor = Tensor(structure)
 
     tensor["iou_threshold"] = 0.7
@@ -101,7 +101,7 @@ def _build_keypoint_tensor():
     tensor["confidence_threshold"] = 0.5
     tensor["layer_name"] = "output"
     tensor["model_name"] = "Model0"
-    tensor.set_type("keypoints")
+    tensor.set_type(TENSOR_TYPE_KEYPOINTS)
     tensor.set_format(desc.get_semantic_tag())
     tensor.set_dims([KEYPOINT_COUNT, KEYPOINT_DIM])
     tensor.set_data(numpy.array(KEYPOINT_POSITIONS_NORM, dtype=numpy.float32))
@@ -141,7 +141,7 @@ def _build_classification_tensor():
     tensor["label_id"] = CLS_LABEL_ID
     tensor["confidence"] = CLS_CONFIDENCE
     tensor["tensor_id"] = CLS_TENSOR_ID
-    tensor.set_type("classification_result")
+    tensor.set_type(TENSOR_TYPE_CLASSIFICATION)
 
     return tensor
 
@@ -420,7 +420,7 @@ class KeypointFullRoundtripTestCase(unittest.TestCase):
         self.assertEqual(restored.format(), original.format())
         self.assertEqual(restored.precision(), original.precision())
         self.assertEqual(restored.dims(), original.dims())
-        self.assertEqual(restored.name(), "keypoints")
+        self.assertEqual(restored.name(), TENSOR_TYPE_KEYPOINTS)
 
         # Verify positions approximately match (lossy due to float→int→float)
         orig_data = original.data()
@@ -490,10 +490,10 @@ def _openpose18_descriptor():
 def _build_openpose18_keypoint_tensor():
     """Create a keypoints Tensor using the OpenPose-18 descriptor."""
     desc = _openpose18_descriptor()
-    structure = libgst.gst_structure_new_empty(b"keypoints")
+    structure = libgst.gst_structure_new_empty(TENSOR_TYPE_KEYPOINTS.encode("utf-8"))
     tensor = Tensor(structure)
 
-    tensor.set_type("keypoints")
+    tensor.set_type(TENSOR_TYPE_KEYPOINTS)
     tensor.set_format(desc.get_semantic_tag())
     tensor.set_dims([OPENPOSE18_COUNT, KEYPOINT_DIM])
     tensor.set_data(numpy.array(OPENPOSE18_POSITIONS_NORM, dtype=numpy.float32))

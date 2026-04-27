@@ -9,6 +9,7 @@
 #include "post_processor/blob_to_meta_converter.h"
 #include "post_processor/post_proc_common.h"
 
+#include <dlstreamer/gst/videoanalytics/tensor.h>
 #include <gst/gst.h>
 
 #include <map>
@@ -100,7 +101,7 @@ class BlobToROIConverter : public BlobToMetaConverter {
             for (auto &structure : this->tensors) {
                 GVA::Tensor tensor(structure);
 
-                if (tensor.type() != "keypoints") {
+                if (tensor.type() != GVA::TENSOR_TYPE_KEYPOINTS) {
                     continue;
                 };
 

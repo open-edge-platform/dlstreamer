@@ -202,8 +202,8 @@ void YOLOv8PoseConverter::parseOutputBlob(const float *data, const std::vector<s
             GstStructure *gst_structure = gst_structure_copy(getModelProcOutputInfo().get());
             GVA::Tensor tensor(gst_structure);
 
-            tensor.set_name("keypoints");
-            tensor.set_type("keypoints");
+            tensor.set_name(GVA::TENSOR_TYPE_KEYPOINTS);
+            tensor.set_type(GVA::TENSOR_TYPE_KEYPOINTS);
             tensor.set_format(coco17_descriptor->semantic_tag);
 
             // set tensor data (positions)
