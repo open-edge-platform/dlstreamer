@@ -322,7 +322,7 @@ gst-inspect-1.0 gvadetect
 If you can see the documentation of `gvadetect` element, the
 installation process is completed.
 
-![image](gvadetect_sample_help.png)
+![image](_images/gvadetect_sample_help.png)
 
 ## Next Steps
 

@@ -3,43 +3,64 @@
 This page describes steps required to install Deep Learning Streamer Pipeline
 Framework on Windows.
 
+For building Deep Learning Streamer Pipeline Framework from source code,
+follow the [advanced installation guide](../../dev_guide/advanced_install/advanced_install_guide_windows_compilation.md).
+
 ## Prerequisites
 
 - Windows 11 x64 or later
-- Download and update GPU and NPU drivers from [Intel® Driver & Support Assistant](https://www.intel.com/content/www/us/en/support/detect.html)
+- Download and update GPU and NPU drivers from
+[Intel® Driver & Support Assistant](https://www.intel.com/content/www/us/en/support/detect.html)
 
 ## Step 1: Download the Installer
 
-Download the installer from
-[DL Streamer assets on GitHub](https://github.com/open-edge-platform/dlstreamer/releases).
+Go to DL Streamer [releases page on GitHub](https://github.com/open-edge-platform/dlstreamer/releases). 
+Navigate to the **Assets** section and download the installer package named `dlstreamer-<version>-win64.exe`.
 
 ## Step 2: Run the Installer
 
-Run the downloaded `dlstreamer-<version>-win64.exe` file and follow the
-on-screen instructions. The default installation folder is `%ProgramFiles%\Intel\dlstreamer`,
+Run the `dlstreamer-<version>-win64.exe` file and follow the on-screen instructions.
+
+The installer also supports silent installation via command line, follow the instructions in the [advanced installation guide](../../dev_guide/advanced_install/advanced_install_guide_windows_command_line.md) for details.
+
+### License Agreement
+DL Streamer is licensed under the MIT License. 
+Accept the license agreement and proceed with the installation.
+
+<img src="_images/install_windows_license.png" width="600"/>
+
+### Choose Install Location
+The default installation folder is `%ProgramFiles%\Intel\dlstreamer`,
 you can choose a different location.
 
-### Components
+<img src="_images/install_windows_location.png" width="600"/>
 
+### Choose Components
 The installer provides the following components:
 
-| Component | Description | Selected by Default |
-|---|---|---|
-| **GStreamer** | GStreamer multimedia framework (system-wide installation). | Yes (Required) |
-| **Runtime** | DL Streamer runtime libraries and plugins. | Yes (Required) |
-| **Python Bindings** | Python binding library and files. | Yes |
-| **Environment Variables** | Set up `DLSTREAMER_DIR`, `GST_PLUGIN_PATH`, and `PATH` environment variables for the current user. | Yes |
-| **Samples** | Sample applications and scripts. | Yes |
-| **Development Files** | Header files and import libraries for building C++ applications with DL Streamer. | No |
-
-> **Note:** Incompatible GStreamer installations (MinGW or 32-bit
-> variants) must be uninstalled before proceeding.
+| Component | Description |
+|---|---|
+| **GStreamer** | GStreamer multimedia framework (system-wide installation). |
+| **Runtime** | DL Streamer runtime libraries and plugins. |
+| **Python Bindings** | Python binding library and files. |
+| **Environment Variables** | Set up `DLSTREAMER_DIR`, `GST_PLUGIN_PATH`, and `PATH` environment variables for the current user. |
+| **Samples** | Sample applications and scripts. |
+| **Development Files** | Header files and import libraries for building C++ applications with DL Streamer. |
 
 Three installation types are available:
 **Typical** (default): All default components; **Full**: All components including Development Files; **Minimal**: Only required components.
 
-The installer configures the following for the current user if selected (values shown for default install
-path):
+> **Note:** Incompatible GStreamer installations (MinGW or 32-bit
+> variants) must be uninstalled before proceeding.
+
+<img src="_images/install_windows_components.png" width="600"/>
+
+### Installation Process
+Click "Install" to start the installation process. The installer will copy files,
+set environment variables, and perform necessary configurations.
+
+The installer configures the following for the current user if selected
+(values shown for default install path):
 
 | Variable | Value |
 |---|---|

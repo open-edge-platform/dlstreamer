@@ -2,10 +2,14 @@
 
 Open **Windows Settings > Apps > Installed apps**, then search for "Deep Learning Streamer".
 Click on the three dots menu and select "Uninstall".
-Follow the on-screen instructions to complete the uninstallation process.
 
+<img src="_images/uninstall_windows_settings.png" width="600"/>
+
+Follow the on-screen instructions to complete the uninstallation process.
 The uninstaller removes all files, environment variables, and registry keys.
-There is an option on the uninstall confirmation page to uninstall GStreamer.
+There is an option to uninstall GStreamer from the system.
+
+<img src="_images/uninstall_windows_confirm.png" width="600"/>
 
 The uninstaller also supports silent mode via command line:
 
