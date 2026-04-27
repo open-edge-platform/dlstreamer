@@ -28,6 +28,8 @@ link_directories(${TARGET_NAME} /opt/intel/dlstreamer/lib
         ${DLSTREAMER_BUILD_DIR}/intel64/Release/lib
         /opt/intel/dlstreamer/Release/lib
         /opt/intel/dlstreamer/gstreamer/lib
+        ${GSTREAMER_LIBRARY_DIRS}
+        ${GSTVIDEO_LIBRARY_DIRS}
         /usr/lib/x86_64-linux-gnu
 )
 
