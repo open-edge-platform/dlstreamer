@@ -5,12 +5,13 @@
 # SPDX-License-Identifier: MIT
 # ==============================================================================
 param(
-	[switch]$useInternalProxy
+	[switch]$useInternalProxy,
+	[switch]$setEnv
 )
 
 $GSTREAMER_VERSION = "1.26.11"
-$OPENVINO_VERSION = "2026.0.0"
-$OPENVINO_VERSION_SHORT = "2026.0"
+$OPENVINO_VERSION = "2026.1.0"
+$OPENVINO_VERSION_SHORT = "2026.1"
 $PYTHON_VERSION = "3.12.7"
 $OPENVINO_DEST_FOLDER = "$env:LOCALAPPDATA\Programs\openvino"
 $GSTREAMER_DEST_FOLDER = "$env:ProgramFiles\gstreamer\1.0\msvc_x86_64"
@@ -495,6 +496,29 @@ if ($LASTEXITCODE -eq 0) {
 	Write-Section "Building DL Streamer"
 	cmake --build . --parallel $env:NUMBER_OF_PROCESSORS --target ALL_BUILD --config Release
 	Write-Section "Done"
+
+	if ($setEnv) {
+		Write-Section "Setting DL Streamer developer environment variables"
+		$DLS_BIN = "$DLSTREAMER_BUILD\intel64\Release\bin"
+		$OV_BIN = "$OPENVINO_DEST_FOLDER\runtime\bin\intel64\Release"
+		$OV_TBB = "$OPENVINO_DEST_FOLDER\runtime\3rdparty\tbb\bin"
+
+		$pathsToAdd = @($DLS_BIN, $OV_BIN, $OV_TBB)
+		$userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+		$existingEntries = $userPath -split ';'
+		foreach ($p in $pathsToAdd) {
+			if ($existingEntries -notcontains $p) {
+				$userPath = "$userPath;$p"
+				Write-Host "Added to user PATH: $p"
+			}
+		}
+		[Environment]::SetEnvironmentVariable('Path', $userPath, [System.EnvironmentVariableTarget]::User)
+
+		[Environment]::SetEnvironmentVariable('GST_PLUGIN_PATH', $DLS_BIN, [System.EnvironmentVariableTarget]::User)
+		Write-Host "Set GST_PLUGIN_PATH = $DLS_BIN"
+
+		Write-Section "Done"
+	}
 }
 else {
 	Write-Section "!CMake error!"

@@ -48,7 +48,7 @@ TensorsTable PaddleOCRConverter::convert(const OutputBlobs &output_blobs) {
             for (size_t batch_elem_index = 0; batch_elem_index < batch_size; ++batch_elem_index) {
                 GVA::Tensor classification_result = createTensor();
 
-                if (!raw_tensor_copying->enabled(RawTensorCopyingToggle::id))
+                if (!skipRawTensors())
                     CopyOutputBlobToGstStructure(blob, classification_result.gst_structure(),
                                                  BlobToMetaConverter::getModelName().c_str(), layer_name.c_str(),
                                                  batch_size, batch_elem_index);
@@ -224,7 +224,7 @@ TensorsTable PaddleOCRCtcConverter::convert(const OutputBlobs &output_blobs) {
             for (size_t batch_elem_index = 0; batch_elem_index < batch_size; ++batch_elem_index) {
                 GVA::Tensor classification_result = createTensor();
 
-                if (!raw_tensor_copying->enabled(RawTensorCopyingToggle::id))
+                if (!skipRawTensors())
                     CopyOutputBlobToGstStructure(blob, classification_result.gst_structure(),
                                                  BlobToMetaConverter::getModelName().c_str(), layer_name.c_str(),
                                                  batch_size, batch_elem_index);

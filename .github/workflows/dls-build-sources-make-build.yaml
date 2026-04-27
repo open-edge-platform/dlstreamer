@@ -144,13 +144,13 @@ jobs:
           echo "Installing OpenVINO GenAI for ${{ matrix.os }}..."
           if [[ ${{ matrix.os }} == "ubuntu-22.04" ]]; then
             echo "Executing Ubuntu 22.04 specific setup..."
-            wget -O- https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/2026.0/linux/openvino_genai_ubuntu22_2026.0.0.0_x86_64.tar.gz | tar -xz
-            sudo mv openvino_genai_ubuntu22_2026.0.0.0_x86_64 /opt/intel/openvino_genai
+            wget -O- https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/2026.1/linux/openvino_genai_ubuntu22_2026.1.0.0_x86_64.tar.gz | tar -xz
+            sudo mv openvino_genai_ubuntu22_2026.1.0.0_x86_64 /opt/intel/openvino_genai
             source /opt/intel/openvino_genai/setupvars.sh
           elif [[ ${{ matrix.os }} == "ubuntu-24.04" ]]; then
             echo "Executing Ubuntu 24.04 specific setup..."
-            wget -O- https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/2026.0/linux/openvino_genai_ubuntu24_2026.0.0.0_x86_64.tar.gz | tar -xz
-            sudo mv openvino_genai_ubuntu24_2026.0.0.0_x86_64 /opt/intel/openvino_genai
+            wget -O- https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/2026.1/linux/openvino_genai_ubuntu24_2026.1.0.0_x86_64.tar.gz | tar -xz
+            sudo mv openvino_genai_ubuntu24_2026.1.0.0_x86_64 /opt/intel/openvino_genai
             source /opt/intel/openvino_genai/setupvars.sh
           else
             echo "Unknown Ubuntu version: ${{ matrix.os }}"

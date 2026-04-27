@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2018-2024 Intel Corporation
+ * Copyright (C) 2018-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -22,6 +22,7 @@ typedef struct _GstGvaClassify {
     GvaBaseInference base_inference;
     // properties:
     guint reclassify_interval;
+    gboolean skip_raw_tensors;
 
     struct ClassificationHistory *classification_history;
 } GstGvaClassify;

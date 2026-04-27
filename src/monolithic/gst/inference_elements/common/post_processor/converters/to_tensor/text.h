@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2021-2025 Intel Corporation
+ * Copyright (C) 2021-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -25,9 +25,6 @@ class TextConverter : public BlobToTensorConverter {
 
   public:
     TextConverter(BlobToMetaConverter::Initializer initializer) : BlobToTensorConverter(std::move(initializer)) {
-        if (!raw_tensor_copying->enabled(RawTensorCopyingToggle::id))
-            GVA_WARNING("%s", RawTensorCopyingToggle::deprecation_message.c_str());
-
         GstStructure *s = getModelProcOutputInfo().get();
 
         gst_structure_get_double(s, "text_scale", &scale);
