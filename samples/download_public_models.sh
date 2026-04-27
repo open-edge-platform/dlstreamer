@@ -399,7 +399,7 @@ source "$VENV_DIR/bin/activate"
 # Install all required packages for main virtual environment
 pip install --no-cache-dir --upgrade pip      || handle_error $LINENO
 pip install --no-cache-dir numpy==2.2.6       || handle_error $LINENO
-pip install --no-cache-dir openvino==2026.0.0 || handle_error $LINENO
+pip install --no-cache-dir openvino==2026.1.0 || handle_error $LINENO
 pip install --no-cache-dir onnx==1.21.0       || handle_error $LINENO
 pip install --no-cache-dir onnxscript==0.5.7  || handle_error $LINENO
 pip install --no-cache-dir seaborn==0.13.2    || handle_error $LINENO
