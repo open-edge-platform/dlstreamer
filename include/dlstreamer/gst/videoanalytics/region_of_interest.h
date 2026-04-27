@@ -231,8 +231,9 @@ class RegionOfInterest {
         for (GList *l = meta->params; l; l = g_list_next(l)) {
             GstStructure *s = GST_STRUCTURE(l->data);
             const char *type = gst_structure_get_string(s, "type");
-            if (not gst_structure_has_name(s, "object_id") && (type == nullptr || strcmp(type, "keypoints") != 0) &&
-                (type == nullptr || strcmp(type, "classification_result") != 0)) {
+            if (not gst_structure_has_name(s, "object_id") &&
+                (type == nullptr || strcmp(type, TENSOR_TYPE_KEYPOINTS) != 0) &&
+                (type == nullptr || strcmp(type, TENSOR_TYPE_CLASSIFICATION) != 0)) {
                 _tensors.emplace_back(s);
                 if (_tensors.back().is_detection())
                     _detection = &_tensors.back();

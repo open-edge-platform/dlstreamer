@@ -28,6 +28,11 @@ from .util import (
 )
 from .util import GVATensorMeta
 
+## Tensor type string for keypoints data (e.g. human pose estimation results)
+TENSOR_TYPE_KEYPOINTS = "keypoints"
+## Tensor type string for classification results
+TENSOR_TYPE_CLASSIFICATION = "classification_result"
+
 
 ## @brief This class represents tensor - map-like storage for inference result information, such as output blob
 # description (output layer dims, layout, rank, precision, etc.), inference result in a raw and interpreted forms.
@@ -495,7 +500,7 @@ class Tensor:
         #  @param od_meta parent object-detection metadata (required for keypoints)
         #  @return GstAnalyticsMtd on success, None if tensor type is not supported
         mtd = None
-        if self.type() == "keypoints":
+        if self.type() == TENSOR_TYPE_KEYPOINTS:
             dimensions = self.dims()
             raw_data = self.data()
             confidence_val = self.confidence()
@@ -551,7 +556,7 @@ class Tensor:
 
             mtd = group_mtd
 
-        elif self.type() == "classification_result":
+        elif self.type() == TENSOR_TYPE_CLASSIFICATION:
             confidence_level = (
                 self.confidence() if self.confidence() is not None else 0.0
             )
@@ -661,11 +666,11 @@ class Tensor:
                             point_connections.append(i)
 
             # create keypoint tensor
-            structure = libgst.gst_structure_new_empty("keypoints".encode("utf-8"))
+            structure = libgst.gst_structure_new_empty(TENSOR_TYPE_KEYPOINTS.encode("utf-8"))
             tensor = Tensor(structure)
 
             tensor.set_precision(Tensor.PRECISION.FP32)
-            tensor.set_type("keypoints")
+            tensor.set_type(TENSOR_TYPE_KEYPOINTS)
             tensor.set_format(semantic_tag)
 
             tensor.set_dims([keypoint_count, keypoint_dimension])
@@ -704,7 +709,7 @@ class Tensor:
                     result_confidence = confidence
 
             tensor.set_name("classification")
-            tensor["type"] = "classification_result"
+            tensor["type"] = TENSOR_TYPE_CLASSIFICATION
             tensor.set_label(result_label)
             tensor["confidence"] = result_confidence
 

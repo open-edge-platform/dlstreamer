@@ -10,6 +10,7 @@
 #include "inference_backend/logger.h"
 
 #include <dlstreamer/gst/metadata/gstanalyticskeypointdescriptor.h>
+#include <dlstreamer/gst/videoanalytics/tensor.h>
 #include <gst/gst.h>
 #include <opencv2/opencv.hpp>
 #include <string>
@@ -121,8 +122,8 @@ void YOLOv26PoseConverter::parseOutputBlob(const float *data, const std::vector<
             GstStructure *gst_structure = gst_structure_copy(getModelProcOutputInfo().get());
             GVA::Tensor tensor(gst_structure);
 
-            tensor.set_name("keypoints");
-            tensor.set_type("keypoints");
+            tensor.set_name(GVA::TENSOR_TYPE_KEYPOINTS);
+            tensor.set_type(GVA::TENSOR_TYPE_KEYPOINTS);
             tensor.set_format(coco17_descriptor->semantic_tag);
 
             // set tensor data (positions)
