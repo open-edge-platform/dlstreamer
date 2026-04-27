@@ -102,9 +102,6 @@ Element Properties:
                         e.g. ... ! gvawatermark displ-avgfps=true ! gvafpscounter ! ...
                         flags: readable, writable
                         Boolean. Default: false
-  use-watermark-meta  : If true, use watermark metadata eg. watermarkDrawMeta
-                        flags: readable, writable
-                        Boolean. Default: false
   message-forward     : Forwards all children messages
                         flags: readable, writable
                         Boolean. Default: false
@@ -298,7 +295,7 @@ displ-cfg=enable-blur=true,hide-blur-roi=car:truck,thickness=1
 
 ## Watermark Metadata API
 
-The `use-watermark-meta` property enables rendering of custom primitives attached directly to GStreamer buffers
+`gvawatermark` automatically renders custom primitives attached directly to GStreamer buffers
 using the DLStreamer watermark metadata types. This is useful for drawing custom shapes, lines, and text from
 a Python callback or a custom GStreamer element without modifying pixel data manually.
 
@@ -342,10 +339,10 @@ DLStreamerWatermarkMeta.text_meta_add(
     font_scale=0.8, font_type=4, r=220, g=200, b=0, thickness=2, draw_bg=True)
 ```
 
-Then enable reading of the metadata in the pipeline:
+Then use `gvawatermark` in the pipeline — watermark metadata is rendered automatically:
 
 ```bash
-... ! gvawatermark use-watermark-meta=true ! ...
+... ! gvawatermark ! ...
 ```
 
 See the [watermark_meta Python sample](../../samples/gstreamer/python/watermark_meta/README.md) for a complete

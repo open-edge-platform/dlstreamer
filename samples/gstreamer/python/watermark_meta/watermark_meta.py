@@ -12,7 +12,7 @@ A custom GstBaseTransform element is used to add watermark metadata to buffers.
 
 Pipeline:
   urisourcebin -> decodebin3 -> videoconvert -> watermark_meta_adder ->
-  gvawatermark (use-watermark-meta=true) ->
+  gvawatermark ->
   videoconvert -> openh264enc -> h264parse -> mp4mux -> filesink
 """
 
@@ -120,7 +120,7 @@ def main(args):
         f"decodebin3 ! "
         f"videoconvert ! video/x-raw,format=BGR ! "
         f"watermark_meta_adder ! "
-        f"gvawatermark use-watermark-meta=true ! "
+        f"gvawatermark ! "
         f"gvafpscounter ! "
         f"videoconvert ! "
         f"openh264enc ! "

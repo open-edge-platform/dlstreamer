@@ -133,9 +133,6 @@ struct Impl {
     int get_num_primitives() const;
     bool render(GstBuffer *buffer);
     bool render_va(cv::Mat *buffer);
-    void set_use_watermark_meta(bool value) {
-        _use_watermark_meta = value;
-    }
     const std::string &getBackendType() const {
         return _backend_type;
     }
@@ -176,7 +173,6 @@ struct Impl {
     std::vector<render::Prim> prims;
 
     const double _radius_multiplier = 0.0025;
-    bool _use_watermark_meta = false;
     Color _default_color = indexToColor(1);
     // Position for full-frame text (configurable via displ-cfg text-x / text-y)
     cv::Point2f _ff_text_position = cv::Point2f(0, 25.f);
@@ -240,11 +236,6 @@ void gst_gva_watermark_impl_set_property(GObject *object, guint prop_id, const G
         g_free(gvawatermark->displ_cfg);
         gvawatermark->displ_cfg = g_value_dup_string(value);
         break;
-    case PROP_USE_WATERMARK_META:
-        gvawatermark->use_watermark_meta = g_value_get_boolean(value);
-        if (gvawatermark->impl)
-            gvawatermark->impl->set_use_watermark_meta(gvawatermark->use_watermark_meta);
-        break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
         break;
@@ -272,9 +263,6 @@ void gst_gva_watermark_impl_get_property(GObject *object, guint prop_id, GValue 
         break;
     case PROP_DISPL_CFG:
         g_value_set_string(value, self->displ_cfg);
-        break;
-    case PROP_USE_WATERMARK_META:
-        g_value_set_boolean(value, self->use_watermark_meta);
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -740,11 +728,6 @@ static void gst_gva_watermark_impl_class_init(GstGvaWatermarkImplClass *klass) {
     g_object_class_install_property(gobject_class, PROP_DISPL_CFG,
                                     g_param_spec_string("displ-cfg", "Gvawatermark element display configuration",
                                                         DISPL_CFG_DESCRIPTION, nullptr, kDefaultGParamFlags));
-
-    g_object_class_install_property(gobject_class, PROP_USE_WATERMARK_META,
-                                    g_param_spec_boolean("use-watermark-meta", "Use Watermark Metadata",
-                                                         "If true, use watermark metadata eg. watermarkDrawMeta", false,
-                                                         kDefaultGParamFlags));
 }
 
 Impl::Impl(GstVideoInfo *info, InferenceBackend::MemoryType mem_type, GstElement *element, bool displ_avgfps,
@@ -878,10 +861,8 @@ bool Impl::extract_primitives(GstBuffer *buffer) {
     }
 
     // Extract and merge any pre-existing watermark metadata from input buffer
-    if (_use_watermark_meta) {
-        auto watermark_prims = MetaExtractor::extractWatermarkPrimitives(buffer);
-        prims.insert(prims.end(), watermark_prims.begin(), watermark_prims.end());
-    }
+    auto watermark_prims = MetaExtractor::extractWatermarkPrimitives(buffer);
+    prims.insert(prims.end(), watermark_prims.begin(), watermark_prims.end());
 
     return true;
 }

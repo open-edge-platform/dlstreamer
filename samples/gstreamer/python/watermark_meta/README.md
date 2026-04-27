@@ -5,15 +5,14 @@ watermark metadata API (`WatermarkDrawMeta`, `WatermarkCircleMeta`, `WatermarkTe
 them with `gvawatermark`.
 
 The sample creates a custom `GstBaseTransform` element in Python (`watermark_meta_adder`) that attaches
-watermark metadata to each frame buffer. `gvawatermark` reads the metadata via `use-watermark-meta=true`
-and renders the primitives using its CPU/GPU renderer.
+watermark metadata to each frame buffer. `gvawatermark` automatically reads and renders the metadata.
 
 ```mermaid
 graph LR
     A["urisourcebin"] --> B["decodebin3"]
     B --> C["videoconvert"]
     C --> D["watermark_meta_adder (custom Python)"]
-    D --> E["gvawatermark (use-watermark-meta=true)"]
+    D --> E["gvawatermark"]
     E --> F["videoconvert"]
     F --> G["openh264enc"]
     G --> H["mp4mux"]
@@ -98,7 +97,7 @@ DLStreamerWatermarkMeta.text_meta_add(
 
 ### Step 2 – gvawatermark Renders the Metadata
 
-`gvawatermark use-watermark-meta=true` reads `WatermarkDrawMeta`, `WatermarkCircleMeta`, and
+`gvawatermark` automatically reads `WatermarkDrawMeta`, `WatermarkCircleMeta`, and
 `WatermarkTextMeta` from the buffer and renders them alongside any standard inference metadata.
 
 ## Metadata API Reference
