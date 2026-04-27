@@ -34,7 +34,6 @@ ExternalProject_Add(
     CMAKE_ARGS          -DBUILD_TESTS=OFF
                         -DCMAKE_BUILD_TYPE=Release
                         -DOPENCV_GENERATE_PKGCONFIG=ON
-                        -DBUILD_SHARED_LIBS=ON
                         -DBUILD_PERF_TESTS=OFF
                         -DBUILD_EXAMPLES=OFF
                         -DBUILD_opencv_apps=OFF
