@@ -381,7 +381,6 @@ static gboolean gst_gva_watermark_impl_set_caps(GstBaseTransform *trans, GstCaps
     try {
         gvawatermark->impl = std::make_shared<Impl>(&gvawatermark->info, mem_type, GST_ELEMENT(trans),
                                                     gvawatermark->displ_avgfps, gvawatermark->displ_cfg);
-        gvawatermark->impl->set_use_watermark_meta(gvawatermark->use_watermark_meta);
     } catch (const std::exception &e) {
         GST_ELEMENT_ERROR(gvawatermark, CORE, FAILED, ("Could not initialize"),
                           ("Cannot create watermark instance. %s", Utils::createNestedErrorMsg(e).c_str()));
