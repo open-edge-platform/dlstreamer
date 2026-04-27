@@ -15,7 +15,7 @@ ExternalProject_Add(
     URL     https://github.com/confluentinc/librdkafka/archive/v${DESIRED_VERSION}.tar.gz
     URL_MD5 86ed3acd2f9d9046250dea654cee59a8
     TEST_COMMAND    ""
-    CMAKE_ARGS -DCMAKE_INSTALL_PREFIX:PATH=${CMAKE_BINARY_DIR}/opencv-bin
+    CMAKE_ARGS -DCMAKE_INSTALL_PREFIX:PATH=${CMAKE_BINARY_DIR}/rdkafka-bin
 )
 
 if (INSTALL_DLSTREAMER)

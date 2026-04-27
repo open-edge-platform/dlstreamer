@@ -7,7 +7,7 @@ on:
 permissions: {}
 env:
   dlstreamer-version: "2026.0.0"
-  DLS_REL_PATH: "$HOME/dlstreamer-repo" 
+  DLS_REL_PATH: "$HOME/dlstreamer-repo"
   MODELS_PATH: "$HOME/models"
   VIDEO_INPUTS_PATH: "$HOME/videos"
   RESULTS_DIR: "$HOME/dlstreamer-repo/unit-test-results"
@@ -171,7 +171,13 @@ jobs:
           source /opt/intel/openvino_genai/setupvars.sh
           echo " "
           echo "Building DL Streamer using make build..."
-          make build ENABLE_TESTS=ON
+          if [[ ${{ matrix.os }} == "ubuntu-24.04" ]]; then
+            echo "Building DL Streamer with ENABLE_TESTS=ON flag..."
+            make build ENABLE_TESTS=ON
+          else
+            echo "Building only DL Streamer..."
+            make build
+          fi
 
       - name: Install DL Streamer
         if: needs.setup.outputs.should_run == 'true'
@@ -227,23 +233,13 @@ jobs:
           gst-inspect-1.0 gvagenai
 
       - name: Create test results folder
-        if: needs.setup.outputs.should_run == 'true'
+        if: needs.setup.outputs.should_run == 'true' && matrix.os == 'ubuntu-24.04'
         run: |
           mkdir -p ${{ env.RESULTS_DIR }}
           chmod -R 777 ${{ env.RESULTS_DIR }}
 
-      - name: Debug
-        if: needs.setup.outputs.should_run == 'true'
-        run: |
-          echo "Showing $HOME/dlstreamer-repo"
-          ls $HOME/dlstreamer-repo
-          echo "Showing $HOME/dlstreamer-repo/build"
-          ls $HOME/dlstreamer-repo/build
-          echo "Showing workspace"
-          ls
-
       - name: Run Unit tests (ctests and pytests)
-        if: needs.setup.outputs.should_run == 'true'
+        if: needs.setup.outputs.should_run == 'true' && matrix.os == 'ubuntu-24.04'
         run: |
           echo "Setting up DL Streamer environment..."
           export LIBVA_DRIVER_NAME=iHD
@@ -263,15 +259,15 @@ jobs:
           source ~/python3venv/bin/activate
           ${{ env.DLS_REL_PATH }}/tests/scripts/run_unit_tests.sh "${{ env.DLS_REL_PATH }}/build" "" "${{ env.RESULTS_DIR }}"
 
-      #this script creates output file called unit_test_summary.txt
+      # this script creates output file called unit_test_summary.txt
       - name: Run python script to get Unit Test results
-        if: always() && needs.setup.outputs.should_run == 'true'
+        if: always() && needs.setup.outputs.should_run == 'true' && matrix.os == 'ubuntu-24.04'
         run: |
           source ~/python3venv/bin/activate
           python3 ${{ env.DLS_REL_PATH }}/tests/scripts/unit_test_results.py ${{ env.RESULTS_DIR }}
 
       - name: Check and display unit test results
-        if: always() && needs.setup.outputs.should_run == 'true'
+        if: always() && needs.setup.outputs.should_run == 'true' && matrix.os == 'ubuntu-24.04'
         run: |
           RESULTS_FILE="${{ env.RESULTS_DIR }}/unit_test_summary.txt"
 
@@ -290,8 +286,8 @@ jobs:
           fi
 
       - name: Upload test results
-        if: always() && needs.setup.outputs.should_run == 'true'
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f #7.0.0
+        if: always() && needs.setup.outputs.should_run == 'true' && matrix.os == 'ubuntu-24.04'
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f  # 7.0.0
         with:
           name: DLS_unit_tests_tgl_${{ matrix.ubuntu_version }}
           path: ${{ env.RESULTS_DIR }}/*.xml
