@@ -2,9 +2,16 @@
 
 This sample demonstrates a custom GStreamer Python element (`gvaframesaver_py`) that saves video frames containing detected objects. It replaces the previous `gvapython`-based approach with a proper GStreamer element using GstAnalytics metadata API.
 
-> **NOTE**: This sample is a converted version of the original [gvapython save_frames_with_ROI_only](../../gvapython/save_frames_with_ROI_only/README.md) sample. The `gvapython` element has been replaced with a standalone GStreamer Python element.
-
 See [smart_nvr](../../../python/smart_nvr/) sample as reference for custom Python element pattern.
+
+## Overview
+
+This document describes:
+* the pipeline architecture and data flow ([How It Works](#how-it-works))
+* the models used and where they are stored ([Models](#models))
+* environment requirements ([Prerequisites](#prerequisites))
+* how to run the sample and available options ([Running](#running))
+* what to expect on the console and on disk ([Sample Output](#sample-output))
 
 ## How It Works
 
@@ -53,21 +60,18 @@ Configurable element properties (via gst-launch-1.0):
 * `save-interval` - Minimum seconds between saves (default: 2.0)
 * `min-confidence` - Minimum detection confidence threshold (default: 0.5)
 
-### Key Differences from gvapython Approach
-
-| gvapython (old) | Python element (new) |
-|---|---|
-| `gvapython module=... class=... function=...` | `gvaframesaver_py` |
-| Uses `gstgva.VideoFrame` API | Uses `GstAnalytics` metadata API |
-| Callback-based (module/class/function) | Proper GStreamer element (BaseTransform) |
-| Requires PYTHONPATH to gstgva | Self-contained plugin |
-
 ## Models
 
-The sample uses by default the following pre-trained model from OpenVINO™ Toolkit [Open Model Zoo](https://github.com/openvinotoolkit/open_model_zoo):
-*   __face-detection-adas-0001__ is primary detection network for finding faces
+The sample uses a pre-trained face detection model downloaded from [Hugging Face](https://huggingface.co/) and exported to OpenVINO™ IR format on first run:
+* __[arnabdhar/YOLOv8-Face-Detection](https://huggingface.co/arnabdhar/YOLOv8-Face-Detection)__ — face detection (used by `gvadetect`)
 
-> **NOTE**: Before running samples (including this one), run script `download_omz_models.sh` once (the script located in `samples` top folder) to download all models required for this and other samples.
+Download and conversion are handled automatically by [`prepare_models.py`](prepare_models.py), which is invoked from the sample shell script. The model is cached after the first run, so subsequent runs reuse the existing files.
+
+### Model storage location
+
+* If the `MODELS_PATH` environment variable is set, the model is stored in `$MODELS_PATH/save_frames_with_ROI_only/`.
+* Otherwise the model is stored in a `models/` subdirectory inside the sample folder (next to `prepare_models.py`).
+
 
 ## Prerequisites
 
@@ -82,7 +86,7 @@ python3 -m pip install opencv-python-headless numpy
 
 ## Running
 
-Before running, ensure the DL Streamer environment is properly configured and that the required models have been downloaded (see [Models](#models)).
+Before running, ensure the DL Streamer environment is properly configured. The model is downloaded automatically on first run (see [Models](#models)).
 
 ```sh
 ./save_frames_with_roi.sh [INPUT_VIDEO] [DEVICE] [SINK_ELEMENT]
@@ -135,9 +139,9 @@ The sample:
 
 Example output in console:
 ```
-Saved: saved_frames/frame_00000.jpg (format: NV12)
-Saved: saved_frames/frame_00001.jpg (format: NV12)
-Saved: saved_frames/frame_00002.jpg (format: NV12)
+Saved: saved_frames/frame_00000.jpg
+Saved: saved_frames/frame_00001.jpg
+Saved: saved_frames/frame_00002.jpg
 ```
 
 ## See also

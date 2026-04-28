@@ -7,18 +7,15 @@
 
 set -e
 
-if [ -z "${MODELS_PATH:-}" ]; then
-  echo "Error: MODELS_PATH is not set." >&2 
-  exit 1
-else 
-  echo "MODELS_PATH: $MODELS_PATH"
-fi
-
 INPUT=${1:-https://github.com/intel-iot-devkit/sample-videos/raw/master/head-pose-face-detection-female-and-male.mp4}
 DEVICE=${2:-CPU}
 OUTPUT=${3:-display} # Supported values: display, fps, json, display-and-json
 
 SCRIPTDIR="$(dirname "$(realpath "$0")")"
+
+# --- Prepare models (download from HuggingFace and convert to OpenVINO IR) ---
+echo "Preparing models..."
+eval "$(python3 "${SCRIPTDIR}/prepare_models.py")"
 
 if [[ $OUTPUT == "display" ]] || [[ -z $OUTPUT ]]; then
   SINK_ELEMENT="gvawatermark ! videoconvert ! gvafpscounter ! autovideosink sync=false"
@@ -56,16 +53,17 @@ else
   SOURCE_ELEMENT="filesrc location=${INPUT}"
 fi
 
-DETECT_MODEL_PATH=${MODELS_PATH}/intel/face-detection-adas-0001/FP32/face-detection-adas-0001.xml
-CLASS_MODEL_PATH=${MODELS_PATH}/intel/age-gender-recognition-retail-0013/FP32/age-gender-recognition-retail-0013.xml
-MODEL_PROC=$SCRIPTDIR/model_proc/age-gender-recognition-retail-0013.json
+DETECT_MODEL_PATH=${DETECT_MODEL_PATH:?Detection model not prepared}
+CLASS_MODEL_PATH=${CLASS_MODEL_PATH:?Classification model not prepared}
+GENDER_MODEL_PATH=${GENDER_MODEL_PATH:?Gender model not prepared}
 
 echo Running sample with the following parameters:
 echo GST_PLUGIN_PATH="${GST_PLUGIN_PATH}"
 
 PIPELINE="gst-launch-1.0 $SOURCE_ELEMENT ! decodebin3 ! \
 gvadetect model=$DETECT_MODEL_PATH device=$DEVICE ! queue ! \
-gvaclassify model=$CLASS_MODEL_PATH model-proc=$MODEL_PROC device=$DEVICE ! queue ! \
+gvaclassify model=$CLASS_MODEL_PATH device=$DEVICE ! queue ! \
+gvaclassify model=$GENDER_MODEL_PATH device=$DEVICE ! queue ! \
 gvaagelogger_py log-file-path=/tmp/age_log.txt ! \
 $SINK_ELEMENT"
 

@@ -46,12 +46,16 @@ class FrameSaver(GstBase.BaseTransform):
         "Intel DLStreamer",
     )
 
+    # Restrict caps to the video formats _convert_to_bgr() actually supports.
+    # Using Caps.new_any() would silently accept e.g. RGB/RGBA and produce
+    # color-swapped output (the code interprets all 3/4-channel data as BGR).
+    _SUPPORTED_FORMATS = "NV12, I420, BGR, BGRA, BGRX"
+    _CAPS = Gst.Caps.from_string(f"video/x-raw, format={{ {_SUPPORTED_FORMATS} }}")
+
     __gsttemplates__ = (
+        Gst.PadTemplate.new("src", Gst.PadDirection.SRC, Gst.PadPresence.ALWAYS, _CAPS),
         Gst.PadTemplate.new(
-            "src", Gst.PadDirection.SRC, Gst.PadPresence.ALWAYS, Gst.Caps.new_any()
-        ),
-        Gst.PadTemplate.new(
-            "sink", Gst.PadDirection.SINK, Gst.PadPresence.ALWAYS, Gst.Caps.new_any()
+            "sink", Gst.PadDirection.SINK, Gst.PadPresence.ALWAYS, _CAPS
         ),
     )
 

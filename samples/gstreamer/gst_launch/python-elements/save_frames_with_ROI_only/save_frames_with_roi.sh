@@ -7,18 +7,15 @@
 
 set -e
 
-if [ -z "${MODELS_PATH:-}" ]; then
-  echo "Error: MODELS_PATH is not set." >&2 
-  exit 1
-else 
-  echo "MODELS_PATH: $MODELS_PATH"
-fi
-
 INPUT=${1:-https://github.com/intel-iot-devkit/sample-videos/raw/master/head-pose-face-detection-female-and-male.mp4}
 DEVICE=${2:-GPU}
 OUTPUT=${3:-fps} # Supported values: display, fps
 
 SCRIPTDIR="$(dirname "$(realpath "$0")")"
+
+# --- Prepare models (download from HuggingFace and convert to OpenVINO IR) ---
+echo "Preparing models..."
+eval "$(python3 "${SCRIPTDIR}/prepare_models.py")"
 
 if [[ $OUTPUT == "display" ]] || [[ -z $OUTPUT ]]; then
   SINK_ELEMENT="gvawatermark ! videoconvert ! gvafpscounter ! autovideosink sync=false"
@@ -38,7 +35,7 @@ else
   SOURCE_ELEMENT="filesrc location=${INPUT}"
 fi
 
-DETECT_MODEL_PATH=${MODELS_PATH}/intel/face-detection-adas-0001/FP32/face-detection-adas-0001.xml
+DETECT_MODEL_PATH=${DETECT_MODEL_PATH:?Detection model not prepared}
 
 echo Running sample with the following parameters:
 echo GST_PLUGIN_PATH="${GST_PLUGIN_PATH}"
