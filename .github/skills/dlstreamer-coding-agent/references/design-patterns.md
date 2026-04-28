@@ -223,7 +223,10 @@ run_pipeline(pipeline, cmd_reader=cmd_reader, loop_count=3)
 
 ### Key rules for CommandReader
 
-- **Never** mutate GStreamer state from the reader thread — use `GLib.idle_add()`.
+- **Never** mutate pipeline **state or topology** from the reader thread
+  (e.g. `set_state()`, `send_event()`, element linking) — use `GLib.idle_add()`.
+- Simple **element property changes** like `valve.set_property("drop", ...)`
+  are GObject-lock-protected and safe from any thread.
 - Return `GLib.SOURCE_REMOVE` from `idle_add` callbacks.
 - Use `daemon=True` thread.
 
@@ -240,7 +243,7 @@ instances and cross-stream batching.
 
 - Set `model-instance-id=<name>` to share model instances across streams.
 - Set `batch-size=<stream_count>` for cross-stream batching.
-- For highest throughput, use default `scheduling-policy=througtput`
+- For highest throughput, use default `scheduling-policy=throughput`
 - For minimal latency throughput, set `scheduling-policy=latency`
 - With a compositor, **must** set `scheduling-policy=latency` to keep streams in lock step.
 
@@ -368,8 +371,8 @@ appsink.connect("new-sample", on_new_sample, None)
 ## Pattern 7: Custom Python GStreamer Element (BaseTransform)
 
 Subclass `GstBase.BaseTransform` for non-trivial per-frame analytics that reads/writes metadata.
-Do not add transform element if the only change is adding new analytics metadata.
-
+Do not add a transform element if it only acts as metadata/state "glue" by exposing, forwarding,
+or repackaging existing information without performing substantive analytics.
 
 ```python
 import gi

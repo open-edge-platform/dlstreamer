@@ -79,7 +79,7 @@ For the full list of elements, see also `../../../../docs/user-guide/elements/`.
 | Element | Purpose | Key Properties |
 |---------|---------|----------------|
 | `gvametaconvert` | Convert metadata to JSON format | `file-format=json-lines`, `file-path=<path>` |
-| `gvametapublish` | Export inference metadata to file | `file-format=json-lines`, `file-path=<path>` |
+| `gvametapublish` | **Pass-through** — publish metadata to file, Kafka, or MQTT while forwarding buffers downstream | `method=file\|kafka\|mqtt` |
 
 ### Flow Control
 

@@ -238,8 +238,6 @@ docker run --init --rm \
     -u "$(id -u):$(id -g)" \
     -e PYTHONUNBUFFERED=1 \
     -v "$(pwd)":/app -w /app \
-    -v /path/to/models:/app/models:ro \
-    -v /path/to/videos:/app/videos:ro \
     --device /dev/dri \
     --group-add $(stat -c "%g" /dev/dri/render*) \
     --device /dev/accel \
