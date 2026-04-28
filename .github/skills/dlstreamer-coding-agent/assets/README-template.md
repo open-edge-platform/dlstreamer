@@ -56,7 +56,27 @@ source .{{APP_NAME}}-venv/bin/activate
 pip install -r export_requirements.txt -r requirements.txt
 ```
 
-## Model Preparation
+## Prepare Video and Models
+
+### Download Video
+
+{{VIDEO_DOWNLOAD_INSTRUCTIONS}}
+<!-- Add instructions for downloading the test video. Example:
+
+Download the sample video to a local directory:
+
+```bash
+mkdir -p videos
+curl -L -o videos/sample.mp4 \
+    -H "Referer: https://www.pexels.com/" \
+    -H "User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36" \
+    "https://videos.pexels.com/video-files/<ID>/<ID>-hd_<W>_<H>_<FPS>fps.mp4"
+```
+
+Alternatively, use any local video file and pass it via `--input`.
+-->
+
+### Models
 
 {{MODEL_SECTIONS}}
 <!-- Add a subsection for each model used. Example:
@@ -82,10 +102,10 @@ python3 {{APP_NAME}}.py --vlm-model-id <vlm_model_id>
 
 ## Running the Sample
 
-Basic usage (downloads a sample video and exports models automatically):
+Basic usage (models and video must be prepared beforehand — see above):
 
 ```bash
-python3 {{APP_NAME}}.py
+python3 {{APP_NAME}}.py --input videos/sample.mp4
 ```
 
 {{ADVANCED_USAGE}}
@@ -95,7 +115,7 @@ With non-default AI models and user-defined input video:
 
 ```bash
 python3 {{APP_NAME}}.py \
-    --video-url https://example.com/video.mp4 \
+    --input /path/to/video.mp4 \
     --detect-model-id yolo11s \
     --detect-device NPU
 ```
@@ -108,8 +128,7 @@ python3 {{APP_NAME}}.py \
 
 ### STEP 1 - Model Download and Conversion
 
-The sample downloads an example video file and the detection model from HuggingFace.
-The model is converted to OpenVINO IR format using the standard HuggingFace toolchain.
+The application loads pre-downloaded models and processes the input video file.
 
 ### STEP 2 - DLStreamer Pipeline Construction
 
@@ -145,7 +164,7 @@ pipeline = Gst.parse_launch(
 |---|---|---|
 {{CLI_ARGUMENTS_TABLE}}
 <!-- Example:
-| `--video-url` | Pexels sample video | URL to download a video from |
+| `--input` | `videos/sample.mp4` | Path to input video file or rtsp:// URI |
 | `--detect-model-id` | `yolo26s` | Ultralytics model id for detection |
 | `--detect-device` | `GPU` | Device for detection inference |
 -->
