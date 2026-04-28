@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2021-2025 Intel Corporation
+ * Copyright (C) 2021-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -29,6 +29,7 @@ class BlobToMetaConverter {
 
         GstStructureUniquePtr model_proc_output_info;
         std::vector<std::string> labels;
+        bool skip_raw_tensors = false;
     };
 
   private:
@@ -38,6 +39,7 @@ class BlobToMetaConverter {
 
     GstStructureUniquePtr model_proc_output_info;
     const std::vector<std::string> labels;
+    const bool skip_raw_tensors;
 
   protected:
     const ModelImageInputInfo &getModelInputImageInfo() const {
@@ -52,6 +54,12 @@ class BlobToMetaConverter {
 
     const GstStructureUniquePtr &getModelProcOutputInfo() const {
         return model_proc_output_info;
+    }
+
+    // Returns true if converter should skip adding raw tensors to metadata (inference results).
+    // This is used for optimization when raw tensors are large (like depth maps) and not needed in post-processing.
+    bool skipRawTensors() const {
+        return skip_raw_tensors;
     }
 
     const std::string &getLabelByLabelId(size_t label_id) const {

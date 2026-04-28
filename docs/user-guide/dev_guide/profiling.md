@@ -84,7 +84,7 @@ where DL Streamer processes inference results from OV. And about 0.445s
 for Submitting image. This means that the remaining time 9.068 - 4.110 -
 0.445 = 4.513s was taken by executing inference inside OV.
 
-![bottom-up](BottomUP_tab.png)
+![bottom-up](./_assets/BottomUP_tab.png)
 
 Also, you can check the "platform" tab to see a detailed calls graph and measure
 call time of each method.
@@ -93,4 +93,4 @@ The screenshot below shows how to measure first OpenVINO™
 Toolkit inference time: the time from the first "Submit images" till first
 completion callback call.
 
-![platform](Platform_tab.png)
+![platform](./_assets/Platform_tab.png)

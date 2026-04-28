@@ -98,7 +98,8 @@ PostProcessorImpl::PostProcessorImpl(Initializer initializer) {
 
             converters.emplace_back(layer_names, model_proc_outputs.cbegin()->second, initializer.converter_type,
                                     initializer.attach_type, initializer.image_info, initializer.model_outputs,
-                                    initializer.model_name, labels, initializer.custom_postproc_lib);
+                                    initializer.model_name, labels, initializer.custom_postproc_lib,
+                                    initializer.skip_raw_tensors);
         } else {
             for (const auto &model_proc_output : initializer.output_processors) {
                 if (model_proc_output.second == nullptr) {
@@ -122,7 +123,7 @@ PostProcessorImpl::PostProcessorImpl(Initializer initializer) {
 
                 converters.emplace_back(model_proc_output.second, initializer.converter_type, initializer.attach_type,
                                         initializer.image_info, initializer.model_outputs, initializer.model_name,
-                                        labels, initializer.custom_postproc_lib);
+                                        labels, initializer.custom_postproc_lib, initializer.skip_raw_tensors);
             }
         }
     } catch (const std::exception &e) {
