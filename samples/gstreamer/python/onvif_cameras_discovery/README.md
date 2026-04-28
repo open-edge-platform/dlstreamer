@@ -320,7 +320,7 @@ Retrieves GStreamer pipeline elements from JSON configuration file.
 ```json
 {
     "192.168.1.100": "! rtph264depay ! h264parse ! avdec_h264 ! videoconvert ! autovideosink",
-    "192.168.1.101": "! rtph264depay ! h264parse ! vaapih264dec ! vapostproc ! autovideosink"
+    "192.168.1.101": "! rtph264depay ! h264parse ! vah264dec ! vapostproc ! autovideosink"
 }
 ```
 
@@ -466,6 +466,7 @@ Maps camera IP addresses to custom GStreamer pipeline command lines.
 {
     "192.168.1.100": "! rtph264depay ! h264parse ! avdec_h264 ! videoconvert ! autovideosink",
     "192.168.1.101": "! rtph264depay ! h264parse ! vah264dec ! vapostproc ! autovideosink",
+    "192.168.1.101": "! rtph264depay ! h264parse ! vah264dec ! vapostproc ! autovideosink",
     "192.168.1.102": "! rtph264depay ! h264parse ! video/x-h264 ! mpegtsmux ! filesink location=output.ts"
 }
 ```
@@ -478,12 +479,14 @@ Maps camera IP addresses to custom GStreamer pipeline command lines.
 | `h264parse` | Parses H.264 bitstream |
 | `avdec_h264` | Software H.264 decoder (libav) |
 | `vah264dec` | Hardware-accelerated H.264 decoder (VA-API) |
+| `vah264dec` | Hardware-accelerated H.264 decoder (VA-API) |
 | `videoconvert` | Converts video format/colorspace |
 | `vapostproc` | Hardware video post-processing |
 | `autovideosink` | Automatic video output selection |
 | `filesink` | Saves stream to file |
 
 **Best Practices:**
+- Use hardware decoders (`vah264dec`) for better performance
 - Use hardware decoders (`vah264dec`) for better performance
 - Match decoder to camera's codec (H.264, H.265, MJPEG)
 - Include `! videoconvert` before display sinks
@@ -624,7 +627,7 @@ All processes stopped.
 **Hardware-accelerated decoding (Intel VA-API):**
 ```json
 {
-    "192.168.1.100": "! rtph264depay ! h264parse ! vaapih264dec ! vapostproc ! autovideosink"
+    "192.168.1.100": "! rtph264depay ! h264parse ! vah264dec ! vapostproc ! autovideosink"
 }
 ```
 
