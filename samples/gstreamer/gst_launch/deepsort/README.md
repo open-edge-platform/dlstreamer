@@ -50,7 +50,7 @@ This downloads YOLOv8s and converts the mars-small128 re-ID model to OpenVINO IR
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `max_age` | 90 | Max frames a track survives without a matched detection |
+| `max_age` | 60 | Max frames a track survives without a matched detection |
 | `max_cosine_distance` | 0.2 | Appearance similarity threshold for matching |
 | `nn_budget` | 0 | Max features stored per track (0 = unlimited) |
 | `object_class` | person | Only track detections with this label |
@@ -78,7 +78,7 @@ gst-launch-1.0 \
   gvainference model=/path/to/mars_small128_fp32.xml device=CPU \
     inference-region=roi-list object-class=person ! \
   gvatrack tracking-type=deep-sort \
-    deepsort-trck-cfg="max_age=90,max_cosine_distance=0.2,nn_budget=0,object_class=person,reid_max_age=30" ! queue ! \
+    deepsort-trck-cfg="max_age=60,max_cosine_distance=0.2,nn_budget=0,object_class=person,reid_max_age=30" ! queue ! \
   gvawatermark displ-cfg=show-roi=person,font-scale=0.8 ! \
   gvafpscounter ! fakesink sync=false
 ```
