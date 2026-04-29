@@ -78,7 +78,7 @@ gst-launch-1.0 \
   gvainference model=/path/to/mars_small128_fp32.xml device=CPU \
     inference-region=roi-list object-class=person ! \
   gvatrack tracking-type=deep-sort \
-    deepsort-trck-cfg="max_age=60,max_cosine_distance=0.2,nn_budget=0,object_class=person,reid_max_age=30" ! queue ! \
+    deepsort-cfg="max_age=60,max_cosine_distance=0.2,nn_budget=0,object_class=person,reid_max_age=30" ! queue ! \
   gvawatermark displ-cfg=show-roi=person,font-scale=0.8 ! \
   gvafpscounter ! fakesink sync=false
 ```

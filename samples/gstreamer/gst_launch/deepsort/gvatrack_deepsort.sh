@@ -8,7 +8,7 @@
 # Uses YOLO for person detection, mars-small128 for re-ID feature extraction,
 # and gvatrack with Deep SORT algorithm for identity-preserving tracking.
 #
-# This sample refers to a video file by Rihard-Clement-Ciprian Diac via Pexels
+# This sample uses a video file by Sururi Ballıdağ via Pexels
 # (https://www.pexels.com)
 # ==============================================================================
 
@@ -20,8 +20,8 @@ ALLOWED_OUTPUTS=("display" "file" "fps" "json")
 # Default values
 DET_MODEL=""
 REID_MODEL=""
-DEVICE="CPU"
-INPUT="https://videos.pexels.com/video-files/17773203/17773203-hd_1080_1920_30fps.mp4"
+DEVICE="GPU"
+INPUT="https://videos.pexels.com/video-files/18552655/18552655-hd_1280_720_30fps.mp4"
 OUTPUT="file"
 OUTPUT_FILE="deepsort_output.mp4"
 DEEPSORT_CFG="max_age=60,max_cosine_distance=0.2,nn_budget=0,object_class=person,reid_max_age=30"
@@ -179,7 +179,7 @@ esac
 
 PIPELINE="gst-launch-1.0 \
   ${SOURCE_ELEMENT} ! decodebin3 ! \
-  gvadetect model=${DET_MODEL} device=${DEVICE} pre-process-backend=${PREPROC_BACKEND} ! queue ! \
+  gvadetect model=${DET_MODEL} device=${DEVICE} ! queue ! \
   gvainference model=${REID_MODEL} device=${DEVICE} inference-region=roi-list object-class=person ! \
   gvatrack tracking-type=deep-sort deepsort-trck-cfg=\"${DEEPSORT_CFG}\" ! queue ! \
   ${SINK}"
