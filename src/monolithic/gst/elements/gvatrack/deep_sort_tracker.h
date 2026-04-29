@@ -26,7 +26,7 @@ constexpr int DEFAULT_NN_BUDGET = 100;
 constexpr int DEFAULT_FEATURES_VECTOR_SIZE_128 = 128;
 
 // Chi-square inverse 95% quantile for Mahalanobis gating
-constexpr float CHI2INV95_2DOF = 5.9915f;  // 2 DOF (position only: x, y)
+constexpr float CHI2INV95_2DOF = 5.9915f; // 2 DOF (position only: x, y)
 constexpr float INFTY_COST = 1e5f;
 
 // Track states
@@ -41,7 +41,7 @@ struct Detection {
     int region_index; // Original index into frame_meta.regions() for writing back track ID
 
     Detection(const cv::Rect_<float> &bbox, float confidence, const std::vector<float> &feature, int class_id = -1,
-             int region_index = -1)
+              int region_index = -1)
         : bbox(bbox), confidence(confidence), feature(feature), class_id(class_id), region_index(region_index) {
     }
 };
@@ -84,8 +84,7 @@ class Track {
 
     // Compute squared Mahalanobis distances between state and measurements
     std::vector<float> gating_distance(const std::vector<Detection> &detections,
-                                       const std::vector<int> &detection_indices,
-                                       bool only_position = false) const;
+                                       const std::vector<int> &detection_indices, bool only_position = false) const;
 
     std::string state_str() const {
         switch (state_) {
@@ -177,26 +176,18 @@ class DeepSortTracker : public ITracker {
                               std::vector<std::pair<int, int>> &assignments);
 
     // Matching cascade for confirmed tracks (appearance-based + Mahalanobis gating)
-    void matching_cascade(const std::vector<Detection> &detections,
-                          const std::vector<int> &track_indices,
-                          const std::vector<int> &detection_indices,
-                          std::vector<std::pair<int, int>> &matches,
-                          std::vector<int> &unmatched_tracks,
-                          std::vector<int> &unmatched_detections);
+    void matching_cascade(const std::vector<Detection> &detections, const std::vector<int> &track_indices,
+                          const std::vector<int> &detection_indices, std::vector<std::pair<int, int>> &matches,
+                          std::vector<int> &unmatched_tracks, std::vector<int> &unmatched_detections);
 
     // IoU-based matching for second stage (unconfirmed + recently-missed tracks)
-    void min_cost_matching_iou(const std::vector<Detection> &detections,
-                               const std::vector<int> &track_indices,
-                               const std::vector<int> &detection_indices,
-                               std::vector<std::pair<int, int>> &matches,
-                               std::vector<int> &unmatched_tracks,
-                               std::vector<int> &unmatched_detections);
+    void min_cost_matching_iou(const std::vector<Detection> &detections, const std::vector<int> &track_indices,
+                               const std::vector<int> &detection_indices, std::vector<std::pair<int, int>> &matches,
+                               std::vector<int> &unmatched_tracks, std::vector<int> &unmatched_detections);
 
     // Gate cost matrix using Mahalanobis distance
-    void gate_cost_matrix(std::vector<std::vector<float>> &cost_matrix,
-                          const std::vector<Detection> &detections,
-                          const std::vector<int> &track_indices,
-                          const std::vector<int> &detection_indices);
+    void gate_cost_matrix(std::vector<std::vector<float>> &cost_matrix, const std::vector<Detection> &detections,
+                          const std::vector<int> &track_indices, const std::vector<int> &detection_indices);
 
     void parse_dps_trck_config();
 };

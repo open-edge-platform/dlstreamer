@@ -212,10 +212,8 @@ cv::Rect_<float> Track::to_bbox() const {
     double height = mean_.at<double>(3);
     double width = aspect_ratio * height;
 
-    return cv::Rect_<float>(static_cast<float>(center_x - width / 2.0),
-                            static_cast<float>(center_y - height / 2.0),
-                            static_cast<float>(width),
-                            static_cast<float>(height));
+    return cv::Rect_<float>(static_cast<float>(center_x - width / 2.0), static_cast<float>(center_y - height / 2.0),
+                            static_cast<float>(width), static_cast<float>(height));
 }
 
 /**
@@ -260,8 +258,7 @@ std::pair<cv::Mat, cv::Mat> Track::project() const {
  * @brief Compute squared Mahalanobis distances between track state and detections
  */
 std::vector<float> Track::gating_distance(const std::vector<Detection> &detections,
-                                          const std::vector<int> &detection_indices,
-                                          bool only_position) const {
+                                          const std::vector<int> &detection_indices, bool only_position) const {
     auto [proj_mean, proj_cov] = project();
 
     int dim = only_position ? 2 : 4;
@@ -277,7 +274,8 @@ std::vector<float> Track::gating_distance(const std::vector<Detection> &detectio
         z.at<double>(0) = static_cast<double>(detections[det_idx].bbox.x + detections[det_idx].bbox.width / 2.0f);
         z.at<double>(1) = static_cast<double>(detections[det_idx].bbox.y + detections[det_idx].bbox.height / 2.0f);
         if (!only_position) {
-            z.at<double>(2) = static_cast<double>(detections[det_idx].bbox.width) / static_cast<double>(detections[det_idx].bbox.height);
+            z.at<double>(2) = static_cast<double>(detections[det_idx].bbox.width) /
+                              static_cast<double>(detections[det_idx].bbox.height);
             z.at<double>(3) = static_cast<double>(detections[det_idx].bbox.height);
         }
 
@@ -338,9 +336,9 @@ void DeepSortTracker::track(dlstreamer::FramePtr buffer, GVA::VideoFrame &frame_
         std::ostringstream oss;
         oss << "F" << frame_num_ << " DETECTIONS: " << detections.size() << " from " << regions.size() << " regions";
         for (size_t d = 0; d < detections.size(); ++d) {
-            oss << " | det[" << d << "] reg=" << detections[d].region_index
-                << " bbox[" << (int)detections[d].bbox.x << "," << (int)detections[d].bbox.y
-                << "," << (int)detections[d].bbox.width << "," << (int)detections[d].bbox.height << "]";
+            oss << " | det[" << d << "] reg=" << detections[d].region_index << " bbox[" << (int)detections[d].bbox.x
+                << "," << (int)detections[d].bbox.y << "," << (int)detections[d].bbox.width << ","
+                << (int)detections[d].bbox.height << "]";
         }
         GST_DEBUG("%s", oss.str().c_str());
     }
@@ -362,11 +360,9 @@ void DeepSortTracker::track(dlstreamer::FramePtr buffer, GVA::VideoFrame &frame_
         auto &detection = detections[match.first];
         auto &track = tracks_[match.second];
 
-        GST_DEBUG("F%d MATCH: det[%d](reg=%d) bbox[%.0f,%.0f] -> track_id=%d, state=%s",
-                    frame_num_, match.first, detection.region_index,
-                    detection.bbox.x + detection.bbox.width / 2.0f,
-                    detection.bbox.y + detection.bbox.height / 2.0f,
-                    track->track_id(), track->state_str().c_str());
+        GST_DEBUG("F%d MATCH: det[%d](reg=%d) bbox[%.0f,%.0f] -> track_id=%d, state=%s", frame_num_, match.first,
+                  detection.region_index, detection.bbox.x + detection.bbox.width / 2.0f,
+                  detection.bbox.y + detection.bbox.height / 2.0f, track->track_id(), track->state_str().c_str());
 
         // Assign tracking ID to the original region
         int reg_idx = detections[match.first].region_index;
@@ -378,8 +374,8 @@ void DeepSortTracker::track(dlstreamer::FramePtr buffer, GVA::VideoFrame &frame_
     // Mark unmatched tracks as missed
     for (int trk_idx : unmatched_trks) {
         if (tracks_[trk_idx]->is_confirmed()) {
-            GST_DEBUG("CONFIRMED TRACK UNMATCHED: track_id=%d, tsu=%d",
-                        tracks_[trk_idx]->track_id(), tracks_[trk_idx]->time_since_update());
+            GST_DEBUG("CONFIRMED TRACK UNMATCHED: track_id=%d, tsu=%d", tracks_[trk_idx]->track_id(),
+                      tracks_[trk_idx]->time_since_update());
         }
         tracks_[trk_idx]->mark_missed();
     }
@@ -423,11 +419,9 @@ void DeepSortTracker::track(dlstreamer::FramePtr buffer, GVA::VideoFrame &frame_
 
             if (best_gallery_idx >= 0) {
                 track_id = reid_gallery_[best_gallery_idx].track_id;
-                GST_DEBUG("F%d RE-ID: det[%d] bbox[%.0f,%.0f] matched gallery track_id=%d (cosine=%.4f)",
-                        frame_num_, det_idx,
-                        detections[det_idx].bbox.x + detections[det_idx].bbox.width / 2.0f,
-                        detections[det_idx].bbox.y + detections[det_idx].bbox.height / 2.0f,
-                        track_id, best_dist);
+                GST_DEBUG("F%d RE-ID: det[%d] bbox[%.0f,%.0f] matched gallery track_id=%d (cosine=%.4f)", frame_num_,
+                          det_idx, detections[det_idx].bbox.x + detections[det_idx].bbox.width / 2.0f,
+                          detections[det_idx].bbox.y + detections[det_idx].bbox.height / 2.0f, track_id, best_dist);
                 reid_gallery_.erase(reid_gallery_.begin() + best_gallery_idx);
                 reused = true;
             }
@@ -438,8 +432,7 @@ void DeepSortTracker::track(dlstreamer::FramePtr buffer, GVA::VideoFrame &frame_
 
         auto new_track = std::make_unique<Track>(detections[det_idx].bbox, track_id, n_init_, max_age_,
                                                  detections[det_idx].feature, nn_budget_);
-        GST_DEBUG("NEW TRACK: ID=%d%s, bbox[%.1f, %.1f, %.1f x %.1f]",
-                  track_id, reused ? " (RE-ID)" : "",
+        GST_DEBUG("NEW TRACK: ID=%d%s, bbox[%.1f, %.1f, %.1f x %.1f]", track_id, reused ? " (RE-ID)" : "",
                   detections[det_idx].bbox.x, detections[det_idx].bbox.y, detections[det_idx].bbox.width,
                   detections[det_idx].bbox.height);
         tracks_.push_back(std::move(new_track));
@@ -454,10 +447,9 @@ void DeepSortTracker::track(dlstreamer::FramePtr buffer, GVA::VideoFrame &frame_
                 entry.features = track->features();
                 entry.last_bbox = track->to_bbox();
                 entry.deletion_frame = frame_num_;
-                GST_DEBUG("F%d GALLERY SAVE: track_id=%d, features=%zu, bbox[%.0f,%.0f]",
-                        frame_num_, entry.track_id, entry.features.size(),
-                        entry.last_bbox.x + entry.last_bbox.width / 2.0f,
-                        entry.last_bbox.y + entry.last_bbox.height / 2.0f);
+                GST_DEBUG("F%d GALLERY SAVE: track_id=%d, features=%zu, bbox[%.0f,%.0f]", frame_num_, entry.track_id,
+                          entry.features.size(), entry.last_bbox.x + entry.last_bbox.width / 2.0f,
+                          entry.last_bbox.y + entry.last_bbox.height / 2.0f);
                 reid_gallery_.push_back(std::move(entry));
             }
         }
@@ -580,8 +572,8 @@ void DeepSortTracker::associate_detections_to_tracks(const std::vector<Detection
     std::vector<int> unmatched_tracks_a;
     std::vector<int> unmatched_detections_after_cascade;
 
-    matching_cascade(detections, confirmed_tracks, all_det_indices,
-                     matches_a, unmatched_tracks_a, unmatched_detections_after_cascade);
+    matching_cascade(detections, confirmed_tracks, all_det_indices, matches_a, unmatched_tracks_a,
+                     unmatched_detections_after_cascade);
 
     // Stage 2: IoU matching for unconfirmed + recently-missed confirmed tracks (tsu==1)
     std::vector<int> iou_track_candidates = unconfirmed_tracks;
@@ -591,16 +583,16 @@ void DeepSortTracker::associate_detections_to_tracks(const std::vector<Detection
         if (tracks_[k]->time_since_update() == 1) {
             iou_track_candidates.push_back(k);
         } else {
-            GST_DEBUG("CONFIRMED TRACK EXCLUDED from IoU fallback: track_id=%d, tsu=%d",
-                        tracks_[k]->track_id(), tracks_[k]->time_since_update());
+            GST_DEBUG("CONFIRMED TRACK EXCLUDED from IoU fallback: track_id=%d, tsu=%d", tracks_[k]->track_id(),
+                      tracks_[k]->time_since_update());
             remaining_unmatched_tracks_a.push_back(k);
         }
     }
 
     std::vector<std::pair<int, int>> matches_b;
     std::vector<int> unmatched_tracks_b;
-    min_cost_matching_iou(detections, iou_track_candidates, unmatched_detections_after_cascade,
-                          matches_b, unmatched_tracks_b, unmatched_dets);
+    min_cost_matching_iou(detections, iou_track_candidates, unmatched_detections_after_cascade, matches_b,
+                          unmatched_tracks_b, unmatched_dets);
 
     // Combine results from both stages
     matches = matches_a;
@@ -609,17 +601,14 @@ void DeepSortTracker::associate_detections_to_tracks(const std::vector<Detection
     // Unmatched tracks = remaining from stage 1 + unmatched from stage 2
     unmatched_trks = remaining_unmatched_tracks_a;
     unmatched_trks.insert(unmatched_trks.end(), unmatched_tracks_b.begin(), unmatched_tracks_b.end());
-
 }
 
 /**
  * @brief Matching cascade: prioritize recently-seen tracks for appearance-based matching
  */
-void DeepSortTracker::matching_cascade(const std::vector<Detection> &detections,
-                                       const std::vector<int> &track_indices,
+void DeepSortTracker::matching_cascade(const std::vector<Detection> &detections, const std::vector<int> &track_indices,
                                        const std::vector<int> &detection_indices,
-                                       std::vector<std::pair<int, int>> &matches,
-                                       std::vector<int> &unmatched_tracks,
+                                       std::vector<std::pair<int, int>> &matches, std::vector<int> &unmatched_tracks,
                                        std::vector<int> &unmatched_detections) {
     matches.clear();
     unmatched_detections = detection_indices;
@@ -726,14 +715,11 @@ void DeepSortTracker::matching_cascade(const std::vector<Detection> &detections,
                         // Block if competitor is at least 2x closer (dist_sq ratio < 0.25)
                         if (comp_dist_sq < match_dist_sq * 0.25f) {
                             GST_DEBUG("PROXIMITY BLOCK: track_id=%d(tsu=%d) blocked from det[%d] — "
-                                        "track_id=%d(tsu=%d) is %.1fx closer (%.0f vs %.0f px)",
-                                        tracks_[trk_idx_match]->track_id(),
-                                        tracks_[trk_idx_match]->time_since_update(),
-                                        det_idx_match,
-                                        tracks_[k]->track_id(),
-                                        tracks_[k]->time_since_update(),
-                                        std::sqrt(match_dist_sq / std::max(comp_dist_sq, 1.0f)),
-                                        std::sqrt(match_dist_sq), std::sqrt(comp_dist_sq));
+                                      "track_id=%d(tsu=%d) is %.1fx closer (%.0f vs %.0f px)",
+                                      tracks_[trk_idx_match]->track_id(), tracks_[trk_idx_match]->time_since_update(),
+                                      det_idx_match, tracks_[k]->track_id(), tracks_[k]->time_since_update(),
+                                      std::sqrt(match_dist_sq / std::max(comp_dist_sq, 1.0f)), std::sqrt(match_dist_sq),
+                                      std::sqrt(comp_dist_sq));
                             blocked_by_competition = true;
                             break;
                         }
@@ -758,12 +744,10 @@ void DeepSortTracker::matching_cascade(const std::vector<Detection> &detections,
                 auto gd = tracks_[trk_idx]->gating_distance(detections, {det_idx}, true);
                 float maha = gd.empty() ? -1.f : gd[0];
                 GST_DEBUG("CASCADE REJECT: track_id=%d(tsu=%d) vs det[%d] "
-                            "cosine_dist=%.4f (threshold=%.3f), mahal_pos=%.2f (gate=%.2f), "
-                            "num_features=%zu, level=%d",
-                            tracks_[trk_idx]->track_id(), tracks_[trk_idx]->time_since_update(),
-                            det_idx, actual_min_cos, max_cosine_distance_,
-                            maha, CHI2INV95_2DOF,
-                            tracks_[trk_idx]->features().size(), level);
+                          "cosine_dist=%.4f (threshold=%.3f), mahal_pos=%.2f (gate=%.2f), "
+                          "num_features=%zu, level=%d",
+                          tracks_[trk_idx]->track_id(), tracks_[trk_idx]->time_since_update(), det_idx, actual_min_cos,
+                          max_cosine_distance_, maha, CHI2INV95_2DOF, tracks_[trk_idx]->features().size(), level);
             }
         }
 
@@ -819,8 +803,8 @@ void DeepSortTracker::min_cost_matching_iou(const std::vector<Detection> &detect
 
         // Tracks with tsu > 1 cannot match in IoU stage
         if (tracks_[trk_idx]->time_since_update() > 1) {
-            GST_DEBUG("IOU STAGE2: track_id=%d BLOCKED by tsu=%d > 1",
-                        tracks_[trk_idx]->track_id(), tracks_[trk_idx]->time_since_update());
+            GST_DEBUG("IOU STAGE2: track_id=%d BLOCKED by tsu=%d > 1", tracks_[trk_idx]->track_id(),
+                      tracks_[trk_idx]->time_since_update());
             for (size_t col = 0; col < n_dets; ++col) {
                 cost_matrix[row][col] = INFTY_COST;
             }
@@ -862,8 +846,7 @@ void DeepSortTracker::min_cost_matching_iou(const std::vector<Detection> &detect
             int det_idx = detection_indices[col];
             float actual_iou = calculate_iou(detections[det_idx].bbox, tracks_[trk_idx]->to_bbox());
             GST_DEBUG("IOU REJECT: track_id=%d vs det[%d] iou=%.3f cost=%.3f (threshold=%.3f)",
-                        tracks_[trk_idx]->track_id(), det_idx, actual_iou,
-                        cost_matrix[row][col], max_iou_distance_);
+                      tracks_[trk_idx]->track_id(), det_idx, actual_iou, cost_matrix[row][col], max_iou_distance_);
         }
     }
 
@@ -883,8 +866,7 @@ void DeepSortTracker::min_cost_matching_iou(const std::vector<Detection> &detect
  * @brief Gate cost matrix using Mahalanobis distance and TSU-scaled spatial gating
  */
 void DeepSortTracker::gate_cost_matrix(std::vector<std::vector<float>> &cost_matrix,
-                                       const std::vector<Detection> &detections,
-                                       const std::vector<int> &track_indices,
+                                       const std::vector<Detection> &detections, const std::vector<int> &track_indices,
                                        const std::vector<int> &detection_indices) {
     // Combined Mahalanobis + TSU-scaled spatial gating.
     // A match is blocked (INFTY_COST) if EITHER gate rejects it:
@@ -900,8 +882,8 @@ void DeepSortTracker::gate_cost_matrix(std::vector<std::vector<float>> &cost_mat
     //
     // 3) Soft spatial penalty: tie-breaking for spatially closer track when cosine
     //    distances are nearly identical.
-    constexpr float base_gate = 1.0f;         // Base spatial gate at tsu=1: 1.0x min(track,det) height
-    constexpr float min_gate = 0.4f;          // Minimum spatial gate for very stale tracks
+    constexpr float base_gate = 1.0f; // Base spatial gate at tsu=1: 1.0x min(track,det) height
+    constexpr float min_gate = 0.4f;  // Minimum spatial gate for very stale tracks
     constexpr float spatial_weight = 0.1f;
     constexpr float max_spatial_penalty = 0.15f;
 
