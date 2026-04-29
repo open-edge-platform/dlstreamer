@@ -69,10 +69,10 @@ Track::Track(const cv::Rect_<float> &bbox, int track_id, int n_init, int max_age
 void Track::initiate(const cv::Rect_<float> &bbox) {
     // Initialize Kalman filter with 8-dimensional state space (x, y, aspect_ratio, height, vx, vy, va, vh)
     mean_ = cv::Mat::zeros(8, 1, CV_32F);
-    mean_.at<float>(0) = bbox.x + bbox.width / 2.0f;
-    mean_.at<float>(1) = bbox.y + bbox.height / 2.0f;
-    mean_.at<float>(2) = bbox.width / bbox.height;
-    mean_.at<float>(3) = bbox.height;
+    mean_.at<float>(0) = bbox.x + bbox.width / 2.0f;  // center_x
+    mean_.at<float>(1) = bbox.y + bbox.height / 2.0f; // center_y
+    mean_.at<float>(2) = bbox.width / bbox.height;    // aspect_ratio
+    mean_.at<float>(3) = bbox.height;                 // height
 
     // Initialize covariance: variance = std^2
     covariance_ = cv::Mat::zeros(8, 8, CV_32F);
@@ -105,10 +105,10 @@ void Track::initiate(const cv::Rect_<float> &bbox) {
 void Track::predict() {
     // State transition matrix (constant velocity model)
     cv::Mat F = cv::Mat::eye(8, 8, CV_32F);
-    F.at<float>(0, 4) = 1.0f;
-    F.at<float>(1, 5) = 1.0f;
-    F.at<float>(2, 6) = 1.0f;
-    F.at<float>(3, 7) = 1.0f;
+    F.at<float>(0, 4) = 1.0f; // x += vx
+    F.at<float>(1, 5) = 1.0f; // y += vy
+    F.at<float>(2, 6) = 1.0f; // aspect_ratio += va
+    F.at<float>(3, 7) = 1.0f; // height += vh
 
     mean_ = F * mean_;
 
@@ -154,7 +154,7 @@ void Track::update(const Detection &detection) {
     // Measurement noise: R = diag(std^2)
     cv::Mat R = cv::Mat::zeros(4, 4, CV_32F);
     float std_weight_position = 1.0f / 20.0f;
-    float height = mean_.at<float>(3); // Use predicted state height, not detection height
+    float height = mean_.at<float>(3); // Use predicted state height (not detection height)
 
     float sp = std_weight_position * height;
     float sa = 1e-1f;
