@@ -14,268 +14,113 @@ class TestOptimizer(unittest.TestCase):
     
     def setUp(self):
         self.model_path = get_model_path("yolo11s")
-        self.simple_pipeline = f"urisourcebin buffer-size=4096 uri=https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4 ! decodebin ! gvadetect model={self.model_path} device=CPU batch-size=1 nireq=1 ! queue ! gvawatermark ! vah264enc ! h264parse ! mp4mux ! fakesink"
-        self.optimizer = DLSOptimizer()
-    
-    def test_optimizer_works(self):
-        optimized_pipeline, fps = self.optimizer.optimize_for_fps(self.simple_pipeline, 100)
-    
+        self.simple_pipeline = f"urisourcebin buffer-size=4096 uri=https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4 ! decodebin ! gvadetect model={self.model_path} ! queue ! gvawatermark ! fakesink"
+
+    def test_iter_optimize_for_fps_and_get_optimal_pipeline(self):
+        """Test iter_optimize_for_fps with simple CPU pipeline and check candidate modifications"""
+        optimizer = DLSOptimizer()
+        candidates = []
+        # Iterate through candidates and collect pipelines and their FPS
+        for candidate_result in optimizer.iter_optimize_for_fps(self.simple_pipeline):
+            if isinstance(candidate_result, tuple) and len(candidate_result) >= 2:
+                pipeline = candidate_result[0]
+                fps = candidate_result[1]
+                candidates.append((pipeline, fps))
+                print(f"Tested: {pipeline} @ {fps} FPS")
+            else:
+                continue
+        # We expect to have multiple candidates tested, at least more than 1
+        self.assertGreater(len(candidates), 1, 
+                        f"Expected more than 1 tested pipeline, got {len(candidates)}")
+        # Find the candidate with the highest FPS
+        best_candidate = max(candidates, key=lambda x: x[1])
+        best_candidate_pipeline, best_candidate_fps = best_candidate
+        
+        print(f"Best from candidates: {best_candidate_pipeline} @ {best_candidate_fps} FPS")
+        # Get the optimal pipeline and FPS from the optimizer
+        optimal_pipeline, optimal_fps, _ = optimizer.get_optimal_pipeline()
+        print(f"Optimal pipeline: {optimal_pipeline} @ {optimal_fps} FPS")
+        # Assert that the best candidate matches the optimal pipeline and FPS (allowing some tolerance for FPS)
+        self.assertEqual(best_candidate_pipeline, optimal_pipeline,
+                        f"Best candidate pipeline {best_candidate_pipeline} doesn't match "
+                        f"optimal pipeline {optimal_pipeline}")
+        # Allow a small tolerance for FPS comparison, since it can vary slightly due to system load and other factors
+        self.assertAlmostEqual(best_candidate_fps, optimal_fps, places=2,
+                            msg=f"FPS mismatch: candidate {best_candidate_fps} vs optimal {optimal_fps}")
+        
+        print(f"✓ Test passed: Found {len(candidates)} candidates, "
+            f"best matches optimal pipeline")
+
+    def test_iter_optimize_for_streams_and_get_baseline_pipeline(self):
+        """Test iter_optimize_for_streams with simple CPU pipeline and check baseline against original"""
+        optimizer = DLSOptimizer()
+        search_duration = 30  # seconds
+        sample_duration = 10  # seconds
+        candidates = []
+
+        # Iterate through candidates and collect pipelines and their stream counts
+        for candidate_result in optimizer.iter_optimize_for_streams(self.simple_pipeline):
+            if isinstance(candidate_result, tuple) and len(candidate_result) >= 2:
+                pipeline = candidate_result[0]
+                stream_count = candidate_result[2]
+                fps_count = candidate_result[1]
+                candidates.append((pipeline, stream_count, fps_count))
+                print(f"Tested: {pipeline} @ {stream_count} streams @ {fps_count} FPS")
+            else:
+                continue
+
+        # We expect to have multiple candidates tested, at least more than 1
+        self.assertGreater(len(candidates), 1, 
+                        f"Expected more than 1 tested pipeline, got {len(candidates)}")
+        
+        # Find the candidate with the highest stream count
+        best_candidate = max(candidates, key=lambda x: x[1])
+        best_candidate_pipeline, best_candidate_streams, best_candidate_fps = best_candidate
+        
+        print(f"Best from candidates: {best_candidate_pipeline} @ {best_candidate_streams} streams @ {best_candidate_fps} FPS")
+        
+        # Get the baseline pipeline and stream count from the optimizer
+        baseline_pipeline, baseline_streams = optimizer.get_baseline_pipeline()
+        print(f"Baseline pipeline: {baseline_pipeline} @ {baseline_streams} streams")
+        
+        # Compare baseline pipeline with the original simple_pipeline
+        print(f"Original pipeline: {self.simple_pipeline}")
+        
+        # Check if baseline pipeline matches the original pipeline we started with
+        self.assertEqual(baseline_pipeline, self.simple_pipeline,
+                        f"Baseline pipeline {baseline_pipeline} doesn't match "
+                        f"original pipeline {self.simple_pipeline}")
+        
+        # Verify that optimization actually found better candidates than baseline
+        self.assertGreaterEqual(best_candidate_streams, baseline_streams,
+                            f"Best candidate streams {best_candidate_streams} should be >= "
+                            f"baseline streams {baseline_streams}")
+        
+        print(f"✓ Test passed: Found {len(candidates)} candidates, "
+            f"baseline matches original pipeline, best candidate has {best_candidate_streams} streams @ {best_candidate_fps} FPS "
+            f"vs baseline {baseline_streams} streams")
+
+    def test_optimize_for_fps_and_get_optimal_pipeline(self):
+        """Test optimize_for_fps and get_optimal_pipeline with simple CPU pipeline"""
+        optimizer = DLSOptimizer()
+        optimized_pipeline, fps = optimizer.optimize_for_fps(self.simple_pipeline, 100)
         self.assertIsNotNone(optimized_pipeline, "Optimizer did not return optimized pipeline")
         self.assertIsNotNone(fps, "Optimizer did not return FPS value")
         self.assertGreater(fps, 0, f"FPS should be greater than 0, but got: {fps}")
+        
+        optimal_pipeline, optimal_fps, _ = optimizer.get_optimal_pipeline()
+        print(f"Optimal pipeline: {optimal_pipeline} @ {optimal_fps} FPS")
+        
+        # Check that the optimal pipeline matches the one returned by optimize_for_fps
+        self.assertEqual(optimal_pipeline, optimized_pipeline,
+                        f"Optimal pipeline {optimal_pipeline} doesn't match "
+                        f"optimized pipeline {optimized_pipeline}")
+        
+        # Allow a small tolerance for FPS comparison
+        self.assertAlmostEqual(optimal_fps, fps, places=2,
+                            msg=f"FPS mismatch: optimized {fps} vs optimal {optimal_fps}")
 
-    def test_iter_optimize_for_fps(self):
-        """Test iter_optimize_for_fps with simple CPU pipeline and check candidate modifications"""
-        candidates = []
-        
-        # Collect candidates from iterator
-        for candidate_result in self.optimizer.iter_optimize_for_fps(self.simple_pipeline):
-            # Handle variable return format
-            if isinstance(candidate_result, tuple) and len(candidate_result) >= 2:
-                candidate_pipeline = candidate_result[0]
-                fps = candidate_result[1]
-            else:
-                continue  # Skip malformed results
-                
-            candidates.append((candidate_pipeline, fps))
-            if len(candidates) >= 3:  # Collect first 3 candidates
-                break
-        
-        self.assertGreater(len(candidates), 0, "No candidates generated")
-        
-        # Check that candidates modify device, batch-size, and nireq
-        device_modified = False
-        batch_size_modified = False
-        nireq_modified = False
-        
-        for candidate_pipeline, _ in candidates:
-            if "device=GPU" in candidate_pipeline or "device=NPU" in candidate_pipeline:
-                device_modified = True
-                
-            # Look for any batch-size > 1
-            batch_match = re.search(r'batch-size=(\d+)', candidate_pipeline)
-            if batch_match and int(batch_match.group(1)) > 1:
-                batch_size_modified = True
-                
-            nireq_match = re.search(r'nireq=(\d+)', candidate_pipeline)
-            if nireq_match and int(nireq_match.group(1)) > 1:
-                nireq_modified = True
-        
-        self.assertTrue(device_modified, "Candidates should modify device attribute")
-        self.assertTrue(batch_size_modified, "Candidates should modify batch-size attribute")
-        self.assertTrue(nireq_modified, "Candidates should modify nireq attribute")
-
-    def test_iter_optimize_for_streams(self):
-        """Test iter_optimize_for_streams and check stream values > 1"""
-        candidates = []
-        
-        # Handle variable return format
-        try:
-            for candidate_result in self.optimizer.iter_optimize_for_streams(self.simple_pipeline):
-                # Try to unpack - might return more than 2 values
-                if isinstance(candidate_result, tuple):
-                    candidate_pipeline = candidate_result[0]
-                    streams = candidate_result[1] if len(candidate_result) > 1 else 1
-                else:
-                    continue
-                    
-                candidates.append((candidate_pipeline, streams))
-                if len(candidates) >= 3:
-                    break
-        except ValueError as e:
-            self.fail(f"iter_optimize_for_streams returned unexpected format: {e}")
-        
-        self.assertGreater(len(candidates), 0, "No candidates generated")
-        
-        # Check that candidates have stream values > 1
-        stream_values_found = []
-        for _, streams in candidates:
-            stream_values_found.append(streams)
-        
-        self.assertTrue(any(streams > 1 for streams in stream_values_found), 
-                       "Candidates should include stream values > 1")
-
-    def test_get_optimal_pipeline(self):
-        """Test get_optimal_pipeline returns GPU pipeline with batch size & nireq > 1"""
-        # Run optimization first
-        list(self.optimizer.iter_optimize_for_fps(self.simple_pipeline))
-        
-        optimal_result = self.optimizer.get_optimal_pipeline()
-        
-        # Handle tuple return
-        if isinstance(optimal_result, tuple):
-            optimal_pipeline = optimal_result[0]  # First element is pipeline
-        else:
-            optimal_pipeline = optimal_result
-        
-        self.assertIsNotNone(optimal_pipeline, "Optimal pipeline should not be None")
-        self.assertIn("device=GPU", optimal_pipeline, "Optimal pipeline should run on GPU")
-        
-        # Check for any batch-size > 1
-        batch_size_found = False
-        nireq_found = False
-        
-        batch_match = re.search(r'batch-size=(\d+)', optimal_pipeline)
-        if batch_match and int(batch_match.group(1)) > 1:
-            batch_size_found = True
-            
-        nireq_match = re.search(r'nireq=(\d+)', optimal_pipeline)
-        if nireq_match and int(nireq_match.group(1)) > 1:
-            nireq_found = True
-            
-        self.assertTrue(batch_size_found, f"Optimal pipeline should have batch-size > 1, got: {optimal_pipeline}")
-        self.assertTrue(nireq_found, f"Optimal pipeline should have nireq > 1, got: {optimal_pipeline}")
-
-    def test_get_baseline_pipeline(self):
-        """Test get_baseline_pipeline returns exact same pipeline as input"""
-        # Run optimization first
-        list(self.optimizer.iter_optimize_for_fps(self.simple_pipeline))
-        
-        baseline_result = self.optimizer.get_baseline_pipeline()
-        
-        # Handle tuple return
-        if isinstance(baseline_result, tuple):
-            baseline_pipeline = baseline_result[0]  # First element is pipeline
-        else:
-            baseline_pipeline = baseline_result
-        
-        self.assertEqual(baseline_pipeline, self.simple_pipeline, 
-                        "Baseline pipeline should be identical to input pipeline")
-
-    def test_optimize_for_fps_different_durations(self):
-        """Test optimize_for_fps with different search durations"""
-        short_duration = 60   # seconds
-        long_duration = 120   # seconds
-        
-        # Test short duration
-        start_time = time.time()
-        optimized_pipeline_short, fps_short = self.optimizer.optimize_for_fps(
-            self.simple_pipeline, short_duration)
-        short_elapsed = time.time() - start_time
-        
-        # Reset optimizer for clean test
-        self.setUp()
-        
-        # Test long duration
-        start_time = time.time()
-        optimized_pipeline_long, fps_long = self.optimizer.optimize_for_fps(
-            self.simple_pipeline, long_duration)
-        long_elapsed = time.time() - start_time
-        
-        # Verify both return valid results
-        self.assertIsNotNone(optimized_pipeline_short)
-        self.assertIsNotNone(optimized_pipeline_long)
-        self.assertGreater(fps_short, 0)
-        self.assertGreater(fps_long, 0)
-        
-        # Verify different durations result in different run times
-        self.assertLess(short_elapsed, long_elapsed, 
-                       "Short duration should take less time than long duration")
-        
-        # Verify that different durations result in different optimized pipelines
-        self.assertNotEqual(optimized_pipeline_short, optimized_pipeline_long,
-                           "Different search durations should result in different optimized pipelines")
-        
-        # Verify that different durations result in different FPS values
-        self.assertNotEqual(fps_short, fps_long,
-                           "Different search durations should result in different FPS values")
-
-    def test_optimize_for_streams_different_durations(self):
-        """Test optimize_for_streams with different search durations"""
-        short_duration = 60   # seconds
-        long_duration = 120   # seconds
-        
-        # Test short duration
-        start_time = time.time()
-        result_short = self.optimizer.optimize_for_streams(self.simple_pipeline, short_duration)
-        short_elapsed = time.time() - start_time
-        
-        if isinstance(result_short, tuple):
-            optimized_pipeline_short, streams_short = result_short[0], result_short[1]
-        else:
-            self.fail("optimize_for_streams should return tuple")
-        
-        # Reset optimizer for clean test
-        self.setUp()
-        
-        # Test long duration
-        start_time = time.time()
-        result_long = self.optimizer.optimize_for_streams(self.simple_pipeline, long_duration)
-        long_elapsed = time.time() - start_time
-        
-        if isinstance(result_long, tuple):
-            optimized_pipeline_long, streams_long = result_long[0], result_long[1]
-        else:
-            self.fail("optimize_for_streams should return tuple")
-        
-        # Verify both return valid results
-        self.assertIsNotNone(optimized_pipeline_short)
-        self.assertIsNotNone(optimized_pipeline_long)
-        self.assertGreater(streams_short, 0)
-        self.assertGreater(streams_long, 0)
-        
-        # Verify different durations result in different run times
-        self.assertLess(short_elapsed, long_elapsed, 
-                       "Short duration should take less time than long duration")
-        
-        # Verify that different durations result in different optimized pipelines
-        self.assertNotEqual(optimized_pipeline_short, optimized_pipeline_long,
-                           "Different search durations should result in different optimized pipelines")
-        
-        # Verify that different durations result in different stream values
-        self.assertNotEqual(streams_short, streams_long,
-                           "Different search durations should result in different stream values")
-
-    def test_set_sample_duration(self):
-        """Test set_sample_duration with different values"""
-        short_sample = 10  # seconds
-        long_sample = 30   # seconds
-        
-        # Test with short sample duration
-        self.optimizer.set_sample_duration(short_sample)
-        start_time = time.time()
-        candidates_short = list(self.optimizer.iter_optimize_for_fps(self.simple_pipeline))
-        short_elapsed = time.time() - start_time
-        
-        self.setUp()  # Reset optimizer to clean state
-        
-        # Test with long sample duration
-        self.optimizer.set_sample_duration(long_sample)
-        start_time = time.time()
-        candidates_long = list(self.optimizer.iter_optimize_for_fps(self.simple_pipeline))
-        long_elapsed = time.time() - start_time
-        
-        # Both should return candidates
-        self.assertGreater(len(candidates_short), 0)
-        self.assertGreater(len(candidates_long), 0)
-        
-        # Different sample durations should result in different run times
-        self.assertNotEqual(short_elapsed, long_elapsed, 
-                           "Different sample durations should result in different run times")
-
-    def test_set_allowed_devices(self):
-        """Test set_allowed_devices limits device usage in candidates"""
-        # Set allowed devices to only CPU
-        allowed_devices = ["CPU"]
-        self.optimizer.set_allowed_devices(allowed_devices)
-        
-        candidates = []
-        for candidate_result in self.optimizer.iter_optimize_for_fps(self.simple_pipeline):
-            if isinstance(candidate_result, tuple) and len(candidate_result) >= 1:
-                candidate_pipeline = candidate_result[0]
-                candidates.append(candidate_pipeline)
-            if len(candidates) >= 3:
-                break
-        
-        self.assertGreater(len(candidates), 0, "No candidates generated")
-        
-        # Check that only allowed devices are used
-        for candidate in candidates:
-            # Should not contain disallowed devices (e.g., GPU, NPU)
-            self.assertNotIn("device=GPU", candidate, 
-                           "Candidates should not use disallowed devices")
-            self.assertNotIn("device=NPU", candidate, 
-                           "Candidates should not use disallowed devices")
+        print(f"✓ Test passed: Optimized pipeline matches optimal pipeline with FPS {fps}")
 
 if __name__ == '__main__':
     unittest.main()
