@@ -29,6 +29,7 @@ PRIVATE
     ${GSTREAMER_LIBRARIES}
     g3dradarprocess
     g3dlidarparse
+    g3dinference
     dlstreamer_gst_meta
 )
            

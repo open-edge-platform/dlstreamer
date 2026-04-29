@@ -17,9 +17,35 @@
 #include "raw_data_copy.h"
 #include "semantic_mask.h"
 #include "text.h"
+
+#include "environment_variable_options_reader.h"
+#include "inference_backend/logger.h"
+
+#include <algorithm>
 #include <exception>
+#include <mutex>
 
 using namespace post_processing;
+
+namespace {
+
+constexpr auto LegacyRawTensorCopyingFeature = "disable-tensor-copying";
+
+void warnIfLegacyRawTensorFeatureIsEnabled() {
+    static std::once_flag warning_once;
+
+    std::call_once(warning_once, []() {
+        FeatureToggling::Runtime::EnvironmentVariableOptionsReader env_var_options_reader;
+        const auto features = env_var_options_reader.read("ENABLE_GVA_FEATURES");
+
+        if (std::find(features.begin(), features.end(), LegacyRawTensorCopyingFeature) != features.end()) {
+            GVA_WARNING("ENABLE_GVA_FEATURES=disable-tensor-copying is deprecated and no longer controls raw tensor "
+                        "attachment for gvaclassify. Use gvaclassify skip-raw-tensors=true instead.");
+        }
+    });
+}
+
+} // namespace
 
 BlobToMetaConverter::Ptr BlobToTensorConverter::create(BlobToMetaConverter::Initializer initializer,
                                                        const std::string &converter_name,
@@ -54,10 +80,8 @@ BlobToMetaConverter::Ptr BlobToTensorConverter::create(BlobToMetaConverter::Init
 }
 
 BlobToTensorConverter::BlobToTensorConverter(BlobToMetaConverter::Initializer initializer)
-    : BlobToMetaConverter(std::move(initializer)),
-      raw_tensor_copying(new FeatureToggling::Runtime::RuntimeFeatureToggler()) {
-    FeatureToggling::Runtime::EnvironmentVariableOptionsReader env_var_options_reader;
-    raw_tensor_copying->configure(env_var_options_reader.read("ENABLE_GVA_FEATURES"));
+    : BlobToMetaConverter(std::move(initializer)) {
+    warnIfLegacyRawTensorFeatureIsEnabled();
 }
 
 GVA::Tensor BlobToTensorConverter::createTensor() const {
@@ -73,10 +97,3 @@ GVA::Tensor BlobToTensorConverter::createTensor() const {
 
     return GVA::Tensor(tensor_data);
 }
-
-const std::string BlobToTensorConverter::RawTensorCopyingToggle::id = "disable-tensor-copying";
-const std::string BlobToTensorConverter::RawTensorCopyingToggle::deprecation_message =
-    "In pipelines with gvaclassify, in addition to classification results, a raw inference tensor is added to the "
-    "metadata. This functionality will be removed in future releases. Set environment variable "
-    "ENABLE_GVA_FEATURES=disable-tensor-copying to disable copying to "
-    "frame metadata of raw tensor after inference.";

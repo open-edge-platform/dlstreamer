@@ -159,7 +159,7 @@ configure_repository() {
 
     echo "Signing the repository..."
     echo "deb [arch=amd64 signed-by=$new_keyring_path] $repo_url" | $SUDO_PREFIX tee "/etc/apt/sources.list.d/$list_name" > /dev/null
-
+    $SUDO_PREFIX apt update || handle_error "Failed to update package after configuring the repository"
 }
 
 # ***********************************************************************
@@ -401,12 +401,9 @@ else
     exit 1
 fi
 
-# Get the CPU family and model information
-cpu_family=$(grep -m 1 'cpu family' /proc/cpuinfo | awk '{print $4}')
-cpu_model=$(grep -m 1 'model' /proc/cpuinfo | awk '{print $3}')
 cpu_model_name=$(lscpu | grep "Model name:" | awk -F: '{print $2}' | xargs)
 
-echo_color "\n CPU is Intel Family $cpu_family Model $cpu_model ($cpu_model_name).\n" "yellow"
+echo_color "\n CPU is ($cpu_model_name).\n" "yellow"
 
 # Choose the package list based on the Ubuntu version
 case "$ubuntu_version" in
@@ -426,25 +423,6 @@ case "$ubuntu_version" in
         ;;
 esac
 
-
-# Check if the CPU is Intel Family 6 Model 189 (Lunar Lake)
-if [[ "$cpu_family" == "6" && "$cpu_model" == "189" ]]; then
-
-    check_kernel_version
-    status=$?
-
-    if [ $status -eq 0 ]; then
-        echo_color " Kernel 6.12 or higher detected." "green"
-    else
-        echo_color "\n WARNING!" "red"
-        echo_color "\n Deep Learning Streamer on Lunar Lake family processors has only been tested with the 6.12 kernel. We strongly recommend updating the kernel version before proceeding." "red"
-        read -p " Quit installation? [y/n] " -n 1 -r
-        echo
-        if [[ $REPLY =~ ^[Yy]$ ]]; then
-            exit
-        fi
-    fi
-fi
 
 #-----------------------STEP 2-------------------------------------------
 

@@ -47,8 +47,8 @@ This sample requires one of the following environment variables to be set:
 - `MODELS_PATH`: Path to the models directory (fallback if `AUDIO_MODELS_PATH` is not set)
 
 Example:
-```batch
-set MODELS_PATH=C:\models
+```PowerShell
+$set MODELS_PATH = "C:\models"
 ```
 
 ## Model Proc
@@ -59,30 +59,41 @@ Along with the model network and weights, gvaudiodetect uses an additional `mode
 
 ## Running
 
-```batch
-audio_event_detection.bat [INPUT_PATH]
+```PowerShell
+.\audio_event_detection.ps1 [-InputSource <path>] [-OutputFile <file>]
 ```
-Where [INPUT_PATH] can be:
+
+### Parameters
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| -InputSource | how_are_you_doing.wav | Local audio file or URL |
+| -OutputFile | (empty) | JSON output file path. If empty, prints to console |
+
+Where `-InputSource` can be:
 * local audio file (`C:\path\to\example.audio.wav`)
 * network source (ex URL starting with `http://`)
 
-By default, if no [INPUT_PATH] is specified, the sample uses a local file `how_are_you_doing.wav` (utilizing `filesrc` element).
+By default, if no `-InputSource` is specified, the sample uses a local file `how_are_you_doing.wav` in the script directory.
 
 > **NOTE**: The default audio file `how_are_you_doing.wav` is located in the Linux samples folder at:
 > `samples/gstreamer/gst_launch/audio_detect/how_are_you_doing.wav`
 >
-> Copy this file to the same directory as the batch file, or provide your own audio file as input.
+> Copy this file to the same directory as the PowerShell script, or provide your own audio file as input.
 
-### Example
-```batch
-REM Copy the sample audio file first (from repo root)
-copy samples\gstreamer\gst_launch\audio_detect\how_are_you_doing.wav samples\windows\gstreamer\gst_launch\audio_detect\
+### Examples
+```PowerShell
+# Copy the sample audio file first (from repo root)
+Copy-Item samples\gstreamer\gst_launch\audio_detect\how_are_you_doing.wav samples\windows\gstreamer\gst_launch\audio_detect\
 
-REM Run with default audio file
-audio_event_detection.bat
+# Run with default audio file (console output)
+.\audio_event_detection.ps1
 
-REM Or run with custom audio file
-audio_event_detection.bat C:\audio\test_audio.wav
+# Run with custom audio file
+.\audio_event_detection.ps1 -InputSource C:\audio\test_audio.wav
+
+# Save output to JSON file
+.\audio_event_detection.ps1 -InputSource C:\audio\test_audio.wav -OutputFile detection_results.json
 ```
 
 ## Sample Output
