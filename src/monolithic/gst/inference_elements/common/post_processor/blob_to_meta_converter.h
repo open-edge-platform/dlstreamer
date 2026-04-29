@@ -29,6 +29,7 @@ class BlobToMetaConverter {
 
         GstStructureUniquePtr model_proc_output_info;
         std::vector<std::string> labels;
+        // Suppresses public raw tensor metadata attachment for converters that can emit it.
         bool skip_raw_tensors = false;
     };
 
@@ -83,7 +84,22 @@ class BlobToMetaConverter {
   public:
     BlobToMetaConverter(Initializer initializer);
 
-    virtual TensorsTable convert(const OutputBlobs &output_blobs) = 0;
+        virtual TensorsTable convert(const OutputBlobs &output_blobs) = 0;
+
+    const ModelImageInputInfo &getInputImageInfo() const {
+        return input_image_info;
+    }
+
+    bool rawTensorAttachmentEnabled() const {
+        return !skip_raw_tensors;
+    }
+
+    // Default frame-aware entry point: converters that do not need frame or ROI context
+    // can ignore FramesWrapper and reuse the blob-only conversion path.
+    virtual TensorsTable convert(const OutputBlobs &output_blobs, FramesWrapper &frames) {
+        (void)frames;
+        return convert(output_blobs);
+    }
 
     using Ptr = std::unique_ptr<BlobToMetaConverter>;
     static Ptr create(Initializer initializer, ConverterType converter_type,

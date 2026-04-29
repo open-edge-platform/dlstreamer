@@ -878,7 +878,14 @@ InferenceImpl::Model InferenceImpl::CreateModel(GvaBaseInference *gva_base_infer
 
     UpdateModelReshapeInfo(gva_base_inference);
     InferenceConfig ie_config = CreateNestedInferenceConfig(gva_base_inference, model_file, custom_preproc_lib);
-    if (gva_base_inference->inference_region == FULL_FRAME) {
+    // Use the resolved execution region, not the raw property value.
+    //
+    // 'inference_region' tells us what the user requested, but the backend configuration must
+    // follow the mode that will actually be executed. In depth classify-on-ROI mode the user
+    // still asks for ROI_LIST while inference runs once on the full frame, so img-width/
+    // img-height must be populated from the whole frame here rather than taking the ROI-oriented
+    // branch below.
+    if (gva_base_inference->effective_inference_region == FULL_FRAME) {
         ie_config[KEY_BASE]["img-width"] = std::to_string(gva_base_inference->info->width);
         ie_config[KEY_BASE]["img-height"] = std::to_string(gva_base_inference->info->height);
     } else {
@@ -1207,12 +1214,13 @@ GstFlowReturn InferenceImpl::SubmitImages(GvaBaseInference *gva_base_inference,
             throw std::invalid_argument("image is null");
 
         size_t i = 0;
+        const auto execution_region = gva_base_inference->effective_inference_region;
         for (auto meta : metas) {
             // Workaround for CodeCoverity
             if (!image)
                 break;
 
-            ApplyImageBoundaries(image, &meta, gva_base_inference->inference_region, buffer);
+            ApplyImageBoundaries(image, &meta, execution_region, buffer);
             auto result = MakeInferenceResult(gva_base_inference, model, &meta, image, buffer);
             // Because image is a shared pointer with custom deleter which performs buffer unmapping
             // we need to manually reset it after we passed it to the last InferenceResult
@@ -1272,7 +1280,7 @@ GstFlowReturn InferenceImpl::TransformFrameIp(GvaBaseInference *gva_base_inferen
     GstVideoRegionOfInterestMeta full_frame_meta;
     {
         ITT_TASK("InferenceImpl::TransformFrameIp collectROIMetas");
-        switch (gva_base_inference->inference_region) {
+        switch (gva_base_inference->effective_inference_region) {
         case ROI_LIST: {
             /* iterates through buffer's meta and pushes it in vector if inference needed. */
             gpointer state = NULL;
@@ -1411,7 +1419,7 @@ void InferenceImpl::UpdateOutputFrames(std::shared_ptr<InferenceFrame> &inferenc
 
         /* only gvadetect or full-frame elements are affecting buffer */
         if (inference_roi->gva_base_inference->type == GST_GVA_DETECT_TYPE ||
-            inference_roi->gva_base_inference->inference_region == FULL_FRAME) {
+            inference_roi->gva_base_inference->effective_inference_region == FULL_FRAME) {
             if (output_frame.inference_count == 0)
                 // This condition is necessary if two items in output_frames refer to the same buffer.
                 // If current output_frame.inference_count equals 0, then inference for this output_frame

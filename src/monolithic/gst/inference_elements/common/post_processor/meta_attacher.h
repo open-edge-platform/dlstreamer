@@ -56,6 +56,17 @@ class TensorToROIAttacher : public MetaAttacher {
                 const BlobToMetaConverter &blob_to_meta) override;
 };
 
+class FrameToExistingROIsTensorAttacher : public MetaAttacher {
+  private:
+    GstVideoRegionOfInterestMeta *findROIMeta(GstBuffer *buffer, gint roi_id);
+
+  public:
+    FrameToExistingROIsTensorAttacher() = default;
+
+    void attach(const TensorsTable &tensors_batch, FramesWrapper &frames,
+                const BlobToMetaConverter &blob_to_meta) override;
+};
+
 class TensorToFrameAttacherForMicro : public MetaAttacher {
   private:
     GstVideoRegionOfInterestMeta *findROIMeta(GstBuffer *buffer, const GstVideoRegionOfInterestMeta &frame_roi);

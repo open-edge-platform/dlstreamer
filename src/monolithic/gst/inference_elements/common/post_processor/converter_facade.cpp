@@ -85,7 +85,12 @@ ConverterFacade::ConverterFacade(std::unordered_set<std::string> all_layer_names
     // TODO: Don't include labels in meta
     gst_structure_remove_field(smart_model_proc_output_info.get(), "labels");
     BlobToMetaConverter::Initializer initializer = {
-        model_name, input_image_info, outputs_info, std::move(smart_model_proc_output_info), labels, skip_raw_tensors};
+        model_name,
+        input_image_info,
+        outputs_info,
+        std::move(smart_model_proc_output_info),
+        labels,
+        skip_raw_tensors};
 
     const auto displayed_layer_name_to_process = getDisplayedLayerNameInMeta(
         std::vector<std::string>(layer_names_to_process.cbegin(), layer_names_to_process.cend()));
@@ -117,8 +122,12 @@ ConverterFacade::ConverterFacade(GstStructure *model_proc_output_info, Converter
     gst_structure_remove_field(smart_model_proc_output_info.get(), "labels");
 
     BlobToMetaConverter::Initializer initializer = {
-        model_name, input_image_info, outputs_info_to_process, std::move(smart_model_proc_output_info),
-        labels,     skip_raw_tensors};
+        model_name,
+        input_image_info,
+        outputs_info_to_process,
+        std::move(smart_model_proc_output_info),
+        labels,
+        skip_raw_tensors};
 
     const auto displayed_layer_name_to_process = getDisplayedLayerNameInMeta(
         std::vector<std::string>(layer_names_to_process.cbegin(), layer_names_to_process.cend()));
@@ -161,10 +170,10 @@ OutputBlobs ConverterFacade::extractProcessedOutputBlobs(const OutputBlobs &all_
 void ConverterFacade::convert(const OutputBlobs &all_output_blobs, FramesWrapper &frames) const {
     TensorsTable tensors_batch;
     if (process_all_outputs)
-        tensors_batch = blob_to_meta->convert(all_output_blobs);
+        tensors_batch = blob_to_meta->convert(all_output_blobs, frames);
     else {
         const auto processed_output_blobs = extractProcessedOutputBlobs(all_output_blobs);
-        tensors_batch = blob_to_meta->convert(processed_output_blobs);
+        tensors_batch = blob_to_meta->convert(processed_output_blobs, frames);
     }
 
     if (frames.need_coordinate_restore() && coordinates_restorer != nullptr)

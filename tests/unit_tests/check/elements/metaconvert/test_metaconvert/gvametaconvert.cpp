@@ -93,6 +93,20 @@ struct PointPillarsTestData {
     bool add_tensor_data;
 };
 
+struct DepthSummaryTestData {
+    Resolution resolution;
+    bool add_tensor_data;
+};
+
+constexpr double kDepthCenter = 2.5;
+constexpr double kDepthMean = 3.0;
+constexpr double kDepthMedian = 2.75;
+constexpr double kDepthMin = 1.0;
+constexpr double kDepthMax = 6.5;
+constexpr double kDepthStdDev = 0.8;
+constexpr gint kDepthValidCount = 42;
+constexpr double kDepthValidRatio = 0.75;
+
 void setup_pointpillars_inbuffer(GstBuffer *inbuffer, gpointer user_data) {
     PointPillarsTestData *test_data = static_cast<PointPillarsTestData *>(user_data);
     ck_assert_msg(test_data != NULL, "Passed data is not PointPillarsTestData");
@@ -202,6 +216,57 @@ void check_pointpillars_outbuffer(GstBuffer *outbuffer, gpointer user_data) {
         ck_assert_msg(!json_message.contains("tensors"),
                       "LiDAR JSON must not contain tensors when add-tensor-data=false. Message: %s", meta->message);
     }
+}
+
+void setup_depth_summary_inbuffer(GstBuffer *inbuffer, gpointer user_data) {
+    DepthSummaryTestData *test_data = static_cast<DepthSummaryTestData *>(user_data);
+    ck_assert_msg(test_data != NULL, "Passed data is not DepthSummaryTestData");
+
+    GstVideoInfo info;
+    gst_video_info_set_format(&info, TEST_BUFFER_VIDEO_FORMAT, test_data->resolution.width,
+                              test_data->resolution.height);
+    gst_buffer_add_video_meta(inbuffer, GST_VIDEO_FRAME_FLAG_NONE, GST_VIDEO_INFO_FORMAT(&info),
+                              GST_VIDEO_INFO_WIDTH(&info), GST_VIDEO_INFO_HEIGHT(&info));
+
+    GstGVATensorMeta *tensor_meta = GST_GVA_TENSOR_META_ADD(inbuffer);
+    ck_assert_msg(tensor_meta != NULL, "Failed to attach GstGVATensorMeta");
+
+    gst_structure_set_name(tensor_meta->data, "depth");
+    gst_structure_set(tensor_meta->data, "attribute_name", G_TYPE_STRING, "depth", "model_name", G_TYPE_STRING,
+                      "depthanything", "layer_name", G_TYPE_STRING, "depth_output", "format", G_TYPE_STRING,
+                      "depth_summary", "type", G_TYPE_STRING, "depth_result", "label", G_TYPE_STRING, "depth",
+                      "depth_center", G_TYPE_DOUBLE, kDepthCenter, "depth_mean", G_TYPE_DOUBLE, kDepthMean,
+                      "depth_median", G_TYPE_DOUBLE, kDepthMedian, "depth_min", G_TYPE_DOUBLE, kDepthMin,
+                      "depth_max", G_TYPE_DOUBLE, kDepthMax, "depth_stddev", G_TYPE_DOUBLE, kDepthStdDev,
+                      "depth_valid_count", G_TYPE_INT, kDepthValidCount, "depth_valid_ratio", G_TYPE_DOUBLE,
+                      kDepthValidRatio, NULL);
+}
+
+void check_depth_summary_outbuffer(GstBuffer *outbuffer, gpointer user_data) {
+    DepthSummaryTestData *test_data = static_cast<DepthSummaryTestData *>(user_data);
+    ck_assert_msg(test_data != NULL, "Passed data is not DepthSummaryTestData");
+
+    GstGVAJSONMeta *meta = GST_GVA_JSON_META_GET(outbuffer);
+    ck_assert_msg(meta != NULL, "No meta found");
+    ck_assert_msg(meta->message != NULL, "No message in meta");
+
+    json json_message = json::parse(meta->message);
+    ck_assert_msg(json_message.contains("objects"), "Depth JSON must contain objects. Message: %s", meta->message);
+    ck_assert_msg(json_message["objects"].is_array() && json_message["objects"].size() == 1,
+                  "Depth JSON must contain exactly one full-frame object. Message: %s", meta->message);
+
+    const json &object = json_message["objects"][0];
+    ck_assert_msg(object.contains("depth"), "Depth JSON must contain depth object. Message: %s", meta->message);
+    const json &depth = object["depth"];
+    ck_assert_msg(depth["label"] == "depth", "Unexpected depth label. Message: %s", meta->message);
+    ck_assert_msg(depth.contains("model") && depth["model"]["name"] == "depthanything",
+                  "Unexpected depth model name. Message: %s", meta->message);
+    ck_assert_msg(!depth.contains("depth_center"),
+                  "Depth JSON must not include legacy custom depth summary fields. Message: %s", meta->message);
+
+    ck_assert_msg(!object.contains("tensors"),
+                  "Depth JSON must not duplicate interpreted depth summary under tensors. Message: %s",
+                  meta->message);
 }
 
 void assert_legacy_detection_object(const json &object, const TestData *test_data, const char *message) {
@@ -443,6 +508,7 @@ TestData test_data[] = {
     {{640, 480}, {0.29375, 0.54375, 0.40625, 0.94167, 0.8, 0, 0}, {0x7c, 0x94, 0x06, 0x3f, 0x09, 0xd7, 0xf2, 0x3e}}};
 
 PointPillarsTestData pointpillars_test_data = {{640, 480}, kPointPillarsDetections, true};
+DepthSummaryTestData depth_summary_test_data = {{640, 480}, true};
 
 GST_START_TEST(test_metaconvert_no_detections) {
     g_print("Starting test: test_metaconvert_no_detections\n");
@@ -487,6 +553,22 @@ GST_START_TEST(test_metaconvert_pointpillars_3d) {
 
 GST_END_TEST;
 
+GST_START_TEST(test_metaconvert_depth_summary) {
+    g_print("Starting test: test_metaconvert_depth_summary\n");
+
+    depth_summary_test_data.add_tensor_data = true;
+    run_test("gvametaconvert", VIDEO_CAPS_TEMPLATE_STRING, depth_summary_test_data.resolution, &srctemplate,
+             &sinktemplate, setup_depth_summary_inbuffer, check_depth_summary_outbuffer, &depth_summary_test_data,
+             "add-tensor-data", TRUE, NULL);
+
+    depth_summary_test_data.add_tensor_data = false;
+    run_test("gvametaconvert", VIDEO_CAPS_TEMPLATE_STRING, depth_summary_test_data.resolution, &srctemplate,
+             &sinktemplate, setup_depth_summary_inbuffer, check_depth_summary_outbuffer, &depth_summary_test_data,
+             NULL);
+}
+
+GST_END_TEST;
+
 static Suite *metaconvert_suite(void) {
     Suite *s = suite_create("metaconvert");
     TCase *tc_chain = tcase_create("general");
@@ -495,6 +577,7 @@ static Suite *metaconvert_suite(void) {
     tcase_add_test(tc_chain, test_metaconvert_no_detections);
     tcase_add_test(tc_chain, test_metaconvert_all);
     tcase_add_test(tc_chain, test_metaconvert_pointpillars_3d);
+    tcase_add_test(tc_chain, test_metaconvert_depth_summary);
 #ifdef AUDIO
     tcase_add_test(tc_chain, test_metaconvert_audio);
 #endif

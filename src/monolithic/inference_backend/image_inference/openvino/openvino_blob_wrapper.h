@@ -33,6 +33,9 @@ class OpenvinoInputTensor : public OpenvinoInputBlob {
     OpenvinoInputTensor(ov::Tensor tensor) : _tensor(std::move(tensor)) {
     }
 
+    OpenvinoInputTensor(ov::Tensor tensor, size_t batch_index) : OpenvinoInputBlob(batch_index), _tensor(std::move(tensor)) {
+    }
+
     const std::vector<size_t> &GetDims() const override {
         if (_shape.empty())
             _shape = _tensor.get_shape();

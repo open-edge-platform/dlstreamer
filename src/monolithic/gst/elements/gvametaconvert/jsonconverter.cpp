@@ -269,7 +269,11 @@ json convert_roi_detection(GstGvaMetaConvert *converter, GstBuffer *buffer) {
             }
             if (converter->add_tensor_data) {
                 GVA::Tensor s_tensor = GVA::Tensor((GstStructure *)l->data);
-                jobject["tensors"].push_back(convert_tensor(s_tensor));
+                // Only add raw tensor data if it's not already represented as a classification and if it has the data
+                // buffer field which contains raw tensor data. This is to avoid adding the same tensor twice in case of
+                // tensors that have both classification fields and raw data buffer.
+                if (!s_tensor.has_field("type") && s_tensor.has_field("data_buffer"))
+                    jobject["tensors"].push_back(convert_tensor(s_tensor));
             }
         }
         if (!jobject.empty()) {
@@ -339,7 +343,10 @@ json convert_frame_classification(GstGvaMetaConvert *converter, GstBuffer *buffe
 
             jobject.push_back(json::object_t::value_type(attribute_name, classification));
         }
-        if (converter->add_tensor_data) {
+        // Only add raw tensor data if it's not already represented as a classification and if it has the data buffer
+        // field which contains raw tensor data. This is to avoid adding the same tensor twice in case of tensors that
+        // have both classification fields and raw data buffer.
+        if (converter->add_tensor_data && !tensor.has_field("type") && tensor.has_field("data_buffer")) {
             jobject["tensors"].push_back(convert_tensor(tensor));
         }
     }

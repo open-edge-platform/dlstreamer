@@ -27,7 +27,12 @@ using OutputBlobs = std::map<std::string, InferenceBackend::OutputBlob::Ptr>;
 using ModelOutputsInfo = std::map<std::string, std::vector<size_t>>;
 
 enum class ConverterType { TO_ROI, TO_TENSOR, RAW };
-enum class AttachType { TO_FRAME, TO_ROI, FOR_MICRO /* remove workaround when moved to micro elements */ };
+enum class AttachType {
+    TO_FRAME,
+    TO_ROI,
+    FRAME_TO_EXISTING_ROIS,
+    FOR_MICRO /* remove workaround when moved to micro elements */
+};
 
 struct ModelImageInputInfo {
     size_t width = 0;
