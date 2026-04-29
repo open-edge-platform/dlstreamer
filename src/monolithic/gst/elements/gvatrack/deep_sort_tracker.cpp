@@ -144,12 +144,13 @@ void Track::predict() {
  * @brief Update track state with matched detection using Kalman filter correction step
  */
 void Track::update(const Detection &detection) {
-    // Measurement model
+
+    // Measurement model (we observe x, y, aspect_ratio, height)
     cv::Mat H = cv::Mat::zeros(4, 8, CV_32F);
-    H.at<float>(0, 0) = 1.0f;
-    H.at<float>(1, 1) = 1.0f;
-    H.at<float>(2, 2) = 1.0f;
-    H.at<float>(3, 3) = 1.0f;
+    H.at<float>(0, 0) = 1.0f; // observe x
+    H.at<float>(1, 1) = 1.0f; // observe y
+    H.at<float>(2, 2) = 1.0f; // observe aspect_ratio
+    H.at<float>(3, 3) = 1.0f; // observe height
 
     // Measurement noise: R = diag(std^2)
     cv::Mat R = cv::Mat::zeros(4, 4, CV_32F);
@@ -163,12 +164,14 @@ void Track::update(const Detection &detection) {
     R.at<float>(2, 2) = sa * sa;
     R.at<float>(3, 3) = sp * sp;
 
+    // Measurement vector
     cv::Mat z = cv::Mat::zeros(4, 1, CV_32F);
     z.at<float>(0) = detection.bbox.x + detection.bbox.width / 2.0f;
     z.at<float>(1) = detection.bbox.y + detection.bbox.height / 2.0f;
     z.at<float>(2) = detection.bbox.width / detection.bbox.height;
     z.at<float>(3) = detection.bbox.height;
 
+    // Kalman update
     cv::Mat S = H * covariance_ * H.t() + R;
     cv::Mat K = covariance_ * H.t() * S.inv();
     cv::Mat y = z - H * mean_;
@@ -476,7 +479,7 @@ std::vector<Detection> DeepSortTracker::convert_detections(const std::vector<GVA
         cv::Rect_<float> bbox(region.rect().x, region.rect().y, region.rect().w, region.rect().h);
         float confidence = region.confidence();
 
-        // Extract feature vector from tensor data
+        // Extract feature vector from tensor data attached to the region (from gvainference)
         std::vector<float> feature_vector;
         bool found_feature = false;
 
