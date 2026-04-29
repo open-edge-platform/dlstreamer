@@ -97,7 +97,7 @@ TensorsTable DetectionAnomalyConverter::convert(const OutputBlobs &output_blobs)
 
                 gst_structure_set(classification_result.gst_structure(), "tensor_id", G_TYPE_INT,
                                   safe_convert<int>(frame_index), "type", G_TYPE_STRING,
-                                  GVA::TENSOR_TYPE_CLASSIFICATION, "precision", G_TYPE_INT,
+                                  GVA::GST_ANALYTICS_CLS_2_TENSOR, "precision", G_TYPE_INT,
                                   static_cast<int>(blob->GetPrecision()), NULL);
 
                 // Add segmentation mask data if anomaly detected

@@ -34,8 +34,8 @@ class KeypointsConverter : public BlobToTensorConverter {
         const auto &result_tensor = getModelProcOutputInfo();
         GstStructure *tensor = gst_structure_copy(result_tensor.get());
 
-        gst_structure_set_name(tensor, GVA::TENSOR_TYPE_KEYPOINTS);
-        gst_structure_set(tensor, "type", G_TYPE_STRING, GVA::TENSOR_TYPE_KEYPOINTS, NULL);
+        gst_structure_set_name(tensor, GVA::GST_ANALYTICS_KEYPOINTS_2_TENSOR);
+        gst_structure_set(tensor, "type", G_TYPE_STRING, GVA::GST_ANALYTICS_KEYPOINTS_2_TENSOR, NULL);
         gst_structure_set(tensor, "precision", G_TYPE_INT, precision, NULL);
 
         GValueArray *data = g_value_array_new(dims.size());

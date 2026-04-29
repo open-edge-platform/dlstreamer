@@ -101,7 +101,7 @@ class BlobToROIConverter : public BlobToMetaConverter {
             for (auto &structure : this->tensors) {
                 GVA::Tensor tensor(structure);
 
-                if (tensor.type() != GVA::TENSOR_TYPE_KEYPOINTS) {
+                if (tensor.type() != GVA::GST_ANALYTICS_KEYPOINTS_2_TENSOR) {
                     continue;
                 };
 

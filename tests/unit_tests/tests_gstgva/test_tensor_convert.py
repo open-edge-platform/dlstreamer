@@ -22,7 +22,7 @@ from gi.repository import Gst, GstAnalytics, GLib, DLStreamerMeta  # pylint: dis
 # Trigger _wrap_mtd() registration for DLStreamerMeta types
 from gstgva.region_of_interest import RegionOfInterest  # noqa: F401
 
-from gstgva.tensor import Tensor, TENSOR_TYPE_KEYPOINTS, TENSOR_TYPE_CLASSIFICATION
+from gstgva.tensor import Tensor, GST_ANALYTICS_KEYPOINTS_2_TENSOR, GST_ANALYTICS_CLS_2_TENSOR
 from gstgva.util import libgst
 
 Gst.init(sys.argv)
@@ -93,7 +93,7 @@ def _descriptor_skeleton(desc):
 def _build_keypoint_tensor():
     """Create a keypoints Tensor matching real pipeline output structure."""
     desc = _coco17_descriptor()
-    structure = libgst.gst_structure_new_empty(TENSOR_TYPE_KEYPOINTS.encode("utf-8"))
+    structure = libgst.gst_structure_new_empty(GST_ANALYTICS_KEYPOINTS_2_TENSOR.encode("utf-8"))
     tensor = Tensor(structure)
 
     tensor["iou_threshold"] = 0.7
@@ -101,7 +101,7 @@ def _build_keypoint_tensor():
     tensor["confidence_threshold"] = 0.5
     tensor["layer_name"] = "output"
     tensor["model_name"] = "Model0"
-    tensor.set_type(TENSOR_TYPE_KEYPOINTS)
+    tensor.set_type(GST_ANALYTICS_KEYPOINTS_2_TENSOR)
     tensor.set_format(desc.semantic_tag)
     tensor.set_dims([KEYPOINT_COUNT, KEYPOINT_DIM])
     tensor.set_data(numpy.array(KEYPOINT_POSITIONS_NORM, dtype=numpy.float32))
@@ -141,7 +141,7 @@ def _build_classification_tensor():
     tensor["label_id"] = CLS_LABEL_ID
     tensor["confidence"] = CLS_CONFIDENCE
     tensor["tensor_id"] = CLS_TENSOR_ID
-    tensor.set_type(TENSOR_TYPE_CLASSIFICATION)
+    tensor.set_type(GST_ANALYTICS_CLS_2_TENSOR)
 
     return tensor
 
@@ -420,7 +420,7 @@ class KeypointFullRoundtripTestCase(unittest.TestCase):
         self.assertEqual(restored.format(), original.format())
         self.assertEqual(restored.precision(), original.precision())
         self.assertEqual(restored.dims(), original.dims())
-        self.assertEqual(restored.name(), TENSOR_TYPE_KEYPOINTS)
+        self.assertEqual(restored.name(), GST_ANALYTICS_KEYPOINTS_2_TENSOR)
 
         # Verify positions approximately match (lossy due to float→int→float)
         orig_data = original.data()
@@ -490,10 +490,10 @@ def _openpose18_descriptor():
 def _build_openpose18_keypoint_tensor():
     """Create a keypoints Tensor using the OpenPose-18 descriptor."""
     desc = _openpose18_descriptor()
-    structure = libgst.gst_structure_new_empty(TENSOR_TYPE_KEYPOINTS.encode("utf-8"))
+    structure = libgst.gst_structure_new_empty(GST_ANALYTICS_KEYPOINTS_2_TENSOR.encode("utf-8"))
     tensor = Tensor(structure)
 
-    tensor.set_type(TENSOR_TYPE_KEYPOINTS)
+    tensor.set_type(GST_ANALYTICS_KEYPOINTS_2_TENSOR)
     tensor.set_format(desc.semantic_tag)
     tensor.set_dims([OPENPOSE18_COUNT, KEYPOINT_DIM])
     tensor.set_data(numpy.array(OPENPOSE18_POSITIONS_NORM, dtype=numpy.float32))
@@ -563,9 +563,9 @@ def _build_small_keypoint_tensor(confidence=None, scalar_confidence=None):
         confidence: list of float confidences, or None
         scalar_confidence: float scalar, set as tensor["confidence"] = scalar
     """
-    structure = libgst.gst_structure_new_empty(TENSOR_TYPE_KEYPOINTS.encode("utf-8"))
+    structure = libgst.gst_structure_new_empty(GST_ANALYTICS_KEYPOINTS_2_TENSOR.encode("utf-8"))
     tensor = Tensor(structure)
-    tensor.set_type(TENSOR_TYPE_KEYPOINTS)
+    tensor.set_type(GST_ANALYTICS_KEYPOINTS_2_TENSOR)
     tensor.set_dims([SMALL_KP_COUNT, SMALL_KP_DIM])
     tensor.set_data(numpy.array(SMALL_KP_POSITIONS, dtype=numpy.float32))
     tensor.set_precision(Tensor.PRECISION.FP32)
@@ -643,9 +643,9 @@ class ConfidenceScenarioTestCase(unittest.TestCase):
 
     # Scenario 5: single keypoint with scalar confidence → size 1 == kp_count 1 → valid
     def test_single_keypoint_scalar_confidence(self):
-        structure = libgst.gst_structure_new_empty(TENSOR_TYPE_KEYPOINTS.encode("utf-8"))
+        structure = libgst.gst_structure_new_empty(GST_ANALYTICS_KEYPOINTS_2_TENSOR.encode("utf-8"))
         tensor = Tensor(structure)
-        tensor.set_type(TENSOR_TYPE_KEYPOINTS)
+        tensor.set_type(GST_ANALYTICS_KEYPOINTS_2_TENSOR)
         tensor.set_dims([1, 2])
         tensor.set_data(numpy.array([0.5, 0.5], dtype=numpy.float32))
         tensor.set_precision(Tensor.PRECISION.FP32)

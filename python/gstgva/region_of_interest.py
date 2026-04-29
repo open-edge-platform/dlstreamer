@@ -24,7 +24,7 @@ gi.require_version("DLStreamerMeta", "1.0")
 from gi.repository import GstVideo, GLib, GObject, Gst, GstAnalytics, DLStreamerMeta
 # pylint: enable=no-name-in-module,unused-import
 
-from .tensor import Tensor, TENSOR_TYPE_KEYPOINTS, TENSOR_TYPE_CLASSIFICATION
+from .tensor import Tensor, GST_ANALYTICS_KEYPOINTS_2_TENSOR, GST_ANALYTICS_CLS_2_TENSOR
 from .util import VideoRegionOfInterestMeta, GstStructureHandle
 from .util import libgst, libgstvideo
 from . import meta_registry  # noqa: F401 — registers DLStreamerMeta types with GstAnalytics
@@ -57,8 +57,8 @@ class RegionOfInterest(object):
                 tensor = Tensor(tensor_structure)
                 if (
                     tensor.name() != "object_id"
-                    and tensor.type() != TENSOR_TYPE_KEYPOINTS
-                    and tensor.type() != TENSOR_TYPE_CLASSIFICATION
+                    and tensor.type() != GST_ANALYTICS_KEYPOINTS_2_TENSOR
+                    and tensor.type() != GST_ANALYTICS_CLS_2_TENSOR
                 ):
                     self._tensors.append(tensor)
                     if tensor.is_detection():

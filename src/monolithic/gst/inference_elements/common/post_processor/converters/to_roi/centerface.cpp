@@ -95,8 +95,8 @@ const float *CenterfaceConverter::parseOutputBlob(const OutputBlobs &output_blob
 void CenterfaceConverter::addLandmarksTensor(DetectedObject &detected_object, const float *landmarks,
                                              int num_of_landmarks) const {
     GstStructure *tensor = gst_structure_copy(getModelProcOutputInfo().get());
-    gst_structure_set_name(tensor, GVA::TENSOR_TYPE_KEYPOINTS);
-    gst_structure_set(tensor, "type", G_TYPE_STRING, GVA::TENSOR_TYPE_KEYPOINTS, NULL);
+    gst_structure_set_name(tensor, GVA::GST_ANALYTICS_KEYPOINTS_2_TENSOR);
+    gst_structure_set(tensor, "type", G_TYPE_STRING, GVA::GST_ANALYTICS_KEYPOINTS_2_TENSOR, NULL);
     gst_structure_set(tensor, "precision", G_TYPE_INT, GVA_PRECISION_FP32, NULL);
     gst_structure_set(tensor, "format", G_TYPE_STRING, GST_ANALYTICS_KEYPOINT_FACE_CENTERFACE_5, NULL);
 

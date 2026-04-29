@@ -95,7 +95,7 @@ static const GstAnalyticsKeypointDescriptor *openpose18_descriptor() {
 
 static GstStructure *build_keypoint_structure() {
     const auto *desc = coco17_descriptor();
-    GstStructure *s = gst_structure_new_empty(GVA::TENSOR_TYPE_KEYPOINTS);
+    GstStructure *s = gst_structure_new_empty(GVA::GST_ANALYTICS_KEYPOINTS_2_TENSOR);
     GVA::Tensor tensor(s);
 
     tensor.set_double("iou_threshold", 0.7);
@@ -103,7 +103,7 @@ static GstStructure *build_keypoint_structure() {
     tensor.set_double("confidence_threshold", 0.5);
     tensor.set_string("layer_name", "output");
     tensor.set_string("model_name", "Model0");
-    tensor.set_type(GVA::TENSOR_TYPE_KEYPOINTS);
+    tensor.set_type(GVA::GST_ANALYTICS_KEYPOINTS_2_TENSOR);
     tensor.set_format(desc->semantic_tag);
     tensor.set_dims({static_cast<guint>(KEYPOINT_COUNT), static_cast<guint>(KEYPOINT_DIM)});
     tensor.set_data(KEYPOINT_POSITIONS_NORM, KEYPOINT_COUNT * KEYPOINT_DIM * sizeof(float));
@@ -137,7 +137,7 @@ static GstStructure *build_classification_structure() {
     tensor.set_int("label_id", CLS_LABEL_ID);
     tensor.set_double("confidence", CLS_CONFIDENCE);
     tensor.set_int("tensor_id", CLS_TENSOR_ID);
-    tensor.set_type(GVA::TENSOR_TYPE_CLASSIFICATION);
+    tensor.set_type(GVA::GST_ANALYTICS_CLS_2_TENSOR);
 
     return s;
 }
@@ -572,7 +572,7 @@ TEST_F(KeypointFullRoundtripTest, FullRoundtrip) {
     EXPECT_EQ(restored.type(), original.type());
     EXPECT_EQ(restored.format(), original.format());
     EXPECT_EQ(restored.precision(), original.precision());
-    EXPECT_EQ(restored.name(), GVA::TENSOR_TYPE_KEYPOINTS);
+    EXPECT_EQ(restored.name(), GVA::GST_ANALYTICS_KEYPOINTS_2_TENSOR);
 
     auto orig_dims = original.dims();
     auto rest_dims = restored.dims();
@@ -649,10 +649,10 @@ static constexpr gsize OPENPOSE18_COUNT = 18;
 
 static GstStructure *build_openpose18_keypoint_structure() {
     const auto *desc = openpose18_descriptor();
-    GstStructure *s = gst_structure_new_empty(GVA::TENSOR_TYPE_KEYPOINTS);
+    GstStructure *s = gst_structure_new_empty(GVA::GST_ANALYTICS_KEYPOINTS_2_TENSOR);
     GVA::Tensor tensor(s);
 
-    tensor.set_type(GVA::TENSOR_TYPE_KEYPOINTS);
+    tensor.set_type(GVA::GST_ANALYTICS_KEYPOINTS_2_TENSOR);
     tensor.set_format(desc->semantic_tag);
     tensor.set_dims({static_cast<guint>(OPENPOSE18_COUNT), static_cast<guint>(KEYPOINT_DIM)});
     tensor.set_data(OPENPOSE18_POSITIONS_NORM, OPENPOSE18_COUNT * KEYPOINT_DIM * sizeof(float));
@@ -715,9 +715,9 @@ static const float SMALL_KP_CONFIDENCES[] = {0.9f, 0.8f, 0.7f};
 // Helper: build a minimal keypoints tensor (no descriptor, no skeleton)
 static GstStructure *build_small_keypoint_structure(const float *conf, gsize conf_count, bool set_scalar = false,
                                                     double scalar_val = 0.0) {
-    GstStructure *s = gst_structure_new_empty(GVA::TENSOR_TYPE_KEYPOINTS);
+    GstStructure *s = gst_structure_new_empty(GVA::GST_ANALYTICS_KEYPOINTS_2_TENSOR);
     GVA::Tensor tensor(s);
-    tensor.set_type(GVA::TENSOR_TYPE_KEYPOINTS);
+    tensor.set_type(GVA::GST_ANALYTICS_KEYPOINTS_2_TENSOR);
     tensor.set_dims({static_cast<guint>(SMALL_KP_COUNT), static_cast<guint>(SMALL_KP_DIM)});
     tensor.set_data(SMALL_KP_POSITIONS, SMALL_KP_COUNT * SMALL_KP_DIM * sizeof(float));
     tensor.set_precision(GVA::Tensor::Precision::FP32);
@@ -825,9 +825,9 @@ TEST_F(ConfidenceScenarioTest, ScalarConfidenceMultipleKeypoints) {
 // size 1 == keypoint_count 1 → valid
 TEST_F(ConfidenceScenarioTest, SingleKeypointScalarConfidence) {
     // Build a 1-keypoint tensor with scalar confidence
-    GstStructure *s = gst_structure_new_empty(GVA::TENSOR_TYPE_KEYPOINTS);
+    GstStructure *s = gst_structure_new_empty(GVA::GST_ANALYTICS_KEYPOINTS_2_TENSOR);
     GVA::Tensor tensor(s);
-    tensor.set_type(GVA::TENSOR_TYPE_KEYPOINTS);
+    tensor.set_type(GVA::GST_ANALYTICS_KEYPOINTS_2_TENSOR);
     tensor.set_dims({1u, 2u});
     const float pos[] = {0.5f, 0.5f};
     tensor.set_data(pos, sizeof(pos));

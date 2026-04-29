@@ -67,7 +67,7 @@ TensorsTable PaddleOCRConverter::convert(const OutputBlobs &output_blobs) {
                 // Set metadata for the tensor in the GstStructure
                 gst_structure_set(classification_result.gst_structure(), "tensor_id", G_TYPE_INT,
                                   safe_convert<int>(batch_elem_index), "type", G_TYPE_STRING,
-                                  GVA::TENSOR_TYPE_CLASSIFICATION, NULL);
+                                  GVA::GST_ANALYTICS_CLS_2_TENSOR, NULL);
                 std::vector<GstStructure *> tensors{classification_result.gst_structure()};
                 tensors_table[batch_elem_index].push_back(tensors);
             }
@@ -243,7 +243,7 @@ TensorsTable PaddleOCRCtcConverter::convert(const OutputBlobs &output_blobs) {
 
                 gst_structure_set(classification_result.gst_structure(), "tensor_id", G_TYPE_INT,
                                   safe_convert<int>(batch_elem_index), "type", G_TYPE_STRING,
-                                  GVA::TENSOR_TYPE_CLASSIFICATION, NULL);
+                                  GVA::GST_ANALYTICS_CLS_2_TENSOR, NULL);
                 std::vector<GstStructure *> tensors{classification_result.gst_structure()};
                 tensors_table[batch_elem_index].push_back(tensors);
             }

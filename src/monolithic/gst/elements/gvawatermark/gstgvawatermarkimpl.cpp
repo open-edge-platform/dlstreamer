@@ -1056,7 +1056,7 @@ void Impl::preparePrimsForTensor(const GVA::Tensor &tensor, GVA::Rect<double> re
  */
 void Impl::preparePrimsForKeypoints(const GVA::Tensor &tensor, GVA::Rect<double> rectangle,
                                     std::vector<render::Prim> &prims) const {
-    if (tensor.type() != GVA::TENSOR_TYPE_KEYPOINTS)
+    if (tensor.type() != GVA::GST_ANALYTICS_KEYPOINTS_2_TENSOR)
         return;
 
     const auto keypoints_data = tensor.data<float>();

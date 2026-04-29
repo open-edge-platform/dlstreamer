@@ -29,9 +29,9 @@ from .util import (
 from .util import GVATensorMeta
 
 ## Tensor type string for keypoints data (e.g. human pose estimation results)
-TENSOR_TYPE_KEYPOINTS = "keypoints"
+GST_ANALYTICS_KEYPOINTS_2_TENSOR = "keypoints"
 ## Tensor type string for classification results
-TENSOR_TYPE_CLASSIFICATION = "classification_result"
+GST_ANALYTICS_CLS_2_TENSOR = "classification_result"
 
 
 ## @brief This class represents tensor - map-like storage for inference result information, such as output blob
@@ -500,7 +500,7 @@ class Tensor:
         #  @param od_meta parent object-detection metadata (required for keypoints)
         #  @return GstAnalyticsMtd on success, None if tensor type is not supported
         mtd = None
-        if self.type() == TENSOR_TYPE_KEYPOINTS:
+        if self.type() == GST_ANALYTICS_KEYPOINTS_2_TENSOR:
             dimensions = self.dims()
             raw_data = self.data()
             confidence_val = self.confidence()
@@ -575,7 +575,7 @@ class Tensor:
 
             mtd = group_mtd
 
-        elif self.type() == TENSOR_TYPE_CLASSIFICATION:
+        elif self.type() == GST_ANALYTICS_CLS_2_TENSOR:
             confidence_level = (
                 self.confidence() if self.confidence() is not None else 0.0
             )
@@ -685,11 +685,11 @@ class Tensor:
                             point_connections.append(i)
 
             # create keypoint tensor
-            structure = libgst.gst_structure_new_empty(TENSOR_TYPE_KEYPOINTS.encode("utf-8"))
+            structure = libgst.gst_structure_new_empty(GST_ANALYTICS_KEYPOINTS_2_TENSOR.encode("utf-8"))
             tensor = Tensor(structure)
 
             tensor.set_precision(Tensor.PRECISION.FP32)
-            tensor.set_type(TENSOR_TYPE_KEYPOINTS)
+            tensor.set_type(GST_ANALYTICS_KEYPOINTS_2_TENSOR)
             tensor.set_format(semantic_tag)
 
             tensor.set_dims([keypoint_count, keypoint_dimension])
@@ -728,7 +728,7 @@ class Tensor:
                     result_confidence = confidence
 
             tensor.set_name("classification")
-            tensor["type"] = TENSOR_TYPE_CLASSIFICATION
+            tensor["type"] = GST_ANALYTICS_CLS_2_TENSOR
             tensor.set_label(result_label)
             tensor["confidence"] = result_confidence
 
