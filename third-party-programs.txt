@@ -733,6 +733,10 @@ and users must comply to its license: https://github.com/fmtlib/fmt/blob/master/
         @author: Daniel Morin <daniel.morin@collabora.com>
     Copyright (C) 2011 Wim Taymans <wim.taymans@gmail.com>
 
+    These files contain changes from GStreamer 1.28 and 1.30 that are
+    vendored here temporarily. They will no longer be needed after
+    upgrading to GStreamer >= 1.30.
+
     Files:
         include/dlstreamer/gst/metadata/gstanalyticsgroupmtd.h
         include/dlstreamer/gst/metadata/gstanalyticskeypointmtd.h
