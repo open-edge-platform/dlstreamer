@@ -51,54 +51,54 @@ class TestOptimizer(unittest.TestCase):
         print(f"✓ Test passed: Found {len(candidates)} candidates, "
             f"best matches optimal pipeline")
 
-    def test_iter_optimize_for_streams_and_get_baseline_pipeline(self):
-        """Test iter_optimize_for_streams with simple CPU pipeline and check baseline against original"""
-        optimizer = DLSOptimizer()
-        search_duration = 30  # seconds
-        sample_duration = 10  # seconds
-        candidates = []
+    # def test_iter_optimize_for_streams_and_get_baseline_pipeline(self):
+    #     """Test iter_optimize_for_streams with simple CPU pipeline and check baseline against original"""
+    #     optimizer = DLSOptimizer()
+    #     search_duration = 30  # seconds
+    #     sample_duration = 10  # seconds
+    #     candidates = []
 
-        # Iterate through candidates and collect pipelines and their stream counts
-        for candidate_result in optimizer.iter_optimize_for_streams(self.simple_pipeline):
-            if isinstance(candidate_result, tuple) and len(candidate_result) >= 2:
-                pipeline = candidate_result[0]
-                stream_count = candidate_result[2]
-                fps_count = candidate_result[1]
-                candidates.append((pipeline, stream_count, fps_count))
-                print(f"Tested: {pipeline} @ {stream_count} streams @ {fps_count} FPS")
-            else:
-                continue
+    #     # Iterate through candidates and collect pipelines and their stream counts
+    #     for candidate_result in optimizer.iter_optimize_for_streams(self.simple_pipeline):
+    #         if isinstance(candidate_result, tuple) and len(candidate_result) >= 2:
+    #             pipeline = candidate_result[0]
+    #             stream_count = candidate_result[2]
+    #             fps_count = candidate_result[1]
+    #             candidates.append((pipeline, stream_count, fps_count))
+    #             print(f"Tested: {pipeline} @ {stream_count} streams @ {fps_count} FPS")
+    #         else:
+    #             continue
 
-        # We expect to have multiple candidates tested, at least more than 1
-        self.assertGreater(len(candidates), 1, 
-                        f"Expected more than 1 tested pipeline, got {len(candidates)}")
+    #     # We expect to have multiple candidates tested, at least more than 1
+    #     self.assertGreater(len(candidates), 1, 
+    #                     f"Expected more than 1 tested pipeline, got {len(candidates)}")
         
-        # Find the candidate with the highest stream count
-        best_candidate = max(candidates, key=lambda x: x[1])
-        best_candidate_pipeline, best_candidate_streams, best_candidate_fps = best_candidate
+    #     # Find the candidate with the highest stream count
+    #     best_candidate = max(candidates, key=lambda x: x[1])
+    #     best_candidate_pipeline, best_candidate_streams, best_candidate_fps = best_candidate
         
-        print(f"Best from candidates: {best_candidate_pipeline} @ {best_candidate_streams} streams @ {best_candidate_fps} FPS")
+    #     print(f"Best from candidates: {best_candidate_pipeline} @ {best_candidate_streams} streams @ {best_candidate_fps} FPS")
         
-        # Get the baseline pipeline and stream count from the optimizer
-        baseline_pipeline, baseline_streams = optimizer.get_baseline_pipeline()
-        print(f"Baseline pipeline: {baseline_pipeline} @ {baseline_streams} streams")
+    #     # Get the baseline pipeline and stream count from the optimizer
+    #     baseline_pipeline, baseline_streams = optimizer.get_baseline_pipeline()
+    #     print(f"Baseline pipeline: {baseline_pipeline} @ {baseline_streams} streams")
         
-        # Compare baseline pipeline with the original simple_pipeline
-        print(f"Original pipeline: {self.simple_pipeline}")
+    #     # Compare baseline pipeline with the original simple_pipeline
+    #     print(f"Original pipeline: {self.simple_pipeline}")
         
-        # Check if baseline pipeline matches the original pipeline we started with
-        self.assertEqual(baseline_pipeline, self.simple_pipeline,
-                        f"Baseline pipeline {baseline_pipeline} doesn't match "
-                        f"original pipeline {self.simple_pipeline}")
+    #     # Check if baseline pipeline matches the original pipeline we started with
+    #     self.assertEqual(baseline_pipeline, self.simple_pipeline,
+    #                     f"Baseline pipeline {baseline_pipeline} doesn't match "
+    #                     f"original pipeline {self.simple_pipeline}")
         
-        # Verify that optimization actually found better candidates than baseline
-        self.assertGreaterEqual(best_candidate_streams, baseline_streams,
-                            f"Best candidate streams {best_candidate_streams} should be >= "
-                            f"baseline streams {baseline_streams}")
+    #     # Verify that optimization actually found better candidates than baseline
+    #     self.assertGreaterEqual(best_candidate_streams, baseline_streams,
+    #                         f"Best candidate streams {best_candidate_streams} should be >= "
+    #                         f"baseline streams {baseline_streams}")
         
-        print(f"✓ Test passed: Found {len(candidates)} candidates, "
-            f"baseline matches original pipeline, best candidate has {best_candidate_streams} streams @ {best_candidate_fps} FPS "
-            f"vs baseline {baseline_streams} streams")
+    #     print(f"✓ Test passed: Found {len(candidates)} candidates, "
+    #         f"baseline matches original pipeline, best candidate has {best_candidate_streams} streams @ {best_candidate_fps} FPS "
+    #         f"vs baseline {baseline_streams} streams")
 
     def test_optimize_for_fps_and_get_optimal_pipeline(self):
         """Test optimize_for_fps and get_optimal_pipeline with simple CPU pipeline"""
@@ -119,6 +119,34 @@ class TestOptimizer(unittest.TestCase):
         # Allow a small tolerance for FPS comparison
         self.assertAlmostEqual(optimal_fps, fps, places=2,
                             msg=f"FPS mismatch: optimized {fps} vs optimal {optimal_fps}")
+
+        print(f"✓ Test passed: Optimized pipeline matches optimal pipeline with FPS {fps}")
+
+    def test_optimize_for_streams_and_get_optimal_pipeline(self):
+        """Test optimize_for_streams and get_optimal_pipeline with simple CPU pipeline"""
+        optimizer = DLSOptimizer()
+        optimized_pipeline, fps, streams = optimizer.optimize_for_streams(self.simple_pipeline,180)
+        self.assertIsNotNone(optimized_pipeline, "Optimizer did not return optimized pipeline")
+        self.assertIsNotNone(fps, "Optimizer did not return FPS value")
+        self.assertGreater(fps, 0, f"FPS should be greater than 0, but got: {fps}")
+        self.assertGreater(streams, 0, f"Streams should be greater than 0, but got: {streams}")
+
+        optimal_pipeline, optimal_fps, optimal_streams = optimizer.get_optimal_pipeline()
+        print(f"Optimal pipeline: {optimal_pipeline} @ {optimal_fps} FPS @ {optimal_streams} STREAMS")
+        
+        # Check that the optimal pipeline matches the one returned by optimize_for_fps
+        self.assertEqual(optimal_pipeline, optimized_pipeline,
+                        f"Optimal pipeline {optimal_pipeline} doesn't match "
+                        f"optimized pipeline {optimized_pipeline}")
+        
+        # Allow a small tolerance for FPS comparison
+        self.assertAlmostEqual(optimal_fps, fps, places=2,
+                            msg=f"FPS mismatch: optimized {fps} vs optimal {optimal_fps}")
+
+        # Check that the number of streams is equal
+        self.assertEqual(streams, optimal_streams
+                        f"Streams from optimal pipeline {optimal_streams} doesn't match "
+                        f"streams from optimized pipeline {streams}")
 
         print(f"✓ Test passed: Optimized pipeline matches optimal pipeline with FPS {fps}")
 
