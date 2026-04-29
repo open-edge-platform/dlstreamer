@@ -540,7 +540,7 @@ class Tensor:
                 confidences = None
             elif isinstance(confidence_val, list):
                 try:
-                    confidences = [float(v) for v in confidence_val]
+                    confidences = [float(v) for v in confidence_val]  # pylint: disable=not-an-iterable
                 except (TypeError, ValueError):
                     confidences = None
             elif isinstance(confidence_val, (int, float)):
