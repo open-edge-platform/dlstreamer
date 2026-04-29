@@ -359,8 +359,8 @@ TEST_F(KeypointConvertToTensorTest, DataRoundtripsPositions) {
 TEST_F(KeypointConvertToTensorTest, ConfidencesRoundtrip) {
     auto orig = original_tensor();
     auto t = roundtrip_tensor();
-    auto orig_conf = orig.get_vector<float>("confidence");
-    auto rest_conf = t.get_vector<float>("confidence");
+    auto orig_conf = orig.confidences();
+    auto rest_conf = t.confidences();
     ASSERT_EQ(rest_conf.size(), orig_conf.size());
 
     for (size_t k = 0; k < orig_conf.size(); k++) {
@@ -587,8 +587,8 @@ TEST_F(KeypointFullRoundtripTest, FullRoundtrip) {
     }
 
     // Verify confidences match
-    auto orig_conf = original.get_vector<float>("confidence");
-    auto rest_conf = restored.get_vector<float>("confidence");
+    auto orig_conf = original.confidences();
+    auto rest_conf = restored.confidences();
     ASSERT_EQ(orig_conf.size(), rest_conf.size());
     for (size_t i = 0; i < orig_conf.size(); i++) {
         EXPECT_FLOAT_EQ(rest_conf[i], orig_conf[i]) << "confidence[" << i << "] roundtrip mismatch";
@@ -699,5 +699,203 @@ TEST_F(KeypointFullRoundtripTest, OpenPose18SkeletonRoundtrip) {
     EXPECT_EQ(rest_pairs, orig_pairs) << "All skeleton pairs including reversed ones must survive roundtrip";
 
     gst_structure_free(orig_s);
+    gst_structure_free(restored_s);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Confidence / keypoint_count scenarios
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// Small dataset shared with Python tests: 3 keypoints, 2D
+static constexpr gsize SMALL_KP_COUNT = 3;
+static constexpr gsize SMALL_KP_DIM = 2;
+static const float SMALL_KP_POSITIONS[] = {0.25f, 0.30f, 0.50f, 0.60f, 0.75f, 0.90f};
+static const float SMALL_KP_CONFIDENCES[] = {0.9f, 0.8f, 0.7f};
+
+// Helper: build a minimal keypoints tensor (no descriptor, no skeleton)
+static GstStructure *build_small_keypoint_structure(const float *conf, gsize conf_count, bool set_scalar = false,
+                                                    double scalar_val = 0.0) {
+    GstStructure *s = gst_structure_new_empty(GVA::TENSOR_TYPE_KEYPOINTS);
+    GVA::Tensor tensor(s);
+    tensor.set_type(GVA::TENSOR_TYPE_KEYPOINTS);
+    tensor.set_dims({static_cast<guint>(SMALL_KP_COUNT), static_cast<guint>(SMALL_KP_DIM)});
+    tensor.set_data(SMALL_KP_POSITIONS, SMALL_KP_COUNT * SMALL_KP_DIM * sizeof(float));
+    tensor.set_precision(GVA::Tensor::Precision::FP32);
+
+    if (conf && conf_count > 0)
+        tensor.set_vector<float>("confidence", std::vector<float>(conf, conf + conf_count));
+    else if (set_scalar)
+        tensor.set_confidence(scalar_val);
+    // else: no confidence field at all
+
+    return s;
+}
+
+struct ConfidenceScenarioTest : public ::testing::Test {
+    GstBuffer *buffer = nullptr;
+    GstAnalyticsRelationMeta *rmeta = nullptr;
+    GstAnalyticsODMtd od_mtd = {};
+
+    void SetUp() override {
+        buffer = gst_buffer_new_allocate(nullptr, 0, nullptr);
+        rmeta = gst_buffer_add_analytics_relation_meta(buffer);
+        ASSERT_NE(rmeta, nullptr);
+
+        GQuark label = g_quark_from_string("person");
+        gboolean ret = gst_analytics_relation_meta_add_od_mtd(rmeta, label, OD_X, OD_Y, OD_W, OD_H, OD_CONF, &od_mtd);
+        ASSERT_TRUE(ret);
+    }
+
+    void TearDown() override {
+        if (buffer)
+            gst_buffer_unref(buffer);
+    }
+
+    // convert_to_meta and read back confidences from keypoint members
+    std::vector<gfloat> meta_confidences(GstStructure *s) {
+        GVA::Tensor tensor(s);
+        GstAnalyticsGroupMtd group_mtd = {};
+        bool ok = tensor.convert_to_meta(reinterpret_cast<GstAnalyticsMtd *>(&group_mtd), &od_mtd, rmeta);
+        EXPECT_TRUE(ok);
+
+        gsize count = gst_analytics_group_mtd_get_member_count(&group_mtd);
+        std::vector<gfloat> confs(count);
+        for (gsize k = 0; k < count; k++) {
+            GstAnalyticsMtd member;
+            EXPECT_TRUE(gst_analytics_group_mtd_get_member(&group_mtd, k, &member));
+            GstAnalyticsKeypointMtd kp_mtd;
+            EXPECT_TRUE(gst_analytics_relation_meta_get_keypoint_mtd(rmeta, member.id, &kp_mtd));
+            gfloat c = 0.0f;
+            gst_analytics_keypoint_mtd_get_confidence(&kp_mtd, &c);
+            confs[k] = c;
+        }
+        return confs;
+    }
+};
+
+// Scenario 1: confidence array size matches keypoint_count → values passed through
+TEST_F(ConfidenceScenarioTest, MatchingConfidenceArray) {
+    GstStructure *s = build_small_keypoint_structure(SMALL_KP_CONFIDENCES, SMALL_KP_COUNT);
+    auto confs = meta_confidences(s);
+    ASSERT_EQ(confs.size(), SMALL_KP_COUNT);
+    for (gsize k = 0; k < SMALL_KP_COUNT; k++) {
+        EXPECT_FLOAT_EQ(confs[k], SMALL_KP_CONFIDENCES[k]) << "keypoint " << k;
+    }
+    gst_structure_free(s);
+}
+
+// Scenario 2: confidence array size != keypoint_count → values ignored (default 1.0)
+TEST_F(ConfidenceScenarioTest, MismatchedConfidenceArray) {
+    // provide 2 confidences for 3 keypoints
+    const float bad_conf[] = {0.9f, 0.8f};
+    GstStructure *s = build_small_keypoint_structure(bad_conf, 2);
+    auto confs = meta_confidences(s);
+    ASSERT_EQ(confs.size(), SMALL_KP_COUNT);
+    for (gsize k = 0; k < SMALL_KP_COUNT; k++) {
+        EXPECT_FLOAT_EQ(confs[k], 1.0f) << "keypoint " << k << " should be 1.0 (default, confidence ignored)";
+    }
+    gst_structure_free(s);
+}
+
+// Scenario 3: no confidence field at all → default 1.0
+TEST_F(ConfidenceScenarioTest, NoConfidenceField) {
+    GstStructure *s = build_small_keypoint_structure(nullptr, 0);
+    auto confs = meta_confidences(s);
+    ASSERT_EQ(confs.size(), SMALL_KP_COUNT);
+    for (gsize k = 0; k < SMALL_KP_COUNT; k++) {
+        EXPECT_FLOAT_EQ(confs[k], 1.0f) << "keypoint " << k << " should be 1.0 (default, no confidence)";
+    }
+    gst_structure_free(s);
+}
+
+// Scenario 4: scalar confidence with multiple keypoints → confidences() returns [scalar],
+// size 1 != 3 → ignored (default 1.0)
+TEST_F(ConfidenceScenarioTest, ScalarConfidenceMultipleKeypoints) {
+    GstStructure *s = build_small_keypoint_structure(nullptr, 0, true, 0.85);
+    auto confs = meta_confidences(s);
+    ASSERT_EQ(confs.size(), SMALL_KP_COUNT);
+    for (gsize k = 0; k < SMALL_KP_COUNT; k++) {
+        EXPECT_FLOAT_EQ(confs[k], 1.0f) << "keypoint " << k
+                                        << " should be 1.0 (default, scalar conf ignored for 3 kps)";
+    }
+    gst_structure_free(s);
+}
+
+// Scenario 5: single keypoint with scalar confidence → confidences() returns [scalar],
+// size 1 == keypoint_count 1 → valid
+TEST_F(ConfidenceScenarioTest, SingleKeypointScalarConfidence) {
+    // Build a 1-keypoint tensor with scalar confidence
+    GstStructure *s = gst_structure_new_empty(GVA::TENSOR_TYPE_KEYPOINTS);
+    GVA::Tensor tensor(s);
+    tensor.set_type(GVA::TENSOR_TYPE_KEYPOINTS);
+    tensor.set_dims({1u, 2u});
+    const float pos[] = {0.5f, 0.5f};
+    tensor.set_data(pos, sizeof(pos));
+    tensor.set_precision(GVA::Tensor::Precision::FP32);
+    tensor.set_confidence(0.95);
+
+    GstAnalyticsGroupMtd group_mtd = {};
+    bool ok = tensor.convert_to_meta(reinterpret_cast<GstAnalyticsMtd *>(&group_mtd), &od_mtd, rmeta);
+    EXPECT_TRUE(ok);
+
+    gsize count = gst_analytics_group_mtd_get_member_count(&group_mtd);
+    ASSERT_EQ(count, 1u);
+
+    GstAnalyticsMtd member;
+    ASSERT_TRUE(gst_analytics_group_mtd_get_member(&group_mtd, 0, &member));
+    GstAnalyticsKeypointMtd kp_mtd;
+    ASSERT_TRUE(gst_analytics_relation_meta_get_keypoint_mtd(rmeta, member.id, &kp_mtd));
+    gfloat c = 0.0f;
+    ASSERT_TRUE(gst_analytics_keypoint_mtd_get_confidence(&kp_mtd, &c));
+    EXPECT_NEAR(c, 0.95f, 1e-5f);
+
+    gst_structure_free(s);
+}
+
+// Scenario 6: roundtrip with matching confidences preserves values
+TEST_F(ConfidenceScenarioTest, RoundtripMatchingConfidence) {
+    GstStructure *s = build_small_keypoint_structure(SMALL_KP_CONFIDENCES, SMALL_KP_COUNT);
+    GVA::Tensor original(s);
+
+    GstAnalyticsGroupMtd group_mtd = {};
+    ASSERT_TRUE(original.convert_to_meta(reinterpret_cast<GstAnalyticsMtd *>(&group_mtd), &od_mtd, rmeta));
+    gst_analytics_relation_meta_set_relation(rmeta, GST_ANALYTICS_REL_TYPE_IS_PART_OF, group_mtd.id, od_mtd.id);
+
+    GstStructure *restored_s = GVA::Tensor::convert_to_tensor(*reinterpret_cast<GstAnalyticsMtd *>(&group_mtd));
+    ASSERT_NE(restored_s, nullptr);
+    GVA::Tensor restored(restored_s);
+
+    auto rest_conf = restored.confidences();
+    ASSERT_EQ(rest_conf.size(), SMALL_KP_COUNT);
+    for (gsize k = 0; k < SMALL_KP_COUNT; k++) {
+        EXPECT_FLOAT_EQ(rest_conf[k], SMALL_KP_CONFIDENCES[k]) << "keypoint " << k;
+    }
+
+    gst_structure_free(s);
+    gst_structure_free(restored_s);
+}
+
+// Scenario 7: roundtrip with mismatched confidences → restored tensor has zero confidences
+TEST_F(ConfidenceScenarioTest, RoundtripMismatchedConfidence) {
+    const float bad_conf[] = {0.9f, 0.8f}; // 2 values for 3 keypoints
+    GstStructure *s = build_small_keypoint_structure(bad_conf, 2);
+    GVA::Tensor original(s);
+
+    GstAnalyticsGroupMtd group_mtd = {};
+    ASSERT_TRUE(original.convert_to_meta(reinterpret_cast<GstAnalyticsMtd *>(&group_mtd), &od_mtd, rmeta));
+    gst_analytics_relation_meta_set_relation(rmeta, GST_ANALYTICS_REL_TYPE_IS_PART_OF, group_mtd.id, od_mtd.id);
+
+    GstStructure *restored_s = GVA::Tensor::convert_to_tensor(*reinterpret_cast<GstAnalyticsMtd *>(&group_mtd));
+    ASSERT_NE(restored_s, nullptr);
+    GVA::Tensor restored(restored_s);
+
+    auto rest_conf = restored.confidences();
+    ASSERT_EQ(rest_conf.size(), SMALL_KP_COUNT);
+    for (gsize k = 0; k < SMALL_KP_COUNT; k++) {
+        EXPECT_FLOAT_EQ(rest_conf[k], 1.0f)
+            << "keypoint " << k << " should be 1.0 (default) after mismatched roundtrip";
+    }
+
+    gst_structure_free(s);
     gst_structure_free(restored_s);
 }

@@ -547,5 +547,158 @@ class OpenPose18SkeletonRoundtripTestCase(unittest.TestCase):
                          "All skeleton pairs including reversed ones must survive roundtrip")
 
 
+# ── Confidence / keypoint_count scenarios ────────────────────────────────────
+
+# Small dataset shared with C++ tests: 3 keypoints, 2D
+SMALL_KP_COUNT = 3
+SMALL_KP_DIM = 2
+SMALL_KP_POSITIONS = [0.25, 0.30, 0.50, 0.60, 0.75, 0.90]
+SMALL_KP_CONFIDENCES = [0.9, 0.8, 0.7]
+
+
+def _build_small_keypoint_tensor(confidence=None, scalar_confidence=None):
+    """Create a minimal keypoints tensor with 3 keypoints and optional confidence.
+
+    Args:
+        confidence: list of float confidences, or None
+        scalar_confidence: float scalar, set as tensor["confidence"] = scalar
+    """
+    structure = libgst.gst_structure_new_empty(TENSOR_TYPE_KEYPOINTS.encode("utf-8"))
+    tensor = Tensor(structure)
+    tensor.set_type(TENSOR_TYPE_KEYPOINTS)
+    tensor.set_dims([SMALL_KP_COUNT, SMALL_KP_DIM])
+    tensor.set_data(numpy.array(SMALL_KP_POSITIONS, dtype=numpy.float32))
+    tensor.set_precision(Tensor.PRECISION.FP32)
+
+    if confidence is not None:
+        tensor.set_vector("confidence", confidence, value_type="float")
+    elif scalar_confidence is not None:
+        tensor["confidence"] = scalar_confidence
+    # else: no confidence field
+
+    return tensor
+
+
+class ConfidenceScenarioTestCase(unittest.TestCase):
+    """Test convert_to_meta with various confidence / keypoint_count combinations.
+    Uses the same small dataset (3 keypoints, 2D) as the C++ ConfidenceScenarioTest."""
+
+    def setUp(self):
+        self.buffer = Gst.Buffer.new_allocate(None, 0, None)
+        self.rmeta = GstAnalytics.buffer_add_analytics_relation_meta(self.buffer)
+        ok, self.od_mtd = self.rmeta.add_od_mtd(
+            GLib.quark_from_string("person"), OD_X, OD_Y, OD_W, OD_H, 0.9)
+        self.assertTrue(ok)
+
+    def _meta_confidences(self, tensor):
+        """Convert tensor to meta and read back per-keypoint confidences."""
+        group = tensor.convert_to_meta(self.rmeta, self.od_mtd)
+        self.assertIsNotNone(group)
+        confs = []
+        for k in range(group.get_member_count()):
+            ok, member = group.get_member(k)
+            self.assertTrue(ok)
+            ok, kp = DLStreamerMeta.relation_meta_get_keypoint_mtd(self.rmeta, member.id)
+            self.assertTrue(ok)
+            ok, conf = kp.get_confidence()
+            self.assertTrue(ok)
+            confs.append(conf)
+        return confs
+
+    # Scenario 1: confidence array size matches keypoint_count → values passed through
+    def test_matching_confidence_array(self):
+        tensor = _build_small_keypoint_tensor(confidence=SMALL_KP_CONFIDENCES)
+        confs = self._meta_confidences(tensor)
+        self.assertEqual(len(confs), SMALL_KP_COUNT)
+        for k in range(SMALL_KP_COUNT):
+            self.assertAlmostEqual(confs[k], SMALL_KP_CONFIDENCES[k], places=5,
+                                   msg=f"keypoint {k}")
+
+    # Scenario 2: confidence array size != keypoint_count → values ignored (default 1.0)
+    def test_mismatched_confidence_array(self):
+        tensor = _build_small_keypoint_tensor(confidence=[0.9, 0.8])  # 2 for 3 kps
+        confs = self._meta_confidences(tensor)
+        self.assertEqual(len(confs), SMALL_KP_COUNT)
+        for k in range(SMALL_KP_COUNT):
+            self.assertAlmostEqual(confs[k], 1.0, places=5,
+                                   msg=f"keypoint {k} should be 1.0 (default, confidence ignored)")
+
+    # Scenario 3: no confidence field at all → default 1.0
+    def test_no_confidence_field(self):
+        tensor = _build_small_keypoint_tensor()
+        confs = self._meta_confidences(tensor)
+        self.assertEqual(len(confs), SMALL_KP_COUNT)
+        for k in range(SMALL_KP_COUNT):
+            self.assertAlmostEqual(confs[k], 1.0, places=5,
+                                   msg=f"keypoint {k} should be 1.0 (default, no confidence)")
+
+    # Scenario 4: scalar confidence with multiple keypoints → size 1 != 3 → ignored (default 1.0)
+    def test_scalar_confidence_multiple_keypoints(self):
+        tensor = _build_small_keypoint_tensor(scalar_confidence=0.85)
+        confs = self._meta_confidences(tensor)
+        self.assertEqual(len(confs), SMALL_KP_COUNT)
+        for k in range(SMALL_KP_COUNT):
+            self.assertAlmostEqual(confs[k], 1.0, places=5,
+                                   msg=f"keypoint {k} should be 1.0 (default, scalar conf ignored for 3 kps)")
+
+    # Scenario 5: single keypoint with scalar confidence → size 1 == kp_count 1 → valid
+    def test_single_keypoint_scalar_confidence(self):
+        structure = libgst.gst_structure_new_empty(TENSOR_TYPE_KEYPOINTS.encode("utf-8"))
+        tensor = Tensor(structure)
+        tensor.set_type(TENSOR_TYPE_KEYPOINTS)
+        tensor.set_dims([1, 2])
+        tensor.set_data(numpy.array([0.5, 0.5], dtype=numpy.float32))
+        tensor.set_precision(Tensor.PRECISION.FP32)
+        tensor["confidence"] = 0.95
+
+        group = tensor.convert_to_meta(self.rmeta, self.od_mtd)
+        self.assertIsNotNone(group)
+        self.assertEqual(group.get_member_count(), 1)
+
+        ok, member = group.get_member(0)
+        self.assertTrue(ok)
+        ok, kp = DLStreamerMeta.relation_meta_get_keypoint_mtd(self.rmeta, member.id)
+        self.assertTrue(ok)
+        ok, conf = kp.get_confidence()
+        self.assertTrue(ok)
+        self.assertAlmostEqual(conf, 0.95, places=3)
+
+    # Scenario 6: roundtrip with matching confidences preserves values
+    def test_roundtrip_matching_confidence(self):
+        tensor = _build_small_keypoint_tensor(confidence=SMALL_KP_CONFIDENCES)
+        group = tensor.convert_to_meta(self.rmeta, self.od_mtd)
+        self.assertIsNotNone(group)
+        self.rmeta.set_relation(GstAnalytics.RelTypes.IS_PART_OF,
+                                group.id, self.od_mtd.id)
+
+        structure = Tensor.convert_to_tensor(group)
+        self.assertIsNotNone(structure)
+        restored = Tensor(structure)
+
+        rest_conf = list(restored.confidence())
+        self.assertEqual(len(rest_conf), SMALL_KP_COUNT)
+        for k in range(SMALL_KP_COUNT):
+            self.assertAlmostEqual(rest_conf[k], SMALL_KP_CONFIDENCES[k], places=5,
+                                   msg=f"keypoint {k}")
+
+    # Scenario 7: roundtrip with mismatched confidences → default 1.0 confidences
+    def test_roundtrip_mismatched_confidence(self):
+        tensor = _build_small_keypoint_tensor(confidence=[0.9, 0.8])  # 2 for 3 kps
+        group = tensor.convert_to_meta(self.rmeta, self.od_mtd)
+        self.assertIsNotNone(group)
+        self.rmeta.set_relation(GstAnalytics.RelTypes.IS_PART_OF,
+                                group.id, self.od_mtd.id)
+
+        structure = Tensor.convert_to_tensor(group)
+        self.assertIsNotNone(structure)
+        restored = Tensor(structure)
+
+        rest_conf = list(restored.confidence())
+        self.assertEqual(len(rest_conf), SMALL_KP_COUNT)
+        for k in range(SMALL_KP_COUNT):
+            self.assertAlmostEqual(rest_conf[k], 1.0, places=5,
+                                   msg=f"keypoint {k} should be 1.0 (default) after mismatched roundtrip")
+
+
 if __name__ == '__main__':
     unittest.main()

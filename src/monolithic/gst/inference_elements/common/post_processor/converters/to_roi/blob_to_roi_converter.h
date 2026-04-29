@@ -106,7 +106,7 @@ class BlobToROIConverter : public BlobToMetaConverter {
                 };
 
                 const auto keypoints = tensor.data<float>();
-                auto confidences = tensor.get_vector<float>("confidence");
+                auto confidences = tensor.confidences();
 
                 // If all confidence values are identical, treat as a shared detection confidence
                 // and skip per-keypoint zeroing.

@@ -619,7 +619,7 @@ class Tensor {
             GstAnalyticsGroupMtd *group_mtd = reinterpret_cast<GstAnalyticsGroupMtd *>(mtd);
             const std::vector<guint> dimensions = dims();
             const std::vector<float> raw_positions = data<float>();
-            const std::vector<float> confidence = get_vector<float>("confidence");
+            const std::vector<float> confidence = confidences();
             const gsize keypoint_count = dimensions[0];
             const gsize keypoint_dimension = dimensions[1];
 
@@ -633,6 +633,13 @@ class Tensor {
                 throw std::runtime_error("Failed to read object detection meta");
             }
 
+            // validate raw_positions size vs keypoint_count * keypoint_dimension
+            if (raw_positions.size() != keypoint_count * keypoint_dimension) {
+                GST_WARNING("Keypoints: raw_positions size (%zu) does not match keypoint_count (%zu) * "
+                            "keypoint_dimension (%zu)",
+                            raw_positions.size(), keypoint_count, keypoint_dimension);
+            }
+
             // convert float positions to integer pixel coordinates
             gsize stride = (dim == GST_ANALYTICS_KEYPOINT_DIMENSIONS_3D) ? 3 : 2;
             std::vector<gint> positions(keypoint_count * stride);
@@ -641,6 +648,18 @@ class Tensor {
                 positions[k * stride + 1] = y + static_cast<gint>(h * raw_positions[k * keypoint_dimension + 1]);
                 if (stride == 3)
                     positions[k * stride + 2] = static_cast<gint>(raw_positions[k * keypoint_dimension + 2]);
+            }
+
+            // only pass confidence if its size matches keypoint_count
+            const gfloat *confidence_ptr = nullptr;
+            if (keypoint_count == 0) {
+                confidence_ptr = nullptr;
+            } else if (confidence.size() == keypoint_count) {
+                confidence_ptr = confidence.data();
+            } else if (!confidence.empty()) {
+                GST_WARNING("Keypoints: confidence size (%zu) does not match keypoint_count (%zu), "
+                            "ignoring confidence values",
+                            confidence.size(), keypoint_count);
             }
 
             // look up skeleton connections from descriptor
@@ -656,7 +675,7 @@ class Tensor {
 
             // create group with keypoints and skeleton in one call
             if (!gst_analytics_relation_meta_add_keypoints_group(meta, semantic_tag.c_str(), dim, positions.size(),
-                                                                 positions.data(), keypoint_count, confidence.data(),
+                                                                 positions.data(), keypoint_count, confidence_ptr,
                                                                  NULL, // visibilities
                                                                  skeleton_size, skeleton_data, group_mtd))
                 throw std::runtime_error("Failed to create keypoints group meta");
@@ -726,7 +745,7 @@ class Tensor {
                 gst_analytics_keypoint_mtd_get_position(kp, &keypoints[idx].px, &keypoints[idx].py, &keypoints[idx].pz,
                                                         &dim);
                 gst_analytics_keypoint_mtd_get_confidence(kp, &keypoints[idx].conf);
-                if (keypoints[idx].pz != 0)
+                if (dim == GST_ANALYTICS_KEYPOINT_DIMENSIONS_3D)
                     keypoint_dimension = 3;
                 idx++;
             }

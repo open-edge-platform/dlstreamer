@@ -516,6 +516,13 @@ class Tensor:
             if not success:
                 raise RuntimeError("Failed to read object detection meta")
 
+            # validate raw_data size vs keypoint_count * keypoint_dimension
+            if len(raw_data) != keypoint_count * keypoint_dimension:
+                import warnings
+                warnings.warn(
+                    f"Keypoints: raw_data size ({len(raw_data)}) does not match "
+                    f"keypoint_count ({keypoint_count}) * keypoint_dimension ({keypoint_dimension})")
+
             # convert float positions to integer pixel coordinates
             stride = 3 if dim == DLStreamerMeta.KeypointDimensions(3) else 2
             positions = []
@@ -528,13 +535,25 @@ class Tensor:
                     pz = int(raw_data[k * keypoint_dimension + 2])
                     positions.append(pz)
 
-            # confidences
-            if isinstance(confidence_val, list):
-                confidences = confidence_val
-            elif confidence_val is not None:
-                confidences = [confidence_val]
+            # confidences - only pass if size matches keypoint_count
+            if keypoint_count == 0:
+                confidences = None
+            elif isinstance(confidence_val, list):
+                try:
+                    confidences = [float(v) for v in confidence_val]
+                except (TypeError, ValueError):
+                    confidences = None
+            elif isinstance(confidence_val, (int, float)):
+                confidences = [float(confidence_val)]
             else:
-                confidences = [0.0] * keypoint_count
+                confidences = None
+
+            if confidences is not None and len(confidences) != keypoint_count:
+                import warnings
+                warnings.warn(
+                    f"Keypoints: confidence size ({len(confidences)}) does not match "
+                    f"keypoint_count ({keypoint_count}), ignoring confidence values")
+                confidences = None
 
             # look up skeleton connections from descriptor
             semantic_tag = self.format() or ""
@@ -617,7 +636,7 @@ class Tensor:
                 ok, conf = kp.get_confidence()
                 if not ok:
                     conf = 0.0
-                if pz != 0:
+                if dim == DLStreamerMeta.KeypointDimensions(3):
                     keypoint_dimension = 3
                 kp_data.append((px, py, pz, conf))
 
