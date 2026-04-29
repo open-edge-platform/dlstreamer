@@ -74,8 +74,8 @@ This downloads YOLOv8s and converts the mars-small128 re-ID model to OpenVINO IR
 # Direct gst-launch-1.0 command with local input video
 gst-launch-1.0 \
   filesrc location=video.mp4 ! decodebin3 ! \
-  gvadetect model=/path/to/yolov8s.xml device=CPU pre-proc-backend=opencv ! queue ! \
-  gvainference model=/path/to/mars_small128_fp32.xml device=CPU \
+  gvadetect model=/path/to/yolov8s.xml device=GPU ! queue ! \
+  gvainference model=/path/to/mars_small128_fp32.xml device=GPU \
     inference-region=roi-list object-class=person ! \
   gvatrack tracking-type=deep-sort \
     deepsort-cfg="max_age=60,max_cosine_distance=0.2,nn_budget=0,object_class=person,reid_max_age=30" ! queue ! \
