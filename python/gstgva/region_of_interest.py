@@ -375,12 +375,49 @@ class RegionOfInterest(object):
             )
 
             if not value:
-                raise RuntimeError(
-                    "RegionOfInterest:_iterate: Failed to get VideoRegionOfInterestMeta by id from buffer"
-                )
+                # Create GstVideoRegionOfInterestMeta from GstAnalytics data
+                success, x, y, w, h, confidence = od_mtd.get_location()
+                if not success:
+                    continue
+                label_quark = od_mtd.get_obj_type()
+                label = GLib.quark_to_string(label_quark) if label_quark else ""
 
-            roi_meta = ctypes.cast(
-                value, ctypes.POINTER(VideoRegionOfInterestMeta)
-            ).contents
+                video_roi_meta = GstVideo.buffer_add_video_region_of_interest_meta(
+                    buffer, label, x, y, w, h
+                )
+                if not video_roi_meta:
+                    raise RuntimeError(
+                        "RegionOfInterest:_iterate: Failed to add VideoRegionOfInterestMeta to buffer"
+                    )
+                video_roi_meta.id = od_mtd.id
+
+                roi_meta = ctypes.cast(
+                    hash(video_roi_meta), ctypes.POINTER(VideoRegionOfInterestMeta)
+                ).contents
+
+                # Add detection tensor
+                detection_structure = libgst.gst_structure_new_empty("detection".encode("utf-8"))
+                det_tensor = Tensor(detection_structure)
+                det_tensor["confidence"] = float(confidence)
+                det_tensor["x_min"] = float(x)
+                det_tensor["x_max"] = float(x + w)
+                det_tensor["y_min"] = float(y)
+                det_tensor["y_max"] = float(y + h)
+                libgstvideo.gst_video_region_of_interest_meta_add_param(roi_meta, detection_structure)
+
+                # Convert related analytics metadata to GstStructure and add to roi params
+                for rlt_mtd in relation_meta:
+                    if rlt_mtd.id == od_mtd.id:
+                        continue
+                    rel = relation_meta.get_relation(od_mtd.id, rlt_mtd.id)
+                    if rel not in (GstAnalytics.RelTypes.CONTAIN, GstAnalytics.RelTypes.RELATE_TO):
+                        continue
+                    s = Tensor.convert_to_tensor(rlt_mtd)
+                    if s is not None:
+                        libgstvideo.gst_video_region_of_interest_meta_add_param(roi_meta, s)
+            else:
+                roi_meta = ctypes.cast(
+                    value, ctypes.POINTER(VideoRegionOfInterestMeta)
+                ).contents
 
             yield RegionOfInterest(od_mtd, roi_meta)
