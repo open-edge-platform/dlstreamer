@@ -169,14 +169,6 @@ else
   SOURCE_ELEMENT="filesrc location=${INPUT}"
 fi
 
-case "$DEVICE" in
-  "CPU") PREPROC_BACKEND="opencv" ;;
-  "GPU") PREPROC_BACKEND="va-surface-sharing" ;;
-  "NPU") PREPROC_BACKEND="va" ;;
-  *) echo "Error: Unsupported DEVICE value: $DEVICE"
-     exit 1 ;;
-esac
-
 PIPELINE="gst-launch-1.0 \
   ${SOURCE_ELEMENT} ! decodebin3 ! \
   gvadetect model=${DET_MODEL} device=${DEVICE} ! queue ! \
