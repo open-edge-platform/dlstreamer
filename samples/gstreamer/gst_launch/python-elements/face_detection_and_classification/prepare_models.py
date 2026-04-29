@@ -162,9 +162,9 @@ def main():
     os.close(real_stdout_fd)
     sys.stdout = os.fdopen(1, "w")
 
-    print(f"DETECT_MODEL_PATH={detect_path}")
-    print(f"CLASS_MODEL_PATH={classify_path}")
-    print(f"GENDER_MODEL_PATH={gender_path}")
+    print(f"DETECT_MODEL_PATH={detect_path}") # lgtm[py/clear-text-logging-sensitive-data]
+    print(f"CLASS_MODEL_PATH={classify_path}")# lgtm[py/clear-text-logging-sensitive-data]
+    print(f"GENDER_MODEL_PATH={gender_path}") # lgtm[py/clear-text-logging-sensitive-data]
 
 
 if __name__ == "__main__":
