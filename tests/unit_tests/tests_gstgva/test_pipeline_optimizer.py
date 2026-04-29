@@ -100,7 +100,7 @@ class TestOptimizer(unittest.TestCase):
     #         f"baseline matches original pipeline, best candidate has {best_candidate_streams} streams @ {best_candidate_fps} FPS "
     #         f"vs baseline {baseline_streams} streams")
 
-    def test_optimize_for_fps_and_get_optimal_pipeline(self):
+    def test_optimize_for_fps_and_get_optimal_pipeline_and_get_baseline_pipeline(self):
         """Test optimize_for_fps and get_optimal_pipeline with simple CPU pipeline"""
         optimizer = DLSOptimizer()
         optimized_pipeline, fps = optimizer.optimize_for_fps(self.simple_pipeline, 100)
@@ -119,6 +119,18 @@ class TestOptimizer(unittest.TestCase):
         # Allow a small tolerance for FPS comparison
         self.assertAlmostEqual(optimal_fps, fps, places=2,
                             msg=f"FPS mismatch: optimized {fps} vs optimal {optimal_fps}")
+
+        # Get the baseline pipeline,fps and stream count from the optimizer
+        baseline_pipeline, baseline_fps, baseline_streams = optimizer.get_baseline_pipeline()
+        print(f"Baseline pipeline: {baseline_pipeline} @ {baseline_streams} streams @{baseline_fps} fps")
+
+        # Compare baseline pipeline with the original simple_pipeline
+        print(f"Original pipeline: {self.simple_pipeline}")
+
+        # Check if baseline pipeline matches the original pipeline we started with
+        self.assertEqual(baseline_pipeline, self.simple_pipeline,
+                        f"Baseline pipeline {baseline_pipeline} doesn't match "
+                        f"original pipeline {self.simple_pipeline}")
 
         print(f"✓ Test passed: Optimized pipeline matches optimal pipeline with FPS {fps}")
 
