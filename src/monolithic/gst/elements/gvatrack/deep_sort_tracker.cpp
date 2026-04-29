@@ -68,7 +68,7 @@ Track::Track(const cv::Rect_<float> &bbox, int track_id, int n_init, int max_age
  */
 void Track::initiate(const cv::Rect_<float> &bbox) {
     // Initialize Kalman filter with 8-dimensional state space (x, y, aspect_ratio, height, vx, vy, va, vh)
-    // Using CV_64F (double) to match Python numpy's float64 precision
+    // Using CV_64F (double) for better numerical stability in matrix operations
     mean_ = cv::Mat::zeros(8, 1, CV_64F);
     mean_.at<double>(0) = static_cast<double>(bbox.x + bbox.width / 2.0f);
     mean_.at<double>(1) = static_cast<double>(bbox.y + bbox.height / 2.0f);
@@ -543,7 +543,6 @@ std::vector<Detection> DeepSortTracker::convert_detections(const std::vector<GVA
  *          using a cascade that prioritizes recently-seen tracks.
  * Stage 2: Unconfirmed tracks + recently-missed confirmed tracks matched by IoU distance.
  *
- * This matches the original Python Deep SORT implementation.
  */
 void DeepSortTracker::associate_detections_to_tracks(const std::vector<Detection> &detections,
                                                      std::vector<std::pair<int, int>> &matches,
