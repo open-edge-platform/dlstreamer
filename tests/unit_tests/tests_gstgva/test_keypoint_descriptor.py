@@ -53,28 +53,28 @@ class KeypointDescriptorTestCase(unittest.TestCase):
         desc = DLStreamerMeta.keypoint_descriptor_lookup('body-pose/coco-17')
         self.assertIsNotNone(desc)
 
-    def test_get_semantic_tag_coco17(self):
+    def test_semantic_tag_coco17(self):
         desc = DLStreamerMeta.KeypointDescriptor.lookup('body-pose/coco-17')
-        self.assertEqual(desc.get_semantic_tag(), 'body-pose/coco-17')
+        self.assertEqual(desc.semantic_tag, 'body-pose/coco-17')
 
-    def test_get_semantic_tag_openpose18(self):
+    def test_semantic_tag_openpose18(self):
         desc = DLStreamerMeta.KeypointDescriptor.lookup(
             'body-pose/openpose-18')
-        self.assertEqual(desc.get_semantic_tag(), 'body-pose/openpose-18')
+        self.assertEqual(desc.semantic_tag, 'body-pose/openpose-18')
 
-    def test_get_point_count_coco17(self):
+    def test_point_count_coco17(self):
         desc = DLStreamerMeta.KeypointDescriptor.lookup('body-pose/coco-17')
-        self.assertEqual(desc.get_point_count(), 17)
+        self.assertEqual(desc.point_count, 17)
 
-    def test_get_point_count_openpose18(self):
+    def test_point_count_openpose18(self):
         desc = DLStreamerMeta.KeypointDescriptor.lookup(
             'body-pose/openpose-18')
-        self.assertEqual(desc.get_point_count(), 18)
+        self.assertEqual(desc.point_count, 18)
 
-    def test_get_point_count_centerface5(self):
+    def test_point_count_centerface5(self):
         desc = DLStreamerMeta.KeypointDescriptor.lookup(
             'face-landmarks/centerface-5')
-        self.assertEqual(desc.get_point_count(), 5)
+        self.assertEqual(desc.point_count, 5)
 
     def test_get_point_name_coco17_first(self):
         desc = DLStreamerMeta.KeypointDescriptor.lookup('body-pose/coco-17')
@@ -98,19 +98,19 @@ class KeypointDescriptorTestCase(unittest.TestCase):
         desc = DLStreamerMeta.KeypointDescriptor.lookup('body-pose/coco-17')
         self.assertIsNone(desc.get_point_name(100))
 
-    def test_get_skeleton_connection_count_coco17(self):
+    def test_skeleton_connection_count_coco17(self):
         desc = DLStreamerMeta.KeypointDescriptor.lookup('body-pose/coco-17')
-        self.assertEqual(desc.get_skeleton_connection_count(), 18)
+        self.assertEqual(desc.skeleton_connection_count, 18)
 
-    def test_get_skeleton_connection_count_openpose18(self):
+    def test_skeleton_connection_count_openpose18(self):
         desc = DLStreamerMeta.KeypointDescriptor.lookup(
             'body-pose/openpose-18')
-        self.assertEqual(desc.get_skeleton_connection_count(), 13)
+        self.assertEqual(desc.skeleton_connection_count, 13)
 
-    def test_get_skeleton_connection_count_centerface5(self):
+    def test_skeleton_connection_count_centerface5(self):
         desc = DLStreamerMeta.KeypointDescriptor.lookup(
             'face-landmarks/centerface-5')
-        self.assertEqual(desc.get_skeleton_connection_count(), 0)
+        self.assertEqual(desc.skeleton_connection_count, 0)
 
     def test_get_skeleton_connection_coco17_first(self):
         desc = DLStreamerMeta.KeypointDescriptor.lookup('body-pose/coco-17')
@@ -144,15 +144,15 @@ class KeypointDescriptorTestCase(unittest.TestCase):
             'shoulder_l', 'shoulder_r', 'elbow_l', 'elbow_r',
             'wrist_l', 'wrist_r', 'hip_l', 'hip_r',
             'knee_l', 'knee_r', 'ankle_l', 'ankle_r']
-        names = [desc.get_point_name(i) for i in range(desc.get_point_count())]
+        names = [desc.get_point_name(i) for i in range(desc.point_count)]
         self.assertEqual(names, expected)
 
     def test_hrnet_coco17_shares_point_names_with_coco17(self):
         coco = DLStreamerMeta.KeypointDescriptor.lookup('body-pose/coco-17')
         hrnet = DLStreamerMeta.KeypointDescriptor.lookup(
             'body-pose/hrnet-coco-17')
-        self.assertEqual(coco.get_point_count(), hrnet.get_point_count())
-        for i in range(coco.get_point_count()):
+        self.assertEqual(coco.point_count, hrnet.point_count)
+        for i in range(coco.point_count):
             self.assertEqual(coco.get_point_name(i),
                              hrnet.get_point_name(i))
 
@@ -162,8 +162,8 @@ class KeypointDescriptorTestCase(unittest.TestCase):
             'body-pose/hrnet-coco-17')
         # Both have 17 points but different skeleton connection counts
         self.assertNotEqual(
-            coco.get_skeleton_connection_count(),
-            hrnet.get_skeleton_connection_count())
+            coco.skeleton_connection_count,
+            hrnet.skeleton_connection_count)
 
 
 if __name__ == '__main__':

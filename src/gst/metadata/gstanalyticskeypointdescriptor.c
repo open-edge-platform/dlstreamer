@@ -132,59 +132,24 @@ const GstAnalyticsKeypointDescriptor *gst_analytics_keypoint_descriptor_lookup(c
 }
 
 /**
- * gst_analytics_keypoint_descriptor_get_semantic_tag:
- * @desc: a #GstAnalyticsKeypointDescriptor
- *
- * Get the semantic tag string that uniquely identifies the keypoint layout.
- *
- * Returns: (transfer none) (nullable): the semantic tag, or %NULL.
- */
-const gchar *gst_analytics_keypoint_descriptor_get_semantic_tag(const GstAnalyticsKeypointDescriptor *desc) {
-    g_return_val_if_fail(desc != NULL, NULL);
-    return desc->semantic_tag;
-}
-
-/**
- * gst_analytics_keypoint_descriptor_get_point_count:
- * @desc: a #GstAnalyticsKeypointDescriptor
- *
- * Get the number of keypoints described by @desc.
- *
- * Returns: the number of keypoints.
- */
-gsize gst_analytics_keypoint_descriptor_get_point_count(const GstAnalyticsKeypointDescriptor *desc) {
-    g_return_val_if_fail(desc != NULL, 0);
-    return desc->point_count;
-}
-
-/**
  * gst_analytics_keypoint_descriptor_get_point_name:
  * @desc: a #GstAnalyticsKeypointDescriptor
  * @index: index of the keypoint (must be less than the point count)
  *
  * Get the name of the keypoint at @index.
  *
+ * This accessor exists for GObject Introspection (Python) bindings.
+ * C/C++ code should access the struct fields directly.
+ *
  * Returns: (transfer none) (nullable): the keypoint name, or %NULL if
  *   @index is out of range.
  */
+GST_ANALYTICS_META_API
 const gchar *gst_analytics_keypoint_descriptor_get_point_name(const GstAnalyticsKeypointDescriptor *desc, gsize index) {
     g_return_val_if_fail(desc != NULL, NULL);
     if (index >= desc->point_count)
         return NULL;
     return desc->point_names[index];
-}
-
-/**
- * gst_analytics_keypoint_descriptor_get_skeleton_connection_count:
- * @desc: a #GstAnalyticsKeypointDescriptor
- *
- * Get the number of skeleton connection pairs in @desc.
- *
- * Returns: the number of skeleton connection pairs.
- */
-gsize gst_analytics_keypoint_descriptor_get_skeleton_connection_count(const GstAnalyticsKeypointDescriptor *desc) {
-    g_return_val_if_fail(desc != NULL, 0);
-    return desc->skeleton_connection_count;
 }
 
 /**
@@ -199,9 +164,13 @@ gsize gst_analytics_keypoint_descriptor_get_skeleton_connection_count(const GstA
  * between two keypoints identified by their indices into the point_names
  * array.
  *
+ * This accessor exists for GObject Introspection (Python) bindings.
+ * C/C++ code should access the struct fields directly.
+ *
  * Returns: %TRUE if the connection was retrieved successfully,
  *   %FALSE if @index is out of range or @desc has no skeleton.
  */
+GST_ANALYTICS_META_API
 gboolean gst_analytics_keypoint_descriptor_get_skeleton_connection(const GstAnalyticsKeypointDescriptor *desc,
                                                                    gsize index, gint *from_idx, gint *to_idx) {
     g_return_val_if_fail(desc != NULL, FALSE);

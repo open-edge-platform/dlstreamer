@@ -20,6 +20,7 @@ set(TEST_SOURCES
     region_of_interest_test.cpp
     tensor_test.cpp
     tensor_convert_test.cpp
+    keypoint_descriptor_test.cpp
 )
 
 add_executable(${TARGET_NAME} ${TEST_SOURCES})

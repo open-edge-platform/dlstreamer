@@ -82,23 +82,10 @@ gst_analytics_keypoint_descriptor_lookup (const gchar *semantic_tag);
 
 Look up a built-in descriptor by its semantic tag. Returns `NULL` if no descriptor matches.
 
-#### `gst_analytics_keypoint_descriptor_get_semantic_tag`
-
-```c
-const gchar *
-gst_analytics_keypoint_descriptor_get_semantic_tag (const GstAnalyticsKeypointDescriptor *desc);
-```
-
-Returns the semantic tag string (e.g. `"body-pose/coco-17"`).
-
-#### `gst_analytics_keypoint_descriptor_get_point_count`
-
-```c
-gsize
-gst_analytics_keypoint_descriptor_get_point_count (const GstAnalyticsKeypointDescriptor *desc);
-```
-
-Returns the number of keypoints in the layout.
+> **Note:** The `semantic_tag`, `point_count`, and `skeleton_connection_count` fields are accessible
+> directly on the struct in both C/C++ and Python. The indexed accessors `get_point_name()` and
+> `get_skeleton_connection()` are available as methods (needed in Python because the array fields
+> cannot be indexed via GObject Introspection).
 
 #### `gst_analytics_keypoint_descriptor_get_point_name`
 
@@ -109,15 +96,6 @@ gst_analytics_keypoint_descriptor_get_point_name (const GstAnalyticsKeypointDesc
 ```
 
 Returns the name of keypoint at `index`, or `NULL` if out of range.
-
-#### `gst_analytics_keypoint_descriptor_get_skeleton_connection_count`
-
-```c
-gsize
-gst_analytics_keypoint_descriptor_get_skeleton_connection_count (const GstAnalyticsKeypointDescriptor *desc);
-```
-
-Returns the number of skeleton edge pairs. Zero for descriptors without a skeleton (e.g. face landmarks).
 
 #### `gst_analytics_keypoint_descriptor_get_skeleton_connection`
 
@@ -148,23 +126,19 @@ void print_descriptor_info (void)
         return;
     }
 
-    g_print ("Descriptor: %s\n", gst_analytics_keypoint_descriptor_get_semantic_tag (desc));
-    g_print ("Keypoints (%zu):\n", gst_analytics_keypoint_descriptor_get_point_count (desc));
+    g_print ("Descriptor: %s\n", desc->semantic_tag);
+    g_print ("Keypoints (%zu):\n", desc->point_count);
 
-    for (gsize i = 0; i < gst_analytics_keypoint_descriptor_get_point_count (desc); i++) {
-        g_print ("  [%zu] %s\n", i, gst_analytics_keypoint_descriptor_get_point_name (desc, i));
+    for (gsize i = 0; i < desc->point_count; i++) {
+        g_print ("  [%zu] %s\n", i, desc->point_names[i]);
     }
 
-    g_print ("Skeleton connections (%zu):\n",
-             gst_analytics_keypoint_descriptor_get_skeleton_connection_count (desc));
+    g_print ("Skeleton connections (%zu):\n", desc->skeleton_connection_count);
 
-    for (gsize i = 0; i < gst_analytics_keypoint_descriptor_get_skeleton_connection_count (desc); i++) {
-        gint from, to;
-        if (gst_analytics_keypoint_descriptor_get_skeleton_connection (desc, i, &from, &to)) {
-            g_print ("  %s -> %s\n",
-                     gst_analytics_keypoint_descriptor_get_point_name (desc, from),
-                     gst_analytics_keypoint_descriptor_get_point_name (desc, to));
-        }
+    for (gsize i = 0; i < desc->skeleton_connection_count; i++) {
+        gint from = desc->skeleton_connections[i * 2];
+        gint to   = desc->skeleton_connections[i * 2 + 1];
+        g_print ("  %s -> %s\n", desc->point_names[from], desc->point_names[to]);
     }
 }
 ```
@@ -229,8 +203,8 @@ void read_pose_from_group (GstAnalyticsRelationMeta *rmeta,
         gst_analytics_keypoint_mtd_get_position (kp, &x, &y, &z, &dim);
         gst_analytics_keypoint_mtd_get_confidence (kp, &conf);
 
-        const gchar *name = (idx < gst_analytics_keypoint_descriptor_get_point_count (desc))
-            ? gst_analytics_keypoint_descriptor_get_point_name (desc, idx)
+        const gchar *name = (idx < desc->point_count)
+            ? desc->point_names[idx]
             : "unknown";
 
         g_print ("  %s: (%d, %d) conf=%.2f\n", name, x, y, conf);
@@ -259,15 +233,15 @@ Gst.init(None)
 
 The Python binding is auto-generated via GObject Introspection from the GIR file. The class mirrors the C API with Pythonic conventions.
 
-### Methods
+### Fields and Methods
 
-| Method | Return type | Description |
+| Access | Return type | Description |
 |---|---|---|
 | `KeypointDescriptor.lookup(semantic_tag)` | `KeypointDescriptor` or `None` | Static method. Look up a built-in descriptor by tag. |
-| `desc.get_semantic_tag()` | `str` or `None` | Get the semantic tag string. |
-| `desc.get_point_count()` | `int` | Get the number of keypoints. |
+| `desc.semantic_tag` | `str` | The semantic tag string (e.g. `"body-pose/coco-17"`). |
+| `desc.point_count` | `int` | The number of keypoints. |
 | `desc.get_point_name(index)` | `str` or `None` | Get keypoint name at index. |
-| `desc.get_skeleton_connection_count()` | `int` | Get number of skeleton edges. |
+| `desc.skeleton_connection_count` | `int` | Number of skeleton edges. |
 | `desc.get_skeleton_connection(index)` | `(bool, int, int)` | Get skeleton edge: `(ok, from_idx, to_idx)`. |
 
 > **Note:** `KeypointDescriptor.lookup(None)` raises `TypeError` because the parameter is not nullable in the GI binding. Always pass a string.
@@ -286,13 +260,13 @@ Gst.init(None)
 
 desc = DLStreamerMeta.KeypointDescriptor.lookup('body-pose/coco-17')
 
-print(f"Descriptor: {desc.get_semantic_tag()}")
-print(f"Keypoints ({desc.get_point_count()}):")
-for i in range(desc.get_point_count()):
+print(f"Descriptor: {desc.semantic_tag}")
+print(f"Keypoints ({desc.point_count}):")
+for i in range(desc.point_count):
     print(f"  [{i}] {desc.get_point_name(i)}")
 
-print(f"Skeleton connections ({desc.get_skeleton_connection_count()}):")
-for i in range(desc.get_skeleton_connection_count()):
+print(f"Skeleton connections ({desc.skeleton_connection_count}):")
+for i in range(desc.skeleton_connection_count):
     ok, from_idx, to_idx = desc.get_skeleton_connection(i)
     if ok:
         print(f"  {desc.get_point_name(from_idx)} -> {desc.get_point_name(to_idx)}")
@@ -334,7 +308,7 @@ def read_keypoints_from_group(rmeta, group):
         ok, x, y, z, dim = kp.get_position()
         ok_c, conf = kp.get_confidence()
 
-        name = desc.get_point_name(idx) if idx < desc.get_point_count() else "unknown"
+        name = desc.get_point_name(idx) if idx < desc.point_count else "unknown"
         print(f"  {name}: ({x}, {y}) conf={conf:.2f}")
         idx += 1
 ```
@@ -348,14 +322,14 @@ def create_pose_group(rmeta, positions, confidences):
 
     # Build skeleton pairs list from descriptor
     skeleton = []
-    for i in range(desc.get_skeleton_connection_count()):
+    for i in range(desc.skeleton_connection_count):
         ok, from_idx, to_idx = desc.get_skeleton_connection(i)
         if ok:
             skeleton.extend([from_idx, to_idx])
 
     ok, group = DLStreamerMeta.relation_meta_add_keypoints_group(
         rmeta,
-        desc.get_semantic_tag(),
+        desc.semantic_tag,
         DLStreamerMeta.KeypointDimensions(2),
         positions,
         confidences,
@@ -372,13 +346,13 @@ coco = DLStreamerMeta.KeypointDescriptor.lookup('body-pose/coco-17')
 hrnet = DLStreamerMeta.KeypointDescriptor.lookup('body-pose/hrnet-coco-17')
 
 # Both have 17 keypoints with the same names
-assert coco.get_point_count() == hrnet.get_point_count()
-for i in range(coco.get_point_count()):
+assert coco.point_count == hrnet.point_count
+for i in range(coco.point_count):
     assert coco.get_point_name(i) == hrnet.get_point_name(i)
 
 # But different skeleton connections
-print(f"COCO-17 skeleton edges: {coco.get_skeleton_connection_count()}")
-print(f"HRNet skeleton edges:  {hrnet.get_skeleton_connection_count()}")
+print(f"COCO-17 skeleton edges: {coco.skeleton_connection_count}")
+print(f"HRNet skeleton edges:  {hrnet.skeleton_connection_count}")
 ```
 
 ---

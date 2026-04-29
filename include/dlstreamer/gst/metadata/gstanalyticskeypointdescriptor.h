@@ -44,21 +44,19 @@ typedef struct {
 GST_ANALYTICS_META_API
 const GstAnalyticsKeypointDescriptor *gst_analytics_keypoint_descriptor_lookup(const gchar *semantic_tag);
 
-GST_ANALYTICS_META_API
-const gchar *gst_analytics_keypoint_descriptor_get_semantic_tag(const GstAnalyticsKeypointDescriptor *desc);
-
-GST_ANALYTICS_META_API
-gsize gst_analytics_keypoint_descriptor_get_point_count(const GstAnalyticsKeypointDescriptor *desc);
-
+#ifdef __GI_SCANNER__
+/*
+ * Indexed accessors for GObject Introspection (Python bindings) only.
+ * C/C++ code should access struct fields directly or use
+ * descriptor->point_names[index] and descriptor->skeleton_connections[index*2].
+ */
 GST_ANALYTICS_META_API
 const gchar *gst_analytics_keypoint_descriptor_get_point_name(const GstAnalyticsKeypointDescriptor *desc, gsize index);
 
 GST_ANALYTICS_META_API
-gsize gst_analytics_keypoint_descriptor_get_skeleton_connection_count(const GstAnalyticsKeypointDescriptor *desc);
-
-GST_ANALYTICS_META_API
 gboolean gst_analytics_keypoint_descriptor_get_skeleton_connection(const GstAnalyticsKeypointDescriptor *desc,
                                                                    gsize index, gint *from_idx, gint *to_idx);
+#endif
 
 G_END_DECLS
 

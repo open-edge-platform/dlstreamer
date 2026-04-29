@@ -559,9 +559,9 @@ class Tensor:
             semantic_tag = self.format() or ""
             descriptor = DLStreamerMeta.KeypointDescriptor.lookup(semantic_tag)
             skeleton = None
-            if descriptor and descriptor.get_skeleton_connection_count() > 0:
+            if descriptor and descriptor.skeleton_connection_count > 0:
                 skeleton = []
-                for i in range(descriptor.get_skeleton_connection_count()):
+                for i in range(descriptor.skeleton_connection_count):
                     ok, from_idx, to_idx = descriptor.get_skeleton_connection(i)
                     if ok:
                         skeleton.append(from_idx)
@@ -658,7 +658,7 @@ class Tensor:
             semantic_tag = group_mtd.get_semantic_tag() or ""
             descriptor = DLStreamerMeta.KeypointDescriptor.lookup(semantic_tag) if semantic_tag else None
             point_names = []
-            if descriptor and descriptor.get_point_count() == keypoint_count:
+            if descriptor and descriptor.point_count == keypoint_count:
                 point_names = [descriptor.get_point_name(k) for k in range(keypoint_count)]
 
             # reconstruct skeleton from RELATE_TO relations between keypoints

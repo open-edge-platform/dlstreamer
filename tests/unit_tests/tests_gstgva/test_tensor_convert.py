@@ -77,13 +77,13 @@ def _coco17_descriptor():
 
 def _descriptor_point_names(desc):
     """Extract all point names from a keypoint descriptor."""
-    return [desc.get_point_name(i) for i in range(desc.get_point_count())]
+    return [desc.get_point_name(i) for i in range(desc.point_count)]
 
 
 def _descriptor_skeleton(desc):
     """Extract skeleton connections as a flat list from a keypoint descriptor."""
     skeleton = []
-    for i in range(desc.get_skeleton_connection_count()):
+    for i in range(desc.skeleton_connection_count):
         ok, from_idx, to_idx = desc.get_skeleton_connection(i)
         assert ok
         skeleton.extend([from_idx, to_idx])
@@ -102,7 +102,7 @@ def _build_keypoint_tensor():
     tensor["layer_name"] = "output"
     tensor["model_name"] = "Model0"
     tensor.set_type(TENSOR_TYPE_KEYPOINTS)
-    tensor.set_format(desc.get_semantic_tag())
+    tensor.set_format(desc.semantic_tag)
     tensor.set_dims([KEYPOINT_COUNT, KEYPOINT_DIM])
     tensor.set_data(numpy.array(KEYPOINT_POSITIONS_NORM, dtype=numpy.float32))
     tensor.set_precision(Tensor.PRECISION.FP32)
@@ -174,7 +174,7 @@ class KeypointConvertToMetaTestCase(unittest.TestCase):
         tensor = _build_keypoint_tensor()
         group = tensor.convert_to_meta(self.rmeta, self.od_mtd)
         self.assertEqual(group.get_semantic_tag(),
-                         _coco17_descriptor().get_semantic_tag())
+                         _coco17_descriptor().semantic_tag)
 
     def test_keypoint_positions_are_pixel_coords(self):
         """Positions should be converted from normalized to pixel coords using bbox."""
@@ -494,7 +494,7 @@ def _build_openpose18_keypoint_tensor():
     tensor = Tensor(structure)
 
     tensor.set_type(TENSOR_TYPE_KEYPOINTS)
-    tensor.set_format(desc.get_semantic_tag())
+    tensor.set_format(desc.semantic_tag)
     tensor.set_dims([OPENPOSE18_COUNT, KEYPOINT_DIM])
     tensor.set_data(numpy.array(OPENPOSE18_POSITIONS_NORM, dtype=numpy.float32))
     tensor.set_precision(Tensor.PRECISION.FP32)

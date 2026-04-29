@@ -192,28 +192,28 @@ allowing to understand the grouping semantic. Pass %NULL to clear the tag.</doc>
       </function>
     </record>
     <constant name="KEYPOINT_BODY_POSE_COCO_17" value="body-pose/coco-17" c:type="GST_ANALYTICS_KEYPOINT_BODY_POSE_COCO_17">
-      <source-position filename="include/dlstreamer/gst/metadata/gstanalyticskeypointdescriptor.h" line="41" />
+      <source-position filename="include/dlstreamer/gst/metadata/gstanalyticskeypointdescriptor.h" line="39" />
       <type name="utf8" c:type="gchar*" />
     </constant>
     <constant name="KEYPOINT_BODY_POSE_HRNET_COCO_17" value="body-pose/hrnet-coco-17" c:type="GST_ANALYTICS_KEYPOINT_BODY_POSE_HRNET_COCO_17">
-      <source-position filename="include/dlstreamer/gst/metadata/gstanalyticskeypointdescriptor.h" line="43" />
+      <source-position filename="include/dlstreamer/gst/metadata/gstanalyticskeypointdescriptor.h" line="41" />
       <type name="utf8" c:type="gchar*" />
     </constant>
     <constant name="KEYPOINT_BODY_POSE_OPENPOSE_18" value="body-pose/openpose-18" c:type="GST_ANALYTICS_KEYPOINT_BODY_POSE_OPENPOSE_18">
-      <source-position filename="include/dlstreamer/gst/metadata/gstanalyticskeypointdescriptor.h" line="42" />
+      <source-position filename="include/dlstreamer/gst/metadata/gstanalyticskeypointdescriptor.h" line="40" />
       <type name="utf8" c:type="gchar*" />
     </constant>
     <constant name="KEYPOINT_FACE_CENTERFACE_5" value="face-landmarks/centerface-5" c:type="GST_ANALYTICS_KEYPOINT_FACE_CENTERFACE_5">
-      <source-position filename="include/dlstreamer/gst/metadata/gstanalyticskeypointdescriptor.h" line="44" />
+      <source-position filename="include/dlstreamer/gst/metadata/gstanalyticskeypointdescriptor.h" line="42" />
       <type name="utf8" c:type="gchar*" />
     </constant>
-    <record name="KeypointDescriptor" c:type="GstAnalyticsKeypointDescriptor" version="1.30">
+    <record name="KeypointDescriptor" c:type="GstAnalyticsKeypointDescriptor">
       <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointdescriptor.c" line="7">#GstAnalyticsKeypointDescriptor associates a semantic tag with a set of
 named keypoints and skeleton connections.  Use
 gst_analytics_keypoint_descriptor_lookup() to find a descriptor by its
 semantic tag, then use the accessor functions to query point names and
 skeleton edges.</doc>
-      <source-position filename="include/dlstreamer/gst/metadata/gstanalyticskeypointdescriptor.h" line="38" />
+      <source-position filename="include/dlstreamer/gst/metadata/gstanalyticskeypointdescriptor.h" line="36" />
       <field name="semantic_tag" writable="1">
         <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gstanalyticskeypointdescriptor.h" line="18">Unique identifier string for this keypoint format.</doc>
         <type name="utf8" c:type="const char*" />
@@ -236,109 +236,73 @@ skeleton edges.</doc>
         <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gstanalyticskeypointdescriptor.h" line="24">Number of skeleton connection pairs.</doc>
         <type name="gsize" c:type="gsize" />
       </field>
-      <method name="get_point_count" c:identifier="gst_analytics_keypoint_descriptor_get_point_count" version="1.30">
-        <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointdescriptor.c" line="167">Get the number of keypoints described by @desc.</doc>
-        <source-position filename="include/dlstreamer/gst/metadata/gstanalyticskeypointdescriptor.h" line="56" />
-        <return-value transfer-ownership="none">
-          <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointdescriptor.c" line="173">the number of keypoints.</doc>
-          <type name="gsize" c:type="gsize" />
-        </return-value>
-        <parameters>
-          <instance-parameter name="desc" transfer-ownership="none">
-            <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointdescriptor.c" line="169">a #GstAnalyticsKeypointDescriptor</doc>
-            <type name="KeypointDescriptor" c:type="const GstAnalyticsKeypointDescriptor*" />
-          </instance-parameter>
-        </parameters>
-      </method>
-      <method name="get_point_name" c:identifier="gst_analytics_keypoint_descriptor_get_point_name" version="1.30">
-        <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointdescriptor.c" line="184">Get the name of the keypoint at @index.</doc>
-        <source-position filename="include/dlstreamer/gst/metadata/gstanalyticskeypointdescriptor.h" line="60" />
+      <method name="get_point_name" c:identifier="gst_analytics_keypoint_descriptor_get_point_name">
+        <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointdescriptor.c" line="134">Get the name of the keypoint at @index.
+
+This accessor exists for GObject Introspection (Python) bindings.
+C/C++ code should access the struct fields directly.</doc>
+        <source-position filename="include/dlstreamer/gst/metadata/gstanalyticskeypointdescriptor.h" line="54" />
         <return-value transfer-ownership="none" nullable="1">
-          <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointdescriptor.c" line="191">the keypoint name, or %NULL if
+          <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointdescriptor.c" line="144">the keypoint name, or %NULL if
   @index is out of range.</doc>
           <type name="utf8" c:type="const gchar*" />
         </return-value>
         <parameters>
           <instance-parameter name="desc" transfer-ownership="none">
-            <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointdescriptor.c" line="186">a #GstAnalyticsKeypointDescriptor</doc>
+            <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointdescriptor.c" line="136">a #GstAnalyticsKeypointDescriptor</doc>
             <type name="KeypointDescriptor" c:type="const GstAnalyticsKeypointDescriptor*" />
           </instance-parameter>
           <parameter name="index" transfer-ownership="none">
-            <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointdescriptor.c" line="187">index of the keypoint (must be less than the point count)</doc>
+            <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointdescriptor.c" line="137">index of the keypoint (must be less than the point count)</doc>
             <type name="gsize" c:type="gsize" />
           </parameter>
         </parameters>
       </method>
-      <method name="get_semantic_tag" c:identifier="gst_analytics_keypoint_descriptor_get_semantic_tag" version="1.30">
-        <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointdescriptor.c" line="150">Get the semantic tag string that uniquely identifies the keypoint layout.</doc>
-        <source-position filename="include/dlstreamer/gst/metadata/gstanalyticskeypointdescriptor.h" line="52" />
-        <return-value transfer-ownership="none" nullable="1">
-          <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointdescriptor.c" line="156">the semantic tag, or %NULL.</doc>
-          <type name="utf8" c:type="const gchar*" />
-        </return-value>
-        <parameters>
-          <instance-parameter name="desc" transfer-ownership="none">
-            <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointdescriptor.c" line="152">a #GstAnalyticsKeypointDescriptor</doc>
-            <type name="KeypointDescriptor" c:type="const GstAnalyticsKeypointDescriptor*" />
-          </instance-parameter>
-        </parameters>
-      </method>
-      <method name="get_skeleton_connection" c:identifier="gst_analytics_keypoint_descriptor_get_skeleton_connection" version="1.30">
-        <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointdescriptor.c" line="223">Get a skeleton connection at @index.  Each connection is a directed edge
+      <method name="get_skeleton_connection" c:identifier="gst_analytics_keypoint_descriptor_get_skeleton_connection">
+        <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointdescriptor.c" line="155">Get a skeleton connection at @index.  Each connection is a directed edge
 between two keypoints identified by their indices into the point_names
-array.</doc>
-        <source-position filename="include/dlstreamer/gst/metadata/gstanalyticskeypointdescriptor.h" line="69" />
+array.
+
+This accessor exists for GObject Introspection (Python) bindings.
+C/C++ code should access the struct fields directly.</doc>
+        <source-position filename="include/dlstreamer/gst/metadata/gstanalyticskeypointdescriptor.h" line="57" />
         <return-value transfer-ownership="none">
-          <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointdescriptor.c" line="235">%TRUE if the connection was retrieved successfully,
+          <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointdescriptor.c" line="170">%TRUE if the connection was retrieved successfully,
   %FALSE if @index is out of range or @desc has no skeleton.</doc>
           <type name="gboolean" c:type="gboolean" />
         </return-value>
         <parameters>
           <instance-parameter name="desc" transfer-ownership="none">
-            <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointdescriptor.c" line="225">a #GstAnalyticsKeypointDescriptor</doc>
+            <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointdescriptor.c" line="157">a #GstAnalyticsKeypointDescriptor</doc>
             <type name="KeypointDescriptor" c:type="const GstAnalyticsKeypointDescriptor*" />
           </instance-parameter>
           <parameter name="index" transfer-ownership="none">
-            <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointdescriptor.c" line="226">index of the connection pair (must be less than the skeleton
+            <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointdescriptor.c" line="158">index of the connection pair (must be less than the skeleton
   connection count)</doc>
             <type name="gsize" c:type="gsize" />
           </parameter>
           <parameter name="from_idx" direction="out" caller-allocates="0" transfer-ownership="full">
-            <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointdescriptor.c" line="228">index of the source keypoint</doc>
+            <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointdescriptor.c" line="160">index of the source keypoint</doc>
             <type name="gint" c:type="gint*" />
           </parameter>
           <parameter name="to_idx" direction="out" caller-allocates="0" transfer-ownership="full">
-            <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointdescriptor.c" line="229">index of the destination keypoint</doc>
+            <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointdescriptor.c" line="161">index of the destination keypoint</doc>
             <type name="gint" c:type="gint*" />
           </parameter>
         </parameters>
       </method>
-      <method name="get_skeleton_connection_count" c:identifier="gst_analytics_keypoint_descriptor_get_skeleton_connection_count" version="1.30">
-        <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointdescriptor.c" line="206">Get the number of skeleton connection pairs in @desc.</doc>
-        <source-position filename="include/dlstreamer/gst/metadata/gstanalyticskeypointdescriptor.h" line="65" />
-        <return-value transfer-ownership="none">
-          <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointdescriptor.c" line="212">the number of skeleton connection pairs.</doc>
-          <type name="gsize" c:type="gsize" />
-        </return-value>
-        <parameters>
-          <instance-parameter name="desc" transfer-ownership="none">
-            <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointdescriptor.c" line="208">a #GstAnalyticsKeypointDescriptor</doc>
-            <type name="KeypointDescriptor" c:type="const GstAnalyticsKeypointDescriptor*" />
-          </instance-parameter>
-        </parameters>
-      </method>
-      <function name="lookup" c:identifier="gst_analytics_keypoint_descriptor_lookup" version="1.30">
-        <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointdescriptor.c" line="125">Search all built-in keypoint descriptors for one whose semantic tag
+      <function name="lookup" c:identifier="gst_analytics_keypoint_descriptor_lookup">
+        <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointdescriptor.c" line="113">Search all built-in keypoint descriptors for one whose semantic tag
 matches @semantic_tag exactly.</doc>
-        <source-position filename="include/dlstreamer/gst/metadata/gstanalyticskeypointdescriptor.h" line="48" />
+        <source-position filename="include/dlstreamer/gst/metadata/gstanalyticskeypointdescriptor.h" line="45" />
         <return-value transfer-ownership="none" nullable="1">
-          <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointdescriptor.c" line="132">the matching
+          <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointdescriptor.c" line="120">the matching
   #GstAnalyticsKeypointDescriptor, or %NULL if not found.</doc>
           <type name="KeypointDescriptor" c:type="const GstAnalyticsKeypointDescriptor*" />
         </return-value>
         <parameters>
           <parameter name="semantic_tag" transfer-ownership="none">
-            <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointdescriptor.c" line="127">The semantic tag to look up.</doc>
+            <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointdescriptor.c" line="115">The semantic tag to look up.</doc>
             <type name="utf8" c:type="const gchar*" />
           </parameter>
         </parameters>
@@ -542,18 +506,18 @@ See #gst_analytics_relation_meta_add_keypoint_mtd for more details</doc>
         <type name="GstAnalytics.MtdType" c:type="GstAnalyticsMtdType" />
       </return-value>
     </function>
-    <function name="keypoint_descriptor_lookup" c:identifier="gst_analytics_keypoint_descriptor_lookup" moved-to="KeypointDescriptor.lookup" version="1.30">
-      <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointdescriptor.c" line="125">Search all built-in keypoint descriptors for one whose semantic tag
+    <function name="keypoint_descriptor_lookup" c:identifier="gst_analytics_keypoint_descriptor_lookup" moved-to="KeypointDescriptor.lookup">
+      <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointdescriptor.c" line="113">Search all built-in keypoint descriptors for one whose semantic tag
 matches @semantic_tag exactly.</doc>
-      <source-position filename="include/dlstreamer/gst/metadata/gstanalyticskeypointdescriptor.h" line="48" />
+      <source-position filename="include/dlstreamer/gst/metadata/gstanalyticskeypointdescriptor.h" line="45" />
       <return-value transfer-ownership="none" nullable="1">
-        <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointdescriptor.c" line="132">the matching
+        <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointdescriptor.c" line="120">the matching
   #GstAnalyticsKeypointDescriptor, or %NULL if not found.</doc>
         <type name="KeypointDescriptor" c:type="const GstAnalyticsKeypointDescriptor*" />
       </return-value>
       <parameters>
         <parameter name="semantic_tag" transfer-ownership="none">
-          <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointdescriptor.c" line="127">The semantic tag to look up.</doc>
+          <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointdescriptor.c" line="115">The semantic tag to look up.</doc>
           <type name="utf8" c:type="const gchar*" />
         </parameter>
       </parameters>
