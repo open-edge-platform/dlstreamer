@@ -68,36 +68,35 @@ Track::Track(const cv::Rect_<float> &bbox, int track_id, int n_init, int max_age
  */
 void Track::initiate(const cv::Rect_<float> &bbox) {
     // Initialize Kalman filter with 8-dimensional state space (x, y, aspect_ratio, height, vx, vy, va, vh)
-    // Using CV_64F (double) for better numerical stability in matrix operations
-    mean_ = cv::Mat::zeros(8, 1, CV_64F);
-    mean_.at<double>(0) = static_cast<double>(bbox.x + bbox.width / 2.0f);
-    mean_.at<double>(1) = static_cast<double>(bbox.y + bbox.height / 2.0f);
-    mean_.at<double>(2) = static_cast<double>(bbox.width) / static_cast<double>(bbox.height);
-    mean_.at<double>(3) = static_cast<double>(bbox.height);
+    mean_ = cv::Mat::zeros(8, 1, CV_32F);
+    mean_.at<float>(0) = bbox.x + bbox.width / 2.0f;
+    mean_.at<float>(1) = bbox.y + bbox.height / 2.0f;
+    mean_.at<float>(2) = bbox.width / bbox.height;
+    mean_.at<float>(3) = bbox.height;
 
     // Initialize covariance: variance = std^2
-    covariance_ = cv::Mat::zeros(8, 8, CV_64F);
-    double std_weight_position = 1.0 / 20.0;
-    double std_weight_velocity = 1.0 / 160.0;
-    double h = static_cast<double>(bbox.height);
+    covariance_ = cv::Mat::zeros(8, 8, CV_32F);
+    float std_weight_position = 1.0f / 20.0f;
+    float std_weight_velocity = 1.0f / 160.0f;
+    float h = bbox.height;
 
-    double s0 = 2.0 * std_weight_position * h;
-    double s1 = 2.0 * std_weight_position * h;
-    double s2 = 1e-2;
-    double s3 = 2.0 * std_weight_position * h;
-    double s4 = 10.0 * std_weight_velocity * h;
-    double s5 = 10.0 * std_weight_velocity * h;
-    double s6 = 1e-5;
-    double s7 = 10.0 * std_weight_velocity * h;
+    float s0 = 2.0f * std_weight_position * h;
+    float s1 = 2.0f * std_weight_position * h;
+    float s2 = 1e-2f;
+    float s3 = 2.0f * std_weight_position * h;
+    float s4 = 10.0f * std_weight_velocity * h;
+    float s5 = 10.0f * std_weight_velocity * h;
+    float s6 = 1e-5f;
+    float s7 = 10.0f * std_weight_velocity * h;
 
-    covariance_.at<double>(0, 0) = s0 * s0;
-    covariance_.at<double>(1, 1) = s1 * s1;
-    covariance_.at<double>(2, 2) = s2 * s2;
-    covariance_.at<double>(3, 3) = s3 * s3;
-    covariance_.at<double>(4, 4) = s4 * s4;
-    covariance_.at<double>(5, 5) = s5 * s5;
-    covariance_.at<double>(6, 6) = s6 * s6;
-    covariance_.at<double>(7, 7) = s7 * s7;
+    covariance_.at<float>(0, 0) = s0 * s0;
+    covariance_.at<float>(1, 1) = s1 * s1;
+    covariance_.at<float>(2, 2) = s2 * s2;
+    covariance_.at<float>(3, 3) = s3 * s3;
+    covariance_.at<float>(4, 4) = s4 * s4;
+    covariance_.at<float>(5, 5) = s5 * s5;
+    covariance_.at<float>(6, 6) = s6 * s6;
+    covariance_.at<float>(7, 7) = s7 * s7;
 }
 
 /**
@@ -105,33 +104,33 @@ void Track::initiate(const cv::Rect_<float> &bbox) {
  */
 void Track::predict() {
     // State transition matrix (constant velocity model)
-    cv::Mat F = cv::Mat::eye(8, 8, CV_64F);
-    F.at<double>(0, 4) = 1.0;
-    F.at<double>(1, 5) = 1.0;
-    F.at<double>(2, 6) = 1.0;
-    F.at<double>(3, 7) = 1.0;
+    cv::Mat F = cv::Mat::eye(8, 8, CV_32F);
+    F.at<float>(0, 4) = 1.0f;
+    F.at<float>(1, 5) = 1.0f;
+    F.at<float>(2, 6) = 1.0f;
+    F.at<float>(3, 7) = 1.0f;
 
     mean_ = F * mean_;
 
     // Process noise: Q = diag(std^2)
-    cv::Mat Q = cv::Mat::zeros(8, 8, CV_64F);
-    double std_weight_position = 1.0 / 20.0;
-    double std_weight_velocity = 1.0 / 160.0;
-    double height = mean_.at<double>(3);
+    cv::Mat Q = cv::Mat::zeros(8, 8, CV_32F);
+    float std_weight_position = 1.0f / 20.0f;
+    float std_weight_velocity = 1.0f / 160.0f;
+    float height = mean_.at<float>(3);
 
-    double sp0 = std_weight_position * height;
-    double sp2 = 1e-2;
-    double sv0 = std_weight_velocity * height;
-    double sv2 = 1e-5;
+    float sp0 = std_weight_position * height;
+    float sp2 = 1e-2f;
+    float sv0 = std_weight_velocity * height;
+    float sv2 = 1e-5f;
 
-    Q.at<double>(0, 0) = sp0 * sp0;
-    Q.at<double>(1, 1) = sp0 * sp0;
-    Q.at<double>(2, 2) = sp2 * sp2;
-    Q.at<double>(3, 3) = sp0 * sp0;
-    Q.at<double>(4, 4) = sv0 * sv0;
-    Q.at<double>(5, 5) = sv0 * sv0;
-    Q.at<double>(6, 6) = sv2 * sv2;
-    Q.at<double>(7, 7) = sv0 * sv0;
+    Q.at<float>(0, 0) = sp0 * sp0;
+    Q.at<float>(1, 1) = sp0 * sp0;
+    Q.at<float>(2, 2) = sp2 * sp2;
+    Q.at<float>(3, 3) = sp0 * sp0;
+    Q.at<float>(4, 4) = sv0 * sv0;
+    Q.at<float>(5, 5) = sv0 * sv0;
+    Q.at<float>(6, 6) = sv2 * sv2;
+    Q.at<float>(7, 7) = sv0 * sv0;
 
     // Update covariance: P = F*P*F' + Q
     covariance_ = F * covariance_ * F.t() + Q;
@@ -146,29 +145,29 @@ void Track::predict() {
  */
 void Track::update(const Detection &detection) {
     // Measurement model
-    cv::Mat H = cv::Mat::zeros(4, 8, CV_64F);
-    H.at<double>(0, 0) = 1.0;
-    H.at<double>(1, 1) = 1.0;
-    H.at<double>(2, 2) = 1.0;
-    H.at<double>(3, 3) = 1.0;
+    cv::Mat H = cv::Mat::zeros(4, 8, CV_32F);
+    H.at<float>(0, 0) = 1.0f;
+    H.at<float>(1, 1) = 1.0f;
+    H.at<float>(2, 2) = 1.0f;
+    H.at<float>(3, 3) = 1.0f;
 
     // Measurement noise: R = diag(std^2)
-    cv::Mat R = cv::Mat::zeros(4, 4, CV_64F);
-    double std_weight_position = 1.0 / 20.0;
-    double height = mean_.at<double>(3); // Use predicted state height, not detection height
+    cv::Mat R = cv::Mat::zeros(4, 4, CV_32F);
+    float std_weight_position = 1.0f / 20.0f;
+    float height = mean_.at<float>(3); // Use predicted state height, not detection height
 
-    double sp = std_weight_position * height;
-    double sa = 1e-1;
-    R.at<double>(0, 0) = sp * sp;
-    R.at<double>(1, 1) = sp * sp;
-    R.at<double>(2, 2) = sa * sa;
-    R.at<double>(3, 3) = sp * sp;
+    float sp = std_weight_position * height;
+    float sa = 1e-1f;
+    R.at<float>(0, 0) = sp * sp;
+    R.at<float>(1, 1) = sp * sp;
+    R.at<float>(2, 2) = sa * sa;
+    R.at<float>(3, 3) = sp * sp;
 
-    cv::Mat z = cv::Mat::zeros(4, 1, CV_64F);
-    z.at<double>(0) = static_cast<double>(detection.bbox.x + detection.bbox.width / 2.0f);
-    z.at<double>(1) = static_cast<double>(detection.bbox.y + detection.bbox.height / 2.0f);
-    z.at<double>(2) = static_cast<double>(detection.bbox.width) / static_cast<double>(detection.bbox.height);
-    z.at<double>(3) = static_cast<double>(detection.bbox.height);
+    cv::Mat z = cv::Mat::zeros(4, 1, CV_32F);
+    z.at<float>(0) = detection.bbox.x + detection.bbox.width / 2.0f;
+    z.at<float>(1) = detection.bbox.y + detection.bbox.height / 2.0f;
+    z.at<float>(2) = detection.bbox.width / detection.bbox.height;
+    z.at<float>(3) = detection.bbox.height;
 
     cv::Mat S = H * covariance_ * H.t() + R;
     cv::Mat K = covariance_ * H.t() * S.inv();
@@ -178,7 +177,7 @@ void Track::update(const Detection &detection) {
     // Joseph form for numerical stability: (I-KH)*P can lose symmetry over many frames
     covariance_ = covariance_ - K * S * K.t();
     // Enforce symmetry to prevent numerical drift
-    covariance_ = (covariance_ + covariance_.t()) * 0.5;
+    covariance_ = (covariance_ + covariance_.t()) * 0.5f;
 
     add_feature(detection.feature);
 
@@ -206,14 +205,13 @@ void Track::mark_missed() {
  * @brief Convert Kalman filter state to bounding box
  */
 cv::Rect_<float> Track::to_bbox() const {
-    double center_x = mean_.at<double>(0);
-    double center_y = mean_.at<double>(1);
-    double aspect_ratio = mean_.at<double>(2);
-    double height = mean_.at<double>(3);
-    double width = aspect_ratio * height;
+    float center_x = mean_.at<float>(0);
+    float center_y = mean_.at<float>(1);
+    float aspect_ratio = mean_.at<float>(2);
+    float height = mean_.at<float>(3);
+    float width = aspect_ratio * height;
 
-    return cv::Rect_<float>(static_cast<float>(center_x - width / 2.0), static_cast<float>(center_y - height / 2.0),
-                            static_cast<float>(width), static_cast<float>(height));
+    return cv::Rect_<float>(center_x - width / 2.0f, center_y - height / 2.0f, width, height);
 }
 
 /**
@@ -230,23 +228,23 @@ void Track::add_feature(const std::vector<float> &feature) {
  * @brief Project state distribution to measurement space
  */
 std::pair<cv::Mat, cv::Mat> Track::project() const {
-    cv::Mat H = cv::Mat::zeros(4, 8, CV_64F);
-    H.at<double>(0, 0) = 1.0;
-    H.at<double>(1, 1) = 1.0;
-    H.at<double>(2, 2) = 1.0;
-    H.at<double>(3, 3) = 1.0;
+    cv::Mat H = cv::Mat::zeros(4, 8, CV_32F);
+    H.at<float>(0, 0) = 1.0f;
+    H.at<float>(1, 1) = 1.0f;
+    H.at<float>(2, 2) = 1.0f;
+    H.at<float>(3, 3) = 1.0f;
 
-    double std_weight_position = 1.0 / 20.0;
-    double height = mean_.at<double>(3);
+    float std_weight_position = 1.0f / 20.0f;
+    float height = mean_.at<float>(3);
 
-    double sp = std_weight_position * height;
-    double sa = 1e-1;
+    float sp = std_weight_position * height;
+    float sa = 1e-1f;
 
-    cv::Mat R = cv::Mat::zeros(4, 4, CV_64F);
-    R.at<double>(0, 0) = sp * sp;
-    R.at<double>(1, 1) = sp * sp;
-    R.at<double>(2, 2) = sa * sa;
-    R.at<double>(3, 3) = sp * sp;
+    cv::Mat R = cv::Mat::zeros(4, 4, CV_32F);
+    R.at<float>(0, 0) = sp * sp;
+    R.at<float>(1, 1) = sp * sp;
+    R.at<float>(2, 2) = sa * sa;
+    R.at<float>(3, 3) = sp * sp;
 
     cv::Mat projected_mean = H * mean_;
     cv::Mat projected_cov = H * covariance_ * H.t() + R;
@@ -270,13 +268,12 @@ std::vector<float> Track::gating_distance(const std::vector<Detection> &detectio
     std::vector<float> distances(detection_indices.size());
     for (size_t i = 0; i < detection_indices.size(); ++i) {
         int det_idx = detection_indices[i];
-        cv::Mat z = cv::Mat::zeros(dim, 1, CV_64F);
-        z.at<double>(0) = static_cast<double>(detections[det_idx].bbox.x + detections[det_idx].bbox.width / 2.0f);
-        z.at<double>(1) = static_cast<double>(detections[det_idx].bbox.y + detections[det_idx].bbox.height / 2.0f);
+        cv::Mat z = cv::Mat::zeros(dim, 1, CV_32F);
+        z.at<float>(0) = detections[det_idx].bbox.x + detections[det_idx].bbox.width / 2.0f;
+        z.at<float>(1) = detections[det_idx].bbox.y + detections[det_idx].bbox.height / 2.0f;
         if (!only_position) {
-            z.at<double>(2) = static_cast<double>(detections[det_idx].bbox.width) /
-                              static_cast<double>(detections[det_idx].bbox.height);
-            z.at<double>(3) = static_cast<double>(detections[det_idx].bbox.height);
+            z.at<float>(2) = detections[det_idx].bbox.width / detections[det_idx].bbox.height;
+            z.at<float>(3) = detections[det_idx].bbox.height;
         }
 
         cv::Mat diff = z - mean;
@@ -287,7 +284,7 @@ std::vector<float> Track::gating_distance(const std::vector<Detection> &detectio
             cv::solve(cov, diff, x, cv::DECOMP_SVD);
         }
         cv::Mat result = diff.t() * x;
-        distances[i] = static_cast<float>(result.at<double>(0, 0));
+        distances[i] = result.at<float>(0, 0);
     }
     return distances;
 }
