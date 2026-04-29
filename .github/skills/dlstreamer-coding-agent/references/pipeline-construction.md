@@ -35,7 +35,7 @@ For the full list of elements, see also `../../../../docs/user-guide/elements/`.
 > Do not place it between elements that produce and read analytics metadata.
 > Use `videoconvertscale` instead when metadata must be preserved.
 
-### AI Inference (DLStreamer-specific)
+### AI Inference (DL Streamer-specific)
 
 | Element | Purpose | Model Types | Key Properties |
 |---------|---------|-------------|----------------|
@@ -79,7 +79,12 @@ For the full list of elements, see also `../../../../docs/user-guide/elements/`.
 | Element | Purpose | Key Properties |
 |---------|---------|----------------|
 | `gvametaconvert` | Convert metadata to JSON format | `file-format=json-lines`, `file-path=<path>` |
-| `gvametapublish` | **Pass-through** — publish metadata to file, Kafka, or MQTT while forwarding buffers downstream | `method=file\|kafka\|mqtt` |
+| `gvametapublish` | **Pass-through transform** — publish metadata to file, Kafka, or MQTT while forwarding buffers downstream unchanged | `method=file\|kafka\|mqtt` |
+
+> **`gvametapublish` is a transform, not a sink.** Unlike DeepStream's `nvmsgbroker` (which is a
+> sink and requires a `tee` to split the stream), `gvametapublish` forwards buffers downstream.
+> Place it inline in the same branch as watermark + encode — **no `tee` is needed** for combined
+> publish + video output. See the [Detect → Classify → Encode → Save](#example-decode--detect--classify--encode--save) example.
 
 ### Flow Control
 
@@ -116,10 +121,24 @@ For the full list of elements, see also `../../../../docs/user-guide/elements/`.
 
 ### Custom Logic
 
-If a user pipeline requires custom processing, add new Python GStreamer elements in:
-- `plugins/python/<element_name>.py`
+Two approaches for adding custom per-frame logic in Python applications:
 
-For new development, prefer custom Python GStreamer elements in `plugins/python/` over `gvapython`.
+**Pad probe callback** (Pattern 5) — attach to any pad in the pipeline. Use for:
+- Metadata inspection, logging, counting, or printing summaries
+- Frame throttling or conditional dropping (`Gst.PadProbeReturn.DROP`)
+- Simple stateful logic (counters, cooldowns) managed via closure or `user_data`
+
+**Custom Python element** (Pattern 7/8) — add in `plugins/python/<element_name>.py`. Use for:
+- Reusable elements with GObject properties configurable from the pipeline string
+- Complex logic that manages internal sub-pipelines (e.g. event-triggered recording)
+- Elements intended for sharing across multiple applications
+- Elements that modify GstBuffers or metadata
+
+Do not use `gvapython` element; it is deprecated and will be removed in future releases.
+
+Prefer pad probe callbacks when the logic is self-contained to a single application
+and does not need GObject properties. Prefer custom Python elements when the logic
+needs to be parameterized from the pipeline string or reused across apps.
 
 ## Common Pipeline Patterns
 
@@ -397,8 +416,9 @@ See [Pattern 2](./design-patterns.md#pattern-2-pipeline-event-loop).
 
 ### Rule 9 — Avoid Unnecessary Tee Splits
 
-Use `tee` only when branches genuinely diverge in frame selection or processing rate.
-If all outputs process the same frames at the same rate, use a linear pipeline.
+Use `tee` only when branches genuinely diverge in frame selection, have different processing rates,
+or require multiple sink elements per camera stream. Use a linear pipeline if all elements
+process the same frames at the same rate and all elements are transform-type elements.
 
 ### Rule 10 — Place `gvawatermark` Before `tee` in Multi-Branch Pipelines
 

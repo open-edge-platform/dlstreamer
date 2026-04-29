@@ -53,6 +53,6 @@ pre-fill with inferred values and mark as `recommended`.
 
 | Header | Question | Options |
 |--------|----------|---------|
-| `Application Type` | Python application or Gstreamer command line? | `Python application` (recommended), `Gstreamer command line` |
+| `Application Type` | Python application or GStreamer command line? | `Python application` (recommended), `GStreamer command line` |
 
 

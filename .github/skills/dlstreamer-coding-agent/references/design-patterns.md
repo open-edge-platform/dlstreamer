@@ -13,10 +13,10 @@ Map the user's description to one or more of these patterns:
 | 2 | **Pipeline Event Loop** | Always — every app needs an event loop to advance execution |
 | 3 | **Multi-Stream / Multi-Camera** | User wants to process multiple camera streams in a single pipeline with shared model and cross-stream batching |
 | 4 | **Multi-Stream Compositor** | User wants to merge multiple streams into a single composite mosaic view |
-| 5 | **Pad Probe Callback** | User needs simple custom logic, like per-frame metadata inspection or adding overlays |
+| 5 | **Pad Probe Callback** | User needs per-frame custom logic: metadata inspection, counting, throttling/dropping frames, logging — without need to modify buffers or add new metadata |
 | 6 | **AppSink Callback** | User wants to continue processing of frames or metadata in their own application |
-| 7 | **Custom Python Element (BaseTransform)** | User needs non-trivial per-frame analytics that reads/writes metadata inside the pipeline |
-| 8 | **Custom Python Element (Bin/Sink)** | User needs to manage a secondary sub-pipeline or implement non-trivial handling of output stream |
+| 7 | **Custom Python Element (BaseTransform)** | User needs a reusable per-frame element with GObject properties settable from the pipeline string, or complex analytics that warrant a self-contained, shareable component |
+| 8 | **Custom Python Element (Bin/Sink)** | User needs to manage a secondary sub-pipeline or implement non-trivial handling of the output stream |
 | 9 | **Dynamic Pipeline Control** | User wants conditional routing, branching (tee + valve), or multi-stream selective recording |
 | 10 | **Cross-Branch Signal Bridge** | User has a tee with branches that must exchange state |
 
@@ -293,7 +293,11 @@ for the pipeline template.
 
 ## Pattern 5: Pad Probe Callback
 
-Attach a probe to inspect or modify per-frame metadata without pulling frames out of the pipeline.
+Attach a probe to inspect metadata, selectively drop frames, or add custom counting/throttling/logging.
+
+**Return values:**
+- `Gst.PadProbeReturn.OK` — pass the frame downstream
+- `Gst.PadProbeReturn.DROP` — drop the frame (do not forward downstream)
 
 ```python
 def my_probe(pad, info, user_data):

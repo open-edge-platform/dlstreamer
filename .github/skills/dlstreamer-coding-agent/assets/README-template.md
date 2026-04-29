@@ -8,7 +8,7 @@
 {{DETAILED_DESCRIPTION}}
 
 {{DLSTREAMER_CODING_AGENT_PROMPT}}
-<!-- If the application was generated using DLStreamer Coding Agent, add initial user prompt.
+<!-- If the application was generated using DL Streamer Coding Agent, add initial user prompt.
 -->
 
 ## What It Does
@@ -35,8 +35,8 @@ The pipeline uses the following elements:
 
 * __filesrc__ - GStreamer element that reads the video stream from a local file
 * __decodebin3__ - GStreamer element that decodes the video stream
-* __gvadetect__ - DLStreamer inference element that detects objects using the detection model
-* __gvawatermark__ - DLStreamer element that renders detection results on video frames
+* __gvadetect__ - DL Streamer inference element that detects objects using the detection model
+* __gvawatermark__ - DL Streamer element that renders detection results on video frames
 -->
 
 ## Prerequisites
@@ -130,7 +130,7 @@ python3 {{APP_NAME}}.py \
 
 The application loads pre-downloaded models and processes the input video file.
 
-### STEP 2 - DLStreamer Pipeline Construction
+### STEP 2 - DL Streamer Pipeline Construction
 
 The application creates a GStreamer pipeline that combines predefined GStreamer and DLStreamer
 elements with custom Python elements.

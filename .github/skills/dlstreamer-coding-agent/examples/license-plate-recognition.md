@@ -1,4 +1,4 @@
-Develop a Python application that implements license plate recognition pipeline: 
+Develop a Python application that implements license plate recognition pipeline:
 - Read input video from a file (https://github.com/open-edge-platform/edge-ai-resources/raw/main/videos/ParkingVideo.mp4) but also allow remote IP cameras
 - Run YOLOv11 (https://huggingface.co/morsetechlab/yolov11-license-plate-detection) for object detection and PaddleOCR (https://huggingface.co/PaddlePaddle/PP-OCRv5_server_rec) model for character recognition
 - Output license plate text for each detected object as JSON file
