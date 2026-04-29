@@ -144,7 +144,7 @@ class TestOptimizer(unittest.TestCase):
                             msg=f"FPS mismatch: optimized {fps} vs optimal {optimal_fps}")
 
         # Check that the number of streams is equal
-        self.assertEqual(streams, optimal_streams
+        self.assertEqual(streams, optimal_streams,
                         f"Streams from optimal pipeline {optimal_streams} doesn't match "
                         f"streams from optimized pipeline {streams}")
 
