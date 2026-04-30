@@ -137,11 +137,13 @@ Two approaches for adding custom per-frame logic in Python applications:
 
 Do not use `gvapython` element; it is deprecated and will be removed in future releases.
 
-Prefer pad probe callbacks when the logic is self-contained to a single application
+Prefer pad probe callbacks when the logic is self-contained within a single application
 and does not need GObject properties. Prefer custom Python elements when the logic
 needs to be parameterized from the pipeline string or reused across apps.
 
 ## Common Pipeline Patterns
+
+Numbers in the **Design Patterns** column refer to [design-patterns.md](./design-patterns.md)
 
 | Use Case | Templates | Design Patterns | Key Model Export | Reference Sample |
 |----------|-----------|-----------------|------------------|------------------|
@@ -239,10 +241,10 @@ gvarecorder_py location=output.mp4 max-time=10
 filesrc location=cam1.mp4 ! decodebin3 !
 gvadetect model=model.xml device=GPU model-instance-id=model0 batch-size=<stream count> ! queue ! ...
 
-filesrc location=cam1.mp4 ! decodebin3 !
+filesrc location=cam2.mp4 ! decodebin3 !
 gvadetect model=model.xml device=GPU model-instance-id=model0 batch-size=<stream count> ! queue ! ...
 
-... (repeat for stream_2, stream_3, etc.)
+... (repeat for stream_3, stream_4, etc.)
 ```
 
 Use `model-instance-id=<name>` to share model instances across streams.

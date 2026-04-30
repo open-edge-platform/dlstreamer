@@ -13,7 +13,8 @@
 <!-- Include a screenshot from the output video. -->
 <!-- ![{{APP_TITLE}}]({{APP_IMAGE}}) -->
 
-<!-- If the input video is from the public domain (like https://www.pexels.com/videos/), add a note:
+<!-- If the input video is from a publicly available or appropriately licensed source
+     (for example, https://www.pexels.com/videos/), add a note:
 This sample uses a video file from <link> by <author> -->
 
 {{DETAILED_DESCRIPTION}}
@@ -49,7 +50,7 @@ The pipeline uses the following elements:
 ## Prerequisites
 
 - DL Streamer installed on the host, or a DL Streamer Docker image
-- Intel EdgeAI system with integrated GPU/NPU (or set device arguments to `CPU`)
+- Intel Edge AI system with integrated GPU/NPU (or set device arguments to `CPU`)
 
 ### Install Python Dependencies
 

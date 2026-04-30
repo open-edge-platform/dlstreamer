@@ -13,7 +13,7 @@ Map the user's description to one or more of these patterns:
 | 2 | **Pipeline Event Loop** | Always — every app needs an event loop to advance execution |
 | 3 | **Multi-Stream / Multi-Camera** | User wants to process multiple camera streams in a single pipeline with shared model and cross-stream batching |
 | 4 | **Multi-Stream Compositor** | User wants to merge multiple streams into a single composite mosaic view |
-| 5 | **Pad Probe Callback** | User needs per-frame custom logic: metadata inspection, counting, throttling/dropping frames, logging — without need to modify buffers or add new metadata |
+| 5 | **Pad Probe Callback** | User needs per-frame custom logic: metadata inspection, counting, throttling/dropping frames, logging — without the need to modify buffers or add new metadata |
 | 6 | **AppSink Callback** | User wants to continue processing of frames or metadata in their own application |
 | 7 | **Custom Python Element (BaseTransform)** | User needs a reusable per-frame element with GObject properties settable from the pipeline string, or complex analytics that warrant a self-contained, shareable component |
 | 8 | **Custom Python Element (Bin/Sink)** | User needs to manage a secondary sub-pipeline or implement non-trivial handling of the output stream |
@@ -172,7 +172,7 @@ def run_pipeline(pipeline, cmd_reader=None, loop_count=1):
             if msg.type == Gst.MessageType.ERROR:
                 err, debug = msg.parse_error()
 
-                # [Optional] Filter non-fatal audio errors — see Rule 8 in
+                # [Optional] Filter non-fatal audio errors — see Decode Robustness in
                 # Pipeline Construction Reference. Remove this block if the
                 # pipeline never encounters audio-track containers (.ts, .mkv).
                 src_name = msg.src.get_name().lower()
@@ -228,7 +228,7 @@ run_pipeline(pipeline, cmd_reader=cmd_reader, loop_count=3)
 - Simple **element property changes** like `valve.set_property("drop", ...)`
   are GObject-lock-protected and safe from any thread.
 - Return `GLib.SOURCE_REMOVE` from `idle_add` callbacks.
-- Use `daemon=True` thread.
+- Use a `daemon=True` thread.
 
 **Read for reference:** `samples/gstreamer/python/hello_dlstreamer/hello_dlstreamer.py`
 
@@ -244,8 +244,8 @@ instances and cross-stream batching.
 - Set `model-instance-id=<name>` to share model instances across streams.
 - Set `batch-size=<stream_count>` for cross-stream batching.
 - For highest throughput, use default `scheduling-policy=throughput`
-- For minimal latency throughput, set `scheduling-policy=latency`
-- With a compositor, **must** set `scheduling-policy=latency` to keep streams in lock step.
+- For minimal latency, set `scheduling-policy=latency`
+- With a compositor, **must** set `scheduling-policy=latency` to keep streams in lockstep.
 
 See the Pipeline Construction Reference for GStreamer pipeline syntax:
 - [Multi-Stream Analytics](./pipeline-construction.md#example-multi-stream-analytics-n-streams) — N parallel streams with shared model
@@ -285,7 +285,7 @@ pipeline = Gst.parse_launch(build_pipeline(cameras, model, "GPU"))
 ## Pattern 4: Multi-Stream Compositor (Mosaic Output)
 
 Merge all streams into a single composite view using `vacompositor`.
-Builds on [Pattern 3](#pattern-3-multi-stream--multi-camera-in-process).
+This builds on [Pattern 3](#pattern-3-multi-stream--multi-camera-in-process).
 See [Multi-Stream Compositor](./pipeline-construction.md#example-multi-stream-compositor-n-streams--22-grid-gpu-memory-path)
 for the pipeline template.
 
@@ -462,7 +462,8 @@ if not reg.find_plugin("python"):
 
 - `buffer.map(READ | WRITE)` in `do_transform_ip` returns `success=False` (read-only pools)
 - Override `do_prepare_output_buffer` instead: read-only map input, create new buffer
-- Do **not** use `buffer.copy_deep()`
+- Avoid `buffer.copy_deep()` for pixel data writes in this scenario;
+  allocate a new output buffer in `do_prepare_output_buffer` instead
 
 ```python
 def do_prepare_output_buffer(self, inbuf):
@@ -580,7 +581,7 @@ for single-stream pipeline syntax.
 **Read for reference:** `samples/gstreamer/python/open_close_valve/open_close_valve_sample.py`
 
 For multi-stream pipelines, add a per-stream `valve → encoder → mux → filesink`
-recording branch. Builds on [Pattern 9](#pattern-9-dynamic-pipeline-control-tee--valve).
+recording branch. This builds on [Pattern 9](#pattern-9-dynamic-pipeline-control-tee--valve).
 See [Multi-Stream Selective Recording](./pipeline-construction.md#example-multi-stream-selective-recording-per-stream-tee--valve)
 for the pipeline topology.
 

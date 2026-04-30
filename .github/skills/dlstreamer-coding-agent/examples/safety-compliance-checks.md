@@ -8,7 +8,7 @@ Create an application to monitor safety compliance at a construction site:
    Is the worker wearing a helmet? (WEARING / NOT_WEARING / UNCERTAIN)
    Is the worker secured with a safety harness or line? (SECURED / NOT_SECURED / UNCERTAIN)
    Reply with exactly one word for each question, separated by a slash. Nothing else."
-- Save an annotated cropped image for each VLM check, log VLM propmts and responses in a JSON file
+- Save an annotated cropped image for each VLM check, log VLM prompts and responses in a JSON file
 - Generate alerts only for clear violations (NOT_WEARING / NOT_SECURED); treat UNCERTAIN responses as compliant
 
 Validate the application using:
