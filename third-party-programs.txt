@@ -725,4 +725,40 @@ This software depends on the fmt lib (MIT License),
 and users must comply to its license: https://github.com/fmtlib/fmt/blob/master/LICENSE.rst
 
 -------------------------------------------------------------
+
+8. GStreamer Analytics and Video Meta (vendored source files)
+    Copyright (C) 2025 Collabora Ltd
+        @author: Daniel Morin <daniel.morin@collabora.com>
+    Copyright (C) 2026 Collabora
+        @author: Daniel Morin <daniel.morin@collabora.com>
+    Copyright (C) 2011 Wim Taymans <wim.taymans@gmail.com>
+
+    These files contain changes from GStreamer 1.28 and 1.30 that are
+    vendored here temporarily. They will no longer be needed after
+    upgrading to GStreamer >= 1.30.
+
+    Files:
+        include/dlstreamer/gst/metadata/gstanalyticsgroupmtd.h
+        include/dlstreamer/gst/metadata/gstanalyticskeypointmtd.h
+        include/dlstreamer/gst/metadata/gstvideometa_matrix.h
+        src/gst/metadata/gstanalyticsgroupmtd.c
+        src/gst/metadata/gstanalyticskeypointmtd.c
+        src/gst/metadata/gstvideometa_matrix.c
+
+    This library is free software; you can redistribute it and/or
+    modify it under the terms of the GNU Library General Public
+    License as published by the Free Software Foundation; either
+    version 2 of the License, or (at your option) any later version.
+
+    This library is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    Library General Public License for more details.
+
+    You should have received a copy of the GNU Library General Public
+    License along with this library; if not, write to the
+    Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+    Boston, MA 02110-1301, USA.
+
+-------------------------------------------------------------
 Other names and brands may be claimed as the property of others. 
