@@ -162,5 +162,116 @@ class TestOptimizer(unittest.TestCase):
 
         print(f"✓ Test passed: Optimized pipeline matches optimal pipeline with FPS {fps}")
 
+    def test_set_sample_duration_with_iter_optimize_for_fps(self):
+        """Test that set_sample_duration() affects sampling time and number of tested pipelines"""
+        
+        short_duration = 5
+        long_duration = 15
+        
+        # Test short duration
+        optimizer1 = DLSOptimizer()
+        optimizer1.set_sample_duration(short_duration)
+        
+        candidates_short = []
+        start_time = time.time()
+        
+        for candidate_result in optimizer1.iter_optimize_for_fps(self.simple_pipeline):
+            if isinstance(candidate_result, tuple) and len(candidate_result) >= 2:
+                candidates_short.append(candidate_result)
+        
+        elapsed_time_short = time.time() - start_time
+        optimal_pipeline1, optimal_fps1, _ = optimizer1.get_optimal_pipeline()
+        
+        # Test long duration
+        optimizer2 = DLSOptimizer()
+        optimizer2.set_sample_duration(long_duration)
+        
+        candidates_long = []
+        start_time = time.time()
+        
+        for candidate_result in optimizer2.iter_optimize_for_fps(self.simple_pipeline):
+            if isinstance(candidate_result, tuple) and len(candidate_result) >= 2:
+                candidates_long.append(candidate_result)
+        
+        elapsed_time_long = time.time() - start_time
+        optimal_pipeline2, optimal_fps2, _ = optimizer2.get_optimal_pipeline()
+        
+        # Assertions
+        # Time should match duration (with tolerance)
+        self.assertAlmostEqual(elapsed_time_short, short_duration, delta=3.0)
+        self.assertAlmostEqual(elapsed_time_long, long_duration, delta=3.0)
+        self.assertGreater(elapsed_time_long, elapsed_time_short)
+        
+        # More candidates should be tested with longer duration
+        self.assertGreaterEqual(len(candidates_long), len(candidates_short))
+        
+        # FPS should improve or stay same with longer sampling
+        self.assertGreaterEqual(optimal_fps2, optimal_fps1)
+        
+        print(f"Short: {len(candidates_short)} candidates in {elapsed_time_short:.1f}s, FPS: {optimal_fps1:.1f}")
+        print(f"Long: {len(candidates_long)} candidates in {elapsed_time_long:.1f}s, FPS: {optimal_fps2:.1f}")
+        print(f"✓ Test passed")
+
+    def test_set_allowed_devices(self):
+        """Test that set_allowed_devices() excludes specified devices from optimization"""
+
+        # Get all available devices from OpenVINO
+        core = Core()
+        all_devices = core.available_devices
+        print(f"All available devices: {all_devices}")
+        
+        # Skip test if not enough devices
+        if len(all_devices) < 2:
+            self.skipTest(f"Need at least 2 devices for testing, found: {all_devices}")
+        
+        # Select subset - exclude last device
+        allowed_devices = all_devices[:-1]  # all except last
+        excluded_device = all_devices[-1]   # last device to exclude
+        
+        print(f"Allowed devices: {allowed_devices}")
+        print(f"Excluded device: {excluded_device}")
+        
+        # Set up optimizer with device restriction
+        optimizer = DLSOptimizer()
+        optimizer.set_allowed_devices(allowed_devices)
+        
+        # Collect candidates to see what devices are being tested
+        candidates = []
+        iteration_count = 0
+        for candidate_result in optimizer.iter_optimize_for_fps(self.simple_pipeline):
+            if isinstance(candidate_result, tuple) and len(candidate_result) >= 2:
+                pipeline = candidate_result[0]
+                fps = candidate_result[1]
+                candidates.append((pipeline, fps))
+                print(f"Tested: {pipeline} @ {fps} FPS")
+                
+                iteration_count += 1
+                if iteration_count >= 5:  # limit iterations for testing
+                    break
+        
+        # Assertions
+        self.assertGreater(len(candidates), 0, "Should test at least one candidate")
+        
+        # Verify excluded device does not appear in any pipeline
+        for pipeline, fps in candidates:
+            self.assertNotIn(excluded_device, pipeline, 
+                        f"Excluded device '{excluded_device}' found in pipeline: {pipeline}")
+        
+        # Verify at least one allowed device appears in pipelines
+        allowed_device_found = False
+        for pipeline, fps in candidates:
+            for allowed_device in allowed_devices:
+                if allowed_device in pipeline:
+                    allowed_device_found = True
+                    break
+            if allowed_device_found:
+                break
+        
+        self.assertTrue(allowed_device_found, 
+                    f"None of the allowed devices {allowed_devices} found in any pipeline")
+        
+        print(f"✓ Test passed: Excluded device '{excluded_device}' not found in any pipeline")
+        print(f"✓ Only allowed devices {allowed_devices} were used")
+
 if __name__ == '__main__':
     unittest.main()
