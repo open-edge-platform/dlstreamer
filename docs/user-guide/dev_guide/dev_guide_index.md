@@ -7,11 +7,8 @@
   - [Ubuntu advanced installation - build Docker image](./advanced_install/advanced_build_docker_image.md)
   - [Ubuntu advanced uninstall guide](./advanced_install/advanced_uninstall_guide.md)
 - [Metadata](./metadata.md)
-- [Keypoint Descriptor API](./keypoint_descriptor.md)
-  - [Built-in descriptors](./keypoint_descriptor.md#built-in-descriptors)
-  - [C API](./keypoint_descriptor.md#c-api)
-  - [Python API (GObject Introspection)](./keypoint_descriptor.md#python-api-gobject-introspection)
-  - [How descriptors relate to keypoint metadata](./keypoint_descriptor.md#how-descriptors-relate-to-keypoint-metadata)
+  - [GStreamer Analytics Metadata](./metadata_analytics.md)
+  - [Legacy Metadata (deprecated)](./metadata_legacy.md)
 - [Model Preparation](./model_preparation.md)
   - [1. Model file format used by OpenVINO™ Toolkit](./model_preparation.md#1-model-file-format-used-by-openvino-toolkit)
   - [2. Model pre- and post-processing](./model_preparation.md#2-model-pre--and-post-processing)
@@ -79,6 +76,8 @@
 coding_agent
 advanced_install/advanced_install_guide_index
 metadata
+metadata_legacy
+metadata_analytics
 model_preparation
 openvino_custom_operations
 model_info_xml
