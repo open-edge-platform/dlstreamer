@@ -33,6 +33,25 @@
  *      - Unmatched dets   --> check re-ID gallery; create track (reused or new ID)
  */
 
+/*
+ * Algorithmic differences of DLStreamer's Deep SORT implementation beyond original Deep SORT:
+ *
+ * - Tighter spatial gating for stale tracks — Beyond the standard Mahalanobis gate, DLStreamer adds a spatial distance
+ *   gate that shrinks as a track ages, preventing stale tracks from claiming distant detections.
+ * - Proximity competition — During the matching cascade, if a closer but even staler track exists for a detection, the
+ *   current match is blocked to reserve the detection for the better candidate.
+ * - Spatial tie-breaking — The cost matrix includes a small spatial penalty so that when two tracks have nearly
+ *   identical appearance scores, the physically closer one wins.
+ * - Re-identification gallery — Deleted tracks' appearance features and last position are saved, allowing a reappearing
+ *   person to be recognized and assigned their previous identity.
+ * - Kalman filter numerical stability — Matrix symmetry is enforced after each update to prevent numerical drift over
+ *   long-lived tracks, with a fallback to a more robust decomposition method when the primary one fails.
+ * - Per-track feature budget — Feature history is managed directly within each track using a fixed-size sliding window
+ *   rather than through an external metric class.
+ *
+ * See the [arXiv](https://arxiv.org/abs/1703.07402) preprint for more information.
+ */
+
 #include "deep_sort_tracker.h"
 #include "utils.h"
 #include <algorithm>

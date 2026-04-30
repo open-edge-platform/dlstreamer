@@ -64,8 +64,6 @@ Deep SORT (Simple Online and Realtime Tracking with a Deep Association Metric) i
 - **Appearance features**: Deep learning re-identification model that extracts 128-dimensional feature vectors to distinguish objects
 - **Robust association**: Combines IoU (Intersection over Union) and cosine distance metrics to match detections with existing tracks
 
-See the [arXiv](https://arxiv.org/abs/1703.07402) preprint for more information.
-
 ### Pipeline Flow
 
 ```mermaid
