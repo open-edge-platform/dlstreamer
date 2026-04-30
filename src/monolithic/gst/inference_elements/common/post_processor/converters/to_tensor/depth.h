@@ -25,6 +25,7 @@ namespace post_processing::depth_converter {
 
 // Depth output interpretation stays owned by the converter module even when ROI output
 // reuses the same reduction rules on ROI-selected pixels.
+// Each ROI is summarized by center depth, whole-region mean/median/min/max/stddev, and the count and ratio of valid depth pixels.
 struct Metrics {
   double center = -1.0;
   double mean = -1.0;

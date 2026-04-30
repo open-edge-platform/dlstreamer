@@ -269,11 +269,12 @@ json convert_roi_detection(GstGvaMetaConvert *converter, GstBuffer *buffer) {
             }
             if (converter->add_tensor_data) {
                 GVA::Tensor s_tensor = GVA::Tensor((GstStructure *)l->data);
-                // Only add raw tensor data if it's not already represented as a classification and if it has the data
-                // buffer field which contains raw tensor data. This is to avoid adding the same tensor twice in case of
-                // tensors that have both classification fields and raw data buffer.
-                if (!s_tensor.has_field("type") && s_tensor.has_field("data_buffer"))
-                    jobject["tensors"].push_back(convert_tensor(s_tensor));
+                // TODO: Deduplicate interpreted classification JSON and raw tensor JSON only for the specific future
+                // cases that require it, such as depth-estimation-style outputs or another explicit opt-in path.
+                // A generic filter on the tensor "type" field is not backward compatible because older pipelines
+                // legitimately publish both interpreted metadata and raw tensors for non-depth models when
+                // add-tensor-data=true.
+                jobject["tensors"].push_back(convert_tensor(s_tensor));
             }
         }
         if (!jobject.empty()) {
@@ -343,10 +344,10 @@ json convert_frame_classification(GstGvaMetaConvert *converter, GstBuffer *buffe
 
             jobject.push_back(json::object_t::value_type(attribute_name, classification));
         }
-        // Only add raw tensor data if it's not already represented as a classification and if it has the data buffer
-        // field which contains raw tensor data. This is to avoid adding the same tensor twice in case of tensors that
-        // have both classification fields and raw data buffer.
-        if (converter->add_tensor_data && !tensor.has_field("type") && tensor.has_field("data_buffer")) {
+        // TODO: If we later suppress duplicate raw tensors for interpreted classifications, that logic must be scoped
+        // to an explicit backward-compatible contract rather than all tensors with classification-style metadata.
+        // Current behavior intentionally preserves the historical JSON payload for non-depth pipelines.
+        if (converter->add_tensor_data) {
             jobject["tensors"].push_back(convert_tensor(tensor));
         }
     }
