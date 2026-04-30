@@ -22,14 +22,10 @@ class TestOptimizer(unittest.TestCase):
         optimizer = DLSOptimizer()
         candidates = []
         # Iterate through candidates and collect pipelines and their FPS
-        for candidate_result in optimizer.iter_optimize_for_fps(self.simple_pipeline):
-            if isinstance(candidate_result, tuple) and len(candidate_result) >= 2:
-                pipeline = candidate_result[0]
-                fps = candidate_result[1]
-                candidates.append((pipeline, fps))
-                print(f"Tested: {pipeline} @ {fps} FPS")
-            else:
-                continue
+        for pipeline, fps in optimizer.iter_optimize_for_fps(self.simple_pipeline):  
+            candidates.append((pipeline, fps))  
+            print(f"Tested: {pipeline} @ {fps} FPS")
+
         # We expect to have multiple candidates tested, at least more than 1
         self.assertGreater(len(candidates), 1, 
                         f"Expected more than 1 tested pipeline, got {len(candidates)}")
@@ -60,15 +56,9 @@ class TestOptimizer(unittest.TestCase):
     #     candidates = []
 
     #     # Iterate through candidates and collect pipelines and their stream counts
-    #     for candidate_result in optimizer.iter_optimize_for_streams(self.simple_pipeline):
-    #         if isinstance(candidate_result, tuple) and len(candidate_result) >= 2:
-    #             pipeline = candidate_result[0]
-    #             stream_count = candidate_result[2]
-    #             fps_count = candidate_result[1]
-    #             candidates.append((pipeline, stream_count, fps_count))
-    #             print(f"Tested: {pipeline} @ {stream_count} streams @ {fps_count} FPS")
-    #         else:
-    #             continue
+    #     for pipeline, fps_count, stream_count in optimizer.iter_optimize_for_streams(self.simple_pipeline):  
+    #         candidates.append((pipeline, stream_count, fps_count))
+    #         print(f"Tested: {pipeline} @ {stream_count} streams @ {fps_count} FPS")
 
     #     # We expect to have multiple candidates tested, at least more than 1
     #     self.assertGreater(len(candidates), 1, 
@@ -237,15 +227,13 @@ class TestOptimizer(unittest.TestCase):
         candidates = []
         iteration_count = 0
         for candidate_result in optimizer.iter_optimize_for_fps(self.simple_pipeline):
-            if isinstance(candidate_result, tuple) and len(candidate_result) >= 2:
-                pipeline = candidate_result[0]
-                fps = candidate_result[1]
-                candidates.append((pipeline, fps))
-                print(f"Tested: {pipeline} @ {fps} FPS")
-                
-                iteration_count += 1
-                if iteration_count >= 5:  # limit iterations for testing
-                    break
+            pipeline = candidate_result[0]
+            fps = candidate_result[1]
+            candidates.append((pipeline, fps))
+            print(f"Tested: {pipeline} @ {fps} FPS")
+            iteration_count += 1
+            if iteration_count >= 5:  # limit iterations for testing
+                break
         
         # Assertions
         self.assertGreater(len(candidates), 0, "Should test at least one candidate")
