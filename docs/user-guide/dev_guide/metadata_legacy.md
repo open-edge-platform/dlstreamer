@@ -1,7 +1,7 @@
-# Legacy Metadata (deprecated)
+# Legacy Analytics Metadata (deprecated)
 
-> **DEPRECATED:** This metadata API is deprecated and will be removed in a
-> future release. New code should use the
+> **DEPRECATED:** This metadata API is deprecated and will be removed in
+> the future. New code should use the
 > [GStreamer Analytics Metadata](./metadata_analytics.md) API.
 
 ## Metadata Types

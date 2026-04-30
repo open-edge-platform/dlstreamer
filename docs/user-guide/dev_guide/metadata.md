@@ -7,26 +7,6 @@ DL Streamer is transitioning to the
 metadata library as the primary way to represent inference results. The legacy
 metadata API remains functional but is deprecated.
 
-## Legacy Metadata (deprecated)
-
-> **DEPRECATED:** The legacy metadata API based on
-> `GstVideoRegionOfInterestMeta`, `GstGVATensorMeta`, and `GstGVAJSONMeta`
-> is deprecated and will be removed in a future release. New code should use
-> the GStreamer Analytics API described below.
-
-The legacy API attaches
-[GstVideoRegionOfInterestMeta](https://gstreamer.freedesktop.org/documentation/video/gstvideometa.html?gi-language=c#GstVideoRegionOfInterestMeta)
-to buffers with bounding box coordinates (`x`, `y`, `w`, `h`) and a
-`GList *params` of `GstStructure` entries holding additional inference results
-(detection confidence, classification labels, keypoints, etc.).
-Two additional custom metadata types are defined:
-
-- **GstGVATensorMeta** — raw tensor output from `gvainference`
-- **GstGVAJSONMeta** — JSON conversion output from `gvametaconvert`
-
-For reference documentation of the legacy API, see
-[Legacy Metadata](./metadata_legacy.md).
-
 ## GStreamer Analytics Metadata
 
 This is the **recommended** metadata API for new code. All metadata for a
@@ -48,6 +28,26 @@ Key types:
 For the full API documentation, keypoint descriptor details, and code
 examples, see [GStreamer Analytics Metadata](./metadata_analytics.md).
 
+## Legacy Metadata (deprecated)
+
+> **DEPRECATED:** The legacy metadata API based on
+> `GstVideoRegionOfInterestMeta`, `GstGVATensorMeta`, and `GstGVAJSONMeta`
+> is deprecated and will be removed in the future. New code should use
+> the GStreamer Analytics API described below.
+
+The legacy API attaches
+[GstVideoRegionOfInterestMeta](https://gstreamer.freedesktop.org/documentation/video/gstvideometa.html?gi-language=c#GstVideoRegionOfInterestMeta)
+to buffers with bounding box coordinates (`x`, `y`, `w`, `h`) and a
+`GList *params` of `GstStructure` entries holding additional inference results
+(detection confidence, classification labels, keypoints, etc.).
+Two additional custom metadata types are defined:
+
+- **GstGVATensorMeta** — raw tensor output from `gvainference`
+- **GstGVAJSONMeta** — JSON conversion output from `gvametaconvert`
+
+For reference documentation of the legacy API, see
+[Legacy Metadata](./metadata_legacy.md).
+
 ## Element input/output summary
 
 | Element | Description | Input | Output (Analytics) | Output (Legacy) |
@@ -63,4 +63,5 @@ examples, see [GStreamer Analytics Metadata](./metadata_analytics.md).
 | `gvametapublish` | JSON → MQTT/Kafka/File | GstBuffer + GstGVAJSONMeta | — | — |
 | `gvametaaggregate` | Merge from multiple streams | GstBuffer + any metadata | ODMtd, ClsMtd, KeypointGroupMtd | ROI + GstStructure params, GstGVATensorMeta |
 | `gvawatermark` | Overlay on video | GstBuffer + ROI/ODMtd (+ related ClsMtd, KeypointGroupMtd, TrackingMtd) + GstGVATensorMeta | — | — |
-| `gvaaudiodetect` | Audio event detection | GstBuffer (audio) | — | GstGVAAudioEventMeta |
+| `gvagenai` | VLM inference on video frames | GstBuffer | ClsMtd | GstGVATensorMeta, GstGVAJSONMeta |
+| `gvaaudiotranscribe` | Speech recognition (Whisper) | GstBuffer (audio) | ClsMtd | — |

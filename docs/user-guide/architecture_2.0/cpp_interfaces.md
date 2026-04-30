@@ -19,7 +19,7 @@ The memory interop sub-component is available via APT installation
 [github](https://github.com/open-edge-platform/dlstreamer/tree/main/include/dlstreamer).
 
 > **Note:** This sub-component is implemented as a C++ header-only library. Python
-> bindings for this library will be coming in future releases.
+> bindings for this library will be coming in the future.
 
 ## Why memory interop library?
 
