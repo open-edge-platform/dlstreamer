@@ -374,9 +374,20 @@ appsink.connect("new-sample", on_new_sample, None)
 
 ## Pattern 7: Custom Python GStreamer Element (BaseTransform)
 
-Subclass `GstBase.BaseTransform` for non-trivial per-frame analytics that reads/writes metadata.
-Do not add a transform element if it only acts as metadata/state "glue" by exposing, forwarding,
-or repackaging existing information without performing substantive analytics.
+Subclass `GstBase.BaseTransform` for per-frame analytics that reads/writes metadata
+or modifies pixel data. Do not use when a pad probe (Pattern 5) suffices.
+
+### Conventions
+
+- **File:** `plugins/python/<element_name>.py`
+- **Class:** PascalCase (e.g., `FrameSelection`)
+- **Factory name:** lowercase with `_py` suffix (e.g., `gvaframeselection_py`)
+- End file with: `GObject.type_register(Cls)` and `__gstelementfactory__ = (...)`
+- Call `Gst.init_python()` after imports
+- Properties: `@GObject.Property` decorator
+- Do not drop frames before PLAYING state (sinks need preroll)
+
+### Template: Metadata-Only Element
 
 ```python
 import gi
@@ -388,10 +399,7 @@ Gst.init_python()
 GST_BASE_TRANSFORM_FLOW_DROPPED = Gst.FlowReturn.CUSTOM_SUCCESS
 
 class MyAnalytics(GstBase.BaseTransform):
-    __gstmetadata__ = ("My Analytics", "Transform",
-                       "Description of what it does",
-                       "Author Name")
-
+    __gstmetadata__ = ("My Analytics", "Transform", "Description", "Author")
     __gsttemplates__ = (
         Gst.PadTemplate.new("src", Gst.PadDirection.SRC,
                             Gst.PadPresence.ALWAYS, Gst.Caps.new_any()),
@@ -410,49 +418,33 @@ class MyAnalytics(GstBase.BaseTransform):
         self._my_param = value
 
     def do_transform_ip(self, buffer):
-        # Do not drop frames before pipeline reaches PLAYING state —
-        # sinks need at least one buffer for preroll to complete.
         _, state, _ = self.get_state(0)
         if state != Gst.State.PLAYING:
             return Gst.FlowReturn.OK
 
         rmeta = GstAnalytics.buffer_get_analytics_relation_meta(buffer)
         if not rmeta:
-            return Gst.FlowReturn.OK  # pass frame downstream
+            return Gst.FlowReturn.OK
 
         for mtd in rmeta:
             if isinstance(mtd, GstAnalytics.ODMtd):
                 # ... custom analytics logic ...
-                return Gst.FlowReturn.OK  # pass frame downstream
+                return Gst.FlowReturn.OK
 
-        return GST_BASE_TRANSFORM_FLOW_DROPPED  # no relevant detections → drop
+        return GST_BASE_TRANSFORM_FLOW_DROPPED
 
 GObject.type_register(MyAnalytics)
 __gstelementfactory__ = ("myanalytics_py", Gst.Rank.NONE, MyAnalytics)
 ```
 
-### Custom Python Element Conventions
-
-- **File location:** `plugins/python/<element_name>.py`
-- **Class name:** PascalCase (e.g., `FrameSelection`)
-- **Element factory name:** lowercase with `_py` suffix (e.g., `gvaframeselection_py`)
-- Must end with: `GObject.type_register(ClassName)` and `__gstelementfactory__ = (...)`
-- Must call `Gst.init_python()` after imports
-- Properties use `@GObject.Property` decorator
-- Transform elements subclass `GstBase.BaseTransform` and implement `do_transform_ip`
-- Bin/Sink elements subclass `Gst.Bin` and use `Gst.GhostPad`
-
 ### Plugin Registration
 
-The main app must add the plugins directory to `GST_PLUGIN_PATH` and disable the forked
-plugin scanner:
+Add to the main app before `Gst.init(None)`:
 
 ```python
 plugins_dir = str(Path(__file__).resolve().parent / "plugins")
 if plugins_dir not in os.environ.get("GST_PLUGIN_PATH", ""):
     os.environ["GST_PLUGIN_PATH"] = f"{os.environ.get('GST_PLUGIN_PATH', '')}:{plugins_dir}"
-
-# Prevent GStreamer from forking gst-plugin-scanner (cannot resolve Python symbols).
 os.environ.setdefault("GST_REGISTRY_FORK", "no")
 
 Gst.init(None)
@@ -466,10 +458,58 @@ if not reg.find_plugin("python"):
     )
 ```
 
-### Buffer Mutability
+### Elements That Modify Pixel Data
 
-Use `buffer.copy()` for shallow copy (immutable data). Use `buffer.copy_deep()` only
-when modifying actual buffer data or timestamps.
+- `buffer.map(READ | WRITE)` in `do_transform_ip` returns `success=False` (read-only pools)
+- Override `do_prepare_output_buffer` instead: read-only map input, create new buffer
+- Do **not** use `buffer.copy_deep()`
+
+```python
+def do_prepare_output_buffer(self, inbuf):
+    success, map_info = inbuf.map(Gst.MapFlags.READ)
+    if not success:
+        return Gst.FlowReturn.OK, inbuf
+    try:
+        frame = np.ndarray((self._h, self._w, 3), dtype=np.uint8, buffer=map_info.data)
+        result = self._process(frame)
+    finally:
+        inbuf.unmap(map_info)
+
+    outbuf = Gst.Buffer.new_wrapped(result.tobytes())
+    outbuf.pts = inbuf.pts
+    outbuf.dts = inbuf.dts
+    outbuf.duration = inbuf.duration
+
+    in_rmeta = GstAnalytics.buffer_get_analytics_relation_meta(inbuf)
+    if in_rmeta:
+        out_rmeta = GstAnalytics.buffer_add_analytics_relation_meta(outbuf)
+        # Re-add required metadata entries to out_rmeta
+
+    return Gst.FlowReturn.OK, outbuf
+
+def do_transform_ip(self, buffer):
+    return Gst.FlowReturn.OK  # no-op
+```
+
+### Caps Negotiation for Resolution-Changing Elements
+
+Override when output dimensions differ from input. Not needed for same-resolution transforms.
+
+```python
+def do_transform_caps(self, direction, caps, filter_caps):
+    if direction == Gst.PadDirection.SINK:
+        out = Gst.Caps.from_string(
+            f"video/x-raw,format=RGB,width={self._out_width},height={self._out_height}")
+    else:
+        out = Gst.Caps.new_any()
+    return out.intersect(filter_caps) if filter_caps else out
+
+def do_fixate_caps(self, direction, caps, othercaps):
+    if direction == Gst.PadDirection.SINK:
+        return Gst.Caps.from_string(
+            f"video/x-raw,format=RGB,width={self._out_width},height={self._out_height}").fixate()
+    return othercaps.fixate()
+```
 
 **Read for reference:** `samples/gstreamer/python/smart_nvr/plugins/python/gvaAnalytics.py`,
 `samples/gstreamer/python/vlm_self_checkout/plugins/python/gvaFrameSelection.py`

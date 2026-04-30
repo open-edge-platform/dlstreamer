@@ -19,7 +19,7 @@ For the full list of elements, see also `../../../../docs/user-guide/elements/`.
 
 | Element | Purpose | Notes |
 |---------|---------|-------|
-| `decodebin3` | Auto-select decoder | Uses hardware decode when available. **Warning:** Decodes *all* tracks including audio. See Rule 8 for handling audio-track errors in video-only pipelines. |
+| `decodebin3` | Auto-select decoder | Uses hardware decode when available. **Warning:** Decodes *all* tracks including audio. See [Decode Robustness](#decode-robustness) for handling audio-track errors in video-only pipelines. |
 
 ### Video Processing
 
@@ -43,7 +43,7 @@ For the full list of elements, see also `../../../../docs/user-guide/elements/`.
 | `gvaclassify` | Classification & OCR | ResNet, EfficientNet, CLIP, ViT, PaddleOCR | `model`, `device`, `batch-size`, `model-instance-id`, `scheduling-policy` |
 | `gvagenai` | VLM / GenAI inference | MiniCPM-V, Qwen2.5-VL, InternVL, SmolVLM | `model-path`, `device`, `prompt`, `generation-config`, `frame-rate`, `chunk-size` |
 
-> **See Rule 3 below** for guidance on choosing the correct element for each model type.
+> **See [Element & Device Selection](#element--device-selection)** for guidance on choosing the correct element and device for each model type.
 
 > **`gvagenai` scope:** Unlike `gvaclassify` (which automatically crops each detected
 > object's ROI), `gvagenai` sends the **entire frame** to the VLM. For per-object VLM
@@ -310,10 +310,11 @@ Choose the pipeline topology based on VLM scope and trigger:
 
 ### VLM branch design notes
 
-- Set `chunk-size=1` when using frame selection so `gvagenai` processes every received frame.
-- Do not set `frame-rate` when using frame selection — let the selection element control the rate.
-- Use `queue leaky=downstream` before the VLM branch to avoid back-pressuring the main pipeline.
+- Set `chunk-size=1` when using frame selection — do not set `frame-rate`.
+- Use `queue leaky=downstream` before the VLM branch.
 - Place `videoconvertscale` between custom crop elements and `gvagenai` for caps negotiation.
+- Preserve aspect ratio when resizing for VLM — use `videoconvertscale add-borders=true`
+  or letterbox manually in custom crop elements.
 
 ### Example: Periodic Full-Frame VLM (no detection)
 
@@ -370,37 +371,44 @@ tee name=t
        multifilesink location=snap-%05d.jpeg
 ```
 
+> **Align crop resolution to VLM tile size and object aspect ratio.**
+> Use multiples of the model's effective tile size, and match the crop shape
+> to the target object class. Letterbox (black-pad) to preserve proportions.
+>
+> | Model | Tile | Square | Portrait (person) | Landscape (vehicle) |
+> |-------|------|--------|--------------------|---------------------|
+> | Qwen2.5-VL | 28 | 448×448 | 224×336 | 336×224 |
+> | InternVL3 | 448 | 448×448 | 448×896 | 896×448 |
+> | MiniCPM-V | 448 | 448×448 | 448×896 | 896×448 |
+> | SmolVLM2 | 364 | 364×364 | 364×728 | 728×364 |
+>
+> Use **portrait** for standing persons/workers, **landscape** for vehicles,
+> **square** for faces, seated persons, or mixed objects (default).
+>
+> **Never upscale beyond the source region.** Choose the crop resolution
+> closest to — but not larger than — the detected bounding box dimensions.
+> Upscaling fabricated pixels adds no information and wastes VLM tokens;
+> prefer a smaller tile with letterboxing over an oversized one.
+
 
 ## Pipeline Design Rules
 
-### Rule 1 — Prefer VA Memory and GPU/NPU for AI Inference
+### Caps & Format Negotiation
 
-Do **not** insert explicit caps filters for `video/x-raw(memory:VAMemory)` or `format=NV12`
-between decode and AI elements. DL Streamer inference elements handle memory negotiation
-automatically. Prefer `device=GPU` or `device=NPU`.
+Let GStreamer and DL Streamer auto-negotiate memory type and pixel format.
 
-### Rule 2 — Let GStreamer Auto-Negotiate Pixel Format
+- Do **not** insert explicit caps for `video/x-raw(memory:VAMemory)` or `format=NV12`
+  between decode and AI elements — inference elements handle this automatically.
+- Do **not** force pixel formats (e.g. `format=RGB`) unless an element requires it
+  (e.g. custom Python element mapping buffers to numpy).
+- Prefer `device=GPU` or `device=NPU`.
 
-Do **not** force pixel formats (e.g. `format=RGB`, `format=NV12`) unless an element
-**requires** it (e.g. custom Python element mapping buffers to numpy).
-
-### Rule 3 — Element Usage Guidelines
+### Element & Device Selection
 
 Use `gvadetect` for detection, `gvaclassify` for classification/OCR, `gvagenai` for VLMs.
 Model-proc files are deprecated. Only fall back to a custom Python element when the model
-requires custom pre/post-processing.
-
-### Rule 4 — Use `queue` After Inference Elements
-
-Add `queue` after inference elements to transfer processing to another thread.
-
-### Rule 5 — Use `gvametapublish` for JSON Output
-
-```
-gvametaconvert ! gvametapublish file-format=json-lines file-path=results.jsonl
-```
-
-### Rule 6 — Device Assignment Strategy for Intel Core Ultra
+requires custom pre/post-processing. Add `queue` after every inference element to decouple
+threading.
 
 | Model Type | Recommended Device |
 |------------|-------------------|
@@ -411,37 +419,39 @@ gvametaconvert ! gvametapublish file-format=json-lines file-path=results.jsonl
 
 Use NPU for secondary models on Core Ultra 3. Prefer GPU for all models on Core Ultra 1/2.
 
-### Rule 7 — Use Fragmented MP4 for Robust Output
+### Output & Metadata
 
-Use `mp4mux fragment-duration=1000` for long-running or containerized pipelines.
-Add `flush-on-eos=true` to all `queue` elements in multi-branch pipelines.
+Publish analytics as JSON:
+
+```
+gvametaconvert ! gvametapublish file-format=json-lines file-path=results.jsonl
+```
+
+Use fragmented MP4 (`mp4mux fragment-duration=1000`) for long-running or containerized
+pipelines. Add `flush-on-eos=true` to all `queue` elements in multi-branch pipelines.
 
 ```
 vah264enc ! h264parse ! mp4mux fragment-duration=1000 ! filesink location=output.mp4
 ```
 
-### Rule 8 — Handle Audio Tracks in Video-Only Pipelines
+### Branching
 
-`.ts`, `.mkv`, and some MP4 files contain audio tracks. `decodebin3` emits an error if
-an audio codec plugin is unavailable. Filter this as non-fatal in the event loop.
-See [Pattern 2](./design-patterns.md#pattern-2-pipeline-event-loop).
-
-### Rule 9 — Avoid Unnecessary Tee Splits
-
-Use `tee` only when branches genuinely diverge in frame selection, have different processing rates,
-or require multiple sink elements per camera stream. Use a linear pipeline if all elements
-process the same frames at the same rate and all elements are transform-type elements.
-
-### Rule 10 — Place `gvawatermark` Before `tee` in Multi-Branch Pipelines
-
-When a stream branches via `tee` and multiple branches need overlays, place a **single**
-`gvawatermark` element **before** the `tee`, not on individual branches:
+- Use `tee` only when branches genuinely diverge in frame selection, processing rate,
+  or sink type. Use a linear pipeline when all elements process the same frames at the
+  same rate.
+- Place a **single** `gvawatermark` **before** `tee` when multiple branches need overlays:
 
 ```
 gvadetect ... ! queue ! gvawatermark ! tee name=t
   t. ! queue ! vapostproc ! ... ! comp.sink_N
   t. ! queue ! fakesink async=false sync=false
 ```
+
+### Decode Robustness
+
+`.ts`, `.mkv`, and some MP4 files contain audio tracks. `decodebin3` emits an error if
+an audio codec plugin is unavailable. Filter this as non-fatal in the event loop.
+See [Pattern 2](./design-patterns.md#pattern-2-pipeline-event-loop).
 
 ## Common Gotchas
 
