@@ -198,11 +198,11 @@ python3 export_models.py  # or bash export_models.sh
 
 ### Step 3 — Design Pipeline
 
-Design a DL Streamer pipeline that fulfils the user's requirements. This step covers element selection and application structure.
+Design a DL Streamer pipeline that fulfills the user's requirements. This step covers element selection and application structure.
 
 **3a — Select elements and assemble pipeline string**
 
-Use the [Pipeline Construction Reference](./references/pipeline-construction.md) to identify elements for each pipeline stage (source, decode, inference, metadata, sink). Follow the **Pipeline Design Rules** (Rules 1–10) in that reference.
+Use the [Pipeline Construction Reference](./references/pipeline-construction.md) to identify elements for each pipeline stage (source, decode, inference, metadata, sink). Follow the [Pipeline Design Rules](./references/pipeline-construction.md#pipeline-design-rules) in that reference.
 
 For common use cases, go straight to file generation using the [use-case → template/pattern mapping table](./references/pipeline-construction.md#common-pipeline-patterns).
 
@@ -217,7 +217,7 @@ For a **CLI application**, the pipeline string from 3a is the deliverable — wr
 For a **Python application**, map the user's description to one or more design patterns using the [Pattern Selection Table](./references/design-patterns.md#pattern-selection-table):
 1. Select the **pipeline construction** approach — see [Pattern 1: Pipeline Core](./references/design-patterns.md#pattern-1-pipeline-core)
 2. Add **callbacks/probes** as needed
-3. Add **custom Python elements** if the user needs inline analytics — check first whether existing GStreamer elements can handle the logic. If not, follow the [Custom Python Element Conventions](./references/design-patterns.md#custom-python-element-conventions).
+3. Add **custom Python elements** if the user needs inline analytics — check first whether existing GStreamer elements can handle the logic. If not, follow the [Conventions](./references/design-patterns.md#conventions) under Pattern 7.
 4. Wire up **argument parsing**
 5. Add the **pipeline event loop** — see [Pattern 2: Pipeline Event Loop](./references/design-patterns.md#pattern-2-pipeline-event-loop)
 
@@ -230,7 +230,7 @@ Generate all application files following the directory layout defined at the beg
 - Use the [README Template](./assets/README-template.md) to generate `README.md` — replace `{{PLACEHOLDERS}}` with application-specific content and remove HTML comments.
 - If the application requires Python packages, list them in `requirements.txt`. If the OpenVINO Python runtime is required, pin the same version as the OpenVINO runtime installed with DL Streamer.
 
-### Step 5 — Run, Debug and Validate
+### Step 5 — Run, Debug, and Validate
 
 **Run in Docker (required in PREVIEW stage):**
 ```bash

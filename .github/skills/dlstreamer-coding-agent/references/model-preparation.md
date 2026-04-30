@@ -65,8 +65,8 @@ Source: `samples/gstreamer/python/prompted_detection/prompted_detection.py`
 
 ### 2. HuggingFace Ultralytics Models
 
-If an Ultralytics model is located on the HuggingFace hub, download it first to the local disk and
-then use the Ultralytics model exporter as described in section #1.
+If an Ultralytics model is located on the HuggingFace Hub, download it first to the local disk and
+then use the Ultralytics model exporter as described in Section 1.
 
 > **IMPORTANT:** Do not assume `.pt` file names (e.g. `best.pt`, `model.pt`). HuggingFace repos
 > use varied naming conventions. Always check the actual files in the repo's "Files" tab on
@@ -270,7 +270,7 @@ Model-proc (model processing) JSON files are deprecated; do not use them with in
 
 ## Requirements
 
-Prefer using `==` pins (e.g. `ultralytics==8.4.33`) in `export_requirements.txt`, over open ranges like `>=8.3.0`.
+Prefer using `==` pins (e.g. `ultralytics==8.4.33`) in `export_requirements.txt` over open ranges like `>=8.3.0`.
 Open ranges pull untested releases that may change export behavior or break backward compatibility.
 
 ### Version Discovery Procedure
