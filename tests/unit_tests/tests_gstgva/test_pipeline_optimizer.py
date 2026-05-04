@@ -154,7 +154,7 @@ class TestOptimizer(unittest.TestCase):
         print(f"✓ Test passed: Optimized pipeline matches optimal pipeline with FPS {fps}")
 
     def test_set_sample_duration_with_iter_optimize_for_fps(self):
-        """Test that set_sample_duration() affects sampling time and number of tested pipelines"""
+        """Test that set_sample_duration() affects sampling time per candidate"""
         
         short_duration = 5
         long_duration = 15
@@ -166,12 +166,10 @@ class TestOptimizer(unittest.TestCase):
         candidates_short = []
         start_time = time.time()
         
-        for candidate_result in optimizer1.iter_optimize_for_fps(self.simple_pipeline):
-            if isinstance(candidate_result, tuple) and len(candidate_result) >= 2:
-                candidates_short.append(candidate_result)
+        for pipeline, fps in optimizer1.iter_optimize_for_fps(self.simple_pipeline):
+            candidates_short.append((pipeline, fps))
         
         elapsed_time_short = time.time() - start_time
-        optimal_pipeline1, _, _ = optimizer1.get_optimal_pipeline()
         
         # Test long duration
         optimizer2 = DLSOptimizer()
@@ -180,21 +178,19 @@ class TestOptimizer(unittest.TestCase):
         candidates_long = []
         start_time = time.time()
         
-        for candidate_result in optimizer2.iter_optimize_for_fps(self.simple_pipeline):
-            if isinstance(candidate_result, tuple) and len(candidate_result) >= 2:
-                candidates_long.append(candidate_result)
+        for pipeline, fps in optimizer2.iter_optimize_for_fps(self.simple_pipeline):
+            candidates_long.append((pipeline, fps))
         
         elapsed_time_long = time.time() - start_time
-        optimal_pipeline2, _, _ = optimizer2.get_optimal_pipeline()
         
         # Assertions
         # Long duration should take more time than short duration
         self.assertGreater(elapsed_time_long, elapsed_time_short,
                         f"Long duration ({elapsed_time_long:.1f}s) should be greater than short duration ({elapsed_time_short:.1f}s)")
         
-        # More candidates should be tested with shorter duration (faster sampling)
-        self.assertGreaterEqual(len(candidates_short), len(candidates_long),
-                            f"Short duration should test more candidates: {len(candidates_short)} >= {len(candidates_long)}")
+        # Number of candidates should be the same (iter function tests all candidates regardless of sample_duration)
+        self.assertEqual(len(candidates_short), len(candidates_long),
+                        f"Both should test same number of candidates: {len(candidates_short)} == {len(candidates_long)}")
         
         print(f"Short: {len(candidates_short)} candidates in {elapsed_time_short:.1f}s")
         print(f"Long: {len(candidates_long)} candidates in {elapsed_time_long:.1f}s")
