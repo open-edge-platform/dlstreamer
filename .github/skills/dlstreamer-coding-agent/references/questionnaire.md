@@ -34,8 +34,7 @@ pre-fill with inferred values and mark as `recommended`.
 | `Intel Platform` | What Intel hardware will this run on? | `Intel Core Ultra 3 (Panther Lake) — CPU + Xe3 GPU + NPU`, `Intel Core Ultra 2 (Lunar Lake / Arrow Lake) — CPU + GPU + NPU`, `Intel Core Ultra 1 (Meteor Lake) — CPU + GPU + NPU`, `Intel Core (older, no NPU) — CPU + GPU`, `Intel Xeon (server) — CPU only`, `Intel Arc discrete GPU`, `Not sure / detect at runtime` |
 | `Available Accelerators` | Which accelerators are available? (select all that apply) | `GPU (/dev/dri/renderD128)`, `NPU (/dev/accel/accel0)`, `CPU only` (multiSelect) |
 
-> The agent uses these answers to apply **Rule 6 — Device Assignment Strategy** from
-> [Pipeline Construction Reference](./pipeline-construction.md#rule-6--device-assignment-strategy-for-intel-core-ultra)
+> The agent uses these answers to apply the [Element & Device Selection](./pipeline-construction.md#element--device-selection) guidance
 > when setting `device=` and `batch-size=` on inference elements.
 > For advanced tuning (multi-GPU selection, pre-process backends, MULTI: device),
 > refer to the docs:
