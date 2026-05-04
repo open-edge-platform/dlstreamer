@@ -18,7 +18,7 @@ else
 fi
 
 # List help message
-if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
+if [ $# -gt 0 ] && ([ "$1" = "--help" ] || [ "$1" = "-h" ]); then
   echo "Usage: $0 [INPUT] [DEVICE] [OUTPUT]"
   echo ""
   echo "Arguments:"
@@ -108,7 +108,7 @@ fi
 
 
 PIPELINE="gst-launch-1.0 ${SOURCE_ELEMENT} ! ${DECODE_ELEMENT} ! queue ! \
-gvadetect model=$DETECTION_MODEL device=${DEVICE} ${PREPROC} ! queue ! videoconvert ! \
+gvadetect model=$DETECTION_MODEL device=${DEVICE} ${PREPROC} ! queue ! \
 gvaclassify model=$OCR_CLASSIFICATION_MODEL device=${DEVICE} ${PREPROC} ! queue !  $SINK_ELEMENT"
 
 echo "${PIPELINE}"

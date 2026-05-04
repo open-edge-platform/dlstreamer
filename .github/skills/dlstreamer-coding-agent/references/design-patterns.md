@@ -149,6 +149,14 @@ def run_pipeline(pipeline, cmd_reader=None, loop_count=1):
 
     prev = signal.signal(signal.SIGINT, _sigint_handler)
     bus = pipeline.get_bus()
+
+    # NULL → PAUSED: wait for caps negotiation and preroll to complete
+    pipeline.set_state(Gst.State.PAUSED)
+    ret = pipeline.get_state(Gst.CLOCK_TIME_NONE)
+    if ret[0] == Gst.StateChangeReturn.FAILURE:
+        pipeline.set_state(Gst.State.NULL)
+        raise RuntimeError("Pipeline failed to reach PAUSED (caps negotiation error)")
+
     pipeline.set_state(Gst.State.PLAYING)
     try:
         while True:
@@ -171,15 +179,6 @@ def run_pipeline(pipeline, cmd_reader=None, loop_count=1):
                 continue
             if msg.type == Gst.MessageType.ERROR:
                 err, debug = msg.parse_error()
-
-                # [Optional] Filter non-fatal audio errors — see Decode Robustness in
-                # Pipeline Construction Reference. Remove this block if the
-                # pipeline never encounters audio-track containers (.ts, .mkv).
-                src_name = msg.src.get_name().lower()
-                err_text = err.message.lower()
-                if "missing" in err_text or "audio" in src_name:
-                    print(f"Warning (non-fatal): {err.message} from {msg.src.get_name()}")
-                    continue  # Do NOT terminate the pipeline
 
                 raise RuntimeError(f"Pipeline error: {err.message}\nDebug: {debug}")
             if msg.type == Gst.MessageType.EOS:
@@ -439,24 +438,22 @@ __gstelementfactory__ = ("myanalytics_py", Gst.Rank.NONE, MyAnalytics)
 
 ### Plugin Registration
 
-Add to the main app before `Gst.init(None)`:
+Add before `Gst.init(None)`. Only needed when the app uses custom Python elements:
 
 ```python
 plugins_dir = str(Path(__file__).resolve().parent / "plugins")
 if plugins_dir not in os.environ.get("GST_PLUGIN_PATH", ""):
     os.environ["GST_PLUGIN_PATH"] = f"{os.environ.get('GST_PLUGIN_PATH', '')}:{plugins_dir}"
-os.environ.setdefault("GST_REGISTRY_FORK", "no")
+os.environ.setdefault("GST_REGISTRY_FORK", "no")  # required for Python elements
 
 Gst.init(None)
-
-reg = Gst.Registry.get()
-if not reg.find_plugin("python"):
-    raise RuntimeError(
-        "GStreamer 'python' plugin not found. "
-        "Ensure GST_PLUGIN_PATH includes the path to libgstpython.so. "
-        "If error persists: rm ~/.cache/gstreamer-1.0/registry.x86_64.bin"
-    )
 ```
+
+> Do not set `GST_REGISTRY_FORK=no` in apps without custom Python elements —
+> it produces noisy `undefined symbol` warnings on stderr.
+>
+> If custom elements are not found after registration, clear the cache:
+> `rm ~/.cache/gstreamer-1.0/registry.*.bin`
 
 ### Elements That Modify Pixel Data
 

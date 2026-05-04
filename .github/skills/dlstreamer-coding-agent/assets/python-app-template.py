@@ -25,11 +25,6 @@ import gi
 
 gi.require_version("Gst", "1.0")
 
-# Prevent GStreamer from forking gst-plugin-scanner (a C subprocess that cannot
-# resolve Python symbols). Scanning in-process lets libgstpython.so find the
-# Python runtime that is already loaded.
-os.environ.setdefault("GST_REGISTRY_FORK", "no")
-
 from gi.repository import GLib, Gst  # pylint: disable=no-name-in-module, wrong-import-position
 
 SCRIPT_DIR = Path(__file__).resolve().parent
