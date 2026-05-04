@@ -80,8 +80,10 @@ json convert_tensor(const GVA::Tensor &s_tensor) {
     if (!format_value.empty()) {
         jobject.push_back(json::object_t::value_type("format", format_value));
     }
+    // TODO: Temporary solution until full GstAnalytics metadata support is added to DL Streamer
     std::string type_value = s_tensor.type();
-    if (!type_value.empty()) {
+    // if (!type_value.empty()) {
+    if (type_value == GVA::GST_ANALYTICS_KEYPOINTS_2_TENSOR) {
         jobject.push_back(json::object_t::value_type("type", type_value));
     }
 
