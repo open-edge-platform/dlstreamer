@@ -60,12 +60,32 @@
 #include <set>
 #include <sstream>
 
-GST_DEBUG_CATEGORY_STATIC(deep_sort_debug);
-#define GST_CAT_DEFAULT deep_sort_debug
+/*
+ * DLStreamer-specific feature flags (compile-time).
+ * Set to 0 to revert to baseline Deep SORT algorithm behavior.
+ * Set to 1 (default) to enable DLStreamer enhancements.
+ */
+#ifndef DLS_ENABLE_TSU_SPATIAL_GATE
+#define DLS_ENABLE_TSU_SPATIAL_GATE 1 // TSU-scaled spatial gating in cost matrix
+#endif
+#ifndef DLS_ENABLE_SOFT_SPATIAL_PENALTY
+#define DLS_ENABLE_SOFT_SPATIAL_PENALTY 1 // Spatial tie-breaking penalty in cost matrix
+#endif
+#ifndef DLS_ENABLE_PROXIMITY_COMPETITION
+#define DLS_ENABLE_PROXIMITY_COMPETITION 1 // Block stale tracks when closer competitor exists
+#endif
+#ifndef DLS_ENABLE_REID_GALLERY
+#define DLS_ENABLE_REID_GALLERY 1 // Re-ID gallery for deleted track identity reuse
+#endif
+#ifndef DLS_ENABLE_KALMAN_SYMMETRY
+#define DLS_ENABLE_KALMAN_SYMMETRY 1 // Joseph-form symmetry enforcement in Kalman update
+#endif
+#ifndef DLS_ENABLE_SVD_FALLBACK
+#define DLS_ENABLE_SVD_FALLBACK 1 // SVD fallback when Cholesky fails in gating
+#endif
 
-static void __attribute__((constructor)) init_debug_category(void) {
-    GST_DEBUG_CATEGORY_INIT(deep_sort_debug, "deepsort", 0, "Deep SORT tracker");
-}
+GST_DEBUG_CATEGORY_EXTERN(deep_sort_debug);
+#define GST_CAT_DEFAULT deep_sort_debug
 
 namespace DeepSortWrapper {
 
@@ -196,10 +216,11 @@ void Track::update(const Detection &detection) {
     cv::Mat y = z - H * mean_;
 
     mean_ = mean_ + K * y;
-    // Joseph form for numerical stability: (I-KH)*P can lose symmetry over many frames
     covariance_ = covariance_ - K * S * K.t();
-    // Enforce symmetry to prevent numerical drift
+#if DLS_ENABLE_KALMAN_SYMMETRY
+    // Enforce symmetry to prevent numerical drift over long-lived tracks
     covariance_ = (covariance_ + covariance_.t()) * 0.5f;
+#endif
 
     add_feature(detection.feature);
 
@@ -300,11 +321,15 @@ std::vector<float> Track::gating_distance(const std::vector<Detection> &detectio
 
         cv::Mat diff = z - mean;
         cv::Mat x;
+#if DLS_ENABLE_SVD_FALLBACK
         bool solved = cv::solve(cov, diff, x, cv::DECOMP_CHOLESKY);
         if (!solved) {
             // Fallback to SVD if Cholesky fails (non-positive-definite)
             cv::solve(cov, diff, x, cv::DECOMP_SVD);
         }
+#else
+        cv::solve(cov, diff, x, cv::DECOMP_CHOLESKY);
+#endif
         cv::Mat result = diff.t() * x;
         distances[i] = result.at<float>(0, 0);
     }
@@ -339,6 +364,7 @@ void DeepSortTracker::track(dlstreamer::FramePtr buffer, GVA::VideoFrame &frame_
     static int frame_num_ = 0;
     frame_num_++;
 
+#if DLS_ENABLE_REID_GALLERY
     // Expire old re-ID gallery entries
     if (reid_max_age_ > 0) {
         reid_gallery_.erase(
@@ -346,6 +372,7 @@ void DeepSortTracker::track(dlstreamer::FramePtr buffer, GVA::VideoFrame &frame_
                            [&](const GalleryEntry &e) { return (frame_num_ - e.deletion_frame) > reid_max_age_; }),
             reid_gallery_.end());
     }
+#endif
 
     auto regions = frame_meta.regions();
 
@@ -404,6 +431,7 @@ void DeepSortTracker::track(dlstreamer::FramePtr buffer, GVA::VideoFrame &frame_
         int track_id = next_id_;
         bool reused = false;
 
+#if DLS_ENABLE_REID_GALLERY
         // Check re-ID gallery for a matching deleted track
         if (reid_max_age_ > 0 && !reid_gallery_.empty()) {
             float best_dist = max_cosine_distance_;
@@ -445,6 +473,7 @@ void DeepSortTracker::track(dlstreamer::FramePtr buffer, GVA::VideoFrame &frame_
                 reused = true;
             }
         }
+#endif // DLS_ENABLE_REID_GALLERY
 
         if (!reused)
             track_id = next_id_++;
@@ -457,6 +486,7 @@ void DeepSortTracker::track(dlstreamer::FramePtr buffer, GVA::VideoFrame &frame_
         tracks_.push_back(std::move(new_track));
     }
 
+#if DLS_ENABLE_REID_GALLERY
     // Step 6: Save deleted confirmed tracks to re-ID gallery, then remove
     if (reid_max_age_ > 0) {
         for (auto &track : tracks_) {
@@ -473,6 +503,7 @@ void DeepSortTracker::track(dlstreamer::FramePtr buffer, GVA::VideoFrame &frame_
             }
         }
     }
+#endif // DLS_ENABLE_REID_GALLERY
     tracks_.erase(std::remove_if(tracks_.begin(), tracks_.end(),
                                  [](const std::unique_ptr<Track> &track) { return track->is_deleted(); }),
                   tracks_.end());
@@ -691,6 +722,7 @@ void DeepSortTracker::matching_cascade(const std::vector<Detection> &detections,
                 int trk_idx_match = track_indices_l[row];
                 int det_idx_match = unmatched_detections[col];
 
+#if DLS_ENABLE_PROXIMITY_COMPETITION
                 // Proximity competition check: prevent stale tracks from stealing detections
                 // that clearly belong to even staler (higher tsu) unmatched tracks.
                 // Only applies at cascade level > 0 (stale tracks).
@@ -750,6 +782,10 @@ void DeepSortTracker::matching_cascade(const std::vector<Detection> &detections,
                     matches.push_back({det_idx_match, trk_idx_match});
                     det_matched[col] = true;
                 }
+#else
+                matches.push_back({det_idx_match, trk_idx_match});
+                det_matched[col] = true;
+#endif // DLS_ENABLE_PROXIMITY_COMPETITION
             } else {
                 // Log when a confirmed track fails cosine threshold
                 int trk_idx = track_indices_l[row];
@@ -901,10 +937,12 @@ void DeepSortTracker::gate_cost_matrix(std::vector<std::vector<float>> &cost_mat
     //
     // 3) Soft spatial penalty: tie-breaking for spatially closer track when cosine
     //    distances are nearly identical.
+#if DLS_ENABLE_TSU_SPATIAL_GATE || DLS_ENABLE_SOFT_SPATIAL_PENALTY
     constexpr float base_gate = 1.0f; // Base spatial gate at tsu=1: 1.0x min(track,det) height
     constexpr float min_gate = 0.4f;  // Minimum spatial gate for very stale tracks
     constexpr float spatial_weight = 0.1f;
     constexpr float max_spatial_penalty = 0.15f;
+#endif
 
     for (size_t row = 0; row < track_indices.size(); ++row) {
         int trk_idx = track_indices[row];
@@ -912,14 +950,18 @@ void DeepSortTracker::gate_cost_matrix(std::vector<std::vector<float>> &cost_mat
         // Mahalanobis gating: compute squared Mahalanobis distances for all detections
         auto maha_dists = tracks_[trk_idx]->gating_distance(detections, detection_indices, true);
 
+#if DLS_ENABLE_TSU_SPATIAL_GATE || DLS_ENABLE_SOFT_SPATIAL_PENALTY
         cv::Rect_<float> track_bbox = tracks_[trk_idx]->to_bbox();
         float trk_cx = track_bbox.x + track_bbox.width / 2.0f;
         float trk_cy = track_bbox.y + track_bbox.height / 2.0f;
         float height = std::max(track_bbox.height, 1.0f);
+#endif
 
+#if DLS_ENABLE_TSU_SPATIAL_GATE
         // TSU-scaled spatial gate
         int tsu = tracks_[trk_idx]->time_since_update();
         float max_dist_factor = std::max(base_gate / std::sqrt(static_cast<float>(tsu)), min_gate);
+#endif
 
         for (size_t col = 0; col < detection_indices.size(); ++col) {
             if (cost_matrix[row][col] >= INFTY_COST)
@@ -931,7 +973,8 @@ void DeepSortTracker::gate_cost_matrix(std::vector<std::vector<float>> &cost_mat
                 continue;
             }
 
-            // Gate 2: TSU-scaled spatial distance
+#if DLS_ENABLE_TSU_SPATIAL_GATE || DLS_ENABLE_SOFT_SPATIAL_PENALTY
+            // Compute spatial distance (needed by Gate 2 and/or soft penalty)
             int det_idx = detection_indices[col];
             const cv::Rect_<float> &det_bbox = detections[det_idx].bbox;
             float det_cx = det_bbox.x + det_bbox.width / 2.0f;
@@ -940,12 +983,19 @@ void DeepSortTracker::gate_cost_matrix(std::vector<std::vector<float>> &cost_mat
             float dy = trk_cy - det_cy;
             float min_height = std::min(height, std::max(det_bbox.height, 1.0f));
             float norm_dist = std::sqrt(dx * dx + dy * dy) / min_height;
+#endif
 
+#if DLS_ENABLE_TSU_SPATIAL_GATE
+            // Gate 2: TSU-scaled spatial distance
             if (norm_dist > max_dist_factor) {
                 cost_matrix[row][col] = INFTY_COST;
-            } else {
-                cost_matrix[row][col] += std::min(spatial_weight * norm_dist, max_spatial_penalty);
+                continue;
             }
+#endif
+
+#if DLS_ENABLE_SOFT_SPATIAL_PENALTY
+            cost_matrix[row][col] += std::min(spatial_weight * norm_dist, max_spatial_penalty);
+#endif
         }
     }
 }

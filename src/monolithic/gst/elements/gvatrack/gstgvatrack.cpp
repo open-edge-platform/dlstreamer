@@ -31,6 +31,8 @@
 GST_DEBUG_CATEGORY_STATIC(gst_gva_track_debug_category);
 #define GST_CAT_DEFAULT gst_gva_track_debug_category
 
+GST_DEBUG_CATEGORY(deep_sort_debug);
+
 #define DEVICE_CPU "CPU"
 #define DEVICE_GPU "GPU"
 
@@ -43,10 +45,11 @@ enum {
     PROP_DEEPSORT_TRCK_CFG,
 };
 
-G_DEFINE_TYPE_WITH_CODE(GstGvaTrack, gst_gva_track, GST_TYPE_BASE_TRANSFORM,
-                        GST_DEBUG_CATEGORY_INIT(gst_gva_track_debug_category, "gvatrack", 0,
-                                                "debug category for gvatrack element"));
+#define _do_init                                                                                                       \
+    GST_DEBUG_CATEGORY_INIT(gst_gva_track_debug_category, "gvatrack", 0, "debug category for gvatrack element");      \
+    GST_DEBUG_CATEGORY_INIT(deep_sort_debug, "deepsort", 0, "Deep SORT tracker");
 
+G_DEFINE_TYPE_WITH_CODE(GstGvaTrack, gst_gva_track, GST_TYPE_BASE_TRANSFORM, _do_init);
 static void gst_gva_track_set_property(GObject *object, guint prop_id, const GValue *value, GParamSpec *pspec);
 static void gst_gva_track_get_property(GObject *object, guint prop_id, GValue *value, GParamSpec *pspec);
 static void gst_gva_track_dispose(GObject *object);
