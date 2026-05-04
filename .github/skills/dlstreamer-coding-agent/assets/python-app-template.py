@@ -149,7 +149,7 @@ def main():
     source_el = build_source(input_src)
 
     pipe = (
-        f"{source_el} ! decodebin3 ! "
+        f"{source_el} ! decodebin3 caps=\"video/x-raw(ANY)\" ! "
         f'gvadetect model="{model_xml}" device={device} '
         f"batch-size=4 threshold={args.threshold} ! queue ! "
         f"gvafpscounter ! gvawatermark ! "

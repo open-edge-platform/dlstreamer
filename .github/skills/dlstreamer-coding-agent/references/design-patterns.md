@@ -155,7 +155,7 @@ def run_pipeline(pipeline, cmd_reader=None, loop_count=1):
     ret = pipeline.get_state(Gst.CLOCK_TIME_NONE)
     if ret[0] == Gst.StateChangeReturn.FAILURE:
         pipeline.set_state(Gst.State.NULL)
-        raise RuntimeError("Pipeline failed to reach PAUSED (caps negotiation error)")
+        raise RuntimeError("Pipeline failed to reach PAUSED")
 
     pipeline.set_state(Gst.State.PLAYING)
     try:
@@ -447,6 +447,11 @@ if plugins_dir not in os.environ.get("GST_PLUGIN_PATH", ""):
 os.environ.setdefault("GST_REGISTRY_FORK", "no")  # required for Python elements
 
 Gst.init(None)
+reg = Gst.Registry.get()
+if not reg.find_plugin("python"):
+    raise RuntimeError("GStreamer 'python' plugin not found. "
+                       "Install gst-python / python3-gst-1.0 and clear "
+                       "~/.cache/gstreamer-1.0/registry.*.bin if needed.")
 ```
 
 > Do not set `GST_REGISTRY_FORK=no` in apps without custom Python elements —

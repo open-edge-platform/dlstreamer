@@ -4,18 +4,8 @@
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
-# This sample refers to a video file by Media Hopper Studio via Pexels
-# (https://www.pexels.com)
-# ==============================================================================
 
 set -euo pipefail
-
-if [ -z "${MODELS_PATH:-}" ]; then
-  echo "Error: MODELS_PATH is not set." >&2 
-  exit 1
-else 
-  echo "MODELS_PATH: $MODELS_PATH"
-fi
 
 # List help message
 if [ $# -gt 0 ] && ([ "$1" = "--help" ] || [ "$1" = "-h" ]); then
@@ -27,6 +17,13 @@ if [ $# -gt 0 ] && ([ "$1" = "--help" ] || [ "$1" = "-h" ]); then
   echo "  OUTPUT    - Output type (default: fps). Supported: display, display-async, fps, json, display-and-json, file"
   echo ""
   exit 0
+fi
+
+if [ -z "${MODELS_PATH:-}" ]; then
+  echo "Error: MODELS_PATH is not set." >&2 
+  exit 1
+else 
+  echo "MODELS_PATH: $MODELS_PATH"
 fi
 
 # Command-line parameters
@@ -66,13 +63,13 @@ else
 fi
 
 if [[ $DEVICE == "CPU" ]]; then
-  DECODE_ELEMENT="decodebin3 "
+  DECODE_ELEMENT="decodebin3 caps=\"video/x-raw\""
   PREPROC="pre-process-backend=opencv"
 elif [[ $DEVICE == "GPU" ]]; then
-  DECODE_ELEMENT="decodebin3 ! vapostproc ! video/x-raw\(memory:VAMemory\)"
+  DECODE_ELEMENT="decodebin3 caps=\"video/x-raw(memory:VAMemory)\""
   PREPROC="pre-process-backend=va-surface-sharing"
 else
-  DECODE_ELEMENT="decodebin3"
+  DECODE_ELEMENT="decodebin3 caps=\"video/x-raw(ANY)\""
   PREPROC=""
 fi
 
