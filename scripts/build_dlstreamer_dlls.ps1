@@ -391,10 +391,10 @@ else {
 # ============================================================================
 # Git
 # ============================================================================
-$gitInstalled = (Get-WinGetPackage -Id Git.Git -Source winget -ErrorAction SilentlyContinue).Count -gt 0
+$gitInstalled = $null -ne (Get-Command git -ErrorAction SilentlyContinue)
 if (-Not $gitInstalled) {
 	Write-Section "Installing Git"
-	Install-WinGetPackage -Id Git.Git -Source winget -Mode Silent
+	winget install --id Git.Git --source winget --silent --accept-package-agreements --accept-source-agreements
 	Update-Path
 	New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" -Name "LongPathsEnabled" -Value 1 -PropertyType DWORD -Force
 	git config --system core.longpaths true
@@ -408,10 +408,10 @@ else {
 # ============================================================================
 # CMake
 # ============================================================================
-$cmakeInstalled = (Get-WinGetPackage -Id Kitware.CMake -Source winget -ErrorAction SilentlyContinue).Count -gt 0
+$cmakeInstalled = $null -ne (Get-Command cmake -ErrorAction SilentlyContinue)
 if (-Not $cmakeInstalled) {
 	Write-Section "Installing CMake"
-	Install-WinGetPackage -Id Kitware.CMake -Source winget -Mode Silent
+	winget install --id Kitware.CMake --source winget --silent --accept-package-agreements --accept-source-agreements
 	Update-Path
 	Write-Section "Done"
 }
