@@ -46,5 +46,5 @@ DLStreamerWatermarkMeta.text_meta_add(
 
 Once attached, `gvawatermark` renders the primitives automatically alongside any standard inference metadata.
 
-See the [watermark_meta Python sample](../../samples/gstreamer/python/watermark_meta/README.md) for a complete
+See the [watermark_meta Python sample](../../../samples/gstreamer/python/watermark_meta/README.md) for a complete
 working example.
