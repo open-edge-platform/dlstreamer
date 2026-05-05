@@ -19,7 +19,7 @@ For the full list of elements, see also `../../../../docs/user-guide/elements/`.
 
 | Element | Purpose | Notes |
 |---------|---------|-------|
-| `decodebin3` | Auto-select decoder | Uses hardware decode when available. **Warning:** Decodes *all* tracks including audio. See Rule 8 for handling audio-track errors in video-only pipelines. |
+| `decodebin3` | Auto-select decoder | Uses hardware decode when available. **Warning:** Decodes *all* tracks including audio. See [Decode Robustness](#decode-robustness) for handling audio-track errors in video-only pipelines. |
 
 ### Video Processing
 
@@ -43,19 +43,20 @@ For the full list of elements, see also `../../../../docs/user-guide/elements/`.
 | `gvaclassify` | Classification & OCR | ResNet, EfficientNet, CLIP, ViT, PaddleOCR | `model`, `device`, `batch-size`, `model-instance-id`, `scheduling-policy` |
 | `gvagenai` | VLM / GenAI inference | MiniCPM-V, Qwen2.5-VL, InternVL, SmolVLM | `model-path`, `device`, `prompt`, `generation-config`, `frame-rate`, `chunk-size` |
 
-> **See Rule 3 below** for guidance on choosing the correct element for each model type.
+> **See [Element & Device Selection](#element--device-selection)** for guidance on choosing the correct element and device for each model type.
+
+> **`gvagenai` scope:** Unlike `gvaclassify` (which automatically crops each detected
+> object's ROI), `gvagenai` sends the **entire frame** to the VLM. For per-object VLM
+> analysis, add custom crop elements upstream. See [VLM Examples](#vlm-examples).
 
 > **`max_new_tokens` sizing guide for `gvagenai`:**
 >
 > | Use Case | Recommended `max_new_tokens` |
 > |----------|-----------------------------|
 > | Classification (single label) | 1–4 |
-> | Short structured answer (yes/no + label) | 10-15 |
-> | Multi-object structured analysis | 30-50 |
-> | Free-form description or summary | 100-200 |
->
-> **Thinking models** may emit `<think>...</think>` tokens consuming `max_new_tokens`.
-> Add "Do not explain your reasoning, answer directly." to the prompt to disable.
+> | Short structured answer (yes/no + label) | 10–15 |
+> | Multi-object structured analysis | 30–50 |
+> | Free-form description or summary | 100–200 |
 
 ### Tracking
 
@@ -136,11 +137,13 @@ Two approaches for adding custom per-frame logic in Python applications:
 
 Do not use `gvapython` element; it is deprecated and will be removed in future releases.
 
-Prefer pad probe callbacks when the logic is self-contained to a single application
+Prefer pad probe callbacks when the logic is self-contained within a single application
 and does not need GObject properties. Prefer custom Python elements when the logic
 needs to be parameterized from the pipeline string or reused across apps.
 
 ## Common Pipeline Patterns
+
+Numbers in the **Design Patterns** column refer to [design-patterns.md](./design-patterns.md)
 
 | Use Case | Templates | Design Patterns | Key Model Export | Reference Sample |
 |----------|-----------|-----------------|------------------|------------------|
@@ -148,17 +151,21 @@ needs to be parameterized from the pipeline string or reused across apps.
 | Detection + save video + JSON + display | `python-app-template.py` | 1 + 2 + 9 | Ultralytics | `detection_with_yolo` (CLI) |
 | Detection + classification/OCR + save | `python-app-template.py` + `export-models-template.py` | 1 + 2 | YOLO + PaddleOCR/optimum-cli | `license_plate_recognition` (CLI), `face_detection_and_classification` (Python) |
 | Detection + classification/OCR + save + display | `python-app-template.py` + `export-models-template.py` | 1 + 2 + 9 | YOLO + PaddleOCR/optimum-cli | `license_plate_recognition` (CLI), `face_detection_and_classification` (Python) |
-| VLM alerting + save | `python-app-template.py` | 1 + 2 | optimum-cli | `vlm_alerts` (Python) |
 | Detection + custom analytics (single output) | `python-app-template.py` | 1 + 2 + 8 | Ultralytics | `smart_nvr` (Python) |
 | Detection + custom analytics + display | `python-app-template.py` | 1 + 2 + 8 + 9 | Ultralytics | `smart_nvr` (Python) |
 | Detection + tracking + recording | `python-app-template.py` | 1 + 2 + 7 + 8 | Ultralytics | `smart_nvr` (Python), `vehicle_pedestrian_tracking` (CLI) |
 | Detection + tracking + recording + display | `python-app-template.py` | 1 + 2 + 7 + 8 + 9 + 10 | Ultralytics | `smart_nvr` (Python), `open_close_valve` (Python) |
-| Detection + VLM on selected frames | `python-app-template.py` | 1 + 2 + 7 + 8 + 9 | Ultralytics + optimum-cli | `vlm_self_checkout` (Python) |
+| VLM alerting + save | `python-app-template.py` | 1 + 2 | optimum-cli | `vlm_alerts` (Python) |
+| Detection + VLM on selected frames | `python-app-template.py` | 1 + 2 + 7 + 9 | Ultralytics + optimum-cli | `vlm_self_checkout` (Python) |
+| Detection + per-object crop + VLM | `python-app-template.py` | 1 + 2 + 7 + 9 | Ultralytics + optimum-cli | — |
 | Custom analytics + chunked storage | `python-app-template.py` | 1 + 2 + 8 | Ultralytics | `smart_nvr` (Python) |
 | Custom analytics + chunked storage + display | `python-app-template.py` | 1 + 2 + 8 + 9 + 10 | Ultralytics | `smart_nvr` (Python) |
 | Multi-camera RTSP | `python-app-template.py` | 1 + 2 + 3 | (per camera) | `onvif_cameras_discovery` (Python), `multi_stream` (CLI) |
 | Multi-stream composite mosaic | `python-app-template.py` | 1 + 2 + 4 | (per stream) | `multi_stream` (CLI) |
 | Multi-stream composite + WebRTC + recording | `python-app-template.py` | 1 + 2 + 4 + 9 | Ultralytics | `multi_stream` (CLI) |
+
+
+## Single-stream Examples
 
 ### Example: Decode → Detect → Watermark → Display
 
@@ -226,16 +233,18 @@ gvafpscounter ! gvawatermark !
 gvarecorder_py location=output.mp4 max-time=10
 ```
 
+## Multi-stream Examples
+
 ### Example: Multi-Stream Analytics (N streams)
 
 ```
 filesrc location=cam1.mp4 ! decodebin3 !
 gvadetect model=model.xml device=GPU model-instance-id=model0 batch-size=<stream count> ! queue ! ...
 
-filesrc location=cam1.mp4 ! decodebin3 !
+filesrc location=cam2.mp4 ! decodebin3 !
 gvadetect model=model.xml device=GPU model-instance-id=model0 batch-size=<stream count> ! queue ! ...
 
-... (repeat for stream_2, stream_3, etc.)
+... (repeat for stream_3, stream_4, etc.)
 ```
 
 Use `model-instance-id=<name>` to share model instances across streams.
@@ -290,23 +299,40 @@ gvawatermark → tee name=stream_tee_N
        mp4mux fragment-duration=1000 ! filesink location=streamN.mp4 async=false
 ```
 
-### Example: Continuous VLM Analysis with JSON + Video Output
+## VLM Examples
+
+`gvagenai` always processes the full input frame — it does not crop per-object ROIs.
+Choose the pipeline topology based on VLM scope and trigger:
+
+| VLM Scope | Trigger | Topology | Reference |
+|-----------|---------|----------|-----------|
+| **Full scene** | Periodic (fixed interval) | `gvagenai` with `frame-rate` on full/downscaled frames | `vlm_alerts` |
+| **Full scene** | On demand (triggered by detection analytics) | Custom selection element drops frames; `gvagenai` on full frames | `vlm_self_checkout` |
+| **Per object** | On demand (triggered by specific object detection) | Custom selection + crop elements upstream of `gvagenai`; one object per VLM call | — |
+
+### VLM branch design notes
+
+- Set `chunk-size=1` when using frame selection — do not set `frame-rate`.
+- Use `queue leaky=downstream` before the VLM branch.
+- Place `videoconvertscale` between custom crop elements and `gvagenai` for caps negotiation.
+- Preserve aspect ratio when resizing for VLM — use `videoconvertscale add-borders=true`
+  or letterbox manually in custom crop elements.
+
+### Example: Periodic Full-Frame VLM (no detection)
 
 ```
 filesrc location=video.mp4 ! decodebin3 !
 gvagenai model-path=model_dir device=GPU prompt-path=prompt.txt
-    generation-config="max_new_tokens=1,num_beams=4"
+    generation-config="max_new_tokens=4"
     chunk-size=1 frame-rate=1.0 metrics=true !
-gvametapublish file-format=json-lines file-path=results.jsonl ! queue !
-gvafpscounter ! gvawatermark name=watermark ! videoconvert !
+gvametapublish file-format=json-lines file-path=results.jsonl !
+gvafpscounter ! gvawatermark ! videoconvert !
 vah264enc ! h264parse ! mp4mux ! filesink location=output.mp4
 ```
 
-### Example: Detect + VLM with dynamic prompt and/or dynamic frame selection
+### Example: Detect → Select → Full-Frame VLM
 
-Use a custom Python element (`gvaframeselection_py`) to select frames for VLM processing.
-Set `chunk-size=1` and do not set `frame-rate` on the `gvagenai` element.
-This way `gvagenai` processes every frame selected by the custom logic.
+A custom selection element drops frames that do not meet analysis criteria; the VLM receives the full frame.
 
 ```
 filesrc location=video.mp4 ! decodebin3 !
@@ -314,81 +340,77 @@ gvafpsthrottle target-fps=30 !
 gvadetect model=detect.xml device=GPU threshold=0.4 ! queue !
 gvatrack tracking-type=zero-term-imageless !
 tee name=detect_tee
-
-  detect_tee. ! queue !
-  gvawatermark name=watermark ! gvafpscounter !
-  vah264enc ! h264parse ! mp4mux ! filesink location=output.mp4
-
+  detect_tee. ! queue ! gvawatermark ! gvafpscounter !
+      vah264enc ! h264parse ! mp4mux ! filesink location=output.mp4
   detect_tee. ! queue leaky=downstream !
-  gvaframeselection_py !
-  videoconvertscale ! video/x-raw,width={width},height={height} !
-  gvagenai name=vlm model-path=vlm_dir device=GPU
-      prompt="Say OK." generation-config="max_new_tokens=2"
-      chunk-size=1 metrics=true !
-  gvametapublish file-format=json-lines file-path=results.jsonl !
-  gvawatermark device=CPU !
-  jpegenc ! multifilesink location=snapshots-%d.jpeg
+      gvaframeselection_py !
+      videoconvertscale ! video/x-raw,width={width},height={height} !
+      gvagenai name=vlm model-path=vlm_dir device=GPU
+          prompt-path=prompt.txt generation-config="max_new_tokens=50"
+          chunk-size=1 metrics=true !
+      gvametapublish file-format=json-lines file-path=results.jsonl !
+      gvawatermark device=CPU ! jpegenc !
+      multifilesink location=snapshots-%05d.jpeg
 ```
 
-**VLM branch design notes:**
-- **Leaky queue:** prevents VLM branch from back-pressuring the real-time output.
-- **`videoconvertscale`** is optional — only to reduce VLM input resolution.
-- **Preroll prompt:** initialize with a trivial prompt (`"Say OK."`) and update
-  programmatically after the pipeline enters PLAYING state.
-- **Tracker fragmentation:** `zero-term-imageless` tracking may re-trigger VLM queries
-  due to unstable IDs. Use `zero-term` or `deep-sort` for more stable tracking.
+### Example: Detect → Select → Per-Object Crop → VLM
 
-### Per-Object VLM Analysis
-
-**Approach A: Full-frame prompt (simpler, less accurate)**
-
-Send the full frame and ask the VLM to analyze all visible objects. Works when objects
-are large (> 15% of frame) and few (< 5).
+Two custom elements: a selection element picks one object per frame and tags its bounding box;
+a crop element extracts that region and scales it to the VLM input resolution.
 
 ```
-gvagenai ... prompt="Analyze each worker in this image. For each worker:\n
-  1. Helmet? (WEARING / NOT_WEARING / UNCERTAIN)\n
-  2. Harness? (SECURED / NOT_SECURED / UNCERTAIN)\n
-  Answer directly, no reasoning."
-  generation-config="max_new_tokens=256"
+filesrc location=video.mp4 ! decodebin3 !
+gvadetect model=model.xml device=GPU ! queue ! gvatrack !
+tee name=t
+  t. ! queue ! gvafpscounter ! fakesink async=false
+  t. ! queue leaky=downstream !
+       gvaselection_py ! videoconvert ! video/x-raw,format=RGB !
+       gvacrop_py !
+       gvagenai model-path=vlm_model device=GPU prompt-path=prompt.txt
+           generation-config="max_new_tokens=15" chunk-size=1 !
+       gvametapublish file-format=json-lines file-path=results.jsonl !
+       gvawatermark ! videoconvert ! jpegenc !
+       multifilesink location=snap-%05d.jpeg
 ```
 
-**Approach B: Per-crop custom element (more accurate, more complex)**
+> **Align crop resolution to VLM tile size and object aspect ratio.**
+> Use multiples of the model's effective tile size, and match the crop shape
+> to the target object class. Letterbox (black-pad) to preserve proportions.
+>
+> | Model | Tile | Square | Portrait (person) | Landscape (vehicle) |
+> |-------|------|--------|--------------------|---------------------|
+> | Qwen2.5-VL | 28 | 448×448 | 224×336 | 336×224 |
+> | InternVL3 | 448 | 448×448 | 448×896 | 896×448 |
+> | MiniCPM-V | 448 | 448×448 | 448×896 | 896×448 |
+> | SmolVLM2 | 364 | 364×364 | 364×728 | 728×364 |
+>
+> Use **portrait** for standing persons/workers, **landscape** for vehicles,
+> **square** for faces, seated persons, or mixed objects (default).
+>
+> **Never upscale beyond the source region.** Choose the crop resolution
+> closest to — but not larger than — the detected bounding box dimensions.
+> Upscaling fabricated pixels adds no information and wastes VLM tokens;
+> prefer a smaller tile with letterboxing over an oversized one.
 
-Create a custom `BaseTransform` element that crops each detected object and passes
-one crop per buffer to `gvagenai` with `chunk-size=1`. Use when objects are small
-(< 10% of frame) or per-object tracking correlation is required.
 
 ## Pipeline Design Rules
 
-### Rule 1 — Prefer VA Memory and GPU/NPU for AI Inference
+### Caps & Format Negotiation
 
-Do **not** insert explicit caps filters for `video/x-raw(memory:VAMemory)` or `format=NV12`
-between decode and AI elements. DL Streamer inference elements handle memory negotiation
-automatically. Prefer `device=GPU` or `device=NPU`.
+Let GStreamer and DL Streamer auto-negotiate memory type and pixel format.
 
-### Rule 2 — Let GStreamer Auto-Negotiate Pixel Format
+- Do **not** insert explicit caps for `video/x-raw(memory:VAMemory)` or `format=NV12`
+  between decode and AI elements — inference elements handle this automatically.
+- Do **not** force pixel formats (e.g. `format=RGB`) unless an element requires it
+  (e.g. custom Python element mapping buffers to numpy).
+- Prefer `device=GPU` or `device=NPU`.
 
-Do **not** force pixel formats (e.g. `format=RGB`, `format=NV12`) unless an element
-**requires** it (e.g. custom Python element mapping buffers to numpy).
-
-### Rule 3 — Element Usage Guidelines
+### Element & Device Selection
 
 Use `gvadetect` for detection, `gvaclassify` for classification/OCR, `gvagenai` for VLMs.
 Model-proc files are deprecated. Only fall back to a custom Python element when the model
-requires custom pre/post-processing.
-
-### Rule 4 — Use `queue` After Inference Elements
-
-Add `queue` after inference elements to transfer processing to another thread.
-
-### Rule 5 — Use `gvametapublish` for JSON Output
-
-```
-gvametaconvert ! gvametapublish file-format=json-lines file-path=results.jsonl
-```
-
-### Rule 6 — Device Assignment Strategy for Intel Core Ultra
+requires custom pre/post-processing. Add `queue` after every inference element to decouple
+threading.
 
 | Model Type | Recommended Device |
 |------------|-------------------|
@@ -399,37 +421,39 @@ gvametaconvert ! gvametapublish file-format=json-lines file-path=results.jsonl
 
 Use NPU for secondary models on Core Ultra 3. Prefer GPU for all models on Core Ultra 1/2.
 
-### Rule 7 — Use Fragmented MP4 for Robust Output
+### Output & Metadata
 
-Use `mp4mux fragment-duration=1000` for long-running or containerized pipelines.
-Add `flush-on-eos=true` to all `queue` elements in multi-branch pipelines.
+Publish analytics as JSON:
+
+```
+gvametaconvert ! gvametapublish file-format=json-lines file-path=results.jsonl
+```
+
+Use fragmented MP4 (`mp4mux fragment-duration=1000`) for long-running or containerized
+pipelines. Add `flush-on-eos=true` to all `queue` elements in multi-branch pipelines.
 
 ```
 vah264enc ! h264parse ! mp4mux fragment-duration=1000 ! filesink location=output.mp4
 ```
 
-### Rule 8 — Handle Audio Tracks in Video-Only Pipelines
+### Branching
 
-`.ts`, `.mkv`, and some MP4 files contain audio tracks. `decodebin3` emits an error if
-an audio codec plugin is unavailable. Filter this as non-fatal in the event loop.
-See [Pattern 2](./design-patterns.md#pattern-2-pipeline-event-loop).
-
-### Rule 9 — Avoid Unnecessary Tee Splits
-
-Use `tee` only when branches genuinely diverge in frame selection, have different processing rates,
-or require multiple sink elements per camera stream. Use a linear pipeline if all elements
-process the same frames at the same rate and all elements are transform-type elements.
-
-### Rule 10 — Place `gvawatermark` Before `tee` in Multi-Branch Pipelines
-
-When a stream branches via `tee` and multiple branches need overlays, place a **single**
-`gvawatermark` element **before** the `tee`, not on individual branches:
+- Use `tee` only when branches genuinely diverge in frame selection, processing rate,
+  or sink type. Use a linear pipeline when all elements process the same frames at the
+  same rate.
+- Place a **single** `gvawatermark` **before** `tee` when multiple branches need overlays:
 
 ```
 gvadetect ... ! queue ! gvawatermark ! tee name=t
   t. ! queue ! vapostproc ! ... ! comp.sink_N
   t. ! queue ! fakesink async=false sync=false
 ```
+
+### Decode Robustness
+
+`.ts`, `.mkv`, and some MP4 files contain audio tracks. `decodebin3` emits an error if
+an audio codec plugin is unavailable. Filter this as non-fatal in the event loop.
+See [Pattern 2](./design-patterns.md#pattern-2-pipeline-event-loop).
 
 ## Common Gotchas
 

@@ -293,3 +293,7 @@ displ-cfg=enable-blur=true,hide-blur-roi=car:truck,thickness=1
 
 *Displays average FPS counter when `gvafpscounter` element is present in pipeline*
 
+## Watermark Metadata API
+
+See [Watermark Metadata](../dev_guide/metadata.md#watermark-metadata) in the metadata developer guide for
+full API and Python usage examples.

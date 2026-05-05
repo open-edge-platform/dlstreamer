@@ -2,14 +2,22 @@
 
 {{APP_DESCRIPTION}}
 
-<!-- Optional: Include a screenshot from the output video. Omit this line if no image is available. -->
-<!-- ![{{APP_TITLE}}]({{APP_IMAGE}}) -->
-
-{{DETAILED_DESCRIPTION}}
+<!-- Add a short description (2-3 sentences) of what the application does. -->
 
 {{DLSTREAMER_CODING_AGENT_PROMPT}}
-<!-- If the application was generated using DL Streamer Coding Agent, add initial user prompt.
--->
+<!-- Copy the COMPLETE initial user prompt verbatim, including expected results,
+     and validation criteria. Wrap in a blockquote (> ). Do not paraphrase or summarize. -->
+
+{{APP_VISUALIZATION}}
+
+<!-- Include a screenshot from the output video. -->
+<!-- ![{{APP_TITLE}}]({{APP_IMAGE}}) -->
+
+<!-- If the input video is from a publicly available or appropriately licensed source
+     (for example, https://www.pexels.com/videos/), add a note:
+This sample uses a video file from <link> by <author> -->
+
+{{DETAILED_DESCRIPTION}}
 
 ## What It Does
 
@@ -25,9 +33,9 @@
 ```mermaid
 {{PIPELINE_DIAGRAM}}
 ```
-<!-- Use a Mermaid graph or flowchart showing the pipeline elements and data flow.
-     For multi-branch pipelines (tee), use subgraphs (see vlm_self_checkout example).
-     For linear pipelines, use a simple graph LR (see smart_nvr example). -->
+<!-- Use a Mermaid graph or flowchart to show the pipeline elements and data flow.
+     For multi-branch pipelines (tee), use subgraphs (see the vlm_self_checkout example).
+     For linear pipelines, use a simple graph LR (see the smart_nvr example). -->
 
 {{PIPELINE_ELEMENTS_LIST}}
 <!-- Optional: List each element and its role. Example:
@@ -35,20 +43,20 @@ The pipeline uses the following elements:
 
 * __filesrc__ - GStreamer element that reads the video stream from a local file
 * __decodebin3__ - GStreamer element that decodes the video stream
-* __gvadetect__ - DL Streamer inference element that detects objects using the detection model
-* __gvawatermark__ - DL Streamer element that renders detection results on video frames
+* __gvadetect__ - DL Streamer inference element that runs object detection
+* __gvawatermark__ - DL Streamer element that overlays detection results on video frames
 -->
 
 ## Prerequisites
 
-- DL Streamer installed on host, or DL Streamer docker image
-- Intel EdgeAI System with integrated GPU/NPU (or set device arguments to `CPU`)
-- Python dependencies installed with:
+- DL Streamer installed on the host, or a DL Streamer Docker image
+- Intel Edge AI system with integrated GPU/NPU (or set device arguments to `CPU`)
 
-> **Note:** Model export and pipeline runtime use **separate virtual environments** to
-> avoid dependency conflicts. `export_requirements.txt` includes heavy ML frameworks
-> (PyTorch, Ultralytics, PaddlePaddle) needed only once for model conversion.
-> `requirements.txt` contains lightweight runtime dependencies.
+### Install Python Dependencies
+
+> **Note:** `export_requirements.txt` includes heavy ML frameworks (PyTorch,
+> Ultralytics, PaddlePaddle), needed only for one-time model conversion.
+> `requirements.txt` contains only lightweight runtime dependencies.
 
 ```bash
 python3 -m venv .{{APP_NAME}}-venv
@@ -56,7 +64,10 @@ source .{{APP_NAME}}-venv/bin/activate
 pip install -r export_requirements.txt -r requirements.txt
 ```
 
-## Prepare Video and Models
+## Prepare Video and Models (One-Time Setup)
+
+Before running the application, download the input video and export the required models.
+This step is performed once; subsequent application runs reuse the prepared assets.
 
 ### Download Video
 
@@ -76,47 +87,35 @@ curl -L -o videos/sample.mp4 \
 Alternatively, use any local video file and pass it via `--input`.
 -->
 
-### Models
+### Export Models
 
-{{MODEL_SECTIONS}}
-<!-- Add a subsection for each model used. Example:
-
-### Detection (YOLO26s)
-
-The script automatically downloads `yolo26s.pt` from the Ultralytics hub and converts to OpenVINO IR format under `models/yolo26s_int8_openvino_model/`.
-Use `--detect-model-id` to select a different object detection model.
+The export script downloads the AI models and converts them to OpenVINO IR format.
+Converted models are saved under `models/`. This may take several minutes depending on model size and network speed.
 
 ```bash
-python3 {{APP_NAME}}.py --detect-model-id <yolo_model_id>
+python3 export_models.py
 ```
 
-### VLM (MiniCPM-V-4.5)
-
-The script automatically downloads `openbmb/MiniCPM-V-4_5` from the HuggingFace hub and converts to OpenVINO IR format under `models/MiniCPM-V-4_5/`.
-Use `--vlm-model-id` to select a different VLM model from HuggingFace hub.
-
-```bash
-python3 {{APP_NAME}}.py --vlm-model-id <vlm_model_id>
-```
--->
 
 ## Running the Sample
 
-Basic usage (models and video must be prepared beforehand — see above):
+Once the video and models are prepared (see above), run the application:
 
 ```bash
 python3 {{APP_NAME}}.py --input videos/sample.mp4
 ```
 
+You can re-run the application with different runtime options without repeating the preparation step.
+
 {{ADVANCED_USAGE}}
 <!-- Optional: Show advanced usage with non-default options. Example:
 
-With non-default AI models and user-defined input video:
+Run with a different inference device:
 
 ```bash
 python3 {{APP_NAME}}.py \
     --input /path/to/video.mp4 \
-    --detect-model-id yolo11s \
+    --detect-model models/yolo11s \
     --detect-device NPU
 ```
 -->
@@ -126,14 +125,14 @@ python3 {{APP_NAME}}.py \
 {{HOW_IT_WORKS_SECTIONS}}
 <!-- Add a subsection for each major step or custom element. Example:
 
-### STEP 1 - Model Download and Conversion
+### STEP 1 — Video Download and Model Export (one-time)
 
-The application loads pre-downloaded models and processes the input video file.
+Download the input video and convert models to OpenVINO IR format (see "Prepare Video and Models" above).
 
-### STEP 2 - DL Streamer Pipeline Construction
+### STEP 2 — DL Streamer Pipeline Construction
 
-The application creates a GStreamer pipeline that combines predefined GStreamer and DLStreamer
-elements with custom Python elements.
+The application constructs a GStreamer pipeline that combines built-in GStreamer and DL Streamer
+elements with custom Python components.
 
 ```python
 pipeline = Gst.parse_launch(
@@ -148,14 +147,14 @@ pipeline = Gst.parse_launch(
 -->
 
 {{CONFIGURATION_FILES_SECTION}}
-<!-- Optional: Include if the sample uses config files. Example:
+<!-- Optional: Include if the sample uses configuration files. Example:
 
 ## Configuration Files
 
 | File | Purpose |
 |---|---|
 | `config/inventory.txt` | List of known inventory items |
-| `config/excluded_objects.txt` | Object types to ignore during tracking |
+| `config/initial_prompt.txt` | VLM model initial prompt |
 -->
 
 ## Command-Line Arguments
@@ -165,7 +164,7 @@ pipeline = Gst.parse_launch(
 {{CLI_ARGUMENTS_TABLE}}
 <!-- Example:
 | `--input` | `videos/sample.mp4` | Path to input video file or rtsp:// URI |
-| `--detect-model-id` | `yolo26s` | Ultralytics model id for detection |
+| `--detect-model` | `models/yolo26s` | Path to OpenVINO IR model converted from Ultralytics |
 | `--detect-device` | `GPU` | Device for detection inference |
 -->
 
@@ -180,5 +179,3 @@ Results are written to the `results/` directory:
 - `output-00.txt` / `output-00.mp4` — chunked video segments with per-segment metadata
 -->
 
-## See also
-* [Samples overview](../../README.md)
