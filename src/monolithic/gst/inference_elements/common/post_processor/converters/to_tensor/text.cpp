@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2021-2025 Intel Corporation
+ * Copyright (C) 2021-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -44,7 +44,7 @@ TensorsTable TextConverter::convert(const OutputBlobs &output_blobs) {
             for (size_t frame_index = 0; frame_index < batch_size; ++frame_index) {
                 GVA::Tensor classification_result = createTensor();
 
-                if (!raw_tensor_copying->enabled(RawTensorCopyingToggle::id))
+                if (!skipRawTensors())
                     CopyOutputBlobToGstStructure(blob, classification_result.gst_structure(),
                                                  BlobToMetaConverter::getModelName().c_str(), layer_name.c_str(),
                                                  batch_size, frame_index);

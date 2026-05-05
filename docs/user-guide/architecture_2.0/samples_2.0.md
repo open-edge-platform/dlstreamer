@@ -6,9 +6,6 @@ high-level*):
 
 | Category | Folder | Sample(s) | #1 used | #2 used | #3 used |
 |---|---|---|---|---|---|
-| Direct Programming | samples/ffmpeg_openvino/ | decode_inference | No | No | No |
-| Direct Programming | samples/ffmpeg_openvino/ | decode_resize_inference | Yes | Yes | No |
-| Direct Programming | samples/ffmpeg_dpcpp/ | rgb_to_grayscale | Yes | Yes | No |
 | GStreamer low-level | samples/gstreamer/gst_launch/face_detection_and_classification_bins/ | face_detection_and_classification_cpu.sh<br>face_detection_and_classification_gpu.sh | No | Yes | No |
 | GStreamer low-level | samples/gstreamer/gst_launch/action_recognition/ | action_recognition.sh | No | Yes | Yes |
 | GStreamer low-level | samples/gstreamer/gst_launch/instance_segmentation/ | instance_segmentation.sh | No | Yes | Yes |

@@ -6,6 +6,7 @@
 
 #include "post_processor.h"
 
+#include "gstgvaclassify.h"
 #include "gstgvadetect.h"
 #include "gva_base_inference.h"
 #include "inference_backend/logger.h"
@@ -204,6 +205,8 @@ PostProcessor::PostProcessor(InferenceImpl *inference_impl, GvaBaseInference *ba
         initializer.threshold_explicitly_set = gva_detect->threshold_explicitly_set;
     } else if (inference_type == InferenceType::GST_GVA_CLASSIFY_TYPE) {
         initializer.converter_type = ConverterType::TO_TENSOR;
+        GstGvaClassify *gva_classify = reinterpret_cast<GstGvaClassify *>(base_inference);
+        initializer.skip_raw_tensors = gva_classify->skip_raw_tensors;
     } else if (inference_type == InferenceType::GST_GVA_INFERENCE_TYPE) {
         initializer.converter_type = ConverterType::RAW;
     }

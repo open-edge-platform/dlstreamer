@@ -1,0 +1,32 @@
+# Model export dependencies for {{APP_NAME}}
+# Run once before starting the pipeline: pip install -r export_requirements.txt
+
+# IMPORTANT: CPU-only PyTorch — must appear before any torch-dependent package.
+# Without this, pip resolves the default CUDA-enabled PyTorch (multi-GB download).
+# Model export only needs CPU inference.
+--extra-index-url https://download.pytorch.org/whl/cpu
+
+# OpenVINO Python version (pin to match DL Streamer runtime)
+# Discover with: python3 -c "import openvino; print(openvino.__version__)"
+# openvino==2026.0.0
+
+# NNCF for INT8 quantization (required by ultralytics int8=True export)
+# Discover with: pip show nncf | grep Version
+# nncf==3.0.0
+
+# ── Uncomment the sections needed for your models ──
+
+# Ultralytics YOLO (detection / segmentation)
+# Discover with: pip show ultralytics | grep Version
+# ultralytics==8.4.33
+
+# HuggingFace transformers + OpenVINO export
+# optimum[openvino]
+# huggingface_hub
+
+# PaddlePaddle OCR models (paddle2onnx → ovc conversion)
+# paddlepaddle
+# paddle2onnx
+# onnx
+# onnxruntime
+# onnx_graphsurgeon

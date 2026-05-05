@@ -69,42 +69,49 @@ The sample contains `model_proc` subfolder with .json files for each model with 
 
 ## Running
 
-```batch
-face_detection_and_classification.bat [INPUT_VIDEO] [DEVICE] [SINK_ELEMENT]
+```PowerShell
+.\face_detection_and_classification.ps1 [-InputSource <path>] [-Device <device>] [-OutputType <type>] [-JsonFile <file>] [-FrameLimiter <element>]
 ```
-The sample takes three command-line *optional* parameters:
-1. **INPUT_VIDEO** to specify input video file.
+
+### Parameters
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| -InputSource | GitHub video URL | Local video file, URL, or USB camera path |
+| -Device | CPU | Inference device: CPU, GPU, NPU |
+| -OutputType | display | Output type: display, fps, json |
+| -JsonFile | output.json | JSON output file name (for json output type) |
+| -FrameLimiter | (empty) | Optional GStreamer element to insert after decode (e.g., " ! identity eos-after=1000") |
+
 The input could be:
-    * local video file (`C:\path\to\video.mp4`)
-    * web camera device path (Windows USB camera path format)
-    * RTSP camera (URL starting with `rtsp://`) or other streaming source (ex URL starting with `http://`)
+* local video file (`C:\path\to\video.mp4`)
+* web camera device path (Windows USB camera path format like `\\?\usb#...`)
+* RTSP camera (URL starting with `rtsp://`) or other streaming source (ex URL starting with `http://`)
 
-    If parameter is not specified, the sample by default streams video example from HTTPS link (utilizing `urisourcebin` element) so requires internet connection.
+If parameter is not specified, the sample by default streams video example from HTTPS link (utilizing `urisourcebin` element) so requires internet connection.
 
-2. **DEVICE** to specify device for detection and classification.
-    * CPU (Default)
-    * GPU
-
-    Please refer to OpenVINO™ toolkit documentation for supported devices:
-    https://docs.openvinotoolkit.org/latest/openvino_docs_IE_DG_supported_plugins_Supported_Devices.html
-
-3. **SINK_ELEMENT** to choose between render mode and fps throughput mode:
-    * display - render (default)
-    * fps - FPS only
+Please refer to OpenVINO™ toolkit documentation for supported devices:
+https://docs.openvinotoolkit.org/latest/openvino_docs_IE_DG_supported_plugins_Supported_Devices.html
 
 ### Examples
-```batch
-REM Run with default settings (download video from internet, CPU inference, display output)
-face_detection_and_classification.bat
+```PowerShell
+# Run with default settings (download video from internet, CPU inference, display output)
+.\face_detection_and_classification.ps1
 
-REM Run with local video file
-face_detection_and_classification.bat C:\videos\test.mp4
+# Run with local video file
+.\face_detection_and_classification.ps1 -InputSource C:\videos\test.mp4
 
-REM Run with GPU inference
-face_detection_and_classification.bat C:\videos\test.mp4 GPU
+# Run with GPU inference
+.\face_detection_and_classification.ps1 -InputSource C:\videos\test.mp4 -Device GPU
 
-REM Run in FPS mode (no display)
-face_detection_and_classification.bat C:\videos\test.mp4 CPU fps
+# Run in FPS mode (no display)
+.\face_detection_and_classification.ps1 -InputSource C:\videos\test.mp4 -Device CPU -OutputType fps
+
+# Export to JSON
+.\face_detection_and_classification.ps1 -InputSource C:\videos\test.mp4 -OutputType json -JsonFile results.json
+
+# Process only first 1000 frames (for testing)
+.\face_detection_and_classification.ps1 -InputSource C:\videos\test.mp4 -OutputType json -FrameLimiter " ! identity eos-after=1000"
 ```
 
 ## Sample Output

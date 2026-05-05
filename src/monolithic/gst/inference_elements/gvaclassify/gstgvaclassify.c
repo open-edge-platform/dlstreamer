@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2018-2025 Intel Corporation
+ * Copyright (C) 2018-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -26,11 +26,13 @@
 enum {
     PROP_0,
     PROP_RECLASSIFY_INTERVAL,
+    PROP_SKIP_RAW_TENSORS,
 };
 
 #define DEFAULT_RECLASSIFY_INTERVAL 1
 #define DEFAULT_MIN_RECLASSIFY_INTERVAL 0
 #define DEFAULT_MAX_RECLASSIFY_INTERVAL UINT_MAX
+#define DEFAULT_SKIP_RAW_TENSORS FALSE
 
 GST_DEBUG_CATEGORY_STATIC(gst_gva_classify_debug_category);
 #define GST_CAT_DEFAULT gst_gva_classify_debug_category
@@ -69,6 +71,9 @@ void gst_gva_classify_set_property(GObject *object, guint property_id, const GVa
         }
         break;
     }
+    case PROP_SKIP_RAW_TENSORS:
+        gvaclassify->skip_raw_tensors = g_value_get_boolean(value);
+        break;
     default: {
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
         break;
@@ -84,6 +89,9 @@ void gst_gva_classify_get_property(GObject *object, guint property_id, GValue *v
     switch (property_id) {
     case PROP_RECLASSIFY_INTERVAL:
         g_value_set_uint(value, gvaclassify->reclassify_interval);
+        break;
+    case PROP_SKIP_RAW_TENSORS:
+        g_value_set_boolean(value, gvaclassify->skip_raw_tensors);
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
@@ -124,6 +132,13 @@ void gst_gva_classify_class_init(GstGvaClassifyClass *gvaclassify_class) {
             "inference interval)",
             DEFAULT_MIN_RECLASSIFY_INTERVAL, DEFAULT_MAX_RECLASSIFY_INTERVAL, DEFAULT_RECLASSIFY_INTERVAL,
             (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+
+    g_object_class_install_property(
+        gobject_class, PROP_SKIP_RAW_TENSORS,
+        g_param_spec_boolean(
+            "skip-raw-tensors", "Skip Raw Tensors",
+            "Skips attaching raw output tensors to metadata for gvaclassify to_tensor post-processing.",
+            DEFAULT_SKIP_RAW_TENSORS, (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 }
 
 void gst_gva_classify_init(GstGvaClassify *gvaclassify) {
@@ -137,6 +152,7 @@ void gst_gva_classify_init(GstGvaClassify *gvaclassify) {
     gvaclassify->base_inference.type = GST_GVA_CLASSIFY_TYPE;
     gvaclassify->base_inference.inference_region = ROI_LIST;
     gvaclassify->reclassify_interval = DEFAULT_RECLASSIFY_INTERVAL;
+    gvaclassify->skip_raw_tensors = DEFAULT_SKIP_RAW_TENSORS;
     gvaclassify->classification_history = create_classification_history(gvaclassify);
     if (gvaclassify->classification_history == NULL)
         return;
@@ -191,8 +207,9 @@ gboolean gst_gva_classify_check_properties_correctness(GstGvaClassify *gvaclassi
 gboolean gst_gva_classify_start(GstBaseTransform *trans) {
     GstGvaClassify *gvaclassify = GST_GVA_CLASSIFY(trans);
 
-    GST_INFO_OBJECT(gvaclassify, "%s parameters:\n -- Reclassify interval: %d\n",
-                    GST_ELEMENT_NAME(GST_ELEMENT_CAST(gvaclassify)), gvaclassify->reclassify_interval);
+    GST_INFO_OBJECT(gvaclassify, "%s parameters:\n -- Reclassify interval: %d\n -- Skip raw tensors: %s\n",
+                    GST_ELEMENT_NAME(GST_ELEMENT_CAST(gvaclassify)), gvaclassify->reclassify_interval,
+                    gvaclassify->skip_raw_tensors ? "true" : "false");
 
     if (!gst_gva_classify_check_properties_correctness(gvaclassify))
         return FALSE;

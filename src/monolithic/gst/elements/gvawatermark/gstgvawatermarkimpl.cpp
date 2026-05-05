@@ -35,6 +35,7 @@
 #include <dlstreamer/gst/mappers/gst_to_d3d11.h>
 #endif
 
+#include "meta_extractor/meta_extractor.h"
 #include "renderer/color_converter.h"
 #include "renderer/cpu/create_renderer.h"
 
@@ -754,11 +755,6 @@ Impl::Impl(GstVideoInfo *info, InferenceBackend::MemoryType mem_type, GstElement
     // Parse display configuration
     if (_displ_cfg)
         parse_displ_config();
-
-    if (_displCfg.draw_text_background) {
-        _renderer->enable_draw_txt_bg(true);
-        _renderer_opencv->enable_draw_txt_bg(true);
-    }
 }
 
 size_t get_keypoint_index_by_name(const gchar *target_name, GValueArray *names) {
@@ -857,9 +853,15 @@ bool Impl::extract_primitives(GstBuffer *buffer) {
         }
     }
 
-    if (ff_text.tellp() != 0)
-        prims.emplace_back(
-            render::Text(ff_text.str(), _ff_text_position, _displCfg.font_type, _displCfg.font_scale, _default_color));
+    if (ff_text.tellp() != 0) {
+        render::Text t(ff_text.str(), _ff_text_position, _displCfg.font_type, _displCfg.font_scale, _default_color);
+        t.draw_bg = _displCfg.draw_text_background;
+        prims.emplace_back(t);
+    }
+
+    // Extract and merge any pre-existing watermark metadata from input buffer
+    auto watermark_prims = MetaExtractor::extractWatermarkPrimitives(buffer);
+    prims.insert(prims.end(), watermark_prims.begin(), watermark_prims.end());
 
     return true;
 }
@@ -871,25 +873,28 @@ int Impl::get_num_primitives() const {
 bool Impl::render(GstBuffer *buffer) {
     ITT_TASK(__FUNCTION__);
 
-    // For D3D11 input, map to system memory temporarily for rendering
+    // Skip render if there are no primitives to draw
+    if (prims.empty()) {
+        return true;
+    }
+
+    // For GPU memory input, map to system memory temporarily for CPU rendering
     GstMapInfo map_info;
     bool mapped = false;
 
-    if (_mem_type == InferenceBackend::MemoryType::D3D11) {
-        // Map D3D11 buffer to system memory for CPU rendering
+    if (_mem_type == InferenceBackend::MemoryType::D3D11 || _mem_type == InferenceBackend::MemoryType::VAAPI) {
+        // Map GPU buffer to system memory for CPU rendering
         if (!gst_buffer_map(buffer, &map_info, GST_MAP_READWRITE)) {
+            GST_WARNING_OBJECT(_element, "Can't map GPU buffer to system memory for rendering; skipping frame");
             return false;
         }
         mapped = true;
     }
 
-    // Skip render if there are no primitives to draw
-    if (!prims.empty()) {
-        auto gstbuffer = std::make_shared<dlstreamer::GSTFrame>(buffer, _vinfo);
-        _renderer->draw(gstbuffer, prims);
-    }
+    auto gstbuffer = std::make_shared<dlstreamer::GSTFrame>(buffer, _vinfo);
+    _renderer->draw(gstbuffer, prims);
 
-    // Unmap D3D11 buffer if it was mapped
+    // Unmap GPU buffer if it was mapped
     if (mapped) {
         gst_buffer_unmap(buffer, &map_info);
     }
@@ -969,7 +974,9 @@ void Impl::preparePrimsForRoi(GVA::RegionOfInterest &roi, std::vector<render::Pr
                 cv::Point2f pos(rect.x, rect.y - 5.f);
                 if (pos.y < 0)
                     pos.y = rect.y + 30.f;
-                prims.emplace_back(render::Text(text.str(), pos, _displCfg.font_type, _displCfg.font_scale, color));
+                render::Text t(text.str(), pos, _displCfg.font_type, _displCfg.font_scale, color);
+                t.draw_bg = _displCfg.draw_text_background;
+                prims.emplace_back(t);
             }
     }
 
@@ -982,8 +989,9 @@ void Impl::preparePrimsForRoi(GVA::RegionOfInterest &roi, std::vector<render::Pr
             fpstext << "[avg " << std::fixed << std::setprecision(1) << avg_fps << " FPS]";
             if (fpstext.str().size() != 0) {
                 cv::Point2f pos(_vinfo->width * 0.7, _vinfo->height - 20.f);
-                prims.emplace_back(
-                    render::Text(fpstext.str(), pos, _displCfg.font_type, _displCfg.font_scale * 0.7, indexToColor(1)));
+                render::Text t(fpstext.str(), pos, _displCfg.font_type, _displCfg.font_scale * 0.7, indexToColor(1));
+                t.draw_bg = _displCfg.draw_text_background;
+                prims.emplace_back(t);
             }
         }
     }
