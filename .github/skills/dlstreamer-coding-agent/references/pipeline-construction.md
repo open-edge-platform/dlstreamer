@@ -39,7 +39,9 @@ For the full list of elements, see also `../../../../docs/user-guide/elements/`.
 
 | Element | Purpose | Model Types | Key Properties |
 |---------|---------|-------------|----------------|
-| `gvadetect` | Object detection | YOLO, SSD, RT-DETR, D-FINE | `model`, `device`, `batch-size`, `threshold`, `model-instance-id`, `scheduling-policy` |
+| `gvadetect` | Object detection | YOLO, SSD, RT-DETR, D-FINE | `model`, `device`, `batch-size`, `model-instance-id`, `scheduling-policy` |
+
+> **`threshold` default:** `gvadetect` uses `threshold=0.5` by default. Do not set it explicitly unless a non-default value is needed.
 | `gvaclassify` | Classification & OCR | ResNet, EfficientNet, CLIP, ViT, PaddleOCR | `model`, `device`, `batch-size`, `model-instance-id`, `scheduling-policy` |
 | `gvagenai` | VLM / GenAI inference | MiniCPM-V, Qwen2.5-VL, InternVL, SmolVLM | `model-path`, `device`, `prompt`, `generation-config`, `frame-rate`, `chunk-size` |
 
@@ -64,6 +66,15 @@ For the full list of elements, see also `../../../../docs/user-guide/elements/`.
 |---------|---------|----------------|
 | `gvatrack` | Object tracking across frames | `tracking-type=zero-term-imageless` |
 
+> **Deep SORT tracking:** For robust re-identification tracking, use `tracking-type=deep-sort`
+> with a feature extraction model (e.g. mars-small128) via `gvainference` upstream.
+> Always set `reid_max_age` to enable re-identification after occlusion:
+> ```
+> gvainference model=mars-small128.xml device=GPU inference-region=roi-list object-class=person ! queue !
+> gvatrack tracking-type=deep-sort deepsort-trck-cfg="max_age=60,max_cosine_distance=0.3,object_class=person,reid_max_age=30"
+> ```
+> See [object_tracking.md](../../../../docs/user-guide/dev_guide/object_tracking.md#deep-sort-tracking) for all tuning parameters.
+
 ### Overlay & Metrics
 
 | Element | Purpose | Key Properties |
@@ -73,6 +84,10 @@ For the full list of elements, see also `../../../../docs/user-guide/elements/`.
 
 
 > **Always use `gvawatermark` for overlays.** It renders all `ODMtd` entries from GstAnalytics metadata.
+
+> **Filter overlays by class:** When upstream elements use `object-class=<class>` (e.g.
+> `gvainference ... object-class=person`), set `displ-cfg=show-roi=<class>` on `gvawatermark`
+> to render only matching ROIs. Example: `gvawatermark displ-cfg=show-roi=person`.
 > Custom text labels: `rmeta.add_od_mtd(GLib.quark_from_string("label"), x, y, 0, 0, confidence)`.
 
 ### Metadata Publishing
@@ -420,6 +435,10 @@ threading.
 | CV + VLM | **NPU** and **GPU** |
 
 Use NPU for secondary models on Core Ultra 3. Prefer GPU for all models on Core Ultra 1/2.
+
+> **Model precision selection:** Prefer **FP16** (or **INT8** if available) over FP32 for
+> GPU/NPU inference. FP16 uses less memory bandwidth with negligible quality impact.
+> Only use FP32 when lower-precision variants are unavailable.
 
 ### Output & Metadata
 
