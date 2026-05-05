@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2018-2025 Intel Corporation
+ * Copyright (C) 2018-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -217,4 +217,156 @@ TEST_F(VideoFrameTest, VideoFrameTestRegionIDs) {
     for (auto k : ids_entry) {
         ASSERT_EQ(k.second, 1) << "ID should be unique";
     }
+}
+
+/**
+ * @brief Test that get_regions() creates GstVideoRegionOfInterestMeta from GstAnalytics-only metadata
+ *        and converts related classification metadata to ROI params.
+ *
+ * Scenario: Add GstAnalyticsODMtd + GstAnalyticsClsMtd (classification) to the buffer
+ * without any GstVideoRegionOfInterestMeta. Then call regions() and verify:
+ *   - ROI is created with correct bounding box
+ *   - detection tensor is present in params with correct values
+ *   - classification tensor is converted and added to params
+ */
+TEST_F(VideoFrameTest, VideoFrameTestAnalyticsOnlyFallback) {
+    // Test constants — same values used in Python test
+    constexpr gint OD_X = 100;
+    constexpr gint OD_Y = 50;
+    constexpr gint OD_W = 200;
+    constexpr gint OD_H = 400;
+    constexpr gfloat OD_CONF = 0.85f;
+    const char *OD_LABEL = "person";
+    const char *CLS_LABEL = "neutral";
+    constexpr gfloat CLS_CONF = 0.75f;
+
+    // Add only GstAnalytics metadata (no GstVideoRegionOfInterestMeta)
+    GstAnalyticsRelationMeta *relation_meta = gst_buffer_add_analytics_relation_meta(buffer);
+    ASSERT_NE(relation_meta, nullptr);
+
+    // Add object detection metadata
+    GstAnalyticsODMtd od_mtd;
+    ASSERT_TRUE(gst_analytics_relation_meta_add_od_mtd(relation_meta, g_quark_from_string(OD_LABEL), OD_X, OD_Y, OD_W,
+                                                       OD_H, OD_CONF, &od_mtd));
+
+    // Add classification metadata with CONTAIN relation to OD
+    GQuark cls_quark = g_quark_from_string(CLS_LABEL);
+    gfloat cls_conf = CLS_CONF;
+    GstAnalyticsClsMtd cls_mtd;
+    ASSERT_TRUE(gst_analytics_relation_meta_add_cls_mtd(relation_meta, 1, &cls_conf, &cls_quark, &cls_mtd));
+    ASSERT_TRUE(
+        gst_analytics_relation_meta_set_relation(relation_meta, GST_ANALYTICS_REL_TYPE_CONTAIN, od_mtd.id, cls_mtd.id));
+
+    // Verify no GstVideoRegionOfInterestMeta exists yet
+    ASSERT_EQ(gst_buffer_get_video_region_of_interest_meta_id(buffer, od_mtd.id), nullptr);
+
+    // Call regions() — should trigger fallback
+    std::vector<GVA::RegionOfInterest> regions = frame->regions();
+    ASSERT_EQ(regions.size(), 1);
+
+    // Verify GstVideoRegionOfInterestMeta was created with correct values
+    GstVideoRegionOfInterestMeta *roi_meta = gst_buffer_get_video_region_of_interest_meta_id(buffer, od_mtd.id);
+    ASSERT_NE(roi_meta, nullptr);
+    ASSERT_EQ(roi_meta->x, OD_X);
+    ASSERT_EQ(roi_meta->y, OD_Y);
+    ASSERT_EQ(roi_meta->w, OD_W);
+    ASSERT_EQ(roi_meta->h, OD_H);
+    ASSERT_EQ(roi_meta->id, od_mtd.id);
+    ASSERT_STREQ(g_quark_to_string(roi_meta->roi_type), OD_LABEL);
+
+    // Verify detection tensor in params
+    GstStructure *det_param = gst_video_region_of_interest_meta_get_param(roi_meta, "detection");
+    ASSERT_NE(det_param, nullptr);
+    double x_min = 0, x_max = 0, y_min = 0, y_max = 0, conf = 0;
+    ASSERT_TRUE(gst_structure_get_double(det_param, "x_min", &x_min));
+    ASSERT_TRUE(gst_structure_get_double(det_param, "x_max", &x_max));
+    ASSERT_TRUE(gst_structure_get_double(det_param, "y_min", &y_min));
+    ASSERT_TRUE(gst_structure_get_double(det_param, "y_max", &y_max));
+    ASSERT_TRUE(gst_structure_get_double(det_param, "confidence", &conf));
+    ASSERT_DOUBLE_EQ(x_min, double(OD_X));
+    ASSERT_DOUBLE_EQ(x_max, double(OD_X + OD_W));
+    ASSERT_DOUBLE_EQ(y_min, double(OD_Y));
+    ASSERT_DOUBLE_EQ(y_max, double(OD_Y + OD_H));
+    ASSERT_FLOAT_EQ(conf, OD_CONF);
+
+    // Verify classification tensor was converted and added to params
+    GstStructure *cls_param = gst_video_region_of_interest_meta_get_param(roi_meta, "classification");
+    ASSERT_NE(cls_param, nullptr);
+    const gchar *cls_label_str = gst_structure_get_string(cls_param, "label");
+    ASSERT_NE(cls_label_str, nullptr);
+    ASSERT_STREQ(cls_label_str, CLS_LABEL);
+    double cls_conf_val = 0;
+    ASSERT_TRUE(gst_structure_get_double(cls_param, "confidence", &cls_conf_val));
+    ASSERT_FLOAT_EQ(cls_conf_val, CLS_CONF);
+}
+
+/**
+ * @brief Test that RELATE_TO relations are also converted in the fallback path.
+ */
+TEST_F(VideoFrameTest, VideoFrameTestAnalyticsOnlyFallbackRelateToRelation) {
+    constexpr gint OD_X = 100;
+    constexpr gint OD_Y = 50;
+    constexpr gint OD_W = 200;
+    constexpr gint OD_H = 400;
+    constexpr gfloat OD_CONF = 0.85f;
+    const char *OD_LABEL = "person";
+    const char *CLS_LABEL_CONTAIN = "happy";
+    constexpr gfloat CLS_CONF_CONTAIN = 0.9f;
+    const char *CLS_LABEL_RELATE = "male";
+    constexpr gfloat CLS_CONF_RELATE = 0.8f;
+
+    GstAnalyticsRelationMeta *relation_meta = gst_buffer_add_analytics_relation_meta(buffer);
+    ASSERT_NE(relation_meta, nullptr);
+
+    GstAnalyticsODMtd od_mtd;
+    ASSERT_TRUE(gst_analytics_relation_meta_add_od_mtd(relation_meta, g_quark_from_string(OD_LABEL), OD_X, OD_Y, OD_W,
+                                                       OD_H, OD_CONF, &od_mtd));
+
+    // Classification with CONTAIN relation
+    GQuark q1 = g_quark_from_string(CLS_LABEL_CONTAIN);
+    gfloat conf_contain = CLS_CONF_CONTAIN;
+    GstAnalyticsClsMtd cls_contain;
+    ASSERT_TRUE(gst_analytics_relation_meta_add_cls_mtd(relation_meta, 1, &conf_contain, &q1, &cls_contain));
+    ASSERT_TRUE(gst_analytics_relation_meta_set_relation(relation_meta, GST_ANALYTICS_REL_TYPE_CONTAIN, od_mtd.id,
+                                                         cls_contain.id));
+
+    // Classification with RELATE_TO relation
+    GQuark q2 = g_quark_from_string(CLS_LABEL_RELATE);
+    gfloat conf_relate = CLS_CONF_RELATE;
+    GstAnalyticsClsMtd cls_relate;
+    ASSERT_TRUE(gst_analytics_relation_meta_add_cls_mtd(relation_meta, 1, &conf_relate, &q2, &cls_relate));
+    ASSERT_TRUE(gst_analytics_relation_meta_set_relation(relation_meta, GST_ANALYTICS_REL_TYPE_RELATE_TO, od_mtd.id,
+                                                         cls_relate.id));
+
+    std::vector<GVA::RegionOfInterest> regions = frame->regions();
+    ASSERT_EQ(regions.size(), 1);
+
+    GstVideoRegionOfInterestMeta *roi_meta = gst_buffer_get_video_region_of_interest_meta_id(buffer, od_mtd.id);
+    ASSERT_NE(roi_meta, nullptr);
+
+    // Count classification params
+    int cls_count = 0;
+    for (GList *l = roi_meta->params; l; l = g_list_next(l)) {
+        GstStructure *s = GST_STRUCTURE(l->data);
+        if (gst_structure_has_name(s, "classification")) {
+            cls_count++;
+        }
+    }
+    ASSERT_EQ(cls_count, 2) << "Both CONTAIN and RELATE_TO classifications should be added to params";
+
+    // Verify the CONTAIN classification
+    // Find params by label value since both are named "classification"
+    bool found_contain = false, found_relate = false;
+    for (GList *l = roi_meta->params; l; l = g_list_next(l)) {
+        GstStructure *s = GST_STRUCTURE(l->data);
+        if (!gst_structure_has_name(s, "classification"))
+            continue;
+        const gchar *label = gst_structure_get_string(s, "label");
+        if (label && strcmp(label, CLS_LABEL_CONTAIN) == 0)
+            found_contain = true;
+        if (label && strcmp(label, CLS_LABEL_RELATE) == 0)
+            found_relate = true;
+    }
+    ASSERT_TRUE(found_contain) << "CONTAIN classification not found in ROI params";
+    ASSERT_TRUE(found_relate) << "RELATE_TO classification not found in ROI params";
 }

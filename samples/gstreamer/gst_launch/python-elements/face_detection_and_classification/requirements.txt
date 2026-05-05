@@ -1,0 +1,4 @@
+PyGObject==3.50.0
+huggingface_hub>=0.20.0
+ultralytics==8.4.3
+optimum[openvino]>=1.18.0
