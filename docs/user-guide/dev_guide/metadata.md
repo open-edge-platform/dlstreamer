@@ -28,6 +28,21 @@ Key types:
 For the full API documentation, keypoint descriptor details, and code
 examples, see [GStreamer Analytics Metadata](./metadata_analytics.md).
 
+## Custom Watermark Metadata
+
+`gvawatermark` automatically renders custom drawing primitives attached directly to GStreamer buffers
+using the DLStreamer watermark metadata types.
+
+Key types:
+
+| Type                  | Description |
+|-----------------------|-------------|
+| `WatermarkDrawMeta`   | Polygon or polyline defined by an ordered list of (x, y) coordinate pairs (max 128 pairs) |
+| `WatermarkCircleMeta` | Circle defined by center (cx, cy), radius, color, and thickness |
+| `WatermarkTextMeta`   | Text label at position (x, y) with font, scale, color, and optional background |
+
+For the full API documentation, see [Watermark Metadata](./metadata_watermark.md).
+
 ## Legacy Metadata (deprecated)
 
 > **DEPRECATED:** The legacy metadata API based on
@@ -62,6 +77,6 @@ For reference documentation of the legacy API, see
 | `gvametaconvert` | Metadata → JSON | GstBuffer + ROI/ODMtd (+ related ClsMtd, KeypointGroupMtd, TrackingMtd) + GstGVATensorMeta | — | GstGVAJSONMeta |
 | `gvametapublish` | JSON → MQTT/Kafka/File | GstBuffer + GstGVAJSONMeta | — | — |
 | `gvametaaggregate` | Merge from multiple streams | GstBuffer + any metadata | ODMtd, ClsMtd, KeypointGroupMtd | ROI + GstStructure params, GstGVATensorMeta |
-| `gvawatermark` | Overlay on video | GstBuffer + ROI/ODMtd (+ related ClsMtd, KeypointGroupMtd, TrackingMtd) + GstGVATensorMeta | — | — |
+| `gvawatermark` | Overlay on video | GstBuffer + ROI/ODMtd (+ related ClsMtd, KeypointGroupMtd, TrackingMtd) + GstGVATensorMeta + WatermarkDrawMeta + WatermarkCircleMeta + WatermarkTextMeta | — | — |
 | `gvagenai` | VLM inference on video frames | GstBuffer | ClsMtd | GstGVATensorMeta, GstGVAJSONMeta |
 | `gvaaudiotranscribe` | Speech recognition (Whisper) | GstBuffer (audio) | ClsMtd | — |
