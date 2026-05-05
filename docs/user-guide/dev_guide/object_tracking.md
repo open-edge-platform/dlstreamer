@@ -64,6 +64,35 @@ Deep SORT (Simple Online and Realtime Tracking with a Deep Association Metric) i
 - **Appearance features**: Deep learning re-identification model that extracts 128-dimensional feature vectors to distinguish objects
 - **Robust association**: Combines IoU (Intersection over Union) and cosine distance metrics to match detections with existing tracks
 
+### Pipeline Flow
+
+```mermaid
+graph LR
+    A["<b>decodebin</b><br/>decode video"] --> B["<b>gvadetect</b><br/>detect objects<br/><i>YOLOv8s (CPU/GPU)</i>"]
+    B --> C["<b>gvainference</b><br/>extract features<br/><i>mars-small128 (CPU/GPU)</i><br/>per ROI"]
+    C --> D["<b>gvatrack</b><br/>deep-sort tracking<br/><i>Kalman + cosine + IoU</i>"]
+```
+
+### Internal Deep SORT Algorithm
+
+```mermaid
+graph TD
+    A[New Frame Arrives] --> B[Kalman Predict<br/>all tracks]
+    B --> C["<b>Stage 1: Matching Cascade</b><br/>(confirmed tracks)<br/><br/>For each cascade level by time_since_update:<br/>• Cosine distance features<br/>• Mahalanobis gating Kalman<br/>• Spatial gating TSU-scaled<br/>• Proximity competition check<br/>• Hungarian assignment"]
+    C --> D[Matched tracks<br/>update Kalman]
+    C --> E[Unmatched detections]
+    C --> F["Unmatched tracks<br/>(tsu==1 only)"]
+    E --> G["<b>Stage 2: IoU Matching</b><br/>(unconfirmed tracks +<br/>recently-missed confirmed)<br/>• IoU distance<br/>• Hungarian assignment"]
+    F --> G
+    G --> H[Matched tracks<br/>update Kalman]
+    G --> I[Unmatched detections]
+    G --> J[Unmatched tracks<br/>mark missed]
+    J --> K["Deleted tracks<br/>saved to re-ID gallery<br/>(if reid_max_age > 0)"]
+    I --> L{"Re-ID gallery<br/>check?<br/>(reid_max_age > 0)"}
+    L -->|match found| M[Reuse old track ID]
+    L -->|no match| N[Create new track<br/>with new ID]
+```
+
 ### Feature Extraction Model
 
 Deep SORT requires a feature extraction model that generates 128-dimensional feature vectors for person re-identification. The recommended model is **mars-small128**, which can be downloaded using:
@@ -98,7 +127,9 @@ Deep SORT behavior can be fine-tuned using the `deepsort-trck-cfg` property with
 | `max_age` | 30 | Maximum number of frames a track survives without detection before deletion | **Increase to 60-90** to reduce object loss during occlusions or missed detections. Lower values delete tracks faster, good for crowded scenes |
 | `n_init` | 3 | Number of consecutive detections required to confirm a new track | Lower values (1-2) = faster initialization but more false positives. Higher values = more reliable but slower confirmation |
 | `max_cosine_distance` | 0.2 | Maximum cosine distance threshold for appearance feature matching between detections and tracks | **Increase to 0.3-0.4** to handle lighting changes, better for similar-looking objects, viewing angles, or appearance variations. Lower values = stricter appearance matching |
-| `nn_budget` | 100 | Maximum number of appearance features stored per track | Higher values = better re-identification, good for extended tracking scenarios but more memory. Typical range: 50-150 |
+| `nn_budget` | 100 | Maximum number of appearance features stored per track | Higher values = better re-identification, good for extended tracking scenarios but more memory. Typical range: 50-150. Set to 0 for unlimited |
+| `object_class` | *(empty)* | Only track detections with this label. When empty, all detected objects are tracked | **Recommended.** Setting this improves tracking quality by preventing the tracker from confusing objects of different classes. When using `object_class`, the upstream `gvainference` element should also be limited to the same class via its `object-class` property to avoid unnecessary feature extraction. Example: `gvainference ... object-class=person ! gvatrack ... deepsort-trck-cfg="object_class=person"` |
+| `reid_max_age` | 0 (disabled) | Number of frames to keep deleted tracks in a re-identification gallery. When a new detection appears that matches a gallery entry by appearance and spatial proximity, it reuses the old track ID instead of assigning a new one | **Set to 20-60** for scenes where objects temporarily leave the frame or become fully occluded and then reappear. Higher values allow re-ID over longer absences but increase memory usage |
 
 #### Examples for Common Tuning Scenarios
 
@@ -120,6 +151,16 @@ gvatrack tracking-type=deep-sort deepsort-trck-cfg="max_age=90,max_cosine_distan
 **Conservative tracking (minimize false positives):**
 ```bash
 gvatrack tracking-type=deep-sort deepsort-trck-cfg="n_init=5,max_cosine_distance=0.15"
+```
+
+**Re-identifying objects after occlusion or temporary disappearance:**
+```bash
+gvatrack tracking-type=deep-sort deepsort-trck-cfg="max_age=60,reid_max_age=20,max_cosine_distance=0.2"
+```
+
+**Tracking only persons (ignoring other detected classes):**
+```bash
+gvatrack tracking-type=deep-sort deepsort-trck-cfg="max_age=60,object_class=person"
 ```
 
 ### Example Pipeline
