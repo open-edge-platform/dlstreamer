@@ -28,6 +28,7 @@ Requires: mesa-libGLU
 Requires: libgudev
 Requires: paho-c
 Requires: python3
+Requires: python3-dev
 Requires: python3-pip
 Requires: python3-gobject
 Requires: cairo
