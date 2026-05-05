@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2021-2022 Intel Corporation
+ * Copyright (C) 2021-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -24,8 +24,24 @@ void RGBtoBGRColorConverter::convert_colors(const std::vector<Color> &rgb_colors
     }
 }
 
+Color RGBtoBGRColorConverter::convert(Color input_color) {
+    auto it = color_table.find(input_color);
+    if (it != color_table.end()) {
+        return it->second;
+    }
+    return Color(input_color[2], input_color[1], input_color[0]);
+}
+
 RGBtoYUVColorConverter::RGBtoYUVColorConverter(const std::vector<Color> &rgb_colors, double Kb, double Kr) {
     convert_colors_rgb_to_yuv(Kr, Kb, rgb_colors, color_table, coefficient_matrix);
+}
+
+Color RGBtoYUVColorConverter::convert(Color input_color) {
+    auto it = color_table.find(input_color);
+    if (it != color_table.end()) {
+        return it->second;
+    }
+    return convert_color_rgb_to_yuv(input_color, coefficient_matrix);
 }
 
 void RGBtoYUVColorConverter::fill_color_conversion_matrix(double Kr, double Kb, double (&matrix)[3][3]) {
