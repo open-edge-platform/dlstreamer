@@ -51,7 +51,10 @@ class RTSPCapture:
     """Captures frames from an RTSP stream via GStreamer.
 
     Maintains the latest RGB frame (for VLM) and JPEG frame (for web UI).
+    Auto-reconnects on pipeline errors or EOS.
     """
+
+    RECONNECT_DELAY = 2  # seconds between reconnection attempts
 
     def __init__(self, rtsp_uri: str, frame_rate: int = 1,
                  user: str = "", password: str = ""):
@@ -64,6 +67,7 @@ class RTSPCapture:
         self._loop = None
         self._thread = None
         self._running = False
+        self._stopped = False  # True only when stop() is called
         self._lock = threading.Lock()
         self._latest_jpeg = None
         self._latest_rgb = None
@@ -83,7 +87,8 @@ class RTSPCapture:
             log.info("rtspsrc configured: TCP, user=%s",
                      self._user or "(none)")
 
-    def start(self) -> bool:
+    def _build_pipeline(self):
+        """Create and wire up a new GStreamer pipeline."""
         pipeline_str = (
             f'urisourcebin uri={self._rtsp_uri} name=src ! '
             f'decodebin3 ! videoconvert n-threads=4 ! '
@@ -99,19 +104,24 @@ class RTSPCapture:
             f'emit-signals=true sync=false'
         )
         log.info("RTSP pipeline: %s", pipeline_str)
-        self._pipeline = Gst.parse_launch(pipeline_str)
+        pipeline = Gst.parse_launch(pipeline_str)
 
-        src = self._pipeline.get_by_name("src")
+        src = pipeline.get_by_name("src")
         if src:
             src.connect("source-setup", self._source_setup)
 
-        jpeg_sink = self._pipeline.get_by_name("jpeg_sink")
+        jpeg_sink = pipeline.get_by_name("jpeg_sink")
         if jpeg_sink:
             jpeg_sink.connect("new-sample", self._on_jpeg)
 
-        rgb_sink = self._pipeline.get_by_name("rgb_sink")
+        rgb_sink = pipeline.get_by_name("rgb_sink")
         if rgb_sink:
             rgb_sink.connect("new-sample", self._on_rgb)
+
+        return pipeline
+
+    def start(self) -> bool:
+        self._pipeline = self._build_pipeline()
 
         ret = self._pipeline.set_state(Gst.State.PLAYING)
         if ret == Gst.StateChangeReturn.FAILURE:
@@ -119,13 +129,46 @@ class RTSPCapture:
             return False
 
         self._running = True
-        self._loop = GLib.MainLoop()
-        self._thread = threading.Thread(target=self._bus_loop, daemon=True)
+        self._stopped = False
+        self._thread = threading.Thread(target=self._run_loop, daemon=True)
         self._thread.start()
         log.info("RTSP capture started")
         return True
 
+    def _run_loop(self):
+        """Main capture thread: runs the GLib loop and auto-reconnects."""
+        while not self._stopped:
+            self._loop = GLib.MainLoop()
+            bus = self._pipeline.get_bus()
+            bus.add_signal_watch()
+            bus.connect("message", self._on_bus_msg)
+            self._running = True
+            self._loop.run()
+
+            if self._stopped:
+                break
+
+            # Pipeline failed — tear down, clear stale data, reconnect
+            log.warning("RTSP pipeline stopped, reconnecting in %ds...",
+                        self.RECONNECT_DELAY)
+            self._pipeline.set_state(Gst.State.NULL)
+            with self._lock:
+                self._latest_jpeg = None
+                self._latest_rgb = None
+            time.sleep(self.RECONNECT_DELAY)
+
+            if self._stopped:
+                break
+
+            self._pipeline = self._build_pipeline()
+            ret = self._pipeline.set_state(Gst.State.PLAYING)
+            if ret == Gst.StateChangeReturn.FAILURE:
+                log.error("RTSP reconnect failed, retrying...")
+                continue
+            log.info("RTSP pipeline reconnected")
+
     def stop(self):
+        self._stopped = True
         self._running = False
         if self._loop:
             self._loop.quit()
@@ -172,12 +215,6 @@ class RTSPCapture:
                 buf.unmap(mi)
         return Gst.FlowReturn.OK
 
-    def _bus_loop(self):
-        bus = self._pipeline.get_bus()
-        bus.add_signal_watch()
-        bus.connect("message", self._on_bus_msg)
-        self._loop.run()
-
     def _on_bus_msg(self, _bus, msg):
         if msg.type == Gst.MessageType.ERROR:
             err, debug = msg.parse_error()
@@ -185,7 +222,9 @@ class RTSPCapture:
             self._running = False
             self._loop.quit()
         elif msg.type == Gst.MessageType.EOS:
-            log.info("GStreamer: end of stream")
+            log.info("GStreamer: end of stream, will reconnect")
+            self._running = False
+            self._loop.quit()
 
 
 # ═══════════════════════════════════════════════════════════════════════════
