@@ -1,32 +1,35 @@
 # ==============================================================================
-# Copyright (C) 2025 Intel Corporation
+# Copyright (C) 2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
 """
-DL Streamer Metadata Publishing pipeline.
+DL Streamer Metadata Publishing sample — equivalent of DeepStream test4.
 
-Equivalent of NVIDIA DeepStream deepstream-test4 sample.
+Demonstrates how to:
+* Detect vehicles and persons using gvadetect (YOLO11n)
+* Track objects across frames using gvatrack
+* Convert inference metadata to JSON using gvametaconvert
+* Publish metadata to file, MQTT, or Kafka using gvametapublish
+* Count detected objects per frame using a pad probe callback
 
 Pipeline:
-    filesrc / urisourcebin → decodebin3 →
-    gvadetect (person-vehicle-bike-detection) → queue →
-    gvatrack (object tracking) → queue →
-    gvawatermark (overlay) →
-    gvametaconvert (metadata → JSON) →
-    gvametapublish (publish to file / Kafka / MQTT) →
-    autovideosink / fakesink
+    filesrc → decodebin3 →
+    gvadetect → queue → gvatrack →
+    gvafpscounter → gvawatermark →
+    gvametaconvert → gvametapublish →
+    videoconvert → vah264enc → h264parse → mp4mux → filesink
 
-Supports publishing inference metadata to:
-  - File (stdout or file path)
-  - Kafka message broker
-  - MQTT message broker
+Unlike DeepStream's nvmsgbroker (a sink requiring a tee to split the stream),
+DL Streamer's gvametapublish is a pass-through transform that forwards buffers
+downstream — no tee is needed for combined publish + video output.
 """
 
 import argparse
 import os
 import signal
 import sys
+from pathlib import Path
 
 import gi
 
@@ -35,237 +38,170 @@ gi.require_version("GstAnalytics", "1.0")
 
 from gi.repository import GLib, Gst, GstAnalytics  # noqa: E402
 
+SCRIPT_DIR = Path(__file__).resolve().parent
+MODELS_DIR = SCRIPT_DIR / "models"
+RESULTS_DIR = SCRIPT_DIR / "results"
 
-# Class IDs for person-vehicle-bike-detection-2004
-CLASS_VEHICLE = "vehicle"
-CLASS_PERSON = "person"
-CLASS_BIKE = "bike"
+DEFAULT_VIDEO = str(SCRIPT_DIR / "videos" / "person-bicycle-car-detection.mp4")
+
+# Class IDs matching COCO dataset labels used by YOLO11n
+PGIE_CLASSES = {
+    "person": 0,
+    "bicycle": 1,
+    "car": 2,
+    "motorcycle": 3,
+    "bus": 5,
+    "truck": 7,
+}
+
+
+# ── helpers ──────────────────────────────────────────────────────────────────
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(
-        description="DL Streamer Metadata Publishing Sample "
-        "(equivalent of DeepStream deepstream-test4)"
+    p = argparse.ArgumentParser(
+        description="DL Streamer Metadata Publishing (DeepStream test4 equivalent)"
     )
-    parser.add_argument(
-        "-i",
-        "--input",
-        required=True,
-        help="Path to input video file or URI",
+    p.add_argument(
+        "--input", "-i",
+        default=DEFAULT_VIDEO,
+        help="Video file path or rtsp:// URI",
     )
-    parser.add_argument(
-        "-p",
-        "--method",
+    p.add_argument("--device", default="GPU", help="Inference device (default: GPU)")
+    p.add_argument("--output-video", default=str(RESULTS_DIR / "output.mp4"))
+    p.add_argument("--output-json", default=str(RESULTS_DIR / "results.jsonl"))
+    p.add_argument(
+        "--method", "-m",
         default="file",
-        choices=["file", "kafka", "mqtt"],
-        help="Publishing method: file, kafka, or mqtt (default: file)",
+        choices=["file", "mqtt", "kafka"],
+        help="Publish method: file (default), mqtt, or kafka",
     )
-    parser.add_argument(
-        "--conn-str",
+    p.add_argument(
+        "--address",
         default=None,
-        help="Connection string. For Kafka: host:port (default: localhost:9092). "
-        "For MQTT: host:port (default: localhost:1883). "
-        "For file: output file path (default: stdout)",
+        help="Broker address for mqtt/kafka (default: localhost:1883 for mqtt, localhost:9092 for kafka)",
     )
-    parser.add_argument(
-        "-t",
-        "--topic",
+    p.add_argument(
+        "--topic", "-t",
         default="dlstreamer",
-        help="Topic name for Kafka/MQTT (default: dlstreamer)",
+        help="Message topic for mqtt/kafka (default: dlstreamer)",
     )
-    parser.add_argument(
-        "-s",
-        "--schema-type",
-        type=int,
-        default=0,
-        choices=[0, 1],
-        help="JSON format: 0=pretty-print JSON, 1=JSON Lines (default: 0)",
+    p.add_argument(
+        "--schema-type", "-s",
+        type=int, default=0, choices=[0, 1],
+        help="Message schema: 0=json (pretty), 1=json-lines (compact). Default: 0",
     )
-    parser.add_argument(
-        "-c",
-        "--cfg-file",
-        default=None,
-        help="Path to MQTT configuration file (JSON). Optional.",
-    )
-    parser.add_argument(
+    p.add_argument(
         "--no-display",
         action="store_true",
-        default=False,
-        help="Disable video display (use fakesink)",
+        help="Disable video display (use fakesink instead of autovideosink)",
     )
-    parser.add_argument(
-        "--device",
-        default="CPU",
-        help="Inference device: CPU, GPU, AUTO (default: CPU)",
-    )
-    parser.add_argument(
-        "--model",
-        default=None,
-        help="Path to detection model .xml file. "
-        "Default: $MODELS_PATH/intel/person-vehicle-bike-detection-2004/FP32/"
-        "person-vehicle-bike-detection-2004.xml",
-    )
-    parser.add_argument(
-        "--model-proc",
-        default=None,
-        help="Path to model-proc .json file. Default: auto-detected.",
-    )
-    parser.add_argument(
-        "--tracking-type",
-        default="short-term-imageless",
-        help="Object tracking type (default: short-term-imageless)",
-    )
-    parser.add_argument(
-        "--detection-interval",
-        type=int,
-        default=1,
-        help="Run detection every Nth frame (default: 1, every frame)",
-    )
-    return parser.parse_args()
+    p.add_argument("--threshold", type=float, default=0.5, help="Detection confidence threshold")
+    return p.parse_args()
 
 
-def find_model(model_arg):
-    """Find the detection model XML file."""
-    if model_arg:
-        if not os.path.isfile(model_arg):
-            sys.stderr.write(f"Error: model file not found: {model_arg}\n")
-            sys.exit(1)
-        return model_arg
-
-    models_path = os.environ.get("MODELS_PATH", "")
-    if not models_path:
-        sys.stderr.write(
-            "Error: --model not specified and MODELS_PATH env variable not set.\n"
-            "Please set MODELS_PATH or provide --model argument.\n"
-            "Download models with: ./samples/download_omz_models.sh\n"
-        )
+def validate_input(source: str) -> str:
+    if source.startswith("rtsp://"):
+        return source
+    if not os.path.isfile(source):
+        sys.stderr.write(f"Error: file not found: {source}\n")
         sys.exit(1)
+    return os.path.abspath(source)
 
-    model_name = "person-vehicle-bike-detection-2004"
-    model_path = os.path.join(
-        models_path, "intel", model_name, "FP32", f"{model_name}.xml"
-    )
-    if not os.path.isfile(model_path):
-        sys.stderr.write(f"Error: model not found at {model_path}\n")
+
+def find_model(pattern: str, label: str) -> str:
+    hits = sorted(MODELS_DIR.glob(pattern))
+    if not hits:
+        sys.stderr.write(f"Error: {label} model not found. Run: python3 export_models.py\n")
         sys.exit(1)
-    return model_path
+    return str(hits[0])
 
 
-def find_model_proc(model_proc_arg):
-    """Find the model-proc JSON file."""
-    if model_proc_arg:
-        if not os.path.isfile(model_proc_arg):
-            sys.stderr.write(f"Error: model-proc file not found: {model_proc_arg}\n")
-            sys.exit(1)
-        return model_proc_arg
-
-    # Check relative to this script's location (samples directory structure)
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    candidates = [
-        os.path.join(
-            script_dir,
-            "..",
-            "gst_launch",
-            "vehicle_pedestrian_tracking",
-            "model_proc",
-            "person-vehicle-bike-detection-2004.json",
-        ),
-    ]
-    for candidate in candidates:
-        if os.path.isfile(candidate):
-            return os.path.abspath(candidate)
-
-    # model-proc is optional for this model; return None
-    return None
+def check_device(requested: str, label: str) -> str:
+    if requested == "NPU" and not os.path.exists("/dev/accel/accel0"):
+        print(f"Warning: NPU not available for {label}, falling back to GPU")
+        requested = "GPU"
+    if requested == "GPU" and not os.path.exists("/dev/dri/renderD128"):
+        print(f"Warning: GPU not available for {label}, falling back to CPU")
+        requested = "CPU"
+    return requested
 
 
-def build_source(input_path):
-    """Build GStreamer source element string."""
-    if input_path.startswith("rtsp://"):
-        return f"rtspsrc location={input_path} latency=100"
-    if "://" in input_path:
-        return f"urisourcebin buffer-size=4096 uri={input_path}"
-    if not os.path.isfile(input_path):
-        sys.stderr.write(f"Error: input file not found: {input_path}\n")
-        sys.exit(1)
-    return f'filesrc location="{os.path.abspath(input_path)}"'
+def build_source(src: str) -> str:
+    if src.startswith("rtsp://"):
+        return f"rtspsrc location={src} latency=100"
+    return f'filesrc location="{src}"'
 
 
-def build_publish_elements(args):
-    """Build gvametaconvert + gvametapublish element string."""
-    # JSON indent: pretty-print (4 spaces) for schema_type=0, compact (-1) for schema_type=1
-    json_indent = 4 if args.schema_type == 0 else -1
-    file_format = "json" if args.schema_type == 0 else "json-lines"
-
-    metaconvert = f"gvametaconvert json-indent={json_indent}"
-
-    # Build gvametapublish properties
-    publish_props = f"method={args.method} file-format={file_format}"
-
+def build_publish_element(args) -> str:
+    """Build gvametapublish element string based on publish method."""
     if args.method == "file":
-        if args.conn_str:
-            publish_props += f' file-path="{args.conn_str}"'
-        # else defaults to stdout
-    elif args.method in ("kafka", "mqtt"):
-        default_addr = (
-            "localhost:9092" if args.method == "kafka" else "localhost:1883"
+        file_format = "json" if args.schema_type == 0 else "json-lines"
+        return (
+            f'gvametapublish method=file file-format={file_format} '
+            f'file-path="{args.output_json}"'
         )
-        address = args.conn_str if args.conn_str else default_addr
-        publish_props += f" address={address} topic={args.topic}"
-        if args.cfg_file and args.method == "mqtt":
-            publish_props += f' mqtt-config="{args.cfg_file}"'
+    elif args.method == "mqtt":
+        address = args.address or "localhost:1883"
+        file_format = "json-lines"
+        return (
+            f'gvametapublish method=mqtt file-format={file_format} '
+            f'address={address} topic={args.topic}'
+        )
+    elif args.method == "kafka":
+        address = args.address or "localhost:9092"
+        file_format = "json-lines"
+        return (
+            f'gvametapublish method=kafka file-format={file_format} '
+            f'address={address} topic={args.topic}'
+        )
 
-    metapublish = f"gvametapublish {publish_props}"
 
-    return f"{metaconvert} ! {metapublish}"
+# ── pad probe — object counting ─────────────────────────────────────────────
 
 
-def watermark_probe(pad, info, _user_data):
-    """Pad probe callback on watermark sink pad.
-
-    Counts detected objects per class and prints summary.
-    Equivalent of osd_sink_pad_buffer_probe in DeepStream test4.
-    """
-    buffer = info.get_buffer()
-    if not buffer:
-        return Gst.PadProbeReturn.OK
-
+def watermark_sink_pad_buffer_probe(pad, info, _u_data):
+    """Count vehicles and persons per frame and overlay the summary."""
     obj_counter = {}
-    frame_number = buffer.pts
-
+    buffer = info.get_buffer()
     rmeta = GstAnalytics.buffer_get_analytics_relation_meta(buffer)
+
+    frame_number = buffer.pts  # use PTS as frame identifier
+
     if rmeta:
         for mtd in rmeta:
             if isinstance(mtd, GstAnalytics.ODMtd):
-                label = GLib.quark_to_string(mtd.get_obj_type())
-                obj_counter[label] = obj_counter.get(label, 0) + 1
+                category = GLib.quark_to_string(mtd.get_obj_type())
+                obj_counter[category] = obj_counter.get(category, 0) + 1
 
-    vehicle_count = obj_counter.get(CLASS_VEHICLE, 0)
-    person_count = obj_counter.get(CLASS_PERSON, 0)
-    bike_count = obj_counter.get(CLASS_BIKE, 0)
+        # Add summary overlay text
+        vehicle_count = sum(
+            obj_counter.get(cls, 0) for cls in ["car", "truck", "bus", "motorcycle"]
+        )
+        person_count = obj_counter.get("person", 0)
 
-    print(
-        f"PTS={frame_number} "
-        f"Vehicle Count={vehicle_count} "
-        f"Person Count={person_count} "
-        f"Bike Count={bike_count}"
-    )
+        summary = f"Vehicles: {vehicle_count} Persons: {person_count}"
+        rmeta.add_od_mtd(GLib.quark_from_string(summary), 10, 30, 0, 0, 0)
+
+        # Print summary to stdout (like DeepStream test4)
+        print(f"PTS={frame_number} Vehicle Count={vehicle_count} Person Count={person_count}")
 
     return Gst.PadProbeReturn.OK
 
 
+# ── pipeline event loop ─────────────────────────────────────────────────────
+
+
 def run_pipeline(pipeline):
-    """Run pipeline event loop with SIGINT handling."""
+    """Event loop with SIGINT → EOS for graceful shutdown."""
 
     def _sigint(signum, frame):
         pipeline.send_event(Gst.Event.new_eos())
 
     prev = signal.signal(signal.SIGINT, _sigint)
     bus = pipeline.get_bus()
-
+    print("[pipeline] Compiling models, this may take some time...")
     pipeline.set_state(Gst.State.PLAYING)
-    print("Pipeline started.\n")
-
     try:
         while True:
             while GLib.MainContext.default().iteration(False):
@@ -279,72 +215,77 @@ def run_pipeline(pipeline):
                 continue
             if msg.type == Gst.MessageType.ERROR:
                 err, dbg = msg.parse_error()
-                print(
-                    f"Error from {msg.src.get_name()}: {err.message}\nDebug: {dbg}",
-                    file=sys.stderr,
-                )
+                print(f"Error from {msg.src.get_name()}: {err.message}\nDebug: {dbg}")
                 break
             if msg.type == Gst.MessageType.EOS:
-                print("\nPipeline complete.")
+                print("Pipeline complete.")
                 break
     finally:
         signal.signal(signal.SIGINT, prev)
         pipeline.set_state(Gst.State.NULL)
 
 
+# ── main ─────────────────────────────────────────────────────────────────────
+
+
 def main():
     args = parse_args()
 
-    # Initialize GStreamer
+    # Validate input
+    input_src = validate_input(args.input)
+
+    # Locate model
+    model_xml = find_model("**/*.xml", "detection")
+
+    # Output dirs
+    Path(args.output_video).parent.mkdir(parents=True, exist_ok=True)
+    Path(args.output_json).parent.mkdir(parents=True, exist_ok=True)
+
+    # Device fallback
+    device = check_device(args.device, "inference")
+
+    # Build pipeline
     Gst.init(None)
+    source_el = build_source(input_src)
 
-    # Find model
-    model_xml = find_model(args.model)
-    model_proc = find_model_proc(args.model_proc)
+    json_indent = 4 if args.schema_type == 0 else -1
+    publish_el = build_publish_element(args)
 
-    # Build pipeline elements
-    source_el = build_source(args.input)
-    publish_el = build_publish_elements(args)
-
-    # Detection element
-    detect_props = f'model="{model_xml}" device={args.device}'
-    if model_proc:
-        detect_props += f' model-proc="{model_proc}"'
-    if args.detection_interval > 1:
-        detect_props += f" inference-interval={args.detection_interval}"
-
-    # Sink element
     if args.no_display:
         sink_el = "fakesink sync=false"
     else:
-        sink_el = "videoconvertscale ! autovideosink sync=false"
+        sink_el = (
+            f"videoconvert ! vah264enc ! h264parse ! "
+            f'mp4mux fragment-duration=1000 ! filesink location="{args.output_video}"'
+        )
 
-    # Assemble pipeline
-    # Key difference from DeepStream test4:
-    #   - gvametapublish is a TRANSFORM (not a sink), so no tee is needed
-    #   - gvametaconvert + gvametapublish sit inline between watermark and sink
     pipe = (
-        f"{source_el} ! decodebin3 ! "
-        f"gvadetect {detect_props} ! queue ! "
-        f"gvatrack tracking-type={args.tracking_type} ! queue ! "
-        f"gvawatermark name=watermark ! "
+        f'{source_el} ! decodebin3 caps="video/x-raw(ANY)" ! '
+        f'gvadetect model="{model_xml}" device={device} '
+        f"batch-size=4 threshold={args.threshold} ! queue ! "
+        f"gvatrack tracking-type=zero-term-imageless ! "
+        f"gvafpscounter ! gvawatermark name=watermark ! "
+        f"gvametaconvert json-indent={json_indent} ! "
         f"{publish_el} ! "
         f"{sink_el}"
     )
 
-    print(f"Pipeline:\n  {pipe}\n")
+    print(f"\nPipeline:\n{pipe}\n")
     pipeline = Gst.parse_launch(pipe)
 
-    # Add probe to watermark sink pad for object counting
-    # (equivalent of osd_sink_pad_buffer_probe in DeepStream test4)
-    watermark = pipeline.get_by_name("watermark")
-    if watermark:
-        watermark.get_static_pad("sink").add_probe(
-            Gst.PadProbeType.BUFFER, watermark_probe, None
-        )
+    # Attach pad probe for object counting (like DeepStream test4)
+    pipeline.get_by_name("watermark").get_static_pad("sink").add_probe(
+        Gst.PadProbeType.BUFFER, watermark_sink_pad_buffer_probe, 0
+    )
 
-    # Run pipeline
     run_pipeline(pipeline)
+
+    if not args.no_display:
+        print(f"\nOutput video: {args.output_video}")
+    if args.method == "file":
+        print(f"Output JSON:  {args.output_json}")
+    else:
+        print(f"Messages published to {args.method}://{args.address or 'localhost'} topic={args.topic}")
 
 
 if __name__ == "__main__":

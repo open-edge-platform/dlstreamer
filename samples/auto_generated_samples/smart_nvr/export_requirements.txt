@@ -1,0 +1,12 @@
+# CPU-only PyTorch — must appear before torch-dependent packages
+--extra-index-url https://download.pytorch.org/whl/cpu
+
+# OpenVINO Python version (pin to match DL Streamer runtime)
+openvino==2026.1.0
+nncf==3.1.0  # required for int8=True quantization
+
+# HuggingFace model download
+huggingface_hub
+
+# Ultralytics YOLO
+ultralytics==8.4.33

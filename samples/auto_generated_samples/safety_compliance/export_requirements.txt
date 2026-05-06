@@ -1,0 +1,15 @@
+# CPU-only PyTorch — must appear before torch-dependent packages
+--extra-index-url https://download.pytorch.org/whl/cpu
+
+# OpenVINO + NNCF for INT8 quantization
+openvino==2026.1.0
+nncf==3.0.0
+
+# Ultralytics YOLO model export
+ultralytics==8.4.33
+
+# HuggingFace VLM export via optimum-cli
+optimum[openvino]
+huggingface_hub
+onnx
+onnxruntime
