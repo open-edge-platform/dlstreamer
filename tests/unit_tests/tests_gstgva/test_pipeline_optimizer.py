@@ -70,7 +70,7 @@ class TestOptimizer(unittest.TestCase):
                 if elapsed_time >= timeout_duration:
                     print(f"Timeout reached after {elapsed_time/60:.1f} minutes")
                     timeout_reached = True
-                    break
+                    break         
         except StopIteration:
             print("Optimization completed naturally (all candidates tested)")
         except Exception as e:
@@ -80,11 +80,8 @@ class TestOptimizer(unittest.TestCase):
         print(f"Optimization finished after {elapsed_time/60:.1f} minutes")
         print(f"Total candidates collected: {len(candidates)}")
 
-        # Check if we have any candidates at all
         self.assertGreater(len(candidates), 0, 
-                        "No candidates were collected during optimization")
-
-        # Check if stream counts vary among candidates
+                        "No candidates were collected during optimization") 
         stream_counts = [candidate[1] for candidate in candidates]
         unique_stream_counts = set(stream_counts)
 
@@ -99,8 +96,8 @@ class TestOptimizer(unittest.TestCase):
         print(f"Best candidate: {best_candidate_pipeline} @ {best_candidate_streams} streams @ {best_candidate_fps} FPS")
 
         # Test baseline pipeline functionality
-        baseline_pipeline, baseline_streams = optimizer.get_baseline_pipeline()
-        print(f"Baseline pipeline: {baseline_pipeline} @ {baseline_streams} streams")
+        baseline_pipeline, baseline_fps, baseline_streams = optimizer.get_baseline_pipeline()
+        print(f"Baseline pipeline: {baseline_pipeline} @ {baseline_streams} streams @ {baseline_fps} FPS")
 
         # Compare baseline pipeline with the original simple_pipeline
         print(f"Original pipeline: {self.simple_pipeline}")
