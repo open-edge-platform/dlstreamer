@@ -32,7 +32,7 @@ fi
 # Definition of pipelines
 DLSTREAMER_PIPELINES[LPR]="gst-launch-1.0 ${SOURCE} ! decodebin3 ! vapostproc ! video/x-raw\(memory:VAMemory\) ! queue \
 ! gvadetect model=/working_dir/public/yolov8_license_plate_detector/FP32/yolov8_license_plate_detector.xml \
-device=GPU pre-process-backend=va ! queue ! videoconvert ! \
+device=GPU pre-process-backend=va ! queue ! \
 gvaclassify model=/working_dir/public/ch_PP-OCRv4_rec_infer/FP32/ch_PP-OCRv4_rec_infer.xml device=GPU pre-process-backend=va \
 ! queue ! vapostproc ! gvawatermark ! gvafpscounter ! vah264enc bitrate=2000 ! h264parse ! mp4mux ! filesink location=/working_dir/${OUTPUT}_dls.mp4"
 

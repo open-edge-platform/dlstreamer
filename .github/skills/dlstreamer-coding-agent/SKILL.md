@@ -99,8 +99,13 @@ Extract the following from the user's prompt:
 | **AI model(s)** | Model name/URL and task (detection, classification, VLM, OCR, …) | — (must ask) |
 | **Target hardware** | Intel platform, available accelerators (GPU/NPU/CPU) | `Not sure / detect at runtime` |
 | **Output format** | Annotated video, JSON, JPEG snapshots, display window | `All of the above` |
-| **Application type** | Python app or GStreamer command line | `Python application` |
+| **Application type** | Python app or GStreamer command line | `Python application` — but see override rule below |
 | **Docker image** | DL Streamer Docker tag | Latest Ubuntu 24 tag (auto-fetched) |
+
+> **Application type override:** If the user's prompt contains explicit language like
+> "bash script", "shell script", "gst-launch", or "command line", set **Application type**
+> to `GStreamer command line` regardless of the default. Only default to `Python application`
+> when the prompt does not indicate a preference.
 
 **If the user's prompt explicitly provides all required info** (video input AND model names
 are explicitly stated, not inferred), proceed directly to Step 1.
