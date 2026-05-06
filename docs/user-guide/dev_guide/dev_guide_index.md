@@ -7,6 +7,9 @@
   - [Ubuntu advanced installation - build Docker image](./advanced_install/advanced_build_docker_image.md)
   - [Ubuntu advanced uninstall guide](./advanced_install/advanced_uninstall_guide.md)
 - [Metadata](./metadata.md)
+  - [GStreamer Analytics Metadata](./metadata_analytics.md)
+  - [Watermark Metadata](./metadata_watermark.md)
+  - [Legacy Analytics Metadata (deprecated)](./metadata_legacy.md)
 - [Model Preparation](./model_preparation.md)
   - [1. Model file format used by OpenVINO™ Toolkit](./model_preparation.md#1-model-file-format-used-by-openvino-toolkit)
   - [2. Model pre- and post-processing](./model_preparation.md#2-model-pre--and-post-processing)
@@ -74,6 +77,9 @@
 coding_agent
 advanced_install/advanced_install_guide_index
 metadata
+metadata_legacy
+metadata_analytics
+metadata_watermark
 model_preparation
 openvino_custom_operations
 model_info_xml
