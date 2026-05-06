@@ -80,3 +80,14 @@ For reference documentation of the legacy API, see
 | `gvawatermark` | Overlay on video | GstBuffer + ROI/ODMtd (+ related ClsMtd, KeypointGroupMtd, TrackingMtd) + GstGVATensorMeta + WatermarkDrawMeta + WatermarkCircleMeta + WatermarkTextMeta | — | — |
 | `gvagenai` | VLM inference on video frames | GstBuffer | ClsMtd | GstGVATensorMeta, GstGVAJSONMeta |
 | `gvaaudiotranscribe` | Speech recognition (Whisper) | GstBuffer (audio) | ClsMtd | — |
+
+<!--hide_directive
+:::{toctree}
+:maxdepth: 1
+:hidden:
+
+metadata_analytics
+metadata_watermark
+metadata_legacy
+:::
+hide_directive-->

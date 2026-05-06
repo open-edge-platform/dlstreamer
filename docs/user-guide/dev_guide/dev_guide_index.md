@@ -77,9 +77,6 @@
 coding_agent
 advanced_install/advanced_install_guide_index
 metadata
-metadata_legacy
-metadata_analytics
-metadata_watermark
 model_preparation
 openvino_custom_operations
 model_info_xml
