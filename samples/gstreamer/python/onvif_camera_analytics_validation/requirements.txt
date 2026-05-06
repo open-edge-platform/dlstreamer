@@ -1,1 +1,9 @@
+# Runtime
 paho-mqtt>=2.0.0
+openvino
+openvino-genai
+numpy
+
+# Model export (run once, not needed at runtime)
+# optimum-intel
+# nncf

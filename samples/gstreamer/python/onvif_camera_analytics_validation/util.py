@@ -1,8 +1,7 @@
 """
-Utility module for ONVIF Profile M Analytics Validation Pipeline.
+Utility module for ONVIF Camera Analytics Validation Pipeline.
 
-Contains: ONVIF SOAP client, ONVIF XML parsers, MQTT event listener,
-and cross-validation logic.
+Contains: ONVIF SOAP client, MQTT event listener, and cross-validation logic.
 """
 
 import collections
@@ -16,30 +15,25 @@ from xml.etree import ElementTree
 
 import paho.mqtt.client as mqtt
 
-log = logging.getLogger("onvif_validator")
+log = logging.getLogger(__name__)
 
-# ---------------------------------------------------------------------------
-#  Constants
-# ---------------------------------------------------------------------------
-
+# ONVIF XML namespaces
 NS = {
     "s": "http://www.w3.org/2003/05/soap-envelope",
     "tt": "http://www.onvif.org/ver10/schema",
     "trt": "http://www.onvif.org/ver10/media/wsdl",
     "tds": "http://www.onvif.org/ver10/device/wsdl",
     "tev": "http://www.onvif.org/ver10/events/wsdl",
-    "tan": "http://www.onvif.org/ver20/analytics/wsdl",
     "wsnt": "http://docs.oasis-open.org/wsn/b-2",
-    "wsa": "http://www.w3.org/2005/08/addressing",
-    "tns1": "http://www.onvif.org/ver10/topics",
 }
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+#  ONVIF SOAP client
+# ═══════════════════════════════════════════════════════════════════════════
 
-# ═══════════════════════════════════════════════════════════════════════════
-#  ONVIF SOAP helpers
-# ═══════════════════════════════════════════════════════════════════════════
-def soap_request(url: str, body: str, extra_ns: str = "") -> Optional[str]:
+def _soap_request(url: str, body: str) -> Optional[str]:
+    """Send a SOAP request and return the response body XML string."""
     envelope = (
         '<?xml version="1.0" encoding="UTF-8"?>'
         '<s:Envelope xmlns:s="http://www.w3.org/2003/05/soap-envelope" '
@@ -47,10 +41,8 @@ def soap_request(url: str, body: str, extra_ns: str = "") -> Optional[str]:
         'xmlns:trt="http://www.onvif.org/ver10/media/wsdl" '
         'xmlns:tt="http://www.onvif.org/ver10/schema" '
         'xmlns:tev="http://www.onvif.org/ver10/events/wsdl" '
-        'xmlns:tan="http://www.onvif.org/ver20/analytics/wsdl" '
         'xmlns:wsnt="http://docs.oasis-open.org/wsn/b-2" '
-        'xmlns:wsa="http://www.w3.org/2005/08/addressing"'
-        f'{extra_ns}>'
+        'xmlns:wsa="http://www.w3.org/2005/08/addressing">'
         f"<s:Body>{body}</s:Body></s:Envelope>"
     )
     try:
@@ -65,211 +57,239 @@ def soap_request(url: str, body: str, extra_ns: str = "") -> Optional[str]:
     return None
 
 
+class ONVIFClient:
+    """Lightweight ONVIF client for camera discovery via standard SOAP calls."""
+
+    def __init__(self, ip: str, port: int = 80):
+        base = f"http://{ip}:{port}/onvif"
+        self.device_url = f"{base}/device_service"
+        self.media_url = f"{base}/media_service"
+
+    def get_device_info(self) -> dict:
+        resp = _soap_request(self.device_url, "<tds:GetDeviceInformation/>")
+        if not resp:
+            return {}
+        try:
+            root = ElementTree.fromstring(resp)
+            info = root.find(".//tds:GetDeviceInformationResponse", NS)
+            if info is not None:
+                return {c.tag.split("}")[-1]: c.text for c in info}
+        except ElementTree.ParseError:
+            pass
+        return {}
+
+    def get_capabilities(self) -> dict:
+        resp = _soap_request(
+            self.device_url,
+            '<tds:GetCapabilities>'
+            '<tds:Category>All</tds:Category>'
+            '</tds:GetCapabilities>')
+        if not resp:
+            return {}
+        caps = {}
+        try:
+            root = ElementTree.fromstring(resp)
+            el = root.find(".//tt:Capabilities", NS)
+            if el is not None:
+                for child in el:
+                    tag = child.tag.split("}")[-1]
+                    xaddr = child.get("XAddr", "")
+                    if not xaddr:
+                        xel = child.find("tt:XAddr", NS)
+                        if xel is not None and xel.text:
+                            xaddr = xel.text
+                    caps[tag] = xaddr
+                    if tag == "Media" and xaddr:
+                        self.media_url = xaddr
+        except ElementTree.ParseError:
+            pass
+        return caps
+
+    def get_profiles(self) -> list:
+        resp = _soap_request(self.media_url, "<trt:GetProfiles/>")
+        if not resp:
+            return []
+        profiles = []
+        try:
+            root = ElementTree.fromstring(resp)
+            for prof in root.findall(".//trt:Profiles", NS):
+                token = prof.get("token", "")
+                name_el = prof.find("tt:Name", NS)
+                ve = prof.find(".//tt:VideoEncoderConfiguration", NS)
+                vid = {}
+                if ve is not None:
+                    enc = ve.find("tt:Encoding", NS)
+                    res = ve.find("tt:Resolution", NS)
+                    vid = {
+                        "encoding": enc.text if enc is not None else "",
+                        "width": (res.find("tt:Width", NS).text
+                                  if res is not None else ""),
+                        "height": (res.find("tt:Height", NS).text
+                                   if res is not None else ""),
+                    }
+                profiles.append({
+                    "token": token,
+                    "name": name_el.text if name_el is not None else "",
+                    "video": vid,
+                })
+        except ElementTree.ParseError:
+            pass
+        return profiles
+
+    def get_stream_uri(self, profile_token: str) -> str:
+        body = (
+            "<trt:GetStreamUri><trt:StreamSetup>"
+            "<tt:Stream>RTP-Unicast</tt:Stream>"
+            "<tt:Transport><tt:Protocol>RTSP</tt:Protocol></tt:Transport>"
+            "</trt:StreamSetup>"
+            f"<trt:ProfileToken>{profile_token}</trt:ProfileToken>"
+            "</trt:GetStreamUri>")
+        resp = _soap_request(self.media_url, body)
+        if not resp:
+            return ""
+        try:
+            root = ElementTree.fromstring(resp)
+            uri = root.find(".//tt:Uri", NS)
+            if uri is not None and uri.text:
+                return uri.text.replace("&amp;", "&")
+        except ElementTree.ParseError:
+            pass
+        return ""
+
+    def get_scopes(self) -> list:
+        resp = _soap_request(self.device_url, "<tds:GetScopes/>")
+        if not resp:
+            return []
+        scopes = []
+        try:
+            root = ElementTree.fromstring(resp)
+            for scope in root.findall(".//tds:Scopes", NS):
+                item = scope.find("tt:ScopeItem", NS)
+                if item is not None and item.text:
+                    scopes.append(item.text)
+        except ElementTree.ParseError:
+            pass
+        return scopes
+
+
 # ═══════════════════════════════════════════════════════════════════════════
-#  ONVIF XML Parsers
+#  MQTT event parsing — camera-agnostic
 # ═══════════════════════════════════════════════════════════════════════════
-def parse_onvif_metadata_xml(xml_str: str) -> Optional[dict]:
-    """Parse tt:MetadataStream XML into normalised event dict."""
+
+def _parse_json_event(payload: dict, topic: str) -> Optional[dict]:
+    """Parse a JSON MQTT payload into a normalised event dict.
+
+    Handles:
+      - Standard ONVIF-style JSON with objectCount / classCounts
+      - Common analytics JSON with data.ObjectType / data.IsMotion fields
+    """
+    # Already in standard format
+    if "objectCount" in payload and payload["objectCount"] > 0:
+        payload.setdefault("source", "mqtt_json")
+        payload.setdefault("topic", topic)
+        return payload
+
+    # Look for data block (used by many cameras)
+    data = payload.get("message", {}).get("data", payload.get("data", {}))
+    if not data:
+        return None
+
+    timestamp = payload.get("timestamp", time.strftime(
+        "%Y-%m-%dT%H:%M:%SZ", time.gmtime()))
+
+    # Motion events
+    is_motion = str(data.get("IsMotion", data.get("active", ""))).lower()
+    if is_motion in ("1", "true"):
+        return {
+            "source": "mqtt_json", "topic": topic,
+            "timestamp": timestamp,
+            "objectCount": 1,
+            "classCounts": {"Motion": 1},
+            "objects": [{"type": "Motion", "confidence": 1.0}],
+        }
+
+    # Object analytics events
+    obj_type = data.get("ObjectType", data.get("Type", ""))
+    is_inside = str(data.get("IsInside", "true")).lower()
+    if obj_type and is_inside in ("1", "true"):
+        return {
+            "source": "mqtt_json", "topic": topic,
+            "timestamp": timestamp,
+            "objectCount": 1,
+            "classCounts": {obj_type: 1},
+            "objects": [{"type": obj_type, "confidence": 0.0}],
+        }
+
+    return None
+
+
+def _parse_onvif_xml_event(xml_str: str) -> Optional[dict]:
+    """Parse ONVIF XML (MetadataStream or wsnt:Notify) from MQTT payload."""
     try:
         root = ElementTree.fromstring(xml_str)
     except ElementTree.ParseError:
         return None
 
+    # tt:MetadataStream with tt:Object elements
     objects = []
     for obj in root.findall(".//tt:Object", NS):
-        obj_id = obj.get("ObjectId", "")
         cls_el = obj.find(".//tt:Class/tt:Type", NS)
-        bbox_el = obj.find(".//tt:Shape/tt:BoundingBox", NS)
-
         obj_type = cls_el.text if cls_el is not None and cls_el.text else "Unknown"
-        confidence = 0.0
-        if cls_el is not None:
-            try:
-                confidence = float(cls_el.get("Likelihood", "0"))
-            except ValueError:
-                pass
+        objects.append({"type": obj_type, "confidence": 0.0})
 
-        bbox = {}
-        if bbox_el is not None:
-            try:
-                bbox = {
-                    "left": (float(bbox_el.get("left", "0")) + 1) / 2,
-                    "top": (float(bbox_el.get("top", "0")) + 1) / 2,
-                    "right": (float(bbox_el.get("right", "0")) + 1) / 2,
-                    "bottom": (float(bbox_el.get("bottom", "0")) + 1) / 2,
-                }
-            except ValueError:
-                pass
+    if objects:
+        class_counts = dict(collections.Counter(o["type"] for o in objects))
+        return {
+            "source": "onvif_xml",
+            "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "objectCount": len(objects),
+            "classCounts": class_counts,
+            "objects": objects,
+        }
 
-        objects.append({
-            "objectId": obj_id,
-            "type": obj_type,
-            "confidence": confidence,
-            "boundingBox": bbox,
-        })
-
-    if not objects:
-        return None
-
-    class_counts = dict(collections.Counter(o["type"] for o in objects))
-    return {
-        "source": "onvif_xml",
-        "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-        "objectCount": len(objects),
-        "classCounts": class_counts,
-        "objects": objects,
-    }
-
-
-def parse_onvif_notification(xml_str: str) -> list:
-    """Parse wsnt:Notify / PullMessagesResponse for detection events."""
-    try:
-        root = ElementTree.fromstring(xml_str)
-    except ElementTree.ParseError:
-        return []
-
+    # wsnt:NotificationMessage
     events = []
     for notif in root.findall(".//wsnt:NotificationMessage", NS):
         msg_el = notif.find(".//tt:Message", NS)
         if msg_el is None:
             continue
-
         data = {}
         for item in msg_el.findall(".//tt:Data/tt:SimpleItem", NS):
             data[item.get("Name", "")] = item.get("Value", "")
+        obj_type = data.get("ObjectType", data.get("Type", ""))
+        is_inside = data.get("IsInside", "true").lower()
+        if obj_type and is_inside in ("1", "true"):
+            events.append({"type": obj_type, "confidence": 0.0})
 
-        obj_type = data.get("ObjectType", data.get("Type", "Unknown"))
-        obj = {
-            "objectId": data.get("ObjectId", ""),
-            "type": obj_type,
-            "confidence": 0.0,
-            "boundingBox": {},
-        }
-
-        bbox_str = data.get("BoundingBox", "")
-        if bbox_str:
-            parts = bbox_str.split(",")
-            if len(parts) == 4:
-                try:
-                    obj["boundingBox"] = {
-                        "left": float(parts[0]), "top": float(parts[1]),
-                        "right": float(parts[2]), "bottom": float(parts[3]),
-                    }
-                except ValueError:
-                    pass
-
-        conf_str = data.get("Confidence", "")
-        if conf_str:
-            try:
-                obj["confidence"] = float(conf_str)
-            except ValueError:
-                pass
-
-        is_inside = data.get("IsInside", "true").lower() == "true"
-        if is_inside and obj_type != "Unknown":
-            events.append({
-                "source": "onvif_pullpoint",
-                "timestamp": msg_el.get("UtcTime", ""),
-                "objectCount": 1,
-                "classCounts": {obj_type: 1},
-                "objects": [obj],
-            })
-
-    if len(events) > 1:
-        merged = events[0].copy()
-        merged["objects"] = []
-        for e in events:
-            merged["objects"].extend(e["objects"])
-        merged["objectCount"] = len(merged["objects"])
-        merged["classCounts"] = dict(
-            collections.Counter(o["type"] for o in merged["objects"]))
-        return [merged]
-
-    return events
-
-
-def _parse_vapix_event(payload: dict, mqtt_topic: str = "") -> Optional[dict]:
-    """Convert Axis VAPIX MQTT event JSON to the standard event format.
-
-    Axis cameras publish events like:
-      {"topic":"onvif:...", "timestamp":..., "message":{"source":{...},"data":{...}}}
-    or simpler:
-      {"topic":"...", "data":{"IsMotion":"1"}}
-    """
-    data = payload.get("message", {}).get("data", payload.get("data", {}))
-    if not data:
-        return None
-
-    topic = payload.get("topic", mqtt_topic)
-    timestamp = payload.get("timestamp", "")
-
-    # Motion events: IsMotion=1/true or active=1
-    is_motion = str(data.get("IsMotion", data.get("active", ""))).lower()
-    if is_motion in ("1", "true"):
+    if events:
+        class_counts = dict(collections.Counter(o["type"] for o in events))
         return {
-            "source": "vapix_mqtt",
-            "topic": topic,
-            "timestamp": timestamp,
-            "objectCount": 1,
-            "classCounts": {"Motion": 1},
-            "objects": [{"type": "Motion", "confidence": 1.0,
-                         "boundingBox": {}}],
-        }
-
-    # Object analytics: ObjectType + IsInside
-    obj_type = data.get("ObjectType", data.get("Type", ""))
-    is_inside = str(data.get("IsInside", "")).lower()
-    if obj_type and is_inside in ("1", "true"):
-        return {
-            "source": "vapix_mqtt",
-            "topic": topic,
-            "timestamp": timestamp,
-            "objectCount": 1,
-            "classCounts": {obj_type: 1},
-            "objects": [{"type": obj_type, "confidence": 0.0,
-                         "boundingBox": {}}],
+            "source": "onvif_xml",
+            "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "objectCount": len(events),
+            "classCounts": class_counts,
+            "objects": events,
         }
 
     return None
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-#  Event Listeners
+#  MQTT Event Listener
 # ═══════════════════════════════════════════════════════════════════════════
-class BaseEventListener:
-    """Base class for event sources."""
 
-    def __init__(self):
-        self.event_queue: queue.Queue = queue.Queue(maxsize=100)
-        self.connected = False
-        self.stats = {"events_received": 0, "events_dropped": 0}
-        self.source_name = "base"
-
-    def start(self) -> bool:
-        raise NotImplementedError
-
-    def stop(self):
-        pass
-
-    def _enqueue(self, event: dict):
-        self.stats["events_received"] += 1
-        try:
-            self.event_queue.put_nowait(event)
-        except queue.Full:
-            self.stats["events_dropped"] += 1
-
-
-class MQTTEventListener(BaseEventListener):
-    """MQTT event listener — works with MQTT-enabled cameras and simulators."""
+class MQTTEventListener:
+    """Subscribes to MQTT topics and enqueues parsed camera events."""
 
     def __init__(self, broker: str, port: int,
                  topics: Optional[list] = None):
-        super().__init__()
         self.broker = broker
         self.port = port
-        self.topics = topics or ["onvif/analytics", "onvif/analytics/events"]
+        self.topics = topics or ["onvif/analytics/#"]
+        self.event_queue: queue.Queue = queue.Queue(maxsize=100)
+        self.connected = False
+        self.stats = {"events_received": 0, "events_dropped": 0}
         self._client = None
-        self.source_name = "mqtt"
 
     def start(self) -> bool:
         self._client = mqtt.Client(
@@ -302,232 +322,57 @@ class MQTTEventListener(BaseEventListener):
         self.connected = False
 
     def _on_message(self, client, userdata, msg):
+        event = None
+        raw_payload = msg.payload.decode("utf-8", errors="replace")
+
+        # Try JSON first
         try:
             payload = json.loads(msg.payload)
-            # Standard format with objectCount
-            if payload.get("objectCount", 0) > 0:
-                payload.setdefault("source", "mqtt_json")
-                self._enqueue(payload)
-                return
-            # Axis VAPIX event format: {"topic":..., "data":{"IsMotion":"1",...}}
-            event = _parse_vapix_event(payload, msg.topic)
-            if event:
-                self._enqueue(event)
-            return
+            event = _parse_json_event(payload, msg.topic)
         except (json.JSONDecodeError, UnicodeDecodeError):
             pass
 
-        try:
-            xml_str = msg.payload.decode("utf-8", errors="ignore")
-            parsed = parse_onvif_metadata_xml(xml_str)
-            if parsed:
-                self._enqueue(parsed)
-                return
-            for ev in parse_onvif_notification(xml_str):
-                if ev.get("objectCount", 0) > 0:
-                    self._enqueue(ev)
-        except Exception:
-            pass
+        # Fall back to ONVIF XML
+        if event is None:
+            try:
+                event = _parse_onvif_xml_event(raw_payload)
+            except Exception:
+                pass
 
-
-
-# ═══════════════════════════════════════════════════════════════════════════
-#  ONVIF Client
-# ═══════════════════════════════════════════════════════════════════════════
-class ONVIFClient:
-    """Lightweight ONVIF client for any camera — discovery and publish-back."""
-
-    def __init__(self, ip: str, port: int, user: str, password: str):
-        self.ip = ip
-        self.port = port
-        base = f"http://{ip}:{port}/onvif"
-        self.device_url = f"{base}/device_service"
-        self.media_url = f"{base}/media_service"
-        self.analytics_url = f"{base}/analytics_service"
-        self.events_url = f"{base}/event_service"
-        self._service_urls = {}
-
-    def get_device_info(self) -> dict:
-        resp = soap_request(self.device_url, "<tds:GetDeviceInformation/>")
-        if not resp:
-            return {}
-        try:
-            root = ElementTree.fromstring(resp)
-            info = root.find(".//tds:GetDeviceInformationResponse", NS)
-            if info is not None:
-                return {c.tag.split("}")[-1]: c.text for c in info}
-        except ElementTree.ParseError:
-            pass
-        return {}
-
-    def get_capabilities(self) -> dict:
-        resp = soap_request(
-            self.device_url,
-            "<tds:GetCapabilities><tds:Category>All</tds:Category>"
-            "</tds:GetCapabilities>")
-        if not resp:
-            return {}
-        caps = {}
-        try:
-            root = ElementTree.fromstring(resp)
-            el = root.find(".//tt:Capabilities", NS)
-            if el is not None:
-                for child in el:
-                    tag = child.tag.split("}")[-1]
-                    xaddr = child.get("XAddr", "")
-                    if not xaddr:
-                        xel = child.find("tt:XAddr", NS)
-                        if xel is not None and xel.text:
-                            xaddr = xel.text
-                    caps[tag] = {"xaddr": xaddr}
-                    if xaddr:
-                        self._service_urls[tag] = xaddr
-        except ElementTree.ParseError:
-            pass
-
-        if "Media" in self._service_urls:
-            self.media_url = self._service_urls["Media"]
-        if "Analytics" in self._service_urls:
-            self.analytics_url = self._service_urls["Analytics"]
-        if "Events" in self._service_urls:
-            self.events_url = self._service_urls["Events"]
-        return caps
-
-    def get_profiles(self) -> list:
-        resp = soap_request(self.media_url, "<trt:GetProfiles/>")
-        if not resp:
-            return []
-        profiles = []
-        try:
-            root = ElementTree.fromstring(resp)
-            for prof in root.findall(".//trt:Profiles", NS):
-                token = prof.get("token", "")
-                name_el = prof.find("tt:Name", NS)
-                ve = prof.find(".//tt:VideoEncoderConfiguration", NS)
-                vid = {}
-                if ve is not None:
-                    enc = ve.find("tt:Encoding", NS)
-                    res = ve.find("tt:Resolution", NS)
-                    vid = {
-                        "encoding": enc.text if enc is not None else "",
-                        "width": (res.find("tt:Width", NS).text
-                                  if res is not None else ""),
-                        "height": (res.find("tt:Height", NS).text
-                                   if res is not None else ""),
-                    }
-                mc = prof.find(".//tt:MetadataConfiguration", NS)
-                vac = prof.find(".//tt:VideoAnalyticsConfiguration", NS)
-                profiles.append({
-                    "token": token,
-                    "name": name_el.text if name_el is not None else "",
-                    "video": vid,
-                    "metadata": {"present": mc is not None},
-                    "analytics": {"present": vac is not None},
-                })
-        except ElementTree.ParseError:
-            pass
-        return profiles
-
-    def get_stream_uri(self, profile_token: str) -> str:
-        body = (
-            "<trt:GetStreamUri><trt:StreamSetup>"
-            "<tt:Stream>RTP-Unicast</tt:Stream>"
-            "<tt:Transport><tt:Protocol>RTSP</tt:Protocol></tt:Transport>"
-            "</trt:StreamSetup>"
-            f"<trt:ProfileToken>{profile_token}</trt:ProfileToken>"
-            "</trt:GetStreamUri>")
-        resp = soap_request(self.media_url, body)
-        if not resp:
-            return ""
-        try:
-            root = ElementTree.fromstring(resp)
-            uri = root.find(".//tt:Uri", NS)
-            if uri is not None and uri.text:
-                return uri.text.replace("&amp;", "&")
-        except ElementTree.ParseError:
-            pass
-        return ""
-
-    def get_scopes(self) -> list:
-        resp = soap_request(self.device_url, "<tds:GetScopes/>")
-        scopes = []
-        if not resp:
-            return scopes
-        try:
-            root = ElementTree.fromstring(resp)
-            for scope in root.findall(".//tds:Scopes", NS):
-                item = scope.find("tt:ScopeItem", NS)
-                if item is not None and item.text:
-                    scopes.append(item.text)
-        except ElementTree.ParseError:
-            pass
-        return scopes
+        if event:
+            event["raw_mqtt"] = raw_payload
+            event["raw_topic"] = msg.topic
+            self.stats["events_received"] += 1
+            try:
+                self.event_queue.put_nowait(event)
+            except queue.Full:
+                self.stats["events_dropped"] += 1
 
 
 # ═══════════════════════════════════════════════════════════════════════════
 #  Cross-validation
 # ═══════════════════════════════════════════════════════════════════════════
-def cross_validate(camera_event: dict, inference_dets: list) -> dict:
-    """Compare camera-reported detections with inference results.
 
-    Uses overlap matching: checks if every object type reported by the camera
-    is also detected by VLM inference.  VLM may report additional types
-    (it sees the whole scene), so extra VLM-only types do not count as a
-    mismatch.  Count agreement is checked only for overlapping types.
+def cross_validate(camera_event: dict, vlm_detections: list) -> dict:
+    """Compare camera-reported objects with VLM-extracted objects.
+
+    Returns a dict with match/mismatch status and counts per class.
     """
-    inf_count = len(inference_dets)
-    inf_types = collections.Counter(d["onvif_type"] for d in inference_dets)
-
-    cam_count = camera_event.get("objectCount", 0)
     cam_types = collections.Counter(
         o.get("type", "") for o in camera_event.get("objects", []))
+    vlm_types = collections.Counter(
+        d.get("onvif_type", "") for d in vlm_detections)
 
-    # Check if every camera-reported type is present in VLM output
-    missing_types = set(cam_types) - set(inf_types)
-    matching_types = set(cam_types) & set(inf_types)
+    cam_count = camera_event.get("objectCount", 0)
+    vlm_count = len(vlm_detections)
 
-    # Mismatch if VLM has no detections at all or is missing camera types
-    if cam_count > 0 and inf_count == 0:
-        needs_update = True
-    elif missing_types:
-        needs_update = True
-    else:
-        needs_update = False
+    missing = set(cam_types) - set(vlm_types)
+    needs_update = bool(missing) or (cam_count > 0 and vlm_count == 0)
 
     return {
         "camera_objects": cam_count,
-        "inference_objects": inf_count,
+        "inference_objects": vlm_count,
         "camera_classes": dict(cam_types),
-        "inference_classes": dict(inf_types),
-        "has_camera_data": True,
-        "matching_types": sorted(matching_types),
-        "missing_types": sorted(missing_types),
+        "inference_classes": dict(vlm_types),
         "needs_update": needs_update,
     }
-
-
-# ═══════════════════════════════════════════════════════════════════════════
-#  RTSP Stream Probe
-# ═══════════════════════════════════════════════════════════════════════════
-def probe_rtsp(rtsp_uri: str) -> dict:
-    try:
-        result = subprocess.run(
-            ["ffprobe", "-v", "error", "-rtsp_transport", "tcp",
-             "-show_entries", "stream=index,codec_name,codec_type",
-             "-of", "json", rtsp_uri],
-            capture_output=True, text=True, timeout=15)
-        if result.returncode == 0:
-            data = json.loads(result.stdout)
-            streams = data.get("streams", [])
-            return {
-                "streams": streams,
-                "has_video": any(
-                    s.get("codec_type") == "video" for s in streams),
-                "has_audio": any(
-                    s.get("codec_type") == "audio" for s in streams),
-                "has_metadata": any(
-                    s.get("codec_type") == "data" for s in streams),
-            }
-    except Exception as e:
-        log.warning(f"ffprobe failed: {e}")
-    return {"error": "probe failed"}
