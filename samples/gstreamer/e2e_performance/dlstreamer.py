@@ -10,10 +10,9 @@ Pipelined iGPU decode + zero-copy VA surface sharing + async inference.
 
 import time
 
-import cv2
-
-from common import (CONFIDENCE_THRESHOLD, INFERENCE_DEVICE, NIREQ, QUEUE_SIZE,
-                     SNAPSHOT_FRAMES, PipelineError, compute_result, stamp_frame)
+from perf_comparison import (CONFIDENCE_THRESHOLD, INFERENCE_DEVICE, NIREQ,
+                              QUEUE_SIZE, SNAPSHOT_FRAMES, PipelineError,
+                              compute_result, Result)
 
 
 def _init_gst():
@@ -40,8 +39,26 @@ def _build_pipeline_str(model_xml, video):
         f"! fakesink async=false sync=false")
 
 
-def run(model_xml, video, num_frames, warmup):
-    """Pipelined iGPU decode + zero-copy inference."""
+def _stamp_frame(frame, text):
+    """Semi-transparent timing banner at the top."""
+    import cv2  # pylint: disable=import-outside-toplevel
+    overlay = frame.copy()
+    (tw, th), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2)
+    cv2.rectangle(overlay, (8, 6), (tw + 16, th + 16), (0, 0, 0), -1)
+    cv2.addWeighted(overlay, 0.5, frame, 0.5, 0, frame)
+    cv2.putText(frame, text, (12, th + 10),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2, cv2.LINE_AA)
+    return frame
+
+
+def run(model_xml, video, num_frames, warmup) -> Result:
+    """Pipelined iGPU decode + zero-copy inference.
+
+    Measures wall-clock time via a pad probe after inference. E2E time is
+    the mean interval between consecutive probe timestamps. Because decode,
+    preprocess, and inference are pipelined across frames, this interval
+    reflects the sustained throughput of the full pipeline.
+    """
     Gst = _init_gst()
     total = warmup + num_frames
     timestamps = []
@@ -78,7 +95,7 @@ def run(model_xml, video, num_frames, warmup):
 
 
 def save_snapshot(model_xml, video, out_path, e2e_ms):
-    """Save one watermarked detection frame."""
+    """Save first frame with detections as annotated JPEG via gvawatermark."""
     Gst = _init_gst()
     pipe = Gst.parse_launch(
         f"filesrc location={video} num-buffers={SNAPSHOT_FRAMES} "
@@ -95,7 +112,8 @@ def save_snapshot(model_xml, video, out_path, e2e_ms):
     pipe.set_state(Gst.State.NULL)
 
     if out_path.exists():
+        import cv2  # pylint: disable=import-outside-toplevel
         img = cv2.imread(str(out_path))
         if img is not None:
-            stamp_frame(img, f"E2E via DLStreamer: {e2e_ms:.1f} ms")
+            _stamp_frame(img, f"E2E via DLStreamer: {e2e_ms:.1f} ms")
             cv2.imwrite(str(out_path), img)
