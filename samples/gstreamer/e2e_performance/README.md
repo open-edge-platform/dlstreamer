@@ -107,7 +107,6 @@ Both pipelines save annotated frames with bounding boxes to `output/`:
 
 - Linux (Ubuntu 22.04 / 24.04)
 - Intel platform with integrated GPU (Arrow Lake, Panther Lake, Meteor Lake)
-- Kernel 6.8 or newer
 - DL Streamer latest
   ([installation guide](https://dlstreamer.github.io/get_started/install/install_guide_ubuntu.html))
 - Python 3.10 or newer
