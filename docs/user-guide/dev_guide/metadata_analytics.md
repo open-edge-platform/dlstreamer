@@ -243,37 +243,37 @@ necessary when you need semantic labels for individual keypoints.
 
 #### Data flow diagram
 
-```
-┌─────────────────────────────────────────────────────────┐
-│ Post-processor / converter (producer)                   │
-│                                                         │
-│  1. descriptor = lookup(HARDCODED_TAG)                  │
-│     (e.g., "body-pose/coco-17" in the YOLOv8 converter)│
-│  2. skeleton = descriptor->skeleton_connections         │
-│  3. add_keypoints_group(tag, positions, skeleton)       │
-│                                                         │
-│  Output on buffer:                                      │
-│    GstAnalyticsRelationMeta                             │
-│      └─ GroupMtd (semantic_tag="body-pose/coco-17")     │
-│           ├─ KeypointMtd[0] (nose, x=320, y=180)       │
-│           ├─ KeypointMtd[1] (eye_l, x=310, y=170)      │
-│           ├─ ...                                        │
-│           └─ RELATE_TO: 0↔1, 0↔2, 1↔3, ... (skeleton)  │
-└─────────────────────────────────────────────────────────┘
-                         │ buffer flows downstream
-                         ▼
-┌─────────────────────────────────────────────────────────┐
-│ Consumer (e.g., gvawatermark, Python app)               │
-│                                                         │
-│  1. for each keypoint in group:                         │
-│       read position (x, y) and confidence               │
-│  2. for each RELATE_TO relation in group:               │
-│       draw skeleton line between connected keypoints    │
-│  3. (optional) if labels needed:                        │
-│       tag = group.get_semantic_tag()                    │
-│       descriptor = lookup(tag)                          │
-│       name = descriptor->point_names[index]             │
-└─────────────────────────────────────────────────────────┘
+```text
++-----------------------------------------------------------+
+| Post-processor / converter (producer)                     |
+|                                                           |
+|  1. descriptor = lookup(HARDCODED_TAG)                    |
+|     (e.g., "body-pose/coco-17" in the YOLOv26 converter)  |
+|  2. skeleton = descriptor->skeleton_connections           |
+|  3. add_keypoints_group(tag, positions, skeleton)         |
+|                                                           |
+|  Output on buffer:                                        |
+|    GstAnalyticsRelationMeta                               |
+|      +-- GroupMtd (semantic_tag="body-pose/coco-17")      |
+|           +-- KeypointMtd[0] (nose, x=320, y=180)         |
+|           +-- KeypointMtd[1] (eye_l, x=310, y=170)        |
+|           +-- ...                                         |
+|           +-- RELATE_TO: 0<>1, 0<>2, 1<>3 (skeleton)      |
++-----------------------------------------------------------+
+                         | buffer flows downstream
+                         v
++-----------------------------------------------------------+
+| Consumer (e.g., gvawatermark, Python app)                 |
+|                                                           |
+|  1. for each keypoint in group:                           |
+|       read position (x, y) and confidence                 |
+|  2. for each RELATE_TO relation in group:                 |
+|       draw skeleton line between connected keypoints      |
+|  3. (optional) if labels needed:                          |
+|       tag = group.get_semantic_tag()                      |
+|       descriptor = lookup(tag)                            |
+|       name = descriptor->point_names[index]               |
++-----------------------------------------------------------+
 ```
 
 The descriptor adds value only as a naming dictionary. Adding support for a
