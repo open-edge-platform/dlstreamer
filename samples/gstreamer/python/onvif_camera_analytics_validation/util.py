@@ -10,10 +10,7 @@ import json
 import logging
 import queue
 import subprocess
-import threading
 import time
-import urllib.request
-import urllib.error
 from typing import Optional
 from xml.etree import ElementTree
 
@@ -191,6 +188,50 @@ def parse_onvif_notification(xml_str: str) -> list:
     return events
 
 
+def _parse_vapix_event(payload: dict, mqtt_topic: str = "") -> Optional[dict]:
+    """Convert Axis VAPIX MQTT event JSON to the standard event format.
+
+    Axis cameras publish events like:
+      {"topic":"onvif:...", "timestamp":..., "message":{"source":{...},"data":{...}}}
+    or simpler:
+      {"topic":"...", "data":{"IsMotion":"1"}}
+    """
+    data = payload.get("message", {}).get("data", payload.get("data", {}))
+    if not data:
+        return None
+
+    topic = payload.get("topic", mqtt_topic)
+    timestamp = payload.get("timestamp", "")
+
+    # Motion events: IsMotion=1/true or active=1
+    is_motion = str(data.get("IsMotion", data.get("active", ""))).lower()
+    if is_motion in ("1", "true"):
+        return {
+            "source": "vapix_mqtt",
+            "topic": topic,
+            "timestamp": timestamp,
+            "objectCount": 1,
+            "classCounts": {"Motion": 1},
+            "objects": [{"type": "Motion", "confidence": 1.0,
+                         "boundingBox": {}}],
+        }
+
+    # Object analytics: ObjectType + IsInside
+    obj_type = data.get("ObjectType", data.get("Type", ""))
+    is_inside = str(data.get("IsInside", "")).lower()
+    if obj_type and is_inside in ("1", "true"):
+        return {
+            "source": "vapix_mqtt",
+            "topic": topic,
+            "timestamp": timestamp,
+            "objectCount": 1,
+            "classCounts": {obj_type: 1},
+            "objects": [{"type": obj_type, "confidence": 0.0,
+                         "boundingBox": {}}],
+        }
+
+    return None
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 #  Event Listeners
@@ -263,9 +304,15 @@ class MQTTEventListener(BaseEventListener):
     def _on_message(self, client, userdata, msg):
         try:
             payload = json.loads(msg.payload)
+            # Standard format with objectCount
             if payload.get("objectCount", 0) > 0:
                 payload.setdefault("source", "mqtt_json")
                 self._enqueue(payload)
+                return
+            # Axis VAPIX event format: {"topic":..., "data":{"IsMotion":"1",...}}
+            event = _parse_vapix_event(payload, msg.topic)
+            if event:
+                self._enqueue(event)
             return
         except (json.JSONDecodeError, UnicodeDecodeError):
             pass
@@ -415,10 +462,6 @@ class ONVIFClient:
         except ElementTree.ParseError:
             pass
         return scopes
-
-    def get_event_properties(self) -> bool:
-        resp = soap_request(self.events_url, "<tev:GetEventProperties/>")
-        return bool(resp and "Fault" not in resp)
 
 
 # ═══════════════════════════════════════════════════════════════════════════

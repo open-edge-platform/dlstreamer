@@ -32,7 +32,7 @@ import time
 import gi
 gi.require_version("Gst", "1.0")
 gi.require_version("GstApp", "1.0")
-from gi.repository import GLib, Gst, GstApp
+from gi.repository import GLib, Gst
 
 from util import (
     ONVIFClient,
@@ -588,6 +588,19 @@ def run(args):
         rtsp_uri = f"rtsp://{args.camera_ip}:554/stream1"
         print(f"  RTSP URI (fallback): {rtsp_uri}")
 
+    # Embed credentials in RTSP URI if not already present
+    if args.onvif_user and '@' not in rtsp_uri:
+        from urllib.parse import quote, urlparse, urlunparse
+        parsed = urlparse(rtsp_uri)
+        userinfo = quote(args.onvif_user, safe='')
+        if args.onvif_pass:
+            userinfo += ':' + quote(args.onvif_pass, safe='')
+        rtsp_uri = urlunparse(parsed._replace(
+            netloc=f"{userinfo}@{parsed.hostname}"
+                   + (f":{parsed.port}" if parsed.port else "")))
+        print(f"  RTSP URI (with auth): rtsp://***@{parsed.hostname}"
+              f"{':%d' % parsed.port if parsed.port else ''}{parsed.path}")
+
     # ── RTSP probe ───────────────────────────────────────────────────
     print(f"\n[Discovery] RTSP Stream")
     print("-" * 70)
@@ -678,6 +691,9 @@ def run(args):
                 event = listener.event_queue.get(timeout=1.0)
             except queue.Empty:
                 stats["vlm_inferences"] = dls.get_vlm_count()
+                vlm_text = dls.get_vlm_result()
+                if vlm_text:
+                    DashboardHandler.latest_vlm_text = vlm_text
                 DashboardHandler.stats = stats
                 continue
 
@@ -792,7 +808,7 @@ Model export (run once):
     p.add_argument("--mqtt-port", type=int, default=1883,
                    help="MQTT broker port")
     p.add_argument("--mqtt-topics", nargs="+",
-                   default=["onvif/analytics", "onvif/analytics/events"],
+                   default=["onvif/analytics/#"],
                    help="MQTT topics to subscribe to")
     p.add_argument("--web-port", type=int, default=8080,
                    help="Web dashboard port (default: 8080)")
