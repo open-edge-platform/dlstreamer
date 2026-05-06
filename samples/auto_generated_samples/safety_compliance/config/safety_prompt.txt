@@ -1,0 +1,4 @@
+There is a worker in the center of an image. Answer two questions:
+   Is the worker wearing a helmet? (WEARING / NOT_WEARING)
+   Is the worker secured with a safety harness or line? (SECURED / NOT_SECURED)
+   Reply with exactly one word for each question, separated by a slash. Nothing else.
