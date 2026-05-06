@@ -6,7 +6,7 @@
 # Model export only needs CPU inference.
 --extra-index-url https://download.pytorch.org/whl/cpu
 
-# OpenVINO Python version (pin to match DLStreamer runtime)
+# OpenVINO Python version (pin to match DL Streamer runtime)
 # Discover with: python3 -c "import openvino; print(openvino.__version__)"
 # openvino==2026.0.0
 

@@ -380,6 +380,22 @@ class VideoFrame {
                                                  "object detection metadata");
                     roi_meta->id = od_mtd.id;
                     gst_video_region_of_interest_meta_add_param(roi_meta, detection);
+
+                    // convert related analytics metadata to GstStructure and add to roi params
+                    gpointer rel_state = NULL;
+                    GstAnalyticsMtd handle;
+                    while (gst_analytics_relation_meta_get_direct_related(
+                        od_mtd.meta, od_mtd.id, GST_ANALYTICS_REL_TYPE_ANY, GST_ANALYTICS_MTD_TYPE_ANY, &rel_state,
+                        &handle)) {
+                        GstAnalyticsRelTypes rel =
+                            gst_analytics_relation_meta_get_relation(od_mtd.meta, od_mtd.id, handle.id);
+                        if (!(rel & (GST_ANALYTICS_REL_TYPE_CONTAIN | GST_ANALYTICS_REL_TYPE_RELATE_TO)))
+                            continue;
+                        GstStructure *s = GVA::Tensor::convert_to_tensor(handle);
+                        if (s != nullptr) {
+                            gst_video_region_of_interest_meta_add_param(roi_meta, s);
+                        }
+                    }
                 }
             }
 
