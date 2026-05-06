@@ -6,6 +6,7 @@
 
 import unittest
 import time
+import signal
 import re
 from optimizer import DLSOptimizer # pylint: disable=no-name-in-module
 from utils import get_model_path
@@ -48,48 +49,70 @@ class TestOptimizer(unittest.TestCase):
         print(f"✓ Test passed: Found {len(candidates)} candidates, "
             f"best matches optimal pipeline")
 
-    # def test_iter_optimize_for_streams_and_get_baseline_pipeline(self):
-    #     """Test iter_optimize_for_streams with simple CPU pipeline and check baseline against original"""
-    #     optimizer = DLSOptimizer()
-    #     search_duration = 30  # seconds
-    #     sample_duration = 10  # seconds
-    #     candidates = []
+    def test_iter_optimize_for_streams_with_timeout_and_get_baseline_pipeline(self):
+        """Test iter_optimize_for_streams with timeout and check if stream count changes"""
+        optimizer = DLSOptimizer()
+        candidates = []
+        timeout_duration = 900  # 15 minutes in seconds
+        start_time = time.time()
+        timeout_reached = False
 
-    #     # Iterate through candidates and collect pipelines and their stream counts
-    #     for pipeline, fps_count, stream_count in optimizer.iter_optimize_for_streams(self.simple_pipeline):  
-    #         candidates.append((pipeline, stream_count, fps_count))
-    #         print(f"Tested: {pipeline} @ {stream_count} streams @ {fps_count} FPS")
+        print(f"Starting optimization with {timeout_duration/60:.1f} minute timeout...")
 
-    #     # We expect to have multiple candidates tested, at least more than 1
-    #     self.assertGreater(len(candidates), 1, 
-    #                     f"Expected more than 1 tested pipeline, got {len(candidates)}")
-        
-    #     # Find the candidate with the highest stream count
-    #     best_candidate = max(candidates, key=lambda x: x[1])
-    #     best_candidate_pipeline, best_candidate_streams, best_candidate_fps = best_candidate
-        
-    #     print(f"Best from candidates: {best_candidate_pipeline} @ {best_candidate_streams} streams @ {best_candidate_fps} FPS")
-        
-    #     # Get the baseline pipeline and stream count from the optimizer
-    #     baseline_pipeline, baseline_streams = optimizer.get_baseline_pipeline()
-    #     print(f"Baseline pipeline: {baseline_pipeline} @ {baseline_streams} streams")
-        
-    #     # Compare baseline pipeline with the original simple_pipeline
-    #     print(f"Original pipeline: {self.simple_pipeline}")
-        
-    #     # Check if baseline pipeline matches the original pipeline we started with
-    #     self.assertEqual(baseline_pipeline, self.simple_pipeline,
-    #                     f"Baseline pipeline {baseline_pipeline} doesn't match "
-    #                     f"original pipeline {self.simple_pipeline}")
-        
-    #     # Verify that optimization actually found better candidates than baseline
-    #     self.assertGreaterEqual(best_candidate_streams, baseline_streams,
-    #                         f"Best candidate streams {best_candidate_streams} should be >= "
-    #                         f"baseline streams {baseline_streams}")
-        
-    #     print(f"✓ Test passed: Found {len(candidates)} candidates, "
-    #         f"baseline matches original pipeline, best candidate has {best_candidate_streams} streams @ {best_candidate_fps} FPS "
-    #         f"vs baseline {baseline_streams} streams")
+        try:
+            # Iterate through candidates with timeout check
+            for pipeline, fps_count, stream_count in optimizer.iter_optimize_for_streams(self.simple_pipeline):
+                candidates.append((pipeline, stream_count, fps_count))
+                print(f"Tested: {pipeline} @ {stream_count} streams @ {fps_count} FPS")
+                
+                # Check if timeout reached
+                elapsed_time = time.time() - start_time
+                if elapsed_time >= timeout_duration:
+                    print(f"Timeout reached after {elapsed_time/60:.1f} minutes")
+                    timeout_reached = True
+                    break
+        except StopIteration:
+            print("Optimization completed naturally (all candidates tested)")
+        except Exception as e:
+            print(f"Optimization stopped due to error: {e}")
+
+        elapsed_time = time.time() - start_time
+        print(f"Optimization finished after {elapsed_time/60:.1f} minutes")
+        print(f"Total candidates collected: {len(candidates)}")
+
+        # Check if we have any candidates at all
+        self.assertGreater(len(candidates), 0, 
+                        "No candidates were collected during optimization")
+
+        # Check if stream counts vary among candidates
+        stream_counts = [candidate[1] for candidate in candidates]
+        unique_stream_counts = set(stream_counts)
+
+        self.assertGreater(len(unique_stream_counts), 1,
+                        f"Stream counts didn't vary. All candidates had same stream count: {stream_counts}")
+
+        print(f"✓ Stream counts varied: {sorted(unique_stream_counts)}")
+
+        # Find the candidate with the highest stream count
+        best_candidate = max(candidates, key=lambda x: x[1])
+        best_candidate_pipeline, best_candidate_streams, best_candidate_fps = best_candidate
+        print(f"Best candidate: {best_candidate_pipeline} @ {best_candidate_streams} streams @ {best_candidate_fps} FPS")
+
+        # Test baseline pipeline functionality
+        baseline_pipeline, baseline_streams = optimizer.get_baseline_pipeline()
+        print(f"Baseline pipeline: {baseline_pipeline} @ {baseline_streams} streams")
+
+        # Compare baseline pipeline with the original simple_pipeline
+        print(f"Original pipeline: {self.simple_pipeline}")
+
+        # Check if baseline pipeline matches the original pipeline we started with
+        self.assertEqual(baseline_pipeline, self.simple_pipeline,
+                        f"Baseline pipeline {baseline_pipeline} doesn't match "
+                        f"original pipeline {self.simple_pipeline}")
+
+        print(f"✓ Test passed: Collected {len(candidates)} candidates over {elapsed_time/60:.1f} minutes, "
+            f"stream counts varied ({len(unique_stream_counts)} different values), "
+            f"baseline matches original pipeline")
 
     def test_optimize_for_fps_and_get_optimal_pipeline_and_get_baseline_pipeline(self):
         """Test optimize_for_fps and get_optimal_pipeline with simple CPU pipeline"""
