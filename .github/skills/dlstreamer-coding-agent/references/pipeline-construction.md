@@ -68,11 +68,9 @@ For the full list of elements, see also `../../../../docs/user-guide/elements/`.
 
 > **Deep SORT tracking:** For robust re-identification tracking, use `tracking-type=deep-sort`
 > with a feature extraction model (e.g. mars-small128) via `gvainference` upstream.
-> Always set `reid_max_age` to enable re-identification after occlusion:
-> ```
-> gvainference model=mars-small128.xml device=GPU inference-region=roi-list object-class=person ! queue !
-> gvatrack tracking-type=deep-sort deepsort-trck-cfg="max_age=60,max_cosine_distance=0.3,object_class=person,reid_max_age=30"
-> ```
+> Always set `reid_max_age` to enable re-identification after occlusion.
+> When using `object-class=person` on `gvainference`, always set `displ-cfg=show-roi=person`
+> on `gvawatermark` to render only person ROIs (the detector may also produce non-person classes).
 > See [object_tracking.md](../../../../docs/user-guide/dev_guide/object_tracking.md#deep-sort-tracking) for all tuning parameters.
 
 ### Overlay & Metrics
