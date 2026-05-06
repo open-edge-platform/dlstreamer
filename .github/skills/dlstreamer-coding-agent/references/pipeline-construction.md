@@ -19,21 +19,17 @@ For the full list of elements, see also `../../../../docs/user-guide/elements/`.
 
 | Element | Purpose | Notes |
 |---------|---------|-------|
-| `decodebin3` | Auto-select decoder | Uses hardware decode when available. **Warning:** Decodes *all* tracks including audio. See [Decode Robustness](#decode-robustness) for handling audio-track errors in video-only pipelines. |
+| `decodebin3` | Auto-select decoder | Uses hardware decode when available. Add `caps="video/x-raw(ANY)"` to suppress audio pads and avoid `not-linked` errors. See [Decode Robustness](#decode-robustness). |
 
 ### Video Processing
 
-| Element | Purpose | Key Properties |
-|---------|---------|----------------|
-| `videoconvertscale` | Format conversion + scaling | Combined convert+scale |
-| `videoconvert` | Pixel format conversion only | |
-| `videoscale` | Resolution scaling only | |
+| Element | Purpose | Notes |
+|---------|---------|-------|
+| `vapostproc` | GPU format conversion + scaling | **Preferred in GPU pipelines.** Does not preserve GstAnalytics metadata |
+| `videoconvertscale` | CPU format conversion + scaling | Preserves metadata. Inserts GPU→CPU→GPU copies in VA memory pipelines |
+| `videoconvert` | CPU pixel format conversion | Inserts GPU→CPU→GPU copies in VA memory pipelines |
+| `videoscale` | CPU resolution scaling | Inserts GPU→CPU→GPU copies in VA memory pipelines |
 | `videorate` | Frame rate adjustment | |
-| `vapostproc` | VA-API hardware post-processing | Use before `video/x-raw(memory:VAMemory)` caps |
-
-> **⚠ `vapostproc` metadata warning:** `vapostproc` does not preserve GstAnalytics metadata.
-> Do not place it between elements that produce and read analytics metadata.
-> Use `videoconvertscale` instead when metadata must be preserved.
 
 ### AI Inference (DL Streamer-specific)
 
@@ -468,9 +464,15 @@ gvadetect ... ! queue ! gvawatermark ! tee name=t
 
 ### Decode Robustness
 
-`.ts`, `.mkv`, and some MP4 files contain audio tracks. `decodebin3` emits an error if
-an audio codec plugin is unavailable. Filter this as non-fatal in the event loop.
-See [Pattern 2](./design-patterns.md#pattern-2-pipeline-event-loop).
+Some containers (`.ts`, `.mkv`, some `.mp4`) have audio tracks. When only video is
+processed, use `caps="video/x-raw(ANY)"` to expose only video and avoid `not-linked`
+errors from unlinked audio pads:
+
+```
+decodebin3 caps="video/x-raw(ANY)"
+```
+
+The `ANY` feature ensures all memory types (including `VAMemory`) are accepted.
 
 ## Common Gotchas
 
