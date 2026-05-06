@@ -233,7 +233,7 @@ def save_dls_snapshot(
     """Save one watermarked detection frame via DLStreamer."""
     import gi  # pylint: disable=import-outside-toplevel
     gi.require_version("Gst", "1.0")
-    from gi.repository import Gst  # pylint: disable=import-outside-toplevel
+    from gi.repository import Gst  # pylint: disable=import-outside-toplevel,no-name-in-module
     Gst.init(None)
 
     # vapostproc needed for gvawatermark to render on VA surface
@@ -264,7 +264,7 @@ def run_dlstreamer(
     """Pipelined iGPU decode + zero-copy inference via DLStreamer."""
     import gi  # pylint: disable=import-outside-toplevel
     gi.require_version("Gst", "1.0")
-    from gi.repository import Gst  # pylint: disable=import-outside-toplevel
+    from gi.repository import Gst  # pylint: disable=import-outside-toplevel,no-name-in-module
     Gst.init(None)
 
     pipeline_str = (
