@@ -13,16 +13,14 @@ graph LR
     A -->|"MQTT events"| C["MQTTEventListener"]
     C -->|"trigger"| D["VLMEngine\n(OpenVINO GenAI)"]
     B -->|"latest frame"| D
-    D -->|"VLM text"| E["Cross-Validate"]
-    C -->|"camera event"| E
-    E -->|"results"| F["Web Dashboard\nhttp://localhost:8080"]
+    D -->|"VLM text"| F["Web Dashboard\nhttp://localhost:8080"]
+    C -->|"camera event"| F
     B -->|"JPEG frame"| F
 
     style A fill:#e3f2fd,stroke:#1565C0
     style B fill:#fff3e0,stroke:#E65100
     style C fill:#fff3e0,stroke:#E65100
     style D fill:#e8f5e9,stroke:#2E7D32
-    style E fill:#fce4ec,stroke:#C62828
     style F fill:#f3e5f5,stroke:#9C27B0
 ```
 
