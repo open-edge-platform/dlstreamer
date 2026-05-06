@@ -1,5 +1,0 @@
-yolo26s_int8_openvino_model/
-data/
-output/
-__pycache__/
-*.pt
