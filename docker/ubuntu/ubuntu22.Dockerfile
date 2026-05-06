@@ -469,8 +469,8 @@ RUN \
     cp -rT "${GSTREAMER_DIR}" /deb-pkg/opt/intel/dlstreamer/gstreamer && \
     mkdir -p /deb-pkg/opt/intel/dlstreamer/lib/girepository-1.0 && \
     mkdir -p /deb-pkg/opt/intel/dlstreamer/share/gir-1.0 && \
-    cp "${DLSTREAMER_DIR}/girs/DLStreamerMeta-1.0.gir" /deb-pkg/opt/intel/dlstreamer/share/gir-1.0/ && \
-    cp "${DLSTREAMER_DIR}/build/src/gst/metadata/DLStreamerMeta-1.0.typelib" /deb-pkg/opt/intel/dlstreamer/lib/girepository-1.0/ && \
+    cp "${DLSTREAMER_DIR}/girs/"*.gir /deb-pkg/opt/intel/dlstreamer/share/gir-1.0/ && \
+    cp "${DLSTREAMER_DIR}/build/src/gst/metadata/"*.typelib /deb-pkg/opt/intel/dlstreamer/lib/girepository-1.0/ && \
     cp -a /usr/local/lib/libopencv*.so* /deb-pkg/opt/opencv/ && \
     cp -r /usr/local/include/opencv4/* /deb-pkg/opt/opencv/include && \
     cp -a /usr/local/lib/librdkafka*.so* /deb-pkg/opt/rdkafka/ && \

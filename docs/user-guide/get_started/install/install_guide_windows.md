@@ -8,7 +8,7 @@ Framework on Windows.
 ### Step 1: Download and extract DL Streamer DLL files
 
 Download the archive from
-[DL Streamer assets on GitHub](https://github.com/open-edge-platform/edge-ai-libraries/releases)
+[DL Streamer assets on GitHub](https://github.com/open-edge-platform/dlstreamer/releases)
 Extract to a new folder, for example `C:\\dlstreamer_dlls`.
 
 ### Step 2: Run setup script

@@ -12,16 +12,14 @@ Pipeline:
     gvametaconvert → gvametapublish (JSON Lines) →
     videoconvert → vah264enc → h264parse → mp4mux → filesink
 
-Supports file, HTTP URL, and RTSP IP camera inputs.
+Supports file and RTSP IP camera inputs.
 """
 
 import argparse
 import os
 import signal
-import subprocess
 import sys
-from pathlib import Path, PurePosixPath
-from urllib.parse import urlparse
+from pathlib import Path
 
 import gi
 
@@ -36,10 +34,9 @@ from gi.repository import GLib, Gst  # pylint: disable=no-name-in-module, wrong-
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 MODELS_DIR = SCRIPT_DIR / "models"
-VIDEOS_DIR = SCRIPT_DIR / "videos"
 RESULTS_DIR = SCRIPT_DIR / "results"
 
-DEFAULT_VIDEO_URL = "<VIDEO_URL>"
+DEFAULT_VIDEO = "<VIDEO_PATH>"
 
 
 # ── helpers ──────────────────────────────────────────────────────────────────
@@ -49,43 +46,20 @@ def parse_args():
     p = argparse.ArgumentParser(description="DL Streamer <APPLICATION_NAME>")
     p.add_argument(
         "--input",
-        default=DEFAULT_VIDEO_URL,
-        help="Video file path, HTTP URL, or rtsp:// URI",
+        default=DEFAULT_VIDEO,
+        help="Video file path or rtsp:// URI",
     )
     p.add_argument("--device", default="GPU", help="Inference device (default: GPU)")
     p.add_argument("--output-video", default=str(RESULTS_DIR / "output.mp4"))
     p.add_argument("--output-json", default=str(RESULTS_DIR / "results.jsonl"))
+    p.add_argument("--threshold", type=float, default=0.5, help="Detection confidence threshold")
     return p.parse_args()
 
 
-def prepare_input(source: str) -> str:
-    """Download video if HTTP URL; pass through for RTSP or local file."""
+def validate_input(source: str) -> str:
+    """Validate video input path or RTSP URI."""
     if source.startswith("rtsp://"):
         return source
-    if source.startswith(("http://", "https://")):
-        VIDEOS_DIR.mkdir(parents=True, exist_ok=True)
-        name = PurePosixPath(urlparse(source).path).name or "video.mp4"
-        local = VIDEOS_DIR / name
-        if not local.exists():
-            print(f"Downloading video: {source}")
-            subprocess.run([
-                "curl", "-L", "-o", str(local),
-                "-H", "Referer: https://www.pexels.com/",
-                "-H", "User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
-                source,
-            ], check=True, timeout=300)
-            # Verify downloaded file is actual video (not HTML from Git LFS redirect)
-            with open(local, "rb") as f:
-                header = f.read(64)
-            if b"<html" in header.lower() or b"<!doctype" in header.lower():
-                local.unlink()
-                sys.stderr.write(
-                    f"Error: Downloaded file is HTML, not video. "
-                    f"Git LFS redirect detected for {source}. Download manually.\n"
-                )
-                sys.exit(1)
-            print(f"Saved to: {local}")
-        return str(local)
     if not os.path.isfile(source):
         sys.stderr.write(f"Error: file not found: {source}\n")
         sys.exit(1)
@@ -162,8 +136,8 @@ def run_pipeline(pipeline):
 def main():
     args = parse_args()
 
-    # Prepare input
-    input_src = prepare_input(args.input)
+    # Validate input
+    input_src = validate_input(args.input)
 
     # Locate models (adjust glob patterns for your models)
     model_xml = find_model("**/*.xml", "detection")
