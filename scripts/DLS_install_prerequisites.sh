@@ -5,7 +5,7 @@
 # SPDX-License-Identifier: MIT
 # ==============================================================================
 
-npu_driver_version_u24_pkg='https://github.com/intel/linux-npu-driver/releases/download/v1.32.0/linux-npu-driver-v1.32.0.20260402-23905121947-ubuntu2404.tar.gz'
+npu_driver_version_u24_pkg='https://github.com/intel/linux-npu-driver/releases/download/v1.32.1/linux-npu-driver-v1.32.1.20260422-24767473183-ubuntu2404.tar.gz'
 npu_driver_version_u22_pkg='https://github.com/intel/linux-npu-driver/releases/download/v1.26.0/linux-npu-driver-v1.26.0.20251125-19665715237-ubuntu2204.tar.gz'
 npu_libze1_version_pkg='https://snapshot.ppa.launchpadcontent.net/kobuk-team/intel-graphics/ubuntu/20260324T100000Z/pool/main/l/level-zero-loader/libze1_1.27.0-1~24.04~ppa2_amd64.deb'
 npu_driver_version_u22="1.26.0"
@@ -356,16 +356,24 @@ get_latest_version_github() {
 
 install_npu() {
     $SUDO_PREFIX rm -rf ./npu_debs
-    mkdir -p ./npu_debs && cd npu_debs || exit
-    $SUDO_PREFIX dpkg --purge --force-remove-reinstreq intel-driver-compiler-npu intel-fw-npu intel-level-zero-npu
-    wget "$npu_driver_version_pkg"
-    tar -xf ./linux-npu-driver-v*
+    mkdir -p ./npu_debs && cd npu_debs || echo_color "Failed to create npu_debs directory" "red"
+    $SUDO_PREFIX dpkg --purge --force-remove-reinstreq intel-driver-compiler-npu intel-fw-npu intel-level-zero-npu 2>/dev/null || true
+    
+    wget "$npu_driver_version_pkg" || echo_color "Failed to download NPU driver" "red"
+    tar -xf linux-npu-driver-v*.tar.* || echo_color "Failed to extract NPU driver" "red"
+    
+    $SUDO_PREFIX apt update || echo_color "Failed to update package list" "red"
+    
     if [[ "$ubuntu_version" == "24.04" ]]; then
-        wget "$npu_libze1_version_pkg"
+        wget "$npu_libze1_version_pkg" || echo_color "Failed to download libze1 package" "red"
+        $SUDO_PREFIX apt install -y ./intel-*.deb || echo_color "Failed to install NPU and libze1 packages" "red"
+    elif [[ "$ubuntu_version" == "22.04" ]]; then
+        $SUDO_PREFIX apt-get install -y libtbb12 || echo_color "Failed to install libtbb12" "red"
+        $SUDO_PREFIX dpkg -i *.deb || echo_color "Failed to install NPU packages" "red"
+    else
+        echo_color "Unsupported Ubuntu version: $ubuntu_version" "red"
+        return 1
     fi
-    $SUDO_PREFIX apt update
-    $SUDO_PREFIX apt-get install -y libtbb12
-    $SUDO_PREFIX dpkg -i *.deb
 
     for pkg in intel-driver-compiler-npu intel-fw-npu intel-level-zero-npu; do
         dpkg -s "$pkg" >/dev/null 2>&1 || {
