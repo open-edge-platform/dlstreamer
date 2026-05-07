@@ -1,15 +1,15 @@
 # DL Streamer E2E Performance
 
-This benchmarking sample showcases **up to ~2x higher throughput** on Intel
-Arrow Lake / Panther Lake (ARL/PTL) integrated GPU (iGPU) through DL Streamer
-compared to an OpenCV + OpenVINO approach – same YOLO26s INT8 model, same
-video, same setup for inference.
-
-This sample references the
+This benchmarking sample showcases **up to ~2.3x higher throughput** on Intel
+Arrow Lake / Panther Lake (ARL/PTL) through DL Streamer compared to the
+OpenCV + OpenVINO approach used in the
 [OpenVINO YOLO26 notebook](https://github.com/openvinotoolkit/openvino_notebooks/blob/latest/notebooks/yolov26-optimization/yolov26-object-detection.ipynb)
-inference approach as the baseline, adding GPU inference step for fair
-comparison. Both pipelines run inference on the iGPU. The difference is how
-video is decoded, how frames reach the GPU, and how the pipeline is scheduled.
+– same YOLO26s INT8 model, same video, same iGPU for inference.
+
+The OpenCV + OpenVINO baseline mirrors the notebook code with the only
+change being `device='intel:gpu'` to run inference on iGPU (the notebook
+defaults to CPU). The DL Streamer pipeline runs decode, preprocessing, and
+inference entirely on the iGPU with zero-copy pipelining.
 
 ## What DL Streamer does differently
 
@@ -17,43 +17,41 @@ video is decoded, how frames reach the GPU, and how the pipeline is scheduled.
 
 DL Streamer runs pipeline stages in separate threads. While the iGPU compute
 engine infers on frame N, the video engine is already decoding frame N+1.
-The OpenCV + OpenVINO approach processes each frame sequentially.
+The OpenCV + OpenVINO approach processes each frame sequentially on CPU.
 
 ### 2. Hardware video decoding on iGPU
 
 DL Streamer decodes H.264 video on the iGPU fixed-function video engine. The
-decoded frame stays in GPU memory. OpenCV `cv2.VideoCapture` decodes on the
-CPU, producing a system-memory numpy array that must be uploaded to the iGPU.
+decoded frame stays in GPU memory. The notebook approach uses OpenCV
+`cv2.VideoCapture` which decodes on CPU.
 
-### 3. Zero-copy inference
+### 3. Zero-copy inference on iGPU
 
-DL Streamer preprocesses (resize, normalize, color-convert) and infers
-directly on the decoded GPU-resident frame. The data never leaves GPU memory.
-With four async inference requests (`nireq=4`), the compute engine is
-continuously busy.
-
-The OpenCV + OpenVINO pipeline uploads a system-memory tensor to the iGPU
-before every inference and downloads the result after.
+DL Streamer preprocesses and infers directly on the GPU-resident frame. Data
+never leaves GPU memory. With four async inference requests (`nireq=4`), the
+compute engine is continuously busy. The notebook approach uploads a
+system-memory tensor to the iGPU before each inference and downloads the
+result after.
 
 ### 4. GPU-accelerated overlay
 
-DL Streamer draws bounding boxes directly on GPU-resident frames, avoiding
-CPU-side rendering.
+DL Streamer draws bounding boxes directly on GPU-resident frames via
+`gvawatermark`, avoiding CPU-side rendering.
 
 ### Pipeline comparison
 
-**OpenCV + OpenVINO** – sequential, one frame at a time:
+**OpenCV + OpenVINO** (notebook approach) – CPU decode, sync iGPU inference:
 
 ```mermaid
 flowchart LR
-    T1["CPU\ndecode"] --> T2["CPU\npreprocess"] --> T3["Upload\nCPU to iGPU"] --> T4["iGPU\ninference"] --> T5["Download\niGPU to CPU"] --> T6["CPU\npostprocess"]
+    T1["CPU decode\n(cv2.VideoCapture)"] --> T2["CPU preprocess\n(ultralytics)"] --> T3["Upload to iGPU"] --> T4["iGPU inference"] --> T5["Download"] --> T6["CPU postprocess"]
 ```
 
-**DL Streamer** – pipelined, multiple frames in flight:
+**DL Streamer** – iGPU decode, zero-copy, pipelined (nireq=4):
 
 ```mermaid
 flowchart LR
-    D1["iGPU\nHW decode"] --> D2["iGPU preprocess + inference\nzero-copy, nireq=4 async"] --> D3["Metadata\nto CPU"]
+    D1["iGPU decode\n(vah264dec)"] --> D2["iGPU preprocess + inference\n(zero-copy, nireq=4)"] --> D3["Metadata\nto CPU"]
 ```
 
 ## Example run
@@ -61,32 +59,32 @@ flowchart LR
 ```
 $ python3 perf_comparison.py
 
-OpenCV + OpenVINO pipeline (iGPU inference)
-  run 1: 76.6 fps  e2e=13.1 ms  (200 frames)
-  run 2: 78.7 fps  e2e=12.7 ms  (200 frames)
-  run 3: 77.0 fps  e2e=13.0 ms  (200 frames)
+OpenCV + OpenVINO pipeline (notebook approach, iGPU inference)
+  run 1: 65.2 fps  15.3 ms/frame
+  run 2: 65.2 fps  15.3 ms/frame
+  run 3: 65.7 fps  15.2 ms/frame
 
-DLStreamer pipeline (iGPU decode, zero-copy, async inference)
-  run 1: 148.4 fps  e2e=6.7 ms  (207 frames)
-  run 2: 147.4 fps  e2e=6.8 ms  (207 frames)
-  run 3: 146.9 fps  e2e=6.8 ms  (206 frames)
+DLStreamer pipeline (iGPU decode, zero-copy, async nireq=4)
+  run 1: 149.1 fps  6.7 ms/frame
+  run 2: 149.2 fps  6.7 ms/frame  
+  run 3: 148.2 fps  6.7 ms/frame  
 
 ----------------------------------------------------------------
-  OpenCV+OV  :    77.4 fps   e2e = 12.9 ms
-  DLStreamer :   147.6 fps   e2e = 6.8 ms
+  OpenCV+OV (iGPU) :    65.4 fps   15.3 ms/frame
+  DLStreamer (iGPU):   148.8 fps    6.7 ms/frame
 ----------------------------------------------------------------
   DLStreamer advantage on ARL/PTL:
-  Up to 91% higher throughput, 48% lower e2e latency
-
-  Detection output: output/
+  Up to 128% higher throughput
 ----------------------------------------------------------------
 ```
 
-E2E time is measured as the wall-clock interval between consecutive frames
-at the pipeline output. For the OpenCV + OpenVINO pipeline, this includes
-CPU decode + preprocess + GPU inference + postprocess, executed sequentially.
-For DL Streamer, these stages overlap due to pipelining, so the e2e time per
-frame is lower than the inference-only time of the OpenCV + OpenVINO pipeline.
+The OpenCV + OpenVINO path uses the notebook's synchronous inference approach,
+changed only to use iGPU (`device='intel:gpu'`). DL Streamer adds hardware
+video decode, zero-copy VA surface sharing, async inference (nireq=4), and
+GStreamer pipelining on top.
+
+For detailed per-element pipeline latency, DL Streamer provides a built-in
+[latency tracer](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/dev_guide/latency_tracer.html).
 
 *Intel Core Ultra 9 285H (Arrow Lake-P), iGPU Arc Graphics, Ubuntu 24.04,
 kernel 6.17, OpenVINO 2026.1, Intel DL Streamer latest.*
@@ -121,10 +119,9 @@ pip install openvino opencv-python numpy ultralytics
 
 | File | Description |
 |---|---|
-| `perf_comparison.py` | Main entry point, runs both pipelines and prints comparison |
-| `opencv_openvino.py` | OpenCV + OpenVINO execution path (comparable to the notebook) |
-| `dlstreamer.py` | DL Streamer execution path |
-| `common.py` | Shared infrastructure: model/video prep, YOLO pre/postprocessing, visualization |
+| `perf_comparison.py` | Main entry point, shared infrastructure, runs both pipelines |
+| `opencv_openvino.py` | OpenCV + OpenVINO path (mirrors the notebook) |
+| `dlstreamer.py` | DL Streamer path (iGPU, zero-copy, pipelined) |
 
 ## Usage
 
@@ -135,7 +132,7 @@ python3 perf_comparison.py
 | Argument | Default | Description |
 |---|---|---|
 | `--video` | auto-download people.mp4 | path to H.264 input video |
-| `--model` | auto-export YOLO26s INT8 | path to OpenVINO IR (.xml) |
+| `--model` | auto-export YOLO26s INT8 | path to OpenVINO IR directory |
 | `--frames` | 200 | measured frames per run |
 | `--warmup` | 50 | warmup frames |
 | `--runs` | 3 | repeated runs |
