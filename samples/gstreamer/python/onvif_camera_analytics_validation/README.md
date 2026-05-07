@@ -1,18 +1,17 @@
 # ONVIF Camera Analytics Validation
 
 Event-driven validation for any **ONVIF-enabled camera**. Connects to an RTSP
-stream and an MQTT event broker. When an analytics event arrives via MQTT, the
-application captures the current frame, runs **VLM (Visual Language Model)**
-inference using **OpenVINO GenAI** on Intel hardware (CPU/iGPU/NPU),
-cross-validates the camera's event against the VLM output, and displays
-everything on a **live web dashboard**.
+stream and an MQTT event broker. Uses DLStreamer's **gvagenai** element to run
+continuous **VLM (Visual Language Model)** inference via **OpenVINO GenAI** on
+Intel hardware (CPU/iGPU/NPU) directly inside the GStreamer pipeline. When an
+MQTT analytics event arrives, pairs it with the latest VLM inference result
+and displays everything on a **live web dashboard**.
 
 ```mermaid
 graph LR
-    A["ONVIF Camera"] -->|"RTSP stream"| B["RTSPCapture\n(GStreamer)"]
+    A["ONVIF Camera"] -->|"RTSP stream"| B["DLStreamer Pipeline"]
+    B -->|"frames"| D["gvagenai\n(VLM inference)"]
     A -->|"MQTT events"| C["MQTTEventListener"]
-    C -->|"trigger"| D["VLMEngine\n(OpenVINO GenAI)"]
-    B -->|"latest frame"| D
     D -->|"VLM text"| F["Web Dashboard\nhttp://localhost:8080"]
     C -->|"camera event"| F
     B -->|"JPEG frame"| F
@@ -27,8 +26,8 @@ graph LR
 ## Prerequisites
 
 - Python 3.10+
-- [Intel DLStreamer](https://github.com/open-edge-platform/dlstreamer) 2026.0.0+
-- [OpenVINO GenAI](https://docs.openvino.ai/2025/get-started/install-openvino/install-openvino-genai.html)
+- [Intel DLStreamer](https://github.com/open-edge-platform/dlstreamer) 2026.0.0+ (with `gvagenai` element)
+- [OpenVINO GenAI](https://docs.openvino.ai/2025/get-started/install-openvino/install-openvino-genai.html) (installed with DLStreamer)
 - An ONVIF-enabled camera with MQTT event publishing
 - An MQTT broker (e.g. Mosquitto)
 
@@ -121,12 +120,17 @@ Open **http://localhost:8080** to view the dashboard.
 
 ### Example Output
 
+
+#### CLI
 ```
   [   1] cam=3(Human:3) vlm=(Human:1) -> MISMATCH
          VLM: I can see a person walking across the street near a car...
   [   2] cam=1(Human:1) vlm=(Human:1) -> OK
          VLM: A single person is standing in the frame...
 ```
+
+#### Dashboard
+![ONVIF Camera Analytics Validation Dashboard](./onvif_camera_analytics_validation_sample.png)
 
 ## CLI Options
 
@@ -139,7 +143,7 @@ Open **http://localhost:8080** to view the dashboard.
 | `--model-path` | `$GENAI_MODEL_PATH` | OpenVINO VLM model directory |
 | `--device` | `CPU` | Intel device: `CPU`, `GPU`, `NPU`, `AUTO` |
 | `--prompt` | (object listing) | VLM prompt |
-| `--frame-rate` | `1` | Frame capture rate (fps) |
+| `--frame-rate` | `1` | VLM inference rate (fps) via gvagenai |
 | `--max-tokens` | `150` | Max VLM generation tokens |
 | `--mqtt-broker` | `localhost` | MQTT broker address |
 | `--mqtt-port` | `1883` | MQTT broker port |
@@ -159,9 +163,75 @@ Open **http://localhost:8080** to view the dashboard.
 
 | File | Purpose |
 |------|--------|
-| `onvif_camera_analytics_validation.py` | Main app — RTSP capture, VLM engine, web dashboard, event loop |
+| `onvif_camera_analytics_validation.py` | Main app — DLStreamer pipeline with gvagenai, MQTT event pairing, web dashboard |
 | `util.py` | ONVIF SOAP client, MQTT listener, event parsing |
 | `requirements.txt` | Python dependencies |
+
+## ONVIF Profile M
+
+This application is designed around **ONVIF Profile M** — the metadata and
+analytics profile for IP cameras. Profile M standardizes how cameras expose
+on-device analytics (object detection, counting, classification) so that
+third-party systems can consume and validate them.
+
+### What Profile M Provides
+
+| Capability | Description |
+|------------|-------------|
+| **Analytics Metadata Streaming** | Camera streams bounding boxes, object types, and counts over RTSP metadata or MQTT |
+| **Scene Description** | Standardized object classes (Human, Vehicle, Animal, Face, LicensePlate) |
+| **Event Rules** | Camera-side rules that trigger MQTT/WS-Notification events on detection |
+| **Geolocation & Counting** | Line-crossing counts, area occupancy, directional tracking |
+| **Metadata Configuration** | ONVIF API to query/configure which analytics modules are active |
+
+### How This Application Uses Profile M
+
+1. **Discovery** — Queries ONVIF device capabilities and confirms Profile M support via scope `onvif://www.onvif.org/Profile/M`
+2. **Event Subscription** — Listens for Profile M analytics events over MQTT (object detection, counting)
+3. **Cross-Validation** — Compares the camera's analytics claims against an independent VLM inference on the same frame
+4. **Dashboard** — Displays the camera's reported objects alongside the VLM's independent scene description
+
+### Profile M Event Flow
+
+```mermaid
+sequenceDiagram
+    participant Camera as ONVIF Profile M Camera
+    participant MQTT as MQTT Broker
+    participant App as Validation App
+    participant VLM as gvagenai (VLM)
+
+    Camera->>Camera: On-device analytics (object detection)
+    Camera->>MQTT: Publish event (Human detected, count=2)
+    MQTT->>App: Deliver event
+    App->>VLM: Open valve → inference on current frame
+    VLM->>App: "I see 2 people walking..."
+    App->>App: Compare camera claim vs VLM result
+    App->>App: Display on dashboard
+```
+
+### Supported Profile M Object Classes
+
+The application recognizes these ONVIF Profile M analytics object types in
+MQTT payloads:
+
+- `Human` / `Person` / `People`
+- `Vehicle` / `Car` / `Truck` / `Bus`
+- `Animal` / `Dog` / `Cat`
+- `Face`
+- `LicensePlate`
+
+### Verifying Profile M Support
+
+The application auto-detects Profile M during ONVIF discovery. In the startup
+output, look for:
+
+```
+  Profile M: FOUND
+```
+
+If your camera does not advertise Profile M but still publishes object
+detection events via MQTT, the application will still work — Profile M
+is checked but not strictly required.
 
 ## Camera Compatibility
 

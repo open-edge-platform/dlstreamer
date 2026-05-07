@@ -3,14 +3,15 @@
 ONVIF Camera Analytics Validation
 
 Event-driven validation pipeline for ONVIF-enabled cameras. Connects to
-an RTSP stream and MQTT event broker. When an MQTT analytics event arrives,
-captures the current frame, runs VLM (Visual Language Model) inference via
-OpenVINO GenAI, and displays the frame, MQTT event, and VLM output on a
-live web dashboard with event history navigation.
+an RTSP stream and MQTT event broker. Uses DLStreamer's ``gvagenai`` element
+to run VLM (Visual Language Model) inference via OpenVINO GenAI inside the
+GStreamer pipeline. When an MQTT analytics event arrives, pairs it with the
+latest VLM inference result and displays the frame, MQTT event, and VLM
+output on a live web dashboard with event history navigation.
 
 Architecture:
-  RTSP stream  ──► GStreamer (frame capture) ──► latest frame buffer
-  MQTT events  ──► trigger ──► capture frame ──► VLM inference
+  RTSP stream  ──► GStreamer pipeline ──► gvagenai (VLM) ──► VLM text
+  MQTT events  ──► trigger ──► pair with latest VLM result
   Web dashboard ◄── frame + VLM text + MQTT event (with history)
 
 Usage:
@@ -31,11 +32,8 @@ from urllib.parse import quote, urlparse, urlunparse
 import gi
 gi.require_version("Gst", "1.0")
 gi.require_version("GstApp", "1.0")
-from gi.repository import GLib, Gst
-
-import numpy as np
-import openvino as ov
-import openvino_genai
+gi.require_version("GstAnalytics", "1.0")
+from gi.repository import GLib, Gst, GstAnalytics
 
 from util import ONVIFClient, MQTTEventListener
 
@@ -43,23 +41,29 @@ log = logging.getLogger(__name__)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-#  RTSP Frame Capture (GStreamer)
+#  DLStreamer Pipeline (RTSP + gvagenai VLM)
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-class RTSPCapture:
-    """Captures frames from an RTSP stream via GStreamer.
+class DLStreamerVLMPipeline:
+    """GStreamer pipeline with DLStreamer gvagenai for VLM inference.
 
-    Maintains the latest RGB frame (for VLM) and JPEG frame (for web UI).
+    Captures frames from an RTSP stream, runs VLM inference via gvagenai,
+    and provides the latest JPEG frame and VLM text for the dashboard.
     Auto-reconnects on pipeline errors or EOS.
     """
 
     RECONNECT_DELAY = 2  # seconds between reconnection attempts
 
-    def __init__(self, rtsp_uri: str, frame_rate: int = 1,
+    def __init__(self, rtsp_uri: str, model_path: str, device: str,
+                 prompt: str, max_tokens: int, frame_rate: float = 1.0,
                  user: str = "", password: str = ""):
         Gst.init(None)
         self._rtsp_uri = rtsp_uri
+        self._model_path = model_path
+        self._device = device
+        self._prompt = prompt
+        self._max_tokens = max_tokens
         self._frame_rate = frame_rate
         self._user = user
         self._password = password
@@ -70,9 +74,10 @@ class RTSPCapture:
         self._stopped = False  # True only when stop() is called
         self._lock = threading.Lock()
         self._latest_jpeg = None
-        self._latest_rgb = None
-        self._frame_w = 0
-        self._frame_h = 0
+        self._latest_vlm_text = ""
+        self._vlm_count = 0
+        self._valve = None  # GStreamer valve element
+        self._vlm_ready = threading.Event()  # signalled when new VLM text
 
     def _source_setup(self, _urisourcebin, source):
         """Configure rtspsrc for TCP transport and credentials."""
@@ -88,22 +93,41 @@ class RTSPCapture:
                      self._user or "(none)")
 
     def _build_pipeline(self):
-        """Create and wire up a new GStreamer pipeline."""
+        """Create a GStreamer pipeline with gvagenai for VLM inference.
+
+        A valve element before gvagenai controls on-demand inference.
+        The valve starts open to let gvagenai load the model on the first
+        frame. After each inference the pad probe closes the valve.
+        Subsequent inferences are triggered by request_inference().
+        """
+        gen_cfg = f"max_new_tokens={self._max_tokens}"
+
         pipeline_str = (
             f'urisourcebin uri={self._rtsp_uri} name=src ! '
-            f'decodebin3 ! videoconvert n-threads=4 ! '
+            f'decodebin3 ! '
+            f'videoconvertscale ! '
             f'video/x-raw,format=RGB ! '
-            f'videorate max-rate={self._frame_rate} ! '
             f'tee name=t '
+            # Branch 1: valve → gvagenai VLM inference (on-demand)
             f't. ! queue max-size-buffers=1 leaky=downstream ! '
-            f'appsink name=rgb_sink max-buffers=1 drop=true '
-            f'emit-signals=true sync=false '
+            f'valve name=vlm_valve drop=false ! '
+            f'gvagenai '
+            f'model-path="{self._model_path}" '
+            f'device={self._device} '
+            f'prompt="{self._prompt}" '
+            f'generation-config="{gen_cfg}" '
+            f'chunk-size=1 '
+            f'frame-rate=0 '
+            f'name=genai ! '
+            f'fakesink sync=false '
+            # Branch 2: JPEG capture for dashboard
             f't. ! queue max-size-buffers=1 leaky=downstream ! '
+            f'videorate max-rate=1 ! '
             f'jpegenc quality=50 ! '
             f'appsink name=jpeg_sink max-buffers=1 drop=true '
             f'emit-signals=true sync=false'
         )
-        log.info("RTSP pipeline: %s", pipeline_str)
+        log.info("DLStreamer pipeline: %s", pipeline_str)
         pipeline = Gst.parse_launch(pipeline_str)
 
         src = pipeline.get_by_name("src")
@@ -114,29 +138,75 @@ class RTSPCapture:
         if jpeg_sink:
             jpeg_sink.connect("new-sample", self._on_jpeg)
 
-        rgb_sink = pipeline.get_by_name("rgb_sink")
-        if rgb_sink:
-            rgb_sink.connect("new-sample", self._on_rgb)
+        # Store valve reference for on-demand control
+        self._valve = pipeline.get_by_name("vlm_valve")
+
+        # Add pad probe on gvagenai src pad to extract VLM results
+        genai = pipeline.get_by_name("genai")
+        if genai:
+            src_pad = genai.get_static_pad("src")
+            if src_pad:
+                src_pad.add_probe(
+                    Gst.PadProbeType.BUFFER, self._on_vlm_result)
 
         return pipeline
+
+    def _on_vlm_result(self, pad, info):
+        """Pad probe on gvagenai src: extract VLM text from ClsMtd.
+
+        After extracting the result, closes the valve and signals the
+        validation loop that inference is complete.
+        """
+        buf = info.get_buffer()
+        if buf is None:
+            return Gst.PadProbeReturn.OK
+
+        rmeta = GstAnalytics.buffer_get_analytics_relation_meta(buf)
+        if not rmeta:
+            return Gst.PadProbeReturn.OK
+
+        # RelationMeta is not iterable in DLStreamer 2026.0.0 —
+        # use get_cls_mtd(index) which returns (bool, ClsMtd).
+        idx = 0
+        while True:
+            found, cls_mtd = rmeta.get_cls_mtd(idx)
+            if not found:
+                break
+            quark = cls_mtd.get_quark(0)
+            if quark:
+                label_text = GLib.quark_to_string(quark)
+                if label_text:
+                    with self._lock:
+                        self._latest_vlm_text = label_text
+                        self._vlm_count += 1
+                        log.info("VLM [%d]: %s", self._vlm_count,
+                                 label_text[:80])
+                    # Close valve after getting result, signal caller
+                    if self._valve:
+                        self._valve.set_property("drop", True)
+                    self._vlm_ready.set()
+                    break
+            idx += 1
+
+        return Gst.PadProbeReturn.OK
 
     def start(self) -> bool:
         self._pipeline = self._build_pipeline()
 
         ret = self._pipeline.set_state(Gst.State.PLAYING)
         if ret == Gst.StateChangeReturn.FAILURE:
-            log.error("RTSP pipeline failed to start")
+            log.error("DLStreamer pipeline failed to start")
             return False
 
         self._running = True
         self._stopped = False
         self._thread = threading.Thread(target=self._run_loop, daemon=True)
         self._thread.start()
-        log.info("RTSP capture started")
+        log.info("DLStreamer pipeline started")
         return True
 
     def _run_loop(self):
-        """Main capture thread: runs the GLib loop and auto-reconnects."""
+        """Main thread: runs the GLib loop and auto-reconnects."""
         while not self._stopped:
             self._loop = GLib.MainLoop()
             bus = self._pipeline.get_bus()
@@ -148,13 +218,11 @@ class RTSPCapture:
             if self._stopped:
                 break
 
-            # Pipeline failed — tear down, clear stale data, reconnect
-            log.warning("RTSP pipeline stopped, reconnecting in %ds...",
+            log.warning("Pipeline stopped, reconnecting in %ds...",
                         self.RECONNECT_DELAY)
             self._pipeline.set_state(Gst.State.NULL)
             with self._lock:
                 self._latest_jpeg = None
-                self._latest_rgb = None
             time.sleep(self.RECONNECT_DELAY)
 
             if self._stopped:
@@ -163,9 +231,9 @@ class RTSPCapture:
             self._pipeline = self._build_pipeline()
             ret = self._pipeline.set_state(Gst.State.PLAYING)
             if ret == Gst.StateChangeReturn.FAILURE:
-                log.error("RTSP reconnect failed, retrying...")
+                log.error("Reconnect failed, retrying...")
                 continue
-            log.info("RTSP pipeline reconnected")
+            log.info("Pipeline reconnected")
 
     def stop(self):
         self._stopped = True
@@ -177,16 +245,37 @@ class RTSPCapture:
         if self._thread:
             self._thread.join(timeout=5)
         self._pipeline = None
-        log.info("RTSP capture stopped")
+        log.info("DLStreamer pipeline stopped")
 
     def get_jpeg(self) -> bytes:
         with self._lock:
             return self._latest_jpeg
 
-    def get_rgb_frame(self):
-        """Return (rgb_bytes, width, height) or (None, 0, 0)."""
+    def get_vlm_text(self) -> str:
         with self._lock:
-            return self._latest_rgb, self._frame_w, self._frame_h
+            return self._latest_vlm_text
+
+    def request_inference(self, timeout: float = 120.0) -> str:
+        """Open the valve, wait for gvagenai to produce a result, return it.
+
+        Returns the VLM text, or empty string on timeout.
+        """
+        if not self._valve:
+            return self.get_vlm_text()
+
+        self._vlm_ready.clear()
+        self._valve.set_property("drop", False)
+        if self._vlm_ready.wait(timeout=timeout):
+            return self.get_vlm_text()
+        # Timeout — close valve, return whatever we have
+        self._valve.set_property("drop", True)
+        log.warning("VLM inference timed out after %.0fs", timeout)
+        return self.get_vlm_text()
+
+    @property
+    def vlm_count(self) -> int:
+        with self._lock:
+            return self._vlm_count
 
     def _on_jpeg(self, appsink):
         sample = appsink.emit("pull-sample")
@@ -196,22 +285,6 @@ class RTSPCapture:
             if ok:
                 with self._lock:
                     self._latest_jpeg = bytes(mi.data)
-                buf.unmap(mi)
-        return Gst.FlowReturn.OK
-
-    def _on_rgb(self, appsink):
-        sample = appsink.emit("pull-sample")
-        if sample:
-            caps = sample.get_caps()
-            s = caps.get_structure(0)
-            w, h = s.get_value("width"), s.get_value("height")
-            buf = sample.get_buffer()
-            ok, mi = buf.map(Gst.MapFlags.READ)
-            if ok:
-                with self._lock:
-                    self._latest_rgb = bytes(mi.data)
-                    self._frame_w = w
-                    self._frame_h = h
                 buf.unmap(mi)
         return Gst.FlowReturn.OK
 
@@ -225,54 +298,6 @@ class RTSPCapture:
             log.info("GStreamer: end of stream, will reconnect")
             self._running = False
             self._loop.quit()
-
-
-# ═══════════════════════════════════════════════════════════════════════════
-#  VLM Inference Engine
-# ═══════════════════════════════════════════════════════════════════════════
-
-class VLMEngine:
-    """Runs VLM inference on demand using OpenVINO GenAI VLMPipeline."""
-
-    def __init__(self, model_path: str, device: str, prompt: str,
-                 max_tokens: int):
-        self._prompt = prompt
-        self._count = 0
-        self._lock = threading.Lock()
-        self._latest_text = ""
-
-        log.info("Loading VLMPipeline from %s on %s ...", model_path, device)
-        self._pipe = openvino_genai.VLMPipeline(str(model_path), device)
-        self._gen_config = openvino_genai.GenerationConfig(
-            max_new_tokens=max_tokens)
-        log.info("VLMPipeline loaded")
-
-    def infer(self, rgb_data: bytes, width: int, height: int) -> str:
-        """Run inference on an RGB frame. Returns the VLM text."""
-        frame = np.frombuffer(rgb_data, dtype=np.uint8).reshape(
-            height, width, 3)
-        tensor = ov.Tensor(frame)
-        self._pipe.start_chat()
-        result = self._pipe.generate(
-            self._prompt, image=tensor,
-            generation_config=self._gen_config)
-        self._pipe.finish_chat()
-        text = str(result).strip()
-        with self._lock:
-            self._latest_text = text
-            self._count += 1
-        log.info("VLM [%d]: %s", self._count, text[:80])
-        return text
-
-    @property
-    def latest_text(self) -> str:
-        with self._lock:
-            return self._latest_text
-
-    @property
-    def count(self) -> int:
-        with self._lock:
-            return self._count
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -463,13 +488,14 @@ def build_rtsp_uri(args) -> str:
 #  Validation Loop
 # ═══════════════════════════════════════════════════════════════════════════
 
-def validation_loop(capture: RTSPCapture, vlm: VLMEngine,
+def validation_loop(pipeline: DLStreamerVLMPipeline,
                     listener: MQTTEventListener, web_port: int):
-    """Event-driven loop: MQTT event → capture frame → VLM → dashboard."""
+    """Event-driven loop: MQTT event → pair with latest VLM result → dashboard."""
     event_count = 0
 
     print(f"\n{'=' * 60}")
     print(f"  Listening for MQTT events ... (Ctrl+C to stop)")
+    print(f"  VLM inference runs on-demand via gvagenai (valve-gated).")
     print(f"  Web UI: http://localhost:{web_port}")
     print(f"{'=' * 60}\n")
 
@@ -482,20 +508,16 @@ def validation_loop(capture: RTSPCapture, vlm: VLMEngine,
 
             event_count += 1
 
-            # Capture current frame
-            rgb_data, w, h = capture.get_rgb_frame()
-            if rgb_data is None:
+            # Get latest JPEG frame from the pipeline
+            processed_jpeg = pipeline.get_jpeg()
+            if processed_jpeg is None:
                 log.warning("No frame available, skipping event")
                 continue
 
-            processed_jpeg = capture.get_jpeg()
-
-            # Run VLM inference
-            try:
-                vlm_text = vlm.infer(rgb_data, w, h)
-            except Exception as e:
-                log.error("VLM inference error: %s", e)
-                continue
+            # Trigger VLM inference on the current frame
+            vlm_text = pipeline.request_inference()
+            if not vlm_text:
+                vlm_text = "(VLM inference timed out)"
 
             # Store in history for dashboard
             _DashboardState.add_event(processed_jpeg, event, vlm_text)
@@ -512,7 +534,7 @@ def validation_loop(capture: RTSPCapture, vlm: VLMEngine,
     finally:
         print(f"\n  {'─' * 40}")
         print(f"  Events processed:   {event_count}")
-        print(f"  VLM inferences:     {vlm.count}")
+        print(f"  VLM inferences:     {pipeline.vlm_count}")
         print(f"  MQTT events in:     {listener.stats['events_received']}")
         print(f"  MQTT events dropped:{listener.stats['events_dropped']}")
         print(f"{'=' * 60}\n")
@@ -527,14 +549,14 @@ def run(args):
                         format="%(asctime)s [%(levelname)s] %(message)s")
 
     print("\n" + "=" * 60)
-    print("  ONVIF Camera Analytics Validation (VLM)")
+    print("  ONVIF Camera Analytics Validation (DLStreamer gvagenai)")
     print("=" * 60)
 
     # -- Resolve RTSP URI (via ONVIF or fallback) --
     rtsp_uri = build_rtsp_uri(args)
 
-    # -- Load VLM model --
-    print(f"\n[Setup] VLM model (device: {args.device})")
+    # -- Validate VLM model path --
+    print(f"\n[Setup] VLM model via gvagenai (device: {args.device})")
     print("-" * 60)
     if not args.model_path:
         print("  FATAL: --model-path is required (or set GENAI_MODEL_PATH)")
@@ -545,17 +567,17 @@ def run(args):
     print(f"  Device: {args.device}")
     print(f"  Max tokens: {args.max_tokens}")
 
-    vlm = VLMEngine(args.model_path, args.device, args.prompt, args.max_tokens)
-
-    # -- Start RTSP capture --
-    print(f"\n[Setup] RTSP capture")
+    # -- Start DLStreamer pipeline with gvagenai --
+    print(f"\n[Setup] DLStreamer pipeline (RTSP + gvagenai)")
     print("-" * 60)
-    capture = RTSPCapture(rtsp_uri, args.frame_rate,
-                          user=args.onvif_user, password=args.onvif_pass)
-    if not capture.start():
-        print("  FATAL: RTSP capture failed to start")
+    pipeline = DLStreamerVLMPipeline(
+        rtsp_uri, args.model_path, args.device, args.prompt,
+        args.max_tokens, args.frame_rate,
+        user=args.onvif_user, password=args.onvif_pass)
+    if not pipeline.start():
+        print("  FATAL: DLStreamer pipeline failed to start")
         return
-    print("  RTSP: STARTED")
+    print("  Pipeline: STARTED")
 
     # -- Connect MQTT --
     print(f"\n[Setup] MQTT ({args.mqtt_broker}:{args.mqtt_port})")
@@ -564,7 +586,7 @@ def run(args):
         args.mqtt_broker, args.mqtt_port, args.mqtt_topics)
     if not listener.start():
         print("  FATAL: MQTT connection failed")
-        capture.stop()
+        pipeline.stop()
         return
     for _ in range(20):
         if listener.connected:
@@ -573,7 +595,7 @@ def run(args):
     if not listener.connected:
         print("  FATAL: MQTT connection timeout")
         listener.stop()
-        capture.stop()
+        pipeline.stop()
         return
     print(f"  MQTT: CONNECTED (topics: {', '.join(args.mqtt_topics)})")
 
@@ -583,9 +605,9 @@ def run(args):
 
     # -- Run validation loop --
     try:
-        validation_loop(capture, vlm, listener, args.web_port)
+        validation_loop(pipeline, listener, args.web_port)
     finally:
-        capture.stop()
+        pipeline.stop()
         listener.stop()
 
 
@@ -620,8 +642,8 @@ Model export (run once):
                    default="Describe only the objects you can clearly see in "
                            "this image. State the count of each object type. "
                            "Do not guess or assume objects that are not visible.")
-    p.add_argument("--frame-rate", type=int, default=1,
-                   help="Frame sampling rate in fps (default: 1)")
+    p.add_argument("--frame-rate", type=float, default=1.0,
+                   help="VLM inference rate in fps (default: 1.0)")
     p.add_argument("--max-tokens", type=int, default=150)
     p.add_argument("--mqtt-broker", default="localhost")
     p.add_argument("--mqtt-port", type=int, default=1883)
