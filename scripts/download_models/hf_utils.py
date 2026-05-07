@@ -129,7 +129,7 @@ def custom_conversion(
         ),
         "depthanythingfordepthestimation": (
             "a DepthAnything model",
-            lambda: export_hf_depthanythingv2_to_openvino(
+            lambda: export_hf_depthanything_to_openvino(
                 model_id,
                 export_dir,
                 token,
@@ -238,13 +238,13 @@ def export_hf_rtdetr_to_openvino(
     return outdir
 
 
-def export_hf_depthanythingv2_to_openvino(
+def export_hf_depthanything_to_openvino(
     model_ref: str,
     outdir: Path,
     token: str | None,
     extra_args: list[str] | None = None,
 ) -> Path:
-    """Export DepthAnythingV2 via PyTorch -> OpenVINO IR.
+    """Export DepthAnything via PyTorch -> OpenVINO IR.
 
     Requires `huggingface_hub` and `openvino` to be installed.
     """
