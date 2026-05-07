@@ -757,21 +757,6 @@ Impl::Impl(GstVideoInfo *info, InferenceBackend::MemoryType mem_type, GstElement
         parse_displ_config();
 }
 
-size_t get_keypoint_index_by_name(const gchar *target_name, GValueArray *names) {
-    if (names == nullptr or target_name == nullptr) {
-        throw std::invalid_argument("get_keypoint_index_by_name: Got nullptrs.");
-    }
-
-    for (size_t i = 0; i < names->n_values; ++i) {
-        const gchar *name = g_value_get_string(names->values + i);
-        if (g_strcmp0(name, target_name) == 0) {
-            return i;
-        }
-    }
-
-    return names->n_values;
-}
-
 void Impl::find_gvafpscounter_element() {
 
     if (!_element)
@@ -1076,11 +1061,11 @@ void Impl::preparePrimsForTensor(const GVA::Tensor &tensor, GVA::Rect<double> re
  */
 void Impl::preparePrimsForKeypoints(const GVA::Tensor &tensor, GVA::Rect<double> rectangle,
                                     std::vector<render::Prim> &prims) const {
-    if (tensor.format() != "keypoints")
+    if (tensor.type() != GVA::GST_ANALYTICS_KEYPOINTS_2_TENSOR)
         return;
 
     const auto keypoints_data = tensor.data<float>();
-    const auto confidence = tensor.get_vector<float>("confidence");
+    const auto confidence = tensor.confidences();
 
     if (keypoints_data.empty())
         throw std::runtime_error("Keypoints array is empty.");
@@ -1121,61 +1106,40 @@ void Impl::preparePrimsForKeypointConnections(GstStructure *s, const std::vector
                                               const std::vector<uint32_t> &dims, const std::vector<float> &confidence,
                                               const GVA::Rect<double> &rectangle,
                                               std::vector<render::Prim> &prims) const {
-    if (not(gst_structure_has_field(s, "point_names") and gst_structure_has_field(s, "point_connections")))
+    const GValue *garray = gst_structure_get_value(s, "point_connections");
+    if (!garray)
         return;
 
-    GValueArray *point_connections = nullptr;
-    gst_structure_get_array(s, "point_connections", &point_connections);
-
-    if (point_connections == nullptr)
-        throw std::runtime_error("Arrays with point connections information is nullptr.");
-    if (point_connections->n_values == 0)
-        throw std::runtime_error("Arrays with point connections is empty.");
-
-    GValueArray *point_names = nullptr;
-    gst_structure_get_array(s, "point_names", &point_names);
-
-    if (point_names == nullptr)
-        throw std::runtime_error("Arrays with point names information is nullptr.");
-    if (point_names->n_values == 0)
-        throw std::runtime_error("Arrays with point names is empty.");
+    guint n_values = gst_value_array_get_size(garray);
+    if (n_values == 0)
+        return;
 
     size_t point_dimension = dims[1];
-    if (point_names->n_values * point_dimension != keypoints_data.size())
-        throw std::logic_error("Number of point names must be equal to number of keypoints.");
+    size_t point_count = dims[0];
 
-    if (point_connections->n_values % 2 != 0)
+    if (n_values % 2 != 0)
         throw std::logic_error("Expected even amount of point connections.");
 
-    for (size_t i = 0; i < point_connections->n_values; i += 2) {
-        const gchar *point_name_1 = g_value_get_string(point_connections->values + i);
-        const gchar *point_name_2 = g_value_get_string(point_connections->values + i + 1);
+    for (guint i = 0; i < n_values; i += 2) {
+        size_t index_1 = g_value_get_uint(gst_value_array_get_value(garray, i));
+        size_t index_2 = g_value_get_uint(gst_value_array_get_value(garray, i + 1));
 
-        size_t index_1 = get_keypoint_index_by_name(point_name_1, point_names);
-        size_t index_2 = get_keypoint_index_by_name(point_name_2, point_names);
-
-        if (index_1 == point_names->n_values)
-            throw std::runtime_error("Point name \"" + std::string(point_name_1) +
-                                     "\" has not been found in point connections.");
-
-        if (index_2 == point_names->n_values)
-            throw std::runtime_error("Point name \"" + std::string(point_name_2) +
-                                     "\" has not been found in point connections.");
+        if (index_1 >= point_count || index_2 >= point_count)
+            throw std::runtime_error("Point connection index out of range.");
 
         if (index_1 == index_2)
-            throw std::logic_error("Point names in connection are the same: " + std::string(point_name_1) + " / " +
-                                   std::string(point_name_2));
+            throw std::logic_error("Point connection indices are the same: " + std::to_string(index_1));
 
         if ((confidence.size() > 0) && ((confidence[index_1] < 0.5) || confidence[index_2] < 0.5))
             continue;
 
-        index_1 = safe_mul(point_dimension, index_1);
-        index_2 = safe_mul(point_dimension, index_2);
+        size_t offset_1 = safe_mul(point_dimension, index_1);
+        size_t offset_2 = safe_mul(point_dimension, index_2);
 
-        float x1_real = keypoints_data[index_1];
-        float y1_real = keypoints_data[index_1 + 1];
-        float x2_real = keypoints_data[index_2];
-        float y2_real = keypoints_data[index_2 + 1];
+        float x1_real = keypoints_data[offset_1];
+        float y1_real = keypoints_data[offset_1 + 1];
+        float x2_real = keypoints_data[offset_2];
+        float y2_real = keypoints_data[offset_2 + 1];
 
         if ((x1_real == -1.0f and y1_real == -1.0f) or (x2_real == -1.0f and y2_real == -1.0f))
             continue;
@@ -1187,9 +1151,6 @@ void Impl::preparePrimsForKeypointConnections(GstStructure *s, const std::vector
 
         prims.emplace_back(render::Line(cv::Point2i(x1, y1), cv::Point2i(x2, y2), _default_color, _displCfg.thickness));
     }
-
-    g_value_array_free(point_connections);
-    g_value_array_free(point_names);
 }
 
 void Impl::parse_displ_config() {
