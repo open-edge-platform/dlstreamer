@@ -211,43 +211,6 @@ double calculateCenterRegionMedian(const T *item_data, size_t item_size, const s
     return -1.0;
 }
 
-template <typename T>
-depth_converter::Metrics calculateDepthMetrics(const T *item_data, size_t item_size,
-                                               const std::vector<size_t> &unbatched_dims) {
-    if (!item_data || item_size == 0) {
-        return {};
-    }
-
-    std::vector<double> valid_values;
-    valid_values.reserve(item_size);
-    for (size_t index = 0; index < item_size; ++index) {
-        if (isValidDepthValue(item_data[index])) {
-            valid_values.push_back(static_cast<double>(item_data[index]));
-        }
-    }
-
-    std::vector<double> center_values;
-    const double center = calculateCenterRegionMedian(item_data, item_size, unbatched_dims);
-    if (center >= 0.0) {
-        center_values.push_back(center);
-    }
-
-    return depth_converter::buildMetrics(std::move(valid_values), std::move(center_values), item_size);
-}
-
-template <typename T>
-void setDepthLabel(GVA::Tensor &label_tensor, const T *data, size_t size, size_t batch_size, size_t batch_index,
-                   const std::vector<size_t> &unbatched_dims) {
-    const auto item = get_data_by_batch_index<T>(data, size, batch_size, batch_index);
-    const T *item_data = item.first;
-    const size_t item_size = item.second;
-    const depth_converter::Metrics metrics = calculateDepthMetrics(item_data, item_size, unbatched_dims);
-
-    // Frame-level labeling keeps the historical behavior: emit one compact depth
-    // summary for the whole map rather than attaching the full statistics vector.
-    label_tensor.set_string("label", depth_converter::formatLabel(metrics.mean));
-}
-
 bool matchesObjectClass(const FrameWrapper &frame, const GstVideoRegionOfInterestMeta &roi) {
     if (!frame.gva_base_inference || !frame.gva_base_inference->object_class ||
         !frame.gva_base_inference->object_class[0]) {
