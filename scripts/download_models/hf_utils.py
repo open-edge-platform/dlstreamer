@@ -251,7 +251,6 @@ def export_hf_depthanything_to_openvino(
     outdir.mkdir(parents=True, exist_ok=True)
     _ = extra_args
     model_id = model_ref
-    model_onnx = outdir / "model.onnx"
 
     model = AutoModelForDepthEstimation.from_pretrained(model_ref, token=token)
     model.eval()
@@ -278,5 +277,5 @@ def export_hf_depthanything_to_openvino(
 
     model_name = Path(model_ref).name
     save_model(ov_model, str(outdir / f"{model_name}.xml"))
-    model_onnx.unlink(missing_ok=True)
+
     return outdir
