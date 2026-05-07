@@ -4,8 +4,9 @@
 # SPDX-License-Identifier: MIT
 # ==============================================================================
 """OpenCV + OpenVINO execution path.
-
-Almost identical to run_object_detection() from the OpenVINO YOLO26 notebook.
+Almost identical to run_object_detection() from the OpenVINO YOLO26 notebook:
+https://github.com/openvinotoolkit/openvino_notebooks/blob/latest/notebooks/yolov26-optimization/yolov26-object-detection.ipynb
+Lines changed are marked with comments.
 """
 
 import collections
@@ -46,6 +47,7 @@ def run(model_dir, video, num_frames, warmup):
             cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
             ret, frame = cap.read()
 
+        # no explicit resize needed because model() handles letterbox/resize internally
         input_image = np.array(frame)
 
         start_time = time.time()

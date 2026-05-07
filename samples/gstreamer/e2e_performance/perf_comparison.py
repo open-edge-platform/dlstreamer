@@ -25,14 +25,18 @@ VIDEO_URL = ("https://storage.openvinotoolkit.org/repositories/"
              "openvino_notebooks/data/data/video/people.mp4")
 VIDEO_PATH = SCRIPT_DIR / "data" / "people.mp4"
 
-YOLO_INPUT_SIZE = 640
-CONFIDENCE_THRESHOLD = 0.35
-LETTERBOX_PAD_VALUE = 114
+# model config
+YOLO_INPUT_SIZE = 640                # used by prepare_model() for export
+CONFIDENCE_THRESHOLD = 0.35         # used by dlstreamer.py gvadetect threshold
+
+# iGPU inference config (shared by dlstreamer.py)
 INFERENCE_DEVICE = "GPU"
-NIREQ = 4
-QUEUE_SIZE = 8
-SNAPSHOT_FRAMES = 90
-RUN_COOLDOWN = 2
+NIREQ = 4                           # async inference request slots
+QUEUE_SIZE = 8                       # GStreamer queue between decode and inference
+
+# snapshot + benchmark config
+SNAPSHOT_FRAMES = 90                 # frames to process when saving detection image
+RUN_COOLDOWN = 2                     # seconds between runs to reduce thermal variance
 
 
 class PipelineError(RuntimeError):

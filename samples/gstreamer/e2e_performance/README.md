@@ -1,7 +1,7 @@
 # DL Streamer E2E Performance
 
-This benchmarking sample showcases **up to ~2.3x higher throughput** on Intel
-Arrow Lake / Panther Lake (ARL/PTL) through DL Streamer compared to the
+This benchmarking sample showcases **up to ~2.3x higher throughput** on
+Intel(R) Core(TM) Ultra 200/300 series processors through DL Streamer compared to the
 OpenCV + OpenVINO approach used in the
 [OpenVINO YOLO26 notebook](https://github.com/openvinotoolkit/openvino_notebooks/blob/latest/notebooks/yolov26-optimization/yolov26-object-detection.ipynb)
 – same YOLO26s INT8 model, same video, same iGPU for inference.
@@ -59,22 +59,21 @@ flowchart LR
 ```
 $ python3 perf_comparison.py
 
-OpenCV + OpenVINO pipeline (notebook approach, iGPU inference)
-  run 1: 65.2 fps  15.3 ms/frame
-  run 2: 65.2 fps  15.3 ms/frame
-  run 3: 65.7 fps  15.2 ms/frame
+OpenCV + OpenVINO (notebook approach, iGPU inference)
+  run 1: 63.4 fps  15.8 ms/frame  (200 frames)
+  run 2: 65.2 fps  15.3 ms/frame  (200 frames)
+  run 3: 60.8 fps  16.4 ms/frame  (200 frames)
 
-DLStreamer pipeline (iGPU decode, zero-copy, async nireq=4)
-  run 1: 149.1 fps  6.7 ms/frame
-  run 2: 149.2 fps  6.7 ms/frame  
-  run 3: 148.2 fps  6.7 ms/frame  
+DLStreamer (iGPU decode, zero-copy, async nireq=4)
+  run 1: 148.8 fps  6.7 ms/frame  (200 frames)
+  run 2: 146.3 fps  6.8 ms/frame  (200 frames)
+  run 3: 148.6 fps  6.7 ms/frame  (200 frames)
 
 ----------------------------------------------------------------
-  OpenCV+OV (iGPU) :    65.4 fps   15.3 ms/frame
-  DLStreamer (iGPU):   148.8 fps    6.7 ms/frame
+  OpenCV+OV (iGPU) :    63.2 fps   15.8 ms/frame
+  DLStreamer (iGPU):   147.9 fps    6.8 ms/frame
 ----------------------------------------------------------------
-  DLStreamer advantage on ARL/PTL:
-  Up to 128% higher throughput
+  DLStreamer advantage: up to 134% higher throughput
 ----------------------------------------------------------------
 ```
 
@@ -86,7 +85,7 @@ GStreamer pipelining on top.
 For detailed per-element pipeline latency, DL Streamer provides a built-in
 [latency tracer](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/dev_guide/latency_tracer.html).
 
-*Intel Core Ultra 9 285H (Arrow Lake-P), iGPU Arc Graphics, Ubuntu 24.04,
+*Intel(R) Core(TM) Ultra 9 285H, iGPU Arc Graphics, Ubuntu 24.04,
 kernel 6.17, OpenVINO 2026.1, Intel DL Streamer latest.*
 
 ### Detection output
@@ -104,10 +103,10 @@ Both pipelines save annotated frames with bounding boxes to `output/`:
 ## System requirements
 
 - Linux (Ubuntu 22.04 / 24.04)
-- Intel platform with integrated GPU (Arrow Lake, Panther Lake, Meteor Lake)
+- Intel(R) Core(TM) Ultra series processor with integrated GPU
 - DL Streamer latest
   ([installation guide](https://dlstreamer.github.io/get_started/install/install_guide_ubuntu.html))
-- Python 3.10 or newer
+- Python 3.10 or later
 
 If any Python packages are missing:
 ```
