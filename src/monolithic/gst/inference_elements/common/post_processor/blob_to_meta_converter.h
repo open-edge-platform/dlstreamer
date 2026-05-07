@@ -84,7 +84,7 @@ class BlobToMetaConverter {
   public:
     BlobToMetaConverter(Initializer initializer);
 
-        virtual TensorsTable convert(const OutputBlobs &output_blobs) = 0;
+    virtual TensorsTable convert(const OutputBlobs &output_blobs) = 0;
 
     const ModelImageInputInfo &getInputImageInfo() const {
         return input_image_info;

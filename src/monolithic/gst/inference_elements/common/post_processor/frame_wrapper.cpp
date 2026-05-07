@@ -14,18 +14,17 @@ using namespace post_processing;
 /* class FrameWrapper */
 
 FrameWrapper::FrameWrapper(InferenceFrame &frame)
-        : buffer(frame.buffer), gva_base_inference(frame.gva_base_inference),
-            model_instance_id(frame.gva_base_inference->model_instance_id),
-      meta_mutex(&frame.gva_base_inference->meta_mutex), roi(&frame.roi),
-      image_transform_info(frame.image_transform_info), width(frame.info->width), height(frame.info->height),
-      roi_classifications(&frame.roi_classifications) {
+    : buffer(frame.buffer), gva_base_inference(frame.gva_base_inference),
+      model_instance_id(frame.gva_base_inference->model_instance_id), meta_mutex(&frame.gva_base_inference->meta_mutex),
+      roi(&frame.roi), image_transform_info(frame.image_transform_info), width(frame.info->width),
+      height(frame.info->height), roi_classifications(&frame.roi_classifications) {
 }
 
 // This constructor is only called for micro-elements, initialization of the rest of the fields is not required because
 // they are not used there
 FrameWrapper::FrameWrapper(GstBuffer *buf, const std::string &instance_id, GMutex *meta_mutex)
-        : buffer(buf), gva_base_inference(nullptr), model_instance_id(instance_id), meta_mutex(meta_mutex), roi(nullptr),
-            image_transform_info(nullptr), width(0), height(0), roi_classifications(nullptr) {
+    : buffer(buf), gva_base_inference(nullptr), model_instance_id(instance_id), meta_mutex(meta_mutex), roi(nullptr),
+      image_transform_info(nullptr), width(0), height(0), roi_classifications(nullptr) {
 }
 
 /* class FramesWrapper */

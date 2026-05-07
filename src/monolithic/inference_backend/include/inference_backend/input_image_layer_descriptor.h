@@ -20,7 +20,7 @@ class InputImageLayerDesc {
   public:
     using Ptr = std::shared_ptr<InputImageLayerDesc>;
 
-        enum class Resize { NO, NO_ASPECT_RATIO, ASPECT_RATIO, ASPECT_RATIO_PAD, ASPECT_RATIO_MULTIPLE_OF };
+    enum class Resize { NO, NO_ASPECT_RATIO, ASPECT_RATIO, ASPECT_RATIO_PAD, ASPECT_RATIO_MULTIPLE_OF };
     enum class Crop { NO, CENTRAL, CENTRAL_RESIZE, TOP_LEFT, TOP_RIGHT, BOTTOM_LEFT, BOTTOM_RIGHT };
     enum class ColorSpace { NO, RGB, BGR, YUV, GRAYSCALE };
 
@@ -125,12 +125,12 @@ class InputImageLayerDesc {
         : resize(resize), crop(crop), color_space(color_space), range_norm(range_norm), distrib_norm(distrib_norm),
           padding(padding) {
     }
-        InputImageLayerDesc(Resize resize, Crop crop, ColorSpace color_space, const RangeNormalization &range_norm,
-                                                const DistribNormalization &distrib_norm, const Padding &padding, size_t resize_width,
-                                                size_t resize_height, size_t resize_multiple = 1)
-                : resize(resize), crop(crop), color_space(color_space), range_norm(range_norm), distrib_norm(distrib_norm),
-                    padding(padding), resize_width(resize_width), resize_height(resize_height), resize_multiple(resize_multiple) {
-        }
+    InputImageLayerDesc(Resize resize, Crop crop, ColorSpace color_space, const RangeNormalization &range_norm,
+                        const DistribNormalization &distrib_norm, const Padding &padding, size_t resize_width,
+                        size_t resize_height, size_t resize_multiple = 1)
+        : resize(resize), crop(crop), color_space(color_space), range_norm(range_norm), distrib_norm(distrib_norm),
+          padding(padding), resize_width(resize_width), resize_height(resize_height), resize_multiple(resize_multiple) {
+    }
 
     bool isTransformationToBlobSizeDefined() const {
         if (resize != Resize::NO or crop != Crop::NO)

@@ -6,8 +6,8 @@
 
 #include "inference_execution_mode_resolver.h"
 
-#include "gva_base_inference.h"
 #include "gstgvaclassify.h"
+#include "gva_base_inference.h"
 #include "model_api_converters.h"
 #include "model_proc_provider.h"
 

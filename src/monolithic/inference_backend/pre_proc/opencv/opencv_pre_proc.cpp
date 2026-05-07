@@ -118,9 +118,11 @@ cv::Mat OpenCV_VPP::CustomImageConvert(const cv::Mat &orig_image, const int src_
             if (pre_proc_info->isAspectRatioMultipleOfResize()) {
                 const auto resize_target = pre_proc_info->getResizeTargetSize();
                 const auto resized_shape = InputImageLayerDesc::CalculateAspectRatioMultipleOfResize(
-                    safe_convert<size_t>(processed_image.size().width), safe_convert<size_t>(processed_image.size().height),
-                    resize_target.first, resize_target.second, pre_proc_info->getResizeMultiple());
-                const cv::Size resized_size(safe_convert<int>(resized_shape.first), safe_convert<int>(resized_shape.second));
+                    safe_convert<size_t>(processed_image.size().width),
+                    safe_convert<size_t>(processed_image.size().height), resize_target.first, resize_target.second,
+                    pre_proc_info->getResizeMultiple());
+                const cv::Size resized_size(safe_convert<int>(resized_shape.first),
+                                            safe_convert<int>(resized_shape.second));
 
                 ITT_TASK("cv::resize");
                 cv::resize(processed_image, image_to_insert, resized_size);

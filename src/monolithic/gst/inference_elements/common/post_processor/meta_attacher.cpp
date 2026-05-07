@@ -6,8 +6,8 @@
 
 #include "meta_attacher.h"
 
-#include "gva_base_inference.h"
 #include "gmutex_lock_guard.h"
+#include "gva_base_inference.h"
 #include "gva_utils.h"
 #include "processor_types.h"
 #include <gst/analytics/analytics.h>

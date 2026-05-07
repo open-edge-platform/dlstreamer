@@ -15,9 +15,9 @@
 #include "dlstreamer/gst/context.h"
 #include "dlstreamer/gst/frame.h"
 #include "gstgvaclassify.h"
-#include "model_proc_provider.h"
 #include "inference_backend/buffer_mapper.h"
 #include "inference_impl.h"
+#include "model_proc_provider.h"
 
 #include "gva_base_inference_priv.hpp"
 

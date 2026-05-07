@@ -336,8 +336,7 @@ OwnershipDecision buildOwnershipDecision(const Candidate &candidate, size_t cand
     // Pixels that are much closer than the candidate's modeled layer are likely
     // occluded by a foreground ROI and should be biased away from farther layers.
     if (depth_value + decision.depth_scale < candidate.layer_depth) {
-        decision.total_score +=
-            OCCLUDED_LAYER_PENALTY * ((candidate.layer_depth - depth_value) / decision.depth_scale);
+        decision.total_score += OCCLUDED_LAYER_PENALTY * ((candidate.layer_depth - depth_value) / decision.depth_scale);
     }
 
     return decision;
@@ -380,7 +379,8 @@ size_t chooseDepthOwnerIndex(const std::vector<Candidate> &candidates, const std
     double front_layer_scale = MIN_DEPTH_SCALE;
 
     for (size_t candidate_index : candidate_indices) {
-        const auto decision = buildOwnershipDecision(candidates[candidate_index], candidate_index, depth_value, row, col);
+        const auto decision =
+            buildOwnershipDecision(candidates[candidate_index], candidate_index, depth_value, row, col);
         if (decision.compatible && decision.has_depth_model && decision.layer_depth < front_layer_depth) {
             front_layer_found = true;
             front_layer_depth = decision.layer_depth;
@@ -543,8 +543,7 @@ depth_converter::Metrics summarizeDepthRegion(const float *depth_data, size_t de
 }
 
 depth_converter::Metrics summarizeOwnedDepthRegion(const float *depth_data, size_t depth_width, size_t depth_height,
-                                                   const std::vector<Candidate> &candidates,
-                                                   size_t current_index) {
+                                                   const std::vector<Candidate> &candidates, size_t current_index) {
     const auto &candidate = candidates[current_index];
     const auto &region = candidate.region;
     if (!depth_data || region.x0 >= region.x1 || region.y0 >= region.y1 || depth_width == 0 || depth_height == 0) {
@@ -596,8 +595,7 @@ depth_converter::Metrics summarizeOwnedDepthRegion(const float *depth_data, size
 // Build one candidate per existing ROI, precompute overlap relations once, and
 // then summarize each ROI using only the pixels it wins from the ownership rule.
 std::vector<DepthROIResult> summarizeExistingROIs(const FrameWrapper &frame, const BlobToMetaConverter &blob_to_meta,
-                                                  const float *depth_data, size_t depth_width,
-                                                  size_t depth_height) {
+                                                  const float *depth_data, size_t depth_width, size_t depth_height) {
     std::vector<DepthROIResult> results;
     if (!frame.buffer || !depth_data || depth_width == 0 || depth_height == 0) {
         return results;
@@ -648,9 +646,9 @@ std::vector<DepthROIResult> summarizeExistingROIs(const FrameWrapper &frame, con
 
     results.reserve(candidates.size());
     for (size_t candidate_index = 0; candidate_index < candidates.size(); ++candidate_index) {
-        results.push_back({candidates[candidate_index].roi_id,
-                           summarizeOwnedDepthRegion(depth_data, depth_width, depth_height, candidates,
-                                                     candidate_index)});
+        results.push_back(
+            {candidates[candidate_index].roi_id,
+             summarizeOwnedDepthRegion(depth_data, depth_width, depth_height, candidates, candidate_index)});
     }
 
     return results;
@@ -753,9 +751,9 @@ Metrics buildMetrics(std::vector<double> valid_values, std::vector<double> cente
 }
 
 std::array<float, static_cast<size_t>(DepthMetricsField::Count)> toTensorValues(const Metrics &metrics) {
-    return {static_cast<float>(metrics.center), static_cast<float>(metrics.mean),
-            static_cast<float>(metrics.median), static_cast<float>(metrics.min),
-            static_cast<float>(metrics.max), static_cast<float>(metrics.stddev),
+    return {static_cast<float>(metrics.center),      static_cast<float>(metrics.mean),
+            static_cast<float>(metrics.median),      static_cast<float>(metrics.min),
+            static_cast<float>(metrics.max),         static_cast<float>(metrics.stddev),
             static_cast<float>(metrics.valid_count), static_cast<float>(metrics.valid_ratio)};
 }
 
@@ -831,7 +829,8 @@ TensorsTable DepthConverter::convert(const OutputBlobs &model_outputs, FramesWra
         const float *typed_data = reinterpret_cast<const float *>(output_blob->GetData());
 
         for (size_t batch_index = 0; batch_index < batch_size; ++batch_index) {
-            const auto item = get_data_by_batch_index<float>(typed_data, output_blob->GetSize(), batch_size, batch_index);
+            const auto item =
+                get_data_by_batch_index<float>(typed_data, output_blob->GetSize(), batch_size, batch_index);
             const float *depth_data = item.first;
             const size_t element_count = item.second;
             size_t depth_width = 0;
@@ -856,8 +855,8 @@ TensorsTable DepthConverter::convert(const OutputBlobs &model_outputs, FramesWra
             roi_tensor_template.set_layer_name(output_name);
             roi_tensor_template.set_model_name(BlobToMetaConverter::getModelName());
 
-            const auto roi_results = summarizeExistingROIs(frames[batch_index], *this, depth_data, depth_width,
-                                                           depth_height);
+            const auto roi_results =
+                summarizeExistingROIs(frames[batch_index], *this, depth_data, depth_width, depth_height);
             for (const auto &roi_result : roi_results) {
                 if (roi_result.roi_id < 0) {
                     continue;

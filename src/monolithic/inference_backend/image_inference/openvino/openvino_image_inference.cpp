@@ -1430,8 +1430,7 @@ void OpenVINOImageInference::ApplyInputPreprocessors(
         std::shared_ptr<OpenvinoInputTensor> intput_tensor = nullptr;
         if ((preprocessor.first == KEY_image) && (model_inputs.size() == 1) && !request->in_tensors.empty() &&
             !request->in_tensors.front().empty()) {
-            intput_tensor =
-                std::make_shared<OpenvinoInputTensor>(request->in_tensors.front().front(), batch_index);
+            intput_tensor = std::make_shared<OpenvinoInputTensor>(request->in_tensors.front().front(), batch_index);
         } else if (model_inputs.size() == 1) {
             intput_tensor = std::make_shared<OpenvinoInputTensor>(request->infer_request_new.get_input_tensor());
         } else {
