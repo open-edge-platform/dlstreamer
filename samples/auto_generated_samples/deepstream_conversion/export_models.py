@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: MIT
 # ==============================================================================
 """
-Download and export YOLO11n detection model for the metapublish sample.
+Download and export YOLO detection model for deepstream_test4_conversion.
 
 Run this script once before starting the pipeline application:
     python3 export_models.py
@@ -13,13 +13,11 @@ Run this script once before starting the pipeline application:
 import shutil
 from pathlib import Path
 
-from ultralytics import YOLO
-
 MODELS_DIR = Path(__file__).resolve().parent / "models"
 
 
 def export_yolo_detection() -> Path:
-    """Download YOLO11n and export to OpenVINO IR with INT8 quantization."""
+    """Download yolo11n and export to OpenVINO IR with INT8 quantization."""
     model_stem = "yolo11n"
     ov_dir = MODELS_DIR / f"{model_stem}_openvino"
 
@@ -30,8 +28,10 @@ def export_yolo_detection() -> Path:
 
     MODELS_DIR.mkdir(parents=True, exist_ok=True)
 
+    print("[YOLO] Downloading yolo11n...")
+    from ultralytics import YOLO
+
     pt_path = MODELS_DIR / f"{model_stem}.pt"
-    print(f"[YOLO] Downloading {model_stem}...")
     model = YOLO(str(pt_path))
 
     print("[YOLO] Exporting to OpenVINO IR (INT8)...")
@@ -52,4 +52,5 @@ def export_yolo_detection() -> Path:
 
 
 if __name__ == "__main__":
-    export_yolo_detection()
+    model_path = export_yolo_detection()
+    print(f"\nModel exported to: {model_path}")
