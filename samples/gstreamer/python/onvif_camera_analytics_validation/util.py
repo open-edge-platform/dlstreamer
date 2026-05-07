@@ -3,6 +3,11 @@ Utility module for ONVIF Camera Analytics Validation Pipeline.
 
 Contains: ONVIF SOAP client, MQTT event listener, and cross-validation logic.
 """
+# ==============================================================================
+# Copyright (C) 2026 Intel Corporation
+#
+# SPDX-License-Identifier: MIT
+# ==============================================================================
 
 import collections
 import json
@@ -49,11 +54,11 @@ def _soap_request(url: str, body: str) -> Optional[str]:
         result = subprocess.run(
             ["curl", "-s", "--max-time", "10", "-X", "POST", url,
              "-H", "Content-Type: application/soap+xml", "-d", envelope],
-            capture_output=True, text=True, timeout=15)
+            capture_output=True, text=True, timeout=15, check=False)
         if result.returncode == 0 and result.stdout.strip():
             return result.stdout
-    except Exception as e:
-        log.warning(f"SOAP {url}: {e}")
+    except subprocess.SubprocessError as e:
+        log.warning("SOAP %s: %s", url, e)
     return None
 
 
@@ -66,6 +71,7 @@ class ONVIFClient:
         self.media_url = f"{base}/media_service"
 
     def get_device_info(self) -> dict:
+        """Retrieve device information via ONVIF GetDeviceInformation."""
         resp = _soap_request(self.device_url, "<tds:GetDeviceInformation/>")
         if not resp:
             return {}
@@ -79,6 +85,7 @@ class ONVIFClient:
         return {}
 
     def get_capabilities(self) -> dict:
+        """Retrieve device capabilities via ONVIF GetCapabilities."""
         resp = _soap_request(
             self.device_url,
             '<tds:GetCapabilities>'
@@ -106,6 +113,7 @@ class ONVIFClient:
         return caps
 
     def get_profiles(self) -> list:
+        """Retrieve media profiles via ONVIF GetProfiles."""
         resp = _soap_request(self.media_url, "<trt:GetProfiles/>")
         if not resp:
             return []
@@ -137,6 +145,7 @@ class ONVIFClient:
         return profiles
 
     def get_stream_uri(self, profile_token: str) -> str:
+        """Retrieve the RTSP stream URI for the given profile token."""
         body = (
             "<trt:GetStreamUri><trt:StreamSetup>"
             "<tt:Stream>RTP-Unicast</tt:Stream>"
@@ -157,6 +166,7 @@ class ONVIFClient:
         return ""
 
     def get_scopes(self) -> list:
+        """Retrieve ONVIF device scopes."""
         resp = _soap_request(self.device_url, "<tds:GetScopes/>")
         if not resp:
             return []
@@ -292,6 +302,7 @@ class MQTTEventListener:
         self._client = None
 
     def start(self) -> bool:
+        """Connect to the MQTT broker and start listening."""
         self._client = mqtt.Client(
             callback_api_version=mqtt.CallbackAPIVersion.VERSION2,
             client_id=f"validator-{int(time.time())}",
@@ -303,25 +314,32 @@ class MQTTEventListener:
             self._client.connect(self.broker, self.port, 60)
             self._client.loop_start()
             return True
-        except Exception as e:
-            log.error(f"MQTT connect failed: {e}")
+        except OSError as e:
+            log.error("MQTT connect failed: %s", e)
             return False
 
     def stop(self):
+        """Disconnect from the MQTT broker."""
         if self._client:
             self._client.loop_stop()
             self._client.disconnect()
 
-    def _on_connect(self, client, userdata, flags, rc, properties=None):
+    def _on_connect(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+        self, _client, _userdata, _flags, _rc, _properties=None,
+    ):
+        """Handle MQTT connection event."""
         self.connected = True
         for topic in self.topics:
-            client.subscribe(topic)
-        log.info(f"MQTT subscribed: {', '.join(self.topics)}")
+            self._client.subscribe(topic)
+        log.info("MQTT subscribed: %s", ", ".join(self.topics))
 
-    def _on_disconnect(self, client, userdata, flags, rc, properties=None):
+    def _on_disconnect(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+        self, _client, _userdata, _flags, _rc, _properties=None,
+    ):
+        """Handle MQTT disconnection event."""
         self.connected = False
 
-    def _on_message(self, client, userdata, msg):
+    def _on_message(self, _client, _userdata, msg):
         event = None
         raw_payload = msg.payload.decode("utf-8", errors="replace")
 
@@ -336,7 +354,7 @@ class MQTTEventListener:
         if event is None:
             try:
                 event = _parse_onvif_xml_event(raw_payload)
-            except Exception:
+            except (ElementTree.ParseError, ValueError):
                 pass
 
         if event:

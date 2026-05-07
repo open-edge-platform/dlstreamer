@@ -19,23 +19,34 @@ Usage:
   python3 onvif_camera_analytics_validation.py --rtsp-uri rtsp://... --model-path ./Gemma3-4B
 """
 
+# ==============================================================================
+# Copyright (C) 2026 Intel Corporation
+#
+# SPDX-License-Identifier: MIT
+# ==============================================================================
+
 import argparse
 import http.server
 import json
 import logging
 import os
 import queue
+import sys
 import threading
 import time
 from urllib.parse import quote, urlparse, urlunparse
 
 import gi
+
 gi.require_version("Gst", "1.0")
 gi.require_version("GstApp", "1.0")
 gi.require_version("GstAnalytics", "1.0")
-from gi.repository import GLib, Gst, GstAnalytics
+from gi.repository import GLib, Gst, GstAnalytics  # pylint: disable=no-name-in-module,wrong-import-position
 
-from util import ONVIFClient, MQTTEventListener
+# Add script directory to path so util is importable by pylint
+if os.path.dirname(os.path.abspath(__file__)) not in sys.path:
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from util import ONVIFClient, MQTTEventListener  # pylint: disable=wrong-import-position
 
 log = logging.getLogger(__name__)
 
@@ -45,7 +56,7 @@ log = logging.getLogger(__name__)
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-class DLStreamerVLMPipeline:
+class DLStreamerVLMPipeline:  # pylint: disable=too-many-instance-attributes
     """GStreamer pipeline with DLStreamer gvagenai for VLM inference.
 
     Captures frames from an RTSP stream, runs VLM inference via gvagenai,
@@ -55,9 +66,11 @@ class DLStreamerVLMPipeline:
 
     RECONNECT_DELAY = 2  # seconds between reconnection attempts
 
-    def __init__(self, rtsp_uri: str, model_path: str, device: str,
-                 prompt: str, max_tokens: int, frame_rate: float = 1.0,
-                 user: str = "", password: str = ""):
+    def __init__(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+        self, rtsp_uri: str, model_path: str, device: str,
+        prompt: str, max_tokens: int, frame_rate: float = 1.0,
+        user: str = "", password: str = "",
+    ):
         Gst.init(None)
         self._rtsp_uri = rtsp_uri
         self._model_path = model_path
@@ -151,7 +164,7 @@ class DLStreamerVLMPipeline:
 
         return pipeline
 
-    def _on_vlm_result(self, pad, info):
+    def _on_vlm_result(self, _pad, info):
         """Pad probe on gvagenai src: extract VLM text from ClsMtd.
 
         After extracting the result, closes the valve and signals the
@@ -191,6 +204,7 @@ class DLStreamerVLMPipeline:
         return Gst.PadProbeReturn.OK
 
     def start(self) -> bool:
+        """Build and start the GStreamer pipeline."""
         self._pipeline = self._build_pipeline()
 
         ret = self._pipeline.set_state(Gst.State.PLAYING)
@@ -236,6 +250,7 @@ class DLStreamerVLMPipeline:
             log.info("Pipeline reconnected")
 
     def stop(self):
+        """Stop the pipeline and release resources."""
         self._stopped = True
         self._running = False
         if self._loop:
@@ -248,10 +263,12 @@ class DLStreamerVLMPipeline:
         log.info("DLStreamer pipeline stopped")
 
     def get_jpeg(self) -> bytes:
+        """Return the latest JPEG frame."""
         with self._lock:
             return self._latest_jpeg
 
     def get_vlm_text(self) -> str:
+        """Return the latest VLM inference text."""
         with self._lock:
             return self._latest_vlm_text
 
@@ -278,6 +295,7 @@ class DLStreamerVLMPipeline:
             return self._vlm_count
 
     def _on_jpeg(self, appsink):
+        """Callback for appsink new-sample: capture latest JPEG frame."""
         sample = appsink.emit("pull-sample")
         if sample:
             buf = sample.get_buffer()
@@ -306,7 +324,7 @@ class DLStreamerVLMPipeline:
 
 # Load dashboard HTML from file (once at import time)
 _DASHBOARD_DIR = os.path.dirname(os.path.abspath(__file__))
-with open(os.path.join(_DASHBOARD_DIR, "dashboard.html"), "r") as _f:
+with open(os.path.join(_DASHBOARD_DIR, "dashboard.html"), "r", encoding="utf-8") as _f:
     DASHBOARD_HTML = _f.read()
 
 
@@ -317,6 +335,7 @@ class _DashboardState:
 
     @classmethod
     def add_event(cls, frame_jpeg, mqtt_event, vlm_text):
+        """Append a new event to the history."""
         with cls.lock:
             cls.event_history.append({
                 "frame_jpeg": frame_jpeg,
@@ -334,6 +353,7 @@ class _DashboardState:
 
     @classmethod
     def count(cls):
+        """Return number of events in history."""
         with cls.lock:
             return len(cls.event_history)
 
@@ -341,7 +361,8 @@ class _DashboardState:
 class DashboardHandler(http.server.BaseHTTPRequestHandler):
     """HTTP handler for the live validation dashboard."""
 
-    def do_GET(self):
+    def do_GET(self):  # pylint: disable=invalid-name
+        """Handle GET requests for dashboard pages, frames, and API endpoints."""
         if self.path in ('/', '/index.html'):
             self._respond(200, 'text/html', DASHBOARD_HTML.encode())
 
@@ -394,6 +415,7 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             self.send_error(404)
 
     def _respond(self, code, ctype, body, extra=None):
+        """Send an HTTP response with the given status, content-type, and body."""
         self.send_response(code)
         self.send_header('Content-Type', ctype)
         self.send_header('Access-Control-Allow-Origin', '*')
@@ -403,10 +425,11 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def log_message(self, *_):
-        pass
+        """Suppress default HTTP request logging."""
 
 
 def start_web_ui(port: int):
+    """Start the dashboard web server on the given port."""
     srv = http.server.ThreadingHTTPServer(('0.0.0.0', port), DashboardHandler)
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     log.info("Web UI on port %d", port)
@@ -479,7 +502,7 @@ def build_rtsp_uri(args) -> str:
             netloc=f"{userinfo}@{parsed.hostname}"
                    + (f":{parsed.port}" if parsed.port else "")))
         print(f"  RTSP URI (with auth): rtsp://***@{parsed.hostname}"
-              f"{':%d' % parsed.port if parsed.port else ''}{parsed.path}")
+              f"{':%d' % parsed.port if parsed.port else ''}{parsed.path}")  # pylint: disable=consider-using-f-string
 
     return rtsp_uri
 
@@ -493,11 +516,11 @@ def validation_loop(pipeline: DLStreamerVLMPipeline,
     """Event-driven loop: MQTT event → pair with latest VLM result → dashboard."""
     event_count = 0
 
-    print(f"\n{'=' * 60}")
-    print(f"  Listening for MQTT events ... (Ctrl+C to stop)")
-    print(f"  VLM inference runs on-demand via gvagenai (valve-gated).")
+    print("\n" + "=" * 60)
+    print("  Listening for MQTT events ... (Ctrl+C to stop)")
+    print("  VLM inference runs on-demand via gvagenai (valve-gated).")
     print(f"  Web UI: http://localhost:{web_port}")
-    print(f"{'=' * 60}\n")
+    print("=" * 60 + "\n")
 
     try:
         while True:
@@ -527,17 +550,17 @@ def validation_loop(pipeline: DLStreamerVLMPipeline,
             print(f"  [{event_count:4d}] VLM: {short}")
 
     except KeyboardInterrupt:
-        print(f"\n\n{'=' * 60}")
-        print(f"  VALIDATION STOPPED")
-        print(f"{'=' * 60}")
+        print("\n\n" + "=" * 60)
+        print("  VALIDATION STOPPED")
+        print("=" * 60)
 
     finally:
-        print(f"\n  {'─' * 40}")
+        print("\n  " + "─" * 40)
         print(f"  Events processed:   {event_count}")
         print(f"  VLM inferences:     {pipeline.vlm_count}")
         print(f"  MQTT events in:     {listener.stats['events_received']}")
         print(f"  MQTT events dropped:{listener.stats['events_dropped']}")
-        print(f"{'=' * 60}\n")
+        print("=" * 60 + "\n")
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -545,6 +568,7 @@ def validation_loop(pipeline: DLStreamerVLMPipeline,
 # ═══════════════════════════════════════════════════════════════════════════
 
 def run(args):
+    """Run the ONVIF camera analytics validation pipeline."""
     logging.basicConfig(level=logging.INFO,
                         format="%(asctime)s [%(levelname)s] %(message)s")
 
@@ -568,7 +592,7 @@ def run(args):
     print(f"  Max tokens: {args.max_tokens}")
 
     # -- Start DLStreamer pipeline with gvagenai --
-    print(f"\n[Setup] DLStreamer pipeline (RTSP + gvagenai)")
+    print("\n[Setup] DLStreamer pipeline (RTSP + gvagenai)")
     print("-" * 60)
     pipeline = DLStreamerVLMPipeline(
         rtsp_uri, args.model_path, args.device, args.prompt,
@@ -612,6 +636,7 @@ def run(args):
 
 
 def main():
+    """Parse arguments and run the validation pipeline."""
     p = argparse.ArgumentParser(
         description="ONVIF Camera Analytics Validation — "
                     "event-driven VLM cross-validation",
