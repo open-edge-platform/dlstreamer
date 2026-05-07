@@ -213,7 +213,14 @@ For common use cases, go straight to file generation using the [use-case → tem
 
 For complex cases, consult the [Sample Index](./references/sample-index.md) for relevant reference implementations, then read the specific samples that match the user's use case.
 
-If a user asks for conversion from DeepStream, check the [Converting Guide](../../../docs/user-guide/dev_guide/converting_deepstream_to_dlstreamer.md) for equivalent elements and patterns.
+#### Converting from DeepStream
+
+When converting a DeepStream application, follow these additional rules:
+
+1. **Inventory the source pipeline.** Identify all elements in the DeepStream pipeline first.
+2. **Map each element 1-to-1** using the [Converting Guide](../../../docs/user-guide/dev_guide/converting_deepstream_to_dlstreamer.md).
+3. Use the Common Pipeline Patterns table or Sample Index to connect DL Streamer elements,.
+4. **Do not add elements absent from the source pipeline.** Every element in the converted pipeline must trace back to the inventory.
 
 **3b — Choose application structure**
 
