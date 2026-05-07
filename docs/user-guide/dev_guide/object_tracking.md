@@ -155,23 +155,25 @@ gvatrack tracking-type=deep-sort deepsort-trck-cfg="n_init=5,max_cosine_distance
 
 **Re-identifying objects after occlusion or temporary disappearance:**
 ```bash
-gvatrack tracking-type=deep-sort deepsort-trck-cfg="max_age=60,reid_max_age=20,max_cosine_distance=0.2"
+gvatrack tracking-type=deep-sort deepsort-trck-cfg="max_age=60,reid_max_age=30,max_cosine_distance=0.2"
 ```
 
 **Tracking only persons (ignoring other detected classes):**
 ```bash
-gvatrack tracking-type=deep-sort deepsort-trck-cfg="max_age=60,object_class=person"
+gvatrack tracking-type=deep-sort deepsort-trck-cfg="max_age=60,object_class=person,reid_max_age=30"
 ```
 
 ### Example Pipeline
 
 ```bash
-gst-launch-1.0 filesrc location=video.mp4 ! decodebin ! \
+gst-launch-1.0 filesrc location=video.mp4 ! decodebin3 ! \
   gvadetect model=person-detection.xml ! \
-  gvainference model=mars-small128.xml device=GPU inference-region=roi-list ! \
+  gvainference model=mars-small128.xml device=GPU inference-region=roi-list object-class=person ! \
+  queue ! \
   gvatrack tracking-type=deep-sort \
-    deepsort-trck-cfg="max_age=60,max_cosine_distance=0.3" ! \
-  gvawatermark ! videoconvert ! autovideosink
+    deepsort-trck-cfg="max_age=60,max_cosine_distance=0.3,object_class=person,reid_max_age=30" ! \
+  queue ! \
+  gvawatermark displ-cfg=show-roi=person ! videoconvert ! autovideosink
 ```
 
 
