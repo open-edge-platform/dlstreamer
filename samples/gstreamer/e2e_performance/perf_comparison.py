@@ -32,8 +32,7 @@ CONFIDENCE_THRESHOLD = 0.35         # used by dlstreamer.py gvadetect threshold
 # iGPU inference config (shared by dlstreamer.py)
 INFERENCE_DEVICE = "GPU"
 NIREQ = 4                           # async inference request slots
-QUEUE_SIZE = 8                       # GStreamer queue between decode and inference
-
+QUEUE_SIZE = NIREQ * 2              # one set active, one set ready
 # snapshot + benchmark config
 SNAPSHOT_FRAMES = 90                 # frames to process when saving detection image
 RUN_COOLDOWN = 2                     # seconds between runs to reduce thermal variance
@@ -107,7 +106,7 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--video", type=Path, default=None)
     ap.add_argument("--model", type=Path, default=None)
-    ap.add_argument("--frames", type=int, default=200)
+    ap.add_argument("--measure-frames", type=int, default=200)
     ap.add_argument("--warmup", type=int, default=50)
     ap.add_argument("--runs", type=int, default=3)
     args = ap.parse_args()
@@ -126,18 +125,18 @@ def main() -> None:
 
     print(f"Model : {model_dir}")
     print(f"Video : {video}")
-    print(f"Config: {args.frames} frames + {args.warmup} warmup x {args.runs} runs\n")
+    print(f"Config: {args.measure_frames} measured frames + {args.warmup} warmup x {args.runs} runs\n")
 
     ov_results = _benchmark(
         "OpenCV + OpenVINO (notebook approach, iGPU inference)",
         opencv_openvino.run, model_dir, video,
-        args.frames, args.warmup, args.runs)
+        args.measure_frames, args.warmup, args.runs)
     opencv_openvino.save_snapshot(model_dir, video, OUTPUT_DIR / "opencv_openvino_detection.jpg")
 
     dls_results = _benchmark(
         "\nDLStreamer (iGPU decode, zero-copy, async nireq=4)",
         dlstreamer.run, model_xml, video,
-        args.frames, args.warmup, args.runs)
+        args.measure_frames, args.warmup, args.runs)
     dlstreamer.save_snapshot(model_xml, video, OUTPUT_DIR / "dlstreamer_detection.jpg")
 
     ov_fps = statistics.mean(r.fps for r in ov_results)

@@ -33,12 +33,7 @@ compute engine is continuously busy. The notebook approach uploads a
 system-memory tensor to the iGPU before each inference and downloads the
 result after.
 
-### 4. GPU-accelerated overlay
-
-DL Streamer draws bounding boxes directly on GPU-resident frames via
-`gvawatermark`, avoiding CPU-side rendering.
-
-### Pipeline comparison
+### Approach comparison
 
 **OpenCV + OpenVINO** (notebook approach) – CPU decode, sync iGPU inference:
 
@@ -51,7 +46,7 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-    D1["iGPU decode\n(vah264dec)"] --> D2["iGPU preprocess + inference\n(zero-copy, nireq=4)"] --> D3["Metadata\nto CPU"]
+    D1["iGPU decode\n(vah264dec)"] --> D2["iGPU preprocess + inference\n(zero-copy, nireq=4)"] --> D3["Queue\n2 x nireq"] --> D4["Metadata\nto CPU"]
 ```
 
 ## Example run
@@ -60,20 +55,20 @@ flowchart LR
 $ python3 perf_comparison.py
 
 OpenCV + OpenVINO (notebook approach, iGPU inference)
-  run 1: 63.4 fps  15.8 ms/frame  (200 frames)
-  run 2: 65.2 fps  15.3 ms/frame  (200 frames)
-  run 3: 60.8 fps  16.4 ms/frame  (200 frames)
+  run 1: 62.8 fps  15.9 ms/frame  (200 frames)
+  run 2: 61.6 fps  16.2 ms/frame  (200 frames)
+  run 3: 64.3 fps  15.6 ms/frame  (200 frames)
 
 DLStreamer (iGPU decode, zero-copy, async nireq=4)
-  run 1: 148.8 fps  6.7 ms/frame  (200 frames)
-  run 2: 146.3 fps  6.8 ms/frame  (200 frames)
-  run 3: 148.6 fps  6.7 ms/frame  (200 frames)
+  run 1: 147.1 fps  6.8 ms/frame  (200 frames)
+  run 2: 150.1 fps  6.7 ms/frame  (200 frames)
+  run 3: 148.8 fps  6.7 ms/frame  (200 frames)
 
 ----------------------------------------------------------------
-  OpenCV+OV (iGPU) :    63.2 fps   15.8 ms/frame
-  DLStreamer (iGPU):   147.9 fps    6.8 ms/frame
+  OpenCV+OV (iGPU) :    62.9 fps   15.9 ms/frame
+  DLStreamer (iGPU):   148.7 fps   6.7 ms/frame
 ----------------------------------------------------------------
-  DLStreamer advantage: up to 134% higher throughput
+  DLStreamer advantage: up to ~2.3x higher throughput
 ----------------------------------------------------------------
 ```
 
@@ -105,7 +100,7 @@ Both pipelines save annotated frames with bounding boxes to `output/`:
 - Linux (Ubuntu 22.04 / 24.04)
 - Intel(R) Core(TM) Ultra series processor with integrated GPU
 - DL Streamer latest
-  ([installation guide](https://dlstreamer.github.io/get_started/install/install_guide_ubuntu.html))
+  ([installation guide](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/get_started/install/install_guide_ubuntu.html))
 - Python 3.10 or later
 
 If any Python packages are missing:
@@ -132,7 +127,7 @@ python3 perf_comparison.py
 |---|---|---|
 | `--video` | auto-download people.mp4 | path to H.264 input video |
 | `--model` | auto-export YOLO26s INT8 | path to OpenVINO IR directory |
-| `--frames` | 200 | measured frames per run |
+| `--measure-frames` | 200 | frames included in the benchmark after warmup |
 | `--warmup` | 50 | warmup frames |
 | `--runs` | 3 | repeated runs |
 
@@ -144,5 +139,5 @@ flowchart LR
     C --> D["vah264dec\niGPU HW decode"]
     D --> E["VAMemory\nNV12"]
     E --> F["gvadetect\nGPU, va-surface-sharing\nnireq=4"]
-    F --> G[queue] --> H[fakesink]
+    F --> G["queue\n2 x nireq"] --> H[fakesink]
 ```

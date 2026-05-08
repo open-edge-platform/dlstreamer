@@ -36,7 +36,8 @@ def _pipeline(model_xml: Path, video: Path, sink: str, *, num_buffers: int = 0) 
             f"! gvadetect model={model_xml} device={INFERENCE_DEVICE} "
             f"pre-process-backend=va-surface-sharing nireq={NIREQ} "
             f"batch-size=1 threshold={CONFIDENCE_THRESHOLD} "
-            f"! queue max-size-buffers={QUEUE_SIZE} ! {sink}")
+            f"! queue max-size-buffers={QUEUE_SIZE} "
+            f"! {sink}")
 
 
 def _run_pipeline(pipeline, timeout_sec: int = 60):
@@ -81,7 +82,7 @@ def run(model_xml: Path, video: Path, num_frames: int, warmup: int):
 def save_snapshot(model_xml: Path, video: Path, out_path: Path):
     """Save first annotated detection frame via gvawatermark through GStreamer."""
     Gst = _gst()
-    sink = (f"vapostproc ! gvawatermark ! videoconvert "
+    sink = (f"vapostproc ! gvawatermark displ-cfg=font-scale=0.8 ! videoconvert "
             f"! jpegenc snapshot=true ! filesink location={out_path}")
     pipe = Gst.parse_launch(_pipeline(model_xml, video, sink, num_buffers=SNAPSHOT_FRAMES))
     _run_pipeline(pipe)
