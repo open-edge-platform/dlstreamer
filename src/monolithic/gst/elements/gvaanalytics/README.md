@@ -1,8 +1,8 @@
-# GVA Analitics Plugin
+# GVA Analytics Plugin
 
 ## Overview
 
-The GVA Analitics element is a GStreamer-based analytics plugin that detects tripwire crossings and object presence in configured zones using tracking metadata. It processes video frames with associated object tracking data and generates metadata events for security and surveillance applications.
+The GVA Analytics element is a GStreamer-based analytics plugin that detects tripwire crossings and object presence in configured zones using tracking metadata. It processes video frames with associated object tracking data and generates metadata events for security and surveillance applications.
 
 ## Features
 
@@ -19,7 +19,7 @@ Path to JSON configuration file containing zones and/or tripwires definitions.
 
 **Example:**
 ```
-gvaanalitics config=/path/to/config.json
+gvaanalytics config=/path/to/config.json
 ```
 
 ### zones (string)
@@ -27,7 +27,7 @@ Inline JSON string defining zones. Zones defined here are appended to any zones 
 
 **Example:**
 ```
-gvaanalitics zones='[{"id":"zone_1","points":[{"x":500,"y":0},{"x":500,"y":1080},{"x":200,"y":1080}]}]'
+gvaanalytics zones='[{"id":"zone_1","points":[{"x":500,"y":0},{"x":500,"y":1080},{"x":200,"y":1080}]}]'
 ```
 
 ### tripwires (string)
@@ -35,7 +35,7 @@ Inline JSON string defining tripwires. Tripwires defined here are appended to an
 
 **Example:**
 ```
-gvaanalitics tripwires='[{"id":"exit_line","points":[{"x":500,"y":0},{"x":500,"y":1080}]}]'
+gvaanalytics tripwires='[{"id":"exit_line","points":[{"x":500,"y":0},{"x":500,"y":1080}]}]'
 ```
 
 ### draw-zones (boolean)
@@ -43,8 +43,8 @@ Enable or disable attachment of watermark metadata (WatermarkPolygonMeta) for dr
 
 **Example:**
 ```
-gvaanalitics draw-zones=true
-gvaanalitics draw-zones=false
+gvaanalytics draw-zones=true
+gvaanalytics draw-zones=false
 ```
 
 ### draw-tripwires (boolean)
@@ -52,8 +52,8 @@ Enable or disable attachment of watermark metadata (WatermarkDrawMeta) for drawi
 
 **Example:**
 ```
-gvaanalitics draw-tripwires=true
-gvaanalitics draw-tripwires=false
+gvaanalytics draw-tripwires=true
+gvaanalytics draw-tripwires=false
 ```
 
 ## Configuration Format
@@ -176,7 +176,7 @@ gst-launch-1.0 \
   decodebin ! \
   gvadetect model=detection.xml ! \
   gvatrack ! \
-  gvaanalitics config=analytics.json draw-zones=true draw-tripwires=true ! \
+  gvaanalytics config=analytics.json draw-zones=true draw-tripwires=true ! \
   gvawatermark ! \
   fakesink
 ```
@@ -254,13 +254,4 @@ gboolean gst_analytics_relation_meta_add_zone_mtd(
 gboolean gst_analytics_zone_mtd_get_info(
     const GstAnalyticsZoneMtd *handle,
     gchar **zone_id);
-```
-
-## Debugging
-
-Enable GStreamer debug logging for this element:
-
-```bash
-export GST_DEBUG=gvaanalitics:5
-gst-launch-1.0 ... gvaanalitics ...
 ```

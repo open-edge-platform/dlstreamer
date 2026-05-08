@@ -8,8 +8,8 @@
 
 #include "dlstreamer/gst/metadata/gva_tripwire_meta.h"
 #include "dlstreamer/gst/metadata/gva_zone_meta.h"
-#include "gvaanalitics.h"
-#include "gvaanaliticsimpl.h"
+#include "gvaanalytics.h"
+#include "gvaanalyticsimpl.h"
 
 #include <gst/analytics/gstanalyticsmeta.h>
 #include <gst/base/gstbasetransform.h>
@@ -26,8 +26,8 @@
 
 using json = nlohmann::json;
 
-GST_DEBUG_CATEGORY_STATIC(gva_analitics_debug_category);
-#define GST_CAT_DEFAULT gva_analitics_debug_category
+GST_DEBUG_CATEGORY_STATIC(gva_analytics_debug_category);
+#define GST_CAT_DEFAULT gva_analytics_debug_category
 
 enum {
     PROP_0,
@@ -38,16 +38,16 @@ enum {
     PROP_DRAW_TRIPWIRES,
 };
 
-static void gva_analitics_set_property(GObject *object, guint prop_id, const GValue *value, GParamSpec *pspec);
-static void gva_analitics_get_property(GObject *object, guint prop_id, GValue *value, GParamSpec *pspec);
-static void gva_analitics_finalize(GObject *object);
-static gboolean gva_analitics_start(GstBaseTransform *base);
-static gboolean gva_analitics_stop(GstBaseTransform *base);
-static GstFlowReturn gva_analitics_transform_ip(GstBaseTransform *base, GstBuffer *buf);
+static void gva_analytics_set_property(GObject *object, guint prop_id, const GValue *value, GParamSpec *pspec);
+static void gva_analytics_get_property(GObject *object, guint prop_id, GValue *value, GParamSpec *pspec);
+static void gva_analytics_finalize(GObject *object);
+static gboolean gva_analytics_start(GstBaseTransform *base);
+static gboolean gva_analytics_stop(GstBaseTransform *base);
+static GstFlowReturn gva_analytics_transform_ip(GstBaseTransform *base, GstBuffer *buf);
 
-#define GVA_ANALITICS_GET_TYPE(type_name) G_DEFINE_TYPE(GvaAnalitics, type_name, GST_TYPE_BASE_TRANSFORM)
+#define GVA_ANALYTICS_GET_TYPE(type_name) G_DEFINE_TYPE(GvaAnalytics, type_name, GST_TYPE_BASE_TRANSFORM)
 
-struct GvaAnaliticsPrivate {
+struct GvaAnalyticsPrivate {
     gchar *config_path;
     gchar *zones_json;
     gchar *tripwires_json;
@@ -59,26 +59,26 @@ struct GvaAnaliticsPrivate {
     std::map<guint64, ObjectTrackingState> tracking_states;
 };
 
-static GstStaticPadTemplate gva_analitics_sink_template =
+static GstStaticPadTemplate gva_analytics_sink_template =
     GST_STATIC_PAD_TEMPLATE("sink", GST_PAD_SINK, GST_PAD_ALWAYS, GST_STATIC_CAPS_ANY);
 
-static GstStaticPadTemplate gva_analitics_src_template =
+static GstStaticPadTemplate gva_analytics_src_template =
     GST_STATIC_PAD_TEMPLATE("src", GST_PAD_SRC, GST_PAD_ALWAYS, GST_STATIC_CAPS_ANY);
 
-static void gva_analitics_class_init(GvaAnaliticsClass *klass) {
+static void gva_analytics_class_init(GvaAnalyticsClass *klass) {
     GObjectClass *gobject_class = G_OBJECT_CLASS(klass);
     GstBaseTransformClass *base_transform_class = GST_BASE_TRANSFORM_CLASS(klass);
     GstElementClass *element_class = GST_ELEMENT_CLASS(klass);
 
-    gst_element_class_set_static_metadata(element_class, "GVA Analitics", "Generic", "GVA Analitics element",
+    gst_element_class_set_static_metadata(element_class, "GVA Analytics", "Generic", "GVA Analytics element",
                                           "Intel Corporation");
 
-    gst_element_class_add_pad_template(element_class, gst_static_pad_template_get(&gva_analitics_sink_template));
-    gst_element_class_add_pad_template(element_class, gst_static_pad_template_get(&gva_analitics_src_template));
+    gst_element_class_add_pad_template(element_class, gst_static_pad_template_get(&gva_analytics_sink_template));
+    gst_element_class_add_pad_template(element_class, gst_static_pad_template_get(&gva_analytics_src_template));
 
-    gobject_class->set_property = gva_analitics_set_property;
-    gobject_class->get_property = gva_analitics_get_property;
-    gobject_class->finalize = gva_analitics_finalize;
+    gobject_class->set_property = gva_analytics_set_property;
+    gobject_class->get_property = gva_analytics_get_property;
+    gobject_class->finalize = gva_analytics_finalize;
 
     // Install properties
     g_object_class_install_property(gobject_class, PROP_CONFIG,
@@ -104,18 +104,18 @@ static void gva_analitics_class_init(GvaAnaliticsClass *klass) {
                                                          "Attach watermark metadata for drawing tripwires", TRUE,
                                                          (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
-    base_transform_class->start = GST_DEBUG_FUNCPTR(gva_analitics_start);
-    base_transform_class->stop = GST_DEBUG_FUNCPTR(gva_analitics_stop);
-    base_transform_class->transform_ip = GST_DEBUG_FUNCPTR(gva_analitics_transform_ip);
+    base_transform_class->start = GST_DEBUG_FUNCPTR(gva_analytics_start);
+    base_transform_class->stop = GST_DEBUG_FUNCPTR(gva_analytics_stop);
+    base_transform_class->transform_ip = GST_DEBUG_FUNCPTR(gva_analytics_transform_ip);
 
     base_transform_class->passthrough_on_same_caps = TRUE;
 
-    GST_DEBUG_CATEGORY_INIT(gva_analitics_debug_category, "gvaanalitics", 0, "GVA Analitics element");
+    GST_DEBUG_CATEGORY_INIT(gva_analytics_debug_category, "gvaanalytics", 0, "GVA Analytics element");
 }
 
-static void gva_analitics_init(GvaAnalitics *self) {
-    GvaAnaliticsPrivate *priv = g_new0(GvaAnaliticsPrivate, 1);
-    new (priv) GvaAnaliticsPrivate();
+static void gva_analytics_init(GvaAnalytics *self) {
+    GvaAnalyticsPrivate *priv = g_new0(GvaAnalyticsPrivate, 1);
+    new (priv) GvaAnalyticsPrivate();
 
     priv->config_path = NULL;
     priv->zones_json = NULL;
@@ -126,15 +126,15 @@ static void gva_analitics_init(GvaAnalitics *self) {
     self->impl = priv;
 }
 
-static void gva_analitics_finalize(GObject *object) {
-    GvaAnalitics *self = GVA_ANALITICS_CAST(object);
-    GvaAnaliticsPrivate *priv = self->impl;
+static void gva_analytics_finalize(GObject *object) {
+    GvaAnalytics *self = GVA_ANALYTICS_CAST(object);
+    GvaAnalyticsPrivate *priv = self->impl;
 
     if (priv) {
         g_free(priv->config_path);
         g_free(priv->zones_json);
         g_free(priv->tripwires_json);
-        priv->~GvaAnaliticsPrivate();
+        priv->~GvaAnalyticsPrivate();
         g_free(priv);
         self->impl = nullptr;
     }
@@ -142,9 +142,9 @@ static void gva_analitics_finalize(GObject *object) {
     G_OBJECT_CLASS(g_type_class_peek_parent(G_OBJECT_GET_CLASS(object)))->finalize(object);
 }
 
-static void gva_analitics_set_property(GObject *object, guint prop_id, const GValue *value, GParamSpec *pspec) {
-    GvaAnalitics *self = GVA_ANALITICS_CAST(object);
-    GvaAnaliticsPrivate *priv = self->impl;
+static void gva_analytics_set_property(GObject *object, guint prop_id, const GValue *value, GParamSpec *pspec) {
+    GvaAnalytics *self = GVA_ANALYTICS_CAST(object);
+    GvaAnalyticsPrivate *priv = self->impl;
 
     switch (prop_id) {
     case PROP_CONFIG: {
@@ -184,9 +184,9 @@ static void gva_analitics_set_property(GObject *object, guint prop_id, const GVa
     }
 }
 
-static void gva_analitics_get_property(GObject *object, guint prop_id, GValue *value, GParamSpec *pspec) {
-    GvaAnalitics *self = GVA_ANALITICS_CAST(object);
-    GvaAnaliticsPrivate *priv = self->impl;
+static void gva_analytics_get_property(GObject *object, guint prop_id, GValue *value, GParamSpec *pspec) {
+    GvaAnalytics *self = GVA_ANALYTICS_CAST(object);
+    GvaAnalyticsPrivate *priv = self->impl;
 
     switch (prop_id) {
     case PROP_CONFIG:
@@ -210,11 +210,11 @@ static void gva_analitics_get_property(GObject *object, guint prop_id, GValue *v
     }
 }
 
-static gboolean gva_analitics_start(GstBaseTransform *base) {
-    GvaAnalitics *self = GVA_ANALITICS_CAST(base);
-    GvaAnaliticsPrivate *priv = self->impl;
+static gboolean gva_analytics_start(GstBaseTransform *base) {
+    GvaAnalytics *self = GVA_ANALYTICS_CAST(base);
+    GvaAnalyticsPrivate *priv = self->impl;
 
-    GST_DEBUG_OBJECT(base, "Starting gva_analitics");
+    GST_DEBUG_OBJECT(base, "Starting gva_analytics");
 
     // Load configuration from file if specified
     if (priv->config_path) {
@@ -405,11 +405,11 @@ static gboolean gva_analitics_start(GstBaseTransform *base) {
     return TRUE;
 }
 
-static gboolean gva_analitics_stop(GstBaseTransform *base) {
-    GvaAnalitics *self = GVA_ANALITICS_CAST(base);
-    GvaAnaliticsPrivate *priv = self->impl;
+static gboolean gva_analytics_stop(GstBaseTransform *base) {
+    GvaAnalytics *self = GVA_ANALYTICS_CAST(base);
+    GvaAnalyticsPrivate *priv = self->impl;
 
-    GST_DEBUG_OBJECT(base, "Stopping gva_analitics");
+    GST_DEBUG_OBJECT(base, "Stopping gva_analytics");
 
     priv->zones.clear();
     priv->tripwires.clear();
@@ -418,9 +418,9 @@ static gboolean gva_analitics_stop(GstBaseTransform *base) {
     return TRUE;
 }
 
-static GstFlowReturn gva_analitics_transform_ip(GstBaseTransform *base, GstBuffer *buf) {
-    GvaAnalitics *self = GVA_ANALITICS_CAST(base);
-    GvaAnaliticsPrivate *priv = self->impl;
+static GstFlowReturn gva_analytics_transform_ip(GstBaseTransform *base, GstBuffer *buf) {
+    GvaAnalytics *self = GVA_ANALYTICS_CAST(base);
+    GvaAnalyticsPrivate *priv = self->impl;
 
     if (!buf) {
         return GST_FLOW_ERROR;
@@ -448,4 +448,4 @@ static GstFlowReturn gva_analitics_transform_ip(GstBaseTransform *base, GstBuffe
     return GST_FLOW_OK;
 }
 
-GVA_ANALITICS_GET_TYPE(gva_analitics)
+GVA_ANALYTICS_GET_TYPE(gva_analytics)

@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
 
-#include "gvaanaliticsimpl.h"
+#include "gvaanalyticsimpl.h"
 
 #include "dlstreamer/gst/metadata/gva_tripwire_meta.h"
 #include "dlstreamer/gst/metadata/gva_zone_meta.h"
