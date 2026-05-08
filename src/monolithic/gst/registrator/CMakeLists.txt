@@ -47,6 +47,7 @@ PRIVATE
     inference_elements
     audio_inference_elements
     gvatrack
+    dlstreamer_gst_meta
 )
 
 if(ENABLE_GENAI)
