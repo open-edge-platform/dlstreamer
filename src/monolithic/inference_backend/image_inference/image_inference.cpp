@@ -7,7 +7,7 @@
 #include "openvino_image_inference.h"
 #include "utils.h"
 #ifdef _WIN32
-#include "image_inference_async_d3d11/image_inference_async_d3d11.h"
+#include "image_inference_async_d3d11.h"
 #else
 #include "image_inference_async/image_inference_async.h"
 #endif
