@@ -23,12 +23,15 @@ class MemoryMapperGSTToD3D11 : public BaseMemoryMapper {
     TensorPtr map(TensorPtr src, AccessMode /*mode*/) override {
         auto src_gst = ptr_cast<GSTTensor>(src);
 
-        // Extract D3D11 texture handle from GstMemory
-        void *d3d11_texture_ptr = get_d3d11_texture(src_gst->gst_memory());
+        // Extract D3D11 texture handle and subresource index from GstMemory
+        GstMemory *mem = src_gst->gst_memory();
+        void *d3d11_texture_ptr = get_d3d11_texture(mem);
         ID3D11Texture2D *d3d11_texture = static_cast<ID3D11Texture2D *>(d3d11_texture_ptr);
+        guint subresource_idx = gst_d3d11_memory_get_subresource_index((GstD3D11Memory *)mem);
 
         auto ret = std::make_shared<D3D11Tensor>(d3d11_texture, src_gst->plane_index(), src->info(), _output_context);
 
+        ret->set_handle(tensor::key::d3d11_subresource_index, subresource_idx);
         ret->set_handle(tensor::key::offset_x, src_gst->offset_x());
         ret->set_handle(tensor::key::offset_y, src_gst->offset_y());
         ret->set_parent(src);
