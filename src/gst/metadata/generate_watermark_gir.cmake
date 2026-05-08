@@ -105,11 +105,18 @@ else()
 endif()
 
 # Compile watermark GIR to typelib
+# On Windows, override the shared-library name to dlstreamer_gst_meta.dll.
+set(TYPELIB_SHARED_LIB_ARGS)
+if(WIN32)
+    set(TYPELIB_SHARED_LIB_ARGS --shared-library=dlstreamer_gst_meta.dll)
+endif()
+
 add_custom_command(
     OUTPUT ${WATERMARK_TYPELIB_OUTPUT}
     COMMAND ${G_IR_COMPILER}
         --output=${WATERMARK_TYPELIB_OUTPUT}
         --includedir=${GSTREAMER_GIRDIR}
+        ${TYPELIB_SHARED_LIB_ARGS}
         ${WATERMARK_GIR_OUTPUT}
     DEPENDS ${WATERMARK_GIR_OUTPUT}
     COMMENT "Compiling watermark GIR to typelib"
