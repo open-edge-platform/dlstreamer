@@ -34,6 +34,7 @@ file (GLOB MAIN_SRC
     gvadeskew/*.cpp
     gvadeskew/*.c
     gvafpsthrottle/*.cpp
+    gvaanalitics/*.cpp
 )
 
 # gvamotiondetect platform-specific source
@@ -54,6 +55,7 @@ file (GLOB MAIN_HEADERS
     gvadeskew/*.h
     gvamotiondetect/*.h
     gvafpsthrottle/*.hpp
+    gvaanalitics/*.h
 )
 
 if(${ENABLE_AUDIO_INFERENCE_ELEMENTS})
@@ -81,6 +83,7 @@ PUBLIC
     gvawatermark3d
     gvadeskew
     gvamotiondetect
+    gvaanalitics
 PRIVATE
     ${GSTREAMER_INCLUDE_DIRS}
     ${GSTVIDEO_INCLUDE_DIRS}

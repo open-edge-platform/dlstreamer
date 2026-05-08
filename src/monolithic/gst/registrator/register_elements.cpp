@@ -31,6 +31,7 @@
 
 #include "gva_json_meta.h"
 #include "gva_tensor_meta.h"
+#include "gvaanalitics.h"
 
 static gboolean plugin_init(GstPlugin *plugin) {
     set_log_function(GST_logger);
@@ -66,6 +67,8 @@ static gboolean plugin_init(GstPlugin *plugin) {
     if (!gst_element_register(plugin, "gvamotiondetect", GST_RANK_NONE, GST_TYPE_GVA_MOTION_DETECT))
         return FALSE;
     if (!gst_element_register(plugin, "gvafpsthrottle", GST_RANK_NONE, GST_TYPE_GVA_FPS_THROTTLE))
+        return FALSE;
+    if (!gst_element_register(plugin, "gvaanalitics", GST_RANK_NONE, GVA_ANALITICS_TYPE))
         return FALSE;
 
     // register metadata

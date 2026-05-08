@@ -13,6 +13,8 @@
 #pragma once
 
 #include "../metadata/gstanalyticskeypointsmtd.h"
+#include "../metadata/gva_tripwire_meta.h"
+#include "../metadata/gva_zone_meta.h"
 #include "tensor.h"
 
 #include <cstdint>
@@ -111,6 +113,55 @@ class RegionOfInterest {
             throw std::runtime_error("Error when trying to read the confidence of the RegionOfInterest");
         }
         return conf;
+    }
+
+    /**
+     * @brief Get zone IDs that this object is currently violating (inside of)
+     * @return vector of zone ID strings
+     */
+    std::vector<std::string> zone_violations() const {
+        std::vector<std::string> zones;
+        gpointer state = nullptr;
+        GstAnalyticsZoneMtd related_zone_mtd;
+        while (gst_analytics_relation_meta_get_direct_related(_od_meta.meta, _od_meta.id, GST_ANALYTICS_REL_TYPE_ANY,
+                                                              gst_analytics_zone_mtd_get_mtd_type(), &state,
+                                                              (GstAnalyticsMtd *)&related_zone_mtd)) {
+            gchar *zone_id = nullptr;
+            if (gst_analytics_zone_mtd_get_info(&related_zone_mtd, &zone_id) && zone_id) {
+                zones.emplace_back(zone_id);
+                g_free(zone_id);
+            }
+        }
+        return zones;
+    }
+
+    /**
+     * @brief Structure to hold tripwire crossing information
+     */
+    struct TripwireCrossing {
+        std::string tripwire_id;
+        int direction;
+    };
+
+    /**
+     * @brief Get tripwire crossings for this object
+     * @return vector of TripwireCrossing structs containing tripwire ID and crossing direction
+     */
+    std::vector<TripwireCrossing> tripwire_crossings() const {
+        std::vector<TripwireCrossing> crossings;
+        gpointer state = nullptr;
+        GstAnalyticsTripwireMtd related_tripwire_mtd;
+        while (gst_analytics_relation_meta_get_direct_related(_od_meta.meta, _od_meta.id, GST_ANALYTICS_REL_TYPE_ANY,
+                                                              gst_analytics_tripwire_mtd_get_mtd_type(), &state,
+                                                              (GstAnalyticsMtd *)&related_tripwire_mtd)) {
+            gchar *tripwire_id = nullptr;
+            gint direction = 0;
+            if (gst_analytics_tripwire_mtd_get_info(&related_tripwire_mtd, &tripwire_id, &direction) && tripwire_id) {
+                crossings.push_back({tripwire_id, direction});
+                g_free(tripwire_id);
+            }
+        }
+        return crossings;
     }
 
     /**

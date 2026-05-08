@@ -1,0 +1,62 @@
+/*******************************************************************************
+ * Copyright (C) 2026 Intel Corporation
+ *
+ * SPDX-License-Identifier: MIT
+ ******************************************************************************/
+
+#pragma once
+
+#include <gst/analytics/gstanalyticsmeta.h>
+#include <gst/gst.h>
+
+G_BEGIN_DECLS
+
+/**
+ * GstAnalyticsTripwireMtd:
+ * @id: Instance identifier.
+ * @meta: Instance of #GstAnalyticsRelationMeta where this metadata is stored.
+ *
+ * Handle to tripwire analytics metadata.
+ * Provides access to tripwire crossing information (tripwire_id, direction).
+ */
+typedef struct {
+    guint id;                       /**< Instance identifier */
+    GstAnalyticsRelationMeta *meta; /**< Parent analytics relation metadata */
+} GstAnalyticsTripwireMtd;
+
+/**
+ * gst_analytics_tripwire_mtd_get_mtd_type:
+ *
+ * Returns: The metadata type ID for GstAnalyticsTripwireMtd.
+ */
+GstAnalyticsMtdType gst_analytics_tripwire_mtd_get_mtd_type(void);
+
+/**
+ * gst_analytics_tripwire_mtd_get_info:
+ * @handle: A #GstAnalyticsTripwireMtd handle.
+ * @tripwire_id: (out) (transfer full) (nullable): Tripwire identifier string.
+ * @direction: (out) (nullable): Crossing direction (-1 backward, 0 undefined, 1 forward).
+ *
+ * Retrieves tripwire-specific information from the tripwire metadata.
+ *
+ * Returns: TRUE if the tripwire data was successfully retrieved, FALSE otherwise.
+ */
+gboolean gst_analytics_tripwire_mtd_get_info(const GstAnalyticsTripwireMtd *handle, gchar **tripwire_id,
+                                             gint *direction);
+
+/**
+ * gst_analytics_relation_meta_add_tripwire_mtd:
+ * @relation_meta: A #GstAnalyticsRelationMeta instance.
+ * @tripwire_id: Tripwire identifier.
+ * @direction: Crossing direction (-1 backward, 0 undefined, 1 forward).
+ * @tripwire_mtd: (out): Pointer to #GstAnalyticsTripwireMtd to be filled.
+ *
+ * Adds tripwire crossing metadata as a relation in the analytics metadata.
+ * Creates a queryable OD → Tripwire relationship.
+ *
+ * Returns: TRUE if tripwire metadata was successfully added, FALSE otherwise.
+ */
+gboolean gst_analytics_relation_meta_add_tripwire_mtd(GstAnalyticsRelationMeta *relation_meta, const gchar *tripwire_id,
+                                                      gint direction, GstAnalyticsTripwireMtd *tripwire_mtd);
+
+G_END_DECLS
