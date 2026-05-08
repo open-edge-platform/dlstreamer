@@ -31,8 +31,8 @@
 
 #include "gva_json_meta.h"
 #include "gva_tensor_meta.h"
-#include "gva_zone_meta.h"
 #include "gva_tripwire_meta.h"
+#include "gva_zone_meta.h"
 #include "gvaanalytics.h"
 
 static gboolean plugin_init(GstPlugin *plugin) {
