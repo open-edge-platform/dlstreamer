@@ -275,6 +275,19 @@ if ($GSTREAMER_NEEDS_INSTALL) {
 			Set-ItemProperty -Path $rightRegKey -Name $envVarName -Value $wrongValue
 			Remove-ItemProperty -Path $wrongRegKey -Name $envVarName
 		}
+
+		# Workaround: Copy patched gstanalytics DLL for GStreamer 1.28.2
+		if ($GSTREAMER_VERSION -eq "1.28.2") {
+			$srcDll = Join-Path $PWD.Path "dependencies\windows\gstanalytics-1.0-0.dll"
+			$dstDir = "$GSTREAMER_DEST_FOLDER\bin"
+			if (Test-Path $srcDll) {
+				Copy-Item -Path $srcDll -Destination $dstDir -Force
+				Write-Host "Copied gstanalytics-1.0-0.dll to $dstDir"
+			}
+			else {
+				Write-Host "Warning: $srcDll not found, skipping copy"
+			}
+		}
 	}
 	else {
 		Write-Section "Installing GStreamer ${GSTREAMER_VERSION} (MSI)"
