@@ -31,6 +31,8 @@
 
 #include "gva_json_meta.h"
 #include "gva_tensor_meta.h"
+#include "gva_zone_meta.h"
+#include "gva_tripwire_meta.h"
 #include "gvaanalytics.h"
 
 static gboolean plugin_init(GstPlugin *plugin) {
@@ -76,6 +78,8 @@ static gboolean plugin_init(GstPlugin *plugin) {
     gst_gva_json_meta_api_get_type();
     gst_gva_tensor_meta_get_info();
     gst_gva_tensor_meta_api_get_type();
+    gst_analytics_zone_mtd_get_mtd_type();
+    gst_analytics_tripwire_mtd_get_mtd_type();
     return TRUE;
 }
 
