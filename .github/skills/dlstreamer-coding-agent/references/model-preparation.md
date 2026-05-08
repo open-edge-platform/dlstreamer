@@ -1,9 +1,7 @@
 # Model Preparation Reference
 
-DL Streamer inference elements (`gvadetect`, `gvaclassify`, `gvagenai`) consume models in
-**OpenVINO IR format** (`.xml` + `.bin`). Source models come from multiple ecosystems; each has
-a different download-and-export path. In addition, DL Streamer reads pre- and post-processing
-information from the ecosystem model metadata files (Ultralytics, HuggingFace and PaddlePaddle).
+DL Streamer inference elements consume models in **OpenVINO IR format** (`.xml` + `.bin`).
+Pre/post-processing info is read from ecosystem metadata (Ultralytics, HuggingFace, PaddlePaddle).
 
 
 ## Model Sources and Export Methods
@@ -37,10 +35,9 @@ Source: `samples/gstreamer/python/face_detection_and_classification/face_detecti
 
 **Export pattern — subprocess (when DL Streamer is already loaded):**
 
-Ultralytics export creates a new OpenVINO runtime instance that can clash with DL Streamer's
-runtime. The **recommended approach** is to use a separate `export_models.py` script
-(see Design Patterns → Pattern 12) that users run once before starting the pipeline app.
-Alternatively, call the export from a subprocess:
+Ultralytics export can clash with DL Streamer's OpenVINO runtime. Use a separate
+`export_models.py` script (see [Separate Export Script](#separate-export-script))
+or call from a subprocess:
 
 ```python
 import subprocess, sys
@@ -68,8 +65,8 @@ Source: `samples/gstreamer/python/prompted_detection/prompted_detection.py`
 
 ### 2. HuggingFace Ultralytics Models
 
-If an Ultralytics model is located on the HuggingFace hub, download it first to the local disk and
-then use the Ultralytics model exporter as described in section #1.
+If an Ultralytics model is located on the HuggingFace Hub, download it first to the local disk and
+then use the Ultralytics model exporter as described in Section 1.
 
 > **IMPORTANT:** Do not assume `.pt` file names (e.g. `best.pt`, `model.pt`). HuggingFace repos
 > use varied naming conventions. Always check the actual files in the repo's "Files" tab on
@@ -89,13 +86,9 @@ Source: `samples/gstreamer/python/face_detection_and_classification/face_detecti
 
 ### 3. HuggingFace Transformer Models (classification / VLM)
 
-**When to use:** User asks for image classification, age/gender/emotion detection, or
-any HuggingFace `transformers` model.
+**When to use:** Image classification, age/gender/emotion detection, or any HuggingFace `transformers` model.
 
 **Export via optimum-cli (recommended):**
-
-The `optimum-cli` tool from the `optimum-intel` package is the recommended way to export
-HuggingFace models to OpenVINO IR format:
 
 ```bash
 # Basic export
@@ -125,10 +118,6 @@ Source: `samples/gstreamer/python/face_detection_and_classification/face_detecti
 
 **Export via optimum-cli for ONNX → OpenVINO (two-step, when direct export fails):**
 
-> **IMPORTANT:** The `optimum-cli export onnx` command requires `onnx` and `onnxruntime`
-> packages to fix dynamic shapes in the exported model. Always include these in
-> `export_requirements.txt` when using the ONNX export path.
-
 ```python
 subprocess.run([
     "optimum-cli", "export", "onnx",
@@ -154,9 +143,9 @@ Source: `samples/gstreamer/python/smart_nvr/smart_nvr.py`
 
 ### 4. Vision-Language Models (VLM) for gvagenai
 
-**When to use:** User asks for VLM-based alerting, scene description, or image-text inference.
+**When to use:** VLM-based alerting, scene description, or image-text inference.
 
-VLM models must be exported with the `image-text-to-text` task:
+Export with `image-text-to-text` task:
 
 ```bash
 optimum-cli export openvino \
@@ -185,11 +174,10 @@ Recommended small models for edge: `OpenGVLab/InternVL3_5-2B`, `openbmb/MiniCPM-
 
 ### 5. PaddlePaddle OCR Models
 
-**When to use:** User asks for OCR (PaddleOCR), or any PaddlePaddle model from HuggingFace.
+**When to use:** OCR (PaddleOCR) or any PaddlePaddle model from HuggingFace.
 
-**CRITICAL:** PaddlePaddle v3+ models use PIR format (`.json` + `.pdiparams`), **not** the
-older `.pdmodel` format. `ovc` cannot read PIR format directly. You must use a two-step
-conversion: `paddle2onnx` → `ovc`.
+**CRITICAL:** PaddlePaddle v3+ uses PIR format (`.json` + `.pdiparams`), not `.pdmodel`.
+`ovc` cannot read PIR directly — use `paddle2onnx → ovc`.
 
 **Export pattern — paddle2onnx → ovc (two-step):**
 
@@ -271,23 +259,22 @@ Model-proc (model processing) JSON files are deprecated; do not use them with in
 
 | Compression | Flag | Best For | Quality Impact |
 |-------------|------|----------|----------------|
-| FP32 | (default) | Maximum accuracy | None |
 | FP16 | `half=True` (Ultralytics), `--compress_to_fp16` (ovc) | GPU/NPU inference, reduced size | Negligible |
 | INT8 | `int8=True` (Ultralytics) | GPU/NPU inference, reduced size | Negligible |
+
+> **Prefer FP16 or INT8 over FP32.** When multiple precisions are available, select the
+> lowest precision that meets accuracy requirements: INT8 > FP16 > FP32. FP32 should
+> only be used when lower-precision variants are unavailable.
 | INT8 | `--weight-format int8` (optimum-cli) | HuggingFace transformer models | Minor |
 | INT4 | `--weight-format int4` (optimum-cli) | Large LLM/VLM models | Moderate, acceptable for VLMs |
 
 > **Note:** Ultralytics INT8 export (`int8=True`) requires the `nncf` package. Pin `nncf`
 > to the version discovered via `pip show nncf | grep Version` on the host (see
 > [Version Discovery Procedure](#version-discovery-procedure) below).
-> INT8 export triggers NNCF calibration which may take some time and may appear to hang. For iterative development, use `half=True` (FP16) first; switch to `int8=True` for production builds.
-
-> **Recommendation:** Use **INT8** (`int8=True`) for Ultralytics YOLO models.
-> Use INT8 for HuggingFace transformer classification models. Use INT4 for VLM models.
 
 ## Requirements
 
-Prefer using `==` pins (e.g. `ultralytics==8.4.33`) in `export_requirements.txt`, over open ranges like `>=8.3.0`.
+Prefer using `==` pins (e.g. `ultralytics==8.4.33`) in `export_requirements.txt` over open ranges like `>=8.3.0`.
 Open ranges pull untested releases that may change export behavior or break backward compatibility.
 
 ### Version Discovery Procedure
@@ -295,7 +282,7 @@ Open ranges pull untested releases that may change export behavior or break back
 Sample apps in this repo may pin **older** package versions. Do **not** blindly copy them.
 Instead, discover the latest version for each package using this priority order:
 
-> **Quick single-command discovery (preferred):** Run one Docker command to get all versions at once:
+> **Quick discovery (preferred):**
 > ```bash
 > docker run --rm <dlstreamer_image> python3 -c "
 > import openvino; print(f'openvino=={openvino.__version__.split(\"-\")[0]}')
@@ -303,62 +290,29 @@ Instead, discover the latest version for each package using this priority order:
 > ```
 > Then check NNCF compatibility at https://github.com/openvinotoolkit/nncf/blob/develop/docs/Installation.md
 
-If quick discover does not return all information, discover versions manually:
+If quick discovery fails, discover manually:
 
-1. **OpenVINO** — match the OpenVINO runtime bundled with DL Streamer.
+1. **OpenVINO** — `python3 -c "import openvino; print(openvino.__version__)"` or
+   `cat /opt/intel/openvino_*/runtime/version.txt` (host install only).
 
-   **Host install** (OpenVINO is installed separately under `/opt/intel/openvino_*`):
-   ```bash
-   cat /opt/intel/openvino_*/runtime/version.txt
-   # Example output: 2026.0.0-20965-c6d6a13a886-releases/2026/0
-   # Pin the release part: openvino==2026.0.0
-   ```
-
-   **Docker image** (OpenVINO is installed via deb packages — there is no
-   `/opt/intel/openvino_*` directory; use the Python query instead):
-   ```bash
-   docker run --rm <dlstreamer_image> \
-       python3 -c "import openvino; print(openvino.__version__)"
-   ```
-
-   **Fallback** (works in both environments when OpenVINO Python is importable):
-   ```bash
-   python3 -c "import openvino; print(openvino.__version__)"
-   ```
-
-2. **NNCF** — should be compatible with OpenVINO runtime version.
-   Please check this page to find version match between OpenVINO and NNCF versions:
+2. **NNCF** — match to OpenVINO version per
    https://github.com/openvinotoolkit/nncf/blob/develop/docs/Installation.md
 
-3. **Ultralytics** — has its own dependencies on OpenVINO and NNCF that must match
-   the versions from steps 1 and 2. OpenVINO is declared in pip `[export]` extras
-   (e.g. `openvino>=2024.0.0`); NNCF is checked **at runtime** inside `exporter.py`
-   (e.g. `nncf>=2.14.0`). To find the latest compatible Ultralytics version:
+3. **Ultralytics** — verify its OpenVINO/NNCF constraints match steps 1-2:
    ```bash
-   # Get latest version
-   pip index versions ultralytics 2>/dev/null | head -1
-
-   # Download its wheel and inspect constraints
    pip download ultralytics==<VER> --no-deps -d /tmp/ul_check
-   # Check openvino constraint (pip metadata):
-   unzip -p /tmp/ul_check/ultralytics-*.whl \
-       '*/METADATA' | grep -i openvino
-   # Check nncf constraint (runtime, in exporter.py):
-   unzip -p /tmp/ul_check/ultralytics-*.whl \
-       ultralytics/engine/exporter.py | grep 'check_requirements.*nncf'
+   unzip -p /tmp/ul_check/ultralytics-*.whl '*/METADATA' | grep -i openvino
+   unzip -p /tmp/ul_check/ultralytics-*.whl ultralytics/engine/exporter.py | grep 'check_requirements.*nncf'
    ```
-   Verify that the OpenVINO version from step 1 satisfies the `openvino>=X` constraint,
-   and the NNCF version from step 2 satisfies the `nncf>=Y` constraint. If the latest
-   Ultralytics is incompatible, step back to the previous minor version and re-check.
 
-4. **optimum-intel** `optimum[openvino]` must be compatible with OpenVINO runtime version.
-    Inspect: https://raw.githubusercontent.com/openvinotoolkit/openvino.genai/refs/heads/releases/<OV major>/<OV minor>/samples/export-requirements.txt
+4. **optimum-intel** — must match OpenVINO version. Check:
+   `https://raw.githubusercontent.com/openvinotoolkit/openvino.genai/refs/heads/releases/<OV major>/<OV minor>/samples/export-requirements.txt`
 
 
 Typical `requirements.txt` entries by model source:
 
 ```
-# IMPORTANT: CPU-only PyTorch — must appear before any torch-dependent package
+# CPU-only PyTorch — must appear before torch-dependent packages
 --extra-index-url https://download.pytorch.org/whl/cpu
 
 # OpenVINO Python version (pin to match DL Streamer runtime — query with: python3 -c "import openvino; print(openvino.__version__)")
@@ -383,8 +337,18 @@ onnx_graphsurgeon   # required by paddle2onnx for ONNX graph optimization
 
 # Custom elements with pixel access
 numpy
-opencv-python  # or opencv-python-headless
-
-# Common
-PyGObject==3.50.0  # 3.50.2 depends on girepository-2.0 and breaks backward-compatibility
+opencv-python
+PyGObject==3.50.0  # 3.50.2 breaks backward-compatibility
 ```
+
+---
+
+## Separate Export Script
+
+Use a separate `export_models.py` script to download and export AI models. See the
+[Export Models Template](../assets/export-models-template.py). Each function should:
+
+1. Check if `.xml` already exists (idempotent)
+2. Download the source model
+3. Export to OpenVINO IR
+4. Return the `.xml` path
