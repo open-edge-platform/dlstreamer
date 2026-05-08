@@ -99,8 +99,13 @@ Extract the following from the user's prompt:
 | **AI model(s)** | Model name/URL and task (detection, classification, VLM, OCR, …) | — (must ask) |
 | **Target hardware** | Intel platform, available accelerators (GPU/NPU/CPU) | `Not sure / detect at runtime` |
 | **Output format** | Annotated video, JSON, JPEG snapshots, display window | `All of the above` |
-| **Application type** | Python app or GStreamer command line | `Python application` |
+| **Application type** | Python app or GStreamer command line | `Python application` — but see override rule below |
 | **Docker image** | DL Streamer Docker tag | Latest Ubuntu 24 tag (auto-fetched) |
+
+> **Application type override:** If the user's prompt contains explicit language like
+> "bash script", "shell script", "gst-launch", or "command line", set **Application type**
+> to `GStreamer command line` regardless of the default. Only default to `Python application`
+> when the prompt does not indicate a preference.
 
 **If the user's prompt explicitly provides all required info** (video input AND model names
 are explicitly stated, not inferred), proceed directly to Step 1.
@@ -208,7 +213,14 @@ For common use cases, go straight to file generation using the [use-case → tem
 
 For complex cases, consult the [Sample Index](./references/sample-index.md) for relevant reference implementations, then read the specific samples that match the user's use case.
 
-If a user asks for conversion from DeepStream, check the [Converting Guide](../../../docs/user-guide/dev_guide/converting_deepstream_to_dlstreamer.md) for equivalent elements and patterns.
+#### Converting from DeepStream
+
+When converting a DeepStream application, follow these additional rules:
+
+1. **Inventory the source pipeline.** Identify all elements in the DeepStream pipeline first.
+2. **Map each element 1-to-1** using the [Converting Guide](../../../docs/user-guide/dev_guide/converting_deepstream_to_dlstreamer.md).
+3. **Connect DL Streamer elements** using the Common Pipeline Patterns table or Sample Index.
+4. **Do not add elements absent from the source pipeline.** Every element in the converted pipeline must trace back to the inventory.
 
 **3b — Choose application structure**
 

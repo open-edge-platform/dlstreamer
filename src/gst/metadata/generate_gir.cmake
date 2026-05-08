@@ -42,11 +42,15 @@ if(GENERATE_GIR_FROM_SOURCE)
 
     # Source and header files
     set(KEYPOINTS_SOURCES
-        "${CMAKE_CURRENT_SOURCE_DIR}/gstanalyticskeypointsmtd.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/gstanalyticskeypointmtd.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/gstanalyticsgroupmtd.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/gstanalyticskeypointdescriptor.c"
     )
 
     set(KEYPOINTS_HEADERS
-        "${CMAKE_SOURCE_DIR}/include/dlstreamer/gst/metadata/gstanalyticskeypointsmtd.h"
+        "${CMAKE_SOURCE_DIR}/include/dlstreamer/gst/metadata/gstanalyticskeypointmtd.h"
+        "${CMAKE_SOURCE_DIR}/include/dlstreamer/gst/metadata/gstanalyticsgroupmtd.h"
+        "${CMAKE_SOURCE_DIR}/include/dlstreamer/gst/metadata/gstanalyticskeypointdescriptor.h"
     )
 
     set(LIB_OUTPUT_DIR "${CMAKE_BINARY_DIR}/intel64/${CMAKE_BUILD_TYPE}/lib")
@@ -76,6 +80,13 @@ if(GENERATE_GIR_FROM_SOURCE)
             --pkg=gstreamer-analytics-1.0
             ${KEYPOINTS_HEADERS}
             ${KEYPOINTS_SOURCES}
+        # Workaround for g-ir-scanner limitation: when multiple typedefs alias the
+        # same struct tag (e.g. typedef struct _GstAnalyticsMtd GstAnalyticsGroupMtd /
+        # GstAnalyticsKeypointMtd), only the first typedef gets disguised="1" opaque="1".
+        # The second typedef is left without these attributes, which breaks Python
+        # bindings for caller-allocates out parameters (GI cannot determine allocation
+        # size). See: https://gitlab.gnome.org/GNOME/gobject-introspection/-/issues/101
+        COMMAND python3 ${CMAKE_SOURCE_DIR}/scripts/fix_gir_mtd_fields.py ${GIR_OUTPUT}
         DEPENDS ${KEYPOINTS_SOURCES} ${KEYPOINTS_HEADERS} ${TARGET_NAME}
         COMMENT "Generating GIR file from source for DLStreamerMeta"
     )
@@ -99,12 +110,19 @@ else()
     )
 endif()
 
-# Compile GIR to typelib
+# Compile GIR to typelib.
+# On Windows, override the shared-library name to dlstreamer_gst_meta.dll.
+set(TYPELIB_SHARED_LIB_ARGS)
+if(WIN32)
+    set(TYPELIB_SHARED_LIB_ARGS --shared-library=dlstreamer_gst_meta.dll)
+endif()
+
 add_custom_command(
     OUTPUT ${TYPELIB_OUTPUT}
     COMMAND ${G_IR_COMPILER}
         --output=${TYPELIB_OUTPUT}
         --includedir=${GSTREAMER_GIRDIR}
+        ${TYPELIB_SHARED_LIB_ARGS}
         ${GIR_OUTPUT}
     DEPENDS ${GIR_OUTPUT}
     COMMENT "Compiling GIR to typelib"
