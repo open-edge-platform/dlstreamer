@@ -29,6 +29,7 @@ gst-inspect-1.0 utility.
 
 | Element          | Description                                                                                                                                                                                                                                                                                                                                                                   |
 |------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| [gvaanalytics](./gvaanalytics.md)     | Performs video analytics using tripwires and zones. Analyzes object trajectories and attaches watermark metadata for visualization of configured tripwires and zones.<br>Example:<br> gst-launch-1.0 … ! decodebin3 ! gvadetect … ! gvaanalytics config=analytics.json ! gvawatermark ! … OUT<br> |
 | [gvaattachroi](./gvaattachroi.md)     | Adds user-defined regions of interest to perform inference on (instead of full frame). Example: monitoring road traffic in a city camera feed; splitting large image into smaller pieces, and running inference on each piece (healthcare cell analytics).<br>Example:<br> gst-launch-1.0 … ! decodebin3 ! gvaattachroi roi=xtl,ytl,xbr,ybr gvadetect inference-region=1 ! … OUT<br> |
 | [gvafpscounter](./gvafpscounter.md)    | Measures frames per second across multiple video streams in a single GStreamer process.<br>Example:<br> gst-launch-1.0 … ! decodebin3 ! gvadetect … ! gvafpscounter ! … OUT<br> |
 | [gvafpsthrottle](./gvafpsthrottle.md)   | Throttles the framerate of video streams by enforcing a maximum frames-per-second (FPS) rate. Useful for rate limiting in pipelines or for testing at specific processing framerates.<br>Example:<br> gst-launch-1.0 … ! decodebin3 ! gvafpsthrottle target-fps=10 ! … OUT<br> |
@@ -55,6 +56,7 @@ gvagenai
 g3dradarprocess
 g3dlidarparse
 g3dinference
+gvaanalytics
 gvaattachroi
 gvafpscounter
 gvafpsthrottle
