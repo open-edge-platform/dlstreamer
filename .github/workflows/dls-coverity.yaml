@@ -97,7 +97,7 @@ jobs:
           git checkout tags/1.28.2 -b 1.28.2
           git apply $GITHUB_WORKSPACE/dlstreamer-repo/dependencies/patches/gstanalytics_copy_meta_fix_1_28_2.patch
           export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig
-          meson setup -Dexamples=disabled -Dtests=disabled -Dvaapi=enabled -Dgst-examples=disabled --buildtype=release --prefix=/opt/intel/dlstreamer/gstreamer --libdir=lib/ --libexecdir=bin/ build/
+          meson setup -Dexamples=disabled -Dtests=disabled -Dgst-examples=disabled --buildtype=release --prefix=/opt/intel/dlstreamer/gstreamer --libdir=lib/ --libexecdir=bin/ build/
           ninja -C build
           sudo env PATH="$PWD/../python3venv/bin:$PATH" meson install -C build/
           cd ..
