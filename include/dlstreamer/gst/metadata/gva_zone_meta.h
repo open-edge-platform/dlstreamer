@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "gva_export.h"
 #include <gst/analytics/gstanalyticsmeta.h>
 #include <gst/gst.h>
 
@@ -29,7 +30,7 @@ typedef struct {
  *
  * Returns: The metadata type ID for GstAnalyticsZoneMtd.
  */
-GstAnalyticsMtdType gst_analytics_zone_mtd_get_mtd_type(void);
+DLS_EXPORT GstAnalyticsMtdType gst_analytics_zone_mtd_get_mtd_type(void);
 
 /**
  * gst_analytics_zone_mtd_get_info:
@@ -40,7 +41,7 @@ GstAnalyticsMtdType gst_analytics_zone_mtd_get_mtd_type(void);
  *
  * Returns: TRUE if the zone data was successfully retrieved, FALSE otherwise.
  */
-gboolean gst_analytics_zone_mtd_get_info(const GstAnalyticsZoneMtd *handle, gchar **zone_id);
+DLS_EXPORT gboolean gst_analytics_zone_mtd_get_info(const GstAnalyticsZoneMtd *handle, gchar **zone_id);
 
 /**
  * gst_analytics_relation_meta_add_zone_mtd:
@@ -52,7 +53,7 @@ gboolean gst_analytics_zone_mtd_get_info(const GstAnalyticsZoneMtd *handle, gcha
  *
  * Returns: TRUE if zone metadata was successfully added, FALSE otherwise.
  */
-gboolean gst_analytics_relation_meta_add_zone_mtd(GstAnalyticsRelationMeta *relation_meta, const gchar *zone_id,
-                                                  GstAnalyticsZoneMtd *zone_mtd);
+DLS_EXPORT gboolean gst_analytics_relation_meta_add_zone_mtd(GstAnalyticsRelationMeta *relation_meta,
+                                                             const gchar *zone_id, GstAnalyticsZoneMtd *zone_mtd);
 
 G_END_DECLS

@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "gva_export.h"
 #include <gst/analytics/gstanalyticsmeta.h>
 #include <gst/gst.h>
 
@@ -29,7 +30,7 @@ typedef struct {
  *
  * Returns: The metadata type ID for GstAnalyticsTripwireMtd.
  */
-GstAnalyticsMtdType gst_analytics_tripwire_mtd_get_mtd_type(void);
+DLS_EXPORT GstAnalyticsMtdType gst_analytics_tripwire_mtd_get_mtd_type(void);
 
 /**
  * gst_analytics_tripwire_mtd_get_info:
@@ -41,8 +42,8 @@ GstAnalyticsMtdType gst_analytics_tripwire_mtd_get_mtd_type(void);
  *
  * Returns: TRUE if the tripwire data was successfully retrieved, FALSE otherwise.
  */
-gboolean gst_analytics_tripwire_mtd_get_info(const GstAnalyticsTripwireMtd *handle, gchar **tripwire_id,
-                                             gint *direction);
+DLS_EXPORT gboolean gst_analytics_tripwire_mtd_get_info(const GstAnalyticsTripwireMtd *handle, gchar **tripwire_id,
+                                                        gint *direction);
 
 /**
  * gst_analytics_relation_meta_add_tripwire_mtd:
@@ -56,7 +57,8 @@ gboolean gst_analytics_tripwire_mtd_get_info(const GstAnalyticsTripwireMtd *hand
  *
  * Returns: TRUE if tripwire metadata was successfully added, FALSE otherwise.
  */
-gboolean gst_analytics_relation_meta_add_tripwire_mtd(GstAnalyticsRelationMeta *relation_meta, const gchar *tripwire_id,
-                                                      gint direction, GstAnalyticsTripwireMtd *tripwire_mtd);
+DLS_EXPORT gboolean gst_analytics_relation_meta_add_tripwire_mtd(GstAnalyticsRelationMeta *relation_meta,
+                                                                 const gchar *tripwire_id, gint direction,
+                                                                 GstAnalyticsTripwireMtd *tripwire_mtd);
 
 G_END_DECLS
