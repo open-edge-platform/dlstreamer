@@ -54,21 +54,12 @@ flowchart LR
 ```
 $ python3 perf_comparison.py
 
-OpenCV + OpenVINO (notebook approach, iGPU inference)
-  run 1: 62.8 fps  15.9 ms/frame  (200 frames)
-  run 2: 61.6 fps  16.2 ms/frame  (200 frames)
-  run 3: 64.3 fps  15.6 ms/frame  (200 frames)
+Running OpenCV + OpenVINO pipeline (notebook approach, iGPU inference) ...
 
-DLStreamer (iGPU decode, zero-copy, async nireq=4)
-  run 1: 147.1 fps  6.8 ms/frame  (200 frames)
-  run 2: 150.1 fps  6.7 ms/frame  (200 frames)
-  run 3: 148.8 fps  6.7 ms/frame  (200 frames)
+Running DL Streamer pipeline (iGPU decode, zero-copy, async nireq=4) ...
 
 ----------------------------------------------------------------
-  OpenCV+OV (iGPU) :    62.9 fps   15.9 ms/frame
-  DLStreamer (iGPU):   148.7 fps   6.7 ms/frame
-----------------------------------------------------------------
-  DLStreamer advantage: up to ~2.3x higher throughput
+  DL Streamer advantage: up to ~2.3x higher throughput
 ----------------------------------------------------------------
 ```
 
@@ -76,12 +67,6 @@ The OpenCV + OpenVINO path uses the notebook's synchronous inference approach,
 changed only to use iGPU (`device='intel:gpu'`). DL Streamer adds hardware
 video decode, zero-copy VA surface sharing, async inference (nireq=4), and
 GStreamer pipelining on top.
-
-For detailed per-element pipeline latency, DL Streamer provides a built-in
-[latency tracer](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/dev_guide/latency_tracer.html).
-
-*Intel(R) Core(TM) Ultra 9 285H, iGPU Arc Graphics, Ubuntu 24.04,
-kernel 6.17, OpenVINO 2026.1, Intel DL Streamer latest.*
 
 ### Detection output
 
@@ -99,7 +84,7 @@ Both pipelines save annotated frames with bounding boxes to `output/`:
 
 - Linux (Ubuntu 22.04 / 24.04)
 - Intel(R) Core(TM) Ultra series processor with integrated GPU
-- DL Streamer latest
+- DL Streamer 2026.0.0
   ([installation guide](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/get_started/install/install_guide_ubuntu.html))
 - Python 3.10 or later
 
