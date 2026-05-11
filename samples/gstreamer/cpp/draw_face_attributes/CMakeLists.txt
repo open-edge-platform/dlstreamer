@@ -65,6 +65,7 @@ PRIVATE
         ${GSTREAMER_LIBRARY_DIRS}
         ${GSTANALYTICS_LIBRARY_DIRS}
         ${GSTALLOCATORS_LIBRARY_DIRS}
+        $<$<NOT:$<BOOL:${DLSTREAMER_BASE_DIR}>>:/opt/intel/dlstreamer/lib>
 )
 
 target_link_libraries(${TARGET_NAME}
