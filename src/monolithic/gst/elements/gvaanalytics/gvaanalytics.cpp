@@ -210,6 +210,80 @@ static void gva_analytics_get_property(GObject *object, guint prop_id, GValue *v
     }
 }
 
+// Helper function to parse a zone from JSON object
+static Zone parse_zone_from_json(const json &zone_obj, GstBaseTransform *base) {
+    Zone zone;
+    zone.id = zone_obj["id"].get<std::string>();
+
+    // Determine zone type
+    std::string type_str = "polygon"; // default
+    if (zone_obj.contains("type")) {
+        type_str = zone_obj["type"].get<std::string>();
+    }
+
+    if (type_str == "circle") {
+        zone.type = CIRCLE;
+        zone.center.x = zone_obj["center"]["x"].get<int>();
+        zone.center.y = zone_obj["center"]["y"].get<int>();
+        zone.radius = zone_obj["radius"].get<int>();
+        GST_DEBUG_OBJECT(base, "Loaded circular zone '%s' at (%d,%d) with radius %d", zone.id.c_str(), zone.center.x,
+                         zone.center.y, zone.radius);
+    } else {
+        zone.type = POLYGON;
+        for (const auto &pt : zone_obj["points"]) {
+            zone.points.push_back({pt["x"].get<int>(), pt["y"].get<int>()});
+        }
+        GST_DEBUG_OBJECT(base, "Loaded polygon zone '%s' with %zu points", zone.id.c_str(), zone.points.size());
+    }
+
+    // Parse color if specified
+    if (zone_obj.contains("color")) {
+        auto color = zone_obj["color"];
+        if (color.contains("r"))
+            zone.r = color["r"].get<int>();
+        if (color.contains("g"))
+            zone.g = color["g"].get<int>();
+        if (color.contains("b"))
+            zone.b = color["b"].get<int>();
+    }
+
+    // Parse thickness if specified
+    if (zone_obj.contains("thickness")) {
+        zone.thickness = zone_obj["thickness"].get<int>();
+    }
+
+    return zone;
+}
+
+// Helper function to parse a tripwire from JSON object
+static Tripwire parse_tripwire_from_json(const json &tripwire_obj, GstBaseTransform *base) {
+    Tripwire tripwire;
+    tripwire.id = tripwire_obj["id"].get<std::string>();
+    for (const auto &pt : tripwire_obj["points"]) {
+        tripwire.points.push_back({pt["x"].get<int>(), pt["y"].get<int>()});
+    }
+
+    // Parse color if specified
+    if (tripwire_obj.contains("color")) {
+        auto color = tripwire_obj["color"];
+        if (color.contains("r"))
+            tripwire.r = color["r"].get<int>();
+        if (color.contains("g"))
+            tripwire.g = color["g"].get<int>();
+        if (color.contains("b"))
+            tripwire.b = color["b"].get<int>();
+    }
+
+    // Parse thickness if specified
+    if (tripwire_obj.contains("thickness")) {
+        tripwire.thickness = tripwire_obj["thickness"].get<int>();
+    }
+
+    GST_DEBUG_OBJECT(base, "Loaded tripwire '%s' with %zu points", tripwire.id.c_str(), tripwire.points.size());
+
+    return tripwire;
+}
+
 static gboolean gva_analytics_start(GstBaseTransform *base) {
     GvaAnalytics *self = GVA_ANALYTICS_CAST(base);
     GvaAnalyticsPrivate *priv = self->impl;
@@ -230,47 +304,7 @@ static gboolean gva_analytics_start(GstBaseTransform *base) {
             // Parse zones from config
             if (config.contains("zones")) {
                 for (const auto &zone_obj : config["zones"]) {
-                    Zone zone;
-                    zone.id = zone_obj["id"].get<std::string>();
-
-                    // Determine zone type
-                    std::string type_str = "polygon"; // default
-                    if (zone_obj.contains("type")) {
-                        type_str = zone_obj["type"].get<std::string>();
-                    }
-
-                    if (type_str == "circle") {
-                        zone.type = CIRCLE;
-                        zone.center.x = zone_obj["center"]["x"].get<int>();
-                        zone.center.y = zone_obj["center"]["y"].get<int>();
-                        zone.radius = zone_obj["radius"].get<int>();
-                        GST_DEBUG_OBJECT(base, "Loaded circular zone '%s' at (%d,%d) with radius %d", zone.id.c_str(),
-                                         zone.center.x, zone.center.y, zone.radius);
-                    } else {
-                        zone.type = POLYGON;
-                        for (const auto &pt : zone_obj["points"]) {
-                            zone.points.push_back({pt["x"].get<int>(), pt["y"].get<int>()});
-                        }
-                        GST_DEBUG_OBJECT(base, "Loaded polygon zone '%s' with %zu points", zone.id.c_str(),
-                                         zone.points.size());
-                    }
-
-                    // Parse color if specified
-                    if (zone_obj.contains("color")) {
-                        auto color = zone_obj["color"];
-                        if (color.contains("r"))
-                            zone.r = color["r"].get<int>();
-                        if (color.contains("g"))
-                            zone.g = color["g"].get<int>();
-                        if (color.contains("b"))
-                            zone.b = color["b"].get<int>();
-                    }
-
-                    // Parse thickness if specified
-                    if (zone_obj.contains("thickness")) {
-                        zone.thickness = zone_obj["thickness"].get<int>();
-                    }
-                    priv->zones.push_back(zone);
+                    priv->zones.push_back(parse_zone_from_json(zone_obj, base));
                 }
                 GST_DEBUG_OBJECT(base, "Loaded %zu zones from config", priv->zones.size());
             }
@@ -278,29 +312,7 @@ static gboolean gva_analytics_start(GstBaseTransform *base) {
             // Parse tripwires from config
             if (config.contains("tripwires")) {
                 for (const auto &tripwire_obj : config["tripwires"]) {
-                    Tripwire tripwire;
-                    tripwire.id = tripwire_obj["id"].get<std::string>();
-                    for (const auto &pt : tripwire_obj["points"]) {
-                        tripwire.points.push_back({pt["x"].get<int>(), pt["y"].get<int>()});
-                    }
-
-                    // Parse color if specified
-                    if (tripwire_obj.contains("color")) {
-                        auto color = tripwire_obj["color"];
-                        if (color.contains("r"))
-                            tripwire.r = color["r"].get<int>();
-                        if (color.contains("g"))
-                            tripwire.g = color["g"].get<int>();
-                        if (color.contains("b"))
-                            tripwire.b = color["b"].get<int>();
-                    }
-
-                    // Parse thickness if specified
-                    if (tripwire_obj.contains("thickness")) {
-                        tripwire.thickness = tripwire_obj["thickness"].get<int>();
-                    }
-
-                    priv->tripwires.push_back(tripwire);
+                    priv->tripwires.push_back(parse_tripwire_from_json(tripwire_obj, base));
                 }
                 GST_DEBUG_OBJECT(base, "Loaded %zu tripwires from config", priv->tripwires.size());
             }
@@ -315,47 +327,7 @@ static gboolean gva_analytics_start(GstBaseTransform *base) {
         try {
             json zones_data = json::parse(priv->zones_json);
             for (const auto &zone_obj : zones_data) {
-                Zone zone;
-                zone.id = zone_obj["id"].get<std::string>();
-
-                // Determine zone type
-                std::string type_str = "polygon"; // default
-                if (zone_obj.contains("type")) {
-                    type_str = zone_obj["type"].get<std::string>();
-                }
-
-                if (type_str == "circle") {
-                    zone.type = CIRCLE;
-                    zone.center.x = zone_obj["center"]["x"].get<int>();
-                    zone.center.y = zone_obj["center"]["y"].get<int>();
-                    zone.radius = zone_obj["radius"].get<int>();
-                    GST_DEBUG_OBJECT(base, "Loaded circular zone '%s' at (%d,%d) with radius %d from inline JSON",
-                                     zone.id.c_str(), zone.center.x, zone.center.y, zone.radius);
-                } else {
-                    zone.type = POLYGON;
-                    for (const auto &pt : zone_obj["points"]) {
-                        zone.points.push_back({pt["x"].get<int>(), pt["y"].get<int>()});
-                    }
-                    GST_DEBUG_OBJECT(base, "Loaded polygon zone '%s' with %zu points from inline JSON", zone.id.c_str(),
-                                     zone.points.size());
-                }
-
-                // Parse color if specified
-                if (zone_obj.contains("color")) {
-                    auto color = zone_obj["color"];
-                    if (color.contains("r"))
-                        zone.r = color["r"].get<int>();
-                    if (color.contains("g"))
-                        zone.g = color["g"].get<int>();
-                    if (color.contains("b"))
-                        zone.b = color["b"].get<int>();
-                }
-
-                // Parse thickness if specified
-                if (zone_obj.contains("thickness")) {
-                    zone.thickness = zone_obj["thickness"].get<int>();
-                }
-                priv->zones.push_back(zone);
+                priv->zones.push_back(parse_zone_from_json(zone_obj, base));
             }
             GST_DEBUG_OBJECT(base, "Loaded %zu zones from inline JSON", zones_data.size());
         } catch (const std::exception &e) {
@@ -369,29 +341,7 @@ static gboolean gva_analytics_start(GstBaseTransform *base) {
         try {
             json tripwires_data = json::parse(priv->tripwires_json);
             for (const auto &tripwire_obj : tripwires_data) {
-                Tripwire tripwire;
-                tripwire.id = tripwire_obj["id"].get<std::string>();
-                for (const auto &pt : tripwire_obj["points"]) {
-                    tripwire.points.push_back({pt["x"].get<int>(), pt["y"].get<int>()});
-                }
-
-                // Parse color if specified
-                if (tripwire_obj.contains("color")) {
-                    auto color = tripwire_obj["color"];
-                    if (color.contains("r"))
-                        tripwire.r = color["r"].get<int>();
-                    if (color.contains("g"))
-                        tripwire.g = color["g"].get<int>();
-                    if (color.contains("b"))
-                        tripwire.b = color["b"].get<int>();
-                }
-
-                // Parse thickness if specified
-                if (tripwire_obj.contains("thickness")) {
-                    tripwire.thickness = tripwire_obj["thickness"].get<int>();
-                }
-
-                priv->tripwires.push_back(tripwire);
+                priv->tripwires.push_back(parse_tripwire_from_json(tripwire_obj, base));
             }
             GST_DEBUG_OBJECT(base, "Loaded %zu tripwires from inline JSON", tripwires_data.size());
         } catch (const std::exception &e) {
