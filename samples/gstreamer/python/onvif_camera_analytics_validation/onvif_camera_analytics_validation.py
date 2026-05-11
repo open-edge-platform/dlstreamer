@@ -178,8 +178,6 @@ class DLStreamerVLMPipeline:  # pylint: disable=too-many-instance-attributes
         if not rmeta:
             return Gst.PadProbeReturn.OK
 
-        # RelationMeta is not iterable in DLStreamer 2026.0.0 —
-        # use get_cls_mtd(index) which returns (bool, ClsMtd).
         idx = 0
         while True:
             found, cls_mtd = rmeta.get_cls_mtd(idx)

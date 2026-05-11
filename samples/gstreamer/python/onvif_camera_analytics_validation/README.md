@@ -26,8 +26,6 @@ graph LR
 ## Prerequisites
 
 - Python 3.10+
-- [Intel DLStreamer](https://github.com/open-edge-platform/dlstreamer) 2026.0.0+ (with `gvagenai` element)
-- [OpenVINO GenAI](https://docs.openvino.ai/2025/get-started/install-openvino/install-openvino-genai.html) (installed with DLStreamer)
 - An ONVIF-enabled camera with MQTT event publishing
 - An MQTT broker (e.g. Mosquitto)
 
