@@ -145,13 +145,13 @@ GstStructure *createSemanticMaskStructure(const OutputBlob::Ptr &blob, const std
 //    class must be derived by taking argmax across the channel dimension.
 //
 // Regardless of the original representation, we normalize the metadata contract to a frame-level GVA tensor with:
-// - format="semantic_mask"
+// - format="semantic_segmentation"
 // - precision=I64
 // - dims=[1,H,W]
 // - data containing one int64 class id per pixel
 //
-// This keeps downstream consumers such as gvawatermark and gvametaconvert independent from the model-specific output
-// layout and lets them treat both score-map and mask-producing models as the same semantic mask result.
+// This keeps downstream consumers independent from the model-specific output layout while still letting renderers
+// distinguish semantic-segmentation results from legacy semantic-mask tensors when they need different visualization.
 
 TensorsTable SemanticSegmentationConverter::convert(const OutputBlobs &output_blobs) {
     TensorsTable tensors_table;

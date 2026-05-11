@@ -15,10 +15,10 @@ namespace {
 const int sigmaX = 15;
 const int sigmaY = 15;
 
-const std::vector<cv::Vec3b> SemanticMaskColorPalette = {
+const std::vector<cv::Vec3b> PascalVoc21ClColorPalette = {
     cv::Vec3b(0, 0, 0),       // background
-    cv::Vec3b(0, 128, 0),     // first foreground class
-    cv::Vec3b(128, 0, 0),     // bicycle
+    cv::Vec3b(128, 0, 0),     // aeroplane
+    cv::Vec3b(0, 128, 0),     // bicycle
     cv::Vec3b(128, 128, 0),   // bird
     cv::Vec3b(0, 0, 128),     // boat
     cv::Vec3b(128, 0, 128),   // bottle
@@ -38,6 +38,26 @@ const std::vector<cv::Vec3b> SemanticMaskColorPalette = {
     cv::Vec3b(128, 192, 0),   // train
     cv::Vec3b(0, 64, 128)     // tvmonitor
 };
+
+const std::vector<cv::Vec3b> SemanticSegmentationColorPalette = {
+    cv::Vec3b(128, 128, 128), // background
+    cv::Vec3b(0, 128, 0),     // first foreground class
+    cv::Vec3b(128, 0, 0),     cv::Vec3b(128, 128, 0),   cv::Vec3b(0, 0, 128),  cv::Vec3b(128, 0, 128),
+    cv::Vec3b(0, 128, 128),   cv::Vec3b(128, 128, 128), cv::Vec3b(64, 0, 0),   cv::Vec3b(192, 0, 0),
+    cv::Vec3b(64, 128, 0),    cv::Vec3b(192, 128, 0),   cv::Vec3b(64, 0, 128), cv::Vec3b(192, 0, 128),
+    cv::Vec3b(64, 128, 128),  cv::Vec3b(192, 128, 128), cv::Vec3b(0, 64, 0),   cv::Vec3b(128, 64, 0),
+    cv::Vec3b(0, 192, 0),     cv::Vec3b(128, 192, 0),   cv::Vec3b(0, 64, 128)};
+
+const std::vector<cv::Vec3b> &getSemanticMaskPalette(render::SemanticMaskPalette palette) {
+    switch (palette) {
+    case render::SemanticMaskPalette::SemanticMask:
+        return PascalVoc21ClColorPalette;
+    case render::SemanticMaskPalette::SemanticSegmentation:
+        return SemanticSegmentationColorPalette;
+    }
+
+    return PascalVoc21ClColorPalette;
+}
 
 template <int n>
 void check_planes(const std::vector<cv::Mat> &p) {
@@ -551,7 +571,7 @@ void RendererBGR::draw_semantic_mask(std::vector<cv::Mat> &mats, render::Semanti
     cv::Mat resized;
     cv::resize(class_mask, resized, {roi.width, roi.height}, 0, 0, cv::INTER_NEAREST);
 
-    cv::Mat colorMap = convertClassIndicesToBGR(resized, SemanticMaskColorPalette);
+    cv::Mat colorMap = convertClassIndicesToBGR(resized, getSemanticMaskPalette(mask.palette));
     colorMap.convertTo(colorMap, mats[0].type());
     if (mats[0].channels() == 4) {
         cv::cvtColor(colorMap, colorMap, cv::COLOR_BGR2BGRA);
