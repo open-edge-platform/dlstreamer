@@ -1,6 +1,6 @@
 # gvaanalytics
 
-Analyzes video frames and applies analytics rules such as tripwires crossings and zones violatons.
+Analyzes video frames and applies analytics rules such as tripwires crossings and zones violations.
 Attaches watermark metadata for visualizing tripwires and zones on the output frames.
 
 ```bash
