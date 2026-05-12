@@ -139,7 +139,7 @@ struct _GstAnalyticsZoneData {
 };
 ```
 
-### API
+### Zone API
 
 | Function | Description |
 |----------|-------------|
@@ -147,7 +147,7 @@ struct _GstAnalyticsZoneData {
 | `gst_analytics_zone_mtd_get_info(handle, &zone_id)` | Fills `zone_id` (caller-owned string) with the zone identifier. Returns `TRUE` on success. |
 | `gst_analytics_relation_meta_add_zone_mtd(rmeta, zone_id, &zone_mtd)` | Adds a `ZoneMtd` entry to `rmeta`. Returns `TRUE` on success. |
 
-### C example
+### Zone C example
 
 ```C
 gpointer state = NULL;
@@ -197,7 +197,7 @@ struct _GstAnalyticsTripwireData {
 For a **vertical** tripwire defined top-to-bottom (`{x,0}` → `{x,height}`),
 `direction=1` means left-to-right and `direction=-1` means right-to-left.
 
-### API
+### Tripwire API
 
 | Function | Description |
 |----------|-------------|
@@ -205,7 +205,7 @@ For a **vertical** tripwire defined top-to-bottom (`{x,0}` → `{x,height}`),
 | `gst_analytics_tripwire_mtd_get_info(handle, &tripwire_id, &direction)` | Fills `tripwire_id` (caller-owned string) and `direction`. Returns `TRUE` on success. |
 | `gst_analytics_relation_meta_add_tripwire_mtd(rmeta, tripwire_id, direction, &tripwire_mtd)` | Adds a `TripwireMtd` entry to `rmeta`. Returns `TRUE` on success. |
 
-### C example
+### Tripwire C example
 
 ```C
 gpointer state = NULL;
@@ -282,7 +282,7 @@ typedef struct {
 | `body-pose/hrnet-coco-17` | 17 | 13 | HRNet with COCO keypoint ordering |
 | `face-landmarks/centerface-5` | 5 | 0 | Facial landmarks (eyes, nose tip, mouth corners) |
 
-### API
+### Keypoint Descriptor API
 
 | Function | Description |
 |----------|-------------|
@@ -290,7 +290,7 @@ typedef struct {
 | `gst_analytics_keypoint_descriptor_get_point_name(desc, index)` | Get point name at index (Python bindings only). |
 | `gst_analytics_keypoint_descriptor_get_skeleton_connection(desc, index, &from, &to)` | Get skeleton edge at index (Python bindings only). |
 
-### C example
+### Keypoint Descriptor C example
 
 ```C
 const GstAnalyticsKeypointDescriptor *desc =
