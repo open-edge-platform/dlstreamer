@@ -76,7 +76,7 @@ For reference documentation of the legacy API, see
 | `gvainference` (full-frame) | Generic full-frame inference | GstBuffer | — | GstGVATensorMeta |
 | `gvainference` (roi-list) | Generic inference per ROI | GstBuffer + ROI/ODMtd | — | extended ROI params |
 | `gvatrack` | Object tracking | GstBuffer + ROI/ODMtd | TrackingMtd | ROI + object_id param |
-| `gvaanalytics` | Zone and tripwire analytics | GstBuffer + ODMtd + TrackingMtd | ZoneMtd (related to ODMtd), TripwireMtd (related to ODMtd) +  WatermarkDrawMeta + WatermarkCircleMeta | — |
+| `gvaanalytics` | Zone and tripwire analytics | GstBuffer + ODMtd + TrackingMtd | ZoneMtd (related to ODMtd), TripwireMtd (related to ODMtd) + WatermarkDrawMeta + WatermarkCircleMeta | — |
 | `gvametaconvert` | Metadata → JSON | GstBuffer + ROI/ODMtd (+ related ClsMtd, KeypointGroupMtd, TrackingMtd, ZoneMtd, TripwireMtd) + GstGVATensorMeta | — | GstGVAJSONMeta |
 | `gvametapublish` | JSON → MQTT/Kafka/File | GstBuffer + GstGVAJSONMeta | — | — |
 | `gvametaaggregate` | Merge from multiple streams | GstBuffer + any metadata | ODMtd, ClsMtd, KeypointGroupMtd | ROI + GstStructure params, GstGVATensorMeta |
