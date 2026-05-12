@@ -1,6 +1,6 @@
 #!/bin/bash
 # ==============================================================================
-# Copyright (C) 2022-2025 Intel Corporation
+# Copyright (C) 2022-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
@@ -46,11 +46,11 @@ fi
 gst-launch-1.0 \
     "$SOURCE_ELEMENT" ! \
     decodebin3 ! \
-    "video/x-raw(memory:VASurface)" ! \
+    "video/x-raw(memory:VAMemory)" ! \
     processbin \
-        preprocess="vaapipostproc ! videoconvert ! tensor_convert" \
+        preprocess="vapostproc ! videoconvert ! tensor_convert" \
         process="inference_openvino model=$MODEL device=$DEVICE" \
         postprocess=tensor_postproc_detection \
         aggregate=meta_aggregate ! \
-    vaapipostproc ! \
+    vapostproc ! \
     "$SINK_ELEMENT"

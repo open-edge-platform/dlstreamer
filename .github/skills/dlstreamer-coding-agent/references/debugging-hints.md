@@ -43,7 +43,7 @@ See also [Pipeline Design Rules](./pipeline-construction.md#pipeline-design-rule
 | Gotcha | Impact | Mitigation |
 |--------|--------|------------|
 | `mp4mux` without EOS | Unplayable output — missing `moov` atom | Use `mp4mux fragment-duration=1000` (see [Output & Metadata](./pipeline-construction.md#output--metadata)) |
-| `.ts` / `.mkv` files with audio tracks | Pipeline crash on missing audio codec | Filter non-fatal decodebin errors (see [Decode Robustness](./pipeline-construction.md#decode-robustness)) |
+| `.ts` / `.mkv` files with audio tracks | `not-linked` error on demuxer when audio pad is unlinked | Use `decodebin3 caps="video/x-raw(ANY)"` to suppress audio pads (see [Decode Robustness](./pipeline-construction.md#decode-robustness)) |
 | `queue` blocking EOS propagation | Pipeline hangs on shutdown in multi-branch pipelines | Add `flush-on-eos=true` to all queues |
 | `webrtcsink` not on host | Element creation fails at runtime | Runtime check with `Gst.ElementFactory.find()` + fallback |
 | `webrtcsink` signaling "Connection refused" | Built-in signaling server not reachable | Set `run-signalling-server=true run-web-server=true` (both default to `false`). Set `signalling-server-port=8443`. Use `--network host` in Docker |
@@ -52,6 +52,7 @@ See also [Pipeline Design Rules](./pipeline-construction.md#pipeline-design-rule
 | `buffer.copy()` immutable in GStreamer ≥ 1.26 | Cannot modify PTS/DTS on copied buffer | Use `buffer.copy_deep()` for writable copies |
 | `buffer.map(READ\|WRITE)` fails in `do_transform_ip` | Custom element cannot modify pixel data — returns `success=False` | Override `do_prepare_output_buffer` to allocate a new buffer — see [Pattern 7: Buffer Mutability](./design-patterns.md#elements-that-modify-pixel-data) |
 | Short input video finishes too fast | Not enough data to validate long-running features (e.g. event-based recording, chunked output) | Use the `loop_count` parameter of `run_pipeline()` to replay the file — see [Pattern 2: Pipeline Event Loop](./design-patterns.md#pattern-2-pipeline-event-loop) |
+| `multifilesrc loop=true` with MP4/MKV | `no 'moov' atom` or demuxer errors on second iteration — demuxer cannot re-initialize from a raw byte restart | Do not use `multifilesrc loop=true` with MP4 or MKV. Use `filesrc` + EOS-seek-to-start in the bus loop (`loop_count` in `run_pipeline()`). |
 | `valve drop=true` blocks preroll | Pipeline hangs at READY→PLAYING because downstream sinks never receive a buffer | Add `async=false` to the terminal sink (`filesink`, `splitmuxsink`) in valve-gated branches so it does not wait for preroll |
 | `GLib.idle_add` callbacks never fire | Commands dispatched via `GLib.idle_add()` are silently queued but never executed | When using `bus.timed_pop_filtered()` instead of a GLib main loop, pump the default context each iteration — see [Pattern 2: Pipeline Event Loop](./design-patterns.md#pattern-2-pipeline-event-loop) |
 | GitHub LFS video URLs return HTML | `curl -L` on `github.com/.../raw/main/file.mp4` may return an HTML redirect page instead of video data for Git LFS-hosted files | Use Pexels direct video-file URLs or local files from existing samples for default test videos. Fall back to `edge-ai-resources` only if confirmed to work with `curl -L` |

@@ -261,6 +261,10 @@ Model-proc (model processing) JSON files are deprecated; do not use them with in
 |-------------|------|----------|----------------|
 | FP16 | `half=True` (Ultralytics), `--compress_to_fp16` (ovc) | GPU/NPU inference, reduced size | Negligible |
 | INT8 | `int8=True` (Ultralytics) | GPU/NPU inference, reduced size | Negligible |
+
+> **Prefer FP16 or INT8 over FP32.** When multiple precisions are available, select the
+> lowest precision that meets accuracy requirements: INT8 > FP16 > FP32. FP32 should
+> only be used when lower-precision variants are unavailable.
 | INT8 | `--weight-format int8` (optimum-cli) | HuggingFace transformer models | Minor |
 | INT4 | `--weight-format int4` (optimum-cli) | Large LLM/VLM models | Moderate, acceptable for VLMs |
 

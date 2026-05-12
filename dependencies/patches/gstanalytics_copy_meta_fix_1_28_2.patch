@@ -1,0 +1,59 @@
+diff --git a/subprojects/gst-plugins-bad/gst-libs/gst/analytics/gstanalyticsobjectdetectionmtd.c b/subprojects/gst-plugins-bad/gst-libs/gst/analytics/gstanalyticsobjectdetectionmtd.c
+index 0add38471c..39b547cb4e 100644
+--- a/subprojects/gst-plugins-bad/gst-libs/gst/analytics/gstanalyticsobjectdetectionmtd.c
++++ b/subprojects/gst-plugins-bad/gst-libs/gst/analytics/gstanalyticsobjectdetectionmtd.c
+@@ -114,6 +114,8 @@ gst_analytics_od_mtd_meta_transform (GstBuffer * transbuf,
+     oddata->y = rect.y;
+     oddata->w = rect.w;
+     oddata->h = rect.h;
++
++    return TRUE;
+   } else if (GST_VIDEO_META_TRANSFORM_IS_SCALE (type)) {
+     GstVideoMetaTransform *trans = data;
+     gint ow, oh, nw, nh;
+@@ -138,11 +140,14 @@ gst_analytics_od_mtd_meta_transform (GstBuffer * transbuf,
+ 
+     oddata->h *= nh;
+     oddata->h /= oh;
+-  } else {
+-    return FALSE;
++
++    return TRUE;
++  } else if (GST_META_TRANSFORM_IS_COPY (type)) {
++    // Data already copied by generic transform function, nothing to do.
++    return TRUE;
+   }
+ 
+-  return TRUE;
++  return FALSE;
+ }
+ 
+ static const GstAnalyticsMtdImpl od_impl = {
+diff --git a/subprojects/gst-plugins-bad/gst-libs/gst/analytics/gstanalyticssegmentationmtd.c b/subprojects/gst-plugins-bad/gst-libs/gst/analytics/gstanalyticssegmentationmtd.c
+index 7fb0a7cfe1..420c4c32fe 100644
+--- a/subprojects/gst-plugins-bad/gst-libs/gst/analytics/gstanalyticssegmentationmtd.c
++++ b/subprojects/gst-plugins-bad/gst-libs/gst/analytics/gstanalyticssegmentationmtd.c
+@@ -463,6 +463,8 @@ gst_analytics_segmentation_mtd_transform (GstBuffer * transbuf,
+     segdata->masks_loc_y = rect.y;
+     segdata->masks_loc_w = rect.w;
+     segdata->masks_loc_h = rect.h;
++
++    return TRUE;
+   } else if (GST_VIDEO_META_TRANSFORM_IS_SCALE (type)) {
+     GstVideoMetaTransform *trans = data;
+     gint ow, oh, nw, nh;
+@@ -484,9 +486,13 @@ gst_analytics_segmentation_mtd_transform (GstBuffer * transbuf,
+     segdata->masks_loc_h *= nh;
+     segdata->masks_loc_h /= oh;
+ 
++    return TRUE;
++  } else if (GST_META_TRANSFORM_IS_COPY (type)) {
++    // Data already copied by generic transform function, nothing to do.
++    return TRUE;
+   }
+ 
+-  return TRUE;
++  return FALSE;
+ }
+ 
+ /**
