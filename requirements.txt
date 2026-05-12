@@ -4,3 +4,6 @@ opencv-python==4.11.0.86
 PyGObject==3.50.0
 setuptools==78.1.1
 typing-extensions==4.15.0
+
+# optimizer-specific deps
+sshkeyboard==2.3.1

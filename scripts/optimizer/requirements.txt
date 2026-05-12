@@ -1,2 +1,0 @@
-PyGObject==3.50.0
-sshkeyboard==2.3.1
