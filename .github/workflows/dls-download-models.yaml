@@ -1,6 +1,8 @@
 name: "[DLS] Models sync status check"
 run-name: "[DLS] Models sync status check (by @${{ github.actor }} via ${{ github.event_name }})"
 on:
+  schedule:
+    - cron: '0 6 * * 1'
   workflow_dispatch:
 
 permissions: {}

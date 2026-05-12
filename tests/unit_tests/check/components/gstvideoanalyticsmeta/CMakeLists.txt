@@ -1,5 +1,5 @@
 # ==============================================================================
-# Copyright (C) 2018-2025 Intel Corporation
+# Copyright (C) 2018-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
@@ -19,6 +19,8 @@ set(TEST_SOURCES
     video_frame_test.cpp
     region_of_interest_test.cpp
     tensor_test.cpp
+    tensor_convert_test.cpp
+    keypoint_descriptor_test.cpp
 )
 
 add_executable(${TARGET_NAME} ${TEST_SOURCES})
