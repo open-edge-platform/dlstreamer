@@ -214,7 +214,7 @@ Each file includes:
 - Detection bounding boxes (via gvawatermark)
 - H.264 encoding for efficient storage
   - **CPU**: Uses x264enc software encoder
-  - **GPU**: Uses d3d11h264enc hardware encoder for better performance
+  - **GPU**: Uses mfh264enc hardware encoder for better performance
 
 **Use case**: Visual verification, archival, demo videos
 
