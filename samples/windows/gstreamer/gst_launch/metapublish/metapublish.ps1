@@ -76,12 +76,10 @@ $MODEL2_PROC = (Join-Path $SCRIPTDIR "model_proc\age-gender-recognition-retail-0
 
 if (-not (Test-Path ($MODEL1_PATH -replace '/', '\'))) {
     Write-Host "ERROR: Face detection model not found: $MODEL1_PATH" -ForegroundColor Red
-    Write-Host "Please run download_public_models.bat to download the models first."
     exit 1
 }
 if (-not (Test-Path ($MODEL2_PATH -replace '/', '\'))) {
     Write-Host "ERROR: Age-gender model not found: $MODEL2_PATH" -ForegroundColor Red
-    Write-Host "Please run download_public_models.bat to download the models first."
     exit 1
 }
 

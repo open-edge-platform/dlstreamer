@@ -37,8 +37,6 @@ The sample supports YOLO detection models:
 - **yolo11s** - Newest YOLO variant
 - **yolo26s** - Latest generation
 
-> **NOTE**: Before running samples (including this one), run script `download_public_models.bat` once (the script located in `samples` top folder) to download all models required for this and other samples.
-
 ## Usage
 
 ### Dual-Device Mode

@@ -105,7 +105,6 @@ function Get-ModelInfo {
     # Check if model exists
     if (-not (Test-Path ($ModelPath -replace '/', '\'))) {
         Write-Host "ERROR: Model not found: $ModelPath" -ForegroundColor Red
-        Write-Host "Please run download_public_models.bat to download the models first."
         exit 1
     }
 

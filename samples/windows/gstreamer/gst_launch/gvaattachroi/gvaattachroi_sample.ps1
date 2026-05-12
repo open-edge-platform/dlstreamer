@@ -52,7 +52,6 @@ $MODEL_PATH = $MODEL_PATH -replace '\\', '/'
 # Check if model exists
 if (-not (Test-Path ($MODEL_PATH -replace '/', '\'))) {
     Write-Host "ERROR: Model not found: $MODEL_PATH" -ForegroundColor Red
-    Write-Host "Please run download_public_models.bat to download the models first."
     exit 1
 }
 
