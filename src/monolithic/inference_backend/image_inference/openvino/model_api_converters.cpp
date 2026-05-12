@@ -843,9 +843,13 @@ std::map<std::string, GstStructure *> get_model_info_postproc(const std::shared_
 
     for (auto &element : modelConfig) {
         if (element.first.find("model_type") != std::string::npos) {
+            std::string converter_name = element.second.as<std::string>();
+            if (converter_name == "Segmentation")
+                converter_name = "semantic_segmentation";
+
             GValue gvalue = G_VALUE_INIT;
             g_value_init(&gvalue, G_TYPE_STRING);
-            g_value_set_string(&gvalue, element.second.as<std::string>().c_str());
+            g_value_set_string(&gvalue, converter_name.c_str());
             gst_structure_set_value(s, "converter", &gvalue);
             GST_INFO("[get_model_info_postproc] model_type: %s", element.second.as<std::string>().c_str());
             GST_INFO("[get_model_info_postproc] converter: %s", g_value_get_string(&gvalue));

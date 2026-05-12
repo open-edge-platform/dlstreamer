@@ -28,10 +28,10 @@
 #endif
 
 #include "dlstreamer/gst/metadata/gstanalyticskeypointmtd.h"
-#include "dlstreamer/gst/metadata/gstvideometa_matrix.h"
+#include <gst/video/gstvideometa.h>
 #include <gst/video/video.h>
 
-GST_DEBUG_CATEGORY_EXTERN(gst_analytics_relation_meta_debug);
+G_GNUC_INTERNAL GST_DEBUG_CATEGORY(gst_analytics_relation_meta_debug);
 #define GST_CAT_DEFAULT gst_analytics_relation_meta_debug
 
 /**

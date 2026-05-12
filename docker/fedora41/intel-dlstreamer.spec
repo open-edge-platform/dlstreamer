@@ -15,6 +15,7 @@ AutoReqProv:    no
 Requires: glib2-devel
 Requires: libjpeg-turbo
 Requires: libdrm
+Requires: libdrm-devel
 Requires: wayland-devel
 Requires: libX11
 Requires: libpng

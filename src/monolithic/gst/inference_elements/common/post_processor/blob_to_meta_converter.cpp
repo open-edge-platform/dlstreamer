@@ -84,6 +84,7 @@ std::string checkOnNameDeprecation(const std::string &converter_name) {
     const std::string GetiDetection = "ssd";
     const std::string GetiClassification = "Classification";
     const std::string GetiInstanceSegmentation = "MaskRCNN";
+    const std::string GetiSemanticSegmentation = "Segmentation";
     const std::string GetiOBB = "rotated_detection";
     const std::unordered_map<std::string, std::string> deprecatedNameToName = {
         {DetectionOutputConverter::getDeprecatedName(), DetectionOutputConverter::getName()},
@@ -98,6 +99,7 @@ std::string checkOnNameDeprecation(const std::string &converter_name) {
         {GetiDetection, BoxesLabelsConverter::getName()},
         {GetiClassification, LabelConverter::getName()},
         {GetiInstanceSegmentation, MaskRCNNConverter::getName()},
+        {GetiSemanticSegmentation, "semantic_segmentation"},
         {GetiOBB, MaskRCNNConverter::getName()},
         {"YOLOv8", YOLOv8Converter::getName()},
         {"YOLOv8-OBB", YOLOv8ObbConverter::getName()},
