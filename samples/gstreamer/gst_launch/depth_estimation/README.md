@@ -12,10 +12,11 @@ The pipeline combines the following elements:
 * `gvadetect` for full-frame object detection with YOLO11n
 * `gvaclassify` for running `Depth-Anything-V2-Small-hf` on detected regions
 * `gvawatermark` for rendering detections on display output
-* `gvametaconvert` and `gvametapublish` for writing depth tensors to JSON output
+* `gvametaconvert` and `gvametapublish` for writing depth metric tensors to JSON output
 * `gvafpscounter` for FPS measurement
 
 The shell script keeps detector and depth-estimator devices independent so you can reproduce pipelines such as GPU detection with GPU depth estimation, or GPU detection with CPU depth estimation.
+For each detected ROI, the mean depth value is attached as a classification label. Additional depth metrics are attached as a `depth_metrics` tensor and are included in JSON output modes: center depth, mean depth, median depth, minimum depth, maximum depth, standard deviation, valid pixel count, and valid pixel ratio.
 
 ## Models
 
@@ -24,7 +25,18 @@ This sample expects two OpenVINO IR models:
 * `yolo11n` for object detection
 * `Depth-Anything-V2-Small-hf` for depth estimation
 
-Use the model conversion scripts in [scripts/download_models](../../../../scripts/download_models/README.md) to prepare both models.
+Use the model conversion scripts in [scripts/download_models/](../../../../scripts/download_models/README.md) to prepare both models.
+Before running them, create and activate the dedicated model-download virtual environment described in [scripts/download_models/README.md](../../../../scripts/download_models/README.md):
+
+```sh
+cd /opt/intel/dlstreamer/scripts/download_models
+python3 -m venv .model_download_venv
+source .model_download_venv/bin/activate
+curl -LO https://raw.githubusercontent.com/openvinotoolkit/openvino.genai/refs/heads/releases/2026/0/samples/export-requirements.txt
+pip install -r export-requirements.txt -r requirements.txt
+```
+
+After the models are prepared, you can switch back to your DL Streamer runtime environment and run the sample.
 
 Example commands:
 
@@ -38,10 +50,10 @@ python download_ultralytics_models.py \
 
 python download_hf_models.py \
   --model depth-anything/Depth-Anything-V2-Small-hf \
-  --outdir "${MODELS_PATH}/public/Depth-Anything-V2-Small-hf"
+  --outdir "${MODELS_PATH}/public/"
 ```
 
-The sample resolves the common Ultralytics export layout automatically. If you export models elsewhere, set `DETECTION_MODEL` and `DEPTH_MODEL` to the full `.xml` paths before running the sample.
+The sample resolves the default model locations under `MODELS_PATH` automatically. If your models are stored elsewhere, set the `DETECTION_MODEL` and `DEPTH_MODEL` environment variables to the full `.xml` paths before running the sample.
 
 ## Running
 
@@ -72,7 +84,7 @@ The sample takes four optional parameters:
    Supported values:
    * `display` - render annotated video
    * `fps` - print FPS only
-   * `json` - write depth tensors for the first frame to `output.json`
+   * `json` - write per-object depth metric tensors for the first frame to `output.json`
    * `display-and-json` - render annotated video and write `output.json`
 
 Example runs:
@@ -82,11 +94,7 @@ Example runs:
 ./depth_estimation.sh
 
 # GPU detection + CPU depth estimation with JSON output
-./depth_estimation.sh \
-  /home/labrat/data/4517676-hd_1280_720_30fps.mp4 \
-  GPU \
-  CPU \
-  json
+./depth_estimation.sh sample.mp4 GPU CPU json
 ```
 
 ## Sample Output
@@ -94,8 +102,8 @@ Example runs:
 The sample:
 
 * prints the full `gst-launch-1.0` pipeline before execution
-* renders detections when using display output modes
-* writes per-object depth tensors to `output.json` when using JSON output modes
+* renders detections when using display output modes, with the mean depth for each detected object attached as the ROI classification label
+* writes per-object `depth_metrics` tensors to `output.json` when using JSON output modes, containing center depth, mean depth, median depth, minimum depth, maximum depth, standard deviation, valid pixel count, and valid pixel ratio
 
 ## See also
 

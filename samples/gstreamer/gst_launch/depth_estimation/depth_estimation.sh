@@ -110,16 +110,21 @@ else
   SOURCE_ELEMENT="filesrc location=\"${INPUT}\""
 fi
 
-FRAME_LIMIT_ELEMENT=""
+CONVERSION_ELEMENT=""
 
 if [[ $DETECT_DEVICE == "CPU" ]]; then
-  DECODE_ELEMENT="decodebin3 caps=\"video/x-raw\""
+  DECODE_ELEMENT="decodebin3"
   DETECT_PREPROC="pre-process-backend=opencv"
   DISPLAY_PREFIX=""
 else
-  DECODE_ELEMENT="decodebin3 caps=\"video/x-raw(memory:VAMemory)\""
+  DECODE_ELEMENT="decodebin3"
   DETECT_PREPROC="pre-process-backend=va-surface-sharing"
   DISPLAY_PREFIX="vapostproc ! "
+
+  if [[ $DEPTH_DEVICE == "CPU" ]]; then
+    CONVERSION_ELEMENT="vapostproc ! "
+    DISPLAY_PREFIX=""
+  fi
 fi
 
 if [[ $OUTPUT == "display" ]]; then
@@ -127,8 +132,6 @@ if [[ $OUTPUT == "display" ]]; then
 elif [[ $OUTPUT == "fps" ]]; then
   SINK_ELEMENT="gvafpscounter ! fakesink async=false"
 elif [[ $OUTPUT == "json" ]]; then
-  FRAME_LIMIT_ELEMENT="identity eos-after=1 ! "
-  rm -f output.json
   SINK_ELEMENT="gvametaconvert format=json json-indent=4 add-tensor-data=true ! gvametapublish method=file file-path=output.json ! fakesink async=false"
 elif [[ $OUTPUT == "display-and-json" ]]; then
   rm -f output.json
@@ -139,8 +142,9 @@ else
   exit 1
 fi
 
-PIPELINE="gst-launch-1.0 ${SOURCE_ELEMENT} ! ${DECODE_ELEMENT} ! ${FRAME_LIMIT_ELEMENT}queue ! \
+PIPELINE="gst-launch-1.0 ${SOURCE_ELEMENT} ! ${DECODE_ELEMENT} ! \
 gvadetect model=\"${DETECTION_MODEL}\" device=${DETECT_DEVICE} ${DETECT_PREPROC} ! queue ! \
+${CONVERSION_ELEMENT}queue ! \
 gvaclassify model=\"${DEPTH_MODEL}\" device=${DEPTH_DEVICE} pre-process-backend=opencv skip-raw-tensors=true ! queue ! \
 ${SINK_ELEMENT}"
 
