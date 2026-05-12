@@ -123,6 +123,30 @@ detected on that frame).
 output as `zone_violations` (array of zone ID strings) and
 `tripwire_crossings` (array of `{"tripwire_id": ..., "direction": ...}` objects).
 
+### Object detection + keypoints (pose estimation)
+
+When a pose estimation model runs through `gvadetect`:
+
+```
+gvadetect post-processor
+  │
+  ├─ GstAnalyticsODMtd (person bounding box)
+  │
+  ├─ GstAnalyticsKeypointDescriptor lookup("body-pose/coco-17")
+  │     → 17 point names, 18 skeleton edges
+  │
+  ├─ gst_analytics_relation_meta_add_keypoints_group(...)
+  │     → GstAnalyticsGroupMtd(semantic_tag="body-pose/coco-17")
+  │        ├─ 17 × GstAnalyticsKeypointMtd (pixel positions + confidence)
+  │        └─ RELATE_TO relations (skeleton connections)
+  │
+  └─ OD ─CONTAIN→ GroupMtd
+```
+
+The `GstAnalyticsGroupMtd` groups individual keypoints together and carries
+the semantic tag that identifies the keypoint layout. Skeleton connections
+between keypoints are stored as `RELATE_TO` relations within the group.
+
 ## GstAnalyticsZoneMtd
 
 `GstAnalyticsZoneMtd` is a DL Streamer extension added by `gvaanalytics`
@@ -227,29 +251,6 @@ while (gst_analytics_relation_meta_iterate(rmeta, &state,
 }
 ```
 
-### Object detection + keypoints (pose estimation)
-
-When a pose estimation model runs through `gvadetect`:
-
-```
-gvadetect post-processor
-  │
-  ├─ GstAnalyticsODMtd (person bounding box)
-  │
-  ├─ GstAnalyticsKeypointDescriptor lookup("body-pose/coco-17")
-  │     → 17 point names, 18 skeleton edges
-  │
-  ├─ gst_analytics_relation_meta_add_keypoints_group(...)
-  │     → GstAnalyticsGroupMtd(semantic_tag="body-pose/coco-17")
-  │        ├─ 17 × GstAnalyticsKeypointMtd (pixel positions + confidence)
-  │        └─ RELATE_TO relations (skeleton connections)
-  │
-  └─ OD ─CONTAIN→ GroupMtd
-```
-
-The `GstAnalyticsGroupMtd` groups individual keypoints together and carries
-the semantic tag that identifies the keypoint layout. Skeleton connections
-between keypoints are stored as `RELATE_TO` relations within the group.
 
 ## GstAnalyticsKeypointDescriptor
 
