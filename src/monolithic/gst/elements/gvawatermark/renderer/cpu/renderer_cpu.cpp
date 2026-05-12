@@ -39,6 +39,26 @@ const std::vector<cv::Vec3b> PascalVoc21ClColorPalette = {
     cv::Vec3b(0, 64, 128)     // tvmonitor
 };
 
+const std::vector<cv::Vec3b> SemanticSegmentationColorPalette = {
+    cv::Vec3b(128, 128, 128), // background
+    cv::Vec3b(0, 128, 0),     // first foreground class
+    cv::Vec3b(128, 0, 0),     cv::Vec3b(128, 128, 0),   cv::Vec3b(0, 0, 128),  cv::Vec3b(128, 0, 128),
+    cv::Vec3b(0, 128, 128),   cv::Vec3b(128, 128, 128), cv::Vec3b(64, 0, 0),   cv::Vec3b(192, 0, 0),
+    cv::Vec3b(64, 128, 0),    cv::Vec3b(192, 128, 0),   cv::Vec3b(64, 0, 128), cv::Vec3b(192, 0, 128),
+    cv::Vec3b(64, 128, 128),  cv::Vec3b(192, 128, 128), cv::Vec3b(0, 64, 0),   cv::Vec3b(128, 64, 0),
+    cv::Vec3b(0, 192, 0),     cv::Vec3b(128, 192, 0),   cv::Vec3b(0, 64, 128)};
+
+const std::vector<cv::Vec3b> &getSemanticMaskPalette(render::SemanticMaskPalette palette) {
+    switch (palette) {
+    case render::SemanticMaskPalette::SemanticMask:
+        return PascalVoc21ClColorPalette;
+    case render::SemanticMaskPalette::SemanticSegmentation:
+        return SemanticSegmentationColorPalette;
+    }
+
+    return PascalVoc21ClColorPalette;
+}
+
 template <int n>
 void check_planes(const std::vector<cv::Mat> &p) {
     if (p.size() != n) {
@@ -531,10 +551,10 @@ cv::Mat convertClassIndicesToBGR(const cv::Mat &classMap, const std::vector<cv::
     CV_Assert(classMap.channels() == 1);
     cv::Mat colorMap(classMap.size(), CV_8UC3);
     for (int i = 0; i < classMap.rows; ++i) {
-        const double *classRowPtr = classMap.ptr<double>(i);
+        const int32_t *classRowPtr = classMap.ptr<int32_t>(i);
         cv::Vec3b *colorRowPtr = colorMap.ptr<cv::Vec3b>(i);
         for (int j = 0; j < classMap.cols; ++j) {
-            int64_t classIdx = static_cast<int64_t>(classRowPtr[j]);
+            int64_t classIdx = classRowPtr[j];
             colorRowPtr[j] = colorPalette[classIdx];
         }
     }
@@ -542,7 +562,8 @@ cv::Mat convertClassIndicesToBGR(const cv::Mat &classMap, const std::vector<cv::
 }
 
 void RendererBGR::draw_semantic_mask(std::vector<cv::Mat> &mats, render::SemanticSegmantationMask mask) {
-    cv::Mat class_mask{mask.size, CV_64FC1, mask.data.data()};
+    std::vector<int32_t> class_indices(mask.data.begin(), mask.data.end());
+    cv::Mat class_mask(mask.size, CV_32SC1, static_cast<void *>(class_indices.data()));
 
     cv::Rect2i roi(cv::Point2i(cvRound(mask.box.x), cvRound(mask.box.y)),
                    cv::Size2i(cvRound(mask.box.width), cvRound(mask.box.height)));
@@ -550,7 +571,7 @@ void RendererBGR::draw_semantic_mask(std::vector<cv::Mat> &mats, render::Semanti
     cv::Mat resized;
     cv::resize(class_mask, resized, {roi.width, roi.height}, 0, 0, cv::INTER_NEAREST);
 
-    cv::Mat colorMap = convertClassIndicesToBGR(resized, PascalVoc21ClColorPalette);
+    cv::Mat colorMap = convertClassIndicesToBGR(resized, getSemanticMaskPalette(mask.palette));
     colorMap.convertTo(colorMap, mats[0].type());
     if (mats[0].channels() == 4) {
         cv::cvtColor(colorMap, colorMap, cv::COLOR_BGR2BGRA);
