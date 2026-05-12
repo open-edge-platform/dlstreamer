@@ -84,10 +84,11 @@ class BufferToImageMapper final {
         image->drm_format_modifier = tensor0->handle(dlstreamer::tensor::key::drm_modifier, 0);
 #else
         if (_memory_type == MemoryType::D3D11) {
-            image->d3d11_texture = dlstreamer::ptr_cast<dlstreamer::D3D11Tensor>(tensor0)->d3d11_texture();
-            auto gst_d3d_device =
-                static_cast<GstD3D11Device *>(tensor0->context()->handle(dlstreamer::D3D11Context::key::d3d_device));
-            image->d3d11_device = reinterpret_cast<void *>(gst_d3d11_device_get_device_handle(gst_d3d_device));
+            auto d3d11_tensor = dlstreamer::ptr_cast<dlstreamer::D3D11Tensor>(tensor0);
+            image->d3d11_texture = d3d11_tensor->d3d11_texture();
+            image->d3d11_subresource_index = static_cast<uint32_t>(d3d11_tensor->subresource_index());
+            image->gst_d3d11_device = reinterpret_cast<void *>(
+                static_cast<GstD3D11Device *>(tensor0->context()->handle(dlstreamer::D3D11Context::key::d3d_device)));
         }
 #endif
         return image;

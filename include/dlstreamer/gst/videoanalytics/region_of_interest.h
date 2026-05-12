@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2018-2025 Intel Corporation
+ * Copyright (C) 2018-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -12,7 +12,7 @@
 
 #pragma once
 
-#include "../metadata/gstanalyticskeypointsmtd.h"
+#include "../metadata/gstanalyticskeypointmtd.h"
 #include "tensor.h"
 
 #include <cstdint>
@@ -231,8 +231,9 @@ class RegionOfInterest {
         for (GList *l = meta->params; l; l = g_list_next(l)) {
             GstStructure *s = GST_STRUCTURE(l->data);
             const char *type = gst_structure_get_string(s, "type");
-            if (not gst_structure_has_name(s, "object_id") && not gst_structure_has_name(s, "keypoints") &&
-                (type == nullptr || strcmp(type, "classification_result") != 0)) {
+            if (not gst_structure_has_name(s, "object_id") &&
+                (type == nullptr || strcmp(type, GST_ANALYTICS_KEYPOINTS_2_TENSOR) != 0) &&
+                (type == nullptr || strcmp(type, GST_ANALYTICS_CLS_2_TENSOR) != 0)) {
                 _tensors.emplace_back(s);
                 if (_tensors.back().is_detection())
                     _detection = &_tensors.back();

@@ -1,0 +1,5 @@
+PyGObject==3.50.0
+huggingface_hub>=0.20.0
+ultralytics==8.4.3
+opencv-python-headless>=4.8.0
+numpy>=1.24.0
