@@ -18,6 +18,8 @@ upstream
 | `GstAnalyticsKeypointMtd` | Single keypoint (x, y, z, confidence, visibility) |
 | `GstAnalyticsGroupMtd` | Ordered group of metadata |
 | `GstAnalyticsKeypointDescriptor` | Static keypoint layout registry (DL Streamer extension) |
+| `GstAnalyticsZoneMtd` | Zone presence — carries the zone ID string (DL Streamer extension) |
+| `GstAnalyticsTripwireMtd` | Tripwire crossing — carries the tripwire ID and crossing direction (DL Streamer extension) |
 
 ## Metadata flow examples
 
@@ -94,6 +96,136 @@ gvatrack
 The `TrackingMtd` carries the persistent object ID across frames.
 Downstream elements (e.g., `gvawatermark`) read the tracking ID via the
 relation to display it on screen.
+
+### Object detection + tracking + analytics (zones and tripwires)
+
+After `gvadetect ! gvatrack ! gvaanalytics`:
+
+```
+gvadetect
+  └─ ODMtd (label="car", x, y, w, h, confidence)
+
+gvatrack
+  └─ ODMtd ─RELATE_TO→ TrackingMtd (id=42, first_seen, last_seen)
+
+gvaanalytics (when object center is inside a configured zone)
+  └─ ODMtd ─RELATE_TO→ ZoneMtd (zone_id="zone1")
+
+gvaanalytics (when object trajectory crosses a configured tripwire)
+  └─ ODMtd ─RELATE_TO→ TripwireMtd (tripwire_id="wire1", direction=1)
+```
+
+A single detection may relate to multiple `ZoneMtd` entries (one per zone
+it occupies) and zero or more `TripwireMtd` entries (one per crossing
+detected on that frame).
+
+`gvametaconvert` reads these relations and serialises them into the JSON
+output as `zone_violations` (array of zone ID strings) and
+`tripwire_crossings` (array of `{"tripwire_id": ..., "direction": ...}` objects).
+
+## GstAnalyticsZoneMtd
+
+`GstAnalyticsZoneMtd` is a DL Streamer extension added by `gvaanalytics`
+when an object's bounding-box center lies inside a configured zone.
+
+### GstAnalyticsZoneData
+
+The payload stored inside `GstAnalyticsRelationMeta` for each `ZoneMtd` entry:
+
+```C
+struct _GstAnalyticsZoneData {
+    gsize id_len; /* length of id string including null terminator */
+    gchar id[];   /* flexible array member — zone identifier string */
+};
+```
+
+### API
+
+| Function | Description |
+|----------|-------------|
+| `gst_analytics_zone_mtd_get_mtd_type()` | Returns the metadata type ID for `GstAnalyticsZoneMtd`. |
+| `gst_analytics_zone_mtd_get_info(handle, &zone_id)` | Fills `zone_id` (caller-owned string) with the zone identifier. Returns `TRUE` on success. |
+| `gst_analytics_relation_meta_add_zone_mtd(rmeta, zone_id, &zone_mtd)` | Adds a `ZoneMtd` entry to `rmeta`. Returns `TRUE` on success. |
+
+### C example
+
+```C
+gpointer state = NULL;
+GstAnalyticsODMtd od_mtd;
+while (gst_analytics_relation_meta_iterate(rmeta, &state,
+           gst_analytics_od_mtd_get_mtd_type(), &od_mtd)) {
+    GstAnalyticsZoneMtd zone_mtd;
+    gpointer rel_state = NULL;
+    while (gst_analytics_relation_meta_get_direct_related(
+               rmeta, od_mtd.id, GST_ANALYTICS_REL_TYPE_RELATE_TO,
+               gst_analytics_zone_mtd_get_mtd_type(), &rel_state, &zone_mtd)) {
+        gchar *zone_id = NULL;
+        if (gst_analytics_zone_mtd_get_info(&zone_mtd, &zone_id)) {
+            g_print("Object in zone: %s\n", zone_id);
+            g_free(zone_id);
+        }
+    }
+}
+```
+
+## GstAnalyticsTripwireMtd
+
+`GstAnalyticsTripwireMtd` is a DL Streamer extension added by `gvaanalytics`
+when a tracked object's trajectory crosses a configured tripwire line between
+two consecutive frames.
+
+### GstAnalyticsTripwireData
+
+The payload stored inside `GstAnalyticsRelationMeta` for each `TripwireMtd` entry:
+
+```C
+struct _GstAnalyticsTripwireData {
+    gint  direction; /* crossing direction: 1 forward, -1 backward, 0 undefined */
+    gsize id_len;    /* length of id string including null terminator */
+    gchar id[];      /* flexible array member — tripwire identifier string */
+};
+```
+
+### Direction values
+
+| Value | Meaning |
+|-------|---------|
+| `1` | Forward — object crossed from the left-hand side to the right-hand side of the tripwire vector (t1 → t2) |
+| `-1` | Backward — object crossed from the right-hand side to the left-hand side |
+| `0` | Undefined |
+
+For a **vertical** tripwire defined top-to-bottom (`{x,0}` → `{x,height}`),
+`direction=1` means left-to-right and `direction=-1` means right-to-left.
+
+### API
+
+| Function | Description |
+|----------|-------------|
+| `gst_analytics_tripwire_mtd_get_mtd_type()` | Returns the metadata type ID for `GstAnalyticsTripwireMtd`. |
+| `gst_analytics_tripwire_mtd_get_info(handle, &tripwire_id, &direction)` | Fills `tripwire_id` (caller-owned string) and `direction`. Returns `TRUE` on success. |
+| `gst_analytics_relation_meta_add_tripwire_mtd(rmeta, tripwire_id, direction, &tripwire_mtd)` | Adds a `TripwireMtd` entry to `rmeta`. Returns `TRUE` on success. |
+
+### C example
+
+```C
+gpointer state = NULL;
+GstAnalyticsODMtd od_mtd;
+while (gst_analytics_relation_meta_iterate(rmeta, &state,
+           gst_analytics_od_mtd_get_mtd_type(), &od_mtd)) {
+    GstAnalyticsTripwireMtd tw_mtd;
+    gpointer rel_state = NULL;
+    while (gst_analytics_relation_meta_get_direct_related(
+               rmeta, od_mtd.id, GST_ANALYTICS_REL_TYPE_RELATE_TO,
+               gst_analytics_tripwire_mtd_get_mtd_type(), &rel_state, &tw_mtd)) {
+        gchar *tw_id = NULL;
+        gint direction = 0;
+        if (gst_analytics_tripwire_mtd_get_info(&tw_mtd, &tw_id, &direction)) {
+            g_print("Tripwire crossed: %s direction=%d\n", tw_id, direction);
+            g_free(tw_id);
+        }
+    }
+}
+```
 
 ### Object detection + keypoints (pose estimation)
 
