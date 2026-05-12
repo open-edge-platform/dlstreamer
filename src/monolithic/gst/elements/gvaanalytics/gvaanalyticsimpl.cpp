@@ -139,7 +139,10 @@ void process_object_detections(GstBaseTransform *base, GstAnalyticsRelationMeta 
         // Extract object center position from OD metadata (bounding box center)
         gint x, y, w, h;
         gfloat rotation;
-        gst_analytics_od_mtd_get_oriented_location(&od_mtd, &x, &y, &w, &h, &rotation, nullptr);
+        if (!gst_analytics_od_mtd_get_oriented_location(&od_mtd, &x, &y, &w, &h, &rotation, nullptr)) {
+            GST_WARNING_OBJECT(base, "Failed to get OD location, skipping object");
+            continue;
+        }
         Point object_center = {x + w / 2, y + h / 2};
 
         GST_LOG_OBJECT(base, "OD at (%d,%d) size %dx%d, center (%d,%d)", x, y, w, h, object_center.x, object_center.y);
