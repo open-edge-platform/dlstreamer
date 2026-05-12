@@ -159,7 +159,7 @@ function Get-DeviceConfig {
             if ($DeviceName -eq "CPU") {
                 $SinkBase = "gvawatermark ! videoconvert ! x264enc ! h264parse ! mp4mux"
             } else {
-                $SinkBase = "d3d11convert ! gvawatermark ! d3d11h264enc ! h264parse ! mp4mux"
+                $SinkBase = "d3d11convert ! gvawatermark ! mfh264enc ! h264parse ! mp4mux"
             }
         }
         default {
