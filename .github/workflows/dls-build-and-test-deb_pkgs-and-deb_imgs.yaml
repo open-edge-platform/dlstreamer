@@ -138,7 +138,7 @@ jobs:
 
       - name: Log in to GitHub Container Registry
         if: needs.setup.outputs.should_run == 'true'
-        uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 #4.0.0
+        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 #4.1.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -245,7 +245,7 @@ jobs:
             --image-name="${deb_final_testing_img}"
 
       - name: Upload Docker test results
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f #7.0.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a #7.0.1
         if: needs.setup.outputs.should_run == 'true' && steps.run_docker_tests.outcome == 'success'
         with:
           name: DLS_functional_tests_${{ matrix.runner_print_label }}_docker_${{ matrix.ubuntu_version }}_results
@@ -321,7 +321,7 @@ jobs:
           fi
 
       - name: Upload hello_dlstreamer output video
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f #7.0.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a #7.0.1
         if: always() && needs.setup.outputs.should_run == 'true'
         with:
           name: DLS_hello_dlstreamer_output_video_${{ matrix.runner_print_label }}_${{ matrix.ubuntu_version }}_CPU_yolo11s
@@ -382,7 +382,7 @@ jobs:
           deactivate
 
       - name: Upload host test results
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f #7.0.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a #7.0.1
         if: always() && needs.setup.outputs.should_run == 'true'
         with:
           name: DLS_functional_tests_${{ matrix.runner_print_label }}_on_host_${{ matrix.ubuntu_version }}_results
