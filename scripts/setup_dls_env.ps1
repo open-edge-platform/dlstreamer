@@ -5,9 +5,9 @@
 # SPDX-License-Identifier: MIT
 # ==============================================================================
 
-$GSTREAMER_VERSION = "1.26.11"
-$OPENVINO_VERSION = "2026.0.0"
-$OPENVINO_VERSION_SHORT = "2026.0"
+$GSTREAMER_VERSION = "1.28.2"
+$OPENVINO_VERSION = "2026.1.0"
+$OPENVINO_VERSION_SHORT = "2026.1"
 $GSTREAMER_DEST_FOLDER = "$env:ProgramFiles\gstreamer"
 $OPENVINO_INSTALL_FOLDER = "$env:LOCALAPPDATA\Programs\openvino"
 $DLSTREAMER_TMP = "$env:TEMP\dlstreamer_tmp"
@@ -230,7 +230,8 @@ else {
 # ============================================================================
 # OpenVINO runtime DLLs
 # ============================================================================
-$CURRENT_DIR = (Get-Item .).FullName
+$SCRIPT_DIR = Split-Path -Parent $MyInvocation.MyCommand.Path
+$CURRENT_DIR = $SCRIPT_DIR
 $OPENVINO_SOURCE_FOLDER = $null
 $OPENVINO_NEEDS_DOWNLOAD = $false
 
@@ -299,7 +300,6 @@ else {
 
 Write-Section "Setting User Environment Variables"
 Write-Host 'Setting variables: GST_PLUGIN_PATH, Path (for DLLs)'
-$CURRENT_DIR = (Get-Item .).FullName
 [Environment]::SetEnvironmentVariable('GST_PLUGIN_PATH', "$CURRENT_DIR", [System.EnvironmentVariableTarget]::User)
 $USER_PATH = [Environment]::GetEnvironmentVariable('Path', 'User')
 $pathEntries = $USER_PATH -split ';'
@@ -320,8 +320,7 @@ if (-Not ($pathEntries -contains $GSTREAMER_BIN_DIR)) {
 Update-Path
 $env:GST_PLUGIN_PATH = [System.Environment]::GetEnvironmentVariable('GST_PLUGIN_PATH', 'User')
 
-Write-Host "Path:"
-$env:Path
+$env:Path = "$CURRENT_DIR;" + ($env:Path -replace [regex]::Escape("$CURRENT_DIR;"), '' -replace [regex]::Escape("$CURRENT_DIR"), '')
 Write-Host "GST_PLUGIN_PATH:"
 $env:GST_PLUGIN_PATH
 Write-Section "Done"

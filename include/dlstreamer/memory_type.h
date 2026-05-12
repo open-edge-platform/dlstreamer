@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2018-2025 Intel Corporation
+ * Copyright (C) 2018-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -28,7 +28,6 @@ enum class MemoryType {
     OpenCL = 0x20,
     VAAPI = 0x40,
     GST = 0x80,
-    FFmpeg = 0x100,
     OpenCV = 0x200,
     OpenCVUMat = 0x400,
     OpenVINO = 0x8000,
@@ -52,8 +51,6 @@ inline const char *memory_type_to_string(MemoryType type) {
         return "System";
     case MemoryType::GST:
         return "GStreamer";
-    case MemoryType::FFmpeg:
-        return "FFmpeg";
     case MemoryType::VAAPI:
         return "VASurface";
     case MemoryType::DMA:

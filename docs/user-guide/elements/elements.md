@@ -23,6 +23,7 @@ gst-inspect-1.0 utility.
 |----------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | [g3dradarprocess](./g3dradarprocess.md) | Processes millimeter-wave (mmWave) radar signal data. Performs data reordering, pre-processing, DC (Direct Current) removal, and interfaces with the radar library to generate point clouds, clusters, and tracking data. Attaches custom metadata containing detected reflection points, clustered objects, and tracked targets to each buffer.<br>Example:<br> gst-launch-1.0 multifilesrc location=radar/%06d.bin ! application/octet-stream ! g3dradarprocess radar-config=config.json frame-rate=10 ! fakesink<br> |
 | [g3dlidarparse](./g3dlidarparse.md) | Parses 3D LiDAR binary frames and attaches custom metadata with point cloud data. It reads raw LiDAR frames (BIN/PCD), applies stride/frame-rate thinning, and outputs buffers enriched with LidarMeta (points, frame_id, timestamps, stream_id) for downstream fusion, analytics, or visualization.<br>Example:<br> gst-launch-1.0 multifilesrc location="lidar/%06d.bin" caps=application/octet-stream ! g3dlidarparse stride=5 frame-rate=5 ! fakesink<br> |
+| [g3dinference](./g3dinference.md) | Runs PointPillars 3D object detection on LiDAR point clouds produced by `g3dlidarparse`. It consumes `application/x-lidar` buffers with `LidarMeta`, performs OpenVINO inference, and attaches tensor metadata with flattened 3D detections for downstream processing.<br>Example:<br> gst-launch-1.0 multifilesrc location="lidar/%06d.bin" caps=application/octet-stream ! g3dlidarparse ! g3dinference config=pointpillars_ov_config.json device=CPU ! gvametaconvert add-tensor-data=true format=json json-indent=2 !   gvametapublish file-format=2 file-path=pointpillars.json ! fakesink<br> |
 
 ## Auxiliary plugins
 
@@ -37,7 +38,7 @@ gst-inspect-1.0 utility.
 | [gvapython](./gvapython.md)        | Provides a callback to execute user-defined Python functions on every frame. It is used to augment DL Streamer with user-defined algorithms (e.g. metadata conversion, inference post-processing).<br>Example:<br> gst-launch-1.0 … !  gvaclassify ! gvapython module={gvapython.callback_module.classAge_pp} ! … OUT<br>                                                             |
 | [gvarealsense](./gvarealsense.md) | Provides integration with Intel RealSense cameras, enabling video and depth stream capture for use in GStreamer pipelines. |
 | [gvawatermark](./gvawatermark.md)     | Overlays the metadata on the video frame to visualize the inference results.<br>Example:<br> gst-launch-1.0 … ! decodebin3 ! gvadetect … ! gvawatermark ! … |
-| [gvamotiondetect](./gvamotiondetect.md) | Performs lightweight motion detection on NV12 frames and emits motion ROIs as analytics metadata. Uses VA-API acceleration when VAMemory caps are negotiated, otherwise system-memory path.<br>Example:<br> gst-launch-1.0 … ! vaapih264dec ! gvamotiondetect confirm-frames=2 motion-threshold=0.08 ! gvawatermark ! … |
+| [gvamotiondetect](./gvamotiondetect.md) | Performs lightweight motion detection on NV12 frames and emits motion ROIs as analytics metadata. Uses VA-API acceleration when VAMemory caps are negotiated, otherwise system-memory path.<br>Example:<br> gst-launch-1.0 … ! vah264dec ! gvamotiondetect confirm-frames=2 motion-threshold=0.08 ! gvawatermark ! … |
 
 <!--hide_directive
 :::{toctree}
@@ -53,6 +54,7 @@ gvaaudiotranscribe
 gvagenai
 g3dradarprocess
 g3dlidarparse
+g3dinference
 gvaattachroi
 gvafpscounter
 gvafpsthrottle

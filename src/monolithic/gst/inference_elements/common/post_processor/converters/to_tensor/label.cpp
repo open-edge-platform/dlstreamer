@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2021-2025 Intel Corporation
+ * Copyright (C) 2021-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -171,9 +171,6 @@ LabelConverter::Method method_from_string(const std::string &method_string) {
 // Constructor for LabelConverter, initializes the converter with configuration details.
 LabelConverter::LabelConverter(BlobToMetaConverter::Initializer initializer)
     : BlobToTensorConverter(std::move(initializer)) {
-    if (!raw_tensor_copying->enabled(RawTensorCopyingToggle::id))
-        GVA_WARNING("%s", RawTensorCopyingToggle::deprecation_message.c_str());
-
     GstStructure *s = getModelProcOutputInfo().get();
     const auto method_string = gst_structure_get_string(s, "method");
     if (!method_string) {
@@ -200,7 +197,7 @@ void LabelConverter::ExecuteMethod(const T *data, const std::string &layer_name,
     for (size_t frame_index = 0; frame_index < batch_size; ++frame_index) {
         GVA::Tensor classification_result = createTensor();
 
-        if (!raw_tensor_copying->enabled(RawTensorCopyingToggle::id))
+        if (!skipRawTensors())
             CopyOutputBlobToGstStructure(blob, classification_result.gst_structure(),
                                          BlobToMetaConverter::getModelName().c_str(), layer_name.c_str(), batch_size,
                                          frame_index);
@@ -243,7 +240,7 @@ void LabelConverter::ExecuteMethod(const T *data, const std::string &layer_name,
         /* type - To identify classification tensors among others. */
         /* element_id - To identify model_instance_id. */
         gst_structure_set(classification_result.gst_structure(), "tensor_id", G_TYPE_INT,
-                          safe_convert<int>(frame_index), "type", G_TYPE_STRING, "classification_result", NULL);
+                          safe_convert<int>(frame_index), "type", G_TYPE_STRING, GVA::GST_ANALYTICS_CLS_2_TENSOR, NULL);
         std::vector<GstStructure *> tensors{classification_result.gst_structure()};
         tensors_table[frame_index].push_back(tensors);
     }

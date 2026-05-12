@@ -159,6 +159,9 @@ scale-method        : Scale method to use in pre-preprocessing before inference.
 scheduling-policy   : Scheduling policy across streams sharing same model instance: throughput (select first incoming frame), latency (select frames with earliest presentation time out of the streams sharing same model-instance-id; recommended batch-size less than or equal to the number of streams)
                         flags: readable, writable
                         String. Default: "throughput"
+skip-raw-tensors    : Skip attaching raw classification output tensors to metadata. When false (default), converters may attach both the interpreted results (for example classification labels) and raw tensor payloads copied from the output layer (for example logits). If the add-tensor-data property of gvametaconvert is set to true, raw tensor data is included in the output JSON by gvametapublish. When true, converters still attach interpreted metadata but omit the raw payload, which helps avoid flooding the buffer and JSON output with large tensors such as depth maps.
+                        flags: readable, writable
+                        Boolean. Default: false
 share-va-display-ctx: Whether to share VA Display context across inference elements: true (share context, default), false (do not share context)
                         flags: readable, writable
                         Boolean. Default: true

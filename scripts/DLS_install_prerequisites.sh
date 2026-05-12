@@ -5,10 +5,11 @@
 # SPDX-License-Identifier: MIT
 # ==============================================================================
 
-npu_driver_version_u24_pkg='https://github.com/intel/linux-npu-driver/releases/download/v1.30.0/linux-npu-driver-v1.30.0.20260311-22963593310-ubuntu2404.tar.gz'
+npu_driver_version_u24_pkg='https://github.com/intel/linux-npu-driver/releases/download/v1.32.1/linux-npu-driver-v1.32.1.20260422-24767473183-ubuntu2404.tar.gz'
 npu_driver_version_u22_pkg='https://github.com/intel/linux-npu-driver/releases/download/v1.26.0/linux-npu-driver-v1.26.0.20251125-19665715237-ubuntu2204.tar.gz'
+npu_libze1_version_pkg='https://snapshot.ppa.launchpadcontent.net/kobuk-team/intel-graphics/ubuntu/20260324T100000Z/pool/main/l/level-zero-loader/libze1_1.27.0-1~24.04~ppa2_amd64.deb'
 npu_driver_version_u22="1.26.0"
-npu_driver_version_u24="1.30.0"
+npu_driver_version_u24="1.32.0"
 reinstall_npu_driver='no'  # Default value for reinstalling the NPU driver
 SUDO_PREFIX="sudo"
 
@@ -158,7 +159,7 @@ configure_repository() {
 
     echo "Signing the repository..."
     echo "deb [arch=amd64 signed-by=$new_keyring_path] $repo_url" | $SUDO_PREFIX tee "/etc/apt/sources.list.d/$list_name" > /dev/null
-
+    $SUDO_PREFIX apt update || handle_error "Failed to update package after configuring the repository"
 }
 
 # ***********************************************************************
@@ -355,13 +356,24 @@ get_latest_version_github() {
 
 install_npu() {
     $SUDO_PREFIX rm -rf ./npu_debs
-    mkdir -p ./npu_debs && cd npu_debs || exit
-    $SUDO_PREFIX dpkg --purge --force-remove-reinstreq intel-driver-compiler-npu intel-fw-npu intel-level-zero-npu
-    wget "$npu_driver_version_pkg"
-    tar -xf ./linux-npu-driver-v*
-    $SUDO_PREFIX apt update
-    $SUDO_PREFIX apt install libtbb12
-    $SUDO_PREFIX dpkg -i *.deb
+    mkdir -p ./npu_debs && cd npu_debs || echo_color "Failed to create npu_debs directory" "red"
+    $SUDO_PREFIX dpkg --purge --force-remove-reinstreq intel-driver-compiler-npu intel-fw-npu intel-level-zero-npu 2>/dev/null || true
+    
+    wget "$npu_driver_version_pkg" || echo_color "Failed to download NPU driver" "red"
+    tar -xf linux-npu-driver-v*.tar.* || echo_color "Failed to extract NPU driver" "red"
+    
+    $SUDO_PREFIX apt update || echo_color "Failed to update package list" "red"
+    
+    if [[ "$ubuntu_version" == "24.04" ]]; then
+        wget "$npu_libze1_version_pkg" || echo_color "Failed to download libze1 package" "red"
+        $SUDO_PREFIX apt install -y ./intel-*.deb || echo_color "Failed to install NPU and libze1 packages" "red"
+    elif [[ "$ubuntu_version" == "22.04" ]]; then
+        $SUDO_PREFIX apt-get install -y libtbb12 || echo_color "Failed to install libtbb12" "red"
+        $SUDO_PREFIX dpkg -i *.deb || echo_color "Failed to install NPU packages" "red"
+    else
+        echo_color "Unsupported Ubuntu version: $ubuntu_version" "red"
+        return 1
+    fi
 
     for pkg in intel-driver-compiler-npu intel-fw-npu intel-level-zero-npu; do
         dpkg -s "$pkg" >/dev/null 2>&1 || {
@@ -397,12 +409,9 @@ else
     exit 1
 fi
 
-# Get the CPU family and model information
-cpu_family=$(grep -m 1 'cpu family' /proc/cpuinfo | awk '{print $4}')
-cpu_model=$(grep -m 1 'model' /proc/cpuinfo | awk '{print $3}')
 cpu_model_name=$(lscpu | grep "Model name:" | awk -F: '{print $2}' | xargs)
 
-echo_color "\n CPU is Intel Family $cpu_family Model $cpu_model ($cpu_model_name).\n" "yellow"
+echo_color "\n CPU is ($cpu_model_name).\n" "yellow"
 
 # Choose the package list based on the Ubuntu version
 case "$ubuntu_version" in
@@ -422,25 +431,6 @@ case "$ubuntu_version" in
         ;;
 esac
 
-
-# Check if the CPU is Intel Family 6 Model 189 (Lunar Lake)
-if [[ "$cpu_family" == "6" && "$cpu_model" == "189" ]]; then
-
-    check_kernel_version
-    status=$?
-
-    if [ $status -eq 0 ]; then
-        echo_color " Kernel 6.12 or higher detected." "green"
-    else
-        echo_color "\n WARNING!" "red"
-        echo_color "\n Deep Learning Streamer on Lunar Lake family processors has only been tested with the 6.12 kernel. We strongly recommend updating the kernel version before proceeding." "red"
-        read -p " Quit installation? [y/n] " -n 1 -r
-        echo
-        if [[ $REPLY =~ ^[Yy]$ ]]; then
-            exit
-        fi
-    fi
-fi
 
 #-----------------------STEP 2-------------------------------------------
 
@@ -556,12 +546,9 @@ update_package_lists
 #-------------------------STEP 3-------------------------------------------
 #-----------CHECK IF SYSTEM CONTAINS NPU-------------------------------
 
-if $SUDO_PREFIX dmesg | grep -q 'intel_vpu'
-then
-    # In this case we know that NPU must be present in the system, so we can proceed with the installation
+if $SUDO_PREFIX dmesg | grep -qi intel_vpu || lspci | grep -qi 'Intel.*NPU'; then
     echo_color " This system contains a Neural Processing Unit." "green"
-
-    intel_npu=$(lspci | grep -i 'Intel' | grep 'NPU' | rev | cut -d':' -f1 | rev)
+    intel_npu=1
     line_to_add="export ZE_ENABLE_ALT_DRIVERS=libze_intel_npu.so"
 
     # Define the .bash_profile file path for the current user
@@ -629,7 +616,7 @@ if [ $intel_gpu_driver_state -ne 0 ]; then
 fi
 
 if [ -n "$intel_npu" ]; then
-    echo " - NPU ($intel_npu)"
+    echo " - NPU"
 fi
 
 echo " ---------------------------------------------------"

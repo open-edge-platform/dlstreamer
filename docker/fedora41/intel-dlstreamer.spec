@@ -15,6 +15,7 @@ AutoReqProv:    no
 Requires: glib2-devel
 Requires: libjpeg-turbo
 Requires: libdrm
+Requires: libdrm-devel
 Requires: wayland-devel
 Requires: libX11
 Requires: libpng
@@ -45,7 +46,7 @@ Requires: openexr
 Requires: tbb
 Requires: libsoup3
 Requires: intel-media-driver
-Requires: openvino-2026.0.0
+Requires: openvino-2026.1.0
 
 %description
 This package contains Intel DL Streamer.

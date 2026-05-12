@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2018-2025 Intel Corporation
+ * Copyright (C) 2018-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -80,7 +80,8 @@ void AttachRoi::loadJsonFromFile(const char *filepath) {
                                       json("point_connections"),
                                       json("point_names"),
                                       json("precision"),
-                                      json("format")};
+                                      json("format"),
+                                      json("type")};
 
     auto parse_cb = [&jkeys](int /*depth*/, json::parse_event_t event, json &parsed) {
         if (event != json::parse_event_t::key)
@@ -239,14 +240,14 @@ void attachJsonTensorToTensor(GVA::Tensor &tensor, const nlohmann::json::value_t
     if (nameValueIter != jsonTensor.end())
         tensor.set_name(nameValueIter->get<std::string>());
 
-    const std::string string_keys[] = {"label", "format", "model_name", "layer_name", "converter"};
+    const std::string string_keys[] = {"label", "format", "model_name", "layer_name", "converter", "type"};
     for (const std::string &key : string_keys) {
         auto stringValueIter = jsonTensor.find(key);
         if (stringValueIter != jsonTensor.end())
             tensor.set_string(key, stringValueIter->get<std::string>());
     }
 
-    const std::string string_array_keys[] = {"point_connections", "point_names"};
+    const std::string string_array_keys[] = {"point_names"};
     for (const std::string &key : string_array_keys) {
         auto stringArrayIter = jsonTensor.find(key);
         if (stringArrayIter != jsonTensor.end()) {
@@ -277,18 +278,20 @@ void attachJsonTensorToTensor(GVA::Tensor &tensor, const nlohmann::json::value_t
         }
     }
 
-    const std::string dimsKey = "dims";
-    auto dimsArrayIter = jsonTensor.find(dimsKey);
-    if (dimsArrayIter != jsonTensor.end()) {
-        GValueArray *g_arr = g_value_array_new(1);
-        GValue gvalue = G_VALUE_INIT;
-        g_value_init(&gvalue, G_TYPE_UINT);
-        for (const auto &iter : *dimsArrayIter) {
-            g_value_set_uint(&gvalue, iter.get<guint>());
-            g_value_array_append(g_arr, &gvalue);
+    const std::string uint_array_keys[] = {"dims", "point_connections"};
+    for (const std::string &key : uint_array_keys) {
+        auto uintArrayIter = jsonTensor.find(key);
+        if (uintArrayIter != jsonTensor.end()) {
+            GValueArray *g_arr = g_value_array_new(1);
+            GValue gvalue = G_VALUE_INIT;
+            g_value_init(&gvalue, G_TYPE_UINT);
+            for (const auto &iter : *uintArrayIter) {
+                g_value_set_uint(&gvalue, iter.get<guint>());
+                g_value_array_append(g_arr, &gvalue);
+            }
+            gst_structure_set_array(tensor.gst_structure(), key.c_str(), g_arr);
+            g_value_array_free(g_arr);
         }
-        gst_structure_set_array(tensor.gst_structure(), dimsKey.c_str(), g_arr);
-        g_value_array_free(g_arr);
     }
 }
 

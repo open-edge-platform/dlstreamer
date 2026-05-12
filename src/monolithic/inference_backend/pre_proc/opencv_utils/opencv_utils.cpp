@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2018-2024 Intel Corporation
+ * Copyright (C) 2018-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -30,6 +30,10 @@ int CreateMat(uint8_t *const *planes, uint32_t src_width, uint32_t src_height, i
     case FOURCC_BGRA:
         dst = cv::Mat(safe_convert<int>(src_height), safe_convert<int>(src_width), CV_8UC4, planes[0], stride[0]);
         return FOURCC_BGRA;
+    case FOURCC_RGBX:
+    case FOURCC_RGBA:
+        dst = cv::Mat(safe_convert<int>(src_height), safe_convert<int>(src_width), CV_8UC4, planes[0], stride[0]);
+        return FOURCC_RGBA;
     case FOURCC_BGR:
         dst = cv::Mat(safe_convert<int>(src_height), safe_convert<int>(src_width), CV_8UC3, planes[0], stride[0]);
         return FOURCC_BGR;

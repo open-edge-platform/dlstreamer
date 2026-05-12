@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: MIT
 # ==============================================================================
 """
-DLStreamer <APPLICATION_NAME> pipeline.
+DL Streamer <APPLICATION_NAME> pipeline.
 
 Pipeline:
     filesrc → decodebin3 →
@@ -12,70 +12,49 @@ Pipeline:
     gvametaconvert → gvametapublish (JSON Lines) →
     videoconvert → vah264enc → h264parse → mp4mux → filesink
 
-Supports file, HTTP URL, and RTSP IP camera inputs.
+Supports file and RTSP IP camera inputs.
 """
 
 import argparse
 import os
 import signal
-import subprocess
 import sys
-from pathlib import Path, PurePosixPath
-from urllib.parse import urlparse
+from pathlib import Path
 
 import gi
 
 gi.require_version("Gst", "1.0")
 
-# Prevent GStreamer from forking gst-plugin-scanner (a C subprocess that cannot
-# resolve Python symbols). Scanning in-process lets libgstpython.so find the
-# Python runtime that is already loaded.
-os.environ.setdefault("GST_REGISTRY_FORK", "no")
-
 from gi.repository import GLib, Gst  # pylint: disable=no-name-in-module, wrong-import-position
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 MODELS_DIR = SCRIPT_DIR / "models"
-VIDEOS_DIR = SCRIPT_DIR / "videos"
 RESULTS_DIR = SCRIPT_DIR / "results"
 
-DEFAULT_VIDEO_URL = "<VIDEO_URL>"
+DEFAULT_VIDEO = "<VIDEO_PATH>"
 
 
 # ── helpers ──────────────────────────────────────────────────────────────────
 
 
 def parse_args():
-    p = argparse.ArgumentParser(description="DLStreamer <APPLICATION_NAME>")
+    p = argparse.ArgumentParser(description="DL Streamer <APPLICATION_NAME>")
     p.add_argument(
         "--input",
-        default=DEFAULT_VIDEO_URL,
-        help="Video file path, HTTP URL, or rtsp:// URI",
+        default=DEFAULT_VIDEO,
+        help="Video file path or rtsp:// URI",
     )
     p.add_argument("--device", default="GPU", help="Inference device (default: GPU)")
     p.add_argument("--output-video", default=str(RESULTS_DIR / "output.mp4"))
     p.add_argument("--output-json", default=str(RESULTS_DIR / "results.jsonl"))
+    p.add_argument("--threshold", type=float, default=0.5, help="Detection confidence threshold")
     return p.parse_args()
 
 
-def prepare_input(source: str) -> str:
-    """Download video if HTTP URL; pass through for RTSP or local file."""
+def validate_input(source: str) -> str:
+    """Validate video input path or RTSP URI."""
     if source.startswith("rtsp://"):
         return source
-    if source.startswith(("http://", "https://")):
-        VIDEOS_DIR.mkdir(parents=True, exist_ok=True)
-        name = PurePosixPath(urlparse(source).path).name or "video.mp4"
-        local = VIDEOS_DIR / name
-        if not local.exists():
-            print(f"Downloading video: {source}")
-            subprocess.run([
-                "curl", "-L", "-o", str(local),
-                "-H", "Referer: https://www.pexels.com/",
-                "-H", "User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
-                source,
-            ], check=True, timeout=300)
-            print(f"Saved to: {local}")
-        return str(local)
     if not os.path.isfile(source):
         sys.stderr.write(f"Error: file not found: {source}\n")
         sys.exit(1)
@@ -119,6 +98,7 @@ def run_pipeline(pipeline):
 
     prev = signal.signal(signal.SIGINT, _sigint)
     bus = pipeline.get_bus()
+    print("[pipeline] Compiling models, this may take some time...")
     pipeline.set_state(Gst.State.PLAYING)
     try:
         while True:
@@ -151,8 +131,8 @@ def run_pipeline(pipeline):
 def main():
     args = parse_args()
 
-    # Prepare input
-    input_src = prepare_input(args.input)
+    # Validate input
+    input_src = validate_input(args.input)
 
     # Locate models (adjust glob patterns for your models)
     model_xml = find_model("**/*.xml", "detection")
@@ -169,7 +149,7 @@ def main():
     source_el = build_source(input_src)
 
     pipe = (
-        f"{source_el} ! decodebin3 ! "
+        f"{source_el} ! decodebin3 caps=\"video/x-raw(ANY)\" ! "
         f'gvadetect model="{model_xml}" device={device} '
         f"batch-size=4 threshold={args.threshold} ! queue ! "
         f"gvafpscounter ! gvawatermark ! "

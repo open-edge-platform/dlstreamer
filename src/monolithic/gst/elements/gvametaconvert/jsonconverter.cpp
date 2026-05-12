@@ -13,9 +13,14 @@
 #include "audioconverter.h"
 #endif
 #include "convert_tensor.h"
+#include "g3d_lidar_meta.h"
 #include "g3d_radarprocess_meta.h"
 #include "gva_json_meta.h"
+#include "gva_tensor_meta.h"
 
+#include <dlstreamer/gst/metadata/gstanalyticsgroupmtd.h>
+#include <dlstreamer/gst/metadata/gstanalyticskeypointdescriptor.h>
+#include <dlstreamer/gst/metadata/gstanalyticskeypointmtd.h>
 #include <gst/analytics/analytics.h>
 #include <gst/analytics/gstanalyticsclassificationmtd.h>
 #include <gst/rtp/rtp.h>
@@ -153,6 +158,99 @@ json get_frame_data(GstGvaMetaConvert *converter, GstBuffer *buffer) {
 }
 
 /**
+ * @brief Convert keypoint analytics metadata associated with an object detection to JSON.
+ * Reads keypoints directly from GstAnalyticsRelationMeta (new analytics) rather than legacy metadata.
+ * @param relation_meta The analytics relation meta container
+ * @param od_id The object detection metadata ID to find related keypoint groups for
+ * @return JSON array with keypoints data per group, or empty array if no keypoints found
+ */
+json convert_analytics_keypoints(GstAnalyticsRelationMeta *relation_meta, guint od_id) {
+    json result = json::array();
+    if (!relation_meta)
+        return result;
+
+    gpointer kp_state = nullptr;
+    GstAnalyticsMtd group_handle;
+    while (gst_analytics_relation_meta_get_direct_related(relation_meta, od_id, GST_ANALYTICS_REL_TYPE_CONTAIN,
+                                                          gst_analytics_group_mtd_get_mtd_type(), &kp_state,
+                                                          &group_handle)) {
+        GstAnalyticsGroupMtd *group_mtd = reinterpret_cast<GstAnalyticsGroupMtd *>(&group_handle);
+
+        // Check if this group contains keypoints
+        gpointer probe_state = nullptr;
+        GstAnalyticsMtd probe_member;
+        if (!gst_analytics_group_mtd_iterate(group_mtd, &probe_state, gst_analytics_keypoint_mtd_get_mtd_type(),
+                                             &probe_member))
+            continue; // Not a keypoint group
+
+        json jkeypoints = json::object();
+
+        gchar *semantic_tag = gst_analytics_group_mtd_get_semantic_tag(group_mtd);
+        if (semantic_tag && semantic_tag[0] != '\0')
+            jkeypoints["semantic_tag"] = semantic_tag;
+
+        const GstAnalyticsKeypointDescriptor *descriptor =
+            semantic_tag ? gst_analytics_keypoint_descriptor_lookup(semantic_tag) : nullptr;
+        g_free(semantic_tag);
+
+        // Read all keypoints from group members
+        json points = json::array();
+        std::vector<guint> kp_ids;
+        gpointer member_state = nullptr;
+        GstAnalyticsMtd member;
+        gsize idx = 0;
+
+        while (gst_analytics_group_mtd_iterate(group_mtd, &member_state, gst_analytics_keypoint_mtd_get_mtd_type(),
+                                               &member)) {
+            GstAnalyticsKeypointMtd *kp = reinterpret_cast<GstAnalyticsKeypointMtd *>(&member);
+            gint px, py, pz;
+            GstAnalyticsKeypointDimensions dim;
+            gst_analytics_keypoint_mtd_get_position(kp, &px, &py, &pz, &dim);
+
+            gfloat conf;
+            gst_analytics_keypoint_mtd_get_confidence(kp, &conf);
+
+            json point = json::object();
+            point["index"] = idx;
+            if (descriptor && idx < descriptor->point_count)
+                point["name"] = descriptor->point_names[idx];
+            point["x"] = px;
+            point["y"] = py;
+            if (dim == GST_ANALYTICS_KEYPOINT_DIMENSIONS_3D)
+                point["z"] = pz;
+            point["confidence"] = conf;
+
+            points.push_back(point);
+            kp_ids.push_back(member.id);
+            idx++;
+        }
+
+        jkeypoints["points"] = points;
+
+        // Reconstruct skeleton from RELATE_TO relations between keypoints
+        json skeleton = json::array();
+        for (gsize i = 0; i < kp_ids.size(); i++) {
+            for (gsize j = i + 1; j < kp_ids.size(); j++) {
+                GstAnalyticsRelTypes rel =
+                    gst_analytics_relation_meta_get_relation(relation_meta, kp_ids[i], kp_ids[j]);
+                if (!(rel & GST_ANALYTICS_REL_TYPE_RELATE_TO)) {
+                    rel = gst_analytics_relation_meta_get_relation(relation_meta, kp_ids[j], kp_ids[i]);
+                }
+                if (rel & GST_ANALYTICS_REL_TYPE_RELATE_TO) {
+                    skeleton.push_back(json::array({i, j}));
+                }
+            }
+        }
+        if (!skeleton.empty())
+            jkeypoints["skeleton"] = skeleton;
+
+        result.push_back(jkeypoints);
+    }
+
+    return result;
+}
+
+/**
  * @return JSON array which contains ROIs attributes and their detection results.
  * Also contains ROIs classification results if any.
  */
@@ -267,9 +365,29 @@ json convert_roi_detection(GstGvaMetaConvert *converter, GstBuffer *buffer) {
             }
             if (converter->add_tensor_data) {
                 GVA::Tensor s_tensor = GVA::Tensor((GstStructure *)l->data);
-                jobject["tensors"].push_back(convert_tensor(s_tensor));
+                // Skip old legacy keypoint tensors — replaced by analytics-sourced ones below
+                if (s_tensor.type() != GVA::GST_ANALYTICS_KEYPOINTS_2_TENSOR) {
+                    jobject["tensors"].push_back(convert_tensor(s_tensor));
+                }
             }
         }
+
+        // Convert keypoints directly from GstAnalytics (new metadata)
+        GstAnalyticsRelationMeta *relation_meta = gst_buffer_get_analytics_relation_meta(buffer);
+        json jkeypoints = convert_analytics_keypoints(relation_meta, roi.region_id());
+        if (!jkeypoints.empty()) {
+            jobject["keypoints"] = jkeypoints;
+        }
+
+        // Add analytics-sourced keypoint tensor to "tensors" array (replacing legacy tensor)
+        if (converter->add_tensor_data) {
+            for (const auto &tensor : roi.tensors()) {
+                if (tensor.type() == GVA::GST_ANALYTICS_KEYPOINTS_2_TENSOR) {
+                    jobject["tensors"].push_back(convert_tensor(tensor));
+                }
+            }
+        }
+
         if (!jobject.empty()) {
             res.push_back(jobject);
         }
@@ -287,7 +405,7 @@ json convert_frame_tensors(GstGvaMetaConvert *converter, GstBuffer *buffer) {
     const std::vector<GVA::Tensor> tensors = video_frame.tensors();
     json array = json::array();
     for (auto &tensor : video_frame.tensors()) {
-        if (!tensor.has_field("type")) {
+        if (tensor.type() != GVA::GST_ANALYTICS_CLS_2_TENSOR) {
             array.push_back(convert_tensor(tensor));
         }
     }
@@ -499,6 +617,125 @@ json convert_radar_process_meta(GstGvaMetaConvert *converter, GstBuffer *buffer)
     return result;
 }
 
+json get_lidar_frame_data(GstGvaMetaConvert *converter, GstBuffer *buffer, LidarMeta *lidar_meta) {
+    if (!converter || !buffer || !lidar_meta) {
+        if (converter)
+            GST_ERROR_OBJECT(converter, "Unexpected null pointer in get_lidar_frame_data");
+        else
+            GST_ERROR("Unexpected null pointer in get_lidar_frame_data");
+        return json::object();
+    }
+
+    json result = json::object();
+
+    if (converter->source)
+        result["source"] = converter->source;
+    if (converter->tags && json::accept(converter->tags))
+        result["tags"] = json::parse(converter->tags);
+
+    if (converter->base_gvametaconvert.segment.format == GST_FORMAT_TIME && GST_CLOCK_TIME_IS_VALID(buffer->pts)) {
+        GstClockTime timestamp =
+            gst_segment_to_stream_time(&converter->base_gvametaconvert.segment, GST_FORMAT_TIME, buffer->pts);
+        if (timestamp != G_MAXUINT64)
+            result["timestamp"] = timestamp;
+    }
+
+    result["lidar_frame"] = json::object({
+        {"frame_id", lidar_meta->frame_id},
+        {"stream_id", lidar_meta->stream_id},
+        {"point_count", lidar_meta->lidar_point_count},
+        {"exit_lidarparse_timestamp", lidar_meta->exit_lidarparse_timestamp},
+        {"exit_g3dinference_timestamp", lidar_meta->exit_g3dinference_timestamp},
+    });
+
+    return result;
+}
+
+bool is_pointpillars_detection_tensor(const GVA::Tensor &tensor) {
+    if (tensor.format() != "pointpillars_3d")
+        return false;
+    if (tensor.layer_name() != "pointpillars_3d_detection")
+        return false;
+
+    const auto dims = tensor.dims();
+    return dims.size() == 2 && dims[1] == 9;
+}
+
+json convert_lidar_detection_tensor(const GVA::Tensor &tensor) {
+    json objects = json::array();
+
+    const auto dims = tensor.dims();
+    if (dims.size() != 2 || dims[1] != 9)
+        return objects;
+
+    const size_t detection_count = dims[0];
+    const size_t detection_width = dims[1];
+    if (detection_count == 0 || !tensor.has_field("data_buffer"))
+        return objects;
+
+    const std::vector<float> data = tensor.data<float>();
+    if (data.size() < detection_count * detection_width) {
+        GST_WARNING(
+            "pointpillars tensor data size (%zu) is smaller than expected (%zu x %zu). returning empty detections.",
+            data.size(), detection_count, detection_width);
+        return objects;
+    }
+
+    for (size_t index = 0; index < detection_count; ++index) {
+        const size_t offset = index * detection_width;
+        json object = json::object({
+            {"bbox_3d",
+             {{"x", data[offset + 0]},
+              {"y", data[offset + 1]},
+              {"z", data[offset + 2]},
+              {"w", data[offset + 3]},
+              {"l", data[offset + 4]},
+              {"h", data[offset + 5]},
+              {"theta", data[offset + 6]}}},
+            {"confidence", data[offset + 7]},
+            {"label_id", static_cast<int>(data[offset + 8])},
+            {"model", {{"type", tensor.model_name()}}},
+        });
+
+        objects.push_back(object);
+    }
+
+    return objects;
+}
+
+json convert_lidar_inference_meta(GstGvaMetaConvert *converter, GstBuffer *buffer) {
+    LidarMeta *lidar_meta = reinterpret_cast<LidarMeta *>(gst_buffer_get_meta(buffer, LIDAR_META_API_TYPE));
+    if (!lidar_meta)
+        return json::object();
+
+    json result = get_lidar_frame_data(converter, buffer, lidar_meta);
+    json objects = json::array();
+    json tensors = json::array();
+
+    gpointer state = NULL;
+    GstGVATensorMeta *tensor_meta = NULL;
+    while ((tensor_meta = GST_GVA_TENSOR_META_ITERATE(buffer, &state))) {
+        GVA::Tensor tensor(tensor_meta->data);
+        if (is_pointpillars_detection_tensor(tensor)) {
+            json detections = convert_lidar_detection_tensor(tensor);
+            for (auto &detection : detections)
+                objects.push_back(detection);
+        }
+
+        if (converter->add_tensor_data && tensor.type() != GVA::GST_ANALYTICS_CLS_2_TENSOR &&
+            tensor.has_field("data_buffer")) {
+            tensors.push_back(convert_tensor(tensor));
+        }
+    }
+
+    if (!objects.empty())
+        result["objects"] = objects;
+    if (!tensors.empty())
+        result["tensors"] = tensors;
+
+    return result;
+}
+
 } // namespace
 
 gboolean to_json(GstGvaMetaConvert *converter, GstBuffer *buffer) {
@@ -527,6 +764,27 @@ gboolean to_json(GstGvaMetaConvert *converter, GstBuffer *buffer) {
                 GST_INFO_OBJECT(converter, "Radar JSON message: %s", json_message.c_str());
             } else {
                 GST_ERROR_OBJECT(converter, "Failed to add GVA JSON meta for radar data");
+            }
+            return TRUE;
+        }
+
+        json lidar_data = convert_lidar_inference_meta(converter, buffer);
+        if (!lidar_data.empty()) {
+            const bool has_objects = lidar_data.contains("objects") && !lidar_data["objects"].empty();
+            const bool has_tensors = lidar_data.contains("tensors") && !lidar_data["tensors"].empty();
+
+            if (!has_objects && !has_tensors && !converter->add_empty_detection_results) {
+                GST_DEBUG_OBJECT(converter, "No LiDAR detections found. Not posting JSON message");
+                return TRUE;
+            }
+
+            std::string json_message = lidar_data.dump(converter->json_indent);
+            GstGVAJSONMeta *json_meta = GST_GVA_JSON_META_ADD(buffer);
+            if (json_meta) {
+                json_meta->message = g_strdup(json_message.c_str());
+                GST_INFO_OBJECT(converter, "LiDAR JSON message: %s", json_message.c_str());
+            } else {
+                GST_ERROR_OBJECT(converter, "Failed to add GVA JSON meta for LiDAR data");
             }
             return TRUE;
         }

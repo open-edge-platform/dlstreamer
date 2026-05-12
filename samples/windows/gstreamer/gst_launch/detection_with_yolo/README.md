@@ -106,62 +106,68 @@ This sample requires the following environment variable to be set:
 - `MODELS_PATH`: Path to the models directory
 
 Example:
-```batch
-set MODELS_PATH=C:\models
+```PowerShell
+$set MODELS_PATH = "C:\models"
 ```
 
 ## Running
 
-```batch
-yolo_detect.bat [MODEL] [DEVICE] [INPUT] [OUTPUT] [PPBKEND] [PRECISION]
+```PowerShell
+.\yolo_detect.ps1 [-Model <model>] [-Device <device>] [-InputSource <path>] [-OutputType <type>] [-PreprocessBackend <backend>] [-Precision <precision>] [-FrameLimiter <element>]
 ```
 
 ### Parameters
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| MODEL | yolox_s | Model name (see supported models above) |
-| DEVICE | GPU | Inference device: CPU, GPU, NPU |
-| INPUT | Pexels video URL | Input video file or URL |
-| OUTPUT | display | Output type: file, display, fps, json, display-and-json |
-| PPBKEND | auto | Pre-processing backend: ie, opencv, d3d11 |
-| PRECISION | INT8 | Model precision: INT8, FP32, FP16 |
+| -Model | yolox_s | Model name (see supported models above) |
+| -Device | GPU | Inference device: CPU, GPU, NPU |
+| -InputSource | Pexels video URL | Input video file or URL |
+| -OutputType | display | Output type: file, display, fps, json, display-and-json |
+| -PreprocessBackend | auto | Pre-processing backend: ie, opencv, d3d11 |
+| -Precision | FP16 | Model precision: INT8, FP32, FP16 |
+| -FrameLimiter | (empty) | Optional GStreamer element to insert after decode (e.g., `" ! identity eos-after=100"`) |
 
 ### Examples
 
 Run with default settings (yolox_s model, GPU, display output):
-```batch
-yolo_detect.bat
+```PowerShell
+.\yolo_detect.ps1
 ```
 
 Run yolo11s model with GPU inference:
-```batch
-yolo_detect.bat yolo11s GPU
+```PowerShell
+.\yolo_detect.ps1 -Model yolo11s -Device GPU
 ```
 
 Run with local video file:
-```batch
-yolo_detect.bat yolo11s GPU C:\videos\test.mp4
+```PowerShell
+.\yolo_detect.ps1 -Model yolo11s -Device GPU -InputSource C:\videos\test.mp4
 ```
 
 Run with CPU and save to file:
-```batch
-yolo_detect.bat yolo11s CPU C:\videos\test.mp4 file
+```PowerShell
+.\yolo_detect.ps1 -Model yolo11s -Device CPU -InputSource C:\videos\test.mp4 -OutputType file
 ```
 
 Run with explicit D3D11 backend:
-```batch
-yolo_detect.bat yolo11s GPU C:\videos\test.mp4 display d3d11
+```PowerShell
+.\yolo_detect.ps1 -Model yolo11s -Device GPU -InputSource C:\videos\test.mp4 -OutputType display -PreprocessBackend d3d11
 ```
 
 Run in FPS-only mode (benchmark):
-```batch
-yolo_detect.bat yolo11s GPU C:\videos\test.mp4 fps
+```PowerShell
+.\yolo_detect.ps1 -Model yolo11s -Device GPU -InputSource C:\videos\test.mp4 -OutputType fps
 ```
 
 Run with FP32 precision:
-```batch
-yolo_detect.bat yolo11s GPU C:\videos\test.mp4 display d3d11 FP32
+```PowerShell
+.\yolo_detect.ps1 -Model yolo11s -Device GPU -InputSource C:\videos\test.mp4 -OutputType display -PreprocessBackend d3d11 -Precision FP32
+```
+
+Process only first 100 frames (for testing/benchmarking):
+```PowerShell
+.\yolo_detect.ps1 -Model yolov8n-seg -Device CPU -InputSource C:\videos\test.mp4 -OutputType json -PreprocessBackend opencv -Precision FP32 -FrameLimiter " ! identity eos-after=100"
 ```
 
 ### Output Types

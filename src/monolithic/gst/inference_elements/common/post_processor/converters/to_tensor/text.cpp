@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2021-2025 Intel Corporation
+ * Copyright (C) 2021-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -44,7 +44,7 @@ TensorsTable TextConverter::convert(const OutputBlobs &output_blobs) {
             for (size_t frame_index = 0; frame_index < batch_size; ++frame_index) {
                 GVA::Tensor classification_result = createTensor();
 
-                if (!raw_tensor_copying->enabled(RawTensorCopyingToggle::id))
+                if (!skipRawTensors())
                     CopyOutputBlobToGstStructure(blob, classification_result.gst_structure(),
                                                  BlobToMetaConverter::getModelName().c_str(), layer_name.c_str(),
                                                  batch_size, frame_index);
@@ -69,7 +69,8 @@ TensorsTable TextConverter::convert(const OutputBlobs &output_blobs) {
                 /* type - To identify classification tensors among others. */
                 /* element_id - To identify model_instance_id. */
                 gst_structure_set(classification_result.gst_structure(), "tensor_id", G_TYPE_INT,
-                                  safe_convert<int>(frame_index), "type", G_TYPE_STRING, "classification_result", NULL);
+                                  safe_convert<int>(frame_index), "type", G_TYPE_STRING,
+                                  GVA::GST_ANALYTICS_CLS_2_TENSOR, NULL);
                 std::vector<GstStructure *> tensors{classification_result.gst_structure()};
                 tensors_table[frame_index].push_back(tensors);
             }

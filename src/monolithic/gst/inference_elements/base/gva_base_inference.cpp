@@ -1365,7 +1365,8 @@ gboolean gva_base_inference_sink_event(GstBaseTransform *trans, GstEvent *event)
     GST_DEBUG_OBJECT(base_inference, "sink_event");
 
     try {
-        if (base_inference->inference && (event->type == GST_EVENT_EOS || event->type == GST_EVENT_FLUSH_STOP)) {
+        if (base_inference->inference && (event->type == GST_EVENT_EOS || event->type == GST_EVENT_FLUSH_STOP) &&
+            base_inference->frame_num > 0) {
             base_inference->inference->FlushInference();
         }
     } catch (const std::exception &e) {

@@ -27,6 +27,7 @@ file (GLOB MAIN_SRC
     gvawatermark/*.cpp
     gvawatermark/renderer/*.cpp
     gvawatermark/renderer/cpu/*.cpp
+    gvawatermark/meta_extractor/*.cpp
     gvawatermark/*.c
     gvawatermark3d/*.cpp
     gvawatermark3d/*.c
@@ -48,6 +49,7 @@ file (GLOB MAIN_HEADERS
     gvawatermark/*.h
     gvawatermark/renderer/*.h
     gvawatermark/renderer/cpu/*.h
+    gvawatermark/meta_extractor/*.h
     gvawatermark3d/*.h
     gvadeskew/*.h
     gvamotiondetect/*.h
@@ -74,6 +76,7 @@ PUBLIC
     gvametaconvert
     gvawatermark
     gvawatermark/renderer
+    gvawatermark/meta_extractor
     gvametaaggregate
     gvawatermark3d
     gvadeskew

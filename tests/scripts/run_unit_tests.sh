@@ -81,7 +81,7 @@ popd
 
 SRC_DIR=$build_dir/..
 
-pushd "$SRC_DIR"/tests/tests_gstgva
+pushd "$SRC_DIR"/tests/unit_tests/tests_gstgva
 py.test --junitxml="$result_path"/python_tests_results.xml || ret_code=$?
 popd
 

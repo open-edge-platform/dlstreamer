@@ -8,6 +8,7 @@
 
 #include "copy_blob_to_gststruct.h"
 #include "inference_backend/logger.h"
+#include "tensor.h"
 
 #include <algorithm>
 #include <exception>
@@ -95,8 +96,9 @@ TensorsTable DetectionAnomalyConverter::convert(const OutputBlobs &output_blobs)
                 classification_result.set_double("confidence", pred_score_normalized);
 
                 gst_structure_set(classification_result.gst_structure(), "tensor_id", G_TYPE_INT,
-                                  safe_convert<int>(frame_index), "type", G_TYPE_STRING, "classification_result",
-                                  "precision", G_TYPE_INT, static_cast<int>(blob->GetPrecision()), NULL);
+                                  safe_convert<int>(frame_index), "type", G_TYPE_STRING,
+                                  GVA::GST_ANALYTICS_CLS_2_TENSOR, "precision", G_TYPE_INT,
+                                  static_cast<int>(blob->GetPrecision()), NULL);
 
                 // Add segmentation mask data if anomaly detected
                 if (pred_label == "Anomaly" && publish_pred_mask) {
