@@ -79,6 +79,14 @@ For the full list of elements, see also `../../../../docs/user-guide/elements/`.
 
 > **Always use `gvawatermark` for overlays.** It renders all `ODMtd` entries from GstAnalytics metadata.
 
+> **FPS annotation on video:** Use `gvawatermark displ-avgfps=true` to overlay the average FPS
+> directly on the output video frames. Requires `gvafpscounter` to be present somewhere in
+> the same pipeline (typically placed after `gvawatermark`):
+> ```
+> gvawatermark displ-avgfps=true ! gvafpscounter ! ...
+> ```
+> Use `gvafpscounter` alone (without `displ-avgfps`) when FPS should only be printed to stdout.
+
 > **Filter overlays by class:** When upstream elements use `object-class=<class>` (e.g.
 > `gvainference ... object-class=person`), set `displ-cfg=show-roi=<class>` on `gvawatermark`
 > to render only matching ROIs. Example: `gvawatermark displ-cfg=show-roi=person`.
