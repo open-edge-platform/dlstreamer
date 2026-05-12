@@ -1,5 +1,5 @@
 # ==============================================================================
-# Copyright (C) 2021-2025 Intel Corporation
+# Copyright (C) 2021-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
@@ -12,15 +12,15 @@ SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 IMAGE_PATH = os.path.join(SCRIPT_DIR, "test_files", "cup.jpg")
 MODULE_PATH = os.path.join(SCRIPT_DIR, "test_files", "test_module.py")
 
-PIPELINE_TEMPLATE = "filesrc location={} ! jpegparse ! vaapijpegdec ! vaapipostproc ! video/x-raw(memory:VASurface),format={} ! gvapython module={} class=MyClassVaapi function={} ! {} fakesink sync=false"
-ENCODERS = ["", "vaapipostproc ! vaapijpegenc !"]
+PIPELINE_TEMPLATE = "filesrc location={} ! jpegparse ! vajpegdec ! vapostproc ! video/x-raw(memory:VAMemory),format={} ! gvapython module={} class=MyClassVaapi function={} ! {} fakesink sync=false"
+ENCODERS = ["", "vapostproc ! vajpegenc !"]
 FORMATS = ["NV12", "I420"]
 READ_FUNC = "read_frame_data"
 WRITE_FUNC = "write_frame_data"
 
 
-class TestGvapythonVaapiMap(unittest.TestCase):
-    def test_gvapython_vaapi_map(self):
+class TestGvapythonVaMap(unittest.TestCase):
+    def test_gvapython_va_map(self):
         for enc in ENCODERS:
             for caps_format in FORMATS:
                 for func_exception in [(READ_FUNC, False), (WRITE_FUNC, True)]:
@@ -32,7 +32,7 @@ class TestGvapythonVaapiMap(unittest.TestCase):
                     pipeline_runner.run_pipeline()
                     if expect_exception:
                         pipeline_runner.assertGreater(
-                            len(pipeline_runner.exceptions), 0, "No exception when mapping VAAPI buffer for writing. Expected at least one.")
+                            len(pipeline_runner.exceptions), 0, "No exception when mapping VA-API buffer for writing. Expected at least one.")
                     else:
                         pipeline_runner.assertEqual(
                             len(pipeline_runner.exceptions), 0, "Exceptions have been caught.")

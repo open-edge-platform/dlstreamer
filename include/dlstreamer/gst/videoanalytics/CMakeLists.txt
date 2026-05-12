@@ -11,6 +11,7 @@ find_package(PkgConfig REQUIRED)
 
 pkg_check_modules(GSTREAMER gstreamer-1.0>=1.16 REQUIRED)
 pkg_check_modules(GSTVIDEO gstreamer-video-1.0>=1.16 REQUIRED)
+pkg_check_modules(GSTALLOCATORS gstreamer-allocators-1.0 REQUIRED)
 pkg_check_modules(GSTANALYTICS gstreamer-analytics-1.0>=1.16 REQUIRED)
 pkg_check_modules(GLIB2 glib-2.0 REQUIRED)
 
@@ -43,6 +44,7 @@ INTERFACE
         dlstreamer_gst_meta
         ${GSTREAMER_LIBRARIES}
         ${GSTVIDEO_LIBRARIES}
+        ${GSTALLOCATORS_LIBRARIES}
         ${GSTANALYTICS_LIBRARIES}
         ${OpenCV_LIBS}
         ${GLIB2_LIBRARIES}

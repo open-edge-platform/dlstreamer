@@ -39,7 +39,7 @@ gst-inspect-1.0 utility.
 | [gvapython](./gvapython.md)        | Provides a callback to execute user-defined Python functions on every frame. It is used to augment DL Streamer with user-defined algorithms (e.g. metadata conversion, inference post-processing).<br>Example:<br> gst-launch-1.0 … !  gvaclassify ! gvapython module={gvapython.callback_module.classAge_pp} ! … OUT<br>                                                             |
 | [gvarealsense](./gvarealsense.md) | Provides integration with Intel RealSense cameras, enabling video and depth stream capture for use in GStreamer pipelines. |
 | [gvawatermark](./gvawatermark.md)     | Overlays the metadata on the video frame to visualize the inference results.<br>Example:<br> gst-launch-1.0 … ! decodebin3 ! gvadetect … ! gvawatermark ! … |
-| [gvamotiondetect](./gvamotiondetect.md) | Performs lightweight motion detection on NV12 frames and emits motion ROIs as analytics metadata. Uses VA-API acceleration when VAMemory caps are negotiated, otherwise system-memory path.<br>Example:<br> gst-launch-1.0 … ! vaapih264dec ! gvamotiondetect confirm-frames=2 motion-threshold=0.08 ! gvawatermark ! … |
+| [gvamotiondetect](./gvamotiondetect.md) | Performs lightweight motion detection on NV12 frames and emits motion ROIs as analytics metadata. Uses VA-API acceleration when VAMemory caps are negotiated, otherwise system-memory path.<br>Example:<br> gst-launch-1.0 … ! vah264dec ! gvamotiondetect confirm-frames=2 motion-threshold=0.08 ! gvawatermark ! … |
 
 <!--hide_directive
 :::{toctree}
