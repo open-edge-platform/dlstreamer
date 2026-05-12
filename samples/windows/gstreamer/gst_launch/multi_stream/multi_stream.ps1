@@ -326,7 +326,9 @@ Write-Host ""
 # Measure execution time
 $StartTime = Get-Date
 
-Invoke-Expression $CMD
+$GstLaunchArgs = @("-e") + $STREAM_PIPELINES
+$Process = Start-Process -FilePath "gst-launch-1.0" -ArgumentList $GstLaunchArgs -NoNewWindow -Wait -PassThru
+$LASTEXITCODE = $Process.ExitCode
 
 $EndTime = Get-Date
 $Duration = ($EndTime - $StartTime).TotalSeconds

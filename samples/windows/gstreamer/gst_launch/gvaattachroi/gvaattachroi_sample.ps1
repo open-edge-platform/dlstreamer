@@ -95,7 +95,7 @@ switch ($OutputType) {
         }
     }
     default {
-        Write-Host "ERROR: Invalid OUTPUT parameter" -ForegroundColor Red
+        Write-Host "ERROR: Invalid -OutputType parameter" -ForegroundColor Red
         Write-Host "Valid values: display, json, fps, display-and-json"
         exit 1
     }

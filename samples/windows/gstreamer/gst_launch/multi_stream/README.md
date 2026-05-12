@@ -8,13 +8,13 @@ The script constructs a multi-stream GStreamer pipeline using `gst-launch-1.0` t
 
 The script now supports **two operation modes**:
 
-### Dual-Device Mode (New, Linux-Compatible)
+### Dual-Device Mode
 Process 4 streams (2+2) across different devices with different models:
 - **Streams 1-2**: Use Device1 + Model1 (share model instance `inf0`)
 - **Streams 3-4**: Use Device2 + Model2 (share model instance `inf1`)
 - **Use case**: Offload work across CPU+GPU, compare models, maximize throughput
 
-### Legacy Single-Device Mode (Backward Compatible)
+### Legacy Single-Device Mode
 Process N streams (1-8) on the same device with the same model:
 - All streams use the same device and model
 - Share single model instance (`shared_model`) for memory efficiency
@@ -101,39 +101,6 @@ Balance load between CPU and GPU for optimal throughput:
 
 All 4 streams use YOLOv8s, but streams 1-2 run on CPU and 3-4 on GPU. Detection results saved to JSON files.
 
-#### 3. All Streams on GPU
-
-Process all 4 streams on GPU:
-```PowerShell
-.\multi_stream.ps1 -DeviceStream12 GPU -DeviceStream34 GPU -Model1 yolov8s -Model2 yolov8s
-```
-
-#### 4. Model Comparison Test
-
-Compare YOLOv8s vs YOLOv9c performance on GPU:
-```PowerShell
-.\multi_stream.ps1 -DeviceStream12 GPU -DeviceStream34 GPU -Model1 yolov8s -Model2 yolov9c -OutputType fps -FrameLimiter " ! identity eos-after=1000"
-```
-
-#### 5. Custom Video Input
-
-Process your own video file:
-```PowerShell
-.\multi_stream.ps1 -InputSource "C:\videos\traffic.mp4" -DeviceStream12 CPU -DeviceStream34 GPU -Model1 yolov8s -Model2 yolov9c
-```
-
-#### 6. NPU Device Support
-
-Process all 4 streams on NPU:
-```PowerShell
-.\multi_stream.ps1 -DeviceStream12 NPU -DeviceStream34 NPU -Model1 yolov8s -Model2 yolov8s -OutputType json
-```
-
-Hybrid NPU+GPU deployment:
-```PowerShell
-.\multi_stream.ps1 -DeviceStream12 NPU -DeviceStream34 GPU -Model1 yolov8s -Model2 yolov9c -OutputType fps
-```
-
 ### Legacy Mode Examples
 
 #### 1. Basic Multi-Stream (Default Settings)
@@ -171,83 +138,11 @@ Process 4 streams and save detection results to JSON:
 
 This creates `multi_stream_1.json`, `multi_stream_2.json`, etc., and combines them into `output.json`.
 
-#### 5. Custom Model
-
-Use YOLOv9 with FP32 precision:
-```PowerShell
-.\multi_stream.ps1 -Device GPU -Model yolov9c -Precision FP32 -NumStreams 2
-```
-
-#### 6. Limited Frames for Testing
-
-Process first 1000 frames per stream:
-```PowerShell
-.\multi_stream.ps1 -Device CPU -NumStreams 4 -FrameLimiter " ! identity eos-after=1000" -OutputType fps
-```
-
-#### 7. Custom Video Input
-
-Process your own video file:
-```PowerShell
-.\multi_stream.ps1 -InputSource "C:\videos\traffic.mp4" -Device CPU -NumStreams 4 -OutputType file
-```
-
-#### 8. Maximum Streams
-
-Test with 8 parallel streams:
-```PowerShell
-.\multi_stream.ps1 -Device GPU -NumStreams 8 -OutputType fps
-```
-
 ## Output Types
-
-### file (Video Files)
-
-Creates separate MP4 files for each stream:
-- Dual-device mode: `multi_stream_1.mp4`, `multi_stream_2.mp4`, `multi_stream_3.mp4`, `multi_stream_4.mp4`
-- Legacy mode: `multi_stream_1.mp4` through `multi_stream_N.mp4` (where N is NumStreams)
-
-Each file includes:
-- Original video
-- Detection bounding boxes (via gvawatermark)
-- H.264 encoding for efficient storage
-  - **CPU**: Uses x264enc software encoder
-  - **GPU**: Uses mfh264enc hardware encoder for better performance
-
-**Use case**: Visual verification, archival, demo videos
-
-### json (Metadata)
-
-Creates JSON files with detection results:
-- Individual files: `multi_stream_1.json`, `multi_stream_2.json`, etc.
-- Combined file: `output.json` (all streams merged)
-
-JSON format (json-lines: one object per line):
-```json
-{"frame_id":10,"timestamp":1234567890,"objects":[{"detection":{"bounding_box":{"x_min":100,"y_min":50,"x_max":200,"y_max":150},"confidence":0.98,"label":"person"}}]}
-{"frame_id":11,"timestamp":1234567923,"objects":[{"detection":{"bounding_box":{"x_min":105,"y_min":52,"x_max":205,"y_max":152},"confidence":0.97,"label":"person"}}]}
-```
-
-Each line contains:
-- `frame_id`: Frame sequence number
-- `timestamp`: Timestamp in nanoseconds
-- `objects`: Array of detected objects with bounding boxes, confidence scores, and labels
-
-**Use case**: Analytics, post-processing, database insertion
-
-### fps (Performance Metrics)
-
-Displays FPS (frames per second) for each stream:
-```
-Stream 1: 45.2 fps
-Stream 2: 44.8 fps
-Stream 3: 45.0 fps
-Stream 4: 44.5 fps
-```
-
-No file output, minimal overhead.
-
-## Pipeline Architecture
+- file (Video Files)
+- json (Metadata)
+- fps (Performance Metrics)
+- Pipeline Architecture
 
 ### Dual-Device Mode (4 streams: 2+2)
 

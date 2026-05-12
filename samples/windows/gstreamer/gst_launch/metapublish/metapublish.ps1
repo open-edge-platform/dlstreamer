@@ -86,12 +86,10 @@ if (-not (Test-Path ($MODEL2_PATH -replace '/', '\'))) {
 Write-Host ""
 Write-Host "=============================================================================="
 Write-Host "Running Pipeline:"
-$CMD = "gst-launch-1.0 -e $SOURCE_ELEMENT ! decodebin3$FrameLimiter ! gvadetect model=$MODEL1_PATH device=$Device ! queue ! gvaclassify model=$MODEL2_PATH model-proc=$MODEL2_PROC device=$Device ! queue ! gvametaconvert json-indent=$JSON_INDENT ! gvametapublish method=$Method file-format=$Format $OUTPUT_PROPERTY ! fakesink sync=false"
-Write-Host $CMD
-Write-Host "=============================================================================="
-Write-Host ""
+$PIPELINE = "$SOURCE_ELEMENT ! decodebin3$FrameLimiter ! gvadetect model=$MODEL1_PATH device=$Device ! queue ! gvaclassify model=$MODEL2_PATH model-proc=$MODEL2_PROC device=$Device ! queue ! gvametaconvert json-indent=$JSON_INDENT ! gvametapublish method=$Method file-format=$Format $OUTPUT_PROPERTY ! fakesink sync=false"
+Write-Host "gst-launch-1.0 $PIPELINE"
 
-Invoke-Expression $CMD
+cmd /c "gst-launch-1.0 $PIPELINE"
 
 if ($LASTEXITCODE -ne 0) {
     Write-Host "[ERROR] Pipeline failed with exit code $LASTEXITCODE" -ForegroundColor Red

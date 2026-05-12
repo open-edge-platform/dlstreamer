@@ -64,7 +64,7 @@ Use a JSON file to define multiple ROIs. See the example `roi_list.json` file in
 
 **ROI Properties:**
 - `x`, `y`: Top-left corner coordinates (in pixels)
-- `width`, `height`: ROI dimensions (in pixels)
+- `w`, `h`: ROI dimensions (in pixels)
 - `label` (optional): Descriptive name for the ROI
 
 ## Usage
