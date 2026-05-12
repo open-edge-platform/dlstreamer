@@ -502,6 +502,15 @@ See #gst_analytics_relation_meta_add_keypoint_mtd for more details</doc>
       <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_tripwire_meta.h" line="15">Handle to tripwire analytics metadata.
 Provides access to tripwire crossing information (tripwire_id, direction).</doc>
       <source-position filename="include/dlstreamer/gst/metadata/gva_tripwire_meta.h" line="23" />
+      <field name="id" writable="1">
+        <doc xml:space="preserve">Instance identifier</doc>
+        <type name="guint" c:type="guint" />
+      </field>
+      <field name="meta" writable="1">
+        <doc xml:space="preserve">Instance of #GstAnalyticsRelationMeta where the analytics-metadata
+identified by @id is stored.</doc>
+        <type name="GstAnalytics.RelationMeta" c:type="GstAnalyticsRelationMeta*" />
+      </field>
       <method name="get_info" c:identifier="gst_analytics_tripwire_mtd_get_info">
         <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_tripwire_meta.h" line="32">Retrieves tripwire-specific information from the tripwire metadata.</doc>
         <source-position filename="include/dlstreamer/gst/metadata/gva_tripwire_meta.h" line="42" />
@@ -536,6 +545,15 @@ Provides access to tripwire crossing information (tripwire_id, direction).</doc>
       <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_zone_meta.h" line="15">Handle to zone analytics metadata.
 Provides access to zone-related information (zone_id).</doc>
       <source-position filename="include/dlstreamer/gst/metadata/gva_zone_meta.h" line="23" />
+      <field name="id" writable="1">
+        <doc xml:space="preserve">Instance identifier</doc>
+        <type name="guint" c:type="guint" />
+      </field>
+      <field name="meta" writable="1">
+        <doc xml:space="preserve">Instance of #GstAnalyticsRelationMeta where the analytics-metadata
+identified by @id is stored.</doc>
+        <type name="GstAnalytics.RelationMeta" c:type="GstAnalyticsRelationMeta*" />
+      </field>
       <method name="get_info" c:identifier="gst_analytics_zone_mtd_get_info">
         <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_zone_meta.h" line="32">Retrieves zone-specific information from the zone metadata.</doc>
         <source-position filename="include/dlstreamer/gst/metadata/gva_zone_meta.h" line="41" />
