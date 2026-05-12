@@ -20,8 +20,9 @@ bool point_in_polygon(const Point &point, const std::vector<Point> &polygon) {
     bool inside = false;
     for (size_t i = 0, j = polygon.size() - 1; i < polygon.size(); j = i++) {
         if ((polygon[i].y > point.y) != (polygon[j].y > point.y) &&
-            point.x < (polygon[j].x - polygon[i].x) * (point.y - polygon[i].y) / (polygon[j].y - polygon[i].y) +
-                          polygon[i].x) {
+            (double)point.x < (double)(polygon[j].x - polygon[i].x) * (double)(point.y - polygon[i].y) /
+                                      (double)(polygon[j].y - polygon[i].y) +
+                                  (double)polygon[i].x) {
             inside = !inside;
         }
     }
