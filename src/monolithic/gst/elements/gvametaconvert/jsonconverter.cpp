@@ -388,6 +388,24 @@ json convert_roi_detection(GstGvaMetaConvert *converter, GstBuffer *buffer) {
             }
         }
 
+        // Add zone violations and tripwire crossings for this object
+        auto zones = roi.zone_violations();
+        if (!zones.empty()) {
+            jobject["zone_violations"] = zones;
+        }
+
+        auto tripwires = roi.tripwire_crossings();
+        if (!tripwires.empty()) {
+            json jtripwires = json::array();
+            for (const auto &crossing : tripwires) {
+                json jcrossing = json::object();
+                jcrossing["tripwire_id"] = crossing.tripwire_id;
+                jcrossing["direction"] = crossing.direction;
+                jtripwires.push_back(jcrossing);
+            }
+            jobject["tripwire_crossings"] = jtripwires;
+        }
+
         if (!jobject.empty()) {
             res.push_back(jobject);
         }
