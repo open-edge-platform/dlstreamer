@@ -232,7 +232,7 @@ ls /dev/dri/render* /dev/accel/accel* 2>&1
 ```
 Build the actual `docker run` command by **removing** `--device` and `--group-add` lines
 for any device that is missing on the host. Pick the best available inference device
-using priority **NPU → GPU → CPU**. Do **not** change the README — it must stay generic
+using priority **GPU → NPU → CPU**. Do **not** change the README — it must stay generic
 with all devices listed and a note: *"Remove `--device` and `--group-add` lines for devices not present on your system."*
 
 ```bash
