@@ -60,28 +60,7 @@ Example coordinates for a 640x360 video:
 
 ### Method 2: ROI List File (JSON)
 
-Use a JSON file (`roi_list.json`) to define multiple ROIs:
-
-```json
-{
-  "roi_list": [
-    {
-      "x": 100,
-      "y": 100,
-      "width": 200,
-      "height": 150,
-      "label": "road"
-    },
-    {
-      "x": 400,
-      "y": 150,
-      "width": 180,
-      "height": 120,
-      "label": "sidewalk"
-    }
-  ]
-}
-```
+Use a JSON file to define multiple ROIs. See the example `roi_list.json` file in the current directory for the format and structure.
 
 **ROI Properties:**
 - `x`, `y`: Top-left corner coordinates (in pixels)
@@ -209,30 +188,7 @@ This defines a region from (100,150) to (540,360), covering approximately the ce
 
 ## Editing roi_list.json
 
-To modify ROIs, edit `roi_list.json`:
-
-```json
-{
-  "roi_list": [
-    {
-      "x": 50,
-      "y": 100,
-      "width": 300,
-      "height": 200,
-      "label": "entrance"
-    },
-    {
-      "x": 400,
-      "y": 100,
-      "width": 200,
-      "height": 200,
-      "label": "exit"
-    }
-  ]
-}
-```
-
-This example defines two ROIs: one for "entrance" and one for "exit" monitoring.
+To modify ROIs, edit the `roi_list.json` file in the current directory. The file contains example ROI definitions that you can customize for your specific use case.
 
 ## Use Cases
 
@@ -243,15 +199,7 @@ Monitor only the road area, ignoring sidewalks and buildings:
 ```
 
 ### 2. Retail Analytics
-Monitor checkout counters, ignoring aisles:
-```json
-{
-  "roi_list": [
-    {"x": 50, "y": 100, "width": 150, "height": 200, "label": "counter1"},
-    {"x": 250, "y": 100, "width": 150, "height": 200, "label": "counter2"}
-  ]
-}
-```
+Monitor checkout counters, ignoring aisles. Define multiple ROIs in `roi_list.json` for different counter areas.
 
 ## See also
 

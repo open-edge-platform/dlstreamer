@@ -26,7 +26,7 @@ if ($Model -eq "--help" -or $Model -eq "-h") {
     Write-Host "                      Supported: yolox-tiny, yolox_s, yolov5s, yolov5su, yolov7, yolov8s,"
     Write-Host "                                 yolov8n-obb, yolov8n-seg, yolov9c, yolov10s, yolo11s,"
     Write-Host "                                 yolo11s-seg, yolo11s-obb, yolo11s-pose, yolo26n, yolo26s,"
-    Write-Host "                                 yolo26m, yolo26l, yolo26x, yolo26s-obb, yolo26s-seg, yolo26s-pose, yolox_tiny"
+    Write-Host "                                 yolo26m, yolo26l, yolo26x, yolo26s-obb, yolo26s-seg, yolo26s-pose"
     Write-Host "  -Device             Device (default: GPU). Supported: CPU, GPU, NPU"
     Write-Host "  -InputSource        Input source (default: Pexels video URL)"
     Write-Host "  -OutputType         Output type (default: display). Supported: file, display, fps, json, display-and-json"
@@ -48,7 +48,7 @@ Write-Host "MODELS_PATH: $env:MODELS_PATH"
 $MODELS_LIST = @("yolox-tiny", "yolox_s", "yolov5s", "yolov5su", "yolov7", "yolov8s",
                  "yolov8n-obb", "yolov8n-seg", "yolov9c", "yolov10s", "yolo11s",
                  "yolo11s-seg", "yolo11s-obb", "yolo11s-pose", "yolo26n", "yolo26s",
-                 "yolo26m", "yolo26l", "yolo26x", "yolo26s-obb", "yolo26s-seg", "yolo26s-pose", "yolox_tiny")
+                 "yolo26m", "yolo26l", "yolo26x", "yolo26s-obb", "yolo26s-seg", "yolo26s-pose")
 
 if ($MODELS_LIST -notcontains $Model) {
     Write-Host "ERROR: Unsupported model: $Model" -ForegroundColor Red
