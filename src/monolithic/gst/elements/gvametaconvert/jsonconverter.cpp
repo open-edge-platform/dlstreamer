@@ -473,6 +473,9 @@ json convert_frame_classification(GstGvaMetaConvert *converter, GstBuffer *buffe
 
             jobject.push_back(json::object_t::value_type(attribute_name, classification));
         }
+        // TODO: If we later suppress duplicate raw tensors for interpreted classifications, that logic must be scoped
+        // to an explicit backward-compatible contract rather than all tensors with classification-style metadata.
+        // Current behavior intentionally preserves the historical JSON payload for non-depth pipelines.
         if (converter->add_tensor_data) {
             jobject["tensors"].push_back(convert_tensor(tensor));
         }

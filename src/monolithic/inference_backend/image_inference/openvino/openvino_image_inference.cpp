@@ -786,10 +786,9 @@ class OpenVinoNewApiImpl {
     ImageInference::ErrorHandlingFunc _error_handler;
 
     void configure_model(const ConfigHelper &config) {
-
         auto [reshape_width, reshape_height] = config.reshape_size();
         if (config.need_reshape() && (reshape_width || reshape_height))
-            reshape_model(reshape_height, reshape_width, config.reshape_static());
+            reshape_model(config, reshape_height, reshape_width, config.reshape_static());
 
         auto ppp = ov::preprocess::PrePostProcessor(_model);
         configure_model_inputs(config, ppp);
@@ -801,7 +800,7 @@ class OpenVinoNewApiImpl {
         auto [img_width, img_height] = config.image_size();
         if (img_width == 0 && img_height == 0 && config.pp_type() == ImagePreprocessorType::IE) {
             auto [frame_width, frame_height] = config.frame_size();
-            reshape_model(frame_height, frame_width, false);
+            reshape_model(config, frame_height, frame_width, false);
         }
 
         _batch_size = config.batch_size();
@@ -1029,7 +1028,24 @@ class OpenVinoNewApiImpl {
         }
     }
 
-    void reshape_model(size_t image_height, size_t image_width, bool reshape_static) {
+    static size_t get_model_channels_num(const ConfigHelper &config) {
+        const auto &model_format = config.model_format();
+        if (model_format == "GRAYSCALE")
+            return 1;
+        return 3;
+    }
+
+    bool is_image_input(const ConfigHelper &config, const ov::Output<ov::Node> &input) const {
+        const auto inputs_cfg = config.inputs_cfg();
+        const auto cmp_pred = [&](const auto &pair) { return input.get_names().count(pair.first) != 0; };
+        auto it = std::find_if(inputs_cfg.begin(), inputs_cfg.end(), cmp_pred);
+        if (it != inputs_cfg.end())
+            return it->second.data_format == InferenceBackend::KEY_image;
+
+        return _model->inputs().size() == 1;
+    }
+
+    void reshape_model(const ConfigHelper &config, size_t image_height, size_t image_width, bool reshape_static) {
         std::map<ov::Output<ov::Node>, ov::PartialShape> port_to_shape;
 
         for (const ov::Output<ov::Node> &input : _model->inputs()) {
@@ -1047,6 +1063,12 @@ class OpenVinoNewApiImpl {
             } else {
                 shape[ov::layout::height_idx(layout)] = ov::Dimension(1, image_height);
                 shape[ov::layout::width_idx(layout)] = ov::Dimension(1, image_width);
+            }
+
+            if (is_image_input(config, input)) {
+                const auto channels_idx = ov::layout::channels_idx(layout);
+                if (channels_idx >= 0 && shape[channels_idx].is_dynamic())
+                    shape[channels_idx] = get_model_channels_num(config);
             }
 
             GVA_INFO("Reshaping model input %s from %s to %s", input.get_any_name().c_str(),
@@ -1393,6 +1415,8 @@ void OpenVINOImageInference::ApplyInputPreprocessors(
     ITT_TASK(__FUNCTION__);
     assert(request && "Batch request is null");
 
+    const size_t batch_index = request->buffers.size();
+
     for (const auto &preprocessor : input_preprocessors) {
         if (preprocessor.second == nullptr)
             continue;
@@ -1404,7 +1428,10 @@ void OpenVINOImageInference::ApplyInputPreprocessors(
 
         const auto &model_inputs = _impl->_model->inputs();
         std::shared_ptr<OpenvinoInputTensor> intput_tensor = nullptr;
-        if (model_inputs.size() == 1) {
+        if ((preprocessor.first == KEY_image) && (model_inputs.size() == 1) && !request->in_tensors.empty() &&
+            !request->in_tensors.front().empty()) {
+            intput_tensor = std::make_shared<OpenvinoInputTensor>(request->in_tensors.front().front(), batch_index);
+        } else if (model_inputs.size() == 1) {
             intput_tensor = std::make_shared<OpenvinoInputTensor>(request->infer_request_new.get_input_tensor());
         } else {
             intput_tensor =
@@ -1434,9 +1461,6 @@ void OpenVINOImageInference::SubmitImage(
                 frame->GetImageTransformationParams()     // during CIPP will be filling of crop and aspect-ratio
                                                           // parameters
             );
-            // After running this function self-managed image memory appears, and the old image memory can be
-            // released
-            frame->SetImage(nullptr);
         } else {
             BypassImageProcessing(image_layer, request, *frame->GetImage(), safe_convert<size_t>(batch_size));
         }
@@ -1523,7 +1547,10 @@ void OpenVINOImageInference::Flush() {
 
         if (request->buffers.size() > 0) {
             try {
-                // WA: Fill non-complete batch with last element. Can be removed once supported in OV
+                // WA: Fill non-complete batch with last element for bypass preprocessing only.
+                // When software preprocessing is used, frames are written directly into the infer-request-owned
+                // batched tensor, so any unfilled tail slots in the last partial batch already contain data from a
+                // previous request reuse.
                 if (batch_size > 1 && !DoNeedImagePreProcessing(nullptr)) {
                     size_t input_idx = 0;
                     for (auto &input_vec : request->in_tensors) {
