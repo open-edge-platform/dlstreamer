@@ -403,7 +403,7 @@ audio encoder, PTZ configuration, and RTSP URL.
     "cam1": {
         "hostname": "192.168.1.100",
         "port": 80,
-        "definition": " ! rtph264depay ! h264parse ! vaapih264dec ! vaapipostproc ! autovideosink"
+        "definition": " ! rtph264depay ! h264parse ! vah264dec ! vapostproc ! autovideosink"
     }
 }
 ```
