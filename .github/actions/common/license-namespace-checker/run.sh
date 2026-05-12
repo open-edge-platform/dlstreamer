@@ -25,10 +25,8 @@ git config --global --add safe.directory "${SOURCE_DIR}"
 THIRD_PARTY_FILES=(
     "include/dlstreamer/gst/metadata/gstanalyticsgroupmtd.h"
     "include/dlstreamer/gst/metadata/gstanalyticskeypointmtd.h"
-    "include/dlstreamer/gst/metadata/gstvideometa_matrix.h"
     "src/gst/metadata/gstanalyticsgroupmtd.c"
     "src/gst/metadata/gstanalyticskeypointmtd.c"
-    "src/gst/metadata/gstvideometa_matrix.c"
 )
 
 pushd "${SOURCE_DIR}"
