@@ -124,12 +124,12 @@ if ($RoiCoords -ne "") {
 Write-Host ""
 Write-Host "=============================================================================="
 Write-Host "Running Pipeline:"
-$CMD = "gst-launch-1.0 -e $SOURCE_ELEMENT ! decodebin3$FrameLimiter ! $ROI_ELEMENT ! gvadetect inference-region=1 model=$MODEL_PATH device=$Device pre-process-backend=$PREPROC_BACKEND ! queue ! $SINK_STR"
-Write-Host $CMD
+$PIPELINE = "$SOURCE_ELEMENT ! decodebin3$FrameLimiter ! $ROI_ELEMENT ! gvadetect inference-region=1 model=$MODEL_PATH device=$Device pre-process-backend=$PREPROC_BACKEND ! queue ! $SINK_STR"
+Write-Host "gst-launch-1.0 -e $PIPELINE"
 Write-Host "=============================================================================="
 Write-Host ""
 
-Invoke-Expression $CMD
+cmd /c "gst-launch-1.0 -e $PIPELINE"
 
 if ($LASTEXITCODE -ne 0) {
     Write-Host "[ERROR] Pipeline failed with exit code $LASTEXITCODE" -ForegroundColor Red
