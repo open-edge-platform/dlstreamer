@@ -53,3 +53,9 @@ gboolean gst_analytics_relation_meta_add_zone_mtd(GstAnalyticsRelationMeta *rela
 
     return TRUE;
 }
+
+gboolean gst_analytics_relation_meta_get_zone_mtd(GstAnalyticsRelationMeta *meta, guint an_meta_id,
+                                                  GstAnalyticsZoneMtd *rlt) {
+    return gst_analytics_relation_meta_get_mtd(meta, an_meta_id, gst_analytics_zone_mtd_get_mtd_type(),
+                                               (GstAnalyticsZoneMtd *)rlt);
+}

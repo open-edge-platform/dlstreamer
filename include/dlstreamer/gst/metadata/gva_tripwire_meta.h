@@ -20,10 +20,7 @@ G_BEGIN_DECLS
  * Handle to tripwire analytics metadata.
  * Provides access to tripwire crossing information (tripwire_id, direction).
  */
-typedef struct {
-    guint id;                       /**< Instance identifier */
-    GstAnalyticsRelationMeta *meta; /**< Parent analytics relation metadata */
-} GstAnalyticsTripwireMtd;
+typedef struct _GstAnalyticsMtd GstAnalyticsTripwireMtd;
 
 /**
  * gst_analytics_tripwire_mtd_get_mtd_type:
@@ -60,5 +57,18 @@ DLS_EXPORT gboolean gst_analytics_tripwire_mtd_get_info(const GstAnalyticsTripwi
 DLS_EXPORT gboolean gst_analytics_relation_meta_add_tripwire_mtd(GstAnalyticsRelationMeta *relation_meta,
                                                                  const gchar *tripwire_id, gint direction,
                                                                  GstAnalyticsTripwireMtd *tripwire_mtd);
+
+/**
+ * gst_analytics_relation_meta_get_tripwire_mtd:
+ * @meta: A #GstAnalyticsRelationMeta instance.
+ * @an_meta_id: Id of the tripwire metadata to retrieve.
+ * @rlt: (out): Pointer to #GstAnalyticsTripwireMtd to be filled.
+ *
+ * Retrieves tripwire metadata by its ID from the analytics relation metadata.
+ *
+ * Returns: TRUE if the tripwire metadata was found and @rlt was filled, FALSE otherwise.
+ */
+DLS_EXPORT gboolean gst_analytics_relation_meta_get_tripwire_mtd(GstAnalyticsRelationMeta *meta, guint an_meta_id,
+                                                                 GstAnalyticsTripwireMtd *rlt);
 
 G_END_DECLS

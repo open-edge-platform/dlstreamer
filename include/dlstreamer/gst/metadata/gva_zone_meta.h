@@ -20,10 +20,7 @@ G_BEGIN_DECLS
  * Handle to zone analytics metadata.
  * Provides access to zone-related information (zone_id).
  */
-typedef struct {
-    guint id;                       /**< Instance identifier */
-    GstAnalyticsRelationMeta *meta; /**< Parent analytics relation metadata */
-} GstAnalyticsZoneMtd;
+typedef struct _GstAnalyticsMtd GstAnalyticsZoneMtd;
 
 /**
  * gst_analytics_zone_mtd_get_mtd_type:
@@ -55,5 +52,18 @@ DLS_EXPORT gboolean gst_analytics_zone_mtd_get_info(const GstAnalyticsZoneMtd *h
  */
 DLS_EXPORT gboolean gst_analytics_relation_meta_add_zone_mtd(GstAnalyticsRelationMeta *relation_meta,
                                                              const gchar *zone_id, GstAnalyticsZoneMtd *zone_mtd);
+
+/**
+ * gst_analytics_relation_meta_get_zone_mtd:
+ * @meta: A #GstAnalyticsRelationMeta instance.
+ * @an_meta_id: Id of the zone metadata to retrieve.
+ * @rlt: (out): Pointer to #GstAnalyticsZoneMtd to be filled.
+ *
+ * Retrieves zone metadata by its ID from the analytics relation metadata.
+ *
+ * Returns: TRUE if the zone metadata was found and @rlt was filled, FALSE otherwise.
+ */
+DLS_EXPORT gboolean gst_analytics_relation_meta_get_zone_mtd(GstAnalyticsRelationMeta *meta, guint an_meta_id,
+                                                             GstAnalyticsZoneMtd *rlt);
 
 G_END_DECLS

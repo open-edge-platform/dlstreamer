@@ -498,6 +498,70 @@ See #gst_analytics_relation_meta_add_keypoint_mtd for more details</doc>
   projected by the analysis.</doc>
       </member>
     </bitfield>
+    <record name="TripwireMtd" c:type="GstAnalyticsTripwireMtd">
+      <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_tripwire_meta.h" line="15">Handle to tripwire analytics metadata.
+Provides access to tripwire crossing information (tripwire_id, direction).</doc>
+      <source-position filename="include/dlstreamer/gst/metadata/gva_tripwire_meta.h" line="23" />
+      <method name="get_info" c:identifier="gst_analytics_tripwire_mtd_get_info">
+        <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_tripwire_meta.h" line="32">Retrieves tripwire-specific information from the tripwire metadata.</doc>
+        <source-position filename="include/dlstreamer/gst/metadata/gva_tripwire_meta.h" line="42" />
+        <return-value transfer-ownership="none">
+          <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_tripwire_meta.h" line="40">TRUE if the tripwire data was successfully retrieved, FALSE otherwise.</doc>
+          <type name="gboolean" c:type="gboolean" />
+        </return-value>
+        <parameters>
+          <instance-parameter name="handle" transfer-ownership="none">
+            <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_tripwire_meta.h" line="34">A #GstAnalyticsTripwireMtd handle.</doc>
+            <type name="TripwireMtd" c:type="const GstAnalyticsTripwireMtd*" />
+          </instance-parameter>
+          <parameter name="tripwire_id" direction="out" caller-allocates="0" transfer-ownership="full" nullable="1">
+            <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_tripwire_meta.h" line="35">Tripwire identifier string.</doc>
+            <type name="utf8" c:type="gchar**" />
+          </parameter>
+          <parameter name="direction" direction="out" caller-allocates="0" transfer-ownership="full" nullable="1">
+            <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_tripwire_meta.h" line="36">Crossing direction (-1 backward, 0 undefined, 1 forward).</doc>
+            <type name="gint" c:type="gint*" />
+          </parameter>
+        </parameters>
+      </method>
+      <function name="get_mtd_type" c:identifier="gst_analytics_tripwire_mtd_get_mtd_type">
+        <source-position filename="include/dlstreamer/gst/metadata/gva_tripwire_meta.h" line="30" />
+        <return-value transfer-ownership="none">
+          <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_tripwire_meta.h" line="28">The metadata type ID for GstAnalyticsTripwireMtd.</doc>
+          <type name="GstAnalytics.MtdType" c:type="GstAnalyticsMtdType" />
+        </return-value>
+      </function>
+    </record>
+    <record name="ZoneMtd" c:type="GstAnalyticsZoneMtd">
+      <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_zone_meta.h" line="15">Handle to zone analytics metadata.
+Provides access to zone-related information (zone_id).</doc>
+      <source-position filename="include/dlstreamer/gst/metadata/gva_zone_meta.h" line="23" />
+      <method name="get_info" c:identifier="gst_analytics_zone_mtd_get_info">
+        <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_zone_meta.h" line="32">Retrieves zone-specific information from the zone metadata.</doc>
+        <source-position filename="include/dlstreamer/gst/metadata/gva_zone_meta.h" line="41" />
+        <return-value transfer-ownership="none">
+          <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_zone_meta.h" line="39">TRUE if the zone data was successfully retrieved, FALSE otherwise.</doc>
+          <type name="gboolean" c:type="gboolean" />
+        </return-value>
+        <parameters>
+          <instance-parameter name="handle" transfer-ownership="none">
+            <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_zone_meta.h" line="34">A #GstAnalyticsZoneMtd handle.</doc>
+            <type name="ZoneMtd" c:type="const GstAnalyticsZoneMtd*" />
+          </instance-parameter>
+          <parameter name="zone_id" direction="out" caller-allocates="0" transfer-ownership="full" nullable="1">
+            <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_zone_meta.h" line="35">Zone identifier string.</doc>
+            <type name="utf8" c:type="gchar**" />
+          </parameter>
+        </parameters>
+      </method>
+      <function name="get_mtd_type" c:identifier="gst_analytics_zone_mtd_get_mtd_type">
+        <source-position filename="include/dlstreamer/gst/metadata/gva_zone_meta.h" line="30" />
+        <return-value transfer-ownership="none">
+          <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_zone_meta.h" line="28">The metadata type ID for GstAnalyticsZoneMtd.</doc>
+          <type name="GstAnalytics.MtdType" c:type="GstAnalyticsMtdType" />
+        </return-value>
+      </function>
+    </record>
     <function name="group_mtd_get_mtd_type" c:identifier="gst_analytics_group_mtd_get_mtd_type" moved-to="GroupMtd.get_mtd_type" version="1.30">
       <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticsgroupmtd.c" line="77">Get an id identifying #GstAnalyticsMtd type.</doc>
       <source-position filename="include/dlstreamer/gst/metadata/gstanalyticsgroupmtd.h" line="46" />
@@ -698,6 +762,55 @@ kp1_idx, kp2_idx, ...] or NULL</doc>
         </parameter>
       </parameters>
     </function>
+    <function name="relation_meta_add_tripwire_mtd" c:identifier="gst_analytics_relation_meta_add_tripwire_mtd">
+      <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_tripwire_meta.h" line="45">Adds tripwire crossing metadata as a relation in the analytics metadata.
+Creates a queryable OD → Tripwire relationship.</doc>
+      <source-position filename="include/dlstreamer/gst/metadata/gva_tripwire_meta.h" line="57" />
+      <return-value transfer-ownership="none">
+        <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_tripwire_meta.h" line="55">TRUE if tripwire metadata was successfully added, FALSE otherwise.</doc>
+        <type name="gboolean" c:type="gboolean" />
+      </return-value>
+      <parameters>
+        <parameter name="relation_meta" transfer-ownership="none">
+          <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_tripwire_meta.h" line="47">A #GstAnalyticsRelationMeta instance.</doc>
+          <type name="GstAnalytics.RelationMeta" c:type="GstAnalyticsRelationMeta*" />
+        </parameter>
+        <parameter name="tripwire_id" transfer-ownership="none">
+          <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_tripwire_meta.h" line="48">Tripwire identifier.</doc>
+          <type name="utf8" c:type="const gchar*" />
+        </parameter>
+        <parameter name="direction" transfer-ownership="none">
+          <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_tripwire_meta.h" line="49">Crossing direction (-1 backward, 0 undefined, 1 forward).</doc>
+          <type name="gint" c:type="gint" />
+        </parameter>
+        <parameter name="tripwire_mtd" direction="out" caller-allocates="1" transfer-ownership="none">
+          <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_tripwire_meta.h" line="50">Pointer to #GstAnalyticsTripwireMtd to be filled.</doc>
+          <type name="TripwireMtd" c:type="GstAnalyticsTripwireMtd*" />
+        </parameter>
+      </parameters>
+    </function>
+    <function name="relation_meta_add_zone_mtd" c:identifier="gst_analytics_relation_meta_add_zone_mtd">
+      <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_zone_meta.h" line="43">Adds zone metadata to the analytics relation metadata.</doc>
+      <source-position filename="include/dlstreamer/gst/metadata/gva_zone_meta.h" line="53" />
+      <return-value transfer-ownership="none">
+        <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_zone_meta.h" line="51">TRUE if zone metadata was successfully added, FALSE otherwise.</doc>
+        <type name="gboolean" c:type="gboolean" />
+      </return-value>
+      <parameters>
+        <parameter name="relation_meta" transfer-ownership="none">
+          <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_zone_meta.h" line="45">A #GstAnalyticsRelationMeta instance.</doc>
+          <type name="GstAnalytics.RelationMeta" c:type="GstAnalyticsRelationMeta*" />
+        </parameter>
+        <parameter name="zone_id" transfer-ownership="none">
+          <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_zone_meta.h" line="46">Zone identifier.</doc>
+          <type name="utf8" c:type="const gchar*" />
+        </parameter>
+        <parameter name="zone_mtd" direction="out" caller-allocates="1" transfer-ownership="none">
+          <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_zone_meta.h" line="47">Pointer to #GstAnalyticsZoneMtd to be filled.</doc>
+          <type name="ZoneMtd" c:type="GstAnalyticsZoneMtd*" />
+        </parameter>
+      </parameters>
+    </function>
     <function name="relation_meta_get_group_mtd" c:identifier="gst_analytics_relation_meta_get_group_mtd" version="1.30">
       <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticsgroupmtd.c" line="439">Retrieve group metadata instance from @meta.</doc>
       <source-position filename="include/dlstreamer/gst/metadata/gstanalyticsgroupmtd.h" line="79" />
@@ -741,6 +854,64 @@ kp1_idx, kp2_idx, ...] or NULL</doc>
           <type name="KeypointMtd" c:type="GstAnalyticsKeypointMtd*" />
         </parameter>
       </parameters>
+    </function>
+    <function name="relation_meta_get_tripwire_mtd" c:identifier="gst_analytics_relation_meta_get_tripwire_mtd">
+      <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_tripwire_meta.h" line="61">Retrieves tripwire metadata by its ID from the analytics relation metadata.</doc>
+      <source-position filename="include/dlstreamer/gst/metadata/gva_tripwire_meta.h" line="71" />
+      <return-value transfer-ownership="none">
+        <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_tripwire_meta.h" line="69">TRUE if the tripwire metadata was found and @rlt was filled, FALSE otherwise.</doc>
+        <type name="gboolean" c:type="gboolean" />
+      </return-value>
+      <parameters>
+        <parameter name="meta" transfer-ownership="none">
+          <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_tripwire_meta.h" line="63">A #GstAnalyticsRelationMeta instance.</doc>
+          <type name="GstAnalytics.RelationMeta" c:type="GstAnalyticsRelationMeta*" />
+        </parameter>
+        <parameter name="an_meta_id" transfer-ownership="none">
+          <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_tripwire_meta.h" line="64">Id of the tripwire metadata to retrieve.</doc>
+          <type name="guint" c:type="guint" />
+        </parameter>
+        <parameter name="rlt" direction="out" caller-allocates="1" transfer-ownership="none">
+          <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_tripwire_meta.h" line="65">Pointer to #GstAnalyticsTripwireMtd to be filled.</doc>
+          <type name="TripwireMtd" c:type="GstAnalyticsTripwireMtd*" />
+        </parameter>
+      </parameters>
+    </function>
+    <function name="relation_meta_get_zone_mtd" c:identifier="gst_analytics_relation_meta_get_zone_mtd">
+      <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_zone_meta.h" line="56">Retrieves zone metadata by its ID from the analytics relation metadata.</doc>
+      <source-position filename="include/dlstreamer/gst/metadata/gva_zone_meta.h" line="66" />
+      <return-value transfer-ownership="none">
+        <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_zone_meta.h" line="64">TRUE if the zone metadata was found and @rlt was filled, FALSE otherwise.</doc>
+        <type name="gboolean" c:type="gboolean" />
+      </return-value>
+      <parameters>
+        <parameter name="meta" transfer-ownership="none">
+          <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_zone_meta.h" line="58">A #GstAnalyticsRelationMeta instance.</doc>
+          <type name="GstAnalytics.RelationMeta" c:type="GstAnalyticsRelationMeta*" />
+        </parameter>
+        <parameter name="an_meta_id" transfer-ownership="none">
+          <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_zone_meta.h" line="59">Id of the zone metadata to retrieve.</doc>
+          <type name="guint" c:type="guint" />
+        </parameter>
+        <parameter name="rlt" direction="out" caller-allocates="1" transfer-ownership="none">
+          <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_zone_meta.h" line="60">Pointer to #GstAnalyticsZoneMtd to be filled.</doc>
+          <type name="ZoneMtd" c:type="GstAnalyticsZoneMtd*" />
+        </parameter>
+      </parameters>
+    </function>
+    <function name="tripwire_mtd_get_mtd_type" c:identifier="gst_analytics_tripwire_mtd_get_mtd_type" moved-to="TripwireMtd.get_mtd_type">
+      <source-position filename="include/dlstreamer/gst/metadata/gva_tripwire_meta.h" line="30" />
+      <return-value transfer-ownership="none">
+        <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_tripwire_meta.h" line="28">The metadata type ID for GstAnalyticsTripwireMtd.</doc>
+        <type name="GstAnalytics.MtdType" c:type="GstAnalyticsMtdType" />
+      </return-value>
+    </function>
+    <function name="zone_mtd_get_mtd_type" c:identifier="gst_analytics_zone_mtd_get_mtd_type" moved-to="ZoneMtd.get_mtd_type">
+      <source-position filename="include/dlstreamer/gst/metadata/gva_zone_meta.h" line="30" />
+      <return-value transfer-ownership="none">
+        <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_zone_meta.h" line="28">The metadata type ID for GstAnalyticsZoneMtd.</doc>
+        <type name="GstAnalytics.MtdType" c:type="GstAnalyticsMtdType" />
+      </return-value>
     </function>
   </namespace>
 </repository>

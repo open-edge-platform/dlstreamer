@@ -59,3 +59,9 @@ gboolean gst_analytics_relation_meta_add_tripwire_mtd(GstAnalyticsRelationMeta *
 
     return TRUE;
 }
+
+gboolean gst_analytics_relation_meta_get_tripwire_mtd(GstAnalyticsRelationMeta *meta, guint an_meta_id,
+                                                      GstAnalyticsTripwireMtd *rlt) {
+    return gst_analytics_relation_meta_get_mtd(meta, an_meta_id, gst_analytics_tripwire_mtd_get_mtd_type(),
+                                               (GstAnalyticsTripwireMtd *)rlt);
+}
