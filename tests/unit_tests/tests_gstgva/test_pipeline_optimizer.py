@@ -17,8 +17,8 @@ class TestOptimizer(unittest.TestCase):
     def setUp(self):
         self.model_path = get_model_path("yolo11s")
         self.simple_pipeline = f"urisourcebin buffer-size=4096 uri=https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4 ! decodebin ! gvadetect model={self.model_path} ! queue ! gvawatermark ! fakesink"
-        self.complex_pipeline=f"urisourcebin buffer-size=4096 uri=https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4 name=src1 ! decodebin ! gvadetect model={self.model_path} ! gvawatermark ! 
-                                fakesink urisourcebin buffer-size=4096 uri=https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4 name=src2 ! decodebin ! gvadetect model={self.model_path} ! gvawatermark ! fakesink"
+        self.complex_pipeline = f"urisourcebin buffer-size=4096 uri=https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4 name=src1 ! decodebin ! gvadetect model={self.model_path} ! gvawatermark ! " \
+                               f"fakesink urisourcebin buffer-size=4096 uri=https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4 name=src2 ! decodebin ! gvadetect model={self.model_path} ! gvawatermark ! fakesink"
 
     def test_iter_optimize_for_fps_and_get_optimal_pipeline(self):
         """Test iter_optimize_for_fps with simple CPU pipeline and check candidate modifications"""
