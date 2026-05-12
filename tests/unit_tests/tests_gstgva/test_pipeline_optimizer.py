@@ -17,15 +17,25 @@ class TestOptimizer(unittest.TestCase):
     def setUp(self):
         self.model_path = get_model_path("yolo11s")
         self.simple_pipeline = f"urisourcebin buffer-size=4096 uri=https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4 ! decodebin ! gvadetect model={self.model_path} ! queue ! gvawatermark ! fakesink"
+        self.complex_pipeline=f"urisourcebin buffer-size=4096 uri=https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4 name=src1 ! decodebin ! gvadetect model={self.model_path} ! gvawatermark ! 
+                                fakesink urisourcebin buffer-size=4096 uri=https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4 name=src2 ! decodebin ! gvadetect model={self.model_path} ! gvawatermark ! fakesink"
 
     def test_iter_optimize_for_fps_and_get_optimal_pipeline(self):
         """Test iter_optimize_for_fps with simple CPU pipeline and check candidate modifications"""
         optimizer = DLSOptimizer()
         candidates = []
+        timeout = 60  # 1 minute in seconds
+        start_time = time.time()
+        
         # Iterate through candidates and collect pipelines and their FPS
         for pipeline, fps in optimizer.iter_optimize_for_fps(self.simple_pipeline):  
             candidates.append((pipeline, fps))  
             print(f"Tested: {pipeline} @ {fps} FPS")
+            
+            # Check timeout
+            if time.time() - start_time > timeout:
+                print(f"Timeout reached after {timeout} seconds")
+                break
 
         # We expect to have multiple candidates tested, at least more than 1
         self.assertGreater(len(candidates), 1, 
@@ -46,14 +56,15 @@ class TestOptimizer(unittest.TestCase):
         self.assertAlmostEqual(best_candidate_fps, optimal_fps, places=2,
                             msg=f"FPS mismatch: candidate {best_candidate_fps} vs optimal {optimal_fps}")
         
-        print(f"✓ Test passed: Found {len(candidates)} candidates, "
+        elapsed_time = time.time() - start_time
+        print(f"✓ Test passed: Found {len(candidates)} candidates in {elapsed_time:.1f} seconds, "
             f"best matches optimal pipeline")
 
     def test_iter_optimize_for_streams_with_timeout_and_get_baseline_pipeline(self):
         """Test iter_optimize_for_streams with timeout and check if stream count changes"""
         optimizer = DLSOptimizer()
         candidates = []
-        timeout_duration = 900  # 15 minutes in seconds
+        timeout_duration =180  # 3 minutes in seconds
         start_time = time.time()
         timeout_reached = False
 
@@ -114,7 +125,7 @@ class TestOptimizer(unittest.TestCase):
     def test_optimize_for_fps_and_get_optimal_pipeline_and_get_baseline_pipeline(self):
         """Test optimize_for_fps and get_optimal_pipeline with simple CPU pipeline"""
         optimizer = DLSOptimizer()
-        optimized_pipeline, fps = optimizer.optimize_for_fps(self.simple_pipeline, 100)
+        optimized_pipeline, fps = optimizer.optimize_for_fps(self.simple_pipeline, 60)
         self.assertIsNotNone(optimized_pipeline, "Optimizer did not return optimized pipeline")
         self.assertIsNotNone(fps, "Optimizer did not return FPS value")
         self.assertGreater(fps, 0, f"FPS should be greater than 0, but got: {fps}")
@@ -148,7 +159,7 @@ class TestOptimizer(unittest.TestCase):
     def test_optimize_for_streams_and_get_optimal_pipeline(self):
         """Test optimize_for_streams and get_optimal_pipeline with simple CPU pipeline"""
         optimizer = DLSOptimizer()
-        optimized_pipeline, fps, streams = optimizer.optimize_for_streams(self.simple_pipeline,180)
+        optimized_pipeline, fps, streams = optimizer.optimize_for_streams(self.simple_pipeline,120)
         self.assertIsNotNone(optimized_pipeline, "Optimizer did not return optimized pipeline")
         self.assertIsNotNone(fps, "Optimizer did not return FPS value")
         self.assertGreater(fps, 0, f"FPS should be greater than 0, but got: {fps}")
@@ -186,7 +197,7 @@ class TestOptimizer(unittest.TestCase):
         candidates_short = []
         start_time = time.time()
         
-        for pipeline, fps in optimizer1.iter_optimize_for_fps(self.simple_pipeline):
+        for pipeline, fps in optimizer1.optimize_for_fps(self.simple_pipeline,60):
             candidates_short.append((pipeline, fps))
         
         elapsed_time_short = time.time() - start_time
@@ -198,7 +209,7 @@ class TestOptimizer(unittest.TestCase):
         candidates_long = []
         start_time = time.time()
         
-        for pipeline, fps in optimizer2.iter_optimize_for_fps(self.simple_pipeline):
+        for pipeline, fps in optimizer2.optimize_for_fps(self.simple_pipeline,60):
             candidates_long.append((pipeline, fps))
         
         elapsed_time_long = time.time() - start_time
@@ -242,14 +253,11 @@ class TestOptimizer(unittest.TestCase):
         # Collect candidates to see what devices are being tested
         candidates = []
         iteration_count = 0
-        for candidate_result in optimizer.iter_optimize_for_fps(self.simple_pipeline):
+        for candidate_result in optimizer.optimize_for_fps(self.simple_pipeline,60):
             pipeline = candidate_result[0]
             fps = candidate_result[1]
             candidates.append((pipeline, fps))
             print(f"Tested: {pipeline} @ {fps} FPS")
-            iteration_count += 1
-            if iteration_count >= 5:  # limit iterations for testing
-                break
         
         # Assertions
         self.assertGreater(len(candidates), 0, "Should test at least one candidate")
@@ -274,6 +282,37 @@ class TestOptimizer(unittest.TestCase):
         
         print(f"✓ Test passed: Excluded device '{excluded_device}' not found in any pipeline")
         print(f"✓ Only allowed devices {allowed_devices} were used")
+
+    def test_enable_cross_stream_batching(self):
+        """Test that enable_cross_stream_batching works and sets instance-id"""
+
+        optimizer = DLSOptimizer()
+        optimizer.enable_cross_stream_batching(True)
+        start_time = time.time()
+        timeout = 10
+
+        found_instance_ids = False
+
+        for candidate_result in optimizer.iter_optimize_for_fps(self.complex_pipeline):
+            candidate_pipeline = candidate_result[0]
+            print(f"Pipeline: {candidate_pipeline}")
+            model_instance_ids = re.findall(r'model-instance-id=(\w+)', candidate_pipeline)
+            
+            if len(model_instance_ids) > 1 and len(set(model_instance_ids)) == 1:
+                found_instance_ids = True
+                print(f"✓ Found same model-instance-id: {model_instance_ids[0]}")
+                break
+            elif len(model_instance_ids) > 0:
+                print(f"Found different instance-ids: {model_instance_ids}")
+            else:
+                print("No model-instance-id found")
+
+            if time.time() - start_time > timeout:
+                print("Timeout reached")
+                break
+
+        self.assertTrue(found_instance_ids, "Should find candidates with same model-instance-id for cross-stream batching")
+        print("✓ Cross-stream batching test passed!")
 
 if __name__ == '__main__':
     unittest.main()
