@@ -88,6 +88,7 @@ class DLStreamerVLMPipeline:  # pylint: disable=too-many-instance-attributes
         self._lock = threading.Lock()
         self._latest_jpeg = None
         self._latest_vlm_text = ""
+        self._vlm_jpeg = None  # JPEG of the exact frame VLM processed
         self._vlm_count = 0
         self._valve = None  # GStreamer valve element
         self._vlm_ready = threading.Event()  # signalled when new VLM text
@@ -132,7 +133,9 @@ class DLStreamerVLMPipeline:  # pylint: disable=too-many-instance-attributes
             f'chunk-size=1 '
             f'frame-rate=0 '
             f'name=genai ! '
-            f'fakesink sync=false '
+            f'jpegenc quality=50 ! '
+            f'appsink name=vlm_jpeg_sink max-buffers=1 drop=true '
+            f'emit-signals=true sync=false '
             # Branch 2: JPEG capture for dashboard
             f't. ! queue max-size-buffers=1 leaky=downstream ! '
             f'videorate max-rate=1 ! '
@@ -150,6 +153,10 @@ class DLStreamerVLMPipeline:  # pylint: disable=too-many-instance-attributes
         jpeg_sink = pipeline.get_by_name("jpeg_sink")
         if jpeg_sink:
             jpeg_sink.connect("new-sample", self._on_jpeg)
+
+        vlm_jpeg_sink = pipeline.get_by_name("vlm_jpeg_sink")
+        if vlm_jpeg_sink:
+            vlm_jpeg_sink.connect("new-sample", self._on_vlm_jpeg)
 
         # Store valve reference for on-demand control
         self._valve = pipeline.get_by_name("vlm_valve")
@@ -192,10 +199,11 @@ class DLStreamerVLMPipeline:  # pylint: disable=too-many-instance-attributes
                         self._vlm_count += 1
                         log.info("VLM [%d]: %s", self._vlm_count,
                                  label_text[:80])
-                    # Close valve after getting result, signal caller
+                    # Close valve after getting result
                     if self._valve:
                         self._valve.set_property("drop", True)
-                    self._vlm_ready.set()
+                    # _vlm_ready is signalled in _on_vlm_jpeg after
+                    # the JPEG of this frame is captured
                     break
             idx += 1
 
@@ -265,6 +273,11 @@ class DLStreamerVLMPipeline:  # pylint: disable=too-many-instance-attributes
         with self._lock:
             return self._latest_jpeg
 
+    def get_vlm_jpeg(self) -> bytes:
+        """Return the JPEG of the exact frame VLM inference processed."""
+        with self._lock:
+            return self._vlm_jpeg
+
     def get_vlm_text(self) -> str:
         """Return the latest VLM inference text."""
         with self._lock:
@@ -302,6 +315,23 @@ class DLStreamerVLMPipeline:  # pylint: disable=too-many-instance-attributes
                 with self._lock:
                     self._latest_jpeg = bytes(mi.data)
                 buf.unmap(mi)
+        return Gst.FlowReturn.OK
+
+    def _on_vlm_jpeg(self, appsink):
+        """Callback for VLM branch appsink: capture JPEG of VLM frame.
+
+        This fires after gvagenai + jpegenc, guaranteeing the JPEG is
+        the exact frame the VLM processed. Signals _vlm_ready.
+        """
+        sample = appsink.emit("pull-sample")
+        if sample:
+            buf = sample.get_buffer()
+            ok, mi = buf.map(Gst.MapFlags.READ)
+            if ok:
+                with self._lock:
+                    self._vlm_jpeg = bytes(mi.data)
+                buf.unmap(mi)
+        self._vlm_ready.set()
         return Gst.FlowReturn.OK
 
     def _on_bus_msg(self, _bus, msg):
@@ -529,16 +559,19 @@ def validation_loop(pipeline: DLStreamerVLMPipeline,
 
             event_count += 1
 
-            # Get latest JPEG frame from the pipeline
-            processed_jpeg = pipeline.get_jpeg()
-            if processed_jpeg is None:
-                log.warning("No frame available, skipping event")
-                continue
-
             # Trigger VLM inference on the current frame
             vlm_text = pipeline.request_inference()
             if not vlm_text:
                 vlm_text = "(VLM inference timed out)"
+
+            # Get the exact frame VLM processed (captured in Branch 1)
+            processed_jpeg = pipeline.get_vlm_jpeg()
+            if processed_jpeg is None:
+                # Fallback to latest Branch 2 frame
+                processed_jpeg = pipeline.get_jpeg()
+            if processed_jpeg is None:
+                log.warning("No frame available, skipping event")
+                continue
 
             # Store in history for dashboard
             _DashboardState.add_event(processed_jpeg, event, vlm_text)

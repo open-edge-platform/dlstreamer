@@ -12,6 +12,7 @@ graph LR
     A["ONVIF Camera"] -->|"RTSP stream"| B["DLStreamer Pipeline"]
     B -->|"frames"| D["gvagenai\n(VLM inference)"]
     A -->|"MQTT events"| C["MQTTEventListener"]
+    C -->|"triggers"| D
     D -->|"VLM text"| F["Web Dashboard\nhttp://localhost:8080"]
     C -->|"camera event"| F
     B -->|"JPEG frame"| F
@@ -164,6 +165,44 @@ Open **http://localhost:8080** to view the dashboard.
 | `onvif_camera_analytics_validation.py` | Main app — DLStreamer pipeline with gvagenai, MQTT event pairing, web dashboard |
 | `util.py` | ONVIF SOAP client, MQTT listener, event parsing |
 | `requirements.txt` | Python dependencies |
+
+## DLStreamer Pipeline
+
+The GStreamer pipeline ingests the RTSP stream and splits it via a `tee`
+into two branches:
+
+```
+urisourcebin → decodebin3 → videoconvertscale → video/x-raw,format=RGB → tee
+                                                                           │
+                ┌──────────────────────────────────────────────────────────┘
+                │
+                ├─► queue (leaky) → valve → gvagenai → jpegenc → appsink
+                │       Branch 1: On-demand VLM inference + frame capture
+                │
+                └─► queue (leaky) → videorate (1 fps) → jpegenc → appsink
+                        Branch 2: Continuous JPEG preview (fallback)
+```
+
+| Element | Role |
+|---------|------|
+| `urisourcebin` | Connects to the camera's RTSP stream (TCP transport) with auto-reconnect |
+| `decodebin3` | Decodes H.264/H.265 video |
+| `videoconvertscale` | Converts to RGB for downstream processing |
+| `tee` | Splits the stream into two branches |
+| `valve` (`vlm_valve`) | Controls when frames reach gvagenai — closed by default, opened on MQTT event |
+| `gvagenai` | Runs VLM inference (e.g. Gemma 3 4B) via OpenVINO GenAI on CPU/GPU/NPU |
+| `jpegenc` (Branch 1) | Encodes the exact VLM-processed frame to JPEG for the dashboard |
+| `appsink` (`vlm_jpeg_sink`) | Captures the JPEG of the frame VLM actually processed |
+| `videorate` + `jpegenc` (Branch 2) | Continuous 1 fps JPEG snapshots (fallback if VLM frame unavailable) |
+| `appsink` (`jpeg_sink`) | Delivers fallback JPEG buffers to the Python application |
+
+**On-demand inference flow:** The valve starts closed after initial model load.
+When an MQTT event with object detection data arrives, the application opens
+the valve (`drop=false`), letting one frame through to `gvagenai`. A pad probe
+on gvagenai's source pad extracts the VLM text result and immediately closes
+the valve. The same frame then flows through `jpegenc` → `vlm_jpeg_sink`,
+which captures the JPEG and signals readiness — guaranteeing the dashboard
+shows the **exact frame** the VLM described.
 
 ## ONVIF Profile M
 
