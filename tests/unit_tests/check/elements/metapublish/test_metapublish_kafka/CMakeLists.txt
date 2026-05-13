@@ -1,13 +1,16 @@
 # ==============================================================================
-# Copyright (C) 2018-2025 Intel Corporation
+# Copyright (C) 2018-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
 
 set (TARGET_NAME "test_metapublish_kafka")
 
+include_directories("${CMAKE_BINARY_DIR}/deps/install/include;${CMAKE_BINARY_DIR}/deps/gstreamer-bin/include;${CMAKE_BINARY_DIR}/deps/opencv-bin/include;${CMAKE_BINARY_DIR}/deps/rdkafka-bin/include")
+
+
 find_package(PkgConfig REQUIRED)
-find_library(KAFKA rdkafka++ REQUIRED)
+find_package(RdKafka 2.12.1...<2.14 REQUIRED)
 pkg_check_modules(GSTBASE gstreamer-base-1.0>=1.16 REQUIRED)
 pkg_check_modules(GSTREAMER gstreamer-1.0>=1.16 REQUIRED)
 
@@ -29,7 +32,7 @@ target_link_libraries(${TARGET_NAME}
 PRIVATE
     gtest
     gmock
-    ${KAFKA}
+    RdKafka::rdkafka++
     gvametapublishkafka
     ${GSTREAMER_LIBRARIES}
     ${GSTBASE_LIBRARIES}

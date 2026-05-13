@@ -7,7 +7,10 @@ on:
 permissions: {}
 env:
   dlstreamer-version: "2026.0.0"
-  DLS_REL_PATH: "./dlstreamer-repo"
+  DLS_REL_PATH: "$HOME/dlstreamer-repo"
+  MODELS_PATH: "$HOME/models"
+  VIDEO_INPUTS_PATH: "$HOME/videos"
+  RESULTS_DIR: "/home/runner/dlstreamer-repo/unit-test-results"
 
 jobs:
   setup:
@@ -43,7 +46,7 @@ jobs:
           - os: ubuntu-22.04
             runner: ubuntu-22.04
           - os: ubuntu-24.04
-            runner: dlstreamer
+            runner: tgl-ubuntu24
     steps:
       - name: Skip or execute based on configuration
         if: needs.setup.outputs.should_run == 'false'
@@ -58,17 +61,21 @@ jobs:
           sudo rm -rf dlstreamer-repo
 
       - name: Check out dlstreamer repository
-        if: needs.setup.outputs.should_run == 'true'
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # 6.0.2
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
           persist-credentials: false
           path: dlstreamer-repo
 
+      - name: Move to home directory
+        run: |
+          mv dlstreamer-repo $HOME/dlstreamer-repo
+
       - name: Init submodules
         if: needs.setup.outputs.should_run == 'true'
         run: |
-          cd dlstreamer-repo
+          cd ${{ env.DLS_REL_PATH }}
           git submodule update --init thirdparty/spdlog
+          git submodule update --init thirdparty/googletest
 
       # ======================================================== BUILDING PART ========================================================
       - name: Install prerequisites
@@ -118,7 +125,7 @@ jobs:
           python3 -m venv ~/python3venv
           source ~/python3venv/bin/activate
           pip install --upgrade pip==24.0
-          pip install meson==1.4.1 ninja==1.11.1.1
+          pip install meson==1.4.1 ninja==1.11.1.1 pytest==8.3.3 openvino==2026.0.0
 
       - name: Install OpenVINO
         if: needs.setup.outputs.should_run == 'true'
@@ -164,7 +171,13 @@ jobs:
           source /opt/intel/openvino_genai/setupvars.sh
           echo " "
           echo "Building DL Streamer using make build..."
-          make build
+          if [[ ${{ matrix.os }} == "ubuntu-24.04" ]]; then
+            echo "Building DL Streamer with ENABLE_TESTS=ON flag..."
+            make build ENABLE_TESTS=ON
+          else
+            echo "Building only DL Streamer..."
+            make build
+          fi
 
       - name: Install DL Streamer
         if: needs.setup.outputs.should_run == 'true'
@@ -203,8 +216,8 @@ jobs:
           export PATH="/opt/intel/dlstreamer/Release/bin:/opt/intel/dlstreamer/gstreamer/bin:/opt/intel/dlstreamer/opencv/bin:$HOME/.local/bin:$HOME/python3venv/bin:$PATH"
           export PKG_CONFIG_PATH="/opt/intel/dlstreamer/Release/lib/pkgconfig:/opt/intel/dlstreamer/gstreamer/lib/pkgconfig:$PKG_CONFIG_PATH"
           export GST_PLUGIN_FEATURE_RANK=${GST_PLUGIN_FEATURE_RANK},ximagesink:MAX
-          export GI_TYPELIB_PATH="/opt/intel/dlstreamer/gstreamer/lib/girepository-1.0:/opt/intel/dlstreamer/lib/girepository-1.0:/usr/lib/x86_64-linux-gnu/girepository-1.0"
-          export PYTHONPATH="/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:/opt/intel/dlstreamer/python:/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:$PYTHONPATH"
+          export GI_TYPELIB_PATH="$HOME/dlstreamer-repo/build/src/gst/metadata:/opt/intel/dlstreamer/gstreamer/lib/girepository-1.0:/opt/intel/dlstreamer/lib/girepository-1.0:/usr/lib/x86_64-linux-gnu/girepository-1.0"
+          export PYTHONPATH="$HOME/dlstreamer-repo/build/deps/gstreamer-bin/lib/python3/dist-packages:/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:/opt/intel/dlstreamer/python:/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:$PYTHONPATH"
           echo " "
 
           echo "Verifying DL Streamer installation..."
@@ -216,9 +229,71 @@ jobs:
           gst-inspect-1.0 gvafpscounter
           gst-inspect-1.0 gvagenai
 
+      - name: Create test results folder
+        if: needs.setup.outputs.should_run == 'true' && matrix.os == 'ubuntu-24.04'
+        run: |
+          mkdir -p ${{ env.RESULTS_DIR }}
+          chmod -R 777 ${{ env.RESULTS_DIR }}
+
+      - name: Run Unit tests (ctests and pytests)
+        if: needs.setup.outputs.should_run == 'true' && matrix.os == 'ubuntu-24.04'
+        run: |
+          echo "Setting up DL Streamer environment..."
+          export LIBVA_DRIVER_NAME=iHD
+          export GST_PLUGIN_PATH="/opt/intel/dlstreamer/Release/lib:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0:$GST_PLUGIN_PATH"
+          export LD_LIBRARY_PATH="/opt/intel/dlstreamer/Release/lib:/opt/intel/dlstreamer/gstreamer/lib:/opt/intel/dlstreamer/opencv/lib:/opt/intel/dlstreamer/rdkafka/lib:$LD_LIBRARY_PATH"
+          export LIBVA_DRIVERS_PATH="/usr/lib/x86_64-linux-gnu/dri"
+          export GST_VA_ALL_DRIVERS="1"
+          export PATH="/opt/intel/dlstreamer/Release/bin:/opt/intel/dlstreamer/gstreamer/bin:/opt/intel/dlstreamer/opencv/bin:$HOME/.local/bin:$HOME/python3venv/bin:$PATH"
+          export PKG_CONFIG_PATH="/opt/intel/dlstreamer/Release/lib/pkgconfig:/opt/intel/dlstreamer/gstreamer/lib/pkgconfig:$PKG_CONFIG_PATH"
+          export GST_PLUGIN_FEATURE_RANK=${GST_PLUGIN_FEATURE_RANK},ximagesink:MAX
+          export GI_TYPELIB_PATH="${{ env.DLS_REL_PATH }}/build/src/gst/metadata:/opt/intel/dlstreamer/gstreamer/lib/girepository-1.0:/opt/intel/dlstreamer/lib/girepository-1.0:/usr/lib/x86_64-linux-gnu/girepository-1.0"
+          export PYTHONPATH="${{ env.DLS_REL_PATH }}/build/deps/gstreamer-bin/lib/python3/dist-packages:/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:/opt/intel/dlstreamer/python:/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:$HOME/dlstreamer-repo/scripts/optimizer:$PYTHONPATH"
+          export MODELS_PROC_PATH="${{ env.DLS_REL_PATH }}/samples/gstreamer/model_proc"
+          export MODELS_PATH="${{ env.MODELS_PATH }}"
+          export VIDEO_EXAMPLES_DIR="${{ env.VIDEO_INPUTS_PATH }}"
+          echo " "
+          source ~/python3venv/bin/activate
+          ${{ env.DLS_REL_PATH }}/tests/scripts/run_unit_tests.sh "${{ env.DLS_REL_PATH }}/build" "" "${{ env.RESULTS_DIR }}"
+
+      # this script creates output file called unit_test_summary.txt
+      - name: Run python script to get Unit Test results
+        if: always() && needs.setup.outputs.should_run == 'true' && matrix.os == 'ubuntu-24.04'
+        run: |
+          source ~/python3venv/bin/activate
+          python3 ${{ env.DLS_REL_PATH }}/tests/scripts/unit_test_results.py ${{ env.RESULTS_DIR }}
+
+      - name: Check and display unit test results
+        if: always() && needs.setup.outputs.should_run == 'true' && matrix.os == 'ubuntu-24.04'
+        run: |
+          RESULTS_FILE="${{ env.RESULTS_DIR }}/unit_test_summary.txt"
+
+          # Add results to summary
+          echo "## Test Summary for Unit Tests on ${{ matrix.runner }}" >> $GITHUB_STEP_SUMMARY
+          cat "$RESULTS_FILE" >> $GITHUB_STEP_SUMMARY
+
+          # Check for failures and fail if any
+          CTEST_FAILED=$(grep "CTest:" "$RESULTS_FILE" | grep -o "Failed: [0-9]*" | awk '{print $2}')
+          PYTEST_FAILED=$(grep "Pytest:" "$RESULTS_FILE" | grep -o "Failed: [0-9]*" | awk '{print $2}')
+
+          TOTAL_FAILED=$((CTEST_FAILED + PYTEST_FAILED))
+          if [ "$TOTAL_FAILED" -gt 0 ]; then
+            echo "::error::$TOTAL_FAILED test(s) failed (CTest: $CTEST_FAILED, Pytest: $PYTEST_FAILED)"
+            exit 1
+          fi
+
+      - name: Upload test results
+        if: always() && needs.setup.outputs.should_run == 'true' && matrix.os == 'ubuntu-24.04'
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f  # 7.0.0
+        with:
+          name: DLS_unit_tests_tgl_${{ matrix.ubuntu_version }}
+          path: ${{ env.RESULTS_DIR }}/*.xml
+
       # ======================================================== CLEANUP PART ========================================================
       - name: Clean up
         if: always() && needs.setup.outputs.should_run == 'true'
         run: |
           rm -rf ~/python3venv
-          sudo rm -rf ${{ env.DLS_REL_PATH }}
+          rm -rf dlstreamer-repo
+          rm -rf ${{ env.DLS_REL_PATH }}
+          rm -rf ${{ env.RESULTS_DIR }}

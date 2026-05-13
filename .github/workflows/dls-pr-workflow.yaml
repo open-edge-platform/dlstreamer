@@ -387,13 +387,6 @@ jobs:
     name: "DLS BUILD: make build"
     uses: ./.github/workflows/dls-build-sources-make-build.yaml
 
-  dls-build-dev-images-and-run-unit-tests:
-    permissions:
-      contents: read
-      packages: read
-    name: "DLS BUILD: dev imgs & run unit tests"
-    uses: ./.github/workflows/dls-build-dev-docker-images-and-run-unit.yaml
-
   dls-build-and-test-deb-and-deb_img:
     permissions:
       contents: read
@@ -478,23 +471,6 @@ jobs:
             echo "✅ Make build completed successfully!"
           else
             echo "❌ Make build failed with status: ${dls_build_sources_make_build_result}"
-            exit 1
-          fi
-
-  check-dev-images-unit-tests-status:
-    needs: dls-build-dev-images-and-run-unit-tests
-    runs-on: dlstreamer
-    name: "Check Dev Images & Unit Tests Status"
-    if: always()
-    steps:
-      - name: Report dev images & unit tests status
-        env:
-          dls_build_dev_images_and_run_unit_tests_result: ${{ needs.dls-build-dev-images-and-run-unit-tests.result }}
-        run: |
-          if [ "${dls_build_dev_images_and_run_unit_tests_result}" == "success" ]; then
-            echo "✅ Dev images & unit tests completed successfully!"
-          else
-            echo "❌ Dev images & unit tests failed with status: ${dls_build_dev_images_and_run_unit_tests_result}"
             exit 1
           fi
 
