@@ -19,27 +19,25 @@ For the full list of elements, see also `../../../../docs/user-guide/elements/`.
 
 | Element | Purpose | Notes |
 |---------|---------|-------|
-| `decodebin3` | Auto-select decoder | Uses hardware decode when available. **Warning:** Decodes *all* tracks including audio. See [Decode Robustness](#decode-robustness) for handling audio-track errors in video-only pipelines. |
+| `decodebin3` | Auto-select decoder | Uses hardware decode when available. Add `caps="video/x-raw(ANY)"` to suppress audio pads and avoid `not-linked` errors. See [Decode Robustness](#decode-robustness). |
 
 ### Video Processing
 
-| Element | Purpose | Key Properties |
-|---------|---------|----------------|
-| `videoconvertscale` | Format conversion + scaling | Combined convert+scale |
-| `videoconvert` | Pixel format conversion only | |
-| `videoscale` | Resolution scaling only | |
+| Element | Purpose | Notes |
+|---------|---------|-------|
+| `vapostproc` | GPU format conversion + scaling | **Preferred in GPU pipelines.** Does not preserve GstAnalytics metadata |
+| `videoconvertscale` | CPU format conversion + scaling | Preserves metadata. Inserts GPU→CPU→GPU copies in VA memory pipelines |
+| `videoconvert` | CPU pixel format conversion | Inserts GPU→CPU→GPU copies in VA memory pipelines |
+| `videoscale` | CPU resolution scaling | Inserts GPU→CPU→GPU copies in VA memory pipelines |
 | `videorate` | Frame rate adjustment | |
-| `vapostproc` | VA-API hardware post-processing | Use before `video/x-raw(memory:VAMemory)` caps |
-
-> **⚠ `vapostproc` metadata warning:** `vapostproc` does not preserve GstAnalytics metadata.
-> Do not place it between elements that produce and read analytics metadata.
-> Use `videoconvertscale` instead when metadata must be preserved.
 
 ### AI Inference (DL Streamer-specific)
 
 | Element | Purpose | Model Types | Key Properties |
 |---------|---------|-------------|----------------|
-| `gvadetect` | Object detection | YOLO, SSD, RT-DETR, D-FINE | `model`, `device`, `batch-size`, `threshold`, `model-instance-id`, `scheduling-policy` |
+| `gvadetect` | Object detection | YOLO, SSD, RT-DETR, D-FINE | `model`, `device`, `batch-size`, `model-instance-id`, `scheduling-policy` |
+
+> **`threshold` default:** `gvadetect` uses `threshold=0.5` by default. Do not set it explicitly unless a non-default value is needed.
 | `gvaclassify` | Classification & OCR | ResNet, EfficientNet, CLIP, ViT, PaddleOCR | `model`, `device`, `batch-size`, `model-instance-id`, `scheduling-policy` |
 | `gvagenai` | VLM / GenAI inference | MiniCPM-V, Qwen2.5-VL, InternVL, SmolVLM | `model-path`, `device`, `prompt`, `generation-config`, `frame-rate`, `chunk-size` |
 
@@ -64,6 +62,13 @@ For the full list of elements, see also `../../../../docs/user-guide/elements/`.
 |---------|---------|----------------|
 | `gvatrack` | Object tracking across frames | `tracking-type=zero-term-imageless` |
 
+> **Deep SORT tracking:** For robust re-identification tracking, use `tracking-type=deep-sort`
+> with a feature extraction model (e.g. mars-small128) via `gvainference` upstream.
+> Always set `reid_max_age` to enable re-identification after occlusion.
+> When using `object-class=person` on `gvainference`, always set `displ-cfg=show-roi=person`
+> on `gvawatermark` to render only person ROIs (the detector may also produce non-person classes).
+> See [object_tracking.md](../../../../docs/user-guide/dev_guide/object_tracking.md#deep-sort-tracking) for all tuning parameters.
+
 ### Overlay & Metrics
 
 | Element | Purpose | Key Properties |
@@ -73,6 +78,10 @@ For the full list of elements, see also `../../../../docs/user-guide/elements/`.
 
 
 > **Always use `gvawatermark` for overlays.** It renders all `ODMtd` entries from GstAnalytics metadata.
+
+> **Filter overlays by class:** When upstream elements use `object-class=<class>` (e.g.
+> `gvainference ... object-class=person`), set `displ-cfg=show-roi=<class>` on `gvawatermark`
+> to render only matching ROIs. Example: `gvawatermark displ-cfg=show-roi=person`.
 > Custom text labels: `rmeta.add_od_mtd(GLib.quark_from_string("label"), x, y, 0, 0, confidence)`.
 
 ### Metadata Publishing
@@ -421,6 +430,10 @@ threading.
 
 Use NPU for secondary models on Core Ultra 3. Prefer GPU for all models on Core Ultra 1/2.
 
+> **Model precision selection:** Prefer **FP16** (or **INT8** if available) over FP32 for
+> GPU/NPU inference. FP16 uses less memory bandwidth with negligible quality impact.
+> Only use FP32 when lower-precision variants are unavailable.
+
 ### Output & Metadata
 
 Publish analytics as JSON:
@@ -451,9 +464,15 @@ gvadetect ... ! queue ! gvawatermark ! tee name=t
 
 ### Decode Robustness
 
-`.ts`, `.mkv`, and some MP4 files contain audio tracks. `decodebin3` emits an error if
-an audio codec plugin is unavailable. Filter this as non-fatal in the event loop.
-See [Pattern 2](./design-patterns.md#pattern-2-pipeline-event-loop).
+Some containers (`.ts`, `.mkv`, some `.mp4`) have audio tracks. When only video is
+processed, use `caps="video/x-raw(ANY)"` to expose only video and avoid `not-linked`
+errors from unlinked audio pads:
+
+```
+decodebin3 caps="video/x-raw(ANY)"
+```
+
+The `ANY` feature ensures all memory types (including `VAMemory`) are accepted.
 
 ## Common Gotchas
 

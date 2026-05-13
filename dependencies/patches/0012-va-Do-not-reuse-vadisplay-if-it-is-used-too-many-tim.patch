@@ -71,13 +71,13 @@ index b5440429e16fa0cd423e4ae3b0cdd0b5687983b3..d75151b41ea9add99c1d260d1eb6f45a
   * gst_va_display_drm_new_from_path:
   * @path: the path to the DRM device
 diff --git a/subprojects/gst-plugins-bad/gst-libs/gst/va/gstvadisplay_drm.h b/subprojects/gst-plugins-bad/gst-libs/gst/va/gstvadisplay_drm.h
-index d14a1f64484ad18b6ce9e465f2afac27d0708812..eb2210992d94d0585ff131a2381e15e14787ab83 100644
+index 041b27a587..5b908e019a 100644
 --- a/subprojects/gst-plugins-bad/gst-libs/gst/va/gstvadisplay_drm.h
 +++ b/subprojects/gst-plugins-bad/gst-libs/gst/va/gstvadisplay_drm.h
 @@ -38,5 +38,7 @@ GST_VA_API
  GType                 gst_va_display_drm_get_type         (void);
  GST_VA_API
- GstVaDisplay *        gst_va_display_drm_new_from_path    (const gchar * path);
+ GstVaDisplay *        gst_va_display_drm_new_from_path    (const gchar * path) G_GNUC_WARN_UNUSED_RESULT;
 +GST_VA_API
 +gboolean              gst_va_display_drm_is_i915          (GstVaDisplay * display);
  

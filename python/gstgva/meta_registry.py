@@ -37,4 +37,15 @@ _GstAnalyticsOverride._wrap_mtd(
     'GroupMtd',
     DLStreamerMeta.relation_meta_get_group_mtd
 )
+
+_GstAnalyticsOverride._wrap_mtd(
+    DLStreamerMeta,
+    'ZoneMtd',
+    DLStreamerMeta.relation_meta_get_zone_mtd
+)
+_GstAnalyticsOverride._wrap_mtd(
+    DLStreamerMeta,
+    'TripwireMtd',
+    DLStreamerMeta.relation_meta_get_tripwire_mtd
+)
 # pylint: enable=protected-access

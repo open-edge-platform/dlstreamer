@@ -23,6 +23,7 @@ Samples separated into several categories:
     * [FPS Throttle](./gst_launch/gvafpsthrottle/README.md) - demonstrates how to use [gvafpsthrottle](../../docs/user-guide/elements/gvafpsthrottle.md) element to throttle framerate independent of sink synchronization and without frame duplication or dropping
     * [Image Embeddings Generation with ViT](./gst_launch/lvm/README.md) - demonstrates how to generate image embeddings using the Vision Transformer component of a CLIP model
     * [License Plate Recognition Sample](./gst_launch/license_plate_recognition/README.md) - demonstrates the use of the Yolo detector together with the optical character recognition model
+    * [Depth Estimation Sample](./gst_launch/depth_estimation/README.md) - demonstrates YOLO11n object detection followed by Depth Anything V2 depth estimation on detected regions
     * [Using VLM Models With gvagenai Element](./gst_launch/gvagenai/README.md) - demonstrates how to use the `gvagenai` element with MiniCPM-V for video summarization
     * [Radar Signal Process Sample](./gst_launch/g3dradarprocess/README.md) - demonstrates how to use the `g3dradarprocess` element for millimeter-wave radar signal processing with point cloud detection, clustering, and tracking
     * [LiDAR Parse Sample](./gst_launch/g3dlidarparse/README.md) - demonstrates LiDAR parsing pipeline with `g3dlidarparse` element

@@ -1,6 +1,6 @@
 %define debug_package %{nil}
 Name:           gstreamer
-Version:        1.26.11
+Version:        1.28.2
 Release:        1%{?dist}
 Summary:        Intel optimized GStreamer build with VAAPI support
 
