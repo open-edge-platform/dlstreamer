@@ -74,18 +74,16 @@ GST_DEBUG_CATEGORY_STATIC(gst_gva_watermark_impl_debug_category);
 #define COLOR_IDX_RED (0)
 #define COLOR_IDX_GREEN (1)
 #define COLOR_IDX_BLUE (2)
-#define COLOR_IDX_BLACK (18)
-#define COLOR_IDX_WHITE (19)
 
 typedef enum { DEVICE_CPU, DEVICE_GPU, DEVICE_GPU_AUTOSELECTED } DEVICE_SELECTOR;
 
 namespace {
 
-const std::vector<Color> color_table = {
-    Color(255, 0, 0),   Color(0, 255, 0),   Color(0, 0, 255),   Color(255, 255, 0), Color(0, 255, 255),
-    Color(255, 0, 255), Color(255, 170, 0), Color(255, 0, 170), Color(0, 255, 170), Color(170, 255, 0),
-    Color(170, 0, 255), Color(0, 170, 255), Color(255, 85, 0),  Color(85, 255, 0),  Color(0, 255, 85),
-    Color(0, 85, 255),  Color(85, 0, 255),  Color(255, 0, 85),  Color{0, 0, 0},     Color{255, 255, 255}};
+const std::vector<Color> color_table = {Color(255, 0, 0),   Color(0, 255, 0),   Color(0, 0, 255),   Color(255, 255, 0),
+                                        Color(0, 255, 255), Color(255, 0, 255), Color(255, 170, 0), Color(255, 0, 170),
+                                        Color(0, 255, 170), Color(170, 255, 0), Color(170, 0, 255), Color(0, 170, 255),
+                                        Color(255, 85, 0),  Color(85, 255, 0),  Color(0, 255, 85),  Color(0, 85, 255),
+                                        Color(85, 0, 255),  Color(255, 0, 85)};
 
 Color indexToColor(size_t index) {
     return color_table[index % color_table.size()];
@@ -204,7 +202,6 @@ struct Impl {
         bool enable_blur = false;
         std::optional<std::unordered_set<std::string>> include_roi_blur_filter;
         std::optional<std::unordered_set<std::string>> exclude_roi_blur_filter;
-        std::string ff_custom_txt;
     } _displCfg;
 };
 
@@ -840,21 +837,10 @@ bool Impl::extract_primitives(GstBuffer *buffer) {
             }
         }
     }
-    // Display auto-generated full-frame text
+
     if (ff_text.tellp() != 0) {
         render::Text t(ff_text.str(), _ff_text_position, _displCfg.font_type, _displCfg.font_scale, _default_color);
         t.draw_bg = _displCfg.draw_text_background;
-        prims.emplace_back(t);
-    }
-    // Display custom text for full-frame, if set via display configuration
-    if (_displCfg.ff_custom_txt.size() > 0) {
-        cv::Point2f _ff_cst_txt_pos = _ff_text_position;
-        if (ff_text.tellp() != 0)
-            // place below the auto-generated full-frame text to avoid overlap
-            _ff_cst_txt_pos = cv::Point2f(_ff_text_position.x, _ff_text_position.y - 20.f);
-
-        render::Text t(_displCfg.ff_custom_txt, _ff_cst_txt_pos, _displCfg.font_type, _displCfg.font_scale,
-                       indexToColor(COLOR_IDX_WHITE));
         prims.emplace_back(t);
     }
 
@@ -987,9 +973,9 @@ void Impl::preparePrimsForRoi(GVA::RegionOfInterest &roi, std::vector<render::Pr
         if (avg_fps > 0.0f) {
             fpstext << "[avg " << std::fixed << std::setprecision(1) << avg_fps << " FPS]";
             if (fpstext.str().size() != 0) {
-                cv::Point2f pos(_vinfo->width * 0.8, _vinfo->height * 0.95);
-                render::Text t(fpstext.str(), pos, _displCfg.font_type, _displCfg.font_scale,
-                               indexToColor(COLOR_IDX_WHITE));
+                cv::Point2f pos(_vinfo->width * 0.7, _vinfo->height - 20.f);
+                render::Text t(fpstext.str(), pos, _displCfg.font_type, _displCfg.font_scale * 0.7, indexToColor(1));
+                t.draw_bg = _displCfg.draw_text_background;
                 prims.emplace_back(t);
             }
         }
@@ -1180,12 +1166,8 @@ void Impl::parse_displ_config() {
             _displCfg.show_labels = (iter->second != "false");
             cfg.erase(iter);
         }
-        if (iter = cfg.find("ff-custom-txt"); iter != cfg.end()) {
-            // Limit custom text to 20 characters to avoid overflow on output video
-            _displCfg.ff_custom_txt = iter->second.substr(0, 20);
-            cfg.erase(iter);
-        }
-        if (_displCfg.show_labels || _displCfg.ff_custom_txt.size() > 0) {
+
+        if (_displCfg.show_labels) {
             if (iter = cfg.find("font-scale"); iter != cfg.end()) {
                 _displCfg.font_scale = std::stof(iter->second);
                 if (_displCfg.font_scale > MAX_FONT_SCALE || _displCfg.font_scale < MIN_FONT_SCALE) {

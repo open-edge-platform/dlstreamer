@@ -95,16 +95,12 @@ enum { PROP_0, PROP_DEVICE, PROP_OBB, PROP_DISPL_AVGFPS, PROP_DISPL_CFG };
     "\t\t\tNOTE: currently this option is only supported for CPU\n"                                                    \
     "\t\t\ttext-x=<float> x position (pixels) for full-frame text (e.g. from gvagenai), default 0\n"                   \
     "\t\t\ttext-y=<float> y position (pixels) for full-frame text (e.g. from gvagenai), default 25\n"                  \
-    "\t\t\tff-custom-txt=<string> extra custom text for full-frame display (limit 20 characters), "                    \
-    "default empty\n"                                                                                                  \
-    "\t\t\tNOTE: text-x and text-y apply to ff-custom-txt position\n"                                                  \
     "\t\t\te.g.: displ-cfg=show-labels=false\n"                                                                        \
     "\t\t\te.g.: displ-cfg=font-scale=0.5,thickness=3,color-idx=2,font-type=plain\n"                                   \
     "\t\t\te.g.: displ-cfg=show-labels=true,show-roi=person:car:truck\n"                                               \
     "\t\t\te.g.: displ-cfg=show-labels=true,hide-roi=bottle:cup\n"                                                     \
     "\t\t\te.g.: displ-cfg=enable-blur=true,show-blur-roi=face:person\n"                                               \
-    "\t\t\te.g.: displ-cfg=text-y=680 (place full-frame text near bottom of a 720p frame)\n"                           \
-    "\t\t\te.g.: displ-cfg=text-y=680,ff-custom-txt='Custom Text' (place 'Custom Text' near bottom of a 720p frame)\n"
+    "\t\t\te.g.: displ-cfg=text-y=680 (place full-frame text near bottom of a 720p frame)\n"
 
 G_END_DECLS
 
