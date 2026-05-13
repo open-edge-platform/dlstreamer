@@ -249,9 +249,9 @@ jobs:
       - name: Install optimizer requirements on host
         if: always() && matrix.runner_print_label != 'SKIP'
         run: |
-          python3 -m venv /opt/optimizer-venv
-          /opt/optimizer-venv/bin/pip install --no-cache-dir -r /opt/intel/dlstreamer/scripts/optimizer/requirements.txt
-          echo "/opt/optimizer-venv/bin" >> $GITHUB_PATH
+          python3 -m venv $HOME/optimizer-venv
+          $HOME/optimizer-venv/bin/pip install --no-cache-dir -r /opt/intel/dlstreamer/scripts/optimizer/requirements.txt
+          echo "$HOME/optimizer-venv/bin" >> $GITHUB_PATH
 
       - name: Run Optimizer on host
         if: always() && matrix.runner_print_label != 'SKIP'
