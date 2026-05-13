@@ -85,7 +85,7 @@ Parameters:
 
 ## Pipeline Architecture
 
-**Note**: Pipeline varies based on device type. GPU/NPU use D3D11 hardware acceleration (`d3d11convert`, `d3d11videosink`, `d3d11h264enc`), while CPU uses software path (`videoconvert`, `autovideosink`, `openh264enc`).
+**Note**: Pipeline varies based on device type. GPU/NPU use D3D11 hardware acceleration (`d3d11convert`, `d3d11videosink`, `mfh264enc`), while CPU uses software path (`videoconvert`, `autovideosink`, `openh264enc`).
 
 ```mermaid
 graph LR
@@ -111,7 +111,7 @@ graph LR
     G1 --> G2[d3d11convert]
     G2 --> G3[gvawatermark]
     G3 --> G4[gvafpscounter]
-    G4 --> G5[d3d11h264enc]
+    G4 --> G5[mfh264enc]
     G5 --> G6[h264parse]
     G6 --> G7[mp4mux]
     G7 --> G8[filesink]
@@ -156,7 +156,7 @@ graph LR
 
 - Windows-specific elements:
   - Uses `d3d11convert` for GPU acceleration (instead of Linux `vapostproc`)
-  - Uses `d3d11h264enc` for video encoding (instead of Linux `vah264enc`)
+  - Uses `mfh264enc` for video encoding (instead of Linux `vah264enc`)
   - Preprocessing backend: `opencv` for CPU, `d3d11` for GPU/NPU
 - The `sync=false` property in video sink runs pipeline as fast as possible
 - For real-time playback, change to `sync=true`
