@@ -192,7 +192,9 @@ PostProcessor::PostProcessor(InferenceImpl *inference_impl, GvaBaseInference *ba
     }
     initializer.use_default = validation_result == ModelProcOutputsValidationResult::USE_DEFAULT;
     /* set attach type */
-    if (inference_region == InferenceRegionType::FULL_FRAME) {
+    if (base_inference->depth_inference_to_roi_mode) {
+        initializer.attach_type = AttachType::FRAME_TO_EXISTING_ROIS;
+    } else if (inference_region == InferenceRegionType::FULL_FRAME) {
         initializer.attach_type = AttachType::TO_FRAME;
     } else if (inference_region == InferenceRegionType::ROI_LIST) {
         initializer.attach_type = AttachType::TO_ROI;

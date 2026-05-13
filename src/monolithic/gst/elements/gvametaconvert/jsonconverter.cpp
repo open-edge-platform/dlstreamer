@@ -388,6 +388,24 @@ json convert_roi_detection(GstGvaMetaConvert *converter, GstBuffer *buffer) {
             }
         }
 
+        // Add zone violations and tripwire crossings for this object
+        auto zones = roi.zone_violations();
+        if (!zones.empty()) {
+            jobject["zone_violations"] = zones;
+        }
+
+        auto tripwires = roi.tripwire_crossings();
+        if (!tripwires.empty()) {
+            json jtripwires = json::array();
+            for (const auto &crossing : tripwires) {
+                json jcrossing = json::object();
+                jcrossing["tripwire_id"] = crossing.tripwire_id;
+                jcrossing["direction"] = crossing.direction;
+                jtripwires.push_back(jcrossing);
+            }
+            jobject["tripwire_crossings"] = jtripwires;
+        }
+
         if (!jobject.empty()) {
             res.push_back(jobject);
         }
@@ -455,6 +473,9 @@ json convert_frame_classification(GstGvaMetaConvert *converter, GstBuffer *buffe
 
             jobject.push_back(json::object_t::value_type(attribute_name, classification));
         }
+        // TODO: If we later suppress duplicate raw tensors for interpreted classifications, that logic must be scoped
+        // to an explicit backward-compatible contract rather than all tensors with classification-style metadata.
+        // Current behavior intentionally preserves the historical JSON payload for non-depth pipelines.
         if (converter->add_tensor_data) {
             jobject["tensors"].push_back(convert_tensor(tensor));
         }

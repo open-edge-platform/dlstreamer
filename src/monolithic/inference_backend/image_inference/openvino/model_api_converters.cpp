@@ -284,6 +284,8 @@ static bool parseHFpreprocessing(const nlohmann::json &config_json, const nlohma
                                  ov::AnyMap &modelConfig) {
     // Setting up preprocessing parameters
 
+    UNUSED(config_json);
+
     // Set reshape size from preprocessor_config.json size field
     if (preproc_json.contains("size") && preproc_json["size"].is_object()) {
         const auto &size = preproc_json["size"];
@@ -297,6 +299,13 @@ static bool parseHFpreprocessing(const nlohmann::json &config_json, const nlohma
 
     // Default resize_type to "standard"
     modelConfig["resize_type"] = ov::Any(std::string("standard"));
+
+    if (preproc_json.contains("keep_aspect_ratio") && preproc_json["keep_aspect_ratio"].is_boolean() &&
+        preproc_json["keep_aspect_ratio"].get<bool>() && preproc_json.contains("ensure_multiple_of") &&
+        preproc_json["ensure_multiple_of"].is_number_integer()) {
+        modelConfig["resize_type"] = ov::Any(std::string("aspect_ratio_multiple_of"));
+        modelConfig["resize_multiple"] = ov::Any(preproc_json["ensure_multiple_of"].get<int>());
+    }
 
     // Check if "do_center_crop": true, then set resize_type to "crop"
     if (preproc_json.contains("do_center_crop") && preproc_json["do_center_crop"].is_boolean() &&
@@ -316,7 +325,7 @@ static bool parseHFpreprocessing(const nlohmann::json &config_json, const nlohma
 
     // Return an error if modelConfig does not have reshape set
     if (modelConfig.find("reshape") == modelConfig.end()) {
-        GST_ERROR("HuggingFace ViTForImageClassification image size is not specified in preprocessor_config.json");
+        GST_ERROR("HuggingFace image size is not specified in preprocessor_config.json");
         return false;
     }
 
@@ -390,26 +399,36 @@ bool convertHuggingFaceMeta2ModelApi(const std::string &model_file, ov::AnyMap &
         return false;
     }
 
+    // Set model type based on architecture. This will determine which Model API converter and post-processing logic to
+    // apply.
+    if (architecture == "ViTForImageClassification") {
+        // Model type is always "label" for ViTForImageClassification
+        modelConfig["model_type"] = ov::Any(std::string("label"));
+        modelConfig["output_raw_scores"] = ov::Any(std::string(
+            "True")); // meaning the model outputs raw classification scores (logits) that need softmax post-processing
+    } else if ((architecture == "RTDetrForObjectDetection") || (architecture == "RtDetrV2ForObjectDetection")) {
+        modelConfig["model_type"] = ov::Any(std::string("rtdetr"));
+        modelConfig["output_raw_scores"] =
+            ov::Any(std::string("False")); // meaning the model outputs processed detection results (no softmax needed)
+    } else if (architecture == "DepthAnythingForDepthEstimation") {
+        modelConfig["model_type"] = ov::Any(std::string("depth_estimation"));
+        modelConfig["output_raw_scores"] = ov::Any(
+            std::string("False")); // meaning the model outputs processed depth estimation results (no softmax needed)
+    }
+
     nlohmann::json preproc_json;
     if (!loadJsonFromModelDir(model_file, "preprocessor_config.json", preproc_json)) {
         GST_ERROR("Failed to load preprocessor_config.json for HuggingFace model: %s", model_file.c_str());
         return false;
     }
 
+    // Parse pre-processing metadata from preprocessor_config.json and config.json, and convert to Model API format
     if (!parseHFpreprocessing(config_json, preproc_json, modelConfig)) {
         GST_ERROR("Failed to parse HuggingFace preprocessing configuration.");
         return false;
     }
 
-    if (architecture == "ViTForImageClassification") {
-        // Model type is always "label" for ViTForImageClassification
-        modelConfig["model_type"] = ov::Any(std::string("label"));
-        modelConfig["output_raw_scores"] = ov::Any(std::string("True"));
-    } else if ((architecture == "RTDetrForObjectDetection") || (architecture == "RtDetrV2ForObjectDetection")) {
-        modelConfig["model_type"] = ov::Any(std::string("rtdetr"));
-        modelConfig["output_raw_scores"] = ov::Any(std::string("False"));
-    }
-
+    // Parse label metadata from config.json and convert to Model API format
     if (!parseHFlabels(config_json, modelConfig)) {
         GST_ERROR("Failed to parse HuggingFace labels.");
         return false;
@@ -425,7 +444,7 @@ bool isHuggingFaceModel(const std::string &model_file) {
     if (!loadJsonFromModelDir(model_file, "config.json", config_json))
         return false;
 
-    // Check if config.json contains "transformaers_version" field
+    // Check if config.json contains "transformers_version" field
     if (config_json.contains("transformers_version"))
         return true;
     else
@@ -694,8 +713,20 @@ std::map<std::string, GstStructure *> get_model_info_preproc(const std::shared_p
                 g_value_set_string(&gvalue, "no-aspect-ratio");
                 gst_structure_set_value(s, "resize", &gvalue);
             }
+            if (element.second.as<std::string>() == "aspect_ratio_multiple" ||
+                element.second.as<std::string>() == "aspect_ratio_multiple_of") {
+                g_value_set_string(&gvalue, "aspect-ratio-multiple-of");
+                gst_structure_set_value(s, "resize", &gvalue);
+            }
             GST_INFO("[get_model_info_preproc] resize_type: %s", element.second.as<std::string>().c_str());
             GST_INFO("[get_model_info_preproc] resize: %s", g_value_get_string(&gvalue));
+            g_value_unset(&gvalue);
+        }
+        if (element.first == "resize_multiple") {
+            GValue gvalue = G_VALUE_INIT;
+            g_value_init(&gvalue, G_TYPE_INT);
+            g_value_set_int(&gvalue, element.second.as<int>());
+            gst_structure_set_value(s, "resize-multiple", &gvalue);
             g_value_unset(&gvalue);
         }
         if (element.first == "color_space") {
@@ -838,6 +869,8 @@ std::map<std::string, GstStructure *> get_model_info_postproc(const std::shared_
             GST_INFO("[get_model_info_postproc] method: %s", g_value_get_string(&gvalue));
             g_value_unset(&gvalue);
         }
+        // Model API uses the standardized output_raw_scores key for classification logits.
+        // In dlstreamer this means the label converter should apply softmax-based postprocessing.
         if ((element.first.find("output_raw_scores") != std::string::npos) &&
             (element.second.as<std::string>().find("True") != std::string::npos)) {
             GValue gvalue = G_VALUE_INIT;
