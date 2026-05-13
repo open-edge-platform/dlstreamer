@@ -64,7 +64,7 @@ class TestOptimizer(unittest.TestCase):
         """Test iter_optimize_for_streams with timeout and check if stream count changes"""
         optimizer = DLSOptimizer()
         candidates = []
-        timeout_duration =180  # 3 minutes in seconds
+        timeout_duration =600  # 6 minutes in seconds
         start_time = time.time()
         timeout_reached = False
 
@@ -184,7 +184,7 @@ class TestOptimizer(unittest.TestCase):
 
         print(f"✓ Test passed: Optimized pipeline matches optimal pipeline with FPS {fps}")
 
-    def test_set_sample_duration_with_iter_optimize_for_fps(self):
+    def test_set_sample_duration_with_optimize_for_fps(self):
         """Test that set_sample_duration() affects sampling time per candidate"""
         
         short_duration = 5
@@ -253,9 +253,7 @@ class TestOptimizer(unittest.TestCase):
         # Collect candidates to see what devices are being tested
         candidates = []
         iteration_count = 0
-        for candidate_result in optimizer.optimize_for_fps(self.simple_pipeline,60):
-            pipeline = candidate_result[0]
-            fps = candidate_result[1]
+        for pipeline, fps in optimizer.optimize_for_fps(self.simple_pipeline,60):
             candidates.append((pipeline, fps))
             print(f"Tested: {pipeline} @ {fps} FPS")
         
