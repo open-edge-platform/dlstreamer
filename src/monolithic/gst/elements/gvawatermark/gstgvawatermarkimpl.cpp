@@ -1180,8 +1180,12 @@ void Impl::parse_displ_config() {
             _displCfg.show_labels = (iter->second != "false");
             cfg.erase(iter);
         }
-
-        if (_displCfg.show_labels) {
+        if (iter = cfg.find("ff-custom-txt"); iter != cfg.end()) {
+            // Limit custom text to 20 characters to avoid overflow on output video
+            _displCfg.ff_custom_txt = iter->second.substr(0, 20);
+            cfg.erase(iter);
+        }
+        if (_displCfg.show_labels || _displCfg.ff_custom_txt.size() > 0) {
             if (iter = cfg.find("font-scale"); iter != cfg.end()) {
                 _displCfg.font_scale = std::stof(iter->second);
                 if (_displCfg.font_scale > MAX_FONT_SCALE || _displCfg.font_scale < MIN_FONT_SCALE) {
@@ -1276,11 +1280,6 @@ void Impl::parse_displ_config() {
         }
         if (iter = cfg.find("text-y"); iter != cfg.end()) {
             _ff_text_position.y = std::stof(iter->second);
-            cfg.erase(iter);
-        }
-        if (iter = cfg.find("ff-custom-txt"); iter != cfg.end()) {
-            // Limit custom text to 20 characters to avoid overflow on output video
-            _displCfg.ff_custom_txt = iter->second.substr(0, 20);
             cfg.erase(iter);
         }
     } catch (...) {
