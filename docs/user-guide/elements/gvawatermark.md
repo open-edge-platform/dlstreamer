@@ -84,6 +84,8 @@ Element Properties:
                         * hide-blur-roi=<string> colon-separated list of labels to exclude from blurring (show-blur-roi takes precedence)
                         * text-x=<float> x position (pixels) for full-frame text (e.g. from gvagenai), default 0
                         * text-y=<float> y position (pixels) for full-frame text (e.g. from gvagenai), default 25
+                        * ff-custom-txt=<string> extra custom text for full-frame display (limit 20 characters), default empty
+                          NOTE : text-x and text-y apply to ff-custom-txt position
 
                         e.g.: displ-cfg=show-labels=false
                         e.g.: displ-cfg=font-scale=0.5,thickness=3,color-idx=2,font-type=plain
@@ -91,6 +93,7 @@ Element Properties:
                         e.g.: displ-cfg=show-labels=true,hide-roi=bottle:cup
                         e.g.: displ-cfg=enable-blur=true,show-blur-roi=face:person
                         e.g.: displ-cfg=text-y=680 (place full-frame text near bottom of a 720p frame)
+                        e.g.: displ-cfg=text-y=680,ff-custom-txt='Custom Text' (place 'Custom Text' near bottom of a 720p frame)
 
                         flags: readable, writable
                         String. Default: null
