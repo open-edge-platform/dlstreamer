@@ -11,7 +11,10 @@ import re
 import warnings
 
 from preprocess import preprocess_pipeline
-from processors.inference import DeviceGenerator, BatchGenerator, NireqGenerator, add_instance_ids
+from processors.device import DeviceGenerator
+from processors.batch import BatchGenerator
+from processors.nireq import NireqGenerator
+from processors.utils import add_instance_ids
 
 import gi
 gi.require_version("Gst", "1.0")
