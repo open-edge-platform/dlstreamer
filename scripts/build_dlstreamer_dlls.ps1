@@ -439,10 +439,10 @@ else {
 # ============================================================================
 # NSIS
 # ============================================================================
-$nsisInstalled = (Get-WinGetPackage -Id NSIS.NSIS -Source winget -ErrorAction SilentlyContinue).Count -gt 0
+$nsisInstalled = (winget list --id NSIS.NSIS --source winget 2>$null | Select-String "NSIS.NSIS").Count -gt 0
 if (-Not $nsisInstalled) {
 	Write-Section "Installing NSIS"
-	Install-WinGetPackage -Id NSIS.NSIS -Source winget -Mode Silent
+	winget install --id NSIS.NSIS --source winget --silent --accept-package-agreements --accept-source-agreements
 	Update-Path
 	Write-Section "Done"
 }
