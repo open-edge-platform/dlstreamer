@@ -249,6 +249,7 @@ jobs:
       - name: Install optimizer requirements on host
         if: always() && matrix.runner_print_label != 'SKIP'
         run: |
+          sudo apt-get install -y --no-install-recommends libcairo2-dev libgirepository1.0-dev
           python3 -m venv $HOME/optimizer-venv
           $HOME/optimizer-venv/bin/pip install --no-cache-dir -r /opt/intel/dlstreamer/scripts/optimizer/requirements.txt
           echo "$HOME/optimizer-venv/bin" >> $GITHUB_PATH
