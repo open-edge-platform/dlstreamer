@@ -82,10 +82,11 @@ RUN \
 # Intel NPU drivers and prerequisites installation
 WORKDIR /tmp/npu_deps
 
-RUN curl -LO https://github.com/intel/linux-npu-driver/releases/download/v1.32.0/linux-npu-driver-v1.32.0.20260402-23905121947-ubuntu2404.tar.gz && \
-    tar -xf linux-npu-driver-v1.32.0.20260402-23905121947-ubuntu2404.tar.gz && \
+RUN curl -LO https://github.com/intel/linux-npu-driver/releases/download/v1.32.1/linux-npu-driver-v1.32.1.20260422-24767473183-ubuntu2404.tar.gz && \
+    tar -xf linux-npu-driver-v1.32.1.20260422-24767473183-ubuntu2404.tar.gz && \
     curl -LO https://snapshot.ppa.launchpadcontent.net/kobuk-team/intel-graphics/ubuntu/20260324T100000Z/pool/main/l/level-zero-loader/libze1_1.27.0-1~24.04~ppa2_amd64.deb && \
-    dpkg -i ./*.deb && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends ./intel-*.deb && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /tmp/npu_deps
 
@@ -191,7 +192,7 @@ RUN cp -a /usr/local/lib/libopencv* ./
 
 FROM opencv-builder AS gstreamer-builder
 
-ARG GST_VERSION=1.26.11
+ARG GST_VERSION=1.28.2
 
 SHELL ["/bin/bash", "-xo", "pipefail", "-c"]
 
@@ -217,7 +218,6 @@ RUN \
     meson setup \
     -Dexamples=disabled \
     -Dtests=disabled \
-    -Dvaapi=enabled \
     -Dlibnice=enabled \
     -Dgst-examples=disabled \
     -Ddevtools=disabled \
@@ -280,11 +280,6 @@ RUN \
     -Dgst-plugins-ugly:nls=disabled \
     -Dgst-plugins-ugly:x264=disabled \
     -Dgst-plugins-ugly:gpl=disabled \
-    -Dgstreamer-vaapi:encoders=enabled \
-    -Dgstreamer-vaapi:drm=enabled \
-    -Dgstreamer-vaapi:glx=enabled \
-    -Dgstreamer-vaapi:wayland=enabled \
-    -Dgstreamer-vaapi:egl=enabled \
     --buildtype="${BUILD_ARG,}" \
     --prefix="${GSTREAMER_DIR}" \
     --libdir=lib/ \
@@ -307,7 +302,7 @@ RUN \
     shopt -s dotglob && \
     mv gst-plugins-rs/* . && \
     git checkout "tags/gstreamer-$GST_VERSION" && \
-    curl -sSL --insecure https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.88.0 && \
+    curl -sSL --insecure https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.92.0 && \
     source "$HOME"/.cargo/env && \
     cargo install cargo-c --version=0.10.11 --locked && \
     cargo update && \
@@ -481,8 +476,8 @@ RUN \
     cp -rT "${GSTREAMER_DIR}" /deb-pkg/opt/intel/dlstreamer/gstreamer && \
     mkdir -p /deb-pkg/opt/intel/dlstreamer/lib/girepository-1.0 && \
     mkdir -p /deb-pkg/opt/intel/dlstreamer/share/gir-1.0 && \
-    cp "${DLSTREAMER_DIR}/girs/DLStreamerMeta-1.0.gir" /deb-pkg/opt/intel/dlstreamer/share/gir-1.0/ && \
-    cp "${DLSTREAMER_DIR}/build/src/gst/metadata/DLStreamerMeta-1.0.typelib" /deb-pkg/opt/intel/dlstreamer/lib/girepository-1.0/ && \
+    cp "${DLSTREAMER_DIR}/girs/"*.gir /deb-pkg/opt/intel/dlstreamer/share/gir-1.0/ && \
+    cp "${DLSTREAMER_DIR}/build/src/gst/metadata/"*.typelib /deb-pkg/opt/intel/dlstreamer/lib/girepository-1.0/ && \
     cp -a /usr/local/lib/libopencv*.so* /deb-pkg/opt/opencv/ && \
     cp -r /usr/local/include/opencv4/* /deb-pkg/opt/opencv/include && \
     cp -a /usr/local/lib/librdkafka*.so* /deb-pkg/opt/rdkafka/ && \
@@ -546,10 +541,11 @@ RUN \
 # Intel NPU drivers and prerequisites installation
 WORKDIR /tmp/npu_deps
 
-RUN curl -LO https://github.com/intel/linux-npu-driver/releases/download/v1.32.0/linux-npu-driver-v1.32.0.20260402-23905121947-ubuntu2404.tar.gz && \
+RUN curl -LO https://github.com/intel/linux-npu-driver/releases/download/v1.32.1/linux-npu-driver-v1.32.1.20260422-24767473183-ubuntu2404.tar.gz && \
+    tar -xf linux-npu-driver-v1.32.1.20260422-24767473183-ubuntu2404.tar.gz && \
     curl -LO https://snapshot.ppa.launchpadcontent.net/kobuk-team/intel-graphics/ubuntu/20260324T100000Z/pool/main/l/level-zero-loader/libze1_1.27.0-1~24.04~ppa2_amd64.deb && \
-    tar -xf linux-npu-driver-v1.32.0.20260402-23905121947-ubuntu2404.tar.gz && \
-    dpkg -i ./*.deb && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends ./intel-*.deb && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /tmp/npu_deps
 

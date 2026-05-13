@@ -24,6 +24,7 @@ else:
 
 GST_PADDING = 4
 GST_VAAPI_VIDEO_MEMORY_NAME = "GstVaapiVideoMemory"
+GST_VA_VIDEO_MEMORY_NAME = "VAMemory"
 
 
 class GstMapInfo(ctypes.Structure):
@@ -193,6 +194,9 @@ def is_vaapi_buffer(_buffer):
         return False
     res = libgst.gst_memory_is_type(
         mem, GST_VAAPI_VIDEO_MEMORY_NAME.encode('utf-8'))
+    if not res:
+        res = libgst.gst_memory_is_type(
+            mem, GST_VA_VIDEO_MEMORY_NAME.encode('utf-8'))
     # gst_memory_unref
     mem.contents.mini_object.refcount -= 1
     return res

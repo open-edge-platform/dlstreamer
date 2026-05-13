@@ -1,6 +1,6 @@
 #!/bin/bash
 # ==============================================================================
-# Copyright (C) 2018-2025 Intel Corporation
+# Copyright (C) 2018-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
@@ -53,17 +53,17 @@ gst-launch-1.0 \
 $SOURCE_ELEMENT ! \
 decodebin3 ! \
 processbin \
-    preprocess="capsfilter caps=video/x-raw(memory:VASurface) ! vaapipostproc ! videoscale ! videoconvert ! video/x-raw(ANY),format=BGRP ! tensor_convert" \
+    preprocess="capsfilter caps=video/x-raw(memory:VAMemory) ! vapostproc ! videoscale ! videoconvert ! video/x-raw(ANY),format=BGRP ! tensor_convert" \
     process="openvino_tensor_inference model=$MODEL1_PATH device=GPU" \
     postprocess="tensor_postproc_detection threshold=0.5" \
     aggregate="meta_aggregate attach-tensor-data=false" ! \
 processbin \
-    preprocess="capsfilter caps=video/x-raw(memory:VASurface) ! roi_split ! vaapipostproc ! videoscale ! videoconvert ! tensor_convert" \
+    preprocess="capsfilter caps=video/x-raw(memory:VAMemory) ! roi_split ! vapostproc ! videoscale ! videoconvert ! tensor_convert" \
     process="openvino_tensor_inference model=$MODEL2_PATH device=GPU" \
     postprocess="tensor_postproc_label labels=<neutral,happy,sad,surprise,anger> attribute-name=emotion method=max" \
     aggregate=meta_aggregate ! \
 processbin \
-    preprocess="capsfilter caps=video/x-raw(memory:VASurface) ! roi_split ! vaapipostproc ! videoscale ! videoconvert ! video/x-raw(ANY),format=BGRP ! tensor_convert" \
+    preprocess="capsfilter caps=video/x-raw(memory:VAMemory) ! roi_split ! vapostproc ! videoscale ! videoconvert ! video/x-raw(ANY),format=BGRP ! tensor_convert" \
     process="openvino_tensor_inference model=$MODEL3_PATH device=GPU" \
     postprocess="tensor_postproc_add_params format=landmark_points" \
     aggregate=meta_aggregate ! \

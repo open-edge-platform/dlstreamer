@@ -16,7 +16,8 @@ class YOLOv26Converter : public YOLOv10Converter {
   public:
     YOLOv26Converter(BlobToMetaConverter::Initializer initializer, double confidence_threshold, double iou_threshold)
         : YOLOv10Converter(std::move(initializer), confidence_threshold, iou_threshold) {
-        // YOLOv26, like YOLOv10, does not require NMS, this is a non-max suppression free model
+        // YOLOv26, like YOLOv10, does not require NMS, this is a non-max suppression free model. However, forcing NMS
+        // to true to get better results.
     }
 
     static std::string getName() {

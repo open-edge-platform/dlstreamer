@@ -9,6 +9,7 @@
 #include "post_processor/blob_to_meta_converter.h"
 #include "post_processor/post_proc_common.h"
 
+#include <dlstreamer/gst/videoanalytics/tensor.h>
 #include <gst/gst.h>
 
 #include <map>
@@ -100,12 +101,19 @@ class BlobToROIConverter : public BlobToMetaConverter {
             for (auto &structure : this->tensors) {
                 GVA::Tensor tensor(structure);
 
-                if (tensor.format() != "keypoints") {
+                if (tensor.type() != GVA::GST_ANALYTICS_KEYPOINTS_2_TENSOR) {
                     continue;
                 };
 
                 const auto keypoints = tensor.data<float>();
-                auto confidences = tensor.get_vector<float>("confidence");
+                auto confidences = tensor.confidences();
+
+                // If all confidence values are identical, treat as a shared detection confidence
+                // and skip per-keypoint zeroing.
+                bool all_same = confidences.size() > 1 && std::all_of(confidences.begin(), confidences.end(),
+                                                                      [&](float v) { return v == confidences[0]; });
+                if (all_same)
+                    continue;
 
                 const auto &dimensions = tensor.dims();
                 size_t points_num = dimensions[0];
@@ -144,7 +152,7 @@ class BlobToROIConverter : public BlobToMetaConverter {
           iou_threshold(iou_threshold) {
     }
 
-    TensorsTable convert(const OutputBlobs &output_blobs) = 0;
+    virtual TensorsTable convert(const OutputBlobs &output_blobs) = 0;
 
     static BlobToMetaConverter::Ptr create(BlobToMetaConverter::Initializer initializer,
                                            const std::string &converter_name, const std::string &custom_postproc_lib);

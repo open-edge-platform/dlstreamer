@@ -194,7 +194,7 @@ RUN cp -a /usr/local/lib64/libopencv* ./
 # ==============================================================================
 FROM opencv-builder AS gstreamer-builder
 # Build GStreamer
-ARG GST_VERSION=1.26.11
+ARG GST_VERSION=1.28.2
 
 SHELL ["/bin/bash", "-xo", "pipefail", "-c"]
 WORKDIR /home/dlstreamer
@@ -218,7 +218,6 @@ RUN \
     meson setup \
     -Dexamples=disabled \
     -Dtests=disabled \
-    -Dvaapi=enabled \
     -Dlibnice=enabled \
     -Dgst-examples=disabled \
     -Ddevtools=disabled \
@@ -281,11 +280,6 @@ RUN \
     -Dgst-plugins-ugly:nls=disabled \
     -Dgst-plugins-ugly:x264=disabled \
     -Dgst-plugins-ugly:gpl=disabled \
-    -Dgstreamer-vaapi:encoders=enabled \
-    -Dgstreamer-vaapi:drm=enabled \
-    -Dgstreamer-vaapi:glx=enabled \
-    -Dgstreamer-vaapi:wayland=enabled \
-    -Dgstreamer-vaapi:egl=enabled \
     --buildtype="${BUILD_ARG,}" \
     --prefix="${GSTREAMER_DIR}" \
     --libdir=lib/ \
@@ -308,7 +302,7 @@ RUN \
     shopt -s dotglob && \
     mv gst-plugins-rs/* . && \
     git checkout "tags/gstreamer-$GST_VERSION" && \
-    curl -sSL --insecure https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.88.0 && \
+    curl -sSL --insecure https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.92.0 && \
     source "$HOME"/.cargo/env && \
     cargo install cargo-c --version=0.10.11 --locked && \
     cargo update && \
@@ -481,8 +475,8 @@ RUN \
     cp -rT "${GSTREAMER_DIR}" /${RPM_PKG_NAME}/opt/intel/dlstreamer/gstreamer && \
     mkdir -p /${RPM_PKG_NAME}/opt/intel/dlstreamer/share/gir-1.0/ && \
     mkdir -p /${RPM_PKG_NAME}/opt/intel/dlstreamer/lib/girepository-1.0/ && \
-    cp "${DLSTREAMER_DIR}/girs/DLStreamerMeta-1.0.gir" /${RPM_PKG_NAME}/opt/intel/dlstreamer/share/gir-1.0/ && \
-    cp "${DLSTREAMER_DIR}/build/src/gst/metadata/DLStreamerMeta-1.0.typelib" /${RPM_PKG_NAME}/opt/intel/dlstreamer/lib/girepository-1.0/ && \
+    cp "${DLSTREAMER_DIR}/girs/"*.gir /${RPM_PKG_NAME}/opt/intel/dlstreamer/share/gir-1.0/ && \
+    cp "${DLSTREAMER_DIR}/build/src/gst/metadata/"*.typelib /${RPM_PKG_NAME}/opt/intel/dlstreamer/lib/girepository-1.0/ && \
     cp -a /usr/local/lib64/libopencv* /${RPM_PKG_NAME}/opt/opencv/ && \
     cp -a /usr/local/lib/librdkafka* /${RPM_PKG_NAME}/opt/rdkafka/ && \
     cp -a /usr/local/lib64/librealsense* /${RPM_PKG_NAME}/opt/librealsense/ && \

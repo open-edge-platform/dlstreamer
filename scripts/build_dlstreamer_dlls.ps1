@@ -9,7 +9,7 @@ param(
 	[switch]$setEnv
 )
 
-$GSTREAMER_VERSION = "1.26.11"
+$GSTREAMER_VERSION = "1.28.2"
 $OPENVINO_VERSION = "2026.1.0"
 $OPENVINO_VERSION_SHORT = "2026.1"
 $PYTHON_VERSION = "3.12.7"
@@ -275,6 +275,19 @@ if ($GSTREAMER_NEEDS_INSTALL) {
 			Set-ItemProperty -Path $rightRegKey -Name $envVarName -Value $wrongValue
 			Remove-ItemProperty -Path $wrongRegKey -Name $envVarName
 		}
+
+		# Workaround: Copy patched gstanalytics DLL for GStreamer 1.28.2
+		if ($GSTREAMER_VERSION -eq "1.28.2") {
+			$srcDll = Join-Path $PWD.Path "dependencies\windows\gstanalytics-1.0-0.dll"
+			$dstDir = "$GSTREAMER_DEST_FOLDER\bin"
+			if (Test-Path $srcDll) {
+				Copy-Item -Path $srcDll -Destination $dstDir -Force
+				Write-Host "Copied gstanalytics-1.0-0.dll to $dstDir"
+			}
+			else {
+				Write-Host "Warning: $srcDll not found, skipping copy"
+			}
+		}
 	}
 	else {
 		Write-Section "Installing GStreamer ${GSTREAMER_VERSION} (MSI)"
@@ -391,10 +404,10 @@ else {
 # ============================================================================
 # Git
 # ============================================================================
-$gitInstalled = (Get-WinGetPackage -Id Git.Git -Source winget -ErrorAction SilentlyContinue).Count -gt 0
+$gitInstalled = $null -ne (Get-Command git -ErrorAction SilentlyContinue)
 if (-Not $gitInstalled) {
 	Write-Section "Installing Git"
-	Install-WinGetPackage -Id Git.Git -Source winget -Mode Silent
+	winget install --id Git.Git --source winget --silent --accept-package-agreements --accept-source-agreements
 	Update-Path
 	New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" -Name "LongPathsEnabled" -Value 1 -PropertyType DWORD -Force
 	git config --system core.longpaths true
@@ -408,10 +421,10 @@ else {
 # ============================================================================
 # CMake
 # ============================================================================
-$cmakeInstalled = (Get-WinGetPackage -Id Kitware.CMake -Source winget -ErrorAction SilentlyContinue).Count -gt 0
+$cmakeInstalled = $null -ne (Get-Command cmake -ErrorAction SilentlyContinue)
 if (-Not $cmakeInstalled) {
 	Write-Section "Installing CMake"
-	Install-WinGetPackage -Id Kitware.CMake -Source winget -Mode Silent
+	winget install --id Kitware.CMake --source winget --silent --accept-package-agreements --accept-source-agreements
 	Update-Path
 	Write-Section "Done"
 }
