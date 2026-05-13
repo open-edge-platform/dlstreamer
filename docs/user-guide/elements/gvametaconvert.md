@@ -27,6 +27,9 @@ Element Properties:
   add-empty-results     : Add metadata when inference is run but no results meet the detection threshold
                           flags: readable, writable
                           Boolean. Default: false
+  add-rtp-timestamp     : Include NTP reference timestamp metadata from RTCP Sender Reports in output. Requires add-reference-timestamp-meta=true in rtspsrc.
+                          flags: readable, writable
+                          Boolean. Default: false
   add-tensor-data       : Add raw tensor data in addition to detection and classification labels.
                           flags: readable, writable
                           Boolean. Default: false

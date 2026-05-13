@@ -17,9 +17,9 @@ from openvino import Type
 from openvino import save_model
 from openvino.tools.ovc import convert_model
 from optimum.exporters.onnx import main_export
-from transformers import CLIPVisionModel
+from transformers import AutoModelForDepthEstimation, CLIPVisionModel
 from transformers import AutoConfig
-from transformers import AutoProcessor
+from transformers import AutoProcessor, AutoImageProcessor
 from PIL import Image
 
 SUPPORTED_HF_MODELS = {
@@ -47,6 +47,7 @@ CUSTOM_CONVERTERS = {
     "clipmodel",
     "rtdetrforobjectdetection",
     "rtdetrv2forobjectdetection",
+    "depthanythingfordepthestimation",
 }
 
 
@@ -120,6 +121,15 @@ def custom_conversion(
         "rtdetrv2forobjectdetection": (
             "an RT-DETR model",
             lambda: export_hf_rtdetr_to_openvino(
+                model_id,
+                export_dir,
+                token,
+                extra_args=extra_args,
+            ),
+        ),
+        "depthanythingfordepthestimation": (
+            "a DepthAnything model",
+            lambda: export_hf_depthanything_to_openvino(
                 model_id,
                 export_dir,
                 token,
@@ -225,4 +235,47 @@ def export_hf_rtdetr_to_openvino(
     model_name = Path(model_ref).name
     save_model(ov_model, str(outdir / f"{model_name}.xml"))
     model_onnx.unlink(missing_ok=True)
+    return outdir
+
+
+def export_hf_depthanything_to_openvino(
+    model_ref: str,
+    outdir: Path,
+    token: str | None,
+    extra_args: list[str] | None = None,
+) -> Path:
+    """Export DepthAnything via PyTorch -> OpenVINO IR.
+
+    Requires `huggingface_hub` and `openvino` to be installed.
+    """
+    outdir.mkdir(parents=True, exist_ok=True)
+    _ = extra_args
+    model_id = model_ref
+
+    model = AutoModelForDepthEstimation.from_pretrained(model_ref, token=token)
+    model.eval()
+
+    img = Image.new("RGB", (224, 224))
+    processor = AutoImageProcessor.from_pretrained(model_ref, token=token)
+    batch = processor(images=img, return_tensors="pt")["pixel_values"]
+
+    ov_model = convert_model(model, example_input=batch)
+
+    hf_hub_download(
+        repo_id=model_id,
+        filename="config.json",
+        local_dir=str(outdir),
+        token=token,
+    )
+
+    hf_hub_download(
+        repo_id=model_id,
+        filename="preprocessor_config.json",
+        local_dir=str(outdir),
+        token=token,
+    )
+
+    model_name = Path(model_ref).name
+    save_model(ov_model, str(outdir / f"{model_name}.xml"))
+
     return outdir

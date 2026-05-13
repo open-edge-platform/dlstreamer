@@ -174,10 +174,10 @@ OutputBlobs ConverterFacade::extractProcessedOutputBlobs(const OutputBlobs &all_
 void ConverterFacade::convert(const OutputBlobs &all_output_blobs, FramesWrapper &frames) const {
     TensorsTable tensors_batch;
     if (process_all_outputs)
-        tensors_batch = blob_to_meta->convert(all_output_blobs);
+        tensors_batch = blob_to_meta->convert(all_output_blobs, frames);
     else {
         const auto processed_output_blobs = extractProcessedOutputBlobs(all_output_blobs);
-        tensors_batch = blob_to_meta->convert(processed_output_blobs);
+        tensors_batch = blob_to_meta->convert(processed_output_blobs, frames);
     }
 
     if (frames.need_coordinate_restore() && coordinates_restorer != nullptr)

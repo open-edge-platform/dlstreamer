@@ -24,6 +24,8 @@ Key types:
 | `GstAnalyticsKeypointMtd` | Single keypoint |
 | `GstAnalyticsGroupMtd` | Ordered group of metadata |
 | `GstAnalyticsKeypointDescriptor` | Static keypoint layout registry (DL Streamer extension) |
+| `GstAnalyticsZoneMtd` | Zone presence (zone ID) — DL Streamer extension |
+| `GstAnalyticsTripwireMtd` | Tripwire crossing (tripwire ID, direction) — DL Streamer extension |
 
 For the full API documentation, keypoint descriptor details, and code
 examples, see [GStreamer Analytics Metadata](./metadata_analytics.md).
@@ -74,7 +76,8 @@ For reference documentation of the legacy API, see
 | `gvainference` (full-frame) | Generic full-frame inference | GstBuffer | — | GstGVATensorMeta |
 | `gvainference` (roi-list) | Generic inference per ROI | GstBuffer + ROI/ODMtd | — | extended ROI params |
 | `gvatrack` | Object tracking | GstBuffer + ROI/ODMtd | TrackingMtd | ROI + object_id param |
-| `gvametaconvert` | Metadata → JSON | GstBuffer + ROI/ODMtd (+ related ClsMtd, KeypointGroupMtd, TrackingMtd) + GstGVATensorMeta | — | GstGVAJSONMeta |
+| `gvaanalytics` | Zone and tripwire analytics | GstBuffer + ODMtd + TrackingMtd | ZoneMtd (related to ODMtd), TripwireMtd (related to ODMtd) + WatermarkDrawMeta + WatermarkCircleMeta | — |
+| `gvametaconvert` | Metadata → JSON | GstBuffer + ROI/ODMtd (+ related ClsMtd, KeypointGroupMtd, TrackingMtd, ZoneMtd, TripwireMtd) + GstGVATensorMeta | — | GstGVAJSONMeta |
 | `gvametapublish` | JSON → MQTT/Kafka/File | GstBuffer + GstGVAJSONMeta | — | — |
 | `gvametaaggregate` | Merge from multiple streams | GstBuffer + any metadata | ODMtd, ClsMtd, KeypointGroupMtd | ROI + GstStructure params, GstGVATensorMeta |
 | `gvawatermark` | Overlay on video | GstBuffer + ROI/ODMtd (+ related ClsMtd, KeypointGroupMtd, TrackingMtd) + GstGVATensorMeta + WatermarkDrawMeta + WatermarkCircleMeta + WatermarkTextMeta | — | — |

@@ -103,7 +103,7 @@ Parameters:
 
 ## Pipeline Architecture
 
-**Note**: Pipeline varies based on device type. GPU/NPU use D3D11 hardware acceleration (`d3d11convert`, `d3d11videosink`, `d3d11h264enc`), while CPU uses software path (`videoconvert`, `autovideosink`, `openh264enc`).
+**Note**: Pipeline varies based on device type. GPU/NPU use D3D11 hardware acceleration (`d3d11convert`, `d3d11videosink`, `mfh264enc`), while CPU uses software path (`videoconvert`, `autovideosink`, `openh264enc`).
 
 ```mermaid
 graph LR
@@ -119,7 +119,7 @@ graph LR
     I -->|file<br/>GPU/NPU| J1[d3d11convert]
     J1 --> J2[gvawatermark]
     J2 --> J3[gvafpscounter]
-    J3 --> J4[d3d11h264enc]
+    J3 --> J4[mfh264enc]
     J4 --> J5[h264parse]
     J5 --> J6[mp4mux]
     J6 --> J7[filesink]

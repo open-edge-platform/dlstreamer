@@ -20,7 +20,7 @@ permissions: {}
 
 env:
   DLS_REPO_TARGET_DIRECTORY: 'C:\dlstreamer_repo'
-  DLS_BUILD_DIRECTORY: '$env:TEMP\dlstreamer_tmp\build'
+  DLS_BUILD_DIRECTORY: 'C:\dlstreamer_repo\build'
   DLS_DLL_TARGET_DIRECTORY: 'C:\dlstreamer'
   OPENVINO_RUNTIME_DIRECTORY: '$env:LOCALAPPDATA\Programs\openvino\runtime'
   GSTREAMER_DIRECTORY: 'C:\Program Files\gstreamer'
@@ -154,7 +154,7 @@ jobs:
         shell: powershell
         run: |
           cd ${{ env.DLS_REPO_TARGET_DIRECTORY }}
-          & ./scripts/build_dlstreamer_dlls.ps1
+          & ./scripts/build_dlstreamer_dlls.ps1 -buildInstaller -installerSkipCompression
 
       - name: Copy DLLs
         if: needs.setup.outputs.should_run == 'true'
