@@ -1,8 +1,8 @@
 diff --git a/subprojects/gst-plugins-bad/gst-libs/gst/va/gstvaallocator.c b/subprojects/gst-plugins-bad/gst-libs/gst/va/gstvaallocator.c
-index c76debce9957363a2b8e7c74b9f5eb7dcfcc6c8a..b84593edb48ead12a853105c97034dd5b876d1e8 100644
+index fcc535140e..fc7b2a232e 100644
 --- a/subprojects/gst-plugins-bad/gst-libs/gst/va/gstvaallocator.c
 +++ b/subprojects/gst-plugins-bad/gst-libs/gst/va/gstvaallocator.c
-@@ -1190,6 +1190,97 @@ gst_va_dmabuf_memories_setup (GstVaDisplay * display,
+@@ -1194,6 +1194,97 @@ gst_va_dmabuf_memories_setup (GstVaDisplay * display,
    return TRUE;
  }
  
@@ -99,23 +99,19 @@ index c76debce9957363a2b8e7c74b9f5eb7dcfcc6c8a..b84593edb48ead12a853105c97034dd5
 +
  /*===================== GstVaAllocator / GstVaMemory =========================*/
  
- /**
+ #define GST_VA_ALLOCATOR(obj)            (G_TYPE_CHECK_INSTANCE_CAST((obj), GST_TYPE_VA_ALLOCATOR, GstVaAllocator))
 diff --git a/subprojects/gst-plugins-bad/gst-libs/gst/va/gstvaallocator.h b/subprojects/gst-plugins-bad/gst-libs/gst/va/gstvaallocator.h
-index fd2b80d90da7189b170963e03c89e76caf179292..c278db66e0ae1f3179209beae658f9b4c8967ec6 100644
+index 230fab26cf..4dc6a894f6 100644
 --- a/subprojects/gst-plugins-bad/gst-libs/gst/va/gstvaallocator.h
 +++ b/subprojects/gst-plugins-bad/gst-libs/gst/va/gstvaallocator.h
-@@ -64,6 +64,10 @@ gboolean              gst_va_dmabuf_memories_setup        (GstVaDisplay * displa
+@@ -60,7 +60,9 @@ gboolean              gst_va_dmabuf_memories_setup        (GstVaDisplay * displa
+                                                            uintptr_t fds[GST_VIDEO_MAX_PLANES],
                                                             gsize offset[GST_VIDEO_MAX_PLANES],
                                                             guint usage_hint);
- 
+-
 +GST_VA_API
 +GstBuffer *           gst_va_buffer_prepare_for_import    (GstBuffer * buffer,
 +                                                           GstVaDisplay * display);
-+
  GST_VA_API
  guint64               gst_va_dmabuf_get_modifier_for_format (GstVaDisplay * display,
                                                               GstVideoFormat format,
-
--- 
-2.43.0
-

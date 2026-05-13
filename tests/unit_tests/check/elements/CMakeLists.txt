@@ -11,6 +11,7 @@ add_subdirectory(metaconvert)
 add_subdirectory(metapublish)
 add_subdirectory(fpscounter)
 add_subdirectory(watermark)
+add_subdirectory(analytics)
 add_subdirectory(properties)
 
 if(${ENABLE_AUDIO_INFERENCE_ELEMENTS})

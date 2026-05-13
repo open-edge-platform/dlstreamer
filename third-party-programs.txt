@@ -740,10 +740,8 @@ and users must comply to its license: https://github.com/fmtlib/fmt/blob/master/
     Files:
         include/dlstreamer/gst/metadata/gstanalyticsgroupmtd.h
         include/dlstreamer/gst/metadata/gstanalyticskeypointmtd.h
-        include/dlstreamer/gst/metadata/gstvideometa_matrix.h
         src/gst/metadata/gstanalyticsgroupmtd.c
         src/gst/metadata/gstanalyticskeypointmtd.c
-        src/gst/metadata/gstvideometa_matrix.c
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
