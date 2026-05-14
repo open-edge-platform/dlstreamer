@@ -64,7 +64,7 @@ class TestOptimizer(unittest.TestCase):
         """Test iter_optimize_for_streams with timeout and check if stream count changes"""
         optimizer = DLSOptimizer()
         candidates = []
-        timeout_duration =600  # 6 minutes in seconds
+        timeout_duration =300  # 5 minutes in seconds
         start_time = time.time()
         timeout_reached = False
 
