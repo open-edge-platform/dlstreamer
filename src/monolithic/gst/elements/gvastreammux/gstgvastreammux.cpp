@@ -5,7 +5,7 @@
  ******************************************************************************/
 
 #include "gstgvastreammux.h"
-#include "dlstreamer/gst/metadata/gstgvastreammuxmeta.h"
+#include <gst/analytics/gstanalyticsbatchmeta.h>
 
 #include <cstdio>
 #include <string.h>
@@ -86,7 +86,6 @@ static void gst_gva_streammux_init(GstGvaStreammux *mux) {
     mux->max_fps = DEFAULT_MAX_FPS;
 
     mux->num_sink_pads = 0;
-    mux->batch_id = 0;
     mux->started = FALSE;
     mux->send_stream_start = TRUE;
     mux->eos_pending = FALSE;
@@ -241,7 +240,6 @@ static GstStateChangeReturn gst_gva_streammux_change_state(GstElement *element, 
         mux->started = FALSE;
         mux->send_stream_start = TRUE;
         mux->segment_sent = FALSE;
-        mux->batch_id = 0;
         mux->eos_pending = FALSE;
         mux->last_output_time = GST_CLOCK_TIME_NONE;
         gst_segment_init(&mux->segment, GST_FORMAT_TIME);
@@ -504,11 +502,18 @@ static GstFlowReturn gst_gva_streammux_collected(GstCollectPads *pads, gpointer 
         /* Make buffer writable to add metadata */
         buf = gst_buffer_make_writable(buf);
 
-        /* Attach source metadata */
-        GstGvaStreammuxMeta *meta = gst_buffer_add_gva_streammux_meta(buf, pad_index, mux->batch_id, num_sources);
+        /* Attach source metadata via GstAnalyticsBatchMeta:
+         *   streams[0].index = pad_index (originating source)
+         *   n_streams        = num_sources (total active sources, used by demux to validate pad count)
+         * The streams array is sized to n_streams so the upstream _free callback can safely walk all entries;
+         * only slot [0] carries real information, the remaining slots are left zero-initialised. */
+        GstAnalyticsBatchMeta *meta = gst_buffer_add_analytics_batch_meta(buf);
         if (meta) {
-            GST_LOG_OBJECT(mux, "Push buffer from source %u, batch %" G_GUINT64_FORMAT " (pts=%" GST_TIME_FORMAT ")",
-                           pad_index, mux->batch_id, GST_TIME_ARGS(GST_BUFFER_PTS(buf)));
+            meta->streams = g_new0(GstAnalyticsBatchStream, num_sources);
+            meta->streams[0].index = pad_index;
+            meta->n_streams = num_sources;
+            GST_LOG_OBJECT(mux, "Push buffer from source %u (pts=%" GST_TIME_FORMAT ")", pad_index,
+                           GST_TIME_ARGS(GST_BUFFER_PTS(buf)));
         }
 
         ret = gst_pad_push(mux->srcpad, buf);
@@ -525,7 +530,6 @@ static GstFlowReturn gst_gva_streammux_collected(GstCollectPads *pads, gpointer 
     }
 
     gst_gva_streammux_update_output_time(mux);
-    mux->batch_id++;
 
     return ret;
 }

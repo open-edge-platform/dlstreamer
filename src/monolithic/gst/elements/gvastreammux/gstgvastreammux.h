@@ -27,7 +27,8 @@ typedef struct _GstGvaStreammuxClass GstGvaStreammuxClass;
  *
  * A stream muxer element that collects video frames from multiple sink pads
  * and outputs them in round-robin order through a single source pad.
- * Each output buffer is tagged with GstGvaStreammuxMeta carrying source_id.
+ * Each output buffer is tagged with GstAnalyticsBatchMeta whose streams[0].index carries source_id
+ * and n_streams carries the total source count.
  *
  * Properties:
  *  - max-fps: maximum output frame rate (0 = unlimited, for local file sources only)
@@ -42,7 +43,6 @@ struct _GstGvaStreammux {
 
     /* Internal state */
     guint num_sink_pads;
-    guint64 batch_id;
     gboolean started;
     gboolean send_stream_start;
     gboolean eos_pending;

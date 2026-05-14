@@ -26,7 +26,7 @@ typedef struct _GstGvaStreamdemuxClass GstGvaStreamdemuxClass;
  * _GstGvaStreamdemux:
  *
  * A stream demuxer element that routes buffers from a single sink pad
- * to multiple source pads based on GstGvaStreammuxMeta source_id.
+ * to multiple source pads based on GstAnalyticsBatchMeta streams[0].index.
  * Must be used with gvastreammux which attaches the required metadata.
  *
  * Properties:
@@ -49,9 +49,6 @@ struct _GstGvaStreamdemux {
 
     /* Src pads array (indexed by source_id) */
     GPtrArray *srcpads;
-
-    /* Per-src-pad last batch_id for ordering check */
-    GArray *last_batch_ids;
 
     /* FPS control */
     GstClockTime last_output_time;

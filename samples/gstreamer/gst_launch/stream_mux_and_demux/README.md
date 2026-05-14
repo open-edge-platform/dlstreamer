@@ -19,7 +19,7 @@ pipeline described in a string format.
 
 - **Round-Robin Scheduling**: One frame from each source per batch cycle — no frame dropping
 - **Batch Size = Input Streams**: Each cycle outputs exactly one frame per input source
-- **Source Tracking**: Each buffer carries `GstGvaStreammuxMeta` with `source_id`, `batch_id`, and `num_sources`
+- **Source Tracking**: Each buffer carries `GstAnalyticsBatchMeta` — `streams[0].index` holds the source id, `n_streams` holds the total source count
 - **Optional Demux**: Use `gvastreamdemux` when you need per-source downstream processing (watermark, encoding, etc.)
 
 ### Pipeline Architecture
