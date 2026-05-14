@@ -112,3 +112,56 @@ See the [example prompts in the DL Streamer Coding Agent repository](https://git
 - **License Plate Recognition** — Detection + OCR pipeline with JSON and annotated video output
 - **Event-Based Smart NVR** — Person detection with triggered video recording
 - **Multi-Stream Compose** — Multiple RTSP cameras with combined WebRTC output
+
+### 5. Convert Existing Apps with convert-app Prompt (Preview)
+
+The Coding Agent can convert an existing video analytics application into a
+native Intel DL Streamer and OpenVINO C++ project using the `convert-app`
+prompt workflow.
+
+This is a good fit when you want to:
+
+- migrate a DeepStream application to DL Streamer,
+- port a legacy GStreamer AI pipeline,
+- preserve the functional stages of an existing app,
+- generate reproducible build, run, and documentation deliverables.
+
+Expected output:
+
+- C++ source files and CMake project files.
+- `run.sh` wrapper for reproducible execution.
+- Model export or download scripts when required.
+- `README.md` with conversion notes and validation-oriented run results.
+
+How to invoke:
+
+- Start your prompt with a reference to the DL Streamer Coding Agent.
+- Ask to convert an existing application and preserve functional pipeline
+	stages.
+- Request complete project deliverables (build files, wrapper script, and
+	documentation).
+
+The agent reads the source application directly, but you must make sure the
+repository is accessible to it, either as a local path or through a URL that
+can be fetched with the required permissions.
+
+Example invocations:
+
+```text
+/convert-app <source-application-repository-url>
+```
+
+```text
+/convert-app /workspace/my_ds_app --output-name my_ds_app_dls --device GPU
+```
+
+In free-form chat, you can also use:
+
+```text
+Use DL Streamer Coding Agent from https://github.com/open-edge-platform/dlstreamer
+
+Convert application at <source-application-repository-url> to a native DL Streamer and OpenVINO C++ project.
+Preserve all inference stages, generate CMakeLists.txt, run.sh, README.md, and model export scripts if needed.
+```
+
+For implementation details, see [convert_app.md](./convert_app.md).
