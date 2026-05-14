@@ -184,7 +184,7 @@ class TestOptimizer(unittest.TestCase):
 
         print(f"✓ Test passed: Optimized pipeline matches optimal pipeline with FPS {fps}")
 
-    def test_set_sample_duration_with_optimize_for_fps(self):
+    def test_set_sample_duration_with_iter_optimize_for_fps(self):
         """Test that set_sample_duration() affects number of candidates tested"""
 
         short_duration = 5
@@ -241,7 +241,7 @@ class TestOptimizer(unittest.TestCase):
         print(f"Long duration ({long_duration}s per candidate): {len(candidates_long)} candidates in {elapsed_time_long:.1f}s ({candidates_per_sec_long:.2f} candidates/sec)")
         print(f"✓ Test passed: Short sample duration tested more candidates ({len(candidates_short)} vs {len(candidates_long)})")
 
-    def test_set_allowed_devices(self):
+    def test_set_allowed_devices_with_iter_optimize_for_fps(self):
         """Test that set_allowed_devices() excludes specified devices from optimization"""
 
         # Get all available devices from OpenVINO
@@ -291,7 +291,7 @@ class TestOptimizer(unittest.TestCase):
         print(f"Tested {len(candidates)} candidates in {elapsed_time:.1f}s")
         print(f"✓ Test passed: Excluded device '{excluded_device}' not found in any pipeline")
 
-    def test_enable_cross_stream_batching(self):
+    def test_enable_cross_stream_batching_with_iter_optimize_for_fps(self):
         """Test that enable_cross_stream_batching works and sets instance-id"""
 
         optimizer = DLSOptimizer()
