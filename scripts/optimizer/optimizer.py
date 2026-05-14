@@ -76,6 +76,12 @@ class DLSOptimizer:
     def set_allowed_devices(self, devices):
         self._generators["device"].set_allowed_devices(devices)
 
+    def set_batch_sizes(self, sizes):
+        self._generators["batch"].set_batch_sizes(sizes)
+
+    def set_nireq_sizes(self, sizes):
+        self._generators["nireq"].set_nireq_sizes(sizes)
+
     def set_detections_error_threshold(self, threshold):
         self._detections_error_threshold = threshold
 

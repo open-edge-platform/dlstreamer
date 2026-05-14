@@ -90,6 +90,12 @@ parser.add_argument("--allowed-devices", nargs="+",
                     help="List of allowed devices (CPU, GPU, NPU) to be used by the optimizer. If not specified, all available, detected devices will be used.\n"\
                         "Tool does not support discrete GPU selection.\n"\
                         "eg.--allowed-devices CPU NPU,--allowed-devices GPU")
+parser.add_argument("--batch-sizes", default=[1, 2, 4, 8, 16, 32], nargs="+",
+                    help="List of batch sizes to be considered by the optimizer. (default: %(default)s)\n"\
+                        "eg.--batch-sizes 1 2 4 8")
+parser.add_argument("--nireq-sizes", default=[1, 2, 3, 4, 5, 6, 7, 8], nargs="+",
+                    help="List of nireq sizes to be considered by the optimizer. (default: %(default)s)\n"\
+                        "eg.--nireq-sizes 2 4 6 8")
 
 args=parser.parse_args()
 
@@ -107,6 +113,9 @@ try:
 
     if args.allowed_devices:
         optimizer.set_allowed_devices(args.allowed_devices)
+    
+    optimizer.set_batch_sizes(args.batch_sizes)
+    optimizer.set_nireq_sizes(args.nireq_sizes)
 
 except Exception as e:
     logger.error("Failed to configure optimizer: %s", e)
