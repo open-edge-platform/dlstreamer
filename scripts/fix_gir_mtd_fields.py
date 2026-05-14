@@ -23,7 +23,7 @@ GI_CORE_NS = "http://www.gtk.org/introspection/core/1.0"
 GI_C_NS = "http://www.gtk.org/introspection/c/1.0"
 
 # Records that are typedefs to struct _GstAnalyticsMtd and need fields
-MTD_RECORDS = {"GroupMtd", "KeypointMtd"}
+MTD_RECORDS = {"GroupMtd", "KeypointMtd", "ZoneMtd", "TripwireMtd"}
 
 
 def make_field(name, doc_text, type_name, c_type):

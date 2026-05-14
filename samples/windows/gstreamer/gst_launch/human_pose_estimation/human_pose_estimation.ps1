@@ -60,7 +60,7 @@ switch ($OutputType) {
         if ($Device -eq "CPU") {
             $SINK_ELEMENT = "queue ! videoconvert ! gvawatermark ! gvafpscounter ! openh264enc ! h264parse ! mp4mux ! filesink location=$OUTPUT_FILE"
         } else {
-            $SINK_ELEMENT = "queue ! d3d11convert ! gvawatermark ! gvafpscounter ! d3d11h264enc ! h264parse ! mp4mux ! filesink location=$OUTPUT_FILE"
+            $SINK_ELEMENT = "queue ! d3d11convert ! gvawatermark ! gvafpscounter ! mfh264enc ! h264parse ! mp4mux ! filesink location=$OUTPUT_FILE"
         }
     }
     "display" {
