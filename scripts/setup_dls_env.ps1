@@ -4,6 +4,10 @@
 # SPDX-License-Identifier: MIT
 # ==============================================================================
 
+param(
+	[switch]$Persist
+)
+
 Write-Host "`n=== DL Streamer Environment Setup ==="
 Write-Host 'Setting environment variables: DLSTREAMER_DIR, GST_PLUGIN_PATH, PATH'
 
@@ -32,14 +36,20 @@ If (-Not $envMsvcX64) {
 }
 $GSTREAMER_BIN_DIR = "$envMsvcX64\bin"
 
-$pathEntries = $env:PATH -split ';'
-if (-Not ($pathEntries -contains $DLL_DIR)) {
-	$env:PATH = $env:PATH + ';' + $DLL_DIR
-	Write-Host "Added to Path: $DLL_DIR"
-}
-if (-Not ($pathEntries -contains $GSTREAMER_BIN_DIR)) {
-	$env:PATH = $env:PATH + ';' + $GSTREAMER_BIN_DIR
-	Write-Host "Added to Path: $GSTREAMER_BIN_DIR"
+# Prepend DLL_DIR and GSTREAMER_BIN_DIR to PATH (move to front if already present)
+$pathEntries = $env:PATH -split ';' | Where-Object { $_ -and $_ -ne $DLL_DIR -and $_ -ne $GSTREAMER_BIN_DIR }
+$env:PATH = (@($DLL_DIR, $GSTREAMER_BIN_DIR) + $pathEntries) -join ';'
+Write-Host "Prepended to Path: $DLL_DIR"
+Write-Host "Prepended to Path: $GSTREAMER_BIN_DIR"
+
+if ($Persist) {
+	Write-Host "Persisting environment variables to user scope..."
+	[Environment]::SetEnvironmentVariable('DLSTREAMER_DIR', $DLSTREAMER_ROOT, [System.EnvironmentVariableTarget]::User)
+	[Environment]::SetEnvironmentVariable('GST_PLUGIN_PATH', $DLL_DIR, [System.EnvironmentVariableTarget]::User)
+	$userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+	$userEntries = $userPath -split ';' | Where-Object { $_ -and $_ -ne $DLL_DIR -and $_ -ne $GSTREAMER_BIN_DIR }
+	$newUserPath = (@($DLL_DIR, $GSTREAMER_BIN_DIR) + $userEntries) -join ';'
+	[Environment]::SetEnvironmentVariable('Path', $newUserPath, [System.EnvironmentVariableTarget]::User)
 }
 
 # Check if gvadetect element is available
