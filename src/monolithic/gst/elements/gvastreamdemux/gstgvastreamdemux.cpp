@@ -5,7 +5,7 @@
  ******************************************************************************/
 
 #include "gstgvastreamdemux.h"
-#include "dlstreamer/gst/metadata/gstgvastreammuxmeta.h"
+#include <gst/analytics/gstanalyticsbatchmeta.h>
 
 #include <cstdio>
 #include <string.h>
@@ -67,7 +67,7 @@ static void gst_gva_streamdemux_class_init(GstGvaStreamdemuxClass *klass) {
 
     gst_element_class_set_static_metadata(element_class, "GVA Stream Demuxer", "Video/Demuxer",
                                           "Demuxes a single stream into multiple output pads based on "
-                                          "GstGvaStreammuxMeta source_id. Must be used with gvastreammux.",
+                                          "GstAnalyticsBatchMeta streams[0].index. Must be used with gvastreammux.",
                                           "Intel Corporation");
 
     /* Properties */
@@ -89,7 +89,6 @@ static void gst_gva_streamdemux_init(GstGvaStreamdemux *demux) {
     demux->max_fps_duration = GST_CLOCK_TIME_NONE;
 
     demux->srcpads = g_ptr_array_new();
-    demux->last_batch_ids = g_array_new(FALSE, TRUE, sizeof(guint64));
 
     g_mutex_init(&demux->lock);
 
@@ -106,7 +105,6 @@ static void gst_gva_streamdemux_finalize(GObject *object) {
 
     g_mutex_clear(&demux->lock);
     g_ptr_array_free(demux->srcpads, TRUE);
-    g_array_free(demux->last_batch_ids, TRUE);
 
     G_OBJECT_CLASS(gst_gva_streamdemux_parent_class)->finalize(object);
 }
@@ -171,12 +169,6 @@ static GstPad *gst_gva_streamdemux_request_new_pad(GstElement *element, GstPadTe
         g_ptr_array_add(demux->srcpads, NULL);
     demux->srcpads->pdata[pad_index] = srcpad;
 
-    /* Ensure last_batch_ids array can hold this index */
-    while (demux->last_batch_ids->len <= pad_index) {
-        guint64 init_val = 0;
-        g_array_append_val(demux->last_batch_ids, init_val);
-    }
-
     demux->num_src_pads++;
 
     GST_INFO_OBJECT(demux, "Created src pad %s (index=%u), total src pads=%u", name, pad_index, demux->num_src_pads);
@@ -217,9 +209,6 @@ static GstStateChangeReturn gst_gva_streamdemux_change_state(GstElement *element
     case GST_STATE_CHANGE_READY_TO_PAUSED:
         demux->validated = FALSE;
         demux->last_output_time = GST_CLOCK_TIME_NONE;
-        /* Reset batch tracking */
-        for (guint i = 0; i < demux->last_batch_ids->len; i++)
-            g_array_index(demux->last_batch_ids, guint64, i) = 0;
         break;
     default:
         break;
@@ -378,18 +367,20 @@ static GstFlowReturn gst_gva_streamdemux_chain(GstPad *pad, GstObject *parent, G
     (void)pad;
     GstGvaStreamdemux *demux = GST_GVA_STREAMDEMUX(parent);
 
-    /* Read metadata */
-    GstGvaStreammuxMeta *meta = gst_buffer_get_gva_streammux_meta(buf);
-    if (!meta) {
-        GST_ERROR_OBJECT(demux, "Buffer has no GstGvaStreammuxMeta. "
+    /* Read metadata:
+     *   streams[0].index -> source_id
+     *   n_streams        -> num_sources (total sources reported by gvastreammux)
+     */
+    GstAnalyticsBatchMeta *meta = gst_buffer_get_analytics_batch_meta(buf);
+    if (!meta || meta->n_streams == 0 || !meta->streams) {
+        GST_ERROR_OBJECT(demux, "Buffer has no usable GstAnalyticsBatchMeta. "
                                 "gvastreamdemux must be used with gvastreammux.");
         gst_buffer_unref(buf);
         return GST_FLOW_ERROR;
     }
 
-    guint source_id = meta->source_id;
-    guint64 batch_id = meta->batch_id;
-    guint num_sources = meta->num_sources;
+    guint source_id = meta->streams[0].index;
+    guint num_sources = (guint)meta->n_streams;
 
     /* Validate on first buffer */
     if (G_UNLIKELY(!demux->validated)) {
@@ -425,20 +416,11 @@ static GstFlowReturn gst_gva_streamdemux_chain(GstPad *pad, GstObject *parent, G
         return GST_FLOW_ERROR;
     }
 
-    /* Check batch_id ordering: must be monotonically non-decreasing per src pad */
-    guint64 *last_bid = &g_array_index(demux->last_batch_ids, guint64, source_id);
-    if (G_UNLIKELY(batch_id < *last_bid)) {
-        GST_WARNING_OBJECT(demux,
-                           "Out-of-order batch_id on src_%u: got %" G_GUINT64_FORMAT " but last was %" G_GUINT64_FORMAT,
-                           source_id, batch_id, *last_bid);
-    }
-    *last_bid = batch_id;
-
     /* Apply FPS throttling (global across all src pads) */
     gst_gva_streamdemux_apply_fps_throttle(demux);
 
-    GST_LOG_OBJECT(demux, "Routing buffer to src_%u (batch %" G_GUINT64_FORMAT ", pts=%" GST_TIME_FORMAT ")", source_id,
-                   batch_id, GST_TIME_ARGS(GST_BUFFER_PTS(buf)));
+    GST_LOG_OBJECT(demux, "Routing buffer to src_%u (pts=%" GST_TIME_FORMAT ")", source_id,
+                   GST_TIME_ARGS(GST_BUFFER_PTS(buf)));
 
     GstFlowReturn ret = gst_pad_push(srcpad, buf);
 
