@@ -2,7 +2,7 @@
 
 Samples are simple applications that demonstrate how to use the Intel® DL Streamer. The samples are available in the `/opt/intel/dlstreamer/samples` directory.
 
-Samples separated into several categories
+Samples separated into several categories:
 1. gst_launch command-line samples (samples construct GStreamer pipeline via [gst-launch-1.0](https://gstreamer.freedesktop.org/documentation/tools/gst-launch.html) command-line utility)
     * [Face Detection And Classification Sample](./gst_launch/face_detection_and_classification/README.md) - constructs object detection and classification pipeline example with [gvadetect](../../docs/user-guide/elements/gvadetect.md) and [gvaclassify](../../docs/user-guide/elements/gvaclassify.md) elements to detect faces and estimate age, gender, emotions and landmark points
     * [Audio Event Detection Sample ](./gst_launch/audio_detect/README.md) - constructs audio event detection pipeline example with [gvaaudiodetect](../../docs/user-guide/elements/gvaaudiodetect.md) element and uses  [gvametaconvert](../../docs/user-guide/elements/gvametaconvert.md), [gvametapublish](../../docs/user-guide/elements/gvametapublish.md) elements to convert audio event metadata with inference results into JSON format and to print on standard out
@@ -12,6 +12,8 @@ Samples separated into several categories
     * [Metadata Publishing Sample](./gst_launch/metapublish/README.md) - demonstrates how [gvametaconvert](../../docs/user-guide/elements/gvametaconvert.md) and [gvametapublish](../../docs/user-guide/elements/gvametapublish.md) elements are used for converting metadata with inference results into JSON format and publishing to file or Kafka/MQTT message bus
     * [gvapython face_detection_and_classification Sample](./gst_launch/gvapython/face_detection_and_classification/README.md) - demonstrates pipeline customization with [gvapython](../../docs/user-guide/elements/gvapython.md) element and application provided Python script for inference post-processing
     * [gvapython save frames with ROI Sample](./gst_launch/gvapython/save_frames_with_ROI_only/README.md) - demonstrates [gvapython](../../docs/user-guide/elements/gvapython.md) element for saving video frames with detected objects to disk
+    * [python-elements Face Detection and Classification Sample](./gst_launch/python-elements/face_detection_and_classification/README.md) - demonstrates face detection and age logging using `gvadetect`, `gvaclassify` and a custom Python GStreamer element (`gvaagelogger_py`) with GstAnalytics metadata API
+    * [python-elements Save Frames with ROI Sample](./gst_launch/python-elements/save_frames_with_ROI_only/README.md) - demonstrates saving video frames with detected objects using a custom Python GStreamer element (`gvaframesaver_py`) with GstAnalytics metadata API
     * [Action Recognition Sample](./gst_launch/action_recognition/README.md) - demonstrates action recognition via video_inference bin element
     * [Instance Segmentation Sample](./gst_launch/instance_segmentation/README.md) - demonstrates Instance Segmentation via object_detect and object_classify bin elements
     * [Detection with Yolo](./gst_launch/detection_with_yolo/README.md) - demonstrates how to use publicly available Yolo models for object detection and classification
@@ -21,8 +23,10 @@ Samples separated into several categories
     * [FPS Throttle](./gst_launch/gvafpsthrottle/README.md) - demonstrates how to use [gvafpsthrottle](../../docs/user-guide/elements/gvafpsthrottle.md) element to throttle framerate independent of sink synchronization and without frame duplication or dropping
     * [Image Embeddings Generation with ViT](./gst_launch/lvm/README.md) - demonstrates how to generate image embeddings using the Vision Transformer component of a CLIP model
     * [License Plate Recognition Sample](./gst_launch/license_plate_recognition/README.md) - demonstrates the use of the Yolo detector together with the optical character recognition model
+    * [Depth Estimation Sample](./gst_launch/depth_estimation/README.md) - demonstrates YOLO11n object detection followed by Depth Anything V2 depth estimation on detected regions
     * [Using VLM Models With gvagenai Element](./gst_launch/gvagenai/README.md) - demonstrates how to use the `gvagenai` element with MiniCPM-V for video summarization
     * [Radar Signal Process Sample](./gst_launch/g3dradarprocess/README.md) - demonstrates how to use the `g3dradarprocess` element for millimeter-wave radar signal processing with point cloud detection, clustering, and tracking
+    * [Multi-Stream Mux/Demux Sample](./gst_launch/stream_mux_and_demux/README.md) - demonstrates how to use `gvastreammux` and `gvastreamdemux` elements for multi-stream video inference through a single shared pipeline with round-robin scheduling and per-source output routing
     * [LiDAR Parse Sample](./gst_launch/g3dlidarparse/README.md) - demonstrates LiDAR parsing pipeline with `g3dlidarparse` element
     * [Real Sense camera sample](./gst_launch/gvarealsense/README.md) This sample demonstrates how to capture video stream from a 3D RealSense™ Depth Camera using DL Streamer's gvarealsense element.
     * [Custom Post-Processing Library Sample - Detection](./gst_launch/custom_postproc/detect/README.md) - demonstrates how to create custom post-processing library for YOLOv11 tensor outputs conversion to detection metadata using GStreamer Analytics framework

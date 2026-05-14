@@ -12,8 +12,18 @@
 
 namespace {
 
-const int sigmaX = 15;
-const int sigmaY = 15;
+// Compute a Gaussian blur kernel size proportional to the ROI so that larger
+// regions get a stronger blur.  The kernel must be positive and odd for
+// cv::GaussianBlur.  Using ~1/5 of each dimension with a minimum of 7
+// keeps small objects blurred while scaling up for bigger regions.
+cv::Size computeBlurKernelSize(int roi_width, int roi_height) {
+    int kw = std::max(7, roi_width / 5);
+    int kh = std::max(7, roi_height / 5);
+    // Ensure odd
+    kw = kw | 1;
+    kh = kh | 1;
+    return cv::Size(kw, kh);
+}
 
 const std::vector<cv::Vec3b> PascalVoc21ClColorPalette = {
     cv::Vec3b(0, 0, 0),       // background
@@ -38,6 +48,26 @@ const std::vector<cv::Vec3b> PascalVoc21ClColorPalette = {
     cv::Vec3b(128, 192, 0),   // train
     cv::Vec3b(0, 64, 128)     // tvmonitor
 };
+
+const std::vector<cv::Vec3b> SemanticSegmentationColorPalette = {
+    cv::Vec3b(128, 128, 128), // background
+    cv::Vec3b(0, 128, 0),     // first foreground class
+    cv::Vec3b(128, 0, 0),     cv::Vec3b(128, 128, 0),   cv::Vec3b(0, 0, 128),  cv::Vec3b(128, 0, 128),
+    cv::Vec3b(0, 128, 128),   cv::Vec3b(128, 128, 128), cv::Vec3b(64, 0, 0),   cv::Vec3b(192, 0, 0),
+    cv::Vec3b(64, 128, 0),    cv::Vec3b(192, 128, 0),   cv::Vec3b(64, 0, 128), cv::Vec3b(192, 0, 128),
+    cv::Vec3b(64, 128, 128),  cv::Vec3b(192, 128, 128), cv::Vec3b(0, 64, 0),   cv::Vec3b(128, 64, 0),
+    cv::Vec3b(0, 192, 0),     cv::Vec3b(128, 192, 0),   cv::Vec3b(0, 64, 128)};
+
+const std::vector<cv::Vec3b> &getSemanticMaskPalette(render::SemanticMaskPalette palette) {
+    switch (palette) {
+    case render::SemanticMaskPalette::SemanticMask:
+        return PascalVoc21ClColorPalette;
+    case render::SemanticMaskPalette::SemanticSegmentation:
+        return SemanticSegmentationColorPalette;
+    }
+
+    return PascalVoc21ClColorPalette;
+}
 
 template <int n>
 void check_planes(const std::vector<cv::Mat> &p) {
@@ -105,13 +135,16 @@ void RendererYUV::draw_backend(std::vector<cv::Mat> &image_planes, std::vector<r
         } else if (std::holds_alternative<render::Circle>(p)) {
             draw_circle(image_planes, std::get<render::Circle>(p));
         } else if (std::holds_alternative<render::Text>(p)) {
-            if (draw_txt_bg)
-                draw_text_bg(image_planes, std::get<render::Text>(p));
-            draw_text(image_planes, std::get<render::Text>(p));
+            const auto &txt = std::get<render::Text>(p);
+            if (txt.draw_bg)
+                draw_text_bg(image_planes, txt);
+            draw_text(image_planes, txt);
         } else if (std::holds_alternative<render::InstanceSegmantationMask>(p)) {
             draw_instance_mask(image_planes, std::get<render::InstanceSegmantationMask>(p));
         } else if (std::holds_alternative<render::SemanticSegmantationMask>(p)) {
             draw_semantic_mask(image_planes, std::get<render::SemanticSegmantationMask>(p));
+        } else if (std::holds_alternative<render::Polygon>(p)) {
+            draw_polygon(image_planes, std::get<render::Polygon>(p));
         } else if (std::holds_alternative<render::Blur>(p)) {
             blur_rectangle(image_planes, std::get<render::Blur>(p));
         }
@@ -145,15 +178,17 @@ void RendererI420::blur_rectangle(std::vector<cv::Mat> &mats, render::Blur blur)
     cv::Mat &v = mats[2];
 
     cv::Rect r = blur.rect;
+    cv::Size ksize = computeBlurKernelSize(r.width, r.height);
+    cv::Size ksize_uv = computeBlurKernelSize(r.width / 2, r.height / 2);
 
     cv::Mat roi_u(u, cv::Rect(r.x / 2, r.y / 2, r.width / 2, r.height / 2));
-    cv::GaussianBlur(roi_u, roi_u, cv::Size(sigmaX, sigmaY), 0, 0);
+    cv::GaussianBlur(roi_u, roi_u, ksize_uv, 0, 0);
 
     cv::Mat roi_v(v, cv::Rect(r.x / 2, r.y / 2, r.width / 2, r.height / 2));
-    cv::GaussianBlur(roi_v, roi_v, cv::Size(sigmaX, sigmaY), 0, 0);
+    cv::GaussianBlur(roi_v, roi_v, ksize_uv, 0, 0);
 
     cv::Mat roi_y(y, cv::Rect(r.x, r.y, r.width, r.height));
-    cv::GaussianBlur(roi_y, roi_y, cv::Size(sigmaX, sigmaY), 0, 0);
+    cv::GaussianBlur(roi_y, roi_y, ksize, 0, 0);
 }
 
 void RendererI420::draw_rectangle(std::vector<cv::Mat> &mats, render::Rect rect) {
@@ -181,10 +216,10 @@ void RendererI420::draw_circle(std::vector<cv::Mat> &mats, render::Circle circle
     cv::Mat &u = mats[1];
     cv::Mat &v = mats[2];
 
-    cv::circle(y, circle.center, circle.radius, circle.color[0], cv::FILLED);
+    cv::circle(y, circle.center, circle.radius, circle.color[0], circle.thick);
     cv::Point2i pos_u_v(calc_point_for_u_v_planes(circle.center));
-    cv::circle(u, pos_u_v, circle.radius / 2, circle.color[1], cv::FILLED);
-    cv::circle(v, pos_u_v, circle.radius / 2, circle.color[2], cv::FILLED);
+    cv::circle(u, pos_u_v, circle.radius / 2, circle.color[1], calc_thick_for_u_v_planes(circle.thick));
+    cv::circle(v, pos_u_v, circle.radius / 2, circle.color[2], calc_thick_for_u_v_planes(circle.thick));
 }
 
 void RendererI420::draw_text(std::vector<cv::Mat> &mats, render::Text text) {
@@ -195,7 +230,7 @@ void RendererI420::draw_text(std::vector<cv::Mat> &mats, render::Text text) {
 
     // Set text color, if draw text background is enabled, set text color to white
     cv::Scalar color =
-        draw_txt_bg ? cv::Scalar(255, 128, 128) : cv::Scalar(text.color[0], text.color[1], text.color[2]);
+        text.draw_bg ? cv::Scalar(255, 128, 128) : cv::Scalar(text.color[0], text.color[1], text.color[2]);
 
     cv::putText(y, text.text, text.org, text.fonttype, text.fontscale, color[0], text.thick);
     cv::Point2i pos_u_v(calc_point_for_u_v_planes(text.org));
@@ -243,6 +278,25 @@ void RendererI420::draw_line(std::vector<cv::Mat> &mats, render::Line line) {
     cv::line(v, pos1_u_v, pos2_u_v, line.color[2], thick);
 }
 
+void RendererI420::draw_polygon(std::vector<cv::Mat> &mats, render::Polygon polygon) {
+    check_planes<3>(mats);
+    cv::Mat &y = mats[0];
+    cv::Mat &u = mats[1];
+    cv::Mat &v = mats[2];
+
+    std::vector<std::vector<cv::Point>> contours = {polygon.points};
+    cv::drawContours(y, contours, 0, polygon.color[0], polygon.thick);
+
+    std::vector<cv::Point> pts_uv;
+    pts_uv.reserve(polygon.points.size());
+    for (const auto &pt : polygon.points)
+        pts_uv.push_back(calc_point_for_u_v_planes(pt));
+    std::vector<std::vector<cv::Point>> contours_uv = {pts_uv};
+    int thick_uv = calc_thick_for_u_v_planes(polygon.thick);
+    cv::drawContours(u, contours_uv, 0, polygon.color[1], thick_uv);
+    cv::drawContours(v, contours_uv, 0, polygon.color[2], thick_uv);
+}
+
 void RendererI420::draw_instance_mask(std::vector<cv::Mat> &mats, render::InstanceSegmantationMask mask) {
     (void)mats;
     (void)mask;
@@ -263,12 +317,14 @@ void RendererNV12::blur_rectangle(std::vector<cv::Mat> &mats, render::Blur blur)
     cv::Mat &u_v = mats[1];
 
     cv::Rect r = blur.rect;
+    cv::Size ksize = computeBlurKernelSize(r.width, r.height);
+    cv::Size ksize_uv = computeBlurKernelSize(r.width / 2, r.height / 2);
 
     cv::Mat roi_uv(u_v, cv::Rect(r.x / 2, r.y / 2, r.width / 2, r.height / 2));
-    cv::GaussianBlur(roi_uv, roi_uv, cv::Size(sigmaX, sigmaY), 0, 0);
+    cv::GaussianBlur(roi_uv, roi_uv, ksize_uv, 0, 0);
 
     cv::Mat roi(y, cv::Rect(r.x, r.y, r.width, r.height));
-    cv::GaussianBlur(roi, roi, cv::Size(sigmaX, sigmaY), 0, 0);
+    cv::GaussianBlur(roi, roi, ksize, 0, 0);
 }
 
 void RendererNV12::draw_rectangle(std::vector<cv::Mat> &mats, render::Rect rect) {
@@ -291,9 +347,10 @@ void RendererNV12::draw_circle(std::vector<cv::Mat> &mats, render::Circle circle
     cv::Mat &y = mats[0];
     cv::Mat &u_v = mats[1];
 
-    cv::circle(y, circle.center, circle.radius, circle.color[0], cv::FILLED);
+    cv::circle(y, circle.center, circle.radius, circle.color[0], circle.thick);
     cv::Point2i pos_u_v(calc_point_for_u_v_planes(circle.center));
-    cv::circle(u_v, pos_u_v, circle.radius / 2, {circle.color[1], circle.color[2]}, cv::FILLED);
+    cv::circle(u_v, pos_u_v, circle.radius / 2, {circle.color[1], circle.color[2]},
+               calc_thick_for_u_v_planes(circle.thick));
 }
 
 void RendererNV12::draw_text(std::vector<cv::Mat> &mats, render::Text text) {
@@ -303,7 +360,7 @@ void RendererNV12::draw_text(std::vector<cv::Mat> &mats, render::Text text) {
 
     // Set text color, if draw text background is enabled, set text color to white
     cv::Scalar color =
-        draw_txt_bg ? cv::Scalar(255, 128, 128) : cv::Scalar(text.color[0], text.color[1], text.color[2]);
+        text.draw_bg ? cv::Scalar(255, 128, 128) : cv::Scalar(text.color[0], text.color[1], text.color[2]);
 
     cv::putText(y, text.text, text.org, text.fonttype, text.fontscale, color[0], text.thick);
     cv::Point2i pos_u_v(calc_point_for_u_v_planes(text.org));
@@ -342,6 +399,23 @@ void RendererNV12::draw_line(std::vector<cv::Mat> &mats, render::Line line) {
     cv::Point2f pos1_u_v(calc_point_for_u_v_planes(line.pt1));
     cv::Point2f pos2_u_v(calc_point_for_u_v_planes(line.pt2));
     cv::line(u_v, pos1_u_v, pos2_u_v, {line.color[1], line.color[2]}, calc_thick_for_u_v_planes(line.thick));
+}
+
+void RendererNV12::draw_polygon(std::vector<cv::Mat> &mats, render::Polygon polygon) {
+    check_planes<2>(mats);
+    cv::Mat &y = mats[0];
+    cv::Mat &u_v = mats[1];
+
+    std::vector<std::vector<cv::Point>> contours = {polygon.points};
+    cv::drawContours(y, contours, 0, polygon.color[0], polygon.thick);
+
+    std::vector<cv::Point> pts_uv;
+    pts_uv.reserve(polygon.points.size());
+    for (const auto &pt : polygon.points)
+        pts_uv.push_back(calc_point_for_u_v_planes(pt));
+    std::vector<std::vector<cv::Point>> contours_uv = {pts_uv};
+    cv::drawContours(u_v, contours_uv, 0, {polygon.color[1], polygon.color[2]},
+                     calc_thick_for_u_v_planes(polygon.thick));
 }
 
 void RendererNV12::draw_instance_mask(std::vector<cv::Mat> &mats, render::InstanceSegmantationMask mask) {
@@ -417,17 +491,18 @@ void RendererBGR::draw_rectangle(std::vector<cv::Mat> &mats, render::Rect rect) 
 void RendererBGR::blur_rectangle(std::vector<cv::Mat> &mats, render::Blur blur) {
     cv::Mat &mat = mats[0];
     cv::Rect r = blur.rect;
+    cv::Size ksize = computeBlurKernelSize(r.width, r.height);
     cv::Mat roi(mat, cv::Rect(r.x, r.y, r.width, r.height));
-    cv::GaussianBlur(roi, roi, cv::Size(sigmaX, sigmaY), 0, 0);
+    cv::GaussianBlur(roi, roi, ksize, 0, 0);
 }
 
 void RendererBGR::draw_circle(std::vector<cv::Mat> &mats, render::Circle circle) {
-    cv::circle(mats[0], circle.center, circle.radius, circle.color, cv::FILLED);
+    cv::circle(mats[0], circle.center, circle.radius, circle.color, circle.thick);
 }
 
 void RendererBGR::draw_text(std::vector<cv::Mat> &mats, render::Text text) {
     // Set text color, if draw text background is enabled, set text color to white
-    cv::Scalar color = draw_txt_bg ? cv::Scalar(255, 255, 255) : text.color;
+    cv::Scalar color = text.draw_bg ? cv::Scalar(255, 255, 255) : text.color;
     cv::putText(mats[0], text.text, text.org, text.fonttype, text.fontscale, color, text.thick);
 }
 
@@ -446,6 +521,11 @@ void RendererBGR::draw_text_bg(std::vector<cv::Mat> &mats, render::Text text) {
 
 void RendererBGR::draw_line(std::vector<cv::Mat> &mats, render::Line line) {
     cv::line(mats[0], line.pt1, line.pt2, line.color, line.thick);
+}
+
+void RendererBGR::draw_polygon(std::vector<cv::Mat> &mats, render::Polygon polygon) {
+    std::vector<std::vector<cv::Point>> contours = {polygon.points};
+    cv::drawContours(mats[0], contours, 0, polygon.color, polygon.thick);
 }
 
 void RendererBGR::draw_instance_mask(std::vector<cv::Mat> &mats, render::InstanceSegmantationMask mask) {
@@ -486,10 +566,10 @@ cv::Mat convertClassIndicesToBGR(const cv::Mat &classMap, const std::vector<cv::
     CV_Assert(classMap.channels() == 1);
     cv::Mat colorMap(classMap.size(), CV_8UC3);
     for (int i = 0; i < classMap.rows; ++i) {
-        const double *classRowPtr = classMap.ptr<double>(i);
+        const int32_t *classRowPtr = classMap.ptr<int32_t>(i);
         cv::Vec3b *colorRowPtr = colorMap.ptr<cv::Vec3b>(i);
         for (int j = 0; j < classMap.cols; ++j) {
-            int64_t classIdx = static_cast<int64_t>(classRowPtr[j]);
+            int64_t classIdx = classRowPtr[j];
             colorRowPtr[j] = colorPalette[classIdx];
         }
     }
@@ -497,7 +577,8 @@ cv::Mat convertClassIndicesToBGR(const cv::Mat &classMap, const std::vector<cv::
 }
 
 void RendererBGR::draw_semantic_mask(std::vector<cv::Mat> &mats, render::SemanticSegmantationMask mask) {
-    cv::Mat class_mask{mask.size, CV_64FC1, mask.data.data()};
+    std::vector<int32_t> class_indices(mask.data.begin(), mask.data.end());
+    cv::Mat class_mask(mask.size, CV_32SC1, static_cast<void *>(class_indices.data()));
 
     cv::Rect2i roi(cv::Point2i(cvRound(mask.box.x), cvRound(mask.box.y)),
                    cv::Size2i(cvRound(mask.box.width), cvRound(mask.box.height)));
@@ -505,7 +586,7 @@ void RendererBGR::draw_semantic_mask(std::vector<cv::Mat> &mats, render::Semanti
     cv::Mat resized;
     cv::resize(class_mask, resized, {roi.width, roi.height}, 0, 0, cv::INTER_NEAREST);
 
-    cv::Mat colorMap = convertClassIndicesToBGR(resized, PascalVoc21ClColorPalette);
+    cv::Mat colorMap = convertClassIndicesToBGR(resized, getSemanticMaskPalette(mask.palette));
     colorMap.convertTo(colorMap, mats[0].type());
     if (mats[0].channels() == 4) {
         cv::cvtColor(colorMap, colorMap, cv::COLOR_BGR2BGRA);

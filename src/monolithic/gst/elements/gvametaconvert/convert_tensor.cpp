@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2018-2025 Intel Corporation
+ * Copyright (C) 2018-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -19,22 +19,31 @@ inline void add_array_object(const std::string &name, T &&array, json &jobject) 
 }
 
 void attach_gvaluearray_to_json(const GVA::Tensor &tensor, const std::string &fieldname, json &jobject) {
-    GValueArray *valueArray = nullptr;
-    gst_structure_get_array(tensor.gst_structure(), fieldname.c_str(), &valueArray);
-
-    if (!valueArray || !valueArray->n_values)
+    const GValue *garray = gst_structure_get_value(tensor.gst_structure(), fieldname.c_str());
+    if (!garray)
         return;
 
-    json connections_data_array;
-    for (size_t i = 0; i < valueArray->n_values; ++i) {
-        const gchar *point_name = g_value_get_string(valueArray->values + i);
-        connections_data_array += std::string(point_name);
+    guint size = gst_value_array_get_size(garray);
+    if (size == 0)
+        return;
+
+    json data_array;
+    for (guint i = 0; i < size; ++i) {
+        const GValue *val = gst_value_array_get_value(garray, i);
+        if (G_VALUE_HOLDS_STRING(val)) {
+            const gchar *str = g_value_get_string(val);
+            data_array += std::string(str ? str : "");
+        } else if (G_VALUE_HOLDS_UINT(val)) {
+            data_array += g_value_get_uint(val);
+        } else if (G_VALUE_HOLDS_INT(val)) {
+            data_array += g_value_get_int(val);
+        } else if (G_VALUE_HOLDS_FLOAT(val)) {
+            data_array += g_value_get_float(val);
+        }
     }
 
-    if (!connections_data_array.is_null())
-        jobject.push_back(json::object_t::value_type(fieldname, connections_data_array));
-
-    g_value_array_free(valueArray);
+    if (!data_array.is_null())
+        jobject.push_back(json::object_t::value_type(fieldname, data_array));
 }
 
 void convert_keypoints_fields(const GVA::Tensor &tensor, json &jobject) {
@@ -71,6 +80,12 @@ json convert_tensor(const GVA::Tensor &s_tensor) {
     if (!format_value.empty()) {
         jobject.push_back(json::object_t::value_type("format", format_value));
     }
+    // TODO: Temporary solution until full GstAnalytics metadata support is added to DL Streamer
+    std::string type_value = s_tensor.type();
+    // if (!type_value.empty()) {
+    if (type_value == GVA::GST_ANALYTICS_KEYPOINTS_2_TENSOR) {
+        jobject.push_back(json::object_t::value_type("type", type_value));
+    }
 
     if (!s_tensor.is_detection()) {
         std::string label_value = s_tensor.label();
@@ -79,7 +94,20 @@ json convert_tensor(const GVA::Tensor &s_tensor) {
         }
     }
     if (s_tensor.has_field("confidence")) {
-        jobject.push_back(json::object_t::value_type("confidence", s_tensor.confidence()));
+        auto conf_vec = s_tensor.confidences();
+        if (conf_vec.size() > 1) {
+            bool all_same = std::all_of(conf_vec.begin(), conf_vec.end(), [&](float v) { return v == conf_vec[0]; });
+            if (all_same) {
+                jobject.push_back(json::object_t::value_type("confidence", static_cast<double>(conf_vec[0])));
+            } else {
+                json jarray;
+                for (auto v : conf_vec)
+                    jarray += v;
+                jobject.push_back(json::object_t::value_type("confidence", jarray));
+            }
+        } else {
+            jobject.push_back(json::object_t::value_type("confidence", s_tensor.confidence()));
+        }
     }
     if (s_tensor.has_field("label_id")) {
         jobject.push_back(json::object_t::value_type("label_id", s_tensor.get_int("label_id")));

@@ -35,6 +35,7 @@
 #include <dlstreamer/gst/mappers/gst_to_d3d11.h>
 #endif
 
+#include "meta_extractor/meta_extractor.h"
 #include "renderer/color_converter.h"
 #include "renderer/cpu/create_renderer.h"
 
@@ -73,16 +74,18 @@ GST_DEBUG_CATEGORY_STATIC(gst_gva_watermark_impl_debug_category);
 #define COLOR_IDX_RED (0)
 #define COLOR_IDX_GREEN (1)
 #define COLOR_IDX_BLUE (2)
+#define COLOR_IDX_BLACK (18)
+#define COLOR_IDX_WHITE (19)
 
 typedef enum { DEVICE_CPU, DEVICE_GPU, DEVICE_GPU_AUTOSELECTED } DEVICE_SELECTOR;
 
 namespace {
 
-const std::vector<Color> color_table = {Color(255, 0, 0),   Color(0, 255, 0),   Color(0, 0, 255),   Color(255, 255, 0),
-                                        Color(0, 255, 255), Color(255, 0, 255), Color(255, 170, 0), Color(255, 0, 170),
-                                        Color(0, 255, 170), Color(170, 255, 0), Color(170, 0, 255), Color(0, 170, 255),
-                                        Color(255, 85, 0),  Color(85, 255, 0),  Color(0, 255, 85),  Color(0, 85, 255),
-                                        Color(85, 0, 255),  Color(255, 0, 85)};
+const std::vector<Color> color_table = {
+    Color(255, 0, 0),   Color(0, 255, 0),   Color(0, 0, 255),   Color(255, 255, 0), Color(0, 255, 255),
+    Color(255, 0, 255), Color(255, 170, 0), Color(255, 0, 170), Color(0, 255, 170), Color(170, 255, 0),
+    Color(170, 0, 255), Color(0, 170, 255), Color(255, 85, 0),  Color(85, 255, 0),  Color(0, 255, 85),
+    Color(0, 85, 255),  Color(85, 0, 255),  Color(255, 0, 85),  Color{0, 0, 0},     Color{255, 255, 255}};
 
 Color indexToColor(size_t index) {
     return color_table[index % color_table.size()];
@@ -201,6 +204,7 @@ struct Impl {
         bool enable_blur = false;
         std::optional<std::unordered_set<std::string>> include_roi_blur_filter;
         std::optional<std::unordered_set<std::string>> exclude_roi_blur_filter;
+        std::string ff_custom_txt;
     } _displCfg;
 };
 
@@ -754,26 +758,6 @@ Impl::Impl(GstVideoInfo *info, InferenceBackend::MemoryType mem_type, GstElement
     // Parse display configuration
     if (_displ_cfg)
         parse_displ_config();
-
-    if (_displCfg.draw_text_background) {
-        _renderer->enable_draw_txt_bg(true);
-        _renderer_opencv->enable_draw_txt_bg(true);
-    }
-}
-
-size_t get_keypoint_index_by_name(const gchar *target_name, GValueArray *names) {
-    if (names == nullptr or target_name == nullptr) {
-        throw std::invalid_argument("get_keypoint_index_by_name: Got nullptrs.");
-    }
-
-    for (size_t i = 0; i < names->n_values; ++i) {
-        const gchar *name = g_value_get_string(names->values + i);
-        if (g_strcmp0(name, target_name) == 0) {
-            return i;
-        }
-    }
-
-    return names->n_values;
 }
 
 void Impl::find_gvafpscounter_element() {
@@ -856,10 +840,27 @@ bool Impl::extract_primitives(GstBuffer *buffer) {
             }
         }
     }
+    // Display auto-generated full-frame text
+    if (ff_text.tellp() != 0) {
+        render::Text t(ff_text.str(), _ff_text_position, _displCfg.font_type, _displCfg.font_scale, _default_color);
+        t.draw_bg = _displCfg.draw_text_background;
+        prims.emplace_back(t);
+    }
+    // Display custom text for full-frame, if set via display configuration
+    if (_displCfg.ff_custom_txt.size() > 0) {
+        cv::Point2f _ff_cst_txt_pos = _ff_text_position;
+        if (ff_text.tellp() != 0)
+            // place below the auto-generated full-frame text to avoid overlap
+            _ff_cst_txt_pos = cv::Point2f(_ff_text_position.x, _ff_text_position.y - 20.f);
 
-    if (ff_text.tellp() != 0)
-        prims.emplace_back(
-            render::Text(ff_text.str(), _ff_text_position, _displCfg.font_type, _displCfg.font_scale, _default_color));
+        render::Text t(_displCfg.ff_custom_txt, _ff_cst_txt_pos, _displCfg.font_type, _displCfg.font_scale,
+                       indexToColor(COLOR_IDX_WHITE));
+        prims.emplace_back(t);
+    }
+
+    // Extract and merge any pre-existing watermark metadata from input buffer
+    auto watermark_prims = MetaExtractor::extractWatermarkPrimitives(buffer);
+    prims.insert(prims.end(), watermark_prims.begin(), watermark_prims.end());
 
     return true;
 }
@@ -972,7 +973,9 @@ void Impl::preparePrimsForRoi(GVA::RegionOfInterest &roi, std::vector<render::Pr
                 cv::Point2f pos(rect.x, rect.y - 5.f);
                 if (pos.y < 0)
                     pos.y = rect.y + 30.f;
-                prims.emplace_back(render::Text(text.str(), pos, _displCfg.font_type, _displCfg.font_scale, color));
+                render::Text t(text.str(), pos, _displCfg.font_type, _displCfg.font_scale, color);
+                t.draw_bg = _displCfg.draw_text_background;
+                prims.emplace_back(t);
             }
     }
 
@@ -984,9 +987,10 @@ void Impl::preparePrimsForRoi(GVA::RegionOfInterest &roi, std::vector<render::Pr
         if (avg_fps > 0.0f) {
             fpstext << "[avg " << std::fixed << std::setprecision(1) << avg_fps << " FPS]";
             if (fpstext.str().size() != 0) {
-                cv::Point2f pos(_vinfo->width * 0.7, _vinfo->height - 20.f);
-                prims.emplace_back(
-                    render::Text(fpstext.str(), pos, _displCfg.font_type, _displCfg.font_scale * 0.7, indexToColor(1)));
+                cv::Point2f pos(_vinfo->width * 0.8, _vinfo->height * 0.95);
+                render::Text t(fpstext.str(), pos, _displCfg.font_type, _displCfg.font_scale,
+                               indexToColor(COLOR_IDX_WHITE));
+                prims.emplace_back(t);
             }
         }
     }
@@ -1054,13 +1058,16 @@ void Impl::preparePrimsForTensor(const GVA::Tensor &tensor, GVA::Rect<double> re
         }
     }
 
-    if (tensor.format() == "semantic_mask") {
+    if (tensor.format() == "semantic_mask" || tensor.format() == "semantic_segmentation") {
         assert(tensor.precision() == GVA::Tensor::Precision::I64);
         std::vector<int64_t> mask = tensor.data<int64_t>();
         std::vector<guint> dims = tensor.dims();
         const cv::Size &mask_size{int(dims[1]), int(dims[2])};
         cv::Rect2f box(rect.x, rect.y, rect.w, rect.h);
-        prims.emplace_back(render::SemanticSegmantationMask(mask, mask_size, box));
+        render::SemanticMaskPalette palette = tensor.format() == "semantic_segmentation"
+                                                  ? render::SemanticMaskPalette::SemanticSegmentation
+                                                  : render::SemanticMaskPalette::SemanticMask;
+        prims.emplace_back(render::SemanticSegmantationMask(mask, mask_size, box, palette));
     }
 
     preparePrimsForKeypoints(tensor, rect, prims);
@@ -1071,11 +1078,11 @@ void Impl::preparePrimsForTensor(const GVA::Tensor &tensor, GVA::Rect<double> re
  */
 void Impl::preparePrimsForKeypoints(const GVA::Tensor &tensor, GVA::Rect<double> rectangle,
                                     std::vector<render::Prim> &prims) const {
-    if (tensor.format() != "keypoints")
+    if (tensor.type() != GVA::GST_ANALYTICS_KEYPOINTS_2_TENSOR)
         return;
 
     const auto keypoints_data = tensor.data<float>();
-    const auto confidence = tensor.get_vector<float>("confidence");
+    const auto confidence = tensor.confidences();
 
     if (keypoints_data.empty())
         throw std::runtime_error("Keypoints array is empty.");
@@ -1116,61 +1123,40 @@ void Impl::preparePrimsForKeypointConnections(GstStructure *s, const std::vector
                                               const std::vector<uint32_t> &dims, const std::vector<float> &confidence,
                                               const GVA::Rect<double> &rectangle,
                                               std::vector<render::Prim> &prims) const {
-    if (not(gst_structure_has_field(s, "point_names") and gst_structure_has_field(s, "point_connections")))
+    const GValue *garray = gst_structure_get_value(s, "point_connections");
+    if (!garray)
         return;
 
-    GValueArray *point_connections = nullptr;
-    gst_structure_get_array(s, "point_connections", &point_connections);
-
-    if (point_connections == nullptr)
-        throw std::runtime_error("Arrays with point connections information is nullptr.");
-    if (point_connections->n_values == 0)
-        throw std::runtime_error("Arrays with point connections is empty.");
-
-    GValueArray *point_names = nullptr;
-    gst_structure_get_array(s, "point_names", &point_names);
-
-    if (point_names == nullptr)
-        throw std::runtime_error("Arrays with point names information is nullptr.");
-    if (point_names->n_values == 0)
-        throw std::runtime_error("Arrays with point names is empty.");
+    guint n_values = gst_value_array_get_size(garray);
+    if (n_values == 0)
+        return;
 
     size_t point_dimension = dims[1];
-    if (point_names->n_values * point_dimension != keypoints_data.size())
-        throw std::logic_error("Number of point names must be equal to number of keypoints.");
+    size_t point_count = dims[0];
 
-    if (point_connections->n_values % 2 != 0)
+    if (n_values % 2 != 0)
         throw std::logic_error("Expected even amount of point connections.");
 
-    for (size_t i = 0; i < point_connections->n_values; i += 2) {
-        const gchar *point_name_1 = g_value_get_string(point_connections->values + i);
-        const gchar *point_name_2 = g_value_get_string(point_connections->values + i + 1);
+    for (guint i = 0; i < n_values; i += 2) {
+        size_t index_1 = g_value_get_uint(gst_value_array_get_value(garray, i));
+        size_t index_2 = g_value_get_uint(gst_value_array_get_value(garray, i + 1));
 
-        size_t index_1 = get_keypoint_index_by_name(point_name_1, point_names);
-        size_t index_2 = get_keypoint_index_by_name(point_name_2, point_names);
-
-        if (index_1 == point_names->n_values)
-            throw std::runtime_error("Point name \"" + std::string(point_name_1) +
-                                     "\" has not been found in point connections.");
-
-        if (index_2 == point_names->n_values)
-            throw std::runtime_error("Point name \"" + std::string(point_name_2) +
-                                     "\" has not been found in point connections.");
+        if (index_1 >= point_count || index_2 >= point_count)
+            throw std::runtime_error("Point connection index out of range.");
 
         if (index_1 == index_2)
-            throw std::logic_error("Point names in connection are the same: " + std::string(point_name_1) + " / " +
-                                   std::string(point_name_2));
+            throw std::logic_error("Point connection indices are the same: " + std::to_string(index_1));
 
         if ((confidence.size() > 0) && ((confidence[index_1] < 0.5) || confidence[index_2] < 0.5))
             continue;
 
-        index_1 = safe_mul(point_dimension, index_1);
-        index_2 = safe_mul(point_dimension, index_2);
+        size_t offset_1 = safe_mul(point_dimension, index_1);
+        size_t offset_2 = safe_mul(point_dimension, index_2);
 
-        float x1_real = keypoints_data[index_1];
-        float y1_real = keypoints_data[index_1 + 1];
-        float x2_real = keypoints_data[index_2];
-        float y2_real = keypoints_data[index_2 + 1];
+        float x1_real = keypoints_data[offset_1];
+        float y1_real = keypoints_data[offset_1 + 1];
+        float x2_real = keypoints_data[offset_2];
+        float y2_real = keypoints_data[offset_2 + 1];
 
         if ((x1_real == -1.0f and y1_real == -1.0f) or (x2_real == -1.0f and y2_real == -1.0f))
             continue;
@@ -1182,9 +1168,6 @@ void Impl::preparePrimsForKeypointConnections(GstStructure *s, const std::vector
 
         prims.emplace_back(render::Line(cv::Point2i(x1, y1), cv::Point2i(x2, y2), _default_color, _displCfg.thickness));
     }
-
-    g_value_array_free(point_connections);
-    g_value_array_free(point_names);
 }
 
 void Impl::parse_displ_config() {
@@ -1197,8 +1180,12 @@ void Impl::parse_displ_config() {
             _displCfg.show_labels = (iter->second != "false");
             cfg.erase(iter);
         }
-
-        if (_displCfg.show_labels) {
+        if (iter = cfg.find("ff-custom-txt"); iter != cfg.end()) {
+            // Limit custom text to 20 characters to avoid overflow on output video
+            _displCfg.ff_custom_txt = iter->second.substr(0, 20);
+            cfg.erase(iter);
+        }
+        if (_displCfg.show_labels || _displCfg.ff_custom_txt.size() > 0) {
             if (iter = cfg.find("font-scale"); iter != cfg.end()) {
                 _displCfg.font_scale = std::stof(iter->second);
                 if (_displCfg.font_scale > MAX_FONT_SCALE || _displCfg.font_scale < MIN_FONT_SCALE) {

@@ -29,16 +29,19 @@ gst-inspect-1.0 utility.
 
 | Element          | Description                                                                                                                                                                                                                                                                                                                                                                   |
 |------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| [gvaanalytics](./gvaanalytics.md)     | Performs video analytics using tripwires and zones. Analyzes object trajectories and attaches watermark metadata for visualization of configured tripwires and zones.<br>Example:<br> gst-launch-1.0 … ! decodebin3 ! gvadetect … ! gvaanalytics config=analytics.json ! gvawatermark ! … OUT<br> |
 | [gvaattachroi](./gvaattachroi.md)     | Adds user-defined regions of interest to perform inference on (instead of full frame). Example: monitoring road traffic in a city camera feed; splitting large image into smaller pieces, and running inference on each piece (healthcare cell analytics).<br>Example:<br> gst-launch-1.0 … ! decodebin3 ! gvaattachroi roi=xtl,ytl,xbr,ybr gvadetect inference-region=1 ! … OUT<br> |
 | [gvafpscounter](./gvafpscounter.md)    | Measures frames per second across multiple video streams in a single GStreamer process.<br>Example:<br> gst-launch-1.0 … ! decodebin3 ! gvadetect … ! gvafpscounter ! … OUT<br> |
 | [gvafpsthrottle](./gvafpsthrottle.md)   | Throttles the framerate of video streams by enforcing a maximum frames-per-second (FPS) rate. Useful for rate limiting in pipelines or for testing at specific processing framerates.<br>Example:<br> gst-launch-1.0 … ! decodebin3 ! gvafpsthrottle target-fps=10 ! … OUT<br> |
+| [gvastreammux](./gvastreammux.md)       | Muxes multiple video streams into a single pipeline using round-robin scheduling, attaching source-tracking metadata to each buffer. No frame dropping — batch size always equals input stream count.<br>Example:<br> gst-launch-1.0 gvastreammux name=mux ! queue ! gvadetect model=$mDetect device=GPU ! gvafpscounter ! fakesink rtspsrc location=rtsp://host:8554/stream ! … ! mux.sink_0 rtspsrc location=rtsp://host:8555/stream ! … ! mux.sink_1<br> |
+| [gvastreamdemux](./gvastreamdemux.md)   | Demuxes a single interleaved stream back into per-source output pads based on GstGvaStreammuxMeta. Must be used with gvastreammux.<br>Example:<br> gst-launch-1.0 gvastreammux name=mux ! queue ! gvadetect model=$mDetect device=GPU ! gvastreamdemux name=demux demux.src_0 ! queue ! fakesink demux.src_1 ! queue ! fakesink rtspsrc location=rtsp://host:8554/stream ! … ! mux.sink_0 rtspsrc location=rtsp://host:8555/stream ! … ! mux.sink_1<br> |
 | [gvametaaggregate](./gvametaaggregate.md) | Aggregates inference results from multiple pipeline branches.<br>Example:<br> gst-launch-1.0 … ! decodebin3 ! tee name=t t. ! queue ! gvametaaggregate name=a ! gvaclassify … ! gvaclassify … ! gvametaconvert … ! gvametapublish … ! fakesink t. ! queue ! gvadetect … ! a.<br>                                                                                               |
 | [gvametaconvert](./gvametaconvert.md)   | Converts the metadata structure to JSON or raw text formats. Can write output to a file.|
 | [gvametapublish](./gvametapublish.md)   | Publishes the JSON metadata to MQTT or Kafka message brokers or files.<br>Example:<br> gst-launch-1.0 … ! decodebin3 ! gvadetect model=$mDetect device=GPU … ! gvametaconvert format=json … ! gvametapublish … ! … OUT<br> |
 | [gvapython](./gvapython.md)        | Provides a callback to execute user-defined Python functions on every frame. It is used to augment DL Streamer with user-defined algorithms (e.g. metadata conversion, inference post-processing).<br>Example:<br> gst-launch-1.0 … !  gvaclassify ! gvapython module={gvapython.callback_module.classAge_pp} ! … OUT<br>                                                             |
 | [gvarealsense](./gvarealsense.md) | Provides integration with Intel RealSense cameras, enabling video and depth stream capture for use in GStreamer pipelines. |
 | [gvawatermark](./gvawatermark.md)     | Overlays the metadata on the video frame to visualize the inference results.<br>Example:<br> gst-launch-1.0 … ! decodebin3 ! gvadetect … ! gvawatermark ! … |
-| [gvamotiondetect](./gvamotiondetect.md) | Performs lightweight motion detection on NV12 frames and emits motion ROIs as analytics metadata. Uses VA-API acceleration when VAMemory caps are negotiated, otherwise system-memory path.<br>Example:<br> gst-launch-1.0 … ! vaapih264dec ! gvamotiondetect confirm-frames=2 motion-threshold=0.08 ! gvawatermark ! … |
+| [gvamotiondetect](./gvamotiondetect.md) | Performs lightweight motion detection on NV12 frames and emits motion ROIs as analytics metadata. Uses VA-API acceleration when VAMemory caps are negotiated, otherwise system-memory path.<br>Example:<br> gst-launch-1.0 … ! vah264dec ! gvamotiondetect confirm-frames=2 motion-threshold=0.08 ! gvawatermark ! … |
 
 <!--hide_directive
 :::{toctree}
@@ -55,9 +58,12 @@ gvagenai
 g3dradarprocess
 g3dlidarparse
 g3dinference
+gvaanalytics
 gvaattachroi
 gvafpscounter
 gvafpsthrottle
+gvastreammux
+gvastreamdemux
 gvametaaggregate
 gvametaconvert
 gvametapublish

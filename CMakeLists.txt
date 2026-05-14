@@ -139,7 +139,11 @@ message("ENABLE_REALSENSE=${ENABLE_REALSENSE}")
 if(WIN32)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /permissive-")
     # disabled some warnings to reduce log size
-    set(CMAKE_CXX_FLAGS_RELEASE "/O2 -wd4005 -wd4267 -wd4297 -wd4244 -wd4273 -wd4141 -wd4805")
+    set(CMAKE_CXX_FLAGS_RELEASE "/O2 /Zi -wd4005 -wd4267 -wd4297 -wd4244 -wd4273 -wd4141 -wd4805")
+    # enable pdb files generation
+    set(CMAKE_C_FLAGS_RELEASE "/O2 /Zi")
+    set(CMAKE_SHARED_LINKER_FLAGS_RELEASE "${CMAKE_SHARED_LINKER_FLAGS_RELEASE} /DEBUG /OPT:REF /OPT:ICF")
+    set(CMAKE_EXE_LINKER_FLAGS_RELEASE "${CMAKE_EXE_LINKER_FLAGS_RELEASE} /DEBUG /OPT:REF /OPT:ICF")
 
     set (CMAKE_C_STANDARD 11)
     set (CMAKE_CXX_STANDARD 23)
@@ -215,4 +219,8 @@ endif()
 if(${ENABLE_TESTS} AND NOT(WIN32))
     enable_testing()
     add_subdirectory(tests)
+endif()
+
+if(WIN32)
+    include(cmake/packaging/windows/cpack_windows.cmake)
 endif()

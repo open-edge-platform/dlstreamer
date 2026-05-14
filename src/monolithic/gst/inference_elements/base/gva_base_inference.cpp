@@ -9,14 +9,19 @@
 #include "common/post_processor/post_processor_c.h"
 #include "common/pre_processors.h"
 #include "config.h"
+#include "inference_execution_mode_resolver.h"
 #include "utils.h"
 
 #include "dlstreamer/gst/context.h"
 #include "dlstreamer/gst/frame.h"
+#include "gstgvaclassify.h"
 #include "inference_backend/buffer_mapper.h"
 #include "inference_impl.h"
+#include "model_proc_provider.h"
 
 #include "gva_base_inference_priv.hpp"
+
+#include <gst_smart_pointer_types.hpp>
 #include <memory>
 
 #define DEFAULT_MODEL nullptr
@@ -527,6 +532,8 @@ void gva_base_inference_init(GvaBaseInference *base_inference) {
     base_inference->initialized = FALSE;
     base_inference->info = nullptr;
     base_inference->inference_region = DEFAULT_INFERENCE_REGION;
+    base_inference->effective_inference_region = DEFAULT_INFERENCE_REGION;
+    base_inference->depth_inference_to_roi_mode = FALSE;
     base_inference->inference = nullptr;
 
     base_inference->is_roi_inference_needed = &is_roi_inference_needed;
@@ -693,6 +700,8 @@ void gva_base_inference_set_property(GObject *object, guint property_id, const G
         break;
     case PROP_INFERENCE_REGION:
         base_inference->inference_region = static_cast<InferenceRegionType>(g_value_get_enum(value));
+        base_inference->effective_inference_region = base_inference->inference_region;
+        base_inference->depth_inference_to_roi_mode = FALSE;
         break;
     case PROP_OBJECT_CLASS:
         g_free(base_inference->object_class);
@@ -1090,6 +1099,17 @@ gboolean gva_base_inference_start(GstBaseTransform *trans) {
         return base_inference->initialized;
     }
 
+    try {
+        resolve_internal_inference_mode(base_inference);
+        if (!validate_internal_depth_mode(base_inference))
+            return base_inference->initialized;
+    } catch (const std::exception &e) {
+        GST_ELEMENT_ERROR(base_inference, LIBRARY, INIT,
+                          ("base_inference failed while resolving internal inference mode"),
+                          ("%s", Utils::createNestedErrorMsg(e).c_str()));
+        return base_inference->initialized;
+    }
+
     gboolean success = registerElement(base_inference);
     if (!success)
         return base_inference->initialized;
@@ -1129,7 +1149,8 @@ gboolean gva_base_inference_sink_event(GstBaseTransform *trans, GstEvent *event)
     GST_DEBUG_OBJECT(base_inference, "sink_event");
 
     try {
-        if (base_inference->inference && (event->type == GST_EVENT_EOS || event->type == GST_EVENT_FLUSH_STOP)) {
+        if (base_inference->inference && (event->type == GST_EVENT_EOS || event->type == GST_EVENT_FLUSH_STOP) &&
+            base_inference->frame_num > 0) {
             base_inference->inference->FlushInference();
         }
     } catch (const std::exception &e) {

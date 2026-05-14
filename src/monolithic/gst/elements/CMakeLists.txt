@@ -27,12 +27,14 @@ file (GLOB MAIN_SRC
     gvawatermark/*.cpp
     gvawatermark/renderer/*.cpp
     gvawatermark/renderer/cpu/*.cpp
+    gvawatermark/meta_extractor/*.cpp
     gvawatermark/*.c
     gvawatermark3d/*.cpp
     gvawatermark3d/*.c
     gvadeskew/*.cpp
     gvadeskew/*.c
     gvafpsthrottle/*.cpp
+    gvaanalytics/*.cpp
 )
 
 # gvamotiondetect platform-specific source
@@ -48,10 +50,12 @@ file (GLOB MAIN_HEADERS
     gvawatermark/*.h
     gvawatermark/renderer/*.h
     gvawatermark/renderer/cpu/*.h
+    gvawatermark/meta_extractor/*.h
     gvawatermark3d/*.h
     gvadeskew/*.h
     gvamotiondetect/*.h
     gvafpsthrottle/*.hpp
+    gvaanalytics/*.h
 )
 
 if(${ENABLE_AUDIO_INFERENCE_ELEMENTS})
@@ -74,10 +78,12 @@ PUBLIC
     gvametaconvert
     gvawatermark
     gvawatermark/renderer
+    gvawatermark/meta_extractor
     gvametaaggregate
     gvawatermark3d
     gvadeskew
     gvamotiondetect
+    gvaanalytics
 PRIVATE
     ${GSTREAMER_INCLUDE_DIRS}
     ${GSTVIDEO_INCLUDE_DIRS}
@@ -129,6 +135,8 @@ add_subdirectory(gvatrack)
 if(ENABLE_REALSENSE)
     add_subdirectory(gvarealsense)
 endif()
+add_subdirectory(gvastreammux)
+add_subdirectory(gvastreamdemux)
 if(ENABLE_GENAI)
     add_subdirectory(gvagenai)
 endif()

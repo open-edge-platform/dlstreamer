@@ -184,7 +184,7 @@ RUN cp -a /usr/local/lib/libopencv* ./
 # ==============================================================================
 FROM opencv-builder AS gstreamer-builder
 
-ARG GST_VERSION=1.26.11
+ARG GST_VERSION=1.28.2
 
 SHELL ["/bin/bash", "-xo", "pipefail", "-c"]
 
@@ -210,7 +210,6 @@ RUN \
     meson setup \
     -Dexamples=disabled \
     -Dtests=disabled \
-    -Dvaapi=enabled \
     -Dlibnice=enabled \
     -Dgst-examples=disabled \
     -Ddevtools=disabled \
@@ -273,11 +272,6 @@ RUN \
     -Dgst-plugins-ugly:nls=disabled \
     -Dgst-plugins-ugly:x264=disabled \
     -Dgst-plugins-ugly:gpl=disabled \
-    -Dgstreamer-vaapi:encoders=enabled \
-    -Dgstreamer-vaapi:drm=enabled \
-    -Dgstreamer-vaapi:glx=enabled \
-    -Dgstreamer-vaapi:wayland=enabled \
-    -Dgstreamer-vaapi:egl=enabled \
     --buildtype="${BUILD_ARG,}" \
     --prefix="${GSTREAMER_DIR}" \
     --libdir=lib/ \
@@ -300,7 +294,7 @@ RUN \
     shopt -s dotglob && \
     mv gst-plugins-rs/* . && \
     git checkout "tags/gstreamer-$GST_VERSION" && \
-    curl -sSL --insecure https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.88.0 && \
+    curl -sSL --insecure https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.92.0 && \
     source "$HOME"/.cargo/env && \
     cargo install cargo-c --version=0.10.11 --locked && \
     cargo update && \
@@ -469,8 +463,8 @@ RUN \
     cp -rT "${GSTREAMER_DIR}" /deb-pkg/opt/intel/dlstreamer/gstreamer && \
     mkdir -p /deb-pkg/opt/intel/dlstreamer/lib/girepository-1.0 && \
     mkdir -p /deb-pkg/opt/intel/dlstreamer/share/gir-1.0 && \
-    cp "${DLSTREAMER_DIR}/girs/DLStreamerMeta-1.0.gir" /deb-pkg/opt/intel/dlstreamer/share/gir-1.0/ && \
-    cp "${DLSTREAMER_DIR}/build/src/gst/metadata/DLStreamerMeta-1.0.typelib" /deb-pkg/opt/intel/dlstreamer/lib/girepository-1.0/ && \
+    cp "${DLSTREAMER_DIR}/girs/"*.gir /deb-pkg/opt/intel/dlstreamer/share/gir-1.0/ && \
+    cp "${DLSTREAMER_DIR}/build/src/gst/metadata/"*.typelib /deb-pkg/opt/intel/dlstreamer/lib/girepository-1.0/ && \
     cp -a /usr/local/lib/libopencv*.so* /deb-pkg/opt/opencv/ && \
     cp -r /usr/local/include/opencv4/* /deb-pkg/opt/opencv/include && \
     cp -a /usr/local/lib/librdkafka*.so* /deb-pkg/opt/rdkafka/ && \

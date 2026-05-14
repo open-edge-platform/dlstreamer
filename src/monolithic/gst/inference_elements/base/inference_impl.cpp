@@ -254,9 +254,9 @@ bool IsModelProcSupportedForIE(const std::vector<ModelInputProcessorInfo::Ptr> &
         if (!it || it->format != "image")
             continue;
         auto input_desc = PreProcParamsParser(it->params).parse();
-        if (input_desc &&
-            (input_desc->doNeedDistribNormalization() || input_desc->doNeedCrop() || input_desc->doNeedPadding() ||
-             input_desc->doNeedColorSpaceConversion(static_cast<int>(format))))
+        if (input_desc && (input_desc->isAspectRatioMultipleOfResize() || input_desc->doNeedDistribNormalization() ||
+                           input_desc->doNeedCrop() || input_desc->doNeedPadding() ||
+                           input_desc->doNeedColorSpaceConversion(static_cast<int>(format))))
             return false;
     }
     return true;
@@ -271,9 +271,21 @@ bool IsModelProcSupportedForVaapi(const std::vector<ModelInputProcessorInfo::Ptr
         auto input_desc = PreProcParamsParser(it->params).parse();
         // In these cases we need to switch to opencv preproc
         // VAAPI converts color to RGBP by default (?)
-        if (input_desc && ((input_desc->getTargetColorSpace() != PreProcColorSpace::BGR &&
+        if (input_desc && (input_desc->isAspectRatioMultipleOfResize() ||
+                           (input_desc->getTargetColorSpace() != PreProcColorSpace::BGR &&
                             input_desc->getTargetColorSpace() != PreProcColorSpace::RGB &&
                             input_desc->doNeedColorSpaceConversion(static_cast<int>(format)))))
+            return false;
+    }
+    return true;
+}
+
+bool IsModelProcSupportedForD3D11(const std::vector<ModelInputProcessorInfo::Ptr> &model_input_processor_info) {
+    for (const auto &it : model_input_processor_info) {
+        if (!it || it->format != "image")
+            continue;
+        auto input_desc = PreProcParamsParser(it->params).parse();
+        if (input_desc && input_desc->isAspectRatioMultipleOfResize())
             return false;
     }
     return true;
@@ -305,8 +317,9 @@ bool IsPreprocSupported(ImagePreprocessorType preproc,
         return !isNpu && !isCustomLib &&
                IsModelProcSupportedForVaapiSurfaceSharing(model_input_processor_info, input_video_info);
     case ImagePreprocessorType::OPENCV:
-    case ImagePreprocessorType::D3D11:
         return true;
+    case ImagePreprocessorType::D3D11:
+        return !isCustomLib && IsModelProcSupportedForD3D11(model_input_processor_info);
     case ImagePreprocessorType::AUTO:
     default:
         return false;
@@ -423,6 +436,48 @@ void UpdateConfigWithLayerInfo(const std::vector<ModelInputProcessorInfo::Ptr> &
     config[KEY_INPUT_LAYER_PRECISION] = input_layer_precision;
     config[KEY_FORMAT] = input_format;
 
+    // Aspect-ratio-multiple-of resize requires source frame size to calculate the final model input shape, so we need
+    // to get the best available source size from KEY_BASE: prefer img-width/img-height, and fall back to
+    // frame-width/frame-height when the image size is not populated.
+
+    const auto get_source_size = [&config]() -> std::pair<size_t, size_t> {
+        const auto base_it = config.find(KEY_BASE);
+        if (base_it == config.end())
+            return {0, 0};
+
+        const auto get_base_size = [&base_it](const std::string &key) -> size_t {
+            const auto value_it = base_it->second.find(key);
+            if (value_it == base_it->second.end())
+                return 0;
+            return std::stoul(value_it->second);
+        };
+
+        size_t width = get_base_size("img-width");
+        size_t height = get_base_size("img-height");
+        if (width && height)
+            return {width, height};
+
+        width = get_base_size("frame-width");
+        height = get_base_size("frame-height");
+        return {width, height};
+    };
+
+    std::pair<size_t, size_t> resolved_static_reshape_shape = {0, 0};
+
+    // TODO: model-proc supports per-input preprocessors, but reshape config is still model-wide
+    // (KEY_RESHAPE_WIDTH/HEIGHT), and the OpenVINO backend applies that one size to every model input.
+    // Until reshape becomes per-input end-to-end, all image inputs that contribute a static reshape
+    // size must resolve to the same final width and height.
+    const auto resolve_static_reshape_shape = [&resolved_static_reshape_shape](const std::pair<size_t, size_t> &shape,
+                                                                               const char *error_message) {
+        if (resolved_static_reshape_shape.first && resolved_static_reshape_shape.second &&
+            resolved_static_reshape_shape != shape) {
+            throw std::runtime_error(error_message);
+        }
+
+        resolved_static_reshape_shape = shape;
+    };
+
     for (const auto &it : model_input_processor_info) {
         if (!it || it->format != "image")
             continue;
@@ -491,17 +546,56 @@ void UpdateConfigWithLayerInfo(const std::vector<ModelInputProcessorInfo::Ptr> &
             config[KEY_BASE][KEY_MODEL_FORMAT] = color_space;
         }
 
-        // Set image resize parameters
-        const GValue *garray = gst_structure_get_value(it->params, "reshape_size");
-        if (garray && gst_value_array_get_size(garray) == 2) {
-            const GValue *height = gst_value_array_get_value(garray, 0);
-            const GValue *width = gst_value_array_get_value(garray, 1);
+        // MODEL RESHAPE CONFIGURATION
 
-            config[KEY_BASE][KEY_RESHAPE] = "1";
-            config[KEY_BASE][KEY_RESHAPE_STATIC] = "1";
-            config[KEY_BASE][KEY_RESHAPE_WIDTH] = std::to_string(g_value_get_int(width));
-            config[KEY_BASE][KEY_RESHAPE_HEIGHT] = std::to_string(g_value_get_int(height));
+        // When aspect-ratio-multiple-of resize is specified in model-proc,
+        // the final shape depends on the source image size, because the resize preserves aspect ratio,
+        // keeps one dimension fixed and adjusts the final shape to be multiple of specified value.
+        if (input_desc && input_desc->isAspectRatioMultipleOfResize()) {
+            if (!input_desc->hasResizeTargetSize()) {
+                throw std::runtime_error("Aspect-ratio-multiple-of resize requires target size metadata");
+            }
+
+            // Source size is the negotiated input image size.
+            const auto [source_width, source_height] = get_source_size();
+            if (!source_width || !source_height) {
+                throw std::runtime_error("Aspect-ratio-multiple-of resize requires negotiated source width and height");
+            }
+
+            // Target size is just
+            // "size": {
+            //   "height": (...),
+            //   "width": (...)
+            // }, specified in preprocessor_config.json, which is the maximum size for the resized image, and is used
+            // together with source size to calculate the final model input shape.
+            const auto target_size = input_desc->getResizeTargetSize();
+
+            // Calculated shape is the final static model input size after preserving aspect ratio
+            // and aligning the result to resize-multiple.
+            const auto calculated_shape = InferenceBackend::InputImageLayerDesc::CalculateAspectRatioMultipleOfResize(
+                source_width, source_height, target_size.first, target_size.second, input_desc->getResizeMultiple());
+
+            resolve_static_reshape_shape(calculated_shape,
+                                         "Aspect-ratio-multiple-of resize resolved conflicting reshape sizes for "
+                                         "image inputs");
+        } else {
+            // Plain reshape_size uses the configured static width and height directly.
+            if (!(input_desc && input_desc->hasResizeTargetSize()))
+                continue;
+
+            resolve_static_reshape_shape(input_desc->getResizeTargetSize(),
+                                         "reshape_size resolved conflicting static reshape sizes for image inputs");
         }
+    }
+
+    // If model-proc resolved a concrete static input shape, pass it through the reshape config path.
+    // This enables the backend's standard pre-compile reshape handling, even when the resolved size happens to
+    // match the model's original input shape and the reshape becomes an effective no-op.
+    if (resolved_static_reshape_shape.first && resolved_static_reshape_shape.second) {
+        config[KEY_BASE][KEY_RESHAPE] = "1";
+        config[KEY_BASE][KEY_RESHAPE_STATIC] = "1";
+        config[KEY_BASE][KEY_RESHAPE_WIDTH] = std::to_string(resolved_static_reshape_shape.first);
+        config[KEY_BASE][KEY_RESHAPE_HEIGHT] = std::to_string(resolved_static_reshape_shape.second);
     }
 }
 
@@ -784,6 +878,22 @@ InferenceImpl::Model InferenceImpl::CreateModel(GvaBaseInference *gva_base_infer
 
     UpdateModelReshapeInfo(gva_base_inference);
     InferenceConfig ie_config = CreateNestedInferenceConfig(gva_base_inference, model_file, custom_preproc_lib);
+    // Use the resolved execution region, not the raw property value.
+    //
+    // 'inference_region' tells us what the user requested, but the backend configuration must
+    // follow the mode that will actually be executed. In depth classify-on-ROI mode the user
+    // still asks for ROI_LIST while inference runs once on the full frame, so img-width/
+    // img-height must be populated from the whole frame here rather than taking the ROI-oriented
+    // branch below.
+    if (gva_base_inference->effective_inference_region == FULL_FRAME) {
+        ie_config[KEY_BASE]["img-width"] = std::to_string(gva_base_inference->info->width);
+        ie_config[KEY_BASE]["img-height"] = std::to_string(gva_base_inference->info->height);
+    } else {
+        ie_config[KEY_BASE]["img-width"] = "0";
+        ie_config[KEY_BASE]["img-height"] = "0";
+        ie_config[KEY_BASE]["frame-width"] = std::to_string(gva_base_inference->info->width);
+        ie_config[KEY_BASE]["frame-height"] = std::to_string(gva_base_inference->info->height);
+    }
     UpdateConfigWithLayerInfo(model.input_processor_info, ie_config);
     setPreprocessorType(ie_config, model.input_processor_info, gva_base_inference->info);
     memory_type =
@@ -822,16 +932,6 @@ InferenceImpl::Model InferenceImpl::CreateModel(GvaBaseInference *gva_base_infer
         }
     } else if (memory_type == MemoryType::D3D11) {
         va_dpy = gva_base_inference->priv->d3d11_device;
-    }
-
-    if (gva_base_inference->inference_region == FULL_FRAME) {
-        ie_config[KEY_BASE]["img-width"] = std::to_string(gva_base_inference->info->width);
-        ie_config[KEY_BASE]["img-height"] = std::to_string(gva_base_inference->info->height);
-    } else {
-        ie_config[KEY_BASE]["img-width"] = "0";
-        ie_config[KEY_BASE]["img-height"] = "0";
-        ie_config[KEY_BASE]["frame-width"] = std::to_string(gva_base_inference->info->width);
-        ie_config[KEY_BASE]["frame-height"] = std::to_string(gva_base_inference->info->height);
     }
 
     auto image_inference = ImageInference::createImageInferenceInstance(
@@ -1039,7 +1139,7 @@ bool InferenceImpl::CheckSrcPadBlocked(GstObject *src) {
     if (dst == nullptr)
         return false;
 
-    if (strcmp(dst->name, "queue") > 0) {
+    if (g_str_has_prefix(dst->name, "queue")) {
         guint buf_cnt;
         g_object_get(dst, "current-level-buffers", &buf_cnt, NULL);
         GstState state, pending;
@@ -1114,12 +1214,13 @@ GstFlowReturn InferenceImpl::SubmitImages(GvaBaseInference *gva_base_inference,
             throw std::invalid_argument("image is null");
 
         size_t i = 0;
+        const auto execution_region = gva_base_inference->effective_inference_region;
         for (auto meta : metas) {
             // Workaround for CodeCoverity
             if (!image)
                 break;
 
-            ApplyImageBoundaries(image, &meta, gva_base_inference->inference_region, buffer);
+            ApplyImageBoundaries(image, &meta, execution_region, buffer);
             auto result = MakeInferenceResult(gva_base_inference, model, &meta, image, buffer);
             // Because image is a shared pointer with custom deleter which performs buffer unmapping
             // we need to manually reset it after we passed it to the last InferenceResult
@@ -1179,7 +1280,7 @@ GstFlowReturn InferenceImpl::TransformFrameIp(GvaBaseInference *gva_base_inferen
     GstVideoRegionOfInterestMeta full_frame_meta;
     {
         ITT_TASK("InferenceImpl::TransformFrameIp collectROIMetas");
-        switch (gva_base_inference->inference_region) {
+        switch (gva_base_inference->effective_inference_region) {
         case ROI_LIST: {
             /* iterates through buffer's meta and pushes it in vector if inference needed. */
             gpointer state = NULL;
@@ -1275,6 +1376,9 @@ GstFlowReturn InferenceImpl::TransformFrameIp(GvaBaseInference *gva_base_inferen
         }
     }
 
+    // Release _mutex before SubmitImages.
+    lock.unlock();
+
     return SubmitImages(gva_base_inference, metas, buffer);
 }
 
@@ -1318,7 +1422,7 @@ void InferenceImpl::UpdateOutputFrames(std::shared_ptr<InferenceFrame> &inferenc
 
         /* only gvadetect or full-frame elements are affecting buffer */
         if (inference_roi->gva_base_inference->type == GST_GVA_DETECT_TYPE ||
-            inference_roi->gva_base_inference->inference_region == FULL_FRAME) {
+            inference_roi->gva_base_inference->effective_inference_region == FULL_FRAME) {
             if (output_frame.inference_count == 0)
                 // This condition is necessary if two items in output_frames refer to the same buffer.
                 // If current output_frame.inference_count equals 0, then inference for this output_frame

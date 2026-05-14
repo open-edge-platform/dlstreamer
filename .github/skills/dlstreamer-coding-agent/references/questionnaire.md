@@ -1,17 +1,11 @@
 # Requirements Questionnaire
 
-Detailed questionnaire for collecting pipeline requirements from the user.
-Read this reference when the user's prompt is missing key information
-(see [Step 0 checklist](../SKILL.md) for what to look for).
+Collect missing pipeline requirements from the user.
+Present all questions **interactively in a single round** using `vscode_askQuestions`
+or inline in chat.
 
-Present all questions **interactively in a single round**.
-If an interactive question tool is available (e.g. `vscode_askQuestions` in VS Code Copilot),
-use it to present all questions at once. Otherwise, list the questions inline in chat
-and ask the user to confirm or override before proceeding.
-
-If the user's prompt matches a [Fast Path](../SKILL.md#fast-path-pattern-table-match) row,
-pre-fill these questions with the inferred values and mark them as `recommended`.
-The user can confirm or override before proceeding.
+If the user's prompt matches a [Fast Path](../SKILL.md#fast-path-pattern-table-match),
+pre-fill with inferred values and mark as `recommended`.
 
 ---
 
@@ -31,17 +25,7 @@ The user can confirm or override before proceeding.
 | `Model 2 (optional)` | Second model URL/name. Leave empty if not needed. | Free text |
 | `Model 2 Task` | What does the second model do? (skip if no Model 2) | Same options as Model 1 Task |
 
-> Add more `Model N` + `Model N Task` pairs only if the use case clearly requires 3+ models.
->
-> The task selection maps directly to DL Streamer elements:
-> | Task | Element |
-> |------|---------|
-> | Object detection | `gvadetect` |
-> | Classification / OCR / Pose estimation / Segmentation | `gvaclassify` |
-> | VLM / generative AI | `gvagenai` |
->
-> The agent auto-infers the source ecosystem (HuggingFace / Ultralytics / direct URL)
-> from the model URL or name — no need to ask the user separately.
+> Task maps to DL Streamer elements: detection → `gvadetect`, classification/OCR → `gvaclassify`, VLM → `gvagenai`.
 
 ## Section 3 — Target Environment
 
@@ -50,8 +34,7 @@ The user can confirm or override before proceeding.
 | `Intel Platform` | What Intel hardware will this run on? | `Intel Core Ultra 3 (Panther Lake) — CPU + Xe3 GPU + NPU`, `Intel Core Ultra 2 (Lunar Lake / Arrow Lake) — CPU + GPU + NPU`, `Intel Core Ultra 1 (Meteor Lake) — CPU + GPU + NPU`, `Intel Core (older, no NPU) — CPU + GPU`, `Intel Xeon (server) — CPU only`, `Intel Arc discrete GPU`, `Not sure / detect at runtime` |
 | `Available Accelerators` | Which accelerators are available? (select all that apply) | `GPU (/dev/dri/renderD128)`, `NPU (/dev/accel/accel0)`, `CPU only` (multiSelect) |
 
-> The agent uses these answers to apply **Rule 6 — Device Assignment Strategy** from
-> [Pipeline Construction Reference](./pipeline-construction.md#rule-6--device-assignment-strategy-for-intel-core-ultra)
+> The agent uses these answers to apply the [Element & Device Selection](./pipeline-construction.md#element--device-selection) guidance
 > when setting `device=` and `batch-size=` on inference elements.
 > For advanced tuning (multi-GPU selection, pre-process backends, MULTI: device),
 > refer to the docs:
@@ -69,6 +52,6 @@ The user can confirm or override before proceeding.
 
 | Header | Question | Options |
 |--------|----------|---------|
-| `Application Type` | Python application or Gstreamer command line? | `Python application` (recommended), `Gstreamer command line` |
+| `Application Type` | Python application or GStreamer command line? | `Python application` (recommended), `GStreamer command line` |
 
 

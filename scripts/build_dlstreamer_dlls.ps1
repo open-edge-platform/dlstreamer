@@ -6,10 +6,13 @@
 # ==============================================================================
 param(
 	[switch]$useInternalProxy,
+	[switch]$buildInstaller,
+	[switch]$installerSkipCompression,
+	[string]$installerCodeSignScript,
 	[switch]$setEnv
 )
 
-$GSTREAMER_VERSION = "1.26.11"
+$GSTREAMER_VERSION = "1.28.2"
 $OPENVINO_VERSION = "2026.1.0"
 $OPENVINO_VERSION_SHORT = "2026.1"
 $PYTHON_VERSION = "3.12.7"
@@ -275,6 +278,19 @@ if ($GSTREAMER_NEEDS_INSTALL) {
 			Set-ItemProperty -Path $rightRegKey -Name $envVarName -Value $wrongValue
 			Remove-ItemProperty -Path $wrongRegKey -Name $envVarName
 		}
+
+		# Workaround: Copy patched gstanalytics DLL for GStreamer 1.28.2
+		if ($GSTREAMER_VERSION -eq "1.28.2") {
+			$srcDll = Join-Path $PWD.Path "dependencies\windows\gstanalytics-1.0-0.dll"
+			$dstDir = "$GSTREAMER_DEST_FOLDER\bin"
+			if (Test-Path $srcDll) {
+				Copy-Item -Path $srcDll -Destination $dstDir -Force
+				Write-Host "Copied gstanalytics-1.0-0.dll to $dstDir"
+			}
+			else {
+				Write-Host "Warning: $srcDll not found, skipping copy"
+			}
+		}
 	}
 	else {
 		Write-Section "Installing GStreamer ${GSTREAMER_VERSION} (MSI)"
@@ -391,10 +407,10 @@ else {
 # ============================================================================
 # Git
 # ============================================================================
-$gitInstalled = (Get-WinGetPackage -Id Git.Git -Source winget -ErrorAction SilentlyContinue).Count -gt 0
+$gitInstalled = $null -ne (Get-Command git -ErrorAction SilentlyContinue)
 if (-Not $gitInstalled) {
 	Write-Section "Installing Git"
-	Install-WinGetPackage -Id Git.Git -Source winget -Mode Silent
+	winget install --id Git.Git --source winget --silent --accept-package-agreements --accept-source-agreements
 	Update-Path
 	New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" -Name "LongPathsEnabled" -Value 1 -PropertyType DWORD -Force
 	git config --system core.longpaths true
@@ -408,10 +424,10 @@ else {
 # ============================================================================
 # CMake
 # ============================================================================
-$cmakeInstalled = (Get-WinGetPackage -Id Kitware.CMake -Source winget -ErrorAction SilentlyContinue).Count -gt 0
+$cmakeInstalled = $null -ne (Get-Command cmake -ErrorAction SilentlyContinue)
 if (-Not $cmakeInstalled) {
 	Write-Section "Installing CMake"
-	Install-WinGetPackage -Id Kitware.CMake -Source winget -Mode Silent
+	winget install --id Kitware.CMake --source winget --silent --accept-package-agreements --accept-source-agreements
 	Update-Path
 	Write-Section "Done"
 }
@@ -421,9 +437,46 @@ else {
 }
 
 # ============================================================================
+# NSIS
+# ============================================================================
+$nsisInstalled = (winget list --id NSIS.NSIS --source winget 2>$null | Select-String "NSIS.NSIS").Count -gt 0
+if (-Not $nsisInstalled) {
+	Write-Section "Installing NSIS"
+	winget install --id NSIS.NSIS --source winget --silent --accept-package-agreements --accept-source-agreements
+	Update-Path
+	Write-Section "Done"
+}
+else {
+	Write-Section "NSIS already installed"
+}
+
+# Install NSIS plugins
+$NSIS_PLUGINS = "${env:ProgramFiles(X86)}\NSIS\Plugins"
+if (-Not (Test-Path "$NSIS_PLUGINS\x86-unicode\Crypto.dll")) {
+	Invoke-DownloadFile -OutFile "${DLSTREAMER_TMP}\Crypto_plugin.zip" -Uri "https://nsis.sourceforge.io/mediawiki/images/c/cd/Crypto.zip"
+	Expand-Archive -Path "${DLSTREAMER_TMP}\Crypto_plugin.zip" -DestinationPath "${DLSTREAMER_TMP}\Crypto_plugin" -Force
+	Copy-Item -Path "${DLSTREAMER_TMP}\Crypto_plugin\Plugins\*" -Destination "$NSIS_PLUGINS" -Recurse -Force
+}
+if (-Not (Test-Path "$NSIS_PLUGINS\x86-unicode\EnVar.dll")) {
+	Invoke-DownloadFile -OutFile "${DLSTREAMER_TMP}\EnVar_plugin.zip" -Uri "https://nsis.sourceforge.io/mediawiki/images/7/7f/EnVar_plugin.zip"
+	Expand-Archive -Path "${DLSTREAMER_TMP}\EnVar_plugin.zip" -DestinationPath "${DLSTREAMER_TMP}\EnVar_plugin" -Force
+	Copy-Item -Path "${DLSTREAMER_TMP}\EnVar_plugin\*" -Destination "${env:ProgramFiles(X86)}\NSIS" -Recurse -Force
+}
+if (-Not (Test-Path "$NSIS_PLUGINS\x86-unicode\w7tbp.dll")) {
+	Invoke-DownloadFile -OutFile "${DLSTREAMER_TMP}\Win7TaskbarProgress_20091109.zip" -Uri "https://nsis.sourceforge.io/mediawiki/images/6/6f/Win7TaskbarProgress_20091109.zip"
+	Expand-Archive -Path "${DLSTREAMER_TMP}\Win7TaskbarProgress_20091109.zip" -DestinationPath "${DLSTREAMER_TMP}\Win7TaskbarProgress" -Force
+	Copy-Item -Path "${DLSTREAMER_TMP}\Win7TaskbarProgress\w7tbp.dll" -Destination "$NSIS_PLUGINS\x86-unicode" -Force
+}
+if (-Not (Test-Path "$NSIS_PLUGINS\x86-unicode\SysCompImg.dll")) {
+	Invoke-DownloadFile -OutFile "${DLSTREAMER_TMP}\SysCompImg.zip" -Uri "https://nsis.sourceforge.io/mediawiki/images/b/be/SysCompImg.zip"
+	Expand-Archive -Path "${DLSTREAMER_TMP}\SysCompImg.zip" -DestinationPath "${DLSTREAMER_TMP}\SysCompImg" -Force
+	Copy-Item -Path "${DLSTREAMER_TMP}\SysCompImg\*" -Destination "$NSIS_PLUGINS" -Recurse -Force
+}
+
+# ============================================================================
 # Upgrade with winget
 # ============================================================================
-winget upgrade Git.Git Kitware.CMake -e --source winget
+winget upgrade Git.Git Kitware.CMake NSIS.NSIS -e --source winget
 
 # ============================================================================
 # Python
@@ -483,18 +536,54 @@ Write-Section "Done"
 # Build DL Streamer
 # ============================================================================
 Write-Section "Preparing build directory"
-if (Test-Path "${DLSTREAMER_TMP}\build") {
-	Remove-Item -LiteralPath "${DLSTREAMER_TMP}\build" -Recurse
+$DLSTREAMER_BUILD = "${DLSTREAMER_SRC_LOCATION}\build"
+if (Test-Path $DLSTREAMER_BUILD) {
+	Remove-Item -LiteralPath $DLSTREAMER_BUILD -Recurse
 }
-mkdir "${DLSTREAMER_TMP}\build"
-Set-Location -Path "${DLSTREAMER_TMP}\build"
+mkdir $DLSTREAMER_BUILD
 
 Write-Section "Running CMake"
 $VCPKG_CMAKE = Join-Path $vsPath "VC\vcpkg\scripts\buildsystems\vcpkg.cmake"
-cmake -DCMAKE_TOOLCHAIN_FILE="${VCPKG_CMAKE}" "$DLSTREAMER_SRC_LOCATION"
+$buildArgs = @("-DCMAKE_TOOLCHAIN_FILE=$VCPKG_CMAKE", "-S", "$DLSTREAMER_SRC_LOCATION", "-B", "$DLSTREAMER_BUILD")
+if ($buildInstaller -and $installerSkipCompression) {
+	$buildArgs += "-DNSIS_SKIP_COMPRESSION=ON"
+}
+if ($buildInstaller -and $installerCodeSignScript) {
+	if (-Not (Test-Path $installerCodeSignScript)) {
+		Write-Error "Code sign script not found: $installerCodeSignScript"
+		exit 1
+	}
+	$resolvedSignScript = (Resolve-Path $installerCodeSignScript).Path
+	$buildArgs += "-DCODE_SIGN_SCRIPT=$resolvedSignScript"
+	Write-Host "Code sign enabled: $resolvedSignScript"
+}
+cmake @buildArgs
 if ($LASTEXITCODE -eq 0) {
 	Write-Section "Building DL Streamer"
-	cmake --build . --parallel $env:NUMBER_OF_PROCESSORS --target ALL_BUILD --config Release
+	cmake --build $DLSTREAMER_BUILD --parallel $env:NUMBER_OF_PROCESSORS --target ALL_BUILD --config Release
+	if ($LASTEXITCODE -ne 0) {
+		Write-Error "Build failed with exit code: $LASTEXITCODE"
+		exit $LASTEXITCODE
+	}
+
+	if ($buildInstaller) {
+		Write-Section "Packaging DL Streamer"
+		cmake --build $DLSTREAMER_BUILD --target download_installer_deps --config Release
+		if ($LASTEXITCODE -ne 0) {
+			Write-Error "Downloading installer dependencies failed with exit code: $LASTEXITCODE"
+			exit $LASTEXITCODE
+		}
+		cmake --build $DLSTREAMER_BUILD --target package_all --config Release
+		if ($LASTEXITCODE -ne 0) {
+			$nsisLog = "$DLSTREAMER_BUILD\_CPack_Packages\win64\NSIS\NSISOutput.log"
+			if (Test-Path $nsisLog) {
+				Write-Section "NSIS Output Log"
+				Get-Content $nsisLog
+			}
+			Write-Error "Packaging failed with exit code: $LASTEXITCODE"
+			exit $LASTEXITCODE
+		}
+	}
 	Write-Section "Done"
 
 	if ($setEnv) {

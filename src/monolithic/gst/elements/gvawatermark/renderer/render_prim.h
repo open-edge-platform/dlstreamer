@@ -20,6 +20,7 @@ struct Text {
     double fontscale;
     cv::Scalar color;
     int thick;
+    bool draw_bg = false;
 
     Text() = default;
 
@@ -68,6 +69,18 @@ struct Line {
     }
 };
 
+struct Polygon {
+    std::vector<cv::Point> points;
+    cv::Scalar color;
+    int thick;
+
+    Polygon() = default;
+
+    Polygon(const std::vector<cv::Point> &points, const cv::Scalar &color, int thick = 1)
+        : points(points), color(color), thick(thick) {
+    }
+};
+
 struct InstanceSegmantationMask {
     std::vector<float> data;
     cv::Size size;
@@ -82,15 +95,22 @@ struct InstanceSegmantationMask {
     }
 };
 
+enum class SemanticMaskPalette {
+    SemanticMask,
+    SemanticSegmentation,
+};
+
 struct SemanticSegmantationMask {
     std::vector<int64_t> data;
     cv::Size size;
     cv::Rect2f box;
+    SemanticMaskPalette palette = SemanticMaskPalette::SemanticMask;
 
     SemanticSegmantationMask() = default;
 
-    SemanticSegmantationMask(const std::vector<int64_t> &data, const cv::Size &size, const cv::Rect2f &box)
-        : data(data), size(size), box(box) {
+    SemanticSegmantationMask(const std::vector<int64_t> &data, const cv::Size &size, const cv::Rect2f &box,
+                             SemanticMaskPalette palette = SemanticMaskPalette::SemanticMask)
+        : data(data), size(size), box(box), palette(palette) {
     }
 };
 
@@ -101,6 +121,6 @@ struct Blur {
     }
 };
 
-using Prim = std::variant<Text, Rect, Circle, Line, InstanceSegmantationMask, SemanticSegmantationMask, Blur>;
+using Prim = std::variant<Text, Rect, Circle, Line, Polygon, InstanceSegmantationMask, SemanticSegmantationMask, Blur>;
 
 } // namespace render

@@ -11,6 +11,7 @@ file(GLOB MAIN_HEADERS ${CMAKE_CURRENT_SOURCE_DIR}/*.h)
 
 add_library(${TARGET_NAME} SHARED ${MAIN_SRC} ${MAIN_HEADERS})
 set_compile_flags(${TARGET_NAME})
+target_compile_definitions(${TARGET_NAME} PRIVATE BUILDING_GST_ANALYTICS)
 if(WIN32)
     add_vs_version_resource(${TARGET_NAME})
 endif()
@@ -39,3 +40,4 @@ install(TARGETS ${TARGET_NAME} DESTINATION ${DLSTREAMER_PLUGINS_INSTALL_PATH})
 
 # Generate GObject Introspection (GIR) files
 include(generate_gir.cmake)
+include(generate_watermark_gir.cmake)
