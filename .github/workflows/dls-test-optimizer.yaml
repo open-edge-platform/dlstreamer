@@ -251,6 +251,7 @@ jobs:
         run: |
           sudo apt-get install -y --no-install-recommends libcairo2-dev libgirepository1.0-dev
           python3 -m venv $HOME/optimizer-venv
+          pip install openvino
           $HOME/optimizer-venv/bin/pip install --no-cache-dir -r /opt/intel/dlstreamer/scripts/optimizer/requirements.txt
           echo "$HOME/optimizer-venv/bin" >> $GITHUB_PATH
 
