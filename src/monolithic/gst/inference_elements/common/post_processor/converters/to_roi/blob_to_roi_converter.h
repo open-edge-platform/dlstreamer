@@ -152,7 +152,7 @@ class BlobToROIConverter : public BlobToMetaConverter {
           iou_threshold(iou_threshold) {
     }
 
-    TensorsTable convert(const OutputBlobs &output_blobs) = 0;
+    virtual TensorsTable convert(const OutputBlobs &output_blobs) = 0;
 
     static BlobToMetaConverter::Ptr create(BlobToMetaConverter::Initializer initializer,
                                            const std::string &converter_name, const std::string &custom_postproc_lib);

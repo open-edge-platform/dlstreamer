@@ -6,10 +6,13 @@
 # ==============================================================================
 param(
 	[switch]$useInternalProxy,
+	[switch]$buildInstaller,
+	[switch]$installerSkipCompression,
+	[string]$installerCodeSignScript,
 	[switch]$setEnv
 )
 
-$GSTREAMER_VERSION = "1.26.11"
+$GSTREAMER_VERSION = "1.28.2"
 $OPENVINO_VERSION = "2026.1.0"
 $OPENVINO_VERSION_SHORT = "2026.1"
 $PYTHON_VERSION = "3.12.7"
@@ -193,10 +196,7 @@ try {
 	if ($regInstallDir -and $regVersion) {
 		Write-Host "GStreamer found in registry - InstallDir: $regInstallDir, Version: $regVersion"
 		$GSTREAMER_DEST_FOLDER = $regInstallDir.TrimEnd('\')
-		# Backward compatibility with 1.26
-		if (-Not $GSTREAMER_DEST_FOLDER.EndsWith('\1.0\msvc_x86_64')) {
-			$GSTREAMER_DEST_FOLDER = "$GSTREAMER_DEST_FOLDER\1.0\msvc_x86_64"
-		}
+
 		# Check for conflicting architectures
 		$envMsvcX64 = [Environment]::GetEnvironmentVariable('GSTREAMER_1_0_ROOT_MSVC_X86_64', 'Machine')
 
@@ -249,58 +249,27 @@ catch {
 }
 
 if ($GSTREAMER_NEEDS_INSTALL) {
-	# Determine installer type based on target version
-	$vParts = $GSTREAMER_VERSION.Split('.') | ForEach-Object { [int]$_ }
-	$useExeInstaller = ($vParts[0] -gt 1) -or ($vParts[0] -eq 1 -and $vParts[1] -ge 28)
+	Write-Section "Installing GStreamer ${GSTREAMER_VERSION} (Inno)"
+	$GSTREAMER_INSTALLER = "${DLSTREAMER_TMP}\gstreamer-1.0-msvc-x86_64-${GSTREAMER_VERSION}.exe"
+	Write-Host "Downloading GStreamer installer..."
+	Invoke-DownloadFile -UserAgent "curl/8.5.0" -OutFile $GSTREAMER_INSTALLER -Uri "https://gstreamer.freedesktop.org/data/pkg/windows/${GSTREAMER_VERSION}/msvc/gstreamer-1.0-msvc-x86_64-${GSTREAMER_VERSION}.exe"
 
-	if ($useExeInstaller) {
-		Write-Section "Installing GStreamer ${GSTREAMER_VERSION} (Inno)"
-		$GSTREAMER_INSTALLER = "${DLSTREAMER_TMP}\gstreamer-1.0-msvc-x86_64-${GSTREAMER_VERSION}.exe"
-		Write-Host "Downloading GStreamer installer..."
-		Invoke-DownloadFile -UserAgent "curl/8.5.0" -OutFile $GSTREAMER_INSTALLER -Uri "https://gstreamer.freedesktop.org/data/pkg/windows/${GSTREAMER_VERSION}/msvc/gstreamer-1.0-msvc-x86_64-${GSTREAMER_VERSION}.exe"
-
-		Write-Host "Installing GStreamer..."
-		$process = Start-Process -Wait -PassThru -FilePath $GSTREAMER_INSTALLER -ArgumentList "/SILENT", "/LOG", "/TYPE=full", "/ALLUSERS"
-		if ($process.ExitCode -ne 0) {
-			Write-Error "GStreamer installation failed with exit code: $($process.ExitCode)"
-		}
-
-		# Workaround: GStreamer 1.28.1 writes GSTREAMER_1_0_ROOT_MSVC_X86_64 to wrong registry location, fixed in 1.28.2 https://gitlab.freedesktop.org/gstreamer/cerbero/-/issues/574
-		$wrongRegKey = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager"
-		$rightRegKey = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Environment"
-		$envVarName = "GSTREAMER_1_0_ROOT_MSVC_X86_64"
-		$wrongValue = (Get-ItemProperty -Path $wrongRegKey -Name $envVarName -ErrorAction SilentlyContinue).$envVarName
-		if ($wrongValue) {
-			Write-Host "Fixing $envVarName registry location..."
-			Set-ItemProperty -Path $rightRegKey -Name $envVarName -Value $wrongValue
-			Remove-ItemProperty -Path $wrongRegKey -Name $envVarName
-		}
+	Write-Host "Installing GStreamer..."
+	$process = Start-Process -Wait -PassThru -FilePath $GSTREAMER_INSTALLER -ArgumentList "/SILENT", "/LOG", "/TYPE=full", "/ALLUSERS"
+	if ($process.ExitCode -ne 0) {
+		Write-Error "GStreamer installation failed with exit code: $($process.ExitCode)"
 	}
-	else {
-		Write-Section "Installing GStreamer ${GSTREAMER_VERSION} (MSI)"
-		$GSTREAMER_RUNTIME_INSTALLER = "${DLSTREAMER_TMP}\gstreamer-1.0-msvc-x86_64-${GSTREAMER_VERSION}.msi"
-		$GSTREAMER_DEVEL_INSTALLER = "${DLSTREAMER_TMP}\gstreamer-1.0-devel-msvc-x86_64-${GSTREAMER_VERSION}.msi"
 
-		Write-Host "Downloading GStreamer runtime installer..."
-		Invoke-DownloadFile -UserAgent "curl/8.5.0" -OutFile $GSTREAMER_RUNTIME_INSTALLER -Uri "https://gstreamer.freedesktop.org/data/pkg/windows/${GSTREAMER_VERSION}/msvc/gstreamer-1.0-msvc-x86_64-${GSTREAMER_VERSION}.msi"
-
-		Write-Host "Downloading GStreamer development installer..."
-		Invoke-DownloadFile -UserAgent "curl/8.5.0" -OutFile $GSTREAMER_DEVEL_INSTALLER -Uri "https://gstreamer.freedesktop.org/data/pkg/windows/${GSTREAMER_VERSION}/msvc/gstreamer-1.0-devel-msvc-x86_64-${GSTREAMER_VERSION}.msi"
-
-		Write-Host "Installing GStreamer runtime package..."
-		$process = Start-Process -Wait -PassThru -FilePath "msiexec" -ArgumentList "/passive", "/i", $GSTREAMER_RUNTIME_INSTALLER, "/qn", "ADDLOCAL=ALL"
-		if ($process.ExitCode -ne 0) {
-			Write-Error "GStreamer runtime installation failed with exit code: $($process.ExitCode)"
+	# Workaround: Copy patched gstanalytics DLL for GStreamer 1.28.2
+	if ($GSTREAMER_VERSION -eq "1.28.2") {
+		$srcDll = Join-Path $PWD.Path "dependencies\windows\gstanalytics-1.0-0.dll"
+		$dstDir = "$GSTREAMER_DEST_FOLDER\bin"
+		if (Test-Path $srcDll) {
+			Copy-Item -Path $srcDll -Destination $dstDir -Force
+			Write-Host "Copied gstanalytics-1.0-0.dll to $dstDir"
 		}
-		Write-Host "Installing GStreamer development package..."
-		$process = Start-Process -Wait -PassThru -FilePath "msiexec" -ArgumentList "/passive", "/i", $GSTREAMER_DEVEL_INSTALLER, "/qn", "ADDLOCAL=ALL"
-		if ($process.ExitCode -ne 0) {
-			Write-Error "GStreamer development installation failed with exit code: $($process.ExitCode)"
-		}
-		# FIXME: Remove this section after GStreamer 1.28
-		$pkgConfigFile = "$GSTREAMER_DEST_FOLDER\lib\pkgconfig\gstreamer-analytics-1.0.pc"
-		if (Test-Path $pkgConfigFile) {
-			(Get-Content $pkgConfigFile).Replace('-lm', '') | Set-Content $pkgConfigFile
+		else {
+			Write-Host "Warning: $srcDll not found, skipping copy"
 		}
 	}
 
@@ -308,10 +277,6 @@ if ($GSTREAMER_NEEDS_INSTALL) {
 	$regInstallDir = (Get-ItemProperty -Path "HKLM:\SOFTWARE\GStreamer1.0\x86_64" -Name "InstallDir" -ErrorAction SilentlyContinue).InstallDir
 	if ($regInstallDir) {
 		$GSTREAMER_DEST_FOLDER = $regInstallDir.TrimEnd('\')
-		# Backward compatibility with 1.26
-		if (-Not $GSTREAMER_DEST_FOLDER.EndsWith('\1.0\msvc_x86_64')) {
-			$GSTREAMER_DEST_FOLDER = "$GSTREAMER_DEST_FOLDER\1.0\msvc_x86_64"
-		}
 	}
 	Write-Section "GStreamer installation completed"
 }
@@ -421,9 +386,46 @@ else {
 }
 
 # ============================================================================
+# NSIS
+# ============================================================================
+$nsisInstalled = (winget list --id NSIS.NSIS --source winget 2>$null | Select-String "NSIS.NSIS").Count -gt 0
+if (-Not $nsisInstalled) {
+	Write-Section "Installing NSIS"
+	winget install --id NSIS.NSIS --source winget --silent --accept-package-agreements --accept-source-agreements
+	Update-Path
+	Write-Section "Done"
+}
+else {
+	Write-Section "NSIS already installed"
+}
+
+# Install NSIS plugins
+$NSIS_PLUGINS = "${env:ProgramFiles(X86)}\NSIS\Plugins"
+if (-Not (Test-Path "$NSIS_PLUGINS\x86-unicode\Crypto.dll")) {
+	Invoke-DownloadFile -OutFile "${DLSTREAMER_TMP}\Crypto_plugin.zip" -Uri "https://nsis.sourceforge.io/mediawiki/images/c/cd/Crypto.zip"
+	Expand-Archive -Path "${DLSTREAMER_TMP}\Crypto_plugin.zip" -DestinationPath "${DLSTREAMER_TMP}\Crypto_plugin" -Force
+	Copy-Item -Path "${DLSTREAMER_TMP}\Crypto_plugin\Plugins\*" -Destination "$NSIS_PLUGINS" -Recurse -Force
+}
+if (-Not (Test-Path "$NSIS_PLUGINS\x86-unicode\EnVar.dll")) {
+	Invoke-DownloadFile -OutFile "${DLSTREAMER_TMP}\EnVar_plugin.zip" -Uri "https://nsis.sourceforge.io/mediawiki/images/7/7f/EnVar_plugin.zip"
+	Expand-Archive -Path "${DLSTREAMER_TMP}\EnVar_plugin.zip" -DestinationPath "${DLSTREAMER_TMP}\EnVar_plugin" -Force
+	Copy-Item -Path "${DLSTREAMER_TMP}\EnVar_plugin\*" -Destination "${env:ProgramFiles(X86)}\NSIS" -Recurse -Force
+}
+if (-Not (Test-Path "$NSIS_PLUGINS\x86-unicode\w7tbp.dll")) {
+	Invoke-DownloadFile -OutFile "${DLSTREAMER_TMP}\Win7TaskbarProgress_20091109.zip" -Uri "https://nsis.sourceforge.io/mediawiki/images/6/6f/Win7TaskbarProgress_20091109.zip"
+	Expand-Archive -Path "${DLSTREAMER_TMP}\Win7TaskbarProgress_20091109.zip" -DestinationPath "${DLSTREAMER_TMP}\Win7TaskbarProgress" -Force
+	Copy-Item -Path "${DLSTREAMER_TMP}\Win7TaskbarProgress\w7tbp.dll" -Destination "$NSIS_PLUGINS\x86-unicode" -Force
+}
+if (-Not (Test-Path "$NSIS_PLUGINS\x86-unicode\SysCompImg.dll")) {
+	Invoke-DownloadFile -OutFile "${DLSTREAMER_TMP}\SysCompImg.zip" -Uri "https://nsis.sourceforge.io/mediawiki/images/b/be/SysCompImg.zip"
+	Expand-Archive -Path "${DLSTREAMER_TMP}\SysCompImg.zip" -DestinationPath "${DLSTREAMER_TMP}\SysCompImg" -Force
+	Copy-Item -Path "${DLSTREAMER_TMP}\SysCompImg\*" -Destination "$NSIS_PLUGINS" -Recurse -Force
+}
+
+# ============================================================================
 # Upgrade with winget
 # ============================================================================
-winget upgrade Git.Git Kitware.CMake -e --source winget
+winget upgrade Git.Git Kitware.CMake NSIS.NSIS -e --source winget
 
 # ============================================================================
 # Python
@@ -451,19 +453,9 @@ Write-Section "Setting paths"
 $GSTREAMER_BIN = "$GSTREAMER_DEST_FOLDER\bin"
 $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
 $vParts = $GSTREAMER_VERSION.Split('.') | ForEach-Object { [int]$_ }
-if ($vParts[0] -eq 1 -and $vParts[1] -ge 28) {
-	if ($userPath -split ';' -notcontains $GSTREAMER_BIN) {
-		[Environment]::SetEnvironmentVariable('Path', "$userPath;$GSTREAMER_BIN", [System.EnvironmentVariableTarget]::User)
-		Write-Host "Added to user PATH: $GSTREAMER_BIN"
-	}
-}
-else {
-	$pathEntries = $userPath -split ';' | Where-Object { $_ -ne $GSTREAMER_BIN }
-	$newPath = $pathEntries -join ';'
-	if ($newPath -ne $userPath) {
-		[Environment]::SetEnvironmentVariable('Path', $newPath, [System.EnvironmentVariableTarget]::User)
-		Write-Host "Removed from user PATH: $GSTREAMER_BIN"
-	}
+if ($userPath -split ';' -notcontains $GSTREAMER_BIN) {
+	[Environment]::SetEnvironmentVariable('Path', "$userPath;$GSTREAMER_BIN", [System.EnvironmentVariableTarget]::User)
+	Write-Host "Added to user PATH: $GSTREAMER_BIN"
 }
 
 Update-Path
@@ -483,18 +475,54 @@ Write-Section "Done"
 # Build DL Streamer
 # ============================================================================
 Write-Section "Preparing build directory"
-if (Test-Path "${DLSTREAMER_TMP}\build") {
-	Remove-Item -LiteralPath "${DLSTREAMER_TMP}\build" -Recurse
+$DLSTREAMER_BUILD = "${DLSTREAMER_SRC_LOCATION}\build"
+if (Test-Path $DLSTREAMER_BUILD) {
+	Remove-Item -LiteralPath $DLSTREAMER_BUILD -Recurse
 }
-mkdir "${DLSTREAMER_TMP}\build"
-Set-Location -Path "${DLSTREAMER_TMP}\build"
+mkdir $DLSTREAMER_BUILD
 
 Write-Section "Running CMake"
 $VCPKG_CMAKE = Join-Path $vsPath "VC\vcpkg\scripts\buildsystems\vcpkg.cmake"
-cmake -DCMAKE_TOOLCHAIN_FILE="${VCPKG_CMAKE}" "$DLSTREAMER_SRC_LOCATION"
+$buildArgs = @("-DCMAKE_TOOLCHAIN_FILE=$VCPKG_CMAKE", "-S", "$DLSTREAMER_SRC_LOCATION", "-B", "$DLSTREAMER_BUILD")
+if ($buildInstaller -and $installerSkipCompression) {
+	$buildArgs += "-DNSIS_SKIP_COMPRESSION=ON"
+}
+if ($buildInstaller -and $installerCodeSignScript) {
+	if (-Not (Test-Path $installerCodeSignScript)) {
+		Write-Error "Code sign script not found: $installerCodeSignScript"
+		exit 1
+	}
+	$resolvedSignScript = (Resolve-Path $installerCodeSignScript).Path
+	$buildArgs += "-DCODE_SIGN_SCRIPT=$resolvedSignScript"
+	Write-Host "Code sign enabled: $resolvedSignScript"
+}
+cmake @buildArgs
 if ($LASTEXITCODE -eq 0) {
 	Write-Section "Building DL Streamer"
-	cmake --build . --parallel $env:NUMBER_OF_PROCESSORS --target ALL_BUILD --config Release
+	cmake --build $DLSTREAMER_BUILD --parallel $env:NUMBER_OF_PROCESSORS --target ALL_BUILD --config Release
+	if ($LASTEXITCODE -ne 0) {
+		Write-Error "Build failed with exit code: $LASTEXITCODE"
+		exit $LASTEXITCODE
+	}
+
+	if ($buildInstaller) {
+		Write-Section "Packaging DL Streamer"
+		cmake --build $DLSTREAMER_BUILD --target download_installer_deps --config Release
+		if ($LASTEXITCODE -ne 0) {
+			Write-Error "Downloading installer dependencies failed with exit code: $LASTEXITCODE"
+			exit $LASTEXITCODE
+		}
+		cmake --build $DLSTREAMER_BUILD --target package_all --config Release
+		if ($LASTEXITCODE -ne 0) {
+			$nsisLog = "$DLSTREAMER_BUILD\_CPack_Packages\win64\NSIS\NSISOutput.log"
+			if (Test-Path $nsisLog) {
+				Write-Section "NSIS Output Log"
+				Get-Content $nsisLog
+			}
+			Write-Error "Packaging failed with exit code: $LASTEXITCODE"
+			exit $LASTEXITCODE
+		}
+	}
 	Write-Section "Done"
 
 	if ($setEnv) {

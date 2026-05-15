@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2021-2025 Intel Corporation
+ * Copyright (C) 2021-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -64,7 +64,7 @@ std::string generate_file_name() {
 void generate_video_with_caps(const std::string &caps, const std::string &file_name) {
     char pipeline_gen[MAX_STR_PATH_SIZE];
     sprintf(pipeline_gen,
-            "videotestsrc num-buffers=3 pattern=colors ! %s ! vaapipostproc ! vaapih264enc ! h264parse ! qtmux ! "
+            "videotestsrc num-buffers=3 pattern=colors ! %s ! vapostproc ! vah264enc ! h264parse ! qtmux ! "
             "filesink location=%s",
             caps.c_str(), file_name.c_str());
     check_run_pipeline(pipeline_gen, GST_CLOCK_TIME_NONE);
@@ -121,7 +121,7 @@ GST_START_TEST(test_avdec_decoder_perform_copy_nv12) {
     const auto caps = "video/x-raw,format=I420,width=768,height=432";
     auto file_name = generate_file_name();
     generate_video_with_caps(caps, file_name);
-    bool copied_data = check_data_copying("qtdemux ! h264parse ! vaapih264dec ! videoconvert ! video/x-raw",
+    bool copied_data = check_data_copying("qtdemux ! h264parse ! vah264dec ! videoconvert ! video/x-raw",
                                           "video/x-raw,format=NV12,width=768,height=432", file_name);
     ck_assert(copied_data && "DID expected copying of data!");
     delete_generated_video(file_name);

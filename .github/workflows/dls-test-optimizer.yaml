@@ -135,7 +135,7 @@ jobs:
 
       - name: Log in to GitHub Container Registry
         if: matrix.runner_print_label != 'SKIP'
-        uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 #4.0.0
+        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 #4.1.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -230,7 +230,7 @@ jobs:
 
       - name: Upload Docker test results
         if: always() && matrix.runner_print_label != 'SKIP'
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f #7.0.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a #7.0.1
         with:
           name: DLS_optimizer_Docker_${{ matrix.runner_print_label }}_${{ matrix.ubuntu_version }}_results
           path: ${{ env.OPTIMIZER_TESTS_PATH }}/optimizer_results/docker/FINAL_TEST_REPORT.txt
@@ -246,6 +246,14 @@ jobs:
         run: |
           $DLS_REL_PATH/tests/scripts/installation-on-host-entrypoint.sh $DLS_REL_PATH/deb_packages
 
+      - name: Install optimizer requirements on host
+        if: always() && matrix.runner_print_label != 'SKIP'
+        run: |
+          sudo apt-get install -y --no-install-recommends libcairo2-dev libgirepository1.0-dev
+          python3 -m venv --system-site-packages $HOME/optimizer-venv
+          $HOME/optimizer-venv/bin/pip install --no-cache-dir -r /opt/intel/dlstreamer/scripts/optimizer/requirements.txt
+          echo "$HOME/optimizer-venv/bin" >> $GITHUB_PATH
+
       - name: Run Optimizer on host
         if: always() && matrix.runner_print_label != 'SKIP'
         id: run_optimizer_on_host
@@ -259,7 +267,7 @@ jobs:
 
       - name: Upload host test results
         if: always() && matrix.runner_print_label != 'SKIP'
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f #7.0.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a #7.0.1
         with:
           name: DLS_optimizer_host_${{ matrix.runner_print_label }}_${{ matrix.ubuntu_version }}_results
           path: /home/runner/_work/dlstreamer/optimizer/optimizer_results/host/*

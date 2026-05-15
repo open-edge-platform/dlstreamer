@@ -35,7 +35,7 @@ graph LR
     D -->|file| I[d3d11convert]
     I --> J[gvawatermark]
     J --> K[gvafpscounter]
-    K --> L[d3d11h264enc]
+    K --> L[mfh264enc]
     L --> M[mp4mux]
     M --> N[filesink]
 

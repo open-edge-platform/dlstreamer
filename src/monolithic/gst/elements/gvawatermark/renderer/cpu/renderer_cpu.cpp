@@ -12,8 +12,18 @@
 
 namespace {
 
-const int sigmaX = 15;
-const int sigmaY = 15;
+// Compute a Gaussian blur kernel size proportional to the ROI so that larger
+// regions get a stronger blur.  The kernel must be positive and odd for
+// cv::GaussianBlur.  Using ~1/5 of each dimension with a minimum of 7
+// keeps small objects blurred while scaling up for bigger regions.
+cv::Size computeBlurKernelSize(int roi_width, int roi_height) {
+    int kw = std::max(7, roi_width / 5);
+    int kh = std::max(7, roi_height / 5);
+    // Ensure odd
+    kw = kw | 1;
+    kh = kh | 1;
+    return cv::Size(kw, kh);
+}
 
 const std::vector<cv::Vec3b> PascalVoc21ClColorPalette = {
     cv::Vec3b(0, 0, 0),       // background
@@ -38,6 +48,26 @@ const std::vector<cv::Vec3b> PascalVoc21ClColorPalette = {
     cv::Vec3b(128, 192, 0),   // train
     cv::Vec3b(0, 64, 128)     // tvmonitor
 };
+
+const std::vector<cv::Vec3b> SemanticSegmentationColorPalette = {
+    cv::Vec3b(128, 128, 128), // background
+    cv::Vec3b(0, 128, 0),     // first foreground class
+    cv::Vec3b(128, 0, 0),     cv::Vec3b(128, 128, 0),   cv::Vec3b(0, 0, 128),  cv::Vec3b(128, 0, 128),
+    cv::Vec3b(0, 128, 128),   cv::Vec3b(128, 128, 128), cv::Vec3b(64, 0, 0),   cv::Vec3b(192, 0, 0),
+    cv::Vec3b(64, 128, 0),    cv::Vec3b(192, 128, 0),   cv::Vec3b(64, 0, 128), cv::Vec3b(192, 0, 128),
+    cv::Vec3b(64, 128, 128),  cv::Vec3b(192, 128, 128), cv::Vec3b(0, 64, 0),   cv::Vec3b(128, 64, 0),
+    cv::Vec3b(0, 192, 0),     cv::Vec3b(128, 192, 0),   cv::Vec3b(0, 64, 128)};
+
+const std::vector<cv::Vec3b> &getSemanticMaskPalette(render::SemanticMaskPalette palette) {
+    switch (palette) {
+    case render::SemanticMaskPalette::SemanticMask:
+        return PascalVoc21ClColorPalette;
+    case render::SemanticMaskPalette::SemanticSegmentation:
+        return SemanticSegmentationColorPalette;
+    }
+
+    return PascalVoc21ClColorPalette;
+}
 
 template <int n>
 void check_planes(const std::vector<cv::Mat> &p) {
@@ -148,15 +178,17 @@ void RendererI420::blur_rectangle(std::vector<cv::Mat> &mats, render::Blur blur)
     cv::Mat &v = mats[2];
 
     cv::Rect r = blur.rect;
+    cv::Size ksize = computeBlurKernelSize(r.width, r.height);
+    cv::Size ksize_uv = computeBlurKernelSize(r.width / 2, r.height / 2);
 
     cv::Mat roi_u(u, cv::Rect(r.x / 2, r.y / 2, r.width / 2, r.height / 2));
-    cv::GaussianBlur(roi_u, roi_u, cv::Size(sigmaX, sigmaY), 0, 0);
+    cv::GaussianBlur(roi_u, roi_u, ksize_uv, 0, 0);
 
     cv::Mat roi_v(v, cv::Rect(r.x / 2, r.y / 2, r.width / 2, r.height / 2));
-    cv::GaussianBlur(roi_v, roi_v, cv::Size(sigmaX, sigmaY), 0, 0);
+    cv::GaussianBlur(roi_v, roi_v, ksize_uv, 0, 0);
 
     cv::Mat roi_y(y, cv::Rect(r.x, r.y, r.width, r.height));
-    cv::GaussianBlur(roi_y, roi_y, cv::Size(sigmaX, sigmaY), 0, 0);
+    cv::GaussianBlur(roi_y, roi_y, ksize, 0, 0);
 }
 
 void RendererI420::draw_rectangle(std::vector<cv::Mat> &mats, render::Rect rect) {
@@ -285,12 +317,14 @@ void RendererNV12::blur_rectangle(std::vector<cv::Mat> &mats, render::Blur blur)
     cv::Mat &u_v = mats[1];
 
     cv::Rect r = blur.rect;
+    cv::Size ksize = computeBlurKernelSize(r.width, r.height);
+    cv::Size ksize_uv = computeBlurKernelSize(r.width / 2, r.height / 2);
 
     cv::Mat roi_uv(u_v, cv::Rect(r.x / 2, r.y / 2, r.width / 2, r.height / 2));
-    cv::GaussianBlur(roi_uv, roi_uv, cv::Size(sigmaX, sigmaY), 0, 0);
+    cv::GaussianBlur(roi_uv, roi_uv, ksize_uv, 0, 0);
 
     cv::Mat roi(y, cv::Rect(r.x, r.y, r.width, r.height));
-    cv::GaussianBlur(roi, roi, cv::Size(sigmaX, sigmaY), 0, 0);
+    cv::GaussianBlur(roi, roi, ksize, 0, 0);
 }
 
 void RendererNV12::draw_rectangle(std::vector<cv::Mat> &mats, render::Rect rect) {
@@ -457,8 +491,9 @@ void RendererBGR::draw_rectangle(std::vector<cv::Mat> &mats, render::Rect rect) 
 void RendererBGR::blur_rectangle(std::vector<cv::Mat> &mats, render::Blur blur) {
     cv::Mat &mat = mats[0];
     cv::Rect r = blur.rect;
+    cv::Size ksize = computeBlurKernelSize(r.width, r.height);
     cv::Mat roi(mat, cv::Rect(r.x, r.y, r.width, r.height));
-    cv::GaussianBlur(roi, roi, cv::Size(sigmaX, sigmaY), 0, 0);
+    cv::GaussianBlur(roi, roi, ksize, 0, 0);
 }
 
 void RendererBGR::draw_circle(std::vector<cv::Mat> &mats, render::Circle circle) {
@@ -531,10 +566,10 @@ cv::Mat convertClassIndicesToBGR(const cv::Mat &classMap, const std::vector<cv::
     CV_Assert(classMap.channels() == 1);
     cv::Mat colorMap(classMap.size(), CV_8UC3);
     for (int i = 0; i < classMap.rows; ++i) {
-        const double *classRowPtr = classMap.ptr<double>(i);
+        const int32_t *classRowPtr = classMap.ptr<int32_t>(i);
         cv::Vec3b *colorRowPtr = colorMap.ptr<cv::Vec3b>(i);
         for (int j = 0; j < classMap.cols; ++j) {
-            int64_t classIdx = static_cast<int64_t>(classRowPtr[j]);
+            int64_t classIdx = classRowPtr[j];
             colorRowPtr[j] = colorPalette[classIdx];
         }
     }
@@ -542,7 +577,8 @@ cv::Mat convertClassIndicesToBGR(const cv::Mat &classMap, const std::vector<cv::
 }
 
 void RendererBGR::draw_semantic_mask(std::vector<cv::Mat> &mats, render::SemanticSegmantationMask mask) {
-    cv::Mat class_mask{mask.size, CV_64FC1, mask.data.data()};
+    std::vector<int32_t> class_indices(mask.data.begin(), mask.data.end());
+    cv::Mat class_mask(mask.size, CV_32SC1, static_cast<void *>(class_indices.data()));
 
     cv::Rect2i roi(cv::Point2i(cvRound(mask.box.x), cvRound(mask.box.y)),
                    cv::Size2i(cvRound(mask.box.width), cvRound(mask.box.height)));
@@ -550,7 +586,7 @@ void RendererBGR::draw_semantic_mask(std::vector<cv::Mat> &mats, render::Semanti
     cv::Mat resized;
     cv::resize(class_mask, resized, {roi.width, roi.height}, 0, 0, cv::INTER_NEAREST);
 
-    cv::Mat colorMap = convertClassIndicesToBGR(resized, PascalVoc21ClColorPalette);
+    cv::Mat colorMap = convertClassIndicesToBGR(resized, getSemanticMaskPalette(mask.palette));
     colorMap.convertTo(colorMap, mats[0].type());
     if (mats[0].channels() == 4) {
         cv::cvtColor(colorMap, colorMap, cv::COLOR_BGR2BGRA);
