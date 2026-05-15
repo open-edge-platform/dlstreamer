@@ -337,6 +337,21 @@ static void gst_gva_motion_detect_set_context(GstElement *elem, GstContext *cont
 
 // ---------------- D3D11 GPU path helpers ----------------
 
+// RAII guard for gst_d3d11_device_lock / gst_d3d11_device_unlock.
+namespace {
+struct D3D11DeviceLockGuard {
+    GstD3D11Device *dev;
+    explicit D3D11DeviceLockGuard(GstD3D11Device *d) : dev(d) {
+        gst_d3d11_device_lock(dev);
+    }
+    ~D3D11DeviceLockGuard() {
+        gst_d3d11_device_unlock(dev);
+    }
+    D3D11DeviceLockGuard(const D3D11DeviceLockGuard &) = delete;
+    D3D11DeviceLockGuard &operator=(const D3D11DeviceLockGuard &) = delete;
+};
+} // namespace
+
 // Release cached D3D11 converter + small destination buffer (safe to call when not allocated).
 static void gst_gva_motion_detect_release_d3d11_small(GstGvaMotionDetect *self) {
     if (self->d3d11_conv) {
@@ -447,17 +462,15 @@ static gboolean gst_gva_motion_detect_d3d11_to_small_gray(GstGvaMotionDetect *se
     }
 
     // Import the small NV12 texture into OpenCV; driver interop requires holding the device lock.
-    gst_d3d11_device_lock(self->d3d11_device);
+    D3D11DeviceLockGuard lock_guard(self->d3d11_device);
     try {
         cv::UMat small_bgr;
         cv::directx::convertFromD3D11Texture2D(small_tex, small_bgr); // NV12 -> BGR on GPU
         cv::cvtColor(small_bgr, curr_small, cv::COLOR_BGR2GRAY);      // BGR -> GRAY on GPU
     } catch (const cv::Exception &e) {
-        gst_d3d11_device_unlock(self->d3d11_device);
         GST_WARNING_OBJECT(self, "cv::directx::convertFromD3D11Texture2D failed: %s; falling back to CPU", e.what());
         return FALSE;
     }
-    gst_d3d11_device_unlock(self->d3d11_device);
     return TRUE;
 }
 
@@ -476,10 +489,18 @@ static gboolean gst_gva_motion_detect_set_caps(GstBaseTransform *t, GstCaps *in,
     GstGvaMotionDetect *self = GST_GVA_MOTION_DETECT(t);
     if (!gst_video_info_from_caps(&self->vinfo, in))
         return FALSE;
-    gchar *caps_str = gst_caps_to_string(in);
-    gboolean is_d3d11 = (caps_str && strstr(caps_str, "memory:D3D11Memory"));
-    g_free(caps_str);
-    self->caps_is_d3d11 = is_d3d11 ? TRUE : FALSE;
+
+    gboolean is_d3d11 = FALSE;
+    guint caps_size = gst_caps_get_size(in);
+    for (guint i = 0; i < caps_size; ++i) {
+        const GstCapsFeatures *features = gst_caps_get_features(in, i);
+        if (features && gst_caps_features_contains(features, GST_CAPS_FEATURE_MEMORY_D3D11_MEMORY)) {
+            is_d3d11 = TRUE;
+            break;
+        }
+    }
+
+    self->caps_is_d3d11 = is_d3d11;
     // Reset tracking + algorithm state on caps change (resolution may differ).
     self->tracks.clear();
     self->block_state.release();
