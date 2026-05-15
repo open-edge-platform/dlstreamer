@@ -16,6 +16,16 @@
 #include <gst/gst.h>
 #include <gst/video/video.h>
 
+#ifndef _WIN32
+#include <sched.h>
+#else
+#define MAX_WIN_PROCESSOR_GROUPS 64
+typedef struct {
+    KAFFINITY group_mask[MAX_WIN_PROCESSOR_GROUPS];
+    WORD num_groups;
+} WinCorePinningMask;
+#endif
+
 #define DEFAULT_BATCH_TIMEOUT -1
 
 G_BEGIN_DECLS
@@ -40,6 +50,11 @@ typedef struct _GvaBaseInference {
     gboolean no_block;
     gboolean reshape;
     gboolean share_va_display_ctx;
+#ifndef _WIN32
+    cpu_set_t core_pinning_mask;
+#else
+    WinCorePinningMask core_pinning_mask;
+#endif
     guint inference_interval;
     guint batch_size;
     gint batch_timeout;

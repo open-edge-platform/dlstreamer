@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2018-2025 Intel Corporation
+ * Copyright (C) 2018-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -92,6 +92,11 @@ class InferenceImpl {
     std::list<OutputFrame> output_frames;
     std::mutex output_frames_mutex;
 
+#ifndef _WIN32
+    void SetAffinityMask(const cpu_set_t &mask);
+#else
+    void SetAffinityMask(const WinCorePinningMask &mask);
+#endif
     void PushOutput();
     bool CheckSrcPadBlocked(GstObject *src);
     void PushBufferToSrcPad(OutputFrame &output_frame);
