@@ -551,7 +551,7 @@ RUN \
     apt-get update -y && \
     apt-get install -y -q --no-install-recommends /debs/*.deb && \
     apt-get clean -y && \
-    pip3 install --no-cache-dir -r /opt/intel/dlstreamer/requirements.txt && \
+    pip3 install --no-cache-dir --break-system-packages -r /opt/intel/dlstreamer/requirements.txt && \
     rm -rf /var/lib/apt/lists/* && \
     rm -f /*.deb && \
     useradd -ms /bin/bash dlstreamer && \

@@ -577,7 +577,7 @@ RUN \
     apt-get update && \
     apt-get install -y -q --no-install-recommends python3-pip=\* && \
     pip3 install --no-cache-dir --break-system-packages onvif-zeep==0.2.12 && \
-    pip3 install --no-cache-dir -r /opt/intel/dlstreamer/requirements.txt && \
+    pip3 install --no-cache-dir --break-system-packages -r /opt/intel/dlstreamer/requirements.txt && \
     cp -r /usr/local/lib/python3.12/site-packages/wsdl /usr/local/lib/python3.12/dist-packages/ && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*

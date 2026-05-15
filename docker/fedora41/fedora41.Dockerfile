@@ -527,9 +527,9 @@ COPY --from=rpm-builder /rpms/*.rpm /rpms/
 
 # Download and install DLS rpm package
 RUN \
-    dnf install -y /rpms/*.rpm cairo-devel gobject-introspection-devel && \
+    dnf install -y /rpms/*.rpm cairo-devel cairo-gobject-devel gobject-introspection-devel && \
     pip3 install --no-cache-dir -r /opt/intel/dlstreamer/requirements.txt && \
-    dnf remove -y cairo-devel gobject-introspection-devel && \
+    dnf remove -y cairo-devel cairo-gobject-devel gobject-introspection-devel && \
     dnf clean all && \
     useradd -ms /bin/bash dlstreamer && \
     chown -R dlstreamer: /opt && \
