@@ -68,6 +68,8 @@
   - [Pre-processing description (`input_preproc`)](./model_proc_file.md#pre-processing-description)
   - [Post-processing description (`output_postproc`)](./model_proc_file.md#post-processing-description-output_postproc)
 - [Pipeline Optimizer](./optimizer.md)
+- [Application Conversion Prompt](./convert_app.md)
+
 
 <!--hide_directive
 :::{toctree}
@@ -93,5 +95,6 @@ how_to_contribute
 latency_tracer
 model_proc_file
 optimizer
+convert_app
 :::
 hide_directive-->
