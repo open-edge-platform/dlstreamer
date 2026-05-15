@@ -1,0 +1,30 @@
+# ==============================================================================
+# Copyright (C) 2026 Intel Corporation
+#
+# SPDX-License-Identifier: MIT
+# ==============================================================================
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "intel-dlstreamer"
+version = "2026.0.0"
+description = "DL Streamer Python bindings — GVA metadata and ONVIF camera discovery"
+license = { text = "MIT" }
+requires-python = ">=3.9"
+dependencies = [
+    "onvif-zeep==0.2.12",
+    "urllib3>=2.0.7",
+]
+
+[project.optional-dependencies]
+# Pull in the full requirements used by samples
+samples = [
+    "numpy>=2.2.0",
+    "opencv-python>=4.11.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["gstgva*", "dlstreamer*"]
