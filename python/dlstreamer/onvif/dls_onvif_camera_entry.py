@@ -12,8 +12,8 @@ from datetime import datetime
 from enum import Enum, auto
 from typing import Any, Optional
 
-from dls_onvif_data import ONVIFProfile
-from dls_onvif_discovery_thread import DlsLaunchedPipeline
+from .dls_onvif_data import ONVIFProfile
+from .dls_onvif_discovery_thread import DlsLaunchedPipeline
 
 
 class CameraStatus(Enum):

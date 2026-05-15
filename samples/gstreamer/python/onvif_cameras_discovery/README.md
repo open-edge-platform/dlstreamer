@@ -42,13 +42,20 @@ pipelines for video processing.
 | File | Description |
 |------|-------------|
 | `dls_onvif_sample.py` | Entry point — async discovery loop and pipeline launcher |
-| `dls_onvif_discovery_engine.py` | WS-Discovery, ONVIF profiles, async orchestrator (`DlsOnvifDiscoveryEngine`) |
-| `dls_onvif_camera_entry.py` | Camera + pipeline registry (`DlsOnvifCameraEntry`, `DlsOnvifCameraRegistry`) |
-| `dls_onvif_config_manager.py` | Pipeline configuration loader from `config.json` |
-| `dls_onvif_discovery_thread.py` | GStreamer pipeline lifecycle manager (`DlsLaunchedPipeline`) |
-| `dls_onvif_data.py` | ONVIF profile data structure (`ONVIFProfile`) |
-| `misc.py` | Console output helpers (`print_cameras`) |
 | `config.json` | Maps camera names to hostname, port, and pipeline definitions |
+| `requirements.txt` | Python dependencies for this sample |
+
+All ONVIF and pipeline logic lives in the **`dlstreamer.onvif`** library
+(installed as part of the `intel-dlstreamer` Python package):
+
+| Class / Function | Description |
+|------|-------------|
+| `DlsOnvifDiscoveryEngine` | WS-Discovery, ONVIF profiles, async orchestrator |
+| `DlsOnvifCameraEntry` / `DlsOnvifCameraRegistry` | Camera + pipeline registry |
+| `DlsOnvifConfigManager` | Pipeline configuration loader |
+| `DlsLaunchedPipeline` | GStreamer pipeline lifecycle manager |
+| `ONVIFProfile` | ONVIF profile data structure |
+| `discover_onvif_cameras()` / `discover_onvif_cameras_async()` | Low-level WS-Discovery generators |
 
 ---
 
@@ -59,7 +66,13 @@ pipelines for video processing.
 - Network access to ONVIF cameras on the local subnet
 - Valid camera credentials if the device requires authentication
 
-Install Python dependencies:
+Install the `intel-dlstreamer` Python package (includes `dlstreamer.onvif`):
+
+```bash
+pip install /opt/intel/dlstreamer/python
+```
+
+Or install sample-specific dependencies directly:
 
 ```bash
 pip install -r requirements.txt
@@ -338,47 +351,46 @@ python dls_onvif_sample.py \
 Entry point. Parses CLI arguments, initializes `DlsOnvifDiscoveryEngine`,
 runs the async discovery loop, and handles graceful shutdown.
 
-### `dls_onvif_discovery_engine.py`
+### `dlstreamer.onvif` library
 
-Unified discovery module containing:
+All discovery and pipeline logic is provided by the `dlstreamer.onvif` package
+(part of `intel-dlstreamer`). Import it directly in your own code:
 
-**Functions:**
-- `discover_onvif_cameras()` — synchronous WS-Discovery probe
-- `discover_onvif_cameras_async()` — async generator wrapper
-- `extract_xaddrs()` / `parse_xaddrs_url()` — XML helpers
+```python
+from dlstreamer.onvif import (
+    DlsOnvifDiscoveryEngine,
+    discover_onvif_cameras,
+    discover_onvif_cameras_async,
+    ONVIFProfile,
+    DlsOnvifCameraEntry,
+    DlsOnvifCameraRegistry,
+    CameraStatus,
+    DlsLaunchedPipeline,
+    DlsOnvifConfigManager,
+)
+```
 
-**Class `DlsOnvifDiscoveryEngine`:**
+**`DlsOnvifDiscoveryEngine`** — high-level orchestrator:
+- `init_discovery(config)` — configure credentials, refresh rate, config file
+- `discover_cameras_iter()` — async generator: discovery loop + pipeline management
 - `camera_profiles(client)` — retrieves ONVIF media profiles and RTSP URIs
-- Manages `DlsOnvifCameraRegistry` for unified camera/pipeline tracking
-- Periodic discovery with configurable refresh rate
-- Creates pipelines per camera profile via `_create_pipelines_for_entry()`
-- Removes stale cameras via `_remove_stale_cameras()`
-- Verbose profile dump via `print_cameras()` (controlled by `verbose` flag)
+- `get_cameras()` — list of currently active cameras
+- `release_resources_async()` — graceful shutdown
 
-### `dls_onvif_camera_entry.py`
+**`discover_onvif_cameras()`** / **`discover_onvif_cameras_async()`** — low-level
+WS-Discovery generators, yield `{"hostname": str, "port": int}` per camera found.
 
-- `CameraStatus` — enum: `DISCOVERED`, `CONNECTING`, `STREAMING`, `ERROR`, `REMOVED`
-- `DlsOnvifCameraEntry` — dataclass binding camera info, ONVIF profiles, pipelines, and lifecycle metadata
-- `DlsOnvifCameraRegistry` — thread-safe `dict[camera_id, entry]` with CRUD and bulk operations
+**`CameraStatus`** — enum: `DISCOVERED`, `CONNECTING`, `STREAMING`, `ERROR`, `REMOVED`
 
-### `dls_onvif_config_manager.py`
+**`DlsOnvifCameraEntry`** — dataclass binding camera info, ONVIF profiles, pipelines, and lifecycle metadata.
 
-`DlsOnvifConfigManager` — loads `config.json`, exposes `verbose` flag,
-provides `get_pipeline_definition_by_ip_port()`.
+**`DlsOnvifCameraRegistry`** — thread-safe `dict[camera_id, entry]` with CRUD and bulk operations.
 
-### `dls_onvif_discovery_thread.py`
+**`DlsOnvifConfigManager`** — loads `config.json`, provides `get_pipeline_definition_by_ip_port()`.
 
-`DlsLaunchedPipeline` — manages a single GStreamer pipeline in a dedicated
-thread with `GLib.MainLoop`. Thread-safe start/stop with lifecycle lock.
+**`DlsLaunchedPipeline`** — manages a single GStreamer pipeline in a dedicated thread.
 
-### `dls_onvif_data.py`
-
-`ONVIFProfile` — container for ONVIF profile data: video source, video encoder,
-audio encoder, PTZ configuration, and RTSP URL.
-
-### `misc.py`
-
-`print_cameras()` — prints a list of dicts as a formatted ASCII table.
+**`ONVIFProfile`** — container for ONVIF profile data: video source, video encoder, audio encoder, PTZ configuration, and RTSP URL.
 
 ---
 

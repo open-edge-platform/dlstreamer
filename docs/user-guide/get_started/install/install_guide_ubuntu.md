@@ -128,6 +128,33 @@ or samples are not installed by default. You can install them using
 the commands from
 [Advanced Install Guide Compilation / Install Python dependencies](../../dev_guide/advanced_install/advanced_install_guide_compilation.md#step-9-install-python-dependencies-optional).
 
+#### Python package: `dlstreamer.onvif` and `gstgva`
+
+If you want to use DL Streamer Python APIs (ONVIF camera discovery, GVA metadata)
+in your own Python code, the recommended approach is to install the
+`intel-dlstreamer` Python package via pip:
+
+```bash
+pip install /opt/intel/dlstreamer/python/intel_dlstreamer-*.whl
+```
+
+This single command installs:
+- `dlstreamer.onvif` — ONVIF camera discovery and pipeline integration
+- `gstgva` — GStreamer Video Analytics metadata bindings
+- All required Python dependencies (`onvif-zeep`, `urllib3`) automatically
+
+After installation, no `PYTHONPATH` configuration is needed:
+
+```python
+from dlstreamer.onvif import DlsOnvifDiscoveryEngine, discover_onvif_cameras
+from gstgva import VideoFrame, RegionOfInterest
+```
+
+> **NOTE (advanced):** As an alternative to pip, the modules are also accessible
+> via `PYTHONPATH=/opt/intel/dlstreamer/python` set automatically by
+> `hello_dlstreamer.sh`. This approach requires manual installation of
+> the dependencies declared in `python/pyproject.toml`.
+
 ### [Optional] Step 5: Post installation steps
 
 #### Download the model and run hello_dlstreamer script
