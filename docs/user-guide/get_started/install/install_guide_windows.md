@@ -27,13 +27,13 @@ The installer also supports silent installation via command line, follow the ins
 DL Streamer is licensed under the MIT License. 
 Accept the license agreement and proceed with the installation.
 
-<img src="_images/install_windows_license.png" width="600"/>
+![image](_images/install_windows_license.png)
 
 ### Choose Install Location
 The default installation folder is `%ProgramFiles%\Intel\dlstreamer`,
 you can choose a different location.
 
-<img src="_images/install_windows_location.png" width="600"/>
+![image](_images/install_windows_location.png)
 
 ### Choose Components
 The installer provides the following components:
@@ -53,7 +53,7 @@ Three installation types are available:
 > **Note:** Incompatible GStreamer installations (MinGW or 32-bit
 > variants) must be uninstalled before proceeding.
 
-<img src="_images/install_windows_components.png" width="600"/>
+![image](_images/install_windows_components.png)
 
 ### Installation Process
 Click "Install" to start the installation process. The installer will copy files,
