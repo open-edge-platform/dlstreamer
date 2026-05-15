@@ -89,7 +89,18 @@ Provide a path representing a file which will be used to save results informatio
 >Search duration and sample duration both affect the amount of pipelines that will be explored during the search. \
 >The total amount should be approximately `search_duration / sample_duration` pipelines.
 
-**Example:**
+
+## Pausing and resuming
+While the optimizer is running, you can pause and resume the search at any time by pressing the **Spacebar** in the terminal where the tool is running.
+
+**Pausing** stops the current pipeline sample mid-run and suspends the search loop. The optimizer will not start any new pipeline test until it is resumed. **Resuming** (pressing Space again) restarts the search from the same point it was paused. The remaining **search duration** is preserved accurately: time spent while paused is not counted against the budget.
+
+>**Note**\
+>The pause key is only active while the optimizer is running as a CLI tool in terminal with keyboard input available. It is not available in non-interactive or piped environments.
+
+---
+
+## Example
 
 ```
  python3 . fps -- urisourcebin buffer-size=4096 uri=https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4 ! decodebin ! gvadetect model=/home/optimizer/models/public/yolo11s/INT8/yolo11s.xml ! queue ! gvawatermark ! fakesink
