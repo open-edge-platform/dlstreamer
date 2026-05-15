@@ -1139,7 +1139,7 @@ bool InferenceImpl::CheckSrcPadBlocked(GstObject *src) {
     if (dst == nullptr)
         return false;
 
-    if (g_str_has_prefix(dst->name, "queue")) {
+    if (strcmp(dst->name, "queue") > 0) {
         guint buf_cnt;
         g_object_get(dst, "current-level-buffers", &buf_cnt, NULL);
         GstState state, pending;
@@ -1375,9 +1375,6 @@ GstFlowReturn InferenceImpl::TransformFrameIp(GvaBaseInference *gva_base_inferen
             return GST_BASE_TRANSFORM_FLOW_DROPPED;
         }
     }
-
-    // Release _mutex before SubmitImages.
-    lock.unlock();
 
     return SubmitImages(gva_base_inference, metas, buffer);
 }
