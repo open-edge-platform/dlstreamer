@@ -38,9 +38,9 @@ pre-fill with inferred values and mark as `recommended`.
 > when setting `device=` and `batch-size=` on inference elements.
 > For advanced tuning (multi-GPU selection, pre-process backends, MULTI: device),
 > refer to the docs:
-> - [Performance Guide](../../../../docs/user-guide/dev_guide/performance_guide.md) — batch-size, multi-stream, memory types
-> - [GPU Device Selection](../../../../docs/user-guide/dev_guide/gpu_device_selection.md) — multi-GPU systems
-> - [Optimizer](../../../../docs/user-guide/dev_guide/optimizer.md) — auto-tuning tool
+> - `docs/user-guide/dev_guide/performance_guide.md` — batch-size, multi-stream, memory types
+> - `docs/user-guide/dev_guide/gpu_device_selection.md` — multi-GPU systems
+> - `docs/user-guide/dev_guide/optimizer.md` — auto-tuning tool
 
 ## Section 4 — Output
 

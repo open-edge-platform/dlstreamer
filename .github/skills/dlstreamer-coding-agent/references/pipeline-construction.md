@@ -4,7 +4,7 @@ GStreamer pipeline syntax for DL Streamer video-analytics applications.
 
 ## DL Streamer GStreamer Elements
 
-For the full list of elements, see also `../../../../docs/user-guide/elements/`.
+For the full list of elements, see also `docs/user-guide/elements/`.
 
 ### Source Elements
 
@@ -67,7 +67,7 @@ For the full list of elements, see also `../../../../docs/user-guide/elements/`.
 > Always set `reid_max_age` to enable re-identification after occlusion.
 > When using `object-class=person` on `gvainference`, always set `displ-cfg=show-roi=person`
 > on `gvawatermark` to render only person ROIs (the detector may also produce non-person classes).
-> See [object_tracking.md](../../../../docs/user-guide/dev_guide/object_tracking.md#deep-sort-tracking) for all tuning parameters.
+> See `docs/user-guide/dev_guide/object_tracking.md` (section "Deep SORT tracking") for all tuning parameters.
 
 ### Overlay & Metrics
 

@@ -13,6 +13,7 @@ You need a development machine with one of the following coding environments ins
 - [Visual Studio Code](https://code.visualstudio.com/) with the [GitHub Copilot Chat](https://marketplace.visualstudio.com/items?itemName=GitHub.copilot-chat) extension
 - [Cursor](https://www.cursor.com/)
 - [Claude Code](https://docs.anthropic.com/en/docs/agents-and-tools/claude-code/overview)
+- [PyCharm](https://www.jetbrains.com/pycharm/) with [JetBrains AI Assistant](https://www.jetbrains.com/ai/)
 
 Note: The Coding Agent communicates with AI coding models in the cloud, which typically requires a paid service or subscription.
 For best results, select a reasoning AI model.
@@ -25,21 +26,71 @@ You need a target machine to execute, run, and debug the generated code. The tar
 
 ## Procedure
 
-### 1. Create a New Project
+### 1. Install the Coding Agent Skill
 
-Create a new, empty project directory on your development machine and open it in your coding environment (e.g., VS Code).
+<!--hide_directive::::{tab-set}
+:::{tab-item}hide_directive--> VS Code
+<!--hide_directive:sync: vscodehide_directive-->
 
-There is no need to clone the DL Streamer GitHub repository. The Coding Agent reads all required information directly from
-https://github.com/open-edge-platform/dlstreamer.
-
-### 2. Open the Chat Window and Enter Your Prompt
-
-Open the AI chat window in your coding environment and enter a prompt describing the application you want to build.
-The prompt must start with a reference to the DL Streamer Coding Agent:
+No installation needed — just add the following line at the beginning of each prompt:
 
 ```
 Use DL Streamer Coding Agent from https://github.com/open-edge-platform/dlstreamer
+```
 
+<!--hide_directive:::
+:::{tab-item}hide_directive--> Claude Code
+<!--hide_directive:sync: claudecodehide_directive-->
+
+Run these two commands once — the skill is then available in all future sessions:
+
+```bash
+claude plugin marketplace add dlstreamer/dlstreamer
+claude plugin install dlstreamer-coding-agent@dlstreamer
+```
+
+The first command registers the DL Streamer repository as a plugin marketplace.
+The second installs the Coding Agent skill from that marketplace.
+
+<!--hide_directive:::
+:::{tab-item}hide_directive--> Cursor
+<!--hide_directive:sync: cursorhide_directive-->
+
+Clone the DL Streamer repository and symlink the skill directory into your project:
+
+```bash
+git clone https://github.com/open-edge-platform/dlstreamer.git ~/.dlstreamer
+ln -s ~/.dlstreamer/.github/skills/dlstreamer-coding-agent .cursor/skills/dlstreamer-coding-agent
+```
+
+Alternatively, if you are working directly inside a cloned DL Streamer repository, Cursor
+will discover skills from `.github/skills/` automatically.
+
+<!--hide_directive:::
+:::{tab-item}hide_directive--> PyCharm
+<!--hide_directive:sync: pycharmhide_directive-->
+
+Clone the DL Streamer repository and symlink the skill directory into your project:
+
+```bash
+git clone https://github.com/open-edge-platform/dlstreamer.git ~/.dlstreamer
+ln -s ~/.dlstreamer/.github/skills/dlstreamer-coding-agent .junie/skills/dlstreamer-coding-agent
+```
+
+Alternatively, if you are working directly inside a cloned DL Streamer repository, PyCharm
+will discover skills from `.github/skills/` automatically.
+
+<!--hide_directive:::
+::::hide_directive-->
+
+### 2. Create a Project and Enter Your Prompt
+
+Create a new, empty project directory on your development machine, open it in your coding environment,
+and enter a prompt in the AI chat window describing the application you want to build.
+
+Example prompt:
+
+```
 Develop a Python application that implements a license plate recognition pipeline optimized for Intel® Core™ Ultra Series 3 Processors:
 - Read input video from a file (https://github.com/open-edge-platform/edge-ai-resources/raw/main/videos/ParkingVideo.mp4) but also allow remote IP cameras
 - Run YOLOv11 (https://huggingface.co/morsetechlab/yolov11-license-plate-detection) for object detection and PaddleOCR (https://huggingface.co/PaddlePaddle/PP-OCRv5_server_rec) model for character recognition
@@ -48,6 +99,8 @@ Develop a Python application that implements a license plate recognition pipelin
 
 Save source code in the license_plate_recognition directory.
 ```
+
+See [more example prompts](../../../.github/skills/dlstreamer-coding-agent/examples) for additional use cases.
 
 ### 3. What the Coding Agent Does
 

@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-marketplace.json",
+  "name": "dlstreamer",
+  "description": "Intel DL Streamer plugins for AI coding agents",
+  "owner": {
+    "name": "Intel Corporation",
+    "url": "https://github.com/dlstreamer/dlstreamer"
+  },
+  "plugins": [
+    {
+      "name": "dlstreamer-coding-agent",
+      "source": "./.github/skills/dlstreamer-coding-agent",
+      "description": "Build DL Streamer video-analytics applications (Python or GStreamer command line). Use when the user describes a vision AI pipeline, wants to create a new sample app, or needs detection/classification/VLM/tracking/alerts/recording in a video pipeline.",
+      "version": "0.1.0",
+      "author": {
+        "name": "Intel Corporation"
+      },
+      "license": "MIT",
+      "keywords": ["dlstreamer", "gstreamer", "video-analytics", "openvino", "intel", "computer-vision"],
+      "additionalDirectories": [
+        "docs",
+        "samples",
+        "scripts"
+      ]
+    }
+  ]
+}
