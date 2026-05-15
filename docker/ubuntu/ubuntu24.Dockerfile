@@ -403,8 +403,7 @@ WORKDIR "$DLSTREAMER_DIR"
 
 COPY . "${DLSTREAMER_DIR}"
 
-RUN /python3venv/bin/pip3 install --no-cache-dir -r "${DLSTREAMER_DIR}/scripts/optimizer/requirements.txt" && \
-    mkdir build
+RUN mkdir build
 
 WORKDIR $DLSTREAMER_DIR/build
 
@@ -474,6 +473,7 @@ RUN \
     cp -r "${DLSTREAMER_DIR}/scripts/" /deb-pkg/opt/intel/dlstreamer/ && \
     cp -r "${DLSTREAMER_DIR}/include/" /deb-pkg/opt/intel/dlstreamer/ && \
     cp "${DLSTREAMER_DIR}/README.md" /deb-pkg/opt/intel/dlstreamer && \
+    cp "${DLSTREAMER_DIR}/requirements.txt" /deb-pkg/opt/intel/dlstreamer && \
     cp -rT "${GSTREAMER_DIR}" /deb-pkg/opt/intel/dlstreamer/gstreamer && \
     mkdir -p /deb-pkg/opt/intel/dlstreamer/lib/girepository-1.0 && \
     mkdir -p /deb-pkg/opt/intel/dlstreamer/share/gir-1.0 && \
@@ -577,6 +577,7 @@ RUN \
     apt-get update && \
     apt-get install -y -q --no-install-recommends python3-pip=\* && \
     pip3 install --no-cache-dir --break-system-packages onvif-zeep==0.2.12 && \
+    pip3 install --no-cache-dir -r /opt/intel/dlstreamer/requirements.txt && \
     cp -r /usr/local/lib/python3.12/site-packages/wsdl /usr/local/lib/python3.12/dist-packages/ && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
