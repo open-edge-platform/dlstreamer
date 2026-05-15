@@ -199,6 +199,22 @@ def _parse_json_event(payload: dict, topic: str) -> Optional[dict]:
         payload.setdefault("topic", topic)
         return payload
 
+    # Axis-style: detections nested under "detections" key
+    dets = payload.get("detections", {})
+    if isinstance(dets, dict) and dets.get("count", 0) > 0:
+        return {
+            "source": "mqtt_json", "topic": topic,
+            "timestamp": payload.get("timestamp", time.strftime(
+                "%Y-%m-%dT%H:%M:%SZ", time.gmtime())),
+            "objectCount": dets["count"],
+            "classCounts": dets.get("classCounts", {}),
+            "objects": [
+                {"type": o.get("class", "Unknown"),
+                 "confidence": o.get("score", 0.0)}
+                for o in dets.get("objects", [])
+            ],
+        }
+
     # Look for data block (used by many cameras)
     data = payload.get("message", {}).get("data", payload.get("data", {}))
     if not data:
@@ -366,31 +382,3 @@ class MQTTEventListener:
             except queue.Full:
                 self.stats["events_dropped"] += 1
 
-
-# ═══════════════════════════════════════════════════════════════════════════
-#  Cross-validation
-# ═══════════════════════════════════════════════════════════════════════════
-
-def cross_validate(camera_event: dict, vlm_detections: list) -> dict:
-    """Compare camera-reported objects with VLM-extracted objects.
-
-    Returns a dict with match/mismatch status and counts per class.
-    """
-    cam_types = collections.Counter(
-        o.get("type", "") for o in camera_event.get("objects", []))
-    vlm_types = collections.Counter(
-        d.get("onvif_type", "") for d in vlm_detections)
-
-    cam_count = camera_event.get("objectCount", 0)
-    vlm_count = len(vlm_detections)
-
-    missing = set(cam_types) - set(vlm_types)
-    needs_update = bool(missing) or (cam_count > 0 and vlm_count == 0)
-
-    return {
-        "camera_objects": cam_count,
-        "inference_objects": vlm_count,
-        "camera_classes": dict(cam_types),
-        "inference_classes": dict(vlm_types),
-        "needs_update": needs_update,
-    }

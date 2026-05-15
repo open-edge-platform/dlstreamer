@@ -31,6 +31,7 @@ import json
 import logging
 import os
 import queue
+import re
 import sys
 import threading
 import time
@@ -50,6 +51,25 @@ from util import ONVIFClient, MQTTEventListener  # pylint: disable=wrong-import-
 
 log = logging.getLogger(__name__)
 
+# ── VLM Prompts (edit these to change what the model looks for) ────────────
+
+# Initial prompt used during model warm-up (first frame).
+INITIAL_PROMPT = (
+    "Describe only the objects you can clearly see in this image. "
+    "State the count of each object type. "
+    "Do not guess or assume objects that are not visible."
+)
+
+# Dynamic prompt sent on each MQTT event. {cam_summary} is replaced at
+# runtime with the camera's reported objects (e.g. "1 person, 1 dog").
+DYNAMIC_PROMPT = (
+    "The camera reports: {cam_summary}. "
+    "Look at this image and confirm or deny each reported "
+    "object. Also check if any violent or dangerous objects "
+    "are visible such as a gun, knife, or weapon that the "
+    "camera may have missed. Be brief."
+)
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 #  DLStreamer Pipeline (RTSP + gvagenai VLM)
@@ -68,14 +88,13 @@ class DLStreamerVLMPipeline:  # pylint: disable=too-many-instance-attributes
 
     def __init__(  # pylint: disable=too-many-arguments,too-many-positional-arguments
         self, rtsp_uri: str, model_path: str, device: str,
-        prompt: str, max_tokens: int, frame_rate: float = 1.0,
+        max_tokens: int, frame_rate: float = 1.0,
         user: str = "", password: str = "",
     ):
         Gst.init(None)
         self._rtsp_uri = rtsp_uri
         self._model_path = model_path
         self._device = device
-        self._prompt = prompt
         self._max_tokens = max_tokens
         self._frame_rate = frame_rate
         self._user = user
@@ -90,7 +109,6 @@ class DLStreamerVLMPipeline:  # pylint: disable=too-many-instance-attributes
         self._latest_vlm_text = ""
         self._vlm_jpeg = None  # JPEG of the exact frame VLM processed
         self._vlm_count = 0
-        self._valve = None  # GStreamer valve element
         self._vlm_ready = threading.Event()  # signalled when new VLM text
 
     def _source_setup(self, _urisourcebin, source):
@@ -109,10 +127,8 @@ class DLStreamerVLMPipeline:  # pylint: disable=too-many-instance-attributes
     def _build_pipeline(self):
         """Create a GStreamer pipeline with gvagenai for VLM inference.
 
-        A valve element before gvagenai controls on-demand inference.
-        The valve starts open to let gvagenai load the model on the first
-        frame. After each inference the pad probe closes the valve.
-        Subsequent inferences are triggered by request_inference().
+        gvagenai runs continuously at --frame-rate fps. The MQTT handler
+        waits for the next VLM result rather than gating frames via a valve.
         """
         gen_cfg = f"max_new_tokens={self._max_tokens}"
 
@@ -122,16 +138,16 @@ class DLStreamerVLMPipeline:  # pylint: disable=too-many-instance-attributes
             f'videoconvertscale ! '
             f'video/x-raw,format=RGB ! '
             f'tee name=t '
-            # Branch 1: valve → gvagenai VLM inference (on-demand)
+            # Branch 1: gvagenai VLM inference (continuous)
             f't. ! queue max-size-buffers=1 leaky=downstream ! '
-            f'valve name=vlm_valve drop=false ! '
+            f'videorate max-rate=1 ! '
             f'gvagenai '
             f'model-path="{self._model_path}" '
             f'device={self._device} '
-            f'prompt="{self._prompt}" '
+            f'prompt="{INITIAL_PROMPT}" '
             f'generation-config="{gen_cfg}" '
             f'chunk-size=1 '
-            f'frame-rate=0 '
+            f'frame-rate={self._frame_rate} '
             f'name=genai ! '
             f'jpegenc quality=50 ! '
             f'appsink name=vlm_jpeg_sink max-buffers=1 drop=true '
@@ -158,9 +174,6 @@ class DLStreamerVLMPipeline:  # pylint: disable=too-many-instance-attributes
         if vlm_jpeg_sink:
             vlm_jpeg_sink.connect("new-sample", self._on_vlm_jpeg)
 
-        # Store valve reference for on-demand control
-        self._valve = pipeline.get_by_name("vlm_valve")
-
         # Add pad probe on gvagenai src pad to extract VLM results
         genai = pipeline.get_by_name("genai")
         if genai:
@@ -172,11 +185,7 @@ class DLStreamerVLMPipeline:  # pylint: disable=too-many-instance-attributes
         return pipeline
 
     def _on_vlm_result(self, _pad, info):
-        """Pad probe on gvagenai src: extract VLM text from ClsMtd.
-
-        After extracting the result, closes the valve and signals the
-        validation loop that inference is complete.
-        """
+        """Pad probe on gvagenai src: extract VLM text from ClsMtd."""
         buf = info.get_buffer()
         if buf is None:
             return Gst.PadProbeReturn.OK
@@ -199,9 +208,6 @@ class DLStreamerVLMPipeline:  # pylint: disable=too-many-instance-attributes
                         self._vlm_count += 1
                         log.info("VLM [%d]: %s", self._vlm_count,
                                  label_text[:80])
-                    # Close valve after getting result
-                    if self._valve:
-                        self._valve.set_property("drop", True)
                     # _vlm_ready is signalled in _on_vlm_jpeg after
                     # the JPEG of this frame is captured
                     break
@@ -215,7 +221,15 @@ class DLStreamerVLMPipeline:  # pylint: disable=too-many-instance-attributes
 
         ret = self._pipeline.set_state(Gst.State.PLAYING)
         if ret == Gst.StateChangeReturn.FAILURE:
-            log.error("DLStreamer pipeline failed to start")
+            bus = self._pipeline.get_bus()
+            msg = bus.timed_pop_filtered(0, Gst.MessageType.ERROR)
+            if msg:
+                err, debug = msg.parse_error()
+                log.error("DLStreamer pipeline failed to start: %s", err.message)
+                log.error("  Debug: %s", debug)
+            else:
+                log.error("DLStreamer pipeline failed to start (no error details)")
+            self._pipeline.set_state(Gst.State.NULL)
             return False
 
         self._running = True
@@ -283,20 +297,47 @@ class DLStreamerVLMPipeline:  # pylint: disable=too-many-instance-attributes
         with self._lock:
             return self._latest_vlm_text
 
-    def request_inference(self, timeout: float = 120.0) -> str:
-        """Open the valve, wait for gvagenai to produce a result, return it.
+    def request_inference(self, mqtt_event: dict = None,
+                           timeout: float = 120.0) -> str:
+        """Wait for the next gvagenai result and return it.
 
-        Returns the VLM text, or empty string on timeout.
+        gvagenai runs continuously. This method updates the prompt with
+        the MQTT context and waits for a new inference result.
+        Returns the VLM text, or the latest available text on timeout.
         """
-        if not self._valve:
-            return self.get_vlm_text()
+        # Record baseline BEFORE prompt change so we can detect
+        # (and skip) any in-flight result that used the old prompt.
+        with self._lock:
+            baseline_count = self._vlm_count
 
+        # Update prompt with MQTT context if available
+        prompt_changed = False
+        if mqtt_event:
+            cam_summary = ", ".join(
+                f"{cnt} {cls}" for cls, cnt
+                in mqtt_event.get("classCounts", {}).items())
+            prompt = DYNAMIC_PROMPT.format(cam_summary=cam_summary)
+            genai = self._pipeline.get_by_name("genai") if self._pipeline else None
+            if genai:
+                genai.set_property("prompt", prompt)
+                prompt_changed = True
+
+        # When the prompt changes, gvagenai may already be processing a
+        # frame with the OLD prompt.  Skip one result so the returned
+        # text is guaranteed to reflect the new prompt.
+        skip = 2 if prompt_changed else 1
+        target_count = baseline_count + skip
         self._vlm_ready.clear()
-        self._valve.set_property("drop", False)
-        if self._vlm_ready.wait(timeout=timeout):
-            return self.get_vlm_text()
-        # Timeout — close valve, return whatever we have
-        self._valve.set_property("drop", True)
+
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            if self._vlm_ready.wait(timeout=max(0.1, deadline - time.monotonic())):
+                with self._lock:
+                    if self._vlm_count >= target_count:
+                        return self._latest_vlm_text
+                # Result arrived but hasn't reached target; keep waiting
+                self._vlm_ready.clear()
+
         log.warning("VLM inference timed out after %.0fs", timeout)
         return self.get_vlm_text()
 
@@ -386,6 +427,110 @@ class _DashboardState:
             return len(cls.event_history)
 
 
+# ── Comparison helper ─────────────────────────────────────────────────────
+
+# Map COCO / MQTT class names to ONVIF-style labels for matching
+_CLASS_ALIASES = {
+    "person": "Human", "people": "Human", "human": "Human", "man": "Human",
+    "woman": "Human", "child": "Human", "pedestrian": "Human",
+    "car": "Vehicle", "truck": "Vehicle", "bus": "Vehicle",
+    "motorcycle": "Vehicle", "bicycle": "Vehicle", "vehicle": "Vehicle",
+    "dog": "Animal", "cat": "Animal", "bird": "Animal", "animal": "Animal",
+    "horse": "Animal", "cow": "Animal", "sheep": "Animal",
+    "gun": "Weapon", "knife": "Weapon", "weapon": "Weapon",
+    "rifle": "Weapon", "pistol": "Weapon", "firearm": "Weapon",
+    "sword": "Weapon", "bat": "Weapon", "shotgun": "Weapon",
+}
+
+# Words that negate a detection (e.g. "no gun", "not visible")
+_NEGATION_PATTERN = re.compile(
+    r'\b(no|not|cannot|can\'t|don\'t|doesn\'t|without|absent'
+    r'|none|zero|isn\'t|aren\'t|wasn\'t|weren\'t)\b',
+    re.IGNORECASE,
+)
+
+
+def _normalize_class(name: str) -> str:
+    return _CLASS_ALIASES.get(name.lower(), name.capitalize())
+
+
+def _extract_vlm_counts(vlm_text: str) -> dict:
+    """Best-effort extraction of object counts from VLM free-text.
+
+    Splits text into sentences/lines, skips sentences with negation
+    near the keyword, and counts explicit numbers or implicit mentions.
+    """
+    counts = {}
+    word_nums = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
+                 "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10}
+    text = vlm_text.lower()
+    text = text.replace('**', '')  # Strip markdown bold so "**Shotgun:** 1" stays together after split
+
+    # Split into sentences / bullet lines for context-aware matching
+    segments = re.split(r'[.!?\n*•\-]+', text)
+
+    for alias, label in _CLASS_ALIASES.items():
+        alias_re = re.escape(alias)
+        for seg in segments:
+            if not re.search(rf'\b{alias_re}\b', seg):
+                continue
+            # Check for negation within ~30 chars of the keyword
+            m0 = re.search(rf'\b{alias_re}\b', seg)
+            idx = m0.start()
+            context = seg[max(0, idx - 30):idx + len(alias) + 30]
+            if _NEGATION_PATTERN.search(context):
+                continue
+            # "2 person(s)" or "person: 2"
+            for m in re.finditer(
+                    rf'(\d+)\s+\b{alias_re}\b', seg):
+                counts[label] = counts.get(label, 0) + int(m.group(1))
+            for m in re.finditer(
+                    rf'\b{alias_re}\w*\s*[:=]\s*(\d+)', seg):
+                counts[label] = counts.get(label, 0) + int(m.group(1))
+            # Word numbers: "two people"
+            for word, val in word_nums.items():
+                if re.search(rf'\b{word}\s+\b{alias_re}\b', seg):
+                    counts[label] = counts.get(label, 0) + val
+            # Implicit single: "a dog", "the person", or just "Person"
+            if label not in counts:
+                if re.search(rf'\b(a|an|the|see|visible|confirmed|confirm'
+                             rf'|present|detected|found)\s+'
+                             rf'(\w+\s+)?\b{alias_re}\b', seg):
+                    counts[label] = counts.get(label, 0) + 1
+
+    return counts
+
+
+def _build_comparison(mqtt_event: dict, vlm_text: str) -> dict:
+    """Build a structured comparison between MQTT and VLM."""
+    cam_classes = mqtt_event.get("classCounts", {})
+    cam_counts = {}
+    for cls, cnt in cam_classes.items():
+        label = _normalize_class(cls)
+        cam_counts[label] = cam_counts.get(label, 0) + cnt
+
+    vlm_counts = _extract_vlm_counts(vlm_text)
+
+    # Objects reported by camera (MQTT)
+    camera_detected = [
+        {"class": cls, "count": cnt}
+        for cls, cnt in sorted(cam_counts.items())
+    ]
+
+    # Extra objects found only by VLM (not in camera report)
+    vlm_only = [
+        {"class": cls, "count": cnt}
+        for cls, cnt in sorted(vlm_counts.items())
+        if cls not in cam_counts
+    ]
+
+    return {
+        "camera_detected": camera_detected,
+        "vlm_additional": vlm_only,
+        "vlm_text": vlm_text,
+    }
+
+
 class DashboardHandler(http.server.BaseHTTPRequestHandler):
     """HTTP handler for the live validation dashboard."""
 
@@ -429,10 +574,13 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
                         json.loads(raw_payload), indent=2)
                 except (json.JSONDecodeError, TypeError):
                     pass
+                comparison = _build_comparison(
+                    mqtt, ev["vlm_text"])
                 data = {
                     "vlm_text": ev["vlm_text"],
                     "mqtt_topic": raw_topic,
                     "mqtt_payload": raw_payload,
+                    "comparison": comparison,
                 }
                 self._respond(200, 'application/json',
                               json.dumps(data, default=str).encode())
@@ -546,7 +694,7 @@ def validation_loop(pipeline: DLStreamerVLMPipeline,
 
     print("\n" + "=" * 60)
     print("  Listening for MQTT events ... (Ctrl+C to stop)")
-    print("  VLM inference runs on-demand via gvagenai (valve-gated).")
+    print("  VLM inference runs continuously via gvagenai.")
     print(f"  Web UI: http://localhost:{web_port}")
     print("=" * 60 + "\n")
 
@@ -557,10 +705,23 @@ def validation_loop(pipeline: DLStreamerVLMPipeline,
             except queue.Empty:
                 continue
 
+            # Drain stale events — keep only the latest
+            skipped = 0
+            while True:
+                try:
+                    newer = listener.event_queue.get_nowait()
+                    skipped += 1
+                    event = newer
+                except queue.Empty:
+                    break
+            if skipped:
+                log.info("Skipped %d stale MQTT events, using latest",
+                         skipped)
+
             event_count += 1
 
             # Trigger VLM inference on the current frame
-            vlm_text = pipeline.request_inference()
+            vlm_text = pipeline.request_inference(mqtt_event=event)
             if not vlm_text:
                 vlm_text = "(VLM inference timed out)"
 
@@ -626,7 +787,7 @@ def run(args):
     print("\n[Setup] DLStreamer pipeline (RTSP + gvagenai)")
     print("-" * 60)
     pipeline = DLStreamerVLMPipeline(
-        rtsp_uri, args.model_path, args.device, args.prompt,
+        rtsp_uri, args.model_path, args.device,
         args.max_tokens, args.frame_rate,
         user=args.onvif_user, password=args.onvif_pass)
     if not pipeline.start():
@@ -694,12 +855,8 @@ Model export (run once):
                    help="Path to OpenVINO VLM model directory")
     p.add_argument("--device", default="CPU",
                    choices=["CPU", "GPU", "NPU", "AUTO"])
-    p.add_argument("--prompt",
-                   default="Describe only the objects you can clearly see in "
-                           "this image. State the count of each object type. "
-                           "Do not guess or assume objects that are not visible.")
-    p.add_argument("--frame-rate", type=float, default=1.0,
-                   help="VLM inference rate in fps (default: 1.0)")
+    p.add_argument("--frame-rate", type=float, default=0.2,
+                   help="VLM inference rate in fps (default: 0.2 = every 5s)")
     p.add_argument("--max-tokens", type=int, default=150)
     p.add_argument("--mqtt-broker", default="localhost")
     p.add_argument("--mqtt-port", type=int, default=1883)

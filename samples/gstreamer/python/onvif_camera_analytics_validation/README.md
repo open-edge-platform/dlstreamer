@@ -7,6 +7,8 @@ Intel hardware (CPU/iGPU/NPU) directly inside the GStreamer pipeline. When an
 MQTT analytics event arrives, pairs it with the latest VLM inference result
 and displays everything on a **live web dashboard**.
 
+
+
 ```mermaid
 graph LR
     A["ONVIF Camera"] -->|"RTSP stream"| B["DLStreamer Pipeline"]
@@ -80,12 +82,7 @@ pip install -r requirements.txt
 ### 5. Export a VLM model (run once)
 
 ```bash
-pip install optimum-intel nncf
-optimum-cli export openvino \
-    --model google/gemma-3-4b-it \
-    --weight-format int4 \
-    --trust-remote-code \
-    Gemma3-4B
+hf download OpenVINO/gemma-3-4b-it-int8-ov --cache-dir ./Gemma3-4B
 ```
 
 Gemma 3 4B (~3.3 GB in int4) is recommended — compact enough for
@@ -94,7 +91,7 @@ Gemma 3 4B (~3.3 GB in int4) is recommended — compact enough for
 > **Note:** Gated models require a [Hugging Face](https://huggingface.co/)
 > account. Accept the license on the model page, then:
 > ```bash
-> pip install huggingface_hub && huggingface-cli login
+> pip install hf && hf auth login
 > ```
 
 ## Quick Start
@@ -106,30 +103,35 @@ python3 onvif_camera_analytics_validation.py \
     --model-path ./Gemma3-4B
 ```
 
-Open **http://localhost:8080** to view the dashboard.
-
 > If `--rtsp-uri` is omitted, the app discovers the stream URI via ONVIF.
 > Common RTSP paths by manufacturer:
 >
 > | Manufacturer | RTSP URI |
 > |---|---|
 > | Axis | `rtsp://<IP>:554/axis-media/media.amp` |
-> | Hikvision | `rtsp://<IP>:554/Streaming/Channels/101` |
-> | Dahua | `rtsp://<IP>:554/live/ch00_0` |
+> | i-PRO | `rtsp://<IP>:554/MediaInput/stream_1` |
+> | Hanwha | `rtsp://<IP>:554/profile2/media.smp` |
+> | Bosch | `rtsp://<IP>:554/rtsp_tunnel` |
+
+Open **http://localhost:8080** to view the dashboard. When the camera detects objects and publishes MQTT events, the dashboard will show the camera's reported analytics alongside the VLM's independent description of the same scene.
 
 ### Example Output
 
-
-#### CLI
-```
-  [   1] cam=3(Human:3) vlm=(Human:1) -> MISMATCH
-         VLM: I can see a person walking across the street near a car...
-  [   2] cam=1(Human:1) vlm=(Human:1) -> OK
-         VLM: A single person is standing in the frame...
-```
-
 #### Dashboard
 ![ONVIF Camera Analytics Validation Dashboard](./onvif_camera_analytics_validation_sample.png)
+
+
+### Dangerous Object Detection
+
+Beyond validating standard object counts (people, vehicles, animals), the VLM
+prompt instructs the model to check for **weapons and dangerous objects** —
+guns, knives, firearms — that the camera's built-in analytics may not detect.
+When an MQTT event arrives reporting detected objects, the VLM independently
+examines the frame and flags any threatening items the camera missed. This
+enables a security-focused validation layer where conventional object
+detection handles routine counting while the VLM adds threat-awareness
+without requiring a dedicated weapon-detection model.
+
 
 ## CLI Options
 
@@ -327,3 +329,11 @@ fuser -k 8080/tcp
 ```bash
 sudo apt install gir1.2-gst-plugins-base-1.0
 ```
+
+
+
+---
+
+## Video Credits
+
+- [A Hunter Posing with His Dog and a Shotgun](https://www.pexels.com/video/a-hunter-posing-with-his-dog-and-a-shotgun-6200843/) — Pexels (free to use)
