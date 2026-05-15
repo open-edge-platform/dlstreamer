@@ -10,6 +10,15 @@ Build new DL Streamer video-analytics applications (Python or GStreamer command 
 
 NOTE: This feature is in PREVIEW stage — expect some rough edges and missing features, and please share your feedback to help us improve it!
 
+## File Resolution
+
+This skill references files using **repo-root-relative** paths (e.g.
+`docs/user-guide/elements/`, `samples/gstreamer/python/hello_dlstreamer/`).
+The repo root is three directories above this skill file.
+
+The directories used by this skill are listed in `additionalDirectories`
+in the marketplace manifest (`.claude-plugin/marketplace.json` at the repo root).
+
 ## When to Use
 
 - User describes a vision AI pipeline in natural language
@@ -218,7 +227,7 @@ For complex cases, consult the [Sample Index](./references/sample-index.md) for 
 When converting a DeepStream application, follow these additional rules:
 
 1. **Inventory the source pipeline.** Identify all elements in the DeepStream pipeline first.
-2. **Map each element 1-to-1** using the [Converting Guide](../../../docs/user-guide/dev_guide/converting_deepstream_to_dlstreamer.md).
+2. **Map each element 1-to-1** using the Converting Guide at `docs/user-guide/dev_guide/converting_deepstream_to_dlstreamer.md`.
 3. **Connect DL Streamer elements** using the Common Pipeline Patterns table or Sample Index.
 4. **Do not add elements absent from the source pipeline.** Every element in the converted pipeline must trace back to the inventory.
 
