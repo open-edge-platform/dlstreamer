@@ -394,8 +394,7 @@ WORKDIR "$DLSTREAMER_DIR"
 
 COPY . "${DLSTREAMER_DIR}"
 
-RUN /python3venv/bin/pip3 install --no-cache-dir -r "${DLSTREAMER_DIR}/scripts/optimizer/requirements.txt" && \
-    mkdir build
+RUN mkdir build
 
 WORKDIR $DLSTREAMER_DIR/build
 
@@ -461,6 +460,7 @@ RUN \
     cp -r "${DLSTREAMER_DIR}/scripts/" /deb-pkg/opt/intel/dlstreamer/ && \
     cp -r "${DLSTREAMER_DIR}/include/" /deb-pkg/opt/intel/dlstreamer/ && \
     cp "${DLSTREAMER_DIR}/README.md" /deb-pkg/opt/intel/dlstreamer && \
+    cp "${DLSTREAMER_DIR}/requirements.txt" /deb-pkg/opt/intel/dlstreamer && \
     cp -rT "${GSTREAMER_DIR}" /deb-pkg/opt/intel/dlstreamer/gstreamer && \
     mkdir -p /deb-pkg/opt/intel/dlstreamer/lib/girepository-1.0 && \
     mkdir -p /deb-pkg/opt/intel/dlstreamer/share/gir-1.0 && \
@@ -549,7 +549,10 @@ ARG DEBIAN_FRONTEND=noninteractive
 
 RUN \
     apt-get update -y && \
-    apt-get install -y -q --no-install-recommends /debs/*.deb && \
+    apt-get install -y -q --no-install-recommends /debs/*.deb gcc=\* libcairo2-dev=\* libgirepository1.0-dev=\* && \
+    pip3 install --no-cache-dir --break-system-packages --ignore-installed -r /opt/intel/dlstreamer/requirements.txt && \
+    apt-get remove -y gcc libcairo2-dev libgirepository1.0-dev && \
+    apt-get autoremove -y && \
     apt-get clean -y && \
     rm -rf /var/lib/apt/lists/* && \
     rm -f /*.deb && \
