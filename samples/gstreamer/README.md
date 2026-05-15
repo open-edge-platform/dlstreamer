@@ -38,6 +38,7 @@ Samples separated into several categories:
     * [Draw Face Attributes Python Sample](./python/draw_face_attributes/README.md) - constructs pipeline and sets Python callback to access frame metadata and visualize inference results
     * [Open Close Valve Sample](./python/open_close_valve/README.md) - constructs pipeline with two sinks. One of them has [GStreamer valve element](https://gstreamer.freedesktop.org/documentation/coreelements/valve.html?gi-language=python), which is managed based object detection result and opened/closed by callback.
     * [ONVIF Camera Discovery Sample](./python/onvif_cameras_discovery/README.md) - demonstrates automatic discovery of ONVIF-compatible cameras on the network and launches corresponding DL Streamer pipelines for video analysis.
+    * [ONVIF Camera Analytics Validation Sample](./python/onvif_camera_analytics_validation/README.md) - sample application that uses VLM with DL Streamer to provide an additional validation layer for ONVIF-enabled analytics cameras.
 4. Benchmark
     * [Benchmark Sample](./benchmark/README.md) - measures overall performance of single-channel or multi-channel video analytics pipelines
 5. DL Streamer and DeepStream Coexistence

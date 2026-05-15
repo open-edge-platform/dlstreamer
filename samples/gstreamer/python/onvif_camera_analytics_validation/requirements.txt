@@ -1,0 +1,11 @@
+# Runtime
+paho-mqtt>=2.0.0
+
+# DLStreamer with gvagenai requires:
+#   - Intel DLStreamer 2026.0.0+ (provides gvagenai element)
+#   - OpenVINO GenAI (installed with DLStreamer)
+# These are NOT pip-installable — use DLStreamer's setup_dls_env.sh
+
+# Model export (run once, not needed at runtime)
+# optimum-intel
+# nncf
