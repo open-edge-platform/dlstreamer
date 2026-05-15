@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 permissions: {}
 env:
-  dlstreamer-version: "2026.0.0"
+  dlstreamer-version: "2026.1.0"
   DLS_REL_PATH: "./dlstreamer-repo"
 
 jobs:
