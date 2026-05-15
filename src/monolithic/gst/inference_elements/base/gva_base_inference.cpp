@@ -21,6 +21,7 @@
 
 #include "gva_base_inference_priv.hpp"
 
+#include <charconv>
 #include <gst_smart_pointer_types.hpp>
 #include <memory>
 #include <string_view>
@@ -506,7 +507,7 @@ void gva_base_inference_cleanup(GvaBaseInference *base_inference) {
 /**
  * Set the core pinning mask
  * 1. Get the current process CPU affinity mask to use as the default core pinning mask.
- * 2. If the process affinity mask includes all available cores, and the CPU is PTL-H series, 
+ * 2. If the process affinity mask includes all available cores, and the CPU is PTL-H series,
  *    limit the default core pinning mask to the first 4 cores (the P-Cores) to optimize performance.
  */
 void set_core_pinning_mask(GvaBaseInference *base_inference) {
@@ -525,17 +526,17 @@ void set_core_pinning_mask(GvaBaseInference *base_inference) {
         // Successfully got the affinity mask, use it directly for core pinning
         base_inference->core_pinning_mask = process_affinity_mask;
         // Check if all cores are available for pinning
-        if(CPU_COUNT(&process_affinity_mask) == num_cores) {
+        if (CPU_COUNT(&process_affinity_mask) == num_cores) {
             // All CPU cores are available for pinning
-            if(Utils::isCPUPTLHSeries() && num_cores == TOTAL_CORES_PTL_H) {
+            if (Utils::isCPUPTLHSeries() && num_cores == TOTAL_CORES_PTL_H) {
                 CPU_ZERO(&base_inference->core_pinning_mask);
-                for (int i = 0; i < 4; ++i)  // Pin to first 4 cores, the P-Cores
+                for (int i = 0; i < 4; ++i) // Pin to first 4 cores, the P-Cores
                     CPU_SET(i, &base_inference->core_pinning_mask);
             }
         }
-    }
-    else {
-        GST_WARNING_OBJECT(base_inference, "Failed to get CPU affinity mask, core pinning will not be limited by process affinity");
+    } else {
+        GST_WARNING_OBJECT(base_inference,
+                           "Failed to get CPU affinity mask, core pinning will not be limited by process affinity");
     }
 #else
     memset(&base_inference->core_pinning_mask, 0, sizeof(WinCorePinningMask));
@@ -571,7 +572,7 @@ void set_core_pinning_mask(GvaBaseInference *base_inference) {
             }
         }
     }
-#endif    
+#endif
 }
 
 void gva_base_inference_init(GvaBaseInference *base_inference) {
@@ -632,7 +633,7 @@ void gva_base_inference_init(GvaBaseInference *base_inference) {
 
     base_inference->share_va_display_ctx = DEFAULT_SHARE_VADISPLAY_CTX;
 
-    set_core_pinning_mask(base_inference);    
+    set_core_pinning_mask(base_inference);
 }
 
 GstStateChangeReturn gva_base_inference_change_state(GstElement *element, GstStateChange transition) {
@@ -711,54 +712,63 @@ void gva_base_inference_set_core_pinning(GvaBaseInference *base_inference, const
     CPU_ZERO(&core_mask);
     int num_cores = sysconf(_SC_NPROCESSORS_ONLN);
 
-    try {
-        // Split by comma to get individual ranges or numbers
-        std::string_view sv(range_str);
+    // Split by comma to get individual ranges or numbers
+    std::string_view sv(range_str);
 
-        // parse input string and set bits in core_pinning accordingly
-        while (!sv.empty()) {
-            // Find next comma-separated token
-            size_t comma_pos = sv.find(',');
-            std::string_view token = sv.substr(0, comma_pos);
-            sv = (comma_pos != std::string_view::npos) ? sv.substr(comma_pos + 1) : std::string_view{};
+    // parse input string and set bits in core_pinning accordingly
+    while (!sv.empty()) {
+        // Find next comma-separated token
+        size_t comma_pos = sv.find(',');
+        std::string_view token = sv.substr(0, comma_pos);
+        sv = (comma_pos != std::string_view::npos) ? sv.substr(comma_pos + 1) : std::string_view{};
 
-            // Trim whitespace
-            size_t start_pos = token.find_first_not_of(" \t");
-            if (start_pos == std::string_view::npos)
+        // Trim whitespace
+        size_t start_pos = token.find_first_not_of(" \t");
+        if (start_pos == std::string_view::npos)
+            continue;
+        token = token.substr(start_pos);
+        token = token.substr(0, token.find_last_not_of(" \t") + 1);
+
+        if (token.find('-') != std::string_view::npos) {
+            // Parse range like "1-5"
+            size_t dash_pos = token.find('-');
+            int start = 0, end = 0;
+            std::string_view start_sv = token.substr(0, dash_pos);
+            std::string_view end_sv = token.substr(dash_pos + 1);
+            auto [ptr1, ec1] = std::from_chars(start_sv.data(), start_sv.data() + start_sv.size(), start);
+            auto [ptr2, ec2] = std::from_chars(end_sv.data(), end_sv.data() + end_sv.size(), end);
+            if (ec1 != std::errc{} || ptr1 != start_sv.data() + start_sv.size() || ec2 != std::errc{} ||
+                ptr2 != end_sv.data() + end_sv.size()) {
+                GST_WARNING_OBJECT(base_inference, "Invalid core-pinning range '%.*s', skipping", (int)token.size(),
+                                   token.data());
                 continue;
-            token = token.substr(start_pos);
-            token = token.substr(0, token.find_last_not_of(" \t") + 1);
-
-            if (token.find('-') != std::string_view::npos) {
-                // Parse range like "1-5"
-                size_t dash_pos = token.find('-');
-                int start = std::stoi(std::string(token.substr(0, dash_pos)));
-                int end = std::stoi(std::string(token.substr(dash_pos + 1)));
-
-                // Set bits in the range
-                for (int i = start; i <= end; i++) {
-                    if (i >= 0 && i < num_cores)
-                        CPU_SET(i, &core_mask);
-                    else
-                        GST_WARNING_OBJECT(base_inference, "Core index %d is out of valid range (0-%d) and will be ignored", i, num_cores - 1);
-                }
-            } else {
-                // Set single core
-                int core = std::stoi(std::string(token));
-                if (core >= 0 && core < num_cores)
-                    CPU_SET(core, &core_mask);
-                else
-                    GST_WARNING_OBJECT(base_inference, "Core index %d is out of valid range (0-%d) and will be ignored", core, num_cores - 1);
             }
-        }
 
-    } catch (const std::exception &e) {
-        GST_ELEMENT_ERROR(base_inference, RESOURCE, SETTINGS, ("Invalid core-pinning format"),
-                          ("Failed to parse core-pinning property: %s", e.what()));
-        return;
+            // Set bits in the range
+            for (int i = start; i <= end; i++) {
+                if (i >= 0 && i < num_cores)
+                    CPU_SET(i, &core_mask);
+                else
+                    GST_WARNING_OBJECT(base_inference, "Core index %d is out of valid range (0-%d) and will be ignored",
+                                       i, num_cores - 1);
+            }
+        } else {
+            // Set single core
+            int core = 0;
+            auto [ptr, ec] = std::from_chars(token.data(), token.data() + token.size(), core);
+            if (ec != std::errc{} || ptr != token.data() + token.size()) {
+                GST_WARNING_OBJECT(base_inference, "Invalid core-pinning value '%.*s', skipping", (int)token.size(),
+                                   token.data());
+                continue;
+            }
+            if (core >= 0 && core < num_cores)
+                CPU_SET(core, &core_mask);
+            else
+                GST_WARNING_OBJECT(base_inference, "Core index %d is out of valid range (0-%d) and will be ignored",
+                                   core, num_cores - 1);
+        }
     }
 
-    // if string parsed without errors, update core pinning
     base_inference->core_pinning_mask = core_mask;
 #else
     // Windows: use GROUP_AFFINITY to support 64+ cores across processor groups
@@ -775,52 +785,62 @@ void gva_base_inference_set_core_pinning(GvaBaseInference *base_inference, const
         total_cores += GetActiveProcessorCount(g);
     }
 
-    try {
-        std::string_view sv(range_str);
+    std::string_view sv(range_str);
 
-        while (!sv.empty()) {
-            size_t comma_pos = sv.find(',');
-            std::string_view token = sv.substr(0, comma_pos);
-            sv = (comma_pos != std::string_view::npos) ? sv.substr(comma_pos + 1) : std::string_view{};
+    while (!sv.empty()) {
+        size_t comma_pos = sv.find(',');
+        std::string_view token = sv.substr(0, comma_pos);
+        sv = (comma_pos != std::string_view::npos) ? sv.substr(comma_pos + 1) : std::string_view{};
 
-            size_t start_pos = token.find_first_not_of(" \t");
-            if (start_pos == std::string_view::npos)
-                continue;
-            token = token.substr(start_pos);
-            token = token.substr(0, token.find_last_not_of(" \t") + 1);
+        size_t start_pos = token.find_first_not_of(" \t");
+        if (start_pos == std::string_view::npos)
+            continue;
+        token = token.substr(start_pos);
+        token = token.substr(0, token.find_last_not_of(" \t") + 1);
 
-            auto set_core = [&](int core_id) {
-                if (core_id < 0 || core_id >= total_cores) {
-                    GST_WARNING_OBJECT(base_inference, "Core index %d is out of valid range (0-%d) and will be ignored", core_id, total_cores - 1);
-                    return;
-                }
-                // Find which group this core belongs to
-                for (WORD g = 0; g < num_groups; ++g) {
-                    int group_size = (int)GetActiveProcessorCount(g);
-                    if (core_id >= group_start[g] && core_id < group_start[g] + group_size) {
-                        int local_core = core_id - group_start[g];
-                        core_mask.group_mask[g] |= ((KAFFINITY)1 << local_core);
-                        break;
-                    }
-                }
-            };
-
-            if (token.find('-') != std::string_view::npos) {
-                size_t dash_pos = token.find('-');
-                int start = std::stoi(std::string(token.substr(0, dash_pos)));
-                int end = std::stoi(std::string(token.substr(dash_pos + 1)));
-
-                for (int i = start; i <= end; i++)
-                    set_core(i);
-            } else {
-                set_core(std::stoi(std::string(token)));
+        auto set_core = [&](int core_id) {
+            if (core_id < 0 || core_id >= total_cores) {
+                GST_WARNING_OBJECT(base_inference, "Core index %d is out of valid range (0-%d) and will be ignored",
+                                   core_id, total_cores - 1);
+                return;
             }
-        }
+            // Find which group this core belongs to
+            for (WORD g = 0; g < num_groups; ++g) {
+                int group_size = (int)GetActiveProcessorCount(g);
+                if (core_id >= group_start[g] && core_id < group_start[g] + group_size) {
+                    int local_core = core_id - group_start[g];
+                    core_mask.group_mask[g] |= ((KAFFINITY)1 << local_core);
+                    break;
+                }
+            }
+        };
 
-    } catch (const std::exception &e) {
-        GST_ELEMENT_ERROR(base_inference, RESOURCE, SETTINGS, ("Invalid core-pinning format"),
-                          ("Failed to parse core-pinning property: %s", e.what()));
-        return;
+        if (token.find('-') != std::string_view::npos) {
+            size_t dash_pos = token.find('-');
+            int start = 0, end = 0;
+            std::string_view start_sv = token.substr(0, dash_pos);
+            std::string_view end_sv = token.substr(dash_pos + 1);
+            auto [ptr1, ec1] = std::from_chars(start_sv.data(), start_sv.data() + start_sv.size(), start);
+            auto [ptr2, ec2] = std::from_chars(end_sv.data(), end_sv.data() + end_sv.size(), end);
+            if (ec1 != std::errc{} || ptr1 != start_sv.data() + start_sv.size() || ec2 != std::errc{} ||
+                ptr2 != end_sv.data() + end_sv.size()) {
+                GST_WARNING_OBJECT(base_inference, "Invalid core-pinning range '%.*s', skipping", (int)token.size(),
+                                   token.data());
+                continue;
+            }
+
+            for (int i = start; i <= end; i++)
+                set_core(i);
+        } else {
+            int core = 0;
+            auto [ptr, ec] = std::from_chars(token.data(), token.data() + token.size(), core);
+            if (ec != std::errc{} || ptr != token.data() + token.size()) {
+                GST_WARNING_OBJECT(base_inference, "Invalid core-pinning value '%.*s', skipping", (int)token.size(),
+                                   token.data());
+                continue;
+            }
+            set_core(core);
+        }
     }
 
     base_inference->core_pinning_mask = core_mask;
