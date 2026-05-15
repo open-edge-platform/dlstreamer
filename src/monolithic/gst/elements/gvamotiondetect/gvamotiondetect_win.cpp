@@ -15,6 +15,10 @@
 #include <opencv2/imgproc.hpp>
 #include <vector>
 
+#define GST_USE_UNSTABLE_API
+#include <gst/d3d11/gstd3d11.h>
+#include <opencv2/core/directx.hpp>
+
 #include <dlstreamer/gst/videoanalytics/video_frame.h>
 
 // Linux parity helper: round normalized coordinates to 3 decimal places to reduce metadata verbosity.
@@ -59,7 +63,7 @@ enum {
 struct _GstGvaMotionDetect {
     GstBaseTransform parent;
     GstVideoInfo vinfo;
-    gboolean caps_is_va; // always FALSE on Windows
+    gboolean caps_is_d3d11; // set when upstream negotiated memory:D3D11Memory
     int block_size;
     double motion_threshold;
     int min_persistence;
@@ -70,7 +74,7 @@ struct _GstGvaMotionDetect {
     int pixel_diff_threshold; // per-pixel luma diff threshold (1..255)
     double min_rel_area;      // minimum relative area (0..0.25) for a motion rectangle
     cv::UMat prev_small_gray;
-    cv::UMat prev_luma;
+    cv::UMat prev_luma;  // retained for CPU path only
     cv::Mat block_state; // CV_8U agreement counters
     struct Track {
         int x, y, w, h;
@@ -81,6 +85,15 @@ struct _GstGvaMotionDetect {
     std::vector<Track> tracks;
     uint64_t frame_index;
     GMutex meta_mutex; // protect metadata writes
+
+    // D3D11 GPU path state
+    GstD3D11Device *d3d11_device;  // obtained via gst.d3d11.device.handle context
+    GstD3D11Converter *d3d11_conv; // lazy: (re)built when small size changes
+    GstBuffer *small_buf;          // holds the pooled small NV12 D3D11 GstMemory
+    int small_w;
+    int small_h;
+    gboolean cv_ocl_ready;           // cv::directx OpenCL context initialized from this device
+    gboolean tried_d3d11_peer_query; // one-shot peer query on first frame
 };
 
 // Scan blocks to produce raw motion rectangles (parity with Linux md_scan_blocks, adapted to Windows struct & members)
@@ -307,16 +320,194 @@ static inline double md_iou(const MotionRectWin &a, const MotionRectWin &b) {
     return (double)inter / (double)(a.w * a.h + b.w * b.h - inter);
 }
 
+// ---------------- D3D11 context negotiation ----------------
+static void gst_gva_motion_detect_set_context(GstElement *elem, GstContext *context) {
+    GstGvaMotionDetect *self = GST_GVA_MOTION_DETECT(elem);
+    const gchar *ctype = gst_context_get_context_type(context);
+    if (g_strcmp0(ctype, "gst.d3d11.device.handle") == 0 && !self->d3d11_device) {
+        const GstStructure *s = gst_context_get_structure(context);
+        GstD3D11Device *dev = nullptr;
+        if (gst_structure_get(s, "device", GST_TYPE_D3D11_DEVICE, &dev, NULL) && dev) {
+            self->d3d11_device = dev; // transfer ref
+            GST_INFO_OBJECT(self, "Obtained GstD3D11Device %p", dev);
+        }
+    }
+    GST_ELEMENT_CLASS(gst_gva_motion_detect_parent_class)->set_context(elem, context);
+}
+
+// ---------------- D3D11 GPU path helpers ----------------
+
+// RAII guard for gst_d3d11_device_lock / gst_d3d11_device_unlock.
+namespace {
+struct D3D11DeviceLockGuard {
+    GstD3D11Device *dev;
+    explicit D3D11DeviceLockGuard(GstD3D11Device *d) : dev(d) {
+        gst_d3d11_device_lock(dev);
+    }
+    ~D3D11DeviceLockGuard() {
+        gst_d3d11_device_unlock(dev);
+    }
+    D3D11DeviceLockGuard(const D3D11DeviceLockGuard &) = delete;
+    D3D11DeviceLockGuard &operator=(const D3D11DeviceLockGuard &) = delete;
+};
+} // namespace
+
+// Release cached D3D11 converter + small destination buffer (safe to call when not allocated).
+static void gst_gva_motion_detect_release_d3d11_small(GstGvaMotionDetect *self) {
+    if (self->d3d11_conv) {
+        gst_object_unref(self->d3d11_conv);
+        self->d3d11_conv = nullptr;
+    }
+    if (self->small_buf) {
+        gst_buffer_unref(self->small_buf);
+        self->small_buf = nullptr;
+    }
+    self->small_w = 0;
+    self->small_h = 0;
+}
+
+// Ensure lazy-built converter + small destination buffer matching requested dimensions.
+// Returns TRUE on success.
+static gboolean gst_gva_motion_detect_ensure_d3d11_converter(GstGvaMotionDetect *self, int src_w, int src_h, int dst_w,
+                                                             int dst_h) {
+    if (self->d3d11_conv && self->small_buf && self->small_w == dst_w && self->small_h == dst_h)
+        return TRUE;
+    gst_gva_motion_detect_release_d3d11_small(self);
+    if (!self->d3d11_device)
+        return FALSE;
+
+    // Allocate small NV12 destination texture via the element's device.
+    D3D11_TEXTURE2D_DESC desc = {};
+    desc.Width = (UINT)dst_w;
+    desc.Height = (UINT)dst_h;
+    desc.MipLevels = 1;
+    desc.ArraySize = 1;
+    desc.Format = DXGI_FORMAT_NV12;
+    desc.SampleDesc.Count = 1;
+    desc.SampleDesc.Quality = 0;
+    desc.Usage = D3D11_USAGE_DEFAULT;
+    desc.BindFlags = D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_RENDER_TARGET;
+    desc.CPUAccessFlags = 0;
+    desc.MiscFlags = 0;
+
+    auto *allocator = GST_D3D11_ALLOCATOR(g_object_new(gst_d3d11_allocator_get_type(), nullptr));
+    GstMemory *mem = gst_d3d11_allocator_alloc(allocator, self->d3d11_device, &desc);
+    gst_object_unref(allocator);
+    if (!mem) {
+        GST_WARNING_OBJECT(self, "gst_d3d11_allocator_alloc failed (%dx%d NV12)", dst_w, dst_h);
+        return FALSE;
+    }
+    GstBuffer *buf = gst_buffer_new();
+    gst_buffer_append_memory(buf, mem);
+    self->small_buf = buf;
+
+    GstVideoInfo in_info, out_info;
+    gst_video_info_set_format(&in_info, GST_VIDEO_FORMAT_NV12, src_w, src_h);
+    gst_video_info_set_format(&out_info, GST_VIDEO_FORMAT_NV12, dst_w, dst_h);
+
+    GstStructure *config =
+        gst_structure_new("converter-config", GST_D3D11_CONVERTER_OPT_BACKEND, GST_TYPE_D3D11_CONVERTER_BACKEND,
+                          (guint)GST_D3D11_CONVERTER_BACKEND_VIDEO_PROCESSOR, NULL);
+    GstD3D11Converter *conv = gst_d3d11_converter_new(self->d3d11_device, &in_info, &out_info, config);
+    if (!conv) {
+        GST_WARNING_OBJECT(self, "gst_d3d11_converter_new failed");
+        gst_gva_motion_detect_release_d3d11_small(self);
+        return FALSE;
+    }
+    g_object_set(conv, "src-x", 0, "src-y", 0, "src-width", src_w, "src-height", src_h, "dest-x", 0, "dest-y", 0,
+                 "dest-width", dst_w, "dest-height", dst_h, NULL);
+    self->d3d11_conv = conv;
+    self->small_w = dst_w;
+    self->small_h = dst_h;
+    GST_INFO_OBJECT(self, "D3D11 converter ready: %dx%d -> %dx%d (NV12)", src_w, src_h, dst_w, dst_h);
+    return TRUE;
+}
+
+// Map the D3D11 buffer's texture -> downscale -> OpenCV D3D11 interop -> GRAY cv::UMat.
+// Returns TRUE on success, FALSE to request CPU fallback.
+static gboolean gst_gva_motion_detect_d3d11_to_small_gray(GstGvaMotionDetect *self, GstBuffer *buf, int width,
+                                                          int height, int small_w, int small_h, cv::UMat &curr_small) {
+    GstMemory *src_mem = gst_buffer_peek_memory(buf, 0);
+    if (!src_mem || !gst_is_d3d11_memory(src_mem))
+        return FALSE;
+
+    if (!gst_gva_motion_detect_ensure_d3d11_converter(self, width, height, small_w, small_h))
+        return FALSE;
+
+    // GPU downscale: driver handles device lock internally.
+    if (!gst_d3d11_converter_convert_buffer(self->d3d11_conv, buf, self->small_buf)) {
+        GST_WARNING_OBJECT(self, "gst_d3d11_converter_convert_buffer failed; falling back to CPU");
+        return FALSE;
+    }
+
+    GstMemory *dst_mem = gst_buffer_peek_memory(self->small_buf, 0);
+    ID3D11Texture2D *small_tex =
+        (ID3D11Texture2D *)gst_d3d11_memory_get_resource_handle(GST_D3D11_MEMORY_CAST(dst_mem));
+    if (!small_tex)
+        return FALSE;
+
+    // One-shot OpenCV OpenCL<->D3D11 context init from the element's device.
+    if (!self->cv_ocl_ready) {
+        ID3D11Device *id3d = gst_d3d11_device_get_device_handle(self->d3d11_device);
+        if (!id3d)
+            return FALSE;
+        try {
+            cv::directx::ocl::initializeContextFromD3D11Device(id3d);
+            self->cv_ocl_ready = TRUE;
+            GST_INFO_OBJECT(self, "cv::directx OpenCL context initialized from D3D11 device");
+        } catch (const cv::Exception &e) {
+            GST_WARNING_OBJECT(self, "initializeContextFromD3D11Device failed: %s", e.what());
+            return FALSE;
+        }
+    }
+
+    // Import the small NV12 texture into OpenCV; driver interop requires holding the device lock.
+    D3D11DeviceLockGuard lock_guard(self->d3d11_device);
+    try {
+        cv::UMat small_bgr;
+        cv::directx::convertFromD3D11Texture2D(small_tex, small_bgr); // NV12 -> BGR on GPU
+        cv::cvtColor(small_bgr, curr_small, cv::COLOR_BGR2GRAY);      // BGR -> GRAY on GPU
+    } catch (const cv::Exception &e) {
+        GST_WARNING_OBJECT(self, "cv::directx::convertFromD3D11Texture2D failed: %s; falling back to CPU", e.what());
+        return FALSE;
+    }
+    return TRUE;
+}
+
 static gboolean gst_gva_motion_detect_start(GstBaseTransform *t) {
     GstGvaMotionDetect *self = GST_GVA_MOTION_DETECT(t);
-    self->caps_is_va = FALSE;
+    self->caps_is_d3d11 = FALSE;
     self->frame_index = 0;
+    self->tried_d3d11_peer_query = FALSE;
+    // Invite upstream to provide a D3D11 device context (non-blocking; handled via set_context).
+    gst_element_post_message(GST_ELEMENT(self),
+                             gst_message_new_need_context(GST_OBJECT(self), "gst.d3d11.device.handle"));
     return TRUE;
 }
 
 static gboolean gst_gva_motion_detect_set_caps(GstBaseTransform *t, GstCaps *in, GstCaps *out) {
     GstGvaMotionDetect *self = GST_GVA_MOTION_DETECT(t);
-    return gst_video_info_from_caps(&self->vinfo, in);
+    if (!gst_video_info_from_caps(&self->vinfo, in))
+        return FALSE;
+
+    gboolean is_d3d11 = FALSE;
+    guint caps_size = gst_caps_get_size(in);
+    for (guint i = 0; i < caps_size; ++i) {
+        const GstCapsFeatures *features = gst_caps_get_features(in, i);
+        if (features && gst_caps_features_contains(features, GST_CAPS_FEATURE_MEMORY_D3D11_MEMORY)) {
+            is_d3d11 = TRUE;
+            break;
+        }
+    }
+
+    self->caps_is_d3d11 = is_d3d11;
+    // Reset tracking + algorithm state on caps change (resolution may differ).
+    self->tracks.clear();
+    self->block_state.release();
+    self->prev_small_gray.release();
+    self->prev_luma.release();
+    gst_gva_motion_detect_release_d3d11_small(self);
+    return TRUE;
 }
 
 // Attach motion metadata using an atomic pairing strategy identical to Linux implementation: for each published track
@@ -399,6 +590,23 @@ static void gst_gva_motion_detect_attach_metadata(GstGvaMotionDetect *self, GstB
     g_mutex_unlock(&self->meta_mutex);
 }
 
+// CPU path: map Y plane via GstVideoFrame and resize on host. Populates curr_small (GRAY).
+// Returns TRUE on success.
+static gboolean gst_gva_motion_detect_cpu_to_small_gray(GstGvaMotionDetect *self, GstBuffer *buf, int width, int height,
+                                                        int small_w, int small_h, cv::UMat &curr_luma_out,
+                                                        cv::UMat &curr_small) {
+    GstVideoFrame vframe;
+    if (!gst_video_frame_map(&vframe, &self->vinfo, buf, GST_MAP_READ))
+        return FALSE;
+    guint8 *y = (guint8 *)GST_VIDEO_FRAME_PLANE_DATA(&vframe, 0);
+    int stride = GST_VIDEO_FRAME_PLANE_STRIDE(&vframe, 0);
+    cv::Mat y_mat(height, width, CV_8UC1, y, stride);
+    y_mat.copyTo(curr_luma_out);
+    gst_video_frame_unmap(&vframe);
+    cv::resize(curr_luma_out, curr_small, cv::Size(small_w, small_h));
+    return TRUE;
+}
+
 static GstFlowReturn gst_gva_motion_detect_transform_ip(GstBaseTransform *t, GstBuffer *buf) {
     GstGvaMotionDetect *self = GST_GVA_MOTION_DETECT(t);
     ++self->frame_index;
@@ -406,27 +614,41 @@ static GstFlowReturn gst_gva_motion_detect_transform_ip(GstBaseTransform *t, Gst
     int height = GST_VIDEO_INFO_HEIGHT(&self->vinfo);
     if (!width || !height)
         return GST_FLOW_OK;
-    GstVideoFrame vframe;
-    cv::UMat curr_luma;
-    gboolean mapped = gst_video_frame_map(&vframe, &self->vinfo, buf, GST_MAP_READ);
-    if (mapped) {
-        guint8 *y = (guint8 *)GST_VIDEO_FRAME_PLANE_DATA(&vframe, 0);
-        int stride = GST_VIDEO_FRAME_PLANE_STRIDE(&vframe, 0);
-        cv::Mat y_mat(height, width, CV_8UC1, y, stride);
-        y_mat.copyTo(curr_luma);
-        gst_video_frame_unmap(&vframe);
-    } else {
-        return GST_FLOW_OK;
-    }
+
     int target_w = std::min(320, width);
     double scale = (double)target_w / (double)width;
     int small_w = target_w;
     int small_h = std::max(1, (int)std::lround(height * scale));
+
+    // Lazy one-shot peer query for the D3D11 device if set_context hasn't fired yet.
+    if (self->caps_is_d3d11 && !self->d3d11_device && !self->tried_d3d11_peer_query) {
+        self->tried_d3d11_peer_query = TRUE;
+        GstQuery *q = gst_query_new_context("gst.d3d11.device.handle");
+        if (gst_pad_peer_query(GST_BASE_TRANSFORM_SINK_PAD(t), q)) {
+            GstContext *ctx = nullptr;
+            gst_query_parse_context(q, &ctx);
+            if (ctx)
+                gst_gva_motion_detect_set_context(GST_ELEMENT(self), ctx);
+        }
+        gst_query_unref(q);
+    }
+
+    cv::UMat curr_luma; // only populated on CPU path
     cv::UMat curr_small;
-    cv::resize(curr_luma, curr_small, cv::Size(small_w, small_h));
+
+    gboolean small_ready = FALSE;
+    if (self->caps_is_d3d11 && self->d3d11_device) {
+        small_ready = gst_gva_motion_detect_d3d11_to_small_gray(self, buf, width, height, small_w, small_h, curr_small);
+    }
+    if (!small_ready) {
+        if (!gst_gva_motion_detect_cpu_to_small_gray(self, buf, width, height, small_w, small_h, curr_luma, curr_small))
+            return GST_FLOW_OK;
+    }
+
     if (self->prev_small_gray.empty()) {
         curr_small.copyTo(self->prev_small_gray);
-        curr_luma.copyTo(self->prev_luma);
+        if (!curr_luma.empty())
+            curr_luma.copyTo(self->prev_luma);
         return GST_FLOW_OK;
     }
     // Build motion mask via helper (parity with Linux pipeline)
@@ -437,8 +659,8 @@ static GstFlowReturn gst_gva_motion_detect_transform_ip(GstBaseTransform *t, Gst
     gst_gva_motion_detect_merge_rois(raw);
     // Tracking (parity with Linux logic)
     std::vector<char> matched(raw.size(), 0);
-    for (auto &t : self->tracks)
-        t.miss++;
+    for (auto &tr : self->tracks)
+        tr.miss++;
     for (size_t i = 0; i < raw.size(); ++i) {
         auto &r = raw[i];
         double best = 0;
@@ -452,18 +674,18 @@ static GstFlowReturn gst_gva_motion_detect_transform_ip(GstBaseTransform *t, Gst
             }
         }
         if (bi >= 0 && best >= self->iou_threshold) {
-            auto &t = self->tracks[bi];
-            t.x = r.x;
-            t.y = r.y;
-            t.w = r.w;
-            t.h = r.h;
+            auto &tr = self->tracks[bi];
+            tr.x = r.x;
+            tr.y = r.y;
+            tr.w = r.w;
+            tr.h = r.h;
             double a = self->smooth_alpha;
-            t.sx = a * r.x + (1 - a) * t.sx;
-            t.sy = a * r.y + (1 - a) * t.sy;
-            t.sw = a * r.w + (1 - a) * t.sw;
-            t.sh = a * r.h + (1 - a) * t.sh;
-            t.age++;
-            t.miss = 0;
+            tr.sx = a * r.x + (1 - a) * tr.sx;
+            tr.sy = a * r.y + (1 - a) * tr.sy;
+            tr.sw = a * r.w + (1 - a) * tr.sw;
+            tr.sh = a * r.h + (1 - a) * tr.sh;
+            tr.age++;
+            tr.miss = 0;
             matched[i] = 1;
         }
     }
@@ -476,18 +698,24 @@ static GstFlowReturn gst_gva_motion_detect_transform_ip(GstBaseTransform *t, Gst
     if (self->max_miss >= 0) {
         self->tracks.erase(
             std::remove_if(self->tracks.begin(), self->tracks.end(),
-                           [self](const _GstGvaMotionDetect::Track &t) { return t.miss > self->max_miss; }),
+                           [self](const _GstGvaMotionDetect::Track &tr) { return tr.miss > self->max_miss; }),
             self->tracks.end());
     }
     // Attach metadata now that tracks updated
     gst_gva_motion_detect_attach_metadata(self, buf, width, height);
     curr_small.copyTo(self->prev_small_gray);
-    curr_luma.copyTo(self->prev_luma);
+    if (!curr_luma.empty())
+        curr_luma.copyTo(self->prev_luma);
     return GST_FLOW_OK;
 }
 
 static void gst_gva_motion_detect_finalize(GObject *obj) {
     GstGvaMotionDetect *self = GST_GVA_MOTION_DETECT(obj);
+    gst_gva_motion_detect_release_d3d11_small(self);
+    if (self->d3d11_device) {
+        gst_object_unref(self->d3d11_device);
+        self->d3d11_device = nullptr;
+    }
     g_mutex_clear(&self->meta_mutex);
     G_OBJECT_CLASS(gst_gva_motion_detect_parent_class)->finalize(obj);
 }
@@ -497,14 +725,20 @@ static void gst_gva_motion_detect_class_init(GstGvaMotionDetectClass *klass) {
     GstBaseTransformClass *bclass = GST_BASE_TRANSFORM_CLASS(klass);
     GObjectClass *oclass = G_OBJECT_CLASS(klass);
     GST_DEBUG_CATEGORY_INIT(gst_gva_motion_detect_debug_win, "gvamotiondetect", 0, "Motion detect (Windows)");
-    gst_element_class_set_static_metadata(eclass, "Motion detect (software)", "Filter/Video",
-                                          "Windows software motion detection", "dlstreamer");
+    gst_element_class_set_static_metadata(
+        eclass, "Motion detect (auto GPU/CPU)", "Filter/Video",
+        "Windows motion detection: D3D11 GPU path when negotiated, software otherwise", "dlstreamer");
     static GstStaticPadTemplate sink_templ =
-        GST_STATIC_PAD_TEMPLATE("sink", GST_PAD_SINK, GST_PAD_ALWAYS, GST_STATIC_CAPS("video/x-raw, format=NV12"));
+        GST_STATIC_PAD_TEMPLATE("sink", GST_PAD_SINK, GST_PAD_ALWAYS,
+                                GST_STATIC_CAPS("video/x-raw(memory:D3D11Memory), format=NV12; "
+                                                "video/x-raw, format=NV12"));
     static GstStaticPadTemplate src_templ =
-        GST_STATIC_PAD_TEMPLATE("src", GST_PAD_SRC, GST_PAD_ALWAYS, GST_STATIC_CAPS("video/x-raw, format=NV12"));
+        GST_STATIC_PAD_TEMPLATE("src", GST_PAD_SRC, GST_PAD_ALWAYS,
+                                GST_STATIC_CAPS("video/x-raw(memory:D3D11Memory), format=NV12; "
+                                                "video/x-raw, format=NV12"));
     gst_element_class_add_static_pad_template(eclass, &sink_templ);
     gst_element_class_add_static_pad_template(eclass, &src_templ);
+    eclass->set_context = gst_gva_motion_detect_set_context;
     bclass->start = gst_gva_motion_detect_start;
     bclass->set_caps = gst_gva_motion_detect_set_caps;
     bclass->transform_ip = gst_gva_motion_detect_transform_ip;
@@ -565,5 +799,13 @@ static void gst_gva_motion_detect_init(GstGvaMotionDetect *self) {
     self->confirm_frames = 1;    // Linux parity: immediate single-frame confirmation
     self->min_rel_area = 0.0005; // default minimum relative area (0.05% of frame)
     self->frame_index = 0;
+    self->caps_is_d3d11 = FALSE;
+    self->d3d11_device = nullptr;
+    self->d3d11_conv = nullptr;
+    self->small_buf = nullptr;
+    self->small_w = 0;
+    self->small_h = 0;
+    self->cv_ocl_ready = FALSE;
+    self->tried_d3d11_peer_query = FALSE;
     g_mutex_init(&self->meta_mutex);
 }
