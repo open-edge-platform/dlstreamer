@@ -400,6 +400,8 @@ WORKDIR "$DLSTREAMER_DIR"
 
 COPY . "${DLSTREAMER_DIR}"
 
+RUN /python3venv/bin/pip3 install --no-cache-dir -r "${DLSTREAMER_DIR}/scripts/optimizer/requirements.txt"
+
 WORKDIR $DLSTREAMER_DIR/build
 
 # DLStreamer environment variables
