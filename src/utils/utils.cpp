@@ -192,7 +192,6 @@ std::string fixPath(std::string path) {
     return path;
 }
 
-
 bool isCPUPTLHSeries() {
     std::string brand_str;
 
@@ -202,7 +201,7 @@ bool isCPUPTLHSeries() {
         return false;
 
     std::string line;
-    const std::string key = "model name"; //e.g. model name      : Intel(R) Core(TM) Ultra X7 358H
+    const std::string key = "model name"; // e.g. model name      : Intel(R) Core(TM) Ultra X7 358H
     while (std::getline(in, line)) {
         if (line.rfind(key, 0) == 0) {
             auto pos = line.find(':');

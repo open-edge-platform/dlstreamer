@@ -1082,6 +1082,7 @@ bool InferenceImpl::IsRoiSizeValid(const GstAnalyticsODMtd roi_meta) {
  */
 #ifndef _WIN32
 void InferenceImpl::SetAffinityMask(const cpu_set_t &mask) {
+
     GVA_INFO("Setting CPU affinity mask (%d cores set)\n", CPU_COUNT(&mask));
 
     pthread_t current_thread = pthread_self(); // Get current thread handle

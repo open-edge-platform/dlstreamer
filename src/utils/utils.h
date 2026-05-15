@@ -144,10 +144,10 @@ bool checkAllKeysAreKnown(const std::set<std::string> &known_keys, const std::ma
 std::string fixPath(std::string path);
 
 /*
- * @brief Checks if the CPU is from Intel® Core™ Ultra Series 3 processors with 16 cores (H) 
+ * @brief Checks if the CPU is from Intel® Core™ Ultra Series 3 processors with 16 cores (H)
  * which is a part of PTL-H series.
  *
- * @return true if the CPU is from Intel® Core™ Ultra Series 3 processors with 16 cores (H), 
+ * @return true if the CPU is from Intel® Core™ Ultra Series 3 processors with 16 cores (H),
  * false otherwise.
  */
 bool isCPUPTLHSeries(void);
