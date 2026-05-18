@@ -10,8 +10,8 @@ latest VLM inference result and displays the frame, MQTT event, and VLM
 output on a live web dashboard with event history navigation.
 
 Architecture:
-  RTSP stream  ──► GStreamer pipeline ──► gvagenai (VLM) ──► VLM text
-  MQTT events  ──► trigger ──► pair with latest VLM result
+  RTSP stream  ──► GStreamer pipeline ──► gvagenai (VLM, continuous) ──► VLM text
+  MQTT events  ──► update prompt ──► wait for next VLM result
   Web dashboard ◄── frame + VLM text + MQTT event (with history)
 
 Usage:
@@ -85,6 +85,8 @@ class DLStreamerVLMPipeline:  # pylint: disable=too-many-instance-attributes
     """
 
     RECONNECT_DELAY = 2  # seconds between reconnection attempts
+    _WAIT_NEXT_RESULT = 1          # no prompt change: just wait for the next inference
+    _WAIT_AFTER_PROMPT_CHANGE = 2  # discard 1 in-flight (old-prompt) result, then take the next
 
     def __init__(  # pylint: disable=too-many-arguments,too-many-positional-arguments
         self, rtsp_uri: str, model_path: str, device: str,
@@ -325,7 +327,7 @@ class DLStreamerVLMPipeline:  # pylint: disable=too-many-instance-attributes
         # When the prompt changes, gvagenai may already be processing a
         # frame with the OLD prompt.  Skip one result so the returned
         # text is guaranteed to reflect the new prompt.
-        skip = 2 if prompt_changed else 1
+        skip = self._WAIT_AFTER_PROMPT_CHANGE if prompt_changed else self._WAIT_NEXT_RESULT
         target_count = baseline_count + skip
         self._vlm_ready.clear()
 

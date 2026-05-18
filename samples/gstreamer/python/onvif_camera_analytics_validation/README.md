@@ -7,14 +7,12 @@ Intel hardware (CPU/iGPU/NPU) directly inside the GStreamer pipeline. When an
 MQTT analytics event arrives, pairs it with the latest VLM inference result
 and displays everything on a **live web dashboard**.
 
-
-
 ```mermaid
 graph LR
     A["ONVIF Camera"] -->|"RTSP stream"| B["DLStreamer Pipeline"]
-    B -->|"frames"| D["gvagenai\n(VLM inference)"]
+    B -->|"frames (continuous)"| D["gvagenai\n(VLM inference)"]
     A -->|"MQTT events"| C["MQTTEventListener"]
-    C -->|"triggers"| D
+    C -->|"update prompt"| D
     D -->|"VLM text"| F["Web Dashboard\nhttp://localhost:8080"]
     C -->|"camera event"| F
     B -->|"JPEG frame"| F
@@ -143,8 +141,7 @@ without requiring a dedicated weapon-detection model.
 | `--rtsp-uri` | (auto via ONVIF) | RTSP URI override |
 | `--model-path` | `$GENAI_MODEL_PATH` | OpenVINO VLM model directory |
 | `--device` | `CPU` | Intel device: `CPU`, `GPU`, `NPU`, `AUTO` |
-| `--prompt` | (object listing) | VLM prompt |
-| `--frame-rate` | `1` | VLM inference rate (fps) via gvagenai |
+| `--frame-rate` | `0.2` | VLM inference rate in fps (0.2 = every 5s) |
 | `--max-tokens` | `150` | Max VLM generation tokens |
 | `--mqtt-broker` | `localhost` | MQTT broker address |
 | `--mqtt-port` | `1883` | MQTT broker port |
@@ -178,8 +175,8 @@ urisourcebin → decodebin3 → videoconvertscale → video/x-raw,format=RGB →
                                                                            │
                 ┌──────────────────────────────────────────────────────────┘
                 │
-                ├─► queue (leaky) → valve → gvagenai → jpegenc → appsink
-                │       Branch 1: On-demand VLM inference + frame capture
+                ├─► queue (leaky) → videorate → gvagenai (frame-rate) → jpegenc → appsink
+                │       Branch 1: Continuous VLM inference + frame capture
                 │
                 └─► queue (leaky) → videorate (1 fps) → jpegenc → appsink
                         Branch 2: Continuous JPEG preview (fallback)
@@ -191,20 +188,22 @@ urisourcebin → decodebin3 → videoconvertscale → video/x-raw,format=RGB →
 | `decodebin3` | Decodes H.264/H.265 video |
 | `videoconvertscale` | Converts to RGB for downstream processing |
 | `tee` | Splits the stream into two branches |
-| `valve` (`vlm_valve`) | Controls when frames reach gvagenai — closed by default, opened on MQTT event |
-| `gvagenai` | Runs VLM inference (e.g. Gemma 3 4B) via OpenVINO GenAI on CPU/GPU/NPU |
+| `videorate` (Branch 1) | Limits input rate to 1 fps upstream of gvagenai |
+| `gvagenai` | Runs continuous VLM inference (e.g. Gemma 3 4B) via OpenVINO GenAI at `--frame-rate` fps |
 | `jpegenc` (Branch 1) | Encodes the exact VLM-processed frame to JPEG for the dashboard |
 | `appsink` (`vlm_jpeg_sink`) | Captures the JPEG of the frame VLM actually processed |
 | `videorate` + `jpegenc` (Branch 2) | Continuous 1 fps JPEG snapshots (fallback if VLM frame unavailable) |
 | `appsink` (`jpeg_sink`) | Delivers fallback JPEG buffers to the Python application |
 
-**On-demand inference flow:** The valve starts closed after initial model load.
-When an MQTT event with object detection data arrives, the application opens
-the valve (`drop=false`), letting one frame through to `gvagenai`. A pad probe
-on gvagenai's source pad extracts the VLM text result and immediately closes
-the valve. The same frame then flows through `jpegenc` → `vlm_jpeg_sink`,
-which captures the JPEG and signals readiness — guaranteeing the dashboard
-shows the **exact frame** the VLM described.
+**Continuous inference with dynamic prompts:** `gvagenai` runs continuously at
+`--frame-rate` fps (default 0.2 = every 5 seconds). When an MQTT event arrives,
+the application updates gvagenai's `prompt` property with the camera's reported
+objects and waits for the next inference result. If a prompt change occurs while
+a frame is already being processed (with the old prompt), that in-flight result
+is discarded and the application waits for the subsequent one — guaranteeing
+the returned VLM text reflects the new prompt. A pad probe on gvagenai's source
+pad extracts the VLM text, and `vlm_jpeg_sink` captures the JPEG of the
+**exact frame** the VLM described.
 
 ## ONVIF Profile M
 
@@ -242,7 +241,7 @@ sequenceDiagram
     Camera->>Camera: On-device analytics (object detection)
     Camera->>MQTT: Publish event (Human detected, count=2)
     MQTT->>App: Deliver event
-    App->>VLM: Open valve → inference on current frame
+    App->>VLM: Update prompt, wait for next inference
     VLM->>App: "I see 2 people walking..."
     App->>App: Compare camera claim vs VLM result
     App->>App: Display on dashboard
@@ -329,8 +328,6 @@ fuser -k 8080/tcp
 ```bash
 sudo apt install gir1.2-gst-plugins-base-1.0
 ```
-
-
 
 ---
 
