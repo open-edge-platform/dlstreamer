@@ -85,10 +85,14 @@ static void gst_gva_streammux_class_init(GstGvaStreammuxClass *klass) {
 static void gst_gva_streammux_init(GstGvaStreammux *mux) {
     mux->max_fps = DEFAULT_MAX_FPS;
 
+    /* Object is under construction; no other thread can reference it yet,
+     * and mux->lock is not initialised until below. */
+    // coverity[missing_lock]
     mux->num_sink_pads = 0;
     mux->started = FALSE;
     mux->send_stream_start = TRUE;
     mux->eos_pending = FALSE;
+    // coverity[missing_lock]
     mux->sinkpads = NULL;
     mux->current_caps = NULL;
     mux->segment_sent = FALSE;
@@ -347,9 +351,17 @@ static gboolean gst_gva_streammux_src_query(GstPad *pad, GstObject *parent, GstQ
         gboolean live = FALSE;
         GstClockTime min_latency = 0, max_latency = GST_CLOCK_TIME_NONE;
 
-        /* Query all sink pads for latency */
+        /* Snapshot sink pads under the lock, then query unlocked to avoid
+         * holding mux->lock across upstream peer queries. */
+        GList *pads_copy = NULL;
         GList *l;
-        for (l = mux->sinkpads; l; l = l->next) {
+
+        g_mutex_lock(&mux->lock);
+        for (l = mux->sinkpads; l; l = l->next)
+            pads_copy = g_list_prepend(pads_copy, gst_object_ref(GST_PAD(l->data)));
+        g_mutex_unlock(&mux->lock);
+
+        for (l = pads_copy; l; l = l->next) {
             GstPad *sinkpad = GST_PAD(l->data);
             GstQuery *peer_query = gst_query_new_latency();
             if (gst_pad_peer_query(sinkpad, peer_query)) {
@@ -367,6 +379,7 @@ static gboolean gst_gva_streammux_src_query(GstPad *pad, GstObject *parent, GstQ
             }
             gst_query_unref(peer_query);
         }
+        g_list_free_full(pads_copy, gst_object_unref);
 
         gst_query_set_latency(query, live, min_latency, max_latency);
         return TRUE;
@@ -401,15 +414,24 @@ static gboolean gst_gva_streammux_src_event(GstPad *pad, GstObject *parent, GstE
     switch (GST_EVENT_TYPE(event)) {
     case GST_EVENT_QOS:
     case GST_EVENT_SEEK: {
-        /* Forward to all sink pads */
+        /* Forward to all sink pads. Snapshot the list under the lock with refs,
+         * then push events unlocked to avoid deadlocks against downstream. */
         gboolean ret = TRUE;
+        GList *pads_copy = NULL;
         GList *l;
-        for (l = mux->sinkpads; l; l = l->next) {
+
+        g_mutex_lock(&mux->lock);
+        for (l = mux->sinkpads; l; l = l->next)
+            pads_copy = g_list_prepend(pads_copy, gst_object_ref(GST_PAD(l->data)));
+        g_mutex_unlock(&mux->lock);
+
+        for (l = pads_copy; l; l = l->next) {
             GstPad *sinkpad = GST_PAD(l->data);
             gst_event_ref(event);
             if (!gst_pad_push_event(sinkpad, event))
                 ret = FALSE;
         }
+        g_list_free_full(pads_copy, gst_object_unref);
         gst_event_unref(event);
         return ret;
     }
