@@ -297,7 +297,7 @@ class TestOptimizer(unittest.TestCase):
         optimizer = DLSOptimizer()
         optimizer.enable_cross_stream_batching(True)
         start_time = time.time()
-        timeout = 10
+        timeout = 5
 
         found_instance_ids = False
 
