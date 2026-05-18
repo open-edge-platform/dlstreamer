@@ -150,7 +150,7 @@ jobs:
             exit 1
           fi
 
-      - name: Build DL Streamer using make build
+      - name: 🔨 Build DL Streamer using make build
         if: needs.setup.outputs.should_run == 'true'
         run: |
           echo "Activating Python virtual environment..."
@@ -191,7 +191,7 @@ jobs:
           cd ${{ env.DLS_REL_PATH }}
           python3 -m pip install -r requirements.txt
 
-      - name: Verify DL Streamer installation
+      - name: 🔍 Verify DL Streamer installation
         if: needs.setup.outputs.should_run == 'true'
         run: |
           echo "Setting up DL Streamer environment..."
@@ -241,7 +241,7 @@ jobs:
           import gi
           gi.require_version("Gst", "1.0")
           from gi.repository import Gst
-          Gst.init(None)
+          Gst.init([])
           from dlstreamer.onvif import (
               DlsOnvifDiscoveryEngine,
               discover_onvif_cameras,

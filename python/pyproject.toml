@@ -11,7 +11,7 @@ build-backend = "setuptools.build_meta"
 name = "intel-dlstreamer"
 version = "2026.0.0"
 description = "DL Streamer Python bindings — GVA metadata and ONVIF camera discovery"
-license = { text = "MIT" }
+license = "MIT"
 requires-python = ">=3.9"
 dependencies = [
     "onvif-zeep==0.2.12",
