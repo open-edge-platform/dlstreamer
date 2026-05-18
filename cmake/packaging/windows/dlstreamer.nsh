@@ -284,7 +284,11 @@ Function LegacyCleanUp
 
   ; Clean temporary folders
   RMDir /r 'C:\dlstreamer_tmp'
+
+  ; Clean GStreamer cache
+  SetShellVarContext current
   RMDir /r '$LOCALAPPDATA\Microsoft\Windows\INetCache\gstreamer-1.0'
+  SetShellVarContext all
 
   ; Uninstall GStreamer MSI (GStreamer < 1.28)
   Push '{C20A66DC-B249-4E6D-A68A-D0F836B2B3CF}'  ; GStreamer runtime
@@ -351,7 +355,6 @@ FunctionEnd
   InvokeGStreamerInstaller:
   SetOutPath '$INSTDIR\deps'
   File '${INSTALLER_DEPS_DIR}\gstreamer-1.0-msvc-x86_64-${GSTREAMER_VERSION}.exe'
-  SetOutPath '$INSTDIR'
 
   Push '${GSTREAMER_INSTALLER_HASH}'
   Push '$INSTDIR\deps\gstreamer-1.0-msvc-x86_64-${GSTREAMER_VERSION}.exe'
@@ -369,28 +372,26 @@ FunctionEnd
     MessageBox MB_OK|MB_ICONEXCLAMATION 'Failed to install GStreamer.' /SD IDYES
   ${EndIf}
 
+  ; Result: 0=equal, 1=installed newer, 2=bundled newer
+  ${VersionCompare} '1.28.2' '${GSTREAMER_VERSION}' $R4
+  ${If} $R4 = 0
+    ReadRegStr $R2 HKLM 'SOFTWARE\GStreamer1.0\x86_64' 'InstallDir'
+    SetOutPath $R2\bin
+    File "${INST_DIR}\c00_gstreamer\deps\windows\gstanalytics-1.0-0.dll"
+  ${EndIf}
+
+  SetOutPath '$INSTDIR'
+
   SkipGStreamer:
 !macroend
 
 Function SetupEnvironmentVariables
   DetailPrint 'Setup environment variables'
-
-  ; Setup environment variables
-  WriteRegExpandStr HKCU 'Environment' 'DLSTREAMER_DIR' '$INSTDIR'
-  WriteRegExpandStr HKCU 'Environment' 'GST_PLUGIN_PATH' '$INSTDIR\bin'
-
-  ; Add to user PATH
-  ReadRegStr $R2 HKLM 'SOFTWARE\GStreamer1.0\x86_64' 'InstallDir'
-  EnVar::SetHKCU
-  EnVar::AddValue 'Path' '$R2\bin'
+  nsExec::ExecToLog 'powershell.exe -ExecutionPolicy Bypass -File "$INSTDIR\scripts\setup_dls_env.ps1" -Persist'
   Pop $0
-  EnVar::AddValue 'Path' '$INSTDIR\bin'
-  Pop $0
-
-  ; Populate plugin registry
-  DetailPrint 'Execute gst-inspect-1.0.exe to populate plugin registry'
-  nsExec::Exec '$R2\bin\gst-inspect-1.0.exe'
-  Pop $0
+  ${If} $0 != 0
+    DetailPrint 'Environment setup failed. Error code: $0'
+  ${EndIf}
 FunctionEnd
 
 Function InstallFinalize

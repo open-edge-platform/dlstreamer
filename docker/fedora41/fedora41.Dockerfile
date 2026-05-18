@@ -359,7 +359,7 @@ RUN cp -a /usr/local/lib64/librealsense* ./
 # ==============================================================================
 FROM builder AS dlstreamer-dev
 
-ARG DLSTREAMER_VERSION=2026.0.0
+ARG DLSTREAMER_VERSION=2026.1.0
 ARG DLSTREAMER_BUILD_NUMBER
 ARG OPENVINO_VERSION=2026.1.0
 
@@ -399,6 +399,8 @@ RUN dnf install -y "openvino-${OPENVINO_VERSION}" && \
 WORKDIR "$DLSTREAMER_DIR"
 
 COPY . "${DLSTREAMER_DIR}"
+
+RUN /python3venv/bin/pip3 install --no-cache-dir -r "${DLSTREAMER_DIR}/scripts/optimizer/requirements.txt"
 
 WORKDIR $DLSTREAMER_DIR/build
 

@@ -155,6 +155,10 @@ install(FILES ${CMAKE_BINARY_DIR}/gstreamer.txt
     DESTINATION deps
     COMPONENT c00_gstreamer
 )
+install(DIRECTORY ${CMAKE_SOURCE_DIR}/dependencies/windows
+    DESTINATION deps
+    COMPONENT c00_gstreamer
+)
 
 # Install OpenVINO runtime DLLs
 if(NOT OpenVINOGenAI_DIR)
