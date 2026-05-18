@@ -1,8 +1,8 @@
 Create a bash script that analyzes four video streams.
 For each stream run AI analytics to detect people and perform pose estimation and overlay annotations.
 - Read input video from a file (https://videos.pexels.com/video-files/8039289/8039289-hd_1366_720_25fps.mp4) for each stream
-- Use YOLO26n,Yolo11n,Yolov8n,Yolov8s models for pose estimation
-- Annotate each video stream with keypoints but do not show the labels add average FPS information and custom text with the model name
+- Use YOLO26n,Yolo11n,Yolov8n,Yolov8l models for pose estimation
+- Annotate each video stream with keypoints and instead of labels add custom, well visible text with the model name
 - Merge output from multiple streams and store combined output to an output file.
 
 Generate vision AI processing pipeline optimized for Intel Core Ultra 3 processors. 

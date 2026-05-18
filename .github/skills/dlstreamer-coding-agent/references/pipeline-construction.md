@@ -73,7 +73,7 @@ For the full list of elements, see also `../../../../docs/user-guide/elements/`.
 
 | Element | Purpose | Key Properties |
 |---------|---------|----------------|
-| `gvawatermark` | Draw bounding boxes and labels on video | `device=...`, `displ-cfg=...` |
+| `gvawatermark` | Draw bounding boxes, labels, keypoints, and custom text on video | `device=...`, `displ-cfg=...` |
 | `gvafpscounter` | Print FPS to stdout | (no key properties) |
 
 
@@ -91,6 +91,11 @@ For the full list of elements, see also `../../../../docs/user-guide/elements/`.
 > `gvainference ... object-class=person`), set `displ-cfg=show-roi=<class>` on `gvawatermark`
 > to render only matching ROIs. Example: `gvawatermark displ-cfg=show-roi=person`.
 > Custom text labels: `rmeta.add_od_mtd(GLib.quark_from_string("label"), x, y, 0, 0, confidence)`.
+
+> **Custom text overlay:** Use `displ-cfg=ff-custom-txt=<text>` (max 20 chars) instead of
+> adding a `textoverlay` element. Example: `gvawatermark displ-cfg=show-labels=false,ff-custom-txt=MyLabel`
+> If the user asks for "well visible", "clearly visible", or "good visibility" annotations,
+> add `font-scale=1.0` (default is 0.5). Example: `displ-cfg=font-scale=1.0,ff-custom-txt=MyLabel`
 
 ### Metadata Publishing
 
