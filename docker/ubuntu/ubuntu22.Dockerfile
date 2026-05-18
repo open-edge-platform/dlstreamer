@@ -549,9 +549,9 @@ ARG DEBIAN_FRONTEND=noninteractive
 
 RUN \
     apt-get update -y && \
-    apt-get install -y -q --no-install-recommends /debs/*.deb gcc=\* libcairo2-dev=\* libgirepository1.0-dev=\* && \
+    apt-get install -y -q --no-install-recommends /debs/*.deb gcc=\* meson=\* ninja-build=\* libcairo2-dev=\* libgirepository1.0-dev=\* && \
     pip3 install --no-cache-dir --ignore-installed -r /opt/intel/dlstreamer/requirements.txt && \
-    apt-get remove -y gcc libcairo2-dev libgirepository1.0-dev && \
+    apt-get remove -y gcc meson ninja-build libcairo2-dev libgirepository1.0-dev && \
     apt-get autoremove -y && \
     apt-get clean -y && \
     rm -rf /var/lib/apt/lists/* && \
