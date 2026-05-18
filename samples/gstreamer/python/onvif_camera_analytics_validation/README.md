@@ -80,7 +80,7 @@ pip install -r requirements.txt
 ### 5. Export a VLM model (run once)
 
 ```bash
-hf download OpenVINO/gemma-3-4b-it-int8-ov --cache-dir ./Gemma3-4B
+hf download OpenVINO/gemma-3-4b-it-int8-ov --local-dir ./Gemma3-4B
 ```
 
 Gemma 3 4B (~3.3 GB in int4) is recommended — compact enough for
