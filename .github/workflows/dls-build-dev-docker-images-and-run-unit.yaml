@@ -278,7 +278,7 @@ jobs:
         env:
           RESULTS_DIR: test-results
         with:
-          name: DLS_unit_tests_tgl_${{ matrix.ubuntu_version }}
+          name: DLS_unit_tests_${{ matrix.runner_print_label }}_${{ matrix.ubuntu_version }}
           path: ${{ env.RESULTS_DIR }}/*.xml
 
       - name: Clean up
