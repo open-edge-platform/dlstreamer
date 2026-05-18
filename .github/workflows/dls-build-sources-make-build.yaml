@@ -253,8 +253,7 @@ jobs:
               DlsLaunchedPipeline,
               DlsOnvifConfigManager,
           )
-          from gstgva import VideoFrame, RegionOfInterest
-          print("dlstreamer.onvif and gstgva imported successfully")
+          print("dlstreamer.onvif imported successfully")
           EOF
 
           echo "Testing intel-dlstreamer Python wheel: PASS ✅" >> $GITHUB_STEP_SUMMARY
