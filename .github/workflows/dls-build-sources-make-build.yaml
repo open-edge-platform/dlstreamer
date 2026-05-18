@@ -216,9 +216,54 @@ jobs:
           gst-inspect-1.0 gvafpscounter
           gst-inspect-1.0 gvagenai
 
+      - name: 🐍 Build and test intel-dlstreamer Python wheel
+        if: needs.setup.outputs.should_run == 'true'
+        id: test_python_wheel
+        run: |
+          # Build the wheel from python/pyproject.toml
+          source ~/python3venv/bin/activate
+          pip install --quiet build
+          python -m build --wheel ${{ env.DLS_REL_PATH }}/python
+          WHL=$(ls ${{ env.DLS_REL_PATH }}/python/dist/intel_dlstreamer-*.whl)
+          echo "Built wheel: $WHL"
+
+          # Install in isolated venv with access to system gi/GStreamer bindings
+          python3 -m venv --system-site-packages $HOME/.virtualenvs/dlstreamer-whl-test
+          $HOME/.virtualenvs/dlstreamer-whl-test/bin/pip install --quiet "$WHL"
+
+          # Set GStreamer env vars required for gi.repository import
+          export GI_TYPELIB_PATH=/opt/intel/dlstreamer/gstreamer/lib/girepository-1.0:/opt/intel/dlstreamer/lib/girepository-1.0:/usr/lib/x86_64-linux-gnu/girepository-1.0
+          export GST_PLUGIN_PATH=/opt/intel/dlstreamer/Release/lib:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0:/opt/intel/dlstreamer/gstreamer/lib/
+          export LD_LIBRARY_PATH=/opt/intel/dlstreamer/gstreamer/lib:/opt/intel/dlstreamer/Release/lib:$LD_LIBRARY_PATH
+
+          # Verify all public symbols are importable
+          $HOME/.virtualenvs/dlstreamer-whl-test/bin/python - <<'EOF'
+          import gi
+          gi.require_version("Gst", "1.0")
+          from gi.repository import Gst
+          Gst.init(None)
+          from dlstreamer.onvif import (
+              DlsOnvifDiscoveryEngine,
+              discover_onvif_cameras,
+              discover_onvif_cameras_async,
+              ONVIFProfile,
+              CameraStatus,
+              DlsOnvifCameraEntry,
+              DlsOnvifCameraRegistry,
+              DlsLaunchedPipeline,
+              DlsOnvifConfigManager,
+          )
+          from gstgva import VideoFrame, RegionOfInterest
+          print("dlstreamer.onvif and gstgva imported successfully")
+          EOF
+
+          echo "Testing intel-dlstreamer Python wheel: PASS ✅" >> $GITHUB_STEP_SUMMARY
+
       # ======================================================== CLEANUP PART ========================================================
       - name: Clean up
         if: always() && needs.setup.outputs.should_run == 'true'
         run: |
+          rm -rf $HOME/.virtualenvs/dlstreamer-whl-test
+          rm -rf ${{ env.DLS_REL_PATH }}/python/dist
           rm -rf ~/python3venv
           sudo rm -rf ${{ env.DLS_REL_PATH }}
