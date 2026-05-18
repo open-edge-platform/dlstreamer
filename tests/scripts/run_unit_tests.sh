@@ -82,7 +82,7 @@ popd
 SRC_DIR=$build_dir/..
 
 pushd "$SRC_DIR"/tests/unit_tests/tests_gstgva
-py.test --junitxml="$result_path"/python_tests_results.xml || ret_code=$?
+py.test -v -s --tb=short --junitxml="$result_path"/python_tests_results.xml || ret_code=$?
 popd
 
 if [ "$rebuild_with_code_coverage" = true ]; then
