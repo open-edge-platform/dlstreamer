@@ -31,7 +31,7 @@ endif()
 
 # Define version
 set(VERSION_MAJOR 2026)
-set(VERSION_MINOR 0)
+set(VERSION_MINOR 1)
 set(VERSION_PATCH 0)
 
 include(cmake/version.cmake)

@@ -83,6 +83,9 @@ static void gst_gva_streamdemux_class_init(GstGvaStreamdemuxClass *klass) {
 
 static void gst_gva_streamdemux_init(GstGvaStreamdemux *demux) {
     demux->max_fps = DEFAULT_MAX_FPS;
+    /* Object is under construction; no other thread can reference it yet,
+     * and demux->lock is not initialised until below. */
+    // coverity[missing_lock]
     demux->num_src_pads = 0;
     demux->validated = FALSE;
     demux->last_output_time = GST_CLOCK_TIME_NONE;
