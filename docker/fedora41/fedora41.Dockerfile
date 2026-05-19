@@ -400,8 +400,6 @@ WORKDIR "$DLSTREAMER_DIR"
 
 COPY . "${DLSTREAMER_DIR}"
 
-RUN /python3venv/bin/pip3 install --no-cache-dir -r "${DLSTREAMER_DIR}/scripts/optimizer/requirements.txt"
-
 WORKDIR $DLSTREAMER_DIR/build
 
 # DLStreamer environment variables
@@ -474,6 +472,7 @@ RUN \
     cp -r "${DLSTREAMER_DIR}/scripts/" /${RPM_PKG_NAME}/opt/intel/dlstreamer/ && \
     cp -r "${DLSTREAMER_DIR}/include/" /${RPM_PKG_NAME}/opt/intel/dlstreamer/ && \
     cp "${DLSTREAMER_DIR}/README.md" /${RPM_PKG_NAME}/opt/intel/dlstreamer && \
+    cp "${DLSTREAMER_DIR}/requirements.txt" /${RPM_PKG_NAME}/opt/intel/dlstreamer && \
     cp -rT "${GSTREAMER_DIR}" /${RPM_PKG_NAME}/opt/intel/dlstreamer/gstreamer && \
     mkdir -p /${RPM_PKG_NAME}/opt/intel/dlstreamer/share/gir-1.0/ && \
     mkdir -p /${RPM_PKG_NAME}/opt/intel/dlstreamer/lib/girepository-1.0/ && \
@@ -528,7 +527,9 @@ COPY --from=rpm-builder /rpms/*.rpm /rpms/
 
 # Download and install DLS rpm package
 RUN \
-    dnf install -y /rpms/*.rpm && \
+    dnf install -y /rpms/*.rpm cairo-devel cairo-gobject-devel gobject-introspection-devel && \
+    pip3 install --no-cache-dir --ignore-installed -r /opt/intel/dlstreamer/requirements.txt && \
+    dnf remove -y cairo-devel cairo-gobject-devel gobject-introspection-devel && \
     dnf clean all && \
     useradd -ms /bin/bash dlstreamer && \
     chown -R dlstreamer: /opt && \
