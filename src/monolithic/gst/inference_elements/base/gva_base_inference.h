@@ -19,6 +19,7 @@
 #ifndef _WIN32
 #include <sched.h>
 #else
+#include <windows.h>
 #define MAX_WIN_PROCESSOR_GROUPS 64
 typedef struct {
     KAFFINITY group_mask[MAX_WIN_PROCESSOR_GROUPS];
