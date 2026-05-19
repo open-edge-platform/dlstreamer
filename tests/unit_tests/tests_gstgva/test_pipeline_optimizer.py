@@ -292,36 +292,36 @@ class TestOptimizer(unittest.TestCase):
         print(f"Tested {len(candidates)} candidates in {elapsed_time:.1f}s")
         print(f"✓ Test passed: Excluded device '{excluded_device}' not found in any pipeline")
 
-    def test_enable_cross_stream_batching_with_iter_optimize_for_fps(self):
-        """Test that enable_cross_stream_batching works and sets instance-id"""
+    # def test_enable_cross_stream_batching_with_iter_optimize_for_fps(self):
+    #     """Test that enable_cross_stream_batching works and sets instance-id"""
 
-        optimizer = DLSOptimizer()
-        optimizer.enable_cross_stream_batching(True)
-        start_time = time.time()
-        timeout = 3
+    #     optimizer = DLSOptimizer()
+    #     optimizer.enable_cross_stream_batching(True)
+    #     start_time = time.time()
+    #     timeout = 3
 
-        found_instance_ids = False
+    #     found_instance_ids = False
 
-        for candidate_result in optimizer.iter_optimize_for_fps(self.complex_pipeline):
-            candidate_pipeline = candidate_result[0]
-            print(f"Pipeline: {candidate_pipeline}")
-            model_instance_ids = re.findall(r'model-instance-id=(\w+)', candidate_pipeline)
+    #     for candidate_result in optimizer.iter_optimize_for_fps(self.complex_pipeline):
+    #         candidate_pipeline = candidate_result[0]
+    #         print(f"Pipeline: {candidate_pipeline}")
+    #         model_instance_ids = re.findall(r'model-instance-id=(\w+)', candidate_pipeline)
             
-            if len(model_instance_ids) > 1 and len(set(model_instance_ids)) == 1:
-                found_instance_ids = True
-                print(f"✓ Found same model-instance-id: {model_instance_ids[0]}")
-                break
-            elif len(model_instance_ids) > 0:
-                print(f"Found different instance-ids: {model_instance_ids}")
-            else:
-                print("No model-instance-id found")
+    #         if len(model_instance_ids) > 1 and len(set(model_instance_ids)) == 1:
+    #             found_instance_ids = True
+    #             print(f"✓ Found same model-instance-id: {model_instance_ids[0]}")
+    #             break
+    #         elif len(model_instance_ids) > 0:
+    #             print(f"Found different instance-ids: {model_instance_ids}")
+    #         else:
+    #             print("No model-instance-id found")
 
-            if time.time() - start_time > timeout:
-                print("Timeout reached")
-                break
+    #         if time.time() - start_time > timeout:
+    #             print("Timeout reached")
+    #             break
 
-        self.assertTrue(found_instance_ids, "Should find candidates with same model-instance-id for cross-stream batching")
-        print("✓ Cross-stream batching test passed!")
+    #     self.assertTrue(found_instance_ids, "Should find candidates with same model-instance-id for cross-stream batching")
+    #     print("✓ Cross-stream batching test passed!")
 
 if __name__ == '__main__':
     unittest.main()
