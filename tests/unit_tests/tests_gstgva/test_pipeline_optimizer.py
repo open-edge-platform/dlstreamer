@@ -9,25 +9,17 @@ import time
 import signal
 import re
 from optimizer import DLSOptimizer # pylint: disable=no-name-in-module
-from utils import get_model_path
+from utils import get_model_path, get_video_path
 from openvino import Core
 
 class TestOptimizer(unittest.TestCase):
     
     def setUp(self):
         self.model_path = get_model_path("yolo11s")
-        
-        video_examples_dir = os.environ.get('VIDEO_EXAMPLES_DIR')
-        if not video_examples_dir:
-            self.skipTest("VIDEO_EXAMPLES_DIR environment variable not set")
-
-        video_file = os.path.join(video_examples_dir, "Pexels_Videos_1192116-sd_640_360_30fps.mp4")
-        if not os.path.exists(video_file):
-            self.skipTest(f"Video file not found: {video_file}")
-        
-        self.simple_pipeline = f"filesrc location={video_file} ! decodebin ! gvadetect model={self.model_path} ! queue ! gvawatermark ! fakesink"
-        self.complex_pipeline = f"filesrc location={video_file} name=src1 ! decodebin ! gvadetect model={self.model_path} ! gvawatermark ! " \
-                            f"fakesink filesrc location={video_file} name=src2 ! decodebin ! gvadetect model={self.model_path} ! gvawatermark ! fakesink"
+        self.video_file = get_video_path("1192116-sd_640_360_30fps.mp4")
+        self.simple_pipeline = f"filesrc location={self.video_file} ! decodebin ! gvadetect model={self.model_path} ! queue ! gvawatermark ! fakesink"
+        self.complex_pipeline = f"filesrc location={self.video_file} name=src1 ! decodebin ! gvadetect model={self.model_path} ! gvawatermark ! " \
+                               f"fakesink filesrc location={self.video_file} name=src2 ! decodebin ! gvadetect model={self.model_path} ! gvawatermark ! fakesink"
 
     def test_iter_optimize_for_fps_and_get_optimal_pipeline(self):
         """Test iter_optimize_for_fps with simple CPU pipeline and check candidate modifications"""
