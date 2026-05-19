@@ -96,6 +96,11 @@ parser.add_argument("--batch-sizes", default=[1, 2, 4, 8, 16, 32], nargs="+",
 parser.add_argument("--nireq-sizes", default=[1, 2, 3, 4, 5, 6, 7, 8], nargs="+",
                     help="List of nireq sizes to be considered by the optimizer. (default: %(default)s)\n"\
                         "eg.--nireq-sizes 2 4 6 8")
+parser.add_argument("--optimization-profile", default="default", choices=["coarse", "fine", "default"],
+                    help="Configuration presets for quickly selecting optimization scenarios. (default: %(default)s)\n"\
+                        "coarse  - fast but less optimal result\n"\
+                        "fine    - slower but more optimal result\n"\
+                        "default - slowest but most optimal results\n")
 
 args=parser.parse_args()
 
@@ -104,18 +109,32 @@ logger = logging.getLogger(__name__)
 
 json_result = {}
 
+search_duration = args.search_duration
+
 try:
     optimizer = DLSOptimizer()
-    optimizer.set_sample_duration(args.sample_duration)
     optimizer.set_detections_error_threshold(args.detection_threshold)
     optimizer.set_multistream_fps_limit(args.multistream_fps_limit)
     optimizer.enable_cross_stream_batching(args.enable_cross_stream_batching)
 
-    if args.allowed_devices:
-        optimizer.set_allowed_devices(args.allowed_devices)
-    
-    optimizer.set_batch_sizes(args.batch_sizes)
-    optimizer.set_nireq_sizes(args.nireq_sizes)
+    match args.optimization_profile:
+        case "coarse":
+            optimizer.set_sample_duration(5)
+            optimizer.set_batch_sizes([])
+            optimizer.set_nireq_sizes([])
+            search_duration = 15
+        case "fine":
+            optimizer.set_sample_duration(5)
+            optimizer.set_batch_sizes([1, 4, 8])
+            optimizer.set_nireq_sizes([4, 8])
+            search_duration = 30
+        case "default":
+            optimizer.set_sample_duration(args.sample_duration)
+            optimizer.set_batch_sizes(args.batch_sizes)
+            optimizer.set_nireq_sizes(args.nireq_sizes)
+            if args.allowed_devices:
+                optimizer.set_allowed_devices(args.allowed_devices)
+            
 
 except Exception as e:
     logger.error("Failed to configure optimizer: %s", e)

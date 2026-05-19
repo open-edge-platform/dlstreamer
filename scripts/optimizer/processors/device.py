@@ -10,11 +10,30 @@ from .utils import parse_element_parameters, assemble_parameters
 
 logger = logging.getLogger(__name__)
 
+def param_to_string(parameters) -> str:
+    """Convert a list / tuple of parameters returned from OV to a string."""
+    if isinstance(parameters, (list, tuple)):
+        return ', '.join([str(x) for x in parameters])
+    else:
+        return str(parameters)
+
 class DeviceGenerator:
     def __init__(self):
+        core = Core()
         self.tracked_elements = []
         self.devices = Core().available_devices
         logger.info("Devices detected on system: %s", str(self.devices))
+        for device in self.devices:
+            logger.info(f'{device} :')
+            logger.info('\tSUPPORTED_PROPERTIES:')
+            for property_key in core.get_property(device, 'SUPPORTED_PROPERTIES'):
+                if property_key not in ('SUPPORTED_PROPERTIES'):
+                    try:
+                        property_val = core.get_property(device, property_key)
+                    except TypeError:
+                        property_val = 'UNSUPPORTED TYPE'
+                    logger.info(f'\t\t{property_key}: {param_to_string(property_val)}')
+            logger.info('')
         self.device_groups = []
         self.pipeline = []
         self.first_iteration = True
