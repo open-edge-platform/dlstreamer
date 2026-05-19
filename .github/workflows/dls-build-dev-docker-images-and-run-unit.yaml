@@ -221,6 +221,14 @@ jobs:
 
           echo "Actual image size : ${IMAGE_SIZE_MB} MB"
           echo "Expected size: ${EXPECTED_SIZE_MB} MB"
+
+          if ! [[ "${EXPECTED_SIZE_MB}" =~ ^[0-9]+$ ]]; then
+            echo "::warning::Expected image size is not configured for ${MATRIX_UBUNTU_VERSION}; skipping size threshold check."
+            echo "IMAGE_SIZE_MB=$IMAGE_SIZE_MB" >> $GITHUB_ENV
+            echo "EXPECTED_SIZE_MB=N/A" >> $GITHUB_ENV
+            exit 0
+          fi
+
           DIFF=$(( IMAGE_SIZE_MB - EXPECTED_SIZE_MB ))
           ABS_DIFF=${DIFF#-}
           echo "Difference: ${ABS_DIFF} MB"
@@ -247,8 +255,8 @@ jobs:
             echo ""
             echo "| Image | Size |"
             echo "|-------|------|"
-            echo "| Current Docker ${ubuntu_version}-deb | **${IMAGE_SIZE_MB} MB** |"
-            echo "| Expected Docker ${ubuntu_version}-deb | **${EXPECTED_SIZE_MB} MB** |"
+            echo "| Current Docker ${UBUNTU_VERSION}-deb | **${IMAGE_SIZE_MB} MB** |"
+            echo "| Expected Docker ${UBUNTU_VERSION}-deb | **${EXPECTED_SIZE_MB} MB** |"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Check and display unit test results
