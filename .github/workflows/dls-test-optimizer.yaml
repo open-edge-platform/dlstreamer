@@ -17,7 +17,7 @@ on:
         default: "main"
 permissions: {}
 env:
-  dlstreamer-version: "2026.0.0"
+  dlstreamer-version: "2026.1.0"
   MODELS_PATH: "$HOME/models"
   VIDEO_INPUTS_PATH: "$HOME/videos"
   DLS_REL_PATH: "./dlstreamer"
@@ -233,7 +233,7 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a #7.0.1
         with:
           name: DLS_optimizer_Docker_${{ matrix.runner_print_label }}_${{ matrix.ubuntu_version }}_results
-          path: ${{ env.OPTIMIZER_TESTS_PATH }}/optimizer_results/docker/FINAL_TEST_REPORT.txt
+          path: ${{ env.OPTIMIZER_TESTS_PATH }}/optimizer_results/docker/*
 
       # ======================================================== ON HOST TESTING PART ========================================================
       - name: Link DL Streamer to home directory
@@ -246,15 +246,15 @@ jobs:
         run: |
           $DLS_REL_PATH/tests/scripts/installation-on-host-entrypoint.sh $DLS_REL_PATH/deb_packages
 
-      - name: Install optimizer requirements on host
+      - name: Install requirements on host
         if: always() && matrix.runner_print_label != 'SKIP'
         run: |
           sudo apt-get install -y --no-install-recommends libcairo2-dev libgirepository1.0-dev
           python3 -m venv --system-site-packages $HOME/optimizer-venv
-          $HOME/optimizer-venv/bin/pip install --no-cache-dir -r /opt/intel/dlstreamer/scripts/optimizer/requirements.txt
+          $HOME/optimizer-venv/bin/pip install --no-cache-dir -r /opt/intel/dlstreamer/requirements.txt
           echo "$HOME/optimizer-venv/bin" >> $GITHUB_PATH
 
-      - name: Run Optimizer on host
+      - name: 🚀 Run Optimizer on host
         if: always() && matrix.runner_print_label != 'SKIP'
         id: run_optimizer_on_host
         env:
@@ -326,7 +326,7 @@ jobs:
             /MB$/ { printf "%d", $1; next }
             /kB$/ { printf "0"; next }
           ')
-          echo "Actual image size : ${IMAGE_SIZE_MB} MB"
+          echo "Actual image size (docker images SIZE): ${SIZE_STR} (~${IMAGE_SIZE_MB} MB)"
           echo "Expected size: ${EXPECTED_SIZE_MB} MB"
           DIFF=$(( IMAGE_SIZE_MB - EXPECTED_SIZE_MB ))
           ABS_DIFF=${DIFF#-}
