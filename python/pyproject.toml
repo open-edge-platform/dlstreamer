@@ -9,10 +9,25 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "intel-dlstreamer"
-version = "2026.0.0"
+version = "2026.1.0"
 description = "DL Streamer Python bindings — GVA metadata and ONVIF camera discovery"
 license = "MIT"
 requires-python = ">=3.9"
+authors = [
+    { name = "Intel Corporation" },
+]
+maintainers = [
+    { name = "Intel Corporation", email = "" },
+]
+keywords = ["dlstreamer", "gstreamer", "openvino", "video-analytics", "onvif"]
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Topic :: Multimedia :: Video",
+]
+[project.urls]
+Homepage = "https://github.com/open-edge-platform/dlstreamer"
+Documentation = "https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/index.html"
 dependencies = [
     "numpy>=2.2.0",
     "onvif-zeep==0.2.12",
