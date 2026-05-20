@@ -235,7 +235,7 @@ class DlsOnvifDiscoveryEngine:  # pylint: disable=too-many-instance-attributes
         self.verbose: bool = False
         self.config_manager = None
 
-        Gst.init(None)
+        Gst.init([])
 
     def init_discovery(self, config: dict[str, Any]) -> bool:
         """Initialize the ONVIF discovery process asynchronously."""
