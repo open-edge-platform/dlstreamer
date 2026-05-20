@@ -22,14 +22,15 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "Topic :: Multimedia :: Video",
 ]
-[project.urls]
-Homepage = "https://github.com/open-edge-platform/dlstreamer"
-Documentation = "https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/index.html"
 dependencies = [
     "numpy>=2.2.0",
     "onvif-zeep==0.2.12",
     "urllib3>=2.0.7",
 ]
+
+[project.urls]
+Homepage = "https://github.com/open-edge-platform/dlstreamer"
+Documentation = "https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer"
 
 [project.optional-dependencies]
 # Pull in additional requirements used by samples
