@@ -942,8 +942,12 @@ void Impl::preparePrimsForRoi(GVA::RegionOfInterest &roi, std::vector<render::Pr
         }
 
         if (roi.label().size() > 1) {
+            // Append label regardless of confidence , might be useful for the custom text labels.
             appendStr(text, roi.label());
-            text << int(roi.confidence() * 100) << "%";
+            // Show only valid confidence results
+            if (roi.confidence() > 0.0) {
+                text << int(roi.confidence() * 100) << "%";
+            }
         }
 
         // Prepare primitives for tensors
