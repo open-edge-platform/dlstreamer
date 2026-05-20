@@ -131,8 +131,16 @@ the commands from
 #### Python package: `dlstreamer.onvif` and `gstgva`
 
 If you want to use DL Streamer Python APIs (ONVIF camera discovery, GVA metadata)
-in your own Python code, the recommended approach is to install the
-`intel-dlstreamer` Python package via pip:
+in your own Python code, install the `intel-dlstreamer` Python package via pip.
+
+The easiest way is to download the wheel directly from the GitHub Release:
+
+```bash
+pip install https://github.com/open-edge-platform/dlstreamer/releases/download/v2026.1.0/intel_dlstreamer-2026.1.0-py3-none-any.whl
+```
+
+Alternatively, if you have DL Streamer installed locally, the wheel is also bundled
+under `/opt/intel/dlstreamer/python/`:
 
 ```bash
 pip install /opt/intel/dlstreamer/python/intel_dlstreamer-*.whl

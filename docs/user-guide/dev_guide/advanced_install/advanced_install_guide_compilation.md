@@ -283,8 +283,15 @@ necessary dependencies using the following commands:
 ### (Optional) Install `intel-dlstreamer` Python package
 
 If you want to use DL Streamer Python APIs (`dlstreamer.onvif`, `gstgva`) in
-your own Python code, the recommended approach is to build and install the
-`intel-dlstreamer` wheel:
+your own Python code, install the `intel-dlstreamer` wheel.
+
+The easiest way is to download the wheel directly from the GitHub Release:
+
+  ```bash
+  pip install https://github.com/open-edge-platform/dlstreamer/releases/download/v2026.1.0/intel_dlstreamer-2026.1.0-py3-none-any.whl
+  ```
+
+Alternatively, build the wheel from the cloned sources:
 
   ```bash
   pip install build
