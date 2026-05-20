@@ -104,7 +104,7 @@ python download_ultralytics_models.py --model yolo11s.pt --outdir ./exports --in
 
 Script: `download_timm_models.py`
 
-This script exports selected TIMM image-classification models to OpenVINO IR.
+This script exports selected PyTorch Image Models (TIMM) image-classification models to OpenVINO IR.
 Run `list-models` in your model-download environment to print the supported
 model names.
 
