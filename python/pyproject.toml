@@ -16,9 +16,6 @@ requires-python = ">=3.9"
 authors = [
     { name = "Intel Corporation" },
 ]
-maintainers = [
-    { name = "Intel Corporation", email = "" },
-]
 keywords = ["dlstreamer", "gstreamer", "openvino", "video-analytics", "onvif"]
 classifiers = [
     "License :: OSI Approved :: MIT License",
