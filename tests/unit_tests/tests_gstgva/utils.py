@@ -1,5 +1,5 @@
 # ==============================================================================
-# Copyright (C) 2018-2025 Intel Corporation
+# Copyright (C) 2018-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
@@ -67,6 +67,29 @@ def get_model_proc_path(model_name):
                     return (os.path.join(path, name))
     return None
 
+def get_video_path(video_name):
+    """
+    Find video file in VIDEO_EXAMPLES_DIR environment variable path.
+    """
+    if os.path.isfile(video_name):
+        return video_name
+
+    video_examples_dir = os.environ.get("VIDEO_EXAMPLES_DIR")
+    if not video_examples_dir:
+        raise ValueError("VIDEO_EXAMPLES_DIR environment variable is not set")
+
+    video_examples_path_list = video_examples_dir.split(':')
+
+    # Search in all paths from VIDEO_EXAMPLES_DIR
+    for video_path in video_examples_path_list:
+        for path, subdirs, files in os.walk(video_path):
+            if video_name in files:
+                full_path = os.path.join(path, video_name)
+                if os.path.exists(full_path):
+                    return full_path
+
+    raise ValueError("Video file '{}' was not found. Check your VIDEO_EXAMPLES_DIR={} environment variable or video file name".format(
+        video_name, video_examples_path_list))
 
 class BBox:
     def __init__(self, x_min, y_min, x_max, y_max, additional_info=None, class_id=0, tracker_id=None):

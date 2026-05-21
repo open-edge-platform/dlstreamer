@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2020-2021 Intel Corporation
+ * Copyright (C) 2020-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -29,6 +29,8 @@ class PreProcParamsParser {
     PreProcRangeNormalization getRangeNormalization() const;
     PreProcDistribNormalization getDistribNormalization() const;
     PreProcPadding getPadding() const;
+    std::pair<size_t, size_t> getResizeTargetSize() const;
+    size_t getResizeMultiple() const;
 
   public:
     PreProcParamsParser(const GstStructure *params);

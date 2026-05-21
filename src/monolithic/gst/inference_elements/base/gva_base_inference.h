@@ -70,7 +70,26 @@ typedef struct _GvaBaseInference {
     InferenceType type;
     GstVideoInfo *info;
     CapsFeature caps_feature;
+    // Publicly configured inference region requested by the user via the element property.
+    // This field preserves the external contract and is still used for property validation,
+    // reporting, and any logic that needs the original user intent.
     InferenceRegionType inference_region;
+    // Runtime execution region after internal mode resolution.
+    //
+    // Most elements execute exactly what the user requested, so this usually matches
+    // 'inference_region'. The important exception is depth-estimation classify-on-ROI mode:
+    // the user still configures ROI_LIST because results are consumed per ROI, but the
+    // implementation must run inference once on the full frame and then attach per-ROI depth
+    // results to the matching ROIs in post-processing. In that case:
+    //   - inference_region remains ROI_LIST to preserve the user-visible configuration,
+    //   - effective_inference_region is switched to FULL_FRAME to drive the actual backend work.
+    //
+    // Execution-path code must use this field whenever it decides how images are submitted to
+    // inference, how model input sizes are derived, or how callbacks/bookkeeping interpret the
+    // completed work. Using 'inference_region' in those places would incorrectly re-enable
+    // per-ROI execution for modes that are internally rewritten to full-frame execution.
+    InferenceRegionType effective_inference_region;
+    gboolean depth_inference_to_roi_mode;
 
     InferenceImpl *inference;
 

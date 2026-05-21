@@ -144,7 +144,7 @@ if "%OUTPUT%"=="file" (
     for %%F in ("%INPUT%") do set FILENAME=%%~nF
     set OUTPUT_FILE=yolo_%FILENAME%_%MODEL%_%PRECISION%_%DEVICE%.mp4
     if EXIST "%OUTPUT_FILE%" del "%OUTPUT_FILE%"
-    set SINK_ELEMENT=! queue ! d3d11convert ! gvawatermark ! gvafpscounter ! d3d11h264enc ! h264parse ! mp4mux ! filesink location=%OUTPUT_FILE%
+    set SINK_ELEMENT=! queue ! d3d11convert ! gvawatermark ! gvafpscounter ! mfh264enc ! h264parse ! mp4mux ! filesink location=%OUTPUT_FILE%
 ) else if "%OUTPUT%"=="display" (
     set SINK_ELEMENT=! queue ! d3d11convert ! gvawatermark ! videoconvert ! gvafpscounter ! d3d11videosink sync=false
 ) else if "%OUTPUT%"=="fps" (

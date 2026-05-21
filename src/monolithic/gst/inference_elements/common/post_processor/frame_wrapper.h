@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2021-2025 Intel Corporation
+ * Copyright (C) 2021-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -23,6 +23,7 @@ class FrameWrapper {
     FrameWrapper(GstBuffer *, const std::string &instance_id, GMutex *meta_mutex);
 
     GstBuffer *buffer;
+    GvaBaseInference *gva_base_inference;
     std::string model_instance_id;
     mutable GMutex *meta_mutex;
 

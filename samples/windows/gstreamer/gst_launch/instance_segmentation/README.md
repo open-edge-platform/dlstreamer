@@ -102,7 +102,7 @@ COCO classes include: person, bicycle, car, motorcycle, airplane, bus, train, tr
 
 ## Pipeline Architecture
 
-**Note**: Pipeline varies based on device type. GPU/NPU use D3D11 hardware acceleration (`d3d11convert`, `d3d11videosink`, `d3d11h264enc`), while CPU uses software path (`videoconvert`, `autovideosink`, `openh264enc`).
+**Note**: Pipeline varies based on device type. GPU/NPU use D3D11 hardware acceleration (`d3d11convert`, `d3d11videosink`, `mfh264enc`), while CPU uses software path (`videoconvert`, `autovideosink`, `openh264enc`).
 
 ```mermaid
 graph LR
@@ -114,7 +114,7 @@ graph LR
     E -->|file<br/>GPU/NPU| F1[d3d11convert]
     F1 --> F2[gvawatermark]
     F2 --> F3[gvafpscounter]
-    F3 --> F4[d3d11h264enc]
+    F3 --> F4[mfh264enc]
     F4 --> F5[h264parse]
     F5 --> F6[mp4mux]
     F6 --> F7[filesink]

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2021-2025 Intel Corporation
+ * Copyright (C) 2021-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -51,6 +51,17 @@ class TensorToROIAttacher : public MetaAttacher {
 
   public:
     TensorToROIAttacher() = default;
+
+    void attach(const TensorsTable &tensors_batch, FramesWrapper &frames,
+                const BlobToMetaConverter &blob_to_meta) override;
+};
+
+class FrameToExistingROIsTensorAttacher : public MetaAttacher {
+  private:
+    GstVideoRegionOfInterestMeta *findROIMeta(GstBuffer *buffer, gint roi_id);
+
+  public:
+    FrameToExistingROIsTensorAttacher() = default;
 
     void attach(const TensorsTable &tensors_batch, FramesWrapper &frames,
                 const BlobToMetaConverter &blob_to_meta) override;

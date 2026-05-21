@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2023-2024 Intel Corporation
+ * Copyright (C) 2023-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -31,6 +31,10 @@ class OpenvinoInputTensor : public OpenvinoInputBlob {
 
   public:
     OpenvinoInputTensor(ov::Tensor tensor) : _tensor(std::move(tensor)) {
+    }
+
+    OpenvinoInputTensor(ov::Tensor tensor, size_t batch_index)
+        : OpenvinoInputBlob(batch_index), _tensor(std::move(tensor)) {
     }
 
     const std::vector<size_t> &GetDims() const override {

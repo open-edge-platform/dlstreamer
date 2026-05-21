@@ -7,11 +7,13 @@
 #include "meta_attacher.h"
 
 #include "gmutex_lock_guard.h"
+#include "gva_base_inference.h"
 #include "gva_utils.h"
 #include "processor_types.h"
 #include <gst/analytics/analytics.h>
 
 #include <exception>
+#include <memory>
 
 using namespace post_processing;
 
@@ -26,6 +28,8 @@ MetaAttacher::Ptr MetaAttacher::create(ConverterType converter_type, AttachType 
             return MetaAttacher::Ptr(new TensorToFrameAttacher());
         case AttachType::TO_ROI:
             return MetaAttacher::Ptr(new TensorToROIAttacher());
+        case AttachType::FRAME_TO_EXISTING_ROIS:
+            return MetaAttacher::Ptr(new FrameToExistingROIsTensorAttacher());
         case AttachType::FOR_MICRO:
             return MetaAttacher::Ptr(new TensorToFrameAttacherForMicro());
         default:
@@ -312,6 +316,80 @@ void TensorToROIAttacher::attach(const TensorsTable &tensors_batch, FramesWrappe
             assert(tensor_data.size() == 1);
             gst_video_region_of_interest_meta_add_param(roi_meta, tensor_data[0]);
             frames[i].roi_classifications->push_back(tensor_data[0]);
+        }
+    }
+}
+
+GstVideoRegionOfInterestMeta *FrameToExistingROIsTensorAttacher::findROIMeta(GstBuffer *buffer, gint roi_id) {
+    if (!buffer)
+        throw std::invalid_argument("Inference frame's buffer is nullptr");
+
+    gpointer state = nullptr;
+    GstVideoRegionOfInterestMeta *meta = nullptr;
+    while ((meta = GST_VIDEO_REGION_OF_INTEREST_META_ITERATE(buffer, &state))) {
+        if (meta->id == roi_id)
+            return meta;
+    }
+
+    return nullptr;
+}
+
+void FrameToExistingROIsTensorAttacher::attach(const TensorsTable &tensors_batch, FramesWrapper &frames,
+                                               const BlobToMetaConverter &) {
+    checkFramesAndTensorsTable(frames, tensors_batch);
+
+    for (size_t i = 0; i < frames.size(); ++i) {
+        if (tensors_batch[i].empty())
+            continue;
+
+        auto &frame = frames[i];
+        GstBuffer *buffer = frame.buffer;
+        if (!buffer)
+            continue;
+
+        GstBuffer **writable_buffer = &frame.buffer;
+        gva_buffer_check_and_make_writable(writable_buffer, PRETTY_FUNCTION_NAME);
+        buffer = frame.buffer;
+
+        GMutexLockGuard guard(frame.meta_mutex);
+
+        for (const auto &tensor_data : tensors_batch[i]) {
+            if (tensor_data.empty())
+                continue;
+
+            if (tensor_data.size() == 1) {
+                GstGVATensorMeta *frame_tensor = GST_GVA_TENSOR_META_ADD(frame.buffer);
+                if (frame_tensor->data)
+                    gst_structure_free(frame_tensor->data);
+
+                frame_tensor->data = tensor_data[0];
+                gst_structure_set(frame_tensor->data, "element_id", G_TYPE_STRING, frame.model_instance_id.c_str(),
+                                  NULL);
+                continue;
+            }
+
+            GstStructure *label_structure = tensor_data[0];
+            GstStructure *metrics_structure = tensor_data[1];
+            gint roi_id = -1;
+            if (!gst_structure_get_int(label_structure, "tensor_id", &roi_id) || roi_id < 0) {
+                gst_structure_free(metrics_structure);
+                gst_structure_free(label_structure);
+                continue;
+            }
+
+            GstVideoRegionOfInterestMeta *writable_roi_meta = findROIMeta(buffer, roi_id);
+            if (!writable_roi_meta) {
+                gst_structure_free(metrics_structure);
+                gst_structure_free(label_structure);
+                continue;
+            }
+
+            gst_video_region_of_interest_meta_add_param(writable_roi_meta, metrics_structure);
+            gst_video_region_of_interest_meta_add_param(writable_roi_meta, label_structure);
+            if (frame.roi_classifications) {
+                frame.roi_classifications->push_back(metrics_structure);
+                frame.roi_classifications->push_back(label_structure);
+            }
         }
     }
 }
