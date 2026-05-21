@@ -4,17 +4,15 @@
 # SPDX-License-Identifier: MIT
 # ==============================================================================
 
-try:
-    import defusedxml.ElementTree as ET
-except ImportError:
-    try:
-        import defusedxml
-        defusedxml.defuse_stdlib()
-        import xml.etree.ElementTree as ET
-    except ImportError:
-        import xml.etree.ElementTree as ET
-
 import sys
+
+# Only use defusedxml - no fallback to unsafe xml.etree
+try:
+    from defusedxml import ElementTree as ET
+except ImportError:
+    print("Error: defusedxml is required for secure XML parsing")
+    print("Please install it with: pip install defusedxml")
+    sys.exit(1)
 
 #usage: python unit_test_results.py path/to/your/results
 
