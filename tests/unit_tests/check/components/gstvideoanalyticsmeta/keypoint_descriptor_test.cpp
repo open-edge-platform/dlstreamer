@@ -204,3 +204,95 @@ TEST(KeypointDescriptorComparison, HrnetDifferentSkeletonFromCoco17) {
     // Both have 17 points but different skeleton connection counts
     EXPECT_NE(coco->skeleton_connection_count, hrnet->skeleton_connection_count);
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// find_in_tag tests
+// ═══════════════════════════════════════════════════════════════════════════════
+
+TEST(KeypointDescriptorFindInTag, ExactMatchCoco17) {
+    const gchar *fmt = nullptr;
+    const auto *desc = gst_analytics_keypoint_descriptor_find_in_tag("body-pose/coco-17", &fmt);
+    ASSERT_NE(desc, nullptr);
+    EXPECT_STREQ(desc->semantic_tag, GST_ANALYTICS_KEYPOINT_BODY_POSE_COCO_17);
+    ASSERT_NE(fmt, nullptr);
+    EXPECT_STREQ(fmt, "body-pose/coco-17");
+}
+
+TEST(KeypointDescriptorFindInTag, CompoundTagModelNameSlashFormat) {
+    const gchar *fmt = nullptr;
+    const auto *desc = gst_analytics_keypoint_descriptor_find_in_tag("Model0/body-pose/coco-17", &fmt);
+    ASSERT_NE(desc, nullptr);
+    EXPECT_STREQ(desc->semantic_tag, GST_ANALYTICS_KEYPOINT_BODY_POSE_COCO_17);
+    ASSERT_NE(fmt, nullptr);
+    EXPECT_STREQ(fmt, "body-pose/coco-17");
+}
+
+TEST(KeypointDescriptorFindInTag, CompoundTagOpenPose18) {
+    const gchar *fmt = nullptr;
+    const auto *desc = gst_analytics_keypoint_descriptor_find_in_tag("my-model/body-pose/openpose-18", &fmt);
+    ASSERT_NE(desc, nullptr);
+    EXPECT_STREQ(desc->semantic_tag, GST_ANALYTICS_KEYPOINT_BODY_POSE_OPENPOSE_18);
+    ASSERT_NE(fmt, nullptr);
+    EXPECT_STREQ(fmt, "body-pose/openpose-18");
+}
+
+TEST(KeypointDescriptorFindInTag, CompoundTagHrnetCoco17) {
+    const gchar *fmt = nullptr;
+    const auto *desc = gst_analytics_keypoint_descriptor_find_in_tag("hrnet/body-pose/hrnet-coco-17", &fmt);
+    ASSERT_NE(desc, nullptr);
+    EXPECT_STREQ(desc->semantic_tag, GST_ANALYTICS_KEYPOINT_BODY_POSE_HRNET_COCO_17);
+    ASSERT_NE(fmt, nullptr);
+    EXPECT_STREQ(fmt, "body-pose/hrnet-coco-17");
+}
+
+TEST(KeypointDescriptorFindInTag, CompoundTagCenterFace5) {
+    const gchar *fmt = nullptr;
+    const auto *desc = gst_analytics_keypoint_descriptor_find_in_tag("face-model/face-landmarks/centerface-5", &fmt);
+    ASSERT_NE(desc, nullptr);
+    EXPECT_STREQ(desc->semantic_tag, GST_ANALYTICS_KEYPOINT_FACE_CENTERFACE_5);
+    ASSERT_NE(fmt, nullptr);
+    EXPECT_STREQ(fmt, "face-landmarks/centerface-5");
+}
+
+TEST(KeypointDescriptorFindInTag, UnknownTagReturnsNull) {
+    const gchar *fmt = nullptr;
+    const auto *desc = gst_analytics_keypoint_descriptor_find_in_tag("SomeModel/unknown-format", &fmt);
+    EXPECT_EQ(desc, nullptr);
+    EXPECT_EQ(fmt, nullptr);
+}
+
+TEST(KeypointDescriptorFindInTag, OnlyModelNameReturnsNull) {
+    const gchar *fmt = nullptr;
+    const auto *desc = gst_analytics_keypoint_descriptor_find_in_tag("SomeModel", &fmt);
+    EXPECT_EQ(desc, nullptr);
+    EXPECT_EQ(fmt, nullptr);
+}
+
+TEST(KeypointDescriptorFindInTag, NullReturnsNull) {
+    const gchar *fmt = nullptr;
+    const auto *desc = gst_analytics_keypoint_descriptor_find_in_tag(nullptr, &fmt);
+    EXPECT_EQ(desc, nullptr);
+    EXPECT_EQ(fmt, nullptr);
+}
+
+TEST(KeypointDescriptorFindInTag, EmptyStringReturnsNull) {
+    const gchar *fmt = nullptr;
+    const auto *desc = gst_analytics_keypoint_descriptor_find_in_tag("", &fmt);
+    EXPECT_EQ(desc, nullptr);
+    EXPECT_EQ(fmt, nullptr);
+}
+
+TEST(KeypointDescriptorFindInTag, FormatStartNullOptional) {
+    // passing NULL for format_start should not crash
+    const auto *desc = gst_analytics_keypoint_descriptor_find_in_tag("Model0/body-pose/coco-17", nullptr);
+    ASSERT_NE(desc, nullptr);
+    EXPECT_STREQ(desc->semantic_tag, GST_ANALYTICS_KEYPOINT_BODY_POSE_COCO_17);
+}
+
+TEST(KeypointDescriptorFindInTag, PartialMatchNotOnBoundary) {
+    // "Xbody-pose/coco-17" — tag suffix matches but not preceded by '/'
+    const gchar *fmt = nullptr;
+    const auto *desc = gst_analytics_keypoint_descriptor_find_in_tag("Xbody-pose/coco-17", &fmt);
+    EXPECT_EQ(desc, nullptr);
+    EXPECT_EQ(fmt, nullptr);
+}

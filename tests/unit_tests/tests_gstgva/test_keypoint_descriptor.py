@@ -166,5 +166,74 @@ class KeypointDescriptorTestCase(unittest.TestCase):
             hrnet.skeleton_connection_count)
 
 
+class FindInTagTestCase(unittest.TestCase):
+    """Tests for DLStreamerMeta.KeypointDescriptor.find_in_tag()."""
+
+    def test_exact_match_coco17(self):
+        desc, fmt = DLStreamerMeta.KeypointDescriptor.find_in_tag(
+            'body-pose/coco-17')
+        self.assertIsNotNone(desc)
+        self.assertEqual(desc.semantic_tag, 'body-pose/coco-17')
+        self.assertEqual(fmt, 'body-pose/coco-17')
+
+    def test_compound_tag_model_name_slash_format(self):
+        desc, fmt = DLStreamerMeta.KeypointDescriptor.find_in_tag(
+            'Model0/body-pose/coco-17')
+        self.assertIsNotNone(desc)
+        self.assertEqual(desc.semantic_tag, 'body-pose/coco-17')
+        self.assertEqual(fmt, 'body-pose/coco-17')
+
+    def test_compound_tag_openpose18(self):
+        desc, fmt = DLStreamerMeta.KeypointDescriptor.find_in_tag(
+            'my-model/body-pose/openpose-18')
+        self.assertIsNotNone(desc)
+        self.assertEqual(desc.semantic_tag, 'body-pose/openpose-18')
+        self.assertEqual(fmt, 'body-pose/openpose-18')
+
+    def test_compound_tag_hrnet_coco17(self):
+        desc, fmt = DLStreamerMeta.KeypointDescriptor.find_in_tag(
+            'hrnet/body-pose/hrnet-coco-17')
+        self.assertIsNotNone(desc)
+        self.assertEqual(desc.semantic_tag, 'body-pose/hrnet-coco-17')
+        self.assertEqual(fmt, 'body-pose/hrnet-coco-17')
+
+    def test_compound_tag_centerface5(self):
+        desc, fmt = DLStreamerMeta.KeypointDescriptor.find_in_tag(
+            'face-model/face-landmarks/centerface-5')
+        self.assertIsNotNone(desc)
+        self.assertEqual(desc.semantic_tag, 'face-landmarks/centerface-5')
+        self.assertEqual(fmt, 'face-landmarks/centerface-5')
+
+    def test_unknown_tag_returns_none(self):
+        desc, fmt = DLStreamerMeta.KeypointDescriptor.find_in_tag(
+            'SomeModel/unknown-format')
+        self.assertIsNone(desc)
+        self.assertIsNone(fmt)
+
+    def test_only_model_name_returns_none(self):
+        desc, fmt = DLStreamerMeta.KeypointDescriptor.find_in_tag(
+            'SomeModel')
+        self.assertIsNone(desc)
+        self.assertIsNone(fmt)
+
+    def test_empty_string_returns_none(self):
+        desc, fmt = DLStreamerMeta.KeypointDescriptor.find_in_tag('')
+        self.assertIsNone(desc)
+        self.assertIsNone(fmt)
+
+    def test_partial_match_not_on_boundary(self):
+        # "Xbody-pose/coco-17" — suffix matches but not preceded by '/'
+        desc, fmt = DLStreamerMeta.KeypointDescriptor.find_in_tag(
+            'Xbody-pose/coco-17')
+        self.assertIsNone(desc)
+        self.assertIsNone(fmt)
+
+    def test_namespace_level_function(self):
+        desc, fmt = DLStreamerMeta.keypoint_descriptor_find_in_tag(
+            'Model0/body-pose/coco-17')
+        self.assertIsNotNone(desc)
+        self.assertEqual(fmt, 'body-pose/coco-17')
+
+
 if __name__ == '__main__':
     unittest.main()

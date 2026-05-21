@@ -6,6 +6,7 @@
 
 add_subdirectory(classification_history)
 add_subdirectory(gstvideoanalyticsmeta)
+add_subdirectory(metaaggregate_copy)
 add_subdirectory(safe_arithmetic)
 add_subdirectory(feature_toggler)
 add_subdirectory(feature_reader)
