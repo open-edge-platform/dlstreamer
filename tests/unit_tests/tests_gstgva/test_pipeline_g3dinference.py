@@ -8,7 +8,7 @@ import json
 import os
 import shutil
 import struct
-import subprocess
+import subprocess  # nosec B404
 import sys
 import tempfile
 import unittest
@@ -69,6 +69,7 @@ def ensure_pointpillars_root():
     sparse_root = os.path.join(cache_root, "openvino_contrib")
     checkout_root = os.path.join(sparse_root, "modules", "3d", "pointPillars")
 
+    # Use absolute path for git to avoid partial path issues
     git_bin = shutil.which("git")
     if git_bin is None:
         raise unittest.SkipTest("git is required to fetch openvino_contrib for PointPillars")
@@ -78,28 +79,28 @@ def ensure_pointpillars_root():
     try:
         if not os.path.isdir(os.path.join(sparse_root, ".git")):
             shutil.rmtree(sparse_root, ignore_errors=True)
-            subprocess.run(
+            subprocess.run(  # nosec B603
                 [git_bin, "clone", "--filter=blob:none", "--sparse", OPENVINO_CONTRIB_URL, sparse_root],
                 check=True,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
             )
-        subprocess.run(
+        subprocess.run(  # nosec B603
             [git_bin, "-C", sparse_root, "sparse-checkout", "set", "modules/3d/pointPillars"],
             check=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
         )
-        subprocess.run(
+        subprocess.run(  # nosec B603
             [git_bin, "-C", sparse_root, "fetch", "--depth", "1", "origin", POINTPILLARS_OPENVINO_CONTRIB_REVISION],
             check=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
         )
-        subprocess.run(
+        subprocess.run(  # nosec B603
             [git_bin, "-C", sparse_root, "checkout", POINTPILLARS_OPENVINO_CONTRIB_REVISION],
             check=True,
             stdout=subprocess.PIPE,
@@ -123,12 +124,21 @@ def ensure_pointpillars_extension(pointpillars_root):
     if not os.path.exists(build_script):
         raise unittest.SkipTest(f"PointPillars build script not found: {build_script}")
 
+    # Validate build script path to prevent injection
+    if not os.path.abspath(build_script).startswith(os.path.abspath(pointpillars_root)):
+        raise unittest.SkipTest(f"Build script path is outside expected directory: {build_script}")
+
     env = os.environ.copy()
     env["PATH"] = os.path.dirname(sys.executable) + os.pathsep + env.get("PATH", "")
 
+    # Use absolute path for bash to avoid partial path issues
+    bash_bin = shutil.which("bash")
+    if bash_bin is None:
+        raise unittest.SkipTest("bash is required to build PointPillars extension")
+
     try:
-        subprocess.run(
-            ["bash", build_script],
+        subprocess.run(  # nosec B603, B607
+            [bash_bin, build_script],
             check=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
