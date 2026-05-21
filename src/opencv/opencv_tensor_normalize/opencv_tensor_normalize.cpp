@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2018-2025 Intel Corporation
+ * Copyright (C) 2018-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -9,6 +9,7 @@
 #include "dlstreamer/cpu/frame_alloc.h"
 #include "dlstreamer/memory_mapper_factory.h"
 #include "dlstreamer/opencv/tensor.h"
+#include "safe_arithmetic.hpp"
 
 namespace dlstreamer {
 
@@ -67,7 +68,7 @@ class OpencvTensorNormalize : public BaseTransform {
         ImageInfo dst_info(dst_tensor->info());
         int w = src_info.width();
         int h = src_info.height();
-        size_t mat_size = w * h;
+        size_t mat_size = safe_convert<size_t>(w) * safe_convert<size_t>(h);
         int channels = src_info.channels();
         int batch = src_info.batch();
 

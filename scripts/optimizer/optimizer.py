@@ -31,6 +31,11 @@ logger.debug("GStreamer version: %d.%d.%d",
             gst_version.minor,
             gst_version.micro)
 
+####################################### Helpers ###################################################
+
+class TestHalt(Exception):
+    pass
+
 ################################### Init and config ###############################################
 
 class DLSOptimizer:
@@ -41,6 +46,7 @@ class DLSOptimizer:
         self._multistream_fps_limit = 30
         self._enable_cross_stream_batching = False
         self._detections_error_threshold = 0.95
+        self._paused = False
 
         # internal fields
         self._initial_detections = 0
@@ -176,7 +182,7 @@ class DLSOptimizer:
         try:
             logger.debug("Measuring performance of the original pipeline...")
             self._initial_pipeline = pipeline.copy()
-            self._initial_fps, self._initial_detections = sample_pipeline([pipeline], self._sample_duration)
+            self._initial_fps, self._initial_detections = self._sample_pipeline([pipeline], self._sample_duration)
             self._optimal_pipeline = []
             self._optimal_fps = 0
             self._optimal_streams = SINGLE_STREAM
@@ -195,7 +201,7 @@ class DLSOptimizer:
 
             if preproc_pipeline != pipeline:
                 logger.info("Measuring performance of the original pipeline after pre-processing optimizations...")
-                sample_pipeline([preproc_pipeline], self._sample_duration)
+                self._sample_pipeline([preproc_pipeline], self._sample_duration)
 
             return preproc_pipeline
 
@@ -216,7 +222,7 @@ class DLSOptimizer:
                     for _ in range(0, streams):
                         pipelines.append(pipeline)
 
-                    fps, detections = sample_pipeline(pipelines, self._sample_duration)
+                    fps, detections = self._sample_pipeline(pipelines, self._sample_duration)
 
                     if initial_detections == 0:
                         # skip only if we still have zero detections
@@ -233,86 +239,92 @@ class DLSOptimizer:
 
                     yield pipeline, fps
 
+                except TestHalt:
+                    logger.info("Testing process paused.")
+                    while self._paused:
+                        time.sleep(0.5)
+                    logger.info("Testing process restarted.")
                 except Exception as e:
                     logger.debug("Pipeline failed to start: %s", e)
 
 ##################################### Pipeline Running ############################################
 
-def sample_pipeline(pipelines, sample_duration):
-    pipelines = pipelines.copy()
+    def _sample_pipeline(self, pipelines, sample_duration):
+        pipelines = pipelines.copy()
 
-    pipeline = pipelines[0]
-    # check if there is an fps counter in the pipeline, add one otherwise
-    has_fps_counter = False
-    for element in pipeline:
-        if "gvafpscounter" in element:
-            has_fps_counter = True
+        pipeline = pipelines[0]
+        # check if there is an fps counter in the pipeline, add one otherwise
+        has_fps_counter = False
+        for element in pipeline:
+            if "gvafpscounter" in element:
+                has_fps_counter = True
 
-    if not has_fps_counter:
-        for i, element in enumerate(reversed(pipeline)):
-            if "gvadetect" in element or "gvaclassify" in element:
-                pipeline.insert(len(pipeline) - i, " queue ! gvafpscounter " )
-                break
+        if not has_fps_counter:
+            for i, element in enumerate(reversed(pipeline)):
+                if "gvadetect" in element or "gvaclassify" in element:
+                    pipeline.insert(len(pipeline) - i, " queue ! gvafpscounter " )
+                    break
 
-    pipelines = list(map(lambda pipeline: "!".join(pipeline), pipelines))
-    pipeline = " ".join(pipelines)
-    logger.debug("Testing: %s", pipeline)
+        pipelines = list(map(lambda pipeline: "!".join(pipeline), pipelines))
+        pipeline = " ".join(pipelines)
+        logger.debug("Testing: %s", pipeline)
 
-    pipeline = Gst.parse_launch(pipeline)
+        pipeline = Gst.parse_launch(pipeline)
 
-    logger.debug("Sampling for %s seconds...", str(sample_duration))
-    fps_counter = next(filter(lambda element: "gvafpscounter" in element.name, reversed(pipeline.children))) # pylint: disable=line-too-long
+        logger.debug("Sampling for %s seconds...", str(sample_duration))
+        fps_counter = next(filter(lambda element: "gvafpscounter" in element.name, reversed(pipeline.children))) # pylint: disable=line-too-long
 
-    bus = pipeline.get_bus()
+        bus = pipeline.get_bus()
 
-    ret = pipeline.set_state(Gst.State.PLAYING)
-    _, state, _ = pipeline.get_state(Gst.CLOCK_TIME_NONE)
-    logger.debug("Pipeline state: %s, %s", state, ret)
-
-    terminate = False
-    start_time = time.time()
-    while not terminate:
-        time.sleep(1)
-
-        # Incorrect pipelines sometimes get stuck in Ready state instead of failing.
-        # Terminate in those cases.
+        ret = pipeline.set_state(Gst.State.PLAYING)
         _, state, _ = pipeline.get_state(Gst.CLOCK_TIME_NONE)
-        if state == Gst.State.READY:
-            pipeline.set_state(Gst.State.NULL)
-            process_bus(bus)
+        logger.debug("Pipeline state: %s, %s", state, ret)
+
+        fps = -1
+        detections = -1
+        try:
+            terminate = False
+            start_time = time.time()
+            while not terminate:
+                if self._paused:
+                    raise TestHalt("Interrupt signal received, halting test run")
+
+                message = bus.timed_pop(1 * Gst.SECOND)
+
+                if message:
+                    if message.type == Gst.MessageType.ERROR:
+                        error, _ = message.parse_error()
+                        logger.error("Pipeline error: %s", error.message)
+                        terminate = True
+                    elif message.type == Gst.MessageType.EOS:
+                        terminate = True
+                    elif message.type == Gst.MessageType.WARNING:
+                        warning, _ = message.parse_warning()
+                        logger.warning("Pipeline warning: %s", warning.message)
+                    elif message.type == Gst.MessageType.STATE_CHANGED:
+                        old, new, _ = message.parse_state_changed()
+                        logger.debug("State changed: %s -> %s ", old, new)
+                    else:
+                        logger.debug("Other message: %s", str(message))
+
+                # Incorrect pipelines sometimes get stuck in Ready state instead of failing.
+                # Terminate in those cases.
+                _, state, _ = pipeline.get_state(Gst.CLOCK_TIME_NONE)
+                if state != Gst.State.PLAYING:
+                    raise RuntimeError("Pipeline not healthy, terminating early")
+
+                cur_time = time.time()
+                if cur_time - start_time > sample_duration:
+                    terminate = True
+        finally:
+            ret = pipeline.set_state(Gst.State.NULL)
+            logger.debug("Setting pipeline to NULL: %s", ret)
+            _, state, _ = pipeline.get_state(Gst.CLOCK_TIME_NONE)
+            logger.debug("Pipeline state: %s", str(state))
+
+            logger.debug("Sampled fps: %.2f", fps)
+            fps = fps_counter.get_property("avg-fps")
+            detections = fps_counter.get_property("detections")
             del pipeline
-            raise RuntimeError("Pipeline not healthy, terminating early")
 
-        cur_time = time.time()
-        if cur_time - start_time > sample_duration:
-            terminate = True
-
-    ret = pipeline.set_state(Gst.State.NULL)
-    logger.debug("Setting pipeline to NULL: %s", ret)
-    _, state, _ = pipeline.get_state(Gst.CLOCK_TIME_NONE)
-    logger.debug("Pipeline state: %s", str(state))
-    process_bus(bus)
-
-    del pipeline
-    fps = fps_counter.get_property("avg-fps")
-    detections = fps_counter.get_property("detections")
-    logger.debug("Sampled fps: %.2f", fps)
-    return fps, detections
-
-def process_bus(bus):
-    # Process any messages from the bus
-    message = bus.pop()
-    while message is not None:
-        if message.type == Gst.MessageType.ERROR:
-            error, _ = message.parse_error()
-            logger.error("Pipeline error: %s", error.message)
-        elif message.type == Gst.MessageType.WARNING:
-            warning, _ = message.parse_warning()
-            logger.warning("Pipeline warning: %s", warning.message)
-        elif message.type == Gst.MessageType.STATE_CHANGED:
-            old, new, _ = message.parse_state_changed()
-            logger.debug("State changed: %s -> %s ", old, new)
-        else:
-            logger.error("Other message: %s", str(message))
-        message = bus.pop()
-
+        return fps, detections
