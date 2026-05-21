@@ -1,28 +1,29 @@
 #!/usr/bin/env python3
-# ==============================================================================
-# Copyright (C) 2021-2026 Intel Corporation
-#
-# SPDX-License-Identifier: MIT
-# ==============================================================================
+"""
+==============================================================================
+Copyright (C) 2021-2026 Intel Corporation
+SPDX-License-Identifier: MIT
+==============================================================================
+==============================================================================
+Mars-Small128 DeepSORT Model Converter to OpenVINO
 
-# ==============================================================================
-# Mars-Small128 DeepSORT Model Converter to OpenVINO
+Uses official deep_sort_pytorch model architecture from:
+https://github.com/ZQPei/deep_sort_pytorch/blob/master/deep_sort/deep/model.py
 
-# Uses official deep_sort_pytorch model architecture from:
-# https://github.com/ZQPei/deep_sort_pytorch/blob/master/deep_sort/deep/model.py
+Generates FP32 and INT8 models optimized for DeepSORT tracking.
 
-# Generates FP32 and INT8 models optimized for DeepSORT tracking.
-
-# Converts the ORIGINAL checkpoint (original_ckpt.t7):
-# - 11MB model size
-# - 32→64→128 channel progression
-# - 625 person classes
-# - 128-dimensional output (standard DeepSORT)
-# ==============================================================================
+Converts the ORIGINAL checkpoint (original_ckpt.t7):
+- 11MB model size
+- 32→64→128 channel progression
+- 625 person classes
+- 128-dimensional output (standard DeepSORT)
+==============================================================================
+"""
 
 import argparse
 import logging
 import urllib.request
+import urllib.parse
 import sys
 from pathlib import Path
 import numpy as np
@@ -34,6 +35,41 @@ import nncf
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
+def validate_url(url: str) -> bool:
+    """Validate URL to ensure it uses safe schemes."""
+    try:
+        parsed = urllib.parse.urlparse(url)
+        # Allow only HTTP and HTTPS schemes
+        if parsed.scheme not in ['http', 'https']:
+            return False
+        # Ensure hostname is present
+        if not parsed.netloc:
+            return False
+        return True
+    except Exception:
+        return False
+
+
+def safe_urlretrieve(url: str, output_path: Path, max_size_mb: int = 100) -> None:
+    """Safely download file with URL validation and size limits."""
+    if not validate_url(url):
+        raise ValueError(f"Invalid or unsafe URL: {url}")
+    
+    try:
+        # Use urllib but with validation
+        urllib.request.urlretrieve(url, output_path)
+        
+        # Check file size after download
+        file_size = output_path.stat().st_size
+        if file_size > max_size_mb * 1024 * 1024:
+            output_path.unlink()  # Remove oversized file
+            raise ValueError(f"Downloaded file too large: {file_size / (1024*1024):.2f} MB > {max_size_mb} MB")
+            
+    except Exception as e:
+        if output_path.exists():
+            output_path.unlink()  # Clean up on failure
+        raise Exception(f"Download failed: {e}")
+
 
 def download_model_py():
     """Download official model.py from deep_sort_pytorch repository."""
@@ -42,7 +78,7 @@ def download_model_py():
 
     logger.info(f"📥 Downloading model.py from deep_sort_pytorch repository...")
     try:
-        urllib.request.urlretrieve(model_py_url, model_py_path)
+        safe_urlretrieve(model_py_url, model_py_path, max_size_mb=5)  # 5MB limit for model.py
         logger.info(f"✅ Downloaded model.py")
     except Exception as e:
         logger.error(f"❌ Failed to download model.py: {e}")
@@ -63,37 +99,35 @@ class NetOriginal(torch.nn.Module):
     Compatible with original_ckpt.t7 (11MB, 625 classes)
     Uses 32→64→128 channel progression with dense layers
     """
-
     def __init__(self, num_classes=625, reid=False):
         super(NetOriginal, self).__init__()
         # Smaller architecture starting with 32 channels
         self.conv = torch.nn.Sequential(
             torch.nn.Conv2d(3, 32, 3, stride=1, padding=1),  # conv.0
-            torch.nn.BatchNorm2d(32),                         # conv.1
-            torch.nn.ReLU(inplace=True),                      # conv.2
+            torch.nn.BatchNorm2d(32),                        # conv.1
+            torch.nn.ReLU(inplace=True),                     # conv.2
             torch.nn.Conv2d(32, 32, 3, stride=1, padding=1), # conv.3
-            torch.nn.BatchNorm2d(32),                         # conv.4
-            torch.nn.ReLU(inplace=True),                      # conv.5
-            torch.nn.MaxPool2d(3, 2, padding=1),              # conv.6
+            torch.nn.BatchNorm2d(32),                        # conv.4
+            torch.nn.ReLU(inplace=True),                     # conv.5
+            torch.nn.MaxPool2d(3, 2, padding=1),            # conv.6
         )
         # Use make_layers from model.py but with BasicBlock
         self.layer1 = make_layers(32, 32, 2, False)
         self.layer2 = make_layers(32, 64, 2, True)
         self.layer3 = make_layers(64, 128, 2, True)
-
         # Dense layers (using indices 1,2 to match checkpoint)
         self.dense = torch.nn.Sequential(
-            torch.nn.Dropout(p=0),                     # dense.0 (placeholder)
-            torch.nn.Linear(128 * 16 * 8, 128),        # dense.1
-            torch.nn.BatchNorm1d(128),                  # dense.2
-            torch.nn.ReLU(inplace=True),                # dense.3
+            torch.nn.Dropout(p=0),                    # dense.0 (placeholder)
+            torch.nn.Linear(128 * 16 * 8, 128),      # dense.1
+            torch.nn.BatchNorm1d(128),               # dense.2
+            torch.nn.ReLU(inplace=True),             # dense.3
         )
         self.batch_norm = torch.nn.BatchNorm1d(128)
         self.reid = reid
         self.classifier = torch.nn.Sequential(
             torch.nn.Linear(128, num_classes),
         )
-
+    
     def forward(self, x):
         x = self.conv(x)
         x = self.layer1(x)
@@ -126,30 +160,44 @@ class MarsDeepSORTConverter:
         checkpoint_filename = 'original_ckpt.t7'
         checkpoint_url = self.CHECKPOINT_ORG_URL
         logger.info("📦 Downloading ORIGINAL checkpoint (11 MB, 32→64→128 channels, 625 classes)")
-
         checkpoint_path = self.output_dir / checkpoint_filename
 
         logger.info(f"📥 Downloading checkpoint from Google Drive...")
         try:
-            urllib.request.urlretrieve(checkpoint_url, checkpoint_path)
+            safe_urlretrieve(checkpoint_url, checkpoint_path, max_size_mb=50)  # 50MB limit for checkpoint
         except Exception as e:
             logger.error(f"❌ Failed to download checkpoint: {e}")
             sys.exit(1)
 
         size_mb = checkpoint_path.stat().st_size / (1024 * 1024)
         logger.info(f"✅ Downloaded checkpoint: {size_mb:.2f} MB")
-
         return checkpoint_path
 
     def load_model(self, checkpoint_path: Path) -> torch.nn.Module:
         """Load model from checkpoint in reid (feature extraction) mode."""
-        logger.info("🏗️  Loading DeepSORT model in reid mode...")
+        logger.info("🏗️ Loading DeepSORT model in reid mode...")
         logger.info("📐 Using NetOriginal architecture (32→64→128 channels, 625 classes)")
 
         model = NetOriginal(reid=True)
 
-        # Load checkpoint
-        checkpoint = torch.load(checkpoint_path, map_location='cpu', weights_only=False)
+        # Load checkpoint with safety measures
+        try:
+            # First try with weights_only=True for safety
+            checkpoint = torch.load(checkpoint_path, map_location='cpu', weights_only=True)
+            logger.info("✅ Loaded checkpoint with weights_only=True (safe mode)")
+        except Exception as e:
+            logger.warning(f"⚠️ Failed to load with weights_only=True: {e}")
+            logger.warning("⚠️ Falling back to weights_only=False - ensure checkpoint is from trusted source!")
+
+            # Verify file size before loading with weights_only=False
+            file_size = checkpoint_path.stat().st_size
+            if file_size > 50 * 1024 * 1024:  # 50MB limit
+                logger.error(f"❌ Checkpoint file too large: {file_size / (1024*1024):.2f} MB")
+                sys.exit(1)
+
+            # Load with explicit warning - this is needed for older PyTorch checkpoints
+            checkpoint = torch.load(checkpoint_path, map_location='cpu', weights_only=False)
+            logger.warning("⚠️ Loaded checkpoint with weights_only=False")
 
         if 'net_dict' in checkpoint:
             model.load_state_dict(checkpoint['net_dict'])
@@ -160,7 +208,6 @@ class MarsDeepSORTConverter:
 
         model.eval()
         logger.info("✅ Model loaded successfully")
-
         return model
 
     def convert_to_fp32(self, model: torch.nn.Module, output_name: str = "mars_small128_fp32") -> Path:
@@ -182,14 +229,11 @@ class MarsDeepSORTConverter:
 
         # Save model
         ov.save_model(ov_model, str(output_path))
-
         logger.info(f"✅ FP32 model saved: {output_path}")
         self._verify_model(output_path)
-
         return output_path
 
-    def convert_to_int8(self, model: torch.nn.Module, output_name: str = "mars_small128_int8",
-                        calibration_size: int = 200) -> Path:
+    def convert_to_int8(self, model: torch.nn.Module, output_name: str = "mars_small128_int8", calibration_size: int = 200) -> Path:
         """Convert PyTorch model to OpenVINO INT8 format with NNCF quantization."""
         logger.info("🔄 Converting to OpenVINO INT8 with NNCF quantization...")
 
@@ -222,10 +266,8 @@ class MarsDeepSORTConverter:
 
         # Save quantized model
         ov.save_model(quantized_model, str(output_path))
-
         logger.info(f"✅ INT8 model saved: {output_path}")
         self._verify_model(output_path)
-
         return output_path
 
     def _generate_calibration_data(self, num_samples: int) -> list:
@@ -259,7 +301,7 @@ class MarsDeepSORTConverter:
         logger.info(f"  📏 L2 norm: {np.linalg.norm(output):.6f}")
 
         if output.shape[-1] != 128:
-            logger.warning(f"⚠️  Expected 128-dim output, got {output.shape[-1]}")
+            logger.warning(f"⚠️ Expected 128-dim output, got {output.shape[-1]}")
 
 
 def main():
@@ -330,12 +372,10 @@ def main():
         import traceback
         traceback.print_exc()
 
-        # Clean up on failure too
         model_py_path = Path(__file__).parent / 'model.py'
         if model_py_path.exists():
             model_py_path.unlink()
             logger.info("🧹 Cleaned up temporary model.py file")
-
         return 1
 
     return 0
