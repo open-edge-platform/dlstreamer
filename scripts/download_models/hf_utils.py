@@ -50,8 +50,15 @@ CUSTOM_CONVERTERS = {
     "depthanythingfordepthestimation",
 }
 
+# Default revision for security - can be overridden
+DEFAULT_REVISION = "main"
 
-def get_hf_model_support_level(model_id: str, token: str | None = None) -> int:
+
+def get_hf_model_support_level(
+    model_id: str, 
+    token: str | None = None, 
+    revision: str | None = None
+) -> int:
     """Classify support level for a Hugging Face model ID.
 
     Returns:
@@ -59,6 +66,9 @@ def get_hf_model_support_level(model_id: str, token: str | None = None) -> int:
         1: model ID or one of its architectures is in CUSTOM_CONVERTERS
         2: otherwise
     """
+    if revision is None:
+        revision = DEFAULT_REVISION
+        
     supported_hf_models_lower = {item.lower() for item in SUPPORTED_HF_MODELS}
     custom_converters_lower = {item.lower() for item in CUSTOM_CONVERTERS}
 
@@ -71,7 +81,9 @@ def get_hf_model_support_level(model_id: str, token: str | None = None) -> int:
         return 1
 
     try:
-        architectures = load_hf_architectures_from_repo(normalized_model_id, token)
+        architectures = load_hf_architectures_from_repo(
+            normalized_model_id, token, revision
+        )
     except ValueError:
         return 2
 
@@ -88,15 +100,18 @@ def custom_conversion(
     outdir: Path,
     token: str | None,
     extra_args: list[str] | None = None,
+    revision: str | None = None,
 ) -> Path:
     """Run custom conversion for architectures listed in CUSTOM_CONVERTERS."""
     if extra_args is None:
         extra_args = []
+    if revision is None:
+        revision = DEFAULT_REVISION
 
     if model_id.lower() in CUSTOM_CONVERTERS:
         primary_arch = model_id.lower()
     else:
-        architectures = load_hf_architectures_from_repo(model_id, token)
+        architectures = load_hf_architectures_from_repo(model_id, token, revision)
         primary_arch = architectures[0].lower()
 
     export_dir = outdir / Path(model_id).name
@@ -107,6 +122,7 @@ def custom_conversion(
                 model_id,
                 export_dir,
                 token,
+                revision=revision,
             ),
         ),
         "rtdetrforobjectdetection": (
@@ -116,6 +132,7 @@ def custom_conversion(
                 export_dir,
                 token,
                 extra_args=extra_args,
+                revision=revision,
             ),
         ),
         "rtdetrv2forobjectdetection": (
@@ -125,6 +142,7 @@ def custom_conversion(
                 export_dir,
                 token,
                 extra_args=extra_args,
+                revision=revision,
             ),
         ),
         "depthanythingfordepthestimation": (
@@ -134,6 +152,7 @@ def custom_conversion(
                 export_dir,
                 token,
                 extra_args=extra_args,
+                revision=revision,
             ),
         ),
     }
@@ -146,8 +165,16 @@ def custom_conversion(
 def load_hf_architectures_from_repo(
     model_id: str,
     token: str | None,
+    revision: str | None = None,
 ) -> list[str]:
-    config = AutoConfig.from_pretrained(model_id, token=token)
+    if revision is None:
+        revision = DEFAULT_REVISION
+        
+    config = AutoConfig.from_pretrained(
+        model_id, 
+        token=token, 
+        revision=revision  # Pin revision for security
+    )
     architectures = getattr(config, "architectures", None)
     if not architectures:
         raise ValueError("HuggingFace config has no architectures list")
@@ -163,18 +190,29 @@ def export_hf_clip_to_openvino(
     model_ref: str,
     outdir: Path,
     token: str | None,
+    revision: str | None = None,
 ) -> Path:
     """Export CLIP vision encoder to OpenVINO IR.
 
     This exports only the visual feature extractor (no text encoder).
     """
+    if revision is None:
+        revision = DEFAULT_REVISION
+        
     outdir.mkdir(parents=True, exist_ok=True)
 
-    vision_model = CLIPVisionModel.from_pretrained(model_ref)
+    vision_model = CLIPVisionModel.from_pretrained(
+        model_ref, 
+        revision=revision  # Pin revision for security
+    )
     vision_model.eval()
 
     img = Image.new("RGB", (224, 224))
-    processor = AutoProcessor.from_pretrained(model_ref, token=token)
+    processor = AutoProcessor.from_pretrained(
+        model_ref, 
+        token=token, 
+        revision=revision  # Pin revision for security
+    )
     batch = processor.image_processor(images=img, return_tensors="pt")["pixel_values"]
 
     ov_model = convert_model(vision_model, example_input=batch)
@@ -204,11 +242,15 @@ def export_hf_rtdetr_to_openvino(
     outdir: Path,
     token: str | None,
     extra_args: list[str] | None = None,
+    revision: str | None = None,
 ) -> Path:
     """Export RT-DETR via PyTorch -> ONNX -> OpenVINO IR.
 
     Requires `optimum`, `huggingface_hub`, and `openvino` to be installed.
     """
+    if revision is None:
+        revision = DEFAULT_REVISION
+        
     outdir.mkdir(parents=True, exist_ok=True)
     _ = extra_args
     model_id = model_ref
@@ -222,6 +264,7 @@ def export_hf_rtdetr_to_openvino(
         width=640,
         height=640,
         auth_token=token,
+        revision=revision,  # Pin revision for security
     )
 
     hf_hub_download(
@@ -229,6 +272,7 @@ def export_hf_rtdetr_to_openvino(
         filename="preprocessor_config.json",
         local_dir=str(outdir),
         token=token,
+        revision=revision,  # Pin revision for security
     )
 
     ov_model = convert_model(str(model_onnx))
@@ -243,20 +287,32 @@ def export_hf_depthanything_to_openvino(
     outdir: Path,
     token: str | None,
     extra_args: list[str] | None = None,
+    revision: str | None = None,
 ) -> Path:
     """Export DepthAnything via PyTorch -> OpenVINO IR.
 
     Requires `huggingface_hub` and `openvino` to be installed.
     """
+    if revision is None:
+        revision = DEFAULT_REVISION
+        
     outdir.mkdir(parents=True, exist_ok=True)
     _ = extra_args
     model_id = model_ref
 
-    model = AutoModelForDepthEstimation.from_pretrained(model_ref, token=token)
+    model = AutoModelForDepthEstimation.from_pretrained(
+        model_ref, 
+        token=token, 
+        revision=revision  # Pin revision for security
+    )
     model.eval()
 
     img = Image.new("RGB", (224, 224))
-    processor = AutoImageProcessor.from_pretrained(model_ref, token=token)
+    processor = AutoImageProcessor.from_pretrained(
+        model_ref, 
+        token=token, 
+        revision=revision  # Pin revision for security
+    )
     batch = processor(images=img, return_tensors="pt")["pixel_values"]
 
     ov_model = convert_model(model, example_input=batch)
@@ -266,6 +322,7 @@ def export_hf_depthanything_to_openvino(
         filename="config.json",
         local_dir=str(outdir),
         token=token,
+        revision=revision,  # Pin revision for security
     )
 
     hf_hub_download(
@@ -273,6 +330,7 @@ def export_hf_depthanything_to_openvino(
         filename="preprocessor_config.json",
         local_dir=str(outdir),
         token=token,
+        revision=revision,  # Pin revision for security
     )
 
     model_name = Path(model_ref).name
