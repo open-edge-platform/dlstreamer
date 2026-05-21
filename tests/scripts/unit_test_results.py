@@ -7,7 +7,13 @@
 try:
     import defusedxml.ElementTree as ET
 except ImportError:
-    import xml.etree.ElementTree as ET
+    try:
+        import defusedxml
+        defusedxml.defuse_stdlib()
+        import xml.etree.ElementTree as ET
+    except ImportError:
+        import xml.etree.ElementTree as ET
+
 import sys
 
 #usage: python unit_test_results.py path/to/your/results
