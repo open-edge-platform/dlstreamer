@@ -6,13 +6,16 @@
 
 import os
 import unittest
+import tempfile
 
 from pipeline_runner import TestPipelineRunner
 from utils import BBox, get_model_path, get_model_proc_path
 
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 IMAGE_PATH = os.path.join(SCRIPT_DIR, "test_files", "face_detection.png")
-FILE_PATH = os.path.join("/tmp", "meta_fdc.json")
+
+# Use secure temporary directory instead of hardcoded /tmp
+FILE_PATH = os.path.join(tempfile.gettempdir(), "meta_fdc.json")
 
 D_MODEL_PATH = get_model_path("face-detection-adas-0001")
 C1_MODEL_NAME = "age-gender-recognition-retail-0013"
@@ -198,18 +201,40 @@ GROUND_TRUTH_IE = [
 
 
 class TestFaceDetectionAndClassification(unittest.TestCase):
+    def setUp(self):
+        """Set up test fixtures before each test method."""
+        # Create a unique temporary file for each test
+        self.temp_file = tempfile.NamedTemporaryFile(
+            suffix=".json",
+            prefix="meta_fdc_",
+            delete=False
+        )
+        self.temp_file_path = self.temp_file.name
+        self.temp_file.close()
+
+    def tearDown(self):
+        """Clean up after each test method."""
+        # Remove temporary file if it exists
+        if os.path.isfile(self.temp_file_path):
+            os.remove(self.temp_file_path)
+
     def test_face_detection_and_classification_pipeline(self):
+        """Test face detection and classification pipeline."""
         pipeline_runner = TestPipelineRunner()
         for pipeline_str in set_of_pipelines():
+            # Replace FILE_PATH with our secure temporary file path
+            secure_pipeline_str = pipeline_str.replace(FILE_PATH, self.temp_file_path)
 
-            if "pre-process-backend=opencv" in pipeline_str:
-                pipeline_runner.set_pipeline(pipeline_str, IMAGE_PATH, GROUND_TRUTH_CV)
+            if "pre-process-backend=opencv" in secure_pipeline_str:
+                pipeline_runner.set_pipeline(secure_pipeline_str, IMAGE_PATH, GROUND_TRUTH_CV)
             else:
-                pipeline_runner.set_pipeline(pipeline_str, IMAGE_PATH, GROUND_TRUTH_IE)
+                pipeline_runner.set_pipeline(secure_pipeline_str, IMAGE_PATH, GROUND_TRUTH_IE)
+            
             pipeline_runner.run_pipeline()
 
-            if os.path.isfile(FILE_PATH):
-                os.remove(FILE_PATH)
+            # Clean up after each pipeline run
+            if os.path.isfile(self.temp_file_path):
+                os.remove(self.temp_file_path)
 
             for e in pipeline_runner.exceptions:
                 print(e)
