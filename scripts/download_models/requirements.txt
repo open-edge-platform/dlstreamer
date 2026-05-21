@@ -1,8 +1,2 @@
---extra-index-url https://download.pytorch.org/whl/cpu
-torch==2.12.0+cpu
-timm==1.0.27
-numpy==2.4.4
-pillow==12.2.0
-nncf==3.1.0
 ultralytics==8.4.3
 optimum-onnx==0.1.0

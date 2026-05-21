@@ -17,12 +17,12 @@ This folder contains standalone conversion CLIs:
 
 2. Install dependencies:
 ```code
-   curl -LO https://raw.githubusercontent.com/openvinotoolkit/openvino.genai/refs/heads/releases/2026/0/samples/export-requirements.txt
+   curl -LO https://raw.githubusercontent.com/openvinotoolkit/openvino.genai/refs/heads/releases/2026/1/samples/export-requirements.txt
    pip install -r export-requirements.txt -r requirements.txt
    ```
 
-The local `requirements.txt` installs model-source specific packages used by
-these scripts.
+The OpenVINO export requirements provide the shared model export stack. The
+local `requirements.txt` adds packages specific to the helper scripts.
 
 ## 1) Hugging Face conversion
 
