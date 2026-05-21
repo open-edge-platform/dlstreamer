@@ -1,5 +1,5 @@
 #!/bin/python3
-import subprocess
+import subprocess  # nosec B404
 import re
 import sys
 import shutil
@@ -22,7 +22,7 @@ def get_elements(lib):
         return elements
     
     try:
-        result = subprocess.Popen(
+        result = subprocess.Popen(  # nosec B603
             [gst_inspect_path, lib], 
             stdout=subprocess.PIPE, 
             stderr=subprocess.PIPE,
@@ -39,10 +39,12 @@ def get_elements(lib):
             if match:
                 elements.append(match.group(1))
                 
-    except subprocess.SubprocessError:
-        pass
-    except Exception:
-        pass
+    except subprocess.SubprocessError as e:
+        print(f"Subprocess error while inspecting {lib}: {e}", file=sys.stderr)
+    except OSError as e:
+        print(f"OS error while inspecting {lib}: {e}", file=sys.stderr)
+    except Exception as e:
+        print(f"Unexpected error while inspecting {lib}: {e}", file=sys.stderr)
 
     return elements
 
