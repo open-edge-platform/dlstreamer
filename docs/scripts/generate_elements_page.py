@@ -1,37 +1,48 @@
-# ==============================================================================
-# Copyright (C) 2023-2026 Intel Corporation
-#
-# SPDX-License-Identifier: MIT
-# ==============================================================================
-
-# ==============================================================================
-# run this script to generate rst file with dlstreamer elements(description, caps, pads)
-#   args: file name to save generated doc
-# ==============================================================================
-
 #!/bin/python3
 import subprocess
 import re
 import sys
+import shutil
+import os
 import gi
 gi.require_version('Gst', '1.0')
 gi.require_version('GLib', '2.0')
-from gi.repository import Gst, GLib # pylint: disable=no-name-in-module, wrong-import-position
+from gi.repository import Gst, GLib
 
 import inspect
 
 def get_elements(lib):
     elements = []
-
-    result = subprocess.Popen(['gst-inspect-1.0', lib], stdout=subprocess.PIPE)
-    while True:
-        line = result.stdout.readline()
-        if not line:
-            break
-        line = line.decode('utf-8').rstrip('\n')
-        match = re.match(r"^\s+([^\s]\w+):", str(line))
-        if match:
-            elements.append(match.group(1))
+    
+    gst_inspect_path = shutil.which('gst-inspect-1.0')
+    if not gst_inspect_path:
+        return elements
+    
+    if not re.match(r'^[a-zA-Z0-9_]+$', lib):
+        return elements
+    
+    try:
+        result = subprocess.Popen(
+            [gst_inspect_path, lib], 
+            stdout=subprocess.PIPE, 
+            stderr=subprocess.PIPE,
+            text=True
+        )
+        
+        stdout, stderr = result.communicate()
+        
+        if result.returncode != 0:
+            return elements
+            
+        for line in stdout.splitlines():
+            match = re.match(r"^\s+([^\s]\w+):", line)
+            if match:
+                elements.append(match.group(1))
+                
+    except subprocess.SubprocessError:
+        pass
+    except Exception:
+        pass
 
     return elements
 
@@ -195,6 +206,5 @@ if __name__ == "__main__":
 
     if len(sys.argv) > 1 and sys.argv[1]:
         page_file_name = sys.argv[1]
-
 
     generate_elements_page(page_file_name)

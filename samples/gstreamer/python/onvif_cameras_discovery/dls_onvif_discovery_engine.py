@@ -19,9 +19,13 @@ import socket
 import threading
 import time
 import uuid
-import xml.etree.ElementTree as ET
 from typing import Any, AsyncIterator, Iterator, List, Optional
 from urllib.parse import urlparse
+
+try:
+    import defusedxml.ElementTree as ET
+except ImportError:
+    import xml.etree.ElementTree as ET
 
 import gi
 

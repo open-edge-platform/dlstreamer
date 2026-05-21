@@ -48,29 +48,29 @@ class ONVIFProfile:  # pylint: disable=too-many-instance-attributes, too-many-pu
 
     def __init__(self):
         # IP:
-        self.ip_address = ""
+        self.ip_address = None
         self._port = 0
-        self._username = ""
-        self._password = ""
+        self._username = None
+        self._password = None
 
         # ONVIF Profile details
-        self._name = ""
-        self._token = ""
+        self._name = None
+        self._token = None
         self._fixed = False
-        self._video_source_configuration = ""
-        self._video_encoder_configuration = ""
-        self._rtsp_url = ""
+        self._video_source_configuration = None
+        self._video_encoder_configuration = None
+        self._rtsp_url = None
 
         # Video Source Configuration details
-        self._vsc_name = ""
-        self._vsc_token = ""
-        self._vsc_source_token = ""
+        self._vsc_name = None
+        self._vsc_token = None
+        self._vsc_source_token = None
         self._vsc_bounds = {}
 
         # Video Encoder Configuration details
-        self._vec_name = ""
-        self._vec_token = ""
-        self._vec_encoding = ""
+        self._vec_name = None
+        self._vec_token = None
+        self._vec_encoding = None
         self._vec_resolution = {}
         self._vec_quality = 0
         self._vec_rate_control = {}
@@ -78,32 +78,32 @@ class ONVIFProfile:  # pylint: disable=too-many-instance-attributes, too-many-pu
         self.vec_framerate_limit = 0
         self.vec_bitrate_limit = 0
         self.vec_encoding_interval = 0
-        self.vec_h264_profile = ""
+        self.vec_h264_profile = None
         self.vec_h264_gop_length = 0
-        self.vec_mpeg4_profile = ""
+        self.vec_mpeg4_profile = None
         self.vec_mpeg4_gop_length = 0
 
         # PTZ Configuration details
-        self._ptz_name = ""
-        self._ptz_token = ""
-        self._ptz_node_token = ""
+        self._ptz_name = None
+        self._ptz_token = None
+        self._ptz_node_token = None
 
         # Audio Source Configuration details
-        self.asc_name = ""
-        self.asc_token = ""
-        self.asc_source_token = ""
+        self.asc_name = None
+        self.asc_token = None
+        self.asc_source_token = None
 
         # Audio Encoder Configuration details
-        self._aec_name = ""
-        self._aec_token = ""
-        self._aec_encoding = ""
+        self._aec_name = None
+        self._aec_token = None
+        self._aec_encoding = None
         self._aec_bitrate = 0
         self._aec_sample_rate = 0
 
     @property
     def ip(self) -> str:
         """Get the IP address of the camera."""
-        return self.ip_address
+        return self.ip_address or ""
 
     @ip.setter
     def ip(self, ip_address: str):
@@ -123,7 +123,7 @@ class ONVIFProfile:  # pylint: disable=too-many-instance-attributes, too-many-pu
     @property
     def username(self) -> str:
         """Get the username for camera authentication."""
-        return self._username
+        return self._username or ""
 
     @username.setter
     def username(self, username: str):
@@ -133,7 +133,7 @@ class ONVIFProfile:  # pylint: disable=too-many-instance-attributes, too-many-pu
     @property
     def password(self) -> str:
         """Get the password for camera authentication."""
-        return self._password
+        return self._password or ""
 
     @password.setter
     def password(self, password: str):
@@ -143,7 +143,7 @@ class ONVIFProfile:  # pylint: disable=too-many-instance-attributes, too-many-pu
     @property
     def name(self) -> str:
         """Get the name of the ONVIF profile."""
-        return self._name
+        return self._name or ""
 
     @name.setter
     def name(self, name: str):
@@ -153,7 +153,7 @@ class ONVIFProfile:  # pylint: disable=too-many-instance-attributes, too-many-pu
     @property
     def token(self) -> str:
         """Get the token of the ONVIF profile."""
-        return self._token
+        return self._token or ""
 
     @token.setter
     def token(self, token: str):
@@ -173,7 +173,7 @@ class ONVIFProfile:  # pylint: disable=too-many-instance-attributes, too-many-pu
     @property
     def video_source_configuration(self) -> str:
         """Get the video source configuration of the ONVIF profile."""
-        return self._video_source_configuration
+        return self._video_source_configuration or ""
 
     @video_source_configuration.setter
     def video_source_configuration(self, video_source_configuration: str):
@@ -183,7 +183,7 @@ class ONVIFProfile:  # pylint: disable=too-many-instance-attributes, too-many-pu
     @property
     def video_encoder_configuration(self) -> str:
         """Get the video encoder configuration of the ONVIF profile."""
-        return self._video_encoder_configuration
+        return self._video_encoder_configuration or ""
 
     @video_encoder_configuration.setter
     def video_encoder_configuration(self, video_encoder_configuration: str):
@@ -193,7 +193,7 @@ class ONVIFProfile:  # pylint: disable=too-many-instance-attributes, too-many-pu
     @property
     def rtsp_url(self) -> str:
         """Get the RTSP URL of the ONVIF profile."""
-        return self._rtsp_url
+        return self._rtsp_url or ""
 
     @rtsp_url.setter
     def rtsp_url(self, rtsp_url: str):
@@ -204,7 +204,7 @@ class ONVIFProfile:  # pylint: disable=too-many-instance-attributes, too-many-pu
     @property
     def vsc_name(self) -> str:
         """Get the name of the Video Source Configuration."""
-        return self._vsc_name
+        return self._vsc_name or ""
 
     @vsc_name.setter
     def vsc_name(self, vsc_name: str):
@@ -214,7 +214,7 @@ class ONVIFProfile:  # pylint: disable=too-many-instance-attributes, too-many-pu
     @property
     def vsc_token(self) -> str:
         """Get the token of the Video Source Configuration."""
-        return self._vsc_token
+        return self._vsc_token or ""
 
     @vsc_token.setter
     def vsc_token(self, vsc_token: str):
@@ -224,7 +224,7 @@ class ONVIFProfile:  # pylint: disable=too-many-instance-attributes, too-many-pu
     @property
     def vsc_source_token(self) -> str:
         """Get the source token of the Video Source Configuration."""
-        return self._vsc_source_token
+        return self._vsc_source_token or ""
 
     @vsc_source_token.setter
     def vsc_source_token(self, vsc_source_token: str):
@@ -245,7 +245,7 @@ class ONVIFProfile:  # pylint: disable=too-many-instance-attributes, too-many-pu
     @property
     def vec_name(self) -> str:
         """Get the name of the Video Encoder Configuration."""
-        return self._vec_name
+        return self._vec_name or ""
 
     @vec_name.setter
     def vec_name(self, vec_name: str):
@@ -255,7 +255,7 @@ class ONVIFProfile:  # pylint: disable=too-many-instance-attributes, too-many-pu
     @property
     def vec_token(self) -> str:
         """Get the token of the Video Encoder Configuration."""
-        return self._vec_token
+        return self._vec_token or ""
 
     @vec_token.setter
     def vec_token(self, vec_token: str):
@@ -265,7 +265,7 @@ class ONVIFProfile:  # pylint: disable=too-many-instance-attributes, too-many-pu
     @property
     def vec_encoding(self) -> str:
         """Get the encoding of the Video Encoder Configuration."""
-        return self._vec_encoding
+        return self._vec_encoding or ""
 
     @vec_encoding.setter
     def vec_encoding(self, vec_encoding: str):
@@ -316,7 +316,7 @@ class ONVIFProfile:  # pylint: disable=too-many-instance-attributes, too-many-pu
     @property
     def ptz_name(self) -> str:
         """Get the name of the PTZ Configuration."""
-        return self._ptz_name
+        return self._ptz_name or ""
 
     @ptz_name.setter
     def ptz_name(self, ptz_name: str):
@@ -326,7 +326,7 @@ class ONVIFProfile:  # pylint: disable=too-many-instance-attributes, too-many-pu
     @property
     def ptz_token(self) -> str:
         """Get the token of the PTZ Configuration."""
-        return self._ptz_token
+        return self._ptz_token or ""
 
     @ptz_token.setter
     def ptz_token(self, ptz_token: str):
@@ -336,7 +336,7 @@ class ONVIFProfile:  # pylint: disable=too-many-instance-attributes, too-many-pu
     @property
     def ptz_node_token(self) -> str:
         """Get the node token of the PTZ Configuration."""
-        return self._ptz_node_token
+        return self._ptz_node_token or ""
 
     @ptz_node_token.setter
     def ptz_node_token(self, ptz_node_token: str):
@@ -346,7 +346,7 @@ class ONVIFProfile:  # pylint: disable=too-many-instance-attributes, too-many-pu
     @property
     def aec_name(self) -> str:
         """Get the name of the Audio Encoder Configuration."""
-        return self._aec_name
+        return self._aec_name or ""
 
     @aec_name.setter
     def aec_name(self, aec_name: str):
@@ -356,7 +356,7 @@ class ONVIFProfile:  # pylint: disable=too-many-instance-attributes, too-many-pu
     @property
     def aec_token(self) -> str:
         """Get the token of the Audio Encoder Configuration."""
-        return self._aec_token
+        return self._aec_token or ""
 
     @aec_token.setter
     def aec_token(self, aec_token: str):
@@ -366,7 +366,7 @@ class ONVIFProfile:  # pylint: disable=too-many-instance-attributes, too-many-pu
     @property
     def aec_encoding(self) -> str:
         """Get the encoding of the Audio Encoder Configuration."""
-        return self._aec_encoding
+        return self._aec_encoding or ""
 
     @aec_encoding.setter
     def aec_encoding(self, aec_encoding: str):

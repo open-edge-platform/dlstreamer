@@ -12,6 +12,7 @@ import argparse
 import statistics
 import time
 import urllib.request
+import urllib.parse
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -83,6 +84,11 @@ def prepare_video() -> Path:
     """Download test video if not cached."""
     if VIDEO_PATH.exists():
         return VIDEO_PATH
+    
+    parsed = urllib.parse.urlparse(VIDEO_URL)
+    if parsed.scheme not in ('https', 'http'):
+        raise ValueError(f"Unsafe URL scheme: {parsed.scheme}")
+    
     VIDEO_PATH.parent.mkdir(parents=True, exist_ok=True)
     print("Downloading test video ...")
     urllib.request.urlretrieve(VIDEO_URL, VIDEO_PATH)

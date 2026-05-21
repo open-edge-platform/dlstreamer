@@ -20,6 +20,8 @@ Usage (from shell — prints KEY=VALUE lines for eval):
 import os
 import subprocess
 import sys
+import shutil
+import re
 
 # Disable Xet storage backend — it fails behind corporate proxies (e.g. Fortinet)
 os.environ.setdefault("HF_HUB_DISABLE_XET", "1")
@@ -70,6 +72,7 @@ def prepare_detection_model():
         repo_id="arnabdhar/YOLOv8-Face-Detection",
         filename="model.pt",
         local_dir=runtime_dir,
+        revision="main",
     )
     model = YOLO(str(model_path))
     exported_model_path = model.export(format="openvino", dynamic=False, imgsz=640)
@@ -118,9 +121,16 @@ def _prepare_hf_classification_model(repo_id, subdir, log_label):
         file=sys.stderr,
     )
     if not _is_ir_model_ready(dynamic_xml):
+        optimum_cli_path = shutil.which("optimum-cli")
+        if not optimum_cli_path:
+            raise RuntimeError("optimum-cli not found in PATH")
+        
+        if not re.match(r'^[a-zA-Z0-9_/-]+$', repo_id):
+            raise ValueError(f"Invalid repo_id format: {repo_id}")
+        
         subprocess.run(
             [
-                "optimum-cli",
+                optimum_cli_path,
                 "export",
                 "openvino",
                 "--model",

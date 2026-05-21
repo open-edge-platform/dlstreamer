@@ -15,6 +15,7 @@ import re
 import subprocess
 import sys
 import threading
+import shutil
 
 # Get arguments
 if len(sys.argv) not in [4,5]:
@@ -133,7 +134,16 @@ nvcr.io/nvidia/deepstream:8.0-samples-multiarch /bin/bash -c"""
 deepstream_docker=deepstream_docker.replace("\n", " ")
 
 # Check for Intel and Nvidia hardware
-lspci_output=os.popen("lspci -nn").read().split("\n")
+lspci_path = shutil.which("lspci")
+if lspci_path:
+    try:
+        result = subprocess.run([lspci_path, "-nn"], capture_output=True, text=True, check=True)
+        lspci_output = result.stdout.split("\n")
+    except subprocess.SubprocessError:
+        lspci_output = []
+else:
+    lspci_output = []
+
 video_pattern = re.compile("^.*?(VGA|3D|Display).*$")
 INTEL_GPU=False
 NVIDIA_GPU=False
@@ -147,9 +157,16 @@ for pci_dev in lspci_output:
 
 if os.path.exists("/dev/accel"):
     INTEL_NPU=True
-lscpu_output=os.popen("lscpu").read().replace("\n", " ")
-if "Intel" in lscpu_output:
-    INTEL_CPU=True
+
+lscpu_path = shutil.which("lscpu")
+if lscpu_path:
+    try:
+        result = subprocess.run([lscpu_path], capture_output=True, text=True, check=True)
+        lscpu_output = result.stdout.replace("\n", " ")
+        if "Intel" in lscpu_output:
+            INTEL_CPU=True
+    except subprocess.SubprocessError:
+        pass
 
 def print_intel_detected(hardware):
     """Prints Intel hardware detection box"""
@@ -280,4 +297,3 @@ elif INTEL_CPU:
     t1 = threading.Thread(target=run_dlstreamer_pipeline)
     t1.start()
     t1.join()
-

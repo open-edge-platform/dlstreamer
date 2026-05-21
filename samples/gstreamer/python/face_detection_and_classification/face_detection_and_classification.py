@@ -7,6 +7,8 @@ import sys
 import os
 import subprocess
 import urllib.request
+import urllib.parse
+import shutil
 
 from huggingface_hub import hf_hub_download
 from ultralytics import YOLO
@@ -43,6 +45,11 @@ def prepare_input_video(args):
         input_video = os.path.join(runtime_dir, "default_video.mp4")
         if not os.path.isfile(input_video):
             print("\nNo input provided. Downloading default video...\n")
+            
+            parsed = urllib.parse.urlparse(default_video_url)
+            if parsed.scheme not in ('https', 'http'):
+                raise ValueError(f"Unsafe URL scheme: {parsed.scheme}")
+            
             request = urllib.request.Request(
                 default_video_url,
                 headers={"User-Agent": "Mozilla/5.0"},
@@ -96,6 +103,7 @@ def main(input_video):
             repo_id="arnabdhar/YOLOv8-Face-Detection",
             filename="model.pt",
             local_dir=runtime_dir,
+            revision="main",
         )
 
         model = YOLO(str(model_path))
@@ -111,9 +119,13 @@ def main(input_video):
         print(
             "\nDownloading classification model and converting to OpenVINO IR format...\n"
         )
+        optimum_cli_path = shutil.which("optimum-cli")
+        if not optimum_cli_path:
+            raise RuntimeError("optimum-cli not found in PATH")
+        
         subprocess.run(
             [
-                "optimum-cli",
+                optimum_cli_path,
                 "export",
                 "openvino",
                 "--model",

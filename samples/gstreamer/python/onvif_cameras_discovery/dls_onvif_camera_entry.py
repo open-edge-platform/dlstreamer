@@ -42,8 +42,8 @@ class DlsOnvifCameraEntry:  # pylint: disable=too-many-instance-attributes
     # --- discovery info ---
     hostname: str
     port: int = 80
-    username: str = ""
-    password: str = ""
+    username: str = field(default="", repr=False)
+    password: str = field(default="", repr=False)
 
     # --- ONVIF profiles retrieved after connection ---
     profiles: list[ONVIFProfile] = field(default_factory=list)
@@ -161,8 +161,8 @@ class DlsOnvifCameraEntry:  # pylint: disable=too-many-instance-attributes
     def from_discovery_dict(
         cls,
         camera: dict[str, Any],
-        username: str = "",
-        password: str = "",
+        username: Optional[str] = None,
+        password: Optional[str] = None,
     ) -> DlsOnvifCameraEntry:
         """Create an entry from the raw dict returned by WS-Discovery."""
         hostname = camera.get("hostname") or camera.get("ip_address", "")
@@ -170,8 +170,8 @@ class DlsOnvifCameraEntry:  # pylint: disable=too-many-instance-attributes
         return cls(
             hostname=hostname,
             port=port,
-            username=username,
-            password=password,
+            username=username or "",
+            password=password or "",
             raw_discovery=dict(camera),
         )
 
