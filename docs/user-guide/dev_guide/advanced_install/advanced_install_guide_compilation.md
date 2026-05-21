@@ -282,7 +282,7 @@ necessary dependencies using the following commands:
 
 ### (Optional) Install `intel-dlstreamer` Python package
 
-If you want to use DL Streamer Python APIs (`dlstreamer.onvif`, `gstgva`) in
+If you want to use DL Streamer Python APIs (`dlstreamer.onvif`) in
 your own Python code, install the `intel-dlstreamer` wheel.
 
 The easiest way is to download the wheel directly from the GitHub Release:
@@ -301,7 +301,6 @@ Alternatively, build the wheel from the cloned sources:
 
 This single command installs:
 - `dlstreamer.onvif` — ONVIF camera discovery and pipeline integration
-- `gstgva` — GStreamer Video Analytics metadata bindings
 - All required Python dependencies (`onvif-zeep`, `urllib3`) automatically
 
 After installation, no `PYTHONPATH` configuration is needed:
@@ -311,6 +310,6 @@ After installation, no `PYTHONPATH` configuration is needed:
   from gstgva import VideoFrame, RegionOfInterest
   ```
 
-> **NOTE (advanced):** As an alternative to pip, `dlstreamer.onvif` and `gstgva`
-> are also accessible via `PYTHONPATH` set in Step 9. This approach requires
+> **NOTE (advanced):** As an alternative to pip, `dlstreamer.onvif` is also
+> accessible via `PYTHONPATH` set in Step 9. This approach requires
 > manual installation of the dependencies declared in `python/pyproject.toml`.

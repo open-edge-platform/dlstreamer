@@ -126,42 +126,7 @@ To see the full list of installed components check the
 The Python packages required to run Deep Learning Streamer python elements
 or samples are not installed by default. You can install them using
 the commands from
-[Advanced Install Guide Compilation / Install Python dependencies](../../dev_guide/advanced_install/advanced_install_guide_compilation.md#step-9-install-python-dependencies-optional).
-
-#### Python package: `dlstreamer.onvif` and `gstgva`
-
-If you want to use DL Streamer Python APIs (ONVIF camera discovery, GVA metadata)
-in your own Python code, install the `intel-dlstreamer` Python package via pip.
-
-The easiest way is to download the wheel directly from the GitHub Release:
-
-```bash
-pip install https://github.com/open-edge-platform/dlstreamer/releases/download/v2026.1.0/intel_dlstreamer-2026.1.0-py3-none-any.whl
-```
-
-Alternatively, if you have DL Streamer installed locally, the wheel is also bundled
-under `/opt/intel/dlstreamer/python/`:
-
-```bash
-pip install /opt/intel/dlstreamer/python/intel_dlstreamer-*.whl
-```
-
-This single command installs:
-- `dlstreamer.onvif` — ONVIF camera discovery and pipeline integration
-- `gstgva` — GStreamer Video Analytics metadata bindings
-- All required Python dependencies (`onvif-zeep`, `urllib3`) automatically
-
-After installation, no `PYTHONPATH` configuration is needed:
-
-```python
-from dlstreamer.onvif import DlsOnvifDiscoveryEngine, discover_onvif_cameras
-from gstgva import VideoFrame, RegionOfInterest
-```
-
-> **NOTE (advanced):** As an alternative to pip, the modules are also accessible
-> via `PYTHONPATH=/opt/intel/dlstreamer/python` set automatically by
-> `hello_dlstreamer.sh`. This approach requires manual installation of
-> the dependencies declared in `python/pyproject.toml`.
+[Advanced Install Guide Compilation / Install Python dependencies](../../dev_guide/advanced_install/advanced_install_guide_compilation.md#step-10-install-python-dependencies-optional).
 
 ### [Optional] Step 5: Post installation steps
 

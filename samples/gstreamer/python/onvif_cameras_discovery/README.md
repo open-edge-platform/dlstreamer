@@ -69,13 +69,13 @@ All ONVIF and pipeline logic lives in the **`dlstreamer.onvif`** library
 Install the `intel-dlstreamer` Python package (includes `dlstreamer.onvif`):
 
 ```bash
-pip install /opt/intel/dlstreamer/python
+pip install https://github.com/open-edge-platform/dlstreamer/releases/download/v2026.1.0/intel_dlstreamer-2026.1.0-py3-none-any.whl
 ```
 
-Or install sample-specific dependencies directly:
+Alternatively, if you have DL Streamer installed locally:
 
 ```bash
-pip install -r requirements.txt
+pip install /opt/intel/dlstreamer/python/intel_dlstreamer-*.whl
 ```
 
 ---
