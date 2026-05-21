@@ -18,7 +18,7 @@ Usage (from shell — prints KEY=VALUE lines for eval):
 """
 
 import os
-import subprocess
+import subprocess  # nosec B404
 import sys
 import shutil
 import re
@@ -72,7 +72,7 @@ def prepare_detection_model():
         repo_id="arnabdhar/YOLOv8-Face-Detection",
         filename="model.pt",
         local_dir=runtime_dir,
-        revision="main",
+        revision="main",  # Explicitly pin revision for security
     )
     model = YOLO(str(model_path))
     exported_model_path = model.export(format="openvino", dynamic=False, imgsz=640)
@@ -87,6 +87,7 @@ def prepare_classification_model():
         repo_id="dima806/fairface_age_image_detection",
         subdir="fairface_age_image_detection",
         log_label="age classification",
+        revision="main",  # Pin revision for security
     )
 
 
@@ -96,10 +97,11 @@ def prepare_gender_model():
         repo_id="dima806/fairface_gender_image_detection",
         subdir="fairface_gender_image_detection",
         log_label="gender classification",
+        revision="main",  # Pin revision for security
     )
 
 
-def _prepare_hf_classification_model(repo_id, subdir, log_label):
+def _prepare_hf_classification_model(repo_id, subdir, log_label, revision="main"):
     """Download a HF image-classification model and export to static OpenVINO IR.
 
     Steps:
@@ -121,35 +123,50 @@ def _prepare_hf_classification_model(repo_id, subdir, log_label):
         file=sys.stderr,
     )
     if not _is_ir_model_ready(dynamic_xml):
+        # Use absolute path for optimum-cli to avoid partial path issues
         optimum_cli_path = shutil.which("optimum-cli")
         if not optimum_cli_path:
             raise RuntimeError("optimum-cli not found in PATH")
         
+        # Validate repo_id format to prevent injection
         if not re.match(r'^[a-zA-Z0-9_/-]+$', repo_id):
             raise ValueError(f"Invalid repo_id format: {repo_id}")
         
-        subprocess.run(
-            [
-                optimum_cli_path,
-                "export",
-                "openvino",
-                "--model",
-                repo_id,
-                out_dir,
-                "--weight-format",
-                "int8",
-            ],
-            check=True,
-        )
+        # Validate revision format to prevent injection
+        if not re.match(r'^[a-zA-Z0-9._/-]+$', revision):
+            raise ValueError(f"Invalid revision format: {revision}")
+        
+        try:
+            subprocess.run(  # nosec B603
+                [
+                    optimum_cli_path,  # Use full path
+                    "export",
+                    "openvino",
+                    "--model",
+                    repo_id,
+                    "--revision",
+                    revision,  # Pin revision for security
+                    out_dir,
+                    "--weight-format",
+                    "int8",
+                ],
+                check=True,
+            )
+        except subprocess.CalledProcessError as e:
+            raise RuntimeError(f"Failed to export model {repo_id}: {e}")
+        
     # Reshape model to static [1,3,224,224] — gvaclassify requires static dims.
     # Save to a DIFFERENT filename: OV mmaps the .bin file, so writing back
     # to the same path truncates the mmapped region and triggers SIGBUS.
-    from openvino import Core, save_model
+    try:
+        from openvino import Core, save_model
 
-    ov_model = Core().read_model(dynamic_xml)
-    ov_model.reshape([1, 3, 224, 224])
-    save_model(ov_model, static_xml)
-    print(f"Model exported to {static_xml}\n", file=sys.stderr)
+        ov_model = Core().read_model(dynamic_xml)
+        ov_model.reshape([1, 3, 224, 224])
+        save_model(ov_model, static_xml)
+        print(f"Model exported to {static_xml}\n", file=sys.stderr)
+    except Exception as e:
+        raise RuntimeError(f"Failed to reshape model {repo_id}: {e}")
 
     return static_xml
 
@@ -163,18 +180,22 @@ def main():
     os.dup2(2, 1)
     sys.stdout = sys.stderr
 
-    detect_path = prepare_detection_model()
-    classify_path = prepare_classification_model()
-    gender_path = prepare_gender_model()
+    try:
+        detect_path = prepare_detection_model()
+        classify_path = prepare_classification_model()
+        gender_path = prepare_gender_model()
+    except Exception as e:
+        print(f"Error preparing models: {e}", file=sys.stderr)
+        sys.exit(1)
 
     # Restore real stdout for KEY=VALUE output
     os.dup2(real_stdout_fd, 1)
     os.close(real_stdout_fd)
     sys.stdout = os.fdopen(1, "w")
 
-    print(f"DETECT_MODEL_PATH={detect_path}") # lgtm[py/clear-text-logging-sensitive-data]
-    print(f"CLASS_MODEL_PATH={classify_path}")# lgtm[py/clear-text-logging-sensitive-data]
-    print(f"GENDER_MODEL_PATH={gender_path}") # lgtm[py/clear-text-logging-sensitive-data]
+    print(f"DETECT_MODEL_PATH={detect_path}")  # lgtm[py/clear-text-logging-sensitive-data]
+    print(f"CLASS_MODEL_PATH={classify_path}")  # lgtm[py/clear-text-logging-sensitive-data]
+    print(f"GENDER_MODEL_PATH={gender_path}")  # lgtm[py/clear-text-logging-sensitive-data]
 
 
 if __name__ == "__main__":

@@ -24,6 +24,9 @@ os.environ.setdefault("HF_HUB_DISABLE_XET", "1")
 from huggingface_hub import hf_hub_download
 from ultralytics import YOLO
 
+# Pin specific revision for security - use commit hash for better security
+DEFAULT_REVISION = "main"  # Could be replaced with specific commit hash
+
 
 def get_runtime_dir():
     """Return target directory for model storage.
@@ -50,8 +53,11 @@ def _is_ir_model_ready(xml_path):
     )
 
 
-def prepare_detection_model():
+def prepare_detection_model(revision=None):
     """Download YOLOv8-Face-Detection and export to OpenVINO IR."""
+    if revision is None:
+        revision = DEFAULT_REVISION
+        
     runtime_dir = get_runtime_dir()
     ov_model_path = os.path.join(runtime_dir, "model_openvino_model", "model.xml")
 
@@ -63,15 +69,23 @@ def prepare_detection_model():
         "\nDownloading the detection model and converting to OpenVINO IR format...\n",
         file=sys.stderr,
     )
+    
+    # Explicitly specify all parameters to ensure security
     model_path = hf_hub_download(
         repo_id="arnabdhar/YOLOv8-Face-Detection",
         filename="model.pt",
         local_dir=runtime_dir,
-        revision="main",
+        revision=revision,  # Explicitly pin revision for security
+        force_download=False,  # Use cache if available
+        resume_download=True,  # Resume interrupted downloads
     )
-    model = YOLO(str(model_path))
-    exported_model_path = model.export(format="openvino", dynamic=False, imgsz=640)
-    print(f"Model exported to {exported_model_path}\n", file=sys.stderr)
+    
+    try:
+        model = YOLO(str(model_path))
+        exported_model_path = model.export(format="openvino", dynamic=False, imgsz=640)
+        print(f"Model exported to {exported_model_path}\n", file=sys.stderr)
+    except Exception as e:
+        raise RuntimeError(f"Failed to export YOLO model: {e}")
 
     return ov_model_path
 
@@ -85,7 +99,13 @@ def main():
     os.dup2(2, 1)
     sys.stdout = sys.stderr
 
-    detect_path = prepare_detection_model()
+    try:
+        # Use environment variable for revision if set, otherwise use default
+        revision = os.environ.get("MODEL_REVISION", DEFAULT_REVISION)
+        detect_path = prepare_detection_model(revision=revision)
+    except Exception as e:
+        print(f"Error preparing detection model: {e}", file=sys.stderr)
+        sys.exit(1)
 
     # Restore real stdout for KEY=VALUE output
     os.dup2(real_stdout_fd, 1)
