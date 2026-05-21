@@ -4,8 +4,13 @@
 # SPDX-License-Identifier: MIT
 # ==============================================================================
 import logging
+import json
+import heapq
+import itertools
+import os
 
 from openvino import Core
+from openvino.properties.device import Type
 from .utils import parse_element_parameters, assemble_parameters
 
 logger = logging.getLogger(__name__)
@@ -19,24 +24,10 @@ def param_to_string(parameters) -> str:
 
 class DeviceGenerator:
     def __init__(self):
-        core = Core()
         self.tracked_elements = []
         self.devices = Core().available_devices
-        logger.info("Devices detected on system: %s", str(self.devices))
-        for device in self.devices:
-            logger.info(f'{device} :')
-            logger.info('\tSUPPORTED_PROPERTIES:')
-            for property_key in core.get_property(device, 'SUPPORTED_PROPERTIES'):
-                if property_key not in ('SUPPORTED_PROPERTIES'):
-                    try:
-                        property_val = core.get_property(device, property_key)
-                    except TypeError:
-                        property_val = 'UNSUPPORTED TYPE'
-                    logger.info(f'\t\t{property_key}: {param_to_string(property_val)}')
-            logger.info('')
         self.device_groups = []
-        self.pipeline = []
-        self.first_iteration = True
+        self.candidates = []
 
     def set_allowed_devices(self, devices):
         _devices = Core().available_devices
@@ -45,17 +36,17 @@ class DeviceGenerator:
                 raise RuntimeError("Device %s is not supported by this system! Available devices: %s" % (device, str(_devices))) # pylint: disable=line-too-long
         self.devices = devices        
 
-    def init_pipeline(self, pipeline):
+    def init_pipeline(self, initial_pipeline):
         logger.info("Devices allowed for optimization: %s", str(self.devices))
 
         self.tracked_elements = []
         self.device_groups = []
-        self.pipeline = pipeline.copy()
-        self.first_iteration = True
+        self.candidates = []
 
         instance_ids = {}
 
-        for idx, element in enumerate(self.pipeline):
+        # prepare device groups
+        for idx, element in enumerate(initial_pipeline):
             if "gvadetect" in element or "gvaclassify" in element:
                 (_, parameters) = parse_element_parameters(element)
                 instance_id = parameters.get("model-instance-id")
@@ -82,67 +73,104 @@ class DeviceGenerator:
                     "group_idx": group_idx,
                 })
 
+        # prepare device information
+        info = compile_device_info()
+        devices = list(map(lambda e: (e, info[e]), self.devices))
+
+        # prepare all device combinations
+        combinations = itertools.product(devices, repeat=len(self.device_groups))
+
+        # transform device combinations into pipeline candidates
+        for combination in combinations:
+            # preapre the pipeline as well as score info
+            pipeline = initial_pipeline.copy()
+            total_score = 0
+
+            for element in reversed(self.tracked_elements):
+                # Get the pipeline element we're modifying
+                idx = element["index"]
+                (element_type, parameters) = parse_element_parameters(pipeline[idx])
+
+                # Get the device for this element
+                device, device_score = combination[self.device_groups[element["group_idx"]]]
+
+                # Configure an appropriate backend and memory location
+                memory = ""
+                if "GPU" in device:
+                    parameters["pre-process-backend"] = "va-surface-sharing"
+                    memory = "video/x-raw(memory:VAMemory)"
+
+                if "NPU" in device:
+                    parameters["pre-process-backend"] = "va"
+                    memory = "video/x-raw(memory:VAMemory)"
+
+                if "CPU" in device:
+                    parameters["pre-process-backend"] = "opencv"
+                    memory = "video/x-raw"
+
+                # Apply current configuration
+                parameters["device"] = device
+                parameters = assemble_parameters(parameters)
+                pipeline[idx] = f" {element_type} {parameters}"
+                pipeline.insert(idx, f" {memory} ")
+                pipeline.insert(idx, " vapostproc ")
+
+                total_score -= device_score
+
+            # store the score, device combination info and the candidate in a priority queue
+            heapq.heappush(self.candidates, (total_score, combination, pipeline))
+
     def __iter__(self):
         return self
 
     def __next__(self) -> list:
-        # Prepare the next combination of devices
-        end_of_variants = True
-        for idx, cur_device_idx in enumerate(self.device_groups):
-            # Don't change anything on first iteration
-            if self.first_iteration:
-                self.first_iteration = False
-                end_of_variants = False
-                break
+        try:
+            # score is only important during queue sorting, we ignore it here
+            score, combination, pipeline = heapq.heappop(self.candidates)
+            logger.info("Score: %s", str(score))
 
-            next_device_idx = (cur_device_idx + 1) % len(self.devices)
-            self.device_groups[idx] = next_device_idx
+            # log device combinations
+            logger.info("Testing device combination: %s", str(combination))
 
-            # Walk through elements while they still
-            # have more device options
-            if next_device_idx > cur_device_idx:
-                end_of_variants = False
-                break
-
-        # If all elements have rotated through the entire list
-        # of available devices, then we have run out of variants
-        if end_of_variants:
+            return pipeline
+        except IndexError:
             raise StopIteration
 
-        # log device combinations
-        devices = self.device_groups.copy()
-        devices = list(map(lambda e: self.devices[e], devices)) # transform device indices into names
-        logger.info("Testing device combination: %s", str(devices))
+###################################################################################################
 
-        # Prepare pipeline output
-        pipeline = self.pipeline.copy()
-        for element in reversed(self.tracked_elements):
-            # Get the pipeline element we're modifying
-            idx = element["index"]
-            (element_type, parameters) = parse_element_parameters(pipeline[idx])
+def compile_device_info():
+    core = Core()
+    available_devices = core.available_devices
 
-            # Get the device for this element
-            device = self.devices[self.device_groups[element["group_idx"]]]
+    device_info = {}
 
-            # Configure an appropriate backend and memory location
-            memory = ""
+    # Do a first pass where we collect info about CPUs and discrete devices
+    for device in available_devices:
+        device_type = core.get_property(device, "DEVICE_TYPE")
+        device_name = core.get_property(device, "FULL_DEVICE_NAME")
+
+        if "CPU" in device or device_type == Type.DISCRETE:
+            device_info[device] = device_name
+        else:
+            device_info[device] = "integrated"
+
+    # Do a second pass where we replace the integrated devices with CPU name
+    for device, name in device_info.items():
+        if name == "integrated":
+            device_info[device] = device_info["CPU"]
+
+    # Do a third pass where we replace device names with expected TOPS
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    file_path = os.path.join(script_dir, 'device_data.json')
+    with open(file_path, 'r') as f:
+        data = json.load(f)
+        for device, name in device_info.items():
             if "GPU" in device:
-                parameters["pre-process-backend"] = "va-surface-sharing"
-                memory = "video/x-raw(memory:VAMemory)"
+                device_info[device] = data["GPU"].get(name, 10)
+            elif "NPU" in device:
+                device_info[device] = data["NPU"].get(name, 5)
+            else:
+                device_info[device] = 1
 
-            if "NPU" in device:
-                parameters["pre-process-backend"] = "va"
-                memory = "video/x-raw(memory:VAMemory)"
+    return device_info
 
-            if "CPU" in device:
-                parameters["pre-process-backend"] = "opencv"
-                memory = "video/x-raw"
-
-            # Apply current configuration
-            parameters["device"] = device
-            parameters = assemble_parameters(parameters)
-            pipeline[idx] = f" {element_type} {parameters}"
-            pipeline.insert(idx, f" {memory} ")
-            pipeline.insert(idx, " vapostproc ")
-
-        return pipeline
