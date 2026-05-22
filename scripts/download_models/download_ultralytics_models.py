@@ -44,11 +44,23 @@ def parse_args() -> argparse.Namespace:
 
 def resolve_ultralytics_model(model_or_path: str) -> YOLO:
     path = Path(model_or_path)
-    if path.exists():
+    
+    # If it's an absolute path or contains path separators, treat as local file
+    if path.is_absolute() or ('/' in model_or_path or '\\' in model_or_path):
+        if not path.exists():
+            raise FileNotFoundError(f"Model file not found: {model_or_path}")
         if path.suffix.lower() != ".pt":
             raise ValueError("Ultralytics local model must be a .pt file")
         return YOLO(str(path))
-    return YOLO(model_or_path)
+    
+    # For simple names (e.g., "yolo11n.pt" or "invalid.pt"), let YOLO try hub/local
+    try:
+        model = YOLO(model_or_path)
+        if not hasattr(model, 'model') or model.model is None:
+            raise FileNotFoundError(f"Model not found in Ultralytics hub or locally: {model_or_path}")
+        return model
+    except Exception as e:
+        raise FileNotFoundError(f"Failed to load model '{model_or_path}': {str(e)}") from e
 
 
 def move_exported_model(exported_path: Path, outdir: Path) -> Path:
