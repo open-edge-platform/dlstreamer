@@ -46,7 +46,7 @@ def resolve_ultralytics_model(model_or_path: str) -> YOLO:
     path = Path(model_or_path)
     
     # If it's an absolute path or contains path separators, treat as local file
-    if path.is_absolute() or ('/' in model_or_path or '\\' in model_or_path):
+    if path.is_absolute() or ('/' in model_or_path or '\\' in model_or_path) or model_or_path.endswith('.pt'):
         if not path.exists():
             raise FileNotFoundError(f"Model file not found: {model_or_path}")
         if path.suffix.lower() != ".pt":
