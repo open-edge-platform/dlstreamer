@@ -59,7 +59,7 @@ The application sets the pipeline to `PLAYING` state and processes messages unti
 
 ## Tripwire Configuration
 
-The `tripwire-config.json` file defines a horizontal virtual line at the middle of the frame (y=180 for 640x360 resolution) where vehicles are counted:
+The `tripwire-config.json` file defines a vertical virtual line at the middle of the frame (x=320 for 640x360 resolution) where vehicles are counted:
 
 ```json
 {
@@ -165,7 +165,7 @@ The video stream displays with:
 - A counter showing vehicles crossing (left-to-right and right-to-left, filtered by vehicle type)
 - Console output for each detected crossing
 
-The sample displays output on a local desktop by default. Run it on the host or use X11 forwarding.
+The sample saves output to file by default.
 
 ## Customization
 
@@ -203,7 +203,7 @@ f"vehicle_counter_text vehicle-types=car,bus,truck,motorcycle,bicycle,person ! "
 f"vehicle_counter_text vehicle-types=truck ! "
 ```
 
-The object type names depend on your detection model's class labels. Common COCO classes include:
+The object type names depend on your detection model's class labels. Common classes include:
 - Vehicles: `car`, `truck`, `bus`, `motorcycle`, `bicycle`
 - People: `person`
 - Animals: `dog`, `cat`, `bird`, etc.
