@@ -1,12 +1,15 @@
 ---
 name: dlstreamer-coding-agent
-description: "Build new DL Streamer video-analytics applications (Python or GStreamer command line). Use when: user describes a vision AI pipeline, wants to create a new sample app, combine elements from existing samples, add detection/classification/VLM/tracking/alerts/recording to a video pipeline, or create custom GStreamer elements in Python. Translates natural-language pipeline descriptions into working DL Streamer code using established design patterns."
+description: "Build new DL Streamer video-analytics applications (Python, C, C++ or GStreamer command line). Use when: user describes a vision AI pipeline, wants to create a new sample app, combine elements from existing samples, add detection/classification/VLM/tracking/alerts/recording to a video pipeline, or create custom GStreamer elements in Python or C++. Translates natural-language pipeline descriptions into working DL Streamer code using established design patterns."
 argument-hint: "Describe the vision AI pipeline you want to build (e.g. 'detect faces in RTSP stream and save alerts as JSON')"
 ---
 
 # DL Streamer Coding Agent
 
-Build new DL Streamer video-analytics applications (Python or GStreamer command line) by composing design patterns extracted from existing sample apps.
+Build new DL Streamer video-analytics applications (Python, C, C++ or GStreamer command line) by composing design patterns extracted from existing sample apps.
+
+> **Language rule:** Default output language (code comments, README, responses) is **English**
+> unless the user explicitly requests a different language in their prompt.
 
 NOTE: This feature is in PREVIEW stage — expect some rough edges and missing features, and please share your feedback to help us improve it!
 
@@ -14,9 +17,10 @@ NOTE: This feature is in PREVIEW stage — expect some rough edges and missing f
 
 - User describes a vision AI pipeline in natural language
 - User wants to create a new Python sample application built on DL Streamer
+- User wants to create a new C or C++ sample application built on DL Streamer
 - User wants to create a new GStreamer command line using DL Streamer elements
 - User wants to combine elements from multiple existing samples (e.g. detection + VLM + recording)
-- User needs to add custom analytics logic or custom GStreamer elements in Python
+- User needs to add custom analytics logic or custom GStreamer elements in Python or C++
 
 See [example prompts](./examples) for inspiration.
 
@@ -30,8 +34,10 @@ See [example prompts](./examples) for inspiration.
 ├── export_requirements.txt     # Python dependencies for model export scripts
 ├── README.md                   # Setup and usage instructions
 ├── plugins/                    # Only if custom GStreamer elements are needed
-│   └── python/
-│       └── <element>.py
+│   ├── python/
+│   │   └── <element>.py
+│   └── c/
+│       └── <element>.c
 ├── config/                     # Only if config files are needed
 │   └── *.txt / *.json
 ├── models/                     # Created at runtime (cached model exports)
@@ -40,6 +46,18 @@ See [example prompts](./examples) for inspiration.
 ```
 
 ## Procedure
+
+> ** CRITICAL — Conversion Language Rule (read FIRST before any other step):**
+> When converting an existing application from another framework (DeepStream, etc.),
+> the output application **MUST** use the **same programming language** as the source application.
+> Determine the source language by inspecting file extensions:
+> - `.cpp`, `.c`, `.h` → Generate **C/C++** application
+> - `.py` → Generate **Python** application
+> - `.sh` or `gst-launch` → Generate **GStreamer command line** (shell script)
+>
+> This rule **overrides** the default Application type (`Python application`).
+> Do NOT default to Python when converting a C/C++ source application.
+> Only deviate from this rule if the user **explicitly** requests a different language.
 
 ### Execution Overview
 
@@ -99,13 +117,19 @@ Extract the following from the user's prompt:
 | **AI model(s)** | Model name/URL and task (detection, classification, VLM, OCR, …) | — (must ask) |
 | **Target hardware** | Intel platform, available accelerators (GPU/NPU/CPU) | `Not sure / detect at runtime` |
 | **Output format** | Annotated video, JSON, JPEG snapshots, display window | `All of the above` |
-| **Application type** | Python app or GStreamer command line | `Python application` — but see override rule below |
+| **Application type** | Python app, C/C++ app, or GStreamer command line | `Python application` — **BUT: when converting, MUST match source language (C++ → C++, Python → Python)** |
 | **Docker image** | DL Streamer Docker tag | Latest Ubuntu 24 tag (auto-fetched) |
 
 > **Application type override:** If the user's prompt contains explicit language like
 > "bash script", "shell script", "gst-launch", or "command line", set **Application type**
-> to `GStreamer command line` regardless of the default. Only default to `Python application`
-> when the prompt does not indicate a preference.
+> to `GStreamer command line` regardless of the default. 
+
+> **⚠️ Conversion language rule (MANDATORY):** When converting an existing application,
+> the output **MUST** match the source language (C++ → C++, Python → Python,
+> shell/gst-launch → GStreamer command line). This is **NOT** a suggestion — it is a hard requirement.
+> Inspect the source file extensions (`.py`, `.cpp`, `.c`, `.sh`) to determine the original language.
+> **If the source is C/C++, do NOT generate Python. Generate C/C++ using GStreamer C API.**
+> Only deviate if the user **explicitly** writes "convert to Python" or similar.
 
 **If the user's prompt explicitly provides all required info** (video input AND model names
 are explicitly stated, not inferred), proceed directly to Step 1.
@@ -217,10 +241,14 @@ For complex cases, consult the [Sample Index](./references/sample-index.md) for 
 
 When converting a DeepStream application, follow these additional rules:
 
-1. **Inventory the source pipeline.** Identify all elements in the DeepStream pipeline first.
-2. **Map each element 1-to-1** using the [Converting Guide](../../../docs/user-guide/dev_guide/converting_deepstream_to_dlstreamer.md).
-3. **Connect DL Streamer elements** using the Common Pipeline Patterns table or Sample Index.
-4. **Do not add elements absent from the source pipeline.** Every element in the converted pipeline must trace back to the inventory.
+1. **⚠️ FIRST: Determine the source language.** Inspect the source file extensions (`.cpp`, `.c`, `.py`, `.sh`).
+   The generated application **MUST** use the same language. C++ source → C++ output. Python source → Python output.
+   **Do NOT default to Python when the source is C/C++.**
+2. **Inventory the source pipeline.** Identify all elements in the DeepStream pipeline first.
+3. **Map each element 1-to-1** using the [Converting Guide](../../../docs/user-guide/dev_guide/converting_deepstream_to_dlstreamer.md).
+4. **Connect DL Streamer elements** using the Common Pipeline Patterns table or Sample Index.
+5. **Do not add elements absent from the source pipeline.** Every element in the converted pipeline must trace back to the inventory.
+6. **Match the source language.** Generate the output application in the same programming language as the input DeepStream application (C++ → C++, Python → Python, shell/gst-launch → GStreamer command line) unless the user explicitly requests a different language.
 
 **3b — Choose application structure**
 
@@ -237,8 +265,20 @@ For a **Python application**, map the user's description to one or more design p
 
 Generate all application files following the directory layout defined at the beginning of this document.
 
-- Read the [Design Patterns Reference](./references/design-patterns.md) for coding conventions and application structure.
-- Use the [Application Template](./assets/python-app-template.py) as the starting skeleton for Python apps.
+**Language-specific generation:**
+
+- **C/C++ applications** (when converting C/C++ source): Use standard GStreamer C API
+  (`gst_element_factory_make`, `gst_bin_add_many`, `gst_element_link_many`, pad probes, bus watch).
+  Generate a `CMakeLists.txt` or `Makefile` for building. Use DL Streamer elements (`gvadetect`,
+  `gvaclassify`, `gvatrack`, `gvawatermark`, etc.) via the GStreamer C API — they are standard
+  GStreamer elements and work identically from C/C++. Include a model export script
+  (`export_models.sh` or `export_models.py`) as a separate helper.
+- **Python applications**: Use the [Application Template](./assets/python-app-template.py) as the
+  starting skeleton. Read the [Design Patterns Reference](./references/design-patterns.md) for
+  coding conventions and application structure.
+- **GStreamer command line**: Wrap the pipeline string in a shell script.
+
+For all languages:
 - Use the [README Template](./assets/README-template.md) to generate `README.md` — replace `{{PLACEHOLDERS}}` with application-specific content and remove HTML comments.
 - If the application requires Python packages, list them in `requirements.txt`. If the OpenVINO Python runtime is required, pin the same version as the OpenVINO runtime installed with DL Streamer.
 

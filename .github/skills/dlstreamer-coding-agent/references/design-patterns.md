@@ -645,3 +645,39 @@ pipeline.get_by_name("watermark").get_static_pad("sink").add_probe(
 
 **Read for reference:** `samples/gstreamer/python/vlm_self_checkout/vlm_self_checkout.py`
 
+## Pattern 11: c/cpp: Gstreamer initialization
+https://gstreamer.freedesktop.org/documentation/application-development/basics/init.html?gi-language=python#simple-initialization
+
+## Pattern 12: c/cpp: The GOption interface
+https://gstreamer.freedesktop.org/documentation/application-development/basics/init.html?gi-language=python#the-goption-interface
+
+## Pattern 13: c/cpp: Creating a GstElement
+https://gstreamer.freedesktop.org/documentation/application-development/basics/elements.html?gi-language=python#creating-a-gstelement
+
+
+## Pattern 14: c/cpp: Using an element as a GObject
+https://gstreamer.freedesktop.org/documentation/application-development/basics/elements.html?gi-language=python#using-an-element-as-a-gobject
+
+## Pattern 15: c/cpp: Getting information about an element using a factory
+https://gstreamer.freedesktop.org/documentation/application-development/basics/elements.html?gi-language=python#using-an-element-as-a-gobject
+
+## Pattern 16: c/cpp: Creating a bin
+https://gstreamer.freedesktop.org/documentation/application-development/basics/bins.html?gi-language=python#creating-a-bin
+
+## Pattern 17: c/cpp: Custom bin
+https://gstreamer.freedesktop.org/documentation/application-development/basics/bins.html?gi-language=python#custom-bins
+
+## Pattern 18: c/cpp: How to use a bus
+https://gstreamer.freedesktop.org/documentation/application-development/basics/bins.html?gi-language=python#custom-bins
+
+## Pattern 19: c/cpp: How to use a bus
+https://gstreamer.freedesktop.org/documentation/application-development/basics/bus.html?gi-language=python#how-to-use-a-bus
+
+## Pattern 20: c/cpp: Pads and capabilities
+https://gstreamer.freedesktop.org/documentation/application-development/basics/pads.html?gi-language=python#pads-and-capabilities
+
+## Pattern 21: c/cpp: Buffers and events
+https://gstreamer.freedesktop.org/documentation/application-development/basics/data.html?gi-language=python#buffers-and-events
+
+## Patterns 22: c/cpp: Sample application
+https://gstreamer.freedesktop.org/documentation/application-development/basics/helloworld.html?gi-language=python#your-first-application
