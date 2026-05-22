@@ -11,7 +11,7 @@ import os
 
 from openvino import Core
 from openvino.properties.device import Type
-from .utils import parse_element_parameters, assemble_parameters
+from processors.utils import parse_element_parameters, assemble_parameters
 
 logger = logging.getLogger(__name__)
 

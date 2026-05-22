@@ -86,35 +86,30 @@ search_duration = args.search_duration
 ####################################### Main Logic ################################################
 
 def main() -> int:
+    global search_duration
     try:
         optimizer.set_sample_duration(args.sample_duration)
         optimizer.set_detections_error_threshold(args.detection_threshold)
         optimizer.set_multistream_fps_limit(args.multistream_fps_limit)
         optimizer.enable_cross_stream_batching(args.enable_cross_stream_batching)
 
-        try:
-    optimizer = DLSOptimizer()
-    optimizer.set_detections_error_threshold(args.detection_threshold)
-    optimizer.set_multistream_fps_limit(args.multistream_fps_limit)
-    optimizer.enable_cross_stream_batching(args.enable_cross_stream_batching)
-
-    match args.optimization_profile:
-        case "coarse":
-            optimizer.set_sample_duration(5)
-            optimizer.set_batch_sizes([])
-            optimizer.set_nireq_sizes([])
-            search_duration = 15
-        case "fine":
-            optimizer.set_sample_duration(5)
-            optimizer.set_batch_sizes([1, 4, 8])
-            optimizer.set_nireq_sizes([4, 8])
-            search_duration = 30
-        case "default":
-            optimizer.set_sample_duration(args.sample_duration)
-            optimizer.set_batch_sizes(args.batch_sizes)
-            optimizer.set_nireq_sizes(args.nireq_sizes)
-            if args.allowed_devices:
-                optimizer.set_allowed_devices(args.allowed_devices)
+        match args.optimization_profile:
+            case "coarse":
+                optimizer.set_sample_duration(5)
+                optimizer.set_batch_sizes([])
+                optimizer.set_nireq_sizes([])
+                search_duration = 15
+            case "fine":
+                optimizer.set_sample_duration(5)
+                optimizer.set_batch_sizes([1, 4, 8])
+                optimizer.set_nireq_sizes([4, 8])
+                search_duration = 30
+            case "default":
+                optimizer.set_sample_duration(args.sample_duration)
+                optimizer.set_batch_sizes(args.batch_sizes)
+                optimizer.set_nireq_sizes(args.nireq_sizes)
+                if args.allowed_devices:
+                    optimizer.set_allowed_devices(args.allowed_devices)
 
     except Exception as e:
         logger.error("Failed to configure optimizer: %s", e)
