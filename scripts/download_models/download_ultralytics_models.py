@@ -44,23 +44,23 @@ def parse_args() -> argparse.Namespace:
 
 def resolve_ultralytics_model(model_or_path: str) -> YOLO:
     path = Path(model_or_path)
-    
-    # If it's an absolute path or contains path separators, treat as local file
-    if path.is_absolute() or ('/' in model_or_path or '\\' in model_or_path) or model_or_path.endswith('.pt'):
+
+    # Absolute path or has separators → must be local file
+    if path.is_absolute() or ('/' in model_or_path or '\\' in model_or_path):
         if not path.exists():
             raise FileNotFoundError(f"Model file not found: {model_or_path}")
         if path.suffix.lower() != ".pt":
             raise ValueError("Ultralytics local model must be a .pt file")
         return YOLO(str(path))
-    
-    # For simple names (e.g., "yolo11n.pt" or "invalid.pt"), let YOLO try hub/local
-    try:
-        model = YOLO(model_or_path)
-        if not hasattr(model, 'model') or model.model is None:
-            raise FileNotFoundError(f"Model not found in Ultralytics hub or locally: {model_or_path}")
-        return model
-    except Exception as e:
-        raise FileNotFoundError(f"Failed to load model '{model_or_path}': {str(e)}") from e
+
+    # Simple name (e.g. "yolo11n.pt") → check local, then try hub
+    if path.exists():
+        if path.suffix.lower() != ".pt":
+            raise ValueError("Ultralytics local model must be a .pt file")
+        return YOLO(str(path))
+
+    # Not local → try hub
+    return YOLO(model_or_path)
 
 
 def move_exported_model(exported_path: Path, outdir: Path) -> Path:
@@ -87,10 +87,15 @@ def main() -> int:
             int8=int8,
         )
 
+        # ← NOWE: Walidacja czy export faktycznie stworzył plik
+        if not exported_model_path or not Path(exported_model_path).exists():
+            print(f"Error: Export failed for model '{model_name}' - no output produced")
+            return 1
+
         model_path = move_exported_model(Path(exported_model_path), outdir)
         print(f"Exported model location: {model_path}")
     except FileNotFoundError as exc:
-        missing = exc.filename or model_name
+        missing = getattr(exc, 'filename', None) or model_name
         print(f"File not found: {missing}")
         return 1
     except ValueError as exc:
