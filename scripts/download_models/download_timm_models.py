@@ -5,23 +5,22 @@
 # SPDX-License-Identifier: MIT
 # ==============================================================================
 
-"""Export a validated subset of TIMM image-classification models to OpenVINO IR."""
+"""Export Hugging Face-hosted TIMM image-classification models to OpenVINO IR."""
 
 from __future__ import annotations
 
 import argparse
 import os
+import shutil
+import subprocess
 import tempfile
 from pathlib import Path
 
-import nncf
-import numpy as np
 import openvino as ov
 import timm
-import torch
-from PIL import Image
 
 
+PRECISIONS = ("fp16", "int8", "both")
 SUPPORTED_MODELS = (
     "densenet121",
     "dla34",
@@ -51,13 +50,12 @@ SUPPORTED_MODELS = (
     "vgg16",
     "vgg19",
 )
-PRECISIONS = ("fp16", "int8", "both")
 
 
 def parse_args() -> argparse.Namespace:
     """Parse CLI arguments."""
     parser = argparse.ArgumentParser(
-        description="Export validated TIMM models to OpenVINO IR."
+        description="Export Hugging Face-hosted TIMM models to OpenVINO IR."
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
@@ -68,110 +66,95 @@ def parse_args() -> argparse.Namespace:
     import_parser.add_argument("--model", required=True)
     import_parser.add_argument("--precision", default="fp16", choices=PRECISIONS)
     import_parser.add_argument("--output-dir", default=None)
-    import_parser.add_argument("--calibration-data", default=None)
-    import_parser.add_argument("--calibration-subset-size", type=int, default=300)
     import_parser.set_defaults(func=import_model)
     return parser.parse_args()
 
 
 def list_models(_args: argparse.Namespace) -> int:
-    """Print supported models that are present in the installed TIMM package."""
-    timm_models = set(timm.list_models())
-    models = [name for name in SUPPORTED_MODELS if name in timm_models]
+    """Print TIMM model names that expose a Hugging Face model id."""
+    models = supported_models()
     print(f"Supported TIMM model names ({len(models)}):")
     for name in models:
         print(f"  {name}")
     print("\nSupported precision: fp16, int8, both")
-    print("INT8 requires --calibration-data with representative images.")
     return 0
 
 
 def import_model(args: argparse.Namespace) -> int:
-    """Export one TIMM model in FP16, INT8, or both."""
+    """Export one TIMM model through Optimum OpenVINO."""
     model_name = args.model.strip()
     precisions = ("fp16", "int8") if args.precision == "both" else (args.precision,)
     output_root = Path(args.output_dir or os.environ.get("MODELS_PATH", "")).expanduser()
+    hf_model_id = hf_id(model_name)
 
-    assert model_name in SUPPORTED_MODELS, f"unsupported model: {model_name}"
-    assert model_name in set(timm.list_models()), f"model not found in installed TIMM: {model_name}"
+    assert hf_model_id, f"unsupported model or missing Hugging Face id: {model_name}"
     assert output_root, "--output-dir is required when MODELS_PATH is not set"
+    assert shutil.which("optimum-cli"), "optimum-cli is required in the export environment"
 
-    calibration_images = []
-    if "int8" in precisions:
-        calibration_images = collect_calibration_images(
-            args.calibration_data,
-            args.calibration_subset_size,
-        )
-
-    model = timm.create_model(model_name, pretrained=True)
-    model.eval()
-    cfg = dict(getattr(model, "pretrained_cfg", None) or getattr(model, "default_cfg", None) or {})
-    input_size = tuple(int(x) for x in cfg.get("input_size", (3, 224, 224)))
-    assert len(input_size) == 3, f"expected CHW input size, got: {input_size}"
-
-    print(f"Converting {model_name} with input shape {(1, *input_size)}")
-    with torch.no_grad():
-        ov_model = ov.convert_model(
-            model,
-            example_input=torch.randn((1, *input_size)),
-            input=[("x", [1, *input_size])],
-        )
-    ov_model.reshape({"x": [1, *input_size]})
-    add_model_info(ov_model, cfg)
-
-    if "fp16" in precisions:
-        xml = output_root / "public" / model_name / "FP16" / f"{model_name}.xml"
-        save_ir(ov_model, xml, compress_to_fp16=True)
-        print(f"Exported FP16 OpenVINO IR: {xml}")
-
-    if "int8" in precisions:
-        print(f"Quantizing {model_name} with {len(calibration_images)} calibration images")
-        int8_model = nncf.quantize(
-            ov_model,
-            nncf.Dataset(preprocess_images(calibration_images, cfg, input_size)),
-            subset_size=min(args.calibration_subset_size, len(calibration_images)),
-        )
-        int8_model.set_rt_info(ov.get_version(), "Runtime_version")
-        add_model_info(int8_model, cfg)
-        xml = output_root / "public" / model_name / "INT8" / f"{model_name}.xml"
-        save_ir(int8_model, xml, compress_to_fp16=False)
-        print(f"Exported INT8 OpenVINO IR: {xml}")
-
+    for precision in precisions:
+        xml = output_root / "public" / model_name / precision.upper() / f"{model_name}.xml"
+        export_with_optimum(hf_model_id, model_name, precision, xml)
+        print(f"Exported {precision.upper()} OpenVINO IR: {xml}")
     return 0
 
 
-def collect_calibration_images(directory: str | None, limit: int) -> list[Path]:
-    """Collect calibration image paths for INT8."""
-    assert directory, "INT8 export requires --calibration-data"
-    assert limit > 0, "--calibration-subset-size must be positive"
-    root = Path(directory).expanduser()
-    assert root.is_dir(), f"calibration directory does not exist: {root}"
-    images = sorted(
-        p for p in root.rglob("*") if p.suffix.lower() in Image.registered_extensions()
-    )
-    assert images, f"no calibration images found in: {root}"
-    return images[:limit]
+def supported_models() -> list[str]:
+    """Return relevant supported models available in the installed TIMM package."""
+    timm_names = set(timm.list_models())
+    return [name for name in SUPPORTED_MODELS if name in timm_names and hf_id(name)]
 
 
-def preprocess_images(paths: list[Path], cfg: dict, input_size: tuple[int, int, int]):
-    """Yield NCHW FP32 tensors for NNCF calibration."""
-    channels, height, width = input_size
-    assert channels == 3, "only RGB image-classification models are supported"
-    mean = np.asarray(cfg.get("mean", (0.485, 0.456, 0.406)), dtype=np.float32)
-    std = np.asarray(cfg.get("std", (0.229, 0.224, 0.225)), dtype=np.float32)
-
-    for path in paths:
-        image = Image.open(path).convert("RGB")
-        image = image.resize((width, height), Image.Resampling.BICUBIC)
-        array = np.asarray(image, dtype=np.float32) / 255.0
-        array = (array - mean) / std
-        yield np.expand_dims(array.transpose(2, 0, 1), axis=0).astype(np.float32)
+def hf_id(model_name: str) -> str | None:
+    """Return the Hugging Face id advertised by TIMM for a model name."""
+    if model_name not in SUPPORTED_MODELS:
+        return None
+    cfg = timm.get_pretrained_cfg(model_name)
+    return cfg.hf_hub_id if cfg else None
 
 
-def add_model_info(model, cfg: dict) -> None:
-    """Attach DL Streamer classification metadata to OpenVINO IR."""
-    mean = to_pixel_values(cfg.get("mean", (0.485, 0.456, 0.406)))
-    std = to_pixel_values(cfg.get("std", (0.229, 0.224, 0.225)))
+def export_with_optimum(hf_model_id: str, model_name: str, precision: str, xml: Path) -> None:
+    """Run optimum-cli, then normalize the output into DLStreamer layout."""
+    with tempfile.TemporaryDirectory(prefix=f".{model_name}-{precision}-") as tmp:
+        tmpdir = Path(tmp)
+        # xet-backed Hugging Face transfers can hang for some TIMM weight files
+        env = {**os.environ, "HF_HUB_DISABLE_XET": "1"}
+        subprocess.run(
+            [
+                "optimum-cli",
+                "export",
+                "openvino",
+                "--library",
+                "timm",
+                "--task",
+                "image-classification",
+                "--model",
+                hf_model_id,
+                "--weight-format",
+                precision,
+                str(tmpdir),
+            ],
+            env=env,
+            check=True,
+        )
+        exported_xml = only_xml(tmpdir)
+        model = ov.Core().read_model(str(exported_xml))
+        add_model_info(model, model_name)
+        save_ir(model, xml, compress_to_fp16=precision == "fp16")
+
+
+def only_xml(root: Path) -> Path:
+    """Return the single OpenVINO XML file produced by optimum-cli."""
+    xmls = sorted(root.rglob("*.xml"))
+    assert len(xmls) == 1, f"expected one exported XML in {root}, found {len(xmls)}"
+    return xmls[0]
+
+
+def add_model_info(model: ov.Model, model_name: str) -> None:
+    """Attach DLStreamer classification metadata to OpenVINO IR."""
+    cfg = timm.get_pretrained_cfg(model_name)
+    assert cfg, f"missing TIMM pretrained config: {model_name}"
+    mean = to_pixel_values(cfg.mean)
+    std = to_pixel_values(cfg.std)
     model.set_rt_info("label", ["model_info", "model_type"])
     model.set_rt_info("True", ["model_info", "output_raw_scores"])
     model.set_rt_info("RGB", ["model_info", "color_space"])
@@ -189,7 +172,7 @@ def to_pixel_values(values) -> tuple[float, float, float]:
     return values
 
 
-def save_ir(model, xml: Path, compress_to_fp16: bool) -> None:
+def save_ir(model: ov.Model, xml: Path, compress_to_fp16: bool) -> None:
     """Save IR through a temp dir, verify it, then move it into place."""
     xml.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix=f".{xml.stem}-", dir=xml.parent) as tmp:

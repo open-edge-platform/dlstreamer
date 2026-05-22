@@ -104,9 +104,10 @@ python download_ultralytics_models.py --model yolo11s.pt --outdir ./exports --in
 
 Script: `download_timm_models.py`
 
-This script exports selected PyTorch Image Models (TIMM) image-classification models to OpenVINO IR.
-Run `list-models` in your model-download environment to print the supported
-model names.
+This script exports a relevant set of Hugging Face-hosted PyTorch Image Models
+(TIMM) image-classification models to OpenVINO IR using `optimum-cli`. Run
+`list-models` in your model-download environment to print the supported model
+names.
 
 ### Commands
 
@@ -116,9 +117,7 @@ python download_timm_models.py list-models
 python download_timm_models.py import \
   --model <timm_model_name> \
   [--precision fp16|int8|both] \
-  [--output-dir <models_path>] \
-  [--calibration-data <image_dir>] \
-  [--calibration-subset-size <num_images>]
+  [--output-dir <models_path>]
 ```
 
 ### Arguments
@@ -126,18 +125,16 @@ python download_timm_models.py import \
 - `list-models`: Lists supported TIMM model names.
 - `--model` (required for `import`): TIMM model name from `list-models`.
 - `--precision` (optional, default `fp16`): Supports `fp16`, `int8`, or `both`.
+  INT8 uses Optimum weight-format quantization.
 - `--output-dir` (optional): Output root. Defaults to `MODELS_PATH` when set.
-- `--calibration-data` (required for `int8` or `both`): Directory with representative calibration images.
-- `--calibration-subset-size` (optional, default `300`): Maximum number of calibration images to use for INT8.
 
-Existing TIMM exports in the target folder are replaced only after the new
-OpenVINO IR has been saved and verified.
+Existing TIMM exports in the target folder are replaced only after the exported
+OpenVINO IR has been read and re-saved successfully.
 
 ### Precisions
 
-TIMM export supports FP16 and INT8. FP16 uses OpenVINO FP16 weight compression.
-INT8 uses NNCF post-training quantization and requires representative image
-calibration data.
+TIMM export supports FP16 and INT8 through Optimum `--weight-format`. INT8 is
+weight-format quantization, not full activation calibration.
 
 ### Examples
 
@@ -151,19 +148,17 @@ python download_timm_models.py import \
   --precision fp16 \
   --output-dir "${MODELS_PATH}"
 
-# export INT8 only (use representative images for INT8 calibration)
+# export INT8 only
 python download_timm_models.py import \
   --model mobilenetv3_small_100 \
   --precision int8 \
-  --output-dir "${MODELS_PATH}" \
-  --calibration-data "${CALIBRATION_IMAGES_DIR}"
+  --output-dir "${MODELS_PATH}"
 
-# export FP16 and INT8 (use representative images for INT8 calibration)
+# export FP16 and INT8
 python download_timm_models.py import \
   --model mobilenetv3_small_100 \
   --precision both \
-  --output-dir "${MODELS_PATH}" \
-  --calibration-data "${CALIBRATION_IMAGES_DIR}"
+  --output-dir "${MODELS_PATH}"
 ```
 
 ## Output notes
