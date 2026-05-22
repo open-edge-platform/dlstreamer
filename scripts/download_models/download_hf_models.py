@@ -69,21 +69,12 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
-
     model_id = args.model
     token = args.token
 
     try:
         support_level = get_hf_model_support_level(model_id, token)
-    except OSError as exc:
-        print(f"Error: Model '{model_id}' not found or inaccessible")
-        print(f"Details: {str(exc)}")
-        return 1
-    except Exception as exc:
-        print(f"Unexpected error while checking model support: {str(exc)}")
-        return 1
-
-    try:
+        
         match support_level:
             case 0:
                 # Standard export using optimum-cli
@@ -106,7 +97,6 @@ def main() -> int:
 
             case 1:
                 # Custom conversion
-                # To be added to future releases of optimum-cli
                 model_path = custom_conversion(
                     model_id,
                     Path(args.outdir),
@@ -122,12 +112,16 @@ def main() -> int:
 
         print(f"Exported model location: {model_path}")
         return 0
-    
+        
+    except OSError as exc:
+        print(f"Error: Model '{model_id}' not found or inaccessible")
+        print(f"Details: {str(exc)}")
+        return 1
     except subprocess.CalledProcessError as exc:
         print(f"Error during model export: {str(exc)}")
         return 1
     except Exception as exc:
-        print(f"Unexpected error during conversion: {str(exc)}")
+        print(f"Unexpected error: {str(exc)}")
         return 1
 
 
