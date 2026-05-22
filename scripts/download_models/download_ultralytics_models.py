@@ -1,5 +1,5 @@
 # ==============================================================================
-# Copyright (C) 2018-2026 Intel Corporation
+# Copyright (C) 2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
@@ -87,7 +87,6 @@ def main() -> int:
             int8=int8,
         )
 
-        # ← NOWE: Walidacja czy export faktycznie stworzył plik
         if not exported_model_path or not Path(exported_model_path).exists():
             print(f"Error: Export failed for model '{model_name}' - no output produced")
             return 1
