@@ -12,7 +12,7 @@ python3 ./coexistence_dls_and_ds.py <input> LPR <output> [-simultaneously]"""
 import glob
 import os
 import re
-import subprocess  # B404 - subprocess usage is necessary for system integration
+import subprocess  # nosec B404 - subprocess usage is necessary for system integration
 import sys
 import threading
 import shutil
@@ -137,8 +137,8 @@ deepstream_docker=deepstream_docker.replace("\n", " ")
 lspci_path = shutil.which("lspci")
 if lspci_path:
     try:
-        # B603 FIXED: Using trusted system command with validated path
-        result = subprocess.run([lspci_path, "-nn"], capture_output=True, text=True, check=True, timeout=30)
+        # Using trusted system command with validated path from shutil.which()
+        result = subprocess.run([lspci_path, "-nn"], capture_output=True, text=True, check=True, timeout=30)  # nosec B603
         lspci_output = result.stdout.split("\n")
     except (subprocess.SubprocessError, subprocess.TimeoutExpired):
         lspci_output = []
@@ -162,7 +162,8 @@ if os.path.exists("/dev/accel"):
 lscpu_path = shutil.which("lscpu")
 if lscpu_path:
     try:
-        result = subprocess.run([lscpu_path], capture_output=True, text=True, check=True, timeout=30)
+        # Using trusted system command with validated path from shutil.which()
+        result = subprocess.run([lscpu_path], capture_output=True, text=True, check=True, timeout=30)  # nosec B603
         lscpu_output = result.stdout.replace("\n", " ")
         if "Intel" in lscpu_output:
             INTEL_CPU=True
@@ -188,11 +189,11 @@ def run_dlstreamer_pipeline():
         print("Downloading DL Streamer models....\n")
         command=f"{dlstreamer_docker} \"/opt/intel/dlstreamer/samples/download_public_models.sh "
         command+="yolov8_license_plate_detector,ch_PP-OCRv4_rec_infer \""
-        os.system(command) # nosec - Docker command with controlled input
+        os.system(command) # nosec
 
     dls_pipeline = dlstreamer_pipelines[pipeline]
     print(f"DL STREAMER PIPELINE:\n{dls_pipeline}\n\n")
-    with subprocess.Popen(f"{dlstreamer_docker} \"{dls_pipeline}\"", shell=True, # nosec - Docker command with controlled input
+    with subprocess.Popen(f"{dlstreamer_docker} \"{dls_pipeline}\"", shell=True, # nosec
     stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1) as dls_proc: # nosec
         for line in dls_proc.stdout:
             print(f"[DL Streamer] {line.rstrip()}")
@@ -205,11 +206,11 @@ def run_deepstream_pipeline():
         command=f"{deepstream_docker}"
         command=command.replace("\n", " ")
         command+=f" \"{DEEPSTREAM_SETUP_LPR}\""
-        os.system(command) # nosec - Docker command with controlled input
+        os.system(command) # nosec
 
     ds_pipeline = deepstream_pipelines[pipeline]
     print(f"DEEPSTREAM PIPELINE:\n{ds_pipeline}\n\n")
-    with subprocess.Popen(f"{deepstream_docker} \"{ds_pipeline}\"", shell=True, # nosec - Docker command with controlled input
+    with subprocess.Popen(f"{deepstream_docker} \"{ds_pipeline}\"", shell=True, # nosec
     stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1) as ds_proc: # nosec
         for line in ds_proc.stdout:
             print(f"[DeepStream] {line.rstrip()}")
