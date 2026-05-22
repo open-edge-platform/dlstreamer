@@ -72,7 +72,7 @@ def prepare_detection_model():
         repo_id="arnabdhar/YOLOv8-Face-Detection",
         filename="model.pt",
         local_dir=runtime_dir,
-        revision="main",  # Explicitly pin revision for security
+        revision="52fa54977207fa4f021de949b515fb19dcab4488",  # Explicitly pin revision for security
     )
     model = YOLO(str(model_path))
     exported_model_path = model.export(format="openvino", dynamic=False, imgsz=640)

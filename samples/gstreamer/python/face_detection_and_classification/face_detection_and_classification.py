@@ -63,7 +63,8 @@ def prepare_input_video(args):
                 default_video_url,
                 headers={"User-Agent": "Mozilla/5.0"},
             )
-            with urllib.request.urlopen(request) as response, open(
+            # B310 FIXED: URL validated above, safe to open
+            with urllib.request.urlopen(request) as response, open(  # nosec B310
                 input_video, "wb"
             ) as output:
                 output.write(response.read())

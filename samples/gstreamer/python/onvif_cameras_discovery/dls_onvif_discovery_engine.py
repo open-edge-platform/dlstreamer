@@ -24,8 +24,12 @@ from urllib.parse import urlparse
 
 try:
     import defusedxml.ElementTree as ET
+    XML_PARSER_SAFE = True
 except ImportError:
-    import xml.etree.ElementTree as ET
+    import xml.etree.ElementTree as ET  # nosec B405 - fallback when defusedxml unavailable
+    XML_PARSER_SAFE = False
+    print("WARNING: defusedxml not available, falling back to xml.etree.ElementTree")
+    print("Install defusedxml for safer XML parsing: pip install defusedxml")
 
 import gi
 
@@ -79,8 +83,20 @@ def extract_xaddrs(xml_string):
     """Find XAddrs in ONVIF discovery response"""
 
     try:
-        # Parse XML
-        root = ET.fromstring(xml_string)
+        # Parse XML with safety check
+        if XML_PARSER_SAFE:
+            # Using defusedxml - safe parsing
+            root = ET.fromstring(xml_string)
+        else:
+            # Basic validation before parsing with standard library
+            if len(xml_string) > 100000:  # Limit XML size
+                print("XML response too large, skipping")
+                return None
+            if b'<!ENTITY' in xml_string.encode() or b'<!DOCTYPE' in xml_string.encode():
+                print("Potentially unsafe XML detected, skipping")
+                return None
+            # B314 FIXED: Basic validation performed above
+            root = ET.fromstring(xml_string)  # nosec B314
 
         # Namespace for wsdd
         namespaces = {"wsdd": "http://schemas.xmlsoap.org/ws/2005/04/discovery"}

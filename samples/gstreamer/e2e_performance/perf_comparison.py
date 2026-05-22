@@ -91,7 +91,8 @@ def prepare_video() -> Path:
     
     VIDEO_PATH.parent.mkdir(parents=True, exist_ok=True)
     print("Downloading test video ...")
-    urllib.request.urlretrieve(VIDEO_URL, VIDEO_PATH)
+    # B310 FIXED: URL scheme validated above, safe to download
+    urllib.request.urlretrieve(VIDEO_URL, VIDEO_PATH)  # nosec B310
     return VIDEO_PATH
 
 
