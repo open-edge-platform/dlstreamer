@@ -18,32 +18,9 @@ import openvino as ov
 import subprocess
 import sys
 import urllib.request
-import shutil
 
 gi.require_version("Gst", "1.0")
 from gi.repository import Gst   # pylint: disable=no-name-in-module
-
-def safe_run_command(cmd_name, args, timeout=300):
-    """Safely run command with path validation and timeout."""
-    # Validate command exists
-    cmd_path = shutil.which(cmd_name)
-    if not cmd_path:
-        raise FileNotFoundError(f"Command '{cmd_name}' not found in PATH")
-    
-    print(f"Running: {cmd_name} {' '.join(args)}")
-    try:
-        result = subprocess.run(
-            [cmd_path] + args,
-            check=True,
-            timeout=timeout,
-            capture_output=True,
-            text=True
-        )
-        return result
-    except subprocess.TimeoutExpired:
-        raise Exception(f"Command '{cmd_name}' timed out after {timeout} seconds")
-    except subprocess.CalledProcessError as e:
-        raise Exception(f"Command '{cmd_name}' failed with exit code {e.returncode}: {e.stderr}")
 
 def pipeline_loop(gst_pipeline):
     """Wrapper to run the gstreamer pipeline loop"""
@@ -88,26 +65,12 @@ def check_download_detection_model():
     # download RTDETRv2 model from Hugging Face Model Hub if local copy does not exist
     if not os.path.isfile(ov_model_path):
         print("Downloading PekingU/rtdetr_v2_r50vd from HuggingFace\n")
-        
-        # Export ONNX model using optimum-cli
-        safe_run_command("optimum-cli", [
-            "export", "onnx", "--model", "PekingU/rtdetr_v2_r50vd",
-            "--task", "object-detection", "--opset", "18", 
-            "--width", "640", "--height", "640", "rtdetr_v2_r50vd"
-        ])
-        
+        subprocess.run(["optimum-cli", "export", "onnx", "--model", "PekingU/rtdetr_v2_r50vd",
+                        "--task", "object-detection", "--opset", "18", "--width", "640", "--height", "640", "rtdetr_v2_r50vd",
+            ],check=True)
         os.chdir("rtdetr_v2_r50vd")
-        
-        # Download preprocessor config using huggingface-hub CLI
-        safe_run_command("hf", [
-            "download", "PekingU/rtdetr_v2_r50vd", 
-            "--include", "preprocessor_config.json", 
-            "--local-dir", "."
-        ])
-        
-        # Convert to OpenVINO format using ovc
-        safe_run_command("ovc", ["model.onnx"])
-        
+        subprocess.run(["hf", "download", "PekingU/rtdetr_v2_r50vd", "--include", "preprocessor_config.json", "--local-dir", "."], check=True)
+        subprocess.run(["ovc", "model.onnx"], check=True)
         os.chdir("..")
         print(f"Model exported to OpenVINO IR format at: {ov_model_path}\n")
 
