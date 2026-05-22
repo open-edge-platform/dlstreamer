@@ -77,19 +77,20 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 5. Export a VLM model (run once)
+### 5. Download a VLM model (run once)
 
 ```bash
 hf download OpenVINO/gemma-3-4b-it-int8-ov --local-dir ./Gemma3-4B
 ```
 
+The `hf` CLI is installed by `requirements.txt`.
 Gemma 3 4B (~3.3 GB in int4) is recommended — compact enough for
 **Intel Core Ultra** laptops with good object recognition.
 
 > **Note:** Gated models require a [Hugging Face](https://huggingface.co/)
 > account. Accept the license on the model page, then:
 > ```bash
-> pip install hf && hf auth login
+> hf auth login
 > ```
 
 ## Quick Start
@@ -167,19 +168,12 @@ without requiring a dedicated weapon-detection model.
 
 ## DLStreamer Pipeline
 
-The GStreamer pipeline ingests the RTSP stream and splits it via a `tee`
-into two branches:
+The GStreamer pipeline ingests the RTSP stream and runs VLM inference
+via `gvagenai`:
 
 ```
-urisourcebin → decodebin3 → videoconvertscale → video/x-raw,format=RGB → tee
-                                                                           │
-                ┌──────────────────────────────────────────────────────────┘
-                │
-                ├─► queue (leaky) → videorate → gvagenai (frame-rate) → jpegenc → appsink
-                │       Branch 1: Continuous VLM inference + frame capture
-                │
-                └─► queue (leaky) → videorate (1 fps) → jpegenc → appsink
-                        Branch 2: Continuous JPEG preview (fallback)
+urisourcebin → decodebin3 → videoconvertscale → video/x-raw,format=RGB
+    → queue (leaky) → videorate → gvagenai (frame-rate) → jpegenc → appsink
 ```
 
 | Element | Role |
@@ -187,13 +181,10 @@ urisourcebin → decodebin3 → videoconvertscale → video/x-raw,format=RGB →
 | `urisourcebin` | Connects to the camera's RTSP stream (TCP transport) with auto-reconnect |
 | `decodebin3` | Decodes H.264/H.265 video |
 | `videoconvertscale` | Converts to RGB for downstream processing |
-| `tee` | Splits the stream into two branches |
-| `videorate` (Branch 1) | Limits input rate to 1 fps upstream of gvagenai |
+| `videorate` | Limits input rate to 1 fps upstream of gvagenai |
 | `gvagenai` | Runs continuous VLM inference (e.g. Gemma 3 4B) via OpenVINO GenAI at `--frame-rate` fps |
-| `jpegenc` (Branch 1) | Encodes the exact VLM-processed frame to JPEG for the dashboard |
+| `jpegenc` | Encodes the exact VLM-processed frame to JPEG for the dashboard |
 | `appsink` (`vlm_jpeg_sink`) | Captures the JPEG of the frame VLM actually processed |
-| `videorate` + `jpegenc` (Branch 2) | Continuous 1 fps JPEG snapshots (fallback if VLM frame unavailable) |
-| `appsink` (`jpeg_sink`) | Delivers fallback JPEG buffers to the Python application |
 
 **Continuous inference with dynamic prompts:** `gvagenai` runs continuously at
 `--frame-rate` fps (default 0.2 = every 5 seconds). When an MQTT event arrives,
