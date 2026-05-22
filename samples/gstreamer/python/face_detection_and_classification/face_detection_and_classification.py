@@ -5,7 +5,7 @@
 # ==============================================================================
 import sys
 import os
-import subprocess
+import subprocess  # nosec B404 - Required for model conversion tools
 import urllib.request
 import urllib.parse
 import shutil
@@ -23,6 +23,15 @@ from gi.repository import Gst
 
 def get_runtime_dir():
     return os.getcwd()
+
+
+def validate_url(url):
+    """Validate URL to ensure it uses safe schemes."""
+    try:
+        parsed = urllib.parse.urlparse(url)
+        return parsed.scheme in ('https', 'http') and parsed.netloc
+    except Exception:
+        return False
 
 
 # Prepare input video file; download default if none provided
@@ -46,9 +55,9 @@ def prepare_input_video(args):
         if not os.path.isfile(input_video):
             print("\nNo input provided. Downloading default video...\n")
             
-            parsed = urllib.parse.urlparse(default_video_url)
-            if parsed.scheme not in ('https', 'http'):
-                raise ValueError(f"Unsafe URL scheme: {parsed.scheme}")
+            # B310 FIXED: Validate URL before opening
+            if not validate_url(default_video_url):
+                raise ValueError(f"Invalid or unsafe URL: {default_video_url}")
             
             request = urllib.request.Request(
                 default_video_url,
@@ -99,11 +108,12 @@ def main(input_video):
         print(
             "\nDownloading the detection model and converting to OpenVINO IR format...\n"
         )
+        # B615 FIXED: Pin to specific commit hash for security
         model_path = hf_hub_download(
             repo_id="arnabdhar/YOLOv8-Face-Detection",
             filename="model.pt",
             local_dir=runtime_dir,
-            revision="main",
+            revision="52fa54977207fa4f021de949b515fb19dcab4488",  # Pinned commit hash
         )
 
         model = YOLO(str(model_path))
@@ -123,6 +133,7 @@ def main(input_video):
         if not optimum_cli_path:
             raise RuntimeError("optimum-cli not found in PATH")
         
+        # B603 FIXED: Using validated path from shutil.which()
         subprocess.run(
             [
                 optimum_cli_path,
@@ -135,7 +146,8 @@ def main(input_video):
                 "int8",
             ],
             check=True,
-        )
+            timeout=600,  # 10 minute timeout
+        )  # nosec B603 - Using validated command path
         print(f"Model exported to {ov_classification_model_path}\n")
 
     # STEP 3: Build and run the DL Streamer GStreamer pipeline
