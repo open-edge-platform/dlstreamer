@@ -18,10 +18,11 @@ Builds a pipeline that:
 import argparse
 import os
 import signal
-import subprocess
+import subprocess  # nosec B404
 import sys
 import time
 import urllib.request
+import urllib.parse
 from pathlib import Path
 
 import gi
@@ -156,8 +157,34 @@ DEFAULT_VIDEO_URL = (
     "https://www.pexels.com/download/video/35256160"
 )
 
+def validate_url(url: str) -> bool:
+    """Validate URL to ensure it uses safe schemes and trusted domains."""
+    try:
+        parsed = urllib.parse.urlparse(url)
+        # Allow only HTTP and HTTPS schemes
+        if parsed.scheme not in ['http', 'https']:
+            print(f"Error: Unsafe URL scheme '{parsed.scheme}'. Only HTTP/HTTPS allowed.")
+            return False
+        # Ensure hostname is present
+        if not parsed.netloc:
+            print("Error: URL must contain a valid hostname")
+            return False
+        # Allow only trusted domains for video downloads
+        trusted_domains = ['www.pexels.com', 'pexels.com', 'videos.pexels.com']
+        hostname = parsed.netloc.lower()
+        if not any(hostname == domain or hostname.endswith('.' + domain) for domain in trusted_domains):
+            print(f"Error: Untrusted domain '{hostname}'. Only Pexels.com videos are allowed.")
+            return False
+        return True
+    except Exception as e:
+        print(f"Error: URL validation failed: {e}")
+        return False
+
 def download_video(video_url: str) -> Path:
     """Return a local video path, downloading from URL if needed."""
+    if not validate_url(video_url):
+        raise ValueError(f"Invalid or unsafe video URL: {video_url}")
+    
     VIDEOS_DIR.mkdir(parents=True, exist_ok=True)
     filename = video_url.rstrip("/").split("/")[-1]
     if not Path(filename).suffix:
@@ -165,35 +192,77 @@ def download_video(video_url: str) -> Path:
 
     local_path = VIDEOS_DIR / filename
     if not local_path.exists():
-        request = urllib.request.Request(video_url, headers={"User-Agent": "Mozilla/5.0"})
-        with urllib.request.urlopen(request, timeout=60) as response:
-            data = response.read()
-            if not data:
-                raise RuntimeError("Video download returned empty response")
-            with open(local_path, "wb") as fh:
-                fh.write(data)
+        try:
+            request = urllib.request.Request(video_url, headers={"User-Agent": "Mozilla/5.0"})
+            # Use safe URL opening with timeout and size limits
+            with urllib.request.urlopen(request, timeout=60) as response:  # nosec B310
+                # Check content length
+                content_length = response.headers.get('Content-Length')
+                if content_length and int(content_length) > 500 * 1024 * 1024:  # 500MB limit
+                    raise ValueError(f"Video file too large: {int(content_length) / (1024*1024):.2f} MB")
+                
+                data = response.read()
+                if not data:
+                    raise RuntimeError("Video download returned empty response")
+                
+                # Additional size check after download
+                if len(data) > 500 * 1024 * 1024:  # 500MB limit
+                    raise ValueError(f"Downloaded video too large: {len(data) / (1024*1024):.2f} MB")
+                
+                with open(local_path, "wb") as fh:
+                    fh.write(data)
+        except Exception as e:
+            if local_path.exists():
+                local_path.unlink()  # Clean up on failure
+            raise RuntimeError(f"Video download failed: {e}")
 
     return local_path.resolve()
 
 
 DOWNLOAD_SCRIPT = Path(__file__).resolve().parents[4] / "scripts" / "download_models" / "download_ultralytics_models.py"
 
+def validate_model_id(model_id: str) -> bool:
+    """Validate model ID to prevent injection attacks."""
+    # Allow only alphanumeric characters, hyphens, underscores, and dots
+    if not model_id or not all(c.isalnum() or c in '-_.' for c in model_id):
+        return False
+    # Prevent path traversal
+    if '..' in model_id or '/' in model_id or '\\' in model_id:
+        return False
+    return True
+
 def download_detection_model(model_id: str) -> Path:
     """Return a path to the local file with YOLO OpenVINO IR model.
     Spawn a separate process, as Ultralytics export will create a new instance of OpenVINO runtime
     which may clash with OpenVINO runtime instance used by DLStreamer."""
+    if not validate_model_id(model_id):
+        raise ValueError(f"Invalid model ID format: {model_id}")
+    
     MODELS_DIR.mkdir(parents=True, exist_ok=True)
     model_path = MODELS_DIR / f"{model_id}_int8_openvino_model" / f"{model_id}.xml"
 
     if not model_path.exists():
         print(f"[detect] exporting {model_id} to OpenVINO format (subprocess)")
         pt_file = BASE_DIR / f"{model_id}.pt"
-        result = subprocess.run(
-            [sys.executable, str(DOWNLOAD_SCRIPT),
-             "--model", str(pt_file),
-             "--outdir", str(MODELS_DIR),
-             "--int8"],
-            check=False
+        
+        # Validate all command arguments
+        command = [
+            sys.executable, str(DOWNLOAD_SCRIPT),
+            "--model", str(pt_file),
+            "--outdir", str(MODELS_DIR),
+            "--int8"
+        ]
+        
+        # Validate that all paths are safe
+        for arg in command:
+            if any(dangerous in str(arg) for dangerous in [';', '&', '|', '`', '$', '(', ')']):
+                raise ValueError(f"Unsafe command argument: {arg}")
+        
+        result = subprocess.run(  # nosec B603
+            command,
+            check=False,
+            shell=False,  # Explicitly disable shell
+            timeout=300   # 5 minute timeout
         )
         if result.returncode != 0:
             raise RuntimeError(f"YOLO model export failed with exit code {result.returncode}")
@@ -203,8 +272,24 @@ def download_detection_model(model_id: str) -> Path:
     return model_path.resolve()
 
 
+def validate_hf_model_id(model_id: str) -> bool:
+    """Validate Hugging Face model ID format."""
+    if not model_id or '/' not in model_id:
+        return False
+    parts = model_id.split('/')
+    if len(parts) != 2:
+        return False
+    username, model_name = parts
+    # Allow alphanumeric, hyphens, underscores, dots
+    if not all(c.isalnum() or c in '-_.' for c in username + model_name):
+        return False
+    return True
+
 def download_vlm_model(model_id: str) -> Path:
     """Return a path to the VLM OpenVINO model, downloading/exporting via a optimum-cli (separate process."""
+    if not validate_hf_model_id(model_id):
+        raise ValueError(f"Invalid Hugging Face model ID format: {model_id}")
+    
     MODELS_DIR.mkdir(parents=True, exist_ok=True)
     model_name = model_id.split("/")[-1]
     model_path = MODELS_DIR / model_name
@@ -222,7 +307,18 @@ def download_vlm_model(model_id: str) -> Path:
             "--trust-remote-code",
             str(model_path),
         ]
-        result = subprocess.run(command, check=False)
+        
+        # Validate command arguments
+        for arg in command:
+            if any(dangerous in str(arg) for dangerous in [';', '&', '|', '`', '$']):
+                raise ValueError(f"Unsafe command argument: {arg}")
+        
+        result = subprocess.run(  # nosec B603
+            command, 
+            check=False,
+            shell=False,  # Explicitly disable shell
+            timeout=1800  # 30 minute timeout for model download
+        )
         if result.returncode != 0:
             raise RuntimeError(f"VLM model export failed with exit code {result.returncode}")
         if not model_path.exists():
