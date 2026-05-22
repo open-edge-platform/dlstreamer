@@ -425,7 +425,10 @@ void gva_base_inference_class_init(GvaBaseInferenceClass *klass) {
     g_object_class_install_property(
         gobject_class, PROP_CORE_PINNING,
         g_param_spec_string("core-pinning", "Core Pinning",
-                            "List or range of CPU cores to pin this inference element to (e.g., '0-3' or '0,2,3')",
+                            "List or range of CPU cores to pin this inference element to (e.g., '0-3' or '0,2,3'). "
+                            "By default, the element uses the process CPU affinity mask. On Intel PTL-H series CPUs "
+                            "with all cores available,"
+                            "it automatically pins to the first 4 P-Cores for optimal performance.",
                             nullptr, param_flags));
 }
 

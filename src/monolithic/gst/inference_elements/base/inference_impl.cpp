@@ -934,6 +934,10 @@ InferenceImpl::Model InferenceImpl::CreateModel(GvaBaseInference *gva_base_infer
         va_dpy = gva_base_inference->priv->d3d11_device;
     }
 
+    // Set affinity mask that might set as the result of set_core_pinning_mask() call or
+    // set by the user directly via the core-pinning attribute.
+    SetAffinityMask(gva_base_inference->core_pinning_mask);
+
     auto image_inference = ImageInference::createImageInferenceInstance(
         memory_type, ie_config, allocator.get(), std::bind(&InferenceImpl::InferenceCompletionCallback, this, _1, _2),
         std::bind(&InferenceImpl::PushFramesIfInferenceFailed, this, _1), std::move(va_dpy));
@@ -1084,6 +1088,16 @@ bool InferenceImpl::IsRoiSizeValid(const GstAnalyticsODMtd roi_meta) {
 void InferenceImpl::SetAffinityMask(const cpu_set_t &mask) {
 
     GVA_INFO("Setting CPU affinity mask (%d cores set)\n", CPU_COUNT(&mask));
+
+    // Build hex string from cpu_set_t using CPU_ISSET
+    {
+        unsigned long long low_bits = 0;
+        for (int i = 0; i < 64 && i < CPU_SETSIZE; ++i) {
+            if (CPU_ISSET(i, &mask))
+                low_bits |= (1ULL << i);
+        }
+        GVA_INFO("Setting CPU affinity mask: 0x%llx\n", low_bits);
+    }
 
     pthread_t current_thread = pthread_self(); // Get current thread handle
     int result = pthread_setaffinity_np(current_thread, sizeof(cpu_set_t), &mask);
