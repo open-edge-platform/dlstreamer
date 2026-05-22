@@ -1,0 +1,227 @@
+# ==============================================================================
+# Copyright (C) 2026 Intel Corporation
+#
+# SPDX-License-Identifier: MIT
+# ==============================================================================
+
+"""
+This sample demonstrates how to count vehicles crossing a tripwire using gvaanalytics.
+The pipeline detects vehicles, tracks them across frames, and counts crossings in both directions.
+
+A custom GstBaseTransform element displays the crossing counters as watermark text.
+
+Pipeline:
+  filesrc -> decodebin3 -> gvadetect -> gvatrack -> gvaanalytics ->
+  vehicle_counter_text -> gvawatermark -> gvafpscounter ->
+  videoconvert -> autovideosink
+"""
+
+import sys
+import os
+import gi
+
+gi.require_version("Gst", "1.0")
+gi.require_version("GstBase", "1.0")
+gi.require_version("GstAnalytics", "1.0")
+gi.require_version("DLStreamerMeta", "1.0")
+gi.require_version("DLStreamerWatermarkMeta", "1.0")
+from gi.repository import Gst, GstBase, GObject, GLib, GstAnalytics, DLStreamerMeta, DLStreamerWatermarkMeta  # pylint: disable=no-name-in-module, wrong-import-position
+
+from gstgva.region_of_interest import RegionOfInterest 
+
+Gst.init(None)
+Gst.init_python()
+
+# Global counter for vehicles crossing the horizontal tripwire
+crossing_count = {
+    "left_to_right": 0,
+    "right_to_left": 0,
+    "total": 0
+}
+
+
+# ---------------------------------------------------------------------------
+# Custom GstBaseTransform element to count and display vehicle crossings
+# ---------------------------------------------------------------------------
+
+class VehicleCounterText(GstBase.BaseTransform):
+    """Custom GStreamer element that counts tripwire crossings and adds watermark text."""
+
+    __gstmetadata__ = (
+        "VehicleCounterText",
+        "Filter/Analytics",
+        "Counts vehicle crossings and displays counters as watermark text",
+        "Intel Corporation",
+    )
+
+    __gsttemplates__ = (
+        Gst.PadTemplate.new("sink", Gst.PadDirection.SINK, Gst.PadPresence.ALWAYS,
+                            Gst.Caps.new_any()),
+        Gst.PadTemplate.new("src",  Gst.PadDirection.SRC,  Gst.PadPresence.ALWAYS,
+                            Gst.Caps.new_any()),
+    )
+
+    # Property: vehicle types to track
+    _vehicle_types = "car,bus,truck"
+
+    @GObject.Property(type=str)
+    def vehicle_types(self):
+        """Comma-separated list of vehicle types to count (e.g., 'car,bus,truck')"""
+        return self._vehicle_types
+
+    @vehicle_types.setter
+    def vehicle_types(self, value):
+        self._vehicle_types = value
+        # Update the allowed types set when property changes
+        self._allowed_types = set(t.strip().lower() for t in value.split(","))
+
+    def __init__(self):
+        super().__init__()
+        self.set_in_place(True)
+        self.set_passthrough(False)
+        self._allowed_types = set(t.strip().lower() for t in self._vehicle_types.split(","))
+
+    def do_transform_ip(self, buffer):
+        """Process buffer, count tripwire crossings, and add watermark text."""
+        rmeta = GstAnalytics.buffer_get_analytics_relation_meta(buffer)
+
+        if rmeta:
+            # First pass: collect object detections by ID
+            objects_by_id = {}
+            for mtd in rmeta:
+                if isinstance(mtd, GstAnalytics.ODMtd):
+                    obj_type = GLib.quark_to_string(mtd.get_obj_type())
+                    objects_by_id[mtd.id] = {"type": obj_type, "mtd": mtd}
+            
+            # Second pass: check for tripwire crossings
+            for mtd in rmeta:
+                if isinstance(mtd, DLStreamerMeta.TripwireMtd):
+                    # Get crossing direction from tripwire metadata
+                    ok, tw_id, direction = mtd.get_info()
+                    if ok:
+                        # Try to find related detection object
+                        # The tripwire metadata may be linked to a detection
+                        obj_type = "unknown"
+                        
+                        # Check if this tripwire metadata is related to any detection
+                        # by looking at metadata relationships
+                        for obj_id, obj_info in objects_by_id.items():
+                            if obj_info["type"].lower() in self._allowed_types:
+                                obj_type = obj_info["type"]
+                                break
+                        
+                        # Count the crossing
+                        if direction == 1:  # Left-to-right crossing
+                            crossing_count["left_to_right"] += 1
+                            crossing_count["total"] += 1
+                            print(f"Vehicle crossing (L→R) - {obj_type}! Total: {crossing_count['total']}")
+                        elif direction == -1:  # Right-to-left crossing
+                            crossing_count["right_to_left"] += 1
+                            crossing_count["total"] += 1
+                            print(f"Vehicle crossing (R→L) - {obj_type}! Total: {crossing_count['total']}")
+
+        # Add single-line watermark text displaying all counters
+        counter_text = (f"L to R: {crossing_count['left_to_right']}  |  "
+                       f"R to L: {crossing_count['right_to_left']}  |  "
+                       f"Total: {crossing_count['total']}")
+        
+        DLStreamerWatermarkMeta.text_meta_add(
+            buffer,
+            x=10, y=30,
+            text=counter_text,
+            font_scale=0.8,
+            font_type=0,  # cv::FONT_HERSHEY_SIMPLEX
+            r=0, g=255, b=255, thickness=1, draw_bg=True)
+
+        return Gst.FlowReturn.OK
+
+
+GObject.type_register(VehicleCounterText)
+__gstelementfactory__ = ("vehicle_counter_text", Gst.Rank.NONE, VehicleCounterText)
+
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+
+def main(args):
+    if len(args) < 3 or len(args) > 4:
+        sys.stderr.write("usage: %s <LOCAL_VIDEO_FILE> <LOCAL_MODEL_FILE> [OUTPUT_FILE]\n" % args[0])
+        sys.exit(1)
+
+    video_file = args[1]
+    model_file = args[2]
+    output_file = args[3] if len(args) == 4 else None
+
+    # Register the custom element so it can be used in parse_launch
+    if not Gst.Element.register(None, "vehicle_counter_text", Gst.Rank.NONE, VehicleCounterText):
+        sys.stderr.write("Failed to register vehicle_counter_text element\n")
+        sys.exit(1)
+
+    # Get path to tripwire config file
+    config_file = os.path.join(os.path.dirname(__file__), "tripwire-config.json")
+
+    # Build output sink based on whether file output is requested
+    if output_file:
+        output_sink = (
+            f"videoconvert ! "
+            f"openh264enc ! "
+            f"h264parse ! "
+            f"mp4mux ! "
+            f"filesink location={output_file}"
+        )
+        print(f"Output will be saved to: {output_file}\n")
+    else:
+        output_sink = "videoconvert ! autovideosink"
+        print("Output will be displayed on screen (no file saving)\n")
+
+    # Build pipeline using parse_launch
+    pipeline_str = (
+        f"urisourcebin uri={video_file} ! "
+        f"decodebin3 ! "
+        f"gvadetect model={model_file} device=GPU batch-size=4 threshold=0.7 ! queue ! "
+        f"gvatrack tracking-type=zero-term ! queue ! "
+        f"gvaanalytics config={config_file} ! "
+        f"vehicle_counter_text vehicle-types=car,bus,truck ! "
+        f"gvawatermark ! "
+        f"gvafpscounter ! "
+        f"{output_sink}"
+    )
+
+    print(f"Creating pipeline:\n{pipeline_str}\n")
+    pipeline = Gst.parse_launch(pipeline_str)
+
+    if not pipeline:
+        sys.stderr.write("Failed to create pipeline\n")
+        sys.exit(1)
+
+    print("Starting pipeline...\n")
+    bus = pipeline.get_bus()
+    pipeline.set_state(Gst.State.PLAYING)
+
+    terminate = False
+    if output_file:
+        print(f"Output will be saved to: {output_file}\n")
+
+    while not terminate:
+        msg = bus.timed_pop_filtered(
+            Gst.CLOCK_TIME_NONE,
+            Gst.MessageType.EOS | Gst.MessageType.ERROR)
+        if msg:
+            if msg.type == Gst.MessageType.ERROR:
+                err, debug_info = msg.parse_error()
+                print(f"Error from element {msg.src.get_name()}: {err.message}")
+                print(f"Debug info: {debug_info}")
+                terminate = True
+            elif msg.type == Gst.MessageType.EOS:
+                print("Pipeline complete.")
+                print(f"\n=== Final Vehicle Crossing Counts ===")
+                print(f"Left to Right (L→R): {crossing_count['left_to_right']}")
+                print(f"Right to Left (R→L): {crossing_count['right_to_left']}")
+                print(f"Total Crossings: {crossing_count['total']}")
+                terminate = True
+
+    pipeline.set_state(Gst.State.NULL)
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))
