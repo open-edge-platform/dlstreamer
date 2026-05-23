@@ -167,4 +167,4 @@ python download_timm_models.py import \
 - Ultralytics export output is moved into the specified `--outdir`.
 - TIMM exports are written under `<output-dir>/public/<model_name>/FP16/<model_name>.xml`
   and/or `<output-dir>/public/<model_name>/INT8/<model_name>.xml` with matching
-  `.bin` files.
+  `.bin` and `data_config.json` files.
