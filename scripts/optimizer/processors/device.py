@@ -79,6 +79,7 @@ class DeviceGenerator:
             # preapre the pipeline as well as score info
             pipeline = initial_pipeline.copy()
             total_score = 0
+            used_devices = []
 
             for element in reversed(self.tracked_elements):
                 # Get the pipeline element we're modifying
@@ -110,21 +111,21 @@ class DeviceGenerator:
                 pipeline.insert(idx, " vapostproc ")
 
                 total_score -= device_score
+                used_devices.append(device)
 
             # store the score, device combination info and the candidate in a priority queue
-            heapq.heappush(self.candidates, (total_score, combination, pipeline))
+            heapq.heappush(self.candidates, (total_score, used_devices, pipeline))
 
     def __iter__(self):
         return self
 
     def __next__(self) -> list:
         try:
-            # score is only important during queue sorting, we ignore it here
             score, combination, pipeline = heapq.heappop(self.candidates)
-            logger.info("Score: %s", str(score))
 
             # log device combinations
             logger.info("Testing device combination: %s", str(combination))
+            logger.debug("Combination score: %s", str(-score))
 
             return pipeline
         except IndexError as exc:
