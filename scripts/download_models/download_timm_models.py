@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import shutil
 import subprocess
@@ -89,11 +90,12 @@ def import_model(args: argparse.Namespace) -> int:
 
     assert hf_model_id, f"unsupported model or missing Hugging Face id: {model_name}"
     assert output_root, "--output-dir is required when MODELS_PATH is not set"
-    assert shutil.which("optimum-cli"), "optimum-cli is required in the export environment"
+    optimum_cli_path = shutil.which("optimum-cli")
+    assert optimum_cli_path, "optimum-cli is required in the export environment"
 
     for precision in precisions:
         xml = output_root / "public" / model_name / precision.upper() / f"{model_name}.xml"
-        export_with_optimum(hf_model_id, model_name, precision, xml)
+        export_with_optimum(optimum_cli_path, hf_model_id, model_name, precision, xml)
         print(f"Exported {precision.upper()} OpenVINO IR: {xml}")
     return 0
 
@@ -112,7 +114,13 @@ def hf_id(model_name: str) -> str | None:
     return cfg.hf_hub_id if cfg else None
 
 
-def export_with_optimum(hf_model_id: str, model_name: str, precision: str, xml: Path) -> None:
+def export_with_optimum(
+    optimum_cli_path: str,
+    hf_model_id: str,
+    model_name: str,
+    precision: str,
+    xml: Path,
+) -> None:
     """Run optimum-cli, then normalize the output into DLStreamer layout."""
     with tempfile.TemporaryDirectory(prefix=f".{model_name}-{precision}-") as tmp:
         tmpdir = Path(tmp)
@@ -120,7 +128,7 @@ def export_with_optimum(hf_model_id: str, model_name: str, precision: str, xml: 
         env = {**os.environ, "HF_HUB_DISABLE_XET": "1"}
         subprocess.run(
             [
-                "optimum-cli",
+                optimum_cli_path,
                 "export",
                 "openvino",
                 "--library",
@@ -138,8 +146,8 @@ def export_with_optimum(hf_model_id: str, model_name: str, precision: str, xml: 
         )
         exported_xml = only_xml(tmpdir)
         model = ov.Core().read_model(str(exported_xml))
-        add_model_info(model, model_name)
         save_ir(model, xml, compress_to_fp16=precision == "fp16")
+        save_data_config(hf_model_id, xml.parent / "data_config.json")
 
 
 def only_xml(root: Path) -> Path:
@@ -149,27 +157,15 @@ def only_xml(root: Path) -> Path:
     return xmls[0]
 
 
-def add_model_info(model: ov.Model, model_name: str) -> None:
-    """Attach DLStreamer classification metadata to OpenVINO IR."""
-    cfg = timm.get_pretrained_cfg(model_name)
-    assert cfg, f"missing TIMM pretrained config: {model_name}"
-    mean = to_pixel_values(cfg.mean)
-    std = to_pixel_values(cfg.std)
-    model.set_rt_info("label", ["model_info", "model_type"])
-    model.set_rt_info("True", ["model_info", "output_raw_scores"])
-    model.set_rt_info("RGB", ["model_info", "color_space"])
-    model.set_rt_info("crop", ["model_info", "resize_type"])
-    model.set_rt_info(", ".join(f"{x:.6g}" for x in mean), ["model_info", "mean_values"])
-    model.set_rt_info(", ".join(f"{x:.6g}" for x in std), ["model_info", "scale_values"])
+def save_data_config(hf_model_id: str, path: Path) -> None:
+    """Save TIMM's resolved preprocessing config next to the exported IR."""
+    path.write_text(json.dumps(resolve_data_config(hf_model_id), indent=2) + "\n")
 
 
-def to_pixel_values(values) -> tuple[float, float, float]:
-    """Convert normalization values from unit scale to pixel scale if needed."""
-    values = tuple(float(x) for x in values)
-    assert len(values) == 3, f"expected three normalization values, got: {values}"
-    if all(0.0 <= x <= 1.0 for x in values):
-        return tuple(x * 255.0 for x in values)
-    return values
+def resolve_data_config(hf_model_id: str) -> dict:
+    """Return TIMM's preprocessing config for a Hugging Face TIMM model."""
+    model = timm.create_model(f"hf-hub:{hf_model_id}", pretrained=False)
+    return timm.data.resolve_model_data_config(model) | {"color_space": "RGB"}
 
 
 def save_ir(model: ov.Model, xml: Path, compress_to_fp16: bool) -> None:
