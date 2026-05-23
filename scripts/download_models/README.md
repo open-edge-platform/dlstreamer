@@ -129,16 +129,7 @@ python download_timm_models.py import \
 - `--output-dir` (optional): Output root. Defaults to `MODELS_PATH` when set.
 
 Existing TIMM exports in the target folder are replaced only after the exported
-OpenVINO IR is readable and has been saved in the DL Streamer layout.
-The TIMM preprocessing contract from `timm.data.resolve_model_data_config()` is
-resolved from the same Hugging Face TIMM model id used for export and saved as
-`data_config.json` next to each exported IR. Hugging Face TIMM `config.json`
-contains the full model metadata with a nested `pretrained_cfg`; `data_config.json`
-is the normalized preprocessing subset returned by TIMM, not a byte-for-byte copy
-of that file. The JSON also includes `color_space: "RGB"`, preserving the channel
-order previously stored in the OpenVINO IR as `model_info/color_space`. BGR is
-not exported as a TIMM model contract; BGR/NV12/etc. are runtime source formats
-that must be converted to RGB before applying the TIMM normalization values.
+OpenVINO IR has been read and re-saved successfully.
 
 ### Precisions
 
@@ -176,4 +167,4 @@ python download_timm_models.py import \
 - Ultralytics export output is moved into the specified `--outdir`.
 - TIMM exports are written under `<output-dir>/public/<model_name>/FP16/<model_name>.xml`
   and/or `<output-dir>/public/<model_name>/INT8/<model_name>.xml` with matching
-  `.bin` and `data_config.json` files.
+  `.bin` files.
