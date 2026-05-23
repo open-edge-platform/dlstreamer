@@ -18,11 +18,11 @@ class NireqGenerator:
         self.first_iteration = True
 
     def set_nireq_sizes(self, sizes):
-        self.nireqs = sizes    
+        self.nireqs = sizes
 
     def init_pipeline(self, pipeline):
         self.tracked_elements = []
-        self.nireq_groups = [] 
+        self.nireq_groups = []
         self.pipeline = pipeline.copy()
         self.first_iteration = True
 

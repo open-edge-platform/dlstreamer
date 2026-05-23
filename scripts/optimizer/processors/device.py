@@ -11,16 +11,10 @@ import os
 
 from openvino import Core
 from openvino.properties.device import Type
+
 from processors.utils import parse_element_parameters, assemble_parameters
 
 logger = logging.getLogger(__name__)
-
-def param_to_string(parameters) -> str:
-    """Convert a list / tuple of parameters returned from OV to a string."""
-    if isinstance(parameters, (list, tuple)):
-        return ', '.join([str(x) for x in parameters])
-    else:
-        return str(parameters)
 
 class DeviceGenerator:
     def __init__(self):
@@ -33,8 +27,8 @@ class DeviceGenerator:
         _devices = Core().available_devices
         for device in devices:
             if not any(device in d for d in _devices):
-                raise RuntimeError("Device %s is not supported by this system! Available devices: %s" % (device, str(_devices))) # pylint: disable=line-too-long
-        self.devices = devices        
+                raise RuntimeError(f"Device {device} is not supported by this system! Available devices: {str(_devices)}") # pylint: disable=line-too-long
+        self.devices = devices
 
     def init_pipeline(self, initial_pipeline):
         logger.info("Devices allowed for optimization: %s", str(self.devices))
@@ -133,8 +127,8 @@ class DeviceGenerator:
             logger.info("Testing device combination: %s", str(combination))
 
             return pipeline
-        except IndexError:
-            raise StopIteration
+        except IndexError as exc:
+            raise StopIteration from exc
 
 ###################################################################################################
 
@@ -162,7 +156,7 @@ def compile_device_info():
     # Do a third pass where we replace device names with expected TOPS
     script_dir = os.path.dirname(os.path.abspath(__file__))
     file_path = os.path.join(script_dir, 'device_data.json')
-    with open(file_path, 'r') as f:
+    with open(file_path, 'r', encoding="utf-8") as f:
         data = json.load(f)
         for device, name in device_info.items():
             if "GPU" in device:
@@ -173,4 +167,3 @@ def compile_device_info():
                 device_info[device] = 1
 
     return device_info
-

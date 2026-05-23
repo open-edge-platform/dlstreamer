@@ -18,7 +18,7 @@ class BatchGenerator:
         self.first_iteration = True
 
     def set_batch_sizes(self, sizes):
-        self.batches = sizes      
+        self.batches = sizes
 
     def init_pipeline(self, pipeline):
         self.tracked_elements = []
