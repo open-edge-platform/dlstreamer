@@ -307,10 +307,10 @@ class DLSOptimizer:
                     else:
                         logger.debug("Other message: %s", str(message))
 
-                # Incorrect pipelines sometimes get stuck in Ready state instead of failing.
-                # Terminate in those cases.
+                # incorrect pipelines sometimes get stuck in ready state instead of failing.
+                # allow normal async preroll states and only terminate on ready.
                 _, state, _ = pipeline.get_state(Gst.CLOCK_TIME_NONE)
-                if state != Gst.State.PLAYING:
+                if state == Gst.State.READY:
                     raise RuntimeError("Pipeline not healthy, terminating early")
 
                 cur_time = time.time()
