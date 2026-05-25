@@ -11,6 +11,7 @@ Run a DLStreamer VLM pipeline on a video and export JSON and MP4 results.
 import argparse
 import ipaddress
 import os
+import shutil
 import subprocess  # nosec B404
 import sys
 import tempfile
@@ -44,28 +45,17 @@ class PipelineConfig:
 
 def validate_url(url: str) -> bool:
     """Validate URL to ensure it uses safe schemes and trusted domains."""
-    try:
-        parsed = urllib.parse.urlparse(url)
-        # Allow only HTTP and HTTPS schemes
-        if parsed.scheme not in ['http', 'https']:
-            return False
-        # Ensure hostname is present
-        if not parsed.netloc:
-            return False
-        # block local/private addresses because this sample downloads a video asset.
-        hostname = parsed.hostname
-        if hostname is None:
-            return False
-        try:
-            address = ipaddress.ip_address(hostname)
-            if address.is_loopback or address.is_private or address.is_unspecified:
-                return False
-        except ValueError:
-            if hostname.lower() == "localhost":
-                return False
-        return True
-    except Exception:
+    parsed = urllib.parse.urlparse(url)
+    if parsed.scheme not in ["http", "https"] or not parsed.netloc:
         return False
+    hostname = parsed.hostname
+    if hostname is None:
+        return False
+    try:
+        address = ipaddress.ip_address(hostname)
+        return not (address.is_loopback or address.is_private or address.is_unspecified)
+    except ValueError:
+        return hostname.lower() != "localhost"
 
 
 def download_video(url: str, target_path: Path) -> None:
@@ -157,21 +147,6 @@ def validate_hf_model_id(model_id: str) -> bool:
     return True
 
 
-def validate_command_args(command: list[str]) -> bool:
-    """Validate command arguments to prevent injection attacks."""
-    # Check if command starts with expected executable
-    if not command or command[0] != "optimum-cli":
-        return False
-    
-    # Validate that all arguments are safe
-    for arg in command:
-        # Check for shell metacharacters that could be dangerous
-        if any(dangerous in str(arg) for dangerous in [';', '&', '|', '`', '$', '(', ')', '<', '>']):
-            return False
-    
-    return True
-
-
 def resolve_model(
     model_id: Optional[str],
     model_path: Optional[str],
@@ -196,8 +171,12 @@ def resolve_model(
         print(f"[model] using cached {output_dir}")
         return output_dir.resolve()
 
+    optimum_cli = shutil.which("optimum-cli")
+    if not optimum_cli:
+        raise VLMAlertsError("optimum-cli was not found in PATH")
+
     command = [
-        "optimum-cli",
+        optimum_cli,
         "export",
         "openvino",
         "--model",
@@ -207,10 +186,6 @@ def resolve_model(
         "--trust-remote-code",
         str(output_dir),
     ]
-
-    # Validate command before execution
-    if not validate_command_args(command):
-        raise VLMAlertsError("Invalid command arguments detected")
 
     try:
         subprocess.run(  # nosec B603
