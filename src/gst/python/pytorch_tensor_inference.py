@@ -172,7 +172,8 @@ class InferencePyTorch(GstBase.BaseTransform):
             raise AttributeError(f"'model' property is empty")
 
         if is_pytorch_model(model_str):
-            self.model = torch.load(model_str, map_location=self.device, weights_only=True)
+            # serialized local modules require full deserialization; use only trusted model files here.
+            self.model = torch.load(model_str, map_location=self.device, weights_only=False)  # nosec B614
         elif is_torchvision_module(model_str):
             model_name_arr = model_str.split(".")
             if len(model_name_arr) < 2:
