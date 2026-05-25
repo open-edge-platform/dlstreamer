@@ -9,6 +9,7 @@ Run a DLStreamer VLM pipeline on a video and export JSON and MP4 results.
 """
 
 import argparse
+import ipaddress
 import os
 import subprocess  # nosec B404
 import sys
@@ -51,10 +52,17 @@ def validate_url(url: str) -> bool:
         # Ensure hostname is present
         if not parsed.netloc:
             return False
-        # Block localhost and private IP ranges
-        hostname = parsed.netloc.split(':')[0].lower()
-        if hostname in ['localhost', '127.0.0.1', '0.0.0.0'] or hostname.startswith(('192.168.', '10.', '172.')):
+        # block local/private addresses because this sample downloads a video asset.
+        hostname = parsed.hostname
+        if hostname is None:
             return False
+        try:
+            address = ipaddress.ip_address(hostname)
+            if address.is_loopback or address.is_private or address.is_unspecified:
+                return False
+        except ValueError:
+            if hostname.lower() == "localhost":
+                return False
         return True
     except Exception:
         return False
@@ -224,3 +232,179 @@ def resolve_model(
         raise VLMAlertsError("OpenVINO export failed: no XML files found")
 
     return output_dir.resolve()
+
+
+def build_pipeline_string(cfg: PipelineConfig) -> tuple[str, Path, Path, Path]:
+    """Construct the GStreamer pipeline string and related output paths."""
+    cfg.results_dir.mkdir(parents=True, exist_ok=True)
+
+    output_json = cfg.results_dir / f"{cfg.model.name}-{cfg.video.stem}.jsonl"
+    output_video = cfg.results_dir / f"{cfg.model.name}-{cfg.video.stem}.mp4"
+
+    fd, prompt_path_str = tempfile.mkstemp(suffix=".txt")
+    prompt_path = Path(prompt_path_str)
+
+    with os.fdopen(fd, "w") as file:
+        file.write(cfg.prompt)
+
+    # for a short yes/no answer (max_new_tokens=1), num_beams=4 is a good default.
+    if cfg.num_beams < 1:
+        raise VLMAlertsError("num_beams must be >= 1")
+
+    generation_cfg = f"max_new_tokens={cfg.max_tokens}"
+    if cfg.num_beams > 1:
+        generation_cfg += f",num_beams={cfg.num_beams}"
+
+    pipeline_str = (
+        f'filesrc location="{cfg.video}" ! '
+        f'decodebin3 ! '
+        f'videoconvertscale ! '
+        f'video/x-raw(memory:VAMemory),format=NV12 ! '
+        f'queue ! '
+        f'gvagenai '
+        f'model-path="{cfg.model}" '
+        f'device={cfg.device} '
+        f'prompt-path="{prompt_path}" '
+        f'generation-config="{generation_cfg}" '
+        f'chunk-size=1 '
+        f'frame-rate={cfg.frame_rate} '
+        f'metrics=true ! '
+        f'gvametapublish file-format=json-lines '
+        f'file-path="{output_json}" ! '
+        f'queue ! '
+        f'gvafpscounter ! '
+        f'gvawatermark name=watermark '
+        f'displ-cfg=font-scale=1.5,draw-txt-bg=false,color-idx=1,thickness=5,text-y=680 ! '
+        f'videoconvert ! '
+        f'vah264enc ! '
+        f'h264parse ! '
+        f'mp4mux ! '
+        f'filesink location="{output_video}"'
+    )
+
+    return pipeline_str, output_json, output_video, prompt_path
+
+
+def run_pipeline(cfg: PipelineConfig) -> int:
+    """Execute a GStreamer pipeline string and block until completion."""
+    pipeline_str, output_json, output_video, prompt_path = build_pipeline_string(cfg)
+
+    print("\nPipeline:\n")
+    print(pipeline_str)
+    print()
+
+    Gst.init(None)
+
+    try:
+        pipeline = Gst.parse_launch(pipeline_str)
+    except GLib.Error as error:
+        print("Pipeline parse error:", str(error))
+        return 1
+
+    bus = pipeline.get_bus()
+    pipeline.set_state(Gst.State.PLAYING)
+
+    try:
+        while True:
+            message = bus.timed_pop_filtered(
+                Gst.CLOCK_TIME_NONE,
+                Gst.MessageType.ERROR | Gst.MessageType.EOS,
+            )
+
+            if message.type == Gst.MessageType.ERROR:
+                err, debug = message.parse_error()
+                print("ERROR:", err.message)
+                if debug:
+                    print("DEBUG:", debug)
+                return 1
+
+            if message.type == Gst.MessageType.EOS:
+                break
+    finally:
+        pipeline.set_state(Gst.State.NULL)
+        if prompt_path.exists():
+            prompt_path.unlink()
+
+    print(f"\nJSON output:  {output_json}")
+    print(f"Video output: {output_video}")
+
+    return 0
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="DLStreamer VLM Alerts sample"
+    )
+
+    parser.add_argument("--video-path", help="Path to local video file")
+    parser.add_argument("--video-url", help="URL to download video from")
+
+    parser.add_argument("--model-id", help="HuggingFace model id")
+    parser.add_argument("--model-path", help="Path to exported OpenVINO model")
+
+    parser.add_argument("--prompt", required=True, help="Text prompt for VLM")
+
+    parser.add_argument("--device", default="GPU")
+    parser.add_argument("--max-tokens", type=int, default=1)
+    parser.add_argument(
+        "--num-beams",
+        type=int,
+        default=4,
+        help=(
+            "Number of beams for beam search "
+            "(>=2 required for confidence scores; 1 = greedy, no confidence)"
+        ),
+    )
+    parser.add_argument("--frame-rate", type=float, default=1.0)
+
+    parser.add_argument("--videos-dir", type=Path, default=BASE_DIR / "videos")
+    parser.add_argument("--models-dir", type=Path, default=BASE_DIR / "models")
+    parser.add_argument("--results-dir", type=Path, default=BASE_DIR / "results")
+
+    args = parser.parse_args()
+
+    if not (args.video_path or args.video_url):
+        parser.error("Either --video-path or --video-url must be provided")
+
+    if not (args.model_id or args.model_path):
+        parser.error("Either --model-id or --model-path must be provided")
+
+    return args
+
+
+def main() -> int:
+    try:
+        args = parse_args()
+
+        video = resolve_video(args.video_path, args.video_url, args.videos_dir)
+        model = resolve_model(args.model_id, args.model_path, args.models_dir)
+
+        if args.num_beams == 1:
+            print(
+                "[warning] --num-beams=1 means greedy decoding: "
+                "confidence will not be available in output."
+            )
+
+        config = PipelineConfig(
+            video=video,
+            model=model,
+            prompt=args.prompt,
+            device=args.device,
+            max_tokens=args.max_tokens,
+            num_beams=args.num_beams,
+            frame_rate=args.frame_rate,
+            results_dir=args.results_dir,
+        )
+
+        return run_pipeline(config)
+
+    except VLMAlertsError as error:
+        print(f"Error: {error}")
+        return 1
+    except Exception as error:
+        print(f"Unexpected failure: {error}")
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
