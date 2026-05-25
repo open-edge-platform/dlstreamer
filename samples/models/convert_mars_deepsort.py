@@ -22,6 +22,7 @@
 
 import argparse
 import logging
+import urllib.parse
 import urllib.request
 import sys
 from pathlib import Path
@@ -35,6 +36,16 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger(__name__)
 
 
+def download_trusted_file(url: str, output_path: Path, allowed_hosts: set[str]) -> None:
+    """Download a fixed sample asset after checking its scheme and source."""
+    parsed = urllib.parse.urlparse(url)
+    if parsed.scheme != "https" or parsed.hostname not in allowed_hosts:
+        raise ValueError(f"Unexpected download URL: {url}")
+
+    # keep urlretrieve here because these are fixed sample assets from allowlisted hosts.
+    urllib.request.urlretrieve(url, output_path)  # nosec B310
+
+
 def download_model_py():
     """Download official model.py from deep_sort_pytorch repository."""
     model_py_url = 'https://raw.githubusercontent.com/ZQPei/deep_sort_pytorch/master/deep_sort/deep/model.py'
@@ -42,7 +53,7 @@ def download_model_py():
 
     logger.info(f"📥 Downloading model.py from deep_sort_pytorch repository...")
     try:
-        urllib.request.urlretrieve(model_py_url, model_py_path)
+        download_trusted_file(model_py_url, model_py_path, {"raw.githubusercontent.com"})
         logger.info(f"✅ Downloaded model.py")
     except Exception as e:
         logger.error(f"❌ Failed to download model.py: {e}")
@@ -131,7 +142,7 @@ class MarsDeepSORTConverter:
 
         logger.info(f"📥 Downloading checkpoint from Google Drive...")
         try:
-            urllib.request.urlretrieve(checkpoint_url, checkpoint_path)
+            download_trusted_file(checkpoint_url, checkpoint_path, {"drive.google.com"})
         except Exception as e:
             logger.error(f"❌ Failed to download checkpoint: {e}")
             sys.exit(1)
@@ -148,8 +159,13 @@ class MarsDeepSORTConverter:
 
         model = NetOriginal(reid=True)
 
-        # Load checkpoint
-        checkpoint = torch.load(checkpoint_path, map_location='cpu', weights_only=False)
+        # prefer safe tensor-only loading; legacy checkpoints may still require pickle metadata.
+        try:
+            checkpoint = torch.load(checkpoint_path, map_location='cpu', weights_only=True)
+        except Exception as e:
+            logger.warning(f"weights_only checkpoint load failed: {e}")
+            logger.warning("falling back to full deserialization for the trusted legacy deepsort checkpoint")
+            checkpoint = torch.load(checkpoint_path, map_location='cpu', weights_only=False)  # nosec B614
 
         if 'net_dict' in checkpoint:
             model.load_state_dict(checkpoint['net_dict'])
