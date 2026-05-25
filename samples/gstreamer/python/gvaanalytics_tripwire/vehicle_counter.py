@@ -145,13 +145,15 @@ __gstelementfactory__ = ("vehicle_counter_text", Gst.Rank.NONE, VehicleCounterTe
 # ---------------------------------------------------------------------------
 
 def main(args):
-    if len(args) < 3 or len(args) > 4:
-        sys.stderr.write("usage: %s <LOCAL_VIDEO_FILE> <LOCAL_MODEL_FILE> [OUTPUT_FILE]\n" % args[0])
+    if len(args) < 3 or len(args) > 6:
+        sys.stderr.write("usage: %s <VIDEO_FILE_OR_URL> <LOCAL_MODEL_FILE> [OUTPUT_VIDEO] [DEVICE] [JSON_METADATA_FILE]\n" % args[0])
         sys.exit(1)
 
     video_file = args[1]
     model_file = args[2]
-    output_file = args[3] if len(args) == 4 else None
+    output_file = args[3] if len(args) > 3 else None
+    device = args[4] if len(args) > 4 else "GPU"
+    json_metadata_file = args[5] if len(args) > 5 else None
 
     # Register the custom element so it can be used in parse_launch
     if not Gst.Element.register(None, "vehicle_counter_text", Gst.Rank.NONE, VehicleCounterText):
@@ -175,15 +177,20 @@ def main(args):
         output_sink = "videoconvert ! autovideosink"
         print("Output will be displayed on screen (no file saving)\n")
 
+    # Build optional metadata publishing pipeline segment (placed after gvawatermark)
+    metadata_pipeline = ""
+    if json_metadata_file:
+        metadata_pipeline = f"! gvametaconvert ! gvametapublish file-format=json-lines file-path={json_metadata_file} "
+
     # Build pipeline using parse_launch
     pipeline_str = (
         f"urisourcebin uri={video_file} ! "
         f"decodebin3 ! "
-        f"gvadetect model={model_file} device=GPU batch-size=4 threshold=0.7 ! queue ! "
+        f"gvadetect model={model_file} device={device} threshold=0.7 ! queue ! "
         f"gvatrack tracking-type=zero-term ! queue ! "
         f"gvaanalytics config={config_file} ! "
         f"vehicle_counter_text vehicle-types=car,bus,truck ! "
-        f"gvawatermark ! "
+        f"gvawatermark {metadata_pipeline}! "
         f"gvafpscounter ! "
         f"{output_sink}"
     )
