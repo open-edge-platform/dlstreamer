@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import argparse
 import os
-import shlex
 import subprocess  # nosec B404
 import sys
 from pathlib import Path
@@ -70,34 +69,10 @@ def parse_args() -> argparse.Namespace:
     return args
 
 
-def validate_command_args(command: list[str]) -> bool:
-    """Validate command arguments to prevent injection attacks."""
-    # Check if command starts with expected executable
-    if not command or command[0] != "optimum-cli":
-        return False
-    
-    # Validate that all arguments are safe (no shell metacharacters in unexpected places)
-    for arg in command:
-        # Allow normal characters, hyphens, underscores, dots, slashes for paths
-        if not all(c.isalnum() or c in ".-_/:" for c in arg if c not in " "):
-            # For arguments with spaces or special chars, ensure they're properly quoted
-            try:
-                shlex.quote(arg)
-            except Exception:
-                return False
-    
-    return True
-
-
 def main() -> int:
     args = parse_args()
     model_id = args.model
     token = args.token
-
-    # Validate model_id to prevent injection
-    if not model_id or any(c in model_id for c in [';', '&', '|', '`', '$', '(', ')']):
-        print("Invalid model ID format", file=sys.stderr)
-        return 1
 
     support_level = get_hf_model_support_level(model_id, token)
     match support_level:
@@ -114,23 +89,12 @@ def main() -> int:
                 model_id,
             ]
             if args.extra_args:
-                # Validate extra args to prevent injection
-                for arg in args.extra_args:
-                    if any(c in arg for c in [';', '&', '|', '`', '$']):
-                        print(f"Invalid argument format: {arg}", file=sys.stderr)
-                        return 1
                 command.extend(args.extra_args)
-            
+
             command.append(str(model_path))
-            
-            # Validate the complete command
-            if not validate_command_args(command):
-                print("Invalid command arguments detected", file=sys.stderr)
-                return 1
-            
             env = os.environ if not token else {**os.environ, "HF_TOKEN": token}
 
-            # Use subprocess.run with explicit shell=False and validated input
+            # list argv with shell disabled avoids shell metacharacter interpretation.
             subprocess.run(command, check=True, env=env, shell=False)  # nosec B603
 
         case 1:
