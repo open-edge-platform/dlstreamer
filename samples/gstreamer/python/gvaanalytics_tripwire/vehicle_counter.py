@@ -147,6 +147,13 @@ __gstelementfactory__ = ("vehicle_counter_text", Gst.Rank.NONE, VehicleCounterTe
 def main(args):
     if len(args) < 3 or len(args) > 6:
         sys.stderr.write("usage: %s <VIDEO_FILE_OR_URL> <LOCAL_MODEL_FILE> [OUTPUT_VIDEO] [DEVICE] [JSON_METADATA_FILE]\n" % args[0])
+        sys.stderr.write("\nParameters:\n")
+        sys.stderr.write("  VIDEO_FILE_OR_URL: Local video file or HTTP(S) URL\n")
+        sys.stderr.write("  LOCAL_MODEL_FILE: Path to detection model (XML file, e.g., yolo11n.xml)\n")
+        sys.stderr.write("  OUTPUT_VIDEO: Optional output MP4 file (default: display on screen)\n")
+        sys.stderr.write("  DEVICE: Inference device - GPU (default), CPU, or NPU\n")
+        sys.stderr.write("  JSON_METADATA_FILE: Optional output file for analytics in JSON Lines format\n")
+        sys.stderr.write("                      Each line contains: detections, tracks, and tripwire crossing events\n")
         sys.exit(1)
 
     video_file = args[1]
@@ -154,6 +161,15 @@ def main(args):
     output_file = args[3] if len(args) > 3 else None
     device = args[4] if len(args) > 4 else "GPU"
     json_metadata_file = args[5] if len(args) > 5 else None
+
+    # Validate model file exists
+    if not os.path.isfile(model_file):
+        sys.stderr.write(f"Error: Model file not found: {model_file}\n")
+        sys.exit(1)
+
+    # Validate device parameter
+    if device not in ["CPU", "GPU", "NPU"]:
+        sys.stderr.write(f"Warning: Unknown device '{device}'. Supported: CPU, GPU, NPU. Using as-is.\n")
 
     # Register the custom element so it can be used in parse_launch
     if not Gst.Element.register(None, "vehicle_counter_text", Gst.Rank.NONE, VehicleCounterText):
@@ -195,7 +211,13 @@ def main(args):
         f"{output_sink}"
     )
 
-    print(f"Creating pipeline:\n{pipeline_str}\n")
+    print(f"Creating pipeline...")
+    print(f"  Model: {model_file}")
+    print(f"  Device: {device}")
+    if json_metadata_file:
+        print(f"  Metadata output: {json_metadata_file}")
+    print()
+
     pipeline = Gst.parse_launch(pipeline_str)
 
     if not pipeline:
