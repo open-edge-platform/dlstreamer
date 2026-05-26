@@ -103,7 +103,7 @@ class VehicleCounterText(GstBase.BaseTransform):
                             break
 
                     # Now filter on the actual crossing object's type
-                    if crossing_obj_type and crossing_obj_type.lower() not in self._allowed_types:
+                    if not crossing_obj_type and crossing_obj_type.lower() not in self._allowed_types:
                         continue  # Skip non-vehicle crossings
 
                     # Count the crossing
