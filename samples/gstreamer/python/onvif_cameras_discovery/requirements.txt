@@ -1,4 +1,4 @@
 # Installs the intel-dlstreamer Python package which provides dlstreamer.onvif
-# and gstgva, along with all required dependencies (onvif-zeep, urllib3).
+# and gstgva, along with all required dependencies (onvif-zeep, urllib3, numpy).
 # Dependency versions are managed in python/pyproject.toml.
 intel-dlstreamer>=2026.1.0
