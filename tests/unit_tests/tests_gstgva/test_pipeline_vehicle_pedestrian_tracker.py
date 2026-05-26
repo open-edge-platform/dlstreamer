@@ -112,8 +112,8 @@ class TestVehiclePedestrianTracker(unittest.TestCase):
         """Set up test fixtures before each test method."""
         # Create a unique temporary file for each test
         self.temp_file = tempfile.NamedTemporaryFile(
-            suffix=".json", 
-            prefix="meta_vpt_", 
+            suffix=".json",
+            prefix="meta_vpt_",
             delete=False
         )
         self.temp_file_path = self.temp_file.name
@@ -131,7 +131,7 @@ class TestVehiclePedestrianTracker(unittest.TestCase):
         for pipeline_str in set_of_pipelines():
             # Replace FILE_PATH with our secure temporary file path
             secure_pipeline_str = pipeline_str.replace(FILE_PATH, self.temp_file_path)
-            
+
             pipeline_runner.set_pipeline(
                 secure_pipeline_str, image_path, gold_true, True)
             pipeline_runner.run_pipeline()

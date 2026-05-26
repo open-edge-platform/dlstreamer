@@ -203,14 +203,11 @@ GROUND_TRUTH_IE = [
 class TestFaceDetectionAndClassification(unittest.TestCase):
     def setUp(self):
         """Set up test fixtures before each test method."""
-        # Create a unique temporary file for each test
-        self.temp_file = tempfile.NamedTemporaryFile(
+        file_descriptor, self.temp_file_path = tempfile.mkstemp(
             suffix=".json",
             prefix="meta_fdc_",
-            delete=False
         )
-        self.temp_file_path = self.temp_file.name
-        self.temp_file.close()
+        os.close(file_descriptor)
 
     def tearDown(self):
         """Clean up after each test method."""
@@ -229,7 +226,7 @@ class TestFaceDetectionAndClassification(unittest.TestCase):
                 pipeline_runner.set_pipeline(secure_pipeline_str, IMAGE_PATH, GROUND_TRUTH_CV)
             else:
                 pipeline_runner.set_pipeline(secure_pipeline_str, IMAGE_PATH, GROUND_TRUTH_IE)
-            
+
             pipeline_runner.run_pipeline()
 
             # Clean up after each pipeline run

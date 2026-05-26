@@ -7,14 +7,7 @@
 """Collect CTest and Pytest results into a text summary."""
 
 import sys
-
-# Only use defusedxml - no fallback to unsafe xml.etree
-try:
-    from defusedxml import ElementTree as ET
-except ImportError:
-    print("Error: defusedxml is required for secure XML parsing")
-    print("Please install it with: pip install defusedxml")
-    sys.exit(1)
+import xml.etree.ElementTree as ET
 
 # usage: python unit_test_results.py path/to/your/results
 

@@ -3,7 +3,6 @@ tqdm==4.67.1
 opencv-python==4.11.0.86
 setuptools==78.1.1
 typing-extensions==4.15.0
-defusedxml==0.7.1
 
 # gstreamer-python provides PyGObject and GStreamer Python bindings. It is not available on Linux.
 PyGObject==3.50.0; sys_platform != "win32"
