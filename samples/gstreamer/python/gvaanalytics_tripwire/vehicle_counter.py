@@ -83,42 +83,38 @@ class VehicleCounterText(GstBase.BaseTransform):
 
     def do_transform_ip(self, buffer):
         """Process buffer, count tripwire crossings, and add watermark text."""
-        rmeta = GstAnalytics.buffer_get_analytics_relation_meta(buffer)
+        relation_meta = GstAnalytics.buffer_get_analytics_relation_meta(buffer)
 
-        if rmeta:
-            # First pass: collect object detections by ID
-            objects_by_id = {}
-            for mtd in rmeta:
-                if isinstance(mtd, GstAnalytics.ODMtd):
-                    obj_type = GLib.quark_to_string(mtd.get_obj_type())
-                    objects_by_id[mtd.id] = {"type": obj_type, "mtd": mtd}
-            
-            # Second pass: check for tripwire crossings
-            for mtd in rmeta:
+        if relation_meta:
+            for mtd in relation_meta:
                 if isinstance(mtd, DLStreamerMeta.TripwireMtd):
-                    # Get crossing direction from tripwire metadata
-                    ok, tw_id, direction = mtd.get_info()
-                    if ok:
-                        # Try to find related detection object
-                        # The tripwire metadata may be linked to a detection
-                        obj_type = "unknown"
-                        
-                        # Check if this tripwire metadata is related to any detection
-                        # by looking at metadata relationships
-                        for obj_id, obj_info in objects_by_id.items():
-                            if obj_info["type"].lower() in self._allowed_types:
-                                obj_type = obj_info["type"]
-                                break
-                        
-                        # Count the crossing
-                        if direction == 1:  # Left-to-right crossing
-                            crossing_count["left_to_right"] += 1
-                            crossing_count["total"] += 1
-                            print(f"Vehicle crossing (L→R) - {obj_type}! Total: {crossing_count['total']}")
-                        elif direction == -1:  # Right-to-left crossing
-                            crossing_count["right_to_left"] += 1
-                            crossing_count["total"] += 1
-                            print(f"Vehicle crossing (R→L) - {obj_type}! Total: {crossing_count['total']}")
+                    success, tripwire_id, direction = mtd.get_info()
+                    if not success or direction == 0:
+                        continue
+
+                    # Walk all metadata to find the ODMtd related to this tripwire
+                    crossing_obj_type = None
+                    for related_mtd in relation_meta:
+                        if not isinstance(related_mtd, GstAnalytics.ODMtd):
+                            continue
+                        rel = relation_meta.get_relation(related_mtd.id, mtd.id)
+                        if rel & GstAnalytics.RelTypes.RELATE_TO:
+                            crossing_obj_type = GLib.quark_to_string(related_mtd.get_obj_type())
+                            break
+
+                    # Now filter on the actual crossing object's type
+                    if crossing_obj_type and crossing_obj_type.lower() not in self._allowed_types:
+                        continue  # Skip non-vehicle crossings
+
+                    # Count the crossing
+                    if direction == 1:  # Left-to-right crossing
+                        crossing_count["left_to_right"] += 1
+                        crossing_count["total"] += 1
+                        print(f"Vehicle crossing (L→R) - {crossing_obj_type}! Total: {crossing_count['total']}")
+                    elif direction == -1:  # Right-to-left crossing
+                        crossing_count["right_to_left"] += 1
+                        crossing_count["total"] += 1
+                        print(f"Vehicle crossing (R→L) - {crossing_obj_type}! Total: {crossing_count['total']}")
 
         # Add single-line watermark text displaying all counters
         counter_text = (f"L to R: {crossing_count['left_to_right']}  |  "
