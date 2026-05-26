@@ -81,13 +81,13 @@ class DLSOptimizer:
         self._multistream_fps_limit = limit
 
     def set_allowed_devices(self, devices): # pylint: disable=missing-function-docstring
-        self._generators["device"]._set_allowed_devices(devices)
+        self._generators["device"].set_allowed_devices(devices)
 
     def set_batch_sizes(self, sizes): # pylint: disable=missing-function-docstring
-        self._generators["batch"]._set_batch_sizes(sizes)
+        self._generators["batch"].set_batch_sizes(sizes)
 
     def set_nireq_sizes(self, sizes): # pylint: disable=missing-function-docstring
-        self._generators["nireq"]._set_nireq_sizes(sizes)
+        self._generators["nireq"].set_nireq_sizes(sizes)
 
     def set_detections_error_threshold(self, threshold): # pylint: disable=missing-function-docstring
         self._detections_error_threshold = threshold

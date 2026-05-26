@@ -1,3 +1,4 @@
+# pylint: disable=missing-module-docstring
 # ==============================================================================
 # Copyright (C) 2025-2026 Intel Corporation
 #

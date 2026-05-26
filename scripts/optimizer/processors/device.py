@@ -42,7 +42,7 @@ class DeviceGenerator: # pylint: disable=missing-class-docstring
         # prepare device groups
         for idx, element in enumerate(initial_pipeline):
             if "gvadetect" in element or "gvaclassify" in element:
-                (_, parameters) = arse_element_parameters(element)
+                (_, parameters) = parse_element_parameters(element)
                 instance_id = parameters.get("model-instance-id")
                 group_idx = 0
 
