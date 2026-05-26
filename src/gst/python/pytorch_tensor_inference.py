@@ -361,7 +361,7 @@ class InferencePyTorch(GstBase.BaseTransform):
 
             # Input Gst.Buffer
             src = self.queued_buf
-            mems = [src.get_memory(i) for i in range(src.n_memory())]
+            mems = [src.get_memory(i) for i in range(src.n_memory())]  # pylint: disable=no-member
 
             # TODO: remove tensors limitation
             if len(self.input_tensors_info) != 1:
@@ -402,7 +402,7 @@ class InferencePyTorch(GstBase.BaseTransform):
             # Copy timestamps from input buffer
             dst.copy_into(src, Gst.BufferCopyFlags.TIMESTAMPS, 0, 0)
             # Push buffer downstream
-            self.srcpad.push(dst)
+            self.srcpad.push(dst)  # pylint: disable=no-member
         except Exception as exc:
             Gst.error(f"Error during generating output buffer: {exc}")
             traceback.print_exc()
