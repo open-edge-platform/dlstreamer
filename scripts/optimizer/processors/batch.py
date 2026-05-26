@@ -6,7 +6,7 @@
 # ==============================================================================
 import logging
 
-from processors.utils import parse_element_parameters, assemble_parameters
+from processors._utils import parse_element_parameters, assemble_parameters
 
 logger = logging.getLogger(__name__)
 
