@@ -21,13 +21,16 @@ import os
 import subprocess  # nosec B404
 import sys
 import shutil
-import re
 
 # Disable Xet storage backend — it fails behind corporate proxies (e.g. Fortinet)
 os.environ.setdefault("HF_HUB_DISABLE_XET", "1")
 
 from huggingface_hub import hf_hub_download
 from ultralytics import YOLO
+
+
+class ModelPreparationError(Exception):
+    """Model preparation failed."""
 
 
 def get_runtime_dir():
@@ -123,23 +126,15 @@ def _prepare_hf_classification_model(repo_id, subdir, log_label, revision="main"
         file=sys.stderr,
     )
     if not _is_ir_model_ready(dynamic_xml):
-        # Use absolute path for optimum-cli to avoid partial path issues
+        # Resolve the CLI once; arguments are static except the sample-owned model ids.
         optimum_cli_path = shutil.which("optimum-cli")
         if not optimum_cli_path:
-            raise RuntimeError("optimum-cli not found in PATH")
-        
-        # Validate repo_id format to prevent injection
-        if not re.match(r'^[a-zA-Z0-9_/-]+$', repo_id):
-            raise ValueError(f"Invalid repo_id format: {repo_id}")
-        
-        # Validate revision format to prevent injection
-        if not re.match(r'^[a-zA-Z0-9._/-]+$', revision):
-            raise ValueError(f"Invalid revision format: {revision}")
-        
+            raise ModelPreparationError("optimum-cli not found in PATH")
+
         try:
             subprocess.run(  # nosec B603
                 [
-                    optimum_cli_path,  # Use full path
+                    optimum_cli_path,
                     "export",
                     "openvino",
                     "--model",
@@ -153,8 +148,8 @@ def _prepare_hf_classification_model(repo_id, subdir, log_label, revision="main"
                 check=True,
             )
         except subprocess.CalledProcessError as e:
-            raise RuntimeError(f"Failed to export model {repo_id}: {e}")
-        
+            raise ModelPreparationError(f"failed to export model {repo_id}") from e
+
     # Reshape model to static [1,3,224,224] — gvaclassify requires static dims.
     # Save to a DIFFERENT filename: OV mmaps the .bin file, so writing back
     # to the same path truncates the mmapped region and triggers SIGBUS.
@@ -166,7 +161,7 @@ def _prepare_hf_classification_model(repo_id, subdir, log_label, revision="main"
         save_model(ov_model, static_xml)
         print(f"Model exported to {static_xml}\n", file=sys.stderr)
     except Exception as e:
-        raise RuntimeError(f"Failed to reshape model {repo_id}: {e}")
+        raise ModelPreparationError(f"failed to reshape model {repo_id}") from e
 
     return static_xml
 
