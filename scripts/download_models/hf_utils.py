@@ -50,7 +50,6 @@ CUSTOM_CONVERTERS = {
     "depthanythingfordepthestimation",
 }
 
-# Default revision for security - can be overridden
 DEFAULT_REVISION = "main"
 
 
@@ -173,7 +172,7 @@ def load_hf_architectures_from_repo(
     config = AutoConfig.from_pretrained(
         model_id, 
         token=token, 
-        revision=revision  # Pin revision for security
+        revision=revision
     )
     architectures = getattr(config, "architectures", None)
     if not architectures:
@@ -203,7 +202,7 @@ def export_hf_clip_to_openvino(
 
     vision_model = CLIPVisionModel.from_pretrained(
         model_ref, 
-        revision=revision  # Pin revision for security
+        revision=revision
     )
     vision_model.eval()
 
@@ -211,7 +210,7 @@ def export_hf_clip_to_openvino(
     processor = AutoProcessor.from_pretrained(
         model_ref, 
         token=token, 
-        revision=revision  # Pin revision for security
+        revision=revision
     )
     batch = processor.image_processor(images=img, return_tensors="pt")["pixel_values"]
 
@@ -264,7 +263,7 @@ def export_hf_rtdetr_to_openvino(
         width=640,
         height=640,
         auth_token=token,
-        revision=revision,  # Pin revision for security
+        revision=revision,
     )
 
     hf_hub_download(
@@ -272,7 +271,7 @@ def export_hf_rtdetr_to_openvino(
         filename="preprocessor_config.json",
         local_dir=str(outdir),
         token=token,
-        revision=revision,  # Pin revision for security
+        revision=revision,
     )
 
     ov_model = convert_model(str(model_onnx))
@@ -303,7 +302,7 @@ def export_hf_depthanything_to_openvino(
     model = AutoModelForDepthEstimation.from_pretrained(
         model_ref, 
         token=token, 
-        revision=revision  # Pin revision for security
+        revision=revision
     )
     model.eval()
 
@@ -311,7 +310,7 @@ def export_hf_depthanything_to_openvino(
     processor = AutoImageProcessor.from_pretrained(
         model_ref, 
         token=token, 
-        revision=revision  # Pin revision for security
+        revision=revision
     )
     batch = processor(images=img, return_tensors="pt")["pixel_values"]
 
@@ -322,7 +321,7 @@ def export_hf_depthanything_to_openvino(
         filename="config.json",
         local_dir=str(outdir),
         token=token,
-        revision=revision,  # Pin revision for security
+        revision=revision,
     )
 
     hf_hub_download(
@@ -330,7 +329,7 @@ def export_hf_depthanything_to_openvino(
         filename="preprocessor_config.json",
         local_dir=str(outdir),
         token=token,
-        revision=revision,  # Pin revision for security
+        revision=revision,
     )
 
     model_name = Path(model_ref).name

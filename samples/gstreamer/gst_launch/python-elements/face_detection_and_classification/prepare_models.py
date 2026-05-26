@@ -72,7 +72,7 @@ def prepare_detection_model():
         repo_id="arnabdhar/YOLOv8-Face-Detection",
         filename="model.pt",
         local_dir=runtime_dir,
-        revision="52fa54977207fa4f021de949b515fb19dcab4488",  # Explicitly pin revision for security
+        revision="52fa54977207fa4f021de949b515fb19dcab4488",
     )
     model = YOLO(str(model_path))
     exported_model_path = model.export(format="openvino", dynamic=False, imgsz=640)
@@ -87,7 +87,7 @@ def prepare_classification_model():
         repo_id="dima806/fairface_age_image_detection",
         subdir="fairface_age_image_detection",
         log_label="age classification",
-        revision="main",  # Pin revision for security
+        revision="main",
     )
 
 
@@ -97,7 +97,7 @@ def prepare_gender_model():
         repo_id="dima806/fairface_gender_image_detection",
         subdir="fairface_gender_image_detection",
         log_label="gender classification",
-        revision="main",  # Pin revision for security
+        revision="main",
     )
 
 
@@ -145,7 +145,7 @@ def _prepare_hf_classification_model(repo_id, subdir, log_label, revision="main"
                     "--model",
                     repo_id,
                     "--revision",
-                    revision,  # Pin revision for security
+                    revision,
                     out_dir,
                     "--weight-format",
                     "int8",

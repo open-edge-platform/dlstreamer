@@ -3,7 +3,6 @@ import subprocess  # nosec B404
 import re
 import sys
 import shutil
-import os
 import gi
 gi.require_version('Gst', '1.0')
 gi.require_version('GLib', '2.0')
@@ -13,38 +12,34 @@ import inspect
 
 def get_elements(lib):
     elements = []
-    
+
     gst_inspect_path = shutil.which('gst-inspect-1.0')
     if not gst_inspect_path:
+        print("gst-inspect-1.0 was not found; no elements can be inspected", file=sys.stderr)
         return elements
-    
-    if not re.match(r'^[a-zA-Z0-9_]+$', lib):
-        return elements
-    
+
     try:
-        result = subprocess.Popen(  # nosec B603
-            [gst_inspect_path, lib], 
-            stdout=subprocess.PIPE, 
+        # libraries are from the fixed list in generate_elements_page().
+        result = subprocess.run(  # nosec B603
+            [gst_inspect_path, lib],
+            check=False,
+            stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            text=True
+            text=True,
         )
-        
-        stdout, stderr = result.communicate()
-        
-        if result.returncode != 0:
-            return elements
-            
-        for line in stdout.splitlines():
-            match = re.match(r"^\s+([^\s]\w+):", line)
-            if match:
-                elements.append(match.group(1))
-                
-    except subprocess.SubprocessError as e:
-        print(f"Subprocess error while inspecting {lib}: {e}", file=sys.stderr)
-    except OSError as e:
-        print(f"OS error while inspecting {lib}: {e}", file=sys.stderr)
-    except Exception as e:
-        print(f"Unexpected error while inspecting {lib}: {e}", file=sys.stderr)
+    except OSError as error:
+        print(f"failed to inspect {lib}: {error}", file=sys.stderr)
+        return elements
+
+    if result.returncode != 0:
+        message = result.stderr.strip() or f"gst-inspect-1.0 returned {result.returncode}"
+        print(f"skipping {lib}: {message}", file=sys.stderr)
+        return elements
+
+    for line in result.stdout.splitlines():
+        match = re.match(r"^\s+([^\s]\w+):", line)
+        if match:
+            elements.append(match.group(1))
 
     return elements
 

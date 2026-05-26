@@ -54,7 +54,7 @@ def export_yolo_detection(repo_id: str, pt_filename: str, revision: str = "main"
         repo_id=repo_id, 
         filename=pt_filename, 
         local_dir=str(MODELS_DIR),
-        revision=revision  # Pin revision for security
+        revision=revision
     )
 
     print("[YOLO] Exporting to OpenVINO IR (INT8)...")
@@ -100,7 +100,7 @@ def export_paddleocr(model_id: str, revision: str = "main") -> Path:
     snapshot_download(
         repo_id=model_id, 
         local_dir=str(paddle_dir),
-        revision=revision  # Pin revision for security
+        revision=revision
     )
 
     # Step 2: PaddlePaddle PIR → ONNX
@@ -183,7 +183,7 @@ def export_hf_transformer(model_id: str, weight_format: str = "int8", revision: 
             optimum_cmd, "export", "openvino",
             "--model", model_id,
             "--weight-format", weight_format,
-            "--revision", revision,  # Pin revision for security
+            "--revision", revision,
             str(output_dir),
         ],
         check=True,

@@ -24,8 +24,7 @@ os.environ.setdefault("HF_HUB_DISABLE_XET", "1")
 from huggingface_hub import hf_hub_download
 from ultralytics import YOLO
 
-# Pin specific revision for security - use commit hash for better security
-DEFAULT_REVISION = "main"  # Could be replaced with specific commit hash
+DEFAULT_REVISION = "main"
 
 
 def get_runtime_dir():
@@ -69,13 +68,11 @@ def prepare_detection_model(revision=None):
         "\nDownloading the detection model and converting to OpenVINO IR format...\n",
         file=sys.stderr,
     )
-    
-    # Explicitly specify all parameters to ensure security
     model_path = hf_hub_download(
         repo_id="arnabdhar/YOLOv8-Face-Detection",
         filename="model.pt",
         local_dir=runtime_dir,
-        revision=revision,  # Explicitly pin revision for security
+        revision=revision,
         force_download=False,  # Use cache if available
         resume_download=True,  # Resume interrupted downloads
     )

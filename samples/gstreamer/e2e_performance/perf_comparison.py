@@ -86,12 +86,12 @@ def prepare_video() -> Path:
         return VIDEO_PATH
     
     parsed = urllib.parse.urlparse(VIDEO_URL)
-    if parsed.scheme not in ('https', 'http'):
-        raise ValueError(f"Unsafe URL scheme: {parsed.scheme}")
+    if parsed.scheme != 'https' or parsed.hostname != 'storage.openvinotoolkit.org':
+        raise ValueError(f"Unexpected video URL: {VIDEO_URL}")
     
     VIDEO_PATH.parent.mkdir(parents=True, exist_ok=True)
     print("Downloading test video ...")
-    # B310 FIXED: URL scheme validated above, safe to download
+    # fixed sample asset from storage.openvinotoolkit.org.
     urllib.request.urlretrieve(VIDEO_URL, VIDEO_PATH)  # nosec B310
     return VIDEO_PATH
 
