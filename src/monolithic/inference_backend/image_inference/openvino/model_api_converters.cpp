@@ -15,28 +15,6 @@ namespace ModelApiConverters {
 
 namespace {
 
-std::string trim(const std::string &value) {
-    const size_t first = value.find_first_not_of(" \t\r\n");
-    if (first == std::string::npos)
-        return {};
-
-    const size_t last = value.find_last_not_of(" \t\r\n");
-    return value.substr(first, last - first + 1);
-}
-
-std::string normalizeLabel(std::string value) {
-    value = trim(value);
-    if (value.size() >= 2) {
-        const char first = value.front();
-        const char last = value.back();
-        if ((first == '"' && last == '"') || (first == '\'' && last == '\'')) {
-            value = value.substr(1, value.size() - 2);
-        }
-    }
-    std::replace(value.begin(), value.end(), ' ', '_');
-    return value;
-}
-
 std::vector<int> parseYoloImageSize(const nlohmann::json &yaml_json) {
     std::vector<int> dims;
     if (!yaml_json.contains("imgsz"))
@@ -70,153 +48,6 @@ std::vector<int> parseYoloImageSize(const nlohmann::json &yaml_json) {
         dims.resize(2);
 
     return dims;
-}
-
-bool isIgnoredYoloMetadataLine(const std::string &raw) {
-    return raw.empty() || raw[0] == '#';
-}
-
-void parseInlineYoloLabelMap(const std::string &value, std::vector<std::pair<int, std::string>> &indexed_labels) {
-    static const std::regex item_regex(R"((\d+)\s*:\s*([^,}]+))");
-    for (std::sregex_iterator it(value.begin(), value.end(), item_regex), end; it != end; ++it) {
-        indexed_labels.emplace_back(std::stoi((*it)[1].str()), normalizeLabel((*it)[2].str()));
-    }
-}
-
-void parseInlineYoloLabelList(const std::string &value, std::vector<std::string> &sequential_labels) {
-    std::string items = value;
-    if (!items.empty() && items.front() == '[')
-        items.erase(items.begin());
-    if (!items.empty() && items.back() == ']')
-        items.pop_back();
-
-    std::stringstream stream(items);
-    std::string item;
-    while (std::getline(stream, item, ',')) {
-        item = normalizeLabel(item);
-        if (!item.empty())
-            sequential_labels.push_back(item);
-    }
-}
-
-bool parseYoloNamesHeader(const std::string &raw, bool &names_block,
-                          std::vector<std::pair<int, std::string>> &indexed_labels,
-                          std::vector<std::string> &sequential_labels) {
-    if (raw.rfind("names:", 0) != 0)
-        return false;
-
-    // Ultralytics may encode names inline as either a YAML list or a key-value map.
-    names_block = true;
-    const std::string value = trim(raw.substr(std::string("names:").size()));
-    if (value.empty())
-        return false;
-
-    if (value.front() == '{')
-        parseInlineYoloLabelMap(value, indexed_labels);
-    else if (value.front() == '[')
-        parseInlineYoloLabelList(value, sequential_labels);
-
-    return true;
-}
-
-bool parseYoloLabelEntry(const std::string &entry, std::vector<std::pair<int, std::string>> &indexed_labels,
-                         std::vector<std::string> &sequential_labels) {
-    if (entry.empty() || entry[0] == '#')
-        return true;
-
-    if (entry[0] == '-') {
-        std::string label = normalizeLabel(entry.substr(1));
-        if (!label.empty())
-            sequential_labels.push_back(label);
-        return true;
-    }
-
-    static const std::regex indexed_entry(R"((\d+)\s*:\s*(.+))");
-    std::smatch match;
-    if (std::regex_match(entry, match, indexed_entry)) {
-        indexed_labels.emplace_back(std::stoi(match[1].str()), normalizeLabel(match[2].str()));
-        return true;
-    }
-
-    return false;
-}
-
-void collapseIndexedYoloLabels(std::vector<std::pair<int, std::string>> &indexed_labels,
-                               std::vector<std::string> &sequential_labels) {
-    if (indexed_labels.empty())
-        return;
-
-    // Indexed YAML maps preserve label IDs; sort them before flattening to the space-delimited Model API format.
-    std::sort(indexed_labels.begin(), indexed_labels.end(),
-              [](const auto &lhs, const auto &rhs) { return lhs.first < rhs.first; });
-    sequential_labels.clear();
-    for (const auto &label : indexed_labels) {
-        if (!label.second.empty())
-            sequential_labels.push_back(label.second);
-    }
-}
-
-std::string joinYoloLabels(const std::vector<std::string> &labels) {
-    std::ostringstream labels_stream;
-    for (size_t i = 0; i < labels.size(); ++i) {
-        if (i)
-            labels_stream << ' ';
-        labels_stream << labels[i];
-    }
-    return labels_stream.str();
-}
-
-bool parseYoloLabels(const std::string &metadata_file, ov::AnyMap &modelConfig) {
-    std::ifstream file(metadata_file);
-    if (!file.is_open()) {
-        GST_WARNING("Failed to open YOLO metadata file for labels: %s", metadata_file.c_str());
-        return false;
-    }
-
-    std::vector<std::pair<int, std::string>> indexed_labels;
-    std::vector<std::string> sequential_labels;
-    bool names_block = false;
-    std::string line;
-
-    while (std::getline(file, line)) {
-        const size_t first = line.find_first_not_of(" \t");
-        if (first == std::string::npos)
-            continue;
-
-        const std::string raw = line.substr(first);
-        // Skip comments and empty lines anywhere in the file, including within the `names:` block.
-        if (isIgnoredYoloMetadataLine(raw))
-            continue;
-
-        if (!names_block) {
-            // Scan until the `names:` section starts; inline forms can be parsed immediately.
-            // Return early if the line is not a `names:` header, otherwise set the flag to start block parsing in
-            // subsequent lines.
-            if (!parseYoloNamesHeader(raw, names_block, indexed_labels, sequential_labels))
-                continue;
-
-            // Inline `names:` forms already contain the full label set, so stop before scanning unrelated YAML keys.
-            if (!sequential_labels.empty() || !indexed_labels.empty())
-                break;
-
-            continue;
-        }
-
-        if (first == 0)
-            break;
-
-        // Once inside a block-form `names:` section, stop at the next top-level YAML key.
-        if (!parseYoloLabelEntry(trim(raw), indexed_labels, sequential_labels))
-            break;
-    }
-
-    collapseIndexedYoloLabels(indexed_labels, sequential_labels);
-
-    if (sequential_labels.empty())
-        return false;
-
-    modelConfig["labels"] = ov::Any(joinYoloLabels(sequential_labels));
-    return true;
 }
 
 } // namespace
@@ -387,10 +218,6 @@ bool convertYoloMeta2ModelApi(const std::string model_file, ov::AnyMap &modelCon
             } else {
                 GST_WARNING("Ultralytics classify metadata does not provide a 2D imgsz for model: %s",
                             model_file.c_str());
-            }
-
-            if (!parseYoloLabels(metadata_file.string(), modelConfig)) {
-                GST_WARNING("Failed to parse Ultralytics class labels from %s", metadata_file.c_str());
             }
         }
     }
