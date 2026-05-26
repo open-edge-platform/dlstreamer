@@ -15,7 +15,7 @@ from preprocess import preprocess_pipeline
 from processors.device import DeviceGenerator
 from processors.batch import BatchGenerator
 from processors.nireq import NireqGenerator
-from processors._utils import add_instance_ids
+from processors.utils import add_instance_ids
 
 import gi
 gi.require_version("Gst", "1.0")

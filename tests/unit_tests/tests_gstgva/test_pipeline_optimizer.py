@@ -9,7 +9,7 @@ import time
 import signal
 import re
 from optimizer import DLSOptimizer # pylint: disable=no-name-in-module
-from utils import get_model_path, get_video_path
+from tests_gstgva.utils import get_model_path, get_video_path
 from openvino import Core
 
 class TestOptimizer(unittest.TestCase):

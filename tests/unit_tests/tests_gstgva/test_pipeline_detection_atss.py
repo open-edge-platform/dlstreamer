@@ -8,7 +8,7 @@ import unittest
 import os
 
 from pipeline_runner import TestPipelineRunner
-from utils import get_model_path, get_model_proc_path, BBox
+from tests_gstgva.utils import get_model_path, get_model_proc_path, BBox
 
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 IMAGE_PATH = os.path.join(SCRIPT_DIR, "test_files", "car_detection.png")

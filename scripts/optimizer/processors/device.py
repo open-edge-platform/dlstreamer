@@ -10,7 +10,7 @@ import heapq
 import itertools
 import os
 
-from processors._utils import parse_element_parameters, assemble_parameters
+from processors.utils import parse_element_parameters, assemble_parameters
 
 from openvino import Core
 from openvino.properties.device import Type
