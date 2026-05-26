@@ -1,4 +1,9 @@
 #!/bin/python3
+# ==============================================================================
+# Copyright (C) 2026 Intel Corporation
+#
+# SPDX-License-Identifier: MIT
+# ==============================================================================
 import subprocess  # nosec B404
 import re
 import sys
