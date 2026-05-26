@@ -17,7 +17,7 @@ visible fields should not be marked as such.
 """
 
 import sys
-import defusedxml.ElementTree as ET
+import xml.etree.ElementTree as ET
 
 GI_CORE_NS = "http://www.gtk.org/introspection/core/1.0"
 GI_C_NS = "http://www.gtk.org/introspection/c/1.0"

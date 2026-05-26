@@ -172,8 +172,7 @@ class InferencePyTorch(GstBase.BaseTransform):
             raise AttributeError(f"'model' property is empty")
 
         if is_pytorch_model(model_str):
-            # serialized local modules require full deserialization; use only trusted model files here.
-            self.model = torch.load(model_str, map_location=self.device, weights_only=False)  # nosec B614
+            self.model = torch.load(model_str, map_location=self.device)
         elif is_torchvision_module(model_str):
             model_name_arr = model_str.split(".")
             if len(model_name_arr) < 2:
@@ -188,7 +187,7 @@ class InferencePyTorch(GstBase.BaseTransform):
             if self.property["model-weights"]:
                 self.model = creator()
                 self.model.load_state_dict(
-                    torch.load(self.property["model-weights"], weights_only=True))
+                    torch.load(self.property["model-weights"]))
             else:
                 weights_class = None
                 for attr in dir(module):
@@ -361,7 +360,7 @@ class InferencePyTorch(GstBase.BaseTransform):
 
             # Input Gst.Buffer
             src = self.queued_buf
-            mems = [src.get_memory(i) for i in range(src.n_memory())]  # pylint: disable=no-member
+            mems = [src.get_memory(i) for i in range(src.n_memory())]
 
             # TODO: remove tensors limitation
             if len(self.input_tensors_info) != 1:
@@ -402,7 +401,7 @@ class InferencePyTorch(GstBase.BaseTransform):
             # Copy timestamps from input buffer
             dst.copy_into(src, Gst.BufferCopyFlags.TIMESTAMPS, 0, 0)
             # Push buffer downstream
-            self.srcpad.push(dst)  # pylint: disable=no-member
+            self.srcpad.push(dst)
         except Exception as exc:
             Gst.error(f"Error during generating output buffer: {exc}")
             traceback.print_exc()

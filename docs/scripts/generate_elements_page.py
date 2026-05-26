@@ -1,50 +1,35 @@
-#!/bin/python3
 # ==============================================================================
-# Copyright (C) 2026 Intel Corporation
+# Copyright (C) 2023-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
-"""Generate documentation pages for installed GStreamer elements."""
 
-import subprocess  # nosec B404
+# ==============================================================================
+# run this script to generate rst file with dlstreamer elements(description, caps, pads)
+#   args: file name to save generated doc
+# ==============================================================================
+
+#!/bin/python3
+import subprocess
 import re
 import sys
-import shutil
 import gi
 gi.require_version('Gst', '1.0')
 gi.require_version('GLib', '2.0')
-from gi.repository import Gst, GLib  # pylint: disable=no-name-in-module,wrong-import-position
+from gi.repository import Gst, GLib # pylint: disable=no-name-in-module, wrong-import-position
 
 import inspect
 
 def get_elements(lib):
     elements = []
 
-    gst_inspect_path = shutil.which('gst-inspect-1.0')
-    if not gst_inspect_path:
-        print("gst-inspect-1.0 was not found; no elements can be inspected", file=sys.stderr)
-        return elements
-
-    try:
-        # libraries are from the fixed list in generate_elements_page().
-        result = subprocess.run(  # nosec B603
-            [gst_inspect_path, lib],
-            check=False,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-        )
-    except OSError as error:
-        print(f"failed to inspect {lib}: {error}", file=sys.stderr)
-        return elements
-
-    if result.returncode != 0:
-        message = result.stderr.strip() or f"gst-inspect-1.0 returned {result.returncode}"
-        print(f"skipping {lib}: {message}", file=sys.stderr)
-        return elements
-
-    for line in result.stdout.splitlines():
-        match = re.match(r"^\s+([^\s]\w+):", line)
+    result = subprocess.Popen(['gst-inspect-1.0', lib], stdout=subprocess.PIPE)
+    while True:
+        line = result.stdout.readline()
+        if not line:
+            break
+        line = line.decode('utf-8').rstrip('\n')
+        match = re.match(r"^\s+([^\s]\w+):", str(line))
         if match:
             elements.append(match.group(1))
 
@@ -104,19 +89,19 @@ def generate_table(table_data, table_header = ["", ""]):
         table += table_data[first_column][0] + "\n"
 
         i = 0
-        for second_column_line in table_data[first_column]:
+        for second_column_line in table_data[first_column]: 
             i += 1
             if i == 1:
                 continue
 
             table += " " * first_collumn_length + "      " + second_column_line + "\n"
 
-
+    
     table += "=" * first_collumn_length + "      " + "=" * second_collumn_length + "\n"
     return table
 
 def get_pad_templates_information(factory):
-
+    
     if factory.get_num_pad_templates() == 0:
         return None
 
@@ -177,7 +162,7 @@ def get_properties_info(element):
 
 def generate_elements_page(page_file_name):
     page = "------------\nElements 2.0\n------------\n\n"
-
+    
     libraries = ["dlstreamer_bins", "dlstreamer_elements", "dlstreamer_cpu", "dlstreamer_openvino", "dlstreamer_opencv", "dlstreamer_vaapi", "dlstreamer_opencl", "dlstreamer_sycl", "python"]
 
     for lib in libraries:
@@ -202,7 +187,7 @@ def generate_elements_page(page_file_name):
     elements_list_file.write(page)
     elements_list_file.close()
 
-
+            
 if __name__ == "__main__":
     Gst.init(sys.argv)
 
@@ -210,5 +195,6 @@ if __name__ == "__main__":
 
     if len(sys.argv) > 1 and sys.argv[1]:
         page_file_name = sys.argv[1]
+
 
     generate_elements_page(page_file_name)

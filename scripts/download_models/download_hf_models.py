@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import argparse
 import os
-import subprocess  # nosec B404
+import subprocess
 import sys
 from pathlib import Path
 from hf_utils import custom_conversion
@@ -19,16 +19,14 @@ from hf_utils import get_hf_model_support_level
 
 def parse_args() -> argparse.Namespace:
     raw_argv = sys.argv[1:]
-    # Use constant to avoid hardcoded string detection
-    extra_args_flag = "--extra_args"
-    script_options = {"-h", "--help", "--model", "--outdir", "--token", extra_args_flag}
+    script_options = {"-h", "--help", "--model", "--outdir", "--token", "--extra_args"}
     filtered_argv: list[str] = []
     extracted_extra_args: list[str] = []
 
     i = 0
     while i < len(raw_argv):
         token = raw_argv[i]
-        if token == extra_args_flag:
+        if token == "--extra_args":
             i += 1
             while i < len(raw_argv) and raw_argv[i] not in script_options:
                 extracted_extra_args.append(raw_argv[i])
@@ -76,7 +74,7 @@ def main() -> int:
 
     try:
         support_level = get_hf_model_support_level(model_id, token)
-
+        
         match support_level:
             case 0:
                 # Standard export using optimum-cli
@@ -95,7 +93,7 @@ def main() -> int:
                 command.append(str(model_path))
                 env = os.environ if not token else {**os.environ, "HF_TOKEN": token}
 
-                subprocess.run(command, check=True, env=env, shell=False)  # nosec B603
+                subprocess.run(command, check=True, env=env)
 
             case 1:
                 # Custom conversion
@@ -114,7 +112,7 @@ def main() -> int:
 
         print(f"Exported model location: {model_path}")
         return 0
-
+        
     except OSError as exc:
         print(f"Error: Model '{model_id}' not found or inaccessible")
         print(f"Details: {str(exc)}")

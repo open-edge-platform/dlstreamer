@@ -14,8 +14,6 @@ Replaces the gvapython-based AgeLogger with a proper GStreamer Python element.
 """
 
 import re
-import tempfile
-import os
 
 import gi
 
@@ -58,7 +56,7 @@ class AgeLogger(GstBase.BaseTransform):
     )
 
     # Element properties: default values and setters/getters
-    _log_file_path = os.path.join(tempfile.gettempdir(), "age_log.txt")
+    _log_file_path = "/tmp/age_log.txt"
 
     @GObject.Property(type=str)
     def log_file_path(self):

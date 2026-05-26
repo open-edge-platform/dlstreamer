@@ -5,11 +5,8 @@
 # ==============================================================================
 import sys
 import os
-# required for model conversion tools.
-import subprocess  # nosec B404
+import subprocess
 import urllib.request
-import urllib.parse
-import shutil
 
 from huggingface_hub import hf_hub_download
 from ultralytics import YOLO
@@ -24,12 +21,6 @@ from gi.repository import Gst
 
 def get_runtime_dir():
     return os.getcwd()
-
-
-def validate_url(url):
-    """Validate URL to ensure it uses safe schemes."""
-    parsed = urllib.parse.urlparse(url)
-    return parsed.scheme in ('https', 'http') and parsed.netloc
 
 
 # Prepare input video file; download default if none provided
@@ -52,16 +43,11 @@ def prepare_input_video(args):
         input_video = os.path.join(runtime_dir, "default_video.mp4")
         if not os.path.isfile(input_video):
             print("\nNo input provided. Downloading default video...\n")
-
-            if not validate_url(default_video_url):
-                sys.stderr.write(f"Invalid or unsafe URL: {default_video_url}\n")
-                sys.exit(1)
-
             request = urllib.request.Request(
                 default_video_url,
                 headers={"User-Agent": "Mozilla/5.0"},
             )
-            with urllib.request.urlopen(request) as response, open(  # nosec B310
+            with urllib.request.urlopen(request) as response, open(
                 input_video, "wb"
             ) as output:
                 output.write(response.read())
@@ -110,7 +96,6 @@ def main(input_video):
             repo_id="arnabdhar/YOLOv8-Face-Detection",
             filename="model.pt",
             local_dir=runtime_dir,
-            revision="52fa54977207fa4f021de949b515fb19dcab4488",  # Pinned commit hash
         )
 
         model = YOLO(str(model_path))
@@ -126,14 +111,9 @@ def main(input_video):
         print(
             "\nDownloading classification model and converting to OpenVINO IR format...\n"
         )
-        optimum_cli_path = shutil.which("optimum-cli")
-        if not optimum_cli_path:
-            sys.stderr.write("optimum-cli not found in PATH\n")
-            sys.exit(1)
-
         subprocess.run(
             [
-                optimum_cli_path,
+                "optimum-cli",
                 "export",
                 "openvino",
                 "--model",
@@ -143,8 +123,7 @@ def main(input_video):
                 "int8",
             ],
             check=True,
-            timeout=600,  # 10 minute timeout
-        )  # nosec B603
+        )
         print(f"Model exported to {ov_classification_model_path}\n")
 
     # STEP 3: Build and run the DL Streamer GStreamer pipeline

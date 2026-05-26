@@ -12,10 +12,9 @@ python3 ./coexistence_dls_and_ds.py <input> LPR <output> [-simultaneously]"""
 import glob
 import os
 import re
-import subprocess  # nosec B404 - subprocess usage is necessary for system integration
+import subprocess
 import sys
 import threading
-import shutil
 
 # Get arguments
 if len(sys.argv) not in [4,5]:
@@ -50,7 +49,7 @@ bitrate=2000 ! h264parse ! mp4mux ! filesink location=/working_dir/{output_file}
 dlstreamer_pipelines["LPR"]=dlstreamer_pipelines["LPR"].replace("\n", " ")
 
 deepstream_pipelines={"LPR": f"""gst-launch-1.0 {source} ! qtdemux ! h264parse !
-nvv4l2decoder ! m.sink_0 nvstreammux name=m batch-size=1 width=1920 height=1080
+nvv4l2decoder ! m.sink_0 nvstreammux name=m batch-size=1 width=1920 height=1080 
 batched-push-timeout=40000 ! nvdslogger fps-measurement-interval-sec=1 ! queue ! nvvideoconvert
 ! video/x-raw\\(memory:NVMM\\),format=RGBA ! nvinfer config-file-path=
 /working_dir/deepstream_tao_apps/configs/nvinfer/trafficcamnet_tao/pgie_trafficcamnet_config.txt
@@ -87,7 +86,7 @@ cwd = os.getcwd()
 display = os.environ["DISPLAY"]
 home_path = os.environ["HOME"]
 dlstreamer_docker=f"""docker run -i --rm -v {cwd}:/working_dir {DEVICE_DRI} {DEVICE_ACCEL}
--v {home_path}/.Xauthority:/root/.Xauthority -v /tmp/.X11-unix/:/tmp/.X11-unix/ -e
+-v {home_path}/.Xauthority:/root/.Xauthority -v /tmp/.X11-unix/:/tmp/.X11-unix/ -e 
 DISPLAY={display} -v /dev/bus/usb:/dev/bus/usb --env ZE_ENABLE_ALT_DRIVERS=libze_intel_npu.so
 --env MODELS_PATH=/working_dir intel/dlstreamer:latest /bin/bash -c"""
 dlstreamer_docker=dlstreamer_docker.replace("\n", " ")
@@ -134,17 +133,7 @@ nvcr.io/nvidia/deepstream:8.0-samples-multiarch /bin/bash -c"""
 deepstream_docker=deepstream_docker.replace("\n", " ")
 
 # Check for Intel and Nvidia hardware
-lspci_path = shutil.which("lspci")
-if lspci_path:
-    try:
-        # Using trusted system command with validated path from shutil.which()
-        result = subprocess.run([lspci_path, "-nn"], capture_output=True, text=True, check=True, timeout=30)  # nosec B603
-        lspci_output = result.stdout.split("\n")
-    except (subprocess.SubprocessError, subprocess.TimeoutExpired):
-        lspci_output = []
-else:
-    lspci_output = []
-
+lspci_output=os.popen("lspci -nn").read().split("\n")
 video_pattern = re.compile("^.*?(VGA|3D|Display).*$")
 INTEL_GPU=False
 NVIDIA_GPU=False
@@ -158,17 +147,9 @@ for pci_dev in lspci_output:
 
 if os.path.exists("/dev/accel"):
     INTEL_NPU=True
-
-lscpu_path = shutil.which("lscpu")
-if lscpu_path:
-    try:
-        # Using trusted system command with validated path from shutil.which()
-        result = subprocess.run([lscpu_path], capture_output=True, text=True, check=True, timeout=30)  # nosec B603
-        lscpu_output = result.stdout.replace("\n", " ")
-        if "Intel" in lscpu_output:
-            INTEL_CPU=True  # pylint: disable=invalid-name
-    except (subprocess.SubprocessError, subprocess.TimeoutExpired):
-        pass
+lscpu_output=os.popen("lscpu").read().replace("\n", " ")
+if "Intel" in lscpu_output:
+    INTEL_CPU=True
 
 def print_intel_detected(hardware):
     """Prints Intel hardware detection box"""
@@ -299,3 +280,4 @@ elif INTEL_CPU:
     t1 = threading.Thread(target=run_dlstreamer_pipeline)
     t1.start()
     t1.join()
+

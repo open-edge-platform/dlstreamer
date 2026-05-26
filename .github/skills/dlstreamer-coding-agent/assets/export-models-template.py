@@ -13,7 +13,7 @@ Run this script once before starting the pipeline application:
 import argparse
 import json
 import shutil
-import subprocess  # nosec B404
+import subprocess
 import sys
 from pathlib import Path
 
@@ -30,7 +30,7 @@ MODELS_DIR = Path(__file__).resolve().parent / "models"
 #   4. Returns the path to the .xml file
 
 
-def export_yolo_detection(repo_id: str, pt_filename: str, revision: str = "main") -> Path:
+def export_yolo_detection(repo_id: str, pt_filename: str) -> Path:
     """Download a YOLO .pt from HuggingFace and export to OpenVINO IR INT8.
 
     Uses Ultralytics YOLO export with INT8 quantization for best performance.
@@ -51,10 +51,7 @@ def export_yolo_detection(repo_id: str, pt_filename: str, revision: str = "main"
 
     print(f"[YOLO] Downloading {repo_id} / {pt_filename}...")
     pt_path = hf_hub_download(
-        repo_id=repo_id, 
-        filename=pt_filename, 
-        local_dir=str(MODELS_DIR),
-        revision=revision
+        repo_id=repo_id, filename=pt_filename, local_dir=str(MODELS_DIR)
     )
 
     print("[YOLO] Exporting to OpenVINO IR (INT8)...")
@@ -77,7 +74,7 @@ def export_yolo_detection(repo_id: str, pt_filename: str, revision: str = "main"
     return xml_files[0]
 
 
-def export_paddleocr(model_id: str, revision: str = "main") -> Path:
+def export_paddleocr(model_id: str) -> Path:
     """Download PaddleOCR model and convert PIR → ONNX → OpenVINO IR FP16.
 
     PaddlePaddle v3+ uses PIR format (.json + .pdiparams), not .pdmodel.
@@ -97,24 +94,14 @@ def export_paddleocr(model_id: str, revision: str = "main") -> Path:
 
     # Step 1: Download from HuggingFace
     print(f"[OCR] Downloading {model_id} from HuggingFace...")
-    snapshot_download(
-        repo_id=model_id, 
-        local_dir=str(paddle_dir),
-        revision=revision
-    )
+    snapshot_download(repo_id=model_id, local_dir=str(paddle_dir))
 
     # Step 2: PaddlePaddle PIR → ONNX
     onnx_file = ocr_dir / "model.onnx"
     print("[OCR] Converting PaddlePaddle PIR → ONNX...")
-    
-    # Use absolute path for paddle2onnx to avoid partial path issues
-    paddle2onnx_cmd = shutil.which("paddle2onnx")
-    if not paddle2onnx_cmd:
-        raise RuntimeError("paddle2onnx not found in PATH")
-    
-    subprocess.run(  # nosec B603, B607
+    subprocess.run(
         [
-            paddle2onnx_cmd,  # Use full path
+            "paddle2onnx",
             "--model_dir", str(paddle_dir),
             "--model_filename", "inference.json",       # PIR format, NOT .pdmodel
             "--params_filename", "inference.pdiparams",
@@ -127,14 +114,8 @@ def export_paddleocr(model_id: str, revision: str = "main") -> Path:
     # Step 3: ONNX → OpenVINO IR FP16
     fp16_dir.mkdir(parents=True, exist_ok=True)
     print("[OCR] Converting ONNX → OpenVINO IR (FP16)...")
-    
-    # Use absolute path for ovc to avoid partial path issues
-    ovc_cmd = shutil.which("ovc")
-    if not ovc_cmd:
-        raise RuntimeError("ovc not found in PATH")
-    
-    subprocess.run(  # nosec B603, B607
-        [ovc_cmd, str(onnx_file), "--output_model", str(ov_model), "--compress_to_fp16"],
+    subprocess.run(
+        ["ovc", str(onnx_file), "--output_model", str(ov_model), "--compress_to_fp16"],
         check=True,
     )
 
@@ -159,7 +140,7 @@ def export_paddleocr(model_id: str, revision: str = "main") -> Path:
     return ov_model
 
 
-def export_hf_transformer(model_id: str, weight_format: str = "int8", revision: str = "main") -> Path:
+def export_hf_transformer(model_id: str, weight_format: str = "int8") -> Path:
     """Export a HuggingFace transformer model via optimum-cli."""
     model_name = model_id.split("/")[-1]
     output_dir = MODELS_DIR / model_name
@@ -172,18 +153,11 @@ def export_hf_transformer(model_id: str, weight_format: str = "int8", revision: 
     MODELS_DIR.mkdir(parents=True, exist_ok=True)
 
     print(f"[HF] Exporting {model_id} via optimum-cli ({weight_format})...")
-    
-    # Use absolute path for optimum-cli to avoid partial path issues
-    optimum_cmd = shutil.which("optimum-cli")
-    if not optimum_cmd:
-        raise RuntimeError("optimum-cli not found in PATH")
-    
-    subprocess.run(  # nosec B603, B607
+    subprocess.run(
         [
-            optimum_cmd, "export", "openvino",
+            "optimum-cli", "export", "openvino",
             "--model", model_id,
             "--weight-format", weight_format,
-            "--revision", revision,
             str(output_dir),
         ],
         check=True,
@@ -207,9 +181,9 @@ def main():
     args = parse_args()
 
     # Call the appropriate export functions for your models:
-    # det = export_yolo_detection("repo/name", "model.pt", revision="v1.0")
-    # ocr = export_paddleocr("PaddlePaddle/PP-OCRv5_server_rec", revision="main")
-    # cls = export_hf_transformer("org/model-name", weight_format="int8", revision="main")
+    # det = export_yolo_detection("repo/name", "model.pt")
+    # ocr = export_paddleocr("PaddlePaddle/PP-OCRv5_server_rec")
+    # cls = export_hf_transformer("org/model-name", weight_format="int8")
 
     print("\n=== All models ready ===")
 
