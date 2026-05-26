@@ -1,3 +1,4 @@
+# pylint: disable=missing-module-docstring
 # ==============================================================================
 # Copyright (C) 2025-2026 Intel Corporation
 #
@@ -9,27 +10,27 @@ import heapq
 import itertools
 import os
 
+from processors.utils import parse_element_parameters, assemble_parameters
+
 from openvino import Core
 from openvino.properties.device import Type
 
-from processors.utils import parse_element_parameters, assemble_parameters
-
 logger = logging.getLogger(__name__)
 
-class DeviceGenerator:
+class DeviceGenerator: # pylint: disable=missing-class-docstring
     def __init__(self):
         self.tracked_elements = []
         self.devices = Core().available_devices
         self.candidates = []
 
-    def set_allowed_devices(self, devices):
+    def _set_allowed_devices(self, devices):
         _devices = Core().available_devices
         for device in devices:
             if not any(device in d for d in _devices):
                 raise RuntimeError(f"Device {device} is not supported by this system! Available devices: {str(_devices)}") # pylint: disable=line-too-long
         self.devices = devices
 
-    def init_pipeline(self, initial_pipeline):
+    def _init_pipeline(self, initial_pipeline): # pylint: disable=too-many-locals
         logger.info("Devices allowed for optimization: %s", str(self.devices))
 
         self.tracked_elements = []
@@ -41,7 +42,7 @@ class DeviceGenerator:
         # prepare device groups
         for idx, element in enumerate(initial_pipeline):
             if "gvadetect" in element or "gvaclassify" in element:
-                (_, parameters) = parse_element_parameters(element)
+                (_, parameters) = _parse_element_parameters(element)
                 instance_id = parameters.get("model-instance-id")
                 group_idx = 0
 
@@ -66,7 +67,7 @@ class DeviceGenerator:
                 })
 
         # prepare device information
-        info = compile_device_info()
+        info = _compile_device_info()
         devices = list(map(lambda e: (e, info[e]), self.devices))
 
         # prepare all device combinations
@@ -81,7 +82,7 @@ class DeviceGenerator:
             for element in reversed(self.tracked_elements):
                 # Get the pipeline element we're modifying
                 idx = element["index"]
-                (element_type, parameters) = parse_element_parameters(pipeline[idx])
+                (element_type, parameters) = _parse_element_parameters(pipeline[idx])
 
                 # Get the device for this element
                 device, device_score = combination[element["group_idx"]]
@@ -102,7 +103,7 @@ class DeviceGenerator:
 
                 # Apply current configuration
                 parameters["device"] = device
-                parameters = assemble_parameters(parameters)
+                parameters = _assemble_parameters(parameters)
                 pipeline[idx] = f" {element_type} {parameters}"
                 pipeline.insert(idx, f" {memory} ")
                 pipeline.insert(idx, " vapostproc ")
@@ -130,7 +131,7 @@ class DeviceGenerator:
 
 ###################################################################################################
 
-def compile_device_info():
+def _compile_device_info():
     core = Core()
     available_devices = core.available_devices
 

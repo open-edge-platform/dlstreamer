@@ -86,7 +86,7 @@ search_duration = args.search_duration
 ####################################### Main Logic ################################################
 
 def main() -> int:
-    global search_duration
+    global search_duration # pylint: disable=global-statement
     try:
         optimizer.set_sample_duration(args.sample_duration)
         optimizer.set_detections_error_threshold(args.detection_threshold)

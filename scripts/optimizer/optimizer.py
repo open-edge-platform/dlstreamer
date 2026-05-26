@@ -1,3 +1,4 @@
+# pylint: disable=missing-module-docstring
 # ==============================================================================
 # Copyright (C) 2025-2026 Intel Corporation
 #
@@ -64,31 +65,31 @@ class DLSOptimizer:
             "nireq": NireqGenerator()
         }
 
-    def get_baseline_pipeline(self):
+    def get_baseline_pipeline(self): # pylint: disable=missing-function-docstring
         return "!".join(self._initial_pipeline), self._initial_fps, SINGLE_STREAM
 
-    def get_optimal_pipeline(self):
+    def get_optimal_pipeline(self): # pylint: disable=missing-function-docstring
         return "!".join(self._optimal_pipeline), self._optimal_fps, self._optimal_streams
 
     def enable_cross_stream_batching(self, enable): # pylint: disable=missing-function-docstring
         self._enable_cross_stream_batching = enable
 
-    def set_sample_duration(self, duration):
+    def set_sample_duration(self, duration): # pylint: disable=missing-function-docstring
         self._sample_duration = duration
 
-    def set_multistream_fps_limit(self, limit):
+    def set_multistream_fps_limit(self, limit): # pylint: disable=missing-function-docstring
         self._multistream_fps_limit = limit
 
-    def set_allowed_devices(self, devices):
-        self._generators["device"].set_allowed_devices(devices)
+    def set_allowed_devices(self, devices): # pylint: disable=missing-function-docstring
+        self._generators["device"]._set_allowed_devices(devices)
 
-    def set_batch_sizes(self, sizes):
-        self._generators["batch"].set_batch_sizes(sizes)
+    def set_batch_sizes(self, sizes): # pylint: disable=missing-function-docstring
+        self._generators["batch"]._set_batch_sizes(sizes)
 
-    def set_nireq_sizes(self, sizes):
-        self._generators["nireq"].set_nireq_sizes(sizes)
+    def set_nireq_sizes(self, sizes): # pylint: disable=missing-function-docstring
+        self._generators["nireq"]._set_nireq_sizes(sizes)
 
-    def set_detections_error_threshold(self, threshold):
+    def set_detections_error_threshold(self, threshold): # pylint: disable=missing-function-docstring
         self._detections_error_threshold = threshold
 
     # deprecated
@@ -132,7 +133,7 @@ class DLSOptimizer:
         pipeline = self._run_preprocessing(pipeline)
 
         if self._enable_cross_stream_batching:
-            pipeline = add_instance_ids(pipeline)
+            pipeline = _add_instance_ids(pipeline)
 
         # Perform optimization
         logger.debug("Starting optimization process for FPS improvements...")
@@ -166,7 +167,7 @@ class DLSOptimizer:
         self._establish_baseline(initial_pipeline)
         initial_pipeline = self._run_preprocessing(initial_pipeline)
 
-        initial_pipeline = add_instance_ids(initial_pipeline)
+        initial_pipeline = _add_instance_ids(initial_pipeline)
 
         # Perform optimization
         start_time = time.time()
@@ -224,7 +225,7 @@ class DLSOptimizer:
         best_fps = initial_fps
 
         for generator in self._generators.values():
-            generator.init_pipeline(best_pipeline)
+            generator._init_pipeline(best_pipeline)
             for pipeline in generator:
                 try:
                     pipelines = []

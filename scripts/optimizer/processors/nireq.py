@@ -1,3 +1,4 @@
+# pylint: disable=missing-module-docstring
 # ==============================================================================
 # Copyright (C) 2025-2026 Intel Corporation
 #
@@ -9,7 +10,7 @@ from processors.utils import parse_element_parameters, assemble_parameters
 
 logger = logging.getLogger(__name__)
 
-class NireqGenerator:
+class NireqGenerator: # pylint: disable=missing-class-docstring
     def __init__(self):
         self.tracked_elements = []
         self.nireqs = range(1, 9)
@@ -17,10 +18,10 @@ class NireqGenerator:
         self.pipeline = []
         self.first_iteration = True
 
-    def set_nireq_sizes(self, sizes):
+    def _set_nireq_sizes(self, sizes):
         self.nireqs = sizes
 
-    def init_pipeline(self, pipeline):
+    def _init_pipeline(self, pipeline):
         self.tracked_elements = []
         self.nireq_groups = []
         self.pipeline = pipeline.copy()
@@ -30,7 +31,7 @@ class NireqGenerator:
 
         for idx, element in enumerate(self.pipeline):
             if "gvadetect" in element or "gvaclassify" in element:
-                (_, parameters) = parse_element_parameters(element)
+                (_, parameters) = _parse_element_parameters(element)
                 instance_id = parameters.get("model-instance-id")
                 group_idx = 0
 
@@ -92,14 +93,14 @@ class NireqGenerator:
         for element in self.tracked_elements:
             # Get the pipeline element we're modifying
             idx = element["index"]
-            (element_type, parameters) = parse_element_parameters(pipeline[idx])
+            (element_type, parameters) = _parse_element_parameters(pipeline[idx])
 
             # Get the nireq for this element
             nireq = self.nireqs[self.nireq_groups[element["group_idx"]]]
 
             # Apply current configuration
             parameters["nireq"] = str(nireq)
-            parameters = assemble_parameters(parameters)
+            parameters = _assemble_parameters(parameters)
             pipeline[idx] = f" {element_type} {parameters}"
 
         return pipeline
