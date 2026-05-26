@@ -280,10 +280,11 @@ necessary dependencies using the following commands:
   python3 -m pip install -r requirements.txt
   ```
 
-### (Optional) Install `intel-dlstreamer` Python package
+### (Optional) Install DL Streamer ONVIF Python package
 
-If you want to use the `dlstreamer.onvif` Python package in your own Python code,
+If you want to use the `dlstreamer.onvif` in your own Python code,
 install the `intel-dlstreamer` wheel on top of the DL Streamer.
+See [ONVIF sample](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/python/onvif_cameras_discovery) for more details of ONVIF support.
 
 The easiest way is to download and install the wheel directly from the GitHub Release:
 
@@ -299,9 +300,9 @@ Alternatively, build the wheel from the cloned sources:
   pip install ~/dlstreamer/python/dist/intel_dlstreamer-*.whl
   ```
 
-This single command installs:
+This installs:
 - `dlstreamer.onvif` — ONVIF camera discovery and pipeline integration
-- all required Python dependencies (`onvif-zeep`, `urllib3`) automatically
+- All required Python dependencies (`numpy`, `onvif-zeep`, `urllib3`) automatically
 
 After installation, no `PYTHONPATH` configuration is needed:
 
