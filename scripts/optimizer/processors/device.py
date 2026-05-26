@@ -20,7 +20,6 @@ class DeviceGenerator:
     def __init__(self):
         self.tracked_elements = []
         self.devices = Core().available_devices
-        self.device_groups = []
         self.candidates = []
 
     def set_allowed_devices(self, devices):
@@ -34,10 +33,10 @@ class DeviceGenerator:
         logger.info("Devices allowed for optimization: %s", str(self.devices))
 
         self.tracked_elements = []
-        self.device_groups = []
         self.candidates = []
 
         instance_ids = {}
+        group_count = 0
 
         # prepare device groups
         for idx, element in enumerate(initial_pipeline):
@@ -52,15 +51,14 @@ class DeviceGenerator:
 
                     # if this instance id is new, create a new group index
                     if group_idx is None:
-                        group_idx = len(self.device_groups)
-                        self.device_groups.append(0)
+                        group_idx = group_count
                         instance_ids[instance_id] = group_idx
+                        group_count += 1
 
                 # if there's no instance id, treat element as its own group
                 else:
-                    group_idx = len(self.device_groups)
-                    self.device_groups.append(0)
-
+                    group_idx = group_count
+                    group_count += 1
 
                 self.tracked_elements.append({
                     "index": idx,
@@ -72,14 +70,13 @@ class DeviceGenerator:
         devices = list(map(lambda e: (e, info[e]), self.devices))
 
         # prepare all device combinations
-        combinations = itertools.product(devices, repeat=len(self.device_groups))
+        combinations = itertools.product(devices, repeat=group_count)
 
         # transform device combinations into pipeline candidates
         for combination in combinations:
             # preapre the pipeline as well as score info
             pipeline = initial_pipeline.copy()
             total_score = 0
-            used_devices = []
 
             for element in reversed(self.tracked_elements):
                 # Get the pipeline element we're modifying
@@ -87,7 +84,7 @@ class DeviceGenerator:
                 (element_type, parameters) = parse_element_parameters(pipeline[idx])
 
                 # Get the device for this element
-                device, device_score = combination[self.device_groups[element["group_idx"]]]
+                device, device_score = combination[element["group_idx"]]
 
                 # Configure an appropriate backend and memory location
                 memory = ""
@@ -111,10 +108,10 @@ class DeviceGenerator:
                 pipeline.insert(idx, " vapostproc ")
 
                 total_score -= device_score
-                used_devices.append(device)
 
             # store the score, device combination info and the candidate in a priority queue
-            heapq.heappush(self.candidates, (total_score, used_devices, pipeline))
+            combination = list(map(lambda e: (e[0]), combination))
+            heapq.heappush(self.candidates, (total_score, combination, pipeline))
 
     def __iter__(self):
         return self
