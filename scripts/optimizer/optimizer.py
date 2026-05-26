@@ -239,6 +239,7 @@ class DLSOptimizer:
 ##################################### Pipeline Running ############################################
 
 def sample_pipeline(pipelines, sample_duration):
+    """Run one or more pipeline variants long enough to sample FPS and detections."""
     pipelines = pipelines.copy()
 
     pipeline = pipelines[0]
@@ -254,7 +255,7 @@ def sample_pipeline(pipelines, sample_duration):
                 pipeline.insert(len(pipeline) - i, " queue ! gvafpscounter " )
                 break
 
-    pipelines = list(map(lambda pipeline: "!".join(pipeline), pipelines))
+    pipelines = ["!".join(pipeline) for pipeline in pipelines]
     pipeline = " ".join(pipelines)
     logger.debug("Testing: %s", pipeline)
 
@@ -300,7 +301,7 @@ def sample_pipeline(pipelines, sample_duration):
     return fps, detections
 
 def process_bus(bus):
-    # Process any messages from the bus
+    """Process and log pending messages from a GStreamer bus."""
     message = bus.pop()
     while message is not None:
         if message.type == Gst.MessageType.ERROR:

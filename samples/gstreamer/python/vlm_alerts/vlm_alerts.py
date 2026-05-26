@@ -62,26 +62,26 @@ def download_video(url: str, target_path: Path) -> None:
     """Return a local video path, downloading it if needed."""
     if not validate_url(url):
         raise VLMAlertsError(f"Invalid or unsafe video URL: {url}")
-    
+
     request = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
     try:
         with urllib.request.urlopen(request, timeout=30) as response:  # nosec B310
             if hasattr(response, "status") and response.status != 200:
                 raise VLMAlertsError(f"Video download failed: HTTP {response.status}")
-            
+
             # Check content length if available
             content_length = response.headers.get('Content-Length')
             if content_length and int(content_length) > 500 * 1024 * 1024:  # 500MB limit
                 raise VLMAlertsError(f"Video file too large: {int(content_length) / (1024*1024):.2f} MB")
-            
+
             data = response.read()
             if not data:
                 raise VLMAlertsError("Video download failed: empty response")
-            
+
             # Additional size check after download
             if len(data) > 500 * 1024 * 1024:  # 500MB limit
                 raise VLMAlertsError(f"Downloaded video too large: {len(data) / (1024*1024):.2f} MB")
-            
+
             with open(target_path, "wb") as file:
                 file.write(data)
     except Exception as error:
@@ -189,7 +189,7 @@ def resolve_model(
 
     try:
         subprocess.run(  # nosec B603
-            command, 
+            command,
             check=True,
             shell=False,  # Explicitly disable shell
             timeout=1800  # 30 minute timeout

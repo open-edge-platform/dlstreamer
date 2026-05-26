@@ -13,14 +13,14 @@ import json
 
 from optimizer import DLSOptimizer # pylint: disable=no-name-in-module
 
-def _display_result(pipeline, fps):
+def _display_result(pipeline, fps):  # pylint: disable=redefined-outer-name
     logger.info("============================== CANDIDATE =============================")
     logger.info("Sampled pipeline: %s", str(pipeline))
     logger.info("")
     logger.info("Recorded fps: %.2f", fps)
     logger.info("======================================================================")
 
-def _display_summary_fps(best_pipeline, best_fps, initial_pipeline, initial_fps):
+def _display_summary_fps(best_pipeline, best_fps, initial_pipeline, initial_fps):  # pylint: disable=redefined-outer-name
     logger.info("=============================== SUMMARY ==============================")
     if best_fps > initial_fps:
         logger.info("Optimized pipeline found with %.2f fps improvement over the original pipeline.", best_fps - initial_fps)
@@ -33,7 +33,7 @@ def _display_summary_fps(best_pipeline, best_fps, initial_pipeline, initial_fps)
         logger.info("Original pipeline FPS: %.2f", initial_fps)
     logger.info("======================================================================")
 
-def _display_summary_streams(best_pipeline, best_fps, streams):
+def _display_summary_streams(best_pipeline, best_fps, streams):  # pylint: disable=redefined-outer-name
     full_pipeline = []
     for _ in range(0, streams):
         full_pipeline.append(best_pipeline)
@@ -108,7 +108,7 @@ try:
     if args.allowed_devices:
         optimizer.set_allowed_devices(args.allowed_devices)
 
-except Exception as e:
+except Exception as e: # pylint: disable=broad-exception-caught
     logger.error("Failed to configure optimizer: %s", e)
     sys.exit(1)
 

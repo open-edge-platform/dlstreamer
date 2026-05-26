@@ -54,8 +54,8 @@ DEFAULT_REVISION = "main"
 
 
 def get_hf_model_support_level(
-    model_id: str, 
-    token: str | None = None, 
+    model_id: str,
+    token: str | None = None,
     revision: str | None = None
 ) -> int:
     """Classify support level for a Hugging Face model ID.
@@ -67,7 +67,7 @@ def get_hf_model_support_level(
     """
     if revision is None:
         revision = DEFAULT_REVISION
-        
+
     supported_hf_models_lower = {item.lower() for item in SUPPORTED_HF_MODELS}
     custom_converters_lower = {item.lower() for item in CUSTOM_CONVERTERS}
 
@@ -168,10 +168,10 @@ def load_hf_architectures_from_repo(
 ) -> list[str]:
     if revision is None:
         revision = DEFAULT_REVISION
-        
+
     config = AutoConfig.from_pretrained(
-        model_id, 
-        token=token, 
+        model_id,
+        token=token,
         revision=revision
     )
     architectures = getattr(config, "architectures", None)
@@ -197,19 +197,19 @@ def export_hf_clip_to_openvino(
     """
     if revision is None:
         revision = DEFAULT_REVISION
-        
+
     outdir.mkdir(parents=True, exist_ok=True)
 
     vision_model = CLIPVisionModel.from_pretrained(
-        model_ref, 
+        model_ref,
         revision=revision
     )
     vision_model.eval()
 
     img = Image.new("RGB", (224, 224))
     processor = AutoProcessor.from_pretrained(
-        model_ref, 
-        token=token, 
+        model_ref,
+        token=token,
         revision=revision
     )
     batch = processor.image_processor(images=img, return_tensors="pt")["pixel_values"]
@@ -249,7 +249,7 @@ def export_hf_rtdetr_to_openvino(
     """
     if revision is None:
         revision = DEFAULT_REVISION
-        
+
     outdir.mkdir(parents=True, exist_ok=True)
     _ = extra_args
     model_id = model_ref
@@ -294,22 +294,22 @@ def export_hf_depthanything_to_openvino(
     """
     if revision is None:
         revision = DEFAULT_REVISION
-        
+
     outdir.mkdir(parents=True, exist_ok=True)
     _ = extra_args
     model_id = model_ref
 
     model = AutoModelForDepthEstimation.from_pretrained(
-        model_ref, 
-        token=token, 
+        model_ref,
+        token=token,
         revision=revision
     )
     model.eval()
 
     img = Image.new("RGB", (224, 224))
     processor = AutoImageProcessor.from_pretrained(
-        model_ref, 
-        token=token, 
+        model_ref,
+        token=token,
         revision=revision
     )
     batch = processor(images=img, return_tensors="pt")["pixel_values"]

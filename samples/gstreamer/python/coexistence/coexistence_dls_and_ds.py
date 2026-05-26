@@ -50,7 +50,7 @@ bitrate=2000 ! h264parse ! mp4mux ! filesink location=/working_dir/{output_file}
 dlstreamer_pipelines["LPR"]=dlstreamer_pipelines["LPR"].replace("\n", " ")
 
 deepstream_pipelines={"LPR": f"""gst-launch-1.0 {source} ! qtdemux ! h264parse !
-nvv4l2decoder ! m.sink_0 nvstreammux name=m batch-size=1 width=1920 height=1080 
+nvv4l2decoder ! m.sink_0 nvstreammux name=m batch-size=1 width=1920 height=1080
 batched-push-timeout=40000 ! nvdslogger fps-measurement-interval-sec=1 ! queue ! nvvideoconvert
 ! video/x-raw\\(memory:NVMM\\),format=RGBA ! nvinfer config-file-path=
 /working_dir/deepstream_tao_apps/configs/nvinfer/trafficcamnet_tao/pgie_trafficcamnet_config.txt
@@ -87,7 +87,7 @@ cwd = os.getcwd()
 display = os.environ["DISPLAY"]
 home_path = os.environ["HOME"]
 dlstreamer_docker=f"""docker run -i --rm -v {cwd}:/working_dir {DEVICE_DRI} {DEVICE_ACCEL}
--v {home_path}/.Xauthority:/root/.Xauthority -v /tmp/.X11-unix/:/tmp/.X11-unix/ -e 
+-v {home_path}/.Xauthority:/root/.Xauthority -v /tmp/.X11-unix/:/tmp/.X11-unix/ -e
 DISPLAY={display} -v /dev/bus/usb:/dev/bus/usb --env ZE_ENABLE_ALT_DRIVERS=libze_intel_npu.so
 --env MODELS_PATH=/working_dir intel/dlstreamer:latest /bin/bash -c"""
 dlstreamer_docker=dlstreamer_docker.replace("\n", " ")
@@ -166,7 +166,7 @@ if lscpu_path:
         result = subprocess.run([lscpu_path], capture_output=True, text=True, check=True, timeout=30)  # nosec B603
         lscpu_output = result.stdout.replace("\n", " ")
         if "Intel" in lscpu_output:
-            INTEL_CPU=True
+            INTEL_CPU=True  # pylint: disable=invalid-name
     except (subprocess.SubprocessError, subprocess.TimeoutExpired):
         pass
 

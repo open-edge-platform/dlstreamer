@@ -52,11 +52,11 @@ def prepare_input_video(args):
         input_video = os.path.join(runtime_dir, "default_video.mp4")
         if not os.path.isfile(input_video):
             print("\nNo input provided. Downloading default video...\n")
-            
+
             if not validate_url(default_video_url):
                 sys.stderr.write(f"Invalid or unsafe URL: {default_video_url}\n")
                 sys.exit(1)
-            
+
             request = urllib.request.Request(
                 default_video_url,
                 headers={"User-Agent": "Mozilla/5.0"},
@@ -130,7 +130,7 @@ def main(input_video):
         if not optimum_cli_path:
             sys.stderr.write("optimum-cli not found in PATH\n")
             sys.exit(1)
-        
+
         subprocess.run(
             [
                 optimum_cli_path,

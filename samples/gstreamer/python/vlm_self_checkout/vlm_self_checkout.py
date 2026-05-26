@@ -10,7 +10,7 @@ Builds a pipeline that:
 1. Reads input video stream (from file) and decodes with decodebin3
 2. Detects objects using traditional computer vision model (gvadetect)
 3. Implements custom frame selection logic in gvaFrameSelection python element
-4. Runs VLM model on selected frames for extended object classification 
+4. Runs VLM model on selected frames for extended object classification
 5. Overlays VLM classification results on top of object detection results in output video frames
 6. Saves the annotated video to a file and dumps VLM classification results in a JSONL file
 """
@@ -182,7 +182,7 @@ def download_video(video_url: str) -> Path:
     """Return a local video path, downloading from URL if needed."""
     if not validate_url(video_url):
         raise SampleSetupError(f"Invalid or unsafe video URL: {video_url}")
-    
+
     VIDEOS_DIR.mkdir(parents=True, exist_ok=True)
     filename = video_url.rstrip("/").split("/")[-1]
     if not Path(filename).suffix:
@@ -198,15 +198,15 @@ def download_video(video_url: str) -> Path:
                 content_length = response.headers.get('Content-Length')
                 if content_length and int(content_length) > 500 * 1024 * 1024:  # 500MB limit
                     raise SampleSetupError(f"Video file too large: {int(content_length) / (1024*1024):.2f} MB")
-                
+
                 data = response.read()
                 if not data:
                     raise SampleSetupError("Video download returned empty response")
-                
+
                 # Additional size check after download
                 if len(data) > 500 * 1024 * 1024:  # 500MB limit
                     raise SampleSetupError(f"Downloaded video too large: {len(data) / (1024*1024):.2f} MB")
-                
+
                 with open(local_path, "wb") as fh:
                     fh.write(data)
         except SampleSetupError:
@@ -239,7 +239,7 @@ def download_detection_model(model_id: str) -> Path:
     which may clash with OpenVINO runtime instance used by DLStreamer."""
     if not validate_model_id(model_id):
         raise SampleSetupError(f"Invalid model ID format: {model_id}")
-    
+
     MODELS_DIR.mkdir(parents=True, exist_ok=True)
     model_path = MODELS_DIR / f"{model_id}_int8_openvino_model" / f"{model_id}.xml"
 
@@ -284,7 +284,7 @@ def download_vlm_model(model_id: str) -> Path:
     """Return a path to the VLM OpenVINO model, downloading/exporting via a optimum-cli (separate process."""
     if not validate_hf_model_id(model_id):
         raise SampleSetupError(f"Invalid Hugging Face model ID format: {model_id}")
-    
+
     MODELS_DIR.mkdir(parents=True, exist_ok=True)
     model_name = model_id.split("/")[-1]
     model_path = MODELS_DIR / model_name
@@ -430,7 +430,7 @@ def run_pipeline(pipeline: Gst.Pipeline) -> None:
     ret = pipeline.get_state(Gst.CLOCK_TIME_NONE)
     if ret[0] != Gst.StateChangeReturn.SUCCESS:
         raise SampleSetupError(f"Pipeline failed to reach PLAYING state: {ret}")
-    
+
     print("[pipeline] Running... Press Ctrl-C to stop.")
     try:
         while True:
@@ -439,7 +439,7 @@ def run_pipeline(pipeline: Gst.Pipeline) -> None:
                 Gst.MessageType.ERROR | Gst.MessageType.EOS,
             )
             if message is None:
-                continue            
+                continue
             if message.type == Gst.MessageType.ERROR:
                 err, debug = message.parse_error()
                 raise SampleSetupError(f"Pipeline error: {err.message}\nDebug: {debug}")

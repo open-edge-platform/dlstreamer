@@ -12,15 +12,16 @@ This sample application demonstrates how to add custom Python elements to DLStre
   custom detection metadata along with each chunk.
 """
 
-import gi
 import os
-import openvino as ov
 import shutil
 # sample uses fixed developer tools for model export.
 import subprocess  # nosec B404
 import sys
 import urllib.parse
 import urllib.request
+
+import gi
+import openvino as ov
 
 gi.require_version("Gst", "1.0")
 from gi.repository import Gst   # pylint: disable=no-name-in-module
@@ -103,7 +104,10 @@ def check_download_detection_model():
         if not run_model_tool([optimum_cli, "export", "onnx", "--model", "PekingU/rtdetr_v2_r50vd",
                                "--task", "object-detection", "--opset", "18", "--width", "640", "--height", "640", "rtdetr_v2_r50vd"]):
             return None
-        if not run_model_tool([hf_cli, "download", "PekingU/rtdetr_v2_r50vd", "--include", "preprocessor_config.json", "--local-dir", "."], cwd="rtdetr_v2_r50vd"):
+        if not run_model_tool(
+            [hf_cli, "download", "PekingU/rtdetr_v2_r50vd", "--include", "preprocessor_config.json", "--local-dir", "."],
+            cwd="rtdetr_v2_r50vd",
+        ):
             return None
         if not run_model_tool([ovc_cli, "model.onnx"], cwd="rtdetr_v2_r50vd"):
             return None

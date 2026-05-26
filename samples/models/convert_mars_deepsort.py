@@ -162,8 +162,8 @@ class MarsDeepSORTConverter:
         # prefer safe tensor-only loading; legacy checkpoints may still require pickle metadata.
         try:
             checkpoint = torch.load(checkpoint_path, map_location='cpu', weights_only=True)
-        except Exception as e:
-            logger.warning(f"weights_only checkpoint load failed: {e}")
+        except (RuntimeError, TypeError, ValueError) as e:
+            logger.warning("weights_only checkpoint load failed: %s", e)
             logger.warning("falling back to full deserialization for the trusted legacy deepsort checkpoint")
             checkpoint = torch.load(checkpoint_path, map_location='cpu', weights_only=False)  # nosec B614
 

@@ -25,8 +25,8 @@ import shutil
 # Disable Xet storage backend — it fails behind corporate proxies (e.g. Fortinet)
 os.environ.setdefault("HF_HUB_DISABLE_XET", "1")
 
-from huggingface_hub import hf_hub_download
-from ultralytics import YOLO
+from huggingface_hub import hf_hub_download  # pylint: disable=wrong-import-position
+from ultralytics import YOLO  # pylint: disable=wrong-import-position
 
 
 class ModelPreparationError(Exception):
@@ -154,7 +154,7 @@ def _prepare_hf_classification_model(repo_id, subdir, log_label, revision="main"
     # Save to a DIFFERENT filename: OV mmaps the .bin file, so writing back
     # to the same path truncates the mmapped region and triggers SIGBUS.
     try:
-        from openvino import Core, save_model
+        from openvino import Core, save_model  # pylint: disable=import-outside-toplevel
 
         ov_model = Core().read_model(dynamic_xml)
         ov_model.reshape([1, 3, 224, 224])
@@ -179,7 +179,7 @@ def main():
         detect_path = prepare_detection_model()
         classify_path = prepare_classification_model()
         gender_path = prepare_gender_model()
-    except Exception as e:
+    except (ModelPreparationError, OSError, RuntimeError, ImportError) as e:
         print(f"Error preparing models: {e}", file=sys.stderr)
         sys.exit(1)
 

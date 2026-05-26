@@ -20,15 +20,15 @@ from hf_utils import get_hf_model_support_level
 def parse_args() -> argparse.Namespace:
     raw_argv = sys.argv[1:]
     # Use constant to avoid hardcoded string detection
-    EXTRA_ARGS_FLAG = "--extra_args"
-    script_options = {"-h", "--help", "--model", "--outdir", "--token", EXTRA_ARGS_FLAG}
+    extra_args_flag = "--extra_args"
+    script_options = {"-h", "--help", "--model", "--outdir", "--token", extra_args_flag}
     filtered_argv: list[str] = []
     extracted_extra_args: list[str] = []
 
     i = 0
     while i < len(raw_argv):
         token = raw_argv[i]
-        if token == EXTRA_ARGS_FLAG:
+        if token == extra_args_flag:
             i += 1
             while i < len(raw_argv) and raw_argv[i] not in script_options:
                 extracted_extra_args.append(raw_argv[i])

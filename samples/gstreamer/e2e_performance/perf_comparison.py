@@ -84,11 +84,11 @@ def prepare_video() -> Path:
     """Download test video if not cached."""
     if VIDEO_PATH.exists():
         return VIDEO_PATH
-    
+
     parsed = urllib.parse.urlparse(VIDEO_URL)
     if parsed.scheme != 'https' or parsed.hostname != 'storage.openvinotoolkit.org':
         raise ValueError(f"Unexpected video URL: {VIDEO_URL}")
-    
+
     VIDEO_PATH.parent.mkdir(parents=True, exist_ok=True)
     print("Downloading test video ...")
     # fixed sample asset from storage.openvinotoolkit.org.

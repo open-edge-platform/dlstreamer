@@ -21,8 +21,8 @@ import sys
 # Disable Xet storage backend — it fails behind corporate proxies (e.g. Fortinet)
 os.environ.setdefault("HF_HUB_DISABLE_XET", "1")
 
-from huggingface_hub import hf_hub_download
-from ultralytics import YOLO
+from huggingface_hub import hf_hub_download  # pylint: disable=wrong-import-position
+from ultralytics import YOLO  # pylint: disable=wrong-import-position
 
 DEFAULT_REVISION = "main"
 
@@ -56,7 +56,7 @@ def prepare_detection_model(revision=None):
     """Download YOLOv8-Face-Detection and export to OpenVINO IR."""
     if revision is None:
         revision = DEFAULT_REVISION
-        
+
     runtime_dir = get_runtime_dir()
     ov_model_path = os.path.join(runtime_dir, "model_openvino_model", "model.xml")
 
@@ -76,13 +76,13 @@ def prepare_detection_model(revision=None):
         force_download=False,  # Use cache if available
         resume_download=True,  # Resume interrupted downloads
     )
-    
+
     try:
         model = YOLO(str(model_path))
         exported_model_path = model.export(format="openvino", dynamic=False, imgsz=640)
         print(f"Model exported to {exported_model_path}\n", file=sys.stderr)
     except Exception as e:
-        raise RuntimeError(f"Failed to export YOLO model: {e}")
+        raise RuntimeError(f"Failed to export YOLO model: {e}") from e
 
     return ov_model_path
 
@@ -100,7 +100,7 @@ def main():
         # Use environment variable for revision if set, otherwise use default
         revision = os.environ.get("MODEL_REVISION", DEFAULT_REVISION)
         detect_path = prepare_detection_model(revision=revision)
-    except Exception as e:
+    except (OSError, RuntimeError) as e:
         print(f"Error preparing detection model: {e}", file=sys.stderr)
         sys.exit(1)
 
