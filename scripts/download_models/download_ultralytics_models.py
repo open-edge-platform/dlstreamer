@@ -1,5 +1,5 @@
 # ==============================================================================
-# Copyright (C) 2018-2026 Intel Corporation
+# Copyright (C) 2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
@@ -44,10 +44,22 @@ def parse_args() -> argparse.Namespace:
 
 def resolve_ultralytics_model(model_or_path: str) -> YOLO:
     path = Path(model_or_path)
+
+    # Absolute path or has separators → must be local file
+    if path.is_absolute() or ('/' in model_or_path or '\\' in model_or_path):
+        if not path.exists():
+            raise FileNotFoundError(f"Model file not found: {model_or_path}")
+        if path.suffix.lower() != ".pt":
+            raise ValueError("Ultralytics local model must be a .pt file")
+        return YOLO(str(path))
+
+    # Simple name (e.g. "yolo11n.pt") → check local, then try hub
     if path.exists():
         if path.suffix.lower() != ".pt":
             raise ValueError("Ultralytics local model must be a .pt file")
         return YOLO(str(path))
+
+    # Not local → try hub
     return YOLO(model_or_path)
 
 
@@ -75,10 +87,14 @@ def main() -> int:
             int8=int8,
         )
 
+        if not exported_model_path or not Path(exported_model_path).exists():
+            print(f"Error: Export failed for model '{model_name}' - no output produced")
+            return 1
+
         model_path = move_exported_model(Path(exported_model_path), outdir)
         print(f"Exported model location: {model_path}")
     except FileNotFoundError as exc:
-        missing = exc.filename or model_name
+        missing = getattr(exc, 'filename', None) or model_name
         print(f"File not found: {missing}")
         return 1
     except ValueError as exc:
