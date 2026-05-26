@@ -23,14 +23,14 @@ class DeviceGenerator: # pylint: disable=missing-class-docstring
         self.devices = Core().available_devices
         self.candidates = []
 
-    def _set_allowed_devices(self, devices):
+    def set_allowed_devices(self, devices): # pylint: disable=missing-function-docstring
         _devices = Core().available_devices
         for device in devices:
             if not any(device in d for d in _devices):
                 raise RuntimeError(f"Device {device} is not supported by this system! Available devices: {str(_devices)}") # pylint: disable=line-too-long
         self.devices = devices
 
-    def _init_pipeline(self, initial_pipeline): # pylint: disable=too-many-locals
+    def init_pipeline(self, initial_pipeline): # pylint: disable=too-many-locals, missing-function-docstring
         logger.info("Devices allowed for optimization: %s", str(self.devices))
 
         self.tracked_elements = []
@@ -42,7 +42,7 @@ class DeviceGenerator: # pylint: disable=missing-class-docstring
         # prepare device groups
         for idx, element in enumerate(initial_pipeline):
             if "gvadetect" in element or "gvaclassify" in element:
-                (_, parameters) = _parse_element_parameters(element)
+                (_, parameters) = arse_element_parameters(element)
                 instance_id = parameters.get("model-instance-id")
                 group_idx = 0
 
@@ -82,7 +82,7 @@ class DeviceGenerator: # pylint: disable=missing-class-docstring
             for element in reversed(self.tracked_elements):
                 # Get the pipeline element we're modifying
                 idx = element["index"]
-                (element_type, parameters) = _parse_element_parameters(pipeline[idx])
+                (element_type, parameters) = parse_element_parameters(pipeline[idx])
 
                 # Get the device for this element
                 device, device_score = combination[element["group_idx"]]
@@ -103,7 +103,7 @@ class DeviceGenerator: # pylint: disable=missing-class-docstring
 
                 # Apply current configuration
                 parameters["device"] = device
-                parameters = _assemble_parameters(parameters)
+                parameters = assemble_parameters(parameters)
                 pipeline[idx] = f" {element_type} {parameters}"
                 pipeline.insert(idx, f" {memory} ")
                 pipeline.insert(idx, " vapostproc ")

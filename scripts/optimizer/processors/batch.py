@@ -18,10 +18,10 @@ class BatchGenerator: # pylint: disable=missing-class-docstring
         self.pipeline = []
         self.first_iteration = True
 
-    def _set_batch_sizes(self, sizes):
+    def set_batch_sizes(self, sizes): # pylint: disable=missing-function-docstring
         self.batches = sizes
 
-    def _init_pipeline(self, pipeline):
+    def init_pipeline(self, pipeline): # pylint: disable=missing-function-docstring
         self.tracked_elements = []
         self.batch_groups = []
         self.pipeline = pipeline.copy()
@@ -31,7 +31,7 @@ class BatchGenerator: # pylint: disable=missing-class-docstring
 
         for idx, element in enumerate(self.pipeline):
             if "gvadetect" in element or "gvaclassify" in element:
-                (_, parameters) = _parse_element_parameters(element)
+                (_, parameters) = parse_element_parameters(element)
                 instance_id = parameters.get("model-instance-id")
                 group_idx = 0
 
@@ -93,14 +93,14 @@ class BatchGenerator: # pylint: disable=missing-class-docstring
         for element in self.tracked_elements:
             # Get the pipeline element we're modifying
             idx = element["index"]
-            (element_type, parameters) = _parse_element_parameters(pipeline[idx])
+            (element_type, parameters) = parse_element_parameters(pipeline[idx])
 
             # Get the batch for this element
             batch = self.batches[self.batch_groups[element["group_idx"]]]
 
             # Apply current configuration
             parameters["batch-size"] = str(batch)
-            parameters = _assemble_parameters(parameters)
+            parameters = assemble_parameters(parameters)
             pipeline[idx] = f" {element_type} {parameters}"
 
         return pipeline

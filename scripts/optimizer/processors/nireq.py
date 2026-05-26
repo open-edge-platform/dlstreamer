@@ -18,10 +18,10 @@ class NireqGenerator: # pylint: disable=missing-class-docstring
         self.pipeline = []
         self.first_iteration = True
 
-    def _set_nireq_sizes(self, sizes):
+    def set_nireq_sizes(self, sizes): # pylint: disable=missing-function-docstring
         self.nireqs = sizes
 
-    def _init_pipeline(self, pipeline):
+    def init_pipeline(self, pipeline): # pylint: disable=missing-function-docstring
         self.tracked_elements = []
         self.nireq_groups = []
         self.pipeline = pipeline.copy()
@@ -31,7 +31,7 @@ class NireqGenerator: # pylint: disable=missing-class-docstring
 
         for idx, element in enumerate(self.pipeline):
             if "gvadetect" in element or "gvaclassify" in element:
-                (_, parameters) = _parse_element_parameters(element)
+                (_, parameters) = parse_element_parameters(element)
                 instance_id = parameters.get("model-instance-id")
                 group_idx = 0
 
@@ -93,14 +93,14 @@ class NireqGenerator: # pylint: disable=missing-class-docstring
         for element in self.tracked_elements:
             # Get the pipeline element we're modifying
             idx = element["index"]
-            (element_type, parameters) = _parse_element_parameters(pipeline[idx])
+            (element_type, parameters) = parse_element_parameters(pipeline[idx])
 
             # Get the nireq for this element
             nireq = self.nireqs[self.nireq_groups[element["group_idx"]]]
 
             # Apply current configuration
             parameters["nireq"] = str(nireq)
-            parameters = _assemble_parameters(parameters)
+            parameters = assemble_parameters(parameters)
             pipeline[idx] = f" {element_type} {parameters}"
 
         return pipeline

@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: MIT
 # ==============================================================================
 
-def _add_instance_ids(pipeline): # pylint: disable=missing-function-docstring
+def add_instance_ids(pipeline): # pylint: disable=missing-function-docstring
     ids = {}
     index = 0
 
@@ -25,7 +25,7 @@ def _add_instance_ids(pipeline): # pylint: disable=missing-function-docstring
     return pipeline
 
 # returns element type and parsed parameters
-def _parse_element_parameters(element):
+def parse_element_parameters(element): # pylint: disable=missing-function-docstring
     parameters = element.strip().split(" ")
     parsed_parameters = {}
     for parameter in parameters[1:]:
@@ -34,7 +34,7 @@ def _parse_element_parameters(element):
 
     return (parameters[0], parsed_parameters)
 
-def _assemble_parameters(parameters):
+def assemble_parameters(parameters): # pylint: disable=missing-function-docstring
     result = ""
     for parameter, value in parameters.items():
         result = result + parameter + "=" + value + " "

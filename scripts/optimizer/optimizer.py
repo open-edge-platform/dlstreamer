@@ -133,7 +133,7 @@ class DLSOptimizer:
         pipeline = self._run_preprocessing(pipeline)
 
         if self._enable_cross_stream_batching:
-            pipeline = _add_instance_ids(pipeline)
+            pipeline = add_instance_ids(pipeline)
 
         # Perform optimization
         logger.debug("Starting optimization process for FPS improvements...")
@@ -167,7 +167,7 @@ class DLSOptimizer:
         self._establish_baseline(initial_pipeline)
         initial_pipeline = self._run_preprocessing(initial_pipeline)
 
-        initial_pipeline = _add_instance_ids(initial_pipeline)
+        initial_pipeline = add_instance_ids(initial_pipeline)
 
         # Perform optimization
         start_time = time.time()
@@ -225,7 +225,7 @@ class DLSOptimizer:
         best_fps = initial_fps
 
         for generator in self._generators.values():
-            generator._init_pipeline(best_pipeline)
+            generator.init_pipeline(best_pipeline)
             for pipeline in generator:
                 try:
                     pipelines = []
