@@ -249,6 +249,10 @@ std::string getHuggingFaceArchitecture(const nlohmann::json &config_json) {
             return arch_name;
     }
 
+    // TIMM models hosted on HF expose generic image-classification metadata through pretrained_cfg
+    if (config_json.contains("pretrained_cfg") && config_json["pretrained_cfg"].is_object())
+        return "ViTForImageClassification";
+
     return {};
 }
 
@@ -295,6 +299,47 @@ static bool parseHFpreprocessing(const nlohmann::json &config_json, const nlohma
             const int width = size["width"].get<int>();
             modelConfig["reshape"] = ov::Any(std::vector<int>{height, width});
         }
+    } else if (preproc_json.contains("input_size") && preproc_json["input_size"].is_array()) {
+        const auto &input_size = preproc_json["input_size"];
+
+        std::vector<int> dims;
+        dims.reserve(input_size.size());
+        for (const auto &dim : input_size) {
+            if (!dim.is_number_integer()) {
+                dims.clear();
+                break;
+            }
+            dims.push_back(dim.get<int>());
+        }
+
+        if (!dims.empty()) {
+            bool reshape_set = false;
+
+            // Prefer explicit layout when available, then map H/W positions directly.
+            if (preproc_json.contains("input_layout") && preproc_json["input_layout"].is_string()) {
+                const std::string layout = preproc_json["input_layout"].get<std::string>();
+                if (layout.size() == dims.size()) {
+                    const auto h_pos = layout.find_first_of("Hh");
+                    const auto w_pos = layout.find_first_of("Ww");
+                    if (h_pos != std::string::npos && w_pos != std::string::npos && h_pos < dims.size() &&
+                        w_pos < dims.size()) {
+                        modelConfig["reshape"] = ov::Any(std::vector<int>{dims[h_pos], dims[w_pos]});
+                        reshape_set = true;
+                    }
+                }
+            }
+
+            // TIMM pretrained_cfg input_size is channel-first in practice; use trailing spatial dims.
+            if (!reshape_set) {
+                auto width_it = dims.end();
+                --width_it;
+                auto height_it = width_it;
+                if (height_it != dims.begin()) {
+                    --height_it;
+                    modelConfig["reshape"] = ov::Any(std::vector<int>{*height_it, *width_it});
+                }
+            }
+        }
     }
 
     // Default resize_type to "standard"
@@ -307,10 +352,15 @@ static bool parseHFpreprocessing(const nlohmann::json &config_json, const nlohma
         modelConfig["resize_multiple"] = ov::Any(preproc_json["ensure_multiple_of"].get<int>());
     }
 
-    // Check if "do_center_crop": true, then set resize_type to "crop"
-    if (preproc_json.contains("do_center_crop") && preproc_json["do_center_crop"].is_boolean() &&
-        preproc_json["do_center_crop"].get<bool>() == true) {
-        modelConfig["resize_type"] = ov::Any(std::string("crop"));
+    const bool do_center_crop =
+        (preproc_json.contains("do_center_crop") && preproc_json["do_center_crop"].is_boolean() &&
+         preproc_json["do_center_crop"].get<bool>()) ||
+        (preproc_json.contains("crop_mode") && preproc_json["crop_mode"].is_string() &&
+         preproc_json["crop_mode"].get<std::string>() == "center");
+
+    if (do_center_crop) {
+        modelConfig["resize_type"] = ov::Any(std::string("fit_to_window_letterbox"));
+        modelConfig["crop_type"] = ov::Any(std::string("central"));
 
         if (preproc_json.contains("crop_size") && preproc_json["crop_size"].is_object()) {
             const auto &size = preproc_json["crop_size"];
@@ -334,9 +384,12 @@ static bool parseHFpreprocessing(const nlohmann::json &config_json, const nlohma
         rescale_factor = preproc_json["rescale_factor"].get<double>();
     }
 
-    if (preproc_json.contains("image_mean") && preproc_json["image_mean"].is_array()) {
+    const bool has_image_mean = preproc_json.contains("image_mean") && preproc_json["image_mean"].is_array();
+    const bool has_mean = preproc_json.contains("mean") && preproc_json["mean"].is_array();
+    if (has_image_mean || has_mean) {
         std::vector<std::string> mean_values;
-        for (const auto &val : preproc_json["image_mean"]) {
+        const auto &mean_json = has_image_mean ? preproc_json["image_mean"] : preproc_json["mean"];
+        for (const auto &val : mean_json) {
             if (val.is_number()) {
                 mean_values.push_back(std::to_string(val.get<double>() / rescale_factor));
             }
@@ -352,9 +405,12 @@ static bool parseHFpreprocessing(const nlohmann::json &config_json, const nlohma
         }
     }
 
-    if (preproc_json.contains("image_std") && preproc_json["image_std"].is_array()) {
+    const bool has_image_std = preproc_json.contains("image_std") && preproc_json["image_std"].is_array();
+    const bool has_std = preproc_json.contains("std") && preproc_json["std"].is_array();
+    if (has_image_std || has_std) {
         std::vector<std::string> std_values;
-        for (const auto &val : preproc_json["image_std"]) {
+        const auto &std_json = has_image_std ? preproc_json["image_std"] : preproc_json["std"];
+        for (const auto &val : std_json) {
             if (val.is_number()) {
                 std_values.push_back(std::to_string(val.get<double>() / rescale_factor));
             }
@@ -418,8 +474,12 @@ bool convertHuggingFaceMeta2ModelApi(const std::string &model_file, ov::AnyMap &
 
     nlohmann::json preproc_json;
     if (!loadJsonFromModelDir(model_file, "preprocessor_config.json", preproc_json)) {
-        GST_ERROR("Failed to load preprocessor_config.json for HuggingFace model: %s", model_file.c_str());
-        return false;
+        if (config_json.contains("pretrained_cfg") && config_json["pretrained_cfg"].is_object()) {
+            preproc_json = config_json["pretrained_cfg"];
+        } else {
+            GST_ERROR("Failed to load preprocessor_config.json for HuggingFace model: %s", model_file.c_str());
+            return false;
+        }
     }
 
     // Parse pre-processing metadata from preprocessor_config.json and config.json, and convert to Model API format
@@ -444,8 +504,9 @@ bool isHuggingFaceModel(const std::string &model_file) {
     if (!loadJsonFromModelDir(model_file, "config.json", config_json))
         return false;
 
-    // Check if config.json contains "transformers_version" field
-    if (config_json.contains("transformers_version"))
+    // Hugging Face-hosted TIMM models expose preprocessing metadata via pretrained_cfg.
+    if (config_json.contains("transformers_version") ||
+        (config_json.contains("pretrained_cfg") && config_json["pretrained_cfg"].is_object()))
         return true;
     else
         return false;
@@ -720,6 +781,22 @@ std::map<std::string, GstStructure *> get_model_info_preproc(const std::shared_p
             }
             GST_INFO("[get_model_info_preproc] resize_type: %s", element.second.as<std::string>().c_str());
             GST_INFO("[get_model_info_preproc] resize: %s", g_value_get_string(&gvalue));
+            g_value_unset(&gvalue);
+        }
+        if (element.first == "crop_type") {
+            GValue gvalue = G_VALUE_INIT;
+            g_value_init(&gvalue, G_TYPE_STRING);
+
+            if (element.second.as<std::string>() == "central") {
+                g_value_set_string(&gvalue, "central");
+                gst_structure_set_value(s, "crop", &gvalue);
+            } else if (element.second.as<std::string>() == "central-resize") {
+                g_value_set_string(&gvalue, "central-resize");
+                gst_structure_set_value(s, "crop", &gvalue);
+            }
+
+            GST_INFO("[get_model_info_preproc] crop_type: %s", element.second.as<std::string>().c_str());
+            GST_INFO("[get_model_info_preproc] crop: %s", g_value_get_string(&gvalue));
             g_value_unset(&gvalue);
         }
         if (element.first == "resize_multiple") {
