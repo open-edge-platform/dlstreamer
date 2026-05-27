@@ -1,0 +1,98 @@
+<conversion_task>
+    <metadata>
+        <source_architecture>Custome architecture</source_architecture>
+        <target_architecture>Intel DL Streamer</target_architecture>
+        <project_name>Application conversion</project_name>
+    </metadata>
+
+    <instructions>
+        <guideline>Analyze input application code</guideline>
+        <guideline>Analyze content and guidelines from skill/dlstreamer-coding-agent folder</guideline>
+        <strict_rule>Programming language used in converted application must be the same as in the input one. This requirements overwrites any other language preferences. It is imperative to maintain consistency.</strict_rule>
+        <strict_rule>Before any code changes, execute a mandatory Compliance Gate: (1) extract all strict_rule items, (2) define explicit PASS/FAIL checks for each item, (3) block implementation if any check is FAIL.</strict_rule>
+        <guideline>Compliance Gate must explicitly validate: programming language consistency, inference-stage count parity, required bbox class coverage, and required validation artifacts.</guideline>
+        <strict_rule>Agent cannot stop conversion until all <goals> are fulfilled.</strict_rule>
+        <strict_rule>The converted application must preserve the same number of inference stages as the input application. Each inference stage (e.g., primary detector, secondary detector, classifier) must be mapped to a separate inference element in the converted pipeline. Merging multiple inference stages into one model/element is NOT allowed unless both stages in the original application use the exact same model.</strict_rule>
+        <strict_rule>Bounding boxes must be drawn for ALL object classes that have bounding boxes in the input application. Before selecting models, the agent must enumerate every object class that receives a bounding box in the input application (e.g., animals, persons) and ensure the converted pipeline detects and draws bboxes for each of those classes independently.</strict_rule>
+        <guideline>Before writing the pipeline, create an explicit "Processing Stages Inventory" that lists: (1) each inference stage in the input app, (2) what object classes it detects/classifies, (3) what visual output it produces (bbox, label, text). The converted pipeline must have a corresponding element for each row in this inventory.</guideline>
+        <guideline>When selecting replacement models, verify that the chosen model outputs the same object classes as the original. If a single replacement model covers fewer classes, add additional models to cover all original classes. Do not reduce the number of detected object types.</guideline>
+    </instructions>
+
+        <goals>
+            <goal id="GOAL1" description="Convert input application to the one which uses Deep Learning Streamer functionality">
+                <guideline>Analyses content of input application: code and documentation</guideline>
+                <guideline>Collect information about deprecated API/functions from DL Streamer documentation/code and do not use them in converted application </guideline>
+                <guideline>Ensure converted application will use the same programming language as the input application. It means C to C, C++ to C++, Python to Python etc.</guideline>
+                <guideline>Try to collect input resources, like input video, the same as used by input application or very simillar to it</guideline>
+                <guideline>Add comments in the converted application which point to the same functionality in the input application</guideline>
+                <guideline>Use DL Streamer elements and plugins to achieve the same functionality as in the input application. If there is no one-to-one mapping, use combination of elements/plugins to achieve the same result</guideline>
+                <guideline>Use the same model as in the input application. If it is not possible, use the most similar one and document the difference in the documentation</guideline>
+                <guideline>If model quantization is possible to be done then do it</guideline>
+                <guideline>Create script which allow to configure environment and execute the converted application</guideline>
+                <guideline>Created scripts must contains help with information how to use it</guideline>
+                <guideline>When working with DL Streamer docker image, ensure environment variables and paths are correctly set and the latest version from hub.docker.com is used. Solve pull problem(s) if needed</guideline>
+                <validation_criteria>
+                    <item>Verify an output of created sample application.</item>
+                    <item>All stages of processing identified in the input application must be reflected in the converted application</item>
+                    <item>The number of inference elements in the converted pipeline must equal the number of inference stages in the input application (e.g., if input has PGIE + 2×SGIE, output must have 3 separate inference elements)</item>
+                    <item>Each object class that has a bounding box in the input application must also have a bounding box in the converted application output (verify visually or via metadata/JSON output)</item>
+                    <item>Application must handle different input sources correctly (e.g., video file, webcam)</item>
+                    <item>Converted application must maintain the same functionality as the input application, including the same object detection and recognition capabilities as well as bbox drawing for those objects</item>
+                    <item>Application must compile and run without errors</item>
+                    <item>Created scripts must execute without errors</item>
+                    <item>Created scripts must contain help information</item>
+                    <item>Output from the execution of converted application must contain detection/identification results on testing video</item>
+                    <item>When using DL Streamer docker image, verify that environment variables and paths are correctly set and the latest version from hub.docker.com is used</item>
+                </validation_criteria>
+            </goal>
+
+            <goal id="GOAL2" description="Generate documentation for converted application">
+                <guideline>Short description of the converted application</guideline>
+                <guideline>Side-by-side diagrams comparing the DeepStream and DL Streamer pipelines</guideline>
+                <guideline>Element mapping table explaining each substitution and why the change was made</guideline>
+                <guideline>Application logic table covering probes, callbacks, metadata handling, and CLI parsing</guideline>
+                <guideline>Model comparison table showing the original model vs. the chosen replacement, format conversion steps, and rationale for the selection</guideline>
+                <guideline>Document steps to execute converted application</guideline>
+                <guideline>Describe how to download required resources (model(s), video(s))</guideline>
+                <guideline>Add chapter with information about deprecated elements</guideline>
+                <validation_criteria>
+                    <item>Created documentation file </item>
+                    <item>Documentation file contains short description of converted application</item>
+                    <item>Documentation file contains chart with architecture comparison</item>
+                    <item>Documentation file contains table with corresponding elements from input application and converted one</item>
+                    <item>Documentation file contains documented steps of execution of converted application</item>
+                    <item>Documentation file contains information how to download/obtain needed resources (ex. model(s), video(s))</item>
+                </validation_criteria>
+            </goal>
+
+            <goal id="GOAL3" description="Quality of converted application must be acceptable">
+                <validation_criteria>
+                    <item>Pipeline from converted application must detect/identify the same objects/classes on testing video and properly draw bounding boxes and labels</item>
+                    <item>Verify that bounding boxes are drawn for each object class present in the input application (e.g., if input draws bbox for animals AND persons, output must draw bbox for BOTH)</item>
+                    <item>Count of inference stages in converted pipeline must match the count from the input application's Processing Stages Inventory</item>
+                    <item>Application must compile and run without errors</item>
+                    <item>Based on generated documentation execute all steps needed to be done to execute converted application</item>
+                    <item>Show final report from validation, which include statistics like: hw platform description, list od software components with versions, FPS</item>
+                    <item>When using DL Streamer docker image, verify that environment variables and paths are correctly set and the latest version from hub.docker.com is used</item>  
+                    <item>Verify that documentation is in sync with the source code of the converted application</item>
+                </validation_criteria>
+            </goal>
+        </goals>
+
+        <reporting_requirements>
+            <on_completion>
+                <summary>Short report with execution of <goals> and statistics</summary>
+                <compliance_gate_report>Provide Compliance Gate results with PASS/FAIL for each strict_rule, including language consistency, inference-stage parity, bbox class coverage, and validation artifacts completeness.</compliance_gate_report>
+                <compliance_gate_report_template>
+| Check | Status (PASS/FAIL) | Evidence |
+|---|---|---|
+| Language consistency with input application | PASS/FAIL | State input language, converted language, and file path references |
+| Inference-stage count parity (input vs converted) | PASS/FAIL | Provide input stage inventory count and converted element count |
+| BBox class coverage parity | PASS/FAIL | List classes with bbox in input and matching classes in output |
+| Validation artifacts completeness | PASS/FAIL | List produced artifacts: executable/script, output sample, documentation |
+| Overall Compliance Gate result | PASS/FAIL | PASS only if all checks above are PASS |
+                </compliance_gate_report_template>
+                <diff_summary>List and description of main blocks of the converted applicaton</diff_summary>
+            </on_completion>
+        </reporting_requirements>
+</conversion_task>

@@ -32,6 +32,8 @@ See [example prompts](./examples) for inspiration.
 ├── plugins/                    # Only if custom GStreamer elements are needed
 │   └── python/
 │       └── <element>.py
+│   └── cpp/
+│       └── <element>.cpp
 ├── config/                     # Only if config files are needed
 │   └── *.txt / *.json
 ├── models/                     # Created at runtime (cached model exports)
@@ -284,3 +286,6 @@ After the application is working, report timing metrics:
 ## Examples
 See [example prompts](./examples) for inspiration and practical demonstrations of the procedure.
 
+## code migration and/or conversion instructions
+    For architecture migration tasks, follow the structure defined in the .github/templates/migration_template.xml file. 
+    The agent must verify each task according to the <goals> section and must not report completion until all <validation_criteria> have been met.
