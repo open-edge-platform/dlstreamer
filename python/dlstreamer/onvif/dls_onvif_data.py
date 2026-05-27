@@ -51,12 +51,11 @@ class ONVIFProfile:  # pylint: disable=too-many-instance-attributes, too-many-pu
         self.ip_address = ""
         self._port = 0
         self._username = ""
-        # Empty ONVIF metadata defaults are placeholders, not secrets.
-        self._password = ""  # nosec B105
+        self._password = ""
 
         # ONVIF Profile details
         self._name = ""
-        self._token = ""  # nosec B105
+        self._token = ""
         self._fixed = False
         self._video_source_configuration = ""
         self._video_encoder_configuration = ""
@@ -64,13 +63,13 @@ class ONVIFProfile:  # pylint: disable=too-many-instance-attributes, too-many-pu
 
         # Video Source Configuration details
         self._vsc_name = ""
-        self._vsc_token = ""  # nosec B105
-        self._vsc_source_token = ""  # nosec B105
+        self._vsc_token = ""
+        self._vsc_source_token = ""
         self._vsc_bounds = {}
 
         # Video Encoder Configuration details
         self._vec_name = ""
-        self._vec_token = ""  # nosec B105
+        self._vec_token = ""
         self._vec_encoding = ""
         self._vec_resolution = {}
         self._vec_quality = 0
@@ -86,17 +85,17 @@ class ONVIFProfile:  # pylint: disable=too-many-instance-attributes, too-many-pu
 
         # PTZ Configuration details
         self._ptz_name = ""
-        self._ptz_token = ""  # nosec B105
-        self._ptz_node_token = ""  # nosec B105
+        self._ptz_token = ""
+        self._ptz_node_token = ""
 
         # Audio Source Configuration details
         self.asc_name = ""
-        self.asc_token = ""  # nosec B105
-        self.asc_source_token = ""  # nosec B105
+        self.asc_token = ""
+        self.asc_source_token = ""
 
         # Audio Encoder Configuration details
         self._aec_name = ""
-        self._aec_token = ""  # nosec B105
+        self._aec_token = ""
         self._aec_encoding = ""
         self._aec_bitrate = 0
         self._aec_sample_rate = 0

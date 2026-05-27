@@ -10,7 +10,7 @@ Builds a pipeline that:
 1. Reads input video stream (from file) and decodes with decodebin3
 2. Detects objects using traditional computer vision model (gvadetect)
 3. Implements custom frame selection logic in gvaFrameSelection python element
-4. Runs VLM model on selected frames for extended object classification
+4. Runs VLM model on selected frames for extended object classification 
 5. Overlays VLM classification results on top of object detection results in output video frames
 6. Saves the annotated video to a file and dumps VLM classification results in a JSONL file
 """
@@ -18,13 +18,10 @@ Builds a pipeline that:
 import argparse
 import os
 import signal
-import shutil
-import subprocess  # nosec B404
+import subprocess
 import sys
 import time
-import urllib.error
 import urllib.request
-import urllib.parse
 from pathlib import Path
 
 import gi
@@ -33,9 +30,6 @@ gi.require_version("Gst", "1.0")
 gi.require_version("GstAnalytics", "1.0")
 gi.require_version("GObject", "2.0")
 from gi.repository import Gst, GLib, GObject, GstAnalytics  # pylint: disable=no-name-in-module, wrong-import-position
-
-class SampleSetupError(Exception):
-    """Raised for user-facing sample setup failures."""
 
 class GenaiSignalBridge(GObject.Object):
     """
@@ -162,27 +156,8 @@ DEFAULT_VIDEO_URL = (
     "https://www.pexels.com/download/video/35256160"
 )
 
-def validate_url(url: str) -> bool:
-    """Validate URL to ensure it uses safe schemes and trusted domains."""
-    parsed = urllib.parse.urlparse(url)
-    if parsed.scheme not in ['http', 'https']:
-        print(f"Error: Unsafe URL scheme '{parsed.scheme}'. Only HTTP/HTTPS allowed.")
-        return False
-    if not parsed.netloc:
-        print("Error: URL must contain a valid hostname")
-        return False
-    trusted_domains = ['www.pexels.com', 'pexels.com', 'videos.pexels.com']
-    hostname = parsed.netloc.lower()
-    if not any(hostname == domain or hostname.endswith('.' + domain) for domain in trusted_domains):
-        print(f"Error: Untrusted domain '{hostname}'. Only Pexels.com videos are allowed.")
-        return False
-    return True
-
 def download_video(video_url: str) -> Path:
     """Return a local video path, downloading from URL if needed."""
-    if not validate_url(video_url):
-        raise SampleSetupError(f"Invalid or unsafe video URL: {video_url}")
-
     VIDEOS_DIR.mkdir(parents=True, exist_ok=True)
     filename = video_url.rstrip("/").split("/")[-1]
     if not Path(filename).suffix:
@@ -190,112 +165,54 @@ def download_video(video_url: str) -> Path:
 
     local_path = VIDEOS_DIR / filename
     if not local_path.exists():
-        try:
-            request = urllib.request.Request(video_url, headers={"User-Agent": "Mozilla/5.0"})
-            # Use safe URL opening with timeout and size limits
-            with urllib.request.urlopen(request, timeout=60) as response:  # nosec B310
-                # Check content length
-                content_length = response.headers.get('Content-Length')
-                if content_length and int(content_length) > 500 * 1024 * 1024:  # 500MB limit
-                    raise SampleSetupError(f"Video file too large: {int(content_length) / (1024*1024):.2f} MB")
-
-                data = response.read()
-                if not data:
-                    raise SampleSetupError("Video download returned empty response")
-
-                # Additional size check after download
-                if len(data) > 500 * 1024 * 1024:  # 500MB limit
-                    raise SampleSetupError(f"Downloaded video too large: {len(data) / (1024*1024):.2f} MB")
-
-                with open(local_path, "wb") as fh:
-                    fh.write(data)
-        except SampleSetupError:
-            if local_path.exists():
-                local_path.unlink()  # Clean up on failure
-            raise
-        except (OSError, TimeoutError, urllib.error.URLError) as e:
-            if local_path.exists():
-                local_path.unlink()  # Clean up on failure
-            raise SampleSetupError(f"Video download failed: {e}") from e
+        request = urllib.request.Request(video_url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(request, timeout=60) as response:
+            data = response.read()
+            if not data:
+                raise RuntimeError("Video download returned empty response")
+            with open(local_path, "wb") as fh:
+                fh.write(data)
 
     return local_path.resolve()
 
 
 DOWNLOAD_SCRIPT = Path(__file__).resolve().parents[4] / "scripts" / "download_models" / "download_ultralytics_models.py"
 
-def validate_model_id(model_id: str) -> bool:
-    """Validate model ID to prevent injection attacks."""
-    # Allow only alphanumeric characters, hyphens, underscores, and dots
-    if not model_id or not all(c.isalnum() or c in '-_.' for c in model_id):
-        return False
-    # Prevent path traversal
-    if '..' in model_id or '/' in model_id or '\\' in model_id:
-        return False
-    return True
-
 def download_detection_model(model_id: str) -> Path:
     """Return a path to the local file with YOLO OpenVINO IR model.
     Spawn a separate process, as Ultralytics export will create a new instance of OpenVINO runtime
     which may clash with OpenVINO runtime instance used by DLStreamer."""
-    if not validate_model_id(model_id):
-        raise SampleSetupError(f"Invalid model ID format: {model_id}")
-
     MODELS_DIR.mkdir(parents=True, exist_ok=True)
     model_path = MODELS_DIR / f"{model_id}_int8_openvino_model" / f"{model_id}.xml"
 
     if not model_path.exists():
         print(f"[detect] exporting {model_id} to OpenVINO format (subprocess)")
         pt_file = BASE_DIR / f"{model_id}.pt"
-        command = [
-            sys.executable, str(DOWNLOAD_SCRIPT),
-            "--model", str(pt_file),
-            "--outdir", str(MODELS_DIR),
-            "--int8"
-        ]
-
-        result = subprocess.run(  # nosec B603
-            command,
-            check=False,
-            shell=False,
-            timeout=300
+        result = subprocess.run(
+            [sys.executable, str(DOWNLOAD_SCRIPT),
+             "--model", str(pt_file),
+             "--outdir", str(MODELS_DIR),
+             "--int8"],
+            check=False
         )
         if result.returncode != 0:
-            raise SampleSetupError(f"YOLO model export failed with exit code {result.returncode}")
+            raise RuntimeError(f"YOLO model export failed with exit code {result.returncode}")
         if not model_path.exists():
-            raise SampleSetupError(f"Expected model not found at {model_path} after export")
+            raise RuntimeError(f"Expected model not found at {model_path} after export")
 
     return model_path.resolve()
 
 
-def validate_hf_model_id(model_id: str) -> bool:
-    """Validate Hugging Face model ID format."""
-    if not model_id or '/' not in model_id:
-        return False
-    parts = model_id.split('/')
-    if len(parts) != 2:
-        return False
-    username, model_name = parts
-    # Allow alphanumeric, hyphens, underscores, dots
-    if not all(c.isalnum() or c in '-_.' for c in username + model_name):
-        return False
-    return True
-
 def download_vlm_model(model_id: str) -> Path:
     """Return a path to the VLM OpenVINO model, downloading/exporting via a optimum-cli (separate process."""
-    if not validate_hf_model_id(model_id):
-        raise SampleSetupError(f"Invalid Hugging Face model ID format: {model_id}")
-
     MODELS_DIR.mkdir(parents=True, exist_ok=True)
     model_name = model_id.split("/")[-1]
     model_path = MODELS_DIR / model_name
 
     if not model_path.exists():
         print(f"[vlm] downloading and exporting {model_id} to OpenVINO format")
-        optimum_cli = shutil.which("optimum-cli")
-        if not optimum_cli:
-            raise SampleSetupError("optimum-cli was not found in PATH")
         command = [
-            optimum_cli,
+            "optimum-cli",
             "export",
             "openvino",
             "--model",
@@ -305,17 +222,11 @@ def download_vlm_model(model_id: str) -> Path:
             "--trust-remote-code",
             str(model_path),
         ]
-
-        result = subprocess.run(  # nosec B603
-            command,
-            check=False,
-            shell=False,
-            timeout=1800
-        )
+        result = subprocess.run(command, check=False)
         if result.returncode != 0:
-            raise SampleSetupError(f"VLM model export failed with exit code {result.returncode}")
+            raise RuntimeError(f"VLM model export failed with exit code {result.returncode}")
         if not model_path.exists():
-            raise SampleSetupError(f"Expected VLM model not found at {model_path} after export")
+            raise RuntimeError(f"Expected VLM model not found at {model_path} after export")
 
     return model_path.resolve()
 
@@ -382,7 +293,7 @@ def construct_pipeline(
     try:
         pipeline = Gst.parse_launch(pipeline_str)
     except GLib.Error as error:
-        raise SampleSetupError(f"Pipeline parse error: {error}") from error
+        raise RuntimeError(f"Pipeline parse error: {error}") from error
 
     # --- Set up cross-branch analytics signal bridge ---
     # gvaframeselection and gvagenai output (src) probes will generate signals consumed by watermark input (sink) probe
@@ -408,7 +319,7 @@ def setup_gst_plugins() -> None:
 
     reg = Gst.Registry.get()
     if not reg.find_plugin("python"):
-        raise SampleSetupError(
+        raise RuntimeError(
             "GStreamer 'python' plugin not found. "
             "Ensure GST_PLUGIN_PATH includes the path to libgstpython.so. "
             "If the error persists, delete the GStreamer registry cache: "
@@ -429,8 +340,8 @@ def run_pipeline(pipeline: Gst.Pipeline) -> None:
     pipeline.set_state(Gst.State.PLAYING)
     ret = pipeline.get_state(Gst.CLOCK_TIME_NONE)
     if ret[0] != Gst.StateChangeReturn.SUCCESS:
-        raise SampleSetupError(f"Pipeline failed to reach PLAYING state: {ret}")
-
+        raise RuntimeError(f"Pipeline failed to reach PLAYING state: {ret}")
+    
     print("[pipeline] Running... Press Ctrl-C to stop.")
     try:
         while True:
@@ -439,10 +350,10 @@ def run_pipeline(pipeline: Gst.Pipeline) -> None:
                 Gst.MessageType.ERROR | Gst.MessageType.EOS,
             )
             if message is None:
-                continue
+                continue            
             if message.type == Gst.MessageType.ERROR:
                 err, debug = message.parse_error()
-                raise SampleSetupError(f"Pipeline error: {err.message}\nDebug: {debug}")
+                raise RuntimeError(f"Pipeline error: {err.message}\nDebug: {debug}")
             if message.type == Gst.MessageType.EOS:
                 print("[pipeline] EOS received, shutting down")
                 break
@@ -475,25 +386,21 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 def main() -> int:
-    try:
-        args = parse_args()
+    args = parse_args()
 
-        video_file = download_video(args.video_url)
-        detection_model = download_detection_model(args.detect_model_id)
-        genai_model = download_vlm_model(args.vlm_model_id)
-        inventory_file = Path(args.inventory_file).resolve()
-        excluded_objects_file = Path(args.excluded_objects_file).resolve()
+    video_file = download_video(args.video_url)
+    detection_model = download_detection_model(args.detect_model_id)
+    genai_model = download_vlm_model(args.vlm_model_id)
+    inventory_file = Path(args.inventory_file).resolve()
+    excluded_objects_file = Path(args.excluded_objects_file).resolve()
 
-        setup_gst_plugins()
-        pipeline = construct_pipeline(
-            video_file, detection_model, args.detect_device, args.threshold,
-            genai_model, args.genai_device, args.genai_prompt, inventory_file, excluded_objects_file)
-        run_pipeline(pipeline)
+    setup_gst_plugins()
+    pipeline = construct_pipeline(
+        video_file, detection_model, args.detect_device, args.threshold,
+        genai_model, args.genai_device, args.genai_prompt, inventory_file, excluded_objects_file)
+    run_pipeline(pipeline)
 
-        return 0
-    except SampleSetupError as error:
-        print(f"Error: {error}")
-        return 1
+    return 0
 
 if __name__ == "__main__":
     sys.exit(main())

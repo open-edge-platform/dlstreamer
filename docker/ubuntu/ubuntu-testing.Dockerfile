@@ -41,6 +41,8 @@ RUN \
     /python3venv/bin/pip3 install --no-cache-dir --upgrade pip && \
     /python3venv/bin/pip3 install --no-cache-dir --no-dependencies -r /home/dlstreamer/requirements.txt
 
+ENV PATH=/python3venv/bin:$PATH
+
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD [ "bash", "-c", "pgrep bash > /dev/null || exit 1" ]
 

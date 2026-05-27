@@ -9,14 +9,11 @@ Run a DLStreamer VLM pipeline on a video and export JSON and MP4 results.
 """
 
 import argparse
-import ipaddress
 import os
-import shutil
-import subprocess  # nosec B404
+import subprocess
 import sys
 import tempfile
 import urllib.request
-import urllib.parse
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
@@ -43,50 +40,19 @@ class PipelineConfig:
     results_dir: Path
 
 
-def validate_url(url: str) -> bool:
-    """Validate URL to ensure it uses safe schemes and trusted domains."""
-    parsed = urllib.parse.urlparse(url)
-    if parsed.scheme not in ["http", "https"] or not parsed.netloc:
-        return False
-    hostname = parsed.hostname
-    if hostname is None:
-        return False
-    try:
-        address = ipaddress.ip_address(hostname)
-        return not (address.is_loopback or address.is_private or address.is_unspecified)
-    except ValueError:
-        return hostname.lower() != "localhost"
-
-
 def download_video(url: str, target_path: Path) -> None:
     """Return a local video path, downloading it if needed."""
-    if not validate_url(url):
-        raise VLMAlertsError(f"Invalid or unsafe video URL: {url}")
-
     request = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
     try:
-        with urllib.request.urlopen(request, timeout=30) as response:  # nosec B310
+        with urllib.request.urlopen(request, timeout=30) as response:
             if hasattr(response, "status") and response.status != 200:
                 raise VLMAlertsError(f"Video download failed: HTTP {response.status}")
-
-            # Check content length if available
-            content_length = response.headers.get('Content-Length')
-            if content_length and int(content_length) > 500 * 1024 * 1024:  # 500MB limit
-                raise VLMAlertsError(f"Video file too large: {int(content_length) / (1024*1024):.2f} MB")
-
             data = response.read()
             if not data:
                 raise VLMAlertsError("Video download failed: empty response")
-
-            # Additional size check after download
-            if len(data) > 500 * 1024 * 1024:  # 500MB limit
-                raise VLMAlertsError(f"Downloaded video too large: {len(data) / (1024*1024):.2f} MB")
-
             with open(target_path, "wb") as file:
                 file.write(data)
     except Exception as error:
-        if target_path.exists():
-            target_path.unlink()  # Clean up on failure
         raise VLMAlertsError(f"Video download failed: {error}") from error
 
 
@@ -133,20 +99,6 @@ def resolve_video(
     return local_path.resolve()
 
 
-def validate_hf_model_id(model_id: str) -> bool:
-    """Validate Hugging Face model ID format."""
-    if not model_id or '/' not in model_id:
-        return False
-    parts = model_id.split('/')
-    if len(parts) != 2:
-        return False
-    username, model_name = parts
-    # Allow alphanumeric, hyphens, underscores, dots
-    if not all(c.isalnum() or c in '-_.' for c in username + model_name):
-        return False
-    return True
-
-
 def resolve_model(
     model_id: Optional[str],
     model_path: Optional[str],
@@ -159,10 +111,6 @@ def resolve_model(
             raise VLMAlertsError("Provided --model-path does not exist")
         return path
 
-    # Validate model ID format
-    if not validate_hf_model_id(model_id):
-        raise VLMAlertsError(f"Invalid Hugging Face model ID format: {model_id}")
-
     models_dir.mkdir(parents=True, exist_ok=True)
     model_name = model_id.split("/")[-1]
     output_dir = models_dir / model_name
@@ -171,12 +119,8 @@ def resolve_model(
         print(f"[model] using cached {output_dir}")
         return output_dir.resolve()
 
-    optimum_cli = shutil.which("optimum-cli")
-    if not optimum_cli:
-        raise VLMAlertsError("optimum-cli was not found in PATH")
-
     command = [
-        optimum_cli,
+        "optimum-cli",
         "export",
         "openvino",
         "--model",
@@ -188,19 +132,10 @@ def resolve_model(
     ]
 
     try:
-        subprocess.run(  # nosec B603
-            command,
-            check=True,
-            shell=False,  # Explicitly disable shell
-            timeout=1800  # 30 minute timeout
-        )
+        subprocess.run(command, check=True)
     except subprocess.CalledProcessError as error:
         raise VLMAlertsError(
             f"OpenVINO export failed with return code {error.returncode}"
-        ) from error
-    except subprocess.TimeoutExpired as error:
-        raise VLMAlertsError(
-            f"OpenVINO export timed out after {error.timeout} seconds"
         ) from error
 
     if not any(output_dir.glob("*.xml")):
@@ -258,6 +193,7 @@ def build_pipeline_string(cfg: PipelineConfig) -> tuple[str, Path, Path, Path]:
     )
 
     return pipeline_str, output_json, output_video, prompt_path
+
 
 
 def run_pipeline(cfg: PipelineConfig) -> int:

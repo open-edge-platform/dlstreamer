@@ -6,7 +6,6 @@
 
 import os
 import unittest
-import tempfile
 
 from pipeline_runner import TestPipelineRunner
 from utils import BBox, get_model_path, get_model_proc_path
@@ -15,9 +14,7 @@ SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 PEOPLE_IMAGE_PATH = os.path.join(
     SCRIPT_DIR, "test_files", "people_detection.png")
 CAR_IMAGE_PATH = os.path.join(SCRIPT_DIR, "test_files", "car_detection.png")
-
-# Use secure temporary directory instead of hardcoded /tmp
-FILE_PATH = os.path.join(tempfile.gettempdir(), "meta_vpt.json")
+FILE_PATH = os.path.join("/tmp", "meta_vpt.json")
 
 D_MODEL_NAME = "person-vehicle-bike-detection-crossroad-0078"
 D_MODEL_PATH, D_MODEL_PROC_PATH = get_model_path(
@@ -108,50 +105,35 @@ CAR_GOLD_TRUE = [
 
 
 class TestVehiclePedestrianTracker(unittest.TestCase):
-    def setUp(self):
-        """Set up test fixtures before each test method."""
-        # Create a unique temporary file for each test
-        self.temp_file = tempfile.NamedTemporaryFile(
-            suffix=".json",
-            prefix="meta_vpt_",
-            delete=False
-        )
-        self.temp_file_path = self.temp_file.name
-        self.temp_file.close()
-
-    def tearDown(self):
-        """Clean up after each test method."""
-        # Remove temporary file if it exists
-        if os.path.isfile(self.temp_file_path):
-            os.remove(self.temp_file_path)
-
-    def _run_pipeline_test(self, image_path, gold_true):
-        """Helper method to run pipeline tests."""
+    def test_pedestrian_tracker_pipeline(self):
         pipeline_runner = TestPipelineRunner()
         for pipeline_str in set_of_pipelines():
-            # Replace FILE_PATH with our secure temporary file path
-            secure_pipeline_str = pipeline_str.replace(FILE_PATH, self.temp_file_path)
-
             pipeline_runner.set_pipeline(
-                secure_pipeline_str, image_path, gold_true, True)
+                pipeline_str, PEOPLE_IMAGE_PATH, PEOPLE_GOLD_TRUE, True)
             pipeline_runner.run_pipeline()
 
-            # Clean up after each pipeline run
-            if os.path.isfile(self.temp_file_path):
-                os.remove(self.temp_file_path)
+            if os.path.isfile(FILE_PATH):
+                os.remove(FILE_PATH)
 
             for e in pipeline_runner.exceptions:
                 print(e)
             pipeline_runner.assertEqual(len(pipeline_runner.exceptions), 0,
                                         "Exceptions have been caught.")
 
-    def test_pedestrian_tracker_pipeline(self):
-        """Test pedestrian tracker pipeline."""
-        self._run_pipeline_test(PEOPLE_IMAGE_PATH, PEOPLE_GOLD_TRUE)
-
     def test_vehicle_tracker_pipeline(self):
-        """Test vehicle tracker pipeline."""
-        self._run_pipeline_test(CAR_IMAGE_PATH, CAR_GOLD_TRUE)
+        pipeline_runner = TestPipelineRunner()
+        for pipeline_str in set_of_pipelines():
+            pipeline_runner.set_pipeline(
+                pipeline_str, CAR_IMAGE_PATH, CAR_GOLD_TRUE, True)
+            pipeline_runner.run_pipeline()
+
+            if os.path.isfile(FILE_PATH):
+                os.remove(FILE_PATH)
+
+            for e in pipeline_runner.exceptions:
+                print(e)
+            pipeline_runner.assertEqual(len(pipeline_runner.exceptions), 0,
+                                        "Exceptions have been caught.")
 
 
 if __name__ == "__main__":
