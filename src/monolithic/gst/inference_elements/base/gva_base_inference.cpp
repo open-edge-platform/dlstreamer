@@ -425,10 +425,7 @@ void gva_base_inference_class_init(GvaBaseInferenceClass *klass) {
     g_object_class_install_property(
         gobject_class, PROP_CORE_PINNING,
         g_param_spec_string("core-pinning", "Core Pinning",
-                            "List or range of CPU cores to pin this inference element to (e.g., '0-3' or '0,2,3'). "
-                            "By default, the element uses the process CPU affinity mask. On Intel PTL-H series CPUs "
-                            "with all cores available,"
-                            "it automatically pins to the first 4 P-Cores for optimal performance.",
+                            "List or range of CPU cores to pin this inference element to (e.g., '0-3' or '0,2,3')",
                             nullptr, param_flags));
 }
 
@@ -508,12 +505,16 @@ void gva_base_inference_cleanup(GvaBaseInference *base_inference) {
 }
 
 /**
- * Set the core pinning mask
+ * Set the default core pinning mask
  * 1. Get the current process CPU affinity mask to use as the default core pinning mask.
  * 2. If the process affinity mask includes all available cores, and the CPU is PTL-H series,
  *    limit the default core pinning mask to the first 4 cores (the P-Cores) to optimize performance.
  */
 void set_core_pinning_mask(GvaBaseInference *base_inference) {
+
+    // Disable default core pinning
+    return;
+
 #ifndef _WIN32
     // Default: all cores available
     int num_cores = sysconf(_SC_NPROCESSORS_ONLN);
