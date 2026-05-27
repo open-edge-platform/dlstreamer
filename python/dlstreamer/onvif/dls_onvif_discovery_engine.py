@@ -30,15 +30,15 @@ from gi.repository import Gst  # pylint: disable=wrong-import-position,no-name-i
 
 from onvif import ONVIFCamera  # pylint: disable=wrong-import-position,import-error
 
-from dls_onvif_data import ONVIFProfile  # pylint: disable=wrong-import-position
-import dls_onvif_discovery_thread as dls_disc_thread  # pylint: disable=wrong-import-position
-from dls_onvif_camera_entry import (  # pylint: disable=wrong-import-position
+from .dls_onvif_data import ONVIFProfile
+from . import dls_onvif_discovery_thread as dls_disc_thread
+from .dls_onvif_camera_entry import (
     CameraStatus,
     DlsOnvifCameraEntry,
     DlsOnvifCameraRegistry,
 )
-from misc import print_cameras  # pylint: disable=wrong-import-position
-import dls_onvif_config_manager  # pylint: disable=wrong-import-position
+from .misc import print_cameras
+from . import dls_onvif_config_manager
 
 # ---------------------------------------------------------------------------
 # WS-Discovery constants
@@ -235,7 +235,7 @@ class DlsOnvifDiscoveryEngine:  # pylint: disable=too-many-instance-attributes
         self.verbose: bool = False
         self.config_manager = None
 
-        Gst.init(None)
+        Gst.init([])
 
     def init_discovery(self, config: dict[str, Any]) -> bool:
         """Initialize the ONVIF discovery process asynchronously."""

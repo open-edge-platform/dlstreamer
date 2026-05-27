@@ -1,0 +1,42 @@
+# ==============================================================================
+# Copyright (C) 2026 Intel Corporation
+#
+# SPDX-License-Identifier: MIT
+# ==============================================================================
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "intel-dlstreamer"
+version = "2026.1.0"
+description = "Python utilities for DL Streamer — GVA metadata bindings and ONVIF camera discovery"
+license = "MIT"
+requires-python = ">=3.9"
+authors = [
+    { name = "Intel Corporation" },
+]
+keywords = ["dlstreamer", "gstreamer", "openvino", "video-analytics", "onvif"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Topic :: Multimedia :: Video",
+]
+dependencies = [
+    "numpy>=2.2.0",
+    "onvif-zeep==0.2.12",
+    "urllib3>=2.0.7",
+]
+
+[project.urls]
+Homepage = "https://github.com/open-edge-platform/dlstreamer"
+Documentation = "https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer"
+
+[project.optional-dependencies]
+# Pull in additional requirements used by samples
+samples = [
+    "opencv-python>=4.11.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["gstgva*", "dlstreamer*"]
