@@ -60,6 +60,9 @@ class BatchGenerator: # pylint: disable=missing-class-docstring
         return self
 
     def __next__(self) -> list:
+        if len(self.batches) == 0:
+            raise StopIteration
+
         # Prepare the next combination of batches
         end_of_variants = True
         for idx, cur_batch_idx in enumerate(self.batch_groups):

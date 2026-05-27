@@ -60,6 +60,9 @@ class NireqGenerator: # pylint: disable=missing-class-docstring
         return self
 
     def __next__(self) -> list:
+        if len(self.nireqs) == 0:
+            raise StopIteration
+
         # Prepare the next combination of nireqs
         end_of_variants = True
         for idx, cur_nireq_idx in enumerate(self.nireq_groups):
