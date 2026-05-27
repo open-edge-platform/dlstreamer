@@ -48,7 +48,7 @@ Follow the instructions in
       libssh2-1-dev cmake git valgrind numactl libvpx-dev libopus-dev libsrtp2-dev libxv-dev \
       linux-libc-dev libpmix2 libhwloc15 libhwloc-plugins libxcb1-dev libx11-xcb-dev \
       ffmpeg libpaho-mqtt-dev libpostproc-dev libavfilter-dev libavdevice-dev \
-      libswscale-dev libswresample-dev libavutil-dev libavformat-dev libavcodec-dev libxml2-dev ocl-icd-opencl-dev \
+      libswscale-dev libswresample-dev libavutil-dev libavformat-dev libavcodec-dev libtbb12  libxml2-dev ocl-icd-opencl-dev \
       opencl-headers
   ```
 
@@ -279,3 +279,37 @@ necessary dependencies using the following commands:
   cd ~/dlstreamer
   python3 -m pip install -r requirements.txt
   ```
+
+### (Optional) Install DL Streamer ONVIF Python package
+
+If you want to use the `dlstreamer.onvif` in your own Python code,
+install the `intel-dlstreamer` wheel on top of the DL Streamer.
+See [ONVIF sample](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/python/onvif_cameras_discovery) for more details of ONVIF support.
+
+The easiest way is to download and install the wheel directly from the GitHub Release:
+
+  ```bash
+  pip install https://github.com/open-edge-platform/dlstreamer/releases/download/v2026.1.0/intel_dlstreamer-2026.1.0-py3-none-any.whl
+  ```
+
+Alternatively, build the wheel from the cloned sources:
+
+  ```bash
+  pip install build
+  python -m build --wheel ~/dlstreamer/python
+  pip install ~/dlstreamer/python/dist/intel_dlstreamer-*.whl
+  ```
+
+This installs:
+- `dlstreamer.onvif` — ONVIF camera discovery and pipeline integration
+- All required Python dependencies (`numpy`, `onvif-zeep`, `urllib3`) automatically
+
+After installation, no `PYTHONPATH` configuration is needed:
+
+  ```python
+  from dlstreamer.onvif import DlsOnvifDiscoveryEngine, discover_onvif_cameras
+  ```
+
+> **NOTE (advanced):** As an alternative to pip, `dlstreamer.onvif` is also
+> accessible via `PYTHONPATH` set in Step 9. This approach requires
+> manual installation of the dependencies declared in `python/pyproject.toml`.
