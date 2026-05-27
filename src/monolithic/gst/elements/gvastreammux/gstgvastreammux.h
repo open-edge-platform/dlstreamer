@@ -7,7 +7,6 @@
 #ifndef __GST_GVA_STREAMMUX_H__
 #define __GST_GVA_STREAMMUX_H__
 
-#include <gst/base/gstcollectpads.h>
 #include <gst/gst.h>
 #include <gst/video/video.h>
 
@@ -19,20 +18,20 @@ G_BEGIN_DECLS
 #define GST_IS_GVA_STREAMMUX(obj) (G_TYPE_CHECK_INSTANCE_TYPE((obj), GST_TYPE_GVA_STREAMMUX))
 #define GST_IS_GVA_STREAMMUX_CLASS(klass) (G_TYPE_CHECK_CLASS_TYPE((klass), GST_TYPE_GVA_STREAMMUX))
 
+#define GST_GVA_STREAMMUX_MAX_PAD_INDEX 256
+
 typedef struct _GstGvaStreammux GstGvaStreammux;
 typedef struct _GstGvaStreammuxClass GstGvaStreammuxClass;
+typedef struct _GvaStreammuxPadData GvaStreammuxPadData;
 
-/**
- * _GstGvaStreammux:
- *
- * A stream muxer element that collects video frames from multiple sink pads
- * and outputs them in round-robin order through a single source pad.
- * Each output buffer is tagged with GstAnalyticsBatchMeta whose streams[0].index carries source_id
- * and n_streams carries the total source count.
- *
- * Properties:
- *  - max-fps: maximum output frame rate (0 = unlimited, for local file sources only)
- */
+struct _GvaStreammuxPadData {
+    GstPad *pad;
+    guint pad_index;
+    GQueue buffer_queue;
+    gboolean eos;
+    gboolean flushing;
+};
+
 struct _GstGvaStreammux {
     GstElement element;
 
@@ -40,16 +39,26 @@ struct _GstGvaStreammux {
 
     /* Properties */
     gdouble max_fps;
+    GstClockTime pts_tolerance;
+    GstClockTime max_wait_time;
+    guint max_queue_size;
 
     /* Internal state */
     guint num_sink_pads;
     gboolean started;
     gboolean send_stream_start;
-    gboolean eos_pending;
+    gboolean flushing;
+
+    /* Number of sink pads currently between FLUSH_START and FLUSH_STOP.
+     * Used to coalesce per-pad flush events into a single downstream flush. */
+    guint flushing_pads_count;
 
     /* Synchronization */
     GMutex lock;
     GCond cond;
+
+    /* Per-pad data array (GPtrArray of GvaStreammuxPadData*) */
+    GPtrArray *pad_data;
 
     /* Sink pads list (ordered by pad index) */
     GList *sinkpads;
@@ -65,8 +74,14 @@ struct _GstGvaStreammux {
     GstClockTime last_output_time;
     GstClockTime max_fps_duration;
 
-    /* Collect pads for synchronized buffer collection */
-    GstCollectPads *collect;
+    /* Batch PTS tracking */
+    GstClockTime batch_anchor_pts;
+    gint64 batch_start_real_time;
+    GstClockTime last_pushed_batch_pts;
+
+    /* Output task */
+    GRecMutex task_lock;
+    guint eos_pad_count;
 };
 
 struct _GstGvaStreammuxClass {
