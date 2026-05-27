@@ -10,7 +10,6 @@
 from __future__ import annotations
 
 import argparse
-import json
 import os
 import shutil
 import subprocess
@@ -19,6 +18,7 @@ from pathlib import Path
 
 import openvino as ov
 import timm
+from huggingface_hub import hf_hub_download
 
 
 PRECISIONS = ("fp16", "int8", "both")
@@ -145,9 +145,8 @@ def export_with_optimum(
             check=True,
         )
         exported_xml = only_xml(tmpdir)
-        model = ov.Core().read_model(str(exported_xml))
-        save_ir(model, xml, compress_to_fp16=precision == "fp16")
-        save_data_config(hf_model_id, xml.parent / "data_config.json")
+        save_ir(exported_xml, xml)
+        save_config_json(hf_model_id, xml.parent / "config.json")
 
 
 def only_xml(root: Path) -> Path:
@@ -157,25 +156,22 @@ def only_xml(root: Path) -> Path:
     return xmls[0]
 
 
-def save_data_config(hf_model_id: str, path: Path) -> None:
-    """Save TIMM's resolved preprocessing config next to the exported IR."""
-    path.write_text(json.dumps(resolve_data_config(hf_model_id), indent=2) + "\n")
+def save_config_json(hf_model_id: str, path: Path) -> None:
+    """Copy the model's original Hugging Face config.json next to the exported IR."""
+    config_path = Path(hf_hub_download(repo_id=hf_model_id, filename="config.json"))
+    shutil.copy2(config_path, path)
 
 
-def resolve_data_config(hf_model_id: str) -> dict:
-    """Return TIMM's preprocessing config for a Hugging Face TIMM model."""
-    model = timm.create_model(f"hf-hub:{hf_model_id}", pretrained=False)
-    return timm.data.resolve_model_data_config(model) | {"color_space": "RGB"}
-
-
-def save_ir(model: ov.Model, xml: Path, compress_to_fp16: bool) -> None:
-    """Save IR through a temp dir, verify it, then move it into place."""
+def save_ir(exported_xml: Path, xml: Path) -> None:
+    """Verify the exported IR, then move it into the DLStreamer layout unchanged."""
     xml.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix=f".{xml.stem}-", dir=xml.parent) as tmp:
         tmp_xml = Path(tmp) / xml.name
-        ov.save_model(model, str(tmp_xml), compress_to_fp16=compress_to_fp16)
+        tmp_bin = tmp_xml.with_suffix(".bin")
+        shutil.copy2(exported_xml, tmp_xml)
+        shutil.copy2(exported_xml.with_suffix(".bin"), tmp_bin)
         ov.Core().read_model(str(tmp_xml))
-        tmp_xml.with_suffix(".bin").replace(xml.with_suffix(".bin"))
+        tmp_bin.replace(xml.with_suffix(".bin"))
         tmp_xml.replace(xml)
 
 
