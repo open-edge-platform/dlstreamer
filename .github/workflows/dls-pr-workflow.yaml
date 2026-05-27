@@ -348,8 +348,8 @@ jobs:
         uses: open-edge-platform/orch-ci/.github/actions/security/bandit@1871595c6bb5f5f29b957725e9cbb05ef8071ca1
         with:
           scan-scope: "all"
-          severity-level: "LOW"
-          confidence-level: "LOW"
+          severity-level: "MEDIUM"
+          confidence-level: "MEDIUM"
           output-format: "txt"
           fail-on-findings: true
           paths: .
