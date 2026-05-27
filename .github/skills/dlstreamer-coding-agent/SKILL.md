@@ -120,15 +120,21 @@ in chat. Do NOT silently assume defaults and skip confirmation.
 
 Start the Docker image pull in an **async terminal** immediately after Step 0 completes.
 
-**Always pull the latest weekly build.** During PREVIEW, the latest weekly
-image may contain critical bug fixes not present in older images. Do NOT reuse a
-locally cached image without pulling first.
+**Always pull the latest available image** — whether it is a release, release candidate (RC),
+or weekly build. RC and release images may contain critical fixes not present in weekly builds.
+Do NOT reuse a locally cached image without pulling first.
+
+The query below fetches **all** non-dev `ubuntu24` tags (weekly, RC, and release), sorts by
+the `last_updated` timestamp, and picks the most recent one:
 
 ```bash
-WEEKLY_TAG=$(curl -s "https://hub.docker.com/v2/repositories/intel/dlstreamer/tags?name=weekly-ubuntu24&page_size=25&ordering=-last_updated" \
-    | python3 -c "import sys,json; print(sorted([r['name'] for r in json.load(sys.stdin)['results']])[-1])")
-echo "Latest weekly tag: $WEEKLY_TAG"
-docker pull "intel/dlstreamer:${WEEKLY_TAG}"
+DLS_TAG=$(curl -s "https://hub.docker.com/v2/repositories/intel/dlstreamer/tags?name=ubuntu24&page_size=100&ordering=-last_updated" \
+    | python3 -c "
+import sys, json
+tags = [t for t in json.load(sys.stdin)['results'] if 'dev' not in t['name'] and 'ubuntu22' not in t['name']]
+print(sorted(tags, key=lambda t: t['last_updated'])[-1]['name'])")
+echo "Latest DL Streamer tag: $DLS_TAG"
+docker pull "intel/dlstreamer:${DLS_TAG}"
 ```
 
 ### Step 2 — Prepare Models and Video (async)
@@ -254,7 +260,7 @@ docker run --init --rm \
     --group-add $(stat -c "%g" /dev/dri/render*) \
     --device /dev/accel \
     --group-add $(stat -c "%g" /dev/accel/accel*) \
-    intel/dlstreamer:<WEEKLY_TAG> \
+    intel/dlstreamer:<DLS_TAG> \
     python3 <app_name>.py
 ```
 
