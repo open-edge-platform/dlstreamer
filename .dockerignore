@@ -1,7 +1,0 @@
-.github
-.git
-.gitignore
-.vscode
-build
-tests/scripts
-tests/functional_tests

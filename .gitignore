@@ -1,31 +1,9 @@
-CMakeCache.txt
-CMakeFiles
-CMakeFiles.txt.user
-CMakeScripts
-Testing
-cmake_install.cmake
-install_manifest.txt
-compile_commands.json
-CTestTestfile.cmake
-build
-/build_afl
-/results
-.vs/
-.vscode
-.cache
-.idea
-_release
-cmake-build-*/
-vcpkg_installed/
+# this is a custom gitignore list for the documentation release branches
+# use it exclusively for release versioning purposes
 
-# Compiled Object files
-*.o
-*.obj
+# Ignore everything
+*
 
-# Compiled Dynamic libraries
-*.so
-
-# Python's Byte-compiled / optimized / DLL files
-__pycache__/
-*.py[cod]
-*$py.class
+# But not this folder
+!*/docs
+!.gitignore
