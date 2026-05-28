@@ -69,6 +69,9 @@ batch-size          : Number of frames batched together for a single inference. 
 batch-timeout       : Timeout (ms) for OpenVINO™ Automatic Batching. Waits for batch to accumulate inference requests before execution. If the number of frames collected reaches batch-size, inference is executed with a full batch and the timer is reset. If timeout occurs before collecting all frames specified by batch-size, inference is executed on collected frames individually (as if batch-size=1) and the timer is reset. If batch-timeout is set to 0, it operates as if batch-size were set to 1, executing inference on individual frames. Value -1 disables timeout, waiting indefinitely for full batch. Note: Not supported with VA backends (pre-process-backend=va or va-surface-sharing).
                         flags: readable, writable
                         Integer. Range: -1 - 2147483647 Default: -1
+core-pinning        : List or range of CPU cores to pin this inference element to (e.g., '0-3' or '0,2,3'). 
+                        flags: readable, writable
+                        String. Default: null
 cpu-throughput-streams: Deprecated. Use ie-config=CPU_THROUGHPUT_STREAMS=<number-streams> instead
                         flags: readable, writable, deprecated
                         Unsigned Integer. Range: 0 - 4294967295 Default: 0

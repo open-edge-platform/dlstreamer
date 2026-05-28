@@ -25,6 +25,8 @@
 #define PRETTY_FUNCTION_NAME __PRETTY_FUNCTION__
 #endif
 
+#define TOTAL_CORES_PTL_H 16
+
 namespace Utils {
 
 const std::string dpcppInstructionMsg = "Seems DPC++ dependency is not installed. Please follow installation guide: "
@@ -140,6 +142,15 @@ bool checkAllKeysAreKnown(const std::set<std::string> &known_keys, const std::ma
  * @return correct absolute path
  */
 std::string fixPath(std::string path);
+
+/*
+ * @brief Checks if the CPU is from Intel® Core™ Ultra Series 3 processors with 16 cores (H)
+ * which is a part of PTL-H series.
+ *
+ * @return true if the CPU is from Intel® Core™ Ultra Series 3 processors with 16 cores (H),
+ * false otherwise.
+ */
+bool isCPUPTLHSeries(void);
 
 } // namespace Utils
 
