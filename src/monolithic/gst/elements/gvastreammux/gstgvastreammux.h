@@ -20,6 +20,17 @@ G_BEGIN_DECLS
 
 #define GST_GVA_STREAMMUX_MAX_PAD_INDEX 256
 
+typedef enum {
+    GVA_STREAMMUX_SYNC_MODE_NONE = 0,
+    GVA_STREAMMUX_SYNC_MODE_FIRST_PTS,
+    GVA_STREAMMUX_SYNC_MODE_SEGMENT,
+    GVA_STREAMMUX_SYNC_MODE_PIPELINE,
+    GVA_STREAMMUX_SYNC_MODE_NTP,
+} GvaStreammuxSyncMode;
+
+#define GST_TYPE_GVA_STREAMMUX_SYNC_MODE (gst_gva_streammux_sync_mode_get_type())
+GType gst_gva_streammux_sync_mode_get_type(void);
+
 typedef struct _GstGvaStreammux GstGvaStreammux;
 typedef struct _GstGvaStreammuxClass GstGvaStreammuxClass;
 typedef struct _GvaStreammuxPadData GvaStreammuxPadData;
@@ -30,6 +41,11 @@ struct _GvaStreammuxPadData {
     GQueue buffer_queue;
     gboolean eos;
     gboolean flushing;
+
+    /* PTS normalization state (used by sync-mode) */
+    gboolean first_pts_set;
+    GstClockTime first_pts;
+    GstClockTime segment_start;
 };
 
 struct _GstGvaStreammux {
@@ -42,6 +58,7 @@ struct _GstGvaStreammux {
     GstClockTime pts_tolerance;
     GstClockTime max_wait_time;
     guint max_queue_size;
+    GvaStreammuxSyncMode sync_mode;
 
     /* Internal state */
     guint num_sink_pads;

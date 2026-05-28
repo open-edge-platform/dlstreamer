@@ -21,12 +21,31 @@ enum {
     PROP_PTS_TOLERANCE,
     PROP_MAX_WAIT_TIME,
     PROP_MAX_QUEUE_SIZE,
+    PROP_SYNC_MODE,
 };
 
 #define DEFAULT_MAX_FPS 0.0
 #define DEFAULT_PTS_TOLERANCE (20 * GST_MSECOND)
 #define DEFAULT_MAX_WAIT_TIME (40 * GST_MSECOND)
 #define DEFAULT_MAX_QUEUE_SIZE 2
+#define DEFAULT_SYNC_MODE GVA_STREAMMUX_SYNC_MODE_NONE
+
+GType gst_gva_streammux_sync_mode_get_type(void) {
+    static gsize type_id = 0;
+    if (g_once_init_enter(&type_id)) {
+        static const GEnumValue values[] = {
+            {GVA_STREAMMUX_SYNC_MODE_NONE, "Use buffer PTS as-is", "none"},
+            {GVA_STREAMMUX_SYNC_MODE_FIRST_PTS, "Subtract each pad's first PTS", "first-pts"},
+            {GVA_STREAMMUX_SYNC_MODE_SEGMENT, "Subtract each pad's segment start", "segment"},
+            {GVA_STREAMMUX_SYNC_MODE_PIPELINE, "Use pipeline running time", "pipeline"},
+            {GVA_STREAMMUX_SYNC_MODE_NTP, "Use GstReferenceTimestampMeta (NTP/PTP)", "ntp"},
+            {0, NULL, NULL},
+        };
+        GType t = g_enum_register_static("GvaStreammuxSyncMode", values);
+        g_once_init_leave(&type_id, t);
+    }
+    return (GType)type_id;
+}
 
 /* Pad templates */
 #define STREAMMUX_VIDEO_CAPS                                                                                           \
@@ -116,6 +135,21 @@ static void gst_gva_streammux_class_init(GstGvaStreammuxClass *klass) {
                           "Maximum number of buffers per pad queue before blocking upstream (back-pressure)",
                           1, G_MAXUINT, DEFAULT_MAX_QUEUE_SIZE,
                           (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+
+    g_object_class_install_property(
+        gobject_class, PROP_SYNC_MODE,
+        g_param_spec_enum("sync-mode", "Sync Mode",
+                          "How to align PTS across sink pads before assembling batches. "
+                          "'none' uses raw PTS (assumes upstream alignment). "
+                          "'first-pts' subtracts each pad's first PTS so all pads start at 0. "
+                          "'segment' subtracts each pad's GST_EVENT_SEGMENT start. "
+                          "'pipeline' overwrites PTS with the pipeline running time at arrival "
+                          "(useful for live multi-source where source PTS are unreliable). "
+                          "'ntp' uses GstReferenceTimestampMeta on each buffer (e.g. from "
+                          "rtspsrc ntp-sync=true add-reference-timestamp-meta=true) for "
+                          "absolute cross-device time alignment.",
+                          GST_TYPE_GVA_STREAMMUX_SYNC_MODE, DEFAULT_SYNC_MODE,
+                          (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 }
 
 static void gst_gva_streammux_init(GstGvaStreammux *mux) {
@@ -123,6 +157,7 @@ static void gst_gva_streammux_init(GstGvaStreammux *mux) {
     mux->pts_tolerance = DEFAULT_PTS_TOLERANCE;
     mux->max_wait_time = DEFAULT_MAX_WAIT_TIME;
     mux->max_queue_size = DEFAULT_MAX_QUEUE_SIZE;
+    mux->sync_mode = DEFAULT_SYNC_MODE;
 
     mux->num_sink_pads = 0;
     mux->started = FALSE;
@@ -213,6 +248,9 @@ static void gst_gva_streammux_set_property(GObject *object, guint prop_id, const
     case PROP_MAX_QUEUE_SIZE:
         mux->max_queue_size = g_value_get_uint(value);
         break;
+    case PROP_SYNC_MODE:
+        mux->sync_mode = (GvaStreammuxSyncMode)g_value_get_enum(value);
+        break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
         break;
@@ -235,8 +273,72 @@ static void gst_gva_streammux_get_property(GObject *object, guint prop_id, GValu
     case PROP_MAX_QUEUE_SIZE:
         g_value_set_uint(value, mux->max_queue_size);
         break;
+    case PROP_SYNC_MODE:
+        g_value_set_enum(value, mux->sync_mode);
+        break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+        break;
+    }
+}
+
+/* Normalize buffer PTS based on sync-mode. Caller must ensure buf is writable. */
+static void normalize_buffer_pts(GstGvaStreammux *mux, GvaStreammuxPadData *pdata, GstBuffer *buf) {
+    GstClockTime raw_pts = GST_BUFFER_PTS(buf);
+
+    switch (mux->sync_mode) {
+    case GVA_STREAMMUX_SYNC_MODE_FIRST_PTS:
+        if (!GST_CLOCK_TIME_IS_VALID(raw_pts))
+            return;
+        if (!pdata->first_pts_set) {
+            pdata->first_pts = raw_pts;
+            pdata->first_pts_set = TRUE;
+            GST_INFO_OBJECT(mux, "Pad sink_%u first_pts captured = %" GST_TIME_FORMAT, pdata->pad_index,
+                            GST_TIME_ARGS(raw_pts));
+        }
+        if (raw_pts >= pdata->first_pts)
+            GST_BUFFER_PTS(buf) = raw_pts - pdata->first_pts;
+        break;
+
+    case GVA_STREAMMUX_SYNC_MODE_SEGMENT:
+        if (!GST_CLOCK_TIME_IS_VALID(raw_pts) || !GST_CLOCK_TIME_IS_VALID(pdata->segment_start))
+            return;
+        if (raw_pts >= pdata->segment_start)
+            GST_BUFFER_PTS(buf) = raw_pts - pdata->segment_start;
+        break;
+
+    case GVA_STREAMMUX_SYNC_MODE_PIPELINE: {
+        GstClock *clock = gst_element_get_clock(GST_ELEMENT(mux));
+        if (!clock) {
+            GST_LOG_OBJECT(mux,
+                           "sync-mode=pipeline: no clock selected yet on sink_%u "
+                           "(pipeline only picks a clock when at least one source is live)",
+                           pdata->pad_index);
+            return;
+        }
+        GstClockTime now = gst_clock_get_time(clock);
+        GstClockTime base = gst_element_get_base_time(GST_ELEMENT(mux));
+        gst_object_unref(clock);
+        if (GST_CLOCK_TIME_IS_VALID(now) && GST_CLOCK_TIME_IS_VALID(base) && now >= base)
+            GST_BUFFER_PTS(buf) = now - base;
+        break;
+    }
+
+    case GVA_STREAMMUX_SYNC_MODE_NTP: {
+        GstReferenceTimestampMeta *ref = gst_buffer_get_reference_timestamp_meta(buf, NULL);
+        if (ref) {
+            GST_BUFFER_PTS(buf) = ref->timestamp;
+        } else {
+            GST_LOG_OBJECT(mux,
+                           "sync-mode=ntp but no GstReferenceTimestampMeta on sink_%u; "
+                           "ensure upstream is e.g. rtspsrc ntp-sync=true add-reference-timestamp-meta=true",
+                           pdata->pad_index);
+        }
+        break;
+    }
+
+    case GVA_STREAMMUX_SYNC_MODE_NONE:
+    default:
         break;
     }
 }
@@ -280,6 +382,9 @@ static GstPad *gst_gva_streammux_request_new_pad(GstElement *element, GstPadTemp
     g_queue_init(&pdata->buffer_queue);
     pdata->eos = FALSE;
     pdata->flushing = FALSE;
+    pdata->first_pts_set = FALSE;
+    pdata->first_pts = GST_CLOCK_TIME_NONE;
+    pdata->segment_start = GST_CLOCK_TIME_NONE;
 
     g_object_set_data(G_OBJECT(sinkpad), "mux-pad-data", pdata);
 
@@ -385,8 +490,12 @@ static GstStateChangeReturn gst_gva_streammux_change_state(GstElement *element, 
         mux->flushing_pads_count = 0;
         for (guint i = 0; i < mux->pad_data->len; i++) {
             GvaStreammuxPadData *pd = (GvaStreammuxPadData *)g_ptr_array_index(mux->pad_data, i);
-            if (pd)
+            if (pd) {
                 pd->flushing = FALSE;
+                pd->first_pts_set = FALSE;
+                pd->first_pts = GST_CLOCK_TIME_NONE;
+                pd->segment_start = GST_CLOCK_TIME_NONE;
+            }
         }
         if (mux->current_caps) {
             gst_caps_unref(mux->current_caps);
@@ -454,6 +563,16 @@ static gboolean gst_gva_streammux_sink_event(GstPad *pad, GstObject *parent, Gst
         break;
     }
     case GST_EVENT_SEGMENT: {
+        GstSegment seg;
+        gst_event_copy_segment(event, &seg);
+        g_mutex_lock(&mux->lock);
+        GvaStreammuxPadData *pdata = get_pad_data(mux, pad);
+        if (pdata) {
+            pdata->segment_start = seg.start;
+            GST_DEBUG_OBJECT(mux, "Pad sink_%u segment.start=%" GST_TIME_FORMAT, pdata->pad_index,
+                             GST_TIME_ARGS(seg.start));
+        }
+        g_mutex_unlock(&mux->lock);
         gst_event_unref(event);
         ret = TRUE;
         break;
@@ -512,8 +631,11 @@ static gboolean gst_gva_streammux_sink_event(GstPad *pad, GstObject *parent, Gst
             gst_gva_streammux_flush_pad_queues(mux);
             for (guint i = 0; i < mux->pad_data->len; i++) {
                 GvaStreammuxPadData *pd = (GvaStreammuxPadData *)g_ptr_array_index(mux->pad_data, i);
-                if (pd)
+                if (pd) {
                     pd->eos = FALSE;
+                    pd->first_pts_set = FALSE;
+                    pd->first_pts = GST_CLOCK_TIME_NONE;
+                }
             }
             mux->eos_pad_count = 0;
             mux->batch_anchor_pts = GST_CLOCK_TIME_NONE;
@@ -547,6 +669,11 @@ static GstFlowReturn gst_gva_streammux_chain(GstPad *pad, GstObject *parent, Gst
         GST_ERROR_OBJECT(mux, "No pad data for pad %s", GST_PAD_NAME(pad));
         gst_buffer_unref(buf);
         return GST_FLOW_ERROR;
+    }
+
+    if (mux->sync_mode != GVA_STREAMMUX_SYNC_MODE_NONE) {
+        buf = gst_buffer_make_writable(buf);
+        normalize_buffer_pts(mux, pdata, buf);
     }
 
     g_mutex_lock(&mux->lock);
