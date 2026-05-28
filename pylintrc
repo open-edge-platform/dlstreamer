@@ -1,5 +1,5 @@
 [MAIN]
-source-roots = python/gstgva
+source-roots = python/gstgva,python
 
 [MESSAGES CONTROL]
 

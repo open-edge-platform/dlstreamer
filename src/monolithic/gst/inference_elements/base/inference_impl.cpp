@@ -934,6 +934,10 @@ InferenceImpl::Model InferenceImpl::CreateModel(GvaBaseInference *gva_base_infer
         va_dpy = gva_base_inference->priv->d3d11_device;
     }
 
+    // Set affinity mask that might set as the result of set_core_pinning_mask() call or
+    // set by the user directly via the core-pinning attribute.
+    SetAffinityMask(gva_base_inference->core_pinning_mask);
+
     auto image_inference = ImageInference::createImageInferenceInstance(
         memory_type, ie_config, allocator.get(), std::bind(&InferenceImpl::InferenceCompletionCallback, this, _1, _2),
         std::bind(&InferenceImpl::PushFramesIfInferenceFailed, this, _1), std::move(va_dpy));
@@ -1076,6 +1080,61 @@ bool InferenceImpl::IsRoiSizeValid(const GstAnalyticsODMtd roi_meta) {
 
     return w > 1 && h > 1;
 }
+
+/**
+ * Pins current thread to the CPU core set as specified by affinity mask.
+ */
+#ifndef _WIN32
+void InferenceImpl::SetAffinityMask(const cpu_set_t &mask) {
+
+    GVA_INFO("Setting CPU affinity mask (%d cores set)\n", CPU_COUNT(&mask));
+
+    // Build hex string from cpu_set_t using CPU_ISSET
+    {
+        unsigned long long low_bits = 0;
+        for (int i = 0; i < 64 && i < CPU_SETSIZE; ++i) {
+            if (CPU_ISSET(i, &mask))
+                low_bits |= (1ULL << i);
+        }
+        GVA_INFO("Setting CPU affinity mask: 0x%llx\n", low_bits);
+    }
+
+    pthread_t current_thread = pthread_self(); // Get current thread handle
+    int result = pthread_setaffinity_np(current_thread, sizeof(cpu_set_t), &mask);
+
+    if (result != 0) {
+        GVA_ERROR("Error pinning thread: (%d)\n", result);
+    }
+}
+#else
+void InferenceImpl::SetAffinityMask(const WinCorePinningMask &mask) {
+    // A thread can only belong to one processor group at a time.
+    // Find the first group with cores set and pin to it.
+    HANDLE thread = GetCurrentThread();
+    bool pinned = false;
+
+    for (WORD g = 0; g < mask.num_groups; ++g) {
+        if (mask.group_mask[g] != 0) {
+            GROUP_AFFINITY group_affinity = {};
+            group_affinity.Group = g;
+            group_affinity.Mask = mask.group_mask[g];
+
+            GVA_INFO("Setting CPU affinity to group %u, mask 0x%llx\n", g, (unsigned long long)mask.group_mask[g]);
+
+            if (!SetThreadGroupAffinity(thread, &group_affinity, NULL)) {
+                GVA_ERROR("Error pinning thread to group %u: (%lu)\n", g, GetLastError());
+            } else {
+                pinned = true;
+            }
+            break; // Thread can only be in one group
+        }
+    }
+
+    if (!pinned) {
+        GVA_WARNING("No cores set in affinity mask, thread affinity not changed\n");
+    }
+}
+#endif
 
 /**
  * Acquires output_frames_mutex with std::lock_guard.
