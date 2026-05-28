@@ -91,7 +91,7 @@ python3 export_models.py
 Pull the latest DL Streamer Docker image:
 
 ```bash
-docker pull intel/dlstreamer:2026.1.0-20260505-weekly-ubuntu24
+docker pull intel/dlstreamer:latest
 ```
 
 Run the application inside Docker:
@@ -103,7 +103,7 @@ docker run --init --rm \
     -v "$(pwd)":/app -w /app \
     --device /dev/dri \
     --group-add $(stat -c "%g" /dev/dri/render*) \
-    intel/dlstreamer:2026.1.0-20260505-weekly-ubuntu24 \
+    intel/dlstreamer:latest \
     python3 license_plate_recognition.py --input videos/ParkingVideo.mp4
 ```
 
@@ -118,7 +118,7 @@ docker run --init --rm \
     --group-add $(stat -c "%g" /dev/dri/render*) \
     --device /dev/accel \
     --group-add $(stat -c "%g" /dev/accel/accel*) \
-    intel/dlstreamer:2026.1.0-20260505-weekly-ubuntu24 \
+    intel/dlstreamer:latest \
     python3 license_plate_recognition.py --input videos/ParkingVideo.mp4 --ocr-device NPU
 ```
 

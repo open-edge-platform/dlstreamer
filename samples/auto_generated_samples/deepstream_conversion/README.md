@@ -166,7 +166,7 @@ docker run --init --rm \
     -v "$(pwd)":/app -w /app \
     --device /dev/dri \
     --group-add $(stat -c "%g" /dev/dri/render*) \
-    intel/dlstreamer:2026.1.0-20260505-weekly-ubuntu24 \
+    intel/dlstreamer:latest \
     python3 dlstreamer_test4.py -i videos/sample.mp4 --no-display
 ```
 

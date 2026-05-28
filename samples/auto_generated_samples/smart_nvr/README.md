@@ -98,14 +98,14 @@ Once the video and models are prepared (see above), run the application:
 ### With Docker (recommended)
 
 ```bash
-WEEKLY_TAG=$(cat /tmp/dlstreamer_weekly_tag.txt 2>/dev/null || echo "2026.1.0-weekly-ubuntu24")
+
 docker run --init --rm \
     -u "$(id -u):$(id -g)" \
     -e PYTHONUNBUFFERED=1 \
     -v "$(pwd)":/app -w /app \
     --device /dev/dri \
     --group-add $(stat -c "%g" /dev/dri/render*) \
-    intel/dlstreamer:${WEEKLY_TAG} \
+    intel/dlstreamer:latest \
     python3 smart_nvr.py --input videos/person_walking.mp4
 ```
 

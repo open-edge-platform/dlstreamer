@@ -104,7 +104,7 @@ docker run --init --rm \
     -v "$(pwd)":/app -w /app \
     --device /dev/dri \
     --group-add $(stat -c "%g" /dev/dri/render*) \
-    intel/dlstreamer:2026.1.0-weekly-ubuntu24 \
+    intel/dlstreamer:latest \
     bash people_detection_tracking.sh
 ```
 

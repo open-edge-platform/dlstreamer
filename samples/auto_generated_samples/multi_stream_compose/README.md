@@ -97,14 +97,13 @@ python3 export_models.py
 ### Run in Docker (recommended)
 
 ```bash
-WEEKLY_TAG=2026.1.0-20260505-weekly-ubuntu24
 
 docker run --init --rm -it \
     -v "$(pwd)":/app -w /app \
     --device /dev/dri \
     --group-add $(stat -c "%g" /dev/dri/render*) \
     --network host \
-    intel/dlstreamer:${WEEKLY_TAG} \
+    intel/dlstreamer:latest \
     python3 multi_stream_compose.py
 ```
 

@@ -108,7 +108,7 @@ docker run --init --rm \
     -v "$(pwd)":/app -w /app \
     --device /dev/dri \
     --group-add $(stat -c "%g" /dev/dri/render*) \
-    intel/dlstreamer:2026.1.0-ubuntu24-rc1.1 \
+    intel/dlstreamer:latest \
     bash pose_estimation_compose.sh
 ```
 
