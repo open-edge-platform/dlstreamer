@@ -301,14 +301,12 @@ class TestOptimizer(unittest.TestCase):
         found_instance_ids = False
 
         (candidate_pipeline, _) = next(optimizer.iter_optimize_for_fps(self.complex_pipeline))
-        candidate_pipeline = candidate_result[0]
         print(f"Pipeline: {candidate_pipeline}")
         model_instance_ids = re.findall(r'model-instance-id=(\w+)', candidate_pipeline)
             
         if len(model_instance_ids) > 1 and len(set(model_instance_ids)) == 1:
             found_instance_ids = True
             print(f"✓ Found same model-instance-id: {model_instance_ids[0]}")
-            break
         elif len(model_instance_ids) > 0:
             print(f"Found different instance-ids: {model_instance_ids}")
         else:
