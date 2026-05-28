@@ -120,11 +120,10 @@ in chat. Do NOT silently assume defaults and skip confirmation.
 
 Start the Docker image pull in an **async terminal** immediately after Step 0 completes.
 
-**Always pull the latest available image** — whether it is a release, release candidate (RC),
-or weekly build. RC and release images may contain critical fixes not present in weekly builds.
+**Always pull the latest available image** 
 Do NOT reuse a locally cached image without pulling first.
 
-The query below fetches **all** non-dev `ubuntu24` tags (weekly, RC, and release), sorts by
+The query below fetches **all** non-dev `ubuntu24` tags, sorts by
 the `last_updated` timestamp, and picks the most recent one:
 
 ```bash
