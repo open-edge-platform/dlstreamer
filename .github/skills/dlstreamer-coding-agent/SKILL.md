@@ -123,17 +123,8 @@ Start the Docker image pull in an **async terminal** immediately after Step 0 co
 **Always pull the latest available image** 
 Do NOT reuse a locally cached image without pulling first.
 
-The query below fetches **all** non-dev `ubuntu24` tags, sorts by
-the `last_updated` timestamp, and picks the most recent one:
-
 ```bash
-DLS_TAG=$(curl -s "https://hub.docker.com/v2/repositories/intel/dlstreamer/tags?name=ubuntu24&page_size=100&ordering=-last_updated" \
-    | python3 -c "
-import sys, json
-tags = [t for t in json.load(sys.stdin)['results'] if 'dev' not in t['name'] and 'ubuntu22' not in t['name']]
-print(sorted(tags, key=lambda t: t['last_updated'])[-1]['name'])")
-echo "Latest DL Streamer tag: $DLS_TAG"
-docker pull "intel/dlstreamer:${DLS_TAG}"
+docker pull intel/dlstreamer:latest
 ```
 
 ### Step 2 — Prepare Models and Video (async)
@@ -259,7 +250,7 @@ docker run --init --rm \
     --group-add $(stat -c "%g" /dev/dri/render*) \
     --device /dev/accel \
     --group-add $(stat -c "%g" /dev/accel/accel*) \
-    intel/dlstreamer:<DLS_TAG> \
+    intel/dlstreamer:latest \
     python3 <app_name>.py
 ```
 
