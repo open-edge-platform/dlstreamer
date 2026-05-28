@@ -55,6 +55,12 @@ Options:
                                         If not specified, all available, detected devices will be used.
                                         Tool does not support discrete GPU selection.
                                         eg.--allowed-devices CPU NPU,--allowed-devices GPU
+    --batch-sizes BATCH_SIZES [BATCH_SIZES ...]
+                                        List of batch sizes to be considered by the optimizer.
+    --nireq-sizes NIREQ_SIZES [NIREQ_SIZES ...]
+                                        List of nireq sizes to be considered by the optimizer.
+    --optimization-profile PROFILE       Configuration preset for optimization behavior.
+                                        Possible values: coarse, fine, default.
     --log-level LEVEL                   Configure the logging detail level.
     -v, --verbose                       Print information about every candidate pipeline investigated during
                                         optimization process.
@@ -76,6 +82,23 @@ Levy the inference instance feature of DL Streamer to batch work across multiple
 **`allowed-devices`** \
 Allows you to limit the set of devices that will be considered during the optimization process.
 
+**`batch-sizes`** default: `1 2 4 8 16 32` \
+Defines candidate `batch-size` values that can be applied to supported inference elements while searching.
+
+**`nireq-sizes`** default: `1 2 3 4 5 6 7 8` \
+Defines candidate `nireq` values that can be applied to supported inference elements while searching.
+
+**`optimization-profile`** default: `default` \
+Selects a preset that controls optimization aggressiveness and runtime.
+
+- `coarse` - fast search with minimal exploration (uses short timings and disables `batch-sizes`/`nireq-sizes` exploration).
+- `fine` - balanced search with focused exploration (`batch-sizes`: `1 4 8`, `nireq-sizes`: `4 8`).
+- `default` - full search using user-provided values for `search-duration`, `sample-duration`, `batch-sizes`, and `nireq-sizes`.
+
+
+>**Note**\
+>When `--optimization-profile` is `coarse` or `fine`, the tool uses profile-specific values for search configuration. In these profiles, user-provided `--batch-sizes`, `--nireq-sizes`, and timing flags are being overridden by the selected preset.
+
 **`log-level`** default: `INFO` \
 Available **log levels** are: CRITICAL, FATAL, ERROR, WARN, INFO, DEBUG.
 
@@ -89,7 +112,18 @@ Provide a path representing a file which will be used to save results informatio
 >Search duration and sample duration both affect the amount of pipelines that will be explored during the search. \
 >The total amount should be approximately `search_duration / sample_duration` pipelines.
 
-**Example:**
+
+## Pausing and resuming
+While the optimizer is running, you can pause and resume the search at any time by pressing the **Spacebar** in the terminal where the tool is running.
+
+**Pausing** stops the current pipeline sample mid-run and suspends the search loop. The optimizer will not start any new pipeline test until it is resumed. **Resuming** (pressing Space again) restarts the search from the same point it was paused. The remaining **search duration** is preserved accurately: time spent while paused is not counted against the budget.
+
+>**Note**\
+>The pause key is only active while the optimizer is running as a CLI tool in terminal with keyboard input available. It is not available in non-interactive or piped environments.
+
+---
+
+## Example
 
 ```
  python3 . fps -- urisourcebin buffer-size=4096 uri=https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4 ! decodebin ! gvadetect model=/home/optimizer/models/public/yolo11s/INT8/yolo11s.xml ! queue ! gvawatermark ! fakesink

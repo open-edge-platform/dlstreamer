@@ -18,12 +18,13 @@
   - [Step 1: Install prerequisites](./advanced_build_docker_image.md#step-1-install-prerequisites)
   - [Step 2: Clone DL Streamer repository](./advanced_build_docker_image.md#step-2-clone-dl-streamer-repository)
   - [Step 3: Build Docker image](./advanced_build_docker_image.md#step-3-build-docker-image)
-- [Advanced installation on Windows - compilation from source files](./advanced_install_on_windows.md)
 - [Ubuntu advanced uninstall guide](./advanced_uninstall_guide.md)
   - [Option #1: Uninstall Intel® Deep Learning Streamer (Intel® DL Streamer) Pipeline Framework from APT repository](./advanced_uninstall_guide.md#option-1-apt-repository)
   - [Option #2: Intel® DL Streamer Pipeline Framework Docker image](./advanced_uninstall_guide.md#option-2-docker)
   - [Option #3: Compiled version](./advanced_uninstall_guide.md#option-3-compiled-version)
 
+- [Windows advanced installation - compilation from source files](./advanced_install_guide_windows_compilation.md)
+- [Windows advanced installation - install via command line](./advanced_install_guide_windows_command_line.md)
 <!--hide_directive
 :::{toctree}
 :maxdepth: 2
@@ -31,8 +32,9 @@
 
 advanced_install_guide_prerequisites
 advanced_install_guide_compilation
-advanced_install_on_windows
 advanced_build_docker_image
 advanced_uninstall_guide
+advanced_install_guide_windows_compilation
+advanced_install_guide_windows_command_line
 :::
 hide_directive-->

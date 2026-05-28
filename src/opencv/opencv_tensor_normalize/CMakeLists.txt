@@ -1,5 +1,5 @@
 # ==============================================================================
-# Copyright (C) 2022 Intel Corporation
+# Copyright (C) 2022-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
@@ -19,5 +19,6 @@ PRIVATE
 target_link_libraries(${TARGET_NAME}
 PUBLIC
         dlstreamer_api
+        utils
         ${OpenCV_LIBS}
 )

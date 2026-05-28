@@ -134,7 +134,7 @@ switch ($OutputType) {
         $FILENAME = [System.IO.Path]::GetFileNameWithoutExtension($InputSource)
         $OUTPUT_FILE = "yolo_${FILENAME}_${Model}_${Precision}_${Device}.mp4"
         if (Test-Path $OUTPUT_FILE) { Remove-Item $OUTPUT_FILE }
-        $SINK_ELEMENT = "! queue ! d3d11convert ! gvawatermark ! gvafpscounter ! d3d11h264enc ! h264parse ! mp4mux ! filesink location=$OUTPUT_FILE"
+        $SINK_ELEMENT = "! queue ! d3d11convert ! gvawatermark ! gvafpscounter ! mfh264enc ! h264parse ! mp4mux ! filesink location=$OUTPUT_FILE"
     }
     "display" {
         $SINK_ELEMENT = "! queue ! d3d11convert ! gvawatermark ! videoconvert ! gvafpscounter ! d3d11videosink sync=false"

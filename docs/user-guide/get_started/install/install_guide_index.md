@@ -9,10 +9,11 @@
   - [On Windows Host System](./install_guide_ubuntu_wsl2.md#on-windows-host-system)
   - [On Linux WSL System - setup proxy (optional steps)](./install_guide_ubuntu_wsl2.md#on-linux-wsl-system---setup-proxy-optional-steps)
   - [On Linux WSL System](./install_guide_ubuntu_wsl2.md#on-linux-wsl-system)
-- [Install Guide Windows](./install_guide_windows.md)
 - [Uninstall Guide Ubuntu](./uninstall_guide_ubuntu.md)
   - [Option #1: Uninstall Intel® Deep Learning Streamer (Intel® DL Streamer) Pipeline Framework from APT repository](./uninstall_guide_ubuntu.md#option-1-uninstall-deep-learning-streamer-pipeline-framework-from-apt-repository)
   - [Option #2: Intel® DL Streamer Pipeline Framework Docker image](./uninstall_guide_ubuntu.md#option-2-remove-deep-learning-streamer-pipeline-framework-docker-image)
+- [Install Guide Windows](./install_guide_windows.md)
+- [Uninstall Guide Windows](./uninstall_guide_windows.md)
 
 
 <!--hide_directive
@@ -24,5 +25,6 @@ install_guide_ubuntu
 install_guide_ubuntu_wsl2
 uninstall_guide_ubuntu
 install_guide_windows
+uninstall_guide_windows
 :::
 hide_directive-->

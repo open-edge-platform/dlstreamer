@@ -126,7 +126,7 @@ To see the full list of installed components check the
 The Python packages required to run Deep Learning Streamer python elements
 or samples are not installed by default. You can install them using
 the commands from
-[Advanced Install Guide Compilation / Install Python dependencies](../../dev_guide/advanced_install/advanced_install_guide_compilation.md#step-9-install-python-dependencies-optional).
+[Advanced Install Guide Compilation / Install Python dependencies](../../dev_guide/advanced_install/advanced_install_guide_compilation.md#step-10-install-python-dependencies-optional).
 
 ### [Optional] Step 5: Post installation steps
 
@@ -233,7 +233,7 @@ sudo apt install intel-dlstreamer=<VERSION>.<UPDATE>.<PATCH>
 For example
 
 ```bash
-sudo apt install intel-dlstreamer=2026.0.0
+sudo apt install intel-dlstreamer=2026.1.0
 ```
 
 C. List available versions
@@ -279,14 +279,14 @@ Visit the [Deep Learning Streamer image docker hub](https://hub.docker.com/r/int
 select the most appropriate version. By default, the latest docker image points to Ubuntu
 24 version.
 
-For **Ubuntu 22.04**, specify the tag e.g. **2026.0.0-ubuntu22**.
+For **Ubuntu 22.04**, specify the tag e.g. **2026.1.0-ubuntu22**.
 For **Ubuntu 24.04**, use the **latest** tag or specify the version, such as
-**2026.0.0-ubuntu24**.
+**2026.1.0-ubuntu24**.
 
 - **Ubuntu 22**
 
   ```bash
-  docker pull intel/dlstreamer:2026.0.0-ubuntu22
+  docker pull intel/dlstreamer:2026.1.0-ubuntu22
   ```
 
 - **Ubuntu 24**
@@ -303,7 +303,7 @@ a container
 - **Ubuntu 22**
 
   ```bash
-  docker run -it intel/dlstreamer:2026.0.0-ubuntu22
+  docker run -it intel/dlstreamer:2026.1.0-ubuntu22
   ```
 
 - **Ubuntu 24**
@@ -322,7 +322,7 @@ gst-inspect-1.0 gvadetect
 If you can see the documentation of `gvadetect` element, the
 installation process is completed.
 
-![image](gvadetect_sample_help.png)
+![image](_images/gvadetect_sample_help.png)
 
 ## Next Steps
 

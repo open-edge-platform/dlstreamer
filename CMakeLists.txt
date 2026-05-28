@@ -31,7 +31,7 @@ endif()
 
 # Define version
 set(VERSION_MAJOR 2026)
-set(VERSION_MINOR 0)
+set(VERSION_MINOR 1)
 set(VERSION_PATCH 0)
 
 include(cmake/version.cmake)
@@ -219,4 +219,8 @@ endif()
 if(${ENABLE_TESTS} AND NOT(WIN32))
     enable_testing()
     add_subdirectory(tests)
+endif()
+
+if(WIN32)
+    include(cmake/packaging/windows/cpack_windows.cmake)
 endif()

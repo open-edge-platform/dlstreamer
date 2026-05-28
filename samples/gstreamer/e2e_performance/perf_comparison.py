@@ -135,9 +135,9 @@ def main() -> None:
 
     dls_results = _benchmark(
         "\nDLStreamer (iGPU decode, zero-copy, async nireq=4)",
-        dlstreamer.run, model_xml, video,
+        dlstreamer.run, model_xml, video,  # pylint: disable=no-member
         args.measure_frames, args.warmup, args.runs)
-    dlstreamer.save_snapshot(model_xml, video, OUTPUT_DIR / "dlstreamer_detection.jpg")
+    dlstreamer.save_snapshot(model_xml, video, OUTPUT_DIR / "dlstreamer_detection.jpg")  # pylint: disable=no-member
 
     ov_fps = statistics.mean(r.fps for r in ov_results)
     dls_fps = statistics.mean(r.fps for r in dls_results)
