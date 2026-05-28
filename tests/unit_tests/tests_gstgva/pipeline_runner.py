@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: MIT
 # ==============================================================================
 
-from utils import BBox
+from tests_gstgva.utils import BBox
 from os import listdir, environ
 from os.path import isfile, isdir, join
 
