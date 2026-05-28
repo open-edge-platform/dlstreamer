@@ -47,18 +47,6 @@ See [example prompts](./examples) for inspiration.
 
 ## Procedure
 
-> ** CRITICAL — Conversion Language Rule (read FIRST before any other step):**
-> When converting an existing application from another framework (DeepStream, etc.),
-> the output application **MUST** use the **same programming language** as the source application.
-> Determine the source language by inspecting file extensions:
-> - `.cpp`, `.c`, `.h` → Generate **C/C++** application
-> - `.py` → Generate **Python** application
-> - `.sh` or `gst-launch` → Generate **GStreamer command line** (shell script)
->
-> This rule **overrides** the default Application type (`Python application`).
-> Do NOT default to Python when converting a C/C++ source application.
-> Only deviate from this rule if the user **explicitly** requests a different language.
-
 ### Execution Overview
 
 After Step 0 (requirements gathering), kick off **all independent long-running tasks in parallel**
@@ -117,14 +105,14 @@ Extract the following from the user's prompt:
 | **AI model(s)** | Model name/URL and task (detection, classification, VLM, OCR, …) | — (must ask) |
 | **Target hardware** | Intel platform, available accelerators (GPU/NPU/CPU) | `Not sure / detect at runtime` |
 | **Output format** | Annotated video, JSON, JPEG snapshots, display window | `All of the above` |
-| **Application type** | Python app, C/C++ app, or GStreamer command line | `Python application` — **BUT: when converting, MUST match source language (C++ → C++, Python → Python)** |
+| **Application type** | Python app, C/C++ app, or GStreamer command line | Must match the programming language of the input application (C/C++ → C/C++, Python → Python, shell → GStreamer command line) |
 | **Docker image** | DL Streamer Docker tag | Latest Ubuntu 24 tag (auto-fetched) |
 
 > **Application type override:** If the user's prompt contains explicit language like
-> "bash script", "shell script", "gst-launch", or "command line", set **Application type**
+> "bash script", "shell script", "gst-launch", or "command line", "C", "C++, set **Application type**
 > to `GStreamer command line` regardless of the default. 
 
-> **⚠️ Conversion language rule (MANDATORY):** When converting an existing application,
+> ** Conversion language rule (MANDATORY):** When converting an existing application,
 > the output **MUST** match the source language (C++ → C++, Python → Python,
 > shell/gst-launch → GStreamer command line). This is **NOT** a suggestion — it is a hard requirement.
 > Inspect the source file extensions (`.py`, `.cpp`, `.c`, `.sh`) to determine the original language.
@@ -241,18 +229,15 @@ For complex cases, consult the [Sample Index](./references/sample-index.md) for 
 
 When converting a DeepStream application, follow these additional rules:
 
-1. **⚠️ FIRST: Determine the source language.** Inspect the source file extensions (`.cpp`, `.c`, `.py`, `.sh`).
-   The generated application **MUST** use the same language. C++ source → C++ output. Python source → Python output.
-   **Do NOT default to Python when the source is C/C++.**
-2. **Inventory the source pipeline.** Identify all elements in the DeepStream pipeline first.
-3. **Map each element 1-to-1** using the [Converting Guide](../../../docs/user-guide/dev_guide/converting_deepstream_to_dlstreamer.md).
-4. **Connect DL Streamer elements** using the Common Pipeline Patterns table or Sample Index.
-5. **Do not add elements absent from the source pipeline.** Every element in the converted pipeline must trace back to the inventory.
-6. **Match the source language.** Generate the output application in the same programming language as the input DeepStream application (C++ → C++, Python → Python, shell/gst-launch → GStreamer command line) unless the user explicitly requests a different language.
+1. **Inventory the source pipeline.** Identify all elements in the DeepStream pipeline first.
+2. **Map each element 1-to-1** using the [Converting Guide](../../../docs/user-guide/dev_guide/converting_deepstream_to_dlstreamer.md).
+3. **Connect DL Streamer elements** using the Common Pipeline Patterns table or Sample Index.
+4. **Do not add elements absent from the source pipeline.** Every element in the converted pipeline must trace back to the inventory.
 
 **3b — Choose application structure**
 
 For a **CLI application**, the pipeline string from 3a is the deliverable — wrap it in a `gst-launch-1.0` shell script.
+
 
 For a **Python application**, map the user's description to one or more design patterns using the [Pattern Selection Table](./references/design-patterns.md#pattern-selection-table):
 1. Select the **pipeline construction** approach — see [Pattern 1: Pipeline Core](./references/design-patterns.md#pattern-1-pipeline-core)
@@ -267,12 +252,10 @@ Generate all application files following the directory layout defined at the beg
 
 **Language-specific generation:**
 
-- **C/C++ applications** (when converting C/C++ source): Use standard GStreamer C API
-  (`gst_element_factory_make`, `gst_bin_add_many`, `gst_element_link_many`, pad probes, bus watch).
-  Generate a `CMakeLists.txt` or `Makefile` for building. Use DL Streamer elements (`gvadetect`,
-  `gvaclassify`, `gvatrack`, `gvawatermark`, etc.) via the GStreamer C API — they are standard
-  GStreamer elements and work identically from C/C++. Include a model export script
-  (`export_models.sh` or `export_models.py`) as a separate helper.
+- **C/C++ applications:** Use the [Application Template](./assets/cpp-app-template.cpp) as the starting skeleton. Follow the
+  standard GStreamer C API (`gst_element_factory_make`, `gst_bin_add_many`, `gst_element_link_many`, pad probes, bus watch).
+  Generate a `CMakeLists.txt` or `Makefile` for building. DL Streamer elements are standard GStreamer plugins — use them from C/C++ exactly as you would any other GStreamer element (via `gst_element_factory_make`, property setters, etc.). Include a model export script
+  (`export_models.sh`) as a separate helper.
 - **Python applications**: Use the [Application Template](./assets/python-app-template.py) as the
   starting skeleton. Read the [Design Patterns Reference](./references/design-patterns.md) for
   coding conventions and application structure.
