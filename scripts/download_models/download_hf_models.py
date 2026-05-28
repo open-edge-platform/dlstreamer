@@ -1,5 +1,5 @@
 # ==============================================================================
-# Copyright (C) 2018-2026 Intel Corporation
+# Copyright (C) 2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
@@ -72,46 +72,57 @@ def main() -> int:
     model_id = args.model
     token = args.token
 
-    support_level = get_hf_model_support_level(model_id, token)
-    match support_level:
-        case 0:
-            # Standard export using optimum-cli
-            model_path = Path(args.outdir) / Path(model_id).name
-            model_path.mkdir(parents=True, exist_ok=True)
+    try:
+        support_level = get_hf_model_support_level(model_id, token)
+        
+        match support_level:
+            case 0:
+                # Standard export using optimum-cli
+                model_path = Path(args.outdir) / Path(model_id).name
+                model_path.mkdir(parents=True, exist_ok=True)
 
-            command = [
-                "optimum-cli",
-                "export",
-                "openvino",
-                "--model",
-                model_id,
-            ]
-            if args.extra_args:
-                command.extend(args.extra_args)
-            command.append(str(model_path))
-            env = os.environ if not token else {**os.environ, "HF_TOKEN": token}
+                command = [
+                    "optimum-cli",
+                    "export",
+                    "openvino",
+                    "--model",
+                    model_id,
+                ]
+                if args.extra_args:
+                    command.extend(args.extra_args)
+                command.append(str(model_path))
+                env = os.environ if not token else {**os.environ, "HF_TOKEN": token}
 
-            subprocess.run(command, check=True, env=env)
+                subprocess.run(command, check=True, env=env)
 
-        case 1:
-            # Custom conversion
-            # To be added to future releases of optimum-cli
-            model_path = custom_conversion(
-                model_id,
-                Path(args.outdir),
-                token,
-                extra_args=args.extra_args,
-            )
+            case 1:
+                # Custom conversion
+                model_path = custom_conversion(
+                    model_id,
+                    Path(args.outdir),
+                    token,
+                    extra_args=args.extra_args,
+                )
 
-        case 2:
-            print(f"Model is not supported by DL Streamer: {model_id}")
-            return 1
-        case _:
-            raise ValueError(f"Unexpected support level: {support_level}")
+            case 2:
+                print(f"Model is not supported by DL Streamer: {model_id}")
+                return 1
+            case _:
+                raise ValueError(f"Unexpected support level: {support_level}")
 
-    print(f"Exported model location: {model_path}")
-
-    return 0
+        print(f"Exported model location: {model_path}")
+        return 0
+        
+    except OSError as exc:
+        print(f"Error: Model '{model_id}' not found or inaccessible")
+        print(f"Details: {str(exc)}")
+        return 1
+    except subprocess.CalledProcessError as exc:
+        print(f"Error during model export: {str(exc)}")
+        return 1
+    except Exception as exc:
+        print(f"Unexpected error: {str(exc)}")
+        return 1
 
 
 if __name__ == "__main__":

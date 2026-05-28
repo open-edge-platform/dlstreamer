@@ -8,13 +8,13 @@ import argparse
 import asyncio
 import os
 import sys
-import dls_onvif_discovery_engine as dls_engine
+from dlstreamer.onvif import DlsOnvifDiscoveryEngine
 
 
 async def main(cmd_line_params):
     """Main function to continuously discover ONVIF cameras."""
 
-    engine = dls_engine.DlsOnvifDiscoveryEngine()
+    engine = DlsOnvifDiscoveryEngine()
 
     engine.init_discovery(cmd_line_params)
 
