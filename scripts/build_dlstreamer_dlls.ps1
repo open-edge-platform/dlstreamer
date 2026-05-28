@@ -6,6 +6,7 @@
 # ==============================================================================
 param(
 	[switch]$useInternalProxy,
+	[switch]$useForInternalBuild,
 	[switch]$buildInstaller,
 	[switch]$installerSkipCompression,
 	[string]$installerCodeSignScript,
@@ -262,14 +263,24 @@ if ($GSTREAMER_NEEDS_INSTALL) {
 
 	# Workaround: Copy patched gstanalytics DLL for GStreamer 1.28.2
 	if ($GSTREAMER_VERSION -eq "1.28.2") {
-		$srcDll = Join-Path $PWD.Path "dependencies\windows\gstanalytics-1.0-0.dll"
 		$dstDir = "$GSTREAMER_DEST_FOLDER\bin"
-		if (Test-Path $srcDll) {
-			Copy-Item -Path $srcDll -Destination $dstDir -Force
-			Write-Host "Copied gstanalytics-1.0-0.dll to $dstDir"
+		if ($useForInternalBuild) {
+			Write-Host "Copying patched gstanalytics-1.0-0.dll from internal directory"
+			$srcDll = "C:\gstreamer_replace_files\gstanalytics-1.0-0.dll"
+			if (Test-Path $srcDll) {
+				Copy-Item -Path $srcDll -Destination $dstDir -Force
+				Write-Host "Copied gstanalytics-1.0-0.dll to $dstDir"
+			}
+			else {
+				Write-Host "Warning: $srcDll not found, skipping copy"
+			}
 		}
 		else {
-			Write-Host "Warning: $srcDll not found, skipping copy"
+			Write-Host "Downloading patched gstanalytics-1.0-0.dll from public assets"
+			$srcDll = "$DLSTREAMER_TMP\gstanalytics-1.0-0.dll"
+			Invoke-DownloadFile -Uri "https://github.com/open-edge-platform/dlstreamer/releases/download/v2026.1.0/gstanalytics-1.0-0.dll" -OutFile $srcDll
+			Copy-Item -Path $srcDll -Destination $dstDir -Force
+			Write-Host "Copied gstanalytics-1.0-0.dll to $dstDir"
 		}
 	}
 
