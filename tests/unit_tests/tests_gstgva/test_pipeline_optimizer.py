@@ -9,7 +9,7 @@ import time
 import signal
 import re
 from optimizer import DLSOptimizer # pylint: disable=no-name-in-module
-from utils import get_model_path, get_video_path
+from tests_gstgva.utils import get_model_path, get_video_path
 from openvino import Core
 
 class TestOptimizer(unittest.TestCase):
@@ -291,6 +291,92 @@ class TestOptimizer(unittest.TestCase):
         
         print(f"Tested {len(candidates)} candidates in {elapsed_time:.1f}s")
         print(f"✓ Test passed: Excluded device '{excluded_device}' not found in any pipeline")
+
+    def test_set_batch_sizes_with_iter_optimize_for_fps(self):
+        """Test that set_batch_sizes() limits batch sizes used in candidates"""
+
+        # Configure which batch sizes we want to use
+        batch_sizes = [1, 4]
+        print(f"Batch sizes used for testing: {batch_sizes}")
+
+        # Set up optimizer with batch size restriction
+        optimizer = DLSOptimizer()
+        optimizer.set_batch_sizes(batch_sizes)
+
+        # Collect candidates to see what batch sizes are being tested
+        candidates = []
+        timeout = 60  # 60 seconds timeout
+        start_time = time.time()
+
+        for pipeline, fps in optimizer.iter_optimize_for_fps(self.simple_pipeline):
+            candidates.append((pipeline, fps))
+            print(f"Tested: {pipeline} @ {fps} FPS")
+
+            # Check timeout
+            if time.time() - start_time > timeout:
+                print(f"Timeout reached after {timeout} seconds")
+                break
+
+        elapsed_time = time.time() - start_time
+
+        # Assertions
+        self.assertGreater(len(candidates), 0, "Should test at least one candidate")
+
+        # Verify all batch-size values used in pipelines are from batch_sizes
+        for pipeline, _ in candidates:
+            batch_size_matches = re.findall(r"batch-size=(\d+)", pipeline)
+            for batch_size in batch_size_matches:
+                self.assertIn(
+                    int(batch_size),
+                    batch_sizes,
+                    f"Unexpected batch-size '{batch_size}' found in pipeline: {pipeline}"
+                )
+
+        print(f"Tested {len(candidates)} candidates in {elapsed_time:.1f}s")
+        print(f"✓ Test passed: All batch-size values found are in {batch_sizes}")
+
+    def test_set_nireq_sizes_with_iter_optimize_for_fps(self):
+        """Test that set_nireq_sizes() limits nireq sizes used in candidates"""
+
+        # Configure which nireq sizes we want to use
+        nireq_sizes = [1, 4]
+        print(f"Nireq sizes used for testing: {nireq_sizes}")
+
+        # Set up optimizer with nireq restriction
+        optimizer = DLSOptimizer()
+        optimizer.set_nireq_sizes(nireq_sizes)
+
+        # Collect candidates to see what devices are being tested
+        candidates = []
+        timeout = 60  # 60 seconds timeout
+        start_time = time.time()
+
+        for pipeline, fps in optimizer.iter_optimize_for_fps(self.simple_pipeline):
+            candidates.append((pipeline, fps))
+            print(f"Tested: {pipeline} @ {fps} FPS")
+
+            # Check timeout
+            if time.time() - start_time > timeout:
+                print(f"Timeout reached after {timeout} seconds")
+                break
+
+        elapsed_time = time.time() - start_time
+
+        # Assertions
+        self.assertGreater(len(candidates), 0, "Should test at least one candidate")
+
+        # Verify all nireq values used in pipelines are from nireq_sizes
+        for pipeline, fps in candidates:
+            nireq_size_matches = re.findall(r"nireq=(\d+)", pipeline)
+            for nireq_size in nireq_size_matches:
+                self.assertIn(
+                    int(nireq_size),
+                    nireq_sizes,
+                    f"Unexpected nireq size '{nireq_size}' found in pipeline: {pipeline}"
+                )
+
+        print(f"Tested {len(candidates)} candidates in {elapsed_time:.1f}s")
+        print(f"✓ Test passed: All nireq-size values found are in {nireq_sizes}")
 
     def test_enable_cross_stream_batching_with_iter_optimize_for_fps(self):
         """Test that enable_cross_stream_batching works and sets instance-id"""
