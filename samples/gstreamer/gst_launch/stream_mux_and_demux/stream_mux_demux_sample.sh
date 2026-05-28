@@ -13,6 +13,7 @@ DEFAULT_INPUT1="rtsp://localhost:8554/stream"
 DEFAULT_INPUT2="rtsp://localhost:8555/stream"
 DEFAULT_DEVICE="GPU"
 DEFAULT_MAX_FPS="0"
+DEFAULT_SYNC_MODE="none"
 ENABLE_DEMUX=false
 MODEL_PATH=""
 
@@ -31,6 +32,8 @@ show_usage() {
     echo "                          Default (rtsp): ${DEFAULT_INPUT2}"
     echo "      --demux             Enable gvastreamdemux for per-source output"
     echo "      --max-fps FPS       Set max-fps (for local file sources only, default: ${DEFAULT_MAX_FPS})"
+    echo "      --sync-mode MODE    PTS normalization across pads: none|first-pts|segment|pipeline|ntp"
+    echo "                          (default: ${DEFAULT_SYNC_MODE})"
     echo "  -d, --device DEVICE     Inference device: GPU, CPU, NPU (default: ${DEFAULT_DEVICE})"
     echo "  -h, --help              Show this help message"
     echo ""
@@ -47,6 +50,12 @@ show_usage() {
     echo "  # Local files with demux and debug"
     echo "  GST_DEBUG=gvastreammux:4,gvastreamdemux:4 $0 -m model.xml -s file -i v0.mp4 -j v1.mp4 --max-fps 30 --demux"
     echo ""
+    echo "  # Multiple files with different PTS bases (e.g. clips recorded at different times)"
+    echo "  $0 -m model.xml -s file -i clip1.mp4 -j clip2.mp4 --sync-mode first-pts"
+    echo ""
+    echo "  # NTP-synchronized IP cameras (rtspsrc must have add-reference-timestamp-meta=true upstream)"
+    echo "  $0 -m model.xml -s rtsp --sync-mode ntp"
+    echo ""
 }
 
 # Initialize variables
@@ -55,6 +64,7 @@ INPUT1="${DEFAULT_INPUT1}"
 INPUT2="${DEFAULT_INPUT2}"
 DEVICE="${DEFAULT_DEVICE}"
 MAX_FPS="${DEFAULT_MAX_FPS}"
+SYNC_MODE="${DEFAULT_SYNC_MODE}"
 
 # Parse command-line arguments
 while [[ $# -gt 0 ]]; do
@@ -81,6 +91,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --max-fps)
             MAX_FPS="$2"
+            shift 2
+            ;;
+        --sync-mode)
+            SYNC_MODE="$2"
             shift 2
             ;;
         -d|--device)
@@ -127,10 +141,19 @@ if [ "${ENABLE_DEMUX}" = true ]; then
     fi
 fi
 
-# Build max-fps property string
-MUX_PROPS=""
+# Validate sync-mode
+case "${SYNC_MODE}" in
+    none|first-pts|segment|pipeline|ntp) ;;
+    *)
+        echo "ERROR: Invalid --sync-mode '${SYNC_MODE}'. Allowed: none|first-pts|segment|pipeline|ntp." >&2
+        exit 1
+        ;;
+esac
+
+# Build mux property string
+MUX_PROPS="sync-mode=${SYNC_MODE}"
 if [ "${SOURCE_TYPE}" = "file" ] && [ "${MAX_FPS}" != "0" ]; then
-    MUX_PROPS="max-fps=${MAX_FPS}"
+    MUX_PROPS="${MUX_PROPS} max-fps=${MAX_FPS}"
 fi
 
 # Build source branches based on source type
@@ -163,9 +186,10 @@ else
     exit 1
 fi
 
-echo "  Model:    ${MODEL_PATH}"
-echo "  Device:   ${DEVICE}"
-echo "  Demux:    ${ENABLE_DEMUX}"
+echo "  Model:     ${MODEL_PATH}"
+echo "  Device:    ${DEVICE}"
+echo "  Demux:     ${ENABLE_DEMUX}"
+echo "  Sync mode: ${SYNC_MODE}"
 echo ""
 
 # Build inference element
