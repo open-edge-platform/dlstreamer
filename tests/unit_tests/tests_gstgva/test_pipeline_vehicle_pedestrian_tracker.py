@@ -9,7 +9,7 @@ import tempfile
 import unittest
 
 from pipeline_runner import TestPipelineRunner
-from utils import BBox, get_model_path, get_model_proc_path
+from tests_gstgva.utils import BBox, get_model_path, get_model_proc_path
 
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 PEOPLE_IMAGE_PATH = os.path.join(
