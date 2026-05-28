@@ -118,22 +118,22 @@ static void gst_gva_streammux_class_init(GstGvaStreammuxClass *klass) {
     g_object_class_install_property(
         gobject_class, PROP_PTS_TOLERANCE,
         g_param_spec_uint64("pts-tolerance", "PTS Tolerance",
-                            "Maximum PTS difference (ns) for buffers to be considered part of the same batch",
-                            0, G_MAXUINT64, DEFAULT_PTS_TOLERANCE,
+                            "Maximum PTS difference (ns) for buffers to be considered part of the same batch", 0,
+                            G_MAXUINT64, DEFAULT_PTS_TOLERANCE,
                             (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
     g_object_class_install_property(
         gobject_class, PROP_MAX_WAIT_TIME,
         g_param_spec_uint64("max-wait-time", "Max Wait Time",
-                            "Maximum time (ns) to wait for other pads after first buffer in a batch arrives",
-                            0, G_MAXUINT64, DEFAULT_MAX_WAIT_TIME,
+                            "Maximum time (ns) to wait for other pads after first buffer in a batch arrives", 0,
+                            G_MAXUINT64, DEFAULT_MAX_WAIT_TIME,
                             (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
     g_object_class_install_property(
         gobject_class, PROP_MAX_QUEUE_SIZE,
         g_param_spec_uint("max-queue-size", "Max Queue Size",
-                          "Maximum number of buffers per pad queue before blocking upstream (back-pressure)",
-                          1, G_MAXUINT, DEFAULT_MAX_QUEUE_SIZE,
+                          "Maximum number of buffers per pad queue before blocking upstream (back-pressure)", 1,
+                          G_MAXUINT, DEFAULT_MAX_QUEUE_SIZE,
                           (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
     g_object_class_install_property(
@@ -460,7 +460,8 @@ static GstStateChangeReturn gst_gva_streammux_change_state(GstElement *element, 
                 pdata->eos = FALSE;
         }
         if (mux->pad_data->len > mux->num_sink_pads) {
-            GST_WARNING_OBJECT(mux, "Sparse pad indices detected: array length=%u but only %u pads created. "
+            GST_WARNING_OBJECT(mux,
+                               "Sparse pad indices detected: array length=%u but only %u pads created. "
                                "Consider using contiguous indices (sink_0..sink_%u) for optimal performance.",
                                mux->pad_data->len, mux->num_sink_pads, mux->num_sink_pads - 1);
         }
@@ -701,8 +702,8 @@ static GstFlowReturn gst_gva_streammux_chain(GstPad *pad, GstObject *parent, Gst
     if (GST_CLOCK_TIME_IS_VALID(pts) && GST_CLOCK_TIME_IS_VALID(mux->last_pushed_batch_pts)) {
         if (pts + mux->pts_tolerance < mux->last_pushed_batch_pts) {
             GST_WARNING_OBJECT(mux,
-                               "Late frame from pad sink_%u (pts=%" GST_TIME_FORMAT " < last_batch_pts=%" GST_TIME_FORMAT
-                               "), dropping",
+                               "Late frame from pad sink_%u (pts=%" GST_TIME_FORMAT
+                               " < last_batch_pts=%" GST_TIME_FORMAT"), dropping",
                                pdata->pad_index, GST_TIME_ARGS(pts), GST_TIME_ARGS(mux->last_pushed_batch_pts));
             g_mutex_unlock(&mux->lock);
             gst_buffer_unref(buf);

@@ -171,7 +171,6 @@ static GstPad *gst_gva_streamdemux_request_new_pad(GstElement *element, GstPadTe
         return NULL;
     }
 
-
     srcpad = gst_pad_new_from_static_template(&gva_streamdemux_src_template, name);
     gst_pad_use_fixed_caps(srcpad);
     gst_element_add_pad(element, srcpad);
