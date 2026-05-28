@@ -261,29 +261,6 @@ if ($GSTREAMER_NEEDS_INSTALL) {
 		Write-Error "GStreamer installation failed with exit code: $($process.ExitCode)"
 	}
 
-	# Workaround: Copy patched gstanalytics DLL for GStreamer 1.28.2
-	if ($GSTREAMER_VERSION -eq "1.28.2") {
-		$dstDir = "$GSTREAMER_DEST_FOLDER\bin"
-		if ($useForInternalBuild) {
-			Write-Host "Copying patched gstanalytics-1.0-0.dll from internal directory"
-			$srcDll = "C:\gstreamer_replace_files\gstanalytics-1.0-0.dll"
-			if (Test-Path $srcDll) {
-				Copy-Item -Path $srcDll -Destination $dstDir -Force
-				Write-Host "Copied gstanalytics-1.0-0.dll to $dstDir"
-			}
-			else {
-				Write-Host "Warning: $srcDll not found, skipping copy"
-			}
-		}
-		else {
-			Write-Host "Downloading patched gstanalytics-1.0-0.dll from public assets"
-			$srcDll = "$DLSTREAMER_TMP\gstanalytics-1.0-0.dll"
-			Invoke-DownloadFile -Uri "https://github.com/open-edge-platform/dlstreamer/releases/download/v2026.1.0/gstanalytics-1.0-0.dll" -OutFile $srcDll
-			Copy-Item -Path $srcDll -Destination $dstDir -Force
-			Write-Host "Copied gstanalytics-1.0-0.dll to $dstDir"
-		}
-	}
-
 	# Re-read registry to get actual install location
 	$regInstallDir = (Get-ItemProperty -Path "HKLM:\SOFTWARE\GStreamer1.0\x86_64" -Name "InstallDir" -ErrorAction SilentlyContinue).InstallDir
 	if ($regInstallDir) {
@@ -293,6 +270,29 @@ if ($GSTREAMER_NEEDS_INSTALL) {
 }
 else {
 	Write-Section "GStreamer ${GSTREAMER_VERSION} already installed"
+}
+
+# Workaround: Copy patched gstanalytics DLL for GStreamer 1.28.2
+if ($GSTREAMER_VERSION -eq "1.28.2") {
+	$dstDir = "$GSTREAMER_DEST_FOLDER\bin"
+	if ($useForInternalBuild) {
+		Write-Host "Copying patched gstanalytics-1.0-0.dll from internal directory"
+		$srcDll = "C:\gstreamer_replace_files\gstanalytics-1.0-0.dll"
+		if (Test-Path $srcDll) {
+			Copy-Item -Path $srcDll -Destination $dstDir -Force
+			Write-Host "Copied gstanalytics-1.0-0.dll to $dstDir"
+		}
+		else {
+			Write-Host "Warning: $srcDll not found, skipping copy"
+		}
+	}
+	else {
+		Write-Host "Downloading patched gstanalytics-1.0-0.dll from public assets"
+		$srcDll = "$DLSTREAMER_TMP\gstanalytics-1.0-0.dll"
+		Invoke-DownloadFile -Uri "https://github.com/open-edge-platform/dlstreamer/releases/download/v2026.1.0/gstanalytics-1.0-0.dll" -OutFile $srcDll
+		Copy-Item -Path $srcDll -Destination $dstDir -Force
+		Write-Host "Copied gstanalytics-1.0-0.dll to $dstDir"
+	}
 }
 
 # ============================================================================
