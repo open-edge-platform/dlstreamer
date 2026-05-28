@@ -652,34 +652,34 @@ pipeline.get_by_name("watermark").get_static_pad("sink").add_probe(
 The following patterns cover GStreamer C/C++ application development basics applicable to both standalone apps and custom element plugins.
 
 ### Pattern 11: c/cpp: Gstreamer initialization
-https://gstreamer.freedesktop.org/documentation/application-development/basics/init.html#simple-initialization
+https://gstreamer.freedesktop.org/documentation/application-development/basics/init.html?gi-language=c
 
 ### Pattern 12: c/cpp: The GOption interface
-https://gstreamer.freedesktop.org/documentation/application-development/basics/init.html#the-goption-interface
+https://gstreamer.freedesktop.org/documentation/application-development/basics/init.html?gi-language=c
 
 ### Pattern 13: c/cpp: Creating a GstElement
-https://gstreamer.freedesktop.org/documentation/application-development/basics/elements.html#creating-a-gstelement
+https://gstreamer.freedesktop.org/documentation/application-development/basics/elements.html?gi-language=c
 
 ### Pattern 14: c/cpp: Using an element as a GObject
-https://gstreamer.freedesktop.org/documentation/application-development/basics/elements.html#using-an-element-as-a-gobject
+https://gstreamer.freedesktop.org/documentation/application-development/basics/elements.html?gi-language=c
 
 ### Pattern 15: c/cpp: Getting information about an element using a factory
-https://gstreamer.freedesktop.org/documentation/application-development/basics/elements.html#getting-information-about-an-element-using-a-factory
+https://gstreamer.freedesktop.org/documentation/application-development/basics/elements.html?gi-language=c
 
 ### Pattern 16: c/cpp: Creating a bin
-https://gstreamer.freedesktop.org/documentation/application-development/basics/bins.html#creating-a-bin
+https://gstreamer.freedesktop.org/documentation/application-development/basics/bins.html?gi-language=c
 
 ### Pattern 17: c/cpp: Custom bin
-https://gstreamer.freedesktop.org/documentation/application-development/basics/bins.html#custom-bins
+https://gstreamer.freedesktop.org/documentation/application-development/basics/bins.html?gi-language=c
 
 ### Pattern 18: c/cpp: How to use a bus
-https://gstreamer.freedesktop.org/documentation/application-development/basics/bus.html#how-to-use-a-bus
+https://gstreamer.freedesktop.org/documentation/application-development/basics/bus.html?gi-language=c
 
 ### Pattern 19: c/cpp: Pads and capabilities
-https://gstreamer.freedesktop.org/documentation/application-development/basics/pads.html#pads-and-capabilities
+https://gstreamer.freedesktop.org/documentation/application-development/basics/pads.html?gi-language=c
 
 ### Pattern 20: c/cpp: Buffers and events
-https://gstreamer.freedesktop.org/documentation/application-development/basics/data.html#buffers-and-events
+https://gstreamer.freedesktop.org/documentation/application-development/basics/data.html?gi-language=c
 
 ### Patterns 21: c/cpp: Sample application
-https://gstreamer.freedesktop.org/documentation/application-development/basics/helloworld.html#your-first-application
+https://gstreamer.freedesktop.org/documentation/application-development/basics/helloworld.html?gi-language=c

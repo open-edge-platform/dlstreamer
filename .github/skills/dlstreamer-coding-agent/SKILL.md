@@ -8,9 +8,6 @@ argument-hint: "Describe the vision AI pipeline you want to build (e.g. 'detect 
 
 Build new DL Streamer video-analytics applications (Python, C, C++ or GStreamer command line) by composing design patterns extracted from existing sample apps.
 
-> **Language rule:** Default output language (code comments, README, responses) is **English**
-> unless the user explicitly requests a different language in their prompt.
-
 NOTE: This feature is in PREVIEW stage — expect some rough edges and missing features, and please share your feedback to help us improve it!
 
 ## When to Use
@@ -108,16 +105,10 @@ Extract the following from the user's prompt:
 | **Application type** | Python app, C/C++ app, or GStreamer command line | Must match the programming language of the input application (C/C++ → C/C++, Python → Python, shell → GStreamer command line) |
 | **Docker image** | DL Streamer Docker tag | Latest Ubuntu 24 tag (auto-fetched) |
 
-> **Application type override:** If the user's prompt contains explicit language like
-> "bash script", "shell script", "gst-launch", or "command line", "C", "C++, set **Application type**
-> to `GStreamer command line` regardless of the default. 
-
-> ** Conversion language rule (MANDATORY):** When converting an existing application,
-> the output **MUST** match the source language (C++ → C++, Python → Python,
-> shell/gst-launch → GStreamer command line). This is **NOT** a suggestion — it is a hard requirement.
-> Inspect the source file extensions (`.py`, `.cpp`, `.c`, `.sh`) to determine the original language.
-> **If the source is C/C++, do NOT generate Python. Generate C/C++ using GStreamer C API.**
-> Only deviate if the user **explicitly** writes "convert to Python" or similar.
+ **Application type override:** If the user's prompt contains explicit language like
+> "bash script", "shell script", "gst-launch", or "command line", set **Application type**
+> to `GStreamer command line` regardless of the default. Only default to `Python application`
+> when the prompt does not indicate a preference.
 
 **If the user's prompt explicitly provides all required info** (video input AND model names
 are explicitly stated, not inferred), proceed directly to Step 1.
@@ -251,15 +242,14 @@ For a **Python application**, map the user's description to one or more design p
 Generate all application files following the directory layout defined at the beginning of this document.
 
 **Language-specific generation:**
+  
+  **C/C++ applications:**: Use the [Application Template](./assets/cpp-app-template.cpp) as the
+  starting skeleton. Read the [Design Patterns Reference](./references/design-patterns.md) for
+  coding conventions and application structure.
 
-- **C/C++ applications:** Use the [Application Template](./assets/cpp-app-template.cpp) as the starting skeleton. Follow the
-  standard GStreamer C API (`gst_element_factory_make`, `gst_bin_add_many`, `gst_element_link_many`, pad probes, bus watch).
-  Generate a `CMakeLists.txt` or `Makefile` for building. DL Streamer elements are standard GStreamer plugins — use them from C/C++ exactly as you would any other GStreamer element (via `gst_element_factory_make`, property setters, etc.). Include a model export script
-  (`export_models.sh`) as a separate helper.
 - **Python applications**: Use the [Application Template](./assets/python-app-template.py) as the
   starting skeleton. Read the [Design Patterns Reference](./references/design-patterns.md) for
   coding conventions and application structure.
-- **GStreamer command line**: Wrap the pipeline string in a shell script.
 
 For all languages:
 - Use the [README Template](./assets/README-template.md) to generate `README.md` — replace `{{PLACEHOLDERS}}` with application-specific content and remove HTML comments.
