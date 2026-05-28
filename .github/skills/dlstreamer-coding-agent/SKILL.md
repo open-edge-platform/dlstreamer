@@ -120,15 +120,11 @@ in chat. Do NOT silently assume defaults and skip confirmation.
 
 Start the Docker image pull in an **async terminal** immediately after Step 0 completes.
 
-**Always pull the latest weekly build.** During PREVIEW, the latest weekly
-image may contain critical bug fixes not present in older images. Do NOT reuse a
-locally cached image without pulling first.
+**Always pull the latest available image** 
+Do NOT reuse a locally cached image without pulling first.
 
 ```bash
-WEEKLY_TAG=$(curl -s "https://hub.docker.com/v2/repositories/intel/dlstreamer/tags?name=weekly-ubuntu24&page_size=25&ordering=-last_updated" \
-    | python3 -c "import sys,json; print(sorted([r['name'] for r in json.load(sys.stdin)['results']])[-1])")
-echo "Latest weekly tag: $WEEKLY_TAG"
-docker pull "intel/dlstreamer:${WEEKLY_TAG}"
+docker pull intel/dlstreamer:latest
 ```
 
 ### Step 2 — Prepare Models and Video (async)
@@ -254,7 +250,7 @@ docker run --init --rm \
     --group-add $(stat -c "%g" /dev/dri/render*) \
     --device /dev/accel \
     --group-add $(stat -c "%g" /dev/accel/accel*) \
-    intel/dlstreamer:<WEEKLY_TAG> \
+    intel/dlstreamer:latest \
     python3 <app_name>.py
 ```
 
