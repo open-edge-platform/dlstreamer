@@ -97,7 +97,7 @@ Selects a preset that controls optimization aggressiveness and runtime.
 
 
 >**Note**\
->When `--optimization-profile` is `coarse` or `fine`, the tool uses profile-specific values for search configuration. In these profiles, user-provided `--batch-sizes`, `--nireq-sizes`, and timing flags may be overridden by the selected preset.
+>When `--optimization-profile` is `coarse` or `fine`, the tool uses profile-specific values for search configuration. In these profiles, user-provided `--batch-sizes`, `--nireq-sizes`, and timing flags are being overridden by the selected preset.
 
 **`log-level`** default: `INFO` \
 Available **log levels** are: CRITICAL, FATAL, ERROR, WARN, INFO, DEBUG.
