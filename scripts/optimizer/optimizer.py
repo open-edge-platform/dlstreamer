@@ -1,3 +1,4 @@
+# pylint: disable=missing-module-docstring
 # ==============================================================================
 # Copyright (C) 2025-2026 Intel Corporation
 #
@@ -11,7 +12,10 @@ import re
 import warnings
 
 from preprocess import preprocess_pipeline
-from processors.inference import DeviceGenerator, BatchGenerator, NireqGenerator, add_instance_ids
+from processors.device import DeviceGenerator
+from processors.batch import BatchGenerator
+from processors.nireq import NireqGenerator
+from processors.utils import add_instance_ids
 
 import gi
 gi.require_version("Gst", "1.0")
@@ -61,25 +65,31 @@ class DLSOptimizer:
             "nireq": NireqGenerator()
         }
 
-    def get_baseline_pipeline(self):
+    def get_baseline_pipeline(self): # pylint: disable=missing-function-docstring
         return "!".join(self._initial_pipeline), self._initial_fps, SINGLE_STREAM
 
-    def get_optimal_pipeline(self):
+    def get_optimal_pipeline(self): # pylint: disable=missing-function-docstring
         return "!".join(self._optimal_pipeline), self._optimal_fps, self._optimal_streams
 
     def enable_cross_stream_batching(self, enable): # pylint: disable=missing-function-docstring
         self._enable_cross_stream_batching = enable
 
-    def set_sample_duration(self, duration):
+    def set_sample_duration(self, duration): # pylint: disable=missing-function-docstring
         self._sample_duration = duration
 
-    def set_multistream_fps_limit(self, limit):
+    def set_multistream_fps_limit(self, limit): # pylint: disable=missing-function-docstring
         self._multistream_fps_limit = limit
 
-    def set_allowed_devices(self, devices):
+    def set_allowed_devices(self, devices): # pylint: disable=missing-function-docstring
         self._generators["device"].set_allowed_devices(devices)
 
-    def set_detections_error_threshold(self, threshold):
+    def set_batch_sizes(self, sizes): # pylint: disable=missing-function-docstring
+        self._generators["batch"].set_batch_sizes(sizes)
+
+    def set_nireq_sizes(self, sizes): # pylint: disable=missing-function-docstring
+        self._generators["nireq"].set_nireq_sizes(sizes)
+
+    def set_detections_error_threshold(self, threshold): # pylint: disable=missing-function-docstring
         self._detections_error_threshold = threshold
 
     # deprecated
