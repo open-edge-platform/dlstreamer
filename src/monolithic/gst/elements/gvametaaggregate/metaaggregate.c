@@ -11,9 +11,9 @@
 #include "gst/gstclock.h"
 #include "gst/gstinfo.h"
 #include "utils.h"
+#include <gst/analytics/gstanalyticsgroupmtd.h>
+#include <gst/analytics/gstanalyticskeypointmtd.h>
 #include <gst/gst.h>
-#include <gstanalyticsgroupmtd.h>
-#include <gstanalyticskeypointmtd.h>
 
 gboolean buffer_attach_roi_meta_from_sink_pad(GstBuffer *buf, const GstVideoInfo *src_pad_video_info,
                                               GstGvaMetaAggregatePad *sink_pad);
@@ -148,31 +148,30 @@ gboolean copy_one_gst_analytics_mtd(GstAnalyticsRelationMeta *dst, const GstAnal
             return FALSE;
         }
 
-        // Copy semantic tag
-        gchar *tag = gst_analytics_group_mtd_get_semantic_tag(src_group);
-        if (tag && tag[0] != '\0') {
-            gst_analytics_group_mtd_set_semantic_tag(&dst_group, tag);
-        }
-        g_free(tag);
-
         // Iterate all members and copy them using generic copy
         gpointer member_state = NULL;
         GstAnalyticsMtd src_member;
         while (gst_analytics_group_mtd_iterate(src_group, &member_state, GST_ANALYTICS_MTD_TYPE_ANY, &src_member)) {
             GstAnalyticsMtd new_member;
-            if (!copy_one_gst_analytics_mtd(dst, &src_member, &new_member, scale_x, scale_y, id_map)) {
-                GST_ERROR("Failed to copy group member (id=%u)", src_member.id);
-                return FALSE;
+            gpointer existing_id;
+
+            // If member was already copied (shared between groups), reuse its id
+            if (id_map && g_hash_table_lookup_extended(id_map, GUINT_TO_POINTER(src_member.id), NULL, &existing_id)) {
+                new_member.id = GPOINTER_TO_UINT(existing_id);
+                new_member.meta = dst;
+            } else {
+                if (!copy_one_gst_analytics_mtd(dst, &src_member, &new_member, scale_x, scale_y, id_map)) {
+                    GST_ERROR("Failed to copy group member (id=%u)", src_member.id);
+                    return FALSE;
+                }
+                if (id_map) {
+                    g_hash_table_insert(id_map, GUINT_TO_POINTER(src_member.id), GUINT_TO_POINTER(new_member.id));
+                }
             }
 
             if (!gst_analytics_group_mtd_add_member(&dst_group, new_member.id)) {
                 GST_ERROR("Failed to add member to group");
                 return FALSE;
-            }
-
-            // Store member id mapping for relation copying
-            if (id_map) {
-                g_hash_table_insert(id_map, GUINT_TO_POINTER(src_member.id), GUINT_TO_POINTER(new_member.id));
             }
         }
 
@@ -223,6 +222,14 @@ gboolean copy_one_gst_analytics_mtd(GstAnalyticsRelationMeta *dst, const GstAnal
         GST_WARNING("Unknown analytics mtd type, skipping");
         return FALSE;
     }
+
+    // Copy semantic tag (generic for all mtd types)
+    gchar *tag = gst_analytics_mtd_get_semantic_tag(mtd);
+    if (tag && tag[0] != '\0') {
+        gst_analytics_mtd_set_semantic_tag(new_mtd, tag);
+    }
+    g_free(tag);
+
     return TRUE;
 }
 
@@ -286,8 +293,8 @@ gboolean copy_all_gst_analytics_mtd(GstAnalyticsRelationMeta *src, GstAnalyticsR
         GstAnalyticsMtd rlt_mtd;
         while (gst_analytics_relation_meta_get_direct_related(src, orig_id, GST_ANALYTICS_REL_TYPE_ANY,
                                                               GST_ANALYTICS_MTD_TYPE_ANY, &state, &rlt_mtd)) {
-            gpointer related_new_id = g_hash_table_lookup(id_map, GUINT_TO_POINTER(rlt_mtd.id));
-            if (!related_new_id) {
+            gpointer related_new_id_ptr;
+            if (!g_hash_table_lookup_extended(id_map, GUINT_TO_POINTER(rlt_mtd.id), NULL, &related_new_id_ptr)) {
                 GST_DEBUG("Skipping relation for mtd id %u (e.g. tracking mtd not copied)", rlt_mtd.id);
                 continue;
             }
@@ -295,9 +302,9 @@ gboolean copy_all_gst_analytics_mtd(GstAnalyticsRelationMeta *src, GstAnalyticsR
             GstAnalyticsRelTypes rel_type = gst_analytics_relation_meta_get_relation(src, orig_id, rlt_mtd.id);
 
             if (!gst_analytics_relation_meta_set_relation(dst, rel_type, new_id_val,
-                                                          GPOINTER_TO_UINT(related_new_id))) {
+                                                          GPOINTER_TO_UINT(related_new_id_ptr))) {
                 GST_ERROR("Failed to set relation between mtd ids %u and %u", new_id_val,
-                          GPOINTER_TO_UINT(related_new_id));
+                          GPOINTER_TO_UINT(related_new_id_ptr));
                 g_hash_table_destroy(group_member_ids);
                 return FALSE;
             }

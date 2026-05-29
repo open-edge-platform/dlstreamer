@@ -6,6 +6,7 @@
 # ==============================================================================
 param(
 	[switch]$useInternalProxy,
+	[switch]$useForInternalBuild,
 	[switch]$buildInstaller,
 	[switch]$installerSkipCompression,
 	[string]$installerCodeSignScript,
@@ -19,6 +20,10 @@ $PYTHON_VERSION = "3.12.7"
 $OPENVINO_DEST_FOLDER = "$env:LOCALAPPDATA\Programs\openvino"
 $GSTREAMER_DEST_FOLDER = "$env:ProgramFiles\gstreamer\1.0\msvc_x86_64"
 $DLSTREAMER_TMP = "$env:TEMP\dlstreamer_tmp"
+$DLSTREAMER_SRC_LOCATION = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot ".."))
+$GSTANALYTICS_PATCH_SCRIPT = Join-Path $DLSTREAMER_SRC_LOCATION "dependencies\windows\install_gstanalytics_patch.ps1"
+$GSTANALYTICS_BUILD_SCRIPT = Join-Path $DLSTREAMER_SRC_LOCATION "dependencies\windows\build_gstanalytics_zip.ps1"
+$GSTANALYTICS_ZIP          = Join-Path $DLSTREAMER_SRC_LOCATION "dependencies\windows\gstanalytics.zip"
 
 if ($useInternalProxy) {
 	$env:HTTP_PROXY = "http://proxy-dmz.intel.com:911"
@@ -86,6 +91,8 @@ function Invoke-DownloadFile {
 }
 
 function Uninstall-GStreamer {
+	$installDir = (Get-ItemProperty -Path "HKLM:\SOFTWARE\GStreamer1.0\x86_64" -Name "InstallDir" -ErrorAction SilentlyContinue).InstallDir
+
 	# Check if this is an Inno installation (GStreamer 1.28+)
 	$innoUninstallKey = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\c20a66dc-b249-4e6d-a68a-d0f836b2b3cf_is1"
 	$quietUninstall = (Get-ItemProperty -Path $innoUninstallKey -Name "QuietUninstallString" -ErrorAction SilentlyContinue).QuietUninstallString
@@ -127,6 +134,12 @@ function Uninstall-GStreamer {
 		catch {
 			Write-Host "Error during MSI uninstall: $_"
 		}
+	}
+
+	# Remove install folder if anything is left over
+	if ($installDir -and (Test-Path $installDir)) {
+		Remove-Item -LiteralPath $installDir -Recurse -Force -ErrorAction SilentlyContinue
+		Write-Host "Removed GStreamer install folder: $installDir"
 	}
 }
 
@@ -260,19 +273,6 @@ if ($GSTREAMER_NEEDS_INSTALL) {
 		Write-Error "GStreamer installation failed with exit code: $($process.ExitCode)"
 	}
 
-	# Workaround: Copy patched gstanalytics DLL for GStreamer 1.28.2
-	if ($GSTREAMER_VERSION -eq "1.28.2") {
-		$srcDll = Join-Path $PWD.Path "dependencies\windows\gstanalytics-1.0-0.dll"
-		$dstDir = "$GSTREAMER_DEST_FOLDER\bin"
-		if (Test-Path $srcDll) {
-			Copy-Item -Path $srcDll -Destination $dstDir -Force
-			Write-Host "Copied gstanalytics-1.0-0.dll to $dstDir"
-		}
-		else {
-			Write-Host "Warning: $srcDll not found, skipping copy"
-		}
-	}
-
 	# Re-read registry to get actual install location
 	$regInstallDir = (Get-ItemProperty -Path "HKLM:\SOFTWARE\GStreamer1.0\x86_64" -Name "InstallDir" -ErrorAction SilentlyContinue).InstallDir
 	if ($regInstallDir) {
@@ -282,6 +282,40 @@ if ($GSTREAMER_NEEDS_INSTALL) {
 }
 else {
 	Write-Section "GStreamer ${GSTREAMER_VERSION} already installed"
+}
+
+# Workaround: Copy patched gstanalytics DLL for GStreamer 1.28.2
+if ($GSTREAMER_VERSION -eq "1.28.2") {
+	$dstGstBin = "$GSTREAMER_DEST_FOLDER\bin"
+	$dstDepsDir = Join-Path $PWD.Path "dependencies\windows"
+	if ($useForInternalBuild) {
+		Write-Host "Copying patched gstanalytics-1.0-0.dll from internal directory"
+		$srcDll = "C:\gstreamer_replace_files\gstanalytics-1.0-0.dll"
+		if (Test-Path $srcDll) {
+			Copy-Item -Path $srcDll -Destination $dstGstBin -Force
+			Write-Host "Copied gstanalytics-1.0-0.dll to $dstGstBin"
+			if ($buildInstaller) {
+				if (-Not (Test-Path $dstDepsDir)) { New-Item -ItemType Directory -Path $dstDepsDir -Force | Out-Null }
+				Copy-Item -Path $srcDll -Destination $dstDepsDir -Force
+				Write-Host "Copied gstanalytics-1.0-0.dll to $dstDepsDir"
+			}
+		}
+		else {
+			Write-Host "Warning: $srcDll not found, skipping copy"
+		}
+	}
+	else {
+		Write-Host "Downloading patched gstanalytics-1.0-0.dll from public assets"
+		$srcDll = "$DLSTREAMER_TMP\gstanalytics-1.0-0.dll"
+		Invoke-DownloadFile -Uri "https://github.com/open-edge-platform/dlstreamer/releases/download/v2026.1.0/gstanalytics-1.0-0.dll" -OutFile $srcDll
+		Copy-Item -Path $srcDll -Destination $dstGstBin -Force
+		Write-Host "Copied gstanalytics-1.0-0.dll to $dstGstBin"
+		if ($buildInstaller) {
+			if (-Not (Test-Path $dstDepsDir)) { New-Item -ItemType Directory -Path $dstDepsDir -Force | Out-Null }
+			Copy-Item -Path $srcDll -Destination $dstDepsDir -Force
+			Write-Host "Copied gstanalytics-1.0-0.dll to $dstDepsDir"
+		}
+	}
 }
 
 # ============================================================================
@@ -459,7 +493,6 @@ if ($userPath -split ';' -notcontains $GSTREAMER_BIN) {
 }
 
 Update-Path
-$DLSTREAMER_SRC_LOCATION = $PWD.Path
 setx PKG_CONFIG_PATH "$GSTREAMER_DEST_FOLDER\lib\pkgconfig"
 $env:PKG_CONFIG_PATH = "$GSTREAMER_DEST_FOLDER\lib\pkgconfig"
 # Setup OpenVINO environment variables
@@ -469,6 +502,29 @@ $env:MSBUILDDISABLENODEREUSE = 1
 $env:UseMultiToolTask = "true"
 $VSDEVSHELL = Join-Path $vsPath "Common7\Tools\Launch-VsDevShell.ps1"
 & $VSDEVSHELL -Arch amd64
+Write-Section "Done"
+
+# ============================================================================
+# gstanalytics patch (build + install)
+# ============================================================================
+Write-Section "Building gstanalytics zip"
+& powershell -ExecutionPolicy Bypass -File $GSTANALYTICS_BUILD_SCRIPT `
+	-GStreamerVersion $GSTREAMER_VERSION `
+	-GStreamerDir     $GSTREAMER_DEST_FOLDER `
+	-OutputZip        $GSTANALYTICS_ZIP | Out-Host
+if ($LASTEXITCODE -ne 0) {
+	Write-Error "gstanalytics build failed with exit code: $LASTEXITCODE"
+}
+
+& powershell -ExecutionPolicy Bypass -File $GSTANALYTICS_PATCH_SCRIPT `
+	-Mode Check -GStreamerDir $GSTREAMER_DEST_FOLDER | Out-Host
+if ($LASTEXITCODE -ne 0) {
+	& powershell -ExecutionPolicy Bypass -File $GSTANALYTICS_PATCH_SCRIPT `
+		-Mode Install -GStreamerDir $GSTREAMER_DEST_FOLDER | Out-Host
+	if ($LASTEXITCODE -ne 0) {
+		Write-Error "gstanalytics patch installation failed with exit code: $LASTEXITCODE"
+	}
+}
 Write-Section "Done"
 
 # ============================================================================
