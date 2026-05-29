@@ -661,6 +661,8 @@ GstStructure *createDepthLabelStructure(const GVA::Tensor &source_tensor, gint r
     GstStructure *label_structure = gst_structure_new_empty(source_tensor.name().c_str());
     GVA::Tensor label_tensor(label_structure);
     label_tensor.set_string("label", depth_converter::formatLabel(metrics.mean));
+    label_tensor.set_confidence(1.0);
+    label_tensor.set_type(GVA::GST_ANALYTICS_CLS_2_TENSOR);
     label_tensor.set_int("tensor_id", roi_id);
 
     if (source_tensor.has_field("layer_name")) {

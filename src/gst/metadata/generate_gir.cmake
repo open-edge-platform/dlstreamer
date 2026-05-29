@@ -42,16 +42,12 @@ if(GENERATE_GIR_FROM_SOURCE)
 
     # Source and header files
     set(KEYPOINTS_SOURCES
-        "${CMAKE_CURRENT_SOURCE_DIR}/gstanalyticskeypointmtd.c"
-        "${CMAKE_CURRENT_SOURCE_DIR}/gstanalyticsgroupmtd.c"
         "${CMAKE_CURRENT_SOURCE_DIR}/gstanalyticskeypointdescriptor.c"
         "${CMAKE_CURRENT_SOURCE_DIR}/gva_zone_meta.c"
         "${CMAKE_CURRENT_SOURCE_DIR}/gva_tripwire_meta.c"
     )
 
     set(KEYPOINTS_HEADERS
-        "${CMAKE_SOURCE_DIR}/include/dlstreamer/gst/metadata/gstanalyticskeypointmtd.h"
-        "${CMAKE_SOURCE_DIR}/include/dlstreamer/gst/metadata/gstanalyticsgroupmtd.h"
         "${CMAKE_SOURCE_DIR}/include/dlstreamer/gst/metadata/gstanalyticskeypointdescriptor.h"
         "${CMAKE_SOURCE_DIR}/include/dlstreamer/gst/metadata/gva_zone_meta.h"
         "${CMAKE_SOURCE_DIR}/include/dlstreamer/gst/metadata/gva_tripwire_meta.h"

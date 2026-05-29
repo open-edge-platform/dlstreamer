@@ -59,6 +59,7 @@ class TensorToROIAttacher : public MetaAttacher {
 class FrameToExistingROIsTensorAttacher : public MetaAttacher {
   private:
     GstVideoRegionOfInterestMeta *findROIMeta(GstBuffer *buffer, gint roi_id);
+    bool findODMeta(GstBuffer *buffer, gint roi_id, GstAnalyticsODMtd *od_mtd);
 
   public:
     FrameToExistingROIsTensorAttacher() = default;
