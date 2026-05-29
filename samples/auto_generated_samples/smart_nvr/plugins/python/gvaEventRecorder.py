@@ -16,7 +16,7 @@ import gi
 gi.require_version("Gst", "1.0")
 gi.require_version("GstApp", "1.0")
 gi.require_version("GstAnalytics", "1.0")
-from gi.repository import Gst, GObject, GLib, GstApp, GstAnalytics
+from gi.repository import Gst, GObject, GLib, GstApp, GstAnalytics  # pylint: disable=no-name-in-module
 Gst.init_python()
 
 
