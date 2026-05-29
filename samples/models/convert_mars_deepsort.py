@@ -22,9 +22,11 @@
 
 import argparse
 import logging
+import shutil
 import urllib.request
 import sys
 from pathlib import Path
+from urllib.parse import urlparse
 import numpy as np
 import torch
 import openvino as ov
@@ -35,6 +37,15 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger(__name__)
 
 
+def _download_https(url: str, destination: Path, allowed_hosts: set[str]) -> None:
+    """Stream an HTTPS URL to ``destination``; rejects non-allowlisted hosts."""
+    parsed = urlparse(url)
+    if parsed.scheme != "https" or parsed.hostname not in allowed_hosts:
+        raise ValueError(f"Refusing non-allowlisted URL: {url}")
+    with urllib.request.build_opener().open(url) as response, open(destination, "wb") as output:
+        shutil.copyfileobj(response, output)
+
+
 def download_model_py():
     """Download official model.py from deep_sort_pytorch repository."""
     model_py_url = 'https://raw.githubusercontent.com/ZQPei/deep_sort_pytorch/master/deep_sort/deep/model.py'
@@ -42,7 +53,7 @@ def download_model_py():
 
     logger.info(f"📥 Downloading model.py from deep_sort_pytorch repository...")
     try:
-        urllib.request.urlretrieve(model_py_url, model_py_path)
+        _download_https(model_py_url, model_py_path, {"raw.githubusercontent.com"})
         logger.info(f"✅ Downloaded model.py")
     except Exception as e:
         logger.error(f"❌ Failed to download model.py: {e}")
@@ -131,7 +142,7 @@ class MarsDeepSORTConverter:
 
         logger.info(f"📥 Downloading checkpoint from Google Drive...")
         try:
-            urllib.request.urlretrieve(checkpoint_url, checkpoint_path)
+            _download_https(checkpoint_url, checkpoint_path, {"drive.google.com"})
         except Exception as e:
             logger.error(f"❌ Failed to download checkpoint: {e}")
             sys.exit(1)
@@ -149,7 +160,11 @@ class MarsDeepSORTConverter:
         model = NetOriginal(reid=True)
 
         # Load checkpoint
-        checkpoint = torch.load(checkpoint_path, map_location='cpu', weights_only=False)
+        try:
+            checkpoint = torch.load(checkpoint_path, map_location='cpu', weights_only=True)
+        except (RuntimeError, EOFError, TypeError):
+            # Legacy .t7 checkpoints can't be loaded with weights_only=True.
+            checkpoint = torch.load(checkpoint_path, map_location='cpu', weights_only=False)  # nosec B614
 
         if 'net_dict' in checkpoint:
             model.load_state_dict(checkpoint['net_dict'])

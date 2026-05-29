@@ -17,12 +17,14 @@ Builds a pipeline that:
 
 import argparse
 import os
+import shutil
 import signal
 import subprocess
 import sys
 import time
 import urllib.request
 from pathlib import Path
+from urllib.parse import urlparse
 
 import gi
 
@@ -156,6 +158,15 @@ DEFAULT_VIDEO_URL = (
     "https://www.pexels.com/download/video/35256160"
 )
 
+
+def _download_https(url: str, destination: Path, allowed_hosts: set[str]) -> None:
+    """Stream an HTTPS URL to ``destination``; rejects non-allowlisted hosts."""
+    parsed = urlparse(url)
+    if parsed.scheme != "https" or parsed.hostname not in allowed_hosts:
+        raise ValueError(f"Refusing non-allowlisted URL: {url}")
+    with urllib.request.build_opener().open(url, timeout=60) as response, open(destination, "wb") as fh:
+        shutil.copyfileobj(response, fh)
+
 def download_video(video_url: str) -> Path:
     """Return a local video path, downloading from URL if needed."""
     VIDEOS_DIR.mkdir(parents=True, exist_ok=True)
@@ -165,13 +176,7 @@ def download_video(video_url: str) -> Path:
 
     local_path = VIDEOS_DIR / filename
     if not local_path.exists():
-        request = urllib.request.Request(video_url, headers={"User-Agent": "Mozilla/5.0"})
-        with urllib.request.urlopen(request, timeout=60) as response:
-            data = response.read()
-            if not data:
-                raise RuntimeError("Video download returned empty response")
-            with open(local_path, "wb") as fh:
-                fh.write(data)
+        _download_https(video_url, local_path, {"www.pexels.com"})
 
     return local_path.resolve()
 

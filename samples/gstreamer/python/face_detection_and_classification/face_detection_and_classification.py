@@ -5,8 +5,10 @@
 # ==============================================================================
 import sys
 import os
+import shutil
 import subprocess
 import urllib.request
+from urllib.parse import urlparse
 
 from huggingface_hub import hf_hub_download
 from ultralytics import YOLO
@@ -17,6 +19,18 @@ gi.require_version("Gst", "1.0")
 gi.require_version("GstAnalytics", "1.0")
 # pylint: disable-next=no-name-in-module, wrong-import-position
 from gi.repository import Gst
+
+DEFAULT_VIDEO_URL = "https://videos.pexels.com/video-files/18553046/18553046-hd_1280_720_30fps.mp4"
+YOLO_FACE_MODEL_REVISION = "52fa54977207fa4f021de949b515fb19dcab4488"
+
+
+def _download_https(url, destination, allowed_hosts):
+    """Stream an HTTPS URL to ``destination``; rejects non-allowlisted hosts."""
+    parsed = urlparse(url)
+    if parsed.scheme != "https" or parsed.hostname not in allowed_hosts:
+        raise ValueError(f"Refusing non-allowlisted URL: {url}")
+    with urllib.request.build_opener().open(url) as response, open(destination, "wb") as output:
+        shutil.copyfileobj(response, output)
 
 
 def get_runtime_dir():
@@ -39,18 +53,10 @@ def prepare_input_video(args):
             sys.stderr.write("Input video file does not exist\n")
             sys.exit(1)
     else:
-        default_video_url = "https://videos.pexels.com/video-files/18553046/18553046-hd_1280_720_30fps.mp4"
         input_video = os.path.join(runtime_dir, "default_video.mp4")
         if not os.path.isfile(input_video):
             print("\nNo input provided. Downloading default video...\n")
-            request = urllib.request.Request(
-                default_video_url,
-                headers={"User-Agent": "Mozilla/5.0"},
-            )
-            with urllib.request.urlopen(request) as response, open(
-                input_video, "wb"
-            ) as output:
-                output.write(response.read())
+            _download_https(DEFAULT_VIDEO_URL, input_video, {"videos.pexels.com"})
 
     return input_video
 
@@ -96,6 +102,7 @@ def main(input_video):
             repo_id="arnabdhar/YOLOv8-Face-Detection",
             filename="model.pt",
             local_dir=runtime_dir,
+            revision=YOLO_FACE_MODEL_REVISION,
         )
 
         model = YOLO(str(model_path))
