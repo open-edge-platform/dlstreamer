@@ -135,6 +135,8 @@ python download_timm_models.py import \
 
 Existing TIMM exports in the target folder are replaced only after the exported
 OpenVINO IR has been read and re-saved successfully.
+The helper resolves the current immutable Hugging Face commit SHA before
+downloading auxiliary files such as ``config.json``.
 
 ### Precisions
 
