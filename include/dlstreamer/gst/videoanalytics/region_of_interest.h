@@ -260,6 +260,14 @@ class RegionOfInterest {
                 return 0;
             }
 
+            // Verify this is actually a class descriptor by checking semantic tag
+            gchar *desc_tag =
+                gst_analytics_mtd_get_semantic_tag(reinterpret_cast<GstAnalyticsMtd *>(&cls_descriptor_mtd));
+            bool is_descriptor = desc_tag && strcmp(desc_tag, "class_descriptor") == 0;
+            g_free(desc_tag);
+            if (!is_descriptor)
+                return 0;
+
             gint label_id = gst_analytics_cls_mtd_get_index_by_quark(&cls_descriptor_mtd, label);
             if (label_id < 0) {
                 throw std::runtime_error("Error when trying to read the label id of the RegionOfInterest");
