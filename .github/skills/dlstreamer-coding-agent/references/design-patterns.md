@@ -1,6 +1,6 @@
 # Design Patterns Reference
 
-Design patterns for building Python snd C++ sample applications.
+Design patterns for building Python and C++ sample applications.
 
 
 ## Python reference patterns
