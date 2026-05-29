@@ -223,8 +223,69 @@ def _parse_json_event(payload: dict, topic: str) -> Optional[dict]:
     timestamp = payload.get("timestamp", time.strftime(
         "%Y-%m-%dT%H:%M:%SZ", time.gmtime()))
 
-    # Motion events
-    is_motion = str(data.get("IsMotion", data.get("active", ""))).lower()
+    # ── Axis ObjectAnalytics count format ───────────────────────
+    # data: {"reason": "human", "total": "3", "totalHuman": "3",
+    #        "totalCar": "0", ...}
+    # Extract per-class counts from the "total<Class>" fields.
+    reason = data.get("reason", "")
+    total_str = data.get("total", "")
+    if reason and total_str:
+        total = int(total_str) if total_str.isdigit() else 0
+        if total == 0:
+            return None  # nothing detected this cycle
+
+        # Build class counts from individual total<Class> fields
+        _axis_class_keys = {
+            "totalHuman": "human", "totalCar": "car",
+            "totalTruck": "truck", "totalBus": "bus",
+            "totalBike": "bike", "totalOtherVehicle": "otherVehicle",
+            "totalMotorcycle/bicycle": "bike",
+        }
+        class_counts = {}
+        objects = []
+        for key, cls in _axis_class_keys.items():
+            val = data.get(key, "0")
+            cnt = int(val) if val.isdigit() else 0
+            if cnt > 0:
+                class_counts[cls] = class_counts.get(cls, 0) + cnt
+                for _ in range(cnt):
+                    objects.append({"type": cls, "confidence": 0.0})
+
+        # Fallback: if no total* fields matched, use reason + total
+        if not class_counts:
+            class_counts = {reason: total}
+            objects = [{"type": reason, "confidence": 0.0}] * total
+
+        return {
+            "source": "mqtt_json", "topic": topic,
+            "timestamp": timestamp,
+            "objectCount": sum(class_counts.values()),
+            "classCounts": class_counts,
+            "objects": objects,
+        }
+
+    # ── Axis ObjectAnalytics per-object format ────────────────────
+    # data: {"active": "1", "classTypes": "human", "objectId": "42"}
+    obj_type = (data.get("ObjectType")
+                or data.get("Type")
+                or data.get("classTypes")
+                or "")
+    is_active = str(data.get("active", data.get("IsInside", "true"))).lower()
+    if obj_type and is_active in ("1", "true"):
+        return {
+            "source": "mqtt_json", "topic": topic,
+            "timestamp": timestamp,
+            "objectCount": 1,
+            "classCounts": {obj_type: 1},
+            "objects": [{"type": obj_type, "confidence": 0.0}],
+        }
+
+    # ── Motion events (no specific object class) ─────────────────
+    is_motion = str(data.get("IsMotion", "")).lower()
+    if not is_motion and not obj_type:
+        is_motion = str(data.get("active", "")).lower()
+    if not is_motion:
+        is_motion = str(data.get("State", "")).lower()
     if is_motion in ("1", "true"):
         return {
             "source": "mqtt_json", "topic": topic,
@@ -232,18 +293,6 @@ def _parse_json_event(payload: dict, topic: str) -> Optional[dict]:
             "objectCount": 1,
             "classCounts": {"Motion": 1},
             "objects": [{"type": "Motion", "confidence": 1.0}],
-        }
-
-    # Object analytics events
-    obj_type = data.get("ObjectType", data.get("Type", ""))
-    is_inside = str(data.get("IsInside", "true")).lower()
-    if obj_type and is_inside in ("1", "true"):
-        return {
-            "source": "mqtt_json", "topic": topic,
-            "timestamp": timestamp,
-            "objectCount": 1,
-            "classCounts": {obj_type: 1},
-            "objects": [{"type": obj_type, "confidence": 0.0}],
         }
 
     return None

@@ -409,7 +409,7 @@ _CLASS_ALIASES = {
     "horse": "Animal", "cow": "Animal", "sheep": "Animal",
     "gun": "Weapon", "knife": "Weapon", "weapon": "Weapon",
     "rifle": "Weapon", "pistol": "Weapon", "firearm": "Weapon",
-    "sword": "Weapon", "bat": "Weapon", "shotgun": "Weapon",
+    "sword": "Weapon", "bat": "Weapon", "shotgun": "Weapon", "rifles": "Weapon"
 }
 
 # Words that negate a detection (e.g. "no gun", "not visible")
@@ -628,6 +628,7 @@ def build_rtsp_uri(args) -> str:
     print("-" * 60)
 
     rtsp_uri = args.rtsp_uri
+    user_provided = bool(rtsp_uri)
 
     if not rtsp_uri:
         discovered = discover_camera(args.camera_ip, args.onvif_port)
@@ -638,8 +639,11 @@ def build_rtsp_uri(args) -> str:
         rtsp_uri = f"rtsp://{args.camera_ip}:554/stream1"
         print(f"  RTSP URI (fallback): {rtsp_uri}")
 
-    # Embed credentials if provided and not already in URI
-    if args.onvif_user and '@' not in rtsp_uri:
+    # Embed credentials only for discovered/fallback URIs, not when
+    # the user explicitly provided --rtsp-uri (the test server may
+    # not support auth, and injecting credentials can cause crashes).
+    if (not user_provided and args.onvif_user
+            and '@' not in rtsp_uri):
         parsed = urlparse(rtsp_uri)
         userinfo = quote(args.onvif_user, safe='')
         if args.onvif_pass:
