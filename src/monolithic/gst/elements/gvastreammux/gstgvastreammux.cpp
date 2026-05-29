@@ -176,7 +176,6 @@ static void gst_gva_streammux_init(GstGvaStreammux *mux) {
 
     g_mutex_init(&mux->lock);
     g_cond_init(&mux->cond);
-    g_rec_mutex_init(&mux->task_lock);
 
     gst_segment_init(&mux->segment, GST_FORMAT_TIME);
 
@@ -216,7 +215,6 @@ static void gst_gva_streammux_finalize(GObject *object) {
 
     g_mutex_clear(&mux->lock);
     g_cond_clear(&mux->cond);
-    g_rec_mutex_clear(&mux->task_lock);
 
     if (mux->current_caps) {
         gst_caps_unref(mux->current_caps);
@@ -369,7 +367,6 @@ static GstPad *gst_gva_streammux_request_new_pad(GstElement *element, GstPadTemp
         g_mutex_unlock(&mux->lock);
         return NULL;
     }
-
 
     sinkpad = gst_pad_new_from_static_template(&gva_streammux_sink_template, name);
     gst_pad_set_chain_function(sinkpad, GST_DEBUG_FUNCPTR(gst_gva_streammux_chain));
@@ -703,7 +700,7 @@ static GstFlowReturn gst_gva_streammux_chain(GstPad *pad, GstObject *parent, Gst
         if (pts + mux->pts_tolerance < mux->last_pushed_batch_pts) {
             GST_WARNING_OBJECT(mux,
                                "Late frame from pad sink_%u (pts=%" GST_TIME_FORMAT
-                               " < last_batch_pts=%" GST_TIME_FORMAT"), dropping",
+                               " < last_batch_pts=%" GST_TIME_FORMAT "), dropping",
                                pdata->pad_index, GST_TIME_ARGS(pts), GST_TIME_ARGS(mux->last_pushed_batch_pts));
             g_mutex_unlock(&mux->lock);
             gst_buffer_unref(buf);

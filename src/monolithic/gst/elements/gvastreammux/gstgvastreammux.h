@@ -97,7 +97,6 @@ struct _GstGvaStreammux {
     GstClockTime last_pushed_batch_pts;
 
     /* Output task */
-    GRecMutex task_lock;
     guint eos_pad_count;
 };
 
