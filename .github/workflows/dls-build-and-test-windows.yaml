@@ -154,7 +154,7 @@ jobs:
         shell: powershell
         run: |
           cd ${{ env.DLS_REPO_TARGET_DIRECTORY }}
-          & ./scripts/build_dlstreamer_dlls.ps1 -buildInstaller -installerSkipCompression
+          & ./scripts/build_dlstreamer_dlls.ps1 -buildInstaller -installerSkipCompression -UseForInternalBuild
 
       - name: Copy DLLs
         if: needs.setup.outputs.should_run == 'true'
