@@ -36,7 +36,7 @@ import gi
 gi.require_version("Gst", "1.0")
 gi.require_version("GstAnalytics", "1.0")
 
-from gi.repository import GLib, Gst, GstAnalytics  # noqa: E402
+from gi.repository import GLib, Gst, GstAnalytics  # noqa: E402  # pylint: disable=no-name-in-module
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 MODELS_DIR = SCRIPT_DIR / "models"

@@ -125,7 +125,7 @@ def ensure_models():
 
 # ── pipeline event loop ─────────────────────────────────────────────────────
 
-from gi.repository import GLib, Gst  # noqa: E402
+from gi.repository import GLib, Gst  # noqa: E402  # pylint: disable=no-name-in-module
 
 
 def run_pipeline(pipeline, loop_count=1):
