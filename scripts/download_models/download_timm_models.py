@@ -18,7 +18,7 @@ from pathlib import Path
 
 import openvino as ov
 import timm
-from huggingface_hub import hf_hub_download
+from huggingface_hub import HfApi, hf_hub_download
 
 
 PRECISIONS = ("fp16", "int8", "both")
@@ -114,6 +114,14 @@ def hf_id(model_name: str) -> str | None:
     return cfg.hf_hub_id if cfg else None
 
 
+def resolve_hf_revision(hf_model_id: str) -> str:
+    """Resolve the current immutable commit SHA for a Hugging Face repo."""
+    revision = HfApi().model_info(hf_model_id).sha
+    if not revision:
+        raise RuntimeError(f"Unable to resolve Hugging Face revision for {hf_model_id}")
+    return revision
+
+
 def export_with_optimum(
     optimum_cli_path: str,
     hf_model_id: str,
@@ -158,7 +166,13 @@ def only_xml(root: Path) -> Path:
 
 def save_config_json(hf_model_id: str, path: Path) -> None:
     """Copy the model's original Hugging Face config.json next to the exported IR."""
-    config_path = Path(hf_hub_download(repo_id=hf_model_id, filename="config.json"))
+    config_path = Path(
+        hf_hub_download(
+            repo_id=hf_model_id,
+            filename="config.json",
+            revision=resolve_hf_revision(hf_model_id),
+        )
+    )
     shutil.copy2(config_path, path)
 
 
