@@ -1,8 +1,9 @@
-// ==============================================================================
-// Copyright (C) 2026 Intel Corporation
-//
-// SPDX-License-Identifier: MIT
-// ==============================================================================
+/*******************************************************************************
+ * Copyright (C) 2018-2025 Intel Corporation
+ *
+ * SPDX-License-Identifier: MIT
+ ******************************************************************************/
+
 //
 // DL Streamer <APPLICATION_NAME> pipeline.
 //
@@ -141,9 +142,8 @@ static void run_pipeline(GstElement *pipe) {
 
     bool running = true;
     while (running) {
-        GstMessage *msg = gst_bus_timed_pop_filtered(
-            bus, 100 * GST_MSECOND,
-            static_cast<GstMessageType>(GST_MESSAGE_ERROR | GST_MESSAGE_EOS));
+        GstMessage *msg = gst_bus_timed_pop_filtered(bus, 100 * GST_MSECOND,
+                                                     static_cast<GstMessageType>(GST_MESSAGE_ERROR | GST_MESSAGE_EOS));
 
         if (!msg)
             continue;
@@ -213,18 +213,22 @@ int main(int argc, char *argv[]) {
         } else {
             encoder = "videoconvert ! vah264enc";
         }
-        sink_str = encoder + " ! h264parse ! mp4mux ! "
-                   "filesink location=\"" + args.output_video + "\"";
+        sink_str = encoder +
+                   " ! h264parse ! mp4mux ! "
+                   "filesink location=\"" +
+                   args.output_video + "\"";
     }
 
-    std::string pipe_str =
-        source_el + " ! decodebin3 caps=\"video/x-raw(ANY)\" ! "
-        "gvadetect model=\"" + model_xml + "\" device=" + device +
-        " batch-size=4 threshold=" + std::to_string(args.threshold) + " ! queue ! "
-        "gvafpscounter ! gvawatermark ! "
-        "gvametaconvert ! "
-        "gvametapublish file-format=json-lines file-path=\"" + args.output_json + "\" ! " +
-        sink_str;
+    std::string pipe_str = source_el +
+                           " ! decodebin3 caps=\"video/x-raw(ANY)\" ! "
+                           "gvadetect model=\"" +
+                           model_xml + "\" device=" + device +
+                           " batch-size=4 threshold=" + std::to_string(args.threshold) +
+                           " ! queue ! "
+                           "gvafpscounter ! gvawatermark ! "
+                           "gvametaconvert ! "
+                           "gvametapublish file-format=json-lines file-path=\"" +
+                           args.output_json + "\" ! " + sink_str;
 
     std::cout << "\nPipeline:\n" << pipe_str << "\n\n";
 
