@@ -7,6 +7,7 @@ Many transformer-based models can be converted to OpenVINO™ IR format using [o
 > **NOTE:** The instructions below are comprehensive, but for convenience, we recommend using the
 > [download_hf_models.py](https://github.com/open-edge-platform/dlstreamer/blob/main/scripts/download_models/download_hf_models.py)
 > script. It can download a model from the Hugging Face Hub and perform the required conversions automatically.
+> When you pass a plain model ID, the script resolves the current immutable Hugging Face commit SHA automatically.
 > See [Model Conversion Scripts](https://github.com/open-edge-platform/dlstreamer/blob/main/scripts/download_models/README.md) for more information.
 
 ## Optimum-Intel Supported Models

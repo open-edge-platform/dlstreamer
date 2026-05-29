@@ -11,7 +11,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Callable
 
-from huggingface_hub import hf_hub_download
+from huggingface_hub import HfApi, hf_hub_download
 from openvino import PartialShape
 from openvino import Type
 from openvino import save_model
@@ -51,14 +51,25 @@ CUSTOM_CONVERTERS = {
 }
 
 
-def split_hf_model_ref(model_ref: str) -> tuple[str, str]:
-    """Split a pinned Hugging Face model ref into ``repo_id`` and ``revision``."""
-    repo_id, separator, revision = model_ref.strip().rpartition("@")
-    if not separator or not repo_id or not revision:
+def resolve_hf_model_ref(
+    model_ref: str,
+    token: str | None = None,
+) -> tuple[str, str]:
+    """Return ``repo_id`` and an immutable commit SHA for a Hugging Face model ref."""
+    normalized_ref = model_ref.strip()
+    repo_id, separator, revision = normalized_ref.rpartition("@")
+    if separator and repo_id and revision:
+        return repo_id, revision
+    if not normalized_ref:
+        raise ValueError("Hugging Face model ref must not be empty")
+
+    model_info = HfApi(token=token).model_info(normalized_ref)
+    resolved_revision = getattr(model_info, "sha", None)
+    if not resolved_revision:
         raise ValueError(
-            "Hugging Face model refs must be pinned as 'repo_id@revision'"
+            f"Unable to resolve an immutable revision for Hugging Face model '{normalized_ref}'"
         )
-    return repo_id, revision
+    return normalized_ref, resolved_revision
 
 
 def get_hf_model_support_level(model_id: str, token: str | None = None) -> int:
@@ -72,7 +83,7 @@ def get_hf_model_support_level(model_id: str, token: str | None = None) -> int:
     supported_hf_models_lower = {item.lower() for item in SUPPORTED_HF_MODELS}
     custom_converters_lower = {item.lower() for item in CUSTOM_CONVERTERS}
 
-    normalized_model_id, revision = split_hf_model_ref(model_id)
+    normalized_model_id, revision = resolve_hf_model_ref(model_id, token)
     model_key = normalized_model_id.lower()
 
     if model_key in supported_hf_models_lower:
@@ -107,7 +118,7 @@ def custom_conversion(
     if extra_args is None:
         extra_args = []
 
-    repo_id, revision = split_hf_model_ref(model_id)
+    repo_id, revision = resolve_hf_model_ref(model_id, token)
 
     if repo_id.lower() in CUSTOM_CONVERTERS:
         primary_arch = repo_id.lower()

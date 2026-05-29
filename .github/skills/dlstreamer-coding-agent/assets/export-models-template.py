@@ -17,19 +17,27 @@ import subprocess
 import sys
 from pathlib import Path
 
-from huggingface_hub import hf_hub_download, snapshot_download
+from huggingface_hub import HfApi, hf_hub_download, snapshot_download
 
 MODELS_DIR = Path(__file__).resolve().parent / "models"
 
 
-def split_hf_model_ref(model_ref: str) -> tuple[str, str]:
-    """Split a pinned Hugging Face model ref into ``repo_id`` and ``revision``."""
-    repo_id, separator, revision = model_ref.strip().rpartition("@")
-    if not separator or not repo_id or not revision:
+def resolve_hf_model_ref(model_ref: str) -> tuple[str, str]:
+    """Return ``repo_id`` and an immutable commit SHA for a Hugging Face model ref."""
+    normalized_ref = model_ref.strip()
+    repo_id, separator, revision = normalized_ref.rpartition("@")
+    if separator and repo_id and revision:
+        return repo_id, revision
+    if not normalized_ref:
+        raise ValueError("Hugging Face model ref must not be empty")
+
+    model_info = HfApi().model_info(normalized_ref)
+    resolved_revision = getattr(model_info, "sha", None)
+    if not resolved_revision:
         raise ValueError(
-            "Hugging Face model refs must be pinned as 'repo_id@revision'"
+            f"Unable to resolve an immutable revision for Hugging Face model '{normalized_ref}'"
         )
-    return repo_id, revision
+    return normalized_ref, resolved_revision
 
 
 # ── Model Export Functions ────────────────────────────────────────────────────
@@ -58,7 +66,7 @@ def export_yolo_detection(model_ref: str, pt_filename: str) -> Path:
         return xml_files[0]
 
     MODELS_DIR.mkdir(parents=True, exist_ok=True)
-    repo_id, revision = split_hf_model_ref(model_ref)
+    repo_id, revision = resolve_hf_model_ref(model_ref)
 
     print(f"[YOLO] Downloading {repo_id} / {pt_filename}...")
     pt_path = hf_hub_download(
@@ -94,7 +102,7 @@ def export_paddleocr(model_ref: str) -> Path:
     PaddlePaddle v3+ uses PIR format (.json + .pdiparams), not .pdmodel.
     Conversion is two-step: paddle2onnx then ovc.
     """
-    model_id, revision = split_hf_model_ref(model_ref)
+    model_id, revision = resolve_hf_model_ref(model_ref)
     model_name = model_id.split("/")[-1]
     ocr_dir = MODELS_DIR / model_name
     fp16_dir = ocr_dir / "FP16"
@@ -196,8 +204,8 @@ def main():
     args = parse_args()
 
     # Call the appropriate export functions for your models:
-    # det = export_yolo_detection("repo/name@revision", "model.pt")
-    # ocr = export_paddleocr("PaddlePaddle/PP-OCRv5_server_rec@revision")
+    # det = export_yolo_detection("repo/name", "model.pt")
+    # ocr = export_paddleocr("PaddlePaddle/PP-OCRv5_server_rec")
     # cls = export_hf_transformer("org/model-name", weight_format="int8")
 
     print("\n=== All models ready ===")

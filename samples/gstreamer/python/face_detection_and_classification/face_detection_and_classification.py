@@ -10,7 +10,7 @@ import subprocess
 import urllib.request
 from urllib.parse import urlparse
 
-from huggingface_hub import hf_hub_download
+from huggingface_hub import HfApi, hf_hub_download
 from ultralytics import YOLO
 
 import gi
@@ -21,8 +21,7 @@ gi.require_version("GstAnalytics", "1.0")
 from gi.repository import Gst
 
 DEFAULT_VIDEO_URL = "https://videos.pexels.com/video-files/18553046/18553046-hd_1280_720_30fps.mp4"
-# Pinned to the tested Hugging Face repo commit to avoid floating downloads.
-YOLO_FACE_MODEL_COMMIT = "52fa54977207fa4f021de949b515fb19dcab4488"
+YOLO_FACE_REPO_ID = "arnabdhar/YOLOv8-Face-Detection"
 
 
 def _download_https(url, destination, allowed_hosts):
@@ -32,6 +31,14 @@ def _download_https(url, destination, allowed_hosts):
         raise ValueError(f"Refusing non-allowlisted URL: {url}")
     with urllib.request.build_opener().open(url) as response, open(destination, "wb") as output:
         shutil.copyfileobj(response, output)
+
+
+def _resolve_hf_revision(repo_id):
+    """Resolve the current immutable commit SHA for a Hugging Face repo."""
+    revision = HfApi().model_info(repo_id).sha
+    if not revision:
+        raise RuntimeError(f"Unable to resolve Hugging Face revision for {repo_id}")
+    return revision
 
 
 def get_runtime_dir():
@@ -100,10 +107,10 @@ def main(input_video):
             "\nDownloading the detection model and converting to OpenVINO IR format...\n"
         )
         model_path = hf_hub_download(
-            repo_id="arnabdhar/YOLOv8-Face-Detection",
+            repo_id=YOLO_FACE_REPO_ID,
             filename="model.pt",
             local_dir=runtime_dir,
-            revision=YOLO_FACE_MODEL_COMMIT,
+            revision=_resolve_hf_revision(YOLO_FACE_REPO_ID),
         )
 
         model = YOLO(str(model_path))

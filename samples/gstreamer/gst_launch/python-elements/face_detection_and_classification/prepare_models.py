@@ -24,11 +24,10 @@ import sys
 # Disable Xet storage backend — it fails behind corporate proxies (e.g. Fortinet)
 os.environ.setdefault("HF_HUB_DISABLE_XET", "1")
 
-from huggingface_hub import hf_hub_download
+from huggingface_hub import HfApi, hf_hub_download
 from ultralytics import YOLO
 
-# Pinned to the tested Hugging Face repo commit to avoid floating downloads.
-YOLO_FACE_MODEL_COMMIT = "52fa54977207fa4f021de949b515fb19dcab4488"
+YOLO_FACE_REPO_ID = "arnabdhar/YOLOv8-Face-Detection"
 
 
 def get_runtime_dir():
@@ -56,6 +55,14 @@ def _is_ir_model_ready(xml_path):
     )
 
 
+def _resolve_hf_revision(repo_id):
+    """Resolve the current immutable commit SHA for a Hugging Face repo."""
+    revision = HfApi().model_info(repo_id).sha
+    if not revision:
+        raise RuntimeError(f"Unable to resolve Hugging Face revision for {repo_id}")
+    return revision
+
+
 def prepare_detection_model():
     """Download YOLOv8-Face-Detection and export to OpenVINO IR."""
     runtime_dir = get_runtime_dir()
@@ -70,10 +77,10 @@ def prepare_detection_model():
         file=sys.stderr,
     )
     model_path = hf_hub_download(
-        repo_id="arnabdhar/YOLOv8-Face-Detection",
+        repo_id=YOLO_FACE_REPO_ID,
         filename="model.pt",
         local_dir=runtime_dir,
-        revision=YOLO_FACE_MODEL_COMMIT,
+        revision=_resolve_hf_revision(YOLO_FACE_REPO_ID),
     )
     model = YOLO(str(model_path))
     exported_model_path = model.export(format="openvino", dynamic=False, imgsz=640)
