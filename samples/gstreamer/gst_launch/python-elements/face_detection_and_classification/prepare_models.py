@@ -27,6 +27,9 @@ os.environ.setdefault("HF_HUB_DISABLE_XET", "1")
 from huggingface_hub import hf_hub_download
 from ultralytics import YOLO
 
+# Pinned to the tested Hugging Face repo commit to avoid floating downloads.
+YOLO_FACE_MODEL_COMMIT = "52fa54977207fa4f021de949b515fb19dcab4488"
+
 
 def get_runtime_dir():
     """Return target directory for model storage.
@@ -70,6 +73,7 @@ def prepare_detection_model():
         repo_id="arnabdhar/YOLOv8-Face-Detection",
         filename="model.pt",
         local_dir=runtime_dir,
+        revision=YOLO_FACE_MODEL_COMMIT,
     )
     model = YOLO(str(model_path))
     exported_model_path = model.export(format="openvino", dynamic=False, imgsz=640)

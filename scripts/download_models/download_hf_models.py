@@ -15,6 +15,7 @@ import sys
 from pathlib import Path
 from hf_utils import custom_conversion
 from hf_utils import get_hf_model_support_level
+from hf_utils import split_hf_model_ref
 
 
 def parse_args() -> argparse.Namespace:
@@ -42,7 +43,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--model",
         required=True,
-        help="Hugging Face model ID",
+        help="Pinned Hugging Face model ref in the form repo_id@revision",
     )
     parser.add_argument(
         "--outdir",
@@ -74,6 +75,7 @@ def main() -> int:
 
     try:
         support_level = get_hf_model_support_level(model_id, token)
+        repo_id, revision = split_hf_model_ref(model_id)
         
         match support_level:
             case 0:
@@ -86,7 +88,9 @@ def main() -> int:
                     "export",
                     "openvino",
                     "--model",
-                    model_id,
+                    repo_id,
+                    "--revision",
+                    revision,
                 ]
                 if args.extra_args:
                     command.extend(args.extra_args)

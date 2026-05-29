@@ -21,7 +21,8 @@ gi.require_version("GstAnalytics", "1.0")
 from gi.repository import Gst
 
 DEFAULT_VIDEO_URL = "https://videos.pexels.com/video-files/18553046/18553046-hd_1280_720_30fps.mp4"
-YOLO_FACE_MODEL_REVISION = "52fa54977207fa4f021de949b515fb19dcab4488"
+# Pinned to the tested Hugging Face repo commit to avoid floating downloads.
+YOLO_FACE_MODEL_COMMIT = "52fa54977207fa4f021de949b515fb19dcab4488"
 
 
 def _download_https(url, destination, allowed_hosts):
@@ -102,7 +103,7 @@ def main(input_video):
             repo_id="arnabdhar/YOLOv8-Face-Detection",
             filename="model.pt",
             local_dir=runtime_dir,
-            revision=YOLO_FACE_MODEL_REVISION,
+            revision=YOLO_FACE_MODEL_COMMIT,
         )
 
         model = YOLO(str(model_path))

@@ -22,6 +22,16 @@ from huggingface_hub import hf_hub_download, snapshot_download
 MODELS_DIR = Path(__file__).resolve().parent / "models"
 
 
+def split_hf_model_ref(model_ref: str) -> tuple[str, str]:
+    """Split a pinned Hugging Face model ref into ``repo_id`` and ``revision``."""
+    repo_id, separator, revision = model_ref.strip().rpartition("@")
+    if not separator or not repo_id or not revision:
+        raise ValueError(
+            "Hugging Face model refs must be pinned as 'repo_id@revision'"
+        )
+    return repo_id, revision
+
+
 # ── Model Export Functions ────────────────────────────────────────────────────
 # Each function:
 #   1. Checks if the exported .xml already exists (idempotent / cached)
@@ -30,7 +40,7 @@ MODELS_DIR = Path(__file__).resolve().parent / "models"
 #   4. Returns the path to the .xml file
 
 
-def export_yolo_detection(repo_id: str, pt_filename: str) -> Path:
+def export_yolo_detection(model_ref: str, pt_filename: str) -> Path:
     """Download a YOLO .pt from HuggingFace and export to OpenVINO IR INT8.
 
     Uses Ultralytics YOLO export with INT8 quantization for best performance.
@@ -48,10 +58,14 @@ def export_yolo_detection(repo_id: str, pt_filename: str) -> Path:
         return xml_files[0]
 
     MODELS_DIR.mkdir(parents=True, exist_ok=True)
+    repo_id, revision = split_hf_model_ref(model_ref)
 
     print(f"[YOLO] Downloading {repo_id} / {pt_filename}...")
     pt_path = hf_hub_download(
-        repo_id=repo_id, filename=pt_filename, local_dir=str(MODELS_DIR)
+        repo_id=repo_id,
+        revision=revision,
+        filename=pt_filename,
+        local_dir=str(MODELS_DIR),
     )
 
     print("[YOLO] Exporting to OpenVINO IR (INT8)...")
@@ -74,12 +88,13 @@ def export_yolo_detection(repo_id: str, pt_filename: str) -> Path:
     return xml_files[0]
 
 
-def export_paddleocr(model_id: str) -> Path:
+def export_paddleocr(model_ref: str) -> Path:
     """Download PaddleOCR model and convert PIR → ONNX → OpenVINO IR FP16.
 
     PaddlePaddle v3+ uses PIR format (.json + .pdiparams), not .pdmodel.
     Conversion is two-step: paddle2onnx then ovc.
     """
+    model_id, revision = split_hf_model_ref(model_ref)
     model_name = model_id.split("/")[-1]
     ocr_dir = MODELS_DIR / model_name
     fp16_dir = ocr_dir / "FP16"
@@ -94,7 +109,7 @@ def export_paddleocr(model_id: str) -> Path:
 
     # Step 1: Download from HuggingFace
     print(f"[OCR] Downloading {model_id} from HuggingFace...")
-    snapshot_download(repo_id=model_id, local_dir=str(paddle_dir))
+    snapshot_download(repo_id=model_id, revision=revision, local_dir=str(paddle_dir))
 
     # Step 2: PaddlePaddle PIR → ONNX
     onnx_file = ocr_dir / "model.onnx"
@@ -181,8 +196,8 @@ def main():
     args = parse_args()
 
     # Call the appropriate export functions for your models:
-    # det = export_yolo_detection("repo/name", "model.pt")
-    # ocr = export_paddleocr("PaddlePaddle/PP-OCRv5_server_rec")
+    # det = export_yolo_detection("repo/name@revision", "model.pt")
+    # ocr = export_paddleocr("PaddlePaddle/PP-OCRv5_server_rec@revision")
     # cls = export_hf_transformer("org/model-name", weight_format="int8")
 
     print("\n=== All models ready ===")
