@@ -16,9 +16,9 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-import openvino as ov
-import timm
 from huggingface_hub import HfApi, hf_hub_download
+import timm
+import openvino as ov
 
 
 PRECISIONS = ("fp16", "int8", "both")

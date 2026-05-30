@@ -21,11 +21,11 @@ import os
 import subprocess
 import sys
 
-# Disable Xet storage backend — it fails behind corporate proxies (e.g. Fortinet)
-os.environ.setdefault("HF_HUB_DISABLE_XET", "1")
-
 from huggingface_hub import HfApi, hf_hub_download
 from ultralytics import YOLO
+
+# Disable Xet storage backend — it fails behind corporate proxies (e.g. Fortinet)
+os.environ.setdefault("HF_HUB_DISABLE_XET", "1")
 
 YOLO_FACE_REPO_ID = "arnabdhar/YOLOv8-Face-Detection"
 

@@ -12,17 +12,18 @@ This sample application demonstrates how to add custom Python elements to DLStre
   custom detection metadata along with each chunk.
 """
 
-import gi
 import os
-import openvino as ov
 import shutil
 import subprocess
 import sys
 import urllib.request
 from urllib.parse import urlparse
 
+import gi
+import openvino as ov
+
 gi.require_version("Gst", "1.0")
-from gi.repository import Gst   # pylint: disable=no-name-in-module
+from gi.repository import Gst   # pylint: disable=no-name-in-module,wrong-import-order,wrong-import-position
 
 DEFAULT_VIDEO_URL = "https://videos.pexels.com/video-files/2431853/2431853-hd_1920_1080_25fps.mp4"
 
