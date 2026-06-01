@@ -4,8 +4,7 @@ source-roots = python/gstgva,python
 [MESSAGES CONTROL]
 
 # E0401 = Unable to import module
-# E0611 = No name in module (false positive when package is not installed)
-disable=E0401,E0611
+disable=E0401
 
 [FORMAT]
 max-line-length=160
