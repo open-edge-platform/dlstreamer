@@ -492,8 +492,8 @@ configuration properties to Deep Learning Streamer settings.
 
 &emsp;The coding agent supports conversion of DeepStream applications developed in the following programming languages:
 
-- **Python** - applications using Python bindings for DeepStream. The output code is based on the [python-spp-template](https://github.com/open-edge-platform/dlstreamer/tree/main/.github/skills/dlstreamer-coding-agent/examples/python-spp-template), which demonstrates the structure of a DL Streamer application in Python using Sample Pipeline Processing.
-- **C/C++** - native DeepStream applications written in C or C++. The output code is based on the [cpp-spp-template](https://github.com/open-edge-platform/dlstreamer/tree/main/.github/skills/dlstreamer-coding-agent/examples/cpp-spp-template), which demonstrates the structure of a DL Streamer application in C++ using Sample Pipeline Processing.
+- **Python** - applications using Python bindings for DeepStream. The output code is based on the [python-app-template](https://github.com/open-edge-platform/dlstreamer/tree/main/.github/skills/dlstreamer-coding-agent/assets/python-app-template.py), which demonstrates the structure of a DL Streamer application in Python using Sample Pipeline Processing.
+- **C/C++** - native DeepStream applications written in C or C++. The output code is based on the [cpp-app-template](https://github.com/open-edge-platform/dlstreamer/tree/main/.github/skills/dlstreamer-coding-agent/assets/cpp-app-template.cpp), which demonstrates the structure of a DL Streamer application in C++ using Sample Pipeline Processing.
 
 > **Note:** By default, the coding agent generates the converted application in the same programming language as the source DeepStream application. However, this behavior can be changed by modifying the conversion prompt to explicitly request a different target language.
 
