@@ -511,10 +511,6 @@ void gva_base_inference_cleanup(GvaBaseInference *base_inference) {
  *    limit the default core pinning mask to the first 4 cores (the P-Cores) to optimize performance.
  */
 void set_core_pinning_mask(GvaBaseInference *base_inference) {
-
-    // Disable default core pinning
-    return;
-
 #ifndef _WIN32
     // Default: all cores available
     int num_cores = sysconf(_SC_NPROCESSORS_ONLN);
@@ -637,7 +633,7 @@ void gva_base_inference_init(GvaBaseInference *base_inference) {
 
     base_inference->share_va_display_ctx = DEFAULT_SHARE_VADISPLAY_CTX;
 
-    set_core_pinning_mask(base_inference);
+    // set_core_pinning_mask(base_inference); // Disabled: default core pinning not used
 }
 
 GstStateChangeReturn gva_base_inference_change_state(GstElement *element, GstStateChange transition) {
@@ -731,7 +727,9 @@ void gva_base_inference_set_core_pinning(GvaBaseInference *base_inference, const
         if (start_pos == std::string_view::npos)
             continue;
         token = token.substr(start_pos);
-        token = token.substr(0, token.find_last_not_of(" \t") + 1);
+        size_t end_pos = token.find_last_not_of(" \t");
+        if (end_pos != std::string_view::npos)
+            token = token.substr(0, end_pos + 1);
 
         if (token.find('-') != std::string_view::npos) {
             // Parse range like "1-5"
@@ -800,7 +798,9 @@ void gva_base_inference_set_core_pinning(GvaBaseInference *base_inference, const
         if (start_pos == std::string_view::npos)
             continue;
         token = token.substr(start_pos);
-        token = token.substr(0, token.find_last_not_of(" \t") + 1);
+        size_t end_pos = token.find_last_not_of(" \t");
+        if (end_pos != std::string_view::npos)
+            token = token.substr(0, end_pos + 1);
 
         auto set_core = [&](int core_id) {
             if (core_id < 0 || core_id >= total_cores) {

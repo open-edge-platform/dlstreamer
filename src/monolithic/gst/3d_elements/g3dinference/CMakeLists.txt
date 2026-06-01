@@ -29,6 +29,7 @@ target_include_directories(${TARGET_NAME}
         ${GSTREAMER_INCLUDE_DIRS}
         ${GSTREAMER_BASE_INCLUDE_DIRS}
         ${CMAKE_CURRENT_SOURCE_DIR}/../../common
+        ${DLSTREAMER_BASE_DIR}/src/utils
 )
 
 target_link_libraries(${TARGET_NAME}
