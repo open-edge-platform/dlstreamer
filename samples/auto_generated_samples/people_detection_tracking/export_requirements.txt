@@ -1,0 +1,7 @@
+--extra-index-url https://download.pytorch.org/whl/cpu
+openvino==2026.1.0
+nncf==3.0.0
+ultralytics==8.4.33
+torch
+torchvision
+numpy

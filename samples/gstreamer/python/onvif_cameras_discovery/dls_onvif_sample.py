@@ -8,7 +8,7 @@ import argparse
 import asyncio
 import os
 import sys
-from dlstreamer.onvif import DlsOnvifDiscoveryEngine
+from dlstreamer.onvif import DlsOnvifDiscoveryEngine  # pylint: disable=no-name-in-module
 
 
 async def main(cmd_line_params):

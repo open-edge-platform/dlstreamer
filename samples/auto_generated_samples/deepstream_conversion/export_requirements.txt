@@ -1,0 +1,14 @@
+# Model export dependencies for metapublish sample
+# Run once before starting the pipeline: pip install -r export_requirements.txt
+
+# IMPORTANT: CPU-only PyTorch — must appear before any torch-dependent package.
+--extra-index-url https://download.pytorch.org/whl/cpu
+
+# OpenVINO Python version (pin to match DL Streamer runtime)
+openvino==2026.1.0
+
+# NNCF for INT8 quantization (required by ultralytics int8=True export)
+nncf==3.0.0
+
+# Ultralytics YOLO detection model export
+ultralytics==8.4.33
