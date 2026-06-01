@@ -230,8 +230,8 @@ void TensorToFrameAttacher::attach(const TensorsTable &tensors_batch, FramesWrap
 
             if (relation_meta) {
                 GstAnalyticsMtd mtd;
-                gva_tensor.convert_to_meta(&mtd, relation_meta, 0, 0, static_cast<gint>(frames[i].width),
-                                           static_cast<gint>(frames[i].height));
+                (void)gva_tensor.convert_to_meta(&mtd, relation_meta, 0, 0, static_cast<gint>(frames[i].width),
+                                                 static_cast<gint>(frames[i].height));
             }
 
             // Legacy: create GstGVATensorMeta
