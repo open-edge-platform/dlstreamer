@@ -486,7 +486,7 @@ configuration properties to Deep Learning Streamer settings.
 </br>
 
 ## AI supported conversions 
-&emsp;In addition to the detailed description of conversion rules between DeepStream and Deep Learning Streamer applications presented above, we provide the ability to perform such conversion automatically using a coding agent. As part of the [DL Streamer](https://github.com/open-edge-platform/dlstreamer) project, guidelines for the coding agent have been prepared that enable conversion of applications written in **Python** and **C/C++**.
+&emsp;In addition to the detailed description of conversion rules between DeepStream and Deep Learning Streamer applications presented above, we provide the ability to perform such conversion automatically using a coding agent. As part of the [DL Streamer](https://github.com/open-edge-platform/dlstreamer) project, guidelines for the coding agent have been prepared that enable conversion of applications written in **Python** prompt example link [deepstream-python-conversion](https://github.com/open-edge-platform/dlstreamer/tree/main/.github/skills/dlstreamer-coding-agent/examples/deepstream-python-conversion.md) and **C/C++** prompt example link [deepstream-cpp-conversion](https://github.com/open-edge-platform/dlstreamer/tree/main/.github/skills/dlstreamer-coding-agent/examples/deepstream-cpp-conversion.md).
 
 ### Supported Languages
 
