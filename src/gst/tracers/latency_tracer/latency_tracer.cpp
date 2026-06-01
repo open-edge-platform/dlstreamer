@@ -5,6 +5,7 @@
  ******************************************************************************/
 
 #include "latency_tracer.h"
+#include "gmutex_lock_guard.h"
 #include "latency_tracer_meta.h"
 #include <mutex>
 #include <string>
@@ -201,6 +202,11 @@ static unordered_map<GstElement *, GstElement *> *get_topology_cache(LatencyTrac
     return static_cast<unordered_map<GstElement *, GstElement *> *>(lt->topology_cache);
 }
 
+// Tracer mutex accessor - guards all shared map writes
+static GMutex *get_tracer_mutex(LatencyTracer *lt) {
+    return &lt->tracer_mutex;
+}
+
 static gboolean is_source_element(GstElement *element);
 static gboolean is_sink_element(GstElement *element);
 
@@ -210,22 +216,38 @@ static ElementType get_cached_element_type(LatencyTracer *lt, GstElement *elem) 
         return ElementType::PROCESSING;
 
     auto *cache = get_element_type_cache(lt);
-    auto it = cache->find(elem);
-    if (it != cache->end()) {
-        return it->second;
+    auto *mtx = get_tracer_mutex(lt);
+
+    // Fast path: check cache under the mutex.
+    {
+        GMutexLockGuard lock(mtx);
+        auto it = cache->find(elem);
+        if (it != cache->end()) {
+            return it->second;
+        }
     }
-    // Fallback: Element not in cache, should only happen before pipeline initialization
-    // Perform expensive check and cache the result
+
+    // Slow path: element not yet cached (only happens before/during pipeline init).
+    // Perform the expensive pad-template check outside the lock, then write under it.
+    ElementType type;
     if (is_source_element(elem)) {
-        (*cache)[elem] = ElementType::SOURCE;
-        return ElementType::SOURCE;
+        type = ElementType::SOURCE;
     } else if (is_sink_element(elem)) {
-        (*cache)[elem] = ElementType::SINK;
-        return ElementType::SINK;
+        type = ElementType::SINK;
     } else {
-        (*cache)[elem] = ElementType::PROCESSING;
-        return ElementType::PROCESSING;
+        type = ElementType::PROCESSING;
     }
+
+    {
+        GMutexLockGuard lock(mtx);
+        // Double-check: another thread may have inserted while we computed
+        auto it = cache->find(elem);
+        if (it != cache->end()) {
+            return it->second;
+        }
+        (*cache)[elem] = type;
+    }
+    return type;
 }
 
 // Helper function to check if element is a source using cache
@@ -302,6 +324,7 @@ static void latency_tracer_finalize(GObject *object) {
         delete static_cast<unordered_map<GstElement *, GstElement *> *>(lt->topology_cache);
         lt->topology_cache = nullptr;
     }
+    g_mutex_clear(&lt->tracer_mutex);
 
     G_OBJECT_CLASS(latency_tracer_parent_class)->finalize(object);
 }
@@ -640,31 +663,41 @@ static gboolean is_sink_element(GstElement *element) {
 // This approach correctly identifies sources even when intermediate elements
 // (like decodebin) create new buffers, unlike metadata-based tracking.
 // OPTIMIZATION: Results are cached for O(1) lookups on subsequent calls.
+//
+// THREAD SAFETY: The mutex is held only for brief cache reads/writes, and is
+// always released before the recursive call to prevent deadlock.
 static GstElement *find_upstream_source(LatencyTracer *lt, GstElement *elem) {
     if (!elem)
         return nullptr;
 
-    // Check topology cache first (optimization: ~80% reduction in traversal overhead)
     auto *topo_cache = get_topology_cache(lt);
-    auto cached = topo_cache->find(elem);
-    if (cached != topo_cache->end()) {
-        return cached->second;
-    }
+    auto *mtx = get_tracer_mutex(lt);
 
-    auto *sources = static_cast<vector<GstElement *> *>(lt->sources_list);
-    if (!sources)
-        return nullptr;
-
-    // Check if this element itself is a tracked source
-    for (auto *src : *sources) {
-        if (src == elem) {
-            // Cache the result
-            (*topo_cache)[elem] = src;
-            return src;
+    // Fast path: check topology cache (lock acquired and released immediately)
+    {
+        GMutexLockGuard lock(mtx);
+        auto cached = topo_cache->find(elem);
+        if (cached != topo_cache->end()) {
+            return cached->second;
         }
     }
 
-    // Walk through all sink pads of this element
+    // Check if this element itself is a tracked source.
+    // Lock is released before any recursive call to prevent deadlock.
+    {
+        GMutexLockGuard lock(mtx);
+        auto *sources = static_cast<vector<GstElement *> *>(lt->sources_list);
+        if (sources) {
+            for (auto *src : *sources) {
+                if (src == elem) {
+                    // Cache and return while we still hold the lock
+                    (*topo_cache)[elem] = src;
+                    return src;
+                }
+            }
+        }
+    }
+
     GstIterator *iter = gst_element_iterate_sink_pads(elem);
     GValue val = G_VALUE_INIT;
     GstElement *found_source = nullptr;
@@ -680,7 +713,6 @@ static GstElement *find_upstream_source(LatencyTracer *lt, GstElement *elem) {
                 GstElement *upstream = get_real_pad_parent(peer_pad);
                 gst_object_unref(peer_pad);
 
-                // Recursively search upstream
                 found_source = find_upstream_source(lt, upstream);
                 if (found_source) {
                     g_value_unset(&val);
@@ -714,6 +746,7 @@ static GstElement *find_upstream_source(LatencyTracer *lt, GstElement *elem) {
 
     // Cache the result for future O(1) lookups (only cache valid results)
     if (found_source) {
+        GMutexLockGuard lock(mtx);
         (*topo_cache)[elem] = found_source;
     }
 
@@ -798,23 +831,27 @@ static void do_push_buffer_pre(LatencyTracer *lt, guint64 ts, GstPad *pad, GstBu
 
             BranchKey branch_key = create_branch_key(source, sink, pipeline);
             auto *stats_map = get_branch_stats_map(lt);
+            auto *mtx = get_tracer_mutex(lt);
 
-            // OPTIMIZATION: try_emplace constructs in-place (no copy), single map access
-            auto result = stats_map->try_emplace(branch_key);
-            BranchStats &branch = result.first->second;
+            BranchStats *branch_ptr;
+            {
+                GMutexLockGuard lock(mtx);
+                auto result = stats_map->try_emplace(branch_key);
+                branch_ptr = &result.first->second;
 
-            // Initialize only if this is a newly inserted branch
-            if (result.second) {
-                branch.pipeline_name = GST_ELEMENT_NAME(pipeline);
-                branch.source_name = GST_ELEMENT_NAME(source);
-                branch.sink_name = GST_ELEMENT_NAME(sink);
-                branch.first_frame_init_ts = meta->init_ts;
-                branch.reset_interval(ts);
-                GST_INFO_OBJECT(lt, "Tracking new branch: %s, %s -> %s", branch.pipeline_name.c_str(),
-                                branch.source_name.c_str(), branch.sink_name.c_str());
+                // Initialize only if this is a newly inserted branch
+                if (result.second) {
+                    branch_ptr->pipeline_name = GST_ELEMENT_NAME(pipeline);
+                    branch_ptr->source_name = GST_ELEMENT_NAME(source);
+                    branch_ptr->sink_name = GST_ELEMENT_NAME(sink);
+                    branch_ptr->first_frame_init_ts = meta->init_ts;
+                    branch_ptr->reset_interval(ts);
+                    GST_INFO_OBJECT(lt, "Tracking new branch: %s, %s -> %s", branch_ptr->pipeline_name.c_str(),
+                                    branch_ptr->source_name.c_str(), branch_ptr->sink_name.c_str());
+                }
             }
 
-            branch.cal_log_pipeline_latency(ts, meta->init_ts, lt->interval);
+            branch_ptr->cal_log_pipeline_latency(ts, meta->init_ts, lt->interval);
         }
     }
 }
@@ -852,11 +889,7 @@ static void on_element_change_state_post(LatencyTracer *lt, guint64 ts, GstEleme
         auto *sources = get_sources_list(lt);
         auto *sinks = get_sinks_list(lt);
         auto *type_cache = get_element_type_cache(lt);
-
-        // OPTIMIZATION A: Reserve capacity to avoid reallocations during initialization
-        sources->reserve(8); // Typical pipelines have 1-4 sources
-        sinks->reserve(8);   // Typical pipelines have 1-4 sinks
-        // Note: std::map doesn't support reserve() - tree structure doesn't benefit from pre-allocation
+        auto *mtx = get_tracer_mutex(lt);
 
         GstIterator *iter = gst_bin_iterate_elements(GST_BIN_CAST(elem));
         while (true) {
@@ -870,29 +903,44 @@ static void on_element_change_state_post(LatencyTracer *lt, guint64 ts, GstEleme
             auto *element = static_cast<GstElement *>(g_value_get_object(&gval));
             GST_INFO_OBJECT(lt, "Element %s ", GST_ELEMENT_NAME(element));
 
+            // Classify the element outside the lock (expensive pad-template checks)
+            ElementType elem_type;
             if (is_sink_element(element)) {
-                // Track all sink elements and cache their type
-                sinks->push_back(element);
-                (*type_cache)[element] = ElementType::SINK;
-                GST_INFO_OBJECT(lt, "Found sink element: %s", GST_ELEMENT_NAME(element));
+                elem_type = ElementType::SINK;
             } else if (is_source_element(element)) {
-                // Track all source elements and cache their type
-                sources->push_back(element);
-                (*type_cache)[element] = ElementType::SOURCE;
-                GST_INFO_OBJECT(lt, "Found source element: %s", GST_ELEMENT_NAME(element));
+                elem_type = ElementType::SOURCE;
             } else {
-                // Cache as processing element
-                (*type_cache)[element] = ElementType::PROCESSING;
-                // create ElementStats only once per each element (for non-source, non-sink elements)
-                if (!ElementStats::from_element(element)) {
-                    ElementStats::create(element, ts);
+                elem_type = ElementType::PROCESSING;
+            }
+
+            // Write to all shared data structures under the tracer mutex
+            {
+                GMutexLockGuard lock(mtx);
+                if (elem_type == ElementType::SINK) {
+                    sinks->push_back(element);
+                    (*type_cache)[element] = ElementType::SINK;
+                    GST_INFO_OBJECT(lt, "Found sink element: %s", GST_ELEMENT_NAME(element));
+                } else if (elem_type == ElementType::SOURCE) {
+                    sources->push_back(element);
+                    (*type_cache)[element] = ElementType::SOURCE;
+                    GST_INFO_OBJECT(lt, "Found source element: %s", GST_ELEMENT_NAME(element));
+                } else {
+                    (*type_cache)[element] = ElementType::PROCESSING;
                 }
             }
+
+            if (elem_type == ElementType::PROCESSING && !ElementStats::from_element(element)) {
+                ElementStats::create(element, ts);
+            }
+
             g_value_unset(&gval);
         }
         gst_iterator_free(iter);
 
-        GST_INFO_OBJECT(lt, "Found %zu source(s) and %zu sink(s)", sources->size(), sinks->size());
+        {
+            GMutexLockGuard lock(mtx);
+            GST_INFO_OBJECT(lt, "Found %zu source(s) and %zu sink(s)", sources->size(), sinks->size());
+        }
 
         GstTracer *tracer = GST_TRACER(lt);
         gst_tracing_register_hook(tracer, "pad-push-pre", G_CALLBACK(do_push_buffer_pre));
@@ -921,11 +969,16 @@ static void latency_tracer_init(LatencyTracer *lt) {
     lt->pipeline = nullptr;
     lt->flags = static_cast<LatencyTracerFlags>(LATENCY_TRACER_FLAG_ELEMENT | LATENCY_TRACER_FLAG_PIPELINE);
     lt->interval = 1000;
-    lt->branch_stats = nullptr;
-    lt->sources_list = nullptr;
-    lt->sinks_list = nullptr;
-    lt->element_type_cache = nullptr;
-    lt->topology_cache = nullptr;
+
+    lt->branch_stats = new unordered_map<BranchKey, BranchStats, BranchKeyHash>();
+    lt->sources_list = new vector<GstElement *>();
+    lt->sinks_list = new vector<GstElement *>();
+    lt->element_type_cache = new unordered_map<GstElement *, ElementType>();
+    lt->topology_cache = new unordered_map<GstElement *, GstElement *>();
+    static_cast<unordered_map<BranchKey, BranchStats, BranchKeyHash> *>(lt->branch_stats)->reserve(64);
+
+    // Create the per-tracer mutex that serialises all shared-map writes.
+    g_mutex_init(&lt->tracer_mutex);
 
     GstTracer *tracer = GST_TRACER(lt);
     gst_tracing_register_hook(tracer, "element-new", G_CALLBACK(on_element_new));
