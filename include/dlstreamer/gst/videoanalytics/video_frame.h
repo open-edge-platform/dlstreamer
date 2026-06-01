@@ -55,6 +55,11 @@ class VideoFrame {
      */
     std::unique_ptr<GstVideoInfo, std::function<void(GstVideoInfo *)>> info;
 
+    /**
+     * @brief Holds ownership of GstStructure objects converted from analytics metadata in get_tensors().
+     */
+    mutable std::vector<std::shared_ptr<GstStructure>> _converted_tensor_structures;
+
   public:
     /**
      * @brief Construct VideoFrame instance from GstBuffer and GstVideoInfo. This is preferred way of creating
@@ -407,11 +412,65 @@ class VideoFrame {
 
     std::vector<Tensor> get_tensors() const {
         std::vector<Tensor> tensors;
+        _converted_tensor_structures.clear();
+
+        // Prefer GStreamer Analytics frame-level metadata when available
+        GstAnalyticsRelationMeta *relation_meta = gst_buffer_get_analytics_relation_meta(buffer);
+        if (relation_meta) {
+            // Helper: check if an entry is associated with any OD (in either direction)
+            auto is_attached_to_od = [&](guint entry_id) -> bool {
+                // Check outgoing IS_PART_OF from entry to OD (our dual-write sets this)
+                GstAnalyticsODMtd parent_od;
+                if (gst_analytics_relation_meta_get_direct_related(
+                        relation_meta, entry_id, GST_ANALYTICS_REL_TYPE_IS_PART_OF, gst_analytics_od_mtd_get_mtd_type(),
+                        nullptr, &parent_od)) {
+                    return true;
+                }
+                // Also check if any OD has CONTAIN relation TO this entry
+                gpointer od_state = NULL;
+                GstAnalyticsODMtd od;
+                while (gst_analytics_relation_meta_iterate(relation_meta, &od_state,
+                                                           gst_analytics_od_mtd_get_mtd_type(), &od)) {
+                    GstAnalyticsRelTypes rel = gst_analytics_relation_meta_get_relation(relation_meta, od.id, entry_id);
+                    if (rel & (GST_ANALYTICS_REL_TYPE_CONTAIN | GST_ANALYTICS_REL_TYPE_RELATE_TO)) {
+                        return true;
+                    }
+                }
+                return false;
+            };
+
+            // Collect frame-level analytics entries not associated with any OD
+            gpointer mtd_state = NULL;
+            GstAnalyticsMtd mtd;
+            gint frame_w = static_cast<gint>(GST_VIDEO_INFO_WIDTH(info.get()));
+            gint frame_h = static_cast<gint>(GST_VIDEO_INFO_HEIGHT(info.get()));
+            while (gst_analytics_relation_meta_iterate(relation_meta, &mtd_state, GST_ANALYTICS_MTD_TYPE_ANY, &mtd)) {
+                GstAnalyticsMtdType mt = gst_analytics_mtd_get_mtd_type(&mtd);
+                if (mt == gst_analytics_od_mtd_get_mtd_type() || mt == gst_analytics_tracking_mtd_get_mtd_type() ||
+                    mt == gst_analytics_keypoint_mtd_get_mtd_type())
+                    continue;
+                if (is_attached_to_od(mtd.id))
+                    continue;
+                GstStructure *s = Tensor::convert_to_tensor(mtd, frame_w, frame_h);
+                if (s) {
+                    auto shared_s = std::shared_ptr<GstStructure>(s, gst_structure_free);
+                    tensors.emplace_back(s);
+                    _converted_tensor_structures.push_back(shared_s);
+                }
+            }
+        }
+
+        // Read legacy GstGVATensorMeta, always skipping metadata handled by analytics
         GstGVATensorMeta *meta = NULL;
         gpointer state = NULL;
         GType meta_api_type = g_type_from_name("GstGVATensorMetaAPI");
-        while ((meta = (GstGVATensorMeta *)gst_buffer_iterate_meta_filtered(buffer, &state, meta_api_type)))
+        while ((meta = (GstGVATensorMeta *)gst_buffer_iterate_meta_filtered(buffer, &state, meta_api_type))) {
+            const gchar *type = gst_structure_get_string(meta->data, "type");
+            if (type &&
+                (strcmp(type, GST_ANALYTICS_CLS_2_TENSOR) == 0 || strcmp(type, GST_ANALYTICS_KEYPOINTS_2_TENSOR) == 0))
+                continue;
             tensors.emplace_back(meta->data);
+        }
         return tensors;
     }
 };

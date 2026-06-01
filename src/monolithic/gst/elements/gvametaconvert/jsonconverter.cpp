@@ -18,11 +18,11 @@
 #include "gva_json_meta.h"
 #include "gva_tensor_meta.h"
 
-#include <dlstreamer/gst/metadata/gstanalyticsgroupmtd.h>
 #include <dlstreamer/gst/metadata/gstanalyticskeypointdescriptor.h>
-#include <dlstreamer/gst/metadata/gstanalyticskeypointmtd.h>
 #include <gst/analytics/analytics.h>
 #include <gst/analytics/gstanalyticsclassificationmtd.h>
+#include <gst/analytics/gstanalyticsgroupmtd.h>
+#include <gst/analytics/gstanalyticskeypointmtd.h>
 #include <gst/rtp/rtp.h>
 #include <nlohmann/json.hpp>
 
@@ -185,7 +185,7 @@ json convert_analytics_keypoints(GstAnalyticsRelationMeta *relation_meta, guint 
 
         json jkeypoints = json::object();
 
-        gchar *semantic_tag = gst_analytics_group_mtd_get_semantic_tag(group_mtd);
+        gchar *semantic_tag = gst_analytics_mtd_get_semantic_tag((const GstAnalyticsMtd *)group_mtd);
         if (semantic_tag && semantic_tag[0] != '\0')
             jkeypoints["semantic_tag"] = semantic_tag;
 
@@ -461,8 +461,15 @@ json convert_frame_classification(GstGvaMetaConvert *converter, GstBuffer *buffe
             if (!model_name.empty()) {
                 classification.push_back(json::object_t::value_type("model", {{"name", model_name}}));
             }
-            std::string attribute_name =
-                tensor.has_field("attribute_name") ? tensor.get_string("attribute_name") : tensor.name();
+            std::string attribute_name;
+            if (tensor.has_field("semantic_tag")) {
+                std::string tag = tensor.get_string("semantic_tag");
+                if (!tag.empty())
+                    attribute_name = "classification/" + tag;
+            }
+            if (attribute_name.empty())
+                attribute_name =
+                    tensor.has_field("attribute_name") ? tensor.get_string("attribute_name") : tensor.name();
 
             if (tensor.has_field("confidence")) {
                 classification.push_back(json::object_t::value_type("confidence", tensor.confidence()));

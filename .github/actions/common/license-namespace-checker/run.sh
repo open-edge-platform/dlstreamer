@@ -20,14 +20,7 @@ fi
 git config --global --add safe.directory "${SOURCE_DIR}"
 
 # Third-party vendored files with their own (non-Intel) copyright headers.
-# These contain changes from GStreamer 1.28 and 1.30 vendored temporarily.
-# They will no longer be needed after upgrading to GStreamer >= 1.30.
-THIRD_PARTY_FILES=(
-    "include/dlstreamer/gst/metadata/gstanalyticsgroupmtd.h"
-    "include/dlstreamer/gst/metadata/gstanalyticskeypointmtd.h"
-    "src/gst/metadata/gstanalyticsgroupmtd.c"
-    "src/gst/metadata/gstanalyticskeypointmtd.c"
-)
+THIRD_PARTY_FILES=()
 
 pushd "${SOURCE_DIR}"
 

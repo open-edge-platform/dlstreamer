@@ -1,0 +1,3 @@
+# Runtime dependencies for metapublish sample
+# These are lightweight — no ML frameworks needed at runtime.
+PyGObject==3.50.0

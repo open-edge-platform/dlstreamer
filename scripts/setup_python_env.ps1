@@ -61,6 +61,44 @@ Assert-Status "gstreamer-python site-packages not found" (Test-Path $candidate) 
     "Expected at: $candidate"
 $gstPythonSitePackages = $candidate
 
+# Patch GstAnalytics.py overrides using dependencies/windows/GstAnalytics.py.patch
+# Remove this patch after upgrading to GStreamer 1.30
+$gstAnalyticsOverride = Join-Path $gstPythonSitePackages "gi\overrides\GstAnalytics.py"
+$patchFile = [System.IO.Path]::GetFullPath(
+    (Join-Path $PSScriptRoot "..\dependencies\windows\GstAnalytics.py.patch")
+)
+if ((Test-Path $gstAnalyticsOverride) -and (Test-Path $patchFile)) {
+    $targetDir = Split-Path -Parent $gstAnalyticsOverride
+
+    $hasGit = [bool](Get-Command git -ErrorAction SilentlyContinue)
+    Assert-Status "git is required to apply GstAnalytics.py.patch" $hasGit `
+        "Install Git or add it to PATH"
+
+    Push-Location $targetDir
+    try {
+        # Already applied? (--ignore-whitespace handles CRLF vs LF line endings)
+        & git apply --reverse --check --ignore-whitespace --unsafe-paths --directory="$targetDir" "$patchFile" 2>$null
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "GstAnalytics.py override already patched" -ForegroundColor Gray
+        }
+        else {
+            & git apply --ignore-whitespace --unsafe-paths --directory="$targetDir" "$patchFile"
+            Assert-Status "Failed to apply GstAnalytics.py.patch" ($LASTEXITCODE -eq 0) `
+                "Patch file: $patchFile"
+            Write-Host "GstAnalytics.py override patched" -ForegroundColor Green
+        }
+    }
+    finally {
+        Pop-Location
+    }
+}
+elseif (-not (Test-Path $gstAnalyticsOverride)) {
+    Write-Host "GstAnalytics.py override not found at $gstAnalyticsOverride - skipping patch" -ForegroundColor Yellow
+}
+else {
+    Write-Host "GstAnalytics.py.patch not found at $patchFile - skipping patch" -ForegroundColor Yellow
+}
+
 # 4. Configure PYTHONPATH, PYGI_DLL_DIRS, GI_TYPELIB_PATH
 Write-Host "Configuring environment for current session..." -ForegroundColor Yellow
 
