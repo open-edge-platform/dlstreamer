@@ -87,6 +87,8 @@ python download_ultralytics_models.py \
 - `--half` (optional): Export in FP16.
 - `--int8` (optional): Export in INT8.
 
+DL Streamer auto-conversion supports Ultralytics detection, segmentation, pose, OBB, and classification exports.
+
 ### Examples
 
 ```bash

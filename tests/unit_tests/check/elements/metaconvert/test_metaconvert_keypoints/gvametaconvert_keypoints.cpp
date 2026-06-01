@@ -7,8 +7,8 @@
 #include <gstgvametaconvert.h>
 
 #include <dlstreamer/gst/metadata/gstanalyticskeypointdescriptor.h>
-#include <dlstreamer/gst/metadata/gstanalyticskeypointmtd.h>
 #include <dlstreamer/gst/metadata/gva_tensor_meta.h>
+#include <gst/analytics/gstanalyticskeypointmtd.h>
 
 #include "test_common.h"
 

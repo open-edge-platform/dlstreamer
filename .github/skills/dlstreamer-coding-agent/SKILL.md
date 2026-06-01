@@ -1,7 +1,6 @@
 ---
 name: dlstreamer-coding-agent
 description: "Build new DL Streamer video-analytics applications (Python or GStreamer command line). Use when: user describes a vision AI pipeline, wants to create a new sample app, combine elements from existing samples, add detection/classification/VLM/tracking/alerts/recording to a video pipeline, or create custom GStreamer elements in Python. Translates natural-language pipeline descriptions into working DL Streamer code using established design patterns."
-argument-hint: "Describe the vision AI pipeline you want to build (e.g. 'detect faces in RTSP stream and save alerts as JSON')"
 ---
 
 # DL Streamer Coding Agent
@@ -9,6 +8,10 @@ argument-hint: "Describe the vision AI pipeline you want to build (e.g. 'detect 
 Build new DL Streamer video-analytics applications (Python or GStreamer command line) by composing design patterns extracted from existing sample apps.
 
 NOTE: This feature is in PREVIEW stage — expect some rough edges and missing features, and please share your feedback to help us improve it!
+
+## File Resolution
+
+This skill uses **repo-root-relative paths** to reference files outside the skill folder (e.g. `docs/user-guide/elements/`, `samples/gstreamer/python/hello_dlstreamer/`). The repo root is three directories above this skill file when the full repo is cloned, or refers to https://github.com/open-edge-platform/dlstreamer if only skill files were copied.
 
 ## When to Use
 
@@ -43,8 +46,10 @@ See [example prompts](./examples) for inspiration.
 
 ### Execution Overview
 
-After Step 0 (requirements gathering), kick off **all independent long-running tasks in parallel**
+After Step 0 (requirements gathering), kick off all independent long-running tasks in parallel
 via async terminals, then continue with reasoning-heavy work while they complete.
+When in doubt about ordering, always wait for a step's listed prerequisites to finish
+before starting it — the dependency graph below is the single source of truth.
 
 ```
 Step 0 (gather requirements — interactive)
@@ -55,11 +60,11 @@ Step 0 (gather requirements — interactive)
   └──► Step 3  (design pipeline — reasoning) ──► Step 4 (generate app) ─────┘
 ```
 
-**Parallelization rules:**
-- Steps 1, 2a, 2b, and 3 are **fully independent** — start them all immediately after Step 0
+Parallelization rules:
+- Steps 1, 2a, 2b, and 3 are fully independent — start them all immediately after Step 0
 - Step 2c (model export) depends on Step 2a (pip install) completing
 - Step 4 (generate app) depends on Step 3 (pipeline design) completing
-- Step 5 (run & validate) depends on Steps 1, 2c, and 4 all completing
+- Step 5 (run and validate) depends on Steps 1, 2c, and 4 all completing
 
 ### Reference Lookup
 
@@ -83,11 +88,14 @@ Before proceeding with the full procedure, check if the user's prompt maps direc
 If a match is found:
 
 1. Pre-fill Step 0 fields from the matched row
-2. Present the pre-filled values to the user for confirmation (skip the full
-   [Requirements Questionnaire](./references/questionnaire.md) unless info is still missing)
-3. After the user confirms (or overrides), read **only** the design patterns,
+2. If any required field is missing or inferred from the matched row, present the pre-filled
+  values to the user for confirmation (skip the full
+  [Requirements Questionnaire](./references/questionnaire.md) unless info is still missing)
+3. If all required fields were explicitly provided by the user (not inferred), skip
+  confirmation and proceed directly to Step 1
+4. After the user confirms (or overrides), read **only** the design patterns,
    reference sections, and model-preparation sections needed for the confirmed selections
-4. Proceed to Steps 1–5
+5. Proceed to Steps 1–5
 
 ### Step 0 — Gather Requirements
 
@@ -100,7 +108,7 @@ Extract the following from the user's prompt:
 | **Target hardware** | Intel platform, available accelerators (GPU/NPU/CPU) | `Not sure / detect at runtime` |
 | **Output format** | Annotated video, JSON, JPEG snapshots, display window | `All of the above` |
 | **Application type** | Python app or GStreamer command line | `Python application` — but see override rule below |
-| **Docker image** | DL Streamer Docker tag | Latest Ubuntu 24 tag (auto-fetched) |
+| **Docker image** | DL Streamer Docker tag | `intel/dlstreamer:latest` (this tag is treated as the latest Ubuntu 24 image) |
 
 > **Application type override:** If the user's prompt contains explicit language like
 > "bash script", "shell script", "gst-launch", or "command line", set **Application type**
@@ -116,6 +124,9 @@ or override before proceeding. Use the interactive question tool if available
 (e.g. `vscode_askQuestions` in VS Code Copilot), otherwise list the values inline
 in chat. Do NOT silently assume defaults and skip confirmation.
 
+If the user requests NPU but the selected model or elements do not support NPU inference,
+inform the user and suggest falling back to GPU or CPU.
+
 ### Step 1 — Pull Docker Image (async)
 
 Start the Docker image pull in an **async terminal** immediately after Step 0 completes.
@@ -126,6 +137,9 @@ Do NOT reuse a locally cached image without pulling first.
 ```bash
 docker pull intel/dlstreamer:latest
 ```
+
+If `docker pull` fails (for example, image not found or network error), inform the user
+and suggest checking Docker login and network connectivity before retrying.
 
 ### Step 2 — Prepare Models and Video (async)
 
@@ -142,7 +156,7 @@ Check whether the requested models (or similar ones) appear in the model exporte
 If a model is found, extract its download recipe and create a local `export_models.py` in the application directory.
 If a model is not listed, check the [Model Preparation Reference](./references/model-preparation.md) for export instructions, then write a new script using the [Export Models Template](./assets/export-models-template.py).
 
-Create the `export_requirements.txt` file if the model export script requires additional Python packages (e.g. HuggingFace transformers, Ultralytics, optimum-cli, etc.). Add comments in `export_requirements.txt` to indicate which model export script requires a specific package. Use **exact pinned versions** from the [Model Preparation Reference → Requirements](./references/model-preparation.md#requirements).
+Create the `export_requirements.txt` file using the [Export Requirements Template](./assets/export-requirements-template.txt) if the model export script requires additional Python packages (e.g. HuggingFace transformers, Ultralytics, optimum-cli, etc.). Add comments in `export_requirements.txt` to indicate which model export script requires a specific package. Use **exact pinned versions** from the [Model Preparation Reference → Requirements](./references/model-preparation.md#requirements).
 
 > **CRITICAL — CPU-only PyTorch:** The **first line** of `export_requirements.txt` must be
 > `--extra-index-url https://download.pytorch.org/whl/cpu`
@@ -197,6 +211,9 @@ source .<app_name>-export-venv/bin/activate
 python3 export_models.py  # or bash export_models.sh
 ```
 
+If model export fails, check command output for common causes (unsupported architecture,
+insufficient RAM, missing model weights), report the error with a suggested fix, then retry.
+
 ### Step 3 — Design Pipeline
 
 Design a DL Streamer pipeline that fulfills the user's requirements. This step covers element selection and application structure.
@@ -214,7 +231,7 @@ For complex cases, consult the [Sample Index](./references/sample-index.md) for 
 When converting a DeepStream application, follow these additional rules:
 
 1. **Inventory the source pipeline.** Identify all elements in the DeepStream pipeline first.
-2. **Map each element 1-to-1** using the [Converting Guide](../../../docs/user-guide/dev_guide/converting_deepstream_to_dlstreamer.md).
+2. **Map each element 1-to-1** using the Converting Guide at `docs/user-guide/dev_guide/converting_deepstream_to_dlstreamer.md`.
 3. **Connect DL Streamer elements** using the Common Pipeline Patterns table or Sample Index.
 4. **Do not add elements absent from the source pipeline.** Every element in the converted pipeline must trace back to the inventory.
 

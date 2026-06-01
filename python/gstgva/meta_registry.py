@@ -29,17 +29,6 @@ from gi.overrides import GstAnalytics as _GstAnalyticsOverride
 # pylint: disable=protected-access
 _GstAnalyticsOverride._wrap_mtd(
     DLStreamerMeta,
-    'KeypointMtd',
-    DLStreamerMeta.relation_meta_get_keypoint_mtd
-)
-_GstAnalyticsOverride._wrap_mtd(
-    DLStreamerMeta,
-    'GroupMtd',
-    DLStreamerMeta.relation_meta_get_group_mtd
-)
-
-_GstAnalyticsOverride._wrap_mtd(
-    DLStreamerMeta,
     'ZoneMtd',
     DLStreamerMeta.relation_meta_get_zone_mtd
 )
