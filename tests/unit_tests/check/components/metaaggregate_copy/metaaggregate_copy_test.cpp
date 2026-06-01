@@ -1011,9 +1011,9 @@ TEST_F(MetaaggregateCopyTest, CopyAll_SharedMemberBetweenTwoGroups) {
 // ── main ─────────────────────────────────────────────────────────────────────
 
 int main(int argc, char **argv) {
-    testing::InitGoogleTest(&argc, argv);
-    gst_init(&argc, &argv);
     try {
+        testing::InitGoogleTest(&argc, argv);
+        gst_init(&argc, &argv);
         return RUN_ALL_TESTS();
     } catch (...) {
         return 1;
