@@ -120,6 +120,9 @@ void ROIToFrameAttacher::attach(const TensorsTable &tensors, FramesWrapper &fram
                                                                  class_quarks.data(), &cls_descriptor_mtd)) {
                         throw std::runtime_error("Failed to add class descriptor to meta");
                     }
+                    // Mark as class descriptor so it can be filtered out from frame-level tensors
+                    gst_analytics_mtd_set_semantic_tag(reinterpret_cast<GstAnalyticsMtd *>(&cls_descriptor_mtd),
+                                                       "class_descriptor");
                 }
             }
 
@@ -265,8 +268,8 @@ void TensorToROIAttacher::attach(const TensorsTable &tensors_batch, FramesWrappe
             std::vector<gfloat> confidence_levels(length, 0.0f);
             std::vector<GQuark> class_quarks(length, 0);
 
-            for (size_t i = 0; i < length; i++) {
-                class_quarks[i] = g_quark_from_string(labels[i].c_str());
+            for (size_t k = 0; k < length; k++) {
+                class_quarks[k] = g_quark_from_string(labels[k].c_str());
             }
 
             // find or create class descriptor metadata
@@ -294,12 +297,15 @@ void TensorToROIAttacher::attach(const TensorsTable &tensors_batch, FramesWrappe
                 }
             }
 
-            // create class descriptor if one does not exists
+            // create class descriptor if one does not exist
             if (!found) {
                 if (!gst_analytics_relation_meta_add_cls_mtd(od_meta.meta, length, confidence_levels.data(),
                                                              class_quarks.data(), &cls_descriptor_mtd)) {
                     throw std::runtime_error("Failed to add class descriptor to meta");
                 }
+                // Mark as class descriptor so it can be filtered out from frame-level tensors
+                gst_analytics_mtd_set_semantic_tag(reinterpret_cast<GstAnalyticsMtd *>(&cls_descriptor_mtd),
+                                                   "class_descriptor");
             }
         }
 
