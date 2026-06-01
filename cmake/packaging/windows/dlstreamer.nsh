@@ -235,13 +235,14 @@ Function LegacyCleanUp
   ; Uninstall previous version if present
   ReadRegStr $R0 HKLM '${UNINSTALL_REGISTRY_KEY}' 'UninstallString'
   ${If} $R0 != ''
-    DetailPrint 'Execute uninstaller of previous version: $R0'
+    DetailPrint 'Uninstall previous version of DL Streamer'
     ClearErrors
-    nsExec::ExecToLog '$R0 /S'
-    Pop $R1
+    ExecWait '"$INSTDIR\Uninstall.exe" /S _?=$INSTDIR' $R1
     ${If} $R1 != 0
       DetailPrint 'Failed to uninstall previous version. Error code: $R1'
     ${EndIf}
+    Delete "$INSTDIR\Uninstall.exe"
+    RMDir $INSTDIR
   ${EndIf}
 
   DetailPrint 'Check for legacy installations'
@@ -275,6 +276,11 @@ Function LegacyCleanUp
   ${If} ${FileExists} 'C:\dlstreamer_dlls'
     DetailPrint 'Delete legacy DL Streamer DLLs'
     RMDir /r 'C:\dlstreamer_dlls'
+  ${EndIf}
+
+  ${If} ${FileExists} 'C:\dlls_windows'
+    DetailPrint 'Delete legacy DL Streamer DLLs'
+    RMDir /r 'C:\dlls_windows'
   ${EndIf}
 
   ${If} ${FileExists} 'C:\openvino'
@@ -344,11 +350,30 @@ FunctionEnd
   ${If} $R4 = 0
     ; Version matches, verify directory exists
     ${IfThen} $R2 == '' ${|} Goto InvokeGStreamerInstaller ${|}
-    IfFileExists '$R2\*.*' SkipGStreamer InvokeGStreamerInstaller
+    IfFileExists '$R2\*.*' 0 InvokeGStreamerInstaller
+
+    ; Check gstanalytics patch status
+    DetailPrint 'Check gstanalytics patch status'
+    nsExec::ExecToLog 'powershell.exe -ExecutionPolicy Bypass -File "$INSTDIR\dependencies\windows\install_gstanalytics_patch.ps1" -Mode Check -GStreamerDir "$R2"'
+    Pop $R5
+    ${If} $R5 = 0
+      Goto SkipGStreamer
+    ${ElseIf} $R5 = 2
+      Call UninstallGStreamerInno
+      ${If} $R2 != ''
+        RMDir /r '$R2'
+      ${EndIf}
+      Goto InvokeGStreamerInstaller
+    ${Else}
+      Goto ApplyGstAnalyticsPatch
+    ${EndIf}
   ${Else}
     ; Version mismatch, uninstall then install
     DetailPrint 'GStreamer version mismatch: installed $R1, bundled ${GSTREAMER_VERSION}'
     Call UninstallGStreamerInno
+    ${If} $R2 != ''
+      RMDir /r '$R2'
+    ${EndIf}
     Goto InvokeGStreamerInstaller
   ${EndIf}
 
@@ -370,17 +395,18 @@ FunctionEnd
   ${If} $R3 != 0
     DetailPrint 'GStreamer installation failed. Error code: $R3'
     MessageBox MB_OK|MB_ICONEXCLAMATION 'Failed to install GStreamer.' /SD IDYES
+    Goto SkipGStreamer
   ${EndIf}
 
-  ; Result: 0=equal, 1=installed newer, 2=bundled newer
-  ${VersionCompare} '1.28.2' '${GSTREAMER_VERSION}' $R4
-  ${If} $R4 = 0
-    ReadRegStr $R2 HKLM 'SOFTWARE\GStreamer1.0\x86_64' 'InstallDir'
-    SetOutPath $R2\bin
-    File "${INST_DIR}\c00_gstreamer\deps\windows\gstanalytics-1.0-0.dll"
+  ApplyGstAnalyticsPatch:
+  ReadRegStr $R2 HKLM 'SOFTWARE\GStreamer1.0\x86_64' 'InstallDir'
+  ${If} $R2 != ''
+    nsExec::ExecToLog 'powershell.exe -ExecutionPolicy Bypass -File "$INSTDIR\dependencies\windows\install_gstanalytics_patch.ps1" -Mode Install -GStreamerDir "$R2"'
+    Pop $R3
+    ${If} $R3 != 0
+      DetailPrint 'gstanalytics patch installation failed. Error code: $R3'
+    ${EndIf}
   ${EndIf}
-
-  SetOutPath '$INSTDIR'
 
   SkipGStreamer:
 !macroend

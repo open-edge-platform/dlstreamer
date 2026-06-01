@@ -42,15 +42,17 @@ class BlobToMetaConverter {
     const std::vector<std::string> labels;
     const bool skip_raw_tensors;
 
+  public:
+    const std::string &getModelName() const {
+        return model_name;
+    }
+
   protected:
     const ModelImageInputInfo &getModelInputImageInfo() const {
         return input_image_info;
     }
     const ModelOutputsInfo &getModelOutputsInfo() const {
         return outputs_info;
-    }
-    const std::string &getModelName() const {
-        return model_name;
     }
 
     const GstStructureUniquePtr &getModelProcOutputInfo() const {

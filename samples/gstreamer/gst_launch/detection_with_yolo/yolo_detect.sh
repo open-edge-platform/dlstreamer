@@ -18,12 +18,12 @@ else
 fi
 
 # List help message
-if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
+if [[ "${1:-}" == "--help" ]] || [[ "${1:-}" == "-h" ]]; then
   echo "Usage: $0 [MODEL] [DEVICE] [INPUT] [OUTPUT] [PPBKEND] [PRECISION]"
   echo ""
   echo "Arguments:"
   echo "  MODEL     - Model name (default: yolox_s)"
-  echo "            Supported: yolo_all, yolox-tiny, yolox_s, yolov7, yolov8s, yolov8n-obb, yolov8n-seg, yolov9c, yolov10s, yolo11s, yolo11s-obb, yolo11s-seg, yolo11s-pose, yolo26n, yolo26s, yolo26m, yolo26l, yolo26x, yolo26s-obb, yolo26s-seg, yolo26s-pose"
+  echo "            Supported: yolo_all, yolox-tiny, yolox_s, yolov7, yolov8s, yolov8n-obb, yolov8n-seg, yolov9c, yolov10s, yolo11s, yolo11s-obb, yolo11s-seg, yolo11s-pose, yolo26n, yolo26s, yolo26m, yolo26l, yolo26x, yolo26s-obb, yolo26s-seg, yolo26s-pose, yolo26s-cls"
   echo "  DEVICE    - Device (default: GPU). Supported: CPU, GPU, NPU"
   echo "  INPUT     - Input source (default: Pexels video URL)"
   echo "  OUTPUT    - Output type (default: file). Supported: file, display, fps, json, display-and-json"
@@ -31,14 +31,22 @@ if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
   echo "  PRECISION - Model precision (default: INT8). Supported: INT8, FP32, FP16"
   echo ""
   exit 0
-fi 
+fi
 
-MODEL=${1:-"yolox_s"}   # Supported values: yolo_all, yolox-tiny, yolox_s, yolov7, yolov8s, yolov8n-obb, yolov8n-seg, yolov9c, yolov10s, yolo11s, yolo11s-obb, yolo11s-seg, yolo11s-pose, yolo26n, yolo26s, yolo26m, yolo26l, yolo26x, yolo26s-obb, yolo26s-seg, yolo26s-pose
+MODEL=${1:-"yolox_s"}   # Supported values: yolo_all, yolox-tiny, yolox_s, yolov7, yolov8s, yolov8n-obb, yolov8n-seg, yolov9c, yolov10s, yolo11s, yolo11s-obb, yolo11s-seg, yolo11s-pose, yolo26n, yolo26s, yolo26m, yolo26l, yolo26x, yolo26s-obb, yolo26s-seg, yolo26s-pose, yolo26s-cls
 DEVICE=${2:-"GPU"}      # Supported values: CPU, GPU, NPU
 INPUT=${3:-"https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4"}
 OUTPUT=${4:-"file"}     # Supported values: file, display, fps, json, display-and-json
 PPBKEND=${5:-""}        # Supported values: ie, opencv, va, va-surface-sharing
 PRECISION=${6:-"INT8"}  # Supported values: INT8, FP32, FP16
+
+DETECTION_MODEL="$MODEL"
+CLASSIFICATION_MODEL=""
+
+if [[ "$MODEL" == "yolo26s-cls" ]]; then
+  DETECTION_MODEL="yolo26s"
+  CLASSIFICATION_MODEL="yolo26s-cls"
+fi
 
 cd "$(dirname "$0")"
 
@@ -83,6 +91,7 @@ declare -A MODEL_PROC_FILES=(
   ["yolo26s-obb"]=""
   ["yolo26s-seg"]=""
   ["yolo26s-pose"]=""
+  ["yolo26s-cls"]=""
 )
 
 if ! [[ "${!MODEL_PROC_FILES[*]}" =~ $MODEL ]]; then
@@ -95,6 +104,11 @@ if ! [ -z ${MODEL_PROC_FILES[$MODEL]} ]; then
   MODEL_PROC=$(realpath "${MODEL_PROC_FILES[$MODEL]}")
 fi
 
+CLASSIFICATION_MODEL_PATH=""
+if [[ -n "$CLASSIFICATION_MODEL" ]]; then
+  CLASSIFICATION_MODEL_PATH="${MODELS_PATH}/public/$CLASSIFICATION_MODEL/$PRECISION/$CLASSIFICATION_MODEL.xml"
+fi
+
 cd - 1>/dev/null
 
 if [[ $PRECISION != "INT8" ]] && [[ $PRECISION != "FP32" ]] && [[ $PRECISION != "FP16" ]]; then
@@ -102,11 +116,16 @@ if [[ $PRECISION != "INT8" ]] && [[ $PRECISION != "FP32" ]] && [[ $PRECISION != 
   exit 1
 fi
 
-MODEL_PATH="${MODELS_PATH}/public/$MODEL/$PRECISION/$MODEL.xml"
+MODEL_PATH="${MODELS_PATH}/public/$DETECTION_MODEL/$PRECISION/$DETECTION_MODEL.xml"
 
 # check if model exists in local directory
 if [ ! -f $MODEL_PATH ]; then
   echo "Model not found: ${MODEL_PATH}"
+  exit 1
+fi
+
+if [[ -n "$CLASSIFICATION_MODEL_PATH" ]] && [ ! -f "$CLASSIFICATION_MODEL_PATH" ]; then
+  echo "Classification model not found: ${CLASSIFICATION_MODEL_PATH}"
   exit 1
 fi
 
@@ -130,7 +149,7 @@ if [[ -z "$PPBKEND" ]]; then
   esac
 else
   valid_backends=("ie" "opencv" "va" "va-surface-sharing")
-  if [[ " ${valid_backends[*]} " =~ " $PPBKEND " ]]; then
+  if [[ " ${valid_backends[*]} " =~  $PPBKEND  ]]; then
     PREPROC_BACKEND="$PPBKEND"
   else
     echo "Error: Wrong value for PREPROC_BACKEND parameter."
@@ -167,12 +186,17 @@ else
   exit 1
 fi
 
+CLASSIFICATION_ELEMENT=""
+if [[ -n "$CLASSIFICATION_MODEL_PATH" ]]; then
+  CLASSIFICATION_ELEMENT=" ! gvaclassify model=$CLASSIFICATION_MODEL_PATH device=$DEVICE pre-process-backend=opencv ! queue"
+fi
+
 PIPELINE="gst-launch-1.0 $SOURCE_ELEMENT $DECODE_ELEMENT \
 gvadetect model=$MODEL_PATH"
 if [[ -n "$MODEL_PROC" ]]; then
   PIPELINE="$PIPELINE model-proc=$MODEL_PROC"
 fi
-PIPELINE="$PIPELINE device=$DEVICE pre-process-backend=$PREPROC_BACKEND $IE_CONFIG ! queue ! \
+PIPELINE="$PIPELINE device=$DEVICE pre-process-backend=$PREPROC_BACKEND $IE_CONFIG ! queue$CLASSIFICATION_ELEMENT ! \
 $SINK_ELEMENT"
 
 echo "${PIPELINE}"
