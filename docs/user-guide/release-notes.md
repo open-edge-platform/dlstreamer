@@ -1,3 +1,172 @@
+# Release Notes: Deep Learning Streamer (DL Streamer) Pipeline Framework Release 2026.1
+
+## Version 2026.1
+
+## Key highlights:
+
+• DLStreamer Coding Agent: AI-assisted pipeline builder that translates natural-language descriptions into working DL Streamer Python apps or GStreamer command lines
+• GstAnalytics metadata migration: full-frame GstAnalytics support, keypoints switched to GstAnalytics API, migration to upstream GStreamer 1.28+ API
+• New elements: gvastreammux, gvaanalytics, g3dinference
+• New model support: YOLO classification, PaddleOCRv5, GETI semantic segmentation
+• New D3D11 backend for Windows GPU processing
+• Windows installer and expanded Windows sample coverage
+• gvawatermark enhancements: custom full-frame text, dynamic Gaussian blur sized to ROI, metadata-controlled drawing
+• Inference enhancements: CPU thread affinity parameter, skip-raw-tensors property, DepthConverter
+• Optimizer enhancements: time reduction, pause/resume, partial results, file output, cross-stream batch/nireq grouping, detection-based validation
+• Deep SORT tracker refactoring with enhanced detection and track structures
+• Dynamic ONVIF camera discovery with DLS pipeline startup
+• New Python samples: gvaanalytics, inference performance optimizations, custom frame selection for VLM queries
+• DLStreamer ONVIF package as installable Python wheel
+• PyTorch Image Models (TIMM) model import script
+• Component updates: OpenVINO 2026.1, GStreamer 1.28.2, OpenCV 4.13.0, NPU driver 1.32.1, Ubuntu 24.04.4 kernel 6.17
+• CI: self-hosted Kubernetes infrastructure, configurable tests, Fedora 41 image building
+
+
+Deep Learning Streamer (DL Streamer) Pipeline Framework is a streaming media analytics framework, based on GStreamer* multimedia framework, for creating complex media analytics pipelines. It ensures pipeline interoperability and provides optimized media, and inference operations using Intel® Distribution of OpenVINO™ Toolkit Inference Engine backend, across Intel® architecture, CPU, discrete GPU, integrated GPU and NPU.
+
+The complete solution leverages:
+
+• Open source GStreamer* framework for pipeline management
+• GStreamer* plugins for input and output such as media files and real-time streaming from camera or network
+• Video decode and encode plugins, either CPU optimized plugins or GPU-accelerated plugins based on VAAPI
+• Deep Learning models converted from training frameworks TensorFlow*, Caffe* etc.
+• The following elements in the Pipeline Framework repository:
+
+| Element | Description |
+|---------|-------------|
+| gvaattachroi | Adds user-defined regions of interest to perform inference on, instead of full frame. |
+| gvaaudiodetect | Performs audio event detection using AclNet model. |
+| gvaaudiotranscribe | Performs audio transcription using OpenVino GenAI Whisper model. |
+| gvaanalytics | Provides a framework for custom analytics logic on detected objects and metadata. |
+| gvaclassify | Performs object classification. Accepts the ROI as an input and outputs classification results with the ROI metadata. |
+| gvadetect | Performs object detection on a full-frame or region of interest (ROI) using object detection models such as YOLOv4-v11, MobileNet SSD, Faster-RCNN etc. Outputs the ROI for detected objects. |
+| gvafpscounter | Measures frames per second across multiple streams in a single process. |
+| gvafpsthrottle | Throttles the frame rate of a pipeline to a specified FPS value. |
+| gvagenai | Performs inference with Vision Language Models using OpenVINO™ GenAI, accepts video and text prompt as an input, and outputs text description. It can be used to generate text summarization from video. |
+| gvainference | Runs deep learning inference on a full-frame or ROI using any model with an RGB or BGR input. |
+| gvametaaggregate | Aggregates inference results from multiple pipeline branches |
+| gvametaconvert | Converts the metadata structure to the JSON format. |
+| gvametapublish | Publishes the JSON metadata to MQTT or Kafka message brokers or files. |
+| gvamotiondetect | Performs lightweight motion detection on NV12 video frames and emits motion regions of interest (ROIs) as analytics metadata. |
+| gvapython | Provides a callback to execute user-defined Python functions on every frame. Can be used for metadata conversion, inference post-processing, and other tasks. |
+| gvarealsense | Provides integration with Intel RealSense cameras, enabling video and depth stream capture for use in GStreamer pipelines. |
+| gvastreammux | Multiplexes multiple input streams into a single pipeline with batch metadata support. |
+| gvatrack | Performs object tracking using zero-term, or imageless tracking algorithms. Assigns unique object IDs to the tracked objects. |
+| gvawatermark | Overlays the metadata on the video frame to visualize the inference results. |
+| g3dradarprocess | Processes 3D radar data for use in analytics pipelines. |
+| g3dlidarparse | Parses 3D lidar data for use in analytics pipelines. |
+| g3dinference | Performs deep learning inference on 3D sensor data (lidar, radar). |
+
+For the details on supported platforms, please refer to [System Requirements](https://github.com/open-edge-platform/dlstreamer/blob/v2026.1.0/docs/user-guide/get_started/system_requirements.md).
+
+For installing Pipeline Framework with the prebuilt binaries or Docker* or to build the binaries from the open source, refer to [Intel® DL Streamer Pipeline Framework installation guide](https://github.com/open-edge-platform/dlstreamer/blob/v2026.1.0/docs/user-guide/get_started/install/install_guide_index.md).
+
+## New in this Release
+
+| Feature | Description |
+|---------|-------------|
+| DLStreamer Coding Agent | AI-powered coding assistant that translates natural-language pipeline descriptions into working DL Streamer applications (Python or GStreamer CLI). Ships with a structured skill comprising a requirements questionnaire, model preparation guide, pipeline construction rules, design patterns, sample index, and debugging hints. Seven example prompts included: pose estimation, people detection & tracking, VLM safety compliance checks, event-based smart NVR, license-plate recognition, multi-stream compose, and DeepStream-to-DLStreamer Python conversion. |
+| Upstream GstAnalytics API migration | Removed custom gstanalyticsgroupmtd and gstanalyticskeypointmtd implementations, migrating to upstream GStreamer 1.28+ API. |
+| Full-frame GstAnalytics support | Added full-frame GstAnalytics support so inference results without a parent object detection are properly stored in GstAnalyticsRelationMeta and serialized to JSON. Includes frame-level classification and keypoint conversion. |
+| Keypoints GstAnalytics metadata | Switched keypoints to GstAnalytics metadata API for standardized metadata handling. |
+| Analytics element (gvaanalytics) | New element providing a framework for custom analytics logic on detected objects and metadata. |
+| Stream multiplexer element (gvastreammux) | New element for multiplexing multiple input streams into a single pipeline with GstAnalyticsBatchMeta support. |
+| 3D inference element (g3dinference) | New element for performing deep learning inference on 3D sensor data (lidar, radar). |
+| YOLO classification support | Added YOLO classification model support for image classification tasks. |
+| PaddleOCRv5 model support | Added support for PaddleOCRv5 models for character recognition. |
+| GETI semantic segmentation support | Added support for GETI semantic segmentation models. |
+| CPU thread affinity parameter | Added affinity CPU thread affinity parameter to gvadetect/gvaclassify for performance tuning. |
+| Skip raw tensors property | Added skip-raw-tensors property to gvaclassify and related components to reduce metadata overhead. |
+| DepthConverter and pre-processing | Added DepthConverter and enhanced pre-processing capabilities for depth data. |
+| New D3D11 backend | New D3D11 backend for Windows GPU processing including motion detect support. |
+| Windows installer | Added Windows installer for simplified DL Streamer deployment. |
+| Windows samples expansion | Added new Windows samples including YOLO, metapublish Kafka/MQTT. |
+| Dynamic ONVIF camera discovery sample | New sample for dynamic ONVIF camera discovery with DLS pipeline startup. |
+| gvaanalytics sample | New sample demonstrating the gvaanalytics element usage. |
+| Inference performance optimization sample | New sample app demonstrating inference performance optimizations DLS can provide. |
+| Custom frame selection for VLM sample | New sample pipeline with custom frame selection logic for VLM queries. |
+| DLStreamer ONVIF Python wheel | Introduced dlstreamer.onvif package as an installable Python wheel (whl file). |
+| PyTorch Image Models (TIMM) import | Added PyTorch Image Models (TIMM) model import script for model onboarding. |
+| Python environment setup script | Added Python environment setup script for streamlined development setup. |
+
+## Updated in this Release
+
+| Feature | Description |
+|---------|-------------|
+| gvawatermark enhancements | Custom full-frame text support, dynamic Gaussian blur kernel sized to ROI, metadata-controlled watermark drawing, explicit enable-blur flag documentation. |
+| DLS Optimizer enhancements | Time reduction, ability to pause/resume progress, retrieve partial results, output results to file, cross-stream grouping for batches and nireqs, pipeline validation based on counted detections. |
+| Deep SORT tracker refactoring | Refactored Deep SORT Tracker with enhanced detection and track structures for improved tracking accuracy. |
+| metaaggregate improvements | Fixed id=0 hash lookup with g_hash_table_lookup_extended, fixed shared group member duplication, and added generic semantic_tag copy for all mtd types. |
+| gvaattachroi GstAnalytics dual-write | Full-frame keypoints attached by gvaattachroi now also write GstAnalytics metadata for visibility to gvawatermark. |
+| jsonconverter enhancements | Added frame-level keypoint group conversion, frame-level classification via semantic_tag keys, and per-keypoint semantic_tag to JSON output. |
+| ROI label handling | Enhanced ROI label handling: append label regardless of confidence and show confidence only if valid. |
+| YOLOv10/YOLOv26 converters | Updated YOLOv10 and YOLOv26 converters to enforce NMS for improved detection results. |
+| OpenVINO update | Update to OpenVINO 2026.1. |
+| GStreamer update | Update to GStreamer 1.28.2 with GStreamer 1.28 build support. Removed GStreamer 1.26 support. |
+| OpenCV update | Update to OpenCV 4.13.0. |
+| NPU driver update | Update to NPU driver version 1.32.1. |
+| GPU driver update | Updated GPU drivers to latest version. |
+| Ubuntu update | Bump Ubuntu to 24.04.4 and kernel 6.17. |
+| LidarMeta refactoring | Refactored LidarMeta implementation from C++ to C for improved portability. |
+| Model downloading scripts | Improved Ultralytics and HuggingFace model downloading scripts with better error handling. Windows YOLO script now supports YOLOv26. |
+| gvapython samples conversion | Converted gvapython samples to standalone Python GStreamer elements. |
+| gvametaconvert documentation | Added missing documentation about add-rtp-timestamp property. |
+| gvametapublish Windows support | Enabled gvametapublishkafka and gvametapublishmqtt on Windows. |
+| CI infrastructure | Switched to self-hosted Kubernetes infrastructure, enabled configurable tests in Makefile, added Fedora 41 image building, modified PR workflow to save CI resources. |
+| Windows build improvements | Handle internal build and gstanalytics DLL copy, PDB file generation, fixed environment variable paths. |
+| Python samples overview | Updated Python samples overview and READMEs. |
+| Tests | Expanded optimizer unit tests, added GStreamer check framework unit tests for gvawatermark, run optimizer tests always. Added 41 unit tests for metaaggregate copy functions, extended tensor_convert_test with full-frame classification and keypoint round-trip tests. |
+
+## Fixed
+
+| # | Description |
+|---|-------------|
+| 1 | Fixed downloading of pallet defect detection model. |
+| 2 | Fixed codeQL scan issues. |
+| 3 | Fixed Coverity data race warnings in gvastreammux/demux. |
+| 4 | Fixed GStreamer cache cleaning by prepending directories to PATH. |
+| 5 | Fixed draw_face_attributes sample failing to build on Ubuntu 24 deb install due to missing OpenCV paths. |
+| 6 | Fixed instant EOS and tracking metadata copy failure in multi-branch pipelines. |
+| 7 | Fixed detections with 0 height/width causing issues. |
+| 8 | Fixed DLSPS building errors. |
+| 9 | Fixed path for downloading Windows assets. |
+| 10 | Fixed Windows set environment path issue. |
+| 11 | Fixed GIR to typelib compilation for Windows. |
+| 12 | Fixed WinGet PowerShell module crash. |
+| 13 | Fixed mapping of VA memory in gvawatermark. |
+| 14 | Fixed incorrect default devices being used in optimizer. |
+| 15 | Fixed images not showing in docs website. |
+| 16 | Fixed analytics metadata documentation. |
+| 17 | Fixed linking dlstreamer to home directory. |
+| 18 | Fixed triggering CI when pushed to main. |
+| 19 | Fixed documentation for DL Streamer and DeepStream coexistence. |
+| 20 | Fixed queue name check and removed mutex unlock (reverted). |
+| 21 | Fixed yamllint issues. |
+| 22 | Removed deprecated ffmpeg_openvino and decode_resize_inference samples. |
+
+## Known Issues
+
+| Issue | Description |
+|-------|-------------|
+| Preview Architecture 2.0 Samples | Preview Arch 2.0 samples have known issues with inference results. |
+
+## Legacy Features and Deprecation Timeline
+
+List of the features and components to be deprecated in the future.
+
+| Feature | Target | Replacement |
+|---------|--------|-------------|
+| OMZ models | end of Q3'2026 | Use HuggingFace, Ultralytics, TIMM |
+| Model-proc-file | end of Q3'2026 | ModelAPI (common with Geti) |
+| gvapython element | end of Q4'2026 | usage of regular GStreamer Python bindings |
+| GstVideoRegionOfInterest meta + Intel extensions | end of Q4'2026 | usage of GstAnalyticsMtd |
+| Architecture 2.0 elements | end of Q4'2026 | Preserve essential components and ideas |
+
+## Legal Information
+
+• GStreamer is an open source framework licensed under LGPL. See https://gstreamer.freedesktop.org/documentation/frequently-asked-questions/licensing.html. You are solely responsible for determining if your use of GStreamer requires any additional licenses. Intel is not responsible for obtaining any such licenses, nor liable for any licensing fees due, in connection with your use of GStreamer.
+
+
 # Release Notes: Deep Learning Streamer (DL Streamer) Pipeline Framework Release 2026.0
 
 ## Version 2026.0
