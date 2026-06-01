@@ -4,58 +4,59 @@
 
 ## Key highlights:
 
-• DLStreamer Coding Agent: AI-assisted pipeline builder that translates natural-language descriptions into working DL Streamer Python apps or GStreamer command lines
-• GstAnalytics metadata migration: full-frame GstAnalytics support, keypoints switched to GstAnalytics API, migration to upstream GStreamer 1.28+ API
-• New elements: gvastreammux, gvaanalytics, g3dinference
-• New model support: YOLO classification, PaddleOCRv5, GETI semantic segmentation
-• New D3D11 backend for Windows GPU processing
-• Windows installer and expanded Windows sample coverage
-• gvawatermark enhancements: custom full-frame text, dynamic Gaussian blur sized to ROI, metadata-controlled drawing
-• Inference enhancements: CPU thread affinity parameter, skip-raw-tensors property, DepthConverter
-• Optimizer enhancements: time reduction, pause/resume, partial results, file output, cross-stream batch/nireq grouping, detection-based validation
-• Deep SORT tracker refactoring with enhanced detection and track structures
-• Dynamic ONVIF camera discovery with DLS pipeline startup
-• New Python samples: gvaanalytics, inference performance optimizations, custom frame selection for VLM queries
-• DLStreamer ONVIF package as installable Python wheel
-• PyTorch Image Models (TIMM) model import script
-• Component updates: OpenVINO 2026.1, GStreamer 1.28.2, OpenCV 4.13.0, NPU driver 1.32.1, Ubuntu 24.04.4 kernel 6.17
-• CI: self-hosted Kubernetes infrastructure, configurable tests, Fedora 41 image building
+* DLStreamer Coding Agent: AI-assisted pipeline builder that translates natural-language descriptions into working DL Streamer Python apps or GStreamer command lines
+* GstAnalytics metadata migration: full-frame GstAnalytics support, keypoints switched to GstAnalytics API, migration to upstream GStreamer 1.28+ API
+* New elements: gvastreammux, gvaanalytics, g3dinference
+* New model support: YOLO classification, PaddleOCRv5, GETI semantic segmentation
+* New D3D11 backend for Windows GPU processing
+* PyTorch Image Models (TIMM) model import script
+* Windows installer and expanded Windows sample coverage
+* gvawatermark enhancements: custom full-frame text, dynamic Gaussian blur sized to ROI, metadata-controlled drawing
+* Inference enhancements: CPU thread affinity parameter, skip-raw-tensors property, DepthConverter
+* Optimizer enhancements: time reduction, pause/resume, partial results, file output, cross-stream batch/nireq grouping, detection-based validation
+* Deep SORT tracker refactoring with enhanced detection and track structures
+* New Python samples: gvaanalytics, inference performance optimizations, custom frame selection for VLM queries
+* Dynamic ONVIF camera discovery with DLS pipeline startup
+* DLStreamer ONVIF package as installable Python wheel
+* Component updates: OpenVINO 2026.1, GStreamer 1.28.2, OpenCV 4.13.0, NPU driver 1.32.1, Ubuntu 24.04.4 kernel 6.17
+* CI: self-hosted Kubernetes infrastructure, configurable tests, Fedora 41 image building
 
 
 Deep Learning Streamer (DL Streamer) Pipeline Framework is a streaming media analytics framework, based on GStreamer* multimedia framework, for creating complex media analytics pipelines. It ensures pipeline interoperability and provides optimized media, and inference operations using Intel® Distribution of OpenVINO™ Toolkit Inference Engine backend, across Intel® architecture, CPU, discrete GPU, integrated GPU and NPU.
 
 The complete solution leverages:
 
-• Open source GStreamer* framework for pipeline management
-• GStreamer* plugins for input and output such as media files and real-time streaming from camera or network
-• Video decode and encode plugins, either CPU optimized plugins or GPU-accelerated plugins based on VAAPI
-• Deep Learning models converted from training frameworks TensorFlow*, Caffe* etc.
-• The following elements in the Pipeline Framework repository:
+- Open source GStreamer* framework for pipeline management
+- GStreamer* plugins for input and output such as media files and real-time streaming from camera or network
+- Video decode and encode plugins, either CPU optimized plugins or GPU-accelerated plugins based on VAAPI
+- Deep Learning models converted from training frameworks TensorFlow*, Caffe* etc.
+- The following elements in the Pipeline Framework repository:
 
-| Element | Description |
-|---------|-------------|
-| gvaattachroi | Adds user-defined regions of interest to perform inference on, instead of full frame. |
-| gvaaudiodetect | Performs audio event detection using AclNet model. |
-| gvaaudiotranscribe | Performs audio transcription using OpenVino GenAI Whisper model. |
-| gvaanalytics | Provides a framework for custom analytics logic on detected objects and metadata. |
-| gvaclassify | Performs object classification. Accepts the ROI as an input and outputs classification results with the ROI metadata. |
-| gvadetect | Performs object detection on a full-frame or region of interest (ROI) using object detection models such as YOLOv4-v11, MobileNet SSD, Faster-RCNN etc. Outputs the ROI for detected objects. |
-| gvafpscounter | Measures frames per second across multiple streams in a single process. |
-| gvafpsthrottle | Throttles the frame rate of a pipeline to a specified FPS value. |
-| gvagenai | Performs inference with Vision Language Models using OpenVINO™ GenAI, accepts video and text prompt as an input, and outputs text description. It can be used to generate text summarization from video. |
-| gvainference | Runs deep learning inference on a full-frame or ROI using any model with an RGB or BGR input. |
-| gvametaaggregate | Aggregates inference results from multiple pipeline branches |
-| gvametaconvert | Converts the metadata structure to the JSON format. |
-| gvametapublish | Publishes the JSON metadata to MQTT or Kafka message brokers or files. |
-| gvamotiondetect | Performs lightweight motion detection on NV12 video frames and emits motion regions of interest (ROIs) as analytics metadata. |
-| gvapython | Provides a callback to execute user-defined Python functions on every frame. Can be used for metadata conversion, inference post-processing, and other tasks. |
-| gvarealsense | Provides integration with Intel RealSense cameras, enabling video and depth stream capture for use in GStreamer pipelines. |
-| gvastreammux | Multiplexes multiple input streams into a single pipeline with batch metadata support. |
-| gvatrack | Performs object tracking using zero-term, or imageless tracking algorithms. Assigns unique object IDs to the tracked objects. |
-| gvawatermark | Overlays the metadata on the video frame to visualize the inference results. |
-| g3dradarprocess | Processes 3D radar data for use in analytics pipelines. |
-| g3dlidarparse | Parses 3D lidar data for use in analytics pipelines. |
-| g3dinference | Performs deep learning inference on 3D sensor data (lidar, radar). |
+  | Element | Description |
+  |---|---|
+  | [gvaanalytics](./elements/gvaanalytics.md) | Provides a framework for custom analytics logic on detected objects and metadata. |
+  | [gvaattachroi](./elements/gvaattachroi.md) | Adds user-defined regions of interest to perform inference on,   instead of full frame. |
+  | [gvaaudiodetect](./elements/gvaaudiodetect.md) | Performs audio event detection using AclNet model. |
+  | [gvaaudiotranscribe](./elements/gvaaudiotranscribe.md) | Performs audio transcription using OpenVino GenAI Whisper model. |
+  | [gvaclassify](./elements/gvaclassify.md) | Performs object classification. Accepts the ROI as an input and   outputs classification results with the ROI metadata. |
+  | [gvadetect](./elements/gvadetect.md) | Performs object detection on a full-frame or region of interest (ROI)   using object detection models such as YOLOv4-v11, MobileNet SSD, Faster-RCNN etc. Outputs the ROI for detected   objects. |
+  | [gvafpscounter](./elements/gvafpscounter.md) | Measures frames per second across multiple streams in a single   process. |
+  | [gvafpsthrottle](./elements/gvafpsthrottle.md) | Throttles the frame rate of a pipeline to a specified FPS value. |
+  | [gvagenai](./elements/gvagenai.md) | Performs inference with Vision Language Models using OpenVINO™ GenAI, accepts video and text prompt as an input, and outputs text description. It can be used to generate text summarization from video. |
+  | [gvainference](./elements/gvainference.md) | Runs deep learning inference on a full-frame or ROI using any model with an RGB or BGR input. |
+  | [gvametaaggregate](./elements/gvametaaggregate.md) | Aggregates inference results from multiple pipeline branches |
+  | [gvametaconvert](./elements/gvametaconvert.md) | Converts the metadata structure to the JSON format. |
+  | [gvametapublish](./elements/gvametapublish.md) | Publishes the JSON metadata to MQTT or Kafka message brokers or   files. |
+  | [gvamotiondetect](./elements/gvamotiondetect.md) | Performs lightweight motion detection on NV12 video frames and emits motion regions of interest (ROIs) as analytics metadata. |
+  | [gvapython](./elements/gvapython.md) | Provides a callback to execute user-defined Python functions on every   frame. Can be used for metadata conversion, inference post-processing, and other tasks. |
+  | [gvarealsense](./elements/gvarealsense.md) | Provides integration with Intel RealSense cameras, enabling video and depth stream capture for use in GStreamer pipelines. |
+  | [gvastreammux](./elements/gvastreammux.md) | Multiplexes multiple input streams into a single pipeline with batch metadata support. |
+  | [gvatrack](./elements//gvatrack.md) | Performs object tracking using zero-term, or imageless tracking algorithms.   Assigns unique object IDs to the tracked objects. |
+  | [gvawatermark](./elements//gvawatermark.md) | Overlays the metadata on the video frame to visualize the inference   results. |
+  | [g3dinference](./elements/g3dinference.md) | Performs deep learning inference on 3D sensor data (lidar, radar). |
+  | [g3dlidarparse](./elements/g3dlidarparse.md) | Parses 3D lidar data for use in analytics pipelines. |
+  | [g3dradarprocess](./elements/g3dradarprocess.md) | Processes 3D radar data for use in analytics pipelines. |
+
 
 For the details on supported platforms, please refer to [System Requirements](https://github.com/open-edge-platform/dlstreamer/blob/v2026.1.0/docs/user-guide/get_started/system_requirements.md).
 
