@@ -93,7 +93,7 @@ The choice of the DL Streamer element that should be used to perform the inferen
 See the following samples for detailed examples of DL Streamer pipelines that use transformer-based models:
 
 1. [Using VLM Models With gvagenai Element](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch/gvagenai)
-2. [Image Embeddings Generation with ViT](https://github.com/open-edge-platform/dlstreamer/blob/main/samples/gstreamer/gst_launch/lvm/)
+2. [Image Embeddings Generation with ViT](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch/lvm/)
 3. [Face Detection and Classification](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/python/face_detection_and_classification)
 4. [Smart Network Video Recorder for Lane Hogging Detection](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/python/smart_nvr)
 5. [VLM Alerts](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/python/vlm_alerts)
