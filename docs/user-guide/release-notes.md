@@ -162,6 +162,9 @@ List of the features and components to be deprecated in the future.
 | gvapython element | end of Q4'2026 | usage of regular GStreamer Python bindings |
 | GstVideoRegionOfInterest meta + Intel extensions | end of Q4'2026 | usage of GstAnalyticsMtd |
 | Architecture 2.0 elements | end of Q4'2026 | Preserve essential components and ideas |
+| Alchemist GPU support | end of Q3'2026 | Battlemage discrete GPUs |
+| Tiger Lake support | end of Q4'2026 | new supported units: Arrow Lake and Panther Lake |
+| Ubuntu 22.04 | end of Q4'2026 | newer Ubuntu versions, including Ubuntu 26 |
 
 ## Legal Information
 
