@@ -113,10 +113,16 @@ Extract the following from the user's prompt:
 | **Application type** | Python app, C/C++ app, or GStreamer command line | Must match the programming language of the input application (C/C++ → C/C++, Python → Python, shell → GStreamer command line) |
 | **Docker image** | DL Streamer Docker tag | `intel/dlstreamer:latest` (this tag is treated as the latest Ubuntu 24 image) |
 
+> **Application type for conversions (MANDATORY):** When the prompt references an
+> existing application to convert (e.g. a DeepStream app URL or local path), determine
+> the application type by **inspecting the source application's file extensions**:
+> `.cpp` / `.c` / `.h` → **C/C++ app**, `.py` → **Python app**, `.sh` → **GStreamer
+> command line**.
+
  **Application type override:** If the user's prompt contains explicit language like
 > "bash script", "shell script", "gst-launch", or "command line", set **Application type**
 > to `GStreamer command line` regardless of the default. Only default to `Python application`
-> when the prompt does not indicate a preference.
+> when the prompt does not indicate a preference and there is no source application to convert.
 
 **If the user's prompt explicitly provides all required info** (video input AND model names
 are explicitly stated, not inferred), proceed directly to Step 1.
