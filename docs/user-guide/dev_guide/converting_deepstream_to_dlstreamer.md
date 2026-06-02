@@ -23,6 +23,7 @@ a working example is described at each step, to help understand the applied modi
 - [DeepStream to DL Streamer Mapping](#deepstream-to-dl-streamer-mapping)
   - [Element Mapping](#element-mapping)
   - [Property Mapping](#property-mapping)
+  - [AI supported conversions](#AI-supported-conversions)
 
 ## Preparing Your Model
 
@@ -485,12 +486,12 @@ configuration properties to Deep Learning Streamer settings.
 
 </br>
 
-## AI supported conversions 
-&emsp;In addition to the detailed description of conversion rules between DeepStream and Deep Learning Streamer applications presented above, we provide the ability to perform such conversion automatically using a coding agent. As part of the [DL Streamer](https://github.com/open-edge-platform/dlstreamer) project, guidelines for the coding agent have been prepared that enable conversion of applications written in **Python** prompt example link [deepstream-python-conversion](https://github.com/open-edge-platform/dlstreamer/tree/main/.github/skills/dlstreamer-coding-agent/examples/deepstream-python-conversion.md) and **C/C++** prompt example link [deepstream-cpp-conversion](https://github.com/open-edge-platform/dlstreamer/tree/main/.github/skills/dlstreamer-coding-agent/examples/deepstream-cpp-conversion.md).
+## AI supported conversions
+In addition to the detailed description of conversion rules between DeepStream and Deep Learning Streamer applications presented above, we provide the ability to perform such conversion automatically using a coding agent. As part of the [DL Streamer](https://github.com/open-edge-platform/dlstreamer) project, guidelines for the coding agent have been prepared that enable conversion of applications written in **Python** prompt example link [deepstream-python-conversion](https://github.com/open-edge-platform/dlstreamer/tree/main/.github/skills/dlstreamer-coding-agent/examples/deepstream-python-conversion.md) and **C/C++** prompt example link [deepstream-cpp-conversion](https://github.com/open-edge-platform/dlstreamer/tree/main/.github/skills/dlstreamer-coding-agent/examples/deepstream-cpp-conversion.md).
 
 ### Supported Languages
 
-&emsp;The coding agent supports conversion of DeepStream applications developed in the following programming languages:
+The coding agent supports conversion of DeepStream applications developed in the following programming languages:
 
 - **Python** - applications using Python bindings for DeepStream. The output code is based on the [python-app-template](https://github.com/open-edge-platform/dlstreamer/tree/main/.github/skills/dlstreamer-coding-agent/assets/python-app-template.py), which demonstrates the structure of a DL Streamer application in Python using Sample Pipeline Processing.
 - **C/C++** - native DeepStream applications written in C or C++. The output code is based on the [cpp-app-template](https://github.com/open-edge-platform/dlstreamer/tree/main/.github/skills/dlstreamer-coding-agent/assets/cpp-app-template.cpp), which demonstrates the structure of a DL Streamer application in C++ using Sample Pipeline Processing.
