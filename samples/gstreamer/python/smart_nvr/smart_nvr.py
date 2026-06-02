@@ -13,27 +13,19 @@ This sample application demonstrates how to add custom Python elements to DLStre
 """
 
 import os
-import shutil
 import subprocess
 import sys
-import urllib.request
-from urllib.parse import urlparse
 
 import gi
 
 gi.require_version("Gst", "1.0")
 from gi.repository import Gst   # pylint: disable=no-name-in-module,wrong-import-order,wrong-import-position
 
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from utils import download_https   # pylint: disable=wrong-import-position
+
 DEFAULT_VIDEO_URL = "https://videos.pexels.com/video-files/2431853/2431853-hd_1920_1080_25fps.mp4"
 
-
-def _download_https(url, destination, allowed_hosts):
-    """Stream an HTTPS URL to ``destination``; rejects non-allowlisted hosts."""
-    parsed = urlparse(url)
-    if parsed.scheme != "https" or parsed.hostname not in allowed_hosts:
-        raise ValueError(f"Refusing non-allowlisted URL: {url}")
-    with urllib.request.build_opener().open(url) as response, open(destination, "wb") as output:
-        shutil.copyfileobj(response, output)
 
 def pipeline_loop(gst_pipeline):
     """Wrapper to run the gstreamer pipeline loop"""
@@ -62,7 +54,7 @@ def check_download_video_file():
     if not os.path.isfile(input_video):
         input_video = os.path.join(os.getcwd(), "2431853-hd_1920_1080_25fps.mp4")
         print("\nNo input provided. Downloading default video...\n")
-        _download_https(DEFAULT_VIDEO_URL, input_video, {"videos.pexels.com"})
+        download_https(DEFAULT_VIDEO_URL, input_video, {"videos.pexels.com"})
 
     return input_video
 

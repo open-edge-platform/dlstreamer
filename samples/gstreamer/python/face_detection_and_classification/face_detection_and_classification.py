@@ -5,13 +5,14 @@
 # ==============================================================================
 import sys
 import os
-import shutil
 import subprocess
-import urllib.request
-from urllib.parse import urlparse
 
-from huggingface_hub import HfApi, hf_hub_download
+from huggingface_hub import hf_hub_download
 from ultralytics import YOLO
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# pylint: disable-next=wrong-import-position
+from utils import download_https, resolve_hf_revision
 
 import gi
 
@@ -22,23 +23,6 @@ from gi.repository import Gst
 
 DEFAULT_VIDEO_URL = "https://videos.pexels.com/video-files/18553046/18553046-hd_1280_720_30fps.mp4"
 YOLO_FACE_REPO_ID = "arnabdhar/YOLOv8-Face-Detection"
-
-
-def _download_https(url, destination, allowed_hosts):
-    """Stream an HTTPS URL to ``destination``; rejects non-allowlisted hosts."""
-    parsed = urlparse(url)
-    if parsed.scheme != "https" or parsed.hostname not in allowed_hosts:
-        raise ValueError(f"Refusing non-allowlisted URL: {url}")
-    with urllib.request.build_opener().open(url) as response, open(destination, "wb") as output:
-        shutil.copyfileobj(response, output)
-
-
-def _resolve_hf_revision(repo_id):
-    """Resolve the current immutable commit SHA for a Hugging Face repo."""
-    revision = HfApi().model_info(repo_id).sha
-    if not revision:
-        raise RuntimeError(f"Unable to resolve Hugging Face revision for {repo_id}")
-    return revision
 
 
 def get_runtime_dir():
@@ -64,7 +48,7 @@ def prepare_input_video(args):
         input_video = os.path.join(runtime_dir, "default_video.mp4")
         if not os.path.isfile(input_video):
             print("\nNo input provided. Downloading default video...\n")
-            _download_https(DEFAULT_VIDEO_URL, input_video, {"videos.pexels.com"})
+            download_https(DEFAULT_VIDEO_URL, input_video, {"videos.pexels.com"})
 
     return input_video
 
@@ -110,7 +94,7 @@ def main(input_video):
             repo_id=YOLO_FACE_REPO_ID,
             filename="model.pt",
             local_dir=runtime_dir,
-            revision=_resolve_hf_revision(YOLO_FACE_REPO_ID),
+            revision=resolve_hf_revision(YOLO_FACE_REPO_ID),
         )
 
         model = YOLO(str(model_path))

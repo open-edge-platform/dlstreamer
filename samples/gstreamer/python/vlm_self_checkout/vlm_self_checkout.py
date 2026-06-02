@@ -17,14 +17,11 @@ Builds a pipeline that:
 
 import argparse
 import os
-import shutil
 import signal
 import subprocess
 import sys
 import time
-import urllib.request
 from pathlib import Path
-from urllib.parse import urlparse
 
 import gi
 
@@ -32,6 +29,9 @@ gi.require_version("Gst", "1.0")
 gi.require_version("GstAnalytics", "1.0")
 gi.require_version("GObject", "2.0")
 from gi.repository import Gst, GLib, GObject, GstAnalytics  # pylint: disable=no-name-in-module, wrong-import-position
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from utils import download_https  # pylint: disable=wrong-import-position
 
 class GenaiSignalBridge(GObject.Object):
     """
@@ -159,14 +159,6 @@ DEFAULT_VIDEO_URL = (
 )
 
 
-def _download_https(url: str, destination: Path, allowed_hosts: set[str]) -> None:
-    """Stream an HTTPS URL to ``destination``; rejects non-allowlisted hosts."""
-    parsed = urlparse(url)
-    if parsed.scheme != "https" or parsed.hostname not in allowed_hosts:
-        raise ValueError(f"Refusing non-allowlisted URL: {url}")
-    with urllib.request.build_opener().open(url, timeout=60) as response, open(destination, "wb") as fh:
-        shutil.copyfileobj(response, fh)
-
 def download_video(video_url: str) -> Path:
     """Return a local video path, downloading from URL if needed."""
     VIDEOS_DIR.mkdir(parents=True, exist_ok=True)
@@ -176,7 +168,7 @@ def download_video(video_url: str) -> Path:
 
     local_path = VIDEOS_DIR / filename
     if not local_path.exists():
-        _download_https(video_url, local_path, {"www.pexels.com"})
+        download_https(video_url, local_path, {"www.pexels.com"})
 
     return local_path.resolve()
 
