@@ -12,15 +12,22 @@ This sample application demonstrates how to add custom Python elements to DLStre
   custom detection metadata along with each chunk.
 """
 
-import gi
 import os
-import openvino as ov
 import subprocess
 import sys
-import urllib.request
+
+import gi
 
 gi.require_version("Gst", "1.0")
-from gi.repository import Gst   # pylint: disable=no-name-in-module
+from gi.repository import Gst   # pylint: disable=no-name-in-module,wrong-import-order,wrong-import-position
+
+sys.path.insert(
+    0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+)
+from shared_utils import download_https   # pylint: disable=wrong-import-position
+
+DEFAULT_VIDEO_URL = "https://videos.pexels.com/video-files/2431853/2431853-hd_1920_1080_25fps.mp4"
+
 
 def pipeline_loop(gst_pipeline):
     """Wrapper to run the gstreamer pipeline loop"""
@@ -49,12 +56,7 @@ def check_download_video_file():
     if not os.path.isfile(input_video):
         input_video = os.path.join(os.getcwd(), "2431853-hd_1920_1080_25fps.mp4")
         print("\nNo input provided. Downloading default video...\n")
-        request = urllib.request.Request(
-            "https://videos.pexels.com/video-files/2431853/2431853-hd_1920_1080_25fps.mp4",
-            headers={"User-Agent": "Mozilla/5.0"},
-        )
-        with urllib.request.urlopen(request) as response, open(input_video, "wb") as output:
-            output.write(response.read())
+        download_https(DEFAULT_VIDEO_URL, input_video, {"videos.pexels.com"})
 
     return input_video
 

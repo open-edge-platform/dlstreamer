@@ -119,6 +119,7 @@ RUN \
     tabulate==0.9.0 \
     tqdm==4.67.1 \
     junit-xml==1.9 \
+    defusedxml==0.7.1 \
     opencv-python==4.11.0.86 \
     XlsxWriter==3.2.0 \
     zxing-cpp==2.2.0 \

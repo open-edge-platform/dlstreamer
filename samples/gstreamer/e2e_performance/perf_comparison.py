@@ -10,10 +10,13 @@
 
 import argparse
 import statistics
+import sys
 import time
-import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from shared_utils import download_https  # pylint: disable=wrong-import-position
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 MODEL_NAME = "yolo26s"
@@ -85,7 +88,7 @@ def prepare_video() -> Path:
         return VIDEO_PATH
     VIDEO_PATH.parent.mkdir(parents=True, exist_ok=True)
     print("Downloading test video ...")
-    urllib.request.urlretrieve(VIDEO_URL, VIDEO_PATH)
+    download_https(VIDEO_URL, VIDEO_PATH, {"storage.openvinotoolkit.org"})
     return VIDEO_PATH
 
 
