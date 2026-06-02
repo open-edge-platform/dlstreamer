@@ -23,7 +23,7 @@ a working example is described at each step, to help understand the applied modi
 - [DeepStream to DL Streamer Mapping](#deepstream-to-dl-streamer-mapping)
   - [Element Mapping](#element-mapping)
   - [Property Mapping](#property-mapping)
-  - [AI supported conversions](#AI-supported-conversions)
+  - [AI supported conversions](#ai-supported-conversions)
 
 ## Preparing Your Model
 
