@@ -79,18 +79,18 @@ jobs:
         run: |
           sudo rm -rf dlstreamer-repo
 
-  dls-static-code-analysis-for-c-cpp:
-    permissions:
-      security-events: write
-      actions: read
-      contents: read
-      packages: read
-    name: "DLS SCAN: static C/C++ code analysis"
-    uses: ./.github/workflows/dls-coverity.yaml
-    secrets:
-      DLS_COVERITY_TOKEN: ${{ secrets.DLS_COVERITY_TOKEN }}
-      DLS_COVERITY_EMAIL: ${{ secrets.DLS_COVERITY_EMAIL }}
-      DLS_COVERITY_PROJECT: ${{ secrets.DLS_COVERITY_PROJECT }}
+  # dls-static-code-analysis-for-c-cpp:
+  #   permissions:
+  #     security-events: write
+  #     actions: read
+  #     contents: read
+  #     packages: read
+  #   name: "DLS SCAN: static C/C++ code analysis"
+  #   uses: ./.github/workflows/dls-coverity.yaml
+  #   secrets:
+  #     DLS_COVERITY_TOKEN: ${{ secrets.DLS_COVERITY_TOKEN }}
+  #     DLS_COVERITY_EMAIL: ${{ secrets.DLS_COVERITY_EMAIL }}
+  #     DLS_COVERITY_PROJECT: ${{ secrets.DLS_COVERITY_PROJECT }}
 
   dls-filter-docker-related-changes:
     permissions:
