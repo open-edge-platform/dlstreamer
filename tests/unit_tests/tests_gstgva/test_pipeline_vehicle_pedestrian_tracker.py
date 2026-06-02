@@ -5,6 +5,7 @@
 # ==============================================================================
 
 import os
+import tempfile
 import unittest
 
 from pipeline_runner import TestPipelineRunner
@@ -14,7 +15,7 @@ SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 PEOPLE_IMAGE_PATH = os.path.join(
     SCRIPT_DIR, "test_files", "people_detection.png")
 CAR_IMAGE_PATH = os.path.join(SCRIPT_DIR, "test_files", "car_detection.png")
-FILE_PATH = os.path.join("/tmp", "meta_vpt.json")
+FILE_PATH = os.path.join(tempfile.gettempdir(), "meta_vpt.json")
 
 D_MODEL_NAME = "person-vehicle-bike-detection-crossroad-0078"
 D_MODEL_PATH, D_MODEL_PROC_PATH = get_model_path(

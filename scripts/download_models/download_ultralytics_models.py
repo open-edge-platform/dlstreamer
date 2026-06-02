@@ -63,6 +63,11 @@ def resolve_ultralytics_model(model_or_path: str) -> YOLO:
     return YOLO(model_or_path)
 
 
+def is_explicit_local_model_path(model_or_path: str) -> bool:
+    path = Path(model_or_path)
+    return path.is_absolute() or ('/' in model_or_path or '\\' in model_or_path)
+
+
 def move_exported_model(exported_path: Path, outdir: Path) -> Path:
     desired_path = outdir / exported_path.name
     exported_path.rename(desired_path)
@@ -95,7 +100,14 @@ def main() -> int:
         print(f"Exported model location: {model_path}")
     except FileNotFoundError as exc:
         missing = getattr(exc, 'filename', None) or model_name
-        print(f"File not found: {missing}")
+        if is_explicit_local_model_path(model_name):
+            print(f"Local model file not found: {missing}")
+        else:
+            print(
+                f"Unable to resolve Ultralytics model '{model_name}'. "
+                "If this is a newer model family, upgrade the 'ultralytics' Python module to a version that "
+                "supports it, or provide a local .pt file path."
+            )
         return 1
     except ValueError as exc:
         print(str(exc))

@@ -1,0 +1,1649 @@
+diff --git a/subprojects/gst-plugins-bad/gst-libs/gst/analytics/analytics.h b/subprojects/gst-plugins-bad/gst-libs/gst/analytics/analytics.h
+index 7363cd6b6a..46602a4839 100644
+--- a/subprojects/gst-plugins-bad/gst-libs/gst/analytics/analytics.h
++++ b/subprojects/gst-plugins-bad/gst-libs/gst/analytics/analytics.h
+@@ -31,6 +31,8 @@
+ #include <gst/analytics/gstanalyticsobjectdetectionmtd.h>
+ #include <gst/analytics/gstanalyticsobjecttrackingmtd.h>
+ #include <gst/analytics/gstanalyticssegmentationmtd.h>
++#include <gst/analytics/gstanalyticsgroupmtd.h>
++#include <gst/analytics/gstanalyticskeypointmtd.h>
+ #include <gst/analytics/gstanalyticstensormtd.h>
+ #include <gst/analytics/gsttensormeta.h>
+ #include <gst/analytics/gstanalyticsbatchmeta.h>
+diff --git a/subprojects/gst-plugins-bad/gst-libs/gst/analytics/gstanalyticsgroupmtd.c b/subprojects/gst-plugins-bad/gst-libs/gst/analytics/gstanalyticsgroupmtd.c
+new file mode 100644
+index 0000000000..1100bc89ab
+--- /dev/null
++++ b/subprojects/gst-plugins-bad/gst-libs/gst/analytics/gstanalyticsgroupmtd.c
+@@ -0,0 +1,427 @@
++/* GStreamer
++ * Copyright (C) 2025 Collabora Ltd
++ *  @author: Daniel Morin <daniel.morin@collabora.com>
++ *
++ * gstanalyticsgroupmtd.c
++ *
++ * This library is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU Library General Public
++ * License as published by the Free Software Foundation; either
++ * version 2 of the License, or (at your option) any later version.
++ *
++ * This library is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * Library General Public License for more details.
++ *
++ * You should have received a copy of the GNU Library General Public
++ * License along with this library; if not, write to the
++ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
++ * Boston, MA 02110-1301, USA.
++ */
++
++#include "gstanalyticsgroupmtd.h"
++
++GST_DEBUG_CATEGORY_EXTERN (gst_analytics_relation_meta_debug);
++#define GST_CAT_DEFAULT gst_analytics_relation_meta_debug
++
++/**
++ * SECTION:gstanalyticsgroupmtd
++ * @title: GstAnalyticsGroupMtd
++ * @short_description: An analytics metadata for grouping #GstAnalyticsMtd
++ * @symbols:
++ * - GstAnalyticsGroupMtd
++ * @see_also: #GstAnalyticsMtd, #GstAnalyticsRelationMeta
++ *
++ * This type of metadata define a group of #GstAnalyticsMtd. It allows to
++ * describe results as composition. Group members are ordered within the group
++ * and the @semantic_tag allow to define a specific group meaning.
++ * For example with a semantic_tag = "posture/hand-21-kp", first
++ * member represent the "wrist", second is the thumb first joint.
++ * Since: 1.30
++ */
++
++typedef struct _GstAnalyticsGroupMtdData GstAnalyticsGroupMtdData;
++
++/*
++ * GstAnalyticsGroupMtdData:
++ * @members_len: Number of allocated member slots
++ * @members_count: Number of assigned member slot
++ * @members_allocated: TRUE if members was dynamically allocated, FALSE if using inplace storage
++ * @members: Array of member IDs
++ * @members_inplace: In-place member ID storage
++ *
++ * Store grouping details. Members are stored as IDs only since the meta
++ * pointer is the same as the group's meta.
++ *
++ * Since 1.30
++ */
++struct _GstAnalyticsGroupMtdData
++{
++  gsize members_len;
++  gsize members_count;
++  gboolean members_allocated;
++  guint *members;
++  guint members_inplace[];
++};
++
++static gboolean gst_analytics_group_mtd_transform (GstBuffer * transbuf,
++    GstAnalyticsMtd * transmtd, GstBuffer * buffer, GQuark type, gpointer data);
++static void gst_analytics_group_mtd_clear (GstBuffer * buffer,
++    GstAnalyticsMtd * mtd);
++
++static const GstAnalyticsMtdImpl group_impl = {
++  "grouping-mtd",
++  gst_analytics_group_mtd_transform,
++  gst_analytics_group_mtd_clear
++};
++
++/**
++ * gst_analytics_group_mtd_get_mtd_type:
++ *
++ * Get an id identifying #GstAnalyticsMtd type.
++ *
++ * Returns: opaque id of #GstAnalyticsMtd type
++ *
++ * Since: 1.30
++ */
++GstAnalyticsMtdType
++gst_analytics_group_mtd_get_mtd_type (void)
++{
++  return (GstAnalyticsMtdType) & group_impl;
++}
++
++/**
++ * gst_analytics_group_mtd_get_member_count:
++ * @handle: handle
++ *
++ * Get the number of members in the group.
++ *
++ * Returns: Number of members in the group, or 0 on error.
++ *
++ * Since: 1.30
++ */
++gsize
++gst_analytics_group_mtd_get_member_count (const GstAnalyticsGroupMtd * handle)
++{
++  GstAnalyticsGroupMtdData *mtddata;
++  g_return_val_if_fail (handle, 0);
++
++  mtddata = gst_analytics_relation_meta_get_mtd_data (handle->meta, handle->id);
++  g_return_val_if_fail (mtddata != NULL, 0);
++
++  return mtddata->members_count;
++}
++
++/**
++ * gst_analytics_group_mtd_get_member:
++ * @handle: handle
++ * @index: Index of the member to retrieve
++ * @member: (out) (not nullable): Handle updated to the member at @index
++ *
++ * Get a member from the group by index. Members are ordered within the group
++ * according to the semantic tag meaning.
++ *
++ * Returns: TRUE if member was retrieved successfully, FALSE otherwise (invalid index or error).
++ *
++ * Since: 1.30
++ */
++gboolean
++gst_analytics_group_mtd_get_member (const GstAnalyticsGroupMtd * handle,
++    gsize index, GstAnalyticsMtd * member)
++{
++  GstAnalyticsGroupMtdData *mtddata;
++  g_return_val_if_fail (handle, FALSE);
++  g_return_val_if_fail (member, FALSE);
++
++  mtddata = gst_analytics_relation_meta_get_mtd_data (handle->meta, handle->id);
++  g_return_val_if_fail (mtddata != NULL, FALSE);
++
++  /* Fix members pointer if using in-place storage after potential reallocation */
++  if (!mtddata->members_allocated) {
++    mtddata->members = mtddata->members_inplace;
++  }
++
++  if (index >= mtddata->members_count) {
++    return FALSE;
++  }
++
++  /* Reconstruct handle from stored ID and group's meta */
++  member->id = mtddata->members[index];
++  member->meta = handle->meta;
++  return TRUE;
++}
++
++/**
++ * gst_analytics_group_mtd_iterate:
++ * @handle: Instance of GstAnalyticsGroupMtd to iterate
++ * @state: (inout): Opaque data to store iteration state, initialize to NULL,
++ *    no need to free it.
++ * @type: Type of GstAnalyticsMtd to iterate on or use
++ *    %GST_ANALYTICS_MTD_TYPE_ANY for any.
++ * @member: (out caller-allocates)(not nullable): Handle updated to iterated
++ *    group member.
++ *
++ * Iterate over members in the group. If @type is specified, only members
++ * matching that type are returned. Initialize @state to NULL to start iteration.
++ *
++ * Returns: TRUE if a member was retrieved, FALSE when iteration is complete
++ *    or an error occurred.
++ *
++ * Since: 1.30
++ */
++gboolean
++gst_analytics_group_mtd_iterate (const GstAnalyticsGroupMtd * handle,
++    gpointer * state, GstAnalyticsMtdType type, GstAnalyticsMtd * member)
++{
++  GstAnalyticsGroupMtdData *mtddata;
++  gsize index;
++
++  g_return_val_if_fail (handle, FALSE);
++  g_return_val_if_fail (state, FALSE);
++  g_return_val_if_fail (member, FALSE);
++
++  mtddata = gst_analytics_relation_meta_get_mtd_data (handle->meta, handle->id);
++  g_return_val_if_fail (mtddata != NULL, FALSE);
++
++  /* Fix members pointer if using in-place storage after potential reallocation */
++  if (!mtddata->members_allocated) {
++    mtddata->members = mtddata->members_inplace;
++  }
++
++  /* Decode state: use MSB as flag, rest as index */
++  if (*state) {
++    index = ~G_MINSSIZE & (GPOINTER_TO_SIZE (*state) + 1);
++  } else {
++    index = 0;
++    *state = GSIZE_TO_POINTER (G_MINSSIZE | index);
++  }
++
++  /* Iterate through members looking for matching type */
++  for (; index < mtddata->members_count; index++) {
++    /* Reconstruct handle from stored ID and group's meta */
++    member->id = mtddata->members[index];
++    member->meta = handle->meta;
++
++    if (type == GST_ANALYTICS_MTD_TYPE_ANY ||
++        gst_analytics_mtd_get_mtd_type (member) == type) {
++      *state = GSIZE_TO_POINTER (G_MINSSIZE | index);
++      return TRUE;
++    }
++  }
++
++  return FALSE;
++}
++
++/**
++ * gst_analytics_relation_meta_add_group_mtd:
++ * @instance: Instance of @GstAnalyticsRelationMeta where to add group_mtd
++ *    instance
++ * @pre_alloc_size: Slots allocated for group members
++ * @group_mtd: (out) (not nullable): Handle to updated to newly added grouping
++ *    mtd
++ *
++ * Add mtd grouping metadata to @inscance. Use this API when the number of members
++ * need to be dynamic, otherwise prefer
++ * @gst_analytics_relation_meta_add_group_mtd_with_size.
++ *
++ * Returns: TRUE is added successfully, otherwise FALSE.
++ *
++ * Since: 1.30
++ */
++gboolean
++gst_analytics_relation_meta_add_group_mtd (GstAnalyticsRelationMeta * instance,
++    gsize pre_alloc_size, GstAnalyticsGroupMtd * group_mtd)
++{
++  g_return_val_if_fail (instance, FALSE);
++  g_return_val_if_fail (group_mtd, FALSE);
++
++  GstAnalyticsGroupMtdData *group_mtd_data = (GstAnalyticsGroupMtdData *)
++      gst_analytics_relation_meta_add_mtd (instance, &group_impl,
++      sizeof (GstAnalyticsGroupMtdData), group_mtd);
++
++  if (group_mtd_data) {
++    group_mtd_data->members_len = pre_alloc_size;
++    group_mtd_data->members = g_malloc_n (pre_alloc_size, sizeof (guint));
++    group_mtd_data->members_count = 0;
++    group_mtd_data->members_allocated = TRUE;
++  } else {
++    return FALSE;
++  }
++
++  return TRUE;
++}
++
++/**
++ * gst_analytics_relation_meta_add_group_mtd_with_size:
++ * @instance: Instance of @GstAnalyticsRelationMeta where to add group_mtd
++ *    instance
++ * @group_size: Slots reserved for group members
++ * @group_mtd: (out) (not nullable): Handle to updated to newly added grouping
++ *    mtd
++ *
++ * Add mtd grouping metadata to @inscance. Use this API when the number of
++ * members is known when adding the group.
++ *
++ * Returns: TRUE is added successfully, otherwise FALSE.
++ *
++ * Since: 1.30
++ */
++gboolean
++gst_analytics_relation_meta_add_group_mtd_with_size (GstAnalyticsRelationMeta *
++    instance, gsize group_size, GstAnalyticsGroupMtd * group_mtd)
++{
++  g_return_val_if_fail (instance, FALSE);
++  g_return_val_if_fail (group_mtd, FALSE);
++
++  gsize members_size = sizeof (guint) * group_size;
++  gsize size = sizeof (GstAnalyticsGroupMtdData) + members_size;
++  GstAnalyticsGroupMtdData *group_data = (GstAnalyticsGroupMtdData *)
++      gst_analytics_relation_meta_add_mtd (instance, &group_impl, size,
++      group_mtd);
++
++  if (group_data) {
++    group_data->members_len = group_size;
++    group_data->members_count = 0;
++    group_data->members = group_data->members_inplace;
++    group_data->members_allocated = FALSE;
++  } else {
++    return FALSE;
++  }
++
++  return TRUE;
++}
++
++/**
++ * gst_analytics_group_mtd_add_member:
++ * @handle: handle of #GstAnalyticsMtd where to add a member
++ * @an_meta_id: ID of #GstAnalyticsMtd to add as a member
++ *
++ * Adding a member to the group.
++ *
++ * Returns: Member added successfully
++ *
++ * Since: 1.30
++ */
++gboolean
++gst_analytics_group_mtd_add_member (GstAnalyticsGroupMtd * handle,
++    guint an_meta_id)
++{
++  gboolean ret = TRUE;
++  g_return_val_if_fail (handle, FALSE);
++
++  GstAnalyticsGroupMtdData *group_data =
++      gst_analytics_relation_meta_get_mtd_data (handle->meta, handle->id);
++  g_return_val_if_fail (group_data != NULL, FALSE);
++
++  /* Fix members pointer if using in-place storage after potential reallocation */
++  if (!group_data->members_allocated) {
++    group_data->members = group_data->members_inplace;
++  }
++
++  if (group_data->members_len > group_data->members_count) {
++    /* We can use a slot */
++    group_data->members[group_data->members_count++] = an_meta_id;
++  } else if (group_data->members == group_data->members_inplace) {
++    /* Group size was underestimated and since the members in-place slots be
++     * allocated only when adding the group, we will use dynamic allocation. */
++    gsize new_len = group_data->members_len + 1;
++    GST_WARNING ("Group size under estimated, growing from %zu to %zu fallback"
++        " to dynamic allocation.", group_data->members_count, new_len);
++
++    group_data->members = g_malloc_n (new_len, sizeof (guint));
++    memcpy (group_data->members, group_data->members_inplace,
++        group_data->members_count * sizeof (guint));
++
++    group_data->members_len = new_len;
++    group_data->members_allocated = TRUE;
++    group_data->members[group_data->members_count++] = an_meta_id;
++  } else {
++    gsize new_len = group_data->members_len + 1;
++    GST_DEBUG ("Group size under estimated, growing from %zu to %zu",
++        group_data->members_count, new_len);
++
++    group_data->members = g_realloc_n (group_data->members,
++        new_len, sizeof (guint));
++    group_data->members_len = new_len;
++    group_data->members[group_data->members_count++] = an_meta_id;
++  }
++
++  ret = gst_analytics_relation_meta_set_relation (handle->meta,
++      GST_ANALYTICS_REL_TYPE_IS_PART_OF, an_meta_id, handle->id);
++  if (!ret) {
++    GST_WARNING ("Failed to create relation from %u to %u", an_meta_id,
++        handle->id);
++  }
++
++  ret = gst_analytics_relation_meta_set_relation (handle->meta,
++      GST_ANALYTICS_REL_TYPE_CONTAIN, handle->id, an_meta_id);
++  if (!ret) {
++    GST_WARNING ("Failed to create relation from %u to %u", handle->id,
++        an_meta_id);
++  }
++
++  return ret;
++}
++
++/**
++ * gst_analytics_relation_meta_get_group_mtd:
++ * @meta: Instance of #GstAnalyticsRelationMeta
++ * @an_meta_id: Id of #GstAnalyticsGroupMtd instance to retrieve
++ * @rlt: (out caller-allocates)(not nullable): Will be filled with group mtd
++ *
++ * Retrieve group metadata instance from @meta.
++ *
++ * Returns: TRUE if successful, FALSE otherwise.
++ *
++ * Since: 1.30
++ */
++gboolean
++gst_analytics_relation_meta_get_group_mtd (GstAnalyticsRelationMeta * meta,
++    guint an_meta_id, GstAnalyticsGroupMtd * rlt)
++{
++  return gst_analytics_relation_meta_get_mtd (meta, an_meta_id,
++      gst_analytics_group_mtd_get_mtd_type (), (GstAnalyticsGroupMtd *) rlt);
++}
++
++static gboolean
++gst_analytics_group_mtd_transform (GstBuffer * transbuf,
++    GstAnalyticsMtd * transmtd, GstBuffer * buffer, GQuark type, gpointer data)
++{
++  GstAnalyticsGroupMtdData *dst_data;
++
++  dst_data =
++      gst_analytics_relation_meta_get_mtd_data (transmtd->meta, transmtd->id);
++  g_return_val_if_fail (dst_data != NULL, FALSE);
++
++  /* For dynamically allocated members we need to make an independent copy.
++   * For in-place storage, fix up the pointer to the new location since it
++   * was memcpy'd from the source struct. */
++  if (dst_data->members_allocated) {
++    guint *src_members = dst_data->members;
++    dst_data->members = g_malloc_n (dst_data->members_count, sizeof (guint));
++    memcpy (dst_data->members, src_members,
++        dst_data->members_count * sizeof (guint));
++    dst_data->members_len = dst_data->members_count;
++  } else {
++    dst_data->members = dst_data->members_inplace;
++  }
++
++  return TRUE;
++}
++
++static void
++gst_analytics_group_mtd_clear (GstBuffer * buffer, GstAnalyticsMtd * mtd)
++{
++  GstAnalyticsGroupMtdData *groupdata;
++  groupdata = gst_analytics_relation_meta_get_mtd_data (mtd->meta, mtd->id);
++  g_return_if_fail (groupdata != NULL);
++
++  /* Free members array if it was dynamically allocated.
++     Use the members_allocated flag instead of pointer comparison because
++     after metadata buffer reallocation, members pointer may point to old
++     inplace location. */
++  if (groupdata->members_allocated) {
++    g_free (groupdata->members);
++  }
++}
+diff --git a/subprojects/gst-plugins-bad/gst-libs/gst/analytics/gstanalyticsgroupmtd.h b/subprojects/gst-plugins-bad/gst-libs/gst/analytics/gstanalyticsgroupmtd.h
+new file mode 100644
+index 0000000000..b52efbda1e
+--- /dev/null
++++ b/subprojects/gst-plugins-bad/gst-libs/gst/analytics/gstanalyticsgroupmtd.h
+@@ -0,0 +1,78 @@
++/* GStreamer
++ * Copyright (C) 2025 Collabora Ltd
++ *  @author: Daniel Morin <daniel.morin@collabora.com>
++ *
++ * gstanalyticsgroupmtd.h
++ *
++ * This library is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU Library General Public
++ * License as published by the Free Software Foundation; either
++ * version 2 of the License, or (at your option) any later version.
++ *
++ * This library is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * Library General Public License for more details.
++ *
++ * You should have received a copy of the GNU Library General Public
++ * License along with this library; if not, write to the
++ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
++ * Boston, MA 02110-1301, USA.
++ */
++
++#ifndef __GST_ANALYTICS_GROUP_MTD_H__
++#define __GST_ANALYTICS_GROUP_MTD_H__
++
++#include <gst/gst.h>
++#include <gst/analytics/analytics-meta-prelude.h>
++#include <gst/analytics/gstanalyticsmeta.h>
++
++G_BEGIN_DECLS
++
++/**
++ * GstAnalyticsGroupMtd:
++ * @id: Instance identifier
++ * @meta: Instance of #GstAnalyticsRelationMeta where the analytics-metadata
++ * identified by @id is stored
++ *
++ * Handle containing data required by gst_analytics_group_mtd APIs. This type
++ * is generally expected to be allocated on the stack.
++ *
++ * Since: 1.30
++ */
++typedef struct _GstAnalyticsMtd GstAnalyticsGroupMtd;
++
++
++GST_ANALYTICS_META_API
++GstAnalyticsMtdType gst_analytics_group_mtd_get_mtd_type (void);
++
++GST_ANALYTICS_META_API
++gsize gst_analytics_group_mtd_get_member_count (const GstAnalyticsGroupMtd *
++    handle);
++
++GST_ANALYTICS_META_API
++gboolean gst_analytics_group_mtd_get_member (const GstAnalyticsGroupMtd *
++    handle, gsize index, GstAnalyticsMtd * member);
++
++GST_ANALYTICS_META_API
++gboolean gst_analytics_group_mtd_iterate (const GstAnalyticsGroupMtd * handle,
++    gpointer * state, GstAnalyticsMtdType type, GstAnalyticsMtd * member);
++
++GST_ANALYTICS_META_API
++gboolean gst_analytics_relation_meta_add_group_mtd (GstAnalyticsRelationMeta *
++    instance, gsize pre_alloc_size, GstAnalyticsGroupMtd * group_mtd);
++
++GST_ANALYTICS_META_API
++gboolean gst_analytics_relation_meta_add_group_mtd_with_size (GstAnalyticsRelationMeta *
++    instance, gsize group_size, GstAnalyticsGroupMtd * group_mtd);
++
++GST_ANALYTICS_META_API
++gboolean gst_analytics_group_mtd_add_member (GstAnalyticsGroupMtd * handle,
++    guint an_meta_id);
++
++GST_ANALYTICS_META_API
++gboolean gst_analytics_relation_meta_get_group_mtd (GstAnalyticsRelationMeta * meta,
++    guint an_meta_id, GstAnalyticsGroupMtd * rlt);
++
++G_END_DECLS
++#endif /* __GST_ANALYTICS_GROUP_MTD_H__ */
+diff --git a/subprojects/gst-plugins-bad/gst-libs/gst/analytics/gstanalyticskeypointmtd.c b/subprojects/gst-plugins-bad/gst-libs/gst/analytics/gstanalyticskeypointmtd.c
+new file mode 100644
+index 0000000000..e19e59c1f1
+--- /dev/null
++++ b/subprojects/gst-plugins-bad/gst-libs/gst/analytics/gstanalyticskeypointmtd.c
+@@ -0,0 +1,559 @@
++/* GStreamer
++ * Copyright (C) 2024 Intel Corporation
++ *  @author: Tomasz Janczak <tomasz.janczak@intel.com>
++ * Copyright (C) 2026 Collabora
++ *  @author: Daniel Morin <daniel.morin@collabora.com>
++
++ *
++ * gstanalyticskeypointmtd.c
++ *
++ * This library is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU Library General Public
++ * License as published by the Free Software Foundation; either
++ * version 2 of the License, or (at your option) any later version.
++ *
++ * This library is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * Library General Public License for more details.
++ *
++ * You should have received a copy of the GNU Library General Public
++ * License along with this library; if not, write to the
++ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
++ * Boston, MA 02110-1301, USA.
++ */
++
++#ifdef HAVE_CONFIG_H
++#include "config.h"
++#endif
++
++#include <gst/video/video.h>
++#include "gstanalyticskeypointmtd.h"
++
++GST_DEBUG_CATEGORY_EXTERN (gst_analytics_relation_meta_debug);
++#define GST_CAT_DEFAULT gst_analytics_relation_meta_debug
++
++/**
++ * SECTION:gstanalyticskeypointmtd
++ * @title: GstAnalyticsKeypointMtd
++ * @short_description: Analytics metadata for individual keypoints and keypoint groups
++ * @symbols:
++ * - GstAnalyticsKeypointMtd
++ * - GstAnalyticsKeypointDimensions
++ * - GstAnalyticsKeypointVisibility
++ * @see_also: #GstAnalyticsMtd, #GstAnalyticsRelationMeta, #GstAnalyticsGroupMtd
++ *
++ * This metadata type represents individual keypoints with 2D or 3D positions.
++ * Keypoints can be grouped using #GstAnalyticsGroupMtd with semantic tags
++ * (e.g., "hand-21-kp", "pose-17-kp", "face-68-kp").
++ *
++ * Skeleton links between keypoints are represented as relations using
++ * GST_ANALYTICS_REL_TYPE_RELATE_TO, allowing standard relation queries
++ * to traverse the skeleton structure.
++ *
++ * ## Creating Keypoint Groups
++ *
++ * The most common usage is to create a group of keypoints with skeleton structure:
++ *
++ * |[<!-- language="C" -->
++ * GstAnalyticsGroupMtd hand_group;
++ * gint positions[] = {100, 200, 150, 250, ...}; // 21 x,y pairs for hand
++ * gfloat confidences[] = {0.9f, 0.85f, 0.95f, ...};
++ * gint skeleton_pairs[] = {0, 1, 1, 2, 2, 3, ...}; // 20 links (40 values)
++ *
++ * gst_analytics_relation_meta_add_keypoints_group(rmeta,
++ *     "hand-21-kp", GST_ANALYTICS_KEYPOINT_DIMENSIONS_2D,
++ *     42, positions, 21, confidences, NULL, 40, skeleton_pairs, &hand_group);
++ * ]|
++ *
++ * ## Iterating Through Keypoints
++ *
++ * Iterate keypoints in a group with type filtering:
++ *
++ * |[<!-- language="C" -->
++ * GstAnalyticsMtd member;
++ * gpointer state = NULL;
++ * while (gst_analytics_group_mtd_iterate(&hand_group, &state,
++ *         gst_analytics_keypoint_mtd_get_mtd_type(), &member)) {
++ *     gint x, y, z;
++ *     gfloat conf;
++ *     GstAnalyticsKeypointDimensions dim;
++ *     gst_analytics_keypoint_mtd_get_position((GstAnalyticsKeypointMtd*)&member,
++ *         &x, &y, &z, &dim);
++ *     gst_analytics_keypoint_mtd_get_confidence((GstAnalyticsKeypointMtd*)&member,
++ *         &conf);
++ *     g_print("Keypoint at (%d, %d) confidence: %.2f\n", x, y, conf);
++ * }
++ * ]|
++ *
++ * ## Querying Skeleton Links
++ *
++ * Verify skeleton connections between keypoints:
++ *
++ * |[<!-- language="C" -->
++ * // Get first two keypoints
++ * GstAnalyticsMtd wrist_kp, thumb_kp;
++ * gst_analytics_group_mtd_get_member(&hand_group, 0, &wrist_kp);
++ * gst_analytics_group_mtd_get_member(&hand_group, 1, &thumb_kp);
++ *
++ * // Verify skeleton link exists
++ * gboolean has_link = gst_analytics_relation_meta_exist(rmeta,
++ *     wrist_kp.id, thumb_kp.id, 1,
++ *     GST_ANALYTICS_REL_TYPE_RELATE_TO, NULL);
++ * if (has_link) {
++ *     g_print("Skeleton link exists between wrist and thumb\n");
++ * }
++ * ]|
++ *
++ * ## Relating Keypoints to Other Metadata
++ *
++ * Since keypoints are #GstAnalyticsMtd, they can participate in relations:
++ *
++ * |[<!-- language="C" -->
++ * // Get first keypoint
++ * GstAnalyticsMtd keypoint;
++ * gst_analytics_group_mtd_get_member(&hand_group, 0, &keypoint);
++ *
++ * // Relate to object detection
++ * gst_analytics_relation_meta_set_relation(rmeta,
++ *     GST_ANALYTICS_REL_TYPE_CONTAINED_BY, keypoint.id, od_mtd.id);
++ * ]|
++ *
++ * Since: 1.30
++ */
++
++typedef struct _GstAnalyticsKeypointMtdData GstAnalyticsKeypointMtdData;
++
++/**
++ * GstAnalyticsKeypointMtdData:
++ * @dimension: 2D or 3D keypoint
++ * @x: X coordinate
++ * @y: Y coordinate
++ * @z: Z coordinate (0 for 2D keypoints)
++ * @confidence: Confidence score
++ * @visibility_flags: Combination of #GstAnalyticsKeypointVisibility flags
++ *
++ * Store keypoint data.
++ *
++ * Since: 1.30
++ */
++struct _GstAnalyticsKeypointMtdData
++{
++  GstAnalyticsKeypointDimensions dimension;
++  gint x;
++  gint y;
++  gint z;
++  gfloat confidence;
++  guint8 visibility_flags;
++};
++
++#define _GET_KEYPOINT_STRIDE(dim) \
++    (dim == GST_ANALYTICS_KEYPOINT_DIMENSIONS_2D ? 2 : 3)
++
++static void gst_analytics_keypoint_mtd_clear (GstBuffer * buffer,
++    GstAnalyticsMtd * mtd);
++
++static gboolean
++gst_analytics_keypoint_mtd_meta_transform (GstBuffer * transbuf,
++    GstAnalyticsMtd * transmtd, GstBuffer * buffer, GQuark type, gpointer data)
++{
++  /* Handle coordinate transformation when buffer goes through video transforms */
++  if (GST_VIDEO_META_TRANSFORM_IS_MATRIX (type)) {
++    GstVideoMetaTransformMatrix *trans = data;
++    GstAnalyticsKeypointMtdData *kpdata =
++        gst_analytics_relation_meta_get_mtd_data (transmtd->meta,
++        transmtd->id);
++
++    /* TODO: Add support for 3d point transformation, meanwhile project
++     * z component on XY plane. */
++    if (kpdata->z != 0) {
++      GST_WARNING ("Only 2d keypoint transformation is supported, z component "
++          "projected on XY plane");
++      kpdata->z = 0;
++      kpdata->dimension = GST_ANALYTICS_KEYPOINT_DIMENSIONS_2D;
++    }
++
++    if (!gst_video_meta_transform_matrix_point (trans, &kpdata->x, &kpdata->y))
++      return FALSE;
++
++  } else if (GST_VIDEO_META_TRANSFORM_IS_SCALE (type)) {
++    /* Handle scaling transforms (e.g., videoconvert with different resolution) */
++    GstVideoMetaTransform *trans = data;
++    GstAnalyticsKeypointMtdData *kpdata;
++    gint ow, oh, nw, nh;
++
++    ow = GST_VIDEO_INFO_WIDTH (trans->in_info);
++    nw = GST_VIDEO_INFO_WIDTH (trans->out_info);
++    oh = GST_VIDEO_INFO_HEIGHT (trans->in_info);
++    nh = GST_VIDEO_INFO_HEIGHT (trans->out_info);
++
++    kpdata = gst_analytics_relation_meta_get_mtd_data (transmtd->meta,
++        transmtd->id);
++
++    GST_DEBUG ("Keypoint scale transform: in=(%ux%u) out=(%ux%u)",
++        ow, oh, nw, nh);
++
++    kpdata->x *= nw;
++    kpdata->x /= ow;
++
++    kpdata->y *= nh;
++    kpdata->y /= oh;
++
++    GST_DEBUG ("Keypoint scaled: (%d,%d) in frame (%u,%u) -> (%u,%u)",
++        kpdata->x, kpdata->y, ow, oh, nw, nh);
++  }
++
++  return TRUE;
++}
++
++static const GstAnalyticsMtdImpl keypoint_impl = {
++  "keypoint-mtd",
++  gst_analytics_keypoint_mtd_meta_transform,
++  gst_analytics_keypoint_mtd_clear
++};
++
++/**
++ * gst_analytics_keypoint_mtd_get_mtd_type:
++ *
++ * Get an id identifying #GstAnalyticsMtd type.
++ *
++ * Returns: opaque id of #GstAnalyticsMtd type
++ *
++ * Since: 1.30
++ */
++GstAnalyticsMtdType
++gst_analytics_keypoint_mtd_get_mtd_type (void)
++{
++  return (GstAnalyticsMtdType) & keypoint_impl;
++}
++
++/**
++ * gst_analytics_relation_meta_add_keypoint_mtd:
++ * @instance: Instance of #GstAnalyticsRelationMeta where to add keypoint
++ * @dimension: 2D or 3D keypoint dimension
++ * @x: X coordinate, increases toward the right
++ * @y: Y coordinate, increases toward the bottom
++ * @z: Z coordinate, increases along the axis defined by a right-hand coordinate
++ *   system with respect to X and Y, that is out of the XY plane. z=0 is on
++ *   the XY plane. The unit of Z is the average of the X and Y units:
++ *   (scale_x + scale_y) / 2.
++ * @visibility_flags: Visibility flags, a combination of #GstAnalyticsKeypointVisibility values
++ * @confidence: Confidence score
++ * @keypoint_mtd: (out) (not nullable): Handle updated to newly added keypoint
++ *
++ * Add individual keypoint metadata to @instance. The point represents a location
++ * in Euclidean space.
++ *
++ * Returns: TRUE if added successfully, FALSE otherwise
++ *
++ * Since: 1.30
++ */
++gboolean
++gst_analytics_relation_meta_add_keypoint_mtd (GstAnalyticsRelationMeta *
++    instance, GstAnalyticsKeypointDimensions dimension, gint x, gint y, gint z,
++    guint8 visibility_flags, gfloat confidence,
++    GstAnalyticsKeypointMtd * keypoint_mtd)
++{
++  g_return_val_if_fail (instance, FALSE);
++  g_return_val_if_fail (keypoint_mtd, FALSE);
++
++  GstAnalyticsKeypointMtdData *keypoint_data = (GstAnalyticsKeypointMtdData *)
++      gst_analytics_relation_meta_add_mtd (instance, &keypoint_impl,
++      sizeof (GstAnalyticsKeypointMtdData), keypoint_mtd);
++
++  if (keypoint_data) {
++    keypoint_data->dimension = dimension;
++    keypoint_data->x = x;
++    keypoint_data->y = y;
++    keypoint_data->z = z;
++    keypoint_data->visibility_flags = visibility_flags;
++    keypoint_data->confidence = confidence;
++    return TRUE;
++  }
++
++  return FALSE;
++}
++
++/**
++ * gst_analytics_keypoint_mtd_get_position:
++ * @handle: handle
++ * @x: (out): X coordinate
++ * @y: (out): Y coordinate
++ * @z: (out) (nullable): Z coordinate, or %NULL to ignore. Always 0 for 2D keypoints.
++ * @dimension: (out): Keypoint dimension (2D or 3D)
++ *
++ * Get keypoint position and dimension.
++ * See #gst_analytics_relation_meta_add_keypoint_mtd for more details
++ *
++ * Returns: TRUE if successful, FALSE otherwise
++ *
++ * Since: 1.30
++ */
++gboolean
++gst_analytics_keypoint_mtd_get_position (const GstAnalyticsKeypointMtd * handle,
++    gint * x, gint * y, gint * z, GstAnalyticsKeypointDimensions * dimension)
++{
++  GstAnalyticsKeypointMtdData *keypoint_data;
++
++  g_return_val_if_fail (handle, FALSE);
++  g_return_val_if_fail (x, FALSE);
++  g_return_val_if_fail (y, FALSE);
++  g_return_val_if_fail (dimension, FALSE);
++
++  keypoint_data = gst_analytics_relation_meta_get_mtd_data (handle->meta,
++      handle->id);
++  g_return_val_if_fail (keypoint_data != NULL, FALSE);
++
++  *x = keypoint_data->x;
++  *y = keypoint_data->y;
++
++  if (z != NULL)
++    *z = keypoint_data->z;
++  else if (keypoint_data->z != 0)
++    GST_DEBUG ("keypoint has non-zero z component but z was not read");
++
++  *dimension = keypoint_data->dimension;
++
++  return TRUE;
++}
++
++/**
++ * gst_analytics_keypoint_mtd_get_confidence:
++ * @handle: handle
++ * @confidence: (out): Confidence score
++ *
++ * Get keypoint confidence.
++ *
++ * Returns: TRUE if successful, FALSE otherwise
++ *
++ * Since: 1.30
++ */
++gboolean
++gst_analytics_keypoint_mtd_get_confidence (const GstAnalyticsKeypointMtd *
++    handle, gfloat * confidence)
++{
++  GstAnalyticsKeypointMtdData *keypoint_data;
++
++  g_return_val_if_fail (handle, FALSE);
++  g_return_val_if_fail (confidence, FALSE);
++
++  keypoint_data = gst_analytics_relation_meta_get_mtd_data (handle->meta,
++      handle->id);
++  g_return_val_if_fail (keypoint_data != NULL, FALSE);
++
++  *confidence = keypoint_data->confidence;
++
++  return TRUE;
++}
++
++/**
++ * gst_analytics_relation_meta_get_keypoint_mtd:
++ * @meta: Instance of #GstAnalyticsRelationMeta
++ * @an_meta_id: Id of #GstAnalyticsKeypointMtd instance to retrieve
++ * @rlt: (out caller-allocates)(not nullable): Will be filled with keypoint mtd
++ *
++ * Retrieve keypoint metadata instance from @meta.
++ *
++ * Returns: TRUE if successful, FALSE otherwise
++ *
++ * Since: 1.30
++ */
++gboolean
++gst_analytics_relation_meta_get_keypoint_mtd (GstAnalyticsRelationMeta * meta,
++    guint an_meta_id, GstAnalyticsKeypointMtd * rlt)
++{
++  return gst_analytics_relation_meta_get_mtd (meta, an_meta_id,
++      gst_analytics_keypoint_mtd_get_mtd_type (),
++      (GstAnalyticsKeypointMtd *) rlt);
++}
++
++/**
++ * gst_analytics_relation_meta_add_keypoints_group:
++ * @instance: Instance of #GstAnalyticsRelationMeta
++ * @semantic_tag: Semantic tag for the group (e.g., "hand-21-kp", "pose-17-kp")
++ * @dimension: 2D or 3D keypoints
++ * @positions_len: length of @positions array.
++ * @positions: (array length=positions_len): Array of positions [x0, y0, [z0], x1, y1, [z1], ...]
++ * @keypoint_count: Number of keypoints
++ * @confidences: (array length=keypoint_count) (nullable): Array of confidence scores [c0, c1, ...] or NULL
++ * @visibilities: (array length=keypoint_count) (nullable): Array of #GstAnalyticsKeypointVisibility flags [v0, v1, ...] or NULL
++ * @skeleton_pairs_len: Length of @skeleton_pairs array (must be even, representing pairs of keypoint indices)
++ * @skeleton_pairs: (array length=skeleton_pairs_len) (nullable): Array of keypoint index pairs [kp1_idx, kp2_idx, kp1_idx, kp2_idx, ...] or NULL
++ * @group_mtd: (out) (not nullable): Handle to newly created group
++ *
++ * Creates a group of keypoints with optional skeleton structure.
++ * Individual keypoints are created as #GstAnalyticsMtd.
++ * Skeleton links are represented as RELATE_TO relations between keypoints.
++ *
++ * The @skeleton_pairs array contains pairs of keypoint indices that are connected.
++ * For example, [0, 1, 1, 2, 2, 3] creates links: 0<->1, 1<->2, 2<->3.
++ *
++ * See #gst_analytics_relation_meta_add_keypoint_mtd for more details
++ *
++ * Returns: TRUE if successful, FALSE otherwise
++ *
++ * Since: 1.30
++ */
++gboolean
++gst_analytics_relation_meta_add_keypoints_group (GstAnalyticsRelationMeta *
++    instance, const gchar * semantic_tag,
++    GstAnalyticsKeypointDimensions dimension, gsize positions_len,
++    const gint * positions, gsize keypoint_count, const gfloat * confidences,
++    const guint8 * visibilities, gsize skeleton_pairs_len,
++    const gint * skeleton_pairs, GstAnalyticsGroupMtd * group_mtd)
++{
++  gboolean ret;
++  gsize i, pos_stride;
++  guint *keypoint_ids;
++  GstAnalyticsKeypointMtd kp_mtd;
++
++  g_return_val_if_fail (instance, FALSE);
++  g_return_val_if_fail (semantic_tag, FALSE);
++  g_return_val_if_fail (positions, FALSE);
++  g_return_val_if_fail (group_mtd, FALSE);
++  g_return_val_if_fail ((positions_len % _GET_KEYPOINT_STRIDE (dimension)) == 0,
++      FALSE);
++
++  /* confidences is optional and if it's not provided, introspection will
++   * set keypoint_count to 0. To overcome this issue will calculate
++   * keypoint_count based on dimension and positions_len. */
++  if (keypoint_count == 0)
++    keypoint_count = positions_len / _GET_KEYPOINT_STRIDE (dimension);
++
++  /* Create group with space for all keypoints */
++  ret = gst_analytics_relation_meta_add_group_mtd_with_size (instance,
++      keypoint_count, group_mtd);
++  if (!ret) {
++    return FALSE;
++  }
++
++  /* Set semantic tag */
++  gst_analytics_mtd_set_semantic_tag (group_mtd, semantic_tag);
++
++  /* Allocate array to store keypoint IDs for skeleton processing */
++  keypoint_ids = g_malloc_n (keypoint_count, sizeof (guint));
++
++  /* Position stride depends on dimension */
++  pos_stride = _GET_KEYPOINT_STRIDE (dimension);
++
++  /* Create individual keypoints and add to group */
++  for (i = 0; i < keypoint_count; i++) {
++    gint x, y, z = 0;
++    gfloat confidence;
++
++    /* Extract position from array */
++    x = positions[i * pos_stride];
++    y = positions[i * pos_stride + 1];
++    if (dimension == GST_ANALYTICS_KEYPOINT_DIMENSIONS_3D) {
++      z = positions[i * pos_stride + 2];
++    }
++
++    /* Get confidence and visibility or use defaults */
++    confidence = confidences ? confidences[i] : 1.0f;
++    guint8 visibility = visibilities ? visibilities[i]
++        : GST_ANALYTICS_KEYPOINT_VISIBILITY_UNKNOWN;
++
++    /* Add keypoint metadata which may trigger buffer reallocation */
++    ret = gst_analytics_relation_meta_add_keypoint_mtd (instance, dimension,
++        x, y, z, visibility, confidence, &kp_mtd);
++    if (!ret) {
++      GST_WARNING ("Failed to add keypoint %zu", i);
++      g_free (keypoint_ids);
++      return FALSE;
++    }
++
++    /* Store ID for skeleton processing */
++    keypoint_ids[i] = kp_mtd.id;
++
++    /* Update group meta pointer in case buffer was reallocated */
++    group_mtd->meta = kp_mtd.meta;
++
++    /* Add keypoint to group */
++    ret = gst_analytics_group_mtd_add_member (group_mtd, kp_mtd.id);
++    if (!ret) {
++      GST_WARNING ("Failed to add keypoint %zu to group", i);
++      g_free (keypoint_ids);
++      return FALSE;
++    }
++  }
++
++  /* Create skeleton links as relations */
++  if (skeleton_pairs && skeleton_pairs_len > 0) {
++    gsize skeleton_count;
++
++    /* Validate array length is even (pairs of indices) */
++    if (skeleton_pairs_len % 2 != 0) {
++      GST_WARNING ("skeleton_pairs_len must be even (got %zu)",
++          skeleton_pairs_len);
++      g_free (keypoint_ids);
++      return FALSE;
++    }
++
++    skeleton_count = skeleton_pairs_len / 2;
++
++    for (i = 0; i < skeleton_count; i++) {
++      guint kp1_idx = skeleton_pairs[i * 2];
++      guint kp2_idx = skeleton_pairs[i * 2 + 1];
++
++      /* Validate indices */
++      if (kp1_idx >= keypoint_count || kp2_idx >= keypoint_count) {
++        GST_WARNING
++            ("Invalid skeleton link indices: %u, %u (keypoint_count: %zu)",
++            kp1_idx, kp2_idx, keypoint_count);
++        g_free (keypoint_ids);
++        return FALSE;
++      }
++
++      /* Create relation between keypoints */
++      ret = gst_analytics_relation_meta_set_relation (instance,
++          GST_ANALYTICS_REL_TYPE_RELATE_TO,
++          keypoint_ids[kp1_idx], keypoint_ids[kp2_idx]);
++      if (!ret) {
++        GST_WARNING ("Failed to create skeleton link between %u and %u",
++            kp1_idx, kp2_idx);
++        g_free (keypoint_ids);
++        return FALSE;
++      }
++    }
++  }
++
++  g_free (keypoint_ids);
++  return TRUE;
++}
++
++/**
++ * gst_analytics_keypoint_mtd_get_visibility_flags:
++ * @handle: handle
++ * @visibility_flags: (out): Visibility flags, a combination of #GstAnalyticsKeypointVisibility values
++ *
++ * Get keypoint visibility flags.
++ *
++ * Returns: TRUE if successful, FALSE otherwise
++ *
++ * Since: 1.30
++ */
++gboolean
++gst_analytics_keypoint_mtd_get_visibility_flags (const GstAnalyticsKeypointMtd *
++    handle, guint8 * visibility_flags)
++{
++  GstAnalyticsKeypointMtdData *keypoint_data;
++
++  g_return_val_if_fail (handle, FALSE);
++  g_return_val_if_fail (visibility_flags, FALSE);
++
++  keypoint_data = gst_analytics_relation_meta_get_mtd_data (handle->meta,
++      handle->id);
++  g_return_val_if_fail (keypoint_data != NULL, FALSE);
++
++  *visibility_flags = keypoint_data->visibility_flags;
++
++  return TRUE;
++}
++
++static void
++gst_analytics_keypoint_mtd_clear (GstBuffer * buffer, GstAnalyticsMtd * mtd)
++{
++  (void) buffer;
++  (void) mtd;
++  /* No cleanup needed for keypoint metadata */
++}
+diff --git a/subprojects/gst-plugins-bad/gst-libs/gst/analytics/gstanalyticskeypointmtd.h b/subprojects/gst-plugins-bad/gst-libs/gst/analytics/gstanalyticskeypointmtd.h
+new file mode 100644
+index 0000000000..f3c57d5313
+--- /dev/null
++++ b/subprojects/gst-plugins-bad/gst-libs/gst/analytics/gstanalyticskeypointmtd.h
+@@ -0,0 +1,138 @@
++/* GStreamer
++ * Copyright (C) 2024 Intel Corporation
++ *  @author: Tomasz Janczak <tomasz.janczak@intel.com>
++ * Copyright (C) 2026 Collabora
++ *  @author: Daniel Morin <daniel.morin@collabora.com>
++ *
++ * gstanalyticskeypointmtd.h
++ *
++ * This library is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU Library General Public
++ * License as published by the Free Software Foundation; either
++ * version 2 of the License, or (at your option) any later version.
++ *
++ * This library is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * Library General Public License for more details.
++ *
++ * You should have received a copy of the GNU Library General Public
++ * License along with this library; if not, write to the
++ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
++ * Boston, MA 02110-1301, USA.
++ */
++
++#ifdef HAVE_CONFIG_H
++#include "config.h"
++#endif
++
++#ifndef __GST_ANALYTICS_KEYPOINT_MTD_H__
++#define __GST_ANALYTICS_KEYPOINT_MTD_H__
++
++#include <gst/gst.h>
++#include <gst/analytics/analytics-meta-prelude.h>
++#include <gst/analytics/gstanalyticsmeta.h>
++#include <gst/analytics/gstanalyticsgroupmtd.h>
++
++G_BEGIN_DECLS
++
++/**
++ * GstAnalyticsKeypointMtd:
++ * @id: Instance identifier.
++ * @meta: Instance of #GstAnalyticsRelationMeta where the analytics-metadata
++ * identified by @id is stored.
++ *
++ * Handle containing data required to use gst_analytics_keypoint_mtd APIs.
++ * This type is generally expected to be allocated on the stack.
++ *
++ * Since: 1.30
++ */
++typedef struct _GstAnalyticsMtd GstAnalyticsKeypointMtd;
++
++/**
++ * GstAnalyticsKeypointDimensions:
++ * @GST_ANALYTICS_KEYPOINT_DIMENSIONS_2D: keypoints in 2D space with (x,y) coordinates.
++ * @GST_ANALYTICS_KEYPOINT_DIMENSIONS_3D: keypoints in 3D space with (x,y,z) coordinates.
++ *
++ * Enum value describing supported keypoint dimension.
++ *
++ * Since: 1.30
++ */
++typedef enum
++{
++  GST_ANALYTICS_KEYPOINT_DIMENSIONS_2D = 2,
++  GST_ANALYTICS_KEYPOINT_DIMENSIONS_3D = 3,
++} GstAnalyticsKeypointDimensions;
++
++/**
++ * GstAnalyticsKeypointVisibility:
++ * @GST_ANALYTICS_KEYPOINT_VISIBILITY_UNKNOWN: Visibility is not known.
++ * @GST_ANALYTICS_KEYPOINT_VISIBILITY_VISIBLE: Keypoint is fully visible.
++ * @GST_ANALYTICS_KEYPOINT_VISIBILITY_OCCLUDED: Keypoint exists but is
++ *   occluded.
++ * @GST_ANALYTICS_KEYPOINT_VISIBILITY_PROJECTED: Keypoint position was
++ *   projected by the analysis.
++ *
++ * Flags describing the visibility state of a keypoint.
++ *
++ * Since: 1.30
++ */
++typedef enum {
++  GST_ANALYTICS_KEYPOINT_VISIBILITY_UNKNOWN = 0,
++  GST_ANALYTICS_KEYPOINT_VISIBILITY_VISIBLE = 1,
++  GST_ANALYTICS_KEYPOINT_VISIBILITY_OCCLUDED = 1 << 2,
++  GST_ANALYTICS_KEYPOINT_VISIBILITY_PROJECTED = 1 << 3,
++} GstAnalyticsKeypointVisibility;
++
++
++GST_ANALYTICS_META_API
++GstAnalyticsMtdType gst_analytics_keypoint_mtd_get_mtd_type (void);
++
++GST_ANALYTICS_META_API
++gboolean gst_analytics_relation_meta_add_keypoint_mtd (
++    GstAnalyticsRelationMeta *instance,
++    GstAnalyticsKeypointDimensions dimension,
++    gint x, gint y, gint z,
++    guint8 visibility_flags,
++    gfloat confidence,
++    GstAnalyticsKeypointMtd *keypoint_mtd);
++
++GST_ANALYTICS_META_API
++gboolean gst_analytics_keypoint_mtd_get_position (
++    const GstAnalyticsKeypointMtd *handle,
++    gint *x, gint *y, gint *z,
++    GstAnalyticsKeypointDimensions *dimension);
++
++GST_ANALYTICS_META_API
++gboolean gst_analytics_keypoint_mtd_get_confidence (
++    const GstAnalyticsKeypointMtd *handle,
++    gfloat *confidence);
++
++GST_ANALYTICS_META_API
++gboolean gst_analytics_keypoint_mtd_get_visibility_flags (
++    const GstAnalyticsKeypointMtd *handle,
++    guint8 *visibility_flags);
++
++GST_ANALYTICS_META_API
++gboolean gst_analytics_relation_meta_get_keypoint_mtd (
++    GstAnalyticsRelationMeta *meta,
++    guint an_meta_id,
++    GstAnalyticsKeypointMtd *rlt);
++
++GST_ANALYTICS_META_API
++gboolean gst_analytics_relation_meta_add_keypoints_group (
++    GstAnalyticsRelationMeta *instance,
++    const gchar *semantic_tag,
++    GstAnalyticsKeypointDimensions dimension,
++    gsize positions_len,
++    const gint *positions,
++    gsize keypoint_count,
++    const gfloat *confidences,
++    const guint8 *visibilities,
++    gsize skeleton_pairs_len,
++    const gint *skeleton_pairs,
++    GstAnalyticsGroupMtd *group_mtd);
++
++G_END_DECLS
++
++#endif /* __GST_ANALYTICS_KEYPOINT_MTD_H__ */
+diff --git a/subprojects/gst-plugins-bad/gst-libs/gst/analytics/gstanalyticsmeta.c b/subprojects/gst-plugins-bad/gst-libs/gst/analytics/gstanalyticsmeta.c
+index 39d770e3bf..178ed5917c 100644
+--- a/subprojects/gst-plugins-bad/gst-libs/gst/analytics/gstanalyticsmeta.c
++++ b/subprojects/gst-plugins-bad/gst-libs/gst/analytics/gstanalyticsmeta.c
+@@ -62,6 +62,7 @@ typedef struct
+   const GstAnalyticsMtdImpl *impl;
+   guint id;
+   gsize size;
++  GstIdStr semantic_tag;
+   gpointer data[];
+ } GstAnalyticsRelatableMtdData;
+ 
+@@ -211,6 +212,121 @@ gst_analytics_mtd_type_get_name (GstAnalyticsMtdType type)
+     return impl->name;
+ }
+ 
++/**
++ * gst_analytics_mtd_set_semantic_tag:
++ * @instance: Instance of #GstAnalyticsMtd
++ * @tag: (nullable): string representing a semantic type, or %NULL to clear
++ *   the tag
++ *
++ * Set semantic tag on any analytics metadata. This gives context to understand
++ * the metadata. Pass %NULL to clear the tag.
++ *
++ * Returns: %TRUE if the semantic tag was set successfully.
++ *
++ * Since: 1.30
++ */
++gboolean
++gst_analytics_mtd_set_semantic_tag (GstAnalyticsMtd * instance,
++    const gchar * tag)
++{
++  GstAnalyticsRelatableMtdData *rlt;
++
++  g_return_val_if_fail (instance, FALSE);
++
++  rlt = gst_analytics_relation_meta_get_mtd_data_internal (instance->meta,
++      instance->id);
++  g_return_val_if_fail (rlt != NULL, FALSE);
++
++  if (tag)
++    gst_id_str_set (&rlt->semantic_tag, tag);
++  else
++    gst_id_str_clear (&rlt->semantic_tag);
++
++  return TRUE;
++}
++
++/**
++ * gst_analytics_mtd_get_semantic_tag:
++ * @instance: Instance of #GstAnalyticsMtd
++ *
++ * Get the semantic tag of the analytics metadata.
++ *
++ * Returns: (transfer full): A copy of the semantic tag string. Returns an
++ *    empty string if no tag has been set. The caller must free the returned
++ *    string with g_free() when no longer needed.
++ *
++ * Since: 1.30
++ */
++gchar *
++gst_analytics_mtd_get_semantic_tag (const GstAnalyticsMtd * instance)
++{
++  GstAnalyticsRelatableMtdData *rlt;
++
++  g_return_val_if_fail (instance, NULL);
++
++  rlt = gst_analytics_relation_meta_get_mtd_data_internal (instance->meta,
++      instance->id);
++  g_return_val_if_fail (rlt != NULL, NULL);
++
++  return g_strdup (gst_id_str_as_str (&rlt->semantic_tag));
++}
++
++/**
++ * gst_analytics_mtd_has_semantic_tag:
++ * @instance: Instance of #GstAnalyticsMtd
++ * @tag: tag string to compare against
++ *
++ * Check if the metadata's semantic tag matches @tag. An empty or unset tag
++ * never matches.
++ *
++ * Returns: %TRUE if the metadata's semantic tag equals @tag.
++ *
++ * Since: 1.30
++ */
++gboolean
++gst_analytics_mtd_has_semantic_tag (const GstAnalyticsMtd * instance,
++    const gchar * tag)
++{
++  GstAnalyticsRelatableMtdData *rlt;
++
++  g_return_val_if_fail (instance, FALSE);
++  g_return_val_if_fail (tag, FALSE);
++
++  rlt = gst_analytics_relation_meta_get_mtd_data_internal (instance->meta,
++      instance->id);
++  g_return_val_if_fail (rlt != NULL, FALSE);
++
++  return gst_id_str_is_equal_to_str (&rlt->semantic_tag, tag);
++}
++
++/**
++ * gst_analytics_mtd_semantic_tag_has_prefix:
++ * @instance: Instance of #GstAnalyticsMtd
++ * @prefix: prefix string to test against
++ *
++ * Check if the metadata's semantic tag starts with @prefix. An empty or unset
++ * tag never matches.
++ *
++ * Returns: %TRUE if the metadata's semantic tag starts with @prefix.
++ *
++ * Since: 1.30
++ */
++gboolean
++gst_analytics_mtd_semantic_tag_has_prefix (const GstAnalyticsMtd * instance,
++    const gchar * prefix)
++{
++  GstAnalyticsRelatableMtdData *rlt;
++
++  g_return_val_if_fail (instance, FALSE);
++  g_return_val_if_fail (prefix, FALSE);
++
++  rlt = gst_analytics_relation_meta_get_mtd_data_internal (instance->meta,
++      instance->id);
++  g_return_val_if_fail (rlt != NULL, FALSE);
++
++  return g_str_has_prefix (gst_id_str_as_str (&rlt->semantic_tag), prefix);
++}
++
+ /**
+  * gst_analytics_relation_get_length:
+  * @instance: Instance of #GstAnalyticsRelationMeta
+@@ -403,6 +519,15 @@ gst_analytics_relation_meta_transform (GstBuffer * transbuf,
+ 
+     memcpy (dst_data, src_mtd_data->data, src_mtd_data->size);
+ 
++    /* Copy semantic tag from source to destination */
++    {
++      GstAnalyticsRelatableMtdData *dst_mtd_data =
++          gst_analytics_relation_meta_get_mtd_data_internal (dst_rmeta,
++          dst_mtd.id);
++      gst_id_str_set (&dst_mtd_data->semantic_tag,
++          gst_id_str_as_str (&src_mtd_data->semantic_tag));
++    }
++
+     if (src_mtd_data->impl->mtd_meta_transform) {
+       if (src_mtd_data->impl->mtd_meta_transform (transbuf, &dst_mtd, buffer,
+               type, data)) {
+@@ -463,6 +588,7 @@ gst_analytics_relation_meta_clear (GstBuffer * buffer, GstMeta * meta)
+       mtd.meta = rmeta;
+       rlt_mtd_data->impl->mtd_meta_clear (buffer, &mtd);
+     }
++    gst_id_str_clear (&rlt_mtd_data->semantic_tag);
+   }
+ 
+   gsize adj_mat_data_size =
+@@ -673,7 +799,7 @@ gst_analytics_relation_meta_set_relation (GstAnalyticsRelationMeta * meta,
+  *    @an_meta_second_id.
+  *    A value of 1 mean only only consider direct relation.
+  * @cond_types: condition on relation types.
+- * @relations_path: (transfer full)(nullable)(out caller-allocates)(array)
++ * @relations_path: (transfer full)(nullable)(inout)(array)
+  *    (element-type gint):
+  *    If not NULL this list will be filled with relation path between
+  *    @an_meta_first_id and
+@@ -936,6 +1062,7 @@ gst_analytics_relation_meta_add_mtd (GstAnalyticsRelationMeta * meta,
+     dest->impl = impl;
+     dest->id = gst_analytics_relation_meta_get_next_id (meta);
+     dest->size = size;
++    gst_id_str_init (&dest->semantic_tag);
+     meta->mtd_data_lookup[dest->id] = meta->offset;
+     meta->offset += object_size;
+     meta->length++;
+diff --git a/subprojects/gst-plugins-bad/gst-libs/gst/analytics/gstanalyticsmeta.h b/subprojects/gst-plugins-bad/gst-libs/gst/analytics/gstanalyticsmeta.h
+index a6e9ab816b..9add92f505 100644
+--- a/subprojects/gst-plugins-bad/gst-libs/gst/analytics/gstanalyticsmeta.h
++++ b/subprojects/gst-plugins-bad/gst-libs/gst/analytics/gstanalyticsmeta.h
+@@ -141,6 +141,22 @@ gsize gst_analytics_mtd_get_size (const GstAnalyticsMtd * instance);
+ GST_ANALYTICS_META_API
+ const gchar *gst_analytics_mtd_type_get_name (GstAnalyticsMtdType type);
+ 
++GST_ANALYTICS_META_API
++gboolean gst_analytics_mtd_set_semantic_tag (GstAnalyticsMtd * instance,
++    const gchar * tag);
++
++GST_ANALYTICS_META_API
++gchar * gst_analytics_mtd_get_semantic_tag (const GstAnalyticsMtd *
++    instance);
++
++GST_ANALYTICS_META_API
++gboolean gst_analytics_mtd_has_semantic_tag (const GstAnalyticsMtd *
++    instance, const gchar * tag);
++
++GST_ANALYTICS_META_API
++gboolean gst_analytics_mtd_semantic_tag_has_prefix (const GstAnalyticsMtd *
++    instance, const gchar * prefix);
++
+ typedef struct _GstAnalyticsRelationMetaInitParams
+ GstAnalyticsRelationMetaInitParams;
+ 
+diff --git a/subprojects/gst-plugins-bad/gst-libs/gst/analytics/gstanalyticsobjectdetectionmtd.c b/subprojects/gst-plugins-bad/gst-libs/gst/analytics/gstanalyticsobjectdetectionmtd.c
+index 0add38471c..39b547cb4e 100644
+--- a/subprojects/gst-plugins-bad/gst-libs/gst/analytics/gstanalyticsobjectdetectionmtd.c
++++ b/subprojects/gst-plugins-bad/gst-libs/gst/analytics/gstanalyticsobjectdetectionmtd.c
+@@ -114,6 +114,8 @@ gst_analytics_od_mtd_meta_transform (GstBuffer * transbuf,
+     oddata->y = rect.y;
+     oddata->w = rect.w;
+     oddata->h = rect.h;
++
++    return TRUE;
+   } else if (GST_VIDEO_META_TRANSFORM_IS_SCALE (type)) {
+     GstVideoMetaTransform *trans = data;
+     gint ow, oh, nw, nh;
+@@ -138,11 +140,14 @@ gst_analytics_od_mtd_meta_transform (GstBuffer * transbuf,
+ 
+     oddata->h *= nh;
+     oddata->h /= oh;
+-  } else {
+-    return FALSE;
++
++    return TRUE;
++  } else if (GST_META_TRANSFORM_IS_COPY (type)) {
++    // Data already copied by generic transform function, nothing to do.
++    return TRUE;
+   }
+ 
+-  return TRUE;
++  return FALSE;
+ }
+ 
+ static const GstAnalyticsMtdImpl od_impl = {
+diff --git a/subprojects/gst-plugins-bad/gst-libs/gst/analytics/gstanalyticssegmentationmtd.c b/subprojects/gst-plugins-bad/gst-libs/gst/analytics/gstanalyticssegmentationmtd.c
+index 7fb0a7cfe1..420c4c32fe 100644
+--- a/subprojects/gst-plugins-bad/gst-libs/gst/analytics/gstanalyticssegmentationmtd.c
++++ b/subprojects/gst-plugins-bad/gst-libs/gst/analytics/gstanalyticssegmentationmtd.c
+@@ -463,6 +463,8 @@ gst_analytics_segmentation_mtd_transform (GstBuffer * transbuf,
+     segdata->masks_loc_y = rect.y;
+     segdata->masks_loc_w = rect.w;
+     segdata->masks_loc_h = rect.h;
++
++    return TRUE;
+   } else if (GST_VIDEO_META_TRANSFORM_IS_SCALE (type)) {
+     GstVideoMetaTransform *trans = data;
+     gint ow, oh, nw, nh;
+@@ -484,9 +486,13 @@ gst_analytics_segmentation_mtd_transform (GstBuffer * transbuf,
+     segdata->masks_loc_h *= nh;
+     segdata->masks_loc_h /= oh;
+ 
++    return TRUE;
++  } else if (GST_META_TRANSFORM_IS_COPY (type)) {
++    // Data already copied by generic transform function, nothing to do.
++    return TRUE;
+   }
+ 
+-  return TRUE;
++  return FALSE;
+ }
+ 
+ /**
+diff --git a/subprojects/gst-plugins-bad/gst-libs/gst/analytics/meson.build b/subprojects/gst-plugins-bad/gst-libs/gst/analytics/meson.build
+index b329d93cab..837be2914c 100644
+--- a/subprojects/gst-plugins-bad/gst-libs/gst/analytics/meson.build
++++ b/subprojects/gst-plugins-bad/gst-libs/gst/analytics/meson.build
+@@ -3,6 +3,8 @@ analytics_sources = files( 'gstanalyticsmeta.c',
+                               'gstanalyticsobjectdetectionmtd.c',
+                               'gstanalyticsobjecttrackingmtd.c',
+                               'gstanalyticssegmentationmtd.c',
++                              'gstanalyticsgroupmtd.c',
++                              'gstanalyticskeypointmtd.c',
+                               'gstanalyticsbatchmeta.c',
+                               'gstanalyticstensormtd.c',
+                               'gsttensormeta.c',
+@@ -17,6 +19,8 @@ analytics_headers = files(    'analytics.h',
+                               'gstanalyticsobjectdetectionmtd.h',
+                               'gstanalyticsobjecttrackingmtd.h',
+                               'gstanalyticssegmentationmtd.h',
++                              'gstanalyticsgroupmtd.h',
++                              'gstanalyticskeypointmtd.h',
+                               'gstanalyticstensormtd.h',
+                               'gstanalyticsbatchmeta.h',
+                               'gsttensormeta.h',
+diff --git a/subprojects/gst-plugins-bad/gst-libs/gst/analytics/modelinfo.c b/subprojects/gst-plugins-bad/gst-libs/gst/analytics/modelinfo.c
+index af189ed8f9..92e3a66f18 100644
+--- a/subprojects/gst-plugins-bad/gst-libs/gst/analytics/modelinfo.c
++++ b/subprojects/gst-plugins-bad/gst-libs/gst/analytics/modelinfo.c
+@@ -773,7 +773,8 @@ gst_analytics_modelinfo_get_input_scales_offsets (GstAnalyticsModelInfo *
+ 
+   *output_scales = NULL;
+   *output_offsets = NULL;
+-  *num_output_ranges = 0;
++  if (num_output_ranges)
++    *num_output_ranges = 0;
+ 
+   /* Get target ranges from modelinfo */
+   if (!gst_analytics_modelinfo_get_target_ranges (modelinfo, tensor_name,
+@@ -784,7 +785,7 @@ gst_analytics_modelinfo_get_input_scales_offsets (GstAnalyticsModelInfo *
+   }
+ 
+   /* Validate that input ranges match target ranges */
+-  if (num_input_ranges != num_target_ranges) {
++  if (num_input_ranges != num_target_ranges && num_target_ranges != 1) {
+     GST_ERROR
+         ("Tensor '%s': number of input ranges (%zu) doesn't match number of "
+         "target ranges in modelinfo (%zu)", tensor_name, num_input_ranges,
+@@ -795,13 +796,18 @@ gst_analytics_modelinfo_get_input_scales_offsets (GstAnalyticsModelInfo *
+   }
+ 
+   /* Allocate output arrays */
+-  *output_scales = g_new (gdouble, num_target_ranges);
+-  *output_offsets = g_new (gdouble, num_target_ranges);
++  *output_scales = g_new (gdouble, num_input_ranges);
++  *output_offsets = g_new (gdouble, num_input_ranges);
+ 
+   /* Calculate scale and offset for each channel */
+-  for (i = 0; i < num_target_ranges; i++) {
+-    target_min = target_mins[i];
+-    target_max = target_maxs[i];
++  for (i = 0; i < num_input_ranges; i++) {
++    if (num_target_ranges == 1) {
++      target_min = target_mins[0];
++      target_max = target_maxs[0];
++    } else {
++      target_min = target_mins[i];
++      target_max = target_maxs[i];
++    }
+     input_min = input_mins[i];
+     input_max = input_maxs[i];
+ 
+@@ -820,7 +826,8 @@ gst_analytics_modelinfo_get_input_scales_offsets (GstAnalyticsModelInfo *
+         target_max, scale, offset);
+   }
+ 
+-  *num_output_ranges = num_target_ranges;
++  if (num_output_ranges)
++    *num_output_ranges = num_input_ranges;
+   g_free (target_mins);
+   g_free (target_maxs);
+ 
+diff --git a/subprojects/gst-python/gi/overrides/GstAnalytics.py b/subprojects/gst-python/gi/overrides/GstAnalytics.py
+index b769d54513..14a57bb89b 100644
+--- a/subprojects/gst-python/gi/overrides/GstAnalytics.py
++++ b/subprojects/gst-python/gi/overrides/GstAnalytics.py
+@@ -47,6 +47,25 @@ class Mtd(GstAnalytics.Mtd):
+             return False
+         return self.meta == other.meta and self.id == other.id
+ 
++    def _as_base_mtd(self):
++        """Return a GstAnalytics.Mtd with the same id/meta so GIR methods on Mtd are reachable."""
++        m = GstAnalytics.Mtd()
++        m.id = self.id
++        m.meta = self.meta
++        return m
++
++    def set_semantic_tag(self, tag):
++        return self._as_base_mtd().set_semantic_tag(tag)
++
++    def get_semantic_tag(self):
++        return self._as_base_mtd().get_semantic_tag()
++
++    def has_semantic_tag(self, tag):
++        return self._as_base_mtd().has_semantic_tag(tag)
++
++    def semantic_tag_has_prefix(self, prefix):
++        return self._as_base_mtd().semantic_tag_has_prefix(prefix)
++
+     def iter_direct_related(self, relation, mtd_type=GstAnalytics.Mtd):
+         if mtd_type != GstAnalytics.Mtd:
+             mtd_type = mtd_type.get_mtd_type()
+@@ -81,6 +100,9 @@ for c in dir(GstAnalytics):
+ 
+ 
+ def _get_mtd(mtd_type, rmeta, mtd_id):
++    # If rmeta has a 'meta' attribute (e.g., GroupMtd), extract the actual RelationMeta
++    if hasattr(rmeta, 'meta') and not isinstance(rmeta, GstAnalytics.RelationMeta):
++        rmeta = rmeta.meta
+     res = __mtd_types__[mtd_type](rmeta, mtd_id)
+     if not res[0]:
+         raise Gst.AddError('Mtd with id={mtd_id} of rmeta={rmeta} is not known.')
+@@ -104,3 +126,29 @@ class RelationMeta(GstAnalytics.RelationMeta):
+ 
+ 
+ __all__.append('RelationMeta')
++
++
++class GroupMtd(GstAnalytics.GroupMtd, Mtd):
++    def __iter__(self):
++        return _gi_gst_analytics.AnalyticsGroupMtdIterator(sys.modules[__name__], self)
++
++    def iter_on_type(self, filter):
++        if filter == GstAnalytics.Mtd:
++            return self.__iter__()
++
++        mtdtype = filter.get_mtd_type()
++        if mtdtype in __mtd_types__:
++            return _gi_gst_analytics.AnalyticsGroupMtdIteratorWithMtdTypeFilter(
++                sys.modules[__name__], self, mtdtype)
++        else:
++            raise TypeError('Wrong filter type is used for iter_on_type method.')
++
++
++__all__.append('GroupMtd')
++
++
++# Keypoint dimension enum helpers (for numeric enum values starting with digits)
++KeypointDimensions_2D = getattr(GstAnalytics.KeypointDimensions, '2D')
++KeypointDimensions_3D = getattr(GstAnalytics.KeypointDimensions, '3D')
++
++__all__.extend(['KeypointDimensions_2D', 'KeypointDimensions_3D'])

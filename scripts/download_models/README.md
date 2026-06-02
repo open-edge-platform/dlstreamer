@@ -40,7 +40,7 @@ python download_hf_models.py \
 
 ### Arguments
 
-- `--model` (required): Hugging Face model id (for example: `google/gemma-3-4b-it`).
+- `--model` (required): Hugging Face model id. You can pass either a plain repo id such as `google/gemma-3-4b-it` or an explicit `repo_id@revision` override.
 - `--outdir` (optional, default `.`): Output directory.
 - `--token` (optional): HF token for gated/private models.
 - `--extra_args` (optional): Extra arguments forwarded to `optimum-cli export openvino` for standard exports. Values that start with `--` are supported.
@@ -53,6 +53,8 @@ The script classifies a model into one of three support levels:
 - `1` — Custom export path: handled in `hf_utils.py` (currently CLIP/RT-DETR custom converters).
 - `2` — Unsupported: prints an error and exits with code `1`.
 
+When `--model` does not include `@revision`, the script resolves the current immutable Hugging Face commit SHA automatically and uses that value for all downloads and `from_pretrained(...)` calls.
+
 ### Examples
 
 ```bash
@@ -64,6 +66,9 @@ python download_hf_models.py --model openbmb/MiniCPM-V-2_6 --extra_args --weight
 
 # Private/gated model
 python download_hf_models.py --model <org/private-model> --token <HF_TOKEN> --outdir ./exports
+
+# Explicit revision override
+python download_hf_models.py --model openai/clip-vit-base-patch32@8d63d37a6cb56f5fce515f9e64bcfb3b0e22e594 --outdir ./exports
 ```
 
 ## 2) Ultralytics conversion
@@ -86,6 +91,8 @@ python download_ultralytics_models.py \
 - `--outdir` (optional, default `.`): Output directory.
 - `--half` (optional): Export in FP16.
 - `--int8` (optional): Export in INT8.
+
+DL Streamer auto-conversion supports Ultralytics detection, segmentation, pose, OBB, and classification exports.
 
 ### Examples
 
@@ -130,6 +137,8 @@ python download_timm_models.py import \
 
 Existing TIMM exports in the target folder are replaced only after the exported
 OpenVINO IR has been read and re-saved successfully.
+The helper resolves the current immutable Hugging Face commit SHA before
+downloading auxiliary files such as ``config.json``.
 
 ### Precisions
 

@@ -44,6 +44,10 @@ typedef struct {
 GST_ANALYTICS_META_API
 const GstAnalyticsKeypointDescriptor *gst_analytics_keypoint_descriptor_lookup(const gchar *semantic_tag);
 
+GST_ANALYTICS_META_API
+const GstAnalyticsKeypointDescriptor *gst_analytics_keypoint_descriptor_find_in_tag(const gchar *tag,
+                                                                                    const gchar **format_start);
+
 #ifdef __GI_SCANNER__
 /*
  * Indexed accessors for GObject Introspection (Python bindings) only.

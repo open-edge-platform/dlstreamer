@@ -12,7 +12,7 @@ You need a development machine with one of the following coding environments ins
 
 - [Visual Studio Code](https://code.visualstudio.com/) with the [GitHub Copilot Chat](https://marketplace.visualstudio.com/items?itemName=GitHub.copilot-chat) extension
 - [Cursor](https://www.cursor.com/)
-- [Claude Code](https://docs.anthropic.com/en/docs/agents-and-tools/claude-code/overview)
+- [Claude Code](https://code.claude.com/docs)
 
 Note: The Coding Agent communicates with AI coding models in the cloud, which typically requires a paid service or subscription.
 For best results, select a reasoning AI model.

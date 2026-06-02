@@ -15,6 +15,7 @@ import sys
 from pathlib import Path
 from hf_utils import custom_conversion
 from hf_utils import get_hf_model_support_level
+from hf_utils import resolve_hf_model_ref
 
 
 def parse_args() -> argparse.Namespace:
@@ -42,7 +43,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--model",
         required=True,
-        help="Hugging Face model ID",
+        help="Hugging Face model ID or repo_id@revision override",
     )
     parser.add_argument(
         "--outdir",
@@ -74,11 +75,14 @@ def main() -> int:
 
     try:
         support_level = get_hf_model_support_level(model_id, token)
+        repo_id, revision = resolve_hf_model_ref(model_id, token)
+        if "@" not in model_id:
+            print(f"Resolved {repo_id} to revision {revision}")
         
         match support_level:
             case 0:
                 # Standard export using optimum-cli
-                model_path = Path(args.outdir) / Path(model_id).name
+                model_path = Path(args.outdir) / Path(repo_id).name
                 model_path.mkdir(parents=True, exist_ok=True)
 
                 command = [
@@ -86,7 +90,9 @@ def main() -> int:
                     "export",
                     "openvino",
                     "--model",
-                    model_id,
+                    repo_id,
+                    "--revision",
+                    revision,
                 ]
                 if args.extra_args:
                     command.extend(args.extra_args)

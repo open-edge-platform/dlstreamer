@@ -1,22 +1,26 @@
 ---
 name: dlstreamer-coding-agent
-description: "Build new DL Streamer video-analytics applications (Python or GStreamer command line). Use when: user describes a vision AI pipeline, wants to create a new sample app, combine elements from existing samples, add detection/classification/VLM/tracking/alerts/recording to a video pipeline, or create custom GStreamer elements in Python. Translates natural-language pipeline descriptions into working DL Streamer code using established design patterns."
-argument-hint: "Describe the vision AI pipeline you want to build (e.g. 'detect faces in RTSP stream and save alerts as JSON')"
+description: "Build new DL Streamer video-analytics applications (Python, C, C++ or GStreamer command line). Use when: user describes a vision AI pipeline, wants to create a new sample app, combine elements from existing samples, add detection/classification/VLM/tracking/alerts/recording to a video pipeline, or create custom GStreamer elements in Python or C++. Translates natural-language pipeline descriptions into working DL Streamer code using established design patterns."
 ---
 
 # DL Streamer Coding Agent
 
-Build new DL Streamer video-analytics applications (Python or GStreamer command line) by composing design patterns extracted from existing sample apps.
+Build new DL Streamer video-analytics applications (Python, C, C++ or GStreamer command line) by composing design patterns extracted from existing sample apps.
 
 NOTE: This feature is in PREVIEW stage — expect some rough edges and missing features, and please share your feedback to help us improve it!
+
+## File Resolution
+
+This skill uses **repo-root-relative paths** to reference files outside the skill folder (e.g. `docs/user-guide/elements/`, `samples/gstreamer/python/hello_dlstreamer/`). The repo root is three directories above this skill file when the full repo is cloned, or refers to https://github.com/open-edge-platform/dlstreamer if only skill files were copied.
 
 ## When to Use
 
 - User describes a vision AI pipeline in natural language
 - User wants to create a new Python sample application built on DL Streamer
+- User wants to create a new C or C++ sample application built on DL Streamer
 - User wants to create a new GStreamer command line using DL Streamer elements
 - User wants to combine elements from multiple existing samples (e.g. detection + VLM + recording)
-- User needs to add custom analytics logic or custom GStreamer elements in Python
+- User needs to add custom analytics logic or custom GStreamer elements in Python or C++
 
 See [example prompts](./examples) for inspiration.
 
@@ -30,8 +34,10 @@ See [example prompts](./examples) for inspiration.
 ├── export_requirements.txt     # Python dependencies for model export scripts
 ├── README.md                   # Setup and usage instructions
 ├── plugins/                    # Only if custom GStreamer elements are needed
-│   └── python/
-│       └── <element>.py
+│   ├── python/
+│   │   └── <element>.py
+│   └── c/
+│       └── <element>.c
 ├── config/                     # Only if config files are needed
 │   └── *.txt / *.json
 ├── models/                     # Created at runtime (cached model exports)
@@ -43,8 +49,10 @@ See [example prompts](./examples) for inspiration.
 
 ### Execution Overview
 
-After Step 0 (requirements gathering), kick off **all independent long-running tasks in parallel**
+After Step 0 (requirements gathering), kick off all independent long-running tasks in parallel
 via async terminals, then continue with reasoning-heavy work while they complete.
+When in doubt about ordering, always wait for a step's listed prerequisites to finish
+before starting it — the dependency graph below is the single source of truth.
 
 ```
 Step 0 (gather requirements — interactive)
@@ -55,11 +63,11 @@ Step 0 (gather requirements — interactive)
   └──► Step 3  (design pipeline — reasoning) ──► Step 4 (generate app) ─────┘
 ```
 
-**Parallelization rules:**
-- Steps 1, 2a, 2b, and 3 are **fully independent** — start them all immediately after Step 0
+Parallelization rules:
+- Steps 1, 2a, 2b, and 3 are fully independent — start them all immediately after Step 0
 - Step 2c (model export) depends on Step 2a (pip install) completing
 - Step 4 (generate app) depends on Step 3 (pipeline design) completing
-- Step 5 (run & validate) depends on Steps 1, 2c, and 4 all completing
+- Step 5 (run and validate) depends on Steps 1, 2c, and 4 all completing
 
 ### Reference Lookup
 
@@ -83,11 +91,14 @@ Before proceeding with the full procedure, check if the user's prompt maps direc
 If a match is found:
 
 1. Pre-fill Step 0 fields from the matched row
-2. Present the pre-filled values to the user for confirmation (skip the full
-   [Requirements Questionnaire](./references/questionnaire.md) unless info is still missing)
-3. After the user confirms (or overrides), read **only** the design patterns,
+2. If any required field is missing or inferred from the matched row, present the pre-filled
+  values to the user for confirmation (skip the full
+  [Requirements Questionnaire](./references/questionnaire.md) unless info is still missing)
+3. If all required fields were explicitly provided by the user (not inferred), skip
+  confirmation and proceed directly to Step 1
+4. After the user confirms (or overrides), read **only** the design patterns,
    reference sections, and model-preparation sections needed for the confirmed selections
-4. Proceed to Steps 1–5
+5. Proceed to Steps 1–5
 
 ### Step 0 — Gather Requirements
 
@@ -99,13 +110,13 @@ Extract the following from the user's prompt:
 | **AI model(s)** | Model name/URL and task (detection, classification, VLM, OCR, …) | — (must ask) |
 | **Target hardware** | Intel platform, available accelerators (GPU/NPU/CPU) | `Not sure / detect at runtime` |
 | **Output format** | Annotated video, JSON, JPEG snapshots, display window | `All of the above` |
-| **Application type** | Python app or GStreamer command line | `Python application` — but see override rule below |
-| **Docker image** | DL Streamer Docker tag | Latest Ubuntu 24 tag (auto-fetched) |
+| **Application type** | Python app, C/C++ app, or GStreamer command line | When the prompt references an existing application to convert, determine the application type by inspecting the source application's file extensions. Application type must match the programming language of the input application (C/C++ → C/C++, Python → Python, shell → GStreamer command line) |
+| **Docker image** | DL Streamer Docker tag | `intel/dlstreamer:latest` (this tag is treated as the latest Ubuntu 24 image) |
 
-> **Application type override:** If the user's prompt contains explicit language like
+ **Application type override:** If the user's prompt contains explicit language like
 > "bash script", "shell script", "gst-launch", or "command line", set **Application type**
 > to `GStreamer command line` regardless of the default. Only default to `Python application`
-> when the prompt does not indicate a preference.
+> when the prompt does not indicate a preference and there is no source application to convert.
 
 **If the user's prompt explicitly provides all required info** (video input AND model names
 are explicitly stated, not inferred), proceed directly to Step 1.
@@ -116,20 +127,22 @@ or override before proceeding. Use the interactive question tool if available
 (e.g. `vscode_askQuestions` in VS Code Copilot), otherwise list the values inline
 in chat. Do NOT silently assume defaults and skip confirmation.
 
+If the user requests NPU but the selected model or elements do not support NPU inference,
+inform the user and suggest falling back to GPU or CPU.
+
 ### Step 1 — Pull Docker Image (async)
 
 Start the Docker image pull in an **async terminal** immediately after Step 0 completes.
 
-**Always pull the latest weekly build.** During PREVIEW, the latest weekly
-image may contain critical bug fixes not present in older images. Do NOT reuse a
-locally cached image without pulling first.
+**Always pull the latest available image** 
+Do NOT reuse a locally cached image without pulling first.
 
 ```bash
-WEEKLY_TAG=$(curl -s "https://hub.docker.com/v2/repositories/intel/dlstreamer/tags?name=weekly-ubuntu24&page_size=25&ordering=-last_updated" \
-    | python3 -c "import sys,json; print(sorted([r['name'] for r in json.load(sys.stdin)['results']])[-1])")
-echo "Latest weekly tag: $WEEKLY_TAG"
-docker pull "intel/dlstreamer:${WEEKLY_TAG}"
+docker pull intel/dlstreamer:latest
 ```
+
+If `docker pull` fails (for example, image not found or network error), inform the user
+and suggest checking Docker login and network connectivity before retrying.
 
 ### Step 2 — Prepare Models and Video (async)
 
@@ -146,7 +159,7 @@ Check whether the requested models (or similar ones) appear in the model exporte
 If a model is found, extract its download recipe and create a local `export_models.py` in the application directory.
 If a model is not listed, check the [Model Preparation Reference](./references/model-preparation.md) for export instructions, then write a new script using the [Export Models Template](./assets/export-models-template.py).
 
-Create the `export_requirements.txt` file if the model export script requires additional Python packages (e.g. HuggingFace transformers, Ultralytics, optimum-cli, etc.). Add comments in `export_requirements.txt` to indicate which model export script requires a specific package. Use **exact pinned versions** from the [Model Preparation Reference → Requirements](./references/model-preparation.md#requirements).
+Create the `export_requirements.txt` file using the [Export Requirements Template](./assets/export-requirements-template.txt) if the model export script requires additional Python packages (e.g. HuggingFace transformers, Ultralytics, optimum-cli, etc.). Add comments in `export_requirements.txt` to indicate which model export script requires a specific package. Use **exact pinned versions** from the [Model Preparation Reference → Requirements](./references/model-preparation.md#requirements).
 
 > **CRITICAL — CPU-only PyTorch:** The **first line** of `export_requirements.txt` must be
 > `--extra-index-url https://download.pytorch.org/whl/cpu`
@@ -201,6 +214,9 @@ source .<app_name>-export-venv/bin/activate
 python3 export_models.py  # or bash export_models.sh
 ```
 
+If model export fails, check command output for common causes (unsupported architecture,
+insufficient RAM, missing model weights), report the error with a suggested fix, then retry.
+
 ### Step 3 — Design Pipeline
 
 Design a DL Streamer pipeline that fulfills the user's requirements. This step covers element selection and application structure.
@@ -218,13 +234,14 @@ For complex cases, consult the [Sample Index](./references/sample-index.md) for 
 When converting a DeepStream application, follow these additional rules:
 
 1. **Inventory the source pipeline.** Identify all elements in the DeepStream pipeline first.
-2. **Map each element 1-to-1** using the [Converting Guide](../../../docs/user-guide/dev_guide/converting_deepstream_to_dlstreamer.md).
+2. **Map each element 1-to-1** using the Converting Guide at `docs/user-guide/dev_guide/converting_deepstream_to_dlstreamer.md`.
 3. **Connect DL Streamer elements** using the Common Pipeline Patterns table or Sample Index.
 4. **Do not add elements absent from the source pipeline.** Every element in the converted pipeline must trace back to the inventory.
 
 **3b — Choose application structure**
 
 For a **CLI application**, the pipeline string from 3a is the deliverable — wrap it in a `gst-launch-1.0` shell script.
+
 
 For a **Python application**, map the user's description to one or more design patterns using the [Pattern Selection Table](./references/design-patterns.md#pattern-selection-table):
 1. Select the **pipeline construction** approach — see [Pattern 1: Pipeline Core](./references/design-patterns.md#pattern-1-pipeline-core)
@@ -237,8 +254,17 @@ For a **Python application**, map the user's description to one or more design p
 
 Generate all application files following the directory layout defined at the beginning of this document.
 
-- Read the [Design Patterns Reference](./references/design-patterns.md) for coding conventions and application structure.
-- Use the [Application Template](./assets/python-app-template.py) as the starting skeleton for Python apps.
+**Language-specific generation:**
+  
+  **C/C++ applications:**: Use the [Application Template](./assets/cpp-app-template.cpp) as the
+  starting skeleton. Read the [Design Patterns Reference](./references/design-patterns.md) for
+  coding conventions and application structure.
+
+- **Python applications**: Use the [Application Template](./assets/python-app-template.py) as the
+  starting skeleton. Read the [Design Patterns Reference](./references/design-patterns.md) for
+  coding conventions and application structure.
+
+For all languages:
 - Use the [README Template](./assets/README-template.md) to generate `README.md` — replace `{{PLACEHOLDERS}}` with application-specific content and remove HTML comments.
 - If the application requires Python packages, list them in `requirements.txt`. If the OpenVINO Python runtime is required, pin the same version as the OpenVINO runtime installed with DL Streamer.
 
@@ -254,7 +280,7 @@ docker run --init --rm \
     --group-add $(stat -c "%g" /dev/dri/render*) \
     --device /dev/accel \
     --group-add $(stat -c "%g" /dev/accel/accel*) \
-    intel/dlstreamer:<WEEKLY_TAG> \
+    intel/dlstreamer:latest \
     python3 <app_name>.py
 ```
 

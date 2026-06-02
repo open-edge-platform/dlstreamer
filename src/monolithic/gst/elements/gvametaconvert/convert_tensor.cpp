@@ -76,14 +76,18 @@ json convert_tensor(const GVA::Tensor &s_tensor) {
     if (!layer_name_value.empty()) {
         jobject.push_back(json::object_t::value_type("layer_name", layer_name_value));
     }
+    if ((model_name_value.empty() || layer_name_value.empty()) && s_tensor.has_field("semantic_tag")) {
+        std::string semantic_tag = s_tensor.get_string("semantic_tag");
+        if (!semantic_tag.empty()) {
+            jobject.push_back(json::object_t::value_type("semantic_tag", semantic_tag));
+        }
+    }
     std::string format_value = s_tensor.format();
     if (!format_value.empty()) {
         jobject.push_back(json::object_t::value_type("format", format_value));
     }
-    // TODO: Temporary solution until full GstAnalytics metadata support is added to DL Streamer
     std::string type_value = s_tensor.type();
-    // if (!type_value.empty()) {
-    if (type_value == GVA::GST_ANALYTICS_KEYPOINTS_2_TENSOR) {
+    if ((model_name_value.empty() || layer_name_value.empty()) && !type_value.empty()) {
         jobject.push_back(json::object_t::value_type("type", type_value));
     }
 

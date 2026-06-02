@@ -23,12 +23,14 @@ Key types:
 | `GstAnalyticsTrackingMtd` | Object tracking |
 | `GstAnalyticsKeypointMtd` | Single keypoint |
 | `GstAnalyticsGroupMtd` | Ordered group of metadata |
-| `GstAnalyticsKeypointDescriptor` | Static keypoint layout registry (DL Streamer extension) |
+| `GstAnalyticsKeypointDescriptor` | Static keypoint layout registry — DL Streamer extension |
 | `GstAnalyticsZoneMtd` | Zone presence (zone ID) — DL Streamer extension |
 | `GstAnalyticsTripwireMtd` | Tripwire crossing (tripwire ID, direction) — DL Streamer extension |
 
 For the full API documentation, keypoint descriptor details, and code
-examples, see [GStreamer Analytics Metadata](./metadata_analytics.md).
+examples, see [GStreamer Analytics Metadata](./metadata_analytics.md).\
+You can also check out our post at [discourse.gstreamer.org](https://discourse.gstreamer.org/t/gstanalytics-adoption-in-dlstreamer-implementation-status-and-questions/5820)
+for input from GStreamer community.
 
 ## Custom Watermark Metadata
 
@@ -69,18 +71,18 @@ For reference documentation of the legacy API, see
 
 | Element | Description | Input | Output (Analytics) | Output (Legacy) |
 |---|---|---|---|---|
-| `gvadetect` (full-frame) | Object detection on full frame | GstBuffer | ODMtd, ClsMtd, KeypointGroupMtd | ROI + GstStructure params |
-| `gvadetect` (roi-list) | Object detection per ROI | GstBuffer + ROI/ODMtd | ODMtd, ClsMtd, KeypointGroupMtd | ROI (with parent_id) + GstStructure params |
-| `gvaclassify` (roi-list) | Object classification per ROI | GstBuffer + ROI/ODMtd | ClsMtd, KeypointGroupMtd | extended ROI params |
-| `gvaclassify` (full-frame) | Full-frame classification | GstBuffer | — | GstGVATensorMeta |
+| `gvadetect` (full-frame) | Object detection on full frame | GstBuffer | ODMtd, ClsMtd, GstAnalyticsGroupMtd, GstAnalyticsKeypointMtd | ROI + GstStructure params |
+| `gvadetect` (roi-list) | Object detection per ROI | GstBuffer + ROI + ODMtd | ODMtd, ClsMtd, GstAnalyticsGroupMtd, GstAnalyticsKeypointMtd | ROI (with parent_id) + GstStructure params |
+| `gvaclassify` (roi-list) | Object classification per ROI | GstBuffer + ROI + ODMtd | ClsMtd, GstAnalyticsGroupMtd, GstAnalyticsKeypointMtd | extended ROI params |
+| `gvaclassify` (full-frame) | Full-frame classification | GstBuffer | ClsMtd, GstAnalyticsGroupMtd, GstAnalyticsKeypointMtd | GstGVATensorMeta |
 | `gvainference` (full-frame) | Generic full-frame inference | GstBuffer | — | GstGVATensorMeta |
-| `gvainference` (roi-list) | Generic inference per ROI | GstBuffer + ROI/ODMtd | — | extended ROI params |
-| `gvatrack` | Object tracking | GstBuffer + ROI/ODMtd | TrackingMtd | ROI + object_id param |
-| `gvaanalytics` | Zone and tripwire analytics | GstBuffer + ODMtd + TrackingMtd | ZoneMtd (related to ODMtd), TripwireMtd (related to ODMtd) + WatermarkDrawMeta + WatermarkCircleMeta | — |
-| `gvametaconvert` | Metadata → JSON | GstBuffer + ROI/ODMtd (+ related ClsMtd, KeypointGroupMtd, TrackingMtd, ZoneMtd, TripwireMtd) + GstGVATensorMeta | — | GstGVAJSONMeta |
+| `gvainference` (roi-list) | Generic inference per ROI | GstBuffer + ROI + ODMtd | — | extended ROI params |
+| `gvatrack` | Object tracking | GstBuffer + ROI + ODMtd | TrackingMtd | ROI + object_id param |
+| `gvaanalytics` | Zone and tripwire analytics | GstBuffer + ODMtd + TrackingMtd | ZoneMtd, TripwireMtd, WatermarkDrawMeta, WatermarkCircleMeta | — |
+| `gvametaconvert` | Metadata → JSON | GstBuffer + ROI + ODMtd + ClsMtd + GstAnalyticsGroupMtd, GstAnalyticsKeypointMtd + TrackingMtd + ZoneMtd + TripwireMtd + GstGVATensorMeta | — | GstGVAJSONMeta |
 | `gvametapublish` | JSON → MQTT/Kafka/File | GstBuffer + GstGVAJSONMeta | — | — |
-| `gvametaaggregate` | Merge from multiple streams | GstBuffer + any metadata | ODMtd, ClsMtd, KeypointGroupMtd | ROI + GstStructure params, GstGVATensorMeta |
-| `gvawatermark` | Overlay on video | GstBuffer + ROI/ODMtd (+ related ClsMtd, KeypointGroupMtd, TrackingMtd) + GstGVATensorMeta + WatermarkDrawMeta + WatermarkCircleMeta + WatermarkTextMeta | — | — |
+| `gvametaaggregate` | Merge from multiple streams | GstBuffer + ROI + GstGVATensorMeta + ODMtd + ClsMtd + GstAnalyticsGroupMtd + GstAnalyticsKeypointMtd | ODMtd, ClsMtd, GstAnalyticsGroupMtd, GstAnalyticsKeypointMtd | ROI + GstStructure params, GstGVATensorMeta |
+| `gvawatermark` | Overlay on video | GstBuffer + ROI + ODMtd + ClsMtd + GstAnalyticsGroupMtd + GstAnalyticsKeypointMtd + TrackingMtd + GstGVATensorMeta + WatermarkDrawMeta + WatermarkCircleMeta + WatermarkTextMeta | — | — |
 | `gvagenai` | VLM inference on video frames | GstBuffer | ClsMtd | GstGVATensorMeta, GstGVAJSONMeta |
 | `gvaaudiotranscribe` | Speech recognition (Whisper) | GstBuffer (audio) | ClsMtd | — |
 

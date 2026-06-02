@@ -1,17 +1,18 @@
 # Object Detection and Classification with Yolo models (gst-launch command line)
 
-This set of samples demonstrates how to construct object detection pipelines via `gst-launch-1.0` command-line utility using latest YOLO models.
+This set of samples demonstrates how to construct object detection pipelines, and one detection-plus-classification pipeline, via `gst-launch-1.0` using the latest YOLO models.
 
 ## How It Works
 This set of samples utilizes GStreamer command-line tool `gst-launch-1.0` which can build and run GStreamer pipeline described in a string format.
 The string contains a list of GStreamer elements separated by exclamation mark `!`, each element may have properties specified in the format `property`=`value`.
 
-This sample builds GStreamer pipeline of the following elements
+This sample builds a GStreamer pipeline from the following elements:
 * `filesrc` or `urisourcebin` or `v4l2src` for input from file/URL/web-camera
 * `decodebin3` for video decoding
 * `videoconvert` for converting video frame into different color formats
-* [gvadetect](../../../../docs/user-guide/elements/gvadetect.md) uses for full-frame object detection and marking objects with labels
-* [gvawatermark](../../../../docs/user-guide/elements/gvawatermark.md) for points and theirs connections visualization
+* [gvadetect](../../../../docs/user-guide/elements/gvadetect.md) for full-frame object detection and marking objects with labels
+* [gvaclassify](../../../../docs/user-guide/elements/gvaclassify.md) for ROI classification when `yolo26s-cls` mode is selected
+* [gvawatermark](../../../../docs/user-guide/elements/gvawatermark.md) for object and classification label visualization
 * `autovideosink` for rendering output video into screen
 > **NOTE**: `sync=false` property in `autovideosink` element disables real-time synchronization so pipeline runs as fast as possible
 
@@ -21,7 +22,7 @@ The samples use YOLO models from different repositories as listed in a table bel
 The instructions assume Intel® DL Streamer framework is installed on the local system along with Intel® OpenVINO™ model downloader and converter tools,
 as described here: [Tutorial](../../../../docs/user-guide/get_started/tutorial.md#setup).
 
-For yolov5su, yolov8s (8n-obb,8n-seg), yolov9c, yolov10s and yolo11s (yolo11s-seg, yolo11s-obb) models it is also necessary to install the ultralytics python package:
+For yolov5su, yolov8s (8n-obb, 8n-seg), yolov9c, yolov10s, yolo11s (yolo11s-seg, yolo11s-obb, yolo11s-pose), yolo26 variants, and yolo26s-cls it is also necessary to install the ultralytics python package:
 
 ```sh
 pip install ultralytics
@@ -43,14 +44,24 @@ The samples demonstrate deployment and inference with GStreamer command line too
 | yolo11s      | Ultralytics python exporter from [Ultralytics repository](https://github.com/ultralytics)                 | gvadetect \<model-proc not needed\> |
 | yolo11s-seg  | Ultralytics python exporter from [Ultralytics repository](https://github.com/ultralytics)                 | gvadetect \<model-proc not needed\> |
 | yolo11s-obb  | Ultralytics python exporter from [Ultralytics repository](https://github.com/ultralytics)                 | gvadetect \<model-proc not needed\> |
+| yolo11s-pose | Ultralytics python exporter from [Ultralytics repository](https://github.com/ultralytics)                 | gvadetect \<model-proc not needed\> |
+| yolo26n      | Ultralytics python exporter from [Ultralytics repository](https://github.com/ultralytics)                 | gvadetect \<model-proc not needed\> |
+| yolo26s      | Ultralytics python exporter from [Ultralytics repository](https://github.com/ultralytics)                 | gvadetect \<model-proc not needed\> |
+| yolo26m      | Ultralytics python exporter from [Ultralytics repository](https://github.com/ultralytics)                 | gvadetect \<model-proc not needed\> |
+| yolo26l      | Ultralytics python exporter from [Ultralytics repository](https://github.com/ultralytics)                 | gvadetect \<model-proc not needed\> |
+| yolo26x      | Ultralytics python exporter from [Ultralytics repository](https://github.com/ultralytics)                 | gvadetect \<model-proc not needed\> |
+| yolo26s-obb  | Ultralytics python exporter from [Ultralytics repository](https://github.com/ultralytics)                 | gvadetect \<model-proc not needed\> |
+| yolo26s-seg  | Ultralytics python exporter from [Ultralytics repository](https://github.com/ultralytics)                 | gvadetect \<model-proc not needed\> |
+| yolo26s-pose | Ultralytics python exporter from [Ultralytics repository](https://github.com/ultralytics)                 | gvadetect \<model-proc not needed\> |
+| yolo26s-cls  | Ultralytics python exporter from [Ultralytics repository](https://github.com/ultralytics)                 | gvadetect `yolo26s` + gvaclassify `yolo26s-cls` |
 
 ## Samples
 
 
-The sample `yolo_detect.sh` script can be used to build and run an object detection pipeline.
+The sample `yolo_detect.sh` script can be used to build and run an object detection pipeline. For `yolo26s-cls`, it builds a composite pipeline with `yolo26s` detection followed by ROI classification with `yolo26s-cls`.
 
 ```sh
-./yolo_detect.sh <MODEL> <DEVICE> <INPUT> <OUTPUT_TYPE> <PRECISION>
+./yolo_detect.sh <MODEL> <DEVICE> <INPUT> <OUTPUT_TYPE> <PPBKEND> <PRECISION>
 ```
 > **NOTE**: Prior to running `yolo_detect.sh`, ensure that you execute the `download_public_models.sh` script found in the top-level `samples` directory. This will allow you to download the full suite of YOLO models or select an individual model from the options presented above.
 
@@ -61,16 +72,22 @@ Example run of `yolo11s` model with CPU device on sample video, saving results i
 ./yolo_detect.sh yolo11s CPU
 ```
 
-Another example run of `yolov11s` model with GPU device on sample video, saving results into local video file:
+Another example run of `yolo11s` model with GPU device on sample video, saving results into local video file:
 
 ```sh
-./yolo_detect.sh yolov11s GPU
+./yolo_detect.sh yolo11s GPU
 ```
 
-Yet antoher example run of `yolo11s` model with GPU device on your own mp4 video, showing results on a display:
+Yet another example run of `yolov9c` model on your own mp4 video, showing results on a display:
 
 ```sh
 ./yolo_detect.sh yolov9c CPU path/to/your/video.mp4 display
+```
+
+Example run of the composite `yolo26s-cls` mode with GPU device on a local video, showing detection and classification labels on each detected ROI:
+
+```sh
+./yolo_detect.sh yolo26s-cls GPU /path/to/your/video.mp4 display
 ```
 
 Example run of `yolo11s-obb` model with FP32 precision with GPU device on online video with VAAPI acceleration, saving results to file:
