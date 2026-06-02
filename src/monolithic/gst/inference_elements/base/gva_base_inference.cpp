@@ -632,7 +632,11 @@ void gva_base_inference_init(GvaBaseInference *base_inference) {
     base_inference->ov_extension_lib = g_strdup(DEFAULT_OV_EXTENSION_LIB);
 
     base_inference->share_va_display_ctx = DEFAULT_SHARE_VADISPLAY_CTX;
-
+#ifndef _WIN32
+    CPU_ZERO(&base_inference->core_pinning_mask);
+#else
+    base_inference->core_pinning_mask = {};
+#endif
     // set_core_pinning_mask(base_inference); // Disabled: default core pinning not used
 }
 
