@@ -147,16 +147,16 @@ This uses default settings: downloads the test video, uses YOLO11n model, and sa
 
 You can also customize the input, model, and output:
 ```sh
-./vehicle_counter.sh /path/to/video.mp4 /path/to/model.xml /path/to/output.mp4
+./vehicle_counter.sh file:///path/to/video.mp4 /path/to/model.xml /path/to/output.mp4
 ```
 
 **Using Python directly**:
 ```sh
 # Display output on screen
-python3 ./vehicle_counter.py video.mp4 ${MODELS_PATH}/public/yolo11n/FP16/yolo11n.xml
+python3 ./vehicle_counter.py file:///path/to/video.mp4 ${MODELS_PATH}/public/yolo11n/FP16/yolo11n.xml
 
 # Save output to file (H.264 MP4)
-python3 ./vehicle_counter.py video.mp4 ${MODELS_PATH}/public/yolo11n/FP16/yolo11n.xml output.mp4
+python3 ./vehicle_counter.py file:///path/to/video.mp4 ${MODELS_PATH}/public/yolo11n/FP16/yolo11n.xml output.mp4
 ```
 
 The video stream displays with:
@@ -175,7 +175,7 @@ The sample supports optional video file output with H.264 encoding:
 
 ```sh
 # Save the analyzed video with detection and counter overlays
-python3 ./vehicle_counter.py input.mp4 model.xml output.mp4
+python3 ./vehicle_counter.py file:///path/to/input.mp4 model.xml output.mp4
 ```
 
 The output file will contain:

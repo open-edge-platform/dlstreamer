@@ -903,10 +903,18 @@ class Tensor {
             if (class_count == 1 && gst_analytics_relation_meta_get_direct_related(
                                         cls_mtd->meta, cls_mtd->id, GST_ANALYTICS_REL_TYPE_RELATE_TO,
                                         gst_analytics_cls_mtd_get_mtd_type(), nullptr, &cls_descriptor_mtd)) {
-                gint label_id = gst_analytics_cls_mtd_get_index_by_quark(&cls_descriptor_mtd,
-                                                                         g_quark_from_string(result_label.c_str()));
-                if (label_id >= 0) {
-                    gst_structure_set(tensor, "label_id", G_TYPE_INT, label_id, NULL);
+                // Verify this is actually a class descriptor by checking semantic tag
+                gchar *desc_tag =
+                    gst_analytics_mtd_get_semantic_tag(reinterpret_cast<GstAnalyticsMtd *>(&cls_descriptor_mtd));
+                bool is_descriptor = desc_tag && strcmp(desc_tag, "class_descriptor") == 0;
+                g_free(desc_tag);
+
+                if (is_descriptor) {
+                    gint label_id = gst_analytics_cls_mtd_get_index_by_quark(&cls_descriptor_mtd,
+                                                                             g_quark_from_string(result_label.c_str()));
+                    if (label_id >= 0) {
+                        gst_structure_set(tensor, "label_id", G_TYPE_INT, label_id, NULL);
+                    }
                 }
             }
 
