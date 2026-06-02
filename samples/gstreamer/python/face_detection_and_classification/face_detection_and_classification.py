@@ -10,9 +10,11 @@ import subprocess
 from huggingface_hub import hf_hub_download
 from ultralytics import YOLO
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(
+    0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+)
 # pylint: disable-next=wrong-import-position
-from utils import download_https, resolve_hf_revision
+from shared_utils import download_https, resolve_hf_revision
 
 import gi
 

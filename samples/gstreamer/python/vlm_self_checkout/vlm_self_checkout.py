@@ -30,8 +30,8 @@ gi.require_version("GstAnalytics", "1.0")
 gi.require_version("GObject", "2.0")
 from gi.repository import Gst, GLib, GObject, GstAnalytics  # pylint: disable=no-name-in-module, wrong-import-position
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from utils import download_https  # pylint: disable=wrong-import-position
+sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+from shared_utils import download_https  # pylint: disable=wrong-import-position
 
 class GenaiSignalBridge(GObject.Object):
     """

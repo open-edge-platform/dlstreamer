@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
-"""Shared helpers for the DLStreamer Python samples."""
+"""Shared helper functions used by Python sample scripts."""
 
 import shutil
 import urllib.request
@@ -11,7 +11,7 @@ from urllib.parse import urlparse
 
 
 def download_https(url, destination, allowed_hosts, timeout=60):
-    """Stream an HTTPS URL to ``destination``; rejects non-allowlisted hosts."""
+    """Stream an HTTPS URL to ``destination``; reject non-allowlisted hosts."""
     parsed = urlparse(url)
     if parsed.scheme != "https" or parsed.hostname not in allowed_hosts:
         raise ValueError(f"Refusing non-allowlisted URL: {url}")
@@ -21,8 +21,6 @@ def download_https(url, destination, allowed_hosts, timeout=60):
 
 def resolve_hf_revision(repo_id):
     """Resolve the current immutable commit SHA for a Hugging Face repo."""
-    # Imported lazily so samples that only need ``download_https`` do not
-    # require the ``huggingface_hub`` dependency at import time.
     from huggingface_hub import HfApi  # pylint: disable=import-outside-toplevel
 
     revision = HfApi().model_info(repo_id).sha

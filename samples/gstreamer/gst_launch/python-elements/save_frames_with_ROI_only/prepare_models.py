@@ -18,8 +18,16 @@ Usage (from shell — prints KEY=VALUE lines for eval):
 import os
 import sys
 
-from huggingface_hub import HfApi, hf_hub_download
+from huggingface_hub import hf_hub_download
 from ultralytics import YOLO
+
+sys.path.insert(
+    0,
+    os.path.dirname(
+        os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    ),
+)
+from shared_utils import resolve_hf_revision  # pylint: disable=wrong-import-position
 
 # Disable Xet storage backend — it fails behind corporate proxies (e.g. Fortinet)
 os.environ.setdefault("HF_HUB_DISABLE_XET", "1")
@@ -52,14 +60,6 @@ def _is_ir_model_ready(xml_path):
     )
 
 
-def _resolve_hf_revision(repo_id):
-    """Resolve the current immutable commit SHA for a Hugging Face repo."""
-    revision = HfApi().model_info(repo_id).sha
-    if not revision:
-        raise RuntimeError(f"Unable to resolve Hugging Face revision for {repo_id}")
-    return revision
-
-
 def prepare_detection_model():
     """Download YOLOv8-Face-Detection and export to OpenVINO IR."""
     runtime_dir = get_runtime_dir()
@@ -77,7 +77,7 @@ def prepare_detection_model():
         repo_id=YOLO_FACE_REPO_ID,
         filename="model.pt",
         local_dir=runtime_dir,
-        revision=_resolve_hf_revision(YOLO_FACE_REPO_ID),
+        revision=resolve_hf_revision(YOLO_FACE_REPO_ID),
     )
     model = YOLO(str(model_path))
     exported_model_path = model.export(format="openvino", dynamic=False, imgsz=640)

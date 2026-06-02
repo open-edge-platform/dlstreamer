@@ -9,13 +9,14 @@
 """
 
 import argparse
-import shutil
 import statistics
+import sys
 import time
-import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
-from urllib.parse import urlparse
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from shared_utils import download_https  # pylint: disable=wrong-import-position
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 MODEL_NAME = "yolo26s"
@@ -38,15 +39,6 @@ QUEUE_SIZE = NIREQ * 2              # one set active, one set ready
 # snapshot + benchmark config
 SNAPSHOT_FRAMES = 90                 # frames to process when saving detection image
 RUN_COOLDOWN = 2                     # seconds between runs to reduce thermal variance
-
-
-def _download_https(url: str, destination: Path, allowed_hosts: set[str]) -> None:
-    """Stream an HTTPS URL to ``destination``; rejects non-allowlisted hosts."""
-    parsed = urlparse(url)
-    if parsed.scheme != "https" or parsed.hostname not in allowed_hosts:
-        raise ValueError(f"Refusing non-allowlisted URL: {url}")
-    with urllib.request.build_opener().open(url) as response, open(destination, "wb") as output:
-        shutil.copyfileobj(response, output)
 
 
 class PipelineError(RuntimeError):
@@ -96,7 +88,7 @@ def prepare_video() -> Path:
         return VIDEO_PATH
     VIDEO_PATH.parent.mkdir(parents=True, exist_ok=True)
     print("Downloading test video ...")
-    _download_https(VIDEO_URL, VIDEO_PATH, {"storage.openvinotoolkit.org"})
+    download_https(VIDEO_URL, VIDEO_PATH, {"storage.openvinotoolkit.org"})
     return VIDEO_PATH
 
 

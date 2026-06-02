@@ -22,28 +22,19 @@
 
 import argparse
 import logging
-import shutil
-import urllib.request
 import sys
 from pathlib import Path
-from urllib.parse import urlparse
 import numpy as np
 import torch
 import openvino as ov
 import nncf
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from shared_utils import download_https  # pylint: disable=wrong-import-position
+
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
-
-
-def _download_https(url: str, destination: Path, allowed_hosts: set[str]) -> None:
-    """Stream an HTTPS URL to ``destination``; rejects non-allowlisted hosts."""
-    parsed = urlparse(url)
-    if parsed.scheme != "https" or parsed.hostname not in allowed_hosts:
-        raise ValueError(f"Refusing non-allowlisted URL: {url}")
-    with urllib.request.build_opener().open(url) as response, open(destination, "wb") as output:
-        shutil.copyfileobj(response, output)
 
 
 def download_model_py():
@@ -53,7 +44,7 @@ def download_model_py():
 
     logger.info(f"📥 Downloading model.py from deep_sort_pytorch repository...")
     try:
-        _download_https(model_py_url, model_py_path, {"raw.githubusercontent.com"})
+        download_https(model_py_url, model_py_path, {"raw.githubusercontent.com"})
         logger.info(f"✅ Downloaded model.py")
     except Exception as e:
         logger.error(f"❌ Failed to download model.py: {e}")
@@ -142,7 +133,7 @@ class MarsDeepSORTConverter:
 
         logger.info(f"📥 Downloading checkpoint from Google Drive...")
         try:
-            _download_https(checkpoint_url, checkpoint_path, {"drive.google.com"})
+            download_https(checkpoint_url, checkpoint_path, {"drive.google.com"})
         except Exception as e:
             logger.error(f"❌ Failed to download checkpoint: {e}")
             sys.exit(1)
