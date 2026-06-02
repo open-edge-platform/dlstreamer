@@ -1,0 +1,19 @@
+# CPU-only PyTorch — must appear before torch-dependent packages
+--extra-index-url https://download.pytorch.org/whl/cpu
+
+# OpenVINO Python (pin to match DL Streamer runtime)
+openvino==2026.1.0
+nncf==3.0.0  # required for int8=True quantization
+
+# Ultralytics YOLO (YOLOv11 license plate detection)
+ultralytics==8.4.33
+
+# HuggingFace model download
+huggingface_hub
+
+# PaddlePaddle models (OCR) — paddle2onnx → ovc conversion
+paddlepaddle
+paddle2onnx
+onnx
+onnxruntime
+onnx_graphsurgeon

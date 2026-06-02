@@ -449,6 +449,16 @@ class VideoFrame {
                 if (mt == gst_analytics_od_mtd_get_mtd_type() || mt == gst_analytics_tracking_mtd_get_mtd_type() ||
                     mt == gst_analytics_keypoint_mtd_get_mtd_type())
                     continue;
+                // Skip class descriptor metadata (used internally for label_id lookup)
+                if (mt == gst_analytics_cls_mtd_get_mtd_type()) {
+                    gchar *tag = gst_analytics_mtd_get_semantic_tag(&mtd);
+                    if (tag) {
+                        bool is_descriptor = (strcmp(tag, "class_descriptor") == 0);
+                        g_free(tag);
+                        if (is_descriptor)
+                            continue;
+                    }
+                }
                 if (is_attached_to_od(mtd.id))
                     continue;
                 GstStructure *s = Tensor::convert_to_tensor(mtd, frame_w, frame_h);

@@ -1,9 +1,12 @@
 # Design Patterns Reference
 
-Design patterns for building Python sample applications.
+Design patterns for building Python and C++ sample applications.
+
+
+## Python reference patterns
 Patterns for custom Python elements also apply to command-line apps that reuse them.
 
-## Pattern Selection Table
+### Python Selection Table
 
 Map the user's description to one or more of these patterns:
 
@@ -22,12 +25,12 @@ Map the user's description to one or more of these patterns:
 
 ---
 
-## Pattern 1: Pipeline Core
+### Pattern 1: Pipeline Core
 
 **Every app uses this.** Initialize GStreamer, construct a pipeline, then run the event loop.
 See [Pipeline Construction Reference](./pipeline-construction.md) for element tables and examples.
 
-### Approach 1: `Gst.parse_launch` (preferred)
+#### Approach 1: `Gst.parse_launch` (preferred)
 
 ```python
 import gi
@@ -42,7 +45,7 @@ pipeline.set_state(Gst.State.NULL)
 
 Source: `samples/gstreamer/python/hello_dlstreamer/hello_dlstreamer.py`
 
-### Approach 2: Programmatic element creation
+#### Approach 2: Programmatic element creation
 
 Required when linking must happen dynamically (e.g., `decodebin3` pad-added).
 
@@ -71,7 +74,7 @@ Source: `samples/gstreamer/python/hello_dlstreamer/hello_dlstreamer_full.py`
 
 ---
 
-## Pattern 2: Pipeline Event Loop
+### Pattern 2: Pipeline Event Loop
 
 Every app needs a pipeline event loop for EOS and ERROR messages.
 The `run_pipeline()` function below is the **canonical implementation** — optional
@@ -201,7 +204,7 @@ def run_pipeline(pipeline, cmd_reader=None, loop_count=1):
         pipeline.set_state(Gst.State.NULL)
 ```
 
-### Usage examples
+#### Usage examples
 
 **Minimal (file-based, single pass):**
 ```python
@@ -220,7 +223,7 @@ cmd_reader.start()
 run_pipeline(pipeline, cmd_reader=cmd_reader, loop_count=3)
 ```
 
-### Key rules for CommandReader
+#### Key rules for CommandReader
 
 - **Never** mutate pipeline **state or topology** from the reader thread
   (e.g. `set_state()`, `send_event()`, element linking) — use `GLib.idle_add()`.
@@ -233,12 +236,12 @@ run_pipeline(pipeline, cmd_reader=cmd_reader, loop_count=3)
 
 ---
 
-## Pattern 3: Multi-Stream / Multi-Camera (In-Process)
+### Pattern 3: Multi-Stream / Multi-Camera (In-Process)
 
 Run multiple camera streams in a **single GStreamer pipeline** with shared model
 instances and cross-stream batching.
 
-### Model Sharing and Cross-Stream Batching
+#### Model Sharing and Cross-Stream Batching
 
 - Set `model-instance-id=<name>` to share model instances across streams.
 - Set `batch-size=<stream_count>` for cross-stream batching.
@@ -250,7 +253,7 @@ See the Pipeline Construction Reference for GStreamer pipeline syntax:
 - [Multi-Stream Analytics](./pipeline-construction.md#example-multi-stream-analytics-n-streams) — N parallel streams with shared model
 - [Multi-Stream Compositor](./pipeline-construction.md#example-multi-stream-compositor-n-streams--22-grid-gpu-memory-path) — N streams merged into a 2×2 mosaic via `vacompositor`
 
-### Python: Building Multi-Stream Pipelines Programmatically
+#### Python: Building Multi-Stream Pipelines Programmatically
 
 Construct the pipeline string in a loop using `Gst.parse_launch`.
 
@@ -281,7 +284,7 @@ pipeline = Gst.parse_launch(build_pipeline(cameras, model, "GPU"))
 
 ---
 
-## Pattern 4: Multi-Stream Compositor (Mosaic Output)
+### Pattern 4: Multi-Stream Compositor (Mosaic Output)
 
 Merge all streams into a single composite view using `vacompositor`.
 This builds on [Pattern 3](#pattern-3-multi-stream--multi-camera-in-process).
@@ -290,7 +293,7 @@ for the pipeline template.
 
 ---
 
-## Pattern 5: Pad Probe Callback
+### Pattern 5: Pad Probe Callback
 
 Attach a probe to inspect metadata, selectively drop frames, or add custom counting/throttling/logging.
 
@@ -344,7 +347,7 @@ rmeta.add_od_mtd(GLib.quark_from_string("label text"), x, y, w, h, confidence)
 
 ---
 
-## Pattern 6: AppSink Callback
+### Pattern 6: AppSink Callback
 
 Pull frames into Python via `appsink` for processing outside the pipeline.
 
@@ -371,12 +374,12 @@ appsink.connect("new-sample", on_new_sample, None)
 
 ---
 
-## Pattern 7: Custom Python GStreamer Element (BaseTransform)
+### Pattern 7: Custom Python GStreamer Element (BaseTransform)
 
 Subclass `GstBase.BaseTransform` for per-frame analytics that reads/writes metadata
 or modifies pixel data. Do not use when a pad probe (Pattern 5) suffices.
 
-### Conventions
+#### Conventions
 
 - **File:** `plugins/python/<element_name>.py`
 - **Class:** PascalCase (e.g., `FrameSelection`)
@@ -386,7 +389,7 @@ or modifies pixel data. Do not use when a pad probe (Pattern 5) suffices.
 - Properties: `@GObject.Property` decorator
 - Do not drop frames before PLAYING state (sinks need preroll)
 
-### Template: Metadata-Only Element
+#### Template: Metadata-Only Element
 
 ```python
 import gi
@@ -436,7 +439,7 @@ GObject.type_register(MyAnalytics)
 __gstelementfactory__ = ("myanalytics_py", Gst.Rank.NONE, MyAnalytics)
 ```
 
-### Plugin Registration
+#### Plugin Registration
 
 Add before `Gst.init(None)`. Only needed when the app uses custom Python elements:
 
@@ -460,7 +463,7 @@ if not reg.find_plugin("python"):
 > If custom elements are not found after registration, clear the cache:
 > `rm ~/.cache/gstreamer-1.0/registry.*.bin`
 
-### Elements That Modify Pixel Data
+#### Elements That Modify Pixel Data
 
 - `buffer.map(READ | WRITE)` in `do_transform_ip` returns `success=False` (read-only pools)
 - Override `do_prepare_output_buffer` instead: read-only map input, create new buffer
@@ -494,7 +497,7 @@ def do_transform_ip(self, buffer):
     return Gst.FlowReturn.OK  # no-op
 ```
 
-### Caps Negotiation for Resolution-Changing Elements
+#### Caps Negotiation for Resolution-Changing Elements
 
 Override when output dimensions differ from input. Not needed for same-resolution transforms.
 
@@ -519,7 +522,7 @@ def do_fixate_caps(self, direction, caps, othercaps):
 
 ---
 
-## Pattern 8: Custom Python GStreamer Element (Bin / Sink)
+### Pattern 8: Custom Python GStreamer Element (Bin / Sink)
 
 Subclass `Gst.Bin` to encapsulate an internal sub-pipeline (e.g., encoder + muxer + sink).
 Expose a ghost pad.
@@ -567,7 +570,7 @@ __gstelementfactory__ = ("myrecorder_py", Gst.Rank.NONE, MyRecorder)
 
 ---
 
-## Pattern 9: Dynamic Pipeline Control (Tee + Valve)
+### Pattern 9: Dynamic Pipeline Control (Tee + Valve)
 
 Use `tee` + `valve` to conditionally block/allow flow on a branch.
 Toggle recording by setting `valve.set_property("drop", True/False)`.
@@ -620,7 +623,7 @@ For per-session timestamped filenames, use `splitmuxsink` instead of `filesink`.
 
 ---
 
-## Pattern 10: Cross-Branch Signal Bridge
+### Pattern 10: Cross-Branch Signal Bridge
 
 Use a GObject signal bridge when `tee` branches must exchange state.
 
@@ -645,3 +648,38 @@ pipeline.get_by_name("watermark").get_static_pad("sink").add_probe(
 
 **Read for reference:** `samples/gstreamer/python/vlm_self_checkout/vlm_self_checkout.py`
 
+## C and C++ reference patterns
+The following patterns cover GStreamer C/C++ application development basics applicable to both standalone apps and custom element plugins.
+
+### Pattern 11: c/cpp: Gstreamer initialization
+https://gstreamer.freedesktop.org/documentation/application-development/basics/init.html?gi-language=c
+
+### Pattern 12: c/cpp: The GOption interface
+https://gstreamer.freedesktop.org/documentation/application-development/basics/init.html?gi-language=c
+
+### Pattern 13: c/cpp: Creating a GstElement
+https://gstreamer.freedesktop.org/documentation/application-development/basics/elements.html?gi-language=c
+
+### Pattern 14: c/cpp: Using an element as a GObject
+https://gstreamer.freedesktop.org/documentation/application-development/basics/elements.html?gi-language=c
+
+### Pattern 15: c/cpp: Getting information about an element using a factory
+https://gstreamer.freedesktop.org/documentation/application-development/basics/elements.html?gi-language=c
+
+### Pattern 16: c/cpp: Creating a bin
+https://gstreamer.freedesktop.org/documentation/application-development/basics/bins.html?gi-language=c
+
+### Pattern 17: c/cpp: Custom bin
+https://gstreamer.freedesktop.org/documentation/application-development/basics/bins.html?gi-language=c
+
+### Pattern 18: c/cpp: How to use a bus
+https://gstreamer.freedesktop.org/documentation/application-development/basics/bus.html?gi-language=c
+
+### Pattern 19: c/cpp: Pads and capabilities
+https://gstreamer.freedesktop.org/documentation/application-development/basics/pads.html?gi-language=c
+
+### Pattern 20: c/cpp: Buffers and events
+https://gstreamer.freedesktop.org/documentation/application-development/basics/data.html?gi-language=c
+
+### Patterns 21: c/cpp: Sample application
+https://gstreamer.freedesktop.org/documentation/application-development/basics/helloworld.html?gi-language=c
