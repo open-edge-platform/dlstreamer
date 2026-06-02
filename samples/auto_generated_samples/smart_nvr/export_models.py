@@ -16,6 +16,9 @@ from pathlib import Path
 
 from huggingface_hub import hf_hub_download
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from shared_utils import resolve_hf_revision  # pylint: disable=wrong-import-position
+
 MODELS_DIR = Path(__file__).resolve().parent / "models"
 
 
@@ -32,8 +35,9 @@ def export_yolo_detection(repo_id: str, pt_filename: str) -> Path:
     MODELS_DIR.mkdir(parents=True, exist_ok=True)
 
     print(f"[YOLO] Downloading {repo_id} / {pt_filename}...")
+    revision = resolve_hf_revision(repo_id)
     pt_path = hf_hub_download(
-        repo_id=repo_id, filename=pt_filename, local_dir=str(MODELS_DIR)
+        repo_id=repo_id, filename=pt_filename, revision=revision, local_dir=str(MODELS_DIR)
     )
 
     print("[YOLO] Exporting to OpenVINO IR (INT8)...")

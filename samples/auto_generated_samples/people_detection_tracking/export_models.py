@@ -18,11 +18,13 @@ import argparse
 import shutil
 import subprocess
 import sys
-import urllib.request
 import logging
 from pathlib import Path
 
 import numpy as np
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from shared_utils import download_https  # pylint: disable=wrong-import-position
 
 MODELS_DIR = Path(__file__).resolve().parent / "models"
 
@@ -75,7 +77,7 @@ def download_model_py():
     model_py_path = Path(__file__).parent / "model.py"
 
     logger.info("Downloading model.py from deep_sort_pytorch repository...")
-    urllib.request.urlretrieve(model_py_url, model_py_path)
+    download_https(model_py_url, model_py_path, {"raw.githubusercontent.com"})
     logger.info("Downloaded model.py")
     return model_py_path
 
@@ -145,11 +147,15 @@ def export_mars_small128() -> Path:
     checkpoint_path = output_dir / "original_ckpt.t7"
 
     logger.info("[Mars-Small128] Downloading checkpoint...")
-    urllib.request.urlretrieve(checkpoint_url, checkpoint_path)
+    download_https(checkpoint_url, checkpoint_path, {"drive.google.com"})
 
     # Load model in reid mode
     model = NetOriginal(reid=True)
-    checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
+    try:
+        checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
+    except (RuntimeError, EOFError, TypeError):
+        # Legacy .t7 checkpoints can't be loaded with weights_only=True.
+        checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=False)  # nosec B614
     if "net_dict" in checkpoint:
         model.load_state_dict(checkpoint["net_dict"])
     else:
