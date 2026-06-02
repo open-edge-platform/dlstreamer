@@ -110,14 +110,8 @@ Extract the following from the user's prompt:
 | **AI model(s)** | Model name/URL and task (detection, classification, VLM, OCR, …) | — (must ask) |
 | **Target hardware** | Intel platform, available accelerators (GPU/NPU/CPU) | `Not sure / detect at runtime` |
 | **Output format** | Annotated video, JSON, JPEG snapshots, display window | `All of the above` |
-| **Application type** | Python app, C/C++ app, or GStreamer command line | Must match the programming language of the input application (C/C++ → C/C++, Python → Python, shell → GStreamer command line) |
+| **Application type** | Python app, C/C++ app, or GStreamer command line | When the prompt references an existing application to convert, determine the application type by inspecting the source application's file extensions. Application type must match the programming language of the input application (C/C++ → C/C++, Python → Python, shell → GStreamer command line) |
 | **Docker image** | DL Streamer Docker tag | `intel/dlstreamer:latest` (this tag is treated as the latest Ubuntu 24 image) |
-
-> **Application type for conversions (MANDATORY):** When the prompt references an
-> existing application to convert (e.g. a DeepStream app URL or local path), determine
-> the application type by **inspecting the source application's file extensions**:
-> `.cpp` / `.c` / `.h` → **C/C++ app**, `.py` → **Python app**, `.sh` → **GStreamer
-> command line**.
 
  **Application type override:** If the user's prompt contains explicit language like
 > "bash script", "shell script", "gst-launch", or "command line", set **Application type**
