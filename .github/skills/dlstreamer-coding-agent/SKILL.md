@@ -1,6 +1,11 @@
 ---
 name: dlstreamer-coding-agent
 description: "Build new DL Streamer video-analytics applications (Python, C, C++ or GStreamer command line). Use when: user describes a vision AI pipeline, wants to create a new sample app, combine elements from existing samples, add detection/classification/VLM/tracking/alerts/recording to a video pipeline, or create custom GStreamer elements in Python or C++. Translates natural-language pipeline descriptions into working DL Streamer code using established design patterns."
+permissions:
+  - read_files       # Read reference docs, samples, and templates from the workspace
+  - write_files      # Create/edit application source files, configs, and READMEs
+  - run_terminal     # Execute build commands, docker pull, pip install, model export
+  - ask_questions    # Clarify requirements with the user via interactive prompts
 ---
 
 # DL Streamer Coding Agent

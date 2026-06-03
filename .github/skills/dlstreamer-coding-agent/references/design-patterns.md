@@ -461,7 +461,7 @@ if not reg.find_plugin("python"):
 > it produces noisy `undefined symbol` warnings on stderr.
 >
 > If custom elements are not found after registration, clear the cache:
-> `rm ~/.cache/gstreamer-1.0/registry.*.bin`
+> `find ~/.cache/gstreamer-1.0/ -name 'registry.*.bin' -delete`
 
 #### Elements That Modify Pixel Data
 

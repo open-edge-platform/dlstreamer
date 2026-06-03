@@ -12,6 +12,7 @@ Run this script once before starting the pipeline application:
 
 import argparse
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -21,10 +22,18 @@ from huggingface_hub import HfApi, hf_hub_download, snapshot_download
 
 MODELS_DIR = Path(__file__).resolve().parent / "models"
 
+_HF_MODEL_REF_RE = re.compile(r"^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+(@[A-Za-z0-9._-]+)?$")
+_ALLOWED_WEIGHT_FORMATS = frozenset({"fp16", "fp32", "int4", "int8", "mxfp4", "nf4", "cb4"})
+
 
 def resolve_hf_model_ref(model_ref: str) -> tuple[str, str]:
     """Return ``repo_id`` and an immutable commit SHA for a Hugging Face model ref."""
     normalized_ref = model_ref.strip()
+    if not _HF_MODEL_REF_RE.match(normalized_ref):
+        raise ValueError(
+            f"Invalid model ref '{normalized_ref}': "
+            "expected format 'org/model' or 'org/model@revision'"
+        )
     repo_id, separator, revision = normalized_ref.rpartition("@")
     if separator and repo_id and revision:
         return repo_id, revision
@@ -165,6 +174,15 @@ def export_paddleocr(model_ref: str) -> Path:
 
 def export_hf_transformer(model_id: str, weight_format: str = "int8") -> Path:
     """Export a HuggingFace transformer model via optimum-cli."""
+    if not _HF_MODEL_REF_RE.match(model_id):
+        raise ValueError(
+            f"Invalid model ID '{model_id}': expected format 'org/model'"
+        )
+    if weight_format not in _ALLOWED_WEIGHT_FORMATS:
+        raise ValueError(
+            f"Invalid weight_format '{weight_format}': "
+            f"must be one of {sorted(_ALLOWED_WEIGHT_FORMATS)}"
+        )
     model_name = model_id.split("/")[-1]
     output_dir = MODELS_DIR / model_name
     model_xml = output_dir / "openvino_model.xml"

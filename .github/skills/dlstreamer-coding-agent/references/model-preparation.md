@@ -157,7 +157,13 @@ optimum-cli export openvino \
 ```
 
 ```python
+import re
 import subprocess
+
+_HF_MODEL_ID_RE = re.compile(r"^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$")
+if not _HF_MODEL_ID_RE.match(model_id):
+    raise ValueError(f"Invalid model ID: {model_id}")
+
 subprocess.run([
     "optimum-cli", "export", "openvino",
     "--model", model_id,                 # e.g. "OpenGVLab/InternVL3_5-2B"

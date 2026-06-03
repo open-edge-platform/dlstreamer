@@ -4,9 +4,13 @@
 
 <!-- Add a short description (2-3 sentences) of what the application does. -->
 
-{{DLSTREAMER_CODING_AGENT_PROMPT}}
-<!-- Copy the COMPLETE initial user prompt verbatim, including expected results,
-     and validation criteria. Wrap in a blockquote (> ). Do not paraphrase or summarize. -->
+## Original Prompt
+
+> {{DLSTREAMER_CODING_AGENT_PROMPT}}
+
+<!-- Template guidance: Copy the COMPLETE initial user prompt verbatim above,
+     including expected results and validation criteria.
+     Keep it wrapped in a blockquote (> ). Do not paraphrase or summarize. -->
 
 {{APP_VISUALIZATION}}
 
