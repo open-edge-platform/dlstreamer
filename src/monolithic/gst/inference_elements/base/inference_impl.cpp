@@ -934,8 +934,7 @@ InferenceImpl::Model InferenceImpl::CreateModel(GvaBaseInference *gva_base_infer
         va_dpy = gva_base_inference->priv->d3d11_device;
     }
 
-    // Set affinity mask that might set as the result of set_core_pinning_mask() call or
-    // set by the user directly via the core-pinning attribute.
+    // Set affinity mask if specified.
     SetAffinityMask(gva_base_inference->core_pinning_mask);
 
     auto image_inference = ImageInference::createImageInferenceInstance(
@@ -1086,52 +1085,59 @@ bool InferenceImpl::IsRoiSizeValid(const GstAnalyticsODMtd roi_meta) {
  */
 #ifndef _WIN32
 void InferenceImpl::SetAffinityMask(const cpu_set_t &mask) {
+    if (CPU_COUNT(&mask) > 0) {
+        GVA_INFO("Setting CPU affinity mask (%d cores set)\n", CPU_COUNT(&mask));
 
-    GVA_INFO("Setting CPU affinity mask (%d cores set)\n", CPU_COUNT(&mask));
-
-    // Build hex string from cpu_set_t using CPU_ISSET
-    {
-        unsigned long long low_bits = 0;
-        for (int i = 0; i < 64 && i < CPU_SETSIZE; ++i) {
-            if (CPU_ISSET(i, &mask))
-                low_bits |= (1ULL << i);
+        // Build hex string from cpu_set_t using CPU_ISSET
+        {
+            unsigned long long low_bits = 0;
+            for (int i = 0; i < 64 && i < CPU_SETSIZE; ++i) {
+                if (CPU_ISSET(i, &mask))
+                    low_bits |= (1ULL << i);
+            }
+            GVA_INFO("Setting CPU affinity mask: 0x%llx\n", low_bits);
         }
-        GVA_INFO("Setting CPU affinity mask: 0x%llx\n", low_bits);
-    }
 
-    pthread_t current_thread = pthread_self(); // Get current thread handle
-    int result = pthread_setaffinity_np(current_thread, sizeof(cpu_set_t), &mask);
+        pthread_t current_thread = pthread_self(); // Get current thread handle
+        int result = pthread_setaffinity_np(current_thread, sizeof(cpu_set_t), &mask);
 
-    if (result != 0) {
-        GVA_ERROR("Error pinning thread: (%d)\n", result);
+        if (result != 0) {
+            GVA_ERROR("Error pinning thread: (%d)\n", result);
+        }
     }
 }
 #else
 void InferenceImpl::SetAffinityMask(const WinCorePinningMask &mask) {
-    // A thread can only belong to one processor group at a time.
-    // Find the first group with cores set and pin to it.
-    HANDLE thread = GetCurrentThread();
-    bool pinned = false;
+    bool has_cores = false;
+    for (WORD g = 0; g < mask.num_groups && !has_cores; ++g)
+        has_cores = mask.group_mask[g] != 0;
 
-    for (WORD g = 0; g < mask.num_groups; ++g) {
-        if (mask.group_mask[g] != 0) {
-            GROUP_AFFINITY group_affinity = {};
-            group_affinity.Group = g;
-            group_affinity.Mask = mask.group_mask[g];
+    if (has_cores) {
+        // A thread can only belong to one processor group at a time.
+        // Find the first group with cores set and pin to it.
+        HANDLE thread = GetCurrentThread();
+        bool pinned = false;
 
-            GVA_INFO("Setting CPU affinity to group %u, mask 0x%llx\n", g, (unsigned long long)mask.group_mask[g]);
+        for (WORD g = 0; g < mask.num_groups; ++g) {
+            if (mask.group_mask[g] != 0) {
+                GROUP_AFFINITY group_affinity = {};
+                group_affinity.Group = g;
+                group_affinity.Mask = mask.group_mask[g];
 
-            if (!SetThreadGroupAffinity(thread, &group_affinity, NULL)) {
-                GVA_ERROR("Error pinning thread to group %u: (%lu)\n", g, GetLastError());
-            } else {
-                pinned = true;
+                GVA_INFO("Setting CPU affinity to group %u, mask 0x%llx\n", g, (unsigned long long)mask.group_mask[g]);
+
+                if (!SetThreadGroupAffinity(thread, &group_affinity, NULL)) {
+                    GVA_ERROR("Error pinning thread to group %u: (%lu)\n", g, GetLastError());
+                } else {
+                    pinned = true;
+                }
+                break; // Thread can only be in one group
             }
-            break; // Thread can only be in one group
         }
-    }
 
-    if (!pinned) {
-        GVA_WARNING("No cores set in affinity mask, thread affinity not changed\n");
+        if (!pinned) {
+            GVA_WARNING("No cores set in affinity mask, thread affinity not changed\n");
+        }
     }
 }
 #endif
