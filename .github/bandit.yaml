@@ -1,0 +1,2 @@
+exclude_dirs:
+  - ./samples/gstreamer/python/onvif_camera_analytics_validation
