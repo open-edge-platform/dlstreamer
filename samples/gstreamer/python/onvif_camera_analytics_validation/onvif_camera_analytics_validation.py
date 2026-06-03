@@ -31,7 +31,6 @@ import json
 import logging
 import os
 import queue
-import re
 import sys
 import threading
 import time
@@ -53,22 +52,75 @@ log = logging.getLogger(__name__)
 
 # ── VLM Prompts (edit these to change what the model looks for) ────────────
 
-# Initial prompt used during model warm-up (first frame).
+# Initial prompt used at pipeline start (before any MQTT event arrives).
+# NOTE: This goes into the GStreamer pipeline string via Gst.parse_launch,
+# so literal backslash-n (\\n) becomes a real newline in the C property.
 INITIAL_PROMPT = (
-    "Describe only the objects you can clearly see in this image. "
-    "State the count of each object type. "
-    "Do not guess or assume objects that are not visible."
+    "You MUST respond using EXACTLY this format with these two headers "
+    "on separate lines:\\n\\n"
+    "**VLM Observation:** Describe only the objects you can clearly see "
+    "in this image. State the type and count of each object.\\n\\n"
+    "**Weapon Check:** State whether any weapon (gun, knife, rifle, etc.) "
+    "is visible. If none, say 'No weapons detected'.\\n\\n"
+    "Use the exact bold headers. Keep each section to 1-2 sentences."
 )
 
-# Dynamic prompt sent on each MQTT event. {cam_summary} is replaced at
-# runtime with the camera's reported objects (e.g. "1 person, 1 dog").
+# Dynamic prompt sent when an MQTT event arrives.
+# The VLM is asked only for observation and weapon check.
+# The MQTT Event section is pre-filled by the application.
 DYNAMIC_PROMPT = (
-    "The camera reports: {cam_summary}. "
-    "Look at this image and confirm or deny each reported "
-    "object. Also check if any violent or dangerous objects "
-    "are visible such as a gun, knife, or weapon that the "
-    "camera may have missed. Be brief."
+    "The camera detected: {event_summary}. "
+    "Verify by looking at the image.\n\n"
+    "You MUST respond using EXACTLY this format with these two headers "
+    "on separate lines:\n\n"
+    "**VLM Observation:** <describe what you actually see in this image, "
+    "confirm or deny the camera's detection above>\n\n"
+    "**Weapon Check:** <state whether any weapon is visible. "
+    "If none, say 'No weapons detected'>\n\n"
+    "Use the exact bold headers. Keep each section to 1-2 sentences."
 )
+
+# Maximum characters from raw MQTT payload to include in VLM prompt.
+_MAX_PAYLOAD_CHARS = 500
+
+
+def _summarize_mqtt_payload(raw_payload: str) -> str:
+    """Convert a raw MQTT payload into a plain-English summary.
+
+    Tries to parse JSON and extract meaningful fields.  Falls back to
+    the first _MAX_PAYLOAD_CHARS characters if parsing fails.
+    """
+    try:
+        data = json.loads(raw_payload)
+    except (json.JSONDecodeError, TypeError):
+        # Not JSON — use raw text (truncated)
+        text = raw_payload.strip()
+        if len(text) > _MAX_PAYLOAD_CHARS:
+            text = text[:_MAX_PAYLOAD_CHARS] + "...(truncated)"
+        return text
+
+    parts = []
+
+    # Fields to skip — metadata/noise, not useful for VLM context
+    _SKIP_KEYS = {"topic", "timestamp", "serial", "scenario", "resetTime"}
+
+    # Extract nested message.data (common ONVIF/Axis format)
+    msg = data.get("message", {})
+    msg_data = msg.get("data", {}) if isinstance(msg, dict) else {}
+
+    if msg_data:
+        for key, val in msg_data.items():
+            if key not in _SKIP_KEYS:
+                parts.append(f"{key}={val}")
+    else:
+        # Fallback: list top-level keys
+        for key, val in data.items():
+            if key in _SKIP_KEYS:
+                continue
+            if isinstance(val, (str, int, float, bool)):
+                parts.append(f"{key}={val}")
+
+    return ", ".join(parts) if parts else raw_payload[:_MAX_PAYLOAD_CHARS]
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -85,8 +137,6 @@ class DLStreamerVLMPipeline:  # pylint: disable=too-many-instance-attributes
     """
 
     RECONNECT_DELAY = 2  # seconds between reconnection attempts
-    _WAIT_NEXT_RESULT = 1          # no prompt change: just wait for the next inference
-    _WAIT_AFTER_PROMPT_CHANGE = 2  # discard 1 in-flight (old-prompt) result, then take the next
 
     def __init__(  # pylint: disable=too-many-arguments,too-many-positional-arguments
         self, rtsp_uri: str, model_path: str, device: str,
@@ -111,6 +161,7 @@ class DLStreamerVLMPipeline:  # pylint: disable=too-many-instance-attributes
         self._vlm_jpeg = None  # JPEG of the exact frame VLM processed
         self._vlm_count = 0
         self._vlm_ready = threading.Event()  # signalled when new VLM text
+        self._current_prompt = None  # last set_property prompt, preserved across reconnects
 
     def _source_setup(self, _urisourcebin, source):
         """Configure rtspsrc for TCP transport and credentials."""
@@ -250,6 +301,11 @@ class DLStreamerVLMPipeline:  # pylint: disable=too-many-instance-attributes
                 break
 
             self._pipeline = self._build_pipeline()
+            # Re-apply dynamic prompt that was set before reconnect
+            if self._current_prompt:
+                genai = self._pipeline.get_by_name("genai")
+                if genai:
+                    genai.set_property("prompt", self._current_prompt)
             ret = self._pipeline.set_state(Gst.State.PLAYING)
             if ret == Gst.StateChangeReturn.FAILURE:
                 log.error("Reconnect failed, retrying...")
@@ -281,33 +337,36 @@ class DLStreamerVLMPipeline:  # pylint: disable=too-many-instance-attributes
 
     def request_inference(self, mqtt_event: dict = None,
                            timeout: float = 120.0) -> str:
-        """Wait for the next gvagenai result and return it.
+        """Update the gvagenai prompt with MQTT context and wait for
+        a new VLM result.
 
-        gvagenai runs continuously. This method updates the prompt with
-        the MQTT context and waits for a new inference result.
-        Returns the VLM text, or the latest available text on timeout.
+        The MQTT Event section is pre-filled by this method (not by the
+        VLM).  The VLM only produces VLM Observation and Weapon Check.
+        The combined three-section text is returned.
         """
-        # Record baseline BEFORE prompt change so we can detect
-        # (and skip) any in-flight result that used the old prompt.
         with self._lock:
             baseline_count = self._vlm_count
 
         # Update prompt with MQTT context if available
-        prompt_changed = False
+        skip = 1  # default: just wait for the next result
+        mqtt_summary = ""
+        mqtt_time = ""
         if mqtt_event:
-            cam_summary = ", ".join(
-                f"{cnt} {cls}" for cls, cnt
-                in mqtt_event.get("classCounts", {}).items())
-            prompt = DYNAMIC_PROMPT.format(cam_summary=cam_summary)
+            raw_event = mqtt_event.get("raw_payload", "")
+            mqtt_summary = _summarize_mqtt_payload(raw_event)
+            # Extract timestamp for display freshness
+            ts_raw = mqtt_event.get("timestamp", "")
+            if ts_raw:
+                mqtt_time = time.strftime("%H:%M:%S")
+            prompt = DYNAMIC_PROMPT.format(event_summary=mqtt_summary)
             genai = self._pipeline.get_by_name("genai") if self._pipeline else None
             if genai:
                 genai.set_property("prompt", prompt)
-                prompt_changed = True
+                self._current_prompt = prompt
+                skip = 2  # discard 1 in-flight (old-prompt) result
+                log.info("Prompt updated (%d chars): %.200s",
+                         len(prompt), prompt)
 
-        # When the prompt changes, gvagenai may already be processing a
-        # frame with the OLD prompt.  Skip one result so the returned
-        # text is guaranteed to reflect the new prompt.
-        skip = self._WAIT_AFTER_PROMPT_CHANGE if prompt_changed else self._WAIT_NEXT_RESULT
         target_count = baseline_count + skip
         self._vlm_ready.clear()
 
@@ -316,12 +375,22 @@ class DLStreamerVLMPipeline:  # pylint: disable=too-many-instance-attributes
             if self._vlm_ready.wait(timeout=max(0.1, deadline - time.monotonic())):
                 with self._lock:
                     if self._vlm_count >= target_count:
-                        return self._latest_vlm_text
+                        vlm_text = self._latest_vlm_text
+                        # Pre-fill MQTT Event section
+                        if mqtt_summary:
+                            tag = f"[{mqtt_time}] " if mqtt_time else ""
+                            return (f"**MQTT Event:** {tag}{mqtt_summary}\n\n"
+                                    + vlm_text)
+                        return vlm_text
                 # Result arrived but hasn't reached target; keep waiting
                 self._vlm_ready.clear()
 
         log.warning("VLM inference timed out after %.0fs", timeout)
-        return self.get_vlm_text()
+        vlm_text = self.get_vlm_text()
+        if mqtt_summary:
+            tag = f"[{mqtt_time}] " if mqtt_time else ""
+            return f"**MQTT Event:** {tag}{mqtt_summary}\n\n" + vlm_text
+        return vlm_text
 
     @property
     def vlm_count(self) -> int:
@@ -397,117 +466,14 @@ class _DashboardState:
             return len(cls.event_history)
 
 
-# ── Comparison helper ─────────────────────────────────────────────────────
-
-# Map COCO / MQTT class names to ONVIF-style labels for matching
-_CLASS_ALIASES = {
-    "person": "Human", "people": "Human", "human": "Human", "man": "Human",
-    "woman": "Human", "child": "Human", "pedestrian": "Human",
-    "car": "Vehicle", "truck": "Vehicle", "bus": "Vehicle",
-    "motorcycle": "Vehicle", "bicycle": "Vehicle", "vehicle": "Vehicle",
-    "dog": "Animal", "cat": "Animal", "bird": "Animal", "animal": "Animal",
-    "horse": "Animal", "cow": "Animal", "sheep": "Animal",
-    "gun": "Weapon", "knife": "Weapon", "weapon": "Weapon",
-    "rifle": "Weapon", "pistol": "Weapon", "firearm": "Weapon",
-    "sword": "Weapon", "bat": "Weapon", "shotgun": "Weapon", "rifles": "Weapon"
-}
-
-# Words that negate a detection (e.g. "no gun", "not visible")
-_NEGATION_PATTERN = re.compile(
-    r'\b(no|not|cannot|can\'t|don\'t|doesn\'t|without|absent'
-    r'|none|zero|isn\'t|aren\'t|wasn\'t|weren\'t)\b',
-    re.IGNORECASE,
-)
-
-
-def _normalize_class(name: str) -> str:
-    return _CLASS_ALIASES.get(name.lower(), name.capitalize())
-
-
-def _extract_vlm_counts(vlm_text: str) -> dict:
-    """Best-effort extraction of object counts from VLM free-text.
-
-    Splits text into sentences/lines, skips sentences with negation
-    near the keyword, and counts explicit numbers or implicit mentions.
-    """
-    counts = {}
-    word_nums = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
-                 "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10}
-    text = vlm_text.lower()
-    text = text.replace('**', '')  # Strip markdown bold so "**Shotgun:** 1" stays together after split
-
-    # Split into sentences / bullet lines for context-aware matching
-    segments = re.split(r'[.!?\n*•\-]+', text)
-
-    for alias, label in _CLASS_ALIASES.items():
-        alias_re = re.escape(alias)
-        for seg in segments:
-            if not re.search(rf'\b{alias_re}\b', seg):
-                continue
-            # Check for negation within ~30 chars of the keyword
-            m0 = re.search(rf'\b{alias_re}\b', seg)
-            idx = m0.start()
-            context = seg[max(0, idx - 30):idx + len(alias) + 30]
-            if _NEGATION_PATTERN.search(context):
-                continue
-            # "2 person(s)" or "person: 2"
-            for m in re.finditer(
-                    rf'(\d+)\s+\b{alias_re}\b', seg):
-                counts[label] = counts.get(label, 0) + int(m.group(1))
-            for m in re.finditer(
-                    rf'\b{alias_re}\w*\s*[:=]\s*(\d+)', seg):
-                counts[label] = counts.get(label, 0) + int(m.group(1))
-            # Word numbers: "two people"
-            for word, val in word_nums.items():
-                if re.search(rf'\b{word}\s+\b{alias_re}\b', seg):
-                    counts[label] = counts.get(label, 0) + val
-            # Implicit single: "a dog", "the person", or just "Person"
-            if label not in counts:
-                if re.search(rf'\b(a|an|the|see|visible|confirmed|confirm'
-                             rf'|present|detected|found)\s+'
-                             rf'(\w+\s+)?\b{alias_re}\b', seg):
-                    counts[label] = counts.get(label, 0) + 1
-
-    return counts
-
-
-def _build_comparison(mqtt_event: dict, vlm_text: str) -> dict:
-    """Build a structured comparison between MQTT and VLM."""
-    cam_classes = mqtt_event.get("classCounts", {})
-    cam_counts = {}
-    for cls, cnt in cam_classes.items():
-        label = _normalize_class(cls)
-        cam_counts[label] = cam_counts.get(label, 0) + cnt
-
-    vlm_counts = _extract_vlm_counts(vlm_text)
-
-    # Objects reported by camera (MQTT)
-    camera_detected = [
-        {"class": cls, "count": cnt}
-        for cls, cnt in sorted(cam_counts.items())
-    ]
-
-    # Extra objects found only by VLM (not in camera report)
-    vlm_only = [
-        {"class": cls, "count": cnt}
-        for cls, cnt in sorted(vlm_counts.items())
-        if cls not in cam_counts
-    ]
-
-    return {
-        "camera_detected": camera_detected,
-        "vlm_additional": vlm_only,
-        "vlm_text": vlm_text,
-    }
-
-
 class DashboardHandler(http.server.BaseHTTPRequestHandler):
     """HTTP handler for the live validation dashboard."""
 
     def do_GET(self):  # pylint: disable=invalid-name
         """Handle GET requests for dashboard pages, frames, and API endpoints."""
         if self.path in ('/', '/index.html'):
-            self._respond(200, 'text/html', DASHBOARD_HTML.encode())
+            self._respond(200, 'text/html', DASHBOARD_HTML.encode(),
+                          extra={'Cache-Control': 'no-cache'})
 
         elif self.path.startswith('/frame/'):
             try:
@@ -535,22 +501,19 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
                 return
             ev = _DashboardState.get_event(idx)
             if ev:
-                mqtt = ev["mqtt_event"]
-                raw_topic = mqtt.get("raw_topic", "")
-                raw_payload = mqtt.get("raw_mqtt", "")
+                mqtt_ev = ev["mqtt_event"]
+                raw_topic = mqtt_ev.get("topic", "")
+                raw_payload = mqtt_ev.get("raw_payload", "")
                 # Pretty-print JSON payloads
                 try:
                     raw_payload = json.dumps(
                         json.loads(raw_payload), indent=2)
                 except (json.JSONDecodeError, TypeError):
                     pass
-                comparison = _build_comparison(
-                    mqtt, ev["vlm_text"])
                 data = {
                     "vlm_text": ev["vlm_text"],
                     "mqtt_topic": raw_topic,
                     "mqtt_payload": raw_payload,
-                    "comparison": comparison,
                 }
                 self._respond(200, 'application/json',
                               json.dumps(data, default=str).encode())
@@ -587,7 +550,7 @@ def start_web_ui(port: int):
 # ═══════════════════════════════════════════════════════════════════════════
 
 def discover_camera(ip: str, port: int):
-    """Query ONVIF device info, capabilities, profiles, and stream URI."""
+    """Query ONVIF device info, capabilities, profiles, stream URI, and event topics."""
     onvif = ONVIFClient(ip, port)
 
     dev_info = onvif.get_device_info()
@@ -612,6 +575,12 @@ def discover_camera(ip: str, port: int):
         print(f"  Profile: {p['token']} | {v.get('encoding', '')} "
               f"{v.get('width', '')}x{v.get('height', '')}")
 
+    # Discover event topics
+    event_topics = onvif.get_event_topics()
+    if event_topics:
+        print(f"  Event topics: {', '.join(event_topics[:5])}"
+              f"{'...' if len(event_topics) > 5 else ''}")
+
     # Discover RTSP URI from first profile
     rtsp_uri = ""
     if profiles:
@@ -619,11 +588,15 @@ def discover_camera(ip: str, port: int):
         if rtsp_uri:
             print(f"  RTSP URI (ONVIF): {rtsp_uri}")
 
-    return rtsp_uri
+    return rtsp_uri, event_topics
 
 
 def build_rtsp_uri(args) -> str:
-    """Determine the RTSP URI from args, ONVIF discovery, or fallback."""
+    """Determine the RTSP URI from args, ONVIF discovery, or fallback.
+
+    Also updates args.mqtt_topics with discovered event topics if the
+    user left the default wildcard and the camera provides topic info.
+    """
     print("\n[Discovery] ONVIF Camera")
     print("-" * 60)
 
@@ -631,9 +604,15 @@ def build_rtsp_uri(args) -> str:
     user_provided = bool(rtsp_uri)
 
     if not rtsp_uri:
-        discovered = discover_camera(args.camera_ip, args.onvif_port)
-        if discovered:
-            rtsp_uri = discovered
+        discovered_uri, discovered_topics = discover_camera(
+            args.camera_ip, args.onvif_port)
+        if discovered_uri:
+            rtsp_uri = discovered_uri
+        # Use discovered topics if user kept default wildcard
+        if (discovered_topics
+                and args.mqtt_topics == ["onvif/analytics/#"]):
+            print(f"  Auto-discovered {len(discovered_topics)} event topic(s)")
+            log.info("Using discovered MQTT topics: %s", discovered_topics)
 
     if not rtsp_uri:
         rtsp_uri = f"rtsp://{args.camera_ip}:554/stream1"
@@ -828,7 +807,7 @@ Model export (run once):
                    choices=["CPU", "GPU", "NPU", "AUTO"])
     p.add_argument("--frame-rate", type=float, default=0.2,
                    help="VLM inference rate in fps (default: 0.2 = every 5s)")
-    p.add_argument("--max-tokens", type=int, default=150)
+    p.add_argument("--max-tokens", type=int, default=256)
     p.add_argument("--mqtt-broker", default="localhost")
     p.add_argument("--mqtt-port", type=int, default=1883)
     p.add_argument("--mqtt-topics", nargs="+",

@@ -1,7 +1,7 @@
 """
 Utility module for ONVIF Camera Analytics Validation Pipeline.
 
-Contains: ONVIF SOAP client, MQTT event listener, and cross-validation logic.
+Contains: ONVIF SOAP client and MQTT event listener.
 """
 # ==============================================================================
 # Copyright (C) 2026 Intel Corporation
@@ -9,8 +9,6 @@ Contains: ONVIF SOAP client, MQTT event listener, and cross-validation logic.
 # SPDX-License-Identifier: MIT
 # ==============================================================================
 
-import collections
-import json
 import logging
 import queue
 import subprocess
@@ -181,172 +179,32 @@ class ONVIFClient:
             pass
         return scopes
 
-
-# ═══════════════════════════════════════════════════════════════════════════
-#  MQTT event parsing — camera-agnostic
-# ═══════════════════════════════════════════════════════════════════════════
-
-def _parse_json_event(payload: dict, topic: str) -> Optional[dict]:
-    """Parse a JSON MQTT payload into a normalised event dict.
-
-    Handles:
-      - Standard ONVIF-style JSON with objectCount / classCounts
-      - Common analytics JSON with data.ObjectType / data.IsMotion fields
-    """
-    # Already in standard format
-    if "objectCount" in payload and payload["objectCount"] > 0:
-        payload.setdefault("source", "mqtt_json")
-        payload.setdefault("topic", topic)
-        return payload
-
-    # Axis-style: detections nested under "detections" key
-    dets = payload.get("detections", {})
-    if isinstance(dets, dict) and dets.get("count", 0) > 0:
-        return {
-            "source": "mqtt_json", "topic": topic,
-            "timestamp": payload.get("timestamp", time.strftime(
-                "%Y-%m-%dT%H:%M:%SZ", time.gmtime())),
-            "objectCount": dets["count"],
-            "classCounts": dets.get("classCounts", {}),
-            "objects": [
-                {"type": o.get("class", "Unknown"),
-                 "confidence": o.get("score", 0.0)}
-                for o in dets.get("objects", [])
-            ],
-        }
-
-    # Look for data block (used by many cameras)
-    data = payload.get("message", {}).get("data", payload.get("data", {}))
-    if not data:
-        return None
-
-    timestamp = payload.get("timestamp", time.strftime(
-        "%Y-%m-%dT%H:%M:%SZ", time.gmtime()))
-
-    # ── Axis ObjectAnalytics count format ───────────────────────
-    # data: {"reason": "human", "total": "3", "totalHuman": "3",
-    #        "totalCar": "0", ...}
-    # Extract per-class counts from the "total<Class>" fields.
-    reason = data.get("reason", "")
-    total_str = data.get("total", "")
-    if reason and total_str:
-        total = int(total_str) if total_str.isdigit() else 0
-        if total == 0:
-            return None  # nothing detected this cycle
-
-        # Build class counts from individual total<Class> fields
-        _axis_class_keys = {
-            "totalHuman": "human", "totalCar": "car",
-            "totalTruck": "truck", "totalBus": "bus",
-            "totalBike": "bike", "totalOtherVehicle": "otherVehicle",
-            "totalMotorcycle/bicycle": "bike",
-        }
-        class_counts = {}
-        objects = []
-        for key, cls in _axis_class_keys.items():
-            val = data.get(key, "0")
-            cnt = int(val) if val.isdigit() else 0
-            if cnt > 0:
-                class_counts[cls] = class_counts.get(cls, 0) + cnt
-                for _ in range(cnt):
-                    objects.append({"type": cls, "confidence": 0.0})
-
-        # Fallback: if no total* fields matched, use reason + total
-        if not class_counts:
-            class_counts = {reason: total}
-            objects = [{"type": reason, "confidence": 0.0}] * total
-
-        return {
-            "source": "mqtt_json", "topic": topic,
-            "timestamp": timestamp,
-            "objectCount": sum(class_counts.values()),
-            "classCounts": class_counts,
-            "objects": objects,
-        }
-
-    # ── Axis ObjectAnalytics per-object format ────────────────────
-    # data: {"active": "1", "classTypes": "human", "objectId": "42"}
-    obj_type = (data.get("ObjectType")
-                or data.get("Type")
-                or data.get("classTypes")
-                or "")
-    is_active = str(data.get("active", data.get("IsInside", "true"))).lower()
-    if obj_type and is_active in ("1", "true"):
-        return {
-            "source": "mqtt_json", "topic": topic,
-            "timestamp": timestamp,
-            "objectCount": 1,
-            "classCounts": {obj_type: 1},
-            "objects": [{"type": obj_type, "confidence": 0.0}],
-        }
-
-    # ── Motion events (no specific object class) ─────────────────
-    is_motion = str(data.get("IsMotion", "")).lower()
-    if not is_motion and not obj_type:
-        is_motion = str(data.get("active", "")).lower()
-    if not is_motion:
-        is_motion = str(data.get("State", "")).lower()
-    if is_motion in ("1", "true"):
-        return {
-            "source": "mqtt_json", "topic": topic,
-            "timestamp": timestamp,
-            "objectCount": 1,
-            "classCounts": {"Motion": 1},
-            "objects": [{"type": "Motion", "confidence": 1.0}],
-        }
-
-    return None
-
-
-def _parse_onvif_xml_event(xml_str: str) -> Optional[dict]:
-    """Parse ONVIF XML (MetadataStream or wsnt:Notify) from MQTT payload."""
-    try:
-        root = ElementTree.fromstring(xml_str)
-    except ElementTree.ParseError:
-        return None
-
-    # tt:MetadataStream with tt:Object elements
-    objects = []
-    for obj in root.findall(".//tt:Object", NS):
-        cls_el = obj.find(".//tt:Class/tt:Type", NS)
-        obj_type = cls_el.text if cls_el is not None and cls_el.text else "Unknown"
-        objects.append({"type": obj_type, "confidence": 0.0})
-
-    if objects:
-        class_counts = dict(collections.Counter(o["type"] for o in objects))
-        return {
-            "source": "onvif_xml",
-            "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-            "objectCount": len(objects),
-            "classCounts": class_counts,
-            "objects": objects,
-        }
-
-    # wsnt:NotificationMessage
-    events = []
-    for notif in root.findall(".//wsnt:NotificationMessage", NS):
-        msg_el = notif.find(".//tt:Message", NS)
-        if msg_el is None:
-            continue
-        data = {}
-        for item in msg_el.findall(".//tt:Data/tt:SimpleItem", NS):
-            data[item.get("Name", "")] = item.get("Value", "")
-        obj_type = data.get("ObjectType", data.get("Type", ""))
-        is_inside = data.get("IsInside", "true").lower()
-        if obj_type and is_inside in ("1", "true"):
-            events.append({"type": obj_type, "confidence": 0.0})
-
-    if events:
-        class_counts = dict(collections.Counter(o["type"] for o in events))
-        return {
-            "source": "onvif_xml",
-            "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-            "objectCount": len(events),
-            "classCounts": class_counts,
-            "objects": events,
-        }
-
-    return None
+    def get_event_topics(self) -> list:
+        """Discover available analytics event topics via ONVIF Events service."""
+        caps = self.get_capabilities()
+        events_url = caps.get("Events", "")
+        if not events_url:
+            events_url = self.device_url.replace(
+                "/device_service", "/event_service")
+        resp = _soap_request(events_url, "<tev:GetEventProperties/>")
+        if not resp:
+            return []
+        topics = []
+        try:
+            root = ElementTree.fromstring(resp)
+            for topic_set in root.findall(".//{http://docs.oasis-open.org/wsn/t-1}TopicSet"):
+                for el in topic_set.iter():
+                    tag = el.tag.split("}")[-1] if "}" in el.tag else el.tag
+                    if tag and el.get("{http://docs.oasis-open.org/wsn/t-1}topic") == "true":
+                        topics.append(tag)
+            # Also look for topic elements directly
+            for topic_el in root.findall(".//{http://docs.oasis-open.org/wsn/t-1}Topic"):
+                dialect = topic_el.get("Dialect", "")
+                if topic_el.text and "Concrete" in dialect:
+                    topics.append(topic_el.text.strip())
+        except ElementTree.ParseError:
+            pass
+        return topics
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -354,7 +212,11 @@ def _parse_onvif_xml_event(xml_str: str) -> Optional[dict]:
 # ═══════════════════════════════════════════════════════════════════════════
 
 class MQTTEventListener:
-    """Subscribes to MQTT topics and enqueues parsed camera events."""
+    """Subscribes to MQTT topics and enqueues raw camera events.
+
+    All MQTT messages are passed through as-is — the VLM interprets
+    the raw payload directly, making this truly camera-agnostic.
+    """
 
     def __init__(self, broker: str, port: int,
                  topics: Optional[list] = None):
@@ -405,29 +267,20 @@ class MQTTEventListener:
         self.connected = False
 
     def _on_message(self, _client, _userdata, msg):
-        event = None
-        raw_payload = msg.payload.decode("utf-8", errors="replace")
+        """Pass any non-empty MQTT message through for VLM interpretation."""
+        raw_payload = msg.payload.decode("utf-8", errors="replace").strip()
+        if not raw_payload:
+            return
 
-        # Try JSON first
+        event = {
+            "source": "mqtt",
+            "topic": msg.topic,
+            "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "raw_payload": raw_payload,
+        }
+        self.stats["events_received"] += 1
         try:
-            payload = json.loads(msg.payload)
-            event = _parse_json_event(payload, msg.topic)
-        except (json.JSONDecodeError, UnicodeDecodeError):
-            pass
-
-        # Fall back to ONVIF XML
-        if event is None:
-            try:
-                event = _parse_onvif_xml_event(raw_payload)
-            except (ElementTree.ParseError, ValueError):
-                pass
-
-        if event:
-            event["raw_mqtt"] = raw_payload
-            event["raw_topic"] = msg.topic
-            self.stats["events_received"] += 1
-            try:
-                self.event_queue.put_nowait(event)
-            except queue.Full:
-                self.stats["events_dropped"] += 1
+            self.event_queue.put_nowait(event)
+        except queue.Full:
+            self.stats["events_dropped"] += 1
 
