@@ -7,8 +7,6 @@ description: "Build new DL Streamer video-analytics applications (Python, C, C++
 
 Build new DL Streamer video-analytics applications (Python, C, C++ or GStreamer command line) by composing design patterns extracted from existing sample apps.
 
-NOTE: This feature is in PREVIEW stage — expect some rough edges and missing features, and please share your feedback to help us improve it!
-
 ## File Resolution
 
 This skill uses **repo-root-relative paths** to reference files outside the skill folder (e.g. `docs/user-guide/elements/`, `samples/gstreamer/python/hello_dlstreamer/`). The repo root is three directories above this skill file when the full repo is cloned, or refers to https://github.com/open-edge-platform/dlstreamer if only skill files were copied.
