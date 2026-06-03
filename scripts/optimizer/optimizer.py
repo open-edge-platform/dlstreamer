@@ -209,9 +209,16 @@ class DLSOptimizer:
             preproc_pipeline = preprocess_pipeline(preproc_pipeline)
             preproc_pipeline = preproc_pipeline.split(" ! ")
 
-            if preproc_pipeline != pipeline:
-                logger.info("Measuring performance of the original pipeline after pre-processing optimizations...")
-                self._sample_pipeline([preproc_pipeline], self._sample_duration)
+            if preproc_pipeline == pipeline:
+                logger.debug("Pre-processing didn't manage to improve pipeline.")
+                return pipeline
+
+            logger.info("Measuring performance of the original pipeline after pre-processing optimizations...")
+            self._sample_pipeline([preproc_pipeline], self._sample_duration)
+
+            if initial_detections != 0 and detections / initial_detections < self._detections_error_threshold:
+                logger.debug("Pre-processed pipeline reporting detections under error margin, ignoring")
+                return pipeline
 
             return preproc_pipeline
 
@@ -234,12 +241,7 @@ class DLSOptimizer:
 
                     fps, detections = self._sample_pipeline(pipelines, self._sample_duration)
 
-                    if initial_detections == 0:
-                        # skip only if we still have zero detections
-                        if detections == 0:
-                            logger.debug("Pipeline reporting detections under error margin, skipping")
-                            continue
-                    elif detections / initial_detections < self._detections_error_threshold:
+                    if initial_detections != 0 and detections / initial_detections < self._detections_error_threshold:
                         logger.debug("Pipeline reporting detections under error margin, skipping")
                         continue
 
