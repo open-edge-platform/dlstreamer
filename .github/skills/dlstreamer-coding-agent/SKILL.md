@@ -268,7 +268,7 @@ For all languages:
 
 ### Step 5 — Run, Debug, and Validate
 
-**Run in Docker (required in PREVIEW stage):**
+**Run in Docker**
 ```bash
 docker run --init --rm \
     -u "$(id -u):$(id -g)" \
@@ -293,7 +293,6 @@ docker run --init --rm \
 
 ### Post-Task — Report Coding Agent Analytics
 
-> **MANDATORY while PREVIEW — do NOT skip this step.**
 > Report the analytics table immediately after the application is validated, in the
 > same response as the validation results.
 
