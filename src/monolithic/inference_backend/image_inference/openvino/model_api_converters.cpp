@@ -13,6 +13,45 @@
 
 namespace ModelApiConverters {
 
+namespace {
+
+std::vector<int> parseYoloImageSize(const nlohmann::json &yaml_json) {
+    std::vector<int> dims;
+    if (!yaml_json.contains("imgsz"))
+        return dims;
+
+    const auto &imgsz = yaml_json["imgsz"];
+    auto append_matches = [&dims](const std::string &value) {
+        static const std::regex number_regex(R"((-?\d+))");
+        for (std::sregex_iterator it(value.begin(), value.end(), number_regex), end; it != end; ++it) {
+            dims.push_back(std::stoi((*it)[1].str()));
+        }
+    };
+
+    if (imgsz.is_array()) {
+        for (const auto &value : imgsz) {
+            if (value.is_number_integer()) {
+                dims.push_back(value.get<int>());
+            } else if (value.is_string()) {
+                append_matches(value.get<std::string>());
+            }
+        }
+    } else if (imgsz.is_number_integer()) {
+        dims.push_back(imgsz.get<int>());
+    } else if (imgsz.is_string()) {
+        append_matches(imgsz.get<std::string>());
+    }
+
+    if (dims.size() == 1)
+        dims.push_back(dims.front());
+    if (dims.size() > 2)
+        dims.resize(2);
+
+    return dims;
+}
+
+} // namespace
+
 // a helper function to convert YAML file to JSON format
 // This is a basic conversion for common YAML formats used in YOLO model metadata files
 // For full YAML support, consider using a dedicated YAML library
@@ -96,7 +135,7 @@ bool convertYoloMeta2ModelApi(const std::string model_file, ov::AnyMap &modelCon
         {"YOLO11", "yolo_v8"}, {"YOLO26", "yolo_v26"}, {"YOLOe-26", "yolo_v26"}};
 
     const std::vector<std::pair<std::string, std::string>> task_types = {
-        {"detect", ""}, {"segment", "_seg"}, {"pose", "_pose"}, {"obb", "_obb"}};
+        {"detect", ""}, {"segment", "_seg"}, {"pose", "_pose"}, {"obb", "_obb"}, {"classify", ""}};
 
     std::filesystem::path metadata_file(model_file);
     metadata_file.replace_filename("metadata.yaml");
@@ -112,18 +151,18 @@ bool convertYoloMeta2ModelApi(const std::string model_file, ov::AnyMap &modelCon
 
     // derive model type from description and model task
     std::string model_type = "";
-    bool type_found = false;
+    bool type_supported = false;
     for (const auto &model_type_pair : model_types) {
         std::string description = yaml_json.contains("description") && yaml_json["description"].is_string()
                                       ? yaml_json["description"].get<std::string>()
                                       : "";
         if (!description.empty() && description.find(model_type_pair.first) != std::string::npos) {
             model_type = model_type_pair.second;
-            type_found = true;
+            type_supported = true;
             break;
         }
     }
-    if (!type_found) {
+    if (!type_supported) {
         if (yaml_json.contains("end2end") && yaml_json["end2end"].is_boolean() && yaml_json["end2end"].get<bool>()) {
             model_type = "yolo_v26";
         } else {
@@ -132,35 +171,56 @@ bool convertYoloMeta2ModelApi(const std::string model_file, ov::AnyMap &modelCon
         GST_WARNING("YOLO model type derived from end2end flag: %s", model_type.c_str());
     }
 
-    bool task_found = false;
+    const std::string task =
+        yaml_json.contains("task") && yaml_json["task"].is_string() ? yaml_json["task"].get<std::string>() : "";
+
+    bool task_supported = false;
     for (const auto &task_type_pair : task_types) {
-        std::string task =
-            yaml_json.contains("task") && yaml_json["task"].is_string() ? yaml_json["task"].get<std::string>() : "";
         if (!task.empty() && task.find(task_type_pair.first) != std::string::npos) {
-            model_type = model_type + task_type_pair.second;
-            task_found = true;
+            task_supported = true;
+            if (task.find("classify") != std::string::npos) {
+                model_type = "label";
+            } else {
+                model_type = model_type + task_type_pair.second;
+            }
             break;
         }
     }
-    if (!task_found && yaml_json.contains("task") && yaml_json["task"].is_string()) {
+    if (!task_supported && yaml_json.contains("task") && yaml_json["task"].is_string()) {
         throw std::runtime_error("Unsupported YOLO model task: " + yaml_json["task"].get<std::string>());
         return false;
     }
 
-    // YOLOv26 OBB models with FP16/FP32 precision are not supported due to
-    // OpenVINO GPU plugin activation function issue producing garbage output
-    if (model_type == "yolo_v26_obb") {
-        std::string int8 =
-            yaml_json.contains("int8") && yaml_json["int8"].is_string() ? yaml_json["int8"].get<std::string>() : "";
-        if (int8 != "true") {
-            throw std::runtime_error(
-                "YOLOv26 OBB model with FP16/FP32 precision is not supported due to an OpenVINO GPU "
-                "plugin issue. Please use INT8 precision instead.");
-        }
-    }
-
     if (!model_type.empty()) {
+
+        // YOLOv26 OBB models with FP16/FP32 precision are not supported due to
+        // OpenVINO GPU plugin activation function issue producing garbage output
+        if (model_type == "yolo_v26_obb") {
+            std::string int8 =
+                yaml_json.contains("int8") && yaml_json["int8"].is_string() ? yaml_json["int8"].get<std::string>() : "";
+            if (int8 != "true") {
+                throw std::runtime_error(
+                    "YOLOv26 OBB model with FP16/FP32 precision is not supported due to an OpenVINO GPU "
+                    "plugin issue. Please use INT8 precision instead.");
+            }
+        }
+
         modelConfig["model_type"] = ov::Any(model_type);
+
+        if (model_type == "label") {
+
+            modelConfig["output_raw_scores"] = ov::Any(std::string("True"));
+            modelConfig["resize_type"] = ov::Any(std::string("crop"));
+            modelConfig["reverse_input_channels"] = ov::Any(std::string("true"));
+
+            const std::vector<int> imgsz = parseYoloImageSize(yaml_json);
+            if (imgsz.size() == 2) {
+                modelConfig["reshape"] = ov::Any(imgsz);
+            } else {
+                GST_WARNING("Ultralytics classify metadata does not provide a 2D imgsz for model: %s",
+                            model_file.c_str());
+            }
+        }
     }
 
     // set reshape size if model is dynamic
@@ -168,15 +228,7 @@ bool convertYoloMeta2ModelApi(const std::string model_file, ov::AnyMap &modelCon
                               ? yaml_json["dynamic"].get<std::string>()
                               : "";
     if (dynamic == "true") {
-        std::vector<int> imgsz;
-        if (yaml_json.contains("imgsz") && yaml_json["imgsz"].is_array()) {
-            for (const auto &val : yaml_json["imgsz"]) {
-                if (val.is_string()) {
-                    int value = std::stoi(val.get<std::string>());
-                    imgsz.push_back(value);
-                }
-            }
-        }
+        std::vector<int> imgsz = parseYoloImageSize(yaml_json);
         if (imgsz.size() == 2)
             modelConfig["reshape"] = ov::Any(imgsz);
         else

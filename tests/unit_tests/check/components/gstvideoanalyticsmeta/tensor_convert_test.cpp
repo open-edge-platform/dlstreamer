@@ -26,7 +26,7 @@
 #include <gtest/gtest.h>
 
 #include "dlstreamer/gst/metadata/gstanalyticskeypointdescriptor.h"
-#include "dlstreamer/gst/metadata/gstanalyticskeypointmtd.h"
+#include <gst/analytics/gstanalyticskeypointmtd.h>
 
 // ── Test constants ──────────────────────────────────────────────────────────
 
@@ -172,7 +172,7 @@ TEST_F(KeypointConvertToMetaTest, ReturnsTrue) {
     GVA::Tensor tensor(s);
 
     GstAnalyticsGroupMtd group_mtd = {};
-    bool ok = tensor.convert_to_meta(reinterpret_cast<GstAnalyticsMtd *>(&group_mtd), &od_mtd, rmeta);
+    bool ok = tensor.convert_to_meta(reinterpret_cast<GstAnalyticsMtd *>(&group_mtd), rmeta, OD_X, OD_Y, OD_W, OD_H);
     EXPECT_TRUE(ok);
 
     gst_structure_free(s);
@@ -183,7 +183,7 @@ TEST_F(KeypointConvertToMetaTest, GroupHasCorrectMemberCount) {
     GVA::Tensor tensor(s);
 
     GstAnalyticsGroupMtd group_mtd = {};
-    tensor.convert_to_meta(reinterpret_cast<GstAnalyticsMtd *>(&group_mtd), &od_mtd, rmeta);
+    tensor.convert_to_meta(reinterpret_cast<GstAnalyticsMtd *>(&group_mtd), rmeta, OD_X, OD_Y, OD_W, OD_H);
 
     gsize count = gst_analytics_group_mtd_get_member_count(&group_mtd);
     EXPECT_EQ(count, KEYPOINT_COUNT);
@@ -196,11 +196,13 @@ TEST_F(KeypointConvertToMetaTest, GroupHasSemanticTag) {
     GVA::Tensor tensor(s);
 
     GstAnalyticsGroupMtd group_mtd = {};
-    tensor.convert_to_meta(reinterpret_cast<GstAnalyticsMtd *>(&group_mtd), &od_mtd, rmeta);
+    tensor.convert_to_meta(reinterpret_cast<GstAnalyticsMtd *>(&group_mtd), rmeta, OD_X, OD_Y, OD_W, OD_H);
 
-    gchar *tag = gst_analytics_group_mtd_get_semantic_tag(&group_mtd);
+    // tag should be "model_name/format" = "Model0/body-pose/coco-17"
+    gchar *tag = gst_analytics_mtd_get_semantic_tag(reinterpret_cast<const GstAnalyticsMtd *>(&group_mtd));
     ASSERT_NE(tag, nullptr);
-    EXPECT_STREQ(tag, GST_ANALYTICS_KEYPOINT_BODY_POSE_COCO_17);
+    std::string expected = std::string("Model0/") + GST_ANALYTICS_KEYPOINT_BODY_POSE_COCO_17;
+    EXPECT_STREQ(tag, expected.c_str());
     g_free(tag);
 
     gst_structure_free(s);
@@ -211,7 +213,7 @@ TEST_F(KeypointConvertToMetaTest, PositionsArePixelCoords) {
     GVA::Tensor tensor(s);
 
     GstAnalyticsGroupMtd group_mtd = {};
-    tensor.convert_to_meta(reinterpret_cast<GstAnalyticsMtd *>(&group_mtd), &od_mtd, rmeta);
+    tensor.convert_to_meta(reinterpret_cast<GstAnalyticsMtd *>(&group_mtd), rmeta, OD_X, OD_Y, OD_W, OD_H);
 
     for (gsize k = 0; k < KEYPOINT_COUNT; k++) {
         GstAnalyticsMtd member;
@@ -238,7 +240,7 @@ TEST_F(KeypointConvertToMetaTest, ConfidencesMatch) {
     GVA::Tensor tensor(s);
 
     GstAnalyticsGroupMtd group_mtd = {};
-    tensor.convert_to_meta(reinterpret_cast<GstAnalyticsMtd *>(&group_mtd), &od_mtd, rmeta);
+    tensor.convert_to_meta(reinterpret_cast<GstAnalyticsMtd *>(&group_mtd), rmeta, OD_X, OD_Y, OD_W, OD_H);
 
     for (gsize k = 0; k < KEYPOINT_COUNT; k++) {
         GstAnalyticsMtd member;
@@ -261,7 +263,7 @@ TEST_F(KeypointConvertToMetaTest, UnknownTypeReturnsFalse) {
     tensor.set_type("unsupported_type");
 
     GstAnalyticsMtd mtd = {};
-    bool ok = tensor.convert_to_meta(&mtd, &od_mtd, rmeta);
+    bool ok = tensor.convert_to_meta(&mtd, rmeta, OD_X, OD_Y, OD_W, OD_H);
     EXPECT_FALSE(ok);
 
     gst_structure_free(s);
@@ -276,7 +278,8 @@ struct KeypointConvertToTensorTest : public ::testing::Test {
     GstAnalyticsRelationMeta *rmeta = nullptr;
     GstAnalyticsODMtd od_mtd = {};
     GstAnalyticsGroupMtd group_mtd = {};
-    GstStructure *orig_s = nullptr; // original input tensor – kept for comparison
+    GstStructure *orig_s = nullptr;                   // original input tensor – kept for comparison
+    std::vector<GstStructure *> roundtrip_structures; // track allocations from roundtrip_tensor()
 
     void SetUp() override {
         buffer = gst_buffer_new_allocate(nullptr, 0, nullptr);
@@ -290,13 +293,15 @@ struct KeypointConvertToTensorTest : public ::testing::Test {
         // Build tensor → convert to meta (keep original for comparison)
         orig_s = build_keypoint_structure();
         GVA::Tensor tensor(orig_s);
-        tensor.convert_to_meta(reinterpret_cast<GstAnalyticsMtd *>(&group_mtd), &od_mtd, rmeta);
+        tensor.convert_to_meta(reinterpret_cast<GstAnalyticsMtd *>(&group_mtd), rmeta, OD_X, OD_Y, OD_W, OD_H);
 
         // Set IS_PART_OF so convert_to_tensor finds the bbox
         gst_analytics_relation_meta_set_relation(rmeta, GST_ANALYTICS_REL_TYPE_IS_PART_OF, group_mtd.id, od_mtd.id);
     }
 
     void TearDown() override {
+        for (auto *s : roundtrip_structures)
+            gst_structure_free(s);
         if (orig_s)
             gst_structure_free(orig_s);
         if (buffer)
@@ -310,6 +315,8 @@ struct KeypointConvertToTensorTest : public ::testing::Test {
     GVA::Tensor roundtrip_tensor() {
         GstStructure *result = GVA::Tensor::convert_to_tensor(*reinterpret_cast<GstAnalyticsMtd *>(&group_mtd));
         EXPECT_NE(result, nullptr);
+        if (result)
+            roundtrip_structures.push_back(result);
         return GVA::Tensor(result);
     }
 };
@@ -427,8 +434,8 @@ TEST_F(ClassificationConvertToMetaTest, ReturnsTrue) {
     GVA::Tensor tensor(s);
 
     GstAnalyticsClsMtd cls_mtd = {};
-    // od_mtd not needed for classification — pass nullptr
-    bool ok = tensor.convert_to_meta(reinterpret_cast<GstAnalyticsMtd *>(&cls_mtd), nullptr, rmeta);
+    // od coordinates not needed for classification — use defaults
+    bool ok = tensor.convert_to_meta(reinterpret_cast<GstAnalyticsMtd *>(&cls_mtd), rmeta);
     EXPECT_TRUE(ok);
 
     gst_structure_free(s);
@@ -439,7 +446,7 @@ TEST_F(ClassificationConvertToMetaTest, ClsMtdLabel) {
     GVA::Tensor tensor(s);
 
     GstAnalyticsClsMtd cls_mtd = {};
-    tensor.convert_to_meta(reinterpret_cast<GstAnalyticsMtd *>(&cls_mtd), nullptr, rmeta);
+    tensor.convert_to_meta(reinterpret_cast<GstAnalyticsMtd *>(&cls_mtd), rmeta);
 
     gsize count = gst_analytics_cls_mtd_get_length(&cls_mtd);
     ASSERT_EQ(count, 1u);
@@ -455,7 +462,7 @@ TEST_F(ClassificationConvertToMetaTest, ClsMtdConfidence) {
     GVA::Tensor tensor(s);
 
     GstAnalyticsClsMtd cls_mtd = {};
-    tensor.convert_to_meta(reinterpret_cast<GstAnalyticsMtd *>(&cls_mtd), nullptr, rmeta);
+    tensor.convert_to_meta(reinterpret_cast<GstAnalyticsMtd *>(&cls_mtd), rmeta);
 
     gfloat conf = gst_analytics_cls_mtd_get_level(&cls_mtd, 0);
     EXPECT_FLOAT_EQ(conf, static_cast<gfloat>(CLS_CONFIDENCE));
@@ -471,7 +478,8 @@ struct ClassificationConvertToTensorTest : public ::testing::Test {
     GstBuffer *buffer = nullptr;
     GstAnalyticsRelationMeta *rmeta = nullptr;
     GstAnalyticsClsMtd cls_mtd = {};
-    GstStructure *orig_s = nullptr; // original input tensor – kept for comparison
+    GstStructure *orig_s = nullptr;                   // original input tensor – kept for comparison
+    std::vector<GstStructure *> roundtrip_structures; // track allocations from roundtrip_tensor()
 
     void SetUp() override {
         buffer = gst_buffer_new_allocate(nullptr, 0, nullptr);
@@ -480,10 +488,12 @@ struct ClassificationConvertToTensorTest : public ::testing::Test {
 
         orig_s = build_classification_structure();
         GVA::Tensor tensor(orig_s);
-        tensor.convert_to_meta(reinterpret_cast<GstAnalyticsMtd *>(&cls_mtd), nullptr, rmeta);
+        tensor.convert_to_meta(reinterpret_cast<GstAnalyticsMtd *>(&cls_mtd), rmeta);
     }
 
     void TearDown() override {
+        for (auto *s : roundtrip_structures)
+            gst_structure_free(s);
         if (orig_s)
             gst_structure_free(orig_s);
         if (buffer)
@@ -497,6 +507,8 @@ struct ClassificationConvertToTensorTest : public ::testing::Test {
     GVA::Tensor roundtrip_tensor() {
         GstStructure *result = GVA::Tensor::convert_to_tensor(*reinterpret_cast<GstAnalyticsMtd *>(&cls_mtd));
         EXPECT_NE(result, nullptr);
+        if (result)
+            roundtrip_structures.push_back(result);
         return GVA::Tensor(result);
     }
 };
@@ -558,7 +570,8 @@ TEST_F(KeypointFullRoundtripTest, FullRoundtrip) {
 
     // tensor → meta
     GstAnalyticsGroupMtd group_mtd = {};
-    ASSERT_TRUE(original.convert_to_meta(reinterpret_cast<GstAnalyticsMtd *>(&group_mtd), &od_mtd, rmeta));
+    ASSERT_TRUE(
+        original.convert_to_meta(reinterpret_cast<GstAnalyticsMtd *>(&group_mtd), rmeta, OD_X, OD_Y, OD_W, OD_H));
 
     // Set IS_PART_OF so convert_to_tensor can find the bbox
     gst_analytics_relation_meta_set_relation(rmeta, GST_ANALYTICS_REL_TYPE_IS_PART_OF, group_mtd.id, od_mtd.id);
@@ -677,7 +690,8 @@ TEST_F(KeypointFullRoundtripTest, OpenPose18SkeletonRoundtrip) {
 
     // tensor → meta
     GstAnalyticsGroupMtd group_mtd = {};
-    ASSERT_TRUE(original.convert_to_meta(reinterpret_cast<GstAnalyticsMtd *>(&group_mtd), &od_mtd, rmeta));
+    ASSERT_TRUE(
+        original.convert_to_meta(reinterpret_cast<GstAnalyticsMtd *>(&group_mtd), rmeta, OD_X, OD_Y, OD_W, OD_H));
     gst_analytics_relation_meta_set_relation(rmeta, GST_ANALYTICS_REL_TYPE_IS_PART_OF, group_mtd.id, od_mtd.id);
 
     // meta → tensor
@@ -755,7 +769,8 @@ struct ConfidenceScenarioTest : public ::testing::Test {
     std::vector<gfloat> meta_confidences(GstStructure *s) {
         GVA::Tensor tensor(s);
         GstAnalyticsGroupMtd group_mtd = {};
-        bool ok = tensor.convert_to_meta(reinterpret_cast<GstAnalyticsMtd *>(&group_mtd), &od_mtd, rmeta);
+        bool ok =
+            tensor.convert_to_meta(reinterpret_cast<GstAnalyticsMtd *>(&group_mtd), rmeta, OD_X, OD_Y, OD_W, OD_H);
         EXPECT_TRUE(ok);
 
         gsize count = gst_analytics_group_mtd_get_member_count(&group_mtd);
@@ -835,7 +850,7 @@ TEST_F(ConfidenceScenarioTest, SingleKeypointScalarConfidence) {
     tensor.set_confidence(0.95);
 
     GstAnalyticsGroupMtd group_mtd = {};
-    bool ok = tensor.convert_to_meta(reinterpret_cast<GstAnalyticsMtd *>(&group_mtd), &od_mtd, rmeta);
+    bool ok = tensor.convert_to_meta(reinterpret_cast<GstAnalyticsMtd *>(&group_mtd), rmeta, OD_X, OD_Y, OD_W, OD_H);
     EXPECT_TRUE(ok);
 
     gsize count = gst_analytics_group_mtd_get_member_count(&group_mtd);
@@ -858,7 +873,8 @@ TEST_F(ConfidenceScenarioTest, RoundtripMatchingConfidence) {
     GVA::Tensor original(s);
 
     GstAnalyticsGroupMtd group_mtd = {};
-    ASSERT_TRUE(original.convert_to_meta(reinterpret_cast<GstAnalyticsMtd *>(&group_mtd), &od_mtd, rmeta));
+    ASSERT_TRUE(
+        original.convert_to_meta(reinterpret_cast<GstAnalyticsMtd *>(&group_mtd), rmeta, OD_X, OD_Y, OD_W, OD_H));
     gst_analytics_relation_meta_set_relation(rmeta, GST_ANALYTICS_REL_TYPE_IS_PART_OF, group_mtd.id, od_mtd.id);
 
     GstStructure *restored_s = GVA::Tensor::convert_to_tensor(*reinterpret_cast<GstAnalyticsMtd *>(&group_mtd));
@@ -882,7 +898,8 @@ TEST_F(ConfidenceScenarioTest, RoundtripMismatchedConfidence) {
     GVA::Tensor original(s);
 
     GstAnalyticsGroupMtd group_mtd = {};
-    ASSERT_TRUE(original.convert_to_meta(reinterpret_cast<GstAnalyticsMtd *>(&group_mtd), &od_mtd, rmeta));
+    ASSERT_TRUE(
+        original.convert_to_meta(reinterpret_cast<GstAnalyticsMtd *>(&group_mtd), rmeta, OD_X, OD_Y, OD_W, OD_H));
     gst_analytics_relation_meta_set_relation(rmeta, GST_ANALYTICS_REL_TYPE_IS_PART_OF, group_mtd.id, od_mtd.id);
 
     GstStructure *restored_s = GVA::Tensor::convert_to_tensor(*reinterpret_cast<GstAnalyticsMtd *>(&group_mtd));
@@ -895,6 +912,432 @@ TEST_F(ConfidenceScenarioTest, RoundtripMismatchedConfidence) {
         EXPECT_FLOAT_EQ(rest_conf[k], 1.0f)
             << "keypoint " << k << " should be 1.0 (default) after mismatched roundtrip";
     }
+
+    gst_structure_free(s);
+    gst_structure_free(restored_s);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Semantic tag handling in convert_to_meta / convert_to_tensor
+// ═══════════════════════════════════════════════════════════════════════════════
+
+struct SemanticTagTest : public ::testing::Test {
+    GstBuffer *buffer = nullptr;
+    GstAnalyticsRelationMeta *rmeta = nullptr;
+    GstAnalyticsODMtd od_mtd = {};
+
+    void SetUp() override {
+        buffer = gst_buffer_new_allocate(nullptr, 0, nullptr);
+        rmeta = gst_buffer_add_analytics_relation_meta(buffer);
+        ASSERT_NE(rmeta, nullptr);
+
+        GQuark label = g_quark_from_string("person");
+        gboolean ret = gst_analytics_relation_meta_add_od_mtd(rmeta, label, OD_X, OD_Y, OD_W, OD_H, OD_CONF, &od_mtd);
+        ASSERT_TRUE(ret);
+    }
+
+    void TearDown() override {
+        if (buffer)
+            gst_buffer_unref(buffer);
+    }
+
+    // Helper: build keypoint tensor with specific model_name and format
+    // Uses 17 keypoints when format is a valid descriptor (to match skeleton connections)
+    GstStructure *build_kp_tensor(const char *model_name, const char *format) {
+        bool use_full = (format != nullptr && gst_analytics_keypoint_descriptor_lookup(format) != nullptr);
+        gsize kp_count = use_full ? KEYPOINT_COUNT : SMALL_KP_COUNT;
+        gsize kp_dim = SMALL_KP_DIM;
+        const float *positions = use_full ? KEYPOINT_POSITIONS_NORM : SMALL_KP_POSITIONS;
+        const float *confs = use_full ? KEYPOINT_CONFIDENCES : SMALL_KP_CONFIDENCES;
+
+        GstStructure *s = gst_structure_new_empty(GVA::GST_ANALYTICS_KEYPOINTS_2_TENSOR);
+        GVA::Tensor tensor(s);
+        tensor.set_type(GVA::GST_ANALYTICS_KEYPOINTS_2_TENSOR);
+        tensor.set_dims({static_cast<guint>(kp_count), static_cast<guint>(kp_dim)});
+        tensor.set_data(positions, kp_count * kp_dim * sizeof(float));
+        tensor.set_precision(GVA::Tensor::Precision::FP32);
+        tensor.set_vector<float>("confidence", std::vector<float>(confs, confs + kp_count));
+        if (model_name)
+            tensor.set_model_name(model_name);
+        if (format)
+            tensor.set_format(format);
+        return s;
+    }
+
+    // Helper: convert tensor to meta and back, return the restored tensor structure
+    GstStructure *roundtrip(GstStructure *s) {
+        GVA::Tensor tensor(s);
+        GstAnalyticsGroupMtd group_mtd = {};
+        EXPECT_TRUE(
+            tensor.convert_to_meta(reinterpret_cast<GstAnalyticsMtd *>(&group_mtd), rmeta, OD_X, OD_Y, OD_W, OD_H));
+        gst_analytics_relation_meta_set_relation(rmeta, GST_ANALYTICS_REL_TYPE_IS_PART_OF, group_mtd.id, od_mtd.id);
+        return GVA::Tensor::convert_to_tensor(*reinterpret_cast<GstAnalyticsMtd *>(&group_mtd));
+    }
+};
+
+// ─── convert_to_meta: semantic tag composition ───────────────────────────────
+
+TEST_F(SemanticTagTest, ConvertToMeta_ModelNameAndFormat_CompoundTag) {
+    GstStructure *s = build_kp_tensor("MyModel", GST_ANALYTICS_KEYPOINT_BODY_POSE_COCO_17);
+    GVA::Tensor tensor(s);
+
+    GstAnalyticsGroupMtd group_mtd = {};
+    tensor.convert_to_meta(reinterpret_cast<GstAnalyticsMtd *>(&group_mtd), rmeta, OD_X, OD_Y, OD_W, OD_H);
+
+    gchar *tag = gst_analytics_mtd_get_semantic_tag(reinterpret_cast<const GstAnalyticsMtd *>(&group_mtd));
+    ASSERT_NE(tag, nullptr);
+    std::string expected = std::string("MyModel/") + GST_ANALYTICS_KEYPOINT_BODY_POSE_COCO_17;
+    EXPECT_STREQ(tag, expected.c_str());
+    g_free(tag);
+    gst_structure_free(s);
+}
+
+TEST_F(SemanticTagTest, ConvertToMeta_OnlyFormat_FormatAsTag) {
+    GstStructure *s = build_kp_tensor(nullptr, GST_ANALYTICS_KEYPOINT_BODY_POSE_COCO_17);
+    GVA::Tensor tensor(s);
+
+    GstAnalyticsGroupMtd group_mtd = {};
+    tensor.convert_to_meta(reinterpret_cast<GstAnalyticsMtd *>(&group_mtd), rmeta, OD_X, OD_Y, OD_W, OD_H);
+
+    gchar *tag = gst_analytics_mtd_get_semantic_tag(reinterpret_cast<const GstAnalyticsMtd *>(&group_mtd));
+    ASSERT_NE(tag, nullptr);
+    EXPECT_STREQ(tag, GST_ANALYTICS_KEYPOINT_BODY_POSE_COCO_17);
+    g_free(tag);
+    gst_structure_free(s);
+}
+
+TEST_F(SemanticTagTest, ConvertToMeta_OnlyModelName_ModelNameAsTag) {
+    GstStructure *s = build_kp_tensor("SomeModel", nullptr);
+    GVA::Tensor tensor(s);
+
+    GstAnalyticsGroupMtd group_mtd = {};
+    tensor.convert_to_meta(reinterpret_cast<GstAnalyticsMtd *>(&group_mtd), rmeta, OD_X, OD_Y, OD_W, OD_H);
+
+    gchar *tag = gst_analytics_mtd_get_semantic_tag(reinterpret_cast<const GstAnalyticsMtd *>(&group_mtd));
+    ASSERT_NE(tag, nullptr);
+    EXPECT_STREQ(tag, "SomeModel");
+    g_free(tag);
+    gst_structure_free(s);
+}
+
+TEST_F(SemanticTagTest, ConvertToMeta_NoModelNameNoFormat_EmptyTag) {
+    GstStructure *s = build_kp_tensor(nullptr, nullptr);
+    GVA::Tensor tensor(s);
+
+    GstAnalyticsGroupMtd group_mtd = {};
+    tensor.convert_to_meta(reinterpret_cast<GstAnalyticsMtd *>(&group_mtd), rmeta, OD_X, OD_Y, OD_W, OD_H);
+
+    gchar *tag = gst_analytics_mtd_get_semantic_tag(reinterpret_cast<const GstAnalyticsMtd *>(&group_mtd));
+    // empty tag: either null or empty string
+    bool is_empty = (tag == nullptr || tag[0] == '\0');
+    EXPECT_TRUE(is_empty);
+    g_free(tag);
+    gst_structure_free(s);
+}
+
+// ─── convert_to_tensor: semantic_tag field and format extraction ─────────────
+
+TEST_F(SemanticTagTest, ConvertToTensor_CompoundTag_HasSemanticTagField) {
+    GstStructure *s = build_kp_tensor("MyModel", GST_ANALYTICS_KEYPOINT_BODY_POSE_COCO_17);
+    GstStructure *restored_s = roundtrip(s);
+    ASSERT_NE(restored_s, nullptr);
+    GVA::Tensor restored(restored_s);
+
+    // semantic_tag field should contain the full compound tag
+    std::string expected = std::string("MyModel/") + GST_ANALYTICS_KEYPOINT_BODY_POSE_COCO_17;
+    EXPECT_EQ(restored.get_string("semantic_tag"), expected);
+
+    gst_structure_free(s);
+    gst_structure_free(restored_s);
+}
+
+TEST_F(SemanticTagTest, ConvertToTensor_CompoundTag_FormatExtractedFromTag) {
+    GstStructure *s = build_kp_tensor("MyModel", GST_ANALYTICS_KEYPOINT_BODY_POSE_COCO_17);
+    GstStructure *restored_s = roundtrip(s);
+    ASSERT_NE(restored_s, nullptr);
+    GVA::Tensor restored(restored_s);
+
+    // format should be extracted as everything after first '/' = "body-pose/coco-17"
+    EXPECT_EQ(restored.format(), GST_ANALYTICS_KEYPOINT_BODY_POSE_COCO_17);
+
+    gst_structure_free(s);
+    gst_structure_free(restored_s);
+}
+
+TEST_F(SemanticTagTest, ConvertToTensor_OnlyFormat_SemanticTagIsFormat) {
+    GstStructure *s = build_kp_tensor(nullptr, GST_ANALYTICS_KEYPOINT_BODY_POSE_COCO_17);
+    GstStructure *restored_s = roundtrip(s);
+    ASSERT_NE(restored_s, nullptr);
+    GVA::Tensor restored(restored_s);
+
+    // semantic_tag = format (no model_name prefix)
+    EXPECT_EQ(restored.get_string("semantic_tag"), GST_ANALYTICS_KEYPOINT_BODY_POSE_COCO_17);
+    // format extracted: full tag "body-pose/coco-17" is a valid descriptor, so it's used directly
+    EXPECT_EQ(restored.format(), GST_ANALYTICS_KEYPOINT_BODY_POSE_COCO_17);
+
+    gst_structure_free(s);
+    gst_structure_free(restored_s);
+}
+
+TEST_F(SemanticTagTest, ConvertToTensor_OnlyModelName_SemanticTagIsModelName) {
+    GstStructure *s = build_kp_tensor("SomeModel", nullptr);
+    GstStructure *restored_s = roundtrip(s);
+    ASSERT_NE(restored_s, nullptr);
+    GVA::Tensor restored(restored_s);
+
+    // semantic_tag = model_name
+    EXPECT_EQ(restored.get_string("semantic_tag"), "SomeModel");
+    // format should NOT be set (no valid descriptor for "SomeModel")
+    EXPECT_EQ(restored.format(), "");
+
+    gst_structure_free(s);
+    gst_structure_free(restored_s);
+}
+
+TEST_F(SemanticTagTest, ConvertToTensor_NoTag_NoSemanticTagField) {
+    GstStructure *s = build_kp_tensor(nullptr, nullptr);
+    GstStructure *restored_s = roundtrip(s);
+    ASSERT_NE(restored_s, nullptr);
+    GVA::Tensor restored(restored_s);
+
+    // no semantic_tag field
+    EXPECT_FALSE(restored.has_field("semantic_tag"));
+    // no format either
+    EXPECT_EQ(restored.format(), "");
+
+    gst_structure_free(s);
+    gst_structure_free(restored_s);
+}
+
+TEST_F(SemanticTagTest, ConvertToTensor_CompoundTag_DescriptorUsedForPointNames) {
+    // With compound tag "MyModel/body-pose/coco-17", format extracted is "body-pose/coco-17"
+    // which should match the coco-17 descriptor and provide point_names
+    const auto *desc = coco17_descriptor();
+
+    // Build a 17-keypoint tensor with model_name and valid format
+    GstStructure *s = gst_structure_new_empty(GVA::GST_ANALYTICS_KEYPOINTS_2_TENSOR);
+    GVA::Tensor tensor(s);
+    tensor.set_type(GVA::GST_ANALYTICS_KEYPOINTS_2_TENSOR);
+    tensor.set_model_name("MyModel");
+    tensor.set_format(GST_ANALYTICS_KEYPOINT_BODY_POSE_COCO_17);
+    tensor.set_dims({static_cast<guint>(KEYPOINT_COUNT), static_cast<guint>(KEYPOINT_DIM)});
+    tensor.set_data(KEYPOINT_POSITIONS_NORM, KEYPOINT_COUNT * KEYPOINT_DIM * sizeof(float));
+    tensor.set_precision(GVA::Tensor::Precision::FP32);
+    tensor.set_vector<float>("confidence",
+                             std::vector<float>(KEYPOINT_CONFIDENCES, KEYPOINT_CONFIDENCES + KEYPOINT_COUNT));
+
+    GstStructure *restored_s = roundtrip(s);
+    ASSERT_NE(restored_s, nullptr);
+    GVA::Tensor restored(restored_s);
+
+    // point_names should come from descriptor
+    auto names = restored.get_vector<std::string>("point_names");
+    ASSERT_EQ(names.size(), desc->point_count);
+    for (gsize k = 0; k < desc->point_count; k++) {
+        EXPECT_EQ(names[k], desc->point_names[k]) << "point_name[" << k << "] mismatch";
+    }
+
+    gst_structure_free(s);
+    gst_structure_free(restored_s);
+}
+
+TEST_F(SemanticTagTest, ConvertToTensor_InvalidFormat_NoFormatFieldSet) {
+    // If model_name/format doesn't result in a valid descriptor, format should not be set
+    GstStructure *s = build_kp_tensor("MyModel", "unknown-format");
+    GstStructure *restored_s = roundtrip(s);
+    ASSERT_NE(restored_s, nullptr);
+    GVA::Tensor restored(restored_s);
+
+    // semantic_tag should be stored
+    EXPECT_EQ(restored.get_string("semantic_tag"), "MyModel/unknown-format");
+    // format should NOT be set because descriptor lookup for "unknown-format" fails
+    EXPECT_EQ(restored.format(), "");
+
+    gst_structure_free(s);
+    gst_structure_free(restored_s);
+}
+
+// ─── Classification semantic tag ─────────────────────────────────────────────
+
+TEST_F(SemanticTagTest, Cls_ConvertToMeta_SetsModelNameAsTag) {
+    GstStructure *s = build_classification_structure();
+    GVA::Tensor tensor(s);
+
+    GstAnalyticsClsMtd cls_mtd = {};
+    tensor.convert_to_meta(reinterpret_cast<GstAnalyticsMtd *>(&cls_mtd), rmeta);
+
+    gchar *tag = gst_analytics_mtd_get_semantic_tag(reinterpret_cast<const GstAnalyticsMtd *>(&cls_mtd));
+    ASSERT_NE(tag, nullptr);
+    // model_name = "torch_jit" (from build_classification_structure)
+    EXPECT_STREQ(tag, "torch_jit");
+    g_free(tag);
+    gst_structure_free(s);
+}
+
+TEST_F(SemanticTagTest, Cls_ConvertToTensor_HasSemanticTagField) {
+    GstStructure *s = build_classification_structure();
+    GVA::Tensor tensor(s);
+
+    GstAnalyticsClsMtd cls_mtd = {};
+    tensor.convert_to_meta(reinterpret_cast<GstAnalyticsMtd *>(&cls_mtd), rmeta);
+
+    GstStructure *restored_s = GVA::Tensor::convert_to_tensor(*reinterpret_cast<GstAnalyticsMtd *>(&cls_mtd));
+    ASSERT_NE(restored_s, nullptr);
+    GVA::Tensor restored(restored_s);
+
+    EXPECT_EQ(restored.get_string("semantic_tag"), "torch_jit");
+
+    gst_structure_free(s);
+    gst_structure_free(restored_s);
+}
+
+TEST_F(SemanticTagTest, Cls_NoModelName_NoSemanticTag) {
+    // Build cls tensor without model_name
+    GstStructure *s = gst_structure_new_empty("classification");
+    GVA::Tensor tensor(s);
+    tensor.set_type(GVA::GST_ANALYTICS_CLS_2_TENSOR);
+    tensor.set_string("label", "cat");
+    tensor.set_double("confidence", 0.9);
+
+    GstAnalyticsClsMtd cls_mtd = {};
+    tensor.convert_to_meta(reinterpret_cast<GstAnalyticsMtd *>(&cls_mtd), rmeta);
+
+    // no model_name → no semantic tag set
+    gchar *tag = gst_analytics_mtd_get_semantic_tag(reinterpret_cast<const GstAnalyticsMtd *>(&cls_mtd));
+    EXPECT_TRUE(tag == nullptr || tag[0] == '\0');
+    g_free(tag);
+
+    // roundtrip: no semantic_tag field expected
+    GstStructure *restored_s = GVA::Tensor::convert_to_tensor(*reinterpret_cast<GstAnalyticsMtd *>(&cls_mtd));
+    ASSERT_NE(restored_s, nullptr);
+    GVA::Tensor restored(restored_s);
+    EXPECT_EQ(restored.get_string("semantic_tag"), "");
+
+    gst_structure_free(s);
+    gst_structure_free(restored_s);
+}
+
+TEST_F(SemanticTagTest, Cls_EmptyModelName_NoSemanticTag) {
+    // model_name explicitly set to "" should be treated as absent
+    GstStructure *s = gst_structure_new_empty("classification");
+    GVA::Tensor tensor(s);
+    tensor.set_type(GVA::GST_ANALYTICS_CLS_2_TENSOR);
+    tensor.set_string("label", "dog");
+    tensor.set_double("confidence", 0.85);
+    tensor.set_model_name("");
+
+    GstAnalyticsClsMtd cls_mtd = {};
+    tensor.convert_to_meta(reinterpret_cast<GstAnalyticsMtd *>(&cls_mtd), rmeta);
+
+    gchar *tag = gst_analytics_mtd_get_semantic_tag(reinterpret_cast<const GstAnalyticsMtd *>(&cls_mtd));
+    EXPECT_TRUE(tag == nullptr || tag[0] == '\0');
+    g_free(tag);
+    gst_structure_free(s);
+}
+
+// ─── Group: edge cases ───────────────────────────────────────────────────────
+
+TEST_F(SemanticTagTest, ConvertToMeta_EmptyModelName_OnlyFormat) {
+    // model_name explicitly "" + valid format → tag is just format
+    GstStructure *s = build_kp_tensor(nullptr, GST_ANALYTICS_KEYPOINT_BODY_POSE_COCO_17);
+    GVA::Tensor tensor(s);
+    tensor.set_model_name(""); // explicitly empty
+
+    GstAnalyticsGroupMtd group_mtd = {};
+    tensor.convert_to_meta(reinterpret_cast<GstAnalyticsMtd *>(&group_mtd), rmeta, OD_X, OD_Y, OD_W, OD_H);
+
+    gchar *tag = gst_analytics_mtd_get_semantic_tag(reinterpret_cast<const GstAnalyticsMtd *>(&group_mtd));
+    ASSERT_NE(tag, nullptr);
+    EXPECT_STREQ(tag, GST_ANALYTICS_KEYPOINT_BODY_POSE_COCO_17);
+    g_free(tag);
+    gst_structure_free(s);
+}
+
+TEST_F(SemanticTagTest, ConvertToMeta_ModelNameWithSlashes_CompoundTag) {
+    // model_name contains slashes: "pipeline/pose-model"
+    GstStructure *s = build_kp_tensor("pipeline/pose-model", GST_ANALYTICS_KEYPOINT_BODY_POSE_COCO_17);
+    GVA::Tensor tensor(s);
+
+    GstAnalyticsGroupMtd group_mtd = {};
+    tensor.convert_to_meta(reinterpret_cast<GstAnalyticsMtd *>(&group_mtd), rmeta, OD_X, OD_Y, OD_W, OD_H);
+
+    gchar *tag = gst_analytics_mtd_get_semantic_tag(reinterpret_cast<const GstAnalyticsMtd *>(&group_mtd));
+    ASSERT_NE(tag, nullptr);
+    EXPECT_STREQ(tag, "pipeline/pose-model/body-pose/coco-17");
+    g_free(tag);
+    gst_structure_free(s);
+}
+
+TEST_F(SemanticTagTest, ConvertToTensor_ModelNameWithSlashes_FormatExtracted) {
+    // Roundtrip with multi-slash prefix: find_in_tag should still find the descriptor suffix
+    GstStructure *s = build_kp_tensor("pipeline/pose-model", GST_ANALYTICS_KEYPOINT_BODY_POSE_COCO_17);
+    GstStructure *restored_s = roundtrip(s);
+    ASSERT_NE(restored_s, nullptr);
+    GVA::Tensor restored(restored_s);
+
+    EXPECT_EQ(restored.get_string("semantic_tag"), "pipeline/pose-model/body-pose/coco-17");
+    EXPECT_EQ(restored.format(), GST_ANALYTICS_KEYPOINT_BODY_POSE_COCO_17);
+
+    gst_structure_free(s);
+    gst_structure_free(restored_s);
+}
+
+TEST_F(SemanticTagTest, ConvertToMeta_InvalidFormat_TagStillComposed) {
+    // model_name + unknown format → tag = "Model/custom-fmt" (tag is still set)
+    GstStructure *s = build_kp_tensor("Model", "custom-fmt");
+    GVA::Tensor tensor(s);
+
+    GstAnalyticsGroupMtd group_mtd = {};
+    tensor.convert_to_meta(reinterpret_cast<GstAnalyticsMtd *>(&group_mtd), rmeta, OD_X, OD_Y, OD_W, OD_H);
+
+    gchar *tag = gst_analytics_mtd_get_semantic_tag(reinterpret_cast<const GstAnalyticsMtd *>(&group_mtd));
+    ASSERT_NE(tag, nullptr);
+    EXPECT_STREQ(tag, "Model/custom-fmt");
+    g_free(tag);
+    gst_structure_free(s);
+}
+
+TEST_F(SemanticTagTest, ConvertToMeta_InvalidFormatOnly_TagIsFormat) {
+    // no model_name + unknown format → tag is just the format string
+    GstStructure *s = build_kp_tensor(nullptr, "my-custom-format");
+    GVA::Tensor tensor(s);
+
+    GstAnalyticsGroupMtd group_mtd = {};
+    tensor.convert_to_meta(reinterpret_cast<GstAnalyticsMtd *>(&group_mtd), rmeta, OD_X, OD_Y, OD_W, OD_H);
+
+    gchar *tag = gst_analytics_mtd_get_semantic_tag(reinterpret_cast<const GstAnalyticsMtd *>(&group_mtd));
+    ASSERT_NE(tag, nullptr);
+    EXPECT_STREQ(tag, "my-custom-format");
+    g_free(tag);
+    gst_structure_free(s);
+}
+
+TEST_F(SemanticTagTest, ConvertToTensor_InvalidFormatOnly_SemanticTagStoredNoFormat) {
+    // Roundtrip: unknown format without model_name → semantic_tag stored, format empty
+    GstStructure *s = build_kp_tensor(nullptr, "my-custom-format");
+    GstStructure *restored_s = roundtrip(s);
+    ASSERT_NE(restored_s, nullptr);
+    GVA::Tensor restored(restored_s);
+
+    EXPECT_EQ(restored.get_string("semantic_tag"), "my-custom-format");
+    EXPECT_EQ(restored.format(), "");
+
+    gst_structure_free(s);
+    gst_structure_free(restored_s);
+}
+
+TEST_F(SemanticTagTest, ConvertToTensor_ModelNameNotRestoredFromTag) {
+    // Verify that model_name is NOT auto-reconstructed from semantic_tag
+    GstStructure *s = build_kp_tensor("OrigModel", GST_ANALYTICS_KEYPOINT_BODY_POSE_COCO_17);
+    GstStructure *restored_s = roundtrip(s);
+    ASSERT_NE(restored_s, nullptr);
+    GVA::Tensor restored(restored_s);
+
+    // model_name should not be set on the restored tensor
+    EXPECT_EQ(restored.model_name(), "");
+    // but semantic_tag contains the full info
+    std::string expected = std::string("OrigModel/") + GST_ANALYTICS_KEYPOINT_BODY_POSE_COCO_17;
+    EXPECT_EQ(restored.get_string("semantic_tag"), expected);
 
     gst_structure_free(s);
     gst_structure_free(restored_s);

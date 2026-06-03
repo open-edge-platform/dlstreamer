@@ -10,6 +10,7 @@
 #include "gva_base_inference.h"
 #include "gva_utils.h"
 #include "processor_types.h"
+#include <dlstreamer/gst/videoanalytics/tensor.h>
 #include <gst/analytics/analytics.h>
 
 #include <exception>
@@ -119,6 +120,9 @@ void ROIToFrameAttacher::attach(const TensorsTable &tensors, FramesWrapper &fram
                                                                  class_quarks.data(), &cls_descriptor_mtd)) {
                         throw std::runtime_error("Failed to add class descriptor to meta");
                     }
+                    // Mark as class descriptor so it can be filtered out from frame-level tensors
+                    gst_analytics_mtd_set_semantic_tag(reinterpret_cast<GstAnalyticsMtd *>(&cls_descriptor_mtd),
+                                                       "class_descriptor");
                 }
             }
 
@@ -129,6 +133,12 @@ void ROIToFrameAttacher::attach(const TensorsTable &tensors, FramesWrapper &fram
             if (!gst_analytics_relation_meta_add_oriented_od_mtd(relation_meta, gquark_label, x_abs, y_abs, w_abs,
                                                                  h_abs, rotation, conf, &od_mtd)) {
                 throw std::runtime_error("Failed to add detection data to meta");
+            }
+
+            // Set semantic tag on OD mtd from model_name
+            const std::string &od_model_name = blob_to_meta.getModelName();
+            if (!od_model_name.empty()) {
+                gst_analytics_mtd_set_semantic_tag(reinterpret_cast<GstAnalyticsMtd *>(&od_mtd), od_model_name.c_str());
             }
 
             if (label && cls_descriptor_mtd.meta == relation_meta) {
@@ -142,7 +152,7 @@ void ROIToFrameAttacher::attach(const TensorsTable &tensors, FramesWrapper &fram
             for (size_t k = 0; k < tensor[j].size(); k++) {
                 GstAnalyticsMtd tensor_mtd;
                 GVA::Tensor gva_tensor(tensor[j][k]);
-                if (gva_tensor.convert_to_meta(&tensor_mtd, &od_mtd, relation_meta)) {
+                if (gva_tensor.convert_to_meta(&tensor_mtd, relation_meta, x_abs, y_abs, w_abs, h_abs)) {
                     if (!gst_analytics_relation_meta_set_relation(relation_meta, GST_ANALYTICS_REL_TYPE_CONTAIN,
                                                                   od_mtd.id, tensor_mtd.id)) {
                         throw std::runtime_error(
@@ -204,16 +214,33 @@ void TensorToFrameAttacher::attach(const TensorsTable &tensors_batch, FramesWrap
 
     for (size_t i = 0; i < frames.size(); ++i) {
         GstBuffer **writable_buffer = &frames[i].buffer;
+        GstAnalyticsRelationMeta *relation_meta = nullptr;
 
         for (std::vector<GstStructure *> tensor_data : tensors_batch[i]) {
             gva_buffer_check_and_make_writable(writable_buffer, PRETTY_FUNCTION_NAME);
+
+            assert(tensor_data.size() == 1);
+
+            // Attach GStreamer Analytics metadata for supported tensor types
+            GVA::Tensor gva_tensor(tensor_data[0]);
+
+            if (!relation_meta) {
+                relation_meta = gst_buffer_add_analytics_relation_meta(*writable_buffer);
+            }
+
+            if (relation_meta) {
+                GstAnalyticsMtd mtd;
+                (void)gva_tensor.convert_to_meta(&mtd, relation_meta, 0, 0, static_cast<gint>(frames[i].width),
+                                                 static_cast<gint>(frames[i].height));
+            }
+
+            // Legacy: create GstGVATensorMeta
             GstGVATensorMeta *tensor = GST_GVA_TENSOR_META_ADD(*writable_buffer);
             /* Tensor Meta already creates GstStructure during initialization */
             /* TODO: reduce amount of GstStructures copy from loading model-proc till attaching meta */
             if (tensor->data) {
                 gst_structure_free(tensor->data);
             }
-            assert(tensor_data.size() == 1);
             tensor->data = tensor_data[0];
             gst_structure_set(tensor->data, "element_id", G_TYPE_STRING, frames[i].model_instance_id.c_str(), NULL);
         }
@@ -241,8 +268,8 @@ void TensorToROIAttacher::attach(const TensorsTable &tensors_batch, FramesWrappe
             std::vector<gfloat> confidence_levels(length, 0.0f);
             std::vector<GQuark> class_quarks(length, 0);
 
-            for (size_t i = 0; i < length; i++) {
-                class_quarks[i] = g_quark_from_string(labels[i].c_str());
+            for (size_t k = 0; k < length; k++) {
+                class_quarks[k] = g_quark_from_string(labels[k].c_str());
             }
 
             // find or create class descriptor metadata
@@ -270,12 +297,15 @@ void TensorToROIAttacher::attach(const TensorsTable &tensors_batch, FramesWrappe
                 }
             }
 
-            // create class descriptor if one does not exists
+            // create class descriptor if one does not exist
             if (!found) {
                 if (!gst_analytics_relation_meta_add_cls_mtd(od_meta.meta, length, confidence_levels.data(),
                                                              class_quarks.data(), &cls_descriptor_mtd)) {
                     throw std::runtime_error("Failed to add class descriptor to meta");
                 }
+                // Mark as class descriptor so it can be filtered out from frame-level tensors
+                gst_analytics_mtd_set_semantic_tag(reinterpret_cast<GstAnalyticsMtd *>(&cls_descriptor_mtd),
+                                                   "class_descriptor");
             }
         }
 
@@ -283,7 +313,10 @@ void TensorToROIAttacher::attach(const TensorsTable &tensors_batch, FramesWrappe
             assert(tensor_data.size() == 1);
             GstAnalyticsMtd tensor_mtd;
             GVA::Tensor gva_tensor(tensor_data[0]);
-            if (gva_tensor.convert_to_meta(&tensor_mtd, &od_meta, od_meta.meta)) {
+            gint od_x, od_y, od_w, od_h;
+            gfloat od_c;
+            gst_analytics_od_mtd_get_location(&od_meta, &od_x, &od_y, &od_w, &od_h, &od_c);
+            if (gva_tensor.convert_to_meta(&tensor_mtd, od_meta.meta, od_x, od_y, od_w, od_h)) {
                 if (!gst_analytics_relation_meta_set_relation(od_meta.meta, GST_ANALYTICS_REL_TYPE_CONTAIN, od_meta.id,
                                                               tensor_mtd.id)) {
                     throw std::runtime_error(
@@ -334,6 +367,17 @@ GstVideoRegionOfInterestMeta *FrameToExistingROIsTensorAttacher::findROIMeta(Gst
     return nullptr;
 }
 
+bool FrameToExistingROIsTensorAttacher::findODMeta(GstBuffer *buffer, gint roi_id, GstAnalyticsODMtd *od_mtd) {
+    if (!buffer)
+        return false;
+
+    GstAnalyticsRelationMeta *relation_meta = gst_buffer_get_analytics_relation_meta(buffer);
+    if (!relation_meta)
+        return false;
+
+    return gst_analytics_relation_meta_get_od_mtd(relation_meta, roi_id, od_mtd);
+}
+
 void FrameToExistingROIsTensorAttacher::attach(const TensorsTable &tensors_batch, FramesWrapper &frames,
                                                const BlobToMetaConverter &) {
     checkFramesAndTensorsTable(frames, tensors_batch);
@@ -382,6 +426,19 @@ void FrameToExistingROIsTensorAttacher::attach(const TensorsTable &tensors_batch
                 gst_structure_free(metrics_structure);
                 gst_structure_free(label_structure);
                 continue;
+            }
+
+            // Analytics: convert label tensor to GstAnalyticsClsMtd and attach to matching ODMtd
+            GstAnalyticsODMtd od_mtd;
+            if (findODMeta(buffer, roi_id, &od_mtd)) {
+                GVA::Tensor gva_label_tensor(label_structure);
+                GstAnalyticsMtd tensor_mtd;
+                if (gva_label_tensor.convert_to_meta(&tensor_mtd, od_mtd.meta)) {
+                    gst_analytics_relation_meta_set_relation(od_mtd.meta, GST_ANALYTICS_REL_TYPE_CONTAIN, od_mtd.id,
+                                                             tensor_mtd.id);
+                    gst_analytics_relation_meta_set_relation(od_mtd.meta, GST_ANALYTICS_REL_TYPE_IS_PART_OF,
+                                                             tensor_mtd.id, od_mtd.id);
+                }
             }
 
             gst_video_region_of_interest_meta_add_param(writable_roi_meta, metrics_structure);

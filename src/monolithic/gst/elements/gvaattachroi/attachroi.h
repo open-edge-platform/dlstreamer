@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2018-2025 Intel Corporation
+ * Copyright (C) 2018-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -24,7 +24,7 @@ class AttachRoi {
   public:
     AttachRoi(const char *filepath, const char *roi_str, Mode mode);
 
-    void attachMetas(GVA::VideoFrame &vframe, GstClockTime timestamp);
+    void attachMetas(GVA::VideoFrame &vframe, GstBuffer *buffer, GstClockTime timestamp);
 
   private:
     void loadJsonFromFile(const char *filepath);
@@ -32,7 +32,7 @@ class AttachRoi {
 
     void addStaticRoi(GVA::VideoFrame &vframe) const;
     void addRoiFromJson(GVA::VideoFrame &vframe, GstClockTime timestamp) const;
-    void addTensorFromJson(GVA::VideoFrame &vframe, GstClockTime timestamp) const;
+    void addTensorFromJson(GVA::VideoFrame &vframe, GstBuffer *buffer, GstClockTime timestamp) const;
 
     std::pair<bool, size_t> findJsonIndex(GstClockTime timestamp) const;
 

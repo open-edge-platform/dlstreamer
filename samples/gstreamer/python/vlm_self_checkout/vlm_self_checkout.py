@@ -21,7 +21,6 @@ import signal
 import subprocess
 import sys
 import time
-import urllib.request
 from pathlib import Path
 
 import gi
@@ -30,6 +29,9 @@ gi.require_version("Gst", "1.0")
 gi.require_version("GstAnalytics", "1.0")
 gi.require_version("GObject", "2.0")
 from gi.repository import Gst, GLib, GObject, GstAnalytics  # pylint: disable=no-name-in-module, wrong-import-position
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+from shared_utils import download_https  # pylint: disable=wrong-import-position
 
 class GenaiSignalBridge(GObject.Object):
     """
@@ -156,6 +158,7 @@ DEFAULT_VIDEO_URL = (
     "https://www.pexels.com/download/video/35256160"
 )
 
+
 def download_video(video_url: str) -> Path:
     """Return a local video path, downloading from URL if needed."""
     VIDEOS_DIR.mkdir(parents=True, exist_ok=True)
@@ -165,13 +168,7 @@ def download_video(video_url: str) -> Path:
 
     local_path = VIDEOS_DIR / filename
     if not local_path.exists():
-        request = urllib.request.Request(video_url, headers={"User-Agent": "Mozilla/5.0"})
-        with urllib.request.urlopen(request, timeout=60) as response:
-            data = response.read()
-            if not data:
-                raise RuntimeError("Video download returned empty response")
-            with open(local_path, "wb") as fh:
-                fh.write(data)
+        download_https(video_url, local_path, {"www.pexels.com"})
 
     return local_path.resolve()
 

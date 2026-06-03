@@ -1,0 +1,3 @@
+# Runtime dependencies for safety_compliance app (lightweight)
+numpy
+PyGObject==3.50.0

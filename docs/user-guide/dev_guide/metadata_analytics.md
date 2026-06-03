@@ -37,7 +37,8 @@ detected object:
 ```
 gvadetect post-processor
   │
-  └─ GstAnalyticsODMtd (label="car", x, y, w, h, confidence=0.92)
+  └─ GstAnalyticsODMtd (label="car", x, y, w, h, confidence=0.92,
+                        semantic_tag="yolov26n")
 ```
 
 If the model has additional output heads (e.g., classification attributes or
@@ -45,8 +46,9 @@ keypoints), `gvadetect` attaches them to the detection via `CONTAIN`
 relations:
 
 ```
-  ODMtd (label="person") ─CONTAIN→ ClsMtd (label="male", confidence=0.87)
-                          ─CONTAIN→ GroupMtd (semantic_tag="body-pose/coco-17")
+  ODMtd (label="vehicle", semantic_tag="multi-head-model")
+    ─CONTAIN→ ClsMtd (label="red", confidence=0.87, semantic_tag="multi-head-model")
+    ─CONTAIN→ GroupMtd (semantic_tag="multi-head-model/body-pose/coco-17")
                                       ├─CONTAIN→ KeypointMtd (point 0)
                                       ├─CONTAIN→ KeypointMtd (point 1)
                                       └─ ...
@@ -58,24 +60,27 @@ A typical two-stage pipeline `gvadetect ! gvaclassify` produces:
 
 ```
 gvadetect
-  └─ ODMtd (label="person", x, y, w, h, confidence)
+  └─ ODMtd (label="person", x, y, w, h, confidence,
+            semantic_tag="yolov26n")
 
 gvaclassify (inference-region=roi-list)
-  └─ ODMtd ─CONTAIN→ ClsMtd (label="wearing_hat", confidence=0.95)
+  └─ ODMtd ─CONTAIN→ ClsMtd (label="wearing_hat", confidence=0.95,
+                              semantic_tag="hat-classifier")
 ```
 
 The classification result is attached to the existing `ODMtd` via a
 `CONTAIN` relation.
 
-`gvaclassify` can also attach keypoints when using a pose estimation model
-as a second stage (per-ROI inference):
+`gvaclassify` can also attach keypoints when using a keypoint model (e.g.,
+pose estimation, facial landmarks) as a second stage (per-ROI inference):
 
 ```
 gvadetect
-  └─ ODMtd (label="person", x, y, w, h, confidence)
+  └─ ODMtd (label="person", x, y, w, h, confidence,
+            semantic_tag="yolov26n")
 
 gvaclassify (inference-region=roi-list, model=pose_model)
-  └─ ODMtd ─CONTAIN→ GroupMtd (semantic_tag="body-pose/coco-17")
+  └─ ODMtd ─CONTAIN→ GroupMtd (semantic_tag="pose_model/body-pose/coco-17")
                         ├─CONTAIN→ KeypointMtd (point 0)
                         ├─CONTAIN→ KeypointMtd (point 1)
                         └─ ...
@@ -87,7 +92,8 @@ After `gvadetect ! gvatrack`:
 
 ```
 gvadetect
-  └─ ODMtd (label="car", x, y, w, h, confidence)
+  └─ ODMtd (label="car", x, y, w, h, confidence,
+            semantic_tag="yolov26n")
 
 gvatrack
   └─ ODMtd ─RELATE_TO→ TrackingMtd (id=42, first_seen, last_seen)
@@ -103,7 +109,8 @@ After `gvadetect ! gvatrack ! gvaanalytics`:
 
 ```
 gvadetect
-  └─ ODMtd (label="car", x, y, w, h, confidence)
+  └─ ODMtd (label="car", x, y, w, h, confidence,
+            semantic_tag="yolov26n")
 
 gvatrack
   └─ ODMtd ─RELATE_TO→ TrackingMtd (id=42, first_seen, last_seen)
@@ -123,9 +130,9 @@ detected on that frame).
 output as `zone_violations` (array of zone ID strings) and
 `tripwire_crossings` (array of `{"tripwire_id": ..., "direction": ...}` objects).
 
-### Object detection + keypoints (pose estimation)
+### Object detection + keypoints
 
-When a pose estimation model runs through `gvadetect`:
+When a keypoint model (e.g., pose estimation) runs through `gvadetect`:
 
 ```
 gvadetect post-processor
@@ -136,7 +143,7 @@ gvadetect post-processor
   │     → 17 point names, 18 skeleton edges
   │
   ├─ gst_analytics_relation_meta_add_keypoints_group(...)
-  │     → GstAnalyticsGroupMtd(semantic_tag="body-pose/coco-17")
+  │     → GstAnalyticsGroupMtd(semantic_tag="pose_model/body-pose/coco-17")
   │        ├─ 17 × GstAnalyticsKeypointMtd (pixel positions + confidence)
   │        └─ RELATE_TO relations (skeleton connections)
   │
@@ -146,6 +153,71 @@ gvadetect post-processor
 The `GstAnalyticsGroupMtd` groups individual keypoints together and carries
 the semantic tag that identifies the keypoint layout. Skeleton connections
 between keypoints are stored as `RELATE_TO` relations within the group.
+
+### Full-frame classification
+
+When `gvaclassify` runs with `inference-region=full-frame`, classification
+results are stored directly in `GstAnalyticsRelationMeta` without a parent
+`ODMtd`:
+
+```
+gvaclassify (inference-region=full-frame, model=densenet-121)
+  │
+  └─ GstAnalyticsRelationMeta
+       └─ ClsMtd (label="golden_retriever", confidence=0.92,
+                  semantic_tag="densenet-121")
+```
+
+The `ClsMtd` is **not** CONTAIN-ed by any `ODMtd` — it exists at the frame
+level.
+
+When multiple full-frame classification models are chained:
+
+```
+gvaclassify (model=densenet-121) ! gvaclassify (model=emotion-recognition)
+  │
+  └─ GstAnalyticsRelationMeta
+       ├─ ClsMtd (label="golden_retriever", semantic_tag="densenet-121")
+       └─ ClsMtd (label="happy", semantic_tag="emotion-recognition")
+```
+
+### Full-frame keypoints
+
+When `gvaclassify` runs with `inference-region=full-frame` and a model that
+produces keypoints (e.g., pose estimation, facial landmarks), keypoint groups
+are stored at the frame level:
+
+```
+gvaclassify (inference-region=full-frame, model=single-person-pose)
+  │
+  └─ GstAnalyticsRelationMeta
+       └─ GroupMtd (semantic_tag="single-person-pose/body-pose/coco-17")
+            ├─CONTAIN→ KeypointMtd (point 0, x, y, confidence)
+            ├─CONTAIN→ KeypointMtd (point 1, x, y, confidence)
+            └─ RELATE_TO relations (skeleton connections)
+```
+
+Frame-level keypoint groups are identified by not being CONTAIN-ed by any
+`ODMtd`.
+
+### Semantic tag
+
+All `GstAnalyticsMtd` entries support a generic `semantic_tag` string via:
+
+- `gst_analytics_mtd_set_semantic_tag(mtd, tag)` — set the tag
+- `gst_analytics_mtd_get_semantic_tag(mtd)` — get the tag (caller frees)
+
+DL Streamer uses semantic tags to:
+
+| Metadata type | Tag format | Example |
+|---|---|---|
+| `ODMtd` | model name | `"yolov26n"` |
+| `ClsMtd` | model name | `"densenet-121"` |
+| `GroupMtd` (keypoints) | `model_name/keypoint_format` | `"hrnet/body-pose/coco-17"` |
+
+The semantic tag enables downstream elements to distinguish metadata
+produced by different models. For keypoint groups, it additionally identifies
+the keypoint layout (descriptor format).
 
 ## GstAnalyticsZoneMtd
 
@@ -287,7 +359,8 @@ typedef struct {
 
 | Function | Description |
 |----------|-------------|
-| `gst_analytics_keypoint_descriptor_lookup(semantic_tag)` | Find a built-in descriptor by its semantic tag. Returns `NULL` if not found. |
+| `gst_analytics_keypoint_descriptor_lookup(semantic_tag)` | Find a built-in descriptor by its semantic tag (e.g., `"body-pose/coco-17"`). Returns `NULL` if not found. |
+| `gst_analytics_keypoint_descriptor_find_in_tag(tag, &format_start)` | Search for a known descriptor format inside a composite tag (e.g., `"hrnet/body-pose/coco-17"`). Sets `format_start` to the offset where the format begins. Returns the descriptor or `NULL`. |
 | `gst_analytics_keypoint_descriptor_get_point_name(desc, index)` | Get point name at index (Python bindings only). |
 | `gst_analytics_keypoint_descriptor_get_skeleton_connection(desc, index, &from, &to)` | Get skeleton edge at index (Python bindings only). |
 
@@ -366,9 +439,10 @@ When downstream code needs to interpret keypoint metadata (e.g.,
    any descriptor lookup.
 3. If human-readable **point names** are needed (e.g., labelling "nose",
    "eye_l" on an overlay), the consumer reads the `semantic_tag` from the
-   `GstAnalyticsGroupMtd` and calls
-   `gst_analytics_keypoint_descriptor_lookup(semantic_tag)` to obtain the
-   descriptor's `point_names` array.
+   `GstAnalyticsGroupMtd` (which has the format `"model_name/keypoint_format"`,
+   e.g., `"hrnet/body-pose/coco-17"`) and calls
+   `gst_analytics_keypoint_descriptor_find_in_tag(tag, &format_start)` to
+   locate and return the matching descriptor.
 
 In other words, the descriptor is **not required** to draw the skeleton — the
 relation graph already carries that information. The descriptor is only
@@ -387,7 +461,7 @@ necessary when you need semantic labels for individual keypoints.
 |                                                           |
 |  Output on buffer:                                        |
 |    GstAnalyticsRelationMeta                               |
-|      +-- GroupMtd (semantic_tag="body-pose/coco-17")      |
+|      +-- GroupMtd (semantic_tag="model/body-pose/coco-17")|
 |           +-- KeypointMtd[0] (nose, x=320, y=180)         |
 |           +-- KeypointMtd[1] (eye_l, x=310, y=170)        |
 |           +-- ...                                         |
@@ -404,7 +478,7 @@ necessary when you need semantic labels for individual keypoints.
 |       draw skeleton line between connected keypoints      |
 |  3. (optional) if labels needed:                          |
 |       tag = group.get_semantic_tag()                      |
-|       descriptor = lookup(tag)                            |
+|       descriptor = find_in_tag(tag, &format_start)        |
 |       name = descriptor->point_names[index]               |
 +-----------------------------------------------------------+
 ```

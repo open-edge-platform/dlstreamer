@@ -125,6 +125,7 @@ RUN \
     tabulate==0.9.0 \
     tqdm==4.67.1 \
     junit-xml==1.9 \
+    defusedxml==0.7.1 \
     opencv-python==4.11.0.86 \
     XlsxWriter==3.2.0 \
     zxing-cpp==2.2.0 \
@@ -373,6 +374,8 @@ COPY --from=gstreamer-builder ${GSTREAMER_DIR} ${GSTREAMER_DIR}
 COPY --from=opencv-builder /usr/local/include/opencv4 /usr/local/include/opencv4
 COPY --from=opencv-builder /copy_libs/ /usr/local/lib/
 COPY --from=opencv-builder /usr/local/lib/cmake/opencv4 /usr/local/lib/cmake/opencv4
+COPY --from=opencv-builder /usr/local/lib/pkgconfig/opencv4.pc /usr/local/lib/pkgconfig/
+COPY --from=opencv-builder /usr/local/share/opencv4/ /usr/local/share/opencv4/
 COPY --from=kafka-builder /usr/local/include/librdkafka /usr/local/include/librdkafka
 COPY --from=kafka-builder /copy_libs/ /usr/local/lib/
 COPY --from=realsense-builder /copy_libs/ /usr/local/lib/

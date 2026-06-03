@@ -88,6 +88,11 @@ detection, sound classification, semantic segmentation, and other use
 cases: SSD, MobileNet, YOLO, Tiny YOLO, EfficientDet, ResNet,
 FasterRCNN, and other models.
 
+**DL Streamer** incorporates [GStreamer\* Analytics](https://gstreamer.freedesktop.org/documentation/analytics/index.html)
+metadata library as the primary method for presenting inference results.
+Find out more at [discourse.gstreamer.org](https://discourse.gstreamer.org/t/gstanalytics-adoption-in-dlstreamer-implementation-status-and-questions/5820)
+and in [the documentation](./dev_guide/metadata.md).
+
 **DL Streamer** provides over two dozen samples, demos and
 reference apps for the most common media analytics use cases. They are
 included in

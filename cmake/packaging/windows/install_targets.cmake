@@ -156,7 +156,7 @@ install(FILES ${CMAKE_BINARY_DIR}/gstreamer.txt
     COMPONENT c00_gstreamer
 )
 install(DIRECTORY ${CMAKE_SOURCE_DIR}/dependencies/windows
-    DESTINATION deps
+    DESTINATION dependencies
     COMPONENT c00_gstreamer
 )
 

@@ -132,6 +132,58 @@ const GstAnalyticsKeypointDescriptor *gst_analytics_keypoint_descriptor_lookup(c
 }
 
 /**
+ * gst_analytics_keypoint_descriptor_find_in_tag:
+ * @tag: A semantic tag string that may contain a known keypoint format
+ *   as a suffix (e.g. "Model0/body-pose/coco-17").
+ * @format_start: (out) (optional) (transfer none): If not %NULL, set to
+ *   point within @tag where the matched format begins.
+ *
+ * Search all built-in keypoint descriptors for one whose semantic tag
+ * appears as a suffix of @tag, aligned to a '/' boundary or matching
+ * the full string.  For example, given @tag = "Model0/body-pose/coco-17",
+ * this will match the descriptor with semantic_tag "body-pose/coco-17"
+ * and set @format_start to point to "body-pose/coco-17" within @tag.
+ *
+ * Returns: (transfer none) (nullable): the matching
+ *   #GstAnalyticsKeypointDescriptor, or %NULL if not found.
+ */
+const GstAnalyticsKeypointDescriptor *gst_analytics_keypoint_descriptor_find_in_tag(const gchar *tag,
+                                                                                    const gchar **format_start) {
+    if (!tag || tag[0] == '\0') {
+        if (format_start)
+            *format_start = NULL;
+        return NULL;
+    }
+
+    gsize tag_len = strlen(tag);
+
+    for (const GstAnalyticsKeypointDescriptor *const *it = _descriptors; *it; ++it) {
+        const gchar *st = (*it)->semantic_tag;
+        if (!st)
+            continue;
+        gsize st_len = strlen(st);
+        if (st_len > tag_len)
+            continue;
+
+        /* Check if tag ends with the descriptor's semantic_tag */
+        const gchar *suffix = tag + tag_len - st_len;
+        if (strcmp(suffix, st) != 0)
+            continue;
+
+        /* Must match full string or be preceded by '/' */
+        if (suffix == tag || *(suffix - 1) == '/') {
+            if (format_start)
+                *format_start = suffix;
+            return *it;
+        }
+    }
+
+    if (format_start)
+        *format_start = NULL;
+    return NULL;
+}
+
+/**
  * gst_analytics_keypoint_descriptor_get_point_name:
  * @desc: a #GstAnalyticsKeypointDescriptor
  * @index: index of the keypoint (must be less than the point count)

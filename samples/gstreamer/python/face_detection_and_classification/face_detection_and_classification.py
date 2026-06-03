@@ -6,10 +6,15 @@
 import sys
 import os
 import subprocess
-import urllib.request
 
 from huggingface_hub import hf_hub_download
 from ultralytics import YOLO
+
+sys.path.insert(
+    0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+)
+# pylint: disable-next=wrong-import-position
+from shared_utils import download_https, resolve_hf_revision
 
 import gi
 
@@ -17,6 +22,9 @@ gi.require_version("Gst", "1.0")
 gi.require_version("GstAnalytics", "1.0")
 # pylint: disable-next=no-name-in-module, wrong-import-position
 from gi.repository import Gst
+
+DEFAULT_VIDEO_URL = "https://videos.pexels.com/video-files/18553046/18553046-hd_1280_720_30fps.mp4"
+YOLO_FACE_REPO_ID = "arnabdhar/YOLOv8-Face-Detection"
 
 
 def get_runtime_dir():
@@ -39,18 +47,10 @@ def prepare_input_video(args):
             sys.stderr.write("Input video file does not exist\n")
             sys.exit(1)
     else:
-        default_video_url = "https://videos.pexels.com/video-files/18553046/18553046-hd_1280_720_30fps.mp4"
         input_video = os.path.join(runtime_dir, "default_video.mp4")
         if not os.path.isfile(input_video):
             print("\nNo input provided. Downloading default video...\n")
-            request = urllib.request.Request(
-                default_video_url,
-                headers={"User-Agent": "Mozilla/5.0"},
-            )
-            with urllib.request.urlopen(request) as response, open(
-                input_video, "wb"
-            ) as output:
-                output.write(response.read())
+            download_https(DEFAULT_VIDEO_URL, input_video, {"videos.pexels.com"})
 
     return input_video
 
@@ -93,9 +93,10 @@ def main(input_video):
             "\nDownloading the detection model and converting to OpenVINO IR format...\n"
         )
         model_path = hf_hub_download(
-            repo_id="arnabdhar/YOLOv8-Face-Detection",
+            repo_id=YOLO_FACE_REPO_ID,
             filename="model.pt",
             local_dir=runtime_dir,
+            revision=resolve_hf_revision(YOLO_FACE_REPO_ID),
         )
 
         model = YOLO(str(model_path))

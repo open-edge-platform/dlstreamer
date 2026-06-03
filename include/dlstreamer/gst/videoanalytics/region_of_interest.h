@@ -12,10 +12,11 @@
 
 #pragma once
 
-#include "../metadata/gstanalyticskeypointmtd.h"
 #include "../metadata/gva_tripwire_meta.h"
 #include "../metadata/gva_zone_meta.h"
 #include "tensor.h"
+
+#include <gst/analytics/gstanalyticskeypointmtd.h>
 
 #include <cstdint>
 #include <gst/analytics/analytics.h>
@@ -206,7 +207,10 @@ class RegionOfInterest {
         gst_video_region_of_interest_meta_add_param(_gst_meta, s);
 
         GstAnalyticsMtd tensor_mtd;
-        if (tensor.convert_to_meta(&tensor_mtd, &_od_meta, _od_meta.meta)) {
+        gint od_x, od_y, od_w, od_h;
+        gfloat od_c;
+        gst_analytics_od_mtd_get_location(&_od_meta, &od_x, &od_y, &od_w, &od_h, &od_c);
+        if (tensor.convert_to_meta(&tensor_mtd, _od_meta.meta, od_x, od_y, od_w, od_h)) {
             if (!gst_analytics_relation_meta_set_relation(_od_meta.meta, GST_ANALYTICS_REL_TYPE_CONTAIN, _od_meta.id,
                                                           tensor_mtd.id)) {
                 throw std::runtime_error(
@@ -255,6 +259,14 @@ class RegionOfInterest {
                     nullptr, &cls_descriptor_mtd)) {
                 return 0;
             }
+
+            // Verify this is actually a class descriptor by checking semantic tag
+            gchar *desc_tag =
+                gst_analytics_mtd_get_semantic_tag(reinterpret_cast<GstAnalyticsMtd *>(&cls_descriptor_mtd));
+            bool is_descriptor = desc_tag && strcmp(desc_tag, "class_descriptor") == 0;
+            g_free(desc_tag);
+            if (!is_descriptor)
+                return 0;
 
             gint label_id = gst_analytics_cls_mtd_get_index_by_quark(&cls_descriptor_mtd, label);
             if (label_id < 0) {
@@ -392,7 +404,10 @@ class RegionOfInterest {
 
         GVA::Tensor tensor(s);
         GstAnalyticsMtd tensor_mtd;
-        if (tensor.convert_to_meta(&tensor_mtd, &_od_meta, _od_meta.meta)) {
+        gint od_x, od_y, od_w, od_h;
+        gfloat od_c;
+        gst_analytics_od_mtd_get_location(&_od_meta, &od_x, &od_y, &od_w, &od_h, &od_c);
+        if (tensor.convert_to_meta(&tensor_mtd, _od_meta.meta, od_x, od_y, od_w, od_h)) {
             if (!gst_analytics_relation_meta_set_relation(_od_meta.meta, GST_ANALYTICS_REL_TYPE_CONTAIN, _od_meta.id,
                                                           tensor_mtd.id)) {
                 throw std::runtime_error(
