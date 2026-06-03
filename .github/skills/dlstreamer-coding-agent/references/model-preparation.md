@@ -105,6 +105,7 @@ optimum-cli export openvino --model <model_id> --weight-format int4 <output_dir>
 
 ```python
 import subprocess
+from huggingface_hub import snapshot_download
 subprocess.run([
     "optimum-cli", "export", "openvino",
     "--model", "dima806/fairface_age_image_detection",
@@ -157,14 +158,15 @@ optimum-cli export openvino \
 ```
 
 ```python
-import subprocess
-subprocess.run([
-    "optimum-cli", "export", "openvino",
-    "--model", model_id,                 # e.g. "OpenGVLab/InternVL3_5-2B"
-    "--task", "image-text-to-text",
-    "--trust-remote-code",
-    str(output_dir),
-], check=True)
+from optimum.exporters.openvino import main_export
+
+main_export(
+    model_name_or_path=model_id,  # e.g. "OpenGVLab/InternVL3_5-2B"
+    output=output_dir,
+    task="image-text-to-text",
+    trust_remote_code=True,
+    weight_format="int4",
+)
 ```
 
 Source: `samples/gstreamer/python/vlm_alerts/vlm_alerts.py`
@@ -185,11 +187,7 @@ Recommended small models for edge: `OpenGVLab/InternVL3_5-2B`, `openbmb/MiniCPM-
 import subprocess
 
 # Step 1: Download entire model repo (contains inference.json + inference.pdiparams)
-subprocess.run([
-    sys.executable, "-c",
-    f"from huggingface_hub import snapshot_download; "
-    f"snapshot_download(repo_id='{model_id}', local_dir='{paddle_dir}')"
-], check=True)
+snapshot_download(repo_id=model_id, local_dir=str(paddle_dir))
 
 # Step 2: paddle2onnx — PaddlePaddle PIR → ONNX
 subprocess.run([

@@ -1,6 +1,9 @@
 ---
 name: dlstreamer-coding-agent
 description: "Build new DL Streamer video-analytics applications (Python, C, C++ or GStreamer command line). Use when: user describes a vision AI pipeline, wants to create a new sample app, combine elements from existing samples, add detection/classification/VLM/tracking/alerts/recording to a video pipeline, or create custom GStreamer elements in Python or C++. Translates natural-language pipeline descriptions into working DL Streamer code using established design patterns."
+permissions:
+  - write
+  - command
 ---
 
 # DL Streamer Coding Agent
@@ -69,6 +72,11 @@ Parallelization rules:
 - Step 4 (generate app) depends on Step 3 (pipeline design) completing
 - Step 5 (run and validate) depends on Steps 1, 2c, and 4 all completing
 
+Safety rules for autonomous execution:
+- Before running any command that installs packages, downloads external content, or modifies/deletes files, show the exact command and request explicit user confirmation in chat.
+- Never interpolate raw user input into shell commands. Use validated allowlists and fixed argument templates.
+- Restrict file operations to the sample application directory unless the user explicitly approves a wider scope.
+
 ### Reference Lookup
 
 Each reference document is used in **one primary step** to avoid redundant reads:
@@ -95,7 +103,8 @@ If a match is found:
   values to the user for confirmation (skip the full
   [Requirements Questionnaire](./references/questionnaire.md) unless info is still missing)
 3. If all required fields were explicitly provided by the user (not inferred), skip
-  confirmation and proceed directly to Step 1
+  requirement-field confirmation, but still request explicit user approval before
+  running any command in Steps 1–2
 4. After the user confirms (or overrides), read **only** the design patterns,
    reference sections, and model-preparation sections needed for the confirmed selections
 5. Proceed to Steps 1–5
