@@ -537,11 +537,11 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
         """Suppress default HTTP request logging."""
 
 
-def start_web_ui(port: int):
-    """Start the dashboard web server on the given port."""
-    srv = http.server.ThreadingHTTPServer(('0.0.0.0', port), DashboardHandler)
+def start_web_ui(host: str, port: int):
+    """Start the dashboard web server on the given host and port."""
+    srv = http.server.ThreadingHTTPServer((host, port), DashboardHandler)
     threading.Thread(target=srv.serve_forever, daemon=True).start()
-    log.info("Web UI on port %d", port)
+    log.info("Web UI on %s:%d", host, port)
     return srv
 
 
@@ -766,8 +766,8 @@ def run(args):
     print(f"  MQTT: CONNECTED (topics: {', '.join(args.mqtt_topics)})")
 
     # -- Start web dashboard --
-    start_web_ui(args.web_port)
-    print(f"\n[Setup] Web UI: http://localhost:{args.web_port}")
+    start_web_ui(args.web_host, args.web_port)
+    print(f"\n[Setup] Web UI: http://{args.web_host}:{args.web_port}")
 
     # -- Run validation loop --
     try:
@@ -812,6 +812,8 @@ Model export (run once):
     p.add_argument("--mqtt-port", type=int, default=1883)
     p.add_argument("--mqtt-topics", nargs="+",
                    default=["onvif/analytics/#"])
+    p.add_argument("--web-host", default="127.0.0.1",
+                   help="Web dashboard bind address (use 0.0.0.0 only if needed)")
     p.add_argument("--web-port", type=int, default=8080)
     args = p.parse_args()
     run(args)

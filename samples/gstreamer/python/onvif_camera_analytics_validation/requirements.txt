@@ -1,5 +1,6 @@
 # Runtime
 paho-mqtt>=2.0.0
+defusedxml>=0.7.1
 
 # Model download (provides the 'hf' CLI used in setup step 5)
 hf

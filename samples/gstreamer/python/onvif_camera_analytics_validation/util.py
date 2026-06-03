@@ -14,7 +14,8 @@ import queue
 import subprocess
 import time
 from typing import Optional
-from xml.etree import ElementTree
+
+from defusedxml import ElementTree
 
 import paho.mqtt.client as mqtt
 
