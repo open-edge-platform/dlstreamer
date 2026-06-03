@@ -19,6 +19,7 @@
 * Dynamic ONVIF camera discovery with DLS pipeline startup
 * DLStreamer ONVIF package as installable Python wheel
 * Component updates: OpenVINO 2026.1, GStreamer 1.28.2, OpenCV 4.13.0, NPU driver 1.32.1, Ubuntu 24.04.4 kernel 6.17
+* Introduced support for Intel® Core™ Processors - series 3 (Wildcat Lake)
 * CI: self-hosted Kubernetes infrastructure, configurable tests, Fedora 41 image building
 
 
