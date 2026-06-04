@@ -12,13 +12,28 @@
 #include <gst/gst.h>
 #include <gst/video/video.h>
 
+#include <opencv2/calib3d.hpp>
 #include <opencv2/imgproc.hpp>
 
+#include <algorithm>
 #include <cmath>
 #include <vector>
 
 GST_DEBUG_CATEGORY_STATIC(gst_g3d_render_debug);
 #define GST_CAT_DEFAULT gst_g3d_render_debug
+
+GType gst_g3d_render_view_mode_get_type(void) {
+    static GType type = 0;
+    if (!type) {
+        static const GEnumValue values[] = {
+            {0, "Bird's Eye View", "bev"},
+            {1, "Perspective 3D",  "perspective"},
+            {0, NULL, NULL}
+        };
+        type = g_enum_register_static("GstG3DRenderViewMode", values);
+    }
+    return type;
+}
 
 enum {
     PROP_0,
@@ -30,6 +45,12 @@ enum {
     PROP_RANGE_Y_MAX,
     PROP_POINT_RADIUS,
     PROP_POINT_STRIDE,
+    PROP_VIEW_MODE,
+    PROP_CAM_DISTANCE,
+    PROP_CAM_ELEVATION,
+    PROP_CAM_AZIMUTH,
+    PROP_CAM_AZIMUTH_STEP,
+    PROP_CAM_FOV,
 };
 
 static GstStaticPadTemplate sink_template =
@@ -56,7 +77,7 @@ static GstFlowReturn gst_g3d_render_transform(GstBaseTransform *trans, GstBuffer
 G_DEFINE_TYPE(GstG3DRender, gst_g3d_render, GST_TYPE_BASE_TRANSFORM);
 
 static void gst_g3d_render_class_init(GstG3DRenderClass *klass) {
-    GST_DEBUG_CATEGORY_INIT(gst_g3d_render_debug, "g3drender", 0, "LiDAR BEV Renderer");
+    GST_DEBUG_CATEGORY_INIT(gst_g3d_render_debug, "g3drender", 0, "LiDAR Renderer");
 
     GObjectClass *gobject_class = G_OBJECT_CLASS(klass);
     GstElementClass *element_class = GST_ELEMENT_CLASS(klass);
@@ -111,9 +132,45 @@ static void gst_g3d_render_class_init(GstG3DRenderClass *klass) {
             1, 100, 1,
             (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
+    g_object_class_install_property(gobject_class, PROP_VIEW_MODE,
+        g_param_spec_enum("view-mode", "View Mode",
+            "Rendering mode: bev (Bird's Eye View) or perspective (3D perspective)",
+            GST_TYPE_G3D_RENDER_VIEW_MODE, 0,
+            (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+
+    g_object_class_install_property(gobject_class, PROP_CAM_DISTANCE,
+        g_param_spec_float("cam-distance", "Camera Distance",
+            "Camera distance from origin in meters (perspective mode)",
+            1.0f, 500.0f, 40.0f,
+            (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+
+    g_object_class_install_property(gobject_class, PROP_CAM_ELEVATION,
+        g_param_spec_float("cam-elevation", "Camera Elevation",
+            "Camera elevation angle in degrees: 0=horizon 90=top-down (perspective mode)",
+            5.0f, 89.0f, 30.0f,
+            (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+
+    g_object_class_install_property(gobject_class, PROP_CAM_AZIMUTH,
+        g_param_spec_float("cam-azimuth", "Camera Azimuth",
+            "Camera horizontal angle in degrees (perspective mode)",
+            -360.0f, 360.0f, 45.0f,
+            (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+
+    g_object_class_install_property(gobject_class, PROP_CAM_AZIMUTH_STEP,
+        g_param_spec_float("cam-azimuth-step", "Camera Azimuth Step",
+            "Azimuth increment per frame in degrees for rotation animation; 0=static (perspective mode)",
+            -10.0f, 10.0f, 0.0f,
+            (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+
+    g_object_class_install_property(gobject_class, PROP_CAM_FOV,
+        g_param_spec_float("cam-fov", "Camera FOV",
+            "Field of view in degrees (perspective mode)",
+            10.0f, 150.0f, 60.0f,
+            (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+
     gst_element_class_set_static_metadata(element_class,
-        "G3D LiDAR BEV Renderer", "Filter/Converter",
-        "Renders LiDAR point cloud and PointPillars detections as a Bird's Eye View video frame (g3drender)",
+        "G3D LiDAR Renderer", "Filter/Converter",
+        "Renders LiDAR point cloud as BEV or perspective 3D video frame (g3drender)",
         "Intel Corporation");
 
     gst_element_class_add_static_pad_template(element_class, &sink_template);
@@ -129,15 +186,21 @@ static void gst_g3d_render_class_init(GstG3DRenderClass *klass) {
 }
 
 static void gst_g3d_render_init(GstG3DRender *self) {
-    self->width        = 800;
-    self->height       = 800;
-    self->range_x_min  = -50.0f;
-    self->range_x_max  =  50.0f;
-    self->range_y_min  = -50.0f;
-    self->range_y_max  =  50.0f;
-    self->point_radius = 2;
-    self->point_stride = 1;
-    self->frame_count  = 0;
+    self->width            = 800;
+    self->height           = 800;
+    self->range_x_min      = -50.0f;
+    self->range_x_max      =  50.0f;
+    self->range_y_min      = -50.0f;
+    self->range_y_max      =  50.0f;
+    self->point_radius     = 2;
+    self->point_stride     = 1;
+    self->view_mode        = 0;
+    self->cam_distance     = 40.0f;
+    self->cam_elevation    = 30.0f;
+    self->cam_azimuth      = 45.0f;
+    self->cam_azimuth_step = 0.0f;
+    self->cam_fov          = 60.0f;
+    self->frame_count      = 0;
 }
 
 static gboolean gst_g3d_render_start(GstBaseTransform *trans) {
@@ -166,14 +229,20 @@ static gboolean gst_g3d_render_sink_event(GstBaseTransform *trans, GstEvent *eve
 static void gst_g3d_render_set_property(GObject *obj, guint prop_id, const GValue *val, GParamSpec *pspec) {
     GstG3DRender *self = GST_G3D_RENDER(obj);
     switch (prop_id) {
-    case PROP_WIDTH:        self->width        = g_value_get_int(val);   break;
-    case PROP_HEIGHT:       self->height       = g_value_get_int(val);   break;
-    case PROP_RANGE_X_MIN:  self->range_x_min  = g_value_get_float(val); break;
-    case PROP_RANGE_X_MAX:  self->range_x_max  = g_value_get_float(val); break;
-    case PROP_RANGE_Y_MIN:  self->range_y_min  = g_value_get_float(val); break;
-    case PROP_RANGE_Y_MAX:  self->range_y_max  = g_value_get_float(val); break;
-    case PROP_POINT_RADIUS: self->point_radius = g_value_get_int(val);   break;
-    case PROP_POINT_STRIDE: self->point_stride = g_value_get_int(val);   break;
+    case PROP_WIDTH:           self->width            = g_value_get_int(val);   break;
+    case PROP_HEIGHT:          self->height           = g_value_get_int(val);   break;
+    case PROP_RANGE_X_MIN:     self->range_x_min      = g_value_get_float(val); break;
+    case PROP_RANGE_X_MAX:     self->range_x_max      = g_value_get_float(val); break;
+    case PROP_RANGE_Y_MIN:     self->range_y_min      = g_value_get_float(val); break;
+    case PROP_RANGE_Y_MAX:     self->range_y_max      = g_value_get_float(val); break;
+    case PROP_POINT_RADIUS:    self->point_radius     = g_value_get_int(val);   break;
+    case PROP_POINT_STRIDE:    self->point_stride     = g_value_get_int(val);   break;
+    case PROP_VIEW_MODE:       self->view_mode        = g_value_get_enum(val);  break;
+    case PROP_CAM_DISTANCE:    self->cam_distance     = g_value_get_float(val); break;
+    case PROP_CAM_ELEVATION:   self->cam_elevation    = g_value_get_float(val); break;
+    case PROP_CAM_AZIMUTH:     self->cam_azimuth      = g_value_get_float(val); break;
+    case PROP_CAM_AZIMUTH_STEP:self->cam_azimuth_step = g_value_get_float(val); break;
+    case PROP_CAM_FOV:         self->cam_fov          = g_value_get_float(val); break;
     default: G_OBJECT_WARN_INVALID_PROPERTY_ID(obj, prop_id, pspec);
     }
 }
@@ -181,14 +250,20 @@ static void gst_g3d_render_set_property(GObject *obj, guint prop_id, const GValu
 static void gst_g3d_render_get_property(GObject *obj, guint prop_id, GValue *val, GParamSpec *pspec) {
     GstG3DRender *self = GST_G3D_RENDER(obj);
     switch (prop_id) {
-    case PROP_WIDTH:        g_value_set_int(val,   self->width);        break;
-    case PROP_HEIGHT:       g_value_set_int(val,   self->height);       break;
-    case PROP_RANGE_X_MIN:  g_value_set_float(val, self->range_x_min);  break;
-    case PROP_RANGE_X_MAX:  g_value_set_float(val, self->range_x_max);  break;
-    case PROP_RANGE_Y_MIN:  g_value_set_float(val, self->range_y_min);  break;
-    case PROP_RANGE_Y_MAX:  g_value_set_float(val, self->range_y_max);  break;
-    case PROP_POINT_RADIUS: g_value_set_int(val,   self->point_radius); break;
-    case PROP_POINT_STRIDE: g_value_set_int(val,   self->point_stride); break;
+    case PROP_WIDTH:           g_value_set_int(val,   self->width);            break;
+    case PROP_HEIGHT:          g_value_set_int(val,   self->height);           break;
+    case PROP_RANGE_X_MIN:     g_value_set_float(val, self->range_x_min);      break;
+    case PROP_RANGE_X_MAX:     g_value_set_float(val, self->range_x_max);      break;
+    case PROP_RANGE_Y_MIN:     g_value_set_float(val, self->range_y_min);      break;
+    case PROP_RANGE_Y_MAX:     g_value_set_float(val, self->range_y_max);      break;
+    case PROP_POINT_RADIUS:    g_value_set_int(val,   self->point_radius);     break;
+    case PROP_POINT_STRIDE:    g_value_set_int(val,   self->point_stride);     break;
+    case PROP_VIEW_MODE:       g_value_set_enum(val,  self->view_mode);        break;
+    case PROP_CAM_DISTANCE:    g_value_set_float(val, self->cam_distance);     break;
+    case PROP_CAM_ELEVATION:   g_value_set_float(val, self->cam_elevation);    break;
+    case PROP_CAM_AZIMUTH:     g_value_set_float(val, self->cam_azimuth);      break;
+    case PROP_CAM_AZIMUTH_STEP:g_value_set_float(val, self->cam_azimuth_step); break;
+    case PROP_CAM_FOV:         g_value_set_float(val, self->cam_fov);          break;
     default: G_OBJECT_WARN_INVALID_PROPERTY_ID(obj, prop_id, pspec);
     }
 }
@@ -234,10 +309,211 @@ static GstFlowReturn gst_g3d_render_prepare_output_buffer(GstBaseTransform *tran
     return GST_FLOW_OK;
 }
 
-static cv::Point world_to_pixel(float x, float y, const GstG3DRender *self) {
+static cv::Point world_to_pixel_bev(float x, float y, const GstG3DRender *self) {
     int px = (int)((x - self->range_x_min) / (self->range_x_max - self->range_x_min) * self->width);
     int py = (int)((1.0f - (y - self->range_y_min) / (self->range_y_max - self->range_y_min)) * self->height);
     return cv::Point(px, py);
+}
+
+static void draw_bev(cv::Mat &canvas, const float *points, guint count, const GstG3DRender *self) {
+    const cv::Scalar grid_color(55, 55, 55);
+    for (float d = 10.0f; d < self->range_x_max; d += 10.0f) {
+        cv::line(canvas, world_to_pixel_bev(-d, self->range_y_min, self),
+                         world_to_pixel_bev(-d, self->range_y_max, self), grid_color, 1);
+        cv::line(canvas, world_to_pixel_bev( d, self->range_y_min, self),
+                         world_to_pixel_bev( d, self->range_y_max, self), grid_color, 1);
+    }
+    for (float d = 10.0f; d < self->range_y_max; d += 10.0f) {
+        cv::line(canvas, world_to_pixel_bev(self->range_x_min, -d, self),
+                         world_to_pixel_bev(self->range_x_max, -d, self), grid_color, 1);
+        cv::line(canvas, world_to_pixel_bev(self->range_x_min,  d, self),
+                         world_to_pixel_bev(self->range_x_max,  d, self), grid_color, 1);
+    }
+    cv::drawMarker(canvas, world_to_pixel_bev(0.0f, 0.0f, self),
+                   cv::Scalar(0, 255, 255), cv::MARKER_CROSS, 16, 2);
+
+    for (guint i = 0; i < count; i += (guint)self->point_stride) {
+        float x = points[i*4+0], y = points[i*4+1], intensity = points[i*4+3];
+        if (x < self->range_x_min || x > self->range_x_max ||
+            y < self->range_y_min || y > self->range_y_max) continue;
+        uint8_t r = (uint8_t)(intensity * 255.0f);
+        uint8_t b = (uint8_t)((1.0f - intensity) * 255.0f);
+        cv::circle(canvas, world_to_pixel_bev(x, y, self), self->point_radius, cv::Scalar(b, 80, r), -1);
+    }
+}
+
+static cv::Scalar height_to_color(float z) {
+    float t = (z + 2.0f) / 6.0f;
+    t = std::max(0.0f, std::min(1.0f, t));
+    if (t < 0.5f) {
+        float s = t * 2.0f;
+        return cv::Scalar((1.0f - s) * 200, s * 180, s * 80);
+    }
+    float s = (t - 0.5f) * 2.0f;
+    return cv::Scalar(0, (1.0f - s) * 180, s * 220 + 80);
+}
+
+static void draw_perspective(cv::Mat &canvas, const float *points, guint count, GstG3DRender *self) {
+    const float DEG2RAD = (float)(M_PI / 180.0);
+    float az   = self->cam_azimuth   * DEG2RAD;
+    float el   = self->cam_elevation * DEG2RAD;
+    float dist = self->cam_distance;
+
+    cv::Mat cam_pos = (cv::Mat_<double>(3, 1)
+        << dist * std::cos(el) * std::cos(az),
+           dist * std::cos(el) * std::sin(az),
+           dist * std::sin(el));
+
+    cv::Mat zaxis = -cam_pos / cv::norm(cam_pos);
+    cv::Mat world_up = (cv::Mat_<double>(3, 1) << 0, 0, 1);
+    cv::Mat xaxis = zaxis.cross(world_up);
+    if (cv::norm(xaxis) < 1e-6)
+        xaxis = (cv::Mat_<double>(3, 1) << 1, 0, 0);
+    else
+        xaxis = xaxis / cv::norm(xaxis);
+    cv::Mat yaxis = zaxis.cross(xaxis);
+
+    cv::Mat R(3, 3, CV_64F);
+    R.at<double>(0,0) = xaxis.at<double>(0); R.at<double>(0,1) = xaxis.at<double>(1); R.at<double>(0,2) = xaxis.at<double>(2);
+    R.at<double>(1,0) = yaxis.at<double>(0); R.at<double>(1,1) = yaxis.at<double>(1); R.at<double>(1,2) = yaxis.at<double>(2);
+    R.at<double>(2,0) = zaxis.at<double>(0); R.at<double>(2,1) = zaxis.at<double>(1); R.at<double>(2,2) = zaxis.at<double>(2);
+
+    cv::Mat rvec;
+    cv::Rodrigues(R, rvec);
+    cv::Mat tvec = -R * cam_pos;
+
+    double fx = (self->width  / 2.0) / std::tan(self->cam_fov * DEG2RAD / 2.0);
+    double fy = fx;
+    cv::Mat K = (cv::Mat_<double>(3, 3)
+        << fx, 0, self->width  / 2.0,
+            0, fy, self->height / 2.0,
+            0,  0, 1);
+    cv::Mat dist_coeffs = cv::Mat::zeros(4, 1, CV_64F);
+
+    std::vector<cv::Point3f> obj_pts;
+    std::vector<float> z_vals;
+    obj_pts.reserve(count / (guint)self->point_stride + 1);
+    z_vals.reserve(obj_pts.capacity());
+
+    float clip = self->cam_distance + 20.0f;
+    for (guint i = 0; i < count; i += (guint)self->point_stride) {
+        float x = points[i*4+0], y = points[i*4+1], z = points[i*4+2];
+        if (x < -clip || x > clip || y < -clip || y > clip) continue;
+        obj_pts.push_back(cv::Point3f(x, y, z));
+        z_vals.push_back(z);
+    }
+
+    if (obj_pts.empty()) return;
+
+    std::vector<cv::Point2f> img_pts;
+    cv::projectPoints(obj_pts, rvec, tvec, K, dist_coeffs, img_pts);
+
+    struct ProjPt { cv::Point2f px; float depth; float z; };
+    std::vector<ProjPt> visible;
+    visible.reserve(img_pts.size());
+
+    for (size_t i = 0; i < img_pts.size(); ++i) {
+        cv::Point2f &p = img_pts[i];
+        if (p.x < 0 || p.x >= self->width || p.y < 0 || p.y >= self->height) continue;
+        cv::Mat pt3 = (cv::Mat_<double>(3, 1) << obj_pts[i].x, obj_pts[i].y, obj_pts[i].z);
+        float depth = (float)(zaxis.dot(pt3 - cam_pos));
+        if (depth <= 0.5f) continue;
+        visible.push_back({p, depth, z_vals[i]});
+    }
+
+    std::sort(visible.begin(), visible.end(),
+        [](const ProjPt &a, const ProjPt &b){ return a.depth > b.depth; });
+
+    for (auto &pp : visible) {
+        int r = std::max(1, (int)(self->point_radius * 20.0f / pp.depth));
+        cv::circle(canvas, cv::Point((int)pp.px.x, (int)pp.px.y), r, height_to_color(pp.z), -1);
+    }
+
+    cv::drawMarker(canvas, cv::Point(self->width / 2, self->height - 20),
+                   cv::Scalar(0, 255, 255), cv::MARKER_CROSS, 20, 2);
+
+    {
+        float axis_len = 5.0f;
+        std::vector<cv::Point3f> axis_pts = {
+            {0, 0, 0},
+            {axis_len, 0, 0},
+            {0, axis_len, 0},
+            {0, 0, axis_len},
+        };
+        std::vector<cv::Point2f> axis_img;
+        cv::projectPoints(axis_pts, rvec, tvec, K, dist_coeffs, axis_img);
+
+        auto in_frame = [&](cv::Point2f p) {
+            return p.x >= 0 && p.x < self->width && p.y >= 0 && p.y < self->height;
+        };
+
+        cv::Point2f o = axis_img[0];
+        if (in_frame(o)) {
+            if (in_frame(axis_img[1]))
+                cv::arrowedLine(canvas, cv::Point(o), cv::Point(axis_img[1]), cv::Scalar(0, 0, 255), 2, 8, 0, 0.2);
+            if (in_frame(axis_img[2]))
+                cv::arrowedLine(canvas, cv::Point(o), cv::Point(axis_img[2]), cv::Scalar(0, 255, 0), 2, 8, 0, 0.2);
+            if (in_frame(axis_img[3]))
+                cv::arrowedLine(canvas, cv::Point(o), cv::Point(axis_img[3]), cv::Scalar(255, 0, 0), 2, 8, 0, 0.2);
+
+            cv::putText(canvas, "X", cv::Point(axis_img[1]), cv::FONT_HERSHEY_SIMPLEX, 0.6, cv::Scalar(0, 0, 255), 2);
+            cv::putText(canvas, "Y", cv::Point(axis_img[2]), cv::FONT_HERSHEY_SIMPLEX, 0.6, cv::Scalar(0, 255, 0), 2);
+            cv::putText(canvas, "Z", cv::Point(axis_img[3]), cv::FONT_HERSHEY_SIMPLEX, 0.6, cv::Scalar(255, 0, 0), 2);
+        }
+    }
+
+    self->cam_azimuth += self->cam_azimuth_step;
+    if (self->cam_azimuth >  360.0f) self->cam_azimuth -= 360.0f;
+    if (self->cam_azimuth < -360.0f) self->cam_azimuth += 360.0f;
+}
+
+static void draw_detection_boxes_bev(cv::Mat &canvas, GstBuffer *inbuf, const GstG3DRender *self) {
+    gpointer state = NULL;
+    GstGVATensorMeta *tensor_meta = NULL;
+    while ((tensor_meta = GST_GVA_TENSOR_META_ITERATE(inbuf, &state))) {
+        GstStructure *s = tensor_meta->data;
+        const gchar *fmt   = gst_structure_get_string(s, "format");
+        const gchar *lname = gst_structure_get_string(s, "layer_name");
+        if (!fmt || !lname) continue;
+        if (g_strcmp0(fmt, "pointpillars_3d") != 0 ||
+            g_strcmp0(lname, "pointpillars_3d_detection") != 0) continue;
+
+        GValueArray *dims_array = NULL;
+        gst_structure_get_array(s, "dims", &dims_array);
+        if (!dims_array || dims_array->n_values != 2) {
+            if (dims_array) g_value_array_free(dims_array);
+            continue;
+        }
+        guint dim0 = g_value_get_uint(g_value_array_get_nth(dims_array, 0));
+        guint dim1 = g_value_get_uint(g_value_array_get_nth(dims_array, 1));
+        g_value_array_free(dims_array);
+        if (dim1 != 9 || dim0 == 0) continue;
+
+        const GValue *buf_val = gst_structure_get_value(s, "data_buffer");
+        if (!buf_val || !G_VALUE_HOLDS(buf_val, G_TYPE_VARIANT)) continue;
+        GVariant *variant = g_value_get_variant(buf_val);
+        gsize nbytes = 0;
+        const float *data = reinterpret_cast<const float *>(
+            g_variant_get_fixed_array(variant, &nbytes, 1));
+        if (!data || nbytes < dim0 * dim1 * sizeof(float)) continue;
+
+        for (guint d = 0; d < dim0; ++d) {
+            size_t off = d * 9;
+            float cx = data[off+0], cy = data[off+1];
+            float dx = data[off+3], dy = data[off+4], theta = data[off+6];
+            float cos_t = std::cos(theta), sin_t = std::sin(theta);
+            float hx = dx / 2.0f, hy = dy / 2.0f;
+            float wx[4] = { cx+cos_t*hx-sin_t*hy, cx-cos_t*hx-sin_t*hy,
+                            cx-cos_t*hx+sin_t*hy, cx+cos_t*hx+sin_t*hy };
+            float wy[4] = { cy+sin_t*hx+cos_t*hy, cy-sin_t*hx+cos_t*hy,
+                            cy-sin_t*hx-cos_t*hy, cy+sin_t*hx-cos_t*hy };
+            std::vector<cv::Point> poly(4);
+            for (int k = 0; k < 4; ++k)
+                poly[k] = world_to_pixel_bev(wx[k], wy[k], self);
+            cv::polylines(canvas, poly, true, cv::Scalar(0, 255, 0), 2);
+            cv::circle(canvas, world_to_pixel_bev(cx, cy, self), 4, cv::Scalar(0, 255, 0), -1);
+        }
+    }
 }
 
 static GstFlowReturn gst_g3d_render_transform(GstBaseTransform *trans, GstBuffer *inbuf, GstBuffer *outbuf) {
@@ -250,35 +526,12 @@ static GstFlowReturn gst_g3d_render_transform(GstBaseTransform *trans, GstBuffer
     }
 
     cv::Mat canvas(self->height, self->width, CV_8UC3, out_map.data);
-    canvas.setTo(cv::Scalar(20, 20, 20));
-
-    const cv::Scalar grid_color(55, 55, 55);
-    for (float d = 10.0f; d < self->range_x_max; d += 10.0f) {
-        cv::line(canvas, world_to_pixel(-d, self->range_y_min, self),
-                         world_to_pixel(-d, self->range_y_max, self), grid_color, 1);
-        cv::line(canvas, world_to_pixel( d, self->range_y_min, self),
-                         world_to_pixel( d, self->range_y_max, self), grid_color, 1);
-    }
-    for (float d = 10.0f; d < self->range_y_max; d += 10.0f) {
-        cv::line(canvas, world_to_pixel(self->range_x_min, -d, self),
-                         world_to_pixel(self->range_x_max, -d, self), grid_color, 1);
-        cv::line(canvas, world_to_pixel(self->range_x_min,  d, self),
-                         world_to_pixel(self->range_x_max,  d, self), grid_color, 1);
-    }
-
-    cv::drawMarker(canvas, world_to_pixel(0.0f, 0.0f, self),
-                   cv::Scalar(0, 255, 255), cv::MARKER_CROSS, 16, 2);
+    canvas.setTo(cv::Scalar(15, 15, 15));
 
     LidarMeta *lidar_meta = reinterpret_cast<LidarMeta *>(
         gst_buffer_get_meta(inbuf, LIDAR_META_API_TYPE));
 
-    if (!lidar_meta) {
-        GST_WARNING_OBJECT(self, "No LidarMeta on buffer, outputting blank frame");
-        gst_buffer_unmap(outbuf, &out_map);
-        goto set_pts;
-    }
-
-    {
+    if (lidar_meta) {
         GstMapInfo in_map;
         if (!gst_buffer_map(inbuf, &in_map, GST_MAP_READ)) {
             GST_ERROR_OBJECT(self, "Failed to map input buffer for reading");
@@ -289,84 +542,28 @@ static GstFlowReturn gst_g3d_render_transform(GstBaseTransform *trans, GstBuffer
         const float *points = reinterpret_cast<const float *>(in_map.data);
         const guint  count  = lidar_meta->lidar_point_count;
 
-        for (guint i = 0; i < count; i += (guint)self->point_stride) {
-            float x         = points[i * 4 + 0];
-            float y         = points[i * 4 + 1];
-            float intensity = points[i * 4 + 3];
-            if (x < self->range_x_min || x > self->range_x_max ||
-                y < self->range_y_min || y > self->range_y_max)
-                continue;
-            uint8_t r = (uint8_t)(intensity * 255.0f);
-            uint8_t b = (uint8_t)((1.0f - intensity) * 255.0f);
-            cv::circle(canvas, world_to_pixel(x, y, self), self->point_radius, cv::Scalar(b, 80, r), -1);
+        if (self->view_mode == 0) {
+            draw_bev(canvas, points, count, self);
+            draw_detection_boxes_bev(canvas, inbuf, self);
+        } else {
+            draw_perspective(canvas, points, count, self);
         }
 
         gst_buffer_unmap(inbuf, &in_map);
-
-        gpointer state = NULL;
-        GstGVATensorMeta *tensor_meta = NULL;
-        while ((tensor_meta = GST_GVA_TENSOR_META_ITERATE(inbuf, &state))) {
-            GstStructure *s = tensor_meta->data;
-            const gchar *fmt   = gst_structure_get_string(s, "format");
-            const gchar *lname = gst_structure_get_string(s, "layer_name");
-            if (!fmt || !lname) continue;
-            if (g_strcmp0(fmt, "pointpillars_3d") != 0 ||
-                g_strcmp0(lname, "pointpillars_3d_detection") != 0) continue;
-
-            GValueArray *dims_array = NULL;
-            gst_structure_get_array(s, "dims", &dims_array);
-            if (!dims_array || dims_array->n_values != 2) {
-                if (dims_array) g_value_array_free(dims_array);
-                continue;
-            }
-            guint dim0 = g_value_get_uint(g_value_array_get_nth(dims_array, 0));
-            guint dim1 = g_value_get_uint(g_value_array_get_nth(dims_array, 1));
-            g_value_array_free(dims_array);
-            if (dim1 != 9 || dim0 == 0) continue;
-
-            const GValue *buf_val = gst_structure_get_value(s, "data_buffer");
-            if (!buf_val || !G_VALUE_HOLDS(buf_val, G_TYPE_VARIANT)) continue;
-            GVariant *variant = g_value_get_variant(buf_val);
-            gsize nbytes = 0;
-            const float *data = reinterpret_cast<const float *>(
-                g_variant_get_fixed_array(variant, &nbytes, 1));
-            if (!data || nbytes < dim0 * dim1 * sizeof(float)) continue;
-
-            for (guint d = 0; d < dim0; ++d) {
-                size_t off  = d * 9;
-                float cx    = data[off + 0];
-                float cy    = data[off + 1];
-                float dx    = data[off + 3];
-                float dy    = data[off + 4];
-                float theta = data[off + 6];
-                float cos_t = std::cos(theta), sin_t = std::sin(theta);
-                float hx = dx / 2.0f, hy = dy / 2.0f;
-                float wx[4] = { cx+cos_t*hx-sin_t*hy, cx-cos_t*hx-sin_t*hy,
-                                cx-cos_t*hx+sin_t*hy, cx+cos_t*hx+sin_t*hy };
-                float wy[4] = { cy+sin_t*hx+cos_t*hy, cy-sin_t*hx+cos_t*hy,
-                                cy-sin_t*hx-cos_t*hy, cy+sin_t*hx-cos_t*hy };
-                std::vector<cv::Point> poly(4);
-                for (int k = 0; k < 4; ++k)
-                    poly[k] = world_to_pixel(wx[k], wy[k], self);
-                cv::polylines(canvas, poly, true, cv::Scalar(0, 255, 0), 2);
-                cv::circle(canvas, world_to_pixel(cx, cy, self), 4, cv::Scalar(0, 255, 0), -1);
-            }
-        }
+    } else {
+        GST_WARNING_OBJECT(self, "No LidarMeta on buffer, outputting blank frame");
     }
 
     gst_buffer_unmap(outbuf, &out_map);
 
-set_pts:
-    {
-        const GstClockTime frame_duration = GST_SECOND / 10;
-        GST_BUFFER_PTS(outbuf) = GST_CLOCK_TIME_IS_VALID(GST_BUFFER_PTS(inbuf))
-                                 ? GST_BUFFER_PTS(inbuf)
-                                 : self->frame_count * frame_duration;
-        GST_BUFFER_DURATION(outbuf) = GST_CLOCK_TIME_IS_VALID(GST_BUFFER_DURATION(inbuf))
-                                      ? GST_BUFFER_DURATION(inbuf)
-                                      : frame_duration;
-        self->frame_count++;
-    }
+    const GstClockTime frame_duration = GST_SECOND / 10;
+    GST_BUFFER_PTS(outbuf) = GST_CLOCK_TIME_IS_VALID(GST_BUFFER_PTS(inbuf))
+                             ? GST_BUFFER_PTS(inbuf)
+                             : self->frame_count * frame_duration;
+    GST_BUFFER_DURATION(outbuf) = GST_CLOCK_TIME_IS_VALID(GST_BUFFER_DURATION(inbuf))
+                                  ? GST_BUFFER_DURATION(inbuf)
+                                  : frame_duration;
+    self->frame_count++;
 
     GST_DEBUG_OBJECT(self, "rendered frame %lu pts=%" GST_TIME_FORMAT,
                      (unsigned long)self->frame_count,
