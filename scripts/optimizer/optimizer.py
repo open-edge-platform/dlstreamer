@@ -142,7 +142,7 @@ class DLSOptimizer:
         logger.debug("Starting optimization process for FPS improvements...")
         self._optimal_pipeline = pipeline.copy()
         self._optimal_fps = self._initial_fps
-        for (pipeline, fps) in self._optimize_pipeline(pipeline, self._initial_fps, self._initial_detections, 1):
+        for (pipeline, fps) in self._optimize_pipeline(pipeline, 1):
             if fps > self._optimal_fps:
                 self._optimal_fps = fps
                 self._optimal_pipeline = pipeline
@@ -178,7 +178,7 @@ class DLSOptimizer:
         self._optimal_fps = self._initial_fps
         best_streams = 0
         for streams in range(1, 128):
-            for (pipeline, fps) in self._optimize_pipeline(initial_pipeline, self._initial_fps, self._initial_detections, streams):
+            for (pipeline, fps) in self._optimize_pipeline(initial_pipeline, streams):
                 if fps > self._multistream_fps_limit and (fps > self._optimal_fps or streams > self._optimal_streams):
                     logger.info(f"limit: {fps > self._multistream_fps_limit}")
                     logger.info(f"fps: {fps > self._optimal_fps}")
