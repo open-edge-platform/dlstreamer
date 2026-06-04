@@ -342,6 +342,7 @@ static void draw_bev(cv::Mat &canvas, const float *points, guint count, const Gs
     }
 }
 
+
 static cv::Scalar height_to_color(float z) {
     float t = (z + 2.0f) / 6.0f;
     t = std::max(0.0f, std::min(1.0f, t));
@@ -429,37 +430,80 @@ static void draw_perspective(cv::Mat &canvas, const float *points, guint count, 
         cv::circle(canvas, cv::Point((int)pp.px.x, (int)pp.px.y), r, height_to_color(pp.z), -1);
     }
 
-    cv::drawMarker(canvas, cv::Point(self->width / 2, self->height - 20),
-                   cv::Scalar(0, 255, 255), cv::MARKER_CROSS, 20, 2);
-
     {
-        float axis_len = 5.0f;
+        float step = 3.0f;
         std::vector<cv::Point3f> axis_pts = {
             {0, 0, 0},
-            {axis_len, 0, 0},
-            {0, axis_len, 0},
-            {0, 0, axis_len},
+            {step, 0, 0}, {0, step, 0}, {0, 0, step},
         };
         std::vector<cv::Point2f> axis_img;
         cv::projectPoints(axis_pts, rvec, tvec, K, dist_coeffs, axis_img);
 
-        auto in_frame = [&](cv::Point2f p) {
-            return p.x >= 0 && p.x < self->width && p.y >= 0 && p.y < self->height;
+        cv::Point2f o = axis_img[0];
+        int W = self->width, H = self->height;
+
+        int ind_cx = W - 70, ind_cy = H - 70, ind_scale = 45;
+
+        struct AxisDef { int idx; cv::Scalar color; const char *label; };
+        AxisDef axes[3] = {
+            {1, cv::Scalar(90, 90, 200), "X"},
+            {2, cv::Scalar(90, 180, 90), "Y"},
+            {3, cv::Scalar(180, 90, 90), "Z"},
         };
 
-        cv::Point2f o = axis_img[0];
-        if (in_frame(o)) {
-            if (in_frame(axis_img[1]))
-                cv::arrowedLine(canvas, cv::Point(o), cv::Point(axis_img[1]), cv::Scalar(0, 0, 255), 2, 8, 0, 0.2);
-            if (in_frame(axis_img[2]))
-                cv::arrowedLine(canvas, cv::Point(o), cv::Point(axis_img[2]), cv::Scalar(0, 255, 0), 2, 8, 0, 0.2);
-            if (in_frame(axis_img[3]))
-                cv::arrowedLine(canvas, cv::Point(o), cv::Point(axis_img[3]), cv::Scalar(255, 0, 0), 2, 8, 0, 0.2);
-
-            cv::putText(canvas, "X", cv::Point(axis_img[1]), cv::FONT_HERSHEY_SIMPLEX, 0.6, cv::Scalar(0, 0, 255), 2);
-            cv::putText(canvas, "Y", cv::Point(axis_img[2]), cv::FONT_HERSHEY_SIMPLEX, 0.6, cv::Scalar(0, 255, 0), 2);
-            cv::putText(canvas, "Z", cv::Point(axis_img[3]), cv::FONT_HERSHEY_SIMPLEX, 0.6, cv::Scalar(255, 0, 0), 2);
+        if (o.x >= 0 && o.x < W && o.y >= 0 && o.y < H) {
+            int origin_scale = 18;
+            cv::Point origin_pt((int)o.x, (int)o.y);
+            cv::Scalar axis_color(240, 240, 240);
+            for (int ai = 0; ai < 2; ++ai) {
+                auto &ax = axes[ai];
+                cv::Point2f dir = axis_img[ax.idx] - o;
+                float len = std::sqrt(dir.x * dir.x + dir.y * dir.y);
+                if (len < 0.5f) continue;
+                dir /= len;
+                cv::Point pos_tip(origin_pt.x + (int)( dir.x * origin_scale),
+                                  origin_pt.y + (int)( dir.y * origin_scale));
+                cv::Point neg_tip(origin_pt.x + (int)(-dir.x * origin_scale),
+                                  origin_pt.y + (int)(-dir.y * origin_scale));
+                cv::line(canvas, neg_tip, pos_tip, axis_color, 1, cv::LINE_AA);
+            }
         }
+
+        cv::Scalar ind_color(220, 220, 220);
+        for (int ai = 0; ai < 3; ++ai) {
+            auto &ax = axes[ai];
+            cv::Point2f dir = axis_img[ax.idx] - o;
+            if (ai == 1) dir = -dir;
+            float len = std::sqrt(dir.x * dir.x + dir.y * dir.y);
+            if (len < 0.5f) continue;
+            dir /= len;
+            cv::Point pos_tip(ind_cx + (int)( dir.x * ind_scale),       ind_cy + (int)( dir.y * ind_scale));
+            cv::Point neg_tip(ind_cx + (int)(-dir.x * ind_scale / 2.0f), ind_cy + (int)(-dir.y * ind_scale / 2.0f));
+            float dx = (float)(pos_tip.x - neg_tip.x);
+            float dy = (float)(pos_tip.y - neg_tip.y);
+            float d  = std::sqrt(dx * dx + dy * dy);
+            float ux = dx / d, uy = dy / d;
+            int arrow_len = 10;
+            float dash_end = d - arrow_len;
+            float pos = 0.0f;
+            bool on = true;
+            while (pos < dash_end) {
+                float end = std::min(pos + (on ? 6.0f : 4.0f), dash_end);
+                if (on) {
+                    cv::Point a(neg_tip.x + (int)(ux * pos), neg_tip.y + (int)(uy * pos));
+                    cv::Point b(neg_tip.x + (int)(ux * end), neg_tip.y + (int)(uy * end));
+                    cv::line(canvas, a, b, ind_color, 1, cv::LINE_AA);
+                }
+                pos = end;
+                on = !on;
+            }
+            cv::Point arrow_start(neg_tip.x + (int)(ux * dash_end), neg_tip.y + (int)(uy * dash_end));
+            cv::arrowedLine(canvas, arrow_start, pos_tip, ind_color, 1, cv::LINE_AA, 0, 0.4);
+            cv::Point2f label_pos(pos_tip.x + dir.x * 10, pos_tip.y + dir.y * 10);
+            cv::putText(canvas, ax.label, cv::Point((int)label_pos.x - 5, (int)label_pos.y + 5),
+                        cv::FONT_HERSHEY_SIMPLEX, 0.5, ind_color, 1, cv::LINE_AA);
+        }
+
     }
 
     self->cam_azimuth += self->cam_azimuth_step;
