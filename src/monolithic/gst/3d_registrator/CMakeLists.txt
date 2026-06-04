@@ -31,6 +31,7 @@ PRIVATE
     g3dlidarparse
     g3dinference
     g3dobjectfuser
+    g3drender
     dlstreamer_gst_meta
 )
            

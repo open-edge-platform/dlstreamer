@@ -15,6 +15,7 @@
 #include "g3dinference.h"
 #include "g3dlidarparse.h"
 #include "g3dobjectfuser.h"
+#include "g3drender.h"
 
 extern "C" {
 
@@ -27,6 +28,8 @@ static gboolean plugin_init(GstPlugin *plugin) {
     if (!gst_element_register(plugin, "g3dinference", GST_RANK_NONE, GST_TYPE_G3D_INFERENCE))
         return FALSE;
     if (!gst_element_register(plugin, "g3dobjectfuser", GST_RANK_NONE, GST_TYPE_G3D_OBJECT_FUSER))
+        return FALSE;
+    if (!gst_element_register(plugin, "g3drender", GST_RANK_NONE, GST_TYPE_G3D_RENDER))
         return FALSE;
 
     // Register metadata
