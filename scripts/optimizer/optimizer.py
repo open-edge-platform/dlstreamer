@@ -237,6 +237,7 @@ class DLSOptimizer:
                     pipelines = []
                     for _ in range(0, streams):
                         pipelines.append(pipeline)
+                    print(f"pipeline: {str(pipelines)}")
 
                     fps, detections = self._sample_pipeline(pipelines, self._sample_duration)
 
