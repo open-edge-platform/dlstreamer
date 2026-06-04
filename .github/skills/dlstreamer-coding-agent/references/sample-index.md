@@ -2,6 +2,8 @@
 
 Before generating code, read the relevant existing samples to understand established conventions.
 
+> **IMPORTANT:** Do NOT reference or read from `samples/auto_generated_samples/`.
+
 ## Python Samples
 
 | Sample | Key Pattern | Path |
@@ -16,6 +18,8 @@ Before generating code, read the relevant existing samples to understand establi
 | onvif_cameras_discovery | Multi-camera RTSP, ONVIF discovery, subprocess orchestration | `samples/gstreamer/python/onvif_cameras_discovery/` |
 | draw_face_attributes | Detect → multi-classify chain, custom tensor post-processing in pad probe callback | `samples/gstreamer/python/draw_face_attributes/` |
 | coexistence | DL Streamer + DeepStream coexistence, Docker orchestration, multi-framework LPR | `samples/gstreamer/python/coexistence/` |
+| gvaanalytics_tripwire | `gvaanalytics` tripwires, vehicle counting, custom watermark overlay element | `samples/gstreamer/python/gvaanalytics_tripwire/` |
+| watermark_meta | Custom drawing primitives via watermark metadata API, `GstBaseTransform` in Python | `samples/gstreamer/python/watermark_meta/` |
 
 ## Command Line Samples
 
@@ -42,5 +46,10 @@ Before generating code, read the relevant existing samples to understand establi
 | gvarealsense | RealSense camera capture | `samples/gstreamer/gst_launch/gvarealsense/` |
 | custom_postproc/detect | Custom detection post-processing library | `samples/gstreamer/gst_launch/custom_postproc/detect/` |
 | custom_postproc/classify | Custom classification post-processing library | `samples/gstreamer/gst_launch/custom_postproc/classify/` |
+| depth_estimation | Object-aware depth estimation (YOLO11n + Depth-Anything-V2, `gvainference`) | `samples/gstreamer/gst_launch/depth_estimation/` |
 | face_detection_and_classification_bins | Detection + classification using `processbin`, GPU/CPU VA memory paths | `samples/gstreamer/gst_launch/face_detection_and_classification_bins/` |
+| g3dinference | LiDAR 3D object detection (`g3dlidarparse` + `g3dinference`, PointPillars) | `samples/gstreamer/gst_launch/g3dinference/` |
 | motion_detect | Motion region detection (`gvamotiondetect`), ROI-restricted inference | `samples/gstreamer/gst_launch/motion_detect/` |
+| python-elements/face_detection_and_classification | Face detection + classification with custom GStreamer Python element (`gvaagelogger_py`) | `samples/gstreamer/gst_launch/python-elements/face_detection_and_classification/` |
+| python-elements/save_frames_with_ROI_only | Frame saving with custom GStreamer Python element using GstAnalytics API | `samples/gstreamer/gst_launch/python-elements/save_frames_with_ROI_only/` |
+| stream_mux_and_demux | Multi-stream inference through shared pipeline (`gvastreammux` + `gvastreamdemux`) | `samples/gstreamer/gst_launch/stream_mux_and_demux/` |

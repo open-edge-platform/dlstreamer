@@ -25,21 +25,28 @@ You need a target machine to execute, run, and debug the generated code. The tar
 
 ## Procedure
 
-### 1. Create a New Project
+### 1. Install the DL Streamer coding agent skill
 
-Create a new, empty project directory on your development machine and open it in your coding environment (e.g., VS Code).
+```sh
+# Install npm to get `npx skills` cli
+sudo apt-get update && sudo apt-get install npm -y
 
-There is no need to clone the DL Streamer GitHub repository. The Coding Agent reads all required information directly from
-https://github.com/open-edge-platform/dlstreamer.
+# Install skill globally across agents - choose the recommended option of SymLink to create one copy of skills at ~/.agents/skills and symbollically link to that for other agents
+npx skills add open-edge-platform/dlstreamer --skill dlstreamer-coding-agent -g -a claude-code -a cursor -a github-copilot
+
+# To update to latest skills from `main` branch
+ npx skills update -g dlstreamer-coding-agent
+```
+
+> **Note**: In general, the `npx skills add` command template to install skill is:
+`npx skills add open-edge-platform/dlstreamer@<branch_ref|commig-hash> -s <skill-name> -a <agent1> -a <agent2>`. For more details on the `npx skills` CLI, please refer https://github.com/vercel-labs/skills
+
 
 ### 2. Open the Chat Window and Enter Your Prompt
 
 Open the AI chat window in your coding environment and enter a prompt describing the application you want to build.
-The prompt must start with a reference to the DL Streamer Coding Agent:
 
 ```
-Use DL Streamer Coding Agent from https://github.com/open-edge-platform/dlstreamer
-
 Develop a Python application that implements a license plate recognition pipeline optimized for Intel® Core™ Ultra Series 3 Processors:
 - Read input video from a file (https://github.com/open-edge-platform/edge-ai-resources/raw/main/videos/ParkingVideo.mp4) but also allow remote IP cameras
 - Run YOLOv11 (https://huggingface.co/morsetechlab/yolov11-license-plate-detection) for object detection and PaddleOCR (https://huggingface.co/PaddlePaddle/PP-OCRv5_server_rec) model for character recognition
@@ -48,6 +55,11 @@ Develop a Python application that implements a license plate recognition pipelin
 
 Save source code in the license_plate_recognition directory.
 ```
+
+For the list of user prompts that can be tried with the DL Streamer coding agent, please check the ones available at [link](https://github.com/open-edge-platform/dlstreamer/tree/main/.github/skills/dlstreamer-coding-agent/examples)
+
+> **Note**: If the installed `dlstreamer-coding-agent` skill at `~/.agents/skills` is not auto-discovered by the coding agent tools, one can invoke the same in the respective AI chat window by invoking it manually as following:
+> `/dlstreamer-coding-agent [user prompt]`
 
 ### 3. What the Coding Agent Does
 
