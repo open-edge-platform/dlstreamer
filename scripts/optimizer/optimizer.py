@@ -37,6 +37,9 @@ logger.debug("GStreamer version: %d.%d.%d",
 
 ####################################### Helpers ###################################################
 
+class FaultyPipeline(Exception):
+    pass
+
 class TestHalt(Exception):
     pass
 
@@ -216,10 +219,6 @@ class DLSOptimizer:
             logger.info("Measuring performance of the original pipeline after pre-processing optimizations...")
             self._sample_pipeline([preproc_pipeline], self._sample_duration)
 
-            if initial_detections != 0 and detections / initial_detections < self._detections_error_threshold:
-                logger.debug("Pre-processed pipeline reporting detections under error margin, ignoring")
-                return pipeline
-
             return preproc_pipeline
 
         except Exception:
@@ -227,9 +226,9 @@ class DLSOptimizer:
         
         return pipeline
 
-    def _optimize_pipeline(self, initial_pipeline, initial_fps, initial_detections, streams):
+    def _optimize_pipeline(self, initial_pipeline, streams):
         best_pipeline = initial_pipeline
-        best_fps = initial_fps
+        best_fps = self._initial_fps
 
         for generator in self._generators.values():
             generator.init_pipeline(best_pipeline)
@@ -240,10 +239,6 @@ class DLSOptimizer:
                         pipelines.append(pipeline)
 
                     fps, detections = self._sample_pipeline(pipelines, self._sample_duration)
-
-                    if initial_detections != 0 and detections / initial_detections < self._detections_error_threshold:
-                        logger.debug("Pipeline reporting detections under error margin, skipping")
-                        continue
 
                     if fps > best_fps:
                         best_fps = fps
@@ -257,7 +252,7 @@ class DLSOptimizer:
                         time.sleep(0.5)
                     logger.info("Testing process restarted.")
                 except Exception as e:
-                    logger.debug("Pipeline failed to start: %s", e)
+                    logger.debug("Pipeline failed sampling: %s", e)
 
 ##################################### Pipeline Running ############################################
 
@@ -328,7 +323,7 @@ class DLSOptimizer:
                 cur_time = time.time()
                 if cur_time - start_time > sample_duration:
                     terminate = True
-        finally:
+
             ret = pipeline.set_state(Gst.State.NULL)
             logger.debug("Setting pipeline to NULL: %s", ret)
             _, state, _ = pipeline.get_state(Gst.CLOCK_TIME_NONE)
@@ -337,6 +332,10 @@ class DLSOptimizer:
             logger.debug("Sampled fps: %.2f", fps)
             fps = fps_counter.get_property("avg-fps")
             detections = fps_counter.get_property("detections")
+
+            if self._initial_detections != 0 and detections / self._initial_detections < self._detections_error_threshold:
+                raise FaultyPipeline("Pipeline reporting detections under error margin")
+        finally:
             del pipeline
 
         return fps, detections
