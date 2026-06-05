@@ -199,7 +199,7 @@ static void gst_g3d_render_init(GstG3DRender *self) {
     self->range_x_max      =  50.0f;
     self->range_y_min      = -50.0f;
     self->range_y_max      =  50.0f;
-    self->point_radius     = 2;
+    self->point_radius     = 16;
     self->point_stride     = 1;
     self->zoom             = 1.0f;
     self->view_mode        = 0;
