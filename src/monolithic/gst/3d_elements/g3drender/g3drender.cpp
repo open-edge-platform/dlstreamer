@@ -331,6 +331,10 @@ static cv::Point world_to_pixel_bev(float x, float y, const GstG3DRender *self) 
 
 static void draw_bev(cv::Mat &canvas, const float *points, guint count, const GstG3DRender *self) {
     const cv::Scalar grid_color(55, 55, 55);
+    cv::line(canvas, world_to_pixel_bev(0.0f, self->range_y_min, self),
+                     world_to_pixel_bev(0.0f, self->range_y_max, self), grid_color, 1);
+    cv::line(canvas, world_to_pixel_bev(self->range_x_min, 0.0f, self),
+                     world_to_pixel_bev(self->range_x_max, 0.0f, self), grid_color, 1);
     for (float d = 10.0f; d < self->range_x_max; d += 10.0f) {
         cv::line(canvas, world_to_pixel_bev(-d, self->range_y_min, self),
                          world_to_pixel_bev(-d, self->range_y_max, self), grid_color, 1);
