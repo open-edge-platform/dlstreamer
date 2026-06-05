@@ -470,11 +470,15 @@ static void draw_perspective(cv::Mat &canvas, const float *points, guint count, 
     std::vector<ProjPt> visible;
     visible.reserve(img_pts.size());
 
+    double zx = zaxis.at<double>(0), zy = zaxis.at<double>(1), zz = zaxis.at<double>(2);
+    double cx = cam_pos.at<double>(0), cy = cam_pos.at<double>(1), cz = cam_pos.at<double>(2);
+
     for (size_t i = 0; i < img_pts.size(); ++i) {
         cv::Point2f &p = img_pts[i];
         if (p.x < 0 || p.x >= self->width || p.y < 0 || p.y >= self->height) continue;
-        cv::Mat pt3 = (cv::Mat_<double>(3, 1) << obj_pts[i].x, obj_pts[i].y, obj_pts[i].z);
-        float depth = (float)(zaxis.dot(pt3 - cam_pos));
+        float depth = (float)(zx * (obj_pts[i].x - cx) +
+                               zy * (obj_pts[i].y - cy) +
+                               zz * (obj_pts[i].z - cz));
         if (depth <= 0.5f) continue;
         visible.push_back({p, depth, z_vals[i]});
     }
