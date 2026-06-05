@@ -389,26 +389,48 @@ static void draw_bev(cv::Mat &canvas, const float *points, guint count, const Gs
     draw_bev_axis(cv::Point2f(0.0f, -1.0f), "X");
     draw_bev_axis(cv::Point2f(-1.0f, 0.0f), "Y");
 
-    for (guint i = 0; i < count; i += (guint)self->point_stride) {
-        float x = points[i*4+0], y = points[i*4+1], intensity = points[i*4+3];
-        if (x < self->range_x_min || x > self->range_x_max ||
-            y < self->range_y_min || y > self->range_y_max) continue;
-        uint8_t r = (uint8_t)(intensity * 255.0f);
-        uint8_t b = (uint8_t)((1.0f - intensity) * 255.0f);
-        cv::circle(canvas, world_to_pixel_bev(x, y, self), self->point_radius, cv::Scalar(b, 80, r), -1);
+    float x_range = (self->range_x_max - self->range_x_min) / self->zoom;
+    float y_range = (self->range_y_max - self->range_y_min) / self->zoom;
+    float x_mid   = (self->range_x_max + self->range_x_min) / 2.0f;
+    float y_mid   = (self->range_y_max + self->range_y_min) / 2.0f;
+    float x_off   = x_mid - x_range / 2.0f;
+    float y_off   = y_mid - y_range / 2.0f;
+    float inv_y   = self->width  / y_range;
+
+    if (self->point_radius == 1) {
+        for (guint i = 0; i < count; i += (guint)self->point_stride) {
+            float x = points[i*4+0], y = points[i*4+1], intensity = points[i*4+3];
+            int px = (int)((y - y_off) * inv_y);
+            int py = (int)((1.0f - (x - x_off) / x_range) * self->height);
+            if (px < 0 || px >= self->width || py < 0 || py >= self->height) continue;
+            uint8_t r = (uint8_t)(intensity * 255.0f);
+            uint8_t b = (uint8_t)((1.0f - intensity) * 255.0f);
+            canvas.at<cv::Vec3b>(py, px) = cv::Vec3b(b, 80, r);
+        }
+    } else {
+        for (guint i = 0; i < count; i += (guint)self->point_stride) {
+            float x = points[i*4+0], y = points[i*4+1], intensity = points[i*4+3];
+            int px = (int)((y - y_off) * inv_y);
+            int py = (int)((1.0f - (x - x_off) / x_range) * self->height);
+            if (px < 0 || px >= self->width || py < 0 || py >= self->height) continue;
+            uint8_t r = (uint8_t)(intensity * 255.0f);
+            uint8_t b = (uint8_t)((1.0f - intensity) * 255.0f);
+            cv::circle(canvas, cv::Point(px, py), self->point_radius, cv::Scalar(b, 80, r), -1);
+        }
     }
+
 }
 
 
-static cv::Scalar height_to_color(float z) {
+static cv::Vec3b height_to_color(float z) {
     float t = (z + 2.0f) / 6.0f;
     t = std::max(0.0f, std::min(1.0f, t));
     if (t < 0.5f) {
         float s = t * 2.0f;
-        return cv::Scalar((1.0f - s) * 200, s * 180, s * 80);
+        return cv::Vec3b((uint8_t)((1.0f - s) * 200), (uint8_t)(s * 180), (uint8_t)(s * 80));
     }
     float s = (t - 0.5f) * 2.0f;
-    return cv::Scalar(0, (1.0f - s) * 180, s * 220 + 80);
+    return cv::Vec3b(0, (uint8_t)((1.0f - s) * 180), (uint8_t)(s * 220 + 80));
 }
 
 static void draw_perspective(cv::Mat &canvas, const float *points, guint count, GstG3DRender *self) {
@@ -486,9 +508,17 @@ static void draw_perspective(cv::Mat &canvas, const float *points, guint count, 
     std::sort(visible.begin(), visible.end(),
         [](const ProjPt &a, const ProjPt &b){ return a.depth > b.depth; });
 
-    for (auto &pp : visible) {
-        int r = std::max(1, (int)(self->point_radius * 20.0f / pp.depth));
-        cv::circle(canvas, cv::Point((int)pp.px.x, (int)pp.px.y), r, height_to_color(pp.z), -1);
+    if (self->point_radius == 1) {
+        for (auto &pp : visible) {
+            canvas.at<cv::Vec3b>((int)pp.px.y, (int)pp.px.x) = height_to_color(pp.z);
+        }
+    } else {
+        for (auto &pp : visible) {
+            int r = std::max(1, (int)(self->point_radius * 20.0f / pp.depth));
+            cv::Vec3b c = height_to_color(pp.z);
+            cv::circle(canvas, cv::Point((int)pp.px.x, (int)pp.px.y), r,
+                       cv::Scalar(c[0], c[1], c[2]), -1);
+        }
     }
 
     {
