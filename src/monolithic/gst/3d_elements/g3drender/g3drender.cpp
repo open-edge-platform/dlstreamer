@@ -45,6 +45,7 @@ enum {
     PROP_RANGE_Y_MAX,
     PROP_POINT_RADIUS,
     PROP_POINT_STRIDE,
+    PROP_ZOOM,
     PROP_VIEW_MODE,
     PROP_CAM_DISTANCE,
     PROP_CAM_ELEVATION,
@@ -132,6 +133,12 @@ static void gst_g3d_render_class_init(GstG3DRenderClass *klass) {
             1, 100, 1,
             (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
+    g_object_class_install_property(gobject_class, PROP_ZOOM,
+        g_param_spec_float("zoom", "Zoom",
+            "BEV zoom factor: 1.0=default (50m range), 2.0=zoomed in (25m range), 0.5=zoomed out (100m range)",
+            0.1f, 20.0f, 1.0f,
+            (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+
     g_object_class_install_property(gobject_class, PROP_VIEW_MODE,
         g_param_spec_enum("view-mode", "View Mode",
             "Rendering mode: bev (Bird's Eye View) or perspective (3D perspective)",
@@ -194,6 +201,7 @@ static void gst_g3d_render_init(GstG3DRender *self) {
     self->range_y_max      =  50.0f;
     self->point_radius     = 2;
     self->point_stride     = 1;
+    self->zoom             = 1.0f;
     self->view_mode        = 0;
     self->cam_distance     = 40.0f;
     self->cam_elevation    = 30.0f;
@@ -237,6 +245,7 @@ static void gst_g3d_render_set_property(GObject *obj, guint prop_id, const GValu
     case PROP_RANGE_Y_MAX:     self->range_y_max      = g_value_get_float(val); break;
     case PROP_POINT_RADIUS:    self->point_radius     = g_value_get_int(val);   break;
     case PROP_POINT_STRIDE:    self->point_stride     = g_value_get_int(val);   break;
+    case PROP_ZOOM:            self->zoom             = g_value_get_float(val); break;
     case PROP_VIEW_MODE:       self->view_mode        = g_value_get_enum(val);  break;
     case PROP_CAM_DISTANCE:    self->cam_distance     = g_value_get_float(val); break;
     case PROP_CAM_ELEVATION:   self->cam_elevation    = g_value_get_float(val); break;
@@ -258,6 +267,7 @@ static void gst_g3d_render_get_property(GObject *obj, guint prop_id, GValue *val
     case PROP_RANGE_Y_MAX:     g_value_set_float(val, self->range_y_max);      break;
     case PROP_POINT_RADIUS:    g_value_set_int(val,   self->point_radius);     break;
     case PROP_POINT_STRIDE:    g_value_set_int(val,   self->point_stride);     break;
+    case PROP_ZOOM:            g_value_set_float(val, self->zoom);             break;
     case PROP_VIEW_MODE:       g_value_set_enum(val,  self->view_mode);        break;
     case PROP_CAM_DISTANCE:    g_value_set_float(val, self->cam_distance);     break;
     case PROP_CAM_ELEVATION:   g_value_set_float(val, self->cam_elevation);    break;
@@ -310,8 +320,12 @@ static GstFlowReturn gst_g3d_render_prepare_output_buffer(GstBaseTransform *tran
 }
 
 static cv::Point world_to_pixel_bev(float x, float y, const GstG3DRender *self) {
-    int px = (int)((x - self->range_x_min) / (self->range_x_max - self->range_x_min) * self->width);
-    int py = (int)((1.0f - (y - self->range_y_min) / (self->range_y_max - self->range_y_min)) * self->height);
+    float x_range = (self->range_x_max - self->range_x_min) / self->zoom;
+    float y_range = (self->range_y_max - self->range_y_min) / self->zoom;
+    float x_mid   = (self->range_x_max + self->range_x_min) / 2.0f;
+    float y_mid   = (self->range_y_max + self->range_y_min) / 2.0f;
+    int px = (int)((y - (y_mid - y_range / 2.0f)) / y_range * self->width);
+    int py = (int)((1.0f - (x - (x_mid - x_range / 2.0f)) / x_range) * self->height);
     return cv::Point(px, py);
 }
 
@@ -329,8 +343,51 @@ static void draw_bev(cv::Mat &canvas, const float *points, guint count, const Gs
         cv::line(canvas, world_to_pixel_bev(self->range_x_min,  d, self),
                          world_to_pixel_bev(self->range_x_max,  d, self), grid_color, 1);
     }
-    cv::drawMarker(canvas, world_to_pixel_bev(0.0f, 0.0f, self),
-                   cv::Scalar(0, 255, 255), cv::MARKER_CROSS, 16, 2);
+    cv::Point origin = world_to_pixel_bev(0.0f, 0.0f, self);
+    int origin_scale = 18;
+    cv::Scalar axis_color(240, 240, 240);
+    cv::Point x_tip = world_to_pixel_bev(0.0f + (self->range_x_max - self->range_x_min) * origin_scale / self->width,
+                                         0.0f, self);
+    cv::Point y_tip = world_to_pixel_bev(0.0f,
+                                         0.0f + (self->range_y_max - self->range_y_min) * origin_scale / self->height,
+                                         self);
+    x_tip = cv::Point(origin.x, origin.y - origin_scale);
+    y_tip = cv::Point(origin.x - origin_scale, origin.y);
+    cv::Point x_neg(origin.x, origin.y + origin_scale);
+    cv::Point y_neg(origin.x + origin_scale, origin.y);
+    cv::line(canvas, x_neg, x_tip, axis_color, 1, cv::LINE_AA);
+    cv::line(canvas, y_neg, y_tip, axis_color, 1, cv::LINE_AA);
+
+    int ind_cx = self->width - 70, ind_cy = self->height - 70, ind_scale = 45;
+    cv::Scalar ind_color(220, 220, 220);
+
+    auto draw_bev_axis = [&](cv::Point2f dir, const char *label) {
+        cv::Point pos_tip(ind_cx + (int)( dir.x * ind_scale),       ind_cy + (int)( dir.y * ind_scale));
+        cv::Point neg_tip(ind_cx + (int)(-dir.x * ind_scale / 2.0f), ind_cy + (int)(-dir.y * ind_scale / 2.0f));
+        float dx = (float)(pos_tip.x - neg_tip.x), dy = (float)(pos_tip.y - neg_tip.y);
+        float d = std::sqrt(dx * dx + dy * dy);
+        float ux = dx / d, uy = dy / d;
+        int arrow_len = 10;
+        float dash_end = d - arrow_len;
+        float pos = 0.0f; bool on = true;
+        while (pos < dash_end) {
+            float end = std::min(pos + (on ? 6.0f : 4.0f), dash_end);
+            if (on) {
+                cv::Point a(neg_tip.x + (int)(ux * pos), neg_tip.y + (int)(uy * pos));
+                cv::Point b(neg_tip.x + (int)(ux * end), neg_tip.y + (int)(uy * end));
+                cv::line(canvas, a, b, ind_color, 1, cv::LINE_AA);
+            }
+            pos = end; on = !on;
+        }
+        cv::Point arrow_start(neg_tip.x + (int)(ux * dash_end), neg_tip.y + (int)(uy * dash_end));
+        cv::arrowedLine(canvas, arrow_start, pos_tip, ind_color, 1, cv::LINE_AA, 0, 0.4);
+        cv::Point2f label_pos(pos_tip.x + dir.x * 10, pos_tip.y + dir.y * 10);
+        cv::putText(canvas, label, cv::Point((int)label_pos.x - 5, (int)label_pos.y + 5),
+                    cv::FONT_HERSHEY_SIMPLEX, 0.5, ind_color, 1, cv::LINE_AA);
+    };
+
+    draw_bev_axis(cv::Point2f(0.0f, -1.0f), "X");
+    draw_bev_axis(cv::Point2f(-1.0f, 0.0f), "Y");
 
     for (guint i = 0; i < count; i += (guint)self->point_stride) {
         float x = points[i*4+0], y = points[i*4+1], intensity = points[i*4+3];

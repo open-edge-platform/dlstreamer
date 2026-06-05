@@ -34,6 +34,7 @@ struct _GstG3DRender {
     gfloat  range_y_max;
     gint    point_radius;
     gint    point_stride;
+    gfloat  zoom;
 
     gint    view_mode;
     gfloat  cam_distance;
