@@ -28,7 +28,6 @@ The argument passed to `YOLO()` can be either a local PyTorch file or an identif
 
 The directory created by the exporter contains all files required to use the model with the `gvadetect` element. No further modifications are required.
 
-
 ## Other YOLO Models
 
 > **NOTE:** To obtain ready-to-use versions of the models described below, we recommend using the [`download_public_models.sh`](https://github.com/open-edge-platform/dlstreamer/blob/main/samples/download_public_models.sh) script. See [Download Public Models](./download_public_models.md) for details.
@@ -54,7 +53,7 @@ YOLOv5 models trained with `ultralytics/yolov5` are not compatible with the `ult
 
 Preparing YOLOv5 7.0 from Ultralytics therefore involves two steps.
 
-1. Convert the PyTorch model to Intel® OpenVINO™ format:
+1. Convert the PyTorch model to OpenVINO™ format:
 
    ```bash
    git clone https://github.com/ultralytics/yolov5
@@ -77,7 +76,7 @@ Preparing YOLOv5 7.0 from Ultralytics therefore involves two steps.
 
 ### YOLOX
 
-An Intel® OpenVINO™ version of the model can be obtained from the ONNX file:
+An OpenVINO™ version of the model can be obtained from the ONNX file:
 
 ```bash
 wget https://github.com/Megvii-BaseDetection/YOLOX/releases/download/0.1.1rc0/yolox_s.onnx
@@ -87,3 +86,7 @@ ovc yolox_s.onnx --compress_to_fp16=False
 ## Model Usage
 
 See [Samples](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch/detection_with_yolo) for detailed examples of Deep Learning Streamer pipelines using different YOLO models.
+
+---
+
+*Intel, the Intel logo, OpenVINO, and the OpenVINO logo are trademarks of Intel Corporation or its subsidiaries.*

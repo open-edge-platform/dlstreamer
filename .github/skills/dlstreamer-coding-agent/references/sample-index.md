@@ -34,7 +34,7 @@ Before generating code, read the relevant existing samples to understand establi
 | action_recognition | Action recognition pipeline | `samples/gstreamer/gst_launch/action_recognition/` |
 | instance_segmentation | Instance segmentation pipeline | `samples/gstreamer/gst_launch/instance_segmentation/` |
 | detection_with_yolo | YOLO-based detection/classification | `samples/gstreamer/gst_launch/detection_with_yolo/` |
-| geti_deployment | Intel® Geti™ model deployment | `samples/gstreamer/gst_launch/geti_deployment/` |
+| geti_deployment | Geti™ model deployment | `samples/gstreamer/gst_launch/geti_deployment/` |
 | multi_stream | Multi-camera / multi-stream processing | `samples/gstreamer/gst_launch/multi_stream/` |
 | gvaattachroi | Attach custom ROIs before inference | `samples/gstreamer/gst_launch/gvaattachroi/` |
 | gvafpsthrottle | FPS throttling with `gvafpsthrottle` | `samples/gstreamer/gst_launch/gvafpsthrottle/` |

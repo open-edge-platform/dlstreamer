@@ -38,7 +38,7 @@ The `./out/rtdetr_v2_r18vd_onnx/` directory now contains all files required to u
 
 ## CLIP Models
 
-DL Streamer supports using the Vision Transformer (ViT) component of CLIP models to generate image embeddings. However, this component cannot be extracted from the `CLIPModel` architecture by using `optimum-cli`. Instead, use the following Python script to convert the Vision Transformer from **clip-vit-large-patch14**, **clip-vit-base-patch16**, or **clip-vit-base-patch32** to Intel® OpenVINO™ format. Because conversion is best performed with a sample input, prepare an image in a common format and replace `IMG_PATH` with the appropriate value.
+DL Streamer supports using the Vision Transformer (ViT) component of CLIP models to generate image embeddings. However, this component cannot be extracted from the `CLIPModel` architecture by using `optimum-cli`. Instead, use the following Python script to convert the Vision Transformer from **clip-vit-large-patch14**, **clip-vit-base-patch16**, or **clip-vit-base-patch32** to OpenVINO™ format. Because conversion is best performed with a sample input, prepare an image in a common format and replace `IMG_PATH` with the appropriate value.
 
 ```python
 from transformers import CLIPProcessor, CLIPVisionModel
@@ -98,3 +98,7 @@ See the following samples for detailed examples of DL Streamer pipelines that us
 3. [Face Detection and Classification](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/python/face_detection_and_classification)
 4. [Smart Network Video Recorder for Lane Hogging Detection](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/python/smart_nvr)
 5. [VLM Alerts](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/python/vlm_alerts)
+
+---
+
+*Intel, the Intel logo, OpenVINO, and the OpenVINO logo are trademarks of Intel Corporation or its subsidiaries.*
