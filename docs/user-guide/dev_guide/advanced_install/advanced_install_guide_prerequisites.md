@@ -64,9 +64,13 @@ export ZE_ENABLE_ALT_DRIVERS=libze_intel_npu.so
 ```
 
 The issue should be fixed with newer versions of Intel® NPU drivers and
-Intel® OpenVINO™ NPU plugins.
+OpenVINO™ NPU plugins.
 
 ------------------------------------------------------------------------
 
 > **\*** *Other names and brands may be claimed as the property of
 > others.*
+
+---
+
+*Intel, the Intel logo, OpenVINO, and the OpenVINO logo are trademarks of Intel Corporation or its subsidiaries.*

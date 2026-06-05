@@ -301,6 +301,7 @@ Alternatively, build the wheel from the cloned sources:
   ```
 
 This installs:
+
 - `dlstreamer.onvif` — ONVIF camera discovery and pipeline integration
 - All required Python dependencies (`numpy`, `onvif-zeep`, `urllib3`) automatically
 
@@ -313,3 +314,7 @@ After installation, no `PYTHONPATH` configuration is needed:
 > **NOTE (advanced):** As an alternative to pip, `dlstreamer.onvif` is also
 > accessible via `PYTHONPATH` set in Step 9. This approach requires
 > manual installation of the dependencies declared in `python/pyproject.toml`.
+
+---
+
+*Intel, the Intel logo, OpenVINO, and the OpenVINO logo are trademarks of Intel Corporation or its subsidiaries.*

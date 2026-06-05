@@ -101,3 +101,7 @@ In order to run samples on remote machine over SSH with X Forwarding you should 
 ```sh
 source ./force_ximagesink.sh
 ```
+
+---
+
+*Intel, the Intel logo and Intel Geti are trademarks of Intel Corporation or its subsidiaries.*

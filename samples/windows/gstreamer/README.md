@@ -1,6 +1,6 @@
 # Deep Learning Streamer (DL Streamer) Samples (Windows)
 
-Samples are simple applications that demonstrate how to use Intel® DL Streamer on Windows systems.
+Samples are simple applications that demonstrate how to use DL Streamer on Windows systems.
 
 ## Available Samples
 
@@ -54,3 +54,7 @@ If command-line parameter is not specified, most samples by default stream the v
 
 * [Windows Samples overview](../README.md)
 * [Linux GStreamer Samples](../../gstreamer/README.md)
+
+---
+
+*Intel, the Intel logo, OpenVINO, and the OpenVINO logo are trademarks of Intel Corporation or its subsidiaries.*

@@ -21,7 +21,7 @@ This sample builds GStreamer pipeline of the following elements
 
 ## Model
 
-The sample use YOLOv8s model from Ultralytics. The instructions assume Intel® DL Streamer framework is installed on the local system along with Intel® OpenVINO™ model downloader and converter tools,
+The sample use YOLOv8s model from Ultralytics. The instructions assume DL Streamer framework is installed on the local system along with OpenVINO™ model downloader and converter tools,
 as described here: [Tutorial](../../../../docs/user-guide/get_started/tutorial.md#setup).
 
 For yolov8s model it is also necessary to install the ultralytics python package:
@@ -83,3 +83,7 @@ Example:
 ## See also
 
 * [Samples overview](../../README.md)
+
+---
+
+*Intel, the Intel logo, OpenVINO, and the OpenVINO logo are trademarks of Intel Corporation or its subsidiaries.*
