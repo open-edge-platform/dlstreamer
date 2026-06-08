@@ -1,8 +1,7 @@
 # DL Streamer E2E Performance
 
-This benchmarking sample showcases **up to ~2.3x higher throughput** on
-Intel(R) Core(TM) Ultra 200/300 series processors through DL Streamer compared to the
-OpenCV + OpenVINO approach used in the
+This benchmarking sample showcases **significantly higher throughput** on
+Intel(R) Core(TM) Ultra 200/300 series processors through DL Streamer compared to the traditional deployment approach where OpenCV is used for preprocessing and OpenVINO for inference, as shown in the
 [OpenVINO YOLO26 notebook](https://github.com/openvinotoolkit/openvino_notebooks/blob/latest/notebooks/yolov26-optimization/yolov26-object-detection.ipynb)
 – same YOLO26s INT8 model, same video, same iGPU for inference.
 
@@ -16,22 +15,20 @@ inference entirely on the iGPU with zero-copy pipelining.
 ### 1. Pipelining
 
 DL Streamer runs pipeline stages in separate threads. While the iGPU compute
-engine infers on frame N, the video engine is already decoding frame N+1.
-The OpenCV + OpenVINO approach processes each frame sequentially on CPU.
+engine infers on frame N, the video engine is already decoding frame N+1, so
+the decode, preprocessing, and inference stages overlap instead of running one
+after another.
 
 ### 2. Hardware video decoding on iGPU
 
-DL Streamer decodes H.264 video on the iGPU fixed-function video engine. The
-decoded frame stays in GPU memory. The notebook approach uses OpenCV
-`cv2.VideoCapture` which decodes on CPU.
+DL Streamer decodes H.264 video on the iGPU fixed-function video engine and the
+decoded frame stays in GPU memory, ready for inference on the same device.
 
 ### 3. Zero-copy inference on iGPU
 
-DL Streamer preprocesses and infers directly on the GPU-resident frame. Data
-never leaves GPU memory. With four async inference requests (`nireq=4`), the
-compute engine is continuously busy. The notebook approach uploads a
-system-memory tensor to the iGPU before each inference and downloads the
-result after.
+DL Streamer preprocesses and infers directly on the GPU-resident frame, so the
+data stays in GPU memory across stages. With four async inference requests
+(`nireq=4`), the compute engine is kept continuously busy.
 
 ### Approach comparison
 
@@ -59,14 +56,16 @@ Running OpenCV + OpenVINO pipeline (notebook approach, iGPU inference) ...
 Running DL Streamer pipeline (iGPU decode, zero-copy, async nireq=4) ...
 
 ----------------------------------------------------------------
-  DL Streamer advantage: up to ~2.3x higher throughput
+  DL Streamer advantage: higher throughput
 ----------------------------------------------------------------
 ```
+Results depend on your hardware and setup, so run the sample to see the
+throughput on your own machine.
 
 The OpenCV + OpenVINO path uses the notebook's synchronous inference approach,
-changed only to use iGPU (`device='intel:gpu'`). DL Streamer adds hardware
-video decode, zero-copy VA surface sharing, async inference (nireq=4), and
-GStreamer pipelining on top.
+changed only to use iGPU (`device='intel:gpu'`). DL Streamer builds on top of
+the same model and device by adding hardware video decode, zero-copy VA surface
+sharing, async inference (nireq=4), and GStreamer pipelining.
 
 ### Detection output
 
