@@ -59,8 +59,7 @@ Running DL Streamer pipeline (iGPU decode, zero-copy, async nireq=4) ...
   DL Streamer advantage: higher throughput
 ----------------------------------------------------------------
 ```
-Results depend on your hardware and setup, so run the sample to see the
-throughput on your own machine.
+Results depend on the user's hardware and setup, so run the sample to see the throughput.
 
 The OpenCV + OpenVINO path uses the notebook's synchronous inference approach,
 changed only to use iGPU (`device='intel:gpu'`). DL Streamer builds on top of
