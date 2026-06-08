@@ -69,7 +69,37 @@ cd dlstreamer/samples/gstreamer/python/onvif_camera_analytics_validation
 source /opt/intel/dlstreamer/scripts/setup_dls_env.sh
 ```
 
-### 4. Create virtual environment and install dependencies
+### 4. Download a VLM model (run once)
+
+Use the model conversion scripts in [scripts/download_models/README.md](../../../../scripts/download_models/README.md).
+Before running them, create and activate the dedicated model-download virtual
+environment described there:
+
+```bash
+export MODELS_PATH="$HOME/models"
+cd /opt/intel/dlstreamer/scripts/download_models
+python3 -m venv .model_download_venv
+source .model_download_venv/bin/activate
+curl -LO https://raw.githubusercontent.com/openvinotoolkit/openvino.genai/refs/heads/releases/2026/1/samples/export-requirements.txt
+pip install -r export-requirements.txt -r requirements.txt
+
+python download_hf_models.py \
+    --model OpenVINO/gemma-3-4b-it-int8-ov \
+    --outdir "${MODELS_PATH}"
+
+cd /opt/intel/dlstreamer/samples/gstreamer/python/onvif_camera_analytics_validation
+```
+
+This creates the model under `${MODELS_PATH}/gemma-3-4b-it-int8-ov`.
+Gemma 3 4B (~3.3 GB in int4) is recommended and fits well on
+**Intel Core Ultra** class systems.
+
+> **Note:** For gated/private Hugging Face models, pass a token:
+> ```bash
+> python download_hf_models.py --model <org/model> --token <HF_TOKEN> --outdir <path>
+> ```
+
+### 5. Create virtual environment and install dependencies
 
 ```bash
 python3 -m venv --system-site-packages .venv
@@ -77,29 +107,13 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 5. Download a VLM model (run once)
-
-```bash
-hf download OpenVINO/gemma-3-4b-it-int8-ov --local-dir ./Gemma3-4B
-```
-
-The `hf` CLI is installed by `requirements.txt`.
-Gemma 3 4B (~3.3 GB in int4) is recommended — compact enough for
-**Intel Core Ultra** laptops with good object recognition.
-
-> **Note:** Gated models require a [Hugging Face](https://huggingface.co/)
-> account. Accept the license on the model page, then:
-> ```bash
-> hf auth login
-> ```
-
 ## Quick Start
 
 ```bash
 python3 onvif_camera_analytics_validation.py \
     --camera-ip 192.168.1.100 \
     --onvif-user root --onvif-pass root \
-    --model-path ./Gemma3-4B
+    --model-path "${MODELS_PATH}/gemma-3-4b-it-int8-ov"
 ```
 
 > If `--rtsp-uri` is omitted, the app discovers the stream URI via ONVIF.
