@@ -184,6 +184,20 @@ source .<app_name>-export-venv/bin/activate && \
 pip install -r export_requirements.txt
 ```
 
+> **PaddleOCR export toolchain note:** `paddle2onnx` may build `onnxoptimizer` from source.
+> If install fails with messages like `Could not find "cmake" executable` or
+> `No CMAKE_CXX_COMPILER could be found`, install host build tools first and retry:
+>
+> ```bash
+> sudo apt-get update && sudo apt-get install -y cmake g++
+> ```
+>
+> Then rerun install using the venv Python explicitly (to avoid PEP 668/system-pip issues):
+>
+> ```bash
+> ./.<app_name>-export-venv/bin/python -m pip install -r export_requirements.txt
+> ```
+
 #### 2b — Download video to local directory
 
 If the user provided an HTTP URL for video input, download it now:
