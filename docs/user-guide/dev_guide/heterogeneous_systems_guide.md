@@ -226,6 +226,22 @@ Sub-pipelines A and B run on GPU. No extra workload.
 | License plate detection + OCR | GPU GT0 |
 | Video decode (2 streams) | GPU GT1 |
 
+**Pipeline architecture:**
+
+```mermaid
+flowchart LR
+    subgraph SubA["Sub-pipeline A: LVM Alerts"]
+        V1A[filesrc] --> D1["decodebin3<br/>GT1 HW decode"] --> LVM["gvagenai<br/>device=GPU<br/>InternVL3_5-2B"] --> Q1[queue] --> F1[fakesink]
+    end
+
+    subgraph SubB["Sub-pipeline B: License Plate Detection + OCR"]
+        V1B[filesrc] --> D2["decodebin3<br/>GT1 HW decode"] --> DET["gvadetect<br/>device=GPU<br/>YOLOv8 LP"] --> Q2[queue] --> OCR["gvaclassify<br/>device=GPU<br/>PP-OCRv4"] --> Q3[queue] --> F2[fakesink]
+    end
+
+    Video1["Police Highway Video"] -.-> V1A
+    Video1 -.-> V1B
+```
+
 **Observed behavior:**
 
 - GPU compute tile (GT0) is heavily utilized by the combined LVM and
@@ -251,6 +267,27 @@ Sub-pipelines A, B and C (GPU variant) run together.
 | Face detection (metro video) | GPU GT0 |
 | Video decode (3 streams) | GPU GT1 |
 
+**Pipeline architecture:**
+
+```mermaid
+flowchart LR
+    subgraph SubA["Sub-pipeline A: LVM Alerts"]
+        V1A[filesrc] --> D1["decodebin3<br/>GT1 HW decode"] --> LVM["gvagenai<br/>device=GPU<br/>InternVL3_5-2B"] --> Q1[queue] --> F1[fakesink]
+    end
+
+    subgraph SubB["Sub-pipeline B: License Plate Detection + OCR"]
+        V1B[filesrc] --> D2["decodebin3<br/>GT1 HW decode"] --> DET["gvadetect<br/>device=GPU<br/>YOLOv8 LP"] --> Q2[queue] --> OCR["gvaclassify<br/>device=GPU<br/>PP-OCRv4"] --> Q3[queue] --> F2[fakesink]
+    end
+
+    subgraph SubC["Sub-pipeline C: Face Detection"]
+        V2[filesrc] --> D3["decodebin3<br/>GT1 HW decode"] --> FACE["gvadetect<br/>device=GPU<br/>YOLOv8 Face"] --> Q4[queue] --> F3[fakesink]
+    end
+
+    Video1["Police Highway Video"] -.-> V1A
+    Video1 -.-> V1B
+    Video2["Metro Crowd Video"] -.-> V2
+```
+
 **Observed behavior:**
 
 - GT0 must now share resources among three competing inference tasks
@@ -274,6 +311,27 @@ Sub-pipelines A and B remain on GPU. Sub-pipeline C uses the NPU variant.
 | License plate detection + OCR | GPU GT0 |
 | Face detection (metro video) | **NPU** |
 | Video decode (3 streams) | GPU GT1 |
+
+**Pipeline architecture:**
+
+```mermaid
+flowchart LR
+    subgraph SubA["Sub-pipeline A: LVM Alerts"]
+        V1A[filesrc] --> D1["decodebin3<br/>GT1 HW decode"] --> LVM["gvagenai<br/>device=GPU<br/>InternVL3_5-2B"] --> Q1[queue] --> F1[fakesink]
+    end
+
+    subgraph SubB["Sub-pipeline B: License Plate Detection + OCR"]
+        V1B[filesrc] --> D2["decodebin3<br/>GT1 HW decode"] --> DET["gvadetect<br/>device=GPU<br/>YOLOv8 LP"] --> Q2[queue] --> OCR["gvaclassify<br/>device=GPU<br/>PP-OCRv4"] --> Q3[queue] --> F2[fakesink]
+    end
+
+    subgraph SubC["Sub-pipeline C: Face Detection"]
+        V2[filesrc] --> D3["decodebin3<br/>GT1 HW decode"] --> FACE["gvadetect<br/>device=NPU<br/>YOLOv8 Face"] --> Q4[queue] --> F3[fakesink]
+    end
+
+    Video1["Police Highway Video"] -.-> V1A
+    Video1 -.-> V1B
+    Video2["Metro Crowd Video"] -.-> V2
+```
 
 **Observed behavior:**
 
