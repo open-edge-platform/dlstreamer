@@ -217,12 +217,15 @@ Sub-pipelines A and B run on GPU. No extra workload.
 flowchart LR
     Video1["Police Highway Video"]
     
-    Video1 --> V1A[filesrc]
-    Video1 --> V1B[filesrc]
+    Video1 -.-> V1A[filesrc]
+    Video1 -.-> V1B[filesrc]
+    
+    V1A --> D1
+    V1B --> D2
     
     subgraph GT1["GPU GT1 Media Tile (Shared HW Decode)"]
-        V1A --> D1[decodebin3]
-        V1B --> D2[decodebin3]
+        D1[decodebin3]
+        D2[decodebin3]
     end
     
     subgraph SubA["Sub-pipeline A: LVM Alerts"]
@@ -268,14 +271,18 @@ flowchart LR
     Video1["Police Highway Video"]
     Video2["Metro Crowd Video"]
     
-    Video1 --> V1A[filesrc]
-    Video1 --> V1B[filesrc]
-    Video2 --> V2[filesrc]
+    Video1 -.-> V1A[filesrc]
+    Video1 -.-> V1B[filesrc]
+    Video2 -.-> V2[filesrc]
+    
+    V1A --> D1
+    V1B --> D2
+    V2 --> D3
     
     subgraph GT1["GPU GT1 Media Tile (Shared HW Decode)"]
-        V1A --> D1[decodebin3]
-        V1B --> D2[decodebin3]
-        V2 --> D3[decodebin3]
+        D1[decodebin3]
+        D2[decodebin3]
+        D3[decodebin3]
     end
     
     subgraph SubA["Sub-pipeline A: LVM Alerts"]
@@ -324,14 +331,18 @@ flowchart LR
     Video1["Police Highway Video"]
     Video2["Metro Crowd Video"]
     
-    Video1 --> V1A[filesrc]
-    Video1 --> V1B[filesrc]
-    Video2 --> V2[filesrc]
+    Video1 -.-> V1A[filesrc]
+    Video1 -.-> V1B[filesrc]
+    Video2 -.-> V2[filesrc]
+    
+    V1A --> D1
+    V1B --> D2
+    V2 --> D3
     
     subgraph GT1["GPU GT1 Media Tile (Shared HW Decode)"]
-        V1A --> D1[decodebin3]
-        V1B --> D2[decodebin3]
-        V2 --> D3[decodebin3]
+        D1[decodebin3]
+        D2[decodebin3]
+        D3[decodebin3]
     end
     
     subgraph SubA["Sub-pipeline A: LVM Alerts"]
