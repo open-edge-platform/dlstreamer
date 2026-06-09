@@ -178,13 +178,17 @@ gst-launch-1.0 filesrc location=${VIDEO_FILE_1} ! decodebin3 ! videoconvert ! \
   gvadetect model=${MODEL_FILE_1} device=GPU ! a.
 ```
 
-## 6. The Deep Learning Streamer Pipeline Framework performance benchmark results
+## 6. Heterogeneous systems
+
+For more information on configuring and optimizing pipelines for heterogeneous systems with multiple devices, see the [Heterogeneous Systems Guide](heterogeneous_systems_guide.md).
+
+## 7. The Deep Learning Streamer Pipeline Framework performance benchmark results
 
 The Deep Learning Streamer Pipeline Framework example performance benchmark
 results can be found as a part of the
 [Smart Cities Accelerated by Intel® Graphics Solutions paper](https://www.intel.com/content/www/us/en/secure/content-details/826398/smart-cities-accelerated-by-intel-gpus-arc-gpu-addendum.html?wapkw=smart%20cities&DocID=826398).
 
-## 7. Displaying analysis results with gvawatermark
+## 8. Displaying analysis results with gvawatermark
 
 When video analysis results are supposed to be visually inspected, the `gvawatermark` element must be added to the pipeline. It should be positioned after inference elements (such as `gvadetect`, `gvaclassify`, or `gvainference`) and before the pipeline's sink that displays the results live or saves them to a video file. 
 
