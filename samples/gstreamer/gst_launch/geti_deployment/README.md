@@ -6,7 +6,7 @@ This set of samples demonstrates how to deploy models trained with [Geti™ Plat
 The Geti™ Platform defines a set of media analytics pipelines corresponding to common usage scenarios: classification, detection, segmentation, etc.
 In all cases, the platform outputs AI models in OpenVINO™ format: 'openvino.xml' and 'openvino.bin'.
 
-This sample assumes a user has already trained models using Geti™ Platform and stored the output models in the followign folder structure:
+This sample assumes a user has already trained models using Geti™ Platform and stored the output models in the following folder structure:
 
 ```sh
 -intel
@@ -48,7 +48,7 @@ The 'geti_sample.sh' script sample builds GStreamer pipeline composed of the fol
 * `filesrc` or `urisourcebin` or `v4l2src` for input from file/URL/web-camera
 * `decodebin3` for video decoding
 * [gvadetect](../../../../docs/user-guide/elements/gvadetect.md) uses for full-frame object detection and marking objects with labels
-* [gvaclassify](../../../../docs/user-guide/elements/gvaclassify.md) uses for full-frame object classficiation
+* [gvaclassify](../../../../docs/user-guide/elements/gvaclassify.md) uses for full-frame object classification
 * [gvawatermark](../../../../docs/user-guide/elements/gvawatermark.md) for points and theirs connections visualization
 * `autovideosink` for rendering output video into screen
 * `vah264enc` or `vah264lpenc` and `filesink` for encoding video stream and storing in a local file

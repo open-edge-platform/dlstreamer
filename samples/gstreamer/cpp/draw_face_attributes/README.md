@@ -28,7 +28,7 @@ The sample uses by default the following pre-trained models from OpenVINO™ Too
 
 The script `build_and_run.sh` compiles the C++ sample into subfolder under `$HOME/intel/dl_streamer`, then runs the executable file.
 
-If no input parameters specified, the sample by default streams video example from HTTPS link (utilizing `urisourcebin` element) so requires internet conection.
+If no input parameters specified, the sample by default streams video example from HTTPS link (utilizing `urisourcebin` element) so requires internet connection.
 The command-line parameter INPUT_VIDEO allows to change input video and supports
 * local video file
 * web camera device (ex. `/dev/video0`)
@@ -44,7 +44,7 @@ sudo apt install libopencv-dev
 ## Sample Output
 
 The sample
-* prints GSreamer pipeline string as passed to function `gst_parse_launch`
+* prints GStreamer pipeline string as passed to function `gst_parse_launch`
 * starts the pipeline and visualizes video with bounding boxes around detected faces, facial landmarks points, head pose, and text with classification results (age/gender, emotion) for each detected face
 
 ## See also
