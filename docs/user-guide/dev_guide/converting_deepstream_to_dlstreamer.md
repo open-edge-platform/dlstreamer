@@ -302,9 +302,7 @@ In this example, you will use `gvadetect` to infer on the full frame and
 output the regions of interest. `batch-size` is also added for consistency
 with what was removed above (the default value is `1` so it is not
 needed). The `config-file-path` property is replaced with `model` and
-`model-proc` properties as described in
-[Preparing Your Model](#preparing-your-model)
-above.
+and [Model Info Section](./model_info_xml.md).
 
 ```shell
 filesrc location=input_file.mp4 ! decodebin3 ! \
