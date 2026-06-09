@@ -189,7 +189,8 @@ e.g `displ-cfg=show-labels=true,hide-roi=car`
 
 ### Blur Feature
 
-The gvawatermark element supports privacy protection through region of interest (ROI) blurring using OpenCV GaussianBlur with a 15x15 kernel. This feature is useful for anonymizing faces, license plates, or other sensitive content in video streams.
+The gvawatermark element supports privacy protection through region of interest (ROI) blurring using OpenCV GaussianBlur with a dynamic kernel size as ~1/5 of each ROI dimension (minimum 7, always odd)
+so the blur strength scales with the region. This feature is useful for anonymizing faces, license plates, or other sensitive content in video streams.
 
 #### Blur Configuration Parameters
 
