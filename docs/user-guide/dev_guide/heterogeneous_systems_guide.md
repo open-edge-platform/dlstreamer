@@ -139,11 +139,6 @@ filesrc location=Videos/police_highway_1280_720_60fps_loop10.mp4 ! decodebin3
   ! queue ! gvafpscounter ! fakesink sync=false
 ```
 
-```mermaid
-flowchart LR
-    A[filesrc] --> B["decodebin3\nGT1 HW decode"] --> C["gvagenai\ndevice=GPU\nInternVL3_5-2B"] --> D[queue] --> E[fakesink]
-```
-
 **Example output:**
 
 ![LVM alert detection output](_assets/heterogeneous_guide_GPU_LVM_output.png)
@@ -162,11 +157,6 @@ filesrc location=Videos/police_highway_1280_720_60fps_loop10.mp4 ! decodebin3
   ! gvaclassify model=models/ch_PP-OCRv4_rec_infer/FP32/ch_PP-OCRv4_rec_infer.xml
       device=GPU model-instance-id=inf2
   ! queue ! gvafpscounter ! fakesink sync=false
-```
-
-```mermaid
-flowchart LR
-    A[filesrc] --> B["decodebin3\nGT1 HW decode"] --> C["gvadetect\ndevice=GPU\nYOLOv8 LP"] --> D[queue] --> E["gvaclassify\ndevice=GPU\nPP-OCRv4"] --> F[queue] --> G[fakesink]
 ```
 
 **Example output:**
@@ -199,11 +189,6 @@ filesrc location=Videos/metro_1280_720_30fps_loop10.mp4 ! decodebin3
   ! queue ! gvafpscounter ! fakesink sync=false
 ```
 
-```mermaid
-flowchart LR
-    A[filesrc] --> B["decodebin3\nGT1 HW decode"] --> C["gvadetect\ndevice=GPU or NPU\nYOLOv8 Face"] --> D[queue] --> E[fakesink]
-```
-
 **Example output (NPU):**
 
 ![Face detection output](_assets/heterogeneous_guide_NPU_output.png)
@@ -230,16 +215,25 @@ Sub-pipelines A and B run on GPU. No extra workload.
 
 ```mermaid
 flowchart LR
+    Video1["Police Highway Video"]
+    
+    Video1 --> V1A[filesrc]
+    Video1 --> V1B[filesrc]
+    
+    subgraph GT1["GPU GT1 Media Tile (Shared HW Decode)"]
+        V1A --> D1[decodebin3]
+        V1B --> D2[decodebin3]
+    end
+    
     subgraph SubA["Sub-pipeline A: LVM Alerts"]
-        V1A[filesrc] --> D1["decodebin3<br/>GT1 HW decode"] --> LVM["gvagenai<br/>device=GPU<br/>InternVL3_5-2B"] --> Q1[queue] --> F1[fakesink]
+        D1 --> LVM["gvagenai<br/>device=GPU<br/>InternVL3_5-2B"] --> Q1[queue] --> F1[fakesink]
     end
-
+    
     subgraph SubB["Sub-pipeline B: License Plate Detection + OCR"]
-        V1B[filesrc] --> D2["decodebin3<br/>GT1 HW decode"] --> DET["gvadetect<br/>device=GPU<br/>YOLOv8 LP"] --> Q2[queue] --> OCR["gvaclassify<br/>device=GPU<br/>PP-OCRv4"] --> Q3[queue] --> F2[fakesink]
+        D2 --> DET["gvadetect<br/>device=GPU<br/>YOLOv8 LP"] --> Q2[queue] --> OCR["gvaclassify<br/>device=GPU<br/>PP-OCRv4"] --> Q3[queue] --> F2[fakesink]
     end
-
-    Video1["Police Highway Video"] -.-> V1A
-    Video1 -.-> V1B
+    
+    style GT1 fill:#fff4e6,stroke:#ff9800,stroke-width:3px
 ```
 
 **Observed behavior:**
@@ -271,21 +265,32 @@ Sub-pipelines A, B and C (GPU variant) run together.
 
 ```mermaid
 flowchart LR
+    Video1["Police Highway Video"]
+    Video2["Metro Crowd Video"]
+    
+    Video1 --> V1A[filesrc]
+    Video1 --> V1B[filesrc]
+    Video2 --> V2[filesrc]
+    
+    subgraph GT1["GPU GT1 Media Tile (Shared HW Decode)"]
+        V1A --> D1[decodebin3]
+        V1B --> D2[decodebin3]
+        V2 --> D3[decodebin3]
+    end
+    
     subgraph SubA["Sub-pipeline A: LVM Alerts"]
-        V1A[filesrc] --> D1["decodebin3<br/>GT1 HW decode"] --> LVM["gvagenai<br/>device=GPU<br/>InternVL3_5-2B"] --> Q1[queue] --> F1[fakesink]
+        D1 --> LVM["gvagenai<br/>device=GPU<br/>InternVL3_5-2B"] --> Q1[queue] --> F1[fakesink]
     end
-
+    
     subgraph SubB["Sub-pipeline B: License Plate Detection + OCR"]
-        V1B[filesrc] --> D2["decodebin3<br/>GT1 HW decode"] --> DET["gvadetect<br/>device=GPU<br/>YOLOv8 LP"] --> Q2[queue] --> OCR["gvaclassify<br/>device=GPU<br/>PP-OCRv4"] --> Q3[queue] --> F2[fakesink]
+        D2 --> DET["gvadetect<br/>device=GPU<br/>YOLOv8 LP"] --> Q2[queue] --> OCR["gvaclassify<br/>device=GPU<br/>PP-OCRv4"] --> Q3[queue] --> F2[fakesink]
     end
-
+    
     subgraph SubC["Sub-pipeline C: Face Detection"]
-        V2[filesrc] --> D3["decodebin3<br/>GT1 HW decode"] --> FACE["gvadetect<br/>device=GPU<br/>YOLOv8 Face"] --> Q4[queue] --> F3[fakesink]
+        D3 --> FACE["gvadetect<br/>device=GPU<br/>YOLOv8 Face"] --> Q4[queue] --> F3[fakesink]
     end
-
-    Video1["Police Highway Video"] -.-> V1A
-    Video1 -.-> V1B
-    Video2["Metro Crowd Video"] -.-> V2
+    
+    style GT1 fill:#fff4e6,stroke:#ff9800,stroke-width:3px
 ```
 
 **Observed behavior:**
@@ -316,21 +321,32 @@ Sub-pipelines A and B remain on GPU. Sub-pipeline C uses the NPU variant.
 
 ```mermaid
 flowchart LR
+    Video1["Police Highway Video"]
+    Video2["Metro Crowd Video"]
+    
+    Video1 --> V1A[filesrc]
+    Video1 --> V1B[filesrc]
+    Video2 --> V2[filesrc]
+    
+    subgraph GT1["GPU GT1 Media Tile (Shared HW Decode)"]
+        V1A --> D1[decodebin3]
+        V1B --> D2[decodebin3]
+        V2 --> D3[decodebin3]
+    end
+    
     subgraph SubA["Sub-pipeline A: LVM Alerts"]
-        V1A[filesrc] --> D1["decodebin3<br/>GT1 HW decode"] --> LVM["gvagenai<br/>device=GPU<br/>InternVL3_5-2B"] --> Q1[queue] --> F1[fakesink]
+        D1 --> LVM["gvagenai<br/>device=GPU<br/>InternVL3_5-2B"] --> Q1[queue] --> F1[fakesink]
     end
-
+    
     subgraph SubB["Sub-pipeline B: License Plate Detection + OCR"]
-        V1B[filesrc] --> D2["decodebin3<br/>GT1 HW decode"] --> DET["gvadetect<br/>device=GPU<br/>YOLOv8 LP"] --> Q2[queue] --> OCR["gvaclassify<br/>device=GPU<br/>PP-OCRv4"] --> Q3[queue] --> F2[fakesink]
+        D2 --> DET["gvadetect<br/>device=GPU<br/>YOLOv8 LP"] --> Q2[queue] --> OCR["gvaclassify<br/>device=GPU<br/>PP-OCRv4"] --> Q3[queue] --> F2[fakesink]
     end
-
+    
     subgraph SubC["Sub-pipeline C: Face Detection"]
-        V2[filesrc] --> D3["decodebin3<br/>GT1 HW decode"] --> FACE["gvadetect<br/>device=NPU<br/>YOLOv8 Face"] --> Q4[queue] --> F3[fakesink]
+        D3 --> FACE["gvadetect<br/>device=NPU<br/>YOLOv8 Face"] --> Q4[queue] --> F3[fakesink]
     end
-
-    Video1["Police Highway Video"] -.-> V1A
-    Video1 -.-> V1B
-    Video2["Metro Crowd Video"] -.-> V2
+    
+    style GT1 fill:#fff4e6,stroke:#ff9800,stroke-width:3px
 ```
 
 **Observed behavior:**
