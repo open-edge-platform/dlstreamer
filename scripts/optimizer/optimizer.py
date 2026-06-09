@@ -37,10 +37,10 @@ logger.debug("GStreamer version: %d.%d.%d",
 
 ####################################### Helpers ###################################################
 
-class FaultyPipeline(Exception):
+class FaultyPipeline(Exception): # pylint: disable=missing-class-docstring
     pass
 
-class TestHalt(Exception):
+class TestHalt(Exception): # pylint: disable=missing-class-docstring
     pass
 
 ################################### Init and config ###############################################
@@ -237,7 +237,6 @@ class DLSOptimizer:
                     pipelines = []
                     for _ in range(0, streams):
                         pipelines.append(pipeline)
-                    print(f"pipeline: {str(pipelines)}")
 
                     fps, detections = self._sample_pipeline(pipelines, self._sample_duration)
 
