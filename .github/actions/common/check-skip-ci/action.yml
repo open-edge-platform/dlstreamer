@@ -102,18 +102,12 @@ runs:
 
         CHANGED_FILES_CODE=$(git diff --name-only origin/$BASE_BRANCH...HEAD -- \
           . \
+          ':(exclude)**/*.md' \
           ':(exclude)docs/' \
           ':(exclude).github/ISSUE_TEMPLATE/' \
           ':(exclude).github/skills/' \
           ':(exclude).github/CODEOWNERS' \
-          ':(exclude).github/PULL_REQUEST_TEMPLATE.md' \
-          ':(exclude)README.md' \
-          ':(exclude)SECURITY.md' \
-          ':(exclude)LICENSE' \
-          ':(exclude)CONTRIBUTING.md' \
-          ':(exclude)CHANGELOG.md' \
-          ':(exclude)CODESTYLE.md' \
-          ':(exclude)CODE_OF_CONDUCT.md')
+          ':(exclude)LICENSE')
 
         SKIP_CI=true
         JOB_NAME="$JOB_NAME"
