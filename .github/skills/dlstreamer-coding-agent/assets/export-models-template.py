@@ -22,7 +22,7 @@ from huggingface_hub import HfApi, hf_hub_download, snapshot_download
 
 MODELS_DIR = Path(__file__).resolve().parent / "models"
 MODEL_ID_PATTERN = re.compile(r"^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$")
-WEIGHT_FORMATS = {"int4", "int8", "fp16", "fp32"}
+WEIGHT_FORMATS = {"fp32","fp16","int8","int4","mxfp4","nf4","cb4"}
 
 
 def validate_model_id(model_id: str) -> str:

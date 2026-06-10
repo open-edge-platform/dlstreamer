@@ -229,6 +229,24 @@ onnxruntime         # required by paddle2onnx for model validation
 onnx_graphsurgeon   # required by paddle2onnx for ONNX graph optimization
 ```
 
+**Troubleshooting (`paddle2onnx` build prerequisites):**
+
+`paddle2onnx` may build `onnxoptimizer` from source. If install fails with
+messages like `Could not find "cmake" executable` or
+`No CMAKE_CXX_COMPILER could be found`, install host build tools and retry:
+
+```bash
+sudo apt-get update
+sudo apt-get install -y cmake g++
+```
+
+Rerun the requirements installation with the venv Python to avoid
+system-pip/PEP 668 issues:
+
+```bash
+./.<app_name>-export-venv/bin/python -m pip install -r export_requirements.txt
+```
+
 ### 6. Audio Models for gvaaudiodetect / gvaaudiotranscribe
 
 **When to use:** User asks for audio event detection or audio transcription.

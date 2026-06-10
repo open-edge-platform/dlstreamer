@@ -184,20 +184,6 @@ source .<app_name>-export-venv/bin/activate && \
 pip install -r export_requirements.txt
 ```
 
-> **PaddleOCR export toolchain note:** `paddle2onnx` may build `onnxoptimizer` from source.
-> If install fails with messages like `Could not find "cmake" executable` or
-> `No CMAKE_CXX_COMPILER could be found`, install host build tools first and retry:
->
-> ```bash
-> sudo apt-get update && sudo apt-get install -y cmake g++
-> ```
->
-> Then rerun install using the venv Python explicitly (to avoid PEP 668/system-pip issues):
->
-> ```bash
-> ./.<app_name>-export-venv/bin/python -m pip install -r export_requirements.txt
-> ```
-
 #### 2b — Download video to local directory
 
 If the user provided an HTTP URL for video input, download it now:
@@ -288,7 +274,24 @@ Generate all application files following the directory layout defined at the beg
   coding conventions and application structure.
 
 For all languages:
-- Use the [README Template](./assets/README-template.md) to generate `README.md` — replace `{{PLACEHOLDERS}}` with application-specific content and remove HTML comments.
+- Use the [README Template](./assets/README-template.md) to generate `README.md` by replacing all `{{PLACEHOLDERS}}` as described below:
+
+  | Placeholder | What to generate |
+  |---|---|
+  | `{{APP_TITLE}}` | Short title of the application |
+  | `{{APP_DESCRIPTION}}` | 2–3 sentences describing what the application does and its main use case |
+  | `{{DLSTREAMER_CODING_AGENT_PROMPT}}` | The verbatim initial user prompt wrapped in a Markdown blockquote (`> `). Do not paraphrase or summarize. |
+  | `{{APP_VISUALIZATION}}` | Optional screenshot line: `![APP_TITLE](results/screenshot.png)`. Omit this line entirely if no screenshot is available. |
+  | `{{DETAILED_DESCRIPTION}}` | Extended description: model names, hardware requirements, expected outputs. If the input video is from a publicly available source (e.g. Pexels), add: `This sample uses a video from <link> by <author>.` |
+  | `{{NUMBERED_STEPS}}` | Numbered list of pipeline stages, e.g. `1. **Detects** objects using gvadetect` |
+  | `{{PIPELINE_DIAGRAM}}` | Mermaid diagram. Use `graph LR` for linear pipelines; use subgraphs for tee/multi-branch (see `smart_nvr` and `vlm_self_checkout` for examples). |
+  | `{{PIPELINE_ELEMENTS_LIST}}` | Optional bulleted list of each GStreamer/DL Streamer element and its role. Omit if the pipeline is straightforward. |
+  | `{{VIDEO_DOWNLOAD_INSTRUCTIONS}}` | `curl` command to download the test video into `videos/`. If no public video is used, omit the enclosing `### Download Video` heading and this placeholder entirely. |
+  | `{{ADVANCED_USAGE}}` | Optional second usage block showing non-default CLI options. Omit if not needed. |
+  | `{{HOW_IT_WORKS_SECTIONS}}` | One `### STEP N` subsection per major pipeline stage or custom element, with relevant code snippets. |
+  | `{{CONFIGURATION_FILES_SECTION}}` | Optional `## Configuration Files` table (file name + purpose). Omit the section if unused. |
+  | `{{CLI_ARGUMENTS_TABLE}}` | One table row per CLI argument: flag name, default value, description. |
+  | `{{OUTPUT_FILES_LIST}}` | Bulleted list of output files produced under `results/`. |
 - If the application requires Python packages, list them in `requirements.txt`. If the OpenVINO Python runtime is required, pin the same version as the OpenVINO runtime installed with DL Streamer.
 
 ### Step 5 — Run, Debug, and Validate
