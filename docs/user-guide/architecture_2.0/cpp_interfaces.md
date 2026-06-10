@@ -59,7 +59,7 @@ between media frameworks and OpenCL/SYCL
 2. [DMA-BUF or NT-Handle to
    Level-zero](https://oneapi-src.github.io/level-zero-spec/level-zero/latest/core/PROG.html#external-memory-import-and-export)
 3. [OpenCL extension
-   cl_khr_external_memory](https://registry.khronos.org/OpenCL/specs/3.0-unified/html/OpenCL_API.html#cl_khr_external_memory)
+   cl_khr_external_memory](https://registry.khronos.org/OpenCL/specs/unified/html/OpenCL_API.html#cl_khr_external_memory)
 
 ## Memory interop in a few lines - using Deep Learning Streamer
 
@@ -102,7 +102,7 @@ folders on github source code and almost every C++ element.
 
 There is special mapper
 [MemoryMapperChain](./api_ref/class_dlstreamer_MemoryMapperChain) implementing unified interface
-[MemoryMapper](./api_ref/class_dlstreamer_MemoryMapper) as arbitrary chain of multiple mappers. As examples, 
+[MemoryMapper](./api_ref/class_dlstreamer_MemoryMapper) as arbitrary chain of multiple mappers. As examples,
 GStreamer to OpenCV UMat is chain of the following mappers:
 
 ![gst-to-usm-memory-mappers-chain](../_images/gst-to-usm-memory-mappers-chain.svg)

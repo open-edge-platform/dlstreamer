@@ -4,9 +4,13 @@
 # SPDX-License-Identifier: MIT
 # ==============================================================================
 """
-Download and export AI models for License Plate Recognition.
+Download and export AI models for DeepStream LPR Conversion.
 
-Run this script once before starting the pipeline application:
+Models:
+  - YOLOv11 license plate detector (replaces TrafficCamNet + LPDNet)
+  - PaddleOCR text recognizer (replaces LPRNet)
+
+Run this script once before building/running the C++ application:
     python3 export_models.py
 """
 
@@ -22,9 +26,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from shared_utils import resolve_hf_revision  # pylint: disable=wrong-import-position
 
 MODELS_DIR = Path(__file__).resolve().parent / "models"
-
-
-# ── Model Export Functions ────────────────────────────────────────────────────
 
 
 def export_yolo_detection(repo_id: str, pt_filename: str) -> Path:
@@ -51,7 +52,6 @@ def export_yolo_detection(repo_id: str, pt_filename: str) -> Path:
     model = YOLO(str(pt_path))
     exported_path = model.export(format="openvino", dynamic=True, int8=True)
 
-    # Rename export dir to predictable name
     export_dir = Path(exported_path)
     if export_dir != ov_dir:
         if ov_dir.exists():
@@ -79,12 +79,10 @@ def export_paddleocr(model_id: str) -> Path:
     ocr_dir.mkdir(parents=True, exist_ok=True)
     paddle_dir = ocr_dir / "paddle_model"
 
-    # Step 1: Download from HuggingFace
     print(f"[OCR] Downloading {model_id} from HuggingFace...")
     revision = resolve_hf_revision(model_id)
     snapshot_download(repo_id=model_id, revision=revision, local_dir=str(paddle_dir))
 
-    # Step 2: PaddlePaddle PIR → ONNX
     onnx_file = ocr_dir / "model.onnx"
     print("[OCR] Converting PaddlePaddle PIR → ONNX...")
     subprocess.run(
@@ -99,7 +97,6 @@ def export_paddleocr(model_id: str) -> Path:
         check=True,
     )
 
-    # Step 3: ONNX → OpenVINO IR FP16
     fp16_dir.mkdir(parents=True, exist_ok=True)
     print("[OCR] Converting ONNX → OpenVINO IR (FP16)...")
     subprocess.run(
@@ -107,7 +104,6 @@ def export_paddleocr(model_id: str) -> Path:
         check=True,
     )
 
-    # Step 4: Extract character dictionary from config.json
     config_src = paddle_dir / "config.json"
     if config_src.exists():
         shutil.copy2(str(config_src), str(fp16_dir / "config.json"))
@@ -120,15 +116,11 @@ def export_paddleocr(model_id: str) -> Path:
                 f.write("\n".join(char_dict) + "\n")
             print(f"[OCR] Character dictionary extracted ({len(char_dict)} chars)")
 
-    # Cleanup intermediate files
     onnx_file.unlink(missing_ok=True)
     shutil.rmtree(str(paddle_dir), ignore_errors=True)
 
     print(f"[OCR] Model ready: {ov_model}")
     return ov_model
-
-
-# ── CLI ───────────────────────────────────────────────────────────────────────
 
 
 def main():

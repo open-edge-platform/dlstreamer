@@ -54,7 +54,7 @@ The sample takes three command-line *optional* parameters:
     * local video file
     * web camera device (ex. `/dev/video0`)
     * RTSP camera (URL starting with `rtsp://`) or other streaming source (ex URL starting with `http://`)
-    If parameter is not specified, the sample by default streams video example from HTTPS link (utilizing `urisourcebin` element) so requires internet conection.
+    If parameter is not specified, the sample by default streams video example from HTTPS link (utilizing `urisourcebin` element) so requires internet connection.
 2. [DEVICE] to specify device for detection and classification.
         Please refer to OpenVINO™ toolkit documentation for supported devices.
         <https://docs.openvinotoolkit.org/latest/openvino_docs_IE_DG_supported_plugins_Supported_Devices.html>

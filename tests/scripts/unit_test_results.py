@@ -4,8 +4,9 @@
 # SPDX-License-Identifier: MIT
 # ==============================================================================
 
-import xml.etree.ElementTree as ET
 import sys
+
+from defusedxml import ElementTree as ET
 
 #usage: python unit_test_results.py path/to/your/results
 
