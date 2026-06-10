@@ -46,7 +46,7 @@ The input could be
     * video file path
     * web camera device (ex. /dev/video0)
     * URL of RTSP camera (URL starts with `rtsp://`) or other streaming source (ex `http://`)
-If parameter is not specified, the sample by default streams video example from HTTPS link (utilizing `urisourcebin` element) so requires internet conection.
+If parameter is not specified, the sample by default streams video example from HTTPS link (utilizing `urisourcebin` element) so requires internet connection.
 2. [DETECTION_INTERVAL] to specify interval between inference requests. An interval of N performs inference on every Nth frame. Default value is 10
 3. [DEVICE] to specify device for detection and classification.
     Please refer to OpenVINO™ toolkit documentation for supported devices.

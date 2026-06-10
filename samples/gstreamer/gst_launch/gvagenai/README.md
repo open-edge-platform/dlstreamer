@@ -6,7 +6,7 @@ The `gvagenai` element integrates OpenVINO™ GenAI capabilities into video proc
 
 ## How It Works
 
-The script constructs a GStreamer pipeline that processes video input from various sources (file, URL, or camera) and applies the model for generating summerization of the video content.
+The script constructs a GStreamer pipeline that processes video input from various sources (file, URL, or camera) and applies the model for generating summarization of the video content.
 
 The sample utilizes GStreamer command-line tool `gst-launch-1.0` which can build and run a GStreamer pipeline described in a string format.
 The string contains a list of GStreamer elements separated by an exclamation mark `!`, each element may have properties specified in the format `property=value`.

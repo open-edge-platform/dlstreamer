@@ -35,7 +35,7 @@ The command-line parameter INPUT_VIDEO allows to change input video and supports
 ## Sample Output
 
 The sample
-* prints GSreamer pipeline string as passed to function `gst_parse_launch`
+* prints GStreamer pipeline string as passed to function `gst_parse_launch`
 * starts the pipeline and visualizes video with bounding boxes around detected faces, facial landmarks points, head pose, and text with classification results (age/gender, emotion) for each detected face
 
 ## See also
