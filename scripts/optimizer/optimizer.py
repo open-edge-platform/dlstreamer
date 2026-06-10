@@ -143,6 +143,9 @@ class DLSOptimizer:
         self._optimal_pipeline = pipeline.copy()
         self._optimal_fps = self._initial_fps
         for (pipeline, fps) in self._optimize_pipeline(pipeline, 1):
+            if fps is None:
+                yield pipeline, None
+                
             if fps > self._optimal_fps:
                 self._optimal_fps = fps
                 self._optimal_pipeline = pipeline
@@ -252,6 +255,8 @@ class DLSOptimizer:
                     while self._paused:
                         time.sleep(0.5)
                     logger.info("Testing process restarted.")
+                except FaultyPipeline:
+                    yield pipeline, None
                 except Exception as e:
                     logger.debug("Pipeline failed sampling: %s", e)
 
