@@ -8,7 +8,7 @@
 * GstAnalytics metadata migration: full-frame GstAnalytics support, keypoints switched to GstAnalytics API, migration to upstream GStreamer 1.28+ API
 * New elements: gvastreammux, gvaanalytics, g3dinference
 * New model support: YOLO classification, PaddleOCRv5, GETI semantic segmentation
-* New D3D11 backend for Windows GPU processing
+* New D3D11 backend for inference elements for Windows GPU processing
 * PyTorch Image Models (TIMM) model import script
 * Windows installer and expanded Windows sample coverage
 * gvawatermark enhancements: custom full-frame text, dynamic Gaussian blur sized to ROI, metadata-controlled drawing
@@ -54,8 +54,8 @@ The complete solution leverages:
   | [gvastreammux](./elements/gvastreammux.md) | Multiplexes multiple input streams into a single pipeline with batch metadata support. |
   | [gvatrack](./elements//gvatrack.md) | Performs object tracking using zero-term, or imageless tracking algorithms.   Assigns unique object IDs to the tracked objects. |
   | [gvawatermark](./elements//gvawatermark.md) | Overlays the metadata on the video frame to visualize the inference   results. |
-  | [g3dinference](./elements/g3dinference.md) | Performs deep learning inference on 3D sensor data (lidar, radar). |
-  | [g3dlidarparse](./elements/g3dlidarparse.md) | Parses 3D lidar data for use in analytics pipelines. |
+  | [g3dinference](./elements/g3dinference.md) | Performs deep learning inference on 3D LiDAR sensor data. |
+  | [g3dlidarparse](./elements/g3dlidarparse.md) | Parses 3D LiDAR data for use in analytics pipelines. |
   | [g3dradarprocess](./elements/g3dradarprocess.md) | Processes 3D radar data for use in analytics pipelines. |
 
 
@@ -73,14 +73,14 @@ For installing Pipeline Framework with the prebuilt binaries or Docker* or to bu
 | Keypoints GstAnalytics metadata | Switched keypoints to GstAnalytics metadata API for standardized metadata handling. |
 | Analytics element (gvaanalytics) | New element providing a framework for custom analytics logic on detected objects and metadata. |
 | Stream multiplexer element (gvastreammux) | New element for multiplexing multiple input streams into a single pipeline with GstAnalyticsBatchMeta support. |
-| 3D inference element (g3dinference) | New element for performing deep learning inference on 3D sensor data (lidar, radar). |
+| 3D inference element (g3dinference) | New element for performing deep learning inference on 3D LiDAR sensor data. |
 | YOLO classification support | Added YOLO classification model support for image classification tasks. |
 | PaddleOCRv5 model support | Added support for PaddleOCRv5 models for character recognition. |
 | GETI semantic segmentation support | Added support for GETI semantic segmentation models. |
 | CPU thread affinity parameter | Added affinity CPU thread affinity parameter to gvadetect/gvaclassify for performance tuning. |
 | Skip raw tensors property | Added skip-raw-tensors property to gvaclassify and related components to reduce metadata overhead. |
 | DepthConverter and pre-processing | Added DepthConverter and enhanced pre-processing capabilities for depth data. |
-| New D3D11 backend | New D3D11 backend for Windows GPU processing including motion detect support. |
+| New D3D11 backend for inference elements  | New D3D11 GPU processing backend for inference elements including model sharing support. |
 | Windows installer | Added Windows installer for simplified DL Streamer deployment. |
 | Windows samples expansion | Added new Windows samples including YOLO, metapublish Kafka/MQTT. |
 | Dynamic ONVIF camera discovery sample | New sample for dynamic ONVIF camera discovery with DLS pipeline startup. |
@@ -115,7 +115,7 @@ For installing Pipeline Framework with the prebuilt binaries or Docker* or to bu
 | gvametaconvert documentation | Added missing documentation about add-rtp-timestamp property. |
 | gvametapublish Windows support | Enabled gvametapublishkafka and gvametapublishmqtt on Windows. |
 | CI infrastructure | Switched to self-hosted Kubernetes infrastructure, enabled configurable tests in Makefile, added Fedora 41 image building, modified PR workflow to save CI resources. |
-| Windows build improvements | Handle internal build and gstanalytics DLL copy, PDB file generation, fixed environment variable paths. |
+| Windows build improvements | Build gstanalytics library from source, PDB file generation, fixed environment variable paths. |
 | Python samples overview | Updated Python samples overview and READMEs. |
 | Tests | Expanded optimizer unit tests, added GStreamer check framework unit tests for gvawatermark, run optimizer tests always. Added 41 unit tests for metaaggregate copy functions, extended tensor_convert_test with full-frame classification and keypoint round-trip tests. |
 
