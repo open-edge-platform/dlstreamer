@@ -111,7 +111,7 @@ USER dlstreamer
 
 RUN \
     python3 -m venv /python3venv && \
-    /python3venv/bin/pip3 install --no-cache-dir --upgrade pip==25.3 && \
+    /python3venv/bin/pip3 install --no-cache-dir --upgrade pip==26.1 && \
     /python3venv/bin/pip3 install --no-cache-dir --no-dependencies \
     meson==1.4.1 \
     ninja==1.11.1.1 \
@@ -551,7 +551,7 @@ ARG DEBIAN_FRONTEND=noninteractive
 RUN \
     apt-get update -y && \
     apt-get install -y -q --no-install-recommends /debs/*.deb gcc=\* ninja-build=\* libcairo2-dev=\* libgirepository1.0-dev=\* && \
-    pip3 install --no-cache-dir pip==25.3 setuptools==82.0.1 wheel==0.46.2 packaging==24.2 && \
+    pip3 install --no-cache-dir pip==26.1 setuptools==82.0.1 wheel==0.46.2 packaging==24.2 && \
     pip3 install --no-cache-dir meson==1.6.1 && \
     pip3 install --no-cache-dir --ignore-installed -r /opt/intel/dlstreamer/requirements.txt && \
     apt-get remove -y gcc ninja-build libcairo2-dev libgirepository1.0-dev && \
