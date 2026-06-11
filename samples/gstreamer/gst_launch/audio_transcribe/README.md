@@ -26,7 +26,7 @@ This element provides audio transcription capabilities with an extensible handle
 
 ## Install DL Streamer
 
-Please follow official DL Streamer documentation for [installation steps](https://docs.openedgeplatform.intel.com/2026.1/edge-ai-libraries/dl-streamer/dev_guide/advanced_install/advanced_install_guide_compilation.html).
+Please follow official DL Streamer documentation for [installation steps](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dl-streamer/dev_guide/advanced_install/advanced_install_guide_compilation.html).
 
 > **Note:** This element requires OpenVINO GenAI.
 
