@@ -460,8 +460,9 @@ if not reg.find_plugin("python"):
 > Do not set `GST_REGISTRY_FORK=no` in apps without custom Python elements —
 > it produces noisy `undefined symbol` warnings on stderr.
 >
-> If custom elements are not found after registration, clear the cache:
-> `rm ~/.cache/gstreamer-1.0/registry.*.bin`
+> If custom elements are not found after registration, clear only the GStreamer
+> registry cache files in `~/.cache/gstreamer-1.0/` (for example
+> `registry.x86_64.bin`) and then restart the application.
 
 #### Elements That Modify Pixel Data
 
