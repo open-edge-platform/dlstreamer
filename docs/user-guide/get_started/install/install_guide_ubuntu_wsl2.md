@@ -163,7 +163,6 @@ and execute a sample pipeline with inference on the CPU:
 
 > **NOTE:** There is no current support for Video Acceleration API (VA-API) within WSL.
 
-
 ------------------------------------------------------------------------
 
 > **\*** *Other names and brands may be claimed as the property of
