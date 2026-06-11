@@ -672,7 +672,7 @@ json get_lidar_frame_data(GstGvaMetaConvert *converter, GstBuffer *buffer, Lidar
         {"frame_id", lidar_meta->frame_id},
         {"stream_id", lidar_meta->stream_id},
         {"point_count", lidar_meta->lidar_point_count},
-        {"exit_lidarparse_timestamp", lidar_meta->exit_lidarparse_timestamp},
+        {"exit_source_timestamp", lidar_meta->exit_source_timestamp},
         {"exit_g3dinference_timestamp", lidar_meta->exit_g3dinference_timestamp},
     });
 
