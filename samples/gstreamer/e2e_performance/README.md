@@ -121,7 +121,7 @@ the DL Streamer path uses the `gvawatermark` element.
 - Linux (Ubuntu 22.04 / 24.04)
 - Intel(R) Core(TM) Ultra series processor with integrated GPU
 - DL Streamer 2026.0.0
-  ([installation guide](https://docs.openedgeplatform.intel.com/2026.1/edge-ai-libraries/dlstreamer/get_started/install/install_guide_ubuntu.html))
+  ([installation guide](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/get_started/install/install_guide_ubuntu.html))
 - Python 3.10 or later
 
 If any Python packages are missing:
