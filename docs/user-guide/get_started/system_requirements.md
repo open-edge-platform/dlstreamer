@@ -26,3 +26,7 @@ discrete GPUs:
 
 To see the full list of potentially supported platforms, please refer to
 [OpenVINO™ System Requirements](https://www.intel.com/content/www/us/en/developer/tools/openvino-toolkit/system-requirements.html)
+
+---
+
+*Intel, the Intel logo, OpenVINO, and the OpenVINO logo are trademarks of Intel Corporation or its subsidiaries.*

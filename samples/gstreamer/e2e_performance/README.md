@@ -125,18 +125,20 @@ the DL Streamer path uses the `gvawatermark` element.
 - Python 3.10 or later
 
 If any Python packages are missing:
+
 ```
 pip install openvino opencv-python numpy ultralytics
 ```
+
 `ultralytics` is only needed for the one-time model export on first run.
 
 ## File structure
 
-| File | Description |
-|---|---|
+| File                 | Description                                                  |
+| -------------------- | ------------------------------------------------------------ |
 | `perf_comparison.py` | Main entry point, shared infrastructure, runs both pipelines |
-| `opencv_openvino.py` | OpenCV + OpenVINO path (mirrors the notebook) |
-| `dlstreamer.py` | DL Streamer path (iGPU, zero-copy, pipelined) |
+| `opencv_openvino.py` | OpenCV + OpenVINO path (mirrors the notebook)                |
+| `dlstreamer.py`      | DL Streamer path (iGPU, zero-copy, pipelined)                |
 
 ## Usage
 
@@ -144,13 +146,13 @@ pip install openvino opencv-python numpy ultralytics
 python3 perf_comparison.py
 ```
 
-| Argument | Default | Description |
-|---|---|---|
-| `--video` | auto-download people.mp4 | path to H.264 input video |
-| `--model` | auto-export YOLO26s INT8 | path to OpenVINO IR directory |
-| `--measure-frames` | 200 | frames included in the benchmark after warmup |
-| `--warmup` | 50 | warmup frames |
-| `--runs` | 3 | repeated runs |
+| Argument           | Default                  | Description                                   |
+| ------------------ | ------------------------ | --------------------------------------------- |
+| `--video`          | auto-download people.mp4 | path to H.264 input video                     |
+| `--model`          | auto-export YOLO26s INT8 | path to OpenVINO IR directory                 |
+| `--measure-frames` | 200                      | frames included in the benchmark after warmup |
+| `--warmup`         | 50                       | warmup frames                                 |
+| `--runs`           | 3                        | repeated runs                                 |
 
 ## DL Streamer pipeline
 

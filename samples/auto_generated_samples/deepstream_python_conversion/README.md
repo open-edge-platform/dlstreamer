@@ -4,7 +4,7 @@ This sample is a DL Streamer equivalent of NVIDIA's
 [deepstream-test4](https://github.com/NVIDIA-AI-IOT/deepstream_python_apps/tree/master/apps/deepstream-test4)
 application. It demonstrates how to detect objects in a video stream and publish
 detection metadata to a file, Kafka, or MQTT broker — the same workflow as the
-original DeepStream sample, but running on Intel hardware with OpenVINO.
+original DeepStream sample, but running on Intel® hardware with OpenVINO™.
 
 > **Coding Agent Prompt:**
 > Analyze the DeepStream sample application at
@@ -234,3 +234,7 @@ GstAnalytics metadata (`ODMtd` entries) instead of DeepStream's `pyds` batch met
 `gvametaconvert` converts GstAnalytics detection metadata to JSON format.
 `gvametapublish` publishes the JSON to the configured backend (file/Kafka/MQTT).
 This replaces DeepStream's `nvmsgconv` + `nvmsgbroker` pair.
+
+---
+
+*Intel, the Intel logo, OpenVINO, and the OpenVINO logo are trademarks of Intel Corporation or its subsidiaries.*
