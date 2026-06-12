@@ -56,7 +56,7 @@ Or download all available models:
 
 > **NOTE**: Remember to set the `MODELS_PATH` environment variable, which is needed by both the script that downloads the models and the script that runs the sample.
 
-These instructions assume that the DLStreamer framework is installed on your local system, along with the Intel® OpenVINO™ model downloader and converter tools, as described in this [tutorial](../../../../../docs/user-guide/get_started/tutorial.md#setup).
+These instructions assume that the DLStreamer framework is installed on your local system, along with the OpenVINO™ model downloader and converter tools, as described in this [tutorial](../../../../../docs/user-guide/get_started/tutorial.md#setup).
 
 ## Running
 
@@ -201,3 +201,7 @@ The library:
 * [Custom post-processing guide](../../../../../docs/user-guide/dev_guide/custom_processing.md#6-create-custom-post-processing-library)
 * [GStreamer Analytics Documentation](https://gstreamer.freedesktop.org/documentation/analytics/index.html?gi-language=c)
 * [Custom Post-Processing to ROI Sample](../detect/README.md)
+
+---
+
+*Intel, the Intel logo, OpenVINO, and the OpenVINO logo are trademarks of Intel Corporation or its subsidiaries.*

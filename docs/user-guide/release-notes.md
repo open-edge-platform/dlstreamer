@@ -49,7 +49,7 @@ The complete solution leverages:
   | [g3dlidarparse](./elements/g3dlidarparse.md) | Parses 3D lidar data for use in analytics pipelines. |
 
 For the details on supported platforms, please refer to [System Requirements](./get_started/system_requirements.md).
-For installing Pipeline Framework with the prebuilt binaries or Docker\* or to build the binaries from the open source, refer to [Intel® DL Streamer Pipeline Framework installation guide](./get_started/install/install_guide_index.md).
+For installing Pipeline Framework with the prebuilt binaries or Docker\* or to build the binaries from the open source, refer to [DL Streamer Pipeline Framework installation guide](./get_started/install/install_guide_index.md).
 
 **New in this Release**
 

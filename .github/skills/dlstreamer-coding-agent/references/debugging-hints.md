@@ -16,15 +16,9 @@ them with local files. Only move to full e2e validation after the self-contained
   ```
 - **Close stdin** for non-interactive runs with `< /dev/null`. Guard `input()` with `try/except EOFError`.
 - **Use fragmented MP4** (`mp4mux fragment-duration=1000`).
-- **For interactive stdin apps**, pipe commands via a FIFO:
-  ```bash
-  docker run --init --rm ... bash -c '
-    mkfifo /tmp/ctrl
-    (sleep 10; echo "record 0"; sleep 5; echo "stop"; sleep 2; echo "quit") > /tmp/ctrl &
-    python3 app.py < /tmp/ctrl
-    rm -f /tmp/ctrl'
-  ```
+- **For interactive stdin apps**, pass a fixed, pre-reviewed command sequence on stdin.
   **Always test interactive apps with simulated input scripts.**
+  Use fixed command sequences only; do not generate them from untrusted input.
 
 ## First-Run Model Compilation
 

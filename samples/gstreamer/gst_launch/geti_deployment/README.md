@@ -3,8 +3,9 @@
 This set of samples demonstrates how to deploy models trained with [Geti™ Platform](https://geti.intel.com/).
 
 ## How It Works
+
 The Geti™ Platform defines a set of media analytics pipelines corresponding to common usage scenarios: classification, detection, segmentation, etc.
-In all cases, the platform outputs AI models in OpenVINO™ format: 'openvino.xml' and 'openvino.bin'.
+In all cases, the platform outputs AI models in OpenVINO™ format: `openvino.xml` and `openvino.bin`.
 
 This sample assumes a user has already trained models using Geti™ Platform and stored the output models in the following folder structure:
 
@@ -35,7 +36,7 @@ This sample assumes a user has already trained models using Geti™ Platform and
  |-geti-obb/FP16                    # model trained with Geti™ 'Oriented Bounding Box Detection' project
    |-openvino.xml                   # model metadata
    |-openvino.bin                   # model weights
- |-geti-segmentation/FP16           # model trained with Geti™ 'Instance Seggmentation' project
+ |-geti-segmentation/FP16           # model trained with Geti™ 'Instance Segmentation' project
    |-openvino.xml                   # model metadata
    |-openvino.bin                   # model weights
 ```
@@ -45,13 +46,15 @@ The set of samples demonstrates how to deploy above models to run inference with
 ## Samples
 
 The 'geti_sample.sh' script sample builds GStreamer pipeline composed of the following elements:
+
 * `filesrc` or `urisourcebin` or `v4l2src` for input from file/URL/web-camera
 * `decodebin3` for video decoding
 * [gvadetect](../../../../docs/user-guide/elements/gvadetect.md) uses for full-frame object detection and marking objects with labels
 * [gvaclassify](../../../../docs/user-guide/elements/gvaclassify.md) uses for full-frame object classification
-* [gvawatermark](../../../../docs/user-guide/elements/gvawatermark.md) for points and theirs connections visualization
+* [gvawatermark](../../../../docs/user-guide/elements/gvawatermark.md) for points and visualization of their connections
 * `autovideosink` for rendering output video into screen
 * `vah264enc` or `vah264lpenc` and `filesink` for encoding video stream and storing in a local file
+
 > **NOTE**: `sync=false` property in `autovideosink` element disables real-time synchronization so pipeline runs as fast as possible
 
 Before running **geti_deployment** samples
@@ -70,21 +73,28 @@ Example deployment of Geti™ anomaly detection UFlow model using CPU device, sa
 
 ![example](./pcb_normal_vs_anomaly.jpg)
 
-
 Example deployment of Geti™ bounding-box detection model using GPU device, saving results into a file on local disk.
+
 ```sh
 ./geti_sample.sh detection GPU
 ```
 
 Example deployment of Geti™ single-label classification model using NPU device, saving results into a file on local disk.
+
 ```sh
 ./geti_sample.sh classification_single NPU
 ```
 
 Example deployment of Geti™ multi-label classification model using CPU device, saving results into a file on local disk.
+
 ```sh
 ./geti_sample.sh classification_multi CPU
 ```
 
 ## See also
+
 * [Samples overview](../../README.md)
+
+---
+
+*Intel, the Intel logo and Intel Geti are trademarks of Intel Corporation or its subsidiaries.*

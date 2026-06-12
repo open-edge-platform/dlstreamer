@@ -735,9 +735,9 @@ void gva_base_inference_set_core_pinning(GvaBaseInference *base_inference, const
         if (end_pos != std::string_view::npos)
             token = token.substr(0, end_pos + 1);
 
-        if (token.find('-') != std::string_view::npos) {
+        size_t dash_pos = token.find('-');
+        if (dash_pos != std::string_view::npos) {
             // Parse range like "1-5"
-            size_t dash_pos = token.find('-');
             int start = 0, end = 0;
             std::string_view start_sv = token.substr(0, dash_pos);
             std::string_view end_sv = token.substr(dash_pos + 1);
@@ -823,8 +823,8 @@ void gva_base_inference_set_core_pinning(GvaBaseInference *base_inference, const
             }
         };
 
-        if (token.find('-') != std::string_view::npos) {
-            size_t dash_pos = token.find('-');
+        size_t dash_pos = token.find('-');
+        if (dash_pos != std::string_view::npos) {
             int start = 0, end = 0;
             std::string_view start_sv = token.substr(0, dash_pos);
             std::string_view end_sv = token.substr(dash_pos + 1);

@@ -41,6 +41,7 @@ Samples separated into several categories:
     * [Vehicle Counter with gvaanalytics Tripwires](./python/gvaanalytics_tripwire/README.md) - uses the `gvaanalytics` element with tripwires to count vehicles crossing a virtual line in both directions
     * [Hello DL Streamer Sample](./python/hello_dlstreamer/README.md) - constructs an object detection pipeline, add logic to analyze metadata and count objects and visualize results along with object count summary in a local window
     * [ONVIF Camera Discovery Sample](./python/onvif_cameras_discovery/README.md) - demonstrates automatic discovery of ONVIF-compatible cameras on the network and launches corresponding DL Streamer pipelines for video analysis.
+    * [ONVIF Camera Analytics Validation Sample](./python/onvif_camera_analytics_validation/README.md) - sample application that uses VLM with DL Streamer to provide an additional validation layer for ONVIF-enabled analytics cameras.
     * [Open Close Valve Sample](./python/open_close_valve/README.md) - constructs pipeline with two sinks. One of them has [GStreamer valve element](https://gstreamer.freedesktop.org/documentation/coreelements/valve.html?gi-language=python), which is managed based object detection result and opened/closed by callback.
     * [Prompt-based Object Detection](./python/prompted_detection/README.md) - searches a video for user-defined objects using an open vocabulary detection model (YOLOE) integrated with a DL Streamer pipeline
     * [Smart NVR for Lane Hogging Detection](./python/smart_nvr/README.md) - builds a simple NVR with custom analytics (`gvaanalytics_py`) and custom video storage (`gvarecorder_py`) to detect line-hogging events
@@ -100,3 +101,7 @@ In order to run samples on remote machine over SSH with X Forwarding you should 
 ```sh
 source ./force_ximagesink.sh
 ```
+
+---
+
+*Intel, the Intel logo and Intel Geti are trademarks of Intel Corporation or its subsidiaries.*
