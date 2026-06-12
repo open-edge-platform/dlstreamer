@@ -178,7 +178,7 @@ Recommended small models for edge: `OpenGVLab/InternVL3_5-2B`, `openbmb/MiniCPM-
 
 **When to use:** OCR (PaddleOCR) or any PaddlePaddle model from HuggingFace.
 
-**CRITICAL:** PaddlePaddle v3+ uses PIR format (`.json` + `.pdiparams`), not `.pdmodel`.
+**PaddlePaddle v3+ uses PIR format** (`.json` + `.pdiparams`), not `.pdmodel`.
 `ovc` cannot read PIR directly — use `paddle2onnx → ovc`.
 
 **Export pattern — paddle2onnx → ovc (two-step):**

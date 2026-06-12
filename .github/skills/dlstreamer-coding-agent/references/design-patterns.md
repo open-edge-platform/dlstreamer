@@ -2,6 +2,24 @@
 
 Design patterns for building Python and C++ sample applications.
 
+## Table of Contents
+
+**Python patterns**
+- [Pattern Selection Table](#python-selection-table)
+- [Pattern 1: Pipeline Core](#pattern-1-pipeline-core)
+- [Pattern 2: Pipeline Event Loop](#pattern-2-pipeline-event-loop)
+- [Pattern 3: Multi-Stream / Multi-Camera](#pattern-3-multi-stream--multi-camera-in-process)
+- [Pattern 4: Multi-Stream Compositor](#pattern-4-multi-stream-compositor-mosaic-output)
+- [Pattern 5: Pad Probe Callback](#pattern-5-pad-probe-callback)
+- [Pattern 6: AppSink Callback](#pattern-6-appsink-callback)
+- [Pattern 7: Custom Python Element (BaseTransform)](#pattern-7-custom-python-gstreamer-element-basetransform)
+- [Pattern 8: Custom Python Element (Bin/Sink)](#pattern-8-custom-python-gstreamer-element-bin--sink)
+- [Pattern 9: Dynamic Pipeline Control](#pattern-9-dynamic-pipeline-control-tee--valve)
+- [Pattern 10: Cross-Branch Signal Bridge](#pattern-10-cross-branch-signal-bridge)
+
+**C and C++ patterns**
+- [Pattern 11–20: GStreamer C/C++ initialization, elements, buses, pads, buffers](#c-and-c-reference-patterns)
+- [Pattern 21: Sample application](#patterns-21-cc-sample-application)
 
 ## Python reference patterns
 Patterns for custom Python elements also apply to command-line apps that reuse them.

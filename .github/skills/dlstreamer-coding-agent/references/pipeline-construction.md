@@ -2,6 +2,19 @@
 
 GStreamer pipeline syntax for DL Streamer video-analytics applications.
 
+## Table of Contents
+
+- [DL Streamer GStreamer Elements](#dl-streamer-gstreamer-elements)
+  - Source Elements · Decode · Video Processing · AI Inference · Tracking · Overlay & Metrics · Metadata Publishing · Flow Control · Multi-Stream Compositing · Encode & Output · Custom Logic
+- [Deprecated Elements — Do NOT Use](#deprecated-elements--do-not-use)
+- [Common Pipeline Patterns](#common-pipeline-patterns)
+- [Single-stream Examples](#single-stream-examples)
+- [Multi-stream Examples](#multi-stream-examples)
+- [VLM Examples](#vlm-examples)
+- [Pipeline Design Rules](#pipeline-design-rules)
+  - Caps & Format Negotiation · Element & Device Selection · Output & Metadata · Branching · Decode Robustness
+- [Common Gotchas](#common-gotchas)
+
 ## DL Streamer GStreamer Elements
 
 For the full list of elements, see also `../../../../docs/user-guide/elements/`.

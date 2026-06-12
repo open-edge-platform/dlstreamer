@@ -1,8 +1,9 @@
 # Requirements Questionnaire
 
 Collect missing pipeline requirements from the user.
-Present all questions **interactively in a single round** using `vscode_askQuestions`
-or inline in chat.
+Present all questions **interactively in a single round** — use the interactive question
+tool if one is available (e.g. `ask_user` or `vscode_askQuestions` in VS Code Copilot),
+otherwise list them inline in chat as a numbered form.
 
 If the user's prompt matches a [Fast Path](../SKILL.md#fast-path-pattern-table-match),
 pre-fill with inferred values and mark as `recommended`.
