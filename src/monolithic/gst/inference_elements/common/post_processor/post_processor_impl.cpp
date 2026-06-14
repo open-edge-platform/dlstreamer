@@ -29,7 +29,8 @@ inline void set_convert_name(GstStructure *s, const std::string &name) {
 } // namespace
 
 void PostProcessorImpl::setDefaultConverter(GstStructure *model_proc_output, const ModelOutputsInfo &model_outputs,
-                                            ConverterType converter_type) {
+                                            ConverterType converter_type,
+                                            const std::string &zeroshot_embeddings_file) {
     if (model_proc_output == nullptr)
         throw std::runtime_error("Can not get model_proc output information.");
 
@@ -53,7 +54,11 @@ void PostProcessorImpl::setDefaultConverter(GstStructure *model_proc_output, con
     } break;
     case ConverterType::RAW:
     case ConverterType::TO_TENSOR: {
-        set_convert_name(model_proc_output, RawDataCopyConverter::getName());
+        if (converter_type == ConverterType::TO_TENSOR && !zeroshot_embeddings_file.empty()) {
+            set_convert_name(model_proc_output, "zeroshot_openclip");
+        } else {
+            set_convert_name(model_proc_output, RawDataCopyConverter::getName());
+        }
     } break;
     default:
         throw std::runtime_error("Unknown inference type.");
@@ -79,7 +84,7 @@ PostProcessorImpl::PostProcessorImpl(Initializer initializer) {
                 model_proc_outputs = initializer.output_processors;
             }
             setDefaultConverter(model_proc_outputs.cbegin()->second, initializer.model_outputs,
-                                initializer.converter_type);
+                                initializer.converter_type, initializer.zeroshot_embeddings_file);
 
             if (initializer.converter_type == ConverterType::TO_ROI) {
                 // Only set threshold if user explicitly provided one OR model has no threshold
@@ -99,7 +104,8 @@ PostProcessorImpl::PostProcessorImpl(Initializer initializer) {
             converters.emplace_back(layer_names, model_proc_outputs.cbegin()->second, initializer.converter_type,
                                     initializer.attach_type, initializer.image_info, initializer.model_outputs,
                                     initializer.model_name, labels, initializer.custom_postproc_lib,
-                                    initializer.skip_raw_tensors);
+                                    initializer.skip_raw_tensors, initializer.zeroshot_embeddings_file,
+                                    initializer.zeroshot_topk);
         } else {
             for (const auto &model_proc_output : initializer.output_processors) {
                 if (model_proc_output.second == nullptr) {
@@ -123,7 +129,8 @@ PostProcessorImpl::PostProcessorImpl(Initializer initializer) {
 
                 converters.emplace_back(model_proc_output.second, initializer.converter_type, initializer.attach_type,
                                         initializer.image_info, initializer.model_outputs, initializer.model_name,
-                                        labels, initializer.custom_postproc_lib, initializer.skip_raw_tensors);
+                                        labels, initializer.custom_postproc_lib, initializer.skip_raw_tensors,
+                                        initializer.zeroshot_embeddings_file, initializer.zeroshot_topk);
             }
         }
     } catch (const std::exception &e) {
