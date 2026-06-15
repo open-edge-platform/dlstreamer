@@ -8,7 +8,7 @@ from the source code provided in
 ## Step 1: Clone Deep Learning Streamer repository
 
 ```bash
-git clone --recursive https://github.com/open-edge-platform/dlstreamer.git
+git clone --branch v2026.1.0 --recursive https://github.com/open-edge-platform/dlstreamer.git
 cd dlstreamer
 git submodule update --init --recursive
 ```

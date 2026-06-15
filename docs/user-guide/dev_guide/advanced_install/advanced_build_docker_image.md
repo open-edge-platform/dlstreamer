@@ -14,7 +14,7 @@ Follow the instructions in
 ## Step 2: Clone DL Streamer repository
 
 ```bash
-git clone https://github.com/open-edge-platform/dlstreamer.git
+git clone https://github.com/open-edge-platform/dlstreamer.git -b v2026.1.0
 cd dlstreamer
 git submodule update --init --recursive
 ```
