@@ -226,7 +226,7 @@ jobs:
             --group-add "$RENDER_GROUP_ID" \
             -w /workspace \
             ${deb_final_img} \
-            bash /workspace/optimizer_tests/scripts/run_optimizer_tests.sh --config-file "/workspace/optimizer_tests/test_config.json"
+            bash /workspace/optimizer_tests/scripts/run_optimizer_tests.sh --config-file "/workspace/optimizer_tests/test_config.json" --verbose
 
       - name: Upload Docker test results
         if: always() && matrix.runner_print_label != 'SKIP'
@@ -263,7 +263,7 @@ jobs:
           mkdir -p $OPTIMIZER_TESTS_PATH/optimizer_results/host
           bash $OPTIMIZER_TESTS_PATH/functional_tests/optimizer_tests/scripts/run_optimizer_tests.sh \
             --results-dir "$OPTIMIZER_TESTS_PATH/optimizer_results/host" \
-            --config-file "$OPTIMIZER_TESTS_PATH/functional_tests/optimizer_tests/test_config.json"
+            --config-file "$OPTIMIZER_TESTS_PATH/functional_tests/optimizer_tests/test_config.json" --verbose
 
       - name: Upload host test results
         if: always() && matrix.runner_print_label != 'SKIP'
