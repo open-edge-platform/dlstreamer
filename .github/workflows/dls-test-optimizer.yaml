@@ -209,6 +209,7 @@ jobs:
             -v $OPTIMIZER_TESTS_PATH/functional_tests/optimizer_tests:/workspace/optimizer_tests \
             -v $OPTIMIZER_TESTS_PATH/optimizer_results/docker:/workspace/optimizer_results \
             -v ${{ env.MODELS_PATH }}:/home/dlstreamer/models \
+            -v ${{ env.VIDEO_INPUTS_PATH }}:/home/dlstreamer/videos \
             --device=/dev/dri \
             --group-add "$RENDER_GROUP_ID" \
             -w /workspace \
