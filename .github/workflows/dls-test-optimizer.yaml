@@ -159,19 +159,6 @@ jobs:
             -f ${path_dockerfile} \
             ${{ env.DLS_REL_PATH }}
 
-      - name: Build dlstreamer img with python
-        if: matrix.runner_print_label != 'SKIP'
-        env:
-          deb_final_img: ghcr.io/${{ github.repository }}/deb-final-img-${{ matrix.ubuntu_version }}:${{ github.sha }}
-          deb_final_testing_img: ghcr.io/${{ github.repository }}/deb-final-testing-img-${{ matrix.ubuntu_version }}:${{ github.sha }}
-        id: dlstreamer-with-python
-        run: |
-          docker build \
-          -f $DLS_REL_PATH/docker/ubuntu/ubuntu-testing.Dockerfile \
-          -t $deb_final_testing_img \
-          --build-arg BASE_IMAGE=$deb_final_img \
-          ${{ env.DLS_REL_PATH }}
-
       - name: 📦 Extract .deb packages using script
         if: matrix.runner_print_label != 'SKIP'
         env:
