@@ -27,7 +27,7 @@ Build new DL Streamer video-analytics applications (Python, C, C++ or GStreamer 
 
 This skill uses **repo-root-relative paths** to reference files outside the skill folder (e.g. `docs/user-guide/elements/`, `samples/gstreamer/python/hello_dlstreamer/`). The repo root is three directories above this skill file when the full repo is cloned, or refers to https://github.com/open-edge-platform/dlstreamer if only skill files were copied.
 
-## When to use
+## When to Use
 
 - User describes a vision AI pipeline in natural language
 - User wants to create a new Python sample application built on DL Streamer
