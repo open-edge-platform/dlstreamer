@@ -101,6 +101,9 @@ static void gst_g3d_lidar_parse_init(GstG3DLidarParse *filter) {
     filter->is_single_file = FALSE;
     filter->file_type = FILE_TYPE_BIN; // Default to BIN
     filter->stream_id = 0;
+
+    // Initialize PTS tracking
+    filter->next_pts = 0;
 }
 
 static void gst_g3d_lidar_parse_finalize(GObject *object) {
@@ -234,6 +237,7 @@ static gboolean gst_g3d_lidar_parse_stop(GstBaseTransform *trans) {
     GST_INFO_OBJECT(filter, "[STOP] Stopping lidar parser");
     filter->current_index = 0;
     filter->stream_id = 0;
+    filter->next_pts = 0;
     GST_INFO_OBJECT(filter, "[STOP] Data cleared");
 
     return TRUE;
@@ -259,11 +263,13 @@ static gboolean gst_g3d_lidar_parse_sink_event(GstBaseTransform *trans, GstEvent
     case GST_EVENT_EOS:
         GST_INFO_OBJECT(filter, "Received EOS event, resetting counters and stopping processing");
         filter->current_index = 0;
+        filter->next_pts = 0;
         break;
     case GST_EVENT_SEGMENT:
     case GST_EVENT_FLUSH_START:
     case GST_EVENT_FLUSH_STOP:
         filter->current_index = 0;
+        filter->next_pts = 0;
         GST_INFO_OBJECT(filter, "Reset counters for event: %s", GST_EVENT_TYPE_NAME(event));
         break;
     default:
@@ -497,6 +503,24 @@ static GstFlowReturn gst_g3d_lidar_parse_transform(GstBaseTransform *trans, GstB
         GST_ERROR_OBJECT(filter, "Failed to add lidar meta to buffer");
         g_mutex_unlock(&filter->mutex);
         return GST_FLOW_ERROR;
+    }
+
+    // Set PTS and duration on the output buffer
+    GST_BUFFER_PTS(outbuf) = filter->next_pts;
+
+    // Calculate duration based on frame rate
+    GstClockTime duration = GST_CLOCK_TIME_NONE;
+    if (filter->frame_rate > 0) {
+        duration = gst_util_uint64_scale_int(GST_SECOND, 1, (gint)(filter->frame_rate));
+    }
+    GST_BUFFER_DURATION(outbuf) = duration;
+
+    GST_DEBUG_OBJECT(filter, "Set buffer PTS=%" GST_TIME_FORMAT " duration=%" GST_TIME_FORMAT,
+                     GST_TIME_ARGS(GST_BUFFER_PTS(outbuf)), GST_TIME_ARGS(GST_BUFFER_DURATION(outbuf)));
+
+    // Update next PTS for the next frame
+    if (duration != GST_CLOCK_TIME_NONE) {
+        filter->next_pts += duration;
     }
 
     GST_INFO_OBJECT(filter, "Successfully processed lidar buffer with %u floats", lidar_meta->lidar_point_count);
