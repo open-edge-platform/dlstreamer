@@ -24,7 +24,7 @@ static gboolean lidar_meta_init(GstMeta *meta, gpointer params, GstBuffer *buffe
     LidarMeta *lidar_meta = (LidarMeta *)meta;
     lidar_meta->lidar_point_count = 0;
     lidar_meta->frame_id = 0;
-    lidar_meta->exit_lidarparse_timestamp = GST_CLOCK_TIME_NONE;
+    lidar_meta->exit_source_timestamp = GST_CLOCK_TIME_NONE;
     lidar_meta->exit_g3dinference_timestamp = GST_CLOCK_TIME_NONE;
     lidar_meta->stream_id = 0;
     return TRUE;
@@ -48,7 +48,7 @@ DLS_EXPORT const GstMetaInfo *lidar_meta_get_info(void) {
 }
 
 DLS_EXPORT LidarMeta *add_lidar_meta(GstBuffer *buffer, guint lidar_point_count, size_t frame_id,
-                                     GstClockTime exit_lidarparse_timestamp, guint stream_id) {
+                                     GstClockTime exit_source_timestamp, guint stream_id) {
     if (!buffer) {
         GST_WARNING("Cannot add meta to NULL buffer");
         return NULL;
@@ -56,7 +56,7 @@ DLS_EXPORT LidarMeta *add_lidar_meta(GstBuffer *buffer, guint lidar_point_count,
 
     GST_DEBUG(
         "Adding LidarMeta to buffer with lidar_point_count=%u frame_id=%zu stream_id=%u exit_ts=%" GST_TIME_FORMAT,
-        lidar_point_count, frame_id, stream_id, GST_TIME_ARGS(exit_lidarparse_timestamp));
+        lidar_point_count, frame_id, stream_id, GST_TIME_ARGS(exit_source_timestamp));
 
     LidarMeta *meta = (LidarMeta *)gst_buffer_add_meta(buffer, LIDAR_META_INFO, NULL);
     if (!meta) {
@@ -66,12 +66,12 @@ DLS_EXPORT LidarMeta *add_lidar_meta(GstBuffer *buffer, guint lidar_point_count,
 
     meta->lidar_point_count = lidar_point_count;
     meta->frame_id = frame_id;
-    meta->exit_lidarparse_timestamp = exit_lidarparse_timestamp;
+    meta->exit_source_timestamp = exit_source_timestamp;
     meta->stream_id = stream_id;
 
     GST_DEBUG(
         "LidarMeta added successfully: lidar_point_count=%u, frame_id=%zu, stream_id=%u, exit_ts=%" GST_TIME_FORMAT,
-        meta->lidar_point_count, meta->frame_id, meta->stream_id, GST_TIME_ARGS(meta->exit_lidarparse_timestamp));
+        meta->lidar_point_count, meta->frame_id, meta->stream_id, GST_TIME_ARGS(meta->exit_source_timestamp));
 
     return meta;
 }

@@ -146,8 +146,8 @@ void check_pointpillars_outbuffer(GstBuffer *outbuffer, gpointer user_data) {
                   meta->message);
     ck_assert_msg(lidar_frame["point_count"] == kPointPillarsPointCount, "Unexpected point_count. Message: %s",
                   meta->message);
-    ck_assert_msg(lidar_frame["exit_lidarparse_timestamp"] == kPointPillarsLidarParseTs,
-                  "Unexpected exit_lidarparse_timestamp. Message: %s", meta->message);
+    ck_assert_msg(lidar_frame["exit_source_timestamp"] == kPointPillarsLidarParseTs,
+                  "Unexpected exit_source_timestamp. Message: %s", meta->message);
     ck_assert_msg(lidar_frame["exit_g3dinference_timestamp"] == kPointPillarsInferenceTs,
                   "Unexpected exit_g3dinference_timestamp. Message: %s", meta->message);
 
