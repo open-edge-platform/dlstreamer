@@ -27,6 +27,15 @@ Build new DL Streamer video-analytics applications (Python, C, C++ or GStreamer 
 
 This skill uses **repo-root-relative paths** to reference files outside the skill folder (e.g. `docs/user-guide/elements/`, `samples/gstreamer/python/hello_dlstreamer/`). The repo root is three directories above this skill file when the full repo is cloned, or refers to https://github.com/open-edge-platform/dlstreamer if only skill files were copied.
 
+## When to use
+
+- User describes a vision AI pipeline in natural language
+- User wants to create a new Python sample application built on DL Streamer
+- User wants to create a new C or C++ sample application built on DL Streamer
+- User wants to create a new GStreamer command line using DL Streamer elements
+- User wants to combine elements from multiple existing samples (e.g. detection + VLM + recording)
+- User needs to add custom analytics logic or custom GStreamer elements in Python or C++
+
 ## Directory Layout
 
 See [example prompts](./examples) for inspiration and practical demonstrations.
