@@ -105,6 +105,7 @@ optimum-cli export openvino --model <model_id> --weight-format int4 <output_dir>
 
 ```python
 import subprocess
+from huggingface_hub import snapshot_download
 subprocess.run([
     "optimum-cli", "export", "openvino",
     "--model", "dima806/fairface_age_image_detection",
@@ -157,14 +158,15 @@ optimum-cli export openvino \
 ```
 
 ```python
-import subprocess
-subprocess.run([
-    "optimum-cli", "export", "openvino",
-    "--model", model_id,                 # e.g. "OpenGVLab/InternVL3_5-2B"
-    "--task", "image-text-to-text",
-    "--trust-remote-code",
-    str(output_dir),
-], check=True)
+from optimum.exporters.openvino import main_export
+
+main_export(
+    model_name_or_path=model_id,  # e.g. "OpenGVLab/InternVL3_5-2B"
+    output=output_dir,
+    task="image-text-to-text",
+    trust_remote_code=True,
+    weight_format="int4",
+)
 ```
 
 Source: `samples/gstreamer/python/vlm_alerts/vlm_alerts.py`
@@ -185,11 +187,7 @@ Recommended small models for edge: `OpenGVLab/InternVL3_5-2B`, `openbmb/MiniCPM-
 import subprocess
 
 # Step 1: Download entire model repo (contains inference.json + inference.pdiparams)
-subprocess.run([
-    sys.executable, "-c",
-    f"from huggingface_hub import snapshot_download; "
-    f"snapshot_download(repo_id='{model_id}', local_dir='{paddle_dir}')"
-], check=True)
+snapshot_download(repo_id=model_id, local_dir=str(paddle_dir))
 
 # Step 2: paddle2onnx — PaddlePaddle PIR → ONNX
 subprocess.run([
@@ -229,6 +227,24 @@ paddle2onnx
 onnx               # required by paddle2onnx for ONNX graph construction
 onnxruntime         # required by paddle2onnx for model validation
 onnx_graphsurgeon   # required by paddle2onnx for ONNX graph optimization
+```
+
+**Troubleshooting (`paddle2onnx` build prerequisites):**
+
+`paddle2onnx` may build `onnxoptimizer` from source. If install fails with
+messages like `Could not find "cmake" executable` or
+`No CMAKE_CXX_COMPILER could be found`, install host build tools and retry:
+
+```bash
+sudo apt-get update
+sudo apt-get install -y cmake g++
+```
+
+Rerun the requirements installation with the venv Python to avoid
+system-pip/PEP 668 issues:
+
+```bash
+./.<app_name>-export-venv/bin/python -m pip install -r export_requirements.txt
 ```
 
 ### 6. Audio Models for gvaaudiodetect / gvaaudiotranscribe

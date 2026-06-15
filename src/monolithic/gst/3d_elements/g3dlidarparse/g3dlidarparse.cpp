@@ -412,21 +412,19 @@ static GstFlowReturn gst_g3d_lidar_parse_transform(GstBaseTransform *trans, GstB
     }
 
     gst_buffer_remove_all_memory(outbuf);
-    GstClockTime exit_lidarparse_timestamp = GST_CLOCK_TIME_NONE;
+    GstClockTime exit_source_timestamp = GST_CLOCK_TIME_NONE;
     if (GstClock *clock = gst_element_get_clock(GST_ELEMENT(filter))) {
-        exit_lidarparse_timestamp = gst_clock_get_time(clock);
-        GST_DEBUG_OBJECT(filter, "exit_ts from element clock: %" GST_TIME_FORMAT,
-                         GST_TIME_ARGS(exit_lidarparse_timestamp));
+        exit_source_timestamp = gst_clock_get_time(clock);
+        GST_DEBUG_OBJECT(filter, "exit_ts from element clock: %" GST_TIME_FORMAT, GST_TIME_ARGS(exit_source_timestamp));
         gst_object_unref(clock);
     } else {
-        exit_lidarparse_timestamp = gst_util_get_timestamp();
+        exit_source_timestamp = gst_util_get_timestamp();
         GST_DEBUG_OBJECT(filter, "exit_ts from gst_util_get_timestamp: %" GST_TIME_FORMAT,
-                         GST_TIME_ARGS(exit_lidarparse_timestamp));
+                         GST_TIME_ARGS(exit_source_timestamp));
     }
 
     GST_DEBUG_OBJECT(filter, "Add meta frame_id=%zu stream_id=%u exit_ts=%" GST_TIME_FORMAT " n_points=%zu stride=%d",
-                     frame_id, filter->stream_id, GST_TIME_ARGS(exit_lidarparse_timestamp), point_count,
-                     filter->stride);
+                     frame_id, filter->stream_id, GST_TIME_ARGS(exit_source_timestamp), point_count, filter->stride);
 
     if (!float_data.empty()) {
         const gsize payload_size = float_data.size() * sizeof(float);
@@ -484,8 +482,7 @@ static GstFlowReturn gst_g3d_lidar_parse_transform(GstBaseTransform *trans, GstB
             const gsize preview_len = std::min<gsize>(count, 5);
             std::ostringstream oss;
             oss << "lidar_point_count=" << point_count << " frame_id=" << frame_id << " stream_id=" << filter->stream_id
-                << " exit_ts=" << exit_lidarparse_timestamp << "ns" << " preview(" << preview_len << "/" << count
-                << "):";
+                << " exit_ts=" << exit_source_timestamp << "ns" << " preview(" << preview_len << "/" << count << "):";
 
             for (gsize i = 0; i < preview_len; ++i) {
                 oss << " " << std::fixed << std::setprecision(6) << float_data[i];
@@ -495,7 +492,7 @@ static GstFlowReturn gst_g3d_lidar_parse_transform(GstBaseTransform *trans, GstB
         }
     }
 
-    LidarMeta *lidar_meta = add_lidar_meta(outbuf, point_count, frame_id, exit_lidarparse_timestamp, filter->stream_id);
+    LidarMeta *lidar_meta = add_lidar_meta(outbuf, point_count, frame_id, exit_source_timestamp, filter->stream_id);
     if (!lidar_meta) {
         GST_ERROR_OBJECT(filter, "Failed to add lidar meta to buffer");
         g_mutex_unlock(&filter->mutex);

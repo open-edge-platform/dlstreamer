@@ -1,6 +1,9 @@
 ---
 name: dlstreamer-coding-agent
 description: "Build new DL Streamer video-analytics applications (Python, C, C++ or GStreamer command line). Use when: user describes a vision AI pipeline, wants to create a new sample app, combine elements from existing samples, add detection/classification/VLM/tracking/alerts/recording to a video pipeline, or create custom GStreamer elements in Python or C++. Translates natural-language pipeline descriptions into working DL Streamer code using established design patterns."
+permissions:
+  - write
+  - command
 ---
 
 # DL Streamer Coding Agent
@@ -67,6 +70,11 @@ Parallelization rules:
 - Step 4 (generate app) depends on Step 3 (pipeline design) completing
 - Step 5 (run and validate) depends on Steps 1, 2c, and 4 all completing
 
+Safety rules for autonomous execution:
+- Before running any command that installs packages, downloads external content, or modifies/deletes files, show the exact command and request explicit user confirmation in chat.
+- Never interpolate raw user input into shell commands. Use validated allowlists and fixed argument templates.
+- Restrict file operations to the sample application directory unless the user explicitly approves a wider scope.
+
 ### Reference Lookup
 
 Each reference document is used in **one primary step** to avoid redundant reads:
@@ -93,7 +101,8 @@ If a match is found:
   values to the user for confirmation (skip the full
   [Requirements Questionnaire](./references/questionnaire.md) unless info is still missing)
 3. If all required fields were explicitly provided by the user (not inferred), skip
-  confirmation and proceed directly to Step 1
+  requirement-field confirmation, but still request explicit user approval before
+  running any command in Steps 1–2
 4. After the user confirms (or overrides), read **only** the design patterns,
    reference sections, and model-preparation sections needed for the confirmed selections
 5. Proceed to Steps 1–5
@@ -263,7 +272,24 @@ Generate all application files following the directory layout defined at the beg
   coding conventions and application structure.
 
 For all languages:
-- Use the [README Template](./assets/README-template.md) to generate `README.md` — replace `{{PLACEHOLDERS}}` with application-specific content and remove HTML comments.
+- Use the [README Template](./assets/README-template.md) to generate `README.md` by replacing all `{{PLACEHOLDERS}}` as described below:
+
+  | Placeholder | What to generate |
+  |---|---|
+  | `{{APP_TITLE}}` | Short title of the application |
+  | `{{APP_DESCRIPTION}}` | 2–3 sentences describing what the application does and its main use case |
+  | `{{DLSTREAMER_CODING_AGENT_PROMPT}}` | The verbatim initial user prompt wrapped in a Markdown blockquote (`> `). Do not paraphrase or summarize. |
+  | `{{APP_VISUALIZATION}}` | Optional screenshot line: `![APP_TITLE](results/screenshot.png)`. Omit this line entirely if no screenshot is available. |
+  | `{{DETAILED_DESCRIPTION}}` | Extended description: model names, hardware requirements, expected outputs. If the input video is from a publicly available source (e.g. Pexels), add: `This sample uses a video from <link> by <author>.` |
+  | `{{NUMBERED_STEPS}}` | Numbered list of pipeline stages, e.g. `1. **Detects** objects using gvadetect` |
+  | `{{PIPELINE_DIAGRAM}}` | Mermaid diagram. Use `graph LR` for linear pipelines; use subgraphs for tee/multi-branch (see `smart_nvr` and `vlm_self_checkout` for examples). |
+  | `{{PIPELINE_ELEMENTS_LIST}}` | Optional bulleted list of each GStreamer/DL Streamer element and its role. Omit if the pipeline is straightforward. |
+  | `{{VIDEO_DOWNLOAD_INSTRUCTIONS}}` | `curl` command to download the test video into `videos/`. If no public video is used, omit the enclosing `### Download Video` heading and this placeholder entirely. |
+  | `{{ADVANCED_USAGE}}` | Optional second usage block showing non-default CLI options. Omit if not needed. |
+  | `{{HOW_IT_WORKS_SECTIONS}}` | One `### STEP N` subsection per major pipeline stage or custom element, with relevant code snippets. |
+  | `{{CONFIGURATION_FILES_SECTION}}` | Optional `## Configuration Files` table (file name + purpose). Omit the section if unused. |
+  | `{{CLI_ARGUMENTS_TABLE}}` | One table row per CLI argument: flag name, default value, description. |
+  | `{{OUTPUT_FILES_LIST}}` | Bulleted list of output files produced under `results/`. |
 - If the application requires Python packages, list them in `requirements.txt`. If the OpenVINO Python runtime is required, pin the same version as the OpenVINO runtime installed with DL Streamer.
 
 ### Step 5 — Run, Debug, and Validate

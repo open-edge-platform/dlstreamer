@@ -12,14 +12,43 @@ Run this script once before starting the pipeline application:
 
 import argparse
 import json
+import re
 import shutil
-import subprocess
 import sys
+from subprocess import run
 from pathlib import Path
 
 from huggingface_hub import HfApi, hf_hub_download, snapshot_download
 
 MODELS_DIR = Path(__file__).resolve().parent / "models"
+MODEL_ID_PATTERN = re.compile(r"^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$")
+WEIGHT_FORMATS = {"fp32","fp16","int8","int4","mxfp4","nf4","cb4"}
+
+
+def validate_model_id(model_id: str) -> str:
+    normalized = model_id.strip()
+    if not MODEL_ID_PATTERN.fullmatch(normalized):
+        raise ValueError(
+            f"Invalid Hugging Face model id '{model_id}'. Expected '<org>/<model>'"
+        )
+    return normalized
+
+
+def validate_weight_format(weight_format: str) -> str:
+    normalized = weight_format.strip().lower()
+    if normalized not in WEIGHT_FORMATS:
+        allowed = ", ".join(sorted(WEIGHT_FORMATS))
+        raise ValueError(f"Unsupported weight format '{weight_format}'. Allowed: {allowed}")
+    return normalized
+
+
+def run_checked(command: list[str]) -> None:
+    executable = command[0]
+    resolved = shutil.which(executable)
+    if not resolved:
+        raise FileNotFoundError(f"Required tool '{executable}' not found in PATH")
+    # Use explicit argv and shell=False semantics to avoid command injection.
+    run([resolved, *command[1:]], check=True)
 
 
 def resolve_hf_model_ref(model_ref: str) -> tuple[str, str]:
@@ -102,7 +131,7 @@ def export_paddleocr(model_ref: str) -> Path:
     PaddlePaddle v3+ uses PIR format (.json + .pdiparams), not .pdmodel.
     Conversion is two-step: paddle2onnx then ovc.
     """
-    model_id, revision = resolve_hf_model_ref(model_ref)
+    model_id, revision = resolve_hf_model_ref(validate_model_id(model_ref))
     model_name = model_id.split("/")[-1]
     ocr_dir = MODELS_DIR / model_name
     fp16_dir = ocr_dir / "FP16"
@@ -122,7 +151,7 @@ def export_paddleocr(model_ref: str) -> Path:
     # Step 2: PaddlePaddle PIR → ONNX
     onnx_file = ocr_dir / "model.onnx"
     print("[OCR] Converting PaddlePaddle PIR → ONNX...")
-    subprocess.run(
+    run_checked(
         [
             "paddle2onnx",
             "--model_dir", str(paddle_dir),
@@ -130,17 +159,13 @@ def export_paddleocr(model_ref: str) -> Path:
             "--params_filename", "inference.pdiparams",
             "--save_file", str(onnx_file),
             "--opset_version", "14",
-        ],
-        check=True,
+        ]
     )
 
     # Step 3: ONNX → OpenVINO IR FP16
     fp16_dir.mkdir(parents=True, exist_ok=True)
     print("[OCR] Converting ONNX → OpenVINO IR (FP16)...")
-    subprocess.run(
-        ["ovc", str(onnx_file), "--output_model", str(ov_model), "--compress_to_fp16"],
-        check=True,
-    )
+    run_checked(["ovc", str(onnx_file), "--output_model", str(ov_model), "--compress_to_fp16"])
 
     # Step 4: Extract character dictionary from config.json (PaddleOCR-specific)
     config_src = paddle_dir / "config.json"
@@ -165,6 +190,8 @@ def export_paddleocr(model_ref: str) -> Path:
 
 def export_hf_transformer(model_id: str, weight_format: str = "int8") -> Path:
     """Export a HuggingFace transformer model via optimum-cli."""
+    model_id = validate_model_id(model_id)
+    weight_format = validate_weight_format(weight_format)
     model_name = model_id.split("/")[-1]
     output_dir = MODELS_DIR / model_name
     model_xml = output_dir / "openvino_model.xml"
@@ -176,14 +203,13 @@ def export_hf_transformer(model_id: str, weight_format: str = "int8") -> Path:
     MODELS_DIR.mkdir(parents=True, exist_ok=True)
 
     print(f"[HF] Exporting {model_id} via optimum-cli ({weight_format})...")
-    subprocess.run(
+    run_checked(
         [
             "optimum-cli", "export", "openvino",
             "--model", model_id,
             "--weight-format", weight_format,
             str(output_dir),
-        ],
-        check=True,
+        ]
     )
 
     print(f"[HF] Model ready: {model_xml}")
