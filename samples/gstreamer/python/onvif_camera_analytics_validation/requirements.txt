@@ -1,3 +1,0 @@
-# Runtime
-paho-mqtt>=2.0.0
-defusedxml>=0.7.1
