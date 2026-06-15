@@ -11,8 +11,8 @@ This sample builds GStreamer pipeline of the following elements:
 
 - `filesrc` or `urisourcebin` for input from file/URL
 - `decodebin3` for video decoding (automatically selects D3D11 decoder when available)
-- [gvadetect](https://dlstreamer.github.io/elements/gvadetect.html) for full-frame object detection
-- [gvawatermark](https://dlstreamer.github.io/elements/gvawatermark.html) for bounding boxes visualization
+- [gvadetect](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/elements/gvadetect.html) for full-frame object detection
+- [gvawatermark](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/elements/gvawatermark.html) for bounding boxes visualization
 - `d3d11convert` for D3D11-accelerated video conversion
 - `autovideosink` for rendering output video to screen
 
