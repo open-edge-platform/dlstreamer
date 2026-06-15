@@ -97,7 +97,7 @@ packages:
 
   ```bash
   cd ~
-  git clone --recursive https://github.com/open-edge-platform/dlstreamer.git
+  git clone --branch main --recursive https://github.com/open-edge-platform/dlstreamer.git
   cd dlstreamer
   ```
 
