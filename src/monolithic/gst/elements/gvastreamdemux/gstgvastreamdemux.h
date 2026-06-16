@@ -45,6 +45,9 @@ struct _GstGvaStreamdemux {
     /* Internal state */
     guint num_src_pads;
     gboolean validated;
+    /* TRUE once the sink caps are the multistream batch container
+     * (gvastreammux CONTAINER mode); FALSE for plain video passthrough. */
+    gboolean container_mode;
 
     /* Synchronization */
     GMutex lock;

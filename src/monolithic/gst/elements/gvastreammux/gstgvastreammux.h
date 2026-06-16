@@ -28,6 +28,26 @@ typedef enum {
     GVA_STREAMMUX_SYNC_MODE_NTP,
 } GvaStreammuxSyncMode;
 
+/* Media type of a sink pad, derived from its negotiated caps. Used to decide
+ * the output mode (all-video pads -> PASSTHROUGH, any non-video -> CONTAINER). */
+typedef enum {
+    GVA_STREAMMUX_MEDIA_UNKNOWN = 0,
+    GVA_STREAMMUX_MEDIA_VIDEO,
+    GVA_STREAMMUX_MEDIA_OTHER,
+} GvaStreammuxMediaType;
+
+/* How the source pad emits each assembled batch. Decided once, after all sink
+ * pads have delivered their caps. */
+typedef enum {
+    GVA_STREAMMUX_OUTPUT_UNDECIDED = 0,
+    /* All sink pads are raw video: push each source buffer as-is (legacy
+     * behavior, downstream sees plain video buffers). */
+    GVA_STREAMMUX_OUTPUT_PASSTHROUGH,
+    /* Heterogeneous sources (e.g. video + lidar): pack a whole batch into a
+     * single container buffer carrying GstAnalyticsBatchMeta. */
+    GVA_STREAMMUX_OUTPUT_CONTAINER,
+} GvaStreammuxOutputMode;
+
 #define GST_TYPE_GVA_STREAMMUX_SYNC_MODE (gst_gva_streammux_sync_mode_get_type())
 GType gst_gva_streammux_sync_mode_get_type(void);
 
@@ -46,6 +66,11 @@ struct _GvaStreammuxPadData {
     gboolean first_pts_set;
     GstClockTime first_pts;
     GstClockTime segment_start;
+
+    /* Caps negotiated on this pad (own ref). In CONTAINER mode each stream
+     * carries its own caps; in PASSTHROUGH mode this equals mux->current_caps. */
+    GstCaps *caps;
+    GvaStreammuxMediaType media_type;
 };
 
 struct _GstGvaStreammux {
@@ -80,8 +105,11 @@ struct _GstGvaStreammux {
     /* Sink pads list (ordered by pad index) */
     GList *sinkpads;
 
-    /* Output caps negotiated */
+    /* Output caps negotiated (PASSTHROUGH mode: the shared video caps) */
     GstCaps *current_caps;
+
+    /* Output mode, decided once all live sink pads have reported their caps */
+    GvaStreammuxOutputMode output_mode;
 
     /* Segment tracking */
     gboolean segment_sent;
