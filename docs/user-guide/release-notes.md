@@ -2,7 +2,7 @@
 
 ## Version 2026.1
 
-## Key highlights:
+## Key 2026.1 highlights:
 
 * DLStreamer Coding Agent: AI-assisted pipeline builder that translates natural-language descriptions into working DL Streamer Python apps or GStreamer command lines
 * GstAnalytics metadata migration: full-frame GstAnalytics support, keypoints switched to GstAnalytics API, migration to upstream GStreamer 1.28+ API
@@ -63,7 +63,7 @@ For the details on supported platforms, please refer to [System Requirements](ht
 
 For installing Pipeline Framework with the prebuilt binaries or Docker* or to build the binaries from the open source, refer to [Intel® DL Streamer Pipeline Framework installation guide](https://github.com/open-edge-platform/dlstreamer/blob/v2026.1.0/docs/user-guide/get_started/install/install_guide_index.md).
 
-## New in this Release
+## New in 2026.1 Release
 
 | Feature | Description |
 |---------|-------------|
@@ -91,7 +91,7 @@ For installing Pipeline Framework with the prebuilt binaries or Docker* or to bu
 | PyTorch Image Models (TIMM) import | Added PyTorch Image Models (TIMM) model import script for model onboarding. |
 | Python environment setup script | Added Python environment setup script for streamlined development setup. |
 
-## Updated in this Release
+## Updated in 2026.1 Release
 
 | Feature | Description |
 |---------|-------------|
@@ -119,7 +119,7 @@ For installing Pipeline Framework with the prebuilt binaries or Docker* or to bu
 | Python samples overview | Updated Python samples overview and READMEs. |
 | Tests | Expanded optimizer unit tests, added GStreamer check framework unit tests for gvawatermark, run optimizer tests always. Added 41 unit tests for metaaggregate copy functions, extended tensor_convert_test with full-frame classification and keypoint round-trip tests. |
 
-## Fixed
+## Fixed in 2026.1
 
 | # | Description |
 |---|-------------|
@@ -146,13 +146,13 @@ For installing Pipeline Framework with the prebuilt binaries or Docker* or to bu
 | 21 | Fixed yamllint issues. |
 | 22 | Removed deprecated ffmpeg_openvino and decode_resize_inference samples. |
 
-## Known Issues
+## Known Issues - 2026.1
 
 | Issue | Description |
 |-------|-------------|
 | Preview Architecture 2.0 Samples | Preview Arch 2.0 samples have known issues with inference results. |
 
-## Legacy Features and Deprecation Timeline
+## Legacy Features and Deprecation Timeline - 2026.1
 
 List of the features and components to be deprecated in the future.
 
