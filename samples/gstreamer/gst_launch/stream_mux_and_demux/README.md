@@ -5,13 +5,22 @@ This directory contains sample scripts demonstrating how to use the `gvastreammu
 
 ## How It Works
 
-`gvastreammux` collects video frames from multiple input pads into per-pad queues, then
-assembles **PTS-aligned batches** that are pushed through one downstream chain (typically
-inference). The optional `gvastreamdemux` element reads `GstAnalyticsBatchMeta` to route
-the processed frames back to per-source branches.
+`gvastreammux` collects frames from multiple input pads into per-pad queues, then assembles
+**PTS-aligned batches** that are pushed through one downstream chain (typically inference). The
+optional `gvastreamdemux` element reads `GstAnalyticsBatchMeta` to route the frames back to
+per-source branches.
 
 Running inference on N streams with one mux+inference instance significantly reduces GPU
 memory usage and improves throughput compared to N independent pipelines.
+
+The mux has two output modes (chosen automatically from the input media types):
+
+- **PASSTHROUGH** — all inputs are video. Each source frame is pushed as plain video; a shared
+  `gvadetect` serves all sources. This is what the video-only examples below use.
+- **CONTAINER** — inputs are heterogeneous (e.g. video + lidar). Each batch is packed into one
+  `multistream/x-analytics-batch` buffer that **must** be unpacked by `gvastreamdemux` before any
+  per-stream element. The `--lidar` option of this sample exercises that path. See
+  [the element docs](../../../../docs/user-guide/elements/gvastreammux.md#output-modes) for details.
 
 The sample uses GStreamer's command-line tool `gst-launch-1.0`, which can build and run a
 pipeline described in a string format.
@@ -50,6 +59,16 @@ Source 0 ─┐                                                        ┌─ qu
           ├─ gvastreammux ─ queue ─ gvadetect ─ gvastreamdemux ──┤
 Source 1 ─┘                                                        └─ queue ─ gvafpscounter ─ fakesink
 ```
+
+**Video + Lidar (CONTAINER mode, `--lidar`):**
+```
+Video 0 ─┐                                            ┌─ queue ─ gvafpscounter ─ fakesink   (video)
+Video 1 ─┤─ gvastreammux ─ queue ─ gvastreamdemux ───┤─ queue ─ gvafpscounter ─ fakesink   (video)
+Lidar   ─┘   (CONTAINER output)                       └─ queue ─ fakesink                   (lidar)
+```
+No `gvadetect` sits between mux and demux: a container buffer is not raw video, so it must be
+unpacked first. Per-stream inference (`gvadetect`, `g3dinference`) would attach on each demux
+branch — omitted here, every branch ends in `fakesink`.
 
 ### Sync Mode
 
@@ -94,7 +113,7 @@ Provide an OpenVINO IR model (`.xml` + `.bin`).
 ```
 
 **Options:**
-- `-m, --model PATH`: Path to inference model XML file (required)
+- `-m, --model PATH`: Path to inference model XML file (required for video-only mode; ignored with `--lidar`)
 - `-s, --source TYPE`: Source type: `file` or `rtsp` (default: `rtsp`)
 - `-i, --input1 URI`: First input source URI
 - `-j, --input2 URI`: Second input source URI
@@ -103,6 +122,13 @@ Provide an OpenVINO IR model (`.xml` + `.bin`).
 - `--sync-mode MODE`: PTS normalization (`none|first-pts|segment|pipeline|ntp`, default `none`)
 - `-d, --device DEVICE`: Inference device: `GPU`, `CPU`, `NPU` (default: `GPU`)
 - `-h, --help`: Show help
+
+Heterogeneous (video + lidar) mode — switches the mux to CONTAINER output and forces `--demux`:
+- `--lidar`: Add a lidar source (`application/x-lidar` via `g3dlidarparse`). No `gvadetect` is
+  inserted; each demuxed branch goes straight to `fakesink`.
+- `--lidar-location L`: `multifilesrc` location pattern (default: `velodyne/%06d.bin`)
+- `--lidar-start-index N`: `multifilesrc` start-index (default: `0`)
+- `--lidar-frame-rate F`: `g3dlidarparse` frame-rate in frames/sec (default: `10`)
 
 **Examples:**
 
@@ -177,10 +203,32 @@ Provide an OpenVINO IR model (`.xml` + `.bin`).
      --demux
    ```
 
+7. **Heterogeneous: two video files + a lidar sequence (CONTAINER mode)**
+
+   No model is needed — the mux runs in CONTAINER mode and `--demux` is forced on. Each demuxed
+   branch (two video, one lidar) goes to `fakesink`.
+
+   ```bash
+   ./stream_mux_demux_sample.sh \
+     --source file \
+     --input1 /path/to/video0.h265 \
+     --input2 /path/to/video1.h265 \
+     --lidar \
+     --lidar-location 'velodyne/%06d.bin' \
+     --lidar-start-index 0 \
+     --lidar-frame-rate 10 \
+     --sync-mode first-pts
+   ```
+
+   The lidar branch needs a multi-file sequence (e.g. `%06d.bin`) and valid PTS for it to pair
+   with video frames; pick a `sync-mode` so the video and lidar timelines are comparable.
+
 **Output:**
 - `gvafpscounter` prints FPS to the console.
 - With `--demux`, each source has its own counter (independent throughput).
 - Without `--demux`, a single counter shows the combined throughput.
+- In `--lidar` (CONTAINER) mode, the two video branches have FPS counters; the lidar branch goes
+  straight to `fakesink`.
 
 ## Tuning
 
@@ -200,3 +248,5 @@ Provide an OpenVINO IR model (`.xml` + `.bin`).
 | Some sources never appear in output / starvation | One pad's PTS is far from the others. Pick a `sync-mode` (commonly `first-pts`) or widen `pts-tolerance`. |
 | `gvastreamdemux` reports out-of-range source id | Add a `demux.src_<index>` pad for each source id produced by the mux, or remove the orphan source upstream. |
 | Low FPS with GPU inference | Set `pre-process-backend=va-surface-sharing` and increase `nireq` on `gvadetect`. |
+| `could not link ... gvadetect` with a lidar source | In CONTAINER mode the mux outputs a batch container, not raw video. Put `gvastreamdemux` directly after the mux and attach `gvadetect`/`g3dinference` on the demuxed branches instead. |
+| Lidar branch produces only one frame / never pairs | A single static file yields one frame then EOS. Use a multi-file sequence (`%06d.bin`) with `start-index`, set `g3dlidarparse frame-rate=...`, and choose a `sync-mode` so lidar PTS align with video. |

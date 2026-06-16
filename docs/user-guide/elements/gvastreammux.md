@@ -1,16 +1,18 @@
 # gvastreammux
 
-Muxes multiple video streams into a single pipeline so that one downstream inference instance
-(e.g. `gvadetect`) can serve N input sources, replacing N independent pipelines and significantly
-reducing GPU memory usage. Each output buffer is tagged with `GstAnalyticsBatchMeta` so that
+Muxes multiple streams into a single pipeline so that one downstream consumer can serve N input
+sources, replacing N independent pipelines and significantly reducing GPU memory usage. For
+all-video inputs this means a shared `gvadetect`; the element also supports **heterogeneous**
+inputs (e.g. video + lidar). Each output buffer is tagged with `GstAnalyticsBatchMeta` so that
 `gvastreamdemux` can later route it back to the correct source.
 
 ## Overview
 
-`gvastreammux` collects video frames from multiple sink pads into per-pad queues, assembles
-**PTS-aligned batches**, and emits one downstream buffer per source per batch. Frames are pushed
-through a single `src` pad in source-id order, with each buffer carrying a `GstAnalyticsBatchMeta`
-whose `streams[0].index` identifies the originating pad and `n_streams` records the batch size.
+`gvastreammux` collects frames from multiple sink pads into per-pad queues, assembles
+**PTS-aligned batches**, and emits each batch downstream. The single `src` pad adapts its output
+to the mix of sink-pad media types — see [Output Modes](#output-modes). Every output buffer
+carries a `GstAnalyticsBatchMeta` whose `streams[].index` identifies the originating pad(s) and
+`n_streams` records the batch size.
 
 Key design points:
 
@@ -49,11 +51,31 @@ Key design points:
      eligible pads contribute.
    - **Phase 3 (collect & push)** — pop one matching buffer per pad, attach
      `GstAnalyticsBatchMeta`, push downstream in pad-index order.
-4. EOS on a sink pad excludes that pad from future batches. When all pads are EOS and all
-   queues are drained, the src pad emits EOS and the task pauses.
+4. EOS on a sink pad is honored only once that pad's queue is drained: buffers already enqueued
+   before EOS are still batched (so the last frames of a stream, or a single-frame source, are
+   not lost). A pad with no remaining buffers and EOS set is excluded from future batches. When
+   all pads are EOS and all queues are drained, the src pad emits EOS and the task pauses.
 5. Per-pad `FLUSH_START` / `FLUSH_STOP` events are coalesced — the downstream flush, task
    pause, queue reset and task restart each happen exactly once per flush cycle no matter
    how many sink pads receive the events.
+
+## Output Modes
+
+The element decides its output mode **once**, after every live sink pad has reported its caps,
+and the output loop does not push anything until then. The mode is derived from the mix of
+sink-pad media types:
+
+| Mode | Trigger | Output |
+|------|---------|--------|
+| **PASSTHROUGH** | All sink pads are raw `video/x-raw` | Each source buffer is pushed as-is (plain video), tagged with a single-stream `GstAnalyticsBatchMeta` (`streams[0].index` = source id). This is the legacy behavior — existing `gvastreammux ! gvadetect` pipelines are unaffected. The `src` caps are the shared video caps. |
+| **CONTAINER** | Any sink pad is non-video (e.g. `application/x-lidar` from `g3dlidarparse`) | Each assembled batch is packed into **one** container buffer with caps `multistream/x-analytics-batch(meta:GstAnalyticsBatchMeta)`. The `GstAnalyticsBatchMeta` holds one `GstAnalyticsBatchStream` per contributing source; each stream carries that source's buffer (`objects[0]`) and its original caps (a `GST_EVENT_CAPS` sticky event). Use `gvastreamdemux` downstream to unpack the container back into per-source pads. |
+
+> **Important (CONTAINER mode):** a container buffer is *not* raw video, so no video element
+> (`gvadetect`, `gvawatermark`, …) may follow the mux directly. Insert `gvastreamdemux` to recover
+> the per-source streams (e.g. video → `gvadetect`, lidar → `g3dinference`) first.
+
+PASSTHROUGH mode keeps the historical one-buffer-per-source-per-batch shape; CONTAINER mode is
+one-buffer-per-batch carrying all sources.
 
 ## Properties
 
@@ -86,14 +108,26 @@ Per-pad normalization state (first PTS, segment start) is reset on `FLUSH_STOP` 
 
 ## Buffer Metadata
 
-Each output buffer carries a `GstAnalyticsBatchMeta` with these fields populated:
+Each output buffer carries a `GstAnalyticsBatchMeta`. The way it is populated depends on the
+[output mode](#output-modes):
+
+**PASSTHROUGH (video-only):** one buffer per source, single-stream meta.
 
 | Field                  | Type     | Description |
 |------------------------|----------|-------------|
 | `streams[0].index`     | guint    | Source pad index this buffer originated from. |
 | `n_streams`            | gsize    | Number of contributing pads in the batch this buffer is part of. |
 
-`gvastreamdemux` reads `streams[0].index` to decide which `src_*` pad to forward the buffer to.
+**CONTAINER (heterogeneous):** one container buffer per batch, `n_streams` entries.
+
+| Field                       | Type     | Description |
+|-----------------------------|----------|-------------|
+| `n_streams`                 | gsize    | Number of sources packed in this batch. |
+| `streams[i].index`          | guint    | Source pad index of the i-th packed stream. |
+| `streams[i].objects[0]`     | GstBuffer| The i-th source's actual buffer. |
+| `streams[i].sticky_events`  | GstEvent | The i-th source's original caps (a `GST_EVENT_CAPS`). |
+
+`gvastreamdemux` reads this meta to route each source's buffer to the matching `src_*` pad.
 
 ## Pipeline Examples
 
@@ -171,6 +205,32 @@ gst-launch-1.0 \
   filesrc location=video1.h265 ! h265parse ! vah265dec ! mux.sink_1
 ```
 
+### Heterogeneous sources: video + lidar (CONTAINER mode)
+
+Adding a non-video source (here lidar via `g3dlidarparse`) switches the mux to
+[CONTAINER mode](#output-modes). The container batch must be unpacked by `gvastreamdemux` before
+any per-stream processing — no `gvadetect` may sit between the mux and demux. In this example each
+demuxed branch goes straight to `fakesink` (`src_0`/`src_1` = video, `src_2` = lidar):
+
+```bash
+gst-launch-1.0 -e \
+  gvastreammux name=mux sync-mode=first-pts \
+  ! queue \
+  ! gvastreamdemux name=demux \
+  demux.src_0 ! queue ! gvafpscounter ! fakesink \
+  demux.src_1 ! queue ! gvafpscounter ! fakesink \
+  demux.src_2 ! queue ! fakesink \
+  filesrc location=video0.h265 ! h265parse ! vah265dec ! mux.sink_0 \
+  filesrc location=video1.h265 ! h265parse ! vah265dec ! mux.sink_1 \
+  multifilesrc location=velodyne/%06d.bin start-index=0 caps=application/octet-stream \
+  ! g3dlidarparse frame-rate=10 ! mux.sink_2
+```
+
+> Lidar typically runs at a lower rate (e.g. 10 fps) than video (e.g. 30 fps). With aligned PTS,
+> batches that have a coincident lidar frame carry it (`n_streams` includes the lidar pad);
+> video-only intervals produce video-only batches. Ensure the lidar branch produces valid PTS
+> (`g3dlidarparse frame-rate=...`) and pick a `sync-mode` so the two timelines are comparable.
+
 ## Tuning Notes
 
 - `pts-tolerance` should comfortably accommodate the largest expected inter-source PTS drift
@@ -186,14 +246,17 @@ gst-launch-1.0 \
 ```
 Factory Details:
   Long-name                GVA Stream Muxer
-  Klass                    Video/Muxer
-  Description              Muxes multiple video streams with PTS-based synchronization
+  Klass                    Muxer
+  Description              Muxes multiple streams with PTS-based synchronization. All-video
+                           sources are passed through as plain video buffers; heterogeneous
+                           sources (e.g. video + lidar) are packed into batch buffers.
   Author                   Intel Corporation
 
 Pad Templates:
   SINK template: 'sink_%u'  (On request, video/x-raw, video/x-raw(memory:VAMemory) NV12,
-                             video/x-raw(memory:DMABuf) DMA_DRM)
-  SRC template:  'src'      (Always, same caps as sink)
+                             video/x-raw(memory:DMABuf) DMA_DRM, application/x-lidar)
+  SRC template:  'src'      (Always, the video caps above OR
+                             multistream/x-analytics-batch(meta:GstAnalyticsBatchMeta))
 
 Element Properties:
   max-fps         Double, range 0-Inf, default 0
