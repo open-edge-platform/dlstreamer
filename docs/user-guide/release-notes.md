@@ -167,7 +167,7 @@ List of the features and components to be deprecated in the future.
 | Tiger Lake support | end of Q4'2026 | new supported units: Arrow Lake and Panther Lake |
 | Ubuntu 22.04 | end of Q4'2026 | newer Ubuntu versions, including Ubuntu 26 |
 
-## Legal Information
+## Legal Information - 2026.1
 
 • GStreamer is an open source framework licensed under LGPL. See https://gstreamer.freedesktop.org/documentation/frequently-asked-questions/licensing.html. You are solely responsible for determining if your use of GStreamer requires any additional licenses. Intel is not responsible for obtaining any such licenses, nor liable for any licensing fees due, in connection with your use of GStreamer.
 
