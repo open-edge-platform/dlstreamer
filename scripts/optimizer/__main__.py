@@ -126,12 +126,13 @@ def main() -> int:
                 json_result["mode"] = "fps"
                 json_result["candidates"] = []
                 for (pipeline, fps) in optimizer.iter_optimize_for_fps(pipeline):
-                    if time.time() - start_time > search_duration:
-                        break
 
                     json_result["candidates"].append({"pipeline": pipeline, "fps": fps})
                     if args.verbose:
                         _display_result(pipeline, fps)
+
+                    if time.time() - start_time > search_duration:
+                        break
 
                 base_pipeline, base_fps, _ = optimizer.get_baseline_pipeline()
                 best_pipeline, best_fps, _ = optimizer.get_optimal_pipeline()
@@ -143,9 +144,6 @@ def main() -> int:
                 json_result["mode"] = "streams"
                 json_result["candidates"] = {}
                 for (pipeline, fps, streams) in optimizer.iter_optimize_for_streams(pipeline):
-                    if time.time() - start_time > search_duration:
-                        break
-
                     try:
                         json_result["candidates"][str(streams)].append({"pipeline": pipeline, "fps": fps})
                     except KeyError:
@@ -159,6 +157,9 @@ def main() -> int:
 
                     if args.verbose:
                         _display_result(full_pipeline, fps)
+
+                    if time.time() - start_time > search_duration:
+                        break
 
                 base_pipeline, base_fps, base_streams = optimizer.get_baseline_pipeline()
                 best_pipeline, best_fps, best_streams = optimizer.get_optimal_pipeline()

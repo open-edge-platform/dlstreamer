@@ -289,9 +289,9 @@ class DLSOptimizer:
 
         bus = pipeline.get_bus()
 
+
         ret = pipeline.set_state(Gst.State.PLAYING)
-        _, state, _ = pipeline.get_state(Gst.CLOCK_TIME_NONE)
-        logger.debug("Pipeline state: %s, %s", state, ret)
+        logger.debug("Setting pipeline to PLAYING: %s", ret)
 
         fps = -1
         detections = -1
@@ -322,18 +322,13 @@ class DLSOptimizer:
 
                 # Incorrect pipelines sometimes get stuck in Ready state instead of failing.
                 # Terminate in those cases.
-                _, state, _ = pipeline.get_state(Gst.CLOCK_TIME_NONE)
+                _, state, _ = pipeline.get_state(3 * Gst.SECOND)
                 if state != Gst.State.PLAYING:
                     raise RuntimeError("Pipeline not healthy, terminating early")
 
                 cur_time = time.time()
                 if cur_time - start_time > sample_duration:
                     terminate = True
-
-            ret = pipeline.set_state(Gst.State.NULL)
-            logger.debug("Setting pipeline to NULL: %s", ret)
-            _, state, _ = pipeline.get_state(Gst.CLOCK_TIME_NONE)
-            logger.debug("Pipeline state: %s", str(state))
 
             logger.debug("Sampled fps: %.2f", fps)
             fps = fps_counter.get_property("avg-fps")
@@ -342,6 +337,9 @@ class DLSOptimizer:
             if self._initial_detections != 0 and detections / self._initial_detections < self._detections_error_threshold:
                 raise FaultyPipeline("Pipeline reporting detections under error margin")
         finally:
+            ret = pipeline.set_state(Gst.State.NULL)
+            logger.debug("Setting pipeline to NULL: %s", ret)
+
             del pipeline
 
         return fps, detections
