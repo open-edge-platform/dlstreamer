@@ -2,7 +2,7 @@
 
 # Deep Learning Streamer (DL Streamer)
 
-**GPU-accelerated video analytics pipelines — from a single line of code to production-grade edge AI**
+**Hardware-accelerated video analytics pipelines — CPU, GPU, and NPU, from a single line of code to production-grade edge AI**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 [![Ubuntu](https://img.shields.io/badge/Ubuntu-22.04%20%7C%2024.04-orange?logo=ubuntu)](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/get_started/system_requirements.html)
@@ -62,8 +62,6 @@ docker run -it --rm \
   intel/dlstreamer:latest
 ```
 
-> Inside the container, all samples and tools are available under `/opt/intel/dlstreamer/samples`.
-
 ### Option B — Native install (Ubuntu)
 
 **Step 1 — Install GPU/NPU drivers** (one-time, detects your hardware automatically):
@@ -84,22 +82,22 @@ echo "deb https://apt.repos.intel.com/openvino/2025 ubuntu24 main" | sudo tee /e
 sudo apt update && sudo apt install -y intel-dlstreamer
 ```
 
-Full installation guide: [Install Guide for Ubuntu](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/get_started/install/install_guide_ubuntu.html) | [Windows](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/get_started/install/install_guide_index.html)
+Full installation guide: [Install Guide for Ubuntu](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/get_started/install/install_guide_ubuntu.html) | [Windows](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/get_started/install/install_guide_windows.html)
 
 ---
 
 ## Your First Pipeline
 
-Detect objects in a video file in a single command:
+**Step 1 — Set up models and video source** (inside the container or on a native install):
 
 ```bash
 cd /opt/intel/dlstreamer/samples
 export MODELS_PATH=$PWD/models
-./download_public_models.sh yolo11n coco128
+./download_public_models.sh yolo11n coco128   # downloads FP16, FP32, and INT8
 export VIDEO=https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4
 ```
 
-Change `device=GPU` to `device=CPU` or `device=NPU` — no other code changes needed.
+**Step 2 — Run the pipeline.** Change `device=GPU` to `device=CPU` or `device=NPU` — no other code changes needed.
 
 **Output to JSON** (works everywhere, including headless Docker):
 
@@ -131,20 +129,19 @@ gst-launch-1.0 \
 import gi
 gi.require_version("Gst", "1.0")
 from gi.repository import Gst
-
 import os
 
 Gst.init(None)
 
 video_url = "https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4"
-models_path = os.environ.get("MODELS_PATH", "models")
+models_path = os.environ.get("MODELS_PATH", "/opt/intel/dlstreamer/samples/models")
 pipeline = Gst.parse_launch(f"""
     urisourcebin buffer-size=4096 uri={video_url} !
     decodebin3 !
     gvadetect model={models_path}/public/yolo11n/INT8/yolo11n.xml device=GPU !
     queue !
-    gvawatermark ! videoconvert !
-    autovideosink sync=false
+    gvametaconvert format=json !
+    gvametapublish file-format=json-lines file-path=output.json ! fakesink async=false
 """)
 
 pipeline.set_state(Gst.State.PLAYING)
@@ -222,10 +219,7 @@ DL Streamer provides purpose-built GStreamer elements for every stage of a media
 
 | Hardware | CPU | GPU | NPU |
 |---|:---:|:---:|:---:|
-| Intel Core Ultra (Panther Lake) | ✅ | ✅ | ✅ |
-| Intel Core Ultra (Arrow Lake) | ✅ | ✅ | ✅ |
-| Intel Core Ultra (Lunar Lake) | ✅ | ✅ | ✅ |
-| Intel Core Ultra (Meteor Lake) | ✅ | ✅ | ✅ |
+| Intel Core Ultra series 1–3 (Meteor / Lunar / Arrow / Panther Lake) | ✅ | ✅ | ✅ |
 | Intel Arc discrete GPU (Alchemist, Battlemage) | ✅ | ✅ | — |
 | 11th–13th Gen Intel Core | ✅ | ✅ | — |
 
@@ -255,11 +249,11 @@ DL Streamer runs models in **OpenVINO™ IR** and **ONNX** formats:
 
 | Resource | Link |
 |---|---|
-| Get Started (tutorial + install) | [docs/user-guide/get_started](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/get_started/get_started_index.html) |
-| Developer Guide | [docs/user-guide/dev_guide](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/dev_guide/dev_guide_index.html) |
-| Elements Reference | [docs/user-guide/elements](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/elements/elements.html) |
-| API Reference | [docs/user-guide/api_ref](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/api_ref/api_reference.html) |
-| Metadata Guide | [docs/user-guide/dev_guide/metadata](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/dev_guide/metadata.html) |
+| Get Started (tutorial + install) | [Get Started](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/get_started/get_started_index.html) |
+| Developer Guide | [Developer Guide](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/dev_guide/dev_guide_index.html) |
+| Elements Reference | [Elements Reference](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/elements/elements.html) |
+| API Reference | [API Reference](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/api_ref/api_reference.html) |
+| Metadata Guide | [Metadata Guide](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/dev_guide/metadata.html) |
 
 ---
 
