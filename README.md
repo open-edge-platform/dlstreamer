@@ -5,8 +5,8 @@
 **GPU-accelerated video analytics pipelines — from a single line of code to production-grade edge AI**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
-[![Ubuntu](https://img.shields.io/badge/Ubuntu-22.04%20%7C%2024.04-orange?logo=ubuntu)](./docs/user-guide/get_started/system_requirements.md)
-[![Windows](https://img.shields.io/badge/Windows-11-blue?logo=windows)](./docs/user-guide/get_started/system_requirements.md)
+[![Ubuntu](https://img.shields.io/badge/Ubuntu-22.04%20%7C%2024.04-orange?logo=ubuntu)](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/get_started/system_requirements.html)
+[![Windows](https://img.shields.io/badge/Windows-11-blue?logo=windows)](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/get_started/system_requirements.html)
 [![OpenVINO](https://img.shields.io/badge/OpenVINO-powered-blue)](https://docs.openvino.ai)
 [![GStreamer](https://img.shields.io/badge/GStreamer-based-brightgreen)](https://gstreamer.freedesktop.org)
 [![Docker](https://img.shields.io/badge/Docker-available-2496ED?logo=docker)](https://hub.docker.com/r/intel/dlstreamer)
@@ -14,7 +14,7 @@
 
 <img src="./docs/hero_samples.jpg" width="800" alt="DL Streamer sample outputs">
 
-[Get Started](#-quick-start) • [Samples](./samples/gstreamer/README.md) • [Elements](./docs/user-guide/elements/elements.md) • [Documentation](./docs/user-guide/index.md) • [Contributing](./CONTRIBUTING.md)
+[Get Started](#-quick-start) • [Samples](./samples/gstreamer/README.md) • [Elements](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/elements/elements.html) • [Documentation](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/index.html) • [Contributing](./CONTRIBUTING.md)
 
 </div>
 
@@ -50,9 +50,14 @@
 ### Option A — Docker (recommended, zero setup)
 
 ```bash
+# Run once on the host to allow X11 forwarding from containers
+xhost +local:docker
+
 docker run -it --rm \
   --device /dev/dri \
+  --group-add $(stat -c "%g" /dev/dri/render*) \
   -e DISPLAY=$DISPLAY \
+  -e XDG_RUNTIME_DIR=/tmp \
   -v /tmp/.X11-unix:/tmp/.X11-unix \
   intel/dlstreamer:latest
 ```
@@ -79,7 +84,7 @@ echo "deb https://apt.repos.intel.com/openvino/2025 ubuntu24 main" | sudo tee /e
 sudo apt update && sudo apt install -y intel-dlstreamer
 ```
 
-Full installation guide: [Install Guide for Ubuntu](./docs/user-guide/get_started/install/install_guide_ubuntu.md) | [Windows](./docs/user-guide/get_started/install/install_guide_index.md)
+Full installation guide: [Install Guide for Ubuntu](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/get_started/install/install_guide_ubuntu.html) | [Windows](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/get_started/install/install_guide_index.html)
 
 ---
 
@@ -88,21 +93,37 @@ Full installation guide: [Install Guide for Ubuntu](./docs/user-guide/get_starte
 Detect objects in a video file in a single command:
 
 ```bash
-# Download a model
 cd /opt/intel/dlstreamer/samples
+export MODELS_PATH=$PWD/models
 ./download_public_models.sh yolo11n coco128
-
-# Run the pipeline
-gst-launch-1.0 \
-  filesrc location=my_video.mp4 ! \
-  decodebin3 ! \
-  gvadetect model=models/yolo11n/FP32/yolo11n.xml device=GPU ! \
-  queue ! \
-  gvawatermark ! \
-  autovideosink
+export VIDEO=https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4
 ```
 
-That's it. Change `device=GPU` to `device=CPU` or `device=NPU` — no other code changes needed.
+Change `device=GPU` to `device=CPU` or `device=NPU` — no other code changes needed.
+
+**Output to JSON** (works everywhere, including headless Docker):
+
+```bash
+gst-launch-1.0 \
+  urisourcebin buffer-size=4096 uri=$VIDEO ! \
+  decodebin3 ! \
+  gvadetect model=$MODELS_PATH/public/yolo11n/INT8/yolo11n.xml device=GPU ! \
+  queue ! \
+  gvametaconvert format=json ! \
+  gvametapublish file-format=json-lines file-path=output.json ! fakesink async=false
+```
+
+**Output to screen** (requires X11 display — on the host run `xhost +local:docker` first):
+
+```bash
+gst-launch-1.0 \
+  urisourcebin buffer-size=4096 uri=$VIDEO ! \
+  decodebin3 ! \
+  gvadetect model=$MODELS_PATH/public/yolo11n/INT8/yolo11n.xml device=GPU ! \
+  queue ! \
+  gvawatermark ! videoconvert ! \
+  autovideosink sync=false
+```
 
 ### Python API
 
@@ -111,15 +132,19 @@ import gi
 gi.require_version("Gst", "1.0")
 from gi.repository import Gst
 
+import os
+
 Gst.init(None)
 
-pipeline = Gst.parse_launch("""
-    filesrc location=my_video.mp4 !
+video_url = "https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4"
+models_path = os.environ.get("MODELS_PATH", "models")
+pipeline = Gst.parse_launch(f"""
+    urisourcebin buffer-size=4096 uri={video_url} !
     decodebin3 !
-    gvadetect model=models/yolo11n/FP32/yolo11n.xml device=GPU !
+    gvadetect model={models_path}/public/yolo11n/INT8/yolo11n.xml device=GPU !
     queue !
-    gvawatermark !
-    autovideosink
+    gvawatermark ! videoconvert !
+    autovideosink sync=false
 """)
 
 pipeline.set_state(Gst.State.PLAYING)
@@ -138,39 +163,39 @@ DL Streamer provides purpose-built GStreamer elements for every stage of a media
 
 | Element | Purpose |
 |---|---|
-| [`gvadetect`](./docs/user-guide/elements/gvadetect.md) | Object detection (YOLO, SSD, EfficientDet, …) |
-| [`gvaclassify`](./docs/user-guide/elements/gvaclassify.md) | Object classification, segmentation, pose estimation |
-| [`gvainference`](./docs/user-guide/elements/gvainference.md) | Raw inference output (any model) |
-| [`gvagenai`](./docs/user-guide/elements/gvagenai.md) | Vision-Language / GenAI models |
-| [`gvaaudiotranscribe`](./docs/user-guide/elements/gvaaudiotranscribe.md) | Audio transcription (Whisper) |
+| [`gvadetect`](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/elements/gvadetect.html) | Object detection (YOLO, SSD, EfficientDet, …) |
+| [`gvaclassify`](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/elements/gvaclassify.html) | Object classification, segmentation, pose estimation |
+| [`gvainference`](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/elements/gvainference.html) | Raw inference output (any model) |
+| [`gvagenai`](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/elements/gvagenai.html) | Vision-Language / GenAI models |
+| [`gvaaudiotranscribe`](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/elements/gvaaudiotranscribe.html) | Audio transcription (Whisper) |
 
 ### Analytics & Routing
 
 | Element | Purpose |
 |---|---|
-| [`gvatrack`](./docs/user-guide/elements/gvatrack.md) | Zero-term or short-term object tracking |
-| [`gvaanalytics`](./docs/user-guide/elements/gvaanalytics.md) | Tripwires, zones, trajectory analytics |
-| [`gvastreammux`](./docs/user-guide/elements/gvastreammux.md) / [`gvastreamdemux`](./docs/user-guide/elements/gvastreamdemux.md) | Multi-stream mux/demux |
-| [`gvamotiondetect`](./docs/user-guide/elements/gvamotiondetect.md) | Lightweight motion detection (VA-API accelerated) |
+| [`gvatrack`](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/elements/gvatrack.html) | Zero-term or short-term object tracking |
+| [`gvaanalytics`](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/elements/gvaanalytics.html) | Tripwires, zones, trajectory analytics |
+| [`gvastreammux`](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/elements/gvastreammux.html) / [`gvastreamdemux`](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/elements/gvastreamdemux.html) | Multi-stream mux/demux |
+| [`gvamotiondetect`](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/elements/gvamotiondetect.html) | Lightweight motion detection (VA-API accelerated) |
 
 ### Output & Visualization
 
 | Element | Purpose |
 |---|---|
-| [`gvawatermark`](./docs/user-guide/elements/gvawatermark.md) | Overlay bounding boxes, labels, and custom drawings |
-| [`gvametaconvert`](./docs/user-guide/elements/gvametaconvert.md) | Convert inference metadata to JSON |
-| [`gvametapublish`](./docs/user-guide/elements/gvametapublish.md) | Publish JSON to MQTT, Kafka, or file |
-| [`gvafpscounter`](./docs/user-guide/elements/gvafpscounter.md) | Per-stream and aggregate FPS measurement |
+| [`gvawatermark`](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/elements/gvawatermark.html) | Overlay bounding boxes, labels, and custom drawings |
+| [`gvametaconvert`](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/elements/gvametaconvert.html) | Convert inference metadata to JSON |
+| [`gvametapublish`](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/elements/gvametapublish.html) | Publish JSON to MQTT, Kafka, or file |
+| [`gvafpscounter`](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/elements/gvafpscounter.html) | Per-stream and aggregate FPS measurement |
 
 ### 3D / Sensor Fusion
 
 | Element | Purpose |
 |---|---|
-| [`g3dlidarparse`](./docs/user-guide/elements/g3dlidarparse.md) | LiDAR point cloud parsing (BIN/PCD) |
-| [`g3dinference`](./docs/user-guide/elements/g3dinference.md) | PointPillars 3D object detection |
-| [`g3dradarprocess`](./docs/user-guide/elements/g3dradarprocess.md) | mmWave radar signal processing |
+| [`g3dlidarparse`](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/elements/g3dlidarparse.html) | LiDAR point cloud parsing (BIN/PCD) |
+| [`g3dinference`](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/elements/g3dinference.html) | PointPillars 3D object detection |
+| [`g3dradarprocess`](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/elements/g3dradarprocess.html) | mmWave radar signal processing |
 
-[View all elements →](./docs/user-guide/elements/elements.md)
+[View all elements →](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/elements/elements.html)
 
 ---
 
@@ -206,7 +231,7 @@ DL Streamer provides purpose-built GStreamer elements for every stage of a media
 
 Operating systems: **Ubuntu 22.04 / 24.04**, **Windows 11** (Arrow Lake+).
 
-[Full system requirements →](./docs/user-guide/get_started/system_requirements.md)
+[Full system requirements →](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/get_started/system_requirements.html)
 
 ---
 
@@ -222,7 +247,7 @@ DL Streamer runs models in **OpenVINO™ IR** and **ONNX** formats:
 - **3D:** PointPillars (LiDAR), mmWave radar models
 - **Geti™ models:** Anomaly detection, object detection, classification
 
-[Full list of supported models →](./docs/user-guide/supported_models.md)
+[Full list of supported models →](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/supported_models.html)
 
 ---
 
@@ -230,11 +255,11 @@ DL Streamer runs models in **OpenVINO™ IR** and **ONNX** formats:
 
 | Resource | Link |
 |---|---|
-| Get Started (tutorial + install) | [docs/user-guide/get_started](./docs/user-guide/get_started/get_started_index.md) |
-| Developer Guide | [docs/user-guide/dev_guide](./docs/user-guide/dev_guide/dev_guide_index.md) |
-| Elements Reference | [docs/user-guide/elements](./docs/user-guide/elements/elements.md) |
-| API Reference | [docs/user-guide/api_ref](./docs/user-guide/api_ref/api_reference.rst) |
-| Metadata Guide | [docs/user-guide/dev_guide/metadata](./docs/user-guide/dev_guide/metadata.md) |
+| Get Started (tutorial + install) | [docs/user-guide/get_started](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/get_started/get_started_index.html) |
+| Developer Guide | [docs/user-guide/dev_guide](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/dev_guide/dev_guide_index.html) |
+| Elements Reference | [docs/user-guide/elements](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/elements/elements.html) |
+| API Reference | [docs/user-guide/api_ref](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/api_ref/api_reference.html) |
+| Metadata Guide | [docs/user-guide/dev_guide/metadata](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/dev_guide/metadata.html) |
 
 ---
 
