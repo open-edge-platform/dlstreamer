@@ -45,7 +45,7 @@
 
 ---
 
-## ⚡ Quick Start
+## ⚡ Quick Start - Installation
 
 ### Option A — Docker (recommended, zero setup)
 
@@ -89,7 +89,7 @@ Full installation guide: [Install Guide for Ubuntu](https://docs.openedgeplatfor
 
 ---
 
-## Your First Pipeline
+## ⚡ Quick Start - Your First Pipeline
 
 **Step 1 — Set up models, video source and DL Streamer** (inside the container or on a native install):
 
@@ -233,10 +233,10 @@ DL Streamer provides purpose-built GStreamer elements for every stage of a media
 | Hardware | CPU | GPU | NPU |
 |---|:---:|:---:|:---:|
 | Intel Core Ultra series 1–3 (Meteor / Lunar / Arrow / Panther Lake) | ✅ | ✅ | ✅ |
-| Intel Arc discrete GPU (Alchemist, Battlemage) | ✅ | ✅ | — |
+| Intel Arc discrete GPU (Alchemist, Battlemage) | — | ✅ | — |
 | 11th–13th Gen Intel Core | ✅ | ✅ | — |
 
-Operating systems: **Ubuntu 22.04 / 24.04**, **Windows 11** (Arrow Lake+).
+Operating systems: **Ubuntu 22.04 / 24.04**, **Windows 11**.
 
 [Full system requirements →](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/get_started/system_requirements.html)
 
