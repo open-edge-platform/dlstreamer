@@ -2,7 +2,7 @@
 
 ## DL Streamer is now part of Open Edge Platform
 
-### Overview 
+### Overview
 
 ![intro](./intro.gif)
 
