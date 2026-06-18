@@ -128,7 +128,7 @@ runs:
           echo "${CHANGED_FILES_CODE}"
           SKIP_CI=false
           echo "🔄 Code changes detected"
-          
+
           # Check if there are also changes in documentation/configuration files
           if [ -n "${CHANGED_FILES_DOCS}" ]; then
             echo "📚 Documentation changes also detected:"
