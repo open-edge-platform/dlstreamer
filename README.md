@@ -110,7 +110,7 @@ gst-launch-1.0 \
   gvadetect model=$MODELS_PATH/public/yolo26n/INT8/yolo26n.xml device=GPU ! \
   queue ! \
   gvawatermark ! videoconvert ! \
-  autovideosink sync=false
+  autovideosink sync=true
 ```
 
 Output to JSON (works everywhere, including headless Docker):
@@ -158,9 +158,9 @@ Then run it and wait for results:
 
 ```bash
 python3 detect.py
-# Detection results are written to output.json as the pipeline processes frames
+# Detection results are written to output_from_python.json as the pipeline processes frames
 # Each line is a JSON object with detected objects, labels, and bounding boxes
-cat output.json
+cat output_from_python.json
 ```
 
 ---
