@@ -437,7 +437,90 @@ static cv::Vec3b height_to_color(float z) {
     return cv::Vec3b(0, (uint8_t)((1.0f - s) * 180), (uint8_t)(s * 220 + 80));
 }
 
-static void draw_perspective(cv::Mat &canvas, const float *points, guint count, GstG3DRender *self) {
+static void draw_detection_boxes_perspective(cv::Mat &canvas, GstBuffer *inbuf,
+                                              const cv::Mat &rvec, const cv::Mat &tvec,
+                                              const cv::Mat &K, const cv::Mat &dist_coeffs,
+                                              const cv::Mat &cam_pos, const cv::Mat &zaxis,
+                                              const GstG3DRender *self) {
+    (void)self;
+    double zx = zaxis.at<double>(0), zy = zaxis.at<double>(1), zz = zaxis.at<double>(2);
+    double cpx = cam_pos.at<double>(0), cpy = cam_pos.at<double>(1), cpz = cam_pos.at<double>(2);
+
+    gpointer state = NULL;
+    GstGVATensorMeta *tensor_meta = NULL;
+    while ((tensor_meta = GST_GVA_TENSOR_META_ITERATE(inbuf, &state))) {
+        GstStructure *s = tensor_meta->data;
+        const gchar *fmt   = gst_structure_get_string(s, "format");
+        const gchar *lname = gst_structure_get_string(s, "layer_name");
+        if (!fmt || !lname) continue;
+        if (g_strcmp0(fmt, "pointpillars_3d") != 0 ||
+            g_strcmp0(lname, "pointpillars_3d_detection") != 0) continue;
+
+        GValueArray *dims_array = NULL;
+        gst_structure_get_array(s, "dims", &dims_array);
+        if (!dims_array || dims_array->n_values != 2) {
+            if (dims_array) g_value_array_free(dims_array);
+            continue;
+        }
+        guint dim0 = g_value_get_uint(g_value_array_get_nth(dims_array, 0));
+        guint dim1 = g_value_get_uint(g_value_array_get_nth(dims_array, 1));
+        g_value_array_free(dims_array);
+        if (dim1 != 9 || dim0 == 0) continue;
+
+        const GValue *buf_val = gst_structure_get_value(s, "data_buffer");
+        if (!buf_val || !G_VALUE_HOLDS(buf_val, G_TYPE_VARIANT)) continue;
+        GVariant *variant = g_value_get_variant(buf_val);
+        gsize nbytes = 0;
+        const float *data = reinterpret_cast<const float *>(
+            g_variant_get_fixed_array(variant, &nbytes, 1));
+        if (!data || nbytes < dim0 * dim1 * sizeof(float)) continue;
+
+        for (guint d = 0; d < dim0; ++d) {
+            size_t off = d * 9;
+            float bcx = data[off+0], bcy = data[off+1], bcz = data[off+2];
+            float ddx = data[off+3], ddy = data[off+4], ddz = data[off+5];
+            float theta = data[off+6];
+
+            float cos_t = std::cos(theta), sin_t = -std::sin(theta);
+            float hx = ddx / 2.0f, hy = ddy / 2.0f, hz = ddz / 2.0f;
+
+            // bottom 4 corners then top 4, CCW order viewed from above
+            float lx[4] = {-hx, +hx, +hx, -hx};
+            float ly[4] = {-hy, -hy, +hy, +hy};
+
+            std::vector<cv::Point3f> corners(8);
+            for (int i = 0; i < 4; ++i) {
+                float wx = bcx + lx[i] * cos_t - ly[i] * sin_t;
+                float wy = bcy + lx[i] * sin_t + ly[i] * cos_t;
+                corners[i]   = cv::Point3f(wx, wy, bcz - hz);
+                corners[i+4] = cv::Point3f(wx, wy, bcz + hz);
+            }
+
+            // skip entire box if center is behind camera
+            double center_depth = zx*(bcx-cpx) + zy*(bcy-cpy) + zz*(bcz-cpz);
+            if (center_depth <= 0.5) continue;
+
+            std::vector<cv::Point2f> img_corners;
+            cv::projectPoints(corners, rvec, tvec, K, dist_coeffs, img_corners);
+
+            // 12 edges: bottom face, top face, 4 verticals
+            static const int edges[12][2] = {
+                {0,1},{1,2},{2,3},{3,0},
+                {4,5},{5,6},{6,7},{7,4},
+                {0,4},{1,5},{2,6},{3,7}
+            };
+            for (auto &e : edges) {
+                int a = e[0], b = e[1];
+                cv::line(canvas,
+                         cv::Point((int)img_corners[a].x, (int)img_corners[a].y),
+                         cv::Point((int)img_corners[b].x, (int)img_corners[b].y),
+                         cv::Scalar(0, 255, 0), 1, cv::LINE_AA);
+            }
+        }
+    }
+}
+
+static void draw_perspective(cv::Mat &canvas, const float *points, guint count, GstBuffer *inbuf, GstG3DRender *self) {
     const float DEG2RAD = (float)(M_PI / 180.0);
     float az   = self->cam_azimuth   * DEG2RAD;
     float el   = self->cam_elevation * DEG2RAD;
@@ -603,6 +686,8 @@ static void draw_perspective(cv::Mat &canvas, const float *points, guint count, 
 
     }
 
+    draw_detection_boxes_perspective(canvas, inbuf, rvec, tvec, K, dist_coeffs, cam_pos, zaxis, self);
+
     self->cam_azimuth += self->cam_azimuth_step;
     if (self->cam_azimuth >  360.0f) self->cam_azimuth -= 360.0f;
     if (self->cam_azimuth < -360.0f) self->cam_azimuth += 360.0f;
@@ -642,7 +727,7 @@ static void draw_detection_boxes_bev(cv::Mat &canvas, GstBuffer *inbuf, const Gs
             size_t off = d * 9;
             float cx = data[off+0], cy = data[off+1];
             float dx = data[off+3], dy = data[off+4], theta = data[off+6];
-            float cos_t = std::cos(theta), sin_t = std::sin(theta);
+            float cos_t = std::cos(theta), sin_t = -std::sin(theta);
             float hx = dx / 2.0f, hy = dy / 2.0f;
             float wx[4] = { cx+cos_t*hx-sin_t*hy, cx-cos_t*hx-sin_t*hy,
                             cx-cos_t*hx+sin_t*hy, cx+cos_t*hx+sin_t*hy };
@@ -651,7 +736,7 @@ static void draw_detection_boxes_bev(cv::Mat &canvas, GstBuffer *inbuf, const Gs
             std::vector<cv::Point> poly(4);
             for (int k = 0; k < 4; ++k)
                 poly[k] = world_to_pixel_bev(wx[k], wy[k], self);
-            cv::polylines(canvas, poly, true, cv::Scalar(0, 255, 0), 2);
+            cv::polylines(canvas, poly, true, cv::Scalar(0, 255, 0), 1);
             cv::circle(canvas, world_to_pixel_bev(cx, cy, self), 4, cv::Scalar(0, 255, 0), -1);
         }
     }
@@ -687,7 +772,7 @@ static GstFlowReturn gst_g3d_render_transform(GstBaseTransform *trans, GstBuffer
             draw_bev(canvas, points, count, self);
             draw_detection_boxes_bev(canvas, inbuf, self);
         } else {
-            draw_perspective(canvas, points, count, self);
+            draw_perspective(canvas, points, count, inbuf, self);
         }
 
         gst_buffer_unmap(inbuf, &in_map);
