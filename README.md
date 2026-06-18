@@ -91,13 +91,14 @@ Full installation guide: [Install Guide for Ubuntu](https://docs.openedgeplatfor
 
 ## Your First Pipeline
 
-**Step 1 — Set up models and video source** (inside the container or on a native install):
+**Step 1 — Set up models, video source and DL Streamer** (inside the container or on a native install):
 
 ```bash
-export MODELS_PATH=$PWD/models
 cd /opt/intel/dlstreamer/samples
+export MODELS_PATH=~/models
 ./download_public_models.sh yolo26n coco128   # downloads FP16, FP32, and INT8
 export VIDEO=https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4
+source /opt/intel/dlstreamer/scripts/setup_dls_env.sh
 ```
 
 **Step 2 — Run the pipeline.** Change `device=GPU` to `device=CPU` or `device=NPU` — no other code changes needed.
@@ -126,6 +127,8 @@ gst-launch-1.0 \
 
 ### Python API
 
+Create a file `detect.py`:
+
 ```python
 import gi
 gi.require_version("Gst", "1.0")
@@ -135,20 +138,29 @@ import os
 Gst.init(None)
 
 video_url = "https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4"
-models_path = os.environ.get("MODELS_PATH", "/opt/intel/dlstreamer/samples/models")
+models_path = os.environ.get("MODELS_PATH", os.path.expanduser("~/models"))
 pipeline = Gst.parse_launch(f"""
     urisourcebin buffer-size=4096 uri={video_url} !
     decodebin3 !
     gvadetect model={models_path}/public/yolo26n/INT8/yolo26n.xml device=GPU !
     queue !
     gvametaconvert format=json !
-    gvametapublish file-format=json-lines file-path=output.json ! fakesink async=false
+    gvametapublish file-format=json-lines file-path=output_from_python.json ! fakesink async=false
 """)
 
 pipeline.set_state(Gst.State.PLAYING)
 bus = pipeline.get_bus()
 bus.timed_pop_filtered(Gst.CLOCK_TIME_NONE, Gst.MessageType.EOS | Gst.MessageType.ERROR)
 pipeline.set_state(Gst.State.NULL)
+```
+
+Then run it and wait for results:
+
+```bash
+python3 detect.py
+# Detection results are written to output.json as the pipeline processes frames
+# Each line is a JSON object with detected objects, labels, and bounding boxes
+cat output.json
 ```
 
 ---
