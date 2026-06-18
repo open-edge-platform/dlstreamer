@@ -1,6 +1,6 @@
 # Release Notes: Deep Learning Streamer (DL Streamer) Pipeline Framework Release 2026.1
 
-## Version 2026.1
+## Version 2026.1 
 
 ## Key 2026.1 highlights:
 
