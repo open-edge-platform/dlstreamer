@@ -1,6 +1,6 @@
 %define debug_package %{nil}
 Name:           intel-dlstreamer
-Version:        2026.0.0
+Version:        2026.1.0
 Release:        1%{?dist}
 Summary:        Intel Deep Learning Streamer framework
 
@@ -139,6 +139,8 @@ rm -rf %{buildroot}
 /opt/intel/dlstreamer/lib/pkgconfig/*
 
 %changelog
+* Thu Jun 18 2026 DL Streamer Team <dlstreamer@intel.com> - 2026.1.0-1
+- Update DL Streamer version
 * Wed Mar 25 2026 DL Streamer Team <dlstreamer@intel.com> - 2026.0.0-1
 - Update DL Streamer version
 * Wed Dec 02 2025 DL Streamer Team <dlstreamer@intel.com> - 2025.2.0-1
