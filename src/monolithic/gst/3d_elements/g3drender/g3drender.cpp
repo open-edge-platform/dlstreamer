@@ -594,8 +594,10 @@ static void draw_perspective(cv::Mat &canvas, const float *points, guint count, 
             }
             cv::Point arrow_start(neg_tip.x + (int)(ux * dash_end), neg_tip.y + (int)(uy * dash_end));
             cv::arrowedLine(canvas, arrow_start, pos_tip, ind_color, 1, cv::LINE_AA, 0, 0.4);
-            cv::Point2f label_pos(pos_tip.x + dir.x * 10, pos_tip.y + dir.y * 10);
-            cv::putText(canvas, ax.label, cv::Point((int)label_pos.x - 5, (int)label_pos.y + 5),
+            cv::Point2f perp(-dir.y, dir.x);
+            cv::Point2f label_pos(pos_tip.x + dir.x * 8 + perp.x * 8,
+                                  pos_tip.y + dir.y * 8 + perp.y * 8);
+            cv::putText(canvas, ax.label, cv::Point((int)label_pos.x - 4, (int)label_pos.y + 4),
                         cv::FONT_HERSHEY_SIMPLEX, 0.5, ind_color, 1, cv::LINE_AA);
         }
 
