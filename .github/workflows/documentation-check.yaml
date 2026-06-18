@@ -22,17 +22,6 @@ jobs:
       SIMPLE_MODE: true
       EXCLUDE_PATTERNS: ""
     steps:
-      - name: Check if should skip CI
-        id: skip-check
-        uses: ./.github/actions/common/check-skip-ci
-        with:
-          job_name: "Build dlstreamer documentation"
-          working_directory: "."
-
-      - name: Determine if documentation CI should run
-        if: steps.skip-check.outputs.run_docs_ci == 'false'
-        run: echo "Documentation CI is not needed, skipping remaining steps." && exit 0
-
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -44,6 +33,17 @@ jobs:
           # to avoid detached HEAD
           ref: ${{ github.event.pull_request.head.sha || github.head_ref }}
           persist-credentials: false
+
+      - name: Check if should skip CI
+        id: skip-check
+        uses: ./.github/actions/common/check-skip-ci
+        with:
+          job_name: "Build dlstreamer documentation"
+          working_directory: "."
+
+      - name: Determine if documentation CI should run
+        if: steps.skip-check.outputs.run_docs_ci == 'false'
+        run: echo "Documentation CI is not needed, skipping remaining steps." && exit 0
 
       - name: Download template
         if: ${{ env.SIMPLE_MODE == 'true' }}
