@@ -46,7 +46,7 @@ jobs:
         run: echo "Documentation CI is not needed, skipping remaining steps." && exit 0
 
       - name: Download template
-        if: ${{ env.SIMPLE_MODE == 'true' }}
+        if: ${{ env.SIMPLE_MODE == 'true' }} && steps.skip-check.outputs.run_docs_ci == 'true'
         shell: bash
         run: |
           cd "${GITHUB_WORKSPACE}/${DOCS_DIR}"
@@ -58,6 +58,7 @@ jobs:
           fi
 
       - name: Add exclude patterns
+        if: steps.skip-check.outputs.run_docs_ci == 'true'
         shell: bash
         run: |
           # Remove any spaces
@@ -70,6 +71,7 @@ jobs:
           done
 
       - name: Build Documentation
+        if: steps.skip-check.outputs.run_docs_ci == 'true'
         shell: bash
         run: |
           cd "${GITHUB_WORKSPACE}/${DOCS_DIR}"

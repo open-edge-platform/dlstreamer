@@ -194,7 +194,7 @@ runs:
         fi
 
     - name: Mark job as passed when skipped
-      if: steps.check.outputs.should_run == 'false'
+      if: steps.check.outputs.should_run == 'false' && steps.check.outputs.run_docs_ci == 'false'
       shell: bash
       env:
         JOB_NAME: ${{ inputs.job_name }}
