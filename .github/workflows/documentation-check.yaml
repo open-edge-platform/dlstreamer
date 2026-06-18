@@ -46,7 +46,7 @@ jobs:
         run: echo "Documentation CI is not needed, skipping remaining steps." && exit 0
 
       - name: Download template
-        if: ${{ env.SIMPLE_MODE == 'true' }} && steps.skip-check.outputs.run_docs_ci == 'true'
+        if: env.SIMPLE_MODE == 'true' && steps.skip-check.outputs.run_docs_ci == 'true'
         shell: bash
         run: |
           cd "${GITHUB_WORKSPACE}/${DOCS_DIR}"
