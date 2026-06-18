@@ -91,14 +91,24 @@ Full installation guide: [Install Guide for Ubuntu](https://docs.openedgeplatfor
 
 ## ⚡ Quick Start - Your First Pipeline
 
-**Step 1 — Set up models, video source and DL Streamer** (inside the container or on a native install):
+**Step 1 — Set up models and environment** (inside the container or on a native install):
 
 ```bash
-cd /opt/intel/dlstreamer/samples
 export MODELS_PATH=~/models
-./download_public_models.sh yolo26n coco128   # downloads FP16, FP32, and INT8
 export VIDEO=https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4
-source /opt/intel/dlstreamer/scripts/setup_dls_env.sh
+
+# Download yolo26n INT8 (one-time setup)
+SCRIPT_DIR=/opt/intel/dlstreamer/scripts/download_models
+python3 -m venv $SCRIPT_DIR/.venv && source $SCRIPT_DIR/.venv/bin/activate
+curl -sLO https://raw.githubusercontent.com/openvinotoolkit/openvino.genai/refs/heads/releases/2026/1/samples/export-requirements.txt
+pip install -q -r export-requirements.txt -r $SCRIPT_DIR/requirements.txt
+python3 $SCRIPT_DIR/download_ultralytics_models.py \
+  --model yolo26n.pt \
+  --outdir $MODELS_PATH/yolo26n/INT8 \
+  --int8
+deactivate
+
+source /opt/intel/dlstreamer/scripts/setup_dls_env.sh  # native install only
 ```
 
 **Step 2 — Run the pipeline.** Change `device=GPU` to `device=CPU` or `device=NPU` — no other code changes needed.
@@ -107,7 +117,7 @@ source /opt/intel/dlstreamer/scripts/setup_dls_env.sh
 gst-launch-1.0 \
   urisourcebin buffer-size=4096 uri=$VIDEO ! \
   decodebin3 ! \
-  gvadetect model=$MODELS_PATH/public/yolo26n/INT8/yolo26n.xml device=GPU ! \
+  gvadetect model=$MODELS_PATH/yolo26n/INT8/yolo26n.xml device=GPU ! \
   queue ! \
   gvawatermark ! videoconvert ! \
   autovideosink sync=true
@@ -119,7 +129,7 @@ Output to JSON (works everywhere, including headless Docker):
 gst-launch-1.0 \
   urisourcebin buffer-size=4096 uri=$VIDEO ! \
   decodebin3 ! \
-  gvadetect model=$MODELS_PATH/public/yolo26n/INT8/yolo26n.xml device=GPU ! \
+  gvadetect model=$MODELS_PATH/yolo26n/INT8/yolo26n.xml device=GPU ! \
   queue ! \
   gvametaconvert format=json ! \
   gvametapublish file-format=json-lines file-path=output.json ! fakesink async=false
@@ -142,7 +152,7 @@ models_path = os.environ.get("MODELS_PATH", os.path.expanduser("~/models"))
 pipeline = Gst.parse_launch(f"""
     urisourcebin buffer-size=4096 uri={video_url} !
     decodebin3 !
-    gvadetect model={models_path}/public/yolo26n/INT8/yolo26n.xml device=GPU !
+    gvadetect model={models_path}/yolo26n/INT8/yolo26n.xml device=GPU !
     queue !
     gvametaconvert format=json !
     gvametapublish file-format=json-lines file-path=output_from_python.json ! fakesink async=false
