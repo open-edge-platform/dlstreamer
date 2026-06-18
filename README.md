@@ -135,7 +135,7 @@ gi.require_version("Gst", "1.0")
 from gi.repository import Gst
 import os
 
-Gst.init(None)
+Gst.init([])
 
 video_url = "https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4"
 models_path = os.environ.get("MODELS_PATH", os.path.expanduser("~/models"))
