@@ -53,6 +53,7 @@
 # Run once on the host to allow X11 forwarding from containers
 xhost +local:docker
 
+# Run Docker container in interactive mode
 docker run -it --rm \
   --device /dev/dri \
   --group-add $(stat -c "%g" /dev/dri/render*) \
@@ -62,7 +63,7 @@ docker run -it --rm \
   intel/dlstreamer:latest
 ```
 
-### Option B — Native install (Ubuntu)
+### Option B — Native install (Ubuntu 24.04)
 
 **Step 1 — Install GPU/NPU drivers** (one-time, detects your hardware automatically):
 
@@ -77,9 +78,11 @@ chmod +x DLS_install_prerequisites.sh
 **Step 2 — Install DL Streamer**:
 
 ```bash
-wget -qO - https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB | sudo apt-key add -
-echo "deb https://apt.repos.intel.com/openvino/2025 ubuntu24 main" | sudo tee /etc/apt/sources.list.d/intel-openvino-2025.list
-sudo apt update && sudo apt install -y intel-dlstreamer
+sudo -E wget -O- https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB | gpg --dearmor | sudo tee /usr/share/keyrings/intel-gpg-archive-keyring.gpg > /dev/null
+sudo -E wget -O- https://apt.repos.intel.com/edgeai/dlstreamer/GPG-PUB-KEY-INTEL-DLS.gpg | sudo tee /usr/share/keyrings/dls-archive-keyring.gpg > /dev/null
+echo "deb [signed-by=/usr/share/keyrings/dls-archive-keyring.gpg] https://apt.repos.intel.com/edgeai/dlstreamer/ubuntu24 ubuntu24 main" | sudo tee /etc/apt/sources.list.d/intel-dlstreamer.list
+sudo bash -c 'echo "deb [signed-by=/usr/share/keyrings/intel-gpg-archive-keyring.gpg] https://apt.repos.intel.com/openvino ubuntu24 main" | sudo tee /etc/apt/sources.list.d/intel-openvino.list'
+sudo apt update && sudo apt-get install -y intel-dlstreamer
 ```
 
 Full installation guide: [Install Guide for Ubuntu](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/get_started/install/install_guide_ubuntu.html) | [Windows](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/get_started/install/install_guide_windows.html)
@@ -91,36 +94,34 @@ Full installation guide: [Install Guide for Ubuntu](https://docs.openedgeplatfor
 **Step 1 — Set up models and video source** (inside the container or on a native install):
 
 ```bash
-cd /opt/intel/dlstreamer/samples
 export MODELS_PATH=$PWD/models
-./download_public_models.sh yolo11n coco128   # downloads FP16, FP32, and INT8
+cd /opt/intel/dlstreamer/samples
+./download_public_models.sh yolo26n coco128   # downloads FP16, FP32, and INT8
 export VIDEO=https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4
 ```
 
 **Step 2 — Run the pipeline.** Change `device=GPU` to `device=CPU` or `device=NPU` — no other code changes needed.
 
-**Output to JSON** (works everywhere, including headless Docker):
-
 ```bash
 gst-launch-1.0 \
   urisourcebin buffer-size=4096 uri=$VIDEO ! \
   decodebin3 ! \
-  gvadetect model=$MODELS_PATH/public/yolo11n/INT8/yolo11n.xml device=GPU ! \
-  queue ! \
-  gvametaconvert format=json ! \
-  gvametapublish file-format=json-lines file-path=output.json ! fakesink async=false
-```
-
-**Output to screen** (requires X11 display — on the host run `xhost +local:docker` first):
-
-```bash
-gst-launch-1.0 \
-  urisourcebin buffer-size=4096 uri=$VIDEO ! \
-  decodebin3 ! \
-  gvadetect model=$MODELS_PATH/public/yolo11n/INT8/yolo11n.xml device=GPU ! \
+  gvadetect model=$MODELS_PATH/public/yolo26n/INT8/yolo26n.xml device=GPU ! \
   queue ! \
   gvawatermark ! videoconvert ! \
   autovideosink sync=false
+```
+
+Output to JSON (works everywhere, including headless Docker):
+
+```bash
+gst-launch-1.0 \
+  urisourcebin buffer-size=4096 uri=$VIDEO ! \
+  decodebin3 ! \
+  gvadetect model=$MODELS_PATH/public/yolo26n/INT8/yolo26n.xml device=GPU ! \
+  queue ! \
+  gvametaconvert format=json ! \
+  gvametapublish file-format=json-lines file-path=output.json ! fakesink async=false
 ```
 
 ### Python API
@@ -138,7 +139,7 @@ models_path = os.environ.get("MODELS_PATH", "/opt/intel/dlstreamer/samples/model
 pipeline = Gst.parse_launch(f"""
     urisourcebin buffer-size=4096 uri={video_url} !
     decodebin3 !
-    gvadetect model={models_path}/public/yolo11n/INT8/yolo11n.xml device=GPU !
+    gvadetect model={models_path}/public/yolo26n/INT8/yolo26n.xml device=GPU !
     queue !
     gvametaconvert format=json !
     gvametapublish file-format=json-lines file-path=output.json ! fakesink async=false
