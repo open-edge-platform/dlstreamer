@@ -116,8 +116,6 @@ runs:
           ':(exclude)LICENSE')
 
         CHANGED_FILES_DOCS=$(git diff --name-only origin/$BASE_BRANCH...HEAD -- \
-          '*.md' \
-          '**/*.md' \
           'docs/')
 
         SKIP_CI=true
