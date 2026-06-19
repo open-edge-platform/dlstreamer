@@ -253,7 +253,6 @@ def export_hf_rtdetr_to_openvino(
     """
     outdir.mkdir(parents=True, exist_ok=True)
     _ = extra_args
-    model_onnx = outdir / "model.onnx"
 
     main_export(
         model_id,
@@ -265,6 +264,11 @@ def export_hf_rtdetr_to_openvino(
         height=640,
         auth_token=token,
     )
+
+    onnx_files = list(outdir.glob("*.onnx"))
+    if not onnx_files:
+        raise FileNotFoundError(f"main_export produced no .onnx files in {outdir}")
+    model_onnx = onnx_files[0]
 
     hf_hub_download(
         repo_id=model_id,
