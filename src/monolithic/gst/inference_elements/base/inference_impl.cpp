@@ -38,6 +38,7 @@
 #include <openvino/runtime/core.hpp>
 #include <openvino/runtime/properties.hpp>
 #include <regex>
+#include <shared_mutex>
 #include <sstream>
 #include <string>
 #include <thread>
@@ -1003,8 +1004,8 @@ void InferenceImpl::FlushOutputs() {
 }
 
 void InferenceImpl::UpdateObjectClasses(const gchar *obj_classes_str) {
-    // Lock mutex to avoid data race in case of shared inference instance in multichannel mode
-    std::unique_lock<std::mutex> lock(_mutex);
+    // Exclusive lock to avoid data race in case of shared inference instance in multichannel mode
+    std::unique_lock<std::shared_mutex> lock(_mutex);
 
     if (obj_classes_str && obj_classes_str[0])
         object_classes = Utils::splitString(obj_classes_str, ',');
@@ -1036,6 +1037,7 @@ void InferenceImpl::UpdateModelReshapeInfo(GvaBaseInference *gva_base_inference)
 }
 
 bool InferenceImpl::FilterObjectClass(GstVideoRegionOfInterestMeta *roi) const {
+    std::shared_lock<std::shared_mutex> lock(_mutex);
     if (object_classes.empty())
         return true;
     auto compare_quark_string = [roi](const std::string &str) {
@@ -1046,6 +1048,7 @@ bool InferenceImpl::FilterObjectClass(GstVideoRegionOfInterestMeta *roi) const {
 }
 
 bool InferenceImpl::FilterObjectClass(GstAnalyticsODMtd roi) const {
+    std::shared_lock<std::shared_mutex> lock(_mutex);
     if (object_classes.empty())
         return true;
     auto compare_quark_string = [roi](const std::string &str) {
@@ -1057,6 +1060,7 @@ bool InferenceImpl::FilterObjectClass(GstAnalyticsODMtd roi) const {
 }
 
 bool InferenceImpl::FilterObjectClass(const std::string &object_class) const {
+    std::shared_lock<std::shared_mutex> lock(_mutex);
     if (object_classes.empty())
         return true;
     return std::find(object_classes.cbegin(), object_classes.cend(), object_class) != object_classes.cend();
@@ -1144,56 +1148,93 @@ void InferenceImpl::SetAffinityMask(const WinCorePinningMask &mask) {
 
 /**
  * Acquires output_frames_mutex with std::lock_guard.
+ * Push completed inference frames downstream.
+ *
+ * Design: frames are collected while holding output_frames_mutex, then pushed
+ * downstream after releasing the lock. This prevents gst_pad_push (which may
+ * block) from starving other streaming threads that insert into output_frames.
+ *
+ * Per-stream ordering is preserved: if any frame for a given stream is still
+ * pending inference, all later frames for that stream are held back. However,
+ * completed frames from OTHER streams are pushed through (reducing HOL blocking
+ * across streams compared to the original break-on-first-pending approach).
  */
 void InferenceImpl::PushOutput() {
     ITT_TASK(__FUNCTION__);
-    std::lock_guard<std::mutex> guard(output_frames_mutex);
 
-    // track output queues that are full
-    std::map<std::string, bool> output_full;
+    // Collect frames to push while holding the lock, then push them outside the lock.
+    // PushBufferToSrcPad calls gst_pad_push which may block downstream.
+    // Holding output_frames_mutex during that call starves other streaming threads
+    // that need to push into output_frames in TransformFrameIp.
+    std::vector<OutputFrame> frames_to_push;
 
-    auto frame = output_frames.begin();
-    while (frame != output_frames.end()) {
-        if ((*frame).inference_count != 0) {
-            break; // inference not completed yet
-        }
+    {
+        std::lock_guard<std::mutex> guard(output_frames_mutex);
 
-        for (const std::shared_ptr<InferenceFrame> &inference_roi : (*frame).inference_rois) {
-            gint meta_id = 0;
-            if (inference_roi->roi.id >= 0) {
-                GMutexLockGuard guard(&inference_roi->gva_base_inference->meta_mutex);
-                GstAnalyticsRelationMeta *relation_meta = gst_buffer_get_analytics_relation_meta(inference_roi->buffer);
-                if (!relation_meta) {
-                    throw std::runtime_error("Failed to find relation meta");
-                }
+        // track output queues that are full
+        std::map<std::string, bool> output_full;
 
-                GstAnalyticsODMtd od_mtd;
-                if (!gst_analytics_relation_meta_get_od_mtd(relation_meta, inference_roi->roi.id, &od_mtd)) {
-                    throw std::runtime_error("Failed to find od metadata");
-                }
+        auto frame = output_frames.begin();
+        while (frame != output_frames.end()) {
+            GstObject *src = &(*frame).filter->base_transform.element.object;
 
-                if (!post_processing::sameRegion(&od_mtd, &inference_roi->roi)) {
-                    throw std::runtime_error("Roi and od meta are not the same region");
-                }
-
-                get_od_id(od_mtd, &meta_id);
+            if ((*frame).inference_count != 0) {
+                // Inference not completed yet for this frame.
+                // Mark this stream as blocked so its later frames maintain ordering,
+                // but continue iterating to push completed frames from other streams.
+                output_full[src->name] = true;
+                frame++;
+                continue;
             }
 
-            for (const GstStructure *roi_classification : inference_roi->roi_classifications) {
-                UpdateClassificationHistory(meta_id, (*frame).filter, roi_classification);
+            if (output_full[src->name]) {
+                // A prior frame for this stream is still pending — skip to preserve ordering
+                frame++;
+                continue;
+            }
+
+            for (const std::shared_ptr<InferenceFrame> &inference_roi : (*frame).inference_rois) {
+                gint meta_id = 0;
+                if (inference_roi->roi.id >= 0) {
+                    GMutexLockGuard guard(&inference_roi->gva_base_inference->meta_mutex);
+                    GstAnalyticsRelationMeta *relation_meta =
+                        gst_buffer_get_analytics_relation_meta(inference_roi->buffer);
+                    if (!relation_meta) {
+                        throw std::runtime_error("Failed to find relation meta");
+                    }
+
+                    GstAnalyticsODMtd od_mtd;
+                    if (!gst_analytics_relation_meta_get_od_mtd(relation_meta, inference_roi->roi.id, &od_mtd)) {
+                        throw std::runtime_error("Failed to find od metadata");
+                    }
+
+                    if (!post_processing::sameRegion(&od_mtd, &inference_roi->roi)) {
+                        throw std::runtime_error("Roi and od meta are not the same region");
+                    }
+
+                    get_od_id(od_mtd, &meta_id);
+                }
+
+                for (const GstStructure *roi_classification : inference_roi->roi_classifications) {
+                    UpdateClassificationHistory(meta_id, (*frame).filter, roi_classification);
+                }
+            }
+
+            // 'output_frames' queue can be shared across streams and it is subject to HOL blocking
+            // do not send frame to a blocked output, but check if there frames ready to non-blocked outputs
+            if (CheckSrcPadBlocked(src)) {
+                output_full[src->name] = true;
+                frame++; // output blocked, try next frame
+            } else {
+                frames_to_push.push_back(std::move(*frame));
+                frame = output_frames.erase(frame);
             }
         }
+    } // output_frames_mutex released
 
-        // 'output_frames' queue can be shared across streams and it is subject to HOL blocking
-        // do not send frame to a blocked output, but check if there frames ready to non-blocked outputs
-        GstObject *src = &(*frame).filter->base_transform.element.object;
-        if (CheckSrcPadBlocked(src) || output_full[src->name]) {
-            output_full[src->name] = true;
-            frame++; // output blocked, try next frame
-        } else {
-            PushBufferToSrcPad(*frame);
-            frame = output_frames.erase(frame);
-        }
+    // Push collected frames downstream without holding output_frames_mutex
+    for (auto &f : frames_to_push) {
+        PushBufferToSrcPad(f);
     }
 }
 
@@ -1250,6 +1291,7 @@ InferenceImpl::MakeInferenceResult(GvaBaseInference *gva_base_inference, Model &
 
     result->model = &model;
     result->image = image;
+    result->source_tag = gva_base_inference;
     return result;
 }
 
@@ -1313,7 +1355,6 @@ const InferenceImpl::Model &InferenceImpl::GetModel() const {
 
 GstFlowReturn InferenceImpl::TransformFrameIp(GvaBaseInference *gva_base_inference, GstBuffer *buffer) {
     ITT_TASK(__FUNCTION__);
-    std::unique_lock<std::mutex> lock(_mutex);
 
     assert(gva_base_inference != nullptr && "Expected a valid pointer to gva_base_inference");
     assert(gva_base_inference->info != nullptr && "Expected a valid pointer to GstVideoInfo");
@@ -1393,10 +1434,8 @@ GstFlowReturn InferenceImpl::TransformFrameIp(GvaBaseInference *gva_base_inferen
         GstObject *src = &gva_base_inference->base_transform.element.object;
         while (CheckSrcPadBlocked(src)) {
             output_lock.unlock();
-            lock.unlock();
             GVA_INFO("Wait on blocking output <%s>", src->name);
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
-            lock.lock();
             output_lock.lock();
         }
 
@@ -1414,9 +1453,7 @@ GstFlowReturn InferenceImpl::TransformFrameIp(GvaBaseInference *gva_base_inferen
                    (output_frames.size() > model.inference->GetNireq() * model.inference->GetBatchSize() *
                                                gva_base_inference->inference_interval)) {
                 output_lock.unlock();
-                lock.unlock();
                 std::this_thread::sleep_for(std::chrono::milliseconds(10));
-                lock.lock();
                 output_lock.lock();
                 for (const auto &output_frame : output_frames)
                     if ((output_frame.buffer->pts != GST_CLOCK_TIME_NONE) && (output_frame.buffer->pts > latest_pts))
