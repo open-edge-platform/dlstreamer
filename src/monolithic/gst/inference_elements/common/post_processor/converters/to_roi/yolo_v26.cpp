@@ -209,6 +209,7 @@ void YOLOv26SegConverter::parseOutputBlob(const float *boxes_data, const std::ve
             GVA::Tensor tensor(gst_structure);
             tensor.set_name("mask_yolo26");
             tensor.set_format("segmentation_mask");
+            tensor.set_type(GVA::GST_ANALYTICS_SEGMENTATION_2_TENSOR);
 
             // set tensor data
             tensor.set_dims({safe_convert<uint32_t>(cropped_mask.cols), safe_convert<uint32_t>(cropped_mask.rows)});

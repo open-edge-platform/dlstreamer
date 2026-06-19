@@ -463,14 +463,17 @@ void RendererNV12::draw_instance_mask(std::vector<cv::Mat> &mats, render::Instan
 
     cv::Rect roi_y(x0_y, y0_y, x1_y - x0_y, y1_y - y0_y);
     cv::Rect roi_u_v(x0_u_v, y0_u_v, x1_u_v - x0_u_v, y1_u_v - y0_u_v);
-    cv::Mat colorMask_u_v(roi_u_v.size(), u_v.type(), mask.color[2]);
+    cv::Mat colorMask_y(roi_y.size(), y.type(), mask.color[0]);
+    cv::Mat colorMask_u_v(roi_u_v.size(), u_v.type(), cv::Scalar(mask.color[1], mask.color[2]));
 
     cv::Mat roiSrc_y = y(roi_y);
     cv::Mat roiSrc_u_v = u_v(roi_u_v);
     cv::Mat dst_y, dst_u_v;
     float alpha = 0.5f;
+    cv::addWeighted(colorMask_y, alpha, roiSrc_y, 1.0 - alpha, 0.0, dst_y);
     cv::addWeighted(colorMask_u_v, alpha, roiSrc_u_v, 1.0 - alpha, 0.0, dst_u_v);
 
+    dst_y.copyTo(roiSrc_y, binaryMask_y);
     dst_u_v.copyTo(roiSrc_u_v, binaryMask_u_v);
 }
 

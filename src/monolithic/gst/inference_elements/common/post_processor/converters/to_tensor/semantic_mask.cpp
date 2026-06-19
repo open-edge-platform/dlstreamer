@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2024-2025 Intel Corporation
+ * Copyright (C) 2024-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -36,6 +36,7 @@ TensorsTable SemanticMaskConverter::convert(const OutputBlobs &output_blobs) {
 
                 gst_structure_set(tensor_data, "tensor_id", G_TYPE_INT, safe_convert<int>(frame_index), NULL);
                 gst_structure_set(tensor_data, "format", G_TYPE_STRING, format.c_str(), NULL);
+                gst_structure_set(tensor_data, "type", G_TYPE_STRING, GVA::GST_ANALYTICS_SEGMENTATION_2_TENSOR, NULL);
 
                 std::vector<GstStructure *> tensors{tensor_data};
                 tensors_table[frame_index].push_back(tensors);
