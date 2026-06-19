@@ -100,8 +100,8 @@ export VIDEO=https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30
 # Download yolo26n INT8 (one-time setup)
 SCRIPT_DIR=/opt/intel/dlstreamer/scripts/download_models
 python3 -m venv $SCRIPT_DIR/.venv && source $SCRIPT_DIR/.venv/bin/activate
-curl -sLO https://raw.githubusercontent.com/openvinotoolkit/openvino.genai/refs/heads/releases/2026/1/samples/export-requirements.txt
-pip install -q -r export-requirements.txt -r $SCRIPT_DIR/requirements.txt
+curl -sLO https://raw.githubusercontent.com/openvinotoolkit/openvino.genai/refs/heads/releases/2026/0/samples/export-requirements.txt
+pip install -r export-requirements.txt -r $SCRIPT_DIR/requirements.txt
 python3 $SCRIPT_DIR/download_ultralytics_models.py \
   --model yolo26n.pt \
   --outdir $MODELS_PATH/yolo26n/INT8 \
