@@ -175,47 +175,16 @@ cat output_from_python.json
 
 ---
 
-## GStreamer Elements
+## DL Streamer Elements
 
-DL Streamer provides purpose-built GStreamer elements for every stage of a media analytics pipeline:
-
-### Inference
-
-| Element | Purpose |
+| Category | Key Elements |
 |---|---|
-| [`gvadetect`](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/elements/gvadetect.html) | Object detection (YOLO, SSD, EfficientDet, …) |
-| [`gvaclassify`](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/elements/gvaclassify.html) | Object classification, segmentation, pose estimation |
-| [`gvainference`](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/elements/gvainference.html) | Raw inference output (any model) |
-| [`gvagenai`](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/elements/gvagenai.html) | Vision-Language / GenAI models |
-| [`gvaaudiotranscribe`](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/elements/gvaaudiotranscribe.html) | Audio transcription (Whisper) |
+| **Inference** | `gvadetect` · `gvaclassify` · `gvainference` · `gvagenai` · `gvaaudiotranscribe` |
+| **Analytics** | `gvatrack` · `gvaanalytics` · `gvastreammux` / `gvastreamdemux` · `gvamotiondetect` |
+| **Output** | `gvawatermark` · `gvametaconvert` · `gvametapublish` · `gvafpscounter` |
+| **3D / Sensors** | `g3dlidarparse` · `g3dinference` · `g3dradarprocess` |
 
-### Analytics & Routing
-
-| Element | Purpose |
-|---|---|
-| [`gvatrack`](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/elements/gvatrack.html) | Zero-term or short-term object tracking |
-| [`gvaanalytics`](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/elements/gvaanalytics.html) | Tripwires, zones, trajectory analytics |
-| [`gvastreammux`](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/elements/gvastreammux.html) / [`gvastreamdemux`](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/elements/gvastreamdemux.html) | Multi-stream mux/demux |
-| [`gvamotiondetect`](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/elements/gvamotiondetect.html) | Lightweight motion detection (VA-API accelerated) |
-
-### Output & Visualization
-
-| Element | Purpose |
-|---|---|
-| [`gvawatermark`](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/elements/gvawatermark.html) | Overlay bounding boxes, labels, and custom drawings |
-| [`gvametaconvert`](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/elements/gvametaconvert.html) | Convert inference metadata to JSON |
-| [`gvametapublish`](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/elements/gvametapublish.html) | Publish JSON to MQTT, Kafka, or file |
-| [`gvafpscounter`](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/elements/gvafpscounter.html) | Per-stream and aggregate FPS measurement |
-
-### 3D / Sensor Fusion
-
-| Element | Purpose |
-|---|---|
-| [`g3dlidarparse`](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/elements/g3dlidarparse.html) | LiDAR point cloud parsing (BIN/PCD) |
-| [`g3dinference`](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/elements/g3dinference.html) | PointPillars 3D object detection |
-| [`g3dradarprocess`](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/elements/g3dradarprocess.html) | mmWave radar signal processing |
-
-[View all elements →](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/elements/elements.html)
+[Full elements reference →](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/elements/elements.html)
 
 ---
 
@@ -252,22 +221,6 @@ Operating systems: **Ubuntu 22.04 / 24.04**, **Windows 11**.
 
 ---
 
-## Supported Models
-
-DL Streamer runs models in **OpenVINO™ IR** and **ONNX** formats:
-
-- **Detection:** YOLO (v5–v11, YOLO26, YOLOX, YOLOE), SSD, EfficientDet, FasterRCNN
-- **Classification:** MobileNet, ResNet, EfficientNet
-- **Segmentation:** Instance segmentation, semantic segmentation
-- **Pose estimation:** Human pose (OpenPose, HigherHRNet)
-- **VLMs:** MiniCPM-V, CLIP, Whisper
-- **3D:** PointPillars (LiDAR), mmWave radar models
-- **Geti™ models:** Anomaly detection, object detection, classification
-
-[Full list of supported models →](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/supported_models.html)
-
----
-
 ## Documentation
 
 | Resource | Link |
@@ -277,6 +230,7 @@ DL Streamer runs models in **OpenVINO™ IR** and **ONNX** formats:
 | Elements Reference | [Elements Reference](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/elements/elements.html) |
 | API Reference | [API Reference](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/api_ref/api_reference.html) |
 | Metadata Guide | [Metadata Guide](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/dev_guide/metadata.html) |
+| Supported Models | [Supported Models](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/supported_models.html) |
 
 ---
 
