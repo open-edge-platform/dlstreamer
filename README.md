@@ -2,7 +2,7 @@
 
 # Deep Learning Streamer (DL Streamer)
 
-**Hardware-accelerated video analytics pipelines — CPU, GPU, and NPU, from a single line of code to production-grade edge AI**
+**Hardware-accelerated video analytics pipelines — CPU, GPU and NPU, from a single line of code to production-grade edge AI**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 [![Ubuntu](https://img.shields.io/badge/Ubuntu-22.04%20%7C%2024.04-orange?logo=ubuntu)](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/get_started/system_requirements.html)
@@ -22,7 +22,7 @@
 
 ## What is DL Streamer?
 
-**DL Streamer** is an open-source media analytics framework built on [GStreamer](https://gstreamer.freedesktop.org). It lets you build video and audio intelligence pipelines — from a simple object detection command line to a multi-stream, multi-sensor production deployment — with minimal code.
+**DL Streamer** is an open-source media analytics framework built on [GStreamer](https://gstreamer.freedesktop.org). It lets you build video and audio intelligence pipelines — from a simple object detection command line to a multi-stream, multi-sensor production deployment, all with minimal code.
 
 - Powered by **[OpenVINO™](https://docs.openvino.ai)** for optimized inference on Intel CPU, GPU, and NPU.
 - Pipelines are described as **simple strings** (or Python/C++ code) and executed with full hardware acceleration.
@@ -38,10 +38,10 @@
 | **One-line pipelines** | Build a working detection pipeline in a single `gst-launch-1.0` command |
 | **Hardware acceleration** | Targets CPU, GPU, and NPU on Intel platforms from a single codebase |
 | **VLM & GenAI ready** | Run Vision-Language Models (MiniCPM-V, CLIP, Whisper) in a GStreamer pipeline |
-| **Production metadata** | Structured JSON output to MQTT, Kafka, or file with built-in elements |
+| **Production metadata** | Structured JSON output to MQTT, Kafka, or a file with built-in elements |
 | **Python-first extensibility** | Add custom logic as Python callbacks or full Python GStreamer elements — no C++ required |
 | **Multi-stream, multi-sensor** | Mux/demux dozens of RTSP streams, LiDAR frames, and radar point clouds in one process |
-| **Geti™ & ONNX support** | Deploy models from Intel Geti™ Studio or any ONNX/OpenVINO IR model directly |
+| **Geti™ & ONNX support** | Deploy models from Geti™ Studio or any ONNX/OpenVINO IR model directly |
 
 ---
 
@@ -296,7 +296,7 @@ DL Streamer is licensed under the [MIT License](./LICENSE).
 
 <div align="center">
 
-*Intel, the Intel logo, OpenVINO, Intel Core, Intel Arc, and Intel Iris are trademarks of Intel Corporation or its subsidiaries.*
+*Intel, the Intel logo, OpenVINO, OpenVINO logo, Intel Geti, Intel Core, Intel Arc, and Intel Iris are trademarks of Intel Corporation or its subsidiaries.*
 *GStreamer is a trademark of the GStreamer project.*
 
 </div>
