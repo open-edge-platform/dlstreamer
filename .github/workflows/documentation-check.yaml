@@ -13,29 +13,9 @@ on: # yamllint disable-line rule:truthy
 permissions: {}
 
 jobs:
-  filter:
-    permissions:
-      contents: read # needed for actions/checkout
-    runs-on: dlstreamer
-    outputs:
-      dlstreamer_documentation_changed: ${{ steps.filter.outputs.dlstreamer_documentation }}
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          persist-credentials: false
-      - name: Set paths filter
-        id: filter
-        uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d #4.01
-        with:
-          filters: |
-            dlstreamer_documentation:
-              - 'docs/user-guide/**'
-
   build-dlstreamer-documentation:
     permissions:
       contents: read # needed for actions/checkout
-    needs: filter
-    if: ${{ needs.filter.outputs.dlstreamer_documentation_changed == 'true' }}
     runs-on: dlstreamer
     env:
       DOCS_DIR: .
@@ -54,8 +34,19 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.head_ref }}
           persist-credentials: false
 
+      - name: Check if should skip CI
+        id: skip-check
+        uses: ./.github/actions/common/check-skip-ci
+        with:
+          job_name: "Build dlstreamer documentation"
+          working_directory: "."
+
+      - name: Determine if documentation CI should run
+        if: steps.skip-check.outputs.run_docs_ci == 'false'
+        run: echo "Documentation CI is not needed, skipping remaining steps." && exit 0
+
       - name: Download template
-        if: ${{ env.SIMPLE_MODE == 'true' }}
+        if: env.SIMPLE_MODE == 'true' && steps.skip-check.outputs.run_docs_ci == 'true'
         shell: bash
         run: |
           cd "${GITHUB_WORKSPACE}/${DOCS_DIR}"
@@ -67,6 +58,7 @@ jobs:
           fi
 
       - name: Add exclude patterns
+        if: steps.skip-check.outputs.run_docs_ci == 'true'
         shell: bash
         run: |
           # Remove any spaces
@@ -79,6 +71,7 @@ jobs:
           done
 
       - name: Build Documentation
+        if: steps.skip-check.outputs.run_docs_ci == 'true'
         shell: bash
         run: |
           cd "${GITHUB_WORKSPACE}/${DOCS_DIR}"
