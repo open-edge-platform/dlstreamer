@@ -1030,6 +1030,16 @@ std::map<std::string, GstStructure *> get_model_info_postproc(const std::shared_
             GST_INFO("[get_model_info_postproc] iou_threshold: %f", element.second.as<double>());
             g_value_unset(&gvalue);
         }
+        // Number of top scoring predictions to keep (model_api ClassificationModel key).
+        // Used by query-based detectors (e.g. mono3d) to bound the number of decoded objects.
+        if (element.first == "topk") {
+            GValue gvalue = G_VALUE_INIT;
+            g_value_init(&gvalue, G_TYPE_INT);
+            g_value_set_int(&gvalue, element.second.as<int>());
+            gst_structure_set_value(s, "topk", &gvalue);
+            GST_INFO("[get_model_info_postproc] topk: %d", element.second.as<int>());
+            g_value_unset(&gvalue);
+        }
         if (element.first.find("image_threshold") != std::string::npos) {
             GValue gvalue = G_VALUE_INIT;
             g_value_init(&gvalue, G_TYPE_DOUBLE);
