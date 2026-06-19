@@ -107,6 +107,7 @@ GstStructure *createSemanticMaskStructure(const OutputBlob::Ptr &blob, const std
     tensor.set_model_name(model_name);
     tensor.set_int("tensor_id", safe_convert<int>(frame_index));
     tensor.set_format(format);
+    tensor.set_type(GVA::GST_ANALYTICS_SEGMENTATION_2_TENSOR);
 
     switch (blob->GetPrecision()) {
     case Blob::Precision::FP32: {

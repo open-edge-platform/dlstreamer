@@ -477,7 +477,8 @@ class VideoFrame {
         while ((meta = (GstGVATensorMeta *)gst_buffer_iterate_meta_filtered(buffer, &state, meta_api_type))) {
             const gchar *type = gst_structure_get_string(meta->data, "type");
             if (type &&
-                (strcmp(type, GST_ANALYTICS_CLS_2_TENSOR) == 0 || strcmp(type, GST_ANALYTICS_KEYPOINTS_2_TENSOR) == 0))
+                (strcmp(type, GST_ANALYTICS_CLS_2_TENSOR) == 0 || strcmp(type, GST_ANALYTICS_KEYPOINTS_2_TENSOR) == 0 ||
+                 strcmp(type, GST_ANALYTICS_SEGMENTATION_2_TENSOR) == 0))
                 continue;
             tensors.emplace_back(meta->data);
         }
