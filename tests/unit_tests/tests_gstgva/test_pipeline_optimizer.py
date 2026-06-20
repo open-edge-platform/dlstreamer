@@ -44,8 +44,7 @@ class TestOptimizer(unittest.TestCase):
                         f"Expected more than 1 tested pipeline, got {len(candidates)}")
         # Find the candidate with the highest FPS
         best_candidate = max(candidates, key=lambda x: x[1])
-        best_candidate_pipeline, best_candidate_results = best_candidate
-        best_candidate_fps = best_candidate_results["fps"]
+        best_candidate_pipeline, best_candidate_fps = best_candidate
         
         print(f"Best from candidates: {best_candidate_pipeline} @ {best_candidate_fps} FPS")
         # Get the optimal pipeline and FPS from the optimizer
@@ -109,9 +108,7 @@ class TestOptimizer(unittest.TestCase):
 
         # Find the candidate with the highest stream count
         best_candidate = max(candidates, key=lambda x: x[1])
-        best_candidate_pipeline, best_candidate_results = best_candidate
-        best_candidate_streams = best_candidate_results["streams"]
-        best_candidate_fps = best_candidate_results["fps"]
+        best_candidate_pipeline, best_candidate_streams, best_candidate_fps = best_candidate
         print(f"Best candidate: {best_candidate_pipeline} @ {best_candidate_streams} streams @ {best_candidate_fps} FPS")
 
         # Test baseline pipeline functionality
@@ -157,8 +154,7 @@ class TestOptimizer(unittest.TestCase):
         # Get the baseline pipeline,fps and stream count from the optimizer
         baseline_pipeline, baseline_results = optimizer.get_baseline_pipeline()
         baseline_fps = baseline_results["fps"]
-        baseline_streams = baseline_results["streams"] 
-        print(f"Baseline pipeline: {baseline_pipeline} @ {baseline_streams} streams @{baseline_fps} fps")
+        print(f"Baseline pipeline: {baseline_pipeline} @ {baseline_fps} fps")
 
         # Compare baseline pipeline with the original simple_pipeline
         print(f"Original pipeline: {self.simple_pipeline}")

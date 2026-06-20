@@ -55,10 +55,10 @@ class DLSOptimizer:
         self._paused = False
 
         # internal fields
-        self._initial_result = {}
         self._initial_pipeline = []
+        self._initial_result = {}
         self._optimal_pipeline = []
-        self._optimal_result = 0
+        self._optimal_result = {}
         self._generators = {
             "device": DeviceGenerator(),
             "batch": BatchGenerator(),
