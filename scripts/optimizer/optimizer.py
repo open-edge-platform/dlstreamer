@@ -183,9 +183,6 @@ class DLSOptimizer:
                     fps = result["fps"]
                     result["streams"] = streams
                     if fps > self._multistream_fps_limit and (fps > self._optimal_result["fps"] or streams > self._optimal_result["streams"]):
-                        logger.info(f"limit: {fps > self._multistream_fps_limit}")
-                        logger.info(f"fps: {fps > self._optimal_result["fps"]}")
-                        logger.info(f"streams: {streams > self._optimal_result["streams"]}")
                         self._optimal_result["fps"] = fps
                         self._optimal_result["streams"] = streams
                         self._optimal_pipeline = pipeline
