@@ -29,7 +29,8 @@ class TestOptimizer(unittest.TestCase):
         start_time = time.time()
         
         # Iterate through candidates and collect pipelines and their FPS
-        for pipeline, fps in optimizer.iter_optimize_for_fps(self.simple_pipeline):  
+        for pipeline, results in optimizer.iter_optimize_for_fps(self.simple_pipeline):
+            fps = results["fps"]
             candidates.append((pipeline, fps))  
             print(f"Tested: {pipeline} @ {fps} FPS")
             
@@ -43,11 +44,13 @@ class TestOptimizer(unittest.TestCase):
                         f"Expected more than 1 tested pipeline, got {len(candidates)}")
         # Find the candidate with the highest FPS
         best_candidate = max(candidates, key=lambda x: x[1])
-        best_candidate_pipeline, best_candidate_fps = best_candidate
+        best_candidate_pipeline, best_candidate_results = best_candidate
+        best_candidate_fps = best_candidate_results["fps"]
         
         print(f"Best from candidates: {best_candidate_pipeline} @ {best_candidate_fps} FPS")
         # Get the optimal pipeline and FPS from the optimizer
-        optimal_pipeline, optimal_fps, _ = optimizer.get_optimal_pipeline()
+        optimal_pipeline, optimal_results = optimizer.get_optimal_pipeline()
+        optimal_fps = optimal_results["fps"]
         print(f"Optimal pipeline: {optimal_pipeline} @ {optimal_fps} FPS")
         # Assert that the best candidate matches the optimal pipeline and FPS (allowing some tolerance for FPS)
         self.assertEqual(best_candidate_pipeline, optimal_pipeline,
@@ -73,7 +76,9 @@ class TestOptimizer(unittest.TestCase):
 
         try:
             # Iterate through candidates with timeout check
-            for pipeline, fps_count, stream_count in optimizer.iter_optimize_for_streams(self.simple_pipeline):
+            for pipeline, results in optimizer.iter_optimize_for_streams(self.simple_pipeline):
+                fps_count = results["fps"]
+                stream_count = results["streams"]
                 candidates.append((pipeline, stream_count, fps_count))
                 print(f"Tested: {pipeline} @ {stream_count} streams @ {fps_count} FPS")
                 
@@ -104,11 +109,15 @@ class TestOptimizer(unittest.TestCase):
 
         # Find the candidate with the highest stream count
         best_candidate = max(candidates, key=lambda x: x[1])
-        best_candidate_pipeline, best_candidate_streams, best_candidate_fps = best_candidate
+        best_candidate_pipeline, best_candidate_results = best_candidate
+        best_candidate_streams = best_candidate_results["streams"]
+        best_candidate_fps = best_candidate_results["fps"]
         print(f"Best candidate: {best_candidate_pipeline} @ {best_candidate_streams} streams @ {best_candidate_fps} FPS")
 
         # Test baseline pipeline functionality
-        baseline_pipeline, baseline_fps, baseline_streams = optimizer.get_baseline_pipeline()
+        baseline_pipeline, baseline_results = optimizer.get_baseline_pipeline()
+        baseline_fps = baseline_results["fps"]
+        baseline_streams = baseline_results["streams"] 
         print(f"Baseline pipeline: {baseline_pipeline} @ {baseline_streams} streams @ {baseline_fps} FPS")
 
         # Compare baseline pipeline with the original simple_pipeline
@@ -126,12 +135,14 @@ class TestOptimizer(unittest.TestCase):
     def test_optimize_for_fps_and_get_optimal_pipeline_and_get_baseline_pipeline(self):
         """Test optimize_for_fps and get_optimal_pipeline with simple CPU pipeline"""
         optimizer = DLSOptimizer()
-        optimized_pipeline, fps = optimizer.optimize_for_fps(self.simple_pipeline, 60)
+        optimized_pipeline, results = optimizer.optimize_for_fps(self.simple_pipeline, 60)
+        fps = results["fps"]
         self.assertIsNotNone(optimized_pipeline, "Optimizer did not return optimized pipeline")
         self.assertIsNotNone(fps, "Optimizer did not return FPS value")
         self.assertGreater(fps, 0, f"FPS should be greater than 0, but got: {fps}")
         
-        optimal_pipeline, optimal_fps, _ = optimizer.get_optimal_pipeline()
+        optimal_pipeline, optimal_results = optimizer.get_optimal_pipeline()
+        optimal_fps = optimal_results["fps"]
         print(f"Optimal pipeline: {optimal_pipeline} @ {optimal_fps} FPS")
         
         # Check that the optimal pipeline matches the one returned by optimize_for_fps
@@ -144,7 +155,9 @@ class TestOptimizer(unittest.TestCase):
                             msg=f"FPS mismatch: optimized {fps} vs optimal {optimal_fps}")
 
         # Get the baseline pipeline,fps and stream count from the optimizer
-        baseline_pipeline, baseline_fps, baseline_streams = optimizer.get_baseline_pipeline()
+        baseline_pipeline, baseline_results = optimizer.get_baseline_pipeline()
+        baseline_fps = baseline_results["fps"]
+        baseline_streams = baseline_results["streams"] 
         print(f"Baseline pipeline: {baseline_pipeline} @ {baseline_streams} streams @{baseline_fps} fps")
 
         # Compare baseline pipeline with the original simple_pipeline
@@ -160,13 +173,17 @@ class TestOptimizer(unittest.TestCase):
     def test_optimize_for_streams_and_get_optimal_pipeline(self):
         """Test optimize_for_streams and get_optimal_pipeline with simple CPU pipeline"""
         optimizer = DLSOptimizer()
-        optimized_pipeline, fps, streams = optimizer.optimize_for_streams(self.simple_pipeline,120)
+        optimized_pipeline, results = optimizer.optimize_for_streams(self.simple_pipeline,120)
+        fps = results["fps"]
+        streams = results["streams"]
         self.assertIsNotNone(optimized_pipeline, "Optimizer did not return optimized pipeline")
         self.assertIsNotNone(fps, "Optimizer did not return FPS value")
         self.assertGreater(fps, 0, f"FPS should be greater than 0, but got: {fps}")
         self.assertGreater(streams, 0, f"Streams should be greater than 0, but got: {streams}")
 
-        optimal_pipeline, optimal_fps, optimal_streams = optimizer.get_optimal_pipeline()
+        optimal_pipeline, optimal_results = optimizer.get_optimal_pipeline()
+        optimal_fps = optimal_results["fps"]
+        optimal_streams = optimal_results["streams"]
         print(f"Optimal pipeline: {optimal_pipeline} @ {optimal_fps} FPS @ {optimal_streams} STREAMS")
         
         # Check that the optimal pipeline matches the one returned by optimize_for_fps
@@ -199,8 +216,8 @@ class TestOptimizer(unittest.TestCase):
         candidates_short = []
         start_time = time.time()
 
-        for pipeline, fps in optimizer1.iter_optimize_for_fps(self.simple_pipeline):
-            candidates_short.append((pipeline, fps))
+        for pipeline, results in optimizer1.iter_optimize_for_fps(self.simple_pipeline):
+            candidates_short.append((pipeline, results["fps"]))
 
             # Stop after timeout
             if time.time() - start_time > timeout:
@@ -216,8 +233,8 @@ class TestOptimizer(unittest.TestCase):
         candidates_long = []
         start_time = time.time()
 
-        for pipeline, fps in optimizer2.iter_optimize_for_fps(self.simple_pipeline):
-            candidates_long.append((pipeline, fps))
+        for pipeline, results in optimizer2.iter_optimize_for_fps(self.simple_pipeline):
+            candidates_long.append((pipeline, results["fps"]))
 
             # Stop after timeout
             if time.time() - start_time > timeout:
@@ -270,7 +287,8 @@ class TestOptimizer(unittest.TestCase):
         timeout = 60  # 60 seconds timeout
         start_time = time.time()
         
-        for pipeline, fps in optimizer.iter_optimize_for_fps(self.simple_pipeline):
+        for pipeline, results in optimizer.iter_optimize_for_fps(self.simple_pipeline):
+            fps = results["fps"]
             candidates.append((pipeline, fps))
             print(f"Tested: {pipeline} @ {fps} FPS")
             
@@ -285,7 +303,7 @@ class TestOptimizer(unittest.TestCase):
         self.assertGreater(len(candidates), 0, "Should test at least one candidate")
         
         # Verify excluded device does not appear in any pipeline
-        for pipeline, fps in candidates:
+        for pipeline, _ in candidates:
             self.assertNotIn(excluded_device, pipeline, 
                         f"Excluded device '{excluded_device}' found in pipeline: {pipeline}")
         
@@ -308,7 +326,8 @@ class TestOptimizer(unittest.TestCase):
         timeout = 60  # 60 seconds timeout
         start_time = time.time()
 
-        for pipeline, fps in optimizer.iter_optimize_for_fps(self.simple_pipeline):
+        for pipeline, results in optimizer.iter_optimize_for_fps(self.simple_pipeline):
+            fps = results["fps"]
             candidates.append((pipeline, fps))
             print(f"Tested: {pipeline} @ {fps} FPS")
 
@@ -351,7 +370,8 @@ class TestOptimizer(unittest.TestCase):
         timeout = 60  # 60 seconds timeout
         start_time = time.time()
 
-        for pipeline, fps in optimizer.iter_optimize_for_fps(self.simple_pipeline):
+        for pipeline, results in optimizer.iter_optimize_for_fps(self.simple_pipeline):
+            fps = results["fps"]
             candidates.append((pipeline, fps))
             print(f"Tested: {pipeline} @ {fps} FPS")
 
