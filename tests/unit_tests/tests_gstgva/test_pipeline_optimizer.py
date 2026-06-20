@@ -30,9 +30,10 @@ class TestOptimizer(unittest.TestCase):
         
         # Iterate through candidates and collect pipelines and their FPS
         for pipeline, results in optimizer.iter_optimize_for_fps(self.simple_pipeline):
-            fps = results["fps"]
-            candidates.append((pipeline, fps))  
-            print(f"Tested: {pipeline} @ {fps} FPS")
+            if results:
+                fps = results["fps"]
+                candidates.append((pipeline, fps))  
+                print(f"Tested: {pipeline} @ {fps} FPS")
             
             # Check timeout
             if time.time() - start_time > timeout:
@@ -76,10 +77,11 @@ class TestOptimizer(unittest.TestCase):
         try:
             # Iterate through candidates with timeout check
             for pipeline, results in optimizer.iter_optimize_for_streams(self.simple_pipeline):
-                fps_count = results["fps"]
-                stream_count = results["streams"]
-                candidates.append((pipeline, stream_count, fps_count))
-                print(f"Tested: {pipeline} @ {stream_count} streams @ {fps_count} FPS")
+                if results:
+                    fps_count = results["fps"]
+                    stream_count = results["streams"]
+                    candidates.append((pipeline, stream_count, fps_count))
+                    print(f"Tested: {pipeline} @ {stream_count} streams @ {fps_count} FPS")
                 
                 # Check if timeout reached
                 elapsed_time = time.time() - start_time
@@ -213,7 +215,8 @@ class TestOptimizer(unittest.TestCase):
         start_time = time.time()
 
         for pipeline, results in optimizer1.iter_optimize_for_fps(self.simple_pipeline):
-            candidates_short.append((pipeline, results["fps"]))
+            if results:
+                candidates_short.append((pipeline, results["fps"]))
 
             # Stop after timeout
             if time.time() - start_time > timeout:
