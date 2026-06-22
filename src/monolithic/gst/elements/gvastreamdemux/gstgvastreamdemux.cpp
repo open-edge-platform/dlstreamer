@@ -163,6 +163,14 @@ static GstPad *gst_gva_streamdemux_request_new_pad(GstElement *element, GstPadTe
         name = g_strdup_printf("src_%u", pad_index);
     }
 
+    if (pad_index >= GST_GVA_STREAMDEMUX_MAX_PAD_INDEX) {
+        GST_ERROR_OBJECT(demux, "Pad index %u exceeds maximum (%u). Use src_0 to src_%u.", pad_index,
+                         GST_GVA_STREAMDEMUX_MAX_PAD_INDEX, GST_GVA_STREAMDEMUX_MAX_PAD_INDEX - 1);
+        g_free(name);
+        g_mutex_unlock(&demux->lock);
+        return NULL;
+    }
+
     srcpad = gst_pad_new_from_static_template(&gva_streamdemux_src_template, name);
     gst_pad_use_fixed_caps(srcpad);
     gst_element_add_pad(element, srcpad);
@@ -389,18 +397,9 @@ static GstFlowReturn gst_gva_streamdemux_chain(GstPad *pad, GstObject *parent, G
     if (G_UNLIKELY(!demux->validated)) {
         g_mutex_lock(&demux->lock);
         if (!demux->validated) {
-            if (demux->num_src_pads != num_sources) {
-                GST_ERROR_OBJECT(demux,
-                                 "Mismatch: gvastreamdemux has %u src pads but gvastreammux reports %u sources. "
-                                 "Ensure the same number of src pads are requested.",
-                                 demux->num_src_pads, num_sources);
-                g_mutex_unlock(&demux->lock);
-                gst_buffer_unref(buf);
-                return GST_FLOW_ERROR;
-            }
             demux->validated = TRUE;
-            GST_INFO_OBJECT(demux, "Validated: %u src pads match %u sources from gvastreammux", demux->num_src_pads,
-                            num_sources);
+            GST_INFO_OBJECT(demux, "Validated: %u src pads configured, batch n_streams=%u from gvastreammux",
+                            demux->num_src_pads, num_sources);
         }
         g_mutex_unlock(&demux->lock);
     }

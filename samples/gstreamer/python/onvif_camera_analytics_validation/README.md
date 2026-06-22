@@ -80,7 +80,7 @@ export MODELS_PATH="$HOME/models"
 cd /opt/intel/dlstreamer/scripts/download_models
 python3 -m venv .model_download_venv
 source .model_download_venv/bin/activate
-curl -LO https://raw.githubusercontent.com/openvinotoolkit/openvino.genai/refs/heads/releases/2026/1/samples/export-requirements.txt
+curl -LO https://raw.githubusercontent.com/openvinotoolkit/openvino.genai/refs/heads/releases/2026/0/samples/export-requirements.txt
 pip install -r export-requirements.txt -r requirements.txt
 
 python download_hf_models.py \
