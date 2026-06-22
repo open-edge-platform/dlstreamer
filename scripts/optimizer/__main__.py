@@ -125,52 +125,54 @@ def main() -> int:
             case "fps":
                 json_result["mode"] = "fps"
                 json_result["candidates"] = []
-                for (pipeline, fps) in optimizer.iter_optimize_for_fps(pipeline):
+                for (pipeline, result) in optimizer.iter_optimize_for_fps(pipeline):
+
+                    json_result["candidates"].append({"pipeline": pipeline, "metrics": result})
+                    if args.verbose:
+                        if result:
+                            _display_result(pipeline, result)
+                        else:
+                            _validation_fail(pipeline)
+
                     if time.time() - start_time > search_duration:
                         break
 
-                    json_result["candidates"].append({"pipeline": pipeline, "fps": fps})
-                    if args.verbose:
-                        _display_result(pipeline, fps)
-
-                base_pipeline, base_fps, _ = optimizer.get_baseline_pipeline()
-                best_pipeline, best_fps, _ = optimizer.get_optimal_pipeline()
-                json_result["baseline"] = {"pipeline": base_pipeline, "fps": base_fps}
-                json_result["optimal"] = {"pipeline": best_pipeline, "fps": best_fps}
-                _display_summary_fps(best_pipeline, best_fps, base_pipeline, base_fps)
+                base_pipeline, base_result = optimizer.get_baseline_pipeline()
+                best_pipeline, best_result = optimizer.get_optimal_pipeline()
+                json_result["baseline"] = {"pipeline": base_pipeline, "metrics": base_result}
+                json_result["optimal"] = {"pipeline": best_pipeline, "metrics": best_result}
+                _display_summary_fps(best_pipeline, best_result["fps"], base_pipeline, base_result["fps"])
 
             case "streams":
                 json_result["mode"] = "streams"
-                json_result["candidates"] = {}
-                for (pipeline, fps, streams) in optimizer.iter_optimize_for_streams(pipeline):
+                json_result["candidates"] = []
+                for (pipeline, result) in optimizer.iter_optimize_for_streams(pipeline):
+
+                    json_result["candidates"].append({"pipeline": pipeline, "metrics": result})
+
+                    if args.verbose:
+                        if result:
+                            full_pipeline = []
+                            for _ in range(0, result["streams"]):
+                                full_pipeline.append(pipeline)
+                            full_pipeline = " ".join(full_pipeline)
+
+                            _display_result(full_pipeline, result)
+                        else:
+                            _validation_fail(pipeline)
+
                     if time.time() - start_time > search_duration:
                         break
 
-                    try:
-                        json_result["candidates"][str(streams)].append({"pipeline": pipeline, "fps": fps})
-                    except KeyError:
-                        json_result["candidates"][str(streams)] = []
-                        json_result["candidates"][str(streams)].append({"pipeline": pipeline, "fps": fps})
-
-                    full_pipeline = []
-                    for _ in range(0, streams):
-                        full_pipeline.append(pipeline)
-                    full_pipeline = " ".join(full_pipeline)
-
-                    if args.verbose:
-                        _display_result(full_pipeline, fps)
-
-                base_pipeline, base_fps, base_streams = optimizer.get_baseline_pipeline()
-                best_pipeline, best_fps, best_streams = optimizer.get_optimal_pipeline()
-                json_result["baseline"] = {"pipeline": base_pipeline, "fps": base_fps, "streams": base_streams}
-                json_result["optimal"] = {"pipeline": best_pipeline, "fps": best_fps, "streams": best_streams}
-                _display_summary_streams(best_pipeline, best_fps, best_streams)
+                best_pipeline, best_result = optimizer.get_optimal_pipeline()
+                json_result["optimal"] = {"pipeline": best_pipeline, "metrics": best_result}
+                _display_summary_streams(best_pipeline, best_result)
 
         if args.output:
             with open(args.output, 'w', encoding='utf-8') as f:
                 json.dump(json_result, f, ensure_ascii=False, indent=4)
-    # except RuntimeError as e: # pylint: disable=broad-exception-caught
-    #     logger.error("Failed to optimize pipeline: %s", e)
+    except RuntimeError as e: # pylint: disable=broad-exception-caught
+        logger.error("Failed to optimize pipeline: %s", e)
     except KeyboardInterrupt:
         logger.info("Execution stopped, closing down.")
 
@@ -197,12 +199,17 @@ def _key_press(key):
         # afterwards, flip state of optimizer    
         optimizer._paused = not optimizer._paused
             
+def _validation_fail(pipeline):
+    logger.info("============================== CANDIDATE =============================")
+    logger.info("Candidate failed validation.")
+    logger.info("Candidate pipeline: %s", str(pipeline))
+    logger.info("======================================================================")
 
-def _display_result(pipeline, fps):
+def _display_result(pipeline, result):
     logger.info("============================== CANDIDATE =============================")
     logger.info("Sampled pipeline: %s", str(pipeline))
     logger.info("")
-    logger.info("Recorded fps: %.2f", fps)
+    logger.info("Recorded fps: %.2f", result["fps"])
     logger.info("======================================================================")
 
 def _display_summary_fps(best_pipeline, best_fps, initial_pipeline, initial_fps):
@@ -218,16 +225,16 @@ def _display_summary_fps(best_pipeline, best_fps, initial_pipeline, initial_fps)
         logger.info("Original pipeline FPS: %.2f", initial_fps)
     logger.info("======================================================================")
 
-def _display_summary_streams(best_pipeline, best_fps, streams):
+def _display_summary_streams(best_pipeline, result):
     full_pipeline = []
-    for _ in range(0, streams):
+    for _ in range(0, result["streams"]):
         full_pipeline.append(best_pipeline)
     full_pipeline = " ".join(full_pipeline)
 
     logger.info("=============================== SUMMARY ==============================")
     logger.info("Optimized pipeline: %s", str(best_pipeline))
-    logger.info("Number of streams pipeline can support: %d", streams)
-    logger.info("Optimized pipeline FPS at max streams: %.2f", best_fps)
+    logger.info("Number of streams pipeline can support: %d", result["streams"])
+    logger.info("Optimized pipeline FPS at max streams: %.2f", result["fps"])
     logger.info("")
     logger.info("Full pipeline: %s", full_pipeline)
     logger.info("======================================================================")
