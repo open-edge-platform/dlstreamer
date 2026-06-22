@@ -130,7 +130,7 @@ def main() -> int:
                     json_result["candidates"].append({"pipeline": pipeline, "metrics": result})
                     if args.verbose:
                         if result:
-                            _display_result(pipeline, result["fps"])
+                            _display_result(pipeline, result)
                         else:
                             _validation_fail(pipeline)
 
@@ -157,7 +157,7 @@ def main() -> int:
                                 full_pipeline.append(pipeline)
                             full_pipeline = " ".join(full_pipeline)
 
-                            _display_result(full_pipeline, result["fps"])
+                            _display_result(full_pipeline, result)
                         else:
                             _validation_fail(pipeline)
 
@@ -166,7 +166,7 @@ def main() -> int:
 
                 best_pipeline, best_result = optimizer.get_optimal_pipeline()
                 json_result["optimal"] = {"pipeline": best_pipeline, "metrics": best_result}
-                _display_summary_streams(best_pipeline, best_result["fps"], best_result["streams"])
+                _display_summary_streams(best_pipeline, best_result)
 
         if args.output:
             with open(args.output, 'w', encoding='utf-8') as f:
@@ -205,11 +205,12 @@ def _validation_fail(pipeline):
     logger.info("Candidate pipeline: %s", str(pipeline))
     logger.info("======================================================================")
 
-def _display_result(pipeline, fps):
+def _display_result(pipeline, result):
     logger.info("============================== CANDIDATE =============================")
     logger.info("Sampled pipeline: %s", str(pipeline))
     logger.info("")
-    logger.info("Recorded fps: %.2f", fps)
+    logger.info("Recorded fps: %.2f", result["fps"])
+    logger.info("Detections: %.2f", result["detections"])
     logger.info("======================================================================")
 
 def _display_summary_fps(best_pipeline, best_fps, initial_pipeline, initial_fps):
@@ -225,7 +226,7 @@ def _display_summary_fps(best_pipeline, best_fps, initial_pipeline, initial_fps)
         logger.info("Original pipeline FPS: %.2f", initial_fps)
     logger.info("======================================================================")
 
-def _display_summary_streams(best_pipeline, best_fps, streams):
+def _display_summary_streams(best_pipeline, result):
     full_pipeline = []
     for _ in range(0, streams):
         full_pipeline.append(best_pipeline)
@@ -233,8 +234,8 @@ def _display_summary_streams(best_pipeline, best_fps, streams):
 
     logger.info("=============================== SUMMARY ==============================")
     logger.info("Optimized pipeline: %s", str(best_pipeline))
-    logger.info("Number of streams pipeline can support: %d", streams)
-    logger.info("Optimized pipeline FPS at max streams: %.2f", best_fps)
+    logger.info("Number of streams pipeline can support: %d", result["streams"])
+    logger.info("Optimized pipeline FPS at max streams: %.2f", result["fps"])
     logger.info("")
     logger.info("Full pipeline: %s", full_pipeline)
     logger.info("======================================================================")

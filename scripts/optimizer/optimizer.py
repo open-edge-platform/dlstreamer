@@ -137,13 +137,10 @@ class DLSOptimizer:
 
         # Perform optimization
         logger.debug("Starting optimization process for FPS improvements...")
-        self._optimal_pipeline = pipeline.copy()
-        self._optimal_result = self._initial_result
         for (pipeline, result) in self._optimize_pipeline(pipeline, 1):
-            if result:
-                fps = result["fps"]           
-                if fps > self._optimal_result["fps"]:
-                    self._optimal_result["fps"] = fps
+            if result:        
+                if result["fps"]  > self._optimal_result["fps"]:
+                    self._optimal_result = result.copy()
                     self._optimal_pipeline = pipeline
 
             yield "!".join(pipeline), result
@@ -171,11 +168,10 @@ class DLSOptimizer:
 
         initial_pipeline = add_instance_ids(initial_pipeline)
         self._initial_result["streams"] = 1
+        self._optimal_result["streams"] = 1
 
         # Perform optimization
         start_time = time.time()
-        self._optimal_pipeline = initial_pipeline.copy()
-        self._optimal_result = self._initial_result.copy()
         best_streams = 0
         for streams in range(1, 128):
             for (pipeline, result) in self._optimize_pipeline(initial_pipeline, streams):
@@ -183,8 +179,7 @@ class DLSOptimizer:
                     fps = result["fps"]
                     result["streams"] = streams
                     if fps > self._multistream_fps_limit and (fps > self._optimal_result["fps"] or streams > self._optimal_result["streams"]):
-                        self._optimal_result["fps"] = fps
-                        self._optimal_result["streams"] = streams
+                        self._optimal_result = result.copy()
                         self._optimal_pipeline = pipeline
 
                 yield "!".join(pipeline), result
@@ -196,11 +191,8 @@ class DLSOptimizer:
             logger.debug("Measuring performance of the original pipeline...")
             self._initial_pipeline = pipeline.copy()
             self._initial_result = self._sample_pipeline([pipeline], self._sample_duration)
-            self._optimal_pipeline = []
-            self._optimal_result = {
-                "fps": 0,
-                "streams": 1,
-            }
+            self._optimal_pipeline = self._initial_pipeline.copy()
+            self._optimal_result = self._initial_result.copy()
         except Exception as e:
             logger.error("Pipeline failed to start, unable to measure fps: %s", e)
             raise RuntimeError("Provided pipeline is not valid") from e
