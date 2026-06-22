@@ -23,6 +23,7 @@ BuildRequires:  opencv-devel >= 4.13.0
 BuildRequires:  gstreamer-devel >= 1.28.2
 BuildRequires:  paho-mqtt-c-devel >= 1.3.4
 BuildRequires:  librdkafka-devel
+BuildRequires:  gobject-introspection-devel
 
 # Runtime dependencies
 Requires:       paho-mqtt-c-devel >= 1.3.4
@@ -120,6 +121,7 @@ export GST_VA_ALL_DRIVERS="1"
 export PATH="/opt/intel/dlstreamer/gstreamer/bin:/opt/intel/dlstreamer/lib:/opt/intel/dlstreamer/bin:$HOME/.local/bin:$HOME/python3venv/bin:$PATH"
 export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:/opt/intel/dlstreamer/lib/pkgconfig:/opt/intel/dlstreamer/gstreamer/lib/pkgconfig:$PKG_CONFIG_PATH"
 export GST_PLUGIN_FEATURE_RANK=${GST_PLUGIN_FEATURE_RANK},ximagesink:MAX
+export GI_TYPELIB_PATH="/opt/intel/dlstreamer/gstreamer/lib/girepository-1.0:$GI_TYPELIB_PATH"
 EOF
 
 %clean
