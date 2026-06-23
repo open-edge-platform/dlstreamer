@@ -25,7 +25,7 @@ interfaces:
 ![c++-interfaces-and-base-classes](../_images/c++-interfaces-and-base-classes.svg)
 
 Many examples how to create C++ elements can be found on the github
-repository in the [src folder](https://github.com/open-edge-platform/dlstreamer/tree/main/src)
+repository in the [src folder](https://github.com/open-edge-platform/dlstreamer/tree/v2026.1.0/src)
 and sub-folders.
 
 ## Element description

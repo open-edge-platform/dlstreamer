@@ -22,7 +22,7 @@ git submodule update --init --recursive
 ## Step 3: Build Docker image
 
 All Dockerfiles are in
-[DLStreamer GitHub repository](https://github.com/open-edge-platform/dlstreamer/tree/main/docker).
+[DLStreamer GitHub repository](https://github.com/open-edge-platform/dlstreamer/tree/v2026.1.0/docker).
 Build a Docker image from a Dockerfile, using the template command-line, as follows:
 
 ```bash

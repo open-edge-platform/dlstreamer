@@ -11,7 +11,7 @@ It serves two main purposes:
 
 Systems equipped with both NVIDIA GPUs and Intel hardware (GPU/NPU/CPU) can achieve enhanced performance by distributing workloads across available accelerators. Rather than relying solely on DeepStream for pipeline execution, you can offload additional processing tasks to Intel accelerators, maximizing system resource utilization.
 
-A Python script [coexistence_dls_and_ds.py](https://github.com/open-edge-platform/dlstreamer/blob/main/samples/gstreamer/python/coexistence/coexistence_dls_and_ds.py) is provided to facilitate this coexisting setup. It assumes that Docker and Python are properly installed and configured. Ubuntu 24.04 is currently the only supported operating system.
+A Python script [coexistence_dls_and_ds.py](https://github.com/open-edge-platform/dlstreamer/blob/v2026.1.0/samples/gstreamer/python/coexistence/coexistence_dls_and_ds.py) is provided to facilitate this coexisting setup. It assumes that Docker and Python are properly installed and configured. Ubuntu 24.04 is currently the only supported operating system.
 
 ## Detection algorithm
 
@@ -113,7 +113,7 @@ python3 ./coexistence_dls_and_ds.py <input> LPR <output> -simultaneously
 - `output` is the filename. For example, the `Output.mp4` or `Output` parameters
   will create the `Output_dls.mp4` (DL Streamer output) and/or `Output_ds.mp4`
   (DeepStream output) files.
-- Use the `-simultaneously` argument when the user wants to run pipelines concurrently. If the user wants to run pipelines sequentially, no argument is required. 
+- Use the `-simultaneously` argument when the user wants to run pipelines concurrently. If the user wants to run pipelines sequentially, no argument is required.
 
 ## Notes
 

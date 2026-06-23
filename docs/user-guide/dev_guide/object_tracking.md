@@ -53,7 +53,7 @@ Example:
 ## Sample
 
 Refer to the
-[vehicle_pedestrian_tracking](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch/vehicle_pedestrian_tracking) sample
+[vehicle_pedestrian_tracking](https://github.com/open-edge-platform/dlstreamer/tree/v2026.1.0/samples/gstreamer/gst_launch/vehicle_pedestrian_tracking) sample
 for a pipeline with `gvadetect`, `gvatrack`, and `gvaclassify` elements.
 
 ## Deep SORT Tracking

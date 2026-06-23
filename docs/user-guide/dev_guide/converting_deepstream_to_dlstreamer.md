@@ -63,7 +63,7 @@ pipeline.
 
 While the GStreamer command line allows a quick demonstration of a running pipeline, fine-grained control typically involves using a GStreamer pipeline object programmatically in Python or C/C++.
 
-This section illustrates how to convert a [DeepStream Python example](https://github.com/NVIDIA-AI-IOT/deepstream_python_apps/tree/master/apps/deepstream-test1) into a [DL Streamer Python example](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/python/hello_dlstreamer). Both applications implement the same functionality, but they use DeepStream and DL Streamer elements differently, as illustrated in the table below. The elements in __bold__ are vendor-specific, while the others are regular GStreamer elements.
+This section illustrates how to convert a [DeepStream Python example](https://github.com/NVIDIA-AI-IOT/deepstream_python_apps/tree/master/apps/deepstream-test1) into a [DL Streamer Python example](https://github.com/open-edge-platform/dlstreamer/tree/v2026.1.0/samples/gstreamer/python/hello_dlstreamer). Both applications implement the same functionality, but they use DeepStream and DL Streamer elements differently, as illustrated in the table below. The elements in __bold__ are vendor-specific, while the others are regular GStreamer elements.
 
 | DeepStream Element | DL Streamer Element | Function |
 |---|---|---|
@@ -464,7 +464,7 @@ pre- and post-processing steps before/after running inference, as
 documented [here](https://docs.nvidia.com/metropolis/deepstream/dev-guide/text/DS_plugin_gst-nvinfer.html).
 
 Similarly, the Deep Learning Streamer Pipeline Framework uses GStreamer element
-properties for inference settings and [Model Info Section](./model_info_xml.md) 
+properties for inference settings and [Model Info Section](./model_info_xml.md)
 in model's XML file for pre- and post-processing steps.
 
 The following table shows how to map commonly used NVIDIA DeepStream
@@ -484,16 +484,16 @@ configuration properties to Deep Learning Streamer settings.
 </br>
 
 ## AI-Supported Conversions
-In addition to the detailed description of the conversion rules between DeepStream and Deep Learning Streamer applications presented above, we also provide the ability to perform such conversions automatically using a coding agent. As part of the [DL Streamer](https://github.com/open-edge-platform/dlstreamer) project, guidelines for the coding agent have been prepared to support conversion of applications written in **Python**; see [deepstream-python-conversion](https://github.com/open-edge-platform/dlstreamer/tree/main/.github/skills/dlstreamer-coding-agent/examples/deepstream-python-conversion.md). They also support conversion of **C/C++** applications; see [deepstream-cpp-conversion](https://github.com/open-edge-platform/dlstreamer/tree/main/.github/skills/dlstreamer-coding-agent/examples/deepstream-cpp-conversion.md).
+In addition to the detailed description of the conversion rules between DeepStream and Deep Learning Streamer applications presented above, we also provide the ability to perform such conversions automatically using a coding agent. As part of the [DL Streamer](https://github.com/open-edge-platform/dlstreamer) project, guidelines for the coding agent have been prepared to support conversion of applications written in **Python**; see [deepstream-python-conversion](https://github.com/open-edge-platform/dlstreamer/tree/v2026.1.0/.github/skills/dlstreamer-coding-agent/examples/deepstream-python-conversion.md). They also support conversion of **C/C++** applications; see [deepstream-cpp-conversion](https://github.com/open-edge-platform/dlstreamer/tree/v2026.1.0/.github/skills/dlstreamer-coding-agent/examples/deepstream-cpp-conversion.md).
 
-To see examples of DeepStream applications automatically converted by the coding agent, refer to the [auto_generated_samples](../../../samples/auto_generated_samples/) directory, which includes [Python](../../../samples/auto_generated_samples/deepstream_python_conversion/) and [C++](../../../samples/auto_generated_samples/deepstream_cpp_conversion/) conversion examples.
+To see examples of DeepStream applications automatically converted by the coding agent, refer to the [auto_generated_samples](https://github.com/open-edge-platform/dlstreamer/tree/v2026.1.0/samples/auto_generated_samples) directory, which includes [Python](https://github.com/open-edge-platform/dlstreamer/tree/v2026.1.0/samples/auto_generated_samples/deepstream_python_conversion) and [C++](https://github.com/open-edge-platform/dlstreamer/tree/v2026.1.0/samples/auto_generated_samples/deepstream_cpp_conversion) conversion examples.
 
 ### Supported Languages
 
 The coding agent supports conversion of DeepStream applications developed in the following programming languages:
 
-- **Python** - applications using Python bindings for DeepStream. The output code is based on the [python-app-template](https://github.com/open-edge-platform/dlstreamer/tree/main/.github/skills/dlstreamer-coding-agent/assets/python-app-template.py), which demonstrates the structure of a DL Streamer application in Python using Sample Pipeline Processing.
-- **C/C++** - native DeepStream applications written in C or C++. The output code is based on the [cpp-app-template](https://github.com/open-edge-platform/dlstreamer/tree/main/.github/skills/dlstreamer-coding-agent/assets/cpp-app-template.cpp), which demonstrates the structure of a DL Streamer application in C++ using Sample Pipeline Processing.
+- **Python** - applications using Python bindings for DeepStream. The output code is based on the [python-app-template](https://github.com/open-edge-platform/dlstreamer/tree/v2026.1.0/.github/skills/dlstreamer-coding-agent/assets/python-app-template.py), which demonstrates the structure of a DL Streamer application in Python using Sample Pipeline Processing.
+- **C/C++** - native DeepStream applications written in C or C++. The output code is based on the [cpp-app-template](https://github.com/open-edge-platform/dlstreamer/tree/v2026.1.0/.github/skills/dlstreamer-coding-agent/assets/cpp-app-template.cpp), which demonstrates the structure of a DL Streamer application in C++ using Sample Pipeline Processing.
 
 > **Note:** By default, the coding agent generates the converted application in the same programming language as the source DeepStream application. However, this behavior can be changed by modifying the conversion prompt to explicitly request a different target language.
 
