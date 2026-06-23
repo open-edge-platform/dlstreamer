@@ -5,10 +5,10 @@ This article explains how to prepare models based on the [Hugging Face](https://
 Many transformer-based models can be converted to OpenVINO™ IR format using [optimum-cli](https://huggingface.co/docs/optimum-intel/en/openvino/export). DL Streamer supports selected Hugging Face architectures for tasks such as image classification, object detection, audio transcription, and more. See the [Supported Models](https://docs.openedgeplatform.intel.com/2026.1/edge-ai-libraries/dlstreamer/supported_models.html) table for details.
 
 > **NOTE:** The instructions below are comprehensive, but for convenience, we recommend using the
-> [download_hf_models.py](https://github.com/open-edge-platform/dlstreamer/blob/main/scripts/download_models/download_hf_models.py)
+> [download_hf_models.py](https://github.com/open-edge-platform/dlstreamer/blob/v2026.1.0/scripts/download_models/download_hf_models.py)
 > script. It can download a model from the Hugging Face Hub and perform the required conversions automatically.
 > When you pass a plain model ID, the script resolves the current immutable Hugging Face commit SHA automatically.
-> See [Model Conversion Scripts](https://github.com/open-edge-platform/dlstreamer/blob/main/scripts/download_models/README.md) for more information.
+> See [Model Conversion Scripts](https://github.com/open-edge-platform/dlstreamer/blob/v2026.1.0/scripts/download_models/README.md) for more information.
 
 ## Optimum-Intel Supported Models
 
@@ -77,7 +77,7 @@ ov_model.set_rt_info("crop", ['model_info', 'resize_type'])
 ov.save_model(ov_model, MODEL + ".xml")
 ```
 
-Alternatively, you can use the [download_hf_models.py](https://github.com/open-edge-platform/dlstreamer/blob/main/scripts/download_models/download_hf_models.py) script, to perform the above steps automatically.
+Alternatively, you can use the [download_hf_models.py](https://github.com/open-edge-platform/dlstreamer/blob/v2026.1.0/scripts/download_models/download_hf_models.py) script, to perform the above steps automatically.
 
 ## Model Usage
 
@@ -93,11 +93,11 @@ The choice of the DL Streamer element that should be used to perform the inferen
 
 See the following samples for detailed examples of DL Streamer pipelines that use transformer-based models:
 
-1. [Using VLM Models With gvagenai Element](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch/gvagenai)
-2. [Image Embeddings Generation with ViT](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch/lvm/)
-3. [Face Detection and Classification](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/python/face_detection_and_classification)
-4. [Smart Network Video Recorder for Lane Hogging Detection](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/python/smart_nvr)
-5. [VLM Alerts](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/python/vlm_alerts)
+1. [Using VLM Models With gvagenai Element](https://github.com/open-edge-platform/dlstreamer/tree/v2026.1.0/samples/gstreamer/gst_launch/gvagenai)
+2. [Image Embeddings Generation with ViT](https://github.com/open-edge-platform/dlstreamer/tree/v2026.1.0/samples/gstreamer/gst_launch/lvm/)
+3. [Face Detection and Classification](https://github.com/open-edge-platform/dlstreamer/tree/v2026.1.0/samples/gstreamer/python/face_detection_and_classification)
+4. [Smart Network Video Recorder for Lane Hogging Detection](https://github.com/open-edge-platform/dlstreamer/tree/v2026.1.0/samples/gstreamer/python/smart_nvr)
+5. [VLM Alerts](https://github.com/open-edge-platform/dlstreamer/tree/v2026.1.0/samples/gstreamer/python/vlm_alerts)
 
 ---
 
