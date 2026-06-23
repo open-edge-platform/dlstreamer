@@ -47,25 +47,7 @@
 
 ## ⚡ Quick Start - Installation
 
-### Option A — Docker (recommended, zero setup)
-
-```bash
-# Run once on the host to allow X11 forwarding from containers
-xhost +local:docker
-
-# Run Docker container in interactive mode
-docker run -it --rm \
-  --device /dev/dri \
-  --group-add $(stat -c "%g" /dev/dri/render*) \
-  -e DISPLAY=$DISPLAY \
-  -e XDG_RUNTIME_DIR=/tmp \
-  -v /tmp/.X11-unix:/tmp/.X11-unix \
-  intel/dlstreamer:latest
-```
-
-### Option B — Native install (Ubuntu 24.04)
-
-**Step 1 — Install GPU/NPU drivers** (one-time, detects your hardware automatically):
+### Step 1 — Install GPU/NPU drivers (required for Docker and native install)
 
 ```bash
 wget https://raw.githubusercontent.com/open-edge-platform/dlstreamer/main/scripts/DLS_install_prerequisites.sh
@@ -75,7 +57,26 @@ chmod +x DLS_install_prerequisites.sh
 
 > This script detects your Intel GPU/NPU, installs the correct drivers for Ubuntu 22.04 or 24.04, and adds your user to the required groups. Use `--reinstall-npu-driver=yes` to force-reinstall the NPU driver. Run `./DLS_install_prerequisites.sh --help` for all options.
 
-**Step 2 — Install DL Streamer**:
+### Step 2 — Install DL Streamer
+
+**Option A — Docker (recommended, zero setup)**:
+
+```bash
+# Run once on the host to allow X11 forwarding from containers
+xhost +local:docker
+
+docker run -it --rm \
+  --device /dev/dri \
+  --group-add $(stat -c "%g" /dev/dri/render*) \
+  -e DISPLAY=$DISPLAY \
+  -e XDG_RUNTIME_DIR=/tmp \
+  -v /tmp/.X11-unix:/tmp/.X11-unix \
+  intel/dlstreamer:latest
+```
+
+> To use the NPU, also add `--device /dev/accel --group-add $(stat -c "%g" /dev/accel/accel*) -e ZE_ENABLE_ALT_DRIVERS=libze_intel_npu.so` to the `docker run` command.
+
+**Option B — Native install (Ubuntu 24.04)**:
 
 ```bash
 sudo -E wget -O- https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB | gpg --dearmor | sudo tee /usr/share/keyrings/intel-gpg-archive-keyring.gpg > /dev/null
@@ -104,11 +105,12 @@ curl -sLO https://raw.githubusercontent.com/openvinotoolkit/openvino.genai/refs/
 pip install -r export-requirements.txt -r $SCRIPT_DIR/requirements.txt
 python3 $SCRIPT_DIR/download_ultralytics_models.py \
   --model yolo26n.pt \
-  --outdir $MODELS_PATH/yolo26n/INT8 \
+  --outdir $MODELS_PATH/public/yolo26n/INT8 \
   --int8
-deactivate
+mv $MODELS_PATH/public/yolo26n/INT8/yolo26n_int8_openvino_model/* $MODELS_PATH/public/yolo26n/INT8/
+rmdir $MODELS_PATH/public/yolo26n/INT8/yolo26n_int8_openvino_model
 
-source /opt/intel/dlstreamer/scripts/setup_dls_env.sh  # native install only
+source /opt/intel/dlstreamer/scripts/setup_dls_env.sh
 ```
 
 **Step 2 — Run the pipeline.** Change `device=GPU` to `device=CPU` or `device=NPU` — no other code changes needed.
@@ -117,7 +119,7 @@ source /opt/intel/dlstreamer/scripts/setup_dls_env.sh  # native install only
 gst-launch-1.0 \
   urisourcebin buffer-size=4096 uri=$VIDEO ! \
   decodebin3 ! \
-  gvadetect model=$MODELS_PATH/yolo26n/INT8/yolo26n.xml device=GPU ! \
+  gvadetect model=$MODELS_PATH/public/yolo26n/INT8/yolo26n.xml device=GPU ! \
   queue ! \
   gvawatermark ! videoconvert ! \
   autovideosink sync=true
@@ -129,7 +131,7 @@ Output to JSON (works everywhere, including headless Docker):
 gst-launch-1.0 \
   urisourcebin buffer-size=4096 uri=$VIDEO ! \
   decodebin3 ! \
-  gvadetect model=$MODELS_PATH/yolo26n/INT8/yolo26n.xml device=GPU ! \
+  gvadetect model=$MODELS_PATH/public/yolo26n/INT8/yolo26n.xml device=GPU ! \
   queue ! \
   gvametaconvert format=json ! \
   gvametapublish file-format=json-lines file-path=output.json ! fakesink async=false
@@ -152,7 +154,7 @@ models_path = os.environ.get("MODELS_PATH", os.path.expanduser("~/models"))
 pipeline = Gst.parse_launch(f"""
     urisourcebin buffer-size=4096 uri={video_url} !
     decodebin3 !
-    gvadetect model={models_path}/yolo26n/INT8/yolo26n.xml device=GPU !
+    gvadetect model={models_path}/public/yolo26n/INT8/yolo26n.xml device=GPU !
     queue !
     gvametaconvert format=json !
     gvametapublish file-format=json-lines file-path=output_from_python.json ! fakesink async=false
