@@ -210,7 +210,6 @@ def _display_result(pipeline, result):
     logger.info("Sampled pipeline: %s", str(pipeline))
     logger.info("")
     logger.info("Recorded fps: %.2f", result["fps"])
-    logger.info("Detections: %.2f", result["detections"])
     logger.info("======================================================================")
 
 def _display_summary_fps(best_pipeline, best_fps, initial_pipeline, initial_fps):
