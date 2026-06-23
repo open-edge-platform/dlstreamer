@@ -32,7 +32,7 @@ class TestOptimizer(unittest.TestCase):
         for pipeline, results in optimizer.iter_optimize_for_fps(self.simple_pipeline):
             if results:
                 fps = results["fps"]
-                candidates.append((pipeline, fps))  
+                candidates.append((pipeline, fps))
                 print(f"Tested: {pipeline} @ {fps} FPS")
             
             # Check timeout
@@ -116,7 +116,7 @@ class TestOptimizer(unittest.TestCase):
         # Test baseline pipeline functionality
         baseline_pipeline, baseline_results = optimizer.get_baseline_pipeline()
         baseline_fps = baseline_results["fps"]
-        baseline_streams = baseline_results["streams"] 
+        baseline_streams = baseline_results["streams"]
         print(f"Baseline pipeline: {baseline_pipeline} @ {baseline_streams} streams @ {baseline_fps} FPS")
 
         # Compare baseline pipeline with the original simple_pipeline

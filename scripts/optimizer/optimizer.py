@@ -138,7 +138,7 @@ class DLSOptimizer:
         # Perform optimization
         logger.debug("Starting optimization process for FPS improvements...")
         for (pipeline, result) in self._optimize_pipeline(pipeline, 1):
-            if result:        
+            if result:
                 if result["fps"]  > self._optimal_result["fps"]:
                     self._optimal_result = result.copy()
                     self._optimal_pipeline = pipeline
