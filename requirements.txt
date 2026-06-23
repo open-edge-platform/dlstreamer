@@ -1,5 +1,0 @@
-numpy==2.2.0
-tqdm==4.67.1
-opencv-python==4.11.0.86
-PyGObject==3.50.0
-setuptools==78.1.1

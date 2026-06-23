@@ -1,2 +1,0 @@
-onvif-zeep==0.2.12
-urllib==2.6.3
