@@ -98,18 +98,17 @@ Full installation guide: [Install Guide for Ubuntu](https://docs.openedgeplatfor
 export MODELS_PATH=~/models
 export VIDEO=https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4
 
-# Download yolo26n INT8 (one-time setup)
-SCRIPT_DIR=/opt/intel/dlstreamer/scripts/download_models
-python3 -m venv $SCRIPT_DIR/.venv && source $SCRIPT_DIR/.venv/bin/activate
+# Download yolo11n INT8 (one-time setup)
+cd ~
+python3 -m venv .venv && source .venv/bin/activate
 curl -sLO https://raw.githubusercontent.com/openvinotoolkit/openvino.genai/refs/heads/releases/2026/0/samples/export-requirements.txt
-pip install -r export-requirements.txt -r $SCRIPT_DIR/requirements.txt
-python3 $SCRIPT_DIR/download_ultralytics_models.py \
-  --model yolo26n.pt \
-  --outdir $MODELS_PATH/public/yolo26n/INT8 \
+pip install -r export-requirements.txt -r /opt/intel/dlstreamer/scripts/download_models/requirements.txt
+python3 /opt/intel/dlstreamer/scripts/download_models/download_ultralytics_models.py \
+  --model yolo11n.pt \
+  --outdir $MODELS_PATH/public/yolo11n/INT8 \
   --int8
-mv $MODELS_PATH/public/yolo26n/INT8/yolo26n_int8_openvino_model/* $MODELS_PATH/public/yolo26n/INT8/
-rmdir $MODELS_PATH/public/yolo26n/INT8/yolo26n_int8_openvino_model
-
+mv $MODELS_PATH/public/yolo11n/INT8/yolo11n_int8_openvino_model/* $MODELS_PATH/public/yolo11n/INT8/
+rmdir $MODELS_PATH/public/yolo11n/INT8/yolo11n_int8_openvino_model
 source /opt/intel/dlstreamer/scripts/setup_dls_env.sh
 ```
 
@@ -119,7 +118,7 @@ source /opt/intel/dlstreamer/scripts/setup_dls_env.sh
 gst-launch-1.0 \
   urisourcebin buffer-size=4096 uri=$VIDEO ! \
   decodebin3 ! \
-  gvadetect model=$MODELS_PATH/public/yolo26n/INT8/yolo26n.xml device=GPU ! \
+  gvadetect model=$MODELS_PATH/public/yolo11n/INT8/yolo11n.xml device=GPU ! \
   queue ! \
   gvawatermark ! \
   gvafpscounter ! \
@@ -132,7 +131,7 @@ Output to JSON (works everywhere, including headless Docker):
 gst-launch-1.0 \
   urisourcebin buffer-size=4096 uri=$VIDEO ! \
   decodebin3 ! \
-  gvadetect model=$MODELS_PATH/public/yolo26n/INT8/yolo26n.xml device=GPU ! \
+  gvadetect model=$MODELS_PATH/public/yolo11n/INT8/yolo11n.xml device=GPU ! \
   queue ! \
   gvafpscounter ! \
   gvametaconvert format=json ! \
@@ -156,7 +155,7 @@ models_path = os.environ.get("MODELS_PATH", os.path.expanduser("~/models"))
 pipeline = Gst.parse_launch(f"""
     urisourcebin buffer-size=4096 uri={video_url} !
     decodebin3 !
-    gvadetect model={models_path}/public/yolo26n/INT8/yolo26n.xml device=GPU !
+    gvadetect model={models_path}/public/yolo11n/INT8/yolo11n.xml device=GPU !
     queue !
     gvafpscounter !
     gvametaconvert format=json !
