@@ -121,23 +121,23 @@ class DLSOptimizer:
         pipeline, result = self.get_optimal_pipeline()
         return pipeline, result
 
-    def iter_optimize_for_fps(self, pipeline):
+    def iter_optimize_for_fps(self, initial_pipeline):
         # Test for tee element presence
-        if re.search("[^a-zA-Z]tee[^a-zA-Z]", pipeline):
+        if re.search("[^a-zA-Z]tee[^a-zA-Z]", initial_pipeline):
             raise RuntimeError("Pipelines containing the tee element are currently not supported!")
 
-        pipeline = pipeline.split("!")
+        initial_pipeline = initial_pipeline.split("!")
 
         # Run pre-optimization steps
-        self._establish_baseline(pipeline)
-        pipeline = self._run_preprocessing(pipeline)
+        self._establish_baseline(initial_pipeline)
+        initial_pipeline = self._run_preprocessing(initial_pipeline)
 
         if self._enable_cross_stream_batching:
-            pipeline = add_instance_ids(pipeline)
+            initial_pipeline = add_instance_ids(initial_pipeline)
 
         # Perform optimization
         logger.debug("Starting optimization process for FPS improvements...")
-        for (pipeline, result) in self._optimize_pipeline(pipeline, 1):
+        for (pipeline, result) in self._optimize_pipeline(initial_pipeline, 1):
             if result:
                 if result["fps"]  > self._optimal_result["fps"]:
                     self._optimal_result = result.copy()
