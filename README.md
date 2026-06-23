@@ -121,8 +121,9 @@ gst-launch-1.0 \
   decodebin3 ! \
   gvadetect model=$MODELS_PATH/public/yolo26n/INT8/yolo26n.xml device=GPU ! \
   queue ! \
-  gvawatermark ! videoconvert ! \
-  autovideosink sync=true
+  gvawatermark ! \
+  gvafpscounter ! \
+  videoconvert ! autovideosink sync=false
 ```
 
 Output to JSON (works everywhere, including headless Docker):
@@ -133,6 +134,7 @@ gst-launch-1.0 \
   decodebin3 ! \
   gvadetect model=$MODELS_PATH/public/yolo26n/INT8/yolo26n.xml device=GPU ! \
   queue ! \
+  gvafpscounter ! \
   gvametaconvert format=json ! \
   gvametapublish file-format=json-lines file-path=output.json ! fakesink async=false
 ```
@@ -156,6 +158,7 @@ pipeline = Gst.parse_launch(f"""
     decodebin3 !
     gvadetect model={models_path}/public/yolo26n/INT8/yolo26n.xml device=GPU !
     queue !
+    gvafpscounter !
     gvametaconvert format=json !
     gvametapublish file-format=json-lines file-path=output_from_python.json ! fakesink async=false
 """)
