@@ -14,7 +14,7 @@ Follow the instructions in
 ## Step 2: Clone DL Streamer repository
 
 ```bash
-git clone https://github.com/open-edge-platform/dlstreamer.git
+git clone --branch v2026.0.0 --recursive https://github.com/open-edge-platform/dlstreamer.git
 cd dlstreamer
 git submodule update --init --recursive
 ```
@@ -22,7 +22,7 @@ git submodule update --init --recursive
 ## Step 3: Build Docker image
 
 All Dockerfiles are in
-[DLStreamer GitHub repository](https://github.com/open-edge-platform/dlstreamer/tree/main/docker).
+[DL Streamer GitHub repository](https://github.com/open-edge-platform/dlstreamer/tree/v2026.0.0/docker).
 Build a Docker image from a Dockerfile, using the template command-line, as follows:
 
 ```bash

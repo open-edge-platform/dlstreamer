@@ -351,7 +351,7 @@ Follow these steps if you chose Option #2 (Docker) in Install Guide Ubuntu.
     export VIDEO_EXAMPLE=~/path/to/video/FILENAME
     ```
 
-## Exercise 1 - Build object detection pipeline
+## Exercise 1: Build object detection pipeline
 
 This exercise will help you create a GStreamer pipeline that will perform
 object detection using the `gvadetect` element and Intermediate
@@ -484,7 +484,7 @@ In the above pipeline:
 4. `gvawatermark` displays the ROIs and their attributes.
 
 See
-[model-proc](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc)
+[model-proc](https://github.com/open-edge-platform/dlstreamer/tree/v2026.0.0/samples/gstreamer/model_proc)
 for `model-proc` file examples as well as its input and output specifications.
 
 ## Exercise 3: Use object tracking to improve performance {#object-tracking}
@@ -604,14 +604,14 @@ In the above pipeline:
   are published.
 
 For publishing the results to MQTT or Kafka, please refer to
-[metapublish samples](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch/metapublish).
+[metapublish samples](https://github.com/open-edge-platform/dlstreamer/tree/v2026.0.0/samples/gstreamer/gst_launch/metapublish).
 
 You have completed this tutorial. Now, start creating your video
 analytics pipelines with Deep Learning Streamer Pipeline Framework!
 
 ## Additional Resources
 
-- [Samples overview](https://github.com/open-edge-platform/dlstreamer/blob/main/samples/gstreamer/README.md)
+- [Samples overview](https://github.com/open-edge-platform/dlstreamer/blob/v2026.0.0/samples/gstreamer/README.md)
 - [Elements](../elements/elements.md)
 - [How to create model-proc file](../dev_guide/how_to_create_model_proc_file.md)
 
