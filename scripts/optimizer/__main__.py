@@ -227,7 +227,7 @@ def _display_summary_fps(best_pipeline, best_fps, initial_pipeline, initial_fps)
 
 def _display_summary_streams(best_pipeline, result):
     full_pipeline = []
-    for _ in range(0, streams):
+    for _ in range(0, result["streams"]):
         full_pipeline.append(best_pipeline)
     full_pipeline = " ".join(full_pipeline)
 
