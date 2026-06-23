@@ -121,7 +121,7 @@ class DLSOptimizer:
         pipeline, result = self.get_optimal_pipeline()
         return pipeline, result
 
-    def iter_optimize_for_fps(self, initial_pipeline):
+    def iter_optimize_for_fps(self, initial_pipeline): # pylint: disable=missing-function-docstring
         # Test for tee element presence
         if re.search("[^a-zA-Z]tee[^a-zA-Z]", initial_pipeline):
             raise RuntimeError("Pipelines containing the tee element are currently not supported!")
