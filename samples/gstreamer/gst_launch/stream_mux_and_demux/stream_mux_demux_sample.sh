@@ -18,8 +18,8 @@ ENABLE_DEMUX=false
 MODEL_PATH=""
 
 # Lidar (heterogeneous / container mode) defaults
-DEFAULT_LIDAR_LOCATION="velodyne/%06d.bin"
-DEFAULT_LIDAR_START_INDEX="0"
+DEFAULT_LIDAR_LOCATION="tests/unit_tests/tests_gstgva/test_files/%06d.pcd"
+DEFAULT_LIDAR_START_INDEX="1"
 DEFAULT_LIDAR_FRAME_RATE="10"
 ENABLE_LIDAR=false
 LIDAR_LOCATION="${DEFAULT_LIDAR_LOCATION}"

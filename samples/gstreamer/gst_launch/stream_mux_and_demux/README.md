@@ -126,8 +126,8 @@ Provide an OpenVINO IR model (`.xml` + `.bin`).
 Heterogeneous (video + lidar) mode — switches the mux to CONTAINER output and forces `--demux`:
 - `--lidar`: Add a lidar source (`application/x-lidar` via `g3dlidarparse`). No `gvadetect` is
   inserted; each demuxed branch goes straight to `fakesink`.
-- `--lidar-location L`: `multifilesrc` location pattern (default: `velodyne/%06d.bin`)
-- `--lidar-start-index N`: `multifilesrc` start-index (default: `0`)
+- `--lidar-location L`: `multifilesrc` location pattern (default: `tests/unit_tests/tests_gstgva/test_files/%06d.pcd`)
+- `--lidar-start-index N`: `multifilesrc` start-index (default: `1`)
 - `--lidar-frame-rate F`: `g3dlidarparse` frame-rate in frames/sec (default: `10`)
 
 **Examples:**
@@ -214,13 +214,13 @@ Heterogeneous (video + lidar) mode — switches the mux to CONTAINER output and 
      --input1 /path/to/video0.h265 \
      --input2 /path/to/video1.h265 \
      --lidar \
-     --lidar-location 'velodyne/%06d.bin' \
-     --lidar-start-index 0 \
+     --lidar-location 'tests/unit_tests/tests_gstgva/test_files/%06d.pcd' \
+     --lidar-start-index 1 \
      --lidar-frame-rate 10 \
      --sync-mode first-pts
    ```
 
-   The lidar branch needs a multi-file sequence (e.g. `%06d.bin`) and valid PTS for it to pair
+   The lidar branch needs a multi-file sequence (e.g. `%06d.pcd` or `%06d.bin`) and valid PTS for it to pair
    with video frames; pick a `sync-mode` so the video and lidar timelines are comparable.
 
 **Output:**
@@ -249,4 +249,4 @@ Heterogeneous (video + lidar) mode — switches the mux to CONTAINER output and 
 | `gvastreamdemux` reports out-of-range source id | Add a `demux.src_<index>` pad for each source id produced by the mux, or remove the orphan source upstream. |
 | Low FPS with GPU inference | Set `pre-process-backend=va-surface-sharing` and increase `nireq` on `gvadetect`. |
 | `could not link ... gvadetect` with a lidar source | In CONTAINER mode the mux outputs a batch container, not raw video. Put `gvastreamdemux` directly after the mux and attach `gvadetect`/`g3dinference` on the demuxed branches instead. |
-| Lidar branch produces only one frame / never pairs | A single static file yields one frame then EOS. Use a multi-file sequence (`%06d.bin`) with `start-index`, set `g3dlidarparse frame-rate=...`, and choose a `sync-mode` so lidar PTS align with video. |
+| Lidar branch produces only one frame / never pairs | A single static file yields one frame then EOS. Use a multi-file sequence (`%06d.pcd` or `%06d.bin`) with `start-index`, set `g3dlidarparse frame-rate=...`, and choose a `sync-mode` so lidar PTS align with video. |
