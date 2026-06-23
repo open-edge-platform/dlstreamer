@@ -50,6 +50,7 @@
 ### Step 1 — Install GPU/NPU drivers (required for Docker and native install)
 
 ```bash
+cd ~
 wget https://raw.githubusercontent.com/open-edge-platform/dlstreamer/main/scripts/DLS_install_prerequisites.sh
 chmod +x DLS_install_prerequisites.sh
 ./DLS_install_prerequisites.sh
