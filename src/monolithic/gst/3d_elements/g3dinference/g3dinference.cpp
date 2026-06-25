@@ -247,23 +247,27 @@ GstClockTime get_exit_g3dinference_timestamp(GstG3DInference *filter) {
     return timestamp;
 }
 
-/* Emit one GstAnalytics3DODMtd per detection onto @rmeta. Each detection in
- * @detections is DETECTION_WIDTH floats: x, y, z, length, width, height, yaw,
- * score, label. Returns the number of 3D detections written. */
+/* Emit one GstAnalytics3DODMtd per detection onto @rmeta. Each detection is
+ * DETECTION_WIDTH floats in PointPillars layout: x, y, z, w, l, h, theta, score,
+ * label. The GstAnalytics3DODMtd setter takes (length, width, height), so the
+ * model's w maps to width (d[3]) and l maps to length (d[4]). Returns the number
+ * of 3D detections written. */
 size_t emit_3d_od_mtds(GstAnalyticsRelationMeta *rmeta, const std::vector<float> &detections) {
-    /* PointPillars box layout: x, y, z, w, l, h, theta, score, label. The
-     * GstAnalytics3DODMtd setter takes (length, width, height), so width=d[3],
-     * length=d[4]. */
     const size_t count = detections.size() / DETECTION_WIDTH;
+    size_t written = 0;
     for (size_t i = 0; i < count; ++i) {
         const float *d = detections.data() + i * DETECTION_WIDTH;
         GstAnalytics3DODMtd mtd;
-        gst_analytics_relation_meta_add_3d_od_mtd(rmeta, /*x=*/d[0], /*y=*/d[1], /*z=*/d[2], /*length=*/d[4],
-                                                  /*width=*/d[3], /*height=*/d[5], /*yaw=*/d[6], /*pitch=*/0.f,
-                                                  /*roll=*/0.f, /*class_id=*/static_cast<gint>(d[8]),
-                                                  /*confidence=*/d[7], GST_ANALYTICS_3D_SENSOR_LIDAR, &mtd);
+        if (gst_analytics_relation_meta_add_3d_od_mtd(rmeta, /*x=*/d[0], /*y=*/d[1], /*z=*/d[2], /*length=*/d[4],
+                                                      /*width=*/d[3], /*height=*/d[5], /*yaw=*/d[6], /*pitch=*/0.f,
+                                                      /*roll=*/0.f, /*class_id=*/static_cast<gint>(d[8]),
+                                                      /*confidence=*/d[7], GST_ANALYTICS_3D_SENSOR_LIDAR, &mtd)) {
+            ++written;
+        } else {
+            GST_WARNING("Failed to add GstAnalytics3DODMtd for detection %zu/%zu", i, count);
+        }
     }
-    return count;
+    return written;
 }
 
 } // namespace

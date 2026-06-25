@@ -4,8 +4,7 @@
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
 
-#ifndef __GST_ANALYTICS_3D_OBJECT_DETECTION_MTD__
-#define __GST_ANALYTICS_3D_OBJECT_DETECTION_MTD__
+#pragma once
 
 #include "gva_export.h"
 #include <gst/analytics/gstanalyticsmeta.h>
@@ -49,5 +48,3 @@ DLS_EXPORT gboolean gst_analytics_relation_meta_get_3d_od_mtd(GstAnalyticsRelati
                                                               GstAnalytics3DODMtd *rlt);
 
 G_END_DECLS
-
-#endif /* __GST_ANALYTICS_3D_OBJECT_DETECTION_MTD__ */
