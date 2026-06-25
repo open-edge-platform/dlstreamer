@@ -1032,7 +1032,7 @@ void Impl::preparePrimsForTensor(const GVA::Tensor &tensor, GVA::Rect<double> re
         }
     }
 
-    if (tensor.format() == "segmentation_mask") {
+    if (tensor.format() == GVA::TENSOR_FORMAT_INSTANCE_SEGMENTATION) {
         std::vector<float> mask = tensor.data<float>();
         std::vector<guint> dims = tensor.dims();
         assert(dims.size() == 2);
@@ -1062,13 +1062,14 @@ void Impl::preparePrimsForTensor(const GVA::Tensor &tensor, GVA::Rect<double> re
         }
     }
 
-    if (tensor.format() == "semantic_mask" || tensor.format() == "semantic_segmentation") {
+    if (tensor.format() == GVA::TENSOR_FORMAT_SEMANTIC_MASK ||
+        tensor.format() == GVA::TENSOR_FORMAT_SEMANTIC_SEGMENTATION) {
         assert(tensor.precision() == GVA::Tensor::Precision::I64);
         std::vector<int64_t> mask = tensor.data<int64_t>();
         std::vector<guint> dims = tensor.dims();
         const cv::Size &mask_size{int(dims[1]), int(dims[2])};
         cv::Rect2f box(rect.x, rect.y, rect.w, rect.h);
-        render::SemanticMaskPalette palette = tensor.format() == "semantic_segmentation"
+        render::SemanticMaskPalette palette = tensor.format() == GVA::TENSOR_FORMAT_SEMANTIC_SEGMENTATION
                                                   ? render::SemanticMaskPalette::SemanticSegmentation
                                                   : render::SemanticMaskPalette::SemanticMask;
         prims.emplace_back(render::SemanticSegmantationMask(mask, mask_size, box, palette));

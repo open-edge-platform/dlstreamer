@@ -143,7 +143,7 @@ TensorsTable MaskRCNNConverter::convert(const OutputBlobs &output_blobs) {
                 GstStructure *tensor = gst_structure_copy(getModelProcOutputInfo().get());
                 gst_structure_set_name(tensor, "mask_rcnn");
                 gst_structure_set(tensor, "precision", G_TYPE_INT, GVA_PRECISION_FP32, NULL);
-                gst_structure_set(tensor, "format", G_TYPE_STRING, "segmentation_mask", NULL);
+                gst_structure_set(tensor, "format", G_TYPE_STRING, GVA::TENSOR_FORMAT_INSTANCE_SEGMENTATION, NULL);
                 gst_structure_set(tensor, "type", G_TYPE_STRING, GVA::GST_ANALYTICS_SEGMENTATION_2_TENSOR, NULL);
 
                 GValueArray *data = g_value_array_new(2);

@@ -299,7 +299,7 @@ void YOLOv8SegConverter::parseOutputBlob(const float *boxes_data, const std::vec
             GstStructure *gst_structure = gst_structure_copy(getModelProcOutputInfo().get());
             GVA::Tensor tensor(gst_structure);
             tensor.set_name("mask_yolov8");
-            tensor.set_format("segmentation_mask");
+            tensor.set_format(GVA::TENSOR_FORMAT_INSTANCE_SEGMENTATION);
             tensor.set_type(GVA::GST_ANALYTICS_SEGMENTATION_2_TENSOR);
 
             // set tensor data
