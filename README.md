@@ -38,6 +38,7 @@
 | **One-line pipelines** | Build a working detection pipeline in a single `gst-launch-1.0` command |
 | **Hardware acceleration** | Targets CPU, GPU, and NPU on Intel platforms from a single codebase |
 | **VLM & GenAI ready** | Run Vision-Language Models (MiniCPM-V, CLIP, Whisper) in a GStreamer pipeline |
+| **GstAnalytics compliance** | Supports the GStreamer industry metadata standard for interoperability with other GStreamer-based tools |
 | **Production metadata** | Structured JSON output to MQTT, Kafka, or a file with built-in elements |
 | **Python-first extensibility** | Add custom logic as Python callbacks or full Python GStreamer elements — no C++ required |
 | **Multi-stream, multi-sensor** | Mux/demux dozens of RTSP streams, LiDAR frames, and radar point clouds in one process |
@@ -177,6 +178,8 @@ python3 detect.py
 # Each line is a JSON object with detected objects, labels, and bounding boxes
 cat output_from_python.json
 ```
+
+> If any Python dependencies are missing, refer to the [Python dependencies install guide](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/dev_guide/advanced_install/advanced_install_guide_compilation.html#step-10-install-python-dependencies-optional).
 
 ---
 
