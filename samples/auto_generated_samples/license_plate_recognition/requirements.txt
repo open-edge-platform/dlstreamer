@@ -1,0 +1,2 @@
+# Runtime dependencies (lightweight — used inside Docker container)
+PyGObject==3.50.0

@@ -93,7 +93,7 @@ The element operates in-place. It keeps the point cloud payload intact and appen
 - `lidar_point_count`
 - `frame_id`
 - `stream_id`
-- `exit_lidarparse_timestamp`
+- `exit_source_timestamp`
 
 ### Output metadata
 

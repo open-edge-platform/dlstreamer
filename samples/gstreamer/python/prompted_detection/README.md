@@ -1,7 +1,7 @@
 # Prompt-based Object Detection
 
 This sample searches a video file for user-defined objects using open vocabulary detection model.
-This sample also demostrates how to integrate a third-party model with DLStreamer pipeline
+This sample also demonstrates how to integrate a third-party model with DLStreamer pipeline
 
 > filesrc -> decodebin3 -> gvadetect -> appsink
 
@@ -34,7 +34,7 @@ The application exports a detection model to OpenVINO format for fast inference:
     model_file = f"{exported_model_path}/{weights}.xml"
     ```
 
-### STEP 3 - DLStramer Pipeline Construction
+### STEP 3 - DLStreamer Pipeline Construction
 
 Finally, the application creates a GStreamer `pipeline` object configuring it with the created  detection model and an input video file. 
 
@@ -54,7 +54,7 @@ Please note the application registers a user-defined callback to process predict
     appsink.connect("new-sample", on_new_sample, None)
     ```code
 
-The 'on_new_sample' callback prints out frame timestamps when a reqeusted object is found. 
+The 'on_new_sample' callback prints out frame timestamps when a requested object is found. 
 
 ## Running
 
@@ -67,7 +67,7 @@ wget https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4
 python3 ./prompted_detection.py 1192116-sd_640_360_30fps.mp4 "white car"
 ```
 
-The sample outputs detection results in the termial window.
+The sample outputs detection results in the terminal window.
 
 ## See also
 * [Samples overview](../../README.md)

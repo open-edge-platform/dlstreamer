@@ -40,19 +40,22 @@
 - [GPU device selection](./gpu_device_selection.md)
   - [1. Inference (OpenVINO™ based) elements](./gpu_device_selection.md#1-inference-openvino-based-elements)
   - [2. Media and Inference elements](./gpu_device_selection.md#2-media-and-inference-elements)
+- [Heterogeneous Systems Guide](./heterogeneous_systems_guide.md)
 - [Performance Guide](./performance_guide.md)
   - [1. Media and AI processing (single stream)](./performance_guide.md#1-media-and-ai-processing-single-stream)
   - [2. Multi-stage pipeline with gvadetect and gvaclassify](./performance_guide.md#2-multi-stage-pipeline-with-gvadetect-and-gvaclassify)
   - [3. Multi-stream pipelines with single AI stage](./performance_guide.md#3-multi-stream-pipelines-with-single-ai-stage)
   - [4. Multi-stream pipelines with multiple AI stages](./performance_guide.md#4-multi-stream-pipelines-with-multiple-ai-stages)
   - [5. Multi-stream pipelines with meta-aggregation element](./performance_guide.md#5-multi-stream-pipelines-with-meta-aggregation-element)
-  - [6. The Intel® DL Streamer Pipeline Framework performance benchmark results](./performance_guide.md#6-the-deep-learning-streamer-pipeline-framework-performance-benchmark-results)
+  - [6. Heterogeneous systems](./performance_guide.md#6-heterogeneous-systems)
+  - [7. The DL Streamer Pipeline Framework performance benchmark results](./performance_guide.md#7-the-deep-learning-streamer-pipeline-framework-performance-benchmark-results)
+  - [8. Displaying analysis results with gvawatermark](./performance_guide.md#8-displaying-analysis-results-with-gvawatermark)
 - [Profiling with Intel VTune™](./profiling.md)
   - [1. Install VTune™](./profiling.md#1-install-vtune)
   - [2. Configure VTune™ host platform, Windows-to-Linux remote profiling method](./profiling.md#2-configure-vtune-host-platform-windows-to-linux-remote-profiling-method)
   - [3. Results Analysis](./profiling.md#3-results-analysis)
 - [DL Streamer and DeepStream Coexistence](./dlstreamer-deepstream-coexistence.md)
-- [Converting NVIDIA DeepStream Pipelines to Intel® Deep Learning Streamer (Intel® DL Streamer) Pipeline Framework](./converting_deepstream_to_dlstreamer.md)
+- [Converting NVIDIA DeepStream Pipelines to Deep Learning Streamer (DL Streamer) Pipeline Framework](./converting_deepstream_to_dlstreamer.md)
   - [Preparing Your Model](./converting_deepstream_to_dlstreamer.md#preparing-your-model)
   - [Conversion Examples](./converting_deepstream_to_dlstreamer.md#conversion-examples)
   - [Conversion Rules](./converting_deepstream_to_dlstreamer.md#conversion-rules-for-pipeline-elements)
@@ -85,6 +88,7 @@ custom_plugin_installation
 custom_processing
 object_tracking
 gpu_device_selection
+heterogeneous_systems_guide
 performance_guide
 profiling
 dlstreamer-deepstream-coexistence.md

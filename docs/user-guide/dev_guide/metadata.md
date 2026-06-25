@@ -28,7 +28,9 @@ Key types:
 | `GstAnalyticsTripwireMtd` | Tripwire crossing (tripwire ID, direction) — DL Streamer extension |
 
 For the full API documentation, keypoint descriptor details, and code
-examples, see [GStreamer Analytics Metadata](./metadata_analytics.md).
+examples, see [GStreamer Analytics Metadata](./metadata_analytics.md).\
+You can also check out our post at [discourse.gstreamer.org](https://discourse.gstreamer.org/t/gstanalytics-adoption-in-dlstreamer-implementation-status-and-questions/5820)
+for input from GStreamer community.
 
 ## Custom Watermark Metadata
 

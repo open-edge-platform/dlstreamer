@@ -8,12 +8,13 @@ This sample utilizes GStreamer command-line tool `gst-launch-1.0` which can buil
 The string contains a list of GStreamer elements separated by exclamation mark `!`, each element may have properties specified in the format `property`=`value`.
 
 This sample builds GStreamer pipeline of the following elements:
-* `filesrc` or `urisourcebin` for input from file/URL
-* `decodebin3` for video decoding (automatically selects D3D11 decoder when available)
-* [gvadetect](https://dlstreamer.github.io/elements/gvadetect.html) for full-frame object detection
-* [gvawatermark](https://dlstreamer.github.io/elements/gvawatermark.html) for bounding boxes visualization
-* `d3d11convert` for D3D11-accelerated video conversion
-* `autovideosink` for rendering output video to screen
+
+- `filesrc` or `urisourcebin` for input from file/URL
+- `decodebin3` for video decoding (automatically selects D3D11 decoder when available)
+- [gvadetect](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/elements/gvadetect.html) for full-frame object detection
+- [gvawatermark](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/elements/gvawatermark.html) for bounding boxes visualization
+- `d3d11convert` for D3D11-accelerated video conversion
+- `autovideosink` for rendering output video to screen
 
 > **NOTE**: `sync=false` property in `autovideosink` element disables real-time synchronization so pipeline runs as fast as possible
 
@@ -59,17 +60,18 @@ graph LR
 ### D3D11 Pre-processing Backend
 
 On Windows with GPU or NPU devices, this sample uses **D3D11 (Direct3D 11)** as the pre-processing backend instead of VA-API (Linux). This provides:
+
 - Hardware-accelerated video decode via D3D11 decoders
 - Zero-copy or efficient memory transfer between decode and inference
 - Better performance on Intel GPUs with Windows drivers
 
 ### Pre-processing Backend Selection
 
-| Device | Default Backend | Description |
-|--------|-----------------|-------------|
-| CPU | `ie` | OpenVINO Inference Engine |
-| GPU | `d3d11` | Direct3D 11 acceleration |
-| NPU | `d3d11` | Direct3D 11 acceleration |
+| Device | Default Backend | Description               |
+| ------ | --------------- | ------------------------- |
+| CPU    | `ie`            | OpenVINO Inference Engine |
+| GPU    | `d3d11`         | Direct3D 11 acceleration  |
+| NPU    | `d3d11`         | Direct3D 11 acceleration  |
 
 ## Models
 
@@ -83,29 +85,31 @@ pip install ultralytics
 
 ### Supported Models
 
-| Model | Model Preparation | Model pipeline (model-proc) |
-|-------|-------------------|----------------------------|
-| yolox-tiny | omz_downloader and omz_converter | gvadetect model-proc=yolo-x.json |
-| yolox_s | Intel® OpenVINO™ model | gvadetect model-proc=yolo-x.json |
-| yolov5s | Pytorch -> OpenVINO™ converter | gvadetect model-proc=yolo-v7.json |
-| yolov5su | Ultralytics python exporter | gvadetect model-proc=yolo-v8.json |
-| yolov7 | Pytorch -> ONNX -> OpenVINO™ | gvadetect model-proc=yolo-v7.json |
-| yolov8s | Ultralytics python exporter | gvadetect (model-proc not needed) |
-| yolov8n-obb | Ultralytics python exporter | gvadetect (model-proc not needed) |
-| yolov8n-seg | Ultralytics python exporter | gvadetect (model-proc not needed) |
-| yolov9c | Ultralytics python exporter | gvadetect (model-proc not needed) |
-| yolov10s | Ultralytics python exporter | gvadetect (model-proc not needed) |
-| yolo11s | Ultralytics python exporter | gvadetect (model-proc not needed) |
-| yolo11s-seg | Ultralytics python exporter | gvadetect (model-proc not needed) |
-| yolo11s-obb | Ultralytics python exporter | gvadetect (model-proc not needed) |
-| yolo11s-pose | Ultralytics python exporter | gvadetect (model-proc not needed) |
+| Model        | Model Preparation                | Model pipeline (model-proc)       |
+| ------------ | -------------------------------- | --------------------------------- |
+| yolox-tiny   | omz_downloader and omz_converter | gvadetect model-proc=yolo-x.json  |
+| yolox_s      | OpenVINO™ model                  | gvadetect model-proc=yolo-x.json  |
+| yolov5s      | Pytorch -> OpenVINO™ converter   | gvadetect model-proc=yolo-v7.json |
+| yolov5su     | Ultralytics python exporter      | gvadetect model-proc=yolo-v8.json |
+| yolov7       | Pytorch -> ONNX -> OpenVINO™     | gvadetect model-proc=yolo-v7.json |
+| yolov8s      | Ultralytics python exporter      | gvadetect (model-proc not needed) |
+| yolov8n-obb  | Ultralytics python exporter      | gvadetect (model-proc not needed) |
+| yolov8n-seg  | Ultralytics python exporter      | gvadetect (model-proc not needed) |
+| yolov9c      | Ultralytics python exporter      | gvadetect (model-proc not needed) |
+| yolov10s     | Ultralytics python exporter      | gvadetect (model-proc not needed) |
+| yolo11s      | Ultralytics python exporter      | gvadetect (model-proc not needed) |
+| yolo11s-seg  | Ultralytics python exporter      | gvadetect (model-proc not needed) |
+| yolo11s-obb  | Ultralytics python exporter      | gvadetect (model-proc not needed) |
+| yolo11s-pose | Ultralytics python exporter      | gvadetect (model-proc not needed) |
 
 ## Environment Variables
 
 This sample requires the following environment variable to be set:
+
 - `MODELS_PATH`: Path to the models directory
 
 Example:
+
 ```PowerShell
 $set MODELS_PATH = "C:\models"
 ```
@@ -118,67 +122,75 @@ $set MODELS_PATH = "C:\models"
 
 ### Parameters
 
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| -Model | yolox_s | Model name (see supported models above) |
-| -Device | GPU | Inference device: CPU, GPU, NPU |
-| -InputSource | Pexels video URL | Input video file or URL |
-| -OutputType | display | Output type: file, display, fps, json, display-and-json |
-| -PreprocessBackend | auto | Pre-processing backend: ie, opencv, d3d11 |
-| -Precision | FP16 | Model precision: INT8, FP32, FP16 |
-| -FrameLimiter | (empty) | Optional GStreamer element to insert after decode (e.g., `" ! identity eos-after=100"`) |
+| Parameter          | Default          | Description                                                                             |
+| ------------------ | ---------------- | --------------------------------------------------------------------------------------- |
+| -Model             | yolox_s          | Model name (see supported models above)                                                 |
+| -Device            | GPU              | Inference device: CPU, GPU, NPU                                                         |
+| -InputSource       | Pexels video URL | Input video file or URL                                                                 |
+| -OutputType        | display          | Output type: file, display, fps, json, display-and-json                                 |
+| -PreprocessBackend | auto             | Pre-processing backend: ie, opencv, d3d11                                               |
+| -Precision         | FP16             | Model precision: INT8, FP32, FP16                                                       |
+| -FrameLimiter      | (empty)          | Optional GStreamer element to insert after decode (e.g., `" ! identity eos-after=100"`) |
 
 ### Examples
 
 Run with default settings (yolox_s model, GPU, display output):
+
 ```PowerShell
 .\yolo_detect.ps1
 ```
 
 Run yolo11s model with GPU inference:
+
 ```PowerShell
 .\yolo_detect.ps1 -Model yolo11s -Device GPU
 ```
 
 Run with local video file:
+
 ```PowerShell
 .\yolo_detect.ps1 -Model yolo11s -Device GPU -InputSource C:\videos\test.mp4
 ```
 
 Run with CPU and save to file:
+
 ```PowerShell
 .\yolo_detect.ps1 -Model yolo11s -Device CPU -InputSource C:\videos\test.mp4 -OutputType file
 ```
 
 Run with explicit D3D11 backend:
+
 ```PowerShell
 .\yolo_detect.ps1 -Model yolo11s -Device GPU -InputSource C:\videos\test.mp4 -OutputType display -PreprocessBackend d3d11
 ```
 
 Run in FPS-only mode (benchmark):
+
 ```PowerShell
 .\yolo_detect.ps1 -Model yolo11s -Device GPU -InputSource C:\videos\test.mp4 -OutputType fps
 ```
 
 Run with FP32 precision:
+
 ```PowerShell
 .\yolo_detect.ps1 -Model yolo11s -Device GPU -InputSource C:\videos\test.mp4 -OutputType display -PreprocessBackend d3d11 -Precision FP32
 ```
 
 Process only first 100 frames (for testing/benchmarking):
+
 ```PowerShell
 .\yolo_detect.ps1 -Model yolov8n-seg -Device CPU -InputSource C:\videos\test.mp4 -OutputType json -PreprocessBackend opencv -Precision FP32 -FrameLimiter " ! identity eos-after=100"
 ```
 
 ### Output Types
 
-| Output | Description |
-|--------|-------------|
-| `display` | Show video with detections on screen |
-| `file` | Save video with detections to MP4 file |
-| `fps` | Measure FPS only (no visualization) |
-| `json` | Output detection metadata to output.json |
-| `display-and-json` | Both display and JSON output |
+| Output             | Description                              |
+| ------------------ | ---------------------------------------- |
+| `display`          | Show video with detections on screen     |
+| `file`             | Save video with detections to MP4 file   |
+| `fps`              | Measure FPS only (no visualization)      |
+| `json`             | Output detection metadata to output.json |
+| `display-and-json` | Both display and JSON output             |
 
 ## Device Restrictions
 
@@ -210,13 +222,19 @@ For detailed instructions on downloading models, including the full list of supp
 ## Sample Output
 
 The sample:
-* Prints the full gst-launch-1.0 command to the console
-* Runs the pipeline and either:
+
+- Prints the full gst-launch-1.0 command to the console
+- Runs the pipeline and either:
   - Displays video with bounding boxes around detected objects
   - Saves output to MP4 file
   - Prints FPS metrics
   - Outputs JSON metadata
 
 ## See also
-* [Windows Samples overview](../../../README.md)
-* [Linux Detection with Yolo Sample](../../../../gstreamer/gst_launch/detection_with_yolo/README.md)
+
+- [Windows Samples overview](../../../README.md)
+- [Linux Detection with Yolo Sample](../../../../gstreamer/gst_launch/detection_with_yolo/README.md)
+
+---
+
+*Intel, the Intel logo, OpenVINO, and the OpenVINO logo are trademarks of Intel Corporation or its subsidiaries.*

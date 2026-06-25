@@ -21,11 +21,21 @@ import os
 import subprocess
 import sys
 
+from huggingface_hub import hf_hub_download
+from ultralytics import YOLO
+
+sys.path.insert(
+    0,
+    os.path.dirname(
+        os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    ),
+)
+from shared_utils import resolve_hf_revision  # pylint: disable=wrong-import-position
+
 # Disable Xet storage backend — it fails behind corporate proxies (e.g. Fortinet)
 os.environ.setdefault("HF_HUB_DISABLE_XET", "1")
 
-from huggingface_hub import hf_hub_download
-from ultralytics import YOLO
+YOLO_FACE_REPO_ID = "arnabdhar/YOLOv8-Face-Detection"
 
 
 def get_runtime_dir():
@@ -67,9 +77,10 @@ def prepare_detection_model():
         file=sys.stderr,
     )
     model_path = hf_hub_download(
-        repo_id="arnabdhar/YOLOv8-Face-Detection",
+        repo_id=YOLO_FACE_REPO_ID,
         filename="model.pt",
         local_dir=runtime_dir,
+        revision=resolve_hf_revision(YOLO_FACE_REPO_ID),
     )
     model = YOLO(str(model_path))
     exported_model_path = model.export(format="openvino", dynamic=False, imgsz=640)

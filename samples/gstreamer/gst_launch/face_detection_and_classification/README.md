@@ -10,9 +10,9 @@ This sample builds GStreamer pipeline of the following elements
 * `filesrc` or `urisourcebin` or `v4l2src` for input from file/URL/web-camera
 * `decodebin3` for video decoding
 * `videoconvert` for converting video frame into different color formats
-* [gvadetect](https://dlstreamer.github.io/elements/gvadetect.html) for face detection based on OpenVINO™ Toolkit Inference Engine
-* [gvaclassify](https://dlstreamer.github.io/elements/gvaclassify.html) inserted into pipeline three times for face classification on three DL models (age-gender, emotion, landmark points)
-* [gvawatermark](https://dlstreamer.github.io/elements/gvawatermark.html) for bounding boxes and labels visualization
+* [gvadetect](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/elements/gvadetect.html) for face detection based on OpenVINO™ Toolkit Inference Engine
+* [gvaclassify](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/elements/gvaclassify.html) inserted into pipeline three times for face classification on three DL models (age-gender, emotion, landmark points)
+* [gvawatermark](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/elements/gvawatermark.html) for bounding boxes and labels visualization
 * `autovideosink` for rendering output video into screen
 > **NOTE**: `sync=false` property in `autovideosink` element disables real-time synchronization so pipeline runs as fast as possible
 
@@ -39,7 +39,7 @@ The input could be
 * local video file
 * web camera device (ex. `/dev/video0`)
 * RTSP camera (URL starting with `rtsp://`) or other streaming source (ex URL starting with `http://`)
-If parameter is not specified, the sample by default streams video example from HTTPS link (utilizing `urisourcebin` element) so requires internet conection.
+If parameter is not specified, the sample by default streams video example from HTTPS link (utilizing `urisourcebin` element) so requires internet connection.
 2. [DEVICE] to specify device for detection and classification.
         Please refer to OpenVINO™ toolkit documentation for supported devices.
         https://docs.openvinotoolkit.org/latest/openvino_docs_IE_DG_supported_plugins_Supported_Devices.html

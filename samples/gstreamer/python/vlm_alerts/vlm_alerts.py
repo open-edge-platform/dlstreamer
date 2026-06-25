@@ -10,6 +10,7 @@ Run a DLStreamer VLM pipeline on a video and export JSON and MP4 results.
 
 import argparse
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -17,6 +18,7 @@ import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
+from urllib.parse import urlparse
 
 import gi
 gi.require_version("Gst", "1.0")
@@ -41,18 +43,14 @@ class PipelineConfig:
 
 
 def download_video(url: str, target_path: Path) -> None:
-    """Return a local video path, downloading it if needed."""
-    request = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+    """Stream an allowlisted HTTPS video URL to ``target_path``."""
+    parsed = urlparse(url)
+    if parsed.scheme != "https" or parsed.hostname not in {"videos.pexels.com", "www.pexels.com"}:
+        raise VLMAlertsError(f"Unexpected video URL: {url}")
     try:
-        with urllib.request.urlopen(request, timeout=30) as response:
-            if hasattr(response, "status") and response.status != 200:
-                raise VLMAlertsError(f"Video download failed: HTTP {response.status}")
-            data = response.read()
-            if not data:
-                raise VLMAlertsError("Video download failed: empty response")
-            with open(target_path, "wb") as file:
-                file.write(data)
-    except Exception as error:
+        with urllib.request.build_opener().open(url, timeout=30) as response, open(target_path, "wb") as file:
+            shutil.copyfileobj(response, file)
+    except (OSError, ValueError) as error:
         raise VLMAlertsError(f"Video download failed: {error}") from error
 
 

@@ -16,9 +16,9 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-import openvino as ov
+from huggingface_hub import HfApi, hf_hub_download
 import timm
-from huggingface_hub import hf_hub_download
+import openvino as ov
 
 
 PRECISIONS = ("fp16", "int8", "both")
@@ -158,7 +158,18 @@ def only_xml(root: Path) -> Path:
 
 def save_config_json(hf_model_id: str, path: Path) -> None:
     """Copy the model's original Hugging Face config.json next to the exported IR."""
-    config_path = Path(hf_hub_download(repo_id=hf_model_id, filename="config.json"))
+    revision = HfApi().model_info(hf_model_id).sha
+    if not revision:
+        raise RuntimeError(
+            f"Unable to resolve Hugging Face revision for {hf_model_id}"
+        )
+    config_path = Path(
+        hf_hub_download(
+            repo_id=hf_model_id,
+            filename="config.json",
+            revision=revision,
+        )
+    )
     shutil.copy2(config_path, path)
 
 
@@ -173,7 +184,12 @@ def save_ir(exported_xml: Path, xml: Path) -> None:
         ov.Core().read_model(str(tmp_xml))
         tmp_bin.replace(xml.with_suffix(".bin"))
         tmp_xml.replace(xml)
+    skip = {exported_xml.name, exported_xml.with_suffix(".bin").name}
+    for companion in exported_xml.parent.iterdir():
+        if companion.name not in skip and companion.is_file():
+            shutil.copy2(companion, xml.parent / companion.name)
 
 
-cli_args = parse_args()
-cli_args.func(cli_args)
+if __name__ == "__main__":
+    _args = parse_args()
+    raise SystemExit(_args.func(_args))

@@ -35,7 +35,7 @@ The pipeline uses the `gvadetect` element with the `custom-postproc-lib` paramet
 
 ## Model
 
-The sample uses the **YOLOv11s** model from Ultralytics, which should be available in the `$MODELS_PATH/public/yolo11s/FP32/` directory. These instructions assume that the DLStreamer framework is installed on your local system, along with the Intel® OpenVINO™ model downloader and converter tools, as described in this [tutorial](../../../../../docs/user-guide/get_started/tutorial.md#setup).
+The sample uses the **YOLOv11s** model from Ultralytics, which should be available in the `$MODELS_PATH/public/yolo11s/FP32/` directory. These instructions assume that the DL Streamer framework is installed on your local system, along with the OpenVINO™ model downloader and converter tools, as described in this [tutorial](../../../../../docs/user-guide/get_started/tutorial.md#setup).
 
 For the YOLOv11s model, it is also necessary to install the Ultralytics Python package:
 
@@ -204,3 +204,7 @@ The library:
 * [Custom post-processing guide](../../../../../docs/user-guide/dev_guide/custom_processing.md#6-create-custom-post-processing-library)
 * [GStreamer Analytics Documentation](https://gstreamer.freedesktop.org/documentation/analytics/index.html?gi-language=c)
 * [Custom Post-Processing to Tensor Sample](../classify/README.md)
+
+---
+
+*Intel, the Intel logo, OpenVINO, and the OpenVINO logo are trademarks of Intel Corporation or its subsidiaries.*

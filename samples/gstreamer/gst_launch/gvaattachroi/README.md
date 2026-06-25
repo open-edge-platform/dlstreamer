@@ -21,7 +21,7 @@ This sample builds GStreamer pipeline of the following elements
 
 ## Model
 
-The sample use YOLOv8s model from Ultralytics. The instructions assume Intel® DL Streamer framework is installed on the local system along with Intel® OpenVINO™ model downloader and converter tools,
+The sample use YOLOv8s model from Ultralytics. The instructions assume DL Streamer framework is installed on the local system along with OpenVINO™ model downloader and converter tools,
 as described here: [Tutorial](../../../../docs/user-guide/get_started/tutorial.md#setup).
 
 For yolov8s model it is also necessary to install the ultralytics python package:
@@ -54,7 +54,7 @@ The sample takes three command-line *optional* parameters:
     * local video file
     * web camera device (ex. `/dev/video0`)
     * RTSP camera (URL starting with `rtsp://`) or other streaming source (ex URL starting with `http://`)
-    If parameter is not specified, the sample by default streams video example from HTTPS link (utilizing `urisourcebin` element) so requires internet conection.
+    If parameter is not specified, the sample by default streams video example from HTTPS link (utilizing `urisourcebin` element) so requires internet connection.
 2. [DEVICE] to specify device for detection and classification.
         Please refer to OpenVINO™ toolkit documentation for supported devices.
         <https://docs.openvinotoolkit.org/latest/openvino_docs_IE_DG_supported_plugins_Supported_Devices.html>
@@ -83,3 +83,7 @@ Example:
 ## See also
 
 * [Samples overview](../../README.md)
+
+---
+
+*Intel, the Intel logo, OpenVINO, and the OpenVINO logo are trademarks of Intel Corporation or its subsidiaries.*

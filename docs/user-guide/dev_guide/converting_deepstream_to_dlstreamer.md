@@ -1,8 +1,8 @@
 # Converting NVIDIA DeepStream Pipelines to Deep Learning Streamer Pipeline Framework
 
-This article presents how to convert a pipeline from NVIDIA
-DeepStream to Deep Learning Streamer Pipeline Framework. For this purpose,
-a working example is described at each step, to help understand the applied modifications.
+This article explains how to convert a pipeline from NVIDIA
+DeepStream to the Deep Learning Streamer Pipeline Framework. A working
+example is provided at each step to help illustrate the required modifications.
 
 > **Note:** The intermediate steps of the pipeline are not meant to run. They are
 > simply there as a reference example of the changes being made in each
@@ -23,10 +23,11 @@ a working example is described at each step, to help understand the applied modi
 - [DeepStream to DL Streamer Mapping](#deepstream-to-dl-streamer-mapping)
   - [Element Mapping](#element-mapping)
   - [Property Mapping](#property-mapping)
+  - [AI-Supported Conversions](#ai-supported-conversions)
 
 ## Preparing Your Model
 
-> **Note:** To use Deep Learning Streamer Pipeline Framework and OpenVINO™ Toolkit the
+> **Note:** To use the Deep Learning Streamer Pipeline Framework and the OpenVINO™ Toolkit, the
 > model needs to be in Intermediate Representation (IR) format. To convert
 > your model to this format, follow the steps in [model preparation](./model_preparation.md).
 >
@@ -36,10 +37,10 @@ a working example is described at each step, to help understand the applied modi
 ### Command Line Applications
 
 The following sections show how to convert a DeepStream pipeline to
-a DL Streamer one. The DeepStream pipeline is taken from one of the
+a DL Streamer pipeline. The DeepStream pipeline is taken from one of the
 [examples](https://github.com/NVIDIA-AI-IOT/deepstream_reference_apps). It
 reads a video stream from the input file, decodes it, runs inference,
-overlays the inferences on the video, re-encodes and outputs a new .mp4
+overlays the inference results on the video, re-encodes it, and outputs a new .mp4
 file.
 
 ```shell
@@ -60,9 +61,9 @@ pipeline.
 
 ### Python Applications
 
-While GStreamer command line allows quick demonstration of a running pipeline, fine-grain control typically involves using a GStreamer pipeline object in a programmable way: either Python or C/C++ code.
+While the GStreamer command line allows a quick demonstration of a running pipeline, fine-grained control typically involves using a GStreamer pipeline object programmatically in Python or C/C++.
 
-This section illustrates how to convert a [DeepStream Python example](https://github.com/NVIDIA-AI-IOT/deepstream_python_apps/tree/master/apps/deepstream-test1) into a [DL Streamer Python example](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/python/hello_dlstreamer). Both applications implement the same functionality, yet they use DeepStream or DLStreamer elements as illustrated in the table below. The elements in __bold__ are vendor-specific, while others are regular GStreamer elements.
+This section illustrates how to convert a [DeepStream Python example](https://github.com/NVIDIA-AI-IOT/deepstream_python_apps/tree/master/apps/deepstream-test1) into a [DL Streamer Python example](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/python/hello_dlstreamer). Both applications implement the same functionality, but they use DeepStream and DL Streamer elements differently, as illustrated in the table below. The elements in __bold__ are vendor-specific, while the others are regular GStreamer elements.
 
 | DeepStream Element | DL Streamer Element | Function |
 |---|---|---|
@@ -73,7 +74,7 @@ This section illustrates how to convert a [DeepStream Python example](https://gi
 | __nvosd__ | __gvawatermark__ | Overlay analytics results |
 | __nv3dsink__ | audiovideosink | Render results in a window |
 
-Such pipelines can be created programmatically in a Python application using a sequence of API Calls:
+Such pipelines can be created programmatically in a Python application using a sequence of API calls:
 ```python
 element = Gst.ElementFactory.make(...)
 element.set_property(...)
@@ -81,8 +82,8 @@ pipeline.add(element)
 element.link(next_element)
 ```
 
-Please note DeepStream and DL Streamer applications use same set of regular GStreamer library functions to construct pipelines.
-The difference is in what elements are created and linked. In addition, DL Streamer `decodebin3` element uses late linking within a callback function.
+Please note that DeepStream and DL Streamer applications use the same set of regular GStreamer library functions to construct pipelines.
+The difference lies in which elements are created and linked. In addition, the DL Streamer `decodebin3` element uses late linking within a callback function.
 
 <table>
 <thead>
@@ -129,8 +130,8 @@ decoder.connect("pad-added",
 </tbody>
 </table>
 
-Once pipelines are created, both applications register a custom probe handler and attach it to the sink pad of the overlay element.
-The probe registration code is (again) very similar, except different elements being used: `nvosd` and `gvawatermark`
+Once the pipelines are created, both applications register a custom probe handler and attach it to the sink pad of the overlay element.
+The probe registration code is again very similar, except that different elements are used: `nvosd` and `gvawatermark`.
 
 <table>
 <thead>
@@ -153,7 +154,7 @@ watermarksinkpad.add_probe(Gst.PadProbeType.BUFFER, watermark_sink_pad_buffer_pr
 </tbody>
 </table>
 
-The probe function iterates over prediction metadata found by the AI model. Here, DeepStream and DL Streamer implementation differ significantly. DeepStream sample uses DeepStream-specific structures for batches of frames, frames and objects within a frame. In contrast, DL Streamer sample uses regular GStreamer data structures from [GstAnalytics metadata library](https://gstreamer.freedesktop.org/documentation/analytics/index.html?gi-language=python#analytics-metadata-library). Please also note DL Streamer handler runs on per-frame frequency while DeepStream sample runs on per-batch (of frames) frequency.
+The probe function iterates over the prediction metadata produced by the AI model. Here, the DeepStream and DL Streamer implementations differ significantly. The DeepStream sample uses DeepStream-specific structures for batches of frames, individual frames, and objects within a frame. In contrast, the DL Streamer sample uses regular GStreamer data structures from the [GstAnalytics metadata library](https://gstreamer.freedesktop.org/documentation/analytics/index.html?gi-language=python#analytics-metadata-library). Please also note that the DL Streamer handler runs once per frame, while the DeepStream sample runs once per batch of frames.
 
 <table>
 <thead>
@@ -187,9 +188,9 @@ for obj in frame_meta:
 </tbody>
 </table>
 
-The last table compares pipeline execution logic. Both applications set the pipeline state to `PLAYING` and run the main GStreamer event loop.
-DeepStream sample invokes a predefined event loop from a DeepStream library, while DL Streamer application explicitly adds the message processing loop.
-Both implementations keep running the pipeline until end-of-stream message is received.
+The last table compares the pipeline execution logic. Both applications set the pipeline state to `PLAYING` and run the main GStreamer event loop.
+The DeepStream sample invokes a predefined event loop from a DeepStream library, while the DL Streamer application explicitly adds the message processing loop.
+Both implementations keep running the pipeline until an end-of-stream message is received.
 
 <table>
 <thead>
@@ -255,7 +256,7 @@ The following sections provide more details on how to replace each element.
     pipelines.
 
 At this stage, you have removed `nvstreammux` and the `queue` that
-followed it. Keep in mind, that the `batch-size` property is also removed. It will
+followed it. Keep in mind that the `batch-size` property is also removed. It will
 be added in the next section as a property of the Pipeline Framework
 inference elements.
 
@@ -278,7 +279,7 @@ nvvideoconvert ! "video/x-raw, format=I420" ! videoconvert ! avenc_mpeg4 bitrate
     mode.
 
     - Replace the `config-file-path` property with `model` and
-      `model-proc`.
+      `gvadetect` properties.
     - `gvadetect` generates `GstVideoRegionOfInterestMeta`.
 
   - For classification of previously detected objects, use
@@ -287,7 +288,7 @@ nvvideoconvert ! "video/x-raw, format=I420" ! videoconvert ! avenc_mpeg4 bitrate
     mode.
 
     - Replace the `config-file-path` property with `model` and
-      `model-proc`.
+      `gvadetect` properties.
     - `gvaclassify` requires `GstVideoRegionOfInterestMeta` as
       input.
 
@@ -298,16 +299,14 @@ nvvideoconvert ! "video/x-raw, format=I420" ! videoconvert ! avenc_mpeg4 bitrate
     - `gvainference` generates `GstGVATensorMeta`.
 
 In this example, you will use `gvadetect` to infer on the full frame and
-output the region of interests. `batch-size` is also added for consistency
+output the regions of interest. `batch-size` is also added for consistency
 with what was removed above (the default value is `1` so it is not
 needed). The `config-file-path` property is replaced with `model` and
-`model-proc` properties as described in
-[Preparing Your Model](#preparing-your-model)
-above.
+and [Model Info Section](./model_info_xml.md).
 
 ```shell
 filesrc location=input_file.mp4 ! decodebin3 ! \
-gvadetect model=./model.xml model-proc=./model_proc.json batch-size=1 ! queue ! \
+gvadetect model=./model.xml batch-size=1 ! queue ! \
 nvvideoconvert ! "video/x-raw(memory:NVMM), format=RGBA" ! \
 nvdsosd ! queue ! \
 nvvideoconvert ! "video/x-raw, format=I420" ! videoconvert ! avenc_mpeg4 bitrate=8000000 ! qtmux ! filesink location=output_file.mp4
@@ -334,7 +333,7 @@ nvvideoconvert ! "video/x-raw, format=I420" ! videoconvert ! avenc_mpeg4 bitrate
   support color space conversion in post-processing. You will need to
   have a `vapostproc` or `videoconvert` element to handle this.
 
-In example below, you remove a few caps filters and instances of `nvvideoconvert`
+In the example below, you remove a few caps filters and instances of `nvvideoconvert`
 used for conversions from DeepStream's NVMM because Pipeline Framework
 uses standard GStreamer structures and memory types. You use the
 standard `videoconvert` GStreamer element to do color space conversion
@@ -345,7 +344,7 @@ the input stream as well as what is available on the system.
 
 ```shell
 filesrc location=input_file.mp4 ! decodebin3 ! \
-gvadetect model=./model.xml model-proc=./model_proc.json batch-size=1 ! queue ! \
+gvadetect model=./model.xml batch-size=1 ! queue ! \
 nvdsosd ! queue ! \
 videoconvert ! avenc_mpeg4 bitrate=8000000 ! qtmux ! filesink location=output_file.mp4
 ```
@@ -367,12 +366,12 @@ videoconvert ! avenc_mpeg4 bitrate=8000000 ! qtmux ! filesink location=output_fi
 - Replace `nvmsgconv` with [gvametaconvert](../elements/gvametaconvert.md).
 
   - `gvametaconvert` can be used to convert metadata from
-    inferencing elements to JSON and to output metadata to the
+    inference elements to JSON and to output metadata to the
     GST_DEBUG log.
   - It has optional properties to configure what information goes
     into the JSON object including frame data for frames with no
     detections found, tensor data, the source of the inferences,
-    and tags, a user defined JSON object that is attached to
+    and tags, and a user-defined JSON object that is attached to
     each output for additional custom data.
 
 - Replace `nvmsgbroker` with [gvametapublish](../elements/gvametapublish.md).
@@ -386,11 +385,11 @@ videoconvert ! avenc_mpeg4 bitrate=8000000 ! qtmux ! filesink location=output_fi
     place it inline before the display/encode sink.
 
 The only metadata processing done in this pipeline serves to overlay
-the inferences on the video for which you use `gvawatermark`.
+the inference results on the video, for which you use `gvawatermark`.
 
 ```shell
 filesrc location=input_file.mp4 ! decodebin3 ! \
-gvadetect model=./model.xml model-proc=./model_proc.json batch-size=1 ! queue ! \
+gvadetect model=./model.xml batch-size=1 ! queue ! \
 gvawatermark ! queue ! \
 videoconvert ! avenc_mpeg4 bitrate=8000000 ! qtmux ! filesink location=output_file.mp4
 ```
@@ -405,7 +404,7 @@ the pipeline. The input streams can share the same Inference Engine if they
 have the same `model-instance-id` property. This enables creating inference
 batching across streams.
 
-For DeepStream, the simple pipeline involving two streams is presented in the
+For DeepStream, a simple pipeline involving two streams is presented in the
 code snippet below.
 
 - The first line defines a common inference element for two (muxed and batched) streams.
@@ -418,10 +417,10 @@ filesrc ! decode ! mux.sink_0 filesrc ! decode ! mux.sink_1 \
 demux.src_0 ! encode ! filesink demux.src_1 ! encode ! filesink
 ```
 
-The native GStreamer syntax below uses Pipeline Framework to define
+The native GStreamer syntax below uses the Pipeline Framework to define
 operations for two parallel streams. When you set `model-instance-id` to the same value,
 both streams will share the same instance of the `gvadetect` element. That means you can
-define the shared inference parameters (the model, the batch size, \...) only in the first
+define the shared inference parameters (the model, the batch size, ...) only in the first
 line:
 
 ```shell
@@ -433,7 +432,7 @@ filesrc ! decode ! gvadetect model-instance-id=model1 ! encode ! filesink
 
 ### Element Mapping
 
-The table below provides quick reference for mapping typical DeepStream
+The table below provides a quick reference for mapping typical DeepStream
 elements to Deep Learning Streamer elements or GStreamer.
 
 | DeepStream Element | DL Streamer Element |
@@ -462,25 +461,42 @@ elements to Deep Learning Streamer elements or GStreamer.
 NVIDIA DeepStream uses a combination of model configuration files and
 DeepStream element properties to specify inference actions, as well as
 pre- and post-processing steps before/after running inference, as
-documented here:
-[here](https://docs.nvidia.com/metropolis/deepstream/dev-guide/text/DS_plugin_gst-nvinfer.html).
+documented [here](https://docs.nvidia.com/metropolis/deepstream/dev-guide/text/DS_plugin_gst-nvinfer.html).
 
-Similarly, Deep Learning Streamer Pipeline Framework uses GStreamer element
-properties for inference settings and
-[model proc](./model_proc_file.md) files for pre- and post-processing steps.
+Similarly, the Deep Learning Streamer Pipeline Framework uses GStreamer element
+properties for inference settings and [Model Info Section](./model_info_xml.md) 
+in model's XML file for pre- and post-processing steps.
 
 The following table shows how to map commonly used NVIDIA DeepStream
 configuration properties to Deep Learning Streamer settings.
 
-| NVIDIA DeepStream config file | NVIDIA DeepStream element property | Deep Learning Streamer model proc file | Deep Learning Streamer element property | Description |
+| NVIDIA DeepStream config file | NVIDIA DeepStream element property | Deep Learning Streamer model info section | Deep Learning Streamer element property | Description |
 |---|---|---|---|---|
 | model-engine-file <path> | model-engine-file <path> | &nbsp; | model <path> | The path to an inference model network file. |
-| labelfile-path <path> | &nbsp; | &nbsp; | labels-file <path> | The path to .txt file containing object classes. |
+| labelfile-path <path> | &nbsp; | &nbsp; | labels-file <path> | The path to a .txt file containing object classes. |
 | network-type <0..3> | &nbsp; | &nbsp; | <br>gvadetect for detection, instance segmentation<br>gvaclassify for classification, semantic segmentation<br><br> | Type of inference operation. |
 | batch-size <N> | batch-size <N> | &nbsp; | batch-size <N> | The number of frames batched together for a single inference. |
-| maintain-aspect-ratio | &nbsp; | resize: aspect-ratio | &nbsp; | The number of frames batched together for a single inference. |
+| maintain-aspect-ratio | &nbsp; | resize_type: fit_to_window | &nbsp; | The number of frames batched together for a single inference. |
 | num-detected-classes | &nbsp; | &nbsp; | &nbsp; | The number of classes detected by the model, inferred from a label file by Deep Learning Streamer. |
 | interval <N> | interval <N> | &nbsp; | inference-interval <N+1> | An inference action executed every Nth frame. Note that Deep Learning Streamer value is greater by 1. |
 | &nbsp; | threshold | &nbsp; | threshold | The threshold for detection results. |
 
+</br>
+
+## AI-Supported Conversions
+In addition to the detailed description of the conversion rules between DeepStream and Deep Learning Streamer applications presented above, we also provide the ability to perform such conversions automatically using a coding agent. As part of the [DL Streamer](https://github.com/open-edge-platform/dlstreamer) project, guidelines for the coding agent have been prepared to support conversion of applications written in **Python**; see [deepstream-python-conversion](https://github.com/open-edge-platform/dlstreamer/tree/main/.github/skills/dlstreamer-coding-agent/examples/deepstream-python-conversion.md). They also support conversion of **C/C++** applications; see [deepstream-cpp-conversion](https://github.com/open-edge-platform/dlstreamer/tree/main/.github/skills/dlstreamer-coding-agent/examples/deepstream-cpp-conversion.md).
+
+To see examples of DeepStream applications automatically converted by the coding agent, refer to the [auto_generated_samples](../../../samples/auto_generated_samples/) directory, which includes [Python](../../../samples/auto_generated_samples/deepstream_python_conversion/) and [C++](../../../samples/auto_generated_samples/deepstream_cpp_conversion/) conversion examples.
+
+### Supported Languages
+
+The coding agent supports conversion of DeepStream applications developed in the following programming languages:
+
+- **Python** - applications using Python bindings for DeepStream. The output code is based on the [python-app-template](https://github.com/open-edge-platform/dlstreamer/tree/main/.github/skills/dlstreamer-coding-agent/assets/python-app-template.py), which demonstrates the structure of a DL Streamer application in Python using Sample Pipeline Processing.
+- **C/C++** - native DeepStream applications written in C or C++. The output code is based on the [cpp-app-template](https://github.com/open-edge-platform/dlstreamer/tree/main/.github/skills/dlstreamer-coding-agent/assets/cpp-app-template.cpp), which demonstrates the structure of a DL Streamer application in C++ using Sample Pipeline Processing.
+
+> **Note:** By default, the coding agent generates the converted application in the same programming language as the source DeepStream application. However, this behavior can be changed by modifying the conversion prompt to explicitly request a different target language.
+
+
+See also: [Coding Agent](./coding_agent.md)
 

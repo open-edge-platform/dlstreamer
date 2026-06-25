@@ -117,7 +117,7 @@ USER dlstreamer
 
 RUN \
     python3 -m venv /python3venv && \
-    /python3venv/bin/pip3 install --no-cache-dir --upgrade pip==25.3 && \
+    /python3venv/bin/pip3 install --no-cache-dir --upgrade pip==26.1 && \
     /python3venv/bin/pip3 install --no-cache-dir --no-dependencies \
     meson==1.4.1 \
     ninja==1.11.1.1 \
@@ -125,6 +125,7 @@ RUN \
     tabulate==0.9.0 \
     tqdm==4.67.1 \
     junit-xml==1.9 \
+    defusedxml==0.7.1 \
     opencv-python==4.11.0.86 \
     XlsxWriter==3.2.0 \
     zxing-cpp==2.2.0 \

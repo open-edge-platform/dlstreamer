@@ -155,6 +155,21 @@ Prefer pad probe callbacks when the logic is self-contained within a single appl
 and does not need GObject properties. Prefer custom Python elements when the logic
 needs to be parameterized from the pipeline string or reused across apps.
 
+## Deprecated Elements — Do NOT Use
+
+> **RULE:** Never use a deprecated element in generated code. If the user's source
+> application (e.g. DeepStream) uses a pattern that maps to a deprecated DL Streamer
+> element, always substitute the recommended replacement.
+
+| Deprecated Element | Replacement | Reason |
+|--------------------|-------------|--------|
+| `gvapython` | Pad probe callback or custom Python element (see Custom Logic above) | Will be removed in a future release |
+| `gvainferencebin` | `gvadetect` / `gvaclassify` / `gvainference` (use the appropriate element directly) | Removed; wrapper bin is no longer needed |
+| `videoconvert` in GPU pipelines | `vapostproc` | Inserts unnecessary GPU→CPU→GPU memory copies; use `vapostproc` for zero-copy format conversion on VA memory |
+| `videoscale` in GPU pipelines | `vapostproc` | Same reason as above — `vapostproc` handles scaling on GPU natively |
+| `fpsdisplaysink` | `gvafpscounter ! autovideosink` | `fpsdisplaysink` is not part of DL Streamer and may conflict with VA memory negotiation |
+| `decodebin` (without "3") | `decodebin3` | Legacy element; `decodebin3` provides better codec selection and adaptive streaming support |
+
 ## Common Pipeline Patterns
 
 Numbers in the **Design Patterns** column refer to [design-patterns.md](./design-patterns.md)

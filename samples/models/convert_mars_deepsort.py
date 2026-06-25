@@ -22,13 +22,15 @@
 
 import argparse
 import logging
-import urllib.request
 import sys
 from pathlib import Path
 import numpy as np
 import torch
 import openvino as ov
 import nncf
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from shared_utils import download_https  # pylint: disable=wrong-import-position
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -42,7 +44,7 @@ def download_model_py():
 
     logger.info(f"📥 Downloading model.py from deep_sort_pytorch repository...")
     try:
-        urllib.request.urlretrieve(model_py_url, model_py_path)
+        download_https(model_py_url, model_py_path, {"raw.githubusercontent.com"})
         logger.info(f"✅ Downloaded model.py")
     except Exception as e:
         logger.error(f"❌ Failed to download model.py: {e}")
@@ -131,7 +133,7 @@ class MarsDeepSORTConverter:
 
         logger.info(f"📥 Downloading checkpoint from Google Drive...")
         try:
-            urllib.request.urlretrieve(checkpoint_url, checkpoint_path)
+            download_https(checkpoint_url, checkpoint_path, {"drive.google.com"})
         except Exception as e:
             logger.error(f"❌ Failed to download checkpoint: {e}")
             sys.exit(1)
@@ -149,7 +151,11 @@ class MarsDeepSORTConverter:
         model = NetOriginal(reid=True)
 
         # Load checkpoint
-        checkpoint = torch.load(checkpoint_path, map_location='cpu', weights_only=False)
+        try:
+            checkpoint = torch.load(checkpoint_path, map_location='cpu', weights_only=True)
+        except (RuntimeError, EOFError, TypeError):
+            # Legacy .t7 checkpoints can't be loaded with weights_only=True.
+            checkpoint = torch.load(checkpoint_path, map_location='cpu', weights_only=False)  # nosec B614
 
         if 'net_dict' in checkpoint:
             model.load_state_dict(checkpoint['net_dict'])

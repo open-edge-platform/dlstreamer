@@ -38,7 +38,7 @@ In addition, the sample uses 'queue' and 'videoconvert' elements to adapt interf
 ## How It Works
 
 ###  Pipeline creations steps
-#### Initiaization
+#### Initialization
 
 ###### <u> Initialize GStreamer framework </u>
 

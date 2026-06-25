@@ -1,13 +1,14 @@
 ---
 name: dlstreamer-coding-agent
-description: "Build new DL Streamer video-analytics applications (Python or GStreamer command line). Use when: user describes a vision AI pipeline, wants to create a new sample app, combine elements from existing samples, add detection/classification/VLM/tracking/alerts/recording to a video pipeline, or create custom GStreamer elements in Python. Translates natural-language pipeline descriptions into working DL Streamer code using established design patterns."
+description: "Build new DL Streamer video-analytics applications (Python, C, C++ or GStreamer command line). Use when: user describes a vision AI pipeline, wants to create a new sample app, combine elements from existing samples, add detection/classification/VLM/tracking/alerts/recording to a video pipeline, or create custom GStreamer elements in Python or C++. Translates natural-language pipeline descriptions into working DL Streamer code using established design patterns."
+permissions:
+  - write
+  - command
 ---
 
 # DL Streamer Coding Agent
 
-Build new DL Streamer video-analytics applications (Python or GStreamer command line) by composing design patterns extracted from existing sample apps.
-
-NOTE: This feature is in PREVIEW stage — expect some rough edges and missing features, and please share your feedback to help us improve it!
+Build new DL Streamer video-analytics applications (Python, C, C++ or GStreamer command line) by composing design patterns extracted from existing sample apps.
 
 ## File Resolution
 
@@ -17,9 +18,10 @@ This skill uses **repo-root-relative paths** to reference files outside the skil
 
 - User describes a vision AI pipeline in natural language
 - User wants to create a new Python sample application built on DL Streamer
+- User wants to create a new C or C++ sample application built on DL Streamer
 - User wants to create a new GStreamer command line using DL Streamer elements
 - User wants to combine elements from multiple existing samples (e.g. detection + VLM + recording)
-- User needs to add custom analytics logic or custom GStreamer elements in Python
+- User needs to add custom analytics logic or custom GStreamer elements in Python or C++
 
 See [example prompts](./examples) for inspiration.
 
@@ -33,8 +35,10 @@ See [example prompts](./examples) for inspiration.
 ├── export_requirements.txt     # Python dependencies for model export scripts
 ├── README.md                   # Setup and usage instructions
 ├── plugins/                    # Only if custom GStreamer elements are needed
-│   └── python/
-│       └── <element>.py
+│   ├── python/
+│   │   └── <element>.py
+│   └── c/
+│       └── <element>.c
 ├── config/                     # Only if config files are needed
 │   └── *.txt / *.json
 ├── models/                     # Created at runtime (cached model exports)
@@ -66,6 +70,11 @@ Parallelization rules:
 - Step 4 (generate app) depends on Step 3 (pipeline design) completing
 - Step 5 (run and validate) depends on Steps 1, 2c, and 4 all completing
 
+Safety rules for autonomous execution:
+- Before running any command that installs packages, downloads external content, or modifies/deletes files, show the exact command and request explicit user confirmation in chat.
+- Never interpolate raw user input into shell commands. Use validated allowlists and fixed argument templates.
+- Restrict file operations to the sample application directory unless the user explicitly approves a wider scope.
+
 ### Reference Lookup
 
 Each reference document is used in **one primary step** to avoid redundant reads:
@@ -92,7 +101,8 @@ If a match is found:
   values to the user for confirmation (skip the full
   [Requirements Questionnaire](./references/questionnaire.md) unless info is still missing)
 3. If all required fields were explicitly provided by the user (not inferred), skip
-  confirmation and proceed directly to Step 1
+  requirement-field confirmation, but still request explicit user approval before
+  running any command in Steps 1–2
 4. After the user confirms (or overrides), read **only** the design patterns,
    reference sections, and model-preparation sections needed for the confirmed selections
 5. Proceed to Steps 1–5
@@ -107,13 +117,13 @@ Extract the following from the user's prompt:
 | **AI model(s)** | Model name/URL and task (detection, classification, VLM, OCR, …) | — (must ask) |
 | **Target hardware** | Intel platform, available accelerators (GPU/NPU/CPU) | `Not sure / detect at runtime` |
 | **Output format** | Annotated video, JSON, JPEG snapshots, display window | `All of the above` |
-| **Application type** | Python app or GStreamer command line | `Python application` — but see override rule below |
+| **Application type** | Python app, C/C++ app, or GStreamer command line | When the prompt references an existing application to convert, determine the application type by inspecting the source application's file extensions. Application type must match the programming language of the input application (C/C++ → C/C++, Python → Python, shell → GStreamer command line) |
 | **Docker image** | DL Streamer Docker tag | `intel/dlstreamer:latest` (this tag is treated as the latest Ubuntu 24 image) |
 
-> **Application type override:** If the user's prompt contains explicit language like
+ **Application type override:** If the user's prompt contains explicit language like
 > "bash script", "shell script", "gst-launch", or "command line", set **Application type**
 > to `GStreamer command line` regardless of the default. Only default to `Python application`
-> when the prompt does not indicate a preference.
+> when the prompt does not indicate a preference and there is no source application to convert.
 
 **If the user's prompt explicitly provides all required info** (video input AND model names
 are explicitly stated, not inferred), proceed directly to Step 1.
@@ -239,6 +249,7 @@ When converting a DeepStream application, follow these additional rules:
 
 For a **CLI application**, the pipeline string from 3a is the deliverable — wrap it in a `gst-launch-1.0` shell script.
 
+
 For a **Python application**, map the user's description to one or more design patterns using the [Pattern Selection Table](./references/design-patterns.md#pattern-selection-table):
 1. Select the **pipeline construction** approach — see [Pattern 1: Pipeline Core](./references/design-patterns.md#pattern-1-pipeline-core)
 2. Add **callbacks/probes** as needed
@@ -250,14 +261,40 @@ For a **Python application**, map the user's description to one or more design p
 
 Generate all application files following the directory layout defined at the beginning of this document.
 
-- Read the [Design Patterns Reference](./references/design-patterns.md) for coding conventions and application structure.
-- Use the [Application Template](./assets/python-app-template.py) as the starting skeleton for Python apps.
-- Use the [README Template](./assets/README-template.md) to generate `README.md` — replace `{{PLACEHOLDERS}}` with application-specific content and remove HTML comments.
+**Language-specific generation:**
+  
+  **C/C++ applications:**: Use the [Application Template](./assets/cpp-app-template.cpp) as the
+  starting skeleton. Read the [Design Patterns Reference](./references/design-patterns.md) for
+  coding conventions and application structure.
+
+- **Python applications**: Use the [Application Template](./assets/python-app-template.py) as the
+  starting skeleton. Read the [Design Patterns Reference](./references/design-patterns.md) for
+  coding conventions and application structure.
+
+For all languages:
+- Use the [README Template](./assets/README-template.md) to generate `README.md` by replacing all `{{PLACEHOLDERS}}` as described below:
+
+  | Placeholder | What to generate |
+  |---|---|
+  | `{{APP_TITLE}}` | Short title of the application |
+  | `{{APP_DESCRIPTION}}` | 2–3 sentences describing what the application does and its main use case |
+  | `{{DLSTREAMER_CODING_AGENT_PROMPT}}` | The verbatim initial user prompt wrapped in a Markdown blockquote (`> `). Do not paraphrase or summarize. |
+  | `{{APP_VISUALIZATION}}` | Optional screenshot line: `![APP_TITLE](results/screenshot.png)`. Omit this line entirely if no screenshot is available. |
+  | `{{DETAILED_DESCRIPTION}}` | Extended description: model names, hardware requirements, expected outputs. If the input video is from a publicly available source (e.g. Pexels), add: `This sample uses a video from <link> by <author>.` |
+  | `{{NUMBERED_STEPS}}` | Numbered list of pipeline stages, e.g. `1. **Detects** objects using gvadetect` |
+  | `{{PIPELINE_DIAGRAM}}` | Mermaid diagram. Use `graph LR` for linear pipelines; use subgraphs for tee/multi-branch (see `smart_nvr` and `vlm_self_checkout` for examples). |
+  | `{{PIPELINE_ELEMENTS_LIST}}` | Optional bulleted list of each GStreamer/DL Streamer element and its role. Omit if the pipeline is straightforward. |
+  | `{{VIDEO_DOWNLOAD_INSTRUCTIONS}}` | `curl` command to download the test video into `videos/`. If no public video is used, omit the enclosing `### Download Video` heading and this placeholder entirely. |
+  | `{{ADVANCED_USAGE}}` | Optional second usage block showing non-default CLI options. Omit if not needed. |
+  | `{{HOW_IT_WORKS_SECTIONS}}` | One `### STEP N` subsection per major pipeline stage or custom element, with relevant code snippets. |
+  | `{{CONFIGURATION_FILES_SECTION}}` | Optional `## Configuration Files` table (file name + purpose). Omit the section if unused. |
+  | `{{CLI_ARGUMENTS_TABLE}}` | One table row per CLI argument: flag name, default value, description. |
+  | `{{OUTPUT_FILES_LIST}}` | Bulleted list of output files produced under `results/`. |
 - If the application requires Python packages, list them in `requirements.txt`. If the OpenVINO Python runtime is required, pin the same version as the OpenVINO runtime installed with DL Streamer.
 
 ### Step 5 — Run, Debug, and Validate
 
-**Run in Docker (required in PREVIEW stage):**
+**Run in Docker**
 ```bash
 docker run --init --rm \
     -u "$(id -u):$(id -g)" \
@@ -282,7 +319,6 @@ docker run --init --rm \
 
 ### Post-Task — Report Coding Agent Analytics
 
-> **MANDATORY while PREVIEW — do NOT skip this step.**
 > Report the analytics table immediately after the application is validated, in the
 > same response as the validation results.
 
