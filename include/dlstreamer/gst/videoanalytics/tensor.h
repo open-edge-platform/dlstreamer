@@ -38,6 +38,14 @@ constexpr const char *GST_ANALYTICS_CLS_2_TENSOR = "classification_result";
 /// Tensor type string for segmentation results (semantic frame-level or instance per-ROI)
 constexpr const char *GST_ANALYTICS_SEGMENTATION_2_TENSOR = "segmentation";
 
+/// Tensor "format" value for semantic segmentation (frame-level int64 class-index map)
+constexpr const char *TENSOR_FORMAT_SEMANTIC_SEGMENTATION = "semantic_segmentation";
+/// Tensor "format" value for legacy semantic masks (e.g. deeplabv3-style models)
+constexpr const char *TENSOR_FORMAT_SEMANTIC_MASK = "semantic_mask";
+/// Tensor "format" value (and semantic-tag token) for instance-segmentation / binary masks
+/// produced by the detection converters and rendered by the watermark
+constexpr const char *TENSOR_FORMAT_INSTANCE_SEGMENTATION = "instance_segmentation";
+
 /**
  * @brief This class represents tensor - map-like storage for inference result information, such as output blob
  * description (output layer dims, layout, rank, precision, etc.), inference result in a raw and interpreted forms.
@@ -619,10 +627,10 @@ class Tensor {
      * @brief Convert tensor to GST analytic metadata
      * @param mtd output handle to created metadata
      * @param meta relation meta container to add to
-     * @param ref_x reference region x (for keypoint coordinate scaling)
-     * @param ref_y reference region y (for keypoint coordinate scaling)
-     * @param ref_w reference region width (for keypoint coordinate scaling)
-     * @param ref_h reference region height (for keypoint coordinate scaling)
+     * @param ref_x reference region x (keypoint coordinate scaling / segmentation mask location)
+     * @param ref_y reference region y (keypoint coordinate scaling / segmentation mask location)
+     * @param ref_w reference region width (keypoint coordinate scaling / segmentation mask location)
+     * @param ref_h reference region height (keypoint coordinate scaling / segmentation mask location)
      * @return true if conversion successful
      */
     bool convert_to_meta(GstAnalyticsMtd *mtd, GstAnalyticsRelationMeta *meta, gint ref_x = 0, gint ref_y = 0,
@@ -723,19 +731,12 @@ class Tensor {
             const std::string fmt = format();
             const std::vector<guint> dimensions = dims();
 
-            guint mask_width = 0;
-            guint mask_height = 0;
-            GstVideoFormat video_format = GST_VIDEO_FORMAT_GRAY8;
-            std::vector<guint8> mask_bytes;
-            std::vector<guint> region_ids;
-            GstSegmentationType seg_type = GST_SEGMENTATION_TYPE_SEMANTIC;
-
-            if (fmt == "semantic_segmentation" || fmt == "semantic_mask") {
+            if (fmt == TENSOR_FORMAT_SEMANTIC_SEGMENTATION || fmt == TENSOR_FORMAT_SEMANTIC_MASK) {
                 // Semantic segmentation: frame-level int64 class-index map, dims=[1,H,W]
                 if (dimensions.size() != 3)
                     throw std::runtime_error("Segmentation: semantic mask expects dims [1,H,W]");
-                mask_height = dimensions[1];
-                mask_width = dimensions[2];
+                const guint mask_height = dimensions[1];
+                const guint mask_width = dimensions[2];
                 const std::vector<int64_t> mask = data<int64_t>();
                 if (mask.size() != static_cast<size_t>(mask_width) * mask_height)
                     throw std::runtime_error("Segmentation: semantic mask data size mismatch");
@@ -746,6 +747,7 @@ class Tensor {
                         max_id = v;
 
                 // collect unique region ids (== class ids) in ascending order
+                std::vector<guint> region_ids;
                 std::vector<bool> present(static_cast<size_t>(max_id) + 1, false);
                 for (int64_t v : mask)
                     if (v >= 0)
@@ -754,9 +756,11 @@ class Tensor {
                     if (present[v])
                         region_ids.push_back(static_cast<guint>(v));
 
-                seg_type = GST_SEGMENTATION_TYPE_SEMANTIC;
+                const GstSegmentationType seg_type = GST_SEGMENTATION_TYPE_SEMANTIC;
 
                 // GRAY8 fits up to 256 classes, otherwise GRAY16_LE
+                GstVideoFormat video_format = GST_VIDEO_FORMAT_GRAY8;
+                std::vector<guint8> mask_bytes;
                 if (max_id <= 0xff) {
                     video_format = GST_VIDEO_FORMAT_GRAY8;
                     mask_bytes.resize(mask.size());
@@ -771,7 +775,41 @@ class Tensor {
                         mask_bytes[i * 2 + 1] = static_cast<guint8>((value >> 8) & 0xff);
                     }
                 }
-            } else {
+
+                if (mask_width == 0 || mask_height == 0)
+                    throw std::runtime_error("Segmentation: invalid mask dimensions");
+
+                // build a GstBuffer holding the mask with an attached GstVideoMeta (required by the API).
+                // Use explicit tight strides so the buffer layout matches our packed data exactly.
+                const gint mask_stride = (video_format == GST_VIDEO_FORMAT_GRAY8) ? static_cast<gint>(mask_width)
+                                                                                  : static_cast<gint>(mask_width) * 2;
+                GstBuffer *mask_buffer = gst_buffer_new_and_alloc(mask_bytes.size());
+                if (!mask_buffer)
+                    throw std::runtime_error("Segmentation: failed to allocate mask buffer");
+                gst_buffer_fill(mask_buffer, 0, mask_bytes.data(), mask_bytes.size());
+                gsize mask_offsets[1] = {0};
+                gint mask_strides[1] = {mask_stride};
+                gst_buffer_add_video_meta_full(mask_buffer, GST_VIDEO_FRAME_FLAG_NONE, video_format, mask_width,
+                                               mask_height, 1, mask_offsets, mask_strides);
+
+                // gst_analytics_relation_meta_add_segmentation_mtd takes ownership (transfer full) of mask_buffer
+                if (!gst_analytics_relation_meta_add_segmentation_mtd(meta, mask_buffer, seg_type, region_ids.size(),
+                                                                      region_ids.data(), ref_x, ref_y, ref_w, ref_h,
+                                                                      seg_mtd)) {
+                    gst_buffer_unref(mask_buffer);
+                    throw std::runtime_error("Failed to create segmentation meta");
+                }
+
+                // store model_name and format in the semantic tag (model_name/format) so the tensor
+                // can be reconstructed with the exact format on the reverse conversion path
+                const std::string model = model_name();
+                const std::string seg_tag = !model.empty() ? model + "/" + fmt : fmt;
+
+                if (!seg_tag.empty())
+                    gst_analytics_mtd_set_semantic_tag(reinterpret_cast<GstAnalyticsMtd *>(seg_mtd), seg_tag.c_str());
+
+                return true;
+            } else if (fmt == TENSOR_FORMAT_INSTANCE_SEGMENTATION) {
                 // Instance segmentation: store the raw per-object mask as a GstAnalyticsTensorMtd
                 // (FP32, soft probabilities) so it can be rendered smoothly per-ROI and distinguished
                 // from other raw tensors by its semantic tag. The frame-level GstAnalyticsSegmentationMtd
@@ -808,9 +846,9 @@ class Tensor {
                 // semantic tag "model_name/instance_segmentation" lets the reverse path recognise this
                 // tensor mtd as an instance-segmentation mask and rebuild it with the right format
                 const std::string inst_model = model_name();
-                const std::string inst_tag =
-                    !inst_model.empty() ? inst_model + "/instance_segmentation" : std::string("instance_segmentation");
-                const GQuark id_quark = g_quark_from_string(inst_tag.c_str());
+                const std::string inst_tag = !inst_model.empty() ? inst_model + "/" + fmt : fmt;
+                // derive the tensor id from the "layer_name" field if present, otherwise leave it empty (0)
+                const GQuark id_quark = has_field("layer_name") ? g_quark_from_string(layer_name().c_str()) : 0;
 
                 gsize tensor_dims[2] = {inst_h, inst_w}; // row-major [H, W]
                 GstAnalyticsTensorMtd *tensor_mtd = reinterpret_cast<GstAnalyticsTensorMtd *>(mtd);
@@ -825,44 +863,9 @@ class Tensor {
                 return true;
             }
 
-            if (mask_width == 0 || mask_height == 0)
-                throw std::runtime_error("Segmentation: invalid mask dimensions");
-
-            // build a GstBuffer holding the mask with an attached GstVideoMeta (required by the API).
-            // Use explicit tight strides so the buffer layout matches our packed data exactly.
-            const gint mask_stride = (video_format == GST_VIDEO_FORMAT_GRAY8) ? static_cast<gint>(mask_width)
-                                                                              : static_cast<gint>(mask_width) * 2;
-            GstBuffer *mask_buffer = gst_buffer_new_and_alloc(mask_bytes.size());
-            if (!mask_buffer)
-                throw std::runtime_error("Segmentation: failed to allocate mask buffer");
-            gst_buffer_fill(mask_buffer, 0, mask_bytes.data(), mask_bytes.size());
-            gsize mask_offsets[1] = {0};
-            gint mask_strides[1] = {mask_stride};
-            gst_buffer_add_video_meta_full(mask_buffer, GST_VIDEO_FRAME_FLAG_NONE, video_format, mask_width,
-                                           mask_height, 1, mask_offsets, mask_strides);
-
-            // gst_analytics_relation_meta_add_segmentation_mtd takes ownership (transfer full) of mask_buffer
-            if (!gst_analytics_relation_meta_add_segmentation_mtd(meta, mask_buffer, seg_type, region_ids.size(),
-                                                                  region_ids.data(), ref_x, ref_y, ref_w, ref_h,
-                                                                  seg_mtd)) {
-                gst_buffer_unref(mask_buffer);
-                throw std::runtime_error("Failed to create segmentation meta");
-            }
-
-            // store model_name and format in the semantic tag (model_name/format) so the tensor
-            // can be reconstructed with the exact format on the reverse conversion path
-            std::string seg_model = model_name();
-            std::string seg_tag;
-            if (!seg_model.empty() && !fmt.empty())
-                seg_tag = seg_model + "/" + fmt;
-            else if (!fmt.empty())
-                seg_tag = fmt;
-            else
-                seg_tag = seg_model;
-            if (!seg_tag.empty())
-                gst_analytics_mtd_set_semantic_tag(reinterpret_cast<GstAnalyticsMtd *>(seg_mtd), seg_tag.c_str());
-
-            return true;
+            GST_ERROR("Segmentation: unsupported or empty format '%s', expected one of '%s', '%s', '%s'", fmt.c_str(),
+                      TENSOR_FORMAT_SEMANTIC_SEGMENTATION, TENSOR_FORMAT_SEMANTIC_MASK,
+                      TENSOR_FORMAT_INSTANCE_SEGMENTATION);
         }
 
         return false;
@@ -1103,16 +1106,12 @@ class Tensor {
             std::string full_tag = (raw_tag && raw_tag[0] != '\0') ? std::string(raw_tag) : std::string();
             g_free(raw_tag);
 
+            // recover the "format" from a "model_name/format" (or bare "format") semantic tag
             std::string fmt;
-            std::string model;
-            for (const char *known : {"semantic_segmentation", "semantic_mask", "segmentation_mask"}) {
-                size_t pos = full_tag.rfind(known);
-                if (pos != std::string::npos) {
+            for (const char *known : {TENSOR_FORMAT_SEMANTIC_SEGMENTATION, TENSOR_FORMAT_SEMANTIC_MASK,
+                                      TENSOR_FORMAT_INSTANCE_SEGMENTATION}) {
+                if (full_tag.rfind(known) != std::string::npos) {
                     fmt = known;
-                    if (pos >= 1 && full_tag[pos - 1] == '/')
-                        model = full_tag.substr(0, pos - 1);
-                    else
-                        model = full_tag.substr(0, pos);
                     break;
                 }
             }
@@ -1120,14 +1119,12 @@ class Tensor {
             GstStructure *gst_structure = gst_structure_new_empty(GST_ANALYTICS_SEGMENTATION_2_TENSOR);
             Tensor tensor(gst_structure);
             tensor.set_type(GST_ANALYTICS_SEGMENTATION_2_TENSOR);
-            if (!model.empty())
-                tensor.set_model_name(model);
             if (!full_tag.empty())
                 tensor.set_string("semantic_tag", full_tag);
 
-            if (fmt == "segmentation_mask") {
+            if (fmt == TENSOR_FORMAT_INSTANCE_SEGMENTATION) {
                 // instance segmentation: reconstruct FP32 mask, dims=[W,H]
-                tensor.set_format("segmentation_mask");
+                tensor.set_format(TENSOR_FORMAT_INSTANCE_SEGMENTATION);
                 tensor.set_precision(Precision::FP32);
                 tensor.set_dims({width, height});
                 std::vector<float> mask(static_cast<size_t>(width) * height, 0.0f);
@@ -1141,7 +1138,7 @@ class Tensor {
                 tensor.set_data(mask.data(), mask.size() * sizeof(float));
             } else {
                 // semantic segmentation: reconstruct I64 class-index map, dims=[1,H,W]
-                tensor.set_format(fmt.empty() ? std::string("semantic_segmentation") : fmt);
+                tensor.set_format(fmt.empty() ? std::string(TENSOR_FORMAT_SEMANTIC_SEGMENTATION) : fmt);
                 tensor.set_precision(Precision::I64);
                 tensor.set_dims({1u, height, width});
                 std::vector<int64_t> mask(static_cast<size_t>(width) * height, 0);
@@ -1176,60 +1173,137 @@ class Tensor {
 
             return tensor.gst_structure();
         } else if (gst_analytics_mtd_get_mtd_type(&mtd) == gst_analytics_tensor_mtd_get_mtd_type()) {
-            // Instance-segmentation masks are stored as a GstAnalyticsTensorMtd (FP32). Only tensors
-            // tagged as instance segmentation are reconstructed here; any other raw tensor is ignored.
+            // Raw tensors are stored as a GstAnalyticsTensorMtd. Instance-segmentation masks are a
+            // special case reconstructed into the instance-segmentation FP32 [W,H] format expected by
+            // the watermark renderer; any other tensor is reconstructed generically, preserving its
+            // data type, dimensions and payload.
             GstAnalyticsTensorMtd *tensor_mtd = reinterpret_cast<GstAnalyticsTensorMtd *>(&mtd);
 
             gchar *raw_tag = gst_analytics_mtd_get_semantic_tag(reinterpret_cast<const GstAnalyticsMtd *>(tensor_mtd));
             std::string full_tag = (raw_tag && raw_tag[0] != '\0') ? std::string(raw_tag) : std::string();
             g_free(raw_tag);
-            if (full_tag.find("instance_segmentation") == std::string::npos)
-                return nullptr;
 
             GstTensor *gtensor = gst_analytics_tensor_mtd_get_tensor(tensor_mtd);
-            if (!gtensor || gtensor->num_dims != 2 || !gtensor->data)
+            if (!gtensor || !gtensor->data)
                 return nullptr;
 
-            // dims stored row-major as [H, W]
-            const guint mask_h = static_cast<guint>(gtensor->dims[0]);
-            const guint mask_w = static_cast<guint>(gtensor->dims[1]);
-            const size_t count = static_cast<size_t>(mask_w) * mask_h;
-            if (count == 0)
-                return nullptr;
+            if (full_tag.find(TENSOR_FORMAT_INSTANCE_SEGMENTATION) != std::string::npos) {
+                // Instance-segmentation mask: FP32/U8 [H,W] payload reconstructed as the
+                // instance-segmentation FP32 [W,H] tensor the watermark renderer expects.
+                if (gtensor->num_dims != 2)
+                    return nullptr;
+
+                // dims stored row-major as [H, W]
+                const guint mask_h = static_cast<guint>(gtensor->dims[0]);
+                const guint mask_w = static_cast<guint>(gtensor->dims[1]);
+                const size_t count = static_cast<size_t>(mask_w) * mask_h;
+                if (count == 0)
+                    return nullptr;
+
+                GstMapInfo map;
+                if (!gst_buffer_map(gtensor->data, &map, GST_MAP_READ))
+                    return nullptr;
+
+                std::vector<float> mask(count, 0.0f);
+                if (gtensor->data_type == GST_TENSOR_DATA_TYPE_FLOAT32 && map.size >= count * sizeof(float)) {
+                    const float *src = reinterpret_cast<const float *>(map.data);
+                    std::copy(src, src + count, mask.begin());
+                } else if (gtensor->data_type == GST_TENSOR_DATA_TYPE_UINT8 && map.size >= count) {
+                    for (size_t p = 0; p < count; ++p)
+                        mask[p] = map.data[p] ? 1.0f : 0.0f;
+                } else {
+                    gst_buffer_unmap(gtensor->data, &map);
+                    return nullptr;
+                }
+                gst_buffer_unmap(gtensor->data, &map);
+
+                GstStructure *gst_structure = gst_structure_new_empty(GST_ANALYTICS_SEGMENTATION_2_TENSOR);
+                Tensor tensor(gst_structure);
+                tensor.set_type(GST_ANALYTICS_SEGMENTATION_2_TENSOR);
+                tensor.set_format(TENSOR_FORMAT_INSTANCE_SEGMENTATION);
+                tensor.set_precision(Precision::FP32);
+                tensor.set_dims({mask_w, mask_h}); // [W, H] as expected by the watermark renderer
+                tensor.set_string("semantic_tag", full_tag);
+                if (gtensor->id != 0)
+                    tensor.set_string("tensor_id", g_quark_to_string(gtensor->id));
+                tensor.set_data(mask.data(), mask.size() * sizeof(float));
+
+                return tensor.gst_structure();
+            }
+
+            // Generic raw tensor reconstruction: copy the payload verbatim and map the GstTensor
+            // data type to a GVA precision. Only fields that come directly from the analytics meta
+            // (precision, dims, payload and semantic tag) are restored.
+            Precision precision = Precision::UNSPECIFIED;
+            switch (gtensor->data_type) {
+            case GST_TENSOR_DATA_TYPE_INT4:
+                precision = Precision::I4;
+                break;
+            case GST_TENSOR_DATA_TYPE_INT8:
+                precision = Precision::I8;
+                break;
+            case GST_TENSOR_DATA_TYPE_INT16:
+                precision = Precision::I16;
+                break;
+            case GST_TENSOR_DATA_TYPE_INT32:
+                precision = Precision::I32;
+                break;
+            case GST_TENSOR_DATA_TYPE_INT64:
+                precision = Precision::I64;
+                break;
+            case GST_TENSOR_DATA_TYPE_UINT4:
+                precision = Precision::U4;
+                break;
+            case GST_TENSOR_DATA_TYPE_UINT8:
+                precision = Precision::U8;
+                break;
+            case GST_TENSOR_DATA_TYPE_UINT16:
+                precision = Precision::U16;
+                break;
+            case GST_TENSOR_DATA_TYPE_UINT32:
+                precision = Precision::U32;
+                break;
+            case GST_TENSOR_DATA_TYPE_UINT64:
+                precision = Precision::U64;
+                break;
+            case GST_TENSOR_DATA_TYPE_FLOAT16:
+                precision = Precision::FP16;
+                break;
+            case GST_TENSOR_DATA_TYPE_FLOAT32:
+                precision = Precision::FP32;
+                break;
+            case GST_TENSOR_DATA_TYPE_FLOAT64:
+                precision = Precision::FP64;
+                break;
+            case GST_TENSOR_DATA_TYPE_BFLOAT16:
+                precision = Precision::BF16;
+                break;
+            default:
+                precision = Precision::UNSPECIFIED;
+                break;
+            }
 
             GstMapInfo map;
             if (!gst_buffer_map(gtensor->data, &map, GST_MAP_READ))
                 return nullptr;
 
-            std::vector<float> mask(count, 0.0f);
-            if (gtensor->data_type == GST_TENSOR_DATA_TYPE_FLOAT32 && map.size >= count * sizeof(float)) {
-                const float *src = reinterpret_cast<const float *>(map.data);
-                std::copy(src, src + count, mask.begin());
-            } else if (gtensor->data_type == GST_TENSOR_DATA_TYPE_UINT8 && map.size >= count) {
-                for (size_t p = 0; p < count; ++p)
-                    mask[p] = map.data[p] ? 1.0f : 0.0f;
-            } else {
-                gst_buffer_unmap(gtensor->data, &map);
-                return nullptr;
-            }
-            gst_buffer_unmap(gtensor->data, &map);
-
-            // recover model name from the "model_name/instance_segmentation" tag
-            std::string model;
-            const size_t pos = full_tag.rfind("instance_segmentation");
-            if (pos != std::string::npos && pos >= 1 && full_tag[pos - 1] == '/')
-                model = full_tag.substr(0, pos - 1);
-
-            GstStructure *gst_structure = gst_structure_new_empty(GST_ANALYTICS_SEGMENTATION_2_TENSOR);
+            GstStructure *gst_structure = gst_structure_new_empty("tensor");
             Tensor tensor(gst_structure);
-            tensor.set_type(GST_ANALYTICS_SEGMENTATION_2_TENSOR);
-            tensor.set_format("segmentation_mask");
-            tensor.set_precision(Precision::FP32);
-            tensor.set_dims({mask_w, mask_h}); // [W, H] as expected by the watermark renderer
-            if (!model.empty())
-                tensor.set_model_name(model);
-            tensor.set_string("semantic_tag", full_tag);
-            tensor.set_data(mask.data(), mask.size() * sizeof(float));
+            tensor.set_precision(precision);
+
+            std::vector<guint> dims;
+            dims.reserve(gtensor->num_dims);
+            for (gsize d = 0; d < gtensor->num_dims; ++d)
+                dims.push_back(static_cast<guint>(gtensor->dims[d]));
+            tensor.set_dims(dims);
+
+            if (!full_tag.empty())
+                tensor.set_string("semantic_tag", full_tag);
+            if (gtensor->id != 0)
+                tensor.set_string("tensor_id", g_quark_to_string(gtensor->id));
+            tensor.set_data(map.data, map.size);
+
+            gst_buffer_unmap(gtensor->data, &map);
 
             return tensor.gst_structure();
         }

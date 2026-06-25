@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2024-2025 Intel Corporation
+ * Copyright (C) 2024-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -32,7 +32,7 @@ class SemanticMaskConverter : public BlobToTensorConverter {
 
   public:
     SemanticMaskConverter(BlobToMetaConverter::Initializer initializer)
-        : BlobToTensorConverter(std::move(initializer)), format("semantic_mask") {
+        : BlobToTensorConverter(std::move(initializer)), format(GVA::TENSOR_FORMAT_SEMANTIC_MASK) {
     }
 
     TensorsTable convert(const OutputBlobs &output_blobs) override;
