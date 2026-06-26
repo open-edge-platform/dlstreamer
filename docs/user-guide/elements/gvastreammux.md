@@ -61,20 +61,26 @@ Key design points:
 
 ## Output Modes
 
-The element decides its output mode **once**, after every live sink pad has reported its caps,
-and the output loop does not push anything until then. The mode is derived from the mix of
-sink-pad media types:
+The output mode is selected explicitly by the `output-mode` property (default `passthrough`);
+there is no auto-detection from the input media types. The element negotiates its `src` caps
+**once**, after every live sink pad has reported its caps, and the output loop does not push
+anything until then.
 
-| Mode | Trigger | Output |
-|------|---------|--------|
-| **PASSTHROUGH** | All sink pads are raw `video/x-raw` | Each source buffer is pushed as-is (plain video), tagged with a single-stream `GstAnalyticsBatchMeta` (`streams[0].index` = source id). This is the legacy behavior — existing `gvastreammux ! gvadetect` pipelines are unaffected. The `src` caps are the shared video caps. |
-| **CONTAINER** | Any sink pad is non-video (e.g. `application/x-lidar` from `g3dlidarparse`) | Each assembled batch is packed into **one** container buffer with caps `multistream/x-analytics-batch(meta:GstAnalyticsBatchMeta)`. The `GstAnalyticsBatchMeta` holds one `GstAnalyticsBatchStream` per contributing source; each stream carries that source's buffer (`objects[0]`) and its original caps (a `GST_EVENT_CAPS` sticky event). Use `gvastreamdemux` downstream to unpack the container back into per-source pads. |
+| Mode (`output-mode`) | Output |
+|----------------------|--------|
+| **`passthrough`** (default) | Each source buffer is pushed as-is, tagged with a single-stream `GstAnalyticsBatchMeta` (`streams[0].index` = source id). This is the legacy behavior — existing `gvastreammux ! gvadetect` pipelines are unaffected. All sink pads **must negotiate identical caps**: the element compares the pads' caps for equality (it does *not* inspect the media type) and posts an error if they differ. The shared sink caps become the `src` caps. |
+| **`container`** | Each assembled batch is packed into **one** container buffer with caps `multistream/x-analytics-batch(meta:GstAnalyticsBatchMeta)`. The `GstAnalyticsBatchMeta` holds one `GstAnalyticsBatchStream` per contributing source; each stream carries that source's buffer (`objects[0]`) and its original caps (a `GST_EVENT_CAPS` sticky event). Caps may differ across pads, so this is the mode for **heterogeneous** sources (e.g. video + lidar). Use `gvastreamdemux` downstream to unpack the container back into per-source pads. |
 
-> **Important (CONTAINER mode):** a container buffer is *not* raw video, so no video element
+> **Important (`container` mode):** a container buffer is *not* raw video, so no video element
 > (`gvadetect`, `gvawatermark`, …) may follow the mux directly. Insert `gvastreamdemux` to recover
 > the per-source streams (e.g. video → `gvadetect`, lidar → `g3dinference`) first.
 
-PASSTHROUGH mode keeps the historical one-buffer-per-source-per-batch shape; CONTAINER mode is
+> **Choosing the mode:** use `passthrough` when every source produces the same caps (the common
+> all-video case) and you want plain buffers downstream. Use `container` whenever the sources are
+> heterogeneous (mixed media types or differing caps) — a `passthrough` mux with mismatched sink
+> caps will error out at caps negotiation.
+
+`passthrough` mode keeps the historical one-buffer-per-source-per-batch shape; `container` mode is
 one-buffer-per-batch carrying all sources.
 
 ## Properties
@@ -86,6 +92,7 @@ one-buffer-per-batch carrying all sources.
 | `max-wait-time` | UInt64 (ns) | `40000000` (40 ms) | Max time the output task waits for late pads after the anchor is set. After timeout the partial batch is pushed. |
 | `max-queue-size`| UInt    | `2`         | Maximum buffers per pad queue. When reached, upstream blocks (back-pressure). |
 | `sync-mode`     | Enum    | `none`      | How to normalize PTS across pads. See [Sync Mode](#sync-mode). |
+| `output-mode`   | Enum    | `passthrough` | `passthrough` (all sink pads must share identical caps) or `container` (one multistream batch buffer per batch). See [Output Modes](#output-modes). |
 
 ### Sync Mode
 
@@ -207,14 +214,15 @@ gst-launch-1.0 \
 
 ### Heterogeneous sources: video + lidar (CONTAINER mode)
 
-Adding a non-video source (here lidar via `g3dlidarparse`) switches the mux to
-[CONTAINER mode](#output-modes). The container batch must be unpacked by `gvastreamdemux` before
-any per-stream processing — no `gvadetect` may sit between the mux and demux. In this example each
-demuxed branch goes straight to `fakesink` (`src_0`/`src_1` = video, `src_2` = lidar):
+Heterogeneous sources (here lidar via `g3dlidarparse` alongside video) require
+[CONTAINER mode](#output-modes), selected with `output-mode=container`. The container batch must be
+unpacked by `gvastreamdemux` before any per-stream processing — no `gvadetect` may sit between the
+mux and demux. In this example each demuxed branch goes straight to `fakesink` (`src_0`/`src_1` =
+video, `src_2` = lidar):
 
 ```bash
 gst-launch-1.0 -e \
-  gvastreammux name=mux sync-mode=first-pts \
+  gvastreammux name=mux output-mode=container sync-mode=first-pts \
   ! queue \
   ! gvastreamdemux name=demux \
   demux.src_0 ! queue ! gvafpscounter ! fakesink \
@@ -247,9 +255,11 @@ gst-launch-1.0 -e \
 Factory Details:
   Long-name                GVA Stream Muxer
   Klass                    Muxer
-  Description              Muxes multiple streams with PTS-based synchronization. All-video
-                           sources are passed through as plain video buffers; heterogeneous
-                           sources (e.g. video + lidar) are packed into batch buffers.
+  Description              Muxes multiple streams with PTS-based synchronization. The
+                           'output-mode' property selects between PASSTHROUGH (each source
+                           buffer pushed as-is; all sink pads must share identical caps) and
+                           CONTAINER (each batch packed into one multistream/x-analytics-batch
+                           buffer, e.g. video + lidar).
   Author                   Intel Corporation
 
 Pad Templates:
@@ -264,6 +274,7 @@ Element Properties:
   max-wait-time   UInt64 ns, default 40000000   (40 ms)
   max-queue-size  UInt, range 1-..., default 2
   sync-mode       Enum (none, first-pts, segment, pipeline, ntp), default none
+  output-mode     Enum (passthrough, container), default passthrough
 ```
 
 Run `gst-inspect-1.0 gvastreammux` against your installation for the authoritative output.

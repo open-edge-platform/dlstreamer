@@ -13,14 +13,16 @@ per-source branches.
 Running inference on N streams with one mux+inference instance significantly reduces GPU
 memory usage and improves throughput compared to N independent pipelines.
 
-The mux has two output modes (chosen automatically from the input media types):
+The mux has two output modes, selected by the `output-mode` property (default `passthrough`):
 
-- **PASSTHROUGH** — all inputs are video. Each source frame is pushed as plain video; a shared
-  `gvadetect` serves all sources. This is what the video-only examples below use.
-- **CONTAINER** — inputs are heterogeneous (e.g. video + lidar). Each batch is packed into one
+- **`passthrough`** — each source frame is pushed as plain video; a shared `gvadetect` serves all
+  sources. All sink pads must have identical caps (the mux errors out otherwise). This is what the
+  video-only examples below use.
+- **`container`** — for heterogeneous inputs (e.g. video + lidar). Each batch is packed into one
   `multistream/x-analytics-batch` buffer that **must** be unpacked by `gvastreamdemux` before any
-  per-stream element. The `--lidar` option of this sample exercises that path. See
-  [the element docs](../../../../docs/user-guide/elements/gvastreammux.md#output-modes) for details.
+  per-stream element. The `--lidar` option of this sample sets `output-mode=container` and exercises
+  that path. See [the element docs](../../../../docs/user-guide/elements/gvastreammux.md#output-modes)
+  for details.
 
 The sample uses GStreamer's command-line tool `gst-launch-1.0`, which can build and run a
 pipeline described in a string format.
@@ -123,7 +125,7 @@ Provide an OpenVINO IR model (`.xml` + `.bin`).
 - `-d, --device DEVICE`: Inference device: `GPU`, `CPU`, `NPU` (default: `GPU`)
 - `-h, --help`: Show help
 
-Heterogeneous (video + lidar) mode — switches the mux to CONTAINER output and forces `--demux`:
+Heterogeneous (video + lidar) mode — sets the mux to CONTAINER output (`output-mode=container`) and forces `--demux`:
 - `--lidar`: Add a lidar source (`application/x-lidar` via `g3dlidarparse`). No `gvadetect` is
   inserted; each demuxed branch goes straight to `fakesink`.
 - `--lidar-location L`: `multifilesrc` location pattern (default: `tests/unit_tests/tests_gstgva/test_files/%06d.pcd`)

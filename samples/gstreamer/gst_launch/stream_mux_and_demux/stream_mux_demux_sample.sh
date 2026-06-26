@@ -46,7 +46,7 @@ show_usage() {
     echo "                          (default: ${DEFAULT_SYNC_MODE})"
     echo "  -d, --device DEVICE     Inference device: GPU, CPU, NPU (default: ${DEFAULT_DEVICE})"
     echo ""
-    echo "  Heterogeneous (video + lidar) mode — switches the mux to CONTAINER output:"
+    echo "  Heterogeneous (video + lidar) mode — sets the mux to CONTAINER output (output-mode=container):"
     echo "      --lidar             Add a lidar source (application/x-lidar via g3dlidarparse)."
     echo "                          Forces gvastreamdemux (a container batch must be unpacked"
     echo "                          before any per-stream element). No gvadetect is inserted;"
@@ -152,10 +152,11 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# A lidar source makes the inputs heterogeneous: the mux switches to CONTAINER
-# output (multistream/x-analytics-batch). A container buffer is NOT raw video,
-# so no video element (gvadetect) may follow the mux directly — it must be
-# unpacked by gvastreamdemux first. Force demux on and skip the model check.
+# A lidar source makes the inputs heterogeneous: the mux is set to CONTAINER
+# output (output-mode=container, multistream/x-analytics-batch). A container
+# buffer is NOT raw video, so no video element (gvadetect) may follow the mux
+# directly — it must be unpacked by gvastreamdemux first. Force demux on and
+# skip the model check.
 if [ "${ENABLE_LIDAR}" = true ]; then
     ENABLE_DEMUX=true
 fi
@@ -207,8 +208,13 @@ case "${SYNC_MODE}" in
         ;;
 esac
 
-# Build mux property string
+# Build mux property string.
+# A lidar source makes the inputs heterogeneous (mismatched caps), which requires
+# CONTAINER output; video-only pipelines use the default PASSTHROUGH mode.
 MUX_PROPS="sync-mode=${SYNC_MODE}"
+if [ "${ENABLE_LIDAR}" = true ]; then
+    MUX_PROPS="${MUX_PROPS} output-mode=container"
+fi
 if [ "${SOURCE_TYPE}" = "file" ] && [ "${MAX_FPS}" != "0" ]; then
     MUX_PROPS="${MUX_PROPS} max-fps=${MAX_FPS}"
 fi

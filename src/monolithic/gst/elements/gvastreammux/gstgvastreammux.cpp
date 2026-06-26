@@ -22,6 +22,7 @@ enum {
     PROP_MAX_WAIT_TIME,
     PROP_MAX_QUEUE_SIZE,
     PROP_SYNC_MODE,
+    PROP_OUTPUT_MODE,
 };
 
 #define DEFAULT_MAX_FPS 0.0
@@ -29,6 +30,7 @@ enum {
 #define DEFAULT_MAX_WAIT_TIME (40 * GST_MSECOND)
 #define DEFAULT_MAX_QUEUE_SIZE 2
 #define DEFAULT_SYNC_MODE GVA_STREAMMUX_SYNC_MODE_NONE
+#define DEFAULT_OUTPUT_MODE GVA_STREAMMUX_OUTPUT_PASSTHROUGH
 
 GType gst_gva_streammux_sync_mode_get_type(void) {
     static gsize type_id = 0;
@@ -42,6 +44,22 @@ GType gst_gva_streammux_sync_mode_get_type(void) {
             {0, NULL, NULL},
         };
         GType t = g_enum_register_static("GvaStreammuxSyncMode", values);
+        g_once_init_leave(&type_id, t);
+    }
+    return (GType)type_id;
+}
+
+GType gst_gva_streammux_output_mode_get_type(void) {
+    static gsize type_id = 0;
+    if (g_once_init_enter(&type_id)) {
+        static const GEnumValue values[] = {
+            {GVA_STREAMMUX_OUTPUT_PASSTHROUGH, "Push each source buffer as-is; all sink pads must share identical caps",
+             "passthrough"},
+            {GVA_STREAMMUX_OUTPUT_CONTAINER, "Pack each batch into one multistream/x-analytics-batch container buffer",
+             "container"},
+            {0, NULL, NULL},
+        };
+        GType t = g_enum_register_static("GvaStreammuxOutputMode", values);
         g_once_init_leave(&type_id, t);
     }
     return (GType)type_id;
@@ -115,8 +133,9 @@ static void gst_gva_streammux_class_init(GstGvaStreammuxClass *klass) {
 
     gst_element_class_set_static_metadata(
         element_class, "GVA Stream Muxer", "Muxer",
-        "Muxes multiple streams with PTS-based synchronization. All-video sources are passed through "
-        "as plain video buffers; heterogeneous sources (e.g. video + lidar) are packed into batch buffers.",
+        "Muxes multiple streams with PTS-based synchronization. The 'output-mode' property selects "
+        "between PASSTHROUGH (each source buffer pushed as-is; all sink pads must share identical caps) "
+        "and CONTAINER (each batch packed into one multistream/x-analytics-batch buffer, e.g. video + lidar).",
         "Intel Corporation");
 
     /* Properties */
@@ -164,6 +183,19 @@ static void gst_gva_streammux_class_init(GstGvaStreammuxClass *klass) {
                           "absolute cross-device time alignment.",
                           GST_TYPE_GVA_STREAMMUX_SYNC_MODE, DEFAULT_SYNC_MODE,
                           (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+
+    g_object_class_install_property(
+        gobject_class, PROP_OUTPUT_MODE,
+        g_param_spec_enum("output-mode", "Output Mode",
+                          "How the src pad emits each assembled batch. "
+                          "'passthrough' pushes each source buffer as-is (plain video / single media type) "
+                          "tagged with a single-stream GstAnalyticsBatchMeta; all sink pads must negotiate "
+                          "identical caps, otherwise the element errors out. "
+                          "'container' packs each batch into one multistream/x-analytics-batch buffer whose "
+                          "GstAnalyticsBatchMeta carries one stream per source (supports heterogeneous "
+                          "sources such as video + lidar; unpack downstream with gvastreamdemux).",
+                          GST_TYPE_GVA_STREAMMUX_OUTPUT_MODE, DEFAULT_OUTPUT_MODE,
+                          (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 }
 
 static void gst_gva_streammux_init(GstGvaStreammux *mux) {
@@ -172,6 +204,7 @@ static void gst_gva_streammux_init(GstGvaStreammux *mux) {
     mux->max_wait_time = DEFAULT_MAX_WAIT_TIME;
     mux->max_queue_size = DEFAULT_MAX_QUEUE_SIZE;
     mux->sync_mode = DEFAULT_SYNC_MODE;
+    mux->output_mode = DEFAULT_OUTPUT_MODE;
 
     mux->num_sink_pads = 0;
     mux->started = FALSE;
@@ -180,7 +213,7 @@ static void gst_gva_streammux_init(GstGvaStreammux *mux) {
     mux->flushing_pads_count = 0;
     mux->sinkpads = NULL;
     mux->current_caps = NULL;
-    mux->output_mode = GVA_STREAMMUX_OUTPUT_UNDECIDED;
+    mux->caps_negotiated = FALSE;
     mux->segment_sent = FALSE;
     mux->last_output_time = GST_CLOCK_TIME_NONE;
     mux->max_fps_duration = GST_CLOCK_TIME_NONE;
@@ -266,6 +299,9 @@ static void gst_gva_streammux_set_property(GObject *object, guint prop_id, const
     case PROP_SYNC_MODE:
         mux->sync_mode = (GvaStreammuxSyncMode)g_value_get_enum(value);
         break;
+    case PROP_OUTPUT_MODE:
+        mux->output_mode = (GvaStreammuxOutputMode)g_value_get_enum(value);
+        break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
         break;
@@ -290,6 +326,9 @@ static void gst_gva_streammux_get_property(GObject *object, guint prop_id, GValu
         break;
     case PROP_SYNC_MODE:
         g_value_set_enum(value, mux->sync_mode);
+        break;
+    case PROP_OUTPUT_MODE:
+        g_value_set_enum(value, mux->output_mode);
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -400,7 +439,6 @@ static GstPad *gst_gva_streammux_request_new_pad(GstElement *element, GstPadTemp
     pdata->first_pts = GST_CLOCK_TIME_NONE;
     pdata->segment_start = GST_CLOCK_TIME_NONE;
     pdata->caps = NULL;
-    pdata->media_type = GVA_STREAMMUX_MEDIA_UNKNOWN;
 
     g_object_set_data(G_OBJECT(sinkpad), "mux-pad-data", pdata);
 
@@ -466,7 +504,7 @@ static GstStateChangeReturn gst_gva_streammux_change_state(GstElement *element, 
         mux->started = FALSE;
         mux->send_stream_start = TRUE;
         mux->segment_sent = FALSE;
-        mux->output_mode = GVA_STREAMMUX_OUTPUT_UNDECIDED;
+        mux->caps_negotiated = FALSE;
         mux->flushing = FALSE;
         mux->last_output_time = GST_CLOCK_TIME_NONE;
         mux->batch_anchor_pts = GST_CLOCK_TIME_NONE;
@@ -515,16 +553,15 @@ static GstStateChangeReturn gst_gva_streammux_change_state(GstElement *element, 
                 pd->first_pts_set = FALSE;
                 pd->first_pts = GST_CLOCK_TIME_NONE;
                 pd->segment_start = GST_CLOCK_TIME_NONE;
-                /* Drop cached caps so a restart re-negotiates the output mode
+                /* Drop cached caps so a restart re-negotiates the src caps
                  * from freshly delivered caps events. */
                 if (pd->caps) {
                     gst_caps_unref(pd->caps);
                     pd->caps = NULL;
                 }
-                pd->media_type = GVA_STREAMMUX_MEDIA_UNKNOWN;
             }
         }
-        mux->output_mode = GVA_STREAMMUX_OUTPUT_UNDECIDED;
+        mux->caps_negotiated = FALSE;
         if (mux->current_caps) {
             gst_caps_unref(mux->current_caps);
             mux->current_caps = NULL;
@@ -540,20 +577,9 @@ static GstStateChangeReturn gst_gva_streammux_change_state(GstElement *element, 
     return ret;
 }
 
-/* Classify a pad's caps into a coarse media type used to pick the output mode. */
-static GvaStreammuxMediaType classify_media_type(const GstCaps *caps) {
-    if (!caps || gst_caps_is_empty(caps))
-        return GVA_STREAMMUX_MEDIA_UNKNOWN;
-    const GstStructure *s = gst_caps_get_structure(caps, 0);
-    const gchar *name = gst_structure_get_name(s);
-    if (g_str_has_prefix(name, "video/"))
-        return GVA_STREAMMUX_MEDIA_VIDEO;
-    return GVA_STREAMMUX_MEDIA_OTHER;
-}
-
-/* True once the output mode can be decided: at least one pad exists and every
- * pad that is not EOS has reported its caps. Using "live pads" (rather than a
- * raw count vs num_sink_pads) avoids deadlocking if a pad goes EOS before ever
+/* True once src caps can be negotiated: at least one pad exists and every pad
+ * that is not EOS has reported its caps. Using "live pads" (rather than a raw
+ * count vs num_sink_pads) avoids deadlocking if a pad goes EOS before ever
  * delivering caps. Must be called with mux->lock held. */
 static gboolean all_live_pads_have_caps(GstGvaStreammux *mux) {
     if (mux->num_sink_pads == 0)
@@ -571,46 +597,58 @@ static gboolean all_live_pads_have_caps(GstGvaStreammux *mux) {
     return live > 0 && live_with_caps == live;
 }
 
-/* Decide the output mode and build the source caps to push. Called once all
- * live sink pads have delivered their caps, so the video-vs-heterogeneous
- * decision is final. Must be called with mux->lock held.
+/* Build the source caps to push, based on the user-selected output-mode.
+ * Called once all live sink pads have delivered their caps. Must be called with
+ * mux->lock held.
  *
- * Returns the caps to push downstream (transfer full, NULL if already decided),
- * and reports via out-params whether stream-start/segment must be sent first.
- * The actual event pushing is done by the caller OUTSIDE the lock to avoid
- * deadlock with downstream queries. */
-static GstCaps *negotiate_src_caps(GstGvaStreammux *mux, gboolean *need_stream_start, gboolean *need_segment) {
+ * CONTAINER mode emits the fixed multistream batch caps. PASSTHROUGH mode
+ * requires every live sink pad to have negotiated identical caps (only equality
+ * is checked, not the media type); the shared caps become the src caps. A
+ * mismatch is a configuration error: *caps_mismatch is set so the caller can
+ * post a GST_ELEMENT_ERROR outside the lock.
+ *
+ * Returns the caps to push downstream (transfer full, NULL if already
+ * negotiated or on mismatch), and reports via out-params whether
+ * stream-start/segment must be sent first. The actual event pushing is done by
+ * the caller OUTSIDE the lock to avoid deadlock with downstream queries. */
+static GstCaps *negotiate_src_caps(GstGvaStreammux *mux, gboolean *need_stream_start, gboolean *need_segment,
+                                   gboolean *caps_mismatch) {
     *need_stream_start = FALSE;
     *need_segment = FALSE;
-    if (mux->output_mode != GVA_STREAMMUX_OUTPUT_UNDECIDED)
+    *caps_mismatch = FALSE;
+    if (mux->caps_negotiated)
         return NULL;
 
-    /* All-video sources keep the legacy passthrough behavior; any non-video
-     * pad switches the whole element to container output. */
-    gboolean all_video = TRUE;
-    GstCaps *first_video_caps = NULL;
-    for (guint i = 0; i < mux->pad_data->len; i++) {
-        GvaStreammuxPadData *pdata = (GvaStreammuxPadData *)g_ptr_array_index(mux->pad_data, i);
-        if (!pdata || !pdata->caps)
-            continue;
-        if (pdata->media_type != GVA_STREAMMUX_MEDIA_VIDEO)
-            all_video = FALSE;
-        else if (!first_video_caps)
-            first_video_caps = pdata->caps;
-    }
-
     GstCaps *src_caps = NULL;
-    if (all_video && first_video_caps) {
-        mux->output_mode = GVA_STREAMMUX_OUTPUT_PASSTHROUGH;
-        mux->current_caps = gst_caps_copy(first_video_caps);
-        src_caps = gst_caps_ref(mux->current_caps);
-        GST_INFO_OBJECT(mux, "Output mode: PASSTHROUGH (all video), src caps: %" GST_PTR_FORMAT, src_caps);
-    } else {
-        mux->output_mode = GVA_STREAMMUX_OUTPUT_CONTAINER;
+    if (mux->output_mode == GVA_STREAMMUX_OUTPUT_CONTAINER) {
         src_caps = gst_caps_from_string(STREAMMUX_BATCH_CAPS);
-        GST_INFO_OBJECT(mux, "Output mode: CONTAINER (heterogeneous), src caps: %" GST_PTR_FORMAT, src_caps);
+        GST_INFO_OBJECT(mux, "Output mode: CONTAINER, src caps: %" GST_PTR_FORMAT, src_caps);
+    } else {
+        /* PASSTHROUGH: every live sink pad must share identical caps. */
+        GstCaps *shared_caps = NULL;
+        for (guint i = 0; i < mux->pad_data->len; i++) {
+            GvaStreammuxPadData *pdata = (GvaStreammuxPadData *)g_ptr_array_index(mux->pad_data, i);
+            if (!pdata || pdata->eos || !pdata->caps)
+                continue;
+            if (!shared_caps) {
+                shared_caps = pdata->caps;
+            } else if (!gst_caps_is_equal(shared_caps, pdata->caps)) {
+                GST_ERROR_OBJECT(mux,
+                                 "output-mode=passthrough requires all sink pads to have identical caps, "
+                                 "but sink_%u caps %" GST_PTR_FORMAT " differ from %" GST_PTR_FORMAT,
+                                 pdata->pad_index, pdata->caps, shared_caps);
+                *caps_mismatch = TRUE;
+                return NULL;
+            }
+        }
+        if (!shared_caps)
+            return NULL; /* no live pad with caps yet */
+        mux->current_caps = gst_caps_copy(shared_caps);
+        src_caps = gst_caps_ref(mux->current_caps);
+        GST_INFO_OBJECT(mux, "Output mode: PASSTHROUGH, src caps: %" GST_PTR_FORMAT, src_caps);
     }
 
+    mux->caps_negotiated = TRUE;
     *need_stream_start = mux->send_stream_start;
     mux->send_stream_start = FALSE;
     *need_segment = !mux->segment_sent;
@@ -636,24 +674,32 @@ static gboolean gst_gva_streammux_sink_event(GstPad *pad, GstObject *parent, Gst
 
         gboolean need_stream_start = FALSE;
         gboolean need_segment = FALSE;
+        gboolean caps_mismatch = FALSE;
         GstCaps *caps_to_push = NULL;
 
         g_mutex_lock(&mux->lock);
         if (pdata) {
             /* Store this pad's caps (replacing any previous, e.g. on
-             * renegotiation) and classify it. */
+             * renegotiation). */
             if (pdata->caps)
                 gst_caps_unref(pdata->caps);
             pdata->caps = gst_caps_copy(caps);
-            pdata->media_type = classify_media_type(pdata->caps);
         }
 
         /* Defer source caps negotiation until every live sink pad has reported
-         * its caps, so the all-video-vs-heterogeneous decision is final. */
-        if (mux->output_mode == GVA_STREAMMUX_OUTPUT_UNDECIDED && all_live_pads_have_caps(mux)) {
-            caps_to_push = negotiate_src_caps(mux, &need_stream_start, &need_segment);
+         * its caps (so a passthrough caps-equality check sees all of them). */
+        if (!mux->caps_negotiated && all_live_pads_have_caps(mux)) {
+            caps_to_push = negotiate_src_caps(mux, &need_stream_start, &need_segment, &caps_mismatch);
         }
         g_mutex_unlock(&mux->lock);
+
+        if (caps_mismatch) {
+            GST_ELEMENT_ERROR(mux, STREAM, FORMAT, ("Sink pads have mismatched caps"),
+                              ("output-mode=passthrough requires all sink pads to share identical caps; "
+                               "use output-mode=container for heterogeneous sources"));
+            gst_event_unref(event);
+            return FALSE;
+        }
 
         if (caps_to_push) {
             if (need_stream_start) {
@@ -697,6 +743,7 @@ static gboolean gst_gva_streammux_sink_event(GstPad *pad, GstObject *parent, Gst
     case GST_EVENT_EOS: {
         gboolean need_stream_start = FALSE;
         gboolean need_segment = FALSE;
+        gboolean caps_mismatch = FALSE;
         GstCaps *caps_to_push = NULL;
 
         g_mutex_lock(&mux->lock);
@@ -709,12 +756,20 @@ static gboolean gst_gva_streammux_sink_event(GstPad *pad, GstObject *parent, Gst
         }
         /* A pad may reach EOS before ever sending caps. Once it is excluded,
          * the remaining live pads might all have caps, so (re)try negotiation
-         * to avoid the output loop waiting forever for the mode to be decided. */
-        if (mux->output_mode == GVA_STREAMMUX_OUTPUT_UNDECIDED && all_live_pads_have_caps(mux)) {
-            caps_to_push = negotiate_src_caps(mux, &need_stream_start, &need_segment);
+         * to avoid the output loop waiting forever for caps to be decided. */
+        if (!mux->caps_negotiated && all_live_pads_have_caps(mux)) {
+            caps_to_push = negotiate_src_caps(mux, &need_stream_start, &need_segment, &caps_mismatch);
         }
         g_cond_signal(&mux->cond);
         g_mutex_unlock(&mux->lock);
+
+        if (caps_mismatch) {
+            GST_ELEMENT_ERROR(mux, STREAM, FORMAT, ("Sink pads have mismatched caps"),
+                              ("output-mode=passthrough requires all sink pads to share identical caps; "
+                               "use output-mode=container for heterogeneous sources"));
+            gst_event_unref(event);
+            return FALSE;
+        }
 
         if (caps_to_push) {
             if (need_stream_start) {
@@ -1006,13 +1061,12 @@ static void gst_gva_streammux_output_loop(gpointer user_data) {
         return;
     }
 
-    /* Gate: don't assemble or push anything until the output mode is decided
-     * (i.e. all live sink pads have reported caps and src caps were negotiated).
-     * This guarantees the first downstream buffer is preceded by the correct
-     * caps and that PASSTHROUGH vs CONTAINER is final. */
-    if (mux->output_mode == GVA_STREAMMUX_OUTPUT_UNDECIDED) {
+    /* Gate: don't assemble or push anything until src caps are negotiated
+     * (i.e. all live sink pads have reported caps). This guarantees the first
+     * downstream buffer is preceded by the correct caps. */
+    if (!mux->caps_negotiated) {
         /* Degenerate case: every pad reached EOS before any caps were seen, so
-         * the mode can never be decided. Forward EOS and stop instead of
+         * caps can never be negotiated. Forward EOS and stop instead of
          * waiting forever. */
         if (mux->num_sink_pads > 0 && mux->eos_pad_count >= mux->num_sink_pads) {
             g_mutex_unlock(&mux->lock);
