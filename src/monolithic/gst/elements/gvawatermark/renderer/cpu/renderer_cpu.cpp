@@ -14,14 +14,11 @@ namespace {
 
 // Compute a Gaussian blur kernel size proportional to the ROI so that larger
 // regions get a stronger blur.  The kernel must be positive and odd for
-// cv::GaussianBlur.  Using ~1/5 of each dimension with a minimum of 7
+// cv::GaussianBlur.  Using ~1/3 of each dimension with a minimum of 7
 // keeps small objects blurred while scaling up for bigger regions.
 cv::Size computeBlurKernelSize(int roi_width, int roi_height) {
-    int kw = std::max(7, roi_width / 5);
-    int kh = std::max(7, roi_height / 5);
-    // Ensure odd
-    kw = kw | 1;
-    kh = kh | 1;
+    int kw = std::max(7, roi_width / 3) | 1;  // Ensure odd
+    int kh = std::max(7, roi_height / 3) | 1; // Ensure odd
     return cv::Size(kw, kh);
 }
 

@@ -33,7 +33,10 @@ void PostProcessorImpl::setDefaultConverter(GstStructure *model_proc_output, con
     if (model_proc_output == nullptr)
         throw std::runtime_error("Can not get model_proc output information.");
 
-    if (gst_structure_has_field(model_proc_output, "converter"))
+    // gvainference (RAW) must always emit raw output tensors, ignoring any converter declared in the
+    // model's metadata/config (e.g. timm "label" classification converter). For other types, keep the
+    // converter already declared by the model/model-proc.
+    if (converter_type != ConverterType::RAW && gst_structure_has_field(model_proc_output, "converter"))
         return;
 
     switch (converter_type) {

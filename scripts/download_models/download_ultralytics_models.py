@@ -69,9 +69,10 @@ def is_explicit_local_model_path(model_or_path: str) -> bool:
 
 
 def move_exported_model(exported_path: Path, outdir: Path) -> Path:
-    desired_path = outdir / exported_path.name
-    exported_path.rename(desired_path)
-    return desired_path
+    for item in exported_path.iterdir():
+        item.rename(outdir / item.name)
+    exported_path.rmdir()
+    return outdir
 
 
 def main() -> int:
