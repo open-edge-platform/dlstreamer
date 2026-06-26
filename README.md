@@ -39,10 +39,10 @@
 | **Hardware acceleration** | Targets CPU, GPU, and NPU on Intel platforms from a single codebase |
 | **VLM & GenAI ready** | Run Vision-Language Models (MiniCPM-V, CLIP, Whisper) in a GStreamer pipeline |
 | **GstAnalytics compliance** | Supports the GStreamer industry metadata standard for interoperability with other GStreamer-based tools |
-| **Production metadata** | Structured JSON output to MQTT, Kafka, or a file with built-in elements |
+| **Messaging integration** | Publish inference results directly to MQTT or Kafka with built-in elements — no extra code required |
 | **Python-first extensibility** | Add custom logic as Python callbacks or full Python GStreamer elements — no C++ required |
 | **Multi-stream, multi-sensor** | Mux/demux dozens of RTSP streams, LiDAR frames, and radar point clouds in one process |
-| **Geti™ & ONNX support** | Deploy models from Geti™ Studio or any ONNX/OpenVINO IR model directly |
+| **Geti™, Ultralytics & HuggingFace support** | Deploy models from Geti™ Studio, Ultralytics, Hugging Face, or any ONNX/OpenVINO IR model directly |
 
 ---
 
