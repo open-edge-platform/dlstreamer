@@ -1180,10 +1180,9 @@ static void gst_gva_streammux_output_loop(gpointer user_data) {
             if (!GST_CLOCK_TIME_IS_VALID(pts) || !GST_CLOCK_TIME_IS_VALID(mux->batch_anchor_pts) ||
                 pts_abs_diff(pts, mux->batch_anchor_pts) <= mux->pts_tolerance) {
                 head = (GstBuffer *)g_queue_pop_head(&pdata->buffer_queue);
-                BatchEntry entry = {head, pdata->pad_index,
-                                    (output_mode == GVA_STREAMMUX_OUTPUT_CONTAINER && pdata->caps)
-                                        ? gst_caps_ref(pdata->caps)
-                                        : NULL};
+                BatchEntry entry = {
+                    head, pdata->pad_index,
+                    (output_mode == GVA_STREAMMUX_OUTPUT_CONTAINER && pdata->caps) ? gst_caps_ref(pdata->caps) : NULL};
                 g_array_append_val(batch, entry);
                 batch_size++;
             }
@@ -1256,8 +1255,8 @@ static void gst_gva_streammux_output_loop(gpointer user_data) {
             }
         }
 
-        GST_LOG_OBJECT(mux, "Push container buffer (pts=%" GST_TIME_FORMAT "), n_streams=%u",
-                       GST_TIME_ARGS(batch_pts), batch_size);
+        GST_LOG_OBJECT(mux, "Push container buffer (pts=%" GST_TIME_FORMAT "), n_streams=%u", GST_TIME_ARGS(batch_pts),
+                       batch_size);
 
         ret = gst_pad_push(mux->srcpad, container);
         if (ret != GST_FLOW_OK)
