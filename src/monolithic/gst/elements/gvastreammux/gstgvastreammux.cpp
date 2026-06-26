@@ -71,8 +71,9 @@ GType gst_gva_streammux_output_mode_get_type(void) {
     "; " GST_VIDEO_CAPS_MAKE_WITH_FEATURES("memory:VAMemory", "{ NV12 }") "; " GST_VIDEO_CAPS_MAKE_WITH_FEATURES(      \
         "memory:DMABuf", "{ DMA_DRM }") "; "
 
-/* Non-video sources accepted on sink pads (e.g. lidar from g3dlidarparse). */
-#define STREAMMUX_NONVIDEO_CAPS "application/x-lidar"
+/* Non-video sources accepted on sink pads (e.g. lidar from g3dlidarparse,
+ * processed radar). */
+#define STREAMMUX_NONVIDEO_CAPS "application/x-lidar; application/x-radar-processed"
 
 /* Output caps used in CONTAINER mode: the standard GStreamer multistream batch
  * caps (GStreamer 1.28). Each container buffer carries a GstAnalyticsBatchMeta
@@ -84,10 +85,14 @@ GType gst_gva_streammux_output_mode_get_type(void) {
 static GstStaticPadTemplate gva_streammux_sink_template = GST_STATIC_PAD_TEMPLATE(
     "sink_%u", GST_PAD_SINK, GST_PAD_REQUEST, GST_STATIC_CAPS(STREAMMUX_VIDEO_CAPS STREAMMUX_NONVIDEO_CAPS));
 
-/* Src advertises both the video caps (PASSTHROUGH mode) and the batch caps
- * (CONTAINER mode); the actual caps are fixed at negotiation time. */
-static GstStaticPadTemplate gva_streammux_src_template = GST_STATIC_PAD_TEMPLATE(
-    "src", GST_PAD_SRC, GST_PAD_ALWAYS, GST_STATIC_CAPS(STREAMMUX_VIDEO_CAPS STREAMMUX_BATCH_CAPS));
+/* Src advertises, for PASSTHROUGH mode, every caps a sink pad may carry (video
+ * or non-video, e.g. lidar) since passthrough copies the shared sink caps
+ * verbatim; plus the batch caps for CONTAINER mode. The actual caps are fixed
+ * at negotiation time.
+ * Note: STREAMMUX_VIDEO_CAPS already ends with "; ", so concatenate directly. */
+static GstStaticPadTemplate gva_streammux_src_template =
+    GST_STATIC_PAD_TEMPLATE("src", GST_PAD_SRC, GST_PAD_ALWAYS,
+                            GST_STATIC_CAPS(STREAMMUX_VIDEO_CAPS STREAMMUX_NONVIDEO_CAPS "; " STREAMMUX_BATCH_CAPS));
 
 /* Forward declarations */
 static void gst_gva_streammux_set_property(GObject *object, guint prop_id, const GValue *value, GParamSpec *pspec);

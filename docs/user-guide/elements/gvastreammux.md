@@ -264,9 +264,10 @@ Factory Details:
 
 Pad Templates:
   SINK template: 'sink_%u'  (On request, video/x-raw, video/x-raw(memory:VAMemory) NV12,
-                             video/x-raw(memory:DMABuf) DMA_DRM, application/x-lidar)
-  SRC template:  'src'      (Always, the video caps above OR
-                             multistream/x-analytics-batch(meta:GstAnalyticsBatchMeta))
+                             video/x-raw(memory:DMABuf) DMA_DRM, application/x-lidar,
+                             application/x-radar-processed)
+  SRC template:  'src'      (Always, the sink caps above (passthrough) OR
+                             multistream/x-analytics-batch(meta:GstAnalyticsBatchMeta) (container))
 
 Element Properties:
   max-fps         Double, range 0-Inf, default 0
