@@ -31,6 +31,11 @@ std::map<std::string, GstStructure *> ImageInference::GetModelInfoPreproc(const 
     return OpenVINOImageInference::GetModelInfoPreproc(model_file, preproc_config, ov_extension_lib);
 }
 
+std::map<std::string, std::vector<size_t>> ImageInference::GetModelInputShapes(const std::string model_file,
+                                                                               const gchar *ov_extension_lib) {
+    return OpenVINOImageInference::GetModelInputShapes(model_file, ov_extension_lib);
+}
+
 ImageInference::Ptr ImageInference::createImageInferenceInstance(MemoryType input_image_memory_type,
                                                                  const InferenceConfig &config, Allocator *allocator,
                                                                  CallbackFunc callback, ErrorHandlingFunc error_handler,
