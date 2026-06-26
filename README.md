@@ -46,7 +46,7 @@
 
 ---
 
-## ⚡ Quick Start - Installation
+## Quick Start - Installation
 
 ### Step 1 — Install GPU/NPU drivers (required for Docker and native install)
 
