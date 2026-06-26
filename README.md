@@ -92,7 +92,7 @@ Full installation guide: [Install Guide for Ubuntu](https://docs.openedgeplatfor
 
 ---
 
-## ⚡ Quick Start - Your First Pipeline
+## Quick Start - Run Your Pipeline
 
 **Step 1 — Set up models and environment** (inside the container or on a native install):
 
