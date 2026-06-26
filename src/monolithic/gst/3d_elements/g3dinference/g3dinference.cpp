@@ -9,7 +9,8 @@
 #include "gmutex_lock_guard.h"
 #include <dlstreamer/gst/buffer_map_guard.h>
 #include <dlstreamer/gst/metadata/g3d_lidar_meta.h>
-#include <dlstreamer/gst/metadata/gva_tensor_meta.h>
+#include <dlstreamer/gst/metadata/g3d_od_mtd.h>
+#include <gst/analytics/analytics.h>
 #include <nlohmann/json.hpp>
 #include <openvino/openvino.hpp>
 
@@ -223,27 +224,6 @@ class PointPillarsRuntime {
     std::string _postproc_model_path;
 };
 
-GValueArray *vector_to_gvalue_array(const std::vector<guint> &values) {
-    GValueArray *array = g_value_array_new(values.size());
-    GValue gvalue = G_VALUE_INIT;
-    g_value_init(&gvalue, G_TYPE_UINT);
-    for (guint value : values) {
-        g_value_set_uint(&gvalue, value);
-        g_value_array_append(array, &gvalue);
-    }
-    return array;
-}
-
-void copy_buffer_to_structure(GstStructure *structure, const std::vector<float> &buffer) {
-    if (buffer.empty())
-        return;
-
-    GVariant *variant = g_variant_new_fixed_array(G_VARIANT_TYPE_BYTE, buffer.data(), buffer.size() * sizeof(float), 1);
-    gsize nbytes = 0;
-    gst_structure_set(structure, "data_buffer", G_TYPE_VARIANT, variant, "data", G_TYPE_POINTER,
-                      g_variant_get_fixed_array(variant, &nbytes, 1), NULL);
-}
-
 LidarMeta *get_lidar_meta(GstBuffer *buffer) {
     return reinterpret_cast<LidarMeta *>(gst_buffer_get_meta(buffer, LIDAR_META_API_TYPE));
 }
@@ -267,20 +247,27 @@ GstClockTime get_exit_g3dinference_timestamp(GstG3DInference *filter) {
     return timestamp;
 }
 
-void set_tensor_metadata(GstGVATensorMeta *tensor_meta, const std::vector<float> &detections, const char *model_type) {
-    gst_structure_set_name(tensor_meta->data, "detection");
-    gst_structure_set(tensor_meta->data, "element_id", G_TYPE_STRING, "g3dinference", "model_name", G_TYPE_STRING,
-                      model_type ? model_type : DEFAULT_MODEL_TYPE, "layer_name", G_TYPE_STRING,
-                      "pointpillars_3d_detection", "format", G_TYPE_STRING, "pointpillars_3d", "precision", G_TYPE_INT,
-                      GVA_PRECISION_FP32, "layout", G_TYPE_INT, GVA_LAYOUT_NC, "rank", G_TYPE_INT, 2, NULL);
-
-    const std::vector<guint> dims = {static_cast<guint>(detections.size() / DETECTION_WIDTH),
-                                     static_cast<guint>(DETECTION_WIDTH)};
-    GValueArray *array = vector_to_gvalue_array(dims);
-    gst_structure_set_array(tensor_meta->data, "dims", array);
-    g_value_array_free(array);
-
-    copy_buffer_to_structure(tensor_meta->data, detections);
+/* Emit one GstAnalytics3DODMtd per detection onto @rmeta. Each detection is
+ * DETECTION_WIDTH floats in PointPillars layout: x, y, z, w, l, h, theta, score,
+ * label. The GstAnalytics3DODMtd setter takes (length, width, height), so the
+ * model's w maps to width (d[3]) and l maps to length (d[4]). Returns the number
+ * of 3D detections written. */
+size_t emit_3d_od_mtds(GstAnalyticsRelationMeta *rmeta, const std::vector<float> &detections) {
+    const size_t count = detections.size() / DETECTION_WIDTH;
+    size_t written = 0;
+    for (size_t i = 0; i < count; ++i) {
+        const float *d = detections.data() + i * DETECTION_WIDTH;
+        GstAnalytics3DODMtd mtd;
+        if (gst_analytics_relation_meta_add_3d_od_mtd(rmeta, /*x=*/d[0], /*y=*/d[1], /*z=*/d[2], /*length=*/d[4],
+                                                      /*width=*/d[3], /*height=*/d[5], /*yaw=*/d[6], /*pitch=*/0.f,
+                                                      /*roll=*/0.f, /*class_id=*/static_cast<gint>(d[8]),
+                                                      /*confidence=*/d[7], GST_ANALYTICS_3D_SENSOR_LIDAR, &mtd)) {
+            ++written;
+        } else {
+            GST_WARNING("Failed to add GstAnalytics3DODMtd for detection %zu/%zu", i, count);
+        }
+    }
+    return written;
 }
 
 } // namespace
@@ -495,18 +482,18 @@ static GstFlowReturn gst_g3d_inference_transform_ip(GstBaseTransform *trans, Gst
             detections = get_runtime(filter)->infer(points, lidar_meta->lidar_point_count, filter->score_threshold);
         }
 
-        GstGVATensorMeta *tensor_meta = GST_GVA_TENSOR_META_ADD(buffer);
-        if (!tensor_meta || !tensor_meta->data)
-            throw std::runtime_error("Failed to allocate GstGVATensorMeta");
+        GstAnalyticsRelationMeta *rmeta = gst_buffer_get_analytics_relation_meta(buffer);
+        if (!rmeta)
+            rmeta = gst_buffer_add_analytics_relation_meta(buffer);
+        if (!rmeta)
+            throw std::runtime_error("Failed to allocate GstAnalyticsRelationMeta");
 
-        set_tensor_metadata(tensor_meta, detections, filter->model_type);
+        const size_t detection_count = emit_3d_od_mtds(rmeta, detections);
         lidar_meta->exit_g3dinference_timestamp = get_exit_g3dinference_timestamp(filter);
 
         GST_DEBUG_OBJECT(
-            filter,
-            "Attached PointPillars tensor with %zu detections for frame_id=%zu exit_g3dinference_ts=%" GST_TIME_FORMAT,
-            detections.size() / DETECTION_WIDTH, lidar_meta->frame_id,
-            GST_TIME_ARGS(lidar_meta->exit_g3dinference_timestamp));
+            filter, "Attached %zu PointPillars 3D detections for frame_id=%zu exit_g3dinference_ts=%" GST_TIME_FORMAT,
+            detection_count, lidar_meta->frame_id, GST_TIME_ARGS(lidar_meta->exit_g3dinference_timestamp));
         return GST_FLOW_OK;
     } catch (const std::exception &e) {
         GST_ELEMENT_ERROR(filter, STREAM, FAILED, ("Failed to process LiDAR buffer"), ("%s", e.what()));
