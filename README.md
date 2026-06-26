@@ -12,7 +12,7 @@
 [![Docker](https://img.shields.io/badge/Docker-available-2496ED?logo=docker)](https://hub.docker.com/r/intel/dlstreamer)
 [![Part of Open Edge Platform](https://img.shields.io/badge/Open%20Edge%20Platform-member-0071C5)](https://github.com/open-edge-platform)
 
-<img src="./docs/hero_samples.jpg" width="800" alt="DL Streamer sample outputs">
+<img src="./hero.jpg" width="800" alt="DL Streamer sample outputs">
 
 [Get Started](#-quick-start) • [Samples](./samples/gstreamer/README.md) • [Elements](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/elements/elements.html) • [Documentation](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/index.html) • [Contributing](./CONTRIBUTING.md)
 
