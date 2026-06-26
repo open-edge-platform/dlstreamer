@@ -17,7 +17,7 @@
 #define ELEMENT_LONG_NAME "Frames Per Second counter"
 #define ELEMENT_DESCRIPTION "Measures frames per second across multiple streams in a single process."
 
-#define CAPS_TEMPLATE_STRING \
+#define CAPS_TEMPLATE_STRING                                                                                           \
     "video/x-raw(ANY);other/tensors(ANY); \
     application/x-lidar;application/x-radar-processed; \
     multistream/x-analytics-batch(meta:GstAnalyticsBatchMeta)"
