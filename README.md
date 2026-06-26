@@ -97,20 +97,13 @@ Full installation guide: [Install Guide for Ubuntu](https://docs.openedgeplatfor
 **Step 1 — Set up models and environment** (inside the container or on a native install):
 
 ```bash
-export MODELS_PATH=~/models
-export VIDEO=https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4
-
-# Download yolo11n INT8 (one-time setup)
 cd ~
-python3 -m venv .venv && source .venv/bin/activate
-curl -sLO https://raw.githubusercontent.com/openvinotoolkit/openvino.genai/refs/heads/releases/2026/0/samples/export-requirements.txt
-pip install -r export-requirements.txt -r /opt/intel/dlstreamer/scripts/download_models/requirements.txt
+python3 -m venv .dls-venv && source .dls-venv/bin/activate
+pip install openvino==2026.1.0 nncf==3.0.0 ultralytics==8.4.3
 python3 /opt/intel/dlstreamer/scripts/download_models/download_ultralytics_models.py \
   --model yolo11n.pt \
-  --outdir $MODELS_PATH/public/yolo11n/INT8 \
+  --outdir ~/models/yolo11n \
   --int8
-mv $MODELS_PATH/public/yolo11n/INT8/yolo11n_int8_openvino_model/* $MODELS_PATH/public/yolo11n/INT8/
-rmdir $MODELS_PATH/public/yolo11n/INT8/yolo11n_int8_openvino_model
 source /opt/intel/dlstreamer/scripts/setup_dls_env.sh
 ```
 
@@ -118,9 +111,9 @@ source /opt/intel/dlstreamer/scripts/setup_dls_env.sh
 
 ```bash
 gst-launch-1.0 \
-  urisourcebin buffer-size=4096 uri=$VIDEO ! \
+  urisourcebin buffer-size=4096 uri=https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4 ! \
   decodebin3 ! \
-  gvadetect model=$MODELS_PATH/public/yolo11n/INT8/yolo11n.xml device=GPU ! \
+  gvadetect model=~/models/yolo11n/yolo11n_int8_openvino_model/yolo11n.xml device=GPU ! \
   queue ! \
   gvawatermark ! \
   gvafpscounter ! \
@@ -131,9 +124,9 @@ Output to JSON (works everywhere, including headless Docker):
 
 ```bash
 gst-launch-1.0 \
-  urisourcebin buffer-size=4096 uri=$VIDEO ! \
+  urisourcebin buffer-size=4096 uri=https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4 ! \
   decodebin3 ! \
-  gvadetect model=$MODELS_PATH/public/yolo11n/INT8/yolo11n.xml device=GPU ! \
+  gvadetect model=~/models/yolo11n/yolo11n_int8_openvino_model/yolo11n.xml device=GPU ! \
   queue ! \
   gvafpscounter ! \
   gvametaconvert format=json ! \
@@ -153,11 +146,11 @@ import os
 Gst.init([])
 
 video_url = "https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4"
-models_path = os.environ.get("MODELS_PATH", os.path.expanduser("~/models"))
+model = os.path.expanduser("~/models/yolo11n/yolo11n_int8_openvino_model/yolo11n.xml")
 pipeline = Gst.parse_launch(f"""
     urisourcebin buffer-size=4096 uri={video_url} !
     decodebin3 !
-    gvadetect model={models_path}/public/yolo11n/INT8/yolo11n.xml device=GPU !
+    gvadetect model={model} device=GPU !
     queue !
     gvafpscounter !
     gvametaconvert format=json !
