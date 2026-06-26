@@ -57,12 +57,24 @@ def resolve_hf_model_ref(
 ) -> tuple[str, str]:
     """Return ``repo_id`` and an immutable commit SHA for a Hugging Face model ref."""
     normalized_ref = model_ref.strip()
-    repo_id, separator, revision = normalized_ref.rpartition("@")
-    if separator and repo_id and revision:
-        return repo_id, revision
     if not normalized_ref:
         raise ValueError("Hugging Face model ref must not be empty")
 
+    repo_id, separator, revision = normalized_ref.rpartition("@")
+
+    # Explicit "repo_id@revision" override: validate that the revision exists
+    # and normalize it to an immutable commit SHA.
+    if separator and repo_id and revision:
+        try:
+            model_info = HfApi(token=token).model_info(repo_id, revision=revision)
+        except Exception as exc:  # repo or revision not found / inaccessible
+            raise ValueError(
+                f"Revision '{revision}' not found for Hugging Face model '{repo_id}'"
+            ) from exc
+        resolved_revision = getattr(model_info, "sha", None) or revision
+        return repo_id, resolved_revision
+
+    # No explicit revision: resolve the current immutable commit SHA.
     model_info = HfApi(token=token).model_info(normalized_ref)
     resolved_revision = getattr(model_info, "sha", None)
     if not resolved_revision:
