@@ -152,7 +152,6 @@ build_pipeline_command() {
 		"score-threshold=${SCORE_THRESHOLD}"
 		'!'
 		gvametaconvert
-		add-tensor-data=true
 		format=json
 		json-indent=2
 		'!'
