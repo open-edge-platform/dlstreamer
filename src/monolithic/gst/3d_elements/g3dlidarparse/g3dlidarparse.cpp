@@ -523,7 +523,8 @@ static GstFlowReturn gst_g3d_lidar_parse_transform(GstBaseTransform *trans, GstB
         filter->next_pts += duration;
     }
 
-    GST_INFO_OBJECT(filter, "Successfully processed lidar buffer with %u floats", lidar_meta->lidar_point_count);
+    GST_INFO_OBJECT(filter, "Successfully processed lidar buffer with %u point%s", lidar_meta->lidar_point_count,
+                    lidar_meta->lidar_point_count == 1 ? "" : "s");
 
     g_mutex_unlock(&filter->mutex);
 
