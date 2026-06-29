@@ -1240,12 +1240,12 @@ os.remove('${MODEL_NAME}.zip')
 "
 
     mkdir -p INT8
-    cp "${MODEL_NAME}/deployment/Detection/model/model.bin" "INT8/${MODEL_NAME}.bin"
-    cp "${MODEL_NAME}/deployment/Detection/model/model.xml" "INT8/${MODEL_NAME}.xml"
-    cp "${MODEL_NAME}/deployment/Detection/model/config.json" "INT8/config.json"
-    chmod -R u+w "${MODEL_NAME}"
-    rm -rf "${MODEL_NAME}"
-    cd -
+    cp deployment/Detection/model/model.bin INT8/${MODEL_NAME}.bin
+    cp deployment/Detection/model/model.xml INT8/${MODEL_NAME}.xml
+    cp deployment/Detection/model/config.json INT8/config.json
+    chmod -R u+w deployment example_code
+    rm -rf deployment example_code
+    rm -f LICENSE README.md sample_image.jpg
   else
     echo_color "\nModel already exists: $MODEL_DIR.\n" "yellow"
   fi
