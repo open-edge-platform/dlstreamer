@@ -28,8 +28,23 @@ typedef enum {
     GVA_STREAMMUX_SYNC_MODE_NTP,
 } GvaStreammuxSyncMode;
 
+/* How the source pad emits each assembled batch. Selected by the user via the
+ * "output-mode" property (no auto-detection from media types). */
+typedef enum {
+    /* Push each source buffer as-is (plain video / single media type),
+     * tagged with a single-stream GstAnalyticsBatchMeta. Requires every sink
+     * pad to negotiate identical caps. */
+    GVA_STREAMMUX_OUTPUT_PASSTHROUGH = 0,
+    /* Pack a whole batch into a single container buffer carrying
+     * GstAnalyticsBatchMeta (supports heterogeneous sources, e.g. video + lidar). */
+    GVA_STREAMMUX_OUTPUT_CONTAINER,
+} GvaStreammuxOutputMode;
+
 #define GST_TYPE_GVA_STREAMMUX_SYNC_MODE (gst_gva_streammux_sync_mode_get_type())
 GType gst_gva_streammux_sync_mode_get_type(void);
+
+#define GST_TYPE_GVA_STREAMMUX_OUTPUT_MODE (gst_gva_streammux_output_mode_get_type())
+GType gst_gva_streammux_output_mode_get_type(void);
 
 typedef struct _GstGvaStreammux GstGvaStreammux;
 typedef struct _GstGvaStreammuxClass GstGvaStreammuxClass;
@@ -46,6 +61,10 @@ struct _GvaStreammuxPadData {
     gboolean first_pts_set;
     GstClockTime first_pts;
     GstClockTime segment_start;
+
+    /* Caps negotiated on this pad (own ref). In CONTAINER mode each stream
+     * carries its own caps; in PASSTHROUGH mode this equals mux->current_caps. */
+    GstCaps *caps;
 };
 
 struct _GstGvaStreammux {
@@ -59,6 +78,7 @@ struct _GstGvaStreammux {
     GstClockTime max_wait_time;
     guint max_queue_size;
     GvaStreammuxSyncMode sync_mode;
+    GvaStreammuxOutputMode output_mode;
 
     /* Internal state */
     guint num_sink_pads;
@@ -80,8 +100,13 @@ struct _GstGvaStreammux {
     /* Sink pads list (ordered by pad index) */
     GList *sinkpads;
 
-    /* Output caps negotiated */
+    /* Output caps negotiated (PASSTHROUGH mode: the shared sink caps) */
     GstCaps *current_caps;
+
+    /* TRUE once src caps have been negotiated and pushed downstream. The output
+     * mode itself is fixed by the "output-mode" property; this only gates the
+     * output loop until the (mode-dependent) src caps are known. */
+    gboolean caps_negotiated;
 
     /* Segment tracking */
     gboolean segment_sent;
