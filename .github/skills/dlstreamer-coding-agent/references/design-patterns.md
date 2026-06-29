@@ -313,7 +313,8 @@ if not rmeta:
 for mtd in rmeta:
     if isinstance(mtd, GstAnalytics.ODMtd):
         label = GLib.quark_to_string(mtd.get_obj_type())
-        success, x, y, w, h, conf = mtd.get_location_and_confidence()
+        success, x, y, w, h, rotation = mtd.get_location()
+        confidence = mtd.get_confidence_lvl()
     elif isinstance(mtd, GstAnalytics.TrackingMtd):
         success, tracking_id, _, _, _ = mtd.get_info()
     elif isinstance(mtd, GstAnalytics.ClsMtd):
@@ -321,17 +322,33 @@ for mtd in rmeta:
         level = mtd.get_level(0)
 ```
 
-**DLStreamerMeta types (TripwireMtd, ZoneMtd) — use `iter_on_type()` instead of generic iteration:**
-Generic `for mtd in rmeta` raises `KeyError` for DLStreamerMeta types when `gvaanalytics`
-is present, because its internal rendering types are not registered in GstAnalytics `__mtd_types__`.
+**DLStreamerMeta types (TripwireMtd, ZoneMtd) — required module-level registration:**
+
+Add the block below at module level (before `Gst.init()`) in any plugin or probe that
+reads metadata from a pipeline containing `gvaanalytics`.
+
 ```python
+import gi.overrides.GstAnalytics as _ga_override
 gi.require_version("DLStreamerMeta", "1.0")
 from gi.repository import DLStreamerMeta
 
+_ga_override.__mtd_types__[DLStreamerMeta.TripwireMtd.get_mtd_type()] = \
+    DLStreamerMeta.relation_meta_get_tripwire_mtd
+_ga_override.__mtd_types__[DLStreamerMeta.ZoneMtd.get_mtd_type()] = \
+    DLStreamerMeta.relation_meta_get_zone_mtd
+
+# ... inside do_transform_ip / pad probe / appsink callback:
+for mtd in rmeta:
+    if isinstance(mtd, DLStreamerMeta.ZoneMtd):
+        success, zone_id = mtd.get_info()                     # (bool, str)
+    elif isinstance(mtd, DLStreamerMeta.TripwireMtd):
+        success, tripwire_id, direction = mtd.get_info()      # (bool, str, int)
+
+# Alternatively, use iter_on_type for type-filtered iteration:
+for mtd in rmeta.iter_on_type(DLStreamerMeta.ZoneMtd):
+    success, zone_id = mtd.get_info()
 for mtd in rmeta.iter_on_type(DLStreamerMeta.TripwireMtd):
     success, tripwire_id, direction = mtd.get_info()
-for mtd in rmeta.iter_on_type(DLStreamerMeta.ZoneMtd):
-    success, zone_id, zone_label = mtd.get_info()
 ```
 
 **Adding new analytics metadata:**
