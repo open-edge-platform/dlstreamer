@@ -1,6 +1,6 @@
 # g3dinference
 
-Runs PointPillars 3D object detection on LiDAR point clouds. The element consumes `application/x-lidar` buffers produced by `g3dlidarparse`, executes a PointPillars inference pipeline with OpenVINO, and attaches tensor metadata for downstream consumers.
+Runs PointPillars 3D object detection on LiDAR point clouds. The element consumes `application/x-lidar` buffers produced by `g3dlidarparse`, executes a PointPillars inference pipeline with OpenVINO, and attaches 3D object-detection analytics metadata for downstream consumers.
 
 ## Overview
 
@@ -9,7 +9,7 @@ The `g3dinference` element is intended for LiDAR-only 3D detection pipelines whe
 Key operations:
 - **LiDAR metadata validation**: Requires `LidarMeta` on each input buffer and validates payload size against `lidar_point_count`
 - **PointPillars inference**: Loads the `extension_lib`, `voxel_model`, `nn_model`, and `postproc_model` entries from a JSON config and executes them in sequence. `voxel_params` document the voxelization settings used when exporting the PointPillars models and are not applied separately by `g3dinference` at runtime.
-- **Tensor metadata attachment**: Attaches detections as `GstGVATensorMeta` with `pointpillars_3d` format
+- **3D detection metadata attachment**: Attaches one `GstAnalytics3DODMtd` per detection to the buffer's `GstAnalyticsRelationMeta`
 - **Pipeline integration**: Preserves the LiDAR payload and metadata so downstream elements can combine point clouds, detections, and converted JSON output
 
 ## Properties
@@ -72,7 +72,7 @@ gst-launch-1.0 multifilesrc location="lidar/%06d.bin" start-index=0 caps=applica
 gst-launch-1.0 multifilesrc location="lidar/%06d.bin" caps=application/octet-stream ! \
   g3dlidarparse ! \
   g3dinference config=pointpillars_ov_config.json device=GPU score-threshold=0.5 ! \
-  gvametaconvert add-tensor-data=true format=json json-indent=2 ! \  
+  gvametaconvert format=json json-indent=2 ! \
   gvametapublish file-format=2 file-path=pointpillars.json ! \
   fakesink
 ```
@@ -97,28 +97,18 @@ The element operates in-place. It keeps the point cloud payload intact and appen
 
 ### Output metadata
 
-The element adds `GstGVATensorMeta` with:
+The element adds one `GstAnalytics3DODMtd` per detection to the buffer's `GstAnalyticsRelationMeta`. Each `GstAnalytics3DODMtd` carries:
 
-- `element_id = g3dinference`
-- `model_name = pointpillars` or the configured model type
-- `layer_name = pointpillars_3d_detection`
-- `format = pointpillars_3d`
-- `precision = FP32`
-- `dims = [N, 9]`
+- `x, y, z`: 3D bounding box center coordinates (metres, sensor/world frame)
+- `length, width, height`: box extents (metres)
+- `yaw, pitch, roll`: orientation (radians). Only `yaw` is populated by PointPillars; `pitch` and `roll` are `0`.
+- `class_id`: predicted class identifier
+- `confidence`: detection score produced by the model post-processing stage
+- `modality`: sensor modality, set to `GST_ANALYTICS_3D_SENSOR_LIDAR`
 
-Each detection row contains 9 FP32 values. The first dimension `N` is the number of detections in the frame, and the second dimension is fixed at 9 values per detection.
+The PointPillars post-processing emits boxes as `(x, y, z, w, l, h, theta, score, label)`; `g3dinference` maps the model's `w`/`l` onto the metadata's `width`/`length` so the stored `length`/`width` keep their physical meaning.
 
-1. `x`: 3D bounding box center X coordinate
-2. `y`: 3D bounding box center Y coordinate
-3. `z`: 3D bounding box center Z coordinate
-4. `w`: bounding box width
-5. `l`: bounding box length
-6. `h`: bounding box height
-7. `theta`: bounding box rotation angle
-8. `confidence`: detection score produced by the model post-processing stage
-9. `label_id`: predicted class identifier
-
-When `gvametaconvert` converts this tensor to JSON, these values are mapped into a `bbox_3d` object together with `confidence` and `label_id` fields.
+When `gvametaconvert` converts these detections to JSON, each becomes a `bbox_3d` object with `x, y, z, l, w, h, yaw, pitch, roll`, plus `confidence`, `label_id`, and `modality` (`"lidar"`).
 
 ## Processing Pipeline
 
@@ -126,7 +116,7 @@ When `gvametaconvert` converts this tensor to JSON, these values are mapped into
 2. Retrieves `LidarMeta` from the input buffer
 3. Maps the LiDAR payload and verifies its size matches `lidar_point_count * 4 * sizeof(float)`
 4. Runs voxelization, network inference, and post-processing
-5. Flattens detections into `[N, 9]` tensor data and attaches `GstGVATensorMeta`
+5. Attaches one `GstAnalytics3DODMtd` per detection to the buffer's `GstAnalyticsRelationMeta`
 6. Pushes the enriched LiDAR buffer downstream for metadata conversion, publishing, or further analytics
 
 ## Element Details (gst-inspect-1.0)

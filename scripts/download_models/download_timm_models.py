@@ -184,7 +184,12 @@ def save_ir(exported_xml: Path, xml: Path) -> None:
         ov.Core().read_model(str(tmp_xml))
         tmp_bin.replace(xml.with_suffix(".bin"))
         tmp_xml.replace(xml)
+    skip = {exported_xml.name, exported_xml.with_suffix(".bin").name}
+    for companion in exported_xml.parent.iterdir():
+        if companion.name not in skip and companion.is_file():
+            shutil.copy2(companion, xml.parent / companion.name)
 
 
-cli_args = parse_args()
-cli_args.func(cli_args)
+if __name__ == "__main__":
+    _args = parse_args()
+    raise SystemExit(_args.func(_args))

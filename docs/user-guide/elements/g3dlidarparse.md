@@ -8,6 +8,7 @@ The `g3dlidarparse` element ingests raw LiDAR frame data and produces buffers en
 Key operations:
 - **Input parsing**: Reads raw LiDAR frames (BIN/PCD) from `application/octet-stream` buffers
 - **Frame thinning**: Applies `stride` and `frame-rate` controls to reduce processing load
+- **Timestamp management**: Sets PTS (Presentation Time Stamp) and duration on output buffers based on frame-rate
 - **Metadata attachment**: Emits `LidarMeta` containing point cloud data and frame identifiers
 
 ## Properties
@@ -15,6 +16,27 @@ Key operations:
 |------------|---------|-----------------------------------------------------------------------------|---------|
 | stride     | Integer (>=1) | Process every Nth frame (1 = every frame).                                  | 1       |
 | frame-rate | Float (>=0)   | Target output frame rate (0 = no limit).                                    | 0       |
+
+## Timestamp Behavior
+
+The element sets GStreamer buffer timestamps (PTS and duration) based on the `frame-rate` property:
+
+- **When `frame-rate > 0`**: 
+  - Each output buffer receives a PTS starting from 0 and incrementing by `1/frame-rate` seconds
+  - Buffer duration is set to `1/frame-rate` seconds
+  - Example: `frame-rate=30` produces buffers with PTS: 0s, 0.033s, 0.066s, ... and duration: 0.033s each
+
+- **When `frame-rate = 0`** (no rate control):
+  - PTS is set to 0 for all buffers
+  - Duration is set to `GST_CLOCK_TIME_NONE` (undefined)
+  - Frames are processed as fast as possible
+
+**Interaction with stride:**
+- When `stride > 1`, skipped frames do NOT consume timestamp space
+- Output timestamps are continuous regardless of which input frames were dropped
+- Example: `stride=2, frame-rate=30` outputs frames at indices 0, 2, 4... with PTS 0s, 0.033s, 0.066s...
+
+This ensures the output stream has the target frame rate specified by `frame-rate`, even when input frames are skipped via `stride`.
 
 
 ## Pipeline Examples
@@ -37,9 +59,11 @@ The element attaches `LidarMeta` to each output buffer, containing:
 
 ## Processing Pipeline
 1. **Buffer validation**: Ensures input buffer is present and readable
-2. **Frame selection**: Applies `stride` and `frame-rate` logic
-3. **Parsing**: Decodes BIN/PCD data into point cloud representation
-4. **Metadata attachment**: Attaches `LidarMeta` to the buffer
+2. **Frame selection**: Applies `stride` logic to skip frames if needed
+3. **Frame rate control**: Sleeps if necessary to maintain target `frame-rate`
+4. **Parsing**: Decodes BIN/PCD data into point cloud representation
+5. **Timestamp assignment**: Sets PTS and duration based on `frame-rate`
+6. **Metadata attachment**: Attaches `LidarMeta` to the buffer
 
 ## Element Details (gst-inspect-1.0)
 ```

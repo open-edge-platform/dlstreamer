@@ -159,19 +159,6 @@ jobs:
             -f ${path_dockerfile} \
             ${{ env.DLS_REL_PATH }}
 
-      - name: Build dlstreamer img with python
-        if: matrix.runner_print_label != 'SKIP'
-        env:
-          deb_final_img: ghcr.io/${{ github.repository }}/deb-final-img-${{ matrix.ubuntu_version }}:${{ github.sha }}
-          deb_final_testing_img: ghcr.io/${{ github.repository }}/deb-final-testing-img-${{ matrix.ubuntu_version }}:${{ github.sha }}
-        id: dlstreamer-with-python
-        run: |
-          docker build \
-          -f $DLS_REL_PATH/docker/ubuntu/ubuntu-testing.Dockerfile \
-          -t $deb_final_testing_img \
-          --build-arg BASE_IMAGE=$deb_final_img \
-          ${{ env.DLS_REL_PATH }}
-
       - name: 📦 Extract .deb packages using script
         if: matrix.runner_print_label != 'SKIP'
         env:
@@ -222,6 +209,7 @@ jobs:
             -v $OPTIMIZER_TESTS_PATH/functional_tests/optimizer_tests:/workspace/optimizer_tests \
             -v $OPTIMIZER_TESTS_PATH/optimizer_results/docker:/workspace/optimizer_results \
             -v ${{ env.MODELS_PATH }}:/home/dlstreamer/models \
+            -v ${{ env.VIDEO_INPUTS_PATH }}:/home/dlstreamer/videos \
             --device=/dev/dri \
             --group-add "$RENDER_GROUP_ID" \
             -w /workspace \
@@ -274,7 +262,7 @@ jobs:
 
       # ======================================================== TEST RESULTS SUMMARY ========================================================
       - name: Add optimizer test results to summary
-        if: always() && matrix.runner_print_label != 'SKIP'
+        if: always()
         env:
           DOCKER_OUTCOME: ${{ steps.run_optimizer_in_docker.outcome }}
           HOST_OUTCOME: ${{ steps.run_optimizer_on_host.outcome }}
@@ -297,6 +285,30 @@ jobs:
             echo "| Optimizer on Host | ✅ **PASSED** |" >> $GITHUB_STEP_SUMMARY
           else
             echo "| Optimizer on Host | ❌ **FAILED** |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          # Show Docker final report
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🐳 Docker Test Report" >> $GITHUB_STEP_SUMMARY
+          DOCKER_REPORT="${{ env.OPTIMIZER_TESTS_PATH }}/optimizer_results/docker/FINAL_TEST_REPORT.txt"
+          if [ -f "$DOCKER_REPORT" ]; then
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            cat "$DOCKER_REPORT" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Docker test report not found" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          # Show Host final report
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🖥️ Host Test Report" >> $GITHUB_STEP_SUMMARY
+          HOST_REPORT="${{ env.OPTIMIZER_TESTS_PATH }}/optimizer_results/host/FINAL_TEST_REPORT.txt"
+          if [ -f "$HOST_REPORT" ]; then
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            cat "$HOST_REPORT" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Host test report not found" >> $GITHUB_STEP_SUMMARY
           fi
 
       - name: Uninstall dlstreamer

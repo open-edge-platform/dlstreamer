@@ -41,16 +41,18 @@ if(GENERATE_GIR_FROM_SOURCE)
     endif()
 
     # Source and header files
-    set(KEYPOINTS_SOURCES
+    set(METADATA_SOURCES
         "${CMAKE_CURRENT_SOURCE_DIR}/gstanalyticskeypointdescriptor.c"
         "${CMAKE_CURRENT_SOURCE_DIR}/gva_zone_meta.c"
         "${CMAKE_CURRENT_SOURCE_DIR}/gva_tripwire_meta.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/g3d_od_mtd.c"
     )
 
-    set(KEYPOINTS_HEADERS
+    set(METADATA_HEADERS
         "${CMAKE_SOURCE_DIR}/include/dlstreamer/gst/metadata/gstanalyticskeypointdescriptor.h"
         "${CMAKE_SOURCE_DIR}/include/dlstreamer/gst/metadata/gva_zone_meta.h"
         "${CMAKE_SOURCE_DIR}/include/dlstreamer/gst/metadata/gva_tripwire_meta.h"
+        "${CMAKE_SOURCE_DIR}/include/dlstreamer/gst/metadata/g3d_od_mtd.h"
     )
 
     set(LIB_OUTPUT_DIR "${CMAKE_BINARY_DIR}/intel64/${CMAKE_BUILD_TYPE}/lib")
@@ -78,8 +80,8 @@ if(GENERATE_GIR_FROM_SOURCE)
             --output=${GIR_OUTPUT}
             --pkg=gstreamer-1.0
             --pkg=gstreamer-analytics-1.0
-            ${KEYPOINTS_HEADERS}
-            ${KEYPOINTS_SOURCES}
+            ${METADATA_HEADERS}
+            ${METADATA_SOURCES}
         # Workaround for g-ir-scanner limitation: when multiple typedefs alias the
         # same struct tag (e.g. typedef struct _GstAnalyticsMtd GstAnalyticsGroupMtd /
         # GstAnalyticsKeypointMtd), only the first typedef gets disguised="1" opaque="1".
@@ -87,7 +89,7 @@ if(GENERATE_GIR_FROM_SOURCE)
         # bindings for caller-allocates out parameters (GI cannot determine allocation
         # size). See: https://gitlab.gnome.org/GNOME/gobject-introspection/-/issues/101
         COMMAND python3 ${CMAKE_SOURCE_DIR}/scripts/fix_gir_mtd_fields.py ${GIR_OUTPUT}
-        DEPENDS ${KEYPOINTS_SOURCES} ${KEYPOINTS_HEADERS} ${TARGET_NAME}
+        DEPENDS ${METADATA_SOURCES} ${METADATA_HEADERS} ${TARGET_NAME}
         COMMENT "Generating GIR file from source for DLStreamerMeta"
     )
 
@@ -128,7 +130,7 @@ add_custom_command(
     COMMENT "Compiling GIR to typelib"
 )
 
-add_custom_target(keypoints_introspection ALL
+add_custom_target(metadata_introspection ALL
     DEPENDS ${GIR_OUTPUT} ${TYPELIB_OUTPUT}
 )
 
