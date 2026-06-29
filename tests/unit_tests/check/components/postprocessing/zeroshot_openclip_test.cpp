@@ -151,7 +151,9 @@ TEST_F(ZeroShotOpenCLIPConverterTest, RanksClosestClassFirstAndCalibrates) {
 }
 
 TEST_F(ZeroShotOpenCLIPConverterTest, BelowUnknownThresholdIsUnknown) {
-    gst_structure_set(_gst_structure, "unknown_threshold", G_TYPE_DOUBLE, 0.95, NULL);
+    // unknown_threshold now travels in the embeddings-file metadata (no model-proc).
+    write_safetensors_f32(_embeddings_path, {{1, 0, 0, 0}, {0, 1, 0, 0}, {0, 0, 1, 0}},
+                          "{\"logit_scale\":\"100.0\",\"unknown_threshold\":\"0.95\"}");
     ZeroShotOpenCLIPConverter converter(CreateInitializer(3));
     auto blobs = MakeBlob({0.6f, 0.6f, 0.5f, 0.0f}); // max cosine ~0.61 < 0.95
     TensorsTable result = converter.convert(blobs);

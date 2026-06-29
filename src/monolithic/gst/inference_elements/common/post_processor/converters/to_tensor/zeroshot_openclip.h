@@ -25,14 +25,14 @@ namespace post_processing {
 // model graph stays exactly the vision tower (important for static-shape NPU execution).
 //
 // The embeddings file is a single 2-D F32/F16 tensor of shape [num_classes, embedding_dim] with rows
-// aligned to the configured labels. Its optional metadata may carry "logit_scale" (CLIP temperature).
-//
-// Selected either implicitly (gvaclassify zeroshot-embeddings-file=...) or via model-proc
-// ("converter": "zeroshot_openclip"). Optional model-proc output params:
+// aligned to the configured labels. Its optional metadata may carry:
+//   - "logit_scale" (CLIP temperature): applied before the softmax so confidences are calibrated.
 //   - "unknown_threshold" (double): if the top-1 cosine similarity is below this value the result is
 //     labelled "unknown" (label_id -1). Omitted/negative disables the check.
-//   - "logit_scale" (double): overrides/provides the softmax temperature when the embeddings file
-//     carries none.
+//
+// Selected either implicitly (gvaclassify zeroshot-embeddings-file=...) or via model-proc
+// ("converter": "zeroshot_openclip"). Image preprocessing (CLIP mean/std, resize, color format) comes
+// from the model's own model_info section in model.xml, so no DL Streamer model-proc file is required.
 class ZeroShotOpenCLIPConverter : public BlobToTensorConverter {
   public:
     explicit ZeroShotOpenCLIPConverter(BlobToMetaConverter::Initializer initializer);

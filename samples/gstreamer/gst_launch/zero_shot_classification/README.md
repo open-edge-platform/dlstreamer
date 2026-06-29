@@ -1,73 +1,68 @@
-# Zero-shot classification with OpenCLIP (gvaclassify)
+# Zero-Shot Image Classification (CLIP)
 
-This sample adds open-vocabulary image classification to `gvaclassify`. Instead of a fixed
-softmax head, `gvaclassify` runs a CLIP **image** encoder (vision tower + visual projection) and
-the `zeroshot_openclip` converter scores the resulting image embedding by cosine similarity against
-**text-label embeddings** computed once and stored in a `.safetensors` file. Because the label set
-lives outside the model, classes are changed by regenerating the embeddings file — no retraining,
-and the model graph stays exactly the vision tower (so it stays static-shape friendly for NPU).
+This sample runs open-vocabulary (zero-shot) image classification with `gvaclassify`.
+Instead of a model with a fixed, trained classification head, `gvaclassify` runs a CLIP
+image encoder and a post-processing converter (`zeroshot_openclip`) scores the resulting
+image embedding by cosine similarity against text-label embeddings supplied at runtime.
+
+The class list lives outside the model: to change the classes you edit `labels.txt` and
+regenerate the embeddings file, with no retraining and no change to the model.
 
 ## How it works
 
-```
-image ─▶ gvaclassify(model = CLIP vision IR) ─▶ image embedding ─▶ zeroshot_openclip converter
-                                                                     │  cosine vs. label embeddings
-                                                                     │  softmax(logit_scale · cos)
-                                                                     ▼
-                                                          top-k {label, label_id, confidence}
-```
+1. `gvaclassify` runs the CLIP image encoder. Its OpenVINO IR carries the CLIP
+   preprocessing (mean/std, RGB, center crop) in the `model_info` section of `model.xml`,
+   so no DL Streamer model-proc file is used.
+2. The `zeroshot_openclip` converter L2-normalizes the image embedding, computes cosine
+   similarity against the label embeddings from `labels.safetensors`, applies the CLIP
+   `logit_scale` (read from the embeddings-file metadata) and a softmax, then reports top-k.
+3. Setting `zeroshot-embeddings-file` on `gvaclassify` selects the converter automatically.
 
-The converter loads the embeddings natively from `.safetensors` (no Python/PyTorch at runtime) and
-applies the CLIP `logit_scale` stored in the file metadata so confidences are calibrated.
+## Prepare the models
 
-## 1. Build the artifacts (one-time)
-
-In a Python virtual environment with `open_clip_torch`, `openvino`, and `safetensors`:
-
-```bash
-python3 tools/export_clip_vision_ov.py --model ViT-B-32 --pretrained openai --out clip_vision.xml
-python3 tools/gen_label_embeddings.py  --model ViT-B-32 --pretrained openai \
-        --labels labels.txt --out labels.safetensors
-```
-
-Use the **same** `--model`/`--pretrained` for both so the image and text towers share one
-embedding space. `gen_label_embeddings.py` writes the model's `logit_scale` into the file metadata.
-
-## 2. Run
+Use the helper scripts in `scripts/download_models` (see its README for the Python
+environment). Prepare both artifacts with the **same** CLIP model so the image and text
+embeddings share one space:
 
 ```bash
-./zero_shot_classification.sh images/zebra.jpg          # CPU, image -> JSON
-./zero_shot_classification.sh rtsp://... GPU            # video -> on-screen labels
+cd scripts/download_models
+CLIP=openai/clip-vit-base-patch32
+
+# 1) CLIP image encoder -> OpenVINO IR (projected image embedding, with model_info preprocessing)
+python3 download_hf_models.py --model "$CLIP" --extra_args --zeroshot --outdir .
+
+# 2) Text-label embeddings -> labels.safetensors (carries the CLIP logit_scale)
+python3 clip_text_embeddings.py --model "$CLIP" \
+        --labels <path-to>/labels.txt --output labels.safetensors
 ```
 
-Edit `labels.txt` to change the classes, then regenerate `labels.safetensors` (the IR and
-`model_proc` stay the same).
+Optionally add `--unknown-threshold 0.2` to `clip_text_embeddings.py` to label weak
+matches as `unknown` (the threshold is a top-1 cosine similarity; tune per model and label set).
 
-## Files
+Copy `clip-vit-base-patch32/` and `labels.safetensors` next to this sample, or point the
+`MODEL` and `EMBEDDINGS` environment variables at them.
 
-- `model_proc/clip_zeroshot.json` — selects the `zeroshot_openclip` converter and applies CLIP
-  preprocessing (U8 input, range `[0,1]`, CLIP mean/std, RGB, aspect-ratio resize + central crop).
-- `labels.txt` — one class per line; row order must match the embeddings file.
-- `tools/export_clip_vision_ov.py` — CLIP image encoder → OpenVINO IR (static `[1,3,224,224]`).
-- `tools/gen_label_embeddings.py` — `labels.txt` → `labels.safetensors` (+ `logit_scale` metadata).
-- `zero_shot_classification.sh` — end-to-end pipeline.
+## Run
 
-## Relevant `gvaclassify` properties
+```bash
+./zero_shot_classification.sh [INPUT] [DEVICE]
+```
 
-- `zeroshot-embeddings-file` — path to `labels.safetensors`. Setting it selects zero-shot mode.
-- `zeroshot-topk` — number of ranked classes to attach (default 1).
+- `INPUT`: an image/video file or a capture URI (defaults to `images/zebra.jpg` if present).
+- `DEVICE`: `CPU` (default), `GPU`, `NPU`, or e.g. `MULTI:GPU,CPU`.
 
-## Optional `model_proc` output params
+For an image input the script prints JSON classification results; for video it renders an
+annotated window.
 
-- `unknown_threshold` (double): if the top-1 cosine similarity is below this value, the result is
-  labelled `unknown` (`label_id = -1`) instead of being forced to the nearest class. Omitted ⇒ off.
-- `logit_scale` (double): provides/overrides the softmax temperature if the embeddings file has none.
+## Change the classes
+
+Edit `labels.txt` (one label per line), regenerate `labels.safetensors` with
+`clip_text_embeddings.py`, and rerun. The model is unchanged.
 
 ## Notes
 
-- The `.safetensors` tensor holding the embeddings should be named `embeddings` (also accepts
-  `label_embeddings` / `text_embeddings`), shape `[num_classes, embedding_dim]`, dtype `F32` or `F16`.
-- Output metadata adds `zs_mode`, `zs_unknown`, and `zs_model` alongside `label`/`label_id`/
-  `confidence`/`rank`.
-- Larger CLIP models (e.g. `ViT-H-14-378-quickgelu` / DFN5B) improve accuracy at higher cost; pass
-  them via `--model`/`--pretrained` to both tools.
+- The embeddings file is a single 2-D tensor `[num_labels, embedding_dim]` named
+  `embeddings`, with rows aligned to `labels.txt`. Its metadata carries `logit_scale`
+  (for calibrated confidences) and, optionally, `unknown_threshold`.
+- Only the CLIP image encoder runs on the device; the similarity, softmax and top-k run on
+  the host CPU. The model graph stays a fixed-shape vision encoder, which suits NPU execution.

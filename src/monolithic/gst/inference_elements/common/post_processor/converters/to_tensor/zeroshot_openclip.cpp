@@ -63,22 +63,11 @@ ZeroShotOpenCLIPConverter::ZeroShotOpenCLIPConverter(BlobToMetaConverter::Initia
                                     ") does not match number of embeddings (" + std::to_string(num_classes_) + ").");
     }
 
-    // Optional model-proc output params: unknown_threshold and a logit_scale override.
-    const GstStructure *params = getModelProcOutputInfo().get();
-    if (params != nullptr) {
-        double unknown_threshold = 0.0;
-        if (gst_structure_get_double(params, "unknown_threshold", &unknown_threshold))
-            unknown_threshold_ = unknown_threshold;
-        double logit_scale = 0.0;
-        if (logit_scale_ <= 0.0f && gst_structure_get_double(params, "logit_scale", &logit_scale))
-            logit_scale_ = static_cast<float>(logit_scale);
-    }
-
     if (logit_scale_ <= 0.0f) {
         logit_scale_ = 1.0f;
-        GVA_WARNING("Zero-shot: no logit_scale found in the embeddings file metadata or model-proc; using 1.0. "
+        GVA_WARNING("Zero-shot: no logit_scale found in the embeddings file metadata; using 1.0. "
                     "Class ranking is unaffected, but the reported confidences will be uncalibrated (flat). "
-                    "Store the model's CLIP logit_scale to obtain calibrated probabilities.");
+                    "Store the model's CLIP logit_scale in the embeddings file to obtain calibrated probabilities.");
     }
 
     GVA_INFO("Zero-shot OpenCLIP: %zu classes, embedding_dim=%zu, top-k=%u, logit_scale=%.3f, unknown_threshold=%s.",
@@ -111,6 +100,17 @@ void ZeroShotOpenCLIPConverter::loadEmbeddings(const std::string &embeddings_pat
             logit_scale_ = std::stof(it->second);
         } catch (const std::exception &) {
             GVA_WARNING("Zero-shot: could not parse logit_scale metadata value '%s'.", it->second.c_str());
+        }
+    }
+
+    // Optional rejection threshold carried in the embeddings file metadata: if the top-1 cosine
+    // similarity is below it, the result is labelled "unknown" (label_id -1). Negative disables it.
+    const auto ut = matrix.metadata.find("unknown_threshold");
+    if (ut != matrix.metadata.end()) {
+        try {
+            unknown_threshold_ = std::stod(ut->second);
+        } catch (const std::exception &) {
+            GVA_WARNING("Zero-shot: could not parse unknown_threshold metadata value '%s'.", ut->second.c_str());
         }
     }
 }

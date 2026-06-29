@@ -4,31 +4,43 @@
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
-# Zero-shot image classification sample for gvaclassify (OpenCLIP).
+# Zero-shot image classification sample for gvaclassify (CLIP).
 #
 #   ./zero_shot_classification.sh [INPUT] [DEVICE]
 #
-# INPUT  : path to an image/video file, or an RTSP/`v4l2`/`videotestsrc`-style URI
-#          (default: ./images/zebra.jpg if present, otherwise prints guidance).
+# INPUT  : path to an image/video file, or a v4l2/videotestsrc-style URI
+#          (default: ./images/zebra.jpg if present).
 # DEVICE : CPU (default), GPU, NPU, or MULTI:GPU,CPU.
 #
-# Prerequisites (one-time, in a Python venv with open_clip_torch, openvino, safetensors):
-#   python3 tools/export_clip_vision_ov.py --model ViT-B-32 --pretrained openai --out clip_vision.xml
-#   python3 tools/gen_label_embeddings.py  --model ViT-B-32 --pretrained openai \
-#           --labels labels.txt --out labels.safetensors
+# Prerequisites (one-time). In the scripts/download_models Python environment
+# (see scripts/download_models/README.md), prepare the two artifacts with the
+# SAME CLIP model so the image and text embeddings share one space:
+#
+#   CLIP=openai/clip-vit-base-patch32
+#
+#   # 1) CLIP image encoder -> OpenVINO IR (projected image embedding).
+#   #    Preprocessing is written into the model_info section of model.xml,
+#   #    so no DL Streamer model-proc file is needed.
+#   python3 download_hf_models.py --model "$CLIP" --extra_args --zeroshot --outdir .
+#
+#   # 2) Text-label embeddings -> labels.safetensors (carries logit_scale).
+#   python3 clip_text_embeddings.py --model "$CLIP" --labels labels.txt \
+#           --output labels.safetensors
+#
+# Copy clip-vit-base-patch32/ and labels.safetensors next to this script, or
+# point MODEL/EMBEDDINGS at them.
 set -euo pipefail
 cd "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 INPUT=${1:-"images/zebra.jpg"}
 DEVICE=${2:-CPU}
-MODEL=clip_vision.xml
-MODEL_PROC=model_proc/clip_zeroshot.json
+MODEL=${MODEL:-clip-vit-base-patch32/clip-vit-base-patch32.xml}
 LABELS=labels.txt
-EMBEDDINGS=labels.safetensors
+EMBEDDINGS=${EMBEDDINGS:-labels.safetensors}
 
 for f in "$MODEL" "$EMBEDDINGS"; do
   if [ ! -f "$f" ]; then
-    echo "Missing $f. Build the artifacts first (see the header of this script / README.md)."
+    echo "Missing $f. Prepare the artifacts first (see the header of this script / README.md)."
     exit 1
   fi
 done
@@ -44,7 +56,7 @@ fi
 set -x
 gst-launch-1.0 \
   ${SOURCE} ! \
-  gvaclassify model="${MODEL}" model-proc="${MODEL_PROC}" labels-file="${LABELS}" \
+  gvaclassify model="${MODEL}" labels-file="${LABELS}" \
     zeroshot-embeddings-file="${EMBEDDINGS}" zeroshot-topk=3 \
     inference-region=full-frame device="${DEVICE}" ! \
   ${SINK}

@@ -44,6 +44,7 @@ shape `[num_classes, embedding_dim]`, dtype `F32` or `F16`, rows aligned to the 
 Optional file metadata:
 
 - `logit_scale` — the model's CLIP temperature (`logit_scale.exp()`), used to calibrate the softmax.
+- `unknown_threshold` — optional; top-1 cosine similarity below which a result is labelled `unknown`.
 - `model`, `labels`, `prompt` — informational.
 
 The converter reads this format natively (no Python/PyTorch dependency at runtime). The reader is a
@@ -53,21 +54,21 @@ file that, per threat model, is treated as untrusted.
 
 ## Preprocessing
 
-CLIP requires specific normalization. The sample `model_proc` declares image input precision `U8`,
-`range [0,1]`, CLIP `mean`/`std`, `RGB`, aspect-ratio resize and central crop. DL Streamer composes
-these into the input affine transform. The exported IR input is pinned to a static `[1,3,224,224]`.
+CLIP requires specific normalization. The exported IR carries this in the `model_info` section of
+`model.xml` (`mean_values` and `scale_values` are the CLIP mean/std x 255, `color_space=RGB`,
+`resize_type=crop`); DL Streamer reads it and composes the input affine transform. No DL Streamer
+model-proc file is required. The IR input keeps a fixed spatial shape `[N,3,224,224]`.
 
 ## Calibration and the unknown class
 
 - **logit_scale.** CLIP scores are `logit_scale · cosine` (the learned temperature is ~100). Without
   it, a softmax over raw cosine in `[-1, 1]` is nearly flat and the confidences, while correctly
-  ordered, are not meaningful. The converter applies `logit_scale` (from the file metadata, or a
-  `model_proc` `logit_scale` param) before the softmax; if neither is present it falls back to `1.0`
-  and warns.
-- **unknown_threshold.** An optional `model_proc` output param. If the top-1 cosine similarity is
-  below it, the result is labelled `unknown` (`label_id = -1`) rather than forced to the nearest
-  class. Thresholding on the raw cosine keeps the decision independent of `logit_scale`. Omitted or
-  negative disables the check.
+  ordered, are not meaningful. The converter applies `logit_scale` (from the embeddings-file
+  metadata) before the softmax; if it is absent it falls back to `1.0` and warns.
+- **unknown_threshold.** An optional value in the embeddings-file metadata. If the top-1 cosine
+  similarity is below it, the result is labelled `unknown` (`label_id = -1`) rather than forced to
+  the nearest class. Thresholding on the raw cosine keeps the decision independent of `logit_scale`.
+  Omitted or negative disables the check.
 
 ## Output metadata
 
@@ -76,6 +77,8 @@ Each emitted classification carries the usual `label`, `label_id`, `confidence`,
 
 ## Tooling and sample
 
-See `samples/gstreamer/gst_launch/zero_shot_classification/`: `export_clip_vision_ov.py` (CLIP image
-encoder → OpenVINO IR), `gen_label_embeddings.py` (`labels.txt` → `labels.safetensors` with
-`logit_scale` metadata), a `model_proc`, and an end-to-end script.
+Model preparation reuses the Hugging Face scripts in `scripts/download_models`:
+`download_hf_models.py --model <clip_id> --extra_args --zeroshot` exports the CLIP image encoder
+(the projected image embedding) to OpenVINO IR with the preprocessing written into `model_info`, and
+`clip_text_embeddings.py` turns `labels.txt` into `labels.safetensors` with the `logit_scale`
+metadata. The end-to-end pipeline is in `samples/gstreamer/gst_launch/zero_shot_classification/`.

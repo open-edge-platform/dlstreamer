@@ -17,7 +17,8 @@ from openvino import Type
 from openvino import save_model
 from openvino.tools.ovc import convert_model
 from optimum.exporters.onnx import main_export
-from transformers import AutoModelForDepthEstimation, CLIPVisionModel
+import torch
+from transformers import AutoModelForDepthEstimation, CLIPModel, CLIPVisionModel
 from transformers import AutoConfig
 from transformers import AutoProcessor, AutoImageProcessor
 from PIL import Image
@@ -127,14 +128,24 @@ def custom_conversion(
         primary_arch = architectures[0].lower()
 
     export_dir = outdir / Path(repo_id).name
+    zeroshot_requested = "--zeroshot" in extra_args or "zeroshot" in extra_args
     handlers: dict[str, tuple[str, Callable[[], Path]]] = {
         "clipmodel": (
             "a CLIP model",
-            lambda: export_hf_clip_to_openvino(
-                repo_id,
-                revision,
-                export_dir,
-                token,
+            lambda: (
+                export_hf_clip_zeroshot_to_openvino(
+                    repo_id,
+                    revision,
+                    export_dir,
+                    token,
+                )
+                if zeroshot_requested
+                else export_hf_clip_to_openvino(
+                    repo_id,
+                    revision,
+                    export_dir,
+                    token,
+                )
             ),
         ),
         "rtdetrforobjectdetection": (
@@ -236,6 +247,74 @@ def export_hf_clip_to_openvino(
     model_name = Path(model_id).name
     save_model(ov_model, str(outdir / f"{model_name}.xml"))
 
+    processor.save_pretrained(str(outdir))
+    return outdir
+
+
+def export_hf_clip_zeroshot_to_openvino(
+    model_id: str,
+    revision: str,
+    outdir: Path,
+    token: str | None,
+) -> Path:
+    """Export the CLIP image encoder with the visual projection, for zero-shot classification.
+
+    ``export_hf_clip_to_openvino`` exports the unprojected vision tower (the ``clip_token`` path).
+    Zero-shot classification instead needs the projected image embedding, the vector that lives in
+    CLIP's shared image/text space, so it can be compared against text-label embeddings by cosine
+    similarity. This exports ``CLIPModel.get_image_features`` to produce that projected output.
+
+    Preprocessing (CLIP mean/std, RGB, center crop) is written into the model_info section of
+    model.xml, so no DL Streamer model-proc file is required.
+    """
+    outdir.mkdir(parents=True, exist_ok=True)
+
+    clip_model = CLIPModel.from_pretrained(
+        model_id,
+        revision=revision,
+        token=token,
+    )
+    clip_model.eval()
+
+    class _CLIPImageEmbedder(torch.nn.Module):
+        """Wrap CLIPModel so the traced graph outputs only the projected image embedding."""
+
+        def __init__(self, model: CLIPModel) -> None:
+            super().__init__()
+            self.model = model
+
+        def forward(self, pixel_values: torch.Tensor) -> torch.Tensor:
+            return self.model.get_image_features(pixel_values=pixel_values)
+
+    embedder = _CLIPImageEmbedder(clip_model)
+    embedder.eval()
+
+    img = Image.new("RGB", (224, 224))
+    processor = AutoProcessor.from_pretrained(
+        model_id,
+        revision=revision,
+        token=token,
+    )
+    batch = processor.image_processor(images=img, return_tensors="pt")["pixel_values"]
+
+    with torch.no_grad():
+        ov_model = convert_model(embedder, example_input=batch)
+
+    # Dynamic batch, static spatial dims, float input.
+    input_shape = PartialShape([-1, batch.shape[1], batch.shape[2], batch.shape[3]])
+    for nn_input in ov_model.inputs:
+        nn_input.get_node().set_partial_shape(input_shape)
+        nn_input.get_node().set_element_type(Type.f32)
+
+    # CLIP preprocessing carried in model_info; scale/mean are the CLIP std/mean x 255.
+    ov_model.set_rt_info("clip_token", ["model_info", "model_type"])
+    ov_model.set_rt_info("68.500,66.632,70.323", ["model_info", "scale_values"])
+    ov_model.set_rt_info("122.771,116.746,104.094", ["model_info", "mean_values"])
+    ov_model.set_rt_info("RGB", ["model_info", "color_space"])
+    ov_model.set_rt_info("crop", ["model_info", "resize_type"])
+
+    model_name = Path(model_id).name
+    save_model(ov_model, str(outdir / f"{model_name}.xml"))
     processor.save_pretrained(str(outdir))
     return outdir
 
