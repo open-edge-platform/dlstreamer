@@ -43,7 +43,7 @@ In addition, the sample uses 'queue' and 'videoconvert' elements to adapt interf
 ###### <u> Initialize GStreamer framework </u>
 
 ```
-Gst.init(None)  # Initialize GStreamer
+Gst.init([])  # Initialize GStreamer
 ```
 - Initialize GStreamer framework
 
