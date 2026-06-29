@@ -220,7 +220,7 @@ Function ${un}UninstallGStreamerInno
   ${EndIf}
 
   DetailPrint 'Execute GStreamer uninstaller: $R0'
-  nsExec::ExecToLog '$R0 /VERYSILENT'
+  nsExec::ExecToLog '$R0 /VERYSILENT /NORESTART'
   Pop $R1
   ${If} $R1 != 0
     DetailPrint 'Failed to uninstall GStreamer. Error code: $R1'
@@ -380,6 +380,7 @@ FunctionEnd
   InvokeGStreamerInstaller:
   SetOutPath '$INSTDIR\deps'
   File '${INSTALLER_DEPS_DIR}\gstreamer-1.0-msvc-x86_64-${GSTREAMER_VERSION}.exe'
+  SetOutPath "$INSTDIR"
 
   Push '${GSTREAMER_INSTALLER_HASH}'
   Push '$INSTDIR\deps\gstreamer-1.0-msvc-x86_64-${GSTREAMER_VERSION}.exe'
@@ -390,7 +391,7 @@ FunctionEnd
   ${EndIf}
 
   DetailPrint 'Execute GStreamer ${GSTREAMER_VERSION} installer'
-  nsExec::ExecToLog '$INSTDIR\deps\gstreamer-1.0-msvc-x86_64-${GSTREAMER_VERSION}.exe /VERYSILENT /LOG /TYPE=runtime /ALLUSERS'
+  nsExec::ExecToLog '$INSTDIR\deps\gstreamer-1.0-msvc-x86_64-${GSTREAMER_VERSION}.exe /VERYSILENT /NORESTART /LOG /TYPE=runtime /ALLUSERS'
   Pop $R3
   ${If} $R3 != 0
     DetailPrint 'GStreamer installation failed. Error code: $R3'
@@ -417,6 +418,7 @@ Function SetupEnvironmentVariables
   Pop $0
   ${If} $0 != 0
     DetailPrint 'Environment setup failed. Error code: $0'
+    MessageBox MB_OK|MB_ICONEXCLAMATION 'Environment setup failed. Error code: $0' /SD IDYES
   ${EndIf}
 FunctionEnd
 

@@ -21,17 +21,26 @@ enum {
 
 #define DEFAULT_MAX_FPS 0.0
 
-/* Pad templates — same video caps as gvastreammux */
+/* Pad templates — same video caps as gvastreammux.
+ * Note: STREAMDEMUX_VIDEO_CAPS already ends with "; ", so concatenate directly. */
 #define STREAMDEMUX_VIDEO_CAPS                                                                                         \
     GST_VIDEO_CAPS_MAKE("{ BGRx, BGRA, BGR, NV12, I420, RGB, RGBA, RGBx }")                                            \
     "; " GST_VIDEO_CAPS_MAKE_WITH_FEATURES("memory:VAMemory", "{ NV12 }") "; " GST_VIDEO_CAPS_MAKE_WITH_FEATURES(      \
         "memory:DMABuf", "{ DMA_DRM }") "; "
 
-static GstStaticPadTemplate gva_streamdemux_sink_template =
-    GST_STATIC_PAD_TEMPLATE("sink", GST_PAD_SINK, GST_PAD_ALWAYS, GST_STATIC_CAPS(STREAMDEMUX_VIDEO_CAPS));
+/* Non-video sources carried inside container batches (e.g. lidar). */
+#define STREAMDEMUX_NONVIDEO_CAPS "application/x-lidar"
 
-static GstStaticPadTemplate gva_streamdemux_src_template =
-    GST_STATIC_PAD_TEMPLATE("src_%u", GST_PAD_SRC, GST_PAD_REQUEST, GST_STATIC_CAPS(STREAMDEMUX_VIDEO_CAPS));
+/* Container input caps from gvastreammux in CONTAINER mode. */
+#define STREAMDEMUX_BATCH_CAPS "multistream/x-analytics-batch(meta:GstAnalyticsBatchMeta)"
+
+/* Sink accepts plain video (PASSTHROUGH input) or the batch container (CONTAINER input). */
+static GstStaticPadTemplate gva_streamdemux_sink_template = GST_STATIC_PAD_TEMPLATE(
+    "sink", GST_PAD_SINK, GST_PAD_ALWAYS, GST_STATIC_CAPS(STREAMDEMUX_VIDEO_CAPS STREAMDEMUX_BATCH_CAPS));
+
+/* Src pads emit video or non-video (lidar), depending on each source's caps. */
+static GstStaticPadTemplate gva_streamdemux_src_template = GST_STATIC_PAD_TEMPLATE(
+    "src_%u", GST_PAD_SRC, GST_PAD_REQUEST, GST_STATIC_CAPS(STREAMDEMUX_VIDEO_CAPS STREAMDEMUX_NONVIDEO_CAPS));
 
 /* Forward declarations */
 static void gst_gva_streamdemux_set_property(GObject *object, guint prop_id, const GValue *value, GParamSpec *pspec);
@@ -88,6 +97,7 @@ static void gst_gva_streamdemux_init(GstGvaStreamdemux *demux) {
     // coverity[missing_lock]
     demux->num_src_pads = 0;
     demux->validated = FALSE;
+    demux->container_mode = FALSE;
     demux->last_output_time = GST_CLOCK_TIME_NONE;
     demux->max_fps_duration = GST_CLOCK_TIME_NONE;
 
@@ -163,6 +173,14 @@ static GstPad *gst_gva_streamdemux_request_new_pad(GstElement *element, GstPadTe
         name = g_strdup_printf("src_%u", pad_index);
     }
 
+    if (pad_index >= GST_GVA_STREAMDEMUX_MAX_PAD_INDEX) {
+        GST_ERROR_OBJECT(demux, "Pad index %u exceeds maximum (%u). Use src_0 to src_%u.", pad_index,
+                         GST_GVA_STREAMDEMUX_MAX_PAD_INDEX, GST_GVA_STREAMDEMUX_MAX_PAD_INDEX - 1);
+        g_free(name);
+        g_mutex_unlock(&demux->lock);
+        return NULL;
+    }
+
     srcpad = gst_pad_new_from_static_template(&gva_streamdemux_src_template, name);
     gst_pad_use_fixed_caps(srcpad);
     gst_element_add_pad(element, srcpad);
@@ -211,7 +229,17 @@ static GstStateChangeReturn gst_gva_streamdemux_change_state(GstElement *element
     switch (transition) {
     case GST_STATE_CHANGE_READY_TO_PAUSED:
         demux->validated = FALSE;
+        demux->container_mode = FALSE;
         demux->last_output_time = GST_CLOCK_TIME_NONE;
+        /* Clear the per-pad "started" flag so a restart re-sends
+         * stream-start/caps/segment on each src pad. */
+        g_mutex_lock(&demux->lock);
+        for (guint i = 0; i < demux->srcpads->len; i++) {
+            GstPad *srcpad = (GstPad *)g_ptr_array_index(demux->srcpads, i);
+            if (srcpad)
+                g_object_set_data(G_OBJECT(srcpad), "demux-started", NULL);
+        }
+        g_mutex_unlock(&demux->lock);
         break;
     default:
         break;
@@ -263,7 +291,22 @@ static gboolean gst_gva_streamdemux_sink_event(GstPad *pad, GstObject *parent, G
         gst_event_parse_caps(event, &caps);
         GST_INFO_OBJECT(demux, "Received caps on sink: %" GST_PTR_FORMAT, caps);
 
-        /* Forward caps to all src pads. Each src pad gets its own stream-start, caps, segment. */
+        /* CONTAINER mode: the sink caps are the batch container caps, which are
+         * meaningless to src-pad peers. The real per-stream caps travel inside
+         * each container buffer's GstAnalyticsBatchMeta and are forwarded lazily
+         * by the chain function. Just record the mode and consume the event. */
+        const GstStructure *s = gst_caps_get_structure(caps, 0);
+        if (s && gst_structure_has_name(s, "multistream/x-analytics-batch")) {
+            g_mutex_lock(&demux->lock);
+            demux->container_mode = TRUE;
+            g_mutex_unlock(&demux->lock);
+            GST_INFO_OBJECT(demux, "CONTAINER mode: per-stream caps will be forwarded from batch buffers");
+            gst_event_unref(event);
+            return TRUE;
+        }
+
+        /* PASSTHROUGH mode: forward video caps to all src pads. Each src pad
+         * gets its own stream-start, caps, segment. */
         g_mutex_lock(&demux->lock);
         for (guint i = 0; i < demux->srcpads->len; i++) {
             GstPad *srcpad = (GstPad *)g_ptr_array_index(demux->srcpads, i);
@@ -365,6 +408,88 @@ static gboolean gst_gva_streamdemux_sink_query(GstPad *pad, GstObject *parent, G
     }
 }
 
+/* Ensure stream-start/caps/segment have been sent on a src pad before its first
+ * buffer. stream_caps comes from the container stream (CONTAINER mode); if NULL
+ * the pad keeps whatever caps were already set. Idempotent per pad via a flag
+ * stored on the pad object. */
+static void gva_streamdemux_ensure_src_started(GstGvaStreamdemux *demux, GstPad *srcpad, guint index,
+                                               GstCaps *stream_caps) {
+    if (g_object_get_data(G_OBJECT(srcpad), "demux-started"))
+        return;
+
+    gchar *stream_id = g_strdup_printf("gvastreamdemux/src_%u/%08x", index, g_random_int());
+    gst_pad_push_event(srcpad, gst_event_new_stream_start(stream_id));
+    g_free(stream_id);
+
+    if (stream_caps)
+        gst_pad_push_event(srcpad, gst_event_new_caps(stream_caps));
+
+    GstSegment segment;
+    gst_segment_init(&segment, GST_FORMAT_TIME);
+    gst_pad_push_event(srcpad, gst_event_new_segment(&segment));
+
+    g_object_set_data(G_OBJECT(srcpad), "demux-started", GINT_TO_POINTER(1));
+    GST_INFO_OBJECT(demux, "Started src_%u (caps: %" GST_PTR_FORMAT ")", index, stream_caps);
+}
+
+/* CONTAINER-mode chain: unpack a batch container buffer into per-source buffers.
+ * Each stream's objects[0] is the real buffer and its sticky_events carry the
+ * source's original caps. Routes each to srcpads[stream.index]. */
+static GstFlowReturn gst_gva_streamdemux_chain_container(GstGvaStreamdemux *demux, GstBuffer *buf,
+                                                         GstAnalyticsBatchMeta *meta) {
+    GstFlowReturn ret = GST_FLOW_OK;
+
+    gst_gva_streamdemux_apply_fps_throttle(demux);
+
+    for (gsize i = 0; i < meta->n_streams; i++) {
+        GstAnalyticsBatchStream *stream = &meta->streams[i];
+        guint source_id = stream->index;
+
+        if (stream->n_objects == 0 || !stream->objects || !stream->objects[0]) {
+            GST_WARNING_OBJECT(demux, "Container stream %u (source_id %u) has no objects, skipping", (guint)i,
+                               source_id);
+            continue;
+        }
+        if (!GST_IS_BUFFER(stream->objects[0])) {
+            GST_WARNING_OBJECT(demux, "Container stream %u object is not a buffer, skipping", (guint)i);
+            continue;
+        }
+
+        if (G_UNLIKELY(source_id >= demux->srcpads->len)) {
+            GST_ERROR_OBJECT(demux, "source_id %u out of range (have %u src pads)", source_id, demux->srcpads->len);
+            ret = GST_FLOW_ERROR;
+            break;
+        }
+        GstPad *srcpad = (GstPad *)g_ptr_array_index(demux->srcpads, source_id);
+        if (G_UNLIKELY(!srcpad)) {
+            GST_ERROR_OBJECT(demux, "No src pad for source_id %u", source_id);
+            ret = GST_FLOW_ERROR;
+            break;
+        }
+
+        GstCaps *stream_caps = gst_analytics_batch_stream_get_caps(stream);
+        gva_streamdemux_ensure_src_started(demux, srcpad, source_id, stream_caps);
+
+        /* The meta owns objects[0]; take our own ref for the downstream push. */
+        GstBuffer *out = GST_BUFFER_CAST(gst_mini_object_ref(stream->objects[0]));
+
+        GST_LOG_OBJECT(demux, "Routing container stream to src_%u (pts=%" GST_TIME_FORMAT ")", source_id,
+                       GST_TIME_ARGS(GST_BUFFER_PTS(out)));
+
+        GstFlowReturn r = gst_pad_push(srcpad, out);
+        if (r != GST_FLOW_OK && r != GST_FLOW_FLUSHING) {
+            GST_WARNING_OBJECT(demux, "Push to src_%u failed: %s", source_id, gst_flow_get_name(r));
+        }
+        /* Propagate the first non-OK return (mirrors aggregator behavior). */
+        if (ret == GST_FLOW_OK && r != GST_FLOW_OK)
+            ret = r;
+    }
+
+    gst_gva_streamdemux_update_output_time(demux);
+    gst_buffer_unref(buf);
+    return ret;
+}
+
 /* Main chain function: route buffer to correct src pad based on metadata */
 static GstFlowReturn gst_gva_streamdemux_chain(GstPad *pad, GstObject *parent, GstBuffer *buf) {
     (void)pad;
@@ -382,28 +507,24 @@ static GstFlowReturn gst_gva_streamdemux_chain(GstPad *pad, GstObject *parent, G
         return GST_FLOW_ERROR;
     }
 
-    guint source_id = meta->streams[0].index;
-    guint num_sources = (guint)meta->n_streams;
-
     /* Validate on first buffer */
     if (G_UNLIKELY(!demux->validated)) {
         g_mutex_lock(&demux->lock);
         if (!demux->validated) {
-            if (demux->num_src_pads != num_sources) {
-                GST_ERROR_OBJECT(demux,
-                                 "Mismatch: gvastreamdemux has %u src pads but gvastreammux reports %u sources. "
-                                 "Ensure the same number of src pads are requested.",
-                                 demux->num_src_pads, num_sources);
-                g_mutex_unlock(&demux->lock);
-                gst_buffer_unref(buf);
-                return GST_FLOW_ERROR;
-            }
             demux->validated = TRUE;
-            GST_INFO_OBJECT(demux, "Validated: %u src pads match %u sources from gvastreammux", demux->num_src_pads,
-                            num_sources);
+            GST_INFO_OBJECT(demux, "Validated: %u src pads configured, batch n_streams=%u, container_mode=%d",
+                            demux->num_src_pads, (guint)meta->n_streams, demux->container_mode);
         }
         g_mutex_unlock(&demux->lock);
     }
+
+    /* CONTAINER mode: one buffer holds all sources (each with its own caps). */
+    if (demux->container_mode)
+        return gst_gva_streamdemux_chain_container(demux, buf, meta);
+
+    /* PASSTHROUGH mode: the buffer itself is one source's video frame, tagged
+     * with streams[0].index identifying the source. */
+    guint source_id = meta->streams[0].index;
 
     /* Check source_id is in range */
     if (G_UNLIKELY(source_id >= demux->srcpads->len)) {

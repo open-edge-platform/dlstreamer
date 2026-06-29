@@ -399,7 +399,7 @@ source "$VENV_DIR/bin/activate"
 # Install all required packages for main virtual environment
 pip install --no-cache-dir --upgrade pip      || handle_error $LINENO
 pip install --no-cache-dir numpy==2.2.6       || handle_error $LINENO
-pip install --no-cache-dir openvino==2026.1.0 || handle_error $LINENO
+pip install --no-cache-dir openvino==2026.2.0 || handle_error $LINENO
 pip install --no-cache-dir onnx==1.21.0       || handle_error $LINENO
 pip install --no-cache-dir onnxscript==0.5.7  || handle_error $LINENO
 pip install --no-cache-dir seaborn==0.13.2    || handle_error $LINENO
@@ -1240,12 +1240,12 @@ os.remove('${MODEL_NAME}.zip')
 "
 
     mkdir -p INT8
-    cp "${MODEL_NAME}/deployment/Detection/model/model.bin" "INT8/${MODEL_NAME}.bin"
-    cp "${MODEL_NAME}/deployment/Detection/model/model.xml" "INT8/${MODEL_NAME}.xml"
-    cp "${MODEL_NAME}/deployment/Detection/model/config.json" "INT8/config.json"
-    chmod -R u+w "${MODEL_NAME}"
-    rm -rf "${MODEL_NAME}"
-    cd -
+    cp deployment/Detection/model/model.bin INT8/${MODEL_NAME}.bin
+    cp deployment/Detection/model/model.xml INT8/${MODEL_NAME}.xml
+    cp deployment/Detection/model/config.json INT8/config.json
+    chmod -R u+w deployment example_code
+    rm -rf deployment example_code
+    rm -f LICENSE README.md sample_image.jpg
   else
     echo_color "\nModel already exists: $MODEL_DIR.\n" "yellow"
   fi

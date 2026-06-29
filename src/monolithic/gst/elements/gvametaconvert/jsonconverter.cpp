@@ -18,11 +18,14 @@
 #include "gva_json_meta.h"
 #include "gva_tensor_meta.h"
 
+#include <dlstreamer/gst/metadata/g3d_od_mtd.h>
 #include <dlstreamer/gst/metadata/gstanalyticskeypointdescriptor.h>
 #include <gst/analytics/analytics.h>
+#include <gst/analytics/gstanalyticsbatchmeta.h>
 #include <gst/analytics/gstanalyticsclassificationmtd.h>
 #include <gst/analytics/gstanalyticsgroupmtd.h>
 #include <gst/analytics/gstanalyticskeypointmtd.h>
+#include <gst/analytics/gstanalyticsobjecttrackingmtd.h>
 #include <gst/rtp/rtp.h>
 #include <nlohmann/json.hpp>
 
@@ -161,11 +164,15 @@ json get_frame_data(GstGvaMetaConvert *converter, GstBuffer *buffer) {
  * @return JSON array which contains ROIs attributes and their detection results.
  * Also contains ROIs classification results if any.
  */
-json convert_roi_detection(GstGvaMetaConvert *converter, GstBuffer *buffer) {
-    assert(converter && buffer && "Expected valid pointers GstGvaMetaConvert and GstBuffer");
+/* Convert the GstAnalyticsODMtd-based detections (and their linked tracking /
+ * keypoint / zone metadata) on @buffer to a JSON array. @video_info describes
+ * the frame geometry; pass converter->info for the primary stream, or a
+ * per-buffer GstVideoInfo when iterating batched streams. */
+json convert_roi_detection(GstGvaMetaConvert *converter, GstBuffer *buffer, GstVideoInfo *video_info) {
+    assert(converter && buffer && video_info && "Expected valid pointers GstGvaMetaConvert, GstBuffer, GstVideoInfo");
 
     json res = json::array();
-    GVA::VideoFrame video_frame(buffer, converter->info);
+    GVA::VideoFrame video_frame(buffer, video_info);
     for (GVA::RegionOfInterest &roi : video_frame.regions()) {
         gint id = roi.object_id();
 
@@ -579,51 +586,67 @@ json get_lidar_frame_data(GstGvaMetaConvert *converter, GstBuffer *buffer, Lidar
     return result;
 }
 
-bool is_pointpillars_detection_tensor(const GVA::Tensor &tensor) {
-    if (tensor.format() != "pointpillars_3d")
-        return false;
-    if (tensor.layer_name() != "pointpillars_3d_detection")
-        return false;
-
-    const auto dims = tensor.dims();
-    return dims.size() == 2 && dims[1] == 9;
+/* Map a sensor modality enum to a stable JSON string. */
+const char *modality_to_string(GstAnalytics3DSensorModality modality) {
+    switch (modality) {
+    case GST_ANALYTICS_3D_SENSOR_LIDAR:
+        return "lidar";
+    case GST_ANALYTICS_3D_SENSOR_RADAR:
+        return "radar";
+    default:
+        return "unknown";
+    }
 }
 
-json convert_lidar_detection_tensor(const GVA::Tensor &tensor) {
+/* Serialize every GstAnalytics3DODMtd on @rmeta to a JSON array. Each entry
+ * carries the 3D oriented box, class, confidence and sensor modality, and
+ * a tracking id if available. */
+json convert_3d_od_mtds(GstAnalyticsRelationMeta *rmeta) {
     json objects = json::array();
-
-    const auto dims = tensor.dims();
-    if (dims.size() != 2 || dims[1] != 9)
+    if (!rmeta)
         return objects;
 
-    const size_t detection_count = dims[0];
-    const size_t detection_width = dims[1];
-    if (detection_count == 0 || !tensor.has_field("data_buffer"))
-        return objects;
+    gpointer state = NULL;
+    GstAnalytics3DODMtd od_mtd;
+    while (gst_analytics_relation_meta_iterate(rmeta, &state, gst_analytics_3d_od_mtd_get_mtd_type(), &od_mtd)) {
+        gfloat x = 0, y = 0, z = 0, length = 0, width = 0, height = 0, yaw = 0, pitch = 0, roll = 0;
+        gint class_id = -1;
+        gfloat confidence = 0.f;
+        GstAnalytics3DSensorModality modality = GST_ANALYTICS_3D_SENSOR_LIDAR;
 
-    const std::vector<float> data = tensor.data<float>();
-    if (data.size() < detection_count * detection_width) {
-        GST_WARNING(
-            "pointpillars tensor data size (%zu) is smaller than expected (%zu x %zu). returning empty detections.",
-            data.size(), detection_count, detection_width);
-        return objects;
-    }
+        if (!gst_analytics_3d_od_mtd_get_location(&od_mtd, &x, &y, &z, &length, &width, &height, &yaw, &pitch, &roll))
+            continue;
+        gst_analytics_3d_od_mtd_get_class(&od_mtd, &class_id, &confidence);
+        gst_analytics_3d_od_mtd_get_modality(&od_mtd, &modality);
 
-    for (size_t index = 0; index < detection_count; ++index) {
-        const size_t offset = index * detection_width;
         json object = json::object({
             {"bbox_3d",
-             {{"x", data[offset + 0]},
-              {"y", data[offset + 1]},
-              {"z", data[offset + 2]},
-              {"w", data[offset + 3]},
-              {"l", data[offset + 4]},
-              {"h", data[offset + 5]},
-              {"theta", data[offset + 6]}}},
-            {"confidence", data[offset + 7]},
-            {"label_id", static_cast<int>(data[offset + 8])},
-            {"model", {{"type", tensor.model_name()}}},
+             {{"x", x},
+              {"y", y},
+              {"z", z},
+              {"l", length},
+              {"w", width},
+              {"h", height},
+              {"yaw", yaw},
+              {"pitch", pitch},
+              {"roll", roll}}},
+            {"confidence", confidence},
+            {"label_id", class_id},
+            {"modality", modality_to_string(modality)},
         });
+
+        // A linked tracking mtd carries the track id.
+        gpointer rel_state = NULL;
+        GstAnalyticsTrackingMtd trk_mtd;
+        if (gst_analytics_relation_meta_get_direct_related(rmeta, od_mtd.id, GST_ANALYTICS_REL_TYPE_RELATE_TO,
+                                                           gst_analytics_tracking_mtd_get_mtd_type(), &rel_state,
+                                                           &trk_mtd)) {
+            guint64 tracking_id = 0;
+            GstClockTime first_seen = 0, last_seen = 0;
+            gboolean lost = FALSE;
+            if (gst_analytics_tracking_mtd_get_info(&trk_mtd, &tracking_id, &first_seen, &last_seen, &lost))
+                object["track_id"] = tracking_id;
+        }
 
         objects.push_back(object);
     }
@@ -637,29 +660,88 @@ json convert_lidar_inference_meta(GstGvaMetaConvert *converter, GstBuffer *buffe
         return json::object();
 
     json result = get_lidar_frame_data(converter, buffer, lidar_meta);
-    json objects = json::array();
-    json tensors = json::array();
-
-    gpointer state = NULL;
-    GstGVATensorMeta *tensor_meta = NULL;
-    while ((tensor_meta = GST_GVA_TENSOR_META_ITERATE(buffer, &state))) {
-        GVA::Tensor tensor(tensor_meta->data);
-        if (is_pointpillars_detection_tensor(tensor)) {
-            json detections = convert_lidar_detection_tensor(tensor);
-            for (auto &detection : detections)
-                objects.push_back(detection);
-        }
-
-        if (converter->add_tensor_data && tensor.type() != GVA::GST_ANALYTICS_CLS_2_TENSOR &&
-            tensor.has_field("data_buffer")) {
-            tensors.push_back(convert_tensor(tensor));
-        }
-    }
+    json objects = convert_3d_od_mtds(gst_buffer_get_analytics_relation_meta(buffer));
 
     if (!objects.empty())
         result["objects"] = objects;
-    if (!tensors.empty())
-        result["tensors"] = tensors;
+
+    return result;
+}
+
+/* Convert one stream's source buffer inside a GstAnalyticsBatchMeta to JSON.
+ * Camera streams carry GstAnalyticsODMtd + tracking; the 3D-sensor stream
+ * carries GstAnalytics3DODMtd + tracking. */
+json convert_batch_stream(GstGvaMetaConvert *converter, GstAnalyticsBatchStream *stream) {
+    json jstream = json::object();
+    jstream["stream_index"] = stream->index;
+
+    if (const gchar *stream_id = gst_analytics_batch_stream_get_stream_id(stream))
+        jstream["stream_id"] = stream_id;
+
+    // The first mini object is the stream's source buffer.
+    GstBuffer *stream_buf = NULL;
+    for (gsize i = 0; i < stream->n_objects; ++i) {
+        if (GST_IS_BUFFER(stream->objects[i])) {
+            stream_buf = GST_BUFFER_CAST(stream->objects[i]);
+            break;
+        }
+    }
+    if (!stream_buf)
+        return jstream;
+
+    GstAnalyticsRelationMeta *rmeta = gst_buffer_get_analytics_relation_meta(stream_buf);
+
+    // 3D detections (lidar/radar sensor stream).
+    json objects_3d = convert_3d_od_mtds(rmeta);
+    if (!objects_3d.empty())
+        jstream["objects_3d"] = objects_3d;
+
+    // 2D detections (camera streams): Derive geometry from the stream caps,
+    // falling back to the buffer's own video meta.
+    GstVideoInfo stream_info;
+    gst_video_info_init(&stream_info);
+    bool have_info = false;
+    if (GstCaps *stream_caps = gst_analytics_batch_stream_get_caps(stream))
+        have_info = gst_video_info_from_caps(&stream_info, stream_caps);
+    if (!have_info) {
+        if (GstVideoMeta *vmeta = gst_buffer_get_video_meta(stream_buf)) {
+            stream_info.width = vmeta->width;
+            stream_info.height = vmeta->height;
+            have_info = true;
+        }
+    }
+
+    if (have_info) {
+        json objects_2d = convert_roi_detection(converter, stream_buf, &stream_info);
+        if (!objects_2d.empty())
+            jstream["objects"] = objects_2d;
+    }
+
+    return jstream;
+}
+
+json convert_analytics_batch_meta(GstGvaMetaConvert *converter, GstBuffer *buffer) {
+    GstAnalyticsBatchMeta *batch_meta = gst_buffer_get_analytics_batch_meta(buffer);
+    if (!batch_meta || batch_meta->n_streams == 0)
+        return json::object();
+
+    json result = json::object();
+    if (converter->source)
+        result["source"] = converter->source;
+    if (converter->tags && json::accept(converter->tags))
+        result["tags"] = json::parse(converter->tags);
+
+    if (converter->base_gvametaconvert.segment.format == GST_FORMAT_TIME && GST_CLOCK_TIME_IS_VALID(buffer->pts)) {
+        GstClockTime timestamp =
+            gst_segment_to_stream_time(&converter->base_gvametaconvert.segment, GST_FORMAT_TIME, buffer->pts);
+        if (timestamp != G_MAXUINT64)
+            result["timestamp"] = timestamp;
+    }
+
+    json streams = json::array();
+    for (gsize i = 0; i < batch_meta->n_streams; ++i)
+        streams.push_back(convert_batch_stream(converter, &batch_meta->streams[i]));
+    result["streams"] = streams;
 
     return result;
 }
@@ -680,6 +762,20 @@ gboolean to_json(GstGvaMetaConvert *converter, GstBuffer *buffer) {
     }
 
     try {
+        // Check for a batched multi-stream buffer first
+        json batch_data = convert_analytics_batch_meta(converter, buffer);
+        if (!batch_data.empty()) {
+            std::string json_message = batch_data.dump(converter->json_indent);
+            GstGVAJSONMeta *json_meta = GST_GVA_JSON_META_ADD(buffer);
+            if (json_meta) {
+                json_meta->message = g_strdup(json_message.c_str());
+                GST_INFO_OBJECT(converter, "Batch JSON message: %s", json_message.c_str());
+            } else {
+                GST_ERROR_OBJECT(converter, "Failed to add GVA JSON meta for batch data");
+            }
+            return TRUE;
+        }
+
         // Check for radar metadata first
         json radar_data = convert_radar_process_meta(converter, buffer);
         if (!radar_data.empty()) {
@@ -721,7 +817,7 @@ gboolean to_json(GstGvaMetaConvert *converter, GstBuffer *buffer) {
             json jframe = get_frame_data(converter, buffer);
             /* objects section */
             json jframe_objects;
-            json roi_detection = convert_roi_detection(converter, buffer);
+            json roi_detection = convert_roi_detection(converter, buffer, converter->info);
             if (!roi_detection.empty()) {
                 jframe_objects = roi_detection;
             } /* roi_detection can contain multiple objects, while frame_classification - only one */
