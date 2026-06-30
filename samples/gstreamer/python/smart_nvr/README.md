@@ -46,8 +46,17 @@ pip install -r export-requirements.txt -r requirements.txt
 Run the application with no configuration required. It automatically downloads the default video file and detection model:
 
 ```sh
-python3 ./smart_nvr.py
+python3 ./smart_nvr.py [INPUT] [DEVICE] [OUTPUT]
 ```
+
+* `INPUT`  - local video file. Omit (or pass an empty string) to download and use the default video.
+* `DEVICE` - inference device, `CPU` or `GPU` (default: `GPU`).
+* `OUTPUT` - output mode (default: `file`):
+  * `file` - record segmented video chunks and metadata files only.
+  * `json` - additionally write deterministic detection and lane-hogging analytics metadata as json-lines to `output.json`.
+
+The detection model revision is pinned and the stream is processed for a fixed number of frames, so the
+number of recorded chunks and the `json` output are reproducible across runs.
 
 ### Inspecting Output
 
