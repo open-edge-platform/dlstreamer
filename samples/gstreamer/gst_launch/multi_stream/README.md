@@ -104,5 +104,12 @@ gvaclassify model=${CLASSIFICATION_MODEL_2} device=GPU model-instance-id=inf2 ni
 gvawatermark ! gvafpscounter ! vah264enc ! h264parse ! mp4mux ! filesink location=${OUTPUT_VIDEO_FILE_2}
 ```
 
+gst-launch-1.0 vacompositor name=comp \
+sink_0::xpos=0 sink_0::ypos=0 \
+sink_1::xpos=683 sink_1::ypos=0 \ 
+sink_2::xpos=0 sink_2::ypos=360 \
+sink_3::xpos=683 sink_3::ypos=360 ! \
+autovideosink sync=false filesrc location=~/videos/video1.mp4 ! decodebin3 ! gvadetect model=$MODELS_PATH/public/yolo11s/INT8/yolo11s.xml device=GPU model-instance-id=inf0 ! queue ! gvawatermark ! gvafpscounter ! comp.sink_0 filesrc location=~/videos/video1.mp4 ! decodebin3 ! gvadetect model=$MODELS_PATH/public/yolo11s/INT8/yolo11s.xml device=GPU model-instance-id=inf0 ! queue ! gvawatermark ! gvafpscounter ! comp.sink_1  filesrc location=~/videos/video3.mp4 ! decodebin3 ! gvadetect model=$MODELS_PATH/public/yolo11s/INT8/yolo11s.xml device=GPU model-instance-id=inf0 ! queue ! gvawatermark ! gvafpscounter ! comp.sink_2  filesrc location=~/videos/video1.mp4 ! decodebin3 ! gvadetect model=$MODELS_PATH/public/yolo11s/INT8/yolo11s.xml device=GPU model-instance-id=inf0 ! queue ! gvawatermark ! gvafpscounter ! comp.sink_3
+
 ## See also
 * [Samples overview](../../README.md)
