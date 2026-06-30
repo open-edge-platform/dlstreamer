@@ -324,18 +324,13 @@ for mtd in rmeta:
 
 **DLStreamerMeta types (TripwireMtd, ZoneMtd) — required module-level registration:**
 
-Add the block below at module level (before `Gst.init()`) in any plugin or probe that
+Add the block below at module level (before `Gst.init([])`) in any plugin or probe that
 reads metadata from a pipeline containing `gvaanalytics`.
 
 ```python
-import gi.overrides.GstAnalytics as _ga_override
 gi.require_version("DLStreamerMeta", "1.0")
 from gi.repository import DLStreamerMeta
-
-_ga_override.__mtd_types__[DLStreamerMeta.TripwireMtd.get_mtd_type()] = \
-    DLStreamerMeta.relation_meta_get_tripwire_mtd
-_ga_override.__mtd_types__[DLStreamerMeta.ZoneMtd.get_mtd_type()] = \
-    DLStreamerMeta.relation_meta_get_zone_mtd
+from gstgva import meta_registry
 
 # ... inside do_transform_ip / pad probe / appsink callback:
 for mtd in rmeta:
