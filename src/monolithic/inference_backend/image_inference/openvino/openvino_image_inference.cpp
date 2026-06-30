@@ -769,6 +769,9 @@ class OpenVinoNewApiImpl {
     dlstreamer::ContextPtr _app_context;
     dlstreamer::OpenVINOContextPtr _openvino_context;
     ov::CompiledModel _compiled_model;
+    // Optional batch-1 model sharing the remote context, used to flush leftover frames of a partial batch
+    // individually (two-model batching). Empty unless DL Streamer-side batching on a remote context is active.
+    ov::CompiledModel _compiled_model_single;
     MemoryType _memory_type;
 #ifdef ENABLE_D3D_NPU_COLOR_CONV
     InferenceBackend::ImagePreprocessorType _pp_type;
@@ -1118,6 +1121,24 @@ class OpenVinoNewApiImpl {
             if (_openvino_context) {
                 GVA_INFO("using remote context");
                 _compiled_model = core().compile_model(_model, _openvino_context->remote_context(), ov_params);
+
+                // Two-model batching (OpenVINO Automatic Batching style) for the remote-context path. Besides the
+                // static batch-_batch_size model, compile a batch-1 model that shares the same remote context. A
+                // partially filled batch is then flushed by submitting its leftover frames individually through this
+                // batch-1 model, instead of padding the batched model (which wastes compute on padding frames).
+                if (_batch_timeout > -1 && _batch_size > 1) {
+                    try {
+                        auto model_single = _model->clone();
+                        ov::set_batch(model_single, 1);
+                        _compiled_model_single =
+                            core().compile_model(model_single, _openvino_context->remote_context(), ov_params);
+                        GVA_INFO("Compiled auxiliary batch-1 model for partial-batch flush");
+                    } catch (const std::exception &e) {
+                        // Fall back to padding-based partial flush if the batch-1 model cannot be compiled.
+                        GVA_WARNING("Could not compile batch-1 model, falling back to padded partial flush: %s",
+                                    e.what());
+                    }
+                }
             } else {
                 _compiled_model = core().compile_model(_model, _device, ov_params);
             }
@@ -1265,6 +1286,20 @@ OpenVINOImageInference::OpenVINOImageInference(const InferenceBackend::Inference
             freeRequests.push(batch_request);
         }
 
+        // Two-model batching: when a batch-1 model was compiled (remote-context DL Streamer-side path), build a
+        // matching pool of batch-1 requests used to flush leftover frames of a partial batch individually.
+        _two_model_batching = static_cast<bool>(_impl->_compiled_model_single);
+        if (_two_model_batching) {
+            for (int i = 0; i < nireq; i++) {
+                std::shared_ptr<BatchRequest> single_request = std::make_shared<BatchRequest>();
+                single_request->infer_request_new = _impl->_compiled_model_single.create_infer_request();
+                single_request->in_tensors.resize(_impl->_model->inputs().size());
+                single_request->single = true;
+                SetCompletionCallback(single_request);
+                freeRequestsSingle.push(single_request);
+            }
+        }
+
         // DL Streamer-side batching (static batch + padded partial flush) is used only when batch-timeout is set and
         // a remote context bypasses OpenVINO Automatic Batching. In that case a background thread flushes partially
         // filled batches once the timeout expires. With Automatic Batching the BATCH device handles the timeout.
@@ -1300,7 +1335,10 @@ void OpenVINOImageInference::FreeRequest(std::shared_ptr<BatchRequest> request) 
     for (auto &in_vec : request->in_tensors) {
         in_vec.clear();
     }
-    freeRequests.push(request);
+    if (request->single)
+        freeRequestsSingle.push(request);
+    else
+        freeRequests.push(request);
     requests_processing_ -= buffer_size;
     request_processed_.notify_all();
 }
@@ -1332,6 +1370,34 @@ void OpenVINOImageInference::StartBatchAsync(const std::shared_ptr<BatchRequest>
     request->start_async();
 }
 
+void OpenVINOImageInference::SubmitPartialAsSingles(const std::shared_ptr<BatchRequest> &partial) {
+    assert(partial);
+    const size_t count = partial->buffers.size();
+    if (count == 0)
+        return;
+
+    // Flush each leftover frame individually through the batch-1 model instead of padding the batched model up to
+    // batch_size. This path is only taken on the remote-context (VA) bypass route, where each frame's input is an
+    // independent surface tensor stored in partial->in_tensors[input][frame].
+    for (size_t j = 0; j < count; j++) {
+        std::shared_ptr<BatchRequest> single = freeRequestsSingle.pop();
+        for (size_t i = 0; i < partial->in_tensors.size(); i++) {
+            if (j < partial->in_tensors[i].size())
+                single->infer_request_new.set_input_tensor(i, partial->in_tensors[i][j]);
+        }
+        single->buffers.push_back(partial->buffers[j]);
+        single->start_async();
+    }
+
+    // The frames are now owned by the single requests; return the emptied batched request to its pool directly.
+    // requests_processing_ is left untouched: the per-frame count settled at SubmitImage is balanced by the single
+    // requests' completion callbacks (FreeRequest decrements one per frame).
+    partial->buffers.clear();
+    for (auto &v : partial->in_tensors)
+        v.clear();
+    freeRequests.push(partial);
+}
+
 void OpenVINOImageInference::TimeoutLoop() {
     std::unique_lock<std::mutex> lk(_partial_mutex);
     while (true) {
@@ -1354,7 +1420,10 @@ void OpenVINOImageInference::TimeoutLoop() {
         _partial_request.reset();
         lk.unlock();
         try {
-            StartBatchAsync(request);
+            if (_two_model_batching)
+                SubmitPartialAsSingles(request);
+            else
+                StartBatchAsync(request);
         } catch (const std::exception &e) {
             GVA_ERROR("Couldn't start inference on batch timeout: %s", e.what());
             this->handleError(request->buffers);
@@ -1674,7 +1743,10 @@ void OpenVINOImageInference::Flush() {
         }
         if (partial && partial->buffers.size() > 0) {
             try {
-                StartBatchAsync(partial);
+                if (_two_model_batching)
+                    SubmitPartialAsSingles(partial);
+                else
+                    StartBatchAsync(partial);
             } catch (const std::exception &e) {
                 GVA_ERROR("Couldn't start inference on flush: %s", e.what());
                 this->handleError(partial->buffers);
@@ -1727,6 +1799,10 @@ void OpenVINOImageInference::Close() {
     Flush();
     while (!freeRequests.empty()) {
         auto req = freeRequests.pop();
+        req->infer_request_new.set_callback([](std::exception_ptr) {});
+    }
+    while (!freeRequestsSingle.empty()) {
+        auto req = freeRequestsSingle.pop();
         req->infer_request_new.set_callback([](std::exception_ptr) {});
     }
 }

@@ -62,6 +62,9 @@ class OpenVINOImageInference : public InferenceBackend::ImageInference {
         ov::InferRequest infer_request_new;
         std::vector<IFrameBase::Ptr> buffers;
         std::vector<ov::TensorVector> in_tensors;
+        // True for requests created from the batch-1 model used to flush leftover frames of a partial batch
+        // (two-model batching). Determines which pool FreeRequest() returns the request to.
+        bool single = false;
 
         void start_async() {
             return this->infer_request_new.start_async();
@@ -73,8 +76,14 @@ class OpenVINOImageInference : public InferenceBackend::ImageInference {
 
     // Pads a partially filled batch up to batch_size and starts inference asynchronously. Used only on the
     // DL Streamer-side batching path (remote context); the model keeps a static batch dimension and the
-    // padded frames are inferred but their results are discarded.
+    // padded frames are inferred but their results are discarded. Used for full batches, and as a fallback
+    // partial-batch flush when the batch-1 model is unavailable (see SubmitPartialAsSingles).
     void StartBatchAsync(const std::shared_ptr<BatchRequest> &request);
+
+    // Flushes a partially filled batch by submitting each leftover frame individually through a batch-1 model
+    // (OpenVINO Automatic Batching style), avoiding the wasted compute of padding the batched model. Used on the
+    // remote-context (VA) DL Streamer-side batching path when the batch-1 model is available.
+    void SubmitPartialAsSingles(const std::shared_ptr<BatchRequest> &request);
 
     dlstreamer::ContextPtr context_;
     InferenceBackend::MemoryType memory_type;
@@ -90,7 +99,12 @@ class OpenVINOImageInference : public InferenceBackend::ImageInference {
     // True when OpenVINO Automatic Batching (BATCH device) is active. In that case batch_size is 1 and the
     // DL Streamer-side partial-batch timeout flush below is not used (the BATCH device honours the timeout).
     bool _auto_batching = false;
+    // True when two-model batching is active: a batch-1 model (sharing the remote context) flushes leftover frames
+    // of a partial batch individually instead of padding the batched model. Set only on the remote-context (VA) path.
+    bool _two_model_batching = false;
     SafeQueue<std::shared_ptr<BatchRequest>> freeRequests;
+    // Pool of batch-1 requests used to flush partial batches when _two_model_batching is active.
+    SafeQueue<std::shared_ptr<BatchRequest>> freeRequestsSingle;
 
     std::unique_ptr<InferenceBackend::ImagePreprocessor> pre_processor;
 
