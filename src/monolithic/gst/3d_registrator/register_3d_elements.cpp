@@ -14,6 +14,7 @@
 #include "g3d_lidar_meta.h"
 #include "g3dinference.h"
 #include "g3dlidarparse.h"
+#include "g3dobjectfuser.h"
 
 extern "C" {
 
@@ -24,6 +25,8 @@ static gboolean plugin_init(GstPlugin *plugin) {
     if (!gst_element_register(plugin, "g3dlidarparse", GST_RANK_NONE, GST_TYPE_G3D_LIDAR_PARSE))
         return FALSE;
     if (!gst_element_register(plugin, "g3dinference", GST_RANK_NONE, GST_TYPE_G3D_INFERENCE))
+        return FALSE;
+    if (!gst_element_register(plugin, "g3dobjectfuser", GST_RANK_NONE, GST_TYPE_G3D_OBJECT_FUSER))
         return FALSE;
 
     // Register metadata
