@@ -59,20 +59,38 @@ If you need to update dependencies, regenerate the pinned versions in [requireme
 
 ## Running
 
-Provide a local video file:
+The sample accepts up to three positional arguments:
 
 ```code
-python3 face_detection_and_classification.py /path/to/video.mp4
+python3 face_detection_and_classification.py [INPUT] [DEVICE] [OUTPUT]
 ```
 
-Or run without arguments to download and use a default video:
+* `INPUT`  - local video file. Omit (or pass an empty string) to download and use the default video.
+* `DEVICE` - inference device, `CPU` or `GPU` (default: `GPU`).
+* `OUTPUT` - output mode (default: `file`):
+  * `file` - annotate frames and encode an MP4 saved alongside the input with the suffix `_output.mp4`.
+  * `json` - write deterministic inference results as json-lines to `output.json` in the working directory.
+
+Examples:
 
 ```code
+# Default video, GPU, encode annotated MP4
 python3 face_detection_and_classification.py
+
+# Local file on CPU, write json-lines to output.json
+python3 face_detection_and_classification.py /path/to/video.mp4 CPU json
 ```
 
-The output video will be saved alongside the input file with the suffix `_output.mp4`.
+A thin wrapper script is also provided for convenience:
+
+```code
+./face_detection_and_classification.sh /path/to/video.mp4 GPU json
+```
+
+The detection and classification model revisions and export precision are pinned so the `json`
+output is reproducible across runs.
 
 ## Sample Output
 
-The script prints the pipeline string and produces an output video annotated with detections and classification results.
+In `file` mode the script produces an output video annotated with detections and classification
+results. In `json` mode it writes one json-lines record per frame to `output.json`.
