@@ -314,7 +314,7 @@ for mtd in rmeta:
     if isinstance(mtd, GstAnalytics.ODMtd):
         label = GLib.quark_to_string(mtd.get_obj_type())
         success, x, y, w, h, rotation = mtd.get_location()
-        confidence = mtd.get_confidence_lvl()
+        _, confidence = mtd.get_confidence_lvl()
     elif isinstance(mtd, GstAnalytics.TrackingMtd):
         success, tracking_id, _, _, _ = mtd.get_info()
     elif isinstance(mtd, GstAnalytics.ClsMtd):
