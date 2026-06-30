@@ -19,6 +19,7 @@
 #include "semantic_mask.h"
 #include "semantic_segmentation.h"
 #include "text.h"
+#include "zeroshot_openclip.h"
 
 #include "environment_variable_options_reader.h"
 #include "inference_backend/logger.h"
@@ -78,6 +79,8 @@ BlobToMetaConverter::Ptr BlobToTensorConverter::create(BlobToMetaConverter::Init
         return std::make_unique<PaddleOCRConverter>(std::move(initializer));
     else if (converter_name == PaddleOCRCtcConverter::getName())
         return std::make_unique<PaddleOCRCtcConverter>(std::move(initializer));
+    else if (converter_name == ZeroShotOpenCLIPConverter::getName())
+        return std::make_unique<ZeroShotOpenCLIPConverter>(std::move(initializer));
     else if (converter_name == DetectionAnomalyConverter::getName()) {
         return std::make_unique<DetectionAnomalyConverter>(std::move(initializer));
     }
