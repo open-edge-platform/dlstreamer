@@ -108,7 +108,10 @@ Example `analytics-config.json`:
 Configure tripwires and zones directly via properties:
 
 ```bash
-gst-launch-1.0 ... ! gvaanalytics tripwires='[{"id":"entrance","points":[{"x":100,"y":100},{"x":500,"y":100}]}]' zones='[{"id":"zone_1","points":[{"x":0,"y":0},{"x":640,"y":0},{"x":640,"y":480},{"x":0,"y":480}]}]' ! ...
+gst-launch-1.0 ... ! gvaanalytics \
+  tripwires='[{"id":"entrance","points":[{"x":960,"y":0},{"x":960,"y":1080}]}]' \
+  zones='[{"id":"restricted_area","type":"polygon","points":[{"x":400,"y":200},{"x":800,"y":200},{"x":800,"y":600},{"x":400,"y":600}]},{"id":"danger_zone","type":"circle","center":{"x":960,"y":540},"radius":150}]' \
+  ! ...
 ```
 
 ### Drawing visualization
