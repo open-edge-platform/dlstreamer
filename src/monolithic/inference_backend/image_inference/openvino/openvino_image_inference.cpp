@@ -774,9 +774,12 @@ class OpenVinoNewApiImpl {
     InferenceBackend::ImagePreprocessorType _pp_type;
 #endif
     int _nireq = 0;
-    int _auto_batch_num_requests = 0;
     int _batch_size = 0;
     int _batch_timeout = -1;
+    int _auto_batch_num_requests = 0;
+    // True when OpenVINO Automatic Batching (BATCH device) is used (batch-timeout set and no remote context).
+    // When false and batch-timeout is set, DL Streamer performs static batching with a padded partial-batch flush.
+    bool _use_auto_batching = false;
 
     size_t _origin_model_in_w = 0;
     size_t _origin_model_in_h = 0;
@@ -814,11 +817,15 @@ class OpenVinoNewApiImpl {
 
         _batch_timeout = config.batch_timeout();
 
-        if (_batch_timeout > -1) {
-            _auto_batch_num_requests = _batch_size;
-            _batch_size = 1;
-        }
-
+        // The model is initially compiled with a static batch dimension (_batch_size). The final batching strategy
+        // is selected in load_network() once it is known whether a remote context (e.g. VAAPI surface sharing) is
+        // used:
+        //   * No remote context (CPU, or GPU with system memory and no shared context): OpenVINO Automatic Batching
+        //     (BATCH device) is used. The model is re-compiled with batch size 1 and the BATCH device collects and
+        //     batches requests internally, honouring batch-timeout natively with no padding overhead.
+        //   * Remote context present: Automatic Batching is bypassed by OpenVINO, so DL Streamer performs the
+        //     batching itself. The model keeps the static batch dimension (_batch_size) and a background timer flushes
+        //     partially filled batches, padding them up to _batch_size (padding results are discarded).
         GVA_DEBUG("Setting batch size of %d to model", _batch_size);
         ov::set_batch(_model, _batch_size);
 
@@ -1083,24 +1090,37 @@ class OpenVinoNewApiImpl {
     void load_network(const ConfigHelper &config) {
         assert(!_compiled_model);
         ov::AnyMap ov_params = config.inference_cfg();
-        std::string params = fmt::format("Params for compile_model:\n  {}", fmt::join(ov_params, "\n  "));
-        GVA_INFO("%s", params.c_str());
-        // adjust_ie_config(ov_params);
 
-        GVA_INFO("Loading network to device %s", _device.c_str());
-        if (_openvino_context) {
-            GVA_INFO("using remote context");
-        }
+        // Select the batching strategy now that create_remote_context() has run and _openvino_context is known.
+        // Automatic Batching (BATCH device) only engages when no remote context is used; with a remote context
+        // OpenVINO silently ignores it, so DL Streamer must batch itself (static batch + padded partial flush).
+        _use_auto_batching = (_batch_timeout > -1) && !_openvino_context;
+        if (_use_auto_batching) {
+            // The BATCH device wraps a batch-1 model and collects _auto_batch_num_requests requests internally.
+            _auto_batch_num_requests = _batch_size;
+            _batch_size = 1;
+            ov::set_batch(_model, _batch_size);
 
-        // print_input_and_outputs_info(*_model);
-        if (_openvino_context) {
-            _compiled_model = core().compile_model(_model, _openvino_context->remote_context(), ov_params);
-        } else {
-            std::string formatted_device = _device;
-            if (_batch_timeout > -1) {
-                formatted_device = fmt::format("BATCH:{}({})", _device, _auto_batch_num_requests);
-            }
+            // Forward ov::auto_batch_timeout to the BATCH device so it flushes partial batches on timeout.
+            std::string params = fmt::format("Params for compile_model:\n  {}", fmt::join(ov_params, "\n  "));
+            GVA_INFO("%s", params.c_str());
+            std::string formatted_device = fmt::format("BATCH:{}({})", _device, _auto_batch_num_requests);
+            GVA_INFO("Loading network to device %s", formatted_device.c_str());
             _compiled_model = core().compile_model(_model, formatted_device, ov_params);
+        } else {
+            // Either no batch-timeout, or a remote context is used (DL Streamer-side batching). The Automatic Batching
+            // timeout property must not be forwarded to a plain/remote compile_model, which would reject it.
+            ov_params.erase(ov::auto_batch_timeout.name());
+            std::string params = fmt::format("Params for compile_model:\n  {}", fmt::join(ov_params, "\n  "));
+            GVA_INFO("%s", params.c_str());
+
+            GVA_INFO("Loading network to device %s", _device.c_str());
+            if (_openvino_context) {
+                GVA_INFO("using remote context");
+                _compiled_model = core().compile_model(_model, _openvino_context->remote_context(), ov_params);
+            } else {
+                _compiled_model = core().compile_model(_model, _device, ov_params);
+            }
         }
         GVA_INFO("Network loaded to device");
 
@@ -1234,6 +1254,7 @@ OpenVINOImageInference::OpenVINOImageInference(const InferenceBackend::Inference
         nireq = _impl->_nireq;
         batch_size = _impl->_batch_size;
         batch_timeout = _impl->_batch_timeout;
+        _auto_batching = _impl->_use_auto_batching;
         image_layer = _impl->_image_input_name;
 
         for (int i = 0; i < nireq; i++) {
@@ -1242,6 +1263,13 @@ OpenVINOImageInference::OpenVINOImageInference(const InferenceBackend::Inference
             batch_request->in_tensors.resize(_impl->_model->inputs().size());
             SetCompletionCallback(batch_request);
             freeRequests.push(batch_request);
+        }
+
+        // DL Streamer-side batching (static batch + padded partial flush) is used only when batch-timeout is set and
+        // a remote context bypasses OpenVINO Automatic Batching. In that case a background thread flushes partially
+        // filled batches once the timeout expires. With Automatic Batching the BATCH device handles the timeout.
+        if (batch_timeout > -1 && !_auto_batching) {
+            _timeout_thread = std::thread(&OpenVINOImageInference::TimeoutLoop, this);
         }
 
 #ifndef ENABLE_D3D_NPU_COLOR_CONV
@@ -1275,6 +1303,75 @@ void OpenVINOImageInference::FreeRequest(std::shared_ptr<BatchRequest> request) 
     freeRequests.push(request);
     requests_processing_ -= buffer_size;
     request_processed_.notify_all();
+}
+
+void OpenVINOImageInference::StartBatchAsync(const std::shared_ptr<BatchRequest> &request) {
+    assert(request);
+    const size_t count = request->buffers.size();
+    if (count == 0)
+        return;
+
+    // The model has a static batch dimension (_batch_size). A partial batch collected before the timeout expired is
+    // padded up to _batch_size so that the inference output always has the full batch length; the post-processing
+    // layer assumes a fixed batch size and only the first `count` results are mapped back to real frames.
+    if (!DoNeedImagePreProcessing(nullptr)) {
+        // Bypass preprocessing (e.g. VAAPI surface sharing): pad each input with its last tensor up to batch_size and
+        // bind the full batch.
+        for (size_t i = 0; i < request->in_tensors.size(); i++) {
+            auto &input_vec = request->in_tensors[i];
+            if (input_vec.empty())
+                continue;
+            for (size_t j = input_vec.size(); j < safe_convert<size_t>(batch_size); j++)
+                input_vec.push_back(input_vec.back());
+            request->infer_request_new.set_input_tensors(i, input_vec);
+        }
+    }
+    // Software preprocessing path: frames were written directly into the infer-request-owned [batch_size, ...] tensor,
+    // so the unfilled tail slots already contain (stale) data and no extra binding is required.
+
+    request->start_async();
+}
+
+void OpenVINOImageInference::TimeoutLoop() {
+    std::unique_lock<std::mutex> lk(_partial_mutex);
+    while (true) {
+        // Wait until there is a partial batch to watch or we are asked to stop.
+        _timeout_cv.wait(lk, [this] { return _timeout_stop || _partial_request != nullptr; });
+        if (_timeout_stop)
+            return;
+
+        // Wait until the batch deadline. Returns true (early wake-up) if stop was requested or the partial batch was
+        // already submitted/taken elsewhere; returns false if the deadline expired with the batch still pending.
+        if (_timeout_cv.wait_until(lk, _partial_deadline,
+                                   [this] { return _timeout_stop || _partial_request == nullptr; })) {
+            if (_timeout_stop)
+                return;
+            continue;
+        }
+
+        // Deadline expired and the partial batch is still pending: submit it.
+        std::shared_ptr<BatchRequest> request = std::move(_partial_request);
+        _partial_request.reset();
+        lk.unlock();
+        try {
+            StartBatchAsync(request);
+        } catch (const std::exception &e) {
+            GVA_ERROR("Couldn't start inference on batch timeout: %s", e.what());
+            this->handleError(request->buffers);
+            FreeRequest(request);
+        }
+        lk.lock();
+    }
+}
+
+void OpenVINOImageInference::StopTimeoutThread() {
+    {
+        std::lock_guard<std::mutex> lk(_partial_mutex);
+        _timeout_stop = true;
+    }
+    _timeout_cv.notify_all();
+    if (_timeout_thread.joinable())
+        _timeout_thread.join();
 }
 
 bool OpenVINOImageInference::IsQueueFull() {
@@ -1449,9 +1546,24 @@ void OpenVINOImageInference::SubmitImage(
     if (!frame)
         throw std::invalid_argument("Invalid frame provided");
 
+    const size_t max_batch = safe_convert<size_t>(batch_size);
+    // DL Streamer-side batching with a background timeout flush is used only when batch-timeout is set and Automatic
+    // Batching is not active. With Automatic Batching batch_size is 1 and the BATCH device collects requests itself.
+    const bool dls_side_batching = (batch_timeout > -1) && !_auto_batching;
+
     std::unique_lock<std::mutex> lk(requests_mutex_);
     ++requests_processing_;
-    std::shared_ptr<BatchRequest> request = freeRequests.pop();
+
+    // In batch-timeout mode continue filling the pending partial batch (if any), otherwise take a free request.
+    std::shared_ptr<BatchRequest> request;
+    if (dls_side_batching) {
+        std::lock_guard<std::mutex> pl(_partial_mutex);
+        if (_partial_request)
+            request = std::move(_partial_request);
+    }
+    const bool fresh_batch = (request == nullptr);
+    if (!request)
+        request = freeRequests.pop();
 
     try {
         if (DoNeedImagePreProcessing(frame->GetImage())) {
@@ -1462,7 +1574,7 @@ void OpenVINOImageInference::SubmitImage(
                                                           // parameters
             );
         } else {
-            BypassImageProcessing(image_layer, request, *frame->GetImage(), safe_convert<size_t>(batch_size));
+            BypassImageProcessing(image_layer, request, *frame->GetImage(), max_batch);
         }
 
         ApplyInputPreprocessors(request, input_preprocessors);
@@ -1474,9 +1586,20 @@ void OpenVINOImageInference::SubmitImage(
     }
 
     try {
-        // start inference asynchronously if enough buffers for batching
-        if (request->buffers.size() >= safe_convert<size_t>(batch_size)) {
-            request->start_async();
+        if (request->buffers.size() >= max_batch) {
+            // Batch is full: start inference asynchronously.
+            if (dls_side_batching)
+                StartBatchAsync(request);
+            else
+                request->start_async();
+        } else if (dls_side_batching) {
+            // Hold the partial batch and (re)arm the timeout. The deadline is measured from the moment the batch was
+            // started so that trickling input cannot postpone the flush indefinitely.
+            std::lock_guard<std::mutex> pl(_partial_mutex);
+            _partial_request = request;
+            if (fresh_batch)
+                _partial_deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(batch_timeout);
+            _timeout_cv.notify_one();
         } else {
             freeRequests.push_front(request);
         }
@@ -1542,6 +1665,24 @@ void OpenVINOImageInference::Flush() {
 
     std::unique_lock<std::mutex> flush_lk(flush_mutex);
 
+    // Batch-timeout mode keeps the partially filled batch outside of freeRequests; submit it first.
+    {
+        std::shared_ptr<BatchRequest> partial;
+        {
+            std::lock_guard<std::mutex> pl(_partial_mutex);
+            partial = std::move(_partial_request);
+        }
+        if (partial && partial->buffers.size() > 0) {
+            try {
+                StartBatchAsync(partial);
+            } catch (const std::exception &e) {
+                GVA_ERROR("Couldn't start inference on flush: %s", e.what());
+                this->handleError(partial->buffers);
+                FreeRequest(partial);
+            }
+        }
+    }
+
     while (requests_processing_ != 0) {
         auto request = freeRequests.pop();
 
@@ -1551,7 +1692,10 @@ void OpenVINOImageInference::Flush() {
                 // When software preprocessing is used, frames are written directly into the infer-request-owned
                 // batched tensor, so any unfilled tail slots in the last partial batch already contain data from a
                 // previous request reuse.
-                if (batch_size > 1 && !DoNeedImagePreProcessing(nullptr)) {
+                // This padding only applies to plain static batching without batch-timeout; in batch-timeout mode the
+                // partial batch is held in _partial_request and flushed separately (padded by StartBatchAsync on the
+                // remote-context path, or batched by the BATCH device on the Automatic Batching path).
+                if (batch_timeout < 0 && batch_size > 1 && !DoNeedImagePreProcessing(nullptr)) {
                     size_t input_idx = 0;
                     for (auto &input_vec : request->in_tensors) {
                         for (int i = input_vec.size(); i < batch_size; i++)
@@ -1579,6 +1723,7 @@ void OpenVINOImageInference::Flush() {
 }
 
 void OpenVINOImageInference::Close() {
+    StopTimeoutThread();
     Flush();
     while (!freeRequests.empty()) {
         auto req = freeRequests.pop();

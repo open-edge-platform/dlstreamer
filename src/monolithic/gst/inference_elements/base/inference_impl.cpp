@@ -945,7 +945,7 @@ InferenceImpl::Model InferenceImpl::CreateModel(GvaBaseInference *gva_base_infer
     model.inference = image_inference;
     model.name = image_inference->GetModelName();
 
-    // if auto batch size or OpenVINO Automatic Batching was requested, use the actual batch size determined by
+    // if auto batch size or batch-timeout mode was requested, use the actual batch size determined by
     // inference instance
     if (gva_base_inference->batch_size == 0 || gva_base_inference->batch_timeout != DEFAULT_BATCH_TIMEOUT)
         gva_base_inference->batch_size = model.inference->GetBatchSize();
@@ -1024,7 +1024,7 @@ void InferenceImpl::UpdateModelReshapeInfo(GvaBaseInference *gva_base_inference)
             return;
         }
 
-        if (gva_base_inference->batch_size > 1 && gva_base_inference->batch_timeout == -1) {
+        if (gva_base_inference->batch_size > 1) {
             GVA_WARNING("reshape switched to TRUE because batch-size (%u) is greater than one",
                         gva_base_inference->batch_size);
             gva_base_inference->reshape = true;

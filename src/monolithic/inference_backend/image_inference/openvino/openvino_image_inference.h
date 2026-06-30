@@ -13,6 +13,8 @@
 #include <openvino/openvino.hpp>
 
 #include <atomic>
+#include <chrono>
+#include <condition_variable>
 #include <gst/gst.h>
 #include <map>
 #include <string>
@@ -69,6 +71,11 @@ class OpenVINOImageInference : public InferenceBackend::ImageInference {
     void HandleError(const std::shared_ptr<BatchRequest> &request);
     void WorkingFunction(const std::shared_ptr<BatchRequest> &request);
 
+    // Pads a partially filled batch up to batch_size and starts inference asynchronously. Used only on the
+    // DL Streamer-side batching path (remote context); the model keeps a static batch dimension and the
+    // padded frames are inferred but their results are discarded.
+    void StartBatchAsync(const std::shared_ptr<BatchRequest> &request);
+
     dlstreamer::ContextPtr context_;
     InferenceBackend::MemoryType memory_type;
     CallbackFunc callback;
@@ -80,6 +87,9 @@ class OpenVINOImageInference : public InferenceBackend::ImageInference {
     int batch_size;
     int batch_timeout;
     int nireq;
+    // True when OpenVINO Automatic Batching (BATCH device) is active. In that case batch_size is 1 and the
+    // DL Streamer-side partial-batch timeout flush below is not used (the BATCH device honours the timeout).
+    bool _auto_batching = false;
     SafeQueue<std::shared_ptr<BatchRequest>> freeRequests;
 
     std::unique_ptr<InferenceBackend::ImagePreprocessor> pre_processor;
@@ -89,6 +99,22 @@ class OpenVINOImageInference : public InferenceBackend::ImageInference {
     std::atomic<unsigned int> requests_processing_;
     std::condition_variable request_processed_;
     std::mutex flush_mutex;
+
+    // Batch-timeout support (static batch + padded partial-batch flush).
+    // Used only when batch_timeout > -1 and a remote context bypasses OpenVINO Automatic Batching. The model keeps a
+    // static batch dimension and a partially filled batch is padded to batch_size and submitted once batch_timeout
+    // milliseconds elapse since the batch was started.
+    // _partial_request and _partial_deadline are guarded by _partial_mutex which is the only lock the
+    // timeout thread takes (lock order: requests_mutex_ -> _partial_mutex).
+    std::mutex _partial_mutex;
+    std::condition_variable _timeout_cv;
+    std::shared_ptr<BatchRequest> _partial_request;
+    std::chrono::steady_clock::time_point _partial_deadline;
+    bool _timeout_stop = false;
+    std::thread _timeout_thread;
+
+    void TimeoutLoop();
+    void StopTimeoutThread();
 
   private:
     void FreeRequest(std::shared_ptr<BatchRequest> request);
