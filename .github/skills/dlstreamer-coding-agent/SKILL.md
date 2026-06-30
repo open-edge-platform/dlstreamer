@@ -1,9 +1,22 @@
 ---
 name: dlstreamer-coding-agent
-description: "Build new DL Streamer video-analytics applications (Python, C, C++ or GStreamer command line). Use when: user describes a vision AI pipeline, wants to create a new sample app, combine elements from existing samples, add detection/classification/VLM/tracking/alerts/recording to a video pipeline, or create custom GStreamer elements in Python or C++. Translates natural-language pipeline descriptions into working DL Streamer code using established design patterns."
-permissions:
+description: "Build new DL Streamer video-analytics applications (Python, C, C++ or GStreamer command line). Use this skill whenever the user describes a vision AI pipeline, wants to build or modify a sample app, add detection/classification/VLM/tracking/alerts/recording/audio analytics to a video pipeline, create custom GStreamer elements, or convert a DeepStream application to DL Streamer. Also use it for license-plate recognition, pose estimation, multi-stream setups, LiDAR/RealSense pipelines, or any Intel edge-AI workload involving GStreamer — even if the user doesn't explicitly say 'DL Streamer'. Translates natural-language pipeline descriptions into working code using established design patterns."
+license: MIT
+allowed-tools:
   - write
   - command
+compatibility: "Requires Docker with intel/dlstreamer image, Python 3.8+, GStreamer 1.22+. Optimized for Intel hardware (Core Ultra, Xeon, Arc GPU) but runs on any x86-64 Linux system with Docker."
+metadata:
+  author: Intel Corporation
+  version: 2026.1.0
+  tags:
+    - dlstreamer
+    - gstreamer
+    - video-analytics
+    - computer-vision
+    - intel
+    - openvino
+  homepage: https://github.com/open-edge-platform/dlstreamer
 ---
 
 # DL Streamer Coding Agent
@@ -23,9 +36,11 @@ This skill uses **repo-root-relative paths** to reference files outside the skil
 - User wants to combine elements from multiple existing samples (e.g. detection + VLM + recording)
 - User needs to add custom analytics logic or custom GStreamer elements in Python or C++
 
-See [example prompts](./examples) for inspiration.
+## Directory Layout
 
-## Directory Layout for a New Sample App
+See [example prompts](./examples) for inspiration and practical demonstrations.
+
+### New Sample App Structure
 
 ```
 <new_sample_app_name>
@@ -129,10 +144,10 @@ Extract the following from the user's prompt:
 are explicitly stated, not inferred), proceed directly to Step 1.
 
 **If any required info is missing or was inferred via Fast Path** (not explicitly stated
-by the user), you **MUST** present the pre-filled values and ask the user to confirm
-or override before proceeding. Use the interactive question tool if available
-(e.g. `vscode_askQuestions` in VS Code Copilot), otherwise list the values inline
-in chat. Do NOT silently assume defaults and skip confirmation.
+by the user), present the pre-filled values and ask the user to confirm or override before
+proceeding. Use the interactive question tool if available (e.g. `ask_user` or
+`vscode_askQuestions` in VS Code Copilot), otherwise list the values inline in chat.
+Silently assuming defaults risks building the wrong thing.
 
 If the user requests NPU but the selected model or elements do not support NPU inference,
 inform the user and suggest falling back to GPU or CPU.
@@ -141,8 +156,8 @@ inform the user and suggest falling back to GPU or CPU.
 
 Start the Docker image pull in an **async terminal** immediately after Step 0 completes.
 
-**Always pull the latest available image** 
-Do NOT reuse a locally cached image without pulling first.
+Pulling fresh ensures you have the latest patches and model runtime — reusing a cached
+image can hide update errors that only appear in production.
 
 ```bash
 docker pull intel/dlstreamer:latest
@@ -168,9 +183,11 @@ If a model is not listed, check the [Model Preparation Reference](./references/m
 
 Create the `export_requirements.txt` file using the [Export Requirements Template](./assets/export-requirements-template.txt) if the model export script requires additional Python packages (e.g. HuggingFace transformers, Ultralytics, optimum-cli, etc.). Add comments in `export_requirements.txt` to indicate which model export script requires a specific package. Use **exact pinned versions** from the [Model Preparation Reference → Requirements](./references/model-preparation.md#requirements).
 
-> **CRITICAL — CPU-only PyTorch:** The **first line** of `export_requirements.txt` must be
+> **CPU-only PyTorch:** The **first line** of `export_requirements.txt` must be
 > `--extra-index-url https://download.pytorch.org/whl/cpu`
-> (before any torch-dependent package like `ultralytics` or `nncf`). Without this, pip pulls multi-GB GPU libraries not needed for model export.
+> (before any torch-dependent package like `ultralytics` or `nncf`). Without this, pip
+> pulls multi-GB GPU libraries that aren't needed for model export — significantly inflating
+> install time and disk usage.
 > See [Model Preparation Reference → Requirements](./references/model-preparation.md#requirements) for the full template.
 
 Once both files are written, start venv creation and pip install in an **async terminal**:
@@ -295,6 +312,11 @@ For all languages:
 ### Step 5 — Run, Debug, and Validate
 
 **Run in Docker**
+
+The `--device /dev/dri` flag exposes the GPU. Include `--device /dev/accel` only when the
+NPU is available (`/dev/accel/accel0` exists) — omitting it on non-NPU systems prevents
+`stat` from failing with "no such file or directory".
+
 ```bash
 docker run --init --rm \
     -u "$(id -u):$(id -g)" \
@@ -302,16 +324,20 @@ docker run --init --rm \
     -v "$(pwd)":/app -w /app \
     --device /dev/dri \
     --group-add $(stat -c "%g" /dev/dri/render*) \
-    --device /dev/accel \
-    --group-add $(stat -c "%g" /dev/accel/accel*) \
     intel/dlstreamer:latest \
     python3 <app_name>.py
 ```
 
-> **Autonomous execution — never wait for user confirmation.**
-> Launch in async mode, poll `get_terminal_output` every 15–30s until completion.
-> Only ask the user when a **decision** is needed (e.g. device change after OOM).
-> This applies to all long-running commands: `docker run`, `docker pull`, `pip install`, model export.
+If the user's target hardware includes an NPU, also add:
+```
+    --device /dev/accel \
+    --group-add $(stat -c "%g" /dev/accel/accel*)
+```
+
+For long-running commands (`docker run`, `docker pull`, `pip install`, model export):
+launch in async mode and poll `get_terminal_output` every 15–30 s. These commands don't
+need a checkpoint — they're mechanical steps with no branching decisions. Only pause for
+user input when a genuine decision is needed (e.g., which device to fall back to after OOM).
 
 **Validate:** check that output matches the user's expected results. Use the [Debugging Hints](./references/debugging-hints.md) and [Validation Checklist](./references/debugging-hints.md#validation-checklist) for common gotchas. For continuous or long inputs, send EOS to finalize.
 
@@ -329,7 +355,3 @@ After the application is working, report timing metrics:
 3. **Debug and validation time** — running the application, checking outputs, fixing issues
 4. **User wait time** — waiting for user input or confirmation
 5. **Total activity time** (phases may overlap, so total ≠ sum of individual phases)
-
-## Examples
-See [example prompts](./examples) for inspiration and practical demonstrations of the procedure.
-
