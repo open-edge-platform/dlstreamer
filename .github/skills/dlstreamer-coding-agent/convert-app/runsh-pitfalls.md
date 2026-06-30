@@ -1,0 +1,56 @@
+# `run.sh` Pitfalls — Auto-Fix Checklist
+
+Used during **validation step 3** in [`validation-protocol.md`](./validation-protocol.md).
+
+Wire these patterns into `run.sh` from the start — do not wait for them to fail.
+
+If a clean-shell invocation fails:
+1. Read the actual error message from stderr (do **not** guess).
+2. Map it to the correct row below.
+3. Edit `run.sh` (or the `.cpp` file if the bug is in the binary).
+4. Re-run the clean-shell test.
+5. Repeat until **all** invocations pass. Fixes for one bug frequently expose
+   the next — never declare done after a single fix without re-running every
+   test.
+
+## Known `run.sh` pitfalls
+
+| Symptom in stderr | Root cause | Fix in `run.sh` |
+|---|---|---|
+| `setup_dls_env.sh: line N: <VAR>: unbound variable` | `set -u` is incompatible with the upstream env script which references unset vars (e.g. `GST_PLUGIN_FEATURE_RANK`) | Wrap the `source` in `set +u` … `source …setup_dls_env.sh` … `set -u`. Same applies to any other 3rd-party script you source. |
+| `ERROR: Model not found: /home/…/models/…` with `MODELS_PATH` pointing to the **wrong** directory (e.g. `/home/user/models` instead of the app's local `./models`) | `setup_dls_env.sh` unconditionally exports `MODELS_PATH` (typically `$HOME/models`). If `run.sh` sets `MODELS_PATH` **before** sourcing `setup_dls_env.sh`, the upstream script overwrites it. If set **after** but the user also has `MODELS_PATH` in their env, the app's default is ignored. | **Never use `MODELS_PATH` as the app's own variable** — `setup_dls_env.sh` owns that name. Instead: (1) use a unique, app-specific env var (e.g. `LPR_MODELS_PATH`, `<APP>_MODELS_PATH`) for user overrides; (2) default to a path relative to the script directory (`SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"`, then `"${LPR_MODELS_PATH:-$SCRIPT_DIR/models}"`); (3) set the app's model path variable **after** sourcing `setup_dls_env.sh` so it is never clobbered. Pattern: `set +u; source …/setup_dls_env.sh; set -u; APP_MODELS="${LPR_MODELS_PATH:-$SCRIPT_DIR/models}"`. The agent MUST grep `setup_dls_env.sh` for any env var it exports (`grep '^export'`) and avoid reusing those names in `run.sh`. |
+| `No such element or plugin 'gvadetect'` even after sourcing `setup_dls_env.sh` | On some builds `libgstvideoanalytics.so` lives under `/opt/intel/dlstreamer/Release/lib/` which `setup_dls_env.sh` does NOT add to `GST_PLUGIN_PATH` | Always (unconditionally) `export GST_PLUGIN_PATH="/opt/intel/dlstreamer/Release/lib:${GST_PLUGIN_PATH:-}"` and the same for `LD_LIBRARY_PATH` (incl. `opencv/lib`) after the source. |
+| `setup_dls_env.sh: No such file or directory` | DL Streamer not installed at `/opt/intel/dlstreamer` | Detect the absence and print a clear actionable error pointing to the install guide; exit non-zero. Do not silently continue. |
+| `command not found: …` from `set -e` halting on a pipeline | `set -e` + un-guarded optional command | Either guard with `\|\| true` for genuinely optional commands, or fix the missing dependency. |
+| `Permission denied` when invoking `./run.sh` | Created without exec bit | `chmod +x run.sh export_models.sh` immediately after creating them. |
+| `bash: ./build/<app>: No such file or directory` | Build step skipped or failed silently | `run.sh` must check `[[ -x "$BIN" ]]` and exit with a clear "build first: `cmake -S . -B build && cmake --build build`" message. |
+| Pipeline negotiates then aborts with `gst_element_set_state` returning `FAILURE` for an ASYNC pipeline | Some pipelines legitimately return `FAILURE` from `set_state(PLAYING)` for ASYNC transitions; aborting is wrong | In the C++ code, treat `GST_STATE_CHANGE_FAILURE` from `set_state(PLAYING)` as a warning and let the bus deliver the real error; only abort on a `GST_MESSAGE_ERROR` from the bus. |
+| `videos/sample.mp4: No such file or directory` (broken symlink) | Test asset symlink points to a path that does not exist on this host | `run.sh` must validate `INPUT` exists with `[[ -f "$INPUT" \|\| "$INPUT" == *"://"* ]]` and print a clear error; verify the symlink resolves before running. |
+| `Could not connect to display` from `autovideosink` on a headless host | No `$DISPLAY` / `$WAYLAND_DISPLAY` | `run.sh` must auto-fallback to `--sink=file` when both are unset. |
+| `GStreamer error: negotiation problem` / `failed to configure video mode` from `kmssink` inside `autovideosink` | `autovideosink` auto-selects `kmssink` which cannot configure video mode on remote/SSH/multi-GPU setups | Deprioritize `kmssink` by exporting `GST_PLUGIN_FEATURE_RANK="kmssink:NONE,${GST_PLUGIN_FEATURE_RANK:-}"` in `run.sh` before launching the pipeline. This forces `autovideosink` to pick `xvimagesink` or `ximagesink` instead. |
+| `Failed to set pipeline to PLAYING` with no further error detail | A default resource path (video, model, config) points to a file that does not exist on the host (missing file, broken symlink, wrong `MODELS_PATH`) | For **every** resource the script references, validate existence **before** launching the pipeline. Print a specific error naming the exact missing path and the variable/default it came from. Example: `[[ -f "$DETECTION_MODEL" ]] \|\| { echo "ERROR: model not found: $DETECTION_MODEL (MODELS_PATH=$MODELS_PATH)" >&2; exit 1; }`. Also verify that symlinks resolve: `readlink -e` or `[[ -e ... ]]`. |
+| `Internal data stream error` / `streaming stopped, reason not-linked (-1)` from `qtdemux` | Container (mp4/mkv) has an audio track; `urisourcebin ! decodebin3` or bare `uridecodebin3` exposes an internal audio pad with no downstream consumer, causing `qtdemux` to error on the unlinked stream | Use **`uridecodebin3`** with **`caps="video/x-raw(ANY)"`** — the caps property restricts stream selection to video only. Example: `uridecodebin3 uri=file:///path/to/file.mp4 caps="video/x-raw(ANY)" ! queue ! gvadetect ...`. Do **NOT** use bare `uridecodebin3` without caps — it still fails on files with audio. Test with an input that contains an audio track. |
+| `not-linked (-1)` from `qtdemux` or negotiation failure when using `--sink display` or `--sink file` with GPU pipeline (`va-surface-sharing`) | Pipeline outputs buffers in `video/x-raw(memory:VAMemory)` (GPU zero-copy), but downstream elements (`gvawatermark`, `videoconvert`, `autovideosink`, `vah264enc`) require system-memory `video/x-raw`. Without an explicit memory transfer element, caps negotiation fails. | Insert a **GPU→system-memory transfer element** immediately before `gvawatermark` (or before the first system-RAM element) in `display` and `file` sink paths when `device=GPU`. Run `gst-inspect-1.0 vapostproc` — if available, use `vapostproc`. Otherwise use `videoconvert` (handles the transfer implicitly when caps force system memory). Pattern with `vapostproc`: `... ! queue ! vapostproc ! gvawatermark ! videoconvert ! autovideosink`. Pattern without: `... ! queue ! videoconvert n-threads=4 ! capsfilter caps=video/x-raw,format=BGRx ! gvawatermark ! videoconvert n-threads=4 ! autovideosink`. The `fake` sink path does NOT need a transfer element. **Verify the chosen element exists via `gst-inspect-1.0` before using it.** |
+| `gvawatermark` is in the pipeline and `transform_ip` is called (visible in `GST_DEBUG=gvawatermarkimpl:5`) but **no bounding boxes or labels appear**; debug log shows `"Transparent path linked (identity bypassed)"` | `gvawatermark` negotiates `ANY` memory type when upstream buffers are not explicitly constrained to system memory. This causes it to select the transparent rendering path (path=3), which bypasses all drawing. | Insert `capsfilter caps=video/x-raw,format=BGRx` immediately before `gvawatermark` to force system-memory caps negotiation. The capsfilter MUST have `name=pre_watermark` so the label probe can attach to its src pad. Pattern: `videoconvert n-threads=4 ! capsfilter caps=video/x-raw,format=BGRx name=pre_watermark ! gvawatermark ! videoconvert n-threads=4`. Adds a CPU copy step; expect FPS reduction (e.g. 170 → 55 FPS) with GPU inference. Verify `gvawatermark` actually renders overlays by comparing output vs. input frames. See also the two-probe architecture for text labels. |
+| Bounding boxes appear on the output video but **no text labels** are rendered (no label text next to any bbox); `gvawatermark` CPU render path is active | `videoconvert` (GStreamer 1.24+) copies `GstVideoRegionOfInterestMeta` but does NOT copy its `params` field (`GList<GstStructure>`). All tensor data is lost after `videoconvert`. `GstAnalyticsRelationMeta` (bbox + tracking IDs) survives, so `gvawatermark` draws boxes but has no tensors to extract text from. | Use the **two-probe architecture** (see `pipeline-implementation.md` §6): (1) decode probe on inference element src pad (before `videoconvert`) stores text in a global map keyed by `region_id()`; (2) label probe on capsfilter src pad (after `videoconvert`, before `gvawatermark`) re-attaches text as a fresh `GstStructure` via `roi.add_tensor()`. The `region_id()` is stable across `videoconvert` copies. The GstStructure name must NOT be `"detection"` (use `"classification_result"`). |
+| `gst_parse_launch` returns `syntax error` when the pipeline string contains inline caps like `"video/x-raw,format=BGRx"` | In C++ string literals passed to `gst_parse_launch`, escaped quotes around caps filters are interpreted as part of the pipeline syntax tokens, causing parse failures. | Use the **`capsfilter` element** instead of inline caps notation: `! capsfilter caps=video/x-raw,format=BGRx !` instead of `! "video/x-raw,format=BGRx" !`. The `capsfilter` element is always safe in `gst_parse_launch` strings and avoids all quoting issues. For programmatic pipelines, use `gst_caps_from_string("video/x-raw,format=BGRx")` with `g_object_set(capsfilter, "caps", caps, NULL)`. |
+| `No such element or plugin 'vah264enc'` (or `x264enc`, or any hardcoded encoder) when running the file-output sink path | The pipeline hardcodes a specific encoder element name that does not exist in the current GStreamer registry. Encoder availability varies. | The C++ code MUST detect the available encoder at runtime by probing the GStreamer element registry (see `pipeline-implementation.md` §8). Use a priority list: `vah264enc` → `vah264lpenc` → `qsvh264enc` → `openh264enc`. Log the chosen encoder at startup. The `run.sh` wrapper does NOT need to handle this — encoder selection is the binary's responsibility. |
+
+## Pre-flight resource audit (mandatory before first run)
+
+Before running `run.sh` for the first time, verify that every resource the
+script and binary depend on actually exists on disk:
+
+- Default input video path (e.g. `videos/ParkingVideo.mp4`) — file present?
+  Symlink resolves?
+- Model files (`$MODELS_PATH/…/*.xml` and `*.bin`) — do they exist? Is
+  `MODELS_PATH` set correctly?
+- Label files, dictionaries, config files — anything the pipeline reads at
+  runtime.
+- The compiled binary (`build/<app_name>`) — does it exist and is it
+  executable?
+
+If any resource is missing, fix the issue (download models, create correct
+symlinks, adjust defaults) **before** running the pipeline. This prevents
+opaque `Failed to set pipeline to PLAYING` errors that give no clue about the
+root cause.
