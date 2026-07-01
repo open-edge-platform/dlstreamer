@@ -22,7 +22,9 @@
 #include <glib.h>
 #include <gmock/gmock.h>
 #include <gst/analytics/analytics.h>
+#include <gst/analytics/gstanalyticssegmentationmtd.h>
 #include <gst/gstbuffer.h>
+#include <gst/video/gstvideometa.h>
 #include <gtest/gtest.h>
 
 #include "dlstreamer/gst/metadata/gstanalyticskeypointdescriptor.h"
@@ -1341,4 +1343,348 @@ TEST_F(SemanticTagTest, ConvertToTensor_ModelNameNotRestoredFromTag) {
 
     gst_structure_free(s);
     gst_structure_free(restored_s);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Segmentation: test data and helpers
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// Semantic segmentation: frame-level int64 class-index map, dims = [1, H, W]
+static constexpr guint SEG_SEM_W = 4;
+static constexpr guint SEG_SEM_H = 3;
+static const int64_t SEG_SEM_DATA[SEG_SEM_W * SEG_SEM_H] = {
+    0, 0, 1, 1, //
+    0, 2, 2, 1, //
+    0, 0, 2, 2, //
+};
+
+// Frame dimensions used as the reference rectangle for semantic segmentation
+static constexpr gint SEG_FRAME_W = 64;
+static constexpr gint SEG_FRAME_H = 48;
+
+// Instance segmentation: per-ROI integer (already thresholded) mask, dims = [W, H]
+static constexpr guint SEG_INST_W = 3;
+static constexpr guint SEG_INST_H = 2;
+// Binary region-id mask produced by the converter (foreground = 1, background = 0)
+static const uint8_t SEG_INST_MASK[SEG_INST_W * SEG_INST_H] = {
+    0, 1, 1, //
+    0, 1, 0, //
+};
+
+// Bounding box used as the reference rectangle for instance segmentation
+static constexpr gint SEG_BOX_X = 10;
+static constexpr gint SEG_BOX_Y = 20;
+static constexpr gint SEG_BOX_W = 30;
+static constexpr gint SEG_BOX_H = 40;
+
+static GstStructure *build_semantic_segmentation_structure(const char *model_name = "SegModel") {
+    GstStructure *s = gst_structure_new_empty(GVA::GST_ANALYTICS_SEGMENTATION_2_TENSOR);
+    GVA::Tensor tensor(s);
+    tensor.set_type(GVA::GST_ANALYTICS_SEGMENTATION_2_TENSOR);
+    tensor.set_format(GVA::TENSOR_FORMAT_SEMANTIC_SEGMENTATION);
+    tensor.set_model_name(model_name);
+    tensor.set_precision(GVA::Tensor::Precision::I64);
+    tensor.set_dims({1u, SEG_SEM_H, SEG_SEM_W});
+    tensor.set_data(SEG_SEM_DATA, sizeof(SEG_SEM_DATA));
+    return s;
+}
+
+static GstStructure *build_instance_segmentation_structure(const char *model_name = "SegModel") {
+    GstStructure *s = gst_structure_new_empty(GVA::GST_ANALYTICS_SEGMENTATION_2_TENSOR);
+    GVA::Tensor tensor(s);
+    tensor.set_type(GVA::GST_ANALYTICS_SEGMENTATION_2_TENSOR);
+    tensor.set_format(GVA::TENSOR_FORMAT_INSTANCE_SEGMENTATION);
+    tensor.set_model_name(model_name);
+    tensor.set_precision(GVA::Tensor::Precision::U8);
+    tensor.set_dims({SEG_INST_W, SEG_INST_H});
+    tensor.set_data(SEG_INST_MASK, sizeof(SEG_INST_MASK));
+    return s;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Segmentation: convert_to_meta tests
+// ═══════════════════════════════════════════════════════════════════════════════
+
+struct SegmentationConvertToMetaTest : public ::testing::Test {
+    GstBuffer *buffer = nullptr;
+    GstAnalyticsRelationMeta *rmeta = nullptr;
+
+    void SetUp() override {
+        buffer = gst_buffer_new_allocate(nullptr, 0, nullptr);
+        rmeta = gst_buffer_add_analytics_relation_meta(buffer);
+        ASSERT_NE(rmeta, nullptr);
+    }
+
+    void TearDown() override {
+        if (buffer)
+            gst_buffer_unref(buffer);
+    }
+};
+
+TEST_F(SegmentationConvertToMetaTest, SemanticReturnsTrue) {
+    GstStructure *s = build_semantic_segmentation_structure();
+    GVA::Tensor tensor(s);
+
+    GstAnalyticsSegmentationMtd seg_mtd = {};
+    bool ok =
+        tensor.convert_to_meta(reinterpret_cast<GstAnalyticsMtd *>(&seg_mtd), rmeta, 0, 0, SEG_FRAME_W, SEG_FRAME_H);
+    EXPECT_TRUE(ok);
+
+    gst_structure_free(s);
+}
+
+TEST_F(SegmentationConvertToMetaTest, SemanticMaskHasCorrectVideoMeta) {
+    GstStructure *s = build_semantic_segmentation_structure();
+    GVA::Tensor tensor(s);
+
+    GstAnalyticsSegmentationMtd seg_mtd = {};
+    tensor.convert_to_meta(reinterpret_cast<GstAnalyticsMtd *>(&seg_mtd), rmeta, 0, 0, SEG_FRAME_W, SEG_FRAME_H);
+
+    gint loc_x = -1, loc_y = -1;
+    guint loc_w = 0, loc_h = 0;
+    GstBuffer *mask = gst_analytics_segmentation_mtd_get_mask(&seg_mtd, &loc_x, &loc_y, &loc_w, &loc_h);
+    ASSERT_NE(mask, nullptr);
+
+    // masks_loc should equal the frame reference rectangle
+    EXPECT_EQ(loc_x, 0);
+    EXPECT_EQ(loc_y, 0);
+    EXPECT_EQ(loc_w, static_cast<guint>(SEG_FRAME_W));
+    EXPECT_EQ(loc_h, static_cast<guint>(SEG_FRAME_H));
+
+    GstVideoMeta *vmeta = gst_buffer_get_video_meta(mask);
+    ASSERT_NE(vmeta, nullptr);
+    EXPECT_EQ(vmeta->format, GST_VIDEO_FORMAT_GRAY8);
+    EXPECT_EQ(vmeta->width, SEG_SEM_W);
+    EXPECT_EQ(vmeta->height, SEG_SEM_H);
+
+    gst_buffer_unref(mask);
+    gst_structure_free(s);
+}
+
+TEST_F(SegmentationConvertToMetaTest, SemanticRegionCountMatchesUniqueClasses) {
+    GstStructure *s = build_semantic_segmentation_structure();
+    GVA::Tensor tensor(s);
+
+    GstAnalyticsSegmentationMtd seg_mtd = {};
+    tensor.convert_to_meta(reinterpret_cast<GstAnalyticsMtd *>(&seg_mtd), rmeta, 0, 0, SEG_FRAME_W, SEG_FRAME_H);
+
+    // unique class ids in SEG_SEM_DATA are {0, 1, 2}
+    gsize count = gst_analytics_segmentation_mtd_get_region_count(&seg_mtd);
+    EXPECT_EQ(count, 3u);
+
+    gst_structure_free(s);
+}
+
+TEST_F(SegmentationConvertToMetaTest, InstanceCreatesTensorMtd) {
+    // Instance segmentation is stored as a GstAnalyticsTensorMtd (FP32 soft mask), tagged so it can be
+    // distinguished from other raw tensors. convert_to_meta must succeed and produce a tensor mtd.
+    GstStructure *s = build_instance_segmentation_structure();
+    GVA::Tensor tensor(s);
+
+    GstAnalyticsMtd mtd = {};
+    bool ok = tensor.convert_to_meta(&mtd, rmeta, SEG_BOX_X, SEG_BOX_Y, SEG_BOX_W, SEG_BOX_H);
+    EXPECT_TRUE(ok);
+    EXPECT_EQ(gst_analytics_mtd_get_mtd_type(&mtd), gst_analytics_tensor_mtd_get_mtd_type());
+
+    gchar *tag = gst_analytics_mtd_get_semantic_tag(&mtd);
+    ASSERT_NE(tag, nullptr);
+    EXPECT_NE(std::string(tag).find(GVA::TENSOR_FORMAT_INSTANCE_SEGMENTATION), std::string::npos);
+    g_free(tag);
+
+    gst_structure_free(s);
+}
+
+TEST_F(SegmentationConvertToMetaTest, InstanceFloatMaskCreatesTensorMtd) {
+    // A soft float mask is the expected instance-segmentation input; it must create a tensor mtd.
+    static const float float_mask[SEG_INST_W * SEG_INST_H] = {0.1f, 0.7f, 0.9f, 0.4f, 0.6f, 0.2f};
+    GstStructure *s = gst_structure_new_empty(GVA::GST_ANALYTICS_SEGMENTATION_2_TENSOR);
+    {
+        GVA::Tensor tensor(s);
+        tensor.set_type(GVA::GST_ANALYTICS_SEGMENTATION_2_TENSOR);
+        tensor.set_format(GVA::TENSOR_FORMAT_INSTANCE_SEGMENTATION);
+        tensor.set_precision(GVA::Tensor::Precision::FP32);
+        tensor.set_dims({SEG_INST_W, SEG_INST_H});
+        tensor.set_data(float_mask, sizeof(float_mask));
+    }
+    GVA::Tensor tensor(s);
+
+    GstAnalyticsMtd mtd = {};
+    bool ok = tensor.convert_to_meta(&mtd, rmeta, SEG_BOX_X, SEG_BOX_Y, SEG_BOX_W, SEG_BOX_H);
+    EXPECT_TRUE(ok);
+    EXPECT_EQ(gst_analytics_mtd_get_mtd_type(&mtd), gst_analytics_tensor_mtd_get_mtd_type());
+
+    gst_structure_free(s);
+}
+
+TEST_F(SegmentationConvertToMetaTest, InstanceTensorMtdRoundtrip) {
+    // tensor → tensor mtd → tensor must preserve the soft FP32 mask, format, dims and model name.
+    static const float float_mask[SEG_INST_W * SEG_INST_H] = {0.1f, 0.7f, 0.9f, 0.4f, 0.6f, 0.2f};
+    GstStructure *s = gst_structure_new_empty(GVA::GST_ANALYTICS_SEGMENTATION_2_TENSOR);
+    {
+        GVA::Tensor t(s);
+        t.set_type(GVA::GST_ANALYTICS_SEGMENTATION_2_TENSOR);
+        t.set_format(GVA::TENSOR_FORMAT_INSTANCE_SEGMENTATION);
+        t.set_model_name("SegModel");
+        t.set_precision(GVA::Tensor::Precision::FP32);
+        t.set_dims({SEG_INST_W, SEG_INST_H});
+        t.set_data(float_mask, sizeof(float_mask));
+    }
+    GVA::Tensor tensor(s);
+
+    GstAnalyticsMtd mtd = {};
+    ASSERT_TRUE(tensor.convert_to_meta(&mtd, rmeta, SEG_BOX_X, SEG_BOX_Y, SEG_BOX_W, SEG_BOX_H));
+
+    GstStructure *restored_s = GVA::Tensor::convert_to_tensor(mtd);
+    ASSERT_NE(restored_s, nullptr);
+    GVA::Tensor restored(restored_s);
+
+    EXPECT_EQ(restored.format(), GVA::TENSOR_FORMAT_INSTANCE_SEGMENTATION);
+    EXPECT_EQ(restored.precision(), GVA::Tensor::Precision::FP32);
+    std::vector<guint> expected_dims = {SEG_INST_W, SEG_INST_H};
+    EXPECT_EQ(restored.dims(), expected_dims);
+    // model_name is no longer reconstructed; the model still lives in the analytics-native semantic tag
+    EXPECT_EQ(restored.get_string("semantic_tag"), "SegModel/instance_segmentation");
+
+    auto restored_data = restored.data<float>();
+    ASSERT_EQ(restored_data.size(), static_cast<size_t>(SEG_INST_W) * SEG_INST_H);
+    for (size_t i = 0; i < restored_data.size(); i++)
+        EXPECT_NEAR(restored_data[i], float_mask[i], 1e-6f) << "instance mask pixel[" << i << "] mismatch";
+
+    gst_structure_free(restored_s);
+    gst_structure_free(s);
+}
+
+TEST_F(SegmentationConvertToMetaTest, UnknownTypeReturnsFalse) {
+    GstStructure *s = gst_structure_new_empty("unknown");
+    GVA::Tensor tensor(s);
+    tensor.set_type("unsupported_type");
+
+    GstAnalyticsMtd mtd = {};
+    bool ok = tensor.convert_to_meta(&mtd, rmeta, 0, 0, SEG_FRAME_W, SEG_FRAME_H);
+    EXPECT_FALSE(ok);
+
+    gst_structure_free(s);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Segmentation: convert_to_tensor tests
+// ═══════════════════════════════════════════════════════════════════════════════
+
+struct SegmentationConvertToTensorTest : public ::testing::Test {
+    GstBuffer *buffer = nullptr;
+    GstAnalyticsRelationMeta *rmeta = nullptr;
+    std::vector<GstStructure *> roundtrip_structures;
+
+    void SetUp() override {
+        buffer = gst_buffer_new_allocate(nullptr, 0, nullptr);
+        rmeta = gst_buffer_add_analytics_relation_meta(buffer);
+        ASSERT_NE(rmeta, nullptr);
+    }
+
+    void TearDown() override {
+        for (auto *s : roundtrip_structures)
+            gst_structure_free(s);
+        if (buffer)
+            gst_buffer_unref(buffer);
+    }
+
+    GstStructure *roundtrip(GstAnalyticsSegmentationMtd *seg_mtd) {
+        GstStructure *result = GVA::Tensor::convert_to_tensor(*reinterpret_cast<GstAnalyticsMtd *>(seg_mtd));
+        if (result)
+            roundtrip_structures.push_back(result);
+        return result;
+    }
+};
+
+TEST_F(SegmentationConvertToTensorTest, SemanticRoundtrip) {
+    GstStructure *orig_s = build_semantic_segmentation_structure();
+    GVA::Tensor original(orig_s);
+
+    GstAnalyticsSegmentationMtd seg_mtd = {};
+    ASSERT_TRUE(
+        original.convert_to_meta(reinterpret_cast<GstAnalyticsMtd *>(&seg_mtd), rmeta, 0, 0, SEG_FRAME_W, SEG_FRAME_H));
+
+    GstStructure *restored_s = roundtrip(&seg_mtd);
+    ASSERT_NE(restored_s, nullptr);
+    GVA::Tensor restored(restored_s);
+
+    EXPECT_EQ(restored.type(), GVA::GST_ANALYTICS_SEGMENTATION_2_TENSOR);
+    EXPECT_EQ(restored.format(), GVA::TENSOR_FORMAT_SEMANTIC_SEGMENTATION);
+    EXPECT_EQ(restored.precision(), GVA::Tensor::Precision::I64);
+    // model_name is no longer reconstructed; the model still lives in the analytics-native semantic tag
+    EXPECT_EQ(restored.get_string("semantic_tag"), "SegModel/semantic_segmentation");
+
+    std::vector<guint> expected_dims = {1u, SEG_SEM_H, SEG_SEM_W};
+    EXPECT_EQ(restored.dims(), expected_dims);
+
+    auto restored_data = restored.data<int64_t>();
+    ASSERT_EQ(restored_data.size(), static_cast<size_t>(SEG_SEM_W) * SEG_SEM_H);
+    for (size_t i = 0; i < restored_data.size(); i++) {
+        EXPECT_EQ(restored_data[i], SEG_SEM_DATA[i]) << "semantic mask pixel[" << i << "] mismatch";
+    }
+
+    gst_structure_free(orig_s);
+}
+
+TEST_F(SegmentationConvertToTensorTest, SemanticGray16Roundtrip) {
+    // class ids exceeding 255 force a GRAY16_LE mask; verify the values survive
+    GstStructure *s = gst_structure_new_empty(GVA::GST_ANALYTICS_SEGMENTATION_2_TENSOR);
+    GVA::Tensor tensor(s);
+    tensor.set_type(GVA::GST_ANALYTICS_SEGMENTATION_2_TENSOR);
+    tensor.set_format(GVA::TENSOR_FORMAT_SEMANTIC_SEGMENTATION);
+    tensor.set_precision(GVA::Tensor::Precision::I64);
+    const guint w = 2, h = 2;
+    const int64_t data[w * h] = {0, 300, 1000, 42};
+    tensor.set_dims({1u, h, w});
+    tensor.set_data(data, sizeof(data));
+
+    GstAnalyticsSegmentationMtd seg_mtd = {};
+    ASSERT_TRUE(
+        tensor.convert_to_meta(reinterpret_cast<GstAnalyticsMtd *>(&seg_mtd), rmeta, 0, 0, SEG_FRAME_W, SEG_FRAME_H));
+
+    gint lx, ly;
+    guint lw, lh;
+    GstBuffer *mask = gst_analytics_segmentation_mtd_get_mask(&seg_mtd, &lx, &ly, &lw, &lh);
+    ASSERT_NE(mask, nullptr);
+    GstVideoMeta *vmeta = gst_buffer_get_video_meta(mask);
+    ASSERT_NE(vmeta, nullptr);
+    EXPECT_EQ(vmeta->format, GST_VIDEO_FORMAT_GRAY16_LE);
+    gst_buffer_unref(mask);
+
+    GstStructure *restored_s = roundtrip(&seg_mtd);
+    ASSERT_NE(restored_s, nullptr);
+    GVA::Tensor restored(restored_s);
+    auto restored_data = restored.data<int64_t>();
+    ASSERT_EQ(restored_data.size(), static_cast<size_t>(w) * h);
+    for (size_t i = 0; i < restored_data.size(); i++) {
+        EXPECT_EQ(restored_data[i], data[i]) << "gray16 pixel[" << i << "] mismatch";
+    }
+
+    gst_structure_free(s);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Segmentation: full roundtrip tensor → meta → tensor
+// ═══════════════════════════════════════════════════════════════════════════════
+
+TEST_F(SegmentationConvertToTensorTest, SemanticFullRoundtripPreservesFields) {
+    GstStructure *orig_s = build_semantic_segmentation_structure("MyModel");
+    GVA::Tensor original(orig_s);
+
+    GstAnalyticsSegmentationMtd seg_mtd = {};
+    ASSERT_TRUE(
+        original.convert_to_meta(reinterpret_cast<GstAnalyticsMtd *>(&seg_mtd), rmeta, 0, 0, SEG_FRAME_W, SEG_FRAME_H));
+
+    GstStructure *restored_s = roundtrip(&seg_mtd);
+    ASSERT_NE(restored_s, nullptr);
+    GVA::Tensor restored(restored_s);
+
+    EXPECT_EQ(restored.type(), original.type());
+    EXPECT_EQ(restored.format(), original.format());
+    EXPECT_EQ(restored.precision(), original.precision());
+    EXPECT_EQ(restored.dims(), original.dims());
+    // semantic_tag should encode "model_name/format"
+    EXPECT_EQ(restored.get_string("semantic_tag"), "MyModel/semantic_segmentation");
+
+    gst_structure_free(orig_s);
 }

@@ -14,8 +14,12 @@
 #include <gst/analytics/gstanalyticsclassificationmtd.h>
 #include <gst/analytics/gstanalyticsgroupmtd.h>
 #include <gst/analytics/gstanalyticskeypointmtd.h>
+#include <gst/analytics/gstanalyticssegmentationmtd.h>
+#include <gst/analytics/gstanalyticstensormtd.h>
+#include <gst/analytics/gsttensor.h>
 #include <gst/gst.h>
 #include <gst/gstbuffer.h>
+#include <gst/video/video.h>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -51,6 +55,34 @@ class MetaaggregateCopyTest : public ::testing::Test {
     GstAnalyticsRelationMeta *dst_meta_ = nullptr;
     GHashTable *id_map_ = nullptr;
 };
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+// Create a GRAY8 mask buffer (with the video meta required by add_segmentation_mtd).
+static GstBuffer *make_gray8_mask_buffer(guint width, guint height, guint8 fill_value) {
+    GstBuffer *buf = gst_buffer_new_allocate(nullptr, (gsize)width * height, nullptr);
+    gst_buffer_memset(buf, 0, fill_value, (gsize)width * height);
+    gst_buffer_add_video_meta(buf, GST_VIDEO_FRAME_FLAG_NONE, GST_VIDEO_FORMAT_GRAY8, width, height);
+    return buf;
+}
+
+// Create a buffer holding a row-major FP32 tensor payload.
+static GstBuffer *make_float_tensor_buffer(const std::vector<float> &values) {
+    GstBuffer *buf = gst_buffer_new_allocate(nullptr, values.size() * sizeof(float), nullptr);
+    gst_buffer_fill(buf, 0, values.data(), values.size() * sizeof(float));
+    return buf;
+}
+
+// Read back the FP32 payload of a tensor buffer.
+static std::vector<float> read_float_tensor_buffer(GstBuffer *buf, gsize count) {
+    std::vector<float> out(count);
+    GstMapInfo map;
+    if (gst_buffer_map(buf, &map, GST_MAP_READ)) {
+        memcpy(out.data(), map.data, count * sizeof(float));
+        gst_buffer_unmap(buf, &map);
+    }
+    return out;
+}
 
 // ══════════════════════════════════════════════════════════════════════════════
 // copy_one_gst_analytics_mtd tests
@@ -1006,6 +1038,220 @@ TEST_F(MetaaggregateCopyTest, CopyAll_SharedMemberBetweenTwoGroups) {
         grp_count++;
     }
     EXPECT_EQ(grp_count, 2);
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Segmentation mtd tests — copy_one_gst_analytics_mtd
+// ══════════════════════════════════════════════════════════════════════════════
+
+TEST_F(MetaaggregateCopyTest, CopySegmentation_NoScaling) {
+    GstBuffer *mask = make_gray8_mask_buffer(8, 4, 0);
+    guint region_ids[] = {7u, 12u};
+    GstAnalyticsSegmentationMtd seg_mtd;
+    ASSERT_TRUE(gst_analytics_relation_meta_add_segmentation_mtd(src_meta_, mask, GST_SEGMENTATION_TYPE_SEMANTIC, 2,
+                                                                 region_ids, 1, 2, 8, 4, &seg_mtd));
+
+    GstAnalyticsMtd new_mtd;
+    ASSERT_TRUE(copy_one_gst_analytics_mtd(dst_meta_, (GstAnalyticsMtd *)&seg_mtd, &new_mtd, 1.0, 1.0, id_map_));
+
+    EXPECT_EQ(gst_analytics_mtd_get_mtd_type(&new_mtd), gst_analytics_segmentation_mtd_get_mtd_type());
+
+    gint x, y;
+    guint w, h;
+    GstBuffer *copied_mask =
+        gst_analytics_segmentation_mtd_get_mask((GstAnalyticsSegmentationMtd *)&new_mtd, &x, &y, &w, &h);
+    ASSERT_NE(copied_mask, nullptr);
+    EXPECT_EQ(x, 1);
+    EXPECT_EQ(y, 2);
+    EXPECT_EQ(w, 8u);
+    EXPECT_EQ(h, 4u);
+    // Same underlying mask buffer is shared (copy is by reference, not deep copy)
+    EXPECT_EQ(copied_mask, mask);
+    gst_buffer_unref(copied_mask);
+
+    ASSERT_EQ(gst_analytics_segmentation_mtd_get_region_count((GstAnalyticsSegmentationMtd *)&new_mtd), 2u);
+    EXPECT_EQ(gst_analytics_segmentation_mtd_get_region_id((GstAnalyticsSegmentationMtd *)&new_mtd, 0), 7u);
+    EXPECT_EQ(gst_analytics_segmentation_mtd_get_region_id((GstAnalyticsSegmentationMtd *)&new_mtd, 1), 12u);
+}
+
+TEST_F(MetaaggregateCopyTest, CopySegmentation_WithScaling) {
+    GstBuffer *mask = make_gray8_mask_buffer(8, 4, 0);
+    guint region_ids[] = {1u};
+    GstAnalyticsSegmentationMtd seg_mtd;
+    ASSERT_TRUE(gst_analytics_relation_meta_add_segmentation_mtd(src_meta_, mask, GST_SEGMENTATION_TYPE_SEMANTIC, 1,
+                                                                 region_ids, 100, 200, 50, 80, &seg_mtd));
+
+    GstAnalyticsMtd new_mtd;
+    ASSERT_TRUE(copy_one_gst_analytics_mtd(dst_meta_, (GstAnalyticsMtd *)&seg_mtd, &new_mtd, 2.0, 0.5, id_map_));
+
+    gint x, y;
+    guint w, h;
+    GstBuffer *copied_mask =
+        gst_analytics_segmentation_mtd_get_mask((GstAnalyticsSegmentationMtd *)&new_mtd, &x, &y, &w, &h);
+    ASSERT_NE(copied_mask, nullptr);
+    // location scaled like an OD bounding box
+    EXPECT_EQ(x, 200);  // 100*2.0+0.5
+    EXPECT_EQ(y, 100);  // 200*0.5+0.5
+    EXPECT_EQ(w, 100u); // 50*2.0+0.5
+    EXPECT_EQ(h, 40u);  // 80*0.5+0.5
+    gst_buffer_unref(copied_mask);
+}
+
+TEST_F(MetaaggregateCopyTest, CopySegmentation_WithSemanticTag) {
+    GstBuffer *mask = make_gray8_mask_buffer(4, 4, 0);
+    guint region_ids[] = {3u};
+    GstAnalyticsSegmentationMtd seg_mtd;
+    ASSERT_TRUE(gst_analytics_relation_meta_add_segmentation_mtd(src_meta_, mask, GST_SEGMENTATION_TYPE_SEMANTIC, 1,
+                                                                 region_ids, 0, 0, 4, 4, &seg_mtd));
+    gst_analytics_mtd_set_semantic_tag((GstAnalyticsMtd *)&seg_mtd, "segmentation-model/semantic");
+
+    GstAnalyticsMtd new_mtd;
+    ASSERT_TRUE(copy_one_gst_analytics_mtd(dst_meta_, (GstAnalyticsMtd *)&seg_mtd, &new_mtd, 1.0, 1.0, id_map_));
+
+    gchar *tag = gst_analytics_mtd_get_semantic_tag(&new_mtd);
+    ASSERT_NE(tag, nullptr);
+    EXPECT_STREQ(tag, "segmentation-model/semantic");
+    g_free(tag);
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Tensor mtd tests — copy_one_gst_analytics_mtd
+// ══════════════════════════════════════════════════════════════════════════════
+
+TEST_F(MetaaggregateCopyTest, CopyTensor_PreservesData) {
+    std::vector<float> values = {0.1f, 0.7f, 0.9f, 0.4f, 0.6f, 0.2f}; // 2x3 row-major
+    GstBuffer *data = make_float_tensor_buffer(values);
+    gsize dims[] = {2, 3};
+    GQuark id = g_quark_from_static_string("SegModel/instance_segmentation");
+
+    GstAnalyticsTensorMtd tensor_mtd;
+    ASSERT_TRUE(gst_analytics_relation_meta_add_tensor_mtd_simple(
+        src_meta_, id, GST_TENSOR_DATA_TYPE_FLOAT32, data, GST_TENSOR_DIM_ORDER_ROW_MAJOR, 2, dims, &tensor_mtd));
+
+    GstAnalyticsMtd new_mtd;
+    ASSERT_TRUE(copy_one_gst_analytics_mtd(dst_meta_, (GstAnalyticsMtd *)&tensor_mtd, &new_mtd, 1.0, 1.0, id_map_));
+
+    EXPECT_EQ(gst_analytics_mtd_get_mtd_type(&new_mtd), gst_analytics_tensor_mtd_get_mtd_type());
+
+    GstTensor *copied = gst_analytics_tensor_mtd_get_tensor((GstAnalyticsTensorMtd *)&new_mtd);
+    ASSERT_NE(copied, nullptr);
+    EXPECT_EQ(copied->id, id);
+    EXPECT_EQ(copied->data_type, GST_TENSOR_DATA_TYPE_FLOAT32);
+    EXPECT_EQ(copied->dims_order, GST_TENSOR_DIM_ORDER_ROW_MAJOR);
+    ASSERT_EQ(copied->num_dims, 2u);
+    EXPECT_EQ(copied->dims[0], 2u);
+    EXPECT_EQ(copied->dims[1], 3u);
+    ASSERT_NE(copied->data, nullptr);
+
+    std::vector<float> copied_values = read_float_tensor_buffer(copied->data, values.size());
+    for (size_t i = 0; i < values.size(); i++) {
+        EXPECT_NEAR(copied_values[i], values[i], 1e-6f);
+    }
+}
+
+TEST_F(MetaaggregateCopyTest, CopyTensor_DimsNotScaled) {
+    std::vector<float> values = {1.0f, 2.0f, 3.0f, 4.0f}; // 2x2
+    GstBuffer *data = make_float_tensor_buffer(values);
+    gsize dims[] = {2, 2};
+    GQuark id = g_quark_from_static_string("model/instance_segmentation");
+
+    GstAnalyticsTensorMtd tensor_mtd;
+    ASSERT_TRUE(gst_analytics_relation_meta_add_tensor_mtd_simple(
+        src_meta_, id, GST_TENSOR_DATA_TYPE_FLOAT32, data, GST_TENSOR_DIM_ORDER_ROW_MAJOR, 2, dims, &tensor_mtd));
+
+    GstAnalyticsMtd new_mtd;
+    // Even with scaling factors, tensor dims/data must be copied verbatim
+    ASSERT_TRUE(copy_one_gst_analytics_mtd(dst_meta_, (GstAnalyticsMtd *)&tensor_mtd, &new_mtd, 4.0, 4.0, id_map_));
+
+    GstTensor *copied = gst_analytics_tensor_mtd_get_tensor((GstAnalyticsTensorMtd *)&new_mtd);
+    ASSERT_NE(copied, nullptr);
+    EXPECT_EQ(copied->dims[0], 2u);
+    EXPECT_EQ(copied->dims[1], 2u);
+}
+
+TEST_F(MetaaggregateCopyTest, CopyTensor_WithSemanticTag) {
+    std::vector<float> values = {0.5f, 0.5f};
+    GstBuffer *data = make_float_tensor_buffer(values);
+    gsize dims[] = {1, 2};
+    GQuark id = g_quark_from_static_string("tag-model/instance_segmentation");
+
+    GstAnalyticsTensorMtd tensor_mtd;
+    ASSERT_TRUE(gst_analytics_relation_meta_add_tensor_mtd_simple(
+        src_meta_, id, GST_TENSOR_DATA_TYPE_FLOAT32, data, GST_TENSOR_DIM_ORDER_ROW_MAJOR, 2, dims, &tensor_mtd));
+    gst_analytics_mtd_set_semantic_tag((GstAnalyticsMtd *)&tensor_mtd, "tag-model/instance_segmentation");
+
+    GstAnalyticsMtd new_mtd;
+    ASSERT_TRUE(copy_one_gst_analytics_mtd(dst_meta_, (GstAnalyticsMtd *)&tensor_mtd, &new_mtd, 1.0, 1.0, id_map_));
+
+    gchar *tag = gst_analytics_mtd_get_semantic_tag(&new_mtd);
+    ASSERT_NE(tag, nullptr);
+    EXPECT_STREQ(tag, "tag-model/instance_segmentation");
+    g_free(tag);
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Segmentation & tensor mtd — copy_all_gst_analytics_mtd
+// ══════════════════════════════════════════════════════════════════════════════
+
+TEST_F(MetaaggregateCopyTest, CopyAll_SegmentationStandalone) {
+    GstBuffer *mask = make_gray8_mask_buffer(8, 8, 0);
+    guint region_ids[] = {2u, 5u};
+    GstAnalyticsSegmentationMtd seg_mtd;
+    ASSERT_TRUE(gst_analytics_relation_meta_add_segmentation_mtd(src_meta_, mask, GST_SEGMENTATION_TYPE_SEMANTIC, 2,
+                                                                 region_ids, 0, 0, 8, 8, &seg_mtd));
+
+    ASSERT_TRUE(copy_all_gst_analytics_mtd(src_meta_, dst_meta_, id_map_, 1.0, 1.0));
+    EXPECT_EQ(g_hash_table_size(id_map_), 1u);
+
+    gpointer state = NULL;
+    GstAnalyticsMtd dst_seg;
+    ASSERT_TRUE(gst_analytics_relation_meta_iterate(dst_meta_, &state, gst_analytics_segmentation_mtd_get_mtd_type(),
+                                                    &dst_seg));
+    EXPECT_EQ(gst_analytics_segmentation_mtd_get_region_count((GstAnalyticsSegmentationMtd *)&dst_seg), 2u);
+}
+
+TEST_F(MetaaggregateCopyTest, CopyAll_ODWithContainedTensorMask) {
+    // OD object with an instance-segmentation mask carried as a tensor mtd, related via CONTAIN
+    GstAnalyticsMtd od_mtd;
+    ASSERT_TRUE(gst_analytics_relation_meta_add_oriented_od_mtd(src_meta_, g_quark_from_static_string("person"), 10, 20,
+                                                                30, 40, 0.0f, 0.9f, &od_mtd));
+
+    std::vector<float> values = {0.2f, 0.8f, 0.6f, 0.1f};
+    GstBuffer *data = make_float_tensor_buffer(values);
+    gsize dims[] = {2, 2};
+    GQuark id = g_quark_from_static_string("SegModel/instance_segmentation");
+    GstAnalyticsTensorMtd tensor_mtd;
+    ASSERT_TRUE(gst_analytics_relation_meta_add_tensor_mtd_simple(
+        src_meta_, id, GST_TENSOR_DATA_TYPE_FLOAT32, data, GST_TENSOR_DIM_ORDER_ROW_MAJOR, 2, dims, &tensor_mtd));
+
+    ASSERT_TRUE(
+        gst_analytics_relation_meta_set_relation(src_meta_, GST_ANALYTICS_REL_TYPE_CONTAIN, od_mtd.id, tensor_mtd.id));
+    ASSERT_TRUE(gst_analytics_relation_meta_set_relation(src_meta_, GST_ANALYTICS_REL_TYPE_IS_PART_OF, tensor_mtd.id,
+                                                         od_mtd.id));
+
+    ASSERT_TRUE(copy_all_gst_analytics_mtd(src_meta_, dst_meta_, id_map_, 1.0, 1.0));
+    EXPECT_EQ(g_hash_table_size(id_map_), 2u);
+
+    // Map old ids to new
+    gpointer v_od, v_tensor;
+    ASSERT_TRUE(g_hash_table_lookup_extended(id_map_, GUINT_TO_POINTER(od_mtd.id), NULL, &v_od));
+    ASSERT_TRUE(g_hash_table_lookup_extended(id_map_, GUINT_TO_POINTER(tensor_mtd.id), NULL, &v_tensor));
+    guint new_od_id = GPOINTER_TO_UINT(v_od);
+    guint new_tensor_id = GPOINTER_TO_UINT(v_tensor);
+
+    // Relation OD --CONTAIN--> tensor preserved
+    GstAnalyticsRelTypes rel = gst_analytics_relation_meta_get_relation(dst_meta_, new_od_id, new_tensor_id);
+    EXPECT_TRUE(rel & GST_ANALYTICS_REL_TYPE_CONTAIN);
+
+    // Tensor data preserved
+    GstAnalyticsTensorMtd dst_tensor;
+    ASSERT_TRUE(gst_analytics_relation_meta_get_tensor_mtd(dst_meta_, new_tensor_id, &dst_tensor));
+    GstTensor *copied = gst_analytics_tensor_mtd_get_tensor(&dst_tensor);
+    ASSERT_NE(copied, nullptr);
+    std::vector<float> copied_values = read_float_tensor_buffer(copied->data, values.size());
+    for (size_t i = 0; i < values.size(); i++) {
+        EXPECT_NEAR(copied_values[i], values[i], 1e-6f);
+    }
 }
 
 // ── main ─────────────────────────────────────────────────────────────────────
