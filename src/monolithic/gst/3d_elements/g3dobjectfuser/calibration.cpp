@@ -81,7 +81,11 @@ bool CalibrationStore::load(const std::string &path) {
         per_camera_[0] = cal;
     }
 
-    return !per_camera_.empty();
+    if (per_camera_.empty()) {
+        last_error_ = "Calibration file contains no camera entries (empty \"cameras\" object)";
+        return false;
+    }
+    return true;
 }
 
 const CameraCalibration *CalibrationStore::get(int camera_index) const {

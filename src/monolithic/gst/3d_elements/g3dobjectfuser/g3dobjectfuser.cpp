@@ -16,6 +16,7 @@
 #include <dlstreamer/gst/metadata/g3d_od_mtd.h>
 #include <dlstreamer/gst/metadata/g3d_radarprocess_meta.h>
 
+#include <algorithm>
 #include <map>
 #include <memory>
 #include <string>
@@ -603,16 +604,24 @@ static GstFlowReturn gst_g3d_object_fuser_transform_ip(GstBaseTransform *trans, 
         GstCaps *caps = gst_analytics_batch_stream_get_caps(stream);
         const gchar *name =
             (caps && gst_caps_get_size(caps) > 0) ? gst_structure_get_name(gst_caps_get_structure(caps, 0)) : nullptr;
+        const bool is_lidar_stream = name && g_strcmp0(name, "application/x-lidar") == 0;
+        const bool is_radar_stream = name && g_strcmp0(name, "application/x-radar-processed") == 0;
         if (name && g_str_has_prefix(name, "video/")) {
             cam_bufs.push_back(sbuf);
             cam_indices.push_back(static_cast<int>(stream->index));
-        } else if (name && g_strcmp0(name, "application/x-lidar") == 0) {
+        } else if (is_lidar_stream || is_radar_stream) {
+            /* The element supports a single 3D-sensor stream per batch. If more
+             * than one is present (e.g. both lidar and radar), keep the first and
+             * warn rather than silently using whichever comes last. */
+            if (have_3d) {
+                GST_WARNING_OBJECT(self,
+                                   "Batch contains more than one 3D-sensor stream ('%s' on stream %d); "
+                                   "g3dobjectfuser supports a single 3D stream, ignoring this one",
+                                   name, static_cast<int>(stream->index));
+                continue;
+            }
             threed_buf = sbuf;
-            is_lidar = true;
-            have_3d = true;
-        } else if (name && g_strcmp0(name, "application/x-radar-processed") == 0) {
-            threed_buf = sbuf;
-            is_lidar = false;
+            is_lidar = is_lidar_stream;
             have_3d = true;
         }
     }

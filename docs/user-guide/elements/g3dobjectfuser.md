@@ -68,15 +68,6 @@ Both the sink and src caps are `multistream/x-analytics-batch(meta:GstAnalyticsB
 This lets `g3drender` iterate the batch's streams once per tick and draw all cameras + the 3D top-down view from a single buffer. Video-only batches (a tick with no coincident 3D frame) still get per-camera tracking; cross-modal fusion is simply a no-op for that tick.
 
 ## Metadata Structure: `GstAnalytics3DODMtd`
-A new analytics-meta type registered in `dlstreamer_gst_meta` (header `dlstreamer/gst/metadata/gstanalytics3dobjectdetectionmtd.h`).
-
-Per-detection fields:
-- `x, y, z` — box centre in metres (sensor or world frame).
-- `length, width, height` — extents in metres.
-- `yaw, pitch, roll` — orientation in radians (`pitch` and `roll` are 0 if unused; only `yaw` is meaningful for the LiDAR / radar references currently shipped).
-- `class_id`, `confidence` — detection class and score.
-- `modality` — one of `GST_ANALYTICS_3D_SENSOR_LIDAR`, `..._RADAR`.
-
 Tracking is carried separately in #GstAnalyticsTrackingMtd attached to the same relation meta and linked to the 3D OD mtd via #GST_ANALYTICS_REL_TYPE_RELATE_TO. Cross-modal pairs are linked via #GST_ANALYTICS_REL_TYPE_IS_PART_OF:
 ```c
 /* Per detection: tracking */
@@ -84,10 +75,17 @@ gst_analytics_relation_meta_add_tracking_mtd(rmeta, track_id, pts, &tmtd);
 gst_analytics_relation_meta_set_relation(rmeta,
     GST_ANALYTICS_REL_TYPE_RELATE_TO, three_d_mtd_id, tmtd.id);
 
-/* Cross-modal pair */
-gst_analytics_relation_meta_set_relation(rmeta,
+/* Cross-modal pair. Relations are scoped to a single GstAnalyticsRelationMeta,
+ * so the camera OD mtd cannot point directly at the 3D OD mtd (which lives on
+ * the 3D-sensor buffer's relation meta). Materialise the link as a tracking mtd
+ * on the camera relation meta whose tracking_id IS the 3D OD mtd's id, then
+ * relate the camera OD mtd to it. Downstream looks that id up on the 3D stream. */
+GstAnalyticsTrackingMtd link_mtd;
+gst_analytics_relation_meta_add_tracking_mtd(cam_rmeta,
+    /*tracking_id=*/threed_mtd_id, pts, &link_mtd);
+gst_analytics_relation_meta_set_relation(cam_rmeta,
     GST_ANALYTICS_REL_TYPE_IS_PART_OF,
-    camera_mtd_id, threed_mtd_id);
+    camera_mtd_id, link_mtd.id);
 ```
 
 ## Calibration JSON schema
