@@ -68,7 +68,7 @@ python download_hf_models.py --model openbmb/MiniCPM-V-2_6 --extra_args --weight
 python download_hf_models.py --model <org/private-model> --token <HF_TOKEN> --outdir ./exports
 
 # Explicit revision override
-python download_hf_models.py --model openai/clip-vit-base-patch32@8d63d37a6cb56f5fce515f9e64bcfb3b0e22e594 --outdir ./exports
+python download_hf_models.py --model openai/clip-vit-base-patch32@3d74acf9a28c67741b2f4f2ea7635f0aaf6f0268 --outdir ./exports
 ```
 
 ## 2) Ultralytics conversion
