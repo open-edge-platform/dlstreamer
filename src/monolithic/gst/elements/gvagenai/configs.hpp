@@ -51,6 +51,20 @@ class ConfigParser {
      */
     static std::optional<ov::genai::SchedulerConfig> parse_scheduler_config_string(const std::string &config_str);
 
+    /**
+     * @brief Parse pipeline (plugin/device) config string in KEY=VALUE,KEY=VALUE format
+     *
+     * This method parses a comma-separated configuration string into an AnyMap of string
+     * values that is passed to the pipeline at construction as OpenVINO device/plugin
+     * properties. Values are kept as strings and coerced by the plugin. Useful for device
+     * tuning.
+     *
+     * @param config_str Configuration string in "key1=value1,key2=value2" format
+     * @return AnyMap with plugin properties, empty if config_str is empty
+     * @throws std::runtime_error if parsing fails
+     */
+    static ov::AnyMap parse_pipeline_config_string(const std::string &config_str);
+
   private:
     /**
      * @brief Trim whitespace and tabs from the beginning and end of a string

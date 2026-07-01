@@ -7,11 +7,14 @@
 #include "genai.hpp"
 
 #include <cmath>
+#include <cstring>
 
 GST_DEBUG_CATEGORY_EXTERN(gst_gvagenai_debug);
 #define GST_CAT_DEFAULT gst_gvagenai_debug
 
 #include "configs.hpp"
+
+#include <openvino/genai/visual_language/video_metadata.hpp>
 
 #include <nlohmann/json.hpp>
 #include <opencv2/opencv.hpp>
@@ -20,7 +23,8 @@ namespace genai {
 
 OpenVINOGenAIContext::OpenVINOGenAIContext(const std::string &model_path, const std::string &device,
                                            const std::string &cache_path, const std::string &generation_config_str,
-                                           const std::string &scheduler_config_str) {
+                                           const std::string &scheduler_config_str,
+                                           const std::string &pipeline_config_str) {
     // Initialize memory mapper for GStreamer buffers
     mapper = std::make_shared<dlstreamer::MemoryMapperGSTToCPU>(nullptr, nullptr);
 
@@ -33,17 +37,18 @@ OpenVINOGenAIContext::OpenVINOGenAIContext(const std::string &model_path, const 
         scheduler_config = ConfigParser::parse_scheduler_config_string(scheduler_config_str);
     }
 
-    ov::AnyMap properties;
+    // Pipeline (plugin/device) properties, e.g. NPU tuning. Parsed first so the values below
+    // (cache_dir, scheduler_config) take precedence over any duplicate keys.
+    ov::AnyMap properties = ConfigParser::parse_pipeline_config_string(pipeline_config_str);
 
-    // Cache compiled models on disk for GPU to save time on the
+    // Cache compiled models on disk for GPU and NPU to save time on the
     // next run. It's not beneficial for CPU.
-    // TODO check NPU support for cache
-    if (device.starts_with("GPU")) {
-        properties.insert({ov::cache_dir(cache_path)});
+    if (device.starts_with("GPU") || device.starts_with("NPU")) {
+        properties[ov::cache_dir.name()] = cache_path;
     }
 
     if (get_scheduler_config()) {
-        properties.insert({ov::genai::scheduler_config(*get_scheduler_config())});
+        properties[ov::genai::scheduler_config.name()] = *get_scheduler_config();
     }
 
     GST_INFO("%s: %s", ov::get_openvino_version().description, ov::get_openvino_version().buildNumber);
@@ -153,7 +158,7 @@ void OpenVINOGenAIContext::add_tensor_to_vector(GstBuffer *buffer, GstVideoInfo 
     tensor_vector.push_back(tensor);
 }
 
-void OpenVINOGenAIContext::inference_tensor_vector(const std::string &prompt) {
+void OpenVINOGenAIContext::inference_tensor_vector(const std::string &prompt, bool as_video, float fps) {
     if (tensor_vector.empty()) {
         throw std::runtime_error("Tensor vector is empty");
     }
@@ -165,11 +170,42 @@ void OpenVINOGenAIContext::inference_tensor_vector(const std::string &prompt) {
         properties.emplace(ov::genai::max_new_tokens(100));
     }
 
-    // Add images to properties
-    properties.emplace(ov::genai::images(tensor_vector));
+    if (as_video) {
+        // Present the accumulated frames as a single video clip. Each frame tensor is {1,H,W,C}
+        // (see add_tensor_to_vector); stack them into one {N,H,W,C} tensor as the video API expects.
+        const ov::Shape frame_shape = tensor_vector.front().get_shape(); // {1, H, W, C}
+        for (const auto &t : tensor_vector) {
+            if (t.get_shape() != frame_shape) {
+                throw std::runtime_error("Cannot build video tensor: frames have differing shapes. "
+                                         "All frames in a chunk must share height, width and channels.");
+            }
+        }
+
+        const size_t num_frames = tensor_vector.size();
+        ov::Tensor video_tensor(ov::element::u8, {num_frames, frame_shape[1], frame_shape[2], frame_shape[3]});
+        auto *dst = video_tensor.data<uint8_t>();
+        const size_t frame_bytes = tensor_vector.front().get_byte_size();
+        for (const auto &t : tensor_vector) {
+            std::memcpy(dst, t.data(), frame_bytes);
+            dst += frame_bytes;
+        }
+
+        ov::genai::VideoMetadata video_metadata;
+        video_metadata.fps = fps; // 0.0 means unknown; the API handles this gracefully
+        // Leave frames_indices empty: the upstream frame-rate property already pre-samples
+        // frames, so defer any further sampling to the model's own logic.
+
+        properties.emplace(ov::genai::videos(std::vector<ov::Tensor>{video_tensor}));
+        properties.emplace(ov::genai::videos_metadata(std::vector<ov::genai::VideoMetadata>{video_metadata}));
+
+        GST_INFO("Running inference with a %zu-frame video (fps=%.2f) and prompt: %s", num_frames, fps, prompt.c_str());
+    } else {
+        // Present the accumulated frames as independent images.
+        properties.emplace(ov::genai::images(tensor_vector));
+        GST_INFO("Running inference with %ld images and prompt: %s", tensor_vector.size(), prompt.c_str());
+    }
 
     // Run inference, this is a long blocking call
-    GST_INFO("Running inference with %ld images and prompt: %s", tensor_vector.size(), prompt.c_str());
     auto result = pipeline->generate(prompt, properties);
     GST_INFO("Inference completed successfully");
 
@@ -267,6 +303,8 @@ std::string OpenVINOGenAIContext::create_json_metadata(GstClockTime timestamp, b
             {"tokenization_duration_std", round_2dp(metrics.get_tokenization_duration().std)},
             {"detokenization_duration_mean", round_2dp(metrics.get_detokenization_duration().mean)},
             {"detokenization_duration_std", round_2dp(metrics.get_detokenization_duration().std)},
+            {"chat_template_duration_mean", round_2dp(metrics.get_chat_template_duration().mean)},
+            {"chat_template_duration_std", round_2dp(metrics.get_chat_template_duration().std)},
             {"prepare_embeddings_duration_mean", round_2dp(metrics.get_prepare_embeddings_duration().mean)},
             {"prepare_embeddings_duration_std", round_2dp(metrics.get_prepare_embeddings_duration().std)},
             {"ttft_mean", round_2dp(metrics.get_ttft().mean)},
