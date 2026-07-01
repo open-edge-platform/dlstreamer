@@ -586,7 +586,20 @@ void RendererBGR::draw_semantic_mask(std::vector<cv::Mat> &mats, render::Semanti
     cv::Mat resized;
     cv::resize(class_mask, resized, {roi.width, roi.height}, 0, 0, cv::INTER_NEAREST);
 
-    cv::Mat colorMap = convertClassIndicesToBGR(resized, getSemanticMaskPalette(mask.palette));
+    // The palette is defined in RGB order. Convert each entry to the target
+    // buffer's channel order (BGR or RGB) using the renderer's color converter,
+    // so the rendered colors match the palette regardless of the negotiated
+    // pixel format.
+    const std::vector<cv::Vec3b> &palette = SemanticSegmentationColorPalette;
+    std::vector<cv::Vec3b> converted_palette;
+    converted_palette.reserve(palette.size());
+    for (const cv::Vec3b &c : palette) {
+        Color converted = _color_converter->convert(Color(c[0], c[1], c[2]));
+        converted_palette.emplace_back(static_cast<uchar>(converted[0]), static_cast<uchar>(converted[1]),
+                                       static_cast<uchar>(converted[2]));
+    }
+
+    cv::Mat colorMap = convertClassIndicesToBGR(resized, converted_palette);
     colorMap.convertTo(colorMap, mats[0].type());
     if (mats[0].channels() == 4) {
         cv::cvtColor(colorMap, colorMap, cv::COLOR_BGR2BGRA);
