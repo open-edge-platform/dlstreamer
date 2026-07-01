@@ -101,6 +101,7 @@ std::string checkOnNameDeprecation(const std::string &converter_name) {
         {GetiInstanceSegmentation, MaskRCNNConverter::getName()},
         {GetiSemanticSegmentation, "semantic_segmentation"},
         {GetiOBB, MaskRCNNConverter::getName()},
+        {"semantic_mask", "semantic_segmentation"},
         {"YOLOv8", YOLOv8Converter::getName()},
         {"YOLOv8-OBB", YOLOv8ObbConverter::getName()},
         {"YOLOv8-SEG", YOLOv8SegConverter::getName()}};
