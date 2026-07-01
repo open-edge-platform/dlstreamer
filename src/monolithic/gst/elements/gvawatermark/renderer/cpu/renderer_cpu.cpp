@@ -46,26 +46,6 @@ const std::vector<cv::Vec3b> PascalVoc21ClColorPalette = {
     cv::Vec3b(0, 64, 128)     // tvmonitor
 };
 
-const std::vector<cv::Vec3b> SemanticSegmentationColorPalette = {
-    cv::Vec3b(128, 128, 128), // background
-    cv::Vec3b(0, 128, 0),     // first foreground class
-    cv::Vec3b(128, 0, 0),     cv::Vec3b(128, 128, 0),   cv::Vec3b(0, 0, 128),  cv::Vec3b(128, 0, 128),
-    cv::Vec3b(0, 128, 128),   cv::Vec3b(128, 128, 128), cv::Vec3b(64, 0, 0),   cv::Vec3b(192, 0, 0),
-    cv::Vec3b(64, 128, 0),    cv::Vec3b(192, 128, 0),   cv::Vec3b(64, 0, 128), cv::Vec3b(192, 0, 128),
-    cv::Vec3b(64, 128, 128),  cv::Vec3b(192, 128, 128), cv::Vec3b(0, 64, 0),   cv::Vec3b(128, 64, 0),
-    cv::Vec3b(0, 192, 0),     cv::Vec3b(128, 192, 0),   cv::Vec3b(0, 64, 128)};
-
-const std::vector<cv::Vec3b> &getSemanticMaskPalette(render::SemanticMaskPalette palette) {
-    switch (palette) {
-    case render::SemanticMaskPalette::SemanticMask:
-        return PascalVoc21ClColorPalette;
-    case render::SemanticMaskPalette::SemanticSegmentation:
-        return SemanticSegmentationColorPalette;
-    }
-
-    return PascalVoc21ClColorPalette;
-}
-
 template <int n>
 void check_planes(const std::vector<cv::Mat> &p) {
     if (p.size() != n) {
@@ -590,7 +570,7 @@ void RendererBGR::draw_semantic_mask(std::vector<cv::Mat> &mats, render::Semanti
     // buffer's channel order (BGR or RGB) using the renderer's color converter,
     // so the rendered colors match the palette regardless of the negotiated
     // pixel format.
-    const std::vector<cv::Vec3b> &palette = SemanticSegmentationColorPalette;
+    const std::vector<cv::Vec3b> &palette = PascalVoc21ClColorPalette;
     std::vector<cv::Vec3b> converted_palette;
     converted_palette.reserve(palette.size());
     for (const cv::Vec3b &c : palette) {

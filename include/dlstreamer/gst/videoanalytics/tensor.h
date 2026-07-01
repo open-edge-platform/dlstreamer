@@ -40,8 +40,6 @@ constexpr const char *GST_ANALYTICS_SEGMENTATION_2_TENSOR = "segmentation";
 
 /// Tensor "format" value for semantic segmentation (frame-level int64 class-index map)
 constexpr const char *TENSOR_FORMAT_SEMANTIC_SEGMENTATION = "semantic_segmentation";
-/// Tensor "format" value for legacy semantic masks (e.g. deeplabv3-style models)
-constexpr const char *TENSOR_FORMAT_SEMANTIC_MASK = "semantic_mask";
 /// Tensor "format" value (and semantic-tag token) for instance-segmentation / binary masks
 /// produced by the detection converters and rendered by the watermark
 constexpr const char *TENSOR_FORMAT_INSTANCE_SEGMENTATION = "instance_segmentation";
@@ -731,7 +729,7 @@ class Tensor {
             const std::string fmt = format();
             const std::vector<guint> dimensions = dims();
 
-            if (fmt == TENSOR_FORMAT_SEMANTIC_SEGMENTATION || fmt == TENSOR_FORMAT_SEMANTIC_MASK) {
+            if (fmt == TENSOR_FORMAT_SEMANTIC_SEGMENTATION) {
                 // Semantic segmentation: frame-level int64 class-index map, dims=[1,H,W]
                 if (dimensions.size() != 3)
                     throw std::runtime_error("Segmentation: semantic mask expects dims [1,H,W]");
@@ -863,9 +861,8 @@ class Tensor {
                 return true;
             }
 
-            GST_ERROR("Segmentation: unsupported or empty format '%s', expected one of '%s', '%s', '%s'", fmt.c_str(),
-                      TENSOR_FORMAT_SEMANTIC_SEGMENTATION, TENSOR_FORMAT_SEMANTIC_MASK,
-                      TENSOR_FORMAT_INSTANCE_SEGMENTATION);
+            GST_ERROR("Segmentation: unsupported or empty format '%s', expected one of '%s', '%s'", fmt.c_str(),
+                      TENSOR_FORMAT_SEMANTIC_SEGMENTATION, TENSOR_FORMAT_INSTANCE_SEGMENTATION);
         }
 
         return false;
@@ -1108,8 +1105,7 @@ class Tensor {
 
             // recover the "format" from a "model_name/format" (or bare "format") semantic tag
             std::string fmt;
-            for (const char *known : {TENSOR_FORMAT_SEMANTIC_SEGMENTATION, TENSOR_FORMAT_SEMANTIC_MASK,
-                                      TENSOR_FORMAT_INSTANCE_SEGMENTATION}) {
+            for (const char *known : {TENSOR_FORMAT_SEMANTIC_SEGMENTATION, TENSOR_FORMAT_INSTANCE_SEGMENTATION}) {
                 if (full_tag.rfind(known) != std::string::npos) {
                     fmt = known;
                     break;
