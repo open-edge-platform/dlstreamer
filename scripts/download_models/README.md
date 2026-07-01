@@ -17,7 +17,7 @@ This folder contains standalone conversion CLIs:
 
 2. Install dependencies:
 ```code
-   curl -LO https://raw.githubusercontent.com/openvinotoolkit/openvino.genai/refs/heads/releases/2026/0/samples/export-requirements.txt
+   curl -LO https://raw.githubusercontent.com/openvinotoolkit/openvino.genai/refs/heads/releases/2026/2/samples/export-requirements.txt
    pip install -r export-requirements.txt -r requirements.txt
    ```
 
@@ -68,7 +68,7 @@ python download_hf_models.py --model openbmb/MiniCPM-V-2_6 --extra_args --weight
 python download_hf_models.py --model <org/private-model> --token <HF_TOKEN> --outdir ./exports
 
 # Explicit revision override
-python download_hf_models.py --model openai/clip-vit-base-patch32@8d63d37a6cb56f5fce515f9e64bcfb3b0e22e594 --outdir ./exports
+python download_hf_models.py --model openai/clip-vit-base-patch32@3d74acf9a28c67741b2f4f2ea7635f0aaf6f0268 --outdir ./exports
 ```
 
 ## 2) Ultralytics conversion

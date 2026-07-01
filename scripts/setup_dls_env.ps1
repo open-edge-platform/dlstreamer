@@ -42,6 +42,52 @@ $env:PATH = (@($DLL_DIR, $GSTREAMER_BIN_DIR) + $pathEntries) -join ';'
 Write-Host "Prepended to Path: $DLL_DIR"
 Write-Host "Prepended to Path: $GSTREAMER_BIN_DIR"
 
+# On Windows the DLL search order checks several locations BEFORE PATH, so a
+# same-named DLL in one of them is loaded instead of the copy in DLL_DIR.
+# Warn if any DL Streamer DLL is shadowed by a copy in System32, the Windows
+# directory, or the KnownDLLs list (all of which take precedence over PATH).
+$ourDlls = Get-ChildItem -Path $DLL_DIR -Filter '*.dll' -File -ErrorAction SilentlyContinue
+if ($ourDlls) {
+	$systemDirs = @("$env:SystemRoot\System32", "$env:SystemRoot")
+
+	# VC++ runtime DLLs are intentionally provided by the system, ignore them.
+	$vcRuntimePattern = '^(msvcp\d|msvcr\d|vcruntime\d|concrt\d)'
+
+	$knownDlls = @()
+	try {
+		$kd = Get-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\KnownDLLs' -ErrorAction Stop
+		$knownDlls = $kd.PSObject.Properties |
+			Where-Object { $_.Value -is [string] -and $_.Value -match '\.dll$' } |
+			ForEach-Object { $_.Value.ToLower() }
+	}
+	catch {}
+
+	$shadowed = foreach ($dll in $ourDlls) {
+		if ($dll.Name -match $vcRuntimePattern) {
+			continue
+		}
+		if ($knownDlls -contains $dll.Name.ToLower()) {
+			"$($dll.Name)  ->  always loaded from System32 (KnownDLL, cannot be overridden by PATH)"
+			continue
+		}
+		foreach ($dir in $systemDirs) {
+			$candidate = Join-Path $dir $dll.Name
+			if (Test-Path $candidate) {
+				"$($dll.Name)  ->  $candidate"
+				break
+			}
+		}
+	}
+
+	if ($shadowed) {
+		Write-Host "`nWarning: the following DL Streamer DLLs are shadowed by higher-priority copies:" -ForegroundColor Yellow
+		$shadowed | ForEach-Object { Write-Host "  $_" -ForegroundColor Yellow }
+		Write-Host "These copies take precedence over PATH and may be loaded instead of the ones in:" -ForegroundColor Yellow
+		Write-Host "  $DLL_DIR" -ForegroundColor Yellow
+		Write-Host "Please consider removing or renaming the shadowing copies to avoid runtime errors." -ForegroundColor Yellow
+	}
+}
+
 if ($Persist) {
 	Write-Host "Persisting environment variables to user scope..."
 	[Environment]::SetEnvironmentVariable('DLSTREAMER_DIR', $DLSTREAMER_ROOT, [System.EnvironmentVariableTarget]::User)
@@ -65,6 +111,7 @@ if ($LASTEXITCODE -ne 0 -or $output -match "No such element or plugin") {
 	Write-Host "Please try updating GPU/NPU drivers and rebooting the system."
 	Write-Host "Optionally run the command to debug plugin loading:"
 	Write-Host "  `$env:GST_DEBUG=`"GST_PLUGIN_LOADING:5,GST_REGISTRY:5`"; `$env:GST_DEBUG_FILE=`"gst-plugin-loading-%p.log`"; gst-inspect-1.0 gvadetect"
+	exit 1
 }
 else {
 	Write-Host "DLStreamer is properly configured for this session."
