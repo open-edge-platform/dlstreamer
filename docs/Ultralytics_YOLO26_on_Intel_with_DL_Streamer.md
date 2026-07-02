@@ -7,9 +7,6 @@ This comprehensive guide provides a detailed walkthrough for deploying [Ultralyt
 <img src="./dlstreamer.png" width="70%" />
 </div>
 
-
-
-
 **Contents:** [What is Intel DL Streamer?](#what-is-intel-dl-streamer) • [Prerequisites](#prerequisites) • [YOLO26 Model Preparation](#yolo26-model-preparation) • [Running Inference with YOLO26](#running-inference-with-yolo26) • [Multi-Stream Setup](#multi-stream-setup) • [FAQ](#faq)
 
 
@@ -172,7 +169,6 @@ gst-launch-1.0 filesrc location=/home/dlstreamer/videos/video1.mp4 ! decodebin3 
 <img src="./yolo_detect_npu.png" width="70%" />
 </div>
 
-
 ## Multi-Stream Setup
 
 DL Streamer supports multi-stream processing, where multiple video sources are decoded and inferred simultaneously. You can launch multiple pipelines in parallel using GStreamer’s `vacompositor` element to combine multiple streams.
@@ -186,7 +182,6 @@ gst-launch-1.0 vacompositor name=comp sink_0::xpos=0 sink_0::ypos=0 sink_1::xpos
 <div align="center">
 <img src="./yolo_detect_multistream_gpu.png" width="70%" />
 </div>
-
 
 ##  FAQ
 
