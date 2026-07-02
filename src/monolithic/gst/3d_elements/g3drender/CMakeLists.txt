@@ -10,6 +10,7 @@ find_package(PkgConfig REQUIRED)
 find_package(OpenCV REQUIRED COMPONENTS core imgproc calib3d)
 pkg_check_modules(GSTREAMER REQUIRED gstreamer-1.0)
 pkg_check_modules(GSTREAMER_BASE REQUIRED gstreamer-base-1.0)
+pkg_check_modules(GSTANALYTICS gstreamer-analytics-1.0>=1.28 REQUIRED)
 
 add_library(${TARGET_NAME} STATIC
     g3drender.cpp
@@ -28,6 +29,7 @@ target_include_directories(${TARGET_NAME}
     PRIVATE
         ${GSTREAMER_INCLUDE_DIRS}
         ${GSTREAMER_BASE_INCLUDE_DIRS}
+        ${GSTANALYTICS_INCLUDE_DIRS}
         ${OpenCV_INCLUDE_DIRS}
 )
 
@@ -35,6 +37,7 @@ target_link_libraries(${TARGET_NAME}
     PRIVATE
         ${GSTREAMER_LIBRARIES}
         ${GSTREAMER_BASE_LIBRARIES}
+        ${GSTANALYTICS_LIBRARIES}
         ${OpenCV_LIBS}
         dlstreamer_gst_meta
 )
