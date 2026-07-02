@@ -408,7 +408,7 @@ pip install --no-cache-dir tqdm==4.67.1       || handle_error $LINENO
 
 # Check and upgrade ultralytics if necessary
 if [[ "${MODEL:-}" =~ yolo.* || "${MODEL:-}" == "all" ]]; then
-  pip install --no-cache-dir --upgrade --extra-index-url https://download.pytorch.org/whl/cpu "ultralytics==8.4.7" || handle_error $LINENO
+  pip install --no-cache-dir --upgrade --extra-index-url https://download.pytorch.org/whl/cpu "ultralytics==8.4.57" || handle_error $LINENO
 fi
 
 # Install PyTorch CPU version
