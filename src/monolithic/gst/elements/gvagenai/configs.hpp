@@ -91,9 +91,10 @@ class ConfigParser {
      * @param value Configuration value from input as string
      * @param ov_prop_name Property name to match against
      * @param ov_prop Property object for type conversion
+     * @return true if the key matched ov_prop_name and the property was set, false otherwise
      */
     template <typename T>
-    static void convert_prop(ov::AnyMap &properties, const std::string &key, const std::string &value,
+    static bool convert_prop(ov::AnyMap &properties, const std::string &key, const std::string &value,
                              const std::string &ov_prop_name, ov::Property<T, ov::PropertyMutability::RW> ov_prop);
 
     /**
@@ -104,9 +105,10 @@ class ConfigParser {
      * @param value Configuration value from input as semicolon-separated string
      * @param ov_prop_name Property name to match against
      * @param ov_prop Property object for set type conversion
+     * @return true if the key matched ov_prop_name and the property was set, false otherwise
      */
     template <typename T>
-    static void convert_prop(ov::AnyMap &properties, const std::string &key, const std::string &value,
+    static bool convert_prop(ov::AnyMap &properties, const std::string &key, const std::string &value,
                              const std::string &ov_prop_name,
                              ov::Property<std::set<T>, ov::PropertyMutability::RW> ov_prop);
 
@@ -117,8 +119,9 @@ class ConfigParser {
      * @param value Configuration value from input as string (EARLY, HEURISTIC, NEVER)
      * @param ov_prop_name Property name to match against
      * @param ov_prop StopCriteria property object
+     * @return true if the key matched ov_prop_name and the property was set, false otherwise
      */
-    static void convert_prop(ov::AnyMap &properties, const std::string &key, const std::string &value,
+    static bool convert_prop(ov::AnyMap &properties, const std::string &key, const std::string &value,
                              const std::string &ov_prop_name,
                              ov::Property<ov::genai::StopCriteria, ov::PropertyMutability::RW> ov_prop);
 

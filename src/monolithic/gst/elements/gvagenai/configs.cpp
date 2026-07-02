@@ -31,10 +31,10 @@ bool ConfigParser::to_bool(const std::string &value, const std::string &key) {
 }
 
 template <typename T>
-void ConfigParser::convert_prop(ov::AnyMap &properties, const std::string &key, const std::string &value,
+bool ConfigParser::convert_prop(ov::AnyMap &properties, const std::string &key, const std::string &value,
                                 const std::string &ov_prop_name, ov::Property<T, ov::PropertyMutability::RW> ov_prop) {
     if (ov_prop_name != key)
-        return;
+        return false;
     T ov_val;
     if constexpr (std::is_same_v<T, bool>) {
         ov_val = to_bool(value, key);
@@ -48,14 +48,15 @@ void ConfigParser::convert_prop(ov::AnyMap &properties, const std::string &key, 
     }
     properties.emplace(ov_prop(ov_val));
     GST_INFO("Set generation config: %s = %s", key.c_str(), value.c_str());
+    return true;
 }
 
 template <typename T>
-void ConfigParser::convert_prop(ov::AnyMap &properties, const std::string &key, const std::string &value,
+bool ConfigParser::convert_prop(ov::AnyMap &properties, const std::string &key, const std::string &value,
                                 const std::string &ov_prop_name,
                                 ov::Property<std::set<T>, ov::PropertyMutability::RW> ov_prop) {
     if (ov_prop_name != key)
-        return;
+        return false;
     std::set<T> items_set;
     std::stringstream ss(value);
     std::string item;
@@ -79,13 +80,14 @@ void ConfigParser::convert_prop(ov::AnyMap &properties, const std::string &key, 
     }
     properties.emplace(ov_prop(items_set));
     GST_INFO("Set generation config: %s with %zu items", ov_prop_name.c_str(), items_set.size());
+    return true;
 }
 
-void ConfigParser::convert_prop(ov::AnyMap &properties, const std::string &key, const std::string &value,
+bool ConfigParser::convert_prop(ov::AnyMap &properties, const std::string &key, const std::string &value,
                                 const std::string &ov_prop_name,
                                 ov::Property<ov::genai::StopCriteria, ov::PropertyMutability::RW> ov_prop) {
     if (ov_prop_name != key)
-        return;
+        return false;
     ov::genai::StopCriteria criteria;
     if (value == "EARLY") {
         criteria = ov::genai::StopCriteria::EARLY;
@@ -99,6 +101,7 @@ void ConfigParser::convert_prop(ov::AnyMap &properties, const std::string &key, 
     }
     properties.emplace(ov_prop(criteria));
     GST_INFO("Set generation config: %s = %s", ov_prop_name.c_str(), value.c_str());
+    return true;
 }
 
 ov::AnyMap ConfigParser::convert_to_properties(const std::map<std::string, std::string> &config_map) {
@@ -108,51 +111,60 @@ ov::AnyMap ConfigParser::convert_to_properties(const std::map<std::string, std::
         const std::string &k = pair.first;
         const std::string &v = pair.second;
 
+        // Each convert_prop returns true only when the key matches its property name. OR the
+        // results so an unknown key can be rejected below.
+        bool matched = false;
+
         // Generic parameters
-        convert_prop(properties, k, v, "max_new_tokens", ov::genai::max_new_tokens);
-        convert_prop(properties, k, v, "max_length", ov::genai::max_length);
-        convert_prop(properties, k, v, "ignore_eos", ov::genai::ignore_eos);
-        convert_prop(properties, k, v, "min_new_tokens", ov::genai::min_new_tokens);
+        matched |= convert_prop(properties, k, v, "max_new_tokens", ov::genai::max_new_tokens);
+        matched |= convert_prop(properties, k, v, "max_length", ov::genai::max_length);
+        matched |= convert_prop(properties, k, v, "ignore_eos", ov::genai::ignore_eos);
+        matched |= convert_prop(properties, k, v, "min_new_tokens", ov::genai::min_new_tokens);
 
         // EOS and stop parameters
-        convert_prop(properties, k, v, "eos_token_id", ov::genai::eos_token_id);
-        convert_prop(properties, k, v, "stop_strings", ov::genai::stop_strings);
-        convert_prop(properties, k, v, "include_stop_str_in_output", ov::genai::include_stop_str_in_output);
-        convert_prop(properties, k, v, "stop_token_ids", ov::genai::stop_token_ids);
+        matched |= convert_prop(properties, k, v, "eos_token_id", ov::genai::eos_token_id);
+        matched |= convert_prop(properties, k, v, "stop_strings", ov::genai::stop_strings);
+        matched |= convert_prop(properties, k, v, "include_stop_str_in_output", ov::genai::include_stop_str_in_output);
+        matched |= convert_prop(properties, k, v, "stop_token_ids", ov::genai::stop_token_ids);
 
         // Penalties
-        convert_prop(properties, k, v, "repetition_penalty", ov::genai::repetition_penalty);
-        convert_prop(properties, k, v, "presence_penalty", ov::genai::presence_penalty);
-        convert_prop(properties, k, v, "frequency_penalty", ov::genai::frequency_penalty);
+        matched |= convert_prop(properties, k, v, "repetition_penalty", ov::genai::repetition_penalty);
+        matched |= convert_prop(properties, k, v, "presence_penalty", ov::genai::presence_penalty);
+        matched |= convert_prop(properties, k, v, "frequency_penalty", ov::genai::frequency_penalty);
 
         // Beam search specific parameters
-        convert_prop(properties, k, v, "num_beams", ov::genai::num_beams);
-        convert_prop(properties, k, v, "num_beam_groups", ov::genai::num_beam_groups);
-        convert_prop(properties, k, v, "diversity_penalty", ov::genai::diversity_penalty);
-        convert_prop(properties, k, v, "length_penalty", ov::genai::length_penalty);
-        convert_prop(properties, k, v, "num_return_sequences", ov::genai::num_return_sequences);
-        convert_prop(properties, k, v, "no_repeat_ngram_size", ov::genai::no_repeat_ngram_size);
-        convert_prop(properties, k, v, "stop_criteria", ov::genai::stop_criteria);
+        matched |= convert_prop(properties, k, v, "num_beams", ov::genai::num_beams);
+        matched |= convert_prop(properties, k, v, "num_beam_groups", ov::genai::num_beam_groups);
+        matched |= convert_prop(properties, k, v, "diversity_penalty", ov::genai::diversity_penalty);
+        matched |= convert_prop(properties, k, v, "length_penalty", ov::genai::length_penalty);
+        matched |= convert_prop(properties, k, v, "num_return_sequences", ov::genai::num_return_sequences);
+        matched |= convert_prop(properties, k, v, "no_repeat_ngram_size", ov::genai::no_repeat_ngram_size);
+        matched |= convert_prop(properties, k, v, "stop_criteria", ov::genai::stop_criteria);
 
         // Random sampling parameters
-        convert_prop(properties, k, v, "do_sample", ov::genai::do_sample);
-        convert_prop(properties, k, v, "temperature", ov::genai::temperature);
-        convert_prop(properties, k, v, "top_p", ov::genai::top_p);
-        convert_prop(properties, k, v, "top_k", ov::genai::top_k);
-        convert_prop(properties, k, v, "min_p", ov::genai::min_p);
-        convert_prop(properties, k, v, "rng_seed", ov::genai::rng_seed);
+        matched |= convert_prop(properties, k, v, "do_sample", ov::genai::do_sample);
+        matched |= convert_prop(properties, k, v, "temperature", ov::genai::temperature);
+        matched |= convert_prop(properties, k, v, "top_p", ov::genai::top_p);
+        matched |= convert_prop(properties, k, v, "top_k", ov::genai::top_k);
+        matched |= convert_prop(properties, k, v, "min_p", ov::genai::min_p);
+        matched |= convert_prop(properties, k, v, "rng_seed", ov::genai::rng_seed);
 
         // CDPruner parameters: visual token pruning for VLMs
-        convert_prop(properties, k, v, "pruning_ratio", ov::genai::pruning_ratio);
-        convert_prop(properties, k, v, "relevance_weight", ov::genai::relevance_weight);
+        matched |= convert_prop(properties, k, v, "pruning_ratio", ov::genai::pruning_ratio);
+        matched |= convert_prop(properties, k, v, "relevance_weight", ov::genai::relevance_weight);
 
         // Assisting generation parameters
-        convert_prop(properties, k, v, "assistant_confidence_threshold", ov::genai::assistant_confidence_threshold);
-        convert_prop(properties, k, v, "num_assistant_tokens", ov::genai::num_assistant_tokens);
-        convert_prop(properties, k, v, "max_ngram_size", ov::genai::max_ngram_size);
+        matched |=
+            convert_prop(properties, k, v, "assistant_confidence_threshold", ov::genai::assistant_confidence_threshold);
+        matched |= convert_prop(properties, k, v, "num_assistant_tokens", ov::genai::num_assistant_tokens);
+        matched |= convert_prop(properties, k, v, "max_ngram_size", ov::genai::max_ngram_size);
 
         // Other parameters
-        convert_prop(properties, k, v, "apply_chat_template", ov::genai::apply_chat_template);
+        matched |= convert_prop(properties, k, v, "apply_chat_template", ov::genai::apply_chat_template);
+
+        if (!matched) {
+            throw std::runtime_error("Unknown generation config key: '" + k + "'");
+        }
     }
 
     return properties;

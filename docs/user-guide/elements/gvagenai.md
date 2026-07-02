@@ -147,11 +147,10 @@ A key of the form `DEVICE.PROPERTY` nests `PROPERTY` under that device's propert
 required for VLM on NPU:
 
 ```bash
-pipeline-config="NPU.MAX_PROMPT_LEN=2048,NPU.MIN_RESPONSE_LEN=512,GENERATE_HINT=BEST_PERF"
+pipeline-config="NPU.MAX_PROMPT_LEN=2048,NPU.MIN_RESPONSE_LEN=512"
 ```
 
-This sets `MAX_PROMPT_LEN` and `MIN_RESPONSE_LEN` on the `NPU` device block and
-`GENERATE_HINT` at the top level.
+This sets `MAX_PROMPT_LEN` and `MIN_RESPONSE_LEN` on the `NPU` device block.
 
 ### Vision Mode
 

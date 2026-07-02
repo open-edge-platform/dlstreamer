@@ -120,10 +120,14 @@ TEST(GenerationConfig, EmptyKeyThrows) {
     EXPECT_THROW(ConfigParser::parse_generation_config_string("=100"), std::runtime_error);
 }
 
-TEST(GenerationConfig, UnknownKeyIsIgnored) {
-    // Unknown generation keys are simply not converted (no throw), leaving an empty map.
-    auto props = ConfigParser::parse_generation_config_string("not_a_real_key=5");
-    EXPECT_TRUE(props.empty());
+TEST(GenerationConfig, UnknownKeyThrows) {
+    // A misspelled or unsupported key must be rejected.
+    EXPECT_THROW(ConfigParser::parse_generation_config_string("not_a_real_key=5"), std::runtime_error);
+}
+
+TEST(GenerationConfig, MisspelledKnownKeyThrows) {
+    // Common real-world typo: missing trailing 's'. Must not run silently with defaults.
+    EXPECT_THROW(ConfigParser::parse_generation_config_string("max_new_token=1000"), std::runtime_error);
 }
 
 /* ========================================================================= */
