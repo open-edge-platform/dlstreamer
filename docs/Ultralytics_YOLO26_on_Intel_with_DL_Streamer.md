@@ -3,7 +3,11 @@
 This comprehensive guide provides a detailed walkthrough for deploying [Ultralytics YOLO26](https://www.ultralytics.com/yolo/yolo26) on Intel Core Ultra Series 3 (codename Panther Lake) platforms using [DL Streamer Pipeline Framework](https://github.com/open-edge-platform/dlstreamer) and [OpenVINO™ toolkit](https://docs.openvino.ai/). Here we use OpenVINO™ to maximize inference performance on Intel CPUs, integrated and discrete GPUs, and NPUs.
 
 
-![](./dlstreamer.png)
+<div align="center">
+<img src="./dlstreamer.png" width="70%" />
+</div>
+
+
 
 
 **Contents:** [What is Intel DL Streamer?](#what-is-intel-dl-streamer) • [Prerequisites](#prerequisites) • [YOLO26 Model Preparation](#yolo26-model-preparation) • [Running Inference with YOLO26](#running-inference-with-yolo26) • [Multi-Stream Setup](#multi-stream-setup) • [FAQ](#faq)
@@ -141,15 +145,14 @@ export MODELS_PATH=~/models
 ```
 
 
-![](./yolo_detect_gpu.png)
-
+<div align="center">
+<img src="./yolo_detect_gpu.png" width="70%" />
+</div>
 
 The generated GStreamer pipeline:
 
-```bash
-gst-launch-1.0 filesrc location=/home/dlstreamer/videos/video1.mp4 ! decodebin3 ! gvadetect
-model=/home/dlstreamer/models/public/yolo26s/INT8/yolo26s.xml device=GPU pre-process-backend=va-surface-sharing ! queue ! vapostproc !
-gvawatermark ! videoconvertscale ! gvafpscounter ! autovideosink sync=false
+```console
+gst-launch-1.0 filesrc location=/home/dlstreamer/videos/video1.mp4 ! decodebin3 ! gvadetect model=/home/dlstreamer/models/public/yolo26s/INT8/yolo26s.xml device=GPU pre-process-backend=va-surface-sharing ! queue ! vapostproc ! gvawatermark ! videoconvertscale ! gvafpscounter ! autovideosink sync=false
 ```
 
 ### Run YOLO26s with INT8 on GPU, save output to video file (yolo_video1_yolo26s_INT8_GPU.mp4)
@@ -165,7 +168,9 @@ gvawatermark ! videoconvertscale ! gvafpscounter ! autovideosink sync=false
 ```
 
 
-![](./yolo_detect_npu.png)
+<div align="center">
+<img src="./yolo_detect_npu.png" width="70%" />
+</div>
 
 
 ## Multi-Stream Setup
@@ -177,7 +182,10 @@ DL Streamer supports multi-stream processing, where multiple video sources are d
 
 gst-launch-1.0 vacompositor name=comp sink_0::xpos=0 sink_0::ypos=0 sink_1::xpos=660 sink_1::ypos=0 sink_2::xpos=0 sink_2::ypos=380 sink_3::xpos=660 sink_3::ypos=380 ! autovideosink sync=false filesrc location=~/videos/video1.mp4 ! decodebin3 ! gvadetect model=~/models/public/yolo26s/INT8/yolo26s.xml device=GPU model-instance-id=inf0 scheduling-policy="latency" ! queue ! gvawatermark ! gvafpscounter ! comp.sink_0 filesrc location=~/videos/video1.mp4 ! decodebin3 ! gvadetect model=~/models/public/yolo26s/INT8/yolo26s.xml device=GPU model-instance-id=inf0 scheduling-policy="latency" ! queue ! gvawatermark ! gvafpscounter ! comp.sink_1 filesrc location=~/videos/video1.mp4 ! decodebin3 ! gvadetect model=~/models/public/yolo26s/INT8/yolo26s.xml device=GPU model-instance-id=inf0 scheduling-policy="latency" ! queue ! gvawatermark ! gvafpscounter ! comp.sink_2 filesrc location=~/videos/video1.mp4 ! decodebin3 ! gvadetect model=~/models/public/yolo26s/INT8/yolo26s.xml device=GPU model-instance-id=inf0 scheduling-policy="latency" ! queue ! gvawatermark ! gvafpscounter ! comp.sink_3
 
-![](./yolo_detect_multistream_gpu.png)
+
+<div align="center">
+<img src="./yolo_detect_multistream_gpu.png" width="70%" />
+</div>
 
 
 ##  FAQ
@@ -217,6 +225,7 @@ Alternatively, use the `gvametapublish` element in custom pipelines to publish m
 
 - [DL Streamer GitHub Repository](https://github.com/open-edge-platform/dlstreamer)
 - [DL Streamer Documentation](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/)
+- [DL Streamer Elements](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/elements/elements.html)
 - [OpenVINO™ Toolkit](https://docs.openvino.ai/)
 - [Ultralytics YOLO26](https://www.ultralytics.com/yolo/yolo26)
 - [GStreamer Framework](https://gstreamer.freedesktop.org/)
