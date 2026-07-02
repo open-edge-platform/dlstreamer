@@ -14,8 +14,8 @@ Map the user's description to one or more of these patterns:
 |---|---------|---------------|
 | 1 | **Pipeline Core** | Always — every app needs source → decode → sink |
 | 2 | **Pipeline Event Loop** | Always — every app needs an event loop to advance execution |
-| 3 | **Multi-Stream / Multi-Camera** | User wants to process multiple camera streams in a single pipeline with shared model and cross-stream batching |
-| 4 | **Multi-Stream Compositor** | User wants to merge multiple streams into a single composite mosaic view |
+| 3 | **Multi-Stream / Multi-Camera** | User wants to process multiple camera streams in a single pipeline with shared model, cross-stream batching, or composite mosaic output |
+| 4 | **Reading Analytics Metadata** | Always read when using Patterns 5–8 — defines the API for accessing GstAnalytics and DLStreamerMeta types from a buffer |
 | 5 | **Pad Probe Callback** | User needs per-frame custom logic: metadata inspection, counting, throttling/dropping frames, logging — without the need to modify buffers or add new metadata |
 | 6 | **AppSink Callback** | User wants to continue processing of frames or metadata in their own application |
 | 7 | **Custom Python Element (BaseTransform)** | User needs a reusable per-frame element with GObject properties settable from the pipeline string, or complex analytics that warrant a self-contained, shareable component |
@@ -43,7 +43,7 @@ pipeline = Gst.parse_launch("filesrc location=... ! decodebin3 ! ... ! autovideo
 pipeline.set_state(Gst.State.NULL)
 ```
 
-Source: `samples/gstreamer/python/hello_dlstreamer/hello_dlstreamer.py`
+**Read for reference:** `samples/gstreamer/python/hello_dlstreamer/hello_dlstreamer.py`
 
 #### Approach 2: Programmatic element creation
 
@@ -67,10 +67,10 @@ decoder.connect("pad-added",
     lambda el, pad, sink: el.link(sink)
         if "video" in pad.get_name() and not pad.is_linked() else None,
     detect)
-detect.link(queue)
+# ... add and link remaining elements (queues, sinks, etc.) ...
 ```
 
-Source: `samples/gstreamer/python/hello_dlstreamer/hello_dlstreamer_full.py`
+**Read for reference:** `samples/gstreamer/python/hello_dlstreamer/hello_dlstreamer_full.py`
 
 ---
 
@@ -236,7 +236,7 @@ run_pipeline(pipeline, cmd_reader=cmd_reader, loop_count=3)
 
 ---
 
-### Pattern 3: Multi-Stream / Multi-Camera (In-Process)
+### Pattern 3: Multi-Stream / Multi-Camera
 
 Run multiple camera streams in a **single GStreamer pipeline** with shared model
 instances and cross-stream batching.
@@ -247,7 +247,6 @@ instances and cross-stream batching.
 - Set `batch-size=<stream_count>` for cross-stream batching.
 - For highest throughput, use default `scheduling-policy=throughput`
 - For minimal latency, set `scheduling-policy=latency`
-- With a compositor, **must** set `scheduling-policy=latency` to keep streams in lockstep.
 
 See the Pipeline Construction Reference for GStreamer pipeline syntax:
 - [Multi-Stream Analytics](./pipeline-construction.md#example-multi-stream-analytics-n-streams) — N parallel streams with shared model
@@ -282,20 +281,93 @@ pipeline = Gst.parse_launch(build_pipeline(cameras, model, "GPU"))
 > **Subprocess orchestration:** Only when streams need independent processes
 > (different models, fault isolation). See `samples/gstreamer/python/onvif_cameras_discovery/dls_onvif_sample.py`.
 
+#### Mosaic Output (vacompositor)
+
+Merge all streams into a single composite view using `vacompositor`. Requires
+`scheduling-policy=latency` to keep streams in lockstep.
+See [Multi-Stream Compositor](./pipeline-construction.md#example-multi-stream-compositor-n-streams--22-grid-gpu-memory-path)
+for the full pipeline template.
+
 ---
 
-### Pattern 4: Multi-Stream Compositor (Mosaic Output)
+### Pattern 4: Reading Analytics Metadata
 
-Merge all streams into a single composite view using `vacompositor`.
-This builds on [Pattern 3](#pattern-3-multi-stream--multi-camera-in-process).
-See [Multi-Stream Compositor](./pipeline-construction.md#example-multi-stream-compositor-n-streams--22-grid-gpu-memory-path)
-for the pipeline template.
+All per-frame patterns (Pad Probe · AppSink · BaseTransform) use the same API to read analytics
+metadata from a buffer. The key difference is what they can do with it after reading:
+
+| Pattern | Read metadata | Modify pixel data | Add new GstMeta |
+|---------|:-------------:|:-----------------:|:---------------:|
+| 5 — Pad Probe | ✓ | ✗ | ✗ |
+| 6 — AppSink | ✓ | ✓ | ✗ |
+| 7 — BaseTransform | ✓ | ✓ | ✓ |
+
+**Get the analytics relation metadata handle:**
+```python
+rmeta = GstAnalytics.buffer_get_analytics_relation_meta(buffer)
+if not rmeta:
+    return  # no analytics metadata on this buffer
+```
+
+**Standard GstAnalytics types — generic `for mtd in rmeta` with `isinstance()`:**
+```python
+for mtd in rmeta:
+    if isinstance(mtd, GstAnalytics.ODMtd):
+        label = GLib.quark_to_string(mtd.get_obj_type())
+        success, x, y, w, h, rotation = mtd.get_location()
+        _, confidence = mtd.get_confidence_lvl()
+    elif isinstance(mtd, GstAnalytics.TrackingMtd):
+        success, tracking_id, _, _, _ = mtd.get_info()
+    elif isinstance(mtd, GstAnalytics.ClsMtd):
+        quark = mtd.get_quark(0)
+        level = mtd.get_level(0)
+```
+
+**DLStreamerMeta types (TripwireMtd, ZoneMtd) — required module-level registration:**
+
+Add the block below at module level (before `Gst.init([])`) in any plugin or probe that
+reads metadata from a pipeline containing `gvaanalytics`.
+
+```python
+gi.require_version("DLStreamerMeta", "1.0")
+from gi.repository import DLStreamerMeta
+from gstgva import meta_registry
+
+# ... inside do_transform_ip / pad probe / appsink callback:
+for mtd in rmeta:
+    if isinstance(mtd, DLStreamerMeta.ZoneMtd):
+        success, zone_id = mtd.get_info()                     # (bool, str)
+    elif isinstance(mtd, DLStreamerMeta.TripwireMtd):
+        success, tripwire_id, direction = mtd.get_info()      # (bool, str, int)
+
+# Alternatively, use iter_on_type for type-filtered iteration:
+for mtd in rmeta.iter_on_type(DLStreamerMeta.ZoneMtd):
+    success, zone_id = mtd.get_info()
+for mtd in rmeta.iter_on_type(DLStreamerMeta.TripwireMtd):
+    success, tripwire_id, direction = mtd.get_info()
+```
+
+**Adding new analytics metadata:**
+```python
+rmeta.add_od_mtd(GLib.quark_from_string("label"), x, y, w, h, confidence)
+```
+
+**Adding watermark text:**
+```python
+gi.require_version("DLStreamerWatermarkMeta", "1.0")
+from gi.repository import DLStreamerWatermarkMeta
+
+DLStreamerWatermarkMeta.text_meta_add(buffer, x=10, y=30, text="...",
+    font_scale=0.8, font_type=0, r=0, g=255, b=255, thickness=1, draw_bg=True)
+```
 
 ---
 
 ### Pattern 5: Pad Probe Callback
 
-Attach a probe to inspect metadata, selectively drop frames, or add custom counting/throttling/logging.
+Attach a probe to inspect metadata per frame: count objects, log events, or selectively drop frames.
+Pad probes are **read-only** — they cannot modify pixel data or add new GstMeta.
+See [Reading Analytics Metadata](#reading-analytics-metadata) for the iteration API.
+For logic that must write metadata, use Pattern 7 (BaseTransform) instead.
 
 **Return values:**
 - `Gst.PadProbeReturn.OK` — pass the frame downstream
@@ -305,42 +377,16 @@ Attach a probe to inspect metadata, selectively drop frames, or add custom count
 def my_probe(pad, info, user_data):
     buffer = info.get_buffer()
     rmeta = GstAnalytics.buffer_get_analytics_relation_meta(buffer)
-    if rmeta:
-        for mtd in rmeta:
-            if isinstance(mtd, GstAnalytics.ODMtd):
-                label = GLib.quark_to_string(mtd.get_obj_type())
-                # ... process detection ...
+    if not rmeta:
+        return Gst.PadProbeReturn.OK
+    for mtd in rmeta:
+        if isinstance(mtd, GstAnalytics.ODMtd):
+            label = GLib.quark_to_string(mtd.get_obj_type())
+            # ... inspect, count, log ...
     return Gst.PadProbeReturn.OK
 
-# Attach to sink pad of a named element
-pipeline.get_by_name("watermark").get_static_pad("sink").add_probe(
+pipeline.get_by_name("my_element").get_static_pad("sink").add_probe(
     Gst.PadProbeType.BUFFER, my_probe, None)
-```
-
-**Required imports:**
-```python
-gi.require_version("GstAnalytics", "1.0")
-from gi.repository import GLib, Gst, GstAnalytics
-```
-
-**Reading classification metadata** (e.g. from `gvagenai`):
-```python
-for mtd in rmeta:
-    if isinstance(mtd, GstAnalytics.ClsMtd):
-        quark = mtd.get_quark(0)
-        level = mtd.get_level(0)
-```
-
-**Reading tracking metadata:**
-```python
-for mtd in rmeta:
-    if isinstance(mtd, GstAnalytics.TrackingMtd):
-        success, tracking_id, _, _, _ = mtd.get_info()
-```
-
-**Writing overlay metadata:**
-```python
-rmeta.add_od_mtd(GLib.quark_from_string("label text"), x, y, w, h, confidence)
 ```
 
 **Read for reference:** `samples/gstreamer/python/hello_dlstreamer/hello_dlstreamer.py`
@@ -350,6 +396,8 @@ rmeta.add_od_mtd(GLib.quark_from_string("label text"), x, y, w, h, confidence)
 ### Pattern 6: AppSink Callback
 
 Pull frames into Python via `appsink` for processing outside the pipeline.
+Unlike a pad probe, the appsink callback holds a sample reference and can modify the buffer.
+See [Reading Analytics Metadata](#reading-analytics-metadata) for the metadata iteration API.
 
 ```python
 def on_new_sample(sink, user_data):
@@ -376,8 +424,10 @@ appsink.connect("new-sample", on_new_sample, None)
 
 ### Pattern 7: Custom Python GStreamer Element (BaseTransform)
 
-Subclass `GstBase.BaseTransform` for per-frame analytics that reads/writes metadata
-or modifies pixel data. Do not use when a pad probe (Pattern 5) suffices.
+Subclass `GstBase.BaseTransform` for per-frame analytics that reads metadata, modifies pixel data,
+or adds new GstMeta to the buffer. Use when a pad probe (Pattern 5) is insufficient — e.g. when
+writing watermark text. See [Reading Analytics Metadata](#reading-analytics-metadata) for the
+metadata iteration API.
 
 #### Conventions
 
@@ -395,7 +445,8 @@ or modifies pixel data. Do not use when a pad probe (Pattern 5) suffices.
 import gi
 gi.require_version("GstBase", "1.0")
 gi.require_version("GstAnalytics", "1.0")
-from gi.repository import Gst, GstBase, GObject, GLib, GstAnalytics
+gi.require_version("DLStreamerMeta", "1.0")
+from gi.repository import Gst, GstBase, GObject, GLib, GstAnalytics, DLStreamerMeta
 Gst.init_python()
 
 GST_BASE_TRANSFORM_FLOW_DROPPED = Gst.FlowReturn.CUSTOM_SUCCESS
@@ -428,12 +479,19 @@ class MyAnalytics(GstBase.BaseTransform):
         if not rmeta:
             return Gst.FlowReturn.OK
 
+        # Standard types — generic iteration (see Reading Analytics Metadata)
         for mtd in rmeta:
             if isinstance(mtd, GstAnalytics.ODMtd):
-                # ... custom analytics logic ...
-                return Gst.FlowReturn.OK
+                pass  # ... custom analytics logic ...
 
-        return GST_BASE_TRANSFORM_FLOW_DROPPED
+        # DLStreamerMeta types — use iter_on_type (see Reading Analytics Metadata)
+        for mtd in rmeta.iter_on_type(DLStreamerMeta.TripwireMtd):
+            success, tripwire_id, direction = mtd.get_info()
+
+        # Can also add new GstMeta — buffer is writable in do_transform_ip
+        # DLStreamerWatermarkMeta.text_meta_add(buffer, ...)
+
+        return Gst.FlowReturn.OK  # or GST_BASE_TRANSFORM_FLOW_DROPPED to silently discard
 
 GObject.type_register(MyAnalytics)
 __gstelementfactory__ = ("myanalytics_py", Gst.Rank.NONE, MyAnalytics)
@@ -682,5 +740,5 @@ https://gstreamer.freedesktop.org/documentation/application-development/basics/p
 ### Pattern 20: c/cpp: Buffers and events
 https://gstreamer.freedesktop.org/documentation/application-development/basics/data.html?gi-language=c
 
-### Patterns 21: c/cpp: Sample application
+### Pattern 21: c/cpp: Sample application
 https://gstreamer.freedesktop.org/documentation/application-development/basics/helloworld.html?gi-language=c
