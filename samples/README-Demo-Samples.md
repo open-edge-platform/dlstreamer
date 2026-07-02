@@ -1,5 +1,8 @@
 # DL Streamer Demo Samples
 
+## Install GPU/NPU drivers
+Run Step 1 of Quick Start Installation https://github.com/open-edge-platform/dlstreamer#step-1--install-gpunpu-drivers-required-for-docker-and-native-install
+
 ## Install DL Streamer (Ubuntu 24.04, via apt)
 
 ```bash
@@ -36,21 +39,28 @@ export MODELS_PATH=~/models
 cd ~
 ```
 
-## Run YOLO Detection Sample
-
+## Create videos folder
 ```bash
-/opt/intel/dlstreamer/samples/gstreamer/gst_launch/detection_with_yolo/yolo_detect.sh [MODEL] [DEVICE] [INPUT] [OUTPUT]
+mkdir ~/videos
 ```
 
-**Defaults:** model=`yolox_s`, device=`GPU`, output=`file`
+## Run YOLO Detection Sample
+Demonstrates object detection pipelines creation via `gst-launch-1.0` using the latest YOLO models.
+Check [Readme](gstreamer/gst_launch/detection_with_yolo/README.md) for more details.
+
+**Download video file to ~/videos folder**
+```bash
+curl -L https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4 --output ~/videos/video1.mp4
+```
 
 **Examples:**
 
+*Run yolo11s on GPU with display output*
 ```bash
-# Run yolo11s on CPU with display output
-/opt/intel/dlstreamer/samples/gstreamer/gst_launch/detection_with_yolo/yolo_detect.sh yolo11s GPU "" display
-
-# Run yolo26s on NPU
-/opt/intel/dlstreamer/samples/gstreamer/gst_launch/detection_with_yolo/yolo_detect.sh yolo26s NPU
+/opt/intel/dlstreamer/samples/gstreamer/gst_launch/detection_with_yolo/yolo_detect.sh yolo11s GPU ~/videos/video1.mp4 display
 ```
 
+*Run yolo11s on NPU with display output*
+```bash
+/opt/intel/dlstreamer/samples/gstreamer/gst_launch/detection_with_yolo/yolo_detect.sh yolo11s NPU ~/videos/video1.mp4 display
+```
