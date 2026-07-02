@@ -778,15 +778,16 @@ static GstFlowReturn gst_g3d_render_transform(GstBaseTransform *trans, GstBuffer
 
     gst_buffer_unmap(outbuf, &out_map);
 
-    GstBuffer *pts_buf = (lidar_buf && GST_CLOCK_TIME_IS_VALID(GST_BUFFER_PTS(lidar_buf)))
-                         ? lidar_buf : inbuf;
     const GstClockTime frame_duration = GST_SECOND / 10;
-    GST_BUFFER_PTS(outbuf) = GST_CLOCK_TIME_IS_VALID(GST_BUFFER_PTS(pts_buf))
-                             ? GST_BUFFER_PTS(pts_buf)
-                             : self->frame_count * frame_duration;
-    GST_BUFFER_DURATION(outbuf) = GST_CLOCK_TIME_IS_VALID(GST_BUFFER_DURATION(pts_buf))
-                                  ? GST_BUFFER_DURATION(pts_buf)
-                                  : frame_duration;
+    GstClockTime src_pts = GST_CLOCK_TIME_NONE;
+    if (lidar_buf && GST_BUFFER_PTS(lidar_buf) > 0)
+        src_pts = GST_BUFFER_PTS(lidar_buf);
+    else if (GST_BUFFER_PTS(inbuf) > 0)
+        src_pts = GST_BUFFER_PTS(inbuf);
+
+    GST_BUFFER_PTS(outbuf)      = GST_CLOCK_TIME_IS_VALID(src_pts) ? src_pts
+                                                                    : self->frame_count * frame_duration;
+    GST_BUFFER_DURATION(outbuf) = frame_duration;
     self->frame_count++;
 
     GST_DEBUG_OBJECT(self, "rendered frame %lu pts=%" GST_TIME_FORMAT,
