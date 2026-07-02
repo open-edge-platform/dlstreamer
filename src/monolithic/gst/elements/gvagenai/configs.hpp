@@ -74,6 +74,16 @@ class ConfigParser {
     static std::string trim(const std::string &str);
 
     /**
+     * @brief Parse a boolean value from a string
+     *
+     * @param value Configuration value as string
+     * @param key Configuration key, used for error messages
+     * @return Parsed boolean value
+     * @throws std::runtime_error if the value is not a recognized boolean
+     */
+    static bool to_bool(const std::string &value, const std::string &key);
+
+    /**
      * @brief Convert a string property value to property and add to properties map
      * @tparam T Type of the property value
      * @param properties Properties map to add the converted property to

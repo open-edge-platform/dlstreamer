@@ -49,8 +49,7 @@ static GType gst_gvagenai_vision_mode_get_type(void) {
     if (g_once_init_enter(&vision_mode_type)) {
         static const GEnumValue modes[] = {
             {GVAGENAI_VISION_MODE_IMAGE, "Present accumulated frames as independent images", "image"},
-            {GVAGENAI_VISION_MODE_VIDEO, "Present accumulated frames as one video clip (video-capable models only)",
-             "video"},
+            {GVAGENAI_VISION_MODE_VIDEO, "Present accumulated frames as one video clip", "video"},
             {0, NULL, NULL}};
         GType type = g_enum_register_static("GstGvaGenAIVisionMode", modes);
         g_once_init_leave(&vision_mode_type, type);
@@ -170,8 +169,7 @@ static void gst_gvagenai_class_init(GstGvaGenAIClass *klass) {
         gobject_class, PROP_VISION_MODE,
         g_param_spec_enum("vision-mode", "Vision Mode",
                           "How accumulated frames are presented to the model: as independent images, or as one "
-                          "video clip. Video mode requires a video-capable model (e.g. Qwen2/2.5/3-VL, "
-                          "LLaVA-NeXT-Video, VideoChat-Flash)",
+                          "video clip. Video mode requires a video-capable model.",
                           GST_TYPE_GVAGENAI_VISION_MODE, GVAGENAI_VISION_MODE_IMAGE, G_PARAM_READWRITE));
 
     GST_DEBUG_CATEGORY_INIT(gst_gvagenai_debug, "gvagenai", 0, "OpenVINO™ GenAI Inference");

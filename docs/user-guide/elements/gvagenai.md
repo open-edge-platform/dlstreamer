@@ -4,7 +4,7 @@ Performs inference with Vision Language Models using OpenVINO™ GenAI.
 Accepts video and text prompts as input, and outputs text description.
 It can be used to generate text summarizations from video.
 
-[Prerequisites steps](../dev_guide/advanced_install/advanced_install_guide_compilation.md#optional-step-6-install-openvino-genai-only-for-ubuntu)
+[Prerequisites steps for Ubuntu](../dev_guide/advanced_install/advanced_install_guide_compilation.md#optional-step-6-install-openvino-genai-only-for-ubuntu)
 
 ## Configuration
 
@@ -56,9 +56,8 @@ Generation Config Parameters
 apply only to Vision Language Models. `pruning_ratio=0` (default) disables pruning.
 
 > **Note:** Structured output (`json_schema`, `regex`, `grammar`, `backend`), is not 
-> exposed. Those values contain commas, spaces and `=` characters that the flat
->  `KEY=VALUE,KEY=VALUE` parser cannot represent. A dedicated
-> property is required and tracked as future work.
+> currently supported. Those values contain special characters (commas, spaces and `=`)
+> which cannot fit the `KEY=VALUE,KEY=VALUE` grammar.
 
 Example:
 
@@ -124,7 +123,7 @@ scheduler-config="max_num_batched_tokens=256,cache_size=10,use_cache_eviction=tr
 The `pipeline-config` property accepts OpenVINO™ device/plugin properties in the
 `KEY=VALUE,KEY=VALUE` format. These are passed to the pipeline at construction and
 coerced to the expected type by the plugin. This is primarily useful for device
-tuning — most notably NPU, where prompt/response sizing and compilation hints are set
+tuning, most notably NPU, where prompt/response sizing and compilation hints are set
 through plugin properties. For details, refer to the [Inference with OpenVINO™ GenAI on
 NPU guide](https://docs.openvino.ai/2026/openvino-workflow-generative/inference-with-genai/inference-with-genai-on-npu.html).
 
@@ -137,24 +136,22 @@ Example:
 pipeline-config="MAX_PROMPT_LEN=2048,MIN_RESPONSE_LEN=512,GENERATE_HINT=BEST_PERF"
 ```
 
-> **Note:** Boolean values follow the OpenVINO™ plugin-property convention `YES`/`NO`,
-> not `true`/`false`. This differs from `generation-config` and `scheduler-config`, where
-> booleans are written as `true`/`false`. For example: `pipeline-config="PERF_COUNT=NO"`.
+> **Note:** Boolean values are case-insensitive and accept `true`/`false`, `1`/`0`,
+> `yes`/`no`, or `on`/`off`. For example: `pipeline-config="PERF_COUNT=NO"`. The same
+> accepted forms apply to booleans in `generation-config` and `scheduler-config`.
 
 #### Per-device (nested) properties
 
 A key of the form `DEVICE.PROPERTY` nests `PROPERTY` under that device's property block
 (OpenVINO™ `DEVICE_PROPERTIES_<DEVICE>`), while un-dotted keys remain top-level. This is
-required for VLM-on-NPU, where prompt/response sizing must target the NPU sub-model rather
-than the top-level device:
+required for VLM on NPU:
 
 ```bash
 pipeline-config="NPU.MAX_PROMPT_LEN=2048,NPU.MIN_RESPONSE_LEN=512,GENERATE_HINT=BEST_PERF"
 ```
 
 This sets `MAX_PROMPT_LEN` and `MIN_RESPONSE_LEN` on the `NPU` device block and
-`GENERATE_HINT` at the top level. The dot is a reserved delimiter — no OpenVINO™ property
-name contains one.
+`GENERATE_HINT` at the top level.
 
 ### Vision Mode
 
@@ -172,13 +169,11 @@ playback rate) rather than a set of unrelated stills. This is the correct mode f
 like action recognition or "describe what happens over time".
 
 Video mode requires a model that supports video input — for example **Qwen2-VL**,
-**Qwen2.5-VL**, **Qwen3-VL**, **LLaVA-NeXT-Video**, or **VideoChat-Flash**. Image-only
-models (e.g. Phi-3.5-vision, MiniCPM-V) will reject video input; use `image` mode for
-those.
+**Qwen2.5-VL**, **Qwen3-VL** or **LLaVA-NeXT-Video**. Image-only models (e.g. Phi-3.5-vision,
+MiniCPM-V) must use `image` mode. For more information, see [Use Image or Video Tags in Prompt](https://openvinotoolkit.github.io/openvino.genai/docs/use-cases/image-processing/#use-image-or-video-tags-in-prompt).
 
 The clip's frame rate is derived automatically from the input stream and the `frame-rate`
-sampling property, so it reflects the frames the model actually receives. For a single
-frame (`chunk-size=1`) `video` mode is degenerate and `image` mode is preferred.
+sampling property. For a single frame (`chunk-size=1`), `image` mode is preferred.
 
 Example:
 
@@ -283,7 +278,9 @@ Element Properties:
   scheduler-config    : Scheduler configuration as KEY=VALUE,KEY=VALUE format
                         flags: readable, writable
                         String. Default: null
-  vision-mode         : How accumulated frames are presented to the model: as independent images, or as one video clip. Video mode requires a video-capable model (e.g. Qwen2/2.5/3-VL, LLaVA-NeXT-Video, VideoChat-Flash)
+  vision-mode         : How accumulated frames are presented to the model: as independent images, or as one video clip. Video mode requires a video-capable model
                         flags: readable, writable
                         Enum "GstGvaGenAIVisionMode" Default: 0, "image"
+                           (0): image            - Present accumulated frames as independent images
+                           (1): video            - Present accumulated frames as one video clip
 ```

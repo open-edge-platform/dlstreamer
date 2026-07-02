@@ -20,20 +20,31 @@ std::string ConfigParser::trim(const std::string &str) {
     return str.substr(first, (last - first + 1));
 }
 
+bool ConfigParser::to_bool(const std::string &value, const std::string &key) {
+    // Reuse OpenVINO's string->bool conversion.
+    try {
+        return ov::Any(value).as<bool>();
+    } catch (const std::exception &e) {
+        throw std::runtime_error("Cannot convert value '" + value + "' to boolean for property '" + key +
+                                 "'. Accepted forms: true/false, 1/0, yes/no, on/off (case-insensitive)");
+    }
+}
+
 template <typename T>
 void ConfigParser::convert_prop(ov::AnyMap &properties, const std::string &key, const std::string &value,
                                 const std::string &ov_prop_name, ov::Property<T, ov::PropertyMutability::RW> ov_prop) {
     if (ov_prop_name != key)
         return;
-    std::stringstream ss(value);
     T ov_val;
     if constexpr (std::is_same_v<T, bool>) {
-        ss >> std::boolalpha >> ov_val;
+        ov_val = to_bool(value, key);
     } else {
+        std::stringstream ss(value);
         ss >> ov_val;
-    }
-    if (ss.fail()) {
-        throw std::runtime_error("Cannot convert value '" + value + "' to expected type for property '" + key + "'");
+        if (ss.fail()) {
+            throw std::runtime_error("Cannot convert value '" + value + "' to expected type for property '" + key +
+                                     "'");
+        }
     }
     properties.emplace(ov_prop(ov_val));
     GST_INFO("Set generation config: %s = %s", key.c_str(), value.c_str());
@@ -185,7 +196,7 @@ ov::AnyMap ConfigParser::parse_pipeline_config_string(const std::string &config_
     }
 
     // Parse KEY=VALUE,KEY=VALUE format into an AnyMap of string values. Values are kept as
-    // strings; the OpenVINO plugin coerces them to the expected type. Use this to pass 
+    // strings; the OpenVINO plugin coerces them to the expected type. Use this to pass
     // device/plugin properties to the pipeline at construction.
     //
     // A key of the form DEVICE.PROP nests PROP under that device's property block via
@@ -277,18 +288,18 @@ std::optional<ov::genai::SchedulerConfig> ConfigParser::parse_scheduler_config_s
                     scheduler_config.cache_size = std::stoull(value);
                     GST_INFO("Set scheduler config: %s = %zu", key.c_str(), scheduler_config.cache_size);
                 } else if (key == "dynamic_split_fuse") {
-                    std::istringstream(value) >> std::boolalpha >> scheduler_config.dynamic_split_fuse;
+                    scheduler_config.dynamic_split_fuse = to_bool(value, key);
                     GST_INFO("Set scheduler config: %s = %s", key.c_str(),
                              scheduler_config.dynamic_split_fuse ? "true" : "false");
                 } else if (key == "use_cache_eviction") {
-                    std::istringstream(value) >> std::boolalpha >> scheduler_config.use_cache_eviction;
+                    scheduler_config.use_cache_eviction = to_bool(value, key);
                     GST_INFO("Set scheduler config: %s = %s", key.c_str(),
                              scheduler_config.use_cache_eviction ? "true" : "false");
                 } else if (key == "max_num_seqs") {
                     scheduler_config.max_num_seqs = std::stoull(value);
                     GST_INFO("Set scheduler config: %s = %zu", key.c_str(), scheduler_config.max_num_seqs);
                 } else if (key == "enable_prefix_caching") {
-                    std::istringstream(value) >> std::boolalpha >> scheduler_config.enable_prefix_caching;
+                    scheduler_config.enable_prefix_caching = to_bool(value, key);
                     GST_INFO("Set scheduler config: %s = %s", key.c_str(),
                              scheduler_config.enable_prefix_caching ? "true" : "false");
                 } else if (key == "num_linear_attention_blocks") {
@@ -300,7 +311,7 @@ std::optional<ov::genai::SchedulerConfig> ConfigParser::parse_scheduler_config_s
                     GST_INFO("Set scheduler config: %s = %zu", key.c_str(),
                              scheduler_config.cache_interval_multiplier.value());
                 } else if (key == "use_sparse_attention") {
-                    std::istringstream(value) >> std::boolalpha >> scheduler_config.use_sparse_attention;
+                    scheduler_config.use_sparse_attention = to_bool(value, key);
                     GST_INFO("Set scheduler config: %s = %s", key.c_str(),
                              scheduler_config.use_sparse_attention ? "true" : "false");
                 } else if (key.starts_with("cache_eviction_")) {
@@ -361,7 +372,7 @@ std::optional<ov::genai::SchedulerConfig> ConfigParser::parse_scheduler_config_s
                                                  "'. Valid values are: SUM, NORM_SUM, ADAPTIVE_RKV");
                     }
                 } else if (key == "cache_eviction_apply_rotation") {
-                    std::istringstream(value) >> std::boolalpha >> apply_rotation;
+                    apply_rotation = to_bool(value, key);
                 } else if (key == "cache_eviction_snapkv_window_size") {
                     snapkv_window_size = std::stoull(value);
                 } else if (key == "cache_eviction_kvcrush_budget") {
@@ -394,16 +405,16 @@ std::optional<ov::genai::SchedulerConfig> ConfigParser::parse_scheduler_config_s
 
             // Create new cache eviction config
             scheduler_config.cache_eviction_config =
-                ov::genai::CacheEvictionConfig(start_size, recent_size, max_cache_size, aggregation_mode, apply_rotation,
-                                               snapkv_window_size, kvcrush, adaptive_rkv);
+                ov::genai::CacheEvictionConfig(start_size, recent_size, max_cache_size, aggregation_mode,
+                                               apply_rotation, snapkv_window_size, kvcrush, adaptive_rkv);
 
             GST_INFO("Applied cache eviction config: start_size=%zu, "
                      "recent_size=%zu, max_cache_size=%zu, aggregation_mode=%d, "
                      "apply_rotation=%s, snapkv_window_size=%zu, kvcrush_budget=%zu, "
                      "adaptive_rkv_attention_mass=%f, adaptive_rkv_window_size=%zu",
                      start_size, recent_size, max_cache_size, static_cast<int>(aggregation_mode),
-                     apply_rotation ? "true" : "false", snapkv_window_size, kvcrush.budget,
-                     adaptive_rkv.attention_mass, adaptive_rkv.window_size);
+                     apply_rotation ? "true" : "false", snapkv_window_size, kvcrush.budget, adaptive_rkv.attention_mass,
+                     adaptive_rkv.window_size);
         } catch (const std::exception &e) {
             throw std::runtime_error("Failed to apply cache eviction config: " + std::string(e.what()));
         }
