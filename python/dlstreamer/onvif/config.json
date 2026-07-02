@@ -1,0 +1,33 @@
+{
+    "verbose": false,
+
+    "kitchen": {
+        "hostname": "192.168.1.100",
+        "port": 80,
+        "definition": " ! rtph264depay ! h264parse ! avdec_h264 ! videoconvert ! autovideosink"
+    },
+
+    "living_room": {
+        "hostname": "192.168.1.101",
+        "port": 80,
+        "definition": " ! rtph264depay ! h264parse ! avdec_h264 ! videoconvert ! autovideosink"
+    },
+
+    "driveway_headless": {
+        "hostname": "192.168.1.102",
+        "port": 8080,
+        "definition": " ! rtph264depay ! h264parse ! avdec_h264 ! videoconvert ! fakesink sync=true"
+    },
+
+    "detector_example": {
+        "hostname": "192.168.1.103",
+        "port": 80,
+        "definition": " ! rtph264depay ! h264parse ! avdec_h264 ! videoconvert ! gvadetect model=/opt/models/person-detection.xml device=CPU ! gvawatermark ! videoconvert ! autovideosink"
+    },
+
+    "snapshot_to_file": {
+        "hostname": "192.168.1.104",
+        "port": 80,
+        "definition": " num-buffers=1 ! rtph264depay ! h264parse ! avdec_h264 ! videoconvert ! jpegenc ! filesink location=/tmp/snapshot.jpg"
+    }
+}

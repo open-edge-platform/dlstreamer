@@ -252,6 +252,28 @@ class DlsOnvifDiscoveryEngine:  # pylint: disable=too-many-instance-attributes
             self.verbose = self.config_manager.verbose
         return True
 
+    def _lookup_pipeline_definition(
+        self, ip_address: str, port: int
+    ) -> Optional[str]:
+        """Resolve the pipeline definition for a camera.
+
+        Programmatic (in-code) registrations made via
+        ``dlstreamer.onvif.register_pipeline_definition`` take precedence
+        over the file-backed JSON config; the JSON file is consulted as
+        a fallback so existing deployments keep working.
+        """
+        definition = (
+            dls_onvif_config_manager.default_config_manager()
+            .get_pipeline_definition_by_ip_port(ip_address, port)
+        )
+        if definition:
+            return definition
+        if self.config_manager is not None:
+            return self.config_manager.get_pipeline_definition_by_ip_port(
+                ip_address, port
+            )
+        return None
+
     async def _countdown_to_next_cycle(self) -> None:
         """Display a one-line countdown before the next discovery cycle."""
 
@@ -281,7 +303,9 @@ class DlsOnvifDiscoveryEngine:  # pylint: disable=too-many-instance-attributes
 
         while self.is_discovery_running:
 
-            self.config_manager.refresh_cameras()  # Refresh camera list from config file
+            if self.config_manager is not None:
+                # Refresh camera list from config file
+                self.config_manager.refresh_cameras()
 
             current_camera_ids: set[str] = set()
 
@@ -588,7 +612,7 @@ class DlsOnvifDiscoveryEngine:  # pylint: disable=too-many-instance-attributes
         camera_ip = entry.hostname
         camera_port = entry.port
 
-        pipeline_definition = self.config_manager.get_pipeline_definition_by_ip_port(
+        pipeline_definition = self._lookup_pipeline_definition(
             camera_ip, camera_port
         )
 
