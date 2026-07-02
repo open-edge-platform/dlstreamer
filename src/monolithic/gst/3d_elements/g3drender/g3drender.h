@@ -43,7 +43,8 @@ struct _GstG3DRender {
     gfloat  cam_azimuth_step;
     gfloat  cam_fov;
 
-    guint64 frame_count;
+    guint64  frame_count;
+    gboolean input_is_batch;
 };
 
 struct _GstG3DRenderClass {

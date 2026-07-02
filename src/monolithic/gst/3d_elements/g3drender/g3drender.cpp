@@ -9,6 +9,7 @@
 #include <dlstreamer/gst/metadata/g3d_lidar_meta.h>
 #include <dlstreamer/gst/metadata/g3d_od_mtd.h>
 #include <gst/analytics/gstanalyticsmeta.h>
+#include <gst/analytics/gstanalyticsbatchmeta.h>
 
 #include <gst/gst.h>
 #include <gst/video/video.h>
@@ -57,7 +58,9 @@ enum {
 
 static GstStaticPadTemplate sink_template =
     GST_STATIC_PAD_TEMPLATE("sink", GST_PAD_SINK, GST_PAD_ALWAYS,
-        GST_STATIC_CAPS("application/x-lidar"));
+        GST_STATIC_CAPS(
+            "application/x-lidar; "
+            "multistream/x-analytics-batch(meta:GstAnalyticsBatchMeta)"));
 
 static GstStaticPadTemplate src_template =
     GST_STATIC_PAD_TEMPLATE("src", GST_PAD_SRC, GST_PAD_ALWAYS,
@@ -210,6 +213,7 @@ static void gst_g3d_render_init(GstG3DRender *self) {
     self->cam_azimuth_step = 0.0f;
     self->cam_fov          = 60.0f;
     self->frame_count      = 0;
+    self->input_is_batch   = FALSE;
 }
 
 static gboolean gst_g3d_render_start(GstBaseTransform *trans) {
@@ -292,7 +296,9 @@ static GstCaps *gst_g3d_render_transform_caps(GstBaseTransform *trans, GstPadDir
             NULL);
         gst_caps_set_simple(result, "framerate", GST_TYPE_FRACTION_RANGE, 0, 1, 120, 1, NULL);
     } else {
-        result = gst_caps_from_string("application/x-lidar");
+        result = gst_caps_from_string(
+            "application/x-lidar; "
+            "multistream/x-analytics-batch(meta:GstAnalyticsBatchMeta)");
     }
     if (filter) {
         GstCaps *tmp = gst_caps_intersect_full(result, filter, GST_CAPS_INTERSECT_FIRST);
@@ -303,7 +309,13 @@ static GstCaps *gst_g3d_render_transform_caps(GstBaseTransform *trans, GstPadDir
 }
 
 static gboolean gst_g3d_render_set_caps(GstBaseTransform *trans, GstCaps *incaps, GstCaps *outcaps) {
-    (void)trans; (void)incaps; (void)outcaps;
+    (void)outcaps;
+    GstG3DRender *self = GST_G3D_RENDER(trans);
+    GstStructure *s = gst_caps_get_structure(incaps, 0);
+    self->input_is_batch = (g_strcmp0(gst_structure_get_name(s),
+                                      "multistream/x-analytics-batch") == 0);
+    GST_INFO_OBJECT(self, "input caps: %s (batch=%d)",
+                    gst_structure_get_name(s), self->input_is_batch);
     return TRUE;
 }
 
@@ -699,8 +711,33 @@ static void draw_detection_boxes_bev(cv::Mat &canvas, GstBuffer *inbuf, const Gs
     }
 }
 
+static GstBuffer *extract_lidar_from_batch(GstBuffer *batch_buf) {
+    GstAnalyticsBatchMeta *batch = gst_buffer_get_analytics_batch_meta(batch_buf);
+    if (!batch)
+        return nullptr;
+    for (gsize i = 0; i < batch->n_streams; ++i) {
+        GstAnalyticsBatchStream *stream = &batch->streams[i];
+        if (stream->n_objects == 0 || !GST_IS_BUFFER(stream->objects[0]))
+            continue;
+        GstCaps *caps = gst_analytics_batch_stream_get_caps(stream);
+        if (!caps || gst_caps_get_size(caps) == 0)
+            continue;
+        const gchar *name = gst_structure_get_name(gst_caps_get_structure(caps, 0));
+        if (g_strcmp0(name, "application/x-lidar") == 0)
+            return GST_BUFFER_CAST(stream->objects[0]);
+    }
+    return nullptr;
+}
+
 static GstFlowReturn gst_g3d_render_transform(GstBaseTransform *trans, GstBuffer *inbuf, GstBuffer *outbuf) {
     GstG3DRender *self = GST_G3D_RENDER(trans);
+
+    GstBuffer *lidar_buf = inbuf;
+    if (self->input_is_batch) {
+        lidar_buf = extract_lidar_from_batch(inbuf);
+        if (!lidar_buf)
+            GST_WARNING_OBJECT(self, "No lidar stream in batch, outputting blank frame");
+    }
 
     GstMapInfo out_map;
     if (!gst_buffer_map(outbuf, &out_map, GST_MAP_WRITE)) {
@@ -711,40 +748,44 @@ static GstFlowReturn gst_g3d_render_transform(GstBaseTransform *trans, GstBuffer
     cv::Mat canvas(self->height, self->width, CV_8UC3, out_map.data);
     canvas.setTo(cv::Scalar(15, 15, 15));
 
-    LidarMeta *lidar_meta = reinterpret_cast<LidarMeta *>(
-        gst_buffer_get_meta(inbuf, LIDAR_META_API_TYPE));
+    if (lidar_buf) {
+        LidarMeta *lidar_meta = reinterpret_cast<LidarMeta *>(
+            gst_buffer_get_meta(lidar_buf, LIDAR_META_API_TYPE));
 
-    if (lidar_meta) {
-        GstMapInfo in_map;
-        if (!gst_buffer_map(inbuf, &in_map, GST_MAP_READ)) {
-            GST_ERROR_OBJECT(self, "Failed to map input buffer for reading");
-            gst_buffer_unmap(outbuf, &out_map);
-            return GST_FLOW_ERROR;
-        }
+        if (lidar_meta) {
+            GstMapInfo in_map;
+            if (!gst_buffer_map(lidar_buf, &in_map, GST_MAP_READ)) {
+                GST_ERROR_OBJECT(self, "Failed to map input buffer for reading");
+                gst_buffer_unmap(outbuf, &out_map);
+                return GST_FLOW_ERROR;
+            }
 
-        const float *points = reinterpret_cast<const float *>(in_map.data);
-        const guint  count  = lidar_meta->lidar_point_count;
+            const float *points = reinterpret_cast<const float *>(in_map.data);
+            const guint  count  = lidar_meta->lidar_point_count;
 
-        if (self->view_mode == 0) {
-            draw_bev(canvas, points, count, self);
-            draw_detection_boxes_bev(canvas, inbuf, self);
+            if (self->view_mode == 0) {
+                draw_bev(canvas, points, count, self);
+                draw_detection_boxes_bev(canvas, lidar_buf, self);
+            } else {
+                draw_perspective(canvas, points, count, lidar_buf, self);
+            }
+
+            gst_buffer_unmap(lidar_buf, &in_map);
         } else {
-            draw_perspective(canvas, points, count, inbuf, self);
+            GST_WARNING_OBJECT(self, "No LidarMeta on buffer, outputting blank frame");
         }
-
-        gst_buffer_unmap(inbuf, &in_map);
-    } else {
-        GST_WARNING_OBJECT(self, "No LidarMeta on buffer, outputting blank frame");
     }
 
     gst_buffer_unmap(outbuf, &out_map);
 
+    GstBuffer *pts_buf = (lidar_buf && GST_CLOCK_TIME_IS_VALID(GST_BUFFER_PTS(lidar_buf)))
+                         ? lidar_buf : inbuf;
     const GstClockTime frame_duration = GST_SECOND / 10;
-    GST_BUFFER_PTS(outbuf) = GST_CLOCK_TIME_IS_VALID(GST_BUFFER_PTS(inbuf))
-                             ? GST_BUFFER_PTS(inbuf)
+    GST_BUFFER_PTS(outbuf) = GST_CLOCK_TIME_IS_VALID(GST_BUFFER_PTS(pts_buf))
+                             ? GST_BUFFER_PTS(pts_buf)
                              : self->frame_count * frame_duration;
-    GST_BUFFER_DURATION(outbuf) = GST_CLOCK_TIME_IS_VALID(GST_BUFFER_DURATION(inbuf))
-                                  ? GST_BUFFER_DURATION(inbuf)
+    GST_BUFFER_DURATION(outbuf) = GST_CLOCK_TIME_IS_VALID(GST_BUFFER_DURATION(pts_buf))
+                                  ? GST_BUFFER_DURATION(pts_buf)
                                   : frame_duration;
     self->frame_count++;
 
