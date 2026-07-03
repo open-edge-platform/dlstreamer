@@ -212,8 +212,8 @@ static void gst_g3d_render_init(GstG3DRender *self) {
     self->cam_azimuth      = 45.0f;
     self->cam_azimuth_step = 0.0f;
     self->cam_fov          = 60.0f;
-    self->frame_count      = 0;
-    self->input_is_batch   = FALSE;
+    self->frame_count    = 0;
+    self->input_is_batch = FALSE;
 }
 
 static gboolean gst_g3d_render_start(GstBaseTransform *trans) {
@@ -285,13 +285,18 @@ static void gst_g3d_render_get_property(GObject *obj, guint prop_id, GValue *val
 
 static GstCaps *gst_g3d_render_transform_caps(GstBaseTransform *trans, GstPadDirection direction,
                                                GstCaps *caps, GstCaps *filter) {
-    (void)trans; (void)caps;
     GstG3DRender *self = GST_G3D_RENDER(trans);
     GstCaps *result;
     if (direction == GST_PAD_SINK) {
+        gint w = self->width;
+        if (w == self->height && caps && gst_caps_get_size(caps) > 0) {
+            if (g_strcmp0(gst_structure_get_name(gst_caps_get_structure(caps, 0)),
+                          "multistream/x-analytics-batch") == 0)
+                w = self->height * 2;
+        }
         result = gst_caps_new_simple("video/x-raw",
             "format", G_TYPE_STRING, "BGR",
-            "width",  G_TYPE_INT,    self->width,
+            "width",  G_TYPE_INT,    w,
             "height", G_TYPE_INT,    self->height,
             NULL);
         gst_caps_set_simple(result, "framerate", GST_TYPE_FRACTION_RANGE, 0, 1, 120, 1, NULL);
@@ -314,8 +319,11 @@ static gboolean gst_g3d_render_set_caps(GstBaseTransform *trans, GstCaps *incaps
     GstStructure *s = gst_caps_get_structure(incaps, 0);
     self->input_is_batch = (g_strcmp0(gst_structure_get_name(s),
                                       "multistream/x-analytics-batch") == 0);
-    GST_INFO_OBJECT(self, "input caps: %s (batch=%d)",
-                    gst_structure_get_name(s), self->input_is_batch);
+    if (self->input_is_batch && self->width == self->height)
+        self->width = self->height * 2;
+    GST_INFO_OBJECT(self, "input caps: %s (batch=%d) canvas=%dx%d",
+                    gst_structure_get_name(s), self->input_is_batch,
+                    self->width, self->height);
     return TRUE;
 }
 
@@ -323,6 +331,7 @@ static GstFlowReturn gst_g3d_render_prepare_output_buffer(GstBaseTransform *tran
                                                            GstBuffer **outbuf) {
     (void)inbuf;
     GstG3DRender *self = GST_G3D_RENDER(trans);
+
     gsize frame_size = (gsize)self->width * self->height * 3;
     *outbuf = gst_buffer_new_allocate(NULL, frame_size, NULL);
     if (!*outbuf) {
@@ -782,7 +791,6 @@ static std::vector<CamStream> collect_camera_streams(GstBuffer *batch_buf) {
 
 static GstFlowReturn gst_g3d_render_transform(GstBaseTransform *trans, GstBuffer *inbuf, GstBuffer *outbuf) {
     GstG3DRender *self = GST_G3D_RENDER(trans);
-
     // Extract streams from batch (or treat inbuf as direct lidar)
     GstBuffer *lidar_buf = inbuf;
     std::vector<CamStream> cams;
@@ -845,7 +853,7 @@ static GstFlowReturn gst_g3d_render_transform(GstBaseTransform *trans, GstBuffer
     }
 
     // ── Render camera streams ────────────────────────────────────────────────
-    if (n_cams > 0) {
+    if (n_cams > 0 && cam_area_w > 0) {
         int cols   = (n_cams >= 4) ? 2 : 1;
         int rows   = (n_cams + cols - 1) / cols;
         int cell_w = cam_area_w / cols;
