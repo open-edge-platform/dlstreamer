@@ -75,7 +75,7 @@ model = YOLO('yolo26s.pt')
 model.export(format='openvino', dynamic=True, int8=True)"
 ```
 
-Model should be downloaded to `~/intel/dlstreamer_demo/yolo26s_int8_openvino_model` folder.
+Model should be moved to `~/intel/dlstreamer_demo/yolo26s_int8_openvino_model` folder.
 
 
 ### Video Input Preparation
