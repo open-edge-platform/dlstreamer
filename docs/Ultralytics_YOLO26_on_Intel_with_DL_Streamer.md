@@ -69,10 +69,7 @@ pip install openvino==2026.2.0 ultralytics==8.4.57
 4.  Download PyTorch YOLO26s model from Ultralytics, converts it to OpenVINO IR format, and generates INT8 precision variant.
 
 ```bash
-python -c "
-from ultralytics import YOLO
-model = YOLO('yolo26s.pt')
-model.export(format='openvino', dynamic=True, int8=True)"
+yolo export model=yolo26s.pt format=openvino int8=True data=coco128.yaml
 ```
 
 Model should be moved to `~/intel/dlstreamer_demo/yolo26s_int8_openvino_model` folder.
@@ -109,7 +106,7 @@ intel/dlstreamer:latest
 ### Basic Usage
 
 ```bash
-./dlstreamer/samples/gstreamer/gst_launch/detection_with_yolo/yolo_detect.sh <MODEL> <DEVICE> <INPUT> <OUTPUT_TYPE> <PPBKEND> <PRECISION>
+/opt/intel/dlstreamer/samples/gstreamer/gst_launch/detection_with_yolo/yolo_detect.sh <MODEL> <DEVICE> <INPUT> <OUTPUT_TYPE> <PPBKEND> <PRECISION>
 ```
 
 **Parameters:**
@@ -132,13 +129,13 @@ INT8 quantization delivers the highest throughput by reducing model weights to 8
 Set `MODELS_PATH` to the directory where downloaded models are stored — `yolo_detect.sh` uses this variable to locate model files:
 
 ```bash
-export MODELS_PATH=~/models
+export MODELS_PATH=/home/dlstreamer/models
 ```
    
 ### Run YOLO26s with INT8 on GPU 
 
 ```bash
-./dlstreamer/samples/gstreamer/gst_launch/detection_with_yolo/yolo_detect.sh yolo26s GPU ~/videos/video1.mp4 display
+/opt/intel/dlstreamer/samples/gstreamer/gst_launch/detection_with_yolo/yolo_detect.sh yolo26s GPU /home/dlstreamer/videos/video1.mp4 display
 ```
 
 
@@ -155,13 +152,13 @@ gst-launch-1.0 filesrc location=/home/dlstreamer/videos/video1.mp4 ! decodebin3 
 ### Run YOLO26s with INT8 on GPU, save output to video file (yolo_video1_yolo26s_INT8_GPU.mp4)
 
 ```bash
-./dlstreamer/samples/gstreamer/gst_launch/detection_with_yolo/yolo_detect.sh yolo26s GPU ~/videos/video1.mp4 file
+/opt/intel/dlstreamer/samples/gstreamer/gst_launch/detection_with_yolo/yolo_detect.sh yolo26s GPU /home/dlstreamer/videos/video1.mp4 file
 ```
 
 ### Run YOLO26s with INT8 on NPU
 
 ```bash
-./dlstreamer/samples/gstreamer/gst_launch/detection_with_yolo/yolo_detect.sh yolo26s NPU ~/videos/video1.mp4 display
+/opt/intel/dlstreamer/samples/gstreamer/gst_launch/detection_with_yolo/yolo_detect.sh yolo26s NPU /home/dlstreamer/videos/video1.mp4 display
 ```
 
 
@@ -176,7 +173,7 @@ DL Streamer supports multi-stream processing, where multiple video sources are d
 
 ### Running Multiple Pipelines in Parallel (GPU)
 
-gst-launch-1.0 vacompositor name=comp sink_0::xpos=0 sink_0::ypos=0 sink_1::xpos=660 sink_1::ypos=0 sink_2::xpos=0 sink_2::ypos=380 sink_3::xpos=660 sink_3::ypos=380 ! autovideosink sync=false filesrc location=~/videos/video1.mp4 ! decodebin3 ! gvadetect model=~/models/public/yolo26s/INT8/yolo26s.xml device=GPU model-instance-id=inf0 scheduling-policy="latency" ! queue ! gvawatermark ! gvafpscounter ! comp.sink_0 filesrc location=~/videos/video1.mp4 ! decodebin3 ! gvadetect model=~/models/public/yolo26s/INT8/yolo26s.xml device=GPU model-instance-id=inf0 scheduling-policy="latency" ! queue ! gvawatermark ! gvafpscounter ! comp.sink_1 filesrc location=~/videos/video1.mp4 ! decodebin3 ! gvadetect model=~/models/public/yolo26s/INT8/yolo26s.xml device=GPU model-instance-id=inf0 scheduling-policy="latency" ! queue ! gvawatermark ! gvafpscounter ! comp.sink_2 filesrc location=~/videos/video1.mp4 ! decodebin3 ! gvadetect model=~/models/public/yolo26s/INT8/yolo26s.xml device=GPU model-instance-id=inf0 scheduling-policy="latency" ! queue ! gvawatermark ! gvafpscounter ! comp.sink_3
+gst-launch-1.0 vacompositor name=comp sink_0::xpos=0 sink_0::ypos=0 sink_1::xpos=660 sink_1::ypos=0 sink_2::xpos=0 sink_2::ypos=380 sink_3::xpos=660 sink_3::ypos=380 ! autovideosink sync=false filesrc location=/home/dlstreamer/videos/video1.mp4 ! decodebin3 ! gvadetect model=/home/dlstreamer/models/public/yolo26s/INT8/yolo26s.xml device=GPU model-instance-id=inf0 scheduling-policy="latency" ! queue ! gvawatermark ! gvafpscounter ! comp.sink_0 filesrc location=/home/dlstreamer/videos/video1.mp4 ! decodebin3 ! gvadetect model=/home/dlstreamer/models/public/yolo26s/INT8/yolo26s.xml device=GPU model-instance-id=inf0 scheduling-policy="latency" ! queue ! gvawatermark ! gvafpscounter ! comp.sink_1 filesrc location=/home/dlstreamer/videos/video1.mp4 ! decodebin3 ! gvadetect model=/home/dlstreamer/models/public/yolo26s/INT8/yolo26s.xml device=GPU model-instance-id=inf0 scheduling-policy="latency" ! queue ! gvawatermark ! gvafpscounter ! comp.sink_2 filesrc location=/home/dlstreamer/videos/video1.mp4 ! decodebin3 ! gvadetect model=/home/dlstreamer/models/public/yolo26s/INT8/yolo26s.xml device=GPU model-instance-id=inf0 scheduling-policy="latency" ! queue ! gvawatermark ! gvafpscounter ! comp.sink_3
 
 
 <div align="center">
