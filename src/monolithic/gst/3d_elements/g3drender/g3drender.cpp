@@ -340,7 +340,7 @@ static cv::Point world_to_pixel_bev(float x, float y, const GstG3DRender *self,
     float y_range = (self->range_y_max - self->range_y_min) / self->zoom;
     float x_mid   = (self->range_x_max + self->range_x_min) / 2.0f;
     float y_mid   = (self->range_y_max + self->range_y_min) / 2.0f;
-    int px = (int)((y - (y_mid - y_range / 2.0f)) / y_range * roi_w);
+    int px = (int)((1.0f - (y - (y_mid - y_range / 2.0f)) / y_range) * roi_w);
     int py = (int)((1.0f - (x - (x_mid - x_range / 2.0f)) / x_range) * roi_h);
     return cv::Point(px, py);
 }
@@ -416,7 +416,7 @@ static void draw_bev(cv::Mat &canvas, const float *points, guint count,
     if (self->point_radius == 1) {
         for (guint i = 0; i < count; i += (guint)self->point_stride) {
             float x = points[i*4+0], y = points[i*4+1], intensity = points[i*4+3];
-            int px = (int)((y - y_off) * inv_y);
+            int px = roi_w - 1 - (int)((y - y_off) * inv_y);
             int py = (int)((1.0f - (x - x_off) / x_range) * roi_h);
             if (px < 0 || px >= roi_w || py < 0 || py >= roi_h) continue;
             uint8_t r = (uint8_t)(intensity * 255.0f);
@@ -426,7 +426,7 @@ static void draw_bev(cv::Mat &canvas, const float *points, guint count,
     } else {
         for (guint i = 0; i < count; i += (guint)self->point_stride) {
             float x = points[i*4+0], y = points[i*4+1], intensity = points[i*4+3];
-            int px = (int)((y - y_off) * inv_y);
+            int px = roi_w - 1 - (int)((y - y_off) * inv_y);
             int py = (int)((1.0f - (x - x_off) / x_range) * roi_h);
             if (px < 0 || px >= roi_w || py < 0 || py >= roi_h) continue;
             uint8_t r = (uint8_t)(intensity * 255.0f);
