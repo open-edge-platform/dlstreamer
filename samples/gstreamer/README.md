@@ -2,6 +2,8 @@
 
 Samples are simple applications that demonstrate how to use the DL Streamer. The samples are available in the `/opt/intel/dlstreamer/samples` directory.
 
+> **NOTE**: Before running Samples make sure DL Streamer is installed properly, [check Get Started section](../../docs/user-guide/get_started/get_started_index.md)
+
 Samples separated into several categories:
 1. gst_launch command-line samples (samples construct GStreamer pipeline via [gst-launch-1.0](https://gstreamer.freedesktop.org/documentation/tools/gst-launch.html) command-line utility)
     * [Action Recognition Sample](./gst_launch/action_recognition/README.md) - demonstrates action recognition via video_inference bin element

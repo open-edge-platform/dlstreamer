@@ -71,7 +71,7 @@ def main(args):
     model_file = f"{exported_model_path}/{weights}.xml"
 
     # Create GStreamer pipeline, pass input video file and OpenVINO model file
-    Gst.init(None)
+    Gst.init([])
     pipeline = Gst.parse_launch(
             f"filesrc location={args[1]} ! decodebin3 ! "
             f"gvadetect model={model_file} device=GPU batch-size=4 ! queue ! "
