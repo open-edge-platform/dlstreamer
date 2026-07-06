@@ -23,26 +23,23 @@ optimized for Intel hardware and provides interoperability between GStreamer plu
 - **Metadata**: GStreamer Analytics for structured inference results
 - **Ecosystem**: Hundreds of GStreamer plugins for media I/O,  muxing/demuxing, codec support, and more
 
-DL Streamer supports many AI models including the full Ultralytics YOLO family (YOLOv5 through YOLO26), SSD, EfficientDet, RT-DETR, CLIP, VLMs, and many more (HF), all in OpenVINO™ format.
+DL Streamer supports many AI models including the full Ultralytics YOLO family (YOLOv5 through YOLO26) all in OpenVINO™ format.
 
 DL Streamer is being regularly validated with systems provided on [System Requirements — Open Edge Platform
-Documentation](https://docs.openedgeplatform.intel.com/2026.0/edge-ai-libraries/dlstreamer/get_started/system_requirements.html)
+Documentation](https://docs.openedgeplatform.intel.com/2026.1/edge-ai-libraries/dlstreamer/get_started/system_requirements.html)
 
 
 ## Prerequisites
 
 Before you begin, ensure the following are installed and configured on your Intel system:
 
-**Ubuntu 24.04** with Intel GPU/NPU drivers installed (check [installation guide](https://medium.com/openvino-toolkit/how-to-run-openvino-on-a-linux-ai-pc-52083ce14a98]))
+**Ubuntu 24.04** with Intel GPU/NPU drivers installed (check [installation guide](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/get_started/install/install_guide_ubuntu.html))
 
 Ensure also downloading the latest DL Streamer Ubuntu24 docker image.
 
 ```bash
 docker pull intel/dlstreamer:latest
 ```
-
-More installation options are available on [Installation Guide](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/get_started/install/install_guide_ubuntu.html#option-1-install-deep-learning-streamer-pipeline-framework-from-debian-packages-using-apt-repository)
-
 
 ## YOLO26 Model Preparation
 
@@ -75,22 +72,19 @@ yolo export model=yolo26s.pt format=openvino int8=True data=coco128.yaml
 Model should be moved to `~/intel/dlstreamer_demo/yolo26s_int8_openvino_model` folder.
 
 
-### Video Input Preparation
+## Running Inference with YOLO26
 
-DL Streamer Samples use the video files as input, for the purpose of running recommended `yolo_detect` Sample in the next section, download the following video file from Pexels database.
+Before running DL Streamer YOLO26 inference detection pipeline, run DL Streamer docker image in the interactive mode. 
+Make sure you followed [YOLO26 Model Preparation](#yolo26-model-preparation) step and download the following video file from Pexels database.
 
 ```bash
 curl -L https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4 --output ~/intel/dlstreamer_demo/video1.mp4
 ```
 
-## Running Inference with YOLO26
-
-The DL Streamer sample application `yolo_detect.sh` provides a ready-to-use script for running YOLO26 inference pipelines. But first, run DL Streamer docker image in the interactive mode. Make sure you followed steps [YOLO26 Model Preparation](#yolo26-model-preparation) and [Video Input Preparation](#video-input-preparation), required for the proper folders mounting.
 
 ```bash
 docker run -it --rm \
--v ~/intel/dlstreamer_demo/yolo26s_int8_openvino_model:/home/dlstreamer/models/public/yolo26s/INT8 \
--v ~/intel/dlstreamer_demo:/home/dlstreamer/videos \
+-v ~/intel/dlstreamer_demo:/home/dlstreamer/demo \
 -v "$HOME/.Xauthority:/root/.Xauthority:rw" \
 -e DISPLAY=$DISPLAY \
 -e XDG_RUNTIME_DIR=/tmp \
@@ -103,39 +97,16 @@ docker run -it --rm \
 intel/dlstreamer:latest
 ```
 
-### Basic Usage
-
-```bash
-/opt/intel/dlstreamer/samples/gstreamer/gst_launch/detection_with_yolo/yolo_detect.sh <MODEL> <DEVICE> <INPUT> <OUTPUT_TYPE> <PPBKEND> <PRECISION>
-```
-
-**Parameters:**
-
-| Parameter   | Default          | Description                                                        |
-|-------------|------------------|--------------------------------------------------------------------|
-| `MODEL`     | `yolox_s`        | Model name (e.g., `yolo26s`, `yolo26m`, `yolo26l`)                 |
-| `DEVICE`    | `GPU`            | Inference device: `CPU`, `GPU`, or `NPU`                           |
-| `INPUT`     | Sample video URL | Input video file, URL, or `/dev/video*` for webcam                 |
-| `OUTPUT`    | `file`           | Output type: `file`, `display`, `fps`, `json`, `display-and-json`  |
-| `PPBKEND`   | Auto             | Pre-processing backend: `ie`, `opencv`, `va`, `va-surface-sharing` |
-| `PRECISION` | `INT8`           | Model precision: `FP32`, `FP16`, `INT8`                            |
-
-**NOTE**: Before running `yolo_detect.sh`, ensure models (ie. yolo26s) is downloaded.
 
 ### INT8 Precision (Maximum Performance)
 
 INT8 quantization delivers the highest throughput by reducing model weights to 8-bit integers. The Ultralytics exporter handles calibration automatically.
 
-Set `MODELS_PATH` to the directory where downloaded models are stored — `yolo_detect.sh` uses this variable to locate model files:
-
-```bash
-export MODELS_PATH=/home/dlstreamer/models
-```
    
 ### Run YOLO26s with INT8 on GPU 
 
 ```bash
-/opt/intel/dlstreamer/samples/gstreamer/gst_launch/detection_with_yolo/yolo_detect.sh yolo26s GPU /home/dlstreamer/videos/video1.mp4 display
+gst-launch-1.0 filesrc location=/home/dlstreamer/demo/video1.mp4 ! decodebin3 ! gvadetect model=/home/dlstreamer/demo/yolo26s_int8_openvino_model/yolo26s.xml device=GPU ! queue ! vapostproc ! gvawatermark ! gvafpscounter ! autovideosink sync=false
 ```
 
 
@@ -143,22 +114,17 @@ export MODELS_PATH=/home/dlstreamer/models
 <img src="./yolo_detect_gpu.png" width="70%" />
 </div>
 
-The generated GStreamer pipeline:
-
-```console
-gst-launch-1.0 filesrc location=/home/dlstreamer/videos/video1.mp4 ! decodebin3 ! gvadetect model=/home/dlstreamer/models/public/yolo26s/INT8/yolo26s.xml device=GPU pre-process-backend=va-surface-sharing ! queue ! vapostproc ! gvawatermark ! videoconvertscale ! gvafpscounter ! autovideosink sync=false
-```
 
 ### Run YOLO26s with INT8 on GPU, save output to video file (yolo_video1_yolo26s_INT8_GPU.mp4)
 
 ```bash
-/opt/intel/dlstreamer/samples/gstreamer/gst_launch/detection_with_yolo/yolo_detect.sh yolo26s GPU /home/dlstreamer/videos/video1.mp4 file
+gst-launch-1.0 filesrc location=/home/dlstreamer/demo/video1.mp4 ! decodebin3 ! gvadetect model=/home/dlstreamer/demo/yolo26s_int8_openvino_model/yolo26s.xml device=GPU ! queue ! vapostproc ! gvawatermark ! gvafpscounter ! vah264enc ! h264parse ! mp4mux ! filesink location=/home/dlstreamer/yolo_video1_yolo26s_INT8_GPU.mp4
 ```
 
 ### Run YOLO26s with INT8 on NPU
 
 ```bash
-/opt/intel/dlstreamer/samples/gstreamer/gst_launch/detection_with_yolo/yolo_detect.sh yolo26s NPU /home/dlstreamer/videos/video1.mp4 display
+gst-launch-1.0 filesrc location=/home/dlstreamer/demo/video1.mp4 ! decodebin3 ! gvadetect model=/home/dlstreamer/demo/yolo26s_int8_openvino_model/yolo26s.xml device=NPU ! queue ! vapostproc ! gvawatermark ! gvafpscounter ! autovideosink sync=false
 ```
 
 
@@ -174,7 +140,7 @@ DL Streamer supports multi-stream processing, where multiple video sources are d
 ### Running Multiple Pipelines in Parallel (GPU)
 
 ```bash
-gst-launch-1.0 vacompositor name=comp sink_0::xpos=0 sink_0::ypos=0 sink_1::xpos=660 sink_1::ypos=0 sink_2::xpos=0 sink_2::ypos=380 sink_3::xpos=660 sink_3::ypos=380 ! autovideosink sync=false filesrc location=/home/dlstreamer/videos/video1.mp4 ! decodebin3 ! gvadetect model=/home/dlstreamer/models/public/yolo26s/INT8/yolo26s.xml device=GPU model-instance-id=inf0 scheduling-policy="latency" ! queue ! gvawatermark ! gvafpscounter ! comp.sink_0 filesrc location=/home/dlstreamer/videos/video1.mp4 ! decodebin3 ! gvadetect model=/home/dlstreamer/models/public/yolo26s/INT8/yolo26s.xml device=GPU model-instance-id=inf0 scheduling-policy="latency" ! queue ! gvawatermark ! gvafpscounter ! comp.sink_1 filesrc location=/home/dlstreamer/videos/video1.mp4 ! decodebin3 ! gvadetect model=/home/dlstreamer/models/public/yolo26s/INT8/yolo26s.xml device=GPU model-instance-id=inf0 scheduling-policy="latency" ! queue ! gvawatermark ! gvafpscounter ! comp.sink_2 filesrc location=/home/dlstreamer/videos/video1.mp4 ! decodebin3 ! gvadetect model=/home/dlstreamer/models/public/yolo26s/INT8/yolo26s.xml device=GPU model-instance-id=inf0 scheduling-policy="latency" ! queue ! gvawatermark ! gvafpscounter ! comp.sink_3
+gst-launch-1.0 vacompositor name=comp sink_0::xpos=0 sink_0::ypos=0 sink_1::xpos=660 sink_1::ypos=0 sink_2::xpos=0 sink_2::ypos=380 sink_3::xpos=660 sink_3::ypos=380 ! autovideosink sync=false filesrc location=/home/dlstreamer/demo/video1.mp4 ! decodebin3 ! gvadetect model=/home/dlstreamer/demo/yolo26s_int8_openvino_model/yolo26s.xml device=GPU model-instance-id=inf0 scheduling-policy="latency" ! queue ! gvawatermark ! gvafpscounter ! comp.sink_0 filesrc location=/home/dlstreamer/demo/video1.mp4 ! decodebin3 ! gvadetect model=/home/dlstreamer/demo/yolo26s_int8_openvino_model/yolo26s.xml device=GPU model-instance-id=inf0 scheduling-policy="latency" ! queue ! gvawatermark ! gvafpscounter ! comp.sink_1 filesrc location=/home/dlstreamer/demo/video1.mp4 ! decodebin3 ! gvadetect model=/home/dlstreamer/demo/yolo26s_int8_openvino_model/yolo26s.xml device=GPU model-instance-id=inf0 scheduling-policy="latency" ! queue ! gvawatermark ! gvafpscounter ! comp.sink_2 filesrc location=/home/dlstreamer/demo/video1.mp4 ! decodebin3 ! gvadetect model=/home/dlstreamer/demo/yolo26s_int8_openvino_model/yolo26s.xml device=GPU model-instance-id=inf0 scheduling-policy="latency" ! queue ! gvawatermark ! gvafpscounter ! comp.sink_3
 ```
 
 <div align="center">
