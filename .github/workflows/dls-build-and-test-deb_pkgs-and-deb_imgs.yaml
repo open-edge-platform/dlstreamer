@@ -344,17 +344,23 @@ jobs:
         env:
           ubuntu_version: ${{ matrix.ubuntu_version }}
         run: |
-          sudo apt install -y libcairo2-dev libgirepository1.0-dev
+          sudo apt install -y libcairo2-dev libgirepository1.0-dev # Build-time headers required to compile PyGObject
           if [[ ${ubuntu_version} == "ubuntu24" ]]; then
               sudo apt install -y libopencv-dev
           fi
+
           if [ -d "$HOME/.virtualenvs" ]; then
             echo "Directory $HOME/.virtualenvs exists - removing it"
             rm -rf $HOME/.virtualenvs
           fi
           mkdir -p $HOME/.virtualenvs/dlstreamer
           python3 -m venv $HOME/.virtualenvs/dlstreamer
+          
           $HOME/.virtualenvs/dlstreamer/bin/pip install --no-cache-dir --upgrade pip -r $DLS_REL_PATH/requirements.txt
+          for sample in face_detection_and_classification prompted_detection smart_nvr; do
+            req="$DLS_REL_PATH/samples/gstreamer/python/$sample/requirements.txt"
+            [ -f "$req" ] && $HOME/.virtualenvs/dlstreamer/bin/pip install --no-cache-dir -r "$req"
+          done
 
       - name: 🚀 Run on host tests
         if: always() && needs.setup.outputs.should_run == 'true'
