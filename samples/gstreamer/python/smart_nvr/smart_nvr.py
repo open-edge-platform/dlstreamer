@@ -16,6 +16,8 @@ import os
 import subprocess
 import sys
 
+from huggingface_hub import snapshot_download
+
 import gi
 
 gi.require_version("Gst", "1.0")
@@ -82,7 +84,9 @@ def check_download_detection_model():
     # download RTDETRv2 model from Hugging Face Model Hub if local copy does not exist
     if not os.path.isfile(ov_model_path):
         print("Downloading PekingU/rtdetr_v2_r50vd from HuggingFace\n")
-        subprocess.run(["optimum-cli", "export", "onnx", "--model", RTDETR_REPO_ID, "--revision", RTDETR_REVISION,
+        # Pin the revision by fetching the exact commit locally, then export from the local snapshot path
+        model_source = snapshot_download(repo_id=RTDETR_REPO_ID, revision=RTDETR_REVISION)
+        subprocess.run(["optimum-cli", "export", "onnx", "--model", model_source,
                         "--task", "object-detection", "--opset", "18", "--width", "640", "--height", "640", "rtdetr_v2_r50vd",
             ],check=True)
         os.chdir("rtdetr_v2_r50vd")

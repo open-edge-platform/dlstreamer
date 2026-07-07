@@ -355,7 +355,7 @@ jobs:
           fi
           mkdir -p $HOME/.virtualenvs/dlstreamer
           python3 -m venv $HOME/.virtualenvs/dlstreamer
-          
+
           $HOME/.virtualenvs/dlstreamer/bin/pip install --no-cache-dir --upgrade pip -r $DLS_REL_PATH/requirements.txt
 
           curl -LO https://raw.githubusercontent.com/openvinotoolkit/openvino.genai/refs/heads/releases/2026/2/samples/export-requirements.txt

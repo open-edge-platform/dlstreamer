@@ -7,7 +7,7 @@ import sys
 import os
 import subprocess
 
-from huggingface_hub import hf_hub_download
+from huggingface_hub import hf_hub_download, snapshot_download
 from ultralytics import YOLO
 
 sys.path.insert(
@@ -129,15 +129,18 @@ def main(input_video, device, output):
         print(
             "\nDownloading classification model and converting to OpenVINO IR format...\n"
         )
+        # Pin the revision by fetching the exact commit locally, then export from the local snapshot path
+        classification_source = snapshot_download(
+            repo_id=FAIRFACE_REPO_ID,
+            revision=FAIRFACE_REVISION,
+        )
         subprocess.run(
             [
                 "optimum-cli",
                 "export",
                 "openvino",
                 "--model",
-                FAIRFACE_REPO_ID,
-                "--revision",
-                FAIRFACE_REVISION,
+                classification_source,
                 os.path.join(runtime_dir, "fairface_age_image_detection"),
                 "--weight-format",
                 "int8",
