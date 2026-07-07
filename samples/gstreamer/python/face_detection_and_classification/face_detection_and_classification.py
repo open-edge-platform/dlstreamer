@@ -141,6 +141,8 @@ def main(input_video, device, output):
                 "openvino",
                 "--model",
                 classification_source,
+                "--task",
+                "image-classification",
                 os.path.join(runtime_dir, "fairface_age_image_detection"),
                 "--weight-format",
                 "int8",

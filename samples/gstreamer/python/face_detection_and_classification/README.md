@@ -10,7 +10,7 @@ The script demonstrates the full flow for preparing models and running a DL Stre
 Download the YOLOv8 face detector from Hugging Face and export it to OpenVINO IR using the Ultralytics exporter.
 
 **STEP 2 — Prepare the classification model**
-Use optimum-cli to download the face age classifier from Hugging Face and export it to OpenVINO IR.
+Fetch the face age classifier from Hugging Face at a pinned revision (via `snapshot_download`) and export it to OpenVINO IR from the local snapshot using `optimum-cli` (with an explicit `--task image-classification`).
 
 **STEP 3 — Build and run the pipeline**
 Use GStreamer and DL Streamer elements to build a pipeline, run inference with `gvadetect` and `gvaclassify`, annotate frames with `gvawatermak`, and encode the output to MP4.
