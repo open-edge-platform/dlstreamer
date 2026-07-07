@@ -67,7 +67,10 @@ bool ConfigParser::convert_prop(ov::AnyMap &properties, const std::string &key, 
                 items_set.insert(item);
             } else if constexpr (std::is_same_v<T, int64_t>) {
                 try {
-                    int64_t token_id = std::stoll(item);
+                    size_t idx = 0;
+                    int64_t token_id = std::stoll(item, &idx);
+                    if (idx != item.size()) // reject trailing non-numeric characters (e.g. "1abc")
+                        throw std::invalid_argument("trailing characters");
                     items_set.insert(token_id);
                 } catch (const std::exception &e) {
                     throw std::runtime_error("Invalid token ID '" + item + "' in property '" + key + "': " + e.what());
@@ -215,7 +218,11 @@ ov::AnyMap ConfigParser::parse_pipeline_config_string(const std::string &config_
     auto make_any = [](const std::string &prop, const std::string &val) -> ov::Any {
         if (integer_keys.count(prop)) {
             try {
-                return ov::Any(static_cast<int64_t>(std::stoll(val)));
+                size_t idx = 0;
+                int64_t parsed = std::stoll(val, &idx);
+                if (idx != val.size()) // reject trailing non-numeric characters (e.g. "2048abc")
+                    throw std::invalid_argument("trailing characters");
+                return ov::Any(parsed);
             } catch (const std::exception &) {
                 throw std::runtime_error("Pipeline config property '" + prop + "' requires an integer value, got '" +
                                          val + "'");

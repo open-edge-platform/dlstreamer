@@ -201,7 +201,7 @@ void OpenVINOGenAIContext::inference_tensor_vector(const std::string &prompt, bo
     } else {
         // Present the accumulated frames as independent images.
         properties.emplace(ov::genai::images(tensor_vector));
-        GST_INFO("Running inference with %ld images and prompt: %s", tensor_vector.size(), prompt.c_str());
+        GST_INFO("Running inference with %zu images and prompt: %s", tensor_vector.size(), prompt.c_str());
     }
 
     // Run inference, this is a long blocking call

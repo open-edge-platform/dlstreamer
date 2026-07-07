@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2025 Intel Corporation
+ * Copyright (C) 2025-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -54,9 +54,10 @@ class ConfigParser {
     /**
      * @brief Parse pipeline config string in KEY=VALUE,KEY=VALUE format
      *
-     * This method parses a comma-separated configuration string into an AnyMap of string
-     * values that is passed to the pipeline at construction as OpenVINO device properties.
-     * Values are kept as strings and coerced by the plugin. Useful for device tuning.
+     * This method parses a comma-separated configuration string into an AnyMap that is passed
+     * to the pipeline at construction as OpenVINO device properties. Most values are kept as
+     * strings and coerced by the plugin via ov::Any. Known integer-only NPU KV-cache keys
+     * (MAX_PROMPT_LEN, MIN_RESPONSE_LEN) are stored as int64_t. Useful for device tuning.
      *
      * @param config_str Configuration string in "key1=value1,key2=value2" format
      * @return AnyMap with plugin properties, empty if config_str is empty

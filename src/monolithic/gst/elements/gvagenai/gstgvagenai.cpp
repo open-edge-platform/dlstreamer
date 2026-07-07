@@ -6,6 +6,7 @@
 
 #include "gstgvagenai.h"
 
+#include <cmath>
 #include <fstream>
 #include <gst/video/video.h>
 

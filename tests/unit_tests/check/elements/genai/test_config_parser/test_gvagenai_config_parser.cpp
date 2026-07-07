@@ -102,6 +102,11 @@ TEST(GenerationConfig, StopTokenIdsInvalidThrows) {
     EXPECT_THROW(ConfigParser::parse_generation_config_string("stop_token_ids=1;abc;3"), std::runtime_error);
 }
 
+TEST(GenerationConfig, StopTokenIdsTrailingGarbageThrows) {
+    // "2abc" must be rejected rather than silently parsed as 2.
+    EXPECT_THROW(ConfigParser::parse_generation_config_string("stop_token_ids=1;2abc"), std::runtime_error);
+}
+
 TEST(GenerationConfig, StopCriteriaEnum) {
     auto props = ConfigParser::parse_generation_config_string("stop_criteria=EARLY");
     ASSERT_TRUE(props.count("stop_criteria"));
@@ -248,6 +253,11 @@ TEST(PipelineConfig, IntegerKeysStoredAsInt64) {
 
 TEST(PipelineConfig, IntegerKeyNonNumericThrows) {
     EXPECT_THROW(ConfigParser::parse_pipeline_config_string("MAX_PROMPT_LEN=lots"), std::runtime_error);
+}
+
+TEST(PipelineConfig, IntegerKeyTrailingGarbageThrows) {
+    // std::stoll would silently accept "2048abc" as 2048; the parser must reject it.
+    EXPECT_THROW(ConfigParser::parse_pipeline_config_string("MAX_PROMPT_LEN=2048abc"), std::runtime_error);
 }
 
 TEST(PipelineConfig, DottedKeyNestsUnderDeviceProperties) {
