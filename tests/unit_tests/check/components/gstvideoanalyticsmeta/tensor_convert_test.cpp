@@ -1543,7 +1543,7 @@ TEST_F(SegmentationConvertToMetaTest, InstanceTensorMtdRoundtrip) {
     std::vector<guint> expected_dims = {SEG_INST_W, SEG_INST_H};
     EXPECT_EQ(restored.dims(), expected_dims);
     // model_name is no longer reconstructed; the model still lives in the analytics-native semantic tag
-    EXPECT_EQ(restored.get_string("semantic_tag"), "SegModel/instance_segmentation");
+    EXPECT_EQ(restored.get_string("semantic_tag"), "SegModel");
 
     auto restored_data = restored.data<float>();
     ASSERT_EQ(restored_data.size(), static_cast<size_t>(SEG_INST_W) * SEG_INST_H);
@@ -1611,8 +1611,8 @@ TEST_F(SegmentationConvertToTensorTest, SemanticRoundtrip) {
     EXPECT_EQ(restored.type(), GVA::GST_ANALYTICS_SEGMENTATION_2_TENSOR);
     EXPECT_EQ(restored.format(), GVA::TENSOR_FORMAT_SEMANTIC_SEGMENTATION);
     EXPECT_EQ(restored.precision(), GVA::Tensor::Precision::I64);
-    // model_name is no longer reconstructed; the model still lives in the analytics-native semantic tag
-    EXPECT_EQ(restored.get_string("semantic_tag"), "SegModel/semantic_segmentation");
+    // a SegmentationMtd is always semantic, so its semantic tag stores only the model name
+    EXPECT_EQ(restored.get_string("semantic_tag"), "SegModel");
 
     std::vector<guint> expected_dims = {1u, SEG_SEM_H, SEG_SEM_W};
     EXPECT_EQ(restored.dims(), expected_dims);
@@ -1683,8 +1683,8 @@ TEST_F(SegmentationConvertToTensorTest, SemanticFullRoundtripPreservesFields) {
     EXPECT_EQ(restored.format(), original.format());
     EXPECT_EQ(restored.precision(), original.precision());
     EXPECT_EQ(restored.dims(), original.dims());
-    // semantic_tag should encode "model_name/format"
-    EXPECT_EQ(restored.get_string("semantic_tag"), "MyModel/semantic_segmentation");
+    // a SegmentationMtd is always semantic, so its semantic tag stores only the model name
+    EXPECT_EQ(restored.get_string("semantic_tag"), "MyModel");
 
     gst_structure_free(orig_s);
 }

@@ -250,18 +250,43 @@ class VideoFrame {
     }
 
     /**
-     * @brief Attach empty Tensor to this VideoFrame
-     * @return new Tensor instance
+     * @brief Attach a Tensor (inference result) to this VideoFrame at frame level. The tensor is stored
+     * both as a legacy GstGVATensorMeta and, for supported tensor types, as a frame-level GStreamer
+     * Analytics metadata entry that is not attached to any object detection.
+     * @param tensor Tensor object to add to this VideoFrame
+     * @note Ownership: this method makes an internal COPY of the tensor's underlying GstStructure
+     * (gst_structure_copy) and does not take ownership of the passed one. The caller retains ownership
+     * of its own GstStructure and IS responsible for freeing it afterwards. This differs from
+     * RegionOfInterest::add_tensor, which takes ownership of the structure and must not be freed by the caller.
      */
-    Tensor add_tensor() {
-        const GstMetaInfo *meta_info = gst_meta_get_info(GVA_TENSOR_META_IMPL_NAME);
+    void add_tensor(const Tensor &tensor) {
+        GstStructure *s = tensor.gst_structure();
+        if (!s)
+            throw std::invalid_argument("GVA::VideoFrame::add_tensor: tensor structure is nullptr");
 
         if (!gst_buffer_is_writable(buffer))
             throw std::runtime_error("Buffer is not writable.");
 
+        // Store the tensor as a legacy GstGVATensorMeta (holds a copy of the structure)
+        const GstMetaInfo *meta_info = gst_meta_get_info(GVA_TENSOR_META_IMPL_NAME);
         GstGVATensorMeta *tensor_meta = (GstGVATensorMeta *)gst_buffer_add_meta(buffer, meta_info, NULL);
+        if (!tensor_meta)
+            throw std::runtime_error("GVA::VideoFrame: Failed to add tensor meta");
+        if (tensor_meta->data)
+            gst_structure_free(tensor_meta->data);
+        tensor_meta->data = gst_structure_copy(s);
 
-        return Tensor(tensor_meta->data);
+        // Also write frame-level GStreamer Analytics metadata for supported tensor types. Frame-level
+        // entries are not attached to any ODMtd, so no relations are created.
+        GstAnalyticsRelationMeta *relation_meta = gst_buffer_get_analytics_relation_meta(buffer);
+        if (!relation_meta)
+            relation_meta = gst_buffer_add_analytics_relation_meta(buffer);
+        if (relation_meta) {
+            GstAnalyticsMtd tensor_mtd;
+            const gint frame_w = static_cast<gint>(GST_VIDEO_INFO_WIDTH(info.get()));
+            const gint frame_h = static_cast<gint>(GST_VIDEO_INFO_HEIGHT(info.get()));
+            tensor.convert_to_meta(&tensor_mtd, relation_meta, 0, 0, frame_w, frame_h);
+        }
     }
 
     /**
@@ -449,8 +474,9 @@ class VideoFrame {
                 if (mt == gst_analytics_od_mtd_get_mtd_type() || mt == gst_analytics_tracking_mtd_get_mtd_type() ||
                     mt == gst_analytics_keypoint_mtd_get_mtd_type())
                     continue;
-                // Skip class descriptor metadata (used internally for label_id lookup)
+
                 if (mt == gst_analytics_cls_mtd_get_mtd_type()) {
+                    // Skip class descriptor metadata (used internally for label_id lookup)
                     gchar *tag = gst_analytics_mtd_get_semantic_tag(&mtd);
                     if (tag) {
                         bool is_descriptor = (strcmp(tag, "class_descriptor") == 0);
@@ -458,6 +484,23 @@ class VideoFrame {
                         if (is_descriptor)
                             continue;
                     }
+                    // Skip the transcription descriptor cls mtd (label="transcription") added by
+                    // gvaaudiotranscribe; it is an internal marker, not a frame-level tensor result.
+                    // TODO: remove this once transcription is emitted as a single cls mtd carrying a
+                    // "<model_name>/transcription" semantic tag instead of a separate descriptor.
+                    GstAnalyticsClsMtd *cls_mtd = reinterpret_cast<GstAnalyticsClsMtd *>(&mtd);
+                    const gsize cls_len = gst_analytics_cls_mtd_get_length(cls_mtd);
+                    bool is_transcription = false;
+                    for (gsize i = 0; i < cls_len; ++i) {
+                        GQuark q = gst_analytics_cls_mtd_get_quark(cls_mtd, i);
+                        const gchar *lbl = q ? g_quark_to_string(q) : nullptr;
+                        if (lbl && strcmp(lbl, "transcription") == 0) {
+                            is_transcription = true;
+                            break;
+                        }
+                    }
+                    if (is_transcription)
+                        continue;
                 }
                 if (is_attached_to_od(mtd.id))
                     continue;

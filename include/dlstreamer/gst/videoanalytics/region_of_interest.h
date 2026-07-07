@@ -198,6 +198,10 @@ class RegionOfInterest {
     /**
      * @brief Add new tensor (inference result) to this RegionOfInterest
      * @param tensor Tensor object to add to this RegionOfInterest
+     * @note Ownership: this method attaches the tensor's underlying GstStructure directly to the ROI
+     * metadata (via gst_video_region_of_interest_meta_add_param), which takes ownership of it. The caller
+     * MUST NOT free the tensor's GstStructure afterwards - doing so would cause a double-free. This
+     * differs from VideoFrame::add_tensor, which makes an internal copy.
      */
     void add_tensor(const Tensor &tensor) {
         GstStructure *s = tensor.gst_structure();

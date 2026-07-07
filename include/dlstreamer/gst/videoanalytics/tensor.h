@@ -798,13 +798,9 @@ class Tensor {
                     throw std::runtime_error("Failed to create segmentation meta");
                 }
 
-                // store model_name and format in the semantic tag (model_name/format) so the tensor
-                // can be reconstructed with the exact format on the reverse conversion path
                 const std::string model = model_name();
-                const std::string seg_tag = !model.empty() ? model + "/" + fmt : fmt;
-
-                if (!seg_tag.empty())
-                    gst_analytics_mtd_set_semantic_tag(reinterpret_cast<GstAnalyticsMtd *>(seg_mtd), seg_tag.c_str());
+                if (!model.empty())
+                    gst_analytics_mtd_set_semantic_tag(reinterpret_cast<GstAnalyticsMtd *>(seg_mtd), model.c_str());
 
                 return true;
             } else if (fmt == TENSOR_FORMAT_INSTANCE_SEGMENTATION) {
@@ -1098,19 +1094,11 @@ class Tensor {
                 return nullptr;
             }
 
-            // parse semantic tag ("model_name/format") to recover the original tensor format
+            // A SegmentationMtd always holds semantic segmentation. Read the semantic tag (model name)
+            // for provenance; the reconstructed tensor format is always semantic segmentation.
             gchar *raw_tag = gst_analytics_mtd_get_semantic_tag(reinterpret_cast<const GstAnalyticsMtd *>(seg_mtd));
             std::string full_tag = (raw_tag && raw_tag[0] != '\0') ? std::string(raw_tag) : std::string();
             g_free(raw_tag);
-
-            // recover the "format" from a "model_name/format" (or bare "format") semantic tag
-            std::string fmt;
-            for (const char *known : {TENSOR_FORMAT_SEMANTIC_SEGMENTATION, TENSOR_FORMAT_INSTANCE_SEGMENTATION}) {
-                if (full_tag.rfind(known) != std::string::npos) {
-                    fmt = known;
-                    break;
-                }
-            }
 
             GstStructure *gst_structure = gst_structure_new_empty(GST_ANALYTICS_SEGMENTATION_2_TENSOR);
             Tensor tensor(gst_structure);
@@ -1118,51 +1106,35 @@ class Tensor {
             if (!full_tag.empty())
                 tensor.set_string("semantic_tag", full_tag);
 
-            if (fmt == TENSOR_FORMAT_INSTANCE_SEGMENTATION) {
-                // instance segmentation: reconstruct FP32 mask, dims=[W,H]
-                tensor.set_format(TENSOR_FORMAT_INSTANCE_SEGMENTATION);
-                tensor.set_precision(Precision::FP32);
-                tensor.set_dims({width, height});
-                std::vector<float> mask(static_cast<size_t>(width) * height, 0.0f);
-                for (guint row = 0; row < height; ++row) {
-                    const gsize row_off = plane_offset + static_cast<gsize>(row) * stride;
-                    for (guint col = 0; col < width; ++col) {
-                        if (row_off + col < map.size)
-                            mask[static_cast<size_t>(row) * width + col] = (map.data[row_off + col] != 0) ? 1.0f : 0.0f;
-                    }
-                }
-                tensor.set_data(mask.data(), mask.size() * sizeof(float));
-            } else {
-                // semantic segmentation: reconstruct I64 class-index map, dims=[1,H,W]
-                tensor.set_format(fmt.empty() ? std::string(TENSOR_FORMAT_SEMANTIC_SEGMENTATION) : fmt);
-                tensor.set_precision(Precision::I64);
-                tensor.set_dims({1u, height, width});
-                std::vector<int64_t> mask(static_cast<size_t>(width) * height, 0);
-                const bool is_gray16 =
-                    (video_format == GST_VIDEO_FORMAT_GRAY16_LE || video_format == GST_VIDEO_FORMAT_GRAY16_BE);
-                for (guint row = 0; row < height; ++row) {
-                    const gsize row_off = plane_offset + static_cast<gsize>(row) * stride;
-                    for (guint col = 0; col < width; ++col) {
-                        const size_t dst = static_cast<size_t>(row) * width + col;
-                        if (is_gray16) {
-                            const gsize idx = row_off + static_cast<gsize>(col) * 2;
-                            if (idx + 1 < map.size) {
-                                guint16 value;
-                                if (video_format == GST_VIDEO_FORMAT_GRAY16_LE)
-                                    value = static_cast<guint16>(map.data[idx]) |
-                                            (static_cast<guint16>(map.data[idx + 1]) << 8);
-                                else
-                                    value = (static_cast<guint16>(map.data[idx]) << 8) |
-                                            static_cast<guint16>(map.data[idx + 1]);
-                                mask[dst] = value;
-                            }
-                        } else if (row_off + col < map.size) {
-                            mask[dst] = map.data[row_off + col];
+            // semantic segmentation: reconstruct I64 class-index map, dims=[1,H,W]
+            tensor.set_format(TENSOR_FORMAT_SEMANTIC_SEGMENTATION);
+            tensor.set_precision(Precision::I64);
+            tensor.set_dims({1u, height, width});
+            std::vector<int64_t> mask(static_cast<size_t>(width) * height, 0);
+            const bool is_gray16 =
+                (video_format == GST_VIDEO_FORMAT_GRAY16_LE || video_format == GST_VIDEO_FORMAT_GRAY16_BE);
+            for (guint row = 0; row < height; ++row) {
+                const gsize row_off = plane_offset + static_cast<gsize>(row) * stride;
+                for (guint col = 0; col < width; ++col) {
+                    const size_t dst = static_cast<size_t>(row) * width + col;
+                    if (is_gray16) {
+                        const gsize idx = row_off + static_cast<gsize>(col) * 2;
+                        if (idx + 1 < map.size) {
+                            guint16 value;
+                            if (video_format == GST_VIDEO_FORMAT_GRAY16_LE)
+                                value = static_cast<guint16>(map.data[idx]) |
+                                        (static_cast<guint16>(map.data[idx + 1]) << 8);
+                            else
+                                value = (static_cast<guint16>(map.data[idx]) << 8) |
+                                        static_cast<guint16>(map.data[idx + 1]);
+                            mask[dst] = value;
                         }
+                    } else if (row_off + col < map.size) {
+                        mask[dst] = map.data[row_off + col];
                     }
                 }
-                tensor.set_data(mask.data(), mask.size() * sizeof(int64_t));
             }
+            tensor.set_data(mask.data(), mask.size() * sizeof(int64_t));
 
             gst_buffer_unmap(mask_buffer, &map);
             gst_buffer_unref(mask_buffer);
@@ -1219,7 +1191,15 @@ class Tensor {
                 tensor.set_format(TENSOR_FORMAT_INSTANCE_SEGMENTATION);
                 tensor.set_precision(Precision::FP32);
                 tensor.set_dims({mask_w, mask_h}); // [W, H] as expected by the watermark renderer
-                tensor.set_string("semantic_tag", full_tag);
+                // store only the model name in the semantic tag, dropping the "/instance_segmentation" suffix
+                std::string model_tag = full_tag;
+                const size_t sep = model_tag.find(std::string("/") + TENSOR_FORMAT_INSTANCE_SEGMENTATION);
+                if (sep != std::string::npos)
+                    model_tag.erase(sep);
+                else if (model_tag == TENSOR_FORMAT_INSTANCE_SEGMENTATION)
+                    model_tag.clear();
+                if (!model_tag.empty())
+                    tensor.set_string("semantic_tag", model_tag);
                 if (gtensor->id != 0)
                     tensor.set_string("tensor_id", g_quark_to_string(gtensor->id));
                 tensor.set_data(mask.data(), mask.size() * sizeof(float));
