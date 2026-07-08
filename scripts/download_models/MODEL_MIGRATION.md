@@ -100,6 +100,95 @@ These legacy models do not have a direct replacement in `scripts/download_models
 - `mask_rcnn_resnet50_atrous_coco` is not considered covered by TIMM. Although its name contains `resnet50`, it is a segmentation model rather than a plain TIMM image-classification export.
 - `mask_rcnn_inception_resnet_v2_atrous_coco` is not considered covered by TIMM for the same reason.
 
+## Impact on functional tests (configs_ov2/common/samples.json)
+
+This section maps every test set in `samples.json` to the model(s) it requires
+and states whether those models are available through the new download helpers.
+
+Legend:
+- ✅ **OK** — all required models can be downloaded with `scripts/download_models/`.
+- ⚠️ **PARTIAL** — some models OK, others not yet covered.
+- ❌ **BLOCKED** — at least one required model has no replacement in the new scripts; removing the legacy script breaks this test.
+
+### Tests that are OK after migration
+
+| Test set | Model(s) required | New script |
+| --- | --- | --- |
+| `yolov5s_CPU`, `yolov5s_fp32_GPU`, `yolov5s_NPU` | `yolov5s` | `download_ultralytics_models.py --model yolov5s.pt` |
+| `yolov5su_CPU`, `yolov5su_GPU`, `yolov5su_fp32_NPU` | `yolov5su` | `download_ultralytics_models.py --model yolov5su.pt` |
+| `yolov5su_int8_CPU`, `yolov5su_int8_GPU`, `yolov5su_int8_NPU` | `yolov5su` (INT8) | `download_ultralytics_models.py --model yolov5su.pt --int8` |
+| `yolov8s_CPU`, `yolov8s_GPU`, `yolov8s_NPU` | `yolov8s` | `download_ultralytics_models.py --model yolov8s.pt` |
+| `yolov8s_int8_CPU`, `yolov8s_int8_GPU`, `yolov8s_int8_NPU` | `yolov8s` (INT8) | `download_ultralytics_models.py --model yolov8s.pt --int8` |
+| `yolov8n-obb_CPU`, `yolov8n-obb_GPU`, `yolov8n-obb_NPU` | `yolov8n-obb` | `download_ultralytics_models.py --model yolov8n-obb.pt` |
+| `yolov8n-seg_CPU`, `yolov8n-seg_GPU`, `yolov8n-seg_NPU` | `yolov8n-seg` | `download_ultralytics_models.py --model yolov8n-seg.pt` |
+| `yolov9c_CPU`, `yolov9c_GPU`, `yolov9c_NPU` | `yolov9c` | `download_ultralytics_models.py --model yolov9c.pt` |
+| `yolov10s_CPU`, `yolov10s_GPU` | `yolov10s` | `download_ultralytics_models.py --model yolov10s.pt` |
+| `yolo11s_CPU`, `yolo11s_GPU`, `yolo11s_NPU` | `yolo11s` | `download_ultralytics_models.py --model yolo11s.pt` |
+| `yolo11s_int8_CPU`, `yolo11s_int8_GPU`, `yolo11s_int8_NPU` | `yolo11s` (INT8) | `download_ultralytics_models.py --model yolo11s.pt --int8` |
+| `yolo11s-obb_CPU`, `yolo11s-obb_GPU`, `yolo11s-obb_NPU` | `yolo11s-obb` | `download_ultralytics_models.py --model yolo11s-obb.pt` |
+| `yolo11s-seg_CPU`, `yolo11s-seg_GPU`, `yolo11s-seg_NPU` | `yolo11s-seg` | `download_ultralytics_models.py --model yolo11s-seg.pt` |
+| `yolo11s-pose_CPU`, `yolo11s-pose_GPU`, `yolo11s-pose_NPU` | `yolo11s-pose` | `download_ultralytics_models.py --model yolo11s-pose.pt` |
+| `yolo26n_int8_CPU/GPU/NPU` | `yolo26n` (INT8) | `download_ultralytics_models.py --model yolo26n.pt --int8` |
+| `yolo26s_int8_CPU/GPU/NPU` | `yolo26s` (INT8) | `download_ultralytics_models.py --model yolo26s.pt --int8` |
+| `yolo26m_int8_CPU/GPU/NPU` | `yolo26m` (INT8) | `download_ultralytics_models.py --model yolo26m.pt --int8` |
+| `yolo26l_int8_CPU/GPU/NPU` | `yolo26l` (INT8) | `download_ultralytics_models.py --model yolo26l.pt --int8` |
+| `yolo26x_int8_CPU/GPU/NPU` | `yolo26x` (INT8) | `download_ultralytics_models.py --model yolo26x.pt --int8` |
+| `yolo26n_fp16_CPU/GPU` | `yolo26n` (FP16) | `download_ultralytics_models.py --model yolo26n.pt --half` |
+| `yolo26s_fp16_CPU/GPU` | `yolo26s` (FP16) | `download_ultralytics_models.py --model yolo26s.pt --half` |
+| `yolo26s-obb_int8_CPU/GPU/NPU` | `yolo26s-obb` (INT8) | `download_ultralytics_models.py --model yolo26s-obb.pt --int8` |
+| `yolo26s-seg_fp16_CPU/GPU` | `yolo26s-seg` (FP16) | `download_ultralytics_models.py --model yolo26s-seg.pt --half` |
+| `yolo26s-pose_fp16_CPU/GPU` | `yolo26s-pose` (FP16) | `download_ultralytics_models.py --model yolo26s-pose.pt --half` |
+| `lvm_clip_vit_large_patch14_CPU`, `lvm_clip_vit_large_patch14_GPU_*` | `clip-vit-large-patch14` | `download_hf_models.py --model openai/clip-vit-large-patch14` |
+| `lvm_clip_vit_base_patch16_CPU`, `lvm_clip_vit_base_patch16_GPU_*` | `clip-vit-base-patch16` | `download_hf_models.py --model openai/clip-vit-base-patch16` |
+| `lvm_clip_vit_base_patch32_CPU`, `lvm_clip_vit_base_patch32_GPU_*` | `clip-vit-base-patch32` | `download_hf_models.py --model openai/clip-vit-base-patch32` |
+| `motion_detect_CPU`, `motion_detect_GPU` | `yolov8n` | `download_ultralytics_models.py --model yolov8n.pt` |
+| `multistream_onemodel_cpu_gpu` | `yolov8s` | `download_ultralytics_models.py --model yolov8s.pt` |
+| `multistream_twomodels_cpu_gpu` | `yolov8s`, `yolov9c` | `download_ultralytics_models.py --model yolov8s.pt` + `yolov9c.pt` |
+| `multistream_twomodels_cpu_yolo26s_gpu_yolo11s` | `yolo26s`, `yolo11s` | `download_ultralytics_models.py --model yolo26s.pt` + `yolo11s.pt` |
+| `multistream_onemodel_npu_npu` | `yolov8s` | `download_ultralytics_models.py --model yolov8s.pt` |
+| `multistream_twomodels_npu_npu` | `yolov8s`, `yolov9c` | `download_ultralytics_models.py --model yolov8s.pt` + `yolov9c.pt` |
+| `gvaanalytics_CPU`, `gvaanalytics_GPU`, `gvaanalytics_NPU` | `yolov8n` | `download_ultralytics_models.py --model yolov8n.pt` |
+| `custom_postproc_detect_CPU`, `custom_postproc_detect_GPU` | `yolov8n` (domyślnie) | `download_ultralytics_models.py --model yolov8n.pt` |
+
+### Tests that are BLOCKED after migration
+
+Removing `download_omz_models.sh` or `download_public_models.sh` without replacement **breaks** the following tests:
+
+| Test set | Model(s) required | Reason blocked |
+| --- | --- | --- |
+| `face_detection_and_classification_cpu`, `face_detection_and_classification_gpu` | `face-detection-adas-0001`, `age-gender-recognition-retail-0013`, `emotions-recognition-retail-0003`, `landmarks-regression-retail-0009` | OMZ — no replacement |
+| `audio_event_detection` | `aclnet` | OMZ — no replacement |
+| `vehicle_pedestrian_tracking_10_gpu`, `vehicle_pedestrian_tracking_20_gpu` | `person-vehicle-bike-detection-2004`, `person-attributes-recognition-crossroad-0230`, `vehicle-attributes-recognition-barrier-0039` | OMZ — no replacement |
+| `human_pose_estimation_cpu`, `human_pose_estimation_gpu`, `human_pose_estimation_npu` | `human-pose-estimation-0001` | OMZ — no replacement |
+| `metapublish` | `face-detection-adas-0001` | OMZ — no replacement |
+| `gvapython_cpu`, `gvapython_gpu` | `face-detection-adas-0001`, `age-gender-recognition-retail-0013`, `emotions-recognition-retail-0003`, `landmarks-regression-retail-0009` | OMZ — no replacement |
+| `gvaatachroi_CPU`, `gvaatachroi_GPU`, `gvaatachroi_NPU` | `face-detection-adas-0001`, `age-gender-recognition-retail-0013` | OMZ — no replacement |
+| `python_draw_face_attributes_CPU` | `face-detection-adas-0001`, `age-gender-recognition-retail-0013`, `emotions-recognition-retail-0003`, `facial-landmarks-35-adas-0002` | OMZ — no replacement |
+| `benchmark_one_*`, `benchmark_two_*` | `face-detection-adas-0001` | OMZ — no replacement |
+| `cpp_draw_attributes_CPU`, `cpp_draw_attributes_GPU` | `face-detection-adas-0001`, `age-gender-recognition-retail-0013`, `emotions-recognition-retail-0003`, `facial-landmarks-35-adas-0002` | OMZ — no replacement |
+| `instance_segmentation_mask_rcnn_inception_resnet_v2_atrous_coco_CPU/GPU` | `mask_rcnn_inception_resnet_v2_atrous_coco` | OMZ — no replacement |
+| `instance_segmentation_mask_rcnn_resnet50_atrous_coco_CPU/GPU` | `mask_rcnn_resnet50_atrous_coco` | OMZ — no replacement |
+| `action_recognition_CPU` | `action-recognition-0001-encoder`, `action-recognition-0001-decoder` | OMZ — no replacement |
+| `license_plate_recognition_CPU_opencv`, `license_plate_recognition_GPU_va_surface_sharing` | `yolov8_license_plate_detector`, `ch_PP-OCRv4_rec_infer` | custom source (edge-ai-resources) — no replacement |
+| `custom_postproc_classify_CPU`, `custom_postproc_classify_GPU` | `face-detection-adas-0001` (via face detection script) | OMZ — no replacement |
+| `yolox_tiny_CPU`, `yolox-tiny_GPU` | `yolox-tiny` | Megvii source — no replacement |
+| `yolox_s_CPU`, `yolox_s_GPU`, `yolox_s_NPU` | `yolox_s` | Megvii source — no replacement |
+| `yolov7_CPU`, `yolov7_GPU`, `yolov7_NPU` | `yolov7` | WongKinYiu source — no replacement |
+
+### Summary
+
+| Category | Test sets count | Status |
+| --- | --- | --- |
+| Ultralytics YOLO (v5 and newer except v7) | ~50 | ✅ OK |
+| CLIP (lvm tests) | 9 | ✅ OK |
+| Motion detect, multistream, analytics | ~10 | ✅ OK |
+| OMZ-based (face, pose, vehicle, audio, action) | ~25 | ❌ BLOCKED |
+| Custom source (YOLOX, YOLOv7, license plate) | ~8 | ❌ BLOCKED |
+
+> **Recommendation**: keep `samples/download_omz_models.sh` and the OMZ-specific
+> paths in `samples/download_public_models.sh` until OMZ models are replaced or
+> tests are updated. Migrate only the Ultralytics and CLIP tests to the new helpers.
+
 ## Example commands
 
 ```bash
