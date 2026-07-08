@@ -278,6 +278,36 @@ class TestG3DObjectFuser(unittest.TestCase):
         # carry a tracker id (serialized as the object's "id").
         self.assertGreater(tracked, 0, "No camera detection carried a tracker id (per-camera tracking did not run)")
 
+    def _assert_cross_modal_links(self, camera_streams, threed_streams):
+        # Each 3D detection is serialized with its GstAnalytics3DODMtd id; a fused
+        # camera detection references that id via "associated_3d_object_id".
+        threed_ids = {
+            obj["id"]
+            for stream in threed_streams
+            for obj in stream.get("objects_3d", [])
+            if isinstance(obj.get("id"), int)
+        }
+        self.assertEqual(
+            len(threed_ids), len(EXPECTED_DETECTIONS),
+            "Every 3D detection must expose a unique 'id' for cross-modal linking",
+        )
+
+        associations = [
+            obj["associated_3d_object_id"]
+            for stream in camera_streams
+            for obj in stream.get("objects", [])
+            if isinstance(obj.get("associated_3d_object_id"), int)
+        ]
+        self.assertGreater(
+            len(associations), 0,
+            "No camera detection carried an 'associated_3d_object_id' (cross-modal IS_PART_OF not serialized)",
+        )
+        for assoc_id in associations:
+            self.assertIn(
+                assoc_id, threed_ids,
+                f"associated_3d_object_id {assoc_id} does not match any 3D detection id {sorted(threed_ids)}",
+            )
+
     # --- tests ----------------------------------------------------------------
 
     def test_g3dobjectfuser_camera_lidar_pipeline(self):
@@ -318,6 +348,7 @@ class TestG3DObjectFuser(unittest.TestCase):
 
         self._assert_3d_detections_match(threed_streams)
         self._assert_camera_detections(camera_streams)
+        self._assert_cross_modal_links(camera_streams, threed_streams)
 
         serialized = json.dumps(records)
         self.assertIn("bbox_3d", serialized)
