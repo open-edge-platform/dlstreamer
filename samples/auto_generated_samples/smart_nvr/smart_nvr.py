@@ -194,7 +194,7 @@ def main():
         )
     os.environ.setdefault("GST_REGISTRY_FORK", "no")
 
-    Gst.init(None)
+    Gst.init([])
     reg = Gst.Registry.get()
     if not reg.find_plugin("python"):
         sys.stderr.write(

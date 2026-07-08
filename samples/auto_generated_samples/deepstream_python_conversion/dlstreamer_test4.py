@@ -265,7 +265,7 @@ def main():
     device = check_device(args.device)
 
     # Init GStreamer
-    Gst.init(None)
+    Gst.init([])
 
     # Build pipeline string
     source_el = build_source(input_src)

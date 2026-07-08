@@ -85,7 +85,7 @@ if __name__ == '__main__':
         os.environ["GST_PLUGIN_PATH"] = f"{os.environ.get('GST_PLUGIN_PATH', '')}:{os.getcwd()}/plugins"
 
     # Initialize Gst library, python plugin (if found) will load local python elements
-    Gst.init(None)
+    Gst.init([])
     reg = Gst.Registry.get()
     if not reg.find_plugin("python"):
         print("GStreamer 'python' plugin not found in registry.")

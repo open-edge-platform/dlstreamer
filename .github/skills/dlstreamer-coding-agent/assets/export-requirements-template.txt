@@ -8,7 +8,7 @@
 
 # OpenVINO Python version (pin to match DL Streamer runtime)
 # Discover with: python3 -c "import openvino; print(openvino.__version__)"
-# openvino==2026.0.0
+# openvino==2026.2.0
 
 # NNCF for INT8 quantization (required by ultralytics int8=True export)
 # Discover with: pip show nncf | grep Version
@@ -18,7 +18,7 @@
 
 # Ultralytics YOLO (detection / segmentation)
 # Discover with: pip show ultralytics | grep Version
-# ultralytics==8.4.33
+# ultralytics==8.4.57
 
 # HuggingFace transformers + OpenVINO export
 # optimum[openvino]
