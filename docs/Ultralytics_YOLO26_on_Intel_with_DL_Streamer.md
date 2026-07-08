@@ -1,6 +1,6 @@
 # Ultralytics YOLO26 on Intel Core Ultra Series 3 using DL Streamer Pipeline Framework and OpenVINO™ 
 
-This comprehensive guide provides a detailed walkthrough for deploying [Ultralytics YOLO26](https://www.ultralytics.com/yolo/yolo26) on Intel Core Ultra Series 3 (codename Panther Lake) platforms using [DL Streamer Pipeline Framework](https://github.com/open-edge-platform/dlstreamer) and [OpenVINO™ toolkit](https://docs.openvino.ai/). Here we use OpenVINO™ to maximize inference performance on Intel CPUs, integrated and discrete GPUs, and NPUs.
+This comprehensive guide provides a detailed walkthrough for deploying [Ultralytics YOLO26](https://www.ultralytics.com/yolo/yolo26) on Intel Core Ultra Series 3 platforms using [DL Streamer Pipeline Framework](https://github.com/open-edge-platform/dlstreamer) and [OpenVINO™ toolkit](https://docs.openvino.ai/). Here we use OpenVINO™ to maximize inference performance on Intel CPUs, integrated and discrete GPUs, and NPUs.
 
 
 <div align="center">
@@ -19,7 +19,7 @@ optimized for Intel hardware and provides interoperability between GStreamer plu
 
 - **Inference**: [OpenVINO™](https://docs.openvino.ai/) inference   engine, optimized for Intel CPU, GPU, and NPU
 - **Video Encoding/Decoding**: GPU-acceleration via VA-API
-- **Image Processing**: OpenCV
+- **Image Processing**: GPU-acceleration via VA-API
 - **Metadata**: GStreamer Analytics for structured inference results
 - **Ecosystem**: Hundreds of GStreamer plugins for media I/O,  muxing/demuxing, codec support, and more
 
@@ -33,43 +33,29 @@ Documentation](https://docs.openedgeplatform.intel.com/2026.1/edge-ai-libraries/
 
 Before you begin, ensure the following are installed and configured on your Intel system:
 
-**Ubuntu 24.04** with Intel GPU/NPU drivers installed (check [installation guide](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/get_started/install/install_guide_ubuntu.html))
+- **Ubuntu 24.04** with Intel GPU/NPU drivers installed (check [installation guide](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/get_started/install/install_guide_ubuntu.html))
 
-Ensure also downloading the latest DL Streamer Ubuntu24 docker image.
-
-```bash
-docker pull intel/dlstreamer:latest
-```
+- **docker engine** (check [installation guide](https://docs.docker.com/engine/install/ubuntu/))
 
 ## YOLO26 Model Preparation
 
 DL Streamer uses models in [OpenVINO™ IR format](https://docs.openvino.ai/2026/documentation/openvino-ir-format.html). Ultralytics YOLO26 models are exported from PyTorch to OpenVINO IR using the Ultralytics exporter.
 
-1.  Create `~/intel/dlstreamer_demo` folder 
+1.  Create `~/intel/dlstreamer_demo` folder and install OpenVINO and Ultralytics in virtual environment
 
 ```bash
 mkdir -p ~/intel/dlstreamer_demo && cd ~/intel/dlstreamer_demo
-```
-
-2. Create and activate a virtual environment:
-
-```bash
 python3 -m venv .dls-venv && source .dls-venv/bin/activate
-```
-
-3.  Install OpenVINO and Ultralytics
-
-```bash
 pip install openvino==2026.2.0 ultralytics==8.4.57
 ```
 
-4.  Download PyTorch YOLO26s model from Ultralytics, converts it to OpenVINO IR format, and generates INT8 precision variant.
+2.  Download PyTorch YOLO26s model from Ultralytics, converts it to OpenVINO IR format, and generates INT8 precision variant.
 
 ```bash
 yolo export model=yolo26s.pt format=openvino int8=True data=coco128.yaml
 ```
 
-Model should be moved to `~/intel/dlstreamer_demo/yolo26s_int8_openvino_model` folder.
+Model should be downloaded to `~/intel/dlstreamer_demo/yolo26s_int8_openvino_model` folder.
 
 
 ## Running Inference with YOLO26
@@ -81,6 +67,7 @@ Make sure you followed [YOLO26 Model Preparation](#yolo26-model-preparation) ste
 curl -L https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4 --output ~/intel/dlstreamer_demo/video1.mp4
 ```
 
+Run DL Streamer docker image in the interactive mode.
 
 ```bash
 docker run -it --rm \
@@ -140,7 +127,11 @@ DL Streamer supports multi-stream processing, where multiple video sources are d
 ### Running Multiple Pipelines in Parallel (GPU)
 
 ```bash
-gst-launch-1.0 vacompositor name=comp sink_0::xpos=0 sink_0::ypos=0 sink_1::xpos=660 sink_1::ypos=0 sink_2::xpos=0 sink_2::ypos=380 sink_3::xpos=660 sink_3::ypos=380 ! autovideosink sync=false filesrc location=/home/dlstreamer/demo/video1.mp4 ! decodebin3 ! gvadetect model=/home/dlstreamer/demo/yolo26s_int8_openvino_model/yolo26s.xml device=GPU model-instance-id=inf0 scheduling-policy="latency" ! queue ! gvawatermark ! gvafpscounter ! comp.sink_0 filesrc location=/home/dlstreamer/demo/video1.mp4 ! decodebin3 ! gvadetect model=/home/dlstreamer/demo/yolo26s_int8_openvino_model/yolo26s.xml device=GPU model-instance-id=inf0 scheduling-policy="latency" ! queue ! gvawatermark ! gvafpscounter ! comp.sink_1 filesrc location=/home/dlstreamer/demo/video1.mp4 ! decodebin3 ! gvadetect model=/home/dlstreamer/demo/yolo26s_int8_openvino_model/yolo26s.xml device=GPU model-instance-id=inf0 scheduling-policy="latency" ! queue ! gvawatermark ! gvafpscounter ! comp.sink_2 filesrc location=/home/dlstreamer/demo/video1.mp4 ! decodebin3 ! gvadetect model=/home/dlstreamer/demo/yolo26s_int8_openvino_model/yolo26s.xml device=GPU model-instance-id=inf0 scheduling-policy="latency" ! queue ! gvawatermark ! gvafpscounter ! comp.sink_3
+gst-launch-1.0 vacompositor name=comp sink_0::xpos=0 sink_0::ypos=0 sink_1::xpos=660 sink_1::ypos=0 sink_2::xpos=0 sink_2::ypos=380 sink_3::xpos=660 sink_3::ypos=380 ! autovideosink sync=false \
+filesrc location=/home/dlstreamer/demo/video1.mp4 ! decodebin3 ! gvadetect model=/home/dlstreamer/demo/yolo26s_int8_openvino_model/yolo26s.xml device=GPU model-instance-id=inf0 scheduling-policy="latency" ! queue ! gvawatermark ! gvafpscounter ! comp.sink_0 \
+filesrc location=/home/dlstreamer/demo/video1.mp4 ! decodebin3 ! gvadetect model=/home/dlstreamer/demo/yolo26s_int8_openvino_model/yolo26s.xml device=GPU model-instance-id=inf0 scheduling-policy="latency" ! queue ! gvawatermark ! gvafpscounter ! comp.sink_1 \
+filesrc location=/home/dlstreamer/demo/video1.mp4 ! decodebin3 ! gvadetect model=/home/dlstreamer/demo/yolo26s_int8_openvino_model/yolo26s.xml device=GPU model-instance-id=inf0 scheduling-policy="latency" ! queue ! gvawatermark ! gvafpscounter ! comp.sink_2 \
+filesrc location=/home/dlstreamer/demo/video1.mp4 ! decodebin3 ! gvadetect model=/home/dlstreamer/demo/yolo26s_int8_openvino_model/yolo26s.xml device=GPU model-instance-id=inf0 scheduling-policy="latency" ! queue ! gvawatermark ! gvafpscounter ! comp.sink_3
 ```
 
 <div align="center">
