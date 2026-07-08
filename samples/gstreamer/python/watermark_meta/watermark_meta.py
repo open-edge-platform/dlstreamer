@@ -115,6 +115,7 @@ def build_source(input_arg):
     if input_arg in ("videotestsrc", "test"):
         return (
             f"videotestsrc num-buffers={NUM_BUFFERS} pattern=white ! "
+            f"video/x-raw,width=640,height=480,framerate=30/1 ! "
             f"videoconvert ! video/x-raw,format=BGR"
         )
     return (
