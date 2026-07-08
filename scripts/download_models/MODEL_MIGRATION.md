@@ -189,6 +189,38 @@ Removing `download_omz_models.sh` or `download_public_models.sh` without replace
 > paths in `samples/download_public_models.sh` until OMZ models are replaced or
 > tests are updated. Migrate only the Ultralytics and CLIP tests to the new helpers.
 
+### Feasibility of rewriting blocked tests
+
+All 141 test sets from `samples.json` were reviewed. The table below covers only
+the **blocked** ones and states whether the test can be rewritten to use a new model.
+
+Legend:
+- ✅ **Easy** — only the default model path changes; pipeline logic stays the same; new ground truth JSON needed.
+- ⚠️ **Hard** — pipeline logic or GStreamer element must change; significant rework required.
+- ❌ **Not feasible** — no functional replacement exists for the feature under test.
+
+| Test set(s) | Suggested replacement model | Feasibility | Notes |
+| --- | --- | --- | --- |
+| `yolox_tiny_CPU`, `yolox-tiny_GPU` | `yolo11n` or `yolov8n` | ✅ Easy | Same class (small object detector). New ground truth JSON required. |
+| `yolox_s_CPU`, `yolox_s_GPU`, `yolox_s_NPU` | `yolo11s` or `yolov8s` | ✅ Easy | Same class. New ground truth JSON required. |
+| `yolov7_CPU`, `yolov7_GPU`, `yolov7_NPU` | `yolov9c` or `yolo11m` | ✅ Easy | Similar accuracy class. New ground truth JSON required. |
+| `benchmark_one_*` (18 test sets) | `yolov8n` or `yolo11n` | ✅ Easy | Script accepts `MODEL_PATH` as argument; only the default value in the `.sh` file and the ground truth JSONs need updating. |
+| `benchmark_two_*` (9 test sets) | `yolov8n` + `yolov8s` | ✅ Easy | Same as above for two-model variant. |
+| `metapublish` | `yolov8n` (detection only) | ✅ Easy | Remove `gvaclassify` stage; test purpose (metadata publish format) does not depend on classification output. New ground truth JSON required. |
+| `human_pose_estimation_cpu`, `human_pose_estimation_gpu`, `human_pose_estimation_npu` | `yolov8n-pose` or `yolo11n-pose` | ⚠️ Hard | Both old and new models output keypoints, but `human-pose-estimation-0001` uses a custom output format handled by a DL Streamer model-proc. The new YOLO pose models use a different tensor layout. The sample script and model-proc need rewriting. |
+| `instance_segmentation_mask_rcnn_inception_resnet_v2_atrous_coco_CPU/GPU` | `yolo11n-seg` or `yolov8n-seg` | ⚠️ Hard | Old pipeline uses `gvainference` with a mask-rcnn model-proc. New YOLO seg models use `gvadetect` with a different output format. The entire sample script needs rewriting. |
+| `instance_segmentation_mask_rcnn_resnet50_atrous_coco_CPU/GPU` | `yolo11n-seg` or `yolov8n-seg` | ⚠️ Hard | Same as above. |
+| `face_detection_and_classification_cpu/gpu` | none | ❌ Not feasible | The test covers a 4-model pipeline: face detection + age-gender + emotion + landmark regression. There are no modern replacements for the three classification models. Rewriting would change the purpose of the test entirely. |
+| `gvapython_cpu`, `gvapython_gpu` | none | ❌ Not feasible | Same 4-model pipeline as above, exercised via gvapython element. |
+| `python_draw_face_attributes_CPU` | none | ❌ Not feasible | Same dependency on face attribute classifiers. |
+| `cpp_draw_attributes_CPU`, `cpp_draw_attributes_GPU` | none | ❌ Not feasible | C++ sample, same face attribute pipeline. |
+| `gvaatachroi_CPU`, `gvaatachroi_GPU`, `gvaatachroi_NPU` | already uses `yolov8s` | ✅ Already OK | Sample script uses `yolov8s`; the OMZ dependency listed earlier was incorrect. These tests are not blocked. |
+| `vehicle_pedestrian_tracking_10_gpu`, `vehicle_pedestrian_tracking_20_gpu` | none | ❌ Not feasible | Requires person and vehicle attribute classifiers (`person-attributes-recognition-crossroad-0230`, `vehicle-attributes-recognition-barrier-0039`). No modern equivalents available. |
+| `audio_event_detection` | none | ❌ Not feasible | Uses `gvaaudiodetect` GStreamer element which only supports the OMZ `aclnet` model. No alternative audio classification model is supported by DL Streamer. |
+| `action_recognition_CPU` | none | ❌ Not feasible | Encoder+decoder architecture specific to OMZ. No equivalent in Ultralytics/HF/TIMM. |
+| `custom_postproc_classify_CPU`, `custom_postproc_classify_GPU` | none | ❌ Not feasible | Classification pipeline built on `face-detection-adas-0001`; removing face attribute models makes the test meaningless. |
+| `license_plate_recognition_CPU_opencv`, `license_plate_recognition_GPU_va_surface_sharing` | none | ❌ Not feasible | `ch_PP-OCRv4_rec_infer` is an OCR model for license plate text; no equivalent in new download scripts. The detection model `yolov8_license_plate_detector` is also unavailable. |
+
 ## Example commands
 
 ```bash
