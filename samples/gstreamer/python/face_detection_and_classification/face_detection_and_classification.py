@@ -129,7 +129,7 @@ def main(input_video):
 
     # STEP 3: Build and run the DL Streamer GStreamer pipeline
 
-    Gst.init(None)
+    Gst.init([])
     output_file = os.path.splitext(input_video)[0] + "_output.mp4"
 
     pipeline_string = (

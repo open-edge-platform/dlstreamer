@@ -20,7 +20,7 @@ gi.require_version("GstVideo", "1.0")
 from gi.repository import GLib, Gst, GstApp, GstVideo  # noqa
 # pylint: enable=no-name-in-module
 
-Gst.init(None)
+Gst.init([])
 
 
 class TestGenericPipelineRunner(unittest.TestCase):

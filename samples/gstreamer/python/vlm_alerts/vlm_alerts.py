@@ -59,7 +59,7 @@ def validate_video(video_path: Path) -> None:
     if not video_path.exists() or video_path.stat().st_size == 0:
         raise VLMAlertsError("Video file is missing or empty")
 
-    Gst.init(None)
+    Gst.init([])
     try:
         discoverer = GstPbutils.Discoverer.new(5 * Gst.SECOND)
         info = discoverer.discover_uri(video_path.as_uri())
@@ -202,7 +202,7 @@ def run_pipeline(cfg: PipelineConfig) -> int:
     print(pipeline_str)
     print()
 
-    Gst.init(None)
+    Gst.init([])
 
     try:
         pipeline = Gst.parse_launch(pipeline_str)

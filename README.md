@@ -99,7 +99,7 @@ Full installation guide: [Install Guide for Ubuntu](https://docs.openedgeplatfor
 ```bash
 cd ~
 python3 -m venv .dls-venv && source .dls-venv/bin/activate
-pip install openvino==2026.1.0 nncf==3.0.0 ultralytics==8.4.3
+pip install openvino==2026.2.0 nncf==3.0.0 ultralytics==8.4.57
 python3 /opt/intel/dlstreamer/scripts/download_models/download_ultralytics_models.py \
   --model yolo11n.pt \
   --outdir ~/models/yolo11n \

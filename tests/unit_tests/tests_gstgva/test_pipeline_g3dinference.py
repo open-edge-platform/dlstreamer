@@ -19,7 +19,7 @@ gi.require_version("Gst", "1.0")
 gi.require_version("GLib", "2.0")
 from gi.repository import GLib, Gst  # pylint: disable=no-name-in-module, wrong-import-position
 
-Gst.init(None)
+Gst.init([])
 
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 DLSTREAMER_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, "..", "..", ".."))
