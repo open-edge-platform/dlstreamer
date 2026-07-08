@@ -124,7 +124,7 @@ gst-launch-1.0 filesrc location=/home/dlstreamer/demo/video1.mp4 ! decodebin3 ! 
 DL Streamer supports multi-stream processing, where multiple video sources are decoded and inferred simultaneously. You can launch multiple pipelines in parallel using GStreamer’s `vacompositor` element to combine multiple streams.
 
 
-### Running Multiple Pipelines in Parallel (GPU)
+### Running Multiple Pipelines (4 streams) in Parallel (GPU)
 
 ```bash
 gst-launch-1.0 vacompositor name=comp sink_0::xpos=0 sink_0::ypos=0 sink_1::xpos=660 sink_1::ypos=0 sink_2::xpos=0 sink_2::ypos=380 sink_3::xpos=660 sink_3::ypos=380 ! autovideosink sync=false \
