@@ -24,6 +24,8 @@ import time
 from pathlib import Path
 from typing import Optional
 
+from huggingface_hub import snapshot_download
+
 import gi
 
 gi.require_version("Gst", "1.0")
@@ -213,16 +215,19 @@ def download_vlm_model(model_id: str, model_revision: Optional[str] = None) -> P
 
     if not model_path.exists():
         print(f"[vlm] downloading and exporting {model_id} to OpenVINO format")
+        # Pin the revision by fetching the exact commit locally, then export from the
+        # local snapshot path (optimum-cli does not accept a --revision flag here).
+        model_source = (
+            snapshot_download(repo_id=model_id, revision=model_revision)
+            if model_revision
+            else model_id
+        )
         command = [
             "optimum-cli",
             "export",
             "openvino",
             "--model",
-            model_id,
-        ]
-        if model_revision:
-            command += ["--revision", model_revision]
-        command += [
+            model_source,
             "--task",
             "image-text-to-text",
             "--trust-remote-code",
