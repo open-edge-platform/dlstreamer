@@ -69,6 +69,25 @@ For the full list of elements, see also `../../../../docs/user-guide/elements/`.
 > on `gvawatermark` to render only person ROIs (the detector may also produce non-person classes).
 > See [object_tracking.md](../../../../docs/user-guide/dev_guide/object_tracking.md#deep-sort-tracking) for all tuning parameters.
 
+### Zone & Tripwire Analytics
+
+| Element | Purpose | Key Properties |
+|---------|---------|----------------|
+| `gvaanalytics` | Zone membership and tripwire crossing detection | `config=<path-to-json>`, `draw-zones=true` |
+
+Requires `gvadetect` upstream; tripwire detection also requires `gvatrack`.
+
+Config file format:
+
+```json
+{"zones": [
+  {"id": "zone1", "type": "polygon", "points": [
+    {"x": 0,   "y": 0},   {"x": 960, "y": 0},
+    {"x": 960, "y": 540}, {"x": 0,   "y": 540}
+  ]}
+]}
+```
+
 ### Overlay & Metrics
 
 | Element | Purpose | Key Properties |

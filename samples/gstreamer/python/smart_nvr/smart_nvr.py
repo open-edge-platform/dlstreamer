@@ -22,7 +22,12 @@ gi.require_version("Gst", "1.0")
 from gi.repository import Gst   # pylint: disable=no-name-in-module,wrong-import-order,wrong-import-position
 
 sys.path.insert(
-    0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    0,
+    os.path.dirname(
+        os.path.dirname(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        )
+    ),
 )
 from shared_utils import download_https   # pylint: disable=wrong-import-position
 
@@ -85,7 +90,7 @@ if __name__ == '__main__':
         os.environ["GST_PLUGIN_PATH"] = f"{os.environ.get('GST_PLUGIN_PATH', '')}:{os.getcwd()}/plugins"
 
     # Initialize Gst library, python plugin (if found) will load local python elements
-    Gst.init(None)
+    Gst.init([])
     reg = Gst.Registry.get()
     if not reg.find_plugin("python"):
         print("GStreamer 'python' plugin not found in registry.")

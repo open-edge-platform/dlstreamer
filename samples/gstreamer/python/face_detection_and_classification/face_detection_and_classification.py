@@ -11,7 +11,12 @@ from huggingface_hub import hf_hub_download
 from ultralytics import YOLO
 
 sys.path.insert(
-    0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    0,
+    os.path.dirname(
+        os.path.dirname(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        )
+    ),
 )
 # pylint: disable-next=wrong-import-position
 from shared_utils import download_https, resolve_hf_revision
@@ -129,7 +134,7 @@ def main(input_video):
 
     # STEP 3: Build and run the DL Streamer GStreamer pipeline
 
-    Gst.init(None)
+    Gst.init([])
     output_file = os.path.splitext(input_video)[0] + "_output.mp4"
 
     pipeline_string = (
