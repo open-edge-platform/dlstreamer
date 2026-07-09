@@ -16,12 +16,13 @@ The individual pipeline stages implement the following functions:
 
 ### STEP 1 - Model download and prompt configuration
 
-First, the sample creates a PyTorch YOLOE model and configures it with a user-defined detection prompt: 
+First, the sample creates a PyTorch YOLOE model and configures it with a pinned detection prompt
+(`OBJECT_TO_FIND`, default `dog`). Pinning the prompt, the weights (`yoloe-26s-seg`) and the export
+precision keeps the generated results deterministic: 
 
     ```code
-    weights = "yoloe-26s-seg"
-    model = YOLO(weights+".pt")
-    names = [args[2]]
+    model = YOLO(WEIGHTS + ".pt")
+    names = [OBJECT_TO_FIND]
     model.set_classes(names, model.get_text_pe(names))
     ```
 
@@ -64,10 +65,16 @@ Here is an example command line to download assets and execute the sample applic
 ```sh
 cd <python/prompted_detection directory>
 wget https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4
-python3 ./prompted_detection.py 1192116-sd_640_360_30fps.mp4 "white car"
+python3 ./prompted_detection.py 1192116-sd_640_360_30fps.mp4 [DEVICE] [OUTPUT]
 ```
 
-The sample outputs detection results in the terminal window.
+* `DEVICE` - inference device, `CPU` or `GPU` (default: `GPU`).
+* `OUTPUT` - output mode (default: `appsink`):
+  * `appsink` - demo mode; detection results are processed in a user-defined callback and printed to the terminal.
+  * `json` - write deterministic inference results as json-lines to `output.json` in the working directory.
+
+In `appsink` mode the sample outputs detection results in the terminal window. In `json` mode it
+writes one json-lines record per frame to `output.json`.
 
 ## See also
 * [Samples overview](../../README.md)
