@@ -13,7 +13,7 @@ if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
   echo ""
   echo "Arguments:"
   echo "  INPUT   - Local video file (default: download sample video)"
-  echo "  DEVICE  - Inference device: CPU or GPU (default: GPU)"
+  echo "  DEVICE  - Inference device: CPU, GPU or NPU (default: GPU)"
   echo "  OUTPUT  - Output mode: file or json (default: file)"
   echo ""
   exit 0

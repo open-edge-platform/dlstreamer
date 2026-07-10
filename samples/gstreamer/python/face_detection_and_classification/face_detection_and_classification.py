@@ -30,7 +30,7 @@ from gi.repository import Gst
 
 DEFAULT_VIDEO_URL = "https://videos.pexels.com/video-files/18553046/18553046-hd_1280_720_30fps.mp4"
 YOLO_FACE_REPO_ID = "arnabdhar/YOLOv8-Face-Detection"
-# Pinned model revisions and export precision keep the generated ground-truth output deterministic.
+# Pinned model revisions and export precision to keep deterministic outputs.
 YOLO_FACE_REVISION = "52fa54977207fa4f021de949b515fb19dcab4488"
 FAIRFACE_REPO_ID = "dima806/fairface_age_image_detection"
 FAIRFACE_REVISION = "4e02ab8057ea7fd74b1670940995c5dfda3e6ec0"
@@ -45,7 +45,7 @@ def parse_args(args):
     if len(args) > 4:
         sys.stderr.write(f"usage: {args[0]} [INPUT] [DEVICE] [OUTPUT]\n")
         sys.stderr.write("  INPUT  - local video file (default: download sample video)\n")
-        sys.stderr.write("  DEVICE - inference device: CPU or GPU (default: GPU)\n")
+        sys.stderr.write("  DEVICE - inference device: CPU, GPU or NPU (default: GPU)\n")
         sys.stderr.write("  OUTPUT - output mode: file or json (default: file)\n")
         sys.exit(1)
     input_arg = args[1] if len(args) > 1 and args[1] else None
@@ -156,7 +156,6 @@ def main(input_video, device, output):
     Gst.init([])
 
     if output == "json":
-        # Deterministic json-lines output (used for ground-truth comparison)
         output_json = os.path.join(runtime_dir, "output.json")
         if os.path.isfile(output_json):
             os.remove(output_json)

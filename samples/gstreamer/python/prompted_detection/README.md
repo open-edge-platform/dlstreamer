@@ -68,7 +68,7 @@ python3 ./prompted_detection.py 1192116-sd_640_360_30fps.mp4 "white car" [DEVICE
 ```
 
 * `OBJECT_TO_FIND` - object to detect using natural language (e.g. `dog`, `white car`).
-* `DEVICE` - inference device, `CPU` or `GPU` (default: `GPU`).
+* `DEVICE` - inference device, `CPU`, `GPU`, or `NPU` (default: `GPU`).
 * `OUTPUT` - output mode (default: `appsink`):
   * `appsink` - demo mode; detection results are processed in a user-defined callback and printed to the terminal.
   * `json` - write deterministic inference results as json-lines to `output.json` in the working directory.

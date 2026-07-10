@@ -13,8 +13,7 @@ gi.require_version("Gst", "1.0")
 gi.require_version("GstAnalytics", "1.0")
 from gi.repository import GLib, Gst, GstAnalytics # pylint: disable=no-name-in-module, wrong-import-position
 
-# Pinned weights and export precision keep exported model consistent across runs.
-# OBJECT_TO_FIND is the default prompt used when running in test/GT mode.
+# Pinned weights and export precision to keep deterministic outputs.
 WEIGHTS = "yoloe-26s-seg"
 OBJECT_TO_FIND = "dog"
 
@@ -62,7 +61,7 @@ def main(args):
     if len(args) < 3 or len(args) > 5:
         sys.stderr.write(f"usage: {args[0]} <LOCAL_VIDEO_FILE> <OBJECT_TO_FIND> [DEVICE] [OUTPUT]\n")
         sys.stderr.write("  OBJECT_TO_FIND - object to detect (e.g. 'dog', 'white car')\n")
-        sys.stderr.write("  DEVICE         - inference device: CPU or GPU (default: GPU)\n")
+        sys.stderr.write("  DEVICE         - inference device: CPU, GPU, or NPU (default: GPU)\n")
         sys.stderr.write("  OUTPUT         - output mode: appsink, json, or file (default: appsink)\n")
         sys.exit(1)
 

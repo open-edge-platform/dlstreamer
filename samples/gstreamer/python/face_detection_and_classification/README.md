@@ -66,7 +66,7 @@ python3 face_detection_and_classification.py [INPUT] [DEVICE] [OUTPUT]
 ```
 
 * `INPUT`  - local video file. Omit (or pass an empty string) to download and use the default video.
-* `DEVICE` - inference device, `CPU` or `GPU` (default: `GPU`).
+* `DEVICE` - inference device, `CPU`, `GPU` or `NPU` (default: `GPU`).
 * `OUTPUT` - output mode (default: `file`):
   * `file` - annotate frames and encode an MP4 saved alongside the input with the suffix `_output.mp4`.
   * `json` - write deterministic inference results as json-lines to `output.json` in the working directory.
