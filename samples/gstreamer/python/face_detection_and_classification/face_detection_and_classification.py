@@ -161,7 +161,7 @@ def main(input_video, device, output):
         if os.path.isfile(output_json):
             os.remove(output_json)
         sink = (
-            "gvametaconvert add-tensor-data=true ! "
+            "gvafpscounter ! gvametaconvert add-tensor-data=true ! "
             "gvametapublish file-format=json-lines file-path=output.json ! "
             "fakesink async=false"
         )
