@@ -1,6 +1,21 @@
 # One model per line
+yolov5s.pt
+yolov5su.pt
 yolov8n.pt
+yolov8s.pt
+yolov8n-obb.pt
+yolov8n-seg.pt
+yolov9c.pt
+yolov10s.pt
 yolo11s.pt
+yolo11s-obb.pt
 yolo11s-seg.pt
 yolo11s-pose.pt
+yolo26n.pt
 yolo26s.pt
+yolo26m.pt
+yolo26l.pt
+yolo26x.pt
+yolo26s-obb.pt
+yolo26s-seg.pt
+yolo26s-pose.pt
