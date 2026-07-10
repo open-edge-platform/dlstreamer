@@ -1,0 +1,4 @@
+# One model per line
+openai/clip-vit-base-patch32
+openai/clip-vit-base-patch16
+openai/clip-vit-large-patch14

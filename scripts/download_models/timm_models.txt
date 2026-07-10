@@ -1,0 +1,5 @@
+# One model per line
+efficientnet_b0
+resnet18
+resnet50
+mobilenetv3_small_100

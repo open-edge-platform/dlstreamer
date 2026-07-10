@@ -1,0 +1,6 @@
+# One model per line
+yolov8n.pt
+yolo11s.pt
+yolo11s-seg.pt
+yolo11s-pose.pt
+yolo26s.pt
