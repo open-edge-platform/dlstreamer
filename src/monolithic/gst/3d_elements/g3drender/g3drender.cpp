@@ -29,8 +29,9 @@ GType gst_g3d_render_view_mode_get_type(void) {
     static GType type = 0;
     if (!type) {
         static const GEnumValue values[] = {
-            {0, "Bird's Eye View", "bev"},
-            {1, "Perspective 3D",  "perspective"},
+            {0, "Bird's Eye View",    "bev"},
+            {1, "Perspective 3D",    "perspective"},
+            {2, "Camera Projection", "cam-proj"},
             {0, NULL, NULL}
         };
         type = g_enum_register_static("GstG3DRenderViewMode", values);
@@ -146,7 +147,8 @@ static void gst_g3d_render_class_init(GstG3DRenderClass *klass) {
 
     g_object_class_install_property(gobject_class, PROP_VIEW_MODE,
         g_param_spec_enum("view-mode", "View Mode",
-            "Rendering mode: bev (Bird's Eye View) or perspective (3D perspective)",
+            "Rendering mode: bev (Bird's Eye View), perspective (3D perspective), "
+            "or cam-proj (project LiDAR onto camera image using calibration)",
             GST_TYPE_G3D_RENDER_VIEW_MODE, 0,
             (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
@@ -215,6 +217,7 @@ static void gst_g3d_render_init(GstG3DRender *self) {
     self->cam_fov          = 60.0f;
     self->frame_count    = 0;
     self->input_is_batch = FALSE;
+    self->has_calib      = FALSE;
 }
 
 static gboolean gst_g3d_render_start(GstBaseTransform *trans) {
@@ -223,7 +226,37 @@ static gboolean gst_g3d_render_start(GstBaseTransform *trans) {
     return TRUE;
 }
 
+static bool read_gst_float_array(const GstStructure *s, const char *key, gfloat *out, int n) {
+    const GValue *val = gst_structure_get_value(s, key);
+    if (!val || !GST_VALUE_HOLDS_ARRAY(val)) return false;
+    if ((int)gst_value_array_get_size(val) != n) return false;
+    for (int i = 0; i < n; ++i) {
+        const GValue *elem = gst_value_array_get_value(val, i);
+        if (!G_VALUE_HOLDS_FLOAT(elem)) return false;
+        out[i] = g_value_get_float(elem);
+    }
+    return true;
+}
+
 static gboolean gst_g3d_render_sink_event(GstBaseTransform *trans, GstEvent *event) {
+    GstG3DRender *self = GST_G3D_RENDER(trans);
+
+    if (GST_EVENT_TYPE(event) == GST_EVENT_CUSTOM_DOWNSTREAM_STICKY) {
+        const GstStructure *s = gst_event_get_structure(event);
+        if (s && gst_structure_has_name(s, "g3d/calibration")) {
+            const GValue *cam_val = gst_structure_get_value(s, "camera-0");
+            if (cam_val && GST_VALUE_HOLDS_STRUCTURE(cam_val)) {
+                const GstStructure *cam = gst_value_get_structure(cam_val);
+                if (read_gst_float_array(cam, "tr_velo_to_cam", self->calib_tr, 16) &&
+                    read_gst_float_array(cam, "r0_rect",        self->calib_r0, 16) &&
+                    read_gst_float_array(cam, "p2",             self->calib_p2, 12)) {
+                    self->has_calib = TRUE;
+                    GST_INFO_OBJECT(self, "cam-proj calibration received from objectfuser");
+                }
+            }
+        }
+    }
+
     if (GST_EVENT_TYPE(event) == GST_EVENT_SEGMENT) {
         const GstSegment *seg;
         gst_event_parse_segment(event, &seg);
@@ -836,6 +869,228 @@ static std::vector<CamStream> collect_camera_streams(GstBuffer *batch_buf) {
     return cams;
 }
 
+// ── Camera projection mode ────────────────────────────────────────────────────
+
+static cv::Mat decode_cam_frame(const CamStream &cs); /* forward declaration */
+
+/* Jet-like colormap: near (t=0) → red, far (t=1) → blue (BGR). */
+static cv::Vec3b depth_to_color(float t) {
+    t = std::max(0.0f, std::min(1.0f, t));
+    uint8_t r, g, b;
+    if (t < 0.25f) {
+        float s = t * 4.0f;
+        r = 255; g = (uint8_t)(s * 255); b = 0;
+    } else if (t < 0.5f) {
+        float s = (t - 0.25f) * 4.0f;
+        r = (uint8_t)((1.0f - s) * 255); g = 255; b = 0;
+    } else if (t < 0.75f) {
+        float s = (t - 0.5f) * 4.0f;
+        r = 0; g = 255; b = (uint8_t)(s * 255);
+    } else {
+        float s = (t - 0.75f) * 4.0f;
+        r = 0; g = (uint8_t)((1.0f - s) * 255); b = 255;
+    }
+    return cv::Vec3b(b, g, r);
+}
+
+/* Project LiDAR point cloud and 3D detection boxes onto the first camera image.
+ * Requires calibration received via the g3d/calibration sticky event.
+ * Falls back to BEV if calibration or camera image is unavailable. */
+static void draw_cam_projection(cv::Mat &canvas, const float *points, guint count,
+                                 GstBuffer *lidar_buf, GstG3DRender *self,
+                                 const std::vector<CamStream> &cams,
+                                 int roi_w, int roi_h,
+                                 const std::unordered_set<guint> &assoc_ids) {
+    if (!self->has_calib || cams.empty()) {
+        draw_bev(canvas, points, count, self, roi_w, roi_h);
+        draw_detection_boxes_bev(canvas, lidar_buf, self, roi_w, roi_h, assoc_ids);
+        return;
+    }
+
+    /* --- Background: first camera image letterboxed into the canvas --- */
+    cv::Mat cam_bgr = decode_cam_frame(cams[0]);
+    if (cam_bgr.empty()) {
+        draw_bev(canvas, points, count, self, roi_w, roi_h);
+        draw_detection_boxes_bev(canvas, lidar_buf, self, roi_w, roi_h, assoc_ids);
+        return;
+    }
+
+    float scale_lb = std::min((float)roi_w / cam_bgr.cols, (float)roi_h / cam_bgr.rows);
+    int sw = (int)(cam_bgr.cols * scale_lb);
+    int sh = (int)(cam_bgr.rows * scale_lb);
+    int xp = (roi_w - sw) / 2;
+    int yp = (roi_h - sh) / 2;
+
+    canvas.setTo(cv::Scalar(0, 0, 0));
+    cv::Mat scaled_cam;
+    cv::resize(cam_bgr, scaled_cam, cv::Size(sw, sh));
+    scaled_cam.convertTo(scaled_cam, -1, 0.65, 0);  /* dim background so projected points stand out */
+    scaled_cam.copyTo(canvas(cv::Rect(xp, yp, sw, sh)));
+
+    /* --- Build projection matrices from stored calibration --- */
+    cv::Mat Tr(4, 4, CV_32FC1);
+    cv::Mat R0(4, 4, CV_32FC1);
+    cv::Mat P2(3, 4, CV_32FC1);
+    std::memcpy(Tr.data, self->calib_tr, 16 * sizeof(float));
+    std::memcpy(R0.data, self->calib_r0, 16 * sizeof(float));
+    std::memcpy(P2.data, self->calib_p2, 12 * sizeof(float));
+
+    /* proj (3×4) = P2 * R0 * Tr; maps LiDAR [x,y,z,1]^T → homogeneous image [U,V,W]^T */
+    cv::Mat R0Tr = R0 * Tr;            /* 4×4 */
+    cv::Mat proj = P2 * R0Tr;          /* 3×4 */
+
+    /* Extract matrix rows for fast per-point scalar math. */
+    float p0 = proj.at<float>(0,0), p1 = proj.at<float>(0,1), p2f = proj.at<float>(0,2), p3 = proj.at<float>(0,3);
+    float q0 = proj.at<float>(1,0), q1 = proj.at<float>(1,1), q2f = proj.at<float>(1,2), q3 = proj.at<float>(1,3);
+    float w0 = proj.at<float>(2,0), w1 = proj.at<float>(2,1), w2f = proj.at<float>(2,2), w3 = proj.at<float>(2,3);
+    /* Third row of R0Tr gives the depth (z in rectified camera frame). */
+    float d0 = R0Tr.at<float>(2,0), d1 = R0Tr.at<float>(2,1), d2 = R0Tr.at<float>(2,2), d3 = R0Tr.at<float>(2,3);
+
+    constexpr float kMaxDepth = 60.0f;
+
+    /* --- Project LiDAR point cloud --- */
+    struct ProjPt { cv::Point2i px; float depth; };
+    std::vector<ProjPt> visible;
+    visible.reserve(count / (guint)self->point_stride + 1);
+
+    for (guint i = 0; i < count; i += (guint)self->point_stride) {
+        float x = points[i*4+0], y = points[i*4+1], z = points[i*4+2];
+
+        float depth = d0*x + d1*y + d2*z + d3;
+        if (depth <= 0.5f) continue;
+
+        float W = w0*x + w1*y + w2f*z + w3;
+        if (W <= 0.f) continue;
+
+        float u = (p0*x + p1*y + p2f*z + p3) / W;
+        float v = (q0*x + q1*y + q2f*z + q3) / W;
+
+        int cx = (int)(u * scale_lb) + xp;
+        int cy = (int)(v * scale_lb) + yp;
+        if (cx < 0 || cx >= roi_w || cy < 0 || cy >= roi_h) continue;
+
+        visible.push_back({cv::Point2i(cx, cy), depth});
+    }
+
+    /* Sort far-to-near so near points overdraw far ones. */
+    std::sort(visible.begin(), visible.end(),
+              [](const ProjPt &a, const ProjPt &b){ return a.depth > b.depth; });
+
+    for (const auto &pp : visible) {
+        cv::Vec3b c = depth_to_color(pp.depth / kMaxDepth);
+        if (self->point_radius <= 1) {
+            canvas.at<cv::Vec3b>(pp.px.y, pp.px.x) = c;
+        } else {
+            int r = std::max(1, (int)(self->point_radius * 15.0f / pp.depth));
+            cv::circle(canvas, pp.px, r, cv::Scalar(c[0], c[1], c[2]), -1);
+        }
+    }
+
+    /* --- Project 3D detection boxes --- */
+    GstAnalyticsRelationMeta *rmeta = gst_buffer_get_analytics_relation_meta(lidar_buf);
+    if (!rmeta) return;
+
+    GstAnalytics3DODMtd mtd;
+    gpointer state = nullptr;
+    while (gst_analytics_relation_meta_iterate(rmeta, &state,
+            gst_analytics_3d_od_mtd_get_mtd_type(),
+            reinterpret_cast<GstAnalyticsMtd *>(&mtd))) {
+        gfloat bcx, bcy, bcz, length, width, height, yaw, pitch, roll;
+        gst_analytics_3d_od_mtd_get_location(&mtd, &bcx, &bcy, &bcz,
+                                              &length, &width, &height, &yaw, &pitch, &roll);
+
+        float cos_t = std::cos(yaw), sin_t = -std::sin(yaw);
+        float hx = width / 2.0f, hy = length / 2.0f, hz = height / 2.0f;
+        float lx[4] = {-hx, +hx, +hx, -hx};
+        float ly[4] = {-hy, -hy, +hy, +hy};
+
+        /* Build 4×8 homogeneous corner matrix (columns = corners). */
+        cv::Mat corners(4, 8, CV_32FC1);
+        for (int k = 0; k < 4; ++k) {
+            float wx = bcx + lx[k] * cos_t - ly[k] * sin_t;
+            float wy = bcy + lx[k] * sin_t + ly[k] * cos_t;
+            for (int top = 0; top < 2; ++top) {
+                int col = k + top * 4;
+                corners.at<float>(0, col) = wx;
+                corners.at<float>(1, col) = wy;
+                corners.at<float>(2, col) = bcz + (top == 0 ? -hz : hz);
+                corners.at<float>(3, col) = 1.0f;
+            }
+        }
+
+        /* Check center depth; skip boxes behind camera. */
+        float center_depth = d0*bcx + d1*bcy + d2*bcz + d3;
+        if (center_depth <= 0.5f) continue;
+
+        cv::Mat img_hom = proj * corners;  /* 3×8 */
+        std::vector<cv::Point2i> pts2d(8);
+        bool all_valid = true;
+        for (int k = 0; k < 8; ++k) {
+            float W_k = img_hom.at<float>(2, k);
+            if (W_k <= 0.f) { all_valid = false; break; }
+            float u_k = img_hom.at<float>(0, k) / W_k;
+            float v_k = img_hom.at<float>(1, k) / W_k;
+            pts2d[k] = cv::Point2i((int)(u_k * scale_lb) + xp,
+                                   (int)(v_k * scale_lb) + yp);
+        }
+        if (!all_valid) continue;
+
+        bool matched = assoc_ids.count(mtd.id) > 0;
+        cv::Scalar color = matched ? kColorMatched : kColorUnmatched;
+        int thickness = matched ? 2 : 1;
+
+        static const int edges[12][2] = {
+            {0,1},{1,2},{2,3},{3,0},
+            {4,5},{5,6},{6,7},{7,4},
+            {0,4},{1,5},{2,6},{3,7}
+        };
+        for (const auto &e : edges)
+            cv::line(canvas, pts2d[e[0]], pts2d[e[1]], color, thickness, cv::LINE_AA);
+    }
+}
+
+// ── Camera frame decode ───────────────────────────────────────────────────────
+
+static cv::Mat decode_cam_frame(const CamStream &cs) {
+    GstVideoFrame vframe;
+    if (!gst_video_frame_map(&vframe, const_cast<GstVideoInfo *>(&cs.vinfo), cs.buf, GST_MAP_READ))
+        return {};
+
+    cv::Mat cam_bgr;
+    GstVideoFormat fmt = GST_VIDEO_FRAME_FORMAT(&vframe);
+
+    if (fmt == GST_VIDEO_FORMAT_BGR) {
+        cv::Mat src(cs.h, cs.w, CV_8UC3,
+                    GST_VIDEO_FRAME_PLANE_DATA(&vframe, 0),
+                    GST_VIDEO_FRAME_PLANE_STRIDE(&vframe, 0));
+        src.copyTo(cam_bgr);
+    } else if (fmt == GST_VIDEO_FORMAT_BGRx || fmt == GST_VIDEO_FORMAT_BGRA) {
+        cv::Mat src(cs.h, cs.w, CV_8UC4,
+                    GST_VIDEO_FRAME_PLANE_DATA(&vframe, 0),
+                    GST_VIDEO_FRAME_PLANE_STRIDE(&vframe, 0));
+        cv::cvtColor(src, cam_bgr, cv::COLOR_BGRA2BGR);
+    } else if (fmt == GST_VIDEO_FORMAT_NV12) {
+        int y_stride  = GST_VIDEO_FRAME_PLANE_STRIDE(&vframe, 0);
+        int uv_stride = GST_VIDEO_FRAME_PLANE_STRIDE(&vframe, 1);
+        const guint8 *y_data  = (const guint8 *)GST_VIDEO_FRAME_PLANE_DATA(&vframe, 0);
+        const guint8 *uv_data = (const guint8 *)GST_VIDEO_FRAME_PLANE_DATA(&vframe, 1);
+        int h2 = (cs.h / 2) * 2, w2 = (cs.w / 2) * 2;
+        if (h2 > 0 && w2 > 0) {
+            std::vector<guint8> packed((size_t)w2 * h2 * 3 / 2);
+            for (int r = 0; r < h2; r++)
+                std::memcpy(packed.data() + (size_t)r * w2, y_data + (size_t)r * y_stride, w2);
+            for (int r = 0; r < h2 / 2; r++)
+                std::memcpy(packed.data() + (size_t)w2 * h2 + (size_t)r * w2,
+                            uv_data + (size_t)r * uv_stride, w2);
+            cv::Mat yuv(h2 * 3 / 2, w2, CV_8UC1, packed.data());
+            cv::cvtColor(yuv, cam_bgr, cv::COLOR_YUV2BGR_NV12);
+        }
+    }
+
+    gst_video_frame_unmap(&vframe);
+    return cam_bgr;
+}
+
 // ── Main transform ────────────────────────────────────────────────────────────
 
 static GstFlowReturn gst_g3d_render_transform(GstBaseTransform *trans, GstBuffer *inbuf, GstBuffer *outbuf) {
@@ -860,15 +1115,23 @@ static GstFlowReturn gst_g3d_render_transform(GstBaseTransform *trans, GstBuffer
     canvas.setTo(cv::Scalar(15, 15, 15));
 
     // ── Layout ──────────────────────────────────────────────────────────────
-    // LiDAR always renders in a height×height square on the right.
-    // Camera(s) fill the remaining width on the left.
-    // Use width > height to make room for cameras (e.g. width=1600 height=800).
-    int n_cams     = (int)cams.size();
-    int lidar_size = self->height;
-    int lidar_x    = (n_cams > 0) ? std::max(0, self->width - lidar_size) : 0;
-    int lidar_w    = std::min(lidar_size, self->width - lidar_x);
-    int lidar_h    = lidar_size;
-    int cam_area_w = lidar_x;
+    // cam-proj mode: projection fills the full canvas; no separate camera panel.
+    // bev/perspective:  LiDAR renders in a height×height square on the right,
+    //                   camera(s) fill the remaining width on the left.
+    int n_cams = (int)cams.size();
+    int lidar_x, lidar_w, lidar_h, cam_area_w;
+    if (self->view_mode == 2) {
+        lidar_x    = 0;
+        lidar_w    = self->width;
+        lidar_h    = self->height;
+        cam_area_w = 0;
+    } else {
+        int lidar_size = self->height;
+        lidar_x    = (n_cams > 0) ? std::max(0, self->width - lidar_size) : 0;
+        lidar_w    = std::min(lidar_size, self->width - lidar_x);
+        lidar_h    = lidar_size;
+        cam_area_w = lidar_x;
+    }
 
     // ── Render LiDAR ────────────────────────────────────────────────────────
     if (lidar_buf) {
@@ -892,8 +1155,10 @@ static GstFlowReturn gst_g3d_render_transform(GstBaseTransform *trans, GstBuffer
             if (self->view_mode == 0) {
                 draw_bev(lidar_roi, points, count, self, lidar_w, lidar_h);
                 draw_detection_boxes_bev(lidar_roi, lidar_buf, self, lidar_w, lidar_h, assoc_ids);
-            } else {
+            } else if (self->view_mode == 1) {
                 draw_perspective(lidar_roi, points, count, lidar_buf, self, lidar_w, lidar_h, assoc_ids);
+            } else {
+                draw_cam_projection(lidar_roi, points, count, lidar_buf, self, cams, lidar_w, lidar_h, assoc_ids);
             }
 
             gst_buffer_unmap(lidar_buf, &in_map);
@@ -916,52 +1181,11 @@ static GstFlowReturn gst_g3d_render_transform(GstBaseTransform *trans, GstBuffer
             int x_off = col * cell_w;
             int y_off = row * cell_h;
 
-            // Use gst_video_frame_map so the VA allocator can map GPU memory to CPU
-            GstVideoFrame vframe;
-            if (!gst_video_frame_map(&vframe, &cs.vinfo, cs.buf, GST_MAP_READ)) {
-                GST_WARNING_OBJECT(self, "Failed to map camera buffer %d", i);
+            cv::Mat cam_bgr = decode_cam_frame(cs);
+            if (cam_bgr.empty()) {
+                GST_WARNING_OBJECT(self, "Failed to decode camera buffer %d", i);
                 continue;
             }
-
-            GstVideoFormat fmt = GST_VIDEO_FRAME_FORMAT(&vframe);
-            cv::Mat cam_bgr;
-
-            if (fmt == GST_VIDEO_FORMAT_BGR) {
-                cv::Mat src(cs.h, cs.w, CV_8UC3,
-                            GST_VIDEO_FRAME_PLANE_DATA(&vframe, 0),
-                            GST_VIDEO_FRAME_PLANE_STRIDE(&vframe, 0));
-                src.copyTo(cam_bgr);
-            } else if (fmt == GST_VIDEO_FORMAT_BGRx || fmt == GST_VIDEO_FORMAT_BGRA) {
-                cv::Mat src(cs.h, cs.w, CV_8UC4,
-                            GST_VIDEO_FRAME_PLANE_DATA(&vframe, 0),
-                            GST_VIDEO_FRAME_PLANE_STRIDE(&vframe, 0));
-                cv::cvtColor(src, cam_bgr, cv::COLOR_BGRA2BGR);
-            } else if (fmt == GST_VIDEO_FORMAT_NV12) {
-                // OpenCV COLOR_YUV2BGR_NV12 requires even width and height
-                int y_stride  = GST_VIDEO_FRAME_PLANE_STRIDE(&vframe, 0);
-                int uv_stride = GST_VIDEO_FRAME_PLANE_STRIDE(&vframe, 1);
-                const guint8 *y_data  = (const guint8 *)GST_VIDEO_FRAME_PLANE_DATA(&vframe, 0);
-                const guint8 *uv_data = (const guint8 *)GST_VIDEO_FRAME_PLANE_DATA(&vframe, 1);
-                int h2 = (cs.h / 2) * 2;  // round down to even
-                int w2 = (cs.w / 2) * 2;
-                if (h2 > 0 && w2 > 0) {
-                    std::vector<guint8> packed((size_t)w2 * h2 * 3 / 2);
-                    for (int r = 0; r < h2; r++)
-                        std::memcpy(packed.data() + (size_t)r * w2, y_data + (size_t)r * y_stride, w2);
-                    for (int r = 0; r < h2 / 2; r++)
-                        std::memcpy(packed.data() + (size_t)w2 * h2 + (size_t)r * w2,
-                                    uv_data + (size_t)r * uv_stride, w2);
-                    cv::Mat yuv(h2 * 3 / 2, w2, CV_8UC1, packed.data());
-                    cv::cvtColor(yuv, cam_bgr, cv::COLOR_YUV2BGR_NV12);
-                }
-            } else {
-                GST_WARNING_OBJECT(self, "Unsupported camera format: %s",
-                                   gst_video_format_to_string(fmt));
-            }
-
-            gst_video_frame_unmap(&vframe);
-
-            if (cam_bgr.empty()) continue;
 
             // Letterbox: scale to fit cell while preserving aspect ratio
             float scale = std::min((float)cell_w / cam_bgr.cols,

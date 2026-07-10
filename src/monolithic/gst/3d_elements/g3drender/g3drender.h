@@ -45,6 +45,11 @@ struct _GstG3DRender {
 
     guint64  frame_count;
     gboolean input_is_batch;
+
+    gboolean has_calib;
+    gfloat   calib_tr[16];  /* tr_velo_to_cam 4×4, row-major */
+    gfloat   calib_r0[16];  /* r0_rect        4×4, row-major */
+    gfloat   calib_p2[12];  /* p2             3×4, row-major */
 };
 
 struct _GstG3DRenderClass {
