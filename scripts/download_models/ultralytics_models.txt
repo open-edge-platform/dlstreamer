@@ -1,12 +1,17 @@
 # One model per line
+yolox_s.pt
+yolox-tiny.pt
 yolov5s.pt
 yolov5su.pt
+yolov7.pt
 yolov8n.pt
+yolov8n-pose.pt
 yolov8s.pt
 yolov8n-obb.pt
 yolov8n-seg.pt
 yolov9c.pt
 yolov10s.pt
+yolo11n.pt
 yolo11s.pt
 yolo11s-obb.pt
 yolo11s-seg.pt
