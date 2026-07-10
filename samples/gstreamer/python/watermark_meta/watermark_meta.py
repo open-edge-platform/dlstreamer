@@ -16,7 +16,6 @@ Pipeline:
   videoconvert -> openh264enc -> h264parse -> mp4mux -> filesink
 """
 
-import os
 import sys
 import gi
 
@@ -27,9 +26,6 @@ from gi.repository import Gst, GstBase, GObject, DLStreamerWatermarkMeta  # pyli
 
 Gst.init(None)
 Gst.init_python()
-
-# Number of frames produced by the deterministic videotestsrc source
-NUM_BUFFERS = 10
 
 # ---------------------------------------------------------------------------
 # Custom GstBaseTransform element to add watermark metadata
@@ -106,47 +102,13 @@ __gstelementfactory__ = ("watermark_meta_adder", Gst.Rank.NONE, WatermarkMetaAdd
 # Main
 # ---------------------------------------------------------------------------
 
-def build_source(input_arg):
-    """Return the source part of the pipeline.
-
-    ``videotestsrc``/``test`` produces a deterministic white test pattern,
-    otherwise the input is treated as a video file/URI.
-    """
-    if input_arg in ("videotestsrc", "test"):
-        return (
-            f"videotestsrc num-buffers={NUM_BUFFERS} pattern=white ! "
-            f"video/x-raw,width=640,height=480,framerate=30/1 ! "
-            f"videoconvert ! video/x-raw,format=BGR"
-        )
-    return (
-        f"urisourcebin uri={input_arg} ! decodebin3 ! "
-        f"videoconvert ! video/x-raw,format=BGR"
-    )
-
-
-def build_sink(output_arg):
-    """Return the sink part of the pipeline.
-
-    An ``.mp4`` output is encoded to a video file, any other value is treated
-    as a directory and watermarked frames are written as PNG images.
-    """
-    if output_arg.endswith(".mp4"):
-        return (
-            f"videoconvert ! openh264enc ! h264parse ! mp4mux ! "
-            f"filesink location={output_arg}"
-        )
-    os.makedirs(output_arg, exist_ok=True)
-    location = os.path.join(output_arg, "frame_%05d.png")
-    return f"videoconvert ! video/x-raw,format=RGB ! pngenc ! multifilesink location={location}"
-
-
 def main(args):
     if len(args) != 3:
         sys.stderr.write(
-            "usage: %s <INPUT_VIDEO_URI|videotestsrc> <OUTPUT_MP4_FILE|FRAMES_DIR>\n" % args[0])
+            "usage: %s <INPUT_VIDEO_URI> <OUTPUT_MP4_FILE>\n" % args[0])
         sys.exit(1)
 
-    input_arg, output_arg = args[1], args[2]
+    input_file, output_file = args[1], args[2]
 
     # Register the custom element so it can be used in parse_launch
     if not Gst.Element.register(None, "watermark_meta_adder", Gst.Rank.NONE, WatermarkMetaAdder):
@@ -154,11 +116,17 @@ def main(args):
         sys.exit(1)
 
     pipeline = Gst.parse_launch(
-        f"{build_source(input_arg)} ! "
+        f"urisourcebin uri={input_file} ! "
+        f"decodebin3 ! "
+        f"videoconvert ! video/x-raw,format=BGR ! "
         f"watermark_meta_adder ! "
         f"gvawatermark ! "
         f"gvafpscounter ! "
-        f"{build_sink(output_arg)}"
+        f"videoconvert ! "
+        f"openh264enc ! "
+        f"h264parse ! "
+        f"mp4mux ! "
+        f"filesink location={output_file}"
     )
 
     bus = pipeline.get_bus()
@@ -180,7 +148,7 @@ def main(args):
                 terminate = True
 
     pipeline.set_state(Gst.State.NULL)
-    print(f"Output written to: {output_arg}")
+    print(f"Output written to: {output_file}")
 
 
 if __name__ == "__main__":

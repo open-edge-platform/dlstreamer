@@ -365,14 +365,6 @@ jobs:
             [ -f "$req" ] && $HOME/.virtualenvs/dlstreamer/bin/pip install --no-cache-dir -r "$req"
           done
 
-          curl -LO https://raw.githubusercontent.com/openvinotoolkit/openvino.genai/refs/heads/releases/2026/2/samples/export-requirements.txt
-          $HOME/.virtualenvs/dlstreamer/bin/pip install --no-cache-dir -r export-requirements.txt
-
-          for sample in face_detection_and_classification prompted_detection smart_nvr; do
-            req="$DLS_REL_PATH/samples/gstreamer/python/$sample/requirements.txt"
-            [ -f "$req" ] && $HOME/.virtualenvs/dlstreamer/bin/pip install --no-cache-dir -r "$req"
-          done
-
       - name: 🚀 Run on host tests
         if: always() && needs.setup.outputs.should_run == 'true'
         id: run_onhost_tests
