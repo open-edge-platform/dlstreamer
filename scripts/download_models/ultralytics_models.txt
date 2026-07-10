@@ -1,5 +1,4 @@
 # One model per line
-yolox_s.pt
 yolox-tiny.pt
 yolov5s.pt
 yolov5su.pt
