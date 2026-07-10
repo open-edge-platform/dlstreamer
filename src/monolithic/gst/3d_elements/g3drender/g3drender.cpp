@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <unordered_set>
 #include <vector>
 
 GST_DEBUG_CATEGORY_STATIC(gst_g3d_render_debug);
@@ -458,11 +459,15 @@ static cv::Vec3b height_to_color(float z) {
     return cv::Vec3b(0, (uint8_t)((1.0f - s) * 180), (uint8_t)(s * 220 + 80));
 }
 
+static const cv::Scalar kColorUnmatched(0, 255, 0);   // green
+static const cv::Scalar kColorMatched(0, 165, 255);   // orange
+
 static void draw_detection_boxes_perspective(cv::Mat &canvas, GstBuffer *inbuf,
                                               const cv::Mat &rvec, const cv::Mat &tvec,
                                               const cv::Mat &K, const cv::Mat &dist_coeffs,
                                               const cv::Mat &cam_pos, const cv::Mat &zaxis,
-                                              int roi_w, int roi_h) {
+                                              int roi_w, int roi_h,
+                                              const std::unordered_set<guint> &assoc_ids) {
     double zx = zaxis.at<double>(0), zy = zaxis.at<double>(1), zz = zaxis.at<double>(2);
     double cpx = cam_pos.at<double>(0), cpy = cam_pos.at<double>(1), cpz = cam_pos.at<double>(2);
 
@@ -504,19 +509,23 @@ static void draw_detection_boxes_perspective(cv::Mat &canvas, GstBuffer *inbuf,
             {4,5},{5,6},{6,7},{7,4},
             {0,4},{1,5},{2,6},{3,7}
         };
+        bool matched = assoc_ids.count(mtd.id) > 0;
+        cv::Scalar color = matched ? kColorMatched : kColorUnmatched;
+        int thickness = matched ? 2 : 1;
         for (auto &e : edges) {
             int a = e[0], b = e[1];
             cv::line(canvas,
                      cv::Point((int)img_corners[a].x, (int)img_corners[a].y),
                      cv::Point((int)img_corners[b].x, (int)img_corners[b].y),
-                     cv::Scalar(0, 255, 0), 1, cv::LINE_AA);
+                     color, thickness, cv::LINE_AA);
         }
     }
     (void)roi_w; (void)roi_h;
 }
 
 static void draw_perspective(cv::Mat &canvas, const float *points, guint count,
-                              GstBuffer *inbuf, GstG3DRender *self, int roi_w, int roi_h) {
+                              GstBuffer *inbuf, GstG3DRender *self, int roi_w, int roi_h,
+                              const std::unordered_set<guint> &assoc_ids) {
     const float DEG2RAD = (float)(M_PI / 180.0);
     float az   = self->cam_azimuth   * DEG2RAD;
     float el   = self->cam_elevation * DEG2RAD;
@@ -675,7 +684,7 @@ static void draw_perspective(cv::Mat &canvas, const float *points, guint count,
     }
 
     draw_detection_boxes_perspective(canvas, inbuf, rvec, tvec, K, dist_coeffs,
-                                     cam_pos, zaxis, roi_w, roi_h);
+                                     cam_pos, zaxis, roi_w, roi_h, assoc_ids);
 
     self->cam_azimuth += self->cam_azimuth_step;
     if (self->cam_azimuth >  360.0f) self->cam_azimuth -= 360.0f;
@@ -685,7 +694,8 @@ static void draw_perspective(cv::Mat &canvas, const float *points, guint count,
 // ── BEV detection boxes ───────────────────────────────────────────────────────
 
 static void draw_detection_boxes_bev(cv::Mat &canvas, GstBuffer *inbuf,
-                                      const GstG3DRender *self, int roi_w, int roi_h) {
+                                      const GstG3DRender *self, int roi_w, int roi_h,
+                                      const std::unordered_set<guint> &assoc_ids) {
     GstAnalyticsRelationMeta *rmeta = gst_buffer_get_analytics_relation_meta(inbuf);
     if (!rmeta) return;
 
@@ -699,6 +709,10 @@ static void draw_detection_boxes_bev(cv::Mat &canvas, GstBuffer *inbuf,
                                               &length, &width, &height,
                                               &yaw, &pitch, &roll);
 
+        bool matched = assoc_ids.count(mtd.id) > 0;
+        cv::Scalar color = matched ? kColorMatched : kColorUnmatched;
+        int thickness = matched ? 2 : 1;
+
         float cos_t = std::cos(yaw), sin_t = -std::sin(yaw);
         float hx = width / 2.0f, hy = length / 2.0f;
         float wx[4] = { cx+cos_t*hx-sin_t*hy, cx-cos_t*hx-sin_t*hy,
@@ -708,9 +722,8 @@ static void draw_detection_boxes_bev(cv::Mat &canvas, GstBuffer *inbuf,
         std::vector<cv::Point> poly(4);
         for (int k = 0; k < 4; ++k)
             poly[k] = world_to_pixel_bev(wx[k], wy[k], self, roi_w, roi_h);
-        cv::polylines(canvas, poly, true, cv::Scalar(0, 255, 0), 1);
-        cv::circle(canvas, world_to_pixel_bev(cx, cy, self, roi_w, roi_h), 4,
-                   cv::Scalar(0, 255, 0), -1);
+        cv::polylines(canvas, poly, true, color, thickness);
+        cv::circle(canvas, world_to_pixel_bev(cx, cy, self, roi_w, roi_h), 4, color, -1);
     }
 }
 
@@ -736,7 +749,16 @@ static void draw_2d_boxes(cv::Mat &cell, GstBuffer *cam_buf, int orig_w, int ori
         if (w <= 0 || h <= 0) continue;
         x = std::max(0, x); y = std::max(0, y);
         w = std::min(w, cell.cols - x); h = std::min(h, cell.rows - y);
-        cv::rectangle(cell, cv::Rect(x, y, w, h), cv::Scalar(0, 255, 0), 1);
+
+        GstAnalyticsTrackingMtd tmtd;
+        gpointer state2 = nullptr;
+        bool matched = gst_analytics_relation_meta_get_direct_related(rmeta, mtd.id,
+                            GST_ANALYTICS_REL_TYPE_IS_PART_OF,
+                            gst_analytics_tracking_mtd_get_mtd_type(),
+                            &state2, reinterpret_cast<GstAnalyticsMtd *>(&tmtd)) == TRUE;
+
+        cv::Scalar color = matched ? kColorMatched : kColorUnmatched;
+        cv::rectangle(cell, cv::Rect(x, y, w, h), color, matched ? 2 : 1);
     }
 }
 
@@ -761,6 +783,33 @@ static GstBuffer *extract_lidar_from_batch(GstBuffer *batch_buf) {
 }
 
 struct CamStream { GstBuffer *buf; gint w; gint h; GstVideoInfo vinfo; };
+
+static std::unordered_set<guint> collect_associated_3d_ids(const std::vector<CamStream> &cams) {
+    std::unordered_set<guint> ids;
+    for (const auto &cs : cams) {
+        GstAnalyticsRelationMeta *rmeta = gst_buffer_get_analytics_relation_meta(cs.buf);
+        if (!rmeta) continue;
+        GstAnalyticsODMtd od;
+        gpointer state = nullptr;
+        while (gst_analytics_relation_meta_iterate(rmeta, &state,
+                gst_analytics_od_mtd_get_mtd_type(),
+                reinterpret_cast<GstAnalyticsMtd *>(&od))) {
+            GstAnalyticsTrackingMtd tmtd;
+            gpointer state2 = nullptr;
+            while (gst_analytics_relation_meta_get_direct_related(rmeta, od.id,
+                    GST_ANALYTICS_REL_TYPE_IS_PART_OF,
+                    gst_analytics_tracking_mtd_get_mtd_type(),
+                    &state2, reinterpret_cast<GstAnalyticsMtd *>(&tmtd))) {
+                guint64 ref_id = 0;
+                GstClockTime first_seen, last_seen;
+                gboolean lost;
+                if (gst_analytics_tracking_mtd_get_info(&tmtd, &ref_id, &first_seen, &last_seen, &lost))
+                    ids.insert(static_cast<guint>(ref_id));
+            }
+        }
+    }
+    return ids;
+}
 
 static std::vector<CamStream> collect_camera_streams(GstBuffer *batch_buf) {
     std::vector<CamStream> cams;
@@ -839,11 +888,12 @@ static GstFlowReturn gst_g3d_render_transform(GstBaseTransform *trans, GstBuffer
 
             cv::Mat lidar_roi = canvas(cv::Rect(lidar_x, 0, lidar_w, lidar_h));
 
+            auto assoc_ids = collect_associated_3d_ids(cams);
             if (self->view_mode == 0) {
                 draw_bev(lidar_roi, points, count, self, lidar_w, lidar_h);
-                draw_detection_boxes_bev(lidar_roi, lidar_buf, self, lidar_w, lidar_h);
+                draw_detection_boxes_bev(lidar_roi, lidar_buf, self, lidar_w, lidar_h, assoc_ids);
             } else {
-                draw_perspective(lidar_roi, points, count, lidar_buf, self, lidar_w, lidar_h);
+                draw_perspective(lidar_roi, points, count, lidar_buf, self, lidar_w, lidar_h, assoc_ids);
             }
 
             gst_buffer_unmap(lidar_buf, &in_map);
