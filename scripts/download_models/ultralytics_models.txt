@@ -1,7 +1,6 @@
 # One model per line
 yolov5s.pt
 yolov5su.pt
-yolov7.pt
 yolov8n.pt
 yolov8n-pose.pt
 yolov8s.pt
