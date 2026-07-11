@@ -492,8 +492,9 @@ static cv::Vec3b height_to_color(float z) {
     return cv::Vec3b(0, (uint8_t)((1.0f - s) * 180), (uint8_t)(s * 220 + 80));
 }
 
-static const cv::Scalar kColorUnmatched(0, 255, 0);   // green
-static const cv::Scalar kColorMatched(0, 165, 255);   // orange
+static const cv::Scalar kColorUnmatched(0, 255, 0);     // green  — 3D unmatched
+static const cv::Scalar kColor2DUnmatched(255, 0, 0);  // blue   — 2D unmatched
+static const cv::Scalar kColorMatched(255, 255, 255);  // white  — any matched (2D or 3D)
 
 static void draw_detection_boxes_perspective(cv::Mat &canvas, GstBuffer *inbuf,
                                               const cv::Mat &rvec, const cv::Mat &tvec,
@@ -544,7 +545,7 @@ static void draw_detection_boxes_perspective(cv::Mat &canvas, GstBuffer *inbuf,
         };
         bool matched = assoc_ids.count(mtd.id) > 0;
         cv::Scalar color = matched ? kColorMatched : kColorUnmatched;
-        int thickness = matched ? 2 : 1;
+        int thickness = 2;
         for (auto &e : edges) {
             int a = e[0], b = e[1];
             cv::line(canvas,
@@ -744,7 +745,7 @@ static void draw_detection_boxes_bev(cv::Mat &canvas, GstBuffer *inbuf,
 
         bool matched = assoc_ids.count(mtd.id) > 0;
         cv::Scalar color = matched ? kColorMatched : kColorUnmatched;
-        int thickness = matched ? 2 : 1;
+        int thickness = 2;
 
         float cos_t = std::cos(yaw), sin_t = -std::sin(yaw);
         float hx = width / 2.0f, hy = length / 2.0f;
@@ -762,7 +763,8 @@ static void draw_detection_boxes_bev(cv::Mat &canvas, GstBuffer *inbuf,
 
 // ── Camera 2D detection boxes ─────────────────────────────────────────────────
 
-static void draw_2d_boxes(cv::Mat &cell, GstBuffer *cam_buf, int orig_w, int orig_h) {
+static void draw_2d_boxes(cv::Mat &cell, GstBuffer *cam_buf, int orig_w, int orig_h,
+                          bool skip_matched = false) {
     GstAnalyticsRelationMeta *rmeta = gst_buffer_get_analytics_relation_meta(cam_buf);
     if (!rmeta) return;
 
@@ -783,15 +785,17 @@ static void draw_2d_boxes(cv::Mat &cell, GstBuffer *cam_buf, int orig_w, int ori
         x = std::max(0, x); y = std::max(0, y);
         w = std::min(w, cell.cols - x); h = std::min(h, cell.rows - y);
 
-        GstAnalyticsTrackingMtd tmtd;
-        gpointer state2 = nullptr;
-        bool matched = gst_analytics_relation_meta_get_direct_related(rmeta, mtd.id,
-                            GST_ANALYTICS_REL_TYPE_IS_PART_OF,
-                            gst_analytics_tracking_mtd_get_mtd_type(),
-                            &state2, reinterpret_cast<GstAnalyticsMtd *>(&tmtd)) == TRUE;
+        if (skip_matched) {
+            GstAnalyticsTrackingMtd tmtd;
+            gpointer state2 = nullptr;
+            bool matched = gst_analytics_relation_meta_get_direct_related(rmeta, mtd.id,
+                               GST_ANALYTICS_REL_TYPE_IS_PART_OF,
+                               gst_analytics_tracking_mtd_get_mtd_type(),
+                               &state2, reinterpret_cast<GstAnalyticsMtd *>(&tmtd)) == TRUE;
+            if (matched) continue;
+        }
 
-        cv::Scalar color = matched ? kColorMatched : kColorUnmatched;
-        cv::rectangle(cell, cv::Rect(x, y, w, h), color, matched ? 2 : 1);
+        cv::rectangle(cell, cv::Rect(x, y, w, h), kColor2DUnmatched, 2);
     }
 }
 
@@ -1037,7 +1041,7 @@ static void draw_cam_projection(cv::Mat &canvas, const float *points, guint coun
 
         bool matched = assoc_ids.count(mtd.id) > 0;
         cv::Scalar color = matched ? kColorMatched : kColorUnmatched;
-        int thickness = matched ? 2 : 1;
+        int thickness = 2;
 
         static const int edges[12][2] = {
             {0,1},{1,2},{2,3},{3,0},
@@ -1047,6 +1051,11 @@ static void draw_cam_projection(cv::Mat &canvas, const float *points, guint coun
         for (const auto &e : edges)
             cv::line(canvas, pts2d[e[0]], pts2d[e[1]], color, thickness, cv::LINE_AA);
     }
+
+    /* --- Draw 2D detection boxes on top of the letterboxed region --- */
+    /* Only draw unmatched 2D boxes (blue); matched objects are shown as white 3D boxes above. */
+    cv::Mat cam_region = canvas(cv::Rect(xp, yp, sw, sh));
+    draw_2d_boxes(cam_region, cams[0].buf, cams[0].w, cams[0].h, /*skip_matched=*/true);
 }
 
 // ── Camera frame decode ───────────────────────────────────────────────────────
