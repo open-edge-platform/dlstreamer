@@ -26,28 +26,55 @@ The sample uses the following set of pipeline elements:
 * __gvawatermark__ - DLStreamer element that renders detection results and custom objects (lane-hogging vehicles) on video frames
 * __gvarecorder_py__ - Custom Python element that segments the video into 10-second chunks and stores metadata for each segment 
 
-## Running
+## Prerequisites
 
-### Prerequisites
+### Prepare Model
 
-This sample requires Python libraries beyond the DLStreamer distribution to download the RTDETRv2 model from HuggingFace and implement custom analytics logic. An active network connection is required.
-
-Install dependencies:
+Export the RTDETRv2 detection model to OpenVINO IR format (run on host, only needed once).
 
 ```sh
 python3 -m venv .smart_nvr_venv
 source .smart_nvr_venv/bin/activate
-curl -LO https://raw.githubusercontent.com/openvinotoolkit/openvino.genai/refs/heads/releases/2026/2/samples/export-requirements.txt
-pip install -r export-requirements.txt -r requirements.txt
+pip install -r requirements.txt
+mkdir -p models
+optimum-cli export onnx --model PekingU/rtdetr_v2_r50vd \
+    --task object-detection --opset 18 --width 640 --height 640 models/rtdetr_v2_r50vd
+hf download PekingU/rtdetr_v2_r50vd --include preprocessor_config.json --local-dir models/rtdetr_v2_r50vd
+ovc models/rtdetr_v2_r50vd/model.onnx --output_model models/rtdetr_v2_r50vd/model
+deactivate
 ```
 
-### Running the Sample
+### Install DLStreamer
 
-Run the application with no configuration required. It automatically downloads the default video file and detection model:
+#### Option A: Docker image (recommended)
+
+Pull the latest DLStreamer image and start an interactive container with GPU access, mounting the sample directory:
 
 ```sh
-python3 ./smart_nvr.py
+docker pull intel/dlstreamer:latest
+docker run --init -it --rm \
+    -v "$(pwd)":/app -w /app \
+    --device /dev/dri \
+    --group-add $(stat -c "%g" /dev/dri/render*) \
+    intel/dlstreamer:latest
 ```
+
+> Note: install Docker Engine if not already available (see [Docker installation guide](https://docs.docker.com/engine/install/)).
+> All subsequent commands run inside this container shell.
+
+#### Option B: Native installation
+
+Install DLStreamer on the host (see [DLStreamer Installation Guide](../../../../docs/user-guide/get_started/install/install_guide_index.md)).
+
+## Run Sample Application
+
+The application automatically downloads the default video file on the first run:
+
+```sh
+python3 smart_nvr.py --model models/rtdetr_v2_r50vd/model.xml
+```
+
+Run `python3 smart_nvr.py --help` to see available options (input file, device, threshold, etc.).
 
 ### Inspecting Output
 
@@ -71,36 +98,21 @@ To identify lane-hogging events, search the metadata files for 'hogging' entries
 
 ## How It Works
 
-### STEP 1 - Model Download and Conversion
-
-The sample downloads an example video file and the RTDETRv2 object detection model from HuggingFace. 
-The RTDETRv2 PyTorch model is converted to OpenVINO IR (with ONNX as an intermediate step) using the standard HuggingFace toolchain.
-The sample also downloads the `preprocessor_config.json` file, which DLStreamer inference elements use to configure image preprocessing.
-
-```code
-subprocess.run(["optimum-cli", "export", "onnx", "--model", "PekingU/rtdetr_v2_r50vd", 
-                                "--task", "object-detection", "--opset", "18", "--width", "640", "--height", "640", "rtdetr_v2_r50vd"],
-        check=True)
-subprocess.run(["hf", "download", "PekingU/rtdetr_v2_r50vd", "--include", "preprocessor_config.json", "--local-dir", "."], check=True)
-subprocess.run(["ovc", "model.onnx"], check=True)
-```
-
-The sample skips this step on subsequent runs if the video file and model are already downloaded.
-
-### STEP 2 - DLStreamer Pipeline Construction
+### DLStreamer Pipeline Construction
 
 The application creates a GStreamer `pipeline` object that combines predefined GStreamer and DLStreamer elements with custom Python elements. 
 The pipeline is configured with the downloaded video file and detection model, and uses GPU inference by default.
 
 ```code
 pipeline = Gst.parse_launch(
-                f"filesrc location={video_file} ! decodebin3 ! "
-                f"gvadetect model={detection_model} device=GPU batch-size=4 threshold=0.7 ! queue ! "
-                f"gvaanalytics_py distance=500 angle=-135,-45 ! gvawatermark displ-cfg=draw-txt-bg=true ! " 
-                f"gvarecorder_py location=output.mp4 max-time=10")
+                f'filesrc location="{video_file}" ! decodebin3 caps="video/x-raw(ANY)" ! '
+                f'gvadetect model="{detection_model}" device={args.device} '
+                f'batch-size={args.batch_size} threshold={args.threshold} ! queue ! '
+                f'gvaanalytics_py distance=500 angle=-135,-45 ! gvafpscounter ! gvawatermark ! '
+                f'gvarecorder_py location="{args.output}" max-time={args.max_time}')
 ```
 
-### STEP 3 - Custom Analytics Element
+### Custom Analytics Element
 
 The `gvaanalytics_py` element is defined in `plugins/python/gvaAnalytics.py`.
 
@@ -110,7 +122,7 @@ This transform element processes GstAnalytics metadata generated by `gvadetect` 
 - For vehicles in the outer lane, checks for neighboring vehicles in the adjacent lane using 'distance' and 'angle' parameters
 - Classifies vehicles with no neighboring traffic as lane-hogging and inserts a new "hogging" object into the metadata stream
 
-### STEP 4 - Custom Video File Storage Element
+### Custom Video File Storage Element
 
 The `gvarecorder_py` element is defined in `plugins/python/gvaRecorder.py`.
 It is a bin element that wraps a sequence of GStreamer elements into a sub-pipeline: 

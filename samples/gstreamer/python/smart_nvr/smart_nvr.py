@@ -12,104 +12,152 @@ This sample application demonstrates how to add custom Python elements to DLStre
   custom detection metadata along with each chunk.
 """
 
+import argparse
 import os
-import subprocess
+import signal
 import sys
+from pathlib import Path
 
 import gi
 
 gi.require_version("Gst", "1.0")
-from gi.repository import Gst   # pylint: disable=no-name-in-module,wrong-import-order,wrong-import-position
+from gi.repository import GLib, Gst  # pylint: disable=no-name-in-module,wrong-import-order,wrong-import-position
 
-sys.path.insert(
-    0,
-    os.path.dirname(
-        os.path.dirname(
-            os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        )
-    ),
-)
-from shared_utils import download_https   # pylint: disable=wrong-import-position
+SCRIPT_DIR = Path(__file__).resolve().parent
+
+# shared_utils.py lives at samples/ root (three levels up from this script)
+_samples_root = SCRIPT_DIR.parent.parent.parent
+if not (_samples_root / "shared_utils.py").is_file():
+    # Fallback for Docker image layout
+    _samples_root = Path("/opt/intel/dlstreamer/samples")
+sys.path.insert(0, str(_samples_root))
+
+from shared_utils import download_https  # pylint: disable=wrong-import-position
 
 DEFAULT_VIDEO_URL = "https://videos.pexels.com/video-files/2431853/2431853-hd_1920_1080_25fps.mp4"
+DEFAULT_VIDEO_NAME = "2431853-hd_1920_1080_25fps.mp4"
 
 
-def pipeline_loop(gst_pipeline):
-    """Wrapper to run the gstreamer pipeline loop"""
-    print("Starting Pipeline \n")
-    bus = gst_pipeline.get_bus()
-    gst_pipeline.set_state(Gst.State.PLAYING)
-    terminate = False
-    while not terminate:
-        msg = bus.timed_pop_filtered(Gst.CLOCK_TIME_NONE, Gst.MessageType.EOS | Gst.MessageType.ERROR)
-        if msg:
+# ── helpers ──────────────────────────────────────────────────────────────────
+
+
+def parse_args():
+    p = argparse.ArgumentParser(description="Smart NVR — Lane Hogging Detection")
+    p.add_argument("--input", default=None, help="Video file path (default: auto-download Pexels sample)")
+    p.add_argument("--model", default=str(SCRIPT_DIR / "models" / "rtdetr_v2_r50vd" / "model.xml"),
+                   help="Path to detection model .xml (default: models/rtdetr_v2_r50vd/model.xml)")
+    p.add_argument("--device", default="GPU", help="Inference device (default: GPU)")
+    p.add_argument("--output", default="output.mp4", help="Output file location pattern (default: output.mp4)")
+    p.add_argument("--max-time", type=int, default=10, help="Chunk duration in seconds (default: 10)")
+    p.add_argument("--threshold", type=float, default=0.7, help="Detection confidence threshold (default: 0.7)")
+    p.add_argument("--batch-size", type=int, default=4, help="Inference batch size (default: 4)")
+    return p.parse_args()
+
+
+def ensure_video(input_path):
+    """Return path to input video, downloading default if none provided."""
+    if input_path:
+        path = Path(input_path)
+        if not path.is_file():
+            sys.stderr.write(f"Error: file not found: {input_path}\n")
+            sys.exit(1)
+        return str(path.resolve())
+
+    video_path = SCRIPT_DIR / DEFAULT_VIDEO_NAME
+    if not video_path.is_file():
+        print("\nNo input provided. Downloading default video...\n")
+        download_https(DEFAULT_VIDEO_URL, str(video_path), {"videos.pexels.com"})
+    return str(video_path)
+
+
+def ensure_model(model_path):
+    """Return path to detection model; fail if not found."""
+    model_xml = Path(model_path)
+    if not model_xml.is_file():
+        sys.stderr.write(
+            f"Error: detection model not found at {model_path}.\n"
+            "Export it first — see README.md, 'Prepare Model' section.\n"
+        )
+        sys.exit(1)
+    return str(model_xml)
+
+
+def run_pipeline(pipeline):
+    """Run pipeline event loop with SIGINT → EOS for graceful shutdown."""
+
+    def _sigint(signum, frame):
+        pipeline.send_event(Gst.Event.new_eos())
+
+    prev = signal.signal(signal.SIGINT, _sigint)
+    bus = pipeline.get_bus()
+
+    pipeline.set_state(Gst.State.PLAYING)
+    try:
+        while True:
+            while GLib.MainContext.default().iteration(False):
+                pass
+
+            msg = bus.timed_pop_filtered(
+                100 * Gst.MSECOND,
+                Gst.MessageType.ERROR | Gst.MessageType.EOS,
+            )
+            if msg is None:
+                continue
             if msg.type == Gst.MessageType.ERROR:
-                _, debug_info = msg.parse_error()
-                print(f"Error received from element {msg.src.get_name()}")
-                print(f"Debug info: {debug_info}")
-                terminate = True
+                err, debug = msg.parse_error()
+                raise RuntimeError(f"Pipeline error: {err.message}\nDebug: {debug}")
             if msg.type == Gst.MessageType.EOS:
                 print("Pipeline complete.")
-                terminate = True
-    gst_pipeline.set_state(Gst.State.NULL)
+                break
+    finally:
+        signal.signal(signal.SIGINT, prev)
+        pipeline.set_state(Gst.State.NULL)
 
-def check_download_video_file():
-    """Check if the default video file exists locally, if not, download it."""
-    input_video = os.path.join(os.getcwd(), "2431853-hd_1920_1080_25fps.mp4")
 
-    # download if local copy does not exist
-    if not os.path.isfile(input_video):
-        input_video = os.path.join(os.getcwd(), "2431853-hd_1920_1080_25fps.mp4")
-        print("\nNo input provided. Downloading default video...\n")
-        download_https(DEFAULT_VIDEO_URL, input_video, {"videos.pexels.com"})
+# ── main ─────────────────────────────────────────────────────────────────────
 
-    return input_video
 
-def check_download_detection_model():
-    """Check if the default detection model exists locally, if not, download it."""
-    ov_model_path = os.path.join(os.getcwd(), "rtdetr_v2_r50vd/model.xml")
+def main():
+    args = parse_args()
 
-    # download RTDETRv2 model from Hugging Face Model Hub if local copy does not exist
-    if not os.path.isfile(ov_model_path):
-        print("Downloading PekingU/rtdetr_v2_r50vd from HuggingFace\n")
-        subprocess.run(["optimum-cli", "export", "onnx", "--model", "PekingU/rtdetr_v2_r50vd",
-                        "--task", "object-detection", "--opset", "18", "--width", "640", "--height", "640", "rtdetr_v2_r50vd",
-            ],check=True)
-        os.chdir("rtdetr_v2_r50vd")
-        subprocess.run(["hf", "download", "PekingU/rtdetr_v2_r50vd", "--include", "preprocessor_config.json", "--local-dir", "."], check=True)
-        subprocess.run(["ovc", "model.onnx"], check=True)
-        os.chdir("..")
-        print(f"Model exported to OpenVINO IR format at: {ov_model_path}\n")
+    # Register custom Python elements
+    plugins_dir = str(SCRIPT_DIR / "plugins")
+    if plugins_dir not in os.environ.get("GST_PLUGIN_PATH", ""):
+        # Keep only /opt/intel paths, excluding gstreamer-1.0 dir (its python/ subdir
+        # contains gesotioformatter.py which conflicts with custom Gst.Bin subclasses)
+        existing = os.environ.get("GST_PLUGIN_PATH", "")
+        filtered = ":".join(
+            p for p in existing.split(":")
+            if p and p.startswith("/opt/intel") and "gstreamer-1.0" not in p
+        )
+        os.environ["GST_PLUGIN_PATH"] = f"{filtered}:{plugins_dir}"
+    os.environ.setdefault("GST_REGISTRY_FORK", "no")
 
-    return ov_model_path
-
-if __name__ == '__main__':
-    # check if GST_PLUGIN_PATH includes path to local python elements, if not add it to the environment variable
-    if f"{os.getcwd()}/plugins" not in os.environ.get("GST_PLUGIN_PATH", ""):
-        print(f"Adding \"{os.getcwd()}/plugins\" path to GST_PLUGIN_PATH environment variable")
-        os.environ["GST_PLUGIN_PATH"] = f"{os.environ.get('GST_PLUGIN_PATH', '')}:{os.getcwd()}/plugins"
-
-    # Initialize Gst library, python plugin (if found) will load local python elements
     Gst.init([])
     reg = Gst.Registry.get()
     if not reg.find_plugin("python"):
-        print("GStreamer 'python' plugin not found in registry.")
-        print("Check GST_PLUGIN_PATH includes path to 'libgstpython.so', if error persist please delete GStreamer registry cache.")
-        print(">rm ~/.cache/gstreamer-1.0/registry.x86_64.bin")
-        sys.exit(1)
+        raise RuntimeError(
+            "GStreamer 'python' plugin not found. Install gst-python / "
+            "python3-gst-1.0 and clear ~/.cache/gstreamer-1.0/registry.*.bin if needed."
+        )
 
-    # Download assets
-    video_file = check_download_video_file()
-    detection_model = check_download_detection_model()
+    # Prepare assets
+    video_file = ensure_video(args.input)
+    detection_model = ensure_model(args.model)
 
-    # Create GStreamer pipeline and parametrize with downloaded models and video files
-    PIPELINE_STR = f"filesrc location={video_file} ! decodebin3 ! " \
-        f"gvadetect model={detection_model} device=GPU batch-size=4 threshold=0.7 ! queue ! " \
-        f"gvaanalytics_py distance=500 angle=-135,-45 ! gvafpscounter ! gvawatermark ! " \
-        f"gvarecorder_py location=output.mp4 max-time=10"
-    print(f"Constructed Pipeline: \"{PIPELINE_STR}\"")
-    pipeline = Gst.parse_launch(PIPELINE_STR)
+    # Build pipeline
+    pipe = (
+        f'filesrc location="{video_file}" ! decodebin3 caps="video/x-raw(ANY)" ! '
+        f'gvadetect model="{detection_model}" device={args.device} '
+        f"batch-size={args.batch_size} threshold={args.threshold} ! queue ! "
+        f"gvaanalytics_py distance=500 angle=-135,-45 ! gvafpscounter ! gvawatermark ! "
+        f'gvarecorder_py location="{args.output}" max-time={args.max_time}'
+    )
+    print(f'Pipeline: "{pipe}"')
+    pipeline = Gst.parse_launch(pipe)
 
-    # Execute Gstreamer pipeline
-    pipeline_loop(pipeline)
-    sys.exit(0)
+    run_pipeline(pipeline)
+
+
+if __name__ == "__main__":
+    main()
