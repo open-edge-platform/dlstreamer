@@ -70,6 +70,17 @@ class ObjectFuser {
      *  Returns false if projection cannot be performed for this calibration.  */
     static bool project_lidar_box_to_image(const Box3D &box, const CameraCalibration &cal, cv::Rect2f &out_rect);
 
+    /** Rasterise a 3D box's ground footprint (x, y) to the fixed top-down BEV
+     *  pixel grid. Camera-independent (needs no calibration) and always succeeds,
+     *  so LiDAR boxes are tracked in a metric frame free of perspective/depth
+     *  ambiguity. See @ref bev_raster_size for the grid extent. */
+    static bool project_lidar_box_to_bev(const Box3D &box, cv::Rect2f &out_rect);
+
+    /** Pixel dimensions of the BEV grid used by @ref project_lidar_box_to_bev.
+     *  Size the tracker's frame to this so in-range boxes are not pruned as
+     *  out-of-frame. */
+    static cv::Size bev_raster_size();
+
     /** Project a radar (x, y) ground point + extents to the image plane via the 3x3 homography. */
     static bool project_radar_box_to_image(const Box3D &box, const CameraCalibration &cal, cv::Rect2f &out_rect);
 

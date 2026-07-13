@@ -62,6 +62,7 @@ The script:
 | `PP_CONFIG` | `../g3dinference/.pointpillars/config/pointpillars_ov_config.json` | PointPillars runtime config |
 | `OUTPUT_JSON` | `./g3dobjectfuser_output.json` | Output JSON path |
 | `FRAME_INDEX` | `2` | KITTI demo frame index |
+| `TRACKING_SPACE` | `bev` | LiDAR tracker frame: `bev` (top-down, camera-independent) or `image` (projected into the camera plane) |
 
 ## Output
 

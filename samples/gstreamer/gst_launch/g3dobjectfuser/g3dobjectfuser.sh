@@ -42,6 +42,8 @@ YOLO_MODEL="${YOLO_MODEL:-${MODELS_PATH}/public/${YOLO_NAME}/FP16/${YOLO_NAME}.x
 DEVICE="${DEVICE:-CPU}"
 OUTPUT_JSON="${OUTPUT_JSON:-${SCRIPT_DIR}/g3dobjectfuser_output.json}"
 CALIB_JSON="${CALIB_JSON:-${SCRIPT_DIR}/calib/kitti_000002.json}"
+# LiDAR tracker coordinate frame: 'bev' (default, camera-independent) or 'image'.
+TRACKING_SPACE="${TRACKING_SPACE:-bev}"
 
 if [[ -z "${GST_DEBUG:-}" ]]; then
   export GST_DEBUG=g3dobjectfuser:4
@@ -103,7 +105,7 @@ cmd=(
   "caps=application/octet-stream" "!"
   g3dlidarparse "!" g3dinference "config=${PP_CONFIG}" "device=${DEVICE}" "!" mux.sink_1
   gvastreammux name=mux output-mode=container sync-mode=first-pts "!"
-  g3dobjectfuser "calibration=${CALIB_JSON}" "!"
+  g3dobjectfuser "calibration=${CALIB_JSON}" "tracking-space=${TRACKING_SPACE}" "!"
   gvametaconvert format=json json-indent=2 "!"
   gvametapublish file-format=2 "file-path=${OUTPUT_JSON}" "!"
   fakesink

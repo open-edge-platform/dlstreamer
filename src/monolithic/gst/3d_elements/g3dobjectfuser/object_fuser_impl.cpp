@@ -65,6 +65,18 @@ cv::Mat to_mat3x3(const std::array<float, 9> &arr) {
     return m;
 }
 
+/* Bird's-eye-view tracking grid. The LiDAR ground plane (x forward, y left, in
+ * metres) is rasterised to a fixed top-down pixel grid so the vas::ot tracker,
+ * which operates in pixel space, tracks LiDAR objects in a metric, camera-
+ * independent frame. The extent comfortably covers a typical automotive LiDAR
+ * range (e.g. PointPillars' [0,69.12] x [-39.68,39.68] m); a car footprint of
+ * 4.5 x 1.7 m maps to ~30 x 11 px, a good size for IoU association. */
+constexpr float kBevMetersPerPixel = 0.15f;
+constexpr float kBevMinX = -10.0f;
+constexpr float kBevMaxX = 110.0f;
+constexpr float kBevMinY = -60.0f;
+constexpr float kBevMaxY = 60.0f;
+
 } // namespace
 
 ObjectFuser::ObjectFuser() = default;
@@ -107,6 +119,32 @@ bool ObjectFuser::project_lidar_box_to_image(const Box3D &box, const CameraCalib
         return false;
     out_rect = cv::Rect2f(xmin, ymin, std::max(0.f, xmax - xmin), std::max(0.f, ymax - ymin));
     return true;
+}
+
+bool ObjectFuser::project_lidar_box_to_bev(const Box3D &box, cv::Rect2f &out_rect) {
+    /* Take the axis-aligned bounding rect of the box's rotated ground footprint
+     * (the x, y of its 8 corners), then map metres -> BEV pixels. */
+    cv::Mat corners3d = make_3d_box_corners(box); // 3x8 in the lidar/world frame
+    float xmin = std::numeric_limits<float>::infinity();
+    float ymin = std::numeric_limits<float>::infinity();
+    float xmax = -std::numeric_limits<float>::infinity();
+    float ymax = -std::numeric_limits<float>::infinity();
+    for (int i = 0; i < corners3d.cols; ++i) {
+        float x = corners3d.at<float>(0, i);
+        float y = corners3d.at<float>(1, i);
+        xmin = std::min(xmin, x);
+        xmax = std::max(xmax, x);
+        ymin = std::min(ymin, y);
+        ymax = std::max(ymax, y);
+    }
+    out_rect = cv::Rect2f((xmin - kBevMinX) / kBevMetersPerPixel, (ymin - kBevMinY) / kBevMetersPerPixel,
+                          (xmax - xmin) / kBevMetersPerPixel, (ymax - ymin) / kBevMetersPerPixel);
+    return true;
+}
+
+cv::Size ObjectFuser::bev_raster_size() {
+    return cv::Size(static_cast<int>((kBevMaxX - kBevMinX) / kBevMetersPerPixel),
+                    static_cast<int>((kBevMaxY - kBevMinY) / kBevMetersPerPixel));
 }
 
 bool ObjectFuser::project_radar_box_to_image(const Box3D &box, const CameraCalibration &cal, cv::Rect2f &out_rect) {
