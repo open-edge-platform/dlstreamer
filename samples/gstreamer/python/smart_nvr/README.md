@@ -3,6 +3,8 @@
 This sample demonstrates how to build a simple Network Video Recorder (NVR) with custom video analytics using DLStreamer elements.
 It detects line-hogging events—vehicles driving in outer lanes without a neighboring vehicle—which may be illegal in certain jurisdictions.
 
+> Note: This sample uses free stock video from [Pexels](https://www.pexels.com).
+
 ![Sample Output](smart_nvr_output.jpg)
 
 The event detection logic is straightforward and designed for demonstration purposes. 
@@ -28,35 +30,19 @@ The sample uses the following set of pipeline elements:
 
 ## Prerequisites
 
-### Prepare Model
-
-Export the RTDETRv2 detection model to OpenVINO IR format (run on host, only needed once).
-
-```sh
-python3 -m venv .smart_nvr_venv
-source .smart_nvr_venv/bin/activate
-pip install -r requirements.txt
-mkdir -p models
-optimum-cli export onnx --model PekingU/rtdetr_v2_r50vd \
-    --task object-detection --opset 18 --width 640 --height 640 models/rtdetr_v2_r50vd
-hf download PekingU/rtdetr_v2_r50vd --include preprocessor_config.json --local-dir models/rtdetr_v2_r50vd
-ovc models/rtdetr_v2_r50vd/model.onnx --output_model models/rtdetr_v2_r50vd/model
-deactivate
-```
-
 ### Install DLStreamer
 
 #### Option A: Docker image (recommended)
 
-Pull the latest DLStreamer image and start an interactive container with GPU access, mounting the sample directory:
+Pull the latest DLStreamer image and start an interactive container with GPU access:
 
 ```sh
 docker pull intel/dlstreamer:latest
 docker run --init -it --rm \
-    -v "$(pwd)":/app -w /app \
     --device /dev/dri \
     --group-add $(stat -c "%g" /dev/dri/render*) \
     intel/dlstreamer:latest
+cd /opt/intel/dlstreamer/samples/gstreamer/python/smart_nvr
 ```
 
 > Note: install Docker Engine if not already available (see [Docker installation guide](https://docs.docker.com/engine/install/)).
@@ -66,12 +52,38 @@ docker run --init -it --rm \
 
 Install DLStreamer on the host (see [DLStreamer Installation Guide](../../../../docs/user-guide/get_started/install/install_guide_index.md)).
 
-## Run Sample Application
+```sh
+cd samples/gstreamer/python/smart_nvr
+```
 
-The application automatically downloads the default video file on the first run:
+### Download Video and Prepare Model
+
+Download example video file:
 
 ```sh
-python3 smart_nvr.py --model models/rtdetr_v2_r50vd/model.xml
+curl -L -o 2431853-hd_1920_1080_25fps.mp4 \
+    "https://videos.pexels.com/video-files/2431853/2431853-hd_1920_1080_25fps.mp4"
+```
+
+Export the RTDETRv2 detection model to OpenVINO IR format:
+
+```sh
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+optimum-cli export onnx --model PekingU/rtdetr_v2_r50vd \
+    --task object-detection --opset 18 --width 640 --height 640 rtdetr_v2_r50vd
+hf download PekingU/rtdetr_v2_r50vd --include preprocessor_config.json --local-dir rtdetr_v2_r50vd
+ovc rtdetr_v2_r50vd/model.onnx --output_model rtdetr_v2_r50vd/model
+deactivate
+```
+
+## Run Sample Application
+
+```sh
+python3 smart_nvr.py \
+    --input 2431853-hd_1920_1080_25fps.mp4 \
+    --model rtdetr_v2_r50vd/model.xml
 ```
 
 Run `python3 smart_nvr.py --help` to see available options (input file, device, threshold, etc.).

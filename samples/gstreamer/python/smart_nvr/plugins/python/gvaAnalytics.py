@@ -16,7 +16,8 @@ import cv2
 
 gi.require_version('GstBase', '1.0')
 gi.require_version("GstAnalytics", "1.0")
-from gi.repository import Gst, GstBase, GObject, GLib, GstAnalytics # pylint: disable=no-name-in-module
+gi.require_version("DLStreamerWatermarkMeta", "1.0")
+from gi.repository import Gst, GstBase, GObject, GLib, GstAnalytics, DLStreamerWatermarkMeta # pylint: disable=no-name-in-module
 Gst.init_python()
 
 class Analytics(GstBase.BaseTransform):
@@ -105,19 +106,18 @@ class Analytics(GstBase.BaseTransform):
                         rmeta.add_od_mtd(GLib.quark_from_string("hogging"), x, y, w, h, confidence)
 
         # draw top and bottom lines of the inspection zone using WatermarkDrawMeta
-        wm = _get_watermark_meta()
-        wm.draw_meta_add(
+        DLStreamerWatermarkMeta.draw_meta_add(
             buffer,
             [int(self._zone[0, 0]), int(self._zone[0, 1]), int(self._zone[1, 0]), int(self._zone[1, 1])],
             r=200, g=0, b=0, thickness=1)
-        wm.text_meta_add(
+        DLStreamerWatermarkMeta.text_meta_add(
             buffer, x=int(self._zone[0, 0]), y=int(self._zone[0, 1]) - 5,
             text="start", font_scale=0.5, font_type=0, r=200, g=0, b=0, thickness=1, draw_bg=True)
-        wm.draw_meta_add(
+        DLStreamerWatermarkMeta.draw_meta_add(
             buffer,
             [int(self._zone[3, 0]), int(self._zone[3, 1]), int(self._zone[2, 0]), int(self._zone[2, 1])],
             r=200, g=0, b=0, thickness=1)
-        wm.text_meta_add(
+        DLStreamerWatermarkMeta.text_meta_add(
             buffer, x=int(self._zone[3, 0]), y=int(self._zone[3, 1]) - 5,
             text="stop", font_scale=0.5, font_type=0, r=200, g=0, b=0, thickness=1, draw_bg=True)
 
