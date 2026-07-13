@@ -69,12 +69,49 @@ Pass a path to a JSON configuration file using the `config` property:
 gst-launch-1.0 ... ! gvaanalytics config=/path/to/analytics-config.json ! ...
 ```
 
+Example `analytics-config.json`:
+
+```json
+{
+  "zones": [
+    {
+      "id": "restricted_area",
+      "type": "polygon",
+      "points": [
+        {"x": 400, "y": 200},
+        {"x": 800, "y": 200},
+        {"x": 800, "y": 600},
+        {"x": 400, "y": 600}
+      ]
+    },
+    {
+      "id": "danger_zone",
+      "type": "circle",
+      "center": {"x": 960, "y": 540},
+      "radius": 150
+    }
+  ],
+  "tripwires": [
+    {
+      "id": "entrance",
+      "points": [
+        {"x": 960, "y": 0},
+        {"x": 960, "y": 1080}
+      ]
+    }
+  ]
+}
+```
+
 ### Using inline configuration
 
 Configure tripwires and zones directly via properties:
 
 ```bash
-gst-launch-1.0 ... ! gvaanalytics tripwires='[{"points": [[100, 100], [500, 100]]}]' zones='[{"points": [[0, 0], [640, 0], [640, 480], [0, 480]]}]' ! ...
+gst-launch-1.0 ... ! gvaanalytics \
+  tripwires='[{"id":"entrance","points":[{"x":960,"y":0},{"x":960,"y":1080}]}]' \
+  zones='[{"id":"restricted_area","type":"polygon","points":[{"x":400,"y":200},{"x":800,"y":200},{"x":800,"y":600},{"x":400,"y":600}]},{"id":"danger_zone","type":"circle","center":{"x":960,"y":540},"radius":150}]' \
+  ! ...
 ```
 
 ### Drawing visualization
