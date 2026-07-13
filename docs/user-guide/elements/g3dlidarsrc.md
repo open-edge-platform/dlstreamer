@@ -6,7 +6,7 @@ Captures real-time point clouds from a physical LiDAR device and emits `applicat
 
 The `g3dlidarsrc` element is the live-capture counterpart to `g3dlidarparse`. Where `g3dlidarparse` replays recorded BIN/PCD frames from disk, `g3dlidarsrc` receives UDP packets directly from a sensor, decodes them via the vendor SDK, and converts the resulting frames into dense point-cloud buffers.
 
-It is implemented as a `GstPushSrc` live source. The current backend is **RoboSense** (via the header-only `rs_driver` SDK), and the only hardware tested so far is the **RSE1 (E1R)**. Other RoboSense models that `rs_driver` advertises support for (RS16, RS32, RS128, RSM1, etc.) are not validated here.
+It is implemented as a `GstPushSrc` live source. The current backend is **RoboSense** (via the header-only `rs_driver` SDK), and the only hardware tested so far is the **RSE1 (E1R)**. Other RoboSense models that `rs_driver` advertises support for (RS16, RS32, RS128, RSM1, etc.) are not validated here. The element has **no compile-time dependency** on any vendor SDK: each vendor is a separate backend shared library that the element loads at runtime via `dlopen`, selected by the config's `vendor` field (see [Vendor backends](#vendor-backends) below).
 
 Key operations:
 - **Configuration-driven setup**: A JSON `config` file declares the `vendor`, `model`, and `transport`. 
@@ -32,15 +32,19 @@ The `config` property points to a JSON file with a deliberately layered structur
 
 A key principle: `transport` only carries fields whose meaning is vendor-neutral (for UDP today, that is just the bind address). Anything that uses **vendor-specific terminology** — for example RoboSense's `dense_points` or `wait_for_difop` SDK options — belongs in `params`, not in `transport`.
 
+### Example
+
 ```json
 {
   "vendor": "robosense",
   "model": "RSE1",
-  "transport": {
-    "type": "udp",
-    "bind_address": "0.0.0.0"
-  },
-  "params": {}
+  "transport": { "type": "udp", "bind_address": "192.168.1.100" },
+  "params": {
+    "msop_port": 6699,
+    "difop_port": 7788,
+    "max_distance": 80.0,
+    "dense_points": true
+  }
 }
 ```
 
@@ -69,7 +73,7 @@ The UDP transport block contains only the fields that are meaningful to **any** 
 
 When `vendor` is `robosense`, the `params` object can carry the following keys to override `rs_driver` defaults. Every key is **optional** — omit it to keep the SDK default.
 
-Keys are validated on startup: any unrecognized key (typos included) fails the pipeline with a `RESOURCE/SETTINGS` error listing every accepted key.
+Keys are parsed and validated by the RoboSense backend on startup: any unrecognized key (typos included) fails the pipeline with an error listing every accepted key.
 
 The fields below are validated on the only model we have tested (**RSE1**). 
 
@@ -84,21 +88,7 @@ The fields below are validated on the only model we have tested (**RSE1**).
 | `ts_first_point`  | decoder | boolean | `false`  | If `true`, the per-frame timestamp marks the **first** point in the frame; if `false`, the **last** point. Pick whichever convention your fusion stack uses; it shifts each frame's timestamp by one frame duration.                                       |
 | `wait_for_difop`  | decoder | boolean | `true`   | If `true`, the SDK suppresses point clouds until it has seen at least one DIFOP packet (so calibration/temperature/clock info is available). Set to `false` only for debugging when you know DIFOP is missing and want raw points anyway.                  |
 
-#### Example
 
-```json
-{
-  "vendor": "robosense",
-  "model": "RSE1",
-  "transport": { "type": "udp", "bind_address": "192.168.1.100" },
-  "params": {
-    "msop_port": 6699,
-    "difop_port": 7788,
-    "max_distance": 80.0,
-    "dense_points": true
-  }
-}
-```
 
 
 ## Pipeline Examples
@@ -172,24 +162,80 @@ The chosen value is written to both `LidarMeta.exit_source_timestamp` and `GST_B
 
 
 
-## Linking against rs_driver
+## Vendor backends
 
-`g3dlidarsrc` integrates the **header-only** `rs_driver` SDK directly: nothing is built or linked separately, so the resulting `libg3dlidarsrc` has no external rs_driver runtime dependency.
+`g3dlidarsrc` has **no compile-time dependency** on any vendor SDK. Each vendor is a separate **backend shared library** (`libg3dlidar_<vendor>.so`) that the element loads at runtime. At `start()` the element reads the config's `vendor` field, derives the library name (`vendor="robosense"` → `libg3dlidar_robosense.so`), `dlopen`s it, and resolves a small set of flat C functions via `dlsym`:
 
-### How to provide rs_driver
+```
+g3dlidarsrc (in libgst3delements.so)  --dlopen("libg3dlidar_<vendor>.so")-->  backend  -->  vendor SDK
+    (vendor-neutral, no SDK include)          C ABI / function pointers                (SDK + threading)
+```
 
-There are two ways. **If in doubt, use option B.**
+The C ABI is vendor-neutral and declared in [g3d_lidar_backend_api.h](../../../include/dlstreamer/lidar/g3d_lidar_backend_api.h) (`g3d_lidar_backend_create` / `set_callbacks` / `init` / `start` / `stop` / `destroy`). It carries only fields common to all UDP LiDARs (model, bind address, timestamp policy); vendor-specific options ride in the raw `params` JSON object, which the element passes through **verbatim** and each backend parses itself. This is why the element does not hardcode a vendor allowlist and knows nothing about any vendor's parameter schema — support for a vendor is simply "is its backend library present?".
 
-- **Option A — bring your own.** Clone rs_driver yourself (matching the commit listed as `RS_DRIVER_VERSION` in [CMakeLists.txt](../../../src/monolithic/gst/3d_elements/g3dlidarsrc/CMakeLists.txt)), apply the in-tree patches once with the helper script, then point CMake at it via either `-DRS_DRIVER_SRC_DIR=/path/to/rs_driver/src` or the `RS_DRIVER_SRC_DIR` environment variable. If the build complains about your tree (wrong commit, patches not applied, etc.), unset the variable and fall back to option B.
+Backends live under [`g3dlidarsrc/backends/<vendor>/`](../../../src/monolithic/gst/3d_elements/g3dlidarsrc/backends/) and are each **opt-in** (default OFF), because building one pulls in that vendor's SDK. Turning them all off still builds the element and plugin; `g3dlidarsrc` is registered and fails only at `start()` when the requested vendor's backend is missing.
+
+### RoboSense backend (`rs_driver`)
+
+The RoboSense backend ([backends/robosense/](../../../src/monolithic/gst/3d_elements/g3dlidarsrc/backends/robosense/)) wraps the **header-only C++** `rs_driver` SDK — which has no prebuilt library and no stable C symbols of its own — behind the C ABI. It is built by the `g3dlidar_robosense` target, gated by the `ENABLE_LIDAR_ROBOSENSE` option (default OFF), producing `libg3dlidar_robosense.so` on Linux / `g3dlidar_robosense.dll` on Windows.
+
+#### Linux
+
+```bash
+# From the DL Streamer root
+cmake -B build -S . -DCMAKE_BUILD_TYPE=Release -DENABLE_LIDAR_ROBOSENSE=ON
+cmake --build build --target gst3delements g3dlidar_robosense -j"$(nproc)"
+```
+
+Or with the top-level `Makefile`, which forwards the option:
+
+```bash
+make build ENABLE_LIDAR_ROBOSENSE=ON
+```
+
+#### Windows
+
+The all-in-one PowerShell script (see the [Windows compilation guide](../dev_guide/advanced_install/advanced_install_guide_windows_compilation.md)) takes an `-enableLidarRobosense` switch, which forwards `-DENABLE_LIDAR_ROBOSENSE=ON` to CMake. Run it from an **administrator** PowerShell in the DL Streamer root:
+
+```powershell
+# Build from source, including the RoboSense backend
+.\scripts\build_dlstreamer_dlls.ps1 -enableLidarRobosense -setEnv
+
+# Or build the installer package with the backend included (this is what CI runs)
+.\scripts\build_dlstreamer_dlls.ps1 -buildInstaller -installerSkipCompression -enableLidarRobosense
+```
+
+Without `-enableLidarRobosense` the script builds everything **except** the backend (the CMake option stays OFF). The Windows CI already passes this switch, so the shipped installer includes `g3dlidar_robosense.dll`.
+
+There are two ways to provide the `rs_driver` source it compiles against. **If in doubt, use option B.**
+
+- **Option A — bring your own.** Clone rs_driver yourself (matching the commit listed as `RS_DRIVER_VERSION` in the backend's [CMakeLists.txt](../../../src/monolithic/gst/3d_elements/g3dlidarsrc/backends/robosense/CMakeLists.txt)), apply the in-tree patches once with the helper script, then point CMake at it via either `-DRS_DRIVER_SRC_DIR=/path/to/rs_driver/src` or the `RS_DRIVER_SRC_DIR` environment variable. If the build complains about your tree (wrong commit, patches not applied, etc.), unset the variable and fall back to option B.
 
   ```bash
-  bash <dlstreamer>/src/monolithic/gst/3d_elements/g3dlidarsrc/patches/apply_patch.sh \
-      <dlstreamer>/src/monolithic/gst/3d_elements/g3dlidarsrc/patches/*.patch
+  bash <dlstreamer>/src/monolithic/gst/3d_elements/g3dlidarsrc/backends/robosense/patches/apply_patch.sh \
+      <dlstreamer>/src/monolithic/gst/3d_elements/g3dlidarsrc/backends/robosense/patches/*.patch
   ```
 
   The helper is idempotent, so re-running it after a `git clean` is safe.
 
-- **Option B — let CMake do it (default).** Don't set `RS_DRIVER_SRC_DIR`. The first `cmake ..` automatically clones the pinned commit, applies the patches, and configures the build. One-time network download; nothing else to do.
+- **Option B — let CMake do it (default).** Don't set `RS_DRIVER_SRC_DIR`. The first `cmake ..` with `ENABLE_LIDAR_ROBOSENSE=ON` automatically clones the pinned commit, applies the patches, and configures the build. One-time network download; nothing else to do.
+
+### Adding a new vendor
+
+1. Create `g3dlidarsrc/backends/<vendor>/` with a `CMakeLists.txt` that builds `libg3dlidar_<vendor>.so`.
+2. Implement the functions in [g3d_lidar_backend_api.h](../../../include/dlstreamer/lidar/g3d_lidar_backend_api.h) with C linkage, containing all of that vendor's SDK code and threading. Parse the vendor's own keys out of `params_json`.
+3. Add an `option(ENABLE_LIDAR_<VENDOR> ... OFF)` + `add_subdirectory(<vendor>)` in [backends/CMakeLists.txt](../../../src/monolithic/gst/3d_elements/g3dlidarsrc/backends/CMakeLists.txt).
+
+The element needs **no changes** — a config with `"vendor": "<vendor>"` will load the new backend automatically.
+
+### Runtime requirement
+
+Backends are loaded by bare name (`libg3dlidar_<vendor>.so` on Linux, `g3dlidar_<vendor>.dll` on Windows), so the install directory must be on the dynamic loader's search path at runtime:
+
+- **Linux** — on `LD_LIBRARY_PATH`. A standard install places the backend under `lib/`, which `scripts/setup_dls_env.sh` already adds to `LD_LIBRARY_PATH`.
+- **Windows** — on `PATH` (Windows searches `PATH`, not `LD_LIBRARY_PATH`). A standard install / `setup_dls_env.ps1` sets this up; building from the tree with `build_dlstreamer_dlls.ps1 -setEnv` also adds the build output to `PATH`.
+
+If the element fails at start with *"Failed to load backend '…'"*, the backend is either not built (its `ENABLE_LIDAR_<VENDOR>` option was OFF) or not on the library path.
 
 ## Element Details (gst-inspect-1.0)
 
@@ -201,12 +247,34 @@ Factory Details:
   Description              Receives real-time LiDAR point cloud data via rs_driver SDK (g3dlidarsrc)
   Author                   Intel Corporation
 
+Plugin Details:
+  Name                     3delements
+  Description              DL Streamer 3D Elements
+  Filename                 /home/kpi/dlstreamer/build/intel64/Release/lib/libgst3delements.so
+  Version                  2026.1.0
+  License                  MIT/X11
+  Source module            dlstreamer
+  Binary package           Deep Learning Streamer elements
+  Origin URL               https://github.com/open-edge-platform/dlstreamer/tree/main
+
+GObject
+ +----GInitiallyUnowned
+       +----GstObject
+             +----GstElement
+                   +----GstBaseSrc
+                         +----GstPushSrc
+                               +----GstG3DLidarSrc
+
+Element Flags:
+  - SOURCE
+
 Pad Templates:
   SRC template: 'src'
     Availability: Always
     Capabilities:
       application/x-lidar
 
+Element has no clocking capabilities.
 Element has no URI handling capabilities.
 
 Pads:
@@ -215,17 +283,33 @@ Pads:
 
 Element Properties:
 
-  config              : Path to a JSON config file describing the LiDAR vendor, model and transport (e.g. {"vendor":"robosense","model":"RSE1","transport":{"type":"udp","bind_address":"0.0.0.0"}}). Required.
+  automatic-eos       : Automatically EOS when the segment is done
+                        flags: readable, writable
+                        Boolean. Default: true
+
+  blocksize           : Size in bytes to read per buffer (-1 = default)
+                        flags: readable, writable, deprecated
+                        Unsigned Integer. Range: 0 - 4294967295 Default: 0
+
+  config              : Path to a JSON config file describing the LiDAR vendor, model and transport. Required.
                         flags: readable, writable
                         String. Default: null
+
+  do-timestamp        : Apply current stream time to buffers
+                        flags: readable, writable, deprecated
+                        Boolean. Default: false
 
   name                : The name of the object
                         flags: readable, writable
                         String. Default: "g3dlidarsrc0"
 
-  ntp-sync            : Synchronize received streams to the LiDAR clock (TRUE = use LiDAR clock, FALSE = use pipeline clock from 0)
+  ntp-sync            : Timestamp source for buffer PTS (TRUE = LiDAR clock from DIFOP, FALSE = pipeline running time, starts from 0 at PLAYING)
                         flags: readable, writable
                         Boolean. Default: false
+
+  num-buffers         : Number of buffers to output before sending EOS (-1 = unlimited)
+                        flags: readable, writable
+                        Integer. Range: -1 - 2147483647 Default: -1
 
   parent              : The parent of the object
                         flags: readable, writable
@@ -238,5 +322,10 @@ Element Properties:
   timeout             : Timeout in microseconds for receiving data (0 = no timeout)
                         flags: readable, writable
                         Unsigned Integer64. Range: 0 - 18446744073709551615 Default: 5000000
+
+  typefind            : Run typefind before negotiating (deprecated, non-functional)
+                        flags: readable, writable, deprecated
+                        Boolean. Default: false
+
 ```
 

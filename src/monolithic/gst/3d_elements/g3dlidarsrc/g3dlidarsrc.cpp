@@ -6,14 +6,11 @@
 
 #include "g3dlidarsrc.h"
 #include <dlstreamer/gst/metadata/g3d_lidar_meta.h>
+#include <dlstreamer/lidar/g3d_lidar_backend_api.h>
 #include <gst/gstinfo.h>
 #include <string.h>
 
-/* Disable PCAP support in rs_driver (we only need real-time hardware input) */
-#define DISABLE_PCAP_PARSE
-
-#include <rs_driver/api/lidar_driver.hpp>
-#include <rs_driver/msg/point_cloud_msg.hpp>
+#include <dlfcn.h>
 
 #include "lidar_config.hpp"
 
@@ -24,10 +21,19 @@
 #include <string>
 #include <chrono>
 #include <stdexcept>
+#include <vector>
 
-using namespace robosense::lidar;
-
-typedef PointCloudT<PointXYZI> PointCloudMsg;
+/* The vendor backend library is loaded by bare name at runtime:
+ *   - Windows: g3dlidar_<vendor>.dll
+ *   - Linux:   libg3dlidar_<vendor>.so
+ * The <vendor> comes from the config, so the element is vendor-agnostic. */
+#ifdef _WIN32
+#define G3D_BACKEND_LIB_PREFIX "g3dlidar_"
+#define G3D_BACKEND_LIB_SUFFIX ".dll"
+#else
+#define G3D_BACKEND_LIB_PREFIX "libg3dlidar_"
+#define G3D_BACKEND_LIB_SUFFIX ".so"
+#endif
 
 GST_DEBUG_CATEGORY_STATIC(gst_g3d_lidar_src_debug);
 #define GST_CAT_DEFAULT gst_g3d_lidar_src_debug
@@ -54,13 +60,29 @@ enum {
 static GstStaticPadTemplate src_template =
     GST_STATIC_PAD_TEMPLATE("src", GST_PAD_SRC, GST_PAD_ALWAYS, GST_STATIC_CAPS("application/x-lidar"));
 
+/* One completed frame, copied out of the backend's borrowed buffer (which is
+ * only valid during the cloud callback) so it can be queued for create(). */
+struct LidarFrame {
+    std::vector<float> xyzi; /* point_count * 4 floats: x, y, z, intensity */
+    guint point_count;
+    double timestamp;
+};
+
 /* Private data structure (C++ objects hidden from GObject C header) */
 struct _GstG3DLidarSrcPrivate {
-    LidarDriver<PointCloudMsg> *driver;
+    /* Vendor backend (g3dlidar_<vendor>.dll or libg3dlidar_<vendor>.so), loaded at runtime via dlopen(). */
+    void *sdk_handle;              /* dlopen() handle for the backend .so */
+    g3d_lidar_backend_handle *rs;  /* backend instance */
+    g3d_lidar_backend_handle *(*create_fn)(void);
+    g3d_lidar_error_code (*set_callbacks_fn)(g3d_lidar_backend_handle *, g3d_lidar_cloud_cb, g3d_lidar_error_cb, void *);
+    g3d_lidar_error_code (*init_fn)(g3d_lidar_backend_handle *, const g3d_lidar_params *, char *, int);
+    g3d_lidar_error_code (*start_fn)(g3d_lidar_backend_handle *);
+    void (*stop_fn)(g3d_lidar_backend_handle *);
+    void (*destroy_fn)(g3d_lidar_backend_handle *);
 
     std::mutex queue_mutex;
     std::condition_variable queue_cond;
-    std::queue<std::shared_ptr<PointCloudMsg>> frame_queue;
+    std::queue<std::shared_ptr<LidarFrame>> frame_queue;
 
     gboolean flushing;
     std::chrono::steady_clock::time_point last_frame_time;
@@ -167,8 +189,15 @@ static void gst_g3d_lidar_src_init(GstG3DLidarSrc *self) {
     self->priv = (GstG3DLidarSrcPrivate *)gst_g3d_lidar_src_get_instance_private(self);
     new (&self->priv->queue_mutex) std::mutex();
     new (&self->priv->queue_cond) std::condition_variable();
-    new (&self->priv->frame_queue) std::queue<std::shared_ptr<PointCloudMsg>>();
-    self->priv->driver = nullptr;
+    new (&self->priv->frame_queue) std::queue<std::shared_ptr<LidarFrame>>();
+    self->priv->sdk_handle = nullptr;
+    self->priv->rs = nullptr;
+    self->priv->create_fn = nullptr;
+    self->priv->set_callbacks_fn = nullptr;
+    self->priv->init_fn = nullptr;
+    self->priv->start_fn = nullptr;
+    self->priv->stop_fn = nullptr;
+    self->priv->destroy_fn = nullptr;
     self->priv->flushing = FALSE;
 
     /* Configure as live source */
@@ -197,6 +226,16 @@ static void gst_g3d_lidar_src_finalize(GObject *object) {
     GstG3DLidarSrc *self = GST_G3D_LIDAR_SRC(object);
 
     g_free(self->config);
+
+    /* Fallback cleanup in case stop() did not run. */
+    if (self->priv->rs && self->priv->destroy_fn) {
+        self->priv->destroy_fn(self->priv->rs);
+        self->priv->rs = nullptr;
+    }
+    if (self->priv->sdk_handle) {
+        dlclose(self->priv->sdk_handle);
+        self->priv->sdk_handle = nullptr;
+    }
 
     /* Destruct C++ objects */
     self->priv->frame_queue.~queue();
@@ -251,8 +290,17 @@ static void gst_g3d_lidar_src_get_property(GObject *object, guint prop_id, GValu
     }
 }
 
-/* rs_driver point cloud callback: push completed frame to our queue */
-static void on_put_cloud(GstG3DLidarSrc *self, std::shared_ptr<PointCloudMsg> cloud) {
+/* Shim cloud callback (called from rs_driver's receive thread via the shim):
+ * copy the borrowed frame and push it to our queue. The xyzi pointer is only
+ * valid for the duration of this call, so we copy it into a LidarFrame. */
+static void on_cloud_cb(void *user, const g3d_lidar_frame *frame) {
+    GstG3DLidarSrc *self = GST_G3D_LIDAR_SRC(user);
+
+    auto lf = std::make_shared<LidarFrame>();
+    lf->point_count = frame->point_count;
+    lf->timestamp = frame->timestamp;
+    lf->xyzi.assign(frame->xyzi, frame->xyzi + (size_t)frame->point_count * 4);
+
     std::lock_guard<std::mutex> lock(self->priv->queue_mutex);
 
     /* Record frame reception time */
@@ -264,8 +312,14 @@ static void on_put_cloud(GstG3DLidarSrc *self, std::shared_ptr<PointCloudMsg> cl
         GST_WARNING_OBJECT(self, "Frame queue full, dropping oldest frame");
     }
 
-    self->priv->frame_queue.push(cloud);
+    self->priv->frame_queue.push(lf);
     self->priv->queue_cond.notify_one();
+}
+
+/* Shim error callback: surface rs_driver exceptions as element warnings. */
+static void on_error_cb(void *user, const char *msg) {
+    GstG3DLidarSrc *self = GST_G3D_LIDAR_SRC(user);
+    GST_WARNING_OBJECT(self, "rs_driver exception: %s", msg ? msg : "(null)");
 }
 
 static gboolean gst_g3d_lidar_src_start(GstBaseSrc *src) {
@@ -312,175 +366,106 @@ static gboolean gst_g3d_lidar_src_start(GstBaseSrc *src) {
         return FALSE;
     }
 
-    /* Vendor selects the SDK backend. Only RoboSense is implemented today;
-     * add other vendors as new branches here. */
-    if (cfg.vendor != "robosense") {
-        GST_ELEMENT_ERROR(self, RESOURCE, NOT_FOUND, (NULL),
-                          ("Unsupported vendor: '%s' (only 'robosense' is implemented)", cfg.vendor.c_str()));
-        return FALSE;
-    }
-
-    /* RoboSense (rs_driver) currently supports the UDP transport only.
-     * Other transports (e.g. usb) are reserved: error out clearly until
-     * a backend implements them. */
+    /* Transport is vendor-neutral; only UDP is implemented today. Vendor support
+     * itself is decided by whether the matching backend library exists (below),
+     * so the element does not hardcode a vendor allowlist. */
     if (cfg.transport.type != g3dlidar::TransportType::UDP) {
         GST_ELEMENT_ERROR(self, RESOURCE, NOT_FOUND, (NULL),
-                          ("Unsupported transport '%s' for vendor 'robosense' "
-                           "(only 'udp' is implemented)",
+                          ("Unsupported transport '%s' (only 'udp' is implemented)",
                            cfg.transport.type_str.c_str()));
         return FALSE;
     }
 
-    /* Map vendor identity / transport into RSDriverParam, then read the open
-     * `params` object for RoboSense-specific overrides. Anything in `params` is
-     * optional: omitted keys keep the rs_driver defaults. Mechanical-only
-     * decoder fields (start_angle / end_angle / split_*) are intentionally NOT
-     * exposed yet — the only hardware tested is the RSE1 (MEMS). */
-    RSDriverParam param;
-    param.lidar_type = strToLidarType(cfg.model);
-    param.input_type = InputType::ONLINE_LIDAR;
-    /* rs_driver calls this field "host_address"; in our schema it's exposed as
-     * the unambiguous "bind_address" (local NIC to bind to). We do not expose
-     * multicast (group_address): unicast covers virtually all deployments and
-     * rs_driver's default ("0.0.0.0") is exactly that. Add it back as a
-     * transport field if a real multicast use case appears. */
-    param.input_param.host_address = cfg.transport.bind_address;
+    /* Build the vendor-neutral params. Vendor-specific options (ports, range
+     * clipping, SDK toggles) are passed through verbatim as the raw `params`
+     * JSON string and parsed by the backend; the element does not interpret
+     * them. cfg (and params_json) outlive this call, backing the char pointers,
+     * which the backend only reads during init below. */
+    std::string params_json = cfg.params.dump();
+    g3d_lidar_params params;
+    params.model = cfg.model.c_str();
+    /* "bind_address" is the local NIC to bind the UDP socket to. Multicast
+     * (group_address) is not exposed: unicast covers virtually all deployments. */
+    params.bind_address = cfg.transport.bind_address.c_str();
     /* Pipeline clock vs. LiDAR clock is exposed as the GObject `ntp-sync`
-     * property, not via params, so it overrides any params.use_lidar_clock. */
-    param.decoder_param.use_lidar_clock = self->ntp_sync;
-
-    try {
-        const auto &p = cfg.params;
-        auto get_bool = [&](const char *key, bool def) {
-            if (!p.contains(key)) return def;
-            if (!p[key].is_boolean())
-                throw std::runtime_error(std::string("params.") + key + " must be a boolean");
-            return p[key].get<bool>();
-        };
-        auto get_int = [&](const char *key, int def) {
-            if (!p.contains(key)) return def;
-            if (!p[key].is_number_integer())
-                throw std::runtime_error(std::string("params.") + key + " must be an integer");
-            return p[key].get<int>();
-        };
-        auto get_uint = [&](const char *key, unsigned def, unsigned max) {
-            if (!p.contains(key)) return def;
-            if (!p[key].is_number_unsigned())
-                throw std::runtime_error(std::string("params.") + key + " must be a non-negative integer");
-            unsigned v = p[key].get<unsigned>();
-            if (v > max)
-                throw std::runtime_error(std::string("params.") + key + " out of range");
-            return v;
-        };
-        auto get_float = [&](const char *key, float def) {
-            if (!p.contains(key)) return def;
-            if (!p[key].is_number())
-                throw std::runtime_error(std::string("params.") + key + " must be a number");
-            return p[key].get<float>();
-        };
-
-        /* Mounting-pose transform (rs_driver `transform_param`) is intentionally
-         * NOT exposed: rs_driver only honors it when built with
-         * -DENABLE_TRANSFORM=ON (off by default), and RoboSense's own docs
-         * advise against enabling it in production due to per-point matrix
-         * multiplication cost. Apply rigid-body transforms downstream instead. */
-
-        /* Input params (UDP ports + socket buffer). Defaults match the
-         * RoboSense factory settings. imu_port is intentionally NOT exposed:
-         * the only tested model (RSE1) delivers IMU data inside the DIFOP
-         * packet itself, not on a separate UDP stream. user_layer_bytes /
-         * tail_layer_bytes are also omitted — they are protocol-framing knobs
-         * for customized firmware that we have not validated. */
-        param.input_param.msop_port =
-            (uint16_t)get_uint("msop_port", 6699, 65535);
-        param.input_param.difop_port =
-            (uint16_t)get_uint("difop_port", 7788, 65535);
-        param.input_param.socket_recv_buf =
-            get_uint("socket_recv_buf", 106496, 0xFFFFFFFFu);
-
-        /* Decoder params (range clipping, NaN handling, timestamp policy). */
-        param.decoder_param.min_distance =
-            get_float("min_distance", param.decoder_param.min_distance);
-        param.decoder_param.max_distance =
-            get_float("max_distance", param.decoder_param.max_distance);
-        param.decoder_param.dense_points =
-            get_bool("dense_points", param.decoder_param.dense_points);
-        param.decoder_param.ts_first_point =
-            get_bool("ts_first_point", param.decoder_param.ts_first_point);
-        param.decoder_param.wait_for_difop =
-            get_bool("wait_for_difop", param.decoder_param.wait_for_difop);
-
-        /* Reject unknown keys instead of silently ignoring them: a typo like
-         * "msop_pot" would otherwise leave the user wondering why their port
-         * change had no effect. The error message lists every accepted key so
-         * the fix is obvious. Update this list whenever a new key is added
-         * above. */
-        static const char *const known_keys[] = {
-            "msop_port", "difop_port", "socket_recv_buf",
-            "min_distance", "max_distance",
-            "dense_points", "ts_first_point", "wait_for_difop",
-        };
-        for (auto it = p.begin(); it != p.end(); ++it) {
-            const std::string &key = it.key();
-            bool ok = false;
-            for (const char *k : known_keys) {
-                if (key == k) { ok = true; break; }
-            }
-            if (!ok) {
-                std::string accepted;
-                for (size_t i = 0; i < sizeof(known_keys) / sizeof(known_keys[0]); ++i) {
-                    if (i) accepted += ", ";
-                    accepted += known_keys[i];
-                }
-                throw std::runtime_error(
-                    "unknown key 'params." + key +
-                    "' (check for typos; accepted keys for vendor 'robosense' are: " +
-                    accepted + ")");
-            }
-        }
-    } catch (const std::exception &e) {
-        GST_ELEMENT_ERROR(self, RESOURCE, SETTINGS, (NULL),
-                          ("Invalid params in config '%s': %s", self->config, e.what()));
-        return FALSE;
-    }
+     * property, not via params, so it overrides any use_lidar_clock in params. */
+    params.use_lidar_clock = self->ntp_sync ? 1 : 0;
+    params.params_json = params_json.c_str();
 
     GST_INFO_OBJECT(self,
-                    "Starting g3dlidarsrc: vendor=%s model=%s transport=udp "
-                    "bind=%s msop=%u difop=%u ntp-sync=%s",
+                    "Starting g3dlidarsrc: vendor=%s model=%s transport=udp bind=%s ntp-sync=%s",
                     cfg.vendor.c_str(), cfg.model.c_str(), cfg.transport.bind_address.c_str(),
-                    param.input_param.msop_port, param.input_param.difop_port,
                     self->ntp_sync ? "true" : "false");
-    /* Full RSDriverParam dump for debugging non-default params (range clip,
-     * transform, etc.). rs_driver's print() writes to its own stderr logger. */
-    if (gst_debug_category_get_threshold(gst_g3d_lidar_src_debug) >= GST_LEVEL_DEBUG)
-        param.print();
 
-    /* Create driver */
-    self->priv->driver = new LidarDriver<PointCloudMsg>();
-
-    /* Register callbacks */
-    self->priv->driver->regPointCloudCallback(
-        /* get_cloud: provide empty point cloud buffer */
-        []() -> std::shared_ptr<PointCloudMsg> { return std::make_shared<PointCloudMsg>(); },
-        /* put_cloud: receive completed frame */
-        [self](std::shared_ptr<PointCloudMsg> cloud) { on_put_cloud(self, cloud); });
-
-    self->priv->driver->regExceptionCallback([self](const Error &e) {
-        GST_WARNING_OBJECT(self, "rs_driver exception: %s", e.toString().c_str());
-    });
-
-    /* Init and start */
-    if (!self->priv->driver->init(param)) {
-        GST_ELEMENT_ERROR(self, RESOURCE, OPEN_READ, (NULL), ("Failed to initialize rs_driver"));
-        delete self->priv->driver;
-        self->priv->driver = nullptr;
+    /* Derive the backend library name from the vendor and load it. Each vendor
+     * backend (g3dlidar_<vendor>.dll on Windows, libg3dlidar_<vendor>.so on Linux) implements the C ABI in
+     * <dlstreamer/lidar/g3d_lidar_backend_api.h>. Loaded by bare name so the
+     * platform dynamic loader searches its standard library paths. */
+    std::string backend_lib = G3D_BACKEND_LIB_PREFIX + cfg.vendor + G3D_BACKEND_LIB_SUFFIX;
+    self->priv->sdk_handle = dlopen(backend_lib.c_str(), RTLD_LAZY);
+    if (!self->priv->sdk_handle) {
+        GST_ELEMENT_ERROR(self, LIBRARY, INIT, (NULL),
+                          ("Failed to load backend '%s' for vendor '%s': %s. Ensure the vendor "
+                           "backend is built (its ENABLE_LIDAR_<VENDOR> CMake option is ON) and on "
+                           "the library path (LD_LIBRARY_PATH or rpath).",
+                           backend_lib.c_str(), cfg.vendor.c_str(), dlerror()));
         return FALSE;
     }
 
-    if (!self->priv->driver->start()) {
-        GST_ELEMENT_ERROR(self, RESOURCE, OPEN_READ, (NULL), ("Failed to start rs_driver"));
-        delete self->priv->driver;
-        self->priv->driver = nullptr;
+#define G3D_LOAD_SYM(field, type, name)                                                                                \
+    do {                                                                                                               \
+        self->priv->field = (type)dlsym(self->priv->sdk_handle, name);                                                 \
+        if (!self->priv->field) {                                                                                      \
+            GST_ELEMENT_ERROR(self, LIBRARY, INIT, (NULL),                                                             \
+                              ("Failed to resolve symbol '%s' in %s: %s", name, backend_lib.c_str(), dlerror()));      \
+            dlclose(self->priv->sdk_handle);                                                                           \
+            self->priv->sdk_handle = nullptr;                                                                          \
+            return FALSE;                                                                                              \
+        }                                                                                                              \
+    } while (0)
+
+    G3D_LOAD_SYM(create_fn, g3d_lidar_backend_handle * (*)(void), "g3d_lidar_backend_create");
+    G3D_LOAD_SYM(set_callbacks_fn,
+                 g3d_lidar_error_code(*)(g3d_lidar_backend_handle *, g3d_lidar_cloud_cb, g3d_lidar_error_cb, void *),
+                 "g3d_lidar_backend_set_callbacks");
+    G3D_LOAD_SYM(init_fn, g3d_lidar_error_code(*)(g3d_lidar_backend_handle *, const g3d_lidar_params *, char *, int),
+                 "g3d_lidar_backend_init");
+    G3D_LOAD_SYM(start_fn, g3d_lidar_error_code(*)(g3d_lidar_backend_handle *), "g3d_lidar_backend_start");
+    G3D_LOAD_SYM(stop_fn, void (*)(g3d_lidar_backend_handle *), "g3d_lidar_backend_stop");
+    G3D_LOAD_SYM(destroy_fn, void (*)(g3d_lidar_backend_handle *), "g3d_lidar_backend_destroy");
+#undef G3D_LOAD_SYM
+
+    /* Create backend instance and register callbacks. */
+    self->priv->rs = self->priv->create_fn();
+    if (!self->priv->rs) {
+        GST_ELEMENT_ERROR(self, RESOURCE, OPEN_READ, (NULL), ("Failed to create '%s' backend instance",
+                          cfg.vendor.c_str()));
+        dlclose(self->priv->sdk_handle);
+        self->priv->sdk_handle = nullptr;
+        return FALSE;
+    }
+    self->priv->set_callbacks_fn(self->priv->rs, on_cloud_cb, on_error_cb, self);
+
+    /* Init and start. The backend writes a human-readable reason into err_buf on
+     * failure (bad params, unknown model, SDK init failure). */
+    char err_buf[256] = {0};
+    if (self->priv->init_fn(self->priv->rs, &params, err_buf, (int)sizeof(err_buf)) != G3D_LIDAR_OK) {
+        GST_ELEMENT_ERROR(self, RESOURCE, OPEN_READ, (NULL),
+                          ("Failed to initialize '%s' backend: %s", cfg.vendor.c_str(),
+                           err_buf[0] ? err_buf : "(no detail)"));
+        self->priv->destroy_fn(self->priv->rs);
+        self->priv->rs = nullptr;
+        dlclose(self->priv->sdk_handle);
+        self->priv->sdk_handle = nullptr;
+        return FALSE;
+    }
+
+    if (self->priv->start_fn(self->priv->rs) != G3D_LIDAR_OK) {
+        GST_ELEMENT_ERROR(self, RESOURCE, OPEN_READ, (NULL), ("Failed to start '%s' backend", cfg.vendor.c_str()));
+        self->priv->destroy_fn(self->priv->rs);
+        self->priv->rs = nullptr;
+        dlclose(self->priv->sdk_handle);
+        self->priv->sdk_handle = nullptr;
         return FALSE;
     }
 
@@ -500,10 +485,14 @@ static gboolean gst_g3d_lidar_src_stop(GstBaseSrc *src) {
 
     GST_INFO_OBJECT(self, "Stopping g3dlidarsrc");
 
-    if (self->priv->driver) {
-        self->priv->driver->stop();
-        delete self->priv->driver;
-        self->priv->driver = nullptr;
+    if (self->priv->rs) {
+        self->priv->stop_fn(self->priv->rs);
+        self->priv->destroy_fn(self->priv->rs);
+        self->priv->rs = nullptr;
+    }
+    if (self->priv->sdk_handle) {
+        dlclose(self->priv->sdk_handle);
+        self->priv->sdk_handle = nullptr;
     }
 
     /* Clear frame queue */
@@ -539,7 +528,7 @@ static gboolean gst_g3d_lidar_src_unlock_stop(GstBaseSrc *src) {
 
 static GstFlowReturn gst_g3d_lidar_src_create(GstPushSrc *src, GstBuffer **buf) {
     GstG3DLidarSrc *self = GST_G3D_LIDAR_SRC(src);
-    std::shared_ptr<PointCloudMsg> cloud;
+    std::shared_ptr<LidarFrame> cloud;
 
     /* Wait for a frame from rs_driver */
     {
@@ -582,14 +571,15 @@ static GstFlowReturn gst_g3d_lidar_src_create(GstPushSrc *src, GstBuffer **buf) 
         self->priv->frame_queue.pop();
     }
 
-    if (!cloud || cloud->points.empty()) {
+    if (!cloud || cloud->point_count == 0) {
         GST_DEBUG_OBJECT(self, "Received empty point cloud, skipping");
         *buf = gst_buffer_new();
         return GST_FLOW_OK;
     }
 
-    /* Convert to float[x, y, z, intensity] array */
-    size_t point_count = cloud->points.size();
+    /* The shim already delivered the frame as a flat [x, y, z, intensity] block,
+     * so we just copy it into the output buffer. */
+    size_t point_count = cloud->point_count;
     size_t payload_size = point_count * 4 * sizeof(float);
 
     *buf = gst_buffer_new_allocate(NULL, payload_size, NULL);
@@ -606,13 +596,7 @@ static GstFlowReturn gst_g3d_lidar_src_create(GstPushSrc *src, GstBuffer **buf) 
         return GST_FLOW_ERROR;
     }
 
-    float *dst = (float *)map.data;
-    for (size_t i = 0; i < point_count; i++) {
-        dst[i * 4 + 0] = cloud->points[i].x;
-        dst[i * 4 + 1] = cloud->points[i].y;
-        dst[i * 4 + 2] = cloud->points[i].z;
-        dst[i * 4 + 3] = (float)cloud->points[i].intensity;
-    }
+    memcpy(map.data, cloud->xyzi.data(), payload_size);
 
     gst_buffer_unmap(*buf, &map);
 

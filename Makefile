@@ -16,6 +16,7 @@ DLSTREAMER_VERSION 	:= 0.0.0
 BUILD_TYPE 			?= Release
 ENABLE_GENAI        := OFF
 ENABLE_TESTS		:= OFF
+ENABLE_LIDAR_ROBOSENSE	:= OFF
 
 DOCKER_PRIVATE_REGISTRY := # Empty on purpose
 
@@ -67,7 +68,8 @@ build: dependencies ## Compile Deep Learning Streamer
 		-DENABLE_SAMPLES=ON \
 		-DENABLE_GENAI=${ENABLE_GENAI} \
 		-DGENERATE_GIR_FROM_SOURCE=${BUILD_GIRS} \
-		-DENABLE_TESTS=${ENABLE_TESTS}; \
+		-DENABLE_TESTS=${ENABLE_TESTS} \
+		-DENABLE_LIDAR_ROBOSENSE=${ENABLE_LIDAR_ROBOSENSE}; \
 	cmake --build build -j$(shell nproc)
 
 .PHONY: install

@@ -9,7 +9,11 @@ param(
 	[switch]$buildInstaller,
 	[switch]$installerSkipCompression,
 	[string]$installerCodeSignScript,
-	[switch]$setEnv
+	[switch]$setEnv,
+	# Build the RoboSense LiDAR backend (g3dlidar_robosense.dll) for g3dlidarsrc.
+	# OFF by default so a plain local script run stays lean; CI passes this switch
+	# so the shipped installer includes the backend.
+	[switch]$enableLidarRobosense
 )
 
 $GSTREAMER_VERSION = "1.28.2"
@@ -505,6 +509,14 @@ mkdir $DLSTREAMER_BUILD
 Write-Section "Running CMake"
 $VCPKG_CMAKE = Join-Path $vsPath "VC\vcpkg\scripts\buildsystems\vcpkg.cmake"
 $buildArgs = @("-DCMAKE_TOOLCHAIN_FILE=$VCPKG_CMAKE", "-S", "$DLSTREAMER_SRC_LOCATION", "-B", "$DLSTREAMER_BUILD")
+# RoboSense LiDAR backend: OFF by default, ON when -enableLidarRobosense is passed
+# (CI does this for the installer). Passed explicitly either way so a reused build
+# directory can't carry a stale cached value.
+if ($enableLidarRobosense) {
+	$buildArgs += "-DENABLE_LIDAR_ROBOSENSE=ON"
+} else {
+	$buildArgs += "-DENABLE_LIDAR_ROBOSENSE=OFF"
+}
 if ($buildInstaller -and $installerSkipCompression) {
 	$buildArgs += "-DNSIS_SKIP_COMPRESSION=ON"
 }
