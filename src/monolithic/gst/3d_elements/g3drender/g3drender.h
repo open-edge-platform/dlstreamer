@@ -4,8 +4,7 @@
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
 
-#ifndef __G3D_RENDER_H__
-#define __G3D_RENDER_H__
+#pragma once
 
 #include <gst/base/gstbasetransform.h>
 #include <gst/gst.h>
@@ -60,5 +59,3 @@ GType gst_g3d_render_get_type(void);
 GType gst_g3d_render_view_mode_get_type(void);
 
 G_END_DECLS
-
-#endif /* __G3D_RENDER_H__ */
