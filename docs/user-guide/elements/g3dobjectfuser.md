@@ -28,6 +28,8 @@ It runs:
 
 `gvastreammux` performs the synchronisation; `sync-mode` makes the camera and 3D timelines comparable. The 3D sensor (LiDAR vs radar) is identified by the per-stream caps inside the batch (`application/x-lidar` vs `application/x-radar-processed`).
 
+**Note**: `g3drender` element which mentioned in following examples will be added soon.
+
 ### Camera + Radar fusion
 ```bash
 gst-launch-1.0 -v \
