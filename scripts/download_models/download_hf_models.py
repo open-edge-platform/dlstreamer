@@ -10,12 +10,82 @@ from __future__ import annotations
 
 import argparse
 import os
+import shutil
 import subprocess
 import sys
+import xml.etree.ElementTree as ET
 from pathlib import Path
 from hf_utils import custom_conversion
 from hf_utils import get_hf_model_support_level
 from hf_utils import resolve_hf_model_ref
+
+
+PRECISION_DIRS = {"FP32", "FP16", "INT8"}
+
+
+def _precision_from_element_type(element_type: str) -> str | None:
+    normalized = element_type.strip().lower()
+    if normalized in {"f32", "float32"}:
+        return "FP32"
+    if normalized in {"f16", "float16"}:
+        return "FP16"
+    if normalized in {"i8", "u8", "int8", "uint8"}:
+        return "INT8"
+    return None
+
+
+def detect_xml_precision(xml_path: Path) -> str:
+    tree = ET.parse(xml_path)
+    root = tree.getroot()
+
+    for port in root.findall(".//port"):
+        precision = (port.attrib.get("precision") or "").strip().upper()
+        if precision in PRECISION_DIRS:
+            return precision
+
+    for data_node in root.findall(".//data"):
+        mapped = _precision_from_element_type(data_node.attrib.get("element_type", ""))
+        if mapped:
+            return mapped
+
+    # Safe default for OpenVINO exports when metadata is incomplete.
+    return "FP32"
+
+
+def normalize_export_layout(model_path: Path) -> Path:
+    xml_candidates = sorted(model_path.rglob("*.xml"), key=lambda p: (len(p.parts), str(p)))
+    if not xml_candidates:
+        return model_path
+
+    xml_path = xml_candidates[0]
+    precision = detect_xml_precision(xml_path)
+    current_dir = xml_path.parent
+
+    if current_dir.name in PRECISION_DIRS:
+        if current_dir.name == precision:
+            return current_dir
+        target_dir = current_dir.parent / precision
+    else:
+        target_dir = model_path / precision
+
+    target_dir.mkdir(parents=True, exist_ok=True)
+
+    if current_dir != target_dir:
+        for item in list(current_dir.iterdir()):
+            destination = target_dir / item.name
+            if destination.exists():
+                if destination.is_dir() and item.is_dir():
+                    continue
+                if destination.is_file() and item.is_file():
+                    destination.unlink()
+                else:
+                    continue
+            shutil.move(str(item), str(destination))
+
+        if current_dir.exists() and not any(current_dir.iterdir()) and current_dir != model_path:
+            current_dir.rmdir()
+
+    return target_dir
 
 
 def parse_args() -> argparse.Namespace:
@@ -100,6 +170,7 @@ def main() -> int:
                 env = os.environ if not token else {**os.environ, "HF_TOKEN": token}
 
                 subprocess.run(command, check=True, env=env)
+                model_path = normalize_export_layout(model_path)
 
             case 1:
                 # Custom conversion
@@ -109,6 +180,7 @@ def main() -> int:
                     token,
                     extra_args=args.extra_args,
                 )
+                model_path = normalize_export_layout(model_path)
 
             case 2:
                 print(f"Model is not supported by DL Streamer: {model_id}")
