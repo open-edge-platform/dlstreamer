@@ -13,6 +13,7 @@ add_subdirectory(fpscounter)
 add_subdirectory(watermark)
 add_subdirectory(analytics)
 add_subdirectory(properties)
+add_subdirectory(g3drender)
 
 if(${ENABLE_AUDIO_INFERENCE_ELEMENTS})
     add_subdirectory(audiodetect)
