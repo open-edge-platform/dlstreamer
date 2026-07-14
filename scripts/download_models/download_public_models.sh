@@ -299,6 +299,7 @@ pip install --no-cache-dir openvino==2026.2.0 || handle_error $LINENO
 pip install --no-cache-dir onnx==1.21.0       || handle_error $LINENO
 pip install --no-cache-dir onnxscript==0.5.7  || handle_error $LINENO
 pip install --no-cache-dir seaborn==0.13.2    || handle_error $LINENO
+pip install --no-cache-dir opencv-python-headless==4.12.0.88 || handle_error $LINENO
 pip install --no-cache-dir nncf==2.19.0       || handle_error $LINENO
 pip install --no-cache-dir tqdm==4.67.1       || handle_error $LINENO
 pip install --no-cache-dir requests==2.32.5   || handle_error $LINENO
