@@ -993,7 +993,7 @@ void draw_cam_projection(cv::Mat &canvas, const float *points, guint count,
 
         int cx = static_cast<int>(u * scale_lb) + xp;
         int cy = static_cast<int>(v * scale_lb) + yp;
-        if (cx < 0 || cx >= roi_w || cy < 0 || cy >= roi_h) continue;
+        if (cx < xp || cx >= xp + sw || cy < yp || cy >= yp + sh) continue;
 
         visible.push_back({cv::Point2i(cx, cy), depth});
     }

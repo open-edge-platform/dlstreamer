@@ -60,9 +60,12 @@ static const Scenario SCENARIOS[] = {
     { "06_batch_2cam_inference", "source_files/06_batch_2cam_inference.g3dr", "06_batch_2cam_inference.png", TRUE,  1600, 800, -50, 50, -50, 50, 2, 16, 2.0f, 1, 35, 30, 180, 0, 60, NULL },
 };
 
-/* cam-proj scenarios: require a g3d/calibration sticky event */
+/* cam-proj scenarios: with or without calib sticky event */
 static const Scenario CAM_PROJ_SCENARIOS[] = {
-    { "07_batch_1cam_project",   "source_files/03_batch_1cam.g3dr",           "07_batch_1cam_project.png",   TRUE,  1600, 800, -50, 50, -50, 50, 2, 16, 2.0f, 2, 35, 30, 180, 0, 60, "source_files/calib.json" },
+    /* with calib: projects LiDAR onto camera image */
+    { "07_batch_1cam_project",          "source_files/03_batch_1cam.g3dr", "07_batch_1cam_project.png",          TRUE, 1600, 800, -50, 50, -50, 50, 2, 16, 2.0f, 2, 35, 30, 180, 0, 60, "source_files/calib.json" },
+    /* without calib: g3drender must fall back to BEV */
+    { "08_batch_1cam_project_nocalib",  "source_files/03_batch_1cam.g3dr", "08_batch_1cam_project_nocalib.png",  TRUE, 1600, 800, -50, 50, -50, 50, 2, 16, 2.0f, 2, 35, 30, 180, 0, 60, NULL },
 };
 
 /* ── .g3dr data structures ────────────────────────────────────────────── */
