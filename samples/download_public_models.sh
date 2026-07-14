@@ -22,115 +22,12 @@ YOLO_CONFIG_DIR=$DOWNLOAD_CONFIG_DIR
 
 SUPPORTED_MODELS=(
   "all"
-  "yolo_all"
   "yolox-tiny"
   "yolox_s"
-  "yolov5n"
-  "yolov5s"
-  "yolov5m"
-  "yolov5l"
-  "yolov5x"
-  "yolov5n6"
-  "yolov5s6"
-  "yolov5m6"
-  "yolov5l6"
-  "yolov5x6"
-  "yolov5nu"
-  "yolov5su"
-  "yolov5mu"
-  "yolov5lu"
-  "yolov5xu"
-  "yolov5n6u"
-  "yolov5s6u"
-  "yolov5m6u"
-  "yolov5l6u"
-  "yolov5x6u"
   "yolov7"
-  "yolov8n"
-  "yolov8s"
-  "yolov8m"
-  "yolov8l"
-  "yolov8x"
-  "yolov8n-obb"
-  "yolov8s-obb"
-  "yolov8m-obb"
-  "yolov8l-obb"
-  "yolov8x-obb"
-  "yolov8n-seg"
-  "yolov8s-seg"
-  "yolov8m-seg"
-  "yolov8l-seg"
-  "yolov8x-seg"
-  "yolov8n-pose"
-  "yolov8s-pose"
-  "yolov8m-pose"
-  "yolov8l-pose"
-  "yolov8x-pose"
   "yolov8_license_plate_detector"
-  "yolov9t"
-  "yolov9s"
-  "yolov9m"
-  "yolov9c"
-  "yolov9e"
-  "yolov10n"
-  "yolov10s"
-  "yolov10m"
-  "yolov10b"
-  "yolov10l"
-  "yolov10x"
-  "yolo11n"
-  "yolo11s"
-  "yolo11m"
-  "yolo11l"
-  "yolo11x"
-  "yolo11n-obb"
-  "yolo11s-obb"
-  "yolo11m-obb"
-  "yolo11l-obb"
-  "yolo11x-obb"
-  "yolo11n-seg"
-  "yolo11s-seg"
-  "yolo11m-seg"
-  "yolo11l-seg"
-  "yolo11x-seg"
-  "yolo11n-pose"
-  "yolo11s-pose"
-  "yolo11m-pose"
-  "yolo11l-pose"
-  "yolo11x-pose"
-  "yolo26n"
-  "yolo26s"
-  "yolo26m"
-  "yolo26l"
-  "yolo26x"
-  "yolo26n-obb"
-  "yolo26s-obb"
-  "yolo26m-obb"
-  "yolo26l-obb"
-  "yolo26x-obb"
-  "yolo26n-seg"
-  "yolo26s-seg"
-  "yolo26m-seg"
-  "yolo26l-seg"
-  "yolo26x-seg"
-  "yolo26n-pose"
-  "yolo26s-pose"
-  "yolo26m-pose"
-  "yolo26l-pose"
-  "yolo26x-pose"
   "centerface"
-  "hsemotion"
   "deeplabv3"
-  "clip-vit-large-patch14"
-  "clip-vit-base-patch16"
-  "clip-vit-base-patch32"
-  "ch_PP-OCRv4_rec_infer" # PaddlePaddle OCRv4 multilingual model
-  "PP-OCRv5_server_rec" # PaddlePaddle PP-OCRv5 recognition models
-  "PP-OCRv5_mobile_rec"
-  "pallet_defect_detection" # Custom model for pallet defect detection
-  "colorcls2" # Color classification model
-  "mars-small128" # DeepSORT person re-identification model (uses convert_mars_deepsort.py)
-  "pointpillars" # PointPillars 3D object detection model
 )
 
 # Corresponds to files in 'datasets' directory
@@ -190,9 +87,9 @@ $(echo_color "Usage:" "cyan")
 
 $(echo_color "Arguments:" "cyan")
   MODEL      Model name(s) to download. Can be:
-             - Single model: yolov8n
-             - Multiple models (comma-separated): yolov8n,yolov8s,centerface
-             - Special keywords: 'all' (all models) or 'yolo_all' (all YOLO models)
+             - Single model: yolox_s
+             - Multiple models (comma-separated): yolox_s,yolov7,centerface
+             - Special keyword: 'all' (all supported models)
              - Default: 'all'
 
   QUANTIZE   Optional. Quantization dataset for INT8 models.
@@ -210,19 +107,15 @@ $(echo_color "Examples:" "cyan")
 
   # Download specific models
   export MODELS_PATH=~/models
-  $0 yolov8n,yolov8s
+  $0 yolox_s,yolov7
 
   # Download multiple models with quantization
   export MODELS_PATH=~/models
-  $0 yolov8n,yolov8s,yolov10n coco128
+  $0 yolox_s,yolov7 coco128
 
   # Download with quantization (single model)
   export MODELS_PATH=~/models
-  $0 yolov8n coco128
-
-  # Download all YOLO models
-  export MODELS_PATH=~/models
-  $0 yolo_all
+  $0 yolox_s coco128
 
 $(echo_color "Supported Models:" "cyan")
 
@@ -232,8 +125,8 @@ EOF
     printf "    "
     local count=0
     for model in "${SUPPORTED_MODELS[@]}"; do
-        # Match all YOLO variants but exclude special keywords
-        if [[ $model =~ ^yolo && $model != "yolo_all" ]]; then
+        # Match YOLO variants
+        if [[ $model =~ ^yolo ]]; then
             printf "%-30s" "$model"
             ((count++))
             if ((count % 3 == 0)); then
@@ -260,7 +153,6 @@ EOF
 
     echo_color "  Special Keywords:" "yellow"
     printf "    %-30s - Download all available models\n" "all"
-    printf "    %-30s - Download all YOLO models\n" "yolo_all"
     echo ""
 }
 
@@ -296,11 +188,6 @@ validate_models() {
             fi
         done
 
-        # Allow any PP-OCRv5 variant (e.g. en_PP-OCRv5_mobile_rec, latin_PP-OCRv5_mobile_rec)
-        if [[ "$found" == false && "$model" == *"PP-OCRv5"* ]]; then
-            found=true
-        fi
-
         if [[ "$found" == false ]]; then
             echo_color "Error: Unsupported model '$model'" "red"
             echo ""
@@ -312,6 +199,15 @@ validate_models() {
 
 prepare_models_list() {
     local models_input="$1"
+
+  # Expand 'all' into the explicit list of supported models except the keyword itself.
+  if [[ "$models_input" == "all" ]]; then
+    for model in "${SUPPORTED_MODELS[@]}"; do
+      [[ "$model" != "all" ]] && echo "$model"
+    done
+    return
+  fi
+
     local models_array
     # Split input by comma into array
     IFS=',' read -ra models_array <<< "$models_input"
@@ -406,26 +302,15 @@ pip install --no-cache-dir seaborn==0.13.2    || handle_error $LINENO
 pip install --no-cache-dir nncf==2.19.0       || handle_error $LINENO
 pip install --no-cache-dir tqdm==4.67.1       || handle_error $LINENO
 
-# Check and upgrade ultralytics if necessary
-if [[ "${MODEL:-}" =~ yolo.* || "${MODEL:-}" == "all" ]]; then
-  pip install --no-cache-dir --upgrade --extra-index-url https://download.pytorch.org/whl/cpu "ultralytics==8.4.57" || handle_error $LINENO
-fi
-
 # Install PyTorch CPU version
 pip install --no-cache-dir --upgrade --extra-index-url https://download.pytorch.org/whl/cpu torch==2.8.0 torchaudio==2.8.0 torchvision==0.23.0 || handle_error $LINENO
-
-# Install dependencies for CLIP models
-if [[ "${MODEL:-}" =~ clip.* || "${MODEL:-}" == "all" ]]; then
-  pip install --no-cache-dir transformers || handle_error $LINENO
-  pip install --no-cache-dir pillow || handle_error $LINENO
-fi
 
 echo Downloading models to folder "$MODELS_PATH".
 set -euo pipefail
 
 
 # ================================= YOLOx-TINY FP16 & FP32 =================================
-if array_contains "yolox-tiny" "${MODELS_TO_PROCESS[@]}" || array_contains "yolo_all" "${MODELS_TO_PROCESS[@]}" || array_contains "all" "${MODELS_TO_PROCESS[@]}"; then
+if array_contains "yolox-tiny" "${MODELS_TO_PROCESS[@]}"; then
   display_header "Downloading YOLOx-TINY model"
   MODEL_NAME="yolox-tiny"
   MODEL_DIR="$MODELS_PATH/public/$MODEL_NAME"
@@ -464,7 +349,7 @@ if array_contains "yolox-tiny" "${MODELS_TO_PROCESS[@]}" || array_contains "yolo
 fi
 
 # ================================= YOLOx-S FP16 & FP32 =================================
-if array_contains "yolox_s" "${MODELS_TO_PROCESS[@]}" || array_contains "yolo_all" "${MODELS_TO_PROCESS[@]}" || array_contains "all" "${MODELS_TO_PROCESS[@]}"; then
+if array_contains "yolox_s" "${MODELS_TO_PROCESS[@]}"; then
   display_header "Downloading YOLOx-S model"
   MODEL_NAME="yolox_s"
   MODEL_DIR="$MODELS_PATH/public/$MODEL_NAME"
@@ -489,265 +374,8 @@ if array_contains "yolox_s" "${MODELS_TO_PROCESS[@]}" || array_contains "yolo_al
   fi
 fi
 
-# ================================= YOLOv5*u FP16 & FP32 & INT8 - ULTRALYTICS =================================
-# Function for quantization of YOLO models
-quantize_yolov5u_model() {
-  local MODEL_NAME=$1
-  MODEL_DIR="$MODELS_PATH/public/$MODEL_NAME"
-  DST_FILE="$MODEL_DIR/INT8/$MODEL_NAME.xml"
-
-
-  if [[ ! -f "$DST_FILE" ]]; then
-    YOLO_CONFIG_DIR=$QUANTIZE_CONFIG_DIR
-    export YOLO_CONFIG_DIR
-
-    mkdir -p "$MODELS_PATH/datasets"
-    local DATASET_MANIFEST="$MODELS_PATH/datasets/$QUANTIZE.yaml"
-
-    curl -L -o "$DATASET_MANIFEST" ${SUPPORTED_QUANTIZATION_DATASETS[$QUANTIZE]}
-    echo_color "[*] Starting INT8 quantization for $MODEL_NAME..." "cyan"
-    mkdir -p "$MODEL_DIR"
-
-    cd "$MODELS_PATH"
-    python3 - <<EOF "$MODEL_NAME" "$DATASET_MANIFEST"
-import openvino as ov
-import nncf
-import torch
-import sys
-from rich.progress import track
-from ultralytics.cfg import get_cfg
-from ultralytics.models.yolo.detect import DetectionValidator
-from ultralytics.data.converter import coco80_to_coco91_class
-from ultralytics.data.utils import check_det_dataset
-from ultralytics.utils import DATASETS_DIR
-from ultralytics.utils import DEFAULT_CFG
-from ultralytics.utils.metrics import ConfusionMatrix
-
-def validate(
-    model: ov.Model, data_loader: torch.utils.data.DataLoader, validator: DetectionValidator, num_samples: int = None
-) -> tuple[dict, int, int]:
-    validator.seen = 0
-    validator.jdict = []
-    validator.stats = dict(tp=[], conf=[], pred_cls=[], target_cls=[], target_img=[])
-    validator.end2end = False
-    validator.confusion_matrix = ConfusionMatrix(task="detect", names=validator.data.get("names", {}))
-    compiled_model = ov.compile_model(model, device_name="CPU")
-    output_layer = compiled_model.output(0)
-    total_labels = 0
-    for batch_i, batch in enumerate(track(data_loader, description="Validating")):
-        if num_samples is not None and batch_i == num_samples:
-            break
-        batch = validator.preprocess(batch)
-        total_labels += len(batch.get("cls", []))
-        preds = torch.from_numpy(compiled_model(batch["img"])[output_layer])
-        preds = validator.postprocess(preds)
-        validator.update_metrics(preds, batch)
-    stats = validator.get_stats()
-    return stats, validator.seen, total_labels
-
-def print_statistics(stats: dict[str, float], total_images: int, total_objects: int) -> None:
-    mp, mr, map50, mean_ap = (
-        stats["metrics/precision(B)"],
-        stats["metrics/recall(B)"],
-        stats["metrics/mAP50(B)"],
-        stats["metrics/mAP50-95(B)"],
-    )
-    s = ("%20s" + "%12s" * 6) % ("Class", "Images", "Labels", "Precision", "Recall", "mAP@.5", "mAP@.5:.95")
-    print(s)
-    pf = "%20s" + "%12i" * 2 + "%12.3g" * 4  # print format
-    print(pf % ("all", total_images, total_objects, mp, mr, map50, mean_ap))
-
-model_name = sys.argv[1]
-dataset_file = sys.argv[2]
-
-
-validator = DetectionValidator()
-validator.data = check_det_dataset(dataset_file)
-validator.stride = 32
-validator.is_coco = True
-validator.class_map = coco80_to_coco91_class
-validator.device = torch.device("cpu")
-
-data_loader = validator.get_dataloader(validator.data["path"], 1)
-
-def transform_fn(data_item: dict):
-    input_tensor = validator.preprocess(data_item)["img"].numpy()
-    return input_tensor
-    # images, _ = data_item
-    # return images.numpy()
-
-calibration_dataset = nncf.Dataset(data_loader, transform_fn)
-
-model = ov.Core().read_model("./public/" + model_name + "/FP32/" + model_name + ".xml")
-quantized_model = nncf.quantize(model, calibration_dataset, subset_size = len(data_loader))
-
-# Validate FP32 model
-fp_stats, total_images, total_objects = validate(model, data_loader, validator)
-print("Floating-point model validation results:")
-print_statistics(fp_stats, total_images, total_objects)
-
-# Validate quantized model
-q_stats, total_images, total_objects = validate(quantized_model, data_loader, validator)
-print("Quantized model validation results:")
-print_statistics(q_stats, total_images, total_objects)
-
-quantized_model.set_rt_info(ov.get_version(), "Runtime_version")
-ov.save_model(quantized_model, "./public/" + model_name + "/INT8/" + model_name + ".xml", compress_to_fp16=False)
-EOF
-    echo_color "[+] INT8 quantization completed for $MODEL_NAME" "green"
-  YOLO_CONFIG_DIR=$DOWNLOAD_CONFIG_DIR
-  else
-    echo_color "\nModel already quantized: $MODEL_DIR.\n" "yellow"
-  fi
-}
-
-# common method to export YOLOv5u models
-export_yolov5u_model() {
-  local model_name=$1
-  local model_path="$MODELS_PATH/public/$model_name"
-  local weights="${model_name::-1}.pt"  # Remove the last character from the model name to construct the weights filename
-
-  if [ ! -f "$model_path/FP32/$model_name.xml" ] || [ ! -f "$model_path/FP16/$model_name.xml" ]; then
-    display_header "Downloading ${model_name^^} model"
-    echo "Downloading and converting: ${model_path}"
-    mkdir -p "$model_path"
-    cd "$model_path"
-
-    python3 - <<EOF
-import os
-from ultralytics import YOLO
-from openvino import Core, save_model
-
-model_name = "$model_name"
-weights = "$weights"
-output_dir = f"{model_name}_openvino_model"
-
-def export_model(weights, half, output_dir, model_name):
-    model = YOLO(weights)
-    model.info()
-    model.export(format='openvino', half=half, dynamic=True)
-    core = Core()
-    model = core.read_model(f"{output_dir}/{model_name}.xml")
-    model.reshape([-1, 3, 640, 640])
-    save_model(model, f"{output_dir}/{model_name}D.xml")
-
-# Export FP32 model
-export_model(weights, half=False, output_dir=output_dir, model_name=model_name)
-# Move FP32 model to the appropriate directory
-os.makedirs("FP32", exist_ok=True)
-os.rename(f"{output_dir}/{model_name}D.xml", f"FP32/{model_name}.xml")
-os.rename(f"{output_dir}/{model_name}D.bin", f"FP32/{model_name}.bin")
-
-# Export FP16 model
-export_model(weights, half=True, output_dir=output_dir, model_name=model_name)
-# Move FP16 model to the appropriate directory
-os.makedirs("FP16", exist_ok=True)
-os.rename(f"{output_dir}/{model_name}D.xml", f"FP16/{model_name}.xml")
-os.rename(f"{output_dir}/{model_name}D.bin", f"FP16/{model_name}.bin")
-
-# Clean up
-import shutil
-shutil.rmtree(output_dir)
-os.remove(f"{model_name}.pt")
-EOF
-    cd ../..
-  else
-    echo_color "\nModel already exists: $model_path.\n" "yellow"
-  fi
-
-  if [[ $QUANTIZE != "" ]]; then
-    quantize_yolov5u_model "$MODEL_NAME"
-  fi
-}
-
-YOLOv5u_MODELS=("yolov5nu" "yolov5su" "yolov5mu" "yolov5lu" "yolov5xu" "yolov5n6u" "yolov5s6u" "yolov5m6u" "yolov5l6u" "yolov5x6u")
-for MODEL_NAME in "${YOLOv5u_MODELS[@]}"; do
-  if array_contains "$MODEL_NAME" "${MODELS_TO_PROCESS[@]}" || array_contains "yolo_all" "${MODELS_TO_PROCESS[@]}" || array_contains "all" "${MODELS_TO_PROCESS[@]}"; then
-    export_yolov5u_model "$MODEL_NAME"
-  fi
-done
-
-# ================================= YOLOv5* FP32 - LEGACY =================================
-YOLOv5_MODELS=("yolov5n" "yolov5s" "yolov5m" "yolov5l" "yolov5x" "yolov5n6" "yolov5s6" "yolov5m6" "yolov5l6" "yolov5x6")
-
-# Check if the model is in the list
-MODEL_IN_LISTv5=false
-for MODEL_NAME in "${YOLOv5_MODELS[@]}"; do
-  if array_contains "$MODEL_NAME" "${MODELS_TO_PROCESS[@]}" || array_contains "yolo_all" "${MODELS_TO_PROCESS[@]}" || array_contains "all" "${MODELS_TO_PROCESS[@]}"; then
-    MODEL_IN_LISTv5=true
-    break
-  fi
-done
-
-# Clone the repository if the model is in the list
-REPO_DIR="$MODELS_PATH/yolov5_repo"
-if [ "$MODEL_IN_LISTv5" = true ] && [ ! -d "$REPO_DIR" ]; then
-  git clone https://github.com/ultralytics/yolov5 "$REPO_DIR"
-fi
-
-for MODEL_NAME in "${YOLOv5_MODELS[@]}"; do
-  if array_contains "$MODEL_NAME" "${MODELS_TO_PROCESS[@]}" || array_contains "yolo_all" "${MODELS_TO_PROCESS[@]}" || array_contains "all" "${MODELS_TO_PROCESS[@]}"; then
-    MODEL_DIR="$MODELS_PATH/public/$MODEL_NAME"
-    if [ ! -d "$MODEL_DIR" ]; then
-      display_header "Downloading ${MODEL_NAME^^} model (Legacy)"
-      echo "Downloading and converting: ${MODEL_DIR}"
-      mkdir -p "$MODEL_DIR"
-      cd "$MODEL_DIR"
-      cp -r "$REPO_DIR" yolov5
-      cd yolov5
-      curl -L -O "https://github.com/ultralytics/yolov5/releases/download/v7.0/${MODEL_NAME}.pt"
-      
-      # Create temporary venv for legacy YOLOv5 export (uses openvino-dev 2024.6.0)
-      deactivate 2>/dev/null || true
-      $PYTHON_CREATE_VENV -m venv "$HOME/.virtualenvs/dlstreamer_yolov5_legacy" || handle_error $LINENO
-      source "$HOME/.virtualenvs/dlstreamer_yolov5_legacy/bin/activate"
-      python -m pip install --upgrade pip                        || handle_error $LINENO
-      pip install --no-cache-dir "openvino-dev==2024.6.0"        || handle_error $LINENO
-      pip install --no-cache-dir --upgrade --extra-index-url https://download.pytorch.org/whl/cpu torch==2.8.0 torchaudio==2.8.0 torchvision==0.23.0 || handle_error $LINENO
-      pip install --no-cache-dir -r "$REPO_DIR"/requirements.txt || handle_error $LINENO
-
-      # Export FP32 model
-      python3 export.py --weights "${MODEL_NAME}.pt" --include openvino --img-size 640 --dynamic
-      python3 - <<EOF "${MODEL_NAME}"
-import sys, os
-from openvino import Core
-from openvino import save_model
-model_name = sys.argv[1]
-core = Core()
-os.rename(f"{model_name}_openvino_model", f"{model_name}_openvino_modelD")
-model = core.read_model(f"{model_name}_openvino_modelD/{model_name}.xml")
-model.reshape([-1, 3, 640, 640])
-save_model(model, f"{model_name}_openvino_model/{model_name}.xml")
-EOF
-
-      mkdir -p "$MODEL_DIR/FP32"
-      mv "${MODEL_NAME}_openvino_model/${MODEL_NAME}.xml" "$MODEL_DIR/FP32/${MODEL_NAME}.xml"
-      mv "${MODEL_NAME}_openvino_model/${MODEL_NAME}.bin" "$MODEL_DIR/FP32/${MODEL_NAME}.bin"
-
-      # Cleanup temporary virtual environment and return to main venv
-      cd ..
-      rm -rf yolov5
-      deactivate 2>/dev/null || true
-      rm -rf "$HOME/.virtualenvs/dlstreamer_yolov5_legacy" 2>/dev/null || true
-      source "$VENV_DIR/bin/activate"
-      
-      # INT8 quantization not supported for legacy YOLOv5 models
-      # (incompatible output format with Ultralytics validator)
-      # Use YOLOv5u models for INT8 quantization instead
-    else
-      echo_color "\nModel already exists: $MODEL_DIR.\n" "yellow"
-    fi
-  fi
-done
-
-# Clean up the repository if it was cloned
-if [ "$MODEL_IN_LISTv5" = true ]; then
-  rm -rf "$REPO_DIR"
-fi
-
-
 # ================================= YOLOv7* FP16 & FP32 =================================
-if array_contains "yolov7" "${MODELS_TO_PROCESS[@]}" || array_contains "yolo_all" "${MODELS_TO_PROCESS[@]}" || array_contains "all" "${MODELS_TO_PROCESS[@]}"; then
+if array_contains "yolov7" "${MODELS_TO_PROCESS[@]}"; then
   display_header "Downloading YOLOv7 model"
   MODEL_NAME="yolov7"
   MODEL_DIR="$MODELS_PATH/public/$MODEL_NAME"
@@ -780,96 +408,8 @@ if array_contains "yolov7" "${MODELS_TO_PROCESS[@]}" || array_contains "yolo_all
   fi
 fi
 
-# ================================= YOLOv8* and newer FP16 & FP32 & INT8 =================================
-YOLO_V8_AND_LATER_MODELS=(
-  "yolov8n" "yolov8s" "yolov8m" "yolov8l" "yolov8x"
-  "yolov8n-obb" "yolov8s-obb" "yolov8m-obb" "yolov8l-obb" "yolov8x-obb"
-  "yolov8n-seg" "yolov8s-seg" "yolov8m-seg" "yolov8l-seg" "yolov8x-seg"
-  "yolov8n-pose" "yolov8s-pose" "yolov8m-pose" "yolov8l-pose" "yolov8x-pose"
-  "yolov9t" "yolov9s" "yolov9m" "yolov9c" "yolov9e"
-  "yolov10n" "yolov10s" "yolov10m" "yolov10b" "yolov10l" "yolov10x"
-  "yolo11n" "yolo11s" "yolo11m" "yolo11l" "yolo11x"
-  "yolo11n-obb" "yolo11s-obb" "yolo11m-obb" "yolo11l-obb" "yolo11x-obb"
-  "yolo11n-seg" "yolo11s-seg" "yolo11m-seg" "yolo11l-seg" "yolo11x-seg"
-  "yolo11n-pose" "yolo11s-pose" "yolo11m-pose" "yolo11l-pose" "yolo11x-pose"
-  "yolo26n" "yolo26s" "yolo26m" "yolo26l" "yolo26x"
-  "yolo26n-obb" "yolo26s-obb" "yolo26m-obb" "yolo26l-obb" "yolo26x-obb"
-  "yolo26n-seg" "yolo26s-seg" "yolo26m-seg" "yolo26l-seg" "yolo26x-seg"
-  "yolo26n-pose" "yolo26s-pose" "yolo26m-pose" "yolo26l-pose" "yolo26x-pose"
-)
-
-# Function to export YOLOv8 and later models
-export_and_quantize_yolov8_and_later_model() {
-  local MODEL_NAME=$1
-  local QUANTIZE=$2
-  MODEL_DIR="$MODELS_PATH/public/$MODEL_NAME"
-  DST_FILE1="$MODEL_DIR/FP16/$MODEL_NAME.xml"
-  DST_FILE2="$MODEL_DIR/FP32/$MODEL_NAME.xml"
-
-  # Check if quantization should be skipped for segmentation/pose models with small datasets
-  local QUANTIZE_PARAM="$QUANTIZE"
-  if [[ "$MODEL_NAME" =~ -(seg|pose)$ ]] && [[ -n "$QUANTIZE" ]] && [[ "$QUANTIZE" =~ ^(coco8|coco128)$ ]]; then
-    echo_color "⚠️  INT8 quantization is not supported for segmentation/pose models (${MODEL_NAME}) with small datasets (${QUANTIZE})" "yellow"
-    echo_color "    Small datasets are missing required metadata (masks for seg, keypoints for pose)." "yellow"
-    echo_color "    Use 'coco' dataset (>5000 images with full annotations) for INT8 quantization." "yellow"
-    echo_color "    Skipping quantization. Only FP32 and FP16 models will be exported.\n" "yellow"
-    QUANTIZE_PARAM=""
-  fi
-
-  if [[ ! -f "$DST_FILE1" || ! -f "$DST_FILE2" ]]; then
-    display_header "Downloading ${MODEL_NAME^^} model"
-    echo "Downloading and converting: ${MODEL_DIR}"
-    
-    mkdir -p "$MODEL_DIR"
-    cd "$MODEL_DIR"
-
-    python3 - <<EOF "$MODEL_NAME" "$QUANTIZE_PARAM"
-from ultralytics import YOLO
-import openvino, sys, os
-
-model_name = sys.argv[1]
-quantize_dataset = sys.argv[2]
-
-model = YOLO(model_name + '.pt')
-model.info()
-
-print("Exporting FP32 model...")
-converted_path = model.export(format='openvino', dynamic=True, half=False, int8=False)
-os.rename(converted_path, "FP32")
-
-print("Exporting FP16 model...")
-converted_path = model.export(format='openvino', dynamic=True, half=True, int8=False)
-os.rename(converted_path, "FP16")
-
-# Export INT8 if requested
-if quantize_dataset != "":
-    print("\033[36m[*] Starting INT8 quantization for " + model_name + "...\033[0m")
-    
-    converted_path = model.export(format='openvino', dynamic=True, half=False, int8=True, data=quantize_dataset + '.yaml')
-    os.rename(converted_path, "INT8")
-    
-    print("\033[32m[+] INT8 quantization completed for " + model_name + "\033[0m")
-
-os.remove(f"{model_name}.pt")
-EOF
-
-    cd ../..
-  else
-    echo_color "\nModel already exists: $MODEL_DIR.\n" "yellow"
-  fi
-
-}
-
-# Iterate over the models and export them
-for MODEL_NAME in "${YOLO_V8_AND_LATER_MODELS[@]}"; do
-  if array_contains "$MODEL_NAME" "${MODELS_TO_PROCESS[@]}" || array_contains "yolo_all" "${MODELS_TO_PROCESS[@]}" || array_contains "all" "${MODELS_TO_PROCESS[@]}"; then
-    export_and_quantize_yolov8_and_later_model "$MODEL_NAME" "$QUANTIZE"
-  fi
-done
-
-
 # ================================= YOLOv8 License Plate Detector FP32 - Edge AI Resources =================================
-if array_contains "yolov8_license_plate_detector" "${MODELS_TO_PROCESS[@]}" || array_contains "all" "${MODELS_TO_PROCESS[@]}"; then
+if array_contains "yolov8_license_plate_detector" "${MODELS_TO_PROCESS[@]}"; then
   display_header "Downloading YOLOv8 License Plate Detector model"
   MODEL_NAME="yolov8_license_plate_detector"
   MODEL_DIR="$MODELS_PATH/public/$MODEL_NAME"
@@ -901,7 +441,7 @@ os.remove('${MODEL_NAME}.zip')
 fi
 
 # ================================= CenterFace FP16 & FP32 =================================
-if array_contains "centerface" "${MODELS_TO_PROCESS[@]}" || array_contains "all" "${MODELS_TO_PROCESS[@]}"; then
+if array_contains "centerface" "${MODELS_TO_PROCESS[@]}"; then
   display_header "Downloading CenterFace model"
   MODEL_NAME="centerface"
   MODEL_DIR="$MODELS_PATH/public/$MODEL_NAME"
@@ -947,115 +487,8 @@ EOF
   fi
 fi
 
-# ================================= HSEmotion FP16 =================================
-if array_contains "hsemotion" "${MODELS_TO_PROCESS[@]}" || array_contains "all" "${MODELS_TO_PROCESS[@]}"; then
-  display_header "Downloading HSEmotion model"
-  MODEL_NAME="hsemotion"
-  MODEL_DIR="$MODELS_PATH/public/$MODEL_NAME"
-  DST_FILE="$MODEL_DIR/FP16/$MODEL_NAME.xml"
-
-  if [ ! -f "$DST_FILE" ]; then
-    echo "Downloading and converting: ${MODEL_DIR}"
-    mkdir -p "$MODEL_DIR"
-    cd "$MODEL_DIR"
-    git clone https://github.com/av-savchenko/face-emotion-recognition.git
-    cd face-emotion-recognition/models/affectnet_emotions/onnx
-
-    ovc enet_b0_8_va_mtl.onnx --input "[16,3,224,224]"
-    mkdir "$MODEL_DIR/FP16/"
-    mv enet_b0_8_va_mtl.xml "$MODEL_DIR/$MODEL_NAME.xml"
-    mv enet_b0_8_va_mtl.bin "$MODEL_DIR/$MODEL_NAME.bin"
-    cd ../../../..
-    rm -rf face-emotion-recognition
-    python3 - <<EOF
-import openvino
-import sys, os
-
-core = openvino.Core()
-ov_model = core.read_model(model='hsemotion.xml')
-
-ov_model.set_rt_info("anger contempt disgust fear happiness neutral sadness surprise", ['model_info', 'labels'])
-ov_model.set_rt_info("label", ['model_info', 'model_type'])
-ov_model.set_rt_info("True", ['model_info', 'output_raw_scores'])
-ov_model.set_rt_info("fit_to_window_letterbox", ['model_info', 'resize_type'])
-ov_model.set_rt_info("255", ['model_info', 'scale_values'])
-
-print(ov_model)
-
-openvino.save_model(ov_model, './FP16/' + 'hsemotion.xml')
-os.remove('hsemotion.xml')
-os.remove('hsemotion.bin')
-EOF
-  else
-    echo_color "\nModel already exists: $MODEL_DIR.\n" "yellow"
-  fi
-fi
-
-
-# ================================= CLIP models FP32 =================================
-mapfile -t CLIP_MODELS < <(printf "%s\n" "${SUPPORTED_MODELS[@]}" | grep '^clip-vit-')
-for MODEL_NAME in "${CLIP_MODELS[@]}"; do
-  if [ "$MODEL" == "$MODEL_NAME" ] || [ "$MODEL" == "all" ]; then
-    MODEL_DIR="$MODELS_PATH/public/$MODEL_NAME"
-    DST_FILE="$MODEL_DIR/FP32/$MODEL_NAME.xml"
-
-    if [ ! -f "$DST_FILE" ]; then
-      display_header "Downloading ${MODEL_NAME^^} model"
-      echo "Downloading and converting: ${MODEL_DIR}"
-      mkdir -p "$MODEL_DIR/FP32"
-      cd "$MODEL_DIR/FP32"
-      IMAGE_URL="https://storage.openvinotoolkit.org/data/test_data/images/car.png"
-      IMAGE_PATH="car.png"
-      curl -L -o "$IMAGE_PATH" "$IMAGE_URL"
-      echo "Image downloaded to $IMAGE_PATH"
-      python3 - <<EOF "$MODEL_NAME" "$IMAGE_PATH"
-from transformers import CLIPProcessor, CLIPVisionModel
-import PIL
-import openvino as ov
-from openvino import PartialShape, Type
-import sys
-import os
-
-MODEL=sys.argv[1]
-img_path = sys.argv[2]
-
-img = PIL.Image.open(img_path)
-vision_model = CLIPVisionModel.from_pretrained('openai/'+MODEL)
-vision_model.eval()
-processor = CLIPProcessor.from_pretrained('openai/'+MODEL)
-batch = processor.image_processor(images=img, return_tensors='pt')["pixel_values"]
-
-print("Conversion starting...")
-ov_model = ov.convert_model(vision_model, example_input=batch)
-print("Conversion finished.")
-
-# Define the input shape explicitly
-input_shape = PartialShape([-1, batch.shape[1], batch.shape[2], batch.shape[3]])
-
-# Set the input shape and type explicitly
-for input in ov_model.inputs:
-    input.get_node().set_partial_shape(PartialShape(input_shape))
-    input.get_node().set_element_type(Type.f32)
-
-ov_model.set_rt_info("clip_token", ['model_info', 'model_type'])
-ov_model.set_rt_info("68.500,66.632,70.323", ['model_info', 'scale_values'])
-ov_model.set_rt_info("122.771,116.746,104.094", ['model_info', 'mean_values'])
-ov_model.set_rt_info("RGB", ['model_info', 'color_space'])
-ov_model.set_rt_info("crop", ['model_info', 'resize_type'])
-
-ov.save_model(ov_model, MODEL + ".xml")
-
-os.remove(img_path)
-EOF
-    else
-      echo_color "\nModel already exists: $MODEL_DIR.\n" "yellow"
-    fi
-  fi
-done
-
-
 # ================================= DeepLabv3 FP16 & FP32 =================================
-if array_contains "deeplabv3" "${MODELS_TO_PROCESS[@]}" || array_contains "all" "${MODELS_TO_PROCESS[@]}"; then
+if array_contains "deeplabv3" "${MODELS_TO_PROCESS[@]}"; then
   display_header "Downloading DeepLabv3 model"
   MODEL_NAME="deeplabv3"
   MODEL_DIR="$MODELS_PATH/public/$MODEL_NAME"
@@ -1106,237 +539,3 @@ EOF
 fi
 
 
-# ================================= ch_PP-OCRv4_rec_infer FP32 - Edge AI Resources =================================
-if array_contains "ch_PP-OCRv4_rec_infer" "${MODELS_TO_PROCESS[@]}" || array_contains "all" "${MODELS_TO_PROCESS[@]}"; then
-  display_header "Downloading PaddlePaddle OCRv4 model"
-  MODEL_NAME="ch_PP-OCRv4_rec_infer"
-  MODEL_DIR="$MODELS_PATH/public/$MODEL_NAME"
-  DST_FILE1="$MODEL_DIR/FP32/$MODEL_NAME.xml"
-
-  if [[ ! -f "$DST_FILE1" ]]; then
-    echo "Downloading and converting: ${MODEL_DIR}"
-    mkdir -p "$MODEL_DIR"
-    cd "$MODEL_DIR"
-
-    curl -L -k -o "${MODEL_NAME}.zip" 'https://github.com/open-edge-platform/edge-ai-resources/raw/main/models/license-plate-reader.zip'
-    python3 -c "
-import zipfile
-import os
-with zipfile.ZipFile('${MODEL_NAME}.zip', 'r') as zip_ref:
-    zip_ref.extractall('.')
-os.remove('${MODEL_NAME}.zip')
-"
-
-    mkdir -p FP32
-    cp license-plate-reader/models/ch_PP-OCRv4_rec_infer/ch_PP-OCRv4_rec_infer.bin FP32/${MODEL_NAME}.bin
-    cp license-plate-reader/models/ch_PP-OCRv4_rec_infer/ch_PP-OCRv4_rec_infer.xml FP32/${MODEL_NAME}.xml
-    chmod -R u+w license-plate-reader
-    rm -rf license-plate-reader
-    cd -
-  else
-    echo_color "\nModel already exists: $MODEL_DIR.\n" "yellow"
-  fi
-fi
-
-
-# ================================= PP-OCRv5 PaddlePaddle models FP32 & FP16 - HuggingFace + paddle2onnx =================================
-# Generic function to download and convert any PaddlePaddle PP-OCRv5 model.
-# All PP-OCRv5 models on HuggingFace share the same structure:
-#   inference.json + inference.pdiparams (PaddlePaddle PIR format)
-#   config.json (contains character_dict for recognition models)
-# HuggingFace repo naming: PaddlePaddle/<model_name>  (e.g. PaddlePaddle/PP-OCRv5_server_rec)
-# For language-specific variants the prefix goes before PP-OCRv5: e.g. en_PP-OCRv5_mobile_rec
-
-export_ppocr_v5_model() {
-  local MODEL_NAME=$1
-  local MODEL_DIR="$MODELS_PATH/public/$MODEL_NAME"
-  local DST_FILE1="$MODEL_DIR/FP32/$MODEL_NAME.xml"
-  local DST_FILE2="$MODEL_DIR/FP16/$MODEL_NAME.xml"
-
-  if [[ ! -f "$DST_FILE1" || ! -f "$DST_FILE2" ]]; then
-    display_header "Downloading PaddlePaddle $MODEL_NAME model"
-    echo "Downloading and converting: ${MODEL_DIR}"
-    mkdir -p "$MODEL_DIR"
-    cd "$MODEL_DIR"
-
-    # Install dependencies (needed for PaddlePaddle PIR → ONNX conversion)
-    pip install --no-cache-dir paddlepaddle paddle2onnx huggingface_hub || handle_error $LINENO
-
-    # Step 1: Download model from HuggingFace
-    echo_color "[1/4] Downloading PaddlePaddle/$MODEL_NAME from HuggingFace..." "cyan"
-    python3 -c "
-from huggingface_hub import snapshot_download
-snapshot_download(repo_id='PaddlePaddle/${MODEL_NAME}', local_dir='paddle_model')
-" || handle_error $LINENO
-
-    # Step 2: Convert PaddlePaddle PIR → ONNX via paddle2onnx
-    echo_color "[2/4] Converting PaddlePaddle → ONNX..." "cyan"
-    paddle2onnx \
-      --model_dir paddle_model \
-      --model_filename inference.json \
-      --params_filename inference.pdiparams \
-      --save_file model.onnx \
-      --opset_version 14 || handle_error $LINENO
-
-    # Step 3: Convert ONNX → OpenVINO IR FP32 & FP16
-    echo_color "[3/4] Converting ONNX → OpenVINO IR (FP32 & FP16)..." "cyan"
-    mkdir -p FP32 FP16
-    ovc model.onnx --output_model "FP32/${MODEL_NAME}.xml" --compress_to_fp16=False || handle_error $LINENO
-    ovc model.onnx --output_model "FP16/${MODEL_NAME}.xml" --compress_to_fp16=True || handle_error $LINENO
-
-    # Step 4: Copy full config.json to output directories
-    echo_color "[4/4] Storing model config.json..." "cyan"
-    for d in FP32 FP16; do
-        if [ -d "$d" ]; then
-            cp paddle_model/config.json "$d/config.json" || handle_error $LINENO
-        fi
-    done
-
-    # Cleanup intermediate files
-    rm -f model.onnx
-    rm -rf paddle_model
-    cd -
-    echo_color "[+] $MODEL_NAME model ready: $MODEL_DIR/{FP32,FP16}/" "green"
-  else
-    echo_color "\nModel already exists: $MODEL_DIR.\n" "yellow"
-  fi
-}
-
-# Well-known PP-OCRv5 models listed in SUPPORTED_MODELS
-PP_OCRV5_MODELS=("PP-OCRv5_server_rec" "PP-OCRv5_mobile_rec" "PP-OCRv5_server_det" "PP-OCRv5_mobile_det")
-for MODEL_NAME in "${PP_OCRV5_MODELS[@]}"; do
-  if array_contains "$MODEL_NAME" "${MODELS_TO_PROCESS[@]}" || array_contains "all" "${MODELS_TO_PROCESS[@]}"; then
-    export_ppocr_v5_model "$MODEL_NAME"
-  fi
-done
-
-# Handle any other PP-OCRv5 variant passed directly (e.g. en_PP-OCRv5_mobile_rec, latin_PP-OCRv5_mobile_rec)
-for MODEL_NAME in "${MODELS_TO_PROCESS[@]}"; do
-  if [[ "$MODEL_NAME" == *"PP-OCRv5"* ]] && ! array_contains "$MODEL_NAME" "${PP_OCRV5_MODELS[@]}"; then
-    export_ppocr_v5_model "$MODEL_NAME"
-  fi
-done
-
-
-# ================================= Pallet Defect Detection INT8 - Edge AI Resources =================================
-if array_contains "pallet_defect_detection" "${MODELS_TO_PROCESS[@]}" || array_contains "all" "${MODELS_TO_PROCESS[@]}"; then
-  display_header "Downloading Pallet Defect Detection model"
-  MODEL_NAME="pallet_defect_detection"
-  MODEL_DIR="$MODELS_PATH/public/$MODEL_NAME"
-  DST_FILE1="$MODEL_DIR/INT8/$MODEL_NAME.xml"
-
-  if [[ ! -f "$DST_FILE1" ]]; then
-    echo "Downloading and converting: ${MODEL_DIR}"
-    mkdir -p "$MODEL_DIR"
-    cd "$MODEL_DIR"
-
-    curl -L -k -o "${MODEL_NAME}.zip" 'https://github.com/open-edge-platform/edge-ai-resources/raw/main/models/INT8/pallet_defect_detection.zip'
-    python3 -c "
-import zipfile
-import os
-with zipfile.ZipFile('${MODEL_NAME}.zip', 'r') as zip_ref:
-    zip_ref.extractall('.')
-os.remove('${MODEL_NAME}.zip')
-"
-
-    mkdir -p INT8
-    cp deployment/Detection/model/model.bin INT8/${MODEL_NAME}.bin
-    cp deployment/Detection/model/model.xml INT8/${MODEL_NAME}.xml
-    cp deployment/Detection/model/config.json INT8/config.json
-    chmod -R u+w deployment example_code
-    rm -rf deployment example_code
-    rm -f LICENSE README.md sample_image.jpg
-  else
-    echo_color "\nModel already exists: $MODEL_DIR.\n" "yellow"
-  fi
-fi
-
-
-# ================================= Colorcls2 FP32 - Edge AI Suites =================================
-if array_contains "colorcls2" "${MODELS_TO_PROCESS[@]}" || array_contains "all" "${MODELS_TO_PROCESS[@]}"; then
-  display_header "Downloading Colorcls2 model"
-  MODEL_NAME="colorcls2"
-  MODEL_DIR="$MODELS_PATH/public/$MODEL_NAME/FP32"
-
-  if [[ ! -f "$MODEL_DIR/$MODEL_NAME.xml" ]]; then
-    echo "Downloading: ${MODEL_DIR}"
-    mkdir -p "$MODEL_DIR"
-    cd "$MODEL_DIR"
-    curl -L -k -o 'colorcls2.bin' 'https://github.com/open-edge-platform/edge-ai-suites/raw/main/metro-ai-suite/metro-vision-ai-app-recipe/smart-parking/src/dlstreamer-pipeline-server/models/colorcls2/colorcls2.bin'
-    curl -L -k -o 'colorcls2.xml' 'https://github.com/open-edge-platform/edge-ai-suites/raw/main/metro-ai-suite/metro-vision-ai-app-recipe/smart-parking/src/dlstreamer-pipeline-server/models/colorcls2/colorcls2.xml'
-    cd -
-  else
-    echo_color "\nModel already exists: $MODEL_DIR/$MODEL_NAME.xml.\n" "yellow"
-  fi
-fi
-
-
-# ================================= Mars-Small128 FP32 & INT8 =================================
-if array_contains "mars-small128" "${MODELS_TO_PROCESS[@]}" || array_contains "all" "${MODELS_TO_PROCESS[@]}"; then
-  display_header "Downloading Mars-Small128 model"
-  MODEL_NAME="mars-small128"
-  MODEL_DIR="$MODELS_PATH/public/$MODEL_NAME"
-
-  if [[ ! -f "$MODEL_DIR/mars_small128_fp32.xml" ]]; then
-    echo_color "Converting Mars-Small128 model for DeepSORT tracking..." "blue"
-
-    # Get the script directory (samples directory) using absolute path
-    cd "$LAUNCH_DIR"
-    echo "Current directory: $(pwd)"
-    SCRIPT_DIR="$(dirname "$(realpath "${BASH_SOURCE[0]}")")"
-    echo "Script directory: $SCRIPT_DIR"
-    CONVERTER_SCRIPT="$SCRIPT_DIR/models/convert_mars_deepsort.py"
-
-    if [[ ! -f "$CONVERTER_SCRIPT" ]]; then
-      echo_color "ERROR: Converter script not found: $CONVERTER_SCRIPT" "red"
-      handle_error $LINENO
-    fi
-
-    mkdir -p "$MODEL_DIR"
-    cd "$MODEL_DIR"
-
-    echo_color "Running Mars-Small128 converter..." "blue"
-    python3 "$CONVERTER_SCRIPT" --output-dir "$MODEL_DIR" --precision both || handle_error $LINENO
-
-    echo_color "Mars-Small128 conversion completed" "green"
-    cd ../..
-  else
-    echo_color "\nModel already exists: $MODEL_DIR.\n" "yellow"
-  fi
-fi
-
-# ================================= PointPillars FP16 - OpenVINO Contrib =================================
-if array_contains "pointpillars" "${MODELS_TO_PROCESS[@]}" || array_contains "all" "${MODELS_TO_PROCESS[@]}"; then
-  display_header "Downloading PointPillars model"
-  MODEL_NAME="pointpillars"
-  MODEL_DIR="$MODELS_PATH/public/$MODEL_NAME/FP16"
-  BASE_URL="https://raw.githubusercontent.com/openvinotoolkit/openvino_contrib/master/modules/3d/pointPillars/pretrained"
-  POINTPILLARS_FILES=(
-    "pointpillars_ov_nn.bin"
-    "pointpillars_ov_nn.xml"
-    "pointpillars_ov_pillar_layer.xml"
-    "pointpillars_ov_postproc.xml"
-  )
-
-  MISSING_POINTPILLARS_FILE=false
-  for file_name in "${POINTPILLARS_FILES[@]}"; do
-    if [[ ! -f "$MODEL_DIR/$file_name" ]]; then
-      MISSING_POINTPILLARS_FILE=true
-      break
-    fi
-  done
-
-  if [[ "$MISSING_POINTPILLARS_FILE" == true ]]; then
-    echo "Downloading: ${MODEL_DIR}"
-    mkdir -p "$MODEL_DIR"
-    cd "$MODEL_DIR"
-
-    for file_name in "${POINTPILLARS_FILES[@]}"; do
-      curl -L --fail -o "$file_name" "$BASE_URL/$file_name"
-    done
-
-    cd - >/dev/null
-  else
-    echo_color "\nModel already exists: $MODEL_DIR.\n" "yellow"
-  fi
-fi
