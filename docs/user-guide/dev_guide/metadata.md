@@ -83,7 +83,7 @@ For reference documentation of the legacy API, see
 | `gvametapublish` | JSON → MQTT/Kafka/File | GstBuffer + GstGVAJSONMeta | — | — |
 | `gvametaaggregate` | Merge from multiple streams | GstBuffer + ROI + GstGVATensorMeta + ODMtd + ClsMtd + GstAnalyticsGroupMtd + GstAnalyticsKeypointMtd | ODMtd, ClsMtd, GstAnalyticsGroupMtd, GstAnalyticsKeypointMtd | ROI + GstStructure params, GstGVATensorMeta |
 | `gvawatermark` | Overlay on video | GstBuffer + ROI + ODMtd + ClsMtd + GstAnalyticsGroupMtd + GstAnalyticsKeypointMtd + TrackingMtd + GstGVATensorMeta + WatermarkDrawMeta + WatermarkCircleMeta + WatermarkTextMeta | — | — |
-| `gvagenai` | VLM inference on video frames | GstBuffer | ClsMtd | GstGVATensorMeta, GstGVAJSONMeta |
+| `gvagenai` | VLM inference on video frames | GstBuffer | ClsMtd | GstGVAJSONMeta |
 | `gvaaudiotranscribe` | Speech recognition (Whisper) | GstBuffer (audio) | ClsMtd | — |
 
 <!--hide_directive
