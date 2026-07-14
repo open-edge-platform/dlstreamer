@@ -72,6 +72,9 @@ def normalize_export_layout(model_path: Path) -> Path:
 
     if current_dir != target_dir:
         for item in list(current_dir.iterdir()):
+            # Avoid moving the precision folder into itself (e.g. FP32 -> FP32/FP32).
+            if item == target_dir:
+                continue
             destination = target_dir / item.name
             if destination.exists():
                 if destination.is_dir() and item.is_dir():
@@ -192,7 +195,7 @@ def main() -> int:
         return 0
         
     except OSError as exc:
-        print(f"Error: Model '{model_id}' not found or inaccessible")
+        print(f"File system or access error while exporting model '{model_id}'")
         print(f"Details: {str(exc)}")
         return 1
     except subprocess.CalledProcessError as exc:
