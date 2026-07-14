@@ -68,7 +68,7 @@ Both the sink and src caps are `multistream/x-analytics-batch(meta:GstAnalyticsB
 - Each camera stream keeps its `GstAnalyticsODMtd` untouched; the fuser adds a `GstAnalyticsTrackingMtd` per detection (linked via `RELATE_TO` to the OD mtd) for the per-camera tracker IDs. Cross-modal pairings are exposed by an `IS_PART_OF` relation from each camera OD mtd to a tracking mtd whose `tracking_id` is the id of the matching `GstAnalytics3DODMtd` on the 3D stream.
 - The 3D stream carries every `GstAnalytics3DODMtd` (full LiDAR/radar pose) plus its tracking mtd.
 
-This lets `g3drender` iterate the batch's streams once per tick and draw all cameras + the 3D top-down view from a single buffer. Video-only batches (a tick with no coincident 3D frame) still get per-camera tracking; cross-modal fusion is simply a no-op for that tick.
+Video-only batches (a tick with no coincident 3D frame) still get per-camera tracking; cross-modal fusion is simply a no-op for that tick.
 
 When the batch is serialized with `gvametaconvert`, each `objects_3d` entry carries an `id` (its `GstAnalytics3DODMtd` id) and each fused camera detection carries `associated_3d_object_id`, the `id` of the 3D object it was paired with, so the `IS_PART_OF` link is resolvable by joining on that id.
 
