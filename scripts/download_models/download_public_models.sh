@@ -303,6 +303,7 @@ pip install --no-cache-dir opencv-python-headless==4.12.0.88 || handle_error $LI
 pip install --no-cache-dir nncf==2.19.0       || handle_error $LINENO
 pip install --no-cache-dir tqdm==4.67.1       || handle_error $LINENO
 pip install --no-cache-dir requests==2.32.5   || handle_error $LINENO
+pip install --no-cache-dir pyyaml==6.0   || handle_error $LINENO
 
 # Install PyTorch CPU version
 pip install --no-cache-dir --upgrade --extra-index-url https://download.pytorch.org/whl/cpu torch==2.8.0 torchaudio==2.8.0 torchvision==0.23.0 || handle_error $LINENO
