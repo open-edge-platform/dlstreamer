@@ -81,12 +81,6 @@ python3 face_detection_and_classification.py
 python3 face_detection_and_classification.py /path/to/video.mp4 CPU json
 ```
 
-A thin wrapper script is also provided for convenience:
-
-```code
-./face_detection_and_classification.sh /path/to/video.mp4 GPU json
-```
-
 The detection and classification model revisions and export precision are pinned so the `json`
 output is reproducible across runs.
 
