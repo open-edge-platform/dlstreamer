@@ -6,7 +6,12 @@
 
 set(TARGET_NAME "test_g3drender")
 
-add_executable(${TARGET_NAME} test_g3drender.cpp)
+add_executable(${TARGET_NAME}
+    test_g3drender.cpp
+    g3d_test_synth.cpp
+    g3d_test_harness.cpp
+    g3d_test_golden.cpp
+)
 
 pkg_check_modules(GSTCHECK      gstreamer-check-1.0      REQUIRED)
 pkg_check_modules(GSTANALYTICS gstreamer-analytics-1.0  REQUIRED)
