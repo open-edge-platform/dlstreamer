@@ -1210,54 +1210,7 @@ class Tensor {
             // Generic raw tensor reconstruction: copy the payload verbatim and map the GstTensor
             // data type to a GVA precision. Only fields that come directly from the analytics meta
             // (precision, dims, payload and semantic tag) are restored.
-            Precision precision = Precision::UNSPECIFIED;
-            switch (gtensor->data_type) {
-            case GST_TENSOR_DATA_TYPE_INT4:
-                precision = Precision::I4;
-                break;
-            case GST_TENSOR_DATA_TYPE_INT8:
-                precision = Precision::I8;
-                break;
-            case GST_TENSOR_DATA_TYPE_INT16:
-                precision = Precision::I16;
-                break;
-            case GST_TENSOR_DATA_TYPE_INT32:
-                precision = Precision::I32;
-                break;
-            case GST_TENSOR_DATA_TYPE_INT64:
-                precision = Precision::I64;
-                break;
-            case GST_TENSOR_DATA_TYPE_UINT4:
-                precision = Precision::U4;
-                break;
-            case GST_TENSOR_DATA_TYPE_UINT8:
-                precision = Precision::U8;
-                break;
-            case GST_TENSOR_DATA_TYPE_UINT16:
-                precision = Precision::U16;
-                break;
-            case GST_TENSOR_DATA_TYPE_UINT32:
-                precision = Precision::U32;
-                break;
-            case GST_TENSOR_DATA_TYPE_UINT64:
-                precision = Precision::U64;
-                break;
-            case GST_TENSOR_DATA_TYPE_FLOAT16:
-                precision = Precision::FP16;
-                break;
-            case GST_TENSOR_DATA_TYPE_FLOAT32:
-                precision = Precision::FP32;
-                break;
-            case GST_TENSOR_DATA_TYPE_FLOAT64:
-                precision = Precision::FP64;
-                break;
-            case GST_TENSOR_DATA_TYPE_BFLOAT16:
-                precision = Precision::BF16;
-                break;
-            default:
-                precision = Precision::UNSPECIFIED;
-                break;
-            }
+            const Precision precision = precision_from_tensor_data_type(gtensor->data_type);
 
             GstMapInfo map;
             if (!gst_buffer_map(gtensor->data, &map, GST_MAP_READ))
@@ -1288,6 +1241,31 @@ class Tensor {
     }
 
   protected:
+    /**
+     * @brief Map a GStreamer Analytics tensor data type to a GVA::Tensor precision.
+     * @param data_type GstTensorDataType to map
+     * @return corresponding Precision, Precision::UNSPECIFIED if not mappable
+     */
+    static Precision precision_from_tensor_data_type(GstTensorDataType data_type) {
+        struct Entry {
+            GstTensorDataType data_type;
+            Precision precision;
+        };
+        static constexpr Entry table[] = {
+            {GST_TENSOR_DATA_TYPE_INT4, Precision::I4},      {GST_TENSOR_DATA_TYPE_INT8, Precision::I8},
+            {GST_TENSOR_DATA_TYPE_INT16, Precision::I16},    {GST_TENSOR_DATA_TYPE_INT32, Precision::I32},
+            {GST_TENSOR_DATA_TYPE_INT64, Precision::I64},    {GST_TENSOR_DATA_TYPE_UINT4, Precision::U4},
+            {GST_TENSOR_DATA_TYPE_UINT8, Precision::U8},     {GST_TENSOR_DATA_TYPE_UINT16, Precision::U16},
+            {GST_TENSOR_DATA_TYPE_UINT32, Precision::U32},   {GST_TENSOR_DATA_TYPE_UINT64, Precision::U64},
+            {GST_TENSOR_DATA_TYPE_FLOAT16, Precision::FP16}, {GST_TENSOR_DATA_TYPE_FLOAT32, Precision::FP32},
+            {GST_TENSOR_DATA_TYPE_FLOAT64, Precision::FP64}, {GST_TENSOR_DATA_TYPE_BFLOAT16, Precision::BF16},
+        };
+        for (const auto &entry : table)
+            if (entry.data_type == data_type)
+                return entry.precision;
+        return Precision::UNSPECIFIED;
+    }
+
     /**
      * @brief ptr to GstStructure that contains all tensor (inference results) data & info.
      */
