@@ -15,6 +15,10 @@ add_subdirectory(analytics)
 add_subdirectory(properties)
 add_subdirectory(g3drender)
 
+if(${ENABLE_GENAI})
+    add_subdirectory(genai)
+endif()
+
 if(${ENABLE_AUDIO_INFERENCE_ELEMENTS})
     add_subdirectory(audiodetect)
 endif()

@@ -12,6 +12,7 @@
 #include <gst/analytics/analytics.h>
 #include <gst/analytics/gstanalyticsbatchmeta.h>
 #include <gst/base/gstbasetransform.h>
+#include <gst/video/video.h>
 
 #include <dlstreamer/gst/metadata/g3d_od_mtd.h>
 #include <dlstreamer/gst/metadata/g3d_radarprocess_meta.h>
@@ -33,6 +34,7 @@ namespace {
 constexpr float DEFAULT_IOU_THRESHOLD = 0.3f;
 constexpr unsigned DEFAULT_HISTORY_WINDOW = 30;
 constexpr GstG3DFuserTrackingType DEFAULT_TRACKING_TYPE = GST_G3D_FUSER_TRACKING_ZERO_TERM_IMAGELESS;
+constexpr GstG3DFuserTrackingSpace DEFAULT_TRACKING_SPACE = GST_G3D_FUSER_TRACKING_SPACE_BEV;
 
 /* The GstG3DFuserTrackingType enum values are passed straight to vas::ot, so
  * they must stay numerically aligned with vas::ot::TrackingType. */
@@ -53,12 +55,15 @@ struct TrackedDetection {
 };
 
 /* Thin wrapper around vas::ot::ObjectTracker for imageless tracking only.
- * Used for camera 2D boxes and for lidar boxes projected into image space.
- * The tracker still requires a frame argument, so a fixed dummy image is
- * passed — imageless algorithms ignore its pixels. */
+ * Used for camera 2D boxes and for lidar boxes projected into image or BEV
+ * space. The tracker still requires a frame argument, so a fixed dummy image is
+ * passed. Imageless algorithms ignore its pixels, but the frame size still
+ * bounds tracking, tracklets leaving it are pruned, so it must cover the
+ * coordinate range of the boxes being tracked (image resolution, or the BEV
+ * grid). */
 class ModalityTracker {
   public:
-    explicit ModalityTracker(vas::ot::TrackingType type) {
+    explicit ModalityTracker(vas::ot::TrackingType type, cv::Size frame_size) : frame_size_(frame_size) {
         vas::ot::ObjectTracker::Builder builder;
         builder.backend_type = vas::BackendType::CPU;
         builder.input_image_format = vas::ColorFormat::BGR;
@@ -76,7 +81,7 @@ class ModalityTracker {
         }
 
         if (dummy_mat_.empty())
-            dummy_mat_ = cv::Mat(cv::Size(640, 480), CV_8UC3, cv::Scalar::all(0));
+            dummy_mat_ = cv::Mat(frame_size_, CV_8UC3, cv::Scalar::all(0));
 
         auto tracked = tracker_->Track(dummy_mat_, in_objs);
         for (const auto &t : tracked) {
@@ -91,6 +96,7 @@ class ModalityTracker {
 
   private:
     std::unique_ptr<vas::ot::ObjectTracker> tracker_;
+    cv::Size frame_size_;
     cv::Mat dummy_mat_;
 };
 
@@ -109,12 +115,26 @@ GType gst_g3d_fuser_tracking_type_get_type(void) {
     return (GType)type_id;
 }
 
+GType gst_g3d_fuser_tracking_space_get_type(void) {
+    static gsize type_id = 0;
+    static const GEnumValue values[] = {
+        {GST_G3D_FUSER_TRACKING_SPACE_IMAGE, "Track LiDAR boxes projected into the camera image plane", "image"},
+        {GST_G3D_FUSER_TRACKING_SPACE_BEV, "Track LiDAR boxes in a top-down bird's-eye-view grid", "bev"},
+        {0, NULL, NULL}};
+    if (g_once_init_enter(&type_id)) {
+        GType t = g_enum_register_static("GstG3DFuserTrackingSpace", values);
+        g_once_init_leave(&type_id, t);
+    }
+    return (GType)type_id;
+}
+
 enum {
     PROP_0,
     PROP_CALIBRATION,
     PROP_ASSOC_IOU_THRESHOLD,
     PROP_TRACK_HISTORY_WINDOW,
     PROP_TRACKING_TYPE,
+    PROP_TRACKING_SPACE,
 };
 
 struct _GstG3DObjectFuserPrivate {
@@ -125,9 +145,10 @@ struct _GstG3DObjectFuserPrivate {
      * lazily for each camera index seen in the batch. */
     std::map<int, std::unique_ptr<ModalityTracker>> camera_trackers;
 
-    /* Single tracker for the LiDAR stream, operating on 3D boxes projected to
-     * one canonical camera's image plane so its track ids are stable across
-     * all cameras. */
+    /* Single tracker for the LiDAR stream. Depending on tracking_space it
+     * operates either in a top-down BEV grid (default, camera-independent) or on
+     * boxes projected to one canonical camera's image plane; either way its
+     * track ids are a single consistent frame across all cameras. */
     std::unique_ptr<ModalityTracker> threed_tracker;
 
     bool calibration_loaded = false;
@@ -191,6 +212,15 @@ static void gst_g3d_object_fuser_class_init(GstG3DObjectFuserClass *klass) {
                           GST_TYPE_G3D_FUSER_TRACKING_TYPE, DEFAULT_TRACKING_TYPE,
                           (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
+    g_object_class_install_property(
+        gobject_class, PROP_TRACKING_SPACE,
+        g_param_spec_enum("tracking-space", "Tracking space",
+                          "Coordinate frame the internal LiDAR tracker runs in: 'bev' (top-down, metric, "
+                          "camera-independent) or 'image' (projected into the camera plane). Camera-to-3D "
+                          "fusion always uses image projection regardless of this setting.",
+                          GST_TYPE_G3D_FUSER_TRACKING_SPACE, DEFAULT_TRACKING_SPACE,
+                          (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+
     gst_element_class_set_static_metadata(gstelement_class, "G3D Object Fuser", "Filter/Analytics/3D",
                                           "Spatially associates camera 2D detections with radar/lidar 3D detections "
                                           "inside a gvastreammux batch (g3dobjectfuser)",
@@ -209,6 +239,7 @@ static void gst_g3d_object_fuser_init(GstG3DObjectFuser *self) {
     self->assoc_iou_threshold = DEFAULT_IOU_THRESHOLD;
     self->track_history_window = DEFAULT_HISTORY_WINDOW;
     self->tracking_type = DEFAULT_TRACKING_TYPE;
+    self->tracking_space = DEFAULT_TRACKING_SPACE;
 
     self->priv = static_cast<GstG3DObjectFuserPrivate *>(gst_g3d_object_fuser_get_instance_private(self));
     new (self->priv) GstG3DObjectFuserPrivate();
@@ -241,6 +272,9 @@ static void gst_g3d_object_fuser_set_property(GObject *object, guint prop_id, co
     case PROP_TRACKING_TYPE:
         self->tracking_type = static_cast<GstG3DFuserTrackingType>(g_value_get_enum(value));
         break;
+    case PROP_TRACKING_SPACE:
+        self->tracking_space = static_cast<GstG3DFuserTrackingSpace>(g_value_get_enum(value));
+        break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
         break;
@@ -261,6 +295,9 @@ static void gst_g3d_object_fuser_get_property(GObject *object, guint prop_id, GV
         break;
     case PROP_TRACKING_TYPE:
         g_value_set_enum(value, self->tracking_type);
+        break;
+    case PROP_TRACKING_SPACE:
+        g_value_set_enum(value, self->tracking_space);
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -496,22 +533,40 @@ GstBuffer *ensure_writable_stream_buffer(GstAnalyticsBatchStream *stream) {
     return buf;
 }
 
+/* Resolve a camera stream's pixel resolution, so its tracker frame can cover the
+ * detections' coordinate range. Prefer the stream caps, fall back to the buffer's
+ * video meta, then to an empty size. */
+cv::Size camera_frame_size(GstCaps *caps, GstBuffer *buf) {
+    GstVideoInfo info;
+    gst_video_info_init(&info);
+    if (caps && gst_video_info_from_caps(&info, caps) && info.width > 0 && info.height > 0)
+        return cv::Size(info.width, info.height);
+    if (GstVideoMeta *vmeta = gst_buffer_get_video_meta(buf))
+        return cv::Size(static_cast<int>(vmeta->width), static_cast<int>(vmeta->height));
+    return cv::Size(0, 0);
+}
+
 } // namespace
 
 /* Run camera tracking and write per-camera tracking mtds + cross-modal
  * IS_PART_OF relations onto the camera buffer's own GstAnalyticsRelationMeta.
  * 3D mtds live on the 3D buffer's relation meta and are referenced by id from
  * across the stream boundary. */
-static void process_one_camera(GstG3DObjectFuser *self, GstBuffer *cam_buf, int camera_index, bool is_lidar,
-                               std::vector<dlstreamer::Box3D> &threed_boxes, const std::vector<guint> &threed_mtd_ids) {
+static void process_one_camera(GstG3DObjectFuser *self, GstBuffer *cam_buf, int camera_index, cv::Size cam_frame,
+                               bool is_lidar, std::vector<dlstreamer::Box3D> &threed_boxes,
+                               const std::vector<guint> &threed_mtd_ids) {
     std::vector<dlstreamer::Box2D> cam_boxes;
     collect_camera_detections(cam_buf, cam_boxes);
 
     /* Per-camera 2D tracker, keyed by camera_index so each camera maintains its
-     * own ID space. */
+     * own ID space. Size the tracker frame to the camera resolution so
+     * detections near the image edges are not pruned as out-of-frame; fall back
+     * to a nominal size when the resolution is unknown. */
     auto &cam_tracker = self->priv->camera_trackers[camera_index];
-    if (!cam_tracker)
-        cam_tracker = std::make_unique<ModalityTracker>(static_cast<vas::ot::TrackingType>(self->tracking_type));
+    if (!cam_tracker) {
+        const cv::Size frame = (cam_frame.width > 0 && cam_frame.height > 0) ? cam_frame : cv::Size(640, 480);
+        cam_tracker = std::make_unique<ModalityTracker>(static_cast<vas::ot::TrackingType>(self->tracking_type), frame);
+    }
 
     std::vector<TrackedDetection> cam_track_in;
     cam_track_in.reserve(cam_boxes.size());
@@ -591,6 +646,7 @@ static GstFlowReturn gst_g3d_object_fuser_transform_ip(GstBaseTransform *trans, 
      * 3D-sensor (lidar/radar) buffer, keyed by each stream's caps. */
     std::vector<GstBuffer *> cam_bufs;
     std::vector<int> cam_indices;
+    std::vector<cv::Size> cam_sizes;
     GstBuffer *threed_buf = nullptr;
     bool is_lidar = false;
     bool have_3d = false;
@@ -609,6 +665,7 @@ static GstFlowReturn gst_g3d_object_fuser_transform_ip(GstBaseTransform *trans, 
         if (name && g_str_has_prefix(name, "video/")) {
             cam_bufs.push_back(sbuf);
             cam_indices.push_back(static_cast<int>(stream->index));
+            cam_sizes.push_back(camera_frame_size(caps, sbuf));
         } else if (is_lidar_stream || is_radar_stream) {
             /* The element supports a single 3D-sensor stream per batch. If more
              * than one is present (e.g. both lidar and radar), keep the first and
@@ -635,26 +692,50 @@ static GstFlowReturn gst_g3d_object_fuser_transform_ip(GstBaseTransform *trans, 
         else
             collect_radar_detections(threed_buf, threed_boxes);
 
-        /* For lidar, track in 2D image space: project each 3D box's 8 corners to
-         * the camera image, take the bounding rect, and feed those rects to the
-         * same vas::ot tracker the camera path uses. Project with one canonical
-         * camera's calibration (the lowest stream index present) so the LiDAR
-         * track-id space is a single consistent frame across all cameras. */
+        /* Track the LiDAR boxes with the same vas::ot tracker the camera path
+         * uses, in one of two 2D frames selected by tracking_space:
+         *   - BEV (default): rasterise each box's ground footprint to a fixed
+         *     top-down metric grid — camera-independent, no perspective/depth
+         *     ambiguity, and every box is trackable.
+         *   - IMAGE: project each box's 8 corners to one canonical camera's image
+         *     plane (the lowest stream index present) and track the bounding rect.
+         * Either way the tracker runs in a single consistent frame, so LiDAR
+         * track ids are stable across all cameras. */
         if (is_lidar) {
-            if (!self->priv->threed_tracker)
-                self->priv->threed_tracker =
-                    std::make_unique<ModalityTracker>(static_cast<vas::ot::TrackingType>(self->tracking_type));
+            const bool use_bev = (self->tracking_space == GST_G3D_FUSER_TRACKING_SPACE_BEV);
 
-            const std::vector<int> cam_calib_indices = self->priv->calibration.camera_indices();
-            const int canonical_cam = cam_calib_indices.empty() ? 0 : cam_calib_indices.front();
-            const dlstreamer::CameraCalibration *cal = self->priv->calibration.get(canonical_cam);
+            /* IMAGE mode projects into one canonical camera (lowest calibration
+             * stream index); track in that camera's resolution so boxes near the
+             * far edge of a wide image are not pruned as out-of-frame. */
+            const dlstreamer::CameraCalibration *cal = nullptr;
+            cv::Size image_frame(640, 480);
+            if (!use_bev) {
+                const std::vector<int> cam_calib_indices = self->priv->calibration.camera_indices();
+                const int canonical_cam = cam_calib_indices.empty() ? 0 : cam_calib_indices.front();
+                cal = self->priv->calibration.get(canonical_cam);
+                for (std::size_t i = 0; i < cam_indices.size(); ++i) {
+                    if (cam_indices[i] == canonical_cam && cam_sizes[i].width > 0 && cam_sizes[i].height > 0) {
+                        image_frame = cam_sizes[i];
+                        break;
+                    }
+                }
+            }
+
+            if (!self->priv->threed_tracker) {
+                const cv::Size frame = use_bev ? dlstreamer::ObjectFuser::bev_raster_size() : image_frame;
+                self->priv->threed_tracker =
+                    std::make_unique<ModalityTracker>(static_cast<vas::ot::TrackingType>(self->tracking_type), frame);
+            }
 
             std::vector<TrackedDetection> three_in;
             three_in.reserve(threed_boxes.size());
             for (std::size_t i = 0; i < threed_boxes.size(); ++i) {
                 cv::Rect2f proj;
-                if (!cal || !dlstreamer::ObjectFuser::project_lidar_box_to_image(threed_boxes[i], *cal, proj))
-                    continue; /* box behind the image plane or no calibration */
+                bool ok =
+                    use_bev ? dlstreamer::ObjectFuser::project_lidar_box_to_bev(threed_boxes[i], proj)
+                            : (cal && dlstreamer::ObjectFuser::project_lidar_box_to_image(threed_boxes[i], *cal, proj));
+                if (!ok)
+                    continue; /* box behind the image plane or no calibration (image mode) */
                 TrackedDetection td;
                 td.rect =
                     cv::Rect(static_cast<int>(proj.x), static_cast<int>(proj.y),
@@ -696,7 +777,7 @@ static GstFlowReturn gst_g3d_object_fuser_transform_ip(GstBaseTransform *trans, 
      * Video-only batches (no coincident 3D frame) still get camera tracking so
      * track IDs stay continuous; fusion is simply a no-op with no 3D boxes. */
     for (std::size_t i = 0; i < cam_bufs.size(); ++i)
-        process_one_camera(self, cam_bufs[i], cam_indices[i], is_lidar, threed_boxes, threed_mtd_ids);
+        process_one_camera(self, cam_bufs[i], cam_indices[i], cam_sizes[i], is_lidar, threed_boxes, threed_mtd_ids);
 
     return GST_FLOW_OK;
 }

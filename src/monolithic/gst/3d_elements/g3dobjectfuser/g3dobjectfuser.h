@@ -34,6 +34,24 @@ typedef enum {
 #define GST_TYPE_G3D_FUSER_TRACKING_TYPE (gst_g3d_fuser_tracking_type_get_type())
 GType gst_g3d_fuser_tracking_type_get_type(void);
 
+/**
+ * GstG3DFuserTrackingSpace:
+ * @GST_G3D_FUSER_TRACKING_SPACE_IMAGE: track LiDAR boxes projected into a camera image plane
+ * @GST_G3D_FUSER_TRACKING_SPACE_BEV: track LiDAR boxes in a top-down bird's-eye-view grid
+ *
+ * Coordinate frame the internal LiDAR tracker operates in. BEV is metric,
+ * camera-independent, and free of perspective/depth ambiguity; IMAGE reproduces
+ * the projected-image method (needs calibration, restricted to the camera FOV).
+ * Camera-to-3D fusion always uses image projection regardless of this setting.
+ */
+typedef enum {
+    GST_G3D_FUSER_TRACKING_SPACE_IMAGE = 0,
+    GST_G3D_FUSER_TRACKING_SPACE_BEV = 1,
+} GstG3DFuserTrackingSpace;
+
+#define GST_TYPE_G3D_FUSER_TRACKING_SPACE (gst_g3d_fuser_tracking_space_get_type())
+GType gst_g3d_fuser_tracking_space_get_type(void);
+
 typedef struct _GstG3DObjectFuser GstG3DObjectFuser;
 typedef struct _GstG3DObjectFuserClass GstG3DObjectFuserClass;
 typedef struct _GstG3DObjectFuserPrivate GstG3DObjectFuserPrivate;
@@ -46,6 +64,7 @@ struct _GstG3DObjectFuser {
     gfloat assoc_iou_threshold;
     guint track_history_window;
     GstG3DFuserTrackingType tracking_type;
+    GstG3DFuserTrackingSpace tracking_space;
 
     /* Pimpl: holds C++ object fuser, trackers, calibration, etc. */
     GstG3DObjectFuserPrivate *priv;

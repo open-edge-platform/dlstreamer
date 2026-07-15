@@ -8,7 +8,7 @@ The `g3dobjectfuser` element consumes a **pre-muxed `GstAnalyticsBatchMeta` cont
 It runs:
 
 - **Per-camera 2D tracking** keyed by the `gvastreammux` stream index (`GstAnalyticsBatchMeta.streams[0].index`), so each camera maintains its own track-id space using the `vas::ot` tracker.
-- **One LiDAR tracker in projected 2D image space**, each 3D box is projected to the image via the calibration matrices and its bounding rect is fed to the same `vas::ot` tracker. Projection uses one canonical camera (the lowest stream index) so the LiDAR track-id space stays a single consistent frame across all cameras.
+- **One LiDAR tracker**, running in the 2D frame selected by `tracking-space`. In **`bev`** (default) each 3D box's ground footprint `(x, y)` is rasterised to a fixed top-down metric grid and its rect is fed to the `vas::ot` tracker. This is camera-independent, free of perspective/depth ambiguity, and tracks every box (not just those inside a camera FOV). In **`image`** each box is projected to one canonical camera's image plane (the lowest stream index) and the bounding rect is tracked instead. Either way the LiDAR track-id space is a single consistent frame across all cameras. (Camera↔3D fusion always uses image projection regardless of this setting.)
 - **3D ↔ 2D projection** via per-camera calibration matrices (KITTI-style for LiDAR, 3×3 homography for radar). Radar detections pass through with their existing `tracker_ids` set by `g3dradarprocess`.
 - **Spatial association** between every projected 3D box and every 2D camera box using `vas::ot::HungarianAlgo` (the same Hungarian solver `gvatrack` uses for detection-to-tracklet assignment), with IoU costs and a minimum-IoU floor of `assoc-iou-threshold`.
 - **Cross-modal track-to-track stability** via a `(camera_index, camera_track_id, 3d_track_id) → fused_id` table aged with `track-history-window`, keyed per camera so the same camera-track id from two different cameras maps to two distinct fused ids.
@@ -22,10 +22,13 @@ It runs:
 | `assoc-iou-threshold` | Float [0, 1]   | Minimum IoU between a projected 3D box and a 2D camera box to count as a spatial association.                    | 0.3     |
 | `track-history-window`| UInt           | Frames retained for the cross-modal track-to-track association table.                                            | 30      |
 | `tracking-type`       | Enum `GstG3DFuserTrackingType` | Tracking algorithm used to identify the same object in multiple frames: `short-term-imageless` or `zero-term-imageless`. | `zero-term-imageless` |
+| `tracking-space`      | Enum `GstG3DFuserTrackingSpace` | Coordinate frame the internal LiDAR tracker runs in: `bev` (top-down metric grid, camera-independent) or `image` (projected into the canonical camera plane). Fusion always uses image projection regardless. | `bev` |
 
 ## Pipeline Examples
 
 `gvastreammux` performs the synchronisation; `sync-mode` makes the camera and 3D timelines comparable. The 3D sensor (LiDAR vs radar) is identified by the per-stream caps inside the batch (`application/x-lidar` vs `application/x-radar-processed`).
+
+**Note**: `g3drender` element which mentioned in following examples will be added soon.
 
 ### Camera + Radar fusion
 ```bash
@@ -65,7 +68,9 @@ Both the sink and src caps are `multistream/x-analytics-batch(meta:GstAnalyticsB
 - Each camera stream keeps its `GstAnalyticsODMtd` untouched; the fuser adds a `GstAnalyticsTrackingMtd` per detection (linked via `RELATE_TO` to the OD mtd) for the per-camera tracker IDs. Cross-modal pairings are exposed by an `IS_PART_OF` relation from each camera OD mtd to a tracking mtd whose `tracking_id` is the id of the matching `GstAnalytics3DODMtd` on the 3D stream.
 - The 3D stream carries every `GstAnalytics3DODMtd` (full LiDAR/radar pose) plus its tracking mtd.
 
-This lets `g3drender` iterate the batch's streams once per tick and draw all cameras + the 3D top-down view from a single buffer. Video-only batches (a tick with no coincident 3D frame) still get per-camera tracking; cross-modal fusion is simply a no-op for that tick.
+Video-only batches (a tick with no coincident 3D frame) still get per-camera tracking; cross-modal fusion is simply a no-op for that tick.
+
+When the batch is serialized with `gvametaconvert`, each `objects_3d` entry carries an `id` (its `GstAnalytics3DODMtd` id) and each fused camera detection carries `associated_3d_object_id`, the `id` of the 3D object it was paired with, so the `IS_PART_OF` link is resolvable by joining on that id.
 
 ## Metadata Structure: `GstAnalytics3DODMtd`
 Tracking is carried separately in #GstAnalyticsTrackingMtd attached to the same relation meta and linked to the 3D OD mtd via #GST_ANALYTICS_REL_TYPE_RELATE_TO. Cross-modal pairs are linked via #GST_ANALYTICS_REL_TYPE_IS_PART_OF:
@@ -172,4 +177,11 @@ Element Properties:
                          Enum "GstG3DFuserTrackingType" Default: 5, "zero-term-imageless"
                             (4): short-term-imageless - Short-term imageless tracker
                             (5): zero-term-imageless  - Zero-term imageless tracker
+  tracking-space       : Coordinate frame the internal LiDAR tracker runs in: 'bev' (top-down, metric,
+                         camera-independent) or 'image' (projected into the camera plane). Camera-to-3D
+                         fusion always uses image projection regardless of this setting.
+                         flags: readable, writable
+                         Enum "GstG3DFuserTrackingSpace" Default: 1, "bev"
+                            (0): image             - Track LiDAR boxes projected into the camera image plane
+                            (1): bev               - Track LiDAR boxes in a top-down bird's-eye-view grid
 ```
