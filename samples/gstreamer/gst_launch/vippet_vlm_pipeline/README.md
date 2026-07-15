@@ -111,8 +111,10 @@ This may take several minutes on first run.
 
 ```bash
 source .cv_triggered_vlm-venv/bin/activate
-python3 export_models.py
+PYTHONPATH= python3 export_models.py
 ```
+
+> **Note:** `PYTHONPATH=` clears any system OpenVINO paths (e.g. from a host system)
 
 ## Running the Sample
 
