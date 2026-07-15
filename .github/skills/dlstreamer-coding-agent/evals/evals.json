@@ -1,0 +1,153 @@
+{
+    "version": "1.0",
+    "skill": "dlstreamer-coding-agent",
+    "evals": [
+        {
+            "id": "deepstream-cpp-conversion",
+            "prompt_file": "../example-prompts/deepstream-cpp-conversion.md",
+            "prompt": "Convert NVIDIA DeepStream C++ LPR app to DL Streamer with conversion reference documentation",
+            "expected_output": [
+                "Generates a working DL Streamer pipeline equivalent to the DeepStream C++ LPR app",
+                "Includes element mapping table (DeepStream elements to DL Streamer elements)",
+                "Includes side-by-side pipeline diagrams",
+                "Includes application logic comparison table",
+                "Includes model comparison table",
+                "Uses correct DL Streamer elements (gvadetect, gvaclassify, etc.)",
+                "Output code compiles or runs without syntax errors"
+            ],
+            "should_trigger": true,
+            "files": [],
+            "assertions": []
+        },
+        {
+            "id": "deepstream-python-conversion",
+            "prompt_file": "../example-prompts/deepstream-python-conversion.md",
+            "prompt": "Convert DeepStream Python test4 app to DL Streamer with conversion documentation",
+            "expected_output": [
+                "Generates a working DL Streamer Python pipeline equivalent to DeepStream test4",
+                "Includes element mapping table (DeepStream to DL Streamer)",
+                "Includes pipeline diagrams",
+                "Includes application logic comparison table",
+                "Includes model comparison table",
+                "Uses correct DL Streamer Python bindings or GStreamer pipeline construction",
+                "Output code runs without syntax errors"
+            ],
+            "should_trigger": true,
+            "files": [],
+            "assertions": []
+        },
+        {
+            "id": "deepstream-servicemaker-conversion",
+            "prompt_file": "../example-prompts/deepstream-servicemaker-conversion.md",
+            "prompt": "Convert DeepStream nvdsanalytics test app to Python DL Streamer optimized for Intel Core Ultra",
+            "expected_output": [
+                "Generates a working Python DL Streamer pipeline with zone analytics",
+                "Configures 4 rectangular zones as specified",
+                "Overlays live car counts on video",
+                "Saves annotated output video",
+                "Targets Intel Core Ultra optimization (NPU/GPU device selection)",
+                "Includes conversion reference documentation",
+                "Uses gvaanalytics or equivalent zone-counting approach"
+            ],
+            "should_trigger": true,
+            "files": [],
+            "assertions": []
+        },
+        {
+            "id": "event-based-smart-nvr",
+            "prompt_file": "../example-prompts/event-based-smart-nvr.md",
+            "prompt": "Event-based smart recording pipeline with person detection triggers",
+            "expected_output": [
+                "Generates a pipeline that detects people in video",
+                "Implements event-triggered recording (starts on person detection)",
+                "Saves recordings as sequenced files (save-1, save-2, etc.)",
+                "Optimizes for Intel Core Ultra 3 (correct device selection)",
+                "Includes performance validation or measurement approach",
+                "Uses appropriate DL Streamer elements for detection and recording control"
+            ],
+            "should_trigger": true,
+            "files": [],
+            "assertions": []
+        },
+        {
+            "id": "license-plate-recognition",
+            "prompt_file": "../example-prompts/license-plate-recognition.md",
+            "prompt": "License plate recognition with YOLOv11 detection and PaddleOCR",
+            "expected_output": [
+                "Uses YOLOv11 model for plate detection via gvadetect",
+                "Uses PaddleOCR model for character recognition via gvaclassify or gvainference",
+                "Outputs JSON with recognized plate text",
+                "Annotates video with detection results",
+                "Optimizes for Intel Core Ultra 3",
+                "Produces valid Python code that can run end-to-end"
+            ],
+            "should_trigger": true,
+            "files": [],
+            "assertions": []
+        },
+        {
+            "id": "multi-stream-compose",
+            "prompt_file": "../example-prompts/multi-stream-compose.md",
+            "prompt": "Multi-RTSP-stream analysis with AI analytics, recording, and WebRTC output",
+            "expected_output": [
+                "Handles multiple RTSP camera source inputs",
+                "Applies object detection AI analytics to streams",
+                "Implements dynamic recording control",
+                "Outputs combined streams via WebRTC",
+                "Uses correct DL Streamer multi-stream elements or patterns",
+                "Pipeline structure is logically sound for parallel stream processing"
+            ],
+            "should_trigger": true,
+            "files": [],
+            "assertions": []
+        },
+        {
+            "id": "people-detection-tracking",
+            "prompt_file": "../example-prompts/people-detection-tracking.md",
+            "prompt": "People detection and tracking bash script with YOLO26m and Mars re-ID",
+            "expected_output": [
+                "Generates a bash script with a valid GStreamer pipeline",
+                "Uses YOLO26m model for person detection",
+                "Uses Mars-Small-128 model for re-identification in gvatrack",
+                "Annotates output video with tracking results",
+                "Optimizes for Intel Core Ultra 3 (correct device property)",
+                "Pipeline includes gvadetect, gvatrack, and gvawatermark elements"
+            ],
+            "should_trigger": true,
+            "files": [],
+            "assertions": []
+        },
+        {
+            "id": "pose-estimation-compose",
+            "prompt_file": "../example-prompts/pose-estimation-compose.md",
+            "prompt": "Multi-stream pose estimation with 4 YOLO models composed into single output",
+            "expected_output": [
+                "Generates a bash script processing 4 video streams",
+                "Uses distinct YOLO pose models (YOLO26n/11n/8n/8l) per stream",
+                "Annotates each stream with keypoints and model name labels",
+                "Merges 4 streams into a combined/composed output",
+                "Optimizes for Intel Core Ultra 3",
+                "Uses compositor or equivalent for multi-stream composition"
+            ],
+            "should_trigger": true,
+            "files": [],
+            "assertions": []
+        },
+        {
+            "id": "safety-compliance-checks",
+            "prompt_file": "../example-prompts/safety-compliance-checks.md",
+            "prompt": "Worker safety compliance monitoring with YOLO detection and VLM analysis",
+            "expected_output": [
+                "Uses YOLO26m for worker detection and tracking",
+                "Crops detected regions for VLM analysis",
+                "Uses Qwen2.5-VL-3B (or equivalent VLM) for helmet/harness compliance checking",
+                "Alerts only on clear violations (avoids false positives)",
+                "Saves annotated images and JSON logs",
+                "Combines gvadetect, gvatrack, and gvagenai elements appropriately"
+            ],
+            "should_trigger": true,
+            "files": [],
+            "assertions": []
+        }
+    ]
+}
