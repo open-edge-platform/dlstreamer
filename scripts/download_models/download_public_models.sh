@@ -26,7 +26,9 @@ SUPPORTED_MODELS=(
   "yolox_s"
   "yolov7"
   "yolov8_license_plate_detector"
+  "ch_PP-OCRv4_rec_infer"
   "centerface"
+  "hsemotion"
   "deeplabv3"
 )
 
@@ -490,6 +492,50 @@ EOF
   fi
 fi
 
+# ================================= HSEmotion FP16 =================================
+if array_contains "hsemotion" "${MODELS_TO_PROCESS[@]}"; then
+  display_header "Downloading HSEmotion model"
+  MODEL_NAME="hsemotion"
+  MODEL_DIR="$MODELS_PATH/public/$MODEL_NAME"
+  DST_FILE="$MODEL_DIR/FP16/$MODEL_NAME.xml"
+
+  if [[ ! -f "$DST_FILE" ]]; then
+    echo "Downloading and converting: ${MODEL_DIR}"
+    mkdir -p "$MODEL_DIR"
+    cd "$MODEL_DIR"
+    git clone https://github.com/av-savchenko/face-emotion-recognition.git
+    cd face-emotion-recognition/models/affectnet_emotions/onnx
+
+    ovc enet_b0_8_va_mtl.onnx --input "[16,3,224,224]"
+    mv enet_b0_8_va_mtl.xml "$MODEL_DIR/$MODEL_NAME.xml"
+    mv enet_b0_8_va_mtl.bin "$MODEL_DIR/$MODEL_NAME.bin"
+    cd ../../../..
+    rm -rf face-emotion-recognition
+
+    python3 - <<EOF
+import openvino
+import os
+
+core = openvino.Core()
+ov_model = core.read_model(model='hsemotion.xml')
+
+ov_model.set_rt_info("anger contempt disgust fear happiness neutral sadness surprise", ['model_info', 'labels'])
+ov_model.set_rt_info("label", ['model_info', 'model_type'])
+ov_model.set_rt_info("True", ['model_info', 'output_raw_scores'])
+ov_model.set_rt_info("fit_to_window_letterbox", ['model_info', 'resize_type'])
+ov_model.set_rt_info("255", ['model_info', 'scale_values'])
+
+print(ov_model)
+
+openvino.save_model(ov_model, './FP16/hsemotion.xml')
+os.remove('hsemotion.xml')
+os.remove('hsemotion.bin')
+EOF
+  else
+    echo_color "\nModel already exists: $MODEL_DIR.\n" "yellow"
+  fi
+fi
+
 # ================================= DeepLabv3 FP16 & FP32 =================================
 if array_contains "deeplabv3" "${MODELS_TO_PROCESS[@]}"; then
   display_header "Downloading DeepLabv3 model"
@@ -536,6 +582,38 @@ EOF
     deactivate 2>/dev/null || true
     rm -rf "$HOME/.virtualenvs/dlstreamer_openvino_dev" 2>/dev/null || true
     source "$VENV_DIR/bin/activate" 
+  else
+    echo_color "\nModel already exists: $MODEL_DIR.\n" "yellow"
+  fi
+fi
+
+# ================================= ch_PP-OCRv4_rec_infer FP32 =================================
+if array_contains "ch_PP-OCRv4_rec_infer" "${MODELS_TO_PROCESS[@]}"; then
+  display_header "Downloading PaddlePaddle OCRv4 model"
+  MODEL_NAME="ch_PP-OCRv4_rec_infer"
+  MODEL_DIR="$MODELS_PATH/public/$MODEL_NAME"
+  DST_FILE1="$MODEL_DIR/FP32/$MODEL_NAME.xml"
+
+  if [[ ! -f "$DST_FILE1" ]]; then
+    echo "Downloading and converting: ${MODEL_DIR}"
+    mkdir -p "$MODEL_DIR"
+    cd "$MODEL_DIR"
+
+    curl -L -k -o "${MODEL_NAME}.zip" 'https://github.com/open-edge-platform/edge-ai-resources/raw/main/models/license-plate-reader.zip'
+    python3 -c "
+import zipfile
+import os
+with zipfile.ZipFile('${MODEL_NAME}.zip', 'r') as zip_ref:
+    zip_ref.extractall('.')
+os.remove('${MODEL_NAME}.zip')
+"
+
+    mkdir -p FP32
+    cp license-plate-reader/models/ch_PP-OCRv4_rec_infer/ch_PP-OCRv4_rec_infer.bin FP32/${MODEL_NAME}.bin
+    cp license-plate-reader/models/ch_PP-OCRv4_rec_infer/ch_PP-OCRv4_rec_infer.xml FP32/${MODEL_NAME}.xml
+    chmod -R u+w license-plate-reader
+    rm -rf license-plate-reader
+    cd ..
   else
     echo_color "\nModel already exists: $MODEL_DIR.\n" "yellow"
   fi
