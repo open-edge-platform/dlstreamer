@@ -37,7 +37,7 @@ identify patterns and gain insights across multiple domains, including:
 - safety and regulatory compliance
 - security monitoring
 
-![image](_images/overview_pipeline_example.png)
+![image](_images/dls-diagram.png)
 
 **Media analytics pipelines** transform media streams into insights
 through audio / video processing, inference, and analytical operations
