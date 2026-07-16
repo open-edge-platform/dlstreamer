@@ -18,8 +18,19 @@ Before using the DLS Optimizer, ensure you have created installed any necessary 
 
 ## Using the optimizer as a tool
 >**Note**\
->This example assumes your working directory is the optimizer directory `/opt/intel/dlstreamer/scripts/optimizer`
+>This example assumes your working directory is the optimizer directory `/opt/intel/dlstreamer/scripts/optimizer` \
+>Make sure you have installed DL Streamer [intallation steps](../get_started/install/install_guide_ubuntu.md) \
+>And configured environment variables for the current terminal session 
+
+```bash
+   python3 -m venv ~/python3venv
+   source ~/python3venv/bin/activate
+   source /opt/intel/dlstreamer/scripts/setup_dls_env.sh
+   cd /opt/intel/dlstreamer/scripts/optimizer
 ```
+
+```
+
 python3 . MODE [OPT] -- PIPELINE
 
 Arguments:
