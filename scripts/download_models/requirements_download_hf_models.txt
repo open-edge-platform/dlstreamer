@@ -3,7 +3,7 @@
 huggingface_hub==0.34.4
 openvino==2026.2.0
 optimum-onnx==0.1.0
-transformers==5.0.0
+transformers==4.57.1
 pillow==11.3.0
 torch==2.8.0
 onnx==1.21.0
