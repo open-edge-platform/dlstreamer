@@ -8,8 +8,7 @@ set(TARGET_NAME "test_g3drender")
 
 add_executable(${TARGET_NAME}
     test_g3drender.cpp
-    g3d_test_synth.cpp
-    g3d_test_harness.cpp
+    g3d_test_fixtures.cpp
     g3d_test_golden.cpp
 )
 

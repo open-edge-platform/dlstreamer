@@ -7,7 +7,7 @@
 #include <gst/check/gstcheck.h>
 #include <gst/check/gstharness.h>
 
-#include "g3d_test_harness.h"
+#include "g3d_test_fixtures.h"
 #include "g3d_test_golden.h"
 
 #ifndef TEST_FILES_DIR

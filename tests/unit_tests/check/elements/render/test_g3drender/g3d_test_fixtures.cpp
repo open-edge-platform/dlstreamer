@@ -4,8 +4,7 @@
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
 
-#include "g3d_test_harness.h"
-#include "g3d_test_synth.h"
+#include "g3d_test_fixtures.h"
 
 #include <gst/analytics/gstanalyticsmeta.h>
 #include <gst/analytics/gstanalyticsbatchmeta.h>
@@ -17,7 +16,110 @@
 
 #include <cstring>
 
-/* ── synthetic detection data (private to this translation unit) ─────── */
+/* ═══════════════════════════════════════════════════════════════════════════
+ * Synthetic data generators
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+#define SYNTH_CAM_SQ     40   /* chessboard square size (pixels) */
+#define SYNTH_CAM_BORDER  8   /* coloured border thickness (pixels) */
+
+guint8 *
+make_chessboard_bgr(gint w, gint h, gint cam_idx)
+{
+    static const guint8 BORDER_COLORS[][3] = {
+        {  0,   0, 255 },   /* red   (cam 0) */
+        {  0, 255,   0 },   /* green (cam 1) */
+        {255,   0,   0 },   /* blue  (cam 2) */
+    };
+    const guint8 *bc = BORDER_COLORS[cam_idx % 3];
+
+    guint8 *bgr = (guint8 *)g_malloc(w * h * 3);
+    for (gint y = 0; y < h; y++) {
+        for (gint x = 0; x < w; x++) {
+            gint off = (y * w + x) * 3;
+            if (x < SYNTH_CAM_BORDER || x >= w - SYNTH_CAM_BORDER ||
+                y < SYNTH_CAM_BORDER || y >= h - SYNTH_CAM_BORDER) {
+                bgr[off]   = bc[0];
+                bgr[off+1] = bc[1];
+                bgr[off+2] = bc[2];
+            } else {
+                guint8 v   = ((x / SYNTH_CAM_SQ + y / SYNTH_CAM_SQ) % 2 == 0) ? 255u : 0u;
+                bgr[off]   = v;
+                bgr[off+1] = v;
+                bgr[off+2] = v;
+            }
+        }
+    }
+    return bgr;
+}
+
+float *
+make_lidar_pts(void)
+{
+    float *pts = (float *)g_malloc(SYNTH_N_LIDAR_TOTAL * 4 * sizeof(float));
+    gint   idx = 0;
+
+#define ADD_PT(px, py, pz, pi) \
+    do { pts[idx*4+0]=(px); pts[idx*4+1]=(py); pts[idx*4+2]=(pz); pts[idx*4+3]=(pi); idx++; } while(0)
+
+    /* ground grid: 71×71 at z=0 spanning ±SYNTH_LIDAR_SPAN m */
+    for (gint iy = 0; iy < SYNTH_LIDAR_SIDE; iy++) {
+        for (gint ix = 0; ix < SYNTH_LIDAR_SIDE; ix++) {
+            float x = -SYNTH_LIDAR_SPAN + ix * (2.f * SYNTH_LIDAR_SPAN / (SYNTH_LIDAR_SIDE - 1));
+            float y = -SYNTH_LIDAR_SPAN + iy * (2.f * SYNTH_LIDAR_SPAN / (SYNTH_LIDAR_SIDE - 1));
+            ADD_PT(x, y, 0.f, 0.5f);
+        }
+    }
+
+    /*
+     * Box objects at D, E, F — each 4m(x) × 2m(y) × 1.5m(z), yaw=0.
+     * Per box: front+back (5y×8z=40 each) + left+right (9x×8z=72 each) + top (9x×5y=45) = 269 pts.
+     *
+     *   D: centre (17.32,  10,    0) — 30° left  of forward
+     *   E: centre (17.32, -10,    0) — 30° right of forward
+     *   F: centre (10,    -17.32, 0) — 60° right of forward
+     */
+#define ADD_BOX(cx, cy) \
+    do { \
+        for (gint _iz = 0; _iz < 8; _iz++) { \
+            for (gint _iy = 0; _iy < 5; _iy++) { \
+                float _y = (cy) - 1.f + _iy * 0.5f; \
+                float _z = _iz * (1.5f / 7.f); \
+                ADD_PT((cx) + 2.f, _y, _z, 1.f); \
+                ADD_PT((cx) - 2.f, _y, _z, 1.f); \
+            } \
+        } \
+        for (gint _iz = 0; _iz < 8; _iz++) { \
+            for (gint _ix = 0; _ix < 9; _ix++) { \
+                float _x = (cx) - 2.f + _ix * 0.5f; \
+                float _z = _iz * (1.5f / 7.f); \
+                ADD_PT(_x, (cy) + 1.f, _z, 1.f); \
+                ADD_PT(_x, (cy) - 1.f, _z, 1.f); \
+            } \
+        } \
+        for (gint _iy = 0; _iy < 5; _iy++) { \
+            for (gint _ix = 0; _ix < 9; _ix++) { \
+                float _x = (cx) - 2.f + _ix * 0.5f; \
+                float _y = (cy) - 1.f + _iy * 0.5f; \
+                ADD_PT(_x, _y, 1.5f, 1.f); \
+            } \
+        } \
+    } while (0)
+
+    ADD_BOX(17.32f,   10.0f);
+    ADD_BOX(17.32f,  -10.0f);
+    ADD_BOX(10.0f,  -17.32f);
+
+#undef ADD_BOX
+#undef ADD_PT
+
+    g_assert(idx == SYNTH_N_LIDAR_TOTAL);
+    return pts;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * Synthetic detection data
+ * ═══════════════════════════════════════════════════════════════════════════ */
 
 /*
  * 3D detections — LiDAR: X=forward, Y=left.  All at R=20 m, z=0, yaw=0.
@@ -72,7 +174,9 @@ static const gfloat SYNTH_P2[12] = {
       0.f,   0.f,   1.f, 0.f,
 };
 
-/* ── internal helpers ────────────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════════════════
+ * Internal helpers
+ * ═══════════════════════════════════════════════════════════════════════════ */
 
 static void
 apply_scenario_props(const Scenario *sc, GstHarness *h)
@@ -93,11 +197,6 @@ apply_scenario_props(const Scenario *sc, GstHarness *h)
     gst_object_unref(el);
 }
 
-/*
- * Attach 3D OD detections to @buf.
- * If @ids_out is non-NULL it receives the GstAnalyticsMtd.id for each detection
- * (needed to build camera↔lidar associations afterwards).
- */
 static void
 attach_3d_dets(GstBuffer *buf, guint32 n_dets, const G3drDet3D *dets, guint *ids_out)
 {
@@ -120,7 +219,7 @@ attach_3d_dets(GstBuffer *buf, guint32 n_dets, const G3drDet3D *dets, guint *ids
 
 /*
  * Attach 2D detections A, B, C to a camera buffer:
- *   A — standalone (unmatched, drawn blue)
+ *   A — standalone (unmatched, drawn green)
  *   B — IS_PART_OF → TrackingMtd(tracking_id=@d_id)  → D drawn white
  *   C — IS_PART_OF → TrackingMtd(tracking_id=@e_id)  → E drawn white
  */
@@ -174,7 +273,9 @@ append_float_array_field(GstStructure *s, const gchar *key, const gfloat *data, 
     gst_structure_take_value(s, key, &arr);
 }
 
-/* ── public API ──────────────────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════════════════
+ * Public API — harness setup
+ * ═══════════════════════════════════════════════════════════════════════════ */
 
 GstHarness *
 make_lidar_harness(const Scenario *sc)
@@ -194,6 +295,10 @@ make_batch_harness(const Scenario *sc)
     apply_scenario_props(sc, h);
     return h;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * Public API — input buffer builders
+ * ═══════════════════════════════════════════════════════════════════════════ */
 
 GstBuffer *
 build_lidar_buf(GstHarness *h, const Scenario *sc)
@@ -227,8 +332,8 @@ build_batch_buf(GstHarness *h, const Scenario *sc)
     meta->streams   = g_new0(GstAnalyticsBatchStream, n_streams);
 
     /* lidar stream */
-    float     *pts      = make_lidar_pts();
-    gsize      lidar_sz = SYNTH_N_LIDAR_TOTAL * 4 * sizeof(float);
+    float     *pts       = make_lidar_pts();
+    gsize      lidar_sz  = SYNTH_N_LIDAR_TOTAL * 4 * sizeof(float);
     GstBuffer *lidar_buf = gst_harness_create_buffer(h, lidar_sz);
     {
         GstMapInfo lm;
@@ -297,13 +402,31 @@ build_batch_buf(GstHarness *h, const Scenario *sc)
     return batch_buf;
 }
 
-/* ── edge-case buffer builders (TC-20 / TC-21 / TC-22) ──────────────────── */
+GstEvent *
+build_calib_event(void)
+{
+    GstStructure *cam = gst_structure_new_empty("camera");
+    gst_structure_set(cam, "index", G_TYPE_INT, 0, NULL);
+    append_float_array_field(cam, "tr_velo_to_cam", SYNTH_TR_VELO_TO_CAM, 16);
+    append_float_array_field(cam, "r0_rect",        SYNTH_R0_RECT, 16);
+    append_float_array_field(cam, "p2",             SYNTH_P2, 12);
 
-/*
- * TC-20: LidarMeta is present but point_count == 0.
- * All rendering loops iterate zero times — the element must output a valid
- * (dark background + grid) frame without touching the NULL/empty data pointer.
- */
+    GstStructure *root = gst_structure_new_empty("g3d/calibration");
+    gst_structure_set(root, "modality", G_TYPE_STRING, "lidar", NULL);
+    gst_structure_set(root, "cameras",  G_TYPE_UINT,   1u,      NULL);
+
+    GValue cam_val = G_VALUE_INIT;
+    g_value_init(&cam_val, GST_TYPE_STRUCTURE);
+    g_value_take_boxed(&cam_val, cam);
+    gst_structure_take_value(root, "camera-0", &cam_val);
+
+    return gst_event_new_custom(GST_EVENT_CUSTOM_DOWNSTREAM_STICKY, root);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * Edge-case buffer builders (TC-20 / TC-21 / TC-22)
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
 GstBuffer *
 build_empty_lidar_buf(GstHarness *h)
 {
@@ -313,15 +436,10 @@ build_empty_lidar_buf(GstHarness *h)
     return buf;
 }
 
-/*
- * TC-21: LiDAR buffer carries one dummy point but has no LidarMeta attached.
- * g3drender logs a WARNING and skips rendering — the element must still
- * produce a valid output frame (blank canvas).
- */
 GstBuffer *
 build_no_meta_lidar_buf(GstHarness *h)
 {
-    float dummy[4] = { 1.f, 0.f, 0.f, 0.5f };  /* x y z intensity */
+    float dummy[4] = { 1.f, 0.f, 0.f, 0.5f };
     gsize      sz  = sizeof(dummy);
     GstBuffer *buf = gst_harness_create_buffer(h, sz);
     GstMapInfo m;
@@ -332,11 +450,6 @@ build_no_meta_lidar_buf(GstHarness *h)
     return buf;
 }
 
-/*
- * TC-22: Batch buffer contains only camera sub-streams — no "application/x-lidar"
- * sub-stream.  extract_lidar_from_batch() returns NULL, the element logs a WARNING,
- * skips LiDAR rendering, and still composites the camera panel into the output.
- */
 GstBuffer *
 build_cam_only_batch_buf(GstHarness *h, const Scenario *sc)
 {
@@ -381,25 +494,4 @@ build_cam_only_batch_buf(GstHarness *h, const Scenario *sc)
         gst_caps_unref(caps);
     }
     return batch_buf;
-}
-
-GstEvent *
-build_calib_event(void)
-{
-    GstStructure *cam = gst_structure_new_empty("camera");
-    gst_structure_set(cam, "index", G_TYPE_INT, 0, NULL);
-    append_float_array_field(cam, "tr_velo_to_cam", SYNTH_TR_VELO_TO_CAM, 16);
-    append_float_array_field(cam, "r0_rect",        SYNTH_R0_RECT, 16);
-    append_float_array_field(cam, "p2",             SYNTH_P2, 12);
-
-    GstStructure *root = gst_structure_new_empty("g3d/calibration");
-    gst_structure_set(root, "modality", G_TYPE_STRING, "lidar", NULL);
-    gst_structure_set(root, "cameras",  G_TYPE_UINT,   1u,      NULL);
-
-    GValue cam_val = G_VALUE_INIT;
-    g_value_init(&cam_val, GST_TYPE_STRUCTURE);
-    g_value_take_boxed(&cam_val, cam);
-    gst_structure_take_value(root, "camera-0", &cam_val);
-
-    return gst_event_new_custom(GST_EVENT_CUSTOM_DOWNSTREAM_STICKY, root);
 }
