@@ -15,17 +15,23 @@ This folder contains standalone conversion CLIs:
    source .model_download_venv/bin/activate
    ```
 
-2. Install dependencies:
+2. Install dependencies for the script you want to run:
 ```code
-  pip install -r requirements.txt
-   ```
+  # Hugging Face exporter
+  pip install -r requirements_download_hf_models.txt
 
-The local `requirements.txt` contains the OpenVINO export stack together with
-the packages specific to these helper scripts.
+  # TIMM exporter
+  pip install -r requirements_download_timm_models.txt
+
+  # Ultralytics exporter
+  pip install -r requirements_download_ultralytics_models.txt
+```
 
 ## 1) Hugging Face conversion
 
 Script: `download_hf_models.py`
+
+Dependencies file: `requirements_download_hf_models.txt`
 
 ### Command
 
@@ -74,6 +80,8 @@ python download_hf_models.py --model openai/clip-vit-base-patch32@3d74acf9a28c67
 
 Script: `download_ultralytics_models.py`
 
+Dependencies file: `requirements_download_ultralytics_models.txt`
+
 ### Command
 
 ```bash
@@ -109,6 +117,8 @@ python download_ultralytics_models.py --model yolo11s.pt --outdir ./exports --in
 ## 3) TIMM conversion
 
 Script: `download_timm_models.py`
+
+Dependencies file: `requirements_download_timm_models.txt`
 
 This script exports a relevant set of Hugging Face-hosted PyTorch Image Models
 (TIMM) image-classification models to OpenVINO IR using `optimum-cli`. Run

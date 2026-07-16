@@ -1,0 +1,7 @@
+# Dependencies for download_timm_models.py
+--extra-index-url https://download.pytorch.org/whl/cpu
+huggingface_hub==0.34.4
+timm==1.0.26
+openvino==2026.2.0
+optimum-onnx==0.1.0
+torch==2.8.0
