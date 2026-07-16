@@ -16,10 +16,6 @@
 
 #include <cstring>
 
-/* ═══════════════════════════════════════════════════════════════════════════
- * Synthetic data generators
- * ═══════════════════════════════════════════════════════════════════════════ */
-
 #define SYNTH_CAM_SQ 40    /* chessboard square size (pixels) */
 #define SYNTH_CAM_BORDER 8 /* coloured border thickness (pixels) */
 
@@ -73,14 +69,7 @@ float *make_lidar_pts(void) {
         }
     }
 
-    /*
-     * Box objects at D, E, F — each 4m(x) × 2m(y) × 1.5m(z), yaw=0.
-     * Per box: front+back (5y×8z=40 each) + left+right (9x×8z=72 each) + top (9x×5y=45) = 269 pts.
-     *
-     *   D: centre (17.32,  10,    0) — 30° left  of forward
-     *   E: centre (17.32, -10,    0) — 30° right of forward
-     *   F: centre (10,    -17.32, 0) — 60° right of forward
-     */
+    /* box surface points at D (30°L), E (30°R), F (60°R) — each 4m×2m×1.5m, yaw=0 */
 #define ADD_BOX(cx, cy)                                                                                                \
     do {                                                                                                               \
         for (gint _iz = 0; _iz < 8; _iz++) {                                                                           \
@@ -108,9 +97,9 @@ float *make_lidar_pts(void) {
         }                                                                                                              \
     } while (0)
 
-    ADD_BOX(17.32f, 10.0f);
-    ADD_BOX(17.32f, -10.0f);
-    ADD_BOX(10.0f, -17.32f);
+    ADD_BOX(17.32f, 10.0f);   /* D */
+    ADD_BOX(17.32f, -10.0f);  /* E */
+    ADD_BOX(10.0f, -17.32f);  /* F */
 
 #undef ADD_BOX
 #undef ADD_PT
@@ -119,16 +108,6 @@ float *make_lidar_pts(void) {
     return pts;
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
- * Synthetic detection data
- * ═══════════════════════════════════════════════════════════════════════════ */
-
-/*
- * 3D detections — LiDAR: X=forward, Y=left.  All at R=20 m, z=0, yaw=0.
- *   D: 30° left  → (17.32,  10,    0)  matched to camera box B
- *   E: 30° right → (17.32, -10,    0)  matched to camera box C
- *   F: 60° right → (10,    -17.32, 0)  unmatched (outside camera FOV)
- */
 typedef struct {
     float x, y, z, l, w, h, yaw, score;
     gint class_id;
@@ -140,13 +119,6 @@ static const G3drDet3D SYNTH_DETS_3D[] = {
     {10.0f, -17.32f, 0.f, 4.f, 2.f, 1.5f, 0.f, 0.7f, 1}, /* F: 60°R */
 };
 
-/*
- * 2D detections — 640×240 camera image.
- * f=180, cx=320 → 30° lands at ±104 px from cx; ~60° lands near left edge.
- *   A: ~58° left  (u=30)  — unmatched
- *   B: ~30° left  (u=214) — matched to lidar D  (D projects to u≈214 ✓)
- *   C: ~30° right (u=424) — matched to lidar E  (E projects to u≈426 ✓)
- */
 typedef struct {
     gint x, y, w, h;
     gfloat conf;
@@ -154,17 +126,12 @@ typedef struct {
 } SynthDet2D;
 
 static const SynthDet2D SYNTH_DETS_2D[] = {
-    {10, 105, 40, 30, 0.7f, "truck"}, /* A — unmatched        */
-    {194, 105, 40, 30, 0.9f, "car"},  /* B — matched to D     */
-    {404, 105, 40, 30, 0.8f, "car"},  /* C — matched to E     */
+    {10, 105, 40, 30, 0.7f, "truck"}, /* A — unmatched    */
+    {194, 105, 40, 30, 0.9f, "car"},  /* B — matched to D */
+    {404, 105, 40, 30, 0.8f, "car"},  /* C — matched to E */
 };
 
-/*
- * Calibration matrices (cam-proj scenarios).
- * tr_velo_to_cam: real KITTI sequence-07 extrinsic.
- * r0_rect: identity (same as calib.json).
- * P2: synthetic intrinsics for 640×240 image, f=180, cx=320, cy=120.
- */
+/* real KITTI sequence-07 extrinsic; P2 is synthetic (f=180, cx=320, cy=120) */
 static const gfloat SYNTH_TR_VELO_TO_CAM[16] = {
     -1.857739385241e-03f,
     -9.999659513510e-01f,
@@ -190,10 +157,6 @@ static const gfloat SYNTH_P2[12] = {
     180.f, 0.f, 320.f, 0.f, 0.f, 180.f, 120.f, 0.f, 0.f, 0.f, 1.f, 0.f,
 };
 
-/* ═══════════════════════════════════════════════════════════════════════════
- * Internal helpers
- * ═══════════════════════════════════════════════════════════════════════════ */
-
 static void apply_scenario_props(const Scenario *sc, GstHarness *h) {
     GstElement *el = gst_harness_find_element(h, "g3drender");
     g_object_set(el, "width", sc->width, "height", sc->height, "point-radius", sc->point_radius, "point-stride",
@@ -216,12 +179,8 @@ static void attach_3d_dets(GstBuffer *buf, guint32 n_dets, const G3drDet3D *dets
     }
 }
 
-/*
- * Attach 2D detections A, B, C to a camera buffer:
- *   A — standalone (unmatched, drawn green)
- *   B — IS_PART_OF → TrackingMtd(tracking_id=@d_id)  → D drawn white
- *   C — IS_PART_OF → TrackingMtd(tracking_id=@e_id)  → E drawn white
- */
+/* B and C are linked to D and E via IS_PART_OF → TrackingMtd so the renderer
+ * can draw the cross-modal association; A is standalone (unmatched). */
 static void attach_2d_dets_assoc(GstBuffer *buf, guint d_id, guint e_id) {
     GstAnalyticsRelationMeta *rmeta = gst_buffer_add_analytics_relation_meta(buf);
 
@@ -260,10 +219,6 @@ static void append_float_array_field(GstStructure *s, const gchar *key, const gf
     gst_structure_take_value(s, key, &arr);
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
- * Public API — harness setup
- * ═══════════════════════════════════════════════════════════════════════════ */
-
 GstHarness *make_lidar_harness(const Scenario *sc) {
     GstHarness *h = gst_harness_new("g3drender");
     gst_harness_set_src_caps_str(h, "application/x-lidar");
@@ -277,10 +232,6 @@ GstHarness *make_batch_harness(const Scenario *sc) {
     apply_scenario_props(sc, h);
     return h;
 }
-
-/* ═══════════════════════════════════════════════════════════════════════════
- * Public API — input buffer builders
- * ═══════════════════════════════════════════════════════════════════════════ */
 
 GstBuffer *build_lidar_buf(GstHarness *h, const Scenario *sc) {
     float *pts = make_lidar_pts();
@@ -297,11 +248,6 @@ GstBuffer *build_lidar_buf(GstHarness *h, const Scenario *sc) {
     return buf;
 }
 
-/*
- * Batch buffer: n_cams chessboard cameras + one lidar stream.
- * Lidar is built first so that 3D OD mtd.ids are known before constructing
- * camera buffers that reference them via IS_PART_OF → TrackingMtd.
- */
 GstBuffer *build_batch_buf(GstHarness *h, const Scenario *sc) {
     GstBuffer *batch_buf = gst_buffer_new();
     GstAnalyticsBatchMeta *meta = gst_buffer_add_analytics_batch_meta(batch_buf);
@@ -309,7 +255,7 @@ GstBuffer *build_batch_buf(GstHarness *h, const Scenario *sc) {
     meta->n_streams = n_streams;
     meta->streams = g_new0(GstAnalyticsBatchStream, n_streams);
 
-    /* lidar stream */
+    /* lidar stream — built first so 3D mtd IDs are known before camera buffers reference them */
     float *pts = make_lidar_pts();
     gsize lidar_sz = SYNTH_N_LIDAR_TOTAL * 4 * sizeof(float);
     GstBuffer *lidar_buf = gst_harness_create_buffer(h, lidar_sz);
@@ -394,10 +340,6 @@ GstEvent *build_calib_event(void) {
 
     return gst_event_new_custom(GST_EVENT_CUSTOM_DOWNSTREAM_STICKY, root);
 }
-
-/* ═══════════════════════════════════════════════════════════════════════════
- * Edge-case buffer builders (TC-20 / TC-21 / TC-22)
- * ═══════════════════════════════════════════════════════════════════════════ */
 
 GstBuffer *build_empty_lidar_buf(GstHarness *h) {
     GstBuffer *buf = gst_buffer_new_allocate(NULL, 0, NULL);

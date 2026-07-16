@@ -10,7 +10,7 @@ The `g3drender` element is a `GstBaseTransform` that accepts either a raw LiDAR 
 
 - **`bev` (default)** — Bird's-eye view. The point cloud is projected top-down onto the XY plane. A metric grid and a coordinate-axis indicator are overlaid. 3D detection boxes are drawn as projected footprint polygons.
 - **`perspective`** — Synthetic 3D camera view. Camera position is controlled by `cam-distance`, `cam-elevation`, and `cam-azimuth`. Each LiDAR point is coloured by height. 3D detection boxes are drawn as full wire-frame cuboids.
-- **`cam-proj`** — LiDAR projected onto a real camera image. The selected camera frame (see `cam-proj-index`) is used as a grayscale background, dimmed to 65% brightness to improve LiDAR overlay visibility. LiDAR points and 3D boxes are projected using KITTI-style calibration matrices (`P2 × R0 × Tr`) received from `g3dobjectfuser` via the `g3d/calibration` sticky event. Falls back to `bev` if no calibration has been received.
+- **`cam-proj`** — LiDAR projected onto a real camera image. LiDAR points and 3D boxes are projected using KITTI-style calibration matrices (`P2 × R0 × Tr`) received from `g3dobjectfuser` via the `g3d/calibration` sticky event. 
 
 **Canvas layout:**
 
@@ -59,17 +59,6 @@ The `g3drender` element is a `GstBaseTransform` that accepts either a raw LiDAR 
 
 The LiDAR panel is always a `height × height` square anchored to the right edge. Each camera frame is letterboxed into its grid cell. The layout switches from 1 column to 2 columns when 4 or more camera streams are present.
 
-**Detection coloring:**
-
-| Object | Color |
-|---|---|
-| 3D bounding box associated with a 2D detection | White |
-| 3D bounding box with no association | Green |
-| 2D bounding box with no association | Green |
-| 2D bounding box that is associated (cam-proj only) | Not drawn |
-
-Cross-modal association is encoded by `g3dobjectfuser` as an `IS_PART_OF` relation from the camera `GstAnalyticsODMtd` to a `GstAnalyticsTrackingMtd` whose `tracking_id` equals the matching `GstAnalytics3DODMtd` id on the LiDAR stream.
-
 ## Properties
 
 | Property | Type | Range | Default | Description |
@@ -91,6 +80,7 @@ Cross-modal association is encoded by `g3dobjectfuser` as an `IS_PART_OF` relati
 ### LiDAR-only BEV render
 
 ```bash
+# BEV with 2× zoom; render every 16th LiDAR point with a radius of 2 pixels
 gst-launch-1.0 -v \
     multifilesrc location="<lidar_path>/lidar.bin" ! \
     g3dlidarparse ! \
@@ -103,6 +93,7 @@ gst-launch-1.0 -v \
 ### Camera + LiDAR fusion with perspective render
 
 ```bash
+# Perspective mode: camera at 35 m distance, 30° elevation, 180° azimuth (directly behind), 1600×800 output
 gst-launch-1.0 -v \
     rtspsrc ! decodebin ! videoconvert ! gvadetect ! mux.sink_0 \
     multifilesrc location="<lidar_path>/lidar.bin" ! g3dlidarparse ! g3dinference ! mux.sink_1 \
@@ -119,6 +110,7 @@ gst-launch-1.0 -v \
 `cam-proj` mode requires a camera stream and calibration matrices from `g3dobjectfuser`. The first camera stream is used by default; set `cam-proj-index` to select a different one.
 
 ```bash
+# cam-proj mode: use the first camera stream as background; render every 4th LiDAR point with a radius of 2 pixels
 gst-launch-1.0 -v \
     rtspsrc ! decodebin ! videoconvert ! gvadetect ! mux.sink_0 \
     multifilesrc location="<lidar_path>/lidar.bin" ! g3dlidarparse ! g3dinference ! mux.sink_1 \
@@ -132,6 +124,7 @@ gst-launch-1.0 -v \
 ### Multi-camera + LiDAR fusion with perspective render
 
 ```bash
+# Perspective mode: camera at 35 m distance, 30° elevation, 180° azimuth (directly behind), 1600×800 output
 gst-launch-1.0 -v \
     rtspsrc ! decodebin ! videoconvert ! gvadetect ! mux.sink_0 \
     rtspsrc ! decodebin ! videoconvert ! gvadetect ! mux.sink_1 \
