@@ -99,12 +99,20 @@ AIVID TECHVISION and others.
 
 <!--hide_directive
 :::{toctree}
+:caption: Get Started
 :maxdepth: 2
 :hidden:
 
 System Requirements <get_started/system_requirements>
 Install Guide <get_started/install/install_guide_index>
 Tutorial <get_started/tutorial>
+:::
+
+:::{toctree}
+:caption: Reference
+:maxdepth: 2
+:hidden:
+
 dev_guide/dev_guide_index
 elements/elements
 supported_models
