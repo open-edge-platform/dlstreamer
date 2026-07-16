@@ -39,8 +39,8 @@ struct _GstG3DRender {
     gfloat  cam_distance;
     gfloat  cam_elevation;
     gfloat  cam_azimuth;
-    gfloat  cam_azimuth_step;
     gfloat  cam_fov;
+    gint    cam_proj_index;  /* camera stream index used for cam-proj projection (default 0) */
 
     guint64  frame_count;
     gboolean input_is_batch;

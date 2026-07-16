@@ -43,10 +43,6 @@ enum {
     PROP_0,
     PROP_WIDTH,
     PROP_HEIGHT,
-    PROP_RANGE_X_MIN,
-    PROP_RANGE_X_MAX,
-    PROP_RANGE_Y_MIN,
-    PROP_RANGE_Y_MAX,
     PROP_POINT_RADIUS,
     PROP_POINT_STRIDE,
     PROP_ZOOM,
@@ -54,8 +50,8 @@ enum {
     PROP_CAM_DISTANCE,
     PROP_CAM_ELEVATION,
     PROP_CAM_AZIMUTH,
-    PROP_CAM_AZIMUTH_STEP,
     PROP_CAM_FOV,
+    PROP_CAM_PROJ_INDEX,
 };
 
 static GstStaticPadTemplate sink_template =
@@ -103,30 +99,6 @@ static void gst_g3d_render_class_init(GstG3DRenderClass *klass) {
             1, 32767, 800,
             (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
-    g_object_class_install_property(gobject_class, PROP_RANGE_X_MIN,
-        g_param_spec_float("range-x-min", "Range X Min",
-            "Minimum X coordinate of point cloud range (meters)",
-            -G_MAXFLOAT, 0.0f, -50.0f,
-            (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
-
-    g_object_class_install_property(gobject_class, PROP_RANGE_X_MAX,
-        g_param_spec_float("range-x-max", "Range X Max",
-            "Maximum X coordinate of point cloud range (meters)",
-            0.0f, G_MAXFLOAT, 50.0f,
-            (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
-
-    g_object_class_install_property(gobject_class, PROP_RANGE_Y_MIN,
-        g_param_spec_float("range-y-min", "Range Y Min",
-            "Minimum Y coordinate of point cloud range (meters)",
-            -G_MAXFLOAT, 0.0f, -50.0f,
-            (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
-
-    g_object_class_install_property(gobject_class, PROP_RANGE_Y_MAX,
-        g_param_spec_float("range-y-max", "Range Y Max",
-            "Maximum Y coordinate of point cloud range (meters)",
-            0.0f, G_MAXFLOAT, 50.0f,
-            (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
-
     g_object_class_install_property(gobject_class, PROP_POINT_RADIUS,
         g_param_spec_int("point-radius", "Point Radius",
             "Radius of each rendered point in pixels",
@@ -135,8 +107,8 @@ static void gst_g3d_render_class_init(GstG3DRenderClass *klass) {
 
     g_object_class_install_property(gobject_class, PROP_POINT_STRIDE,
         g_param_spec_int("point-stride", "Point Stride",
-            "Render every Nth point (1 = all points, 4 = every 4th point, etc.)",
-            1, 100, 1,
+            "Render every Nth point (1 = all points, 16 = every 16th point, etc.)",
+            1, 100, 16,
             (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
     g_object_class_install_property(gobject_class, PROP_ZOOM,
@@ -155,7 +127,7 @@ static void gst_g3d_render_class_init(GstG3DRenderClass *klass) {
     g_object_class_install_property(gobject_class, PROP_CAM_DISTANCE,
         g_param_spec_float("cam-distance", "Camera Distance",
             "Camera distance from origin in meters (perspective mode)",
-            1.0f, 500.0f, 40.0f,
+            1.0f, 500.0f, 35.0f,
             (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
     g_object_class_install_property(gobject_class, PROP_CAM_ELEVATION,
@@ -167,19 +139,20 @@ static void gst_g3d_render_class_init(GstG3DRenderClass *klass) {
     g_object_class_install_property(gobject_class, PROP_CAM_AZIMUTH,
         g_param_spec_float("cam-azimuth", "Camera Azimuth",
             "Camera horizontal angle in degrees (perspective mode)",
-            -360.0f, 360.0f, 45.0f,
-            (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
-
-    g_object_class_install_property(gobject_class, PROP_CAM_AZIMUTH_STEP,
-        g_param_spec_float("cam-azimuth-step", "Camera Azimuth Step",
-            "Azimuth increment per frame in degrees for rotation animation; 0=static (perspective mode)",
-            -10.0f, 10.0f, 0.0f,
+            -360.0f, 360.0f, 180.0f,
             (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
     g_object_class_install_property(gobject_class, PROP_CAM_FOV,
         g_param_spec_float("cam-fov", "Camera FOV",
             "Field of view in degrees (perspective mode)",
             10.0f, 150.0f, 60.0f,
+            (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+
+    g_object_class_install_property(gobject_class, PROP_CAM_PROJ_INDEX,
+        g_param_spec_int("cam-proj-index", "Camera Projection Index",
+            "Index of the camera stream to use for LiDAR projection in cam-proj mode; "
+            "clamped to the number of available camera streams at runtime",
+            0, 255, 0,
             (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
     gst_element_class_set_static_metadata(element_class,
@@ -206,15 +179,15 @@ static void gst_g3d_render_init(GstG3DRender *self) {
     self->range_x_max      =  50.0f;
     self->range_y_min      = -50.0f;
     self->range_y_max      =  50.0f;
-    self->point_radius     = 16;
-    self->point_stride     = 1;
+    self->point_radius     = 2;
+    self->point_stride     = 16;
     self->zoom             = 1.0f;
     self->view_mode        = 0;
-    self->cam_distance     = 40.0f;
+    self->cam_distance     = 35.0f;
     self->cam_elevation    = 30.0f;
-    self->cam_azimuth      = 45.0f;
-    self->cam_azimuth_step = 0.0f;
+    self->cam_azimuth      = 180.0f;
     self->cam_fov          = 60.0f;
+    self->cam_proj_index   = 0;
     self->frame_count    = 0;
     self->input_is_batch = FALSE;
     self->has_calib      = FALSE;
@@ -282,21 +255,17 @@ static gboolean gst_g3d_render_sink_event(GstBaseTransform *trans, GstEvent *eve
 static void gst_g3d_render_set_property(GObject *obj, guint prop_id, const GValue *val, GParamSpec *pspec) {
     GstG3DRender *self = GST_G3D_RENDER(obj);
     switch (prop_id) {
-    case PROP_WIDTH:            self->width            = g_value_get_int(val);   break;
-    case PROP_HEIGHT:           self->height           = g_value_get_int(val);   break;
-    case PROP_RANGE_X_MIN:      self->range_x_min      = g_value_get_float(val); break;
-    case PROP_RANGE_X_MAX:      self->range_x_max      = g_value_get_float(val); break;
-    case PROP_RANGE_Y_MIN:      self->range_y_min      = g_value_get_float(val); break;
-    case PROP_RANGE_Y_MAX:      self->range_y_max      = g_value_get_float(val); break;
-    case PROP_POINT_RADIUS:     self->point_radius     = g_value_get_int(val);   break;
-    case PROP_POINT_STRIDE:     self->point_stride     = g_value_get_int(val);   break;
-    case PROP_ZOOM:             self->zoom             = g_value_get_float(val); break;
-    case PROP_VIEW_MODE:        self->view_mode        = g_value_get_enum(val);  break;
-    case PROP_CAM_DISTANCE:     self->cam_distance     = g_value_get_float(val); break;
-    case PROP_CAM_ELEVATION:    self->cam_elevation    = g_value_get_float(val); break;
-    case PROP_CAM_AZIMUTH:      self->cam_azimuth      = g_value_get_float(val); break;
-    case PROP_CAM_AZIMUTH_STEP: self->cam_azimuth_step = g_value_get_float(val); break;
-    case PROP_CAM_FOV:          self->cam_fov          = g_value_get_float(val); break;
+    case PROP_WIDTH:          self->width          = g_value_get_int(val);   break;
+    case PROP_HEIGHT:         self->height         = g_value_get_int(val);   break;
+    case PROP_POINT_RADIUS:   self->point_radius   = g_value_get_int(val);   break;
+    case PROP_POINT_STRIDE:   self->point_stride   = g_value_get_int(val);   break;
+    case PROP_ZOOM:           self->zoom           = g_value_get_float(val); break;
+    case PROP_VIEW_MODE:      self->view_mode      = g_value_get_enum(val);  break;
+    case PROP_CAM_DISTANCE:   self->cam_distance   = g_value_get_float(val); break;
+    case PROP_CAM_ELEVATION:  self->cam_elevation  = g_value_get_float(val); break;
+    case PROP_CAM_AZIMUTH:    self->cam_azimuth    = g_value_get_float(val); break;
+    case PROP_CAM_FOV:        self->cam_fov        = g_value_get_float(val); break;
+    case PROP_CAM_PROJ_INDEX: self->cam_proj_index = g_value_get_int(val);   break;
     default: G_OBJECT_WARN_INVALID_PROPERTY_ID(obj, prop_id, pspec);             break;
     }
 }
@@ -304,21 +273,17 @@ static void gst_g3d_render_set_property(GObject *obj, guint prop_id, const GValu
 static void gst_g3d_render_get_property(GObject *obj, guint prop_id, GValue *val, GParamSpec *pspec) {
     GstG3DRender *self = GST_G3D_RENDER(obj);
     switch (prop_id) {
-    case PROP_WIDTH:            g_value_set_int(val,   self->width);            break;
-    case PROP_HEIGHT:           g_value_set_int(val,   self->height);           break;
-    case PROP_RANGE_X_MIN:      g_value_set_float(val, self->range_x_min);      break;
-    case PROP_RANGE_X_MAX:      g_value_set_float(val, self->range_x_max);      break;
-    case PROP_RANGE_Y_MIN:      g_value_set_float(val, self->range_y_min);      break;
-    case PROP_RANGE_Y_MAX:      g_value_set_float(val, self->range_y_max);      break;
-    case PROP_POINT_RADIUS:     g_value_set_int(val,   self->point_radius);     break;
-    case PROP_POINT_STRIDE:     g_value_set_int(val,   self->point_stride);     break;
-    case PROP_ZOOM:             g_value_set_float(val, self->zoom);             break;
-    case PROP_VIEW_MODE:        g_value_set_enum(val,  self->view_mode);        break;
-    case PROP_CAM_DISTANCE:     g_value_set_float(val, self->cam_distance);     break;
-    case PROP_CAM_ELEVATION:    g_value_set_float(val, self->cam_elevation);    break;
-    case PROP_CAM_AZIMUTH:      g_value_set_float(val, self->cam_azimuth);      break;
-    case PROP_CAM_AZIMUTH_STEP: g_value_set_float(val, self->cam_azimuth_step); break;
-    case PROP_CAM_FOV:          g_value_set_float(val, self->cam_fov);          break;
+    case PROP_WIDTH:          g_value_set_int(val,   self->width);          break;
+    case PROP_HEIGHT:         g_value_set_int(val,   self->height);         break;
+    case PROP_POINT_RADIUS:   g_value_set_int(val,   self->point_radius);   break;
+    case PROP_POINT_STRIDE:   g_value_set_int(val,   self->point_stride);   break;
+    case PROP_ZOOM:           g_value_set_float(val, self->zoom);           break;
+    case PROP_VIEW_MODE:      g_value_set_enum(val,  self->view_mode);      break;
+    case PROP_CAM_DISTANCE:   g_value_set_float(val, self->cam_distance);   break;
+    case PROP_CAM_ELEVATION:  g_value_set_float(val, self->cam_elevation);  break;
+    case PROP_CAM_AZIMUTH:    g_value_set_float(val, self->cam_azimuth);    break;
+    case PROP_CAM_FOV:        g_value_set_float(val, self->cam_fov);        break;
+    case PROP_CAM_PROJ_INDEX: g_value_set_int(val,   self->cam_proj_index); break;
     default: G_OBJECT_WARN_INVALID_PROPERTY_ID(obj, prop_id, pspec);            break;
     }
 }
@@ -502,9 +467,9 @@ cv::Vec3b height_to_color(float z) {
     return cv::Vec3b(0, static_cast<uint8_t>((1.0f - s) * 180), static_cast<uint8_t>(s * 220 + 80));
 }
 
-const cv::Scalar kColorUnmatched(0, 255, 0);     // green  — 3D unmatched
-const cv::Scalar kColor2DUnmatched(255, 0, 0);  // blue   — 2D unmatched
-const cv::Scalar kColorMatched(255, 255, 255);  // white  — any matched (2D or 3D)
+const cv::Scalar kColorUnmatched(0, 255, 0);    // green — 3D unmatched
+const cv::Scalar kColor2DUnmatched(0, 255, 0);  // green — 2D unmatched
+const cv::Scalar kColorMatched(255, 255, 255);  // white — 3D matched (associated with a 2D det)
 
 /* Projects 3D box corners through a synthetic perspective camera and draws the 12 box edges.
  * Boxes behind the camera (center_depth <= 0.5) are skipped. */
@@ -557,7 +522,7 @@ void draw_detection_boxes_perspective(cv::Mat &canvas, GstBuffer *inbuf,
         };
         bool matched = assoc_ids.count(mtd.id) > 0;
         cv::Scalar color = matched ? kColorMatched : kColorUnmatched;
-        int thickness = 2;
+        int thickness = 1;
         for (auto &e : edges) {
             int a = e[0], b = e[1];
             cv::line(canvas,
@@ -570,8 +535,7 @@ void draw_detection_boxes_perspective(cv::Mat &canvas, GstBuffer *inbuf,
 }
 
 /* Renders the point cloud and 3D detection boxes from a configurable synthetic 3D camera viewpoint.
- * Camera position is derived from cam_distance, cam_elevation, and cam_azimuth (which advances
- * by cam_azimuth_step each frame for rotation animation). */
+ * Camera position is derived from cam_distance, cam_elevation, and cam_azimuth. */
 void draw_perspective(cv::Mat &canvas, const float *points, guint count,
                               GstBuffer *inbuf, GstG3DRender *self, int roi_w, int roi_h,
                               const std::unordered_set<guint> &assoc_ids) {
@@ -735,9 +699,6 @@ void draw_perspective(cv::Mat &canvas, const float *points, guint count,
     draw_detection_boxes_perspective(canvas, inbuf, rvec, tvec, K, dist_coeffs,
                                      cam_pos, zaxis, roi_w, roi_h, assoc_ids);
 
-    self->cam_azimuth += self->cam_azimuth_step;
-    if (self->cam_azimuth >  360.0f) self->cam_azimuth -= 360.0f;
-    if (self->cam_azimuth < -360.0f) self->cam_azimuth += 360.0f;
 }
 
 /* Overlays 3D bounding box footprints onto the BEV canvas.
@@ -760,7 +721,7 @@ void draw_detection_boxes_bev(cv::Mat &canvas, GstBuffer *inbuf,
 
         bool matched = assoc_ids.count(mtd.id) > 0;
         cv::Scalar color = matched ? kColorMatched : kColorUnmatched;
-        int thickness = 2;
+        int thickness = 1;
 
         float cos_t = std::cos(yaw), sin_t = -std::sin(yaw);
         float hx = width / 2.0f, hy = length / 2.0f;
@@ -811,7 +772,7 @@ void draw_2d_boxes(cv::Mat &cell, GstBuffer *cam_buf, int orig_w, int orig_h,
             if (matched) continue;
         }
 
-        cv::rectangle(cell, cv::Rect(x, y, w, h), kColor2DUnmatched, 2);
+        cv::rectangle(cell, cv::Rect(x, y, w, h), kColor2DUnmatched, 1);
     }
 }
 
@@ -919,7 +880,9 @@ cv::Vec3b depth_to_color(float t) {
     return cv::Vec3b(b, g, r);
 }
 
-/* Project LiDAR point cloud and 3D detection boxes onto the first camera image.
+/* Project LiDAR point cloud and 3D detection boxes onto a selected camera image.
+ * The camera is chosen by self->cam_proj_index; clamped to the last available stream
+ * if the index exceeds the number of cameras in the batch.
  * Requires calibration received via the g3d/calibration sticky event.
  * Falls back to BEV if calibration or camera image is unavailable. */
 void draw_cam_projection(cv::Mat &canvas, const float *points, guint count,
@@ -933,8 +896,12 @@ void draw_cam_projection(cv::Mat &canvas, const float *points, guint count,
         return;
     }
 
-    /* --- Background: first camera image letterboxed into the canvas --- */
-    cv::Mat cam_bgr = decode_cam_frame(cams[0]);
+    /* Select the requested camera, clamped to the last available stream. */
+    int cam_idx = std::min(self->cam_proj_index, static_cast<gint>(cams.size()) - 1);
+    const CamStream &proj_cam = cams[cam_idx];
+
+    /* --- Background: selected camera image letterboxed into the canvas --- */
+    cv::Mat cam_bgr = decode_cam_frame(proj_cam);
     if (cam_bgr.empty()) {
         draw_bev(canvas, points, count, self, roi_w, roi_h);
         draw_detection_boxes_bev(canvas, lidar_buf, self, roi_w, roi_h, assoc_ids);
@@ -948,9 +915,11 @@ void draw_cam_projection(cv::Mat &canvas, const float *points, guint count,
     int yp = (roi_h - sh) / 2;
 
     canvas.setTo(cv::Scalar(0, 0, 0));
-    cv::Mat scaled_cam;
+    cv::Mat scaled_cam, gray;
     cv::resize(cam_bgr, scaled_cam, cv::Size(sw, sh));
-    scaled_cam.convertTo(scaled_cam, -1, 0.65, 0);  /* dim background so projected points stand out */
+    cv::cvtColor(scaled_cam, gray, cv::COLOR_BGR2GRAY);
+    cv::cvtColor(gray, scaled_cam, cv::COLOR_GRAY2BGR);
+    scaled_cam.convertTo(scaled_cam, -1, 0.65, 0);  /* dim so projected points stand out */
     scaled_cam.copyTo(canvas(cv::Rect(xp, yp, sw, sh)));
 
     /* --- Build projection matrices from stored calibration --- */
@@ -1063,7 +1032,7 @@ void draw_cam_projection(cv::Mat &canvas, const float *points, guint count,
 
         bool matched = assoc_ids.count(mtd.id) > 0;
         cv::Scalar color = matched ? kColorMatched : kColorUnmatched;
-        int thickness = 2;
+        int thickness = 1;
 
         static const int edges[12][2] = {
             {0,1},{1,2},{2,3},{3,0},
@@ -1075,9 +1044,9 @@ void draw_cam_projection(cv::Mat &canvas, const float *points, guint count,
     }
 
     /* --- Draw 2D detection boxes on top of the letterboxed region --- */
-    /* Only draw unmatched 2D boxes (blue); matched objects are shown as white 3D boxes above. */
+    /* Only draw unmatched 2D boxes; matched objects are shown as white 3D boxes above. */
     cv::Mat cam_region = canvas(cv::Rect(xp, yp, sw, sh));
-    draw_2d_boxes(cam_region, cams[0].buf, cams[0].w, cams[0].h, /*skip_matched=*/true);
+    draw_2d_boxes(cam_region, proj_cam.buf, proj_cam.w, proj_cam.h, /*skip_matched=*/true);
 }
 
 /* Maps a camera sub-buffer into a BGR cv::Mat, handling BGR, BGRx/BGRA, and NV12 formats.

@@ -24,31 +24,31 @@
  *   A (~58°L) — unmatched   B (~30°L) → D   C (~30°R) → E
  */
 
-/*                                                              ncams camW camH 3ddet 2ddet  W     H    xmin xmax ymin ymax  rad str  zoom  mode dist elev  az   as   fov  calib */
+/*                                                              ncams camW camH 3ddet 2ddet  W     H    xmin xmax ymin ymax  rad str  zoom  mode dist elev  az   fov  calib */
 static const Scenario SCENARIOS[] = {
-    { "01_pure_lidar",           "01_pure_lidar.png",           0, 0,   0,   FALSE, FALSE, 800,  800, -50, 50, -50, 50, 2, 4, 2.0f, 0, 35, 30, 180, 0, 60, FALSE },
-    { "02_lidar_inference",      "02_lidar_inference.png",      0, 0,   0,   TRUE,  FALSE, 800,  800, -50, 50, -50, 50, 2, 4, 2.0f, 1, 35, 30, 180, 0, 60, FALSE },
-    { "03_batch_1cam",           "03_batch_1cam.png",           1, 640, 240, FALSE, FALSE, 1600, 800, -50, 50, -50, 50, 2, 4, 2.0f, 0, 35, 30, 180, 0, 60, FALSE },
-    { "04_batch_1cam_inference", "04_batch_1cam_inference.png", 1, 640, 240, TRUE,  TRUE,  1600, 800, -50, 50, -50, 50, 2, 4, 2.0f, 1, 35, 30, 180, 0, 60, FALSE },
-    { "05_batch_2cam",           "05_batch_2cam.png",           2, 640, 240, FALSE, FALSE, 1600, 800, -50, 50, -50, 50, 2, 4, 2.0f, 0, 35, 30, 180, 0, 60, FALSE },
-    { "06_batch_2cam_inference", "06_batch_2cam_inference.png", 2, 640, 240, TRUE,  TRUE,  1600, 800, -50, 50, -50, 50, 2, 4, 2.0f, 1, 35, 30, 180, 0, 60, FALSE },
+    { "01_pure_lidar",           "01_pure_lidar.png",           0, 0,   0,   FALSE, FALSE, 800,  800, -50, 50, -50, 50, 2, 4, 2.0f, 0, 35, 30, 180, 60, FALSE },
+    { "02_lidar_inference",      "02_lidar_inference.png",      0, 0,   0,   TRUE,  FALSE, 800,  800, -50, 50, -50, 50, 2, 4, 2.0f, 1, 35, 30, 180, 60, FALSE },
+    { "03_batch_1cam",           "03_batch_1cam.png",           1, 640, 240, FALSE, FALSE, 1600, 800, -50, 50, -50, 50, 2, 4, 2.0f, 0, 35, 30, 180, 60, FALSE },
+    { "04_batch_1cam_inference", "04_batch_1cam_inference.png", 1, 640, 240, TRUE,  TRUE,  1600, 800, -50, 50, -50, 50, 2, 4, 2.0f, 1, 35, 30, 180, 60, FALSE },
+    { "05_batch_2cam",           "05_batch_2cam.png",           2, 640, 240, FALSE, FALSE, 1600, 800, -50, 50, -50, 50, 2, 4, 2.0f, 0, 35, 30, 180, 60, FALSE },
+    { "06_batch_2cam_inference", "06_batch_2cam_inference.png", 2, 640, 240, TRUE,  TRUE,  1600, 800, -50, 50, -50, 50, 2, 4, 2.0f, 1, 35, 30, 180, 60, FALSE },
     /* TC-09: point_radius=1 — exercises the single-pixel fast path in draw_bev / draw_perspective
      *        instead of cv::circle; produces a visually denser but lower-weight render. */
-    { "09_lidar_radius1",        "09_lidar_radius1.png",        0, 0,   0,   FALSE, FALSE, 800,  800, -50, 50, -50, 50, 1, 4, 2.0f, 0, 35, 30, 180, 0, 60, FALSE },
+    { "09_lidar_radius1",        "09_lidar_radius1.png",        0, 0,   0,   FALSE, FALSE, 800,  800, -50, 50, -50, 50, 1, 4, 2.0f, 0, 35, 30, 180, 60, FALSE },
     /* TC-10: point_stride=1 — renders every point (5848 pts) vs TC-01's stride=4 (~1462 pts);
      *        verifies the dense path produces no crash and a visually saturated point cloud. */
-    { "10_lidar_stride1",        "10_lidar_stride1.png",        0, 0,   0,   FALSE, FALSE, 800,  800, -50, 50, -50, 50, 2, 1, 2.0f, 0, 35, 30, 180, 0, 60, FALSE },
+    { "10_lidar_stride1",        "10_lidar_stride1.png",        0, 0,   0,   FALSE, FALSE, 800,  800, -50, 50, -50, 50, 2, 1, 2.0f, 0, 35, 30, 180, 60, FALSE },
     /* TC-25: 4 cameras — n_cams>=4 switches layout to 2 cols x 2 rows; each cell 400x400.
      *        640x240 cam in 400x400 cell: scale=0.625 → sw=400 sh=150, y-pad=125 top+bottom. */
-    { "25_batch_4cam",           "25_batch_4cam.png",           4, 640, 240, FALSE, FALSE, 1600, 800, -50, 50, -50, 50, 2, 4, 2.0f, 0, 35, 30, 180, 0, 60, FALSE },
+    { "25_batch_4cam",           "25_batch_4cam.png",           4, 640, 240, FALSE, FALSE, 1600, 800, -50, 50, -50, 50, 2, 4, 2.0f, 0, 35, 30, 180, 60, FALSE },
     /* TC-31: 3 cameras — 1 col x 3 rows, each cell 800x266.
      *        640x240 cam in 800x266 cell: scale=min(1.25,1.108)=1.108 → sw=709 sh=266, x-pad=45. */
-    { "31_batch_3cam",           "31_batch_3cam.png",           3, 640, 240, FALSE, FALSE, 1600, 800, -50, 50, -50, 50, 2, 4, 2.0f, 0, 35, 30, 180, 0, 60, FALSE },
+    { "31_batch_3cam",           "31_batch_3cam.png",           3, 640, 240, FALSE, FALSE, 1600, 800, -50, 50, -50, 50, 2, 4, 2.0f, 0, 35, 30, 180, 60, FALSE },
 };
 
 static const Scenario CAM_PROJ_SCENARIOS[] = {
-    { "07_batch_1cam_project",         "07_batch_1cam_project.png",         1, 640, 240, TRUE, TRUE,  1600, 800, -50, 50, -50, 50, 2, 4, 2.0f, 2, 35, 30, 180, 0, 60, TRUE  },
-    { "08_batch_1cam_project_nocalib", "08_batch_1cam_project_nocalib.png", 1, 640, 240, TRUE, FALSE, 1600, 800, -50, 50, -50, 50, 2, 4, 2.0f, 2, 35, 30, 180, 0, 60, FALSE },
+    { "07_batch_1cam_project",         "07_batch_1cam_project.png",         1, 640, 240, TRUE, TRUE,  1600, 800, -50, 50, -50, 50, 2, 4, 2.0f, 2, 35, 30, 180, 60, TRUE  },
+    { "08_batch_1cam_project_nocalib", "08_batch_1cam_project_nocalib.png", 1, 640, 240, TRUE, FALSE, 1600, 800, -50, 50, -50, 50, 2, 4, 2.0f, 2, 35, 30, 180, 60, FALSE },
 };
 
 /* ── test logic ───────────────────────────────────────────────────────── */
@@ -131,13 +131,13 @@ GST_END_TEST;
  * represent degenerate or partially-missing data.
  */
 
-/*                                                                  ncams camW camH 3ddet 2ddet  W     H    xmin xmax ymin ymax  rad str  zoom  mode dist elev  az   as   fov  calib */
+/*                                                                  ncams camW camH 3ddet 2ddet  W     H    xmin xmax ymin ymax  rad str  zoom  mode dist elev  az   fov  calib */
 static const Scenario SC_EMPTY_LIDAR_PTS  = {
-    "20_empty_lidar_pts",   NULL, 0, 0,   0,   FALSE, FALSE, 800,  800, -50, 50, -50, 50, 2, 4, 2.0f, 0, 35, 30, 180, 0, 60, FALSE };
+    "20_empty_lidar_pts",   NULL, 0, 0,   0,   FALSE, FALSE, 800,  800, -50, 50, -50, 50, 2, 4, 2.0f, 0, 35, 30, 180, 60, FALSE };
 static const Scenario SC_NO_LIDAR_META    = {
-    "21_no_lidar_meta",     NULL, 0, 0,   0,   FALSE, FALSE, 800,  800, -50, 50, -50, 50, 2, 4, 2.0f, 0, 35, 30, 180, 0, 60, FALSE };
+    "21_no_lidar_meta",     NULL, 0, 0,   0,   FALSE, FALSE, 800,  800, -50, 50, -50, 50, 2, 4, 2.0f, 0, 35, 30, 180, 60, FALSE };
 static const Scenario SC_NO_LIDAR_STREAM  = {
-    "22_no_lidar_stream",   NULL, 1, 640, 240, FALSE, FALSE, 1600, 800, -50, 50, -50, 50, 2, 4, 2.0f, 0, 35, 30, 180, 0, 60, FALSE };
+    "22_no_lidar_stream",   NULL, 1, 640, 240, FALSE, FALSE, 1600, 800, -50, 50, -50, 50, 2, 4, 2.0f, 0, 35, 30, 180, 60, FALSE };
 
 /* TC-20: 0-point LiDAR (LidarMeta present, count=0) */
 GST_START_TEST(test_empty_lidar_pts)

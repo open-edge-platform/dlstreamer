@@ -79,21 +79,16 @@ apply_scenario_props(const Scenario *sc, GstHarness *h)
 {
     GstElement *el = gst_harness_find_element(h, "g3drender");
     g_object_set(el,
-        "width",            sc->width,
-        "height",           sc->height,
-        "range-x-min",      sc->range_x_min,
-        "range-x-max",      sc->range_x_max,
-        "range-y-min",      sc->range_y_min,
-        "range-y-max",      sc->range_y_max,
-        "point-radius",     sc->point_radius,
-        "point-stride",     sc->point_stride,
-        "zoom",             sc->zoom,
-        "view-mode",        sc->view_mode,
-        "cam-distance",     sc->cam_distance,
-        "cam-elevation",    sc->cam_elevation,
-        "cam-azimuth",      sc->cam_azimuth,
-        "cam-azimuth-step", sc->cam_azimuth_step,
-        "cam-fov",          sc->cam_fov,
+        "width",        sc->width,
+        "height",       sc->height,
+        "point-radius", sc->point_radius,
+        "point-stride", sc->point_stride,
+        "zoom",         sc->zoom,
+        "view-mode",    sc->view_mode,
+        "cam-distance", sc->cam_distance,
+        "cam-elevation",sc->cam_elevation,
+        "cam-azimuth",  sc->cam_azimuth,
+        "cam-fov",      sc->cam_fov,
         NULL);
     gst_object_unref(el);
 }

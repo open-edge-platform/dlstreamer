@@ -27,7 +27,7 @@ typedef struct {
     /* view mode: 0=bev  1=perspective  2=cam-proj */
     gint   view_mode;
     /* perspective camera */
-    gfloat cam_distance, cam_elevation, cam_azimuth, cam_azimuth_step, cam_fov;
+    gfloat cam_distance, cam_elevation, cam_azimuth, cam_fov;
     /* cam-proj: inject synthetic calibration event */
     gboolean use_calib;
 } Scenario;
