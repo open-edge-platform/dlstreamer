@@ -3,5 +3,5 @@
 huggingface_hub==0.34.4
 timm==1.0.26
 openvino==2026.2.0
-optimum-onnx==0.1.0
+https://github.com/huggingface/optimum-intel/archive/f50a0b326df82d4b05c461a9184a97f616bfa63a.tar.gz#egg=optimum-intel
 torch==2.8.0
