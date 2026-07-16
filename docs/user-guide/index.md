@@ -99,23 +99,16 @@ AIVID TECHVISION and others.
 
 <!--hide_directive
 :::{toctree}
-:caption: Get Started
 :maxdepth: 2
 :hidden:
 
 System Requirements <get_started/system_requirements>
 Install Guide <get_started/install/install_guide_index>
 Tutorial <get_started/tutorial>
-:::
-
-:::{toctree}
-:caption: Reference
-:maxdepth: 2
-:hidden:
-
-dev_guide/dev_guide_index
-elements/elements
+Samples <https://github.com/open-edge-platform/dlstreamer/blob/main/samples/gstreamer/README.md>
 supported_models
+elements/elements
+dev_guide/dev_guide_index
 api_ref/api_reference
 architecture_2.0/architecture_2.0
 Release Notes <release-notes>
