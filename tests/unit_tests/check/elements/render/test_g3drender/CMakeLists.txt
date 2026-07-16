@@ -12,6 +12,8 @@ add_executable(${TARGET_NAME}
     g3d_test_golden.cpp
 )
 
+find_package(OpenCV REQUIRED COMPONENTS core imgcodecs)
+
 pkg_check_modules(GSTCHECK      gstreamer-check-1.0      REQUIRED)
 pkg_check_modules(GSTANALYTICS gstreamer-analytics-1.0  REQUIRED)
 pkg_check_modules(GSTVIDEO     gstreamer-video-1.0      REQUIRED)
@@ -21,6 +23,7 @@ PRIVATE
     ${GSTCHECK_INCLUDE_DIRS}
     ${GSTANALYTICS_INCLUDE_DIRS}
     ${GSTVIDEO_INCLUDE_DIRS}
+    ${OpenCV_INCLUDE_DIRS}
     ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
@@ -34,6 +37,7 @@ PRIVATE
     ${GSTCHECK_LIBRARIES}
     ${GSTANALYTICS_LIBRARIES}
     ${GSTVIDEO_LIBRARIES}
+    ${OpenCV_LIBS}
 )
 
 add_test(NAME ${TARGET_NAME} COMMAND ${TARGET_NAME}
