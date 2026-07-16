@@ -117,10 +117,9 @@ ensure_sample_data() {
   local sample_path="${POINTPILLARS_ROOT}/pointpillars/dataset/demo_data/test/000002.bin"
   [[ -f "${sample_path}" ]] || fail "PointPillars sample point cloud not found: ${sample_path}"
 
-  if [[ ! -f "${DATA_DIR}/000002.bin" ]]; then
-    log "Copying sample point cloud from ${sample_path}"
-    cp -f "${sample_path}" "${DATA_DIR}/000002.bin"
-  fi
+  local demo_dir="${POINTPILLARS_ROOT}/pointpillars/dataset/demo_data/test"
+  log "Copying sample data from ${demo_dir}"
+  cp -f "${demo_dir}"/* "${DATA_DIR}/"
 }
 
 ensure_model_files() {
