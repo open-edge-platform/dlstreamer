@@ -17,6 +17,11 @@ add_library(${TARGET_NAME} STATIC
 )
 set_compile_flags(${TARGET_NAME})
 
+if(WIN32)
+    # MSVC does not define M_PI unless _USE_MATH_DEFINES is set before <cmath>
+    target_compile_definitions(${TARGET_NAME} PRIVATE _USE_MATH_DEFINES)
+endif()
+
 if(UNIX)
     target_compile_options(${TARGET_NAME} PRIVATE -Wno-error=unused-variable -Wno-error=unused-parameter)
 endif()
