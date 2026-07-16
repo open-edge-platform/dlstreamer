@@ -1,5 +1,21 @@
 # API Reference
 
+The DL Streamer API consists of two parts:
+
+1. **Elements and their properties** — the GStreamer elements provided by DL Streamer and the properties used to configure them.
+2. **Interface between elements** — the metadata attached to buffers that flows between elements in a pipeline.
+
+## Elements & Properties
+
+DL Streamer provides GStreamer elements for inference, tracking, analytics, and
+post-processing. Each element exposes properties that control its behaviour
+(model path, device, thresholds, etc.).
+
+> **[Elements Reference](../elements/elements.md)** — full list of elements with
+> property descriptions.
+
+---
+
 ## Inference Output & Metadata
 
 DL Streamer represents inference results (detections, classifications, tracking,
