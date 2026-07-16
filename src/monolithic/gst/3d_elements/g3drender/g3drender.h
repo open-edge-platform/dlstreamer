@@ -25,30 +25,30 @@ typedef struct _GstG3DRenderClass GstG3DRenderClass;
 struct _GstG3DRender {
     GstBaseTransform parent;
 
-    gint    width;
-    gint    height;
-    gfloat  range_x_min;
-    gfloat  range_x_max;
-    gfloat  range_y_min;
-    gfloat  range_y_max;
-    gint    point_radius;
-    gint    point_stride;
-    gfloat  zoom;
+    gint width;
+    gint height;
+    gfloat range_x_min;
+    gfloat range_x_max;
+    gfloat range_y_min;
+    gfloat range_y_max;
+    gint point_radius;
+    gint point_stride;
+    gfloat zoom;
 
-    gint    view_mode;
-    gfloat  cam_distance;
-    gfloat  cam_elevation;
-    gfloat  cam_azimuth;
-    gfloat  cam_fov;
-    gint    cam_proj_index;  /* camera stream index used for cam-proj projection (default 0) */
+    gint view_mode;
+    gfloat cam_distance;
+    gfloat cam_elevation;
+    gfloat cam_azimuth;
+    gfloat cam_fov;
+    gint cam_proj_index; /* camera stream index used for cam-proj projection (default 0) */
 
-    guint64  frame_count;
+    guint64 frame_count;
     gboolean input_is_batch;
 
     gboolean has_calib;
-    gfloat   calib_tr[16];  /* tr_velo_to_cam 4×4, row-major */
-    gfloat   calib_r0[16];  /* r0_rect        4×4, row-major */
-    gfloat   calib_p2[12];  /* p2             3×4, row-major */
+    gfloat calib_tr[16]; /* tr_velo_to_cam 4×4, row-major */
+    gfloat calib_r0[16]; /* r0_rect        4×4, row-major */
+    gfloat calib_p2[12]; /* p2             3×4, row-major */
 };
 
 struct _GstG3DRenderClass {

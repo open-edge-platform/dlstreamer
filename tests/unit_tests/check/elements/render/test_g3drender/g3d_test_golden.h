@@ -24,6 +24,5 @@ guint8 *load_png(const gchar *path, gint *w_out, gint *h_out);
  * Returns the maximum per-channel absolute difference, or -1 on dimension mismatch.
  * On failure a human-readable description is written to @fail_msg.
  */
-gint compare_with_golden(const guint8 *bgr,        gint w,  gint h,
-                         const guint8 *golden_bgr,  gint gw, gint gh,
-                         gchar        *fail_msg,    gsize fail_msg_len);
+gint compare_with_golden(const guint8 *bgr, gint w, gint h, const guint8 *golden_bgr, gint gw, gint gh, gchar *fail_msg,
+                         gsize fail_msg_len);
