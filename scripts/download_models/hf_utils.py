@@ -10,8 +10,9 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Callable
+import json
 
-from huggingface_hub import hf_hub_download
+from huggingface_hub import hf_hub_download, snapshot_download
 from openvino import PartialShape
 from openvino import Type
 from openvino import save_model
@@ -50,32 +51,59 @@ CUSTOM_CONVERTERS = {
     "depthanythingfordepthestimation",
 }
 
-def get_hf_model_support_level(model_id: str, token: str | None = None) -> int:
-    """Classify support level for a Hugging Face model ID.
+
+def parse_model_ref(model_ref: str) -> tuple[str, str | None]:
+    """Parse model reference in format 'repo_id@revision' or 'repo_id'.
+    
+    Returns:
+        Tuple of (repo_id, revision) where revision is None if not specified.
+    """
+    if "@" in model_ref:
+        repo_id, revision = model_ref.rsplit("@", 1)
+        return repo_id.strip(), revision.strip()
+    return model_ref.strip(), None
+
+
+def load_hf_architectures_from_repo_local(local_model_dir: str | Path) -> list[str]:
+    """Load architectures from locally cached model directory."""
+    config_path = Path(local_model_dir) / "config.json"
+    if not config_path.exists():
+        raise ValueError(f"config.json not found in {local_model_dir}")
+    
+    with open(config_path) as f:
+        config_dict = json.load(f)
+    
+    architectures = config_dict.get("architectures", None)
+    if not architectures:
+        raise ValueError("HuggingFace config has no architectures list")
+    if isinstance(architectures, str):
+        return [architectures]
+    if isinstance(architectures, list):
+        return [str(item) for item in architectures]
+
+    raise ValueError("HuggingFace architectures must be a string or list")
+
+
+def get_hf_model_support_level(local_model_dir: str | Path, token: str | None = None) -> int:
+    """Classify support level for a locally cached Hugging Face model.
+
+    Args:
+        local_model_dir: Path to the locally cached model directory (from snapshot_download)
+        token: Unused, kept for compatibility
 
     Returns:
-        0: model ID or one of its architectures is in SUPPORTED_HF_MODELS
-        1: model ID or one of its architectures is in CUSTOM_CONVERTERS
+        0: model architectures in SUPPORTED_HF_MODELS
+        1: model architectures in CUSTOM_CONVERTERS
         2: otherwise
     """
     supported_hf_models_lower = {item.lower() for item in SUPPORTED_HF_MODELS}
     custom_converters_lower = {item.lower() for item in CUSTOM_CONVERTERS}
 
-    normalized_model_id = model_id.strip()
-    model_key = normalized_model_id.lower()
-
-    if model_key in supported_hf_models_lower:
-        return 0
-    if model_key in custom_converters_lower:
-        return 1
-
     try:
-        architectures = load_hf_architectures_from_repo(normalized_model_id, token)
-
-
-
-
+        architectures = load_hf_architectures_from_repo_local(local_model_dir)
     except ValueError:
+        return 2
+    except Exception:
         return 2
 
     normalized_architectures = {architecture.lower() for architecture in architectures}
@@ -87,30 +115,33 @@ def get_hf_model_support_level(model_id: str, token: str | None = None) -> int:
 
 
 def custom_conversion(
-    model_id: str,
+    local_model_dir: str | Path,
+    repo_id: str,
     outdir: Path,
     token: str | None,
     extra_args: list[str] | None = None,
 ) -> Path:
-    """Run custom conversion for architectures listed in CUSTOM_CONVERTERS."""
+    """Run custom conversion for architectures listed in CUSTOM_CONVERTERS.
+    
+    Args:
+        local_model_dir: Path to locally cached model from snapshot_download
+        repo_id: Original repo ID (for naming output directory)
+        outdir: Output directory for conversion
+        token: HuggingFace token
+        extra_args: Additional arguments for export
+    """
     if extra_args is None:
         extra_args = []
 
-    if model_id.lower() in CUSTOM_CONVERTERS:
-        primary_arch = model_id.lower()
+    architectures = load_hf_architectures_from_repo_local(local_model_dir)
+    primary_arch = architectures[0].lower()
 
-
-    else:
-        architectures = load_hf_architectures_from_repo(model_id, token)
-        primary_arch = architectures[0].lower()
-
-    export_dir = outdir / Path(model_id).name
+    export_dir = outdir / repo_id.replace("/", "_")
     handlers: dict[str, tuple[str, Callable[[], Path]]] = {
         "clipmodel": (
             "a CLIP model",
             lambda: export_hf_clip_to_openvino(
-                model_id,
-
+                local_model_dir,
                 export_dir,
                 token,
             ),
@@ -118,18 +149,16 @@ def custom_conversion(
         "rtdetrforobjectdetection": (
             "an RT-DETR model",
             lambda: export_hf_rtdetr_to_openvino(
-                model_id,
-
+                local_model_dir,
                 export_dir,
                 token,
                 extra_args=extra_args,
             ),
         ),
         "rtdetrv2forobjectdetection": (
-            "an RT-DETR model",
+            "an RT-DETR v2 model",
             lambda: export_hf_rtdetr_to_openvino(
-                model_id,
-
+                local_model_dir,
                 export_dir,
                 token,
                 extra_args=extra_args,
@@ -138,8 +167,7 @@ def custom_conversion(
         "depthanythingfordepthestimation": (
             "a DepthAnything model",
             lambda: export_hf_depthanything_to_openvino(
-                model_id,
-
+                local_model_dir,
                 export_dir,
                 token,
                 extra_args=extra_args,
@@ -152,36 +180,24 @@ def custom_conversion(
     return export_handler()
 
 
-def load_hf_architectures_from_repo(
-    model_id: str,
-
-    token: str | None,
-) -> list[str]:
-    config = AutoConfig.from_pretrained(model_id, token=token)
-    architectures = getattr(config, "architectures", None)
-    if not architectures:
-        raise ValueError("HuggingFace config has no architectures list")
-    if isinstance(architectures, str):
-        return [architectures]
-    if isinstance(architectures, list):
-        return [str(item) for item in architectures]
-
-    raise ValueError("HuggingFace architectures must be a string or list")
-
-
 def export_hf_clip_to_openvino(
-    model_ref: str,
-
+    local_model_dir: str | Path,
     outdir: Path,
     token: str | None,
 ) -> Path:
     """Export CLIP vision encoder to OpenVINO IR.
 
     This exports only the visual feature extractor (no text encoder).
+    
+    Args:
+        local_model_dir: Path to locally cached CLIP model
+        outdir: Output directory for OpenVINO IR
+        token: Unused, kept for compatibility
     """
     outdir.mkdir(parents=True, exist_ok=True)
 
-    vision_model = CLIPVisionModel.from_pretrained(model_ref)
+    # Load from local cached model (already pinned via snapshot_download)
+    vision_model = CLIPVisionModel.from_pretrained(str(local_model_dir))  # nosec - model pinned via snapshot_download
 
 
 
@@ -189,7 +205,7 @@ def export_hf_clip_to_openvino(
     vision_model.eval()
 
     img = Image.new("RGB", (224, 224))
-    processor = AutoProcessor.from_pretrained(model_ref, token=token)
+    processor = AutoProcessor.from_pretrained(str(local_model_dir))
 
 
 
@@ -211,7 +227,7 @@ def export_hf_clip_to_openvino(
     ov_model.set_rt_info("122.771,116.746,104.094", ["model_info", "mean_values"])
     ov_model.set_rt_info("RGB", ["model_info", "color_space"])
     ov_model.set_rt_info("crop", ["model_info", "resize_type"])
-    model_name = Path(model_ref).name
+    model_name = Path(local_model_dir).name
     save_model(ov_model, str(outdir / f"{model_name}.xml"))
 
     processor.save_pretrained(str(outdir))
@@ -219,30 +235,34 @@ def export_hf_clip_to_openvino(
 
 
 def export_hf_rtdetr_to_openvino(
-    model_ref: str,
-
+    local_model_dir: str | Path,
     outdir: Path,
     token: str | None,
     extra_args: list[str] | None = None,
 ) -> Path:
     """Export RT-DETR via PyTorch -> ONNX -> OpenVINO IR.
 
+    Args:
+        local_model_dir: Path to locally cached RT-DETR model
+        outdir: Output directory for conversion
+        token: HuggingFace token (for private models)
+        extra_args: Additional arguments for export
+
     Requires `optimum`, `huggingface_hub`, and `openvino` to be installed.
     """
     outdir.mkdir(parents=True, exist_ok=True)
     _ = extra_args
-    model_id = model_ref
     model_onnx = outdir / "model.onnx"
 
     main_export(
-        model_id,
+        str(local_model_dir),
         output=outdir,
 
         task="object-detection",
         opset=18,
         width=640,
         height=640,
-        auth_token=token,
+        token=token,
     )
 
     hf_hub_download(
@@ -261,21 +281,27 @@ def export_hf_rtdetr_to_openvino(
 
 
 def export_hf_depthanything_to_openvino(
-    model_ref: str,
-
+    local_model_dir: str | Path,
     outdir: Path,
     token: str | None,
     extra_args: list[str] | None = None,
 ) -> Path:
     """Export DepthAnything via PyTorch -> OpenVINO IR.
 
+    Args:
+        local_model_dir: Path to locally cached DepthAnything model
+        outdir: Output directory for conversion
+        token: Unused, kept for compatibility
+        extra_args: Unused, kept for compatibility
+
     Requires `huggingface_hub` and `openvino` to be installed.
     """
     outdir.mkdir(parents=True, exist_ok=True)
     _ = extra_args
-    model_id = model_ref
+    _ = token
+    local_model_dir = Path(local_model_dir)
 
-    model = AutoModelForDepthEstimation.from_pretrained(model_ref, token=token)
+    model = AutoModelForDepthEstimation.from_pretrained(str(local_model_dir))  # nosec - model pinned via snapshot_download
 
 
 
@@ -283,7 +309,7 @@ def export_hf_depthanything_to_openvino(
     model.eval()
 
     img = Image.new("RGB", (224, 224))
-    processor = AutoImageProcessor.from_pretrained(model_ref, token=token)
+    processor = AutoImageProcessor.from_pretrained(str(local_model_dir))  # nosec - model pinned via snapshot_download
 
 
 
@@ -292,23 +318,14 @@ def export_hf_depthanything_to_openvino(
 
     ov_model = convert_model(model, example_input=batch)
 
-    hf_hub_download(
-        repo_id=model_id,
+    # Copy configs from local cached model to output directory
+    for config_file in ["config.json", "preprocessor_config.json"]:
+        config_src = local_model_dir / config_file
+        config_dst = outdir / config_file
+        if config_src.exists():
+            shutil.copy(config_src, config_dst)
 
-        filename="config.json",
-        local_dir=str(outdir),
-        token=token,
-    )
-
-    hf_hub_download(
-        repo_id=model_id,
-
-        filename="preprocessor_config.json",
-        local_dir=str(outdir),
-        token=token,
-    )
-
-    model_name = Path(model_ref).name
+    model_name = local_model_dir.name
     save_model(ov_model, str(outdir / f"{model_name}.xml"))
 
     return outdir

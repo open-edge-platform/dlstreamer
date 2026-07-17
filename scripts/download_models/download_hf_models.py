@@ -13,8 +13,10 @@ import os
 import subprocess
 import sys
 from pathlib import Path
+from huggingface_hub import snapshot_download
 from hf_utils import custom_conversion
 from hf_utils import get_hf_model_support_level
+from hf_utils import parse_model_ref
 
 
 
@@ -74,12 +76,25 @@ def main() -> int:
     token = args.token
 
     try:
-        support_level = get_hf_model_support_level(model_id, token)
+        # Parse model_id to extract repo_id and optional revision
+        repo_id, revision = parse_model_ref(model_id)
+        
+        # Download model with specified revision (or latest if None) to local cache
+        print(f"Downloading model: {repo_id}" + (f" @ {revision}" if revision else " (latest)"))
+        local_model_dir = snapshot_download(
+            repo_id=repo_id,
+            revision=revision,
+            token=token,
+        )
+        print(f"Model cached at: {local_model_dir}")
+        
+        # Determine support level by analyzing locally cached model
+        support_level = get_hf_model_support_level(local_model_dir, token)
         
         match support_level:
             case 0:
                 # Standard export using optimum-cli
-                model_path = Path(args.outdir) / Path(model_id).name
+                model_path = Path(args.outdir) / repo_id.replace("/", "_")
                 model_path.mkdir(parents=True, exist_ok=True)
 
                 command = [
@@ -87,7 +102,7 @@ def main() -> int:
                     "export",
                     "openvino",
                     "--model",
-                    model_id,
+                    local_model_dir,
                 ]
                 if args.extra_args:
                     command.extend(args.extra_args)
@@ -97,9 +112,10 @@ def main() -> int:
                 subprocess.run(command, check=True, env=env)
 
             case 1:
-                # Custom conversion
+                # Custom conversion using locally cached model
                 model_path = custom_conversion(
-                    model_id,
+                    local_model_dir,
+                    repo_id,
                     Path(args.outdir),
                     token,
                     extra_args=args.extra_args,
