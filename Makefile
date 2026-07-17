@@ -28,7 +28,7 @@ endif
 endif
 
 export PATH 					:= ${PROJECT_DIRECTORY}/${DEPENDENCY_DIR}/install/bin:${PROJECT_DIRECTORY}/build/intel64/${BUILD_TYPE}/bin:${HOME}/.local/bin:${HOME}/python3venv/bin:${PATH}
-export GST_PLUGIN_PATH 			:= ${PROJECT_DIRECTORY}/${DEPENDENCY_DIR}/gstreamer-bin/lib/gstreamer-1.0:${PROJECT_DIRECTORY}/build/intel64/${BUILD_TYPE}/lib:/usr/lib/x86_64-linux-gnu/gstreamer-1.0
+export GST_PLUGIN_PATH 			:= ${PROJECT_DIRECTORY}/${DEPENDENCY_DIR}/gstreamer-bin/lib/gstreamer-1.0:${PROJECT_DIRECTORY}/build/intel64/${BUILD_TYPE}/lib
 export LIBRARY_PATH 			:= ${PROJECT_DIRECTORY}/${DEPENDENCY_DIR}/install/lib:${PROJECT_DIRECTORY}/${DEPENDENCY_DIR}/gstreamer-bin/lib:${PROJECT_DIRECTORY}/${DEPENDENCY_DIR}/opencv-bin/lib:${PROJECT_DIRECTORY}/${DEPENDENCY_DIR}/rdkafka-bin/lib:${PROJECT_DIRECTORY}/build/intel64/${BUILD_TYPE}/lib:/usr/lib
 export PKG_CONFIG_PATH 			:= ${PROJECT_DIRECTORY}/${DEPENDENCY_DIR}/install/lib/pkgconfig:${PROJECT_DIRECTORY}/${DEPENDENCY_DIR}/gstreamer-bin/lib/pkgconfig:${PROJECT_DIRECTORY}/${DEPENDENCY_DIR}/rdkafka-bin/lib/pkgconfig:${PROJECT_DIRECTORY}/build/intel64/${BUILD_TYPE}/lib/pkgconfig:/usr/local/lib/pkgconfig:/usr/lib/x86_64-linux-gnu/pkgconfig
 export LIBVA_DRIVER_NAME 		:= iHD

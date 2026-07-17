@@ -31,7 +31,7 @@ DEFAULT_SEARCH_DURATION = 300
 
 ####################################### Init ######################################################
 
-Gst.init(sys.argv)
+Gst.init([])
 logger = logging.getLogger(__name__)
 logger.debug("GStreamer initialized successfully")
 gst_version = Gst.version()

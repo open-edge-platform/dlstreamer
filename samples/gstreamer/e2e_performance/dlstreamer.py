@@ -21,7 +21,7 @@ def _gst():
         import gi  # pylint: disable=import-outside-toplevel
         gi.require_version("Gst", "1.0")
         from gi.repository import Gst  # pylint: disable=import-outside-toplevel,no-name-in-module
-        Gst.init(None)
+        Gst.init([])
         _Gst = Gst
     return _Gst
 
