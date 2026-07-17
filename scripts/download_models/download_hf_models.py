@@ -88,8 +88,6 @@ def main() -> int:
                     "openvino",
                     "--model",
                     model_id,
-                    "--revision",
-                    "main",
                 ]
                 if args.extra_args:
                     command.extend(args.extra_args)
