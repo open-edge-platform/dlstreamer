@@ -11,7 +11,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Callable
 
-from huggingface_hub import HfApi, hf_hub_download
+from huggingface_hub import hf_hub_download
 from openvino import PartialShape
 from openvino import Type
 from openvino import save_model
@@ -41,7 +41,6 @@ SUPPORTED_HF_MODELS = {
     "google/gemma-3-12b-it",
     "google/gemma-3-27b-it",
     "WhisperForConditionalGeneration",
-    "VideoMAEForVideoClassification",
 }
 
 CUSTOM_CONVERTERS = {
@@ -52,37 +51,25 @@ CUSTOM_CONVERTERS = {
 }
 
 
-def resolve_hf_model_ref(
-    model_ref: str,
-    token: str | None = None,
-) -> tuple[str, str]:
-    """Return ``repo_id`` and an immutable commit SHA for a Hugging Face model ref."""
-    normalized_ref = model_ref.strip()
-    if not normalized_ref:
-        raise ValueError("Hugging Face model ref must not be empty")
 
-    repo_id, separator, revision = normalized_ref.rpartition("@")
 
-    # Explicit "repo_id@revision" override: validate that the revision exists
-    # and normalize it to an immutable commit SHA.
-    if separator and repo_id and revision:
-        try:
-            model_info = HfApi(token=token).model_info(repo_id, revision=revision)
-        except Exception as exc:  # repo or revision not found / inaccessible
-            raise ValueError(
-                f"Revision '{revision}' not found for Hugging Face model '{repo_id}'"
-            ) from exc
-        resolved_revision = getattr(model_info, "sha", None) or revision
-        return repo_id, resolved_revision
 
-    # No explicit revision: resolve the current immutable commit SHA.
-    model_info = HfApi(token=token).model_info(normalized_ref)
-    resolved_revision = getattr(model_info, "sha", None)
-    if not resolved_revision:
-        raise ValueError(
-            f"Unable to resolve an immutable revision for Hugging Face model '{normalized_ref}'"
-        )
-    return normalized_ref, resolved_revision
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 def get_hf_model_support_level(model_id: str, token: str | None = None) -> int:
@@ -96,7 +83,7 @@ def get_hf_model_support_level(model_id: str, token: str | None = None) -> int:
     supported_hf_models_lower = {item.lower() for item in SUPPORTED_HF_MODELS}
     custom_converters_lower = {item.lower() for item in CUSTOM_CONVERTERS}
 
-    normalized_model_id, revision = resolve_hf_model_ref(model_id, token)
+    normalized_model_id = model_id.strip()
     model_key = normalized_model_id.lower()
 
     if model_key in supported_hf_models_lower:
@@ -105,11 +92,11 @@ def get_hf_model_support_level(model_id: str, token: str | None = None) -> int:
         return 1
 
     try:
-        architectures = load_hf_architectures_from_repo(
-            normalized_model_id,
-            revision,
-            token,
-        )
+        architectures = load_hf_architectures_from_repo(normalized_model_id, token)
+
+
+
+
     except ValueError:
         return 2
 
@@ -131,21 +118,21 @@ def custom_conversion(
     if extra_args is None:
         extra_args = []
 
-    repo_id, revision = resolve_hf_model_ref(model_id, token)
+    if model_id.lower() in CUSTOM_CONVERTERS:
+        primary_arch = model_id.lower()
 
-    if repo_id.lower() in CUSTOM_CONVERTERS:
-        primary_arch = repo_id.lower()
+
     else:
-        architectures = load_hf_architectures_from_repo(repo_id, revision, token)
+        architectures = load_hf_architectures_from_repo(model_id, token)
         primary_arch = architectures[0].lower()
 
-    export_dir = outdir / Path(repo_id).name
+    export_dir = outdir / Path(model_id).name
     handlers: dict[str, tuple[str, Callable[[], Path]]] = {
         "clipmodel": (
             "a CLIP model",
             lambda: export_hf_clip_to_openvino(
-                repo_id,
-                revision,
+                model_id,
+
                 export_dir,
                 token,
             ),
@@ -153,8 +140,8 @@ def custom_conversion(
         "rtdetrforobjectdetection": (
             "an RT-DETR model",
             lambda: export_hf_rtdetr_to_openvino(
-                repo_id,
-                revision,
+                model_id,
+
                 export_dir,
                 token,
                 extra_args=extra_args,
@@ -163,8 +150,8 @@ def custom_conversion(
         "rtdetrv2forobjectdetection": (
             "an RT-DETR model",
             lambda: export_hf_rtdetr_to_openvino(
-                repo_id,
-                revision,
+                model_id,
+
                 export_dir,
                 token,
                 extra_args=extra_args,
@@ -173,8 +160,8 @@ def custom_conversion(
         "depthanythingfordepthestimation": (
             "a DepthAnything model",
             lambda: export_hf_depthanything_to_openvino(
-                repo_id,
-                revision,
+                model_id,
+
                 export_dir,
                 token,
                 extra_args=extra_args,
@@ -189,10 +176,10 @@ def custom_conversion(
 
 def load_hf_architectures_from_repo(
     model_id: str,
-    revision: str,
+
     token: str | None,
 ) -> list[str]:
-    config = AutoConfig.from_pretrained(model_id, revision=revision, token=token)
+    config = AutoConfig.from_pretrained(model_id, token=token)
     architectures = getattr(config, "architectures", None)
     if not architectures:
         raise ValueError("HuggingFace config has no architectures list")
@@ -205,8 +192,8 @@ def load_hf_architectures_from_repo(
 
 
 def export_hf_clip_to_openvino(
-    model_id: str,
-    revision: str,
+    model_ref: str,
+
     outdir: Path,
     token: str | None,
 ) -> Path:
@@ -216,19 +203,19 @@ def export_hf_clip_to_openvino(
     """
     outdir.mkdir(parents=True, exist_ok=True)
 
-    vision_model = CLIPVisionModel.from_pretrained(
-        model_id,
-        revision=revision,
-        token=token,
-    )
+    vision_model = CLIPVisionModel.from_pretrained(model_ref)
+
+
+
+
     vision_model.eval()
 
     img = Image.new("RGB", (224, 224))
-    processor = AutoProcessor.from_pretrained(
-        model_id,
-        revision=revision,
-        token=token,
-    )
+    processor = AutoProcessor.from_pretrained(model_ref, token=token)
+
+
+
+
     batch = processor.image_processor(images=img, return_tensors="pt")["pixel_values"]
 
     ov_model = convert_model(vision_model, example_input=batch)
@@ -246,7 +233,7 @@ def export_hf_clip_to_openvino(
     ov_model.set_rt_info("122.771,116.746,104.094", ["model_info", "mean_values"])
     ov_model.set_rt_info("RGB", ["model_info", "color_space"])
     ov_model.set_rt_info("crop", ["model_info", "resize_type"])
-    model_name = Path(model_id).name
+    model_name = Path(model_ref).name
     save_model(ov_model, str(outdir / f"{model_name}.xml"))
 
     processor.save_pretrained(str(outdir))
@@ -254,8 +241,8 @@ def export_hf_clip_to_openvino(
 
 
 def export_hf_rtdetr_to_openvino(
-    model_id: str,
-    revision: str,
+    model_ref: str,
+
     outdir: Path,
     token: str | None,
     extra_args: list[str] | None = None,
@@ -266,41 +253,38 @@ def export_hf_rtdetr_to_openvino(
     """
     outdir.mkdir(parents=True, exist_ok=True)
     _ = extra_args
+    model_id = model_ref
+    model_onnx = outdir / "model.onnx"
 
     main_export(
         model_id,
         output=outdir,
-        revision=revision,
+
         task="object-detection",
         opset=18,
         width=640,
         height=640,
-        token=token,
+        auth_token=token,
     )
-
-    onnx_files = list(outdir.glob("*.onnx"))
-    if not onnx_files:
-        raise FileNotFoundError(f"main_export produced no .onnx files in {outdir}")
-    model_onnx = onnx_files[0]
 
     hf_hub_download(
         repo_id=model_id,
-        revision=revision,
+
         filename="preprocessor_config.json",
         local_dir=str(outdir),
         token=token,
     )
 
     ov_model = convert_model(str(model_onnx))
-    model_name = Path(model_id).name
+    model_name = Path(model_ref).name
     save_model(ov_model, str(outdir / f"{model_name}.xml"))
     model_onnx.unlink(missing_ok=True)
     return outdir
 
 
 def export_hf_depthanything_to_openvino(
-    model_id: str,
-    revision: str,
+    model_ref: str,
+
     outdir: Path,
     token: str | None,
     extra_args: list[str] | None = None,
@@ -311,27 +295,28 @@ def export_hf_depthanything_to_openvino(
     """
     outdir.mkdir(parents=True, exist_ok=True)
     _ = extra_args
+    model_id = model_ref
 
-    model = AutoModelForDepthEstimation.from_pretrained(
-        model_id,
-        revision=revision,
-        token=token,
-    )
+    model = AutoModelForDepthEstimation.from_pretrained(model_ref, token=token)
+
+
+
+
     model.eval()
 
     img = Image.new("RGB", (224, 224))
-    processor = AutoImageProcessor.from_pretrained(
-        model_id,
-        revision=revision,
-        token=token,
-    )
+    processor = AutoImageProcessor.from_pretrained(model_ref, token=token)
+
+
+
+
     batch = processor(images=img, return_tensors="pt")["pixel_values"]
 
     ov_model = convert_model(model, example_input=batch)
 
     hf_hub_download(
         repo_id=model_id,
-        revision=revision,
+
         filename="config.json",
         local_dir=str(outdir),
         token=token,
@@ -339,13 +324,13 @@ def export_hf_depthanything_to_openvino(
 
     hf_hub_download(
         repo_id=model_id,
-        revision=revision,
+
         filename="preprocessor_config.json",
         local_dir=str(outdir),
         token=token,
     )
 
-    model_name = Path(model_id).name
+    model_name = Path(model_ref).name
     save_model(ov_model, str(outdir / f"{model_name}.xml"))
 
     return outdir
