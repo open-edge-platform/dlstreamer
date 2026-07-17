@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstring>
 #include <unordered_set>
 #include <vector>
 
@@ -364,6 +365,7 @@ static gboolean gst_g3d_render_set_caps(GstBaseTransform *trans, GstCaps *incaps
     GstStructure *s = gst_caps_get_structure(incaps, 0);
     self->input_is_batch = (g_strcmp0(gst_structure_get_name(s), "multistream/x-analytics-batch") == 0);
     gst_structure_get_int(gst_caps_get_structure(outcaps, 0), "width", &self->width);
+    gst_structure_get_int(gst_caps_get_structure(outcaps, 0), "height", &self->height);
     GST_INFO_OBJECT(self, "input caps: %s (batch=%d) canvas=%dx%d", gst_structure_get_name(s), self->input_is_batch,
                     self->width, self->height);
     return TRUE;
@@ -573,7 +575,7 @@ void draw_detection_boxes_perspective(cv::Mat &canvas, GstBuffer *inbuf, const c
  * Camera position is derived from cam_distance, cam_elevation, and cam_azimuth. */
 void draw_perspective(cv::Mat &canvas, const float *points, guint count, GstBuffer *inbuf, GstG3DRender *self,
                       int roi_w, int roi_h, const std::unordered_set<guint> &assoc_ids) {
-    const float DEG2RAD = static_cast<float>(M_PI / 180.0);
+    constexpr float DEG2RAD = 3.14159265358979323846f / 180.0f;
     float az = self->cam_azimuth * DEG2RAD;
     float el = self->cam_elevation * DEG2RAD;
     float dist = self->cam_distance;
