@@ -50,28 +50,6 @@ CUSTOM_CONVERTERS = {
     "depthanythingfordepthestimation",
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 def get_hf_model_support_level(model_id: str, token: str | None = None) -> int:
     """Classify support level for a Hugging Face model ID.
 
