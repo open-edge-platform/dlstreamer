@@ -11,6 +11,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Callable
 import json
+import shutil
 
 from huggingface_hub import hf_hub_download, snapshot_download
 from openvino import PartialShape
@@ -176,7 +177,7 @@ def custom_conversion(
     }
 
     model_description, export_handler = handlers[primary_arch]
-    print(f"Model {model_id} is {model_description}")
+    print(f"Model {repo_id} is {model_description}")
     return export_handler()
 
 
@@ -265,16 +266,14 @@ def export_hf_rtdetr_to_openvino(
         token=token,
     )
 
-    hf_hub_download(
-        repo_id=model_id,
-
-        filename="preprocessor_config.json",
-        local_dir=str(outdir),
-        token=token,
-    )
+    # Copy preprocessor_config.json from local cached model to output directory
+    local_model_dir = Path(local_model_dir)
+    preprocessor_config_src = local_model_dir / "preprocessor_config.json"
+    if preprocessor_config_src.exists():
+        shutil.copy(preprocessor_config_src, outdir / "preprocessor_config.json")
 
     ov_model = convert_model(str(model_onnx))
-    model_name = Path(model_ref).name
+    model_name = local_model_dir.name
     save_model(ov_model, str(outdir / f"{model_name}.xml"))
     model_onnx.unlink(missing_ok=True)
     return outdir
