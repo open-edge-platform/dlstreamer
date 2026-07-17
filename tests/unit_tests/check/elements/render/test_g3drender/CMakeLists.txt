@@ -15,7 +15,7 @@ add_executable(${TARGET_NAME}
 find_package(OpenCV REQUIRED COMPONENTS core imgcodecs)
 
 pkg_check_modules(GSTCHECK      gstreamer-check-1.0      REQUIRED)
-pkg_check_modules(GSTANALYTICS gstreamer-analytics-1.0  REQUIRED)
+pkg_check_modules(GSTANALYTICS gstreamer-analytics-1.0>=1.28 REQUIRED)
 pkg_check_modules(GSTVIDEO     gstreamer-video-1.0      REQUIRED)
 
 target_include_directories(${TARGET_NAME}

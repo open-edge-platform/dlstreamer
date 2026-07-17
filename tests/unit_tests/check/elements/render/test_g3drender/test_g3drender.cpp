@@ -294,7 +294,7 @@ static void run_scenario_impl(const Scenario *sc) {
     gint out_h = sc->height;
 
     GstMapInfo m;
-    gst_buffer_map(out, &m, GST_MAP_READ);
+    ck_assert_msg(gst_buffer_map(out, &m, GST_MAP_READ), "[%s] Failed to map output buffer", sc->label);
 
     gchar *golden_path = g_build_filename(TEST_FILES_DIR, "golden_files", sc->out_name, NULL);
 
@@ -303,7 +303,7 @@ static void run_scenario_impl(const Scenario *sc) {
         save_png(golden_path, m.data, out_w, out_h);
         g_print("  dumped golden -> %s\n", golden_path);
     } else {
-        gchar *tmp_path = g_build_filename("/tmp", sc->out_name, NULL);
+        gchar *tmp_path = g_build_filename(g_get_tmp_dir(), sc->out_name, NULL);
         save_png(tmp_path, m.data, out_w, out_h);
         g_free(tmp_path);
 

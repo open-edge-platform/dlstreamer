@@ -12,53 +12,6 @@ The `g3drender` element is a `GstBaseTransform` that accepts either a raw LiDAR 
 - **`perspective`** — Synthetic 3D camera view. Camera position is controlled by `cam-distance`, `cam-elevation`, and `cam-azimuth`. Each LiDAR point is coloured by height. 3D detection boxes are drawn as full wire-frame cuboids.
 - **`cam-proj`** — LiDAR projected onto a real camera image. LiDAR points and 3D boxes are projected using KITTI-style calibration matrices (`P2 × R0 × Tr`) received from `g3dobjectfuser` via the `g3d/calibration` sticky event. 
 
-**Canvas layout:**
-
-```
-# LiDAR only
-┌──────────────────────────┐
-│       LiDAR panel        │
-│     (height × height)    │
-└──────────────────────────┘
-
-# LiDAR + 1 camera
-┌──────────────────────────┬──────────────────────────┐
-│       camera panel       │       LiDAR panel        │
-│      (remaining width)   │     (height × height)    │
-└──────────────────────────┴──────────────────────────┘
-
-# LiDAR + 2 cameras (1 col × 2 rows)
-┌──────────────────────────┬──────────────────────────┐
-│         camera 0         │       LiDAR panel        │
-│──────────────────────────│     (height × height)    │
-│         camera 1         │                          │
-└──────────────────────────┴──────────────────────────┘
-
-# LiDAR + 3 cameras (1 col × 3 rows)
-┌──────────────────────────┬──────────────────────────┐
-│         camera 0         │       LiDAR panel        │
-│──────────────────────────│     (height × height)    │
-│         camera 1         │                          │
-│──────────────────────────│                          │
-│         camera 2         │                          │
-└──────────────────────────┴──────────────────────────┘
-
-# LiDAR + 4 cameras (2 cols × 2 rows)
-┌─────────────┬────────────┬──────────────────────────┐
-│   camera 0  │  camera 1  │       LiDAR panel        │
-│─────────────┼────────────│     (height × height)    │
-│   camera 2  │  camera 3  │                          │
-└─────────────┴────────────┴──────────────────────────┘
-
-# cam-proj mode (full canvas, any number of cameras)
-┌──────────────────────────────────────────────────────┐
-│         camera background + LiDAR projection         │
-│                   (width × height)                   │
-└──────────────────────────────────────────────────────┘
-```
-
-The LiDAR panel is always a `height × height` square anchored to the right edge. Each camera frame is letterboxed into its grid cell. The layout switches from 1 column to 2 columns when 4 or more camera streams are present.
-
 ## Properties
 
 | Property | Type | Range | Default | Description |
@@ -147,13 +100,60 @@ gst-launch-1.0 -v \
 
 The element always allocates a new output buffer; the input buffer is not modified.
 
+**Canvas layout:**
+
+```
+# LiDAR only
+┌──────────────────────────┐
+│       LiDAR panel        │
+│     (height × height)    │
+└──────────────────────────┘
+
+# LiDAR + 1 camera
+┌──────────────────────────┬──────────────────────────┐
+│       camera panel       │       LiDAR panel        │
+│      (remaining width)   │     (height × height)    │
+└──────────────────────────┴──────────────────────────┘
+
+# LiDAR + 2 cameras (1 col × 2 rows)
+┌──────────────────────────┬──────────────────────────┐
+│         camera 0         │       LiDAR panel        │
+│──────────────────────────│     (height × height)    │
+│         camera 1         │                          │
+└──────────────────────────┴──────────────────────────┘
+
+# LiDAR + 3 cameras (1 col × 3 rows)
+┌──────────────────────────┬──────────────────────────┐
+│         camera 0         │       LiDAR panel        │
+│──────────────────────────│     (height × height)    │
+│         camera 1         │                          │
+│──────────────────────────│                          │
+│         camera 2         │                          │
+└──────────────────────────┴──────────────────────────┘
+
+# LiDAR + 4 cameras (2 cols × 2 rows)
+┌─────────────┬────────────┬──────────────────────────┐
+│   camera 0  │  camera 1  │       LiDAR panel        │
+│─────────────┼────────────│     (height × height)    │
+│   camera 2  │  camera 3  │                          │
+└─────────────┴────────────┴──────────────────────────┘
+
+# cam-proj mode (full canvas, any number of cameras)
+┌──────────────────────────────────────────────────────┐
+│         camera background + LiDAR projection         │
+│                   (width × height)                   │
+└──────────────────────────────────────────────────────┘
+```
+
+The LiDAR panel is always a `height × height` square anchored to the right edge. Each camera frame is letterboxed into its grid cell. The layout switches from 1 column to 2 columns when 4 or more camera streams are present.
+
 ## Notes
 
 - **BEV range and zoom**: LiDAR has no native image resolution. In `bev` mode the internal render range defaults to ±50 m on each axis, mapped to the output canvas. `zoom=2.0` halves the visible range (25 m), zooming in; `zoom=0.5` doubles it (100 m), zooming out. `zoom` has no effect in `perspective` or `cam-proj` mode.
 
 - **Auto-double width**: When the input is a batch stream and `width == height`, `g3drender` automatically doubles `width` to `height × 2` during caps negotiation so the default square canvas fits the side-by-side camera + LiDAR layout. Set `width` to a value other than `height` to suppress this behaviour.
 
-- **cam-proj requires calibration**: `cam-proj` mode depends on the `g3d/calibration` sticky event emitted by `g3dobjectfuser`. Without it the element logs a warning and falls back to `bev`.
+- **cam-proj requires calibration**: `cam-proj` mode depends on the `g3d/calibration` sticky event emitted by `g3dobjectfuser`. Without it the element falls back to `bev`.
 
 - **cam-proj projects one camera at a time**: When multiple camera streams are present, only the stream selected by `cam-proj-index` (default `0`) is used as the projection background. Other camera streams are ignored in this mode.
 

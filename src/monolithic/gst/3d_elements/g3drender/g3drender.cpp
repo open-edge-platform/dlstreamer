@@ -360,12 +360,10 @@ static GstCaps *gst_g3d_render_transform_caps(GstBaseTransform *trans, GstPadDir
 }
 
 static gboolean gst_g3d_render_set_caps(GstBaseTransform *trans, GstCaps *incaps, GstCaps *outcaps) {
-    (void)outcaps;
     GstG3DRender *self = GST_G3D_RENDER(trans);
     GstStructure *s = gst_caps_get_structure(incaps, 0);
     self->input_is_batch = (g_strcmp0(gst_structure_get_name(s), "multistream/x-analytics-batch") == 0);
-    if (self->input_is_batch && self->width == self->height)
-        self->width = self->height * 2;
+    gst_structure_get_int(gst_caps_get_structure(outcaps, 0), "width", &self->width);
     GST_INFO_OBJECT(self, "input caps: %s (batch=%d) canvas=%dx%d", gst_structure_get_name(s), self->input_is_batch,
                     self->width, self->height);
     return TRUE;
@@ -1279,16 +1277,22 @@ static GstFlowReturn gst_g3d_render_transform(GstBaseTransform *trans, GstBuffer
 
     gst_buffer_unmap(outbuf, &out_map);
 
-    // ── PTS ─────────────────────────────────────────────────────────────────
+    // ── PTS / duration ──────────────────────────────────────────────────────
     const GstClockTime frame_duration = GST_SECOND / 10;
     GstClockTime src_pts = GST_CLOCK_TIME_NONE;
-    if (lidar_buf && GST_BUFFER_PTS(lidar_buf) > 0)
+    if (lidar_buf && GST_CLOCK_TIME_IS_VALID(GST_BUFFER_PTS(lidar_buf)))
         src_pts = GST_BUFFER_PTS(lidar_buf);
-    else if (GST_BUFFER_PTS(inbuf) > 0)
+    else if (GST_CLOCK_TIME_IS_VALID(GST_BUFFER_PTS(inbuf)))
         src_pts = GST_BUFFER_PTS(inbuf);
 
+    GstClockTime src_dur = GST_CLOCK_TIME_NONE;
+    if (lidar_buf && GST_CLOCK_TIME_IS_VALID(GST_BUFFER_DURATION(lidar_buf)))
+        src_dur = GST_BUFFER_DURATION(lidar_buf);
+    else if (GST_CLOCK_TIME_IS_VALID(GST_BUFFER_DURATION(inbuf)))
+        src_dur = GST_BUFFER_DURATION(inbuf);
+
     GST_BUFFER_PTS(outbuf) = GST_CLOCK_TIME_IS_VALID(src_pts) ? src_pts : self->frame_count * frame_duration;
-    GST_BUFFER_DURATION(outbuf) = frame_duration;
+    GST_BUFFER_DURATION(outbuf) = GST_CLOCK_TIME_IS_VALID(src_dur) ? src_dur : frame_duration;
     self->frame_count++;
 
     GST_DEBUG_OBJECT(self, "rendered frame %lu pts=%" GST_TIME_FORMAT, (unsigned long)self->frame_count,
