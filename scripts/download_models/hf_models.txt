@@ -1,4 +1,64 @@
 # One model per line
+# Architecture in hf_utils.py -> example HF repo ID
+
+# CLIPModel (CUSTOM_CONVERTERS: clipmodel)
 openai/clip-vit-base-patch32
 openai/clip-vit-base-patch16
 openai/clip-vit-large-patch14
+
+# RTDetrForObjectDetection (CUSTOM_CONVERTERS: rtdetrforobjectdetection)
+PekingU/rtdetr_r50vd
+
+# RtDetrV2ForObjectDetection (CUSTOM_CONVERTERS: rtdetrv2forobjectdetection)
+PekingU/rtdetr_v2_r18vd
+
+# DepthAnythingForDepthEstimation (CUSTOM_CONVERTERS: depthanythingfordepthestimation)
+LiheYoung/depth-anything-small-hf
+
+# ViTForImageClassification (SUPPORTED_HF_MODELS)
+dima806/fairface_age_image_detection
+
+# WhisperForConditionalGeneration (SUPPORTED_HF_MODELS)
+openai/whisper-tiny
+
+# InternVLChatModel (SUPPORTED_HF_MODELS)
+OpenGVLab/InternVL2-1B
+
+# LlavaForConditionalGeneration (SUPPORTED_HF_MODELS)
+llava-hf/llava-1.5-7b-hf
+
+# LlavaQwen2ForCausalLM (SUPPORTED_HF_MODELS)
+qnguyen3/nanoLLaVA
+
+# BunnyQwenForCausalLM (SUPPORTED_HF_MODELS)
+qnguyen3/nanoLLaVA-1.5
+
+# LlavaNextForConditionalGeneration (SUPPORTED_HF_MODELS)
+llava-hf/llava-v1.6-mistral-7b-hf
+
+# LlavaNextVideoForConditionalGeneration (SUPPORTED_HF_MODELS)
+llava-hf/LLaVA-NeXT-Video-7B-hf
+
+# MiniCPMO (SUPPORTED_HF_MODELS)
+openbmb/MiniCPM-o-2_6
+
+# MiniCPMV (SUPPORTED_HF_MODELS: openbmb/MiniCPM-V-2_6 and openbmb/MiniCPM-V-4_5 direct IDs)
+openbmb/MiniCPM-V-2_6
+openbmb/MiniCPM-V-4_5
+
+# Phi3VForCausalLM (SUPPORTED_HF_MODELS)
+microsoft/Phi-3-vision-128k-instruct
+
+# Phi4MMForCausalLM (SUPPORTED_HF_MODELS)
+microsoft/Phi-4-multimodal-instruct
+
+# Qwen2VLForConditionalGeneration (SUPPORTED_HF_MODELS)
+Qwen/Qwen2-VL-2B-Instruct
+
+# Qwen2_5_VLForConditionalGeneration (SUPPORTED_HF_MODELS)
+Qwen/Qwen2.5-VL-3B-Instruct
+
+# Gemma3ForConditionalGeneration (SUPPORTED_HF_MODELS: direct IDs)
+google/gemma-3-4b-it
+google/gemma-3-12b-it
+google/gemma-3-27b-it
