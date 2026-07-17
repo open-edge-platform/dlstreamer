@@ -11,7 +11,7 @@
 typedef struct {
     const gchar *label;
     const gchar *out_name;
-    gint n_cams;          /* 0 = lidar-only (non-batch); ≥1 = batch */
+    gint n_cams; /* 0 = lidar-only (non-batch); ≥1 = batch */
     gint cam_w;
     gint cam_h;
     gboolean has_3d_dets;
@@ -20,9 +20,9 @@ typedef struct {
     gfloat range_x_min, range_x_max, range_y_min, range_y_max;
     gint point_radius, point_stride;
     gfloat zoom;
-    gint view_mode;       /* 0=bev  1=perspective  2=cam-proj */
+    gint view_mode; /* 0=bev  1=perspective  2=cam-proj */
     gfloat cam_distance, cam_elevation, cam_azimuth, cam_fov;
-    gboolean use_calib;   /* inject synthetic g3d/calibration sticky event */
+    gboolean use_calib; /* inject synthetic g3d/calibration sticky event */
 } Scenario;
 
 /*

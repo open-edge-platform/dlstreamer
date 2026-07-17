@@ -97,9 +97,9 @@ float *make_lidar_pts(void) {
         }                                                                                                              \
     } while (0)
 
-    ADD_BOX(17.32f, 10.0f);   /* D */
-    ADD_BOX(17.32f, -10.0f);  /* E */
-    ADD_BOX(10.0f, -17.32f);  /* F */
+    ADD_BOX(17.32f, 10.0f);  /* D */
+    ADD_BOX(17.32f, -10.0f); /* E */
+    ADD_BOX(10.0f, -17.32f); /* F */
 
 #undef ADD_BOX
 #undef ADD_PT
