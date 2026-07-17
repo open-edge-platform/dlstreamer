@@ -41,6 +41,7 @@ SUPPORTED_HF_MODELS = {
     "google/gemma-3-12b-it",
     "google/gemma-3-27b-it",
     "WhisperForConditionalGeneration",
+    "VideoMAEForVideoClassification",
 }
 
 CUSTOM_CONVERTERS = {
@@ -274,7 +275,7 @@ def export_hf_rtdetr_to_openvino(
         opset=18,
         width=640,
         height=640,
-        auth_token=token,
+        token=token,
     )
 
     onnx_files = list(outdir.glob("*.onnx"))

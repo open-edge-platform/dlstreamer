@@ -15,6 +15,7 @@ import subprocess
 import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
+from huggingface_hub import snapshot_download
 from hf_utils import custom_conversion
 from hf_utils import get_hf_model_support_level
 from hf_utils import resolve_hf_model_ref
@@ -154,7 +155,15 @@ def main() -> int:
         
         match support_level:
             case 0:
-                # Standard export using optimum-cli
+                # Standard export using optimum-cli.
+                # snapshot_download pins the model to the exact resolved commit SHA
+                # so that every CI run exports the same weights (security + reproducibility).
+                local_model_dir = snapshot_download(
+                    repo_id=repo_id,
+                    revision=revision,
+                    token=token,
+                )
+
                 model_path = Path(args.outdir) / Path(repo_id).name
                 model_path.mkdir(parents=True, exist_ok=True)
 
@@ -163,9 +172,7 @@ def main() -> int:
                     "export",
                     "openvino",
                     "--model",
-                    repo_id,
-                    "--revision",
-                    revision,
+                    local_model_dir,
                 ]
                 if args.extra_args:
                     command.extend(args.extra_args)
