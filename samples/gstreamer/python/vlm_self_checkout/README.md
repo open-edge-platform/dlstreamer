@@ -141,8 +141,13 @@ The `plugins/python/gvaFrameSelection.py` file implements a custom `GstBase.Base
 | `--inventory-file` | `config/inventory.txt` | Path to inventory items list |
 | `--excluded-objects-file` | `config/excluded_objects.txt` | Path to excluded object types list |
 | `--vlm-model-id` | `openbmb/MiniCPM-V-4_5` | Hugging Face model ID for VLM (downloaded and exported to OpenVINO) |
+| `--vlm-model-revision` | pinned commit SHA | Pinned Hugging Face VLM model revision used for a reproducible export |
 | `--genai-device` | `GPU` | Device for VLM inference |
 | `--genai-prompt` | Self-checkout item description | Initial prompt for VLM inference |
+| `--output-json` | results/`<name>`.jsonl | Override path for the json-lines output (e.g. `output.json` in the working directory) |
+
+The VLM model revision is pinned and `gvagenai` runs with deterministic decoding
+(`do_sample=false`, fixed `max_new_tokens`) so the json-lines output is as reproducible as possible.
 
 ## Output
 

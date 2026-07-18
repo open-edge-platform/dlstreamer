@@ -46,8 +46,17 @@ pip install -r export-requirements.txt -r requirements.txt
 Run the application with no configuration required. It automatically downloads the default video file and detection model:
 
 ```sh
-python3 ./smart_nvr.py
+python3 ./smart_nvr.py [INPUT] [DEVICE] [OUTPUT]
 ```
+
+* `INPUT`  - local video file. Omit (or pass an empty string) to download and use the default video.
+* `DEVICE` - inference device, `CPU` or `GPU` (default: `GPU`).
+* `OUTPUT` - output mode (default: `file`):
+  * `file` - record segmented video chunks and metadata files only.
+  * `json` - additionally write deterministic detection and lane-hogging analytics metadata as json-lines to `output.json`.
+
+The detection model revision is pinned and the stream is processed for a fixed number of frames, so the
+number of recorded chunks and the `json` output are reproducible across runs.
 
 ### Inspecting Output
 
@@ -74,14 +83,16 @@ To identify lane-hogging events, search the metadata files for 'hogging' entries
 ### STEP 1 - Model Download and Conversion
 
 The sample downloads an example video file and the RTDETRv2 object detection model from HuggingFace. 
-The RTDETRv2 PyTorch model is converted to OpenVINO IR (with ONNX as an intermediate step) using the standard HuggingFace toolchain.
+The model is fetched at a pinned revision (via `snapshot_download`) so the exported model is reproducible, then
+the RTDETRv2 PyTorch model is converted to OpenVINO IR (with ONNX as an intermediate step) using the standard HuggingFace toolchain.
 The sample also downloads the `preprocessor_config.json` file, which DLStreamer inference elements use to configure image preprocessing.
 
 ```code
-subprocess.run(["optimum-cli", "export", "onnx", "--model", "PekingU/rtdetr_v2_r50vd", 
+model_source = snapshot_download(repo_id="PekingU/rtdetr_v2_r50vd", revision=RTDETR_REVISION)
+subprocess.run(["optimum-cli", "export", "onnx", "--model", model_source,
                                 "--task", "object-detection", "--opset", "18", "--width", "640", "--height", "640", "rtdetr_v2_r50vd"],
         check=True)
-subprocess.run(["hf", "download", "PekingU/rtdetr_v2_r50vd", "--include", "preprocessor_config.json", "--local-dir", "."], check=True)
+subprocess.run(["hf", "download", "PekingU/rtdetr_v2_r50vd", "--revision", RTDETR_REVISION, "--include", "preprocessor_config.json", "--local-dir", "."], check=True)
 subprocess.run(["ovc", "model.onnx"], check=True)
 ```
 
@@ -90,15 +101,19 @@ The sample skips this step on subsequent runs if the video file and model are al
 ### STEP 2 - DLStreamer Pipeline Construction
 
 The application creates a GStreamer `pipeline` object that combines predefined GStreamer and DLStreamer elements with custom Python elements. 
-The pipeline is configured with the downloaded video file and detection model, and uses GPU inference by default.
+The pipeline is configured with the downloaded video file and detection model, uses GPU inference by default (`DEVICE` argument),
+and processes a fixed number of frames via `identity eos-after=N` so the number of recorded chunks is reproducible.
 
 ```code
 pipeline = Gst.parse_launch(
-                f"filesrc location={video_file} ! decodebin3 ! "
-                f"gvadetect model={detection_model} device=GPU batch-size=4 threshold=0.7 ! queue ! "
-                f"gvaanalytics_py distance=500 angle=-135,-45 ! gvawatermark displ-cfg=draw-txt-bg=true ! " 
+                f"filesrc location={video_file} ! decodebin3 ! identity eos-after={NUM_FRAMES} ! "
+                f"gvadetect model={detection_model} device={device} batch-size=4 threshold=0.7 ! queue ! "
+                f"gvaanalytics_py distance=500 angle=-135,-45 ! gvafpscounter ! gvawatermark ! "
                 f"gvarecorder_py location=output.mp4 max-time=10")
 ```
+
+When `OUTPUT` is `json`, a `gvametaconvert ! gvametapublish file-format=json-lines file-path=output.json` branch is
+inserted right after `gvaanalytics_py` to capture detection and lane-hogging analytics metadata.
 
 ### STEP 3 - Custom Analytics Element
 

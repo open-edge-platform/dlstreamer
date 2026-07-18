@@ -22,6 +22,9 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+from typing import Optional
+
+from huggingface_hub import snapshot_download
 
 import gi
 
@@ -157,6 +160,10 @@ RESULTS_DIR = BASE_DIR / "results"
 DEFAULT_VIDEO_URL = (
     "https://www.pexels.com/download/video/35256160"
 )
+# Pinned VLM model revision keeps the (otherwise non-deterministic) VLM output
+# as reproducible as possible for schema/contract validation.
+DEFAULT_VLM_MODEL_ID = "openbmb/MiniCPM-V-4_5"
+DEFAULT_VLM_MODEL_REVISION = "fd3209b2e0580e346fc33d2c6f85b6e9332eecda"
 
 
 def download_video(video_url: str) -> Path:
@@ -200,7 +207,7 @@ def download_detection_model(model_id: str) -> Path:
     return model_path.resolve()
 
 
-def download_vlm_model(model_id: str) -> Path:
+def download_vlm_model(model_id: str, model_revision: Optional[str] = None) -> Path:
     """Return a path to the VLM OpenVINO model, downloading/exporting via a optimum-cli (separate process."""
     MODELS_DIR.mkdir(parents=True, exist_ok=True)
     model_name = model_id.split("/")[-1]
@@ -208,12 +215,19 @@ def download_vlm_model(model_id: str) -> Path:
 
     if not model_path.exists():
         print(f"[vlm] downloading and exporting {model_id} to OpenVINO format")
+        # Pin the revision by fetching the exact commit locally, then export from the
+        # local snapshot path (optimum-cli does not accept a --revision flag here).
+        model_source = (
+            snapshot_download(repo_id=model_id, revision=model_revision)
+            if model_revision
+            else model_id
+        )
         command = [
             "optimum-cli",
             "export",
             "openvino",
             "--model",
-            model_id,
+            model_source,
             "--task",
             "image-text-to-text",
             "--trust-remote-code",
@@ -238,12 +252,16 @@ def construct_pipeline(
     genai_prompt: str,
     inventory_file: Path,
     excluded_objects_file: Path,
+    output_json: Optional[Path] = None,
 ) -> Gst.Pipeline:
     """Construct the GStreamer pipeline, attach probes, and return it."""
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     output_video = RESULTS_DIR / f"vlm_self_checkout-{video_file.stem}.mp4"
     output_files = RESULTS_DIR / f"vlm_self_checkout-{video_file.stem}-%d.jpeg"
-    output_json = RESULTS_DIR / f"vlm_self_checkout-{video_file.stem}.jsonl"
+    if output_json is None:
+        output_json = RESULTS_DIR / f"vlm_self_checkout-{video_file.stem}.jsonl"
+    else:
+        output_json.parent.mkdir(parents=True, exist_ok=True)
 
     pipeline_str = (
         # Source → decode → detect
@@ -276,7 +294,7 @@ def construct_pipeline(
         f'model-path="{genai_model}" '
         f'device={genai_device} '
         f'prompt="{genai_prompt}" '
-        f'generation-config="max_new_tokens=50" '
+        f'generation-config="max_new_tokens=50,do_sample=false" '
         f'chunk-size=1 '
         f'metrics=true ! '
         f'gvametapublish name=metapublish file-format=json-lines '
@@ -373,12 +391,16 @@ def parse_args() -> argparse.Namespace:
                         help="Path to text file listing inventory items, one per line")
     parser.add_argument("--excluded-objects-file", default=str(CONFIG_DIR / "excluded_objects.txt"),
                         help="Path to text file listing excluded object types, one per line")
-    parser.add_argument("--vlm-model-id", default="openbmb/MiniCPM-V-4_5",
+    parser.add_argument("--vlm-model-id", default=DEFAULT_VLM_MODEL_ID,
                         help="Hugging Face model id for VLM (will be downloaded and exported to OpenVINO)")
+    parser.add_argument("--vlm-model-revision", default=DEFAULT_VLM_MODEL_REVISION,
+                        help="Pinned Hugging Face VLM model revision (commit SHA) for reproducible export")
     parser.add_argument("--genai-device", default="GPU", help="Device for gvagenai inference")
     parser.add_argument("--genai-prompt",
                         default="Describe the items visible on the self-checkout counter.",
                         help="Initial prompt for gvagenai VLM inference")
+    parser.add_argument("--output-json", type=Path, default=None,
+                        help="Override path for the json-lines output (e.g. output.json in the working directory)")
 
     return parser.parse_args()
 
@@ -387,14 +409,15 @@ def main() -> int:
 
     video_file = download_video(args.video_url)
     detection_model = download_detection_model(args.detect_model_id)
-    genai_model = download_vlm_model(args.vlm_model_id)
+    genai_model = download_vlm_model(args.vlm_model_id, args.vlm_model_revision)
     inventory_file = Path(args.inventory_file).resolve()
     excluded_objects_file = Path(args.excluded_objects_file).resolve()
 
     setup_gst_plugins()
     pipeline = construct_pipeline(
         video_file, detection_model, args.detect_device, args.threshold,
-        genai_model, args.genai_device, args.genai_prompt, inventory_file, excluded_objects_file)
+        genai_model, args.genai_device, args.genai_prompt, inventory_file, excluded_objects_file,
+        args.output_json)
     run_pipeline(pipeline)
 
     return 0

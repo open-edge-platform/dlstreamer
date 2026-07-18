@@ -20,12 +20,19 @@ from pathlib import Path
 from typing import Optional
 from urllib.parse import urlparse
 
+from huggingface_hub import snapshot_download
+
 import gi
 gi.require_version("Gst", "1.0")
 gi.require_version("GstPbutils", "1.0")
 from gi.repository import Gst, GLib, GstPbutils  # pylint: disable=no-name-in-module, wrong-import-position
 
 BASE_DIR = Path(__file__).resolve().parent
+
+# Pinned VLM model and revision keep the (otherwise non-deterministic) VLM output
+# as reproducible as possible for schema/contract validation.
+DEFAULT_MODEL_ID = "OpenGVLab/InternVL3_5-2B"
+DEFAULT_MODEL_REVISION = "7d7bd7bcc35b77b391883ebd7f9686cfa0e25cc0"
 
 class VLMAlertsError(Exception):
     """Domain-specific exception for VLM Alerts failures."""
@@ -40,6 +47,7 @@ class PipelineConfig:
     num_beams: int
     frame_rate: float
     results_dir: Path
+    output_json: Optional[Path] = None
 
 
 def download_video(url: str, target_path: Path) -> None:
@@ -104,6 +112,7 @@ def resolve_video(
 def resolve_model(
     model_id: Optional[str],
     model_path: Optional[str],
+    model_revision: Optional[str],
     models_dir: Path,
 ) -> Path:
     """Return a local OpenVINO model directory, exporting it if needed."""
@@ -121,12 +130,19 @@ def resolve_model(
         print(f"[model] using cached {output_dir}")
         return output_dir.resolve()
 
+    # Pin the revision by fetching the exact commit locally, then export from the
+    # local snapshot path (optimum-cli does not accept a --revision flag here).
+    model_source = (
+        snapshot_download(repo_id=model_id, revision=model_revision)
+        if model_revision
+        else model_id
+    )
     command = [
         "optimum-cli",
         "export",
         "openvino",
         "--model",
-        model_id,
+        model_source,
         "--task",
         "image-text-to-text",
         "--trust-remote-code",
@@ -150,7 +166,11 @@ def build_pipeline_string(cfg: PipelineConfig) -> tuple[str, Path, Path, Path]:
     """Construct the GStreamer pipeline string and related output paths."""
     cfg.results_dir.mkdir(parents=True, exist_ok=True)
 
-    output_json = cfg.results_dir / f"{cfg.model.name}-{cfg.video.stem}.jsonl"
+    if cfg.output_json is not None:
+        output_json = cfg.output_json
+        output_json.parent.mkdir(parents=True, exist_ok=True)
+    else:
+        output_json = cfg.results_dir / f"{cfg.model.name}-{cfg.video.stem}.jsonl"
     output_video = cfg.results_dir / f"{cfg.model.name}-{cfg.video.stem}.mp4"
 
     fd, prompt_path_str = tempfile.mkstemp(suffix=".txt")
@@ -163,7 +183,9 @@ def build_pipeline_string(cfg: PipelineConfig) -> tuple[str, Path, Path, Path]:
     if cfg.num_beams < 1:
         raise VLMAlertsError("num_beams must be >= 1")
 
-    generation_cfg = f"max_new_tokens={cfg.max_tokens}"
+    # do_sample=false forces deterministic (greedy / beam-search) decoding so the
+    # generated output is as reproducible as possible.
+    generation_cfg = f"max_new_tokens={cfg.max_tokens},do_sample=false"
     if cfg.num_beams > 1:
         generation_cfg += f",num_beams={cfg.num_beams}"
 
@@ -252,7 +274,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--video-path", help="Path to local video file")
     parser.add_argument("--video-url", help="URL to download video from")
 
-    parser.add_argument("--model-id", help="HuggingFace model id")
+    parser.add_argument("--model-id", default=DEFAULT_MODEL_ID, help="HuggingFace model id")
+    parser.add_argument("--model-revision", default=DEFAULT_MODEL_REVISION,
+                        help="Pinned HuggingFace model revision (commit SHA) for reproducible export")
     parser.add_argument("--model-path", help="Path to exported OpenVINO model")
 
     parser.add_argument("--prompt", required=True, help="Text prompt for VLM")
@@ -273,6 +297,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--videos-dir", type=Path, default=BASE_DIR / "videos")
     parser.add_argument("--models-dir", type=Path, default=BASE_DIR / "models")
     parser.add_argument("--results-dir", type=Path, default=BASE_DIR / "results")
+    parser.add_argument("--output-json", type=Path, default=None,
+                        help="Override path for the json-lines output (e.g. output.json in the working directory)")
 
     args = parser.parse_args()
 
@@ -290,7 +316,7 @@ def main() -> int:
         args = parse_args()
 
         video = resolve_video(args.video_path, args.video_url, args.videos_dir)
-        model = resolve_model(args.model_id, args.model_path, args.models_dir)
+        model = resolve_model(args.model_id, args.model_path, args.model_revision, args.models_dir)
 
         if args.num_beams == 1:
             print(
@@ -307,6 +333,7 @@ def main() -> int:
             num_beams=args.num_beams,
             frame_rate=args.frame_rate,
             results_dir=args.results_dir,
+            output_json=args.output_json,
         )
 
         return run_pipeline(config)

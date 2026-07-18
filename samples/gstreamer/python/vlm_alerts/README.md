@@ -86,7 +86,8 @@ Required arguments:
 
 - `--prompt`
 - `--video-path` or `--video-url`
-- `--model-id` or `--model-path`
+
+The model defaults to a pinned `--model-id`/`--model-revision` (see table below), so `--model-id`/`--model-path` are optional.
 
 Example:
 
@@ -101,6 +102,8 @@ Optional arguments:
 
 | Argument | Default | Description |
 |---|---|---|
+| `--model-id` | `OpenGVLab/InternVL3_5-2B` | HuggingFace model id (exported to OpenVINO on first run) |
+| `--model-revision` | pinned commit SHA | Pinned HuggingFace model revision for a reproducible export |
 | `--device` | `GPU` | Inference device |
 | `--max-tokens` | `1` | Maximum tokens in the model response |
 | `--num-beams` | `4` | Beam search width. Values ≥ 2 enable beam search and produce a confidence score; `1` means greedy decoding with no confidence |
@@ -108,6 +111,10 @@ Optional arguments:
 | `--videos-dir` | `./videos` | Directory for downloaded videos |
 | `--models-dir` | `./models` | Directory for exported models |
 | `--results-dir` | `./results` | Directory for output files |
+| `--output-json` | results/`<name>`.jsonl | Override path for the json-lines output (e.g. `output.json` in the working directory) |
+
+The model revision is pinned and `gvagenai` runs with deterministic decoding (`do_sample=false`,
+fixed `max_new_tokens`) so the json-lines output is as reproducible as possible.
 
 ## Output
 
