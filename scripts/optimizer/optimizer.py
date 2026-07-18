@@ -11,10 +11,9 @@ import os
 import re
 import warnings
 import requests
-import sys
 
-from requests import RequestException
 from urllib.parse import urljoin
+from requests import RequestException
 from prometheus_client.parser import text_string_to_metric_families
 from preprocess import preprocess_pipeline
 from processors.device import DeviceGenerator
@@ -103,10 +102,10 @@ class DLSOptimizer:
     def set_detections_error_threshold(self, threshold): # pylint: disable=missing-function-docstring
         self._detections_error_threshold = threshold
 
-    def set_metrics_url(self, url):
+    def set_metrics_url(self, url): # pylint: disable=missing-function-docstring
         metrics_url = urljoin(url, "metrics")
         try:
-            resp = requests.get(metrics_url)
+            resp = requests.get(metrics_url, timeout=1)
             resp.raise_for_status()
             text_string_to_metric_families(resp.text)
             self._metrics_url = metrics_url
@@ -147,7 +146,7 @@ class DLSOptimizer:
     def iter_optimize_for_power(self, initial_pipeline): # pylint: disable=missing-function-docstring
         return self._iter_optimize(initial_pipeline, PowerTarget())
 
-    def optimize_for_streams(self, pipeline, search_duration = DEFAULT_SEARCH_DURATION):
+    def optimize_for_streams(self, pipeline, search_duration = DEFAULT_SEARCH_DURATION): # pylint: disable=missing-function-docstring
         start_time = time.time()
         for (_, _) in self.iter_optimize_for_streams(pipeline):
             cur_time = time.time()
@@ -157,7 +156,7 @@ class DLSOptimizer:
         pipeline, result = self.get_optimal_pipeline()
         return pipeline, result
 
-    def iter_optimize_for_streams(self, initial_pipeline):
+    def iter_optimize_for_streams(self, initial_pipeline): # pylint: disable=missing-function-docstring
         # Test for tee element presence
         if re.search("[^a-zA-Z]tee[^a-zA-Z]", initial_pipeline):
             raise RuntimeError("Pipelines containing the tee element are currently not supported!")
@@ -176,8 +175,6 @@ class DLSOptimizer:
         self._optimal_result["streams"] = 1
 
         # Perform optimization
-        start_time = time.time()
-        best_streams = 0
         for streams in range(1, 128):
             for (pipeline, result) in self._evaluate_candidates(initial_pipeline, FpsTarget(), streams):
                 if result:
@@ -191,7 +188,7 @@ class DLSOptimizer:
 
     def _optimize(self, pipeline, target, search_duration = DEFAULT_SEARCH_DURATION):
         start_time = time.time()
-        for (_, _) in self._iter_optimize(pipeline, target, 1):
+        for (_, _) in self._iter_optimize(pipeline, target):
             cur_time = time.time()
             if cur_time - start_time > search_duration:
                 break
@@ -370,7 +367,7 @@ class DLSOptimizer:
 
                 if self._metrics_url is not None:
                     try:
-                        resp = requests.get(self._metrics_url)
+                        resp = requests.get(self._metrics_url, timeout=1)
                         resp.raise_for_status()
                         power_samples += 1
                         power_total += _collect_power_info(resp)
