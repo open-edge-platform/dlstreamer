@@ -1,3 +1,9 @@
+# pylint: disable=missing-module-docstring
+# ==============================================================================
+# Copyright (C) 2025-2026 Intel Corporation
+#
+# SPDX-License-Identifier: MIT
+# ==============================================================================
 class FpsTarget:
     @staticmethod
     def is_better(new_result, old_result):
