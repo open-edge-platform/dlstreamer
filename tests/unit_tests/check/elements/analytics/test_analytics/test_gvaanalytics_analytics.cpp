@@ -45,6 +45,11 @@ static const char *zone_polygon_json = "[{\"id\":\"zone_center\",\"type\":\"poly
                                        "\"points\":[{\"x\":100,\"y\":80},{\"x\":220,\"y\":80},"
                                        "{\"x\":220,\"y\":160},{\"x\":100,\"y\":160}]}]";
 
+/* A lower band zone where bottom-center can be inside while center is outside. */
+static const char *zone_bottom_band_json = "[{\"id\":\"zone_bottom_band\",\"type\":\"polygon\","
+                                                         "\"points\":[{\"x\":100,\"y\":150},{\"x\":220,\"y\":150},"
+                                                         "{\"x\":220,\"y\":220},{\"x\":100,\"y\":220}]}]";
+
 /* A vertical tripwire at x=160, spanning the full height */
 static const char *tripwire_vertical_json = "[{\"id\":\"wire_center\","
                                             "\"points\":[{\"x\":160,\"y\":0},{\"x\":160,\"y\":240}]}]";
@@ -127,6 +132,64 @@ GST_START_TEST(test_caps_format_accepted) {
     GstStaticPadTemplate sink = make_sink(fmt.caps_string);
 
     run_test(elem_name, fmt.caps_string, test_resolution, &src, &sink, NULL, NULL, NULL, NULL);
+}
+GST_END_TEST;
+
+/* ========================================================================= */
+/*  Evaluation point property                                                */
+/* ========================================================================= */
+
+/**
+ * bbox (110,100,100,80): center=(160,140) is above band zone y=[150,220],
+ * while bottom-center=(160,180) is inside.
+ */
+static void setup_od_center_outside_bottom_inside(GstBuffer *buf, gpointer /*user_data*/) {
+    attach_od(buf, 110, 100, 100, 80);
+}
+
+static void check_no_zone_meta_present(GstBuffer *buf, gpointer /*user_data*/) {
+    GstAnalyticsRelationMeta *rmeta =
+        (GstAnalyticsRelationMeta *)gst_buffer_get_meta(buf, gst_analytics_relation_meta_api_get_type());
+    if (rmeta == NULL)
+        return;
+
+    GstAnalyticsZoneMtd zone_mtd;
+    gpointer state = NULL;
+    gboolean found = gst_analytics_relation_meta_iterate(rmeta, &state, gst_analytics_zone_mtd_get_mtd_type(),
+                                                         (GstAnalyticsMtd *)&zone_mtd);
+    ck_assert_msg(!found, "Unexpected GstAnalyticsZoneMtd when evaluation point is center");
+}
+
+GST_START_TEST(test_evaluation_point_default_center) {
+    g_print("Starting test: test_evaluation_point_default_center\n");
+    run_test(elem_name, ANALYTICS_BGR_CAPS, test_resolution, &src_any, &sink_any, setup_od_center_outside_bottom_inside,
+             check_no_zone_meta_present, NULL, "zones", zone_bottom_band_json, NULL);
+}
+GST_END_TEST;
+
+static void check_bottom_band_zone_meta_present(GstBuffer *buf, gpointer /*user_data*/) {
+    GstAnalyticsRelationMeta *rmeta =
+        (GstAnalyticsRelationMeta *)gst_buffer_get_meta(buf, gst_analytics_relation_meta_api_get_type());
+    ck_assert_msg(rmeta != NULL, "No analytics relation meta on output buffer");
+
+    GstAnalyticsZoneMtd zone_mtd;
+    gpointer state = NULL;
+    gboolean found = gst_analytics_relation_meta_iterate(rmeta, &state, gst_analytics_zone_mtd_get_mtd_type(),
+                                                         (GstAnalyticsMtd *)&zone_mtd);
+    ck_assert_msg(found, "Expected GstAnalyticsZoneMtd to be present but found none");
+
+    gchar *zone_id = NULL;
+    gst_analytics_zone_mtd_get_info(&zone_mtd, &zone_id);
+    ck_assert_msg(zone_id != NULL && strcmp(zone_id, "zone_bottom_band") == 0,
+                  "Zone ID mismatch: expected 'zone_bottom_band', got '%s'", zone_id ? zone_id : "(null)");
+    g_free(zone_id);
+}
+
+GST_START_TEST(test_evaluation_point_bottom_center) {
+    g_print("Starting test: test_evaluation_point_bottom_center\n");
+    run_test(elem_name, ANALYTICS_BGR_CAPS, test_resolution, &src_any, &sink_any, setup_od_center_outside_bottom_inside,
+             check_bottom_band_zone_meta_present, NULL, "zones", zone_bottom_band_json, "evaluation-point", 1,
+             NULL);
 }
 GST_END_TEST;
 
@@ -470,6 +533,8 @@ static Suite *gvaanalytics_analytics_suite(void) {
     TCase *tc_zone = tcase_create("zone_detection");
     tcase_add_test(tc_zone, test_zone_violation_detected);
     tcase_add_test(tc_zone, test_zone_no_violation_outside);
+    tcase_add_test(tc_zone, test_evaluation_point_default_center);
+    tcase_add_test(tc_zone, test_evaluation_point_bottom_center);
     suite_add_tcase(s, tc_zone);
 
     /* --- draw metadata --- */
