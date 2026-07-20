@@ -20,6 +20,11 @@ from hf_utils import get_optimum_export_task
 from hf_utils import parse_model_ref
 
 
+# Models that require trust_remote_code flag due to custom code in their repo
+MODELS_REQUIRING_TRUST_REMOTE_CODE = {
+    "OpenGVLab/InternVL2-1B",
+}
+
 
 def parse_args() -> argparse.Namespace:
     raw_argv = sys.argv[1:]
@@ -108,6 +113,8 @@ def main() -> int:
                 export_task = get_optimum_export_task(local_model_dir)
                 if export_task:
                     command.extend(["--task", export_task])
+                if repo_id in MODELS_REQUIRING_TRUST_REMOTE_CODE:
+                    command.append("--trust-remote-code")
                 if args.extra_args:
                     command.extend(args.extra_args)
                 command.append(str(model_path))
