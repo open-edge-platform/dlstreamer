@@ -26,6 +26,11 @@ MODELS_REQUIRING_TRUST_REMOTE_CODE = {
     "OpenGVLab/InternVL2-1B",
 }
 
+# Additional dependencies required by specific models for export
+MODEL_DEPENDENCIES = {
+    "OpenGVLab/InternVL2-1B": ["einops"],
+}
+
 
 def parse_args() -> argparse.Namespace:
     raw_argv = sys.argv[1:]
@@ -77,6 +82,24 @@ def parse_args() -> argparse.Namespace:
     return args
 
 
+def install_model_dependencies(repo_id: str) -> None:
+    """Install hardcoded dependencies for specific models."""
+    if repo_id not in MODEL_DEPENDENCIES:
+        return
+    
+    deps = MODEL_DEPENDENCIES[repo_id]
+    print(f"Installing dependencies for {repo_id}: {', '.join(deps)}")
+    try:
+        subprocess.run(
+            [sys.executable, "-m", "pip", "install"] + deps,
+            check=True,
+        )
+        print("Dependencies installed successfully")
+    except subprocess.CalledProcessError as e:
+        print(f"Error installing dependencies: {str(e)}")
+        raise
+
+
 def main() -> int:
     args = parse_args()
     model_id = args.model
@@ -94,6 +117,9 @@ def main() -> int:
             token=token,
         )
         print(f"Model cached at: {local_model_dir}")
+        
+        # Install model-specific dependencies
+        install_model_dependencies(repo_id)
         
         # Install model requirements if they exist
         install_model_requirements(local_model_dir)
