@@ -61,6 +61,17 @@ OPTIMUM_TASK_BY_ARCH = {
     "vitforimageclassification": "image-classification",
     "whisperforconditionalgeneration": "automatic-speech-recognition",
     "internvlchatmodel": "image-text-to-text",
+    "llavaforconditionalgeneration": "image-text-to-text",
+    "llavaqwen2forcausallm": "image-text-to-text",
+    "bunnyqwen2forcausallm": "image-text-to-text",
+    "llavanextforconditionalgeneration": "image-text-to-text",
+    "llavanextvideoforconditionalgeneration": "image-text-to-text",
+    "minicpmo": "image-text-to-text",
+    "minicpmv": "image-text-to-text",
+    "phi3vforcausallm": "image-text-to-text",
+    "phi4mmforcausallm": "image-text-to-text",
+    "qwen2vlforconditionalgeneration": "image-text-to-text",
+    "qwen2_5_vlforconditionalgeneration": "image-text-to-text",
 }
 
 
