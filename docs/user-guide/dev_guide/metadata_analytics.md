@@ -16,6 +16,8 @@ upstream
 | `GstAnalyticsClsMtd` | Classification (confidence + label) |
 | `GstAnalyticsTrackingMtd` | Object tracking (ID, timestamps) |
 | `GstAnalyticsKeypointMtd` | Single keypoint (x, y, z, confidence, visibility) |
+| `GstAnalyticsSegmentationMtd` | Semantic segmentation (class-index mask) |
+| `GstAnalyticsTensorMtd` | Raw tensor payload (used for instance-segmentation soft masks) |
 | `GstAnalyticsGroupMtd` | Ordered group of metadata |
 | `GstAnalyticsKeypointDescriptor` | Static keypoint layout registry (DL Streamer extension) |
 | `GstAnalyticsZoneMtd` | Zone presence — carries the zone ID string (DL Streamer extension) |
@@ -54,7 +56,7 @@ relations:
                                       └─ ...
 ```
 
-### Object detection + classification / keypoints
+### Object detection + classification / keypoints / segmentation
 
 A typical two-stage pipeline `gvadetect ! gvaclassify` produces:
 
@@ -84,6 +86,23 @@ gvaclassify (inference-region=roi-list, model=pose_model)
                         ├─CONTAIN→ KeypointMtd (point 0)
                         ├─CONTAIN→ KeypointMtd (point 1)
                         └─ ...
+```
+
+Likewise, `gvaclassify` can run a semantic-segmentation model as a second
+stage over the detected ROIs. Each `GstAnalyticsSegmentationMtd` is then
+attached to its parent `ODMtd` via a `CONTAIN` relation, and its mask covers
+the ROI region rather than the whole frame:
+
+```
+gvadetect
+  └─ ODMtd (label="person", x, y, w, h, confidence,
+            semantic_tag="yolov26n")
+
+gvaclassify (inference-region=roi-list, model=segmentation_model)
+  └─ ODMtd ─CONTAIN→ SegmentationMtd (GST_SEGMENTATION_TYPE_SEMANTIC,
+                        mask=GRAY8 | GRAY16_LE class-index image over the ROI,
+                        region_ids=[unique class ids],
+                        semantic_tag="segmentation_model")
 ```
 
 ### Object detection + tracking
@@ -200,6 +219,77 @@ gvaclassify (inference-region=full-frame, model=single-person-pose)
 Frame-level keypoint groups are identified by not being CONTAIN-ed by any
 `ODMtd`.
 
+### Semantic segmentation
+
+Semantic segmentation assigns a class id to every pixel of a region. DL
+Streamer stores each result as a `GstAnalyticsSegmentationMtd`
+(`GST_SEGMENTATION_TYPE_SEMANTIC`) in `GstAnalyticsRelationMeta`. Depending on
+how the model is run, the region is either the whole frame or an individual
+detection:
+
+- **Frame-level** — when `gvaclassify` runs with
+  `inference-region=full-frame`, the mask covers the whole frame and the
+  `SegmentationMtd` has no parent `ODMtd`.
+- **Per-ROI** — when `gvaclassify` runs with `inference-region=roi-list` over
+  detections produced by an upstream `gvadetect`, one `SegmentationMtd` is
+  created per ROI, its mask covers just that ROI, and it is attached to the
+  owning `ODMtd` via a `CONTAIN` relation.
+
+The frame-level case:
+
+```
+gvaclassify (inference-region=full-frame, model=deeplabv3)
+  │
+  └─ GstAnalyticsRelationMeta
+       └─ SegmentationMtd (GST_SEGMENTATION_TYPE_SEMANTIC,
+                          mask=GRAY8 | GRAY16_LE class-index image,
+                          region_ids=[unique class ids],
+                          semantic_tag="deeplabv3")
+```
+
+The per-ROI case:
+
+```
+gvadetect
+  └─ ODMtd (label="person", x, y, w, h, confidence,
+            semantic_tag="yolov26n")
+
+gvaclassify (inference-region=roi-list, model=deeplabv3)
+  └─ ODMtd ─CONTAIN→ SegmentationMtd (GST_SEGMENTATION_TYPE_SEMANTIC,
+                        mask=GRAY8 | GRAY16_LE class-index image over the ROI,
+                        region_ids=[unique class ids],
+                        semantic_tag="deeplabv3")
+```
+
+The mask is carried as a `GstBuffer` with an attached `GstVideoMeta`. The
+pixel format is chosen automatically from the highest class id: `GRAY8` for up
+to 256 classes, otherwise `GRAY16_LE`. The `region_ids` array lists the unique
+class ids present in the region (one region per class). A `SegmentationMtd`
+always represents semantic segmentation.
+
+Whether a `SegmentationMtd` is frame-level or per-ROI is determined by its
+relations: a frame-level mask is not CONTAIN-ed by any `ODMtd`, while a
+per-ROI mask is CONTAIN-ed by the detection it belongs to.
+
+### Instance segmentation
+
+Instance segmentation produces one soft mask **per detected object**. Each mask
+is stored as a `GstAnalyticsTensorMtd` (`FP32` probabilities) and attached to
+the owning detection via a `CONTAIN` relation:
+
+```
+gvadetect (instance-segmentation model, e.g. Mask R-CNN, YOLOv8-SEG)
+  └─ ODMtd (label="person", x, y, w, h, confidence,
+            semantic_tag="yolov8-seg")
+       └─CONTAIN→ TensorMtd (FP32 soft mask [H, W], row-major,
+                             semantic_tag="yolov8-seg/instance_segmentation")
+```
+
+The per-object mask is kept as a raw `FP32` tensor (soft probabilities) rather
+than a frame-level segmentation image, which lets `gvawatermark` blend it
+smoothly over each ROI. The `model_name/instance_segmentation` semantic tag is
+what distinguishes an instance mask from any other raw tensor metadata.
+
 ### Semantic tag
 
 All `GstAnalyticsMtd` entries support a generic `semantic_tag` string via:
@@ -214,6 +304,8 @@ DL Streamer uses semantic tags to:
 | `ODMtd` | model name | `"yolov26n"` |
 | `ClsMtd` | model name | `"densenet-121"` |
 | `GroupMtd` (keypoints) | `model_name/keypoint_format` | `"hrnet/body-pose/coco-17"` |
+| `SegmentationMtd` (semantic segmentation) | model name | `"deeplabv3"` |
+| `TensorMtd` (instance segmentation) | `model_name/instance_segmentation` | `"yolov8-seg/instance_segmentation"` |
 
 The semantic tag enables downstream elements to distinguish metadata
 produced by different models. For keypoint groups, it additionally identifies
