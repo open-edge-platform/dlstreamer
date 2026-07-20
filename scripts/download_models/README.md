@@ -94,7 +94,10 @@ python download_ultralytics_models.py \
 
 ### Arguments
 
-- `--model` (required): Ultralytics model name or local `.pt` path.
+- `--model` (required): Ultralytics model reference. Supported forms:
+  - `<model>.pt` or `<model>` for latest weights resolved by Ultralytics.
+  - `<model>@<revision>` to pin weights from `ultralytics/assets` GitHub release tag.
+  - Local `.pt` path.
 - `--outdir` (optional, default `.`): Output directory.
 - `--half` (optional): Export in FP16.
 - `--int8` (optional): Export in INT8.
@@ -106,6 +109,9 @@ DL Streamer auto-conversion supports Ultralytics detection, segmentation, pose, 
 ```bash
 # Export by model name
 python download_ultralytics_models.py --model yolo11n.pt --outdir ./exports
+
+# Export pinned model from a specific ultralytics/assets release tag
+python download_ultralytics_models.py --model yolo11n.pt@v8.3.0 --outdir ./exports
 
 # Export a local checkpoint in FP16
 python download_ultralytics_models.py --model /path/to/model.pt --outdir ./exports --half
@@ -131,7 +137,7 @@ names.
 python download_timm_models.py list-models
 
 python download_timm_models.py import \
-  --model <timm_model_name> \
+  --model <timm_model_name_or_timm_model_name@revision> \
   [--precision fp16|int8|both] \
   [--output-dir <models_path>]
 ```
@@ -139,15 +145,16 @@ python download_timm_models.py import \
 ### Arguments
 
 - `list-models`: Lists supported TIMM model names.
-- `--model` (required for `import`): TIMM model name from `list-models`.
+- `--model` (required for `import`): TIMM model reference from `list-models`.
+  Supports both `<timm_model_name>` (latest) and `<timm_model_name>@<huggingface_revision_sha>` (pinned).
 - `--precision` (optional, default `fp16`): Supports `fp16`, `int8`, or `both`.
   INT8 uses Optimum weight-format quantization.
 - `--output-dir` (optional): Output root. Defaults to `MODELS_PATH` when set.
 
 Existing TIMM exports in the target folder are replaced only after the exported
 OpenVINO IR has been read and re-saved successfully.
-The helper resolves the current immutable Hugging Face commit SHA before
-downloading auxiliary files such as ``config.json``.
+When `@revision` is provided, both export and `config.json` are resolved from that pinned revision.
+Without `@revision`, the helper resolves the current immutable Hugging Face commit SHA.
 
 ### Precisions
 

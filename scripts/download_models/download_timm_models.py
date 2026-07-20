@@ -83,7 +83,7 @@ def list_models(_args: argparse.Namespace) -> int:
 
 def import_model(args: argparse.Namespace) -> int:
     """Export one TIMM model through Optimum OpenVINO."""
-    model_name = args.model.strip()
+    model_name, revision = parse_model_ref(args.model)
     precisions = ("fp16", "int8") if args.precision == "both" else (args.precision,)
     output_root = Path(args.output_dir or os.environ.get("MODELS_PATH", "")).expanduser()
     hf_model_id = hf_id(model_name)
@@ -95,9 +95,18 @@ def import_model(args: argparse.Namespace) -> int:
 
     for precision in precisions:
         xml = output_root / "public" / model_name / precision.upper() / f"{model_name}.xml"
-        export_with_optimum(optimum_cli_path, hf_model_id, model_name, precision, xml)
+        export_with_optimum(optimum_cli_path, hf_model_id, model_name, precision, xml, revision=revision)
         print(f"Exported {precision.upper()} OpenVINO IR: {xml}")
     return 0
+
+
+def parse_model_ref(model_ref: str) -> tuple[str, str | None]:
+    """Parse model reference in format 'model@revision' or 'model'."""
+    value = model_ref.strip()
+    if "@" in value:
+        model_name, revision = value.rsplit("@", 1)
+        return model_name.strip(), revision.strip()
+    return value, None
 
 
 def supported_models() -> list[str]:
@@ -120,33 +129,32 @@ def export_with_optimum(
     model_name: str,
     precision: str,
     xml: Path,
+    revision: str | None = None,
 ) -> None:
     """Run optimum-cli, then normalize the output into DLStreamer layout."""
     with tempfile.TemporaryDirectory(prefix=f".{model_name}-{precision}-") as tmp:
         tmpdir = Path(tmp)
         # xet-backed Hugging Face transfers can hang for some TIMM weight files
         env = {**os.environ, "HF_HUB_DISABLE_XET": "1"}
-        subprocess.run(
-            [
-                optimum_cli_path,
-                "export",
-                "openvino",
-                "--library",
-                "timm",
-                "--task",
-                "image-classification",
-                "--model",
-                hf_model_id,
-                "--weight-format",
-                precision,
-                str(tmpdir),
-            ],
-            env=env,
-            check=True,
-        )
+        command = [
+            optimum_cli_path,
+            "export",
+            "openvino",
+            "--library",
+            "timm",
+            "--task",
+            "image-classification",
+            "--model",
+            hf_model_id,
+        ]
+        if revision:
+            command.extend(["--revision", revision])
+        command.extend(["--weight-format", precision, str(tmpdir)])
+
+        subprocess.run(command, env=env, check=True)
         exported_xml = only_xml(tmpdir)
         save_ir(exported_xml, xml)
-        save_config_json(hf_model_id, xml.parent / "config.json")
+        save_config_json(hf_model_id, xml.parent / "config.json", revision=revision)
 
 
 def only_xml(root: Path) -> Path:
@@ -156,18 +164,18 @@ def only_xml(root: Path) -> Path:
     return xmls[0]
 
 
-def save_config_json(hf_model_id: str, path: Path) -> None:
+def save_config_json(hf_model_id: str, path: Path, revision: str | None = None) -> None:
     """Copy the model's original Hugging Face config.json next to the exported IR."""
-    revision = HfApi().model_info(hf_model_id).sha
-    if not revision:
-        raise RuntimeError(
-            f"Unable to resolve Hugging Face revision for {hf_model_id}"
-        )
+    resolved_revision = revision
+    if not resolved_revision:
+        resolved_revision = HfApi().model_info(hf_model_id).sha
+    if not resolved_revision:
+        raise RuntimeError(f"Unable to resolve Hugging Face revision for {hf_model_id}")
     config_path = Path(
         hf_hub_download(
             repo_id=hf_model_id,
             filename="config.json",
-            revision=revision,
+            revision=resolved_revision,
         )
     )
     shutil.copy2(config_path, path)
