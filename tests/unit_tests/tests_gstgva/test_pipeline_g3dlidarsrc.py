@@ -159,8 +159,8 @@ class TestG3DLidarSrc(unittest.TestCase):
         pipeline = (
             f'g3dlidarsrc config="{self.lidar_config_file}" '
             f'timeout={self.timeout_usec} num-buffers=1 ! '
-            f'gvametaconvert format=json json-indent=2 ! '
-            f'gvametapublish file-format=2 file-path="{self.output_json}" ! '
+            f'gvametaconvert format=json add-empty-results=true ! '
+            f'gvametapublish method=file file-format=json-lines file-path="{self.output_json}" ! '
             f'fakesink'
         )
 
