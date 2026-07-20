@@ -219,7 +219,11 @@ static gboolean gst_g3d_render_sink_event(GstBaseTransform *trans, GstEvent *eve
     if (GST_EVENT_TYPE(event) == GST_EVENT_CUSTOM_DOWNSTREAM_STICKY) {
         const GstStructure *s = gst_event_get_structure(event);
         if (s && gst_structure_has_name(s, "g3d/calibration")) {
-            const GValue *cam_val = gst_structure_get_value(s, "camera-0");
+            char cam_key[32];
+            g_snprintf(cam_key, sizeof(cam_key), "camera-%d", self->cam_proj_index);
+            const GValue *cam_val = gst_structure_get_value(s, cam_key);
+            if (!cam_val)
+                cam_val = gst_structure_get_value(s, "camera-0");
             if (cam_val && GST_VALUE_HOLDS_STRUCTURE(cam_val)) {
                 const GstStructure *cam = gst_value_get_structure(cam_val);
                 if (read_gst_float_array(cam, "tr_velo_to_cam", self->calib_tr, 16) &&
