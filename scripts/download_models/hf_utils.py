@@ -53,6 +53,14 @@ CUSTOM_CONVERTERS = {
 }
 
 
+# Task hints for optimum-cli when exporting from a local snapshot.
+# Some models cannot be auto-detected by optimum without explicit --task.
+OPTIMUM_TASK_BY_ARCH = {
+    "vitforimageclassification": "image-classification",
+    "whisperforconditionalgeneration": "automatic-speech-recognition",
+}
+
+
 def parse_model_ref(model_ref: str) -> tuple[str, str | None]:
     """Parse model reference in format 'repo_id@revision' or 'repo_id'.
     
@@ -113,6 +121,23 @@ def get_hf_model_support_level(local_model_dir: str | Path, token: str | None = 
     if normalized_architectures & custom_converters_lower:
         return 1
     return 2
+
+
+def get_optimum_export_task(local_model_dir: str | Path) -> str | None:
+    """Return explicit optimum export task for local snapshot export.
+
+    Returns None when there is no known task mapping for detected architectures.
+    """
+    try:
+        architectures = load_hf_architectures_from_repo_local(local_model_dir)
+    except Exception:
+        return None
+
+    for architecture in architectures:
+        task = OPTIMUM_TASK_BY_ARCH.get(architecture.lower())
+        if task:
+            return task
+    return None
 
 
 def custom_conversion(

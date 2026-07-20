@@ -16,6 +16,7 @@ from pathlib import Path
 from huggingface_hub import snapshot_download
 from hf_utils import custom_conversion
 from hf_utils import get_hf_model_support_level
+from hf_utils import get_optimum_export_task
 from hf_utils import parse_model_ref
 
 
@@ -104,6 +105,9 @@ def main() -> int:
                     "--model",
                     local_model_dir,
                 ]
+                export_task = get_optimum_export_task(local_model_dir)
+                if export_task:
+                    command.extend(["--task", export_task])
                 if args.extra_args:
                     command.extend(args.extra_args)
                 command.append(str(model_path))
