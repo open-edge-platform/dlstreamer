@@ -98,14 +98,12 @@ def main() -> int:
                 model_path = Path(args.outdir) / repo_id.replace("/", "_")
                 model_path.mkdir(parents=True, exist_ok=True)
 
-                export_model_ref = repo_id if not revision else f"{repo_id}@{revision}"
-
                 command = [
                     "optimum-cli",
                     "export",
                     "openvino",
                     "--model",
-                    export_model_ref,
+                    local_model_dir,
                 ]
                 export_task = get_optimum_export_task(local_model_dir)
                 if export_task:
