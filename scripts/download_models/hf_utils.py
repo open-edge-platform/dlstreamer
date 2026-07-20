@@ -12,6 +12,8 @@ from pathlib import Path
 from typing import Callable
 import json
 import shutil
+import subprocess
+import sys
 
 from huggingface_hub import hf_hub_download, snapshot_download
 from openvino import PartialShape
@@ -139,6 +141,28 @@ def get_optimum_export_task(local_model_dir: str | Path) -> str | None:
         if task:
             return task
     return None
+
+
+def install_model_requirements(local_model_dir: str | Path) -> None:
+    """Install model requirements if requirements.txt exists in the model directory.
+    
+    Args:
+        local_model_dir: Path to the locally cached model directory
+    """
+    requirements_file = Path(local_model_dir) / "requirements.txt"
+    if not requirements_file.exists():
+        return
+    
+    print(f"Installing model requirements from {requirements_file}")
+    try:
+        subprocess.run(
+            [sys.executable, "-m", "pip", "install", "-r", str(requirements_file)],
+            check=True,
+        )
+        print("Model requirements installed successfully")
+    except subprocess.CalledProcessError as e:
+        print(f"Warning: Failed to install model requirements: {str(e)}")
+        raise
 
 
 def custom_conversion(

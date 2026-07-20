@@ -17,6 +17,7 @@ from huggingface_hub import snapshot_download
 from hf_utils import custom_conversion
 from hf_utils import get_hf_model_support_level
 from hf_utils import get_optimum_export_task
+from hf_utils import install_model_requirements
 from hf_utils import parse_model_ref
 
 
@@ -93,6 +94,9 @@ def main() -> int:
             token=token,
         )
         print(f"Model cached at: {local_model_dir}")
+        
+        # Install model requirements if they exist
+        install_model_requirements(local_model_dir)
         
         # Determine support level by analyzing locally cached model
         support_level = get_hf_model_support_level(local_model_dir, token)
