@@ -103,8 +103,10 @@ def main() -> int:
                     "export",
                     "openvino",
                     "--model",
-                    local_model_dir,
+                    repo_id,
                 ]
+                if revision:
+                    command.extend(["--revision", revision])
                 export_task = get_optimum_export_task(local_model_dir)
                 if export_task:
                     command.extend(["--task", export_task])

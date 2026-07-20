@@ -58,6 +58,7 @@ CUSTOM_CONVERTERS = {
 OPTIMUM_TASK_BY_ARCH = {
     "vitforimageclassification": "image-classification",
     "whisperforconditionalgeneration": "automatic-speech-recognition",
+    "internvlchatmodel": "image-text-to-text",
 }
 
 
