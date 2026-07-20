@@ -28,7 +28,7 @@ MODELS_REQUIRING_TRUST_REMOTE_CODE = {
 
 # Additional dependencies required by specific models for export
 MODEL_DEPENDENCIES = {
-    "OpenGVLab/InternVL2-1B": ["einops", "timm"],
+    "OpenGVLab/InternVL2-1B": ["einops", "torchvision"],
 }
 
 
