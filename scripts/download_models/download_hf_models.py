@@ -19,11 +19,14 @@ from hf_utils import get_hf_model_support_level
 from hf_utils import get_optimum_export_task
 from hf_utils import install_model_requirements
 from hf_utils import parse_model_ref
+from hf_utils import requires_trust_remote_code
 
 
 # Models that require trust_remote_code flag due to custom code in their repo
 MODELS_REQUIRING_TRUST_REMOTE_CODE = {
     "OpenGVLab/InternVL2-1B",
+    "qnguyen3/nanoLLaVA",
+    "qnguyen3/nanoLLaVA-1.5",
 }
 
 # Additional dependencies required by specific models for export
@@ -143,7 +146,7 @@ def main() -> int:
                 export_task = get_optimum_export_task(local_model_dir)
                 if export_task:
                     command.extend(["--task", export_task])
-                if repo_id in MODELS_REQUIRING_TRUST_REMOTE_CODE:
+                if repo_id in MODELS_REQUIRING_TRUST_REMOTE_CODE or requires_trust_remote_code(local_model_dir):
                     command.append("--trust-remote-code")
                 if args.extra_args:
                     command.extend(args.extra_args)

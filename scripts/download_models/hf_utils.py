@@ -154,6 +154,27 @@ def get_optimum_export_task(local_model_dir: str | Path) -> str | None:
     return None
 
 
+def requires_trust_remote_code(local_model_dir: str | Path) -> bool:
+    """Return True if model config indicates custom remote code is required."""
+    config_path = Path(local_model_dir) / "config.json"
+    if not config_path.exists():
+        return False
+
+    try:
+        with open(config_path) as f:
+            config_dict = json.load(f)
+    except Exception:
+        return False
+
+    auto_map = config_dict.get("auto_map")
+    if not auto_map:
+        return False
+
+    if isinstance(auto_map, dict):
+        return bool(auto_map)
+    return bool(auto_map)
+
+
 def install_model_requirements(local_model_dir: str | Path) -> None:
     """Install model requirements if requirements.txt exists in the model directory.
     
