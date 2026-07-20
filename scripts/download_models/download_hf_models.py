@@ -91,7 +91,7 @@ def install_model_dependencies(repo_id: str) -> None:
     print(f"Installing dependencies for {repo_id}: {', '.join(deps)}")
     try:
         subprocess.run(
-            [sys.executable, "-m", "pip", "install", "--no-deps"] + deps,
+            [sys.executable, "-m", "pip", "install"] + deps,
             check=True,
         )
         print("Dependencies installed successfully")
