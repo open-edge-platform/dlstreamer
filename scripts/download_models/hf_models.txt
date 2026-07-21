@@ -54,7 +54,8 @@ llava-hf/llava-1.5-7b-hf@b234b804b114d9e37bb655e11cbbb5f5e971b7a9
 # openbmb/MiniCPM-o-2_6@509805e84db1c84f154034d71a21c4f2331e6e11
 
 # MiniCPMV (SUPPORTED_HF_MODELS: direct IDs)
-openbmb/MiniCPM-V-2_6@6c04d9e3022bcff6e6738dfb1fc19a5cfd2a855f
+# Disabled: Gated model - requires HF token with access permissions
+# openbmb/MiniCPM-V-2_6@6c04d9e3022bcff6e6738dfb1fc19a5cfd2a855f
 openbmb/MiniCPM-V-4_5@fd3209b2e0580e346fc33d2c6f85b6e9332eecda
 
 # Phi3VForCausalLM (SUPPORTED_HF_MODELS)
