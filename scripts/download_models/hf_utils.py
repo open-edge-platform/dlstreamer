@@ -35,7 +35,7 @@ SUPPORTED_HF_MODELS = {
     "LlavaNextForConditionalGeneration",
     "LlavaNextVideoForConditionalGeneration",
     "MiniCPMO",
-    "MiniCPMVForConditionalGeneration",
+    "MiniCPMV",
     "Phi3VForCausalLM",
     "Phi4MMForCausalLM",
     "Qwen2VLForConditionalGeneration",
