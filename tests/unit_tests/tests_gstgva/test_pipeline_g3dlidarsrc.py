@@ -18,6 +18,18 @@ SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 REPO_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, "../../.."))
 
 
+def _to_gst_path(path):
+    """Return a filesystem path safe to embed in a GStreamer pipeline string.
+
+    GStreamer's pipeline parser treats backslash as an escape character, so a
+    Windows path such as ``C:\\Program Files\\Intel`` loses its separators and
+    becomes ``C:Program FilesIntel``. Windows also accepts forward slashes in
+    file paths, so normalizing to forward slashes fixes parsing on Windows and
+    is a no-op on Linux (whose paths contain no backslashes).
+    """
+    return path.replace("\\", "/")
+
+
 class TestG3DLidarSrc(unittest.TestCase):
     """Live integration tests for g3dlidarsrc.
 
@@ -134,7 +146,7 @@ class TestG3DLidarSrc(unittest.TestCase):
             self.skipTest("g3dlidarsrc element not available")
 
         pipeline = (
-            f'g3dlidarsrc config="{self.lidar_config_file}" '
+            f'g3dlidarsrc config="{_to_gst_path(self.lidar_config_file)}" '
             f'timeout={self.timeout_usec} num-buffers=1 ! '
             f'fakesink'
         )
@@ -157,10 +169,10 @@ class TestG3DLidarSrc(unittest.TestCase):
             self.skipTest("g3dlidarsrc element not available")
 
         pipeline = (
-            f'g3dlidarsrc config="{self.lidar_config_file}" '
+            f'g3dlidarsrc config="{_to_gst_path(self.lidar_config_file)}" '
             f'timeout={self.timeout_usec} num-buffers=1 ! '
             f'gvametaconvert format=json add-empty-results=true ! '
-            f'gvametapublish method=file file-format=json-lines file-path="{self.output_json}" ! '
+            f'gvametapublish method=file file-format=json-lines file-path="{_to_gst_path(self.output_json)}" ! '
             f'fakesink'
         )
 
