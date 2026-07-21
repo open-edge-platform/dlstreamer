@@ -2,7 +2,7 @@
 --extra-index-url https://download.pytorch.org/whl/cpu
 huggingface_hub==0.34.4
 openvino==2026.2.0
-https://github.com/huggingface/optimum-intel/archive/f50a0b326df82d4b05c461a9184a97f616bfa63a.tar.gz#egg=optimum-intel
+optimum-intel==1.27.0
 transformers==4.57.1
 pillow==11.3.0
 torch==2.8.0

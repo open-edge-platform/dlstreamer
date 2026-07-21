@@ -13,10 +13,11 @@ import argparse
 import os
 import shutil
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 
-from huggingface_hub import HfApi, hf_hub_download, snapshot_download
+from huggingface_hub import HfApi, hf_hub_download
 import timm
 import openvino as ov
 
@@ -137,16 +138,7 @@ def export_with_optimum(
         # xet-backed Hugging Face transfers can hang for some TIMM weight files
         env = {**os.environ, "HF_HUB_DISABLE_XET": "1"}
 
-        model_source = hf_model_id
-        if revision:
-            # Older optimum-cli does not support --revision.
-            # Pin by downloading the exact HF snapshot and exporting from local path.
-            model_source = snapshot_download(
-                repo_id=hf_model_id,
-                revision=revision,
-            )
-
-        command = [
+        base_command = [
             optimum_cli_path,
             "export",
             "openvino",
@@ -155,11 +147,36 @@ def export_with_optimum(
             "--task",
             "image-classification",
             "--model",
-            model_source,
+            hf_model_id,
         ]
+
+        # First try revision-aware export. If the installed optimum-cli is too old and
+        # does not support --revision, fallback to export without --revision.
+        command = list(base_command)
+        if revision:
+            command.extend(["--revision", revision])
         command.extend(["--weight-format", precision, str(tmpdir)])
 
-        subprocess.run(command, env=env, check=True)
+        result = subprocess.run(
+            command,
+            env=env,
+            text=True,
+            capture_output=True,
+        )
+        if result.returncode != 0:
+            combined_output = (result.stdout or "") + "\n" + (result.stderr or "")
+            if revision and "unrecognized arguments: --revision" in combined_output:
+                fallback = list(base_command)
+                fallback.extend(["--weight-format", precision, str(tmpdir)])
+                subprocess.run(fallback, env=env, check=True)
+            else:
+                # Surface captured output for easier CI debugging.
+                if result.stdout:
+                    print(result.stdout, end="")
+                if result.stderr:
+                    print(result.stderr, end="", file=sys.stderr)
+                raise subprocess.CalledProcessError(result.returncode, command)
+
         exported_xml = only_xml(tmpdir)
         save_ir(exported_xml, xml)
         save_config_json(hf_model_id, xml.parent / "config.json", revision=revision)
