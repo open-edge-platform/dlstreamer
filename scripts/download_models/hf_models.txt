@@ -50,7 +50,8 @@ llava-hf/llava-1.5-7b-hf@b234b804b114d9e37bb655e11cbbb5f5e971b7a9
 # llava-hf/LLaVA-NeXT-Video-7B-hf@f417d9edeb69a9eaa88283780332d00ce3c66593
 
 # MiniCPMO (SUPPORTED_HF_MODELS)
-openbmb/MiniCPM-o-2_6@509805e84db1c84f154034d71a21c4f2331e6e11
+# Disabled: Missing dynamically-loaded module 'image_processing_minicpmv.py' during export
+# openbmb/MiniCPM-o-2_6@509805e84db1c84f154034d71a21c4f2331e6e11
 
 # MiniCPMV (SUPPORTED_HF_MODELS: direct IDs)
 openbmb/MiniCPM-V-2_6@6c04d9e3022bcff6e6738dfb1fc19a5cfd2a855f
