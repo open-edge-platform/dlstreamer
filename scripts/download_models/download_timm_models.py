@@ -16,7 +16,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-from huggingface_hub import HfApi, hf_hub_download
+from huggingface_hub import HfApi, hf_hub_download, snapshot_download
 import timm
 import openvino as ov
 
@@ -136,6 +136,16 @@ def export_with_optimum(
         tmpdir = Path(tmp)
         # xet-backed Hugging Face transfers can hang for some TIMM weight files
         env = {**os.environ, "HF_HUB_DISABLE_XET": "1"}
+
+        model_source = hf_model_id
+        if revision:
+            # Older optimum-cli does not support --revision.
+            # Pin by downloading the exact HF snapshot and exporting from local path.
+            model_source = snapshot_download(
+                repo_id=hf_model_id,
+                revision=revision,
+            )
+
         command = [
             optimum_cli_path,
             "export",
@@ -145,10 +155,8 @@ def export_with_optimum(
             "--task",
             "image-classification",
             "--model",
-            hf_model_id,
+            model_source,
         ]
-        if revision:
-            command.extend(["--revision", revision])
         command.extend(["--weight-format", precision, str(tmpdir)])
 
         subprocess.run(command, env=env, check=True)

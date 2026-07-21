@@ -12,9 +12,13 @@ PekingU/rtdetr_r50vd@df939e661d8c52e80608d1ec566561aabd25a4e7
 
 # RtDetrV2ForObjectDetection (CUSTOM_CONVERTERS: rtdetrv2forobjectdetection)
 PekingU/rtdetr_v2_r18vd@5650961749fa93567c0d46fc7f43ea4f9e914107
+# Used in samples/gstreamer/python/smart_nvr/smart_nvr.py
+PekingU/rtdetr_v2_r50vd@282494075698cab9faa1096ae26856890030c817
 
 # DepthAnythingForDepthEstimation (CUSTOM_CONVERTERS: depthanythingfordepthestimation)
 LiheYoung/depth-anything-small-hf@25216a913fa218ccb7d58cce818d52b728b6c1f6
+# Used in samples/gstreamer/gst_launch/depth_estimation/README.md
+depth-anything/Depth-Anything-V2-Small-hf@5426e4f0f36572d16453bbda7a8389317b1bef99
 
 # ViTForImageClassification (SUPPORTED_HF_MODELS)
 dima806/fairface_age_image_detection@4e02ab8057ea7fd74b1670940995c5dfda3e6ec0
@@ -72,3 +76,9 @@ MCG-NJU/videomae-base-finetuned-kinetics@488eb9a0565f257b32866000305c8178965eb9f
 
 # anchor-flux/yamnet-onnx is a raw ONNX repo without a standard HF model_type;
 # it cannot be exported via this script without a dedicated custom converter.
+# The following Hugging Face repos are used in samples but exported by dedicated sample logic,
+# not by this transformers/optimum export script:
+# - arnabdhar/YOLOv8-Face-Detection (Ultralytics .pt)
+# - morsetechlab/yolov11-license-plate-detection (Ultralytics .pt)
+# - ultralytics/yolo11 (Ultralytics .pt)
+# - PaddlePaddle/PP-OCRv5_server_rec (Paddle model via paddle2onnx + ovc)
