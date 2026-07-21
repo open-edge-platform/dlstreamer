@@ -119,6 +119,7 @@ def main() -> int:
             repo_id=repo_id,
             revision=revision,
             token=token,
+            allow_patterns=["*.py", "*.json", "*.txt", "*.md", "*.bin", "*.safetensors", "*.onnx"],
         )
         print(f"Model cached at: {local_model_dir}")
         
