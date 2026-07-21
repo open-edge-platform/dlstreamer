@@ -63,7 +63,8 @@ openbmb/MiniCPM-V-4_5@fd3209b2e0580e346fc33d2c6f85b6e9332eecda
 # microsoft/Phi-3-vision-128k-instruct@ed2772fabe9dc9acd0caad54b62761d92520cc44
 
 # Phi4MMForCausalLM (SUPPORTED_HF_MODELS)
-microsoft/Phi-4-multimodal-instruct@93f923e1a7727d1c4f446756212d9d3e8fcc5d81
+# Disabled: CI export environment misses required dependency 'peft' for this remote-code model
+# microsoft/Phi-4-multimodal-instruct@93f923e1a7727d1c4f446756212d9d3e8fcc5d81
 
 # Qwen2VLForConditionalGeneration (SUPPORTED_HF_MODELS)
 Qwen/Qwen2-VL-2B-Instruct@895c3a49bc3fa70a340399125c650a463535e71c
