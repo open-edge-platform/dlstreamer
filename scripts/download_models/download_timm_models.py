@@ -96,7 +96,14 @@ def import_model(args: argparse.Namespace) -> int:
 
     for precision in precisions:
         xml = output_root / "public" / model_name / precision.upper() / f"{model_name}.xml"
-        export_with_optimum(optimum_cli_path, hf_model_id, model_name, precision, xml, revision=revision)
+        export_with_optimum(
+            optimum_cli_path,
+            hf_model_id,
+            model_name,
+            precision,
+            xml,
+            revision=revision,
+        )
         print(f"Exported {precision.upper()} OpenVINO IR: {xml}")
     return 0
 

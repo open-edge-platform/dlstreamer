@@ -5,3 +5,4 @@ timm==1.0.26
 openvino==2026.2.0
 optimum-intel==1.27.0
 torch==2.8.0
+nncf==3.0.0
