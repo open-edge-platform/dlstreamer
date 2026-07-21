@@ -59,7 +59,8 @@ llava-hf/llava-1.5-7b-hf@b234b804b114d9e37bb655e11cbbb5f5e971b7a9
 openbmb/MiniCPM-V-4_5@fd3209b2e0580e346fc33d2c6f85b6e9332eecda
 
 # Phi3VForCausalLM (SUPPORTED_HF_MODELS)
-microsoft/Phi-3-vision-128k-instruct@ed2772fabe9dc9acd0caad54b62761d92520cc44
+# Disabled: incompatible dependency stack in CI (DynamicCache.get_usable_length missing during export)
+# microsoft/Phi-3-vision-128k-instruct@ed2772fabe9dc9acd0caad54b62761d92520cc44
 
 # Phi4MMForCausalLM (SUPPORTED_HF_MODELS)
 microsoft/Phi-4-multimodal-instruct@93f923e1a7727d1c4f446756212d9d3e8fcc5d81
