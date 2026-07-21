@@ -27,7 +27,7 @@ YOLOv5:
   source: public
   format: pytorch
   task_type: detection
-  readme: https://dlstreamer.github.io/dev_guide/yolo_models.html
+  readme: https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/dev_guide/yolo_models.html
   source_readme: https://github.com/ultralytics/yolov5/releases/tag/v7.0
   labels-file: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/labels/coco_80cl.txt
   model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/public/yolo-v5.json
@@ -37,7 +37,7 @@ YOLOv7:
   source: public
   format: pytorch
   task_type: detection
-  readme: https://dlstreamer.github.io/dev_guide/yolo_models.html
+  readme: https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/dev_guide/yolo_models.html
   source_readme: https://github.com/WongKinYiu/yolov7
   labels-file: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/labels/coco_80cl.txt
   model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/public/yolo-v7.json
@@ -45,21 +45,21 @@ YOLOv8:
   source: public
   format: pytorch
   task_type: detection
-  readme: https://dlstreamer.github.io/dev_guide/yolo_models.html
+  readme: https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/dev_guide/yolo_models.html
   source_readme: https://github.com/ultralytics/ultralytics
   model-proc: not required
 YOLOv8-OBB:
   source: public
   format: pytorch
   task_type: detection
-  readme: https://dlstreamer.github.io/dev_guide/yolo_models.html
+  readme: https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/dev_guide/yolo_models.html
   source_readme: https://docs.ultralytics.com/tasks/obb/
   model-proc: not required
 YOLOv8-SEG:
   source: public
   format: pytorch
   task_type: instance segmentation
-  readme: https://dlstreamer.github.io/dev_guide/yolo_models.html
+  readme: https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/dev_guide/yolo_models.html
   source_readme: https://docs.ultralytics.com/tasks/segment/
   model-proc: not required
 yolov8_license_plate_detector:
@@ -73,28 +73,28 @@ YOLOv9:
   source: public
   format: pytorch
   task_type: detection
-  readme: https://dlstreamer.github.io/dev_guide/yolo_models.html
+  readme: https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/dev_guide/yolo_models.html
   source_readme: https://github.com/WongKinYiu/yolov9
   model-proc: not required
 YOLOv10:
   source: public
   format: pytorch
   task_type: detection
-  readme: https://dlstreamer.github.io/dev_guide/yolo_models.html
+  readme: https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/dev_guide/yolo_models.html
   source_readme: https://github.com/THU-MIG/yolov10
   model-proc: not required
 YOLO11:
   source: public
   format: pytorch
   task_type: detection
-  readme: https://dlstreamer.github.io/dev_guide/yolo_models.html
+  readme: https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/dev_guide/yolo_models.html
   source_readme: https://docs.ultralytics.com/tasks/detect/
   model-proc: not required
 YOLOX:
   source: public
   format: pytorch
   task_type: detection
-  readme: https://dlstreamer.github.io/dev_guide/yolo_models.html
+  readme: https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/dev_guide/yolo_models.html
   source_readme: https://github.com/Megvii-BaseDetection/YOLOX
   labels-file: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/labels/coco_80cl.txt
   model-proc: https://github.com/open-edge-platform/dlstreamer/tree/master/samples/gstreamer/model_proc/public/yolo-x.json

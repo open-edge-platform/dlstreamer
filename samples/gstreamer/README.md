@@ -2,6 +2,8 @@
 
 Samples are simple applications that demonstrate how to use the DL Streamer. The samples are available in the `/opt/intel/dlstreamer/samples` directory.
 
+> **NOTE**: Before running Samples make sure DL Streamer is installed properly, [check Get Started section](../../docs/user-guide/get_started/get_started_index.md)
+
 Samples separated into several categories:
 1. gst_launch command-line samples (samples construct GStreamer pipeline via [gst-launch-1.0](https://gstreamer.freedesktop.org/documentation/tools/gst-launch.html) command-line utility)
     * [Action Recognition Sample](./gst_launch/action_recognition/README.md) - demonstrates action recognition via video_inference bin element
@@ -13,6 +15,7 @@ Samples separated into several categories:
     * [Detection with Yolo](./gst_launch/detection_with_yolo/README.md) - demonstrates how to use publicly available Yolo models for object detection and classification
     * [Face Detection And Classification Sample](./gst_launch/face_detection_and_classification/README.md) - constructs object detection and classification pipeline example with [gvadetect](../../docs/user-guide/elements/gvadetect.md) and [gvaclassify](../../docs/user-guide/elements/gvaclassify.md) elements to detect faces and estimate age, gender, emotions and landmark points
     * [PointPillars Inference with g3dinference](./gst_launch/g3dinference/README.md) - demonstrates a complete LiDAR-only 3D detection pipeline based on `g3dlidarparse` and `g3dinference` elements
+    * [Camera + 3D Object Fusion with g3dobjectfuser](./gst_launch/g3dobjectfuser/README.md) - demonstrates how to fuse 2D camera detections with 3D LiDAR detections using the `g3dobjectfuser` element to produce cross-modal associations
     * [LiDAR Parse Sample](./gst_launch/g3dlidarparse/README.md) - demonstrates LiDAR parsing pipeline with `g3dlidarparse` element
     * [Live LiDAR Capture Sample](./gst_launch/g3dlidarsrc/README.md) - demonstrates real-time LiDAR capture from a physical device with the `g3dlidarsrc` element (RoboSense via rs_driver)
     * [Radar Signal Process Sample](./gst_launch/g3dradarprocess/README.md) - demonstrates how to use the `g3dradarprocess` element for millimeter-wave radar signal processing with point cloud detection, clustering, and tracking
@@ -32,7 +35,7 @@ Samples separated into several categories:
     * [Multi-camera deployments](./gst_launch/multi_stream/README.md) - demonstrates how to handle video streams from multiple cameras with one instance of DL Streamer application
     * [python-elements Face Detection and Classification Sample](./gst_launch/python-elements/face_detection_and_classification/README.md) - demonstrates face detection and age logging using `gvadetect`, `gvaclassify` and a custom Python GStreamer element (`gvaagelogger_py`) with GstAnalytics metadata API
     * [python-elements Save Frames with ROI Sample](./gst_launch/python-elements/save_frames_with_ROI_only/README.md) - demonstrates saving video frames with detected objects using a custom Python GStreamer element (`gvaframesaver_py`) with GstAnalytics metadata API
-    * [Multi-Stream Mux/Demux Sample](./gst_launch/stream_mux_and_demux/README.md) - demonstrates how to use `gvastreammux` and `gvastreamdemux` elements for multi-stream video inference through a single shared pipeline with round-robin scheduling and per-source output routing
+    * [Multi-Stream Mux/Demux Sample](./gst_launch/stream_mux_and_demux/README.md) - demonstrates how to use `gvastreammux` and `gvastreamdemux` elements for multi-stream video inference through a single shared pipeline with PTS-aligned batching, configurable cross-pad PTS normalization (`sync-mode`), and per-source output routing
     * [Vehicle and Pedestrian Tracking Sample](./gst_launch/vehicle_pedestrian_tracking/README.md) - demonstrates object tracking via [gvatrack](../../docs/user-guide/elements/gvatrack.md) element
 2. C++ samples
     * [Draw Face Attributes C++ Sample](./cpp/draw_face_attributes/README.md) - constructs pipeline and sets "C" callback to access frame metadata and visualize inference results

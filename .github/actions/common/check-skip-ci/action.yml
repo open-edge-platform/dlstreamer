@@ -22,6 +22,9 @@ outputs:
   skip_reason:
     description: 'Reason why the job was skipped'
     value: ${{ steps.check.outputs.skip_reason }}
+  run_docs_ci:
+    description: 'Whether documentation CI should run'
+    value: ${{ steps.check.outputs.run_docs_ci }}
 runs:
   using: 'composite'
   steps:
@@ -62,6 +65,7 @@ runs:
       run: |
         echo "🚀 Manual workflow dispatch - skipping file change analysis"
         echo "should_run=true" >> "$GITHUB_OUTPUT"
+        echo "run_docs_ci=true" >> "$GITHUB_OUTPUT"
         echo "skip_ci=false" >> "$GITHUB_OUTPUT"
         echo "skip_reason=workflow dispatch run" >> "$GITHUB_OUTPUT"
         echo "🔄 Running $JOB_NAME - manual dispatch"
@@ -76,6 +80,7 @@ runs:
       run: |
         echo "🔄 Push to $BASE_BRANCH - skipping file change analysis"
         echo "should_run=true" >> "$GITHUB_OUTPUT"
+        echo "run_docs_ci=true" >> "$GITHUB_OUTPUT"
         echo "skip_ci=false" >> "$GITHUB_OUTPUT"
         echo "skip_reason=push to $BASE_BRANCH" >> "$GITHUB_OUTPUT"
         echo "🔄 Running $JOB_NAME - push to $BASE_BRANCH"
@@ -110,6 +115,9 @@ runs:
           ':(exclude).github/CODEOWNERS' \
           ':(exclude)LICENSE')
 
+        CHANGED_FILES_DOCS=$(git diff --name-only origin/$BASE_BRANCH...HEAD -- \
+          'docs/')
+
         SKIP_CI=true
         JOB_NAME="$JOB_NAME"
 
@@ -118,11 +126,24 @@ runs:
           echo "${CHANGED_FILES_CODE}"
           SKIP_CI=false
           echo "🔄 Code changes detected"
+
+          # Check if there are also changes in documentation/configuration files
+          if [ -n "${CHANGED_FILES_DOCS}" ]; then
+            echo "📚 Documentation changes also detected:"
+            echo "${CHANGED_FILES_DOCS}"
+            RUN_DOCS_CI=true
+            echo "🔄 Both code and docs changed - running both CIs"
+          else
+            RUN_DOCS_CI=false
+            echo "📝 Only code changes - docs CI not needed"
+          fi
         else
           echo "✅ All changes are documentation/configuration only"
+          RUN_DOCS_CI=true
         fi
 
         echo "skip_ci=${SKIP_CI}" >> "$GITHUB_OUTPUT"
+        echo "run_docs_ci=${RUN_DOCS_CI}" >> "$GITHUB_OUTPUT"
 
         if [ "$SKIP_CI" = "true" ]; then
           echo "✅ Skipping $JOB_NAME - changes only in excluded files"
@@ -143,29 +164,35 @@ runs:
         DISPATCH_SHOULD_RUN: ${{ steps.dispatch-handler.outputs.should_run }}
         DISPATCH_SKIP_CI: ${{ steps.dispatch-handler.outputs.skip_ci }}
         DISPATCH_SKIP_REASON: ${{ steps.dispatch-handler.outputs.skip_reason }}
+        DISPATCH_RUN_DOCS_CI: ${{ steps.dispatch-handler.outputs.run_docs_ci }}
         MAIN_PUSH_SHOULD_RUN: ${{ steps.main-push-handler.outputs.should_run }}
         MAIN_PUSH_SKIP_CI: ${{ steps.main-push-handler.outputs.skip_ci }}
         MAIN_PUSH_SKIP_REASON: ${{ steps.main-push-handler.outputs.skip_reason }}
+        MAIN_PUSH_RUN_DOCS_CI: ${{ steps.main-push-handler.outputs.run_docs_ci }}
         FILE_SHOULD_RUN: ${{ steps.file-check.outputs.should_run }}
         FILE_SKIP_CI: ${{ steps.file-check.outputs.skip_ci }}
         FILE_SKIP_REASON: ${{ steps.file-check.outputs.skip_reason }}
+        FILE_RUN_DOCS_CI: ${{ steps.file-check.outputs.run_docs_ci }}
       run: |
         if [ "${IS_DISPATCH}" = "true" ]; then
           echo "should_run=${DISPATCH_SHOULD_RUN}" >> "$GITHUB_OUTPUT"
           echo "skip_ci=${DISPATCH_SKIP_CI}" >> "$GITHUB_OUTPUT"
           echo "skip_reason=${DISPATCH_SKIP_REASON}" >> "$GITHUB_OUTPUT"
+          echo "run_docs_ci=${DISPATCH_RUN_DOCS_CI}" >> "$GITHUB_OUTPUT"
         elif [ "${IS_MAIN_PUSH}" = "true" ]; then
           echo "should_run=${MAIN_PUSH_SHOULD_RUN}" >> "$GITHUB_OUTPUT"
           echo "skip_ci=${MAIN_PUSH_SKIP_CI}" >> "$GITHUB_OUTPUT"
           echo "skip_reason=${MAIN_PUSH_SKIP_REASON}" >> "$GITHUB_OUTPUT"
+          echo "run_docs_ci=${MAIN_PUSH_RUN_DOCS_CI}" >> "$GITHUB_OUTPUT"
         else
           echo "should_run=${FILE_SHOULD_RUN}" >> "$GITHUB_OUTPUT"
           echo "skip_ci=${FILE_SKIP_CI}" >> "$GITHUB_OUTPUT"
           echo "skip_reason=${FILE_SKIP_REASON}" >> "$GITHUB_OUTPUT"
+          echo "run_docs_ci=${FILE_RUN_DOCS_CI}" >> "$GITHUB_OUTPUT"
         fi
 
     - name: Mark job as passed when skipped
-      if: steps.check.outputs.should_run == 'false'
+      if: steps.check.outputs.should_run == 'false' && steps.check.outputs.run_docs_ci == 'false'
       shell: bash
       env:
         JOB_NAME: ${{ inputs.job_name }}

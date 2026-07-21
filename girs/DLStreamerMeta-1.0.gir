@@ -5,6 +5,124 @@
   <package name="gstreamer-1.0" />
   <package name="gstreamer-analytics-1.0" />
   <namespace name="DLStreamerMeta" version="1.0" shared-library="libdlstreamer_gst_meta.so" c:identifier-prefixes="GstAnalytics" c:symbol-prefixes="gst_analytics">
+    <record name="3DODMtd" c:type="GstAnalytics3DODMtd">
+      <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/g3d_od_mtd.h" line="16">Handle containing data required to use gst_analytics_3d_od_mtd APIs.</doc>
+      <source-position filename="include/dlstreamer/gst/metadata/g3d_od_mtd.h" line="21" />
+      <field name="id" writable="1">
+        <doc xml:space="preserve">Instance identifier</doc>
+        <type name="guint" c:type="guint" />
+      </field>
+      <field name="meta" writable="1">
+        <doc xml:space="preserve">Instance of #GstAnalyticsRelationMeta where the analytics-metadata
+identified by @id is stored.</doc>
+        <type name="GstAnalytics.RelationMeta" c:type="GstAnalyticsRelationMeta*" />
+      </field>
+      <function name="get_class" c:identifier="gst_analytics_3d_od_mtd_get_class">
+        <source-position filename="include/dlstreamer/gst/metadata/g3d_od_mtd.h" line="42" />
+        <return-value transfer-ownership="none">
+          <doc xml:space="preserve" filename="src/gst/metadata/g3d_od_mtd.c" line="160">TRUE on success, FALSE otherwise</doc>
+          <type name="gboolean" c:type="gboolean" />
+        </return-value>
+        <parameters>
+          <parameter name="instance" transfer-ownership="none">
+            <doc xml:space="preserve" filename="src/gst/metadata/g3d_od_mtd.c" line="156">instance</doc>
+            <type name="3DODMtd" c:type="const GstAnalytics3DODMtd*" />
+          </parameter>
+          <parameter name="class_id" direction="out" caller-allocates="0" transfer-ownership="full">
+            <doc xml:space="preserve" filename="src/gst/metadata/g3d_od_mtd.c" line="157">detected class id</doc>
+            <type name="gint" c:type="gint*" />
+          </parameter>
+          <parameter name="confidence" direction="out" caller-allocates="0" transfer-ownership="full">
+            <doc xml:space="preserve" filename="src/gst/metadata/g3d_od_mtd.c" line="158">confidence in [0, 1]</doc>
+            <type name="gfloat" c:type="gfloat*" />
+          </parameter>
+        </parameters>
+      </function>
+      <function name="get_location" c:identifier="gst_analytics_3d_od_mtd_get_location">
+        <doc xml:space="preserve" filename="src/gst/metadata/g3d_od_mtd.c" line="116">Retrieve the 3D oriented box.</doc>
+        <source-position filename="include/dlstreamer/gst/metadata/g3d_od_mtd.h" line="38" />
+        <return-value transfer-ownership="none">
+          <doc xml:space="preserve" filename="src/gst/metadata/g3d_od_mtd.c" line="131">TRUE on success, FALSE otherwise</doc>
+          <type name="gboolean" c:type="gboolean" />
+        </return-value>
+        <parameters>
+          <parameter name="instance" transfer-ownership="none">
+            <doc xml:space="preserve" filename="src/gst/metadata/g3d_od_mtd.c" line="118">instance</doc>
+            <type name="3DODMtd" c:type="const GstAnalytics3DODMtd*" />
+          </parameter>
+          <parameter name="x" direction="out" caller-allocates="0" transfer-ownership="full">
+            <doc xml:space="preserve" filename="src/gst/metadata/g3d_od_mtd.c" line="119">X coordinate of the box centre</doc>
+            <type name="gfloat" c:type="gfloat*" />
+          </parameter>
+          <parameter name="y" direction="out" caller-allocates="0" transfer-ownership="full">
+            <doc xml:space="preserve" filename="src/gst/metadata/g3d_od_mtd.c" line="120">Y coordinate of the box centre</doc>
+            <type name="gfloat" c:type="gfloat*" />
+          </parameter>
+          <parameter name="z" direction="out" caller-allocates="0" transfer-ownership="full">
+            <doc xml:space="preserve" filename="src/gst/metadata/g3d_od_mtd.c" line="121">Z coordinate of the box centre</doc>
+            <type name="gfloat" c:type="gfloat*" />
+          </parameter>
+          <parameter name="length" direction="out" caller-allocates="0" transfer-ownership="full">
+            <doc xml:space="preserve" filename="src/gst/metadata/g3d_od_mtd.c" line="122">Length of the box</doc>
+            <type name="gfloat" c:type="gfloat*" />
+          </parameter>
+          <parameter name="width" direction="out" caller-allocates="0" transfer-ownership="full">
+            <doc xml:space="preserve" filename="src/gst/metadata/g3d_od_mtd.c" line="123">Width of the box</doc>
+            <type name="gfloat" c:type="gfloat*" />
+          </parameter>
+          <parameter name="height" direction="out" caller-allocates="0" transfer-ownership="full">
+            <doc xml:space="preserve" filename="src/gst/metadata/g3d_od_mtd.c" line="124">Height of the box</doc>
+            <type name="gfloat" c:type="gfloat*" />
+          </parameter>
+          <parameter name="yaw" direction="out" caller-allocates="0" transfer-ownership="full">
+            <doc xml:space="preserve" filename="src/gst/metadata/g3d_od_mtd.c" line="125">Yaw rotation around Z</doc>
+            <type name="gfloat" c:type="gfloat*" />
+          </parameter>
+          <parameter name="pitch" direction="out" caller-allocates="0" transfer-ownership="full">
+            <doc xml:space="preserve" filename="src/gst/metadata/g3d_od_mtd.c" line="126">Pitch rotation around Y</doc>
+            <type name="gfloat" c:type="gfloat*" />
+          </parameter>
+          <parameter name="roll" direction="out" caller-allocates="0" transfer-ownership="full">
+            <doc xml:space="preserve" filename="src/gst/metadata/g3d_od_mtd.c" line="127">Roll rotation around X</doc>
+            <type name="gfloat" c:type="gfloat*" />
+          </parameter>
+        </parameters>
+      </function>
+      <function name="get_modality" c:identifier="gst_analytics_3d_od_mtd_get_modality">
+        <source-position filename="include/dlstreamer/gst/metadata/g3d_od_mtd.h" line="45" />
+        <return-value transfer-ownership="none">
+          <doc xml:space="preserve" filename="src/gst/metadata/g3d_od_mtd.c" line="179">TRUE on success, FALSE otherwise</doc>
+          <type name="gboolean" c:type="gboolean" />
+        </return-value>
+        <parameters>
+          <parameter name="instance" transfer-ownership="none">
+            <doc xml:space="preserve" filename="src/gst/metadata/g3d_od_mtd.c" line="176">instance</doc>
+            <type name="3DODMtd" c:type="const GstAnalytics3DODMtd*" />
+          </parameter>
+          <parameter name="modality" direction="out" caller-allocates="0" transfer-ownership="full">
+            <doc xml:space="preserve" filename="src/gst/metadata/g3d_od_mtd.c" line="177">sensor modality</doc>
+            <type name="3DSensorModality" c:type="GstAnalytics3DSensorModality*" />
+          </parameter>
+        </parameters>
+      </function>
+      <function name="get_mtd_type" c:identifier="gst_analytics_3d_od_mtd_get_mtd_type">
+        <doc xml:space="preserve" filename="src/gst/metadata/g3d_od_mtd.c" line="58">Get an id that represents the 3d-object-detection metadata type.</doc>
+        <source-position filename="include/dlstreamer/gst/metadata/g3d_od_mtd.h" line="30" />
+        <return-value transfer-ownership="none">
+          <doc xml:space="preserve" filename="src/gst/metadata/g3d_od_mtd.c" line="63">opaque id of the #GstAnalyticsMtd type</doc>
+          <type name="GstAnalytics.MtdType" c:type="GstAnalyticsMtdType" />
+        </return-value>
+      </function>
+    </record>
+    <enumeration name="3DSensorModality" c:type="GstAnalytics3DSensorModality">
+      <source-position filename="include/dlstreamer/gst/metadata/g3d_od_mtd.h" line="28" />
+      <member name="lidar" value="0" c:identifier="GST_ANALYTICS_3D_SENSOR_LIDAR">
+        <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/g3d_od_mtd.h" line="25">Detection sourced from a LiDAR-based detector</doc>
+      </member>
+      <member name="radar" value="1" c:identifier="GST_ANALYTICS_3D_SENSOR_RADAR">
+        <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/g3d_od_mtd.h" line="26">Detection sourced from a radar-based detector</doc>
+      </member>
+    </enumeration>
     <constant name="KEYPOINT_BODY_POSE_COCO_17" value="body-pose/coco-17" c:type="GST_ANALYTICS_KEYPOINT_BODY_POSE_COCO_17">
       <source-position filename="include/dlstreamer/gst/metadata/gstanalyticskeypointdescriptor.h" line="39" />
       <type name="utf8" c:type="gchar*" />
@@ -229,6 +347,11 @@ identified by @id is stored.</doc>
         </return-value>
       </function>
     </record>
+    <docsection name="gstanalytics3dobjectdetectionmtd">
+      <doc xml:space="preserve" filename="src/gst/metadata/g3d_od_mtd.c" line="12">This metadata type stores a 3D oriented bounding box (x, y, z, length, width,
+height, yaw, pitch, roll) along with the detected class, confidence, and the
+sensor modality the detection was sourced from.</doc>
+    </docsection>
     <function name="keypoint_descriptor_find_in_tag" c:identifier="gst_analytics_keypoint_descriptor_find_in_tag" moved-to="KeypointDescriptor.find_in_tag">
       <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointdescriptor.c" line="134">Search all built-in keypoint descriptors for one whose semantic tag
 appears as a suffix of @tag, aligned to a '/' boundary or matching
@@ -267,6 +390,71 @@ matches @semantic_tag exactly.</doc>
         <parameter name="semantic_tag" transfer-ownership="none">
           <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointdescriptor.c" line="115">The semantic tag to look up.</doc>
           <type name="utf8" c:type="const gchar*" />
+        </parameter>
+      </parameters>
+    </function>
+    <function name="relation_meta_add_3d_od_mtd" c:identifier="gst_analytics_relation_meta_add_3d_od_mtd">
+      <source-position filename="include/dlstreamer/gst/metadata/g3d_od_mtd.h" line="32" />
+      <return-value transfer-ownership="none">
+        <doc xml:space="preserve" filename="src/gst/metadata/g3d_od_mtd.c" line="86">TRUE on success, FALSE otherwise</doc>
+        <type name="gboolean" c:type="gboolean" />
+      </return-value>
+      <parameters>
+        <parameter name="instance" transfer-ownership="none">
+          <doc xml:space="preserve" filename="src/gst/metadata/g3d_od_mtd.c" line="71">Instance of #GstAnalyticsRelationMeta where to add the 3D detection</doc>
+          <type name="GstAnalytics.RelationMeta" c:type="GstAnalyticsRelationMeta*" />
+        </parameter>
+        <parameter name="x" transfer-ownership="none">
+          <doc xml:space="preserve" filename="src/gst/metadata/g3d_od_mtd.c" line="72">X coordinate of the box centre, in metres</doc>
+          <type name="gfloat" c:type="gfloat" />
+        </parameter>
+        <parameter name="y" transfer-ownership="none">
+          <doc xml:space="preserve" filename="src/gst/metadata/g3d_od_mtd.c" line="73">Y coordinate of the box centre, in metres</doc>
+          <type name="gfloat" c:type="gfloat" />
+        </parameter>
+        <parameter name="z" transfer-ownership="none">
+          <doc xml:space="preserve" filename="src/gst/metadata/g3d_od_mtd.c" line="74">Z coordinate of the box centre, in metres</doc>
+          <type name="gfloat" c:type="gfloat" />
+        </parameter>
+        <parameter name="length" transfer-ownership="none">
+          <doc xml:space="preserve" filename="src/gst/metadata/g3d_od_mtd.c" line="75">Box extent along X, in metres</doc>
+          <type name="gfloat" c:type="gfloat" />
+        </parameter>
+        <parameter name="width" transfer-ownership="none">
+          <doc xml:space="preserve" filename="src/gst/metadata/g3d_od_mtd.c" line="76">Box extent along Y, in metres</doc>
+          <type name="gfloat" c:type="gfloat" />
+        </parameter>
+        <parameter name="height" transfer-ownership="none">
+          <doc xml:space="preserve" filename="src/gst/metadata/g3d_od_mtd.c" line="77">Box extent along Z, in metres</doc>
+          <type name="gfloat" c:type="gfloat" />
+        </parameter>
+        <parameter name="yaw" transfer-ownership="none">
+          <doc xml:space="preserve" filename="src/gst/metadata/g3d_od_mtd.c" line="78">Yaw rotation around Z, in radians</doc>
+          <type name="gfloat" c:type="gfloat" />
+        </parameter>
+        <parameter name="pitch" transfer-ownership="none">
+          <doc xml:space="preserve" filename="src/gst/metadata/g3d_od_mtd.c" line="79">Pitch rotation around Y, in radians</doc>
+          <type name="gfloat" c:type="gfloat" />
+        </parameter>
+        <parameter name="roll" transfer-ownership="none">
+          <doc xml:space="preserve" filename="src/gst/metadata/g3d_od_mtd.c" line="80">Roll rotation around X, in radians</doc>
+          <type name="gfloat" c:type="gfloat" />
+        </parameter>
+        <parameter name="class_id" transfer-ownership="none">
+          <doc xml:space="preserve" filename="src/gst/metadata/g3d_od_mtd.c" line="81">Detected class index (negative if unknown)</doc>
+          <type name="gint" c:type="gint" />
+        </parameter>
+        <parameter name="confidence" transfer-ownership="none">
+          <doc xml:space="preserve" filename="src/gst/metadata/g3d_od_mtd.c" line="82">Detection confidence in [0, 1]</doc>
+          <type name="gfloat" c:type="gfloat" />
+        </parameter>
+        <parameter name="modality" transfer-ownership="none">
+          <doc xml:space="preserve" filename="src/gst/metadata/g3d_od_mtd.c" line="83">Sensor modality this detection originates from</doc>
+          <type name="3DSensorModality" c:type="GstAnalytics3DSensorModality" />
+        </parameter>
+        <parameter name="mtd" direction="out" caller-allocates="1" transfer-ownership="none">
+          <doc xml:space="preserve" filename="src/gst/metadata/g3d_od_mtd.c" line="84">Handle updated with the newly added meta</doc>
+          <type name="3DODMtd" c:type="GstAnalytics3DODMtd*" />
         </parameter>
       </parameters>
     </function>
@@ -316,6 +504,27 @@ Creates a queryable OD → Tripwire relationship.</doc>
         <parameter name="zone_mtd" direction="out" caller-allocates="1" transfer-ownership="none">
           <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_zone_meta.h" line="47">Pointer to #GstAnalyticsZoneMtd to be filled.</doc>
           <type name="ZoneMtd" c:type="GstAnalyticsZoneMtd*" />
+        </parameter>
+      </parameters>
+    </function>
+    <function name="relation_meta_get_3d_od_mtd" c:identifier="gst_analytics_relation_meta_get_3d_od_mtd">
+      <source-position filename="include/dlstreamer/gst/metadata/g3d_od_mtd.h" line="48" />
+      <return-value transfer-ownership="none">
+        <doc xml:space="preserve" filename="src/gst/metadata/g3d_od_mtd.c" line="199">TRUE if successful, FALSE otherwise</doc>
+        <type name="gboolean" c:type="gboolean" />
+      </return-value>
+      <parameters>
+        <parameter name="meta" transfer-ownership="none">
+          <doc xml:space="preserve" filename="src/gst/metadata/g3d_od_mtd.c" line="195">Instance of #GstAnalyticsRelationMeta</doc>
+          <type name="GstAnalytics.RelationMeta" c:type="GstAnalyticsRelationMeta*" />
+        </parameter>
+        <parameter name="an_meta_id" transfer-ownership="none">
+          <doc xml:space="preserve" filename="src/gst/metadata/g3d_od_mtd.c" line="196">Id of #GstAnalytics3DODMtd instance to retrieve</doc>
+          <type name="guint" c:type="guint" />
+        </parameter>
+        <parameter name="rlt" direction="out" caller-allocates="1" transfer-ownership="none">
+          <doc xml:space="preserve" filename="src/gst/metadata/g3d_od_mtd.c" line="197">Will be filled with the 3D detection mtd</doc>
+          <type name="3DODMtd" c:type="GstAnalytics3DODMtd*" />
         </parameter>
       </parameters>
     </function>

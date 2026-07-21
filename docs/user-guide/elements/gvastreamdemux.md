@@ -1,59 +1,68 @@
 # gvastreamdemux
 
-Demuxes a single interleaved video stream back into multiple per-source output pads based on
-`GstGvaStreammuxMeta` metadata. This element is the companion to `gvastreammux` and **must** be
-used together with it — it cannot function standalone.
+Routes a single muxed stream back to per-source output pads based on `GstAnalyticsBatchMeta`
+attached upstream by `gvastreammux`. The element is the companion to `gvastreammux` and
+**must** be paired with it; it cannot work standalone.
 
 ## Overview
 
-The `gvastreamdemux` element reads `GstGvaStreammuxMeta` from each incoming buffer and routes it
-to the corresponding source pad (`src_0`, `src_1`, ...) based on the `source_id` field. This enables
-a common multi-stream pattern:
+`gvastreamdemux` reads the `GstAnalyticsBatchMeta` attached by `gvastreammux` and routes each
+source's buffer to `src_<index>`. This enables the common multi-stream pattern:
 
 ```
 N sources → gvastreammux → shared inference → gvastreamdemux → N independent outputs
 ```
 
-Key design principles:
+It transparently handles both of the mux's [output modes](gvastreammux.md#output-modes):
 
-- **Metadata-Driven Routing**: Each buffer is routed to `src_{source_id}` using the metadata attached
-  by `gvastreammux`. Buffers without `GstGvaStreammuxMeta` cause a pipeline error.
-- **No Frame Dropping**: Every buffer received on the sink pad is forwarded to exactly one source pad.
-- **Batch Ordering Validation**: The element tracks `batch_id` per source pad to detect out-of-order
-  delivery. If a buffer arrives with a `batch_id` lower than the previous one for the same source,
-  a warning is logged.
-- **Source Count Validation**: On the first buffer, the element checks that the number of requested
-  source pads matches `num_sources` in the metadata. A mismatch causes a pipeline error.
+- **PASSTHROUGH input** (plain video buffers): each buffer carries a single-stream meta; the
+  demux forwards it to `src_<streams[0].index>` as-is.
+- **CONTAINER input** (caps `multistream/x-analytics-batch`): each buffer is a container holding
+  `n_streams` sources. The demux unpacks every `streams[i]`, recovers that source's original caps
+  from its `GST_EVENT_CAPS` sticky event, forwards those caps to `src_<index>` (lazily, once per
+  pad), and pushes the source's buffer (`objects[0]`). This is how heterogeneous video + lidar
+  batches are split back into a `video/x-raw` branch and an `application/x-lidar` branch.
 
-> **Important**: Because `gvastreammux` interleaves frames in round-robin order, the downstream
-> inference element (e.g., `gvadetect`) **must** have `inference-interval=1`. Setting
-> `inference-interval` to N > 1 causes certain sources to be consistently skipped from inference.
-> A future enhancement will add frame-dropping logic inside `gvastreammux` to apply the interval
-> uniformly across all input streams.
+Key design points:
+
+- **Metadata-driven routing** — buffers are forwarded based on stream index. Buffers without a
+  usable `GstAnalyticsBatchMeta` cause a pipeline error.
+- **Per-pad caps in CONTAINER mode** — each `src_*` pad emits its own stream's caps, so different
+  pads can carry different media types (e.g. `src_0` video, `src_2` lidar).
+- **No frame dropping** — every source buffer is pushed to its target pad.
+- **Sparse src indices** — names like `demux.src_5` work even if `src_0..src_4` were never
+  created, mirroring the mux side. Indices must be in `[0, 256)`.
+- **No strict count match** — the upstream `n_streams` and the number of requested `src_*` pads
+  do not have to match. Buffers whose stream index exceeds the highest requested src pad
+  are dropped with a `GST_ERROR`. Match the indices to the mux indices to receive every frame.
+
+> **Important**: as with `gvastreammux`, downstream `gvadetect` should keep
+> `inference-interval=1` (default). Higher values would skip whole batches in arrival order,
+> meaning some source ids consistently miss inference results.
 
 ## How It Works
 
-1. The pipeline requests source pads (`src_0`, `src_1`, ...) — one per original input source.
-   The number of `src` pads **must** match the number of `sink` pads on the upstream `gvastreammux`.
-2. When a buffer arrives on the sink pad, the element reads `GstGvaStreammuxMeta`.
-3. The buffer is pushed to `src_{source_id}`.
-4. On the first buffer, the element validates `num_sources == num_src_pads`.
-5. EOS on the sink pad is forwarded to all source pads.
+1. The pipeline requests source pads (`src_0`, `src_1`, ...) — typically one per upstream
+   sink pad. Pad index is parsed from the requested name; sparse indices are allowed up to 255.
+2. On the sink `CAPS` event the demux detects whether the input is plain video (PASSTHROUGH) or
+   the `multistream/x-analytics-batch` container (CONTAINER). In CONTAINER mode it does **not**
+   forward the container caps downstream — per-stream caps come from the buffers instead.
+3. When a buffer arrives:
+   - **PASSTHROUGH:** read `streams[0].index` and push the buffer to `src_<index>`.
+   - **CONTAINER:** for each `streams[i]`, forward that stream's caps to `src_<index>` the first
+     time the pad is used, then push `objects[0]` (the source's buffer) to that pad.
+   If no matching `src_<index>` pad exists, the buffer is dropped with `GST_FLOW_ERROR`.
+4. EOS on the sink pad is forwarded to all source pads.
 
 ## Properties
 
-| Property  | Type   | Description                                                                                   | Default |
-|-----------|--------|-----------------------------------------------------------------------------------------------|---------|
-| max-fps   | Double | Maximum output frame rate per source (0 = unlimited). Only set for local file sources. Do not set for RTSP or live sources as it may cause pipeline stalls. | 0       |
-
-The `max-fps` throttle is applied globally (shared across all source pads), not per individual pad.
+| Property  | Type   | Default | Description |
+|-----------|--------|---------|-------------|
+| `max-fps` | Double | `0`     | Output rate cap shared across all source pads (0 = unlimited). Only set for local file sources; setting on RTSP/live sources can stall the pipeline. |
 
 ## Pipeline Examples
 
-### Local Files with Per-Source Output
-
-Mux two local files for shared inference, then demux for independent downstream processing.
-Set `max-fps` on both mux and demux to control throughput:
+### Local files with per-source FPS counters
 
 ```bash
 gst-launch-1.0 \
@@ -61,16 +70,14 @@ gst-launch-1.0 \
   ! queue \
   ! gvadetect model=model.xml device=GPU \
     pre-process-backend=va-surface-sharing \
-  ! gvastreamdemux name=demux max-fps=30 \
+  ! gvastreamdemux name=demux \
   demux.src_0 ! queue ! gvafpscounter ! fakesink \
   demux.src_1 ! queue ! gvafpscounter ! fakesink \
   filesrc location=video0.h265 ! h265parse ! vah265dec ! mux.sink_0 \
   filesrc location=video1.h265 ! h265parse ! vah265dec ! mux.sink_1
 ```
 
-### RTSP Sources with Per-Source Output
-
-Two RTSP streams muxed for shared inference, then demuxed. No `max-fps` needed for live sources:
+### RTSP sources
 
 ```bash
 gst-launch-1.0 \
@@ -87,9 +94,7 @@ gst-launch-1.0 \
   ! rtph265depay ! h265parse ! vah265dec ! mux.sink_1
 ```
 
-### Per-Source Watermark and Display
-
-Demux after inference, then apply per-source watermark and render to screen:
+### Per-source watermark and display
 
 ```bash
 gst-launch-1.0 \
@@ -106,69 +111,79 @@ gst-launch-1.0 \
   ! rtph265depay ! h265parse ! vah265dec ! mux.sink_1
 ```
 
+### Heterogeneous video + lidar (CONTAINER input)
+
+When the mux runs in CONTAINER mode, `gvastreamdemux` unpacks each batch back into per-source
+pads, restoring each source's own caps. Note there is **no** `gvadetect` between the mux and the
+demux (a container buffer is not raw video). Per-stream inference (`gvadetect` for video,
+`g3dinference` for lidar) would attach after the corresponding demux branch; here each branch
+ends in `fakesink`:
+
+```bash
+gst-launch-1.0 -e \
+  gvastreammux name=mux sync-mode=first-pts \
+  ! queue \
+  ! gvastreamdemux name=demux \
+  demux.src_0 ! queue ! gvafpscounter ! fakesink \
+  demux.src_1 ! queue ! gvafpscounter ! fakesink \
+  demux.src_2 ! queue ! fakesink \
+  filesrc location=video0.h265 ! h265parse ! vah265dec ! mux.sink_0 \
+  filesrc location=video1.h265 ! h265parse ! vah265dec ! mux.sink_1 \
+  multifilesrc location=velodyne/%06d.bin start-index=0 caps=application/octet-stream \
+  ! g3dlidarparse frame-rate=10 ! mux.sink_2
+```
+
+Here `src_0` and `src_1` emit `video/x-raw`, while `src_2` emits `application/x-lidar`.
+
 ## Required Metadata
 
-This element requires `GstGvaStreammuxMeta` on every incoming buffer. The metadata is attached
-by `gvastreammux` and contains:
+`gvastreamdemux` requires a usable `GstAnalyticsBatchMeta` on every incoming buffer. The fields it
+reads depend on the input mode:
 
-| Field        | Type     | Description                                          |
-|--------------|----------|------------------------------------------------------|
-| source_id    | guint    | Pad index the buffer originated from (0, 1, 2, ...) |
-| batch_id     | guint64  | Monotonically increasing batch cycle counter         |
-| num_sources  | guint    | Total number of active input sources at batch time   |
+**PASSTHROUGH input:**
+
+| Field                | Type     | Description |
+|----------------------|----------|-------------|
+| `streams[0].index`   | guint    | Source pad index this buffer originated from. |
+| `n_streams`          | gsize    | Number of contributing pads in the batch. |
+
+**CONTAINER input:**
+
+| Field                       | Type      | Description |
+|-----------------------------|-----------|-------------|
+| `n_streams`                 | gsize     | Number of sources packed in this container. |
+| `streams[i].index`          | guint     | Destination `src_*` pad for the i-th stream. |
+| `streams[i].objects[0]`     | GstBuffer | The buffer pushed to that pad. |
+| `streams[i].sticky_events`  | GstEvent  | The source caps (`GST_EVENT_CAPS`) set on that pad. |
 
 ## Error Conditions
 
-| Condition                             | Behavior                                |
-|---------------------------------------|-----------------------------------------|
-| Buffer missing GstGvaStreammuxMeta    | Returns `GST_FLOW_ERROR`                |
-| `num_src_pads != num_sources`         | Returns `GST_FLOW_ERROR` (first buffer) |
-| `source_id` out of range              | Returns `GST_FLOW_ERROR`                |
-| `batch_id` out of order for a pad     | `GST_WARNING` (continues processing)    |
+| Condition                             | Behavior |
+|---------------------------------------|----------|
+| Buffer missing `GstAnalyticsBatchMeta`| `GST_FLOW_ERROR` (pipeline stops). |
+| `streams[0].index` out of range       | Buffer dropped with `GST_FLOW_ERROR`. |
+| No `src_<index>` pad created          | Buffer dropped with `GST_FLOW_ERROR`. Add the missing pad to receive frames from that source. |
+| Pad index ≥ 256 on request            | `request_new_pad` returns `NULL` (rejected by the element). |
 
 ## Element Details (gst-inspect-1.0)
 
 ```
 Factory Details:
-  Rank                     none (0)
   Long-name                GVA Stream Demuxer
   Klass                    Video/Demuxer
-  Description              Demuxes a single stream into multiple output pads
-                           based on GstGvaStreammuxMeta source_id.
-                           Must be used with gvastreammux.
+  Description              Demuxes a single stream into multiple output pads based on
+                           GstAnalyticsBatchMeta streams[0].index. Must be used with
+                           gvastreammux.
   Author                   Intel Corporation
 
 Pad Templates:
-  SINK template: 'sink'
-    Availability: Always
-    Capabilities:
-      video/x-raw
-               format: { BGRx, BGRA, BGR, NV12, I420, RGB, RGBA, RGBx }
-      video/x-raw(memory:VAMemory)
-               format: { NV12 }
-      video/x-raw(memory:DMABuf)
-               format: { DMA_DRM }
-
-  SRC template: 'src_%u'
-    Availability: On request
-    Capabilities:
-      video/x-raw
-               format: { BGRx, BGRA, BGR, NV12, I420, RGB, RGBA, RGBx }
-      video/x-raw(memory:VAMemory)
-               format: { NV12 }
-      video/x-raw(memory:DMABuf)
-               format: { DMA_DRM }
+  SINK template: 'sink'    (Always, video/x-raw, video/x-raw(memory:VAMemory) NV12,
+                             video/x-raw(memory:DMABuf) DMA_DRM,
+                             multistream/x-analytics-batch(meta:GstAnalyticsBatchMeta))
+  SRC template:  'src_%u'  (On request, the video caps above OR application/x-lidar)
 
 Element Properties:
-  max-fps             : Maximum output frame rate per source (0 = unlimited).
-                        Only set this when the video source is a local file.
-                        Do not set for RTSP or live sources as it may cause pipeline stalls.
-                        flags: readable, writable
-                        Double. Range: 0 - 1.797693e+308  Default: 0
-  name                : The name of the object
-                        flags: readable, writable
-                        String. Default: "gvastreamdemux0"
-  parent              : The parent of the object
-                        flags: readable, writable
-                        Object of type "GstObject"
+  max-fps  Double, range 0-Inf, default 0
 ```
+
+Run `gst-inspect-1.0 gvastreamdemux` against your installation for the authoritative output.

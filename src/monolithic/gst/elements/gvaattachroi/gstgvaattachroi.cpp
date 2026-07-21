@@ -335,7 +335,7 @@ static GstFlowReturn gst_gva_attach_roi_transform_ip(GstBaseTransform *trans, Gs
     try {
         g_assert(self->impl);
         GVA::VideoFrame vf(buf, self->info);
-        self->impl->attachMetas(vf, buf, ts);
+        self->impl->attachMetas(vf, ts);
     } catch (std::exception &e) {
         GST_ELEMENT_ERROR(self, RESOURCE, FAILED, ("%s", "Error attaching meta!"),
                           ("Reason: %s", Utils::createNestedErrorMsg(e).c_str()));

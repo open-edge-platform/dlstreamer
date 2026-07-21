@@ -33,6 +33,7 @@ import test_pipeline_g3dradarprocess
 import test_pipeline_g3dlidarparse
 import test_pipeline_g3dlidarsrc
 import test_pipeline_g3dinference
+import test_pipeline_g3dobjectfuser
 
 if __name__ == '__main__':
     loader = unittest.TestLoader()
@@ -75,6 +76,8 @@ if __name__ == '__main__':
         test_pipeline_g3dlidarsrc))
     suite_gstgva.addTests(loader.loadTestsFromModule(
         test_pipeline_g3dinference))
+    suite_gstgva.addTests(loader.loadTestsFromModule(
+        test_pipeline_g3dobjectfuser))
 
     runner = unittest.TextTestRunner(verbosity=3)
     result = runner.run(suite_gstgva)

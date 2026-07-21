@@ -16,7 +16,8 @@ This sample builds a pipeline of:
 The `g3dlidarparse` element performs:
 1. **Input parsing**: Reads raw LiDAR frames from `application/octet-stream`
 2. **Frame thinning**: Applies `stride` and `frame-rate` controls
-3. **Metadata attachment**: Emits `LidarMeta` with point cloud data
+3. **Timestamp management**: Sets PTS and duration on output buffers for proper synchronization
+4. **Metadata attachment**: Emits `LidarMeta` with point cloud data
 
 ## Prerequisites
 
@@ -72,8 +73,8 @@ GST_DEBUG=g3dlidarparse:5 gst-launch-1.0 multifilesrc location="pcd/%06d.pcd" st
 Where:
 * `location` points to a sequence of `.bin` or `.pcd` files (zero-padded index)
 * `start-index` selects the starting frame index
-* `stride` controls how often frames are processed
-* `frame-rate` throttles the output frame rate
+* `stride` controls how often frames are processed (e.g., stride=2 processes every other frame)
+* `frame-rate` sets the target output frame rate and controls buffer timestamps (0 = no rate control)
 
 ## Sample Output
 

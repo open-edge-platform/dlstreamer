@@ -17,8 +17,8 @@ param(
 )
 
 $GSTREAMER_VERSION = "1.28.2"
-$OPENVINO_VERSION = "2026.1.0"
-$OPENVINO_VERSION_SHORT = "2026.1"
+$OPENVINO_VERSION = "2026.2.0"
+$OPENVINO_VERSION_SHORT = "2026.2"
 $PYTHON_VERSION = "3.12.7"
 $OPENVINO_DEST_FOLDER = "$env:LOCALAPPDATA\Programs\openvino"
 $GSTREAMER_DEST_FOLDER = "$env:ProgramFiles\gstreamer\1.0\msvc_x86_64"
@@ -26,7 +26,7 @@ $DLSTREAMER_TMP = "$env:TEMP\dlstreamer_tmp"
 $DLSTREAMER_SRC_LOCATION = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot ".."))
 $GSTANALYTICS_PATCH_SCRIPT = Join-Path $DLSTREAMER_SRC_LOCATION "dependencies\windows\install_gstanalytics_patch.ps1"
 $GSTANALYTICS_BUILD_SCRIPT = Join-Path $DLSTREAMER_SRC_LOCATION "dependencies\windows\build_gstanalytics_zip.ps1"
-$GSTANALYTICS_ZIP          = Join-Path $DLSTREAMER_SRC_LOCATION "dependencies\windows\gstanalytics.zip"
+$GSTANALYTICS_ZIP = Join-Path $DLSTREAMER_SRC_LOCATION "dependencies\windows\gstanalytics.zip"
 
 if ($useInternalProxy) {
 	$env:HTTP_PROXY = "http://proxy-dmz.intel.com:911"
@@ -47,6 +47,68 @@ if (-Not (Test-Path $DLSTREAMER_TMP)) {
 
 function Update-Path {
 	$env:PATH = [Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [Environment]::GetEnvironmentVariable("Path", "User")
+}
+
+function Install-WinGet {
+	# Install or repair the WinGet CLI via the Microsoft.WinGet.Client module.
+	$progressPreference = 'silentlyContinue'
+	Install-PackageProvider -Name NuGet -Force | Out-Null
+	Install-Module -Name Microsoft.WinGet.Client -Force -Repository PSGallery | Out-Null
+	Write-Host "Using Repair-WinGetPackageManager cmdlet to bootstrap WinGet..."
+	Repair-WinGetPackageManager -AllUsers
+	Update-Path
+}
+
+function Test-WinGetSourceHealthy {
+	# Probe the source with an actual query. A broken source fails with 0x8a15000f /
+	# "Failed when opening source(s)", while a healthy source does not.
+	if (-Not (Get-Command winget -ErrorAction SilentlyContinue)) {
+		return $false
+	}
+	$output = winget search --id Git.Git --source winget --accept-source-agreements --disable-interactivity 2>&1
+	return (($output | Out-String) -notmatch '0x8a15000f|Failed when opening source')
+}
+
+function Repair-WinGetSource {
+	if (Test-WinGetSourceHealthy) {
+		return $true
+	}
+
+	Write-Host "WinGet source error detected - reinstalling WinGet..."
+	Install-WinGet
+	winget source reset --force 2>&1 | Out-Host
+	winget source update 2>&1 | Out-Host
+	if (Test-WinGetSourceHealthy) {
+		return $true
+	}
+
+	Write-Host "Warning: WinGet sources are still unhealthy after reinstall; package steps may fail."
+	return $false
+}
+
+function Test-PythonInstalled {
+	$pythonCmd = Get-Command python -ErrorAction SilentlyContinue
+	if (-Not $pythonCmd) {
+		return $false
+	}
+	# The Microsoft Store "App execution alias" installs a stub python.exe under
+	# WindowsApps that only prints "Python was not found; run without arguments to
+	# install from the Microsoft Store..." instead of running Python. Treat it as
+	# not installed.
+	if ($pythonCmd.Source -and $pythonCmd.Source -like "*\WindowsApps\*") {
+		return $false
+	}
+	# Verify python actually runs and reports a real version.
+	try {
+		$versionOutput = & python --version 2>&1
+		if ($LASTEXITCODE -ne 0) {
+			return $false
+		}
+		return ($versionOutput -match 'Python\s+\d+\.\d+\.\d+')
+	}
+	catch {
+		return $false
+	}
 }
 
 function Write-Section {
@@ -150,19 +212,14 @@ function Uninstall-GStreamer {
 # WinGet
 # ============================================================================
 if (-Not (Get-Command winget -errorAction SilentlyContinue)) {
-	$progressPreference = 'silentlyContinue'
-	Write-Section "Installing WinGet PowerShell module from PSGallery"
-	Install-PackageProvider -Name NuGet -Force | Out-Null
-	Install-Module -Name Microsoft.WinGet.Client -Force -Repository PSGallery | Out-Null
-	Write-Host "Using Repair-WinGetPackageManager cmdlet to bootstrap WinGet..."
-	Repair-WinGetPackageManager -AllUsers
-	winget source update
-	Write-Section "Done"
+	Write-Section "Installing WinGet"
+	Install-WinGet
 }
 else {
-	winget source update
 	Write-Section "WinGet already installed"
 }
+Repair-WinGetSource | Out-Null
+Write-Section "Done"
 
 # ============================================================================
 # VS BuildTools, vcpkg and Windows SDK
@@ -364,13 +421,30 @@ if (-Not $gitInstalled) {
 	Write-Section "Installing Git"
 	winget install --id Git.Git --source winget --silent --accept-package-agreements --accept-source-agreements
 	Update-Path
-	New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" -Name "LongPathsEnabled" -Value 1 -PropertyType DWORD -Force
-	git config --system core.longpaths true
 	Write-Section "Done"
 }
 else {
 	git --version
 	Write-Section "Git already installed"
+}
+
+# ============================================================================
+# Long paths
+# ============================================================================
+$longPathsKey = "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem"
+$longPathsEnabled = (Get-ItemProperty -Path $longPathsKey -Name "LongPathsEnabled" -ErrorAction SilentlyContinue).LongPathsEnabled
+if ($longPathsEnabled -ne 1) {
+	Write-Section "Enabled Windows long paths"
+	New-ItemProperty -Path $longPathsKey -Name "LongPathsEnabled" -Value 1 -PropertyType DWORD -Force | Out-Null
+}
+else {
+	Write-Section "Windows long paths already enabled"
+}
+# Ensure Git also handles long paths
+if ($null -ne (Get-Command git -ErrorAction SilentlyContinue)) {
+	if ((git config --system --get core.longpaths) -ne "true") {
+		git config --system core.longpaths true
+	}
 }
 
 # ============================================================================
@@ -433,7 +507,7 @@ winget upgrade Git.Git Kitware.CMake NSIS.NSIS -e --source winget
 # ============================================================================
 # Python
 # ============================================================================
-if (-Not (Get-Command python -errorAction SilentlyContinue)) {
+if (-Not (Test-PythonInstalled)) {
 	Write-Section "Installing Python"
 	Invoke-DownloadFile -OutFile "${DLSTREAMER_TMP}\python-${PYTHON_VERSION}-amd64.exe" -Uri "https://www.python.org/ftp/python/${PYTHON_VERSION}/python-${PYTHON_VERSION}-amd64.exe"
 	$process = Start-Process -Wait -PassThru -FilePath "${DLSTREAMER_TMP}\python-${PYTHON_VERSION}-amd64.exe"  -ArgumentList "/quiet", "InstallAllUsers=1", "PrependPath=1", "Include_test=0"
@@ -455,7 +529,6 @@ Write-Section "Setting paths"
 # Ensure GStreamer bin is in user PATH for GStreamer 1.28+
 $GSTREAMER_BIN = "$GSTREAMER_DEST_FOLDER\bin"
 $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
-$vParts = $GSTREAMER_VERSION.Split('.') | ForEach-Object { [int]$_ }
 if ($userPath -split ';' -notcontains $GSTREAMER_BIN) {
 	[Environment]::SetEnvironmentVariable('Path', "$userPath;$GSTREAMER_BIN", [System.EnvironmentVariableTarget]::User)
 	Write-Host "Added to user PATH: $GSTREAMER_BIN"
