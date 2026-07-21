@@ -42,7 +42,7 @@ llava-hf/llava-1.5-7b-hf@b234b804b114d9e37bb655e11cbbb5f5e971b7a9
 # qnguyen3/nanoLLaVA-1.5@5b01b8622fe3750d90d7ddc31059a74015a16fb9
 
 # LlavaNextForConditionalGeneration (SUPPORTED_HF_MODELS)
-llava-hf/llava-v1.6-mistral-7b-hf@2424fdd47412fccc66d91719126b420e9fbd7065
+# llava-hf/llava-v1.6-mistral-7b-hf@2424fdd47412fccc66d91719126b420e9fbd7065
 
 # LlavaNextVideoForConditionalGeneration (SUPPORTED_HF_MODELS)
 llava-hf/LLaVA-NeXT-Video-7B-hf@f417d9edeb69a9eaa88283780332d00ce3c66593
