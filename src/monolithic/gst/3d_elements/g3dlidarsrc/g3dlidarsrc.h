@@ -14,8 +14,7 @@ G_BEGIN_DECLS
 
 #define GST_TYPE_G3D_LIDAR_SRC (gst_g3d_lidar_src_get_type())
 #define GST_G3D_LIDAR_SRC(obj) (G_TYPE_CHECK_INSTANCE_CAST((obj), GST_TYPE_G3D_LIDAR_SRC, GstG3DLidarSrc))
-#define GST_G3D_LIDAR_SRC_CLASS(klass)                                                                                 \
-    (G_TYPE_CHECK_CLASS_CAST((klass), GST_TYPE_G3D_LIDAR_SRC, GstG3DLidarSrcClass))
+#define GST_G3D_LIDAR_SRC_CLASS(klass) (G_TYPE_CHECK_CLASS_CAST((klass), GST_TYPE_G3D_LIDAR_SRC, GstG3DLidarSrcClass))
 #define GST_IS_G3D_LIDAR_SRC(obj) (G_TYPE_CHECK_INSTANCE_TYPE((obj), GST_TYPE_G3D_LIDAR_SRC))
 #define GST_IS_G3D_LIDAR_SRC_CLASS(klass) (G_TYPE_CHECK_CLASS_TYPE((klass), GST_TYPE_G3D_LIDAR_SRC))
 
@@ -27,9 +26,9 @@ struct _GstG3DLidarSrc {
     GstPushSrc parent;
 
     /* Properties */
-    gchar *config;      /* Path to JSON config (vendor/model/transport) */
-    gboolean ntp_sync;  /* TRUE = use LiDAR clock, FALSE = use pipeline clock */
-    guint64 timeout;    /* Timeout in microseconds (0 = disabled) */
+    gchar *config;     /* Path to JSON config (vendor/model/transport) */
+    gboolean ntp_sync; /* TRUE = use LiDAR clock, FALSE = use pipeline clock */
+    guint64 timeout;   /* Timeout in microseconds (0 = disabled) */
 
     /* Internal state */
     guint stream_id;

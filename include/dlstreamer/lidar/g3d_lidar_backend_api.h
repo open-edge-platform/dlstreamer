@@ -48,10 +48,10 @@ extern "C" {
 /* Error codes returned by the backend entry points. */
 typedef enum g3d_lidar_error_code {
     G3D_LIDAR_OK = 0,
-    G3D_LIDAR_NULLPTR,     /* a required argument was NULL */
-    G3D_LIDAR_BAD_PARAMS,  /* params JSON invalid / unknown key / bad model */
-    G3D_LIDAR_INIT_FAIL,   /* vendor SDK init() failed */
-    G3D_LIDAR_START_FAIL,  /* vendor SDK start() failed */
+    G3D_LIDAR_NULLPTR,    /* a required argument was NULL */
+    G3D_LIDAR_BAD_PARAMS, /* params JSON invalid / unknown key / bad model */
+    G3D_LIDAR_INIT_FAIL,  /* vendor SDK init() failed */
+    G3D_LIDAR_START_FAIL, /* vendor SDK start() failed */
 } g3d_lidar_error_code;
 
 /* Opaque backend instance (wraps the vendor SDK driver). */

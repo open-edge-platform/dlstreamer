@@ -14,13 +14,13 @@
 
 #include "lidar_config.hpp"
 
+#include <chrono>
+#include <condition_variable>
 #include <memory>
 #include <mutex>
-#include <condition_variable>
 #include <queue>
-#include <string>
-#include <chrono>
 #include <stdexcept>
+#include <string>
 #include <vector>
 
 /* The vendor backend library is loaded by bare name at runtime:
@@ -39,20 +39,14 @@ GST_DEBUG_CATEGORY_STATIC(gst_g3d_lidar_src_debug);
 #define GST_CAT_DEFAULT gst_g3d_lidar_src_debug
 
 /* Property IDs */
-enum {
-    PROP_0,
-    PROP_CONFIG,
-    PROP_NTP_SYNC,
-    PROP_TIMEOUT,
-    PROP_STREAM_ID
-};
+enum { PROP_0, PROP_CONFIG, PROP_NTP_SYNC, PROP_TIMEOUT, PROP_STREAM_ID };
 
 /* Default values */
 #define DEFAULT_CONFIG NULL     /* no config file by default (required at start) */
 #define DEFAULT_NTP_SYNC FALSE  /* FALSE = use pipeline clock (same as rtspsrc default) */
 #define DEFAULT_TIMEOUT 5000000 /* 5 seconds in microseconds (same as rtspsrc default) */
 
-#define FRAME_QUEUE_TIMEOUT_MS 500      /* Wait timeout in create() */
+#define FRAME_QUEUE_TIMEOUT_MS 500 /* Wait timeout in create() */
 #define MAX_FRAME_QUEUE_SIZE 10
 #define USEC_TO_SEC(us) ((us) / 1000000.0) /* Convert microseconds to seconds */
 
@@ -71,10 +65,11 @@ struct LidarFrame {
 /* Private data structure (C++ objects hidden from GObject C header) */
 struct _GstG3DLidarSrcPrivate {
     /* Vendor backend (g3dlidar_<vendor>.dll or libg3dlidar_<vendor>.so), loaded at runtime via dlopen(). */
-    void *sdk_handle;              /* dlopen() handle for the backend .so */
-    g3d_lidar_backend_handle *rs;  /* backend instance */
+    void *sdk_handle;             /* dlopen() handle for the backend .so */
+    g3d_lidar_backend_handle *rs; /* backend instance */
     g3d_lidar_backend_handle *(*create_fn)(void);
-    g3d_lidar_error_code (*set_callbacks_fn)(g3d_lidar_backend_handle *, g3d_lidar_cloud_cb, g3d_lidar_error_cb, void *);
+    g3d_lidar_error_code (*set_callbacks_fn)(g3d_lidar_backend_handle *, g3d_lidar_cloud_cb, g3d_lidar_error_cb,
+                                             void *);
     g3d_lidar_error_code (*init_fn)(g3d_lidar_backend_handle *, const g3d_lidar_params *, char *, int);
     g3d_lidar_error_code (*start_fn)(g3d_lidar_backend_handle *);
     void (*stop_fn)(g3d_lidar_backend_handle *);
@@ -131,16 +126,13 @@ static void gst_g3d_lidar_src_class_init(GstG3DLidarSrcClass *klass) {
 
     g_object_class_install_property(
         gobject_class, PROP_TIMEOUT,
-        g_param_spec_uint64("timeout", "Timeout",
-                            "Timeout in microseconds for receiving data (0 = no timeout)",
-                            0, G_MAXUINT64, DEFAULT_TIMEOUT,
-                            (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+        g_param_spec_uint64("timeout", "Timeout", "Timeout in microseconds for receiving data (0 = no timeout)", 0,
+                            G_MAXUINT64, DEFAULT_TIMEOUT, (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
     g_object_class_install_property(
         gobject_class, PROP_STREAM_ID,
-        g_param_spec_uint("stream-id", "Stream ID",
-                          "Stream identifier for this LiDAR source (used in metadata)",
-                          0, G_MAXUINT, 0, (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+        g_param_spec_uint("stream-id", "Stream ID", "Stream identifier for this LiDAR source (used in metadata)", 0,
+                          G_MAXUINT, 0, (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
     /* Element metadata */
     gst_element_class_set_static_metadata(gstelement_class, "G3D LiDAR Source", "Source/Device",
@@ -165,9 +157,7 @@ static void gst_g3d_lidar_src_class_init(GstG3DLidarSrcClass *klass) {
      * num-buffers and automatic-eos are intentionally left alone — they are
      * useful (e.g. `num-buffers=10` for tests) and have well-defined behavior
      * for our element. */
-    static const char *deprecated_inherited[] = {
-        "blocksize", "do-timestamp", "typefind", NULL
-    };
+    static const char *deprecated_inherited[] = {"blocksize", "do-timestamp", "typefind", NULL};
     for (const char **p = deprecated_inherited; *p != NULL; p++) {
         GParamSpec *pspec = g_object_class_find_property(gobject_class, *p);
         if (pspec)
@@ -334,16 +324,16 @@ static gboolean gst_g3d_lidar_src_start(GstBaseSrc *src) {
         GstBaseSrc *base = GST_BASE_SRC(self);
         if (gst_base_src_get_blocksize(base) != 0) {
             GST_ELEMENT_WARNING(self, RESOURCE, SETTINGS, (NULL),
-                ("'blocksize' is not applicable to g3dlidarsrc (this element produces "
-                 "frame-sized point-cloud buffers via create(), not byte-stream chunks). "
-                 "Ignoring user value and resetting to 0."));
+                                ("'blocksize' is not applicable to g3dlidarsrc (this element produces "
+                                 "frame-sized point-cloud buffers via create(), not byte-stream chunks). "
+                                 "Ignoring user value and resetting to 0."));
             gst_base_src_set_blocksize(base, 0);
         }
         if (gst_base_src_get_do_timestamp(base)) {
             GST_ELEMENT_WARNING(self, RESOURCE, SETTINGS, (NULL),
-                ("'do-timestamp=true' would override the PTS this element computes "
-                 "and break the 'ntp-sync' property. Use 'ntp-sync' to choose the "
-                 "timestamp source. Ignoring user value and resetting to false."));
+                                ("'do-timestamp=true' would override the PTS this element computes "
+                                 "and break the 'ntp-sync' property. Use 'ntp-sync' to choose the "
+                                 "timestamp source. Ignoring user value and resetting to false."));
             gst_base_src_set_do_timestamp(base, FALSE);
         }
     }
@@ -371,8 +361,7 @@ static gboolean gst_g3d_lidar_src_start(GstBaseSrc *src) {
      * so the element does not hardcode a vendor allowlist. */
     if (cfg.transport.type != g3dlidar::TransportType::UDP) {
         GST_ELEMENT_ERROR(self, RESOURCE, NOT_FOUND, (NULL),
-                          ("Unsupported transport '%s' (only 'udp' is implemented)",
-                           cfg.transport.type_str.c_str()));
+                          ("Unsupported transport '%s' (only 'udp' is implemented)", cfg.transport.type_str.c_str()));
         return FALSE;
     }
 
@@ -392,8 +381,7 @@ static gboolean gst_g3d_lidar_src_start(GstBaseSrc *src) {
     params.use_lidar_clock = self->ntp_sync ? 1 : 0;
     params.params_json = params_json.c_str();
 
-    GST_INFO_OBJECT(self,
-                    "Starting g3dlidarsrc: vendor=%s model=%s transport=udp bind=%s ntp-sync=%s",
+    GST_INFO_OBJECT(self, "Starting g3dlidarsrc: vendor=%s model=%s transport=udp bind=%s ntp-sync=%s",
                     cfg.vendor.c_str(), cfg.model.c_str(), cfg.transport.bind_address.c_str(),
                     self->ntp_sync ? "true" : "false");
 
@@ -426,11 +414,11 @@ static gboolean gst_g3d_lidar_src_start(GstBaseSrc *src) {
 
     G3D_LOAD_SYM(create_fn, g3d_lidar_backend_handle * (*)(void), "g3d_lidar_backend_create");
     G3D_LOAD_SYM(set_callbacks_fn,
-                 g3d_lidar_error_code(*)(g3d_lidar_backend_handle *, g3d_lidar_cloud_cb, g3d_lidar_error_cb, void *),
+                 g3d_lidar_error_code (*)(g3d_lidar_backend_handle *, g3d_lidar_cloud_cb, g3d_lidar_error_cb, void *),
                  "g3d_lidar_backend_set_callbacks");
-    G3D_LOAD_SYM(init_fn, g3d_lidar_error_code(*)(g3d_lidar_backend_handle *, const g3d_lidar_params *, char *, int),
+    G3D_LOAD_SYM(init_fn, g3d_lidar_error_code (*)(g3d_lidar_backend_handle *, const g3d_lidar_params *, char *, int),
                  "g3d_lidar_backend_init");
-    G3D_LOAD_SYM(start_fn, g3d_lidar_error_code(*)(g3d_lidar_backend_handle *), "g3d_lidar_backend_start");
+    G3D_LOAD_SYM(start_fn, g3d_lidar_error_code (*)(g3d_lidar_backend_handle *), "g3d_lidar_backend_start");
     G3D_LOAD_SYM(stop_fn, void (*)(g3d_lidar_backend_handle *), "g3d_lidar_backend_stop");
     G3D_LOAD_SYM(destroy_fn, void (*)(g3d_lidar_backend_handle *), "g3d_lidar_backend_destroy");
 #undef G3D_LOAD_SYM
@@ -438,8 +426,8 @@ static gboolean gst_g3d_lidar_src_start(GstBaseSrc *src) {
     /* Create backend instance and register callbacks. */
     self->priv->rs = self->priv->create_fn();
     if (!self->priv->rs) {
-        GST_ELEMENT_ERROR(self, RESOURCE, OPEN_READ, (NULL), ("Failed to create '%s' backend instance",
-                          cfg.vendor.c_str()));
+        GST_ELEMENT_ERROR(self, RESOURCE, OPEN_READ, (NULL),
+                          ("Failed to create '%s' backend instance", cfg.vendor.c_str()));
         dlclose(self->priv->sdk_handle);
         self->priv->sdk_handle = nullptr;
         return FALSE;
@@ -450,9 +438,9 @@ static gboolean gst_g3d_lidar_src_start(GstBaseSrc *src) {
      * failure (bad params, unknown model, SDK init failure). */
     char err_buf[256] = {0};
     if (self->priv->init_fn(self->priv->rs, &params, err_buf, (int)sizeof(err_buf)) != G3D_LIDAR_OK) {
-        GST_ELEMENT_ERROR(self, RESOURCE, OPEN_READ, (NULL),
-                          ("Failed to initialize '%s' backend: %s", cfg.vendor.c_str(),
-                           err_buf[0] ? err_buf : "(no detail)"));
+        GST_ELEMENT_ERROR(
+            self, RESOURCE, OPEN_READ, (NULL),
+            ("Failed to initialize '%s' backend: %s", cfg.vendor.c_str(), err_buf[0] ? err_buf : "(no detail)"));
         self->priv->destroy_fn(self->priv->rs);
         self->priv->rs = nullptr;
         dlclose(self->priv->sdk_handle);
@@ -474,7 +462,8 @@ static gboolean gst_g3d_lidar_src_start(GstBaseSrc *src) {
     self->priv->last_frame_time = std::chrono::steady_clock::now();
     self->frame_seq = 0;
 
-    GST_INFO_OBJECT(self, "g3dlidarsrc started successfully, waiting for data from device... "
+    GST_INFO_OBJECT(self,
+                    "g3dlidarsrc started successfully, waiting for data from device... "
                     "(timeout=%.1fs)",
                     USEC_TO_SEC(self->timeout));
     return TRUE;
@@ -541,20 +530,19 @@ static GstFlowReturn gst_g3d_lidar_src_create(GstPushSrc *src, GstBuffer **buf) 
             /* Check timeout (like rtspsrc timeout handling) */
             if (self->timeout > 0) {
                 auto now = std::chrono::steady_clock::now();
-                auto elapsed_us = std::chrono::duration_cast<std::chrono::microseconds>(
-                    now - self->priv->last_frame_time).count();
+                auto elapsed_us =
+                    std::chrono::duration_cast<std::chrono::microseconds>(now - self->priv->last_frame_time).count();
 
                 /* Cast to gint64 to match elapsed_us type from chrono::count() */
                 if (elapsed_us >= (gint64)self->timeout) {
                     GST_ELEMENT_ERROR(self, RESOURCE, READ, (NULL),
-                        ("Timeout receiving data from LiDAR device. "
-                         "No frames received for %.4f seconds. "
-                         "Device may not be connected or network may be misconfigured. "
-                         "Check: 1) Device is powered on and connected, "
-                         "2) Transport settings in config '%s', "
-                         "3) Firewall settings.",
-                         USEC_TO_SEC(self->timeout),
-                         self->config));
+                                      ("Timeout receiving data from LiDAR device. "
+                                       "No frames received for %.4f seconds. "
+                                       "Device may not be connected or network may be misconfigured. "
+                                       "Check: 1) Device is powered on and connected, "
+                                       "2) Transport settings in config '%s', "
+                                       "3) Firewall settings.",
+                                       USEC_TO_SEC(self->timeout), self->config));
                     return GST_FLOW_ERROR;
                 }
             }
@@ -632,8 +620,8 @@ static GstFlowReturn gst_g3d_lidar_src_create(GstPushSrc *src, GstBuffer **buf) 
     /* Attach LidarMeta */
     add_lidar_meta(*buf, (guint)point_count, self->frame_seq, frame_ts, self->stream_id);
 
-    GST_LOG_OBJECT(self, "Frame %zu: %zu points, payload %zu bytes, ts=%" GST_TIME_FORMAT, self->frame_seq,
-                   point_count, payload_size, GST_TIME_ARGS(frame_ts));
+    GST_LOG_OBJECT(self, "Frame %zu: %zu points, payload %zu bytes, ts=%" GST_TIME_FORMAT, self->frame_seq, point_count,
+                   payload_size, GST_TIME_ARGS(frame_ts));
 
     self->frame_seq++;
 

@@ -89,13 +89,15 @@ static void apply_robosense_params(const char *params_json, RSDriverParam &param
     }
 
     auto get_bool = [&](const char *key, bool def) {
-        if (!p.contains(key)) return def;
+        if (!p.contains(key))
+            return def;
         if (!p[key].is_boolean())
             throw std::runtime_error(std::string("params.") + key + " must be a boolean");
         return p[key].get<bool>();
     };
     auto get_uint = [&](const char *key, unsigned def, unsigned max) {
-        if (!p.contains(key)) return def;
+        if (!p.contains(key))
+            return def;
         if (!p[key].is_number_unsigned())
             throw std::runtime_error(std::string("params.") + key + " must be a non-negative integer");
         unsigned v = p[key].get<unsigned>();
@@ -104,7 +106,8 @@ static void apply_robosense_params(const char *params_json, RSDriverParam &param
         return v;
     };
     auto get_float = [&](const char *key, float def) {
-        if (!p.contains(key)) return def;
+        if (!p.contains(key))
+            return def;
         if (!p[key].is_number())
             throw std::runtime_error(std::string("params.") + key + " must be a number");
         return p[key].get<float>();
@@ -128,22 +131,25 @@ static void apply_robosense_params(const char *params_json, RSDriverParam &param
      * "msop_pot" would otherwise leave the user wondering why their port change
      * had no effect. Update this list whenever a key is added above. */
     static const char *const known_keys[] = {
-        "msop_port", "difop_port", "socket_recv_buf", "min_distance",
-        "max_distance", "dense_points", "ts_first_point", "wait_for_difop",
+        "msop_port",    "difop_port",   "socket_recv_buf", "min_distance",
+        "max_distance", "dense_points", "ts_first_point",  "wait_for_difop",
     };
     for (auto it = p.begin(); it != p.end(); ++it) {
         bool ok = false;
         for (const char *k : known_keys)
-            if (it.key() == k) { ok = true; break; }
+            if (it.key() == k) {
+                ok = true;
+                break;
+            }
         if (!ok) {
             std::string accepted;
             for (size_t i = 0; i < sizeof(known_keys) / sizeof(known_keys[0]); ++i) {
-                if (i) accepted += ", ";
+                if (i)
+                    accepted += ", ";
                 accepted += known_keys[i];
             }
             throw std::runtime_error("unknown key 'params." + it.key() +
-                                     "' (check for typos; accepted keys for vendor 'robosense' are: " +
-                                     accepted + ")");
+                                     "' (check for typos; accepted keys for vendor 'robosense' are: " + accepted + ")");
         }
     }
 }
@@ -155,8 +161,8 @@ G3D_LIDAR_BACKEND_EXPORT g3d_lidar_backend_handle *g3d_lidar_backend_create(void
 }
 
 G3D_LIDAR_BACKEND_EXPORT g3d_lidar_error_code g3d_lidar_backend_set_callbacks(g3d_lidar_backend_handle *h,
-                                                     g3d_lidar_cloud_cb on_cloud,
-                                                     g3d_lidar_error_cb on_error, void *user) {
+                                                                              g3d_lidar_cloud_cb on_cloud,
+                                                                              g3d_lidar_error_cb on_error, void *user) {
     if (!h)
         return G3D_LIDAR_NULLPTR;
     h->cloud_cb = on_cloud;
@@ -166,7 +172,8 @@ G3D_LIDAR_BACKEND_EXPORT g3d_lidar_error_code g3d_lidar_backend_set_callbacks(g3
 }
 
 G3D_LIDAR_BACKEND_EXPORT g3d_lidar_error_code g3d_lidar_backend_init(g3d_lidar_backend_handle *h,
-                                            const g3d_lidar_params *params, char *err_buf, int err_size) {
+                                                                     const g3d_lidar_params *params, char *err_buf,
+                                                                     int err_size) {
     if (!h || !params || !params->model)
         return G3D_LIDAR_NULLPTR;
 
@@ -188,8 +195,9 @@ G3D_LIDAR_BACKEND_EXPORT g3d_lidar_error_code g3d_lidar_backend_init(g3d_lidar_b
 
     /* Register callbacks: get_cloud supplies an empty buffer, put_cloud bridges
      * the completed frame to the C callback. */
-    h->driver.regPointCloudCallback([]() -> std::shared_ptr<PointCloudMsg> { return std::make_shared<PointCloudMsg>(); },
-                                    [h](std::shared_ptr<PointCloudMsg> cloud) { put_cloud(h, cloud); });
+    h->driver.regPointCloudCallback(
+        []() -> std::shared_ptr<PointCloudMsg> { return std::make_shared<PointCloudMsg>(); },
+        [h](std::shared_ptr<PointCloudMsg> cloud) { put_cloud(h, cloud); });
 
     h->driver.regExceptionCallback([h](const Error &e) {
         if (h->error_cb)
