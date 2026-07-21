@@ -22,6 +22,7 @@ from openvino import save_model
 from openvino.tools.ovc import convert_model
 from optimum.exporters.onnx import main_export
 from transformers import AutoModelForDepthEstimation, CLIPVisionModel
+from transformers import AutoModelForVideoClassification
 from transformers import AutoConfig
 from transformers import AutoProcessor, AutoImageProcessor
 from PIL import Image
@@ -42,7 +43,6 @@ SUPPORTED_HF_MODELS = {
     "Qwen2_5_VLForConditionalGeneration",
     "Gemma3ForConditionalGeneration",
     "WhisperForConditionalGeneration",
-    "VideoMAEForVideoClassification",
 }
 
 CUSTOM_CONVERTERS = {
@@ -50,6 +50,7 @@ CUSTOM_CONVERTERS = {
     "rtdetrforobjectdetection",
     "rtdetrv2forobjectdetection",
     "depthanythingfordepthestimation",
+    "videomaeforvideoclassification",
 }
 
 
@@ -70,7 +71,6 @@ OPTIMUM_TASK_BY_ARCH = {
     "phi4mmforcausallm": "image-text-to-text",
     "qwen2vlforconditionalgeneration": "image-text-to-text",
     "qwen2_5_vlforconditionalgeneration": "image-text-to-text",
-    "videomaeforvideoclassification": "video-classification",
 }
 
 
@@ -255,6 +255,15 @@ def custom_conversion(
                 extra_args=extra_args,
             ),
         ),
+        "videomaeforvideoclassification": (
+            "a VideoMAE model",
+            lambda: export_hf_videomae_to_openvino(
+                local_model_dir,
+                export_dir,
+                token,
+                extra_args=extra_args,
+            ),
+        ),
     }
 
     model_description, export_handler = handlers[primary_arch]
@@ -399,6 +408,55 @@ def export_hf_depthanything_to_openvino(
     ov_model = convert_model(model, example_input=batch)
 
     # Copy configs from local cached model to output directory
+    for config_file in ["config.json", "preprocessor_config.json"]:
+        config_src = local_model_dir / config_file
+        config_dst = outdir / config_file
+        if config_src.exists():
+            shutil.copy(config_src, config_dst)
+
+    model_name = local_model_dir.name
+    save_model(ov_model, str(outdir / f"{model_name}.xml"))
+
+    return outdir
+
+
+def export_hf_videomae_to_openvino(
+    local_model_dir: str | Path,
+    outdir: Path,
+    token: str | None,
+    extra_args: list[str] | None = None,
+) -> Path:
+    """Export VideoMAE via PyTorch -> OpenVINO IR.
+
+    Args:
+        local_model_dir: Path to locally cached VideoMAE model
+        outdir: Output directory for conversion
+        token: Unused, kept for compatibility
+        extra_args: Unused, kept for compatibility
+
+    Requires `transformers`, `huggingface_hub`, and `openvino` to be installed.
+    """
+    outdir.mkdir(parents=True, exist_ok=True)
+    _ = extra_args
+    _ = token
+    local_model_dir = Path(local_model_dir)
+
+    model = AutoModelForVideoClassification.from_pretrained(str(local_model_dir))
+    model.eval()
+
+    processor = AutoImageProcessor.from_pretrained(str(local_model_dir))
+
+    config = AutoConfig.from_pretrained(str(local_model_dir))
+    num_frames = int(getattr(config, "num_frames", 16))
+    image_size = int(getattr(config, "image_size", 224))
+
+    frames = [Image.new("RGB", (image_size, image_size)) for _ in range(num_frames)]
+    batch = processor(images=frames, return_tensors="pt")["pixel_values"]
+    if batch.dim() == 4:
+        batch = batch.unsqueeze(0)
+
+    ov_model = convert_model(model, example_input=batch)
+
     for config_file in ["config.json", "preprocessor_config.json"]:
         config_src = local_model_dir / config_file
         config_dst = outdir / config_file
