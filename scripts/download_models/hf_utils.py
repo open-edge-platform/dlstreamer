@@ -40,10 +40,9 @@ SUPPORTED_HF_MODELS = {
     "Phi4MMForCausalLM",
     "Qwen2VLForConditionalGeneration",
     "Qwen2_5_VLForConditionalGeneration",
-    "google/gemma-3-4b-it",
-    "google/gemma-3-12b-it",
-    "google/gemma-3-27b-it",
+    "Gemma3ForConditionalGeneration",
     "WhisperForConditionalGeneration",
+    "VideoMAEForVideoClassification",
 }
 
 CUSTOM_CONVERTERS = {
@@ -71,6 +70,7 @@ OPTIMUM_TASK_BY_ARCH = {
     "phi4mmforcausallm": "image-text-to-text",
     "qwen2vlforconditionalgeneration": "image-text-to-text",
     "qwen2_5_vlforconditionalgeneration": "image-text-to-text",
+    "videomaeforvideoclassification": "video-classification",
 }
 
 
