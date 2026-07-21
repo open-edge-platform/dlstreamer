@@ -31,7 +31,8 @@ MODELS_REQUIRING_TRUST_REMOTE_CODE = {
 
 # Additional dependencies required by specific models for export
 MODEL_DEPENDENCIES = {
-    "OpenGVLab/InternVL2-1B": ["einops", "timm","torchvision"],
+    "OpenGVLab/InternVL2-1B": ["einops", "timm", "torchvision"],
+    "openbmb/MiniCPM-o-2_6": ["soundfile"],
 }
 
 
