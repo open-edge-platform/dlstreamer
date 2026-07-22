@@ -11,6 +11,8 @@
 from __future__ import annotations
 
 import json
+import shlex
+import tempfile
 from contextlib import suppress
 import subprocess
 import threading
@@ -843,20 +845,23 @@ class VideoEngine:  # pylint: disable=too-many-instance-attributes,too-many-publ
                 cmd_str = " ".join(str(c) for c in list(command)[:5])
                 print(f"[video_engine] Spawning pipeline for {binding.camera.key()}: {cmd_str}...")
 
-        # Log pipeline stdout/stderr to /tmp for debugging. The handle must
-        # outlive this function: it is handed to subprocess as the pipeline's
-        # stdout/stderr and closed when the process is reaped.
+        # Log pipeline stdout/stderr to a temp file for debugging. The handle
+        # must outlive this function: it is handed to subprocess as the
+        # pipeline's stdout/stderr and closed when the process is reaped.
+        log_name = f"video_engine_pipeline_{binding.binding_id.replace(' ', '_')}.log"
+        log_path = Path(tempfile.gettempdir()) / log_name
         log_file = open(  # pylint: disable=consider-using-with
-            f"/tmp/video_engine_pipeline_{binding.binding_id.replace(' ', '_')}.log",
+            log_path,
             "w",
             encoding="utf-8",
         )
         if self._verbose:
             print(f"[video_engine] Logging pipeline output to: {log_file.name}")
 
-        if isinstance(command, str):
-            return subprocess.Popen(command, shell=True, stdout=log_file, stderr=subprocess.STDOUT)
-        return subprocess.Popen(list(command), stdout=log_file, stderr=subprocess.STDOUT)
+        # Split a string command into argv so the pipeline runs without a shell
+        # (avoids shell-injection; Bandit B602).
+        argv = shlex.split(command) if isinstance(command, str) else list(command)
+        return subprocess.Popen(argv, stdout=log_file, stderr=subprocess.STDOUT)
 
     def _resolve_pipeline_command(self, binding: PipelineBinding) -> Sequence[str] | str:
         """Resolve {rtsp_url} placeholder in pipeline using camera profile."""
