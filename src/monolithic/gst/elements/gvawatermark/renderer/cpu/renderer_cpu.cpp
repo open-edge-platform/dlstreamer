@@ -12,16 +12,6 @@
 
 namespace {
 
-// Compute a Gaussian blur kernel size proportional to the ROI so that larger
-// regions get a stronger blur.  The kernel must be positive and odd for
-// cv::GaussianBlur.  Using ~1/3 of each dimension with a minimum of 7
-// keeps small objects blurred while scaling up for bigger regions.
-cv::Size computeBlurKernelSize(int roi_width, int roi_height) {
-    int kw = std::max(7, roi_width / 3) | 1;  // Ensure odd
-    int kh = std::max(7, roi_height / 3) | 1; // Ensure odd
-    return cv::Size(kw, kh);
-}
-
 const std::vector<cv::Vec3b> PascalVoc21ClColorPalette = {
     cv::Vec3b(0, 0, 0),       // background
     cv::Vec3b(128, 0, 0),     // aeroplane
@@ -155,8 +145,8 @@ void RendererI420::blur_rectangle(std::vector<cv::Mat> &mats, render::Blur blur)
     cv::Mat &v = mats[2];
 
     cv::Rect r = blur.rect;
-    cv::Size ksize = computeBlurKernelSize(r.width, r.height);
-    cv::Size ksize_uv = computeBlurKernelSize(r.width / 2, r.height / 2);
+    cv::Size ksize = render::computeBlurKernelSize(r.width, r.height);
+    cv::Size ksize_uv = render::computeBlurKernelSize(r.width / 2, r.height / 2);
 
     cv::Mat roi_u(u, cv::Rect(r.x / 2, r.y / 2, r.width / 2, r.height / 2));
     cv::GaussianBlur(roi_u, roi_u, ksize_uv, 0, 0);
@@ -294,8 +284,8 @@ void RendererNV12::blur_rectangle(std::vector<cv::Mat> &mats, render::Blur blur)
     cv::Mat &u_v = mats[1];
 
     cv::Rect r = blur.rect;
-    cv::Size ksize = computeBlurKernelSize(r.width, r.height);
-    cv::Size ksize_uv = computeBlurKernelSize(r.width / 2, r.height / 2);
+    cv::Size ksize = render::computeBlurKernelSize(r.width, r.height);
+    cv::Size ksize_uv = render::computeBlurKernelSize(r.width / 2, r.height / 2);
 
     cv::Mat roi_uv(u_v, cv::Rect(r.x / 2, r.y / 2, r.width / 2, r.height / 2));
     cv::GaussianBlur(roi_uv, roi_uv, ksize_uv, 0, 0);
@@ -471,7 +461,7 @@ void RendererBGR::draw_rectangle(std::vector<cv::Mat> &mats, render::Rect rect) 
 void RendererBGR::blur_rectangle(std::vector<cv::Mat> &mats, render::Blur blur) {
     cv::Mat &mat = mats[0];
     cv::Rect r = blur.rect;
-    cv::Size ksize = computeBlurKernelSize(r.width, r.height);
+    cv::Size ksize = render::computeBlurKernelSize(r.width, r.height);
     cv::Mat roi(mat, cv::Rect(r.x, r.y, r.width, r.height));
     cv::GaussianBlur(roi, roi, ksize, 0, 0);
 }
