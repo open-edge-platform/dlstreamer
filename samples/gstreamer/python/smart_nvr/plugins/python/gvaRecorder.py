@@ -75,12 +75,11 @@ class Recorder(Gst.Bin):
         self._filesink.connect("format-location", self.format_location_callback, 0)
 
     def save_metadata(self, fragment_id):
-        """Store prediction metadata and clear list of detectd objects."""
+        """Store prediction metadata and clear list of detected objects."""
         if fragment_id > self._last_fragment_id:
             self._last_fragment_id = fragment_id
             with open(f"{self._fileprefix}-{fragment_id:02d}.txt", mode='w', encoding="utf-8") as file:
                 file.write(f"Objects: {self._objectlist}")
-                file.close()
             self._objectlist = []
 
     def buffer_probe(self, _pad, info, _user_data):
