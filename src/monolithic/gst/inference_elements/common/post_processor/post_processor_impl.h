@@ -11,6 +11,7 @@
 #include "inference_backend/image_inference.h"
 
 #include <map>
+#include <cstdint>
 #include <memory>
 #include <vector>
 
@@ -43,6 +44,8 @@ class PostProcessorImpl {
         double threshold = 0.5;
         bool threshold_explicitly_set = false;
         bool skip_raw_tensors = false;
+        std::string zeroshot_embeddings_file;
+        uint32_t zeroshot_topk = 1;
 
         std::string custom_postproc_lib;
     };
@@ -56,6 +59,6 @@ class PostProcessorImpl {
 
   private:
     void setDefaultConverter(GstStructure *model_proc_output, const ModelOutputsInfo &model_outputs_info,
-                             ConverterType converter_type);
+                             ConverterType converter_type, const std::string &zeroshot_embeddings_file);
 };
 } // namespace post_processing

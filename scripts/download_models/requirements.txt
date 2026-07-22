@@ -1,2 +1,3 @@
 ultralytics==8.4.57
 optimum-onnx==0.1.0
+safetensors
