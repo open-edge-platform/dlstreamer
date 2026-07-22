@@ -103,7 +103,7 @@ def main() -> int:
                 optimizer.set_sample_duration(5)
                 optimizer.set_batch_sizes([1, 4, 8])
                 optimizer.set_nireq_sizes([4, 8])
-                search_duration = 30
+                search_duration = 50
             case "default":
                 optimizer.set_sample_duration(args.sample_duration)
                 optimizer.set_batch_sizes(args.batch_sizes)

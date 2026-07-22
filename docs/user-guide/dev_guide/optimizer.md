@@ -116,7 +116,7 @@ Provide a path representing a file which will be used to save results informatio
 ## Pausing and resuming
 While the optimizer is running, you can pause and resume the search at any time by pressing the **Spacebar** in the terminal where the tool is running.
 
-**Pausing** stops the current pipeline sample mid-run and suspends the search loop. The optimizer will not start any new pipeline test until it is resumed. **Resuming** (pressing Space again) restarts the search from the same point it was paused. The remaining **search duration** is preserved accurately: time spent while paused is not counted against the budget.
+**Pausing** stops the current pipeline sample mid-run and suspends the search loop. The optimizer will not start any new pipeline test until it is resumed. **Resuming** (pressing Space again) continues loop through the candidates starting from the next one. The remaining **search duration** is preserved accurately: time spent while paused is not counted against the budget.
 
 >**Note**\
 >The pause key is only active while the optimizer is running as a CLI tool in terminal with keyboard input available. It is not available in non-interactive or piped environments.
