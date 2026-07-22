@@ -542,50 +542,58 @@ static GstFlowReturn gst_g3d_lidar_src_create(GstPushSrc *src, GstBuffer **buf) 
     GstG3DLidarSrc *self = GST_G3D_LIDAR_SRC(src);
     std::shared_ptr<LidarFrame> cloud;
 
-    /* Wait for a frame from rs_driver */
-    {
-        std::unique_lock<std::mutex> lock(self->priv->queue_mutex);
-        while (self->priv->frame_queue.empty()) {
+    /* Wait for a non-empty frame from rs_driver. Empty clouds (0 points) carry
+     * no data and no meaningful timestamp, so we drop them and keep waiting
+     * rather than pushing a PTS-less, meta-less buffer downstream (this element
+     * attaches LidarMeta and a valid PTS on every buffer it emits). Empty frames
+     * still count as device activity, so the receive callback keeps updating
+     * last_frame_time and the timeout below only fires when nothing arrives. */
+    for (;;) {
+        {
+            std::unique_lock<std::mutex> lock(self->priv->queue_mutex);
+            while (self->priv->frame_queue.empty()) {
+                if (self->priv->flushing) {
+                    return GST_FLOW_FLUSHING;
+                }
+
+                /* Check timeout (like rtspsrc timeout handling) */
+                if (self->timeout > 0) {
+                    auto now = std::chrono::steady_clock::now();
+                    auto elapsed_us =
+                        std::chrono::duration_cast<std::chrono::microseconds>(now - self->priv->last_frame_time)
+                            .count();
+
+                    /* Cast to gint64 to match elapsed_us type from chrono::count() */
+                    if (elapsed_us >= (gint64)self->timeout) {
+                        GST_ELEMENT_ERROR(self, RESOURCE, READ, (NULL),
+                                          ("Timeout receiving data from LiDAR device. "
+                                           "No frames received for %.4f seconds. "
+                                           "Device may not be connected or network may be misconfigured. "
+                                           "Check: 1) Device is powered on and connected, "
+                                           "2) Transport settings in config '%s', "
+                                           "3) Firewall settings.",
+                                           USEC_TO_SEC(self->timeout), self->config));
+                        return GST_FLOW_ERROR;
+                    }
+                }
+
+                /* Wait with timeout to periodically check flushing and timeout */
+                self->priv->queue_cond.wait_for(lock, std::chrono::milliseconds(FRAME_QUEUE_TIMEOUT_MS));
+            }
+
             if (self->priv->flushing) {
                 return GST_FLOW_FLUSHING;
             }
 
-            /* Check timeout (like rtspsrc timeout handling) */
-            if (self->timeout > 0) {
-                auto now = std::chrono::steady_clock::now();
-                auto elapsed_us =
-                    std::chrono::duration_cast<std::chrono::microseconds>(now - self->priv->last_frame_time).count();
-
-                /* Cast to gint64 to match elapsed_us type from chrono::count() */
-                if (elapsed_us >= (gint64)self->timeout) {
-                    GST_ELEMENT_ERROR(self, RESOURCE, READ, (NULL),
-                                      ("Timeout receiving data from LiDAR device. "
-                                       "No frames received for %.4f seconds. "
-                                       "Device may not be connected or network may be misconfigured. "
-                                       "Check: 1) Device is powered on and connected, "
-                                       "2) Transport settings in config '%s', "
-                                       "3) Firewall settings.",
-                                       USEC_TO_SEC(self->timeout), self->config));
-                    return GST_FLOW_ERROR;
-                }
-            }
-
-            /* Wait with timeout to periodically check flushing and timeout */
-            self->priv->queue_cond.wait_for(lock, std::chrono::milliseconds(FRAME_QUEUE_TIMEOUT_MS));
+            cloud = self->priv->frame_queue.front();
+            self->priv->frame_queue.pop();
         }
 
-        if (self->priv->flushing) {
-            return GST_FLOW_FLUSHING;
+        if (cloud && cloud->point_count > 0) {
+            break;
         }
 
-        cloud = self->priv->frame_queue.front();
-        self->priv->frame_queue.pop();
-    }
-
-    if (!cloud || cloud->point_count == 0) {
-        GST_DEBUG_OBJECT(self, "Received empty point cloud, skipping");
-        *buf = gst_buffer_new();
-        return GST_FLOW_OK;
+        GST_DEBUG_OBJECT(self, "Received empty point cloud, dropping and waiting for next frame");
     }
 
     /* The shim already delivered the frame as a flat [x, y, z, intensity] block,
