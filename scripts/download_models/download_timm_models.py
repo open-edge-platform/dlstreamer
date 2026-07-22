@@ -20,6 +20,7 @@ from pathlib import Path
 from huggingface_hub import HfApi, hf_hub_download
 import timm
 import openvino as ov
+from hf_utils import parse_model_ref
 
 
 PRECISIONS = ("fp16", "int8", "both")
@@ -106,15 +107,6 @@ def import_model(args: argparse.Namespace) -> int:
         )
         print(f"Exported {precision.upper()} OpenVINO IR: {xml}")
     return 0
-
-
-def parse_model_ref(model_ref: str) -> tuple[str, str | None]:
-    """Parse model reference in format 'model@revision' or 'model'."""
-    value = model_ref.strip()
-    if "@" in value:
-        model_name, revision = value.rsplit("@", 1)
-        return model_name.strip(), revision.strip()
-    return value, None
 
 
 def supported_models() -> list[str]:

@@ -15,7 +15,7 @@ import shutil
 import subprocess
 import sys
 
-from huggingface_hub import hf_hub_download, snapshot_download
+from huggingface_hub import hf_hub_download
 from openvino import PartialShape
 from openvino import Type
 from openvino import save_model
@@ -106,12 +106,11 @@ def load_hf_architectures_from_repo_local(local_model_dir: str | Path) -> list[s
     raise ValueError("HuggingFace architectures must be a string or list")
 
 
-def get_hf_model_support_level(local_model_dir: str | Path, token: str | None = None) -> int:
+def get_hf_model_support_level(local_model_dir: str | Path) -> int:
     """Classify support level for a locally cached Hugging Face model.
 
     Args:
-        local_model_dir: Path to the locally cached model directory (from snapshot_download)
-        token: Unused, kept for compatibility
+        local_model_dir: Path to the locally cached model directory
 
     Returns:
         0: model architectures in SUPPORTED_HF_MODELS
@@ -206,7 +205,7 @@ def custom_conversion(
     """Run custom conversion for architectures listed in CUSTOM_CONVERTERS.
     
     Args:
-        local_model_dir: Path to locally cached model from snapshot_download
+        local_model_dir: Path to locally cached model
         repo_id: Original repo ID (for naming output directory)
         outdir: Output directory for conversion
         token: HuggingFace token
@@ -287,7 +286,7 @@ def export_hf_clip_to_openvino(
     """
     outdir.mkdir(parents=True, exist_ok=True)
 
-    # Load from local cached model (already pinned via snapshot_download)
+    # Load from the local cached model directory.
     vision_model = CLIPVisionModel.from_pretrained(str(local_model_dir))  # nosec - model pinned via snapshot_download
 
 
@@ -390,7 +389,7 @@ def export_hf_depthanything_to_openvino(
     _ = token
     local_model_dir = Path(local_model_dir)
 
-    model = AutoModelForDepthEstimation.from_pretrained(str(local_model_dir))  # nosec - model pinned via snapshot_download
+    model = AutoModelForDepthEstimation.from_pretrained(str(local_model_dir))
 
 
 
@@ -398,7 +397,7 @@ def export_hf_depthanything_to_openvino(
     model.eval()
 
     img = Image.new("RGB", (224, 224))
-    processor = AutoImageProcessor.from_pretrained(str(local_model_dir))  # nosec - model pinned via snapshot_download
+    processor = AutoImageProcessor.from_pretrained(str(local_model_dir))
 
 
 

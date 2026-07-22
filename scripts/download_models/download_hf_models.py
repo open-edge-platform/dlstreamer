@@ -129,7 +129,7 @@ def main() -> int:
         install_model_requirements(local_model_dir)
         
         # Determine support level by analyzing locally cached model
-        support_level = get_hf_model_support_level(local_model_dir, token)
+        support_level = get_hf_model_support_level(local_model_dir)
         
         match support_level:
             case 0:
