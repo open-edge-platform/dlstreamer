@@ -118,6 +118,7 @@ class EventRuleParser:
         )
 
     def _parse_trigger(self, payload: Any, rule_name: str) -> EventTrigger:
+        """Parse a rule trigger mapping into an :class:`EventTrigger`."""
         if not isinstance(payload, dict):
             raise ValueError(f"rule '{rule_name}' trigger must be a mapping")
         data_equals = payload.get("data_equals", {}) or {}
@@ -162,6 +163,7 @@ class PipelineActionExecutor:  # pylint: disable=too-few-public-methods
     """
 
     def __init__(self, engine: VideoEngine, *, verbose: bool = False) -> None:
+        """Create an executor that applies rule actions to the engine."""
         self._engine = engine
         self._verbose = verbose
 
@@ -190,6 +192,7 @@ class PipelineActionExecutor:  # pylint: disable=too-few-public-methods
             self._engine.restart_pipeline(rule.target_binding_id)
 
     def _binding_from_rule(self, rule: EventRule) -> PipelineBinding:
+        """Convert a rule into a pipeline binding for add operations."""
         if rule.pipeline is None:
             raise ValueError(f"rule '{rule.name}' ADD requires a pipeline")
         return PipelineBinding(
@@ -224,6 +227,7 @@ class CameraEventWorker(threading.Thread):  # pylint: disable=too-many-instance-
         renew_every: float = 300.0,
         reconnect_delay: float = 5.0,
     ) -> None:
+        """Create a worker thread that pulls events for one camera."""
         super().__init__(name=f"dynamic-events-{camera.key()}", daemon=True)
         self._camera = camera
         self._username = username
@@ -236,6 +240,7 @@ class CameraEventWorker(threading.Thread):  # pylint: disable=too-many-instance-
         self._reconnect_delay = max(0.5, float(reconnect_delay))
 
     def run(self) -> None:
+        """Main worker loop that reconnects and forwards notifications."""
         while not self._stop_event.is_set():
             engine = OnvifEventEngine(
                 self._camera.hostname,
@@ -258,6 +263,7 @@ class CameraEventWorker(threading.Thread):  # pylint: disable=too-many-instance-
                 break
 
     def _pull_loop(self, engine: OnvifEventEngine) -> None:
+        """Pull event batches, dispatch them, and renew the subscription."""
         last_renew = time.monotonic()
         while not self._stop_event.is_set():
             batch = engine.pull(timeout=self._poll_timeout, limit=100)
@@ -286,6 +292,7 @@ class DynamicPipelineController:  # pylint: disable=too-many-instance-attributes
     """
 
     def __init__(self, engine: VideoEngine, *, verbose: bool = False) -> None:
+        """Create a controller that coordinates rules, workers, and dispatch."""
         self._engine = engine
         self._verbose = verbose
         self._matcher = EventRuleMatcher()
@@ -386,6 +393,7 @@ class DynamicPipelineController:  # pylint: disable=too-many-instance-attributes
                 worker.join(timeout=2.0)
 
     def _cameras_by_key(self) -> Dict[str, tuple[CameraIdentity, str, str]]:
+        """Group rules by camera key and resolve fallback credentials."""
         cameras: Dict[str, tuple[CameraIdentity, str, str]] = {}
         for rule in self._rules:
             key = rule.camera.key()
@@ -430,6 +438,7 @@ class DynamicPipelineController:  # pylint: disable=too-many-instance-attributes
         return False
 
     def _dispatch(self, camera: CameraIdentity, notification: EventNotification) -> None:
+        """Deliver one event to matching rules, skipping duplicate states."""
         if self._is_duplicate_event(camera, notification):
             if self._verbose:
                 print(

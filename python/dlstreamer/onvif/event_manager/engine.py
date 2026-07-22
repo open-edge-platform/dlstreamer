@@ -285,6 +285,7 @@ class OnvifEventEngine:
         password: str = "",
         verbose: bool = False,
     ) -> None:
+        """Create a PullPoint event engine for one camera."""
         self.hostname = hostname
         self.port = int(port)
         self.username = username
@@ -321,6 +322,7 @@ class OnvifEventEngine:
     # ---- session lifecycle ----
 
     def _get_client(self) -> ONVIFCamera:
+        """Return the cached ONVIF camera client, creating it if needed."""
         if self._client is None:
             self._client = ONVIFCamera(
                 self.hostname, self.port, self.username, self.password
@@ -328,11 +330,13 @@ class OnvifEventEngine:
         return self._client
 
     def _events_service(self):
+        """Return the cached ONVIF Events service, creating it if needed."""
         if self._events is None:
             self._events = self._get_client().create_events_service()
         return self._events
 
     def _pullpoint_service(self):
+        """Return the cached PullPoint service bound to the subscription URL."""
         if self._pullpoint is None:
             if not self._subscribed:
                 raise RuntimeError(
@@ -424,12 +428,14 @@ class OnvifEventEngine:
         self._client = None
 
     def __enter__(self) -> "OnvifEventEngine":
+        """Warm up the ONVIF client before use in a context manager."""
         # Warm up the ONVIF client so any connectivity error surfaces here,
         # not on the first API call.
         self._get_client()
         return self
 
     def __exit__(self, exc_type, exc, tb) -> None:
+        """Close the subscription and clear cached services."""
         self.close()
 
     # ---- introspection ----
@@ -679,6 +685,7 @@ class OnvifEventEngine:
         termination_time: str = "PT1H",
         topic_filter: Optional[EventFilter] = None,
     ) -> None:
+        """Async wrapper for :meth:`subscribe`."""
         await asyncio.to_thread(self.subscribe, termination_time, topic_filter)
 
     async def pull_async(
@@ -686,19 +693,25 @@ class OnvifEventEngine:
         timeout: str = "PT30S",
         limit: int = 100,
     ) -> List[EventNotification]:
+        """Async wrapper for :meth:`pull`."""
         return await asyncio.to_thread(self.pull, timeout, limit)
 
     async def renew_async(self, termination_time: str = "PT1H") -> None:
+        """Async wrapper for :meth:`renew`."""
         await asyncio.to_thread(self.renew, termination_time)
 
     async def unsubscribe_async(self) -> None:
+        """Async wrapper for :meth:`unsubscribe`."""
         await asyncio.to_thread(self.unsubscribe)
 
     async def get_service_capabilities_async(self) -> dict:
+        """Async wrapper for :meth:`get_service_capabilities`."""
         return await asyncio.to_thread(self.get_service_capabilities)
 
     async def get_event_properties_async(self) -> Any:
+        """Async wrapper for :meth:`get_event_properties`."""
         return await asyncio.to_thread(self.get_event_properties)
 
     async def get_supported_event_topics_async(self) -> List[SupportedEventTopic]:
+        """Async wrapper for :meth:`get_supported_event_topics`."""
         return await asyncio.to_thread(self.get_supported_event_topics)

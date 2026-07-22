@@ -86,6 +86,7 @@ class PTZController:
         username: str = "",
         password: str = "",
     ):
+        """Create a PTZ controller for one camera/profile pair."""
         self.hostname = hostname
         self.port = int(port)
         self.profile_token = profile_token
@@ -133,10 +134,12 @@ class PTZController:
         self._client = None
 
     def __enter__(self) -> "PTZController":
+        """Initialize the cached ONVIF service and return the controller."""
         self._service()
         return self
 
     def __exit__(self, exc_type, exc, tb) -> None:
+        """Release the cached ONVIF client and PTZ service."""
         self.close()
 
     # ---- read operations ----
@@ -364,9 +367,11 @@ class PTZController:
     # ---- async wrappers ----
 
     async def get_status_async(self) -> PTZStatus:
+        """Async wrapper for :meth:`get_status`."""
         return await asyncio.to_thread(self.get_status)
 
     async def get_presets_async(self) -> List[PTZPreset]:
+        """Async wrapper for :meth:`get_presets`."""
         return await asyncio.to_thread(self.get_presets)
 
     async def continuous_move_async(
@@ -374,6 +379,7 @@ class PTZController:
         velocity: PTZVector,
         timeout: Optional[float] = None,
     ) -> None:
+        """Async wrapper for :meth:`continuous_move`."""
         await asyncio.to_thread(self.continuous_move, velocity, timeout)
 
     async def relative_move_async(
@@ -381,6 +387,7 @@ class PTZController:
         translation: PTZVector,
         speed: Optional[PTZVector] = None,
     ) -> None:
+        """Async wrapper for :meth:`relative_move`."""
         await asyncio.to_thread(self.relative_move, translation, speed)
 
     async def absolute_move_async(
@@ -388,9 +395,11 @@ class PTZController:
         position: PTZVector,
         speed: Optional[PTZVector] = None,
     ) -> None:
+        """Async wrapper for :meth:`absolute_move`."""
         await asyncio.to_thread(self.absolute_move, position, speed)
 
     async def stop_async(self, pan_tilt: bool = True, zoom: bool = True) -> None:
+        """Async wrapper for :meth:`stop`."""
         await asyncio.to_thread(self.stop, pan_tilt, zoom)
 
     async def goto_preset_async(
@@ -398,6 +407,7 @@ class PTZController:
         preset_token: str,
         speed: Optional[PTZVector] = None,
     ) -> None:
+        """Async wrapper for :meth:`goto_preset`."""
         await asyncio.to_thread(self.goto_preset, preset_token, speed)
 
     async def set_preset_async(
@@ -405,13 +415,17 @@ class PTZController:
         name: str,
         preset_token: Optional[str] = None,
     ) -> str:
+        """Async wrapper for :meth:`set_preset`."""
         return await asyncio.to_thread(self.set_preset, name, preset_token)
 
     async def remove_preset_async(self, preset_token: str) -> None:
+        """Async wrapper for :meth:`remove_preset`."""
         await asyncio.to_thread(self.remove_preset, preset_token)
 
     async def goto_home_async(self, speed: Optional[PTZVector] = None) -> None:
+        """Async wrapper for :meth:`goto_home`."""
         await asyncio.to_thread(self.goto_home, speed)
 
     async def set_home_async(self) -> None:
+        """Async wrapper for :meth:`set_home`."""
         await asyncio.to_thread(self.set_home)

@@ -59,6 +59,7 @@ class TestAppState:
     """In-memory state shared between menu actions."""
 
     def __init__(self) -> None:
+        """Initialize the current menu state and cached discovery results."""
         self.username: str = os.environ.get("ONVIF_USER", "")
         self.password: str = os.environ.get("ONVIF_PASSWORD", "")
         self.verbose: bool = False
@@ -108,6 +109,7 @@ class TestAppState:
 
 
 def _print_table(title: str, headers: list[str], rows: list[list[str]]) -> None:
+    """Render a simple ASCII table for menu output."""
     print(f"\n{title}")
     if not rows:
         print("  (no rows)")
@@ -125,6 +127,7 @@ def _print_table(title: str, headers: list[str], rows: list[list[str]]) -> None:
 
 
 def _print_cameras(cameras: Iterable[dict], title: str = "Cameras") -> None:
+    """Print discovered cameras in table form."""
     rows = [
         [str(i), str(cam.get("hostname", "-")), str(cam.get("port", "-"))]
         for i, cam in enumerate(cameras, 1)
@@ -133,6 +136,7 @@ def _print_cameras(cameras: Iterable[dict], title: str = "Cameras") -> None:
 
 
 def _print_ptz_profiles(profiles: list[PTZCapableProfile]) -> None:
+    """Print PTZ-capable profiles in table form."""
     rows = [
         [
             str(i),
@@ -157,18 +161,21 @@ def _print_ptz_profiles(profiles: list[PTZCapableProfile]) -> None:
 
 
 def _prompt(prompt: str, default: Optional[str] = None) -> str:
+    """Prompt for a string value and fall back to *default* when empty."""
     suffix = f" [{default}]" if default is not None else ""
     value = input(f"{prompt}{suffix}: ").strip()
     return value or (default or "")
 
 
 def _prompt_bool(prompt: str, default: bool = False) -> bool:
+    """Prompt for a yes/no value."""
     default_str = "y" if default else "n"
     value = _prompt(f"{prompt} (y/n)", default_str).lower()
     return value in ("y", "yes", "true", "1")
 
 
 def _ensure_credentials(state: TestAppState) -> bool:
+    """Return True when the state already contains ONVIF credentials."""
     if not state.username or not state.password:
         print("  Credentials are empty; use option 1 to set them first.")
         return False
@@ -184,6 +191,7 @@ _PLAYERS = ("ffplay", "mpv", "gst-launch-1.0", "cvlc", "vlc")
 
 
 def _inject_credentials(url: str, user: str, password: str) -> str:
+    """Embed credentials into an RTSP URL when they are not already present."""
     if not user or not password or not url:
         return url
     parsed = urlparse(url)
@@ -198,6 +206,7 @@ def _inject_credentials(url: str, user: str, password: str) -> str:
 
 
 def _build_player_argv(url: str) -> Optional[list[str]]:
+    """Build the first available RTSP player command line for *url*."""
     if shutil.which("ffplay"):
         return [
             "ffplay", "-loglevel", "warning", "-fflags", "nobuffer",
@@ -268,10 +277,12 @@ class _RawKeys:
     _ESC_TIMEOUT = 0.15
 
     def __init__(self) -> None:
+        """Capture the terminal file descriptor and current tty settings."""
         self._fd = sys.stdin.fileno()
         self._old: Optional[list] = None
 
     def __enter__(self) -> "_RawKeys":
+        """Switch stdin into cbreak mode for single-key input."""
         if not sys.stdin.isatty():
             raise RuntimeError(
                 "Interactive PTZ control requires a TTY (stdin is not a terminal)."
@@ -281,15 +292,18 @@ class _RawKeys:
         return self
 
     def __exit__(self, exc_type, exc, tb) -> None:
+        """Restore the previous terminal settings."""
         if self._old is not None:
             termios.tcsetattr(self._fd, termios.TCSADRAIN, self._old)
             self._old = None
 
     def _readable(self, timeout: float) -> bool:
+        """Return True when stdin has data available within *timeout* seconds."""
         rlist, _, _ = select.select([sys.stdin], [], [], timeout)
         return bool(rlist)
 
     def read(self) -> str:
+        """Read a single keypress and normalize arrow keys and bare ESC."""
         ch = sys.stdin.read(1)
         if ch != "\x1b":
             return ch
