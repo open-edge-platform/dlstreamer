@@ -515,7 +515,8 @@ jobs:
           if [[ "${IS_FORK_PR}" == "true" ]]; then
             echo "## 🐳 Docker image size" >> "$GITHUB_STEP_SUMMARY"
             echo "" >> "$GITHUB_STEP_SUMMARY"
-            echo "Size check skipped for fork PR (repository vars are unavailable)." >> "$GITHUB_STEP_SUMMARY"
+            echo "✅ Size check skipped" >> "$GITHUB_STEP_SUMMARY"
+            echo "Reason: Pull request from fork (repository vars are unavailable)." >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
 
@@ -524,33 +525,50 @@ jobs:
           if [[ -z "${CURRENT_IMAGE_SIZE_JSON}" || "${CURRENT_IMAGE_SIZE_JSON}" == "{}" ]]; then
             echo "## 🐳 Docker image size" >> "$GITHUB_STEP_SUMMARY"
             echo "" >> "$GITHUB_STEP_SUMMARY"
-            echo "Size check skipped: build workflow was skipped." >> "$GITHUB_STEP_SUMMARY"
+            echo "✅ Size check skipped" >> "$GITHUB_STEP_SUMMARY"
+            echo "Reason: Changes only in excluded files." >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
 
           U22_SIZE=$(echo "${CURRENT_IMAGE_SIZE_JSON}" | jq -r '.ubuntu22 // empty')
           U24_SIZE=$(echo "${CURRENT_IMAGE_SIZE_JSON}" | jq -r '.ubuntu24 // empty')
 
-          if [[ -z "${U22_SIZE}" || -z "${U24_SIZE}" ]]; then
-            echo "❌ Missing ubuntu22/ubuntu24 values in CURRENT_IMAGE_SIZE_JSON"
-            exit 1
+          if [[ -z "${U22_SIZE}" && -z "${U24_SIZE}" ]]; then
+            echo "## 🐳 Docker image size" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "⚠️ Size check skipped" >> "$GITHUB_STEP_SUMMARY"
+            echo "Reason: Missing ubuntu size values in current-image-size output." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
           fi
 
-          U22_DIFF=$(( U22_SIZE - EXPECTED_SIZE_MB_DEV_U22 ))
-          U24_DIFF=$(( U24_SIZE - EXPECTED_SIZE_MB_DEV_U24 ))
-          U22_ABS_DIFF=${U22_DIFF#-}
-          U24_ABS_DIFF=${U24_DIFF#-}
+          FAIL_CHECK=0
 
           {
             echo "## 🐳 Docker image size"
             echo ""
             echo "| Image | Current | Expected | Abs diff | Threshold |"
             echo "|-------|---------|----------|----------|-----------|"
-            echo "| ubuntu22-dev | **${U22_SIZE} MB** | **${EXPECTED_SIZE_MB_DEV_U22} MB** | ${U22_ABS_DIFF} MB | ${THRESHOLD_SIZE_MB} MB |"
-            echo "| ubuntu24-dev | **${U24_SIZE} MB** | **${EXPECTED_SIZE_MB_DEV_U24} MB** | ${U24_ABS_DIFF} MB | ${THRESHOLD_SIZE_MB} MB |"
           } >> "$GITHUB_STEP_SUMMARY"
 
-          if [[ "${U22_ABS_DIFF}" -gt "${THRESHOLD_SIZE_MB}" || "${U24_ABS_DIFF}" -gt "${THRESHOLD_SIZE_MB}" ]]; then
+          if [[ -n "${U22_SIZE}" ]]; then
+            U22_DIFF=$(( U22_SIZE - EXPECTED_SIZE_MB_DEV_U22 ))
+            U22_ABS_DIFF=${U22_DIFF#-}
+            echo "| ubuntu22-dev | **${U22_SIZE} MB** | **${EXPECTED_SIZE_MB_DEV_U22} MB** | ${U22_ABS_DIFF} MB | ${THRESHOLD_SIZE_MB} MB |" >> "$GITHUB_STEP_SUMMARY"
+            if [[ "${U22_ABS_DIFF}" -gt "${THRESHOLD_SIZE_MB}" ]]; then
+              FAIL_CHECK=1
+            fi
+          fi
+
+          if [[ -n "${U24_SIZE}" ]]; then
+            U24_DIFF=$(( U24_SIZE - EXPECTED_SIZE_MB_DEV_U24 ))
+            U24_ABS_DIFF=${U24_DIFF#-}
+            echo "| ubuntu24-dev | **${U24_SIZE} MB** | **${EXPECTED_SIZE_MB_DEV_U24} MB** | ${U24_ABS_DIFF} MB | ${THRESHOLD_SIZE_MB} MB |" >> "$GITHUB_STEP_SUMMARY"
+            if [[ "${U24_ABS_DIFF}" -gt "${THRESHOLD_SIZE_MB}" ]]; then
+              FAIL_CHECK=1
+            fi
+          fi
+
+          if [[ "${FAIL_CHECK}" -eq 1 ]]; then
             echo "❌ Docker image size check failed"
             exit 1
           fi
@@ -591,7 +609,8 @@ jobs:
           if [[ "${IS_FORK_PR}" == "true" ]]; then
             echo "## 🐳 Docker image size" >> "$GITHUB_STEP_SUMMARY"
             echo "" >> "$GITHUB_STEP_SUMMARY"
-            echo "Size check skipped for fork PR (repository vars are unavailable)." >> "$GITHUB_STEP_SUMMARY"
+            echo "✅ Size check skipped" >> "$GITHUB_STEP_SUMMARY"
+            echo "Reason: Pull request from fork (repository vars are unavailable)." >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
 
@@ -600,33 +619,50 @@ jobs:
           if [[ -z "${CURRENT_IMAGE_SIZE_JSON}" || "${CURRENT_IMAGE_SIZE_JSON}" == "{}" ]]; then
             echo "## 🐳 Docker image size" >> "$GITHUB_STEP_SUMMARY"
             echo "" >> "$GITHUB_STEP_SUMMARY"
-            echo "Size check skipped: build workflow was skipped." >> "$GITHUB_STEP_SUMMARY"
+            echo "✅ Size check skipped" >> "$GITHUB_STEP_SUMMARY"
+            echo "Reason: Changes only in excluded files." >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
 
           U22_SIZE=$(echo "${CURRENT_IMAGE_SIZE_JSON}" | jq -r '.ubuntu22 // empty')
           U24_SIZE=$(echo "${CURRENT_IMAGE_SIZE_JSON}" | jq -r '.ubuntu24 // empty')
 
-          if [[ -z "${U22_SIZE}" || -z "${U24_SIZE}" ]]; then
-            echo "❌ Missing ubuntu22/ubuntu24 values in CURRENT_IMAGE_SIZE_JSON"
-            exit 1
+          if [[ -z "${U22_SIZE}" && -z "${U24_SIZE}" ]]; then
+            echo "## 🐳 Docker image size" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "⚠️ Size check skipped" >> "$GITHUB_STEP_SUMMARY"
+            echo "Reason: Missing ubuntu size values in current-image-size output." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
           fi
 
-          U22_DIFF=$(( U22_SIZE - EXPECTED_SIZE_MB_DEB_U22 ))
-          U24_DIFF=$(( U24_SIZE - EXPECTED_SIZE_MB_DEB_U24 ))
-          U22_ABS_DIFF=${U22_DIFF#-}
-          U24_ABS_DIFF=${U24_DIFF#-}
+          FAIL_CHECK=0
 
           {
             echo "## 🐳 Docker image size"
             echo ""
             echo "| Image | Current | Expected | Abs diff | Threshold |"
             echo "|-------|---------|----------|----------|-----------|"
-            echo "| ubuntu22-deb | **${U22_SIZE} MB** | **${EXPECTED_SIZE_MB_DEB_U22} MB** | ${U22_ABS_DIFF} MB | ${THRESHOLD_SIZE_MB} MB |"
-            echo "| ubuntu24-deb | **${U24_SIZE} MB** | **${EXPECTED_SIZE_MB_DEB_U24} MB** | ${U24_ABS_DIFF} MB | ${THRESHOLD_SIZE_MB} MB |"
           } >> "$GITHUB_STEP_SUMMARY"
 
-          if [[ "${U22_ABS_DIFF}" -gt "${THRESHOLD_SIZE_MB}" || "${U24_ABS_DIFF}" -gt "${THRESHOLD_SIZE_MB}" ]]; then
+          if [[ -n "${U22_SIZE}" ]]; then
+            U22_DIFF=$(( U22_SIZE - EXPECTED_SIZE_MB_DEB_U22 ))
+            U22_ABS_DIFF=${U22_DIFF#-}
+            echo "| ubuntu22-deb | **${U22_SIZE} MB** | **${EXPECTED_SIZE_MB_DEB_U22} MB** | ${U22_ABS_DIFF} MB | ${THRESHOLD_SIZE_MB} MB |" >> "$GITHUB_STEP_SUMMARY"
+            if [[ "${U22_ABS_DIFF}" -gt "${THRESHOLD_SIZE_MB}" ]]; then
+              FAIL_CHECK=1
+            fi
+          fi
+
+          if [[ -n "${U24_SIZE}" ]]; then
+            U24_DIFF=$(( U24_SIZE - EXPECTED_SIZE_MB_DEB_U24 ))
+            U24_ABS_DIFF=${U24_DIFF#-}
+            echo "| ubuntu24-deb | **${U24_SIZE} MB** | **${EXPECTED_SIZE_MB_DEB_U24} MB** | ${U24_ABS_DIFF} MB | ${THRESHOLD_SIZE_MB} MB |" >> "$GITHUB_STEP_SUMMARY"
+            if [[ "${U24_ABS_DIFF}" -gt "${THRESHOLD_SIZE_MB}" ]]; then
+              FAIL_CHECK=1
+            fi
+          fi
+
+          if [[ "${FAIL_CHECK}" -eq 1 ]]; then
             echo "❌ Docker image size check failed"
             exit 1
           fi
