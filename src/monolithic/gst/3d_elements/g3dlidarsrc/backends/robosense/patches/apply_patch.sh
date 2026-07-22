@@ -31,17 +31,26 @@ apply_one() {
   fi
 
   echo "Applying rs_driver patch: $(basename "$patch_path") (idempotent)..."
-  set +e
-  patch --forward --batch -p1 < "$patch_path"
-  local rc=$?
-  set -e
 
-  case $rc in
-    0) echo "  -> applied." ;;
-    1) echo "  -> already applied (skipped)." ;;
-    *) echo "  -> failed rc=$rc" >&2; return $rc ;;
-  esac
-  return 0
+  # 'patch' returns rc=1 both for "already applied" and for "some hunks failed",
+  # so the exit code alone cannot distinguish an idempotent skip from a genuine
+  # failure. Detect "already applied" explicitly by checking whether the patch
+  # applies cleanly in reverse (--dry-run so nothing is modified). If so, skip.
+  if patch --reverse --batch --dry-run -p1 < "$patch_path" >/dev/null 2>&1; then
+    echo "  -> already applied (skipped)."
+    return 0
+  fi
+
+  # Not applied yet: apply forward. Any failure here (missing files, failed
+  # hunks) is a real error and must not be masked as an idempotent skip.
+  if patch --forward --batch -p1 < "$patch_path"; then
+    echo "  -> applied."
+    return 0
+  else
+    local rc=$?
+    echo "  -> failed to apply cleanly (rc=$rc)" >&2
+    return "$rc"
+  fi
 }
 
 overall_rc=0
