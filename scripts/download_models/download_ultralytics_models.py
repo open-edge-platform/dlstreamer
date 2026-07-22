@@ -13,11 +13,32 @@ from __future__ import annotations
 import argparse
 import shutil
 import tempfile
+import time
+from datetime import datetime, timezone
 from urllib.error import HTTPError
 from urllib.error import URLError
 from urllib.request import urlretrieve
 from pathlib import Path
 from ultralytics import YOLO
+
+
+def append_timing_record(
+    timings_file: Path,
+    model: str,
+    phase: str,
+    seconds: float | None,
+    status: str,
+) -> None:
+    timings_file.parent.mkdir(parents=True, exist_ok=True)
+    is_new_file = not timings_file.exists()
+    seconds_str = f"{seconds:.3f}" if seconds is not None else ""
+
+    with timings_file.open("a", encoding="utf-8") as file:
+        if is_new_file:
+            file.write("timestamp_utc\tmodel\tphase\tseconds\tstatus\n")
+        file.write(
+            f"{datetime.now(timezone.utc).isoformat()}\t{model}\t{phase}\t{seconds_str}\t{status}\n"
+        )
 
 
 def parse_args() -> argparse.Namespace:
@@ -135,24 +156,39 @@ def main() -> int:
     half = args.half
     int8 = args.int8
     temp_download_dir: Path | None = None
+    model_t0 = time.perf_counter()
+    timings_file = outdir / "download_ultralytics_models_timings.tsv"
+    result_status = "error"
+
+    print(f"[DEBUG][TIMING] model={model_name} phase=start")
 
     try:
         outdir.mkdir(parents=True, exist_ok=True)
+        resolve_t0 = time.perf_counter()
         model, temp_download_dir = resolve_ultralytics_model(model_name)
+        resolve_seconds = time.perf_counter() - resolve_t0
+        print(f"[DEBUG][TIMING] model={model_name} phase=resolve seconds={resolve_seconds:.3f}")
+        append_timing_record(timings_file, model_name, "resolve", resolve_seconds, "ok")
 
+        export_t0 = time.perf_counter()
         exported_model_path = model.export(
             format="openvino",
             dynamic=True,
             half=half,
             int8=int8,
         )
+        export_seconds = time.perf_counter() - export_t0
+        print(f"[DEBUG][TIMING] model={model_name} phase=export seconds={export_seconds:.3f}")
+        append_timing_record(timings_file, model_name, "export", export_seconds, "ok")
 
         if not exported_model_path or not Path(exported_model_path).exists():
             print(f"Error: Export failed for model '{model_name}' - no output produced")
+            append_timing_record(timings_file, model_name, "error", None, "error")
             return 1
 
         model_path = move_exported_model(Path(exported_model_path), outdir)
         print(f"Exported model location: {model_path}")
+        result_status = "ok"
     except FileNotFoundError as exc:
         missing = getattr(exc, 'filename', None) or model_name
         if is_explicit_local_model_path(model_name):
@@ -164,14 +200,20 @@ def main() -> int:
                 "If this is a newer model family, upgrade the 'ultralytics' Python module to a version that "
                 "supports it, or provide a local .pt file path."
             )
+        append_timing_record(timings_file, model_name, "error", None, "error")
         return 1
     except ValueError as exc:
         print(str(exc))
+        append_timing_record(timings_file, model_name, "error", None, "error")
         return 1
     except RuntimeError as exc:
         print(str(exc))
+        append_timing_record(timings_file, model_name, "error", None, "error")
         return 1
     finally:
+        total_seconds = time.perf_counter() - model_t0
+        print(f"[DEBUG][TIMING] model={model_name} phase=total seconds={total_seconds:.3f}")
+        append_timing_record(timings_file, model_name, "total", total_seconds, result_status)
         if temp_download_dir is not None:
             shutil.rmtree(temp_download_dir, ignore_errors=True)
 

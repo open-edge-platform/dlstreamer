@@ -272,6 +272,21 @@ if [ ! -e "$MODELS_PATH" ]; then
     mkdir -p "$MODELS_PATH" || handle_error $LINENO
 fi
 
+TIMINGS_FILE="$MODELS_PATH/download_public_models_timings.tsv"
+if [[ ! -f "$TIMINGS_FILE" ]]; then
+  printf 'timestamp_utc\tmodel\tphase\tseconds\tstatus\n' > "$TIMINGS_FILE"
+fi
+
+append_model_timing() {
+  local model="$1"
+  local phase="$2"
+  local seconds="$3"
+  local status="$4"
+  local ts
+  ts=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+  printf '%s\t%s\t%s\t%s\t%s\n' "$ts" "$model" "$phase" "$seconds" "$status" >> "$TIMINGS_FILE"
+}
+
 set -u  # Re-enable nounset option: treat any attempt to use an unset variable as an error
 
 if [ "$ID" == "fedora" ]; then
@@ -318,6 +333,8 @@ set -euo pipefail
 if array_contains "yolox-tiny" "${MODELS_TO_PROCESS[@]}"; then
   display_header "Downloading YOLOx-TINY model"
   MODEL_NAME="yolox-tiny"
+  model_timer_start=$(date +%s)
+  model_status="ok"
   MODEL_DIR="$MODELS_PATH/public/$MODEL_NAME"
   DST_FILE1="$MODEL_DIR/FP16/$MODEL_NAME.xml"
   DST_FILE2="$MODEL_DIR/FP32/$MODEL_NAME.xml"
@@ -349,14 +366,21 @@ if array_contains "yolox-tiny" "${MODELS_TO_PROCESS[@]}"; then
     rm -rf "$HOME/.virtualenvs/dlstreamer_openvino_dev" 2>/dev/null || true
     source "$VENV_DIR/bin/activate" 
   else
+    model_status="cached"
     echo_color "\nModel already exists: $MODEL_DIR.\n" "yellow"
   fi
+  model_timer_end=$(date +%s)
+  model_seconds=$((model_timer_end - model_timer_start))
+  append_model_timing "$MODEL_NAME" "download" "$model_seconds" "$model_status"
+  echo "[DEBUG][TIMING] model=${MODEL_NAME} phase=download seconds=${model_seconds} status=${model_status}"
 fi
 
 # ================================= YOLOx-S FP16 & FP32 =================================
 if array_contains "yolox_s" "${MODELS_TO_PROCESS[@]}"; then
   display_header "Downloading YOLOx-S model"
   MODEL_NAME="yolox_s"
+  model_timer_start=$(date +%s)
+  model_status="ok"
   MODEL_DIR="$MODELS_PATH/public/$MODEL_NAME"
   DST_FILE1="$MODEL_DIR/FP16/$MODEL_NAME.xml"
   DST_FILE2="$MODEL_DIR/FP32/$MODEL_NAME.xml"
@@ -375,14 +399,21 @@ if array_contains "yolox_s" "${MODELS_TO_PROCESS[@]}"; then
     mv yolox_s.bin "$MODEL_DIR/FP32"
     rm -f yolox_s.onnx
   else
+    model_status="cached"
     echo_color "\nModel already exists: $MODEL_DIR.\n" "yellow"
   fi
+  model_timer_end=$(date +%s)
+  model_seconds=$((model_timer_end - model_timer_start))
+  append_model_timing "$MODEL_NAME" "download" "$model_seconds" "$model_status"
+  echo "[DEBUG][TIMING] model=${MODEL_NAME} phase=download seconds=${model_seconds} status=${model_status}"
 fi
 
 # ================================= YOLOv7* FP16 & FP32 =================================
 if array_contains "yolov7" "${MODELS_TO_PROCESS[@]}"; then
   display_header "Downloading YOLOv7 model"
   MODEL_NAME="yolov7"
+  model_timer_start=$(date +%s)
+  model_status="ok"
   MODEL_DIR="$MODELS_PATH/public/$MODEL_NAME"
   DST_FILE1="$MODEL_DIR/FP16/$MODEL_NAME.xml"
   DST_FILE2="$MODEL_DIR/FP32/$MODEL_NAME.xml"
@@ -409,14 +440,21 @@ if array_contains "yolov7" "${MODELS_TO_PROCESS[@]}"; then
     cd ..
     rm -rf yolov7
   else
+    model_status="cached"
     echo_color "\nModel already exists: $MODEL_DIR.\n" "yellow"
   fi
+  model_timer_end=$(date +%s)
+  model_seconds=$((model_timer_end - model_timer_start))
+  append_model_timing "$MODEL_NAME" "download" "$model_seconds" "$model_status"
+  echo "[DEBUG][TIMING] model=${MODEL_NAME} phase=download seconds=${model_seconds} status=${model_status}"
 fi
 
 # ================================= YOLOv8 License Plate Detector FP32 - Edge AI Resources =================================
 if array_contains "yolov8_license_plate_detector" "${MODELS_TO_PROCESS[@]}"; then
   display_header "Downloading YOLOv8 License Plate Detector model"
   MODEL_NAME="yolov8_license_plate_detector"
+  model_timer_start=$(date +%s)
+  model_status="ok"
   MODEL_DIR="$MODELS_PATH/public/$MODEL_NAME"
   DST_FILE1="$MODEL_DIR/FP32/$MODEL_NAME.xml"
 
@@ -441,14 +479,21 @@ os.remove('${MODEL_NAME}.zip')
     rm -rf license-plate-reader
     cd ..
   else
+    model_status="cached"
     echo_color "\nModel already exists: $MODEL_DIR.\n" "yellow"
   fi
+  model_timer_end=$(date +%s)
+  model_seconds=$((model_timer_end - model_timer_start))
+  append_model_timing "$MODEL_NAME" "download" "$model_seconds" "$model_status"
+  echo "[DEBUG][TIMING] model=${MODEL_NAME} phase=download seconds=${model_seconds} status=${model_status}"
 fi
 
 # ================================= CenterFace FP16 & FP32 =================================
 if array_contains "centerface" "${MODELS_TO_PROCESS[@]}"; then
   display_header "Downloading CenterFace model"
   MODEL_NAME="centerface"
+  model_timer_start=$(date +%s)
+  model_status="ok"
   MODEL_DIR="$MODELS_PATH/public/$MODEL_NAME"
   DST_FILE1="$MODEL_DIR/FP16/$MODEL_NAME.xml"
   DST_FILE2="$MODEL_DIR/FP32/$MODEL_NAME.xml"
@@ -488,14 +533,21 @@ os.remove('centerface.xml')
 os.remove('centerface.bin')
 EOF
   else
+    model_status="cached"
     echo_color "\nModel already exists: $MODEL_DIR.\n" "yellow"
   fi
+  model_timer_end=$(date +%s)
+  model_seconds=$((model_timer_end - model_timer_start))
+  append_model_timing "$MODEL_NAME" "download" "$model_seconds" "$model_status"
+  echo "[DEBUG][TIMING] model=${MODEL_NAME} phase=download seconds=${model_seconds} status=${model_status}"
 fi
 
 # ================================= HSEmotion FP16 =================================
 if array_contains "hsemotion" "${MODELS_TO_PROCESS[@]}"; then
   display_header "Downloading HSEmotion model"
   MODEL_NAME="hsemotion"
+  model_timer_start=$(date +%s)
+  model_status="ok"
   MODEL_DIR="$MODELS_PATH/public/$MODEL_NAME"
   DST_FILE="$MODEL_DIR/FP16/$MODEL_NAME.xml"
 
@@ -532,14 +584,21 @@ os.remove('hsemotion.xml')
 os.remove('hsemotion.bin')
 EOF
   else
+    model_status="cached"
     echo_color "\nModel already exists: $MODEL_DIR.\n" "yellow"
   fi
+  model_timer_end=$(date +%s)
+  model_seconds=$((model_timer_end - model_timer_start))
+  append_model_timing "$MODEL_NAME" "download" "$model_seconds" "$model_status"
+  echo "[DEBUG][TIMING] model=${MODEL_NAME} phase=download seconds=${model_seconds} status=${model_status}"
 fi
 
 # ================================= DeepLabv3 FP16 & FP32 =================================
 if array_contains "deeplabv3" "${MODELS_TO_PROCESS[@]}"; then
   display_header "Downloading DeepLabv3 model"
   MODEL_NAME="deeplabv3"
+  model_timer_start=$(date +%s)
+  model_status="ok"
   MODEL_DIR="$MODELS_PATH/public/$MODEL_NAME"
   DST_FILE1="$MODEL_DIR/FP32/$MODEL_NAME.xml"
   DST_FILE2="$MODEL_DIR/FP16/$MODEL_NAME.xml"
@@ -583,14 +642,21 @@ EOF
     rm -rf "$HOME/.virtualenvs/dlstreamer_openvino_dev" 2>/dev/null || true
     source "$VENV_DIR/bin/activate" 
   else
+    model_status="cached"
     echo_color "\nModel already exists: $MODEL_DIR.\n" "yellow"
   fi
+  model_timer_end=$(date +%s)
+  model_seconds=$((model_timer_end - model_timer_start))
+  append_model_timing "$MODEL_NAME" "download" "$model_seconds" "$model_status"
+  echo "[DEBUG][TIMING] model=${MODEL_NAME} phase=download seconds=${model_seconds} status=${model_status}"
 fi
 
 # ================================= ch_PP-OCRv4_rec_infer FP32 =================================
 if array_contains "ch_PP-OCRv4_rec_infer" "${MODELS_TO_PROCESS[@]}"; then
   display_header "Downloading PaddlePaddle OCRv4 model"
   MODEL_NAME="ch_PP-OCRv4_rec_infer"
+  model_timer_start=$(date +%s)
+  model_status="ok"
   MODEL_DIR="$MODELS_PATH/public/$MODEL_NAME"
   DST_FILE1="$MODEL_DIR/FP32/$MODEL_NAME.xml"
 
@@ -615,8 +681,13 @@ os.remove('${MODEL_NAME}.zip')
     rm -rf license-plate-reader
     cd ..
   else
+    model_status="cached"
     echo_color "\nModel already exists: $MODEL_DIR.\n" "yellow"
   fi
+  model_timer_end=$(date +%s)
+  model_seconds=$((model_timer_end - model_timer_start))
+  append_model_timing "$MODEL_NAME" "download" "$model_seconds" "$model_status"
+  echo "[DEBUG][TIMING] model=${MODEL_NAME} phase=download seconds=${model_seconds} status=${model_status}"
 fi
 
 
