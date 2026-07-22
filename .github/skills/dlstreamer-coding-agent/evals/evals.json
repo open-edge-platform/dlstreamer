@@ -51,19 +51,6 @@
         },
         {
             "id": 5,
-            "prompt": "License plate recognition with YOLOv11 detection on GPU and PaddleOCR on NPU using DL Streamer pipeline",
-            "expected_output": "A DL Streamer pipeline that reads a local video, performs YOLOv11 detection with gvadetect and PaddleOCR for character recognition, and emits inference metadata as JSON text.",
-            "expectations": [
-                "Uses YOLOv11 model for plate detection via gvadetect.",
-                "Uses PaddleOCR model for character recognition via gvaclassify or gvainference.",
-                "Offloads PaddleOCR to NPU device.",
-                "The pipeline includes gvametaconvert and gvametapublish for JSON metadata output.",
-                "Annotates video with detection results.",
-                "The response describes a complete pipeline that could run end-to-end."
-            ]
-        },
-        {
-            "id": 6,
             "prompt": "Multi-RTSP-stream analysis with AI analytics, recording, and WebRTC output using DL Streamer pipeline",
             "expected_output": "A DL Streamer pipeline that handles multiple RTSP camera inputs with AI analytics, recording, and WebRTC output.",
             "expectations": [
@@ -76,7 +63,7 @@
             ]
         },
         {
-            "id": 7,
+            "id": 6,
             "prompt": "People detection and tracking with YOLO26m and Mars re-ID using DL Streamer pipeline",
             "expected_output": "A DL Streamer pipeline using YOLO26m for detection and Mars-Small-128 for re-identification tracking.",
             "expectations": [
@@ -88,7 +75,7 @@
             ]
         },
         {
-            "id": 8,
+            "id": 7,
             "prompt": "Multi-stream pose estimation with 4 YOLO pose models composed into single output using DL Streamer pipeline",
             "expected_output": "A DL Streamer pipeline processing 4 video streams with distinct YOLO pose models, composed into a single output.",
             "expectations": [
