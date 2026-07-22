@@ -517,6 +517,11 @@ jobs:
             echo "" >> "$GITHUB_STEP_SUMMARY"
             echo "✅ Size check skipped" >> "$GITHUB_STEP_SUMMARY"
             echo "Reason: Pull request from fork (repository vars are unavailable)." >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "### Manual verification" >> "$GITHUB_STEP_SUMMARY"
+            echo "Current image size (from reusable workflow output): ${CURRENT_IMAGE_SIZE_JSON:-N/A}" >> "$GITHUB_STEP_SUMMARY"
+            echo "- Compare this value with expected DEV image size values manually." >> "$GITHUB_STEP_SUMMARY"
+            echo "- If needed, rerun the same commit in a non-fork branch to run the automatic size gate." >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
 
@@ -611,6 +616,11 @@ jobs:
             echo "" >> "$GITHUB_STEP_SUMMARY"
             echo "✅ Size check skipped" >> "$GITHUB_STEP_SUMMARY"
             echo "Reason: Pull request from fork (repository vars are unavailable)." >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "### Manual verification" >> "$GITHUB_STEP_SUMMARY"
+            echo "Current image size (from reusable workflow output): ${CURRENT_IMAGE_SIZE_JSON:-N/A}" >> "$GITHUB_STEP_SUMMARY"
+            echo "- Compare this value with expected DEB image size values manually." >> "$GITHUB_STEP_SUMMARY"
+            echo "- If needed, rerun the same commit in a non-fork branch to run the automatic size gate." >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
 
