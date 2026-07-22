@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import subprocess
 import sys
@@ -35,6 +36,11 @@ MODELS_REQUIRING_TRUST_REMOTE_CODE = {
 MODEL_DEPENDENCIES = {
     "OpenGVLab/InternVL2-1B": ["einops", "timm", "torchvision"],
     "openbmb/MiniCPM-o-2_6": ["soundfile"],
+}
+
+MODELS_REQUIRING_PAD_TOKEN_WORKAROUND = {
+    "qnguyen3/nanoLLaVA",
+    "qnguyen3/nanoLLaVA-1.5",
 }
 
 
@@ -125,6 +131,33 @@ def install_model_dependencies(repo_id: str) -> None:
         raise
 
 
+def ensure_export_config_compat(local_model_dir: str | Path, repo_id: str) -> None:
+    """Apply safe local config workarounds required by some remote-code models."""
+    if repo_id not in MODELS_REQUIRING_PAD_TOKEN_WORKAROUND:
+        return
+
+    config_path = Path(local_model_dir) / "config.json"
+    if not config_path.exists():
+        return
+
+    with config_path.open(encoding="utf-8") as file:
+        config = json.load(file)
+
+    if "pad_token_id" in config:
+        return
+
+    fallback_token_id = config.get("eos_token_id") or config.get("bos_token_id")
+    if fallback_token_id is None:
+        print(f"Warning: cannot infer pad_token_id for {repo_id}")
+        return
+
+    config["pad_token_id"] = fallback_token_id
+    with config_path.open("w", encoding="utf-8") as file:
+        json.dump(config, file, indent=2)
+        file.write("\n")
+    print(f"Applied config workaround for {repo_id}: set pad_token_id={fallback_token_id}")
+
+
 def main() -> int:
     args = parse_args()
     model_id = args.model
@@ -157,6 +190,9 @@ def main() -> int:
         
         # Install model requirements if they exist
         install_model_requirements(local_model_dir)
+
+        # Apply local config workarounds for known problematic models
+        ensure_export_config_compat(local_model_dir, repo_id)
         
         # Determine support level by analyzing locally cached model
         support_level = get_hf_model_support_level(local_model_dir)

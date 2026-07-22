@@ -1,6 +1,7 @@
 # One model per line.
 # Supports optional pinning in form: <timm_model_name>@<huggingface_revision_sha>
 # Example: efficientnet_b0@1b5383e5f79cc0f7fc067e372f8f26a5fa73f26a
+
 efficientnet_b0@1b5383e5f79cc0f7fc067e372f8f26a5fa73f26a
 densenet121@92007b6200e0b4a4fe68cb4e3947022a928aaaae
 dm_nfnet_f0@ca8e830961c2ebceffff7affff34acfe7a1da673

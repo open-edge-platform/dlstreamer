@@ -62,7 +62,7 @@ OPTIMUM_TASK_BY_ARCH = {
     "internvlchatmodel": "image-text-to-text",
     "llavaforconditionalgeneration": "image-text-to-text",
     "llavaqwen2forcausallm": "image-text-to-text",
-    "bunnyqwen2forcausallm": "image-text-to-text",
+    "bunnyqwenforcausallm": "image-text-to-text",
     "llavanextforconditionalgeneration": "image-text-to-text",
     "llavanextvideoforconditionalgeneration": "image-text-to-text",
     "minicpmo": "image-text-to-text",
