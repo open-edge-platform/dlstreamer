@@ -26,6 +26,7 @@ gst-inspect-1.0 utility.
 | [g3dlidarparse](./g3dlidarparse.md) | Parses 3D LiDAR binary frames and attaches custom metadata with point cloud data. Reads raw LiDAR frames (BIN/PCD), applies stride/frame-rate thinning, sets GStreamer timestamps (PTS/duration) for synchronization, and outputs buffers enriched with LidarMeta (points, frame_id, timestamps, stream_id) for downstream fusion, analytics, or visualization.<br>Example:<br> gst-launch-1.0 multifilesrc location="lidar/%06d.bin" caps=application/octet-stream ! g3dlidarparse stride=5 frame-rate=5 ! fakesink<br> |
 | [g3dinference](./g3dinference.md) | Runs PointPillars 3D object detection on LiDAR point clouds produced by `g3dlidarparse`. It consumes `application/x-lidar` buffers with `LidarMeta`, performs OpenVINO inference, and attaches tensor metadata with flattened 3D detections for downstream processing.<br>Example:<br> gst-launch-1.0 multifilesrc location="lidar/%06d.bin" caps=application/octet-stream ! g3dlidarparse ! g3dinference config=pointpillars_ov_config.json device=CPU ! gvametaconvert format=json json-indent=2 ! gvametapublish file-format=2 file-path=pointpillars.json ! fakesink<br> |
 | [g3dobjectfuser](./g3dobjectfuser.md) | Spatially associates 2D camera detections with 3D radar or LiDAR detections, performs per-modality object tracking, and emits a single output buffer carrying the cross-modal association as analytics metadata. Consumes a pre-muxed `GstAnalyticsBatchMeta` container from `gvastreammux`, projects 3D boxes into image space using per-camera calibration matrices, and links them to 2D boxes via IoU-based Hungarian association.<br>Example:<br> gst-launch-1.0 … gvadetect model=yolo.xml ! mux.sink_0 … g3dlidarparse ! g3dinference config=pointpillars_ov_config.json ! mux.sink_1 gvastreammux name=mux output-mode=container sync-mode=first-pts ! g3dobjectfuser calibration=kitti_calib.json ! gvametaconvert format=json ! gvametapublish file-format=2 file-path=detections.json ! fakesink<br> |
+| [g3drender](./g3drender.md) | Renders a LiDAR point cloud — with optional camera streams and cross-modal detection metadata — into a BGR video frame. Supports three modes: `bev` (bird's-eye view with metric grid), `perspective` (synthetic 3D camera), and `cam-proj`. Accepts either a raw `application/x-lidar` stream or a `GstAnalyticsBatchMeta` container.<br>Example:<br> gst-launch-1.0 … g3dlidarparse ! g3dinference config=pointpillars_ov_config.json ! mux.sink_1 gvastreammux name=mux ! g3dobjectfuser calibration=kitti_calib.json ! g3drender view-mode=perspective width=1600 height=800 ! videoconvert ! ximagesink<br> |
 
 ## Auxiliary plugins
 
@@ -62,6 +63,7 @@ g3dlidarsrc
 g3dlidarparse
 g3dinference
 g3dobjectfuser
+g3drender
 gvaanalytics
 gvaattachroi
 gvafpscounter
