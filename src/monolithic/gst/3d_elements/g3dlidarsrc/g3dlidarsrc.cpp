@@ -287,12 +287,28 @@ static void gst_g3d_lidar_src_get_property(GObject *object, guint prop_id, GValu
 static void on_cloud_cb(void *user, const g3d_lidar_frame *frame) {
     GstG3DLidarSrc *self = GST_G3D_LIDAR_SRC(user);
 
+    /* While flushing (unlock() called, teardown in progress) the backend may
+     * still be delivering frames until it is stopped. Drop them cheaply, before
+     * the copy below, to avoid needless CPU/memory churn and spurious
+     * 'queue full' warnings during teardown. */
+    {
+        std::lock_guard<std::mutex> lock(self->priv->queue_mutex);
+        if (self->priv->flushing)
+            return;
+    }
+
     auto lf = std::make_shared<LidarFrame>();
     lf->point_count = frame->point_count;
     lf->timestamp = frame->timestamp;
     lf->xyzi.assign(frame->xyzi, frame->xyzi + (size_t)frame->point_count * 4);
 
     std::lock_guard<std::mutex> lock(self->priv->queue_mutex);
+
+    /* Re-check: flushing may have been set while we copied above (outside the
+     * lock). If so, drop the frame instead of pushing it onto a queue that
+     * create() will no longer drain. */
+    if (self->priv->flushing)
+        return;
 
     /* Record frame reception time */
     self->priv->last_frame_time = std::chrono::steady_clock::now();
