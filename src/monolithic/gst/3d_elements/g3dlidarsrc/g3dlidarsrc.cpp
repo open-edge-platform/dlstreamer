@@ -385,6 +385,21 @@ static gboolean gst_g3d_lidar_src_start(GstBaseSrc *src) {
                     cfg.vendor.c_str(), cfg.model.c_str(), cfg.transport.bind_address.c_str(),
                     self->ntp_sync ? "true" : "false");
 
+    /* The vendor string is interpolated into a library name and handed to
+     * dlopen(), so it must be strictly validated first. Without this, a config
+     * could smuggle path separators or "." components (e.g. vendor="../../evil")
+     * to load an arbitrary library off disk. Restrict to a conservative
+     * allowlist: non-empty, only [A-Za-z0-9_], no path separators or dots. */
+    if (cfg.vendor.empty() ||
+        cfg.vendor.find_first_not_of("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_") !=
+            std::string::npos) {
+        GST_ELEMENT_ERROR(self, RESOURCE, SETTINGS, (NULL),
+                          ("Invalid vendor '%s' in config: only ASCII letters, digits and underscore "
+                           "are allowed (no path separators or dots).",
+                           cfg.vendor.c_str()));
+        return FALSE;
+    }
+
     /* Derive the backend library name from the vendor and load it. Each vendor
      * backend (g3dlidar_<vendor>.dll on Windows, libg3dlidar_<vendor>.so on Linux) implements the C ABI in
      * <dlstreamer/lidar/g3d_lidar_backend_api.h>. Loaded by bare name so the
