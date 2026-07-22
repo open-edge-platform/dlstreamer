@@ -47,8 +47,8 @@ static const char *zone_polygon_json = "[{\"id\":\"zone_center\",\"type\":\"poly
 
 /* A lower band zone where bottom-center can be inside while center is outside. */
 static const char *zone_bottom_band_json = "[{\"id\":\"zone_bottom_band\",\"type\":\"polygon\","
-                                                         "\"points\":[{\"x\":100,\"y\":150},{\"x\":220,\"y\":150},"
-                                                         "{\"x\":220,\"y\":220},{\"x\":100,\"y\":220}]}]";
+                                           "\"points\":[{\"x\":100,\"y\":150},{\"x\":220,\"y\":150},"
+                                           "{\"x\":220,\"y\":220},{\"x\":100,\"y\":220}]}]";
 
 /* A vertical tripwire at x=160, spanning the full height */
 static const char *tripwire_vertical_json = "[{\"id\":\"wire_center\","
@@ -188,8 +188,7 @@ static void check_bottom_band_zone_meta_present(GstBuffer *buf, gpointer /*user_
 GST_START_TEST(test_evaluation_point_bottom_center) {
     g_print("Starting test: test_evaluation_point_bottom_center\n");
     run_test(elem_name, ANALYTICS_BGR_CAPS, test_resolution, &src_any, &sink_any, setup_od_center_outside_bottom_inside,
-             check_bottom_band_zone_meta_present, NULL, "zones", zone_bottom_band_json, "evaluation-point", 1,
-             NULL);
+             check_bottom_band_zone_meta_present, NULL, "zones", zone_bottom_band_json, "evaluation-point", 1, NULL);
 }
 GST_END_TEST;
 
