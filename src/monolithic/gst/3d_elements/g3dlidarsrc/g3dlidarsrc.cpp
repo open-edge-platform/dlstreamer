@@ -135,9 +135,10 @@ static void gst_g3d_lidar_src_class_init(GstG3DLidarSrcClass *klass) {
                           G_MAXUINT, 0, (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
     /* Element metadata */
-    gst_element_class_set_static_metadata(gstelement_class, "G3D LiDAR Source", "Source/Device",
-                                          "Receives real-time LiDAR point cloud data via rs_driver SDK (g3dlidarsrc)",
-                                          "Intel Corporation");
+    gst_element_class_set_static_metadata(
+        gstelement_class, "G3D LiDAR Source", "Source/Device",
+        "Receives real-time LiDAR point cloud data via a vendor backend loaded dynamically (dlopen) per config",
+        "Intel Corporation");
 
     gst_element_class_add_static_pad_template(gstelement_class, &src_template);
 
