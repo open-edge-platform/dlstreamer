@@ -4,57 +4,75 @@
 # SPDX-License-Identifier: MIT
 # ==============================================================================
 """
-dlstreamer.onvif — ONVIF camera discovery and pipeline integration library.
+dlstreamer.onvif — ONVIF camera discovery, media profiles and PTZ control.
 
-Public API
-----------
-Discovery functions (low-level, no GStreamer dependency):
-    discover_onvif_cameras()       — synchronous WS-Discovery generator
-    discover_onvif_cameras_async() — async WS-Discovery generator
+Composed of three independent libraries:
 
-High-level engine (manages discovery loop + ONVIF connection + GStreamer pipelines):
-    DlsOnvifDiscoveryEngine
+- :mod:`dlstreamer.onvif.discovery` — **ONVIF Discovery Library**.
+  Pure WS-Discovery layer. Finds ONVIF cameras on the local network and
+  yields ``{"hostname", "port"}`` descriptors.
 
-Data models:
-    ONVIFProfile            — per-camera media profile (resolution, codec, PTZ, RTSP URL)
-    DlsOnvifCameraEntry     — single discovered camera with lifecycle state
-    DlsOnvifCameraRegistry  — thread-safe in-memory store of all known cameras
-    CameraStatus            — camera lifecycle enum
+- :mod:`dlstreamer.onvif.camera_profiles` — **ONVIF Media Profiles Library**.
+  Consumes discovery descriptors, connects to each camera and returns
+  the media profiles (:class:`ONVIFProfile`) via
+  :func:`read_camera_profiles`.
 
-Pipeline launcher:
-    DlsLaunchedPipeline     — wraps a running GStreamer pipeline
+- :mod:`dlstreamer.onvif.ptz` — **ONVIF PTZ Library**.
+  Filters profiles for PTZ support for cameras conforming to the ONVIF
+  PTZ ver 2.0 WSDL.
 
-Configuration:
-    DlsOnvifConfigManager   — loads pipeline definitions from a config.json file
+The top-level module re-exports the public API of the three
+sub-libraries so that ``from dlstreamer.onvif import ...`` keeps
+working.
 
-Utility:
-    print_cameras           — tabular debug printer
+The planned :mod:`dlstreamer.onvif.video_engine` wrapper is also
+available as a separate subpackage and can be re-exported here once its
+API is finalized.
 """
 
-from .dls_onvif_data import ONVIFProfile
-from .misc import print_cameras
-from .dls_onvif_config_manager import DlsOnvifConfigManager
-from .dls_onvif_discovery_thread import DlsLaunchedPipeline
-from .dls_onvif_camera_entry import (
-    CameraStatus,
-    DlsOnvifCameraEntry,
-    DlsOnvifCameraRegistry,
-)
-from .dls_onvif_discovery_engine import (
-    DlsOnvifDiscoveryEngine,
-    discover_onvif_cameras,
-    discover_onvif_cameras_async,
+# --- ONVIF Discovery Library ---
+from .discovery import (
+  discover_onvif_cameras,
+  discover_onvif_cameras_async,
 )
 
+# --- ONVIF Media Profiles Library ---
+from .camera_profiles import (
+  CameraProfilesResult,
+  ONVIFProfile,
+  read_camera_profiles,
+  read_camera_profiles_async,
+)
+
+# --- ONVIF PTZ Library ---
+from .ptz import (
+  PTZCapableProfile,
+  PTZController,
+  PTZPreset,
+  PTZStatus,
+  PTZVector,
+  find_ptz_capable_profiles,
+  find_ptz_capable_profiles_async,
+  is_ptz_profile,
+)
+
+
 __all__ = [
-    "ONVIFProfile",
-    "print_cameras",
-    "DlsOnvifConfigManager",
-    "DlsLaunchedPipeline",
-    "CameraStatus",
-    "DlsOnvifCameraEntry",
-    "DlsOnvifCameraRegistry",
-    "DlsOnvifDiscoveryEngine",
+    # discovery library
     "discover_onvif_cameras",
     "discover_onvif_cameras_async",
+    # camera_profiles library
+    "CameraProfilesResult",
+    "ONVIFProfile",
+    "read_camera_profiles",
+    "read_camera_profiles_async",
+    # ptz library
+    "PTZCapableProfile",
+    "PTZController",
+    "PTZPreset",
+    "PTZStatus",
+    "PTZVector",
+    "find_ptz_capable_profiles",
+    "find_ptz_capable_profiles_async",
+    "is_ptz_profile",
 ]
