@@ -35,12 +35,14 @@ Media analytics — the analysis of video and audio streams to detect, classify,
 |---|---|
 | **One-line pipelines** | Build a working detection pipeline in a single `gst-launch-1.0` command |
 | **Hardware acceleration** | Targets CPU, GPU, and NPU on Intel platforms from a single codebase |
+| **Cross-platform** | Runs on Ubuntu 22.04/24.04 and Windows 11 |
 | **VLM & GenAI ready** | Run Vision-Language Models (MiniCPM-V, CLIP, Whisper) in a GStreamer pipeline |
 | **GstAnalytics compliance** | Supports the GStreamer industry metadata standard for interoperability |
 | **Messaging integration** | Publish inference results to MQTT or Kafka with built-in elements — no extra code |
 | **Python-first extensibility** | Add custom logic as Python callbacks or full Python elements — no C++ required |
 | **30+ ready-to-run samples** | Covers detection, classification, tracking, VLMs, LiDAR, radar and more |
-| **Cross-platform** | Runs on Ubuntu 22.04/24.04 and Windows 11 |
+| **Multi-stream, multi-sensor** | Mux/demux dozens of RTSP streams, LiDAR frames, and radar point clouds in a single process |
+| **Model hub support** | Deploy models from Geti™ Studio, Ultralytics, Hugging Face, or any ONNX/OpenVINO IR model directly |
 
 ![Deep Learning Streamer SW Stack](_images/overview_sw_stack.png)
 
