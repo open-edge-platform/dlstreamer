@@ -113,6 +113,7 @@ For reference documentation of the legacy API, see
 | `gvastreammux` | Merge streams into one batch | GstBuffer (per stream) + metadata | GstAnalyticsBatchMeta (container) | — |
 | `gvastreamdemux` | Split batch back to per-stream buffers | GstAnalyticsBatchMeta (container) | per-stream GstBuffer + metadata | — |
 | `g3dradarprocess` | mmWave radar signal processing | GstBuffer | GstRadarProcessMeta | — |
+| `g3dlidarsrc` | Live LiDAR capture from a device → point cloud | — (source element) | LidarMeta | — |
 | `g3dlidarparse` | Parse raw LiDAR frame → point cloud | GstBuffer | LidarMeta | — |
 | `g3dinference` | 3D detection on LiDAR | GstBuffer + LidarMeta | 3DODMtd | — |
 | `g3dobjectfuser` | Fuse camera 2D with 3D (LiDAR/radar) | GstAnalyticsBatchMeta + ODMtd + 3DODMtd + GstRadarProcessMeta | 3DODMtd + TrackingMtd | — |

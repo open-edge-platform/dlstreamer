@@ -7,6 +7,8 @@ DL Streamer's 3D pipelines carry two kinds of metadata:
   frame and the sensor-specific results (point clouds, clusters, low-level
   tracks). Two types are defined:
   - `LidarMeta` — produced by [`g3dlidarparse`](../elements/g3dlidarparse.md)
+    (offline BIN/PCD replay) and [`g3dlidarsrc`](../elements/g3dlidarsrc.md)
+    (live device capture)
   - `GstRadarProcessMeta` — produced by [`g3dradarprocess`](../elements/g3dradarprocess.md)
 - **3D detections** — the oriented 3D bounding boxes produced by
   [`g3dinference`](../elements/g3dinference.md) and consumed by
@@ -20,9 +22,12 @@ This page documents the two raw-sensor `GstMeta` types. These are standalone
 
 ## LidarMeta
 
-`LidarMeta` frames a raw LiDAR point cloud. `g3dlidarparse` parses a raw
-BIN/PCD frame into a dense float payload and attaches one `LidarMeta` per
-buffer; `g3dinference` reads it to validate and voxelize the payload before
+`LidarMeta` frames a raw LiDAR point cloud. It is attached by one of two
+producers — `g3dlidarparse`, which parses a recorded BIN/PCD frame from disk,
+or `g3dlidarsrc`, which captures frames live from a device — each emitting a
+dense float payload with one `LidarMeta` per buffer. The two are byte-for-byte
+compatible, so downstream elements accept either source unchanged.
+`g3dinference` reads the meta to validate and voxelize the payload before
 inference.
 
 The **point coordinates themselves are not stored in the meta**: they live in
@@ -35,7 +40,7 @@ typedef struct _LidarMeta {
     GstMeta      meta;
     guint        lidar_point_count;          /* points in this frame; payload = count * 4 * sizeof(float) */
     size_t       frame_id;                   /* sequential frame id from the source stream */
-    GstClockTime exit_source_timestamp;      /* clock time when the buffer left g3dlidarparse */
+    GstClockTime exit_source_timestamp;      /* clock time when the buffer left the source element */
     GstClockTime exit_g3dinference_timestamp;/* clock time when the buffer left g3dinference */
     guint        stream_id;                  /* STREAM_START group-id, for multi-stream pipelines */
 } LidarMeta;
@@ -47,7 +52,7 @@ typedef struct _LidarMeta {
 |-------|------|-------------|
 | `lidar_point_count` | `guint` | Number of points in the frame. The payload is `lidar_point_count * 4 * sizeof(float)` bytes (`x, y, z, intensity` per point). `g3dinference` rejects the buffer if the mapped payload size does not match. |
 | `frame_id` | `size_t` | Sequential frame identifier from the source stream. |
-| `exit_source_timestamp` | `GstClockTime` | Clock time when the buffer exited `g3dlidarparse`. Set by the producer. |
+| `exit_source_timestamp` | `GstClockTime` | Clock time when the buffer exited the source element (`g3dlidarparse` or `g3dlidarsrc`). Set by the producer. |
 | `exit_g3dinference_timestamp` | `GstClockTime` | Clock time when the buffer exited `g3dinference`. Initialised to `GST_CLOCK_TIME_NONE` and filled by `g3dinference` (used for latency measurement). |
 | `stream_id` | `guint` | Stream identifier (group-id from `STREAM_START`) for multi-stream pipelines. |
 
@@ -81,8 +86,8 @@ if (lm) {
 ### LidarMeta lifecycle
 
 ```text
-g3dlidarparse                       g3dinference
-  parse BIN/PCD frame                 read LidarMeta (count, frame_id, stream_id)
+g3dlidarparse / g3dlidarsrc         g3dinference
+  parse BIN/PCD | capture live        read LidarMeta (count, frame_id, stream_id)
   add_lidar_meta(count, ...)   ─────▶ map payload, verify size == count*4*float
   payload = float32[count*4]          run inference, add GstAnalytics3DODMtd
   caps: application/x-lidar           set exit_g3dinference_timestamp
