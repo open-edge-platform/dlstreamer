@@ -5,11 +5,11 @@
 --extra-index-url https://download.pytorch.org/whl/cpu
 
 # OpenVINO Python version (pin to match DL Streamer runtime)
-openvino==2026.1.0
+openvino==2026.2.0
 nncf==3.0.0  # required for int8=True quantization
 
 # Ultralytics YOLO (YOLOv11 license plate detection)
-ultralytics==8.4.33
+ultralytics==8.4.57
 
 # HuggingFace model download
 huggingface_hub

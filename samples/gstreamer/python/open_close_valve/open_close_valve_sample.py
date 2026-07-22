@@ -27,7 +27,7 @@ class DualStreamController:
         Initialize dual stream controller
         """
 
-        Gst.init(None)
+        Gst.init([])
         self.video_source = video_source
         self.pipeline = None
         self.valve = None

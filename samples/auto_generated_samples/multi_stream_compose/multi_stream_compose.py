@@ -334,7 +334,7 @@ def main():
     # Device fallback
     device = check_device(args.device, "inference")
 
-    Gst.init(None)
+    Gst.init([])
 
     pipe_str = build_pipeline(sources, model_xml, device, args.num_streams, args.webrtc_port)
     print(f"\nPipeline:\n{pipe_str}\n")
