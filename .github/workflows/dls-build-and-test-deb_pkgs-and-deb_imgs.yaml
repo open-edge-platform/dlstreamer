@@ -446,6 +446,15 @@ jobs:
             /kB$/ { printf "0"; next }
           ')
 
+          # When the expected-size variable is unavailable (e.g. forks or repos
+          # without the repository variable defined) skip the size gate instead of failing.
+          if [ -z "${EXPECTED_SIZE_MB}" ]; then
+            echo "::notice::Expected image size variable not set (likely a fork). Actual size: ${SIZE_STR} (~${IMAGE_SIZE_MB} MB). Skipping size gate."
+            echo "IMAGE_SIZE_MB=$IMAGE_SIZE_MB" >> $GITHUB_ENV
+            echo "EXPECTED_SIZE_MB=N/A" >> $GITHUB_ENV
+            exit 0
+          fi
+
           echo "Actual image size (docker images SIZE): ${SIZE_STR} (~${IMAGE_SIZE_MB} MB)"
           echo "Expected size: ${EXPECTED_SIZE_MB} MB"
           DIFF=$(( IMAGE_SIZE_MB - EXPECTED_SIZE_MB ))
