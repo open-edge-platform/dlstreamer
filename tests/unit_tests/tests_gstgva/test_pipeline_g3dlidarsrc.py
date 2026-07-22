@@ -31,10 +31,14 @@ def _to_gst_path(path):
 
 
 class TestG3DLidarSrc(unittest.TestCase):
-    """Live integration tests for g3dlidarsrc.
+    """Optional live integration tests for g3dlidarsrc (NOT run in typical CI).
 
-    These tests are skipped automatically unless the runtime environment is ready.
-    They require:
+    These are hardware-in-the-loop integration tests, not self-contained unit
+    tests: they exercise the full element against a real device and therefore
+    require physical hardware. Because the requirements below are not met in a
+    normal CI environment, the whole class skips itself automatically (see
+    setUpClass) and provides no deterministic coverage there. To actually run
+    them you need:
       1. a built vendor backend library,
       2. a valid LiDAR config file,
       3. a reachable physical LiDAR device streaming live UDP data.
