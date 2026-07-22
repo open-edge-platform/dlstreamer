@@ -8,6 +8,10 @@ on:
         required: false
         type: string
         default: "main"
+    outputs:
+      current-image-size:
+        description: "Current DEB image sizes in MB as JSON (keys: ubuntu22, ubuntu24)"
+        value: ${{ jobs.collect-image-sizes.outputs.current-image-size }}
   workflow_dispatch:
     inputs:
       test-repo-branch:
@@ -428,16 +432,8 @@ jobs:
         env:
           deb_final_img: ghcr.io/${{ github.repository }}/deb-final-img-${{ matrix.ubuntu_version }}:${{ github.sha }}
           MATRIX_UBUNTU_VERSION: ${{ matrix.ubuntu_version }}
-          EXPECTED_SIZE_MB_DEB_U22: ${{ vars.EXPECTED_SIZE_MB_DEB_U22 }}
-          EXPECTED_SIZE_MB_DEB_U24: ${{ vars.EXPECTED_SIZE_MB_DEB_U24 }}
         run: |
           IMAGE_NAME=${deb_final_img}
-          if [ "${MATRIX_UBUNTU_VERSION}" == "ubuntu22" ]; then
-            EXPECTED_SIZE_MB=${EXPECTED_SIZE_MB_DEB_U22}
-          elif [ "${MATRIX_UBUNTU_VERSION}" == "ubuntu24" ]; then
-            EXPECTED_SIZE_MB=${EXPECTED_SIZE_MB_DEB_U24}
-          fi
-
           # Use 'docker images' SIZE — identical to the SIZE column visible when running 'docker images' manually on the runner
           SIZE_STR=$(docker images --no-trunc --format '{{.Size}}' "$IMAGE_NAME")
           IMAGE_SIZE_MB=$(echo "$SIZE_STR" | awk '
@@ -446,27 +442,35 @@ jobs:
             /kB$/ { printf "0"; next }
           ')
 
-          echo "Actual image size (docker images SIZE): ${SIZE_STR} (~${IMAGE_SIZE_MB} MB)"
-          echo "Expected size: ${EXPECTED_SIZE_MB} MB"
-          DIFF=$(( IMAGE_SIZE_MB - EXPECTED_SIZE_MB ))
-          ABS_DIFF=${DIFF#-}
-          echo "Difference: ${ABS_DIFF} MB"
-
-          THRESHOLD_SIZE_MB=100
-          echo "IMAGE_SIZE_MB=$IMAGE_SIZE_MB" >> $GITHUB_ENV
-          echo "EXPECTED_SIZE_MB=$EXPECTED_SIZE_MB" >> $GITHUB_ENV
-          if [ "$ABS_DIFF" -gt "$THRESHOLD_SIZE_MB" ]; then
-            echo "❌ Image size difference exceeds allowed threshold: ${THRESHOLD_SIZE_MB}MB (difference: ${ABS_DIFF} MB)"
+          if [[ -z "${IMAGE_SIZE_MB}" ]]; then
+            echo "❌ Failed to detect Docker image size for ${IMAGE_NAME}"
             exit 1
-          else
-            echo "✅ Image size within allowed threshold: ${THRESHOLD_SIZE_MB}MB."
           fi
+
+          echo "Actual image size (docker images SIZE): ${SIZE_STR} (~${IMAGE_SIZE_MB} MB)"
+          SIZE_FILE="$RUNNER_TEMP/${MATRIX_UBUNTU_VERSION}.size.env"
+          {
+            echo "UBUNTU_VERSION=${MATRIX_UBUNTU_VERSION}"
+            echo "IMAGE_SIZE_MB=${IMAGE_SIZE_MB}"
+            echo "SIZE_STR=${SIZE_STR}"
+          } > "$SIZE_FILE"
+
+          echo "image_size_mb=${IMAGE_SIZE_MB}" >> "$GITHUB_OUTPUT"
+          echo "size_str=${SIZE_STR}" >> "$GITHUB_OUTPUT"
+          echo "size_file=${SIZE_FILE}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload Docker image size metadata
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a #7.0.1
+        if: always() && needs.setup.outputs.should_run == 'true' && steps.check-size.outcome == 'success'
+        with:
+          name: deb-image-size-${{ matrix.ubuntu_version }}
+          path: ${{ steps.check-size.outputs.size_file }}
 
       - name: Print image size summary
         if: always() && needs.setup.outputs.should_run == 'true'
         env:
-          IMAGE_SIZE_MB: ${{ env.IMAGE_SIZE_MB }}
-          EXPECTED_SIZE_MB: ${{ env.EXPECTED_SIZE_MB }}
+          IMAGE_SIZE_MB: ${{ steps.check-size.outputs.image_size_mb }}
+          IMAGE_SIZE_STR: ${{ steps.check-size.outputs.size_str }}
           UBUNTU_VERSION: ${{ matrix.ubuntu_version }}
         run: |
           {
@@ -474,8 +478,7 @@ jobs:
             echo ""
             echo "| Image | Size |"
             echo "|-------|------|"
-            echo "| Current Docker ${UBUNTU_VERSION}-deb | **${IMAGE_SIZE_MB} MB** |"
-            echo "| Expected Docker ${UBUNTU_VERSION}-deb | **${EXPECTED_SIZE_MB} MB** |"
+            echo "| Current Docker ${UBUNTU_VERSION}-deb | **${IMAGE_SIZE_STR} (~${IMAGE_SIZE_MB} MB)** |"
           } >> "$GITHUB_STEP_SUMMARY"
 
       # ======================================================== CLEANUP PART ========================================================
@@ -490,3 +493,52 @@ jobs:
           rm -rf dlstreamer
           rm -rf $HOME/dl-streamer-tests-repo
           docker system prune -a -f
+
+  collect-image-sizes:
+    name: "Collect Docker image sizes"
+    runs-on: dlstreamer
+    needs: [setup, build]
+    if: always()
+    outputs:
+      current-image-size: ${{ steps.collect.outputs.current-image-size || steps.skipped.outputs.current-image-size }}
+    steps:
+      - name: Set empty output when CI is skipped
+        if: needs.setup.outputs.should_run != 'true'
+        id: skipped
+        run: |
+          echo 'current-image-size={}' >> "$GITHUB_OUTPUT"
+
+      - name: Download Docker size artifacts
+        if: needs.setup.outputs.should_run == 'true'
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.0.0
+        with:
+          pattern: deb-image-size-*
+          path: deb-image-sizes
+          merge-multiple: true
+
+      - name: Build current-image-size output
+        if: needs.setup.outputs.should_run == 'true'
+        id: collect
+        shell: bash
+        run: |
+          if [[ ! -f deb-image-sizes/ubuntu22.size.env ]] || [[ ! -f deb-image-sizes/ubuntu24.size.env ]]; then
+            echo "❌ Missing Docker size metadata artifacts"
+            ls -la deb-image-sizes || true
+            exit 1
+          fi
+
+          ubuntu22_size=$(awk -F= '$1=="IMAGE_SIZE_MB"{print $2}' deb-image-sizes/ubuntu22.size.env)
+          ubuntu24_size=$(awk -F= '$1=="IMAGE_SIZE_MB"{print $2}' deb-image-sizes/ubuntu24.size.env)
+
+          if [[ -z "${ubuntu22_size}" || -z "${ubuntu24_size}" ]]; then
+            echo "❌ Failed to parse IMAGE_SIZE_MB from artifacts"
+            exit 1
+          fi
+
+          current_image_size=$(jq -cn \
+            --arg ubuntu22 "${ubuntu22_size}" \
+            --arg ubuntu24 "${ubuntu24_size}" \
+            '{"ubuntu22": ($ubuntu22 | tonumber), "ubuntu24": ($ubuntu24 | tonumber)}')
+
+          echo "Collected image sizes: ${current_image_size}"
+          echo "current-image-size=${current_image_size}" >> "$GITHUB_OUTPUT"

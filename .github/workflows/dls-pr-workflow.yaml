@@ -498,6 +498,65 @@ jobs:
             exit 1
           fi
 
+  check-dev-image-size:
+    needs: dls-build-dev-images-and-run-unit-tests
+    runs-on: dlstreamer
+    name: "Check DEV Image Size"
+    if: always()
+    steps:
+      - name: Validate DEV image sizes
+        env:
+          CURRENT_IMAGE_SIZE_JSON: ${{ needs.dls-build-dev-images-and-run-unit-tests.outputs.current-image-size }}
+          EXPECTED_SIZE_MB_DEV_U22: ${{ vars.EXPECTED_SIZE_MB_DEV_U22 }}
+          EXPECTED_SIZE_MB_DEV_U24: ${{ vars.EXPECTED_SIZE_MB_DEV_U24 }}
+          THRESHOLD_SIZE_MB: "100"
+          IS_FORK_PR: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork }}
+        run: |
+          if [[ "${IS_FORK_PR}" == "true" ]]; then
+            echo "## 🐳 Docker image size" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "Size check skipped for fork PR (repository vars are unavailable)." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          echo "Current image size payload: ${CURRENT_IMAGE_SIZE_JSON}"
+
+          if [[ -z "${CURRENT_IMAGE_SIZE_JSON}" || "${CURRENT_IMAGE_SIZE_JSON}" == "{}" ]]; then
+            echo "## 🐳 Docker image size" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "Size check skipped: build workflow was skipped." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          U22_SIZE=$(echo "${CURRENT_IMAGE_SIZE_JSON}" | jq -r '.ubuntu22 // empty')
+          U24_SIZE=$(echo "${CURRENT_IMAGE_SIZE_JSON}" | jq -r '.ubuntu24 // empty')
+
+          if [[ -z "${U22_SIZE}" || -z "${U24_SIZE}" ]]; then
+            echo "❌ Missing ubuntu22/ubuntu24 values in CURRENT_IMAGE_SIZE_JSON"
+            exit 1
+          fi
+
+          U22_DIFF=$(( U22_SIZE - EXPECTED_SIZE_MB_DEV_U22 ))
+          U24_DIFF=$(( U24_SIZE - EXPECTED_SIZE_MB_DEV_U24 ))
+          U22_ABS_DIFF=${U22_DIFF#-}
+          U24_ABS_DIFF=${U24_DIFF#-}
+
+          {
+            echo "## 🐳 Docker image size"
+            echo ""
+            echo "| Image | Current | Expected | Abs diff | Threshold |"
+            echo "|-------|---------|----------|----------|-----------|"
+            echo "| ubuntu22-dev | **${U22_SIZE} MB** | **${EXPECTED_SIZE_MB_DEV_U22} MB** | ${U22_ABS_DIFF} MB | ${THRESHOLD_SIZE_MB} MB |"
+            echo "| ubuntu24-dev | **${U24_SIZE} MB** | **${EXPECTED_SIZE_MB_DEV_U24} MB** | ${U24_ABS_DIFF} MB | ${THRESHOLD_SIZE_MB} MB |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [[ "${U22_ABS_DIFF}" -gt "${THRESHOLD_SIZE_MB}" || "${U24_ABS_DIFF}" -gt "${THRESHOLD_SIZE_MB}" ]]; then
+            echo "❌ Docker image size check failed"
+            exit 1
+          fi
+
+          echo "✅ Docker image size check passed"
+
   check-deb-build-status:
     needs: dls-build-and-test-deb-and-deb_img
     runs-on: dlstreamer
@@ -514,6 +573,65 @@ jobs:
             echo "❌ DEB build & test failed with status: ${dls_build_and_test_deb_and_deb_img_result}"
             exit 1
           fi
+
+  check-deb-image-size:
+    needs: dls-build-and-test-deb-and-deb_img
+    runs-on: dlstreamer
+    name: "Check DEB Image Size"
+    if: always()
+    steps:
+      - name: Validate DEB image sizes
+        env:
+          CURRENT_IMAGE_SIZE_JSON: ${{ needs.dls-build-and-test-deb-and-deb_img.outputs.current-image-size }}
+          EXPECTED_SIZE_MB_DEB_U22: ${{ vars.EXPECTED_SIZE_MB_DEB_U22 }}
+          EXPECTED_SIZE_MB_DEB_U24: ${{ vars.EXPECTED_SIZE_MB_DEB_U24 }}
+          THRESHOLD_SIZE_MB: "100"
+          IS_FORK_PR: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork }}
+        run: |
+          if [[ "${IS_FORK_PR}" == "true" ]]; then
+            echo "## 🐳 Docker image size" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "Size check skipped for fork PR (repository vars are unavailable)." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          echo "Current image size payload: ${CURRENT_IMAGE_SIZE_JSON}"
+
+          if [[ -z "${CURRENT_IMAGE_SIZE_JSON}" || "${CURRENT_IMAGE_SIZE_JSON}" == "{}" ]]; then
+            echo "## 🐳 Docker image size" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "Size check skipped: build workflow was skipped." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          U22_SIZE=$(echo "${CURRENT_IMAGE_SIZE_JSON}" | jq -r '.ubuntu22 // empty')
+          U24_SIZE=$(echo "${CURRENT_IMAGE_SIZE_JSON}" | jq -r '.ubuntu24 // empty')
+
+          if [[ -z "${U22_SIZE}" || -z "${U24_SIZE}" ]]; then
+            echo "❌ Missing ubuntu22/ubuntu24 values in CURRENT_IMAGE_SIZE_JSON"
+            exit 1
+          fi
+
+          U22_DIFF=$(( U22_SIZE - EXPECTED_SIZE_MB_DEB_U22 ))
+          U24_DIFF=$(( U24_SIZE - EXPECTED_SIZE_MB_DEB_U24 ))
+          U22_ABS_DIFF=${U22_DIFF#-}
+          U24_ABS_DIFF=${U24_DIFF#-}
+
+          {
+            echo "## 🐳 Docker image size"
+            echo ""
+            echo "| Image | Current | Expected | Abs diff | Threshold |"
+            echo "|-------|---------|----------|----------|-----------|"
+            echo "| ubuntu22-deb | **${U22_SIZE} MB** | **${EXPECTED_SIZE_MB_DEB_U22} MB** | ${U22_ABS_DIFF} MB | ${THRESHOLD_SIZE_MB} MB |"
+            echo "| ubuntu24-deb | **${U24_SIZE} MB** | **${EXPECTED_SIZE_MB_DEB_U24} MB** | ${U24_ABS_DIFF} MB | ${THRESHOLD_SIZE_MB} MB |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [[ "${U22_ABS_DIFF}" -gt "${THRESHOLD_SIZE_MB}" || "${U24_ABS_DIFF}" -gt "${THRESHOLD_SIZE_MB}" ]]; then
+            echo "❌ Docker image size check failed"
+            exit 1
+          fi
+
+          echo "✅ Docker image size check passed"
 
   check-windows-build-status:
     needs: dls-build-and-test-windows
