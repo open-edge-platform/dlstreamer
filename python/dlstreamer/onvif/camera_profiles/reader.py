@@ -13,6 +13,7 @@ into an ONVIF session, queries the media service and returns the
 resulting :class:`ONVIFProfile` list wrapped in :class:`CameraProfilesResult`
 so per-camera errors do not abort the whole sweep.
 """
+# pylint: disable=duplicate-code
 from __future__ import annotations
 
 import asyncio

@@ -5,6 +5,8 @@
 # ==============================================================================
 """Public API for :mod:`dlstreamer.onvif.video_engine`."""
 
+# pylint: disable=duplicate-code
+
 from __future__ import annotations
 
 from pathlib import Path

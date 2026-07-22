@@ -22,7 +22,7 @@ Flow:
 The UI is a plain menu loop using ``input()`` for menu screens and
 ``termios``/``tty`` for the arrow-key control screen (Unix TTY only).
 """
-# pylint: disable=too-many-branches,too-many-statements,too-many-locals
+# pylint: disable=duplicate-code,too-many-branches,too-many-statements,too-many-locals
 from __future__ import annotations
 
 import asyncio

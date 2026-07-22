@@ -21,6 +21,7 @@ Flow:
 The UI is a plain menu loop using ``input()`` so it runs on any TTY
 (local console, SSH session, container) without extra dependencies.
 """
+# pylint: disable=duplicate-code
 from __future__ import annotations
 
 import asyncio
