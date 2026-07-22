@@ -414,11 +414,11 @@ static gboolean gst_g3d_lidar_src_start(GstBaseSrc *src) {
 
     G3D_LOAD_SYM(create_fn, g3d_lidar_backend_handle * (*)(void), "g3d_lidar_backend_create");
     G3D_LOAD_SYM(set_callbacks_fn,
-                 g3d_lidar_error_code (*)(g3d_lidar_backend_handle *, g3d_lidar_cloud_cb, g3d_lidar_error_cb, void *),
+                 g3d_lidar_error_code(*)(g3d_lidar_backend_handle *, g3d_lidar_cloud_cb, g3d_lidar_error_cb, void *),
                  "g3d_lidar_backend_set_callbacks");
-    G3D_LOAD_SYM(init_fn, g3d_lidar_error_code (*)(g3d_lidar_backend_handle *, const g3d_lidar_params *, char *, int),
+    G3D_LOAD_SYM(init_fn, g3d_lidar_error_code(*)(g3d_lidar_backend_handle *, const g3d_lidar_params *, char *, int),
                  "g3d_lidar_backend_init");
-    G3D_LOAD_SYM(start_fn, g3d_lidar_error_code (*)(g3d_lidar_backend_handle *), "g3d_lidar_backend_start");
+    G3D_LOAD_SYM(start_fn, g3d_lidar_error_code(*)(g3d_lidar_backend_handle *), "g3d_lidar_backend_start");
     G3D_LOAD_SYM(stop_fn, void (*)(g3d_lidar_backend_handle *), "g3d_lidar_backend_stop");
     G3D_LOAD_SYM(destroy_fn, void (*)(g3d_lidar_backend_handle *), "g3d_lidar_backend_destroy");
 #undef G3D_LOAD_SYM

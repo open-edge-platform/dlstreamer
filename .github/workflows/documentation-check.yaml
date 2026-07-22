@@ -75,4 +75,4 @@ jobs:
         shell: bash
         run: |
           cd "${GITHUB_WORKSPACE}/${DOCS_DIR}"
-          make build 
+          make build
