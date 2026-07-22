@@ -17,8 +17,10 @@ typedef struct _LidarMeta {
     GstMeta meta;
     guint lidar_point_count; /* Number of points in this frame. Each point occupies 4 floats (x, y, z, intensity). */
     size_t frame_id;         /* Sequential frame identifier from the source stream. */
-    GstClockTime exit_source_timestamp; /* Timestamp (GStreamer clock time) when this buffer exits the LiDAR source
-                                           (g3dlidarsrc or g3dlidarparse). */
+    GstClockTime exit_source_timestamp; /* Buffer PTS assigned by the LiDAR source (g3dlidarsrc or g3dlidarparse).
+                                           Depending on the source's ntp-sync setting this is either the pipeline
+                                           running time (ntp-sync=false) or the LiDAR device clock time
+                                           (ntp-sync=true), so it is not necessarily a GStreamer clock time. */
     GstClockTime
         exit_g3dinference_timestamp; /* Timestamp (GStreamer clock time) when this buffer exits g3dinference. */
     guint stream_id;                 /* Stream identifier (group-id from STREAM_START) for multi-stream pipelines. */
