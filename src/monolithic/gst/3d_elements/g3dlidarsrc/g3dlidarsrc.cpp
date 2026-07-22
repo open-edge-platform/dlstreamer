@@ -447,7 +447,15 @@ static gboolean gst_g3d_lidar_src_start(GstBaseSrc *src) {
         self->priv->sdk_handle = nullptr;
         return FALSE;
     }
-    self->priv->set_callbacks_fn(self->priv->rs, on_cloud_cb, on_error_cb, self);
+    if (self->priv->set_callbacks_fn(self->priv->rs, on_cloud_cb, on_error_cb, self) != G3D_LIDAR_OK) {
+        GST_ELEMENT_ERROR(self, RESOURCE, OPEN_READ, (NULL),
+                          ("Failed to register callbacks on '%s' backend", cfg.vendor.c_str()));
+        self->priv->destroy_fn(self->priv->rs);
+        self->priv->rs = nullptr;
+        dlclose(self->priv->sdk_handle);
+        self->priv->sdk_handle = nullptr;
+        return FALSE;
+    }
 
     /* Init and start. The backend writes a human-readable reason into err_buf on
      * failure (bad params, unknown model, SDK init failure). */
