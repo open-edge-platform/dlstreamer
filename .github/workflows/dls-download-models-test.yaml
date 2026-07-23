@@ -2,19 +2,7 @@ name: "[DLS] Test models downloading"
 run-name: "[DLS] Test models downloading (by @${{ github.actor }} via ${{ github.event_name }})"
 on:
   workflow_dispatch:
-    inputs:
-      run_full_other_all_example:
-        description: "Run heavy README example: ./download_other_models.sh all"
-        required: false
-        default: false
-        type: boolean
   workflow_call:
-    inputs:
-      run_full_other_all_example:
-        description: "Run heavy README example: ./download_other_models.sh all"
-        required: false
-        default: false
-        type: boolean
 
 permissions: {}
 
@@ -278,13 +266,6 @@ jobs:
           bash download_other_models.sh mars-small128
           test -f "$MODELS_PATH/public/mars-small128/FP32/mars_small128_fp32.xml"
           test -f "$MODELS_PATH/public/mars-small128/INT8/mars_small128_int8.xml"
-
-      - name: README example - download all models (optional heavy)
-        if: needs.setup.outputs.should_run == 'true' && inputs.run_full_other_all_example
-        run: |
-          cd scripts/download_models
-          bash download_other_models.sh all
-          test -f "$MODELS_PATH/public/centerface/FP32/centerface.xml"
 
   test-download-other-models-cli-validation:
     name: download_other_models.sh validation
