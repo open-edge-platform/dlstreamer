@@ -1,9 +1,6 @@
 name: "[DLS] Test models downloading"
 run-name: "[DLS] Test models downloading (by @${{ github.actor }} via ${{ github.event_name }})"
 on:
-  push:
-    branches:
-      - 'nsz-models-migration'
   workflow_dispatch:
     inputs:
       run_full_other_all_example:
