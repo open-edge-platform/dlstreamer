@@ -31,6 +31,7 @@ std::shared_ptr<IGenAIBackend> GenAIBackendRegistry::create_backend(const GenAIB
         params.cache_path = str(config.cache_path);
         params.generation_config = str(config.generation_config);
         params.scheduler_config = str(config.scheduler_config);
+        params.pipeline_config = str(config.pipeline_config);
         params.include_metrics = (config.include_metrics != FALSE);
         return get_openvino_backend(params);
     }

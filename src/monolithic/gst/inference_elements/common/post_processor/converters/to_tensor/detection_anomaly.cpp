@@ -109,7 +109,7 @@ TensorsTable DetectionAnomalyConverter::convert(const OutputBlobs &output_blobs)
                     pred_mask = anomaly_map_raw >= pixel_threshold;
                     pred_mask.convertTo(pred_mask, CV_8U); // Convert to uint8 (0 and 255)
 
-                    classification_result.set_format("segmentation_mask");
+                    classification_result.set_format(GVA::TENSOR_FORMAT_INSTANCE_SEGMENTATION);
                     classification_result.set_dims(
                         {safe_convert<uint32_t>(pred_mask.cols), safe_convert<uint32_t>(pred_mask.rows)});
                     classification_result.set_precision(GVA::Tensor::Precision::U8);

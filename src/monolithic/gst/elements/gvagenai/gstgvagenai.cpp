@@ -6,6 +6,7 @@
 
 #include "gstgvagenai.h"
 
+#include <cmath>
 #include <fstream>
 #include <gst/video/video.h>
 #include <memory>
@@ -13,7 +14,6 @@
 
 #include "gva_caps.h"
 #include "gva_json_meta.h"
-#include "gva_tensor_meta.h"
 #include <gst/analytics/gstanalyticsclassificationmtd.h>
 
 #include "backends/genai_backend.hpp"
@@ -30,6 +30,7 @@ enum {
     PROP_PROMPT_PATH,
     PROP_GENERATION_CONFIG,
     PROP_SCHEDULER_CONFIG,
+    PROP_PIPELINE_CONFIG,
     PROP_MODEL_CACHE_PATH,
     PROP_FRAME_RATE,
     PROP_CHUNK_SIZE,
@@ -37,8 +38,30 @@ enum {
     PROP_BACKEND,
     PROP_HTTP_SERVER_URL,
     PROP_HTTP_API_KEY,
-    PROP_HTTP_TIMEOUT
+    PROP_HTTP_TIMEOUT,
+    PROP_VISION_MODE
 };
+
+// How accumulated frames are presented to the VLM. Determines the native vision tag the
+// pipeline injects into the prompt (image vs video) and which generate() input is used.
+enum GstGvaGenAIVisionMode {
+    GVAGENAI_VISION_MODE_IMAGE = 0, // frames sent as independent images (ov::genai::images)
+    GVAGENAI_VISION_MODE_VIDEO = 1  // frames sent as one video clip (ov::genai::videos)
+};
+
+#define GST_TYPE_GVAGENAI_VISION_MODE (gst_gvagenai_vision_mode_get_type())
+static GType gst_gvagenai_vision_mode_get_type(void) {
+    static GType vision_mode_type = 0;
+    if (g_once_init_enter(&vision_mode_type)) {
+        static const GEnumValue modes[] = {
+            {GVAGENAI_VISION_MODE_IMAGE, "Present accumulated frames as independent images", "image"},
+            {GVAGENAI_VISION_MODE_VIDEO, "Present accumulated frames as one video clip", "video"},
+            {0, NULL, NULL}};
+        GType type = g_enum_register_static("GstGvaGenAIVisionMode", modes);
+        g_once_init_leave(&vision_mode_type, type);
+    }
+    return vision_mode_type;
+}
 
 // Pad templates
 #define GVAGENAI_SYSTEM_MEM_CAPS GST_VIDEO_CAPS_MAKE("{ RGB, RGBA, RGBx, BGR, BGRA, BGRx, NV12, I420 }") "; "
@@ -127,9 +150,16 @@ static void gst_gvagenai_class_init(GstGvaGenAIClass *klass) {
                                                         "Scheduler configuration as KEY=VALUE,KEY=VALUE format", NULL,
                                                         G_PARAM_READWRITE));
 
+    g_object_class_install_property(
+        gobject_class, PROP_PIPELINE_CONFIG,
+        g_param_spec_string(
+            "pipeline-config", "Pipeline Config",
+            "OpenVINO device properties passed to the pipeline at construction, as KEY=VALUE,KEY=VALUE format", NULL,
+            G_PARAM_READWRITE));
+
     g_object_class_install_property(gobject_class, PROP_MODEL_CACHE_PATH,
                                     g_param_spec_string("model-cache-path", "Model Cache Path",
-                                                        "Path for caching compiled models (GPU only)", "ov_cache",
+                                                        "Path for caching compiled models (GPU/NPU only)", "ov_cache",
                                                         G_PARAM_READWRITE));
 
     g_object_class_install_property(gobject_class, PROP_FRAME_RATE,
@@ -169,6 +199,13 @@ static void gst_gvagenai_class_init(GstGvaGenAIClass *klass) {
                                                         "Optional request timeout in milliseconds", NULL,
                                                         G_PARAM_READWRITE));
 
+    g_object_class_install_property(
+        gobject_class, PROP_VISION_MODE,
+        g_param_spec_enum("vision-mode", "Vision Mode",
+                          "How accumulated frames are presented to the model: as independent images, or as one "
+                          "video clip. Video mode requires a video-capable model.",
+                          GST_TYPE_GVAGENAI_VISION_MODE, GVAGENAI_VISION_MODE_IMAGE, G_PARAM_READWRITE));
+
     GST_DEBUG_CATEGORY_INIT(gst_gvagenai_debug, "gvagenai", 0, "OpenVINO™ GenAI Inference");
 }
 
@@ -180,16 +217,19 @@ static void gst_gvagenai_init(GstGvaGenAI *gvagenai) {
     gvagenai->config.cache_path = g_strdup("ov_cache");
     gvagenai->config.generation_config = NULL;
     gvagenai->config.scheduler_config = NULL;
+    gvagenai->config.pipeline_config = NULL;
     gvagenai->config.include_metrics = FALSE;
     gvagenai->config.server_url = NULL;
     gvagenai->config.api_key = NULL;
     gvagenai->config.timeout_ms = NULL;
+    gvagenai->config.vision_mode = GVAGENAI_VISION_MODE_IMAGE; // Send frames as images by default
 
     gvagenai->prompt = NULL;
     gvagenai->prompt_path = NULL;
     gvagenai->frame_rate = 0.0; // Process all frames by default
     gvagenai->chunk_size = 1;   // Process one frame at a time by default
     gvagenai->frame_counter = 0;
+    gvagenai->input_fps = 0.0; // Unknown until caps are set
     gvagenai->prompt_string = NULL;
     gvagenai->prompt_changed = FALSE;
 
@@ -215,6 +255,7 @@ static gboolean load_effective_prompt(GstGvaGenAI *gvagenai) {
     }
 
     g_free(gvagenai->prompt_string);
+    gvagenai->prompt_string = NULL;
     if (has_prompt) {
         gvagenai->prompt_string = g_strdup(gvagenai->prompt);
     } else if (has_prompt_path) {
@@ -280,6 +321,10 @@ static void gst_gvagenai_set_property(GObject *object, guint prop_id, const GVal
         g_free(gvagenai->config.scheduler_config);
         gvagenai->config.scheduler_config = g_value_dup_string(value);
         break;
+    case PROP_PIPELINE_CONFIG:
+        g_free(gvagenai->config.pipeline_config);
+        gvagenai->config.pipeline_config = g_value_dup_string(value);
+        break;
     case PROP_MODEL_CACHE_PATH:
         g_free(gvagenai->config.cache_path);
         gvagenai->config.cache_path = g_value_dup_string(value);
@@ -310,6 +355,9 @@ static void gst_gvagenai_set_property(GObject *object, guint prop_id, const GVal
         g_free(gvagenai->config.timeout_ms);
         gvagenai->config.timeout_ms = g_value_dup_string(value);
         break;
+    case PROP_VISION_MODE:
+        gvagenai->config.vision_mode = g_value_get_enum(value);
+        break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
         break;
@@ -338,6 +386,9 @@ static void gst_gvagenai_get_property(GObject *object, guint prop_id, GValue *va
     case PROP_SCHEDULER_CONFIG:
         g_value_set_string(value, gvagenai->config.scheduler_config);
         break;
+    case PROP_PIPELINE_CONFIG:
+        g_value_set_string(value, gvagenai->config.pipeline_config);
+        break;
     case PROP_MODEL_CACHE_PATH:
         g_value_set_string(value, gvagenai->config.cache_path);
         break;
@@ -362,6 +413,9 @@ static void gst_gvagenai_get_property(GObject *object, guint prop_id, GValue *va
     case PROP_HTTP_TIMEOUT:
         g_value_set_string(value, gvagenai->config.timeout_ms);
         break;
+    case PROP_VISION_MODE:
+        g_value_set_enum(value, gvagenai->config.vision_mode);
+        break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
         break;
@@ -377,6 +431,7 @@ static void gst_gvagenai_finalize(GObject *object) {
     g_free(gvagenai->config.cache_path);
     g_free(gvagenai->config.generation_config);
     g_free(gvagenai->config.scheduler_config);
+    g_free(gvagenai->config.pipeline_config);
     g_free(gvagenai->config.server_url);
     g_free(gvagenai->config.api_key);
     g_free(gvagenai->config.timeout_ms);
@@ -511,9 +566,24 @@ static GstFlowReturn gst_gvagenai_transform_ip(GstBaseTransform *base, GstBuffer
 
         // Only process if we've accumulated enough frames
         if (backend->frame_count() >= gvagenai->chunk_size) {
+            const gboolean as_video = (gvagenai->config.vision_mode == GVAGENAI_VISION_MODE_VIDEO);
+
+            // Derive the effective fps of the frames actually accumulated, so VideoMetadata.fps
+            // matches the frames the model receives. With frame-rate sampling active, the achieved
+            // rate is input_fps / ceil(input_fps / frame_rate), not the requested frame_rate.
+            gdouble effective_fps = 0.0;
+            if (as_video && gvagenai->input_fps > 0.0) {
+                if (gvagenai->frame_rate > 0.0) {
+                    guint frames_to_skip = (guint)std::ceil(gvagenai->input_fps / gvagenai->frame_rate);
+                    effective_fps = (frames_to_skip > 0) ? (gvagenai->input_fps / frames_to_skip) : gvagenai->input_fps;
+                } else {
+                    effective_fps = gvagenai->input_fps; // no sampling: all frames pass through
+                }
+            }
+
             genai::GenAIResult result;
             try {
-                result = backend->infer(gvagenai->prompt_string);
+                result = backend->infer(gvagenai->prompt_string, as_video, (float)effective_fps);
             } catch (const std::exception &e) {
                 GST_ELEMENT_ERROR(gvagenai, STREAM, FAILED, ("Failed to run backend inference"),
                                   ("Error: %s", e.what()));
@@ -604,6 +674,15 @@ static gboolean gst_gvagenai_set_caps(GstBaseTransform *base, GstCaps *incaps, G
             ("Format %s is not supported. Supported formats: RGB, RGBA, RGBx, BGR, BGRA, BGRx, NV12, I420",
              gst_video_format_to_string(format)));
         return FALSE;
+    }
+
+    // Cache input stream fps (used to derive VideoMetadata.fps in video vision-mode).
+    // fps_d == 0 or fps_n == 0 means unknown/variable rate (e.g. live source) -> leave 0.0.
+    GstGvaGenAI *gvagenai = GST_GVAGENAI(base);
+    if (info.fps_d > 0 && info.fps_n > 0) {
+        gvagenai->input_fps = (gdouble)info.fps_n / (gdouble)info.fps_d;
+    } else {
+        gvagenai->input_fps = 0.0;
     }
 
     return TRUE;

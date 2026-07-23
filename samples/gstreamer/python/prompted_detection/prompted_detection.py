@@ -13,6 +13,10 @@ gi.require_version("Gst", "1.0")
 gi.require_version("GstAnalytics", "1.0")
 from gi.repository import GLib, Gst, GstAnalytics # pylint: disable=no-name-in-module, wrong-import-position
 
+# Pinned weights and export precision to keep deterministic outputs.
+WEIGHTS = "yoloe-26s-seg"
+OBJECT_TO_FIND = "dog"
+
 
 # wrapper to run the gstreamer pipeline loop
 def pipeline_loop(pipeline):
@@ -54,33 +58,60 @@ def on_new_sample(sink, user_data):
 # download PyTorch model, convert to OpenVINO IR, create and run gstreamer pipeline
 def main(args):
     # Check input arguments
-    if len(args) != 3:
-        sys.stderr.write(f"usage: {args[0]} <LOCAL_VIDEO_FILE> <OBJECT_TO_FIND>\n")
+    if len(args) < 3 or len(args) > 5:
+        sys.stderr.write(f"usage: {args[0]} <LOCAL_VIDEO_FILE> <OBJECT_TO_FIND> [DEVICE] [OUTPUT]\n")
+        sys.stderr.write("  OBJECT_TO_FIND - object to detect (e.g. 'dog', 'white car')\n")
+        sys.stderr.write("  DEVICE         - inference device: CPU, GPU, or NPU (default: GPU)\n")
+        sys.stderr.write("  OUTPUT         - output mode: appsink, json, or file (default: appsink)\n")
         sys.exit(1)
 
     if not os.path.isfile(args[1]):
         sys.stderr.write("Input video file does not exist\n")
         sys.exit(1)
 
-    # Configure YOLO-E model with requested classes, and export to OpenVINO format
-    weights = "yoloe-26s-seg"
-    model = YOLO(weights+".pt")
-    names = [args[2]]
+    video_file = args[1]
+    object_to_find = args[2]
+    device = args[3] if len(args) > 3 and args[3] else "GPU"
+    output = args[4] if len(args) > 4 and args[4] else "appsink"
+
+    # Configure YOLO-E model with requested detection prompt, and export to OpenVINO format
+    model = YOLO(WEIGHTS + ".pt")
+    names = [object_to_find]
     model.set_classes(names, model.get_text_pe(names))
     exported_model_path = model.export(format="openvino", dynamic=True, half=True)
-    model_file = f"{exported_model_path}/{weights}.xml"
+    model_file = f"{exported_model_path}/{WEIGHTS}.xml"
+
+    if output == "json":
+        # Deterministic json-lines output (used for ground-truth comparison)
+        output_json = os.path.join(os.getcwd(), "output.json")
+        if os.path.isfile(output_json):
+            os.remove(output_json)
+        sink = (
+            "gvametaconvert add-tensor-data=true ! "
+            "gvametapublish file-format=json-lines file-path=output.json ! "
+            "fakesink async=false"
+        )
+    elif output == "file":
+        output_file = os.path.splitext(os.path.basename(video_file))[0] + "_output.mp4"
+        sink = (
+            "gvawatermark ! videoconvert ! "
+            f"vah264enc ! h264parse ! mp4mux ! filesink location={output_file}"
+        )
+    else:
+        sink = "appsink emit-signals=true name=appsink0"
 
     # Create GStreamer pipeline, pass input video file and OpenVINO model file
     Gst.init([])
     pipeline = Gst.parse_launch(
-            f"filesrc location={args[1]} ! decodebin3 ! "
-            f"gvadetect model={model_file} device=GPU batch-size=4 ! queue ! "
-            f"appsink emit-signals=true name=appsink0"
+            f"filesrc location={video_file} ! decodebin3 ! "
+            f"gvadetect model={model_file} device={device} batch-size=4 ! queue ! "
+            f"{sink}"
         )
 
-    # register user-defined callback function to process results
+    # register user-defined callback function to process results (appsink demo mode)
     appsink = pipeline.get_by_name("appsink0")
-    appsink.connect("new-sample", on_new_sample, None)
+    if appsink is not None:
+        appsink.connect("new-sample", on_new_sample, None)
 
     # execute gstreamer pipeline
     pipeline_loop(pipeline)

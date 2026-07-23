@@ -41,7 +41,7 @@ constexpr const char *DEFAULT_DEVICE = "CPU";
 constexpr const char *SUPPORTED_DEVICE_CPU = "CPU";
 constexpr const char *SUPPORTED_DEVICE_GPU = "GPU";
 constexpr const char *DEFAULT_MODEL_TYPE = "pointpillars";
-constexpr float DEFAULT_SCORE_THRESHOLD = 0.0f;
+constexpr float DEFAULT_SCORE_THRESHOLD = 0.7f;
 constexpr size_t POINT_SIZE = 4;
 constexpr size_t DETECTION_WIDTH = 9;
 

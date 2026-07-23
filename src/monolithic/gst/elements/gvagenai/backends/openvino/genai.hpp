@@ -27,14 +27,15 @@ class OpenVINOGenAIContext {
      * @brief Initialize the OpenVINO™ GenAI pipeline
      * @param model_path Path to the model
      * @param device Target device (CPU, GPU, NPU, etc.)
-     * @param cache_path Path for caching compiled models (used only for GPU)
+     * @param cache_path Path for caching compiled models (used only for GPU/NPU)
      * @param generation_config_str Optional generation configuration string in KEY=VALUE,KEY=VALUE format
      * @param scheduler_config_str Optional scheduler configuration string in KEY=VALUE,KEY=VALUE format
+     * @param pipeline_config_str Optional pipeline configuration string in KEY=VALUE,KEY=VALUE format
      * @throws std::exception if initialization fails
      */
     OpenVINOGenAIContext(const std::string &model_path, const std::string &device,
                          const std::string &cache_path = "ov_cache", const std::string &generation_config_str = "",
-                         const std::string &scheduler_config_str = "");
+                         const std::string &scheduler_config_str = "", const std::string &pipeline_config_str = "");
     ~OpenVINOGenAIContext();
 
     /**
@@ -48,9 +49,13 @@ class OpenVINOGenAIContext {
     /**
      * @brief Run inference on buffered tensors
      * @param prompt Text prompt for the model
+     * @param as_video If true, present the accumulated frames as a single video clip
+     *        (ov::genai::videos); otherwise as independent images (ov::genai::images).
+     * @param fps Frame rate of the accumulated frames, used for VideoMetadata when as_video
+     *        is true. Pass 0.0 if unknown. Ignored when as_video is false.
      * @throws std::runtime_error if inference fails
      */
-    void inference_tensor_vector(const std::string &prompt);
+    void inference_tensor_vector(const std::string &prompt, bool as_video = false, float fps = 0.0f);
 
     /**
      * @brief Get number of tensors in the vector

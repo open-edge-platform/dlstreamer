@@ -68,10 +68,14 @@ class IGenAIBackend {
      *
      * On success the backend clears its internal frame buffer.
      * @param prompt Text query/prompt
+     * @param as_video If true, present the accumulated frames as a single video clip
+     *        instead of independent images (backend-specific; ignored if unsupported).
+     * @param fps Frame rate of the accumulated frames, used when as_video is true.
+     *        Pass 0.0 if unknown. Ignored when as_video is false.
      * @return GenAIResult with text, confidence, and metadata
      * @throws std::runtime_error on failure
      */
-    virtual GenAIResult infer(const std::string &prompt) = 0;
+    virtual GenAIResult infer(const std::string &prompt, bool as_video = false, float fps = 0.0f) = 0;
 
     /**
      * @brief Update generation configuration (backend-specific format)
@@ -103,6 +107,7 @@ struct OpenVINOBackendParams {
     std::string cache_path;
     std::string generation_config;
     std::string scheduler_config;
+    std::string pipeline_config;  // OpenVINO device properties passed at pipeline construction
     bool include_metrics = false; // Include performance metrics in JSON output
 };
 

@@ -30,12 +30,19 @@ typedef struct _GenAIBackendConfig {
     gchar *cache_path;
     gchar *generation_config;
     gchar *scheduler_config;
+    gchar *pipeline_config;   // OpenVINO device properties passed at pipeline construction
     gboolean include_metrics; // Include performance metrics in JSON output
 
     // HTTP-specific
     gchar *server_url; // e.g., "http://localhost:8000/v1"
     gchar *api_key;    // Optional: Bearer token or API key
     gchar *timeout_ms; // Optional: request timeout in milliseconds
+
+    // Inference-call behavior: not read by GenAIBackendRegistry::create_backend(), only
+    // by the element itself when invoking IGenAIBackend::infer(). Grouped here because it
+    // is set once (like the fields above) and does not change during the element's lifetime.
+    // GstGvaGenAIVisionMode: 0 = present accumulated frames as images, 1 = as one video clip.
+    gint vision_mode;
 } GenAIBackendConfig;
 
 G_END_DECLS

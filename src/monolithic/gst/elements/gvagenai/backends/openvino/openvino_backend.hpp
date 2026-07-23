@@ -51,7 +51,7 @@ class OpenVINOGenAIBackend : public IGenAIBackend {
      *
      * Returns text, confidence, and full JSON metadata (with metrics).
      */
-    GenAIResult infer(const std::string &prompt) override;
+    GenAIResult infer(const std::string &prompt, bool as_video = false, float fps = 0.0f) override;
 
     /**
      * @brief Update generation configuration (KEY=VALUE,KEY=VALUE format)

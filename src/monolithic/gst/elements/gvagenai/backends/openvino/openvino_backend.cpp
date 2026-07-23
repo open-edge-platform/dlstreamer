@@ -18,20 +18,21 @@ OpenVINOGenAIBackend::OpenVINOGenAIBackend(const OpenVINOBackendParams &params)
     : include_metrics_(params.include_metrics) {
     try {
         context_ = std::make_unique<OpenVINOGenAIContext>(params.model_path, params.device, params.cache_path,
-                                                          params.generation_config, params.scheduler_config);
+                                                          params.generation_config, params.scheduler_config,
+                                                          params.pipeline_config);
     } catch (const std::exception &e) {
         throw std::runtime_error(std::string("Failed to initialize OpenVINO backend: ") + e.what());
     }
 }
 
-GenAIResult OpenVINOGenAIBackend::infer(const std::string &prompt) {
+GenAIResult OpenVINOGenAIBackend::infer(const std::string &prompt, bool as_video, float fps) {
     if (context_->get_tensor_vector_size() == 0) {
         throw std::runtime_error("Cannot run inference with no accumulated frames");
     }
 
     // Run inference (clears tensor vector internally on success)
     try {
-        context_->inference_tensor_vector(prompt);
+        context_->inference_tensor_vector(prompt, as_video, fps);
     } catch (const std::exception &e) {
         context_->clear_tensor_vector();
         throw std::runtime_error(std::string("OpenVINO inference failed: ") + e.what());

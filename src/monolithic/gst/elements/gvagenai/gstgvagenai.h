@@ -34,6 +34,7 @@ struct _GstGvaGenAI {
     gdouble frame_rate;
     guint chunk_size;
     guint frame_counter;
+    gdouble input_fps; // input stream fps cached from caps, used to derive VideoMetadata.fps
 
     gboolean prompt_changed; // flag to indicate if prompt was updated and needs to be reloaded
     gchar *prompt_string;
