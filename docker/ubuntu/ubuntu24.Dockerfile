@@ -445,7 +445,7 @@ RUN \
        chown -R dlstreamer:dlstreamer /home/dlstreamer
 
 # Install python dependencies
-RUN pip3 install --no-cache-dir --break-system-packages --ignore-installed -r ${DLSTREAMER_DIR}/requirements.txt
+RUN pip3 install --no-cache-dir --break-system-packages --ignore-installed -r "${DLSTREAMER_DIR}/requirements.txt"
 
 WORKDIR /home/dlstreamer
 USER dlstreamer
