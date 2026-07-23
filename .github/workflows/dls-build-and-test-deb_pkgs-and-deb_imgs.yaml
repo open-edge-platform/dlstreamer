@@ -9,9 +9,12 @@ on:
         type: string
         default: "main"
     outputs:
-      current-image-size:
-        description: "Current DEB image sizes in MB as JSON (keys: ubuntu22, ubuntu24)"
-        value: ${{ jobs.build.outputs.current-image-size }}
+      current-image-size-ubuntu22:
+        description: "Current DEB image size in MB for ubuntu22"
+        value: ${{ jobs.build.outputs.current-image-size-ubuntu22 }}
+      current-image-size-ubuntu24:
+        description: "Current DEB image size in MB for ubuntu24"
+        value: ${{ jobs.build.outputs.current-image-size-ubuntu24 }}
   workflow_dispatch:
     inputs:
       test-repo-branch:
@@ -96,7 +99,8 @@ jobs:
       fail-fast: false
       matrix: ${{ fromJson(needs.setup.outputs.matrix) }}
     outputs:
-      current-image-size: ${{ steps.check-size.outputs.current-image-size || steps.skip-size.outputs.current-image-size }}
+      current-image-size-ubuntu22: ${{ steps.check-size.outputs.current-image-size-ubuntu22 || steps.skip-size.outputs.current-image-size-ubuntu22 }}
+      current-image-size-ubuntu24: ${{ steps.check-size.outputs.current-image-size-ubuntu24 || steps.skip-size.outputs.current-image-size-ubuntu24 }}
     steps:
       - name: Skip or execute based on configuration
         id: skip-size
@@ -104,7 +108,8 @@ jobs:
         run: |
           echo "## ✅ Functional Linux Build and Test Skipped" >> $GITHUB_STEP_SUMMARY
           echo "**Reason:** Changes only in excluded files" >> $GITHUB_STEP_SUMMARY
-          echo 'current-image-size={}' >> "$GITHUB_OUTPUT"
+          echo 'current-image-size-ubuntu22=' >> "$GITHUB_OUTPUT"
+          echo 'current-image-size-ubuntu24=' >> "$GITHUB_OUTPUT"
           exit 0
 
       - name: Initial environment clean
@@ -454,7 +459,7 @@ jobs:
           echo "Actual image size (docker images SIZE): ${SIZE_STR} (~${IMAGE_SIZE_MB} MB)"
           echo "image_size_mb=${IMAGE_SIZE_MB}" >> "$GITHUB_OUTPUT"
           echo "size_str=${SIZE_STR}" >> "$GITHUB_OUTPUT"
-          echo "current-image-size={\"${MATRIX_UBUNTU_VERSION}\":${IMAGE_SIZE_MB}}" >> "$GITHUB_OUTPUT"
+          echo "current-image-size-${MATRIX_UBUNTU_VERSION}=${IMAGE_SIZE_MB}" >> "$GITHUB_OUTPUT"
 
       - name: Print image size summary
         if: always() && needs.setup.outputs.should_run == 'true'
