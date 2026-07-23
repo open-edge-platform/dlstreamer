@@ -113,7 +113,6 @@ DL Streamer Home Page <https://docs.openedgeplatform.intel.com/dev/dlstreamer/in
 :hidden:
 :caption: Get Started
 
-get_started/get_started_index
 System Requirements <get_started/system_requirements>
 Install Guide <get_started/install/install_guide_index>
 Tutorial <get_started/tutorial>
@@ -136,7 +135,6 @@ dev_guide/dev_guide_index
 elements/elements
 supported_models
 elements/elements
-dev_guide/dev_guide_index
 api_ref/api_reference
 architecture_2.0/architecture_2.0
 
