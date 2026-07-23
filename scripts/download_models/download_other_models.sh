@@ -30,6 +30,7 @@ SUPPORTED_MODELS=(
   "centerface"
   "hsemotion"
   "deeplabv3"
+  "mars-small128"
 )
 
 # Corresponds to files in 'datasets' directory
@@ -272,20 +273,6 @@ if [ ! -e "$MODELS_PATH" ]; then
     mkdir -p "$MODELS_PATH" || handle_error $LINENO
 fi
 
-TIMINGS_FILE="$MODELS_PATH/download_public_models_timings.tsv"
-if [[ ! -f "$TIMINGS_FILE" ]]; then
-  printf 'timestamp_utc\tmodel\tphase\tseconds\tstatus\n' > "$TIMINGS_FILE"
-fi
-
-append_model_timing() {
-  local model="$1"
-  local phase="$2"
-  local seconds="$3"
-  local status="$4"
-  local ts
-  ts=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-  printf '%s\t%s\t%s\t%s\t%s\n' "$ts" "$model" "$phase" "$seconds" "$status" >> "$TIMINGS_FILE"
-}
 
 set -u  # Re-enable nounset option: treat any attempt to use an unset variable as an error
 
@@ -333,7 +320,6 @@ set -euo pipefail
 if array_contains "yolox-tiny" "${MODELS_TO_PROCESS[@]}"; then
   display_header "Downloading YOLOx-TINY model"
   MODEL_NAME="yolox-tiny"
-  model_timer_start=$(date +%s)
   model_status="ok"
   MODEL_DIR="$MODELS_PATH/public/$MODEL_NAME"
   DST_FILE1="$MODEL_DIR/FP16/$MODEL_NAME.xml"
@@ -369,17 +355,12 @@ if array_contains "yolox-tiny" "${MODELS_TO_PROCESS[@]}"; then
     model_status="cached"
     echo_color "\nModel already exists: $MODEL_DIR.\n" "yellow"
   fi
-  model_timer_end=$(date +%s)
-  model_seconds=$((model_timer_end - model_timer_start))
-  append_model_timing "$MODEL_NAME" "download" "$model_seconds" "$model_status"
-  echo "[DEBUG][TIMING] model=${MODEL_NAME} phase=download seconds=${model_seconds} status=${model_status}"
 fi
 
 # ================================= YOLOx-S FP16 & FP32 =================================
 if array_contains "yolox_s" "${MODELS_TO_PROCESS[@]}"; then
   display_header "Downloading YOLOx-S model"
   MODEL_NAME="yolox_s"
-  model_timer_start=$(date +%s)
   model_status="ok"
   MODEL_DIR="$MODELS_PATH/public/$MODEL_NAME"
   DST_FILE1="$MODEL_DIR/FP16/$MODEL_NAME.xml"
@@ -402,17 +383,12 @@ if array_contains "yolox_s" "${MODELS_TO_PROCESS[@]}"; then
     model_status="cached"
     echo_color "\nModel already exists: $MODEL_DIR.\n" "yellow"
   fi
-  model_timer_end=$(date +%s)
-  model_seconds=$((model_timer_end - model_timer_start))
-  append_model_timing "$MODEL_NAME" "download" "$model_seconds" "$model_status"
-  echo "[DEBUG][TIMING] model=${MODEL_NAME} phase=download seconds=${model_seconds} status=${model_status}"
 fi
 
 # ================================= YOLOv7* FP16 & FP32 =================================
 if array_contains "yolov7" "${MODELS_TO_PROCESS[@]}"; then
   display_header "Downloading YOLOv7 model"
   MODEL_NAME="yolov7"
-  model_timer_start=$(date +%s)
   model_status="ok"
   MODEL_DIR="$MODELS_PATH/public/$MODEL_NAME"
   DST_FILE1="$MODEL_DIR/FP16/$MODEL_NAME.xml"
@@ -443,17 +419,12 @@ if array_contains "yolov7" "${MODELS_TO_PROCESS[@]}"; then
     model_status="cached"
     echo_color "\nModel already exists: $MODEL_DIR.\n" "yellow"
   fi
-  model_timer_end=$(date +%s)
-  model_seconds=$((model_timer_end - model_timer_start))
-  append_model_timing "$MODEL_NAME" "download" "$model_seconds" "$model_status"
-  echo "[DEBUG][TIMING] model=${MODEL_NAME} phase=download seconds=${model_seconds} status=${model_status}"
 fi
 
 # ================================= YOLOv8 License Plate Detector FP32 - Edge AI Resources =================================
 if array_contains "yolov8_license_plate_detector" "${MODELS_TO_PROCESS[@]}"; then
   display_header "Downloading YOLOv8 License Plate Detector model"
   MODEL_NAME="yolov8_license_plate_detector"
-  model_timer_start=$(date +%s)
   model_status="ok"
   MODEL_DIR="$MODELS_PATH/public/$MODEL_NAME"
   DST_FILE1="$MODEL_DIR/FP32/$MODEL_NAME.xml"
@@ -482,17 +453,12 @@ os.remove('${MODEL_NAME}.zip')
     model_status="cached"
     echo_color "\nModel already exists: $MODEL_DIR.\n" "yellow"
   fi
-  model_timer_end=$(date +%s)
-  model_seconds=$((model_timer_end - model_timer_start))
-  append_model_timing "$MODEL_NAME" "download" "$model_seconds" "$model_status"
-  echo "[DEBUG][TIMING] model=${MODEL_NAME} phase=download seconds=${model_seconds} status=${model_status}"
 fi
 
 # ================================= CenterFace FP16 & FP32 =================================
 if array_contains "centerface" "${MODELS_TO_PROCESS[@]}"; then
   display_header "Downloading CenterFace model"
   MODEL_NAME="centerface"
-  model_timer_start=$(date +%s)
   model_status="ok"
   MODEL_DIR="$MODELS_PATH/public/$MODEL_NAME"
   DST_FILE1="$MODEL_DIR/FP16/$MODEL_NAME.xml"
@@ -536,17 +502,12 @@ EOF
     model_status="cached"
     echo_color "\nModel already exists: $MODEL_DIR.\n" "yellow"
   fi
-  model_timer_end=$(date +%s)
-  model_seconds=$((model_timer_end - model_timer_start))
-  append_model_timing "$MODEL_NAME" "download" "$model_seconds" "$model_status"
-  echo "[DEBUG][TIMING] model=${MODEL_NAME} phase=download seconds=${model_seconds} status=${model_status}"
 fi
 
 # ================================= HSEmotion FP16 =================================
 if array_contains "hsemotion" "${MODELS_TO_PROCESS[@]}"; then
   display_header "Downloading HSEmotion model"
   MODEL_NAME="hsemotion"
-  model_timer_start=$(date +%s)
   model_status="ok"
   MODEL_DIR="$MODELS_PATH/public/$MODEL_NAME"
   DST_FILE="$MODEL_DIR/FP16/$MODEL_NAME.xml"
@@ -587,17 +548,12 @@ EOF
     model_status="cached"
     echo_color "\nModel already exists: $MODEL_DIR.\n" "yellow"
   fi
-  model_timer_end=$(date +%s)
-  model_seconds=$((model_timer_end - model_timer_start))
-  append_model_timing "$MODEL_NAME" "download" "$model_seconds" "$model_status"
-  echo "[DEBUG][TIMING] model=${MODEL_NAME} phase=download seconds=${model_seconds} status=${model_status}"
 fi
 
 # ================================= DeepLabv3 FP16 & FP32 =================================
 if array_contains "deeplabv3" "${MODELS_TO_PROCESS[@]}"; then
   display_header "Downloading DeepLabv3 model"
   MODEL_NAME="deeplabv3"
-  model_timer_start=$(date +%s)
   model_status="ok"
   MODEL_DIR="$MODELS_PATH/public/$MODEL_NAME"
   DST_FILE1="$MODEL_DIR/FP32/$MODEL_NAME.xml"
@@ -645,17 +601,12 @@ EOF
     model_status="cached"
     echo_color "\nModel already exists: $MODEL_DIR.\n" "yellow"
   fi
-  model_timer_end=$(date +%s)
-  model_seconds=$((model_timer_end - model_timer_start))
-  append_model_timing "$MODEL_NAME" "download" "$model_seconds" "$model_status"
-  echo "[DEBUG][TIMING] model=${MODEL_NAME} phase=download seconds=${model_seconds} status=${model_status}"
 fi
 
 # ================================= ch_PP-OCRv4_rec_infer FP32 =================================
 if array_contains "ch_PP-OCRv4_rec_infer" "${MODELS_TO_PROCESS[@]}"; then
   display_header "Downloading PaddlePaddle OCRv4 model"
   MODEL_NAME="ch_PP-OCRv4_rec_infer"
-  model_timer_start=$(date +%s)
   model_status="ok"
   MODEL_DIR="$MODELS_PATH/public/$MODEL_NAME"
   DST_FILE1="$MODEL_DIR/FP32/$MODEL_NAME.xml"
@@ -684,10 +635,34 @@ os.remove('${MODEL_NAME}.zip')
     model_status="cached"
     echo_color "\nModel already exists: $MODEL_DIR.\n" "yellow"
   fi
-  model_timer_end=$(date +%s)
-  model_seconds=$((model_timer_end - model_timer_start))
-  append_model_timing "$MODEL_NAME" "download" "$model_seconds" "$model_status"
-  echo "[DEBUG][TIMING] model=${MODEL_NAME} phase=download seconds=${model_seconds} status=${model_status}"
+fi
+
+# ================================= Mars-Small128 FP32 & INT8 =================================
+if array_contains "mars-small128" "${MODELS_TO_PROCESS[@]}"; then
+  display_header "Downloading Mars-Small128 model"
+  MODEL_NAME="mars-small128"
+  model_status="ok"
+  MODEL_DIR="$MODELS_PATH/public/$MODEL_NAME"
+  DST_FILE1="$MODEL_DIR/FP32/mars_small128_fp32.xml"
+  DST_FILE2="$MODEL_DIR/INT8/mars_small128_int8.xml"
+
+  if [[ ! -f "$DST_FILE1" || ! -f "$DST_FILE2" ]]; then
+    echo "Downloading and converting: ${MODEL_DIR}"
+    mkdir -p "$MODEL_DIR"
+
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+    python3 "$REPO_ROOT/samples/models/convert_mars_deepsort.py" --output-dir "$MODEL_DIR" --precision both || handle_error $LINENO
+
+    mkdir -p "$MODEL_DIR/FP32" "$MODEL_DIR/INT8"
+    mv "$MODEL_DIR/mars_small128_fp32.xml" "$MODEL_DIR/FP32/mars_small128_fp32.xml"
+    mv "$MODEL_DIR/mars_small128_fp32.bin" "$MODEL_DIR/FP32/mars_small128_fp32.bin"
+    mv "$MODEL_DIR/mars_small128_int8.xml" "$MODEL_DIR/INT8/mars_small128_int8.xml"
+    mv "$MODEL_DIR/mars_small128_int8.bin" "$MODEL_DIR/INT8/mars_small128_int8.bin"
+  else
+    model_status="cached"
+    echo_color "\nModel already exists: $MODEL_DIR.\n" "yellow"
+  fi
 fi
 
 

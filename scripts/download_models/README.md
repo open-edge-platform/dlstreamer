@@ -5,6 +5,34 @@ This folder contains standalone conversion CLIs:
 - `download_hf_models.py` — Convert Hugging Face models to OpenVINO.
 - `download_ultralytics_models.py` — Convert Ultralytics YOLO models to OpenVINO.
 - `download_timm_models.py` — Convert supported TIMM image-classification models to OpenVINO.
+- `download_other_models.sh` — Download and convert selected non-HF/non-Ultralytics helper models.
+
+Model list files used by automation are stored in:
+
+- `scripts/download_models/model_lists/hf_models.txt`
+- `scripts/download_models/model_lists/ultralytics_models.txt`
+- `scripts/download_models/model_lists/timm_models.txt`
+
+## Model Reference Format (`@...`)
+
+The `@...` suffix means "pin this exact version", but the source differs by tool:
+
+- Hugging Face (`download_hf_models.py` and `download_timm_models.py`):
+  - Format: `repo_id@revision`
+  - Example: `openai/clip-vit-base-patch32@3d74acf9a28c67741b2f4f2ea7635f0aaf6f0268`
+  - `revision` is a Hugging Face repo revision (typically a commit SHA).
+
+- Ultralytics (`download_ultralytics_models.py`):
+  - Format: `model.pt@tag`
+  - Example: `yolo11n.pt@v8.4.0`
+  - `tag` is a GitHub release tag from `ultralytics/assets`.
+
+If `@...` is omitted:
+
+- `download_hf_models.py` uses the current latest Hugging Face revision at runtime.
+- `download_timm_models.py` uses the current latest Hugging Face revision at runtime.
+- `download_ultralytics_models.py` resolves a model by local file first, then by Ultralytics latest weights.
+- `download_other_models.sh` uses fixed script-defined sources (no per-model `@...` pin syntax).
 
 
 ## Prerequisites
@@ -58,7 +86,8 @@ The script classifies a model into one of three support levels:
 - `1` — Custom export path: handled in `hf_utils.py` (currently CLIP/RT-DETR custom converters).
 - `2` — Unsupported: prints an error and exits with code `1`.
 
-When `--model` does not include `@revision`, the script resolves the current immutable Hugging Face commit SHA automatically and uses that value for all downloads and `from_pretrained(...)` calls.
+When `--model` does not include `@revision`, the script downloads the latest available Hugging Face revision at runtime.
+Use `repo_id@revision` to make runs reproducible.
 
 ### Examples
 
@@ -154,7 +183,8 @@ python download_timm_models.py import \
 Existing TIMM exports in the target folder are replaced only after the exported
 OpenVINO IR has been read and re-saved successfully.
 When `@revision` is provided, both export and `config.json` are resolved from that pinned revision.
-Without `@revision`, the helper resolves the current immutable Hugging Face commit SHA.
+Without `@revision`, the helper exports from the latest available Hugging Face revision at runtime.
+Use `@revision` for reproducible runs.
 
 ### Precisions
 
@@ -186,6 +216,34 @@ python download_timm_models.py import \
   --output-dir "${MODELS_PATH}"
 ```
 
+## 4) Other Public Models (Shell)
+
+Script: `download_other_models.sh`
+
+This script downloads/converts a fixed set of helper models (for example, `centerface`, `hsemotion`, `deeplabv3`, `mars-small128`) into the `MODELS_PATH/public/...` layout.
+
+### Command
+
+```bash
+./download_other_models.sh [MODEL] [QUANTIZE]
+```
+
+### Versioning Behavior
+
+- This script does not accept per-model `@revision` or `@tag` syntax.
+- Model versions are controlled by URLs and tool versions hardcoded in the script.
+- To pin exact artifacts, keep the script revision pinned in git.
+
+### Examples
+
+```bash
+# Download all supported "other" models
+./download_other_models.sh all
+
+# Download only mars-small128
+./download_other_models.sh mars-small128
+```
+
 ## Output notes
 
 - Hugging Face exports are written under `<outdir>/<model_name>/`.
@@ -193,3 +251,4 @@ python download_timm_models.py import \
 - TIMM exports are written under `<output-dir>/public/<model_name>/FP16/<model_name>.xml`
   and/or `<output-dir>/public/<model_name>/INT8/<model_name>.xml` with matching
   `.bin` and `data_config.json` files.
+- `download_other_models.sh` writes models under `${MODELS_PATH}/public/<model_name>/...`.

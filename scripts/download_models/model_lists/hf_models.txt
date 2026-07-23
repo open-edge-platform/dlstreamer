@@ -49,33 +49,32 @@ Qwen/Qwen2.5-VL-3B-Instruct@66285546d2b821cf421d4f5eb2576359d3770cd3
 # VideoMAEForVideoClassification (SUPPORTED_HF_MODELS)
 MCG-NJU/videomae-base-finetuned-kinetics@488eb9a0565f257b32866000305c8178965eb9f6
 
-# =====================================
-# COMMENTED MODELS (HF token required)
-# =====================================
-
-# MiniCPMV (SUPPORTED_HF_MODELS: direct IDs)
-# Disabled: Gated model - requires HF token with access permissions
-# openbmb/MiniCPM-V-2_6@6c04d9e3022bcff6e6738dfb1fc19a5cfd2a855f
-
-# Gemma3ForConditionalGeneration (SUPPORTED_HF_MODELS: direct IDs)
-# Disabled: gated repos require HF access token/approval in CI
-# google/gemma-3-4b-it@093f9f388b31de276ce2de164bdc2081324b9767
-# google/gemma-3-12b-it@96b6f1eccf38110c56df3a15bffe176da04bfd80
-# google/gemma-3-27b-it@005ad3404e59d6023443cb575daa05336842228a
-
-# =====================================
-# ENABLED FOR RETEST (previously: other reasons)
-# =====================================
-
 # LlavaQwen2ForCausalLM (SUPPORTED_HF_MODELS)
 qnguyen3/nanoLLaVA@13d60cec183a86755afed64da495fcc2c382ea80
 
 # BunnyQwenForCausalLM (SUPPORTED_HF_MODELS)
 qnguyen3/nanoLLaVA-1.5@5b01b8622fe3750d90d7ddc31059a74015a16fb9
 
+# Phi3VForCausalLM (SUPPORTED_HF_MODELS)
+microsoft/Phi-3-vision-128k-instruct@ed2772fabe9dc9acd0caad54b62761d92520cc44
+
+# =====================================
+# COMMENTED MODELS
+# =====================================
+
+# MiniCPMV (SUPPORTED_HF_MODELS)
+# Disabled: Gated model - requires HF token with access permissions
+# openbmb/MiniCPM-V-2_6@6c04d9e3022bcff6e6738dfb1fc19a5cfd2a855f
+
+# Gemma3ForConditionalGeneration (SUPPORTED_HF_MODELS)
+# Disabled: gated repos require HF access token/approval in CI
+# google/gemma-3-4b-it@093f9f388b31de276ce2de164bdc2081324b9767
+# google/gemma-3-12b-it@96b6f1eccf38110c56df3a15bffe176da04bfd80
+# google/gemma-3-27b-it@005ad3404e59d6023443cb575daa05336842228a
+
 # LlavaNextForConditionalGeneration (SUPPORTED_HF_MODELS)
 # Disabled: SIGKILL during optimum-cli export (process ran out of memory in CI environment)
-#llava-hf/llava-v1.6-mistral-7b-hf@2424fdd47412fccc66d91719126b420e9fbd7065
+# llava-hf/llava-v1.6-mistral-7b-hf@2424fdd47412fccc66d91719126b420e9fbd7065
 
 # LlavaNextVideoForConditionalGeneration (SUPPORTED_HF_MODELS)
 # Disabled: SIGKILL during optimum-cli export (local retest also hits OOM; ~27 GiB RSS for exporter)
@@ -85,18 +84,10 @@ qnguyen3/nanoLLaVA-1.5@5b01b8622fe3750d90d7ddc31059a74015a16fb9
 # Disabled: upstream remote-code/dynamic-module issue (missing image_processing_minicpmv.py in transformers_modules cache during export)
 # openbmb/MiniCPM-o-2_6@509805e84db1c84f154034d71a21c4f2331e6e11
 
-# Phi3VForCausalLM (SUPPORTED_HF_MODELS)
-microsoft/Phi-3-vision-128k-instruct@ed2772fabe9dc9acd0caad54b62761d92520cc44
-
 # Phi4MMForCausalLM (SUPPORTED_HF_MODELS)
 # Disabled: PEFT LoRA init fails during export (Phi4MMModel has no prepare_inputs_for_generation)
 # microsoft/Phi-4-multimodal-instruct@93f923e1a7727d1c4f446756212d9d3e8fcc5d81
 
 # anchor-flux/yamnet-onnx is a raw ONNX repo without a standard HF model_type;
 # it cannot be exported via this script without a dedicated custom converter.
-# The following Hugging Face repos are used in samples but exported by dedicated sample logic,
-# not by this transformers/optimum export script:
-# - arnabdhar/YOLOv8-Face-Detection (Ultralytics .pt)
-# - morsetechlab/yolov11-license-plate-detection (Ultralytics .pt)
-# - ultralytics/yolo11 (Ultralytics .pt)
-# - PaddlePaddle/PP-OCRv5_server_rec (Paddle model via paddle2onnx + ovc)
+

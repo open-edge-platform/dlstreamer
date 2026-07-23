@@ -13,8 +13,6 @@ import json
 import os
 import subprocess
 import sys
-import time
-from datetime import datetime, timezone
 from pathlib import Path
 from huggingface_hub import snapshot_download
 from hf_utils import custom_conversion
@@ -42,25 +40,6 @@ MODELS_REQUIRING_PAD_TOKEN_WORKAROUND = {
     "qnguyen3/nanoLLaVA",
     "qnguyen3/nanoLLaVA-1.5",
 }
-
-
-def append_timing_record(
-    timings_file: Path,
-    model: str,
-    phase: str,
-    seconds: float | None,
-    status: str,
-) -> None:
-    timings_file.parent.mkdir(parents=True, exist_ok=True)
-    is_new_file = not timings_file.exists()
-    seconds_str = f"{seconds:.3f}" if seconds is not None else ""
-
-    with timings_file.open("a", encoding="utf-8") as file:
-        if is_new_file:
-            file.write("timestamp_utc\tmodel\tphase\tseconds\tstatus\n")
-        file.write(
-            f"{datetime.now(timezone.utc).isoformat()}\t{model}\t{phase}\t{seconds_str}\t{status}\n"
-        )
 
 
 def parse_args() -> argparse.Namespace:
@@ -162,28 +141,19 @@ def main() -> int:
     args = parse_args()
     model_id = args.model
     token = args.token
-    model_t0 = time.perf_counter()
-    timings_file = Path(args.outdir).expanduser() / "download_hf_models_timings.tsv"
-    result_status = "error"
-
-    print(f"[DEBUG][TIMING] model={model_id} phase=start")
 
     try:
         # Parse model_id to extract repo_id and optional revision
         repo_id, revision = parse_model_ref(model_id)
         
         # Download model with specified revision (or latest if None) to local cache
-        dl_t0 = time.perf_counter()
         print(f"Downloading model: {repo_id}" + (f" @ {revision}" if revision else " (latest)"))
         local_model_dir = snapshot_download(
             repo_id=repo_id,
             revision=revision,
             token=token,
         )
-        dl_t1 = time.perf_counter()
         print(f"Model cached at: {local_model_dir}")
-        print(f"[DEBUG][TIMING] model={model_id} phase=snapshot_download seconds={dl_t1 - dl_t0:.3f}")
-        append_timing_record(timings_file, model_id, "snapshot_download", dl_t1 - dl_t0, "ok")
         
         # Install model-specific dependencies
         install_model_dependencies(repo_id)
@@ -196,8 +166,7 @@ def main() -> int:
         
         # Determine support level by analyzing locally cached model
         support_level = get_hf_model_support_level(local_model_dir)
-        
-        export_t0 = time.perf_counter()
+
         match support_level:
             case 0:
                 # Standard export using optimum-cli
@@ -239,31 +208,19 @@ def main() -> int:
             case _:
                 raise ValueError(f"Unexpected support level: {support_level}")
 
-        export_t1 = time.perf_counter()
-        print(f"[DEBUG][TIMING] model={model_id} phase=export seconds={export_t1 - export_t0:.3f}")
-        append_timing_record(timings_file, model_id, "export", export_t1 - export_t0, "ok")
-
         print(f"Exported model location: {model_path}")
-        result_status = "ok"
         return 0
         
     except OSError as exc:
         print(f"Error: Model '{model_id}' not found or inaccessible")
         print(f"Details: {str(exc)}")
-        append_timing_record(timings_file, model_id, "error", None, "error")
         return 1
     except subprocess.CalledProcessError as exc:
         print(f"Error during model export: {str(exc)}")
-        append_timing_record(timings_file, model_id, "error", None, "error")
         return 1
     except Exception as exc:
         print(f"Unexpected error: {str(exc)}")
-        append_timing_record(timings_file, model_id, "error", None, "error")
         return 1
-    finally:
-        total_seconds = time.perf_counter() - model_t0
-        print(f"[DEBUG][TIMING] model={model_id} phase=total seconds={total_seconds:.3f}")
-        append_timing_record(timings_file, model_id, "total", total_seconds, result_status)
 
 
 if __name__ == "__main__":

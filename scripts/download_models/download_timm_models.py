@@ -15,8 +15,6 @@ import shutil
 import subprocess
 import sys
 import tempfile
-import time
-from datetime import datetime, timezone
 from pathlib import Path
 
 from huggingface_hub import HfApi, hf_hub_download
@@ -57,25 +55,6 @@ SUPPORTED_MODELS = (
 )
 
 
-def append_timing_record(
-    timings_file: Path,
-    model: str,
-    phase: str,
-    seconds: float | None,
-    status: str,
-) -> None:
-    timings_file.parent.mkdir(parents=True, exist_ok=True)
-    is_new_file = not timings_file.exists()
-    seconds_str = f"{seconds:.3f}" if seconds is not None else ""
-
-    with timings_file.open("a", encoding="utf-8") as file:
-        if is_new_file:
-            file.write("timestamp_utc\tmodel\tphase\tseconds\tstatus\n")
-        file.write(
-            f"{datetime.now(timezone.utc).isoformat()}\t{model}\t{phase}\t{seconds_str}\t{status}\n"
-        )
-
-
 def parse_args() -> argparse.Namespace:
     """Parse CLI arguments."""
     parser = argparse.ArgumentParser(
@@ -106,51 +85,27 @@ def list_models(_args: argparse.Namespace) -> int:
 
 def import_model(args: argparse.Namespace) -> int:
     """Export one TIMM model through Optimum OpenVINO."""
-    model_t0 = time.perf_counter()
     model_name, revision = parse_model_ref(args.model)
     precisions = ("fp16", "int8") if args.precision == "both" else (args.precision,)
     output_root = Path(args.output_dir or os.environ.get("MODELS_PATH", "")).expanduser()
-    timings_root = Path(args.output_dir or os.environ.get("MODELS_PATH", "") or ".").expanduser()
-    timings_file = timings_root / "download_timm_models_timings.tsv"
     hf_model_id = hf_id(model_name)
-    result_status = "error"
+    assert hf_model_id, f"unsupported model or missing Hugging Face id: {model_name}"
+    assert output_root, "--output-dir is required when MODELS_PATH is not set"
+    optimum_cli_path = shutil.which("optimum-cli")
+    assert optimum_cli_path, "optimum-cli is required in the export environment"
 
-    print(f"[DEBUG][TIMING] model={model_name} phase=start")
-    try:
-        assert hf_model_id, f"unsupported model or missing Hugging Face id: {model_name}"
-        assert output_root, "--output-dir is required when MODELS_PATH is not set"
-        optimum_cli_path = shutil.which("optimum-cli")
-        assert optimum_cli_path, "optimum-cli is required in the export environment"
-
-        for precision in precisions:
-            precision_t0 = time.perf_counter()
-            xml = output_root / "public" / model_name / precision.upper() / f"{model_name}.xml"
-            export_with_optimum(
-                optimum_cli_path,
-                hf_model_id,
-                model_name,
-                precision,
-                xml,
-                revision=revision,
-            )
-            print(f"Exported {precision.upper()} OpenVINO IR: {xml}")
-            print(
-                f"[DEBUG][TIMING] model={model_name} phase=export_{precision} "
-                f"seconds={time.perf_counter() - precision_t0:.3f}"
-            )
-            append_timing_record(
-                timings_file,
-                model_name,
-                f"export_{precision}",
-                time.perf_counter() - precision_t0,
-                "ok",
-            )
-        result_status = "ok"
-        return 0
-    finally:
-        total_seconds = time.perf_counter() - model_t0
-        print(f"[DEBUG][TIMING] model={model_name} phase=total seconds={total_seconds:.3f}")
-        append_timing_record(timings_file, model_name, "total", total_seconds, result_status)
+    for precision in precisions:
+        xml = output_root / "public" / model_name / precision.upper() / f"{model_name}.xml"
+        export_with_optimum(
+            optimum_cli_path,
+            hf_model_id,
+            model_name,
+            precision,
+            xml,
+            revision=revision,
+        )
+        print(f"Exported {precision.upper()} OpenVINO IR: {xml}")
+    return 0
 
 
 def supported_models() -> list[str]:
