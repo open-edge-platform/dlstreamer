@@ -17,8 +17,10 @@ find_package(OpenCV REQUIRED)
 # Add executable
 add_library(${TARGET_NAME} STATIC
     gstgvagenai.cpp
-    genai.cpp
     configs.cpp
+    backends/genai_backend.cpp
+    backends/openvino/genai.cpp
+    backends/openvino/openvino_backend.cpp
 )
 
 # Include directories
@@ -28,6 +30,7 @@ target_include_directories(${TARGET_NAME} PUBLIC
     ${GSTREAMER_VIDEO_INCLUDE_DIRS}
     ${OpenVINO_INCLUDE_DIRS}
     ${DLSTREAMER_BASE_DIR}/include/dlstreamer/gst/metadata
+    ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
 # Link libraries

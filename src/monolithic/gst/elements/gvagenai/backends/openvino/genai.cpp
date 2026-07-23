@@ -11,7 +11,7 @@
 GST_DEBUG_CATEGORY_EXTERN(gst_gvagenai_debug);
 #define GST_CAT_DEFAULT gst_gvagenai_debug
 
-#include "configs.hpp"
+#include "../../configs.hpp"
 
 #include <nlohmann/json.hpp>
 #include <opencv2/opencv.hpp>
