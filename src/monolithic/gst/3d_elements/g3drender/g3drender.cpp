@@ -400,12 +400,13 @@ static gboolean gst_g3d_render_set_caps(GstBaseTransform *trans, GstCaps *incaps
     gst_structure_get_int(gst_caps_get_structure(outcaps, 0), "width", &self->width);
     gst_structure_get_int(gst_caps_get_structure(outcaps, 0), "height", &self->height);
     gint fps_n = 0, fps_d = 1;
-    gst_structure_get_fraction(gst_caps_get_structure(outcaps, 0), "framerate", &fps_n, &fps_d);
-    self->frame_duration = (fps_n > 0) ? gst_util_uint64_scale(GST_SECOND, fps_d, fps_n) : GST_SECOND / 10;
+    gboolean have_fps = gst_structure_get_fraction(gst_caps_get_structure(outcaps, 0), "framerate", &fps_n, &fps_d);
+    gboolean fps_valid = have_fps && fps_n > 0 && fps_d > 0;
+    self->frame_duration = fps_valid ? gst_util_uint64_scale(GST_SECOND, fps_d, fps_n) : GST_SECOND / 10;
     GST_INFO_OBJECT(self,
                     "input caps: %s (batch=%d) canvas=%dx%d framerate=%d/%d frame_duration=%" GST_TIME_FORMAT "%s",
                     gst_structure_get_name(s), self->input_is_batch, self->width, self->height, fps_n, fps_d,
-                    GST_TIME_ARGS(self->frame_duration), (fps_n <= 0) ? " (fallback)" : "");
+                    GST_TIME_ARGS(self->frame_duration), fps_valid ? "" : " (fallback)");
     return TRUE;
 }
 
