@@ -114,6 +114,14 @@ struct Blur {
     }
 };
 
+// Compute Gaussian blur kernel size proportional to ROI dimensions.
+// Kernel is ~1/3 of each dimension, minimum 7, always odd.
+inline cv::Size computeBlurKernelSize(int roi_width, int roi_height) {
+    int kw = std::max(7, roi_width / 3) | 1;
+    int kh = std::max(7, roi_height / 3) | 1;
+    return cv::Size(kw, kh);
+}
+
 using Prim = std::variant<Text, Rect, Circle, Line, Polygon, InstanceSegmantationMask, SemanticSegmantationMask, Blur>;
 
 } // namespace render
