@@ -11,6 +11,18 @@ QUANTIZE=${2:-""} # Supported values listed in SUPPORTED_QUANTIZATION_DATASETS b
 # Save the directory where the script was launched from
 LAUNCH_DIR="$PWD"
 
+# Resolve script directory once at startup so later cwd changes do not break
+# relative-path calculations based on BASH_SOURCE.
+if command -v realpath >/dev/null 2>&1; then
+  DOWNLOAD_SCRIPT_PATH="$(realpath "${BASH_SOURCE[0]}")"
+else
+  case "${BASH_SOURCE[0]}" in
+    /*) DOWNLOAD_SCRIPT_PATH="${BASH_SOURCE[0]}" ;;
+    *) DOWNLOAD_SCRIPT_PATH="$LAUNCH_DIR/${BASH_SOURCE[0]}" ;;
+  esac
+fi
+DOWNLOAD_SCRIPT_DIR="$(cd "$(dirname "$DOWNLOAD_SCRIPT_PATH")" && pwd)"
+
 . /etc/os-release
 
 # Changing the config dir for the duration of the script to prevent potential conflics with
@@ -650,18 +662,17 @@ if array_contains "mars-small128" "${MODELS_TO_PROCESS[@]}"; then
     echo "Downloading and converting: ${MODEL_DIR}"
     mkdir -p "$MODEL_DIR"
 
-    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    CONVERTER_SCRIPT="$SCRIPT_DIR/../../samples/models/convert_mars_deepsort.py"
+    CONVERTER_SCRIPT="$DOWNLOAD_SCRIPT_DIR/../../samples/models/convert_mars_deepsort.py"
 
     # Support CI layouts where dlstreamer is checked out into ./dlstreamer-repo.
-    if [[ ! -f "$CONVERTER_SCRIPT" && -f "$PWD/dlstreamer-repo/samples/models/convert_mars_deepsort.py" ]]; then
-      CONVERTER_SCRIPT="$PWD/dlstreamer-repo/samples/models/convert_mars_deepsort.py"
+    if [[ ! -f "$CONVERTER_SCRIPT" && -f "$LAUNCH_DIR/dlstreamer-repo/samples/models/convert_mars_deepsort.py" ]]; then
+      CONVERTER_SCRIPT="$LAUNCH_DIR/dlstreamer-repo/samples/models/convert_mars_deepsort.py"
     fi
 
     if [[ ! -f "$CONVERTER_SCRIPT" ]]; then
       echo_color "Cannot locate convert_mars_deepsort.py" "red"
-      echo_color "Tried: $SCRIPT_DIR/../../samples/models/convert_mars_deepsort.py" "red"
-      echo_color "Tried: $PWD/dlstreamer-repo/samples/models/convert_mars_deepsort.py" "red"
+      echo_color "Tried: $DOWNLOAD_SCRIPT_DIR/../../samples/models/convert_mars_deepsort.py" "red"
+      echo_color "Tried: $LAUNCH_DIR/dlstreamer-repo/samples/models/convert_mars_deepsort.py" "red"
       handle_error $LINENO
     fi
 
