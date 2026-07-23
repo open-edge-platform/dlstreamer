@@ -66,15 +66,17 @@ jobs:
         if: needs.setup.outputs.should_run == 'true'
         run: |
           python3 -m venv "$HF_VENV"
-          "$HF_VENV/bin/python" -m pip install --upgrade pip
-          "$HF_VENV/bin/python" -m pip install -r scripts/download_models/requirements_download_hf_models.txt
+          source "$HF_VENV/bin/activate"
+          python -m pip install --upgrade pip
+          pip install -r scripts/download_models/requirements_download_hf_models.txt
 
       - name: README example - standard HF export
         if: needs.setup.outputs.should_run == 'true'
         run: |
+          source "$HF_VENV/bin/activate"
           mkdir -p "$HF_OUTDIR/standard"
           cd scripts/download_models
-          "$HF_VENV/bin/python" download_hf_models.py \
+          python download_hf_models.py \
             --model dima806/fairface_age_image_detection@4e02ab8057ea7fd74b1670940995c5dfda3e6ec0 \
             --outdir "$HF_OUTDIR/standard"
           find "$HF_OUTDIR/standard" -name '*.xml' | grep -q .
@@ -82,9 +84,10 @@ jobs:
       - name: README example - extra args passthrough
         if: needs.setup.outputs.should_run == 'true'
         run: |
+          source "$HF_VENV/bin/activate"
           mkdir -p "$HF_OUTDIR/extra-args"
           cd scripts/download_models
-          "$HF_VENV/bin/python" download_hf_models.py \
+          python download_hf_models.py \
             --model dima806/fairface_gender_image_detection@a8e129dc622dafa08bd2ee2e0fd05759850ae14e \
             --extra_args --weight-format int8 \
             --outdir "$HF_OUTDIR/extra-args"
@@ -93,10 +96,11 @@ jobs:
       - name: README example - --token flag path
         if: needs.setup.outputs.should_run == 'true'
         run: |
+          source "$HF_VENV/bin/activate"
           mkdir -p "$HF_OUTDIR/token"
           cd scripts/download_models
           # Public model with token flag validates CLI path for gated/private example usage.
-          "$HF_VENV/bin/python" download_hf_models.py \
+          python download_hf_models.py \
             --model dima806/facial_age_image_detection@ad35933da48272de7295530766f3d6c56702eba8 \
             --token fake_token_for_cli_path \
             --outdir "$HF_OUTDIR/token"
@@ -105,9 +109,10 @@ jobs:
       - name: README example - explicit revision override
         if: needs.setup.outputs.should_run == 'true'
         run: |
+          source "$HF_VENV/bin/activate"
           mkdir -p "$HF_OUTDIR/revision"
           cd scripts/download_models
-          "$HF_VENV/bin/python" download_hf_models.py \
+          python download_hf_models.py \
             --model openai/clip-vit-base-patch32@3d74acf9a28c67741b2f4f2ea7635f0aaf6f0268 \
             --outdir "$HF_OUTDIR/revision"
           find "$HF_OUTDIR/revision" -name '*.xml' | grep -q .
@@ -137,41 +142,46 @@ jobs:
         if: needs.setup.outputs.should_run == 'true'
         run: |
           python3 -m venv "$ULT_VENV"
-          "$ULT_VENV/bin/python" -m pip install --upgrade pip
-          "$ULT_VENV/bin/python" -m pip install -r scripts/download_models/requirements_download_ultralytics_models.txt
+          source "$ULT_VENV/bin/activate"
+          python -m pip install --upgrade pip
+          pip install -r scripts/download_models/requirements_download_ultralytics_models.txt
 
       - name: README example - export by model name
         if: needs.setup.outputs.should_run == 'true'
         run: |
+          source "$ULT_VENV/bin/activate"
           mkdir -p "$ULT_OUTDIR/by-name"
           cd scripts/download_models
-          "$ULT_VENV/bin/python" download_ultralytics_models.py --model yolo11n.pt --outdir "$ULT_OUTDIR/by-name"
+          python download_ultralytics_models.py --model yolo11n.pt --outdir "$ULT_OUTDIR/by-name"
           find "$ULT_OUTDIR/by-name" -name '*.xml' | grep -q .
 
       - name: README example - pinned model by release tag
         if: needs.setup.outputs.should_run == 'true'
         run: |
+          source "$ULT_VENV/bin/activate"
           mkdir -p "$ULT_OUTDIR/pinned"
           cd scripts/download_models
-          "$ULT_VENV/bin/python" download_ultralytics_models.py --model yolo11n.pt@v8.4.0 --outdir "$ULT_OUTDIR/pinned"
+          python download_ultralytics_models.py --model yolo11n.pt@v8.4.0 --outdir "$ULT_OUTDIR/pinned"
           find "$ULT_OUTDIR/pinned" -name '*.xml' | grep -q .
 
       - name: README example - local checkpoint with FP16
         if: needs.setup.outputs.should_run == 'true'
         run: |
+          source "$ULT_VENV/bin/activate"
           mkdir -p "$ULT_OUTDIR/local-half"
           cd scripts/download_models
           curl -fsSL -o yolo11n.pt \
             https://github.com/ultralytics/assets/releases/download/v8.4.0/yolo11n.pt
-          "$ULT_VENV/bin/python" download_ultralytics_models.py --model "$PWD/yolo11n.pt" --outdir "$ULT_OUTDIR/local-half" --half
+          python download_ultralytics_models.py --model "$PWD/yolo11n.pt" --outdir "$ULT_OUTDIR/local-half" --half
           find "$ULT_OUTDIR/local-half" -name '*.xml' | grep -q .
 
       - name: README example - INT8 export
         if: needs.setup.outputs.should_run == 'true'
         run: |
+          source "$ULT_VENV/bin/activate"
           mkdir -p "$ULT_OUTDIR/int8"
           cd scripts/download_models
-          "$ULT_VENV/bin/python" download_ultralytics_models.py --model yolo11s.pt --outdir "$ULT_OUTDIR/int8" --int8
+          python download_ultralytics_models.py --model yolo11s.pt --outdir "$ULT_OUTDIR/int8" --int8
           find "$ULT_OUTDIR/int8" -name '*.xml' | grep -q .
 
   test-readme-timm-examples:
@@ -199,20 +209,23 @@ jobs:
         if: needs.setup.outputs.should_run == 'true'
         run: |
           python3 -m venv "$TIMM_VENV"
-          "$TIMM_VENV/bin/python" -m pip install --upgrade pip
-          "$TIMM_VENV/bin/python" -m pip install -r scripts/download_models/requirements_download_timm_models.txt
+          source "$TIMM_VENV/bin/activate"
+          python -m pip install --upgrade pip
+          pip install -r scripts/download_models/requirements_download_timm_models.txt
 
       - name: README example - list supported TIMM models
         if: needs.setup.outputs.should_run == 'true'
         run: |
+          source "$TIMM_VENV/bin/activate"
           cd scripts/download_models
-          "$TIMM_VENV/bin/python" download_timm_models.py list-models | grep -q "efficientnet_b0"
+          python download_timm_models.py list-models | grep -q "efficientnet_b0"
 
       - name: README example - export FP16
         if: needs.setup.outputs.should_run == 'true'
         run: |
+          source "$TIMM_VENV/bin/activate"
           cd scripts/download_models
-          "$TIMM_VENV/bin/python" download_timm_models.py import \
+          python download_timm_models.py import \
             --model efficientnet_b0@1b5383e5f79cc0f7fc067e372f8f26a5fa73f26a \
             --precision fp16 \
             --output-dir "$TIMM_OUTDIR"
@@ -221,8 +234,9 @@ jobs:
       - name: README example - export INT8 only
         if: needs.setup.outputs.should_run == 'true'
         run: |
+          source "$TIMM_VENV/bin/activate"
           cd scripts/download_models
-          "$TIMM_VENV/bin/python" download_timm_models.py import \
+          python download_timm_models.py import \
             --model efficientnet_b0@1b5383e5f79cc0f7fc067e372f8f26a5fa73f26a \
             --precision int8 \
             --output-dir "$TIMM_OUTDIR"
@@ -231,8 +245,9 @@ jobs:
       - name: README example - export FP16 and INT8
         if: needs.setup.outputs.should_run == 'true'
         run: |
+          source "$TIMM_VENV/bin/activate"
           cd scripts/download_models
-          "$TIMM_VENV/bin/python" download_timm_models.py import \
+          python download_timm_models.py import \
             --model efficientnet_b0@1b5383e5f79cc0f7fc067e372f8f26a5fa73f26a \
             --precision both \
             --output-dir "$TIMM_OUTDIR"
@@ -350,14 +365,16 @@ jobs:
         if: needs.setup.outputs.should_run == 'true'
         run: |
           python3 -m venv "$U22_ULT_VENV"
-          "$U22_ULT_VENV/bin/python" -m pip install --upgrade pip
-          "$U22_ULT_VENV/bin/python" -m pip install -r scripts/download_models/requirements_download_ultralytics_models.txt
+          source "$U22_ULT_VENV/bin/activate"
+          python -m pip install --upgrade pip
+          pip install -r scripts/download_models/requirements_download_ultralytics_models.txt
 
       - name: Run README Ultralytics command on Ubuntu 22.04
         if: needs.setup.outputs.should_run == 'true'
         run: |
+          source "$U22_ULT_VENV/bin/activate"
           mkdir -p "$U22_OUTDIR"
           cd scripts/download_models
-          "$U22_ULT_VENV/bin/python" download_ultralytics_models.py --model yolo11n.pt --outdir "$U22_OUTDIR"
+          python download_ultralytics_models.py --model yolo11n.pt --outdir "$U22_OUTDIR"
           find "$U22_OUTDIR" -name '*.xml' | grep -q .
           echo "Ubuntu 22.04 compatibility test successful"
