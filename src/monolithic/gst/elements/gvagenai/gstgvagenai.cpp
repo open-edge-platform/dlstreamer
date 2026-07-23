@@ -10,7 +10,6 @@
 #include <fstream>
 #include <gst/video/video.h>
 #include <memory>
-#include <nlohmann/json.hpp>
 
 #include "gva_caps.h"
 #include "gva_json_meta.h"
@@ -583,7 +582,8 @@ static GstFlowReturn gst_gvagenai_transform_ip(GstBaseTransform *base, GstBuffer
 
             genai::GenAIResult result;
             try {
-                result = backend->infer(gvagenai->prompt_string, as_video, (float)effective_fps);
+                result =
+                    backend->infer(gvagenai->prompt_string, as_video, (float)effective_fps, GST_BUFFER_TIMESTAMP(buf));
             } catch (const std::exception &e) {
                 GST_ELEMENT_ERROR(gvagenai, STREAM, FAILED, ("Failed to run backend inference"),
                                   ("Error: %s", e.what()));
@@ -595,25 +595,10 @@ static GstFlowReturn gst_gvagenai_transform_ip(GstBaseTransform *base, GstBuffer
             gvagenai->last_result = g_strdup(result.text.c_str());
             gvagenai->last_confidence = result.confidence;
 
-            // Add JSON metadata on inference frames only.
             const GstMetaInfo *meta_info = gst_gva_json_meta_get_info();
             if (meta_info && gst_buffer_is_writable(buf)) {
-                // Inject the frame timestamp into the backend's JSON metadata.
-                std::string message = result.raw_json;
-                try {
-                    nlohmann::ordered_json json_obj = nlohmann::ordered_json::parse(result.raw_json);
-                    GstClockTime timestamp = GST_BUFFER_TIMESTAMP(buf);
-                    if (GST_CLOCK_TIME_IS_VALID(timestamp)) {
-                        json_obj["timestamp"] = timestamp;
-                        json_obj["timestamp_seconds"] = std::round((double)timestamp / GST_SECOND * 100.0) / 100.0;
-                    }
-                    message = json_obj.dump();
-                } catch (const std::exception &e) {
-                    GST_WARNING_OBJECT(gvagenai, "Failed to inject timestamp into metadata: %s", e.what());
-                }
-
                 auto *json_meta = (GstGVAJSONMeta *)gst_buffer_add_meta(buf, meta_info, NULL);
-                json_meta->message = g_strdup(message.c_str());
+                json_meta->message = g_strdup(result.raw_json.c_str());
                 GST_INFO_OBJECT(gvagenai, "Added meta message: %s", json_meta->message);
             }
         } else {
@@ -621,30 +606,18 @@ static GstFlowReturn gst_gvagenai_transform_ip(GstBaseTransform *base, GstBuffer
         }
     }
 
-    // Add GVATensorMeta on EVERY frame so gvawatermark renders persistently.
-    // Uses the last known result (persists across frames until next inference).
+    // Emit GstAnalyticsClsMtd on EVERY frame so gvawatermark renders persistently.
+    // Uses the last known result (persists across frames until the next inference completes).
     const gchar *last_result = gvagenai->last_result;
     if (last_result && last_result[0] != '\0' && gst_buffer_is_writable(buf)) {
-        const GstMetaInfo *tensor_meta_info = gst_gva_tensor_meta_get_info();
-        if (tensor_meta_info) {
-            auto *tensor_meta = (GstGVATensorMeta *)gst_buffer_add_meta(buf, tensor_meta_info, NULL);
-            if (tensor_meta && tensor_meta->data) {
-                // Pass 0.0 when confidence is unavailable (greedy decoding) so gvawatermark
-                // renders the label text without a confidence percentage.
-                const float raw_conf = gvagenai->last_confidence;
-                const double confidence = (raw_conf >= 0.0f) ? static_cast<double>(raw_conf) : 0.0;
-                gst_structure_set(tensor_meta->data, "label", G_TYPE_STRING, last_result, "confidence", G_TYPE_DOUBLE,
-                                  confidence, "model_name", G_TYPE_STRING, "genai", NULL);
-            }
-        }
-
-        // Also emit GstAnalyticsClsMtd for proper analytics metadata.
         GstAnalyticsRelationMeta *rmeta = gst_buffer_get_analytics_relation_meta(buf);
         if (!rmeta) {
             rmeta = gst_buffer_add_analytics_relation_meta(buf);
         }
         if (rmeta) {
             GQuark label = g_quark_from_string(last_result);
+            // Pass 0.0 when confidence is unavailable (greedy decoding) so gvawatermark
+            // renders the label text without a confidence percentage.
             const float raw_cls_conf = gvagenai->last_confidence;
             gfloat cls_confidence = (raw_cls_conf >= 0.0f) ? raw_cls_conf : 0.0f;
             GstAnalyticsClsMtd cls_mtd = {0, nullptr};

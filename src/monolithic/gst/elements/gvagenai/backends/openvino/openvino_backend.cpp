@@ -25,7 +25,7 @@ OpenVINOGenAIBackend::OpenVINOGenAIBackend(const OpenVINOBackendParams &params)
     }
 }
 
-GenAIResult OpenVINOGenAIBackend::infer(const std::string &prompt, bool as_video, float fps) {
+GenAIResult OpenVINOGenAIBackend::infer(const std::string &prompt, bool as_video, float fps, GstClockTime timestamp) {
     if (context_->get_tensor_vector_size() == 0) {
         throw std::runtime_error("Cannot run inference with no accumulated frames");
     }
@@ -42,7 +42,7 @@ GenAIResult OpenVINOGenAIBackend::infer(const std::string &prompt, bool as_video
     GenAIResult result;
     result.text = context_->get_last_result();
     result.confidence = context_->get_last_confidence();
-    result.raw_json = context_->create_json_metadata(GST_CLOCK_TIME_NONE, include_metrics_);
+    result.raw_json = context_->create_json_metadata(timestamp, include_metrics_);
     result.backend_name = backend_id();
 
     return result;

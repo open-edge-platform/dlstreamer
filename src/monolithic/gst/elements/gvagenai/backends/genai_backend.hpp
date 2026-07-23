@@ -72,10 +72,12 @@ class IGenAIBackend {
      *        instead of independent images (backend-specific; ignored if unsupported).
      * @param fps Frame rate of the accumulated frames, used when as_video is true.
      *        Pass 0.0 if unknown. Ignored when as_video is false.
+     * @param timestamp Buffer timestamp to bake into the result's raw_json
      * @return GenAIResult with text, confidence, and metadata
      * @throws std::runtime_error on failure
      */
-    virtual GenAIResult infer(const std::string &prompt, bool as_video = false, float fps = 0.0f) = 0;
+    virtual GenAIResult infer(const std::string &prompt, bool as_video = false, float fps = 0.0f,
+                              GstClockTime timestamp = GST_CLOCK_TIME_NONE) = 0;
 
     /**
      * @brief Update generation configuration (backend-specific format)

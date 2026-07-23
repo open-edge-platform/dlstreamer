@@ -49,9 +49,10 @@ class OpenVINOGenAIBackend : public IGenAIBackend {
     /**
      * @brief Run inference on accumulated tensors
      *
-     * Returns text, confidence, and full JSON metadata (with metrics).
+     * Returns text, confidence, and full JSON metadata (with metrics and timestamp).
      */
-    GenAIResult infer(const std::string &prompt, bool as_video = false, float fps = 0.0f) override;
+    GenAIResult infer(const std::string &prompt, bool as_video = false, float fps = 0.0f,
+                      GstClockTime timestamp = GST_CLOCK_TIME_NONE) override;
 
     /**
      * @brief Update generation configuration (KEY=VALUE,KEY=VALUE format)
