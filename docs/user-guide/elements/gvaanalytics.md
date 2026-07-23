@@ -34,6 +34,12 @@ Element Properties:
                         flags: readable, writable
                         Boolean. Default: true
 
+  evaluation-point    : Point used for zone and tripwire evaluation
+                        flags: readable, writable
+                        Enum "GvaAnalyticsEvaluationPoint" Default: 0, "center"
+                           (0): center          - Object center
+                           (1): bottom-center   - Object bottom-center
+
   draw-zones          : Attach watermark metadata for drawing zones
                         flags: readable, writable
                         Boolean. Default: true
@@ -120,4 +126,16 @@ Control whether tripwires and zones are drawn as watermark metadata:
 
 ```bash
 gst-launch-1.0 ... ! gvaanalytics draw-tripwires=true draw-zones=true ! gvawatermark ! ...
+```
+
+### Evaluation point
+
+Control which object point is used for zone and tripwire logic:
+
+```bash
+# Default behavior
+gst-launch-1.0 ... ! gvaanalytics evaluation-point=center ! ...
+
+# Use bottom-center of bounding box
+gst-launch-1.0 ... ! gvaanalytics evaluation-point=bottom-center ! ...
 ```

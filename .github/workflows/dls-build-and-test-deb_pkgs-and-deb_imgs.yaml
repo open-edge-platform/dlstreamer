@@ -8,6 +8,13 @@ on:
         required: false
         type: string
         default: "main"
+    outputs:
+      current-image-size-ubuntu22:
+        description: "Current DEB image size in MB for ubuntu22"
+        value: ${{ jobs.build.outputs.current-image-size-ubuntu22 }}
+      current-image-size-ubuntu24:
+        description: "Current DEB image size in MB for ubuntu24"
+        value: ${{ jobs.build.outputs.current-image-size-ubuntu24 }}
   workflow_dispatch:
     inputs:
       test-repo-branch:
@@ -91,12 +98,18 @@ jobs:
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.setup.outputs.matrix) }}
+    outputs:
+      current-image-size-ubuntu22: ${{ steps.check-size.outputs.current-image-size-ubuntu22 || steps.skip-size.outputs.current-image-size-ubuntu22 }}
+      current-image-size-ubuntu24: ${{ steps.check-size.outputs.current-image-size-ubuntu24 || steps.skip-size.outputs.current-image-size-ubuntu24 }}
     steps:
       - name: Skip or execute based on configuration
+        id: skip-size
         if: matrix.runner_print_label == 'SKIP'
         run: |
           echo "## ✅ Functional Linux Build and Test Skipped" >> $GITHUB_STEP_SUMMARY
           echo "**Reason:** Changes only in excluded files" >> $GITHUB_STEP_SUMMARY
+          echo 'current-image-size-ubuntu22=' >> "$GITHUB_OUTPUT"
+          echo 'current-image-size-ubuntu24=' >> "$GITHUB_OUTPUT"
           exit 0
 
       - name: Initial environment clean
@@ -428,16 +441,8 @@ jobs:
         env:
           deb_final_img: ghcr.io/${{ github.repository }}/deb-final-img-${{ matrix.ubuntu_version }}:${{ github.sha }}
           MATRIX_UBUNTU_VERSION: ${{ matrix.ubuntu_version }}
-          EXPECTED_SIZE_MB_DEB_U22: ${{ vars.EXPECTED_SIZE_MB_DEB_U22 }}
-          EXPECTED_SIZE_MB_DEB_U24: ${{ vars.EXPECTED_SIZE_MB_DEB_U24 }}
         run: |
           IMAGE_NAME=${deb_final_img}
-          if [ "${MATRIX_UBUNTU_VERSION}" == "ubuntu22" ]; then
-            EXPECTED_SIZE_MB=${EXPECTED_SIZE_MB_DEB_U22}
-          elif [ "${MATRIX_UBUNTU_VERSION}" == "ubuntu24" ]; then
-            EXPECTED_SIZE_MB=${EXPECTED_SIZE_MB_DEB_U24}
-          fi
-
           # Use 'docker images' SIZE — identical to the SIZE column visible when running 'docker images' manually on the runner
           SIZE_STR=$(docker images --no-trunc --format '{{.Size}}' "$IMAGE_NAME")
           IMAGE_SIZE_MB=$(echo "$SIZE_STR" | awk '
@@ -446,27 +451,21 @@ jobs:
             /kB$/ { printf "0"; next }
           ')
 
-          echo "Actual image size (docker images SIZE): ${SIZE_STR} (~${IMAGE_SIZE_MB} MB)"
-          echo "Expected size: ${EXPECTED_SIZE_MB} MB"
-          DIFF=$(( IMAGE_SIZE_MB - EXPECTED_SIZE_MB ))
-          ABS_DIFF=${DIFF#-}
-          echo "Difference: ${ABS_DIFF} MB"
-
-          THRESHOLD_SIZE_MB=100
-          echo "IMAGE_SIZE_MB=$IMAGE_SIZE_MB" >> $GITHUB_ENV
-          echo "EXPECTED_SIZE_MB=$EXPECTED_SIZE_MB" >> $GITHUB_ENV
-          if [ "$ABS_DIFF" -gt "$THRESHOLD_SIZE_MB" ]; then
-            echo "❌ Image size difference exceeds allowed threshold: ${THRESHOLD_SIZE_MB}MB (difference: ${ABS_DIFF} MB)"
+          if [[ -z "${IMAGE_SIZE_MB}" ]]; then
+            echo "❌ Failed to detect Docker image size for ${IMAGE_NAME}"
             exit 1
-          else
-            echo "✅ Image size within allowed threshold: ${THRESHOLD_SIZE_MB}MB."
           fi
+
+          echo "Actual image size (docker images SIZE): ${SIZE_STR} (~${IMAGE_SIZE_MB} MB)"
+          echo "image_size_mb=${IMAGE_SIZE_MB}" >> "$GITHUB_OUTPUT"
+          echo "size_str=${SIZE_STR}" >> "$GITHUB_OUTPUT"
+          echo "current-image-size-${MATRIX_UBUNTU_VERSION}=${IMAGE_SIZE_MB}" >> "$GITHUB_OUTPUT"
 
       - name: Print image size summary
         if: always() && needs.setup.outputs.should_run == 'true'
         env:
-          IMAGE_SIZE_MB: ${{ env.IMAGE_SIZE_MB }}
-          EXPECTED_SIZE_MB: ${{ env.EXPECTED_SIZE_MB }}
+          IMAGE_SIZE_MB: ${{ steps.check-size.outputs.image_size_mb }}
+          IMAGE_SIZE_STR: ${{ steps.check-size.outputs.size_str }}
           UBUNTU_VERSION: ${{ matrix.ubuntu_version }}
         run: |
           {
@@ -474,8 +473,7 @@ jobs:
             echo ""
             echo "| Image | Size |"
             echo "|-------|------|"
-            echo "| Current Docker ${UBUNTU_VERSION}-deb | **${IMAGE_SIZE_MB} MB** |"
-            echo "| Expected Docker ${UBUNTU_VERSION}-deb | **${EXPECTED_SIZE_MB} MB** |"
+            echo "| Current Docker ${UBUNTU_VERSION}-deb | **${IMAGE_SIZE_STR} (~${IMAGE_SIZE_MB} MB)** |"
           } >> "$GITHUB_STEP_SUMMARY"
 
       # ======================================================== CLEANUP PART ========================================================

@@ -13,6 +13,7 @@ upstream
 | Type | Description |
 |------|-------------|
 | `GstAnalyticsODMtd` | Object detection (bbox, label, confidence, rotation) |
+| `GstAnalytics3DODMtd` | 3D object detection — oriented box, class, confidence, sensor modality (DL Streamer extension) |
 | `GstAnalyticsClsMtd` | Classification (confidence + label) |
 | `GstAnalyticsTrackingMtd` | Object tracking (ID, timestamps) |
 | `GstAnalyticsKeypointMtd` | Single keypoint (x, y, z, confidence, visibility) |
@@ -290,6 +291,46 @@ than a frame-level segmentation image, which lets `gvawatermark` blend it
 smoothly over each ROI. The `model_name/instance_segmentation` semantic tag is
 what distinguishes an instance mask from any other raw tensor metadata.
 
+### 3D object detection (LiDAR / radar)
+
+3D detectors produce oriented boxes in a sensor/world coordinate frame rather
+than pixel-space rectangles. Each detection is stored as a `GstAnalytics3DODMtd`
+in `GstAnalyticsRelationMeta`, carrying the box centre, extents, orientation,
+class, confidence, and the sensor modality.
+
+When `g3dinference` runs inference over a LiDAR frame, it adds one
+`GstAnalytics3DODMtd` per detection at the frame level:
+
+```
+g3dinference
+  │
+  └─ GstAnalyticsRelationMeta
+       ├─ 3DODMtd (label_id=0, x, y, z, l, w, h, yaw, modality=lidar, confidence=0.87)
+       └─ 3DODMtd (label_id=2, ..., modality=lidar)
+```
+
+When a camera stream is fused with a 3D (LiDAR/radar) stream by
+`g3dobjectfuser`, each 3D detection is related to a `GstAnalyticsTrackingMtd`
+(track id), and each fused camera `ODMtd` is linked across buffers to its
+matching 3D detection:
+
+```
+3D-sensor stream buffer
+  └─ 3DODMtd (id=3, modality=lidar) ─RELATE_TO→ TrackingMtd (id=42)
+
+camera stream buffer
+  └─ ODMtd (label="car") ─IS_PART_OF→ TrackingMtd (tracking_id=3)
+                                      └─ (3 == the 3DODMtd id on the 3D stream)
+```
+
+Because analytics relations are scoped to a single `GstAnalyticsRelationMeta`,
+the camera `ODMtd` cannot point directly at the 3D detection (which lives on a
+different buffer). `g3dobjectfuser` materialises the cross-modal link as a
+`GstAnalyticsTrackingMtd` on the camera buffer whose `tracking_id` is the
+3D detection's id. When serialized by `gvametaconvert`, each 3D detection
+carries that `id` under `objects_3d`, and each fused camera detection carries
+`associated_3d_object_id`, so the pairing is resolvable by joining on the id.
+
 ### Semantic tag
 
 All `GstAnalyticsMtd` entries support a generic `semantic_tag` string via:
@@ -310,6 +351,73 @@ DL Streamer uses semantic tags to:
 The semantic tag enables downstream elements to distinguish metadata
 produced by different models. For keypoint groups, it additionally identifies
 the keypoint layout (descriptor format).
+
+## GstAnalytics3DODMtd
+
+`GstAnalytics3DODMtd` is a DL Streamer extension that stores a **3D oriented
+bounding box** produced by a LiDAR or radar detector. It is added by
+[`g3dinference`](../elements/g3dinference.md) (one per detection)
+and read by [`g3dobjectfuser`](../elements/g3dobjectfuser.md) during
+camera↔3D fusion. Unlike `GstAnalyticsODMtd`, the box lives in a sensor/world
+coordinate frame (metres, radians), so 2D video transforms (scale, crop,
+letterbox) do not apply to it. The meta's transform function copies it as-is.
+
+### GstAnalytics3DODMtdData
+
+The payload stored inside `GstAnalyticsRelationMeta` for each 3D detection:
+
+```C
+struct _GstAnalytics3DODMtdData {
+    gfloat x, y, z;              /* box centre, metres (sensor/world frame) */
+    gfloat length, width, height;/* box extents along X, Y, Z, metres */
+    gfloat yaw, pitch, roll;     /* orientation around Z, Y, X, radians */
+    gint   class_id;             /* detected class index (negative if unknown) */
+    gfloat confidence;           /* detection confidence in [0, 1] */
+    GstAnalytics3DSensorModality modality; /* sensor the detection came from */
+};
+```
+
+`GstAnalytics3DSensorModality` is an enum:
+
+| Value | Meaning |
+|-------|---------|
+| `GST_ANALYTICS_3D_SENSOR_LIDAR` (0) | Detection sourced from a LiDAR-based detector |
+| `GST_ANALYTICS_3D_SENSOR_RADAR` (1) | Detection sourced from a radar-based detector |
+
+### 3D object detection API
+
+| Function | Description |
+|----------|-------------|
+| `gst_analytics_3d_od_mtd_get_mtd_type()` | Returns the metadata type ID for `GstAnalytics3DODMtd`. |
+| `gst_analytics_relation_meta_add_3d_od_mtd(rmeta, x, y, z, length, width, height, yaw, pitch, roll, class_id, confidence, modality, &mtd)` | Adds a 3D detection to `rmeta`. Returns `TRUE` on success. |
+| `gst_analytics_3d_od_mtd_get_location(&mtd, &x, &y, &z, &length, &width, &height, &yaw, &pitch, &roll)` | Retrieves the oriented box. Returns `TRUE` on success. |
+| `gst_analytics_3d_od_mtd_get_class(&mtd, &class_id, &confidence)` | Retrieves the class id and confidence. Returns `TRUE` on success. |
+| `gst_analytics_3d_od_mtd_get_modality(&mtd, &modality)` | Retrieves the sensor modality. Returns `TRUE` on success. |
+| `gst_analytics_relation_meta_get_3d_od_mtd(rmeta, an_meta_id, &rlt)` | Retrieves a specific 3D detection by its meta id. Returns `TRUE` on success. |
+
+### 3D object detection C example
+
+```C
+#include <dlstreamer/gst/metadata/g3d_od_mtd.h>
+
+gpointer state = NULL;
+GstAnalytics3DODMtd od_mtd;
+while (gst_analytics_relation_meta_iterate(rmeta, &state,
+           gst_analytics_3d_od_mtd_get_mtd_type(), &od_mtd)) {
+    gfloat x, y, z, l, w, h, yaw, pitch, roll, conf;
+    gint class_id;
+    GstAnalytics3DSensorModality modality;
+
+    gst_analytics_3d_od_mtd_get_location(&od_mtd, &x, &y, &z, &l, &w, &h, &yaw, &pitch, &roll);
+    gst_analytics_3d_od_mtd_get_class(&od_mtd, &class_id, &conf);
+    gst_analytics_3d_od_mtd_get_modality(&od_mtd, &modality);
+
+    g_print("3D box #%u: centre=(%.2f, %.2f, %.2f) size=(%.2f, %.2f, %.2f) yaw=%.2f "
+            "class=%d conf=%.2f modality=%s\n",
+            od_mtd.id, x, y, z, l, w, h, yaw, class_id, conf,
+            modality == GST_ANALYTICS_3D_SENSOR_LIDAR ? "lidar" : "radar");
+}
+```
 
 ## GstAnalyticsZoneMtd
 

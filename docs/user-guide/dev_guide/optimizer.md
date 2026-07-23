@@ -14,10 +14,18 @@ Currently the DLS Optimizer focuses mainly on DL Streamer elements, specifically
 Multi-stream pipelines (those utilizing the `tee` element) are also currently not supported.
 
 ## Prerequisites
-Before using the DLS Optimizer, ensure you have the OpenVINO Python module installed.
-You can install it by running the following command:
+Before using the DLS Optimizer, ensure you have: 
+- Installed DL Streamer [intallation steps.](../get_started/install/install_guide_ubuntu.md)
+- Installed any necessary [DLStreamer python dependencies.](./advanced_install/advanced_install_guide_compilation.html#step-10-install-python-dependencies-optional) 
+- Configured environment variables for the current terminal session.
+- Installed the OpenVINO python library.
+
 ```bash
-pip install openvino
+   python3 -m venv ~/python3venv
+   source ~/python3venv/bin/activate
+   source /opt/intel/dlstreamer/scripts/setup_dls_env.sh
+   cd /opt/intel/dlstreamer/scripts/optimizer
+   pip install openvino==2026.2
 ```
 
 ## Using the optimizer as a tool
@@ -129,7 +137,7 @@ Provide a path representing a file which will be used to save results informatio
 ## Pausing and resuming
 While the optimizer is running, you can pause and resume the search at any time by pressing the **Spacebar** in the terminal where the tool is running.
 
-**Pausing** stops the current pipeline sample mid-run and suspends the search loop. The optimizer will not start any new pipeline test until it is resumed. **Resuming** (pressing Space again) restarts the search from the same point it was paused. The remaining **search duration** is preserved accurately: time spent while paused is not counted against the budget.
+**Pausing** stops the current pipeline sample mid-run and suspends the search loop. The optimizer will not start any new pipeline test until it is resumed. **Resuming** (pressing Space again) continues to loop through the candidates starting from the next one. The remaining **search duration** is preserved accurately: time spent while paused is not counted against the budget.
 
 >**Note**\
 >The pause key is only active while the optimizer is running as a CLI tool in terminal with keyboard input available. It is not available in non-interactive or piped environments.

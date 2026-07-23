@@ -1,0 +1,90 @@
+{
+    "skill_name": "dlstreamer-coding-agent",
+    "evals": [
+        {
+            "id": 1,
+            "prompt": "Model conversion from an Ultralytics YOLO to OpenVINO IR format for use with DL Streamer.",
+            "expected_output": "A Python script that converts an Ultralytics YOLO model to OpenVINO IR format for DL Streamer.",
+            "expectations": [
+                "The output provides Python code or a script for converting an Ultralytics YOLO model to OpenVINO IR format for DL Streamer.",
+                "The script references or defaults to a specific YOLO model variant that can be changed via a variable, parameter, or argument.",
+                "The script defines a clear output directory for the converted model files.",
+                "The code demonstrates producing OpenVINO IR model files compatible with DL Streamer."
+            ]
+        },
+        {
+            "id": 2,
+            "prompt": "Model conversion from Hugging Face ViT to OpenVINO IR format for use with DL Streamer.",
+            "expected_output": "A Python script that converts a Hugging Face ViT model to OpenVINO IR format for DL Streamer.",
+            "expectations": [
+                "The output provides Python code or a script for converting a Hugging Face ViT model to OpenVINO IR format for DL Streamer.",
+                "The script allows configuring which Hugging Face ViT model to convert, either via a function parameter, variable, or command-line argument.",
+                "The script defines a clear output directory for the converted model files.",
+                "The code demonstrates producing OpenVINO IR model files compatible with DL Streamer.",
+                "The script applies INT8 weight compression during the OpenVINO export for optimal inference performance."
+            ]
+        },
+        {
+            "id": 3,
+            "prompt": "Object detection with YOLO26 using DL Streamer pipeline",
+            "expected_output": "A DL Streamer pipeline that reads a local video, performs YOLO26 detection with gvadetect, and emits inference metadata as JSON text.",
+            "expectations": [
+                "The output provides a complete DL Streamer pipeline.",
+                "The pipeline reads from a local video file.",
+                "The pipeline uses gvadetect for primary inference.",
+                "The gvadetect configuration references a user-supplied YOLO26 model path.",
+                "The pipeline converts inference metadata to JSON output file."
+            ]
+        },
+        {
+            "id": 4,
+            "prompt": "Object tracking with YOLO26 using DL Streamer pipeline",
+            "expected_output": "A DL Streamer pipeline that reads a local video, performs YOLO26 detection with gvadetect and tracks objects with gvatrack, and emits inference, tracking metadata as JSON text.",
+            "expectations": [
+                "The output provides a complete DL Streamer pipeline.",
+                "The pipeline reads from a local video file.",
+                "The pipeline uses gvadetect for primary inference.",
+                "The gvadetect configuration references a user-supplied YOLO26 model path.",
+                "The pipeline uses gvatrack for object tracking.",
+                "The pipeline converts inference and tracking metadata to JSON output file."
+            ]
+        },
+        {
+            "id": 5,
+            "prompt": "Multi-RTSP-stream analysis with AI analytics, recording, and WebRTC output using DL Streamer pipeline",
+            "expected_output": "A DL Streamer pipeline that handles multiple RTSP camera inputs with AI analytics, recording, and WebRTC output.",
+            "expectations": [
+                "Handles multiple RTSP camera source inputs.",
+                "Applies object detection AI analytics to streams.",
+                "Implements dynamic recording control.",
+                "Outputs combined streams via WebRTC.",
+                "Uses correct DL Streamer multi-stream elements or patterns.",
+                "Pipeline structure is logically sound for parallel stream processing."
+            ]
+        },
+        {
+            "id": 6,
+            "prompt": "People detection and tracking with YOLO26m and Mars re-ID using DL Streamer pipeline",
+            "expected_output": "A DL Streamer pipeline using YOLO26m for detection and Mars-Small-128 for re-identification tracking.",
+            "expectations": [
+                "Generates a valid DL Streamer pipeline.",
+                "Uses YOLO26m model for person detection.",
+                "Uses Mars-Small-128 model for re-identification in gvatrack.",
+                "Annotates output video with tracking results.",
+                "Pipeline includes gvadetect, gvatrack, and gvawatermark elements."
+            ]
+        },
+        {
+            "id": 7,
+            "prompt": "Multi-stream pose estimation with 4 YOLO pose models composed into single output using DL Streamer pipeline",
+            "expected_output": "A DL Streamer pipeline processing 4 video streams with distinct YOLO pose models, composed into a single output.",
+            "expectations": [
+                "Generates a valid DL Streamer pipeline processing 4 video streams.",
+                "Supports configuring YOLO pose models per stream or uses a YOLO pose model for inference.",
+                "Annotates each stream with keypoint overlays.",
+                "Merges 4 streams into a combined output.",
+                "Uses vacompositor for multi-stream composition."
+            ]
+        }
+    ]
+}

@@ -117,7 +117,8 @@ def main() -> int:
                 optimizer.set_sample_duration(5)
                 optimizer.set_batch_sizes([1, 4, 8])
                 optimizer.set_nireq_sizes([4, 8])
-                search_duration = 30
+                search_duration = 50 # Target is 30 sec but adding extra 20sec
+                                     # to make sure whole process goes through all stages
             case "default":
                 optimizer.set_sample_duration(args.sample_duration)
                 optimizer.set_batch_sizes(args.batch_sizes)
