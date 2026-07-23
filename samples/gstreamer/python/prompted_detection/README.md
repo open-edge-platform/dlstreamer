@@ -16,12 +16,12 @@ The individual pipeline stages implement the following functions:
 
 ### STEP 1 - Model download and prompt configuration
 
-First, the sample creates a PyTorch YOLOE model and configures it with a user-defined detection prompt: 
+First, the sample creates a PyTorch YOLOE model and configures it with the user-supplied `<OBJECT_TO_FIND>` prompt.
+Pinning the weights (`yoloe-26s-seg`) and the export precision keeps the exported model consistent across runs: 
 
     ```code
-    weights = "yoloe-26s-seg"
-    model = YOLO(weights+".pt")
-    names = [args[2]]
+    model = YOLO(WEIGHTS + ".pt")
+    names = [object_to_find]
     model.set_classes(names, model.get_text_pe(names))
     ```
 
@@ -64,10 +64,15 @@ Here is an example command line to download assets and execute the sample applic
 ```sh
 cd <python/prompted_detection directory>
 wget https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4
-python3 ./prompted_detection.py 1192116-sd_640_360_30fps.mp4 "white car"
+python3 ./prompted_detection.py 1192116-sd_640_360_30fps.mp4 "white car" [DEVICE] [OUTPUT]
 ```
 
-The sample outputs detection results in the terminal window.
+* `OBJECT_TO_FIND` - object to detect using natural language (e.g. `dog`, `white car`).
+* `DEVICE` - inference device, `CPU`, `GPU`, or `NPU` (default: `GPU`).
+* `OUTPUT` - output mode (default: `appsink`):
+  * `appsink` - demo mode; detection results are processed in a user-defined callback and printed to the terminal.
+  * `json` - write deterministic inference results as json-lines to `output.json` in the working directory.
+  * `file` - annotate detected objects with `gvawatermark` and encode the result to `<input_stem>_output.mp4` (requires VA-API).
 
 ## See also
 * [Samples overview](../../README.md)

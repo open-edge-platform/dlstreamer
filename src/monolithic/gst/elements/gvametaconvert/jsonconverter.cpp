@@ -279,17 +279,19 @@ json convert_roi_detection(GstGvaMetaConvert *converter, GstBuffer *buffer, GstV
             }
             if (converter->add_tensor_data) {
                 GVA::Tensor s_tensor = GVA::Tensor((GstStructure *)l->data);
-                // Skip old legacy keypoint tensors — replaced by analytics-sourced ones below
-                if (s_tensor.type() != GVA::GST_ANALYTICS_KEYPOINTS_2_TENSOR) {
+                // Skip old legacy keypoint/segmentation tensors — replaced by analytics-sourced ones below
+                if (s_tensor.type() != GVA::GST_ANALYTICS_KEYPOINTS_2_TENSOR &&
+                    s_tensor.type() != GVA::GST_ANALYTICS_SEGMENTATION_2_TENSOR) {
                     jobject["tensors"].push_back(convert_tensor(s_tensor));
                 }
             }
         }
 
-        // Add analytics-sourced keypoint tensor to "tensors" array (replacing legacy tensor)
+        // Add analytics-sourced keypoint/segmentation tensors to "tensors" array (replacing legacy tensor)
         if (converter->add_tensor_data) {
             for (const auto &tensor : roi.tensors()) {
-                if (tensor.type() == GVA::GST_ANALYTICS_KEYPOINTS_2_TENSOR) {
+                if (tensor.type() == GVA::GST_ANALYTICS_KEYPOINTS_2_TENSOR ||
+                    tensor.type() == GVA::GST_ANALYTICS_SEGMENTATION_2_TENSOR) {
                     jobject["tensors"].push_back(convert_tensor(tensor));
                 }
             }
@@ -620,6 +622,9 @@ json convert_3d_od_mtds(GstAnalyticsRelationMeta *rmeta) {
         gst_analytics_3d_od_mtd_get_modality(&od_mtd, &modality);
 
         json object = json::object({
+            // Per-frame 3D detection id (the GstAnalytics3DODMtd id). Camera
+            // detections reference this via "associated_3d_object_id".
+            {"id", od_mtd.id},
             {"bbox_3d",
              {{"x", x},
               {"y", y},
@@ -668,6 +673,37 @@ json convert_lidar_inference_meta(GstGvaMetaConvert *converter, GstBuffer *buffe
     return result;
 }
 
+/* Annotate each camera 2D detection with the id of the 3D detection it was
+ * fused with, if any. g3dobjectfuser records the cross-modal pairing as an
+ * IS_PART_OF relation from the camera GstAnalyticsODMtd to a GstAnalyticsTrackingMtd
+ * whose tracking_id is the matching GstAnalytics3DODMtd id on the 3D stream
+ * (relations cannot span buffers, hence the tracking-mtd indirection). Each 2D
+ * object already carries its OD mtd id as "region_id", so look the relation up
+ * by that id and expose the target as "associated_3d_object_id" (matching the
+ * "id" field of the corresponding objects_3d entry). */
+void add_cross_modal_links(json &objects_2d, GstAnalyticsRelationMeta *rmeta) {
+    if (!rmeta)
+        return;
+    for (json &obj : objects_2d) {
+        auto it = obj.find("region_id");
+        if (it == obj.end() || !it->is_number_integer())
+            continue;
+        guint od_id = static_cast<guint>(it->get<int>());
+
+        gpointer state = NULL;
+        GstAnalyticsTrackingMtd link_mtd;
+        if (gst_analytics_relation_meta_get_direct_related(rmeta, od_id, GST_ANALYTICS_REL_TYPE_IS_PART_OF,
+                                                           gst_analytics_tracking_mtd_get_mtd_type(), &state,
+                                                           &link_mtd)) {
+            guint64 tracking_id = 0;
+            GstClockTime first_seen = 0, last_seen = 0;
+            gboolean lost = FALSE;
+            if (gst_analytics_tracking_mtd_get_info(&link_mtd, &tracking_id, &first_seen, &last_seen, &lost))
+                obj["associated_3d_object_id"] = tracking_id;
+        }
+    }
+}
+
 /* Convert one stream's source buffer inside a GstAnalyticsBatchMeta to JSON.
  * Camera streams carry GstAnalyticsODMtd + tracking; the 3D-sensor stream
  * carries GstAnalytics3DODMtd + tracking. */
@@ -713,6 +749,7 @@ json convert_batch_stream(GstGvaMetaConvert *converter, GstAnalyticsBatchStream 
 
     if (have_info) {
         json objects_2d = convert_roi_detection(converter, stream_buf, &stream_info);
+        add_cross_modal_links(objects_2d, rmeta);
         if (!objects_2d.empty())
             jstream["objects"] = objects_2d;
     }

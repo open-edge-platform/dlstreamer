@@ -18,7 +18,7 @@ This folder contains standalone conversion CLIs:
 2. Install dependencies:
 ```code
    curl -LO https://raw.githubusercontent.com/openvinotoolkit/openvino.genai/refs/heads/releases/2026/2/samples/export-requirements.txt
-   pip install -r export-requirements.txt -r requirements.txt
+   pip install -r export-requirements.txt -r requirements.txt ultralytics==8.4.57
    ```
 
 The OpenVINO export requirements provide the shared model export stack. The

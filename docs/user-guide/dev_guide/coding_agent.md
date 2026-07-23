@@ -1,6 +1,8 @@
-# Coding Agent (Preview)
+# Coding Agent
 
-The DL Streamer Coding Agent is an AI-powered assistant that helps you build DL Streamer video analytics applications quickly from natural language descriptions. It generates complete, ready-to-run projects — including model download scripts, application code, and documentation.
+The DL Streamer Coding Agent is an AI-powered assistant that helps you build DL Streamer video
+analytics applications quickly from natural language descriptions. It generates complete,
+ready-to-run projects — including model download scripts, application code, and documentation.
 
 > **Note:** This feature is in **Preview** stage. Please share your feedback to help us improve it.
 
