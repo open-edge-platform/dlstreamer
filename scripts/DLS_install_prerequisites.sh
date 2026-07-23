@@ -287,7 +287,7 @@ setup_gpu(){
     if [ "$ubuntu_version" == "24.04" ]; then
         echo "Installing GPU drivers for Ubuntu 24.04..."
         $SUDO_PREFIX apt-get install -y --no-install-recommends software-properties-common || handle_error "Failed to install software-properties-common"
-        $SUDO_PREFIX add-apt-repository -y "$INTEL_CL_GPU_REPO_URL" || handle_error "Failed to add Intel GPU repository"
+        $SUDO_PREFIX -E add-apt-repository -y "$INTEL_CL_GPU_REPO_URL" || handle_error "Failed to add Intel GPU repository"
         $SUDO_PREFIX apt update || handle_error "Failed to update package lists after adding repository"
         echo "Snapshot: 20260624T030400Z" | $SUDO_PREFIX tee -a "/etc/apt/sources.list.d/$INTEL_GPU_LIST" || handle_error "Failed to add snapshot information"
         $SUDO_PREFIX apt update || handle_error "Failed to update package lists after adding snapshot"

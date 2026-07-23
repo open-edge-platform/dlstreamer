@@ -134,7 +134,7 @@ struct Impl {
     bool extract_primitives(GstBuffer *buffer);
     int get_num_primitives() const;
     bool render(GstBuffer *buffer);
-    bool render_va(cv::Mat *buffer);
+    [[nodiscard]] bool render_va(cv::Mat *overlay, cv::UMat *frame);
     const std::string &getBackendType() const {
         return _backend_type;
     }
@@ -630,25 +630,30 @@ static GstFlowReturn gst_gva_watermark_impl_transform_ip(GstBaseTransform *trans
 
                     gvawatermark->overlay_cpu.create(height, width, CV_8UC3);
                     gvawatermark->overlay_ready = true;
-                    GST_INFO_OBJECT(gvawatermark, "Allocated CPU overlay (%dx%d CV_8UC4)", width, height);
+                    GST_INFO_OBJECT(gvawatermark, "Allocated CPU overlay (%dx%d CV_8UC3)", width, height);
                 }
 
                 // Clear only once per frame (fast memset on host)
                 gvawatermark->overlay_cpu.setTo(cv::Scalar(0, 0, 0, 0));
 
-                cv::UMat u;
-                cv::va_intel::convertFromVASurface(gvawatermark->va_dpy, sid, cv::Size(width, height), u);
+                if (!cv::ocl::useOpenCL()) {
+                    GST_WARNING_OBJECT(gvawatermark, "OpenCL not available; skipping GPU render for this frame");
+                    use_gpu_path = false;
+                } else {
+                    cv::UMat u;
+                    cv::va_intel::convertFromVASurface(gvawatermark->va_dpy, sid, cv::Size(width, height), u);
 
-                gvawatermark->impl->render_va(&(gvawatermark->overlay_cpu));
+                    bool has_overlay = gvawatermark->impl->render_va(&(gvawatermark->overlay_cpu), &u);
 
-                // Upload once (host -> UMat). OpenCL runtime can keep it on device afterward.
-                gvawatermark->overlay_cpu.copyTo(gvawatermark->overlay_gpu);
+                    if (has_overlay) {
+                        // Upload once (host -> UMat). OpenCL runtime can keep it on device afterward.
+                        gvawatermark->overlay_cpu.copyTo(gvawatermark->overlay_gpu);
 
-                if (cv::ocl::useOpenCL()) {
-                    cv::UMat gray, mask;
-                    cv::cvtColor(gvawatermark->overlay_gpu, gray, cv::COLOR_BGR2GRAY);
-                    cv::threshold(gray, mask, 0, 255, cv::THRESH_BINARY);
-                    gvawatermark->overlay_gpu.copyTo(u, mask);
+                        cv::UMat gray, mask;
+                        cv::cvtColor(gvawatermark->overlay_gpu, gray, cv::COLOR_BGR2GRAY);
+                        cv::threshold(gray, mask, 0, 255, cv::THRESH_BINARY);
+                        gvawatermark->overlay_gpu.copyTo(u, mask);
+                    }
 
                     cv::va_intel::convertToVASurface(gvawatermark->va_dpy, u, sid, cv::Size(width, height));
                 }
@@ -901,15 +906,40 @@ bool Impl::render(GstBuffer *buffer) {
     return true;
 }
 
-bool Impl::render_va(cv::Mat *buffer) {
+bool Impl::render_va(cv::Mat *overlay, cv::UMat *frame) {
     ITT_TASK(__FUNCTION__);
 
-    // Skip render if there are no primitives to draw
-    if (!prims.empty()) {
-        _renderer_opencv->draw_va(*buffer, prims);
+    if (prims.empty())
+        return false;
+
+    // Apply blur directly on the GPU-resident UMat frame (via OpenCL T-API).
+    // Blur must happen before overlay compositing — it modifies existing pixels,
+    // which the black-overlay + binary-mask approach cannot express.
+    bool has_overlay_prims = false;
+    for (auto it = prims.begin(); it != prims.end();) {
+        if (std::holds_alternative<render::Blur>(*it)) {
+            const auto &blur = std::get<render::Blur>(*it);
+            cv::Rect r = blur.rect;
+            if (r.width <= 0 || r.height <= 0) {
+                it = prims.erase(it);
+                continue;
+            }
+            cv::Size ksize = render::computeBlurKernelSize(r.width, r.height);
+            cv::UMat roi(*frame, r);
+            cv::GaussianBlur(roi, roi, ksize, 0, 0);
+            it = prims.erase(it);
+        } else {
+            has_overlay_prims = true;
+            ++it;
+        }
     }
 
-    return true;
+    // Render remaining (non-blur) primitives onto the CPU overlay
+    if (has_overlay_prims) {
+        _renderer_opencv->draw_va(*overlay, prims);
+    }
+
+    return has_overlay_prims;
 }
 
 inline bool Impl::is_ROI_filtered_out(const std::string &label) const {
