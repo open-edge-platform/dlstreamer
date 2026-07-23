@@ -47,6 +47,7 @@ jobs:
     needs: setup
     env:
       HF_OUTDIR: ${{ github.workspace }}/artifacts/hf
+      HF_VENV: ${{ github.workspace }}/.venv-download-hf-models
     steps:
       - name: Skip or execute based on configuration
         if: needs.setup.outputs.should_run == 'false'
@@ -61,20 +62,20 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Install HF script dependencies
+      - name: Create venv and install HF script dependencies
         if: needs.setup.outputs.should_run == 'true'
         run: |
-          python3 -m pip install --upgrade pip
-          python3 -m pip install -r scripts/download_models/requirements_download_hf_models.txt
+          python3 -m venv "$HF_VENV"
+          "$HF_VENV/bin/python" -m pip install --upgrade pip
+          "$HF_VENV/bin/python" -m pip install -r scripts/download_models/requirements_download_hf_models.txt
 
       - name: README example - standard HF export
         if: needs.setup.outputs.should_run == 'true'
         run: |
           mkdir -p "$HF_OUTDIR/standard"
           cd scripts/download_models
-          # CI-friendly model used to exercise standard example flow.
-          python3 download_hf_models.py \
-            --model google/vit-base-patch16-224 \
+          "$HF_VENV/bin/python" download_hf_models.py \
+            --model dima806/fairface_age_image_detection@4e02ab8057ea7fd74b1670940995c5dfda3e6ec0 \
             --outdir "$HF_OUTDIR/standard"
           find "$HF_OUTDIR/standard" -name '*.xml' | grep -q .
 
@@ -83,8 +84,8 @@ jobs:
         run: |
           mkdir -p "$HF_OUTDIR/extra-args"
           cd scripts/download_models
-          python3 download_hf_models.py \
-            --model google/vit-base-patch16-224 \
+          "$HF_VENV/bin/python" download_hf_models.py \
+            --model dima806/fairface_gender_image_detection@a8e129dc622dafa08bd2ee2e0fd05759850ae14e \
             --extra_args --weight-format int8 \
             --outdir "$HF_OUTDIR/extra-args"
           find "$HF_OUTDIR/extra-args" -name '*.xml' | grep -q .
@@ -95,8 +96,8 @@ jobs:
           mkdir -p "$HF_OUTDIR/token"
           cd scripts/download_models
           # Public model with token flag validates CLI path for gated/private example usage.
-          python3 download_hf_models.py \
-            --model google/vit-base-patch16-224 \
+          "$HF_VENV/bin/python" download_hf_models.py \
+            --model dima806/facial_age_image_detection@ad35933da48272de7295530766f3d6c56702eba8 \
             --token fake_token_for_cli_path \
             --outdir "$HF_OUTDIR/token"
           find "$HF_OUTDIR/token" -name '*.xml' | grep -q .
@@ -106,7 +107,7 @@ jobs:
         run: |
           mkdir -p "$HF_OUTDIR/revision"
           cd scripts/download_models
-          python3 download_hf_models.py \
+          "$HF_VENV/bin/python" download_hf_models.py \
             --model openai/clip-vit-base-patch32@3d74acf9a28c67741b2f4f2ea7635f0aaf6f0268 \
             --outdir "$HF_OUTDIR/revision"
           find "$HF_OUTDIR/revision" -name '*.xml' | grep -q .
@@ -117,6 +118,7 @@ jobs:
     needs: setup
     env:
       ULT_OUTDIR: ${{ github.workspace }}/artifacts/ultralytics
+      ULT_VENV: ${{ github.workspace }}/.venv-download-ultralytics-models
     steps:
       - name: Skip or execute based on configuration
         if: needs.setup.outputs.should_run == 'false'
@@ -131,18 +133,19 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Install Ultralytics script dependencies
+      - name: Create venv and install Ultralytics script dependencies
         if: needs.setup.outputs.should_run == 'true'
         run: |
-          python3 -m pip install --upgrade pip
-          python3 -m pip install -r scripts/download_models/requirements_download_ultralytics_models.txt
+          python3 -m venv "$ULT_VENV"
+          "$ULT_VENV/bin/python" -m pip install --upgrade pip
+          "$ULT_VENV/bin/python" -m pip install -r scripts/download_models/requirements_download_ultralytics_models.txt
 
       - name: README example - export by model name
         if: needs.setup.outputs.should_run == 'true'
         run: |
           mkdir -p "$ULT_OUTDIR/by-name"
           cd scripts/download_models
-          python3 download_ultralytics_models.py --model yolo11n.pt --outdir "$ULT_OUTDIR/by-name"
+          "$ULT_VENV/bin/python" download_ultralytics_models.py --model yolo11n.pt --outdir "$ULT_OUTDIR/by-name"
           find "$ULT_OUTDIR/by-name" -name '*.xml' | grep -q .
 
       - name: README example - pinned model by release tag
@@ -150,7 +153,7 @@ jobs:
         run: |
           mkdir -p "$ULT_OUTDIR/pinned"
           cd scripts/download_models
-          python3 download_ultralytics_models.py --model yolo11n.pt@v8.3.0 --outdir "$ULT_OUTDIR/pinned"
+          "$ULT_VENV/bin/python" download_ultralytics_models.py --model yolo11n.pt@v8.4.0 --outdir "$ULT_OUTDIR/pinned"
           find "$ULT_OUTDIR/pinned" -name '*.xml' | grep -q .
 
       - name: README example - local checkpoint with FP16
@@ -159,8 +162,8 @@ jobs:
           mkdir -p "$ULT_OUTDIR/local-half"
           cd scripts/download_models
           curl -fsSL -o yolo11n.pt \
-            https://github.com/ultralytics/assets/releases/download/v8.3.0/yolo11n.pt
-          python3 download_ultralytics_models.py --model "$PWD/yolo11n.pt" --outdir "$ULT_OUTDIR/local-half" --half
+            https://github.com/ultralytics/assets/releases/download/v8.4.0/yolo11n.pt
+          "$ULT_VENV/bin/python" download_ultralytics_models.py --model "$PWD/yolo11n.pt" --outdir "$ULT_OUTDIR/local-half" --half
           find "$ULT_OUTDIR/local-half" -name '*.xml' | grep -q .
 
       - name: README example - INT8 export
@@ -168,7 +171,7 @@ jobs:
         run: |
           mkdir -p "$ULT_OUTDIR/int8"
           cd scripts/download_models
-          python3 download_ultralytics_models.py --model yolo11s.pt --outdir "$ULT_OUTDIR/int8" --int8
+          "$ULT_VENV/bin/python" download_ultralytics_models.py --model yolo11s.pt --outdir "$ULT_OUTDIR/int8" --int8
           find "$ULT_OUTDIR/int8" -name '*.xml' | grep -q .
 
   test-readme-timm-examples:
@@ -177,6 +180,7 @@ jobs:
     needs: setup
     env:
       TIMM_OUTDIR: ${{ github.workspace }}/artifacts/timm
+      TIMM_VENV: ${{ github.workspace }}/.venv-download-timm-models
     steps:
       - name: Skip or execute based on configuration
         if: needs.setup.outputs.should_run == 'false'
@@ -191,48 +195,49 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Install TIMM script dependencies
+      - name: Create venv and install TIMM script dependencies
         if: needs.setup.outputs.should_run == 'true'
         run: |
-          python3 -m pip install --upgrade pip
-          python3 -m pip install -r scripts/download_models/requirements_download_timm_models.txt
+          python3 -m venv "$TIMM_VENV"
+          "$TIMM_VENV/bin/python" -m pip install --upgrade pip
+          "$TIMM_VENV/bin/python" -m pip install -r scripts/download_models/requirements_download_timm_models.txt
 
       - name: README example - list supported TIMM models
         if: needs.setup.outputs.should_run == 'true'
         run: |
           cd scripts/download_models
-          python3 download_timm_models.py list-models | grep -q "mobilenetv3_small_100"
+          "$TIMM_VENV/bin/python" download_timm_models.py list-models | grep -q "efficientnet_b0"
 
       - name: README example - export FP16
         if: needs.setup.outputs.should_run == 'true'
         run: |
           cd scripts/download_models
-          python3 download_timm_models.py import \
-            --model mobilenetv3_small_100 \
+          "$TIMM_VENV/bin/python" download_timm_models.py import \
+            --model efficientnet_b0@1b5383e5f79cc0f7fc067e372f8f26a5fa73f26a \
             --precision fp16 \
             --output-dir "$TIMM_OUTDIR"
-          test -f "$TIMM_OUTDIR/public/mobilenetv3_small_100/FP16/mobilenetv3_small_100.xml"
+          test -f "$TIMM_OUTDIR/public/efficientnet_b0/FP16/efficientnet_b0.xml"
 
       - name: README example - export INT8 only
         if: needs.setup.outputs.should_run == 'true'
         run: |
           cd scripts/download_models
-          python3 download_timm_models.py import \
-            --model mobilenetv3_small_100 \
+          "$TIMM_VENV/bin/python" download_timm_models.py import \
+            --model efficientnet_b0@1b5383e5f79cc0f7fc067e372f8f26a5fa73f26a \
             --precision int8 \
             --output-dir "$TIMM_OUTDIR"
-          test -f "$TIMM_OUTDIR/public/mobilenetv3_small_100/INT8/mobilenetv3_small_100.xml"
+          test -f "$TIMM_OUTDIR/public/efficientnet_b0/INT8/efficientnet_b0.xml"
 
       - name: README example - export FP16 and INT8
         if: needs.setup.outputs.should_run == 'true'
         run: |
           cd scripts/download_models
-          python3 download_timm_models.py import \
-            --model mobilenetv3_small_100 \
+          "$TIMM_VENV/bin/python" download_timm_models.py import \
+            --model efficientnet_b0@1b5383e5f79cc0f7fc067e372f8f26a5fa73f26a \
             --precision both \
             --output-dir "$TIMM_OUTDIR"
-          test -f "$TIMM_OUTDIR/public/mobilenetv3_small_100/FP16/mobilenetv3_small_100.xml"
-          test -f "$TIMM_OUTDIR/public/mobilenetv3_small_100/INT8/mobilenetv3_small_100.xml"
+          test -f "$TIMM_OUTDIR/public/efficientnet_b0/FP16/efficientnet_b0.xml"
+          test -f "$TIMM_OUTDIR/public/efficientnet_b0/INT8/efficientnet_b0.xml"
 
   test-readme-other-models-examples:
     name: README examples - Other models script
@@ -326,6 +331,7 @@ jobs:
     needs: setup
     env:
       U22_OUTDIR: ${{ github.workspace }}/artifacts/u22
+      U22_ULT_VENV: ${{ github.workspace }}/.venv-download-ultralytics-models-u22
     steps:
       - name: Skip or execute based on configuration
         if: needs.setup.outputs.should_run == 'false'
@@ -340,17 +346,18 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Install Ultralytics script dependencies
+      - name: Create venv and install Ultralytics script dependencies
         if: needs.setup.outputs.should_run == 'true'
         run: |
-          python3 -m pip install --upgrade pip
-          python3 -m pip install -r scripts/download_models/requirements_download_ultralytics_models.txt
+          python3 -m venv "$U22_ULT_VENV"
+          "$U22_ULT_VENV/bin/python" -m pip install --upgrade pip
+          "$U22_ULT_VENV/bin/python" -m pip install -r scripts/download_models/requirements_download_ultralytics_models.txt
 
       - name: Run README Ultralytics command on Ubuntu 22.04
         if: needs.setup.outputs.should_run == 'true'
         run: |
           mkdir -p "$U22_OUTDIR"
           cd scripts/download_models
-          python3 download_ultralytics_models.py --model yolo11n.pt --outdir "$U22_OUTDIR"
+          "$U22_ULT_VENV/bin/python" download_ultralytics_models.py --model yolo11n.pt --outdir "$U22_OUTDIR"
           find "$U22_OUTDIR" -name '*.xml' | grep -q .
           echo "Ubuntu 22.04 compatibility test successful"
