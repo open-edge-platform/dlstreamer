@@ -1085,8 +1085,7 @@ orig_model_path = sys.argv[1]
 
 core = openvino.Core()
 ov_model = core.read_model(model=orig_model_path)
-ov_model.set_rt_info("semantic_segmentation", ['model_info', 'model_type'])
-
+ov_model.set_rt_info("semantic_mask", ['model_info', 'model_type'])
 print(ov_model)
 
 shutil.rmtree('deeplabv3_mnv2_pascal_train_aug')
