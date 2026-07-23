@@ -26,10 +26,8 @@ Before using the DLS Optimizer, ensure you have installed DL Streamer [intallati
 
 ## Using the optimizer as a tool
 >**Note**\
->This example assumes your working directory is the optimizer directory `/opt/intel/dlstreamer/scripts/optimizer` \
-
+>This example assumes your working directory is the optimizer directory `/opt/intel/dlstreamer/scripts/optimizer`
 ```
-
 python3 . MODE [OPT] -- PIPELINE
 
 Arguments:
