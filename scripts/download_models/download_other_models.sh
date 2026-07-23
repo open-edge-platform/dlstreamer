@@ -651,8 +651,21 @@ if array_contains "mars-small128" "${MODELS_TO_PROCESS[@]}"; then
     mkdir -p "$MODEL_DIR"
 
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-    python3 "$REPO_ROOT/samples/models/convert_mars_deepsort.py" --output-dir "$MODEL_DIR" --precision both || handle_error $LINENO
+    CONVERTER_SCRIPT="$SCRIPT_DIR/../../samples/models/convert_mars_deepsort.py"
+
+    # Support CI layouts where dlstreamer is checked out into ./dlstreamer-repo.
+    if [[ ! -f "$CONVERTER_SCRIPT" && -f "$PWD/dlstreamer-repo/samples/models/convert_mars_deepsort.py" ]]; then
+      CONVERTER_SCRIPT="$PWD/dlstreamer-repo/samples/models/convert_mars_deepsort.py"
+    fi
+
+    if [[ ! -f "$CONVERTER_SCRIPT" ]]; then
+      echo_color "Cannot locate convert_mars_deepsort.py" "red"
+      echo_color "Tried: $SCRIPT_DIR/../../samples/models/convert_mars_deepsort.py" "red"
+      echo_color "Tried: $PWD/dlstreamer-repo/samples/models/convert_mars_deepsort.py" "red"
+      handle_error $LINENO
+    fi
+
+    python3 "$CONVERTER_SCRIPT" --output-dir "$MODEL_DIR" --precision both || handle_error $LINENO
 
     mkdir -p "$MODEL_DIR/FP32" "$MODEL_DIR/INT8"
     mv "$MODEL_DIR/mars_small128_fp32.xml" "$MODEL_DIR/FP32/mars_small128_fp32.xml"
