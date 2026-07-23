@@ -36,7 +36,19 @@ enum {
     PROP_TRIPWIRES,
     PROP_DRAW_ZONES,
     PROP_DRAW_TRIPWIRES,
+    PROP_EVALUATION_POINT,
 };
+
+static GType gva_analytics_evaluation_point_get_type(void) {
+    static GType evaluation_point_type = 0;
+    if (evaluation_point_type == 0) {
+        static const GEnumValue values[] = {{EVAL_POINT_CENTER, "Object center", "center"},
+                                            {EVAL_POINT_BOTTOM_CENTER, "Object bottom-center", "bottom-center"},
+                                            {0, NULL, NULL}};
+        evaluation_point_type = g_enum_register_static("GvaAnalyticsEvaluationPoint", values);
+    }
+    return evaluation_point_type;
+}
 
 static void gva_analytics_set_property(GObject *object, guint prop_id, const GValue *value, GParamSpec *pspec);
 static void gva_analytics_get_property(GObject *object, guint prop_id, GValue *value, GParamSpec *pspec);
@@ -53,6 +65,7 @@ struct GvaAnalyticsPrivate {
     gchar *tripwires_json;
     gboolean draw_zones;
     gboolean draw_tripwires;
+    ObjectEvaluationPoint evaluation_point;
 
     std::vector<Tripwire> tripwires;
     std::vector<Zone> zones;
@@ -104,6 +117,13 @@ static void gva_analytics_class_init(GvaAnalyticsClass *klass) {
                                                          "Attach watermark metadata for drawing tripwires", TRUE,
                                                          (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
+    g_object_class_install_property(
+        gobject_class, PROP_EVALUATION_POINT,
+        g_param_spec_enum("evaluation-point", "Evaluation Point",
+                          "Point used for zone and tripwire evaluation: center or bottom-center",
+                          gva_analytics_evaluation_point_get_type(), EVAL_POINT_CENTER,
+                          (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+
     base_transform_class->start = GST_DEBUG_FUNCPTR(gva_analytics_start);
     base_transform_class->stop = GST_DEBUG_FUNCPTR(gva_analytics_stop);
     base_transform_class->transform_ip = GST_DEBUG_FUNCPTR(gva_analytics_transform_ip);
@@ -122,6 +142,7 @@ static void gva_analytics_init(GvaAnalytics *self) {
     priv->tripwires_json = NULL;
     priv->draw_zones = TRUE;
     priv->draw_tripwires = TRUE;
+    priv->evaluation_point = EVAL_POINT_CENTER;
 
     self->impl = priv;
 }
@@ -178,6 +199,12 @@ static void gva_analytics_set_property(GObject *object, guint prop_id, const GVa
         GST_DEBUG_OBJECT(object, "Set draw-tripwires: %s", priv->draw_tripwires ? "true" : "false");
         break;
     }
+    case PROP_EVALUATION_POINT: {
+        priv->evaluation_point = (ObjectEvaluationPoint)g_value_get_enum(value);
+        GST_DEBUG_OBJECT(object, "Set evaluation-point: %s",
+                         priv->evaluation_point == EVAL_POINT_BOTTOM_CENTER ? "bottom-center" : "center");
+        break;
+    }
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
         break;
@@ -203,6 +230,9 @@ static void gva_analytics_get_property(GObject *object, guint prop_id, GValue *v
         break;
     case PROP_DRAW_TRIPWIRES:
         g_value_set_boolean(value, priv->draw_tripwires);
+        break;
+    case PROP_EVALUATION_POINT:
+        g_value_set_enum(value, priv->evaluation_point);
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -380,7 +410,8 @@ static GstFlowReturn gva_analytics_transform_ip(GstBaseTransform *base, GstBuffe
     GstAnalyticsRelationMeta *analytics_meta = gst_buffer_get_analytics_relation_meta(buf);
 
     // Process detection metadata and check for zone membership and tripwire crossings
-    process_object_detections(base, analytics_meta, priv->zones, priv->tripwires, priv->tracking_states);
+    process_object_detections(base, analytics_meta, priv->zones, priv->tripwires, priv->tracking_states,
+                              priv->evaluation_point);
 
     // Always add zone drawing metadata if draw_zones is enabled
     if (priv->draw_zones && !priv->zones.empty()) {
