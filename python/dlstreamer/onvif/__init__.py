@@ -21,13 +21,13 @@ Composed of three independent libraries:
   Filters profiles for PTZ support for cameras conforming to the ONVIF
   PTZ ver 2.0 WSDL.
 
-The top-level module re-exports the public API of the three
-sub-libraries so that ``from dlstreamer.onvif import ...`` keeps
-working.
+- :mod:`dlstreamer.onvif.video_engine` — **VideoEngine Orchestrator**.
+  High-level wrapper that combines discovery, profile retrieval, and
+  pipeline lifecycle management. Provides :func:`create_video_engine` 
+  and :class:`VideoEngineEvent` for simplified ONVIF workflows.
 
-The planned :mod:`dlstreamer.onvif.video_engine` wrapper is also
-available as a separate subpackage and can be re-exported here once its
-API is finalized.
+The public API of all sub-libraries is re-exported here so that 
+``from dlstreamer.onvif import ...`` works for all exports.
 """
 
 # --- ONVIF Discovery Library ---
@@ -56,6 +56,12 @@ from .ptz import (
   is_ptz_profile,
 )
 
+# --- ONVIF VideoEngine Library ---
+from .video_engine import (
+  VideoEngineEvent,
+  create_video_engine,
+)
+
 
 __all__ = [
     # discovery library
@@ -75,4 +81,7 @@ __all__ = [
     "find_ptz_capable_profiles",
     "find_ptz_capable_profiles_async",
     "is_ptz_profile",
+    # video_engine library
+    "VideoEngineEvent",
+    "create_video_engine",
 ]
