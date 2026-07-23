@@ -40,7 +40,7 @@ gst-launch-1.0 -v \
     g3dinference ! \
     g3drender view-mode=bev zoom=2.0 point-stride=16 point-radius=2 ! \
     videoconvert ! \
-    ximagesink
+    autovideosink
 ```
 
 ### Camera + LiDAR fusion with perspective render
@@ -55,7 +55,7 @@ gst-launch-1.0 -v \
     g3drender view-mode=perspective width=1600 height=800 \
               cam-azimuth=180 cam-elevation=30 cam-distance=35 ! \
     videoconvert ! \
-    ximagesink
+    autovideosink
 ```
 
 ### Camera + LiDAR fusion with cam-proj render
@@ -71,7 +71,7 @@ gst-launch-1.0 -v \
     g3dobjectfuser ! \
     g3drender view-mode=cam-proj cam-proj-index=0 point-stride=4 point-radius=2 ! \
     videoconvert ! \
-    ximagesink
+    autovideosink
 ```
 
 ### Multi-camera + LiDAR fusion with perspective render
@@ -87,7 +87,7 @@ gst-launch-1.0 -v \
     g3drender view-mode=perspective width=1600 height=800 \
               cam-azimuth=180 cam-elevation=30 cam-distance=35 ! \
     videoconvert ! \
-    ximagesink
+    autovideosink
 ```
 
 ## Input / Output
