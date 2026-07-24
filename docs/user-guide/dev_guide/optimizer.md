@@ -36,17 +36,21 @@ python3 . MODE [OPT] -- PIPELINE
 
 Arguments:
   MODE      The type of optimization that will be performed on the pipeline.
-            Possible values are \"fps\" and \"streams\".
+            Possible values are "fps", "power" and "streams".
 
             fps - the optimizer will explore possible alternatives
                   for the pipeline, trying to locate versions that
                   have increased performance measured by fps.
 
+            power - the optimizer will explore possible alternatives
+                    for the pipeline, trying to locate versions that
+                    consume the least amount of watts.
+
             streams - the optimizer will explore possible alternatives
                       for the pipeline, trying to locate a version which
                       can support the most streams at once without
                       crossing a minimum fps threshold.
-                      (check \"multistream-fps-limit for more info)
+                      (check "fps-limit" for more info)
 
   PIPELINE  A string representing a pipeline in the GStreamer notation
             which the tool will attempt to optimize.
@@ -56,8 +60,10 @@ Options:
     --sample-duration SAMPLE_DURATION   How long should every pipeline be sampled for performance.
     --detection-threshold THRESHOLD     Minimum threshold of detections that tested pipelines are
                                         not allowed to cross in order to count as valid alternatives.
-    --multistream-fps-limit LIMIT       Minimum fps limit which streams are not allowed to cross
-                                        when optimizing for a multi-stream scenario.
+    --fps-limit LIMIT                   Minimum fps that every valid pipeline must achieve.
+    --power-limit LIMIT                 Maximum power (watts) that every valid pipeline cannot cross.
+    --power-metrics-endpoint URL        URL leading to the Prometheus endpoint of a Metrics Manager.
+                                        Required for power-based optimization.
     --enable-cross-stream-batching      Enable cross stream batching for inference elements in fps mode.
     --allowed-devices ALLOWED_DEVICES   List of allowed devices (CPU, GPU, NPU) to be used by the optimizer.
                                         If not specified, all available, detected devices will be used.
@@ -80,9 +86,16 @@ Increasing the **search duration** will increase the chances of discovering more
 **`sample-duration`** default: `10` seconds \
 Increasing the **sample duration** will improve the stability of the search.
 
-**`multistream-fps-limit`** default: `30` fps \
-Increasing the **multi-stream fps limit** will improve the performance of each individual stream,
-but the final result is liable to support less streams overall.
+**`fps-limit`** \
+Minimum fps that every valid pipeline must achieve. When optimizing for streams, increasing this limit
+will improve the performance of each individual stream, but the final result is liable to support
+less streams overall.
+
+**`power-limit`** \
+Maximum power consumption (watts) that every valid pipeline cannot cross.
+
+**`power-metrics-endpoint`** \
+URL leading to the Prometheus endpoint of a Metrics Manager instance. Required when using the `power` optimization mode.
 
 **`enable-cross-stream-batching`** \
 Levy the inference instance feature of DL Streamer to batch work across multiple streams in fps mode.
@@ -184,6 +197,7 @@ Methods that measure or optimize pipelines return a **result dictionary** with t
 | Key | Type | Description | Present in |
 |-----|------|-------------|------------|
 | `fps` | `float` | Measured frames per second | All results |
+| `power` | `float \| None` | Measured power consumption in watts (average over sample) | All results (requires metrics endpoint) |
 | `streams` | `int` | Number of concurrent streams tested | Stream-optimization results only |
 
 #### Methods
@@ -240,13 +254,49 @@ optimizer = DLSOptimizer()
 optimizer.enable_cross_stream_batching(True)
 ```
 ---
-**`set_mutlistream_fps_limit(limit)`**
-- `limit: int` - The minimum fps limit allowed for individual streams when optimizing for amount of streams, default `30`.
+**`set_fps_limit(limit)`**
+- `limit: float` - The minimum fps that every valid pipeline must achieve.
 
-Configures the minimum fps limit that streams are not allowed to fall below when optimizing for a multi-stream scenario.
+Configures the minimum fps limit. When optimizing for streams, pipelines are not allowed to fall below this threshold.
 ```
 optimizer = DLSOptimizer()
-optimizer.set_multistream_fps_limit(45)
+optimizer.set_fps_limit(45)
+```
+---
+**`set_power_limit(limit)`**
+- `limit: float` - The maximum power consumption (watts) that every valid pipeline cannot cross.
+
+Configures the maximum power limit for valid pipelines.
+```
+optimizer = DLSOptimizer()
+optimizer.set_power_limit(15.0)
+```
+---
+**`set_metrics_url(url)`**
+- `url: string` - URL leading to the Prometheus endpoint of a Metrics Manager.
+
+Configures the power metrics endpoint used for measuring power consumption. Required for power-based optimization.
+```
+optimizer = DLSOptimizer()
+optimizer.set_metrics_url("http://localhost:9090/")
+```
+---
+**`set_batch_sizes(sizes)`**
+- `sizes: list[int]` - A list of batch size values to consider during optimization, default `[1, 2, 4, 8, 16, 32]`.
+
+Defines candidate batch-size values that can be applied to supported inference elements while searching.
+```
+optimizer = DLSOptimizer()
+optimizer.set_batch_sizes([1, 4, 8])
+```
+---
+**`set_nireq_sizes(sizes)`**
+- `sizes: list[int]` - A list of nireq values to consider during optimization, default `[1, 2, 3, 4, 5, 6, 7, 8]`.
+
+Defines candidate nireq values that can be applied to supported inference elements while searching.
+```
+optimizer = DLSOptimizer()
+optimizer.set_nireq_sizes([2, 4, 6, 8])
 ```
 ---
 **`set_allowed_devices(devices)`**
@@ -288,6 +338,40 @@ for (pipeline, result) in optimizer.iter_optimize_for_fps(pipeline):
         print(f"Failed: {pipeline}")
 best_pipeline, best_result = optimizer.get_optimal_pipeline()
 print(f"Optimal pipeline: {best_pipeline} @ {best_result['fps']}")
+```
+---
+**`optimize_for_power(pipeline, search_duration) -> optimized_pipeline, result`**
+- `pipeline: string` - A string containing a valid DL Streamer pipeline.
+- `search_duration: int` - The duration of searching for better pipelines, default `300`.
+- `optimized_pipeline: string` - A string containing the best performing pipeline that has been found during the search.
+- `result: dict` - Result dictionary (see above).
+
+Runs a series of optimization steps on the pipeline searching for a version with the lowest power consumption. Requires a metrics endpoint to be configured via `set_metrics_url`.
+```
+pipeline = "urisourcebin buffer-size=4096 uri=https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4 ! decodebin ! gvadetect model=/home/optimizer/models/public/yolo11s/INT8/yolo11s.xml ! queue ! gvawatermark ! fakesink"
+optimizer = DLSOptimizer()
+optimizer.set_metrics_url("http://localhost:9090/")
+optimized_pipeline, result = optimizer.optimize_for_power(pipeline)
+print(f"Best pipeline: {optimized_pipeline} @ {result['power']} watts")
+```
+---
+**`iter_optimize_for_power(pipeline) -> candidate_pipeline, result`**
+- `pipeline: string` - A string containing a valid DL Streamer pipeline.
+- `candidate_pipeline: string` - A string containing a candidate pipeline that has been tested.
+- `result: dict | None` - Result dictionary (see above), or `None` if the candidate failed validation.
+
+Runs a series of optimization steps on the pipeline searching for a version with the lowest power consumption. Returns each and every candidate pipeline that has been considered. Requires a metrics endpoint to be configured via `set_metrics_url`.
+```
+pipeline = "urisourcebin buffer-size=4096 uri=https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4 ! decodebin ! gvadetect model=/home/optimizer/models/public/yolo11s/INT8/yolo11s.xml ! queue ! gvawatermark ! fakesink"
+optimizer = DLSOptimizer()
+optimizer.set_metrics_url("http://localhost:9090/")
+for (pipeline, result) in optimizer.iter_optimize_for_power(pipeline):
+    if result:
+        print(f"Tested: {pipeline} @ {result['power']} watts")
+    else:
+        print(f"Failed: {pipeline}")
+best_pipeline, best_result = optimizer.get_optimal_pipeline()
+print(f"Optimal pipeline: {best_pipeline} @ {best_result['power']} watts")
 ```
 ---
 **`optimize_for_streams(pipeline, search_duration) -> optimized_pipeline, result`**
