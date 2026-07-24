@@ -137,11 +137,11 @@ const std::string env_models_path =
                          ? std::string() + getenv("INTEL_CVSDK_DIR") + "/deployment_tools/intel_models" + "/"
                          : "");
 
-const std::vector<std::string> default_detection_model_names = {"face-detection-adas-0001.xml"};
+const std::vector<std::string> default_detection_model_names = {"centerface"};
 
 const std::vector<std::string> default_classification_model_names = {
-    "facial-landmarks-35-adas-0002.xml", "age-gender-recognition-retail-0013.xml",
-    "emotions-recognition-retail-0003.xml", "head-pose-estimation-adas-0001.xml"};
+    "dima806_facial_age_image_detection.xml", "dima806_face_emotions_image_detection.xml",
+    "dima806_fairface_gender_image_detection.xml"};
 
 gchar const *detection_model = nullptr;
 gchar const *classification_models = nullptr;
@@ -321,7 +321,7 @@ int main(int argc, char *argv[]) {
         } catch (const std::runtime_error &e) {
             std::cerr << e.what() << '\n';
         }
-        detection_model = g_strdup(FixPath(model_paths["face-detection-adas-0001.xml"]).c_str());
+        detection_model = g_strdup(FixPath(model_paths["centerface.xml"]).c_str());
     }
     std::vector<std::string> classification_model_paths;
     if (classification_models == NULL) {

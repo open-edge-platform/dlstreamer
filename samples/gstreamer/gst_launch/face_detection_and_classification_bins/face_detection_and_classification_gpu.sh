@@ -17,9 +17,8 @@ else
   SOURCE_ELEMENT="filesrc location=${INPUT}"
 fi
 
-MODEL1_PATH="${MODELS_PATH:=.}"/intel/face-detection-adas-0001/FP32/face-detection-adas-0001.xml
-MODEL2_PATH="${MODELS_PATH:=.}"/intel/emotions-recognition-retail-0003/FP32/emotions-recognition-retail-0003.xml
-MODEL3_PATH="${MODELS_PATH:=.}"/intel/landmarks-regression-retail-0009/FP32/landmarks-regression-retail-0009.xml
+MODEL1_PATH="${MODELS_PATH:=.}"/public/centerface/FP32/centerface.xml
+MODEL2_PATH=${MODELS_PATH}/public/dima806_face_emotions_image_detection/FP32/dima806_face_emotions_image_detection.xml
 
 if [[ $OUTPUT == "display" ]] || [[ -z $OUTPUT ]]; then
   SINK_ELEMENT="autovideosink sync=false"
@@ -61,11 +60,6 @@ processbin \
     preprocess="capsfilter caps=video/x-raw(memory:VAMemory) ! roi_split ! vapostproc ! videoscale ! videoconvert ! tensor_convert" \
     process="openvino_tensor_inference model=$MODEL2_PATH device=GPU" \
     postprocess="tensor_postproc_label labels=<neutral,happy,sad,surprise,anger> attribute-name=emotion method=max" \
-    aggregate=meta_aggregate ! \
-processbin \
-    preprocess="capsfilter caps=video/x-raw(memory:VAMemory) ! roi_split ! vapostproc ! videoscale ! videoconvert ! video/x-raw(ANY),format=BGRP ! tensor_convert" \
-    process="openvino_tensor_inference model=$MODEL3_PATH device=GPU" \
-    postprocess="tensor_postproc_add_params format=landmark_points" \
     aggregate=meta_aggregate ! \
 meta_overlay device=GPU ! \
 videoconvert ! \

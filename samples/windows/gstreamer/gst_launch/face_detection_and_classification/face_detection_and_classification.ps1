@@ -79,20 +79,16 @@ switch ($OutputType) {
 }
 
 # Set model names
-$MODEL1 = "face-detection-adas-0001"
-$MODEL2 = "age-gender-recognition-retail-0013"
-$MODEL3 = "emotions-recognition-retail-0003"
-$MODEL4 = "landmarks-regression-retail-0009"
+$MODEL1 = "centerface"
+$MODEL2 = "dima806_facial_age_image_detection"
+$MODEL3 = "dima806_fairface_gender_image_detection"
+$MODEL4 = "dima806_face_emotions_image_detection"
 
 # Set model paths
-$DETECT_MODEL_PATH = "$env:MODELS_PATH\intel\$MODEL1\FP32\$MODEL1.xml"
-$CLASS_MODEL_PATH = "$env:MODELS_PATH\intel\$MODEL2\FP32\$MODEL2.xml"
-$CLASS_MODEL_PATH1 = "$env:MODELS_PATH\intel\$MODEL3\FP32\$MODEL3.xml"
-$CLASS_MODEL_PATH2 = "$env:MODELS_PATH\intel\$MODEL4\FP32\$MODEL4.xml"
-
-$MODEL2_PROC = "$PSScriptRoot\model_proc\$MODEL2.json"
-$MODEL3_PROC = "$PSScriptRoot\model_proc\$MODEL3.json"
-$MODEL4_PROC = "$PSScriptRoot\model_proc\$MODEL4.json"
+$DETECT_MODEL_PATH = "$env:MODELS_PATH\public\$MODEL1\FP32\$MODEL1.xml"
+$CLASS_MODEL_PATH = "$env:MODELS_PATH\public\$MODEL2\FP32\$MODEL2.xml"
+$CLASS_MODEL_PATH1 = "$env:MODELS_PATH\public\$MODEL3\FP32\$MODEL3.xml"
+$CLASS_MODEL_PATH2 = "$env:MODELS_PATH\public\$MODEL4\FP32\$MODEL4.xml"
 
 # Check if detection model exists
 if (-not (Test-Path $DETECT_MODEL_PATH)) {
@@ -106,17 +102,14 @@ $DETECT_MODEL_PATH = $DETECT_MODEL_PATH -replace '\\', '/'
 $CLASS_MODEL_PATH = $CLASS_MODEL_PATH -replace '\\', '/'
 $CLASS_MODEL_PATH1 = $CLASS_MODEL_PATH1 -replace '\\', '/'
 $CLASS_MODEL_PATH2 = $CLASS_MODEL_PATH2 -replace '\\', '/'
-$MODEL2_PROC = $MODEL2_PROC -replace '\\', '/'
-$MODEL3_PROC = $MODEL3_PROC -replace '\\', '/'
-$MODEL4_PROC = $MODEL4_PROC -replace '\\', '/'
 
 # Build and run pipeline
 Write-Host ""
 Write-Host "Running pipeline:"
-Write-Host "gst-launch-1.0 -v $SOURCE_ELEMENT ! decodebin3$FrameLimiter ! videoconvert ! gvadetect model=`"$DETECT_MODEL_PATH`" device=$Device ! queue ! gvaclassify model=`"$CLASS_MODEL_PATH`" model-proc=`"$MODEL2_PROC`" device=$Device ! queue ! gvaclassify model=`"$CLASS_MODEL_PATH1`" model-proc=`"$MODEL3_PROC`" device=$Device ! queue ! gvaclassify model=`"$CLASS_MODEL_PATH2`" model-proc=`"$MODEL4_PROC`" device=$Device ! queue ! $SINK_ELEMENT"
+Write-Host "gst-launch-1.0 -v $SOURCE_ELEMENT ! decodebin3$FrameLimiter ! videoconvert ! gvadetect model=`"$DETECT_MODEL_PATH`" device=$Device ! queue ! gvaclassify model=`"$CLASS_MODEL_PATH`" device=$Device ! queue ! gvaclassify model=`"$CLASS_MODEL_PATH1`" device=$Device ! queue ! gvaclassify model=`"$CLASS_MODEL_PATH2`" device=$Device ! queue ! $SINK_ELEMENT"
 Write-Host ""
 
-$CMD = "gst-launch-1.0 -v $SOURCE_ELEMENT ! decodebin3$FrameLimiter ! videoconvert ! gvadetect model=`"$DETECT_MODEL_PATH`" device=$Device ! queue ! gvaclassify model=`"$CLASS_MODEL_PATH`" model-proc=`"$MODEL2_PROC`" device=$Device ! queue ! gvaclassify model=`"$CLASS_MODEL_PATH1`" model-proc=`"$MODEL3_PROC`" device=$Device ! queue ! gvaclassify model=`"$CLASS_MODEL_PATH2`" model-proc=`"$MODEL4_PROC`" device=$Device ! queue ! $SINK_ELEMENT"
+$CMD = "gst-launch-1.0 -v $SOURCE_ELEMENT ! decodebin3$FrameLimiter ! videoconvert ! gvadetect model=`"$DETECT_MODEL_PATH`" device=$Device ! queue ! gvaclassify model=`"$CLASS_MODEL_PATH`" device=$Device ! queue ! gvaclassify model=`"$CLASS_MODEL_PATH1`" device=$Device ! queue ! gvaclassify model=`"$CLASS_MODEL_PATH2`" device=$Device ! queue ! $SINK_ELEMENT"
 Invoke-Expression $CMD
 
 exit $LASTEXITCODE

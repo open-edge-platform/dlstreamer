@@ -69,24 +69,28 @@ if ($Method -eq "file") {
 
 $JSON_INDENT = if ($Format -eq "json-lines") { -1 } else { 4 }
 
-$MODEL1_PATH = "$env:MODELS_PATH\intel\face-detection-adas-0001\FP32\face-detection-adas-0001.xml" -replace '\\', '/'
-$MODEL2_PATH = "$env:MODELS_PATH\intel\age-gender-recognition-retail-0013\FP32\age-gender-recognition-retail-0013.xml" -replace '\\', '/'
+$MODEL1_PATH = "$env:MODELS_PATH\public/centerface/FP32/centerface.xml" -replace '\\', '/'
+$MODEL2_PATH = "$env:MODELS_PATH\public/dima806_facial_age_image_detection/FP32/dima806_facial_age_image_detection.xml" -replace '\\', '/'
+$MODEL3_PATH = "$env:MODELS_PATH\public/dima806_fairface_gender_image_detection/FP32/dima806_fairface_gender_image_detection.xml" -replace '\\', '/'
 $SCRIPTDIR = Split-Path -Parent $MyInvocation.MyCommand.Path
-$MODEL2_PROC = (Join-Path $SCRIPTDIR "model_proc\age-gender-recognition-retail-0013.json") -replace '\\', '/'
 
 if (-not (Test-Path ($MODEL1_PATH -replace '/', '\'))) {
     Write-Host "ERROR: Face detection model not found: $MODEL1_PATH" -ForegroundColor Red
     exit 1
 }
 if (-not (Test-Path ($MODEL2_PATH -replace '/', '\'))) {
-    Write-Host "ERROR: Age-gender model not found: $MODEL2_PATH" -ForegroundColor Red
+    Write-Host "ERROR: Age image model not found: $MODEL2_PATH" -ForegroundColor Red
+    exit 1
+}
+if (-not (Test-Path ($MODEL3_PATH -replace '/', '\'))) {
+    Write-Host "ERROR: Gender image model not found: $MODEL3_PATH" -ForegroundColor Red
     exit 1
 }
 
 Write-Host ""
 Write-Host "=============================================================================="
 Write-Host "Running Pipeline:"
-$PIPELINE = "$SOURCE_ELEMENT ! decodebin3$FrameLimiter ! gvadetect model=$MODEL1_PATH device=$Device ! queue ! gvaclassify model=$MODEL2_PATH model-proc=$MODEL2_PROC device=$Device ! queue ! gvametaconvert json-indent=$JSON_INDENT ! gvametapublish method=$Method file-format=$Format $OUTPUT_PROPERTY ! fakesink sync=false"
+$PIPELINE = "$SOURCE_ELEMENT ! decodebin3$FrameLimiter ! gvadetect model=$MODEL1_PATH device=$Device ! queue ! gvaclassify model=$MODEL2_PATH device=$Device ! queue ! gvaclassify model=$MODEL3_PATH device=$Device ! queue ! gvametaconvert json-indent=$JSON_INDENT ! gvametapublish method=$Method file-format=$Format $OUTPUT_PROPERTY ! fakesink sync=false"
 Write-Host "gst-launch-1.0 $PIPELINE"
 
 cmd /c "gst-launch-1.0 $PIPELINE"

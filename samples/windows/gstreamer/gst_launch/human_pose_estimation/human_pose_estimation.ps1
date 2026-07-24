@@ -93,9 +93,8 @@ switch ($OutputType) {
 }
 
 # Set model paths
-$MODEL = "human-pose-estimation-0001"
-$MODEL_PATH = "$env:MODELS_PATH\intel\$MODEL\FP32\$MODEL.xml"
-$MODEL_PROC = "$PSScriptRoot\model_proc\$MODEL.json"
+$MODEL = "yolo26s-pose"
+$MODEL_PATH = "$env:MODELS_PATH\public\$MODEL\FP32\$MODEL.xml"
 
 # Check if model exists
 if (-not (Test-Path $MODEL_PATH)) {
@@ -106,16 +105,15 @@ if (-not (Test-Path $MODEL_PATH)) {
 
 # Convert paths to forward slashes for GStreamer
 $MODEL_PATH = $MODEL_PATH -replace '\\', '/'
-$MODEL_PROC = $MODEL_PROC -replace '\\', '/'
 
 # Build and run pipeline
 Write-Host ""
 Write-Host "Running pipeline:"
-Write-Host "gst-launch-1.0 $SOURCE_ELEMENT ! $DECODE_ELEMENT$FrameLimiter ! gvaclassify model=$MODEL_PATH model-proc=$MODEL_PROC device=$Device inference-region=full-frame pre-process-backend=$PREPROC_BACKEND ! $SINK_ELEMENT"
+Write-Host "gst-launch-1.0 $SOURCE_ELEMENT ! $DECODE_ELEMENT$FrameLimiter ! gvaclassify model=$MODEL_PATH device=$Device inference-region=full-frame pre-process-backend=$PREPROC_BACKEND ! $SINK_ELEMENT"
 Write-Host ""
 
 # Build pipeline command - expand variables first, then execute
-$CMD = "gst-launch-1.0 $SOURCE_ELEMENT ! $DECODE_ELEMENT$FrameLimiter ! gvaclassify model=$MODEL_PATH model-proc=$MODEL_PROC device=$Device inference-region=full-frame pre-process-backend=$PREPROC_BACKEND ! $SINK_ELEMENT"
+$CMD = "gst-launch-1.0 $SOURCE_ELEMENT ! $DECODE_ELEMENT$FrameLimiter ! gvaclassify model=$MODEL_PATH device=$Device inference-region=full-frame pre-process-backend=$PREPROC_BACKEND ! $SINK_ELEMENT"
 
 # Execute using Invoke-Expression (properly handles the command string)
 Invoke-Expression $CMD

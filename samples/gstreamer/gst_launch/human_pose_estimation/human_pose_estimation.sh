@@ -29,7 +29,7 @@ INPUT=${1:-https://github.com/intel-iot-devkit/sample-videos/raw/master/face-dem
 DEVICE=${2:-CPU}
 OUTPUT=${3:-display} # Supported values: display, fps, json, display-and-json
 
-HPE_MODEL=human-pose-estimation-0001
+HPE_MODEL=yolo26s-pose
 
 if [[ $INPUT == "/dev/video"* ]]; then
   SOURCE_ELEMENT="v4l2src device=${INPUT}"
@@ -70,11 +70,10 @@ PROC_PATH() {
     echo "$(dirname "$0")"/model_proc/"$1".json
 }
 
-HPE_MODEL_PATH=${MODELS_PATH}/intel/${HPE_MODEL}/FP32/${HPE_MODEL}.xml
-HPE_MODEL_PROC=$(PROC_PATH $HPE_MODEL)
+MODEL_PATH=${MODELS_PATH}/public/${HPE_MODEL}/FP32/${HPE_MODEL}.xml
 
 PIPELINE="gst-launch-1.0 $SOURCE_ELEMENT ! decodebin3 ! \
-gvaclassify model=$HPE_MODEL_PATH model-proc=$HPE_MODEL_PROC device=$DEVICE inference-region=full-frame ! queue ! \
+gvaclassify model=$MODEL_PATH device=$DEVICE inference-region=full-frame ! queue ! \
 $SINK_ELEMENT"
 
 echo "${PIPELINE}"
