@@ -68,6 +68,7 @@ class TestOptimizer(unittest.TestCase):
         """Test iter_optimize_for_streams with timeout and check if stream count changes"""
         optimizer = DLSOptimizer()
         optimizer.set_fps_limit(30)
+        optimizer.set_maximize_streams(True)
         candidates = []
         timeout_duration =240  # 4 minutes in seconds
         start_time = time.time()
@@ -77,7 +78,7 @@ class TestOptimizer(unittest.TestCase):
 
         try:
             # Iterate through candidates with timeout check
-            for pipeline, results in optimizer.iter_optimize_for_streams(self.simple_pipeline):
+            for pipeline, results in optimizer.iter_optimize_for_fps(self.simple_pipeline):
                 if results:
                     fps_count = results["fps"]
                     stream_count = results["streams"]
@@ -173,7 +174,8 @@ class TestOptimizer(unittest.TestCase):
         """Test optimize_for_streams and get_optimal_pipeline with simple CPU pipeline"""
         optimizer = DLSOptimizer()
         optimizer.set_fps_limit(30)
-        optimized_pipeline, results = optimizer.optimize_for_streams(self.simple_pipeline,120)
+        optimizer.set_maximize_streams(True)
+        optimized_pipeline, results = optimizer.optimize_for_fps(self.simple_pipeline,120)
         fps = results["fps"]
         streams = results["streams"]
         self.assertIsNotNone(optimized_pipeline, "Optimizer did not return optimized pipeline")
