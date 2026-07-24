@@ -157,8 +157,8 @@ export MODELS_PATH="$HOME/dlstreamer_demo/models"
 
 ### 2.2 Download the demo videos
 
-We'll use three short, freely licensed clips from [Pexels\*](https://www.pexels.com/),
-downloaded in **Full HD (1080p)**. Copy/paste to download all three:
+We'll use five short, freely licensed clips from [Pexels\*](https://www.pexels.com/),
+downloaded in **Full HD (1080p)**. Copy/paste to download all five:
 
 ```bash
 wget -O ${VIDEOS_PATH}/bridge.mp4     "https://www.pexels.com/download/video/34129177/?w=1920&h=1080"
@@ -176,8 +176,9 @@ wget -O ${VIDEOS_PATH}/girl_dog.mp4   "https://www.pexels.com/download/video/751
 | `beach.mp4` | People walking along a sunset beach | Object tracking |
 | `girl_dog.mp4` | A girl playing with her dog | Privacy blur |
 
-> **Credits:** Videos by *ubeyonroad*, *Rec Everywhere*, and *Airam Dato-on* on
-> Pexels. Free to use under the [Pexels License](https://www.pexels.com/license/).
+> **Credits:** Videos by *ubeyonroad*, *Rec Everywhere*, *Airam Dato-on*, *Igor
+> Vieira*, and *RDNE Stock project* on Pexels. Free to use under the
+> [Pexels License](https://www.pexels.com/license/).
 
 ### 2.3 Download the AI models
 
