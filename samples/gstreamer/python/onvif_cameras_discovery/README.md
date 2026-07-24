@@ -15,24 +15,26 @@
 
 ## Overview
 
-This sample demonstrates automatic discovery and streaming from ONVIF-compliant
+The sample demonstrates automatic discovery and streaming from ONVIF-compliant
 IP cameras using DL Streamer. The application discovers cameras on the local
 network, retrieves their streaming profiles, and launches concurrent GStreamer
-pipelines for video processing.
+pipelines for video processing — leveraging modern `VideoEngine` APIs.
 
 ### Key Capabilities
 - **Automatic Camera Discovery**: Uses WS-Discovery multicast protocol to find ONVIF cameras
 - **Profile Extraction**: Retrieves detailed video/audio encoder configurations
-- **Camera Registry**: Unified tracking of cameras, profiles, and pipelines via `DlsOnvifCameraRegistry`
+- **VideoEngine Integration**: Unified discovery loop, stale-camera handling, and pipeline lifecycle management
 - **Concurrent Streaming**: Manages multiple GStreamer pipelines simultaneously
 - **Periodic Re-discovery**: Detects added/removed cameras between cycles
 - **Verbose Profile Dump**: Optional detailed profile table (via `--verbose` or `config.json`)
 - **Graceful Shutdown**: Properly terminates all pipelines on exit
+- **Flexible Configuration**: Supports both legacy and new VideoEngine config schemas
 
 ### Technology Stack
 - **ONVIF Protocol**: Industry-standard IP camera communication protocol
 - **WS-Discovery**: Multicast network discovery (SOAP over UDP)
 - **GStreamer**: Multimedia framework for video processing
+- **VideoEngine**: Modern DL Streamer discovery and pipeline orchestration
 - **Python 3.10+**: Core implementation language (asyncio-based)
 
 ---
@@ -50,12 +52,11 @@ All ONVIF and pipeline logic lives in the **`dlstreamer.onvif`** library
 
 | Class / Function | Description |
 |------|-------------|
-| `DlsOnvifDiscoveryEngine` | WS-Discovery, ONVIF profiles, async orchestrator |
-| `DlsOnvifCameraEntry` / `DlsOnvifCameraRegistry` | Camera + pipeline registry |
-| `DlsOnvifConfigManager` | Pipeline configuration loader |
+| `discover_onvif_cameras_async()` | WS-Discovery async generator for low-level camera discovery |
+| `VideoEngine` | Modern orchestrator for discovery loop, camera registry, and pipeline lifecycle |
+| `DlsOnvifConfigManager` | Pipeline configuration loader (supports both schemas) |
 | `DlsLaunchedPipeline` | GStreamer pipeline lifecycle manager |
 | `ONVIFProfile` | ONVIF profile data structure |
-| `discover_onvif_cameras()` / `discover_onvif_cameras_async()` | Low-level WS-Discovery generators |
 
 ---
 
@@ -69,7 +70,7 @@ All ONVIF and pipeline logic lives in the **`dlstreamer.onvif`** library
 Install the `intel-dlstreamer` Python package (includes `dlstreamer.onvif`):
 
 ```bash
-pip install https://github.com/open-edge-platform/dlstreamer/releases/download/v2026.1.0/intel_dlstreamer-2026.1.0-py3-none-any.whl
+pip install https://github.com/open-edge-platform/dlstreamer/releases/download/v2026.2.0/intel_dlstreamer-2026.2.0-py3-none-any.whl
 ```
 
 Alternatively, if you have DL Streamer installed locally:
@@ -82,182 +83,36 @@ pip install /opt/intel/dlstreamer/python/intel_dlstreamer-*.whl
 
 ## How It Works
 
-1. The sample sends a WS-Discovery probe to `239.255.255.250:3702`.
+### Architecture Overview
+
+![ONVIF Cameras Discovery Architecture](./dls_onvif_sample.jpg)
+
+The diagram above illustrates the complete ONVIF discovery workflow:
+- **Left**: ONVIF-compliant IP cameras on the local network
+- **Center**: WS-Discovery multicast protocol (PROBE REQUEST / HELLO MESSAGE)
+- **Right**: ONVIF Device Manager receiving and managing discovered cameras
+- **Steps**: 
+  - **STEP 1**: Cameras broadcast existence or respond to probe requests
+  - **STEP 2**: Video Management System (VMS) discovers devices and retrieves profiles
+
+### Discovery Process
+
+1. The sample sends a WS-Discovery probe to `239.255.255.250:3702` via `discover_onvif_cameras_async()`.
 2. It parses returned `XAddrs` endpoints and extracts camera hostname and port.
-3. For each discovered camera it creates a `DlsOnvifCameraEntry` in the registry.
-4. It connects via `ONVIFCamera` and retrieves media profiles with RTSP URIs.
-5. It reads the pipeline definition from `config.json` matching the camera's hostname and port.
-6. For every profile with an RTSP URL it launches a GStreamer pipeline:
+3. `VideoEngine` maintains a registry of discovered cameras.
+4. For each discovered camera it creates an entry in the VideoEngine registry.
+5. It connects via `ONVIFCamera` and retrieves media profiles with RTSP URIs.
+6. It reads the pipeline definition from `config.json` (either legacy or VideoEngine schema).
+7. For every profile with an RTSP URL it launches a GStreamer pipeline:
 
 ```text
-rtspsrc location=<rtsp_url> <pipeline definition from config.json>
+gst-launch-1.0 -e rtspsrc location=<rtsp_url> protocols=tcp latency=100 <pipeline definition from config.json>
 ```
 
-7. On subsequent discovery cycles, new cameras are added, missing cameras are removed
+8. On subsequent discovery cycles, new cameras are added, missing cameras are removed
    (their pipelines stopped), and existing cameras are updated (`last_seen_at`).
 
 If no pipeline is configured for a discovered camera, that camera is skipped.
-
-### Sequence chart for internal interactions
-
-```mermaid
-sequenceDiagram
-    participant User
-    participant Sample as dls_onvif_sample.py
-    participant Async as DlsOnvifDiscoveryEngine
-    participant CfgMgr as DlsOnvifConfigManager
-    participant Entry as DlsOnvifCameraEntry
-    participant Registry as DlsOnvifCameraRegistry
-    participant Utils as dls_onvif_discovery_engine.py
-    participant Network
-    participant Camera as ONVIF Camera
-    participant Pipeline as DlsLaunchedPipeline
-
-    User->>Sample: python dls_onvif_sample.py --username admin --password admin
-    Sample->>Async: DlsOnvifDiscoveryEngine()
-    Sample->>Async: init_discovery(config)
-    Async->>CfgMgr: DlsOnvifConfigManager(config_file)
-    Sample->>Async: discover_cameras_iter()
-
-    loop Discovery cycle
-        Async->>CfgMgr: refresh_cameras()
-        Async->>Utils: discover_onvif_cameras_async()
-        Utils->>Network: Send WS-Discovery probe (239.255.255.250:3702)
-        Network-->>Utils: ProbeMatch responses
-        Utils-->>Async: Yield {hostname, port}
-
-        alt New camera
-            Async->>Entry: DlsOnvifCameraEntry.from_discovery_dict(camera, user, pass)
-            Entry-->>Async: entry
-
-            Note over Async: _create_pipelines_for_entry(entry)
-            Async->>CfgMgr: get_pipeline_definition_by_ip_port(ip, port)
-            CfgMgr-->>Async: pipeline_definition or None
-
-            alt No pipeline configured
-                Async-->>Async: [WARN] skip camera
-            else Pipeline configured
-                Async->>Entry: entry.status = CONNECTING
-                Async->>Camera: ONVIFCamera(ip, port, user, password)
-                Camera-->>Async: camera_obj
-                Async->>Camera: self.camera_profiles(camera_obj)
-                Note right of Camera: GetProfiles + GetStreamUri
-                Camera-->>Async: List[ONVIFProfile]
-                Async->>Entry: entry.profiles = profiles
-
-                loop For each profile with RTSP URL
-                    Async->>Pipeline: DlsLaunchedPipeline(full_pipeline, label)
-                    Async->>Entry: entry.add_pipeline(pipeline)
-                    Async->>Pipeline: asyncio.create_task(pipeline.start())
-                end
-
-                Async->>Entry: entry.mark_streaming()
-            end
-
-            Async->>Registry: registry.add(entry)
-        else Known camera
-            Async->>Entry: existing.touch()
-        end
-
-        Note over Async: _remove_stale_cameras(current_ids)
-        Async->>Registry: camera_ids() - current_ids
-        loop For each stale camera
-            Async->>Registry: registry.remove(camera_id)
-            Async->>Entry: entry.stop_all_pipelines()
-            Async->>Entry: entry.mark_removed()
-        end
-
-        Async->>Async: _countdown_to_next_cycle()
-    end
-
-    User->>Sample: Ctrl+C (KeyboardInterrupt)
-    Sample->>Async: release_resources_async()
-    Async->>Registry: registry.stop_all()
-    Async->>Async: cancel + gather _pipeline_tasks
-```
-
-### Execution Flow
-
-```mermaid
-flowchart TD
-    Start([▶ python dls_onvif_sample.py<br/>--username admin --password admin])
-    ParseArgs[parse_args<br/>--username, --password,<br/>--refresh-rate, --config-file, --verbose]
-    BuildCfg[Build config dict<br/>user, password, refresh_rate,<br/>config_file, verbose]
-    AsyncRun[asyncio.run ➜ main&#40;config&#41;]
-    InitAsync[DlsOnvifDiscoveryEngine&#40;&#41;<br/>Gst.init · create empty Registry]
-    InitDisc[init_discovery&#40;config&#41;<br/>set refresh_rate, username, password, verbose]
-    LoadCfg[DlsOnvifConfigManager&#40;config_file&#41;<br/>parse config.json ➜ camera defs + verbose]
-
-    subgraph LOOP ["♻ Discovery cycle (while is_discovery_running)"]
-        direction TB
-        GC[gc.collect&#40;&#41;]
-        Refresh[config_manager.refresh_cameras&#40;&#41;]
-        Probe[WS-Discovery probe<br/>239.255.255.250:3702]
-        ParseResp[Parse ProbeMatch ➜<br/>Yield hostname, port]
-        CheckKnown{Camera already<br/>in Registry?}
-
-        subgraph NEW_CAM ["New camera path"]
-            direction TB
-            CreateEntry[DlsOnvifCameraEntry<br/>.from_discovery_dict&#40;&#41;]
-            CreatePipe[_create_pipelines_for_entry&#40;entry&#41;]
-            GetDef{config_manager<br/>.get_pipeline_definition<br/>_by_ip_port&#40;ip, port&#41;}
-            NoDef([⚠ WARN skip camera])
-            Connect[ONVIFCamera&#40;ip, port, user, pass&#41;]
-            GetProf[self.camera_profiles&#40;camera_obj&#41;<br/>➜ List of ONVIFProfile]
-            HasProf{Profiles<br/>with RTSP URL?}
-            NoProf([⚠ No streamable profiles])
-
-            subgraph PIPE_LOOP ["For each profile with RTSP URL"]
-                direction TB
-                BuildPL[DlsLaunchedPipeline&#40;<br/>&quot;rtspsrc location=… definition&quot;&#41;]
-                AddPL[entry.add_pipeline&#40;pipeline&#41;]
-                StartPL[asyncio.create_task&#40;<br/>pipeline.start&#40;&#41;&#41;]
-            end
-
-            MarkStream[entry.mark_streaming&#40;&#41;]
-            AddReg[registry.add&#40;entry&#41;]
-        end
-
-        Touch[existing.touch&#40;&#41;<br/>update last_seen_at]
-
-        subgraph STALE ["Remove stale cameras"]
-            direction TB
-            CalcStale[stale = registry.camera_ids&#40;&#41;<br/>− current_ids]
-            RemoveReg[registry.remove&#40;id&#41;]
-            StopPipes[entry.stop_all_pipelines&#40;&#41;]
-            MarkRemoved[entry.mark_removed&#40;&#41;]
-        end
-
-        Countdown[_countdown_to_next_cycle&#40;&#41;<br/>sleep refresh_rate seconds]
-    end
-
-    subgraph SHUTDOWN ["🛑 Ctrl+C ➜ Graceful shutdown"]
-        direction TB
-        StopAll[registry.stop_all&#40;&#41;]
-        CancelTasks[Cancel + gather<br/>_pipeline_tasks]
-        Done([Exit])
-    end
-
-    Start --> ParseArgs --> BuildCfg --> AsyncRun
-    AsyncRun --> InitAsync --> InitDisc --> LoadCfg
-    LoadCfg --> GC
-    GC --> Refresh --> Probe --> ParseResp
-    ParseResp --> CheckKnown
-    CheckKnown -- No --> CreateEntry --> CreatePipe --> GetDef
-    GetDef -- None --> NoDef --> AddReg
-    GetDef -- definition --> Connect --> GetProf --> HasProf
-    HasProf -- No --> NoProf --> AddReg
-    HasProf -- Yes --> BuildPL --> AddPL --> StartPL
-    StartPL --> MarkStream --> AddReg
-    CheckKnown -- Yes --> Touch
-    Touch --> CalcStale
-    AddReg --> CalcStale
-    CalcStale --> RemoveReg --> StopPipes --> MarkRemoved
-    MarkRemoved --> Countdown
-    Countdown -->|next cycle| GC
-    Countdown -->|KeyboardInterrupt| StopAll
-    StopAll --> CancelTasks --> Done
-```
 
 ---
 
@@ -266,7 +121,9 @@ flowchart TD
 The sample reads `config.json` from the current working directory (or the path
 given with `--config-file`).
 
-### Format
+### Legacy Config Format
+
+**Backward-compatible schema** (named camera objects with `definition` field):
 
 ```json
 {
@@ -292,10 +149,40 @@ given with `--config-file`).
 | `port` | `int` | Camera ONVIF port. |
 | `definition` | `str` | GStreamer pipeline fragment appended after `rtspsrc location=<url>`. |
 
-Notes:
-- Use a pipeline fragment, not a full `gst-launch-1.0` command.
-- Validate the fragment with `gst-launch-1.0` before adding it to the config.
+### VideoEngine Config Format
+
+**Alternative schema** (uses `pipelines` key with interpolation):
+
+```json
+{
+    "verbose": true,
+    "pipelines": [
+        {
+            "name": "kitchen",
+            "discovery": {
+                "hostname": "192.168.1.100",
+                "port": 8080
+            },
+            "command": "gst-launch-1.0 -e rtspsrc location={url} protocols=tcp latency=100 ! rtph264depay ! h264parse ! avdec_h264 ! videoconvert ! autovideosink"
+        },
+        {
+            "name": "living_room",
+            "discovery": {
+                "hostname": "192.168.1.101",
+                "port": 8090
+            },
+            "command": "gst-launch-1.0 -e rtspsrc location={url} protocols=tcp latency=100 ! rtph264depay ! h264parse ! avdec_h264 ! videoconvert ! autovideosink"
+        }
+    ]
+}
+```
+
+### Configuration Notes
+
+- Use a pipeline fragment (legacy) or full `gst-launch-1.0` command (VideoEngine schema).
+- Validate the fragment/command with `gst-launch-1.0` before adding it to the config.
 - Cameras discovered but not matching any config entry are skipped.
+- The sample auto-detects which schema is used and adapts behavior accordingly.
 
 ---
 
@@ -336,7 +223,7 @@ python dls_onvif_sample.py \
 
 ### Behavior
 
-- Discovery runs in a continuous async loop
+- Discovery runs in a continuous async loop (managed by `VideoEngine`)
 - One GStreamer pipeline is started per discovered profile with an RTSP URL
 - New cameras are added and stale cameras are removed between cycles
 - `verbose` can be enabled via CLI (`--verbose`) or `config.json` (`"verbose": true`)
@@ -348,45 +235,35 @@ python dls_onvif_sample.py \
 
 ### `dls_onvif_sample.py`
 
-Entry point. Parses CLI arguments, initializes `DlsOnvifDiscoveryEngine`,
+Entry point. Parses CLI arguments, initializes `VideoEngine`,
 runs the async discovery loop, and handles graceful shutdown.
 
 ### `dlstreamer.onvif` library
 
 All discovery and pipeline logic is provided by the `dlstreamer.onvif` package
-(part of `intel-dlstreamer`). Import it directly in your own code:
+(part of `intel-dlstreamer`). Key exports used by this sample:
 
 ```python
 from dlstreamer.onvif import (
-    DlsOnvifDiscoveryEngine,
-    discover_onvif_cameras,
     discover_onvif_cameras_async,
+    VideoEngine,
     ONVIFProfile,
-    DlsOnvifCameraEntry,
-    DlsOnvifCameraRegistry,
-    CameraStatus,
     DlsLaunchedPipeline,
     DlsOnvifConfigManager,
 )
 ```
 
-**`DlsOnvifDiscoveryEngine`** — high-level orchestrator:
-- `init_discovery(config)` — configure credentials, refresh rate, config file
-- `discover_cameras_iter()` — async generator: discovery loop + pipeline management
-- `camera_profiles(client)` — retrieves ONVIF media profiles and RTSP URIs
-- `get_cameras()` — list of currently active cameras
-- `release_resources_async()` — graceful shutdown
+**`discover_onvif_cameras_async()`** — low-level WS-Discovery generator,
+yields `{"hostname": str, "port": int}` per camera found.
 
-**`discover_onvif_cameras()`** / **`discover_onvif_cameras_async()`** — low-level
-WS-Discovery generators, yield `{"hostname": str, "port": int}` per camera found.
+**`VideoEngine`** — modern high-level orchestrator:
+- Runs discovery loop (`discover_cameras_iter()`)
+- Manages camera registry and lifecycle
+- Handles stale-camera removal
+- Launches and monitors GStreamer pipelines
+- Supports both legacy and new config schemas
 
-**`CameraStatus`** — enum: `DISCOVERED`, `CONNECTING`, `STREAMING`, `ERROR`, `REMOVED`
-
-**`DlsOnvifCameraEntry`** — dataclass binding camera info, ONVIF profiles, pipelines, and lifecycle metadata.
-
-**`DlsOnvifCameraRegistry`** — thread-safe `dict[camera_id, entry]` with CRUD and bulk operations.
-
-**`DlsOnvifConfigManager`** — loads `config.json`, provides `get_pipeline_definition_by_ip_port()`.
+**`DlsOnvifConfigManager`** — loads `config.json`, provides pipeline definitions.
 
 **`DlsLaunchedPipeline`** — manages a single GStreamer pipeline in a dedicated thread.
 
@@ -396,7 +273,7 @@ WS-Discovery generators, yield `{"hostname": str, "port": int}` per camera found
 
 ## Usage Examples
 
-### Pipeline examples for `config.json`
+### Pipeline examples for `config.json` (legacy schema)
 
 **Software decoding + display:**
 ```json
@@ -442,6 +319,40 @@ WS-Discovery generators, yield `{"hostname": str, "port": int}` per camera found
 }
 ```
 
+### VideoEngine schema examples
+
+**Software decoding + display:**
+```json
+{
+    "pipelines": [
+        {
+            "name": "cam1",
+            "discovery": {
+                "hostname": "192.168.1.100",
+                "port": 80
+            },
+            "command": "gst-launch-1.0 -e rtspsrc location={url} protocols=tcp latency=100 ! rtph264depay ! h264parse ! avdec_h264 ! videoconvert ! autovideosink"
+        }
+    ]
+}
+```
+
+**Hardware-accelerated decoding:**
+```json
+{
+    "pipelines": [
+        {
+            "name": "cam1",
+            "discovery": {
+                "hostname": "192.168.1.100",
+                "port": 80
+            },
+            "command": "gst-launch-1.0 -e rtspsrc location={url} protocols=tcp latency=100 ! rtph264depay ! h264parse ! vah264dec ! vapostproc ! autovideosink"
+        }
+    ]
+}
+```
+
 ---
 
 ## Troubleshooting
@@ -449,11 +360,12 @@ WS-Discovery generators, yield `{"hostname": str, "port": int}` per camera found
 | Problem | Solution |
 |---------|----------|
 | No cameras found | Check multicast routing, firewall rules, and that cameras support ONVIF WS-Discovery |
-| Camera discovered but skipped | Add a matching entry (hostname + port) to `config.json` |
+| Camera discovered but skipped | Add a matching entry (hostname + port) to `config.json` (either schema) |
 | `--verbose True` → `unrecognized arguments` | Use `--verbose` without a value (it's a flag) |
-| `Namespace GstAnalytics not available` | Remove `gi.require_version("GstAnalytics", "1.0")` if present |
 | Authentication failures | Confirm `--username` and `--password` are valid for the target camera |
 | `ModuleNotFoundError: No module named 'gi'` | Install: `sudo apt install python3-gi gir1.2-gst-1.0` |
+| Config schema errors | Ensure JSON syntax is valid; check if using legacy vs VideoEngine schema correctly |
+| Pipeline fails to start | Validate pipeline command with `gst-launch-1.0` before adding to config |
 
 ---
 
@@ -467,11 +379,9 @@ SPDX-License-Identifier: MIT
 
 ## References
 
+- **DL Streamer**: https://github.com/open-edge-platform/dlstreamer
 - **ONVIF Specification**: https://www.onvif.org/specs/core/ONVIF-Core-Specification.pdf
 - **WS-Discovery**: http://docs.oasis-open.org/ws-dd/discovery/1.1/wsdd-discovery-1.1-spec.html
-- **GStreamer Documentation**: https://gstreamer.freedesktop.org/documentation/
-- **DL Streamer**: https://github.com/open-edge-platform/dlstreamer
-- **onvif-zeep Library**: https://github.com/FalkTannhaeuser/python-onvif-zeep
 
 ---
 
