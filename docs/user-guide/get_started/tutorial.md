@@ -1,621 +1,524 @@
 # Tutorial
 
-In this tutorial, you will learn how to build video analytics pipelines
-using Deep Learning Streamer Pipeline
-Framework.
+Welcome! This tutorial takes you from a clean Ubuntu\* 24.04 machine to running
+real, hardware-accelerated video analytics with **Deep Learning Streamer
+(DL Streamer)** — using nothing but copy/paste. No prior experience with
+DL Streamer, GStreamer\*, or AI is required.
 
-- [About GStreamer](#about-gstreamer)
-- [Introduction to Deep Learning Streamer Pipeline Framework](#introduction-to-intel-deep-learning-streamer-intel-dl-streamer-pipeline-framework)
-- [Non-Docker tutorial setup](#non-docker-tutorial-setup)
-- [Docker tutorial setup](#docker-tutorial-setup)
-- [Exercise 1 Build object detection pipeline](#exercise-1---build-object-detection-pipeline)
-- [Exercise 2 - Build object classification pipeline](#exercise-2-build-object-classification-pipeline-object-classification)
-- [Exercise 3 - Use object tracking to improve performance](#exercise-3-use-object-tracking-to-improve-performance-object-tracking)
-- [Exercise 4 - Publish the inference results to a ".json" file](#exercise-4-publish-inference-results)
+By the end you will have detected objects, segmented them pixel-by-pixel,
+estimated human body poses, tracked and anonymized people, and even searched a
+video for a specific object using plain English — each with a **single command**.
 
-## About GStreamer
+- [What is DL Streamer?](#what-is-dl-streamer)
+- [What is a pipeline?](#what-is-a-pipeline)
+- [Step 1 - Install DL Streamer on Ubuntu 24.04](#step-1---install-dl-streamer-on-ubuntu-2404)
+- [Step 2 - Prepare your environment](#step-2---prepare-your-environment)
+- [Step 3 - Run your first YOLO pipelines](#step-3---run-your-first-yolo-pipelines)
+- [Step 4 - Go further with DL Streamer](#step-4---go-further-with-dl-streamer)
+- [Step 5 - Run in Docker (GPU/NPU passthrough)](#step-5---run-in-docker-gpunpu-passthrough)
+- [Where to next?](#where-to-next)
 
-In this section we introduce basic GStreamer\* concepts that you will
-use in the rest of the tutorial. If you are already familiar with
-GStreamer feel free to skip ahead to the next section -
-[Introduction to Deep Learning Streamer Pipeline Framework](#introduction-to-deep-learning-streamer-pipeline-framework).
+---
 
-[GStreamer](https://gstreamer.freedesktop.org/) is a flexible, fast,
-multi-platform open-source multimedia framework. It has an easy to use
-command line tool for running pipelines, as well as an API with bindings
-in C\*, Python\*, JavaScript\* and more. In this tutorial we will use
-the GStreamer command line tool **gst-launch-1.0**. For more information and
-examples please refer to the online documentation for
-[gst-launch-1.0](https://gstreamer.freedesktop.org/documentation/tools/gst-launch.html?gi-language=c).
+## What is DL Streamer?
 
-### GStreamer Library Pipelines
+**DL Streamer** is an open-source framework for building **video and audio
+analytics** applications. It lets you take a video — from a file, a camera, or a
+network stream — run AI models on every frame, and do something useful with the
+results: draw boxes on screen, count people, anonymize faces, save data to a
+file, or send alerts — all **without writing any code**.
 
-The command line tool **gst-launch-1.0** enables developers to describe
-a media analytics pipeline as a series of connected elements. The list
-of elements, their configuration properties, and their connections are
-all specified as a list of strings separated by exclamation marks (`!`).
-**gst-launch-1.0** parses the string and instantiates the software
-modules that perform the individual media analytics operations.
-Internally, the GStreamer library constructs a pipeline object that
-contains the individual elements and handles common operations such as
-clocking, messaging, and state changes.
+It runs on **Intel® CPUs, GPUs, and NPUs**, automatically taking advantage of
+your hardware to run fast. The same command works on any of these devices — you
+just change one word.
 
-Example with test video input:
+> **In short:** DL Streamer turns "I want AI on my video" into a single command
+> you can copy, paste, and run.
 
-```bash
-gst-launch-1.0 videotestsrc ! ximagesink
+## What is a pipeline?
+
+A **pipeline** is a chain of small building blocks called **elements**. Each
+element does one job and passes its result to the next, like an assembly line.
+You connect elements with an exclamation mark `!`.
+
+A typical video AI pipeline looks like this:
+
+```mermaid
+flowchart LR
+    A[Read video<br/>filesrc] --> B[Decode frames<br/>decodebin3]
+    B --> C[Run AI model<br/>gvadetect]
+    C --> D[Draw results<br/>gvawatermark]
+    D --> E[Show on screen<br/>autovideosink]
 ```
 
-### GStreamer Library Elements
+Written as a DL Streamer command, that same idea becomes:
 
-An
-[element](https://gstreamer.freedesktop.org/documentation/application-development/basics/elements.html?gi-language=c)
-is the fundamental building block of a pipeline. Elements perform
-specific operations on incoming frames and then push the resulting
-frames downstream for further processing. Elements are linked together
-textually by exclamation marks (`!`) with the full chain of elements
-representing the entire pipeline. Each element takes data from its
-upstream element, process it and then outputs the data for processing by
-the next element.
-
-Elements designated as source elements provide input into the pipeline
-from external sources. In this tutorial we use the
-[filesrc](https://gstreamer.freedesktop.org/documentation/coreelements/filesrc.html?gi-language=c#filesrc)
-element that reads input from a local file.
-
-Elements designated as sink elements represent the final stage of a
-pipeline. For example, a sink element could write transcoded frames to
-a file on the local disk or open a window to render the video content to
-the screen or even restream the content via RTSP. We will use the
-standard
-[autovideosink](https://gstreamer.freedesktop.org/documentation/autodetect/autovideosink.html?gi-language=c)
-element to render the video frames on a local display.
-
-We will also use the
-[decodebin3](https://gstreamer.freedesktop.org/documentation/playback/decodebin3.html)
-utility element. The **decodebin3** element constructs a concrete set of
-decode operations, based on the given input format as well as decoder and
-demuxer elements available in the system. At a high level, the
-**decodebin3** abstracts the individual operations required to take
-encoded frames and produce raw video frames suitable for image
-transformation and inferencing.
-
-### Properties
-
-Elements are configured using key-value pairs called properties. For
-example, the filesrc element has a property named `location`, which
-specifies the file path for input.
-
-Example of filesrc element with its filesrc property:
-
-```bash
-filesrc location=cars_1900.mp4
+```text
+gst-launch-1.0  filesrc ! decodebin3 ! gvadetect ! gvawatermark ! autovideosink
 ```
 
-The documentation for each element describes its properties as well
-as the valid range of values for each property. It can be viewed using the
-command line tool **gst-inspect-1.0**.
+This is still a concept, not a runnable command — each element needs its
+**properties** to do real work. Properties are written as `key=value` right after
+the element name, for example `filesrc location=<video>` and
+`gvadetect model=<model.xml> device=<GPU|NPU|CPU>`. You'll see complete,
+ready-to-run commands with all properties filled in starting in
+[Step 3](#step-3---run-your-first-yolo-pipelines).
 
-## Introduction to Deep Learning Streamer Pipeline Framework
+The elements that start with **`gva`** (like `gvadetect`, `gvaclassify`,
+`gvatrack`, `gvawatermark`) are the AI-powered elements provided by DL Streamer.
+Everything else comes from GStreamer, the proven multimedia framework DL Streamer
+is built on.
 
-Deep Learning Streamer Pipeline Framework is an easy way to construct media
-analytics pipelines using OpenVINO™ toolkit. It
-leverages the GStreamer open source media framework to provide optimized
-media operations and
-[Deep Learning Inference Engine](https://docs.openvino.ai/2025/index.html)
-from OpenVINO™ Toolkit to provide optimized inference.
+> **Pipelines vs. ready-made samples:** In this tutorial we mostly build
+> pipelines **by hand** so you learn the building blocks. DL Streamer also ships
+> **30+ ready-to-run sample scripts** for common use cases — we use one of them
+> in [Step 4.3](#43-find-anything-with-plain-english-prompt-based-detection).
+> Once you understand the pieces, the samples are a great shortcut.
 
-The elements packaged in the Deep Learning Streamer Pipeline Framework
-binary release can be divided into three categories:
+That's the whole concept. Now let's see it in action.
 
--   Elements for optimized streaming media operations (USB and IP camera
-    support, file handling, decoding, color-space-conversion, scaling,
-    encoding, rendering, etc.). These elements are developed by the
-    larger GStreamer community.
--   Elements that use the Deep Learning Inference Engine from OpenVINO™
-    Toolkit or OpenCV for optimized video analytics (detection,
-    classification, tracking). These elements are provided as part of
-    the Pipeline Framework's GVA plugin.
--   Elements that convert and publish inference results to the screen as
-    overlaid bounding boxes, to a file (as a list of JSON Objects), or to
-    popular message brokers (Kafka or MQTT) as JSON messages. These
-    elements are provided as part of the DL Streamer's GVA plugin.
+---
 
-The elements in the last two categories above are part of Pipeline
-Framework's GVA plugin and start with the prefix `gva`. We will describe
-the `gva` elements used in this tutorial with some important properties
-here. Refer to
-[Deep Learning Streamer elements](../elements/elements.md) page for more details.
+## Step 1 - Install DL Streamer on Ubuntu 24.04
 
-- [gvadetect](../elements/gvadetect.md)
+Open a terminal and copy/paste each block.
 
-  \- Runs detection with the Inference Engine from OpenVINO™ Toolkit.
-  We will use it to detect vehicles in a frame, and output their
-  bounding boxes (aka Regions of Interest - ROI). The `queue` element must
-  be put directly after the `gvadetect` element in the pipeline.
+### 1.1 Install the hardware drivers (GPU & NPU)
 
-  - `model` - path to the inference model network file
-  - `device` - device to run inferencing on
-  - `inference-interval` - interval between inference requests, the
-    bigger the value, the better the throughput. i.e. setting this
-    property to 1 will run detection on every frame while
-    setting it to 5 will run detection on every fifth frame.
+This script detects your Intel® hardware and installs the right **GPU and NPU**
+drivers — needed to accelerate inference on `device=GPU` and `device=NPU`. The
+`--reinstall-npu-driver=yes` flag makes sure the Intel® **NPU** driver is
+installed so you can use `device=NPU` later. We'll keep everything for this
+tutorial in a single folder, `~/dlstreamer_demo`.
 
-- [gvaclassify](../elements/gvaclassify.md)
-  \- Runs classification with the Inference Engine from OpenVINO™
-  Toolkit. We will use it to label the bounding boxes output by `gvadetect`
-  with the type and color of the vehicle. The `queue` element
-  must be put directly after the `gvaclassify` element in pipeline.
+```bash
+mkdir -p ~/dlstreamer_demo
+cd ~/dlstreamer_demo
+wget -O DLS_install_prerequisites.sh https://raw.githubusercontent.com/open-edge-platform/dlstreamer/main/scripts/DLS_install_prerequisites.sh
+chmod +x DLS_install_prerequisites.sh
+./DLS_install_prerequisites.sh --reinstall-npu-driver=yes
+```
 
-  - `model` - path to the inference model network file.
-  - `model-proc` - path to the model-proc file. A model-proc file
-    describes the model input and output layer format. The
-    model-proc file in this tutorial describes the output layer name
-    and labels (person and vehicle) of objects it detects. See
-    [model-proc](../dev_guide/model_proc_file.md)> for more information.
-  - `device` - device to run inferencing on.
+### 1.2 Add the DL Streamer software repository
 
-- [`gvatrack](../elements/gvatrack.md)
+```bash
+sudo -E wget -O- https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB | gpg --dearmor | sudo tee /usr/share/keyrings/intel-gpg-archive-keyring.gpg > /dev/null
+sudo -E wget -O- https://apt.repos.intel.com/edgeai/dlstreamer/GPG-PUB-KEY-INTEL-DLS.gpg | sudo tee /usr/share/keyrings/dls-archive-keyring.gpg > /dev/null
+echo "deb [signed-by=/usr/share/keyrings/dls-archive-keyring.gpg] https://apt.repos.intel.com/edgeai/dlstreamer/ubuntu24 ubuntu24 main" | sudo tee /etc/apt/sources.list.d/intel-dlstreamer.list
+sudo bash -c 'echo "deb [signed-by=/usr/share/keyrings/intel-gpg-archive-keyring.gpg] https://apt.repos.intel.com/openvino ubuntu24 main" | sudo tee /etc/apt/sources.list.d/intel-openvino.list'
+```
 
-  \- Identifies the objects in frames where detection is skipped and
-  assigns unique IDs to objects. This increases overall throughput
-  by allowing us to run object detection on fewer frames, while still
-  tracking the position and type of objects in every frame.
+### 1.3 Install DL Streamer
 
-- [gvawatermark](../elements/gvawatermark.md)
+```bash
+sudo apt update
+sudo apt-get install -y intel-dlstreamer
+```
 
-  \- Overlays detection and classification results on top of video
-  data. This element parses the detected vehicle results
-  metadata and creates a video frame rendered with the bounding box
-  aligned to the vehicle position, as well as parses the classified vehicle result
-  and labels it on the bounding box.
+**That's it — DL Streamer is installed!** This single package also pulls in
+everything it needs, including the OpenVINO™ toolkit and GStreamer.
 
-In addition to `gvadetect` and `gvaclassify`, you can use `gvainference`
-for running inference with any CNN model not supported by `gvadetect` or
-`gvaclassify`. `queue` element must be put directly after `gvainference`
-element in pipeline. Also, instead of visualizing the inference results,
-as shown in this tutorial, you can publish them to MQTT, Kafka or a file
-using `gvametaconvert` and `gvametapublish` of Deep Learning Streamer.
+> **Other systems?** For Windows\*, WSL2\*, Docker\*, or Ubuntu 22.04, see the
+> full [Install Guide](./install/install_guide_index.md). (Docker is also covered
+> in [Step 5](#step-5---run-in-docker-gpunpu-passthrough) of this tutorial.)
 
-## Non-Docker tutorial setup
+---
 
-This section prepares the environment to run examples described below.
-Follow these steps if you chose Option #1 (APT repository) in Install Guide
-Ubuntu.
+## Step 2 - Prepare your environment
 
-1.  Export `MODELS_PATH` to define where to download models. For
-    example:
+### 2.1 Activate DL Streamer in your terminal
 
-    ```bash
-    export MODELS_PATH=/home/${USER}/intel/models
-    ```
+Run this **once in every new terminal** before running a pipeline. It tells your
+shell where DL Streamer lives.
 
-2.  Download the models from
-    [Open Model Zoo](https://github.com/openvinotoolkit/open_model_zoo) to the
-    `MODELS_PATH` directory:
+```bash
+source /opt/intel/dlstreamer/scripts/setup_dls_env.sh
+```
 
-    ```bash
-    python3 -m pip install --upgrade pip
-    python3 -m pip install openvino-dev[onnx,tensorflow,pytorch]
-    mkdir -p $MODELS_PATH
-    omz_downloader --name person-vehicle-bike-detection-2004,vehicle-attributes-recognition-barrier-0039 -o $MODELS_PATH
-    ```
+Now, inside that same `~/dlstreamer_demo` folder, create two subfolders — one for
+demo videos and one for AI models — and remember them:
 
-    > **NOTE:** Make sure your environment variable `$PATH` includes
-    > `$HOME/.local/bin` - use `echo $PATH`.
+```bash
+mkdir -p ~/dlstreamer_demo/videos ~/dlstreamer_demo/models
+export VIDEOS_PATH="$HOME/dlstreamer_demo/videos"
+export MODELS_PATH="$HOME/dlstreamer_demo/models"
+```
 
-3.  Export variables to set paths for `model` and `model_proc` files. It
-    will make pipeline definition easier in later examples:
+### 2.2 Download the demo videos
 
-    ```bash
-    export DETECTION_MODEL=${MODELS_PATH}/intel/person-vehicle-bike-detection-2004/FP16/person-vehicle-bike-detection-2004.xml
-    export DETECTION_MODEL_PROC=/opt/intel/dlstreamer/samples/gstreamer/model_proc/intel/person-vehicle-bike-detection-2004.json
-    export VEHICLE_CLASSIFICATION_MODEL=${MODELS_PATH}/intel/vehicle-attributes-recognition-barrier-0039/FP16/vehicle-attributes-recognition-barrier-0039.xml
-    export VEHICLE_CLASSIFICATION_MODEL_PROC=/opt/intel/dlstreamer/samples/gstreamer/model_proc/intel/vehicle-attributes-recognition-barrier-0039.json
-    ```
+We'll use three short, freely licensed clips from [Pexels\*](https://www.pexels.com/),
+downloaded in **Full HD (1080p)**. Copy/paste to download all three:
 
-    If you want to use your own models, you first need to convert them
-    to the IR (Intermediate Representation) format. For detailed
-    instructions on how to convert models, look
-    [here](https://docs.openvino.ai/2026/openvino-workflow/model-preparation/convert-model-to-ir.html)
+```bash
+wget -O ${VIDEOS_PATH}/bridge.mp4     "https://www.pexels.com/download/video/34129177/?w=1920&h=1080"
+wget -O ${VIDEOS_PATH}/skateboard.mp4 "https://www.pexels.com/download/video/34622113/?w=1920&h=1080"
+wget -O ${VIDEOS_PATH}/dance.mp4      "https://www.pexels.com/download/video/37957592/?w=1080&h=1920"
+wget -O ${VIDEOS_PATH}/beach.mp4      "https://www.pexels.com/download/video/32192786/?w=1920&h=1080"
+wget -O ${VIDEOS_PATH}/girl_dog.mp4   "https://www.pexels.com/download/video/7516659/?w=1920&h=1080"
+```
 
-4.  Export the example video file path:
+| File | Content | Used for |
+|---|---|---|
+| `bridge.mp4` | Cars crossing the Brooklyn Bridge | Detection & segmentation |
+| `skateboard.mp4` | A skateboarder (and a dog!) in an autumn park | Prompt detection & JSON export |
+| `dance.mp4` | A person dancing in a greenhouse | Human pose estimation |
+| `beach.mp4` | People walking along a sunset beach | Object tracking |
+| `girl_dog.mp4` | A girl playing with her dog | Privacy blur |
 
-    You can download a sample video from
-    [here](https://raw.githubusercontent.com/intel-iot-devkit/sample-videos/master/person-bicycle-car-detection.mp4).
-    If you provide your own video file as input, please make sure
-    that it is in h264 or mp4 format. You can also download and use
-    freely licensed content from websites such as Pexels\*. Any
-    video with cars, or pedestrians can be used for this exercise.
+> **Credits:** Videos by *ubeyonroad*, *Rec Everywhere*, and *Airam Dato-on* on
+> Pexels. Free to use under the [Pexels License](https://www.pexels.com/license/).
 
-    ```bash
-    # This tutorial uses ~/path/to/video as the video path
-    # and FILENAME as the placeholder for a video file name.
-    # Change this information to fit your setup.
-    export VIDEO_EXAMPLE=~/path/to/video/FILENAME
-    ```
+### 2.3 Download the AI models
 
-## Docker tutorial setup
+We'll use three **YOLO11** models from Ultralytics\* and convert them to the
+OpenVINO™ format DL Streamer uses.
 
-This section prepares the environment to run examples described below.
-Follow these steps if you chose Option #2 (Docker) in Install Guide Ubuntu.
+**Good news — you don't need to clone anything.** The conversion scripts ship
+with DL Streamer at `/opt/intel/dlstreamer/scripts/download_models/`. We just
+need a small Python environment for the one-time conversion:
 
-1.  Make sure you are on your local host, and *not* in a Docker container.
+```bash
+python3 -m venv ~/dlstreamer_demo/.dls-venv
+source ~/dlstreamer_demo/.dls-venv/bin/activate
+pip install --upgrade pip
+pip install openvino==2026.2.0 nncf==3.0.0 ultralytics==8.4.57
+```
 
-2.  Export `MODELS_PATH` to define where to download the models. For
-    example:
+Now download and convert the three models into `~/dlstreamer_demo/models`:
 
-    ```bash
-    export MODELS_PATH=/home/${USER}/intel/models
-    ```
+```bash
+DL="/opt/intel/dlstreamer/scripts/download_models/download_ultralytics_models.py"
+python3 $DL --model yolo11s.pt      --outdir ${MODELS_PATH} --half
+python3 $DL --model yolo11s-seg.pt  --outdir ${MODELS_PATH} --half
+python3 $DL --model yolo11s-pose.pt --outdir ${MODELS_PATH} --half
+```
 
-3.  Download the models from
-    [Open Model Zoo](https://github.com/openvinotoolkit/open_model_zoo)
-    to the `MODELS_PATH` directory:
+When they're done, leave the Python environment:
 
-    ```bash
-    python3 -m pip install --upgrade pip
-    python3 -m pip install openvino-dev[onnx,tensorflow,pytorch]
-    mkdir -p $MODELS_PATH
-    omz_downloader --name person-vehicle-bike-detection-2004,vehicle-attributes-recognition-barrier-0039 -o $MODELS_PATH
-    ```
+```bash
+deactivate
+```
 
-    > **NOTE:** Make sure your environment variable `$PATH` includes
-    > `$HOME/.local/bin` - use `echo $PATH`.
+You now have three ready-to-use models. The script organizes each one as
+`<name>/FP16/<name>.xml` under `${MODELS_PATH}`:
 
-4.  Run the Deep Learning Streamer container.
+| Model | File | What it does |
+|---|---|---|
+| `yolo11s` | `${MODELS_PATH}/yolo11s/FP16/yolo11s.xml` | Detects objects (boxes + labels) |
+| `yolo11s-seg` | `${MODELS_PATH}/yolo11s-seg/FP16/yolo11s-seg.xml` | Detects **and** outlines objects pixel-by-pixel |
+| `yolo11s-pose` | `${MODELS_PATH}/yolo11s-pose/FP16/yolo11s-pose.xml` | Detects people and their body keypoints |
 
-    Run the Docker container with the models directory mounted into the
-    container using `-v` or `--volume` parameter in the `docker run`
-    command. Make sure your mounting parameter is specified as
-    `-v <path_on_host>:<path_in_the_container>`:
+---
 
-    **Ubuntu 22**
+## Step 3 - Run your first YOLO pipelines
 
-    ```bash
-    docker run -it --rm -v ${MODELS_PATH}:/home/dlstreamer/models --env MODELS_PATH=/home/dlstreamer/models intel/dlstreamer:2026.1.0-ubuntu22
-    ```
+You're ready for the fun part. Each example below is a **single copy/paste
+command**. A window will open showing the video with AI results drawn on top, and
+the live frames-per-second (FPS) will be printed in your terminal.
 
-    **Ubuntu 24**
+> **One device, one word.** Every command uses `device=GPU`. Want to use the
+> **NPU** instead? Just change it to `device=NPU`. Prefer the **CPU**? Use
+> `device=CPU`. Same command, different hardware — the drivers you installed in
+> [Step 1.1](#11-install-the-hardware-drivers-gpu--npu) make this possible.
 
-    ```bash
-    docker run -it --rm -v ${MODELS_PATH}:/home/dlstreamer/models --env MODELS_PATH=/home/dlstreamer/models intel/dlstreamer:latest
-    ```
+### 3.1 Object detection on the bridge video
 
-    Running Deep Learning Streamer in the Docker container with inference
-    on GPU or NPU devices requires non-root user access to
-    these devices in the container. Deep Learning Streamer Pipeline
-    Framework Docker images do not contain a `render` group for
-    `dlstreamer` non-root user because the `render` group does not have
-    a strict group ID, unlike the `video` group. To run container as a
-    non-root user with access to a GPU and/or NPU device, you have to specify
-    the `render` group ID from your host. The full running command
-    example:
-
-    ```bash
-    docker run -it --rm -v ${MODELS_PATH}:/home/dlstreamer/models \
-    --device /dev/dri \
-    --group-add $(stat -c "%g" /dev/dri/render*) \
-    --device /dev/accel \
-    --group-add $(stat -c "%g" /dev/accel/accel*) \
-    --env ZE_ENABLE_ALT_DRIVERS=libze_intel_npu.so \
-    --env MODELS_PATH=/home/dlstreamer/models \
-    intel/dlstreamer:latest
-    ```
-
-    where the newly added parameters are:
-
-    1.  `--device /dev/dri` - access to GPU device, required when you
-        want to use GPU as an inference device (`device=GPU`) or use VA-API
-        graphics hardware acceleration capabilities like `vapostproc`,
-        `vah264dec`, `vah264enc`, `vah265dec`, `vah265enc` etc.
-    2.  `--group-add $(stat -c "%g" /dev/dri/render*)` - non-root access
-        to GPU devices, required in the same scenarios as
-        `--device /dev/dri` above.
-    3.  `--device /dev/accel` - access to NPU device, required when you
-        want to use NPU as an inference device (`device=NPU`).
-    4.  `--group-add $(stat -c "%g" /dev/accel/accel*)` - non-root
-        access to NPU devices, required in the same scenarios as
-        `--device /dev/accel` above.
-    5.  `--env ZE_ENABLE_ALT_DRIVERS=libze_intel_npu.so` - exporting
-        environmental variable needed to run inference successfully on
-        NPU devices.
-
-5.  In the container, export variables to set the paths for `model` and
-    `model_proc` files. It will make pipeline definition easier in later examples:
-
-    ```bash
-    export DETECTION_MODEL=/home/dlstreamer/models/intel/person-vehicle-bike-detection-2004/FP16/person-vehicle-bike-detection-2004.xml
-    export DETECTION_MODEL_PROC=/opt/intel/dlstreamer/samples/gstreamer/model_proc/intel/person-vehicle-bike-detection-2004.json
-    export VEHICLE_CLASSIFICATION_MODEL=/home/dlstreamer/models/intel/vehicle-attributes-recognition-barrier-0039/FP16/vehicle-attributes-recognition-barrier-0039.xml
-    export VEHICLE_CLASSIFICATION_MODEL_PROC=/opt/intel/dlstreamer/samples/gstreamer/model_proc/intel/vehicle-attributes-recognition-barrier-0039.json
-    ```
-
-    If you want to use your own models, first you need to convert them
-    in the IR (Intermediate Representation) format. For detailed
-    instructions on how to convert models, look [here](https://docs.openvino.ai/2026/openvino-workflow/model-preparation/convert-model-to-ir.html).
-
-6.  In the container, export the example video file path:
-
-    You can download a sample video from
-    [here](https://github.com/intel-iot-devkit/sample-videos/raw/master/person-bicycle-car-detection.mp4).
-    If you provide your own video file as input, please make sure
-    that it is in h264 or mp4 format. You can also download and use
-    freely licensed content from websites such as Pexels\*. Any
-    video with cars, or pedestrians can be used for this exercise.
-
-    ```bash
-    # This tutorial uses ~/path/to/video as the video path
-    # and FILENAME as the placeholder for a video file name.
-    # Change this information to fit your setup.
-    export VIDEO_EXAMPLE=~/path/to/video/FILENAME
-    ```
-
-## Exercise 1 - Build object detection pipeline
-
-This exercise will help you create a GStreamer pipeline that will perform
-object detection using the `gvadetect` element and Intermediate
-Representation (IR) formatted object detection model. It provides two
-optional add-ons to show you how to use video from a web camera stream
-and an RTSP URI.
-
-This exercise introduces you to using the following Pipeline Framework
-elements:
-
-- `gvadetect`
-- `gvawatermark`
-
-### Exercise 1.1 Create a Pipeline
-
-We will create a pipeline to detect people and vehicles in a video. The
-pipeline will accept input from a video file, decode it and run vehicle
-detection. It will overlay the bounding boxes for detected vehicles on
-the video frame and render the video to a local device.
-
-Run the below pipeline at the command prompt and review the output:
+Detect and label cars, people, and more with `yolo11s`:
 
 ```bash
 gst-launch-1.0 \
-filesrc location=${VIDEO_EXAMPLE} ! decodebin3 ! \
-gvadetect model=${DETECTION_MODEL} model_proc=${DETECTION_MODEL_PROC} device=CPU ! queue ! \
-gvawatermark ! videoconvert ! autovideosink sync=false
+  filesrc location=${VIDEOS_PATH}/bridge.mp4 ! decodebin3 ! \
+  gvadetect model=${MODELS_PATH}/yolo11s/FP16/yolo11s.xml device=GPU ! queue ! \
+  gvawatermark ! gvafpscounter ! videoconvert ! autovideosink sync=false
 ```
 
-> **Note**: On EMT OS the `X11/wayland` display server is by default disabled. To see the
-> the video for the above pipeline, replace the last gstreamer element `autovideosink sync=false`
-> with `kmssink sync=false`. The system on which the pipeline is running must be working on the KVM setup.
+**What you'll see:** the bridge video with colored boxes and labels around each
+detected vehicle and person.
 
-**Expected output**: You will see your video with overlaid bounding boxes
-around persons, vehicles, and bikes.
+<p align="center">
+  <img src="../_images/tutorial_step_3.1.jpg" alt="Object detection output: bounding boxes and labels on cars and people crossing the bridge" width="640"/>
+  <br/>
+  <em>Object detection with <code>yolo11s</code> on the bridge video.</em>
+</p>
 
-You're done building and running this pipeline. To expand on this
-exercise, use one or both add-ons for this exercise to select different
-video sources. If the add-ons don't suit you, jump ahead to start
-[Exercise 2](#object-classification).
+Here's what each element in the pipeline does:
 
-#### Pipeline with a Web Camera Video Stream Input (First optional add-on to Exercise 1)
+| Element | Job |
+|---|---|
+| `filesrc` | Reads the video file |
+| `decodebin3` | Decodes it into raw video frames |
+| `gvadetect` | Runs the YOLO model and finds objects |
+| `gvawatermark` | Draws boxes and labels on the frames |
+| `gvafpscounter` | Prints the live FPS in the terminal |
+| `autovideosink` | Shows the result on your screen |
 
-GStreamer supports connected video devices, like web cameras, which
-means you use a web camera to perform real-time inference.
+### 3.2 Instance segmentation on the bridge video
 
-In order to use a web camera as input, we will replace the `filesrc`
-element in the object detection pipeline with the
-[v4l2src](https://gstreamer.freedesktop.org/documentation/video4linux2/v4l2src.html?gi-language=c)
-element, which is used for capturing video from webcams. Before running
-the below updated pipeline, check the web camera path and update it in
-the pipeline. The web camera stream is usually in the `/dev/` directory.
-
-Object detection pipeline using web camera:
-
-```bash
-# Change <path-to-device> below to your web camera device path
-gst-launch-1.0 \
-v4l2src device=<path-to-device> ! decodebin3 ! \
-gvadetect model=${DETECTION_MODEL} model_proc=${DETECTION_MODEL_PROC} device=CPU ! queue ! \
-gvawatermark ! videoconvert ! autovideosink sync=false
-```
-
-#### Pipeline with an RTSP Input (Second optional add-on to Exercise 1)
-
-In order to use an RTSP source as input, we will replace the `filesrc`
-element in the object detection pipeline with
-[urisourcebin](https://gstreamer.freedesktop.org/documentation/playback/urisourcebin.html?gi-language=c)
-to access URIs. Before running the below updated pipeline, replace
-'\<RTSP_uri\>' with your RTSP URI and verify it before running the
-command.
-
-Object detection pipeline using sample RTSP URI from Pexels:
+Same video, but now outline each object precisely — just by swapping in the
+`yolo11s-seg` model:
 
 ```bash
 gst-launch-1.0 \
-urisourcebin uri=https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4 ! decodebin3 ! \
-gvadetect model=${DETECTION_MODEL} model_proc=${DETECTION_MODEL_PROC} device=CPU ! queue ! \
-gvawatermark ! videoconvert ! autovideosink sync=false
+  filesrc location=${VIDEOS_PATH}/bridge.mp4 ! decodebin3 ! \
+  gvadetect model=${MODELS_PATH}/yolo11s-seg/FP16/yolo11s-seg.xml device=GPU ! queue ! \
+  gvawatermark ! gvafpscounter ! videoconvert ! autovideosink sync=false
 ```
 
-## Exercise 2: Build object classification pipeline {#object-classification}
+**What you'll see:** each vehicle covered by a colored mask that follows its exact
+shape — not just a rectangle.
 
-This exercise will help you create a GStreamer pipeline that will perform
-object classification on the Regions of Interest (ROIs) detected by
-`gvadetect` using the `gvaclassify` element and Intermediate Representation
-(IR) formatted object classification model.
+<p align="center">
+  <img src="../_images/tutorial_step_3.2.jpg" alt="Instance segmentation output: colored masks following the exact shape of each vehicle" width="640"/>
+  <br/>
+  <em>Instance segmentation with <code>yolo11s-seg</code> on the bridge video.</em>
+</p>
 
-This exercise uses the following Pipeline Framework elements:
+> **Notice how little changed?** Only the model file. The same `gvadetect`
+> element automatically handles detection, segmentation, and pose models. That's
+> the power of DL Streamer.
 
-- `gvadetect`
-- `gvaclassify`
-- `gvawatermark`
+### 3.3 Human pose estimation on the dance video
 
-### Exercise 2.1: Create a Pipeline
-
-We will create a pipeline to detect people and vehicles in a video and
-classify the detected people and vehicles to provide additional
-attributes.
-
-Run the below pipeline at the command prompt and review the output:
+Now estimate body keypoints with `yolo11s-pose`:
 
 ```bash
 gst-launch-1.0 \
-filesrc location=${VIDEO_EXAMPLE} ! decodebin3 ! \
-gvadetect model=${DETECTION_MODEL} model_proc=${DETECTION_MODEL_PROC} device=CPU ! queue ! \
-gvaclassify model=${VEHICLE_CLASSIFICATION_MODEL} model-proc=${VEHICLE_CLASSIFICATION_MODEL_PROC} device=CPU object-class=vehicle ! queue ! \
-gvawatermark ! videoconvert ! autovideosink sync=false
+  filesrc location=${VIDEOS_PATH}/dance.mp4 ! decodebin3 ! \
+  gvadetect model=${MODELS_PATH}/yolo11s-pose/FP16/yolo11s-pose.xml device=GPU ! queue ! \
+  gvawatermark ! gvafpscounter ! videoconvert ! autovideosink sync=false
 ```
 
-> **Note**: On EMT OS the `X11/wayland` display server is by default disabled. To see the
-> the video for the above pipeline, replace the last gstreamer element `autovideosink sync=false`
-> with `kmssink sync=false`. The system on which the pipeline is running must be working on the KVM setup.
+**What you'll see:** a live skeleton overlaid on the dancer, tracking arms, legs,
+and joints as they move.
 
-**Expected output**: Persons, vehicles, and bikes are bound by colored
-boxes, and detection results as well as classification attributes such
-as vehicle type and color are displayed as video overlays.
+<p align="center">
+  <img src="../_images/tutorial_step_3.3.jpg" alt="Human pose estimation output: a skeleton of keypoints overlaid on the dancer" width="640"/>
+  <br/>
+  <em>Human pose estimation with <code>yolo11s-pose</code> on the dance video.</em>
+</p>
 
-In the above pipeline:
+---
 
-1. `gvadetect` detects the ROIs in the video and outputs ROIs with appropriate
-   attributes (person, vehicle, bike) according to its `model-proc` file.
-2. `gvadetect` ROIs are used as inputs for the `gvaclassify` model.
-3. `gvaclassify` classifies the ROIs and outputs additional attributes
-   according to the `model-proc` file:
+## Step 4 - Go further with DL Streamer
 
-   - `object-class` tells `gvalcassify` which ROIs to classify.
-   - `object-class=vehicle` classifies ROIs with `vehicle` attribute only.
+You've run detection, segmentation, and pose estimation. Here are four more things
+DL Streamer makes easy.
 
-4. `gvawatermark` displays the ROIs and their attributes.
+### 4.1 Track objects across frames
 
-See
-[model-proc](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc)
-for `model-proc` file examples as well as its input and output specifications.
+Detection finds objects in each frame independently. **Tracking** gives each
+object a stable ID so you can follow it through the video — and it boosts
+performance, because you don't have to run the AI model on every single frame.
 
-## Exercise 3: Use object tracking to improve performance {#object-tracking}
-
-This exercise helps you create a GStreamer pipeline that will use object
-tracking with `gvatrack` to reduce the frequency of object detection and
-classification, increasing the throughput.
-
-This exercise uses the following Pipeline Framework elements:
-
-- `gvadetect`
-- `gvaclassify`
-- `gvatrack`
-- `gvawatermark`
-
-### Exercise 3.1: Create a Pipeline
-
-We will use the same pipeline as in exercise 2, for detecting and
-classifying vehicle and people. We will add the `gvatrack` element after
-`gvadetect` and before `gvaclassify` to track objects. `gvatrack` will
-assign object IDs and provide updated ROIs between detections. We
-will also specify the parameters of `gvadetect` and `gvaclassify` elements
-to reduce the frequency of detection and classification.
-
-Run the below pipeline at the command prompt and review the output:
+We add `gvatrack` and tell `gvadetect` to only run every 3rd frame with
+`inference-interval=3`:
 
 ```bash
 gst-launch-1.0 \
-filesrc location=${VIDEO_EXAMPLE} ! decodebin3 ! \
-gvadetect model=${DETECTION_MODEL} model_proc=${DETECTION_MODEL_PROC} device=CPU inference-interval=10 ! queue ! \
-gvatrack tracking-type=short-term-imageless ! queue ! \
-gvaclassify model=${VEHICLE_CLASSIFICATION_MODEL} model-proc=${VEHICLE_CLASSIFICATION_MODEL_PROC} device=CPU object-class=vehicle reclassify-interval=10 ! queue ! \
-gvawatermark ! videoconvert ! autovideosink sync=false
+  filesrc location=${VIDEOS_PATH}/beach.mp4 ! decodebin3 ! \
+  gvadetect model=${MODELS_PATH}/yolo11s/FP16/yolo11s.xml device=GPU inference-interval=3 ! queue ! \
+  gvatrack tracking-type=short-term-imageless ! queue ! \
+  gvawatermark ! gvafpscounter ! videoconvert ! autovideosink sync=false
 ```
 
-> **Note**: On EMT OS the `X11/wayland` display server is by default disabled. To see the
-> the video for the above pipeline, replace the last gstreamer element `autovideosink sync=false`
-> with `kmssink sync=false`. The system on which the pipeline is running must be working on the KVM setup.
+**What you'll see:** each person on the beach keeps the same ID as they move, and
+the FPS in your terminal goes up compared to detecting on every frame.
 
-**Expected output**: Persons, vehicles, and bikes are bound by colored
-boxes, and detection results as well as classification attributes such
-as vehicle type and color are displayed as video overlays, same as
-exercise 2. However, notice the increase in the FPS of the pipeline.
+<p align="center">
+  <img src="../_images/tutorial_step_4.1.jpg" alt="Object tracking output: people on the beach each keep a stable ID box across frames" width="640"/>
+  <br/>
+  <em>Object tracking with <code>gvatrack</code> on the beach video.</em>
+</p>
 
-In the above pipeline:
+### 4.2 Anonymize people with a privacy blur
 
-1. `gvadetect` detects the ROIs in the video and outputs ROIs with
-   appropriate attributes (person, vehicle, bike), according to its
-   `model-proc` file, on every 10th frame (due to `inference-interval=10`).
-2. `gvatrack` tracks each object detected by `gvadetect`.
-3. `gvadetect` ROIs are used as inputs for the `gvaclassify` model.
-4. `gvaclassify` classifies the ROIs and outputs additional attributes
-   according to model-proc, but skips classification for already
-   classified objects for 10 frames, using tracking information from
-   `gvatrack` to determine whether to classify an object:
-   - `object-class` tells `gvaclassify` which ROIs to classify.
-   - `object-class=vehicle` classifies ROIs that have the `vehicle`
-     attribute.
-   - `reclassify-interval` determines how often to reclassify tracked
-     objects. Only valid when used in conjunction with `gvatrack`.
-5. `gvawatermark` displays the ROIs and their attributes.
-
-You're done building and running this pipeline. The next exercise shows
-you how to publish your results to a `.json`.
-
-## Exercise 4: Publish Inference Results
-
-This exercise extends the pipeline to publish your detection and
-classification results to a `.json` file from a GStreamer pipeline.
-
-This exercise uses the following Pipeline Framework elements:
-
-- `gvadetect`
-- `gvaclassify`
-- `gvametaconvert`
-- `gvametapublish`
-
-### Setup
-
-One additional setup step is required for this exercise, to export the
-output file path:
-
-```bash
-# Adjust the command below according to your needs
-export OUTFILE=~/pipeline_output.json
-```
-
-### Exercise 4.1: Create a Pipeline
-
-We will use the same pipeline as in exercise 2 for detecting and
-classifying vehicle and people. However, instead of overlaying the
-results and rendering them to a screen, we will send them to a file in
-JSON format.
-
-Run the below pipeline at the command prompt and review the output:
+Need to protect privacy? `gvawatermark` can **blur** detected objects — great for
+anonymizing faces, people, or license plates. Here we blur every detected
+`person` in the girl-and-dog video:
 
 ```bash
 gst-launch-1.0 \
-filesrc location=${VIDEO_EXAMPLE} ! decodebin3 ! \
-gvadetect model=${DETECTION_MODEL} model_proc=${DETECTION_MODEL_PROC} device=CPU ! queue ! \
-gvaclassify model=${VEHICLE_CLASSIFICATION_MODEL} model-proc=${VEHICLE_CLASSIFICATION_MODEL_PROC} device=CPU object-class=vehicle ! queue ! \
-gvametaconvert format=json ! \
-gvametapublish method=file file-path=${OUTFILE} ! \
-fakesink
+  filesrc location=${VIDEOS_PATH}/girl_dog.mp4 ! decodebin3 ! \
+  gvadetect model=${MODELS_PATH}/yolo11s/FP16/yolo11s.xml device=GPU ! queue ! videoconvert ! \
+  gvawatermark displ-cfg=enable-blur=true,show-blur-roi=person ! \
+  gvafpscounter ! videoconvert ! autovideosink sync=false
 ```
 
-**Expected output**: After the pipeline completes, a JSON file of the
-inference results is available. Review the JSON file.
+**What you'll see:** the girl is automatically blurred out for privacy, while her
+dog and everything else stay sharp — no manual editing required.
 
-In the above pipeline:
+<p align="center">
+  <img src="../_images/tutorial_step_4.2.jpg" alt="Privacy blur output: the detected person is blurred while the dog stays sharp" width="640"/>
+  <br/>
+  <em>Privacy blur of every <code>person</code> with <code>gvawatermark</code> on the girl-and-dog video.</em>
+</p>
 
-- `gvametaconvert` uses the optional parameter `format=json` to
-  convert inferenced data to `GstGVAJSONMeta`.
-- `gvametapublish` uses the optional parameter `method=file` to
-  publish inference results to a file.
-- `filepath=${OUTFILE}` is a JSON file to which the inference results
-  are published.
+> **Note:** The blur is applied by `gvawatermark`. To blur *everything* instead
+> of just people, drop the `show-blur-roi=person` part and use
+> `displ-cfg=enable-blur=true`.
 
-For publishing the results to MQTT or Kafka, please refer to
-[metapublish samples](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch/metapublish).
+### 4.3 Find anything with plain English (ready-made sample)
 
-You have completed this tutorial. Now, start creating your video
-analytics pipelines with Deep Learning Streamer Pipeline Framework!
+This is where the ready-made samples shine. This step runs the **prompt-based
+detection sample** that ships with DL Streamer — it uses an *open-vocabulary*
+model: you describe what to find in plain English, and it detects only that. Our
+skateboard clip has a dog wandering in — let's find it.
 
-## Additional Resources
+Set up the sample's Python environment inside a dedicated `prompted_detection`
+subfolder of `~/dlstreamer_demo` (the sample lives under `/opt`, which is
+read-only). Running from its own folder keeps the files the sample creates — the
+downloaded model, the exported OpenVINO model, and the output video — neatly in
+one place. The `--system-site-packages` flag lets the environment **reuse the
+GStreamer Python bindings (PyGObject) already installed on your system**, so we
+only need to add `ultralytics`:
 
-- [Samples overview](https://github.com/open-edge-platform/dlstreamer/blob/main/samples/gstreamer/README.md)
-- [Elements](../elements/elements.md)
-- [How to create model-proc file](../dev_guide/how_to_create_model_proc_file.md)
+```bash
+source /opt/intel/dlstreamer/scripts/setup_dls_env.sh
+mkdir -p ~/dlstreamer_demo/prompted_detection
+cd ~/dlstreamer_demo/prompted_detection
+python3 -m venv --system-site-packages .prompt-venv
+source .prompt-venv/bin/activate
+pip install --extra-index-url https://download.pytorch.org/whl/cpu ultralytics==8.4.57
+```
+
+> **Note:** Don't `pip install PyGObject` here — building it from source needs
+> extra system libraries. Thanks to `--system-site-packages`, the version that
+> ships with your system is used automatically. If running the sample later fails
+> with `No module named 'gi'`, install the bindings once with
+> `sudo apt install -y python3-gi python3-gi-cairo`.
+
+Now search the skateboard video for a `dog` and save an annotated video:
+
+```bash
+python3 /opt/intel/dlstreamer/samples/gstreamer/python/prompted_detection/prompted_detection.py \
+  ${VIDEOS_PATH}/skateboard.mp4 "dog" GPU file
+deactivate
+```
+
+**What you'll see:** a new file `skateboard_output.mp4` in
+`~/dlstreamer_demo/prompted_detection`,
+with the dog boxed and labelled — and nothing else. Try other prompts like
+`"white shoes"` or `"backpack"`!
+
+<p align="center">
+  <img src="../_images/tutorial_step_4.3.jpg" alt="Prompt-based detection output: only the dog is boxed and labelled, nothing else" width="640"/>
+  <br/>
+  <em>Prompt-based detection searching the skateboard video for <code>"dog"</code>.</em>
+</p>
+
+> **Why a sample here?** Open-vocabulary detection needs a bit of Python glue to
+> turn your prompt into a model. The sample handles that for you — see its
+> [README](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/python/prompted_detection)
+> for details.
+
+### 4.4 Save results to a file instead of the screen
+
+AI results aren't only for viewing — you can export them as structured **JSON**
+data to feed a database, dashboard, or alerting system. Here we replace the
+screen with a file writer:
+
+```bash
+gst-launch-1.0 \
+  filesrc location=${VIDEOS_PATH}/skateboard.mp4 ! decodebin3 ! \
+  gvadetect model=${MODELS_PATH}/yolo11s/FP16/yolo11s.xml device=GPU ! queue ! \
+  gvametaconvert format=json ! \
+  gvametapublish method=file file-path=${HOME}/dlstreamer_demo/results.json ! \
+  fakesink sync=false
+```
+
+When it finishes, peek at the results:
+
+```bash
+head ${HOME}/dlstreamer_demo/results.json
+```
+
+**What you'll see:** one JSON object per frame, listing every detected object with
+its label, confidence, and bounding box — ready for further processing.
+
+---
+
+## Step 5 - Run in Docker (GPU/NPU passthrough)
+
+Prefer containers? DL Streamer ships a ready-made Docker image. The key trick is
+**passing your Intel® GPU and NPU devices into the container** so inference stays
+hardware-accelerated.
+
+Run the container, mounting your models and videos and forwarding both devices.
+We also set `MODELS_PATH` and `VIDEOS_PATH` right in the `docker run` command, so
+they're ready to use inside the container:
+
+```bash
+docker run -it --rm \
+  -v ${MODELS_PATH}:/home/dlstreamer/models \
+  -v ${VIDEOS_PATH}:/home/dlstreamer/videos \
+  --env MODELS_PATH=/home/dlstreamer/models \
+  --env VIDEOS_PATH=/home/dlstreamer/videos \
+  --device /dev/dri \
+  --group-add $(stat -c "%g" /dev/dri/render*) \
+  --device /dev/accel \
+  --group-add $(stat -c "%g" /dev/accel/accel*) \
+  --env ZE_ENABLE_ALT_DRIVERS=libze_intel_npu.so \
+  intel/dlstreamer:latest
+```
+
+What the device flags do:
+
+| Flag | Purpose |
+|---|---|
+| `--device /dev/dri` | Gives the container access to the Intel® **GPU** |
+| `--group-add $(stat -c "%g" /dev/dri/render*)` | Grants non-root permission to the GPU |
+| `--device /dev/accel` | Gives the container access to the Intel® **NPU** |
+| `--group-add $(stat -c "%g" /dev/accel/accel*)` | Grants non-root permission to the NPU |
+| `--env ZE_ENABLE_ALT_DRIVERS=...` | Enables the NPU driver inside the container |
+
+Now, **inside the container**, run a pipeline. Since a container is typically
+headless, we output to a file:
+
+```bash
+gst-launch-1.0 \
+  filesrc location=${VIDEOS_PATH}/bridge.mp4 ! decodebin3 ! \
+  gvadetect model=${MODELS_PATH}/yolo11s/FP16/yolo11s.xml device=GPU ! queue ! \
+  gvawatermark ! gvafpscounter ! \
+  vah264enc ! h264parse ! mp4mux ! filesink location=${VIDEOS_PATH}/bridge_detected.mp4
+```
+
+**What you'll get:** `bridge_detected.mp4` appears back on your host in
+`~/dlstreamer_demo/videos/` (thanks to the volume mount), annotated with detections —
+proof that GPU acceleration worked inside the container. Swap `device=GPU` for
+`device=NPU` to run the same pipeline on the NPU.
+
+> **Tip:** To see live video from a container on a Linux desktop, you also need
+> to forward the X11 display (`--env DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix`).
+> Saving to a file, as above, works everywhere.
+
+---
+
+## Where to next?
+
+Congratulations — you built and ran real video AI pipelines with DL Streamer! 🎉
+
+Great places to continue:
+
+- **[Elements reference](../elements/elements.md)** — the full catalog of `gva`
+  elements you can mix and match (classification, audio, GenAI, and more).
+- **[Samples](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer)** —
+  30+ ready-to-run examples: multi-stream, face analysis, LiDAR, radar,
+  Vision-Language Models, and Kafka/MQTT publishing.
+- **[Supported models](../supported_models.md)** — the 70+ models you can run out
+  of the box.
+- **[How to create a model-proc file](../dev_guide/how_to_create_model_proc_file.md)** —
+  for integrating your own custom models.
+
+Ideas to try right now by editing the commands above:
+
+- Change `device=GPU` to `device=NPU` or `device=CPU`.
+- Replace `filesrc location=...` with `v4l2src device=/dev/video0` to run on your
+  **webcam** in real time.
+- Replace `filesrc location=...` with
+  `urisourcebin buffer-size=4096 uri=<RTSP_or_HTTP_URL>` to run on a **network
+  stream**.
+- Swap `yolo11s` for a larger model like `yolo11m` for higher accuracy.
 
 ------------------------------------------------------------------------
 
-> **\*** *Other names and brands may be claimed as the property of
-> others.*
+> **\*** *Other names and brands may be claimed as the property of others.*
