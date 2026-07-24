@@ -84,6 +84,23 @@ handle_error() {
     exit 1
 }
 
+download_binary_file() {
+  local url="$1"
+  local output_path="$2"
+  local mime_type
+
+  curl -fL --retry 3 --retry-all-errors -o "$output_path" "$url" || return 1
+
+  mime_type=$(file --brief --mime-type "$output_path" 2>/dev/null || true)
+  if [[ "$mime_type" == text/* || "$mime_type" == application/xml || "$mime_type" == application/json ]]; then
+    echo "Unexpected response while downloading $url" >&2
+    echo "Downloaded file MIME type: ${mime_type:-unknown}" >&2
+    head -n 5 "$output_path" >&2 || true
+    rm -f "$output_path"
+    return 1
+  fi
+}
+
 # Function to display header in logs
 display_header() {
     local text="$1"
@@ -383,7 +400,9 @@ if array_contains "yolox_s" "${MODELS_TO_PROCESS[@]}"; then
     mkdir -p "$MODEL_DIR/FP16"
     mkdir -p "$MODEL_DIR/FP32"
     cd "$MODEL_DIR"
-    curl -O -L https://github.com/Megvii-BaseDetection/YOLOX/releases/download/0.1.1rc0/yolox_s.onnx
+    download_binary_file \
+      "https://github.com/Megvii-BaseDetection/YOLOX/releases/download/0.1.1rc0/yolox_s.onnx" \
+      "yolox_s.onnx" || handle_error "failed to download yolox_s.onnx from GitHub release"
     ovc yolox_s.onnx --compress_to_fp16=True
     mv yolox_s.xml "$MODEL_DIR/FP16"
     mv yolox_s.bin "$MODEL_DIR/FP16"
