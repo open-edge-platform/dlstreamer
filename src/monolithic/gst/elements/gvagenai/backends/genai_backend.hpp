@@ -11,9 +11,10 @@
 
 #include "genai_config.h"
 
-#include <map>
+#include <openvino/runtime/tensor.hpp>
+
+#include <future>
 #include <memory>
-#include <mutex>
 #include <string>
 #include <vector>
 
@@ -30,54 +31,43 @@ struct GenAIResult {
 };
 
 /**
+ * @brief A single, self-contained inference request
+ *
+ * Carries everything one inference needs, so backends hold no per-inference
+ * frame state and multiple requests can be built/submitted independently.
+ * Frames are RGB u8 tensors of shape {1, H, W, C}, already mapped to CPU by
+ * the element (see frame_utils.hpp). Tensors own their pixel data so the
+ * originating GstBuffer can be released immediately after the request is built.
+ */
+struct GenRequest {
+    std::vector<ov::Tensor> frames;               // RGB {1,H,W,C} owning tensors
+    std::string prompt;                           // Text query/prompt
+    bool as_video = false;                        // Present frames as one video clip vs independent images
+    float fps = 0.0f;                             // Frame rate of the clip (used when as_video); 0 if unknown
+    GstClockTime timestamp = GST_CLOCK_TIME_NONE; // Buffer timestamp to bake into the result's raw_json
+};
+
+/**
  * @brief Abstract interface for all GenAI backends
  *
- * Uses a two-phase model: frames are accumulated via add_frame() and then
- * processed together by infer(). Each backend owns how it stores frames,
- * allowing it to map the GStreamer buffer to the memory type it prefers
- * (CPU cv::Mat today; VAAPI surface / D3D11 texture / DMABuf in the future)
- * without a forced GPU->CPU download at the interface boundary.
+ * Stateless per request: an inference is fully described by the GenRequest
+ * passed to submit(). Backends own how they turn the RGB tensors into their
+ * native input (OpenVINO tensors, base64 JPEG, ...).
  */
 class IGenAIBackend {
   public:
+    using Ptr = std::shared_ptr<IGenAIBackend>;
+
     virtual ~IGenAIBackend() = default;
 
     /**
-     * @brief Accumulate a single frame for the next inference
+     * @brief Run inference on the request's frames
      *
-     * The backend decides how to map and store the buffer (CPU/VAAPI/D3D11).
-     * @param buffer GStreamer buffer containing the video frame
-     * @param info Video format information
-     * @throws std::runtime_error if the frame cannot be mapped/converted
+     * Returns a future that is already satisfied for synchronous backends, or
+     * becomes ready later for asynchronous ones. get() returns the GenAIResult
+     * or rethrows any error raised during generation.
      */
-    virtual void add_frame(GstBuffer *buffer, GstVideoInfo *info) = 0;
-
-    /**
-     * @brief Number of frames currently accumulated
-     * @return Count of buffered frames awaiting inference
-     */
-    virtual size_t frame_count() const = 0;
-
-    /**
-     * @brief Discard all accumulated frames without running inference
-     */
-    virtual void clear_frames() = 0;
-
-    /**
-     * @brief Run inference on the accumulated frames
-     *
-     * On success the backend clears its internal frame buffer.
-     * @param prompt Text query/prompt
-     * @param as_video If true, present the accumulated frames as a single video clip
-     *        instead of independent images (backend-specific; ignored if unsupported).
-     * @param fps Frame rate of the accumulated frames, used when as_video is true.
-     *        Pass 0.0 if unknown. Ignored when as_video is false.
-     * @param timestamp Buffer timestamp to bake into the result's raw_json
-     * @return GenAIResult with text, confidence, and metadata
-     * @throws std::runtime_error on failure
-     */
-    virtual GenAIResult infer(const std::string &prompt, bool as_video = false, float fps = 0.0f,
-                              GstClockTime timestamp = GST_CLOCK_TIME_NONE) = 0;
+    virtual std::future<GenAIResult> submit(GenRequest req) = 0;
 
     /**
      * @brief Update generation configuration (backend-specific format)
@@ -86,10 +76,10 @@ class IGenAIBackend {
     virtual void set_generation_config(const std::string &cfg) = 0;
 
     /**
-     * @brief Get backend identifier for logging/debugging
+     * @brief Get backend identifier for logging/debugging and JSON meta
      * @return Backend name (e.g., "openvino", "openai-http")
      */
-    virtual std::string backend_id() const = 0;
+    virtual std::string describe() const = 0;
 
     /**
      * @brief Check if backend is asynchronous
@@ -117,18 +107,22 @@ struct OpenVINOBackendParams {
  * @brief Parameters passed to the HTTP backend constructor (internal)
  */
 struct HttpBackendParams {
-    std::string server_url; // e.g., "http://localhost:8000/v1"
-    std::string model_name; // e.g., "llava-1.5-7b"
-    std::string api_key;    // Optional: Bearer token or API key
-    std::string timeout_ms; // Optional: request timeout
+    std::string server_url;       // e.g., "http://localhost:8000/v1"
+    std::string model_name;       // e.g., "llava-1.5-7b"
+    std::string api_key;          // Optional: Bearer token or API key
+    std::string timeout_ms;       // Optional: request timeout
+    bool include_metrics = false; // Include usage/token metrics in JSON output
 };
 
 /**
  * @brief Process-wide registry for GenAI backends
  *
- * Thread-safe singleton that manages backend lifecycle:
- * - OpenVINO backends: new instance per request (no caching)
- * - HTTP backends: cached by (server_url, model) pair (shared reuse)
+ * Factory for backend instances. Every call to create_backend() returns a
+ * freshly created backend (OpenVINO and HTTP alike) with per-element
+ * ownership: IGenAIBackend accumulates frame state internally (add_frame/
+ * frame_count/clear_frames), so instances must never be shared across
+ * multiple gvagenai elements - doing so would corrupt each other's frame
+ * buffers. No caching/sharing is performed by design.
  *
  * Example usage:
  *   GenAIBackendConfig cfg = {};
@@ -145,31 +139,17 @@ class GenAIBackendRegistry {
     static GenAIBackendRegistry &instance();
 
     /**
-     * @brief Create (or reuse) a backend from a plain-C config
+     * @brief Create a new backend from a plain-C config
      *
-     * Dispatches on config.backend ("openvino" / "openai-http"). OpenVINO
-     * backends are always freshly created (per-element ownership); HTTP
-     * backends are cached and shared by (server_url, model).
+     * Dispatches on config.backend ("openvino" / "openai-http"). Always
+     * creates a fresh instance - see class documentation for why backends
+     * are never shared/cached.
      *
      * @param config Backend configuration (element property storage)
      * @return Shared pointer to the backend
      * @throws std::runtime_error if the backend type is unknown or creation fails
      */
     std::shared_ptr<IGenAIBackend> create_backend(const GenAIBackendConfig &config);
-
-    /**
-     * @brief Clear all cached HTTP backends
-     *
-     * Useful for testing or graceful shutdown. OpenVINO backends
-     * are not cached so this doesn't affect them.
-     */
-    void clear_http_backends();
-
-    /**
-     * @brief Get count of currently cached HTTP backends
-     * @return Number of cached HTTP backends
-     */
-    size_t http_backend_count() const;
 
   private:
     GenAIBackendRegistry() = default;
@@ -182,12 +162,6 @@ class GenAIBackendRegistry {
     // Backend-specific creation helpers (called by create_backend)
     std::shared_ptr<IGenAIBackend> get_openvino_backend(const OpenVINOBackendParams &params);
     std::shared_ptr<IGenAIBackend> get_http_backend(const HttpBackendParams &params);
-
-    // Cache key: (server_url, model_name)
-    using HttpBackendKey = std::pair<std::string, std::string>;
-
-    mutable std::mutex mutex_;
-    std::map<HttpBackendKey, std::shared_ptr<IGenAIBackend>> http_backends_;
 };
 
 } // namespace genai

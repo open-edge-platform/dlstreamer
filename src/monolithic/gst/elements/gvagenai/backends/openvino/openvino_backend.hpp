@@ -32,27 +32,12 @@ class OpenVINOGenAIBackend : public IGenAIBackend {
     ~OpenVINOGenAIBackend() override = default;
 
     /**
-     * @brief Accumulate a frame as an OpenVINO tensor (GstBuffer -> RGB -> tensor)
-     */
-    void add_frame(GstBuffer *buffer, GstVideoInfo *info) override;
-
-    /**
-     * @brief Number of accumulated tensors
-     */
-    size_t frame_count() const override;
-
-    /**
-     * @brief Clear accumulated tensors
-     */
-    void clear_frames() override;
-
-    /**
-     * @brief Run inference on accumulated tensors
+     * @brief Run inference on the request's frame tensors
      *
-     * Returns text, confidence, and full JSON metadata (with metrics and timestamp).
+     * Returns an already-satisfied future carrying text, confidence, and full
+     * JSON metadata (with metrics and timestamp), or an exception on failure.
      */
-    GenAIResult infer(const std::string &prompt, bool as_video = false, float fps = 0.0f,
-                      GstClockTime timestamp = GST_CLOCK_TIME_NONE) override;
+    std::future<GenAIResult> submit(GenRequest req) override;
 
     /**
      * @brief Update generation configuration (KEY=VALUE,KEY=VALUE format)
@@ -62,7 +47,7 @@ class OpenVINOGenAIBackend : public IGenAIBackend {
     /**
      * @brief Backend identifier
      */
-    std::string backend_id() const override {
+    std::string describe() const override {
         return "openvino";
     }
 

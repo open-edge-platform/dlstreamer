@@ -15,7 +15,10 @@
 #include "gva_json_meta.h"
 #include <gst/analytics/gstanalyticsclassificationmtd.h>
 
+#include "backends/frame_utils.hpp"
 #include "backends/genai_backend.hpp"
+
+#include <vector>
 
 GST_DEBUG_CATEGORY(gst_gvagenai_debug);
 #define GST_CAT_DEFAULT gst_gvagenai_debug
@@ -80,6 +83,15 @@ G_DEFINE_TYPE(GstGvaGenAI, gst_gvagenai, GST_TYPE_BASE_TRANSFORM);
 
 // Backend pointer stored in gvagenai->backend (heap-allocated shared_ptr)
 using BackendPtr = std::shared_ptr<genai::IGenAIBackend>;
+
+// Per-element runtime state stored in gvagenai->backend (heap-allocated).
+// Holds the backend plus the frame-accumulation state that used to live inside
+// the backend: a reusable GST->CPU mapper and the pending RGB frame tensors.
+struct GvaGenAIRuntime {
+    BackendPtr backend;
+    std::shared_ptr<dlstreamer::MemoryMapperGSTToCPU> mapper;
+    std::vector<ov::Tensor> frames;
+};
 
 // GObject vmethod implementations
 static void gst_gvagenai_set_property(GObject *object, guint prop_id, const GValue *value, GParamSpec *pspec);
@@ -484,7 +496,10 @@ static gboolean gst_gvagenai_start(GstBaseTransform *base) {
     // Create backend through the process-wide registry using the element config
     try {
         BackendPtr backend = genai::GenAIBackendRegistry::instance().create_backend(gvagenai->config);
-        gvagenai->backend = new BackendPtr(std::move(backend));
+        auto *runtime = new GvaGenAIRuntime();
+        runtime->backend = std::move(backend);
+        runtime->mapper = std::make_shared<dlstreamer::MemoryMapperGSTToCPU>(nullptr, nullptr);
+        gvagenai->backend = runtime;
     } catch (const std::exception &e) {
         GST_ELEMENT_ERROR(gvagenai, LIBRARY, INIT, ("Failed to initialize GenAI backend"), ("%s", e.what()));
         return FALSE;
@@ -497,11 +512,8 @@ static gboolean gst_gvagenai_stop(GstBaseTransform *base) {
     GstGvaGenAI *gvagenai = GST_GVAGENAI(base);
 
     if (gvagenai->backend) {
-        auto *backend_ptr = static_cast<BackendPtr *>(gvagenai->backend);
-        if (*backend_ptr) {
-            (*backend_ptr)->clear_frames();
-        }
-        delete backend_ptr;
+        auto *runtime = static_cast<GvaGenAIRuntime *>(gvagenai->backend);
+        delete runtime;
         gvagenai->backend = NULL;
     }
 
@@ -516,6 +528,8 @@ static GstFlowReturn gst_gvagenai_transform_ip(GstBaseTransform *base, GstBuffer
                           ("GenAI backend is not initialized, element may not have started properly"));
         return GST_FLOW_ERROR;
     }
+
+    auto *runtime = static_cast<GvaGenAIRuntime *>(gvagenai->backend);
 
     GST_OBJECT_LOCK(gvagenai);
     gboolean _success = TRUE;
@@ -536,7 +550,7 @@ static GstFlowReturn gst_gvagenai_transform_ip(GstBaseTransform *base, GstBuffer
     gst_video_info_from_caps(&info, caps);
     gst_caps_unref(caps);
 
-    BackendPtr &backend = *static_cast<BackendPtr *>(gvagenai->backend);
+    BackendPtr &backend = runtime->backend;
 
     gvagenai->frame_counter++;
 
@@ -555,16 +569,16 @@ static GstFlowReturn gst_gvagenai_transform_ip(GstBaseTransform *base, GstBuffer
 
     // Run inference only on non-skipped frames
     if (!skip_frame) {
-        // Accumulate frame in the backend
+        // Accumulate frame as an RGB tensor (converted once, centrally, for all backends)
         try {
-            backend->add_frame(buf, &info);
+            runtime->frames.push_back(genai::gst_buffer_to_rgb_tensor(*runtime->mapper, buf, &info));
         } catch (const std::exception &e) {
             GST_ELEMENT_ERROR(gvagenai, STREAM, FAILED, ("Failed to add frame to backend"), ("Error: %s", e.what()));
             return GST_FLOW_ERROR;
         }
 
         // Only process if we've accumulated enough frames
-        if (backend->frame_count() >= gvagenai->chunk_size) {
+        if (runtime->frames.size() >= gvagenai->chunk_size) {
             const gboolean as_video = (gvagenai->config.vision_mode == GVAGENAI_VISION_MODE_VIDEO);
 
             // Derive the effective fps of the frames actually accumulated, so VideoMetadata.fps
@@ -580,10 +594,17 @@ static GstFlowReturn gst_gvagenai_transform_ip(GstBaseTransform *base, GstBuffer
                 }
             }
 
+            genai::GenRequest req;
+            req.frames = std::move(runtime->frames);
+            req.prompt = gvagenai->prompt_string;
+            req.as_video = as_video;
+            req.fps = (float)effective_fps;
+            req.timestamp = GST_BUFFER_TIMESTAMP(buf);
+            runtime->frames.clear(); // a moved-from vector is not guaranteed empty
+
             genai::GenAIResult result;
             try {
-                result =
-                    backend->infer(gvagenai->prompt_string, as_video, (float)effective_fps, GST_BUFFER_TIMESTAMP(buf));
+                result = backend->submit(std::move(req)).get();
             } catch (const std::exception &e) {
                 GST_ELEMENT_ERROR(gvagenai, STREAM, FAILED, ("Failed to run backend inference"),
                                   ("Error: %s", e.what()));
@@ -602,7 +623,7 @@ static GstFlowReturn gst_gvagenai_transform_ip(GstBaseTransform *base, GstBuffer
                 GST_INFO_OBJECT(gvagenai, "Added meta message: %s", json_meta->message);
             }
         } else {
-            GST_DEBUG_OBJECT(gvagenai, "Added frame %u of %u", (guint)backend->frame_count(), gvagenai->chunk_size);
+            GST_DEBUG_OBJECT(gvagenai, "Added frame %u of %u", (guint)runtime->frames.size(), gvagenai->chunk_size);
         }
     }
 

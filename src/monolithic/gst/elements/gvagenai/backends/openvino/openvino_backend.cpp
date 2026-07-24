@@ -6,6 +6,7 @@
 
 #include "openvino_backend.hpp"
 
+#include <future>
 #include <gst/gst.h>
 #include <stdexcept>
 
@@ -25,39 +26,31 @@ OpenVINOGenAIBackend::OpenVINOGenAIBackend(const OpenVINOBackendParams &params)
     }
 }
 
-GenAIResult OpenVINOGenAIBackend::infer(const std::string &prompt, bool as_video, float fps, GstClockTime timestamp) {
-    if (context_->get_tensor_vector_size() == 0) {
-        throw std::runtime_error("Cannot run inference with no accumulated frames");
-    }
+std::future<GenAIResult> OpenVINOGenAIBackend::submit(GenRequest req) {
+    std::promise<GenAIResult> promise;
+    std::future<GenAIResult> future = promise.get_future();
 
-    // Run inference (clears tensor vector internally on success)
+    // Synchronous backend: compute now and return an already-satisfied future.
     try {
-        context_->inference_tensor_vector(prompt, as_video, fps);
+        if (req.frames.empty()) {
+            throw std::runtime_error("Cannot run inference with no accumulated frames");
+        }
+
+        context_->inference_tensor_vector(req.frames, req.prompt, req.as_video, req.fps);
+
+        GenAIResult result;
+        result.text = context_->get_last_result();
+        result.confidence = context_->get_last_confidence();
+        result.raw_json = context_->create_json_metadata(req.timestamp, include_metrics_);
+        result.backend_name = describe();
+
+        promise.set_value(std::move(result));
     } catch (const std::exception &e) {
-        context_->clear_tensor_vector();
-        throw std::runtime_error(std::string("OpenVINO inference failed: ") + e.what());
+        promise.set_exception(
+            std::make_exception_ptr(std::runtime_error(std::string("OpenVINO inference failed: ") + e.what())));
     }
 
-    // Assemble result
-    GenAIResult result;
-    result.text = context_->get_last_result();
-    result.confidence = context_->get_last_confidence();
-    result.raw_json = context_->create_json_metadata(timestamp, include_metrics_);
-    result.backend_name = backend_id();
-
-    return result;
-}
-
-void OpenVINOGenAIBackend::add_frame(GstBuffer *buffer, GstVideoInfo *info) {
-    context_->add_tensor_to_vector(buffer, info);
-}
-
-size_t OpenVINOGenAIBackend::frame_count() const {
-    return context_->get_tensor_vector_size();
-}
-
-void OpenVINOGenAIBackend::clear_frames() {
-    context_->clear_tensor_vector();
+    return future;
 }
 
 void OpenVINOGenAIBackend::set_generation_config(const std::string &cfg) {

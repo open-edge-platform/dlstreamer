@@ -6,6 +6,9 @@
 
 #include "genai_backend.hpp"
 #include "openvino/openvino_backend.hpp"
+#ifdef GVAGENAI_HAVE_HTTP_BACKEND
+#include "openai-http/openai_http_backend.hpp"
+#endif
 
 #include <gst/gst.h>
 #include <stdexcept>
@@ -42,6 +45,7 @@ std::shared_ptr<IGenAIBackend> GenAIBackendRegistry::create_backend(const GenAIB
         params.model_name = str(config.model);
         params.api_key = str(config.api_key);
         params.timeout_ms = str(config.timeout_ms);
+        params.include_metrics = (config.include_metrics != FALSE);
         return get_http_backend(params);
     }
 
@@ -62,48 +66,21 @@ std::shared_ptr<IGenAIBackend> GenAIBackendRegistry::get_openvino_backend(const 
 }
 
 std::shared_ptr<IGenAIBackend> GenAIBackendRegistry::get_http_backend(const HttpBackendParams &params) {
-    std::lock_guard<std::mutex> lock(mutex_);
-
-    // Create cache key from server_url and model_name
-    HttpBackendKey key = {params.server_url, params.model_name};
-
-    // Check if already cached
-    auto it = http_backends_.find(key);
-    if (it != http_backends_.end()) {
-        GST_DEBUG("Reusing cached HTTP backend for %s (model: %s)", params.server_url.c_str(),
-                  params.model_name.c_str());
-        return it->second;
-    }
-
-    // Create new HTTP backend
+#ifdef GVAGENAI_HAVE_HTTP_BACKEND
+    // Always create a fresh instance (see class documentation: HTTP backends are never
+    // shared/cached because IGenAIBackend accumulates per-element frame state).
     GST_INFO("Creating new HTTP backend for %s (model: %s)", params.server_url.c_str(), params.model_name.c_str());
 
     try {
-        // TODO: Implement OpenAIHttpBackend
-        // For now, placeholder
-        throw std::runtime_error("HTTP backend not yet implemented");
-
-        // auto backend = std::make_shared<OpenAIHttpBackend>(
-        //     params.server_url, params.model_name, params.api_key, params.timeout_ms);
-        //
-        // http_backends_[key] = backend;
-        // GST_INFO("Cached HTTP backend, total backends now: %zu", http_backends_.size());
-        // return backend;
+        return std::make_shared<OpenAIHttpBackend>(params);
     } catch (const std::exception &e) {
         GST_ERROR("Failed to create HTTP backend: %s", e.what());
         throw;
     }
-}
-
-void GenAIBackendRegistry::clear_http_backends() {
-    std::lock_guard<std::mutex> lock(mutex_);
-    GST_INFO("Clearing %zu cached HTTP backends", http_backends_.size());
-    http_backends_.clear();
-}
-
-size_t GenAIBackendRegistry::http_backend_count() const {
-    std::lock_guard<std::mutex> lock(mutex_);
-    return http_backends_.size();
+#else
+    (void)params;
+    throw std::runtime_error("'openai-http' backend is not available: DL Streamer was built without libcurl");
+#endif
 }
 
 } // namespace genai
