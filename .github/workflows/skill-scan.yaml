@@ -1,38 +1,42 @@
----
-# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
-# SPDX-License-Identifier: Apache-2.0
-
 name: Skill Scanner
-
+run-name: "Skill Scanner (by @${{ github.actor }} via ${{ github.event_name }})"
 on:
-  pull_request:
-    paths:
-      - ".github/skills/**"
-      - "**/.github/skills/**"
-      - ".github/workflows/skill-scan.yaml"
-  push:
-    branches: ["main"]
-  schedule:
-    - cron: "0 2 * * *"
+  workflow_call:
+    inputs:
+      severity:
+        description: "SkillSpector severity level (CRITICAL, HIGH, MEDIUM, LOW)"
+        required: false
+        type: string
+        default: "HIGH"
+      fail_on_findings:
+        description: "Fail the workflow when findings are detected"
+        required: false
+        type: boolean
+        default: true
   workflow_dispatch:
     inputs:
       severity:
         description: "SkillSpector severity level (CRITICAL, HIGH, MEDIUM, LOW)"
         required: false
-        default: "LOW"
+        default: "HIGH"
         type: choice
         options:
           - CRITICAL
           - HIGH
           - MEDIUM
           - LOW
+      fail_on_findings:
+        description: "Fail the workflow when findings are detected"
+        required: false
+        default: true
+        type: boolean
 
 permissions: {}
 
 jobs:
   discover-skills:
     name: Discover skill paths
-    runs-on: ubuntu-latest
+    runs-on: dlstreamer
     timeout-minutes: 10
     permissions:
       contents: read
@@ -56,8 +60,8 @@ jobs:
   skillspector-scan:
     name: SkillSpector security scan (${{ matrix.skills-path }})
     needs: discover-skills
-    runs-on: ubuntu-latest
-    timeout-minutes: 90
+    runs-on: dlstreamer
+    timeout-minutes: 10
     permissions:
       contents: read
     strategy:
@@ -75,14 +79,14 @@ jobs:
         uses: open-edge-platform/geti-ci/actions/skill-scan@78e175e3e91f997e168a09aadd1933da95c1ac98 # skill-scan/v0.1.0
         with:
           skills-path: ${{ matrix.skills-path }}
-          severity-level: ${{ github.event_name == 'pull_request' && 'HIGH' || github.event.inputs.severity || 'LOW' }}
-          fail-on-findings: ${{ github.event_name == 'pull_request' && 'true' || 'false' }}
+          severity-level: ${{ inputs.severity || 'HIGH' }}
+          fail-on-findings: ${{ inputs.fail_on_findings || 'true' }}
 
   skill-validator-scan:
     name: skill-validator scan (${{ matrix.skills-path }})
     needs: discover-skills
-    runs-on: ubuntu-latest
-    timeout-minutes: 90
+    runs-on: dlstreamer
+    timeout-minutes: 10
     permissions:
       contents: read
     strategy:
@@ -100,5 +104,4 @@ jobs:
         uses: open-edge-platform/geti-ci/actions/skill-validator@ac8d35f5bb94a135ec778498cf5082bc70babffe # skill-validator/v0.1.0
         with:
           skills-path: ${{ matrix.skills-path }}
-          strict: ${{ github.event_name == 'pull_request' && 'true' || 'false' }}
-          fail-on-findings: ${{ github.event_name == 'pull_request' && 'true' || 'false' }}
+          fail-on-findings: ${{ inputs.fail_on_findings || 'true' }}
