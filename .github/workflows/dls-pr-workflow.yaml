@@ -34,7 +34,7 @@ jobs:
     runs-on: dlstreamer
     steps:
       - name: Check out dlstreamer repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6.0.2
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 #7.0.0
         with:
           persist-credentials: false
           path: dlstreamer-repo
@@ -62,7 +62,7 @@ jobs:
     runs-on: dlstreamer
     steps:
       - name: Check out dlstreamer repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6.0.2
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 #7.0.0
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -101,7 +101,7 @@ jobs:
       docker_changed: ${{ steps.check.outputs.docker_changed }}
     steps:
       - name: Check out dlstreamer repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6.0.2
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 #7.0.0
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -190,7 +190,7 @@ jobs:
             output-file: hadolint-dlstreamer-testing-ubuntu.json
     steps:
       - name: Check out dlstreamer repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6.0.2
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 #7.0.0
         with:
           persist-credentials: false
 
@@ -212,7 +212,7 @@ jobs:
     runs-on: dlstreamer
     steps:
       - name: Check out dlstreamer repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6.0.2
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 #7.0.0
         with:
           persist-credentials: false
           path: dlstreamer-repo
@@ -239,7 +239,7 @@ jobs:
     runs-on: dlstreamer
     steps:
       - name: Check out dlstreamer repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6.0.2
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 #7.0.0
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -262,7 +262,7 @@ jobs:
     runs-on: dlstreamer
     steps:
       - name: Check out dlstreamer repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6.0.2
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 #7.0.0
         with:
           persist-credentials: false
 
@@ -283,7 +283,7 @@ jobs:
     runs-on: dlstreamer
     steps:
       - name: Check out dlstreamer repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6.0.2
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 #7.0.0
         with:
           persist-credentials: false
           path: dlstreamer-repo
@@ -340,12 +340,12 @@ jobs:
     runs-on: dlstreamer
     steps:
       - name: Check out dlstreamer repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6.0.2
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 #7.0.0
         with:
           persist-credentials: false
 
       - name: Run Bandit scan
-        uses: open-edge-platform/orch-ci/.github/actions/security/bandit@1871595c6bb5f5f29b957725e9cbb05ef8071ca1
+        uses: open-edge-platform/orch-ci/.github/actions/security/bandit@db3a4eb9966dd1cba2061c16a94d769b7fccf243
         with:
           scan-scope: "all"
           severity-level: "MEDIUM"
