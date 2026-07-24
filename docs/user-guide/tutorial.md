@@ -1,5 +1,16 @@
 # Tutorial
 
+<table align="center" cellspacing="0" cellpadding="0" border="0">
+  <tr>
+    <td align="center" style="padding:0"><img src="../_images/tutorial_step_3.2.jpg" alt="Instance segmentation output" width="380" style="display:block"/></td>
+    <td align="center" style="padding:0"><img src="../_images/tutorial_step_3.3_crop.jpg" alt="Human pose estimation output" width="380" style="display:block"/></td>
+  </tr>
+  <tr>
+    <td align="center" style="padding:0"><img src="../_images/tutorial_step_4.1.jpg" alt="Object tracking output" width="380" style="display:block"/></td>
+    <td align="center" style="padding:0"><img src="../_images/tutorial_step_4.2.jpg" alt="Privacy blur output" width="380" style="display:block"/></td>
+  </tr>
+</table>
+
 Welcome! This tutorial takes you from a clean Ubuntu\* 24.04 machine to running
 real, hardware-accelerated video analytics with **Deep Learning Streamer
 (DL Streamer)** — using nothing but copy/paste. No prior experience with
