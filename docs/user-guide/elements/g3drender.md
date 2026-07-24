@@ -27,6 +27,8 @@ The `g3drender` element is a `GstBaseTransform` that accepts either a raw LiDAR 
 | `cam-azimuth` | float | [-360.0, 360.0] | 180.0 | Synthetic camera horizontal azimuth in degrees. Only effective in `perspective` mode. |
 | `cam-fov` | float | [10.0, 150.0] | 60.0 | Synthetic camera vertical field of view in degrees. Only effective in `perspective` mode. |
 | `cam-proj-index` | int | [0, 255] | 0 | Index of the camera sub-stream to use as the projection background in `cam-proj` mode. Clamped to the number of available camera streams at runtime. |
+| `cam-bg-grayscale` | bool | true / false | true | Convert the camera background to grayscale in `cam-proj` mode. |
+| `cam-bg-dim` | float | [0.0, 1.0] | 0.65 | Brightness multiplier for the camera background in `cam-proj` mode (`0.0=black`, `1.0=original`). |
 
 ## Pipeline Examples
 
@@ -202,6 +204,12 @@ Element Properties:
   cam-proj-index      : Index of the camera stream to use for LiDAR projection in cam-proj mode; clamped to the number of available camera streams at runtime
                         flags: readable, writable
                         Integer. Range: 0 - 255 Default: 0
+  cam-bg-dim          : Brightness multiplier for the camera background in cam-proj mode (0.0=black, 1.0=original)
+                        flags: readable, writable
+                        Float. Range:               0 -               1 Default:            0.65
+  cam-bg-grayscale    : Convert the camera background to grayscale in cam-proj mode
+                        flags: readable, writable
+                        Boolean. Default: true
   height              : Output image height in pixels
                         flags: readable, writable
                         Integer. Range: 1 - 32767 Default: 800
