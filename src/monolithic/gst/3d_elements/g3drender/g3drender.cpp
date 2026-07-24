@@ -51,6 +51,8 @@ enum {
     PROP_CAM_AZIMUTH,
     PROP_CAM_FOV,
     PROP_CAM_PROJ_INDEX,
+    PROP_CAM_BG_GRAYSCALE,
+    PROP_CAM_BG_DIM,
 };
 
 static GstStaticPadTemplate sink_template =
@@ -149,6 +151,18 @@ static void gst_g3d_render_class_init(GstG3DRenderClass *klass) {
                          "clamped to the number of available camera streams at runtime",
                          0, 255, 0, (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
+    g_object_class_install_property(gobject_class, PROP_CAM_BG_GRAYSCALE,
+                                    g_param_spec_boolean("cam-bg-grayscale", "Camera Background Grayscale",
+                                                         "Convert the camera background to grayscale in cam-proj mode",
+                                                         TRUE,
+                                                         (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+
+    g_object_class_install_property(
+        gobject_class, PROP_CAM_BG_DIM,
+        g_param_spec_float("cam-bg-dim", "Camera Background Dim Factor",
+                           "Brightness multiplier for the camera background in cam-proj mode (0.0=black, 1.0=original)",
+                           0.0f, 1.0f, 0.65f, (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+
     gst_element_class_set_static_metadata(element_class, "G3D LiDAR Renderer", "Filter/Converter",
                                           "Renders LiDAR point cloud as BEV or perspective 3D video frame (g3drender)",
                                           "Intel Corporation");
@@ -181,6 +195,9 @@ static void gst_g3d_render_init(GstG3DRender *self) {
     self->cam_azimuth = 180.0f;
     self->cam_fov = 60.0f;
     self->cam_proj_index = 0;
+    self->cam_bg_grayscale = TRUE;
+    self->cam_bg_dim = 0.65f;
+    self->frame_duration = GST_SECOND / 10;
     self->frame_count = 0;
     self->input_is_batch = FALSE;
     self->has_calib = FALSE;
@@ -290,6 +307,12 @@ static void gst_g3d_render_set_property(GObject *obj, guint prop_id, const GValu
     case PROP_CAM_PROJ_INDEX:
         self->cam_proj_index = g_value_get_int(val);
         break;
+    case PROP_CAM_BG_GRAYSCALE:
+        self->cam_bg_grayscale = g_value_get_boolean(val);
+        break;
+    case PROP_CAM_BG_DIM:
+        self->cam_bg_dim = g_value_get_float(val);
+        break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(obj, prop_id, pspec);
         break;
@@ -332,6 +355,12 @@ static void gst_g3d_render_get_property(GObject *obj, guint prop_id, GValue *val
     case PROP_CAM_PROJ_INDEX:
         g_value_set_int(val, self->cam_proj_index);
         break;
+    case PROP_CAM_BG_GRAYSCALE:
+        g_value_set_boolean(val, self->cam_bg_grayscale);
+        break;
+    case PROP_CAM_BG_DIM:
+        g_value_set_float(val, self->cam_bg_dim);
+        break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(obj, prop_id, pspec);
         break;
@@ -370,8 +399,14 @@ static gboolean gst_g3d_render_set_caps(GstBaseTransform *trans, GstCaps *incaps
     self->input_is_batch = (g_strcmp0(gst_structure_get_name(s), "multistream/x-analytics-batch") == 0);
     gst_structure_get_int(gst_caps_get_structure(outcaps, 0), "width", &self->width);
     gst_structure_get_int(gst_caps_get_structure(outcaps, 0), "height", &self->height);
-    GST_INFO_OBJECT(self, "input caps: %s (batch=%d) canvas=%dx%d", gst_structure_get_name(s), self->input_is_batch,
-                    self->width, self->height);
+    gint fps_n = 0, fps_d = 1;
+    gboolean have_fps = gst_structure_get_fraction(gst_caps_get_structure(outcaps, 0), "framerate", &fps_n, &fps_d);
+    gboolean fps_valid = have_fps && fps_n > 0 && fps_d > 0;
+    self->frame_duration = fps_valid ? gst_util_uint64_scale(GST_SECOND, fps_d, fps_n) : GST_SECOND / 10;
+    GST_INFO_OBJECT(self,
+                    "input caps: %s (batch=%d) canvas=%dx%d framerate=%d/%d frame_duration=%" GST_TIME_FORMAT "%s",
+                    gst_structure_get_name(s), self->input_is_batch, self->width, self->height, fps_n, fps_d,
+                    GST_TIME_ARGS(self->frame_duration), fps_valid ? "" : " (fallback)");
     return TRUE;
 }
 
@@ -987,11 +1022,15 @@ void draw_cam_projection(cv::Mat &canvas, const float *points, guint count, GstB
     int yp = (roi_h - sh) / 2;
 
     canvas.setTo(cv::Scalar(0, 0, 0));
-    cv::Mat scaled_cam, gray;
+    cv::Mat scaled_cam;
     cv::resize(cam_bgr, scaled_cam, cv::Size(sw, sh));
-    cv::cvtColor(scaled_cam, gray, cv::COLOR_BGR2GRAY);
-    cv::cvtColor(gray, scaled_cam, cv::COLOR_GRAY2BGR);
-    scaled_cam.convertTo(scaled_cam, -1, 0.65, 0); /* dim so projected points stand out */
+    if (self->cam_bg_grayscale) {
+        cv::Mat gray;
+        cv::cvtColor(scaled_cam, gray, cv::COLOR_BGR2GRAY);
+        cv::cvtColor(gray, scaled_cam, cv::COLOR_GRAY2BGR);
+    }
+    if (self->cam_bg_dim < 1.0f)
+        scaled_cam.convertTo(scaled_cam, -1, self->cam_bg_dim, 0);
     scaled_cam.copyTo(canvas(cv::Rect(xp, yp, sw, sh)));
 
     /* --- Build projection matrices from stored calibration --- */
@@ -1284,7 +1323,7 @@ static GstFlowReturn gst_g3d_render_transform(GstBaseTransform *trans, GstBuffer
     gst_buffer_unmap(outbuf, &out_map);
 
     // ── PTS / duration ──────────────────────────────────────────────────────
-    const GstClockTime frame_duration = GST_SECOND / 10;
+    const GstClockTime frame_duration = self->frame_duration;
     GstClockTime src_pts = GST_CLOCK_TIME_NONE;
     if (lidar_buf && GST_CLOCK_TIME_IS_VALID(GST_BUFFER_PTS(lidar_buf)))
         src_pts = GST_BUFFER_PTS(lidar_buf);

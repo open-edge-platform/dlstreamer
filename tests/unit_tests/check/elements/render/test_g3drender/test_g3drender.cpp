@@ -405,6 +405,52 @@ static const Scenario SC_CAM_ONLY_BATCH = {"cam_only_batch",
                                            60,
                                            FALSE};
 
+static const Scenario SC_CAM_PROJ_BG_TUNED = {"cam_proj_bg_tuned",
+                                              "cam_proj_bg_tuned.png",
+                                              1,
+                                              640,
+                                              240,
+                                              TRUE,
+                                              TRUE,
+                                              1600,
+                                              800,
+                                              -50,
+                                              50,
+                                              -50,
+                                              50,
+                                              2,
+                                              4,
+                                              2.0f,
+                                              2,
+                                              35,
+                                              30,
+                                              180,
+                                              60,
+                                              TRUE};
+
+static const Scenario SC_CAM_PROJ_BG_BASELINE = {"cam_proj_bg_baseline",
+                                                 "cam_proj_bg_baseline.png",
+                                                 1,
+                                                 640,
+                                                 240,
+                                                 TRUE,
+                                                 TRUE,
+                                                 1600,
+                                                 800,
+                                                 -50,
+                                                 50,
+                                                 -50,
+                                                 50,
+                                                 2,
+                                                 4,
+                                                 2.0f,
+                                                 2,
+                                                 35,
+                                                 30,
+                                                 180,
+                                                 60,
+                                                 TRUE};
+
 GST_START_TEST(test_empty_point_cloud) {
     GstHarness *h = make_lidar_harness(&SC_EMPTY_POINT_CLOUD);
     GstBuffer *buf = build_empty_lidar_buf(h);
@@ -438,6 +484,116 @@ GST_START_TEST(test_cam_only_batch) {
 }
 GST_END_TEST;
 
+GST_START_TEST(test_cam_proj_bg_tuned_golden) {
+    const Scenario *sc = &SC_CAM_PROJ_BG_TUNED;
+    g_print("\n[%s]\n", sc->label);
+
+    GstHarness *h = make_batch_harness(sc);
+    GstElement *el = gst_harness_find_element(h, "g3drender");
+    g_object_set(G_OBJECT(el), "cam-bg-grayscale", FALSE, "cam-bg-dim", 1.0f, NULL);
+    gst_object_unref(el);
+
+    GstBuffer *buf = build_batch_buf(h, sc);
+    gst_harness_push_event(h, build_calib_event());
+    gst_harness_push(h, buf);
+    GstBuffer *out = gst_harness_pull(h);
+    ck_assert_msg(out != NULL, "g3drender produced no output for %s", sc->label);
+
+    gsize out_size = gst_buffer_get_size(out);
+    gint out_w = (gint)(out_size / (3 * sc->height));
+    gint out_h = sc->height;
+
+    GstMapInfo m;
+    ck_assert_msg(gst_buffer_map(out, &m, GST_MAP_READ), "[%s] Failed to map output buffer", sc->label);
+
+    gchar *golden_path = g_build_filename(TEST_FILES_DIR, "golden_files", sc->out_name, NULL);
+    const gchar *dump_env = g_getenv("G3DRENDER_DUMP_GOLDEN");
+    if (dump_env && atoi(dump_env) != 0) {
+        save_png(golden_path, m.data, out_w, out_h);
+        g_print("  dumped golden -> %s\n", golden_path);
+    } else {
+        gchar *tmp_path = g_build_filename(g_get_tmp_dir(), sc->out_name, NULL);
+        save_png(tmp_path, m.data, out_w, out_h);
+        g_print("  saved -> %s\n", tmp_path);
+        g_free(tmp_path);
+
+        gint gw = 0, gh = 0;
+        guint8 *golden = load_png(golden_path, &gw, &gh);
+        ck_assert_msg(golden != NULL,
+                      "[%s] golden PNG not found: %s\n"
+                      "  Run once with G3DRENDER_DUMP_GOLDEN=1 to generate it.",
+                      sc->label, golden_path);
+
+        gchar fail_msg[256] = "";
+        gint max_diff = compare_with_golden(m.data, out_w, out_h, golden, gw, gh, fail_msg, sizeof(fail_msg));
+        g_free(golden);
+        g_print("  golden diff: max=%d (threshold=%d)\n", max_diff, MAX_PIXEL_DIFF);
+        ck_assert_msg(max_diff >= 0, "[%s] %s", sc->label, fail_msg);
+        ck_assert_msg(max_diff <= MAX_PIXEL_DIFF, "[%s] pixel diff exceeds threshold: %s", sc->label, fail_msg);
+    }
+
+    g_free(golden_path);
+    gst_buffer_unmap(out, &m);
+    gst_buffer_unref(out);
+    gst_harness_teardown(h);
+}
+GST_END_TEST;
+
+GST_START_TEST(test_cam_proj_bg_baseline_golden) {
+    const Scenario *sc = &SC_CAM_PROJ_BG_BASELINE;
+    g_print("\n[%s]\n", sc->label);
+
+    GstHarness *h = make_batch_harness(sc);
+    GstElement *el = gst_harness_find_element(h, "g3drender");
+    g_object_set(G_OBJECT(el), "cam-bg-grayscale", TRUE, "cam-bg-dim", 0.65f, NULL);
+    gst_object_unref(el);
+
+    GstBuffer *buf = build_batch_buf(h, sc);
+    gst_harness_push_event(h, build_calib_event());
+    gst_harness_push(h, buf);
+    GstBuffer *out = gst_harness_pull(h);
+    ck_assert_msg(out != NULL, "g3drender produced no output for %s", sc->label);
+
+    gsize out_size = gst_buffer_get_size(out);
+    gint out_w = (gint)(out_size / (3 * sc->height));
+    gint out_h = sc->height;
+
+    GstMapInfo m;
+    ck_assert_msg(gst_buffer_map(out, &m, GST_MAP_READ), "[%s] Failed to map output buffer", sc->label);
+
+    gchar *golden_path = g_build_filename(TEST_FILES_DIR, "golden_files", sc->out_name, NULL);
+    const gchar *dump_env = g_getenv("G3DRENDER_DUMP_GOLDEN");
+    if (dump_env && atoi(dump_env) != 0) {
+        save_png(golden_path, m.data, out_w, out_h);
+        g_print("  dumped golden -> %s\n", golden_path);
+    } else {
+        gchar *tmp_path = g_build_filename(g_get_tmp_dir(), sc->out_name, NULL);
+        save_png(tmp_path, m.data, out_w, out_h);
+        g_print("  saved -> %s\n", tmp_path);
+        g_free(tmp_path);
+
+        gint gw = 0, gh = 0;
+        guint8 *golden = load_png(golden_path, &gw, &gh);
+        ck_assert_msg(golden != NULL,
+                      "[%s] golden PNG not found: %s\n"
+                      "  Run once with G3DRENDER_DUMP_GOLDEN=1 to generate it.",
+                      sc->label, golden_path);
+
+        gchar fail_msg[256] = "";
+        gint max_diff = compare_with_golden(m.data, out_w, out_h, golden, gw, gh, fail_msg, sizeof(fail_msg));
+        g_free(golden);
+        g_print("  golden diff: max=%d (threshold=%d)\n", max_diff, MAX_PIXEL_DIFF);
+        ck_assert_msg(max_diff >= 0, "[%s] %s", sc->label, fail_msg);
+        ck_assert_msg(max_diff <= MAX_PIXEL_DIFF, "[%s] pixel diff exceeds threshold: %s", sc->label, fail_msg);
+    }
+
+    g_free(golden_path);
+    gst_buffer_unmap(out, &m);
+    gst_buffer_unref(out);
+    gst_harness_teardown(h);
+}
+GST_END_TEST;
+
 static Suite *g3drender_suite(void) {
     Suite *s = suite_create("g3drender");
 
@@ -454,6 +610,11 @@ static Suite *g3drender_suite(void) {
     tcase_add_test(tc_edge, test_missing_lidar_meta);
     tcase_add_test(tc_edge, test_cam_only_batch);
     suite_add_tcase(s, tc_edge);
+
+    TCase *tc_proj_bg = tcase_create("cam-proj-bg");
+    tcase_add_test(tc_proj_bg, test_cam_proj_bg_tuned_golden);
+    tcase_add_test(tc_proj_bg, test_cam_proj_bg_baseline_golden);
+    suite_add_tcase(s, tc_proj_bg);
 
     return s;
 }
