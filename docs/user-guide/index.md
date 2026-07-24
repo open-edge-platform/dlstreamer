@@ -1,5 +1,7 @@
 # Deep Learning Streamer
 
+*Part of [Edge AI Libraries](https://docs.openedgeplatform.intel.com/dev/ai-libraries.html)*
+
 <!--hide_directive
 <div class="component_card_widget">
   <a class="icon_github" href="https://github.com/open-edge-platform/dlstreamer">
@@ -101,18 +103,47 @@ AIVID TECHVISION and others.
 
 <!--hide_directive
 :::{toctree}
-:maxdepth: 2
 :hidden:
+
+DL Streamer Home Page <https://docs.openedgeplatform.intel.com/dev/dlstreamer/index.html>
+
+:::
+
+:::{toctree}
+:hidden:
+:caption: Get Started
 
 System Requirements <get_started/system_requirements>
 Install Guide <get_started/install/install_guide_index>
 Tutorial <get_started/tutorial>
 Samples <https://github.com/open-edge-platform/dlstreamer/blob/main/samples/gstreamer/README.md>
-supported_models
-elements/elements
+
+:::
+
+:::{toctree}
+:hidden:
+:caption: Developer Guide
+
 dev_guide/dev_guide_index
+
+:::
+
+:::{toctree}
+:hidden:
+:caption: Reference
+
+elements/elements
+supported_models
 api_ref/api_reference
 architecture_2.0/architecture_2.0
+
+:::
+
+:::{toctree}
+:hidden:
+:caption: ----------------------
+
 Release Notes <release-notes>
+
 :::
 hide_directive-->
