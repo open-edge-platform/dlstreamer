@@ -29,10 +29,6 @@ INPUT=${1:-https://github.com/intel-iot-devkit/sample-videos/raw/master/head-pos
 DEVICE=${2:-CPU}
 OUTPUT=${3:-display} # Supported values: display, fps, json, display-and-json
 
-MODEL2=age-gender-recognition-retail-0013
-MODEL3=emotions-recognition-retail-0003
-MODEL4=landmarks-regression-retail-0009
-
 if [[ $INPUT == "/dev/video"* ]]; then
   SOURCE_ELEMENT="v4l2src device=${INPUT}"
 elif [[ $INPUT == *"://"* ]]; then
@@ -73,20 +69,16 @@ PROC_PATH() {
     echo "$(dirname "$0")"/model_proc/"$1".json
 }
 
-DETECT_MODEL_PATH=${MODELS_PATH}/intel/face-detection-adas-0001/FP32/face-detection-adas-0001.xml
-CLASS_MODEL_PATH=${MODELS_PATH}/intel/age-gender-recognition-retail-0013/FP32/age-gender-recognition-retail-0013.xml
-CLASS_MODEL_PATH1=${MODELS_PATH}/intel/emotions-recognition-retail-0003/FP32/emotions-recognition-retail-0003.xml
-CLASS_MODEL_PATH2=${MODELS_PATH}/intel/landmarks-regression-retail-0009/FP32/landmarks-regression-retail-0009.xml
-
-MODEL2_PROC=$(PROC_PATH $MODEL2)
-MODEL3_PROC=$(PROC_PATH $MODEL3)
-MODEL4_PROC=$(PROC_PATH $MODEL4)
+DETECT_MODEL_PATH=${MODELS_PATH}/public/centerface/FP32/centerface.xml
+CLASS_MODEL_PATH1=${MODELS_PATH}/public/dima806_facial_age_image_detection/FP32/dima806_facial_age_image_detection.xml
+CLASS_MODEL_PATH2=${MODELS_PATH}/public/dima806_fairface_gender_image_detection/FP32/dima806_fairface_gender_image_detection.xml
+CLASS_MODEL_PATH3=${MODELS_PATH}/public/dima806_face_emotions_image_detection/FP32/dima806_face_emotions_image_detection.xml
 
 PIPELINE="gst-launch-1.0 $SOURCE_ELEMENT ! decodebin3 ! \
 gvadetect model=$DETECT_MODEL_PATH device=$DEVICE ! queue ! \
-gvaclassify model=$CLASS_MODEL_PATH model-proc=$MODEL2_PROC device=$DEVICE ! queue ! \
-gvaclassify model=$CLASS_MODEL_PATH1 model-proc=$MODEL3_PROC device=$DEVICE ! queue ! \
-gvaclassify model=$CLASS_MODEL_PATH2 model-proc=$MODEL4_PROC device=$DEVICE ! queue ! \
+gvaclassify model=$CLASS_MODEL_PATH1 device=$DEVICE ! queue ! \
+gvaclassify model=$CLASS_MODEL_PATH2 device=$DEVICE ! queue ! \
+gvaclassify model=$CLASS_MODEL_PATH3 device=$DEVICE ! queue ! \
 $SINK_ELEMENT"
 
 echo "${PIPELINE}"

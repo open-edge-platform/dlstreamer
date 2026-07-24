@@ -48,10 +48,10 @@ graph LR
 ## Models
 
 The sample uses by default the following pre-trained models from OpenVINO™ Toolkit [Open Model Zoo](https://github.com/openvinotoolkit/open_model_zoo)
-*   __face-detection-adas-0001__ is primary detection network for finding faces
-*   __age-gender-recognition-retail-0013__ age and gender estimation on detected faces
-*   __emotions-recognition-retail-0003__ emotion estimation on detected faces
-*   __landmarks-regression-retail-0009__ generates facial landmark points
+*   __centerface__ is primary detection network for finding faces
+*   __dima806_facial_age_image_detection__ age estimation on detected faces
+*   __dima806_face_emotions_image_detection__ emotion estimation on detected faces
+*   __dima806_fairface_gender_image_detection__ gender estimation on detected faces
 
 > **NOTE**: Before running samples (including this one), run script `download_omz_models.bat` once (the script located in `samples\windows` folder) to download all models required for this and other samples.
 

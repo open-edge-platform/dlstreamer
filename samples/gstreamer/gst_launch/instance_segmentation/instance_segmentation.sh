@@ -8,18 +8,13 @@
 # (https://www.pexels.com)
 # ==============================================================================
 
-# Define model proc files
-declare -A MODEL_PROC_FILES
-MODEL_PROC_FILES["mask_rcnn_inception_resnet_v2_atrous_coco"]="../../model_proc/public/mask-rcnn.json"
-MODEL_PROC_FILES["mask_rcnn_resnet50_atrous_coco"]="../../model_proc/public/mask-rcnn.json"
-
 # Allowed choices for arguments
-ALLOWED_MODELS=("mask_rcnn_inception_resnet_v2_atrous_coco" "mask_rcnn_resnet50_atrous_coco")
+ALLOWED_MODELS=("yolo26s-seg" "yolo11s-seg")
 ALLOWED_DEVICES=("CPU" "GPU" "NPU")
 ALLOWED_OUTPUTS=("file" "display" "fps" "json" "display-and-json" "jpeg")
 
 # Default values
-MODEL="mask_rcnn_inception_resnet_v2_atrous_coco"
+MODEL="yolo26s-seg"
 DEVICE="CPU"
 INPUT="https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4"
 OUTPUT="file"
@@ -30,7 +25,7 @@ show_usage() {
     echo "Usage: $0 [--model MODEL] [--device DEVICE] [--input INPUT] [--output OUTPUT] [--benchmark_sink BENCHMARK_SINK] [--output-directory OUTPUT_DIRECTORY]"
     echo ""
     echo "Arguments:"
-    echo "  --model MODEL                     - Model to use (default: mask_rcnn_inception_resnet_v2_atrous_coco). Allowed: ${ALLOWED_MODELS[*]}"
+    echo "  --model MODEL                     - Model to use (default: yolo26s-seg). Allowed: ${ALLOWED_MODELS[*]}"
     echo "  --device DEVICE                   - Device to use (default: CPU). Allowed: ${ALLOWED_DEVICES[*]}"
     echo "  --input INPUT                     - Input source (default: Pexels video URL)"
     echo "  --output OUTPUT                   - Output type (default: file). Allowed: ${ALLOWED_OUTPUTS[*]}"
@@ -178,9 +173,6 @@ SINK_ELEMENT=${sink_elements[$OUTPUT]}
 
 # Construct the GStreamer pipeline
 PIPELINE="gst-launch-1.0 ${SOURCE_ELEMENT} ${BENCHMARK_SINK} ${DECODE_ELEMENT} gvadetect model=${MODEL_PATH} "
-if [ -n "$MODEL_PROC" ]; then
-    PIPELINE+="model-proc=${MODEL_PROC} "
-fi
 PIPELINE+="device=${DEVICE} pre-process-backend=${PREPROC_BACKEND} ! queue ! ${SINK_ELEMENT}"
 
 # Get the width of the terminal

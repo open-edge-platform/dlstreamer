@@ -37,7 +37,7 @@ Benchmark video decode and inference on two models (object detection and object 
 
 The sample `benchmark_one_model.sh` takes one to eight command-line parameters (last eight are optional):
 1. [VIDEO_FILE] to specify a path to input video file
-2. [MODEL_PATH] to specify a path to model in OpenVINO™ toolkit IR format. Default is `face-detection-adas-0001` model in `INT8` precision.
+2. [MODEL_PATH] to specify a path to model in OpenVINO™ toolkit IR format. Default is `centerface` model in `FP16` precision.
 3. [DECODE_DEVICE] to specify device for video decode, could be
     * CPU (Default)
     * GPU

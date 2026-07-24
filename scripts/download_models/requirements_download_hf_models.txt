@@ -1,0 +1,11 @@
+# Dependencies for download_hf_models.py (+ hf_utils.py)
+--extra-index-url https://download.pytorch.org/whl/cpu
+huggingface_hub==0.34.4
+openvino==2026.2.0
+optimum-intel==1.27.0
+transformers==4.53.3
+pillow==11.3.0
+torch==2.8.0
+onnx==1.21.0
+onnxruntime==1.22.1
+nncf==3.0.0

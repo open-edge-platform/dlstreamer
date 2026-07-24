@@ -17,10 +17,10 @@ else
   SOURCE_ELEMENT="filesrc location=${INPUT}"
 fi
 
-MODEL1_PATH="${MODELS_PATH:=.}"/intel/face-detection-adas-0001/FP32/face-detection-adas-0001.xml
-MODEL2_PATH="${MODELS_PATH:=.}"/intel/age-gender-recognition-retail-0013/FP32/age-gender-recognition-retail-0013.xml
-MODEL3_PATH="${MODELS_PATH:=.}"/intel/emotions-recognition-retail-0003/FP32/emotions-recognition-retail-0003.xml
-MODEL4_PATH="${MODELS_PATH:=.}"/intel/landmarks-regression-retail-0009/FP32/landmarks-regression-retail-0009.xml
+MODEL1_PATH=${MODELS_PATH}/public/centerface/FP32/centerface.xml
+MODEL2_PATH=${MODELS_PATH}/public/dima806_facial_age_image_detection/FP32/dima806_facial_age_image_detection.xml
+MODEL3_PATH=${MODELS_PATH}/public/dima806_fairface_gender_image_detection/FP32/dima806_fairface_gender_image_detection.xml
+MODEL4_PATH=${MODELS_PATH}/public/dima806_face_emotions_image_detection/FP32/dima806_face_emotions_image_detection.xml
 
 if [[ $OUTPUT == "display" ]] || [[ -z $OUTPUT ]]; then
   SINK_ELEMENT="autovideosink sync=false"

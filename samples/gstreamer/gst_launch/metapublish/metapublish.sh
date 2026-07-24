@@ -34,8 +34,10 @@ OUTPUT=${3} # Path to file if method==file, host and port of message broker if m
 FORMAT=${4} # json or json-lines
 TOPIC=${5:-dlstreamer} # Required for kafka and mqtt
 
-MODEL1=face-detection-adas-0001
-MODEL2=age-gender-recognition-retail-0013
+MODEL1=centerface
+MODEL2=dima806_fairface_gender_image_detection
+MODEL3=dima806_facial_age_image_detection
+
 PRECISION=FP32
 DEVICE=CPU
 
@@ -76,14 +78,15 @@ else
   SOURCE_ELEMENT="filesrc location=${INPUT}"
 fi
 
-MODEL1_PATH="${MODELS_PATH:=.}"/intel/$MODEL1/$PRECISION/$MODEL1.xml
-MODEL2_PATH="${MODELS_PATH:=.}"/intel/$MODEL2/$PRECISION/$MODEL2.xml
-MODEL2_PROC="$(dirname "$0")"/model_proc/$MODEL2.json
+MODEL1_PATH="${MODELS_PATH:=.}"/public/$MODEL1/$PRECISION/$MODEL1.xml
+MODEL2_PATH="${MODELS_PATH:=.}"/public/$MODEL2/$PRECISION/$MODEL2.xml
+MODEL3_PATH="${MODELS_PATH:=.}"/public/$MODEL3/$PRECISION/$MODEL3.xml
 
 PIPELINE="gst-launch-1.0 $SOURCE_ELEMENT ! \
 decodebin3 ! \
 gvadetect model=$MODEL1_PATH device=$DEVICE ! queue ! \
-gvaclassify model=$MODEL2_PATH model-proc=$MODEL2_PROC device=$DEVICE ! queue ! \
+gvaclassify model=$MODEL2_PATH device=$DEVICE ! queue ! \
+gvaclassify model=$MODEL3_PATH device=$DEVICE ! queue ! \
 gvametaconvert json-indent=$JSON_INDENT ! \
 gvametapublish method=$METHOD file-format=$FORMAT $OUTPUT_PROPERTY ! \
 fakesink sync=false"

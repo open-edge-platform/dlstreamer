@@ -5,6 +5,34 @@ This folder contains standalone conversion CLIs:
 - `download_hf_models.py` — Convert Hugging Face models to OpenVINO.
 - `download_ultralytics_models.py` — Convert Ultralytics YOLO models to OpenVINO.
 - `download_timm_models.py` — Convert supported TIMM image-classification models to OpenVINO.
+- `download_other_models.sh` — Download and convert selected non-HF/non-Ultralytics helper models.
+
+Model list files used by automation are stored in:
+
+- `scripts/download_models/model_lists/hf_models.txt`
+- `scripts/download_models/model_lists/ultralytics_models.txt`
+- `scripts/download_models/model_lists/timm_models.txt`
+
+## Model Reference Format (`@...`)
+
+The `@...` suffix means "pin this exact version", but the source differs by tool:
+
+- Hugging Face (`download_hf_models.py` and `download_timm_models.py`):
+  - Format: `repo_id@revision`
+  - Example: `openai/clip-vit-base-patch32@3d74acf9a28c67741b2f4f2ea7635f0aaf6f0268`
+  - `revision` is a Hugging Face repo revision (typically a commit SHA).
+
+- Ultralytics (`download_ultralytics_models.py`):
+  - Format: `model.pt@tag`
+  - Example: `yolo11n.pt@v8.4.0`
+  - `tag` is a GitHub release tag from `ultralytics/assets`.
+
+If `@...` is omitted:
+
+- `download_hf_models.py` uses the current latest Hugging Face revision at runtime.
+- `download_timm_models.py` uses the current latest Hugging Face revision at runtime.
+- `download_ultralytics_models.py` resolves a model by local file first, then by Ultralytics latest weights.
+- `download_other_models.sh` uses fixed script-defined sources (no per-model `@...` pin syntax).
 
 
 ## Prerequisites
@@ -15,18 +43,23 @@ This folder contains standalone conversion CLIs:
    source .model_download_venv/bin/activate
    ```
 
-2. Install dependencies:
+2. Install dependencies for the script you want to run:
 ```code
-   curl -LO https://raw.githubusercontent.com/openvinotoolkit/openvino.genai/refs/heads/releases/2026/2/samples/export-requirements.txt
-   pip install -r export-requirements.txt -r requirements.txt ultralytics==8.4.57
-   ```
+  # Hugging Face exporter
+  pip install -r requirements_download_hf_models.txt
 
-The OpenVINO export requirements provide the shared model export stack. The
-local `requirements.txt` adds packages specific to the helper scripts.
+  # TIMM exporter
+  pip install -r requirements_download_timm_models.txt
+
+  # Ultralytics exporter
+  pip install -r requirements_download_ultralytics_models.txt
+```
 
 ## 1) Hugging Face conversion
 
 Script: `download_hf_models.py`
+
+Dependencies file: `requirements_download_hf_models.txt`
 
 ### Command
 
@@ -53,7 +86,8 @@ The script classifies a model into one of three support levels:
 - `1` — Custom export path: handled in `hf_utils.py` (currently CLIP/RT-DETR custom converters).
 - `2` — Unsupported: prints an error and exits with code `1`.
 
-When `--model` does not include `@revision`, the script resolves the current immutable Hugging Face commit SHA automatically and uses that value for all downloads and `from_pretrained(...)` calls.
+When `--model` does not include `@revision`, the script downloads the latest available Hugging Face revision at runtime.
+Use `repo_id@revision` to make runs reproducible.
 
 ### Examples
 
@@ -75,6 +109,8 @@ python download_hf_models.py --model openai/clip-vit-base-patch32@3d74acf9a28c67
 
 Script: `download_ultralytics_models.py`
 
+Dependencies file: `requirements_download_ultralytics_models.txt`
+
 ### Command
 
 ```bash
@@ -87,7 +123,10 @@ python download_ultralytics_models.py \
 
 ### Arguments
 
-- `--model` (required): Ultralytics model name or local `.pt` path.
+- `--model` (required): Ultralytics model reference. Supported forms:
+  - `<model>.pt` or `<model>` for latest weights resolved by Ultralytics.
+  - `<model>@<revision>` to pin weights from `ultralytics/assets` GitHub release tag.
+  - Local `.pt` path.
 - `--outdir` (optional, default `.`): Output directory.
 - `--half` (optional): Export in FP16.
 - `--int8` (optional): Export in INT8.
@@ -100,6 +139,9 @@ DL Streamer auto-conversion supports Ultralytics detection, segmentation, pose, 
 # Export by model name
 python download_ultralytics_models.py --model yolo11n.pt --outdir ./exports
 
+# Export pinned model from a specific ultralytics/assets release tag
+python download_ultralytics_models.py --model yolo11n.pt@v8.3.0 --outdir ./exports
+
 # Export a local checkpoint in FP16
 python download_ultralytics_models.py --model /path/to/model.pt --outdir ./exports --half
 
@@ -110,6 +152,8 @@ python download_ultralytics_models.py --model yolo11s.pt --outdir ./exports --in
 ## 3) TIMM conversion
 
 Script: `download_timm_models.py`
+
+Dependencies file: `requirements_download_timm_models.txt`
 
 This script exports a relevant set of Hugging Face-hosted PyTorch Image Models
 (TIMM) image-classification models to OpenVINO IR using `optimum-cli`. Run
@@ -122,7 +166,7 @@ names.
 python download_timm_models.py list-models
 
 python download_timm_models.py import \
-  --model <timm_model_name> \
+  --model <timm_model_name_or_timm_model_name@revision> \
   [--precision fp16|int8|both] \
   [--output-dir <models_path>]
 ```
@@ -130,15 +174,17 @@ python download_timm_models.py import \
 ### Arguments
 
 - `list-models`: Lists supported TIMM model names.
-- `--model` (required for `import`): TIMM model name from `list-models`.
+- `--model` (required for `import`): TIMM model reference from `list-models`.
+  Supports both `<timm_model_name>` (latest) and `<timm_model_name>@<huggingface_revision_sha>` (pinned).
 - `--precision` (optional, default `fp16`): Supports `fp16`, `int8`, or `both`.
   INT8 uses Optimum weight-format quantization.
 - `--output-dir` (optional): Output root. Defaults to `MODELS_PATH` when set.
 
 Existing TIMM exports in the target folder are replaced only after the exported
 OpenVINO IR has been read and re-saved successfully.
-The helper resolves the current immutable Hugging Face commit SHA before
-downloading auxiliary files such as ``config.json``.
+When `@revision` is provided, both export and `config.json` are resolved from that pinned revision.
+Without `@revision`, the helper exports from the latest available Hugging Face revision at runtime.
+Use `@revision` for reproducible runs.
 
 ### Precisions
 
@@ -170,6 +216,34 @@ python download_timm_models.py import \
   --output-dir "${MODELS_PATH}"
 ```
 
+## 4) Other Public Models (Shell)
+
+Script: `download_other_models.sh`
+
+This script downloads/converts a fixed set of helper models (for example, `centerface`, `hsemotion`, `deeplabv3`, `mars-small128`) into the `MODELS_PATH/public/...` layout.
+
+### Command
+
+```bash
+./download_other_models.sh [MODEL] [QUANTIZE]
+```
+
+### Versioning Behavior
+
+- This script does not accept per-model `@revision` or `@tag` syntax.
+- Model versions are controlled by URLs and tool versions hardcoded in the script.
+- To pin exact artifacts, keep the script revision pinned in git.
+
+### Examples
+
+```bash
+# Download all supported "other" models
+./download_other_models.sh all
+
+# Download only mars-small128
+./download_other_models.sh mars-small128
+```
+
 ## Output notes
 
 - Hugging Face exports are written under `<outdir>/<model_name>/`.
@@ -177,3 +251,4 @@ python download_timm_models.py import \
 - TIMM exports are written under `<output-dir>/public/<model_name>/FP16/<model_name>.xml`
   and/or `<output-dir>/public/<model_name>/INT8/<model_name>.xml` with matching
   `.bin` and `data_config.json` files.
+- `download_other_models.sh` writes models under `${MODELS_PATH}/public/<model_name>/...`.

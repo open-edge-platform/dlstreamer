@@ -1,0 +1,93 @@
+# One model per line in format repo_id@sha (optional @sha for reproducibility)
+# Format: repo_id@sha for pinned version, or repo_id for latest
+# Architecture in hf_utils.py -> example HF repo ID
+
+# =====================================
+# ACTIVE MODELS (download works)
+# =====================================
+
+# CLIPModel (CUSTOM_CONVERTERS: clipmodel)
+openai/clip-vit-base-patch32@3d74acf9a28c67741b2f4f2ea7635f0aaf6f0268
+openai/clip-vit-base-patch16@57c216476eefef5ab752ec549e440a49ae4ae5f3
+openai/clip-vit-large-patch14@32bd64288804d66eefd0ccbe215aa642df71cc41
+
+# RTDetrForObjectDetection (CUSTOM_CONVERTERS: rtdetrforobjectdetection)
+PekingU/rtdetr_r50vd@df939e661d8c52e80608d1ec566561aabd25a4e7
+
+# RtDetrV2ForObjectDetection (CUSTOM_CONVERTERS: rtdetrv2forobjectdetection)
+PekingU/rtdetr_v2_r18vd@5650961749fa93567c0d46fc7f43ea4f9e914107
+# Used in samples/gstreamer/python/smart_nvr/smart_nvr.py
+PekingU/rtdetr_v2_r50vd@282494075698cab9faa1096ae26856890030c817
+
+# DepthAnythingForDepthEstimation (CUSTOM_CONVERTERS: depthanythingfordepthestimation)
+LiheYoung/depth-anything-small-hf@25216a913fa218ccb7d58cce818d52b728b6c1f6
+# Used in samples/gstreamer/gst_launch/depth_estimation/README.md
+depth-anything/Depth-Anything-V2-Small-hf@5426e4f0f36572d16453bbda7a8389317b1bef99
+
+# ViTForImageClassification (SUPPORTED_HF_MODELS)
+dima806/fairface_age_image_detection@4e02ab8057ea7fd74b1670940995c5dfda3e6ec0
+dima806/fairface_gender_image_detection@a8e129dc622dafa08bd2ee2e0fd05759850ae14e
+dima806/facial_age_image_detection@ad35933da48272de7295530766f3d6c56702eba8
+dima806/vehicle_10_types_image_detection@7619f8df8750db3a01bdf01e66d147af21a560d5
+
+# WhisperForConditionalGeneration (SUPPORTED_HF_MODELS)
+openai/whisper-tiny@169d4a4341b33bc18d8881c4b69c2e104e1cc0af
+
+# InternVLChatModel (SUPPORTED_HF_MODELS)
+OpenGVLab/InternVL2-1B@0d75ccd166b1d0b79446ae6c5d1a4a667f1e6187
+
+# LlavaForConditionalGeneration (SUPPORTED_HF_MODELS)
+llava-hf/llava-1.5-7b-hf@b234b804b114d9e37bb655e11cbbb5f5e971b7a9
+openbmb/MiniCPM-V-4_5@fd3209b2e0580e346fc33d2c6f85b6e9332eecda
+
+# Qwen2VLForConditionalGeneration (SUPPORTED_HF_MODELS)
+Qwen/Qwen2-VL-2B-Instruct@895c3a49bc3fa70a340399125c650a463535e71c
+
+# Qwen2_5_VLForConditionalGeneration (SUPPORTED_HF_MODELS)
+Qwen/Qwen2.5-VL-3B-Instruct@66285546d2b821cf421d4f5eb2576359d3770cd3
+
+# VideoMAEForVideoClassification (SUPPORTED_HF_MODELS)
+MCG-NJU/videomae-base-finetuned-kinetics@488eb9a0565f257b32866000305c8178965eb9f6
+
+# LlavaQwen2ForCausalLM (SUPPORTED_HF_MODELS)
+qnguyen3/nanoLLaVA@13d60cec183a86755afed64da495fcc2c382ea80
+
+# BunnyQwenForCausalLM (SUPPORTED_HF_MODELS)
+qnguyen3/nanoLLaVA-1.5@5b01b8622fe3750d90d7ddc31059a74015a16fb9
+
+# Phi3VForCausalLM (SUPPORTED_HF_MODELS)
+microsoft/Phi-3-vision-128k-instruct@ed2772fabe9dc9acd0caad54b62761d92520cc44
+
+# =====================================
+# COMMENTED MODELS
+# =====================================
+
+# MiniCPMV (SUPPORTED_HF_MODELS)
+# Disabled: Gated model - requires HF token with access permissions
+# openbmb/MiniCPM-V-2_6@6c04d9e3022bcff6e6738dfb1fc19a5cfd2a855f
+
+# Gemma3ForConditionalGeneration (SUPPORTED_HF_MODELS)
+# Disabled: gated repos require HF access token/approval in CI
+# google/gemma-3-4b-it@093f9f388b31de276ce2de164bdc2081324b9767
+# google/gemma-3-12b-it@96b6f1eccf38110c56df3a15bffe176da04bfd80
+# google/gemma-3-27b-it@005ad3404e59d6023443cb575daa05336842228a
+
+# LlavaNextForConditionalGeneration (SUPPORTED_HF_MODELS)
+# Disabled: SIGKILL during optimum-cli export (process ran out of memory in CI environment)
+# llava-hf/llava-v1.6-mistral-7b-hf@2424fdd47412fccc66d91719126b420e9fbd7065
+
+# LlavaNextVideoForConditionalGeneration (SUPPORTED_HF_MODELS)
+# Disabled: SIGKILL during optimum-cli export (local retest also hits OOM; ~27 GiB RSS for exporter)
+# llava-hf/LLaVA-NeXT-Video-7B-hf@f417d9edeb69a9eaa88283780332d00ce3c66593
+
+# MiniCPMO (SUPPORTED_HF_MODELS)
+# Disabled: upstream remote-code/dynamic-module issue (missing image_processing_minicpmv.py in transformers_modules cache during export)
+# openbmb/MiniCPM-o-2_6@509805e84db1c84f154034d71a21c4f2331e6e11
+
+# Phi4MMForCausalLM (SUPPORTED_HF_MODELS)
+# Disabled: PEFT LoRA init fails during export (Phi4MMModel has no prepare_inputs_for_generation)
+# microsoft/Phi-4-multimodal-instruct@93f923e1a7727d1c4f446756212d9d3e8fcc5d81
+
+# anchor-flux/yamnet-onnx is a raw ONNX repo without a standard HF model_type;
+# it cannot be exported via this script without a dedicated custom converter.
+

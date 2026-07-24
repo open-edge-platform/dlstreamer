@@ -15,7 +15,7 @@ else
 fi
 
 VIDEO_FILE_NAME=${1}
-MODEL_PATH=${2:-"${MODELS_PATH}/intel/face-detection-adas-0001/FP16-INT8/face-detection-adas-0001.xml"}
+MODEL_PATH=${2:-"${MODELS_PATH}/public/centerface/FP16/centerface.xml"}
 DECODE_DEVICE=${3:-CPU}     # Supported values: "CPU", "GPU", "AUTO"
 INFERENCE_DEVICE=${4:-CPU}  # Supported values: "CPU", "GPU", "AUTO", "MULTI:GPU,CPU"
 NUMBER_STREAMS=${5:-1}

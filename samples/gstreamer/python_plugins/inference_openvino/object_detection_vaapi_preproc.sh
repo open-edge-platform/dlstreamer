@@ -17,7 +17,7 @@ fi
 INPUT=${1:-https://github.com/intel-iot-devkit/sample-videos/raw/master/head-pose-face-detection-female-and-male.mp4}
 DEVICE=${2:-CPU}   # Inference device
 OUTPUT=${3:-display-async}     # Output type, valid values: display, display-async, fps, json, display-and-json
-MODEL=${4:-${MODELS_PATH}/intel/face-detection-adas-0001/FP32/face-detection-adas-0001.xml}
+MODEL=${4:-${MODELS_PATH}/public/centerface/FP32/centerface.xml}
 
 if [[ $INPUT == "/dev/video"* ]]; then
   SOURCE_ELEMENT="v4l2src device=${INPUT}"

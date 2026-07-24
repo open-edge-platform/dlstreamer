@@ -1,6 +1,6 @@
 # Instance Segmentation Sample (Windows)
 
-This sample demonstrates instance segmentation using Mask R-CNN models on Windows.
+This sample demonstrates instance segmentation using Ultralytics segmentation models on Windows.
 
 ## How It Works
 
@@ -13,13 +13,11 @@ The sample builds a GStreamer pipeline using:
 
 ## Models
 
-Supports two Mask R-CNN variants from TensorFlow Model Zoo:
-- **mask_rcnn_inception_resnet_v2_atrous_coco** - Higher accuracy
-- **mask_rcnn_resnet50_atrous_coco** - Faster inference
+Supports two Ultralytics segmentation variants:
+- **yolo26s-seg** - default
+- **yolo11s-seg**
 
-Both models trained on COCO dataset (80 object classes).
-
-> **NOTE**: Run `download_public_models.bat` before using this sample.
+> **NOTE**: Run `download_ultralytics_models.py` before using this sample.
 
 ## Environment Variables
 
@@ -28,8 +26,8 @@ $set MODELS_PATH = "C:\models"
 ```
 
 Models should be located at:
-- `%MODELS_PATH%\public\mask_rcnn_inception_resnet_v2_atrous_coco\FP16\mask_rcnn_inception_resnet_v2_atrous_coco.xml`
-- `%MODELS_PATH%\public\mask_rcnn_resnet50_atrous_coco\FP16\mask_rcnn_resnet50_atrous_coco.xml`
+- `%MODELS_PATH%\public\yolo26s-seg\FP16\yolo26s-seg.xml`
+- `%MODELS_PATH%\public\yolo11s-seg\FP16\yolo11s-seg.xml`
 
 ## Running
 
@@ -38,8 +36,8 @@ Models should be located at:
 ```
 
 Parameters:
-- **-Model** - Model name (default: `mask_rcnn_inception_resnet_v2_atrous_coco`)
-  - Supported: `mask_rcnn_inception_resnet_v2_atrous_coco`, `mask_rcnn_resnet50_atrous_coco`
+- **-Model** - Model name (default: `yolo26s-seg`)
+  - Supported: `yolo26s-seg`, `yolo11s-seg`
 - **-Device** - Inference device (default: `CPU`)
   - Supported: `CPU`, `GPU`, `NPU`
 - **-InputSource** - Input source (default: `https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4`)
@@ -60,34 +58,34 @@ Parameters:
 
 ## Examples
 
-### Use default settings (Inception ResNet V2, CPU, Pexels video, save to file)
+### Use default settings (YOLO26s-seg, CPU, Pexels video, save to file)
 ```PowerShell
 .\instance_segmentation.ps1
 ```
 
-### ResNet50 on GPU with display
+### YOLO11s-seg on GPU with display
 ```PowerShell
-.\instance_segmentation.ps1 -Model mask_rcnn_resnet50_atrous_coco -Device GPU -InputSource "C:\videos\street.mp4" -OutputType display
+.\instance_segmentation.ps1 -Model yolo11s-seg -Device GPU -InputSource "C:\videos\street.mp4" -OutputType display
 ```
 
 ### Export to JSON
 ```PowerShell
-.\instance_segmentation.ps1 -Model mask_rcnn_inception_resnet_v2_atrous_coco -Device CPU -InputSource "C:\videos\street.mp4" -OutputType json -JsonFile segmentation.json
+.\instance_segmentation.ps1 -Model yolo26s-seg -Device CPU -InputSource "C:\videos\street.mp4" -OutputType json -JsonFile segmentation.json
 ```
 
 ### Export segmentation masks as JPEG sequence
 ```PowerShell
-.\instance_segmentation.ps1 -Model mask_rcnn_resnet50_atrous_coco -Device GPU -InputSource "C:\videos\street.mp4" -OutputType jpeg
+.\instance_segmentation.ps1 -Model yolo11s-seg -Device GPU -InputSource "C:\videos\street.mp4" -OutputType jpeg
 ```
 
 ### Benchmark FPS on NPU
 ```PowerShell
-.\instance_segmentation.ps1 -Model mask_rcnn_resnet50_atrous_coco -Device NPU -InputSource "C:\videos\street.mp4" -OutputType fps
+.\instance_segmentation.ps1 -Model yolo11s-seg -Device NPU -InputSource "C:\videos\street.mp4" -OutputType fps
 ```
 
 ### Process only first 100 frames (for testing)
 ```PowerShell
-.\instance_segmentation.ps1 -Model mask_rcnn_inception_resnet_v2_atrous_coco -Device CPU -InputSource "C:\videos\street.mp4" -OutputType json -FrameLimiter " ! identity eos-after=100"
+.\instance_segmentation.ps1 -Model yolo26s-seg -Device CPU -InputSource "C:\videos\street.mp4" -OutputType json -FrameLimiter " ! identity eos-after=100"
 ```
 
 ## Output
@@ -174,7 +172,7 @@ graph LR
 
 ## Performance Tips
 
-1. **Use ResNet50 model** for faster inference
+1. **Use yolo11s-seg model** for faster inference
 2. **GPU device** provides best performance
 3. **Lower input resolution** reduces processing time
 4. **Preprocessing backend**: Use `d3d11` for GPU, `opencv` for CPU

@@ -59,14 +59,15 @@ else
   SOURCE_ELEMENT="filesrc location=${INPUT}"
 fi
 
-DETECT_MODEL_PATH=${MODELS_PATH}/intel/face-detection-adas-0001/FP32/face-detection-adas-0001.xml
-CLASS_MODEL_PATH=${MODELS_PATH}/intel/age-gender-recognition-retail-0013/FP32/age-gender-recognition-retail-0013.xml
+DETECT_MODEL_PATH=${MODELS_PATH}/public/centerface/FP32/centerface.xml
+CLASS_MODEL_PATH1=${MODELS_PATH}/public/dima806_fairface_gender_image_detection/FP32/dima806_fairface_gender_image_detection.xml
+CLASS_MODEL_PATH2=${MODELS_PATH}/public/dima806_facial_age_image_detection/FP32/dima806_facial_age_image_detection.xml
 
 echo Running sample with the following parameters:
 echo GST_PLUGIN_PATH="${GST_PLUGIN_PATH}"
 
 read -r PIPELINE << EOM
-gst-launch-1.0 $SOURCE_ELEMENT ! decodebin3 ! gvainference model=$DETECT_MODEL_PATH device=$DEVICE ! queue ! gvapython module=$PYTHON_SCRIPT1 ! gvainference inference-region=roi-list model=$CLASS_MODEL_PATH device=$DEVICE ! queue ! gvapython module=$PYTHON_SCRIPT2 ! gvapython module=$PYTHON_SCRIPT3 class=AgeLogger function=log_age kwarg={\\"log_file_path\\":\\"/tmp/age_log.txt\\"} ! $SINK_ELEMENT 
+gst-launch-1.0 $SOURCE_ELEMENT ! decodebin3 ! gvainference model=$DETECT_MODEL_PATH device=$DEVICE ! queue ! gvapython module=$PYTHON_SCRIPT1 ! gvainference inference-region=roi-list model=$CLASS_MODEL_PATH1 device=$DEVICE ! gvainference inference-region=roi-list model=$CLASS_MODEL_PATH2 device=$DEVICE ! queue ! gvapython module=$PYTHON_SCRIPT2 ! gvapython module=$PYTHON_SCRIPT3 class=AgeLogger function=log_age kwarg={\\"log_file_path\\":\\"/tmp/age_log.txt\\"} ! $SINK_ELEMENT 
 EOM
 
 echo "${PIPELINE}"

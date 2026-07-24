@@ -27,12 +27,12 @@ The pipeline created by the example script is displayed for inspection before th
 
 ## Models
 
-The sample uses the following pre-trained models from OpenVINO™ Toolkit [Open Model Zoo](https://github.com/openvinotoolkit/open_model_zoo)
-*   [__mask_rcnn_inception_resnet_v2_atrous_coco__](https://github.com/openvinotoolkit/open_model_zoo/tree/master/models/public/mask_rcnn_inception_resnet_v2_atrous_coco) (default)
-*   [__mask_rcnn_resnet50_atrous_coco__](https://github.com/openvinotoolkit/open_model_zoo/tree/master/models/public/mask_rcnn_resnet50_atrous_coco)
+The sample uses the following pre-trained models from Ultralytics
+*   [__yolo26s-seg__]() (default)
+*   [__yolo11s-seg__]()
 
 
-> **NOTE**: Before running samples (including this one), run the script `download_omz_models.sh` once (the script is located in `samples` top folder) to download all models required for this and other samples.
+> **NOTE**: Before running samples (including this one), run the script `download_ultralytics_models.py` to download required model.
 
 
 
@@ -47,7 +47,7 @@ cd -
 ```
 The sample script __instance_segmentation.sh__ accepts the following command line optional arguments:
 * --input - a web camera device (ex. `/dev/video0`), an url or a path to an MP4 video file (*a sample video from videos.pexels.com is used by default*)
-* --model - mask_rcnn_inception_resnet_v2_atrous_coco (*default*) or  mask_rcnn_resnet50_atrous_coco
+* --model - yolo26s-seg (*default*) or  yolo11s-seg
 * --output - file (*default*), display, fps, json, display-and-json, jpeg
 * --device - CPU (*default*), GPU, NPU
 
@@ -59,7 +59,7 @@ For example:
 ./instance_segmentation.sh --input my_video.mp4 --output json --device GPU
 ```
 
-will run the default model (mask_rcnn_inception_resnet_v2_atrous_coco) on a GPU to detect object boundaries in my_video.mp4. The detection results will be stored in a file named DLS_my_video_GPU.json.
+will run the default model (yolo26s-seg) on a GPU to detect object boundaries in my_video.mp4. The detection results will be stored in a file named DLS_my_video_GPU.json.
 
 
 ## Sample Output
