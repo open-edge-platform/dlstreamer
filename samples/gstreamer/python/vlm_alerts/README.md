@@ -80,20 +80,17 @@ source .vlm-venv/bin/activate
 ```code
 curl -LO https://raw.githubusercontent.com/openvinotoolkit/openvino.genai/refs/heads/releases/2026/2/samples/export-requirements.txt
 pip install -r export-requirements.txt
-pip install "transformers>=4.57,<4.58"
-pip install "openvino-tokenizers==2026.2.0.*"
+pip install -r requirements.txt
 ```
 
-> `optimum-intel` currently supports OpenVINO model export only up to
-> `transformers` 4.57.6, while `export-requirements.txt` pins a newer
-> `transformers`. The extra `pip install` step pins a compatible version.
-
-> `openvino-tokenizers` must match the OpenVINO **runtime** shipped with your
-> DL Streamer installation (here `2026.2.0`), which is the one `gvagenai` uses
-> and the one loaded via `PYTHONPATH`. `export-requirements.txt` pins a newer
-> nightly build; if the versions differ, `openvino-tokenizers` is not binary
-> compatible. Adjust the pinned version to match your
-> OpenVINO runtime (check with `python3 -c "import openvino; print(openvino.__version__)"`).
+> `requirements.txt` pins two packages on top of `export-requirements.txt`:
+> `transformers` (`optimum-intel` supports OpenVINO export only up to
+> `transformers` 4.57.6, while `export-requirements.txt` pins a newer one) and
+> `openvino-tokenizers`, which must match the OpenVINO **runtime** shipped with
+> your DL Streamer installation (here `2026.2.0`) — the one `gvagenai` uses and
+> the one loaded via `PYTHONPATH`. If they differ, `openvino-tokenizers` is not
+> binary compatible. Adjust the pinned version to match your OpenVINO runtime
+> (check with `python3 -c "import openvino; print(openvino.__version__)"`).
 
 > A DL Streamer build that includes the `gvagenai` element is required.
 
