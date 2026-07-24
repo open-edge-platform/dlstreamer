@@ -22,21 +22,18 @@ parser = argparse.ArgumentParser(
     formatter_class=argparse.RawTextHelpFormatter,
     description="Use this tool to try and find versions of your pipeline that will run with increased performance." # pylint: disable=line-too-long
 )
-parser.add_argument("mode", choices=["fps", "streams"], metavar="MODE",
+parser.add_argument("mode", choices=["fps", "power"], metavar="MODE",
                     help=textwrap.dedent('''\
                         The type of optimization that will be performed on the pipeline.
-                        Possible values are \"fps\" and \"streams\".
+                        Possible values are \"fps\" and \"power\".
 
                         fps - the optimizer will explore possible alternatives
                               for the pipeline, trying to locate versions that
                               have increased performance measured by fps.
 
-                        streams - the optimizer will explore possible alternatives
-                                  for the pipeline, trying to locate a version which
-                                  can support the most streams at once without
-                                  crossing a minimum fps threshold.
-                                  (check \"multistream-fps-limit for more info)
-
+                        power - the optimizer will explore possible alternatives
+                              for the pipeline, trying to locate versions that
+                              consumes the least amount of watts.
                     '''))
 parser.add_argument("PIPELINE", nargs="+",
                     help="Pipeline to be analyzed")
@@ -44,16 +41,23 @@ parser.add_argument("-v", "--verbose", action="store_true",
                     help="Print more information about the optimization progress")
 parser.add_argument("-o", "--output",
                     help="Save optimization results to a file in JSON format")
+parser.add_argument("--power-metrics-endpoint",
+                    help="URL leading to the prometheus endpoint of a Metrics Manager. Required for power-based optimization.")
 parser.add_argument("--search-duration", default=300, type=float,
                     help="Duration in seconds of time which should be spent searching for optimized pipelines (default: %(default)s)")
 parser.add_argument("--sample-duration", default=10, type=float,
                     help="Duration in seconds of sampling individual pipelines. Longer duration should offer more stable results (default: %(default)s)")
 parser.add_argument("--detection-threshold", default=0.95, type=float,
                     help="Minimum threshold of detections that tested pipelines are not allowed to cross in order to count as valid alternatives (default: %(default)s)")
-parser.add_argument("--multistream-fps-limit", default=30, type=float,
-                    help="Minimum amount of fps allowed when optimizing for multiple streams (default: %(default)s)")
+parser.add_argument("--fps-limit", type=float,
+                    help="Minimum amount of fps that every valid pipeline much achieve")
+parser.add_argument("--power-limit", type=float,
+                    help="Maximum amount of power that every valid pipeline cannot cross")
 parser.add_argument("--enable-cross-stream-batching", action="store_true",
                     help="Enable cross stream batching for inference elements in fps mode")
+parser.add_argument("--maximize-streams", action="store_true",
+                    help="When optimizing, try to pack as many parallel streams as possible without passing either the fps or power limit. "\
+                         "(check the --fps-limit and --power-limit flags for more)")
 parser.add_argument("--log-level", default="INFO", choices=["CRITICAL", "FATAL", "ERROR" ,"WARN", "INFO", "DEBUG"],
                     help="Minimum used log level (default: %(default)s)")
 parser.add_argument("--allowed-devices", nargs="+",
@@ -90,8 +94,15 @@ def main() -> int:
     try:
         optimizer.set_sample_duration(args.sample_duration)
         optimizer.set_detections_error_threshold(args.detection_threshold)
-        optimizer.set_multistream_fps_limit(args.multistream_fps_limit)
         optimizer.enable_cross_stream_batching(args.enable_cross_stream_batching)
+        optimizer.set_maximize_streams(args.maximize_streams)
+
+        if args.fps_limit:
+            optimizer.set_fps_limit(args.fps_limit)
+        if args.power_limit:
+            optimizer.set_power_limit(args.power_limit)
+        if args.power_metrics_endpoint:
+            optimizer.set_metrics_url(args.power_metrics_endpoint)
 
         match args.optimization_profile:
             case "coarse":
@@ -131,7 +142,7 @@ def main() -> int:
                     json_result["candidates"].append({"pipeline": pipeline, "metrics": result})
                     if args.verbose:
                         if result:
-                            _display_result(pipeline, result)
+                            _display_result_fps(pipeline, result)
                         else:
                             _validation_fail(pipeline)
 
@@ -142,32 +153,28 @@ def main() -> int:
                 best_pipeline, best_result = optimizer.get_optimal_pipeline()
                 json_result["baseline"] = {"pipeline": base_pipeline, "metrics": base_result}
                 json_result["optimal"] = {"pipeline": best_pipeline, "metrics": best_result}
-                _display_summary_fps(best_pipeline, best_result["fps"], base_pipeline, base_result["fps"])
+                _display_summary_fps(best_pipeline, best_result, base_pipeline, base_result)
 
-            case "streams":
-                json_result["mode"] = "streams"
+            case "power":
+                json_result["mode"] = "power"
                 json_result["candidates"] = []
-                for (pipeline, result) in optimizer.iter_optimize_for_streams(pipeline):
+                for (pipeline, result) in optimizer.iter_optimize_for_power(pipeline):
 
                     json_result["candidates"].append({"pipeline": pipeline, "metrics": result})
-
                     if args.verbose:
                         if result:
-                            full_pipeline = []
-                            for _ in range(0, result["streams"]):
-                                full_pipeline.append(pipeline)
-                            full_pipeline = " ".join(full_pipeline)
-
-                            _display_result(full_pipeline, result)
+                            _display_result_power(pipeline, result)
                         else:
                             _validation_fail(pipeline)
 
                     if time.time() - start_time > search_duration:
                         break
 
+                base_pipeline, base_result = optimizer.get_baseline_pipeline()
                 best_pipeline, best_result = optimizer.get_optimal_pipeline()
+                json_result["baseline"] = {"pipeline": base_pipeline, "metrics": base_result}
                 json_result["optimal"] = {"pipeline": best_pipeline, "metrics": best_result}
-                _display_summary_streams(best_pipeline, best_result)
+                _display_summary_power(best_pipeline, best_result, base_pipeline, base_result)
 
         if args.output:
             with open(args.output, 'w', encoding='utf-8') as f:
@@ -176,8 +183,8 @@ def main() -> int:
         logger.error("Failed to optimize pipeline: %s", e)
     except KeyboardInterrupt:
         logger.info("Execution stopped, closing down.")
-
-    stop_listening()
+    finally:
+        stop_listening()
 
 ####################################### Helpers ###################################################
 
@@ -206,38 +213,52 @@ def _validation_fail(pipeline):
     logger.info("Candidate pipeline: %s", str(pipeline))
     logger.info("======================================================================")
 
-def _display_result(pipeline, result):
+def _display_result_fps(pipeline, result):
     logger.info("============================== CANDIDATE =============================")
     logger.info("Sampled pipeline: %s", str(pipeline))
     logger.info("")
     logger.info("Recorded fps: %.2f", result["fps"])
     logger.info("======================================================================")
 
-def _display_summary_fps(best_pipeline, best_fps, initial_pipeline, initial_fps):
+def _display_result_power(pipeline, result):
+    logger.info("============================== CANDIDATE =============================")
+    logger.info("Sampled pipeline: %s", str(pipeline))
+    logger.info("")
+    logger.info("Recorded watt usage: %.2f", result["power"])
+    logger.info("======================================================================")
+
+def _display_summary_fps(best_pipeline, best_result, initial_pipeline, initial_result):
     logger.info("=============================== SUMMARY ==============================")
-    if best_fps > initial_fps:
-        logger.info("Optimized pipeline found with %.2f fps improvement over the original pipeline.", best_fps - initial_fps)
-        logger.info("Original pipeline FPS: %.2f", initial_fps)
+    if best_result["fps"] < initial_result["fps"]:
+        logger.info("Optimized pipeline found with %.2f fps improvement over the original pipeline.", best_result["fps"] - initial_result["fps"])
+        logger.info("Original pipeline FPS: %.2f", initial_result["fps"])
         logger.info("Optimized pipeline: %s", str(best_pipeline))
-        logger.info("Optimized pipeline FPS: %.2f", best_fps)
+        logger.info("Optimized pipeline FPS: %.2f", best_result["fps"])
+        if args.maximize_streams:
+            full_pipeline = ([best_pipeline] * best_result["fps"]).join(" ")
+            logger.info("Number of streams pipeline can support: %d", best_result["streams"])
+            logger.info("Full pipeline: %s", full_pipeline)
     else:
         logger.info("No optimized pipeline found that outperforms the original pipeline.")
         logger.info("Original pipeline: %s", str(initial_pipeline))
-        logger.info("Original pipeline FPS: %.2f", initial_fps)
+        logger.info("Original pipeline FPS: %.2f", initial_result["fps"])
     logger.info("======================================================================")
 
-def _display_summary_streams(best_pipeline, result):
-    full_pipeline = []
-    for _ in range(0, result["streams"]):
-        full_pipeline.append(best_pipeline)
-    full_pipeline = " ".join(full_pipeline)
-
+def _display_summary_power(best_pipeline, best_result, initial_pipeline, initial_result):
     logger.info("=============================== SUMMARY ==============================")
-    logger.info("Optimized pipeline: %s", str(best_pipeline))
-    logger.info("Number of streams pipeline can support: %d", result["streams"])
-    logger.info("Optimized pipeline FPS at max streams: %.2f", result["fps"])
-    logger.info("")
-    logger.info("Full pipeline: %s", full_pipeline)
+    if best_result["power"] < initial_result["power"]:
+        logger.info("Optimized pipeline found with %.2f less watts used over the original pipeline.", initial_result["power"] - best_result["power"])
+        logger.info("Original pipeline power usage: %.2f", initial_result["power"])
+        logger.info("Optimized pipeline: %s", str(best_pipeline))
+        logger.info("Optimized pipeline power usage: %.2f", best_result["power"])
+        if args.maximize_streams:
+            full_pipeline = ([best_pipeline] * best_result["streams"]).join(" ")
+            logger.info("Number of streams pipeline can support: %d", best_result["streams"])
+            logger.info("Full pipeline: %s", full_pipeline)
+    else:
+        logger.info("No optimized pipeline found that outperforms the original pipeline.")
+        logger.info("Original pipeline: %s", str(initial_pipeline))
+        logger.info("Original pipeline power usage: %.2f", initial_result["power"])
     logger.info("======================================================================")
 
 ###################################################################################################
