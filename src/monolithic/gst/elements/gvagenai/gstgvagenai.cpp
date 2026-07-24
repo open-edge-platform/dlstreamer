@@ -9,12 +9,16 @@
 #include <cmath>
 #include <fstream>
 #include <gst/video/video.h>
+#include <memory>
 
 #include "gva_caps.h"
 #include "gva_json_meta.h"
 #include <gst/analytics/gstanalyticsclassificationmtd.h>
 
-#include "genai.hpp"
+#include "backends/frame_utils.hpp"
+#include "backends/genai_backend.hpp"
+
+#include <vector>
 
 GST_DEBUG_CATEGORY(gst_gvagenai_debug);
 #define GST_CAT_DEFAULT gst_gvagenai_debug
@@ -33,6 +37,10 @@ enum {
     PROP_FRAME_RATE,
     PROP_CHUNK_SIZE,
     PROP_METRICS,
+    PROP_BACKEND,
+    PROP_HTTP_SERVER_URL,
+    PROP_HTTP_API_KEY,
+    PROP_HTTP_TIMEOUT,
     PROP_VISION_MODE
 };
 
@@ -72,6 +80,18 @@ static GstStaticPadTemplate src_template =
 
 // Class initialization
 G_DEFINE_TYPE(GstGvaGenAI, gst_gvagenai, GST_TYPE_BASE_TRANSFORM);
+
+// Backend pointer stored in gvagenai->backend (heap-allocated shared_ptr)
+using BackendPtr = std::shared_ptr<genai::IGenAIBackend>;
+
+// Per-element runtime state stored in gvagenai->backend (heap-allocated).
+// Holds the backend plus the frame-accumulation state that used to live inside
+// the backend: a reusable GST->CPU mapper and the pending RGB frame tensors.
+struct GvaGenAIRuntime {
+    BackendPtr backend;
+    std::shared_ptr<dlstreamer::MemoryMapperGSTToCPU> mapper;
+    std::vector<ov::Tensor> frames;
+};
 
 // GObject vmethod implementations
 static void gst_gvagenai_set_property(GObject *object, guint prop_id, const GValue *value, GParamSpec *pspec);
@@ -117,7 +137,10 @@ static void gst_gvagenai_class_init(GstGvaGenAIClass *klass) {
 
     g_object_class_install_property(
         gobject_class, PROP_MODEL_PATH,
-        g_param_spec_string("model-path", "Model Path", "Path to the GenAI model", NULL, G_PARAM_READWRITE));
+        g_param_spec_string("model-path", "Model Path",
+                            "Path to the local GenAI model ('openvino' backend), or the model name to "
+                            "request from the server ('openai-http' backend)",
+                            NULL, G_PARAM_READWRITE));
 
     g_object_class_install_property(
         gobject_class, PROP_PROMPT,
@@ -165,6 +188,28 @@ static void gst_gvagenai_class_init(GstGvaGenAIClass *klass) {
                                                          "Include performance metrics in JSON output", FALSE,
                                                          G_PARAM_READWRITE));
 
+    g_object_class_install_property(gobject_class, PROP_BACKEND,
+                                    g_param_spec_string("backend", "Backend",
+                                                        "Inference backend: 'openvino' (local) or "
+                                                        "'openai-http' (remote OpenAI-compatible server)",
+                                                        "openvino", G_PARAM_READWRITE));
+
+    g_object_class_install_property(gobject_class, PROP_HTTP_SERVER_URL,
+                                    g_param_spec_string("http-server-url", "HTTP Server URL",
+                                                        "Base URL of the OpenAI-compatible server "
+                                                        "(e.g. http://localhost:8000/v1)",
+                                                        NULL, G_PARAM_READWRITE));
+
+    g_object_class_install_property(gobject_class, PROP_HTTP_API_KEY,
+                                    g_param_spec_string("http-api-key", "HTTP API Key",
+                                                        "Optional Bearer token / API key for the HTTP server", NULL,
+                                                        G_PARAM_READWRITE));
+
+    g_object_class_install_property(gobject_class, PROP_HTTP_TIMEOUT,
+                                    g_param_spec_string("http-timeout", "HTTP Timeout",
+                                                        "Optional request timeout in milliseconds", NULL,
+                                                        G_PARAM_READWRITE));
+
     g_object_class_install_property(
         gobject_class, PROP_VISION_MODE,
         g_param_spec_enum("vision-mode", "Vision Mode",
@@ -177,23 +222,31 @@ static void gst_gvagenai_class_init(GstGvaGenAIClass *klass) {
 
 /* Initialize the instance */
 static void gst_gvagenai_init(GstGvaGenAI *gvagenai) {
-    gvagenai->device = g_strdup("CPU");
-    gvagenai->model_path = NULL;
+    gvagenai->config.backend = g_strdup("openvino");
+    gvagenai->config.model = NULL;
+    gvagenai->config.device = g_strdup("CPU");
+    gvagenai->config.cache_path = g_strdup("ov_cache");
+    gvagenai->config.generation_config = NULL;
+    gvagenai->config.scheduler_config = NULL;
+    gvagenai->config.pipeline_config = NULL;
+    gvagenai->config.include_metrics = FALSE;
+    gvagenai->config.server_url = NULL;
+    gvagenai->config.api_key = NULL;
+    gvagenai->config.timeout_ms = NULL;
+    gvagenai->config.vision_mode = GVAGENAI_VISION_MODE_IMAGE; // Send frames as images by default
+
     gvagenai->prompt = NULL;
     gvagenai->prompt_path = NULL;
-    gvagenai->generation_config = NULL;
-    gvagenai->scheduler_config = NULL;
-    gvagenai->pipeline_config = NULL;
-    gvagenai->model_cache_path = g_strdup("ov_cache");
     gvagenai->frame_rate = 0.0; // Process all frames by default
     gvagenai->chunk_size = 1;   // Process one frame at a time by default
-    gvagenai->metrics = FALSE;
-    gvagenai->vision_mode = GVAGENAI_VISION_MODE_IMAGE; // Send frames as images by default
     gvagenai->frame_counter = 0;
     gvagenai->input_fps = 0.0; // Unknown until caps are set
     gvagenai->prompt_string = NULL;
     gvagenai->prompt_changed = FALSE;
-    gvagenai->openvino_context = NULL;
+
+    gvagenai->backend = NULL;
+    gvagenai->last_result = NULL;
+    gvagenai->last_confidence = -1.0f;
 }
 
 // Function to load effective prompt and set prompt_string
@@ -252,12 +305,12 @@ static void gst_gvagenai_set_property(GObject *object, guint prop_id, const GVal
 
     switch (prop_id) {
     case PROP_DEVICE:
-        g_free(gvagenai->device);
-        gvagenai->device = g_value_dup_string(value);
+        g_free(gvagenai->config.device);
+        gvagenai->config.device = g_value_dup_string(value);
         break;
     case PROP_MODEL_PATH:
-        g_free(gvagenai->model_path);
-        gvagenai->model_path = g_value_dup_string(value);
+        g_free(gvagenai->config.model);
+        gvagenai->config.model = g_value_dup_string(value);
         break;
     case PROP_PROMPT:
         // Lock to synchronize prompt updates with transform function
@@ -272,20 +325,20 @@ static void gst_gvagenai_set_property(GObject *object, guint prop_id, const GVal
         gvagenai->prompt_path = g_value_dup_string(value);
         break;
     case PROP_GENERATION_CONFIG:
-        g_free(gvagenai->generation_config);
-        gvagenai->generation_config = g_value_dup_string(value);
+        g_free(gvagenai->config.generation_config);
+        gvagenai->config.generation_config = g_value_dup_string(value);
         break;
     case PROP_SCHEDULER_CONFIG:
-        g_free(gvagenai->scheduler_config);
-        gvagenai->scheduler_config = g_value_dup_string(value);
+        g_free(gvagenai->config.scheduler_config);
+        gvagenai->config.scheduler_config = g_value_dup_string(value);
         break;
     case PROP_PIPELINE_CONFIG:
-        g_free(gvagenai->pipeline_config);
-        gvagenai->pipeline_config = g_value_dup_string(value);
+        g_free(gvagenai->config.pipeline_config);
+        gvagenai->config.pipeline_config = g_value_dup_string(value);
         break;
     case PROP_MODEL_CACHE_PATH:
-        g_free(gvagenai->model_cache_path);
-        gvagenai->model_cache_path = g_value_dup_string(value);
+        g_free(gvagenai->config.cache_path);
+        gvagenai->config.cache_path = g_value_dup_string(value);
         break;
     case PROP_FRAME_RATE:
         gvagenai->frame_rate = g_value_get_double(value);
@@ -295,10 +348,26 @@ static void gst_gvagenai_set_property(GObject *object, guint prop_id, const GVal
         gvagenai->chunk_size = g_value_get_uint(value);
         break;
     case PROP_METRICS:
-        gvagenai->metrics = g_value_get_boolean(value);
+        gvagenai->config.include_metrics = g_value_get_boolean(value);
+        break;
+    case PROP_BACKEND:
+        g_free(gvagenai->config.backend);
+        gvagenai->config.backend = g_value_dup_string(value);
+        break;
+    case PROP_HTTP_SERVER_URL:
+        g_free(gvagenai->config.server_url);
+        gvagenai->config.server_url = g_value_dup_string(value);
+        break;
+    case PROP_HTTP_API_KEY:
+        g_free(gvagenai->config.api_key);
+        gvagenai->config.api_key = g_value_dup_string(value);
+        break;
+    case PROP_HTTP_TIMEOUT:
+        g_free(gvagenai->config.timeout_ms);
+        gvagenai->config.timeout_ms = g_value_dup_string(value);
         break;
     case PROP_VISION_MODE:
-        gvagenai->vision_mode = g_value_get_enum(value);
+        gvagenai->config.vision_mode = g_value_get_enum(value);
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -311,10 +380,10 @@ static void gst_gvagenai_get_property(GObject *object, guint prop_id, GValue *va
 
     switch (prop_id) {
     case PROP_DEVICE:
-        g_value_set_string(value, gvagenai->device);
+        g_value_set_string(value, gvagenai->config.device);
         break;
     case PROP_MODEL_PATH:
-        g_value_set_string(value, gvagenai->model_path);
+        g_value_set_string(value, gvagenai->config.model);
         break;
     case PROP_PROMPT:
         g_value_set_string(value, gvagenai->prompt);
@@ -323,16 +392,16 @@ static void gst_gvagenai_get_property(GObject *object, guint prop_id, GValue *va
         g_value_set_string(value, gvagenai->prompt_path);
         break;
     case PROP_GENERATION_CONFIG:
-        g_value_set_string(value, gvagenai->generation_config);
+        g_value_set_string(value, gvagenai->config.generation_config);
         break;
     case PROP_SCHEDULER_CONFIG:
-        g_value_set_string(value, gvagenai->scheduler_config);
+        g_value_set_string(value, gvagenai->config.scheduler_config);
         break;
     case PROP_PIPELINE_CONFIG:
-        g_value_set_string(value, gvagenai->pipeline_config);
+        g_value_set_string(value, gvagenai->config.pipeline_config);
         break;
     case PROP_MODEL_CACHE_PATH:
-        g_value_set_string(value, gvagenai->model_cache_path);
+        g_value_set_string(value, gvagenai->config.cache_path);
         break;
     case PROP_FRAME_RATE:
         g_value_set_double(value, gvagenai->frame_rate);
@@ -341,10 +410,22 @@ static void gst_gvagenai_get_property(GObject *object, guint prop_id, GValue *va
         g_value_set_uint(value, gvagenai->chunk_size);
         break;
     case PROP_METRICS:
-        g_value_set_boolean(value, gvagenai->metrics);
+        g_value_set_boolean(value, gvagenai->config.include_metrics);
+        break;
+    case PROP_BACKEND:
+        g_value_set_string(value, gvagenai->config.backend);
+        break;
+    case PROP_HTTP_SERVER_URL:
+        g_value_set_string(value, gvagenai->config.server_url);
+        break;
+    case PROP_HTTP_API_KEY:
+        g_value_set_string(value, gvagenai->config.api_key);
+        break;
+    case PROP_HTTP_TIMEOUT:
+        g_value_set_string(value, gvagenai->config.timeout_ms);
         break;
     case PROP_VISION_MODE:
-        g_value_set_enum(value, gvagenai->vision_mode);
+        g_value_set_enum(value, gvagenai->config.vision_mode);
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -355,20 +436,26 @@ static void gst_gvagenai_get_property(GObject *object, guint prop_id, GValue *va
 static void gst_gvagenai_finalize(GObject *object) {
     GstGvaGenAI *gvagenai = GST_GVAGENAI(object);
 
-    g_free(gvagenai->device);
-    g_free(gvagenai->model_path);
+    g_free(gvagenai->config.backend);
+    g_free(gvagenai->config.model);
+    g_free(gvagenai->config.device);
+    g_free(gvagenai->config.cache_path);
+    g_free(gvagenai->config.generation_config);
+    g_free(gvagenai->config.scheduler_config);
+    g_free(gvagenai->config.pipeline_config);
+    g_free(gvagenai->config.server_url);
+    g_free(gvagenai->config.api_key);
+    g_free(gvagenai->config.timeout_ms);
+
     g_free(gvagenai->prompt);
     g_free(gvagenai->prompt_path);
-    g_free(gvagenai->generation_config);
-    g_free(gvagenai->scheduler_config);
-    g_free(gvagenai->pipeline_config);
-    g_free(gvagenai->model_cache_path);
 
-    // Clean up context
+    // Clean up backend and cached state
     g_free(gvagenai->prompt_string);
-    if (gvagenai->openvino_context) {
-        delete static_cast<genai::OpenVINOGenAIContext *>(gvagenai->openvino_context);
-        gvagenai->openvino_context = NULL;
+    g_free(gvagenai->last_result);
+    if (gvagenai->backend) {
+        delete static_cast<BackendPtr *>(gvagenai->backend);
+        gvagenai->backend = NULL;
     }
 
     G_OBJECT_CLASS(gst_gvagenai_parent_class)->finalize(object);
@@ -377,9 +464,26 @@ static void gst_gvagenai_finalize(GObject *object) {
 static gboolean gst_gvagenai_start(GstBaseTransform *base) {
     GstGvaGenAI *gvagenai = GST_GVAGENAI(base);
 
-    if (!gvagenai->model_path) {
-        GST_ELEMENT_ERROR(gvagenai, RESOURCE, SETTINGS, ("Model path not specified"),
-                          ("'model-path' property must be set before starting"));
+    const gchar *backend_type = gvagenai->config.backend ? gvagenai->config.backend : "openvino";
+    gboolean is_http = (g_strcmp0(backend_type, "openai-http") == 0);
+    gboolean is_openvino = (g_strcmp0(backend_type, "openvino") == 0);
+
+    if (!is_http && !is_openvino) {
+        GST_ELEMENT_ERROR(gvagenai, RESOURCE, SETTINGS, ("Invalid backend"),
+                          ("Unknown backend '%s'. Valid values: 'openvino', 'openai-http'", backend_type));
+        return FALSE;
+    }
+
+    if (!gvagenai->config.model) {
+        GST_ELEMENT_ERROR(gvagenai, RESOURCE, SETTINGS, ("Model not specified"),
+                          ("'model-path' property must be set (local model path for 'openvino', "
+                           "or model name for 'openai-http')"));
+        return FALSE;
+    }
+
+    if (is_http && !gvagenai->config.server_url) {
+        GST_ELEMENT_ERROR(gvagenai, RESOURCE, SETTINGS, ("HTTP backend not configured"),
+                          ("'http-server-url' must be set for the 'openai-http' backend"));
         return FALSE;
     }
 
@@ -389,17 +493,15 @@ static gboolean gst_gvagenai_start(GstBaseTransform *base) {
         return FALSE;
     }
 
-    // Create and initialize context
+    // Create backend through the process-wide registry using the element config
     try {
-        auto context =
-            new genai::OpenVINOGenAIContext(gvagenai->model_path, gvagenai->device,
-                                            gvagenai->model_cache_path ? gvagenai->model_cache_path : "ov_cache",
-                                            gvagenai->generation_config ? gvagenai->generation_config : "",
-                                            gvagenai->scheduler_config ? gvagenai->scheduler_config : "",
-                                            gvagenai->pipeline_config ? gvagenai->pipeline_config : "");
-        gvagenai->openvino_context = context;
+        BackendPtr backend = genai::GenAIBackendRegistry::instance().create_backend(gvagenai->config);
+        auto *runtime = new GvaGenAIRuntime();
+        runtime->backend = std::move(backend);
+        runtime->mapper = std::make_shared<dlstreamer::MemoryMapperGSTToCPU>(nullptr, nullptr);
+        gvagenai->backend = runtime;
     } catch (const std::exception &e) {
-        GST_ELEMENT_ERROR(gvagenai, LIBRARY, INIT, ("Failed to initialize OpenVINO™ GenAI context"), ("%s", e.what()));
+        GST_ELEMENT_ERROR(gvagenai, LIBRARY, INIT, ("Failed to initialize GenAI backend"), ("%s", e.what()));
         return FALSE;
     }
 
@@ -409,11 +511,10 @@ static gboolean gst_gvagenai_start(GstBaseTransform *base) {
 static gboolean gst_gvagenai_stop(GstBaseTransform *base) {
     GstGvaGenAI *gvagenai = GST_GVAGENAI(base);
 
-    if (gvagenai->openvino_context) {
-        auto *context = static_cast<genai::OpenVINOGenAIContext *>(gvagenai->openvino_context);
-        context->clear_tensor_vector();
-        delete context;
-        gvagenai->openvino_context = NULL;
+    if (gvagenai->backend) {
+        auto *runtime = static_cast<GvaGenAIRuntime *>(gvagenai->backend);
+        delete runtime;
+        gvagenai->backend = NULL;
     }
 
     return TRUE;
@@ -422,11 +523,13 @@ static gboolean gst_gvagenai_stop(GstBaseTransform *base) {
 static GstFlowReturn gst_gvagenai_transform_ip(GstBaseTransform *base, GstBuffer *buf) {
     GstGvaGenAI *gvagenai = GST_GVAGENAI(base);
 
-    if (!gvagenai->openvino_context) {
-        GST_ELEMENT_ERROR(gvagenai, CORE, STATE_CHANGE, ("Context not initialized"),
-                          ("OpenVINO GenAI context is not initialized, element may not have started properly"));
+    if (!gvagenai->backend) {
+        GST_ELEMENT_ERROR(gvagenai, CORE, STATE_CHANGE, ("Backend not initialized"),
+                          ("GenAI backend is not initialized, element may not have started properly"));
         return GST_FLOW_ERROR;
     }
+
+    auto *runtime = static_cast<GvaGenAIRuntime *>(gvagenai->backend);
 
     GST_OBJECT_LOCK(gvagenai);
     gboolean _success = TRUE;
@@ -447,7 +550,7 @@ static GstFlowReturn gst_gvagenai_transform_ip(GstBaseTransform *base, GstBuffer
     gst_video_info_from_caps(&info, caps);
     gst_caps_unref(caps);
 
-    auto *context = static_cast<genai::OpenVINOGenAIContext *>(gvagenai->openvino_context);
+    BackendPtr &backend = runtime->backend;
 
     gvagenai->frame_counter++;
 
@@ -466,18 +569,17 @@ static GstFlowReturn gst_gvagenai_transform_ip(GstBaseTransform *base, GstBuffer
 
     // Run inference only on non-skipped frames
     if (!skip_frame) {
-        // Convert frame to tensor and add to vector
+        // Accumulate frame as an RGB tensor (converted once, centrally, for all backends)
         try {
-            context->add_tensor_to_vector(buf, &info);
+            runtime->frames.push_back(genai::gst_buffer_to_rgb_tensor(*runtime->mapper, buf, &info));
         } catch (const std::exception &e) {
-            GST_ELEMENT_ERROR(gvagenai, STREAM, FAILED, ("Failed to add frame to tensor vector"),
-                              ("Error: %s", e.what()));
+            GST_ELEMENT_ERROR(gvagenai, STREAM, FAILED, ("Failed to add frame to backend"), ("Error: %s", e.what()));
             return GST_FLOW_ERROR;
         }
 
-        // Only process if we've accumulated enough tensors
-        if (context->get_tensor_vector_size() >= gvagenai->chunk_size) {
-            const gboolean as_video = (gvagenai->vision_mode == GVAGENAI_VISION_MODE_VIDEO);
+        // Only process if we've accumulated enough frames
+        if (runtime->frames.size() >= gvagenai->chunk_size) {
+            const gboolean as_video = (gvagenai->config.vision_mode == GVAGENAI_VISION_MODE_VIDEO);
 
             // Derive the effective fps of the frames actually accumulated, so VideoMetadata.fps
             // matches the frames the model receives. With frame-rate sampling active, the achieved
@@ -492,44 +594,52 @@ static GstFlowReturn gst_gvagenai_transform_ip(GstBaseTransform *base, GstBuffer
                 }
             }
 
-            // Process tensor vector
+            genai::GenRequest req;
+            req.frames = std::move(runtime->frames);
+            req.prompt = gvagenai->prompt_string;
+            req.as_video = as_video;
+            req.fps = (float)effective_fps;
+            req.timestamp = GST_BUFFER_TIMESTAMP(buf);
+            runtime->frames.clear(); // a moved-from vector is not guaranteed empty
+
+            genai::GenAIResult result;
             try {
-                context->inference_tensor_vector(gvagenai->prompt_string, as_video, (float)effective_fps);
+                result = backend->submit(std::move(req)).get();
             } catch (const std::exception &e) {
-                GST_ELEMENT_ERROR(gvagenai, STREAM, FAILED, ("Failed to inference tensor vector"),
+                GST_ELEMENT_ERROR(gvagenai, STREAM, FAILED, ("Failed to run backend inference"),
                                   ("Error: %s", e.what()));
                 return GST_FLOW_ERROR;
             }
 
-            // Add JSON metadata on inference frames only.
+            // Persist last result/confidence for watermark rendering on subsequent frames
+            g_free(gvagenai->last_result);
+            gvagenai->last_result = g_strdup(result.text.c_str());
+            gvagenai->last_confidence = result.confidence;
+
             const GstMetaInfo *meta_info = gst_gva_json_meta_get_info();
             if (meta_info && gst_buffer_is_writable(buf)) {
                 auto *json_meta = (GstGVAJSONMeta *)gst_buffer_add_meta(buf, meta_info, NULL);
-                if (json_meta) {
-                    json_meta->message =
-                        g_strdup(context->create_json_metadata(GST_BUFFER_TIMESTAMP(buf), gvagenai->metrics).c_str());
-                    GST_INFO_OBJECT(gvagenai, "Added meta message: %s", json_meta->message);
-                }
+                json_meta->message = g_strdup(result.raw_json.c_str());
+                GST_INFO_OBJECT(gvagenai, "Added meta message: %s", json_meta->message);
             }
         } else {
-            GST_DEBUG_OBJECT(gvagenai, "Added tensor %u of %u", (guint)context->get_tensor_vector_size(),
-                             gvagenai->chunk_size);
+            GST_DEBUG_OBJECT(gvagenai, "Added frame %u of %u", (guint)runtime->frames.size(), gvagenai->chunk_size);
         }
     }
 
     // Emit GstAnalyticsClsMtd on EVERY frame so gvawatermark renders persistently.
     // Uses the last known result (persists across frames until the next inference completes).
-    std::string last_result = context->get_last_result();
-    if (!last_result.empty() && gst_buffer_is_writable(buf)) {
+    const gchar *last_result = gvagenai->last_result;
+    if (last_result && last_result[0] != '\0' && gst_buffer_is_writable(buf)) {
         GstAnalyticsRelationMeta *rmeta = gst_buffer_get_analytics_relation_meta(buf);
         if (!rmeta) {
             rmeta = gst_buffer_add_analytics_relation_meta(buf);
         }
         if (rmeta) {
-            GQuark label = g_quark_from_string(last_result.c_str());
+            GQuark label = g_quark_from_string(last_result);
             // Pass 0.0 when confidence is unavailable (greedy decoding) so gvawatermark
             // renders the label text without a confidence percentage.
-            const float raw_cls_conf = context->get_last_confidence();
+            const float raw_cls_conf = gvagenai->last_confidence;
             gfloat cls_confidence = (raw_cls_conf >= 0.0f) ? raw_cls_conf : 0.0f;
             GstAnalyticsClsMtd cls_mtd = {0, nullptr};
             gst_analytics_relation_meta_add_cls_mtd(rmeta, 1, &cls_confidence, &label, &cls_mtd);

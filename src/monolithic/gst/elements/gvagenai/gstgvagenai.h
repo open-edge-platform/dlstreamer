@@ -8,6 +8,8 @@
 
 #include <gst/base/gstbasetransform.h>
 
+#include "backends/genai_config.h"
+
 G_BEGIN_DECLS
 
 #define GST_TYPE_GVAGENAI (gst_gvagenai_get_type())
@@ -22,24 +24,26 @@ typedef struct _GstGvaGenAIClass GstGvaGenAIClass;
 struct _GstGvaGenAI {
     GstBaseTransform element;
 
-    gchar *device;
-    gchar *model_path;
+    // Backend construction config (grouped GObject-property storage).
+    // Passed directly to the backend factory.
+    GenAIBackendConfig config;
+
+    // Pipeline / element behavior (not backend-construction config)
     gchar *prompt;
     gchar *prompt_path;
-    gchar *generation_config;
-    gchar *scheduler_config;
-    gchar *pipeline_config;
-    gchar *model_cache_path;
     gdouble frame_rate;
     guint chunk_size;
-    gboolean metrics;
-    gint vision_mode; // GstGvaGenAIVisionMode: present accumulated frames as images or as one video clip
     guint frame_counter;
     gdouble input_fps; // input stream fps cached from caps, used to derive VideoMetadata.fps
 
     gboolean prompt_changed; // flag to indicate if prompt was updated and needs to be reloaded
     gchar *prompt_string;
-    void *openvino_context;
+
+    void *backend; // std::shared_ptr<genai::IGenAIBackend> *
+
+    // Last inference result, persisted so gvawatermark renders across frames
+    gchar *last_result;
+    gfloat last_confidence;
 };
 
 struct _GstGvaGenAIClass {
