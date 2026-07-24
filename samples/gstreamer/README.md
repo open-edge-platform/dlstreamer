@@ -17,6 +17,7 @@ Samples separated into several categories:
     * [PointPillars Inference with g3dinference](./gst_launch/g3dinference/README.md) - demonstrates a complete LiDAR-only 3D detection pipeline based on `g3dlidarparse` and `g3dinference` elements
     * [Camera + 3D Object Fusion with g3dobjectfuser](./gst_launch/g3dobjectfuser/README.md) - demonstrates how to fuse 2D camera detections with 3D LiDAR detections using the `g3dobjectfuser` element to produce cross-modal associations
     * [LiDAR Parse Sample](./gst_launch/g3dlidarparse/README.md) - demonstrates LiDAR parsing pipeline with `g3dlidarparse` element
+    * [Live LiDAR Capture Sample](./gst_launch/g3dlidarsrc/README.md) - demonstrates real-time LiDAR capture from a physical device with the `g3dlidarsrc` element (RoboSense via rs_driver)
     * [Radar Signal Process Sample](./gst_launch/g3dradarprocess/README.md) - demonstrates how to use the `g3dradarprocess` element for millimeter-wave radar signal processing with point cloud detection, clustering, and tracking
     * [Deployment of Geti™ models](./gst_launch/geti_deployment/README.md) - demonstrates how to deploy models trained with Geti™ Platform for object detection, anomaly detection and classification tasks
     * [gvaattachroi](./gst_launch/gvaattachroi/README.md) - demonstrates how to use gvaattachroi to define the regions on which the inference should be performed

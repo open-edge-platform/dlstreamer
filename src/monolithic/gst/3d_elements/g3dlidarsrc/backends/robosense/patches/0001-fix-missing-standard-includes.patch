@@ -1,0 +1,36 @@
+diff --git a/src/rs_driver/driver/decoder/decoder_RSEMX.hpp b/src/rs_driver/driver/decoder/decoder_RSEMX.hpp
+index 165870a..7c71dd8 100644
+--- a/src/rs_driver/driver/decoder/decoder_RSEMX.hpp
++++ b/src/rs_driver/driver/decoder/decoder_RSEMX.hpp
+@@ -32,6 +32,7 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+ #pragma once
+
++#include <array>
+ #include <rs_driver/driver/decoder/decoder.hpp>
+
+ #define EMX_SURFACE_NUM 2
+diff --git a/src/rs_driver/driver/driver_param.hpp b/src/rs_driver/driver/driver_param.hpp
+index 79456b6..b4d778b 100644
+--- a/src/rs_driver/driver/driver_param.hpp
++++ b/src/rs_driver/driver/driver_param.hpp
+@@ -38,6 +38,7 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ #include <map>
+ #include <cstring>
+ #include <unordered_map>
++#include <cstdint>  // Fix: add for uint8_t, uint16_t, uint32_t types
+ namespace robosense
+ {
+ namespace lidar
+diff --git a/src/rs_driver/driver/input/input.hpp b/src/rs_driver/driver/input/input.hpp
+index 0b66229..cea1166 100644
+--- a/src/rs_driver/driver/input/input.hpp
++++ b/src/rs_driver/driver/input/input.hpp
+@@ -38,6 +38,7 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ #include <functional>
+ #include <thread>
+ #include <cstring>
++#include <memory>  // Fix: add for std::shared_ptr
+
+ #define VLAN_HDR_LEN  4
+ #define ETH_HDR_LEN   42

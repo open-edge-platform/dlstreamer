@@ -28,8 +28,6 @@ It runs:
 
 `gvastreammux` performs the synchronisation; `sync-mode` makes the camera and 3D timelines comparable. The 3D sensor (LiDAR vs radar) is identified by the per-stream caps inside the batch (`application/x-lidar` vs `application/x-radar-processed`).
 
-**Note**: `g3drender` element which mentioned in following examples will be added soon.
-
 ### Camera + Radar fusion
 ```bash
 gst-launch-1.0 -v \
@@ -39,7 +37,7 @@ gst-launch-1.0 -v \
         g3dradarprocess radar-config=$RADAR_CFG ! mux.sink_1 \
     gvastreammux name=mux output-mode=container sync-mode=first-pts ! \
         g3dobjectfuser calibration=samples/gstreamer/gst_launch/g3dobjectfuser/calib/radar_homography.json ! \
-        g3drender ! videoconvert ! ximagesink
+        g3drender ! videoconvert ! autovideosink
 ```
 
 ### Camera + LiDAR fusion
@@ -51,7 +49,7 @@ gst-launch-1.0 -v \
         g3dlidarparse ! g3dinference config=$POINTPILLARS_CONFIG ! mux.sink_1 \
     gvastreammux name=mux output-mode=container sync-mode=first-pts ! \
         g3dobjectfuser calibration=samples/gstreamer/gst_launch/g3dobjectfuser/calib/kitti_calib.json ! \
-        g3drender ! videoconvert ! ximagesink
+        g3drender ! videoconvert ! autovideosink
 ```
 
 For N cameras, add `gvadetect ! mux.sink_<n>` branches; the 3D stream goes on the next free `mux.sink_<n>`.
@@ -125,7 +123,7 @@ Multi-camera form (keyed by `gvastreammux` stream index — one entry per camera
 When `gvastreammux` merges multiple cameras, every output buffer's `GstAnalyticsBatchMeta.streams[0].index` selects which entry under `cameras` the fuser uses — so different intrinsics/extrinsics per camera Just Work.
 
 ## Calibration propagated downstream (`g3d/calibration` event)
-The fuser is the single source of truth for calibration. Once the sensor modality is known (first 3D buffer), it pushes the loaded matrices downstream as a **sticky custom-downstream event** named `g3d/calibration`, so a renderer (`g3drender`) can reproject the 3D boxes onto each camera image without being handed the file path again. The event is sticky, so late-linked or flushed branches still receive it.
+The fuser is the single source of truth for calibration. Once the sensor modality is known (first 3D buffer), it pushes the loaded matrices downstream as a **sticky custom-downstream event** named `g3d/calibration`, so a downstream element (e.g., `g3drender`) can reproject the 3D boxes onto each camera image without being handed the file path again. The event is sticky, so late-linked or flushed branches still receive it.
 
 Event `GstStructure` layout:
 
@@ -140,7 +138,7 @@ Each `camera-<idx>` sub-structure holds (matrices as `GST_TYPE_ARRAY` of floats,
 - LiDAR mode: `tr_velo_to_cam` (16), `r0_rect` (16), `p2` (12), plus `index` (int).
 - Radar mode: `homography` (9), plus `index` (int).
 
-Consumer sketch (`g3drender` sink_event):
+Consumer sketch (sink_event):
 ```c
 if (GST_EVENT_TYPE(ev) == GST_EVENT_CUSTOM_DOWNSTREAM_STICKY &&
     gst_event_has_name(ev, "g3d/calibration")) {
