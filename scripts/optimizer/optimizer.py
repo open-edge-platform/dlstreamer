@@ -54,6 +54,7 @@ class DLSOptimizer:
         # configuration
         self._start_time = time.time()
         self._sample_duration = 10
+        self._maximize_streams = False
         self._fps_limit = None
         self._power_limit = None
         self._enable_cross_stream_batching = False
@@ -83,6 +84,9 @@ class DLSOptimizer:
 
     def set_sample_duration(self, duration): # pylint: disable=missing-function-docstring
         self._sample_duration = duration
+
+    def set_maximize_streams(self, maximize): # pylint: disable=missing-function-docstring
+        self._maximize_streams = maximize
 
     def set_fps_limit(self, limit): # pylint: disable=missing-function-docstring
         self._fps_limit = limit
@@ -147,44 +151,24 @@ class DLSOptimizer:
         return self._iter_optimize(initial_pipeline, PowerTarget())
 
     def optimize_for_streams(self, pipeline, search_duration = DEFAULT_SEARCH_DURATION): # pylint: disable=missing-function-docstring
-        start_time = time.time()
-        for (_, _) in self.iter_optimize_for_streams(pipeline):
-            cur_time = time.time()
-            if cur_time - start_time > search_duration:
-                break
-
-        pipeline, result = self.get_optimal_pipeline()
-        return pipeline, result
+        warnings.warn(
+            "Function optimize_for_streams has been deprecated. "
+            "Please use set_maximize_streams and optimize_for_fps instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        self._set_maximize_streams(True)
+        return self.optimize_for_fps(pipeline, search_duration)
 
     def iter_optimize_for_streams(self, initial_pipeline): # pylint: disable=missing-function-docstring
-        # Test for tee element presence
-        if re.search("[^a-zA-Z]tee[^a-zA-Z]", initial_pipeline):
-            raise RuntimeError("Pipelines containing the tee element are currently not supported!")
-
-        if self._power_limit is None and self._fps_limit is None:
-            raise RuntimeError("When optimizing for streams, configure at least one limit to prevent infinite looping.")
-
-        initial_pipeline = initial_pipeline.split("!")
-
-        # Run pre-optimization steps
-        self._establish_baseline(initial_pipeline)
-        initial_pipeline = self._run_preprocessing(initial_pipeline)
-
-        initial_pipeline = add_instance_ids(initial_pipeline)
-        self._initial_result["streams"] = 1
-        self._optimal_result["streams"] = 1
-
-        # Perform optimization
-        for streams in range(1, 128):
-            for (pipeline, result) in self._evaluate_candidates(initial_pipeline, FpsTarget(), streams):
-                if result:
-                    fps = result["fps"]
-                    result["streams"] = streams
-                    if fps > self._fps_limit and (fps > self._optimal_result["fps"] or streams > self._optimal_result["streams"]):
-                        self._optimal_result = result.copy()
-                        self._optimal_pipeline = pipeline
-
-                yield "!".join(pipeline), result
+        warnings.warn(
+            "Function iter_optimize_for_streams has been deprecated. "
+            "Please use set_maximize_streams and iter_optimize_for_fps instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        self._set_maximize_streams(True)
+        return self.iter_optimize_for_fps(initial_pipeline)
 
     def _optimize(self, pipeline, target, search_duration = DEFAULT_SEARCH_DURATION):
         start_time = time.time()
@@ -201,6 +185,9 @@ class DLSOptimizer:
         if re.search("[^a-zA-Z]tee[^a-zA-Z]", initial_pipeline):
             raise RuntimeError("Pipelines containing the tee element are currently not supported!")
 
+        if self._maximize_streams and self._power_limit is None and self._fps_limit is None:
+            raise RuntimeError("When optimizing for streams, configure at least one limit to prevent infinite looping.")
+
         initial_pipeline = initial_pipeline.split("!")
 
         # Run pre-optimization steps
@@ -210,14 +197,22 @@ class DLSOptimizer:
         if self._enable_cross_stream_batching:
             initial_pipeline = add_instance_ids(initial_pipeline)
 
-        # iterate over candidates and find the best one
-        for (pipeline, result) in self._evaluate_candidates(initial_pipeline, target, 1):
-            if result:
-                if self._passes_limits(result) and target.is_better(result, self._optimal_result):
-                    self._optimal_result = result.copy()
-                    self._optimal_pipeline = pipeline.copy()
+        max_streams = 1
+        if self._maximize_streams:
+            max_streams = 128
+            initial_pipeline = add_instance_ids(initial_pipeline)
+            self._initial_result["streams"] = 1
+            self._optimal_result["streams"] = 1
 
-            yield "!".join(pipeline), result
+        # iterate over candidates and find the best one
+        for streams in range(1, max_streams):
+            for (pipeline, result) in self._evaluate_candidates(initial_pipeline, target, 1):
+                if result:
+                    if self._passes_limits(result) and target.is_better(result, self._optimal_result):
+                        self._optimal_result = result.copy()
+                        self._optimal_pipeline = pipeline.copy()
+
+                yield "!".join(pipeline), result
 
     def _passes_limits(self, result):
         fps_pass = self._fps_limit is None or result["fps"] > self._fps_limit
