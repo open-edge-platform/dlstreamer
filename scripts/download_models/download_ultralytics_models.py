@@ -17,7 +17,6 @@ from urllib.error import HTTPError
 from urllib.error import URLError
 from urllib.request import urlretrieve
 from pathlib import Path
-import openvino as ov
 from ultralytics import YOLO
 
 
@@ -59,21 +58,15 @@ def parse_model_ref(model_ref: str) -> tuple[str, str | None]:
     return model_ref.strip(), None
 
 
-def output_model_name(model_ref: str) -> str:
-    """Return a normalized output model name without revision or file suffix."""
-    model_name, _ = parse_model_ref(model_ref)
-    return Path(model_name).stem
-
-
-def output_precision_dirname(half: bool, int8: bool) -> str:
-    """Return the target precision folder name for the requested export."""
-    if half and int8:
-        raise ValueError("--half and --int8 cannot be used together")
-    if int8:
-        return "INT8"
-    if half:
-        return "FP16"
-    return "FP32"
+def normalize_outdir_path(outdir: Path) -> Path:
+    """Remove optional @revision marker from path components used in output dir."""
+    parts: list[str] = []
+    for part in outdir.parts:
+        if "@" in part:
+            parts.append(Path(part.split("@", 1)[0]).stem)
+        else:
+            parts.append(part)
+    return Path(*parts)
 
 
 def normalize_model_filename(model_name: str) -> str:
@@ -139,44 +132,17 @@ def is_explicit_local_model_path(model_or_path: str) -> bool:
     return path.is_absolute() or ('/' in model_or_path or '\\' in model_or_path)
 
 
-def find_exported_xml(exported_path: Path) -> Path:
-    """Return the single exported XML that has a matching .bin file."""
-    xmls = sorted(path for path in exported_path.rglob("*.xml") if path.with_suffix(".bin").exists())
-    if len(xmls) != 1:
-        raise RuntimeError(f"expected one exported XML in {exported_path}, found {len(xmls)}")
-    return xmls[0]
-
-
-def move_exported_model(exported_path: Path, outdir: Path, model_name: str, precision: str) -> Path:
-    """Normalize Ultralytics export into DLStreamer layout."""
-    model_dir = outdir / model_name / precision
-    target_xml = model_dir / f"{model_name}.xml"
-    target_bin = target_xml.with_suffix(".bin")
-    exported_xml = find_exported_xml(exported_path)
-
-    model_dir.mkdir(parents=True, exist_ok=True)
-    with tempfile.TemporaryDirectory(prefix=f".{model_name}-", dir=model_dir) as tmp_dir:
-        tmp_xml = Path(tmp_dir) / target_xml.name
-        tmp_bin = tmp_xml.with_suffix(".bin")
-        shutil.copy2(exported_xml, tmp_xml)
-        shutil.copy2(exported_xml.with_suffix(".bin"), tmp_bin)
-        ov.Core().read_model(str(tmp_xml))
-        tmp_bin.replace(target_bin)
-        tmp_xml.replace(target_xml)
-
-    skip = {exported_xml.name, exported_xml.with_suffix(".bin").name}
-    for item in exported_xml.parent.iterdir():
-        if item.is_file() and item.name not in skip:
-            shutil.copy2(item, model_dir / item.name)
-
-    shutil.rmtree(exported_path, ignore_errors=True)
-    return model_dir
+def move_exported_model(exported_path: Path, outdir: Path) -> Path:
+    for item in exported_path.iterdir():
+        item.rename(outdir / item.name)
+    exported_path.rmdir()
+    return outdir
 
 
 def main() -> int:
     args = parse_args()
     model_name = args.model
-    outdir = Path(args.outdir)
+    outdir = normalize_outdir_path(Path(args.outdir))
     half = args.half
     int8 = args.int8
     temp_download_dir: Path | None = None
@@ -184,9 +150,6 @@ def main() -> int:
     try:
         outdir.mkdir(parents=True, exist_ok=True)
         model, temp_download_dir = resolve_ultralytics_model(model_name)
-        output_name = output_model_name(model_name)
-        precision = output_precision_dirname(half, int8)
-
         exported_model_path = model.export(
             format="openvino",
             dynamic=True,
@@ -198,7 +161,7 @@ def main() -> int:
             print(f"Error: Export failed for model '{model_name}' - no output produced")
             return 1
 
-        model_path = move_exported_model(Path(exported_model_path), outdir, output_name, precision)
+        model_path = move_exported_model(Path(exported_model_path), outdir)
         print(f"Exported model location: {model_path}")
     except FileNotFoundError as exc:
         missing = getattr(exc, 'filename', None) or model_name
