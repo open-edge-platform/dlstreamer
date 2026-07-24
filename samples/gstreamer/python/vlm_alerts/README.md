@@ -68,15 +68,29 @@ The `gvagenai` element attaches inference results directly as `GstGVATensorMeta`
 1. Create and activate a virtual environment:
 ```code
 cd samples/gstreamer/python/vlm_alerts
-python3 -m venv .vlm-venv
+python3 -m venv --system-site-packages .vlm-venv
 source .vlm-venv/bin/activate
 ```
 
-2. Install dependencies:
+> The `--system-site-packages` flag is required so the virtual environment can
+> use the GStreamer Python bindings (PyGObject / `gi`) provided by the system
+> DL Streamer installation.
+
+1. Install dependencies:
 ```code
 curl -LO https://raw.githubusercontent.com/openvinotoolkit/openvino.genai/refs/heads/releases/2026/2/samples/export-requirements.txt
-pip install -r export-requirements.txt 
+pip install -r export-requirements.txt
+pip install -r requirements.txt
 ```
+
+> `requirements.txt` pins two packages on top of `export-requirements.txt`:
+> `transformers` (`optimum-intel` supports OpenVINO export only up to
+> `transformers` 4.57.6, while `export-requirements.txt` pins a newer one) and
+> `openvino-tokenizers`, which must match the OpenVINO **runtime** shipped with
+> your DL Streamer installation (here `2026.2.0`) — the one `gvagenai` uses and
+> the one loaded via `PYTHONPATH`. If they differ, `openvino-tokenizers` is not
+> binary compatible. Adjust the pinned version to match your OpenVINO runtime
+> (check with `python3 -c "import openvino; print(openvino.__version__)"`).
 
 > A DL Streamer build that includes the `gvagenai` element is required.
 
