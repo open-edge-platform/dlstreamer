@@ -27,7 +27,7 @@ AttachRoi::AttachRoi(const char *filepath, const char *roi_str, Mode mode) : _mo
         setRoiFromString(roi_str);
 }
 
-void AttachRoi::attachMetas(GVA::VideoFrame &vframe, GstBuffer *buffer, GstClockTime timestamp) {
+void AttachRoi::attachMetas(GVA::VideoFrame &vframe, GstClockTime timestamp) {
     _frame_num++;
 
     if (!_roi.empty())
@@ -37,7 +37,7 @@ void AttachRoi::attachMetas(GVA::VideoFrame &vframe, GstBuffer *buffer, GstClock
     if (!_roi_json.empty()) {
         addRoiFromJson(vframe, timestamp);
         // Full-frame
-        addTensorFromJson(vframe, buffer, timestamp);
+        addTensorFromJson(vframe, timestamp);
     }
 
     // Empty region
@@ -295,7 +295,7 @@ void attachJsonTensorToTensor(GVA::Tensor &tensor, const nlohmann::json::value_t
     }
 }
 
-void AttachRoi::addTensorFromJson(GVA::VideoFrame &vframe, GstBuffer *buffer, GstClockTime timestamp) const {
+void AttachRoi::addTensorFromJson(GVA::VideoFrame &vframe, GstClockTime timestamp) const {
     assert(!_roi_json.empty());
 
     bool found = false;
@@ -310,39 +310,15 @@ void AttachRoi::addTensorFromJson(GVA::VideoFrame &vframe, GstBuffer *buffer, Gs
 
         auto tensorsIterator = node.find("tensors");
         if (tensorsIterator != node.end()) {
-            GstAnalyticsRelationMeta *relation_meta = nullptr;
-            GstVideoInfo *vinfo = vframe.video_info();
-            gint frame_w = vinfo ? static_cast<gint>(GST_VIDEO_INFO_WIDTH(vinfo)) : 0;
-            gint frame_h = vinfo ? static_cast<gint>(GST_VIDEO_INFO_HEIGHT(vinfo)) : 0;
             for (const nlohmann::json::value_type &jsonTensor : *tensorsIterator) {
-                GVA::Tensor tensor = vframe.add_tensor();
+                GstStructure *s = gst_structure_new_empty("meta");
+                GVA::Tensor tensor(s);
                 attachJsonTensorToTensor(tensor, jsonTensor);
-
-                // Also write GStreamer Analytics metadata for supported tensor types
-                if (!relation_meta)
-                    relation_meta = gst_buffer_add_analytics_relation_meta(buffer);
-                if (relation_meta) {
-                    GstAnalyticsMtd mtd;
-                    tensor.convert_to_meta(&mtd, relation_meta, 0, 0, frame_w, frame_h);
-                }
-            }
-        }
-
-        nlohmann::json::const_iterator it_objs = node.find("objects");
-        if (it_objs == node.end())
-            return;
-
-        for (const nlohmann::json::value_type &obj : *it_objs) {
-            auto it_tens = obj.find("tensors");
-            if (it_tens == obj.end())
-                continue;
-
-            for (const nlohmann::json::value_type &jelement : *it_tens) {
-                auto labelIter = jelement.find("label");
-                if (labelIter != jelement.end()) {
-                    auto tensor = vframe.add_tensor();
-                    tensor.set_label(labelIter->get<std::string>());
-                }
+                // add_tensor stores the legacy tensor meta and, for supported types, the frame-level
+                // analytics metadata, so no manual convert_to_meta is needed here (avoids a duplicated
+                // GStreamer Analytics metadata entry).
+                vframe.add_tensor(tensor);
+                gst_structure_free(s);
             }
         }
     } catch (std::exception &e) {
