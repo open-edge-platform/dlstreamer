@@ -157,7 +157,7 @@ class DLSOptimizer:
             DeprecationWarning,
             stacklevel=2
         )
-        self._set_maximize_streams(True)
+        self.set_maximize_streams(True)
         return self.optimize_for_fps(pipeline, search_duration)
 
     def iter_optimize_for_streams(self, initial_pipeline): # pylint: disable=missing-function-docstring
@@ -167,7 +167,7 @@ class DLSOptimizer:
             DeprecationWarning,
             stacklevel=2
         )
-        self._set_maximize_streams(True)
+        self.set_maximize_streams(True)
         return self.iter_optimize_for_fps(initial_pipeline)
 
     def _optimize(self, pipeline, target, search_duration = DEFAULT_SEARCH_DURATION):
@@ -206,7 +206,7 @@ class DLSOptimizer:
 
         # iterate over candidates and find the best one
         for streams in range(1, max_streams):
-            for (pipeline, result) in self._evaluate_candidates(initial_pipeline, target, 1):
+            for (pipeline, result) in self._evaluate_candidates(initial_pipeline, target, streams):
                 if result:
                     if self._passes_limits(result) and target.is_better(result, self._optimal_result):
                         self._optimal_result = result.copy()
