@@ -250,7 +250,7 @@ def _display_summary_power(best_pipeline, best_result, initial_pipeline, initial
         logger.info("Optimized pipeline found with %.2f less watts used over the original pipeline.", initial_result["power"] - best_result["power"])
         logger.info("Original pipeline power usage: %.2f", initial_result["power"])
         logger.info("Optimized pipeline: %s", str(best_pipeline))
-        logger.info("Optimized pipeline power usage: %.2f", best_power)
+        logger.info("Optimized pipeline power usage: %.2f", best_result["power"])
         if args.maximize_streams:
             full_pipeline = ([best_pipeline] * best_result["streams"]).join(" ")
             logger.info("Number of streams pipeline can support: %d", best_result["streams"])
