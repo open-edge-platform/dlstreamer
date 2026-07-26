@@ -1,0 +1,5 @@
+numpy==2.2.0
+opencv-python==4.11.0.86
+PyGObject==3.50.0
+pycairo==1.29.0
+tinydb
