@@ -469,7 +469,6 @@ docker run -it --rm \
   --group-add $(stat -c "%g" /dev/dri/render*) \
   --device /dev/accel \
   --group-add $(stat -c "%g" /dev/accel/accel*) \
-  --env ZE_ENABLE_ALT_DRIVERS=libze_intel_npu.so \
   intel/dlstreamer:latest
 ```
 
@@ -481,7 +480,6 @@ What the device flags do:
 | `--group-add $(stat -c "%g" /dev/dri/render*)` | Grants non-root permission to the GPU |
 | `--device /dev/accel` | Gives the container access to the Intel® **NPU** |
 | `--group-add $(stat -c "%g" /dev/accel/accel*)` | Grants non-root permission to the NPU |
-| `--env ZE_ENABLE_ALT_DRIVERS=...` | Enables the NPU driver inside the container |
 
 Now, **inside the container**, run a pipeline. Since a container is typically
 headless, we output to a file:
