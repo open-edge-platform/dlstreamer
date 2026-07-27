@@ -14,7 +14,7 @@
 
 <img src="./hero.jpg" width="800" alt="DL Streamer sample outputs">
 
-[Get Started](#quick-start---installation) • [Run Your Pipeline](#quick-start---run-your-pipeline) • [Samples](./samples/gstreamer/README.md) • [Elements](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/elements/elements.html) • [Documentation](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/index.html) • [Contributing](./CONTRIBUTING.md)
+[Get Started](#quick-start---installation) • [Run Your Pipeline](#quick-start---run-your-pipeline) • [Samples](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/samples.html) • [Elements](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/elements/elements.html) • [Documentation](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/index.html) • [Contributing](./CONTRIBUTING.md)
 
 </div>
 
@@ -204,7 +204,7 @@ cat output_from_python.json
 | **Integration** | [ONVIF camera discovery](./samples/gstreamer/python/onvif_cameras_discovery/README.md), [Geti™ model deployment](./samples/gstreamer/gst_launch/geti_deployment/README.md), [Metadata to MQTT/Kafka](./samples/gstreamer/gst_launch/metapublish/README.md) |
 | **Python extensibility** | [Custom Python GStreamer elements](./samples/gstreamer/gst_launch/python-elements/face_detection_and_classification/README.md), [Smart NVR with recording](./samples/gstreamer/python/smart_nvr/README.md) |
 
-[Browse all samples →](./samples/gstreamer/README.md)
+[Browse all samples →](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/samples.html)
 
 ---
 
