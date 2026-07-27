@@ -245,7 +245,7 @@ gst-launch-1.0 \
 ```
 
 **What you'll see:** the bridge video with colored boxes and labels around each
-detected vehicle and person.
+detected vehicle.
 
 <p align="center">
   <img src="../_images/tutorial_step_3.1.jpg" alt="Object detection output: bounding boxes and labels on cars and people crossing the bridge" width="640"/>
@@ -410,7 +410,7 @@ deactivate
 **What you'll see:** a new file `skateboard_output.mp4` in
 `~/dlstreamer_demo/prompted_detection`,
 with the dog boxed and labelled — and nothing else. Try other prompts like
-`"white shoes"` or `"backpack"`!
+`"person"` or `"backpack"`!
 
 <p align="center">
   <img src="../_images/tutorial_step_4.3.jpg" alt="Prompt-based detection output: only the dog is boxed and labelled, nothing else" width="640"/>
