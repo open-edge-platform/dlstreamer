@@ -200,12 +200,6 @@ static void gst_real_sense_init(GstRealSense *src) {
     }
 
     gst_base_src_set_format(GST_BASE_SRC(src), GST_FORMAT_TIME);
-
-    if (detectRealSenseDevices(detectedDevices)) {
-        GST_INFO("gst_real_sense_init: RealSense devices detected successfully.\n");
-    } else {
-        GST_ERROR("gst_real_sense_init: No RealSense devices found.\n");
-    }
 }
 
 /**
@@ -222,6 +216,12 @@ static void gst_real_sense_finalize(GObject *object) {
         GST_ERROR("Failed to finalize GstRealSense, object is NULL\n");
         return;
     }
+
+    GstRealSense *src = GST_REAL_SENSE(object);
+
+    g_clear_pointer(&src->uri, g_free);
+
+    G_OBJECT_CLASS(parent_class)->finalize(object);
 }
 
 /**
@@ -264,6 +264,11 @@ static gboolean gst_real_sense_set_camera(GstRealSense *src, const gchar *camera
     }
 
     try {
+        if (src->rsPipeline) {
+            src->rsPipeline->stop();
+            src->rsPipeline.reset();
+        }
+
         src->rsPipeline = std::make_unique<rs2::pipeline>();
         if (src->rsPipeline == nullptr) {
             GST_INFO("Failed to create Real Sense pipeline\n");
@@ -272,11 +277,7 @@ static gboolean gst_real_sense_set_camera(GstRealSense *src, const gchar *camera
         rs2::pipeline_profile profile = src->rsPipeline->start(conf);
         rs2::device device = profile.get_device();
 
-        rs2::context ctx;
-        rs2::device_list devices = ctx.query_devices();
-        for (auto &&dev : devices) {
-            GST_INFO("Device: %s\n", dev.get_info(RS2_CAMERA_INFO_NAME));
-        }
+        GST_INFO("Started RealSense device: %s\n", device.get_info(RS2_CAMERA_INFO_NAME));
 
     } // try
     catch (const rs2::error &e) {
@@ -311,20 +312,21 @@ static void gst_real_sense_set_property(GObject *object, guint prop_id, const GV
 
     switch (prop_id) {
     case PROP_CAMERA: {
-        gst_real_sense_set_camera(src, g_value_get_string(value), NULL);
+        g_free(src->uri);
+        src->uri = g_value_dup_string(value);
 
-        GST_INFO("gst_real_sense_set_property: Camera device set to %s\n", g_value_get_string(value));
+        GST_INFO("gst_real_sense_set_property: Camera device set to %s\n", GST_STR_NULL(src->uri));
 
-        if (is_rs_device_available((gchar *)g_value_get_string(value))) {
-            GST_INFO("gst_real_sense_set_property: Camera device %s is available.\n", g_value_get_string(value));
+        if (src->uri && is_rs_device_available(src->uri)) {
+            GST_INFO("gst_real_sense_set_property: Camera device %s is available.\n", src->uri);
         } else {
-            GST_ERROR("gst_real_sense_set_property: Camera device %s is not available.\n", g_value_get_string(value));
+            GST_ERROR("gst_real_sense_set_property: Camera device %s is not available.\n", GST_STR_NULL(src->uri));
         }
 
-        if (gva_real_sense_is_device_available((gchar *)g_value_get_string(value)))
-            GST_INFO("gst_real_sense_set_property: Camera device %s is available.\n", g_value_get_string(value));
+        if (src->uri && gva_real_sense_is_device_available(src->uri))
+            GST_INFO("gst_real_sense_set_property: Camera device %s is available.\n", src->uri);
         else
-            GST_ERROR("gst_real_sense_set_property: Camera device %s is not available.\n", g_value_get_string(value));
+            GST_ERROR("gst_real_sense_set_property: Camera device %s is not available.\n", GST_STR_NULL(src->uri));
 
         break;
     }
@@ -357,8 +359,11 @@ static void gst_real_sense_get_property(GObject *object, guint prop_id, GValue *
 
     g_return_if_fail(GST_IS_REAL_SENSE(object));
 
+    GstRealSense *src = GST_REAL_SENSE(object);
+
     switch (prop_id) {
     case PROP_CAMERA:
+        g_value_set_string(value, src->uri);
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -489,6 +494,16 @@ static GstFlowReturn gst_real_sense_create(GstBaseSrc *basesrc, guint64 offset, 
 static gboolean gst_real_sense_start(GstBaseSrc *basesrc) {
     auto *src = GST_REAL_SENSE(basesrc);
 
+    if (!src->uri || !*src->uri) {
+        GST_ERROR("gst_real_sense_start: Camera device is not configured\n");
+        return FALSE;
+    }
+
+    if (!gst_real_sense_set_camera(src, src->uri, NULL)) {
+        GST_ERROR("gst_real_sense_start: Failed to start camera %s\n", src->uri);
+        return FALSE;
+    }
+
     src->gstVideoFormat = get_gst_video_format(RS2_FORMAT_Z16);
     GST_DEBUG("gst_real_sense_start: Using video format: %s\n", gst_video_format_to_string(src->gstVideoFormat));
     return TRUE;
@@ -509,6 +524,18 @@ static gboolean gst_real_sense_stop(GstBaseSrc *basesrc) {
         GST_ERROR("gst_real_sense_stop: basesrc is NULL\n");
         return FALSE;
     }
+
+    auto *src = GST_REAL_SENSE(basesrc);
+
+    if (src->rsPipeline) {
+        try {
+            src->rsPipeline->stop();
+        } catch (const rs2::error &e) {
+            GST_WARNING("gst_real_sense_stop: Failed to stop RealSense pipeline cleanly: %s\n", e.what());
+        }
+        src->rsPipeline.reset();
+    }
+
     return TRUE;
 }
 
@@ -554,9 +581,7 @@ static GstCaps *gst_real_sense_get_caps(GstBaseSrc *bsrc, GstCaps *filter) {
 
     caps = gst_pad_get_pad_template_caps(GST_BASE_SRC_PAD(src));
 
-    GST_DEBUG_OBJECT(src, "The caps before filtering are %" GST_PTR_FORMAT, caps);
-
-    if (filter && caps) {
+    GST_DEBUG_OBJECT(src, "The caps before filtering are filter && caps) {
         GstCaps *tmp = gst_caps_intersect(caps, filter);
         gst_caps_unref(caps);
         caps = tmp;
