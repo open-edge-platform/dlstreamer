@@ -59,7 +59,7 @@ fi
 echo "MODELS_PATH: $MODELS_PATH"
 
 # Construct the model path
-MODEL_PATH="${MODELS_PATH}/public/${MODEL}FP16/${MODEL}.xml"
+MODEL_PATH="${MODELS_PATH}/public/${MODEL}/FP16/${MODEL}.xml"
 
 # Check if model exists in local directory
 if [ ! -f "$MODEL_PATH" ]; then
