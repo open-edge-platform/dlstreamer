@@ -10,12 +10,12 @@ online in the
 [samples directory on GitHub](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer)
 or, after installation, under `/opt/intel/dlstreamer/samples`.
 
-> **Looking for a specific element?** See the [Elements](./elements/elements.md) page —
+> **Looking for a specific element?** See the [Elements](../elements/elements.md) page —
 > most elements are demonstrated by one or more of the samples listed below.
 
 ## How to run
 
-- Install DL Streamer first — see the [Get Started](./get_started/system_requirements.md) guide.
+- Install DL Streamer first — see the [Get Started](./system_requirements.md) guide.
 - Download the models the samples use with the conversion scripts under
   [scripts/download_models](https://github.com/open-edge-platform/dlstreamer/tree/main/scripts/download_models).
   They export models from Hugging Face, Ultralytics, TIMM and other sources to OpenVINO IR:
@@ -161,5 +161,5 @@ Find them under
 Can't find what you need? The full, always-up-to-date list lives in the
 [samples README on GitHub](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer),
 and you can extend any sample with your own logic using the
-[gvapython](./elements/gvapython.md) element or a
-[custom Python/C++ element](./dev_guide/dev_guide_index.md).
+[gvapython](../elements/gvapython.md) element or a
+[custom Python/C++ element](../dev_guide/dev_guide_index.md).
