@@ -111,15 +111,6 @@ orig_dir=$(pwd) || exit
 # Change directory to the script's location
 cd "$(dirname "$0")" || exit
 
-# Get the model proc file path
-MODEL_PROC=${MODEL_PROC_FILES[$MODEL]}
-MODEL_PROC=$(realpath "$MODEL_PROC")
-
-if [ ! -f "$MODEL_PROC" ]; then
-    echo "ERROR - model-proc file not found: $MODEL_PROC." >&2
-    exit 1
-fi
-
 # Change back to the previous directory
 cd "$orig_dir" || exit
 

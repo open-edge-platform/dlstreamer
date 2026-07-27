@@ -109,11 +109,11 @@ $MODEL_PATH = $MODEL_PATH -replace '\\', '/'
 # Build and run pipeline
 Write-Host ""
 Write-Host "Running pipeline:"
-Write-Host "gst-launch-1.0 $SOURCE_ELEMENT ! $DECODE_ELEMENT$FrameLimiter ! gvaclassify model=$MODEL_PATH device=$Device inference-region=full-frame pre-process-backend=$PREPROC_BACKEND ! $SINK_ELEMENT"
+Write-Host "gst-launch-1.0 $SOURCE_ELEMENT ! $DECODE_ELEMENT$FrameLimiter ! gvadetect model=$MODEL_PATH device=$Device inference-region=full-frame pre-process-backend=$PREPROC_BACKEND ! $SINK_ELEMENT"
 Write-Host ""
 
 # Build pipeline command - expand variables first, then execute
-$CMD = "gst-launch-1.0 $SOURCE_ELEMENT ! $DECODE_ELEMENT$FrameLimiter ! gvaclassify model=$MODEL_PATH device=$Device inference-region=full-frame pre-process-backend=$PREPROC_BACKEND ! $SINK_ELEMENT"
+$CMD = "gst-launch-1.0 $SOURCE_ELEMENT ! $DECODE_ELEMENT$FrameLimiter ! gvadetect model=$MODEL_PATH device=$Device inference-region=full-frame pre-process-backend=$PREPROC_BACKEND ! $SINK_ELEMENT"
 
 # Execute using Invoke-Expression (properly handles the command string)
 Invoke-Expression $CMD
