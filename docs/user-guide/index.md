@@ -11,7 +11,7 @@
 </div>
 hide_directive-->
 
-[System Requirements](./get_started/system_requirements.md) | [Install Guide](./get_started/install/install_guide_index.md) | [Tutorial](./get_started/tutorial.md) | [Elements](./elements/elements.md) | [Samples](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer) | [API Reference](./api_ref/api_reference.md) | [Release Notes](./release-notes.md)
+[System Requirements](./get_started/system_requirements.md) | [Install Guide](./get_started/install/install_guide_index.md) | [Tutorial](./get_started/tutorial.md) | [Elements](./elements/elements.md) | [Samples](./samples.md) | [API Reference](./api_ref/api_reference.md) | [Release Notes](./release-notes.md)
 
 **Deep Learning Streamer (DL Streamer)** is an open-source media analytics framework built on [GStreamer\*](https://gstreamer.freedesktop.org). It lets you build video and audio intelligence pipelines — from a simple object detection command line to a multi-stream production deployment — with minimal code, running on Intel® CPU, GPU, and NPU. DL Streamer consists of:
 
@@ -107,7 +107,7 @@ AIVID TECHVISION and others.
 System Requirements <get_started/system_requirements>
 Install Guide <get_started/install/install_guide_index>
 Tutorial <get_started/tutorial>
-Samples <https://github.com/open-edge-platform/dlstreamer/blob/main/samples/gstreamer/README.md>
+Samples <samples>
 supported_models
 elements/elements
 dev_guide/dev_guide_index
