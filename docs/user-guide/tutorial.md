@@ -491,10 +491,10 @@ gst-launch-1.0 \
   filesrc location=${VIDEOS_PATH}/bridge.mp4 ! decodebin3 ! \
   gvadetect model=${MODELS_PATH}/yolo11s/FP16/yolo11s.xml device=GPU ! queue ! \
   gvawatermark ! gvafpscounter ! \
-  vah264enc ! h264parse ! mp4mux ! filesink location=${VIDEOS_PATH}/bridge_detected.mp4
+  vah264enc ! h264parse ! mp4mux ! filesink location=${VIDEOS_PATH}/bridge_detected_in_docker.mp4
 ```
 
-**What you'll get:** `bridge_detected.mp4` appears back on your host in
+**What you'll get:** `bridge_detected_in_docker.mp4` appears back on your host in
 `~/dlstreamer_demo/videos/` (thanks to the volume mount), annotated with detections —
 proof that GPU acceleration worked inside the container. Swap `device=GPU` for
 `device=NPU` to run the same pipeline on the NPU.
@@ -518,8 +518,6 @@ Great places to continue:
   Vision-Language Models, and Kafka/MQTT publishing.
 - **[Supported models](../supported_models.md)** — the 70+ models you can run out
   of the box.
-- **[How to create a model-proc file](../dev_guide/how_to_create_model_proc_file.md)** —
-  for integrating your own custom models.
 
 Ideas to try right now by editing the commands above:
 
