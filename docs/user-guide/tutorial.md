@@ -106,7 +106,7 @@ First, make sure `git`, `wget`, Python venv and VLC Media Player\* are up to dat
 
 ```bash
 sudo apt update
-sudo apt install -y git wget python3.12-venv
+sudo apt install -y git wget python3.12-venv vlc
 ```
 
 Then download and run the prerequisites script:
