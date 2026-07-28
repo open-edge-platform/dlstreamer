@@ -355,6 +355,15 @@ jobs:
           paths: .
           report_suffix: dlstreamer
 
+  dls-skill-scan:
+    permissions:
+      contents: read
+    name: "DLS SCAN: Skill Scanner"
+    uses: ./.github/workflows/skill-scan.yaml
+    with:
+      severity: HIGH
+      fail_on_findings: true
+
   #---------------------------------------------------------- DOWNLOAD MODELS TESTS -------------------------------------------------------------
   dls-download-models:
     permissions:
