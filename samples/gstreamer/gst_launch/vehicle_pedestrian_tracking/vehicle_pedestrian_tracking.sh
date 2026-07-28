@@ -37,8 +37,7 @@ TRACKING_TYPE=${5:-short-term-imageless} # Object tracking type, valid values: s
 
 # Models
 MODEL_1=person-vehicle-bike-detection-2004
-MODEL_2=person-attributes-recognition-crossroad-0230
-MODEL_3=vehicle-attributes-recognition-barrier-0039
+MODEL_2=vehicle-attributes-recognition-barrier-0039
 
 # Reclassify interval (run classification every 10th frame)
 RECLASSIFY_INTERVAL=10
@@ -94,12 +93,10 @@ PROC_PATH() {
 }
 
 DETECTION_MODEL=${MODELS_PATH}/intel/${MODEL_1}/FP32/${MODEL_1}.xml
-PERSON_CLASSIFICATION_MODEL=${MODELS_PATH}/intel/${MODEL_2}/FP32/${MODEL_2}.xml
-VEHICLE_CLASSIFICATION_MODEL=${MODELS_PATH}/intel/${MODEL_3}/FP32/${MODEL_3}.xml
+VEHICLE_CLASSIFICATION_MODEL=${MODELS_PATH}/intel/${MODEL_2}/FP32/${MODEL_2}.xml
 
 DETECTION_MODEL_PROC=$(PROC_PATH $MODEL_1)
-PERSON_CLASSIFICATION_MODEL_PROC=$(PROC_PATH $MODEL_2)
-VEHICLE_CLASSIFICATION_MODEL_PROC=$(PROC_PATH $MODEL_3)
+VEHICLE_CLASSIFICATION_MODEL_PROC=$(PROC_PATH $MODEL_2)
 
 PIPELINE="gst-launch-1.0 \
   ${SOURCE_ELEMENT} ! ${DECODE_ELEMENT} ! queue ! \
@@ -110,12 +107,6 @@ PIPELINE="gst-launch-1.0 \
             device=${DEVICE} ! \
   queue ! \
   gvatrack tracking-type=${TRACKING_TYPE} ! \
-  queue ! \
-  gvaclassify model=$PERSON_CLASSIFICATION_MODEL \
-              model-proc=$PERSON_CLASSIFICATION_MODEL_PROC \
-              reclassify-interval=${RECLASSIFY_INTERVAL} \
-              device=${DEVICE} \
-              object-class=person ! \
   queue ! \
   gvaclassify model=$VEHICLE_CLASSIFICATION_MODEL \
               model-proc=$VEHICLE_CLASSIFICATION_MODEL_PROC \
