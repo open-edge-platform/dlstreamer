@@ -154,7 +154,7 @@ if [[ `uname` != "MINGW64"* ]]; then
         exit
     fi
 fi
-sink_elements["file"]="vapostproc ! gvawatermark ! gvafpscounter ! ${ENCODER} ! h264parse ! mp4mux ! filesink location=${OUTPUT_DIRECTORY}instance_segmentation_${FILE}_${DEVICE}.mp4"
+sink_elements["file"]="vapostproc ! gvawatermark ! gvafpscounter ! ${ENCODER} ! h264parse ! mp4mux ! filesink location=${OUTPUT_DIRECTORY}instance_segmentation_${FILE}_${DEVICE}_${MODEL}.mp4"
 sink_elements['display']="vapostproc ! gvawatermark ! videoconvertscale ! gvafpscounter ! autovideosink sync=false"
 sink_elements['fps']="gvafpscounter ! fakesink sync=false"
 sink_elements['json']="gvametaconvert add-tensor-data=true ! gvametapublish file-format=json-lines file-path=${OUTPUT_DIRECTORY}output.json ! fakesink sync=false"
