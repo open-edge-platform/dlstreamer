@@ -16,6 +16,7 @@ DLSTREAMER_VERSION 	:= 0.0.0
 BUILD_TYPE 			?= Release
 ENABLE_GENAI        := OFF
 ENABLE_TESTS		:= OFF
+ENABLE_LIDAR_ROBOSENSE	:= OFF
 
 DOCKER_PRIVATE_REGISTRY := # Empty on purpose
 
@@ -28,7 +29,7 @@ endif
 endif
 
 export PATH 					:= ${PROJECT_DIRECTORY}/${DEPENDENCY_DIR}/install/bin:${PROJECT_DIRECTORY}/build/intel64/${BUILD_TYPE}/bin:${HOME}/.local/bin:${HOME}/python3venv/bin:${PATH}
-export GST_PLUGIN_PATH 			:= ${PROJECT_DIRECTORY}/${DEPENDENCY_DIR}/gstreamer-bin/lib/gstreamer-1.0:${PROJECT_DIRECTORY}/build/intel64/${BUILD_TYPE}/lib:/usr/lib/x86_64-linux-gnu/gstreamer-1.0
+export GST_PLUGIN_PATH 			:= ${PROJECT_DIRECTORY}/${DEPENDENCY_DIR}/gstreamer-bin/lib/gstreamer-1.0:${PROJECT_DIRECTORY}/build/intel64/${BUILD_TYPE}/lib
 export LIBRARY_PATH 			:= ${PROJECT_DIRECTORY}/${DEPENDENCY_DIR}/install/lib:${PROJECT_DIRECTORY}/${DEPENDENCY_DIR}/gstreamer-bin/lib:${PROJECT_DIRECTORY}/${DEPENDENCY_DIR}/opencv-bin/lib:${PROJECT_DIRECTORY}/${DEPENDENCY_DIR}/rdkafka-bin/lib:${PROJECT_DIRECTORY}/build/intel64/${BUILD_TYPE}/lib:/usr/lib
 export PKG_CONFIG_PATH 			:= ${PROJECT_DIRECTORY}/${DEPENDENCY_DIR}/install/lib/pkgconfig:${PROJECT_DIRECTORY}/${DEPENDENCY_DIR}/gstreamer-bin/lib/pkgconfig:${PROJECT_DIRECTORY}/${DEPENDENCY_DIR}/rdkafka-bin/lib/pkgconfig:${PROJECT_DIRECTORY}/build/intel64/${BUILD_TYPE}/lib/pkgconfig:/usr/local/lib/pkgconfig:/usr/lib/x86_64-linux-gnu/pkgconfig
 export LIBVA_DRIVER_NAME 		:= iHD
@@ -67,7 +68,8 @@ build: dependencies ## Compile Deep Learning Streamer
 		-DENABLE_SAMPLES=ON \
 		-DENABLE_GENAI=${ENABLE_GENAI} \
 		-DGENERATE_GIR_FROM_SOURCE=${BUILD_GIRS} \
-		-DENABLE_TESTS=${ENABLE_TESTS}; \
+		-DENABLE_TESTS=${ENABLE_TESTS} \
+		-DENABLE_LIDAR_ROBOSENSE=${ENABLE_LIDAR_ROBOSENSE}; \
 	cmake --build build -j$(shell nproc)
 
 .PHONY: install

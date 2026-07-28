@@ -105,16 +105,11 @@ echo "TERM: ${TERM}"
 
 # set environment variables
 echo_color "Setting the environment variables" "blue"
-export LIBVA_DRIVER_NAME=iHD
-export GST_PLUGIN_PATH=/opt/intel/dlstreamer/lib:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0:/opt/intel/dlstreamer/gstreamer/lib/
-export LD_LIBRARY_PATH=/opt/intel/dlstreamer/gstreamer/lib:/opt/intel/dlstreamer/lib:/opt/intel/dlstreamer/lib/gstreamer-1.0:/usr/lib:/opt/intel/dlstreamer/lib:/opt/opencv:/opt/rdkafka:/opt/ffmpeg:/usr/local/lib
-export LIBVA_DRIVERS_PATH=/usr/lib64/dri-nonfree
-export GST_VA_ALL_DRIVERS=1
+# shellcheck source=/dev/null
+source /opt/intel/dlstreamer/scripts/setup_dls_env.sh
 export MODEL_PROC_PATH=/opt/intel/dlstreamer/samples/gstreamer/model_proc
-export PATH=/python3venv/bin:/opt/intel/dlstreamer/gstreamer/bin:/opt/intel/dlstreamer/bin:$PATH
-export PYTHONPATH=/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:/opt/intel/dlstreamer/python:/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages
+export PATH=/python3venv/bin:$PATH
 export TERM=xterm
-export GI_TYPELIB_PATH=/opt/intel/dlstreamer/gstreamer/lib/girepository-1.0:/opt/intel/dlstreamer/lib/girepository-1.0:/usr/lib64/girepository-1.0
 
 
 # Display the values of the environment variables

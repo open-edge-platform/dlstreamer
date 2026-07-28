@@ -18,6 +18,7 @@ The samples are available in two categories:
     * [GVAAttachROI Sample](./gst_launch/gvaattachroi/README.md) - demonstrates using [gvaattachroi](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/elements/gvaattachroi.html) element to define regions of interest (ROI) for selective inference, allowing detection in specific areas of video frames
     * [Metadata Publishing Sample](./gst_launch/metapublish/README.md) - demonstrates how to publish inference metadata to files, MQTT, or Kafka using [gvametaconvert](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/elements/gvametaconvert.html) and [gvametapublish](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/elements/gvametapublish.html) elements
     * [Multi-Stream Processing Sample](./gst_launch/multi_stream/README.md) - demonstrates parallel processing of multiple video streams with model instance sharing for efficient memory usage across CPU, GPU, and NPU devices
+    * [Video Summarization with VLM Models (gvagenai)](./gst_launch/gvagenai/README.md) - demonstrates video summarization with visual language models (MiniCPM-V, Phi-4-multimodal-instruct, Gemma 3) using the gvagenai element and OpenVINO™ GenAI
 2. Benchmark
     * [Benchmark Sample](./benchmark/README.md) - measures overall performance of single-channel or multi-channel video analytics pipelines
 

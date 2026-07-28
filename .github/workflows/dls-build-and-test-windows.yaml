@@ -39,7 +39,7 @@ jobs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
     steps:
       - name: Check out dlstreamer repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6.0.2
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 #7.0.0
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -123,7 +123,7 @@ jobs:
 
       - name: Check out dlstreamer repository
         if: needs.setup.outputs.should_run == 'true'
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # 6.0.2
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # 7.0.0
         with:
           persist-credentials: false
           path: dlstreamer-repo
@@ -224,7 +224,7 @@ jobs:
       # ======================================================== TESTING PART ========================================================
       - name: Checkout DLStreamer test repository
         if: needs.setup.outputs.should_run == 'true'
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # 6.0.2
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # 7.0.0
         with:
           repository: open-edge-platform/dl-streamer-tests
           path: ${{ github.workspace }}/dls_test_repo
@@ -233,7 +233,7 @@ jobs:
 
       - name: "Install Python v${{ env.PYTHON_VERSION }}"
         if: needs.setup.outputs.should_run == 'true'
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # v6.2.0
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1  # v6.3.0
         id: cp312
         with:
           python-version: ${{ env.PYTHON_VERSION }}

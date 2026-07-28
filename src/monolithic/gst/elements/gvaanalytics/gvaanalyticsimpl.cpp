@@ -125,7 +125,8 @@ void attach_tripwire_drawing_metadata(GstBaseTransform *base, GstBuffer *buf, co
 // Process object detections and check zone membership
 void process_object_detections(GstBaseTransform *base, GstAnalyticsRelationMeta *analytics_meta,
                                const std::vector<Zone> &zones, const std::vector<Tripwire> &tripwires,
-                               std::map<guint64, ObjectTrackingState> &tracking_states) {
+                               std::map<guint64, ObjectTrackingState> &tracking_states,
+                               ObjectEvaluationPoint evaluation_point) {
     if (!analytics_meta) {
         GST_DEBUG_OBJECT(base, "No analytics metadata found in buffer");
         return;
@@ -136,21 +137,26 @@ void process_object_detections(GstBaseTransform *base, GstAnalyticsRelationMeta 
     GstAnalyticsODMtd od_mtd;
     while (
         gst_analytics_relation_meta_iterate(analytics_meta, &od_state, gst_analytics_od_mtd_get_mtd_type(), &od_mtd)) {
-        // Extract object center position from OD metadata (bounding box center)
+        // Extract object evaluation point from OD metadata.
         gint x, y, w, h;
         gfloat rotation;
         if (!gst_analytics_od_mtd_get_oriented_location(&od_mtd, &x, &y, &w, &h, &rotation, nullptr)) {
             GST_WARNING_OBJECT(base, "Failed to get OD location, skipping object");
             continue;
         }
-        Point object_center = {x + w / 2, y + h / 2};
 
-        GST_LOG_OBJECT(base, "OD at (%d,%d) size %dx%d, center (%d,%d)", x, y, w, h, object_center.x, object_center.y);
+        Point object_point = {x + w / 2, y + h / 2};
+        if (evaluation_point == EVAL_POINT_BOTTOM_CENTER) {
+            object_point.y = y + h;
+        }
+
+        GST_LOG_OBJECT(base, "OD at (%d,%d) size %dx%d, point (%d,%d), mode=%s", x, y, w, h, object_point.x,
+                       object_point.y, evaluation_point == EVAL_POINT_BOTTOM_CENTER ? "bottom-center" : "center");
 
         // ZONE DETECTION: Check zones (polygon or circular) - works with OD only
         for (const auto &zone : zones) {
-            if (point_in_zone(object_center, zone)) {
-                GST_DEBUG_OBJECT(base, "Object center (%d,%d) is in zone '%s'", object_center.x, object_center.y,
+            if (point_in_zone(object_point, zone)) {
+                GST_DEBUG_OBJECT(base, "Object point (%d,%d) is in zone '%s'", object_point.x, object_point.y,
                                  zone.id.c_str());
 
                 // Create zone metadata in relation meta
@@ -179,11 +185,11 @@ void process_object_detections(GstBaseTransform *base, GstAnalyticsRelationMeta 
                 auto it = tracking_states.find(tracking_id);
                 if (it != tracking_states.end() && it->second.has_previous_position) {
                     // We have previous position, check for crossings
-                    const Point &prev_center = it->second.last_center;
+                    const Point &prev_point = it->second.last_point;
 
                     for (const auto &tripwire : tripwires) {
                         // Check if movement crosses this tripwire
-                        if (segment_intersects_tripwire(prev_center, object_center, tripwire)) {
+                        if (segment_intersects_tripwire(prev_point, object_point, tripwire)) {
                             // Determine crossing direction
                             // Direction: 1 = left to right, -1 = right to left
                             int direction = 0;
@@ -196,8 +202,8 @@ void process_object_detections(GstBaseTransform *base, GstAnalyticsRelationMeta 
                                     return (long)(b.x - a.x) * (p.y - a.y) - (long)(b.y - a.y) * (p.x - a.x);
                                 };
 
-                                long prev_side = get_side(prev_center, t1, t2);
-                                long curr_side = get_side(object_center, t1, t2);
+                                long prev_side = get_side(prev_point, t1, t2);
+                                long curr_side = get_side(object_point, t1, t2);
 
                                 if (prev_side < 0 && curr_side > 0) {
                                     direction = 1; // right-hand side → left-hand side of t1→t2
@@ -226,7 +232,7 @@ void process_object_detections(GstBaseTransform *base, GstAnalyticsRelationMeta 
                 // Update tracking state with current position
                 ObjectTrackingState state;
                 state.tracking_id = tracking_id;
-                state.last_center = object_center;
+                state.last_point = object_point;
                 state.has_previous_position = true;
                 tracking_states[tracking_id] = state;
             }

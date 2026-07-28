@@ -11,10 +11,9 @@
 </div>
 hide_directive-->
 
-**Deep Learning Streamer (DL Streamer)** is an open-source
-streaming media analytics framework. It is based on GStreamer\* multimedia
-framework, and it is used for creating complex media analytics pipelines for the Cloud
-or at the Edge. DL Streamer consists of:
+[System Requirements](./get_started/system_requirements.md) | [Install Guide](./get_started/install/install_guide_index.md) | [Tutorial](./get_started/tutorial.md) | [Elements](./elements/elements.md) | [Samples](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer) | [API Reference](./api_ref/api_reference.md) | [Release Notes](./release-notes.md)
+
+**Deep Learning Streamer (DL Streamer)** is an open-source media analytics framework built on [GStreamer\*](https://gstreamer.freedesktop.org). It lets you build video and audio intelligence pipelines — from a simple object detection command line to a multi-stream production deployment — with minimal code, running on Intel® CPU, GPU, and NPU. DL Streamer consists of:
 
 - [Deep Learning Streamer Pipeline
   Framework](https://github.com/open-edge-platform/dlstreamer/tree/main)
@@ -26,56 +25,24 @@ or at the Edge. DL Streamer consists of:
   micro-services on one or many compute nodes. It includes REST APIs
   for pipelines management.
 
-**Media analytics** is the analysis of audio & video streams to detect,
-classify, track, identify and count objects, events and people. The
-analyzed results can be used to take actions, coordinate events,
-identify patterns and gain insights across multiple domains, including:
+Media analytics — the analysis of video and audio streams to detect, classify, track, and count objects, events, and people — powers a wide range of real-world applications: retail store and facility analytics, warehouse and parking management, industrial inspections, safety and regulatory compliance, and security monitoring. DL Streamer gives you the building blocks to bring these solutions to production without requiring deep expertise in hardware acceleration or inference optimization — a single pipeline runs on Intel® CPU, GPU, or NPU, letting you focus on your application logic while DL Streamer takes full advantage of the available Intel® hardware.
 
-- retail store and events facilities analytics
-- warehouse and parking management
-- industrial inspections
-- safety and regulatory compliance
-- security monitoring
+![image](_images/dls-diagram.png)
 
-![image](_images/overview_pipeline_example.png)
+## Why DL Streamer?
 
-**Media analytics pipelines** transform media streams into insights
-through audio / video processing, inference, and analytical operations
-performed across multiple IP blocks.
-
-High-performance Media Analytics solutions are difficult to build,
-deploy, and benchmark. They require:
-
-- Deep expertise in multiple domains, including media
-  processing and Deep Learning based AI inferencing frameworks and
-  tools (e.g., FFmpeg\*, GStreamer\*, OpenCV\*, OpenVINO™ toolkit,
-  PyTorch\*, TensorFlow\*, ONNX\*)
-- System-level SW and HW expertise (e.g., fixed function HW,
-  programmable media, host/accelerator buffer sharing, CPU Core &
-  thread allocation, wide range of system configurations and their
-  trade-offs)
-- Expertise across different CPU classes, SKUs, and their generations,
-  in addition to expertise in integrated & discrete HW accelerators
-  and their interactions with CPUs and the rest of the host system (e.g.,
-  CPUs, integrated GPUs, discrete GPUs and VPUs)
-
-**Deep Learning Streamer** makes **Media Analytics** easy:
-
-- Get better performance, using less code
-- Quickly develop, optimize, benchmark, and deploy video & audio
-  analytics pipelines in the Cloud and at the Edge
-- Analyze video & audio streams, create actionable results, capture,
-  and send results to the cloud
-- Leverage the efficiency and computational power of Intel® hardware
-  platforms
-- Make your code easily portable across different Intel® hardware platforms,
-  CPU & xPU classes and generations
-- Leverage GStreamer\* open-source project community investments in
-  new features & bug-fixes
-- Leverage NNStreamer\* selected AI inferencing elements via pipeline
-  inter-operability
-- Customize and extend your solution by reviewing, analyzing, and
-  modifying DL Streamer open-sourced code.
+| Benefit | Details |
+|---|---|
+| **One-line pipelines** | Build a working detection pipeline in a single `gst-launch-1.0` command |
+| **Hardware acceleration** | Targets CPU, GPU, and NPU on Intel platforms from a single codebase |
+| **Cross-platform** | Runs on Ubuntu 22.04/24.04 and Windows 11 |
+| **VLM & GenAI ready** | Run Vision-Language Models (MiniCPM-V, CLIP, Whisper) in a GStreamer pipeline |
+| **GstAnalytics compliance** | Supports the GStreamer industry metadata standard for interoperability |
+| **Messaging integration** | Publish inference results to MQTT or Kafka with built-in elements — no extra code |
+| **Python-first extensibility** | Add custom logic as Python callbacks or full Python elements — no C++ required |
+| **30+ ready-to-run samples** | Covers detection, classification, tracking, VLMs, LiDAR, radar and more |
+| **Multi-stream, multi-sensor** | Mux/demux dozens of RTSP streams, LiDAR frames, and radar point clouds in a single process |
+| **Model hub support** | Deploy models from Geti™ Studio, Ultralytics, Hugging Face, or any ONNX/OpenVINO IR model directly |
 
 ![Deep Learning Streamer SW Stack](_images/overview_sw_stack.png)
 
@@ -93,7 +60,7 @@ metadata library as the primary method for presenting inference results.
 Find out more at [discourse.gstreamer.org](https://discourse.gstreamer.org/t/gstanalytics-adoption-in-dlstreamer-implementation-status-and-questions/5820)
 and in [the documentation](./dev_guide/metadata.md).
 
-**DL Streamer** provides over two dozen samples, demos and
+**DL Streamer** provides over 30 samples, demos and
 reference apps for the most common media analytics use cases. They are
 included in
 [Deep Learning Streamer Pipeline Framework](https://github.com/open-edge-platform/dlstreamer/tree/main),
@@ -102,9 +69,9 @@ included in
 [Intel® Edge Software Hub](https://www.intel.com/content/www/us/en/edge-computing/edge-software-hub.html)
 The samples demonstrate C++ and/or Python based: Action Recognition, Face Detection and
 Recognition, Drawing Face Attributes, Audio Event Detection, Vehicle and
-Pedestrian Tracking, Human Pose Estimation, Metadata Publishing, Smart
-City Traffic and Stadium Management, Intelligent Ad insertion, single- &
-multi- channel video analytics pipelines benchmark, and other use cases.
+Pedestrian Tracking, Human Pose Estimation, Vision-Language Models (VLMs),
+Metadata Publishing, Smart City Traffic and Stadium Management, Intelligent Ad insertion,
+single- & multi-channel video analytics pipelines benchmark, and other use cases.
 
 **DL Streamer** offers a long list of models and samples
 optimized for Intel hardware platforms, which can be used as a
@@ -137,10 +104,13 @@ AIVID TECHVISION and others.
 :maxdepth: 2
 :hidden:
 
-get_started/get_started_index
-dev_guide/dev_guide_index
-elements/elements
+System Requirements <get_started/system_requirements>
+Install Guide <get_started/install/install_guide_index>
+Tutorial <get_started/tutorial>
+Samples <https://github.com/open-edge-platform/dlstreamer/blob/main/samples/gstreamer/README.md>
 supported_models
+elements/elements
+dev_guide/dev_guide_index
 api_ref/api_reference
 architecture_2.0/architecture_2.0
 Release Notes <release-notes>

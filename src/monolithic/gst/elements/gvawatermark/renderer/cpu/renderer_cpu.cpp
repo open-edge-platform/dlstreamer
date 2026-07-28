@@ -12,16 +12,6 @@
 
 namespace {
 
-// Compute a Gaussian blur kernel size proportional to the ROI so that larger
-// regions get a stronger blur.  The kernel must be positive and odd for
-// cv::GaussianBlur.  Using ~1/3 of each dimension with a minimum of 7
-// keeps small objects blurred while scaling up for bigger regions.
-cv::Size computeBlurKernelSize(int roi_width, int roi_height) {
-    int kw = std::max(7, roi_width / 3) | 1;  // Ensure odd
-    int kh = std::max(7, roi_height / 3) | 1; // Ensure odd
-    return cv::Size(kw, kh);
-}
-
 const std::vector<cv::Vec3b> PascalVoc21ClColorPalette = {
     cv::Vec3b(0, 0, 0),       // background
     cv::Vec3b(128, 0, 0),     // aeroplane
@@ -45,26 +35,6 @@ const std::vector<cv::Vec3b> PascalVoc21ClColorPalette = {
     cv::Vec3b(128, 192, 0),   // train
     cv::Vec3b(0, 64, 128)     // tvmonitor
 };
-
-const std::vector<cv::Vec3b> SemanticSegmentationColorPalette = {
-    cv::Vec3b(128, 128, 128), // background
-    cv::Vec3b(0, 128, 0),     // first foreground class
-    cv::Vec3b(128, 0, 0),     cv::Vec3b(128, 128, 0),   cv::Vec3b(0, 0, 128),  cv::Vec3b(128, 0, 128),
-    cv::Vec3b(0, 128, 128),   cv::Vec3b(128, 128, 128), cv::Vec3b(64, 0, 0),   cv::Vec3b(192, 0, 0),
-    cv::Vec3b(64, 128, 0),    cv::Vec3b(192, 128, 0),   cv::Vec3b(64, 0, 128), cv::Vec3b(192, 0, 128),
-    cv::Vec3b(64, 128, 128),  cv::Vec3b(192, 128, 128), cv::Vec3b(0, 64, 0),   cv::Vec3b(128, 64, 0),
-    cv::Vec3b(0, 192, 0),     cv::Vec3b(128, 192, 0),   cv::Vec3b(0, 64, 128)};
-
-const std::vector<cv::Vec3b> &getSemanticMaskPalette(render::SemanticMaskPalette palette) {
-    switch (palette) {
-    case render::SemanticMaskPalette::SemanticMask:
-        return PascalVoc21ClColorPalette;
-    case render::SemanticMaskPalette::SemanticSegmentation:
-        return SemanticSegmentationColorPalette;
-    }
-
-    return PascalVoc21ClColorPalette;
-}
 
 template <int n>
 void check_planes(const std::vector<cv::Mat> &p) {
@@ -175,8 +145,8 @@ void RendererI420::blur_rectangle(std::vector<cv::Mat> &mats, render::Blur blur)
     cv::Mat &v = mats[2];
 
     cv::Rect r = blur.rect;
-    cv::Size ksize = computeBlurKernelSize(r.width, r.height);
-    cv::Size ksize_uv = computeBlurKernelSize(r.width / 2, r.height / 2);
+    cv::Size ksize = render::computeBlurKernelSize(r.width, r.height);
+    cv::Size ksize_uv = render::computeBlurKernelSize(r.width / 2, r.height / 2);
 
     cv::Mat roi_u(u, cv::Rect(r.x / 2, r.y / 2, r.width / 2, r.height / 2));
     cv::GaussianBlur(roi_u, roi_u, ksize_uv, 0, 0);
@@ -314,8 +284,8 @@ void RendererNV12::blur_rectangle(std::vector<cv::Mat> &mats, render::Blur blur)
     cv::Mat &u_v = mats[1];
 
     cv::Rect r = blur.rect;
-    cv::Size ksize = computeBlurKernelSize(r.width, r.height);
-    cv::Size ksize_uv = computeBlurKernelSize(r.width / 2, r.height / 2);
+    cv::Size ksize = render::computeBlurKernelSize(r.width, r.height);
+    cv::Size ksize_uv = render::computeBlurKernelSize(r.width / 2, r.height / 2);
 
     cv::Mat roi_uv(u_v, cv::Rect(r.x / 2, r.y / 2, r.width / 2, r.height / 2));
     cv::GaussianBlur(roi_uv, roi_uv, ksize_uv, 0, 0);
@@ -463,14 +433,17 @@ void RendererNV12::draw_instance_mask(std::vector<cv::Mat> &mats, render::Instan
 
     cv::Rect roi_y(x0_y, y0_y, x1_y - x0_y, y1_y - y0_y);
     cv::Rect roi_u_v(x0_u_v, y0_u_v, x1_u_v - x0_u_v, y1_u_v - y0_u_v);
-    cv::Mat colorMask_u_v(roi_u_v.size(), u_v.type(), mask.color[2]);
+    cv::Mat colorMask_y(roi_y.size(), y.type(), mask.color[0]);
+    cv::Mat colorMask_u_v(roi_u_v.size(), u_v.type(), cv::Scalar(mask.color[1], mask.color[2]));
 
     cv::Mat roiSrc_y = y(roi_y);
     cv::Mat roiSrc_u_v = u_v(roi_u_v);
     cv::Mat dst_y, dst_u_v;
     float alpha = 0.5f;
+    cv::addWeighted(colorMask_y, alpha, roiSrc_y, 1.0 - alpha, 0.0, dst_y);
     cv::addWeighted(colorMask_u_v, alpha, roiSrc_u_v, 1.0 - alpha, 0.0, dst_u_v);
 
+    dst_y.copyTo(roiSrc_y, binaryMask_y);
     dst_u_v.copyTo(roiSrc_u_v, binaryMask_u_v);
 }
 
@@ -488,7 +461,7 @@ void RendererBGR::draw_rectangle(std::vector<cv::Mat> &mats, render::Rect rect) 
 void RendererBGR::blur_rectangle(std::vector<cv::Mat> &mats, render::Blur blur) {
     cv::Mat &mat = mats[0];
     cv::Rect r = blur.rect;
-    cv::Size ksize = computeBlurKernelSize(r.width, r.height);
+    cv::Size ksize = render::computeBlurKernelSize(r.width, r.height);
     cv::Mat roi(mat, cv::Rect(r.x, r.y, r.width, r.height));
     cv::GaussianBlur(roi, roi, ksize, 0, 0);
 }
@@ -583,7 +556,20 @@ void RendererBGR::draw_semantic_mask(std::vector<cv::Mat> &mats, render::Semanti
     cv::Mat resized;
     cv::resize(class_mask, resized, {roi.width, roi.height}, 0, 0, cv::INTER_NEAREST);
 
-    cv::Mat colorMap = convertClassIndicesToBGR(resized, getSemanticMaskPalette(mask.palette));
+    // The palette is defined in RGB order. Convert each entry to the target
+    // buffer's channel order (BGR or RGB) using the renderer's color converter,
+    // so the rendered colors match the palette regardless of the negotiated
+    // pixel format.
+    const std::vector<cv::Vec3b> &palette = PascalVoc21ClColorPalette;
+    std::vector<cv::Vec3b> converted_palette;
+    converted_palette.reserve(palette.size());
+    for (const cv::Vec3b &c : palette) {
+        Color converted = _color_converter->convert(Color(c[0], c[1], c[2]));
+        converted_palette.emplace_back(static_cast<uchar>(converted[0]), static_cast<uchar>(converted[1]),
+                                       static_cast<uchar>(converted[2]));
+    }
+
+    cv::Mat colorMap = convertClassIndicesToBGR(resized, converted_palette);
     colorMap.convertTo(colorMap, mats[0].type());
     if (mats[0].channels() == 4) {
         cv::cvtColor(colorMap, colorMap, cv::COLOR_BGR2BGRA);

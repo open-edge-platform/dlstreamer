@@ -28,11 +28,14 @@ struct _GstGvaGenAI {
     gchar *prompt_path;
     gchar *generation_config;
     gchar *scheduler_config;
+    gchar *pipeline_config;
     gchar *model_cache_path;
     gdouble frame_rate;
     guint chunk_size;
     gboolean metrics;
+    gint vision_mode; // GstGvaGenAIVisionMode: present accumulated frames as images or as one video clip
     guint frame_counter;
+    gdouble input_fps; // input stream fps cached from caps, used to derive VideoMetadata.fps
 
     gboolean prompt_changed; // flag to indicate if prompt was updated and needs to be reloaded
     gchar *prompt_string;

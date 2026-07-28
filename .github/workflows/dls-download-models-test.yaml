@@ -14,7 +14,7 @@ jobs:
       should_run: ${{ steps.skip-check.outputs.should_run }}
     steps:
       - name: Check out dlstreamer repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # 6.0.2
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 #7.0.0
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -43,7 +43,7 @@ jobs:
 
       - name: Checkout repository
         if: needs.setup.outputs.should_run == 'true'
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # 6.0.2
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # 7.0.0
         with:
           persist-credentials: false
 
@@ -78,7 +78,14 @@ jobs:
             --outdir "$HF_OUTDIR/extra-args"
           find "$HF_OUTDIR/extra-args" -name '*.xml' | grep -q .
 
-      - name: README example - --token flag path
+      - name: Checkout repository
+        if: needs.setup.outputs.should_run == 'true'
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # 7.0.0
+        with:
+          persist-credentials: false
+          path: dlstreamer
+
+      - name: Set up environment
         if: needs.setup.outputs.should_run == 'true'
         run: |
           source "$HF_VENV/bin/activate"
@@ -119,7 +126,7 @@ jobs:
 
       - name: Checkout repository
         if: needs.setup.outputs.should_run == 'true'
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # 6.0.2
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # 7.0.0
         with:
           persist-credentials: false
 
@@ -149,7 +156,14 @@ jobs:
           python download_ultralytics_models.py --model yolo11n.pt@v8.4.0 --outdir "$ULT_OUTDIR/pinned"
           find "$ULT_OUTDIR/pinned" -name '*.xml' | grep -q .
 
-      - name: README example - local checkpoint with FP16
+      - name: Checkout repository
+        if: needs.setup.outputs.should_run == 'true'
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # 7.0.0
+        with:
+          persist-credentials: false
+          path: dlstreamer
+
+      - name: Set up environment
         if: needs.setup.outputs.should_run == 'true'
         run: |
           source "$ULT_VENV/bin/activate"
@@ -186,7 +200,7 @@ jobs:
 
       - name: Checkout repository
         if: needs.setup.outputs.should_run == 'true'
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # 6.0.2
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # 7.0.0
         with:
           persist-credentials: false
 
@@ -255,7 +269,7 @@ jobs:
 
       - name: Checkout repository
         if: needs.setup.outputs.should_run == 'true'
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # 6.0.2
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # 7.0.0
         with:
           persist-credentials: false
 
@@ -281,7 +295,7 @@ jobs:
 
       - name: Checkout repository
         if: needs.setup.outputs.should_run == 'true'
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # 6.0.2
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # 7.0.0
         with:
           persist-credentials: false
 
@@ -294,7 +308,26 @@ jobs:
           echo "$output" | grep -q "Arguments:"
           echo "$output" | grep -q "MODELS_PATH"
 
-      - name: Verify missing MODELS_PATH handling
+  test-missing-models-path:
+    name: Test missing MODELS_PATH
+    runs-on: dlstreamer
+    needs: setup
+    steps:
+      - name: Skip or execute based on configuration
+        if: needs.setup.outputs.should_run == 'false'
+        run: |
+          echo "## ✅ Test Missing MODELS_PATH Skipped" >> $GITHUB_STEP_SUMMARY
+          echo "**Reason:** Changes only in excluded files" >> $GITHUB_STEP_SUMMARY
+          exit 0
+
+      - name: Checkout repository
+        if: needs.setup.outputs.should_run == 'true'
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # 7.0.0
+        with:
+          persist-credentials: false
+          path: dlstreamer
+
+      - name: Test script without MODELS_PATH
         if: needs.setup.outputs.should_run == 'true'
         run: |
           cd scripts/download_models
@@ -306,7 +339,26 @@ jobs:
             exit 1
           fi
 
-      - name: Verify invalid model handling
+  test-invalid-model-name:
+    name: Test invalid model name
+    runs-on: dlstreamer
+    needs: setup
+    steps:
+      - name: Skip or execute based on configuration
+        if: needs.setup.outputs.should_run == 'false'
+        run: |
+          echo "## ✅ Test Invalid Model Name Skipped" >> $GITHUB_STEP_SUMMARY
+          echo "**Reason:** Changes only in excluded files" >> $GITHUB_STEP_SUMMARY
+          exit 0
+
+      - name: Checkout repository
+        if: needs.setup.outputs.should_run == 'true'
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # 7.0.0
+        with:
+          persist-credentials: false
+          path: dlstreamer
+
+      - name: Set up environment
         if: needs.setup.outputs.should_run == 'true'
         run: |
           cd scripts/download_models
@@ -335,7 +387,7 @@ jobs:
 
       - name: Checkout repository
         if: needs.setup.outputs.should_run == 'true'
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # 6.0.2
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # 7.0.0
         with:
           persist-credentials: false
 

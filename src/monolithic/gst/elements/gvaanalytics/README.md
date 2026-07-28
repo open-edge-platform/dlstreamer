@@ -56,6 +56,18 @@ gvaanalytics draw-tripwires=true
 gvaanalytics draw-tripwires=false
 ```
 
+### evaluation-point (enum)
+Select which point from each object bounding box is used for zone and tripwire evaluation.
+
+Values:
+- `center` (default): `(x + w/2, y + h/2)`
+- `bottom-center`: `(x + w/2, y + h)`
+
+**Example:**
+```
+gvaanalytics evaluation-point=bottom-center
+```
+
 ## Configuration Format
 
 ### Zone Configuration
@@ -239,7 +251,7 @@ gboolean gst_analytics_tripwire_mtd_get_info(
 ```
 
 ### GstAnalyticsZoneMtd
-Attached as a relation to `GstAnalyticsODMtd` when an object center is inside a zone.
+Attached as a relation to `GstAnalyticsODMtd` when the selected evaluation point is inside a zone.
 
 **Fields:**
 - `zone_id` (string): Zone identifier
