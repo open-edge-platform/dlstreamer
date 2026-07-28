@@ -81,7 +81,7 @@ elif [[ $OUTPUT == "file" ]]; then
     echo "Error - VA-API H.264 encoder not found."
     exit
   fi
-  SINK_ELEMENT="vapostproc ! gvawatermark ! gvafpscounter ! ${ENCODER} ! avimux name=mux ! filesink location=vehicle_pedestrian_tracking_${FILE}_${DEVICE}.mp4"
+  SINK_ELEMENT="vapostproc ! gvawatermark ! gvafpscounter ! ${ENCODER} ! avimux name=mux ! filesink location=vehicle_pedestrian_tracking_${FILE}_${DEVICE}_${DETECTION_INTERVAL}.mp4"
 else
   echo Error wrong value for OUTPUT parameter
   echo Valid values: "display" - render to screen, "fps" - print FPS, "json" - write to output.json, "display-and-json" - render to screen and write to output.json
@@ -104,7 +104,7 @@ PIPELINE="gst-launch-1.0 \
   queue ! \
   gvatrack tracking-type=${TRACKING_TYPE} ! \
   queue ! \
-  gvaclassify model=$PERSON_CLASSIFICATION_MODEL \
+  gvaclassify model=$VEHICLE_CLASSIFICATION_MODEL \
               reclassify-interval=${RECLASSIFY_INTERVAL} \
               device=${DEVICE} \
               object-class=person ! \

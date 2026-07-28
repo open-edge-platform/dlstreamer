@@ -56,6 +56,28 @@ def frame_callback(frame: VideoFrame):
                         y = int(rect.y + rect.h * data[i + 1])
                         cv2.circle(mat, (x, y), int(
                             1 + 0.02 * rect.w), lm_color, -1)
+                # dima806 ViT models — all share the same output layer name
+                elif "__module.classifier/aten::linear/Add" == tensor.layer_name():
+                    data = tensor.data()
+                    if len(data) == 0:
+                        continue
+                    index = int(numpy.argmax(data))
+                    model_name = tensor.model_name()
+                    if "facial_age" in model_name or "fairface_age" in model_name:
+                        age_labels = ["01", "02", "03", "04", "05", "06-07", "08-09",
+                                      "10-12", "13-15", "16-20", "21-25", "26-30", "31-35", "36-40",
+                                      "41-45", "46-50", "51-55", "56-60", "61-65", "66-70", "71-80",
+                                      "81-90", "90+"]
+                        if index < len(age_labels):
+                            labels.append(age_labels[index])
+                    elif "gender" in model_name:
+                        # id2label: 0=Female, 1=Male
+                        labels.append("M" if index == 1 else "F")
+                    elif "emotion" in model_name:
+                        emotion_labels = ["Ahegao", "Angry", "Happy", "Neutral", "Sad", "Surprise"]
+                        if index < len(emotion_labels):
+                            labels.append(emotion_labels[index])
+                # Legacy Intel model layer names (age-gender-recognition, emotions-recognition)
                 elif "prob" == tensor.layer_name():
                     data = tensor.data()
                     if data[1] > 0.5:

@@ -223,6 +223,25 @@ static GstPadProbeReturn pad_probe_callback(GstPad *pad, GstPadProbeInfo *info, 
                     cv::circle(mat, cv::Point(x_lm, y_lm), 1 + static_cast<int>(0.012 * rect.w), lm_color, -1);
                 }
             }
+            // dima806 ViT models — all share the same output layer name
+            if (layer_name == "__module.classifier/aten::linear/Add" && !data.empty()) {
+                int index = static_cast<int>(max_element(begin(data), end(data)) - begin(data));
+                if (model_name.find("facial_age") != string::npos || model_name.find("fairface_age") != string::npos) {
+                    static const vector<string> ageLabels = {"01", "02", "03", "04", "05", "06-07", "08-09",
+                        "10-12", "13-15", "16-20", "21-25", "26-30", "31-35", "36-40", "41-45",
+                        "46-50", "51-55", "56-60", "61-65", "66-70", "71-80", "81-90", "90+"};
+                    if (index < static_cast<int>(ageLabels.size()))
+                        label += " " + ageLabels[index];
+                } else if (model_name.find("gender") != string::npos) {
+                    // id2label: 0=Female, 1=Male
+                    label += (index == 1) ? " M" : " F";
+                } else if (model_name.find("emotion") != string::npos) {
+                    static const vector<string> emotionLabels = {"Ahegao", "Angry", "Happy", "Neutral", "Sad", "Surprise"};
+                    if (index < static_cast<int>(emotionLabels.size()))
+                        label += " " + emotionLabels[index];
+                }
+            }
+            // Legacy Intel model layer names (age-gender-recognition, emotions-recognition)
             if (layer_name == "prob") {
                 label += (data[1] > 0.5) ? " M " : " F ";
             }
