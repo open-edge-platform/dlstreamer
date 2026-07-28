@@ -36,6 +36,9 @@ _args.add_argument("-c3", "--classification_model3",
 _args.add_argument("-o", "--output",
                    help="Required. Output type",
                    required=True, type=str)
+_args.add_argument("--input-device",
+                   help="Optional. Target device for inference elements (e.g. CPU, GPU, NPU)",
+                   default="CPU", type=str)
 args = parser.parse_args()
 
 
@@ -99,16 +102,18 @@ def create_launch_string():
     elif args.output == "json":
         sink = "gvametaconvert ! gvametapublish file-format=json-lines file-path=output.json ! \
                gvafpscounter ! fakesink sync=false"
+    elif args.output == "file":
+        sink = f"gvawatermark ! gvafpscounter ! vah264enc ! h264parse ! mp4mux ! filesink location=draw_face_attributes_{args.input_device}.mp4"
     else:
         print("Unsupported output type")
         sys.exit()
 
     return f"{source}={args.input} ! decodebin3 ! \
     videoconvert n-threads=4 ! capsfilter caps=\"video/x-raw,format=BGRx\" ! \
-    gvadetect model={args.detection_model} device=CPU ! queue ! \
-    gvainference model={args.classification_model1} device=CPU inference-region=roi-list ! queue ! \
-    gvainference model={args.classification_model2} device=CPU inference-region=roi-list ! queue ! \
-    gvainference model={args.classification_model3} device=CPU inference-region=roi-list ! queue ! \
+    gvadetect model={args.detection_model} device={args.input_device} ! queue ! \
+    gvainference model={args.classification_model1} device={args.input_device} inference-region=roi-list ! queue ! \
+    gvainference model={args.classification_model2} device={args.input_device} inference-region=roi-list ! queue ! \
+    gvainference model={args.classification_model3} device={args.input_device} inference-region=roi-list ! queue ! \
     {sink}"
 
 
