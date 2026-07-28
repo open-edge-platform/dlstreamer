@@ -102,6 +102,15 @@ drivers — needed to accelerate inference on `device=GPU` and `device=NPU`. The
 installed so you can use `device=NPU` later. We'll keep everything for this
 tutorial in a single folder, `~/dlstreamer_demo`.
 
+First, make sure `git`, `wget` and Python virtual environment are up to date:
+
+```bash
+sudo apt update
+sudo apt install -y git wget python3.12-venv
+```
+
+Then download and run the prerequisites script:
+
 ```bash
 mkdir -p ~/dlstreamer_demo
 cd ~/dlstreamer_demo
@@ -109,6 +118,9 @@ wget -O DLS_install_prerequisites.sh https://raw.githubusercontent.com/open-edge
 chmod +x DLS_install_prerequisites.sh
 ./DLS_install_prerequisites.sh --reinstall-npu-driver=yes
 ```
+
+> **Important:** The NPU driver installation requires a **log out and log back in**
+> (or a reboot) before the NPU is accessible. Do that now before continuing.
 
 ### 1.2 Add the DL Streamer software repository
 
@@ -139,18 +151,18 @@ everything it needs, including the OpenVINO™ toolkit and GStreamer.
 
 ### 2.1 Activate DL Streamer in your terminal
 
-Run this **once in every new terminal** before running a pipeline. It tells your
-shell where DL Streamer lives.
-
-```bash
-source /opt/intel/dlstreamer/scripts/setup_dls_env.sh
-```
-
-Now, inside that same `~/dlstreamer_demo` folder, create two subfolders — one for
-demo videos and one for AI models — and remember them:
+Create the video and model folders once:
 
 ```bash
 mkdir -p ~/dlstreamer_demo/videos ~/dlstreamer_demo/models
+```
+
+Then run this block **every time you open a new terminal** before running a
+pipeline. It activates DL Streamer and sets the paths used throughout this
+tutorial:
+
+```bash
+source /opt/intel/dlstreamer/scripts/setup_dls_env.sh
 export VIDEOS_PATH="$HOME/dlstreamer_demo/videos"
 export MODELS_PATH="$HOME/dlstreamer_demo/models"
 ```
@@ -190,7 +202,6 @@ with DL Streamer at `/opt/intel/dlstreamer/scripts/download_models/`. We just
 need a small Python environment for the one-time conversion:
 
 ```bash
-sudo apt install python3.12-venv
 python3 -m venv ~/dlstreamer_demo/.dls-venv
 source ~/dlstreamer_demo/.dls-venv/bin/activate
 pip install --upgrade pip
@@ -405,7 +416,6 @@ Now search the skateboard video for a `dog` and save an annotated video:
 ```bash
 python3 /opt/intel/dlstreamer/samples/gstreamer/python/prompted_detection/prompted_detection.py \
   ${VIDEOS_PATH}/skateboard.mp4 "dog" GPU file
-deactivate
 ```
 
 **What you'll see:** a new file `skateboard_output.mp4` in
@@ -418,6 +428,12 @@ with the dog boxed and labelled — and nothing else. Try other prompts like
   <br/>
   <em>Prompt-based detection searching the skateboard video for <code>"dog"</code>.</em>
 </p>
+
+When done, leave the Python environment:
+
+```bash
+deactivate
+```
 
 > **Why a sample here?** Open-vocabulary detection needs a bit of Python glue to
 > turn your prompt into a model. The sample handles that for you — see its
