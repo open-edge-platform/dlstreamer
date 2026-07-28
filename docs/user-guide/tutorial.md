@@ -190,6 +190,7 @@ with DL Streamer at `/opt/intel/dlstreamer/scripts/download_models/`. We just
 need a small Python environment for the one-time conversion:
 
 ```bash
+sudo apt install python3.12-venv
 python3 -m venv ~/dlstreamer_demo/.dls-venv
 source ~/dlstreamer_demo/.dls-venv/bin/activate
 pip install --upgrade pip
