@@ -137,7 +137,7 @@ const std::string env_models_path =
                          ? std::string() + getenv("INTEL_CVSDK_DIR") + "/deployment_tools/intel_models" + "/"
                          : "");
 
-const std::vector<std::string> default_detection_model_names = {"centerface"};
+const std::vector<std::string> default_detection_model_names = {"centerface.xml"};
 
 const std::vector<std::string> default_classification_model_names = {
     "dima806_facial_age_image_detection.xml", "dima806_face_emotions_image_detection.xml",
