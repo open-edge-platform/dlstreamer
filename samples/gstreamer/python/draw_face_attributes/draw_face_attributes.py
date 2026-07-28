@@ -36,7 +36,7 @@ _args.add_argument("-c3", "--classification_model3",
 _args.add_argument("-o", "--output",
                    help="Required. Output type",
                    required=True, type=str)
-_args.add_argument("--input-device",
+_args.add_argument("-dev", "--input-device",
                    help="Optional. Target device for inference elements (e.g. CPU, GPU, NPU)",
                    default="CPU", type=str)
 args = parser.parse_args()
