@@ -76,7 +76,7 @@ docker run -it --rm \
   intel/dlstreamer:latest
 ```
 
-> To use the NPU, also add `--device /dev/accel --group-add $(stat -c "%g" /dev/accel/accel*) -e ZE_ENABLE_ALT_DRIVERS=libze_intel_npu.so` to the `docker run` command.
+> To use the NPU, also add `--device /dev/accel --group-add $(stat -c "%g" /dev/accel/accel*)` to the `docker run` command.
 
 **Option B — Native install (Ubuntu 24.04)**:
 
