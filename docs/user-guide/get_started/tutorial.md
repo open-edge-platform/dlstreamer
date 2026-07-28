@@ -102,7 +102,7 @@ drivers — needed to accelerate inference on `device=GPU` and `device=NPU`. The
 installed so you can use `device=NPU` later. We'll keep everything for this
 tutorial in a single folder, `~/dlstreamer_demo`.
 
-First, make sure `git`, `wget` and Python virtual environment are up to date:
+First, make sure `git`, `wget`, Python venv and VLC Media Player\* are up to date:
 
 ```bash
 sudo apt update
