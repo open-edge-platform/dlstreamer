@@ -13,6 +13,9 @@
 #include "utils.h"
 #include <gst/analytics/gstanalyticsgroupmtd.h>
 #include <gst/analytics/gstanalyticskeypointmtd.h>
+#include <gst/analytics/gstanalyticssegmentationmtd.h>
+#include <gst/analytics/gstanalyticstensormtd.h>
+#include <gst/analytics/gsttensor.h>
 #include <gst/gst.h>
 
 gboolean buffer_attach_roi_meta_from_sink_pad(GstBuffer *buf, const GstVideoInfo *src_pad_video_info,
@@ -217,7 +220,67 @@ gboolean copy_one_gst_analytics_mtd(GstAnalyticsRelationMeta *dst, const GstAnal
         }
         *new_mtd = *(GstAnalyticsMtd *)&new_kp;
     } else if (mtd_type == gst_analytics_segmentation_mtd_get_mtd_type()) {
-        return FALSE; // Segmentation mtds are not supported yet
+        const GstAnalyticsSegmentationMtd *seg_mtd = (const GstAnalyticsSegmentationMtd *)mtd;
+
+        // get_mask returns a new reference to the mask buffer (ownership transferred to caller)
+        gint masks_loc_x = 0, masks_loc_y = 0;
+        guint masks_loc_w = 0, masks_loc_h = 0;
+        GstBuffer *masks =
+            gst_analytics_segmentation_mtd_get_mask(seg_mtd, &masks_loc_x, &masks_loc_y, &masks_loc_w, &masks_loc_h);
+        if (!masks) {
+            GST_ERROR("Failed to get mask buffer from GstAnalyticsSegmentationMtd");
+            return FALSE;
+        }
+
+        gsize region_count = gst_analytics_segmentation_mtd_get_region_count(seg_mtd);
+        guint *region_ids = g_new(guint, region_count > 0 ? region_count : 1);
+        for (gsize i = 0; i < region_count; i++) {
+            region_ids[i] = gst_analytics_segmentation_mtd_get_region_id(seg_mtd, i);
+        }
+
+        // The mask location lives in frame coordinates, so it is scaled like the OD bounding box.
+        // The mask buffer resolution itself is independent and copied verbatim.
+        gint new_x = scale_x != 1 ? (gint)(masks_loc_x * scale_x + 0.5) : masks_loc_x;
+        gint new_y = scale_y != 1 ? (gint)(masks_loc_y * scale_y + 0.5) : masks_loc_y;
+        guint new_w = scale_x != 1 ? (guint)(masks_loc_w * scale_x + 0.5) : masks_loc_w;
+        guint new_h = scale_y != 1 ? (guint)(masks_loc_h * scale_y + 0.5) : masks_loc_h;
+
+        // GstAnalyticsSegmentationMtd does not expose a getter for the segmentation type. DLStreamer
+        // only produces a segmentation mtd for semantic segmentation (instance segmentation is carried
+        // as a tensor mtd), so semantic is assumed here.
+        gboolean ok = gst_analytics_relation_meta_add_segmentation_mtd(
+            dst, masks, GST_SEGMENTATION_TYPE_SEMANTIC, region_count, region_ids, new_x, new_y, new_w, new_h, new_mtd);
+
+        g_free(region_ids);
+
+        if (!ok) {
+            // On failure ownership of the mask buffer is not transferred, so release our reference.
+            gst_buffer_unref(masks);
+            GST_ERROR("Failed to add GstAnalyticsSegmentationMtd to GstAnalyticsRelationMeta");
+            return FALSE;
+        }
+    } else if (mtd_type == gst_analytics_tensor_mtd_get_mtd_type()) {
+        const GstAnalyticsTensorMtd *src_tensor_mtd = (const GstAnalyticsTensorMtd *)mtd;
+
+        // get_tensor returns a pointer to the source-owned GstTensor (no copy, must not be freed)
+        GstTensor *src_tensor = gst_analytics_tensor_mtd_get_tensor(src_tensor_mtd);
+        if (!src_tensor || !src_tensor->data) {
+            GST_ERROR("Failed to get tensor from GstAnalyticsTensorMtd");
+            return FALSE;
+        }
+
+        // A tensor mtd carries raw data (e.g. an instance-segmentation mask) whose resolution is
+        // independent from the frame, so its data and dims are copied verbatim without scaling.
+        // add_tensor_mtd_simple takes ownership of the data buffer, so an extra reference is taken.
+        GstBuffer *data = gst_buffer_ref(src_tensor->data);
+        if (!gst_analytics_relation_meta_add_tensor_mtd_simple(dst, src_tensor->id, src_tensor->data_type, data,
+                                                               src_tensor->dims_order, src_tensor->num_dims,
+                                                               src_tensor->dims, new_mtd)) {
+            // On failure ownership of the data buffer is not transferred, so release our reference.
+            gst_buffer_unref(data);
+            GST_ERROR("Failed to add GstAnalyticsTensorMtd to GstAnalyticsRelationMeta");
+            return FALSE;
+        }
     } else {
         GST_WARNING("Unknown analytics mtd type, skipping");
         return FALSE;

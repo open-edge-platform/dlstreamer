@@ -28,6 +28,8 @@ struct Tripwire {
     int thickness = 1;
 };
 
+enum ObjectEvaluationPoint { EVAL_POINT_CENTER = 0, EVAL_POINT_BOTTOM_CENTER = 1 };
+
 enum ZoneType { POLYGON, CIRCLE };
 
 struct Zone {
@@ -57,7 +59,7 @@ bool segment_intersects_tripwire(const Point &p1, const Point &p2, const Tripwir
 // Structure to store object tracking history for tripwire crossing detection
 struct ObjectTrackingState {
     guint64 tracking_id;
-    Point last_center;
+    Point last_point;
     bool has_previous_position = false;
 };
 
@@ -68,4 +70,5 @@ void attach_tripwire_drawing_metadata(GstBaseTransform *base, GstBuffer *buf, co
 // Detection processing function
 void process_object_detections(GstBaseTransform *base, GstAnalyticsRelationMeta *analytics_meta,
                                const std::vector<Zone> &zones, const std::vector<Tripwire> &tripwires,
-                               std::map<guint64, ObjectTrackingState> &tracking_states);
+                               std::map<guint64, ObjectTrackingState> &tracking_states,
+                               ObjectEvaluationPoint evaluation_point);

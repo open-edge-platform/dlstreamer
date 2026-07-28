@@ -271,6 +271,7 @@ If you intend to use Python elements or samples, you need to install the
 necessary dependencies using the following commands:
 
   ```bash
+  sudo apt-get update 
   sudo apt-get install -y -q --no-install-recommends gcc cmake python3-full python-gi-dev python3-dev python3-pip \
       libglib2.0-dev libcairo2-dev libopencv-objdetect-dev libopencv-photo-dev libopencv-stitching-dev libopencv-video-dev \
       libopencv-calib3d-dev libopencv-core-dev libopencv-dnn-dev libgirepository1.0-dev

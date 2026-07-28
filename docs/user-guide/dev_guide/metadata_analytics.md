@@ -13,9 +13,12 @@ upstream
 | Type | Description |
 |------|-------------|
 | `GstAnalyticsODMtd` | Object detection (bbox, label, confidence, rotation) |
+| `GstAnalytics3DODMtd` | 3D object detection — oriented box, class, confidence, sensor modality (DL Streamer extension) |
 | `GstAnalyticsClsMtd` | Classification (confidence + label) |
 | `GstAnalyticsTrackingMtd` | Object tracking (ID, timestamps) |
 | `GstAnalyticsKeypointMtd` | Single keypoint (x, y, z, confidence, visibility) |
+| `GstAnalyticsSegmentationMtd` | Semantic segmentation (class-index mask) |
+| `GstAnalyticsTensorMtd` | Raw tensor payload (used for instance-segmentation soft masks) |
 | `GstAnalyticsGroupMtd` | Ordered group of metadata |
 | `GstAnalyticsKeypointDescriptor` | Static keypoint layout registry (DL Streamer extension) |
 | `GstAnalyticsZoneMtd` | Zone presence — carries the zone ID string (DL Streamer extension) |
@@ -54,7 +57,7 @@ relations:
                                       └─ ...
 ```
 
-### Object detection + classification / keypoints
+### Object detection + classification / keypoints / segmentation
 
 A typical two-stage pipeline `gvadetect ! gvaclassify` produces:
 
@@ -84,6 +87,23 @@ gvaclassify (inference-region=roi-list, model=pose_model)
                         ├─CONTAIN→ KeypointMtd (point 0)
                         ├─CONTAIN→ KeypointMtd (point 1)
                         └─ ...
+```
+
+Likewise, `gvaclassify` can run a semantic-segmentation model as a second
+stage over the detected ROIs. Each `GstAnalyticsSegmentationMtd` is then
+attached to its parent `ODMtd` via a `CONTAIN` relation, and its mask covers
+the ROI region rather than the whole frame:
+
+```
+gvadetect
+  └─ ODMtd (label="person", x, y, w, h, confidence,
+            semantic_tag="yolov26n")
+
+gvaclassify (inference-region=roi-list, model=segmentation_model)
+  └─ ODMtd ─CONTAIN→ SegmentationMtd (GST_SEGMENTATION_TYPE_SEMANTIC,
+                        mask=GRAY8 | GRAY16_LE class-index image over the ROI,
+                        region_ids=[unique class ids],
+                        semantic_tag="segmentation_model")
 ```
 
 ### Object detection + tracking
@@ -200,6 +220,117 @@ gvaclassify (inference-region=full-frame, model=single-person-pose)
 Frame-level keypoint groups are identified by not being CONTAIN-ed by any
 `ODMtd`.
 
+### Semantic segmentation
+
+Semantic segmentation assigns a class id to every pixel of a region. DL
+Streamer stores each result as a `GstAnalyticsSegmentationMtd`
+(`GST_SEGMENTATION_TYPE_SEMANTIC`) in `GstAnalyticsRelationMeta`. Depending on
+how the model is run, the region is either the whole frame or an individual
+detection:
+
+- **Frame-level** — when `gvaclassify` runs with
+  `inference-region=full-frame`, the mask covers the whole frame and the
+  `SegmentationMtd` has no parent `ODMtd`.
+- **Per-ROI** — when `gvaclassify` runs with `inference-region=roi-list` over
+  detections produced by an upstream `gvadetect`, one `SegmentationMtd` is
+  created per ROI, its mask covers just that ROI, and it is attached to the
+  owning `ODMtd` via a `CONTAIN` relation.
+
+The frame-level case:
+
+```
+gvaclassify (inference-region=full-frame, model=deeplabv3)
+  │
+  └─ GstAnalyticsRelationMeta
+       └─ SegmentationMtd (GST_SEGMENTATION_TYPE_SEMANTIC,
+                          mask=GRAY8 | GRAY16_LE class-index image,
+                          region_ids=[unique class ids],
+                          semantic_tag="deeplabv3")
+```
+
+The per-ROI case:
+
+```
+gvadetect
+  └─ ODMtd (label="person", x, y, w, h, confidence,
+            semantic_tag="yolov26n")
+
+gvaclassify (inference-region=roi-list, model=deeplabv3)
+  └─ ODMtd ─CONTAIN→ SegmentationMtd (GST_SEGMENTATION_TYPE_SEMANTIC,
+                        mask=GRAY8 | GRAY16_LE class-index image over the ROI,
+                        region_ids=[unique class ids],
+                        semantic_tag="deeplabv3")
+```
+
+The mask is carried as a `GstBuffer` with an attached `GstVideoMeta`. The
+pixel format is chosen automatically from the highest class id: `GRAY8` for up
+to 256 classes, otherwise `GRAY16_LE`. The `region_ids` array lists the unique
+class ids present in the region (one region per class). A `SegmentationMtd`
+always represents semantic segmentation.
+
+Whether a `SegmentationMtd` is frame-level or per-ROI is determined by its
+relations: a frame-level mask is not CONTAIN-ed by any `ODMtd`, while a
+per-ROI mask is CONTAIN-ed by the detection it belongs to.
+
+### Instance segmentation
+
+Instance segmentation produces one soft mask **per detected object**. Each mask
+is stored as a `GstAnalyticsTensorMtd` (`FP32` probabilities) and attached to
+the owning detection via a `CONTAIN` relation:
+
+```
+gvadetect (instance-segmentation model, e.g. Mask R-CNN, YOLOv8-SEG)
+  └─ ODMtd (label="person", x, y, w, h, confidence,
+            semantic_tag="yolov8-seg")
+       └─CONTAIN→ TensorMtd (FP32 soft mask [H, W], row-major,
+                             semantic_tag="yolov8-seg/instance_segmentation")
+```
+
+The per-object mask is kept as a raw `FP32` tensor (soft probabilities) rather
+than a frame-level segmentation image, which lets `gvawatermark` blend it
+smoothly over each ROI. The `model_name/instance_segmentation` semantic tag is
+what distinguishes an instance mask from any other raw tensor metadata.
+
+### 3D object detection (LiDAR / radar)
+
+3D detectors produce oriented boxes in a sensor/world coordinate frame rather
+than pixel-space rectangles. Each detection is stored as a `GstAnalytics3DODMtd`
+in `GstAnalyticsRelationMeta`, carrying the box centre, extents, orientation,
+class, confidence, and the sensor modality.
+
+When `g3dinference` runs inference over a LiDAR frame, it adds one
+`GstAnalytics3DODMtd` per detection at the frame level:
+
+```
+g3dinference
+  │
+  └─ GstAnalyticsRelationMeta
+       ├─ 3DODMtd (label_id=0, x, y, z, l, w, h, yaw, modality=lidar, confidence=0.87)
+       └─ 3DODMtd (label_id=2, ..., modality=lidar)
+```
+
+When a camera stream is fused with a 3D (LiDAR/radar) stream by
+`g3dobjectfuser`, each 3D detection is related to a `GstAnalyticsTrackingMtd`
+(track id), and each fused camera `ODMtd` is linked across buffers to its
+matching 3D detection:
+
+```
+3D-sensor stream buffer
+  └─ 3DODMtd (id=3, modality=lidar) ─RELATE_TO→ TrackingMtd (id=42)
+
+camera stream buffer
+  └─ ODMtd (label="car") ─IS_PART_OF→ TrackingMtd (tracking_id=3)
+                                      └─ (3 == the 3DODMtd id on the 3D stream)
+```
+
+Because analytics relations are scoped to a single `GstAnalyticsRelationMeta`,
+the camera `ODMtd` cannot point directly at the 3D detection (which lives on a
+different buffer). `g3dobjectfuser` materialises the cross-modal link as a
+`GstAnalyticsTrackingMtd` on the camera buffer whose `tracking_id` is the
+3D detection's id. When serialized by `gvametaconvert`, each 3D detection
+carries that `id` under `objects_3d`, and each fused camera detection carries
+`associated_3d_object_id`, so the pairing is resolvable by joining on the id.
+
 ### Semantic tag
 
 All `GstAnalyticsMtd` entries support a generic `semantic_tag` string via:
@@ -214,10 +345,79 @@ DL Streamer uses semantic tags to:
 | `ODMtd` | model name | `"yolov26n"` |
 | `ClsMtd` | model name | `"densenet-121"` |
 | `GroupMtd` (keypoints) | `model_name/keypoint_format` | `"hrnet/body-pose/coco-17"` |
+| `SegmentationMtd` (semantic segmentation) | model name | `"deeplabv3"` |
+| `TensorMtd` (instance segmentation) | `model_name/instance_segmentation` | `"yolov8-seg/instance_segmentation"` |
 
 The semantic tag enables downstream elements to distinguish metadata
 produced by different models. For keypoint groups, it additionally identifies
 the keypoint layout (descriptor format).
+
+## GstAnalytics3DODMtd
+
+`GstAnalytics3DODMtd` is a DL Streamer extension that stores a **3D oriented
+bounding box** produced by a LiDAR or radar detector. It is added by
+[`g3dinference`](../elements/g3dinference.md) (one per detection)
+and read by [`g3dobjectfuser`](../elements/g3dobjectfuser.md) during
+camera↔3D fusion. Unlike `GstAnalyticsODMtd`, the box lives in a sensor/world
+coordinate frame (metres, radians), so 2D video transforms (scale, crop,
+letterbox) do not apply to it. The meta's transform function copies it as-is.
+
+### GstAnalytics3DODMtdData
+
+The payload stored inside `GstAnalyticsRelationMeta` for each 3D detection:
+
+```C
+struct _GstAnalytics3DODMtdData {
+    gfloat x, y, z;              /* box centre, metres (sensor/world frame) */
+    gfloat length, width, height;/* box extents along X, Y, Z, metres */
+    gfloat yaw, pitch, roll;     /* orientation around Z, Y, X, radians */
+    gint   class_id;             /* detected class index (negative if unknown) */
+    gfloat confidence;           /* detection confidence in [0, 1] */
+    GstAnalytics3DSensorModality modality; /* sensor the detection came from */
+};
+```
+
+`GstAnalytics3DSensorModality` is an enum:
+
+| Value | Meaning |
+|-------|---------|
+| `GST_ANALYTICS_3D_SENSOR_LIDAR` (0) | Detection sourced from a LiDAR-based detector |
+| `GST_ANALYTICS_3D_SENSOR_RADAR` (1) | Detection sourced from a radar-based detector |
+
+### 3D object detection API
+
+| Function | Description |
+|----------|-------------|
+| `gst_analytics_3d_od_mtd_get_mtd_type()` | Returns the metadata type ID for `GstAnalytics3DODMtd`. |
+| `gst_analytics_relation_meta_add_3d_od_mtd(rmeta, x, y, z, length, width, height, yaw, pitch, roll, class_id, confidence, modality, &mtd)` | Adds a 3D detection to `rmeta`. Returns `TRUE` on success. |
+| `gst_analytics_3d_od_mtd_get_location(&mtd, &x, &y, &z, &length, &width, &height, &yaw, &pitch, &roll)` | Retrieves the oriented box. Returns `TRUE` on success. |
+| `gst_analytics_3d_od_mtd_get_class(&mtd, &class_id, &confidence)` | Retrieves the class id and confidence. Returns `TRUE` on success. |
+| `gst_analytics_3d_od_mtd_get_modality(&mtd, &modality)` | Retrieves the sensor modality. Returns `TRUE` on success. |
+| `gst_analytics_relation_meta_get_3d_od_mtd(rmeta, an_meta_id, &rlt)` | Retrieves a specific 3D detection by its meta id. Returns `TRUE` on success. |
+
+### 3D object detection C example
+
+```C
+#include <dlstreamer/gst/metadata/g3d_od_mtd.h>
+
+gpointer state = NULL;
+GstAnalytics3DODMtd od_mtd;
+while (gst_analytics_relation_meta_iterate(rmeta, &state,
+           gst_analytics_3d_od_mtd_get_mtd_type(), &od_mtd)) {
+    gfloat x, y, z, l, w, h, yaw, pitch, roll, conf;
+    gint class_id;
+    GstAnalytics3DSensorModality modality;
+
+    gst_analytics_3d_od_mtd_get_location(&od_mtd, &x, &y, &z, &l, &w, &h, &yaw, &pitch, &roll);
+    gst_analytics_3d_od_mtd_get_class(&od_mtd, &class_id, &conf);
+    gst_analytics_3d_od_mtd_get_modality(&od_mtd, &modality);
+
+    g_print("3D box #%u: centre=(%.2f, %.2f, %.2f) size=(%.2f, %.2f, %.2f) yaw=%.2f "
+            "class=%d conf=%.2f modality=%s\n",
+            od_mtd.id, x, y, z, l, w, h, yaw, class_id, conf,
+            modality == GST_ANALYTICS_3D_SENSOR_LIDAR ? "lidar" : "radar");
+}
+```
 
 ## GstAnalyticsZoneMtd
 

@@ -1,0 +1,11 @@
+# Additional pins applied on top of export-requirements.txt (install that first).
+#
+# optimum-intel supports OpenVINO model export only up to transformers 4.57.6,
+# while export-requirements.txt pins a newer transformers.
+transformers>=4.57,<4.58
+#
+# openvino-tokenizers must match the OpenVINO runtime shipped with the DL
+# Streamer installation (here 2026.2.0), which is the one gvagenai uses and the
+# one loaded via PYTHONPATH. Adjust to match your OpenVINO runtime, check with:
+#   python3 -c "import openvino; print(openvino.__version__)"
+openvino-tokenizers==2026.2.0.*
