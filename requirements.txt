@@ -7,6 +7,8 @@ defusedxml==0.7.1
 
 # optimizer-specific deps
 sshkeyboard==2.3.1
+prometheus-client==0.25.0
+requests==2.34.2
 
 # gstreamer-python provides PyGObject and GStreamer Python bindings. It is not available on Linux.
 PyGObject==3.50.0; sys_platform != "win32"

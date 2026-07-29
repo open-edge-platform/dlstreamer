@@ -47,25 +47,6 @@ you need to install Intel® NPU driver:
 > version](https://github.com/intel/linux-npu-driver/releases). Please
 > pay attention to **access to the device as a non-root user**.
 
-Note that the following error can occur when running DL Streamer on
-NPU device:
-
-```bash
-Setting pipeline to PLAYING ...
-New clock: GstSystemClock
-Caught SIGSEGV
-Spinning.
-```
-
-For a temporary workaround, use the following setting:
-
-```bash
-export ZE_ENABLE_ALT_DRIVERS=libze_intel_npu.so
-```
-
-The issue should be fixed with newer versions of Intel® NPU drivers and
-OpenVINO™ NPU plugins.
-
 ------------------------------------------------------------------------
 
 > **\*** *Other names and brands may be claimed as the property of
