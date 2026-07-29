@@ -430,6 +430,73 @@ jobs:
             exit 1
           fi
 
+      - name: 🔍 Generate visual diff reports for failed host tests
+        if: always() && needs.setup.outputs.should_run == 'true'
+        env:
+          dls_tests_results_path: ${{ env.DLS_TESTS_RESULTS_PATH }}
+          runner_print_label: ${{ matrix.runner_print_label }}
+          ubuntu_version: ${{ matrix.ubuntu_version }}
+        run: |
+          RESULTS_FILE="${dls_tests_results_path}/DLS_functional_tests_${runner_print_label}_on_host_${ubuntu_version}_results.txt"
+          if [ ! -f "$RESULTS_FILE" ]; then
+            echo "No results file at $RESULTS_FILE, skipping diff report generation."
+            exit 0
+          fi
+
+          # save_summary_to_text_file() writes one line per failed test case as
+          # '[! FAIL !] <test_name> (<duration>)' - extract just the test names.
+          FAILED_TESTS=$(grep -oP '^\[! FAIL !\] \K\S+' "$RESULTS_FILE" | sort -u || true)
+          if [ -z "$FAILED_TESTS" ]; then
+            echo "No failed tests, skipping diff report generation."
+            exit 0
+          fi
+          echo "Failed tests: $FAILED_TESTS"
+
+          source $HOME/.virtualenvs/dlstreamer/bin/activate
+          pip install --no-cache-dir opencv-python-headless numpy
+
+          TESTS_DIR="$PWD/$DLS_REL_PATH/tests/functional_tests"
+          GENERATED_CONFIGS_DIR="$TESTS_DIR/pipeline_test/configs_ov2/generated_configs"
+          PRED_DIR="$dls_tests_results_path/metadata"
+          REPORTS_DIR="$dls_tests_results_path/diff_reports"
+          DIFF_SCRIPT="$TESTS_DIR/gt_compare/diff_report/generate_diff_report.py"
+
+          for test_name in $FAILED_TESTS; do
+            echo "::group::Diff report for $test_name"
+            REPORT_GENERATED=0
+            for config in "$GENERATED_CONFIGS_DIR"/*_final.json; do
+              [ -f "$config" ] || continue
+
+              GT_BASE=$(jq -r '.test_set_properties["host.dataset.groundtruth.base"] // .test_set_properties["dataset.groundtruth.base"] // empty' "$config")
+              [ -z "$GT_BASE" ] && continue
+              GT_DIR="$TESTS_DIR/pipeline_test/$GT_BASE"
+
+              if python3 "$DIFF_SCRIPT" \
+                  --config "$config" \
+                  --test-name "$test_name" \
+                  --gt-dir "$GT_DIR" \
+                  --pred-dir "$PRED_DIR" \
+                  --env-context host \
+                  --output-dir "$REPORTS_DIR/$test_name"; then
+                REPORT_GENERATED=1
+                break
+              fi
+            done
+            if [ "$REPORT_GENERATED" -eq 0 ]; then
+              echo "::warning::Could not generate diff report for '$test_name' (not found in any generated config, or missing GT/prediction/video file)"
+            fi
+            echo "::endgroup::"
+          done
+          deactivate
+
+      - name: Upload diff reports for failed host tests
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a #7.0.1
+        if: always() && needs.setup.outputs.should_run == 'true'
+        with:
+          name: DLS_functional_tests_${{ matrix.runner_print_label }}_on_host_${{ matrix.ubuntu_version }}_diff_reports
+          path: "${{ env.DLS_TESTS_RESULTS_PATH }}/diff_reports"
+          if-no-files-found: ignore
+
       - name: Uninstall dlstreamer
         if: always() && needs.setup.outputs.should_run == 'true'
         run: |
