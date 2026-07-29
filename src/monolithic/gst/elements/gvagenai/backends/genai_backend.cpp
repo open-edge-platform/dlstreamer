@@ -45,6 +45,7 @@ std::shared_ptr<IGenAIBackend> GenAIBackendRegistry::create_backend(const GenAIB
         params.model_name = str(config.model);
         params.api_key = str(config.api_key);
         params.timeout_ms = str(config.timeout_ms);
+        params.generation_config = str(config.generation_config);
         params.include_metrics = (config.include_metrics != FALSE);
         return get_http_backend(params);
     }

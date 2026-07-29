@@ -107,11 +107,12 @@ struct OpenVINOBackendParams {
  * @brief Parameters passed to the HTTP backend constructor (internal)
  */
 struct HttpBackendParams {
-    std::string server_url;       // e.g., "http://localhost:8000/v1"
-    std::string model_name;       // e.g., "llava-1.5-7b"
-    std::string api_key;          // Optional: Bearer token or API key
-    std::string timeout_ms;       // Optional: request timeout
-    bool include_metrics = false; // Include usage/token metrics in JSON output
+    std::string server_url;        // e.g., "http://localhost:8000/v1"
+    std::string model_name;        // e.g., "llava-1.5-7b"
+    std::string api_key;           // Optional: Bearer token or API key
+    std::string timeout_ms;        // Optional: request timeout
+    std::string generation_config; // KEY=VALUE,KEY=VALUE, merged into the request body verbatim
+    bool include_metrics = false;  // Include usage/token metrics in JSON output
 };
 
 /**
@@ -119,10 +120,10 @@ struct HttpBackendParams {
  *
  * Factory for backend instances. Every call to create_backend() returns a
  * freshly created backend (OpenVINO and HTTP alike) with per-element
- * ownership: IGenAIBackend accumulates frame state internally (add_frame/
- * frame_count/clear_frames), so instances must never be shared across
- * multiple gvagenai elements - doing so would corrupt each other's frame
- * buffers. No caching/sharing is performed by design.
+ * ownership. Backends are stateless per request (frames are carried in GenRequest),
+ * and instances are not cached/shared by design to keep configuration and any
+ * internal resources (OpenVINO pipelines, HTTP settings, etc.) element-scoped.
+ * No caching/sharing is performed by design.
  *
  * Example usage:
  *   GenAIBackendConfig cfg = {};

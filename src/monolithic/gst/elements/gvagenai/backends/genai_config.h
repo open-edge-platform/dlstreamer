@@ -39,7 +39,7 @@ typedef struct _GenAIBackendConfig {
     gchar *timeout_ms; // Optional: request timeout in milliseconds
 
     // Inference-call behavior: not read by GenAIBackendRegistry::create_backend(), only
-    // by the element itself when invoking IGenAIBackend::infer(). Grouped here because it
+    // by the element itself when invoking IGenAIBackend::submit(). Grouped here because it
     // is set once (like the fields above) and does not change during the element's lifetime.
     // GstGvaGenAIVisionMode: 0 = present accumulated frames as images, 1 = as one video clip.
     gint vision_mode;

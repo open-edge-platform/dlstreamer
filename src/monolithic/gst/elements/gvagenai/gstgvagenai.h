@@ -39,7 +39,7 @@ struct _GstGvaGenAI {
     gboolean prompt_changed; // flag to indicate if prompt was updated and needs to be reloaded
     gchar *prompt_string;
 
-    void *backend; // std::shared_ptr<genai::IGenAIBackend> *
+    void *backend; // GvaGenAIRuntime * (opaque runtime state; allocated/freed in gstgvagenai.cpp)
 
     // Last inference result, persisted so gvawatermark renders across frames
     gchar *last_result;

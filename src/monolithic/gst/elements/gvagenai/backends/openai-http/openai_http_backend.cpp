@@ -79,7 +79,18 @@ std::string base64_encode(const std::vector<uchar> &data) {
     return out;
 }
 
+// Strip leading/trailing whitespace (space, tab, CR, LF) from a string.
+std::string trim(const std::string &s) {
+    static constexpr const char *whitespace = " \t\r\n";
+    const size_t begin = s.find_first_not_of(whitespace);
+    if (begin == std::string::npos)
+        return "";
+    const size_t end = s.find_last_not_of(whitespace);
+    return s.substr(begin, end - begin + 1);
+}
+
 // Parse "KEY=VALUE,KEY=VALUE" into a JSON object, inferring bool/number/string per value.
+// Whitespace around keys/values (e.g. "temperature=0.2, max_tokens=100") is trimmed.
 nlohmann::json parse_kv_config(const std::string &cfg) {
     nlohmann::json obj = nlohmann::json::object();
     if (cfg.empty())
@@ -91,8 +102,8 @@ nlohmann::json parse_kv_config(const std::string &cfg) {
         const size_t eq = pair.find('=');
         if (eq == std::string::npos)
             continue;
-        std::string key = pair.substr(0, eq);
-        std::string value = pair.substr(eq + 1);
+        std::string key = trim(pair.substr(0, eq));
+        std::string value = trim(pair.substr(eq + 1));
         if (key.empty())
             continue;
 
@@ -159,6 +170,8 @@ OpenAIHttpBackend::OpenAIHttpBackend(const HttpBackendParams &params)
     }
 
     ensure_curl_global_init();
+
+    generation_config_ = params.generation_config;
 
     GST_INFO("Initialized OpenAI-HTTP backend: url=%s, model=%s", chat_completions_url_.c_str(), model_name_.c_str());
 }

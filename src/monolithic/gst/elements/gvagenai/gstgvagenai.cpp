@@ -454,7 +454,7 @@ static void gst_gvagenai_finalize(GObject *object) {
     g_free(gvagenai->prompt_string);
     g_free(gvagenai->last_result);
     if (gvagenai->backend) {
-        delete static_cast<BackendPtr *>(gvagenai->backend);
+        delete static_cast<GvaGenAIRuntime *>(gvagenai->backend);
         gvagenai->backend = NULL;
     }
 
@@ -619,6 +619,11 @@ static GstFlowReturn gst_gvagenai_transform_ip(GstBaseTransform *base, GstBuffer
             const GstMetaInfo *meta_info = gst_gva_json_meta_get_info();
             if (meta_info && gst_buffer_is_writable(buf)) {
                 auto *json_meta = (GstGVAJSONMeta *)gst_buffer_add_meta(buf, meta_info, NULL);
+                if (!json_meta) {
+                    GST_ELEMENT_WARNING(gvagenai, STREAM, FAILED, ("Failed to add JSON meta"),
+                                        ("Could not add GstGVAJSONMeta to buffer"));
+                    return GST_FLOW_OK; // Not fatal: continue processing without JSON meta
+                }
                 json_meta->message = g_strdup(result.raw_json.c_str());
                 GST_INFO_OBJECT(gvagenai, "Added meta message: %s", json_meta->message);
             }
