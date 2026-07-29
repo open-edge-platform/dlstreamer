@@ -517,6 +517,10 @@ static gboolean gst_gvagenai_stop(GstBaseTransform *base) {
         gvagenai->backend = NULL;
     }
 
+    g_free(gvagenai->last_result);
+    gvagenai->last_result = NULL;
+    gvagenai->last_confidence = -1.0f;
+
     return TRUE;
 }
 
