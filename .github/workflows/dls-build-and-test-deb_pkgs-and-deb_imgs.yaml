@@ -436,6 +436,7 @@ jobs:
           dls_tests_results_path: ${{ env.DLS_TESTS_RESULTS_PATH }}
           runner_print_label: ${{ matrix.runner_print_label }}
           ubuntu_version: ${{ matrix.ubuntu_version }}
+          video_examples_path: ${{ env.VIDEO_INPUTS_PATH }}
         run: |
           RESULTS_FILE="${dls_tests_results_path}/DLS_functional_tests_${runner_print_label}_on_host_${ubuntu_version}_results.txt"
           if [ ! -f "$RESULTS_FILE" ]; then
@@ -463,10 +464,26 @@ jobs:
 
           for test_name in $FAILED_TESTS; do
             echo "::group::Diff report for $test_name"
-            REPORT_GENERATED=0
+
+            MATCHING_CONFIGS=()
             for config in "$GENERATED_CONFIGS_DIR"/*_final.json; do
               [ -f "$config" ] || continue
+              if grep -q "\"name\"[[:space:]]*:[[:space:]]*\"${test_name}\"" "$config"; then
+                MATCHING_CONFIGS+=("$config")
+              fi
+            done
 
+            if [ "${#MATCHING_CONFIGS[@]}" -eq 0 ]; then
+              echo "::warning::Could not generate diff report for '$test_name' (test name not found in any generated config)"
+              echo "::endgroup::"
+              continue
+            fi
+            if [ "${#MATCHING_CONFIGS[@]}" -gt 1 ]; then
+              echo "::warning::Test name '$test_name' is defined in ${#MATCHING_CONFIGS[@]} generated configs (${MATCHING_CONFIGS[*]}) - name is not unique across configs. Using the first match; the resolved GT/pred/video paths may be for the wrong config."
+            fi
+
+            REPORT_GENERATED=0
+            for config in "${MATCHING_CONFIGS[@]}"; do
               GT_BASE=$(jq -r '.test_set_properties["host.dataset.groundtruth.base"] // .test_set_properties["dataset.groundtruth.base"] // empty' "$config")
               [ -z "$GT_BASE" ] && continue
               GT_DIR="$TESTS_DIR/pipeline_test/$GT_BASE"
@@ -476,6 +493,7 @@ jobs:
                   --test-name "$test_name" \
                   --gt-dir "$GT_DIR" \
                   --pred-dir "$PRED_DIR" \
+                  --video-dir "$video_examples_path" \
                   --env-context host \
                   --output-dir "$REPORTS_DIR/$test_name"; then
                 REPORT_GENERATED=1
@@ -483,7 +501,7 @@ jobs:
               fi
             done
             if [ "$REPORT_GENERATED" -eq 0 ]; then
-              echo "::warning::Could not generate diff report for '$test_name' (not found in any generated config, or missing GT/prediction/video file)"
+              echo "::warning::Could not generate diff report for '$test_name' (matched config(s) had no usable GT base, or missing GT/prediction/video file)"
             fi
             echo "::endgroup::"
           done
