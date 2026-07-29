@@ -42,7 +42,10 @@ SUPPORTED_MODELS=(
   "centerface"
   "hsemotion"
   "deeplabv3"
+  "pallet_defect_detection"
+  "colorcls2"
   "mars-small128"
+  "pointpillars"
 )
 
 # Corresponds to files in 'datasets' directory
@@ -702,6 +705,110 @@ if array_contains "mars-small128" "${MODELS_TO_PROCESS[@]}"; then
     mv "$MODEL_DIR/mars_small128_fp32.bin" "$MODEL_DIR/FP32/mars_small128_fp32.bin"
     mv "$MODEL_DIR/mars_small128_int8.xml" "$MODEL_DIR/INT8/mars_small128_int8.xml"
     mv "$MODEL_DIR/mars_small128_int8.bin" "$MODEL_DIR/INT8/mars_small128_int8.bin"
+  else
+    model_status="cached"
+    echo_color "\nModel already exists: $MODEL_DIR.\n" "yellow"
+  fi
+fi
+
+# ================================= Pallet Defect Detection INT8 - Edge AI Resources =================================
+if array_contains "pallet_defect_detection" "${MODELS_TO_PROCESS[@]}"; then
+  display_header "Downloading Pallet Defect Detection model"
+  MODEL_NAME="pallet_defect_detection"
+  model_status="ok"
+  MODEL_DIR="$MODELS_PATH/public/$MODEL_NAME"
+  DST_FILE1="$MODEL_DIR/INT8/$MODEL_NAME.xml"
+
+  if [[ ! -f "$DST_FILE1" ]]; then
+    echo "Downloading and converting: ${MODEL_DIR}"
+    mkdir -p "$MODEL_DIR"
+    cd "$MODEL_DIR"
+
+    download_binary_file \
+      "https://github.com/open-edge-platform/edge-ai-resources/raw/main/models/INT8/pallet_defect_detection.zip" \
+      "${MODEL_NAME}.zip" || handle_error "failed to download ${MODEL_NAME}.zip"
+
+    python3 -c "
+import zipfile
+import os
+with zipfile.ZipFile('${MODEL_NAME}.zip', 'r') as zip_ref:
+    zip_ref.extractall('.')
+os.remove('${MODEL_NAME}.zip')
+"
+
+    mkdir -p INT8
+    cp deployment/Detection/model/model.bin INT8/${MODEL_NAME}.bin
+    cp deployment/Detection/model/model.xml INT8/${MODEL_NAME}.xml
+    cp deployment/Detection/model/config.json INT8/config.json
+    chmod -R u+w deployment example_code
+    rm -rf deployment example_code
+    rm -f LICENSE README.md sample_image.jpg
+    cd ..
+  else
+    model_status="cached"
+    echo_color "\nModel already exists: $MODEL_DIR.\n" "yellow"
+  fi
+fi
+
+# ================================= Colorcls2 FP32 - Edge AI Suites =================================
+if array_contains "colorcls2" "${MODELS_TO_PROCESS[@]}"; then
+  display_header "Downloading Colorcls2 model"
+  MODEL_NAME="colorcls2"
+  model_status="ok"
+  MODEL_DIR="$MODELS_PATH/public/$MODEL_NAME/FP32"
+  DST_FILE1="$MODEL_DIR/$MODEL_NAME.xml"
+
+  if [[ ! -f "$DST_FILE1" ]]; then
+    echo "Downloading: ${MODEL_DIR}"
+    mkdir -p "$MODEL_DIR"
+    cd "$MODEL_DIR"
+
+    download_binary_file \
+      "https://github.com/open-edge-platform/edge-ai-suites/raw/main/metro-ai-suite/metro-vision-ai-app-recipe/smart-parking/src/dlstreamer-pipeline-server/models/colorcls2/colorcls2.bin" \
+      "colorcls2.bin" || handle_error "failed to download colorcls2.bin"
+    download_binary_file \
+      "https://github.com/open-edge-platform/edge-ai-suites/raw/main/metro-ai-suite/metro-vision-ai-app-recipe/smart-parking/src/dlstreamer-pipeline-server/models/colorcls2/colorcls2.xml" \
+      "colorcls2.xml" || handle_error "failed to download colorcls2.xml"
+
+    cd ..
+  else
+    model_status="cached"
+    echo_color "\nModel already exists: $MODEL_DIR/$MODEL_NAME.xml.\n" "yellow"
+  fi
+fi
+
+# ================================= PointPillars FP16 - OpenVINO Contrib =================================
+if array_contains "pointpillars" "${MODELS_TO_PROCESS[@]}"; then
+  display_header "Downloading PointPillars model"
+  MODEL_NAME="pointpillars"
+  model_status="ok"
+  MODEL_DIR="$MODELS_PATH/public/$MODEL_NAME/FP16"
+  BASE_URL="https://raw.githubusercontent.com/openvinotoolkit/openvino_contrib/master/modules/3d/pointPillars/pretrained"
+  POINTPILLARS_FILES=(
+    "pointpillars_ov_nn.bin"
+    "pointpillars_ov_nn.xml"
+    "pointpillars_ov_pillar_layer.xml"
+    "pointpillars_ov_postproc.xml"
+  )
+
+  MISSING_POINTPILLARS_FILE=false
+  for file_name in "${POINTPILLARS_FILES[@]}"; do
+    if [[ ! -f "$MODEL_DIR/$file_name" ]]; then
+      MISSING_POINTPILLARS_FILE=true
+      break
+    fi
+  done
+
+  if [[ "$MISSING_POINTPILLARS_FILE" == true ]]; then
+    echo "Downloading: ${MODEL_DIR}"
+    mkdir -p "$MODEL_DIR"
+    cd "$MODEL_DIR"
+
+    for file_name in "${POINTPILLARS_FILES[@]}"; do
+      download_binary_file "$BASE_URL/$file_name" "$file_name" || handle_error "failed to download $file_name"
+    done
+
+    cd ..
   else
     model_status="cached"
     echo_color "\nModel already exists: $MODEL_DIR.\n" "yellow"
