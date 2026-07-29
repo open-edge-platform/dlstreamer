@@ -145,9 +145,13 @@ class DLSOptimizer:
         return self._iter_optimize(initial_pipeline, FpsTarget())
 
     def optimize_for_power(self, pipeline, search_duration = DEFAULT_SEARCH_DURATION): # pylint: disable=missing-function-docstring
+        if self._metrics_url is None:
+            raise RuntimeError("In order to optimize for power, you must provide a valid power metrics endpoint!")
         return self._optimize(pipeline, PowerTarget(), search_duration)
 
     def iter_optimize_for_power(self, initial_pipeline): # pylint: disable=missing-function-docstring
+        if self._metrics_url is None:
+            raise RuntimeError("In order to optimize for power, you must provide a valid power metrics endpoint!")
         return self._iter_optimize(initial_pipeline, PowerTarget())
 
     def optimize_for_streams(self, pipeline, search_duration = DEFAULT_SEARCH_DURATION): # pylint: disable=missing-function-docstring

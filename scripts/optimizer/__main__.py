@@ -104,6 +104,13 @@ def main() -> int:
         if args.power_metrics_endpoint:
             optimizer.set_metrics_url(args.power_metrics_endpoint)
 
+        if args.fps_limit:
+            optimizer.set_fps_limit(args.fps_limit)
+        if args.power_limit:
+            optimizer.set_power_limit(args.power_limit)
+        if args.power_metrics_endpoint:
+            optimizer.set_metrics_url(args.power_metrics_endpoint)
+
         match args.optimization_profile:
             case "coarse":
                 optimizer.set_sample_duration(5)
