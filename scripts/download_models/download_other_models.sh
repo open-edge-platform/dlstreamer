@@ -91,11 +91,28 @@ download_binary_file() {
   local url="$1"
   local output_path="$2"
   local mime_type
+  local extension
 
   curl -fL --retry 3 --retry-all-errors -o "$output_path" "$url" || return 1
 
   mime_type=$(file --brief --mime-type "$output_path" 2>/dev/null || true)
-  if [[ "$mime_type" == text/* || "$mime_type" == application/xml || "$mime_type" == application/json ]]; then
+  extension="${output_path##*.}"
+  extension="${extension,,}"
+
+  # OpenVINO IR files (.xml) are valid text/xml; reject only obvious error payloads.
+  if [[ "$extension" == "xml" ]]; then
+    if [[ "$mime_type" == text/html || "$mime_type" == application/json ]]; then
+      echo "Unexpected response while downloading $url" >&2
+      echo "Downloaded file MIME type: ${mime_type:-unknown}" >&2
+      head -n 5 "$output_path" >&2 || true
+      rm -f "$output_path"
+      return 1
+    fi
+    return 0
+  fi
+
+  # For non-XML artifacts (bin/zip/onnx/etc.), text or XML/JSON payload usually means an error page.
+  if [[ "$mime_type" == text/* || "$mime_type" == application/xml || "$mime_type" == text/xml || "$mime_type" == application/json ]]; then
     echo "Unexpected response while downloading $url" >&2
     echo "Downloaded file MIME type: ${mime_type:-unknown}" >&2
     head -n 5 "$output_path" >&2 || true
