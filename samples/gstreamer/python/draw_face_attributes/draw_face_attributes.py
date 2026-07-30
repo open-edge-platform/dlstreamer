@@ -57,7 +57,7 @@ def frame_callback(frame: VideoFrame):
                         cv2.circle(mat, (x, y), int(
                             1 + 0.02 * rect.w), lm_color, -1)
                 # dima806 ViT models — all share the same output layer name
-                elif "__module.classifier/aten::linear/Add" == tensor.layer_name():
+                elif tensor.layer_name() in ("__module.classifier/aten::linear/Add", "logits"):
                     data = tensor.data()
                     if len(data) == 0:
                         continue
