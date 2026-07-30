@@ -125,7 +125,7 @@ def create_launch_string():
         sink = "gvametaconvert ! gvametapublish file-format=json-lines file-path=output.json ! \
                gvafpscounter ! fakesink sync=false"
     elif args.output == "file":
-        sink = f"gvawatermark ! gvafpscounter ! vah264enc ! h264parse ! mp4mux ! filesink location=draw_face_attributes_{args.input_device}.mp4"
+        sink = f"vapostproc ! gvawatermark name=gvawatermark ! gvafpscounter ! vah264enc ! h264parse ! mp4mux ! filesink location=draw_face_attributes_{args.input_device}.mp4"
     else:
         print("Unsupported output type")
         sys.exit()
