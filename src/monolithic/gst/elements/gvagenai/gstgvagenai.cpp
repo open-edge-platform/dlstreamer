@@ -610,9 +610,12 @@ static GstFlowReturn gst_gvagenai_transform_ip(GstBaseTransform *base, GstBuffer
             try {
                 result = backend->submit(std::move(req)).get();
             } catch (const std::exception &e) {
-                GST_ELEMENT_ERROR(gvagenai, STREAM, FAILED, ("Failed to run backend inference"),
-                                  ("Error: %s", e.what()));
-                return GST_FLOW_ERROR;
+                GST_ELEMENT_WARNING(gvagenai, STREAM, FAILED, ("Failed to run backend inference"),
+                                    ("Error: %s", e.what()));
+                g_free(gvagenai->last_result);
+                gvagenai->last_result = NULL;
+                gvagenai->last_confidence = -1.0f;
+                return GST_FLOW_OK;
             }
 
             // Persist last result/confidence for watermark rendering on subsequent frames
