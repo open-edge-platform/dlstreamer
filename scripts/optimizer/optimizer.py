@@ -212,7 +212,10 @@ class DLSOptimizer:
         for streams in range(1, max_streams):
             for (pipeline, result) in self._evaluate_candidates(initial_pipeline, target, streams):
                 if result:
-                    if self._passes_limits(result) and target.is_better(result, self._optimal_result):
+                    if self._maximize_streams:
+                            result["streams"] = streams
+
+                    if self._passes_limits(result) and (target.is_better(result, self._optimal_result) or streams > self._optimal_result["streams"]):
                         self._optimal_result = result.copy()
                         self._optimal_pipeline = pipeline.copy()
 

@@ -236,13 +236,13 @@ def _display_result_power(pipeline, result):
 
 def _display_summary_fps(best_pipeline, best_result, initial_pipeline, initial_result):
     logger.info("=============================== SUMMARY ==============================")
-    if best_result["fps"] < initial_result["fps"]:
+    if best_result["fps"] > initial_result["fps"]:
         logger.info("Optimized pipeline found with %.2f fps improvement over the original pipeline.", best_result["fps"] - initial_result["fps"])
         logger.info("Original pipeline FPS: %.2f", initial_result["fps"])
         logger.info("Optimized pipeline: %s", str(best_pipeline))
         logger.info("Optimized pipeline FPS: %.2f", best_result["fps"])
         if args.maximize_streams:
-            full_pipeline = ([best_pipeline] * best_result["fps"]).join(" ")
+            full_pipeline = " ".join([best_pipeline] * best_result["streams"])
             logger.info("Number of streams pipeline can support: %d", best_result["streams"])
             logger.info("Full pipeline: %s", full_pipeline)
     else:
@@ -259,7 +259,7 @@ def _display_summary_power(best_pipeline, best_result, initial_pipeline, initial
         logger.info("Optimized pipeline: %s", str(best_pipeline))
         logger.info("Optimized pipeline power usage: %.2f", best_result["power"])
         if args.maximize_streams:
-            full_pipeline = ([best_pipeline] * best_result["streams"]).join(" ")
+            full_pipeline = " ".join([best_pipeline] * best_result["streams"])
             logger.info("Number of streams pipeline can support: %d", best_result["streams"])
             logger.info("Full pipeline: %s", full_pipeline)
     else:
