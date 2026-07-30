@@ -626,10 +626,10 @@ static GstFlowReturn gst_gvagenai_transform_ip(GstBaseTransform *base, GstBuffer
                 if (!json_meta) {
                     GST_ELEMENT_WARNING(gvagenai, STREAM, FAILED, ("Failed to add JSON meta"),
                                         ("Could not add GstGVAJSONMeta to buffer"));
-                    return GST_FLOW_OK; // Not fatal: continue processing without JSON meta
+                } else {
+                    json_meta->message = g_strdup(result.raw_json.c_str());
+                    GST_INFO_OBJECT(gvagenai, "Added meta message: %s", json_meta->message);
                 }
-                json_meta->message = g_strdup(result.raw_json.c_str());
-                GST_INFO_OBJECT(gvagenai, "Added meta message: %s", json_meta->message);
             }
         } else {
             GST_DEBUG_OBJECT(gvagenai, "Added frame %u of %u", (guint)runtime->frames.size(), gvagenai->chunk_size);

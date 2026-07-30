@@ -9,7 +9,6 @@
 #include <opencv2/opencv.hpp>
 
 #include <array>
-#include <cassert>
 #include <cstring>
 #include <stdexcept>
 #include <vector>
@@ -30,7 +29,9 @@ ov::Tensor gst_buffer_to_rgb_tensor(dlstreamer::MemoryMapperGSTToCPU &mapper, Gs
     for (auto &tensor : *mapped_frame) {
         // Verify number of channels
         dlstreamer::ImageInfo image_info(tensor->info());
-        assert(image_info.channels() > 0 && image_info.channels() <= channels_to_cvtype_map.size());
+        if (image_info.channels() <= 0 || image_info.channels() > channels_to_cvtype_map.size()) {
+            throw std::runtime_error("Unsupported number of channels: " + std::to_string(image_info.channels()));
+        }
         const int cv_type = channels_to_cvtype_map[image_info.channels() - 1];
         image_planes.emplace_back(image_info.height(), image_info.width(), cv_type, tensor->data(),
                                   image_info.width_stride());

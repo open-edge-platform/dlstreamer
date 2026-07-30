@@ -164,6 +164,9 @@ OpenAIHttpBackend::OpenAIHttpBackend(const HttpBackendParams &params)
     if (!params.timeout_ms.empty()) {
         try {
             timeout_ms_ = std::stol(params.timeout_ms);
+            if (timeout_ms_ <= 0) {
+                throw std::runtime_error("Timeout must be a positive integer");
+            }
         } catch (const std::exception &e) {
             throw std::runtime_error("Invalid http-timeout value '" + params.timeout_ms + "': " + e.what());
         }
