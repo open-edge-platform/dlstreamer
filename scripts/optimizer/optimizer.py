@@ -209,21 +209,28 @@ class DLSOptimizer:
             self._optimal_result["streams"] = 1
 
         # iterate over candidates and find the best one
-        for streams in range(1, max_streams):
+        for streams in range(1, max_streams + 1): # high end in range function is non-inclusive
+            has_not_changed = True
             for (pipeline, result) in self._evaluate_candidates(initial_pipeline, target, streams):
                 if result:
                     if self._maximize_streams:
                             result["streams"] = streams
 
-                    if self._passes_limits(result) and (target.is_better(result, self._optimal_result) or streams > self._optimal_result["streams"]):
+                    within_limits = self._passes_limits(result)
+                    scores_better = target.is_better(result, self._optimal_result) 
+                    allows_for_more_streams = (self._maximize_streams and streams > self._optimal_result["streams"])
+                    if within_limits and (scores_better or allows_for_more_streams):
+                        has_not_changed = False
                         self._optimal_result = result.copy()
                         self._optimal_pipeline = pipeline.copy()
 
                 yield "!".join(pipeline), result
+            if has_not_changed:
+                break
 
     def _passes_limits(self, result):
         fps_pass = self._fps_limit is None or result["fps"] > self._fps_limit
-        power_pass = self._power_limit is None or result["power"] > self._power_limit
+        power_pass = self._power_limit is None or result["power"] < self._power_limit
 
         return fps_pass and power_pass
 
