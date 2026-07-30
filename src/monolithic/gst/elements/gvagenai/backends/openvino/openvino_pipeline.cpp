@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
 
-#include "genai.hpp"
+#include "openvino_pipeline.hpp"
 
 #include <cmath>
 #include <cstring>

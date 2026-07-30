@@ -21,7 +21,7 @@ set(GVAGENAI_SOURCES
     configs.cpp
     backends/genai_backend.cpp
     backends/frame_utils.cpp
-    backends/openvino/genai.cpp
+    backends/openvino/openvino_pipeline.cpp
     backends/openvino/openvino_backend.cpp
 )
 
