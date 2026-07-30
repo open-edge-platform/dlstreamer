@@ -95,15 +95,20 @@ ov::Tensor gst_buffer_to_rgb_tensor(dlstreamer::MemoryMapperGSTToCPU &mapper, Gs
         throw std::runtime_error("Unsupported video format: " + std::to_string(GST_VIDEO_INFO_FORMAT(info)));
     }
 
-    // Create an owning tensor and copy the RGB pixels into it
+    // Create an owning tensor and copy the RGB pixels into it. The RGB single-plane path above
+    // aliases the mapped buffer directly with its native stride, so it may not be contiguous
+    // (e.g. row-padded/aligned buffers); clone to a tightly-packed layout before the raw memcpy.
+    if (!frame.isContinuous()) {
+        frame = frame.clone();
+    }
     auto tensor = ov::Tensor(ov::element::u8, {1, static_cast<size_t>(frame.rows), static_cast<size_t>(frame.cols),
                                                static_cast<size_t>(frame.channels())});
-    size_t expected_size = frame.total() * frame.elemSize();
+    const size_t expected_size = frame.total() * frame.elemSize();
     if (tensor.get_byte_size() != expected_size) {
         throw std::runtime_error("Tensor size mismatch: expected " + std::to_string(expected_size) + ", got " +
                                  std::to_string(tensor.get_byte_size()));
     }
-    memcpy(tensor.data(), frame.data, expected_size);
+    std::memcpy(tensor.data(), frame.data, expected_size);
 
     return tensor;
 }
