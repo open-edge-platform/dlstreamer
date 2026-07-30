@@ -58,7 +58,7 @@ Develop a Python application that implements a license plate recognition pipelin
 Save source code in the license_plate_recognition directory.
 ```
 
-For the list of user prompts that can be tried with the DL Streamer coding agent, please check the ones available at [link](https://github.com/open-edge-platform/dlstreamer/tree/main/.github/skills/dlstreamer-coding-agent/examples)
+For the list of user prompts that can be tried with the DL Streamer coding agent, please check the ones available at [link](https://github.com/open-edge-platform/dlstreamer/tree/main/.github/skills/dlstreamer-coding-agent/example-prompts)
 
 > **Note**: If the installed `dlstreamer-coding-agent` skill at `~/.agents/skills` is not auto-discovered by the coding agent tools, one can invoke the same in the respective AI chat window by invoking it manually as following:
 > `/dlstreamer-coding-agent [user prompt]`
