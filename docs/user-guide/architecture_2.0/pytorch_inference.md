@@ -8,7 +8,7 @@ Element description can be found in [Elements 2.0 reference](elements_list).
 
 Before using `pytorch_tensor_inference`, make sure that all of the
 following requirements are met. Visit
-[Install Guide](../get_started/install/install_guide_ubuntu.md) for more information about
+[Install Guide](../install/install_guide_ubuntu.md) for more information about
 installing DL Streamer.
 
 1. `intel-dlstreamer-gst-python3-plugin-loader` and

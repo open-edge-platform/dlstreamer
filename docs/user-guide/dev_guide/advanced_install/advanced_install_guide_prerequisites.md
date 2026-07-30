@@ -3,7 +3,7 @@
 If you want to leverage GPU and/or NPU for inference or use graphics
 hardware encoding/decoding capabilities, you need to install
 appropriate drivers. The easiest way is to use the automated script described in
-[the installation guide](../../get_started/install/install_guide_ubuntu.md).
+[the installation guide](../../install/install_guide_ubuntu.md).
 The instructions below are intended for performing manual installation.
 
 ## Prerequisite 1 - Intel® GPU drivers for computing and media runtimes
