@@ -21,7 +21,7 @@ For best results, select a reasoning AI model.
 
 ### Target Machine
 
-You need a target machine to execute, run, and debug the generated code. The target machine can be the same as the development machine or a remote system. Refer to the [System Requirements](../get_started/system_requirements.md) page for the list of supported hardware platforms.
+You need a target machine to execute, run, and debug the generated code. The target machine can be the same as the development machine or a remote system. Refer to the [System Requirements](../system_requirements.md) page for the list of supported hardware platforms.
 
 > **Important:** In the Preview release, only **Linux** target machines are supported.
 
