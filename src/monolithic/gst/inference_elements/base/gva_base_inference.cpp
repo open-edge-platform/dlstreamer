@@ -65,6 +65,8 @@
 
 #define DEFAULT_NO_BLOCK FALSE
 
+#define DEFAULT_EXPECT_STREAMMUX FALSE
+
 #define DEFAULT_MIN_NIREQ 0
 #define DEFAULT_MAX_NIREQ 1024
 #define DEFAULT_NIREQ 0
@@ -105,6 +107,7 @@ enum {
     PROP_RESHAPE_WIDTH,
     PROP_RESHAPE_HEIGHT,
     PROP_NO_BLOCK,
+    PROP_EXPECT_STREAMMUX,
     PROP_NIREQ,
     PROP_MODEL_INSTANCE_ID,
     PROP_SCHEDULING_POLICY,
@@ -352,6 +355,16 @@ void gva_base_inference_class_init(GvaBaseInferenceClass *klass) {
             "on an incoming frame if all inference requests are currently processing outstanding frames",
             DEFAULT_NO_BLOCK, static_cast<GParamFlags>(param_flags | G_PARAM_DEPRECATED)));
 
+    g_object_class_install_property(
+        gobject_class, PROP_EXPECT_STREAMMUX,
+        g_param_spec_boolean(
+            "expect-streammux", "Expect streammux (allow out-of-order output)",
+            "Allow pushing completed frames downstream out-of-order (skip head-of-line blocking). "
+            "Only safe when this element is fed by gvastreammux and followed by gvastreamdemux, "
+            "which restores per-stream order from batch metadata. Improves GPU utilization on "
+            "workloads with uneven per-frame ROI counts. Default FALSE preserves strict in-order output.",
+            DEFAULT_EXPECT_STREAMMUX, param_flags));
+
     g_object_class_install_property(gobject_class, PROP_NIREQ,
                                     g_param_spec_uint("nireq", "NIReq", "Number of inference requests",
                                                       DEFAULT_MIN_NIREQ, DEFAULT_MAX_NIREQ, DEFAULT_NIREQ,
@@ -598,6 +611,7 @@ void gva_base_inference_init(GvaBaseInference *base_inference) {
     base_inference->reshape_width = DEFAULT_RESHAPE_WIDTH;
     base_inference->reshape_height = DEFAULT_RESHAPE_HEIGHT;
     base_inference->no_block = DEFAULT_NO_BLOCK;
+    base_inference->expect_streammux = DEFAULT_EXPECT_STREAMMUX;
     base_inference->nireq = DEFAULT_NIREQ;
     base_inference->model_instance_id = g_strdup(DEFAULT_MODEL_INSTANCE_ID);
     base_inference->scheduling_policy = g_strdup(DEFAULT_SCHEDULING_POLICY);
@@ -892,6 +906,9 @@ void gva_base_inference_set_property(GObject *object, guint property_id, const G
     case PROP_NO_BLOCK:
         base_inference->no_block = g_value_get_boolean(value);
         break;
+    case PROP_EXPECT_STREAMMUX:
+        base_inference->expect_streammux = g_value_get_boolean(value);
+        break;
     case PROP_NIREQ:
         base_inference->nireq = g_value_get_uint(value);
         break;
@@ -1030,6 +1047,9 @@ void gva_base_inference_get_property(GObject *object, guint property_id, GValue 
         break;
     case PROP_NO_BLOCK:
         g_value_set_boolean(value, base_inference->no_block);
+        break;
+    case PROP_EXPECT_STREAMMUX:
+        g_value_set_boolean(value, base_inference->expect_streammux);
         break;
     case PROP_NIREQ:
         g_value_set_uint(value, base_inference->nireq);

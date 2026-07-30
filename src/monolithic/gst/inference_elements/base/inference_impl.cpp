@@ -1155,6 +1155,15 @@ void InferenceImpl::PushOutput() {
     auto frame = output_frames.begin();
     while (frame != output_frames.end()) {
         if ((*frame).inference_count != 0) {
+            // When fed by gvastreammux (+ gvastreamdemux downstream restores per-stream order from
+            // batch metadata), strict in-order output is unnecessary. Skip this still-processing
+            // frame and keep scanning for completed ones, instead of head-of-line blocking the whole
+            // queue. This lets frames whose ROIs finished early be pushed immediately, keeping the
+            // GPU fed on workloads with uneven per-frame ROI counts.
+            if ((*frame).filter && (*frame).filter->expect_streammux) {
+                ++frame;
+                continue;
+            }
             break; // inference not completed yet
         }
 

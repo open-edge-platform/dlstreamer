@@ -51,6 +51,7 @@ typedef struct _GvaBaseInference {
     gboolean no_block;
     gboolean reshape;
     gboolean share_va_display_ctx;
+    gboolean expect_streammux;
 #ifndef _WIN32
     cpu_set_t core_pinning_mask;
 #else
