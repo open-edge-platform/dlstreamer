@@ -138,7 +138,7 @@ static void gst_gvagenai_class_init(GstGvaGenAIClass *klass) {
     g_object_class_install_property(
         gobject_class, PROP_MODEL_PATH,
         g_param_spec_string("model-path", "Model Path",
-                            "Path to the local GenAI model ('openvino' backend), or the model name to "
+                            "Path to the local GenAI model ('openvino-genai' backend), or the model name to "
                             "request from the server ('openai-http' backend)",
                             NULL, G_PARAM_READWRITE));
 
@@ -190,9 +190,9 @@ static void gst_gvagenai_class_init(GstGvaGenAIClass *klass) {
 
     g_object_class_install_property(gobject_class, PROP_BACKEND,
                                     g_param_spec_string("backend", "Backend",
-                                                        "Inference backend: 'openvino' (local) or "
+                                                        "Inference backend: 'openvino-genai' (local) or "
                                                         "'openai-http' (remote OpenAI-compatible server)",
-                                                        "openvino", G_PARAM_READWRITE));
+                                                        "openvino-genai", G_PARAM_READWRITE));
 
     g_object_class_install_property(gobject_class, PROP_HTTP_SERVER_URL,
                                     g_param_spec_string("http-server-url", "HTTP Server URL",
@@ -222,7 +222,7 @@ static void gst_gvagenai_class_init(GstGvaGenAIClass *klass) {
 
 /* Initialize the instance */
 static void gst_gvagenai_init(GstGvaGenAI *gvagenai) {
-    gvagenai->config.backend = g_strdup("openvino");
+    gvagenai->config.backend = g_strdup("openvino-genai");
     gvagenai->config.model = NULL;
     gvagenai->config.device = g_strdup("CPU");
     gvagenai->config.cache_path = g_strdup("ov_cache");
@@ -464,19 +464,19 @@ static void gst_gvagenai_finalize(GObject *object) {
 static gboolean gst_gvagenai_start(GstBaseTransform *base) {
     GstGvaGenAI *gvagenai = GST_GVAGENAI(base);
 
-    const gchar *backend_type = gvagenai->config.backend ? gvagenai->config.backend : "openvino";
+    const gchar *backend_type = gvagenai->config.backend ? gvagenai->config.backend : "openvino-genai";
     gboolean is_http = (g_strcmp0(backend_type, "openai-http") == 0);
-    gboolean is_openvino = (g_strcmp0(backend_type, "openvino") == 0);
+    gboolean is_openvino = (g_strcmp0(backend_type, "openvino-genai") == 0);
 
     if (!is_http && !is_openvino) {
         GST_ELEMENT_ERROR(gvagenai, RESOURCE, SETTINGS, ("Invalid backend"),
-                          ("Unknown backend '%s'. Valid values: 'openvino', 'openai-http'", backend_type));
+                          ("Unknown backend '%s'. Valid values: 'openvino-genai', 'openai-http'", backend_type));
         return FALSE;
     }
 
     if (!gvagenai->config.model) {
         GST_ELEMENT_ERROR(gvagenai, RESOURCE, SETTINGS, ("Model not specified"),
-                          ("'model-path' property must be set (local model path for 'openvino', "
+                          ("'model-path' property must be set (local model path for 'openvino-genai', "
                            "or model name for 'openai-http')"));
         return FALSE;
     }

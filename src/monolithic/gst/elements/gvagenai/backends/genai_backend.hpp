@@ -77,7 +77,7 @@ class IGenAIBackend {
 
     /**
      * @brief Get backend identifier for logging/debugging and JSON meta
-     * @return Backend name (e.g., "openvino", "openai-http")
+     * @return Backend name (e.g., "openvino-genai", "openai-http")
      */
     virtual std::string describe() const = 0;
 
@@ -142,7 +142,7 @@ class GenAIBackendRegistry {
     /**
      * @brief Create a new backend from a plain-C config
      *
-     * Dispatches on config.backend ("openvino" / "openai-http"). Always
+     * Dispatches on config.backend ("openvino-genai" / "openai-http"). Always
      * creates a fresh instance - see class documentation for why backends
      * are never shared/cached.
      *

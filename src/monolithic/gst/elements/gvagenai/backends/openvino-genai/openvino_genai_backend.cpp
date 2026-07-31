@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
 
-#include "openvino-genai_backend.hpp"
+#include "openvino_genai_backend.hpp"
 
 #include <future>
 #include <gst/gst.h>

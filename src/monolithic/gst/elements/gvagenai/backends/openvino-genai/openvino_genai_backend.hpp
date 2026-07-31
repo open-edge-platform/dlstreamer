@@ -7,7 +7,7 @@
 #pragma once
 
 #include "../genai_backend.hpp"
-#include "openvino-genai_pipeline.hpp"
+#include "openvino_genai_pipeline.hpp"
 
 #include <memory>
 #include <string>
@@ -48,7 +48,7 @@ class OpenVINOGenAIBackend : public IGenAIBackend {
      * @brief Backend identifier
      */
     std::string describe() const override {
-        return "openvino";
+        return "openvino-genai";
     }
 
   private:

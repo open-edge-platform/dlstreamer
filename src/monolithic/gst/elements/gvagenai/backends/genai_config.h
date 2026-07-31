@@ -19,7 +19,7 @@ G_BEGIN_DECLS
  * the selected backend are used.
  */
 typedef struct _GenAIBackendConfig {
-    // Backend selection: "openvino" (default) or "openai-http"
+    // Backend selection: "openvino-genai" (default) or "openai-http"
     gchar *backend;
 
     // Common: local model path (OpenVINO) or model name (HTTP)

@@ -21,8 +21,8 @@ set(GVAGENAI_SOURCES
     configs.cpp
     backends/genai_backend.cpp
     backends/frame_utils.cpp
-    backends/openvino-genai/openvino-genai_pipeline.cpp
-    backends/openvino-genai/openvino-genai_backend.cpp
+    backends/openvino-genai/openvino_genai_pipeline.cpp
+    backends/openvino-genai/openvino_genai_backend.cpp
 )
 
 if(CURL_FOUND)

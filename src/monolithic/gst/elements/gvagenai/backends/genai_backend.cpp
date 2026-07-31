@@ -5,7 +5,7 @@
  ******************************************************************************/
 
 #include "genai_backend.hpp"
-#include "openvino-genai/openvino-genai_backend.hpp"
+#include "openvino-genai/openvino_genai_backend.hpp"
 #ifdef GVAGENAI_HAVE_HTTP_BACKEND
 #include "openai-http/openai_http_backend.hpp"
 #endif
@@ -27,7 +27,7 @@ std::shared_ptr<IGenAIBackend> GenAIBackendRegistry::create_backend(const GenAIB
 
     const std::string backend = str(config.backend);
 
-    if (backend.empty() || backend == "openvino") {
+    if (backend.empty() || backend == "openvino-genai") {
         OpenVINOBackendParams params;
         params.model_path = str(config.model);
         params.device = str(config.device);
@@ -50,7 +50,7 @@ std::shared_ptr<IGenAIBackend> GenAIBackendRegistry::create_backend(const GenAIB
         return get_http_backend(params);
     }
 
-    throw std::runtime_error("Unknown backend '" + backend + "' (valid: 'openvino', 'openai-http')");
+    throw std::runtime_error("Unknown backend '" + backend + "' (valid: 'openvino-genai', 'openai-http')");
 }
 
 std::shared_ptr<IGenAIBackend> GenAIBackendRegistry::get_openvino_backend(const OpenVINOBackendParams &params) {
