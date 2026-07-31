@@ -436,6 +436,9 @@ jobs:
           dls_tests_results_path: ${{ env.DLS_TESTS_RESULTS_PATH }}
           runner_print_label: ${{ matrix.runner_print_label }}
           ubuntu_version: ${{ matrix.ubuntu_version }}
+          dls_branch: ${{ github.ref_name }}
+          dls_commit: ${{ github.sha }}
+          test_repo_branch: ${{ inputs.test-repo-branch }}
         run: |
           RESULTS_FILE="${dls_tests_results_path}/DLS_functional_tests_${runner_print_label}_on_host_${ubuntu_version}_results.txt"
           if [ ! -f "$RESULTS_FILE" ]; then
@@ -496,6 +499,9 @@ jobs:
                   --pred-dir "$PRED_DIR" \
                   --video-dir "$video_examples_path" \
                   --env-context host \
+                  --dls-branch "$dls_branch" \
+                  --dls-commit "$dls_commit" \
+                  --test-repo-branch "$test_repo_branch" \
                   --output-dir "$REPORTS_DIR/$test_name"; then
                 REPORT_GENERATED=1
                 break
