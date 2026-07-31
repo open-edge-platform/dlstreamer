@@ -230,11 +230,11 @@ G_DEFINE_TYPE(GstGvaMotionDetect, gst_gva_motion_detect, GST_TYPE_BASE_TRANSFORM
 static GstStaticPadTemplate sink_templ =
     GST_STATIC_PAD_TEMPLATE("sink", GST_PAD_SINK, GST_PAD_ALWAYS,
                             GST_STATIC_CAPS("video/x-raw(memory:VAMemory), format=NV12; "
-                                            "video/x-raw, format=NV12"));
+                                            "video/x-raw, format={ NV12, I420, YV12 }"));
 static GstStaticPadTemplate src_templ =
     GST_STATIC_PAD_TEMPLATE("src", GST_PAD_SRC, GST_PAD_ALWAYS,
                             GST_STATIC_CAPS("video/x-raw(memory:VAMemory), format=NV12; "
-                                            "video/x-raw, format=NV12"));
+                                            "video/x-raw, format={ NV12, I420, YV12 }"));
 
 static void gst_gva_motion_detect_set_context(GstElement *elem, GstContext *context) {
     GstGvaMotionDetect *self = GST_GVA_MOTION_DETECT(elem);
@@ -929,7 +929,9 @@ static void gst_gva_motion_detect_class_init(GstGvaMotionDetectClass *klass) {
 
     gst_element_class_set_static_metadata(
         eclass, "Motion detect (auto GPU/CPU)", "Filter/Video",
-        "Automatically uses VA surface path when VAMemory caps negotiated; otherwise system memory path", "dlstreamer");
+        "Operates on the luma plane; accepts NV12 / I420 / YV12 system-memory input and NV12 VAMemory input. "
+        "Automatically uses VA surface path when VAMemory caps negotiated; otherwise system memory path",
+        "dlstreamer");
 
     gst_element_class_add_static_pad_template(eclass, &sink_templ);
     gst_element_class_add_static_pad_template(eclass, &src_templ);
