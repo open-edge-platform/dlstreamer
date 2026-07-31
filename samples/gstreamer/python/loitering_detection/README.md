@@ -3,8 +3,6 @@
 This sample demonstrate how to build a simple loitering detector with custom video analytics using DLStreamer elements.
 It detects and track the dwell time of people in the specified region in the scene.
 
-> **Note:** This sample uses one of the videos from the VIRAT dataset.
-
 ![Sample Output](loitering_detection_output.png)
 
 It leverages the gvaanalytic element in DLStreamer for people-in-region detection and the python plugin framework to track and watermark the video.
@@ -53,17 +51,16 @@ For each video buffer, it reads analytics relation metadata produced upstream by
 
 Processing flow:
 
-1. Convert buffer timestamp from nanoseconds to seconds.
-2. Iterate detected objects (`ODMtd`) and keep only allowed object types (`person`).
-3. For each object, read:
+1. Iterate detected objects (`ODMtd`) and keep only allowed object types (`person`).
+2. For each object, read:
   - tracking metadata (`track_id`)
   - zone metadata (`zone_id`)
-4. Update an in-memory record (`TinyDB`) keyed by `track_id`:
+3. Update an in-memory record (`TinyDB`) keyed by `track_id`:
   - `first_seen_timestamp` when the person first appears in zone
   - `last_seen_timestamp` for the latest observation
   - `dwelling_time` computed as `current_time - first_seen_timestamp`
-5. Remove stale records for tracks that are no longer active.
-6. If watermarking is enabled, render one dashboard line per active record:
+4. Remove stale records for tracks that are no longer active.
+5. If watermarking is enabled, render one dashboard line per active record:
   - normal color when `dwelling_time` is below threshold
   - alert color when `dwelling_time` is greater than or equal to threshold
 
@@ -113,24 +110,27 @@ You can run the sample using the provided shell script.
 The script accepts positional parameters in this order:
 
 ```sh
-./loitering_detection.sh [INPUT_URI] [MODEL_XML] [OUTPUT_MP4] [DEVICE]
+./loitering_detection.sh [INPUT] [CONFIG_FILE] [MODEL] [DEVICE] [OUTPUT]
 ```
 
 Parameter details:
 
-- `INPUT_URI`: Input video URI.
+- `INPUT`: Input video file path or URL.
   - Default: `https://github.com/open-edge-platform/edge-ai-resources/raw/refs/heads/main/videos/VIRAT_S_000101.mp4`
-- `MODEL_XML`: Path to OpenVINO IR XML model used by `gvadetect`.
+- `CONFIG_FILE`: Zone configuration file for loitering detection.
+  - Default: `./virat_s_000101-config.json`
+- `MODEL`: Path to OpenVINO IR XML model used by `gvadetect`.
   - Default: `${MODELS_PATH}/public/yolo11s/FP16/yolo11s.xml`
-- `OUTPUT_MP4`: Output video file name/path.
-  - Default: `loitering_detection_output.mp4`
+  - The default is built from the `MODELS_PATH` environment variable (see below).
 - `DEVICE`: Inference device for `gvadetect`.
-  - Supported values: `CPU`, `GPU`
+  - Supported values: `CPU`, `GPU`, `NPU`
   - Default: `GPU`
+- `OUTPUT`: Output video file name/path.
+  - Default: `loitering_detection_output.mp4`
 
 Environment variables:
 
-- `MODELS_PATH`: Base directory for downloaded models.
+- `MODELS_PATH`: Base directory for downloaded models; used to construct the default `MODEL` path.
   - Default: `./models`
   - Example: `export MODELS_PATH=/home/${USER}/models`
 

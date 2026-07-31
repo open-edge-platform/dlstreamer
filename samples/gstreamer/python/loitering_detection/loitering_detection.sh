@@ -1,6 +1,6 @@
 #!/bin/bash
 # ==============================================================================
-# Copyright (C) 2021-2025 Intel Corporation
+# Copyright (C) 2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
@@ -8,7 +8,7 @@
 # Display usage information
 usage() {
     cat << EOF
-Usage: $(basename "$0") [INPUT] [MODEL] [OUTPUT] [DEVICE]
+Usage: $(basename "$0") [INPUT] [CONFIG_FILE] [MODEL] [DEVICE] [OUTPUT]
 
 Description:
   Detects loitering behavior in video using object detection and tracking.
@@ -16,32 +16,39 @@ Description:
   loitering zones based on the configuration file.
 
 Parameters:
-  INPUT   - Input video (file path or URL)
-            Default: https://github.com/open-edge-platform/edge-ai-resources/raw/refs/heads/main/videos/VIRAT_S_000101.mp4
+  INPUT       - Input video (file path or URL)
+                Default: https://github.com/open-edge-platform/edge-ai-resources/raw/refs/heads/main/videos/VIRAT_S_000101.mp4
   
-  MODEL   - Detection model (path to .xml file for OpenVINO format)
-            Default: ./models/public/yolo11s/FP16/yolo11s.xml
-            Example: ./models/public/yolo11s/FP16/yolo11s.xml
+  CONFIG_FILE - Zone configuration file for loitering detection
+                Default: ./virat_s_000101-config.json
   
-  OUTPUT  - Output video file (H.264 MP4 format)
-            Default: loitering_detection_output.mp4
+  MODEL       - Detection model (path to .xml file for OpenVINO format)
+                Default: \${MODELS_PATH}/public/yolo11s/FP16/yolo11s.xml
+                The default path is built from the MODELS_PATH environment variable
+                (default: ./models). Set MODELS_PATH to point to your models directory.
   
-  DEVICE  - Processing device (CPU, GPU, or NPU)
-            Default: GPU
-            Supported: CPU | GPU | NPU
+  DEVICE      - Processing device (CPU, GPU, or NPU)
+                Default: GPU
+                Supported: CPU | GPU | NPU
+  
+  OUTPUT      - Output video file (H.264 MP4 format)
+                Default: loitering_detection_output.mp4
 
 Examples:
   # Run with defaults
   $(basename "$0")
   
-  # Use CPU device with custom model
-  $(basename "$0") input.mp4 ./models/yolo11s.xml output.mp4 CPU
+  # Use CPU device with custom config and model
+  $(basename "$0") input.mp4 config.json ./models/yolo11s.xml CPU output.mp4
   
   # Process with GPU (explicit)
-  $(basename "$0") video.mp4 ./models/detection.xml result.mp4 GPU
+  $(basename "$0") video.mp4 config.json ./models/detection.xml GPU result.mp4
   
   # Use NPU device
-  $(basename "$0") input.mp4 ./models/yolo11s.xml output.mp4 NPU
+  $(basename "$0") input.mp4 config.json ./models/yolo11s.xml NPU output.mp4
+  
+  # Override models directory via environment variable
+  MODELS_PATH=/opt/my_models $(basename "$0") input.mp4 config.json "" GPU output.mp4
 
 EOF
     exit 0
@@ -57,12 +64,10 @@ fi
 # Configuration parameters
 MODELS_PATH=${MODELS_PATH:-./models}  # Path to models directory (e.g., /path/to/omz_models)
 INPUT=${1:-https://github.com/open-edge-platform/edge-ai-resources/raw/refs/heads/main/videos/VIRAT_S_000101.mp4}
-MODEL=${2:-${MODELS_PATH}/public/yolo11s/FP16/yolo11s.xml} # Detection model (YOLO, SSD, etc.)
-OUTPUT=${3:-loitering_detection_output.mp4}  # Output video file (H.264 MP4)
+CONFIG_FILE=${2:-./virat_s_000101-config.json}
+MODEL=${3:-${MODELS_PATH}/public/yolo11s/FP16/yolo11s.xml} # Detection model (YOLO, SSD, etc.)
 DEVICE=${4:-"GPU"}
-
-# Configuration file that defines the zone "pathway" for loitering detection 
-CONFIG_FILE=./virat_s_000101-config.json 
+OUTPUT=${5:-loitering_detection_output.mp4}  # Output video file (H.264 MP4)
 
 export GST_PLUGIN_PATH=./plugins:${GST_PLUGIN_PATH}
 export GI_TYPELIB_PATH=/opt/intel/dlstreamer/gstreamer/lib/girepository-1.0:/opt/intel/dlstreamer/lib/girepository-1.0:/usr/lib/x86_64-linux-gnu/girepository-1.0
@@ -105,24 +110,28 @@ fi
 
 if [[ ${DEVICE} == "CPU" ]]; then
     GVADETECT_OPTIONS="device=CPU pre-process-backend=opencv batch-size=8 nireq=2"
-    ENCODER="videoconvert ! openh264enc"
     WATERMARK_DEVICE="CPU"
 elif [[ ${DEVICE} == "GPU" ]]; then
     GVADETECT_OPTIONS="device=GPU pre-process-backend=va-surface-sharing batch-size=8 nireq=2"
-    ENCODER="vah264enc"
     WATERMARK_DEVICE="GPU"
 elif [[ ${DEVICE} == "NPU" ]]; then
     GVADETECT_OPTIONS="device=NPU pre-process-backend=va batch-size=1 nireq=2"
-    ENCODER="vah264enc"
     WATERMARK_DEVICE="GPU"
 else
     echo "Error: Unsupported device: $DEVICE"
     exit 1
 fi
 
+# Use vah264enc if available, otherwise fallback to openh264enc
+if gst-inspect-1.0 vah264enc &>/dev/null; then
+    ENCODER="vah264enc"
+else
+    ENCODER="videoconvert ! openh264enc"
+fi
+
 set -x
 gst-launch-1.0 -e ${SOURCE_ELEMENT} ! decodebin3 ! \
-    gvadetect model=$MODEL ${GVADETECT_OPTIONS} ! queue ! \
+    gvadetect model=${MODEL} ${GVADETECT_OPTIONS} ! queue ! \
     gvatrack tracking-type=zero-term ! queue ! \
     gvaanalytics config=${CONFIG_FILE}  ! queue ! \
     loitering_watermark loitering-threshold=4.0 ! queue ! \
