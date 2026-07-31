@@ -466,7 +466,23 @@ jobs:
           REPORTS_DIR="$dls_tests_results_path/diff_reports"
           DIFF_SCRIPT="$TESTS_DIR/gt_compare/diff_report/generate_diff_report.py"
 
+          echo "Generated configs dir: $GENERATED_CONFIGS_DIR"
+          if [ -d "$GENERATED_CONFIGS_DIR" ]; then
+            FOUND_CONFIGS=$(find "$GENERATED_CONFIGS_DIR" -maxdepth 1 -name '*_final.json' 2>/dev/null)
+            if [ -z "$FOUND_CONFIGS" ]; then
+              echo "::warning::No '*_final.json' files found in $GENERATED_CONFIGS_DIR - no diff reports can be generated for any failed test."
+            else
+              echo "Found generated config(s):"
+              echo "$FOUND_CONFIGS"
+            fi
+          else
+            echo "::warning::Generated configs directory does not exist: $GENERATED_CONFIGS_DIR - no diff reports can be generated for any failed test."
+          fi
+
+          REPORTS_OK=0
+          REPORTS_TOTAL=0
           for test_name in $FAILED_TESTS; do
+            REPORTS_TOTAL=$((REPORTS_TOTAL + 1))
             echo "::group::Diff report for $test_name"
 
             MATCHING_CONFIGS=()
@@ -489,7 +505,12 @@ jobs:
             REPORT_GENERATED=0
             for config in "${MATCHING_CONFIGS[@]}"; do
               GT_BASE=$(jq -r '.test_set_properties["host.dataset.groundtruth.base"] // .test_set_properties["dataset.groundtruth.base"] // empty' "$config")
-              [ -z "$GT_BASE" ] && continue
+              echo "Config: $config"
+              echo "Resolved GT base: '$GT_BASE'"
+              if [ -z "$GT_BASE" ]; then
+                echo "No usable GT base in this config, skipping."
+                continue
+              fi
               GT_DIR="$TESTS_DIR/pipeline_test/$GT_BASE"
 
               if python3 "$DIFF_SCRIPT" \
@@ -505,13 +526,27 @@ jobs:
                   --output-dir "$REPORTS_DIR/$test_name"; then
                 REPORT_GENERATED=1
                 break
+              else
+                DIFF_EXIT_CODE=$?
+                if [ "$DIFF_EXIT_CODE" -eq 3 ]; then
+                  echo "No prediction/GT file on disk for this config (see message above) - this test likely crashed/errored without producing output, not a diff-report bug."
+                else
+                  echo "generate_diff_report.py exited with status $DIFF_EXIT_CODE for this config (see output above for the reason)."
+                fi
               fi
             done
             if [ "$REPORT_GENERATED" -eq 0 ]; then
-              echo "::warning::Could not generate diff report for '$test_name' (matched config(s) had no usable GT base, or missing GT/prediction/video file)"
+              echo "::warning::Could not generate diff report for '$test_name' (matched config(s) had no usable GT base, or missing GT/prediction/video file - see log group above for details)"
+            else
+              REPORTS_OK=$((REPORTS_OK + 1))
             fi
             echo "::endgroup::"
           done
+
+          echo "Diff report summary: $REPORTS_OK/$REPORTS_TOTAL generated successfully."
+          if [ "$REPORTS_OK" -eq 0 ] && [ "$REPORTS_TOTAL" -gt 0 ]; then
+            echo "::warning::0 of $REPORTS_TOTAL diff reports were generated. Expand the 'Diff report for <test>' groups above for details."
+          fi
           deactivate
 
       - name: Upload diff reports for failed host tests
