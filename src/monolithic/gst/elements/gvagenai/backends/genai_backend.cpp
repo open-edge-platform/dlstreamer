@@ -5,7 +5,7 @@
  ******************************************************************************/
 
 #include "genai_backend.hpp"
-#include "openvino/openvino_backend.hpp"
+#include "openvino-genai/openvino-genai_backend.hpp"
 #ifdef GVAGENAI_HAVE_HTTP_BACKEND
 #include "openai-http/openai_http_backend.hpp"
 #endif

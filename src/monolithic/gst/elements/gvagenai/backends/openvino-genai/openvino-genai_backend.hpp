@@ -7,7 +7,7 @@
 #pragma once
 
 #include "../genai_backend.hpp"
-#include "openvino_pipeline.hpp"
+#include "openvino-genai_pipeline.hpp"
 
 #include <memory>
 #include <string>
