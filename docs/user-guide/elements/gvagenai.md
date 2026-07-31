@@ -58,6 +58,10 @@ data URLs) regardless of `vision-mode`, since the Chat Completions API has no vi
 type. `scheduler-config`, `pipeline-config`, `device`, and `model-cache-path` are ignored by
 this backend.
 
+The diagram below shows the high-level architecture (HLD) of how a chunk of frames flows
+from `gvagenai` through the `openai-http` backend to the remote server:
+
+![openai-http backend architecture diagram](http-backend-diagram.png)
 
 ### Generation Config
 
