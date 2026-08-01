@@ -183,15 +183,15 @@ def main() -> int:
                 json_result["optimal"] = {"pipeline": best_pipeline, "metrics": best_result}
                 _display_summary_power(best_pipeline, best_result, base_pipeline, base_result)
 
-        if args.output:
-            with open(args.output, 'w', encoding='utf-8') as f:
-                json.dump(json_result, f, ensure_ascii=False, indent=4)
     except RuntimeError as e: # pylint: disable=broad-exception-caught
         logger.error("Failed to optimize pipeline: %s", e)
     except KeyboardInterrupt:
         logger.info("Execution stopped, closing down.")
     finally:
         stop_listening()
+        if args.output:
+            with open(args.output, 'w', encoding='utf-8') as f:
+                json.dump(json_result, f, ensure_ascii=False, indent=4)
 
 ####################################### Helpers ###################################################
 
