@@ -25,20 +25,43 @@ Key operations:
 
 | Property | Type | Description | Default |
 |----------|------|-------------|---------|
-| model-path | String | Path to the OpenVINO™ GenAI VLM model directory. Required. | null |
-| device | String | Inference device: `CPU`, `GPU`, `GPU.<id>`, or `NPU`. | CPU |
+| backend | String | Inference backend: `openvino-genai` (local OpenVINO™ GenAI) or `openai-http` (remote OpenAI-compatible server). See [Backend](#backend). | openvino-genai |
+| model-path | String | Path to the local OpenVINO™ GenAI VLM model directory (`openvino-genai` backend), or the model name to request from the server (`openai-http` backend). Required. | null |
+| device | String | Inference device: `CPU`, `GPU`, `GPU.<id>`, or `NPU`. Used by the `openvino-genai` backend only. | CPU |
 | prompt | String | Text prompt for the model. Exactly one of `prompt` or `prompt-path` must be set. May be updated at runtime. | null |
 | prompt-path | String | Path to a text file containing the prompt. Alternative to `prompt`. | null |
 | generation-config | String | Text-generation parameters as `KEY=VALUE,KEY=VALUE`. See [Generation Config](#generation-config). | null |
-| scheduler-config | String | Continuous-batching scheduler parameters as `KEY=VALUE,KEY=VALUE`. See [Scheduler Config](#scheduler-config). | null |
-| pipeline-config | String | OpenVINO™ device properties as `KEY=VALUE,KEY=VALUE`. See [Pipeline Config](#pipeline-config). | null |
+| scheduler-config | String | Continuous-batching scheduler parameters as `KEY=VALUE,KEY=VALUE`. Used by the `openvino-genai` backend only. See [Scheduler Config](#scheduler-config). | null |
+| pipeline-config | String | OpenVINO™ device properties as `KEY=VALUE,KEY=VALUE`. Used by the `openvino-genai` backend only. See [Pipeline Config](#pipeline-config). | null |
 | vision-mode | Enum | How accumulated frames are presented to the model: `image` or `video`. See [Vision Mode](#vision-mode). | image |
 | frame-rate | Double | Frames sampled per second for inference. `0` processes all frames. | 0 |
 | chunk-size | Unsigned Integer | Number of frames accumulated per inference call. | 1 |
-| model-cache-path | String | Directory for caching compiled models (GPU/NPU only). | ov_cache |
+| model-cache-path | String | Directory for caching compiled models (GPU/NPU only). Used by the `openvino-genai` backend only. | ov_cache |
 | metrics | Boolean | Include performance metrics in the JSON output. | false |
+| http-server-url | String | Base URL of the OpenAI-compatible server (e.g. `http://localhost:8000/v1`). Required for the `openai-http` backend. | null |
+| http-api-key | String | Optional Bearer token / API key for the HTTP server. `openai-http` backend only. | null |
+| http-timeout | String | Optional request timeout in milliseconds. `openai-http` backend only. | null |
 
 ## Configuration
+
+### Backend
+
+The `backend` property selects the inference backend:
+
+| Value | Behavior |
+|-------|----------|
+| `openvino-genai` | (default) Runs the model locally via the OpenVINO™ GenAI `VLMPipeline`. Uses `model-path`, `device`, `model-cache-path`, `scheduler-config`, and `pipeline-config`. |
+| `openai-http` | Sends frames and the prompt to a remote OpenAI-compatible Chat Completions server (vLLM, OVMS, Ollama, LM Studio, OpenAI, Azure OpenAI, ...). Uses `http-server-url`, `http-api-key`, and `http-timeout`; `model-path` is used as the model name in the request. |
+
+With `openai-http`, frames are always sent as independent images (base64-encoded JPEG
+data URLs) regardless of `vision-mode`, since the Chat Completions API has no video content
+type. `scheduler-config`, `pipeline-config`, `device`, and `model-cache-path` are ignored by
+this backend.
+
+The diagram below shows the high-level architecture (HLD) of how a chunk of frames flows
+from `gvagenai` through the `openai-http` backend to the remote server:
+
+![openai-http backend architecture diagram](http-backend-diagram.png)
 
 ### Generation Config
 
@@ -318,6 +341,9 @@ Pads:
     Pad Template: 'src'
 
 Element Properties:
+  backend             : Inference backend: 'openvino-genai' (local) or 'openai-http' (remote OpenAI-compatible server)
+                        flags: readable, writable
+                        String. Default: "openvino-genai"
   chunk-size          : Number of frames in one inference
                         flags: readable, writable
                         Unsigned Integer. Range: 1 - 4294967295 Default: 1
@@ -330,13 +356,22 @@ Element Properties:
   generation-config   : Generation configuration as KEY=VALUE,KEY=VALUE format
                         flags: readable, writable
                         String. Default: null
+  http-api-key        : Optional Bearer token / API key for the HTTP server
+                        flags: readable, writable
+                        String. Default: null
+  http-server-url     : Base URL of the OpenAI-compatible server (e.g. http://localhost:8000/v1)
+                        flags: readable, writable
+                        String. Default: null
+  http-timeout        : Optional request timeout in milliseconds
+                        flags: readable, writable
+                        String. Default: null
   metrics             : Include performance metrics in JSON output
                         flags: readable, writable
                         Boolean. Default: false
   model-cache-path    : Path for caching compiled models (GPU/NPU only)
                         flags: readable, writable
                         String. Default: "ov_cache"
-  model-path          : Path to the GenAI model
+  model-path          : Path to the local GenAI model ('openvino-genai' backend), or the model name to request from the server ('openai-http' backend)
                         flags: readable, writable
                         String. Default: null
   name                : The name of the object

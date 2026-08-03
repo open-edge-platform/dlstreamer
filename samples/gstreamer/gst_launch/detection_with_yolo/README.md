@@ -23,7 +23,7 @@ This sample builds a GStreamer pipeline from the following elements:
 
 The samples use YOLO models from different repositories as listed in a table below. The model preparation and conversion method depends on the model source.
 The instructions assume DL Streamer framework is installed on the local system along with OpenVINO™ model downloader and converter tools,
-as described here: [Tutorial](../../../../docs/user-guide/get_started/tutorial.md#setup).
+as described here: [Tutorial](../../../../docs/user-guide/tutorial.md#setup).
 
 For yolov5su, yolov8s (8n-obb, 8n-seg), yolov9c, yolov10s, yolo11s (yolo11s-seg, yolo11s-obb, yolo11s-pose), yolo26 variants, and yolo26s-cls it is also necessary to install the ultralytics python package:
 

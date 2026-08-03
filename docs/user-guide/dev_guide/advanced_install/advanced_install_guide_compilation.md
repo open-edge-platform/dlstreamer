@@ -1,7 +1,7 @@
 # Advanced Installation - Compilation From Source
 
 > **NOTE:** Installation of Deep Learning Streamer Pipeline Framework
-> [from pre-built Debian packages using one-click script](../../get_started/install/install_guide_ubuntu.md)
+> [from pre-built Debian packages using one-click script](../../install/install_guide_ubuntu.md)
 > is the easiest approach.
 
 The instructions below are intended for building Deep Learning Streamer Pipeline Framework
@@ -12,7 +12,7 @@ from the source code provided in
 ## Step 1: Install prerequisites (only for Ubuntu)
 
 Follow the instructions in
-[the prerequisites](../../get_started/install/install_guide_ubuntu.md#prerequisites) section.
+[the prerequisites](../../install/install_guide_ubuntu.md#prerequisites) section.
 
 ## Step 2: Install build dependencies
 

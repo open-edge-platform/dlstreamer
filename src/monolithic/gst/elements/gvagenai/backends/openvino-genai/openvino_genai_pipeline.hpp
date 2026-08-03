@@ -9,9 +9,9 @@
 #include <gst/gst.h>
 #include <gst/video/video.h>
 
-#include "dlstreamer/gst/mappers/gst_to_cpu.h"
-
 #include <openvino/genai/visual_language/pipeline.hpp>
+
+#include "../genai_backend.hpp"
 
 namespace genai {
 
@@ -36,15 +36,8 @@ class OpenVINOGenAIContext {
     ~OpenVINOGenAIContext();
 
     /**
-     * @brief Convert GStreamer buffer to tensor and add to vector
-     * @param buffer GStreamer buffer containing video frame
-     * @param info Video format information
-     * @throws std::runtime_error if conversion fails
-     */
-    void add_tensor_to_vector(GstBuffer *buffer, GstVideoInfo *info);
-
-    /**
-     * @brief Run inference on buffered tensors
+     * @brief Run inference on a set of RGB frame tensors
+     * @param frames RGB u8 tensors of shape {1, H, W, C} (see frame_utils.hpp)
      * @param prompt Text prompt for the model
      * @param as_video If true, present the accumulated frames as a single video clip
      *        (ov::genai::videos); otherwise as independent images (ov::genai::images).
@@ -52,18 +45,8 @@ class OpenVINOGenAIContext {
      *        is true. Pass 0.0 if unknown. Ignored when as_video is false.
      * @throws std::runtime_error if inference fails
      */
-    void inference_tensor_vector(const std::string &prompt, bool as_video = false, float fps = 0.0f);
-
-    /**
-     * @brief Get number of tensors in the vector
-     * @return Number of tensors
-     */
-    size_t get_tensor_vector_size() const;
-
-    /**
-     * @brief Clear the tensor vector
-     */
-    void clear_tensor_vector();
+    void inference_tensor_vector(const std::vector<ov::Tensor> &frames, const std::string &prompt,
+                                 bool as_video = false, float fps = 0.0f);
 
     /**
      * @brief Set generation configuration from string
@@ -112,14 +95,12 @@ class OpenVINOGenAIContext {
     std::string create_json_metadata(GstClockTime timestamp = GST_CLOCK_TIME_NONE, bool include_metrics = false);
 
   private:
-    std::shared_ptr<dlstreamer::MemoryMapperGSTToCPU> mapper = nullptr;
     std::unique_ptr<ov::genai::VLMPipeline> pipeline = nullptr;
     ov::AnyMap generation_config = {};
     std::optional<ov::genai::SchedulerConfig> scheduler_config = std::nullopt;
     ov::genai::VLMPerfMetrics metrics = {};
     std::string last_result = "";
     float last_confidence = -1.0f; // -1.0f = unavailable (greedy decoding fills scores with 0)
-    std::vector<ov::Tensor> tensor_vector = {};
 };
 
 } // namespace genai
