@@ -50,7 +50,7 @@ cd /opt/intel/dlstreamer/samples/gstreamer/python/smart_nvr
 
 #### Option B: Native installation
 
-Install DLStreamer on the host (see [DLStreamer Installation Guide](../../../../docs/user-guide/get_started/install/install_guide_index.md)).
+Install DLStreamer on the host (see [DLStreamer Installation Guide](../../../../docs/user-guide/install/install_guide_index.md)).
 
 ```sh
 cd samples/gstreamer/python/smart_nvr

@@ -549,7 +549,6 @@ update_package_lists
 if $SUDO_PREFIX dmesg | grep -qi intel_vpu || lspci | grep -qi 'Intel.*NPU'; then
     echo_color " This system contains a Neural Processing Unit." "green"
     intel_npu=1
-    line_to_add="export ZE_ENABLE_ALT_DRIVERS=libze_intel_npu.so"
 
     # Define the .bash_profile file path for the current user
     bash_profile="${HOME}/.bash_profile"
@@ -564,14 +563,6 @@ if $SUDO_PREFIX dmesg | grep -qi intel_vpu || lspci | grep -qi 'Intel.*NPU'; the
             # .profile exists, so use that instead
             bash_profile="${HOME}/.profile"
         fi
-    fi
-
-    # Check if the line already exists in .bash_profile to avoid duplicates
-    if ! grep -qF -- "$line_to_add" "$bash_profile"; then
-        # If the line does not exist, append it to .bash_profile
-        echo "$line_to_add" >> "$bash_profile"
-        # shellcheck disable=SC1090
-        source "$bash_profile"
     fi
 
     repo="intel/linux-npu-driver"  # Replace with the GitHub repository in the format "owner/repo"
