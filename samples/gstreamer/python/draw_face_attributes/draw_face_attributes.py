@@ -133,9 +133,9 @@ def create_launch_string():
     return f"{source}={args.input} ! decodebin3 ! \
     videoconvert n-threads=4 ! capsfilter caps=\"video/x-raw,format=BGRx\" ! \
     gvadetect model={args.detection_model} device={args.input_device} ! queue ! \
-    gvainference model={args.classification_model1} device={args.input_device} inference-region=roi-list ! queue ! \
-    gvainference model={args.classification_model2} device={args.input_device} inference-region=roi-list ! queue ! \
-    gvainference model={args.classification_model3} device={args.input_device} inference-region=roi-list ! queue ! \
+    gvaclassify model={args.classification_model1} device={args.input_device} inference-region=roi-list ! queue ! \
+    gvaclassify model={args.classification_model2} device={args.input_device} inference-region=roi-list ! queue ! \
+    gvaclassify model={args.classification_model3} device={args.input_device} inference-region=roi-list ! queue ! \
     {sink}"
 
 

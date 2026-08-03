@@ -66,7 +66,7 @@ echo Running sample with the following parameters:
 echo GST_PLUGIN_PATH="${GST_PLUGIN_PATH}"
 
 read -r PIPELINE << EOM
-gst-launch-1.0 $SOURCE_ELEMENT ! decodebin3 ! gvadetect model=$DETECT_MODEL_PATH device=$DEVICE ! queue ! gvainference inference-region=roi-list model=$CLASS_MODEL_PATH1 device=$DEVICE ! gvainference inference-region=roi-list model=$CLASS_MODEL_PATH2 device=$DEVICE ! queue ! gvapython module=$PYTHON_SCRIPT1 ! gvapython module=$PYTHON_SCRIPT2 class=AgeLogger function=log_age kwarg={\\"log_file_path\\":\\"/tmp/age_log.txt\\"} ! $SINK_ELEMENT 
+gst-launch-1.0 $SOURCE_ELEMENT ! decodebin3 ! gvadetect model=$DETECT_MODEL_PATH device=$DEVICE ! queue ! gvaclassify inference-region=roi-list model=$CLASS_MODEL_PATH1 device=$DEVICE ! gvaclassify inference-region=roi-list model=$CLASS_MODEL_PATH2 device=$DEVICE ! queue ! gvapython module=$PYTHON_SCRIPT1 ! gvapython module=$PYTHON_SCRIPT2 class=AgeLogger function=log_age kwarg={\\"log_file_path\\":\\"/tmp/age_log.txt\\"} ! $SINK_ELEMENT 
 EOM
 
 echo "${PIPELINE}"
