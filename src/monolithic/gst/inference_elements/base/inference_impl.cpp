@@ -1200,22 +1200,45 @@ void InferenceImpl::PushOutput() {
 bool InferenceImpl::CheckSrcPadBlocked(GstObject *src) {
     bool blocked = false;
 
-    GstObject *dst = gst_pad_get_parent(gst_pad_get_peer(GST_BASE_TRANSFORM_SRC_PAD(src)));
+    // store peer pad to properly unref it
+    GstPad *peer_pad = gst_pad_get_peer(GST_BASE_TRANSFORM_SRC_PAD(src));
+    if (peer_pad == nullptr)
+        return false;
+
+    GstObject *dst = gst_pad_get_parent(peer_pad);
+    gst_object_unref(peer_pad); // release peer pad ref
+
     if (dst == nullptr)
         return false;
 
-    if (strcmp(dst->name, "queue") > 0) {
-        guint buf_cnt;
-        g_object_get(dst, "current-level-buffers", &buf_cnt, NULL);
+    // validate dst is actually a GstElement before casting
+    if (!GST_IS_ELEMENT(dst)) {
+        GST_WARNING_OBJECT(src, "Downstream parent is not a GstElement");
+        gst_object_unref(dst);
+        return false;
+    }
+
+    // use factory name for precise queue detection
+    // Handles auto-named instances: queue0, queue1, etc.
+    GstElementFactory *factory = gst_element_get_factory(GST_ELEMENT(dst));
+    const gchar *factory_name = factory ? gst_plugin_feature_get_name(GST_PLUGIN_FEATURE(factory)) : nullptr;
+
+    if (factory_name && strcmp(factory_name, "queue") == 0) {
+        guint buf_cnt = 0;
         GstState state, pending;
-        gst_element_get_state(GST_ELEMENT(dst), &state, &pending, GST_CLOCK_TIME_NONE);
+
+        g_object_get(dst, "current-level-buffers", &buf_cnt, NULL);
+
+        // use timeout instead of GST_CLOCK_TIME_NONE to avoid blocking
+        // NOTE: buf_cnt and state not queried atomically - acceptable as heuristic
+        gst_element_get_state(GST_ELEMENT(dst), &state, &pending, 10 * GST_MSECOND);
 
         if ((buf_cnt > 1) && (state == GST_STATE_PAUSED)) {
             blocked = true;
         }
     }
-    gst_object_unref(dst);
 
+    gst_object_unref(dst);
     return blocked;
 }
 
