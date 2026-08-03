@@ -581,14 +581,15 @@ static GstCaps *gst_real_sense_get_caps(GstBaseSrc *bsrc, GstCaps *filter) {
 
     caps = gst_pad_get_pad_template_caps(GST_BASE_SRC_PAD(src));
 
-    GST_DEBUG_OBJECT(src, "The caps before filtering are filter && caps) {
+    if (caps == nullptr) {
+        return gst_caps_new_empty();
+    }
+
+    GST_DEBUG_OBJECT(src, "The caps before filtering");
+    if (filter) {
         GstCaps *tmp = gst_caps_intersect(caps, filter);
         gst_caps_unref(caps);
         caps = tmp;
-    }
-
-    if (caps == nullptr) {
-        return gst_caps_new_empty();
     }
 
     caps = gst_caps_make_writable(caps);
