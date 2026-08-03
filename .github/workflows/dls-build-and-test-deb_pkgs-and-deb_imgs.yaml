@@ -488,7 +488,9 @@ jobs:
             MATCHING_CONFIGS=()
             for config in "$GENERATED_CONFIGS_DIR"/*_final.json; do
               [ -f "$config" ] || continue
-              if grep -q "\"name\"[[:space:]]*:[[:space:]]*\"${test_name}\"" "$config"; then
+              # Matches both "name": "value" (dict-style, e.g. samples.json) and
+              # ["name", "value"] (list-of-pairs style, e.g. regression.json).
+              if grep -Eq "\"name\"[[:space:]]*[,:][[:space:]]*\"${test_name}\"" "$config"; then
                 MATCHING_CONFIGS+=("$config")
               fi
             done
