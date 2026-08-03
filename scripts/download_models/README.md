@@ -37,22 +37,45 @@ If `@...` is omitted:
 
 ## Prerequisites
 
-1. Create and activate a virtual environment:
-```code
-   python3 -m venv .model_download_venv
-   source .model_download_venv/bin/activate
-   ```
+Each script has its own isolated virtual environment to avoid dependency conflicts.
 
-2. Install dependencies for the script you want to run:
-```code
-  # Hugging Face exporter
-  pip install -r requirements_download_hf_models.txt
+### Hugging Face exporter
 
-  # TIMM exporter
-  pip install -r requirements_download_timm_models.txt
+**Create and activate venv:**
+```bash
+python3 -m venv .hf_models_venv
+source .hf_models_venv/bin/activate  # On Windows: .hf_models_venv\Scripts\activate
+```
 
-  # Ultralytics exporter
-  pip install -r requirements_download_ultralytics_models.txt
+**Install dependencies:**
+```bash
+pip install -r requirements_download_hf_models.txt
+```
+
+### TIMM exporter
+
+**Create and activate venv:**
+```bash
+python3 -m venv .timm_models_venv
+source .timm_models_venv/bin/activate  # On Windows: .timm_models_venv\Scripts\activate
+```
+
+**Install dependencies:**
+```bash
+pip install -r requirements_download_timm_models.txt
+```
+
+### Ultralytics exporter
+
+**Create and activate venv:**
+```bash
+python3 -m venv .ultralytics_models_venv
+source .ultralytics_models_venv/bin/activate  # On Windows: .ultralytics_models_venv\Scripts\activate
+```
+
+**Install dependencies:**
+```bash
+pip install -r requirements_download_ultralytics_models.txt
 ```
 
 ## 1) Hugging Face conversion
