@@ -701,15 +701,26 @@ if array_contains "mars-small128" "${MODELS_TO_PROCESS[@]}"; then
     echo "Downloading and converting: ${MODEL_DIR}"
     mkdir -p "$MODEL_DIR"
 
-    CONVERTER_SCRIPT="$DOWNLOAD_SCRIPT_DIR/../../samples/models/convert_mars_deepsort.py"
+    CONVERTER_SCRIPT="$DOWNLOAD_SCRIPT_DIR/convert_mars_deepsort.py"
 
-    # Support CI layouts where dlstreamer is checked out into ./dlstreamer-repo.
+    # Backward-compatible fallback for CI layouts where dlstreamer is checked out into ./dlstreamer-repo.
+    if [[ ! -f "$CONVERTER_SCRIPT" && -f "$LAUNCH_DIR/dlstreamer-repo/scripts/download_models/convert_mars_deepsort.py" ]]; then
+      CONVERTER_SCRIPT="$LAUNCH_DIR/dlstreamer-repo/scripts/download_models/convert_mars_deepsort.py"
+    fi
+
+    # Legacy fallback for older checkouts where converter still lives under samples/models.
+    if [[ ! -f "$CONVERTER_SCRIPT" && -f "$DOWNLOAD_SCRIPT_DIR/../../samples/models/convert_mars_deepsort.py" ]]; then
+      CONVERTER_SCRIPT="$DOWNLOAD_SCRIPT_DIR/../../samples/models/convert_mars_deepsort.py"
+    fi
+
     if [[ ! -f "$CONVERTER_SCRIPT" && -f "$LAUNCH_DIR/dlstreamer-repo/samples/models/convert_mars_deepsort.py" ]]; then
       CONVERTER_SCRIPT="$LAUNCH_DIR/dlstreamer-repo/samples/models/convert_mars_deepsort.py"
     fi
 
     if [[ ! -f "$CONVERTER_SCRIPT" ]]; then
       echo_color "Cannot locate convert_mars_deepsort.py" "red"
+      echo_color "Tried: $DOWNLOAD_SCRIPT_DIR/convert_mars_deepsort.py" "red"
+      echo_color "Tried: $LAUNCH_DIR/dlstreamer-repo/scripts/download_models/convert_mars_deepsort.py" "red"
       echo_color "Tried: $DOWNLOAD_SCRIPT_DIR/../../samples/models/convert_mars_deepsort.py" "red"
       echo_color "Tried: $LAUNCH_DIR/dlstreamer-repo/samples/models/convert_mars_deepsort.py" "red"
       handle_error $LINENO
