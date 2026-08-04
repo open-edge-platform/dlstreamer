@@ -22,10 +22,10 @@ PROC_PATH() {
     echo ./model_proc/"$1".json
 }
 
-PATH_D=${MODELS_PATH}/public/centerface/FP32/centerface.xml
-PATH_C1=${MODELS_PATH}/public/dima806_facial_age_image_detection/FP32/dima806_facial_age_image_detection.xml
-PATH_C2=${MODELS_PATH}/public/dima806_fairface_gender_image_detection/FP32/dima806_fairface_gender_image_detection.xml
-PATH_C3=${MODELS_PATH}/public/dima806_face_emotions_image_detection/FP32/dima806_face_emotions_image_detection.xml
+PATH_D=${MODELS_PATH}/public/centerface/FP16/centerface.xml
+PATH_C1=${MODELS_PATH}/public/dima806_facial_age_image_detection/FP16/dima806_facial_age_image_detection.xml
+PATH_C2=${MODELS_PATH}/public/dima806_fairface_gender_image_detection/FP16/dima806_fairface_gender_image_detection.xml
+PATH_C3=${MODELS_PATH}/public/dima806_face_emotions_image_detection/FP16/dima806_face_emotions_image_detection.xml
 
 echo Running sample with the following parameters:
 echo GST_PLUGIN_PATH="${GST_PLUGIN_PATH}"

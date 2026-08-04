@@ -94,12 +94,12 @@ switch ($OutputType) {
 
 # Set model paths
 $MODEL = "yolo26s-pose"
-$MODEL_PATH = "$env:MODELS_PATH\public\$MODEL\FP32\$MODEL.xml"
+$MODEL_PATH = "$env:MODELS_PATH\public\$MODEL\FP16\$MODEL.xml"
 
 # Check if model exists
 if (-not (Test-Path $MODEL_PATH)) {
     Write-Host "ERROR: Model not found: $MODEL_PATH" -ForegroundColor Red
-    Write-Host "Please run download_omz_models.bat to download the models first."
+    Write-Host "Please prepare required models and ensure they are available under MODELS_PATH/public (see scripts/download_models/README.md)."
     exit 1
 }
 

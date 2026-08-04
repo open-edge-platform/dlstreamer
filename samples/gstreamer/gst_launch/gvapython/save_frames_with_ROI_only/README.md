@@ -29,7 +29,7 @@ Configuration options in the Python script:
 The sample uses by default the following pre-trained model from OpenVINO™ Toolkit [Open Model Zoo](https://github.com/openvinotoolkit/open_model_zoo)
 *   __centerface__ is primary detection network for finding faces
 
-> **NOTE**: Before running samples (including this one), run script `download_omz_models.sh` once (the script located in `samples` top folder) to download all models required for this and other samples.
+> **NOTE**: Before running samples (including this one), prepare required models using scripts in `scripts/download_models` (see `scripts/download_models/README.md` for per-model commands and per-script venv setup).
 
 You can modify the script to use other detection models (e.g., person detection, vehicle detection) by changing the model path in the shell script.
 

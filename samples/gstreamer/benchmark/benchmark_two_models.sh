@@ -15,8 +15,8 @@ else
 fi
 
 VIDEO_FILE_NAME=${1}
-MODEL1_PATH=${2:-"${MODELS_PATH}/public/centerface/FP32/centerface.xml"}
-MODEL2_PATH=${3:-"${MODELS_PATH}/public/dima806_fairface_gender_image_detection/FP32/dima806_fairface_gender_image_detection.xml"}
+MODEL1_PATH=${2:-"${MODELS_PATH}/public/centerface/FP16/centerface.xml"}
+MODEL2_PATH=${3:-"${MODELS_PATH}/public/dima806_fairface_gender_image_detection/FP16/dima806_fairface_gender_image_detection.xml"}
 DECODE_DEVICE=${4:-CPU}     # Supported values: "CPU", "GPU", "AUTO"
 INFERENCE_DEVICE=${5:-CPU}  # Supported values: "CPU", "GPU", "AUTO", "MULTI:GPU,CPU"
 NUMBER_STREAMS=${6:-1}

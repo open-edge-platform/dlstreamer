@@ -69,9 +69,9 @@ if ($Method -eq "file") {
 
 $JSON_INDENT = if ($Format -eq "json-lines") { -1 } else { 4 }
 
-$MODEL1_PATH = "$env:MODELS_PATH\public/centerface/FP32/centerface.xml" -replace '\\', '/'
-$MODEL2_PATH = "$env:MODELS_PATH\public/dima806_facial_age_image_detection/FP32/dima806_facial_age_image_detection.xml" -replace '\\', '/'
-$MODEL3_PATH = "$env:MODELS_PATH\public/dima806_fairface_gender_image_detection/FP32/dima806_fairface_gender_image_detection.xml" -replace '\\', '/'
+$MODEL1_PATH = "$env:MODELS_PATH\public/centerface/FP16/centerface.xml" -replace '\\', '/'
+$MODEL2_PATH = "$env:MODELS_PATH\public/dima806_facial_age_image_detection/FP16/dima806_facial_age_image_detection.xml" -replace '\\', '/'
+$MODEL3_PATH = "$env:MODELS_PATH\public/dima806_fairface_gender_image_detection/FP16/dima806_fairface_gender_image_detection.xml" -replace '\\', '/'
 $SCRIPTDIR = Split-Path -Parent $MyInvocation.MyCommand.Path
 
 if (-not (Test-Path ($MODEL1_PATH -replace '/', '\'))) {

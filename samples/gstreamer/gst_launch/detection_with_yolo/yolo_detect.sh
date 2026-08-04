@@ -71,7 +71,6 @@ fi
 declare -A MODEL_PROC_FILES=(
   ["yolox-tiny"]="../../model_proc/public/yolo-x.json"
   ["yolox_s"]="../../model_proc/public/yolo-x.json"
-  ["yolov5su"]="../../model_proc/public/yolo-v8.json"
   ["yolov7"]="../../model_proc/public/yolo-v7.json"
   ["yolov5nu"]=""
   ["yolov8s"]=""

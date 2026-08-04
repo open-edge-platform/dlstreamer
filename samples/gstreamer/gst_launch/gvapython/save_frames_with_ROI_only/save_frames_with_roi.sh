@@ -39,7 +39,7 @@ else
   SOURCE_ELEMENT="filesrc location=${INPUT}"
 fi
 
-DETECT_MODEL_PATH=${MODELS_PATH}/public/centerface/FP32/centerface.xml
+DETECT_MODEL_PATH=${MODELS_PATH}/public/centerface/FP16/centerface.xml
 
 echo Running sample with the following parameters:
 echo GST_PLUGIN_PATH="${GST_PLUGIN_PATH}"

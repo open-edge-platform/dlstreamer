@@ -93,7 +93,7 @@ $CLASS_MODEL_PATH2 = "$env:MODELS_PATH\public\$MODEL4\FP32\$MODEL4.xml"
 # Check if detection model exists
 if (-not (Test-Path $DETECT_MODEL_PATH)) {
     Write-Host "ERROR: Model not found: $DETECT_MODEL_PATH" -ForegroundColor Red
-    Write-Host "Please run download_omz_models.bat to download the models first."
+    Write-Host "Please prepare required models and ensure they are available under MODELS_PATH/public (see scripts/download_models/README.md)."
     exit 1
 }
 

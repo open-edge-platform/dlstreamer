@@ -69,10 +69,10 @@ PROC_PATH() {
     echo "$(dirname "$0")"/model_proc/"$1".json
 }
 
-DETECT_MODEL_PATH=${MODELS_PATH}/public/centerface/FP32/centerface.xml
-CLASS_MODEL_PATH1=${MODELS_PATH}/public/dima806_facial_age_image_detection/FP32/dima806_facial_age_image_detection.xml
-CLASS_MODEL_PATH2=${MODELS_PATH}/public/dima806_fairface_gender_image_detection/FP32/dima806_fairface_gender_image_detection.xml
-CLASS_MODEL_PATH3=${MODELS_PATH}/public/dima806_face_emotions_image_detection/FP32/dima806_face_emotions_image_detection.xml
+DETECT_MODEL_PATH=${MODELS_PATH}/public/centerface/FP16/centerface.xml
+CLASS_MODEL_PATH1=${MODELS_PATH}/public/dima806_facial_age_image_detection/FP16/dima806_facial_age_image_detection.xml
+CLASS_MODEL_PATH2=${MODELS_PATH}/public/dima806_fairface_gender_image_detection/FP16/dima806_fairface_gender_image_detection.xml
+CLASS_MODEL_PATH3=${MODELS_PATH}/public/dima806_face_emotions_image_detection/FP16/dima806_face_emotions_image_detection.xml
 
 PIPELINE="gst-launch-1.0 $SOURCE_ELEMENT ! decodebin3 ! \
 gvadetect model=$DETECT_MODEL_PATH device=$DEVICE ! queue ! \

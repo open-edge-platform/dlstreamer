@@ -23,7 +23,7 @@ if ($Model -eq "--help" -or $Model -eq "-h") {
     Write-Host ""
     Write-Host "Parameters:"
     Write-Host "  -Model              Model name (default: yolox_s)"
-    Write-Host "                      Supported: yolox-tiny, yolox_s, yolov5s, yolov5su, yolov7, yolov8s,"
+    Write-Host "                      Supported: yolox-tiny, yolox_s, yolov5nu, yolov7, yolov8s,"
     Write-Host "                                 yolov8n-obb, yolov8n-seg, yolov9c, yolov10s, yolo11s,"
     Write-Host "                                 yolo11s-seg, yolo11s-obb, yolo11s-pose, yolo26n, yolo26s,"
     Write-Host "                                 yolo26m, yolo26l, yolo26x, yolo26s-obb, yolo26s-seg, yolo26s-pose"
@@ -45,7 +45,7 @@ if (-not $env:MODELS_PATH) {
 Write-Host "MODELS_PATH: $env:MODELS_PATH"
 
 # Validate model
-$MODELS_LIST = @("yolox-tiny", "yolox_s", "yolov5s", "yolov5su", "yolov7", "yolov8s",
+$MODELS_LIST = @("yolox-tiny", "yolox_s", "yolov5nu", "yolov7", "yolov8s",
                  "yolov8n-obb", "yolov8n-seg", "yolov9c", "yolov10s", "yolo11s",
                  "yolo11s-seg", "yolo11s-obb", "yolo11s-pose", "yolo26n", "yolo26s",
                  "yolo26m", "yolo26l", "yolo26x", "yolo26s-obb", "yolo26s-seg", "yolo26s-pose")
@@ -83,8 +83,7 @@ $MODEL_PROC = ""
 switch ($Model) {
     "yolox-tiny" { $MODEL_PROC = "$PSScriptRoot\..\..\..\..\gstreamer\model_proc\public\yolo-x.json" }
     "yolox_s"    { $MODEL_PROC = "$PSScriptRoot\..\..\..\..\gstreamer\model_proc\public\yolo-x.json" }
-    "yolov5s"    { $MODEL_PROC = "$PSScriptRoot\..\..\..\..\gstreamer\model_proc\public\yolo-v7.json" }
-    "yolov5su"   { $MODEL_PROC = "$PSScriptRoot\..\..\..\..\gstreamer\model_proc\public\yolo-v8.json" }
+    "yolov5nu"   { $MODEL_PROC = "" }
     "yolov7"     { $MODEL_PROC = "$PSScriptRoot\..\..\..\..\gstreamer\model_proc\public\yolo-v7.json" }
 }
 
@@ -94,7 +93,7 @@ $MODEL_PATH = "$env:MODELS_PATH\public\$Model\$Precision\$Model.xml"
 # Check if model exists
 if (-not (Test-Path $MODEL_PATH)) {
     Write-Host "ERROR: Model not found: $MODEL_PATH" -ForegroundColor Red
-    Write-Host "Please run download_public_models.bat to download the models first."
+    Write-Host "Please prepare this model via scripts/download_models/download_ultralytics_models.py (see scripts/download_models/README.md)."
     exit 1
 }
 

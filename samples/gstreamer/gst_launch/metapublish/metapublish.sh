@@ -38,7 +38,7 @@ MODEL1=centerface
 MODEL2=dima806_fairface_gender_image_detection
 MODEL3=dima806_facial_age_image_detection
 
-PRECISION=FP32
+PRECISION=FP16
 DEVICE=CPU
 
 OUTPUT_PROPERTY=""

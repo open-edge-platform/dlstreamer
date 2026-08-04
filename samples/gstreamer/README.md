@@ -74,18 +74,11 @@ Other samples (without C/C++ code) provide .sh script for constructing and execu
 
 ## DL Models
 
-DL Streamer samples use pre-trained models from OpenVINO™ Toolkit [Open Model Zoo](https://github.com/openvinotoolkit/open_model_zoo)
+DL Streamer samples use pre-trained models from multiple sources (Open Model Zoo, Hugging Face, Ultralytics, and selected public repos).
 
-Before running samples, run script `download_omz_models.sh` once to download all models required for samples. The script located in `samples` top folder.
-> **NOTE**: To install all necessary requirements for `download_omz_models.sh` script run this command:
-```sh
-python3 -m pip install --upgrade pip
-python3 -m pip install openvino-dev[onnx]
-```
-> **NOTE**: To install all available frameworks run this command:
-```sh
-python3 -m pip install openvino-dev[caffe,onnx,tensorflow2,pytorch,mxnet]
-```
+Before running samples, prepare required models using scripts from `scripts/download_models`.
+
+> **NOTE**: See `scripts/download_models/README.md` for per-script virtual environments, dependencies, and model-specific commands.
 
 ## Input video
 

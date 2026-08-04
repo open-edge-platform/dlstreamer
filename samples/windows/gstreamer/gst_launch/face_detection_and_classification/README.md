@@ -53,7 +53,7 @@ The sample uses by default the following pre-trained models from OpenVINO™ Too
 *   __dima806_face_emotions_image_detection__ emotion estimation on detected faces
 *   __dima806_fairface_gender_image_detection__ gender estimation on detected faces
 
-> **NOTE**: Before running samples (including this one), run script `download_omz_models.bat` once (the script located in `samples\windows` folder) to download all models required for this and other samples.
+> **NOTE**: Before running samples (including this one), prepare required models using scripts in `scripts/download_models` (see `scripts/download_models/README.md` for per-model commands and per-script venv setup).
 
 ## Environment Variables
 

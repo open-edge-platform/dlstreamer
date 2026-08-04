@@ -58,9 +58,9 @@ else
   SOURCE_ELEMENT="filesrc location=${INPUT}"
 fi
 
-DETECT_MODEL_PATH=${MODELS_PATH}/public/centerface/FP32/centerface.xml
-CLASS_MODEL_PATH1=${MODELS_PATH}/public/dima806_fairface_gender_image_detection/FP32/dima806_fairface_gender_image_detection.xml
-CLASS_MODEL_PATH2=${MODELS_PATH}/public/dima806_facial_age_image_detection/FP32/dima806_facial_age_image_detection.xml
+DETECT_MODEL_PATH=${MODELS_PATH}/public/centerface/FP16/centerface.xml
+CLASS_MODEL_PATH1=${MODELS_PATH}/public/dima806_fairface_gender_image_detection/FP16/dima806_fairface_gender_image_detection.xml
+CLASS_MODEL_PATH2=${MODELS_PATH}/public/dima806_facial_age_image_detection/FP16/dima806_facial_age_image_detection.xml
 
 echo Running sample with the following parameters:
 echo GST_PLUGIN_PATH="${GST_PLUGIN_PATH}"

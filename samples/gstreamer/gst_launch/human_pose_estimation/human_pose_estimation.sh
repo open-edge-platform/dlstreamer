@@ -70,7 +70,7 @@ PROC_PATH() {
     echo "$(dirname "$0")"/model_proc/"$1".json
 }
 
-MODEL_PATH=${MODELS_PATH}/public/${HPE_MODEL}/FP32/${HPE_MODEL}.xml
+MODEL_PATH=${MODELS_PATH}/public/${HPE_MODEL}/FP16/${HPE_MODEL}.xml
 
 PIPELINE="gst-launch-1.0 $SOURCE_ELEMENT ! decodebin3 ! \
 gvadetect model=$MODEL_PATH device=$DEVICE inference-region=full-frame ! queue ! \

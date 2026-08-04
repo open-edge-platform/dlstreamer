@@ -30,7 +30,7 @@ The sample uses by default the following pre-trained models from OpenVINO™ Too
 *   __person-attributes-recognition-crossroad-0230__ classifies person attributes
 *   __vehicle-attributes-recognition-barrier-0039__ classifies vehicle attributes
 
-> **NOTE**: Before running samples (including this one), run script `download_omz_models.sh` once (the script located in `samples` top folder) to download all models required for this and other samples.
+> **NOTE**: Before running samples (including this one), prepare required models using scripts in `scripts/download_models` (see `scripts/download_models/README.md` for per-model commands and per-script venv setup).
 
 The sample contains `model_proc` subfolder with .json files for each model with description of model input/output formats and post-processing rules for classification models.
 

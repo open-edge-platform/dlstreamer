@@ -2,7 +2,6 @@
 # Supports optional pinning in form: <model>.pt@<ultralytics-assets-release-tag>
 # Example: yolo11n.pt@v8.3.0
 yolov5nu.pt@v8.4.0
-yolov5su.pt@v8.4.0
 yolov8n.pt@v8.4.0
 yolov8n-pose.pt@v8.4.0
 yolov8s.pt@v8.4.0

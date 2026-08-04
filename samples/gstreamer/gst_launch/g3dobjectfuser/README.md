@@ -38,7 +38,7 @@ This downloads/builds the PointPillars models, the OpenVINO extension, and the `
 
 ### 3. YOLO model
 
-`g3dobjectfuser.sh` downloads the camera detector automatically via `samples/download_public_models.sh` (default `yolo11n`) into `MODELS_PATH` if it is not already present.
+`g3dobjectfuser.sh` downloads the camera detector automatically via `scripts/download_models/download_ultralytics_models.py` (default `yolo11n`) into `MODELS_PATH` if it is not already present.
 
 ## Run
 

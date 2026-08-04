@@ -77,7 +77,7 @@ On Windows with GPU or NPU devices, this sample uses **D3D11 (Direct3D 11)** as 
 
 The sample uses YOLO models from different repositories. The model preparation and conversion method depends on the model source.
 
-For yolov5su, yolov8s (8n-obb, 8n-seg), yolov9c, yolov10s and yolo11s (yolo11s-seg, yolo11s-obb) models it is also necessary to install the ultralytics python package:
+For yolov5nu, yolov8s (8n-obb, 8n-seg), yolov9c, yolov10s and yolo11s (yolo11s-seg, yolo11s-obb) models it is also necessary to install the ultralytics python package:
 
 ```batch
 pip install ultralytics
@@ -89,8 +89,7 @@ pip install ultralytics
 | ------------ | -------------------------------- | --------------------------------- |
 | yolox-tiny   | omz_downloader and omz_converter | gvadetect model-proc=yolo-x.json  |
 | yolox_s      | OpenVINO™ model                  | gvadetect model-proc=yolo-x.json  |
-| yolov5s      | Pytorch -> OpenVINO™ converter   | gvadetect model-proc=yolo-v7.json |
-| yolov5su     | Ultralytics python exporter      | gvadetect model-proc=yolo-v8.json |
+| yolov5nu     | Ultralytics python exporter      | gvadetect (model-proc not needed) |
 | yolov7       | Pytorch -> ONNX -> OpenVINO™     | gvadetect model-proc=yolo-v7.json |
 | yolov8s      | Ultralytics python exporter      | gvadetect (model-proc not needed) |
 | yolov8n-obb  | Ultralytics python exporter      | gvadetect (model-proc not needed) |
@@ -207,15 +206,14 @@ If you have not already downloaded the required models, do so before running the
 # Set the models path (use a path accessible from Windows)
 export MODELS_PATH=/mnt/c/models  # WSL path to C:\models
 
-# Download a specific model (FP32 and FP16)
-cd samples
-./download_public_models.sh yolo11s
+# Download a specific model in FP32
+python scripts/download_models/download_ultralytics_models.py --model yolo11s.pt --outdir "${MODELS_PATH}/public/yolo11s/FP32"
 
-# For INT8 quantization (requires a calibration dataset)
-./download_public_models.sh yolo11s coco128
+# For INT8 export
+python scripts/download_models/download_ultralytics_models.py --model yolo11s.pt --outdir "${MODELS_PATH}/public/yolo11s/INT8" --int8
 ```
 
-For detailed instructions on downloading models, including the full list of supported models and quantization options, see the [Download Public Models Guide](../../../../../docs/user-guide/dev_guide/download_public_models.md).
+For detailed instructions on downloading models, including script-specific dependencies and supported model lists, see `scripts/download_models/README.md`.
 
 > **Note**: Make sure to set your `MODELS_PATH` environment variable in Windows to point to the same location where models were downloaded (e.g., `set MODELS_PATH=C:\models`).
 

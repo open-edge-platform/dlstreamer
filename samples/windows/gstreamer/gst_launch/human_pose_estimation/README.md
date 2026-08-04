@@ -17,7 +17,7 @@ The sample builds a GStreamer pipeline using:
 The sample uses yolo26s-pose from Ultralytics:
 - **yolo26s-pose** - Single person pose estimation network
 
-> **NOTE**: Before running this sample, run `download_omz_models.bat` once (located in `samples\windows` folder) to download all required models.
+> **NOTE**: Before running this sample, prepare required models using scripts in `scripts/download_models` (see `scripts/download_models/README.md`).
 
 ## Environment Variables
 
@@ -26,7 +26,7 @@ $set MODELS_PATH = "C:\models"
 ```
 
 Model should be located at:
-- `%MODELS_PATH%\public\yolo26s-pose\FP32\yolo26s-pose.xml`
+- `%MODELS_PATH%\public\yolo26s-pose\FP16\yolo26s-pose.xml`
 ## Running
 
 ```PowerShell

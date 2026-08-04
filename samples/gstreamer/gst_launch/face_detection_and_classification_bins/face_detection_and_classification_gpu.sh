@@ -17,8 +17,8 @@ else
   SOURCE_ELEMENT="filesrc location=${INPUT}"
 fi
 
-MODEL1_PATH="${MODELS_PATH:=.}"/public/centerface/FP32/centerface.xml
-MODEL2_PATH=${MODELS_PATH}/public/dima806_face_emotions_image_detection/FP32/dima806_face_emotions_image_detection.xml
+MODEL1_PATH="${MODELS_PATH:=.}"/public/centerface/FP16/centerface.xml
+MODEL2_PATH=${MODELS_PATH}/public/dima806_face_emotions_image_detection/FP16/dima806_face_emotions_image_detection.xml
 
 if [[ $OUTPUT == "display" ]] || [[ -z $OUTPUT ]]; then
   SINK_ELEMENT="autovideosink sync=false"
