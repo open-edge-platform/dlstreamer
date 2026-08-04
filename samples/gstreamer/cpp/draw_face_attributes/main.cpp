@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2018-2025 Intel Corporation
+ * Copyright (C) 2018-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -139,9 +139,9 @@ const std::string env_models_path =
 
 const std::vector<std::string> default_detection_model_names = {"centerface.xml"};
 
-const std::vector<std::string> default_classification_model_names = {
-    "dima806_facial_age_image_detection.xml", "dima806_face_emotions_image_detection.xml",
-    "dima806_fairface_gender_image_detection.xml"};
+const std::vector<std::string> default_classification_model_names = {"dima806_facial_age_image_detection.xml",
+                                                                     "dima806_face_emotions_image_detection.xml",
+                                                                     "dima806_fairface_gender_image_detection.xml"};
 
 gchar const *detection_model = nullptr;
 gchar const *classification_models = nullptr;
@@ -229,10 +229,12 @@ static GstPadProbeReturn pad_probe_callback(GstPad *pad, GstPadProbeInfo *info, 
             // Route classification by model identity and output shape first.
             if (!data.empty()) {
                 int index = static_cast<int>(max_element(begin(data), end(data)) - begin(data));
-                if (model_name_lc.find("facial_age") != string::npos || model_name_lc.find("fairface_age") != string::npos || data.size() == 23) {
-                    static const vector<string> ageLabels = {"01", "02", "03", "04", "05", "06-07", "08-09",
-                        "10-12", "13-15", "16-20", "21-25", "26-30", "31-35", "36-40", "41-45",
-                        "46-50", "51-55", "56-60", "61-65", "66-70", "71-80", "81-90", "90+"};
+                if (model_name_lc.find("facial_age") != string::npos ||
+                    model_name_lc.find("fairface_age") != string::npos || data.size() == 23) {
+                    static const vector<string> ageLabels = {"01",    "02",    "03",    "04",    "05",    "06-07",
+                                                                 "08-09", "10-12", "13-15", "16-20", "21-25", "26-30",
+                                                                 "31-35", "36-40", "41-45", "46-50", "51-55", "56-60",
+                                                                 "61-65", "66-70", "71-80", "81-90", "90+"};
                     if (index < static_cast<int>(ageLabels.size()))
                         label += " " + ageLabels[index];
                     continue;
@@ -241,7 +243,8 @@ static GstPadProbeReturn pad_probe_callback(GstPad *pad, GstPadProbeInfo *info, 
                     label += (index == 1) ? " M" : " F";
                     continue;
                 } else if (model_name_lc.find("emotion") != string::npos || data.size() == 6) {
-                    static const vector<string> emotionLabels = {"Ahegao", "Angry", "Happy", "Neutral", "Sad", "Surprise"};
+                    static const vector<string> emotionLabels = {"Ahegao",  "Angry", "Happy",
+                                                                 "Neutral", "Sad",   "Surprise"};
                     if (index < static_cast<int>(emotionLabels.size()))
                         label += " " + emotionLabels[index];
                     continue;

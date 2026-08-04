@@ -295,7 +295,7 @@ def export_hf_clip_to_openvino(
     vision_model.eval()
 
     img = Image.new("RGB", (224, 224))
-    processor = AutoProcessor.from_pretrained(str(local_model_dir))
+    processor = AutoProcessor.from_pretrained(str(local_model_dir), local_files_only=True)  # nosec B615 - model pinned via snapshot_download
 
 
 
@@ -389,7 +389,7 @@ def export_hf_depthanything_to_openvino(
     _ = token
     local_model_dir = Path(local_model_dir)
 
-    model = AutoModelForDepthEstimation.from_pretrained(str(local_model_dir))
+    model = AutoModelForDepthEstimation.from_pretrained(str(local_model_dir), local_files_only=True)  # nosec B615 - model pinned via snapshot_download
 
 
 
@@ -397,7 +397,7 @@ def export_hf_depthanything_to_openvino(
     model.eval()
 
     img = Image.new("RGB", (224, 224))
-    processor = AutoImageProcessor.from_pretrained(str(local_model_dir))
+    processor = AutoImageProcessor.from_pretrained(str(local_model_dir), local_files_only=True)  # nosec B615 - model pinned via snapshot_download
 
 
 
@@ -440,12 +440,12 @@ def export_hf_videomae_to_openvino(
     _ = token
     local_model_dir = Path(local_model_dir)
 
-    model = AutoModelForVideoClassification.from_pretrained(str(local_model_dir))
+    model = AutoModelForVideoClassification.from_pretrained(str(local_model_dir), local_files_only=True)  # nosec B615 - model pinned via snapshot_download
     model.eval()
 
-    processor = AutoImageProcessor.from_pretrained(str(local_model_dir))
+    processor = AutoImageProcessor.from_pretrained(str(local_model_dir), local_files_only=True)  # nosec B615 - model pinned via snapshot_download
 
-    config = AutoConfig.from_pretrained(str(local_model_dir))
+    config = AutoConfig.from_pretrained(str(local_model_dir), local_files_only=True)  # nosec B615 - model pinned via snapshot_download
     num_frames = int(getattr(config, "num_frames", 16))
     image_size = int(getattr(config, "image_size", 224))
 

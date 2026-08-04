@@ -15,7 +15,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
-import xml.etree.ElementTree as ET
+import defusedxml.ElementTree as ET
 from pathlib import Path
 from huggingface_hub import snapshot_download
 import openvino as ov

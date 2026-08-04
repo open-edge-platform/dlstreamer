@@ -90,7 +90,9 @@ def download_pinned_ultralytics_weight(model_name: str, revision: str) -> tuple[
 
     try:
         print(f"Downloading pinned Ultralytics weight: {normalized_model_name} @ {revision}")
-        urlretrieve(download_url, local_weight_path)
+        if not download_url.startswith("https://"):
+            raise ValueError(f"Refusing to download from non-HTTPS URL: {download_url}")
+        urlretrieve(download_url, local_weight_path)  # nosec B310 - URL scheme validated above
     except (HTTPError, URLError) as exc:
         shutil.rmtree(temp_dir, ignore_errors=True)
         raise FileNotFoundError(
