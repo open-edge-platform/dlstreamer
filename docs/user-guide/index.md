@@ -101,9 +101,6 @@ AIVID TECHVISION and others.
 > **\*** *Other names and brands may be claimed as the property of
 > others.*
 
-:::
-hide_directive-->
-
 <!--hide_directive
 :::{toctree}
 :hidden:
