@@ -407,6 +407,7 @@ jobs:
     permissions:
       contents: read
       packages: read
+      actions: write # needed by merge-diff-reports to delete intermediate per-platform artifacts
     name: "DLS BUILD & TEST: .deb pkgs & img"
     uses: ./.github/workflows/dls-build-and-test-deb_pkgs-and-deb_imgs.yaml
     with:
