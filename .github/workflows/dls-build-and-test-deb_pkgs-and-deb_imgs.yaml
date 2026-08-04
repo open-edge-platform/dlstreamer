@@ -641,7 +641,7 @@ jobs:
 
       - name: Regroup reports by test name so platforms sit side by side
         run: |
-          # Locate platform dirs by name pattern, not nesting depth - download-artifact drops the wrapper folder when only one artifact matches.
+          # Exclude wrapper dirs (they end in _diff_reports and also match *_on_host_*).
           regrouped="$(mktemp -d)"
           while IFS= read -r -d '' platform_dir; do
             platform="$(basename "$platform_dir")"
@@ -651,7 +651,7 @@ jobs:
               mkdir -p "$regrouped/$test_name/$platform"
               cp -r "${test_dir%/}/." "$regrouped/$test_name/$platform/"
             done
-          done < <(find merged-diff-reports -type d -name '*_on_host_*' -print0)
+          done < <(find merged-diff-reports -type d -name '*_on_host_*' ! -name '*_diff_reports' -print0)
           rm -rf merged-diff-reports
           mv "$regrouped" merged-diff-reports
 
