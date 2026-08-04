@@ -15,7 +15,7 @@ namespace ModelApiConverters {
 
 // Supported HuggingFace architectures
 const std::vector<std::string> kHfSupportedArchitectures = {"ViTForImageClassification", "RTDetrForObjectDetection",
-                                                            "RtDetrV2ForObjectDetection",
+                                                            "RtDetrV2ForObjectDetection", "RfDetrForObjectDetection",
                                                             "DepthAnythingForDepthEstimation"};
 
 // convert varying metadata input formats (Yolo, HuggingFace, Geti, ...) to OV Model API pre-processing metadata
