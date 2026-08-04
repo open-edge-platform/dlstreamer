@@ -136,8 +136,15 @@ def is_explicit_local_model_path(model_or_path: str) -> bool:
 
 def move_exported_model(exported_path: Path, outdir: Path) -> Path:
     for item in exported_path.iterdir():
-        item.rename(outdir / item.name)
-    exported_path.rmdir()
+        target = outdir / item.name
+        if target.exists():
+            if target.is_dir():
+                shutil.rmtree(target)
+            else:
+                target.unlink()
+        # shutil.move handles cross-device moves (e.g. /tmp -> mounted volume).
+        shutil.move(str(item), str(target))
+    shutil.rmtree(exported_path, ignore_errors=True)
     return outdir
 
 
