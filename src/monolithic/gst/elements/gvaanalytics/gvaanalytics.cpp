@@ -26,7 +26,7 @@
 
 using json = nlohmann::json;
 
-GST_DEBUG_CATEGORY_STATIC(gva_analytics_debug_category);
+GST_DEBUG_CATEGORY(gva_analytics_debug_category);
 #define GST_CAT_DEFAULT gva_analytics_debug_category
 
 enum {
@@ -282,6 +282,14 @@ static Zone parse_zone_from_json(const json &zone_obj, GstBaseTransform *base) {
         zone.thickness = zone_obj["thickness"].get<int>();
     }
 
+    if (zone_obj.contains("track-dwell-time")) {
+        zone.track_dwell_time = zone_obj["track-dwell-time"].get<bool>();
+    }
+
+    if (zone_obj.contains("object-retention")) {
+        zone.object_retention = zone_obj["object-retention"].get<double>();
+    }
+
     return zone;
 }
 
@@ -409,9 +417,14 @@ static GstFlowReturn gva_analytics_transform_ip(GstBaseTransform *base, GstBuffe
     // Extract and process tracking metadata from buffer
     GstAnalyticsRelationMeta *analytics_meta = gst_buffer_get_analytics_relation_meta(buf);
 
+    GstClockTime stream_time =
+        gst_segment_to_stream_time(&base->segment, GST_FORMAT_TIME, GST_BUFFER_PTS(buf));
+    GstClockTime time_for_dwell = GST_CLOCK_TIME_IS_VALID(stream_time) ? stream_time : GST_BUFFER_PTS(buf);
+    gdouble current_time_sec = GST_CLOCK_TIME_IS_VALID(time_for_dwell) ? (gdouble)time_for_dwell / GST_SECOND : 0.0;
+
     // Process detection metadata and check for zone membership and tripwire crossings
     process_object_detections(base, analytics_meta, priv->zones, priv->tripwires, priv->tracking_states,
-                              priv->evaluation_point);
+                              priv->evaluation_point, current_time_sec);
 
     // Always add zone drawing metadata if draw_zones is enabled
     if (priv->draw_zones && !priv->zones.empty()) {

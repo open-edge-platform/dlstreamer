@@ -315,6 +315,19 @@ json convert_roi_detection(GstGvaMetaConvert *converter, GstBuffer *buffer, GstV
             jobject["tripwire_crossings"] = jtripwires;
         }
 
+        auto dwell_times = roi.dwell_times();
+        if (!dwell_times.empty()) {
+            json jdwell_times = json::array();
+            for (const auto &dwell : dwell_times) {
+                json jdwell = json::object();
+                jdwell["zone_id"] = dwell.zone_id;
+                jdwell["dwell_time_sec"] = dwell.dwell_time_sec;
+                jdwell["first_seen_timestamp_sec"] = dwell.first_seen_timestamp_sec;
+                jdwell_times.push_back(jdwell);
+            }
+            jobject["dwell_times"] = jdwell_times;
+        }
+
         if (!jobject.empty()) {
             res.push_back(jobject);
         }

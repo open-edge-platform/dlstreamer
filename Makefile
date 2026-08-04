@@ -96,6 +96,7 @@ install: build ## Build and install Deep Learning Streamer
 	@if [ -f build/src/gst/metadata/DLStreamerMeta-1.0.typelib ]; then \
 		echo "Installing typelib file..."; \
 		cp build/src/gst/metadata/DLStreamerMeta-1.0.typelib ${DLSTREAMER_INSTALL_PREFIX}/lib/girepository-1.0/; \
+		cp build/src/gst/metadata/DLStreamerWatermarkMeta-1.0.typelib ${DLSTREAMER_INSTALL_PREFIX}/lib/girepository-1.0/; \
 	fi
 	@echo "Installation successful"
 

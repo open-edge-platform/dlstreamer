@@ -12,6 +12,7 @@
 
 #pragma once
 
+#include "../metadata/gva_dwelltime_meta.h"
 #include "../metadata/gva_tripwire_meta.h"
 #include "../metadata/gva_zone_meta.h"
 #include "tensor.h"
@@ -145,6 +146,15 @@ class RegionOfInterest {
     };
 
     /**
+     * @brief Structure to hold dwell time information
+     */
+    struct DwellTimeEntry {
+        std::string zone_id;
+        double dwell_time_sec;
+        double first_seen_timestamp_sec;
+    };
+
+    /**
      * @brief Get tripwire crossings for this object
      * @return vector of TripwireCrossing structs containing tripwire ID and crossing direction
      */
@@ -163,6 +173,30 @@ class RegionOfInterest {
             }
         }
         return crossings;
+    }
+
+    /**
+     * @brief Get dwell time metadata entries for this object
+     * @return vector of DwellTimeEntry structs containing zone ID and timing values in seconds
+     */
+    std::vector<DwellTimeEntry> dwell_times() const {
+        std::vector<DwellTimeEntry> dwell_entries;
+        gpointer state = nullptr;
+        GstAnalyticsDwellTimeMtd related_dwell_mtd;
+        while (gst_analytics_relation_meta_get_direct_related(_od_meta.meta, _od_meta.id, GST_ANALYTICS_REL_TYPE_ANY,
+                                                              gst_analytics_dwelltime_mtd_get_mtd_type(), &state,
+                                                              (GstAnalyticsMtd *)&related_dwell_mtd)) {
+            gchar *zone_id = nullptr;
+            gdouble dwell_time = 0.0;
+            gdouble first_seen_timestamp = 0.0;
+            if (gst_analytics_dwelltime_mtd_get_info(&related_dwell_mtd, &zone_id, &dwell_time,
+                                                     &first_seen_timestamp) &&
+                zone_id) {
+                dwell_entries.push_back({zone_id, dwell_time, first_seen_timestamp});
+                g_free(zone_id);
+            }
+        }
+        return dwell_entries;
     }
 
     /**
