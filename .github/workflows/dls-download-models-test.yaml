@@ -55,7 +55,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r scripts/download_models/requirements_download_hf_models.txt
 
-      - name: README example - standard HF export
+      - name: "README §1 - standard HF export"
         if: needs.setup.outputs.should_run == 'true'
         run: |
           source "$HF_VENV/bin/activate"
@@ -66,7 +66,7 @@ jobs:
             --outdir "$HF_OUTDIR/standard"
           find "$HF_OUTDIR/standard" -name '*.xml' | grep -q .
 
-      - name: README example - extra args passthrough
+      - name: "README §1 - pass extra args through to optimum-cli (--weight-format int8)"
         if: needs.setup.outputs.should_run == 'true'
         run: |
           source "$HF_VENV/bin/activate"
@@ -78,27 +78,19 @@ jobs:
             --outdir "$HF_OUTDIR/extra-args"
           find "$HF_OUTDIR/extra-args" -name '*.xml' | grep -q .
 
-      - name: Checkout repository
-        if: needs.setup.outputs.should_run == 'true'
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # 7.0.0
-        with:
-          persist-credentials: false
-          path: dlstreamer
-
-      - name: Set up environment
+      - name: "README §1 - private/gated model (--token flag, public model used to validate CLI path)"
         if: needs.setup.outputs.should_run == 'true'
         run: |
           source "$HF_VENV/bin/activate"
           mkdir -p "$HF_OUTDIR/token"
           cd scripts/download_models
-          # Public model with token flag validates CLI path for gated/private example usage.
           python download_hf_models.py \
             --model dima806/facial_age_image_detection@ad35933da48272de7295530766f3d6c56702eba8 \
             --token fake_token_for_cli_path \
             --outdir "$HF_OUTDIR/token"
           find "$HF_OUTDIR/token" -name '*.xml' | grep -q .
 
-      - name: README example - explicit revision override
+      - name: "README §1 - explicit revision override (repo_id@sha)"
         if: needs.setup.outputs.should_run == 'true'
         run: |
           source "$HF_VENV/bin/activate"
@@ -138,7 +130,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r scripts/download_models/requirements_download_ultralytics_models.txt
 
-      - name: README example - export by model name
+      - name: "README §2 - export by model name"
         if: needs.setup.outputs.should_run == 'true'
         run: |
           source "$ULT_VENV/bin/activate"
@@ -147,7 +139,7 @@ jobs:
           python download_ultralytics_models.py --model yolo11n.pt --outdir "$ULT_OUTDIR/by-name"
           find "$ULT_OUTDIR/by-name" -name '*.xml' | grep -q .
 
-      - name: README example - pinned model by release tag
+      - name: "README §2 - export pinned model from a specific ultralytics/assets release tag (model@tag)"
         if: needs.setup.outputs.should_run == 'true'
         run: |
           source "$ULT_VENV/bin/activate"
@@ -156,14 +148,7 @@ jobs:
           python download_ultralytics_models.py --model yolo11n.pt@v8.4.0 --outdir "$ULT_OUTDIR/pinned"
           find "$ULT_OUTDIR/pinned" -name '*.xml' | grep -q .
 
-      - name: Checkout repository
-        if: needs.setup.outputs.should_run == 'true'
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # 7.0.0
-        with:
-          persist-credentials: false
-          path: dlstreamer
-
-      - name: Set up environment
+      - name: "README §2 - export a local checkpoint in FP16 (--half)"
         if: needs.setup.outputs.should_run == 'true'
         run: |
           source "$ULT_VENV/bin/activate"
@@ -174,7 +159,7 @@ jobs:
           python download_ultralytics_models.py --model "$PWD/yolo11n.pt" --outdir "$ULT_OUTDIR/local-half" --half
           find "$ULT_OUTDIR/local-half" -name '*.xml' | grep -q .
 
-      - name: README example - INT8 export
+      - name: "README §2 - export in INT8 (--int8)"
         if: needs.setup.outputs.should_run == 'true'
         run: |
           source "$ULT_VENV/bin/activate"
@@ -212,14 +197,14 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r scripts/download_models/requirements_download_timm_models.txt
 
-      - name: README example - list supported TIMM models
+      - name: "README §3 - list-models"
         if: needs.setup.outputs.should_run == 'true'
         run: |
           source "$TIMM_VENV/bin/activate"
           cd scripts/download_models
           python download_timm_models.py list-models | grep -q "efficientnet_b0"
 
-      - name: README example - export FP16
+      - name: "README §3 - export FP16 (--precision fp16)"
         if: needs.setup.outputs.should_run == 'true'
         run: |
           source "$TIMM_VENV/bin/activate"
@@ -230,7 +215,7 @@ jobs:
             --output-dir "$TIMM_OUTDIR"
           test -f "$TIMM_OUTDIR/public/efficientnet_b0/FP16/efficientnet_b0.xml"
 
-      - name: README example - export INT8 only
+      - name: "README §3 - export INT8 only (--precision int8)"
         if: needs.setup.outputs.should_run == 'true'
         run: |
           source "$TIMM_VENV/bin/activate"
@@ -241,7 +226,7 @@ jobs:
             --output-dir "$TIMM_OUTDIR"
           test -f "$TIMM_OUTDIR/public/efficientnet_b0/INT8/efficientnet_b0.xml"
 
-      - name: README example - export FP16 and INT8
+      - name: "README §3 - export FP16 and INT8 (--precision both)"
         if: needs.setup.outputs.should_run == 'true'
         run: |
           source "$TIMM_VENV/bin/activate"
@@ -273,7 +258,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: README example - download only mars-small128
+      - name: "README §4 - download only mars-small128"
         if: needs.setup.outputs.should_run == 'true'
         run: |
           cd scripts/download_models
@@ -299,7 +284,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Verify help output
+      - name: "README §4 - --help shows Usage, Arguments, MODELS_PATH"
         if: needs.setup.outputs.should_run == 'true'
         run: |
           cd scripts/download_models
@@ -325,9 +310,8 @@ jobs:
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # 7.0.0
         with:
           persist-credentials: false
-          path: dlstreamer
 
-      - name: Test script without MODELS_PATH
+      - name: "README §4 - script without MODELS_PATH prints error and exits non-zero"
         if: needs.setup.outputs.should_run == 'true'
         run: |
           cd scripts/download_models
@@ -356,7 +340,24 @@ jobs:
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # 7.0.0
         with:
           persist-credentials: false
-          path: dlstreamer
+
+      - name: "README §4 - unsupported model name prints error and exits non-zero"
+        if: needs.setup.outputs.should_run == 'true'
+        run: |
+          cd scripts/download_models
+          export MODELS_PATH="$HOME/models"
+          if bash download_other_models.sh invalid_model_xyz 2>&1 | grep -q "Unsupported model"; then
+            echo "Invalid model handling works"
+          else
+            echo "Invalid model handling failed"
+            exit 1
+          fi
+
+      - name: Checkout repository
+        if: needs.setup.outputs.should_run == 'true'
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # 7.0.0
+        with:
+          persist-credentials: false
 
       - name: Set up environment
         if: needs.setup.outputs.should_run == 'true'
@@ -399,7 +400,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r scripts/download_models/requirements_download_ultralytics_models.txt
 
-      - name: Run README Ultralytics command on Ubuntu 22.04
+      - name: "README §2 - export by model name (Ubuntu 22.04)"
         if: needs.setup.outputs.should_run == 'true'
         run: |
           source "$U22_ULT_VENV/bin/activate"

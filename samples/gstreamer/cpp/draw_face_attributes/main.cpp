@@ -232,9 +232,9 @@ static GstPadProbeReturn pad_probe_callback(GstPad *pad, GstPadProbeInfo *info, 
                 if (model_name_lc.find("facial_age") != string::npos ||
                     model_name_lc.find("fairface_age") != string::npos || data.size() == 23) {
                     static const vector<string> ageLabels = {"01",    "02",    "03",    "04",    "05",    "06-07",
-                                                                 "08-09", "10-12", "13-15", "16-20", "21-25", "26-30",
-                                                                 "31-35", "36-40", "41-45", "46-50", "51-55", "56-60",
-                                                                 "61-65", "66-70", "71-80", "81-90", "90+"};
+                                                             "08-09", "10-12", "13-15", "16-20", "21-25", "26-30",
+                                                             "31-35", "36-40", "41-45", "46-50", "51-55", "56-60",
+                                                             "61-65", "66-70", "71-80", "81-90", "90+"};
                     if (index < static_cast<int>(ageLabels.size()))
                         label += " " + ageLabels[index];
                     continue;
