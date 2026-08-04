@@ -463,7 +463,8 @@ jobs:
           TESTS_DIR="$PWD/$DLS_REL_PATH/tests/functional_tests"
           GENERATED_CONFIGS_DIR="$TESTS_DIR/pipeline_test/configs_ov2/generated_configs"
           PRED_DIR="$dls_tests_results_path/metadata"
-          REPORTS_DIR="$dls_tests_results_path/diff_reports"
+          # Platform label baked into the path so the merge job can find it without relying on artifact naming.
+          REPORTS_DIR="$dls_tests_results_path/diff_reports/${runner_print_label}_on_host_${ubuntu_version}"
           DIFF_SCRIPT="$TESTS_DIR/gt_compare/diff_report/generate_diff_report.py"
 
           echo "Generated configs dir: $GENERATED_CONFIGS_DIR"
@@ -630,8 +631,7 @@ jobs:
     permissions:
       actions: write
     steps:
-      # Each matrix leg uploads its own diff_reports artifact; combine them into one
-      # download so GT proposals from all platforms can be reviewed/applied at once.
+      # Each matrix leg uploads its own diff_reports artifact; combine them here.
       - name: Download all per-platform diff report artifacts
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
@@ -641,29 +641,24 @@ jobs:
 
       - name: Regroup reports by test name so platforms sit side by side
         run: |
-          # Downloaded layout is <platform_artifact>/<test_name>/...; swap it to
-          # <test_name>/<platform>/... so the same test's reports across platforms are siblings.
+          # Locate platform dirs by name pattern, not nesting depth - download-artifact drops the wrapper folder when only one artifact matches.
           regrouped="$(mktemp -d)"
-          for platform_dir in merged-diff-reports/*/; do
+          while IFS= read -r -d '' platform_dir; do
             platform="$(basename "$platform_dir")"
-            platform="${platform#DLS_functional_tests_}"
-            platform="${platform%_diff_reports}"
-            for test_dir in "$platform_dir"*/; do
+            for test_dir in "$platform_dir"/*/; do
+              [ -d "$test_dir" ] || continue
               test_name="$(basename "$test_dir")"
               mkdir -p "$regrouped/$test_name/$platform"
               cp -r "${test_dir%/}/." "$regrouped/$test_name/$platform/"
             done
-          done
+          done < <(find merged-diff-reports -type d -name '*_on_host_*' -print0)
           rm -rf merged-diff-reports
           mv "$regrouped" merged-diff-reports
 
       - name: Collect GT update proposals into one copy-paste-ready folder
         run: |
           mkdir -p merged-diff-reports/gt_update_proposals
-          # gt_update_proposal/<category> (e.g. samples_ARL, samples_TGL) is already
-          # platform-unique, so flattening all platforms here never collides, and the
-          # result mirrors groundtruth_ov2/ - ready to copy straight over the repo.
-          # Named plural so it can't collide with the per-test gt_update_proposal dirs removed below.
+          # category (e.g. samples_ARL) is platform-unique, so flattening never collides.
           find merged-diff-reports -type d -name gt_update_proposal -print0 |
             while IFS= read -r -d '' dir; do
               cp -r "$dir"/. merged-diff-reports/gt_update_proposals/
@@ -681,9 +676,7 @@ jobs:
           path: merged-diff-reports
           if-no-files-found: ignore
 
-      # Per-platform artifacts only exist to move files into this job (matrix legs run on
-      # separate runners with no shared filesystem) - remove them once merged so only the
-      # combined artifacts stay visible.
+      # Per-platform artifacts are only needed to transport files into this job.
       - name: Delete intermediate per-platform diff report artifacts
         if: always()
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
