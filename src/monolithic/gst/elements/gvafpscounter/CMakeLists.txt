@@ -1,10 +1,12 @@
 # ==============================================================================
-# Copyright (C) 2022 Intel Corporation
+# Copyright (C) 2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
 
 set(TARGET_NAME "gvafpscounter")
+
+pkg_check_modules(GSTANALYTICS gstreamer-analytics-1.0)
 
 file(GLOB MAIN_SRC
     ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp
@@ -22,7 +24,7 @@ target_include_directories(${TARGET_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
 target_link_libraries(${TARGET_NAME}
 PUBLIC
-    dlstreamer_gst
+    common
 PRIVATE
     utils
     )
