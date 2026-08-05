@@ -271,21 +271,20 @@ class RegionOfInterest(object):
         label_quark = self.__od_meta.get_obj_type()
 
         cls_descriptor_mtd = None
-        for cls_descriptor_mtd in self.__od_meta.meta:
+        for candidate_mtd in self.__od_meta.meta:
             if (
-                cls_descriptor_mtd.id == self.__od_meta.id
-                or type(cls_descriptor_mtd) != GstAnalytics.ClsMtd
+                candidate_mtd.id == self.__od_meta.id
+                or type(candidate_mtd) != GstAnalytics.ClsMtd
             ):
                 continue
 
             rel = self.__od_meta.meta.get_relation(
-                self.__od_meta.id, cls_descriptor_mtd.id
+                self.__od_meta.id, candidate_mtd.id
             )
 
             if rel == GstAnalytics.RelTypes.RELATE_TO:
+                cls_descriptor_mtd = candidate_mtd
                 break
-
-            cls_descriptor_mtd = None
 
         if label_quark and cls_descriptor_mtd is not None:
             label_id = cls_descriptor_mtd.get_index_by_quark(label_quark)

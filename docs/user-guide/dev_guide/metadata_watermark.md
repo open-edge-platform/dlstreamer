@@ -1,7 +1,7 @@
 # Watermark Metadata
 
 `gvawatermark` automatically renders custom drawing primitives attached directly to GStreamer buffers
-using the DLStreamer watermark metadata types. This is useful for drawing custom shapes, lines, and text from
+using the DL Streamer watermark metadata types. This is useful for drawing custom shapes, lines, and text from
 a Python callback or a custom GStreamer element without modifying pixel data manually.
 
 ## Metadata Types

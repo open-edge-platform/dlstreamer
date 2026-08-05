@@ -402,6 +402,18 @@ void FrameToExistingROIsTensorAttacher::attach(const TensorsTable &tensors_batch
                 continue;
 
             if (tensor_data.size() == 1) {
+                // Mirror supported tensor types (e.g. raw tensors) as frame-level GstAnalytics metadata so
+                // readers get them from the analytics path (the legacy copy is skipped by "type").
+                GVA::Tensor gva_tensor(tensor_data[0]);
+                GstAnalyticsRelationMeta *relation_meta = gst_buffer_get_analytics_relation_meta(frame.buffer);
+                if (!relation_meta)
+                    relation_meta = gst_buffer_add_analytics_relation_meta(frame.buffer);
+                if (relation_meta) {
+                    GstAnalyticsMtd mtd;
+                    (void)gva_tensor.convert_to_meta(&mtd, relation_meta, 0, 0, static_cast<gint>(frame.width),
+                                                     static_cast<gint>(frame.height));
+                }
+
                 GstGVATensorMeta *frame_tensor = GST_GVA_TENSOR_META_ADD(frame.buffer);
                 if (frame_tensor->data)
                     gst_structure_free(frame_tensor->data);
@@ -428,16 +440,26 @@ void FrameToExistingROIsTensorAttacher::attach(const TensorsTable &tensors_batch
                 continue;
             }
 
-            // Analytics: convert label tensor to GstAnalyticsClsMtd and attach to matching ODMtd
+            // Analytics: convert the label tensor to a GstAnalyticsClsMtd and the metrics raw tensor to a
+            // GstAnalyticsTensorMtd, both attached to the matching ODMtd.
             GstAnalyticsODMtd od_mtd;
             if (findODMeta(buffer, roi_id, &od_mtd)) {
                 GVA::Tensor gva_label_tensor(label_structure);
-                GstAnalyticsMtd tensor_mtd;
-                if (gva_label_tensor.convert_to_meta(&tensor_mtd, od_mtd.meta)) {
+                GstAnalyticsMtd label_mtd;
+                if (gva_label_tensor.convert_to_meta(&label_mtd, od_mtd.meta)) {
                     gst_analytics_relation_meta_set_relation(od_mtd.meta, GST_ANALYTICS_REL_TYPE_CONTAIN, od_mtd.id,
-                                                             tensor_mtd.id);
+                                                             label_mtd.id);
                     gst_analytics_relation_meta_set_relation(od_mtd.meta, GST_ANALYTICS_REL_TYPE_IS_PART_OF,
-                                                             tensor_mtd.id, od_mtd.id);
+                                                             label_mtd.id, od_mtd.id);
+                }
+
+                GVA::Tensor gva_metrics_tensor(metrics_structure);
+                GstAnalyticsMtd metrics_mtd;
+                if (gva_metrics_tensor.convert_to_meta(&metrics_mtd, od_mtd.meta)) {
+                    gst_analytics_relation_meta_set_relation(od_mtd.meta, GST_ANALYTICS_REL_TYPE_CONTAIN, od_mtd.id,
+                                                             metrics_mtd.id);
+                    gst_analytics_relation_meta_set_relation(od_mtd.meta, GST_ANALYTICS_REL_TYPE_IS_PART_OF,
+                                                             metrics_mtd.id, od_mtd.id);
                 }
             }
 
@@ -467,11 +489,24 @@ void TensorToFrameAttacherForMicro::attach(const TensorsTable &tensors, FramesWr
         auto &frame = frames[i];
 
         for (std::vector<GstStructure *> tensor_data : tensors[i]) {
+            assert(tensor_data.size() == 1);
+
+            // Mirror supported tensor types (e.g. raw tensors) as frame-level GstAnalytics metadata so
+            // readers get them from the analytics path (the legacy copy is skipped by "type").
+            GVA::Tensor gva_tensor(tensor_data[0]);
+            GstAnalyticsRelationMeta *relation_meta = gst_buffer_get_analytics_relation_meta(frame.buffer);
+            if (!relation_meta)
+                relation_meta = gst_buffer_add_analytics_relation_meta(frame.buffer);
+            if (relation_meta) {
+                GstAnalyticsMtd mtd;
+                (void)gva_tensor.convert_to_meta(&mtd, relation_meta, 0, 0, static_cast<gint>(frame.width),
+                                                 static_cast<gint>(frame.height));
+            }
+
             auto tensor = GST_GVA_TENSOR_META_ADD(frame.buffer);
             if (tensor->data) {
                 gst_structure_free(tensor->data);
             }
-            assert(tensor_data.size() == 1);
             tensor->data = tensor_data[0];
             gst_structure_set(tensor->data, "element_id", G_TYPE_STRING, frame.model_instance_id.c_str(), NULL);
         }

@@ -10,7 +10,7 @@ make sure to [set up the prerequisites](#prerequisites) first.
 
 For a detailed description of the installation process, including the option
 of building Deep Learning Streamer Pipeline Framework from source code,
-follow the [advanced installation guide](../../dev_guide/advanced_install/advanced_install_guide_compilation.md).
+follow the [advanced installation guide](../dev_guide/advanced_install/advanced_install_guide_compilation.md).
 
 ## Prerequisites
 
@@ -126,7 +126,7 @@ To see the full list of installed components check the
 The Python packages required to run Deep Learning Streamer python elements
 or samples are not installed by default. You can install them using
 the commands from
-[Advanced Install Guide Compilation / Install Python dependencies](../../dev_guide/advanced_install/advanced_install_guide_compilation.md#step-10-install-python-dependencies-optional).
+[Advanced Install Guide Compilation / Install Python dependencies](../dev_guide/advanced_install/advanced_install_guide_compilation.md#step-10-install-python-dependencies-optional).
 
 ### [Optional] Step 5: Post installation steps
 
@@ -270,8 +270,8 @@ xhost local:root
 setfacl -m user:1000:r ~/.Xauthority
 ```
 
-> **NOTE**: If you want to build Docker image from DLStreamer Dockerfiles, please
-> follow [the instructions](../../dev_guide/advanced_install/advanced_build_docker_image.md).
+> **NOTE**: If you want to build Docker image from DL Streamer Dockerfiles, please
+> follow [the instructions](../dev_guide/advanced_install/advanced_build_docker_image.md).
 
 ### Step 4: Pull the Deep Learning Streamer Docker image from Docker Hub
 
