@@ -56,7 +56,7 @@ Or download all available models:
 
 > **NOTE**: Remember to set the `MODELS_PATH` environment variable, which is needed by both the script that downloads the models and the script that runs the sample.
 
-These instructions assume that the DLStreamer framework is installed on your local system, along with the OpenVINO™ model downloader and converter tools, as described in this [tutorial](../../../../../docs/user-guide/get_started/tutorial.md#setup).
+These instructions assume that the DLStreamer framework is installed on your local system, along with the OpenVINO™ model downloader and converter tools, as described in this [tutorial](../../../../../docs/user-guide/tutorial.md#setup).
 
 ## Running
 

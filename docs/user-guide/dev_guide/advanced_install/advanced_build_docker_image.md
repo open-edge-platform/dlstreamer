@@ -1,7 +1,7 @@
 # Advanced Installation On Ubuntu - Build Docker Image
 
 > **NOTE:** The easiest way to run Deep Learning Streamer in Docker is to
-> [pull docker images from DockerHub](../../get_started/install/install_guide_ubuntu.md#option-2-install-docker-image-from-docker-hub-and-run-it).
+> [pull docker images from DockerHub](../../install/install_guide_ubuntu.md#option-2-install-docker-image-from-docker-hub-and-run-it).
 
 The instructions below are intended for building Docker images based on
 Ubuntu22/24 from Deep Learning Streamer Dockerfiles.
@@ -9,7 +9,7 @@ Ubuntu22/24 from Deep Learning Streamer Dockerfiles.
 ## Step 1: Install prerequisites
 
 Follow the instructions in
-[the prerequisites](../../get_started/install/install_guide_ubuntu.md#prerequisites) section.
+[the prerequisites](../../install/install_guide_ubuntu.md#prerequisites) section.
 
 ## Step 2: Clone DL Streamer repository
 

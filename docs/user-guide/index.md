@@ -1,5 +1,7 @@
 # Deep Learning Streamer
 
+_Part of [Edge AI Libraries](https://docs.openedgeplatform.intel.com/dev/ai-libraries.html)_
+
 <!--hide_directive
 <div class="component_card_widget">
   <a class="icon_github" href="https://github.com/open-edge-platform/dlstreamer">
@@ -11,7 +13,7 @@
 </div>
 hide_directive-->
 
-[System Requirements](./get_started/system_requirements.md) | [Install Guide](./get_started/install/install_guide_index.md) | [Tutorial](./get_started/tutorial.md) | [Elements](./elements/elements.md) | [Samples](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer) | [API Reference](./api_ref/api_reference.md) | [Release Notes](./release-notes.md)
+[Get Started](./get_started.md) | [System Requirements](./system_requirements.md) | [Install Guide](./install/install_guide_index.md) | [Tutorial](./tutorial.md) | [Samples](https://github.com/open-edge-platform/dlstreamer/blob/main/samples/gstreamer/README.md) | [Supported Models](./supported_models.md) | [Elements](./elements/elements.md) | [Developer Guide](./dev_guide/dev_guide_index.md) | [API Reference](./api_ref/api_reference.md) | [Release Notes](./release-notes.md)
 
 **Deep Learning Streamer (DL Streamer)** is an open-source media analytics framework built on [GStreamer\*](https://gstreamer.freedesktop.org). It lets you build video and audio intelligence pipelines — from a simple object detection command line to a multi-stream production deployment — with minimal code, running on Intel® CPU, GPU, and NPU. DL Streamer consists of:
 
@@ -101,18 +103,48 @@ AIVID TECHVISION and others.
 
 <!--hide_directive
 :::{toctree}
-:maxdepth: 2
 :hidden:
 
-System Requirements <get_started/system_requirements>
-Install Guide <get_started/install/install_guide_index>
-Tutorial <get_started/tutorial>
+DL Streamer Home Page <https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/index.html>
+
+:::
+
+:::{toctree}
+:hidden:
+:caption: Get Started
+
+get_started
+Installation Guide <install/install_guide_index>
+system_requirements
+tutorial
 Samples <https://github.com/open-edge-platform/dlstreamer/blob/main/samples/gstreamer/README.md>
-supported_models
-elements/elements
+
+:::
+
+:::{toctree}
+:hidden:
+:caption: Developer Guide
+
 dev_guide/dev_guide_index
+
+:::
+
+:::{toctree}
+:hidden:
+:caption: Reference
+
+elements/elements
+supported_models
 api_ref/api_reference
 architecture_2.0/architecture_2.0
+
+:::
+
+:::{toctree}
+:hidden:
+:caption: ----------------------
+
 Release Notes <release-notes>
+
 :::
 hide_directive-->
