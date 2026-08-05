@@ -14,9 +14,9 @@ Currently the DLS Optimizer focuses mainly on DL Streamer elements, specifically
 Multi-stream pipelines (those utilizing the `tee` element) are also currently not supported.
 
 ## Prerequisites
-Before using the DLS Optimizer, ensure you have: 
+Before using the DLS Optimizer, ensure you have:
 - Installed DL Streamer [intallation steps.](../install/install_guide_ubuntu.md)
-- Installed any necessary [DLStreamer python dependencies.](./advanced_install/advanced_install_guide_compilation.html#step-10-install-python-dependencies-optional) 
+- Installed any necessary [DL Streamer python dependencies.](./advanced_install/advanced_install_guide_compilation.md#step-10-install-python-dependencies-optional)
 - Configured environment variables for the current terminal session.
 - Installed the OpenVINO python library.
 
