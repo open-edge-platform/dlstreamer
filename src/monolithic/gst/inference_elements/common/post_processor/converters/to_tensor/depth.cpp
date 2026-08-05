@@ -685,6 +685,7 @@ GstStructure *createDepthMetricsStructure(const GVA::Tensor &source_tensor, gint
     const auto metrics_values = depth_converter::toTensorValues(metrics);
 
     metrics_tensor.set_int("tensor_id", roi_id);
+    metrics_tensor.set_type(GVA::GST_ANALYTICS_TENSOR_2_TENSOR);
     metrics_tensor.set_format("depth_metrics");
     metrics_tensor.set_precision(GVA::Tensor::Precision::FP32);
     metrics_tensor.set_layout(GVA::Tensor::Layout::NC);
@@ -848,6 +849,8 @@ TensorsTable DepthConverter::convert(const OutputBlobs &model_outputs, FramesWra
                 CopyOutputBlobToGstStructure(output_blob, full_frame_tensor.gst_structure(),
                                              BlobToMetaConverter::getModelName().c_str(), output_name.c_str(),
                                              batch_size, batch_index);
+                // Mark as a generic raw tensor so it is mirrored as a GstAnalyticsTensorMtd.
+                full_frame_tensor.set_type(GVA::GST_ANALYTICS_TENSOR_2_TENSOR);
                 tensors_table[batch_index].push_back({full_frame_tensor.gst_structure()});
             }
 

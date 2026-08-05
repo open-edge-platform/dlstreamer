@@ -59,6 +59,9 @@ TensorsTable CLIPTokenConverter::convert(const OutputBlobs &output_blobs) {
                                              std::to_string(blob->GetDims().size()));
                 }
 
+                // Mark as a generic raw tensor so it is mirrored as a GstAnalyticsTensorMtd.
+                gst_structure_set(tensor_data, "type", G_TYPE_STRING, GVA::GST_ANALYTICS_TENSOR_2_TENSOR, NULL);
+
                 // In different versions of GStreamer, tensors_batch are attached to the buffer in a different order.
                 // Thus, we identify our meta using tensor_id.
                 gst_structure_set(tensor_data, "tensor_id", G_TYPE_INT, safe_convert<int>(frame_index), NULL);

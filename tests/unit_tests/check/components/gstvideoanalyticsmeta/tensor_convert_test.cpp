@@ -1688,3 +1688,113 @@ TEST_F(SegmentationConvertToTensorTest, SemanticFullRoundtripPreservesFields) {
 
     gst_structure_free(orig_s);
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Generic raw tensor: tensor → GstAnalyticsTensorMtd → tensor
+// ═══════════════════════════════════════════════════════════════════════════════
+
+struct RawTensorConvertRoundtripTest : public ::testing::Test {
+    GstBuffer *buffer = nullptr;
+    GstAnalyticsRelationMeta *rmeta = nullptr;
+    std::vector<GstStructure *> roundtrip_structures;
+
+    void SetUp() override {
+        buffer = gst_buffer_new_allocate(nullptr, 0, nullptr);
+        rmeta = gst_buffer_add_analytics_relation_meta(buffer);
+        ASSERT_NE(rmeta, nullptr);
+    }
+
+    void TearDown() override {
+        for (auto *s : roundtrip_structures)
+            gst_structure_free(s);
+        if (buffer)
+            gst_buffer_unref(buffer);
+    }
+
+    // Build a generic raw tensor as produced by e.g. RawDataCopyConverter (gvainference)
+    GstStructure *build_raw_tensor_structure(const char *model_name = "RawModel", const char *layer_name = "output") {
+        GstStructure *s = gst_structure_new_empty("tensor");
+        GVA::Tensor tensor(s);
+        tensor.set_type(GVA::GST_ANALYTICS_TENSOR_2_TENSOR);
+        tensor.set_precision(GVA::Tensor::Precision::FP32);
+        tensor.set_model_name(model_name);
+        tensor.set_layer_name(layer_name);
+        tensor.set_dims({1u, 4u});
+        const float data[4] = {0.5f, -1.25f, 3.0f, 42.0f};
+        tensor.set_data(data, sizeof(data));
+        return s;
+    }
+
+    GstStructure *roundtrip(GstAnalyticsTensorMtd *tensor_mtd) {
+        GstStructure *result = GVA::Tensor::convert_to_tensor(*reinterpret_cast<GstAnalyticsMtd *>(tensor_mtd));
+        if (result)
+            roundtrip_structures.push_back(result);
+        return result;
+    }
+};
+
+TEST_F(RawTensorConvertRoundtripTest, ConvertToMetaReturnsTrue) {
+    GstStructure *orig_s = build_raw_tensor_structure();
+    GVA::Tensor original(orig_s);
+
+    GstAnalyticsTensorMtd tensor_mtd = {};
+    EXPECT_TRUE(original.convert_to_meta(reinterpret_cast<GstAnalyticsMtd *>(&tensor_mtd), rmeta));
+
+    gst_structure_free(orig_s);
+}
+
+TEST_F(RawTensorConvertRoundtripTest, RoundtripPreservesFields) {
+    GstStructure *orig_s = build_raw_tensor_structure("RawModel", "output");
+    GVA::Tensor original(orig_s);
+
+    GstAnalyticsTensorMtd tensor_mtd = {};
+    ASSERT_TRUE(original.convert_to_meta(reinterpret_cast<GstAnalyticsMtd *>(&tensor_mtd), rmeta));
+
+    GstStructure *restored_s = roundtrip(&tensor_mtd);
+    ASSERT_NE(restored_s, nullptr);
+    GVA::Tensor restored(restored_s);
+
+    EXPECT_EQ(restored.type(), GVA::GST_ANALYTICS_TENSOR_2_TENSOR);
+    EXPECT_EQ(restored.precision(), GVA::Tensor::Precision::FP32);
+    EXPECT_EQ(restored.dims(), original.dims());
+    // provenance: model name is carried in the semantic tag, layer name in tensor_name
+    EXPECT_EQ(restored.get_string("semantic_tag"), "RawModel");
+    EXPECT_EQ(restored.get_string("tensor_name"), "output");
+
+    auto orig_data = original.data<float>();
+    auto restored_data = restored.data<float>();
+    ASSERT_EQ(restored_data.size(), orig_data.size());
+    for (size_t i = 0; i < restored_data.size(); i++)
+        EXPECT_FLOAT_EQ(restored_data[i], orig_data[i]) << "raw tensor value[" << i << "] mismatch";
+
+    gst_structure_free(orig_s);
+}
+
+TEST_F(RawTensorConvertRoundtripTest, EmptyDimsReturnsFalse) {
+    GstStructure *s = gst_structure_new_empty("tensor");
+    GVA::Tensor tensor(s);
+    tensor.set_type(GVA::GST_ANALYTICS_TENSOR_2_TENSOR);
+    tensor.set_precision(GVA::Tensor::Precision::FP32);
+    const float data[2] = {1.0f, 2.0f};
+    tensor.set_data(data, sizeof(data)); // dims intentionally not set
+
+    GstAnalyticsTensorMtd tensor_mtd = {};
+    EXPECT_FALSE(tensor.convert_to_meta(reinterpret_cast<GstAnalyticsMtd *>(&tensor_mtd), rmeta));
+
+    gst_structure_free(s);
+}
+
+TEST_F(RawTensorConvertRoundtripTest, UnknownPrecisionReturnsFalse) {
+    GstStructure *s = gst_structure_new_empty("tensor");
+    GVA::Tensor tensor(s);
+    tensor.set_type(GVA::GST_ANALYTICS_TENSOR_2_TENSOR);
+    // no precision set -> UNSPECIFIED, which does not map to a GstTensorDataType
+    tensor.set_dims({1u, 2u});
+    const float data[2] = {1.0f, 2.0f};
+    tensor.set_data(data, sizeof(data));
+
+    GstAnalyticsTensorMtd tensor_mtd = {};
+    EXPECT_FALSE(tensor.convert_to_meta(reinterpret_cast<GstAnalyticsMtd *>(&tensor_mtd), rmeta));
+
+    gst_structure_free(s);
+}
