@@ -17,7 +17,7 @@ namespace post_processing {
 RF-DETR tensor output layout:
     logits: [B, N, C] or [N, C]
     boxes:  [B, N, 4] or [N, 4] in normalized cxcywh
-    where C may include an extra "no-object" class at the end.
+    Index 0 is the background/no-object class; real classes start at 1.
 */
 class RFDETRConverter : public BlobToROIConverter {
   protected:

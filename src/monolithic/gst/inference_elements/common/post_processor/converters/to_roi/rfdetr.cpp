@@ -77,9 +77,8 @@ void RFDETRConverter::parseOutputBlobs(const float *logits_data, const std::vect
     if (labels_count == 0)
         throw std::invalid_argument("Num classes is zero.");
 
-    const bool has_no_object = logits_classes > labels_count;
-    const size_t valid_classes = has_no_object ? labels_count : std::min(labels_count, logits_classes);
-    if (valid_classes == 0)
+    const size_t valid_classes = std::min(labels_count, logits_classes);
+    if (valid_classes < 2)
         throw std::invalid_argument("No valid classes for RF-DETR post-processing.");
 
     const auto &model_input_image_info = getModelInputImageInfo();
@@ -92,9 +91,10 @@ void RFDETRConverter::parseOutputBlobs(const float *logits_data, const std::vect
 
         auto probs = softmax(logits, logits_classes);
 
-        size_t best_class = 0;
-        float best_score = probs[0];
-        for (size_t c = 1; c < valid_classes; ++c) {
+        // Skip index 0 (background/no-object class)
+        size_t best_class = 1;
+        float best_score = probs[1];
+        for (size_t c = 2; c < valid_classes; ++c) {
             if (probs[c] > best_score) {
                 best_score = probs[c];
                 best_class = c;
