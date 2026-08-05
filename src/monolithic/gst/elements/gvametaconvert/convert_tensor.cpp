@@ -94,12 +94,6 @@ json convert_tensor(const GVA::Tensor &s_tensor) {
             jobject.push_back(json::object_t::value_type("dims_order", dims_order_value));
         }
     }
-    if (s_tensor.has_field("gst_tensor_layout")) {
-        std::string gst_tensor_layout_value = s_tensor.get_string("gst_tensor_layout");
-        if (!gst_tensor_layout_value.empty()) {
-            jobject.push_back(json::object_t::value_type("gst_tensor_layout", gst_tensor_layout_value));
-        }
-    }
     std::string format_value = s_tensor.format();
     if (!format_value.empty()) {
         jobject.push_back(json::object_t::value_type("format", format_value));

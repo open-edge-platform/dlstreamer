@@ -1267,8 +1267,6 @@ class Tensor {
                 tensor.set_string("tensor_name", g_quark_to_string(gtensor->id));
             tensor.set_string("dims_order",
                               gtensor->dims_order == GST_TENSOR_DIM_ORDER_COL_MAJOR ? "col-major" : "row-major");
-            tensor.set_string("gst_tensor_layout",
-                              gtensor->layout == GST_TENSOR_LAYOUT_CONTIGUOUS ? "contiguous" : "unknown");
             tensor.set_data(map.data, map.size);
 
             gst_buffer_unmap(gtensor->data, &map);
