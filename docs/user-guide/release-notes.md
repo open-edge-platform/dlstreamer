@@ -322,20 +322,21 @@ List of the features and components to be deprecated in the future.
 ## Legal Information
 
 * GStreamer is an open source framework licensed under LGPL.
-See https://gstreamer.freedesktop.org/documentation/frequently-asked-questions/licensing.html.
+See [GStreamer Licensing FAQ](https://gstreamer.freedesktop.org/documentation/frequently-asked-questions/licensing.html).
 You are solely responsible for determining if your use of GStreamer requires any additional licenses.
 Intel is not responsible for obtaining any such licenses, nor liable for any licensing fees due, in connection with your use of GStreamer.
 
 * FFmpeg is an open source project licensed under LGPL and GPL.
-See https://www.ffmpeg.org/legal.html.
+See [FFmpeg Legal Information](https://www.ffmpeg.org/legal.html).
 You are solely responsible for determining if your use of FFmpeg requires any additional licenses.
 Intel is not responsible for obtaining any such licenses, nor liable for any licensing fees due, in connection with your use of FFmpeg.
 
 <!--hide_directive
-```{toctree}
+:::{toctree}
 :hidden:
 
-release-notes/release-notes-2025.md
-release-notes/release-notes-2024.md
-```
+release-notes/release-notes-2025
+release-notes/release-notes-2024
+
+:::
 hide_directive-->
