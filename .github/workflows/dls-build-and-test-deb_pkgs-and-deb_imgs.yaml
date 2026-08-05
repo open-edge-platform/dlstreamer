@@ -668,6 +668,30 @@ jobs:
         run: |
           find merged-diff-reports -type d -name gt_update_proposal -exec rm -rf {} +
 
+      - name: Generate aggregator index.html
+        run: |
+          INDEX="merged-diff-reports/index.html"
+          {
+            echo '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Diff reports - all platforms</title>'
+            echo '<style>body{font-family:sans-serif;margin:2rem}table{border-collapse:collapse}td,th{border:1px solid #ccc;padding:.4rem .8rem;text-align:left}a{margin-right:.6rem}</style>'
+            echo '</head><body><h1>Diff reports - all platforms</h1>'
+            GT_COUNT=$(find merged-diff-reports/gt_update_proposals -type f 2>/dev/null | wc -l)
+            if [ "$GT_COUNT" -gt 0 ]; then
+              echo "<p><a href=\"gt_update_proposals/\">GT update proposals ($GT_COUNT files)</a></p>"
+            fi
+            echo '<table><tr><th>Test</th><th>Platforms</th></tr>'
+            find merged-diff-reports -mindepth 1 -maxdepth 1 -type d ! -name gt_update_proposals | sort | while read -r test_dir; do
+              test_name="$(basename "$test_dir")"
+              echo "<tr><td>$test_name</td><td>"
+              find "$test_dir" -mindepth 1 -maxdepth 1 -type d | sort | while read -r platform_dir; do
+                platform="$(basename "$platform_dir")"
+                echo "<a href=\"$test_name/$platform/index.html\">$platform</a>"
+              done
+              echo '</td></tr>'
+            done
+            echo '</table></body></html>'
+          } > "$INDEX"
+
       - name: Upload combined diff reports and GT update proposals artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a #7.0.1
         if: always()
