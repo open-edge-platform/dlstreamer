@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2021-2025 Intel Corporation
+ * Copyright (C) 2021-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -37,6 +37,9 @@ TensorsTable RawDataCopyConverter::convert(const OutputBlobs &output_blobs) {
 
                 CopyOutputBlobToGstStructure(blob, tensor_data, BlobToMetaConverter::getModelName().c_str(),
                                              layer_name.c_str(), batch_size, frame_index);
+
+                // Mark as a generic raw tensor so it is mirrored as a GstAnalyticsTensorMtd.
+                gst_structure_set(tensor_data, "type", G_TYPE_STRING, GVA::GST_ANALYTICS_TENSOR_2_TENSOR, NULL);
 
                 // In different versions of GStreamer, tensors_batch are attached to the buffer in a different order.
                 // Thus, we identify our meta using tensor_id.

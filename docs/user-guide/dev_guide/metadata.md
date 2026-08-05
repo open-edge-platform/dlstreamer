@@ -38,7 +38,7 @@ for input from GStreamer community.
 ## Custom Watermark Metadata
 
 `gvawatermark` automatically renders custom drawing primitives attached directly to GStreamer buffers
-using the DLStreamer watermark metadata types.
+using the DL Streamer watermark metadata types.
 
 Key types:
 

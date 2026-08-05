@@ -279,19 +279,21 @@ json convert_roi_detection(GstGvaMetaConvert *converter, GstBuffer *buffer, GstV
             }
             if (converter->add_tensor_data) {
                 GVA::Tensor s_tensor = GVA::Tensor((GstStructure *)l->data);
-                // Skip old legacy keypoint/segmentation tensors — replaced by analytics-sourced ones below
+                // Skip legacy keypoint/segmentation/raw tensors — replaced by analytics-sourced ones below
                 if (s_tensor.type() != GVA::GST_ANALYTICS_KEYPOINTS_2_TENSOR &&
-                    s_tensor.type() != GVA::GST_ANALYTICS_SEGMENTATION_2_TENSOR) {
+                    s_tensor.type() != GVA::GST_ANALYTICS_SEGMENTATION_2_TENSOR &&
+                    s_tensor.type() != GVA::GST_ANALYTICS_TENSOR_2_TENSOR) {
                     jobject["tensors"].push_back(convert_tensor(s_tensor));
                 }
             }
         }
 
-        // Add analytics-sourced keypoint/segmentation tensors to "tensors" array (replacing legacy tensor)
+        // Add analytics-sourced keypoint/segmentation/raw tensors to "tensors" array (replacing legacy tensor)
         if (converter->add_tensor_data) {
             for (const auto &tensor : roi.tensors()) {
                 if (tensor.type() == GVA::GST_ANALYTICS_KEYPOINTS_2_TENSOR ||
-                    tensor.type() == GVA::GST_ANALYTICS_SEGMENTATION_2_TENSOR) {
+                    tensor.type() == GVA::GST_ANALYTICS_SEGMENTATION_2_TENSOR ||
+                    tensor.type() == GVA::GST_ANALYTICS_TENSOR_2_TENSOR) {
                     jobject["tensors"].push_back(convert_tensor(tensor));
                 }
             }
