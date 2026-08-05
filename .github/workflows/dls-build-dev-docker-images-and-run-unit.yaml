@@ -12,7 +12,7 @@ on:
   workflow_dispatch:
 permissions: {}
 env:
-  MODELS_PATH: "/home/runner/models"
+  MODELS_PATH: "/home/runner/models_experiment"
   VIDEO_INPUTS_PATH: "/home/runner/videos"
 
 jobs:

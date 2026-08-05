@@ -26,7 +26,7 @@ on:
 permissions: {}
 env:
   dlstreamer-version: "2026.1.0"
-  MODELS_PATH: "$HOME/models"
+  MODELS_PATH: "$HOME/models_experiment"
   VIDEO_INPUTS_PATH: "$HOME/videos"
   DLS_REL_PATH: "./dlstreamer"
 
