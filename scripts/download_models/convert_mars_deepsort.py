@@ -29,6 +29,10 @@ import torch
 import openvino as ov
 import nncf
 
+SAMPLES_DIR = Path(__file__).resolve().parents[2] / "samples"
+if str(SAMPLES_DIR) not in sys.path:
+    sys.path.insert(0, str(SAMPLES_DIR))
+
 from shared_utils import download_https
 
 # Configure logging

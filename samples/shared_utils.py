@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
-"""Shared helper functions used by model download scripts."""
+"""Shared helper functions used by sample and model download scripts."""
 
 from __future__ import annotations
 
