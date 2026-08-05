@@ -4,7 +4,7 @@
 
 ## Key 2026.1 highlights:
 
-* DLStreamer Coding Agent: AI-assisted pipeline builder that translates natural-language descriptions into working DL Streamer Python apps or GStreamer command lines
+* DL Streamer Coding Agent: AI-assisted pipeline builder that translates natural-language descriptions into working DL Streamer Python apps or GStreamer command lines
 * GstAnalytics metadata migration: full-frame GstAnalytics support, keypoints switched to GstAnalytics API, migration to upstream GStreamer 1.28+ API
 * New elements: gvastreammux, gvaanalytics, g3dinference
 * New model support: YOLO classification, PaddleOCRv5, GETI semantic segmentation
@@ -17,7 +17,7 @@
 * Deep SORT tracker refactoring with enhanced detection and track structures
 * New Python samples: gvaanalytics, inference performance optimizations, custom frame selection for VLM queries
 * Dynamic ONVIF camera discovery with DLS pipeline startup
-* DLStreamer ONVIF package as installable Python wheel
+* DL Streamer ONVIF package as installable Python wheel
 * Component updates: OpenVINO 2026.1, GStreamer 1.28.2, OpenCV 4.13.0, NPU driver 1.32.1, Ubuntu 24.04.4 kernel 6.17
 * Introduced support for Intel® Core™ Processors - series 3 (Wildcat Lake)
 * CI: self-hosted Kubernetes infrastructure, configurable tests, Fedora 41 image building
@@ -67,7 +67,7 @@ For installing Pipeline Framework with the prebuilt binaries or Docker* or to bu
 
 | Feature | Description |
 |---------|-------------|
-| DLStreamer Coding Agent | AI-powered coding assistant that translates natural-language pipeline descriptions into working DL Streamer applications (Python or GStreamer CLI). Ships with a structured skill comprising a requirements questionnaire, model preparation guide, pipeline construction rules, design patterns, sample index, and debugging hints. Seven example prompts included: pose estimation, people detection & tracking, VLM safety compliance checks, event-based smart NVR, license-plate recognition, multi-stream compose, and DeepStream-to-DLStreamer Python conversion. |
+| DL Streamer Coding Agent | AI-powered coding assistant that translates natural-language pipeline descriptions into working DL Streamer applications (Python or GStreamer CLI). Ships with a structured skill comprising a requirements questionnaire, model preparation guide, pipeline construction rules, design patterns, sample index, and debugging hints. Seven example prompts included: pose estimation, people detection & tracking, VLM safety compliance checks, event-based smart NVR, license-plate recognition, multi-stream compose, and DeepStream-to-DLStreamer Python conversion. |
 | Upstream GstAnalytics API migration | Removed custom gstanalyticsgroupmtd and gstanalyticskeypointmtd implementations, migrating to upstream GStreamer 1.28+ API. |
 | Full-frame GstAnalytics support | Added full-frame GstAnalytics support so inference results without a parent object detection are properly stored in GstAnalyticsRelationMeta and serialized to JSON. Includes frame-level classification and keypoint conversion. |
 | Keypoints GstAnalytics metadata | Switched keypoints to GstAnalytics metadata API for standardized metadata handling. |
@@ -87,7 +87,7 @@ For installing Pipeline Framework with the prebuilt binaries or Docker* or to bu
 | gvaanalytics sample | New sample demonstrating the gvaanalytics element usage. |
 | Inference performance optimization sample | New sample app demonstrating inference performance optimizations DLS can provide. |
 | Custom frame selection for VLM sample | New sample pipeline with custom frame selection logic for VLM queries. |
-| DLStreamer ONVIF Python wheel | Introduced dlstreamer.onvif package as an installable Python wheel (whl file). |
+| DL Streamer ONVIF Python wheel | Introduced dlstreamer.onvif package as an installable Python wheel (whl file). |
 | PyTorch Image Models (TIMM) import | Added PyTorch Image Models (TIMM) model import script for model onboarding. |
 | Python environment setup script | Added Python environment setup script for streamlined development setup. |
 
@@ -181,7 +181,7 @@ List of the features and components to be deprecated in the future.
 * New elements: gvafpsthrottle, g3dradarprocess, g3dlidarparse
 * New model support: YOLOv26, YOLO-E, RT-DETR, HuggingFace ViT
 * Streamlined integration with Ultralytics and HuggingFace model hubs
-* GstAnalytics metadata support: DLStreamer supports GstAnalytics metadata for object detection, classification, tracking and adds custom GstAnalytics extension for keypoints
+* GstAnalytics metadata support: DL Streamer supports GstAnalytics metadata for object detection, classification, tracking and adds custom GstAnalytics extension for keypoints
 * gvawatermark overhaul: object bluring, text backgrounds, label filtering, extra fonts, thickness/color options, FPS overlay
 * Inference enhancements: batch timeout, OpenCV tensor compression for all devices
 * Windows platform: GPU inference via D3D11, gvapython support, CI integration, build/setup improvements
