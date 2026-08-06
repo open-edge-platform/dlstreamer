@@ -11,6 +11,7 @@
 #include "gva_base_inference.h"
 #include "inference_backend/logger.h"
 #include "inference_impl.h"
+#include "mono3d_calibration.h"
 #include "model_proc_provider.h"
 
 #include <map>
@@ -180,6 +181,22 @@ PostProcessor::PostProcessor(InferenceImpl *inference_impl, GvaBaseInference *ba
     /* if model proc is empty check if post-processing info can be derived from model metadata */
     if (initializer.output_processors.empty()) {
         initializer.output_processors = model.inference->GetModelInfoPostproc();
+    }
+    /* feed camera calibration to the MonoDETR ("mono3d") post-processor: it needs P2 and the
+     * original image size to lift 2D detections into 3D. These come from the gvadetect
+     * "intrinsics-file" property (falling back to the source frame size). */
+    for (const auto &output_processor : initializer.output_processors) {
+        GstStructure *s = output_processor.second;
+        if (!s)
+            continue;
+        const gchar *converter = gst_structure_get_string(s, "converter");
+        if (converter && g_strcmp0(converter, "mono3d") == 0) {
+            const int default_w = base_inference->info ? base_inference->info->width : 0;
+            const int default_h = base_inference->info ? base_inference->info->height : 0;
+            const Mono3DCalibration calib = parseMono3DIntrinsics(
+                base_inference->intrinsics_file ? base_inference->intrinsics_file : "", default_w, default_h);
+            applyMono3DCalibrationToStructure(s, calib);
+        }
     }
     /* set output labels */
     // NOTE: must be called after setting output_processors

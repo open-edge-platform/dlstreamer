@@ -85,6 +85,8 @@
 
 #define DEFAULT_OV_EXTENSION_LIB nullptr
 
+#define DEFAULT_INTRINSICS_FILE nullptr
+
 #define DEFAULT_SHARE_VADISPLAY_CTX TRUE
 
 G_DEFINE_TYPE_WITH_PRIVATE(GvaBaseInference, gva_base_inference, GST_TYPE_BASE_TRANSFORM);
@@ -122,6 +124,7 @@ enum {
     PROP_CUSTOM_PREPROC_LIB,
     PROP_CUSTOM_POSTPROC_LIB,
     PROP_OV_EXTENSION_LIB,
+    PROP_INTRINSICS_FILE,
     PROP_SHARE_VADISPLAY_CTX,
     PROP_CORE_PINNING
 };
@@ -253,6 +256,15 @@ void gva_base_inference_class_init(GvaBaseInferenceClass *klass) {
                                     g_param_spec_string("ov-extension-lib", "OpenVINO Extension Library",
                                                         "Path to the .so file defining custom OpenVINO operations.",
                                                         DEFAULT_OV_EXTENSION_LIB, param_flags));
+
+    g_object_class_install_property(
+        gobject_class, PROP_INTRINSICS_FILE,
+        g_param_spec_string("intrinsics-file", "Camera Intrinsics File",
+                            "Path to a JSON file with camera calibration used by the MonoDETR (mono3d) "
+                            "post-processor to lift 2D detections into 3D. Supports an \"intrinsic_matrix\" "
+                            "(3x3) or \"projection_matrix\" (3x4) and an optional \"image_size\" [W, H]. "
+                            "Same schema as the gvawatermark3d element.",
+                            DEFAULT_INTRINSICS_FILE, param_flags));
 
     g_object_class_install_property(
         gobject_class, PROP_MODEL_INSTANCE_ID,
@@ -502,6 +514,9 @@ void gva_base_inference_cleanup(GvaBaseInference *base_inference) {
 
     g_free(base_inference->ov_extension_lib);
     base_inference->ov_extension_lib = nullptr;
+
+    g_free(base_inference->intrinsics_file);
+    base_inference->intrinsics_file = nullptr;
 }
 
 /**
@@ -630,6 +645,7 @@ void gva_base_inference_init(GvaBaseInference *base_inference) {
     base_inference->custom_preproc_lib = g_strdup(DEFAULT_MODEL_PROC);
     base_inference->custom_postproc_lib = g_strdup(DEFAULT_CUSTOM_POSTPROC_LIB);
     base_inference->ov_extension_lib = g_strdup(DEFAULT_OV_EXTENSION_LIB);
+    base_inference->intrinsics_file = g_strdup(DEFAULT_INTRINSICS_FILE);
 
     base_inference->share_va_display_ctx = DEFAULT_SHARE_VADISPLAY_CTX;
 #ifndef _WIN32
@@ -983,6 +999,11 @@ void gva_base_inference_set_property(GObject *object, guint property_id, const G
         base_inference->ov_extension_lib = g_value_dup_string(value);
         GST_INFO_OBJECT(base_inference, "ov-extension-lib: %s", base_inference->ov_extension_lib);
         break;
+    case PROP_INTRINSICS_FILE:
+        g_free(base_inference->intrinsics_file);
+        base_inference->intrinsics_file = g_value_dup_string(value);
+        GST_INFO_OBJECT(base_inference, "intrinsics-file: %s", base_inference->intrinsics_file);
+        break;
     case PROP_SHARE_VADISPLAY_CTX:
         base_inference->share_va_display_ctx = g_value_get_boolean(value);
         break;
@@ -1075,6 +1096,9 @@ void gva_base_inference_get_property(GObject *object, guint property_id, GValue 
         break;
     case PROP_OV_EXTENSION_LIB:
         g_value_set_string(value, base_inference->ov_extension_lib);
+        break;
+    case PROP_INTRINSICS_FILE:
+        g_value_set_string(value, base_inference->intrinsics_file);
         break;
     case PROP_SHARE_VADISPLAY_CTX:
         g_value_set_boolean(value, base_inference->share_va_display_ctx);
