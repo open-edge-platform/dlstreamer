@@ -20,11 +20,11 @@ FILE_PATH = os.path.join(tempfile.gettempdir(), "meta_vpt.json")
 D_MODEL_NAME = "yolo26s"
 D_MODEL_PATH, D_MODEL_PROC_PATH = get_model_path(
     D_MODEL_NAME), get_model_proc_path(D_MODEL_NAME)
-C1_MODEL_NAME = "dima806/fairface_gender_image_detection"
+C1_MODEL_NAME = "dima806_fairface_gender_image_detection"
 C1_MODEL_PATH = get_model_path(C1_MODEL_NAME)
-C1_AGE_MODEL_NAME = "dima806/facial_age_image_detection"
+C1_AGE_MODEL_NAME = "dima806_facial_age_image_detection"
 C1_AGE_MODEL_PATH = get_model_path(C1_AGE_MODEL_NAME)
-C2_MODEL_NAME = "dima806/vehicle_10_types_image_detection"
+C2_MODEL_NAME = "dima806_vehicle_10_types_image_detection"
 C2_MODEL_PATH = get_model_path(C2_MODEL_NAME)
 
 

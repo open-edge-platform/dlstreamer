@@ -39,8 +39,8 @@ GST_START_TEST(test_inference_id_multichannel) {
 
     ExitStatus status = get_model_path(detection_model_path, MAX_STR_PATH_SIZE, "yolo26s", "FP32");
     ck_assert(status == EXIT_STATUS_SUCCESS);
-    status =
-        get_model_path(classify_model_path, MAX_STR_PATH_SIZE, "dima806/fairface_gender_image_detection", "FP32");
+    status = get_model_path(classify_model_path, MAX_STR_PATH_SIZE, "dima806_fairface_gender_image_detection",
+                            "FP32");
     ck_assert(status == EXIT_STATUS_SUCCESS);
     status = get_video_file_path(video_file_path, MAX_STR_PATH_SIZE, "Pexels_Videos_4786.mp4");
     ck_assert(status == EXIT_STATUS_SUCCESS);

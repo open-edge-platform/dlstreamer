@@ -54,7 +54,7 @@ GST_START_TEST(test_breakmydata_classify) {
         get_model_path(detection_model_path, MAX_STR_PATH_SIZE, "yolov8_license_plate_detector", "FP32");
     ck_assert(status == EXIT_STATUS_SUCCESS);
     status =
-        get_model_path(classify_model_path_1, MAX_STR_PATH_SIZE, "dima806/vehicle_10_types_image_detection", "FP32");
+        get_model_path(classify_model_path_1, MAX_STR_PATH_SIZE, "dima806_vehicle_10_types_image_detection", "FP32");
     ck_assert(status == EXIT_STATUS_SUCCESS);
 
     status = get_model_proc_path(detection_model_proc_path, MAX_STR_PATH_SIZE,
@@ -148,7 +148,7 @@ GST_START_TEST(test_breakmydata_metaconvert) {
         get_model_path(detection_model_path, MAX_STR_PATH_SIZE, "yolov8_license_plate_detector", "FP32");
     ck_assert(status == EXIT_STATUS_SUCCESS);
     status =
-        get_model_path(classify_model_path, MAX_STR_PATH_SIZE, "dima806/fairface_gender_image_detection", "FP32");
+        get_model_path(classify_model_path, MAX_STR_PATH_SIZE, "dima806_fairface_gender_image_detection", "FP32");
     ck_assert(status == EXIT_STATUS_SUCCESS);
     status = get_video_file_path(video_file_path, MAX_STR_PATH_SIZE, "Pexels_Videos_4786.mp4");
     ck_assert(status == EXIT_STATUS_SUCCESS);
@@ -184,7 +184,7 @@ GST_START_TEST(test_breakmydata_element_combination) {
         get_model_path(detection_model_path, MAX_STR_PATH_SIZE, "yolov8_license_plate_detector", "FP32");
     ck_assert(status == EXIT_STATUS_SUCCESS);
     status =
-        get_model_path(classify_model_path_1, MAX_STR_PATH_SIZE, "dima806/vehicle_10_types_image_detection", "FP32");
+        get_model_path(classify_model_path_1, MAX_STR_PATH_SIZE, "dima806_vehicle_10_types_image_detection", "FP32");
     ck_assert(status == EXIT_STATUS_SUCCESS);
     status = get_model_path(classify_model_path_2, MAX_STR_PATH_SIZE, "license-plate-recognition-barrier-0007", "FP32");
     ck_assert(status == EXIT_STATUS_SUCCESS);

@@ -72,12 +72,12 @@ void check_outbuffer(GstBuffer *outbuffer, gpointer user_data) {
 }
 
 TestData test_data[] = {{"classification_test_files/pedestrians.jpg",
-                         "dima806/fairface_gender_image_detection",
+                         "dima806_fairface_gender_image_detection",
                          {{"CPU", {"FP32"}}, {"GPU", {"FP32"}}},
                          {640, 480},
                          {}},
                         {"classification_test_files/pedestrians.jpg",
-                         "dima806/facial_age_image_detection",
+                         "dima806_facial_age_image_detection",
                          {{"CPU", {"FP32"}}, {"GPU", {"FP32"}}},
                          {640, 480},
                          {}},
