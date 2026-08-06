@@ -251,7 +251,7 @@ Plugin Details:
   Name                     3delements
   Description              DL Streamer 3D Elements
   Filename                 /home/kpi/dlstreamer/build/intel64/Release/lib/libgst3delements.so
-  Version                  2026.1.0
+  Version                  2026.2.0
   License                  MIT/X11
   Source module            dlstreamer
   Binary package           Deep Learning Streamer elements
