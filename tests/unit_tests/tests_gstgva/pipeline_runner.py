@@ -22,10 +22,15 @@ from gi.repository import GLib, Gst, GstApp, GstVideo  # noqa
 
 Gst.init([])
 
+DEFAULT_PIPELINE_TIMEOUT_SEC = int(environ.get("UNIT_TEST_PIPELINE_TIMEOUT_SEC", "30"))
+
 
 class TestGenericPipelineRunner(unittest.TestCase):
     def set_pipeline(self, pipeline):
         self.exceptions = []
+        self._is_killed = False
+        self._timeout_source = None
+        self._pipeline_timeout_sec = DEFAULT_PIPELINE_TIMEOUT_SEC
 
         self._mainloop = GLib.MainLoop()
         self._pipeline_str = pipeline
@@ -39,23 +44,39 @@ class TestGenericPipelineRunner(unittest.TestCase):
     def run_pipeline(self):
         self._state = self._pipeline.set_state(Gst.State.PLAYING)
         print(self._state)
+        self._timeout_source = GLib.timeout_add_seconds(
+            self._pipeline_timeout_sec, self._on_pipeline_timeout)
         self._mainloop.run()
 
     def kill(self):
+        if self._is_killed:
+            return
+        self._is_killed = True
+
+        if self._timeout_source is not None:
+            GLib.source_remove(self._timeout_source)
+            self._timeout_source = None
+
         self._pipeline.set_state(Gst.State.PAUSED)
-        self._state = self._pipeline.get_state(Gst.CLOCK_TIME_NONE)[1]
+        self._state = self._pipeline.get_state(5 * Gst.SECOND)[1]
         print(self._state)
         self._pipeline.set_state(Gst.State.READY)
-        self._state = self._pipeline.get_state(Gst.CLOCK_TIME_NONE)[1]
+        self._state = self._pipeline.get_state(5 * Gst.SECOND)[1]
         print(self._state)
         self._pipeline.set_state(Gst.State.NULL)
-        self._state = self._pipeline.get_state(Gst.CLOCK_TIME_NONE)[1]
+        self._state = self._pipeline.get_state(5 * Gst.SECOND)[1]
         print(self._state)
 
         self._bus = None
         self._pipeline = None
         self._mainloop.quit()
         self._mainloop = None
+
+    def _on_pipeline_timeout(self):
+        self.exceptions.append(TimeoutError(
+            f"Pipeline timed out after {self._pipeline_timeout_sec}s: {self._pipeline_str}"))
+        self.kill()
+        return False
 
     def on_message(self, bus, msg):
         t = msg.type
@@ -71,6 +92,9 @@ class TestPipelineRunner(TestGenericPipelineRunner):
                      check_only_bbox_number=False, check_additional_info=True, check_frame_data=True,
                      ground_truth_per_frame=False, image_repeat_num=7, check_first_skip=0, check_format=True):
         self.exceptions = []
+        self._is_killed = False
+        self._timeout_source = None
+        self._pipeline_timeout_sec = DEFAULT_PIPELINE_TIMEOUT_SEC
         self._ground_truth = ground_truth
         self._check_only_bbox_number = check_only_bbox_number
         self._check_frame_data = check_frame_data
