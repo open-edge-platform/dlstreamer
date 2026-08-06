@@ -22,7 +22,7 @@ class ModelProcTests : public ElementTest {
         _elementName = "gvaclassify";
 
         _model_path = TestEnv::getModelPath("dima806_vehicle_10_types_image_detection", "FP32");
-        _model_proc_path = TestEnv::getModelProcPath("dima806_vehicle_10_types_image_detection");
+        _model_proc_path = "model_proc_test_files/vehicle_10_types_default.json";
     }
 
     void testModelProcLabels(const std::string &model_proc_path, const std::string &labels_str,

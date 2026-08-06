@@ -15,8 +15,8 @@ IMAGE_PATH = os.path.join(SCRIPT_DIR, "test_files", "dog_bike_car.jpg")
 MODULE_PATH = os.path.join(SCRIPT_DIR, "test_files",
                            "instance_segmentation_0002_postproc.py")
 
-MODEL_NAME = "yolo26s-seg"
-MODEL_PATH = get_model_path(MODEL_NAME, precision="FP16-INT8")
+MODEL_NAME = "yolo11s-seg"
+MODEL_PATH = get_model_path(MODEL_NAME)
 
 
 PIPELINE_STR = f"""appsrc name=mysrc

@@ -161,7 +161,7 @@ struct ClassificationHistoryTest : public ::testing::Test {
 
         meta->id = od_mtd.id;
 
-        SetUpModel("age-gender-recognition-retail-0013");
+        SetUpModel("dima806_fairface_gender_image_detection");
     }
 
     void TearDown() {

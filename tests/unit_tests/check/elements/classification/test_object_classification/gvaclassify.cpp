@@ -82,8 +82,8 @@ TestData test_data[] = {{"classification_test_files/pedestrians.jpg",
                          {640, 480},
                          {}},
                         {"classification_test_files/pedestrians.jpg",
-                         "emotions-recognition-retail-0003",
-                         {{"CPU", {"FP32"}}, {"GPU", {"FP32", "FP16"}}},
+                         "dima806_fairface_gender_image_detection",
+                         {{"CPU", {"FP32"}}, {"GPU", {"FP32"}}},
                          {640, 480},
                          {}}};
 

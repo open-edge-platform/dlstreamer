@@ -15,7 +15,7 @@
 
 const char *video_src = "People_On_The_Street.mp4";
 const char *detect_model = "centerface";
-const char *class_model = "age-gender-recognition-retail-0013";
+const char *class_model = "dima806_fairface_gender_image_detection";
 const char *fp_format = "FP32";
 const unsigned buf_num = 50;
 
