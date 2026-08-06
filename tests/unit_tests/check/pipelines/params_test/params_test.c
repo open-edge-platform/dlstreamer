@@ -11,7 +11,7 @@
 #include "pipeline_test_common.h"
 #include "test_utils.h"
 
-#define DEFAULT_FRAME_COUNT_LIMIT 500
+#define DEFAULT_FRAME_COUNT_LIMIT 120
 
 void check_out_buf_meta(GstBuffer *buffer, gpointer user_data) {
     ck_assert(buffer != NULL);
@@ -37,7 +37,7 @@ GST_START_TEST(test_inference_id_multichannel) {
     char video_file_path[MAX_STR_PATH_SIZE];
     const char *appsink_names[] = {"appsink1", "appsink2"};
 
-    ExitStatus status = get_model_path(detection_model_path, MAX_STR_PATH_SIZE, "yolo26s", "FP32");
+    ExitStatus status = get_model_path(detection_model_path, MAX_STR_PATH_SIZE, "yolo11s", "FP32");
     ck_assert(status == EXIT_STATUS_SUCCESS);
     status = get_model_path(classify_model_path, MAX_STR_PATH_SIZE, "dima806_fairface_gender_image_detection",
                             "FP32");

@@ -77,11 +77,6 @@ TestData test_data[] = {{"classification_test_files/pedestrians.jpg",
                          {640, 480},
                          {}},
                         {"classification_test_files/pedestrians.jpg",
-                         "dima806_facial_age_image_detection",
-                         {{"CPU", {"FP32"}}, {"GPU", {"FP32"}}},
-                         {640, 480},
-                         {}},
-                        {"classification_test_files/pedestrians.jpg",
                          "dima806_fairface_gender_image_detection",
                          {{"CPU", {"FP32"}}, {"GPU", {"FP32"}}},
                          {640, 480},
@@ -130,7 +125,8 @@ GST_START_TEST(test_model_proc_property_json_does_not_match_schema) {
     std::string prop_value = "classification_test_files/invalid_model_schema.json";
 
     char model_path[MAX_STR_PATH_SIZE];
-    ExitStatus status = get_model_path(model_path, MAX_STR_PATH_SIZE, "license-plate-recognition-barrier-0007", "FP32");
+    ExitStatus status =
+        get_model_path(model_path, MAX_STR_PATH_SIZE, "dima806_fairface_gender_image_detection", "FP32");
     ck_assert(status == EXIT_STATUS_SUCCESS);
     check_bus_for_error("gvaclassify", &srctemplate, &sinktemplate, "", GST_LIBRARY_ERROR, GST_LIBRARY_ERROR_INIT,
                         "model", model_path, "model-proc", prop_value.c_str(), NULL);

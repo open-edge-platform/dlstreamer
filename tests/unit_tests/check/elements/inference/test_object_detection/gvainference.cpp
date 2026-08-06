@@ -52,7 +52,7 @@ void check_outbuffer(GstBuffer *outbuffer, gpointer user_data) {
 }
 
 TestData cpu_test_data[] = {
-    {"inference_test_files/car_2.jpg", "yolov8_license_plate_detector", {640, 480}},
+    {"inference_test_files/car_2.jpg", "yolo11s", {640, 480}},
     {"inference_test_files/car_1.png", "yolo26s", {640, 480}},
     {"inference_test_files/car_1.png", "yolo11s", {640, 480}},
     {"inference_test_files/pedestrians.jpg", "yolo26s", {640, 480}},
@@ -79,7 +79,7 @@ GST_START_TEST(test_obj_detection_inference_cpu) {
 GST_END_TEST;
 
 TestData gpu_test_data[] = {
-    {"inference_test_files/car_2.jpg", "yolov8_license_plate_detector", {640, 480}},
+    {"inference_test_files/car_2.jpg", "yolo11s", {640, 480}},
     {"inference_test_files/car_1.png", "yolo11s", {640, 480}},
     {"inference_test_files/pedestrians.jpg", "yolo26s", {640, 480}}};
 
@@ -88,9 +88,7 @@ GST_START_TEST(test_obj_detection_inference_gpu) {
     char model_path[MAX_STR_PATH_SIZE];
 
     for (int i = 0; i < G_N_ELEMENTS(gpu_test_data); i++) {
-        std::vector<std::string> supported_fp =
-            gpu_test_data[i].model_name == "yolov8_license_plate_detector" ? std::vector<std::string>{"FP32"}
-                                                                          : std::vector<std::string>{"FP16"};
+        std::vector<std::string> supported_fp = std::vector<std::string>{"FP16"};
         for (const auto &fp : supported_fp) {
             g_print("Test: %d  Model: %s\n", i, gpu_test_data[i].model_name.c_str());
             ExitStatus status =

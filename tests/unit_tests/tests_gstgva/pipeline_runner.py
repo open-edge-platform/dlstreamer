@@ -7,6 +7,9 @@
 from tests_gstgva.utils import BBox
 from os import listdir, environ
 from os.path import isfile, isdir, join
+import json
+import re
+import time
 
 import unittest
 
@@ -84,7 +87,10 @@ class TestGenericPipelineRunner(unittest.TestCase):
             self.kill()
         elif t is Gst.MessageType.ERROR:
             self.kill()
-            self.exceptions.append(msg.parse_error())
+            parsed_error = msg.parse_error()
+            self.exceptions.append(parsed_error)
+            if hasattr(self, "_dump_debug_artifact"):
+                self._dump_debug_artifact("gst_error", error=repr(parsed_error))
 
 
 class TestPipelineRunner(TestGenericPipelineRunner):
@@ -102,6 +108,7 @@ class TestPipelineRunner(TestGenericPipelineRunner):
         self._check_format = check_format
         self._check_first_skip = check_first_skip
         self._check_additional_info = check_additional_info
+        self._dump_gt_dir = environ.get("UNIT_TESTS_DUMP_GT_DIR")
 
         self._mainloop = GLib.MainLoop()
         self._pipeline_str = pipeline
@@ -129,6 +136,47 @@ class TestPipelineRunner(TestGenericPipelineRunner):
         self._image_paths_to_src = sorted(self._image_paths_to_src)
         self._expected_frames_num = len(self._image_paths_to_src)
         self._current_frame = 0
+
+    @staticmethod
+    def _bbox_to_dict(bbox):
+        return {
+            "x_min": bbox.x_min,
+            "y_min": bbox.y_min,
+            "x_max": bbox.x_max,
+            "y_max": bbox.y_max,
+            "class_id": bbox.class_id,
+            "tracker_id": bbox.tracker_id,
+            "additional_info": bbox.additional_info,
+        }
+
+    @staticmethod
+    def _sanitize_name(name):
+        return re.sub(r"[^A-Za-z0-9_.-]+", "_", name)
+
+    def _dump_debug_artifact(self, reason, regions=None, gt=None, error=None):
+        if not self._dump_gt_dir:
+            return
+
+        test_name = self._sanitize_name(environ.get("PYTEST_CURRENT_TEST", "unknown_test").split(" ")[0])
+        timestamp = int(time.time() * 1000)
+        file_name = f"{test_name}__frame_{self._current_frame}__{reason}__{timestamp}.json"
+        path = join(self._dump_gt_dir, file_name)
+
+        payload = {
+            "reason": reason,
+            "pipeline": self._pipeline_str,
+            "frame": self._current_frame,
+            "error": error,
+            "regions": [self._bbox_to_dict(b) for b in (regions or [])],
+            "ground_truth": [self._bbox_to_dict(b) for b in (gt or [])],
+        }
+
+        try:
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(payload, f, indent=2)
+        except Exception as e:
+            # Dump generation is best-effort and must not affect test flow.
+            self.exceptions.append(e)
 
     def need_data(self, app_src, size):
         if not self._image_paths_to_src:
@@ -209,6 +257,8 @@ class TestPipelineRunner(TestGenericPipelineRunner):
                 regions.append(bbox)
         except Exception as e:
             self.exceptions.append(e)
+            gt = self._ground_truth[:] if not self._ground_truth_per_frame else self._ground_truth[self._current_frame - 1]
+            self._dump_debug_artifact("region_extract_exception", regions=regions, gt=gt, error=repr(e))
 
         try:
             gt = self._ground_truth[:] if not self._ground_truth_per_frame else self._ground_truth[self._current_frame - 1]
@@ -217,6 +267,7 @@ class TestPipelineRunner(TestGenericPipelineRunner):
                 self._check_only_bbox_number, self._check_additional_info))
         except Exception as e:
             self.exceptions.append(e)
+            self._dump_debug_artifact("bbox_mismatch", regions=regions, gt=gt, error=repr(e))
 
         # Wait till all frames are processed on appsink
         if self._expected_frames_num == self._current_frame:

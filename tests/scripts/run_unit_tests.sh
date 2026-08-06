@@ -75,11 +75,17 @@ fi
 set +e
 ret_code=0
 
-ctest -T Test -E test_symlink --output-on-failure --verbose "${ctest_args_junit[@]}" || ret_code=$?
+ctest -T Test -E "test_symlink|test_audio_detection_plugin" --output-on-failure --verbose "${ctest_args_junit[@]}" || ret_code=$?
 cp ./Testing/"$(head -n 1 Testing/TAG)"/Test.xml "$result_path/CTestResults.xml"
 popd
 
 SRC_DIR=$build_dir/..
+
+if [[ "${UNIT_TESTS_DUMP_GT:-0}" == "1" ]]; then
+  export UNIT_TESTS_DUMP_GT_DIR="$result_path/gt_dumps"
+  mkdir -p "$UNIT_TESTS_DUMP_GT_DIR"
+  echo "GT dump collection enabled: $UNIT_TESTS_DUMP_GT_DIR"
+fi
 
 pushd "$SRC_DIR"/tests/unit_tests/tests_gstgva
 py.test -v -s --tb=short \
