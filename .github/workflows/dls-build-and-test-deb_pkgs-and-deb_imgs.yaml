@@ -709,12 +709,13 @@ jobs:
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
-            const { data } = await github.rest.actions.listWorkflowRunArtifacts({
+            // listWorkflowRunArtifacts defaults to one page (30 items) - paginate to see all of them.
+            const artifacts = await github.paginate(github.rest.actions.listWorkflowRunArtifacts, {
               owner: context.repo.owner,
               repo: context.repo.repo,
               run_id: context.runId,
             });
-            for (const artifact of data.artifacts) {
+            for (const artifact of artifacts) {
               if (/^DLS_functional_tests_.+_on_host_.+_diff_reports$/.test(artifact.name)) {
                 await github.rest.actions.deleteArtifact({
                   owner: context.repo.owner,
