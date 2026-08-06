@@ -85,10 +85,12 @@ TestData gpu_test_data[] = {
 
 GST_START_TEST(test_obj_detection_inference_gpu) {
     g_print("Starting test: test_obj_detection_inference_gpu\n");
-    std::vector<std::string> supported_fp = {"FP16"};
     char model_path[MAX_STR_PATH_SIZE];
 
     for (int i = 0; i < G_N_ELEMENTS(gpu_test_data); i++) {
+        std::vector<std::string> supported_fp =
+            gpu_test_data[i].model_name == "yolov8_license_plate_detector" ? std::vector<std::string>{"FP32"}
+                                                                          : std::vector<std::string>{"FP16"};
         for (const auto &fp : supported_fp) {
             g_print("Test: %d  Model: %s\n", i, gpu_test_data[i].model_name.c_str());
             ExitStatus status =
