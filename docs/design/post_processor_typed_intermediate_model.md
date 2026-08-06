@@ -5,6 +5,10 @@ Owner: DL Streamer post-processing.
 Prerequisite work that must land first:
 1. Semantic + instance **segmentation → GstAnalytics** migration is merged.
 2. **Full `GstAnalyticsTensorMtd` support** (generic raw tensors, round-trippable) is in place.
+   **Status: landed** (branch `gst-analytics-raw-tensors`). Generic raw tensors
+   now round-trip through `GstAnalyticsTensorMtd`. The exact field set that a raw
+   tensor carries today is documented in **§4.1** and must be preserved 1:1 by
+   this refactor (the typed `TensorResult` in §4 is modelled directly on it).
 
 This document is a durable, self-contained plan. It captures the motivation,
 the exact current data flow, the shape of the proposed typed intermediate
@@ -180,6 +184,7 @@ New header (proposed): `converters/.../inference_result.h` (namespace
 namespace post_processing {
 
 enum class Precision { UNSPECIFIED, FP32, FP16, I32, I64, U8, /* ... */ };
+enum class DimsOrder { RowMajor, ColMajor };   // <-> GstTensor.dims_order
 
 // Generic tensor payload. Two alternative representations are on the table
 // (see the "TensorResult payload" note below); the code shows Alternative B.
@@ -201,12 +206,21 @@ class TensorData {
     std::size_t byte_size() const { return bytes.size(); }
 };
 
-// A generic raw tensor payload (maps to GstAnalyticsTensorMtd).
+// A generic raw tensor payload (maps to GstAnalyticsTensorMtd / GstTensor).
+// This struct is modelled 1:1 on the raw-tensor field set that already
+// round-trips today (see the full inventory in §4.1). Keep it in sync with it.
 struct TensorResult {
-    std::string              semantic_tag; // sole provenance carrier
-    std::string              tensor_id;    // optional GstAnalyticsTensorMtd id (GQuark source)
-    std::vector<std::size_t> dims;         // row-major (matches GstTensor dims)
-    TensorData               data;         // precision + bytes, typed access via as<T>()
+    std::string              semantic_tag; // provenance; <-> GstAnalyticsMtd semantic tag (from model name)
+    std::string              tensor_name;  // content id; <-> GstTensor.id (GQuark, from layer/output name, e.g. "prob")
+    std::vector<std::size_t> dims;         // <-> GstTensor.dims / num_dims
+    DimsOrder                dims_order = DimsOrder::RowMajor; // <-> GstTensor.dims_order
+    TensorData               data;         // precision (<-> GstTensor.data_type) + bytes (<-> GstTensor.data)
+    // Intentionally NOT modelled:
+    //  - GstTensor.layout: only CONTIGUOUS exists -> carries no information, dropped
+    //    (previously serialized as "gst_tensor_layout", now removed).
+    //  - a separate data_type field: `precision` is the single source of truth;
+    //    the GstTensorDataType is derived at serialization via
+    //    tensor_data_type_from_precision().
 };
 
 // Classification result (maps to GstAnalyticsClsMtd).
@@ -300,6 +314,12 @@ Notes:
   and everything downstream — serializer, relations, read path — uses only
   `semantic_tag`. This removes the model_name/format string juggling that
   `convert_to_meta` does today.
+  - **Exception — `TensorResult::tensor_name`.** For generic raw tensors the
+    *layer/output* name is not provenance but a **content identifier** (`GstTensor.id`,
+    a GQuark, e.g. `"prob"`). It is distinct from `semantic_tag` (which carries the
+    model name) and must be preserved as its own field. So a raw tensor keeps
+    *two* names: `semantic_tag` (model) and `tensor_name` (the GstTensor id). All
+    other kinds keep only `semantic_tag`.
 - **`TensorResult` payload — two alternatives (decide before Phase 1).** The
   generic tensor payload is the one place where "raw" is hard to avoid, because
   it mirrors `GstAnalyticsTensorMtd` / `GstTensor` (a byte buffer + a
@@ -348,6 +368,48 @@ Notes:
 - Ownership is value semantics (`std::vector<uint8_t>` etc.), removing manual
   `gst_structure_free` bookkeeping and the NMS free-loop.
 
+### 4.1 Generic tensor field set (source of truth, as implemented)
+
+The generic raw-tensor path is already live. `TensorResult` must preserve
+**exactly** the fields listed here — no more, no less. Anchors:
+`include/dlstreamer/gst/videoanalytics/tensor.h`,
+`convert_to_meta` (branch `type() == GST_ANALYTICS_TENSOR_2_TENSOR`) and
+`convert_to_tensor` (the `GstAnalyticsTensorMtd` branch).
+
+| Field (GstStructure / JSON) | GstTensor / mtd source | Notes |
+|---|---|---|
+| `type` = `"tensor"` | — | constant marker (`GST_ANALYTICS_TENSOR_2_TENSOR`); selects this branch. In `TensorResult` this is the variant type itself. |
+| `precision` | `GstTensor.data_type` | write: `precision → data_type` (`tensor_data_type_from_precision`); read: `data_type → precision` (`precision_from_tensor_data_type`). |
+| `dims` | `GstTensor.dims` / `num_dims` | copied verbatim. |
+| `dims_order` | `GstTensor.dims_order` | read surfaces `"row-major"`/`"col-major"`. **Write asymmetry:** `convert_to_meta` currently hardcodes `GST_TENSOR_DIM_ORDER_ROW_MAJOR`. The typed serializer should instead write `TensorResult::dims_order` (fixing this asymmetry). |
+| `tensor_name` | `GstTensor.id` (GQuark) | write: `id = quark(layer_name)`; read: `tensor_name = quark_to_string(id)` (only when `id != 0`). This is the layer/output name (e.g. `"prob"`), a **content id**, not provenance. |
+| `semantic_tag` | `GstAnalyticsMtd` semantic tag | write: set from `model_name`; read: restored from the mtd tag. |
+| `data` | `GstTensor.data` (`GstBuffer`) | raw payload; single `memcpy` each way. |
+
+Deliberately dropped / not carried (do **not** re-introduce in `TensorResult`):
+
+- **`gst_tensor_layout`** (`GstTensor.layout`): only `CONTIGUOUS` exists, was
+  removed from both the setter and the JSON serializer. Not read back on
+  reconstruction (`add_tensor_mtd_simple` implies contiguous).
+- **`data_type`** as a standalone field: redundant with `precision`; removed. The
+  `GstTensorDataType` is derived at (de)serialization only.
+- **`name`** (the GstStructure name, currently `"tensor"`): duplicates `type`;
+  it is the structure name, not a modelled field. (Left as-is for now on the
+  legacy JSON path; the typed model has no separate `name`.)
+- **`layout`** (`"ANY"` in current JSON): this is the *legacy* GVA layout field,
+  unrelated to `GstTensor.layout`; it is a legacy-serializer artifact and is not
+  part of the typed model.
+
+Field-name collision lessons (already applied, keep in mind for the typed model):
+
+- The reconstructed **string** name is `tensor_name`, **not** `tensor_id`. There
+  is a separate **integer** `tensor_id` used elsewhere as a per-frame/ROI routing
+  key (written by ~10 converters, read by the meta attacher); reusing that name
+  for the GstTensor id collided. In the typed model this is simply
+  `TensorResult::tensor_name`; the routing key is not part of the model.
+- `dims_order` and `precision` were kept as distinct fields; `layout` (the GVA
+  int layout) must not be conflated with `dims_order`.
+
 ---
 
 ## 5. Typed model → GstAnalytics mapping (single serialization point)
@@ -362,7 +424,7 @@ helper it delegates to). One function per variant alternative:
 | `KeypointsResult` | `gst_analytics_relation_meta_add_keypoints_group` | positions scaled to ref rect; skeleton → `RELATE_TO` edges; tag composed as `<semantic_tag>/<format>` (as today) |
 | `SemanticSegmentationResult` | `gst_analytics_relation_meta_add_segmentation_mtd` | GRAY8/GRAY16_LE mask buffer + region ids; tag = `semantic_tag` |
 | `InstanceMaskResult` | `gst_analytics_relation_meta_add_tensor_mtd_simple` | FP32 `[H,W]`; tag = `semantic_tag` (already ends with `/instance_segmentation`) |
-| `TensorResult` | `gst_analytics_relation_meta_add_tensor_mtd_simple` | generic; precision→`GstTensorDataType`; tag = `semantic_tag`; mtd id from `tensor_id` |
+| `TensorResult` | `gst_analytics_relation_meta_add_tensor_mtd_simple` | generic; `data.precision`→`GstTensorDataType`; `tensor_name`→`GstTensor.id` (GQuark); `dims`+`dims_order`→`GstTensor`; payload→`GstTensor.data` buffer; tag = `semantic_tag`; layout always `CONTIGUOUS` (not modelled) |
 
 Relations wired centrally: `OD ─CONTAIN→ result`, `result ─IS_PART_OF→ OD`;
 frame-level results have no parent. This is exactly what
@@ -425,7 +487,9 @@ skeleton relation creation) are the reference implementation to port.
 ## 7. Phased migration (each phase compiles + passes tests)
 
 - **Phase 0 (prereq):** segmentation→analytics merged; full `GstAnalyticsTensorMtd`
-  support (generic raw tensor round-trip) landed and tested.
+  support (generic raw tensor round-trip) landed and tested. **Status: done** for
+  the generic raw-tensor round-trip (branch `gst-analytics-raw-tensors`); field
+  set frozen in §4.1.
 - **Phase 1:** introduce `inference_result.h` typed model + an
   `AnalyticsSerializer` that maps typed → analytics (ported from
   `convert_to_meta`). Unit-test the serializer in isolation. No pipeline change
