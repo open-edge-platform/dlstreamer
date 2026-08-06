@@ -18,12 +18,13 @@ runs:
   using: "composite"
   steps:
     - name: Install dependencies
+      # zizmor: ignore[adhoc-packages]
       run: |
         sudo apt-get update
         sudo apt-get install --no-install-recommends -y clang-format curl ca-certificates build-essential
         curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
-        sudo apt-get install -y nodejs
-        npm install -g diff2html-cli
+        sudo apt-get install -y nodejs==18.20.8-1nodesource1
+        npm install -g diff2html-cli@5.2.15
       shell: bash
 
     - name: Run code style check
