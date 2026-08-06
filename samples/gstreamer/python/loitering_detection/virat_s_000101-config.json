@@ -1,7 +1,7 @@
 {
   "zones": [
     {
-      "id": "pathway",
+      "id": "Pathway",
       "type": "polygon",
       "points": [
         {"x": 45, "y": 395},
@@ -15,6 +15,21 @@
       "track-dwell-time": true,
       "object-retention": 1.0,
       "color": {"r": 255, "g": 0, "b": 0}, 
+      "thickness": 3
+    },
+    {
+      "id": "Driveway",
+      "type": "polygon",
+      "points": [
+        {"x": 150, "y": 439},
+        {"x": 445, "y": 348},
+        {"x": 1262, "y": 611},
+        {"x": 1267, "y": 702},
+        {"x": 784, "y": 708}
+      ],
+      "track-dwell-time": true,
+      "object-retention": 1.0,
+      "color": {"r": 0, "g": 255, "b": 255}, 
       "thickness": 3
     }
   ]

@@ -270,7 +270,12 @@ void process_object_detections(GstBaseTransform *base, GstAnalyticsRelationMeta 
                                                zone->id.c_str(), od_mtd.id, tracking_id);
                         }
                     }
-                    // Prune zones the object has left; each entry carries its own grace period
+                }
+
+                // Prune stale zone_entry_times even when the object is outside all dwell zones
+                auto ts_it = tracking_states.find(tracking_id);
+                if (ts_it != tracking_states.end()) {
+                    auto &zone_times = ts_it->second.zone_entry_times;
                     for (auto it = zone_times.begin(); it != zone_times.end();) {
                         bool still_in = std::any_of(matched_dwell_zones.begin(), matched_dwell_zones.end(),
                                                     [&](const Zone *z) { return z->id == it->first; });
@@ -286,10 +291,6 @@ void process_object_detections(GstBaseTransform *base, GstAnalyticsRelationMeta 
                         else
                             it = zone_times.erase(it);
                     }
-                } else {
-                     GST_DEBUG_OBJECT(base, "OD id=%u tracking_id=%" G_GUINT64_FORMAT
-                                            " has no dwell-enabled zone matches",
-                                      od_mtd.id, tracking_id);
                 }
 
                 // Update tracking state in-place to preserve zone_entry_times

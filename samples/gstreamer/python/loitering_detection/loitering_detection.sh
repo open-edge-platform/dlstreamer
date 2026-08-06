@@ -106,7 +106,7 @@ else
         echo "Run '$(basename "$0") --help' for usage information."
         exit 1
     fi
-    SOURCE_ELEMENT="filesrc location=${INPUT}"
+    SOURCE_ELEMENT="filesrc location=${INPUT} "
 fi
 
 # Validate CONFIG_FILE exists (optional but recommended)
@@ -139,8 +139,8 @@ fi
 gst-launch-1.0 -e ${SOURCE_ELEMENT} ! decodebin3 ! \
     gvadetect model=${MODEL} ${GVADETECT_OPTIONS} ! queue ! \
     gvatrack tracking-type=zero-term ! queue ! \
-    gvaanalytics config=${CONFIG_FILE}  ! queue ! \
-    loitering_watermark loitering-threshold=5.0 ! queue ! \
+    gvaanalytics config=${CONFIG_FILE} evaluation-point=bottom-center ! queue ! \
+    loitering_watermark loitering-threshold=5.0 dashboard-pos="750,60" ! queue ! \
     gvametaconvert json-indent=2 ! gvametapublish file-format=json file-path=${JSON_METADATA} ! queue !  \
     gvawatermark device=${WATERMARK_DEVICE} ! \
     gvafpscounter ! queue ! \
