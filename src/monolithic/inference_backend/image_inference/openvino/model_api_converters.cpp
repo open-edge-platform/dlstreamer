@@ -559,6 +559,10 @@ bool convertHuggingFaceMeta2ModelApi(const std::string &model_file, ov::AnyMap &
         modelConfig["model_type"] = ov::Any(std::string("rfdetr"));
         modelConfig["output_raw_scores"] =
             ov::Any(std::string("False")); // meaning the model outputs processed detection results (no softmax needed)
+    } else if (architecture == "RfDetrForInstanceSegmentation") {
+        modelConfig["model_type"] = ov::Any(std::string("rfdetr_seg"));
+        modelConfig["output_raw_scores"] =
+            ov::Any(std::string("False")); // meaning the model outputs processed detection results (no softmax needed)
     } else if (architecture == "DepthAnythingForDepthEstimation") {
         modelConfig["model_type"] = ov::Any(std::string("depth_estimation"));
         modelConfig["output_raw_scores"] = ov::Any(

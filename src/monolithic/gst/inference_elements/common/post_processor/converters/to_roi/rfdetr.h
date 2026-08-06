@@ -15,9 +15,9 @@ namespace post_processing {
 
 /*
 RF-DETR tensor output layout:
-    logits: [B, N, C] or [N, C]
+    logits: [B, N, C] or [N, C] — raw logits, per-class sigmoid activation
     boxes:  [B, N, 4] or [N, 4] in normalized cxcywh
-    Index 0 is the background/no-object class; real classes start at 1.
+    No background class; all indices are valid object classes.
 */
 class RFDETRConverter : public BlobToROIConverter {
   protected:
@@ -33,6 +33,23 @@ class RFDETRConverter : public BlobToROIConverter {
 
     static std::string getName() {
         return "rfdetr";
+    }
+};
+
+/*
+RF-DETR instance segmentation: extends detection with per-query masks.
+    masks:  [B, N, H, W] per-query mask logits
+*/
+class RFDETRSegConverter : public BlobToROIConverter {
+  public:
+    RFDETRSegConverter(BlobToMetaConverter::Initializer initializer, double confidence_threshold)
+        : BlobToROIConverter(std::move(initializer), confidence_threshold, false, 0.0) {
+    }
+
+    TensorsTable convert(const OutputBlobs &output_blobs) override;
+
+    static std::string getName() {
+        return "rfdetr_seg";
     }
 };
 

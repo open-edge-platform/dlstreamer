@@ -100,6 +100,8 @@ BlobToMetaConverter::Ptr BlobToROIConverter::create(BlobToMetaConverter::Initial
         return BlobToMetaConverter::Ptr(new RTDETRConverter(std::move(initializer), confidence_threshold));
     else if (converter_name == RFDETRConverter::getName())
         return BlobToMetaConverter::Ptr(new RFDETRConverter(std::move(initializer), confidence_threshold));
+    else if (converter_name == RFDETRSegConverter::getName())
+        return BlobToMetaConverter::Ptr(new RFDETRSegConverter(std::move(initializer), confidence_threshold));
     else if (converter_name == MaskRCNNConverter::getName())
         return BlobToMetaConverter::Ptr(
             new MaskRCNNConverter(std::move(initializer), confidence_threshold, iou_threshold));
