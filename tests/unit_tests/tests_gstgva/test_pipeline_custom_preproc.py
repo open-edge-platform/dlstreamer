@@ -41,7 +41,7 @@ D_GOLD_TRUE = [
     BBox(0.582991799458739, 0.3142750898057349, 0.9671368743052611, 0.710030757159208, [], class_id=41, tracker_id=None)
 ]
 
-C_MODEL_NAME = "resnest-50-pytorch"
+C_MODEL_NAME = "resnet50"
 C_MODEL_PATH = get_model_path(C_MODEL_NAME)
 C_MODEL_PROC_PATH = os.path.join(
     SCRIPT_DIR, "test_files", "imagenet_custom_pre_proc_resnet.json")

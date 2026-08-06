@@ -13,7 +13,7 @@ from tests_gstgva.utils import get_model_path, get_model_proc_path, BBox
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 IMAGE_PATH = os.path.join(SCRIPT_DIR, "test_files", "car_detection.png")
 
-d_model_name = "person-vehicle-bike-detection-2004"
+d_model_name = "yolo26s"
 d_model_path, d_model_proc_path = get_model_path(
     d_model_name), get_model_proc_path(d_model_name)
 

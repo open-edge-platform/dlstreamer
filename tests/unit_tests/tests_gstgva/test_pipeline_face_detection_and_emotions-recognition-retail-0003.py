@@ -13,7 +13,7 @@ from tests_gstgva.utils import BBox, get_model_path, get_model_proc_path
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 IMAGE_PATH = os.path.join(SCRIPT_DIR, "test_files", "face_detection.png")
 
-d_model_name = "face-detection-adas-0001"
+d_model_name = "centerface"
 d_model_path = get_model_path(d_model_name)
 c_model_name = "emotions-recognition-retail-0003"
 c_model_path = get_model_path(c_model_name)

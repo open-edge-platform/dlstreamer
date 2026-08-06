@@ -12,8 +12,8 @@ from tests_gstgva.utils import BBox, get_model_path, get_model_proc_path
 
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 IMAGE_PATH = os.path.join(SCRIPT_DIR, "test_files", "people_detection.png")
-CLS_MODEL_NAME = "human-pose-estimation-0001"
-MODEL_PROC_NAME = "human-pose-estimation-0001"
+CLS_MODEL_NAME = "yolo26s-pose"
+MODEL_PROC_NAME = "yolo26s-pose"
 
 PIPELINE_STR = f"""appsrc name=mysrc \
 ! decodebin ! videoconvert ! video/x-raw,format=BGRA \

@@ -21,8 +21,8 @@ class ModelProcTests : public ElementTest {
         _sinkCaps = GST_STATIC_CAPS(GST_VIDEO_CAPS_MAKE("{ BGRA }"));
         _elementName = "gvaclassify";
 
-        _model_path = TestEnv::getModelPath("vehicle-attributes-recognition-barrier-0039", "FP32");
-        _model_proc_path = TestEnv::getModelProcPath("vehicle-attributes-recognition-barrier-0039");
+        _model_path = TestEnv::getModelPath("dima806/vehicle_10_types_image_detection", "FP32");
+        _model_proc_path = TestEnv::getModelProcPath("dima806/vehicle_10_types_image_detection");
     }
 
     void testModelProcLabels(const std::string &model_proc_path, const std::string &labels_str,

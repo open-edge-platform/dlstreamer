@@ -21,7 +21,7 @@ GST_START_TEST(test_reshape_to_orignal_frame_size) {
     char model_path[MAX_STR_PATH_SIZE];
     const guint expected_batch_size = 1;
 
-    ExitStatus status = get_model_path(model_path, MAX_STR_PATH_SIZE, "face-detection-adas-0001", "FP32");
+    ExitStatus status = get_model_path(model_path, MAX_STR_PATH_SIZE, "centerface", "FP32");
     ck_assert(status == EXIT_STATUS_SUCCESS);
 
     snprintf(pipeline_str, sizeof(pipeline_str),
@@ -40,7 +40,7 @@ GST_START_TEST(test_reshape_to_custom_width) {
     char model_path[MAX_STR_PATH_SIZE];
     const guint expected_batch_size = 1;
 
-    ExitStatus status = get_model_path(model_path, MAX_STR_PATH_SIZE, "face-detection-adas-0001", "FP32");
+    ExitStatus status = get_model_path(model_path, MAX_STR_PATH_SIZE, "centerface", "FP32");
     ck_assert(status == EXIT_STATUS_SUCCESS);
 
     snprintf(pipeline_str, sizeof(pipeline_str),
@@ -59,7 +59,7 @@ GST_START_TEST(test_reshape_to_custom_height) {
     char model_path[MAX_STR_PATH_SIZE];
     const guint expected_batch_size = 1;
 
-    ExitStatus status = get_model_path(model_path, MAX_STR_PATH_SIZE, "face-detection-adas-0001", "FP32");
+    ExitStatus status = get_model_path(model_path, MAX_STR_PATH_SIZE, "centerface", "FP32");
     ck_assert(status == EXIT_STATUS_SUCCESS);
 
     snprintf(pipeline_str, sizeof(pipeline_str),
@@ -78,7 +78,7 @@ GST_START_TEST(test_reshape_to_custom_width_and_height) {
     char model_path[MAX_STR_PATH_SIZE];
     const guint expected_batch_size = 1;
 
-    ExitStatus status = get_model_path(model_path, MAX_STR_PATH_SIZE, "face-detection-adas-0001", "FP32");
+    ExitStatus status = get_model_path(model_path, MAX_STR_PATH_SIZE, "centerface", "FP32");
     ck_assert(status == EXIT_STATUS_SUCCESS);
 
     snprintf(pipeline_str, sizeof(pipeline_str),
@@ -97,7 +97,7 @@ GST_START_TEST(test_reshape_to_custom_batch_size) {
     char model_path[MAX_STR_PATH_SIZE];
     const guint expected_batch_size = 10;
 
-    ExitStatus status = get_model_path(model_path, MAX_STR_PATH_SIZE, "face-detection-adas-0001", "FP32");
+    ExitStatus status = get_model_path(model_path, MAX_STR_PATH_SIZE, "centerface", "FP32");
     ck_assert(status == EXIT_STATUS_SUCCESS);
 
     snprintf(pipeline_str, sizeof(pipeline_str),
@@ -116,7 +116,7 @@ GST_START_TEST(test_reshape_failed_to_custom_batch_size_with_ie_pre_proc) {
     char model_path[MAX_STR_PATH_SIZE];
     const guint expected_batch_size = 10;
 
-    ExitStatus status = get_model_path(model_path, MAX_STR_PATH_SIZE, "face-detection-adas-0001", "FP32");
+    ExitStatus status = get_model_path(model_path, MAX_STR_PATH_SIZE, "centerface", "FP32");
     ck_assert(status == EXIT_STATUS_SUCCESS);
 
     snprintf(pipeline_str, sizeof(pipeline_str),

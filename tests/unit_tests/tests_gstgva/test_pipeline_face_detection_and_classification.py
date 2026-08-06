@@ -15,7 +15,7 @@ SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 IMAGE_PATH = os.path.join(SCRIPT_DIR, "test_files", "face_detection.png")
 FILE_PATH = os.path.join(tempfile.gettempdir(), "meta_fdc.json")
 
-D_MODEL_PATH = get_model_path("face-detection-adas-0001")
+D_MODEL_PATH = get_model_path("centerface")
 C1_MODEL_NAME = "age-gender-recognition-retail-0013"
 C1_MODEL_PATH, C1_MODEL_PROC_PATH = get_model_path(
     C1_MODEL_NAME), get_model_proc_path(C1_MODEL_NAME)

@@ -37,11 +37,10 @@ GST_START_TEST(test_inference_id_multichannel) {
     char video_file_path[MAX_STR_PATH_SIZE];
     const char *appsink_names[] = {"appsink1", "appsink2"};
 
-    ExitStatus status =
-        get_model_path(detection_model_path, MAX_STR_PATH_SIZE, "person-vehicle-bike-detection-crossroad-0078", "FP32");
+    ExitStatus status = get_model_path(detection_model_path, MAX_STR_PATH_SIZE, "yolo26s", "FP32");
     ck_assert(status == EXIT_STATUS_SUCCESS);
     status =
-        get_model_path(classify_model_path, MAX_STR_PATH_SIZE, "person-attributes-recognition-crossroad-0230", "FP32");
+        get_model_path(classify_model_path, MAX_STR_PATH_SIZE, "dima806/fairface_gender_image_detection", "FP32");
     ck_assert(status == EXIT_STATUS_SUCCESS);
     status = get_video_file_path(video_file_path, MAX_STR_PATH_SIZE, "Pexels_Videos_4786.mp4");
     ck_assert(status == EXIT_STATUS_SUCCESS);
