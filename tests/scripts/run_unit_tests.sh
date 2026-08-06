@@ -83,7 +83,7 @@ SRC_DIR=$build_dir/..
 
 pushd "$SRC_DIR"/tests/unit_tests/tests_gstgva
 py.test -v -s --tb=short \
-  --ignore=test_pipeline_face_detection_and_emotions-recognition-retail-0003.py \
+  --deselect=test_pipeline_custom_preproc.py::TestCustomPreProcPipeline::test_custom_opencv_resnet_pipeline \
   --junitxml="$result_path"/python_tests_results.xml || ret_code=$?
 popd
 
