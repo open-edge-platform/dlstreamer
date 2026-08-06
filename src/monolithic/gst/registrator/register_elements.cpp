@@ -24,6 +24,7 @@
 #include "gstgvatrack.h"
 #include "gstgvawatermarkimpl.h"
 #include "gvadeskew.h"
+#include "gvaupscale.h"
 #include "gvafpsthrottle.hpp"
 #include "gvamotiondetect.h"
 #include "gvawatermark.h"
@@ -65,6 +66,8 @@ static gboolean plugin_init(GstPlugin *plugin) {
     if (!gst_element_register(plugin, "gvametaaggregate", GST_RANK_NONE, GST_TYPE_GVA_META_AGGREGATE))
         return FALSE;
     if (!gst_element_register(plugin, "gvadeskew", GST_RANK_NONE, GST_TYPE_GVADESKEW))
+        return FALSE;
+    if (!gst_element_register(plugin, "gvaupscale", GST_RANK_NONE, GST_TYPE_GVAUPSCALE))
         return FALSE;
     if (!gst_element_register(plugin, "gvawatermark3d", GST_RANK_NONE, GST_TYPE_GVAWATERMARK3D))
         return FALSE;
