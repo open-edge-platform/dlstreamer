@@ -6,7 +6,7 @@
 # ==============================================================================
 
 # ==============================================================================
-# Pipeline builders for v2 (multi-source single gst-launch-1.0 process).
+# Pipeline builders (multi-source single gst-launch-1.0 process).
 #
 # DL Streamer: N independent source branches, each with shared model instances
 #              (model-instance-id) and individual gvafpscounter + fakesink.
@@ -807,7 +807,7 @@ welcome(){
     printf "=     SPDX-License-Identifier: MIT     =\n"
     printf "========================================\n"
     printf "\n"
-    printf "Coexistence Benchmark v2:\n"
+    printf "Coexistence Benchmark:\n"
     printf "\tDetermines the maximum number of concurrent streams\n"
     printf "\tprocessed in a single gst-launch-1.0 process per platform.\n"
     printf "\n"
@@ -833,7 +833,7 @@ print_usage(){
     printf "\t (default: fakesink output, run on both platforms, benchmark mode)\n"
     printf "\n"
     printf "Notes:\n"
-    printf "\t In v2 each round runs ONE docker per platform containing all N streams\n"
+    printf "\t Each round runs ONE docker per platform containing all N streams\n"
     printf "\t in a single gst-launch-1.0 command with fakesink output.\n"
 }
 

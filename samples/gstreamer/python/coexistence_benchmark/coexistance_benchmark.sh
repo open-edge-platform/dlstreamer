@@ -5,7 +5,7 @@
 # SPDX-License-Identifier: MIT
 # ==============================================================================
 #
-# Benchmark v2: each round launches ONE docker container per platform.
+# Benchmark: each round launches ONE docker container per platform.
 # The single gst-launch-1.0 inside that container grows by one stream branch
 # each round, sharing model instances for efficiency.
 # Benchmark uses fakesink output to measure pure inference/decode throughput.
