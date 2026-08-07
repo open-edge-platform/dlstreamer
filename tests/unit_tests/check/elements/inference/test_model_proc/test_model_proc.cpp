@@ -21,7 +21,7 @@ class ModelProcTests : public ElementTest {
         _sinkCaps = GST_STATIC_CAPS(GST_VIDEO_CAPS_MAKE("{ BGRA }"));
         _elementName = "gvaclassify";
 
-        _model_path = TestEnv::getModelPath("dima806_fairface_gender_image_detection", "FP32");
+        _model_path = TestEnv::getModelPath("dima806_vehicle_10_types_image_detection", "FP32");
         _model_proc_path = "model_proc_test_files/vehicle_10_types_default.json";
     }
 

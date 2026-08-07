@@ -6,6 +6,8 @@
 
 import unittest
 import os
+import json
+import tempfile
 
 from pipeline_runner import TestPipelineRunner
 from tests_gstgva.utils import BBox, get_model_path
@@ -43,32 +45,46 @@ D_GOLD_TRUE = [
 
 C_MODEL_NAME = "resnet50"
 C_MODEL_PATH = get_model_path(C_MODEL_NAME)
+LABELS_SOURCE_PATH = os.path.join(SCRIPT_DIR, "test_files", "imagenet_custom_pre_proc_resnet.json")
+LABELS_FILE_PATH = os.path.join(tempfile.gettempdir(), "imagenet_custom_pre_proc_resnet_labels.txt")
+
+
+def ensure_labels_file():
+    if os.path.isfile(LABELS_FILE_PATH):
+        return LABELS_FILE_PATH
+
+    with open(LABELS_SOURCE_PATH, encoding="utf-8") as labels_source_file:
+        labels = json.load(labels_source_file)["output_postproc"][0]["labels"]
+
+    with open(LABELS_FILE_PATH, "w", encoding="utf-8") as labels_file:
+        labels_file.write("\n".join(labels))
+        labels_file.write("\n")
+
+    return LABELS_FILE_PATH
 
 
 C_OPENCV_PIPELINE_STR = f"""
 appsrc name=mysrc
 ! jpegparse ! jpegdec
-! gvaclassify inference-region=full-frame pre-process-backend=opencv device=CPU model={C_MODEL_PATH}
+! gvaclassify inference-region=full-frame pre-process-backend=opencv device=CPU model={C_MODEL_PATH} labels-file={ensure_labels_file()}
 ! appsink name=mysink emit-signals=true sync=false
 """
 
 C_VA_PIPELINE_STR = f"""
 appsrc name=mysrc
-! jpegparse ! vajpegdec ! video/x-raw(memory:VAMemory)
-! gvaclassify inference-region=full-frame pre-process-backend=va device=GPU model={C_MODEL_PATH}
+! jpegparse ! vajpegdec ! vapostproc ! video/x-raw(memory:VAMemory)
+! gvaclassify inference-region=full-frame pre-process-backend=va device=GPU model={C_MODEL_PATH} labels-file={ensure_labels_file()}
 ! appsink name=mysink emit-signals=true sync=false
 """
 
 C_VA_SURFACE_SHARING_PIPELINE_STR = f"""
 appsrc name=mysrc
-! jpegparse ! vajpegdec ! video/x-raw(memory:VAMemory)
-! gvaclassify inference-region=full-frame pre-process-backend=va-surface-sharing device=GPU model={C_MODEL_PATH}
+! jpegparse ! vajpegdec ! vapostproc ! video/x-raw(memory:VAMemory)
+! gvaclassify inference-region=full-frame pre-process-backend=va-surface-sharing device=GPU model={C_MODEL_PATH} labels-file={ensure_labels_file()}
 ! appsink name=mysink emit-signals=true sync=false
 """
 
 C_GOLD_TRUE = [BBox(0, 0, 1, 1, [])]
-
-
 class TestCustomPreProcPipeline(unittest.TestCase):
     def test_custom_opencv_yolo_11_pipeline(self):
         pipeline_runner = TestPipelineRunner()

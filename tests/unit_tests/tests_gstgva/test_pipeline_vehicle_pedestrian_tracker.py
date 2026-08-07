@@ -18,8 +18,7 @@ CAR_IMAGE_PATH = os.path.join(SCRIPT_DIR, "test_files", "car_detection.png")
 FILE_PATH = os.path.join(tempfile.gettempdir(), "meta_vpt.json")
 
 D_MODEL_NAME = "yolo26s"
-D_MODEL_PATH, D_MODEL_PROC_PATH = get_model_path(
-    D_MODEL_NAME), get_model_proc_path(D_MODEL_NAME)
+D_MODEL_PATH = get_model_path(D_MODEL_NAME)
 C1_MODEL_NAME = "dima806_fairface_gender_image_detection"
 C1_MODEL_PATH = get_model_path(C1_MODEL_NAME)
 C1_AGE_MODEL_NAME = "dima806_facial_age_image_detection"
@@ -30,7 +29,7 @@ C2_MODEL_PATH = get_model_path(C2_MODEL_NAME)
 
 PIPELINE_STR_TEMPLATE = """appsrc name=mysrc ! \
 decodebin ! videoconvert ! video/x-raw,format=BGRA ! \
-gvadetect model={} model-proc={} inference-interval={} ! queue ! \
+gvadetect model={} inference-interval={} ! queue ! \
 gvatrack tracking-type={} ! queue ! \
 gvaclassify model={} reclassify-interval=4 object-class=person ! queue ! \
 gvaclassify model={} reclassify-interval=4 object-class=person ! queue ! \
@@ -44,7 +43,7 @@ def set_of_pipelines():
     tracker_types = ['short-term-imageless', 'zero-term']
     inference_intervals = [4, 1]
     for tracker_type, interval in zip(tracker_types, inference_intervals):
-        pipeline_str = PIPELINE_STR_TEMPLATE.format(D_MODEL_PATH, D_MODEL_PROC_PATH,
+        pipeline_str = PIPELINE_STR_TEMPLATE.format(D_MODEL_PATH,
                                                     interval, tracker_type,
                                                     C1_MODEL_PATH,
                                                     C1_AGE_MODEL_PATH,

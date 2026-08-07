@@ -8,19 +8,18 @@ import unittest
 import os
 
 from pipeline_runner import TestPipelineRunner
-from tests_gstgva.utils import get_model_path, get_model_proc_path, BBox
+from tests_gstgva.utils import get_model_path, BBox
 
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 IMAGE_PATH = os.path.join(SCRIPT_DIR, "test_files", "car_detection.png")
 
 d_model_name = "yolo26s"
-d_model_path, d_model_proc_path = get_model_path(
-    d_model_name), get_model_proc_path(d_model_name)
+d_model_path = get_model_path(d_model_name)
 
 
 PIPELINE_STR = f"""appsrc name=mysrc \
 ! decodebin ! videoconvert ! video/x-raw,format=BGRA \
-! gvadetect model={d_model_path} model-proc={d_model_proc_path} threshold=0.2 \
+! gvadetect model={d_model_path} threshold=0.2 \
 ! gvawatermark \
 ! appsink name=mysink emit-signals=true sync=false """
 

@@ -12,13 +12,11 @@ from tests_gstgva.utils import BBox, get_model_path
 
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 IMAGE_PATH = os.path.join(SCRIPT_DIR, "test_files", "people_detection.png")
-DET_MODEL_NAME = "yolo11s"
-CLS_MODEL_NAME = "yolo26s-pose"
+POSE_MODEL_NAME = "yolo26s-pose"
 
 PIPELINE_STR = f"""appsrc name=mysrc \
 ! decodebin ! videoconvert ! video/x-raw,format=BGRA \
-! gvadetect model={get_model_path(DET_MODEL_NAME)} threshold=0.8 \
-! gvaclassify model={get_model_path(CLS_MODEL_NAME)} pre-process-backend=opencv \
+! gvadetect model={get_model_path(POSE_MODEL_NAME)} inference-region=full-frame \
 ! gvawatermark \
 ! appsink name=mysink emit-signals=true sync=false """
 

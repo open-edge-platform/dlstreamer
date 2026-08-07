@@ -8,50 +8,48 @@ import os
 import unittest
 
 from pipeline_runner import TestPipelineRunner
-from tests_gstgva.utils import BBox, get_model_path, get_model_proc_path
+from tests_gstgva.utils import BBox, get_model_path
 
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 IMAGE_PATH = os.path.join(SCRIPT_DIR, "test_files", "people_detection.png")
-CLS_MODEL_NAME = "yolo26s-pose"
-MODEL_PROC_NAME = "yolo26s-pose"
+POSE_MODEL_NAME = "yolo26s-pose"
 
 PIPELINE_STR = f"""appsrc name=mysrc \
 ! decodebin ! videoconvert ! video/x-raw,format=BGRA \
-! gvaclassify model={get_model_path(CLS_MODEL_NAME)} model-proc={get_model_proc_path(MODEL_PROC_NAME)} \
-    pre-process-backend=opencv inference-region=full-frame \
+! gvadetect model={get_model_path(POSE_MODEL_NAME)} inference-region=full-frame \
 ! gvawatermark \
 ! appsink name=mysink emit-signals=true sync=false """
 
 GOLD_TRUE = [
-    BBox(0, 0, 1, 1,
+    BBox(0.7052448987960815, 0.3016299605369568,
+        0.8172802925109863, 0.9893561005592346,
          [
              {'format': 'keypoints',
-              'layer_name': 'Mconv7_stage2_L2\\Mconv7_stage2_L1',
-              'data': [0.79256946, 0.3625, 0.7645139, 0.45416668, 0.79256946,
-                        0.47916666, 0.7972454, 0.6041667, 0.80659723, 0.6958333,
-                        0.7411343, 0.42916667, 0.7785417, 0.3125, 0.8159491,
-                        0.24583334, 0.77386576, 0.67083335, 0.77386576, 0.8208333,
-                        0.75048614, 0.95416665, 0.73645836, 0.6625, 0.73178244,
-                        0.79583335, 0.7224305, 0.9291667, 0.7785417, 0.3375,
-                        -1., -1., 0.76918983, 0.35416666, -1.,
-                        -1.]
+            'layer_name': 'heatmaps',
+            'data': [0.72745574, 0.06521739, 0.65284485, 0.06521739, 0.65284485,
+                    0.04347826, 0.3544015, 0.10869565, 0.578234, 0.08695652,
+                    0.27979067, 0.2173913, 0.72745574, 0.26086956, 0.20517981,
+                    0.3478261, 0.80206656, 0.45652175, 0.27979067, 0.47826087,
+                    0.9512882, 0.6086956, 0.27979067, 0.5217391, 0.65284485,
+                    0.54347825, 0.20517981, 0.7173913, 0.578234, 0.76086956,
+                    0.20517981, 0.9130435, 0.42901236, 0.95652175]
               }
-         ]
+        ], class_id=0
          ),
-    BBox(0, 0, 1, 1,
+    BBox(0.4834686815738678, 0.24317866563796997,
+        0.667809247970581, 0.9917208552360535,
          [
              {'format': 'keypoints',
-              'layer_name': 'Mconv7_stage2_L2\\Mconv7_stage2_L1',
-              'data': [0.57747686, 0.32083333, 0.6195602, 0.4125, 0.6382639,
-                        0.39583334, 0.57280093, 0.4625, 0.52136576, 0.47916666,
-                        0.6008565, 0.42916667, 0.5868287, 0.5625, 0.57280093,
-                        0.65416664, 0.64761573, 0.62916666, 0.6382639, 0.77916664,
-                        0.6382639, 0.90416664, 0.61488426, 0.6375, 0.6055324,
-                        0.79583335, 0.6055324, 0.9291667, -1., -1.,
-                        0.5821528, 0.3125, -1., -1., 0.6008565,
-                        0.3125]
+            'layer_name': 'heatmaps',
+            'data': [0.49979568, 0.13043478, 0.5491582, 0.10869565, 0.49979568,
+                    0.08695652, 0.6478833, 0.10869565, 0.7466084, 0.10869565,
+                    0.59852076, 0.26086956, 0.84533346, 0.19565217, 0.5491582,
+                    0.4347826, 0.49979568, 0.2826087, 0.49979568, 0.5869565,
+                    0.20362046, 0.3043478, 0.69724584, 0.54347825, 0.894696,
+                    0.5217391, 0.69724584, 0.73913044, 0.84533346, 0.7173913,
+                    0.7466084, 0.9130435, 0.84533346, 0.8913044]
               }
-         ]
+        ], class_id=0
          )
 ]
 
