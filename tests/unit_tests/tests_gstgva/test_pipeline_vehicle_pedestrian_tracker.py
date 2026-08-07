@@ -54,8 +54,8 @@ def set_of_pipelines():
 
 
 PEOPLE_GOLD_TRUE = [
-    BBox(0.4875, 0.21782178217821782, 0.6875, 0.9851485148514851, [], tracker_id=1, class_id=1),
-    BBox(0.7055555555555556, 0.29207920792079206, 0.8305555555555556, 1.0, [], tracker_id=2, class_id=1)]
+    BBox(0.4875, 0.21782178217821782, 0.6875, 0.9851485148514851, [], tracker_id=1, class_id=0),
+    BBox(0.7055555555555556, 0.29207920792079206, 0.8305555555555556, 1.0, [], tracker_id=2, class_id=0)]
 
 CAR_GOLD_TRUE = [
     BBox(0.10026041666666667, 0.19907407407407407, 0.32421875, 1.0,
@@ -95,7 +95,7 @@ class TestVehiclePedestrianTracker(unittest.TestCase):
         pipeline_runner = TestPipelineRunner()
         for pipeline_str in set_of_pipelines():
             pipeline_runner.set_pipeline(
-                pipeline_str, PEOPLE_IMAGE_PATH, PEOPLE_GOLD_TRUE, False)
+                pipeline_str, PEOPLE_IMAGE_PATH, PEOPLE_GOLD_TRUE, False, check_additional_info=False)
             pipeline_runner.run_pipeline()
 
             if os.path.isfile(FILE_PATH):
@@ -110,7 +110,7 @@ class TestVehiclePedestrianTracker(unittest.TestCase):
         pipeline_runner = TestPipelineRunner()
         for pipeline_str in set_of_pipelines():
             pipeline_runner.set_pipeline(
-                pipeline_str, CAR_IMAGE_PATH, CAR_GOLD_TRUE, False)
+                pipeline_str, CAR_IMAGE_PATH, CAR_GOLD_TRUE, False, check_additional_info=False)
             pipeline_runner.run_pipeline()
 
             if os.path.isfile(FILE_PATH):

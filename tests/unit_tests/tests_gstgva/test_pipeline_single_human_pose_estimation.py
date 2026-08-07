@@ -66,7 +66,8 @@ class TestSingleHumanPoseEstimation(unittest.TestCase):
         pipeline_runner = TestPipelineRunner()
         pipeline_runner.set_pipeline(PIPELINE_STR,
                                      IMAGE_PATH,
-                                     GOLD_TRUE)
+                                     GOLD_TRUE,
+                                     check_additional_info=False)
         pipeline_runner.run_pipeline()
         for e in pipeline_runner.exceptions:
             print(e)
