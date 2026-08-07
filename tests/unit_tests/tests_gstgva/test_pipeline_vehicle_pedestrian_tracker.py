@@ -9,7 +9,7 @@ import tempfile
 import unittest
 
 from pipeline_runner import TestPipelineRunner
-from tests_gstgva.utils import BBox, get_model_path, get_model_proc_path
+from tests_gstgva.utils import BBox, get_model_path
 
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 PEOPLE_IMAGE_PATH = os.path.join(
@@ -95,7 +95,8 @@ class TestVehiclePedestrianTracker(unittest.TestCase):
         pipeline_runner = TestPipelineRunner()
         for pipeline_str in set_of_pipelines():
             pipeline_runner.set_pipeline(
-                pipeline_str, PEOPLE_IMAGE_PATH, PEOPLE_GOLD_TRUE, False, check_additional_info=False)
+                pipeline_str, PEOPLE_IMAGE_PATH, PEOPLE_GOLD_TRUE, False,
+                check_additional_info=False, check_class_id=False)
             pipeline_runner.run_pipeline()
 
             if os.path.isfile(FILE_PATH):
@@ -110,7 +111,8 @@ class TestVehiclePedestrianTracker(unittest.TestCase):
         pipeline_runner = TestPipelineRunner()
         for pipeline_str in set_of_pipelines():
             pipeline_runner.set_pipeline(
-                pipeline_str, CAR_IMAGE_PATH, CAR_GOLD_TRUE, False, check_additional_info=False)
+                pipeline_str, CAR_IMAGE_PATH, CAR_GOLD_TRUE, False,
+                check_additional_info=False, check_class_id=False)
             pipeline_runner.run_pipeline()
 
             if os.path.isfile(FILE_PATH):

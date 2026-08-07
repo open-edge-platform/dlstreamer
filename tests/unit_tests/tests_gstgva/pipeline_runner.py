@@ -10,6 +10,7 @@ from os.path import isfile, isdir, join
 import json
 import re
 import time
+import math
 
 import unittest
 
@@ -96,7 +97,8 @@ class TestGenericPipelineRunner(unittest.TestCase):
 class TestPipelineRunner(TestGenericPipelineRunner):
     def set_pipeline(self, pipeline, image_path, ground_truth,
                      check_only_bbox_number=False, check_additional_info=True, check_frame_data=True,
-                     ground_truth_per_frame=False, image_repeat_num=7, check_first_skip=0, check_format=True):
+                     ground_truth_per_frame=False, image_repeat_num=7, check_first_skip=0, check_format=True,
+                     check_class_id=True):
         self.exceptions = []
         self._is_killed = False
         self._timeout_source = None
@@ -108,6 +110,7 @@ class TestPipelineRunner(TestGenericPipelineRunner):
         self._check_format = check_format
         self._check_first_skip = check_first_skip
         self._check_additional_info = check_additional_info
+        self._check_class_id = check_class_id
         self._dump_gt_dir = environ.get("UNIT_TESTS_DUMP_GT_DIR")
 
         self._mainloop = GLib.MainLoop()
@@ -153,6 +156,25 @@ class TestPipelineRunner(TestGenericPipelineRunner):
     def _sanitize_name(name):
         return re.sub(r"[^A-Za-z0-9_.-]+", "_", name)
 
+    @classmethod
+    def _make_json_safe(cls, value):
+        if value is None or isinstance(value, (str, bool, int)):
+            return value
+        if isinstance(value, float):
+            return value if math.isfinite(value) else None
+        if isinstance(value, (bytes, bytearray, memoryview)):
+            return repr(value)
+        if isinstance(value, dict):
+            return {str(k): cls._make_json_safe(v) for k, v in value.items()}
+        if isinstance(value, (list, tuple, set)):
+            return [cls._make_json_safe(v) for v in value]
+        if hasattr(value, "tolist"):
+            try:
+                return cls._make_json_safe(value.tolist())
+            except Exception:
+                return repr(value)
+        return repr(value)
+
     def _dump_debug_artifact(self, reason, regions=None, gt=None, error=None):
         if not self._dump_gt_dir:
             return
@@ -173,10 +195,10 @@ class TestPipelineRunner(TestGenericPipelineRunner):
 
         try:
             with open(path, "w", encoding="utf-8") as f:
-                json.dump(payload, f, indent=2)
+                json.dump(self._make_json_safe(payload), f, indent=2)
         except Exception as e:
             # Dump generation is best-effort and must not affect test flow.
-            self.exceptions.append(e)
+            print(f"Failed to write debug dump artifact: {e}")
 
     def need_data(self, app_src, size):
         if not self._image_paths_to_src:
@@ -264,7 +286,7 @@ class TestPipelineRunner(TestGenericPipelineRunner):
             gt = self._ground_truth[:] if not self._ground_truth_per_frame else self._ground_truth[self._current_frame - 1]
             self.assertTrue(BBox.bboxes_is_equal(
                 regions[:], gt,
-                self._check_only_bbox_number, self._check_additional_info))
+                self._check_only_bbox_number, self._check_additional_info, self._check_class_id))
         except Exception as e:
             self.exceptions.append(e)
             self._dump_debug_artifact("bbox_mismatch", regions=regions, gt=gt, error=repr(e))
