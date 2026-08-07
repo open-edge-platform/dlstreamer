@@ -38,8 +38,9 @@ graph LR
 ## Models
 
 The sample uses by default the following pre-trained models from OpenVINO™ Toolkit [Open Model Zoo](https://github.com/openvinotoolkit/open_model_zoo)
-*   __face-detection-adas-0001__ is primary detection network for detecting faces that appear within video frames
-*   __age-gender-recognition-retail-0013__ classifies age and gender of detected face(s)
+*   __centerface__ is primary detection network for detecting faces that appear within video frames
+*   __dima806_facial_age_image_detection__ classifies age of detected face(s)
+*   __dima806_fairface_gender_image_detection__ classifies gender of detected face(s)
 
 The sample contains `model_proc` subfolder with .json files for each model with description of model input/output formats and post-processing rules for classification models.
 

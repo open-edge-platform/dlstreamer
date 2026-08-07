@@ -63,8 +63,11 @@ done
 
 # --- Download the YOLO model if needed ---------------------------------------
 if [[ ! -f "${YOLO_MODEL}" ]]; then
-  log "Downloading ${YOLO_NAME} into ${MODELS_PATH} via download_public_models.sh"
-  MODELS_PATH="${MODELS_PATH}" "${DLSTREAMER_ROOT}/samples/download_public_models.sh" "${YOLO_NAME}"
+  log "Downloading ${YOLO_NAME} into ${MODELS_PATH} via scripts/download_models/download_ultralytics_models.py"
+  python3 "${DLSTREAMER_ROOT}/scripts/download_models/download_ultralytics_models.py" \
+    --model "${YOLO_NAME}.pt" \
+    --outdir "${MODELS_PATH}/public/${YOLO_NAME}/FP16" \
+    --half
 fi
 [[ -f "${YOLO_MODEL}" ]] || fail "YOLO model not found after download: ${YOLO_MODEL}"
 

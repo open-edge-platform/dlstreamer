@@ -1,0 +1,6 @@
+# Dependencies for download_ultralytics_models.py
+--extra-index-url https://download.pytorch.org/whl/cpu
+ultralytics==8.4.57
+openvino==2026.2.0
+nncf==3.0.0
+torch==2.8.0

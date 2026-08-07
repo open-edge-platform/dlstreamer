@@ -6,7 +6,6 @@ Samples are simple applications that demonstrate how to use the DL Streamer. The
 
 Samples separated into several categories:
 1. gst_launch command-line samples (samples construct GStreamer pipeline via [gst-launch-1.0](https://gstreamer.freedesktop.org/documentation/tools/gst-launch.html) command-line utility)
-    * [Action Recognition Sample](./gst_launch/action_recognition/README.md) - demonstrates action recognition via video_inference bin element
     * [Audio Event Detection Sample](./gst_launch/audio_detect/README.md) - constructs audio event detection pipeline example with [gvaaudiodetect](../../docs/user-guide/elements/gvaaudiodetect.md) element and uses [gvametaconvert](../../docs/user-guide/elements/gvametaconvert.md), [gvametapublish](../../docs/user-guide/elements/gvametapublish.md) elements to convert audio event metadata with inference results into JSON format and to print on standard out
     * [Audio Transcription Sample](./gst_launch/audio_transcribe/README.md) - performs audio transcription using OpenVino GenAI model (whisper) with [gvaaudiotranscribe](../..//docs/user-guide/elements/gvaaudiotranscribe.md)
     * [Custom Post-Processing Library Sample - Classification](./gst_launch/custom_postproc/classify/README.md) - demonstrates how to create custom post-processing library for emotion classification model outputs conversion to classification metadata using GStreamer Analytics framework
@@ -75,18 +74,11 @@ Other samples (without C/C++ code) provide .sh script for constructing and execu
 
 ## DL Models
 
-DL Streamer samples use pre-trained models from OpenVINO™ Toolkit [Open Model Zoo](https://github.com/openvinotoolkit/open_model_zoo)
+DL Streamer samples use pre-trained models from multiple sources (Open Model Zoo, Hugging Face, Ultralytics, and selected public repos).
 
-Before running samples, run script `download_omz_models.sh` once to download all models required for samples. The script located in `samples` top folder.
-> **NOTE**: To install all necessary requirements for `download_omz_models.sh` script run this command:
-```sh
-python3 -m pip install --upgrade pip
-python3 -m pip install openvino-dev[onnx]
-```
-> **NOTE**: To install all available frameworks run this command:
-```sh
-python3 -m pip install openvino-dev[caffe,onnx,tensorflow2,pytorch,mxnet]
-```
+Before running samples, prepare required models using scripts from `scripts/download_models`.
+
+> **NOTE**: See `scripts/download_models/README.md` for per-script virtual environments, dependencies, and model-specific commands.
 
 ## Input video
 

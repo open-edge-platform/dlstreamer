@@ -29,8 +29,11 @@ import torch
 import openvino as ov
 import nncf
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from shared_utils import download_https  # pylint: disable=wrong-import-position
+SAMPLES_DIR = Path(__file__).resolve().parents[2] / "samples"
+if str(SAMPLES_DIR) not in sys.path:
+    sys.path.insert(0, str(SAMPLES_DIR))
+
+from shared_utils import download_https
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')

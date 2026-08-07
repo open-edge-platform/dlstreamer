@@ -52,15 +52,12 @@ void check_outbuffer(GstBuffer *outbuffer, gpointer user_data) {
 }
 
 TestData cpu_test_data[] = {
-    {"inference_test_files/car_2.jpg", "vehicle-license-plate-detection-barrier-0106", {640, 480}},
-    {"inference_test_files/car_1.png", "vehicle-detection-adas-0002", {640, 480}},
-    {"inference_test_files/car_1.png", "mobilenet-ssd", {640, 480}},
-    {"inference_test_files/pedestrians.jpg", "person-vehicle-bike-detection-crossroad-0078", {640, 480}},
-    {"inference_test_files/pedestrians.jpg", "pedestrian-and-vehicle-detector-adas-0001", {640, 480}},
-    {"inference_test_files/pedestrians.jpg", "pedestrian-detection-adas-0002", {640, 480}},
-    {"inference_test_files/pedestrians.jpg", "person-detection-retail-0013", {640, 480}},
-    {"inference_test_files/nasa.jpg", "face-detection-retail-0004", {640, 480}},
-    {"inference_test_files/nasa.jpg", "face-detection-adas-0001", {640, 480}}};
+    {"inference_test_files/car_2.jpg", "yolo11s", {640, 480}},
+    {"inference_test_files/car_1.png", "yolo26s", {640, 480}},
+    {"inference_test_files/car_1.png", "yolo11s", {640, 480}},
+    {"inference_test_files/pedestrians.jpg", "yolo26s", {640, 480}},
+    {"inference_test_files/pedestrians.jpg", "yolo11s", {640, 480}},
+    {"inference_test_files/nasa.jpg", "centerface", {640, 480}}};
 
 GST_START_TEST(test_obj_detection_inference_cpu) {
     g_print("Starting test: test_obj_detection_inference_cpu\n");
@@ -82,16 +79,16 @@ GST_START_TEST(test_obj_detection_inference_cpu) {
 GST_END_TEST;
 
 TestData gpu_test_data[] = {
-    {"inference_test_files/car_2.jpg", "vehicle-license-plate-detection-barrier-0106", {640, 480}},
-    {"inference_test_files/car_1.png", "vehicle-detection-adas-0002", {640, 480}},
-    {"inference_test_files/pedestrians.jpg", "person-vehicle-bike-detection-crossroad-0078", {640, 480}}};
+    {"inference_test_files/car_2.jpg", "yolo11s", {640, 480}},
+    {"inference_test_files/car_1.png", "yolo11s", {640, 480}},
+    {"inference_test_files/pedestrians.jpg", "yolo26s", {640, 480}}};
 
 GST_START_TEST(test_obj_detection_inference_gpu) {
     g_print("Starting test: test_obj_detection_inference_gpu\n");
-    std::vector<std::string> supported_fp = {"FP16"};
     char model_path[MAX_STR_PATH_SIZE];
 
     for (int i = 0; i < G_N_ELEMENTS(gpu_test_data); i++) {
+        std::vector<std::string> supported_fp = std::vector<std::string>{"FP16"};
         for (const auto &fp : supported_fp) {
             g_print("Test: %d  Model: %s\n", i, gpu_test_data[i].model_name.c_str());
             ExitStatus status =

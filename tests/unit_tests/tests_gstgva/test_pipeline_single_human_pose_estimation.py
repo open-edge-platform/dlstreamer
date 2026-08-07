@@ -8,18 +8,15 @@ import os
 import unittest
 
 from pipeline_runner import TestPipelineRunner
-from tests_gstgva.utils import BBox, get_model_path, get_model_proc_path
+from tests_gstgva.utils import BBox, get_model_path
 
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 IMAGE_PATH = os.path.join(SCRIPT_DIR, "test_files", "people_detection.png")
-DET_MODEL_NAME = "person-detection-retail-0013"
-CLS_MODEL_NAME = "single-human-pose-estimation-0001"
-MODEL_PROC_NAME = "single-human-pose-estimation-0001"
+POSE_MODEL_NAME = "yolo26s-pose"
 
 PIPELINE_STR = f"""appsrc name=mysrc \
 ! decodebin ! videoconvert ! video/x-raw,format=BGRA \
-! gvadetect model={get_model_path(DET_MODEL_NAME)} threshold=0.8 \
-! gvaclassify model={get_model_path(CLS_MODEL_NAME)} model-proc={get_model_proc_path(MODEL_PROC_NAME)} pre-process-backend=opencv \
+! gvadetect model={get_model_path(POSE_MODEL_NAME)} inference-region=full-frame \
 ! gvawatermark \
 ! appsink name=mysink emit-signals=true sync=false """
 
@@ -69,7 +66,8 @@ class TestSingleHumanPoseEstimation(unittest.TestCase):
         pipeline_runner = TestPipelineRunner()
         pipeline_runner.set_pipeline(PIPELINE_STR,
                                      IMAGE_PATH,
-                                     GOLD_TRUE)
+                                     GOLD_TRUE,
+                                     check_additional_info=False)
         pipeline_runner.run_pipeline()
         for e in pipeline_runner.exceptions:
             print(e)

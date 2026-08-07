@@ -40,15 +40,15 @@ if NOT x%INPUT:?\\usb\#=%==x%INPUT% (
     )
 )
 
-set MODEL1=face-detection-adas-0001
-set MODEL2=age-gender-recognition-retail-0013
-set MODEL3=emotions-recognition-retail-0003
-set MODEL4=landmarks-regression-retail-0009
+set MODEL1=centerface
+set MODEL2=dima806_facial_age_image_detection
+set MODEL3=dima806_fairface_gender_image_detection
+set MODEL4=dima806_face_emotions_image_detection
 
-set DETECT_MODEL_PATH=%MODELS_PATH%\intel\face-detection-adas-0001\FP32\%MODEL1%.xml
-set CLASS_MODEL_PATH=%MODELS_PATH%\intel\age-gender-recognition-retail-0013\FP32\%MODEL2%.xml
-set CLASS_MODEL_PATH1=%MODELS_PATH%\intel\emotions-recognition-retail-0003\FP32\%MODEL3%.xml
-set CLASS_MODEL_PATH2=%MODELS_PATH%\intel\landmarks-regression-retail-0009\FP32\%MODEL4%.xml
+set DETECT_MODEL_PATH=%MODELS_PATH%\public\centerface\FP32\%MODEL1%.xml
+set CLASS_MODEL_PATH1=%MODELS_PATH%\public\dima806_facial_age_image_detection\FP32\%MODEL2%.xml
+set CLASS_MODEL_PATH2=%MODELS_PATH%\public\dima806_fairface_gender_image_detection\FP32\%MODEL3%.xml
+set CLASS_MODEL_PATH3=%MODELS_PATH%\public\dima806_face_emotions_image_detection\FP32\%MODEL4%.xml
 
 set MODEL2_PROC=%~dp0model_proc\%MODEL2%.json
 set MODEL3_PROC=%~dp0model_proc\%MODEL3%.json
@@ -60,16 +60,12 @@ set CLASS_MODEL_PATH=%CLASS_MODEL_PATH:\=/%
 set CLASS_MODEL_PATH1=%CLASS_MODEL_PATH1:\=/%
 set CLASS_MODEL_PATH2=%CLASS_MODEL_PATH2:\=/%
 
-set MODEL2_PROC=%MODEL2_PROC:\=/%
-set MODEL3_PROC=%MODEL3_PROC:\=/%
-set MODEL4_PROC=%MODEL4_PROC:\=/%
-
 setlocal DISABLEDELAYEDEXPANSION
 set PIPELINE=gst-launch-1.0 -v %SOURCE_ELEMENT% ! decodebin3 ! videoconvert ! ^
 gvadetect model="%DETECT_MODEL_PATH%" device=%DEVICE% ! queue ! ^
-gvaclassify model="%CLASS_MODEL_PATH%" model-proc="%MODEL2_PROC%" device=%DEVICE% ! queue ! ^
-gvaclassify model="%CLASS_MODEL_PATH1%" model-proc="%MODEL3_PROC%" device=%DEVICE% ! queue ! ^
-gvaclassify model="%CLASS_MODEL_PATH2%" model-proc="%MODEL4_PROC%" device=%DEVICE% ! queue ! ^
+gvaclassify model="%CLASS_MODEL_PATH1%" device=%DEVICE% ! queue ! ^
+gvaclassify model="%CLASS_MODEL_PATH2%" device=%DEVICE% ! queue ! ^
+gvaclassify model="%CLASS_MODEL_PATH3%" device=%DEVICE% ! queue ! ^
 %SINK_ELEMENT%
 setlocal ENABLEDELAYEDEXPANSION
 

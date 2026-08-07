@@ -8,31 +8,28 @@ import unittest
 import os
 
 from pipeline_runner import TestPipelineRunner
-from tests_gstgva.utils import get_model_path, get_model_proc_path, BBox
+from tests_gstgva.utils import get_model_path, BBox
 
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 IMAGE_PATH = os.path.join(SCRIPT_DIR, "test_files", "car_detection.png")
 
-d_model_name = "person-vehicle-bike-detection-2004"
-d_model_path, d_model_proc_path = get_model_path(
-    d_model_name), get_model_proc_path(d_model_name)
+d_model_name = "yolo26s"
+d_model_path = get_model_path(d_model_name)
 
 
 PIPELINE_STR = f"""appsrc name=mysrc \
 ! decodebin ! videoconvert ! video/x-raw,format=BGRA \
-! gvadetect model={d_model_path} model-proc={d_model_proc_path} threshold=0.2 \
+! gvadetect model={d_model_path} threshold=0.2 \
 ! gvawatermark \
 ! appsink name=mysink emit-signals=true sync=false """
 
 GOLD_TRUE = [
-    BBox(0.10468322783708572, 0.19903349876403809, 0.32950497418642044, 0.9529740810394287,
-         [], class_id=0
-         ),
-    BBox(0.4107516407966614, 0.28523483872413635, 0.6255635023117065, 0.9386073648929596,
-         [],  class_id=0
-         ),
-    BBox(0.40668997168540955, 0.2672349214553833, 0.6080639958381653, 0.5492938756942749,
-         [],  class_id=0)
+    BBox(0.40796313893740077, 0.2725078257464209, 0.625750694062571, 0.9360087274248043,
+        [], class_id=2
+        ),
+    BBox(0.10680976073160409, 0.20307228122759272, 0.3276979972079097, 0.9512519188411817,
+        [], class_id=2
+        )
 
 ]
 

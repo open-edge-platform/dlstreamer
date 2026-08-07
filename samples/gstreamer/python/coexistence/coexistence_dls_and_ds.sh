@@ -119,7 +119,7 @@ DEEPSTREAM_DOCKER="docker run -i --rm --network=host --gpus all -e DISPLAY=$DISP
 # Check if there are models in current directory and download if necessary
 if [[ ! -e "${PWD}/public/yolov8_license_plate_detector" ]]; then
     printf 'Downloading models....\n'
-    eval "${DLSTREAMER_DOCKER}" + '"/opt/intel/dlstreamer/samples/download_public_models.sh yolov8_license_plate_detector,ch_PP-OCRv4_rec_infer"'
+    eval "${DLSTREAMER_DOCKER}" + '"bash /opt/intel/dlstreamer/scripts/download_models/download_other_models.sh yolov8_license_plate_detector,ch_PP-OCRv4_rec_infer"'
 fi
 
 # Check for Intel and Nvidia hardware

@@ -20,7 +20,7 @@ if [%CHANNELS_COUNT%]==[] set /A CHANNELS_COUNT=1
 
 set OUTPUT_FILE=%4
 
-set MODEL=face-detection-adas-0001
+set MODEL=centerface
 set "DETECT_MODEL_PATH=%MODELS_PATH%\intel\%MODEL%\FP32\%MODEL%.xml"
 
 set VIDEO_FILE_NAME=%VIDEO_FILE_NAME:\=/%

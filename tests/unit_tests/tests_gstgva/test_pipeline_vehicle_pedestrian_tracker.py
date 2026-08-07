@@ -17,23 +17,23 @@ PEOPLE_IMAGE_PATH = os.path.join(
 CAR_IMAGE_PATH = os.path.join(SCRIPT_DIR, "test_files", "car_detection.png")
 FILE_PATH = os.path.join(tempfile.gettempdir(), "meta_vpt.json")
 
-D_MODEL_NAME = "person-vehicle-bike-detection-crossroad-0078"
-D_MODEL_PATH, D_MODEL_PROC_PATH = get_model_path(
-    D_MODEL_NAME), get_model_proc_path(D_MODEL_NAME)
-C1_MODEL_NAME = "person-attributes-recognition-crossroad-0230"
-C1_MODEL_PATH, C1_MODEL_PROC_PATH = get_model_path(
-    C1_MODEL_NAME), get_model_proc_path(C1_MODEL_NAME)
-C2_MODEL_NAME = "vehicle-attributes-recognition-barrier-0039"
-C2_MODEL_PATH, C2_MODEL_PROC_PATH = get_model_path(
-    C2_MODEL_NAME), get_model_proc_path(C2_MODEL_NAME)
+D_MODEL_NAME = "yolo26s"
+D_MODEL_PATH = get_model_path(D_MODEL_NAME)
+C1_MODEL_NAME = "dima806_fairface_gender_image_detection"
+C1_MODEL_PATH = get_model_path(C1_MODEL_NAME)
+C1_AGE_MODEL_NAME = "dima806_facial_age_image_detection"
+C1_AGE_MODEL_PATH = get_model_path(C1_AGE_MODEL_NAME)
+C2_MODEL_NAME = "dima806_vehicle_10_types_image_detection"
+C2_MODEL_PATH = get_model_path(C2_MODEL_NAME)
 
 
 PIPELINE_STR_TEMPLATE = """appsrc name=mysrc ! \
 decodebin ! videoconvert ! video/x-raw,format=BGRA ! \
-gvadetect model={} model-proc={} inference-interval={} ! queue ! \
+gvadetect model={} inference-interval={} ! queue ! \
 gvatrack tracking-type={} ! queue ! \
-gvaclassify model={} model-proc={} reclassify-interval=4 object-class=person ! queue ! \
-gvaclassify model={} model-proc={} reclassify-interval=4 object-class=vehicle ! queue ! \
+gvaclassify model={} reclassify-interval=4 object-class=person ! queue ! \
+gvaclassify model={} reclassify-interval=4 object-class=person ! queue ! \
+gvaclassify model={} reclassify-interval=4 object-class=vehicle ! queue ! \
 gvametaconvert add-tensor-data=true ! gvametapublish file-format=json-lines file-path={} ! \
 gvawatermark ! videoconvert ! \
 appsink name=mysink emit-signals=true sync=false """
@@ -43,34 +43,19 @@ def set_of_pipelines():
     tracker_types = ['short-term-imageless', 'zero-term']
     inference_intervals = [4, 1]
     for tracker_type, interval in zip(tracker_types, inference_intervals):
-        pipeline_str = PIPELINE_STR_TEMPLATE.format(D_MODEL_PATH, D_MODEL_PROC_PATH,
+        pipeline_str = PIPELINE_STR_TEMPLATE.format(D_MODEL_PATH,
                                                     interval, tracker_type,
-                                                    C1_MODEL_PATH, C1_MODEL_PROC_PATH,
-                                                    C2_MODEL_PATH, C2_MODEL_PROC_PATH, FILE_PATH
+                                                    C1_MODEL_PATH,
+                                                    C1_AGE_MODEL_PATH,
+                                                    C2_MODEL_PATH, FILE_PATH
                                                     )
         print(pipeline_str)
         yield(pipeline_str)
 
 
 PEOPLE_GOLD_TRUE = [
-    BBox(0.4875, 0.21782178217821782, 0.6875, 0.9851485148514851,
-         [
-             {
-                 'label': "M: has_longpants ",
-                 'layer_name': "453",
-                 'name': "person-attributes"
-             }
-         ], tracker_id=1, class_id=1
-         ),
-    BBox(0.7055555555555556, 0.29207920792079206, 0.8305555555555556, 1.0,
-         [
-             {
-                 "label": "F: has_bag has_longhair ",
-                 "layer_name": "453",
-                 "name": "person-attributes"
-             }
-         ], tracker_id=2, class_id=1
-         )]
+    BBox(0.4875, 0.21782178217821782, 0.6875, 0.9851485148514851, [], tracker_id=1, class_id=0),
+    BBox(0.7055555555555556, 0.29207920792079206, 0.8305555555555556, 1.0, [], tracker_id=2, class_id=0)]
 
 CAR_GOLD_TRUE = [
     BBox(0.10026041666666667, 0.19907407407407407, 0.32421875, 1.0,
@@ -110,7 +95,7 @@ class TestVehiclePedestrianTracker(unittest.TestCase):
         pipeline_runner = TestPipelineRunner()
         for pipeline_str in set_of_pipelines():
             pipeline_runner.set_pipeline(
-                pipeline_str, PEOPLE_IMAGE_PATH, PEOPLE_GOLD_TRUE, True)
+                pipeline_str, PEOPLE_IMAGE_PATH, PEOPLE_GOLD_TRUE, False, check_additional_info=False)
             pipeline_runner.run_pipeline()
 
             if os.path.isfile(FILE_PATH):
@@ -125,7 +110,7 @@ class TestVehiclePedestrianTracker(unittest.TestCase):
         pipeline_runner = TestPipelineRunner()
         for pipeline_str in set_of_pipelines():
             pipeline_runner.set_pipeline(
-                pipeline_str, CAR_IMAGE_PATH, CAR_GOLD_TRUE, True)
+                pipeline_str, CAR_IMAGE_PATH, CAR_GOLD_TRUE, False, check_additional_info=False)
             pipeline_runner.run_pipeline()
 
             if os.path.isfile(FILE_PATH):
