@@ -310,8 +310,40 @@ std::string getHuggingFaceArchitecture(const nlohmann::json &config_json) {
 
 static bool parseHFlabels(const nlohmann::json &config_json, ov::AnyMap &modelConfig) {
 
-    // Parse label2id mapping to extract labels ordered by their IDs
-    if (config_json.contains("label2id") && config_json["label2id"].is_object()) {
+    // Prefer id2label which preserves correct index positions (including background/gap entries)
+    if (config_json.contains("id2label") && config_json["id2label"].is_object()) {
+        std::vector<std::pair<int, std::string>> id_labels;
+        for (auto it = config_json["id2label"].begin(); it != config_json["id2label"].end(); ++it) {
+            if (!it.value().is_string())
+                continue;
+            int id = 0;
+            try {
+                id = std::stoi(it.key());
+            } catch (...) {
+                continue;
+            }
+            std::string label = it.value().get<std::string>();
+            std::replace(label.begin(), label.end(), ' ', '_');
+            id_labels.emplace_back(id, label);
+        }
+        std::sort(id_labels.begin(), id_labels.end(), [](const auto &a, const auto &b) { return a.first < b.first; });
+
+        if (!id_labels.empty()) {
+            const int max_id = id_labels.back().first;
+            std::vector<std::string> labels(max_id + 1, "N/A");
+            for (const auto &pair : id_labels)
+                labels[pair.first] = pair.second;
+
+            std::ostringstream labels_stream;
+            for (size_t i = 0; i < labels.size(); ++i) {
+                if (i)
+                    labels_stream << ' ';
+                labels_stream << labels[i];
+            }
+            modelConfig["labels"] = ov::Any(labels_stream.str());
+        }
+    } else if (config_json.contains("label2id") && config_json["label2id"].is_object()) {
+        // Fallback to label2id
         std::vector<std::pair<int, std::string>> id_labels;
         for (auto it = config_json["label2id"].begin(); it != config_json["label2id"].end(); ++it) {
             if (!it.value().is_number_integer())
@@ -323,11 +355,16 @@ static bool parseHFlabels(const nlohmann::json &config_json, ov::AnyMap &modelCo
         std::sort(id_labels.begin(), id_labels.end(), [](const auto &a, const auto &b) { return a.first < b.first; });
 
         if (!id_labels.empty()) {
+            const int max_id = id_labels.back().first;
+            std::vector<std::string> labels(max_id + 1, "N/A");
+            for (const auto &pair : id_labels)
+                labels[pair.first] = pair.second;
+
             std::ostringstream labels_stream;
-            for (size_t i = 0; i < id_labels.size(); ++i) {
+            for (size_t i = 0; i < labels.size(); ++i) {
                 if (i)
                     labels_stream << ' ';
-                labels_stream << id_labels[i].second;
+                labels_stream << labels[i];
             }
             modelConfig["labels"] = ov::Any(labels_stream.str());
         }
@@ -516,6 +553,14 @@ bool convertHuggingFaceMeta2ModelApi(const std::string &model_file, ov::AnyMap &
             "True")); // meaning the model outputs raw classification scores (logits) that need softmax post-processing
     } else if ((architecture == "RTDetrForObjectDetection") || (architecture == "RtDetrV2ForObjectDetection")) {
         modelConfig["model_type"] = ov::Any(std::string("rtdetr"));
+        modelConfig["output_raw_scores"] =
+            ov::Any(std::string("False")); // meaning the model outputs processed detection results (no softmax needed)
+    } else if (architecture == "RfDetrForObjectDetection") {
+        modelConfig["model_type"] = ov::Any(std::string("rfdetr"));
+        modelConfig["output_raw_scores"] =
+            ov::Any(std::string("False")); // meaning the model outputs processed detection results (no softmax needed)
+    } else if (architecture == "RfDetrForInstanceSegmentation") {
+        modelConfig["model_type"] = ov::Any(std::string("rfdetr_seg"));
         modelConfig["output_raw_scores"] =
             ov::Any(std::string("False")); // meaning the model outputs processed detection results (no softmax needed)
     } else if (architecture == "DepthAnythingForDepthEstimation") {
