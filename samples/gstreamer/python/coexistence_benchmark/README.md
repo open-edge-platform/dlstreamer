@@ -41,8 +41,8 @@ Both pipelines run inside Docker containers.
 
 | File | Description |
 |---|---|
-| `coexistance_benchmark.sh` | Main benchmark script |
-| `utils.sh` | Shared variables (Docker commands, GStreamer pipeline definitions, validation functions) |
+| `coexistance_benchmark.sh` | Main benchmark script (device/source detection, Docker command strings, argument parsing, benchmark loop, optional parallel run) |
+| `utils.sh` | Shared helper functions: GStreamer pipeline builders, hardware/source detection, input validation, live FPS monitor, diagnostics, cleanup, and usage/printing helpers |
 
 ## Usage
 
@@ -66,8 +66,7 @@ Both pipelines run inside Docker containers.
 | `--ds-only` | Run DeepStream only (skip DL Streamer) | both platforms |
 | `--dls-fps-threshold=N` | Minimum acceptable per-stream FPS for DL Streamer | `30` |
 | `--ds-fps-threshold=N` | Minimum acceptable per-source FPS for DeepStream | `30` |
-| `--dls-streams=N` | Run exactly N streams on DL Streamer (skip benchmark loop) | benchmark mode |
-| `--ds-streams=N` | Run exactly N streams on DeepStream (skip benchmark loop) | benchmark mode |
+| `--measure-seconds=N` | Measurement duration per round, in seconds (positive integer) | `20` |
 
 ### Examples
 
@@ -81,14 +80,14 @@ DL Streamer only:
 ./coexistance_benchmark.sh video_dls.mp4 video_ds.mp4 LPR --dls-only
 ```
 
-Fixed streams (both platforms simultaneously, no benchmark loop):
-```bash
-./coexistance_benchmark.sh video_dls.mp4 video_ds.mp4 LPR --dls-streams=5 --ds-streams=3
-```
-
 Custom FPS threshold:
 ```bash
 ./coexistance_benchmark.sh video_dls.mp4 video_ds.mp4 LPR --dls-fps-threshold=30
+```
+
+Custom measurement duration per round:
+```bash
+./coexistance_benchmark.sh video_dls.mp4 video_ds.mp4 LPR --measure-seconds=30
 ```
 
 RTSP stream:
@@ -134,7 +133,24 @@ Downloaded via `nvcr.io/nvidia/deepstream:8.0-samples-multiarch` container.
 
 ## Output
 
-Default benchmark mode uses `fakesink` output — the benchmark measures pure inference/decode throughput.
+The benchmark uses `fakesink` output — it measures pure inference/decode throughput.
+
+## Optional Parallel Run
+
+After the benchmark finishes and prints the results, the script asks whether to run
+both platforms simultaneously using the maximum sustainable stream counts that were
+found (`DLS_MAX_STREAMS` and `DS_MAX_STREAMS`):
+
+```text
+Run DL Streamer (N) and DeepStream (M) containers in parallel now? [y/N]
+```
+
+- Answering `y` / `Y` launches one DL Streamer container and one DeepStream container
+  concurrently, each at its found maximum, and displays a live FPS view for both for
+  `--measure-seconds` seconds before stopping and cleaning up.
+- Any other answer skips the parallel run.
+- The prompt appears only when at least one platform reached a result greater than `0`.
+- A platform whose maximum is `0` is skipped in the parallel run.
 
 ## Execution Flow
 
@@ -142,29 +158,30 @@ Default benchmark mode uses `fakesink` output — the benchmark measures pure in
 
 ```mermaid
 flowchart TD
-    A([Start]) --> B["Detect /dev/dri → DEVICE_DRI<br/>Detect /dev/accel → DEVICE_ACCEL<br/>Detect Intel GPU: prefer dGPU over iGPU"]
-    B --> C["Determine SOURCE element from INPUT_DLS / INPUT_DS"]
-    C --> D["Source utils.sh<br/>Builds DLSTREAMER_DOCKER, DEEPSTREAM_DOCKER,<br/>pipeline builder functions"]
-    D --> E["Parse arguments<br/>Set RUN_DLS / RUN_DS<br/>Set thresholds and fixed streams"]
+    A([Start]) --> D0["Source utils.sh<br/>Defines helpers, pipeline builders, welcome / usage"]
+    D0 --> B["detect_intel_devices_for_docker<br/>/dev/dri → DEVICE_DRI, /dev/accel → DEVICE_ACCEL"]
+    B --> C["determine_source_dls / determine_source_ds<br/>SOURCE + EXTRA_INPUT_VOLUME from INPUT_DLS / INPUT_DS"]
+    C --> C2["detect_preferred_intel_render_device<br/>prefer dGPU over iGPU → INTEL_RENDER_DEVICE"]
+    C2 --> D["Build DLSTREAMER_DOCKER / DEEPSTREAM_DOCKER<br/>(main script; embeds DEVICE_* / EXTRA_INPUT_VOLUME_*)"]
+    D --> E["Parse arguments<br/>RUN_DLS / RUN_DS, FPS thresholds, --measure-seconds"]
     E --> F[Validate input arguments]
     F --> G["Detect hardware<br/>lspci → INTEL_GPU / NVIDIA_GPU<br/>lscpu → INTEL_CPU"]
     G --> H{Models present?}
     H -- DLS missing --> I["Download DL Streamer models<br/>benchmark_dls_download container"]
     H -- DS missing --> J["Download DeepStream TAO models<br/>benchmark_ds_download container"]
-    I --> K{Both DLS_FIXED_STREAMS<br/>and DS_FIXED_STREAMS set?}
-    J --> K
-    H -- all present --> K
-    K -- yes --> L["Parallel fixed mode<br/>Both pipelines simultaneously"]
-    K -- no --> M[Sequential mode]
-    M --> N{RUN_DLS?}
+    I --> N{RUN_DLS?}
+    J --> N
+    H -- all present --> N
     N -- yes --> O[run_phase dls]
     N -- no --> P{RUN_DS?}
     O --> P
     P -- yes --> Q[run_phase ds]
     P -- no --> R[Print BENCHMARK RESULTS]
     Q --> R
-    L --> R
-    R --> S([End])
+    R --> T{Run in parallel?<br/>y/N prompt}
+    T -- yes --> U["run_parallel_max_streams<br/>DLS_MAX_STREAMS + DS_MAX_STREAMS"]
+    T -- no --> S([End])
+    U --> S
 ```
 
 ### Hardware detection and Docker setup
@@ -188,16 +205,12 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    A([run_phase platform]) --> B{fixed_streams set?}
-    B -- yes --> C["Fixed mode:<br/>run exactly N streams<br/>wait for natural completion"]
-    C --> D["_finish_round<br/>collect FPS and status"]
-    D --> E([Return])
-    B -- no --> F[streams = 1]
+    A([run_phase platform]) --> F[streams = 1]
     F --> G[run_one_round platform streams]
     G --> H["_finish_round<br/>collect FPS"]
     H --> I{FPS < threshold?}
     I -- yes --> J[Report max = streams - 1]
-    J --> E
+    J --> E([Return])
     I -- no --> K[streams++]
     K --> G
 ```
@@ -212,9 +225,7 @@ flowchart TD
     D --> E{Startup OK?}
     E -- error/OOM --> F["Abort round<br/>return error"]
     E -- ok --> G["Start live FPS monitor<br/>background subshell<br/>reads FpsCounter last lines"]
-    G --> H{nowait mode?}
-    H -- yes --> I(["Return to caller<br/>caller waits for natural end"])
-    H -- no --> J["Sleep MEASURE_SECONDS = 45s<br/>live FPS displayed"]
+    G --> J["Sleep MEASURE_SECONDS<br/>live FPS displayed"]
     J --> K{DS engine build detected?}
     K -- yes --> L[Extend wait up to 420s]
     L --> M["kill live monitor<br/>_finish_round"]
@@ -239,5 +250,5 @@ flowchart TD
     I --> J
 ```
 
-> **Note:** Steps detecting `/dev/dri`, `/dev/accel` and INPUT sources must happen before sourcing `utils.sh` because `utils.sh` expands `${DEVICE_DRI}`, `${DEVICE_ACCEL}`, and `${SOURCE_INTEL}` / `${SOURCE_NVIDIA}` at source time when building Docker command strings and pipeline definitions.
+> **Note:** `utils.sh` is sourced first (it only defines functions). The device/source detection steps then run before the `DLSTREAMER_DOCKER` / `DEEPSTREAM_DOCKER` command strings are declared in the main script, because those strings embed `${DEVICE_DRI}`, `${DEVICE_ACCEL}` and `${EXTRA_INPUT_VOLUME_DLS}` / `${EXTRA_INPUT_VOLUME_DS}` by value at declaration time. The pipeline builders in `utils.sh` expand `${SOURCE_DLS}` / `${SOURCE_DS}` when called, not at source time.
 

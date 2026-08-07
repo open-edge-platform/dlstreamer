@@ -19,11 +19,11 @@ build_dls_pipeline_no_encode() {
     local pipeline="gst-launch-1.0"
     local i
     for i in $(seq 1 "$n"); do
-        pipeline+=" ${SOURCE_INTEL} ! decodebin3 ! vapostproc ! video/x-raw\(memory:VAMemory\) ! queue \
+        pipeline+=" ${SOURCE_DLS} ! decodebin3 ! vapostproc ! video/x-raw\(memory:VAMemory\) ! queue \
 ! gvadetect model=/working_dir/public/yolov8_license_plate_detector/FP32/yolov8_license_plate_detector.xml \
-device=${INTEL_OV_DEVICE} pre-process-backend=va model-instance-id=dls_det ! queue ! \
+device=${INTEL_OV_DEVICE} pre-process-backend=va model-instance-id=dls_det scheduling-policy="latency" ! queue ! \
 gvaclassify model=/working_dir/public/ch_PP-OCRv4_rec_infer/FP32/ch_PP-OCRv4_rec_infer.xml \
-device=${INTEL_OV_DEVICE} pre-process-backend=va model-instance-id=dls_ocr ! \
+device=${INTEL_OV_DEVICE} pre-process-backend=va model-instance-id=dls_ocr scheduling-policy="latency" ! \
 queue ! gvafpscounter name=fpsctr${i} ! fakesink sync=false"
     done
     printf '%s' "$pipeline"
@@ -35,7 +35,7 @@ build_ds_pipeline_no_encode() {
     local pipeline="gst-launch-1.0"
     local i
     for i in $(seq 1 "$n"); do
-        pipeline+=" ${SOURCE_NVIDIA} ! qtdemux ! h264parse ! nvv4l2decoder ! m.sink_$((i - 1))"
+        pipeline+=" ${SOURCE_DS} ! qtdemux ! h264parse ! nvv4l2decoder ! m.sink_$((i - 1))"
     done
     pipeline+=" nvstreammux name=m batch-size=${n} width=1920 height=1080 batched-push-timeout=40000 \
 ! nvdslogger fps-measurement-interval-sec=1 ! queue ! nvvideoconvert \
@@ -67,18 +67,18 @@ determine_source_dls() {
     local input_dir
 
     if [[ "$input_dls" =~ 'rtsp://' ]]; then
-        SOURCE_INTEL="rtspsrc location=$input_dls"
-        EXTRA_INPUT_VOLUME_INTEL=""
+        SOURCE_DLS="rtspsrc location=$input_dls"
+        EXTRA_INPUT_VOLUME_DLS=""
     elif [[ "$input_dls" =~ 'https://' ]]; then
-        SOURCE_INTEL="urisourcebin buffer-size=4096 uri=$input_dls"
-        EXTRA_INPUT_VOLUME_INTEL=""
+        SOURCE_DLS="urisourcebin buffer-size=4096 uri=$input_dls"
+        EXTRA_INPUT_VOLUME_DLS=""
     elif [[ "$input_dls" = /* ]]; then
         input_dir=$(dirname "$input_dls")
-        SOURCE_INTEL="filesrc location=$input_dls"
-        EXTRA_INPUT_VOLUME_INTEL="-v ${input_dir}:${input_dir}"
+        SOURCE_DLS="filesrc location=$input_dls"
+        EXTRA_INPUT_VOLUME_DLS="-v ${input_dir}:${input_dir}"
     else
-        SOURCE_INTEL="filesrc location=/working_dir/$input_dls"
-        EXTRA_INPUT_VOLUME_INTEL=""
+        SOURCE_DLS="filesrc location=/working_dir/$input_dls"
+        EXTRA_INPUT_VOLUME_DLS=""
     fi
 }
 
@@ -88,18 +88,18 @@ determine_source_ds() {
     local input_dir
 
     if [[ "$input_ds" =~ 'rtsp://' ]]; then
-        SOURCE_NVIDIA="rtspsrc location=$input_ds"
-        EXTRA_INPUT_VOLUME_NVIDIA=""
+        SOURCE_DS="rtspsrc location=$input_ds"
+        EXTRA_INPUT_VOLUME_DS=""
     elif [[ "$input_ds" =~ 'https://' ]]; then
-        SOURCE_NVIDIA="urisourcebin buffer-size=4096 uri=$input_ds"
-        EXTRA_INPUT_VOLUME_NVIDIA=""
+        SOURCE_DS="urisourcebin buffer-size=4096 uri=$input_ds"
+        EXTRA_INPUT_VOLUME_DS=""
     elif [[ "$input_ds" = /* ]]; then
         input_dir=$(dirname "$input_ds")
-        SOURCE_NVIDIA="filesrc location=$input_ds"
-        EXTRA_INPUT_VOLUME_NVIDIA="-v ${input_dir}:${input_dir}"
+        SOURCE_DS="filesrc location=$input_ds"
+        EXTRA_INPUT_VOLUME_DS="-v ${input_dir}:${input_dir}"
     else
-        SOURCE_NVIDIA="filesrc location=/working_dir/$input_ds"
-        EXTRA_INPUT_VOLUME_NVIDIA=""
+        SOURCE_DS="filesrc location=/working_dir/$input_ds"
+        EXTRA_INPUT_VOLUME_DS=""
     fi
 }
 
@@ -310,6 +310,75 @@ active_container_name_for_platform() {
     else
         printf "%s" "${DS_ACTIVE_CONTAINER}"
     fi
+}
+
+# Run DL Streamer and DeepStream containers concurrently using the max stream
+# counts found during the benchmark, with a shared live FPS view for both.
+# Dependencies expected in caller scope: ABORT, MEASURE_SECONDS, DLS_PID, DS_PID.
+run_parallel_max_streams() {
+    local dls_streams="$1"
+    local ds_streams="$2"
+    local dls_pid="" ds_pid=""
+    local dls_monitor="" ds_monitor=""
+    local tmpdir dls_log ds_log
+
+    tmpdir=$(mktemp -d)
+    dls_log="${tmpdir}/parallel_dls.log"
+    ds_log="${tmpdir}/parallel_ds.log"
+
+    printf "\n\n######################################################\n"
+    printf " Parallel run — DL Streamer (%d) + DeepStream (%d)\n" "$dls_streams" "$ds_streams"
+    printf "######################################################\n\n"
+
+    # Start DL Streamer at its max stream count.
+    if (( dls_streams > 0 )); then
+        start_dls_round_container "$dls_streams" "$dls_log"
+        dls_pid=$!
+        DLS_PID=$dls_pid
+        printf "    DL Streamer PID: %d\n" "$dls_pid"
+    fi
+
+    # Start DeepStream at its max stream count.
+    if (( ds_streams > 0 )); then
+        start_ds_round_container "$ds_streams" "$ds_log"
+        ds_pid=$!
+        DS_PID=$ds_pid
+        printf "    DeepStream  PID: %d\n" "$ds_pid"
+    fi
+
+    if [[ -z "$dls_pid" && -z "$ds_pid" ]]; then
+        printf "  [warn] No platform available to run in parallel.\n"
+        rm -rf "${tmpdir}"
+        return 1
+    fi
+
+    # Launch live FPS monitors for whichever platforms are running.
+    if [[ -n "$dls_pid" ]]; then
+        start_live_fps_monitor "dls" "$dls_streams" "$dls_pid" "$dls_log"
+        dls_monitor=$LIVE_MONITOR_PID
+    fi
+    if [[ -n "$ds_pid" ]]; then
+        start_live_fps_monitor "ds" "$ds_streams" "$ds_pid" "$ds_log"
+        ds_monitor=$LIVE_MONITOR_PID
+    fi
+
+    printf "\n  Running both platforms in parallel for 180 seconds (live FPS below)...\n\n"
+    local _elapsed=0
+    while (( _elapsed < 180 )); do
+        [[ "$ABORT" == true ]] && break
+        sleep 1
+        _elapsed=$(( _elapsed + 1 ))
+    done
+
+    # Stop monitors and running containers for both platforms.
+    [[ -n "$dls_monitor" ]] && { kill "$dls_monitor" 2>/dev/null; wait "$dls_monitor" 2>/dev/null; }
+    [[ -n "$ds_monitor"  ]] && { kill "$ds_monitor"  2>/dev/null; wait "$ds_monitor"  2>/dev/null; }
+    printf "\n"
+    [[ -n "$dls_pid" ]] && stop_round_process_and_clear_pid "dls" "$dls_pid"
+    [[ -n "$ds_pid"  ]] && stop_round_process_and_clear_pid "ds"  "$ds_pid"
+    ensure_container_absent "${DLS_ACTIVE_CONTAINER}"
+    ensure_container_absent "${DS_ACTIVE_CONTAINER}"
+    rm -rf "${tmpdir}"
 }
 
 # Compute round FPS and status, and print diagnostics when no FPS is available.
@@ -801,7 +870,7 @@ print_ds_engine_status() {
 
 # Just welcome message
 welcome(){
-    clear
+    #clear
     printf "========================================\n"
     printf "= Copyright (C) 2026 Intel Corporation =\n"
     printf "=     SPDX-License-Identifier: MIT     =\n"
@@ -818,7 +887,7 @@ welcome(){
 # Just print how to use this script:
 print_usage(){
     printf "Usage:\n"
-    printf "\t coexistance_benchmark.sh <INPUT_DLS> <INPUT_DS> LPR [--dls-only|--ds-only]\n";
+    printf "\t coexistance_benchmark.sh <INPUT_DLS> <INPUT_DS> LPR [OPTIONS]\n";
     printf "\n"
     printf "Arguments:\n"
     printf "\t INPUT_DLS     Input video file/stream for Intel platform (DL Streamer)\n"
@@ -828,8 +897,9 @@ print_usage(){
     printf "Options:\n"
     printf "\t --dls-only                 Run benchmark only on Intel GPU/NPU/CPU (DL Streamer)\n";
     printf "\t --ds-only                  Run benchmark only on NVIDIA GPU (DeepStream)\n";
-    printf "\t --dls-fps-threshold=N      Minimum acceptable FPS for DL Streamer (default: 20)\n"
-    printf "\t --ds-fps-threshold=N       Minimum acceptable FPS for DeepStream (default: 230)\n"
+    printf "\t --dls-fps-threshold=N      Minimum acceptable FPS for DL Streamer (default: 30)\n"
+    printf "\t --ds-fps-threshold=N       Minimum acceptable FPS for DeepStream (default: 30)\n"
+    printf "\t --measure-seconds=N        Round measurement duration in seconds (default: 20)\n"
     printf "\t (default: fakesink output, run on both platforms, benchmark mode)\n"
     printf "\n"
     printf "Notes:\n"

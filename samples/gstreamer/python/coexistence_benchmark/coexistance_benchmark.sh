@@ -26,15 +26,15 @@ determine_source_ds "$2"
 # Detect preferred Intel render device (dGPU preferred over iGPU).
 detect_preferred_intel_render_device
 
-# Docker commands (must be defined AFTER setting EXTRA_INPUT_VOLUME_INTEL/NVIDIA):
+# Docker commands (must be defined AFTER setting EXTRA_INPUT_VOLUME_DLS/DS):
 
-declare DLSTREAMER_DOCKER="docker run -i --rm --name benchmark_dls -v ${PWD}:/working_dir ${EXTRA_INPUT_VOLUME_INTEL} ${DEVICE_DRI} ${DEVICE_ACCEL} \
+declare DLSTREAMER_DOCKER="docker run -i --rm --name benchmark_dls -v ${PWD}:/working_dir ${EXTRA_INPUT_VOLUME_DLS} ${DEVICE_DRI} ${DEVICE_ACCEL} \
 -v ~/.Xauthority:/root/.Xauthority  -v /tmp/.X11-unix/:/tmp/.X11-unix/  -e DISPLAY=$DISPLAY  -v /dev/bus/usb:/dev/bus/usb \
---env MODELS_PATH=/working_dir -e GST_VA_DRM_DEVICE=${INTEL_RENDER_DEVICE} \
+--env MODELS_PATH=/working_dir \
 intel/dlstreamer:latest /bin/bash -c"
 
 declare DEEPSTREAM_DOCKER="docker run -i --rm --name benchmark_ds --network=host --gpus all -e DISPLAY=$DISPLAY --device /dev/snd \
--v /tmp/.X11-unix/:/tmp/.X11-unix -v ${PWD}:/working_dir ${EXTRA_INPUT_VOLUME_NVIDIA} -w /working_dir \
+-v /tmp/.X11-unix/:/tmp/.X11-unix -v ${PWD}:/working_dir ${EXTRA_INPUT_VOLUME_DS} -w /working_dir \
 nvcr.io/nvidia/deepstream:8.0-samples-multiarch /bin/bash -c"
 
 # Variables:
@@ -52,8 +52,9 @@ declare -i DS_ROUND_INDEX=0
 # Parse optional platform flags (from $4 onwards: $3=MODE)
 RUN_DLS=true
 RUN_DS=true
-DLS_FPS_THRESHOLD=50
-DS_FPS_THRESHOLD=500
+DLS_FPS_THRESHOLD=30
+DS_FPS_THRESHOLD=30
+MEASURE_SECONDS=20
 DLS_MAX_STREAMS=0
 DS_MAX_STREAMS=0
 OPTION_START_INDEX=4
@@ -64,15 +65,18 @@ for _arg in "${@:${OPTION_START_INDEX}}"; do
         --ds-only)                RUN_DLS=false                           ;;
         --dls-fps-threshold=*)    DLS_FPS_THRESHOLD="${_arg#*=}"            ;;
         --ds-fps-threshold=*)     DS_FPS_THRESHOLD="${_arg#*=}"             ;;
+        --measure-seconds=*)      MEASURE_SECONDS="${_arg#*=}"              ;;
     esac
 done
 
-# Benchmark configuration
-MEASURE_SECONDS=45
-DS_ENGINE_BUILD_GRACE_SECONDS=420
-STREAMS=1
-KEEP_RUNNING=true
+if [[ ! "$MEASURE_SECONDS" =~ ^[0-9]+$ || "$MEASURE_SECONDS" -le 0 ]]; then
+    printf "Error: --measure-seconds must be a positive integer. Got: %s\n" "$MEASURE_SECONDS"
+    print_usage
+    exit 1
+fi
 
+# Benchmark configuration
+DS_ENGINE_BUILD_GRACE_SECONDS=420
 DLS_PID=""
 DS_PID=""
 LIVE_MONITOR_PID=""
@@ -282,3 +286,18 @@ printf "======================================================\n"
     printf "  NVIDIA (DeepStream)  — max sustainable streams: %d  (threshold: %s FPS)\n" \
         "${DS_MAX_STREAMS}" "${DS_FPS_THRESHOLD}"
 printf "======================================================\n"
+
+
+# ==============================================================================
+# Optional: run both platforms in parallel at their found max stream counts.
+if [[ "$ABORT" != true && ( "${DLS_MAX_STREAMS}" -gt 0 || "${DS_MAX_STREAMS}" -gt 0 ) ]]; then
+    printf "\n"
+    read -r -p "Run DL Streamer (${DLS_MAX_STREAMS}) and DeepStream (${DS_MAX_STREAMS}) containers in parallel now? [y/N] " _parallel_answer
+    if [[ "${_parallel_answer}" =~ ^[Yy]$ ]]; then
+        run_parallel_max_streams "${DLS_MAX_STREAMS}" "${DS_MAX_STREAMS}"
+    else
+        printf "Skipping parallel run.\n"
+    fi
+fi
+
+
