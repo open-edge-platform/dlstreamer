@@ -184,23 +184,6 @@ flowchart TD
     U --> S
 ```
 
-### Hardware detection and Docker setup
-
-```mermaid
-flowchart TD
-    A([Start hardware detection]) --> B{/dev/dri exists?}
-    B -- yes --> C["DEVICE_DRI = --device /dev/dri<br/>--group-add render_group"]
-    B -- no --> D[DEVICE_DRI = empty]
-    C --> E{/dev/accel exists?}
-    D --> E
-    E -- yes --> F["DEVICE_ACCEL = --device /dev/accel<br/>--group-add accel_group"]
-    E -- no --> G[DEVICE_ACCEL = empty]
-    F --> H["Scan /dev/dri/render* for Intel vendor 0x8086<br/>Prefer dGPU over iGPU<br/>→ INTEL_RENDER_DEVICE"]
-    G --> H
-    H --> I["Override DEVICE_DRI with full /dev/dri<br/>card* nodes required by iHD VA-API driver<br/>GST_VA_DRM_DEVICE = INTEL_RENDER_DEVICE"]
-    I --> J(["Done → DLSTREAMER_DOCKER / DEEPSTREAM_DOCKER built"])
-```
-
 ### run_phase — benchmark loop
 
 ```mermaid
@@ -231,23 +214,6 @@ flowchart TD
     L --> M["kill live monitor<br/>_finish_round"]
     K -- no --> M
     M --> N(["Return ROUND_FPS / ROUND_STATUS"])
-```
-
-### FPS measurement — get_avg_fps
-
-```mermaid
-flowchart TD
-    A(["get_avg_fps logfile platform streams"]) --> B{platform?}
-    B -- dls --> C["grep FpsCounter average lines<br/>extract per-stream= values<br/>tail -n streams → last N values<br/>one final cumulative average per counter"]
-    B -- ds --> D["grep PERF lines<br/>extract values in parentheses"]
-    C --> E{values empty?}
-    D --> E
-    E -- yes --> F[return 0]
-    E -- no --> G{platform?}
-    G -- dls --> H["awk: return minimum<br/>slowest stream sets the limit"]
-    G -- ds --> I["awk: return average<br/>across all sources"]
-    H --> J([return FPS])
-    I --> J
 ```
 
 > **Note:** `utils.sh` is sourced first (it only defines functions). The device/source detection steps then run before the `DLSTREAMER_DOCKER` / `DEEPSTREAM_DOCKER` command strings are declared in the main script, because those strings embed `${DEVICE_DRI}`, `${DEVICE_ACCEL}` and `${EXTRA_INPUT_VOLUME_DLS}` / `${EXTRA_INPUT_VOLUME_DS}` by value at declaration time. The pipeline builders in `utils.sh` expand `${SOURCE_DLS}` / `${SOURCE_DS}` when called, not at source time.
