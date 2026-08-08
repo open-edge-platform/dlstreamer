@@ -1,11 +1,12 @@
 /*******************************************************************************
- * Copyright (C) 2018-2025 Intel Corporation
+ * Copyright (C) 2018-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
 
 #include "glib.h"
 #include "gst/analytics/analytics.h"
+#include "dlstreamer/gst/metadata/gva_dwelltime_meta.h"
 
 #include <glib/gslice.h>
 #include <gmock/gmock.h>
@@ -102,4 +103,24 @@ TEST_F(RegionOfInterestTest, RegionOfInterestTestTensors) {
     for (size_t i = 0; i < tensors_num; ++i) {
         ASSERT_EQ(tensors_roi[i].confidence(), test_tensors[i].confidence());
     }
+}
+
+TEST_F(RegionOfInterestTest, RegionOfInterestTestDwellTimes) {
+    GstAnalyticsRelationMeta *relation_meta = gst_buffer_get_analytics_relation_meta(buffer);
+    ASSERT_NE(relation_meta, nullptr);
+
+    GstAnalyticsDwellTimeMtd dwell_mtd;
+    gboolean ret =
+        gst_analytics_relation_meta_add_dwelltime_mtd(relation_meta, "zone-a", 2.5, 10.0, &dwell_mtd);
+    ASSERT_TRUE(ret);
+
+    ret = gst_analytics_relation_meta_set_relation(relation_meta, GST_ANALYTICS_REL_TYPE_RELATE_TO,
+                                                   region_of_interest->region_id(), dwell_mtd.id);
+    ASSERT_TRUE(ret);
+
+    auto dwell_times = region_of_interest->dwell_times();
+    ASSERT_EQ(dwell_times.size(), 1);
+    ASSERT_EQ(dwell_times[0].zone_id, "zone-a");
+    ASSERT_DOUBLE_EQ(dwell_times[0].dwell_time_sec, 2.5);
+    ASSERT_DOUBLE_EQ(dwell_times[0].first_seen_timestamp_sec, 10.0);
 }

@@ -523,6 +523,61 @@ while (gst_analytics_relation_meta_iterate(rmeta, &state,
 }
 ```
 
+## GstAnalyticsDwellTimeMtd
+
+`GstAnalyticsDwellTimeMtd` is a DL Streamer extension added by `gvaanalytics`
+for zones configured with `track-dwell-time=true`.
+It stores how long a tracked object has remained in a zone and when it first
+entered that zone.
+
+### GstAnalyticsDwellTimeData
+
+The payload stored inside `GstAnalyticsRelationMeta` for each `DwellTimeMtd` entry:
+
+```C
+struct _GstAnalyticsDwellTimeData {
+  gdouble dwell_time;           /* seconds the object has been inside the zone */
+  gdouble first_seen_timestamp; /* stream time (seconds) when the object first entered the zone */
+  gsize id_len;                 /* length of zone_id string including null terminator */
+  gchar id[];                   /* flexible array member - zone identifier string */
+};
+```
+
+### Dwell-Time API
+
+| Function | Description |
+|----------|-------------|
+| `gst_analytics_dwelltime_mtd_get_mtd_type()` | Returns the metadata type ID for `GstAnalyticsDwellTimeMtd`. |
+| `gst_analytics_dwelltime_mtd_get_info(handle, &zone_id, &dwell_time, &first_seen_timestamp)` | Reads dwell metadata fields. Returns `TRUE` on success. |
+| `gst_analytics_relation_meta_add_dwelltime_mtd(rmeta, zone_id, dwell_time, first_seen_timestamp, &dwell_mtd)` | Adds a dwell-time entry to `rmeta`. Returns `TRUE` on success. |
+| `gst_analytics_relation_meta_get_dwelltime_mtd(rmeta, an_meta_id, &dwell_mtd)` | Retrieves a specific dwell-time entry by metadata id. Returns `TRUE` on success. |
+
+### Dwell-Time C example
+
+```C
+#include <dlstreamer/gst/metadata/gva_dwelltime_meta.h>
+
+gpointer state = NULL;
+GstAnalyticsODMtd od_mtd;
+while (gst_analytics_relation_meta_iterate(rmeta, &state,
+       gst_analytics_od_mtd_get_mtd_type(), &od_mtd)) {
+  GstAnalyticsDwellTimeMtd dwell_mtd;
+  gpointer rel_state = NULL;
+  while (gst_analytics_relation_meta_get_direct_related(
+         rmeta, od_mtd.id, GST_ANALYTICS_REL_TYPE_RELATE_TO,
+         gst_analytics_dwelltime_mtd_get_mtd_type(), &rel_state, &dwell_mtd)) {
+    gchar *zone_id = NULL;
+    gdouble dwell_time = 0.0;
+    gdouble first_seen = 0.0;
+
+    if (gst_analytics_dwelltime_mtd_get_info(&dwell_mtd, &zone_id, &dwell_time, &first_seen)) {
+      g_print("Dwell: zone=%s dwell=%.3f first_seen=%.3f\n", zone_id, dwell_time, first_seen);
+      g_free(zone_id);
+    }
+  }
+}
+```
+
 
 ## GstAnalyticsKeypointDescriptor
 
