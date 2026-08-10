@@ -209,6 +209,9 @@ PostProcessor::PostProcessor(InferenceImpl *inference_impl, GvaBaseInference *ba
         initializer.converter_type = ConverterType::TO_TENSOR;
         GstGvaClassify *gva_classify = reinterpret_cast<GstGvaClassify *>(base_inference);
         initializer.skip_raw_tensors = gva_classify->skip_raw_tensors;
+        initializer.zeroshot_embeddings_file =
+            gva_classify->zeroshot_embeddings_file ? gva_classify->zeroshot_embeddings_file : "";
+        initializer.zeroshot_topk = gva_classify->zeroshot_topk;
     } else if (inference_type == InferenceType::GST_GVA_INFERENCE_TYPE) {
         initializer.converter_type = ConverterType::RAW;
     }

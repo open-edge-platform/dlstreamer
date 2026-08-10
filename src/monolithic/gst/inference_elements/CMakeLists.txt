@@ -87,6 +87,7 @@ PRIVATE
     pre_proc
     opencv_pre_proc
     logger
+    nlohmann_json::nlohmann_json
 PUBLIC
     openvino::runtime
     runtime_feature_toggling
