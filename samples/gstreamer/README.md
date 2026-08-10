@@ -52,6 +52,7 @@ Samples separated into several categories:
     * [VLM Alerts](./python/vlm_alerts/README.md) - edge AI alerting pipeline using Vision-Language Models to generate structured JSON alerts per frame with confidence scores and annotated video output
     * [VLM-assisted Self Checkout](./python/vlm_self_checkout/README.md) - self-checkout pipeline combining CV object detection with a VLM for item classification, running both models locally on edge
     * [Watermark Metadata Sample](./python/watermark_meta/README.md) - attaches custom drawing primitives (hexagons, lines, circles, text) to video frames using the watermark metadata API and renders them with `gvawatermark`
+    * [Loitering detection](./python/loitering_detection/README.md) - Tracks dwell time for specified objects in specified scene regions, publishes dwell time information via metadata (`gvametapublish`), leverages watermark metadata API and `gvawatermark` to report dwell time and creates visual alert if dwell time is beyond configured threshold.
 4. Benchmark
     * [Benchmark Sample](./benchmark/README.md) - measures overall performance of single-channel or multi-channel video analytics pipelines
 5. DL Streamer and DeepStream Coexistence

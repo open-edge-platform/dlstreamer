@@ -1,11 +1,11 @@
 # Loitering Detection 
 
-This sample demonstrates how to build a simple loitering detector with custom video analytics using DLStreamer elements.
-It detects and tracks dwell time for people in a specified scene region.
+This sample demonstrates how to build a simple loitering detector with DLStreamer elements and custom video analytics logic.
+It detects and tracks dwell time for specified objects in specified scene regions and generates a visual alert when dwell time exceeds a specified threshold.
 
 ![Sample Output](loitering_detection_output.png)
 
-It leverages the gvaanalytics element in DLStreamer to generate zone and dwell-time metadata, and a Python plugin to render dwell-time overlays.
+It leverages the gvaanalytics element in DLStreamer to generate zone and dwell-time metadata, and a Python plugin for threshold checking and rendering dwell-time and alert overlays.
 
 ## Pipeline Architecture
 ```mermaid
@@ -19,43 +19,52 @@ graph LR
   G --> H[queue]
   H --> I[loitering_watermark]
   I --> J[queue]
-  J --> K[gvawatermark]
-  K --> L[gvafpscounter]
+  J --> K[gvametaconvert]
+  K --> L[gvametapublish]
   L --> M[queue]
-  M --> N[vah264enc]
-  N --> O[h264parse]
-  O --> P[mp4mux]
-  P --> Q[filesink]
+  M --> N[gvawatermark]
+  N --> O[gvafpscounter]
+  O --> P[queue]
+  P --GPU--> Q[vah264enc]
+  Q --> T[h264parse]
+  P --CPU--> R[videoconvert]
+  R --> S[openh264enc]
+  S --> T
+  T --> U[mp4mux]
+  U --> V[filesink]
 ```
 
 The pipeline stages implement the following functions:
 
-* __unisourcebin__ - reads video from a URI
+* __urisourcebin__ - reads video from a URI
 * __decodebin3__ - decodes video into individual frames
 * __gvadetect__ - runs AI inference for object detection on each frame
-* __gvatrack__ - tracks detected objects across frames (required for tripwire detection)
+* __gvatrack__ - tracks detected objects across frames (required for object-in-zone detection)
 * __gvaanalytics__ - analyzes object trajectories, zone presence, and dwell time metadata
 * __loitering_watermark__ - custom element that reads dwell metadata and adds watermark text
+* __gvametaconvert__ - converts frame metadata to structured JSON
+* __gvametapublish__ - writes converted metadata to a JSON output file
 * __gvawatermark__ - renders detection results and watermark text on frames
 * __vah264enc__ - encodes output frames to H.264
-* __h264parse__ - parse H.264 
+* __videoconvert__ - color space conversion
+* __openh264enc__ - encodes output frames to H.264
+* __h264parse__ - parses H.264
 * __mp4mux__ - containerize H.264 buffers in MP4 format
 * __filesink__ - store encoded output video in file
 
 ## Custom Element Architecture
 
-This sample mirrors the [gvaanalytics_tripwire](../gvaanalytics_tripwire) sample, but changes the custom logic from line crossing to dwell-time monitoring inside analytics zones.
+This sample mirrors the [gvaanalytics_tripwire](../gvaanalytics_tripwire) sample, but changes the custom logic from line crossing to dwell-time threshold checking inside analytics zones.
 
 The `loitering_watermark` element is implemented as an in-place `GstBase.BaseTransform` plugin.
-For each video buffer, it reads analytics relation metadata produced upstream by `gvadetect`, `gvatrack`, and `gvaanalytics`.
-The dwell timer itself is computed in `gvaanalytics` and exported as relation metadata.
+For each video buffer, it reads analytics relation metadata produced upstream by `gvadetect`, `gvatrack`, and `gvaanalytics`. Since dwell time is computed in `gvaanalytics` and exported as relation metadata `loitering_watermark` is only responsible for threshold checking and result watermarking.
 
 Processing flow:
 
-1. Iterate detected objects (`ODMtd`) and keep only allowed object types (`person`).
-2. For each object, read tracking metadata (`track_id`) and dwell metadata (`zone_id`, `dwell_time`, `first_seen_timestamp`).
-3. Keep/update an in-memory record keyed by `track_id` and zone for overlay rendering.
-4. Remove stale records for tracks that are no longer active.
+1. Iterate detected objects (`ODMtd`) and inspect only allowed object types (`car` and `person` by default).
+2. For each object, read tracking metadata (`track_id`) and dwell metadata (`zone_id`, `dwell_time`).
+3. Build a per-frame in-memory record keyed by `track_id` for overlay rendering.
+4. Rebuild the record map on every frame from current metadata.
 5. If watermarking is enabled, render one dashboard line per active record:
   - normal color when `dwelling_time` is below threshold
   - alert color when `dwelling_time` is greater than or equal to threshold
@@ -73,7 +82,7 @@ Runtime properties exposed by the plugin:
 
 - `quiet-mode`: disables text overlay output
 - `dashboard-pos`: sets dashboard anchor position as `x,y`
-- `loitering-threshold`: dwell-time threshold in seconds used to trigger alert coloring
+- `loitering-threshold`: dwell-time threshold in seconds used to trigger alert coloring (range: 0.0 to 10.0; default: 5.0)
 
 
 ## Running the Sample
@@ -82,12 +91,12 @@ Runtime properties exposed by the plugin:
 
 Install DLStreamer on the host (see [DLStreamer Installation Guide](../../../../docs/user-guide/get_started/install/install_guide_index.md)).
 
-> **Note:** Since this sample is based on Python plugin, be sure to install the the Python dependencies described in Step 4
+> **Note:** Since this sample is based on a Python plugin, be sure to install the Python dependencies described in Step 4.
 
-### Change folder sample folder
+### Change to sample folder
 
 ```
-cd /opt/intel/dlstreamer/samples/python/loitering_detection
+cd /opt/intel/dlstreamer/samples/gstreamer/python/loitering_detection
 ```
 
 ### Download model from Ultralytics
@@ -115,7 +124,7 @@ You can run the sample using the provided shell script.
 The script accepts positional parameters in this order:
 
 ```sh
-./loitering_detection.sh [INPUT] [CONFIG_FILE] [MODEL] [DEVICE] [OUTPUT]
+./loitering_detection.sh [INPUT] [CONFIG_FILE] [MODEL] [DEVICE] [OUTPUT] [JSON_METADATA]
 ```
 
 Parameter details:
@@ -132,6 +141,8 @@ Parameter details:
   - Default: `GPU`
 - `OUTPUT`: Output video file name/path.
   - Default: `loitering_detection_output.mp4`
+- `JSON_METADATA`: Output metadata file path written by `gvametapublish`.
+  - Default: `loitering_detection_output.json`
 
 Environment variables:
 
