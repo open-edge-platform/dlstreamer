@@ -93,7 +93,6 @@ if NOT "%PRECISION%"=="INT8" if NOT "%PRECISION%"=="FP32" if NOT "%PRECISION%"==
 set MODEL_PROC=
 if "%MODEL%"=="yolox-tiny" set MODEL_PROC=%~dp0..\..\..\..\gstreamer\model_proc\public\yolo-x.json
 if "%MODEL%"=="yolox_s" set MODEL_PROC=%~dp0..\..\..\..\gstreamer\model_proc\public\yolo-x.json
-if "%MODEL%"=="yolov5nu" set MODEL_PROC=
 if "%MODEL%"=="yolov7" set MODEL_PROC=%~dp0..\..\..\..\gstreamer\model_proc\public\yolo-v7.json
 @REM Set model path (strip quotes from MODELS_PATH)
 set MODEL_PATH=%MODELS_PATH:"=%\public\%MODEL%\%PRECISION%\%MODEL%.xml

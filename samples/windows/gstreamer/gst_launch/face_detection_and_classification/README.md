@@ -47,8 +47,8 @@ graph LR
 
 ## Models
 
-The sample uses by default the following pre-trained models from OpenVINO™ Toolkit [Open Model Zoo](https://github.com/openvinotoolkit/open_model_zoo)
-*   __centerface__ is primary detection network for finding faces
+The sample uses the following pre-trained models by default:
+*   __centerface__ is the primary detection network for finding faces
 *   __dima806_facial_age_image_detection__ age estimation on detected faces
 *   __dima806_face_emotions_image_detection__ emotion estimation on detected faces
 *   __dima806_fairface_gender_image_detection__ gender estimation on detected faces
@@ -64,8 +64,6 @@ Example:
 ```batch
 set MODELS_PATH=C:\models
 ```
-
-The sample contains `model_proc` subfolder with .json files for each model with description of model input/output formats and post-processing rules for classification models.
 
 ## Running
 

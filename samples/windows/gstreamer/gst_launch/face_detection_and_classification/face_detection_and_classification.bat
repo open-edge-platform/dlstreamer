@@ -50,15 +50,11 @@ set CLASS_MODEL_PATH1=%MODELS_PATH%\public\dima806_facial_age_image_detection\FP
 set CLASS_MODEL_PATH2=%MODELS_PATH%\public\dima806_fairface_gender_image_detection\FP32\%MODEL3%.xml
 set CLASS_MODEL_PATH3=%MODELS_PATH%\public\dima806_face_emotions_image_detection\FP32\%MODEL4%.xml
 
-set MODEL2_PROC=%~dp0model_proc\%MODEL2%.json
-set MODEL3_PROC=%~dp0model_proc\%MODEL3%.json
-set MODEL4_PROC=%~dp0model_proc\%MODEL4%.json
-
 @REM correcting paths as in Linux
 set DETECT_MODEL_PATH=%DETECT_MODEL_PATH:\=/%
-set CLASS_MODEL_PATH=%CLASS_MODEL_PATH:\=/%
 set CLASS_MODEL_PATH1=%CLASS_MODEL_PATH1:\=/%
 set CLASS_MODEL_PATH2=%CLASS_MODEL_PATH2:\=/%
+set CLASS_MODEL_PATH3=%CLASS_MODEL_PATH3:\=/%
 
 setlocal DISABLEDELAYEDEXPANSION
 set PIPELINE=gst-launch-1.0 -v %SOURCE_ELEMENT% ! decodebin3 ! videoconvert ! ^

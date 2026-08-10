@@ -38,14 +38,16 @@ SUPPORTED_MODELS=(
   "yolox_s"
   "yolov7"
   "yolov8_license_plate_detector"
-  "ch_PP-OCRv4_rec_infer"
+  "ch_PP-OCRv4_rec_infer" # PaddlePaddle OCRv4 multilingual model
+  "PP-OCRv5_server_rec" # PaddlePaddle PP-OCRv5 recognition models
+  "PP-OCRv5_mobile_rec"
   "centerface"
   "hsemotion"
   "deeplabv3"
-  "pallet_defect_detection"
-  "colorcls2"
-  "mars-small128"
-  "pointpillars"
+  "pallet_defect_detection" # Custom model for pallet defect detection
+  "colorcls2" # Color classification model
+  "mars-small128" # DeepSORT person re-identification model (uses convert_mars_deepsort.py)
+  "pointpillars" # PointPillars 3D object detection model
 )
 
 # Corresponds to files in 'datasets' directory
@@ -686,6 +688,65 @@ os.remove('${MODEL_NAME}.zip')
     model_status="cached"
     echo_color "\nModel already exists: $MODEL_DIR.\n" "yellow"
   fi
+fi
+
+# ================================= PP-OCRv5 PaddlePaddle models FP32 & FP16 - HuggingFace + paddle2onnx =================================
+export_ppocr_v5_model() {
+  local MODEL_NAME="$1"
+  local MODEL_DIR="$MODELS_PATH/public/$MODEL_NAME"
+  local DST_FILE1="$MODEL_DIR/FP32/$MODEL_NAME.xml"
+  local DST_FILE2="$MODEL_DIR/FP16/$MODEL_NAME.xml"
+
+  if [[ ! -f "$DST_FILE1" || ! -f "$DST_FILE2" ]]; then
+    display_header "Downloading PaddlePaddle $MODEL_NAME model"
+    echo "Downloading and converting: ${MODEL_DIR}"
+    mkdir -p "$MODEL_DIR"
+    cd "$MODEL_DIR"
+
+    # Dependencies required for PaddlePaddle PIR -> ONNX conversion.
+    pip install --no-cache-dir paddlepaddle paddle2onnx huggingface_hub || handle_error $LINENO
+
+    echo_color "[1/4] Downloading PaddlePaddle/$MODEL_NAME from HuggingFace..." "cyan"
+    python3 - <<EOF "$MODEL_NAME"
+from huggingface_hub import snapshot_download
+import sys
+
+model_name = sys.argv[1]
+snapshot_download(repo_id=f"PaddlePaddle/{model_name}", local_dir="paddle_model")
+EOF
+
+    echo_color "[2/4] Converting PaddlePaddle -> ONNX..." "cyan"
+    paddle2onnx \
+      --model_dir paddle_model \
+      --model_filename inference.json \
+      --params_filename inference.pdiparams \
+      --save_file model.onnx \
+      --opset_version 14 || handle_error $LINENO
+
+    echo_color "[3/4] Converting ONNX -> OpenVINO IR (FP32 & FP16)..." "cyan"
+    mkdir -p FP32 FP16
+    ovc model.onnx --output_model "FP32/${MODEL_NAME}.xml" --compress_to_fp16=False || handle_error $LINENO
+    ovc model.onnx --output_model "FP16/${MODEL_NAME}.xml" --compress_to_fp16=True || handle_error $LINENO
+
+    echo_color "[4/4] Storing model config.json..." "cyan"
+    cp paddle_model/config.json FP32/config.json || handle_error $LINENO
+    cp paddle_model/config.json FP16/config.json || handle_error $LINENO
+
+    rm -f model.onnx
+    rm -rf paddle_model
+    cd ..
+  else
+    model_status="cached"
+    echo_color "\nModel already exists: $MODEL_DIR.\n" "yellow"
+  fi
+}
+
+if array_contains "PP-OCRv5_server_rec" "${MODELS_TO_PROCESS[@]}"; then
+  export_ppocr_v5_model "PP-OCRv5_server_rec"
+fi
+
+if array_contains "PP-OCRv5_mobile_rec" "${MODELS_TO_PROCESS[@]}"; then
+  export_ppocr_v5_model "PP-OCRv5_mobile_rec"
 fi
 
 # ================================= Mars-Small128 FP32 & INT8 =================================
