@@ -30,7 +30,7 @@ For yolov8s model it is also necessary to install the ultralytics python package
 pip install ultralytics
 ```
 
-Use [`scripts/download_models/download_ultralytics_models.py`](../../../../scripts/download_models/download_ultralytics_models.py) to export YOLO models. For environment setup details, see [`scripts/download_models/README.md`](../../../../scripts/download_models/README.md).
+Use [`download_ultralytics_models.py`](../../../../scripts/download_models/download_ultralytics_models.py) to export YOLO models. To do this, please follow [`README`](../../../../scripts/download_models/README.md).
 Select the yolov8s model by executing the command:
 
 ```sh

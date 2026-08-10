@@ -29,7 +29,7 @@ The sample uses the following pre-trained models by default:
 *   __yolo26s__ is the primary detection network for detecting persons, vehicles, and bikes
 *   __dima806_vehicle_10_types_image_detection__ classifies vehicle types
 
-> **NOTE**: Before running samples (including this one), prepare required models using scripts in [`scripts/download_models`](../../../../scripts/download_models) and follow the per-script setup notes in [`scripts/download_models/README.md`](../../../../scripts/download_models/README.md).
+> **NOTE**: Before running samples (including this one), prepare required models using scripts in [`scripts/download_models`](../../../../scripts/download_models) and follow the per-script setup notes in [`README`](../../../../scripts/download_models/README.md).
 
 ## Running
 

@@ -22,7 +22,7 @@ This sample builds a GStreamer pipeline of the following elements:
 
 ## Model
 
-The sample uses the [`clip-vit-large-patch14`](https://huggingface.co/openai/clip-vit-large-patch14), [`clip-vit-base-patch16`](https://huggingface.co/openai/clip-vit-base-patch16) or [`clip-vit-base-patch32`](https://huggingface.co/openai/clip-vit-base-patch32) model. The necessary conversion to the OpenVINO™ format is performed by [`scripts/download_models/download_hf_models.py`](../../../../scripts/download_models/download_hf_models.py).
+The sample uses the [`clip-vit-large-patch14`](https://huggingface.co/openai/clip-vit-large-patch14), [`clip-vit-base-patch16`](https://huggingface.co/openai/clip-vit-base-patch16) or [`clip-vit-base-patch32`](https://huggingface.co/openai/clip-vit-base-patch32) model. The necessary conversion to the OpenVINO™ format is performed by [`download_hf_models.py`](../../../../scripts/download_models/download_hf_models.py).
 
 ## Running
 

@@ -38,7 +38,7 @@ This downloads/builds the PointPillars models, the OpenVINO extension, and the `
 
 ### 3. YOLO model
 
-Prepare the camera detector in advance with [`scripts/download_models/download_ultralytics_models.py`](../../../../scripts/download_models/download_ultralytics_models.py). For environment setup details, see [`scripts/download_models/README.md`](../../../../scripts/download_models/README.md).
+Prepare the camera detector in advance with [`download_ultralytics_models.py`](../../../../scripts/download_models/download_ultralytics_models.py). To do this, please follow [`README`](../../../../scripts/download_models/README.md).
 
 ```bash
 export MODELS_PATH=~/models

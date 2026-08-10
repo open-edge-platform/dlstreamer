@@ -43,7 +43,7 @@ For the YOLOv11s model, it is also necessary to install the Ultralytics Python p
 pip install ultralytics
 ```
 
-Use [`scripts/download_models/download_ultralytics_models.py`](../../../../../scripts/download_models/download_ultralytics_models.py) to export YOLO models. For environment setup details, see [`scripts/download_models/README.md`](../../../../../scripts/download_models/README.md). To prepare YOLOv11s in FP32, execute:
+Use [`download_ultralytics_models.py`](../../../../../scripts/download_models/download_ultralytics_models.py) to export YOLO models. To do this, please follow [`README`](../../../../../scripts/download_models/README.md). To prepare YOLOv11s in FP32, execute:
 
 ```sh
 cd ../../../../../scripts/download_models
