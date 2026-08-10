@@ -39,6 +39,7 @@ PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/../elements/gvaanalytics/
     ${CMAKE_CURRENT_SOURCE_DIR}/../elements/gvastreammux/
     ${CMAKE_CURRENT_SOURCE_DIR}/../elements/gvastreamdemux/
+    ${CMAKE_CURRENT_SOURCE_DIR}/../elements/gvafpscounter/
 )
 
 target_link_libraries(${TARGET_NAME}
@@ -52,6 +53,7 @@ PRIVATE
     dlstreamer_gst_meta
     gvastreammux
     gvastreamdemux
+    gvafpscounter
 )
 
 if(ENABLE_GENAI)
