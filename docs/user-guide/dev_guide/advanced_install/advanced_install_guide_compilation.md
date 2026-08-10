@@ -290,7 +290,7 @@ See [ONVIF sample](https://github.com/open-edge-platform/dlstreamer/tree/main/sa
 The easiest way is to download and install the wheel directly from the GitHub Release:
 
   ```bash
-  pip install https://github.com/open-edge-platform/dlstreamer/releases/download/v2026.1.0/intel_dlstreamer-2026.1.0-py3-none-any.whl
+  pip install https://github.com/open-edge-platform/dlstreamer/releases/download/v2026.2.0/intel_dlstreamer-2026.2.0-py3-none-any.whl
   ```
 
 Alternatively, build the wheel from the cloned sources:
