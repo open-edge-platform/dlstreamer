@@ -4,7 +4,7 @@ This folder contains standalone conversion CLIs:
 
 - `download_hf_models.py` — Convert Hugging Face models to OpenVINO.
 - `download_ultralytics_models.py` — Convert Ultralytics YOLO models to OpenVINO.
-- `download_timm_models.py` — Convert supported TIMM image-classification models to OpenVINO.
+- `download_timm_models.py` — Convert supported TIMM (PyTorch Image Models) image-classification models to OpenVINO.
 - `download_other_models.sh` — Download and convert selected non-HF/non-Ultralytics helper models.
 
 Model list files used by automation are stored in:

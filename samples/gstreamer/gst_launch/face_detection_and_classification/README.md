@@ -25,7 +25,7 @@ The sample uses the following pre-trained models by default:
 *   __dima806/face_emotions_image_detection__ emotions recognition
 
 These models are not from Open Model Zoo:
-*   `centerface` is prepared by [`scripts/download_models/download_other_models.sh`](../../../../scripts/download_models/download_other_models.sh)
+*   `centerface` is prepared by [`download_other_models.sh`](../../../../scripts/download_models/download_other_models.sh)
 *   `dima806/*` models are prepared from Hugging Face via [`scripts/download_models/download_hf_models.py`](../../../../scripts/download_models/download_hf_models.py)
 
 > **NOTE**: Before running samples (including this one), prepare required models using scripts in [`scripts/download_models`](../../../../scripts/download_models) and follow the per-script setup notes in [`scripts/download_models/README.md`](../../../../scripts/download_models/README.md).
