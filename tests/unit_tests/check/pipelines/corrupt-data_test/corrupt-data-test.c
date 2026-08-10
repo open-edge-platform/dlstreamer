@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2018-2025 Intel Corporation
+ * Copyright (C) 2018-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -133,8 +133,7 @@ GST_START_TEST(test_breakmydata_metaconvert) {
 
     ExitStatus status = get_model_path(detection_model_path, MAX_STR_PATH_SIZE, "yolo11s", "FP32");
     ck_assert(status == EXIT_STATUS_SUCCESS);
-    status =
-        get_model_path(classify_model_path, MAX_STR_PATH_SIZE, "dima806_fairface_gender_image_detection", "FP32");
+    status = get_model_path(classify_model_path, MAX_STR_PATH_SIZE, "dima806_fairface_gender_image_detection", "FP32");
     ck_assert(status == EXIT_STATUS_SUCCESS);
     status = get_video_file_path(video_file_path, MAX_STR_PATH_SIZE, "Pexels_Videos_4786.mp4");
     ck_assert(status == EXIT_STATUS_SUCCESS);
@@ -175,8 +174,7 @@ GST_START_TEST(test_breakmydata_element_combination) {
              "breakmydata probability=%s ! gvaclassify model=%s object-class=vehicle ! queue ! "
              "breakmydata probability=%s ! gvawatermark ! "
              "videoconvert ! fakesink sync=false",
-             video_file_path, break_prob[0], detection_model_path, break_prob[0],
-             classify_model_path_1, break_prob[0]);
+             video_file_path, break_prob[0], detection_model_path, break_prob[0], classify_model_path_1, break_prob[0]);
 
     g_print("Pipeline: %s\n", command_line);
     check_run_pipeline(command_line, PIPELINE_EXECUTING_TIMEOUT);

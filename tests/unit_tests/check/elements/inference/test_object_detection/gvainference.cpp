@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2018-2025 Intel Corporation
+ * Copyright (C) 2018-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -51,13 +51,12 @@ void check_outbuffer(GstBuffer *outbuffer, gpointer user_data) {
     ck_assert_msg(count != 0, "No objects were detected");
 }
 
-TestData cpu_test_data[] = {
-    {"inference_test_files/car_2.jpg", "yolo11s", {640, 480}},
-    {"inference_test_files/car_1.png", "yolo26s", {640, 480}},
-    {"inference_test_files/car_1.png", "yolo11s", {640, 480}},
-    {"inference_test_files/pedestrians.jpg", "yolo26s", {640, 480}},
-    {"inference_test_files/pedestrians.jpg", "yolo11s", {640, 480}},
-    {"inference_test_files/nasa.jpg", "centerface", {640, 480}}};
+TestData cpu_test_data[] = {{"inference_test_files/car_2.jpg", "yolo11s", {640, 480}},
+                            {"inference_test_files/car_1.png", "yolo26s", {640, 480}},
+                            {"inference_test_files/car_1.png", "yolo11s", {640, 480}},
+                            {"inference_test_files/pedestrians.jpg", "yolo26s", {640, 480}},
+                            {"inference_test_files/pedestrians.jpg", "yolo11s", {640, 480}},
+                            {"inference_test_files/nasa.jpg", "centerface", {640, 480}}};
 
 GST_START_TEST(test_obj_detection_inference_cpu) {
     g_print("Starting test: test_obj_detection_inference_cpu\n");
@@ -78,10 +77,9 @@ GST_START_TEST(test_obj_detection_inference_cpu) {
 
 GST_END_TEST;
 
-TestData gpu_test_data[] = {
-    {"inference_test_files/car_2.jpg", "yolo11s", {640, 480}},
-    {"inference_test_files/car_1.png", "yolo11s", {640, 480}},
-    {"inference_test_files/pedestrians.jpg", "yolo26s", {640, 480}}};
+TestData gpu_test_data[] = {{"inference_test_files/car_2.jpg", "yolo11s", {640, 480}},
+                            {"inference_test_files/car_1.png", "yolo11s", {640, 480}},
+                            {"inference_test_files/pedestrians.jpg", "yolo26s", {640, 480}}};
 
 GST_START_TEST(test_obj_detection_inference_gpu) {
     g_print("Starting test: test_obj_detection_inference_gpu\n");
