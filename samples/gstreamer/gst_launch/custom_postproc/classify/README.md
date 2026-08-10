@@ -41,17 +41,19 @@ The sample uses the following pre-trained models:
 * **centerface** - primary detection network for finding faces
 * **hsemotion** - emotion classification on detected faces with custom post-processing
 
-Use `scripts/download_models/download_other_models.sh` to download required models. You can download both models by executing:
+Use [`scripts/download_models/download_other_models.sh`](../../../../../scripts/download_models/download_other_models.sh) to download required models. For environment setup details, see [`scripts/download_models/README.md`](../../../../../scripts/download_models/README.md). You can download both models by executing:
 
 ```sh
-bash ../../../../../scripts/download_models/download_other_models.sh centerface
-bash ../../../../../scripts/download_models/download_other_models.sh hsemotion
+cd ../../../../../scripts/download_models
+./download_other_models.sh centerface
+./download_other_models.sh hsemotion
 ```
 
 Or download all available models:
 
 ```sh
-bash ../../../../../scripts/download_models/download_other_models.sh all
+cd ../../../../../scripts/download_models
+./download_other_models.sh all
 ```
 
 > **NOTE**: Remember to set the `MODELS_PATH` environment variable, which is needed by both the script that downloads the models and the script that runs the sample.

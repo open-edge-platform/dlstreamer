@@ -53,7 +53,11 @@ The sample uses the following pre-trained models by default:
 *   __dima806_face_emotions_image_detection__ emotion estimation on detected faces
 *   __dima806_fairface_gender_image_detection__ gender estimation on detected faces
 
-> **NOTE**: Before running samples (including this one), prepare required models using scripts in `scripts/download_models` (see `scripts/download_models/README.md` for per-model commands and per-script venv setup).
+These models are not from Open Model Zoo:
+*   `centerface` is prepared by [`scripts/download_models/download_other_models.sh`](../../../../scripts/download_models/download_other_models.sh)
+*   `dima806_*` models are prepared from Hugging Face models via [`scripts/download_models/download_hf_models.py`](../../../../scripts/download_models/download_hf_models.py)
+
+> **NOTE**: Before running samples (including this one), prepare required models using scripts in [`scripts/download_models`](../../../../scripts/download_models) and follow the per-script setup notes in [`scripts/download_models/README.md`](../../../../scripts/download_models/README.md).
 
 ## Environment Variables
 

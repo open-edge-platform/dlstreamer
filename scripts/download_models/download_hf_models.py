@@ -45,6 +45,8 @@ MODELS_REQUIRING_PAD_TOKEN_WORKAROUND = {
     "qnguyen3/nanoLLaVA-1.5",
 }
 
+# OpenVINO IR can expose quantized 8-bit element types as either signed I8 or
+# unsigned U8 in XML metadata; both should map to the INT8 export bucket here.
 PRECISION_ALIASES = {
     "INT8": {"INT8", "I8", "U8"},
     "FP16": {"FP16", "F16"},

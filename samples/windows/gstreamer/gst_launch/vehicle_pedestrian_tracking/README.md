@@ -9,7 +9,7 @@ The sample builds a GStreamer pipeline using:
 - `decodebin3` for video decoding
 - `gvadetect` for object detection (person, vehicle, bike)
 - `gvatrack` for object tracking across frames
-- `gvaclassify` (1x) for vehicle-type classification
+- `gvaclassify` for vehicle-type classification
 - `gvawatermark` for visualization
 - `d3d11convert` for D3D11-accelerated video processing
 

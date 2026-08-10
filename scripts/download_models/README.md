@@ -35,54 +35,19 @@ If `@...` is omitted:
 - `download_other_models.sh` uses fixed script-defined sources (no per-model `@...` pin syntax).
 
 
-## Prerequisites
-
-Each script has its own isolated virtual environment to avoid dependency conflicts.
-
-### Hugging Face exporter
-
-**Create and activate venv:**
-```bash
-python3 -m venv .hf_models_venv
-source .hf_models_venv/bin/activate  # On Windows: .hf_models_venv\Scripts\activate
-```
-
-**Install dependencies:**
-```bash
-pip install -r requirements_download_hf_models.txt
-```
-
-### TIMM exporter
-
-**Create and activate venv:**
-```bash
-python3 -m venv .timm_models_venv
-source .timm_models_venv/bin/activate  # On Windows: .timm_models_venv\Scripts\activate
-```
-
-**Install dependencies:**
-```bash
-pip install -r requirements_download_timm_models.txt
-```
-
-### Ultralytics exporter
-
-**Create and activate venv:**
-```bash
-python3 -m venv .ultralytics_models_venv
-source .ultralytics_models_venv/bin/activate  # On Windows: .ultralytics_models_venv\Scripts\activate
-```
-
-**Install dependencies:**
-```bash
-pip install -r requirements_download_ultralytics_models.txt
-```
-
 ## 1) Hugging Face conversion
 
 Script: `download_hf_models.py`
 
 Dependencies file: `requirements_download_hf_models.txt`
+
+### Setup
+
+```bash
+python3 -m venv .hf_models_venv
+source .hf_models_venv/bin/activate  # On Windows: .hf_models_venv\Scripts\activate
+pip install -r requirements_download_hf_models.txt
+```
 
 ### Command
 
@@ -134,6 +99,14 @@ Script: `download_ultralytics_models.py`
 
 Dependencies file: `requirements_download_ultralytics_models.txt`
 
+### Setup
+
+```bash
+python3 -m venv .ultralytics_models_venv
+source .ultralytics_models_venv/bin/activate  # On Windows: .ultralytics_models_venv\Scripts\activate
+pip install -r requirements_download_ultralytics_models.txt
+```
+
 ### Command
 
 ```bash
@@ -153,6 +126,10 @@ python download_ultralytics_models.py \
 - `--outdir` (optional, default `.`): Output directory.
 - `--half` (optional): Export in FP16.
 - `--int8` (optional): Export in INT8.
+
+The script moves the exported OpenVINO IR directly into the specified `--outdir`.
+In practice, callers usually point `--outdir` at a precision-specific directory
+such as `${MODELS_PATH}/public/yolo11n/FP16` or `${MODELS_PATH}/public/yolo11n/INT8`.
 
 DL Streamer auto-conversion supports Ultralytics detection, segmentation, pose, OBB, and classification exports.
 
@@ -177,6 +154,14 @@ python download_ultralytics_models.py --model yolo11s.pt --outdir ./exports --in
 Script: `download_timm_models.py`
 
 Dependencies file: `requirements_download_timm_models.txt`
+
+### Setup
+
+```bash
+python3 -m venv .timm_models_venv
+source .timm_models_venv/bin/activate  # On Windows: .timm_models_venv\Scripts\activate
+pip install -r requirements_download_timm_models.txt
+```
 
 This script exports a relevant set of Hugging Face-hosted PyTorch Image Models
 (TIMM) image-classification models to OpenVINO IR using `optimum-cli`. Run
@@ -245,6 +230,12 @@ Script: `download_other_models.sh`
 
 This script downloads/converts a fixed set of helper models (for example, `centerface`, `hsemotion`, `deeplabv3`, `mars-small128`) into the `MODELS_PATH/public/...` layout.
 
+### Setup
+
+Set `MODELS_PATH` before running the script. The script creates and manages its
+own virtual environments under `${HOME}/.virtualenvs/` and installs its Python
+dependencies automatically.
+
 ### Command
 
 ```bash
@@ -269,9 +260,13 @@ This script downloads/converts a fixed set of helper models (for example, `cente
 
 ## Output notes
 
-- Hugging Face exports are written under `<outdir>/<model_name>/`.
-- Ultralytics export output is moved into the specified `--outdir`.
-- TIMM exports are written under `<output-dir>/public/<model_name>/FP16/<model_name>.xml`
-  and/or `<output-dir>/public/<model_name>/INT8/<model_name>.xml` with matching
-  `.bin` and `data_config.json` files.
+- Hugging Face exports are written under `<outdir>/<model_name>/`. For standard
+  single-IR exports the helper normalizes them into `<outdir>/<model_name>/<precision>/`
+  with matching `.xml` and `.bin` files; for multi-IR exports it preserves the
+  original export layout under `<outdir>/<model_name>/`.
+- Ultralytics export output is moved into the specified `--outdir`, which should
+  normally already be the desired precision directory.
+- TIMM exports are written under `<output-dir>/public/<model_name>/FP16/` and/or
+  `<output-dir>/public/<model_name>/INT8/` with matching `.xml`, `.bin`, and
+  `data_config.json` files.
 - `download_other_models.sh` writes models under `${MODELS_PATH}/public/<model_name>/...`.

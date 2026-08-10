@@ -88,10 +88,6 @@ else
   exit
 fi
 
-PROC_PATH() {
-    echo "$(dirname "$0")"/model_proc/"$1".json
-}
-
 DETECTION_MODEL=${MODELS_PATH}/public/${MODEL_1}/FP16/${MODEL_1}.xml
 VEHICLE_CLASSIFICATION_MODEL=${MODELS_PATH}/public/${MODEL_2}/FP16/${MODEL_2}.xml
 

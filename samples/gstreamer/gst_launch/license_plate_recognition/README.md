@@ -31,8 +31,9 @@ The accuracy of license plate detection depends on whether the applied model has
 
 ```sh
     export MODELS_PATH="$HOME"/models
+    cd /opt/intel/dlstreamer/scripts/download_models/
+    ./download_other_models.sh yolov8_license_plate_detector,ch_PP-OCRv4_rec_infer
     cd /opt/intel/dlstreamer/samples/gstreamer/gst_launch/license_plate_recognition/
-    bash ../../../../../scripts/download_models/download_other_models.sh yolov8_license_plate_detector,ch_PP-OCRv4_rec_infer
     ./license_plate_recognition.sh [INPUT] [DEVICE] [OUTPUT]
 ```
 

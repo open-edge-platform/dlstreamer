@@ -77,7 +77,9 @@ The sample requires a video file and an object detection model. Download sample 
 cd <python/hello_dlstreamer directory>
 export MODELS_PATH=${PWD}
 wget https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4
-python3 ../../../../scripts/download_models/download_ultralytics_models.py --model yolo11n.pt --outdir "${MODELS_PATH}/public/yolo11n/INT8" --int8
+cd ../../../../scripts/download_models
+python3 download_ultralytics_models.py --model yolo11n.pt --outdir "${MODELS_PATH}/public/yolo11n/INT8" --int8
+cd -
 ```
 
 > **Note:** This may take several seconds depending on your network speed.
