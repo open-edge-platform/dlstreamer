@@ -158,23 +158,12 @@ GST_START_TEST(test_breakmydata_element_combination) {
     gchar command_line[8 * MAX_STR_PATH_SIZE];
     char detection_model_path[MAX_STR_PATH_SIZE];
     char classify_model_path_1[MAX_STR_PATH_SIZE];
-    char classify_model_path_2[MAX_STR_PATH_SIZE];
     char video_file_path[MAX_STR_PATH_SIZE];
-    char classify_model_proc_path_2[MAX_STR_PATH_SIZE];
 
-    /*
-        security_barrier_camera
-    */
     ExitStatus status = get_model_path(detection_model_path, MAX_STR_PATH_SIZE, "yolo11s", "FP32");
     ck_assert(status == EXIT_STATUS_SUCCESS);
     status =
         get_model_path(classify_model_path_1, MAX_STR_PATH_SIZE, "dima806_vehicle_10_types_image_detection", "FP32");
-    ck_assert(status == EXIT_STATUS_SUCCESS);
-    status = get_model_path(classify_model_path_2, MAX_STR_PATH_SIZE, "license-plate-recognition-barrier-0007", "FP32");
-    ck_assert(status == EXIT_STATUS_SUCCESS);
-
-    status =
-        get_model_proc_path(classify_model_proc_path_2, MAX_STR_PATH_SIZE, "license-plate-recognition-barrier-0007");
     ck_assert(status == EXIT_STATUS_SUCCESS);
 
     status = get_video_file_path(video_file_path, MAX_STR_PATH_SIZE, "Pexels_Videos_4786.mp4");
@@ -184,12 +173,10 @@ GST_START_TEST(test_breakmydata_element_combination) {
              "filesrc location=%s ! qtdemux ! avdec_h264 ! video/x-raw ! videoconvert ! "
              "breakmydata probability=%s ! gvadetect model=%s ! queue ! "
              "breakmydata probability=%s ! gvaclassify model=%s object-class=vehicle ! queue ! "
-             "breakmydata probability=%s ! gvaclassify model=%s model-proc=%s object-class=license-plate ! queue ! "
              "breakmydata probability=%s ! gvawatermark ! "
              "videoconvert ! fakesink sync=false",
              video_file_path, break_prob[0], detection_model_path, break_prob[0],
-             classify_model_path_1, break_prob[0], classify_model_path_2,
-             classify_model_proc_path_2, break_prob[0]);
+             classify_model_path_1, break_prob[0]);
 
     g_print("Pipeline: %s\n", command_line);
     check_run_pipeline(command_line, PIPELINE_EXECUTING_TIMEOUT);

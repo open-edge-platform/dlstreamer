@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2018-2025 Intel Corporation
+ * Copyright (C) 2018-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -11,10 +11,11 @@
 #include "test_utils.h"
 
 const guint input_image_width = 1280;
-const guint input_image_height = 720;
+const guint input_image_height = 736;
 
-const guint input_layer_width = 672;
-const guint input_layer_height = 384;
+// centerface native input is 1280x768 and requires width/height divisible by 32.
+const guint input_layer_width = 1280;
+const guint input_layer_height = 768;
 
 GST_START_TEST(test_reshape_to_orignal_frame_size) {
     gchar pipeline_str[8 * MAX_STR_PATH_SIZE];

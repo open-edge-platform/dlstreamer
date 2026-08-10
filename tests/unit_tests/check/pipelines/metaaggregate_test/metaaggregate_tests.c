@@ -70,7 +70,8 @@ int compare_files(const char *file1, int droprate1, const char *file2, int dropr
     FILE *fptr2 = fopen(file2, "r");
     ck_assert_msg(fptr2 != NULL, opening_error, file2);
 
-    int bufferLength = 2048;
+    // JSON lines with add_tensor_data can be several KB long; buffer must hold a full line.
+    int bufferLength = 65536;
     char buffer1[bufferLength];
     char buffer2[bufferLength];
 
