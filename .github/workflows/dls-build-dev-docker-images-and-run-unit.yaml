@@ -186,7 +186,6 @@ jobs:
           MAPPED_RESULTS_DIR: /home/dlstreamer/test-results
           MAPPED_VIDEO_EXAMPLES_DIR: /home/dlstreamer/video-examples
           RESULTS_DIR: test-results
-          UNIT_TESTS_DUMP_GT: "1"
         run: |
           docker run --device /dev/dri --rm \
             --group-add=$(stat -c "%g" /dev/dri/render*) \
@@ -199,7 +198,6 @@ jobs:
             -w /home/dlstreamer/dlstreamer  \
             -e MODELS_PATH=${MAPPED_MODELS_PATH} \
             -e MODELS_PROC_PATH=/home/dlstreamer/dlstreamer/samples/gstreamer/model_proc \
-            -e UNIT_TESTS_DUMP_GT=${UNIT_TESTS_DUMP_GT} \
             ${dev_debug_img} \
             tests-scripts/run_unit_tests.sh "" "" ${MAPPED_RESULTS_DIR}
 
@@ -291,7 +289,6 @@ jobs:
           name: DLS_unit_tests_${{ matrix.runner_print_label }}_${{ matrix.ubuntu_version }}
           path: |
             ${{ env.RESULTS_DIR }}/*.xml
-            ${{ env.RESULTS_DIR }}/gt_dumps/**/*.json
 
       - name: Clean up
         if: always() && needs.setup.outputs.should_run == 'true'
