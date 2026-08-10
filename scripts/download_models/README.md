@@ -266,7 +266,6 @@ dependencies automatically.
   original export layout under `<outdir>/<model_name>/`.
 - Ultralytics export output is moved into the specified `--outdir`, which should
   normally already be the desired precision directory.
-- TIMM exports are written under `<output-dir>/public/<model_name>/FP16/` and/or
-  `<output-dir>/public/<model_name>/INT8/` with matching `.xml`, `.bin`, and
-  `data_config.json` files.
+- TIMM exports are written under `<output-dir>/public/<model_name>/<precision>/`
+  (e.g. `FP16/`, `INT8/`) with matching `.xml`, `.bin`, and `data_config.json` files.
 - `download_other_models.sh` writes models under `${MODELS_PATH}/public/<model_name>/...`.
