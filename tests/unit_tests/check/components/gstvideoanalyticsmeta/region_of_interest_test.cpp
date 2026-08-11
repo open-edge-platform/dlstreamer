@@ -8,7 +8,6 @@
 #include "glib.h"
 #include "gst/analytics/analytics.h"
 
-
 #include <glib/gslice.h>
 #include <gmock/gmock.h>
 #include <gst/gstbuffer.h>
