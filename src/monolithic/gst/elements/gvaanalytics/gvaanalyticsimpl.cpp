@@ -252,8 +252,8 @@ void process_object_detections(GstBaseTransform *base, GstAnalyticsRelationMeta 
                         GST_DEBUG_OBJECT(base,
                                          "Dwell zone=%s id=%u tracking_id=%" G_GUINT64_FORMAT
                                          " inserted=%s first_seen=%.3f last_seen=%.3f dwell=%.3f retention=%.3f",
-                                         zone->id.c_str(), od_mtd.id, tracking_id, inserted ? "true" : "false", first_seen,
-                                         it->second.last_seen, dwell, it->second.object_retention);
+                                         zone->id.c_str(), od_mtd.id, tracking_id, inserted ? "true" : "false",
+                                         first_seen, it->second.last_seen, dwell, it->second.object_retention);
                         GstAnalyticsDwellTimeMtd dwell_mtd;
                         if (gst_analytics_relation_meta_add_dwelltime_mtd(analytics_meta, zone->id.c_str(), dwell,
                                                                           first_seen, &dwell_mtd)) {
@@ -264,10 +264,9 @@ void process_object_detections(GstBaseTransform *base, GstAnalyticsRelationMeta 
                                            " dwell=%.3f first_seen=%.3f",
                                            zone->id.c_str(), od_mtd.id, tracking_id, dwell, first_seen);
                         } else {
-                            GST_WARNING_OBJECT(base,
-                                               "Failed to add DwellTimeMtd zone=%s od_id=%u tracking_id=%"
-                                               G_GUINT64_FORMAT,
-                                               zone->id.c_str(), od_mtd.id, tracking_id);
+                            GST_WARNING_OBJECT(
+                                base, "Failed to add DwellTimeMtd zone=%s od_id=%u tracking_id=%" G_GUINT64_FORMAT,
+                                zone->id.c_str(), od_mtd.id, tracking_id);
                         }
                     }
                 }
@@ -303,8 +302,7 @@ void process_object_detections(GstBaseTransform *base, GstAnalyticsRelationMeta 
                                tracking_id, state.last_point.x, state.last_point.y, state.zone_entry_times.size());
             }
         } else {
-            GST_LOG_OBJECT(base, "No tracking metadata for OD id=%u, skipping tripwire and dwell tracking",
-                           od_mtd.id);
+            GST_LOG_OBJECT(base, "No tracking metadata for OD id=%u, skipping tripwire and dwell tracking", od_mtd.id);
         }
     }
 }

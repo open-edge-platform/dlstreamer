@@ -417,8 +417,7 @@ static GstFlowReturn gva_analytics_transform_ip(GstBaseTransform *base, GstBuffe
     // Extract and process tracking metadata from buffer
     GstAnalyticsRelationMeta *analytics_meta = gst_buffer_get_analytics_relation_meta(buf);
 
-    GstClockTime stream_time =
-        gst_segment_to_stream_time(&base->segment, GST_FORMAT_TIME, GST_BUFFER_PTS(buf));
+    GstClockTime stream_time = gst_segment_to_stream_time(&base->segment, GST_FORMAT_TIME, GST_BUFFER_PTS(buf));
     GstClockTime time_for_dwell = GST_CLOCK_TIME_IS_VALID(stream_time) ? stream_time : GST_BUFFER_PTS(buf);
     gdouble current_time_sec = GST_CLOCK_TIME_IS_VALID(time_for_dwell) ? (gdouble)time_for_dwell / GST_SECOND : 0.0;
 

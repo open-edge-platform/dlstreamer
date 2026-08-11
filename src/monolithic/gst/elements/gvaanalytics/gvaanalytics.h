@@ -6,8 +6,8 @@
 
 #pragma once
 
-#include <gst/gst.h>
 #include <gst/base/gstbasetransform.h>
+#include <gst/gst.h>
 
 G_BEGIN_DECLS
 

@@ -60,8 +60,8 @@ bool point_in_zone(const Point &point, const Zone &zone);
 bool segment_intersects_tripwire(const Point &p1, const Point &p2, const Tripwire &tripwire);
 
 struct ZoneDwellState {
-    gdouble first_seen;    // PTS (s) when object first entered the zone
-    gdouble last_seen;     // PTS (s) of most recent frame with object inside
+    gdouble first_seen;       // PTS (s) when object first entered the zone
+    gdouble last_seen;        // PTS (s) of most recent frame with object inside
     gdouble object_retention; // per-zone grace period captured on entry
 };
 

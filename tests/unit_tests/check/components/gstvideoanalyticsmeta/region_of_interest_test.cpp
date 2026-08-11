@@ -4,9 +4,10 @@
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
 
+#include "dlstreamer/gst/metadata/gva_dwelltime_meta.h"
 #include "glib.h"
 #include "gst/analytics/analytics.h"
-#include "dlstreamer/gst/metadata/gva_dwelltime_meta.h"
+
 
 #include <glib/gslice.h>
 #include <gmock/gmock.h>
@@ -110,8 +111,7 @@ TEST_F(RegionOfInterestTest, RegionOfInterestTestDwellTimes) {
     ASSERT_NE(relation_meta, nullptr);
 
     GstAnalyticsDwellTimeMtd dwell_mtd;
-    gboolean ret =
-        gst_analytics_relation_meta_add_dwelltime_mtd(relation_meta, "zone-a", 2.5, 10.0, &dwell_mtd);
+    gboolean ret = gst_analytics_relation_meta_add_dwelltime_mtd(relation_meta, "zone-a", 2.5, 10.0, &dwell_mtd);
     ASSERT_TRUE(ret);
 
     ret = gst_analytics_relation_meta_set_relation(relation_meta, GST_ANALYTICS_REL_TYPE_RELATE_TO,

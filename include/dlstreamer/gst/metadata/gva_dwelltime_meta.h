@@ -56,9 +56,9 @@ DLS_EXPORT gboolean gst_analytics_dwelltime_mtd_get_info(const GstAnalyticsDwell
  * Returns: TRUE if the metadata was successfully added, FALSE otherwise.
  */
 DLS_EXPORT gboolean gst_analytics_relation_meta_add_dwelltime_mtd(GstAnalyticsRelationMeta *relation_meta,
-                                                                   const gchar *zone_id, gdouble dwell_time,
-                                                                   gdouble first_seen_timestamp,
-                                                                   GstAnalyticsDwellTimeMtd *dwelltime_mtd);
+                                                                  const gchar *zone_id, gdouble dwell_time,
+                                                                  gdouble first_seen_timestamp,
+                                                                  GstAnalyticsDwellTimeMtd *dwelltime_mtd);
 
 /**
  * gst_analytics_relation_meta_get_dwelltime_mtd:
@@ -71,6 +71,6 @@ DLS_EXPORT gboolean gst_analytics_relation_meta_add_dwelltime_mtd(GstAnalyticsRe
  * Returns: TRUE if the metadata was found and @rlt was filled, FALSE otherwise.
  */
 DLS_EXPORT gboolean gst_analytics_relation_meta_get_dwelltime_mtd(GstAnalyticsRelationMeta *meta, guint an_meta_id,
-                                                                   GstAnalyticsDwellTimeMtd *rlt);
+                                                                  GstAnalyticsDwellTimeMtd *rlt);
 
 G_END_DECLS

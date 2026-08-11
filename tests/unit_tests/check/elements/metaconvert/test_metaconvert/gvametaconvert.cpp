@@ -338,9 +338,8 @@ void setup_inbuffer(GstBuffer *inbuffer, gpointer user_data) {
     meta->id = od_mtd.id;
 
     GstAnalyticsDwellTimeMtd dwell_mtd;
-    ret =
-        gst_analytics_relation_meta_add_dwelltime_mtd(relation_meta, kTestDwellZoneId, kTestDwellTimeSec,
-                                                      kTestDwellFirstSeenSec, &dwell_mtd);
+    ret = gst_analytics_relation_meta_add_dwelltime_mtd(relation_meta, kTestDwellZoneId, kTestDwellTimeSec,
+                                                        kTestDwellFirstSeenSec, &dwell_mtd);
     ck_assert_msg(ret == TRUE, "Failed to add dwell mtd to relation meta");
 
     ret = gst_analytics_relation_meta_set_relation(relation_meta, GST_ANALYTICS_REL_TYPE_RELATE_TO, od_mtd.id,
@@ -393,12 +392,12 @@ void check_outbuffer(GstBuffer *outbuffer, gpointer user_data) {
                                        "Legacy metaconvert output format changed unexpectedly");
         const json &dwell_times = json_message["objects"][0]["dwell_times"];
         ck_assert_msg(dwell_times.is_array() && dwell_times.size() == 1,
-                  "Expected one dwell_times entry in object. Message: %s", meta->message);
+                      "Expected one dwell_times entry in object. Message: %s", meta->message);
         ck_assert_msg(strcmp(dwell_times[0].value("zone_id", "").c_str(), kTestDwellZoneId) == 0,
-                  "Unexpected dwell zone id. Message: %s", meta->message);
+                      "Unexpected dwell zone id. Message: %s", meta->message);
         assert_json_float(dwell_times[0]["dwell_time_sec"], kTestDwellTimeSec, "Unexpected dwell time");
         assert_json_float(dwell_times[0]["first_seen_timestamp_sec"], kTestDwellFirstSeenSec,
-                  "Unexpected dwell first_seen timestamp");
+                          "Unexpected dwell first_seen timestamp");
         ck_assert_msg(!json_message.contains("tensors"),
                       "Legacy ROI path should not create top-level tensors. Message: %s", meta->message);
     } else if (test_data->add_tensor_data == "tensor") {
