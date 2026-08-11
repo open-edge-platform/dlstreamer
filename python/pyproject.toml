@@ -9,7 +9,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "intel-dlstreamer"
-version = "2026.1.0"
+version = "2026.2.0"
 description = "Python utilities for DL Streamer — GVA metadata bindings and ONVIF camera discovery"
 license = "MIT"
 requires-python = ">=3.9"

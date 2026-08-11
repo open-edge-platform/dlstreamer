@@ -12,6 +12,7 @@
 #include "custom_to_roi.h"
 #include "detection_output.h"
 #include "mask_rcnn.h"
+#include "rfdetr.h"
 #include "rtdetr.h"
 #include "yolo_base.h"
 #include "yolo_v10.h"
@@ -97,6 +98,10 @@ BlobToMetaConverter::Ptr BlobToROIConverter::create(BlobToMetaConverter::Initial
             new YOLOv26SegConverter(std::move(initializer), confidence_threshold, iou_threshold));
     else if (converter_name == RTDETRConverter::getName())
         return BlobToMetaConverter::Ptr(new RTDETRConverter(std::move(initializer), confidence_threshold));
+    else if (converter_name == RFDETRConverter::getName())
+        return BlobToMetaConverter::Ptr(new RFDETRConverter(std::move(initializer), confidence_threshold));
+    else if (converter_name == RFDETRSegConverter::getName())
+        return BlobToMetaConverter::Ptr(new RFDETRSegConverter(std::move(initializer), confidence_threshold));
     else if (converter_name == MaskRCNNConverter::getName())
         return BlobToMetaConverter::Ptr(
             new MaskRCNNConverter(std::move(initializer), confidence_threshold, iou_threshold));

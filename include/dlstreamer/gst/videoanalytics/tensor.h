@@ -37,6 +37,8 @@ constexpr const char *GST_ANALYTICS_KEYPOINTS_2_TENSOR = "keypoints";
 constexpr const char *GST_ANALYTICS_CLS_2_TENSOR = "classification_result";
 /// Tensor type string for segmentation results (semantic frame-level or instance per-ROI)
 constexpr const char *GST_ANALYTICS_SEGMENTATION_2_TENSOR = "segmentation";
+/// Tensor type string for a generic raw inference tensor (e.g. gvainference output)
+constexpr const char *GST_ANALYTICS_TENSOR_2_TENSOR = "tensor";
 
 /// Tensor "format" value for semantic segmentation (frame-level int64 class-index map)
 constexpr const char *TENSOR_FORMAT_SEMANTIC_SEGMENTATION = "semantic_segmentation";
@@ -859,6 +861,40 @@ class Tensor {
 
             GST_ERROR("Segmentation: unsupported or empty format '%s', expected one of '%s', '%s'", fmt.c_str(),
                       TENSOR_FORMAT_SEMANTIC_SEGMENTATION, TENSOR_FORMAT_INSTANCE_SEGMENTATION);
+        } else if (type() == GST_ANALYTICS_TENSOR_2_TENSOR) {
+            GstTensorDataType data_type;
+            if (!tensor_data_type_from_precision(precision(), &data_type))
+                return false;
+
+            const std::vector<guint> dimensions = dims();
+            const std::vector<uint8_t> payload = data<uint8_t>();
+            if (dimensions.empty() || payload.empty())
+                return false;
+
+            std::vector<gsize> tensor_dims(dimensions.begin(), dimensions.end());
+
+            GstBuffer *data_buffer = gst_buffer_new_and_alloc(payload.size());
+            if (!data_buffer)
+                throw std::runtime_error("Tensor: failed to allocate raw tensor buffer");
+            gst_buffer_fill(data_buffer, 0, payload.data(), payload.size());
+
+            // The GstTensor id semantically identifies the tensor contents: use the layer name.
+            const GQuark id_quark = has_field("layer_name") ? g_quark_from_string(layer_name().c_str()) : 0;
+
+            GstAnalyticsTensorMtd *tensor_mtd = reinterpret_cast<GstAnalyticsTensorMtd *>(mtd);
+            if (!gst_analytics_relation_meta_add_tensor_mtd_simple(meta, id_quark, data_type, data_buffer,
+                                                                   GST_TENSOR_DIM_ORDER_ROW_MAJOR, tensor_dims.size(),
+                                                                   tensor_dims.data(), tensor_mtd)) {
+                gst_buffer_unref(data_buffer);
+                throw std::runtime_error("Failed to create raw tensor meta");
+            }
+
+            // The semantic tag carries the model name so the reverse path can restore it.
+            const std::string model = model_name();
+            if (!model.empty())
+                gst_analytics_mtd_set_semantic_tag(reinterpret_cast<GstAnalyticsMtd *>(tensor_mtd), model.c_str());
+
+            return true;
         }
 
         return false;
@@ -1200,8 +1236,6 @@ class Tensor {
                     model_tag.clear();
                 if (!model_tag.empty())
                     tensor.set_string("semantic_tag", model_tag);
-                if (gtensor->id != 0)
-                    tensor.set_string("tensor_id", g_quark_to_string(gtensor->id));
                 tensor.set_data(mask.data(), mask.size() * sizeof(float));
 
                 return tensor.gst_structure();
@@ -1218,6 +1252,7 @@ class Tensor {
 
             GstStructure *gst_structure = gst_structure_new_empty("tensor");
             Tensor tensor(gst_structure);
+            tensor.set_type(GST_ANALYTICS_TENSOR_2_TENSOR);
             tensor.set_precision(precision);
 
             std::vector<guint> dims;
@@ -1229,7 +1264,9 @@ class Tensor {
             if (!full_tag.empty())
                 tensor.set_string("semantic_tag", full_tag);
             if (gtensor->id != 0)
-                tensor.set_string("tensor_id", g_quark_to_string(gtensor->id));
+                tensor.set_string("tensor_name", g_quark_to_string(gtensor->id));
+            tensor.set_string("dims_order",
+                              gtensor->dims_order == GST_TENSOR_DIM_ORDER_COL_MAJOR ? "col-major" : "row-major");
             tensor.set_data(map.data, map.size);
 
             gst_buffer_unmap(gtensor->data, &map);
@@ -1264,6 +1301,36 @@ class Tensor {
             if (entry.data_type == data_type)
                 return entry.precision;
         return Precision::UNSPECIFIED;
+    }
+
+    /**
+     * @brief Map a GVA::Tensor precision to a GStreamer Analytics tensor data type.
+     * @param precision GVA::Tensor::Precision to map
+     * @param data_type (out) corresponding GstTensorDataType, set only when the mapping succeeds
+     * @return true if the precision maps to a GstTensorDataType, false otherwise
+     */
+    static bool tensor_data_type_from_precision(Precision precision, GstTensorDataType *data_type) {
+        struct Entry {
+            Precision precision;
+            GstTensorDataType data_type;
+        };
+        static constexpr Entry table[] = {
+            {Precision::I4, GST_TENSOR_DATA_TYPE_INT4},      {Precision::I8, GST_TENSOR_DATA_TYPE_INT8},
+            {Precision::I16, GST_TENSOR_DATA_TYPE_INT16},    {Precision::I32, GST_TENSOR_DATA_TYPE_INT32},
+            {Precision::I64, GST_TENSOR_DATA_TYPE_INT64},    {Precision::U4, GST_TENSOR_DATA_TYPE_UINT4},
+            {Precision::U8, GST_TENSOR_DATA_TYPE_UINT8},     {Precision::U16, GST_TENSOR_DATA_TYPE_UINT16},
+            {Precision::U32, GST_TENSOR_DATA_TYPE_UINT32},   {Precision::U64, GST_TENSOR_DATA_TYPE_UINT64},
+            {Precision::FP16, GST_TENSOR_DATA_TYPE_FLOAT16}, {Precision::FP32, GST_TENSOR_DATA_TYPE_FLOAT32},
+            {Precision::FP64, GST_TENSOR_DATA_TYPE_FLOAT64}, {Precision::BF16, GST_TENSOR_DATA_TYPE_BFLOAT16},
+        };
+        for (const auto &entry : table) {
+            if (entry.precision == precision) {
+                if (data_type)
+                    *data_type = entry.data_type;
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
