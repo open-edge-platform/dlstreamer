@@ -4,7 +4,7 @@ This page describes steps required to install Deep Learning Streamer Pipeline
 Framework on Windows.
 
 For building Deep Learning Streamer Pipeline Framework from source code,
-follow the [advanced installation guide](../../dev_guide/advanced_install/advanced_install_guide_windows_compilation.md).
+follow the [advanced installation guide](../dev_guide/advanced_install/advanced_install_guide_windows_compilation.md).
 
 ## Prerequisites
 
@@ -14,17 +14,17 @@ follow the [advanced installation guide](../../dev_guide/advanced_install/advanc
 
 ## Step 1: Download the Installer
 
-Go to DL Streamer [releases page on GitHub](https://github.com/open-edge-platform/dlstreamer/releases). 
+Go to DL Streamer [releases page on GitHub](https://github.com/open-edge-platform/dlstreamer/releases).
 Navigate to the **Assets** section and download the installer package named `dlstreamer-<version>-win64.exe`.
 
 ## Step 2: Run the Installer
 
 Run the `dlstreamer-<version>-win64.exe` file and follow the on-screen instructions.
 
-The installer also supports silent installation via command line, follow the instructions in the [advanced installation guide](../../dev_guide/advanced_install/advanced_install_guide_windows_command_line.md) for details.
+The installer also supports silent installation via command line, follow the instructions in the [advanced installation guide](../dev_guide/advanced_install/advanced_install_guide_windows_command_line.md) for details.
 
 ### License Agreement
-DL Streamer is licensed under the MIT License. 
+DL Streamer is licensed under the MIT License.
 Accept the license agreement and proceed with the installation.
 
 ![image](_images/install_windows_license.png)
