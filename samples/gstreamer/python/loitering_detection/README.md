@@ -89,38 +89,48 @@ Runtime properties exposed by the plugin:
 
 ### Install DLStreamer
 
-Install DLStreamer on the host (see [DLStreamer Installation Guide](../../../../docs/user-guide/get_started/install/install_guide_index.md)).
+#### Option A: Docker image (recommended)
 
-> **Note:** Since this sample is based on a Python plugin, be sure to install the Python dependencies described in Step 4.
+Pull the latest DLStreamer image and start an interactive container with GPU access:
+
+```sh
+export GPU_DEVICE=$([[ -d /dev/dri ]] && echo "--device /dev/dri")
+export DEVICE_GRP=$([[ -d /dev/dri ]] && stat -c '--group-add %g' /dev/dri/render*)
+export NPU_DEVICE=$([[ -d /dev/accel ]] && echo "--device /dev/accel")
+
+docker run --init -it --rm \
+    ${GPU_DEVICE} \
+    ${NPU_DEVICE} \
+    ${DEVICE_GRP} \
+    intel/dlstreamer:latest
+```
+
+> Note: install Docker Engine if not already available (see [Docker installation guide](https://docs.docker.com/engine/install/)).
+> All subsequent commands run inside this container shell.
+
+#### Option B: Native installation
+
+Install DLStreamer on the host (see [DLStreamer Installation Guide](../../../../docs/user-guide/install/install_guide_index.md)).
 
 ### Change to sample folder
 
-```
+```sh
 cd /opt/intel/dlstreamer/samples/gstreamer/python/loitering_detection
 ```
 
 ### Download model from Ultralytics
 
 ```
-mkdir -p /home/${USER}/models
-export MODELS_PATH=/home/${USER}/models
+mkdir -p ./models
+export MODELS_PATH=./models
 /opt/intel/dlstreamer/samples/download_public_models.sh yolo11s coco128
 ```
 
 > **Note:** This may take several seconds depending on your network speed.
 
-### Create Python virtual environment
-```
-python3 -m venv venv --prompt loitering_detection
-source venv/bin/activate
-python3 -m pip install -U pip
-python3 -m pip install -r requirements.txt
-```
-
 ### Execution
 
 You can run the sample using the provided shell script.
-
 The script accepts positional parameters in this order:
 
 ```sh
