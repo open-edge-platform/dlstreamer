@@ -39,10 +39,9 @@ void test_compact_meta_check_tensor() {
     ExitStatus status =
         get_model_path(detection_model_path, MAX_STR_PATH_SIZE, "yolov8_license_plate_detector", "FP32");
     ck_assert(status == EXIT_STATUS_SUCCESS);
-    status = get_model_path(classify_gender_model_path, MAX_STR_PATH_SIZE, "dima806_fairface_gender_image_detection",
-                            "FP32");
+    status = get_model_path(classify_gender_model_path, MAX_STR_PATH_SIZE, "colorcls2", "FP32");
     ck_assert(status == EXIT_STATUS_SUCCESS);
-    status = get_model_path(classify_age_model_path, MAX_STR_PATH_SIZE, "dima806_facial_age_image_detection", "FP32");
+    status = get_model_path(classify_age_model_path, MAX_STR_PATH_SIZE, "colorcls2", "FP32");
     ck_assert(status == EXIT_STATUS_SUCCESS);
     status = get_video_file_path(video_file_path, MAX_STR_PATH_SIZE, "Pexels_Videos_4786.mp4");
     ck_assert(status == EXIT_STATUS_SUCCESS);
