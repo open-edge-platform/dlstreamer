@@ -100,7 +100,7 @@ set MODEL_PATH=%MODELS_PATH:"=%\public\%MODEL%\%PRECISION%\%MODEL%.xml
 @REM Check if model exists
 if NOT EXIST "%MODEL_PATH%" (
     echo [91mERROR: Model not found: %MODEL_PATH%[0m
-    echo Please prepare this model via scripts\download_models\download_ultralytics_models.py (see scripts\download_models\README.md).
+    echo Please prepare this model via scripts\download_models\download_ultralytics_models.py ^(see scripts\download_models\README.md^).
     EXIT /B 1
 )
 
