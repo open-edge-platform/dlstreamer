@@ -17,7 +17,7 @@ a sample DL Streamer detection pipeline with YOLO model.
 Options:
   -h, --help                            Show this help message and exit
   -m=MODEL, --model=MODEL               YOLO model name to be used for detection (default: yolo11s)
-                                        Available models: yolov5su | yolov8s | yolo11s
+                                        Available models: yolov5nu | yolov8s | yolo11s
   -p=PRECISION, --precision=PRECISION   Selected precision of the model (default: INT8)
                                         Available types: INT8 | FP32 | FP16
   -o=OUTPUT, --output=OUTPUT            Type of output from a pipeline (default: display)
@@ -48,8 +48,8 @@ for arg in "$@"; do
             ;;
         -m=*|--model=*)
             MODEL="${arg#*=}"
-            if [[ "$MODEL" != "yolov5su" ]] && [[ "$MODEL" != "yolov8s" ]] && [[ "$MODEL" != "yolo11s" ]]; then
-                echo "Error! Wrong MODEL parameter. Supported models: yolov5su | yolov8s | yolo11s"
+            if [[ "$MODEL" != "yolov5nu" ]] && [[ "$MODEL" != "yolov8s" ]] && [[ "$MODEL" != "yolo11s" ]]; then
+                echo "Error! Wrong MODEL parameter. Supported models: yolov5nu | yolov8s | yolo11s"
                 exit 1
             fi
         ;;
@@ -137,11 +137,8 @@ if [ -d "$MODELS_PATH"/public/"$MODEL"/$PRECISION ]; then
 else
     echo "Model $MODEL which you want to use cannot be found at $MODELS_PATH!"
 
-    if [[ $PRECISION == "INT8" ]]; then
-        echo "Please run the script \`/opt/intel/dlstreamer/samples/download_public_models.sh $MODEL coco128\` to download the model."
-    else
-        echo "Please run the script \`/opt/intel/dlstreamer/samples/download_public_models.sh $MODEL\` to download the model."
-    fi
+    echo "Please follow the Ultralytics section in /opt/intel/dlstreamer/scripts/download_models/README.md to download the model."
+    echo "Make sure to set export MODELS_PATH before running the download script, and use --outdir \"\${MODELS_PATH}/public/${MODEL}/${PRECISION}\"."
 
     echo "If the model has already been downloaded, specify the path to its location (for instance: export MODELS_PATH=/home/user/you_path)."
     exit 1
