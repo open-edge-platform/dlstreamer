@@ -18,7 +18,7 @@ upstream
 | `GstAnalyticsTrackingMtd` | Object tracking (ID, timestamps) |
 | `GstAnalyticsKeypointMtd` | Single keypoint (x, y, z, confidence, visibility) |
 | `GstAnalyticsSegmentationMtd` | Semantic segmentation (class-index mask) |
-| `GstAnalyticsTensorMtd` | Raw tensor payload (used for instance-segmentation soft masks) |
+| `GstAnalyticsTensorMtd` | Raw tensor payload — generic `gvainference` output tensors and instance-segmentation soft masks |
 | `GstAnalyticsGroupMtd` | Ordered group of metadata |
 | `GstAnalyticsKeypointDescriptor` | Static keypoint layout registry (DL Streamer extension) |
 | `GstAnalyticsZoneMtd` | Zone presence — carries the zone ID string (DL Streamer extension) |
@@ -291,6 +291,41 @@ than a frame-level segmentation image, which lets `gvawatermark` blend it
 smoothly over each ROI. The `model_name/instance_segmentation` semantic tag is
 what distinguishes an instance mask from any other raw tensor metadata.
 
+### Raw tensors (generic inference output)
+
+Model outputs that are **not** interpreted into a higher-level metadata type
+(classification, detection, keypoints, segmentation) are stored verbatim as a
+`GstAnalyticsTensorMtd`. The main producer is `gvainference`, which attaches its
+raw output tensor(s) for any model (full-frame or per-ROI).
+
+At the frame level (`gvainference` with `inference-region=full-frame`) the
+tensor has no parent `ODMtd`:
+
+```
+gvainference (inference-region=full-frame, model=resnet-50)
+  │
+  └─ GstAnalyticsRelationMeta
+       └─ TensorMtd (FP32 [1, 1000], row-major,
+                     semantic_tag="resnet-50")
+```
+
+Per-ROI (`inference-region=roi-list`, or a second-stage model over detections)
+the tensor is attached to its parent `ODMtd` via a `CONTAIN` relation:
+
+```
+gvadetect
+  └─ ODMtd (label="person", ..., semantic_tag="yolov26n")
+
+gvainference (inference-region=roi-list, model=reid-model)
+  └─ ODMtd ─CONTAIN→ TensorMtd (FP32 [1, 256], row-major,
+                                semantic_tag="reid-model")
+```
+
+The payload is copied verbatim: `precision`, `dims`, `dims_order` and the raw
+`data` come straight from the model output layer. Instance-segmentation soft
+masks (see above) are a special case of raw tensor, distinguished only by the
+`/instance_segmentation` suffix appended to their semantic tag.
+
 ### 3D object detection (LiDAR / radar)
 
 3D detectors produce oriented boxes in a sensor/world coordinate frame rather
@@ -346,6 +381,7 @@ DL Streamer uses semantic tags to:
 | `ClsMtd` | model name | `"densenet-121"` |
 | `GroupMtd` (keypoints) | `model_name/keypoint_format` | `"hrnet/body-pose/coco-17"` |
 | `SegmentationMtd` (semantic segmentation) | model name | `"deeplabv3"` |
+| `TensorMtd` (raw tensor) | model name | `"resnet-50"` |
 | `TensorMtd` (instance segmentation) | `model_name/instance_segmentation` | `"yolov8-seg/instance_segmentation"` |
 
 The semantic tag enables downstream elements to distinguish metadata
