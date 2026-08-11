@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2021-2025 Intel Corporation
+ * Copyright (C) 2021-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -21,8 +21,8 @@ class ModelProcTests : public ElementTest {
         _sinkCaps = GST_STATIC_CAPS(GST_VIDEO_CAPS_MAKE("{ BGRA }"));
         _elementName = "gvaclassify";
 
-        _model_path = TestEnv::getModelPath("vehicle-attributes-recognition-barrier-0039", "FP32");
-        _model_proc_path = TestEnv::getModelProcPath("vehicle-attributes-recognition-barrier-0039");
+        _model_path = TestEnv::getModelPath("colorcls2", "FP32");
+        _model_proc_path = "model_proc_test_files/color_7_types_default.json";
     }
 
     void testModelProcLabels(const std::string &model_proc_path, const std::string &labels_str,
@@ -56,26 +56,23 @@ class ModelProcTests : public ElementTest {
     static const std::string mp_labels_array_path;
     static const std::string mp_labels_wrong_path;
     static const std::string color_labels_path;
-    static const std::string type_labels_path;
 };
 
 const std::string ModelProcTests::mp_labels_array_and_path = "model_proc_test_files/mp_labels_array_and_path.json";
 const std::string ModelProcTests::mp_labels_array_path = "model_proc_test_files/mp_labels_array.json";
 const std::string ModelProcTests::mp_labels_wrong_path = "model_proc_test_files/mp_labels_wrong_path.json";
 const std::string ModelProcTests::color_labels_path = "model_proc_test_files/color_labels.txt";
-const std::string ModelProcTests::type_labels_path = "model_proc_test_files/type_labels.txt";
 
 TEST_F(ModelProcTests, modelProcLabelsArray) {
     const std::map<std::string, std::vector<std::string>> expected_labels{
-        {"color", {"white", "gray", "yellow", "red", "green", "blue", "black"}},
-        {"type", {"car", "van", "truck", "bus"}}};
+        {"output", {"white", "gray", "yellow", "red", "green", "blue", "black"}}};
 
     testModelProcLabels(_model_proc_path, {}, expected_labels);
 }
 
 TEST_F(ModelProcTests, modelProcLabelsPath) {
     const std::map<std::string, std::vector<std::string>> expected_labels{
-        {"color", {"pink", "cyan", "brown", "purple"}}, {"type", {"sedan", "roaster", "micro"}}};
+        {"output", {"pink", "cyan", "brown", "purple"}}};
 
     testModelProcLabels(mp_labels_array_and_path, {}, expected_labels);
 }
@@ -88,15 +85,15 @@ TEST_F(ModelProcTests, emptyModelProcLabels) {
 
 TEST_F(ModelProcTests, modelProcOverrideLabelsSingleLayer) {
     const std::map<std::string, std::vector<std::string>> expected_labels{
-        {"color", {"pink", "cyan", "brown", "purple"}}};
+        {"output", {"pink", "cyan", "brown", "purple"}}};
 
     testModelProcLabels(mp_labels_array_path, color_labels_path, expected_labels);
 }
 
-TEST_F(ModelProcTests, modelProcOverrideLabelsMultipleLayers) {
-    const std::string labels_str = "color=" + color_labels_path + ",type=" + type_labels_path;
+TEST_F(ModelProcTests, modelProcOverrideLabelsByLayerName) {
+    const std::string labels_str = "output=" + color_labels_path;
     const std::map<std::string, std::vector<std::string>> expected_labels{
-        {"color", {"pink", "cyan", "brown", "purple"}}, {"type", {"limousine", "suv", "coupe", "cabriolet", "targa"}}};
+        {"output", {"pink", "cyan", "brown", "purple"}}};
 
     testModelProcLabels(_model_proc_path, labels_str, expected_labels);
 }

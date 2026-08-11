@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2018-2025 Intel Corporation
+ * Copyright (C) 2018-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -45,24 +45,14 @@ GST_START_TEST(test_breakmydata_classify) {
     char detection_model_path[MAX_STR_PATH_SIZE];
     char classify_model_path_1[MAX_STR_PATH_SIZE];
     char video_file_path[MAX_STR_PATH_SIZE];
-    char detection_model_proc_path[MAX_STR_PATH_SIZE];
-    char classify_model_proc_path_1[MAX_STR_PATH_SIZE];
 
     /*
         security_barrier_camera
     */
-    ExitStatus status =
-        get_model_path(detection_model_path, MAX_STR_PATH_SIZE, "vehicle-license-plate-detection-barrier-0106", "FP32");
+    ExitStatus status = get_model_path(detection_model_path, MAX_STR_PATH_SIZE, "yolo11s", "FP32");
     ck_assert(status == EXIT_STATUS_SUCCESS);
     status =
-        get_model_path(classify_model_path_1, MAX_STR_PATH_SIZE, "vehicle-attributes-recognition-barrier-0039", "FP32");
-    ck_assert(status == EXIT_STATUS_SUCCESS);
-
-    status = get_model_proc_path(detection_model_proc_path, MAX_STR_PATH_SIZE,
-                                 "vehicle-license-plate-detection-barrier-0106");
-    ck_assert(status == EXIT_STATUS_SUCCESS);
-    status = get_model_proc_path(classify_model_proc_path_1, MAX_STR_PATH_SIZE,
-                                 "vehicle-attributes-recognition-barrier-0039");
+        get_model_path(classify_model_path_1, MAX_STR_PATH_SIZE, "dima806_vehicle_10_types_image_detection", "FP32");
     ck_assert(status == EXIT_STATUS_SUCCESS);
 
     status = get_video_file_path(video_file_path, MAX_STR_PATH_SIZE, "Pexels_Videos_4786.mp4");
@@ -71,11 +61,10 @@ GST_START_TEST(test_breakmydata_classify) {
     for (int i = 0; i < G_N_ELEMENTS(break_prob); i++) {
         snprintf(command_line, sizeof(command_line),
                  "filesrc location=%s ! qtdemux ! avdec_h264 ! video/x-raw ! videoconvert ! "
-                 "gvadetect model=%s model-proc=%s ! queue ! "
-                 "breakmydata probability=%s ! gvaclassify model=%s model-proc=%s object-class=vehicle ! "
+                 "gvadetect model=%s ! queue ! "
+                 "breakmydata probability=%s ! gvaclassify model=%s object-class=vehicle ! "
                  "fakesink sync = false",
-                 video_file_path, detection_model_path, detection_model_proc_path, break_prob[i], classify_model_path_1,
-                 classify_model_proc_path_1);
+                 video_file_path, detection_model_path, break_prob[i], classify_model_path_1);
 
         g_print("Pipeline: %s\n", command_line);
         check_run_pipeline(command_line, PIPELINE_EXECUTING_TIMEOUT);
@@ -89,8 +78,7 @@ GST_START_TEST(test_breakmydata_inference) {
     char detection_model_path[MAX_STR_PATH_SIZE];
     char video_file_path[MAX_STR_PATH_SIZE];
 
-    ExitStatus status =
-        get_model_path(detection_model_path, MAX_STR_PATH_SIZE, "vehicle-license-plate-detection-barrier-0106", "FP32");
+    ExitStatus status = get_model_path(detection_model_path, MAX_STR_PATH_SIZE, "yolo11s", "FP32");
     ck_assert(status == EXIT_STATUS_SUCCESS);
     status = get_video_file_path(video_file_path, MAX_STR_PATH_SIZE, "Pexels_Videos_4786.mp4");
     ck_assert(status == EXIT_STATUS_SUCCESS);
@@ -113,28 +101,22 @@ GST_START_TEST(test_breakmydata_watermark) {
     gchar command_line[8 * MAX_STR_PATH_SIZE];
     char detection_model_path[MAX_STR_PATH_SIZE];
     char video_file_path[MAX_STR_PATH_SIZE];
-    char detection_model_proc_path[MAX_STR_PATH_SIZE];
 
     /*
         security_barrier_camera
     */
-    ExitStatus status =
-        get_model_path(detection_model_path, MAX_STR_PATH_SIZE, "vehicle-license-plate-detection-barrier-0106", "FP32");
+    ExitStatus status = get_model_path(detection_model_path, MAX_STR_PATH_SIZE, "yolo11s", "FP32");
     ck_assert(status == EXIT_STATUS_SUCCESS);
-    status = get_model_proc_path(detection_model_proc_path, MAX_STR_PATH_SIZE,
-                                 "vehicle-license-plate-detection-barrier-0106");
-    ck_assert(status == EXIT_STATUS_SUCCESS);
-
     status = get_video_file_path(video_file_path, MAX_STR_PATH_SIZE, "Pexels_Videos_4786.mp4");
     ck_assert(status == EXIT_STATUS_SUCCESS);
 
     for (int i = 0; i < G_N_ELEMENTS(break_prob); i++) {
         snprintf(command_line, sizeof(command_line),
                  "filesrc location=%s ! qtdemux ! avdec_h264 ! video/x-raw ! videoconvert ! "
-                 "gvadetect model=%s model-proc=%s ! queue ! "
+                 "gvadetect model=%s ! queue ! "
                  "breakmydata probability=%s ! gvawatermark ! "
                  "videoconvert ! fakesink sync=false",
-                 video_file_path, detection_model_path, detection_model_proc_path, break_prob[i]);
+                 video_file_path, detection_model_path, break_prob[i]);
 
         g_print("Pipeline: %s\n", command_line);
         check_run_pipeline(command_line, PIPELINE_EXECUTING_TIMEOUT);
@@ -149,11 +131,9 @@ GST_START_TEST(test_breakmydata_metaconvert) {
     char classify_model_path[MAX_STR_PATH_SIZE];
     char video_file_path[MAX_STR_PATH_SIZE];
 
-    ExitStatus status =
-        get_model_path(detection_model_path, MAX_STR_PATH_SIZE, "vehicle-license-plate-detection-barrier-0106", "FP32");
+    ExitStatus status = get_model_path(detection_model_path, MAX_STR_PATH_SIZE, "yolo11s", "FP32");
     ck_assert(status == EXIT_STATUS_SUCCESS);
-    status =
-        get_model_path(classify_model_path, MAX_STR_PATH_SIZE, "person-attributes-recognition-crossroad-0230", "FP32");
+    status = get_model_path(classify_model_path, MAX_STR_PATH_SIZE, "dima806_fairface_gender_image_detection", "FP32");
     ck_assert(status == EXIT_STATUS_SUCCESS);
     status = get_video_file_path(video_file_path, MAX_STR_PATH_SIZE, "Pexels_Videos_4786.mp4");
     ck_assert(status == EXIT_STATUS_SUCCESS);
@@ -177,32 +157,12 @@ GST_START_TEST(test_breakmydata_element_combination) {
     gchar command_line[8 * MAX_STR_PATH_SIZE];
     char detection_model_path[MAX_STR_PATH_SIZE];
     char classify_model_path_1[MAX_STR_PATH_SIZE];
-    char classify_model_path_2[MAX_STR_PATH_SIZE];
     char video_file_path[MAX_STR_PATH_SIZE];
-    char detection_model_proc_path[MAX_STR_PATH_SIZE];
-    char classify_model_proc_path_1[MAX_STR_PATH_SIZE];
-    char classify_model_proc_path_2[MAX_STR_PATH_SIZE];
 
-    /*
-        security_barrier_camera
-    */
-    ExitStatus status =
-        get_model_path(detection_model_path, MAX_STR_PATH_SIZE, "vehicle-license-plate-detection-barrier-0106", "FP32");
+    ExitStatus status = get_model_path(detection_model_path, MAX_STR_PATH_SIZE, "yolo11s", "FP32");
     ck_assert(status == EXIT_STATUS_SUCCESS);
     status =
-        get_model_path(classify_model_path_1, MAX_STR_PATH_SIZE, "vehicle-attributes-recognition-barrier-0039", "FP32");
-    ck_assert(status == EXIT_STATUS_SUCCESS);
-    status = get_model_path(classify_model_path_2, MAX_STR_PATH_SIZE, "license-plate-recognition-barrier-0007", "FP32");
-    ck_assert(status == EXIT_STATUS_SUCCESS);
-
-    status = get_model_proc_path(detection_model_proc_path, MAX_STR_PATH_SIZE,
-                                 "vehicle-license-plate-detection-barrier-0106");
-    ck_assert(status == EXIT_STATUS_SUCCESS);
-    status = get_model_proc_path(classify_model_proc_path_1, MAX_STR_PATH_SIZE,
-                                 "vehicle-attributes-recognition-barrier-0039");
-    ck_assert(status == EXIT_STATUS_SUCCESS);
-    status =
-        get_model_proc_path(classify_model_proc_path_2, MAX_STR_PATH_SIZE, "license-plate-recognition-barrier-0007");
+        get_model_path(classify_model_path_1, MAX_STR_PATH_SIZE, "dima806_vehicle_10_types_image_detection", "FP32");
     ck_assert(status == EXIT_STATUS_SUCCESS);
 
     status = get_video_file_path(video_file_path, MAX_STR_PATH_SIZE, "Pexels_Videos_4786.mp4");
@@ -210,14 +170,11 @@ GST_START_TEST(test_breakmydata_element_combination) {
 
     snprintf(command_line, sizeof(command_line),
              "filesrc location=%s ! qtdemux ! avdec_h264 ! video/x-raw ! videoconvert ! "
-             "breakmydata probability=%s ! gvadetect model=%s model-proc=%s ! queue ! "
-             "breakmydata probability=%s ! gvaclassify model=%s model-proc=%s object-class=vehicle ! queue ! "
-             "breakmydata probability=%s ! gvaclassify model=%s model-proc=%s object-class=license-plate ! queue ! "
+             "breakmydata probability=%s ! gvadetect model=%s ! queue ! "
+             "breakmydata probability=%s ! gvaclassify model=%s object-class=vehicle ! queue ! "
              "breakmydata probability=%s ! gvawatermark ! "
              "videoconvert ! fakesink sync=false",
-             video_file_path, break_prob[0], detection_model_path, detection_model_proc_path, break_prob[0],
-             classify_model_path_1, classify_model_proc_path_1, break_prob[0], classify_model_path_2,
-             classify_model_proc_path_2, break_prob[0]);
+             video_file_path, break_prob[0], detection_model_path, break_prob[0], classify_model_path_1, break_prob[0]);
 
     g_print("Pipeline: %s\n", command_line);
     check_run_pipeline(command_line, PIPELINE_EXECUTING_TIMEOUT);

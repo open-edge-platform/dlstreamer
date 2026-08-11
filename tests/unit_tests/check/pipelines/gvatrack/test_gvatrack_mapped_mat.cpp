@@ -78,7 +78,7 @@ void delete_generated_video(const std::string &file_name) {
 
 bool check_data_copying(const std::string &decoder_string, const std::string &caps, const std::string &file_name) {
     char model_path[MAX_STR_PATH_SIZE];
-    get_model_path(model_path, MAX_STR_PATH_SIZE, "face-detection-adas-0001", "FP32");
+    get_model_path(model_path, MAX_STR_PATH_SIZE, "centerface", "FP32");
 
     const char *appsink_name = "appsink1";
     char pipeline_str[8 * MAX_STR_PATH_SIZE];

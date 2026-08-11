@@ -96,7 +96,7 @@ If `POINTPILLARS_ROOT` is not set, `g3dinference_prepare.sh` first looks for a s
 
 - `g3dinference_prepare.sh` uses the PointPillars source tree as the single source of truth for sample data, pretrained IR files, and the extension build script.
 - `g3dinference_prepare.sh` writes a fresh runtime JSON config with absolute paths, so it does not depend on the upstream `pointpillars_ov_config.json` having usable paths on your machine.
-- If you already downloaded the IR files with `samples/download_public_models.sh`, the preparation script reuses them from `MODELS_PATH/public/pointpillars/FP16`.
+- If you already downloaded the IR files with `download_other_models.sh pointpillars`, the preparation script reuses them from `MODELS_PATH/public/pointpillars/FP16`.
 
 ## See Also
 

@@ -43,10 +43,11 @@ For the YOLOv11s model, it is also necessary to install the Ultralytics Python p
 pip install ultralytics
 ```
 
-Use the `download_public_models.sh` script located in the top-level `samples` directory. This script allows you to download the full suite of YOLO models or select an individual model. To select the YOLOv11s model, execute the following command:
+Use [`download_ultralytics_models.py`](../../../../../scripts/download_models/download_ultralytics_models.py) to export YOLO models. To do this, please follow [`README`](../../../../../scripts/download_models/README.md). To prepare YOLOv11s in FP32, execute:
 
 ```sh
-./download_public_models.sh yolo11s
+cd ../../../../../scripts/download_models
+python3 download_ultralytics_models.py --model yolo11s.pt --outdir "${MODELS_PATH}/public/yolo11s/FP32"
 ```
 
 > **NOTE**: Remember to set the `MODELS_PATH` environment variable, which is required by both the model download script and the script that runs the sample.

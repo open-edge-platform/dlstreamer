@@ -129,7 +129,9 @@ The sample requires a video file and an object detection model. Download sample 
 cd <python/gvaanalytics_tripwire directory>
 export MODELS_PATH=${PWD}
 wget https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4
-../../../download_public_models.sh yolo11n
+cd ../../../../scripts/download_models
+python3 download_ultralytics_models.py --model yolo11n.pt --outdir "${MODELS_PATH}/public/yolo11n/FP16" --half
+cd -
 ```
 
 > **Note:** This may take several seconds depending on your network speed.

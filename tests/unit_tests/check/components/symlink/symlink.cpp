@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2024-2025 Intel Corporation
+ * Copyright (C) 2024-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -20,7 +20,7 @@
 TEST(symlink_test, model_file) {
     gchar allocator_name[] = "default";
     gchar device[] = "CPU";
-    gchar model_name[] = "vehicle-license-plate-detection-barrier-0106";
+    gchar model_name[] = "yolov8_license_plate_detector";
 
     char model_path[MAX_STR_PATH_SIZE] = {0};
     get_model_path(model_path, MAX_STR_PATH_SIZE, model_name, "FP32");
@@ -56,7 +56,7 @@ TEST(symlink_test, model_file) {
 TEST(symlink_test, model_proc_file) {
     gchar allocator_name[] = "default";
     gchar device[] = "CPU";
-    gchar model_name[] = "vehicle-license-plate-detection-barrier-0106";
+    gchar model_name[] = "yolov8_license_plate_detector";
 
     char model_path[MAX_STR_PATH_SIZE] = {0};
     get_model_path(model_path, MAX_STR_PATH_SIZE, model_name, "FP32");
@@ -92,7 +92,7 @@ TEST(symlink_test, model_proc_file) {
 TEST(symlink_test, labels_file) {
     gchar allocator_name[] = "default";
     gchar device[] = "CPU";
-    gchar model_name[] = "vehicle-license-plate-detection-barrier-0106";
+    gchar model_name[] = "yolov8_license_plate_detector";
 
     char model_path[MAX_STR_PATH_SIZE] = {0};
     get_model_path(model_path, MAX_STR_PATH_SIZE, model_name, "FP32");

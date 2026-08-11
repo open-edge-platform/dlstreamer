@@ -17,7 +17,7 @@ if NOT DEFINED MODELS_PATH (
 )
 echo MODELS_PATH: %MODELS_PATH%
 
-set MODELS_LIST=yolox-tiny yolox_s yolov5s yolov5su yolov7 yolov8s ^
+set MODELS_LIST=yolox-tiny yolox_s yolov5nu yolov7 yolov8s ^
 yolov8n-obb yolov8n-seg yolov9c yolov10s yolo11s ^
 yolo11s-seg yolo11s-obb yolo11s-pose yolo26n yolo26s ^
 yolo26m yolo26l yolo26x yolo26s-obb yolo26s-seg yolo26s-pose
@@ -93,8 +93,6 @@ if NOT "%PRECISION%"=="INT8" if NOT "%PRECISION%"=="FP32" if NOT "%PRECISION%"==
 set MODEL_PROC=
 if "%MODEL%"=="yolox-tiny" set MODEL_PROC=%~dp0..\..\..\..\gstreamer\model_proc\public\yolo-x.json
 if "%MODEL%"=="yolox_s" set MODEL_PROC=%~dp0..\..\..\..\gstreamer\model_proc\public\yolo-x.json
-if "%MODEL%"=="yolov5s" set MODEL_PROC=%~dp0..\..\..\..\gstreamer\model_proc\public\yolo-v7.json
-if "%MODEL%"=="yolov5su" set MODEL_PROC=%~dp0..\..\..\..\gstreamer\model_proc\public\yolo-v8.json
 if "%MODEL%"=="yolov7" set MODEL_PROC=%~dp0..\..\..\..\gstreamer\model_proc\public\yolo-v7.json
 @REM Set model path (strip quotes from MODELS_PATH)
 set MODEL_PATH=%MODELS_PATH:"=%\public\%MODEL%\%PRECISION%\%MODEL%.xml
@@ -102,7 +100,7 @@ set MODEL_PATH=%MODELS_PATH:"=%\public\%MODEL%\%PRECISION%\%MODEL%.xml
 @REM Check if model exists
 if NOT EXIST "%MODEL_PATH%" (
     echo [91mERROR: Model not found: %MODEL_PATH%[0m
-    echo Please run download_public_models.bat to download the models first.
+    echo Please prepare this model via scripts\download_models\download_ultralytics_models.py ^(see scripts\download_models\README.md^).
     EXIT /B 1
 )
 

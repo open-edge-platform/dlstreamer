@@ -1,5 +1,0 @@
-limousine
-suv
-coupe
-cabriolet
-targa

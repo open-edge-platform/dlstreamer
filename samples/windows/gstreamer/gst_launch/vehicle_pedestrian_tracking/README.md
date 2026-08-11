@@ -9,18 +9,17 @@ The sample builds a GStreamer pipeline using:
 - `decodebin3` for video decoding
 - `gvadetect` for object detection (person, vehicle, bike)
 - `gvatrack` for object tracking across frames
-- `gvaclassify` (2x) for person and vehicle attribute classification
+- `gvaclassify` for vehicle-type classification
 - `gvawatermark` for visualization
 - `d3d11convert` for D3D11-accelerated video processing
 
 ## Models
 
-The sample uses the following pre-trained models from OpenVINO™ Toolkit [Open Model Zoo](https://github.com/openvinotoolkit/open_model_zoo):
-- **person-vehicle-bike-detection-2004** - Object detection
-- **person-attributes-recognition-crossroad-0230** - Person attributes (is_male, has_bag, has_hat, etc.)
-- **vehicle-attributes-recognition-barrier-0039** - Vehicle attributes (color, type)
+The sample uses the following models:
+- **yolo26s** - Object detection
+- **dima806_vehicle_10_types_image_detection** - Vehicle-type classification
 
-> **NOTE**: Run `download_omz_models.bat` once before using this sample.
+> **NOTE**: Download models using `scripts/download_models` helpers.
 
 ## Environment Variables
 
@@ -29,9 +28,8 @@ $set MODELS_PATH = 'C:\models'
 ```
 
 Models should be located at:
-- `%MODELS_PATH%\intel\person-vehicle-bike-detection-2004\FP32\person-vehicle-bike-detection-2004.xml`
-- `%MODELS_PATH%\intel\person-attributes-recognition-crossroad-0230\FP32\person-attributes-recognition-crossroad-0230.xml`
-- `%MODELS_PATH%\intel\vehicle-attributes-recognition-barrier-0039\FP32\vehicle-attributes-recognition-barrier-0039.xml`
+- `%MODELS_PATH%\public\yolo26s\FP16\yolo26s.xml`
+- `%MODELS_PATH%\public\dima806_vehicle_10_types_image_detection\FP16\dima806_vehicle_10_types_image_detection.xml`
 
 ## Running
 
@@ -114,10 +112,8 @@ graph LR
     D --> E[queue]
     E --> F[gvatrack]
     F --> G[queue]
-    G --> H[gvaclassify<br/>person attrs]
-    H --> I[queue]
-    I --> J[gvaclassify<br/>vehicle attrs]
-    J --> K[queue]
+  G --> H[gvaclassify<br/>vehicle type]
+  H --> K[queue]
     K --> L{OUTPUT}
     
     L -->|file<br/>GPU/AUTO| M1[d3d11convert]

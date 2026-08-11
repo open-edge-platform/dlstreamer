@@ -20,7 +20,7 @@ Pipeline elements:
 - **yolov8_license_plate_detector** - YOLOv8-based license plate detector
 - **ch_PP-OCRv4_rec_infer** - PaddlePaddle OCR V4 recognition model
 
-> **NOTE**: Run `download_public_models.bat` before using this sample.
+> **NOTE**: Prepare required models with [`download_other_models.sh`](../../../../../scripts/download_models/download_other_models.sh) `yolov8_license_plate_detector,ch_PP-OCRv4_rec_infer` before using this sample.
 
 ## Environment Variables
 

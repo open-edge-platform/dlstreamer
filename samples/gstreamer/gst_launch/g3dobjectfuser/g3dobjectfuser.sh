@@ -61,12 +61,9 @@ done
   "Sample data missing under ${DATA_DIR} (000002.bin/png/txt). Run ../g3dinference/g3dinference_prepare.sh first."
 [[ -f "${PP_CONFIG}" ]] || fail "PointPillars config not found: ${PP_CONFIG}. Run ../g3dinference/g3dinference_prepare.sh first."
 
-# --- Download the YOLO model if needed ---------------------------------------
-if [[ ! -f "${YOLO_MODEL}" ]]; then
-  log "Downloading ${YOLO_NAME} into ${MODELS_PATH} via download_public_models.sh"
-  MODELS_PATH="${MODELS_PATH}" "${DLSTREAMER_ROOT}/samples/download_public_models.sh" "${YOLO_NAME}"
-fi
-[[ -f "${YOLO_MODEL}" ]] || fail "YOLO model not found after download: ${YOLO_MODEL}"
+# --- Expect the YOLO model to be prepared in advance --------------------------
+[[ -f "${YOLO_MODEL}" ]] || fail \
+  "YOLO model not found: ${YOLO_MODEL}. Prepare it with scripts/download_models/download_ultralytics_models.py (see scripts/download_models/README.md)."
 
 # --- Build the calibration JSON from the KITTI 000002.txt --------------------
 # g3dobjectfuser expects p2 (3x4), r0_rect and tr_velo_to_cam as 4x4. KITTI

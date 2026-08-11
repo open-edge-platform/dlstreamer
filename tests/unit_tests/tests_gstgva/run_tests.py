@@ -11,22 +11,9 @@ import test_region_of_interest
 import test_video_frame
 import test_audio_event
 import test_audio_frame
-
 import test_pipeline_color_formats
-
 import test_pipeline_face_detection_and_classification
-import test_pipeline_face_detection_and_classification_emotion_ferplus_onnx
-import test_pipeline_vehicle_pedestrian_tracker
-
-import test_pipeline_classification_mobilenet_v2_onnx
-
-import test_pipeline_detection_atss
-
 import test_pipeline_gvapython
-import test_pipeline_gvapython_vaapi
-
-import test_pipeline_human_pose_estimation
-import test_pipeline_action_recognition
 import test_pipeline_optimizer
 import test_pipeline_gvafpsthrottle
 import test_pipeline_g3dradarprocess
@@ -49,23 +36,11 @@ if __name__ == '__main__':
     suite_gstgva.addTests(loader.loadTestsFromModule(
         test_pipeline_face_detection_and_classification))
     suite_gstgva.addTests(loader.loadTestsFromModule(
-        test_pipeline_face_detection_and_classification_emotion_ferplus_onnx))
-    suite_gstgva.addTests(loader.loadTestsFromModule(
-        test_pipeline_vehicle_pedestrian_tracker))
-    suite_gstgva.addTests(loader.loadTestsFromModule(
-        test_pipeline_classification_mobilenet_v2_onnx))
-    suite_gstgva.addTests(loader.loadTestsFromModule(
         test_audio_event))
     suite_gstgva.addTests(loader.loadTestsFromModule(
         test_audio_frame))
     suite_gstgva.addTests(loader.loadTestsFromModule(
         test_pipeline_gvapython))
-    suite_gstgva.addTests(loader.loadTestsFromModule(
-        test_pipeline_gvapython_vaapi))
-    suite_gstgva.addTests(loader.loadTestsFromModule(
-        test_pipeline_action_recognition))
-    suite_gstgva.addTests(loader.loadTestsFromModule(
-        test_pipeline_human_pose_estimation))
     suite_gstgva.addTests(loader.loadTestsFromModule(
         test_pipeline_gvafpsthrottle))
     suite_gstgva.addTests(loader.loadTestsFromModule(

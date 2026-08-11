@@ -9,11 +9,12 @@ This folder contains Windows-specific samples and scripts for Deep Learning Stre
 
 ## Download Models
 
-Before running samples, download the required models by running:
+Before running samples, prepare required models using scripts from `scripts/download_models`.
 
 ```batch
 set MODELS_PATH=C:\path\to\models
-download_omz_models.bat
+cd ..\..\scripts\download_models
+REM See README.md here for per-script venv setup and model-specific commands
 ```
 
 ## Notes

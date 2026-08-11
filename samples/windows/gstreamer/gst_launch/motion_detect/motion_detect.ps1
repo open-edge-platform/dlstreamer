@@ -8,7 +8,7 @@ param(
     [string]$Device = "CPU",
     [string]$InputSource = "DEFAULT",
     [string]$Model = "",
-    [string]$Precision = "FP32",
+    [string]$Precision = "FP16",
     [string]$PreprocessBackend = "opencv",
     [string]$OutputType = "display",
     [string]$MotionDetectOptions = "",
@@ -68,7 +68,7 @@ $MODEL_FINAL = $MODEL_FINAL -replace '\\', '/'
 # Check if model exists
 if (-not (Test-Path ($MODEL_FINAL -replace '/', '\'))) {
     Write-Host "ERROR: Model not found: $MODEL_FINAL" -ForegroundColor Red
-    Write-Host "Please run download_public_models.bat to download the models first."
+    Write-Host "Please prepare this model via scripts/download_models/download_ultralytics_models.py (see scripts/download_models/README.md)."
     exit 1
 }
 

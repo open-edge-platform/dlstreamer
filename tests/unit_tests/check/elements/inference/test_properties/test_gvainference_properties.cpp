@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2018-2025 Intel Corporation
+ * Copyright (C) 2018-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -32,7 +32,7 @@ GST_START_TEST(test_model_proc_property_invalid_path) {
     std::string expected_msg = "Error loading json file: " + prop_value;
 
     char model_path[MAX_STR_PATH_SIZE];
-    ExitStatus status = get_model_path(model_path, MAX_STR_PATH_SIZE, "face-detection-adas-0001", "FP32");
+    ExitStatus status = get_model_path(model_path, MAX_STR_PATH_SIZE, "centerface", "FP32");
     ck_assert(status == EXIT_STATUS_SUCCESS);
 
     check_multiple_property_init_fail_if_invalid_value(plugin_name, &srctemplate, &sinktemplate, expected_msg.c_str(),

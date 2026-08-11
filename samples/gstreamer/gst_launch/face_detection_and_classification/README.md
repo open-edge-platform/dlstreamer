@@ -18,15 +18,17 @@ This sample builds GStreamer pipeline of the following elements
 
 ## Models
 
-The sample uses by default the following pre-trained models from OpenVINO™ Toolkit [Open Model Zoo](https://github.com/openvinotoolkit/open_model_zoo)
-*   __face-detection-adas-0001__ is primary detection network for finding faces
-*   __age-gender-recognition-retail-0013__ age and gender estimation on detected faces
-*   __emotions-recognition-retail-0003__ emotion estimation on detected faces
-*   __landmarks-regression-retail-0009__ generates facial landmark points
+The sample uses the following pre-trained models by default:
+*   __centerface__ is the primary detection network for finding faces and generates facial landmark points
+*   __dima806/facial_age_image_detection__ age estimation on detected faces
+*   __dima806/fairface_gender_image_detection__ gender estimation on detected faces
+*   __dima806/face_emotions_image_detection__ emotions recognition
 
-> **NOTE**: Before running samples (including this one), run script `download_omz_models.sh` once (the script located in `samples` top folder) to download all models required for this and other samples.
+These models are not from Open Model Zoo:
+*   `centerface` is prepared by [`download_other_models.sh`](../../../../scripts/download_models/download_other_models.sh)
+*   `dima806/*` models are prepared from Hugging Face via [`download_hf_models.py`](../../../../scripts/download_models/download_hf_models.py)
 
-The sample contains `model_proc` subfolder with .json files for each model with description of model input/output formats and post-processing rules for classification models.
+> **NOTE**: Before running samples (including this one), prepare required models using scripts in [`scripts/download_models`](../../../../scripts/download_models) and follow the per-script setup notes in [`README`](../../../../scripts/download_models/README.md).
 
 ## Running
 

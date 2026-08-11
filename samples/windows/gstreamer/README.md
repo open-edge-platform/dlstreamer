@@ -28,16 +28,11 @@ Samples provide `.bat` script for constructing and executing gst-launch command 
 
 ## DL Models
 
-DL Streamer samples use pre-trained models from OpenVINO™ Toolkit [Open Model Zoo](https://github.com/openvinotoolkit/open_model_zoo)
+DL Streamer samples use pre-trained models from multiple sources (Open Model Zoo, Hugging Face, Ultralytics, and selected public repos).
 
-Before running the samples, run the `download_omz_models.bat` script once to download all models required for samples. The script is located in the `samples\windows` folder.
+Before running the samples, prepare required models using scripts from `scripts/download_models`.
 
-> **NOTE**: To install all necessary requirements for `download_omz_models.bat` script run this command:
->
-> ```batch
-> python -m pip install --upgrade pip
-> python -m pip install openvino-dev[onnx]
-> ```
+> **NOTE**: See `scripts/download_models/README.md` for per-script virtual environments, dependencies, and model-specific commands.
 
 ## Input video
 

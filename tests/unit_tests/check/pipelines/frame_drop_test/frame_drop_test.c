@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2018-2025 Intel Corporation
+ * Copyright (C) 2018-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -68,8 +68,7 @@ GST_START_TEST(test_frame_drop) {
 
     ExitStatus status = get_model_path(detection_model_path, MAX_STR_PATH_SIZE, "yolo11s", "FP32");
     ck_assert(status == EXIT_STATUS_SUCCESS);
-    status =
-        get_model_path(classify_model_path, MAX_STR_PATH_SIZE, "person-attributes-recognition-crossroad-0230", "FP32");
+    status = get_model_path(classify_model_path, MAX_STR_PATH_SIZE, "dima806_fairface_gender_image_detection", "FP32");
     ck_assert(status == EXIT_STATUS_SUCCESS);
 
     snprintf(command_line, sizeof(command_line),

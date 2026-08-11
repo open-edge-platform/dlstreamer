@@ -3,6 +3,7 @@
   "input_preproc": [],
   "output_postproc": [
     {
+      "layer_name": "output",
       "labels": "/some/path/that/doesnt/exist",
       "converter": "label",
       "method": "max"

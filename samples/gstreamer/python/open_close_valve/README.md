@@ -262,7 +262,7 @@ wget -P ./videos https://github.com/open-edge-platform/edge-ai-resources/raw/mai
 
 #### Model file
 
-All models OpenVINO can be downloaded by [Open Model Zoo](../../../download_omz_models.sh) download script. But the one used in this sample can be downloaded by following commands:
+The model used in this sample can be downloaded directly with the commands below:
 
 ```
 mkdir models

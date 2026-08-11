@@ -22,10 +22,11 @@ Overall this sample builds GStreamer pipeline of the following elements:
 ## Models
 
 The sample uses by default the following pre-trained models from OpenVINO™ Toolkit [Open Model Zoo](https://github.com/openvinotoolkit/open_model_zoo)
-*   __face-detection-adas-0001__ is primary detection network for detecting faces that appear within video frames.
-*   __age-gender-recognition-retail-0013__ classifies age and gender of detected face(s).
+*   __centerface__ is primary detection network for detecting faces that appear within video frames.
+*   __dima806/facial_age_image_detection__ ageestimation on detected faces
+*   __dima806/fairface_gender_image_detection__ gender estimation on detected faces
 
-> **NOTE**: Before running samples (including this one), run script `download_omz_models.sh` once (the script located in `samples` top folder) to download all models required for this and other samples.
+> **NOTE**: Before running samples (including this one), prepare required models using scripts in `scripts/download_models` (see `scripts/download_models/README.md` for per-model commands and per-script venv setup).
 
 The sample contains `model_proc` subfolder with .json files for each model with description of model input/output formats and post-processing rules for classification models.
 

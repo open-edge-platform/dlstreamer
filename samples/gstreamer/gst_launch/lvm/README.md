@@ -22,13 +22,15 @@ This sample builds a GStreamer pipeline of the following elements:
 
 ## Model
 
-The sample uses the [`clip-vit-large-patch14`](https://huggingface.co/openai/clip-vit-large-patch14), [`clip-vit-base-patch16`](https://huggingface.co/openai/clip-vit-base-patch16) or [`clip-vit-base-patch32`](https://huggingface.co/openai/clip-vit-base-patch32) model. The necessary conversion to the OpenVINO™ format is performed by the `download_public_models.sh` script located in the `samples` directory.
+The sample uses the [`clip-vit-large-patch14`](https://huggingface.co/openai/clip-vit-large-patch14), [`clip-vit-base-patch16`](https://huggingface.co/openai/clip-vit-base-patch16) or [`clip-vit-base-patch32`](https://huggingface.co/openai/clip-vit-base-patch32) model. The necessary conversion to the OpenVINO™ format is performed by [`download_hf_models.py`](../../../../scripts/download_models/download_hf_models.py).
 
 ## Running
 
 ```sh
     export MODELS_PATH="$HOME"/models
-    ../../../download_public_models.sh clip-vit-large-patch14
+    cd ../../../../scripts/download_models
+    python3 download_hf_models.py --model openai/clip-vit-large-patch14 --outdir "${MODELS_PATH}/public"
+    cd -
     ./generate_frame_embeddings.sh [INPUT] [DEVICE] [OUTPUT] [MODEL]
 ```
 

@@ -38,7 +38,13 @@ This downloads/builds the PointPillars models, the OpenVINO extension, and the `
 
 ### 3. YOLO model
 
-`g3dobjectfuser.sh` downloads the camera detector automatically via `samples/download_public_models.sh` (default `yolo11n`) into `MODELS_PATH` if it is not already present.
+Prepare the camera detector in advance with [`download_ultralytics_models.py`](../../../../scripts/download_models/download_ultralytics_models.py). To do this, please follow [`README`](../../../../scripts/download_models/README.md).
+
+```bash
+export MODELS_PATH=~/models
+cd ../../../../scripts/download_models
+python3 download_ultralytics_models.py --model yolo11n.pt --outdir "${MODELS_PATH}/public/yolo11n/FP16" --half
+```
 
 ## Run
 
@@ -49,8 +55,7 @@ export MODELS_PATH=~/models     # where YOLO / PointPillars models live
 
 The script:
 1. builds `calib/kitti_000002.json` from the KITTI `000002.txt` calibration (expands `R0_rect` to 4×4 and `Tr_velo_to_cam` to 4×4, keeps `P2` 3×4),
-2. downloads the YOLO model if needed,
-3. runs the camera + LiDAR fusion pipeline and writes the fused per-stream metadata to `g3dobjectfuser_output.json`.
+2. runs the camera + LiDAR fusion pipeline and writes the fused per-stream metadata to `g3dobjectfuser_output.json`.
 
 ### Environment overrides
 

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2018-2025 Intel Corporation
+ * Copyright (C) 2018-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -31,27 +31,26 @@ void check_output_meta_labels(GstBuffer *buffer, gpointer user_data) {
 void test_compact_meta_check_tensor() {
     gchar command_line[8 * MAX_STR_PATH_SIZE];
     char detection_model_path[MAX_STR_PATH_SIZE];
-    char classify_model_path[MAX_STR_PATH_SIZE];
-    char classify_model_proc_path[MAX_STR_PATH_SIZE];
+    char classify_gender_model_path[MAX_STR_PATH_SIZE];
+    char classify_age_model_path[MAX_STR_PATH_SIZE];
     char video_file_path[MAX_STR_PATH_SIZE];
     const char *appsink_name = "appsink";
 
     ExitStatus status =
-        get_model_path(detection_model_path, MAX_STR_PATH_SIZE, "vehicle-license-plate-detection-barrier-0106", "FP32");
+        get_model_path(detection_model_path, MAX_STR_PATH_SIZE, "yolov8_license_plate_detector", "FP32");
     ck_assert(status == EXIT_STATUS_SUCCESS);
-    status =
-        get_model_path(classify_model_path, MAX_STR_PATH_SIZE, "person-attributes-recognition-crossroad-0230", "FP32");
+    status = get_model_path(classify_gender_model_path, MAX_STR_PATH_SIZE, "dima806_fairface_gender_image_detection",
+                            "FP32");
     ck_assert(status == EXIT_STATUS_SUCCESS);
-    status = get_model_proc_path(classify_model_proc_path, MAX_STR_PATH_SIZE,
-                                 "person-attributes-recognition-crossroad-0230");
+    status = get_model_path(classify_age_model_path, MAX_STR_PATH_SIZE, "dima806_facial_age_image_detection", "FP32");
     ck_assert(status == EXIT_STATUS_SUCCESS);
     status = get_video_file_path(video_file_path, MAX_STR_PATH_SIZE, "Pexels_Videos_4786.mp4");
     ck_assert(status == EXIT_STATUS_SUCCESS);
 
     snprintf(command_line, sizeof(command_line),
              "filesrc location=%s ! qtdemux ! multiqueue ! h264parse ! capsfilter ! avdec_h264 ! videoconvert ! "
-             "gvadetect model=%s ! gvaclassify model=%s model-proc=%s ! appsink name=%s sync=false",
-             video_file_path, detection_model_path, classify_model_path, classify_model_proc_path, appsink_name);
+             "gvadetect model=%s ! gvaclassify model=%s ! gvaclassify model=%s ! appsink name=%s sync=false",
+             video_file_path, detection_model_path, classify_gender_model_path, classify_age_model_path, appsink_name);
 
     AppsinkTestData test_data = {
         .check_buf_cb = check_output_meta_labels, .frame_count_limit = DEFAULT_FRAME_COUNT_LIMIT, .user_data = NULL};
@@ -106,7 +105,7 @@ void test_gvadetect() {
     const char *appsink_name = "appsink";
 
     ExitStatus status =
-        get_model_path(detection_model_path, MAX_STR_PATH_SIZE, "vehicle-license-plate-detection-barrier-0106", "FP32");
+        get_model_path(detection_model_path, MAX_STR_PATH_SIZE, "yolov8_license_plate_detector", "FP32");
     ck_assert(status == EXIT_STATUS_SUCCESS);
     status = get_video_file_path(video_file_path, MAX_STR_PATH_SIZE, "Pexels_Videos_4786.mp4");
     ck_assert(status == EXIT_STATUS_SUCCESS);
