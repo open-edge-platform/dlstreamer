@@ -124,6 +124,10 @@ chmod +x DLS_install_prerequisites.sh
 
 ### 1.2 Add the DL Streamer software repository
 
+This imports Intel's signing keys and registers the DL Streamer and OpenVINO™
+APT repositories, so `apt` can find and verify the `intel-dlstreamer` package
+installed in the next step:
+
 ```bash
 sudo -E wget -O- https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB | gpg --dearmor | sudo tee /usr/share/keyrings/intel-gpg-archive-keyring.gpg > /dev/null
 sudo -E wget -O- https://apt.repos.intel.com/edgeai/dlstreamer/GPG-PUB-KEY-INTEL-DLS.gpg | sudo tee /usr/share/keyrings/dls-archive-keyring.gpg > /dev/null
@@ -492,7 +496,7 @@ docker run -it --rm \
   intel/dlstreamer:latest
 ```
 
-What the device flags do:
+What the GPU/NPU passthrough flags do:
 
 | Flag | Purpose |
 |---|---|
