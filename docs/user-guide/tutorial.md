@@ -236,9 +236,9 @@ You now have three ready-to-use models. The script organizes each one as
 
 ## Step 3 - Run your first YOLO pipelines
 
-    ```bash
-    docker run -it --rm -v ${MODELS_PATH}:/home/dlstreamer/models --env MODELS_PATH=/home/dlstreamer/models intel/dlstreamer:2026.2.0-ubuntu22
-    ```
+You're ready for the fun part. Each example below is a single copy/paste command.
+A window will open showing the video with AI results drawn on top, and the live
+frames-per-second (FPS) will be printed in your terminal.
 
 > **One device, one word.** Every command uses `device=GPU`. Want to use the
 > **NPU** instead? Just change it to `device=NPU`. Prefer the **CPU**? Use
