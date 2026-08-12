@@ -2,12 +2,12 @@
 
 <table align="center" cellspacing="0" cellpadding="0" border="0">
   <tr>
-    <td align="center" style="padding:0"><img src="../_images/tutorial_step_3.2.jpg" alt="Instance segmentation output" width="380" style="display:block"/></td>
-    <td align="center" style="padding:0"><img src="../_images/tutorial_step_3.3_crop.jpg" alt="Human pose estimation output" width="380" style="display:block"/></td>
+    <td align="center" style="padding:0"><img src="_images/tutorial_step_3.2.jpg" alt="Instance segmentation output" width="380" style="display:block;pointer-events:none"/></td>
+    <td align="center" style="padding:0"><img src="_images/tutorial_step_3.3_crop.jpg" alt="Human pose estimation output" width="380" style="display:block;pointer-events:none"/></td>
   </tr>
   <tr>
-    <td align="center" style="padding:0"><img src="../_images/tutorial_step_4.1.jpg" alt="Object tracking output" width="380" style="display:block"/></td>
-    <td align="center" style="padding:0"><img src="../_images/tutorial_step_4.2.jpg" alt="Privacy blur output" width="380" style="display:block"/></td>
+    <td align="center" style="padding:0"><img src="_images/tutorial_step_4.1.jpg" alt="Object tracking output" width="380" style="display:block;pointer-events:none"/></td>
+    <td align="center" style="padding:0"><img src="_images/tutorial_step_4.2.jpg" alt="Privacy blur output" width="380" style="display:block;pointer-events:none"/></td>
   </tr>
 </table>
 
@@ -205,16 +205,20 @@ need a small Python environment for the one-time conversion:
 python3 -m venv ~/dlstreamer_demo/.dls-venv
 source ~/dlstreamer_demo/.dls-venv/bin/activate
 pip install --upgrade pip
-pip install openvino==2026.2.0 nncf==3.0.0 ultralytics==8.4.57
+pip install -r /opt/intel/dlstreamer/scripts/download_models/requirements_download_ultralytics_models.txt
 ```
 
-Now download and convert the three models into `~/dlstreamer_demo/models`:
+Now download and convert the three models into `~/dlstreamer_demo/models`. Each
+`--model` reference is pinned with `@v8.4.0`, a released Ultralytics weights tag,
+so the exact same weights are downloaded every time. The `--outdir` for each
+model points directly at its precision-specific folder, since the script exports
+into whatever directory you give it:
 
 ```bash
 DL="/opt/intel/dlstreamer/scripts/download_models/download_ultralytics_models.py"
-python3 $DL --model yolo11s.pt      --outdir ${MODELS_PATH} --half
-python3 $DL --model yolo11s-seg.pt  --outdir ${MODELS_PATH} --half
-python3 $DL --model yolo11s-pose.pt --outdir ${MODELS_PATH} --half
+python3 $DL --model yolo11s.pt@v8.4.0      --outdir ${MODELS_PATH}/yolo11s/FP16 --half
+python3 $DL --model yolo11s-seg.pt@v8.4.0  --outdir ${MODELS_PATH}/yolo11s-seg/FP16 --half
+python3 $DL --model yolo11s-pose.pt@v8.4.0 --outdir ${MODELS_PATH}/yolo11s-pose/FP16 --half
 ```
 
 When they're done, leave the Python environment:
@@ -223,8 +227,7 @@ When they're done, leave the Python environment:
 deactivate
 ```
 
-You now have three ready-to-use models. The script organizes each one as
-`<name>/FP16/<name>.xml` under `${MODELS_PATH}`:
+You now have three ready-to-use models under `${MODELS_PATH}`:
 
 | Model | File | What it does |
 |---|---|---|
@@ -260,7 +263,7 @@ gst-launch-1.0 \
 detected vehicle.
 
 <p align="center">
-  <img src="../_images/tutorial_step_3.1.jpg" alt="Object detection output: bounding boxes and labels on cars and people crossing the bridge" width="640"/>
+  <img src="_images/tutorial_step_3.1.jpg" alt="Object detection output: bounding boxes and labels on cars and people crossing the bridge" width="640" style="pointer-events:none"/>
   <br/>
   <em>Object detection with <code>yolo11s</code> on the bridge video.</em>
 </p>
@@ -292,7 +295,7 @@ gst-launch-1.0 \
 shape — not just a rectangle.
 
 <p align="center">
-  <img src="../_images/tutorial_step_3.2.jpg" alt="Instance segmentation output: colored masks following the exact shape of each vehicle" width="640"/>
+  <img src="_images/tutorial_step_3.2.jpg" alt="Instance segmentation output: colored masks following the exact shape of each vehicle" width="640" style="pointer-events:none"/>
   <br/>
   <em>Instance segmentation with <code>yolo11s-seg</code> on the bridge video.</em>
 </p>
@@ -316,7 +319,7 @@ gst-launch-1.0 \
 and joints as they move.
 
 <p align="center">
-  <img src="../_images/tutorial_step_3.3.jpg" alt="Human pose estimation output: a skeleton of keypoints overlaid on the dancer" width="640"/>
+  <img src="_images/tutorial_step_3.3.jpg" alt="Human pose estimation output: a skeleton of keypoints overlaid on the dancer" width="640" style="pointer-events:none"/>
   <br/>
   <em>Human pose estimation with <code>yolo11s-pose</code> on the dance video.</em>
 </p>
@@ -349,7 +352,7 @@ gst-launch-1.0 \
 the FPS in your terminal goes up compared to detecting on every frame.
 
 <p align="center">
-  <img src="../_images/tutorial_step_4.1.jpg" alt="Object tracking output: people on the beach each keep a stable ID box across frames" width="640"/>
+  <img src="_images/tutorial_step_4.1.jpg" alt="Object tracking output: people on the beach each keep a stable ID box across frames" width="640" style="pointer-events:none"/>
   <br/>
   <em>Object tracking with <code>gvatrack</code> on the beach video.</em>
 </p>
@@ -372,7 +375,7 @@ gst-launch-1.0 \
 dog and everything else stay sharp — no manual editing required.
 
 <p align="center">
-  <img src="../_images/tutorial_step_4.2.jpg" alt="Privacy blur output: the detected person is blurred while the dog stays sharp" width="640"/>
+  <img src="_images/tutorial_step_4.2.jpg" alt="Privacy blur output: the detected person is blurred while the dog stays sharp" width="640" style="pointer-events:none"/>
   <br/>
   <em>Privacy blur of every <code>person</code> with <code>gvawatermark</code> on the girl-and-dog video.</em>
 </p>
@@ -424,7 +427,7 @@ with the dog boxed and labelled — and nothing else. Try other prompts like
 `"person"` or `"backpack"`!
 
 <p align="center">
-  <img src="../_images/tutorial_step_4.3.jpg" alt="Prompt-based detection output: only the dog is boxed and labelled, nothing else" width="640"/>
+  <img src="_images/tutorial_step_4.3.jpg" alt="Prompt-based detection output: only the dog is boxed and labelled, nothing else" width="640" style="pointer-events:none"/>
   <br/>
   <em>Prompt-based detection searching the skateboard video for <code>"dog"</code>.</em>
 </p>
@@ -526,12 +529,12 @@ Congratulations — you built and ran real video AI pipelines with DL Streamer! 
 
 Great places to continue:
 
-- **[Elements reference](../elements/elements.md)** — the full catalog of `gva`
+- **[Elements reference](elements/elements.md)** — the full catalog of `gva`
   elements you can mix and match (classification, audio, GenAI, and more).
-- **[Samples](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer)** —
+- **[Samples](samples.md)** —
   30+ ready-to-run examples: multi-stream, face analysis, LiDAR, radar,
   Vision-Language Models, and Kafka/MQTT publishing.
-- **[Supported models](../supported_models.md)** — the 70+ models you can run out
+- **[Supported models](supported_models.md)** — the 70+ models you can run out
   of the box.
 
 Ideas to try right now by editing the commands above:
