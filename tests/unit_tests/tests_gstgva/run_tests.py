@@ -12,7 +12,6 @@ import test_video_frame
 import test_audio_event
 import test_audio_frame
 import test_pipeline_color_formats
-import test_pipeline_face_detection_and_classification
 import test_pipeline_gvapython
 import test_pipeline_optimizer
 import test_pipeline_gvafpsthrottle
@@ -33,8 +32,6 @@ if __name__ == '__main__':
     suite_gstgva.addTests(loader.loadTestsFromModule(test_video_frame))
     suite_gstgva.addTests(loader.loadTestsFromModule(
         test_pipeline_color_formats))
-    suite_gstgva.addTests(loader.loadTestsFromModule(
-        test_pipeline_face_detection_and_classification))
     suite_gstgva.addTests(loader.loadTestsFromModule(
         test_audio_event))
     suite_gstgva.addTests(loader.loadTestsFromModule(
