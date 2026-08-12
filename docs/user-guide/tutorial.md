@@ -56,10 +56,10 @@ A typical video AI pipeline looks like this:
 
 ```mermaid
 flowchart LR
-    A[Read video<br/>filesrc] --> B[Decode frames<br/>decodebin3]
-    B --> C[Run AI model<br/>gvadetect]
-    C --> D[Draw results<br/>gvawatermark]
-    D --> E[Show on screen<br/>autovideosink]
+    A["Read video<br/>filesrc"] --> B["Decode frames<br/>decodebin3"]
+    B --> C["Run AI model<br/>gvadetect"]
+    C --> D["Draw results<br/>gvawatermark"]
+    D --> E["Show on screen<br/>autovideosink"]
 ```
 
 Written as a DL Streamer command, that same idea becomes:
