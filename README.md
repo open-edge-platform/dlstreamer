@@ -226,7 +226,7 @@ Operating systems: **Ubuntu 22.04 / 24.04**, **Windows 11**.
 
 | Resource | Link |
 |---|---|
-| Get Started | [Get Started](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/get_started.html) |
+| Overview | [Overview](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/index.html) |
 | Elements Reference | [Elements Reference](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/elements/elements.html) |
 | Supported Models | [Supported Models](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/supported_models.html) |
 | Developer Guide | [Developer Guide](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/dev_guide/dev_guide_index.html) |

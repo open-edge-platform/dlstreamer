@@ -1,7 +1,5 @@
 # Deep Learning Streamer
 
-_Part of [Edge AI Libraries](https://docs.openedgeplatform.intel.com/dev/ai-libraries.html)_
-
 <!--hide_directive
 <div class="component_card_widget">
   <a class="icon_github" href="https://github.com/open-edge-platform/dlstreamer">
@@ -13,7 +11,7 @@ _Part of [Edge AI Libraries](https://docs.openedgeplatform.intel.com/dev/ai-libr
 </div>
 hide_directive-->
 
-[Get Started](./get_started.md) | [System Requirements](./system_requirements.md) | [Install Guide](./install/install_guide_index.md) | [Tutorial](./tutorial.md) | [Samples](https://github.com/open-edge-platform/dlstreamer/blob/main/samples/gstreamer/README.md) | [Supported Models](./supported_models.md) | [Elements](./elements/elements.md) | [Developer Guide](./dev_guide/dev_guide_index.md) | [API Reference](./api_ref/api_reference.md) | [Release Notes](./release-notes.md)
+[System Requirements](./system_requirements.md) | [Install Guide](./install/install_guide_index.md) | [Tutorial](./tutorial.md) | [Samples](https://github.com/open-edge-platform/dlstreamer/blob/main/samples/gstreamer/README.md) | [Supported Models](./supported_models.md) | [Elements](./elements/elements.md) | [Developer Guide](./dev_guide/dev_guide_index.md) | [API Reference](./api_ref/api_reference.md) | [Release Notes](./release-notes.md)
 
 **Deep Learning Streamer (DL Streamer)** is an open-source media analytics framework built on [GStreamer\*](https://gstreamer.freedesktop.org). It lets you build video and audio intelligence pipelines — from a simple object detection command line to a multi-stream production deployment — with minimal code, running on Intel® CPU, GPU, and NPU. DL Streamer consists of:
 
@@ -101,11 +99,19 @@ AIVID TECHVISION and others.
 > **\*** *Other names and brands may be claimed as the property of
 > others.*
 
+## Initial steps
+
+New to Deep Learning Streamer? Start here:
+
+- [Install Guide](./install/install_guide_index.md) — install DL Streamer on your system.
+- [Tutorial](./tutorial.md) — learn the basics by building your first pipelines.
+- [Samples](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer) — explore ready-to-run sample applications.
+
 <!--hide_directive
 :::{toctree}
 :hidden:
 
-DL Streamer Home Page <https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/index.html>
+Go back to Libraries <https://docs.openedgeplatform.intel.com/dev/ai-libraries.html>
 
 :::
 
@@ -113,7 +119,7 @@ DL Streamer Home Page <https://docs.openedgeplatform.intel.com/dev/edge-ai-libra
 :hidden:
 :caption: Get Started
 
-get_started
+DL Streamer Overview <https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/index.html>
 Installation Guide <install/install_guide_index>
 system_requirements
 tutorial
