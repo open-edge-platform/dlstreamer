@@ -58,7 +58,8 @@ Samples separated into several categories:
 6. E2E Performance
     * [DL Streamer E2E Performance](./e2e_performance/README.md) - benchmarking sample showcasing higher throughput on Intel Core Ultra processors via DL Streamer vs. OpenCV + OpenVINO, using YOLO26s INT8 model with pipelining, hardware video decoding, and zero-copy inference on iGPU
 7. Auto-Generated Samples
-    * [DeepStream Test4 to DL Streamer Conversion](../auto_generated_samples/deepstream_conversion/README.md) - DL Streamer equivalent of NVIDIA's deepstream-test4 with YOLO11n detection and metadata publishing to file/Kafka/MQTT
+    * [DeepStream Test4 to DL Streamer Conversion](../auto_generated_samples/deepstream_python_conversion/README.md) - DL Streamer equivalent of NVIDIA's deepstream-test4 with YOLO11n detection and metadata publishing to file/Kafka/MQTT
+    * [DeepStream LPR App Conversion (C++)](../auto_generated_samples/deepstream_cpp_conversion/README.md) - C++ conversion of NVIDIA's DeepStream LPR app detecting and recognizing license plates with YOLOv11 and PaddleOCR
     * [License Plate Recognition](../auto_generated_samples/license_plate_recognition/README.md) - detects license plates with YOLOv11 and recognizes plate text with PaddleOCR, optimized for Intel Core Ultra 3
     * [Multi-Stream Compose](../auto_generated_samples/multi_stream_compose/README.md) - multi-camera video analytics with composite WebRTC output, on-demand recording, and 2x2 GPU-accelerated mosaic from 4 streams
     * [People Detection and Tracking with Deep SORT](../auto_generated_samples/people_detection_tracking/README.md) - detects and tracks people using YOLO26m and Deep SORT with Mars-Small-128 re-ID model
