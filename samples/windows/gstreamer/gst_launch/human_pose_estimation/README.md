@@ -162,5 +162,5 @@ graph LR
 - For real-time playback, change to `sync=true`
 
 ## See also
-* [Windows Samples overview](../../../README.md)
+* [Windows Samples overview](../../../../README.md)
 * [Linux Human Pose Estimation Sample](../../../../gstreamer/gst_launch/human_pose_estimation/README.md)

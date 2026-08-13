@@ -180,5 +180,5 @@ Video preprocessing isn't implemented for this model. Pass frames as independent
 - **Solution:** Use `-VisionMode image` (the default), or switch to a video-capable model such as Qwen2/2.5/3-VL or LLaVA-NeXT-Video
 
 ## See also
-* [Windows Samples overview](../../../README.md)
+* [Windows Samples overview](../../../../README.md)
 * [Linux gvagenai Sample](../../../../gstreamer/gst_launch/gvagenai/README.md)

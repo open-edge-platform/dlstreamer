@@ -103,5 +103,5 @@ The sample
 * starts the command and outputs audio detection results to the console
 
 ## See also
-* [Windows Samples overview](../../../README.md)
+* [Windows Samples overview](../../../../README.md)
 * [Linux Audio Detection Sample](../../../../gstreamer/gst_launch/audio_detect/README.md)

@@ -93,7 +93,7 @@ Example deployment of Geti™ multi-label classification model using CPU device,
 
 ## See also
 
-* [Samples overview](../../README.md)
+* [Samples overview](../../../README.md)
 
 ---
 

@@ -198,7 +198,7 @@ The library:
 
 ## See also
 
-* [Samples overview](../../../README.md)
+* [Samples overview](../../../../README.md)
 * [DLStreamer documentation](../../../../../docs/user-guide/index.md)
 * [Custom post-processing guide](../../../../../docs/user-guide/dev_guide/custom_processing.md#6-create-custom-post-processing-library)
 * [GStreamer Analytics Documentation](https://gstreamer.freedesktop.org/documentation/analytics/index.html?gi-language=c)

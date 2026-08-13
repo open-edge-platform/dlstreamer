@@ -178,5 +178,5 @@ graph LR
 4. **Preprocessing backend**: Use `d3d11` for GPU, `opencv` for CPU
 
 ## See also
-* [Windows Samples overview](../../../README.md)
+* [Windows Samples overview](../../../../README.md)
 * [Linux Instance Segmentation Sample](../../../../gstreamer/gst_launch/instance_segmentation/README.md)

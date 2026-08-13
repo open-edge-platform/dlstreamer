@@ -47,4 +47,4 @@ The sample
 * starts the pipeline and visualizes video with bounding boxes around detected faces, facial landmarks points, head pose, and text with classification results (age/gender, emotion) for each detected face
 
 ## See also
-* [Samples overview](../../README.md)
+* [Samples overview](../../../README.md)

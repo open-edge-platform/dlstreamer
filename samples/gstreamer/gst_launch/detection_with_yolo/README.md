@@ -116,7 +116,7 @@ Please examine `yolo_detect.sh` script to see how to source data from input came
 
 ## See also
 
-* [Samples overview](../../README.md)
+* [Samples overview](../../../README.md)
 
 ---
 

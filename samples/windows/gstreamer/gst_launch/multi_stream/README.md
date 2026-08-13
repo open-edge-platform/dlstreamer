@@ -172,5 +172,5 @@ All N streams use the same device and model, sharing one model instance.
 
 ## See also
 
-* [Windows Samples overview](../../../README.md)
+* [Windows Samples overview](../../../../README.md)
 * [Linux Multi-Stream Sample](../../../../gstreamer/gst_launch/multi_stream/README.md)
