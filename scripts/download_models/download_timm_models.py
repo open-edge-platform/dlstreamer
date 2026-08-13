@@ -167,6 +167,24 @@ def export_with_optimum(
                 fallback = list(base_command)
                 fallback.extend(["--weight-format", precision, str(tmpdir)])
                 subprocess.run(fallback, env=env, check=True)
+            elif "KeyError: 'default-timm-config'" in combined_output:
+                # Work around Optimum task resolution failures for some HF TIMM ids.
+                # Retry with TIMM registry model name (no explicit revision support).
+                fallback = [
+                    optimum_cli_path,
+                    "export",
+                    "openvino",
+                    "--library",
+                    "timm",
+                    "--task",
+                    "image-classification",
+                    "--model",
+                    model_name,
+                    "--weight-format",
+                    precision,
+                    str(tmpdir),
+                ]
+                subprocess.run(fallback, env=env, check=True)
             else:
                 # Surface captured output for easier CI debugging.
                 if result.stdout:
