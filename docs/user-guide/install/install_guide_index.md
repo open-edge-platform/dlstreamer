@@ -15,6 +15,16 @@
 - [Install Guide Windows](./install_guide_windows.md)
 - [Uninstall Guide Windows](./uninstall_guide_windows.md)
 
+<div align="center">
+  <a href="https://www.youtube.com/watch?v=NUTy56-vY3o">
+    <img src="https://img.youtube.com/vi/NUTy56-vY3o/maxresdefault.jpg" width="600" alt="Watch the DL Streamer installation walkthrough on YouTube">
+  </a>
+  <br>
+  <a href="https://www.youtube.com/watch?v=NUTy56-vY3o">
+    <img src="https://img.shields.io/badge/▶-Watch%20on%20YouTube-red?logo=youtube&logoColor=white" alt="Watch on YouTube">
+  </a>
+</div>
+
 <!--hide_directive
 :::{toctree}
 :maxdepth: 2

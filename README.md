@@ -44,6 +44,16 @@
 | **Multi-stream, multi-sensor** | Mux/demux dozens of RTSP streams, LiDAR frames, and radar point clouds in one process |
 | **Geti™, Ultralytics & HuggingFace support** | Deploy models from Geti™ Studio, Ultralytics, Hugging Face, or any ONNX/OpenVINO IR model directly |
 
+<div align="center">
+  <a href="https://www.youtube.com/watch?v=1x7LTZhEadI&list=PLg-UKERBljNySiBeQaLtzF0yZGOmKrBRF">
+    <img src="https://img.youtube.com/vi/1x7LTZhEadI/maxresdefault.jpg" width="800" alt="Watch the DL Streamer video series on YouTube">
+  </a>
+  <br>
+  <a href="https://www.youtube.com/watch?v=1x7LTZhEadI&list=PLg-UKERBljNySiBeQaLtzF0yZGOmKrBRF">
+    <img src="https://img.shields.io/badge/▶-Watch%20on%20YouTube-red?logo=youtube&logoColor=white" alt="Watch a playlist on YouTube">
+  </a>
+</div>
+
 ---
 
 ## Quick Start - Installation
@@ -232,6 +242,7 @@ Operating systems: **Ubuntu 22.04 / 24.04**, **Windows 11**.
 | Developer Guide | [Developer Guide](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/dev_guide/dev_guide_index.html) |
 | API Reference | [API Reference](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/api_ref/api_reference.html) |
 | Metadata Guide | [Metadata Guide](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/dev_guide/metadata.html) |
+| Video Tutorials | [YouTube Playlist](https://www.youtube.com/playlist?list=PLg-UKERBljNySiBeQaLtzF0yZGOmKrBRF) |
 
 ---
 
