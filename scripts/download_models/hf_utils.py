@@ -11,6 +11,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Callable
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -20,7 +21,6 @@ from openvino import PartialShape
 from openvino import Type
 from openvino import save_model
 from openvino.tools.ovc import convert_model
-from optimum.exporters.onnx import main_export
 from transformers import AutoModelForDepthEstimation, CLIPVisionModel
 from transformers import AutoModelForVideoClassification
 from transformers import AutoConfig
@@ -342,29 +342,46 @@ def export_hf_rtdetr_to_openvino(
     """
     outdir.mkdir(parents=True, exist_ok=True)
     _ = extra_args
-    model_onnx = outdir / "model.onnx"
+    local_model_dir = Path(local_model_dir)
 
-    main_export(
+    command = [
+        "optimum-cli",
+        "export",
+        "openvino",
+        "--model",
         str(local_model_dir),
-        output=outdir,
-
-        task="object-detection",
-        opset=18,
-        width=640,
-        height=640,
-        token=token,
-    )
+        "--task",
+        "object-detection",
+        "--opset",
+        "18",
+        "--width",
+        "640",
+        "--height",
+        "640",
+        str(outdir),
+    ]
+    env = os.environ if not token else {**os.environ, "HF_TOKEN": token}
+    subprocess.run(command, check=True, env=env)
 
     # Copy preprocessor_config.json from local cached model to output directory
-    local_model_dir = Path(local_model_dir)
     preprocessor_config_src = local_model_dir / "preprocessor_config.json"
     if preprocessor_config_src.exists():
         shutil.copy(preprocessor_config_src, outdir / "preprocessor_config.json")
 
-    ov_model = convert_model(str(model_onnx))
     model_name = local_model_dir.name
-    save_model(ov_model, str(outdir / f"{model_name}.xml"))
-    model_onnx.unlink(missing_ok=True)
+    xml_files = sorted(outdir.glob("*.xml"))
+    if not xml_files:
+        raise RuntimeError("RT-DETR export did not produce an OpenVINO XML model")
+
+    source_xml = xml_files[0]
+    target_xml = outdir / f"{model_name}.xml"
+    if source_xml != target_xml:
+        source_bin = source_xml.with_suffix(".bin")
+        target_bin = outdir / f"{model_name}.bin"
+        source_xml.replace(target_xml)
+        if source_bin.exists():
+            source_bin.replace(target_bin)
+
     return outdir
 
 
