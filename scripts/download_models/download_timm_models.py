@@ -136,6 +136,16 @@ def export_with_optimum(
         # xet-backed Hugging Face transfers can hang for some TIMM weight files
         env = {**os.environ, "HF_HUB_DISABLE_XET": "1"}
 
+        def run_export(command: list[str]) -> tuple[subprocess.CompletedProcess[str], str]:
+            result = subprocess.run(
+                command,
+                env=env,
+                text=True,
+                capture_output=True,
+            )
+            combined_output = (result.stdout or "") + "\n" + (result.stderr or "")
+            return result, combined_output
+
         base_command = [
             optimum_cli_path,
             "export",
@@ -155,43 +165,40 @@ def export_with_optimum(
             command.extend(["--revision", revision])
         command.extend(["--weight-format", precision, str(tmpdir)])
 
-        result = subprocess.run(
-            command,
-            env=env,
-            text=True,
-            capture_output=True,
-        )
+        attempted_command = command
+        result, combined_output = run_export(attempted_command)
+
+        if result.returncode != 0 and revision and "unrecognized arguments: --revision" in combined_output:
+            attempted_command = list(base_command)
+            attempted_command.extend(["--weight-format", precision, str(tmpdir)])
+            result, combined_output = run_export(attempted_command)
+
+        if result.returncode != 0 and "KeyError: 'default-timm-config'" in combined_output:
+            # Work around Optimum task resolution failures for some HF TIMM ids.
+            # Retry with TIMM registry model name (no explicit revision support).
+            attempted_command = [
+                optimum_cli_path,
+                "export",
+                "openvino",
+                "--library",
+                "timm",
+                "--task",
+                "image-classification",
+                "--model",
+                model_name,
+                "--weight-format",
+                precision,
+                str(tmpdir),
+            ]
+            result, combined_output = run_export(attempted_command)
+
         if result.returncode != 0:
-            combined_output = (result.stdout or "") + "\n" + (result.stderr or "")
-            if revision and "unrecognized arguments: --revision" in combined_output:
-                fallback = list(base_command)
-                fallback.extend(["--weight-format", precision, str(tmpdir)])
-                subprocess.run(fallback, env=env, check=True)
-            elif "KeyError: 'default-timm-config'" in combined_output:
-                # Work around Optimum task resolution failures for some HF TIMM ids.
-                # Retry with TIMM registry model name (no explicit revision support).
-                fallback = [
-                    optimum_cli_path,
-                    "export",
-                    "openvino",
-                    "--library",
-                    "timm",
-                    "--task",
-                    "image-classification",
-                    "--model",
-                    model_name,
-                    "--weight-format",
-                    precision,
-                    str(tmpdir),
-                ]
-                subprocess.run(fallback, env=env, check=True)
-            else:
-                # Surface captured output for easier CI debugging.
-                if result.stdout:
-                    print(result.stdout, end="")
-                if result.stderr:
-                    print(result.stderr, end="", file=sys.stderr)
-                raise subprocess.CalledProcessError(result.returncode, command)
+            # Surface captured output for easier CI debugging.
+            if result.stdout:
+                print(result.stdout, end="")
+            if result.stderr:
+                print(result.stderr, end="", file=sys.stderr)
+            raise subprocess.CalledProcessError(result.returncode, attempted_command)
 
         exported_xml = only_xml(tmpdir)
         save_ir(exported_xml, xml)
