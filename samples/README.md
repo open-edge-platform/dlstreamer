@@ -23,7 +23,7 @@ samples/
 
 ## Before you start
 
-- Install DL Streamer first — see the [Get Started](../docs/user-guide/system_requirements.md) guide.
+- Install DL Streamer first — see the [Install Guide](../docs/user-guide/install/install_guide_index.md).
 - Download the models used by samples with the conversion scripts under
   [scripts/download_models](../scripts/download_models).
 - Samples with C/C++ code provide a `build_and_run.sh`; other samples provide a `.sh`
