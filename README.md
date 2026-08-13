@@ -45,11 +45,11 @@
 | **Geti™, Ultralytics & HuggingFace support** | Deploy models from Geti™ Studio, Ultralytics, Hugging Face, or any ONNX/OpenVINO IR model directly |
 
 <div align="center">
-  <a href="https://www.youtube.com/watch?v=1x7LTZhEadI&list=PLg-UKERBljNySiBeQaLtzF0yZGOmKrBRF">
+  <a href="https://www.youtube.com/watch?v=1x7LTZhEadI&list=PLg-UKERBljNySiBeQaLtzF0yZGOmKrBRF" target="_blank" rel="noopener noreferrer">
     <img src="https://img.youtube.com/vi/1x7LTZhEadI/maxresdefault.jpg" width="800" alt="Watch the DL Streamer video series on YouTube">
   </a>
   <br>
-  <a href="https://www.youtube.com/watch?v=1x7LTZhEadI&list=PLg-UKERBljNySiBeQaLtzF0yZGOmKrBRF">
+  <a href="https://www.youtube.com/watch?v=1x7LTZhEadI&list=PLg-UKERBljNySiBeQaLtzF0yZGOmKrBRF" target="_blank" rel="noopener noreferrer">
     <img src="https://img.shields.io/badge/▶-Watch%20on%20YouTube-red?logo=youtube&logoColor=white" alt="Watch a playlist on YouTube">
   </a>
 </div>
