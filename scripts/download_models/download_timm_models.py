@@ -17,7 +17,7 @@ import sys
 import tempfile
 from pathlib import Path
 
-from huggingface_hub import HfApi, hf_hub_download
+from huggingface_hub import HfApi, hf_hub_download, snapshot_download
 import timm
 import openvino as ov
 from hf_utils import parse_model_ref
@@ -94,11 +94,19 @@ def import_model(args: argparse.Namespace) -> int:
     optimum_cli_path = shutil.which("optimum-cli")
     assert optimum_cli_path, "optimum-cli is required in the export environment"
 
+    print(f"Downloading model: {hf_model_id}" + (f" @ {revision}" if revision else " (latest)"))
+    local_model_dir = snapshot_download(
+        repo_id=hf_model_id,
+        revision=revision,
+    )
+    print(f"Model cached at: {local_model_dir}")
+
     for precision in precisions:
         xml = output_root / "public" / model_name / precision.upper() / f"{model_name}.xml"
         export_with_optimum(
             optimum_cli_path,
             hf_model_id,
+            local_model_dir,
             model_name,
             precision,
             xml,
@@ -125,6 +133,7 @@ def hf_id(model_name: str) -> str | None:
 def export_with_optimum(
     optimum_cli_path: str,
     hf_model_id: str,
+    local_model_dir: str,
     model_name: str,
     precision: str,
     xml: Path,
@@ -155,7 +164,7 @@ def export_with_optimum(
             "--task",
             "image-classification",
             "--model",
-            hf_model_id,
+            local_model_dir,
         ]
 
         # First try revision-aware export. If the installed optimum-cli is too old and
@@ -174,8 +183,8 @@ def export_with_optimum(
             result, combined_output = run_export(attempted_command)
 
         if result.returncode != 0 and "KeyError: 'default-timm-config'" in combined_output:
-            # Work around Optimum task resolution failures for some HF TIMM ids.
-            # Retry with TIMM registry model name (no explicit revision support).
+            # Work around Optimum task resolution failures in some local export paths.
+            # Retry with TIMM registry model name.
             attempted_command = [
                 optimum_cli_path,
                 "export",
@@ -186,11 +195,32 @@ def export_with_optimum(
                 "image-classification",
                 "--model",
                 model_name,
-                "--weight-format",
-                precision,
-                str(tmpdir),
             ]
+            if revision:
+                attempted_command.extend(["--revision", revision])
+            attempted_command.extend(["--weight-format", precision, str(tmpdir)])
             result, combined_output = run_export(attempted_command)
+
+            if result.returncode != 0 and revision and "unrecognized arguments: --revision" in combined_output:
+                print(
+                    "Warning: Optimum CLI does not support --revision for TIMM model-name fallback; "
+                    "continuing without explicit revision pin."
+                )
+                attempted_command = [
+                    optimum_cli_path,
+                    "export",
+                    "openvino",
+                    "--library",
+                    "timm",
+                    "--task",
+                    "image-classification",
+                    "--model",
+                    model_name,
+                    "--weight-format",
+                    precision,
+                    str(tmpdir),
+                ]
+                result, combined_output = run_export(attempted_command)
 
         if result.returncode != 0:
             # Surface captured output for easier CI debugging.
