@@ -178,6 +178,16 @@ static void gst_g3d_lidar_src_init(GstG3DLidarSrc *self) {
     self->frame_seq = 0;
 
     self->priv = (GstG3DLidarSrcPrivate *)gst_g3d_lidar_src_get_instance_private(self);
+
+    /* No lock is taken (nor can one be: queue_mutex itself is constructed here).
+     * This is safe and not a data race: instance_init runs during
+     * g_object_new(), before the instance is reachable by any other thread. The
+     * only thread that touches priv concurrently is the backend receive thread
+     * behind on_cloud_cb(), which cannot exist yet — it is spawned by
+     * start_fn() in start(), and start() cannot run until the element is added
+     * to a pipeline and set to READY, both of which happen-after this
+     * constructor returns. `flushing` and `last_frame_time` are re-initialized
+     * under queue_mutex in start(), before the backend thread is spawned. */
     new (&self->priv->queue_mutex) std::mutex();
     new (&self->priv->queue_cond) std::condition_variable();
     new (&self->priv->frame_queue) std::queue<std::shared_ptr<LidarFrame>>();
@@ -488,6 +498,20 @@ static gboolean gst_g3d_lidar_src_start(GstBaseSrc *src) {
         return FALSE;
     }
 
+    /* Initialize the state shared with the backend's receive thread BEFORE
+     * start_fn() spawns it. Once the backend is started, on_cloud_cb() may fire
+     * at any moment and read/write `flushing` and `last_frame_time` under
+     * queue_mutex, so resetting them afterwards (even under the lock) would race
+     * with the first delivered frame: a frame arriving between start_fn() and
+     * the reset would have its last_frame_time stamp overwritten by an older
+     * value, and a concurrent unlock() could have its flushing=TRUE clobbered. */
+    {
+        std::lock_guard<std::mutex> lock(self->priv->queue_mutex);
+        self->priv->flushing = FALSE;
+        self->priv->last_frame_time = std::chrono::steady_clock::now();
+    }
+    self->frame_seq = 0;
+
     if (self->priv->start_fn(self->priv->rs) != G3D_LIDAR_OK) {
         GST_ELEMENT_ERROR(self, RESOURCE, OPEN_READ, (NULL), ("Failed to start '%s' backend", cfg.vendor.c_str()));
         self->priv->destroy_fn(self->priv->rs);
@@ -496,11 +520,6 @@ static gboolean gst_g3d_lidar_src_start(GstBaseSrc *src) {
         self->priv->sdk_handle = nullptr;
         return FALSE;
     }
-
-    /* Initialize timeout tracking */
-    self->priv->flushing = FALSE;
-    self->priv->last_frame_time = std::chrono::steady_clock::now();
-    self->frame_seq = 0;
 
     GST_INFO_OBJECT(self,
                     "g3dlidarsrc started successfully, waiting for data from device... "
