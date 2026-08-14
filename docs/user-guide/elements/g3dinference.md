@@ -20,6 +20,7 @@ Key operations:
 | device | String | OpenVINO device used for the neural network stage. Currently `CPU`, `GPU`, and `GPU.<id>` are supported. | CPU |
 | model-type | String | 3D detector model type. Currently only `pointpillars` is supported. | pointpillars |
 | score-threshold | Float | Drops detections below this score. `0.0` keeps all post-processing output unchanged. | 0.7 |
+| nireq | Unsigned Integer | Number of inference requests processed concurrently. `0` derives the value from the compiled network. See [Throughput and concurrency](#throughput-and-concurrency). | 0 |
 
 ## Configuration
 
@@ -52,6 +53,29 @@ Example configuration:
 }
 ```
 
+
+## Throughput and concurrency
+
+`g3dinference` processes frames asynchronously. Each buffer is submitted to a pool of workers, and every worker owns a private set of voxelization, network, and post-processing inference requests. Several frames are therefore in flight at once: the CPU-side stages of one frame overlap with the accelerator stage of another, instead of the whole chain running serially on the streaming thread.
+
+All three stages are compiled with OpenVINO's `THROUGHPUT` performance hint so that each one opens several execution streams and the frames in flight really do execute concurrently. This is not configurable: the `LATENCY` hint would restrict every stage to a single execution stream, which caps concurrency at one request per stage and makes `nireq` almost meaningless.
+
+The `nireq` property controls how many frames may be in flight:
+
+- `nireq=0` (default) derives the count from the compiled network via OpenVINO's optimal number of inference requests.
+- `nireq=1` keeps one frame in flight, which is equivalent to fully serial processing.
+- Higher values keep the accelerator busier at the cost of more memory and more concurrent CPU work.
+
+When `nireq` is set explicitly it is also passed to OpenVINO as `PERFORMANCE_HINT_NUM_REQUESTS`, so the plugins size their execution streams to the number of requests this element actually submits rather than to the device alone. Without it a plugin may open more streams than there are workers to feed, splitting its threads across streams that stay idle.
+
+```bash
+gst-launch-1.0 multifilesrc location="lidar/%06d.bin" caps=application/octet-stream ! \
+  g3dlidarparse ! \
+  g3dinference config=pointpillars_ov_config.json device=GPU nireq=4 ! \
+  fakesink
+```
+
+Concurrency does not change what the element outputs. Buffers are always pushed downstream in the order they arrived, and each buffer carries exactly the same detections it would have carried under serial processing. Raising `nireq` beyond the point where the accelerator saturates stops improving throughput.
 
 ## Pipeline Examples
 
@@ -115,9 +139,12 @@ When `gvametaconvert` converts these detections to JSON, each becomes a `bbox_3d
 1. Validates that runtime initialization succeeded and `config` is present
 2. Retrieves `LidarMeta` from the input buffer
 3. Maps the LiDAR payload and verifies its size matches `lidar_point_count * 4 * sizeof(float)`
-4. Runs voxelization, network inference, and post-processing
-5. Attaches one `GstAnalytics3DODMtd` per detection to the buffer's `GstAnalyticsRelationMeta`
-6. Pushes the enriched LiDAR buffer downstream for metadata conversion, publishing, or further analytics
+4. Submits the frame to the worker pool and accepts the next buffer without waiting for the result
+5. On a worker thread, runs voxelization, network inference, and post-processing
+6. Attaches one `GstAnalytics3DODMtd` per detection to the buffer's `GstAnalyticsRelationMeta`
+7. Pushes the enriched LiDAR buffer downstream once every earlier frame has been pushed, preserving input order
+
+Steps 1–3 run on the streaming thread, so malformed input still fails the pipeline immediately. Steps 5–7 run concurrently for up to `nireq` frames.
 
 ## Element Details (gst-inspect-1.0)
 
@@ -159,6 +186,10 @@ Element Properties:
   name                : The name of the object
                         flags: readable, writable
                         String. Default: "g3dinference0"
+
+  nireq               : Number of inference requests processed concurrently. Frames are kept in flight across this many requests while output order is preserved. 0 derives the value from the compiled network
+                        flags: readable, writable
+                        Unsigned Integer. Range: 0 - 1024 Default: 0
 
   parent              : The parent of the object
                         flags: readable, writable
