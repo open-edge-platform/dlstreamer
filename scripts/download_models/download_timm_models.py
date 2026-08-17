@@ -136,7 +136,13 @@ def export_with_optimum(
     with tempfile.TemporaryDirectory(prefix=f".{model_name}-{precision}-") as tmp:
         tmpdir = Path(tmp)
         # xet-backed Hugging Face transfers can hang for some TIMM weight files
-        env = {**os.environ, "HF_HUB_DISABLE_XET": "1"}
+        env = {
+            **os.environ,
+            "HF_HUB_DISABLE_XET": "1",
+            # CI can provide stale HF credentials; public TIMM models should use
+            # anonymous access to avoid 401 from implicit auth.
+            "HF_HUB_DISABLE_IMPLICIT_TOKEN": "1",
+        }
 
         def run_export(command: list[str]) -> tuple[subprocess.CompletedProcess[str], str]:
             result = subprocess.run(
@@ -160,8 +166,8 @@ def export_with_optimum(
             hf_model_id,
         ]
 
-        # First try revision-aware export. If the installed optimum-cli is too old and
-        # does not support --revision, fallback to export without --revision.
+        # If revision is requested, enforce exact revision export.
+        # Do not fallback to "latest" because it would silently change model provenance.
         command = list(base_command)
         if revision:
             command.extend(["--revision", revision])
@@ -171,31 +177,10 @@ def export_with_optimum(
         result, combined_output = run_export(attempted_command)
 
         if result.returncode != 0 and revision and "unrecognized arguments: --revision" in combined_output:
-            attempted_command = list(base_command)
-            attempted_command.extend(["--weight-format", precision, str(tmpdir)])
-            result, combined_output = run_export(attempted_command)
-
-        if result.returncode != 0 and "KeyError: 'default-timm-config'" in combined_output:
-            # Work around Optimum task resolution failures for some TIMM HF ids.
-            # Retry with TIMM registry model name.
-            attempted_command = [
-                optimum_cli_path,
-                "export",
-                "openvino",
-                "--library",
-                "timm",
-                "--task",
-                "image-classification",
-                "--model",
-                model_name,
-            ]
-            if revision:
-                attempted_command.extend(["--revision", revision])
-            attempted_command.extend(["--weight-format", precision, str(tmpdir)])
-            result, combined_output = run_export(attempted_command)
-
-            if result.returncode != 0 and revision and "unrecognized arguments: --revision" in combined_output:
-                raise subprocess.CalledProcessError(result.returncode, attempted_command)
+            raise RuntimeError(
+                "optimum-cli in this environment does not support --revision; "
+                f"cannot export requested revision '{revision}' for model '{hf_model_id}'."
+            )
 
         if result.returncode != 0:
             # Surface captured output for easier CI debugging.
@@ -203,6 +188,10 @@ def export_with_optimum(
                 print(result.stdout, end="")
             if result.stderr:
                 print(result.stderr, end="", file=sys.stderr)
+            if revision:
+                raise RuntimeError(
+                    f"Failed to export requested revision '{revision}' for model '{hf_model_id}'."
+                ) from subprocess.CalledProcessError(result.returncode, attempted_command)
             raise subprocess.CalledProcessError(result.returncode, attempted_command)
 
         exported_xml = only_xml(tmpdir)
@@ -221,7 +210,7 @@ def save_config_json(hf_model_id: str, path: Path, revision: str | None = None) 
     """Copy the model's original Hugging Face config.json next to the exported IR."""
     resolved_revision = revision
     if not resolved_revision:
-        resolved_revision = HfApi().model_info(hf_model_id).sha
+        resolved_revision = HfApi(token=False).model_info(hf_model_id).sha
     if not resolved_revision:
         raise RuntimeError(f"Unable to resolve Hugging Face revision for {hf_model_id}")
     config_path = Path(
@@ -229,6 +218,7 @@ def save_config_json(hf_model_id: str, path: Path, revision: str | None = None) 
             repo_id=hf_model_id,
             filename="config.json",
             revision=resolved_revision,
+            token=False,
         )
     )
     shutil.copy2(config_path, path)
