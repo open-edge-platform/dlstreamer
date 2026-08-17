@@ -59,7 +59,7 @@ default model(s) each sample runs — many samples let you swap in your own.
 
 | Preview | Sample | What it demonstrates | Key elements | Models | Language |
 |---------|--------|----------------------|--------------|--------|----------|
-| — | [Vehicle and Pedestrian Tracking](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch/vehicle_pedestrian_tracking) | Object tracking across frames | `gvatrack`, `gvadetect`, `gvaclassify` | `person-vehicle-bike-detection-2004`, `person-attributes-recognition-crossroad-0230`, `vehicle-attributes-recognition-barrier-0039` | CLI |
+| — | [Vehicle and Pedestrian Tracking](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch/vehicle_pedestrian_tracking) | Object tracking across frames | `gvatrack`, `gvadetect`, `gvaclassify` | `yolo26s`, `dima806_vehicle_10_types_image_detection` | CLI |
 | <img src="_images/sample-gvaanalytics-tripwire.jpg" width="120"> | [Vehicle Counter with gvaanalytics Tripwires](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/python/gvaanalytics_tripwire) | Count vehicles crossing a virtual line in both directions using tripwires | `gvaanalytics`, `gvatrack` | `yolo11n` | Python |
 | <img src="_images/sample-smart-nvr.jpg" width="120"> | [Smart NVR for Lane Hogging Detection](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/python/smart_nvr) | Build an NVR with custom analytics and video storage to detect lane-hogging events | `gvaanalytics_py`, `gvarecorder_py` | `rtdetr_v2_r50vd` (RT-DETRv2) | Python |
 
