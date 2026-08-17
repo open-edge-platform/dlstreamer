@@ -178,5 +178,5 @@ graph LR
 ```
 
 ## See also
-* [Windows Samples overview](../../../README.md)
+* [Windows Samples overview](../../../../README.md)
 * [Linux Vehicle and Pedestrian Tracking Sample](../../../../gstreamer/gst_launch/vehicle_pedestrian_tracking/README.md)

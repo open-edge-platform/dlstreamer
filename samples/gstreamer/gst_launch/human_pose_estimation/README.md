@@ -53,4 +53,4 @@ The sample
 or prints out fps if you set SINK_ELEMENT = fps
 
 ## See also
-* [Samples overview](../../README.md)
+* [Samples overview](../../../README.md)

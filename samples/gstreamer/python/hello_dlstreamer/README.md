@@ -96,5 +96,5 @@ The video stream displays with object detection annotations, including bounding 
 
 ## See Also
 
-* [Samples overview](../../README.md)
+* [Samples overview](../../../README.md)
 

@@ -75,4 +75,4 @@ python3 ./prompted_detection.py 1192116-sd_640_360_30fps.mp4 "white car" [DEVICE
   * `file` - annotate detected objects with `gvawatermark` and encode the result to `<input_stem>_output.mp4` (requires VA-API).
 
 ## See also
-* [Samples overview](../../README.md)
+* [Samples overview](../../../README.md)
