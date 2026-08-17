@@ -20,6 +20,7 @@ from pathlib import Path
 from huggingface_hub import HfApi, hf_hub_download
 import timm
 import openvino as ov
+import nncf
 from hf_utils import parse_model_ref
 
 
@@ -182,6 +183,23 @@ def export_with_optimum(
                 f"cannot export requested revision '{revision}' for model '{hf_model_id}'."
             )
 
+        if result.returncode != 0 and "KeyError: 'default-timm-config'" in combined_output:
+            print(
+                "optimum-cli failed with 'default-timm-config'; "
+                f"falling back to optimum-cli ONNX export for '{hf_model_id}'."
+            )
+            export_with_optimum_onnx_fallback(
+                optimum_cli_path,
+                hf_model_id,
+                model_name,
+                precision,
+                xml,
+                revision=revision,
+                env=env,
+            )
+            save_config_json(hf_model_id, xml.parent / "config.json", revision=revision)
+            return
+
         if result.returncode != 0:
             # Surface captured output for easier CI debugging.
             if result.stdout:
@@ -197,6 +215,68 @@ def export_with_optimum(
         exported_xml = only_xml(tmpdir)
         save_ir(exported_xml, xml)
         save_config_json(hf_model_id, xml.parent / "config.json", revision=revision)
+
+
+def export_with_optimum_onnx_fallback(
+    optimum_cli_path: str,
+    hf_model_id: str,
+    model_name: str,
+    precision: str,
+    xml: Path,
+    revision: str | None,
+    env: dict[str, str],
+) -> None:
+    """Fallback: export ONNX via optimum-cli, then convert to OpenVINO."""
+    del model_name  # kept for signature consistency with primary export path
+
+    with tempfile.TemporaryDirectory(prefix=f".{xml.stem}-onnx-") as tmp:
+        tmpdir = Path(tmp)
+        command = [
+            optimum_cli_path,
+            "export",
+            "onnx",
+            "--library",
+            "timm",
+            "--task",
+            "image-classification",
+            "--model",
+            hf_model_id,
+        ]
+        if revision:
+            command.extend(["--revision", revision])
+        command.append(str(tmpdir))
+
+        result = subprocess.run(command, env=env, text=True, capture_output=True)
+        combined_output = (result.stdout or "") + "\n" + (result.stderr or "")
+
+        if result.returncode != 0 and revision and "unrecognized arguments: --revision" in combined_output:
+            raise RuntimeError(
+                "optimum-cli ONNX export does not support --revision; "
+                f"cannot export requested revision '{revision}' for model '{hf_model_id}'."
+            )
+
+        if result.returncode != 0:
+            if result.stdout:
+                print(result.stdout, end="")
+            if result.stderr:
+                print(result.stderr, end="", file=sys.stderr)
+            if revision:
+                raise RuntimeError(
+                    f"Failed to export requested revision '{revision}' for model '{hf_model_id}' via optimum-cli ONNX fallback."
+                ) from subprocess.CalledProcessError(result.returncode, command)
+            raise subprocess.CalledProcessError(result.returncode, command)
+
+        onnx_files = sorted(tmpdir.rglob("*.onnx"))
+        assert onnx_files, f"expected at least one ONNX file in {tmpdir}"
+        onnx_path = onnx_files[0]
+
+        ov_model = ov.convert_model(str(onnx_path))
+        if precision == "int8":
+            ov_model = nncf.compress_weights(ov_model)
+
+        xml.parent.mkdir(parents=True, exist_ok=True)
+        ov.save_model(ov_model, str(xml), compress_to_fp16=(precision == "fp16"))
+        ov.Core().read_model(str(xml))
 
 
 def only_xml(root: Path) -> Path:
