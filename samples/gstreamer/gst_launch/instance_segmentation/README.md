@@ -77,4 +77,4 @@ The script's output is determined by the --output parameter value:
 * fps - the script measures and displays the frames per second without saving any visual output
 
 ## See also
-* [Samples overview](../../README.md)
+* [Samples overview](../../../README.md)

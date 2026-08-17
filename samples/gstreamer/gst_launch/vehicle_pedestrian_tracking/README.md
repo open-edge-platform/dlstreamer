@@ -65,4 +65,4 @@ The sample
 * starts the command and visualizes video with bounding boxes around detected objects and text with classification results (color, type and others) for each detected object or prints out fps if you set SINK_ELEMENT = fps
 
 ## See also
-* [Samples overview](../../README.md)
+* [Samples overview](../../../README.md)

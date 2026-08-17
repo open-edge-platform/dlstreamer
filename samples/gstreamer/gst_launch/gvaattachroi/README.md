@@ -83,7 +83,7 @@ Example:
 
 ## See also
 
-* [Samples overview](../../README.md)
+* [Samples overview](../../../README.md)
 
 ---
 

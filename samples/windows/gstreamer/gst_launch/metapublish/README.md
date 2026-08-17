@@ -107,5 +107,5 @@ The sample
 
 ## See also
 
-* [Windows Samples overview](../../../README.md)
+* [Windows Samples overview](../../../../README.md)
 * [Linux Metapublish Sample](../../../../gstreamer/gst_launch/metapublish/README.md)

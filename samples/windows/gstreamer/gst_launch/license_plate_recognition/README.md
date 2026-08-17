@@ -178,5 +178,5 @@ graph LR
 ```
 
 ## See also
-* [Windows Samples overview](../../../README.md)
+* [Windows Samples overview](../../../../README.md)
 * [Linux License Plate Recognition Sample](../../../../gstreamer/gst_launch/license_plate_recognition/README.md)

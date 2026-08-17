@@ -62,7 +62,7 @@ The sample:
 
 ## See also
 
-* [Samples overview](../../README.md)
+* [Samples overview](../../../README.md)
 
 ## Example Usage
 

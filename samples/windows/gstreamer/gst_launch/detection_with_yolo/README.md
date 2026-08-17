@@ -230,7 +230,7 @@ The sample:
 
 ## See also
 
-- [Windows Samples overview](../../../README.md)
+- [Windows Samples overview](../../../../README.md)
 - [Linux Detection with Yolo Sample](../../../../gstreamer/gst_launch/detection_with_yolo/README.md)
 
 ---
