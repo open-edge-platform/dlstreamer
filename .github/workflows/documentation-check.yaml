@@ -29,9 +29,9 @@ jobs:
           fetch-depth: 0
           # Fetch tags
           fetch-tags: true
-          # Checkout the branch that triggered the workflow
-          # to avoid detached HEAD
-          ref: ${{ github.event.pull_request.head.sha || github.head_ref }}
+          # For pull_request, test PR head commit.
+          # For workflow_dispatch and other events, use the trusted triggering commit.
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
 
       - name: Check if should skip CI
