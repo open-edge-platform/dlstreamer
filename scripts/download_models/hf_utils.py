@@ -100,7 +100,7 @@ ARCH_MAX_TRANSFORMERS_VERSION = {
 
 def parse_model_ref(model_ref: str) -> tuple[str, str | None]:
     """Parse model reference in format 'repo_id@revision' or 'repo_id'.
-    
+
     Returns:
         Tuple of (repo_id, revision) where revision is None if not specified.
     """
@@ -115,10 +115,10 @@ def load_hf_architectures_from_repo_local(local_model_dir: str | Path) -> list[s
     config_path = Path(local_model_dir) / "config.json"
     if not config_path.exists():
         raise ValueError(f"config.json not found in {local_model_dir}")
-    
+
     with open(config_path) as f:
         config_dict = json.load(f)
-    
+
     architectures = config_dict.get("architectures", None)
     if not architectures:
         raise ValueError("HuggingFace config has no architectures list")
@@ -214,14 +214,14 @@ def requires_trust_remote_code(local_model_dir: str | Path) -> bool:
 
 def install_model_requirements(local_model_dir: str | Path) -> None:
     """Install model requirements if requirements.txt exists in the model directory.
-    
+
     Args:
         local_model_dir: Path to the locally cached model directory
     """
     requirements_file = Path(local_model_dir) / "requirements.txt"
     if not requirements_file.exists():
         return
-    
+
     print(f"Installing model requirements from {requirements_file}")
     try:
         subprocess.run(
@@ -242,7 +242,7 @@ def custom_conversion(
     extra_args: list[str] | None = None,
 ) -> Path:
     """Run custom conversion for architectures listed in CUSTOM_CONVERTERS.
-    
+
     Args:
         local_model_dir: Path to locally cached model
         repo_id: Original repo ID (for naming output directory)
@@ -317,7 +317,7 @@ def export_hf_clip_to_openvino(
     """Export CLIP vision encoder to OpenVINO IR.
 
     This exports only the visual feature extractor (no text encoder).
-    
+
     Args:
         local_model_dir: Path to locally cached CLIP model
         outdir: Output directory for OpenVINO IR
@@ -326,18 +326,16 @@ def export_hf_clip_to_openvino(
     outdir.mkdir(parents=True, exist_ok=True)
 
     # Load from the local cached model directory.
-    vision_model = CLIPVisionModel.from_pretrained(str(local_model_dir))  # nosec - model pinned via snapshot_download
-
-
-
+    vision_model = CLIPVisionModel.from_pretrained(
+        str(local_model_dir)
+    )  # nosec - model pinned via snapshot_download
 
     vision_model.eval()
 
     img = Image.new("RGB", (224, 224))
-    processor = AutoProcessor.from_pretrained(str(local_model_dir), local_files_only=True)  # nosec B615 - model pinned via snapshot_download
-
-
-
+    processor = AutoProcessor.from_pretrained(
+        str(local_model_dir), local_files_only=True
+    )  # nosec B615 - model pinned via snapshot_download
 
     batch = processor.image_processor(images=img, return_tensors="pt")["pixel_values"]
 
@@ -384,10 +382,14 @@ def export_hf_rtdetr_to_openvino(
     _ = token
     local_model_dir = Path(local_model_dir)
 
-    model = AutoModelForObjectDetection.from_pretrained(str(local_model_dir), local_files_only=True)  # nosec B615 - model pinned via snapshot_download
+    model = AutoModelForObjectDetection.from_pretrained(
+        str(local_model_dir), local_files_only=True
+    )  # nosec B615 - model pinned via snapshot_download
     model.eval()
 
-    processor = AutoImageProcessor.from_pretrained(str(local_model_dir), local_files_only=True)  # nosec B615 - model pinned via snapshot_download
+    processor = AutoImageProcessor.from_pretrained(
+        str(local_model_dir), local_files_only=True
+    )  # nosec B615 - model pinned via snapshot_download
 
     img = Image.new("RGB", (640, 640))
     batch = processor(images=img, return_tensors="pt")["pixel_values"]
@@ -451,18 +453,16 @@ def export_hf_depthanything_to_openvino(
     _ = token
     local_model_dir = Path(local_model_dir)
 
-    model = AutoModelForDepthEstimation.from_pretrained(str(local_model_dir), local_files_only=True)  # nosec B615 - model pinned via snapshot_download
-
-
-
+    model = AutoModelForDepthEstimation.from_pretrained(
+        str(local_model_dir), local_files_only=True
+    )  # nosec B615 - model pinned via snapshot_download
 
     model.eval()
 
     img = Image.new("RGB", (224, 224))
-    processor = AutoImageProcessor.from_pretrained(str(local_model_dir), local_files_only=True)  # nosec B615 - model pinned via snapshot_download
-
-
-
+    processor = AutoImageProcessor.from_pretrained(
+        str(local_model_dir), local_files_only=True
+    )  # nosec B615 - model pinned via snapshot_download
 
     batch = processor(images=img, return_tensors="pt")["pixel_values"]
 
@@ -502,12 +502,18 @@ def export_hf_videomae_to_openvino(
     _ = token
     local_model_dir = Path(local_model_dir)
 
-    model = AutoModelForVideoClassification.from_pretrained(str(local_model_dir), local_files_only=True)  # nosec B615 - model pinned via snapshot_download
+    model = AutoModelForVideoClassification.from_pretrained(
+        str(local_model_dir), local_files_only=True
+    )  # nosec B615 - model pinned via snapshot_download
     model.eval()
 
-    processor = AutoImageProcessor.from_pretrained(str(local_model_dir), local_files_only=True)  # nosec B615 - model pinned via snapshot_download
+    processor = AutoImageProcessor.from_pretrained(
+        str(local_model_dir), local_files_only=True
+    )  # nosec B615 - model pinned via snapshot_download
 
-    config = AutoConfig.from_pretrained(str(local_model_dir), local_files_only=True)  # nosec B615 - model pinned via snapshot_download
+    config = AutoConfig.from_pretrained(
+        str(local_model_dir), local_files_only=True
+    )  # nosec B615 - model pinned via snapshot_download
     num_frames = int(getattr(config, "num_frames", 16))
     image_size = int(getattr(config, "image_size", 224))
 

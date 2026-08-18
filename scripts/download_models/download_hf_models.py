@@ -28,7 +28,6 @@ from hf_utils import parse_model_ref
 from hf_utils import requires_transformers_downgrade
 from hf_utils import requires_trust_remote_code
 
-
 # Models that require trust_remote_code flag due to custom code in their repo
 MODELS_REQUIRING_TRUST_REMOTE_CODE = {
     "qnguyen3/nanoLLaVA",
@@ -137,7 +136,7 @@ def install_model_dependencies(repo_id: str) -> None:
     """Install hardcoded dependencies for specific models."""
     if repo_id not in MODEL_DEPENDENCIES:
         return
-    
+
     deps = MODEL_DEPENDENCIES[repo_id]
     print(f"Installing dependencies for {repo_id}: {', '.join(deps)}")
     try:
@@ -175,12 +174,16 @@ def ensure_export_config_compat(local_model_dir: str | Path, repo_id: str) -> No
     with config_path.open("w", encoding="utf-8") as file:
         json.dump(config, file, indent=2)
         file.write("\n")
-    print(f"Applied config workaround for {repo_id}: set pad_token_id={fallback_token_id}")
+    print(
+        f"Applied config workaround for {repo_id}: set pad_token_id={fallback_token_id}"
+    )
 
 
 def find_exported_xmls(root: Path) -> list[Path]:
     """Return exported OpenVINO XML files that have matching .bin files."""
-    return sorted(path for path in root.rglob("*.xml") if path.with_suffix(".bin").exists())
+    return sorted(
+        path for path in root.rglob("*.xml") if path.with_suffix(".bin").exists()
+    )
 
 
 def detect_ir_precision(exported_xml: Path) -> str:
@@ -204,7 +207,9 @@ def detect_ir_precision(exported_xml: Path) -> str:
     )
 
 
-def normalize_export_layout(export_root: Path, final_model_dir: Path, model_name: str) -> Path:
+def normalize_export_layout(
+    export_root: Path, final_model_dir: Path, model_name: str
+) -> Path:
     """Normalize exported IR into DLStreamer layout with precision subdirectory."""
     exported_xmls = find_exported_xmls(export_root)
     if not exported_xmls:
@@ -223,7 +228,9 @@ def normalize_export_layout(export_root: Path, final_model_dir: Path, model_name
     target_bin = target_xml.with_suffix(".bin")
 
     precision_dir.mkdir(parents=True, exist_ok=True)
-    with tempfile.TemporaryDirectory(prefix=f".{model_name}-", dir=precision_dir) as tmp_dir:
+    with tempfile.TemporaryDirectory(
+        prefix=f".{model_name}-", dir=precision_dir
+    ) as tmp_dir:
         tmp_xml = Path(tmp_dir) / target_xml.name
         tmp_bin = tmp_xml.with_suffix(".bin")
         shutil.copy2(exported_xml, tmp_xml)
@@ -250,25 +257,28 @@ def main() -> int:
 
         # Parse model_id to extract repo_id and optional revision
         repo_id, revision = parse_model_ref(model_id)
-        
+
         # Download model with specified revision (or latest if None) to local cache
-        print(f"Downloading model: {repo_id}" + (f" @ {revision}" if revision else " (latest)"))
+        print(
+            f"Downloading model: {repo_id}"
+            + (f" @ {revision}" if revision else " (latest)")
+        )
         local_model_dir = snapshot_download(
             repo_id=repo_id,
             revision=revision,
             token=token,
         )
         print(f"Model cached at: {local_model_dir}")
-        
+
         # Install model-specific dependencies
         install_model_dependencies(repo_id)
-        
+
         # Install model requirements if they exist
         install_model_requirements(local_model_dir)
 
         # Apply local config workarounds for known problematic models
         ensure_export_config_compat(local_model_dir, repo_id)
-        
+
         # Determine support level by analyzing locally cached model
         support_level = get_hf_model_support_level(local_model_dir)
 
@@ -277,7 +287,7 @@ def main() -> int:
             print(
                 f"Model '{model_id}' requires transformers <= {transformers_cap} for its OpenVINO "
                 f"export, but transformers {transformers.__version__} is installed. Downgrade "
-                "transformers to convert it (see "
+                "transformers and install optimum-intel==1.27.0to convert it (see "
                 "docs/user-guide/dev_guide/model_conversion_reference.md)."
             )
             return 1
@@ -287,7 +297,9 @@ def main() -> int:
         output_root.mkdir(parents=True, exist_ok=True)
         final_model_dir = output_root / model_name
 
-        with tempfile.TemporaryDirectory(prefix=f".{model_name}-", dir=output_root) as tmp_dir:
+        with tempfile.TemporaryDirectory(
+            prefix=f".{model_name}-", dir=output_root
+        ) as tmp_dir:
             export_root = Path(tmp_dir)
 
             match support_level:
@@ -303,7 +315,10 @@ def main() -> int:
                     export_task = get_optimum_export_task(local_model_dir)
                     if export_task:
                         command.extend(["--task", export_task])
-                    if repo_id in MODELS_REQUIRING_TRUST_REMOTE_CODE or requires_trust_remote_code(local_model_dir):
+                    if (
+                        repo_id in MODELS_REQUIRING_TRUST_REMOTE_CODE
+                        or requires_trust_remote_code(local_model_dir)
+                    ):
                         command.append("--trust-remote-code")
                     if args.extra_args:
                         command.extend(args.extra_args)
@@ -328,11 +343,13 @@ def main() -> int:
                 case _:
                     raise ValueError(f"Unexpected support level: {support_level}")
 
-            model_path = normalize_export_layout(export_root, final_model_dir, model_name)
+            model_path = normalize_export_layout(
+                export_root, final_model_dir, model_name
+            )
 
         print(f"Exported model location: {model_path}")
         return 0
-        
+
     except OSError as exc:
         print(f"Error: Model '{model_id}' not found or inaccessible")
         print(f"Details: {str(exc)}")
