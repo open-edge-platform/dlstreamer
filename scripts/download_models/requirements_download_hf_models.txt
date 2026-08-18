@@ -1,7 +1,7 @@
 # Dependencies for download_hf_models.py (+ hf_utils.py)
 --extra-index-url https://download.pytorch.org/whl/cpu
 defusedxml>=0.7.1
-huggingface_hub==0.34.4
+huggingface_hub==1.21
 openvino==2026.2.0
 optimum-intel==2.1.0
 transformers==5.5.0
