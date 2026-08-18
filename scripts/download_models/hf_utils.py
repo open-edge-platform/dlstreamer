@@ -318,8 +318,10 @@ def export_hf_clip_zeroshot_to_openvino(
         nn_input.get_node().set_partial_shape(input_shape)
         nn_input.get_node().set_element_type(Type.f32)
 
+    # model_type selects the post-processing converter in the pipeline. Zero-shot models are tagged
+    # clip_zeroshot so they can never be confused with the unprojected clip_token export above.
+    ov_model.set_rt_info("clip_zeroshot", ["model_info", "model_type"])
     # CLIP preprocessing carried in model_info; scale/mean are the CLIP std/mean x 255.
-    ov_model.set_rt_info("clip_token", ["model_info", "model_type"])
     ov_model.set_rt_info("68.500,66.632,70.323", ["model_info", "scale_values"])
     ov_model.set_rt_info("122.771,116.746,104.094", ["model_info", "mean_values"])
     ov_model.set_rt_info("RGB", ["model_info", "color_space"])

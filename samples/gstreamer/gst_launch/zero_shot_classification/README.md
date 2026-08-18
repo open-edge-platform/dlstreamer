@@ -2,7 +2,7 @@
 
 This sample runs open-vocabulary (zero-shot) image classification with `gvaclassify`.
 Instead of a model with a fixed, trained classification head, `gvaclassify` runs a CLIP
-image encoder and a post-processing converter (`zeroshot_openclip`) scores the resulting
+image encoder and a post-processing converter (`clip_zeroshot`) scores the resulting
 image embedding by cosine similarity against text-label embeddings supplied at runtime.
 
 The class list lives outside the model: to change the classes you edit `labels.txt` and
@@ -10,13 +10,17 @@ regenerate the embeddings file, with no retraining and no change to the model.
 
 ## How it works
 
-1. `gvaclassify` runs the CLIP image encoder. Its OpenVINO IR carries the CLIP
-   preprocessing (mean/std, RGB, center crop) in the `model_info` section of `model.xml`,
-   so no DL Streamer model-proc file is used.
-2. The `zeroshot_openclip` converter L2-normalizes the image embedding, computes cosine
-   similarity against the label embeddings from `labels.safetensors`, applies the CLIP
-   `logit_scale` (read from the embeddings-file metadata) and a softmax, then reports top-k.
-3. Setting `zeroshot-embeddings-file` on `gvaclassify` selects the converter automatically.
+1. `gvaclassify` runs the CLIP image encoder. Its OpenVINO IR carries `model_type=clip_zeroshot`
+   and the CLIP preprocessing (mean/std, RGB, center crop) in the `model_info` section of
+   `model.xml`, so no DL Streamer model-proc file is used.
+2. `model_type=clip_zeroshot` selects the `clip_zeroshot` converter. It L2-normalizes the image
+   embedding, computes cosine similarity against the label embeddings from `labels.safetensors`,
+   applies the CLIP `logit_scale` and a softmax, then reports top-k. The embeddings file is parsed
+   once in the post-processor setup, so the converter itself does no file I/O.
+3. `zeroshot-embeddings-file` **supplies** the class bank; it does not select the converter.
+   Supplying it with a non-zero-shot model (or omitting it for a `clip_zeroshot` model) is an
+   error, so a `clip_token` model exported for image-to-image use can never be silently compared
+   against text embeddings.
 
 ## Prepare the models
 
@@ -64,5 +68,7 @@ Edit `labels.txt` (one label per line), regenerate `labels.safetensors` with
 - The embeddings file is a single 2-D tensor `[num_labels, embedding_dim]` named
   `embeddings`, with rows aligned to `labels.txt`. Its metadata carries `logit_scale`
   (for calibrated confidences) and, optionally, `unknown_threshold`.
+- Re-export the model if you prepared it before `clip_zeroshot` existed: an IR still tagged
+  `model_type=clip_token` is now rejected when paired with an embeddings file.
 - Only the CLIP image encoder runs on the device; the similarity, softmax and top-k run on
   the host CPU. The model graph stays a fixed-shape vision encoder, which suits NPU execution.

@@ -4,15 +4,21 @@
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
 
-// Self-contained unit test for the zero-shot OpenCLIP converter. It writes a tiny safetensors
-// fixture from C++ (no PyTorch / no Python at build or run time), constructs the converter, feeds a
-// mock image-embedding blob, and checks ranking, logit_scale calibration and the unknown-threshold.
+// Unit tests for the CLIP zero-shot classification path, split along the layer boundary the
+// converter now respects:
+//   - ClipZeroShotConverter is pure: it is built from a ready ZeroShotEmbeddings struct (no file,
+//     no safetensors) and only has to rank, calibrate and apply the unknown threshold.
+//   - loadEmbeddingsFromFile() owns the file and format, so it is exercised separately against a
+//     tiny safetensors fixture written from C++ (no PyTorch / no Python at build or run time).
 
-#include "common/post_processor/converters/to_tensor/zeroshot_openclip.h"
+#include "common/post_processor/converters/to_tensor/clip_zeroshot.h"
+#include "common/post_processor/zeroshot_embeddings.h"
 
+#include <cmath>
 #include <cstdint>
 #include <cstdio>
 #include <fstream>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -49,6 +55,20 @@ void write_safetensors_f32(const std::string &path, const std::vector<std::vecto
         f.write(reinterpret_cast<const char *>(row.data()), static_cast<std::streamsize>(row.size() * sizeof(float)));
 }
 
+// Builds the class bank the post-processor setup layer would hand to the converter: three
+// orthonormal prototypes for labels a, b, c.
+ZeroShotEmbeddings MakeEmbeddings(float logit_scale = 100.0f, double unknown_threshold = -1.0) {
+    ZeroShotEmbeddings embeddings;
+    embeddings.num_classes = 3;
+    embeddings.embedding_dim = 4;
+    embeddings.class_embeddings = {1, 0, 0, 0, //
+                                   0, 1, 0, 0, //
+                                   0, 0, 1, 0};
+    embeddings.logit_scale = logit_scale;
+    embeddings.unknown_threshold = unknown_threshold;
+    return embeddings;
+}
+
 // Mock blob carrying a single image embedding [1, dim] as FP32.
 class TestEmbeddingBlob : public OutputBlob {
     std::vector<float> _data;
@@ -72,19 +92,18 @@ class TestEmbeddingBlob : public OutputBlob {
     }
 };
 
-struct ZeroShotOpenCLIPConverterTest : public testing::Test {
+struct ClipZeroShotConverterTest : public testing::Test {
   protected:
-    std::string _embeddings_path = "zeroshot_openclip_test_embeddings.safetensors";
     std::vector<size_t> _output_dims{1, 4};
     GstStructure *_gst_structure{nullptr};
 
-    BlobToMetaConverter::Initializer CreateInitializer(uint32_t topk) {
+    BlobToMetaConverter::Initializer CreateInitializer(uint32_t topk, ZeroShotEmbeddings embeddings) {
         BlobToMetaConverter::Initializer initializer;
-        initializer.model_name = "zeroshot_openclip_test";
+        initializer.model_name = "clip_zeroshot_test";
         initializer.outputs_info = {{"image_embedding", _output_dims}};
         initializer.input_image_info.batch_size = 1;
         initializer.labels = {"a", "b", "c"};
-        initializer.zeroshot_embeddings_file = _embeddings_path;
+        initializer.zeroshot_embeddings = std::move(embeddings);
         initializer.zeroshot_topk = topk;
         initializer.model_proc_output_info = GstStructureUniquePtr(_gst_structure, [](auto) {});
         return initializer;
@@ -92,16 +111,12 @@ struct ZeroShotOpenCLIPConverterTest : public testing::Test {
 
     void SetUp() override {
         _gst_structure = gst_structure_new_empty("ANY");
-        // Orthonormal class prototypes for a, b, c; logit_scale in metadata (calibrated softmax).
-        write_safetensors_f32(_embeddings_path, {{1, 0, 0, 0}, {0, 1, 0, 0}, {0, 0, 1, 0}},
-                              "{\"logit_scale\":\"100.0\"}");
     }
 
     void TearDown() override {
         if (_gst_structure)
             gst_structure_free(_gst_structure);
         _gst_structure = nullptr;
-        std::remove(_embeddings_path.c_str());
     }
 
     OutputBlobs MakeBlob(std::vector<float> embedding) {
@@ -110,18 +125,17 @@ struct ZeroShotOpenCLIPConverterTest : public testing::Test {
     }
 };
 
-TEST_F(ZeroShotOpenCLIPConverterTest, ConverterName) {
-    ASSERT_EQ(ZeroShotOpenCLIPConverter::getName(), "zeroshot_openclip");
+TEST_F(ClipZeroShotConverterTest, ConverterName) {
+    ASSERT_EQ(ClipZeroShotConverter::getName(), "clip_zeroshot");
 }
 
-TEST_F(ZeroShotOpenCLIPConverterTest, MissingEmbeddingsFileThrows) {
-    auto init = CreateInitializer(1);
-    init.zeroshot_embeddings_file.clear();
-    EXPECT_THROW(ZeroShotOpenCLIPConverter{std::move(init)}, std::invalid_argument);
+TEST_F(ClipZeroShotConverterTest, MissingEmbeddingsThrows) {
+    auto init = CreateInitializer(1, ZeroShotEmbeddings{});
+    EXPECT_THROW(ClipZeroShotConverter{std::move(init)}, std::invalid_argument);
 }
 
-TEST_F(ZeroShotOpenCLIPConverterTest, RanksClosestClassFirstAndCalibrates) {
-    ZeroShotOpenCLIPConverter converter(CreateInitializer(3));
+TEST_F(ClipZeroShotConverterTest, RanksClosestClassFirstAndCalibrates) {
+    ClipZeroShotConverter converter(CreateInitializer(3, MakeEmbeddings()));
     auto blobs = MakeBlob({0.1f, 0.9f, 0.0f, 0.0f}); // closest to class "b"
     TensorsTable result = converter.convert(blobs);
 
@@ -150,11 +164,8 @@ TEST_F(ZeroShotOpenCLIPConverterTest, RanksClosestClassFirstAndCalibrates) {
     EXPECT_GT(top_conf, second_conf);
 }
 
-TEST_F(ZeroShotOpenCLIPConverterTest, BelowUnknownThresholdIsUnknown) {
-    // unknown_threshold now travels in the embeddings-file metadata (no model-proc).
-    write_safetensors_f32(_embeddings_path, {{1, 0, 0, 0}, {0, 1, 0, 0}, {0, 0, 1, 0}},
-                          "{\"logit_scale\":\"100.0\",\"unknown_threshold\":\"0.95\"}");
-    ZeroShotOpenCLIPConverter converter(CreateInitializer(3));
+TEST_F(ClipZeroShotConverterTest, BelowUnknownThresholdIsUnknown) {
+    ClipZeroShotConverter converter(CreateInitializer(3, MakeEmbeddings(100.0f, 0.95)));
     auto blobs = MakeBlob({0.6f, 0.6f, 0.5f, 0.0f}); // max cosine ~0.61 < 0.95
     TensorsTable result = converter.convert(blobs);
 
@@ -169,6 +180,58 @@ TEST_F(ZeroShotOpenCLIPConverterTest, BelowUnknownThresholdIsUnknown) {
     gboolean zs_unknown = FALSE;
     gst_structure_get_boolean(top, "zs_unknown", &zs_unknown);
     EXPECT_TRUE(zs_unknown);
+}
+
+// The file and safetensors knowledge lives in the post-processor setup layer, not the converter.
+struct LoadEmbeddingsFromFileTest : public testing::Test {
+  protected:
+    std::string _embeddings_path = "clip_zeroshot_test_embeddings.safetensors";
+
+    void TearDown() override {
+        std::remove(_embeddings_path.c_str());
+    }
+};
+
+TEST_F(LoadEmbeddingsFromFileTest, MissingFileThrows) {
+    EXPECT_THROW(loadEmbeddingsFromFile(""), std::invalid_argument);
+    EXPECT_THROW(loadEmbeddingsFromFile("no_such_zeroshot_embeddings.safetensors"), std::invalid_argument);
+}
+
+TEST_F(LoadEmbeddingsFromFileTest, ParsesShapeNormalizesRowsAndReadsMetadata) {
+    // Deliberately un-normalized rows: the loader must L2-normalize them.
+    write_safetensors_f32(_embeddings_path, {{3, 0, 0, 0}, {0, 0, 5, 0}},
+                          "{\"logit_scale\":\"100.0\",\"unknown_threshold\":\"0.25\"}");
+
+    const ZeroShotEmbeddings embeddings = loadEmbeddingsFromFile(_embeddings_path);
+
+    EXPECT_FALSE(embeddings.empty());
+    EXPECT_EQ(embeddings.num_classes, 2u);
+    EXPECT_EQ(embeddings.embedding_dim, 4u);
+    ASSERT_EQ(embeddings.class_embeddings.size(), 8u);
+
+    EXPECT_FLOAT_EQ(embeddings.class_embeddings[0], 1.0f);
+    EXPECT_FLOAT_EQ(embeddings.class_embeddings[6], 1.0f);
+    for (std::size_t row = 0; row < embeddings.num_classes; ++row) {
+        double norm_sq = 0.0;
+        for (std::size_t col = 0; col < embeddings.embedding_dim; ++col) {
+            const float v = embeddings.class_embeddings[row * embeddings.embedding_dim + col];
+            norm_sq += static_cast<double>(v) * static_cast<double>(v);
+        }
+        EXPECT_NEAR(std::sqrt(norm_sq), 1.0, 1e-6);
+    }
+
+    EXPECT_FLOAT_EQ(embeddings.logit_scale, 100.0f);
+    EXPECT_DOUBLE_EQ(embeddings.unknown_threshold, 0.25);
+}
+
+TEST_F(LoadEmbeddingsFromFileTest, AbsentMetadataLeavesDefaults) {
+    write_safetensors_f32(_embeddings_path, {{1, 0, 0, 0}, {0, 1, 0, 0}});
+
+    const ZeroShotEmbeddings embeddings = loadEmbeddingsFromFile(_embeddings_path);
+
+    EXPECT_EQ(embeddings.num_classes, 2u);
+    EXPECT_LE(embeddings.logit_scale, 0.0f);      // unset -> converter falls back to 1.0 and warns
+    EXPECT_LT(embeddings.unknown_threshold, 0.0); // unset -> check disabled
 }
 
 } // namespace

@@ -8,7 +8,7 @@
 
 Reads a label list, runs the CLIP text encoder for each label (wrapped in a prompt
 template), L2-normalizes the projected text embeddings, and writes them to a
-``.safetensors`` file consumed by the gvaclassify ``zeroshot_openclip`` converter.
+``.safetensors`` file consumed by the gvaclassify ``clip_zeroshot`` converter.
 
 The output tensor ``embeddings`` has shape ``[num_labels, embedding_dim]`` with rows
 aligned to the label order. File metadata carries:

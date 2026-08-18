@@ -163,7 +163,10 @@ void gst_gva_classify_class_init(GstGvaClassifyClass *gvaclassify_class) {
         gobject_class, PROP_ZEROSHOT_EMBEDDINGS_FILE,
         g_param_spec_string(
             "zeroshot-embeddings-file", "Zero-shot embeddings file",
-            "Absolute path to a .safetensors file with precomputed L2-normalizable class embeddings (rows aligned to labels). Selects zero-shot OpenCLIP classification.",
+            "Absolute path to a .safetensors file with precomputed L2-normalizable class embeddings (rows "
+            "aligned to labels). Supplies the class bank for zero-shot classification; the converter itself is "
+            "selected by the model (model_info model_type=clip_zeroshot). Required for such a model, and "
+            "rejected for any other.",
             DEFAULT_ZEROSHOT_EMBEDDINGS_FILE, (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
     g_object_class_install_property(

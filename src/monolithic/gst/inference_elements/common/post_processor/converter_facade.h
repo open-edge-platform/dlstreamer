@@ -45,12 +45,12 @@ class ConverterFacade {
                     ConverterType converter_type, AttachType attach_type, const ModelImageInputInfo &input_image_info,
                     const ModelOutputsInfo &outputs_info, const std::string &model_name,
                     const std::vector<std::string> &labels, const std::string &custom_postproc_lib,
-                    bool skip_raw_tensors, const std::string &zeroshot_embeddings_file, uint32_t zeroshot_topk);
+                    bool skip_raw_tensors, const ZeroShotEmbeddings &zeroshot_embeddings, uint32_t zeroshot_topk);
     ConverterFacade(GstStructure *model_proc_output_info, ConverterType converter_type, AttachType attach_type,
                     const ModelImageInputInfo &input_image_info, const ModelOutputsInfo &outputs_info,
                     const std::string &model_name, const std::vector<std::string> &labels,
                     const std::string &custom_postproc_lib, bool skip_raw_tensors,
-                    const std::string &zeroshot_embeddings_file, uint32_t zeroshot_topk);
+                    const ZeroShotEmbeddings &zeroshot_embeddings, uint32_t zeroshot_topk);
 
     void convert(const OutputBlobs &all_output_blobs, FramesWrapper &frames) const;
 
