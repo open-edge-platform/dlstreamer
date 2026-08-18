@@ -21,11 +21,6 @@ from openvino import Type
 from openvino import save_model
 from openvino.tools.ovc import convert_model
 import torch
-from transformers import AutoModelForDepthEstimation, CLIPVisionModel
-from transformers import AutoModelForObjectDetection
-from transformers import AutoModelForVideoClassification
-from transformers import AutoConfig
-from transformers import AutoProcessor, AutoImageProcessor
 from PIL import Image
 
 SUPPORTED_HF_MODELS = {
@@ -286,6 +281,7 @@ def export_hf_clip_to_openvino(
         token: Unused, kept for compatibility
     """
     outdir.mkdir(parents=True, exist_ok=True)
+    from transformers import AutoProcessor, CLIPVisionModel
 
     # Load from the local cached model directory.
     vision_model = CLIPVisionModel.from_pretrained(str(local_model_dir))  # nosec - model pinned via snapshot_download
@@ -345,6 +341,7 @@ def export_hf_rtdetr_to_openvino(
     _ = extra_args
     local_model_dir = Path(local_model_dir)
     _ = token
+    from transformers import AutoImageProcessor, AutoModelForObjectDetection
 
     model = AutoModelForObjectDetection.from_pretrained(
         str(local_model_dir),
@@ -408,6 +405,7 @@ def export_hf_depthanything_to_openvino(
     _ = extra_args
     _ = token
     local_model_dir = Path(local_model_dir)
+    from transformers import AutoImageProcessor, AutoModelForDepthEstimation
 
     model = AutoModelForDepthEstimation.from_pretrained(str(local_model_dir), local_files_only=True)  # nosec B615 - model pinned via snapshot_download
 
@@ -459,6 +457,7 @@ def export_hf_videomae_to_openvino(
     _ = extra_args
     _ = token
     local_model_dir = Path(local_model_dir)
+    from transformers import AutoConfig, AutoImageProcessor, AutoModelForVideoClassification
 
     model = AutoModelForVideoClassification.from_pretrained(str(local_model_dir), local_files_only=True)  # nosec B615 - model pinned via snapshot_download
     model.eval()
