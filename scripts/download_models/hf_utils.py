@@ -20,7 +20,9 @@ from openvino import PartialShape
 from openvino import Type
 from openvino import save_model
 from openvino.tools.ovc import convert_model
+import torch
 from transformers import AutoModelForDepthEstimation, CLIPVisionModel
+from transformers import AutoModelForObjectDetection
 from transformers import AutoModelForVideoClassification
 from transformers import AutoConfig
 from transformers import AutoProcessor, AutoImageProcessor
@@ -329,7 +331,7 @@ def export_hf_rtdetr_to_openvino(
     token: str | None,
     extra_args: list[str] | None = None,
 ) -> Path:
-    """Export RT-DETR via PyTorch -> ONNX -> OpenVINO IR.
+    """Export RT-DETR via Transformers -> OpenVINO IR.
 
     Args:
         local_model_dir: Path to locally cached RT-DETR model
@@ -337,33 +339,52 @@ def export_hf_rtdetr_to_openvino(
         token: HuggingFace token (for private models)
         extra_args: Additional arguments for export
 
-    Requires `optimum`, `huggingface_hub`, and `openvino` to be installed.
+    Requires `transformers`, `huggingface_hub`, and `openvino` to be installed.
     """
     outdir.mkdir(parents=True, exist_ok=True)
     _ = extra_args
-    model_onnx = outdir / "model.onnx"
+    local_model_dir = Path(local_model_dir)
+    _ = token
 
-    main_export(
+    model = AutoModelForObjectDetection.from_pretrained(
         str(local_model_dir),
-        output=outdir,
+        local_files_only=True,
+    )
+    model.eval()
 
-        task="object-detection",
-        opset=18,
-        width=640,
-        height=640,
-        token=token,
+    class RTDetrExportWrapper(torch.nn.Module):
+        def __init__(self, wrapped_model: torch.nn.Module):
+            super().__init__()
+            self.wrapped_model = wrapped_model
+
+        def forward(self, pixel_values: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+            outputs = self.wrapped_model(pixel_values=pixel_values)
+            return outputs.logits, outputs.pred_boxes
+
+    processor = AutoImageProcessor.from_pretrained(
+        str(local_model_dir),
+        local_files_only=True,
+    )
+
+    image = Image.new("RGB", (640, 640))
+    batch = processor(images=image, return_tensors="pt")
+    export_wrapper = RTDetrExportWrapper(model)
+    ov_model = convert_model(
+        export_wrapper,
+        example_input=batch["pixel_values"],
     )
 
     # Copy preprocessor_config.json from local cached model to output directory
-    local_model_dir = Path(local_model_dir)
     preprocessor_config_src = local_model_dir / "preprocessor_config.json"
     if preprocessor_config_src.exists():
         shutil.copy(preprocessor_config_src, outdir / "preprocessor_config.json")
 
-    ov_model = convert_model(str(model_onnx))
+    config_src = local_model_dir / "config.json"
+    if config_src.exists():
+        shutil.copy(config_src, outdir / "config.json")
+
     model_name = local_model_dir.name
     save_model(ov_model, str(outdir / f"{model_name}.xml"))
-    model_onnx.unlink(missing_ok=True)
     return outdir
 
 
