@@ -14,7 +14,7 @@
 
 <img src="./hero.jpg" width="800" alt="DL Streamer sample outputs">
 
-[Get Started](#quick-start---installation) • [Run Your Pipeline](#quick-start---run-your-pipeline) • [Samples](./samples/gstreamer/README.md) • [Elements](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/elements/elements.html) • [Documentation](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/index.html) • [Contributing](./CONTRIBUTING.md)
+[Get Started](#quick-start---installation) • [Run Your Pipeline](#quick-start---run-your-pipeline) • [Samples](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/samples.html) • [Elements](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/elements/elements.html) • [Documentation](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/index.html) • [Contributing](./CONTRIBUTING.md)
 
 </div>
 
@@ -99,7 +99,7 @@ Full installation guide: [Install Guide for Ubuntu](https://docs.openedgeplatfor
 ```bash
 cd ~
 python3 -m venv .dls-venv && source .dls-venv/bin/activate
-pip install openvino==2026.2.0 nncf==3.0.0 ultralytics==8.4.57
+pip install -r /opt/intel/dlstreamer/scripts/download_models/requirements_download_ultralytics_models.txt
 python3 /opt/intel/dlstreamer/scripts/download_models/download_ultralytics_models.py \
   --model yolo11n.pt \
   --outdir ~/models/yolo11n \
@@ -113,7 +113,7 @@ source /opt/intel/dlstreamer/scripts/setup_dls_env.sh
 gst-launch-1.0 \
   urisourcebin buffer-size=4096 uri=https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4 ! \
   decodebin3 ! \
-  gvadetect model=~/models/yolo11n/yolo11n_int8_openvino_model/yolo11n.xml device=GPU ! \
+  gvadetect model=~/models/yolo11n/yolo11n.xml device=GPU ! \
   queue ! \
   gvawatermark ! \
   gvafpscounter ! \
@@ -126,7 +126,7 @@ Output to JSON (works everywhere, including headless Docker):
 gst-launch-1.0 \
   urisourcebin buffer-size=4096 uri=https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4 ! \
   decodebin3 ! \
-  gvadetect model=~/models/yolo11n/yolo11n_int8_openvino_model/yolo11n.xml device=GPU ! \
+  gvadetect model=~/models/yolo11n/yolo11n.xml device=GPU ! \
   queue ! \
   gvafpscounter ! \
   gvametaconvert format=json ! \
@@ -146,7 +146,7 @@ import os
 Gst.init([])
 
 video_url = "https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4"
-model = os.path.expanduser("~/models/yolo11n/yolo11n_int8_openvino_model/yolo11n.xml")
+model = os.path.expanduser("~/models/yolo11n/yolo11n.xml")
 pipeline = Gst.parse_launch(f"""
     urisourcebin buffer-size=4096 uri={video_url} !
     decodebin3 !
@@ -202,9 +202,9 @@ cat output_from_python.json
 | **Multi-stream** | [Multi-camera deployment](./samples/gstreamer/gst_launch/multi_stream/README.md), [Stream mux/demux](./samples/gstreamer/gst_launch/stream_mux_and_demux/README.md) |
 | **3D Sensors** | [LiDAR parsing](./samples/gstreamer/gst_launch/g3dlidarparse/README.md), [PointPillars 3D detection](./samples/gstreamer/gst_launch/g3dinference/README.md), [Radar processing](./samples/gstreamer/gst_launch/g3dradarprocess/README.md) |
 | **Integration** | [ONVIF camera discovery](./samples/gstreamer/python/onvif_cameras_discovery/README.md), [Geti™ model deployment](./samples/gstreamer/gst_launch/geti_deployment/README.md), [Metadata to MQTT/Kafka](./samples/gstreamer/gst_launch/metapublish/README.md) |
-| **Python extensibility** | [Custom Python GStreamer elements](./samples/gstreamer/gst_launch/python-elements/face_detection_and_classification/README.md), [Smart NVR with recording](./samples/gstreamer/python/smart_nvr/README.md) |
+| **Python extensibility** | [Custom Python GStreamer elements](./samples/gstreamer/gst_launch/python-elements/face_detection_and_classification/README.md), [Smart NVR with recording](./samples/gstreamer/python/smart_nvr/README.md)
 
-[Browse all samples →](./samples/gstreamer/README.md)
+[Browse all samples →](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/samples.html)
 
 ---
 
@@ -226,7 +226,7 @@ Operating systems: **Ubuntu 22.04 / 24.04**, **Windows 11**.
 
 | Resource | Link |
 |---|---|
-| Get Started | [Get Started](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/get_started.html) |
+| Overview | [Overview](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/index.html) |
 | Elements Reference | [Elements Reference](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/elements/elements.html) |
 | Supported Models | [Supported Models](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/supported_models.html) |
 | Developer Guide | [Developer Guide](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/dev_guide/dev_guide_index.html) |

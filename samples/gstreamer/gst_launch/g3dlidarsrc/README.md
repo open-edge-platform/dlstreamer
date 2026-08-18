@@ -143,7 +143,7 @@ A standard `make install` places the backend under `lib/`, which `scripts/setup_
 - The config `vendor` must be `robosense` and `transport.type` must be `udp` (the only implemented paths today).
 
 ## See also
-* [Samples overview](../../README.md)
+* [Samples overview](../../../README.md)
 * [g3dlidarsrc element documentation](../../../../docs/user-guide/elements/g3dlidarsrc.md)
 * [LiDAR Parse Sample](../g3dlidarparse/README.md) — offline replay counterpart
 * [PointPillars Inference with g3dinference](../g3dinference/README.md) — the downstream 3D detection stage

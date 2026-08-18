@@ -31,6 +31,9 @@ ALLOW_POINTPILLARS_DOWNLOAD = os.environ.get("G3DINFERENCE_ALLOW_DOWNLOAD", "").
 # Expected detections were captured from the openvino_contrib PointPillars assets at
 # revision f3c621350f93a31a08c7657fe75120e3038d15eb using demo_data/test/000002.bin.
 # z is the box CENTRE: g3dinference raises PointPillars' bottom-center z by h/2.
+# The list covers the full post-processing output, down to confidence 0.45, so the
+# pipeline under test must run with score-threshold=0. At the element's 0.7 default
+# the four lowest-scoring boxes are filtered out and only 6 detections are produced.
 EXPECTED_DETECTIONS = [
     {"label_id": 2, "confidence": 0.954, "bbox_3d": {"x": 10.403315544128418, "y": -4.837177753448486, "z": -0.7734637260437012, "w": 1.692104697227478, "l": 4.5549397468566895, "h": 1.5184109210968018, "yaw": -0.02542771026492119}},
     {"label_id": 2, "confidence": 0.936, "bbox_3d": {"x": 18.695310592651367, "y": 5.6205010414123535, "z": -1.3262365460395813, "w": 1.5274709463119507, "l": 3.4749011993408203, "h": 1.4211682081222534, "yaw": 1.534871220588684}},
@@ -482,7 +485,7 @@ class TestG3DInference(unittest.TestCase):
             f'multifilesrc location="{self.pc_pattern}" start-index={self.pc_index} stop-index={self.pc_index} '
             f'caps=application/octet-stream ! '
             f'g3dlidarparse ! '
-            f'g3dinference config="{self.config_file}" device=CPU ! '
+            f'g3dinference config="{self.config_file}" device=CPU score-threshold=0 ! '
             f'gvametaconvert add-tensor-data=true format=json json-indent=2 ! '
             f'gvametapublish file-format=2 file-path="{self.test_output}" ! '
             f'fakesink'

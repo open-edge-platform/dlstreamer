@@ -308,6 +308,53 @@ identified by @id is stored.</doc>
         </return-value>
       </function>
     </record>
+    <record name="DwellTimeMtd" c:type="GstAnalyticsDwellTimeMtd">
+      <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_dwelltime_meta.h" line="15">Handle to dwell-time analytics metadata.
+Carries zone_id, dwell_time (seconds elapsed in zone), and first_seen_timestamp.</doc>
+      <source-position filename="include/dlstreamer/gst/metadata/gva_dwelltime_meta.h" line="23" />
+      <field name="id" writable="1">
+        <doc xml:space="preserve">Instance identifier</doc>
+        <type name="guint" c:type="guint" />
+      </field>
+      <field name="meta" writable="1">
+        <doc xml:space="preserve">Instance of #GstAnalyticsRelationMeta where the analytics-metadata
+identified by @id is stored.</doc>
+        <type name="GstAnalytics.RelationMeta" c:type="GstAnalyticsRelationMeta*" />
+      </field>
+      <method name="get_info" c:identifier="gst_analytics_dwelltime_mtd_get_info">
+        <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_dwelltime_meta.h" line="32">Retrieves dwell-time information from the metadata.</doc>
+        <source-position filename="include/dlstreamer/gst/metadata/gva_dwelltime_meta.h" line="45" />
+        <return-value transfer-ownership="none">
+          <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_dwelltime_meta.h" line="43">TRUE if the data was successfully retrieved, FALSE otherwise.</doc>
+          <type name="gboolean" c:type="gboolean" />
+        </return-value>
+        <parameters>
+          <instance-parameter name="handle" transfer-ownership="none">
+            <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_dwelltime_meta.h" line="34">A #GstAnalyticsDwellTimeMtd handle.</doc>
+            <type name="DwellTimeMtd" c:type="const GstAnalyticsDwellTimeMtd*" />
+          </instance-parameter>
+          <parameter name="zone_id" direction="out" caller-allocates="0" transfer-ownership="full" nullable="1">
+            <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_dwelltime_meta.h" line="35">Zone identifier string.</doc>
+            <type name="utf8" c:type="gchar**" />
+          </parameter>
+          <parameter name="dwell_time" direction="out" caller-allocates="0" transfer-ownership="full" nullable="1">
+            <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_dwelltime_meta.h" line="36">Seconds the object has been inside the zone.</doc>
+            <type name="gdouble" c:type="gdouble*" />
+          </parameter>
+          <parameter name="first_seen_timestamp" direction="out" caller-allocates="0" transfer-ownership="full" nullable="1">
+            <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_dwelltime_meta.h" line="37">Buffer PTS (seconds) when the object first entered the zone.</doc>
+            <type name="gdouble" c:type="gdouble*" />
+          </parameter>
+        </parameters>
+      </method>
+      <function name="get_mtd_type" c:identifier="gst_analytics_dwelltime_mtd_get_mtd_type">
+        <source-position filename="include/dlstreamer/gst/metadata/gva_dwelltime_meta.h" line="30" />
+        <return-value transfer-ownership="none">
+          <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_dwelltime_meta.h" line="28">The metadata type ID for GstAnalyticsDwellTimeMtd.</doc>
+          <type name="GstAnalytics.MtdType" c:type="GstAnalyticsMtdType" />
+        </return-value>
+      </function>
+    </record>
     <record name="ZoneMtd" c:type="GstAnalyticsZoneMtd">
       <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_zone_meta.h" line="15">Handle to zone analytics metadata.
 Provides access to zone-related information (zone_id).</doc>
@@ -458,6 +505,36 @@ matches @semantic_tag exactly.</doc>
         </parameter>
       </parameters>
     </function>
+    <function name="relation_meta_add_dwelltime_mtd" c:identifier="gst_analytics_relation_meta_add_dwelltime_mtd">
+      <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_dwelltime_meta.h" line="51">Adds dwell-time metadata to the analytics relation metadata.</doc>
+      <source-position filename="include/dlstreamer/gst/metadata/gva_dwelltime_meta.h" line="62" />
+      <return-value transfer-ownership="none">
+        <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_dwelltime_meta.h" line="60">TRUE if the metadata was successfully added, FALSE otherwise.</doc>
+        <type name="gboolean" c:type="gboolean" />
+      </return-value>
+      <parameters>
+        <parameter name="relation_meta" transfer-ownership="none">
+          <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_dwelltime_meta.h" line="53">A #GstAnalyticsRelationMeta instance.</doc>
+          <type name="GstAnalytics.RelationMeta" c:type="GstAnalyticsRelationMeta*" />
+        </parameter>
+        <parameter name="zone_id" transfer-ownership="none">
+          <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_dwelltime_meta.h" line="54">Zone identifier.</doc>
+          <type name="utf8" c:type="const gchar*" />
+        </parameter>
+        <parameter name="dwell_time" transfer-ownership="none">
+          <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_dwelltime_meta.h" line="55">Seconds the object has been inside the zone.</doc>
+          <type name="gdouble" c:type="gdouble" />
+        </parameter>
+        <parameter name="first_seen_timestamp" transfer-ownership="none">
+          <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_dwelltime_meta.h" line="56">Buffer PTS (seconds) when the object first entered the zone.</doc>
+          <type name="gdouble" c:type="gdouble" />
+        </parameter>
+        <parameter name="dwelltime_mtd" direction="out" caller-allocates="1" transfer-ownership="none">
+          <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_dwelltime_meta.h" line="57">Pointer to #GstAnalyticsDwellTimeMtd to be filled.</doc>
+          <type name="DwellTimeMtd" c:type="GstAnalyticsDwellTimeMtd*" />
+        </parameter>
+      </parameters>
+    </function>
     <function name="relation_meta_add_tripwire_mtd" c:identifier="gst_analytics_relation_meta_add_tripwire_mtd">
       <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_tripwire_meta.h" line="45">Adds tripwire crossing metadata as a relation in the analytics metadata.
 Creates a queryable OD → Tripwire relationship.</doc>
@@ -504,6 +581,28 @@ Creates a queryable OD → Tripwire relationship.</doc>
         <parameter name="zone_mtd" direction="out" caller-allocates="1" transfer-ownership="none">
           <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_zone_meta.h" line="47">Pointer to #GstAnalyticsZoneMtd to be filled.</doc>
           <type name="ZoneMtd" c:type="GstAnalyticsZoneMtd*" />
+        </parameter>
+      </parameters>
+    </function>
+    <function name="relation_meta_get_dwelltime_mtd" c:identifier="gst_analytics_relation_meta_get_dwelltime_mtd">
+      <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_dwelltime_meta.h" line="67">Retrieves dwell-time metadata by its ID from the analytics relation metadata.</doc>
+      <source-position filename="include/dlstreamer/gst/metadata/gva_dwelltime_meta.h" line="77" />
+      <return-value transfer-ownership="none">
+        <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_dwelltime_meta.h" line="75">TRUE if the metadata was found and @rlt was filled, FALSE otherwise.</doc>
+        <type name="gboolean" c:type="gboolean" />
+      </return-value>
+      <parameters>
+        <parameter name="meta" transfer-ownership="none">
+          <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_dwelltime_meta.h" line="69">A #GstAnalyticsRelationMeta instance.</doc>
+          <type name="GstAnalytics.RelationMeta" c:type="GstAnalyticsRelationMeta*" />
+        </parameter>
+        <parameter name="an_meta_id" transfer-ownership="none">
+          <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_dwelltime_meta.h" line="70">Id of the dwell-time metadata to retrieve.</doc>
+          <type name="guint" c:type="guint" />
+        </parameter>
+        <parameter name="rlt" direction="out" caller-allocates="1" transfer-ownership="none">
+          <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_dwelltime_meta.h" line="71">Pointer to #GstAnalyticsDwellTimeMtd to be filled.</doc>
+          <type name="DwellTimeMtd" c:type="GstAnalyticsDwellTimeMtd*" />
         </parameter>
       </parameters>
     </function>
@@ -571,6 +670,13 @@ Creates a queryable OD → Tripwire relationship.</doc>
           <type name="ZoneMtd" c:type="GstAnalyticsZoneMtd*" />
         </parameter>
       </parameters>
+    </function>
+    <function name="dwelltime_mtd_get_mtd_type" c:identifier="gst_analytics_dwelltime_mtd_get_mtd_type" moved-to="DwellTimeMtd.get_mtd_type">
+      <source-position filename="include/dlstreamer/gst/metadata/gva_dwelltime_meta.h" line="30" />
+      <return-value transfer-ownership="none">
+        <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_dwelltime_meta.h" line="28">The metadata type ID for GstAnalyticsDwellTimeMtd.</doc>
+        <type name="GstAnalytics.MtdType" c:type="GstAnalyticsMtdType" />
+      </return-value>
     </function>
     <function name="tripwire_mtd_get_mtd_type" c:identifier="gst_analytics_tripwire_mtd_get_mtd_type" moved-to="TripwireMtd.get_mtd_type">
       <source-position filename="include/dlstreamer/gst/metadata/gva_tripwire_meta.h" line="30" />

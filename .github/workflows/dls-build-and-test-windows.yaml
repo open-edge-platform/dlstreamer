@@ -315,6 +315,12 @@ jobs:
           $elements = @("gvadetect", "gvametapublish", "gvaclassify", "gvawatermark", "gvawatermark3d", "gvagenai")
           $allFound = $true
 
+          $registryCache = Join-Path $env:LOCALAPPDATA "Microsoft\Windows\INetCache\gstreamer-1.0\registry.x86_64-msvc.bin"
+          if (Test-Path $registryCache) {
+              Write-Host "Clearing existing GStreamer registry cache: $registryCache"
+              Remove-Item $registryCache -Force
+          }
+
           $lines = New-Object System.Collections.Generic.List[string]
           $lines.Add("")
           $lines.Add("## $($env:ESTETH) DLStreamer Elements Availability")
@@ -324,14 +330,21 @@ jobs:
 
           foreach ($el in $elements) {
               Write-Host "Inspecting $el..."
-              gst-inspect-1.0.exe $el > $null 2>&1
-              if ($?) {
+              $previousErrorActionPreference = $ErrorActionPreference
+              $ErrorActionPreference = "Continue"
+              $inspectOutput = & gst-inspect-1.0.exe $el 2>&1 | Out-String
+              $inspectExitCode = $LASTEXITCODE
+              $ErrorActionPreference = $previousErrorActionPreference
+
+              if ($inspectExitCode -eq 0 -and $inspectOutput -notmatch "No such element or plugin") {
                   $statusEmoji = $env:EPASS
                   $detail = "Available"
               } else {
                   $statusEmoji = $env:EFAIL
                   $detail = "Missing or Plugin Path Error"
                   $allFound = $false
+                Write-Host $inspectOutput
+                Write-Host "::error title=Missing GStreamer element::$el could not be loaded (exit code: $inspectExitCode)"
               }
               $lines.Add("| $el | $statusEmoji | $detail |")
           }

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2018-2025 Intel Corporation
+ * Copyright (C) 2018-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -33,10 +33,9 @@ GST_START_TEST(test_change_state) {
     char video_file_path[MAX_STR_PATH_SIZE];
 
     ExitStatus status =
-        get_model_path(detection_model_path, MAX_STR_PATH_SIZE, "vehicle-license-plate-detection-barrier-0106", "FP32");
+        get_model_path(detection_model_path, MAX_STR_PATH_SIZE, "yolov8_license_plate_detector", "FP32");
     ck_assert(status == EXIT_STATUS_SUCCESS);
-    status =
-        get_model_path(classify_model_path, MAX_STR_PATH_SIZE, "person-attributes-recognition-crossroad-0230", "FP32");
+    status = get_model_path(classify_model_path, MAX_STR_PATH_SIZE, "dima806_fairface_gender_image_detection", "FP32");
     ck_assert(status == EXIT_STATUS_SUCCESS);
     status = get_video_file_path(video_file_path, MAX_STR_PATH_SIZE, "Pexels_Videos_4786.mp4");
     ck_assert(status == EXIT_STATUS_SUCCESS);
@@ -71,10 +70,9 @@ GST_START_TEST(test_start_stop_start) {
     char video_file_path[MAX_STR_PATH_SIZE];
 
     ExitStatus status =
-        get_model_path(detection_model_path, MAX_STR_PATH_SIZE, "vehicle-license-plate-detection-barrier-0106", "FP32");
+        get_model_path(detection_model_path, MAX_STR_PATH_SIZE, "yolov8_license_plate_detector", "FP32");
     ck_assert(status == EXIT_STATUS_SUCCESS);
-    status =
-        get_model_path(classify_model_path, MAX_STR_PATH_SIZE, "person-attributes-recognition-crossroad-0230", "FP32");
+    status = get_model_path(classify_model_path, MAX_STR_PATH_SIZE, "dima806_fairface_gender_image_detection", "FP32");
     ck_assert(status == EXIT_STATUS_SUCCESS);
     status = get_video_file_path(video_file_path, MAX_STR_PATH_SIZE, "Pexels_Videos_4786.mp4");
     ck_assert(status == EXIT_STATUS_SUCCESS);

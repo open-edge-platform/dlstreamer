@@ -8,7 +8,7 @@ This sample demonstrates how to build an application that constructs and execute
 - AI Truck Detection: YOLO11s model for real-time object detection
 - Smart Valve Control: Second stream activates only when trucks are detected
 - Object Tracking: Maintains object identity across frames
-- Vehicle Classification: Detailed vehicle attribute analysis
+- Vehicle Classification: Vehicle type classification (10 vehicle types)
 -  __Callback-Based__ Control: Demonstrates probe callback implementation
 
 
@@ -99,12 +99,12 @@ textoverlay name=ai_overlay text="Detection Video Stream"
 ```
 gvadetect model=yolo11s.xml threshold=0.6 inference-interval=10 !
 gvatrack name=object_tracker !
-gvaclassify model=vehicle-attributes-recognition.xml inference-interval=1 !
+gvaclassify model=dima806_vehicle_10_types_image_detection.xml inference-interval=1 !
 ```
 
 - Detection: YOLO11s model, 60% confidence threshold, every 10th frame
 - Tracking: Maintain object identity across frames
-- Classification: Vehicle attributes, every frame for detected objects
+- Classification: Vehicle type, every frame for detected objects
 
 ###### <u>Visualization & Output</u>
 
@@ -249,7 +249,7 @@ sequenceDiagram
 </br>
 
 ## Prerequisite
-This sample application requires video, models and proc-model files. Those files can be downloaded in the following way:
+This sample application requires video and model files. Those files can be downloaded in the following way:
 </br>
 
 #### Video sample
@@ -262,20 +262,15 @@ wget -P ./videos https://github.com/open-edge-platform/edge-ai-resources/raw/mai
 
 #### Model file
 
-All models OpenVINO can be downloaded by [Open Model Zoo](../../../download_omz_models.sh) download script. But the one used in this sample can be downloaded by following commands:
+__dima806/vehicle_10_types_image_detection__ is a Hugging Face model and is prepared with [`download_hf_models.py`](../../../../scripts/download_models/download_hf_models.py):
 
 ```
-mkdir models
-wget -P ./models https://storage.openvinotoolkit.org/repositories/open_model_zoo/2023.0/models_bin/1/vehicle-attributes-recognition-barrier-0039/FP16/vehicle-attributes-recognition-barrier-0039.xml
-wget -P ./models https://storage.openvinotoolkit.org/repositories/open_model_zoo/2023.0/models_bin/1/vehicle-attributes-recognition-barrier-0039/FP16/vehicle-attributes-recognition-barrier-0039.bin
+python download_hf_models.py --model dima806/vehicle_10_types_image_detection --outdir ./models
 ```
 
-#### post-proc file
-If your current working directory is the open-close-valve-sample folder, the model-proc file should be available at the following location:
-```
-ls ../../model_proc/intel/vehicle-attributes-recognition-barrier-0039.json
-```
-Otherwise, the user must adjust the file path appropriately.
+This produces `./models/dima806_vehicle_10_types_image_detection/FP16/dima806_vehicle_10_types_image_detection.xml` (and matching `.bin`), the path already referenced by the sample's `gvaclassify` element. No model-proc file is required for this model.
+
+> **NOTE**: See [`scripts/download_models/README.md`](../../../../scripts/download_models/README.md) for setup notes (virtual environment, dependencies).
 
 ## Sample execution
 
@@ -295,4 +290,4 @@ The sample:
 
 
 ## See also
-* [Samples overview](../../README.md)
+* [Samples overview](../../../README.md)

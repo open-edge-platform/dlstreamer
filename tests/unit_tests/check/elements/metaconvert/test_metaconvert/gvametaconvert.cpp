@@ -8,6 +8,7 @@
 
 #include <dlstreamer/gst/metadata/g3d_lidar_meta.h>
 #include <dlstreamer/gst/metadata/g3d_od_mtd.h>
+#include <dlstreamer/gst/metadata/gva_dwelltime_meta.h>
 #include <dlstreamer/gst/metadata/gva_tensor_meta.h>
 
 #include "test_common.h"
@@ -56,6 +57,9 @@ constexpr guint kPointPillarsStreamId = 5;
 constexpr GstClockTime kPointPillarsLidarParseTs = 11 * GST_MSECOND;
 constexpr GstClockTime kPointPillarsInferenceTs = 13 * GST_MSECOND;
 constexpr float kFloatTolerance = 1e-6f;
+constexpr const char *kTestDwellZoneId = "test-zone";
+constexpr double kTestDwellTimeSec = 1.5;
+constexpr double kTestDwellFirstSeenSec = 0.25;
 
 const std::vector<float> kPointPillarsDetections = {10.5f, -4.25f, -1.75f, 1.6f, 4.2f, 1.4f, 0.25f, 0.95f, 2.0f};
 
@@ -332,6 +336,15 @@ void setup_inbuffer(GstBuffer *inbuffer, gpointer user_data) {
     ck_assert_msg(ret == TRUE, "Failed to add oriented od mtd to relation meta");
 
     meta->id = od_mtd.id;
+
+    GstAnalyticsDwellTimeMtd dwell_mtd;
+    ret = gst_analytics_relation_meta_add_dwelltime_mtd(relation_meta, kTestDwellZoneId, kTestDwellTimeSec,
+                                                        kTestDwellFirstSeenSec, &dwell_mtd);
+    ck_assert_msg(ret == TRUE, "Failed to add dwell mtd to relation meta");
+
+    ret = gst_analytics_relation_meta_set_relation(relation_meta, GST_ANALYTICS_REL_TYPE_RELATE_TO, od_mtd.id,
+                                                   dwell_mtd.id);
+    ck_assert_msg(ret == TRUE, "Failed to relate od mtd and dwell mtd");
 }
 
 void check_outbuffer(GstBuffer *outbuffer, gpointer user_data) {
@@ -377,6 +390,14 @@ void check_outbuffer(GstBuffer *outbuffer, gpointer user_data) {
                       "Legacy JSON must contain exactly one object. Message: %s", meta->message);
         assert_legacy_detection_object(json_message["objects"][0], test_data,
                                        "Legacy metaconvert output format changed unexpectedly");
+        const json &dwell_times = json_message["objects"][0]["dwell_times"];
+        ck_assert_msg(dwell_times.is_array() && dwell_times.size() == 1,
+                      "Expected one dwell_times entry in object. Message: %s", meta->message);
+        ck_assert_msg(strcmp(dwell_times[0].value("zone_id", "").c_str(), kTestDwellZoneId) == 0,
+                      "Unexpected dwell zone id. Message: %s", meta->message);
+        assert_json_float(dwell_times[0]["dwell_time_sec"], kTestDwellTimeSec, "Unexpected dwell time");
+        assert_json_float(dwell_times[0]["first_seen_timestamp_sec"], kTestDwellFirstSeenSec,
+                          "Unexpected dwell first_seen timestamp");
         ck_assert_msg(!json_message.contains("tensors"),
                       "Legacy ROI path should not create top-level tensors. Message: %s", meta->message);
     } else if (test_data->add_tensor_data == "tensor") {
