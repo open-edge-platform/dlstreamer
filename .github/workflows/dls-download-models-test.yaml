@@ -55,6 +55,17 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r scripts/download_models/requirements_download_hf_models.txt
 
+      - name: "Mini test - HF latest (without revision)"
+        if: needs.setup.outputs.should_run == 'true'
+        run: |
+          source "$HF_VENV/bin/activate"
+          mkdir -p "$HF_OUTDIR/mini-latest"
+          cd scripts/download_models
+          python download_hf_models.py \
+            --model openai/clip-vit-base-patch32 \
+            --outdir "$HF_OUTDIR/mini-latest"
+          find "$HF_OUTDIR/mini-latest" -name '*.xml' | grep -q .
+
       - name: "README §1 - standard HF export"
         if: needs.setup.outputs.should_run == 'true'
         run: |
@@ -203,6 +214,17 @@ jobs:
           source "$TIMM_VENV/bin/activate"
           cd scripts/download_models
           python download_timm_models.py list-models | grep -q "efficientnet_b0"
+
+      - name: "Mini test - TIMM latest (without revision)"
+        if: needs.setup.outputs.should_run == 'true'
+        run: |
+          source "$TIMM_VENV/bin/activate"
+          cd scripts/download_models
+          python download_timm_models.py import \
+            --model efficientnet_b0 \
+            --precision fp16 \
+            --output-dir "$TIMM_OUTDIR"
+          test -f "$TIMM_OUTDIR/public/efficientnet_b0/FP16/efficientnet_b0.xml"
 
       - name: "README §3 - export FP16 (--precision fp16)"
         if: needs.setup.outputs.should_run == 'true'
