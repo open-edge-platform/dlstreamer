@@ -287,8 +287,7 @@ def main() -> int:
             print(
                 f"Model '{model_id}' requires transformers <= {transformers_cap} for its OpenVINO "
                 f"export, but transformers {transformers.__version__} is installed. Downgrade "
-                "transformers and install optimum-intel==1.27.0to convert it (see "
-                "docs/user-guide/dev_guide/model_conversion_reference.md)."
+                "transformers and install optimum-intel==1.27.0 to convert it."
             )
             return 1
 
