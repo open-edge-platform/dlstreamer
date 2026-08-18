@@ -54,7 +54,28 @@
 
 // Utlities functions:
 gboolean gva_real_sense_is_device_available(gchar *devPath);
-_rsDeviceList detectedDevices;
+
+static inline gboolean is_device_node(const gchar *camera) {
+    return camera && g_str_has_prefix(camera, "/dev/");
+}
+
+// Returns TRUE if a RealSense device with the given serial number is currently connected.
+static gboolean is_rs_serial_available(const gchar *serial) {
+    if (!serial || !*serial)
+        return FALSE;
+
+    try {
+        rs2::context ctx;
+        for (auto &&dev : ctx.query_devices()) {
+            const char *sn = dev.get_info(RS2_CAMERA_INFO_SERIAL_NUMBER);
+            if (sn && g_strcmp0(sn, serial) == 0)
+                return TRUE;
+        }
+    } catch (const rs2::error &e) {
+        GST_WARNING("is_rs_serial_available: RealSense error while querying devices: %s", e.what());
+    }
+    return FALSE;
+}
 
 static GstStaticPadTemplate srctemplate =
     GST_STATIC_PAD_TEMPLATE("src", GST_PAD_SRC, GST_PAD_ALWAYS, GST_STATIC_CAPS(GST_VIDEO_CAPS_MAKE("{ RgbZ16 }")));
@@ -138,7 +159,7 @@ static void gst_real_sense_class_init(GstRealSenseClass *klass) {
 
     g_object_class_install_property(
         gobject_class, PROP_CAMERA,
-        g_param_spec_string("camera", "Camera device (/dev/video*)", "Real Sense camera device", NULL,
+        g_param_spec_string("camera", "Camera device (/dev/video*) or serial", "Real Sense camera selector", NULL,
                             (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | GST_PARAM_MUTABLE_READY)));
 
     gst_element_class_set_static_metadata(gstelement_class, "Real Sense camera", "Real Sense video",
@@ -254,6 +275,15 @@ static gboolean gst_real_sense_set_camera(GstRealSense *src, const gchar *camera
     }
 
     try {
+        if (!is_device_node(camera)) {
+            conf.enable_device(camera);
+            GST_INFO("gst_real_sense_set_camera: Selecting RealSense device by serial: %s\n", camera);
+        } else {
+            GST_INFO("gst_real_sense_set_camera: Camera value %s is a device node; starting default RealSense pipeline. "
+                     "Use serial number for explicit device selection.\n",
+                     camera);
+        }
+
         conf.enable_stream(RS2_STREAM_DEPTH, RS2_FORMAT_Z16);
         conf.enable_stream(RS2_STREAM_COLOR, RS2_FORMAT_RGB8);
 
@@ -270,10 +300,7 @@ static gboolean gst_real_sense_set_camera(GstRealSense *src, const gchar *camera
         }
 
         src->rsPipeline = std::make_unique<rs2::pipeline>();
-        if (src->rsPipeline == nullptr) {
-            GST_INFO("Failed to create Real Sense pipeline\n");
-            return FALSE;
-        }
+        
         rs2::pipeline_profile profile = src->rsPipeline->start(conf);
         rs2::device device = profile.get_device();
 
@@ -317,16 +344,21 @@ static void gst_real_sense_set_property(GObject *object, guint prop_id, const GV
 
         GST_INFO("gst_real_sense_set_property: Camera device set to %s\n", GST_STR_NULL(src->uri));
 
-        if (src->uri && is_rs_device_available(src->uri)) {
-            GST_INFO("gst_real_sense_set_property: Camera device %s is available.\n", src->uri);
+        if (!src->uri || !*src->uri) {
+            GST_ERROR("gst_real_sense_set_property: Camera selector is empty.\n");
+        } else if (is_device_node(src->uri)) {
+            // A /dev/videoN node: confirm the node exists on the filesystem.
+            if (gva_real_sense_is_device_available(src->uri))
+                GST_INFO("gst_real_sense_set_property: Camera device node %s is available.\n", src->uri);
+            else
+                GST_ERROR("gst_real_sense_set_property: Camera device node %s is not available.\n", src->uri);
         } else {
-            GST_ERROR("gst_real_sense_set_property: Camera device %s is not available.\n", GST_STR_NULL(src->uri));
+            // A serial number: confirm it against the connected RealSense devices.
+            if (is_rs_serial_available(src->uri))
+                GST_INFO("gst_real_sense_set_property: RealSense serial %s is available.\n", src->uri);
+            else
+                GST_ERROR("gst_real_sense_set_property: RealSense serial %s is not connected.\n", src->uri);
         }
-
-        if (src->uri && gva_real_sense_is_device_available(src->uri))
-            GST_INFO("gst_real_sense_set_property: Camera device %s is available.\n", src->uri);
-        else
-            GST_ERROR("gst_real_sense_set_property: Camera device %s is not available.\n", GST_STR_NULL(src->uri));
 
         break;
     }
