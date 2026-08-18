@@ -19,24 +19,24 @@ import defusedxml.ElementTree as ET
 from pathlib import Path
 from huggingface_hub import snapshot_download
 import openvino as ov
+import transformers
 from hf_utils import custom_conversion
 from hf_utils import get_hf_model_support_level
 from hf_utils import get_optimum_export_task
 from hf_utils import install_model_requirements
 from hf_utils import parse_model_ref
+from hf_utils import requires_transformers_downgrade
 from hf_utils import requires_trust_remote_code
 
 
 # Models that require trust_remote_code flag due to custom code in their repo
 MODELS_REQUIRING_TRUST_REMOTE_CODE = {
-    "OpenGVLab/InternVL2-1B",
     "qnguyen3/nanoLLaVA",
     "qnguyen3/nanoLLaVA-1.5",
 }
 
 # Additional dependencies required by specific models for export
 MODEL_DEPENDENCIES = {
-    "OpenGVLab/InternVL2-1B": ["einops", "timm", "torchvision"],
     "openbmb/MiniCPM-o-2_6": ["soundfile"],
 }
 
@@ -123,6 +123,14 @@ def validate_extra_args(extra_args: list[str]) -> None:
             raise ValueError(
                 f"Unsupported --weight-format '{weight_format}'. Supported values: {supported}"
             )
+
+
+def resolve_optimum_cli() -> str:
+    """Prefer the optimum-cli next to the running interpreter over any on PATH."""
+    candidate = Path(sys.executable).with_name("optimum-cli")
+    if candidate.exists():
+        return str(candidate)
+    return "optimum-cli"
 
 
 def install_model_dependencies(repo_id: str) -> None:
@@ -263,6 +271,17 @@ def main() -> int:
         
         # Determine support level by analyzing locally cached model
         support_level = get_hf_model_support_level(local_model_dir)
+
+        transformers_cap = requires_transformers_downgrade(local_model_dir)
+        if transformers_cap is not None:
+            print(
+                f"Model '{model_id}' requires transformers <= {transformers_cap} for its OpenVINO "
+                f"export, but transformers {transformers.__version__} is installed. Downgrade "
+                "transformers to convert it (see "
+                "docs/user-guide/dev_guide/model_conversion_reference.md)."
+            )
+            return 1
+
         model_name = repo_id.replace("/", "_")
         output_root = Path(args.outdir)
         output_root.mkdir(parents=True, exist_ok=True)
@@ -275,7 +294,7 @@ def main() -> int:
                 case 0:
                     # Standard export using optimum-cli
                     command = [
-                        "optimum-cli",
+                        resolve_optimum_cli(),
                         "export",
                         "openvino",
                         "--model",

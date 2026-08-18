@@ -1,0 +1,811 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Model Conversion Reference</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #172126;
+      --muted: #58676f;
+      --paper: #f7f8f5;
+      --surface: #ffffff;
+      --line: #cfd8d2;
+      --strong-line: #91a39a;
+      --accent: #006b5f;
+      --accent-soft: #dff1ec;
+      --warning: #8a4b08;
+      --code-bg: #172126;
+      --code-ink: #eef8f4;
+      --shadow: 0 12px 34px rgb(23 33 38 / 9%);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        linear-gradient(90deg, rgb(0 107 95 / 4%) 1px, transparent 1px),
+        linear-gradient(rgb(0 107 95 / 4%) 1px, transparent 1px),
+        var(--paper);
+      background-size: 32px 32px;
+      font-family: "Aptos", "Segoe UI", sans-serif;
+      line-height: 1.58;
+    }
+
+    a {
+      color: var(--accent);
+      text-underline-offset: 0.18em;
+    }
+
+    a:hover {
+      text-decoration-thickness: 2px;
+    }
+
+    .page-header {
+      border-bottom: 1px solid var(--line);
+      background: rgb(255 255 255 / 92%);
+    }
+
+    .page-header__inner,
+    main,
+    footer {
+      width: min(1500px, calc(100% - 48px));
+      margin-inline: auto;
+    }
+
+    .page-header__inner {
+      padding: 42px 0 34px;
+    }
+
+    .eyebrow {
+      margin: 0 0 8px;
+      color: var(--accent);
+      font-size: 0.78rem;
+      font-weight: 750;
+      letter-spacing: 0;
+      text-transform: uppercase;
+    }
+
+    h1,
+    h2,
+    h3,
+    h4 {
+      margin-top: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      line-height: 1.16;
+      letter-spacing: 0;
+    }
+
+    h1 {
+      max-width: 850px;
+      margin-bottom: 14px;
+      font-size: clamp(2.25rem, 5vw, 4.6rem);
+      font-weight: 500;
+    }
+
+    h2 {
+      margin-bottom: 20px;
+      font-size: 2rem;
+    }
+
+    h3 {
+      margin-bottom: 12px;
+      font-size: 1.45rem;
+    }
+
+    h4 {
+      margin-bottom: 10px;
+      font-size: 1.08rem;
+    }
+
+    .lede {
+      max-width: 840px;
+      margin: 0;
+      color: var(--muted);
+      font-size: 1.08rem;
+    }
+
+    .quick-nav {
+      position: sticky;
+      z-index: 10;
+      top: 0;
+      border-bottom: 1px solid var(--line);
+      background: rgb(247 248 245 / 94%);
+      backdrop-filter: blur(12px);
+    }
+
+    .quick-nav__inner {
+      display: flex;
+      width: min(1500px, calc(100% - 48px));
+      margin-inline: auto;
+      padding: 10px 0;
+      gap: 8px;
+      overflow-x: auto;
+      scrollbar-width: thin;
+    }
+
+    .quick-nav a {
+      flex: 0 0 auto;
+      padding: 7px 11px;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      color: var(--ink);
+      background: var(--surface);
+      font-size: 0.84rem;
+      font-weight: 700;
+      text-decoration: none;
+    }
+
+    .quick-nav a:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    main {
+      padding: 48px 0 72px;
+    }
+
+    section {
+      scroll-margin-top: 74px;
+    }
+
+    .intro-note {
+      max-width: 900px;
+      margin: 0 0 28px;
+      padding-left: 16px;
+      border-left: 4px solid var(--accent);
+      color: var(--muted);
+    }
+
+    .table-shell {
+      overflow: auto;
+      border: 1px solid var(--strong-line);
+      border-radius: 6px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .conversion-table {
+      min-width: 1050px;
+      table-layout: fixed;
+    }
+
+    .conversion-table col:nth-child(1) {
+      width: 27%;
+    }
+
+    .conversion-table col:nth-child(2) {
+      width: 34%;
+    }
+
+    .conversion-table col:nth-child(3) {
+      width: 39%;
+    }
+
+    th,
+    td {
+      padding: 15px 16px;
+      border-right: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+      vertical-align: top;
+      text-align: left;
+    }
+
+    th:last-child,
+    td:last-child {
+      border-right: 0;
+    }
+
+    tbody tr:last-child td {
+      border-bottom: 0;
+    }
+
+    thead th {
+      position: sticky;
+      z-index: 2;
+      top: 0;
+      color: #fff;
+      background: #21443e;
+      font-size: 0.8rem;
+      letter-spacing: 0;
+      text-transform: uppercase;
+    }
+
+    tbody tr:nth-child(even) {
+      background: #f5f8f6;
+    }
+
+    tbody tr:hover {
+      background: var(--accent-soft);
+    }
+
+    .model-name {
+      display: block;
+      margin-bottom: 4px;
+      font-weight: 750;
+    }
+
+    .model-list {
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    .command {
+      position: relative;
+      min-height: 42px;
+      padding: 11px 44px 11px 12px;
+      border-radius: 4px;
+      color: var(--code-ink);
+      background: var(--code-bg);
+      font-family: "Cascadia Code", "Liberation Mono", monospace;
+      font-size: 0.78rem;
+      line-height: 1.5;
+      overflow-wrap: anywhere;
+      white-space: pre-wrap;
+    }
+
+    .copy-button {
+      position: absolute;
+      top: 7px;
+      right: 7px;
+      width: 30px;
+      height: 30px;
+      padding: 0;
+      border: 1px solid rgb(255 255 255 / 28%);
+      border-radius: 4px;
+      color: #fff;
+      background: rgb(255 255 255 / 9%);
+      cursor: pointer;
+      font: inherit;
+    }
+
+    .copy-button:hover,
+    .copy-button:focus-visible {
+      outline: 2px solid #74d5c6;
+      outline-offset: 1px;
+    }
+
+    .copy-button svg {
+      width: 15px;
+      height: 15px;
+      vertical-align: middle;
+    }
+
+    .placeholder-note {
+      margin: 18px 0 0;
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    code:not(.command code) {
+      padding: 0.12em 0.32em;
+      border: 1px solid #dce4df;
+      border-radius: 3px;
+      color: #17443d;
+      background: #edf3f0;
+      font-family: "Cascadia Code", "Liberation Mono", monospace;
+      font-size: 0.88em;
+      overflow-wrap: anywhere;
+    }
+
+    .notes-section {
+      margin-top: 64px;
+    }
+
+    details {
+      margin-bottom: 12px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--surface);
+      box-shadow: 0 5px 18px rgb(23 33 38 / 5%);
+    }
+
+    summary {
+      padding: 17px 20px;
+      color: var(--ink);
+      cursor: pointer;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 1.2rem;
+      font-weight: 700;
+    }
+
+    details[open] summary {
+      border-bottom: 1px solid var(--line);
+      color: var(--accent);
+    }
+
+    .details-body {
+      max-width: 1050px;
+      padding: 20px;
+    }
+
+    .details-body > :first-child {
+      margin-top: 0;
+    }
+
+    .details-body > :last-child {
+      margin-bottom: 0;
+    }
+
+    .compact-table {
+      width: auto;
+      min-width: min(100%, 620px);
+      margin: 16px 0 22px;
+      border: 1px solid var(--line);
+      background: var(--surface);
+    }
+
+    .compact-table th {
+      position: static;
+      color: var(--ink);
+      background: var(--accent-soft);
+      text-transform: none;
+    }
+
+    pre {
+      position: relative;
+      margin: 16px 0;
+      padding: 16px 48px 16px 16px;
+      border-radius: 5px;
+      color: var(--code-ink);
+      background: var(--code-bg);
+      overflow: auto;
+      font-family: "Cascadia Code", "Liberation Mono", monospace;
+      font-size: 0.84rem;
+      line-height: 1.55;
+    }
+
+    .warning {
+      padding: 14px 16px;
+      border-left: 4px solid var(--warning);
+      color: #5c370f;
+      background: #fff4e5;
+    }
+
+    footer {
+      padding: 24px 0 38px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 0.84rem;
+    }
+
+    @media (max-width: 760px) {
+      .page-header__inner,
+      main,
+      footer,
+      .quick-nav__inner {
+        width: min(100% - 28px, 1500px);
+      }
+
+      .page-header__inner {
+        padding: 30px 0 26px;
+      }
+
+      main {
+        padding-top: 34px;
+      }
+
+      h1 {
+        font-size: 2.55rem;
+      }
+
+      h2 {
+        font-size: 1.65rem;
+      }
+
+      .table-shell {
+        overflow: visible;
+        border: 0;
+        background: transparent;
+        box-shadow: none;
+      }
+
+      .conversion-table,
+      .conversion-table tbody,
+      .conversion-table tr,
+      .conversion-table td {
+        display: block;
+        width: 100%;
+        min-width: 0;
+      }
+
+      .conversion-table thead {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+      }
+
+      .conversion-table tr {
+        margin-bottom: 14px;
+        border: 1px solid var(--strong-line);
+        border-radius: 6px;
+        background: var(--surface);
+        box-shadow: 0 5px 18px rgb(23 33 38 / 6%);
+        overflow: hidden;
+      }
+
+      .conversion-table td {
+        padding: 13px 14px;
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .conversion-table td::before {
+        display: block;
+        margin-bottom: 6px;
+        color: var(--accent);
+        font-size: 0.7rem;
+        font-weight: 800;
+        text-transform: uppercase;
+      }
+
+      .conversion-table td:nth-child(1)::before {
+        content: "Models";
+      }
+
+      .conversion-table td:nth-child(2)::before {
+        content: "Package installation";
+      }
+
+      .conversion-table td:nth-child(3)::before {
+        content: "Conversion command";
+      }
+
+      .conversion-table td:last-child {
+        border-bottom: 0;
+      }
+
+      summary {
+        padding: 15px 16px;
+      }
+
+      .details-body {
+        padding: 16px;
+      }
+    }
+
+    @media print {
+      body {
+        background: #fff;
+        font-size: 9pt;
+      }
+
+      .quick-nav,
+      .copy-button {
+        display: none;
+      }
+
+      .page-header__inner,
+      main,
+      footer {
+        width: 100%;
+      }
+
+      details {
+        break-inside: avoid;
+      }
+
+      details:not([open]) > *:not(summary) {
+        display: block;
+      }
+
+      .table-shell {
+        overflow: visible;
+        box-shadow: none;
+      }
+
+      .conversion-table {
+        min-width: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="page-header">
+    <div class="page-header__inner">
+      <p class="eyebrow">DL Streamer developer reference</p>
+      <h1>Model Conversion Reference</h1>
+      <p class="lede">Reproducible package installations and commands for converting models from their original framework format to OpenVINO&trade; Intermediate Representation (IR).</p>
+    </div>
+  </header>
+
+  <nav class="quick-nav" aria-label="Page sections">
+    <div class="quick-nav__inner">
+      <a href="#conversion-methods">Conversion methods</a>
+      <a href="#ultralytics">Ultralytics YOLO</a>
+      <a href="#optimum">Optimum Intel</a>
+      <a href="#vlms">GenAI VLMs</a>
+      <a href="#timm">TIMM</a>
+      <a href="#yolov7">YOLOv7</a>
+      <a href="#paddleocr">PaddleOCR</a>
+    </div>
+  </nav>
+
+  <main>
+    <section id="conversion-methods">
+      <h2>Conversion Methods</h2>
+      <p class="intro-note">Each conversion produces an <code>.xml</code> topology file and matching <code>.bin</code> weights file. Package commands assume an isolated Python environment. The table starts with broad conversion methods and narrows to model-specific overrides.</p>
+
+      <div class="table-shell" role="region" aria-label="Model conversion methods" tabindex="0">
+        <table class="conversion-table">
+          <colgroup><col><col><col></colgroup>
+          <thead>
+            <tr><th>Models</th><th>Package installation</th><th>Conversion command</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="model-name">Ultralytics YOLO</span><span class="model-list">YOLOv5u, YOLOv8, YOLOv9, YOLOv10, YOLO11, YOLO26, and YOLOE-26</span></td>
+              <td><div class="command">python -m pip install openvino==2026.2.0 nncf==3.0.0 ultralytics==8.4.57</div></td>
+              <td><div class="command">yolo export model=yolo11n.pt format=openvino dynamic=True</div></td>
+            </tr>
+            <tr>
+              <td><span class="model-name">Other Hugging Face models supported by Optimum Intel</span></td>
+              <td><div class="command">python -m pip install "optimum-intel[openvino]==2.0.0"</div></td>
+              <td><div class="command">optimum-cli export openvino --model MODEL_ID --task TASK --weight-format fp16 OUTPUT_DIR</div></td>
+            </tr>
+            <tr>
+              <td><span class="model-name">ONNX models</span><span class="model-list">For example, CenterFace and HSEmotion</span></td>
+              <td><div class="command">python -m pip install openvino==2026.2.0</div></td>
+              <td><div class="command">ovc MODEL.onnx --input INPUT_SHAPE --output_model MODEL.xml</div></td>
+            </tr>
+            <tr>
+              <td><span class="model-name">OpenVINO GenAI VLMs using the standard environment</span><span class="model-list">LLaVA 1.5, LLaVA-NeXT, LLaVA-NeXT-Video, Qwen2-VL, Qwen2.5-VL, Fara-7B, Gemma 3, and Gemma 3n</span></td>
+              <td><div class="command">python -m pip install "optimum-intel[openvino]==2.0.0" "transformers==4.57.6"</div></td>
+              <td><div class="command">optimum-cli export openvino --model MODEL_ID --task image-text-to-text --weight-format fp16 OUTPUT_DIR</div></td>
+            </tr>
+            <tr>
+              <td><span class="model-name">TIMM image classification</span></td>
+              <td><div class="command">python -m pip install "optimum-intel[openvino]==2.0.0" timm==1.0.26</div></td>
+              <td><div class="command">optimum-cli export openvino --library timm --task image-classification --model MODEL_ID --weight-format fp16 OUTPUT_DIR</div></td>
+            </tr>
+            <tr>
+              <td><span class="model-name">VLMs requiring remote model code</span><span class="model-list">nanoLLaVA 1.5, MiniCPM-V 2.6, Phi-3 Vision, and Qwen3-VL</span></td>
+              <td><div class="command">python -m pip install "optimum-intel[openvino]==2.0.0" "transformers==4.57.6"</div></td>
+              <td><div class="command">optimum-cli export openvino --model MODEL_ID --task image-text-to-text --trust-remote-code --weight-format fp16 OUTPUT_DIR</div></td>
+            </tr>
+            <tr>
+              <td><span class="model-name">InternVL2, InternVL2.5, and InternVL3</span></td>
+              <td><div class="command">python -m pip install "optimum-intel[openvino]==2.0.0" "transformers==4.57.6" "timm==1.0.28" "einops==0.8.2"</div></td>
+              <td><div class="command">optimum-cli export openvino --model MODEL_ID --task image-text-to-text --trust-remote-code --weight-format fp16 OUTPUT_DIR</div></td>
+            </tr>
+            <tr>
+              <td><span class="model-name">nanoLLaVA</span></td>
+              <td><div class="command">python -m pip install "optimum-intel[openvino]==2.0.0" "transformers==4.53.3"</div></td>
+              <td><div class="command">optimum-cli export openvino --model qnguyen3/nanoLLaVA --task image-text-to-text --trust-remote-code --weight-format fp16 nanollava-openvino</div></td>
+            </tr>
+            <tr>
+              <td><span class="model-name">MiniCPM-o 2.6</span></td>
+              <td><div class="command">python -m pip install "optimum-intel[openvino]==2.0.0" "transformers==4.51.3"</div></td>
+              <td><div class="command">optimum-cli export openvino --model openbmb/MiniCPM-o-2_6 --task image-text-to-text --trust-remote-code --weight-format fp16 minicpm-o-2_6-openvino</div></td>
+            </tr>
+            <tr>
+              <td><span class="model-name">VideoChat-Flash</span></td>
+              <td><div class="command">python -m pip install "optimum-intel[openvino]==2.0.0" "transformers==4.57.6" modelscope</div></td>
+              <td><div class="command">modelscope download --model OpenGVLab/VideoChat-Flash-Qwen2_5-7B_InternVideo2-1B --local_dir VideoChat-Flash
+optimum-cli export openvino --model VideoChat-Flash --task image-text-to-text --trust-remote-code --weight-format fp16 videochat-flash-openvino</div></td>
+            </tr>
+            <tr>
+              <td><span class="model-name">Phi-4 Multimodal</span></td>
+              <td><div class="command">python -m pip install "optimum-intel[openvino]==2.0.0" "transformers==4.53.3"</div></td>
+              <td><div class="command">hf download microsoft/Phi-4-multimodal-instruct --revision refs/pr/78 --local-dir Phi-4-multimodal-patched
+optimum-cli export openvino --model Phi-4-multimodal-patched --task image-text-to-text --trust-remote-code --weight-format fp16 phi-4-multimodal-openvino</div></td>
+            </tr>
+            <tr>
+              <td><span class="model-name">Qwen3.5 and Qwen3.6</span></td>
+              <td><div class="command">python -m pip install "optimum-intel[openvino]==2.0.0"
+python -m pip install --no-deps "https://github.com/huggingface/optimum-intel/archive/a8c4734741e766ef95d7f1a7d1e29a1d4ba2ab8f.tar.gz"
+python -m pip install "transformers==5.2.0"</div></td>
+              <td><div class="command">optimum-cli export openvino --model MODEL_ID --task image-text-to-text --weight-format fp16 OUTPUT_DIR</div></td>
+            </tr>
+            <tr>
+              <td><span class="model-name">Gemma 4</span></td>
+              <td><div class="command">python -m pip install "optimum-intel[openvino]==2.0.0"
+python -m pip install --no-deps "https://github.com/huggingface/optimum-intel/archive/a8c4734741e766ef95d7f1a7d1e29a1d4ba2ab8f.tar.gz"
+python -m pip install "transformers==5.5.0"</div></td>
+              <td><div class="command">optimum-cli export openvino --model MODEL_ID --task image-text-to-text --weight-format fp16 OUTPUT_DIR</div></td>
+            </tr>
+            <tr>
+              <td><span class="model-name">Gemma 4 Unified</span></td>
+              <td><div class="command">python -m pip install "optimum-intel[openvino]==2.0.0"
+python -m pip install --no-deps "git+https://github.com/huggingface/optimum-intel.git@3e159833682a192132094443b7ff8da3d7d46c42"
+python -m pip install "transformers==5.10.0"</div></td>
+              <td><div class="command">optimum-cli export openvino --model MODEL_ID --task image-text-to-text --weight-format fp16 OUTPUT_DIR</div></td>
+            </tr>
+            <tr>
+              <td><span class="model-name">RT-DETR and RT-DETRv2</span></td>
+              <td><div class="command">python -m pip install "optimum-intel[openvino]==2.0.0" optimum-onnx==0.1.0</div></td>
+              <td><div class="command">optimum-cli export onnx --model MODEL_ID --task object-detection --opset 18 --width 640 --height 640 rtdetr-onnx
+ovc rtdetr-onnx/model.onnx --output_model rtdetr.xml</div></td>
+            </tr>
+            <tr>
+              <td><span class="model-name">YOLOv7</span></td>
+              <td><div class="command">python -m pip install -r requirements.txt openvino==2026.2.0</div></td>
+              <td><div class="command">python export.py --weights yolov7.pt --grid --dynamic-batch
+ovc yolov7.onnx --output_model yolov7.xml</div></td>
+            </tr>
+            <tr>
+              <td><span class="model-name">PaddleOCR</span></td>
+              <td><div class="command">python -m pip install openvino==2026.2.0 paddlepaddle paddle2onnx</div></td>
+              <td><div class="command">paddle2onnx --model_dir paddle_model --model_filename inference.pdmodel --params_filename inference.pdiparams --save_file model.onnx --opset_version 14
+ovc model.onnx --output_model paddleocr.xml</div></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="placeholder-note">Replace <code>MODEL_ID</code>, <code>TASK</code>, <code>OUTPUT_DIR</code>, and other uppercase placeholders with values for the selected model.</p>
+    </section>
+
+    <section class="notes-section" aria-labelledby="conversion-notes">
+      <h2 id="conversion-notes">Conversion Notes</h2>
+
+      <details id="ultralytics" open>
+        <summary>Ultralytics YOLO</summary>
+        <div class="details-body">
+          <p>The model argument may be a supported Ultralytics model name, which is downloaded automatically, or a local <code>.pt</code> checkpoint. Replace <code>yolo11n.pt</code> with another supported checkpoint.</p>
+          <table class="compact-table">
+            <thead><tr><th>Task</th><th>Example model</th></tr></thead>
+            <tbody>
+              <tr><td>Object detection</td><td><code>yolo11n.pt</code></td></tr>
+              <tr><td>Instance segmentation</td><td><code>yolo11n-seg.pt</code></td></tr>
+              <tr><td>Pose estimation</td><td><code>yolo11n-pose.pt</code></td></tr>
+              <tr><td>Oriented object detection</td><td><code>yolo11n-obb.pt</code></td></tr>
+              <tr><td>Image classification</td><td><code>yolo11n-cls.pt</code></td></tr>
+            </tbody>
+          </table>
+
+          <h4>Precision options</h4>
+          <table class="compact-table">
+            <thead><tr><th>Precision</th><th>Export argument</th><th>Notes</th></tr></thead>
+            <tbody>
+              <tr><td>FP32</td><td>None</td><td>The exporter default; omit <code>half</code> and <code>int8</code>.</td></tr>
+              <tr><td>FP16</td><td><code>half=True</code></td><td>Compresses model weights to FP16.</td></tr>
+              <tr><td>INT8</td><td><code>int8=True</code></td><td>Performs INT8 quantization. NNCF is required and a calibration dataset may be downloaded.</td></tr>
+            </tbody>
+          </table>
+
+          <p>Export INT8 with the CLI:</p>
+          <pre>yolo export model=yolo11n.pt format=openvino dynamic=True int8=True</pre>
+          <p>Or export a local checkpoint with the Python API:</p>
+          <pre>from ultralytics import YOLO
+
+model = YOLO("/path/to/custom.pt")
+model.export(format="openvino", dynamic=True, half=True)</pre>
+          <p class="warning">Do not enable <code>half</code> and <code>int8</code> together.</p>
+          <p><strong>Legacy YOLOv5:</strong> checkpoints from <a href="./yolo_models.md#older-yolov5-versions">ultralytics/yolov5</a> are not the same family as YOLOv5u checkpoints.</p>
+          <p>See <a href="./yolo_models.md">YOLO Models</a> and the <a href="https://docs.ultralytics.com/integrations/openvino/">Ultralytics OpenVINO integration</a>.</p>
+        </div>
+      </details>
+
+      <details id="optimum">
+        <summary>Hugging Face Models Supported by Optimum Intel</summary>
+        <div class="details-body">
+          <p>Optimum Intel supports OpenVINO export for many architectures from Transformers, Diffusers, and Sentence Transformers. Check the <a href="https://huggingface.co/docs/optimum-intel/en/openvino/models">supported model architectures</a> before conversion. <code>--model</code> accepts a Hugging Face Hub model ID or local model directory.</p>
+          <p>For Hub models, Optimum usually infers the task. Set <code>--task</code> explicitly when inference is ambiguous and always set it for a local model.</p>
+          <table class="compact-table">
+            <thead><tr><th>Precision</th><th>Argument</th><th>Notes</th></tr></thead>
+            <tbody>
+              <tr><td>FP32</td><td><code>--weight-format fp32</code></td><td>Retains full-precision weights.</td></tr>
+              <tr><td>FP16</td><td><code>--weight-format fp16</code></td><td>Compresses model weights to FP16.</td></tr>
+              <tr><td>INT8</td><td><code>--weight-format int8</code></td><td>Applies weight-only INT8 quantization.</td></tr>
+              <tr><td>INT4</td><td><code>--weight-format int4</code></td><td>Applies weight-only INT4 quantization, primarily for large generative models.</td></tr>
+            </tbody>
+          </table>
+          <p>For full INT8 quantization of weights and activations, use <code>--quant-mode int8</code> and provide a representative dataset when required. Authenticate with Hugging Face before exporting gated or private models.</p>
+        </div>
+      </details>
+
+      <details id="vlms">
+        <summary>OpenVINO GenAI Vision-Language Models</summary>
+        <div class="details-body">
+          <p>The model groups and overrides follow the <a href="https://openvinotoolkit.github.io/openvino.genai/docs/supported-models/#vision-language-models-vlms">OpenVINO GenAI supported-models table</a>. Fara-7B, Gemma 3, Gemma 3n, and Gemma 4 repositories are gated.</p>
+          <p>The Qwen3.5, Qwen3.6, Gemma 4, and Gemma 4 Unified rows reproduce OpenVINO GenAI development configurations rather than released dependency sets. Their source exporter is installed with <code>--no-deps</code>, so <code>pip check</code> reports an intentional conflict between Optimum Intel 2.0.0 metadata and Transformers 5.x. Prefer a compatible released package when available.</p>
+          <p class="warning"><code>--trust-remote-code</code> executes code supplied by the model repository. Use it only after reviewing and pinning a trusted model revision.</p>
+          <p>VideoChat-Flash is downloaded from ModelScope before local export and supports video, but not image, input at runtime. Phi-4 Multimodal uses patched files from Hugging Face discussion 78. For Phi-3 Vision runtime, take the generation EOS token from the tokenizer because model configurations are inconsistent.</p>
+          <p>Conversion support does not guarantee that a DL Streamer element implements the required inputs and post-processing. Check <a href="../supported_models.md">Supported Models</a>, <a href="./transformers.md">Transformer Models</a>, and the <a href="https://huggingface.co/docs/optimum-intel/en/openvino/export">Optimum Intel export guide</a>.</p>
+        </div>
+      </details>
+
+      <details id="timm">
+        <summary>TIMM Image Classification</summary>
+        <div class="details-body">
+          <p>Pass the model's Hugging Face repository ID to <code>--model</code>; it is not always identical to the short name accepted by the TIMM Python API. For example, <code>mobilenetv3_small_100</code> is hosted as <code>timm/mobilenetv3_small_100.lamb_in1k</code>.</p>
+          <p>The output directory contains the OpenVINO IR and configuration files required for inference.</p>
+        </div>
+      </details>
+    </section>
+
+    <section class="notes-section" aria-labelledby="model-details">
+      <h2 id="model-details">Model-Specific Details</h2>
+
+      <details id="yolov7">
+        <summary>YOLOv7</summary>
+        <div class="details-body">
+          <p>Prepare the original repository and checkpoint before running the package installation and conversion commands from the table:</p>
+          <pre>git clone https://github.com/WongKinYiu/yolov7.git
+cd yolov7
+wget https://github.com/WongKinYiu/yolov7/releases/download/v0.1/yolov7.pt
+sed -i 's/torch\.load(w, map_location=map_location)/torch.load(w, map_location=map_location, weights_only=False)/g' models/experimental.py</pre>
+          <p class="warning">The loader adjustment is required by PyTorch 2.6 and newer. Only load a checkpoint from a trusted source when <code>weights_only=False</code> is used.</p>
+          <p>When using the IR with <code>gvadetect</code>, specify <a href="https://github.com/open-edge-platform/dlstreamer/blob/main/samples/labels/coco_80cl.txt">coco_80cl.txt</a> as the labels file and <a href="https://github.com/open-edge-platform/dlstreamer/blob/main/samples/gstreamer/model_proc/public/yolo-v7.json">yolo-v7.json</a> as the model-proc file.</p>
+        </div>
+      </details>
+
+      <details id="paddleocr">
+        <summary>PaddleOCR</summary>
+        <div class="details-body">
+          <p>PaddleOCR requires a PaddlePaddle-to-ONNX conversion before <code>ovc</code>. The table command targets PP-OCRv4 models containing <code>inference.pdmodel</code> and <code>inference.pdiparams</code>.</p>
+          <p>Newer exports may contain <code>inference.json</code> instead of <code>inference.pdmodel</code>; pass the filename present in the downloaded model. Keep the corresponding character dictionary and model configuration with the IR because post-processing needs them to decode output tokens.</p>
+        </div>
+      </details>
+    </section>
+  </main>
+
+  <footer>
+    Standalone rendering of the DL Streamer model conversion reference. Intel, the Intel logo, OpenVINO, and the OpenVINO logo are trademarks of Intel Corporation or its subsidiaries.
+  </footer>
+
+  <script>
+    const copyIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="11" height="11" rx="1" fill="none" stroke="currentColor" stroke-width="2"></rect><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3" fill="none" stroke="currentColor" stroke-width="2"></path></svg>';
+
+    document.querySelectorAll('.command, pre').forEach((block) => {
+      const button = document.createElement('button');
+      button.className = 'copy-button';
+      button.type = 'button';
+      button.title = 'Copy command';
+      button.setAttribute('aria-label', 'Copy command');
+      button.innerHTML = copyIcon;
+      button.addEventListener('click', async () => {
+        const text = Array.from(block.childNodes)
+          .filter((node) => node !== button)
+          .map((node) => node.textContent)
+          .join('')
+          .trim();
+        if (navigator.clipboard && window.isSecureContext) {
+          await navigator.clipboard.writeText(text);
+        } else {
+          const input = document.createElement('textarea');
+          input.value = text;
+          input.style.position = 'fixed';
+          input.style.opacity = '0';
+          document.body.appendChild(input);
+          input.select();
+          document.execCommand('copy');
+          input.remove();
+        }
+        button.textContent = 'OK';
+        window.setTimeout(() => { button.innerHTML = copyIcon; }, 1200);
+      });
+      block.appendChild(button);
+    });
+
+    function revealHashTarget() {
+      if (!window.location.hash) return;
+      const target = document.querySelector(window.location.hash);
+      if (target?.tagName === 'DETAILS') target.open = true;
+    }
+
+    revealHashTarget();
+    window.addEventListener('hashchange', revealHashTarget);
+  </script>
+</body>
+</html>

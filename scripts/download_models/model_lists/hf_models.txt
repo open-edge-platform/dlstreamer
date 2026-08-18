@@ -34,8 +34,20 @@ dima806/face_emotions_image_detection@a89ee07e59ea73cce21a4d4671576b71f7857a65
 # WhisperForConditionalGeneration (SUPPORTED_HF_MODELS)
 openai/whisper-tiny@169d4a4341b33bc18d8881c4b69c2e104e1cc0af
 
-# InternVLChatModel (SUPPORTED_HF_MODELS)
-OpenGVLab/InternVL2-1B@0d75ccd166b1d0b79446ae6c5d1a4a667f1e6187
+# LlavaForConditionalGeneration (SUPPORTED_HF_MODELS)
+# Suggested VLM for this environment: LLaVA converts under transformers 5.5 because its
+# optimum-intel export config is not version-capped. Runs at inference via gvagenai.
+# Note: optimum-intel warns model_type 'llava' may have accuracy issues with OpenVINO >= 2026.1;
+# validate generation quality. Gemma 3 also converts here but is gated (Google license + HF token).
+llava-hf/llava-interleave-qwen-0.5b-hf@1090956dd1c79bc93ae98dcf395590369435ec91
+
+# InternVL / most VLMs (Qwen2/2.5/3-VL, MiniCPM-V/O, Phi3-V/Phi4-MM, GOT-OCR2, InternVL, ...) are
+# version-capped by optimum-intel 2.1 (MAX_TRANSFORMERS_VERSION < 5.5) and cannot be exported under
+# transformers 5.5. Convert them via the legacy toolchain in
+# docs/user-guide/dev_guide/model_conversion_reference.md (optimum-intel[openvino]==2.0.0,
+# transformers==4.57.6). Only VLMs with an uncapped export config (LLaVA, Gemma 3) convert here.
+# DL Streamer runs the exported IR unchanged via gvagenai regardless of how it was converted.
+# OpenGVLab/InternVL2-1B@0d75ccd166b1d0b79446ae6c5d1a4a667f1e6187
 
 # Heavy VLM/Video models
 # Disabled in default automated runs: end-to-end download + export can exceed ~20 minutes.

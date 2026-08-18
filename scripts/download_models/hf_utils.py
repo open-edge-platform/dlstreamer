@@ -16,33 +16,37 @@ import subprocess
 import sys
 
 from huggingface_hub import hf_hub_download
+from packaging.version import Version
+import torch
+import transformers
 from openvino import PartialShape
 from openvino import Type
 from openvino import save_model
 from openvino.tools.ovc import convert_model
-from optimum.exporters.onnx import main_export
 from transformers import AutoModelForDepthEstimation, CLIPVisionModel
 from transformers import AutoModelForVideoClassification
+from transformers import AutoModelForObjectDetection
 from transformers import AutoConfig
 from transformers import AutoProcessor, AutoImageProcessor
 from PIL import Image
 
 SUPPORTED_HF_MODELS = {
     "vitforimageclassification",
-    "InternVLChatModel",
+    "WhisperForConditionalGeneration",
     "LlavaForConditionalGeneration",
+    "LlavaNextForConditionalGeneration",
+    "Gemma3ForConditionalGeneration",
+    "Qwen2VLForConditionalGeneration",
+    "Qwen2_5_VLForConditionalGeneration",
+    "Qwen3VLForConditionalGeneration",
     "LlavaQwen2ForCausalLM",
     "BunnyQwenForCausalLM",
-    "LlavaNextForConditionalGeneration",
     "LlavaNextVideoForConditionalGeneration",
     "MiniCPMO",
     "MiniCPMV",
     "Phi3VForCausalLM",
     "Phi4MMForCausalLM",
-    "Qwen2VLForConditionalGeneration",
-    "Qwen2_5_VLForConditionalGeneration",
-    "Gemma3ForConditionalGeneration",
-    "WhisperForConditionalGeneration",
+    "InternVLChatModel",
 }
 
 CUSTOM_CONVERTERS = {
@@ -59,18 +63,38 @@ CUSTOM_CONVERTERS = {
 OPTIMUM_TASK_BY_ARCH = {
     "vitforimageclassification": "image-classification",
     "whisperforconditionalgeneration": "automatic-speech-recognition",
-    "internvlchatmodel": "image-text-to-text",
     "llavaforconditionalgeneration": "image-text-to-text",
-    "llavaqwen2forcausallm": "image-text-to-text",
-    "bunnyqwenforcausallm": "image-text-to-text",
     "llavanextforconditionalgeneration": "image-text-to-text",
     "llavanextvideoforconditionalgeneration": "image-text-to-text",
+    "llavaqwen2forcausallm": "image-text-to-text",
+    "bunnyqwenforcausallm": "image-text-to-text",
     "minicpmo": "image-text-to-text",
     "minicpmv": "image-text-to-text",
     "phi3vforcausallm": "image-text-to-text",
     "phi4mmforcausallm": "image-text-to-text",
     "qwen2vlforconditionalgeneration": "image-text-to-text",
     "qwen2_5_vlforconditionalgeneration": "image-text-to-text",
+    "qwen3vlforconditionalgeneration": "image-text-to-text",
+    "internvlchatmodel": "image-text-to-text",
+}
+
+
+# optimum-intel (pinned version) caps the transformers version accepted by these architectures'
+# OpenVINO export configs. With the shipped transformers (>= 5.5) the script reports this and the
+# user must downgrade transformers (see docs/user-guide/dev_guide/model_conversion_reference.md);
+# once downgraded, the same script converts them.
+ARCH_MAX_TRANSFORMERS_VERSION = {
+    "qwen2vlforconditionalgeneration": "5.0",
+    "qwen2_5_vlforconditionalgeneration": "5.0",
+    "qwen3vlforconditionalgeneration": "5.0",
+    "llavaqwen2forcausallm": "4.53.3",
+    "bunnyqwenforcausallm": "4.57.6",
+    "llavanextvideoforconditionalgeneration": "4.57.6",
+    "minicpmo": "4.51.3",
+    "minicpmv": "4.57.6",
+    "phi3vforcausallm": "4.53.3",
+    "phi4mmforcausallm": "4.53.3",
+    "internvlchatmodel": "4.57.6",
 }
 
 
@@ -149,6 +173,21 @@ def get_optimum_export_task(local_model_dir: str | Path) -> str | None:
         task = OPTIMUM_TASK_BY_ARCH.get(architecture.lower())
         if task:
             return task
+    return None
+
+
+def requires_transformers_downgrade(local_model_dir: str | Path) -> str | None:
+    """Return the max transformers version needed to convert this model when the installed
+    transformers is too new for its optimum-intel export config; otherwise None."""
+    try:
+        architectures = load_hf_architectures_from_repo_local(local_model_dir)
+    except Exception:
+        return None
+    installed = Version(transformers.__version__)
+    for arch in architectures:
+        cap = ARCH_MAX_TRANSFORMERS_VERSION.get(arch.lower())
+        if cap and installed > Version(cap):
+            return cap
     return None
 
 
@@ -330,41 +369,64 @@ def export_hf_rtdetr_to_openvino(
     token: str | None,
     extra_args: list[str] | None = None,
 ) -> Path:
-    """Export RT-DETR via PyTorch -> ONNX -> OpenVINO IR.
+    """Export RT-DETR via PyTorch -> OpenVINO IR.
 
     Args:
         local_model_dir: Path to locally cached RT-DETR model
         outdir: Output directory for conversion
-        token: HuggingFace token (for private models)
-        extra_args: Additional arguments for export
+        token: Unused, kept for compatibility
+        extra_args: Unused, kept for compatibility
 
-    Requires `optimum`, `huggingface_hub`, and `openvino` to be installed.
+    Requires `transformers`, `huggingface_hub`, and `openvino` to be installed.
     """
     outdir.mkdir(parents=True, exist_ok=True)
     _ = extra_args
-    model_onnx = outdir / "model.onnx"
-
-    main_export(
-        str(local_model_dir),
-        output=outdir,
-
-        task="object-detection",
-        opset=18,
-        width=640,
-        height=640,
-        token=token,
-    )
-
-    # Copy preprocessor_config.json from local cached model to output directory
+    _ = token
     local_model_dir = Path(local_model_dir)
-    preprocessor_config_src = local_model_dir / "preprocessor_config.json"
-    if preprocessor_config_src.exists():
-        shutil.copy(preprocessor_config_src, outdir / "preprocessor_config.json")
 
-    ov_model = convert_model(str(model_onnx))
+    model = AutoModelForObjectDetection.from_pretrained(str(local_model_dir), local_files_only=True)  # nosec B615 - model pinned via snapshot_download
+    model.eval()
+
+    processor = AutoImageProcessor.from_pretrained(str(local_model_dir), local_files_only=True)  # nosec B615 - model pinned via snapshot_download
+
+    img = Image.new("RGB", (640, 640))
+    batch = processor(images=img, return_tensors="pt")["pixel_values"]
+
+    # RT-DETR's output object mixes Tensor and List[Tensor], which the tracer rejects;
+    # expose only the detection tensors so convert_model can trace it.
+    class _RTDetrDetectionHead(torch.nn.Module):
+        def __init__(self, detector: torch.nn.Module) -> None:
+            super().__init__()
+            self.detector = detector
+
+        def forward(self, pixel_values: torch.Tensor):
+            outputs = self.detector(pixel_values=pixel_values)
+            return outputs.logits, outputs.pred_boxes
+
+    traceable_model = _RTDetrDetectionHead(model)
+    traceable_model.eval()
+
+    ov_model = convert_model(traceable_model, example_input=batch)
+
+    # Fix spatial dims at 640x640, allow dynamic batch.
+    input_shape = PartialShape([-1, batch.shape[1], batch.shape[2], batch.shape[3]])
+    for nn_input in ov_model.inputs:
+        nn_input.get_node().set_partial_shape(input_shape)
+        nn_input.get_node().set_element_type(Type.f32)
+
+    # Traced tuple outputs are unnamed; name them so the backend exposes two distinct blobs
+    # (the RT-DETR converter looks up logits and boxes by name). Order matches the wrapper.
+    ov_model.outputs[0].get_tensor().set_names({"logits"})
+    ov_model.outputs[1].get_tensor().set_names({"pred_boxes"})
+
+    # DL Streamer needs config.json (architecture/labels) next to the IR, plus preprocessor_config.json.
+    for config_file in ("config.json", "preprocessor_config.json"):
+        config_src = local_model_dir / config_file
+        if config_src.exists():
+            shutil.copy(config_src, outdir / config_file)
+
     model_name = local_model_dir.name
     save_model(ov_model, str(outdir / f"{model_name}.xml"))
-    model_onnx.unlink(missing_ok=True)
     return outdir
 
 
