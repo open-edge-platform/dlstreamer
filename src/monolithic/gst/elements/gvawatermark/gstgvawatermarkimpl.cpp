@@ -1066,7 +1066,7 @@ void Impl::preparePrimsForTensor(const GVA::Tensor &tensor, GVA::Rect<double> re
         std::vector<float> mask = tensor.data<float>();
         std::vector<guint> dims = tensor.dims();
         assert(dims.size() == 2);
-        const cv::Size &mask_size{int(dims[0]), int(dims[1])};
+        const cv::Size &mask_size{int(dims[1]), int(dims[0])};
         cv::Rect2f box(rect.x, rect.y, rect.w, rect.h);
         Color color = indexToColor(color_index);
 
@@ -1096,7 +1096,7 @@ void Impl::preparePrimsForTensor(const GVA::Tensor &tensor, GVA::Rect<double> re
         assert(tensor.precision() == GVA::Tensor::Precision::I64);
         std::vector<int64_t> mask = tensor.data<int64_t>();
         std::vector<guint> dims = tensor.dims();
-        const cv::Size &mask_size{int(dims[1]), int(dims[2])};
+        const cv::Size &mask_size{int(dims[2]), int(dims[1])};
         cv::Rect2f box(rect.x, rect.y, rect.w, rect.h);
         prims.emplace_back(render::SemanticSegmantationMask(mask, mask_size, box));
     }

@@ -36,6 +36,9 @@ _args.add_argument("-c3", "--classification_model3",
 _args.add_argument("-o", "--output",
                    help="Required. Output type",
                    required=True, type=str)
+_args.add_argument("-dev", "--input-device",
+                   help="Optional. Target device for inference elements (e.g. CPU, GPU, NPU)",
+                   default="CPU", type=str)
 args = parser.parse_args()
 
 
@@ -53,6 +56,28 @@ def frame_callback(frame: VideoFrame):
                         y = int(rect.y + rect.h * data[i + 1])
                         cv2.circle(mat, (x, y), int(
                             1 + 0.02 * rect.w), lm_color, -1)
+                # dima806 ViT models — all share the same output layer name
+                elif tensor.layer_name() in ("__module.classifier/aten::linear/Add", "logits"):
+                    data = tensor.data()
+                    if len(data) == 0:
+                        continue
+                    index = int(numpy.argmax(data))
+                    model_name = tensor.model_name()
+                    if "facial_age" in model_name or "fairface_age" in model_name:
+                        age_labels = ["01", "02", "03", "04", "05", "06-07", "08-09",
+                                      "10-12", "13-15", "16-20", "21-25", "26-30", "31-35", "36-40",
+                                      "41-45", "46-50", "51-55", "56-60", "61-65", "66-70", "71-80",
+                                      "81-90", "90+"]
+                        if index < len(age_labels):
+                            labels.append(age_labels[index])
+                    elif "gender" in model_name:
+                        # id2label: 0=Female, 1=Male
+                        labels.append("M" if index == 1 else "F")
+                    elif "emotion" in model_name:
+                        emotion_labels = ["Ahegao", "Angry", "Happy", "Neutral", "Sad", "Surprise"]
+                        if index < len(emotion_labels):
+                            labels.append(emotion_labels[index])
+                # Legacy Intel model layer names (age-gender-recognition, emotions-recognition)
                 elif "prob" == tensor.layer_name():
                     data = tensor.data()
                     if data[1] > 0.5:
@@ -99,16 +124,18 @@ def create_launch_string():
     elif args.output == "json":
         sink = "gvametaconvert ! gvametapublish file-format=json-lines file-path=output.json ! \
                gvafpscounter ! fakesink sync=false"
+    elif args.output == "file":
+        sink = f"vapostproc ! gvawatermark name=gvawatermark ! gvafpscounter ! vah264enc ! h264parse ! mp4mux ! filesink location=draw_face_attributes_{args.input_device}.mp4"
     else:
         print("Unsupported output type")
         sys.exit()
 
     return f"{source}={args.input} ! decodebin3 ! \
     videoconvert n-threads=4 ! capsfilter caps=\"video/x-raw,format=BGRx\" ! \
-    gvadetect model={args.detection_model} device=CPU ! queue ! \
-    gvainference model={args.classification_model1} device=CPU inference-region=roi-list ! queue ! \
-    gvainference model={args.classification_model2} device=CPU inference-region=roi-list ! queue ! \
-    gvainference model={args.classification_model3} device=CPU inference-region=roi-list ! queue ! \
+    gvadetect model={args.detection_model} device={args.input_device} ! queue ! \
+    gvaclassify model={args.classification_model1} device={args.input_device} inference-region=roi-list ! queue ! \
+    gvaclassify model={args.classification_model2} device={args.input_device} inference-region=roi-list ! queue ! \
+    gvaclassify model={args.classification_model3} device={args.input_device} inference-region=roi-list ! queue ! \
     {sink}"
 
 

@@ -11,7 +11,7 @@ The `gvafpscounter` inserted at the end of each stream pipeline and measures FPS
 
 The command-line parameters allow to select inference device (ex, CPU, GPU).
 
-> **NOTE**: Before running samples (including this one), run script `download_omz_models.bat` once (the script located in `samples\windows` folder) to download all models required for this and other samples.
+> **NOTE**: Before running samples (including this one), prepare required models using scripts in `scripts/download_models` (see `scripts/download_models/README.md` for per-model commands and per-script venv setup).
 
 ## Environment Variables
 
@@ -56,5 +56,5 @@ The sample
 * reports FPS every second and average FPS on exit
 
 ## See also
-* [Windows Samples overview](../../README.md)
+* [Windows Samples overview](../../../README.md)
 * [Linux Benchmark Samples](../../../gstreamer/benchmark/README.md)

@@ -3,7 +3,7 @@
   "input_preproc": [],
   "output_postproc": [
     {
-      "layer_name": "color",
+      "layer_name": "output",
       "attribute_name": "color",
       "labels": [
         "white",

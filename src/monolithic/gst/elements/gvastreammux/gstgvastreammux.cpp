@@ -212,9 +212,15 @@ static void gst_gva_streammux_init(GstGvaStreammux *mux) {
     mux->output_mode = DEFAULT_OUTPUT_MODE;
 
     mux->num_sink_pads = 0;
+    /* Object is under construction; no other thread can reference it yet, and
+     * mux->lock is not initialised until below. The same applies to the
+     * lock-protected fields set further down. */
+    // coverity[missing_lock]
     mux->started = FALSE;
     mux->send_stream_start = TRUE;
+    // coverity[missing_lock]
     mux->flushing = FALSE;
+    // coverity[missing_lock]
     mux->flushing_pads_count = 0;
     mux->sinkpads = NULL;
     mux->current_caps = NULL;
@@ -222,9 +228,11 @@ static void gst_gva_streammux_init(GstGvaStreammux *mux) {
     mux->segment_sent = FALSE;
     mux->last_output_time = GST_CLOCK_TIME_NONE;
     mux->max_fps_duration = GST_CLOCK_TIME_NONE;
+    // coverity[missing_lock]
     mux->batch_anchor_pts = GST_CLOCK_TIME_NONE;
     mux->batch_start_real_time = 0;
     mux->last_pushed_batch_pts = GST_CLOCK_TIME_NONE;
+    // coverity[missing_lock]
     mux->eos_pad_count = 0;
 
     g_mutex_init(&mux->lock);

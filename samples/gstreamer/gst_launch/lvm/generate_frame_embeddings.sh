@@ -1,6 +1,6 @@
 #!/bin/bash
 # ==============================================================================
-# Copyright (C) 2021-2025 Intel Corporation
+# Copyright (C) 2021-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
@@ -14,7 +14,7 @@ set -euo pipefail
 DEFAULT_SOURCE="https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4"
 DEFAULT_DEVICE="CPU"
 DEFAULT_OUTPUT="json"
-DEFAULT_MODEL="clip-vit-large-patch14"
+DEFAULT_MODEL="openai_clip-vit-large-patch14"
 DEFAULT_PPBKEND="opencv"
 
 # Check if MODELS_PATH is set
@@ -24,9 +24,9 @@ if [ -z "$MODELS_PATH" ]; then
 fi
 
 SUPPORTED_MODELS=(
-  "clip-vit-large-patch14"
-  "clip-vit-base-patch16"
-  "clip-vit-base-patch32"
+  "openai_clip-vit-large-patch14"
+  "openai_clip-vit-base-patch16"
+  "openai_clip-vit-base-patch32"
 )
 
 # Print help message
@@ -59,7 +59,7 @@ fi
 echo "MODELS_PATH: $MODELS_PATH"
 
 # Construct the model path
-MODEL_PATH="${MODELS_PATH}/public/${MODEL}/FP32/${MODEL}.xml"
+MODEL_PATH="${MODELS_PATH}/public/${MODEL}/FP16/${MODEL}.xml"
 
 # Check if model exists in local directory
 if [ ! -f "$MODEL_PATH" ]; then

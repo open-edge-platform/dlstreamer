@@ -158,5 +158,5 @@ The `event_probe` callback handles end-of-stream events to store metadata for th
 The `format_location_callback` is invoked when a new video segment starts. It writes the accumulated metadata to a file associated with that segment.
 
 ## See also
-* [Samples overview](../../README.md)
+* [Samples overview](../../../README.md)
 

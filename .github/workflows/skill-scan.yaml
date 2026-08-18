@@ -105,3 +105,4 @@ jobs:
         with:
           skills-path: ${{ matrix.skills-path }}
           fail-on-findings: ${{ inputs.fail_on_findings || 'true' }}
+          allow-dirs: "evals,example-prompts,benchmark"
