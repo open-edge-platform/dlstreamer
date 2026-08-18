@@ -38,6 +38,9 @@ MODELS_REQUIRING_TRUST_REMOTE_CODE = {
 MODEL_DEPENDENCIES = {
     "OpenGVLab/InternVL2-1B": ["einops", "timm", "torchvision"],
     "openbmb/MiniCPM-o-2_6": ["soundfile"],
+    "PekingU/rtdetr_r50vd": ["torchvision"],
+    "PekingU/rtdetr_v2_r18vd": ["torchvision"],
+    "PekingU/rtdetr_v2_r50vd": ["torchvision"],
 }
 
 MODELS_REQUIRING_PAD_TOKEN_WORKAROUND = {
