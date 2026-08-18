@@ -20,7 +20,6 @@ from openvino import PartialShape
 from openvino import Type
 from openvino import save_model
 from openvino.tools.ovc import convert_model
-from optimum.exporters.onnx import main_export
 from transformers import AutoModelForDepthEstimation, CLIPVisionModel
 from transformers import AutoModelForVideoClassification
 from transformers import AutoConfig
