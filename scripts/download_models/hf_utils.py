@@ -344,7 +344,7 @@ def export_hf_rtdetr_to_openvino(
     _ = extra_args
     local_model_dir = Path(local_model_dir)
 
-    command = [
+    base_command = [
         "optimum-cli",
         "export",
         "openvino",
@@ -352,16 +352,61 @@ def export_hf_rtdetr_to_openvino(
         str(local_model_dir),
         "--task",
         "object-detection",
+    ]
+    optional_command = [
         "--opset",
         "18",
         "--width",
         "640",
         "--height",
         "640",
+    ]
+    command = [
+        *base_command,
+        *optional_command,
         str(outdir),
     ]
     env = os.environ if not token else {**os.environ, "HF_TOKEN": token}
-    subprocess.run(command, check=True, env=env)
+
+    def run_export(export_command: list[str]) -> subprocess.CompletedProcess[str]:
+        result = subprocess.run(
+            export_command,
+            check=False,
+            env=env,
+            text=True,
+            capture_output=True,
+        )
+        if result.stdout:
+            print(result.stdout, end="")
+        if result.stderr:
+            print(result.stderr, end="", file=sys.stderr)
+        return result
+
+    result = run_export(command)
+    if result.returncode != 0:
+        combined_output = (result.stdout or "") + "\n" + (result.stderr or "")
+        unsupported_optional_args = (
+            "unrecognized arguments" in combined_output
+            and any(
+                option in combined_output
+                for option in ("--opset", "--width", "--height")
+            )
+        )
+
+        if unsupported_optional_args:
+            print(
+                "optimum-cli rejected optional RT-DETR export args "
+                "(--opset/--width/--height); retrying without them."
+            )
+            fallback_command = [*base_command, str(outdir)]
+            fallback_result = run_export(fallback_command)
+            if fallback_result.returncode != 0:
+                raise subprocess.CalledProcessError(
+                    fallback_result.returncode,
+                    fallback_command,
+                )
+        else:
+            raise subprocess.CalledProcessError(result.returncode, command)
 
     # Copy preprocessor_config.json from local cached model to output directory
     preprocessor_config_src = local_model_dir / "preprocessor_config.json"
