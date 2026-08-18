@@ -1,7 +1,7 @@
 # gvaanalytics
 
-Analyzes video frames and applies analytics rules such as tripwires crossings and zones violations.
-Attaches watermark metadata for visualizing tripwires and zones on the output frames.
+Analyzes video frames and applies analytics rules such as tripwire crossings, zone violations, and optional dwell-time tracking.
+Attaches metadata for downstream analytics and optional watermark metadata for visualizing tripwires and zones on output frames.
 
 ```bash
 Pad Templates:
@@ -108,6 +108,41 @@ Example `analytics-config.json`:
   ]
 }
 ```
+
+### Zone options for dwell time and drawing
+
+Each zone supports optional parameters beyond geometry:
+
+- `track-dwell-time` (boolean, default `false`): when `true`, `gvaanalytics` tracks how long each tracked object stays inside this zone.
+- `object-retention` (number, default `0.5` seconds): grace period used to keep zone state after an object leaves the zone.
+- `color` (object): drawing color for the zone when `draw-zones=true`.
+- `thickness` (integer): drawing line thickness for the zone when `draw-zones=true`.
+
+Example zone configuration with dwell options:
+
+```json
+{
+  "zones": [
+    {
+      "id": "pathway",
+      "type": "polygon",
+      "points": [
+        {"x": 45, "y": 395},
+        {"x": 110, "y": 431},
+        {"x": 445, "y": 323},
+        {"x": 368, "y": 279}
+      ],
+      "track-dwell-time": true,
+      "object-retention": 1.0,
+      "color": {"r": 255, "g": 0, "b": 0},
+      "thickness": 3
+    }
+  ]
+}
+```
+
+When dwell tracking is enabled, `gvaanalytics` attaches `GstAnalyticsDwellTimeMtd` related to each object detection in the zone.
+This requires tracking metadata upstream, typically by adding `gvatrack` before `gvaanalytics` in the pipeline.
 
 ### Using inline configuration
 
