@@ -279,11 +279,11 @@ static gboolean gst_real_sense_set_camera(GstRealSense *src, const gchar *camera
             conf.enable_device(camera);
             GST_INFO("gst_real_sense_set_camera: Selecting RealSense device by serial: %s\n", camera);
         } else {
-            GST_INFO("gst_real_sense_set_camera: Camera value %s is a device node; starting default RealSense pipeline. "
-                     "Use serial number for explicit device selection.\n",
-                     camera);
+            GST_INFO(
+                "gst_real_sense_set_camera: Camera value %s is a device node; starting default RealSense pipeline. "
+                "Use serial number for explicit device selection.\n",
+                camera);
         }
-
         conf.enable_stream(RS2_STREAM_DEPTH, RS2_FORMAT_Z16);
         conf.enable_stream(RS2_STREAM_COLOR, RS2_FORMAT_RGB8);
 
@@ -300,7 +300,7 @@ static gboolean gst_real_sense_set_camera(GstRealSense *src, const gchar *camera
         }
 
         src->rsPipeline = std::make_unique<rs2::pipeline>();
-        
+
         rs2::pipeline_profile profile = src->rsPipeline->start(conf);
         rs2::device device = profile.get_device();
 
