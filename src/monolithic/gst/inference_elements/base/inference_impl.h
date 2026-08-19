@@ -18,6 +18,7 @@
 #include <list>
 #include <memory>
 #include <mutex>
+#include <shared_mutex>
 #include <string>
 #include <vector>
 
@@ -78,7 +79,8 @@ class InferenceImpl {
 
     std::vector<std::string> object_classes;
 
-    mutable std::mutex _mutex;
+    // Protects object_classes. Use shared_lock for reads, unique_lock for writes.
+    mutable std::shared_mutex _mutex;
     Model model;
     std::shared_ptr<InferenceBackend::Allocator> allocator;
 
