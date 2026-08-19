@@ -36,7 +36,7 @@ if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
     echo "Arguments:"
     echo "  SOURCE_FILE            - Input source (default: Pexels video URL)"
     echo "  DEVICE                 - Device (default: CPU). Supported: CPU, GPU"
-    echo "  OUTPUT                 - Output type (default: json). Supported: json, fps"
+    echo "  OUTPUT                 - Output type (default: json). Supported: file, json, fps"
     echo "  MODEL                  - Model name (default: clip-vit-large-patch14). Supported: ${SUPPORTED_MODELS[*]}"
     echo "  PREPROCESSING_BACKEND  - Preprocessing backend (default: opencv). Supported: ie, opencv, va, va-surface-sharing"
     echo ""
@@ -78,21 +78,33 @@ fi
 
 # Create the DL Streamer pipeline based on the device and output
 if [ "$DEVICE" == "CPU" ]; then
-    if [ "$OUTPUT" == "json" ]; then
+    if [ "$OUTPUT" == "file" ]; then
+        FILE=$(basename "${SOURCE_FILE%.*}")
+        rm -f output.json
+        rm -f "frame_embeddings_${FILE}_${MODEL}_${DEVICE}.mp4"
+        PIPELINE="gst-launch-1.0 $SOURCE_ELEMENT ! decodebin3 ! videoconvert ! videoscale ! gvainference model=\"$MODEL_PATH\" device=CPU pre-process-backend=opencv ! vapostproc ! gvawatermark ! gvafpscounter ! vah264enc ! h264parse ! mp4mux ! filesink location=frame_embeddings_${FILE}_${MODEL}_${DEVICE}.mp4"
+    elif [ "$OUTPUT" == "json" ]; then
+        rm -f output.json
         PIPELINE="gst-launch-1.0 $SOURCE_ELEMENT ! decodebin3 ! videoconvert ! videoscale ! gvainference model=\"$MODEL_PATH\" device=CPU pre-process-backend=opencv ! gvametaconvert format=json add-tensor-data=true ! gvametapublish method=file file-path=output.json ! fakesink"
     elif [ "$OUTPUT" == "fps" ]; then
         PIPELINE="gst-launch-1.0 $SOURCE_ELEMENT ! decodebin3 ! videoconvert ! videoscale ! gvainference model=\"$MODEL_PATH\" device=CPU pre-process-backend=opencv ! gvafpscounter ! fakesink"
     else
-        echo "Invalid output specified. Use file or fps."
+        echo "Invalid output specified. Use file, json or fps."
         exit 1
     fi
 elif [ "$DEVICE" == "GPU" ]; then
-    if [ "$OUTPUT" == "json" ]; then
+    if [ "$OUTPUT" == "file" ]; then
+        FILE=$(basename "${SOURCE_FILE%.*}")
+        rm -f output.json
+        rm -f "frame_embeddings_${FILE}_${MODEL}_${DEVICE}.mp4"
+        PIPELINE="gst-launch-1.0 $SOURCE_ELEMENT ! decodebin3 ! videoconvert ! videoscale ! vapostproc ! \"video/x-raw(memory:VAMemory)\" ! gvainference model=\"$MODEL_PATH\" ie-config=INFERENCE_PRECISION_HINT=f32 device=GPU pre-process-backend=$PPBKEND ! vapostproc ! gvawatermark ! gvafpscounter ! vah264enc ! h264parse ! mp4mux ! filesink location=frame_embeddings_${FILE}_${MODEL}_${DEVICE}.mp4"
+    elif [ "$OUTPUT" == "json" ]; then
+        rm -f output.json
         PIPELINE="gst-launch-1.0 $SOURCE_ELEMENT ! decodebin3 ! videoconvert ! videoscale ! vapostproc ! \"video/x-raw(memory:VAMemory)\" ! gvainference model=\"$MODEL_PATH\" ie-config=INFERENCE_PRECISION_HINT=f32 device=GPU pre-process-backend=$PPBKEND ! gvametaconvert format=json add-tensor-data=true ! gvametapublish method=file file-path=output.json ! fakesink"
     elif [ "$OUTPUT" == "fps" ]; then
         PIPELINE="gst-launch-1.0 $SOURCE_ELEMENT ! decodebin3 ! videoconvert ! videoscale ! vapostproc ! \"video/x-raw(memory:VAMemory)\" ! gvainference model=\"$MODEL_PATH\" ie-config=INFERENCE_PRECISION_HINT=f32 device=GPU pre-process-backend=$PPBKEND ! gvafpscounter ! fakesink"
     else
-        echo "Invalid output specified. Use json or fps."
+        echo "Invalid output specified. Use file, json or fps."
         exit 1
     fi
 else

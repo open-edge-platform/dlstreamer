@@ -45,7 +45,8 @@ If the parameter is not specified, the sample by default streams a video example
 
 2. [DEVICE] to specify the device for inference.  
    You can choose either `CPU` or `GPU`.
-3. [OUTPUT] to choose between file output mode and FPS throughput mode:
+3. [OUTPUT] to choose between MP4 output, JSON output, and FPS throughput mode:
+    * file - output to an MP4 file
     * json - output to a JSON file (default)
     * fps - FPS only
 4. [MODEL] to specify the model for inference:
@@ -58,7 +59,7 @@ If the parameter is not specified, the sample by default streams a video example
 The sample:
 
 * prints the `gst-launch-1.0` full command line into the console
-* starts the command and either publishes metadata to a file or prints out FPS if you set OUTPUT=fps
+* starts the command and either writes an MP4 file, publishes metadata to a JSON file, or prints out FPS if you set OUTPUT=fps
 
 ## See also
 
@@ -73,6 +74,14 @@ To run the sample with default values:
 To specify a source file, device, and output:
 
     ./generate_frame_embeddings.sh /path/to/video.mp4 GPU fps
+
+To write embeddings to an MP4 file:
+
+    ./generate_frame_embeddings.sh /path/to/video.mp4 GPU file
+
+To write embeddings to a JSON file using the file alias:
+
+    ./generate_frame_embeddings.sh /path/to/video.mp4 CPU file
 
 To specify a URL, device, output and model:
 
