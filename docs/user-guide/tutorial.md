@@ -1,15 +1,10 @@
 # Tutorial
 
-<table align="center" cellspacing="0" cellpadding="0" border="0">
-  <tr>
-    <td align="center" style="padding:0"><img src="_images/tutorial_step_3.2.jpg" alt="Instance segmentation output" width="380" style="display:block;pointer-events:none"/></td>
-    <td align="center" style="padding:0"><img src="_images/tutorial_step_3.3_crop.jpg" alt="Human pose estimation output" width="380" style="display:block;pointer-events:none"/></td>
-  </tr>
-  <tr>
-    <td align="center" style="padding:0"><img src="_images/tutorial_step_4.1.jpg" alt="Object tracking output" width="380" style="display:block;pointer-events:none"/></td>
-    <td align="center" style="padding:0"><img src="_images/tutorial_step_4.2.jpg" alt="Privacy blur output" width="380" style="display:block;pointer-events:none"/></td>
-  </tr>
-</table>
+<div align="center">
+
+![DL Streamer tutorial highlights: detection, pose estimation, tracking, and privacy blur](_images/tutorial_header.jpg)
+
+</div>
 
 Welcome! This tutorial takes you from a clean Ubuntu\* 24.04 machine to running
 real, hardware-accelerated video analytics with **Deep Learning Streamer
@@ -266,11 +261,13 @@ gst-launch-1.0 \
 **What you'll see:** the bridge video with colored boxes and labels around each
 detected vehicle.
 
-<p align="center">
-  <img src="_images/tutorial_step_3.1.jpg" alt="Object detection output: bounding boxes and labels on cars and people crossing the bridge" width="640" style="pointer-events:none"/>
-  <br/>
-  <em>Object detection with <code>yolo11s</code> on the bridge video.</em>
-</p>
+<div align="center">
+
+![Object detection output: bounding boxes and labels on cars and people crossing the bridge](_images/tutorial_step_3.1.jpg)
+
+</div>
+
+*Object detection with `yolo11s` on the bridge video.*
 
 Here's what each element in the pipeline does:
 
@@ -298,11 +295,13 @@ gst-launch-1.0 \
 **What you'll see:** each vehicle covered by a colored mask that follows its exact
 shape — not just a rectangle.
 
-<p align="center">
-  <img src="_images/tutorial_step_3.2.jpg" alt="Instance segmentation output: colored masks following the exact shape of each vehicle" width="640" style="pointer-events:none"/>
-  <br/>
-  <em>Instance segmentation with <code>yolo11s-seg</code> on the bridge video.</em>
-</p>
+<div align="center">
+
+![Instance segmentation output: colored masks following the exact shape of each vehicle](_images/tutorial_step_3.2.jpg)
+
+</div>
+
+*Instance segmentation with `yolo11s-seg` on the bridge video.*
 
 > **Notice how little changed?** Only the model file. The same `gvadetect`
 > element automatically handles detection, segmentation, and pose models. That's
@@ -322,11 +321,13 @@ gst-launch-1.0 \
 **What you'll see:** a live skeleton overlaid on the dancer, tracking arms, legs,
 and joints as they move.
 
-<p align="center">
-  <img src="_images/tutorial_step_3.3.jpg" alt="Human pose estimation output: a skeleton of keypoints overlaid on the dancer" width="640" style="pointer-events:none"/>
-  <br/>
-  <em>Human pose estimation with <code>yolo11s-pose</code> on the dance video.</em>
-</p>
+<div align="center">
+
+![Human pose estimation output: a skeleton of keypoints overlaid on the dancer](_images/tutorial_step_3.3.jpg)
+
+</div>
+
+*Human pose estimation with `yolo11s-pose` on the dance video.*
 
 ---
 
@@ -355,11 +356,13 @@ gst-launch-1.0 \
 **What you'll see:** each person on the beach keeps the same ID as they move, and
 the FPS in your terminal goes up compared to detecting on every frame.
 
-<p align="center">
-  <img src="_images/tutorial_step_4.1.jpg" alt="Object tracking output: people on the beach each keep a stable ID box across frames" width="640" style="pointer-events:none"/>
-  <br/>
-  <em>Object tracking with <code>gvatrack</code> on the beach video.</em>
-</p>
+<div align="center">
+
+![Object tracking output: people on the beach each keep a stable ID box across frames](_images/tutorial_step_4.1.jpg)
+
+</div>
+
+*Object tracking with `gvatrack` on the beach video.*
 
 ### 4.2 Anonymize people with a privacy blur
 
@@ -378,11 +381,13 @@ gst-launch-1.0 \
 **What you'll see:** the girl is automatically blurred out for privacy, while her
 dog and everything else stay sharp — no manual editing required.
 
-<p align="center">
-  <img src="_images/tutorial_step_4.2.jpg" alt="Privacy blur output: the detected person is blurred while the dog stays sharp" width="640" style="pointer-events:none"/>
-  <br/>
-  <em>Privacy blur of every <code>person</code> with <code>gvawatermark</code> on the girl-and-dog video.</em>
-</p>
+<div align="center">
+
+![Privacy blur output: the detected person is blurred while the dog stays sharp](_images/tutorial_step_4.2.jpg)
+
+</div>
+
+*Privacy blur of every `person` with `gvawatermark` on the girl-and-dog video.*
 
 > **Note:** The blur is applied by `gvawatermark`. To blur *everything* instead
 > of just people, drop the `show-blur-roi=person` part and use
@@ -430,11 +435,13 @@ python3 /opt/intel/dlstreamer/samples/gstreamer/python/prompted_detection/prompt
 with the dog boxed and labelled — and nothing else. Try other prompts like
 `"person"` or `"backpack"`!
 
-<p align="center">
-  <img src="_images/tutorial_step_4.3.jpg" alt="Prompt-based detection output: only the dog is boxed and labelled, nothing else" width="640" style="pointer-events:none"/>
-  <br/>
-  <em>Prompt-based detection searching the skateboard video for <code>"dog"</code>.</em>
-</p>
+<div align="center">
+
+![Prompt-based detection output: only the dog is boxed and labelled, nothing else](_images/tutorial_step_4.3.jpg)
+
+</div>
+
+*Prompt-based detection searching the skateboard video for `"dog"`.*
 
 When done, leave the Python environment:
 
