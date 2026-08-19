@@ -5,6 +5,7 @@
 # SPDX-License-Identifier: MIT
 # ==============================================================================
 import logging
+import itertools
 
 from processors.utils import parse_element_parameters, assemble_parameters
 
@@ -21,89 +22,74 @@ class BatchGenerator: # pylint: disable=missing-class-docstring
     def set_batch_sizes(self, sizes): # pylint: disable=missing-function-docstring
         self.batches = sizes
 
-    def init_pipeline(self, pipeline): # pylint: disable=missing-function-docstring
-        self.tracked_elements = []
-        self.batch_groups = []
-        self.pipeline = pipeline.copy()
-        self.first_iteration = True
+    def generate_candidates(self, candidates): # pylint: disable=too-many-locals, missing-function-docstring
+        logger.info("Batch sizes allowed for optimization: %s", str(self.batches))
+        new_candidates = []
 
-        instance_ids = {}
+        for pipeline in candidates:
+            tracked_elements, group_count = _search_for_tracked_elements(pipeline)
+            extract_batch = lambda e: parse_element_parameters(pipeline[e["index"]])[1].get("batch-size", "1")
+            current_batches = list(map(extract_batch, tracked_elements))
 
-        for idx, element in enumerate(self.pipeline):
-            if "gvadetect" in element or "gvaclassify" in element:
-                (_, parameters) = parse_element_parameters(element)
-                instance_id = parameters.get("model-instance-id")
-                group_idx = 0
+            # prepare all batch combinations
+            combinations = itertools.product(self.batches, repeat=group_count)
 
-                # if element has an instance id, get the batch group index
-                if instance_id:
-                    group_idx = instance_ids.get(instance_id)
+            # transform batch combinations into pipeline candidates
+            for combination in combinations:
+                # skip if the generated combination equals the original pipeline
+                if list(combination) == current_batches:
+                    continue
 
-                    # if this instance id is new, create a new group index
-                    if group_idx is None:
-                        group_idx = len(self.batch_groups)
-                        self.batch_groups.append(0)
-                        instance_ids[instance_id] = group_idx
+                # prepare the pipeline
+                candidate = pipeline.copy()
 
-                # if there's no instance id, treat element as its own group
-                else:
-                    group_idx = len(self.batch_groups)
-                    self.batch_groups.append(0)
+                for element in tracked_elements:
+                    # Get the pipeline element we're modifying
+                    idx = element["index"]
+                    (element_type, parameters) = parse_element_parameters(pipeline[idx])
 
+                    # Get the batch for this element
+                    batch = combination[element["group_idx"]]
 
-                self.tracked_elements.append({
-                    "index": idx,
-                    "group_idx": group_idx,
-                })
+                    # Apply current configuration
+                    parameters["batch-size"] = str(batch)
+                    parameters = assemble_parameters(parameters)
+                    candidate[idx] = f" {element_type} {parameters}"
 
-    def __iter__(self):
-        return self
+                new_candidates.append(candidate)
+        candidates.extend(new_candidates)
 
-    def __next__(self) -> list:
-        if len(self.batches) == 0:
-            raise StopIteration
+###################################################################################################
+def _search_for_tracked_elements(pipeline):
+    tracked_elements = []
+    instance_ids = {}
+    group_count = 0
 
-        # Prepare the next combination of batches
-        end_of_variants = True
-        for idx, cur_batch_idx in enumerate(self.batch_groups):
-            # Don't change anything on first iteration
-            if self.first_iteration:
-                self.first_iteration = False
-                end_of_variants = False
-                break
+    # prepare batch groups
+    for idx, element in enumerate(pipeline):
+        if "gvadetect" in element or "gvaclassify" in element:
+            (_, parameters) = parse_element_parameters(element)
+            instance_id = parameters.get("model-instance-id")
+            group_idx = 0
 
-            next_batch_idx = (cur_batch_idx + 1) % len(self.batches)
-            self.batch_groups[idx] = next_batch_idx
+            # if element has an instance id, get the batch group index
+            if instance_id:
+                group_idx = instance_ids.get(instance_id)
 
-            # Walk through elements while they still
-            # have more batch options
-            if next_batch_idx > cur_batch_idx:
-                end_of_variants = False
-                break
+                # if this instance id is new, create a new group index
+                if group_idx is None:
+                    group_idx = group_count
+                    instance_ids[instance_id] = group_idx
+                    group_count += 1
 
-        # If all elements have rotated through the entire list
-        # of available batches, then we have run out of variants
-        if end_of_variants:
-            raise StopIteration
+            # if there's no instance id, treat element as its own group
+            else:
+                group_idx = group_count
+                group_count += 1
 
-        # log batch combinations
-        batches = self.batch_groups.copy()
-        batches = list(map(lambda e: self.batches[e], batches)) # transform batch indices into batches
-        logger.info("Testing batch combination: %s", str(batches))
+            tracked_elements.append({
+                "index": idx,
+                "group_idx": group_idx,
+            })
 
-        # Prepare pipeline output
-        pipeline = self.pipeline.copy()
-        for element in self.tracked_elements:
-            # Get the pipeline element we're modifying
-            idx = element["index"]
-            (element_type, parameters) = parse_element_parameters(pipeline[idx])
-
-            # Get the batch for this element
-            batch = self.batches[self.batch_groups[element["group_idx"]]]
-
-            # Apply current configuration
-            parameters["batch-size"] = str(batch)
-            parameters = assemble_parameters(parameters)
-            pipeline[idx] = f" {element_type} {parameters}"
-
-        return pipeline
+    return tracked_elements, group_count

@@ -19,9 +19,7 @@ logger = logging.getLogger(__name__)
 
 class DeviceGenerator: # pylint: disable=missing-class-docstring
     def __init__(self):
-        self.tracked_elements = []
         self.devices = Core().available_devices
-        self.candidates = []
 
     def set_allowed_devices(self, devices): # pylint: disable=missing-function-docstring
         _devices = Core().available_devices
@@ -30,106 +28,95 @@ class DeviceGenerator: # pylint: disable=missing-class-docstring
                 raise RuntimeError(f"Device {device} is not supported by this system! Available devices: {str(_devices)}") # pylint: disable=line-too-long
         self.devices = devices
 
-    def init_pipeline(self, initial_pipeline): # pylint: disable=too-many-locals, missing-function-docstring
+    def generate_candidates(self, candidates): # pylint: disable=too-many-locals, missing-function-docstring
         logger.info("Devices allowed for optimization: %s", str(self.devices))
+        new_candidates = []
 
-        self.tracked_elements = []
-        self.candidates = []
+        for pipeline in candidates:
+            tracked_elements, group_count = _search_for_tracked_elements(pipeline)
+            extract_device = lambda e: parse_element_parameters(pipeline[e["index"]])[1].get("device", "CPU")
+            current_devices = list(map(extract_device, tracked_elements))
 
-        instance_ids = {}
-        group_count = 0
+            # prepare all device combinations
+            combinations = itertools.product(self.devices, repeat=group_count)
 
-        # prepare device groups
-        for idx, element in enumerate(initial_pipeline):
-            if "gvadetect" in element or "gvaclassify" in element:
-                (_, parameters) = parse_element_parameters(element)
-                instance_id = parameters.get("model-instance-id")
-                group_idx = 0
+            # transform device combinations into pipeline candidates
+            for combination in combinations:
+                logger.info(f"{str(current_devices)}, {str(list(combination))}")
+                # skip if the generated combination equals the original pipeline
+                if list(combination) == current_devices:
+                    logger.info("skipping")
+                    continue
 
-                # if element has an instance id, get the device group index
-                if instance_id:
-                    group_idx = instance_ids.get(instance_id)
+                # prepare the pipeline as well as score info
+                candidate = pipeline.copy()
 
-                    # if this instance id is new, create a new group index
-                    if group_idx is None:
-                        group_idx = group_count
-                        instance_ids[instance_id] = group_idx
-                        group_count += 1
+                for element in reversed(tracked_elements):
+                    # Get the pipeline element we're modifying
+                    idx = element["index"]
+                    (element_type, parameters) = parse_element_parameters(pipeline[idx])
 
-                # if there's no instance id, treat element as its own group
-                else:
-                    group_idx = group_count
-                    group_count += 1
+                    # Get the device for this element
+                    device = combination[element["group_idx"]]
 
-                self.tracked_elements.append({
-                    "index": idx,
-                    "group_idx": group_idx,
-                })
+                    # Configure an appropriate backend and memory location
+                    memory = ""
+                    if "GPU" in device:
+                        parameters["pre-process-backend"] = "va-surface-sharing"
+                        memory = "video/x-raw(memory:VAMemory)"
 
-        # prepare device information
-        info = _compile_device_info()
-        devices = list(map(lambda e: (e, info[e]), self.devices))
+                    if "NPU" in device:
+                        parameters["pre-process-backend"] = "va"
+                        memory = "video/x-raw(memory:VAMemory)"
 
-        # prepare all device combinations
-        combinations = itertools.product(devices, repeat=group_count)
+                    if "CPU" in device:
+                        parameters["pre-process-backend"] = "opencv"
+                        memory = "video/x-raw"
 
-        # transform device combinations into pipeline candidates
-        for combination in combinations:
-            # preapre the pipeline as well as score info
-            pipeline = initial_pipeline.copy()
-            total_score = 0
+                    # Apply current configuration
+                    parameters["device"] = device
+                    parameters = assemble_parameters(parameters)
+                    candidate[idx] = f" {element_type} {parameters}"
+                    candidate.insert(idx, f" {memory} ")
+                    candidate.insert(idx, " vapostproc ")
 
-            for element in reversed(self.tracked_elements):
-                # Get the pipeline element we're modifying
-                idx = element["index"]
-                (element_type, parameters) = parse_element_parameters(pipeline[idx])
-
-                # Get the device for this element
-                device, device_score = combination[element["group_idx"]]
-
-                # Configure an appropriate backend and memory location
-                memory = ""
-                if "GPU" in device:
-                    parameters["pre-process-backend"] = "va-surface-sharing"
-                    memory = "video/x-raw(memory:VAMemory)"
-
-                if "NPU" in device:
-                    parameters["pre-process-backend"] = "va"
-                    memory = "video/x-raw(memory:VAMemory)"
-
-                if "CPU" in device:
-                    parameters["pre-process-backend"] = "opencv"
-                    memory = "video/x-raw"
-
-                # Apply current configuration
-                parameters["device"] = device
-                parameters = assemble_parameters(parameters)
-                pipeline[idx] = f" {element_type} {parameters}"
-                pipeline.insert(idx, f" {memory} ")
-                pipeline.insert(idx, " vapostproc ")
-
-                total_score -= device_score
-
-            # store the score, device combination info and the candidate in a priority queue
-            combination = list(map(lambda e: (e[0]), combination))
-            heapq.heappush(self.candidates, (total_score, combination, pipeline))
-
-    def __iter__(self):
-        return self
-
-    def __next__(self) -> list:
-        try:
-            score, combination, pipeline = heapq.heappop(self.candidates)
-
-            # log device combinations
-            logger.info("Testing device combination: %s", str(combination))
-            logger.debug("Combination score: %s", str(-score))
-
-            return pipeline
-        except IndexError as exc:
-            raise StopIteration from exc
+                new_candidates.append(candidate)
+        candidates.extend(new_candidates)    
 
 ###################################################################################################
+def _search_for_tracked_elements(pipeline):
+    tracked_elements = []
+    instance_ids = {}
+    group_count = 0
+
+    # prepare device groups
+    for idx, element in enumerate(pipeline):
+        if "gvadetect" in element or "gvaclassify" in element:
+            (_, parameters) = parse_element_parameters(element)
+            instance_id = parameters.get("model-instance-id")
+            group_idx = 0
+
+            # if element has an instance id, get the device group index
+            if instance_id:
+                group_idx = instance_ids.get(instance_id)
+
+                # if this instance id is new, create a new group index
+                if group_idx is None:
+                    group_idx = group_count
+                    instance_ids[instance_id] = group_idx
+                    group_count += 1
+
+            # if there's no instance id, treat element as its own group
+            else:
+                group_idx = group_count
+                group_count += 1
+
+            tracked_elements.append({
+                "index": idx,
+                "group_idx": group_idx,
+            })
+
+    return tracked_elements, group_count
 
 def _compile_device_info():
     core = Core()

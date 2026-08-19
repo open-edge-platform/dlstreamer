@@ -272,36 +272,38 @@ class DLSOptimizer:
     def _evaluate_candidates(self, initial_pipeline, target, streams):
         best_pipeline = initial_pipeline
         best_result = self._initial_result
+        candidates = [initial_pipeline]
 
         for generator in self._generators.values():
-            generator.init_pipeline(best_pipeline)
-            for pipeline in generator:
-                try:
-                    pipelines = []
-                    for _ in range(0, streams):
-                        pipelines.append(pipeline)
+            generator.generate_candidates(candidates)
 
-                    result = self._sample_pipeline(pipelines, self._sample_duration)
+        for pipeline in candidates:
+            try:
+                pipelines = []
+                for _ in range(0, streams):
+                    pipelines.append(pipeline)
 
-                    if self._initial_result["detections"] != 0 and result["detections"] / self._initial_result["detections"] < self._detections_error_threshold:
-                        raise FaultyPipeline("Pipeline reporting detections under error margin")
+                result = self._sample_pipeline(pipelines, self._sample_duration)
 
-                    if target.is_better(result, best_result):
-                        best_result = result.copy()
-                        best_pipeline = pipeline
+                if self._initial_result["detections"] != 0 and result["detections"] / self._initial_result["detections"] < self._detections_error_threshold:
+                    raise FaultyPipeline("Pipeline reporting detections under error margin")
 
-                    logger.info(str(result))
+                if target.is_better(result, best_result):
+                    best_result = result.copy()
+                    best_pipeline = pipeline
 
-                    yield pipeline, result
+                logger.info(str(result))
 
-                except TestHalt:
-                    logger.info("Testing process paused.")
-                    while self._paused:
-                        time.sleep(0.5)
-                    logger.info("Testing process restarted.")
-                except Exception as e:
-                    logger.debug("Pipeline failed sampling: %s", e)
-                    yield pipeline, None
+                yield pipeline, result
+
+            except TestHalt:
+                logger.info("Testing process paused.")
+                while self._paused:
+                    time.sleep(0.5)
+                logger.info("Testing process restarted.")
+            except Exception as e:
+                logger.debug("Pipeline failed sampling: %s", e)
+                yield pipeline, None
 
 ##################################### Pipeline Running ############################################
 

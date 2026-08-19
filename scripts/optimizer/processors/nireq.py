@@ -5,6 +5,7 @@
 # SPDX-License-Identifier: MIT
 # ==============================================================================
 import logging
+import itertools
 
 from processors.utils import parse_element_parameters, assemble_parameters
 
@@ -21,89 +22,74 @@ class NireqGenerator: # pylint: disable=missing-class-docstring
     def set_nireq_sizes(self, sizes): # pylint: disable=missing-function-docstring
         self.nireqs = sizes
 
-    def init_pipeline(self, pipeline): # pylint: disable=missing-function-docstring
-        self.tracked_elements = []
-        self.nireq_groups = []
-        self.pipeline = pipeline.copy()
-        self.first_iteration = True
+    def generate_candidates(self, candidates): # pylint: disable=too-many-locals, missing-function-docstring
+        logger.info("Nireq sizes allowed for optimization: %s", str(self.nireqs))
+        new_candidates = []
 
-        instance_ids = {}
+        for pipeline in candidates:
+            tracked_elements, group_count = _search_for_tracked_elements(pipeline)
+            extract_nireq = lambda e: parse_element_parameters(pipeline[e["index"]])[1].get("nireq", "1")
+            current_nireqs = list(map(extract_nireq, tracked_elements))
 
-        for idx, element in enumerate(self.pipeline):
-            if "gvadetect" in element or "gvaclassify" in element:
-                (_, parameters) = parse_element_parameters(element)
-                instance_id = parameters.get("model-instance-id")
-                group_idx = 0
+            # prepare all nireq combinations
+            combinations = itertools.product(self.nireqs, repeat=group_count)
 
-                # if element has an instance id, get the nireq group index
-                if instance_id:
-                    group_idx = instance_ids.get(instance_id)
+            # transform nireq combinations into pipeline candidates
+            for combination in combinations:
+                # skip if the generated combination equals the original pipeline
+                if list(combination) == current_nireqs:
+                    continue
 
-                    # if this instance id is new, create a new group index
-                    if group_idx is None:
-                        group_idx = len(self.nireq_groups)
-                        self.nireq_groups.append(0)
-                        instance_ids[instance_id] = group_idx
+                # prepare the pipeline
+                candidate = pipeline.copy()
 
-                # if there's no instance id, treat element as its own group
-                else:
-                    group_idx = len(self.nireq_groups)
-                    self.nireq_groups.append(0)
+                for element in tracked_elements:
+                    # Get the pipeline element we're modifying
+                    idx = element["index"]
+                    (element_type, parameters) = parse_element_parameters(pipeline[idx])
 
+                    # Get the nireq for this element
+                    nireq = combination[element["group_idx"]]
 
-                self.tracked_elements.append({
-                    "index": idx,
-                    "group_idx": group_idx,
-                })
+                    # Apply current configuration
+                    parameters["nireq"] = str(nireq)
+                    parameters = assemble_parameters(parameters)
+                    candidate[idx] = f" {element_type} {parameters}"
 
-    def __iter__(self):
-        return self
+                new_candidates.append(candidate)
+        candidates.extend(new_candidates)
 
-    def __next__(self) -> list:
-        if len(self.nireqs) == 0:
-            raise StopIteration
+###################################################################################################
+def _search_for_tracked_elements(pipeline):
+    tracked_elements = []
+    instance_ids = {}
+    group_count = 0
 
-        # Prepare the next combination of nireqs
-        end_of_variants = True
-        for idx, cur_nireq_idx in enumerate(self.nireq_groups):
-            # Don't change anything on first iteration
-            if self.first_iteration:
-                self.first_iteration = False
-                end_of_variants = False
-                break
+    # prepare nireq groups
+    for idx, element in enumerate(pipeline):
+        if "gvadetect" in element or "gvaclassify" in element:
+            (_, parameters) = parse_element_parameters(element)
+            instance_id = parameters.get("model-instance-id")
+            group_idx = 0
 
-            next_nireq_idx = (cur_nireq_idx + 1) % len(self.nireqs)
-            self.nireq_groups[idx] = next_nireq_idx
+            # if element has an instance id, get the nireq group index
+            if instance_id:
+                group_idx = instance_ids.get(instance_id)
 
-            # Walk through elements while they still
-            # have more nireq options
-            if next_nireq_idx > cur_nireq_idx:
-                end_of_variants = False
-                break
+                # if this instance id is new, create a new group index
+                if group_idx is None:
+                    group_idx = group_count
+                    instance_ids[instance_id] = group_idx
+                    group_count += 1
 
-        # If all elements have rotated through the entire list
-        # of available nireqs, then we have run out of variants
-        if end_of_variants:
-            raise StopIteration
+            # if there's no instance id, treat element as its own group
+            else:
+                group_idx = group_count
+                group_count += 1
 
-        # log nireq combinations
-        nireqs = self.nireq_groups.copy()
-        nireqs = list(map(lambda e: self.nireqs[e], nireqs)) # transform nireq indices into nireqs
-        logger.info("Testing nireq combination: %s", str(nireqs))
+            tracked_elements.append({
+                "index": idx,
+                "group_idx": group_idx,
+            })
 
-        # Prepare pipeline output
-        pipeline = self.pipeline.copy()
-        for element in self.tracked_elements:
-            # Get the pipeline element we're modifying
-            idx = element["index"]
-            (element_type, parameters) = parse_element_parameters(pipeline[idx])
-
-            # Get the nireq for this element
-            nireq = self.nireqs[self.nireq_groups[element["group_idx"]]]
-
-            # Apply current configuration
-            parameters["nireq"] = str(nireq)
-            parameters = assemble_parameters(parameters)
-            pipeline[idx] = f" {element_type} {parameters}"
-
-        return pipeline
+    return tracked_elements, group_count
