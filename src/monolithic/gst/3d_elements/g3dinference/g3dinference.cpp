@@ -59,8 +59,6 @@ constexpr size_t POINT_SIZE = 4;
 constexpr size_t DETECTION_WIDTH = 9;
 constexpr guint DEFAULT_NIREQ = 0; /* 0 = derive from the compiled NN model */
 constexpr guint MAX_NIREQ = 1024;
-/* LATENCY by default: with several requests in flight it keeps the per-request
- * thread pools from competing for the same cores. */
 
 bool is_supported_device(const gchar *device) {
     if (!device || !*device)
@@ -796,8 +794,7 @@ static void gst_g3d_inference_class_init(GstG3DInferenceClass *klass) {
                           "Number of inference requests processed concurrently. Frames are kept in flight across "
                           "this many requests while output order is preserved. 0 derives the value from the "
                           "compiled network",
-                          0, MAX_NIREQ, DEFAULT_NIREQ,
-                          (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+                          0, MAX_NIREQ, DEFAULT_NIREQ, (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
     gst_element_class_set_static_metadata(
         gstelement_class, "G3D Inference", "Filter/Analyzer",
@@ -919,10 +916,12 @@ static gboolean gst_g3d_inference_start(GstBaseTransform *trans) {
     }
 
     try {
-        auto *runtime = new PointPillarsRuntime();
+        /* Held by unique_ptr until load() has succeeded: load() compiles the
+         * models and may throw, and the raw pointer would otherwise leak because
+         * ownership has not been handed to filter->runtime yet. */
+        auto runtime = std::make_unique<PointPillarsRuntime>();
         runtime->load(filter->config, filter->device ? filter->device : DEFAULT_DEVICE, filter->nireq);
         delete get_runtime(filter);
-        filter->runtime = runtime;
         filter->initialized = TRUE;
 
         G3DInferenceAsyncState *state = get_async_state(filter);
@@ -931,6 +930,7 @@ static gboolean gst_g3d_inference_start(GstBaseTransform *trans) {
 
         GST_INFO_OBJECT(filter, "Loaded PointPillars runtime with config=%s device=%s nireq=%zu", filter->config,
                         filter->device ? filter->device : DEFAULT_DEVICE, runtime->concurrency());
+        filter->runtime = runtime.release();
         return TRUE;
     } catch (const std::exception &e) {
         GST_ELEMENT_ERROR(filter, LIBRARY, INIT, ("Failed to initialize PointPillars runtime"), ("%s", e.what()));
@@ -984,8 +984,7 @@ static void gst_g3d_inference_process(GstG3DInference *filter, InferChain &chain
 
     try {
         const float *points = reinterpret_cast<const float *>(frame->map_info.data);
-        std::vector<float> detections =
-            runtime->infer(chain, points, lidar_meta->lidar_point_count, score_threshold);
+        std::vector<float> detections = runtime->infer(chain, points, lidar_meta->lidar_point_count, score_threshold);
 
         GstAnalyticsRelationMeta *rmeta = gst_buffer_get_analytics_relation_meta(frame->buffer);
         if (!rmeta)
