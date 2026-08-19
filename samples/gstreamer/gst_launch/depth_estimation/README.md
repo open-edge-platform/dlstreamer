@@ -64,7 +64,7 @@ The sample takes four optional parameters:
    Supported values:
    * `display` - render annotated video
    * `fps` - print FPS only
-   * `json` - write per-object depth metric tensors for the first frame to `output.json`
+   * `json` - write per-object depth metric tensors as json-lines (one line per frame) to `output.json`
    * `display-and-json` - render annotated video and write `output.json`
 
 Example runs:
@@ -83,7 +83,7 @@ The sample:
 
 * prints the full `gst-launch-1.0` pipeline before execution
 * renders detections when using display output modes, with the mean depth for each detected object attached as the ROI classification label
-* writes per-object `depth_metrics` tensors to `output.json` when using JSON output modes, containing center depth, mean depth, median depth, minimum depth, maximum depth, standard deviation, valid pixel count, and valid pixel ratio
+* writes per-object `depth_metrics` tensors as json-lines to `output.json` when using JSON output modes, containing center depth, mean depth, median depth, minimum depth, maximum depth, standard deviation, valid pixel count, and valid pixel ratio
 
 ## See also
 

@@ -102,10 +102,10 @@ if [[ $OUTPUT == "display" ]]; then
 elif [[ $OUTPUT == "fps" ]]; then
   SINK_ELEMENT="gvafpscounter ! fakesink async=false"
 elif [[ $OUTPUT == "json" ]]; then
-  SINK_ELEMENT="gvametaconvert format=json json-indent=4 add-tensor-data=true ! gvametapublish method=file file-path=output.json ! fakesink async=false"
+  SINK_ELEMENT="gvametaconvert add-tensor-data=true ! gvametapublish file-format=json-lines file-path=output.json ! fakesink async=false"
 elif [[ $OUTPUT == "display-and-json" ]]; then
   rm -f output.json
-  SINK_ELEMENT="${DISPLAY_PREFIX}gvawatermark ! gvametaconvert format=json json-indent=4 add-tensor-data=true ! gvametapublish method=file file-path=output.json ! videoconvert ! gvafpscounter ! autovideosink sync=false"
+  SINK_ELEMENT="${DISPLAY_PREFIX}gvawatermark ! gvametaconvert add-tensor-data=true ! gvametapublish file-format=json-lines file-path=output.json ! videoconvert ! gvafpscounter ! autovideosink sync=false"
 else
   echo "Error: wrong value for OUTPUT parameter" >&2
   echo "Valid values: display, fps, json, display-and-json" >&2
