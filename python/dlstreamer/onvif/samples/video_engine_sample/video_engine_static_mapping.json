@@ -1,0 +1,26 @@
+{
+  "pipelines": [
+    {
+      "binding_id": "cam1_main",
+      "camera": {
+        "hostname": "10.91.106.65",
+        "port": 2020,
+        "mac": "AA:BB:CC:DD:EE:FF"
+      },
+      "profile_name": "mainStream",
+      "pipeline_ref": "static_mapping_camera_1",
+      "username": "admin",
+      "password": "r00tme"
+    },
+    {
+      "binding_id": "lobby_ball_demo",
+      "camera": {
+        "hostname": "10.0.0.16",
+        "port": 80
+      },
+      "pipeline_ref": "move_detected_ball_test",
+      "username": "",
+      "password": ""
+    }
+  ]
+}
