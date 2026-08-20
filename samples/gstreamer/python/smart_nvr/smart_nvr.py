@@ -34,7 +34,7 @@ def parse_args():
     p = argparse.ArgumentParser(description="Smart NVR — Lane Hogging Detection")
     p.add_argument("--input", required=True, help="Path to input video file")
     p.add_argument("--model", required=True, help="Path to detection model .xml")
-    p.add_argument("--device", default="GPU", choices=["CPU", "GPU", "NPU"],
+    p.add_argument("--device", default="GPU", choices=["CPU", "GPU"],
                    help="Inference device (default: GPU)")
     p.add_argument("--output", default="display", choices=["display", "json", "file"],
                    help="Output mode: display, json, or file (default: display)")
