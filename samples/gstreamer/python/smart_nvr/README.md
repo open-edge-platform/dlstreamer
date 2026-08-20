@@ -15,8 +15,10 @@ graph LR
         A["filesrc (GStreamer)"] --> B["decodebin3 (GStreamer)"]
         B --> C["gvadetect (DLStreamer)"]
         C --> D["gvaanalytics_py (custom)"]
-        D --> E["gvawatermark (DLStreamer)"]
-        E --> F["gvarecorder_py (custom)"]
+        D --> E{output mode}
+        E -->|display| F["gvawatermark + autovideosink"]
+        E -->|file| G["gvawatermark + gvarecorder_py (custom)"]
+        E -->|json| H["gvametaconvert + gvametapublish + fakesink"]
 ```
 
 The sample uses the following set of pipeline elements: 
@@ -26,7 +28,8 @@ The sample uses the following set of pipeline elements:
 * __gvadetect__ - DLStreamer inference element that detects vehicles using the RTDETRv2 model
 * __gvaanalytics_py__ - Custom Python element that processes object detection results and identifies lane-hogging vehicles
 * __gvawatermark__ - DLStreamer element that renders detection results and custom objects (lane-hogging vehicles) on video frames
-* __gvarecorder_py__ - Custom Python element that segments the video into 10-second chunks and stores metadata for each segment 
+* __gvarecorder_py__ - Custom Python element that segments the video into 10-second chunks and stores metadata for each segment (used in `file` output mode)
+* __gvametaconvert / gvametapublish__ - DLStreamer elements that serialize detection metadata to JSON Lines format (used in `json` output mode)
 
 ## Prerequisites
 
@@ -56,7 +59,7 @@ Install DLStreamer on the host (see [DLStreamer Installation Guide](../../../../
 cd samples/gstreamer/python/smart_nvr
 ```
 
-### Download Video and Prepare Model
+### Download Video
 
 Download example video file:
 
@@ -65,48 +68,58 @@ curl -L -o 2431853-hd_1920_1080_25fps.mp4 \
     "https://videos.pexels.com/video-files/2431853/2431853-hd_1920_1080_25fps.mp4"
 ```
 
-Export the RTDETRv2 detection model to OpenVINO IR format:
+### Prepare Model
 
-```sh
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-optimum-cli export onnx --model PekingU/rtdetr_v2_r50vd \
-    --task object-detection --opset 18 --width 640 --height 640 rtdetr_v2_r50vd
-hf download PekingU/rtdetr_v2_r50vd --include preprocessor_config.json --local-dir rtdetr_v2_r50vd
-ovc rtdetr_v2_r50vd/model.onnx --output_model rtdetr_v2_r50vd/model
-deactivate
-```
+This sample expects `PekingU/rtdetr_v2_r50vd` in FP16 precision from Hugging Face for vehicle detection.
+
+Use the model conversion script in [scripts/download_models/](../../../../scripts/download_models/README.md) to prepare the model.
+Before running it, create and activate the dedicated model-download virtual environment described in [scripts/download_models/README.md](../../../../scripts/download_models/README.md).
 
 ## Run Sample Application
 
 ```sh
 python3 smart_nvr.py \
     --input 2431853-hd_1920_1080_25fps.mp4 \
-    --model rtdetr_v2_r50vd/model.xml
+    --model "MODELS_PATH/PekingU_rtdetr_v2_r50vd.xml"
 ```
 
-Run `python3 smart_nvr.py --help` to see available options (input file, device, threshold, etc.).
+Run `python3 smart_nvr.py --help` to see all available options.
 
-### Inspecting Output
+### Output Modes
 
-The sample generates output video chunks (*.mp4) and corresponding metadata files (*.txt):
+Control the output with `--output` (default: `display`):
 
+| Mode | Description |
+|---|---|
+| `display` | Renders watermarked frames to screen via `autovideosink` |
+| `file` | Segments video into MP4 chunks with per-chunk metadata files via `gvarecorder_py` |
+| `json` | Writes detection metadata as JSON Lines to `output.json` via `gvametapublish` |
+
+**Display (default):**
 ```sh
-output-00.txt
-output-00.mp4
-output-01.txt
-output-01.mp4
+python3 smart_nvr.py --input video.mp4 --model model.xml --output display
+```
+
+**File recording** (use `--output-location` to set the output path, `--max-time` for chunk duration):
+```sh
+python3 smart_nvr.py --input video.mp4 --model model.xml --output file \
+    --output-location output.mp4 --max-time 10
+```
+
+The sample generates output video chunks and corresponding metadata files:
+```
+output-00.txt  output-00.mp4
+output-01.txt  output-01.mp4
 ...
 ```
+Each metadata file lists the detected objects for that segment, e.g. `Objects: ['car', 'hogging', 'truck']`.
+Search for `hogging` entries to find lane-hogging events, then review the matching MP4 segment.
 
-Each metadata file contains the detected objects and events for its corresponding video segment:
-
+**JSON metadata:**
 ```sh
-Objects: ['car', 'hogging', 'truck']
+python3 smart_nvr.py --input video.mp4 --model model.xml --output json
 ```
-
-To identify lane-hogging events, search the metadata files for 'hogging' entries, then review the corresponding video segment to observe the detected behavior.
+Outputs `output.json` in JSON Lines format, one record per frame.
 
 ## How It Works
 
@@ -120,8 +133,8 @@ pipeline = Gst.parse_launch(
                 f'filesrc location="{video_file}" ! decodebin3 caps="video/x-raw(ANY)" ! '
                 f'gvadetect model="{detection_model}" device={args.device} '
                 f'batch-size={args.batch_size} threshold={args.threshold} ! queue ! '
-                f'gvaanalytics_py distance=500 angle=-135,-45 ! gvafpscounter ! gvawatermark ! '
-                f'gvarecorder_py location="{args.output}" max-time={args.max_time}')
+                f'gvaanalytics_py distance=500 angle=-135,-45 ! queue ! '
+                f'{sink}')  # sink depends on --output mode
 ```
 
 ### Custom Analytics Element
