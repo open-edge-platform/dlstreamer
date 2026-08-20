@@ -89,11 +89,11 @@ Run `python3 smart_nvr.py --help` to see all available options.
 
 Control the output with `--output` (default: `display`):
 
-| Mode | Description |
-|---|---|
-| `display` | Renders watermarked frames to screen via `videoconvert` + `autovideosink` |
-| `file` | Segments video into MP4 chunks with per-chunk metadata files via `gvarecorder_py` |
-| `json` | Writes detection metadata as JSON Lines to `output.json` via `gvametapublish` |
+| Mode | Device support | Description |
+|---|---|---|
+| `display` | CPU, GPU, NPU | Renders watermarked frames to screen via `videoconvert` + `autovideosink` |
+| `file` | GPU (VA-API encoder); CPU/NPU require `openh264enc` | Segments video into MP4 chunks with per-chunk metadata files via `gvarecorder_py` |
+| `json` | CPU, GPU, NPU | Writes detection metadata as JSON Lines to `output.json` via `gvametapublish` |
 
 **Display (default):**
 ```sh
