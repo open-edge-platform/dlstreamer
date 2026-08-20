@@ -16,7 +16,7 @@ graph LR
         B --> C["gvadetect (DLStreamer)"]
         C --> D["gvaanalytics_py (custom)"]
         D --> E{output mode}
-        E -->|display| F["gvawatermark + autovideosink"]
+        E -->|display| F["gvawatermark + videoconvert + autovideosink"]
         E -->|file| G["gvawatermark + gvarecorder_py (custom)"]
         E -->|json| H["gvametaconvert + gvametapublish + fakesink"]
 ```
@@ -91,7 +91,7 @@ Control the output with `--output` (default: `display`):
 
 | Mode | Description |
 |---|---|
-| `display` | Renders watermarked frames to screen via `autovideosink` |
+| `display` | Renders watermarked frames to screen via `videoconvert` + `autovideosink` |
 | `file` | Segments video into MP4 chunks with per-chunk metadata files via `gvarecorder_py` |
 | `json` | Writes detection metadata as JSON Lines to `output.json` via `gvametapublish` |
 
@@ -130,7 +130,7 @@ The pipeline is configured with the downloaded video file and detection model, a
 
 ```code
 pipeline = Gst.parse_launch(
-                f'filesrc location="{video_file}" ! decodebin3 caps="video/x-raw(ANY)" ! '
+                f'filesrc location="{video_file}" ! decodebin3 ! '
                 f'gvadetect model="{detection_model}" device={args.device} '
                 f'batch-size={args.batch_size} threshold={args.threshold} ! queue ! '
                 f'gvaanalytics_py distance=500 angle=-135,-45 ! queue ! '

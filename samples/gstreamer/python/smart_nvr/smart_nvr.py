@@ -125,11 +125,11 @@ def main():
             f'gvarecorder_py location="{args.output_location}" max-time={args.max_time}'
         )
     else:
-        sink = "gvafpscounter ! gvawatermark ! autovideosink sync=false"
+        sink = "gvafpscounter ! gvawatermark ! videoconvert ! autovideosink sync=false"
 
     # Build pipeline
     pipe = (
-        f'filesrc location="{video_file}" ! decodebin3 caps="video/x-raw(ANY)" ! '
+        f'filesrc location="{video_file}" ! decodebin3 ! '
         f'gvadetect model="{detection_model}" device={args.device} '
         f"batch-size={args.batch_size} threshold={args.threshold} ! queue ! "
         f"gvaanalytics_py distance=500 angle=-135,-45 ! queue ! "
