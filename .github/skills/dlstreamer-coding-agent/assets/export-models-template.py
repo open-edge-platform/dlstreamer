@@ -15,10 +15,12 @@ import json
 import re
 import shutil
 import sys
-from subprocess import run
 from pathlib import Path
 
+import openvino as ov
+import paddle2onnx
 from huggingface_hub import HfApi, hf_hub_download, snapshot_download
+from optimum.exporters.openvino import main_export
 
 MODELS_DIR = Path(__file__).resolve().parent / "models"
 MODEL_ID_PATTERN = re.compile(r"^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$")
@@ -40,15 +42,6 @@ def validate_weight_format(weight_format: str) -> str:
         allowed = ", ".join(sorted(WEIGHT_FORMATS))
         raise ValueError(f"Unsupported weight format '{weight_format}'. Allowed: {allowed}")
     return normalized
-
-
-def run_checked(command: list[str]) -> None:
-    executable = command[0]
-    resolved = shutil.which(executable)
-    if not resolved:
-        raise FileNotFoundError(f"Required tool '{executable}' not found in PATH")
-    # Use explicit argv and shell=False semantics to avoid command injection.
-    run([resolved, *command[1:]], check=True)
 
 
 def resolve_hf_model_ref(model_ref: str) -> tuple[str, str]:
@@ -151,21 +144,18 @@ def export_paddleocr(model_ref: str) -> Path:
     # Step 2: PaddlePaddle PIR → ONNX
     onnx_file = ocr_dir / "model.onnx"
     print("[OCR] Converting PaddlePaddle PIR → ONNX...")
-    run_checked(
-        [
-            "paddle2onnx",
-            "--model_dir", str(paddle_dir),
-            "--model_filename", "inference.json",       # PIR format, NOT .pdmodel
-            "--params_filename", "inference.pdiparams",
-            "--save_file", str(onnx_file),
-            "--opset_version", "14",
-        ]
+    paddle2onnx.export(
+        model_filename=str(paddle_dir / "inference.json"),  # PIR format, NOT .pdmodel
+        params_filename=str(paddle_dir / "inference.pdiparams"),
+        save_file=str(onnx_file),
+        opset_version=14,
     )
 
     # Step 3: ONNX → OpenVINO IR FP16
     fp16_dir.mkdir(parents=True, exist_ok=True)
     print("[OCR] Converting ONNX → OpenVINO IR (FP16)...")
-    run_checked(["ovc", str(onnx_file), "--output_model", str(ov_model), "--compress_to_fp16"])
+    ov_ir = ov.convert_model(str(onnx_file))
+    ov.save_model(ov_ir, str(ov_model), compress_to_fp16=True)
 
     # Step 4: Extract character dictionary from config.json (PaddleOCR-specific)
     config_src = paddle_dir / "config.json"
@@ -202,14 +192,11 @@ def export_hf_transformer(model_id: str, weight_format: str = "int8") -> Path:
 
     MODELS_DIR.mkdir(parents=True, exist_ok=True)
 
-    print(f"[HF] Exporting {model_id} via optimum-cli ({weight_format})...")
-    run_checked(
-        [
-            "optimum-cli", "export", "openvino",
-            "--model", model_id,
-            "--weight-format", weight_format,
-            str(output_dir),
-        ]
+    print(f"[HF] Exporting {model_id} via optimum ({weight_format})...")
+    main_export(
+        model_name_or_path=model_id,
+        output=str(output_dir),
+        weight_format=weight_format,
     )
 
     print(f"[HF] Model ready: {model_xml}")
