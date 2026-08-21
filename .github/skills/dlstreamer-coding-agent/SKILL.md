@@ -4,6 +4,9 @@ description: "Build new DL Streamer video-analytics applications (Python, C, C++
 allowed-tools:
   - write
   - command
+permissions:
+  - command
+  - write
 ---
 
 # DL Streamer Coding Agent
