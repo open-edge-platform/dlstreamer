@@ -80,8 +80,12 @@ Before running it, create and activate the dedicated model-download virtual envi
 ```sh
 python3 smart_nvr.py \
     --input 2431853-hd_1920_1080_25fps.mp4 \
-    --model "MODELS_PATH/PekingU_rtdetr_v2_r50vd.xml"
+    --model models/public/PekingU_rtdetr_v2_r50vd/FP16/PekingU_rtdetr_v2_r50vd.xml
 ```
+
+If `--model` is omitted, it defaults to `$MODELS_PATH/public/PekingU_rtdetr_v2_r50vd/FP16/PekingU_rtdetr_v2_r50vd.xml`.
+
+> **Note:** Replace the `--model` path with the actual location where you downloaded the model in the [Prepare Model](#prepare-model) step.
 
 Run `python3 smart_nvr.py --help` to see all available options.
 

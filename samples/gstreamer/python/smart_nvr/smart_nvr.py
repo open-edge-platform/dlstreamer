@@ -25,6 +25,9 @@ from gi.repository import GLib, Gst  # pylint: disable=no-name-in-module,wrong-i
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 
+# Default detection model location, relative to $MODELS_PATH (default: ./models).
+DEFAULT_MODEL_REL = "public/PekingU_rtdetr_v2_r50vd/FP16/PekingU_rtdetr_v2_r50vd.xml"
+
 
 # ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -33,7 +36,8 @@ def parse_args():
     """Parse command-line arguments."""
     p = argparse.ArgumentParser(description="Smart NVR — Lane Hogging Detection")
     p.add_argument("--input", required=True, help="Path to input video file")
-    p.add_argument("--model", required=True, help="Path to detection model .xml")
+    p.add_argument("--model", default=None,
+                   help="Path to detection model .xml (default: $MODELS_PATH/" + DEFAULT_MODEL_REL + ")")
     p.add_argument("--device", default="GPU", choices=["CPU", "GPU"],
                    help="Inference device (default: GPU)")
     p.add_argument("--output", default="display", choices=["display", "json", "file"],
@@ -111,7 +115,8 @@ def main():
 
     # Prepare assets
     video_file = ensure_file(args.input, "input video")
-    detection_model = ensure_file(args.model, "detection model")
+    model_path = args.model or os.path.join(os.environ.get("MODELS_PATH", "./models"), DEFAULT_MODEL_REL)
+    detection_model = ensure_file(model_path, "detection model")
 
     # Build sink based on output mode
     if args.output == "json":
