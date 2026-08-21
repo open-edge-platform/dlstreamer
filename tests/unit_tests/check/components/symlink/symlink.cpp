@@ -42,7 +42,7 @@ TEST(symlink_test, model_file) {
     bi.ov_extension_lib = nullptr;
 
     try {
-        InferenceImpl ii(&bi);
+        InferenceCoordinator ii(&bi);
         std::filesystem::remove(link_path);
         throw std::runtime_error("Symbolic link to model file opened");
     } catch (const std::invalid_argument &e) {
@@ -78,7 +78,7 @@ TEST(symlink_test, model_proc_file) {
     bi.ov_extension_lib = nullptr;
 
     try {
-        InferenceImpl ii(&bi);
+        InferenceCoordinator ii(&bi);
         std::filesystem::remove(link_path);
         throw std::runtime_error("Symbolic link to model proc file opened");
     } catch (const std::invalid_argument &e) {
@@ -114,7 +114,7 @@ TEST(symlink_test, labels_file) {
     bi.ov_extension_lib = nullptr;
 
     try {
-        InferenceImpl ii(&bi);
+        InferenceCoordinator ii(&bi);
         std::filesystem::remove(link_path);
         throw std::runtime_error("Symbolic link to labels file opened");
     } catch (const std::invalid_argument &e) {

@@ -15,7 +15,7 @@
 
 struct InferenceRefs {
     std::set<GvaBaseInference *> refs;
-    std::shared_ptr<InferenceImpl> proxy = nullptr;
+    std::shared_ptr<InferenceCoordinator> proxy = nullptr;
     dlstreamer::ContextPtr context = nullptr;
     GstVideoFormat videoFormat = GST_VIDEO_FORMAT_UNKNOWN;
     CapsFeature capsFeature = ANY_CAPS_FEATURE;
@@ -70,7 +70,7 @@ gboolean registerElement(GvaBaseInference *base_inference) {
 }
 
 void fillElementProps(GvaBaseInference *targetElem, GvaBaseInference *masterElem,
-                      std::shared_ptr<InferenceImpl> inference_impl) {
+                      std::shared_ptr<InferenceCoordinator> inference_impl) {
     assert(targetElem);
     assert(masterElem);
     UNUSED(inference_impl);
@@ -156,7 +156,7 @@ void check_inference_props_same(const InferenceRefs &inferenceRefs, GstVideoForm
     }
 }
 
-std::shared_ptr<InferenceImpl> acquire_inference_instance(GvaBaseInference *base_inference) {
+std::shared_ptr<InferenceCoordinator> acquire_inference_instance(GvaBaseInference *base_inference) {
     try {
         if (!base_inference)
             throw std::invalid_argument("GvaBaseInference is null");
@@ -175,9 +175,9 @@ std::shared_ptr<InferenceImpl> acquire_inference_instance(GvaBaseInference *base
 
         if (infRefs->proxy == nullptr) { // no instance for current inference-id acquired yet
             infRefs->proxy =
-                std::make_shared<InferenceImpl>(base_inference); // one instance for all elements with same inference-id
+                std::make_shared<InferenceCoordinator>(base_inference); // one instance for all elements with same inference-id
         }
-        infRefs->context = InferenceImpl::GetDisplay(base_inference);
+        infRefs->context = InferenceCoordinator::GetDisplay(base_inference);
 
         return infRefs->proxy;
     } catch (const std::exception &e) {

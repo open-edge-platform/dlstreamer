@@ -162,7 +162,7 @@ void fillModelLabels(post_processing::PostProcessorImpl::Initializer &initialize
 
 } /* anonymous namespace */
 
-PostProcessor::PostProcessor(InferenceImpl *inference_impl, GvaBaseInference *base_inference) {
+PostProcessor::PostProcessor(InferenceCoordinator *inference_impl, GvaBaseInference *base_inference) {
     auto inference_type = base_inference->type;
     auto inference_region = base_inference->inference_region;
 

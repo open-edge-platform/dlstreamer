@@ -134,11 +134,11 @@ struct ClassificationHistoryTest : public ::testing::Test {
         gva_base_inference->inference_region = ROI_LIST;
         gva_base_inference->object_class = nullptr;
 
-        // InferenceImpl object has object_classes vector as first member,
-        // so we can avoid creating and destroying heavy InferenceImpl instances
+        // InferenceCoordinator object has object_classes vector as first member,
+        // so we can avoid creating and destroying heavy InferenceCoordinator instances
         // with lots of dependent parameters unnecessary in these tests
-        // using this hack (cast vector pointer to InferenceImpl pointer)
-        gva_base_inference->inference = reinterpret_cast<InferenceImpl *>(&object_classes);
+        // using this hack (cast vector pointer to InferenceCoordinator pointer)
+        gva_base_inference->inference = reinterpret_cast<InferenceCoordinator *>(&object_classes);
 
         classification_history = gva_classify->classification_history;
         buffer = gst_buffer_new_and_alloc(100);

@@ -31,7 +31,7 @@ void check_model_input_info(gchar *pipeline_str, const int expected_width, const
     GstGvaDetect *gvadetect = reinterpret_cast<GstGvaDetect *>(gst_bin_get_by_name(GST_BIN(pipeline), "gvadetect"));
     GvaBaseInference *base_inference = reinterpret_cast<GvaBaseInference *>(gvadetect);
 
-    InferenceImpl::Model model = base_inference->inference->GetModel();
+    InferenceCoordinator::Model model = base_inference->inference->GetModel();
     InferenceBackend::ImageInference *openvino_infer = model.inference.get();
     fail_unless(openvino_infer);
 

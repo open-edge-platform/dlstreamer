@@ -96,7 +96,7 @@ void ClassificationHistory::FillROIParams(GstBuffer *buffer) {
             gint id = region.object_id();
             if (!id)
                 continue;
-            InferenceImpl *inference = gva_classify->base_inference.inference;
+            InferenceCoordinator *inference = gva_classify->base_inference.inference;
             assert(inference && "Empty inference instance");
             bool is_appropriate_object_class = inference->FilterObjectClass(region.label());
             if (history.count(id) && is_appropriate_object_class) {

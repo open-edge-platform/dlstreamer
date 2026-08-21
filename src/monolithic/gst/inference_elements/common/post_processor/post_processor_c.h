@@ -9,16 +9,16 @@
 #include <processor_types.h>
 
 #ifdef __cplusplus
-class InferenceImpl;
+class InferenceCoordinator;
 #else  /* __cplusplus */
-typedef struct InferenceImpl InferenceImpl;
+typedef struct InferenceCoordinator InferenceCoordinator;
 #endif /* __cplusplus */
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-PostProcessor *createPostProcessor(InferenceImpl *inference_impl, GvaBaseInference *base_inference);
+PostProcessor *createPostProcessor(InferenceCoordinator *inference_impl, GvaBaseInference *base_inference);
 void releasePostProcessor(PostProcessor *post_processor);
 
 #ifdef __cplusplus

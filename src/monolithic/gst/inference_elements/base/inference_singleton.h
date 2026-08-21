@@ -12,9 +12,9 @@
 #include <processor_types.h>
 
 #ifdef __cplusplus
-class InferenceImpl;
+class InferenceCoordinator;
 #else  /* __cplusplus */
-typedef struct InferenceImpl InferenceImpl;
+typedef struct InferenceCoordinator InferenceCoordinator;
 #endif /* __cplusplus */
 
 #ifdef __cplusplus

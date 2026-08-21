@@ -1536,7 +1536,7 @@ std::map<std::string, GstStructure *> OpenVINOImageInference::GetModelInfoPrepro
 void OpenVINOImageInference::Flush() {
     ITT_TASK(__FUNCTION__);
 
-    // because Flush can execute by several threads for one InferenceImpl instance
+    // because Flush can execute by several threads for one InferenceCoordinator instance
     // it must be synchronous.
     std::unique_lock<std::mutex> requests_lk(requests_mutex_);
 
