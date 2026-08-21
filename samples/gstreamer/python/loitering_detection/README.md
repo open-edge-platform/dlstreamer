@@ -125,13 +125,6 @@ This sample expects `yolo11s` in FP16 precision from Ultralytics for object dete
 Use the model conversion script in [scripts/download_models/](../../../../scripts/download_models/README.md) to prepare the model.
 Before running it, create and activate the dedicated model-download virtual environment described in [scripts/download_models/README.md](../../../../scripts/download_models/README.md).
 
-Set `MODELS_PATH` to the directory where models are downloaded, then run:
-
-```sh
-export MODELS_PATH="$HOME/models"
-python3 download_ultralytics_models.py --model yolo11s --outdir "${MODELS_PATH}/public/yolo11s/FP16" --half
-```
-
 ### Execution
 
 You can run the sample using the provided shell script.
