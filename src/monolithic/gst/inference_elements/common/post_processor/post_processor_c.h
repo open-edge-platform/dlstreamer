@@ -18,7 +18,7 @@ typedef struct InferenceCoordinator InferenceCoordinator;
 extern "C" {
 #endif
 
-PostProcessor *createPostProcessor(InferenceCoordinator *inference_impl, GvaBaseInference *base_inference);
+PostProcessor *createPostProcessor(InferenceCoordinator *coordinator, GvaBaseInference *base_inference);
 void releasePostProcessor(PostProcessor *post_processor);
 
 #ifdef __cplusplus

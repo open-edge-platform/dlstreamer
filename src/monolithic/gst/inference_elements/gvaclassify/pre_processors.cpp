@@ -11,7 +11,7 @@
 #include "classification_history.h"
 #include "gstgvaclassify.h"
 #include "gva_base_inference.h"
-#include "inference_impl.h"
+#include "inference_coordinator.h"
 #include "region_of_interest.h"
 #include "safe_arithmetic.hpp"
 #include "utils.h"

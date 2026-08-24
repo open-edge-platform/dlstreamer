@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
 
-#include "inference_impl.h"
+#include "inference_coordinator.h"
 
 #include "common/post_processor.h"
 #include "common/post_processor/post_proc_common.h"

@@ -9,7 +9,7 @@
 
 #include "base/audio_infer_impl.h"
 #include "base/gst_allocator_wrapper.h"
-#include "base/inference_impl.h"
+#include "base/inference_coordinator.h"
 #include "common/post_processor.h"
 #include "glib.h"
 #include "gvaclassify/classification_history.h"

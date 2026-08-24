@@ -8,7 +8,7 @@
 #include "inference_backend/buffer_mapper.h"
 
 #include "gva_base_inference.h"
-#include "inference_impl.h"
+#include "inference_coordinator.h"
 #include "utils.h"
 #include <assert.h>
 #include <set>
@@ -70,10 +70,10 @@ gboolean registerElement(GvaBaseInference *base_inference) {
 }
 
 void fillElementProps(GvaBaseInference *targetElem, GvaBaseInference *masterElem,
-                      std::shared_ptr<InferenceCoordinator> inference_impl) {
+                      std::shared_ptr<InferenceCoordinator> coordinator) {
     assert(targetElem);
     assert(masterElem);
-    UNUSED(inference_impl);
+    UNUSED(coordinator);
 
     COPY_GSTRING(targetElem->model, masterElem->model);
     COPY_GSTRING(targetElem->device, masterElem->device);

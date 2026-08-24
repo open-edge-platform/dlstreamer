@@ -14,7 +14,7 @@
 #define protected public
 
 #include "base/gst_allocator_wrapper.h"
-#include "base/inference_impl.h"
+#include "base/inference_coordinator.h"
 #include "test_utils.h"
 
 TEST(symlink_test, model_file) {

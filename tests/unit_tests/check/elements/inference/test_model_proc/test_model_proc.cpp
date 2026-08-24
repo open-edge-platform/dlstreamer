@@ -10,7 +10,7 @@
 #include <gtest/gtest-spi.h>
 
 #include "gva_base_inference.h"
-#include "inference_impl.h"
+#include "inference_coordinator.h"
 #include "test_common.h"
 #include "test_env.h"
 

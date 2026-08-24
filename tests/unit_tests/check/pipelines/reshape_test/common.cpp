@@ -8,7 +8,7 @@
 
 #include "gstgvadetect.h"
 #include "gva_base_inference.h"
-#include "inference_impl.h"
+#include "inference_coordinator.h"
 
 #include <gst/check/gstcheck.h>
 

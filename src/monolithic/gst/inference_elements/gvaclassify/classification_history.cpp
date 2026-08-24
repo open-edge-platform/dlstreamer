@@ -8,7 +8,7 @@
 #include "gmutex_lock_guard.h"
 #include "gva_utils.h"
 #include "inference_backend/logger.h"
-#include "inference_impl.h"
+#include "inference_coordinator.h"
 #include "utils.h"
 #include <video_frame.h>
 
