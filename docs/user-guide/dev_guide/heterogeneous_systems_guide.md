@@ -92,7 +92,7 @@ detect this condition.
 
 ### Optimize sub-pipelines with the DL Streamer Optimizer
 
-The [DL Streamer Optimizer](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/dev_guide/optimizer.html)
+The [DL Streamer Optimizer](https://docs.openedgeplatform.intel.com/2026.2/edge-ai-libraries/dlstreamer/dev_guide/optimizer.html)
 can automatically tune inference parameters such as `nireq`, `batch-size` for each
 sub-pipeline and target device. A standalone NPU workload that runs independently
 is a particularly good candidate: its parameters can be tuned in isolation without
@@ -216,26 +216,26 @@ Sub-pipelines A and B run on GPU. No extra workload.
 ```mermaid
 flowchart LR
     Video1["Police Highway Video"]
-    
+
     Video1 -.-> V1A[filesrc]
     Video1 -.-> V1B[filesrc]
-    
+
     V1A --> D1
     V1B --> D2
-    
+
     subgraph GT1["GPU GT1 Media Tile (Shared HW Decode)"]
         D1[decodebin3]
         D2[decodebin3]
     end
-    
+
     subgraph SubA["Sub-pipeline A: LVM Alerts"]
         D1 --> LVM["gvagenai<br/>device=GPU<br/>InternVL3_5-2B"] --> Q1[queue] --> F1[fakesink]
     end
-    
+
     subgraph SubB["Sub-pipeline B: License Plate Detection + OCR"]
         D2 --> DET["gvadetect<br/>device=GPU<br/>YOLOv8 LP"] --> Q2[queue] --> OCR["gvaclassify<br/>device=GPU<br/>PP-OCRv4"] --> Q3[queue] --> F2[fakesink]
     end
-    
+
     style GT1 fill:#fff4e6,stroke:#ff9800,stroke-width:3px
 ```
 
@@ -270,33 +270,33 @@ Sub-pipelines A, B and C (GPU variant) run together.
 flowchart LR
     Video1["Police Highway Video"]
     Video2["Metro Crowd Video"]
-    
+
     Video1 -.-> V1A[filesrc]
     Video1 -.-> V1B[filesrc]
     Video2 -.-> V2[filesrc]
-    
+
     V1A --> D1
     V1B --> D2
     V2 --> D3
-    
+
     subgraph GT1["GPU GT1 Media Tile (Shared HW Decode)"]
         D1[decodebin3]
         D2[decodebin3]
         D3[decodebin3]
     end
-    
+
     subgraph SubA["Sub-pipeline A: LVM Alerts"]
         D1 --> LVM["gvagenai<br/>device=GPU<br/>InternVL3_5-2B"] --> Q1[queue] --> F1[fakesink]
     end
-    
+
     subgraph SubB["Sub-pipeline B: License Plate Detection + OCR"]
         D2 --> DET["gvadetect<br/>device=GPU<br/>YOLOv8 LP"] --> Q2[queue] --> OCR["gvaclassify<br/>device=GPU<br/>PP-OCRv4"] --> Q3[queue] --> F2[fakesink]
     end
-    
+
     subgraph SubC["Sub-pipeline C: Face Detection"]
         D3 --> FACE["gvadetect<br/>device=GPU<br/>YOLOv8 Face"] --> Q4[queue] --> F3[fakesink]
     end
-    
+
     style GT1 fill:#fff4e6,stroke:#ff9800,stroke-width:3px
 ```
 
@@ -330,33 +330,33 @@ Sub-pipelines A and B remain on GPU. Sub-pipeline C uses the NPU variant.
 flowchart LR
     Video1["Police Highway Video"]
     Video2["Metro Crowd Video"]
-    
+
     Video1 -.-> V1A[filesrc]
     Video1 -.-> V1B[filesrc]
     Video2 -.-> V2[filesrc]
-    
+
     V1A --> D1
     V1B --> D2
     V2 --> D3
-    
+
     subgraph GT1["GPU GT1 Media Tile (Shared HW Decode)"]
         D1[decodebin3]
         D2[decodebin3]
         D3[decodebin3]
     end
-    
+
     subgraph SubA["Sub-pipeline A: LVM Alerts"]
         D1 --> LVM["gvagenai<br/>device=GPU<br/>InternVL3_5-2B"] --> Q1[queue] --> F1[fakesink]
     end
-    
+
     subgraph SubB["Sub-pipeline B: License Plate Detection + OCR"]
         D2 --> DET["gvadetect<br/>device=GPU<br/>YOLOv8 LP"] --> Q2[queue] --> OCR["gvaclassify<br/>device=GPU<br/>PP-OCRv4"] --> Q3[queue] --> F2[fakesink]
     end
-    
+
     subgraph SubC["Sub-pipeline C: Face Detection"]
         D3 --> FACE["gvadetect<br/>device=NPU<br/>YOLOv8 Face"] --> Q4[queue] --> F3[fakesink]
     end
-    
+
     style GT1 fill:#fff4e6,stroke:#ff9800,stroke-width:3px
 ```
 
@@ -440,7 +440,7 @@ helps distinguish these cases.
 ### 6. Optimize individual sub-pipelines with the DL Streamer Optimizer
 
 Each sub-pipeline can be tuned independently using the
-[DL Streamer Optimizer](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/dev_guide/optimizer.html).
+[DL Streamer Optimizer](https://docs.openedgeplatform.intel.com/2026.2/edge-ai-libraries/dlstreamer/dev_guide/optimizer.html).
 A standalone NPU sub-pipeline is a good starting point: its `nireq` and
 `batch-size` can be tuned to maximize NPU throughput without affecting the
 adjacent GPU workloads.
@@ -462,7 +462,7 @@ adjacent GPU workloads.
 
 ## References
 
-- [DL Streamer Optimizer](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/dev_guide/optimizer.html)
+- [DL Streamer Optimizer](https://docs.openedgeplatform.intel.com/2026.2/edge-ai-libraries/dlstreamer/dev_guide/optimizer.html)
 - [VLM Alerts Sample](https://github.com/open-edge-platform/dlstreamer/blob/main/samples/gstreamer/python/vlm_alerts)
 - [Face Detection and Classification Sample](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/python/face_detection_and_classification)
 - [Intel OpenVINO](https://github.com/openvinotoolkit/openvino)
