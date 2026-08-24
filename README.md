@@ -1,4 +1,4 @@
-# Intel® Deep Learning Streamer Documentation 2026.1
+# Intel® Deep Learning Streamer Documentation 2026.2
 
 This branch is for the purpose of publishing documentation only.
 
