@@ -71,9 +71,7 @@ curl -L -o 2431853-hd_1920_1080_25fps.mp4 \
 ### Prepare Model
 
 This sample expects `PekingU/rtdetr_v2_r50vd` in FP16 precision from Hugging Face for vehicle detection.
-
-Use the model conversion script in [scripts/download_models/](../../../../scripts/download_models/README.md) to prepare the model.
-Before running it, create and activate the dedicated model-download virtual environment described in [scripts/download_models/README.md](../../../../scripts/download_models/README.md).
+Use the [Hugging Face model conversion](../../../../scripts/download_models/README.md#1-hugging-face-conversion) to prepare the model.
 
 ## Run Sample Application
 
