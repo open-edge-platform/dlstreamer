@@ -290,7 +290,7 @@ For all languages:
   | `{{CONFIGURATION_FILES_SECTION}}` | Optional `## Configuration Files` table (file name + purpose). Omit the section if unused. |
   | `{{CLI_ARGUMENTS_TABLE}}` | One table row per CLI argument: flag name, default value, description. |
   | `{{OUTPUT_FILES_LIST}}` | Bulleted list of output files produced under `results/`. |
-- If the application requires Python packages, list them in `requirements.txt`. If the OpenVINO Python runtime is required, pin the same version as the OpenVINO runtime installed with DL Streamer.
+- If the application requires Python packages, list them in `requirements.txt`. If the OpenVINO Python runtime is required, pin the same version as the OpenVINO runtime installed with DL Streamer and Other.
 
 ### Step 5 — Run, Debug, and Validate
 
