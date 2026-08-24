@@ -31,6 +31,8 @@ from transformers import AutoProcessor, AutoImageProcessor
 from PIL import Image
 
 SUPPORTED_HF_MODELS = {
+    "EfficientNetForImageClassification",
+    "EfficientNetForImageClassification",
     "vitforimageclassification",
     "WhisperForConditionalGeneration",
     "LlavaForConditionalGeneration",
@@ -61,6 +63,8 @@ CUSTOM_CONVERTERS = {
 # Task hints for optimum-cli when exporting from a local snapshot.
 # Some models cannot be auto-detected by optimum without explicit --task.
 OPTIMUM_TASK_BY_ARCH = {
+    "efficientnetforimageclassification": "image-classification",
+    "efficientnetforimageclassification": "image-classification",
     "vitforimageclassification": "image-classification",
     "whisperforconditionalgeneration": "automatic-speech-recognition",
     "llavaforconditionalgeneration": "image-text-to-text",
