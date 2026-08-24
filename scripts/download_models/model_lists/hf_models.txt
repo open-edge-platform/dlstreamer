@@ -31,9 +31,6 @@ dima806/facial_age_image_detection@ad35933da48272de7295530766f3d6c56702eba8
 dima806/vehicle_10_types_image_detection@7619f8df8750db3a01bdf01e66d147af21a560d5
 dima806/face_emotions_image_detection@a89ee07e59ea73cce21a4d4671576b71f7857a65
 
-# EfficientNetForImageClassification (SUPPORTED_HF_MODELS)
-google/efficientnet-b0@3d8d75d0812b65064f0151b456f869c6344bf20c
-
 # WhisperForConditionalGeneration (SUPPORTED_HF_MODELS)
 openai/whisper-tiny@169d4a4341b33bc18d8881c4b69c2e104e1cc0af
 
