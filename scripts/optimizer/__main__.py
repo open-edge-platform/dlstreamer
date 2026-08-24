@@ -188,6 +188,9 @@ def main() -> int:
     except KeyboardInterrupt:
         logger.info("Execution stopped, closing down.")
     finally:
+        # sleeping here in case the keyboard listening thread hasn't started yet 
+        # when an error happens, otherwise it could ignore the stop_listening() signal
+        time.sleep(1)
         stop_listening()
         if args.output:
             with open(args.output, 'w', encoding='utf-8') as f:
