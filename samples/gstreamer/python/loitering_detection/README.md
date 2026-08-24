@@ -121,9 +121,7 @@ cd /opt/intel/dlstreamer/samples/gstreamer/python/loitering_detection
 ### Prepare Model
 
 This sample expects `yolo11s` in FP16 precision from Ultralytics for object detection.
-
-Use the model conversion script in [scripts/download_models/](../../../../scripts/download_models/README.md) to prepare the model.
-Before running it, create and activate the dedicated model-download virtual environment described in [scripts/download_models/README.md](../../../../scripts/download_models/README.md).
+Use the [Ultralytics model conversion](../../../../scripts/download_models/README.md#2-ultralytics-conversion) to prepare the model.
 
 ### Execution
 
