@@ -361,7 +361,7 @@ jobs:
     name: "DLS SCAN: Skill Scanner"
     uses: ./.github/workflows/skill-scan.yaml
     with:
-      severity: HIGH
+      severity: LOW
       fail_on_findings: true
 
   #---------------------------------------------------------- DOWNLOAD MODELS TESTS -------------------------------------------------------------
