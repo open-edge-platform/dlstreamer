@@ -5,7 +5,6 @@ allowed-tools:
   - write
   - command
 permissions:
-  - command
   - write
 ---
 
