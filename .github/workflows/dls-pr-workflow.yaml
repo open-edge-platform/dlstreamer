@@ -43,6 +43,7 @@ jobs:
         run: |
           rm -rf dlstreamer-repo/thirdparty
           rm -rf thirdparty
+          rm -rf dlstreamer-repo/.github/skills
 
       - name: Code-style action
         uses: ./dlstreamer-repo/.github/actions/common/code-style
