@@ -70,7 +70,8 @@ def main(args):
     p = argparse.ArgumentParser(description="Prompt-based object detection")
     p.add_argument("--input", required=True, help="Path to input video file")
     p.add_argument("--prompt", required=True, help="Object to detect (e.g. 'dog', 'white car')")
-    p.add_argument("--device", default="GPU", help="Inference device: CPU, GPU, or NPU (default: GPU)")
+    p.add_argument("--device", default="GPU", choices=["CPU", "GPU", "NPU"],
+                   help="Inference device (default: GPU)")
     p.add_argument("--output", default="appsink", choices=["appsink", "json", "file"],
                    help="Output mode (default: appsink)")
     p.add_argument("--model", default=None,
