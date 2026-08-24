@@ -216,9 +216,9 @@ The complete solution leverages:
   | [g3dradarprocess](./elements/g3dradarprocess.md) | Processes 3D radar data for use in analytics pipelines. |
 
 
-For the details on supported platforms, please refer to [System Requirements](https://github.com/open-edge-platform/dlstreamer/blob/v2026.1.0/docs/user-guide/system_requirements.md).
+For the details on supported platforms, please refer to [System Requirements](https://github.com/open-edge-platform/dlstreamer/blob/v2026.1.0/docs/user-guide/get_started/system_requirements.md).
 
-For installing Pipeline Framework with the prebuilt binaries or Docker* or to build the binaries from the open source, refer to [Intel® DL Streamer Pipeline Framework installation guide](https://github.com/open-edge-platform/dlstreamer/blob/v2026.1.0/docs/user-guide/install/install_guide_index.md).
+For installing Pipeline Framework with the prebuilt binaries or Docker* or to build the binaries from the open source, refer to [Intel® DL Streamer Pipeline Framework installation guide](https://github.com/open-edge-platform/dlstreamer/blob/v2026.1.0/docs/user-guide/get_started/install/install_guide_index.md).
 
 ## New in 2026.1 Release
 
