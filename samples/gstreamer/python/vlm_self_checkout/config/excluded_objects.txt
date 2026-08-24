@@ -1,3 +1,0 @@
-# Object types to exclude from self-checkout tracking (one per line)
-person
-dining_table

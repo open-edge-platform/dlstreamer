@@ -1,9 +1,0 @@
-prefix=${pcfiledir}/../..
-exec_prefix=${prefix}/bin
-libdir=${prefix}/lib
-includedir=${prefix}/include
-Name: Deep Learning Streamer (DL Streamer) Pipeline Framework
-Description: Elements that enable Deep Learning inference and media analytics capabilities in the GStreamer framework
-Version:@VERSION_MAJOR@.@VERSION_MINOR@.@VERSION_PATCH@
-Libs: -L${libdir}
-Cflags: -I${includedir}
