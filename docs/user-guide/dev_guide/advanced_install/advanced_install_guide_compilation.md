@@ -150,7 +150,7 @@ packages:
 
 ### (Optional) Step 6: Install OpenVINO™ GenAI (only for Ubuntu)
 
-To use [gvagenai element](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/elements/gvagenai.html)
+To use [gvagenai element](https://docs.openedgeplatform.intel.com/2026.2/edge-ai-libraries/dlstreamer/elements/gvagenai.html)
 you need to install the [OpenVINO GenAI archive](https://docs.openvino.ai/2026/get-started/install-openvino/install-openvino-genai.html) package.
 
 <!--hide_directive::::{tab-set}
@@ -271,7 +271,7 @@ If you intend to use Python elements or samples, you need to install the
 necessary dependencies using the following commands:
 
   ```bash
-  sudo apt-get update 
+  sudo apt-get update
   sudo apt-get install -y -q --no-install-recommends gcc cmake python3-full python-gi-dev python3-dev python3-pip \
       libglib2.0-dev libcairo2-dev libopencv-objdetect-dev libopencv-photo-dev libopencv-stitching-dev libopencv-video-dev \
       libopencv-calib3d-dev libopencv-core-dev libopencv-dnn-dev libgirepository1.0-dev
