@@ -88,6 +88,12 @@ Center](https://www.global.ntt/innovation/innovating-today/),
 [Videonetics Technology Pvt. Limited](https://www.videonetics.com/),
 AIVID TECHVISION and others.
 
+<div align="center">
+
+[![Watch DL Streamer videos on YouTube](_images/watch-on-youtube.jpg)](https://www.youtube.com/watch?v=1x7LTZhEadI&list=PLg-UKERBljNySiBeQaLtzF0yZGOmKrBRF)
+
+</div>
+
 ## Testimonials
 
 | ![NTT_Logo](./_images/NTT_Logo.png) | “Deep Learning Streamer (OpenVINO™) is an easy-to-use and extensible application framework, which provides a well-organized set of classes and methods. In particular, Deep Learning Streamer allows us to add user-defined post processing with gvapython elements. This feature will help us develop AI-based video analytics applications for NTT's businesses, addressing various customer demands responsively.”<br>— Takeharu Eda, Senior Research Engineer, NTT Software Innovation Center<br> |

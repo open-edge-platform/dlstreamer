@@ -6,9 +6,7 @@ gst-inspect-1.0 utility.
 
 <div align="center">
 
-[![Watch the DL Streamer elements overview on YouTube](https://img.youtube.com/vi/5D09yUbuHIo/maxresdefault.jpg)](https://www.youtube.com/watch?v=5D09yUbuHIo)
-
-[![Watch on YouTube](https://img.shields.io/badge/▶-Watch%20on%20YouTube-red?logo=youtube&logoColor=white)](https://www.youtube.com/watch?v=5D09yUbuHIo)
+[![Watch DL Streamer videos on YouTube](../_images/watch-on-youtube.jpg)](https://www.youtube.com/watch?v=5D09yUbuHIo)
 
 </div>
 

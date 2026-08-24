@@ -17,9 +17,7 @@
 
 <div align="center">
 
-[![Watch the DL Streamer installation walkthrough on YouTube](https://img.youtube.com/vi/NUTy56-vY3o/maxresdefault.jpg)](https://www.youtube.com/watch?v=NUTy56-vY3o)
-
-[![Watch on YouTube](https://img.shields.io/badge/▶-Watch%20on%20YouTube-red?logo=youtube&logoColor=white)](https://www.youtube.com/watch?v=NUTy56-vY3o)
+[![Watch DL Streamer videos on YouTube](../_images/watch-on-youtube.jpg)](https://www.youtube.com/watch?v=NUTy56-vY3o)
 
 </div>
 

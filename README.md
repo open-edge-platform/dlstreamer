@@ -46,9 +46,7 @@
 
 <div align="center">
 
-[![Watch the DL Streamer video series on YouTube](https://img.youtube.com/vi/1x7LTZhEadI/maxresdefault.jpg)](https://www.youtube.com/watch?v=1x7LTZhEadI&list=PLg-UKERBljNySiBeQaLtzF0yZGOmKrBRF)
-
-[![Watch a playlist on YouTube](https://img.shields.io/badge/▶-Watch%20on%20YouTube-red?logo=youtube&logoColor=white)](https://www.youtube.com/watch?v=1x7LTZhEadI&list=PLg-UKERBljNySiBeQaLtzF0yZGOmKrBRF)
+[![Watch DL Streamer videos on YouTube](docs/user-guide/_images/watch-on-youtube.jpg)](https://www.youtube.com/watch?v=1x7LTZhEadI&list=PLg-UKERBljNySiBeQaLtzF0yZGOmKrBRF)
 
 </div>
 
