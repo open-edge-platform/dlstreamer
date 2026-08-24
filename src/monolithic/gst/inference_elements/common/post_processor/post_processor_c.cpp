@@ -10,7 +10,8 @@
 #include "utils.h"
 #include <inference_backend/logger.h>
 
-post_processing::PostProcessor *createPostProcessor(InferenceCoordinator *inference_impl, GvaBaseInference *base_inference) {
+post_processing::PostProcessor *createPostProcessor(InferenceCoordinator *inference_impl,
+                                                    GvaBaseInference *base_inference) {
     if (inference_impl == nullptr) {
         GVA_WARNING("InferenceCoordinator is null. Creating of inference post processor is imposible");
         return nullptr;

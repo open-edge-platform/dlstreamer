@@ -825,9 +825,11 @@ dlstreamer::ContextPtr createVaDisplay(GvaBaseInference *gva_base_inference) {
 
 } // namespace
 
-InferenceCoordinator::Model InferenceCoordinator::CreateModel(GvaBaseInference *gva_base_inference, const std::string &model_file,
-                                                const std::string &model_proc_path, const std::string &labels_str,
-                                                const std::string &custom_preproc_lib) {
+InferenceCoordinator::Model InferenceCoordinator::CreateModel(GvaBaseInference *gva_base_inference,
+                                                              const std::string &model_file,
+                                                              const std::string &model_proc_path,
+                                                              const std::string &labels_str,
+                                                              const std::string &custom_preproc_lib) {
     assert(gva_base_inference && "Expected a valid pointer to GvaBaseInference");
 
     if (!Utils::fileExists(model_file))
@@ -938,7 +940,8 @@ InferenceCoordinator::Model InferenceCoordinator::CreateModel(GvaBaseInference *
     SetAffinityMask(gva_base_inference->core_pinning_mask);
 
     auto image_inference = ImageInference::createImageInferenceInstance(
-        memory_type, ie_config, allocator.get(), std::bind(&InferenceCoordinator::InferenceCompletionCallback, this, _1, _2),
+        memory_type, ie_config, allocator.get(),
+        std::bind(&InferenceCoordinator::InferenceCompletionCallback, this, _1, _2),
         std::bind(&InferenceCoordinator::PushFramesIfInferenceFailed, this, _1), std::move(va_dpy));
     if (!image_inference)
         throw std::runtime_error("Failed to create inference instance");
@@ -1255,8 +1258,8 @@ void InferenceCoordinator::PushBufferToSrcPad(OutputFrame &output_frame) {
 
 std::shared_ptr<InferenceCoordinator::InferenceResult>
 InferenceCoordinator::MakeInferenceResult(GvaBaseInference *gva_base_inference, Model &model,
-                                   GstVideoRegionOfInterestMeta *meta, std::shared_ptr<InferenceBackend::Image> &image,
-                                   GstBuffer *buffer) {
+                                          GstVideoRegionOfInterestMeta *meta,
+                                          std::shared_ptr<InferenceBackend::Image> &image, GstBuffer *buffer) {
     auto result = std::make_shared<InferenceResult>();
     /* expect that std::make_shared must throw instead of returning nullptr */
     assert(result.get() != nullptr && "Expected a valid InferenceResult");
@@ -1277,7 +1280,8 @@ InferenceCoordinator::MakeInferenceResult(GvaBaseInference *gva_base_inference, 
 }
 
 GstFlowReturn InferenceCoordinator::SubmitImages(GvaBaseInference *gva_base_inference,
-                                          const std::vector<GstVideoRegionOfInterestMeta> &metas, GstBuffer *buffer) {
+                                                 const std::vector<GstVideoRegionOfInterestMeta> &metas,
+                                                 GstBuffer *buffer) {
     ITT_TASK(__FUNCTION__);
     try {
         if (!gva_base_inference)

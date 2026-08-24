@@ -174,8 +174,8 @@ std::shared_ptr<InferenceCoordinator> acquire_inference_instance(GvaBaseInferenc
         initExistingElements(infRefs);
 
         if (infRefs->proxy == nullptr) { // no instance for current inference-id acquired yet
-            infRefs->proxy =
-                std::make_shared<InferenceCoordinator>(base_inference); // one instance for all elements with same inference-id
+            infRefs->proxy = std::make_shared<InferenceCoordinator>(
+                base_inference); // one instance for all elements with same inference-id
         }
         infRefs->context = InferenceCoordinator::GetDisplay(base_inference);
 
