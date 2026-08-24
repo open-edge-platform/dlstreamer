@@ -11,6 +11,7 @@ yolov9c.pt@v8.4.0
 yolov9s.pt@v8.4.0
 yolov10n.pt@v8.4.0
 yolov10s.pt@v8.4.0
+yolo11m.pt@v8.4.0
 yolo11n.pt@v8.4.0
 yolo11s.pt@v8.4.0
 yolo11n-obb.pt@v8.4.0
