@@ -22,43 +22,23 @@ For each detected ROI, the mean depth value is attached as a classification labe
 
 This sample expects two OpenVINO IR models:
 
-* `yolo11n` for object detection
-* `Depth-Anything-V2-Small-hf` for depth estimation
+* `yolo11n` in FP16 precision from Ultralytics for object detection
+* `depth-anything/Depth-Anything-V2-Small-hf` in FP16 precision from HuggingFace for depth estimation
 
 Use the model conversion scripts in [scripts/download_models/](../../../../scripts/download_models/README.md) to prepare both models.
-Before running them, create and activate the dedicated model-download virtual environment described in [scripts/download_models/README.md](../../../../scripts/download_models/README.md):
+Before running them, create and activate the dedicated model-download virtual environment described in [scripts/download_models/README.md](../../../../scripts/download_models/README.md).
 
-```sh
-cd /opt/intel/dlstreamer/scripts/download_models
-python3 -m venv .model_download_venv
-source .model_download_venv/bin/activate
-curl -LO https://raw.githubusercontent.com/openvinotoolkit/openvino.genai/refs/heads/releases/2026/2/samples/export-requirements.txt
-pip install -r export-requirements.txt -r requirements.txt
-```
-
-After the models are prepared, you can switch back to your DL Streamer runtime environment and run the sample.
-
-Example commands:
+Set `MODELS_PATH` environment variable to the main directory (specified as `--outdir <output_dir>`) where models have been downloaded, for example:
 
 ```sh
 export MODELS_PATH="$HOME/models"
-cd /opt/intel/dlstreamer/scripts/download_models
-
-python download_ultralytics_models.py \
-  --model yolo11n.pt \
-  --outdir "${MODELS_PATH}/public/yolo11n/FP16"
-
-python download_hf_models.py \
-  --model depth-anything/Depth-Anything-V2-Small-hf \
-  --outdir "${MODELS_PATH}/public/"
 ```
-
-The sample resolves the default model locations under `MODELS_PATH` automatically. If your models are stored elsewhere, set the `DETECTION_MODEL` and `DEPTH_MODEL` environment variables to the full `.xml` paths before running the sample.
 
 ## Running
 
+Running the sample:
+
 ```sh
-export MODELS_PATH="$HOME/models"
 cd /opt/intel/dlstreamer/samples/gstreamer/gst_launch/depth_estimation/
 ./depth_estimation.sh [INPUT] [DETECT_DEVICE] [DEPTH_DEVICE] [OUTPUT]
 ```
@@ -84,7 +64,7 @@ The sample takes four optional parameters:
    Supported values:
    * `display` - render annotated video
    * `fps` - print FPS only
-   * `json` - write per-object depth metric tensors for the first frame to `output.json`
+   * `json` - write per-object depth metric tensors as json-lines (one line per frame) to `output.json`
    * `display-and-json` - render annotated video and write `output.json`
 
 Example runs:
@@ -103,7 +83,7 @@ The sample:
 
 * prints the full `gst-launch-1.0` pipeline before execution
 * renders detections when using display output modes, with the mean depth for each detected object attached as the ROI classification label
-* writes per-object `depth_metrics` tensors to `output.json` when using JSON output modes, containing center depth, mean depth, median depth, minimum depth, maximum depth, standard deviation, valid pixel count, and valid pixel ratio
+* writes per-object `depth_metrics` tensors as json-lines to `output.json` when using JSON output modes, containing center depth, mean depth, median depth, minimum depth, maximum depth, standard deviation, valid pixel count, and valid pixel ratio
 
 ## See also
 

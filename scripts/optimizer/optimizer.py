@@ -290,8 +290,6 @@ class DLSOptimizer:
                         best_result = result.copy()
                         best_pipeline = pipeline
 
-                    logger.info(str(result))
-
                     yield pipeline, result
 
                 except TestHalt:
@@ -342,6 +340,8 @@ class DLSOptimizer:
             start_time = time.time()
             power_total = 0.0
             power_samples = 0
+            power_sampling_delay = 0.5
+            last_power_sample = time.time()
             while not terminate:
                 if self._paused:
                     raise TestHalt("Interrupt signal received, halting test run")
@@ -374,7 +374,8 @@ class DLSOptimizer:
                 if cur_time - start_time > sample_duration:
                     terminate = True
 
-                if self._metrics_url is not None:
+                if self._metrics_url is not None and cur_time - last_power_sample > power_sampling_delay:
+                    last_power_sample = cur_time
                     try:
                         resp = requests.get(self._metrics_url, timeout=1)
                         resp.raise_for_status()
