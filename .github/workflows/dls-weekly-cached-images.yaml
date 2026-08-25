@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 permissions: {}
 env:
-  dlstreamer-version: "2026.1.0"
+  dlstreamer-version: "2026.2.0"
   DLS_REL_PATH: "./dlstreamer-repo"
 
 jobs:
@@ -26,7 +26,7 @@ jobs:
             ubuntu_version: ubuntu24
     steps:
       - name: Check out dlstreamer repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 #7.0.1
         with:
           persist-credentials: false
           path: dlstreamer-repo
@@ -37,10 +37,10 @@ jobs:
           git submodule update --init thirdparty/spdlog
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd #4.0.0
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c #4.2.0
 
       - name: Log in to GitHub Container Registry
-        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 #4.1.0
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f #4.6.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -82,7 +82,7 @@ jobs:
             build_arg: Debug
     steps:
       - name: Check out dlstreamer repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 #7.0.1
         with:
           persist-credentials: false
           path: dlstreamer-repo
@@ -93,10 +93,10 @@ jobs:
           git submodule update --init thirdparty/spdlog
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd #4.0.0
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c #4.2.0
 
       - name: Log in to GitHub Container Registry
-        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 #4.1.0
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f #4.6.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -131,7 +131,7 @@ jobs:
           sudo rm -rf dlstreamer-repo
 
       - name: Check out dlstreamer repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 #7.0.1
         with:
           persist-credentials: false
           path: dlstreamer-repo
@@ -142,10 +142,10 @@ jobs:
           git submodule update --init thirdparty/spdlog
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd #4.0.0
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c #4.2.0
 
       - name: Log in to GitHub Container Registry
-        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 #4.1.0
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f #4.6.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}

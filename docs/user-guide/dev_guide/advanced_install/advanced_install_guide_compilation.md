@@ -1,7 +1,7 @@
 # Advanced Installation - Compilation From Source
 
 > **NOTE:** Installation of Deep Learning Streamer Pipeline Framework
-> [from pre-built Debian packages using one-click script](../../get_started/install/install_guide_ubuntu.md)
+> [from pre-built Debian packages using one-click script](../../install/install_guide_ubuntu.md)
 > is the easiest approach.
 
 The instructions below are intended for building Deep Learning Streamer Pipeline Framework
@@ -12,7 +12,7 @@ from the source code provided in
 ## Step 1: Install prerequisites (only for Ubuntu)
 
 Follow the instructions in
-[the prerequisites](../../get_started/install/install_guide_ubuntu.md#prerequisites) section.
+[the prerequisites](../../install/install_guide_ubuntu.md#prerequisites) section.
 
 ## Step 2: Install build dependencies
 
@@ -271,6 +271,7 @@ If you intend to use Python elements or samples, you need to install the
 necessary dependencies using the following commands:
 
   ```bash
+  sudo apt-get update 
   sudo apt-get install -y -q --no-install-recommends gcc cmake python3-full python-gi-dev python3-dev python3-pip \
       libglib2.0-dev libcairo2-dev libopencv-objdetect-dev libopencv-photo-dev libopencv-stitching-dev libopencv-video-dev \
       libopencv-calib3d-dev libopencv-core-dev libopencv-dnn-dev libgirepository1.0-dev
@@ -289,7 +290,7 @@ See [ONVIF sample](https://github.com/open-edge-platform/dlstreamer/tree/main/sa
 The easiest way is to download and install the wheel directly from the GitHub Release:
 
   ```bash
-  pip install https://github.com/open-edge-platform/dlstreamer/releases/download/v2026.1.0/intel_dlstreamer-2026.1.0-py3-none-any.whl
+  pip install https://github.com/open-edge-platform/dlstreamer/releases/download/v2026.2.0/intel_dlstreamer-2026.2.0-py3-none-any.whl
   ```
 
 Alternatively, build the wheel from the cloned sources:

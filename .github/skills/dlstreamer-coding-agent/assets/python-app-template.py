@@ -145,7 +145,7 @@ def main():
     device = check_device(args.device, "inference")
 
     # Build and run pipeline
-    Gst.init(None)
+    Gst.init([])
     source_el = build_source(input_src)
 
     pipe = (

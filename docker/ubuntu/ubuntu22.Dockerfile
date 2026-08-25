@@ -111,7 +111,7 @@ USER dlstreamer
 
 RUN \
     python3 -m venv /python3venv && \
-    /python3venv/bin/pip3 install --no-cache-dir --upgrade pip==26.1 && \
+    /python3venv/bin/pip3 install --no-cache-dir --upgrade pip==26.1.2 && \
     /python3venv/bin/pip3 install --no-cache-dir --no-dependencies \
     meson==1.4.1 \
     ninja==1.11.1.1 \
@@ -127,7 +127,7 @@ RUN \
     six==1.16.0 \
     pycairo==1.26.0 \
     PyGObject==3.50.0 \
-    setuptools==82.0.1 \
+    setuptools==84.0.0 \
     pytest==8.3.3 \
     pluggy==1.5.0 \
     exceptiongroup==1.2.2 \
@@ -355,7 +355,7 @@ RUN cp -a /usr/local/lib/librealsense* ./
 # ==============================================================================
 FROM builder AS dlstreamer-dev
 
-ARG DLSTREAMER_VERSION=2026.1.0
+ARG DLSTREAMER_VERSION=2026.2.0
 ARG DLSTREAMER_BUILD_NUMBER
 ARG OPENVINO_VERSION=2026.2.0
 
@@ -408,7 +408,7 @@ ENV PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:${LIBDIR}/pkgconfig:/usr/lib/x86_64
 ENV LIBRARY_PATH=${GSTREAMER_DIR}/lib:${LIBDIR}:/usr/lib:/usr/local/lib:${LIBRARY_PATH}
 ENV LD_LIBRARY_PATH=${GSTREAMER_DIR}/lib:${LIBDIR}:/usr/lib:/usr/local/lib:${LD_LIBRARY_PATH}
 ENV LIB_PATH=$LIBDIR
-ENV GST_PLUGIN_PATH=${LIBDIR}:${GSTREAMER_DIR}/lib/gstreamer-1.0:/usr/lib/x86_64-linux-gnu/gstreamer-1.0:${GST_PLUGIN_PATH}
+ENV GST_PLUGIN_PATH=${LIBDIR}:${GSTREAMER_DIR}/lib/gstreamer-1.0:${GST_PLUGIN_PATH}
 ENV LC_NUMERIC=C
 ENV C_INCLUDE_PATH=/usr/local/include:${DLSTREAMER_DIR}/include:${DLSTREAMER_DIR}/include/dlstreamer/gst/metadata:${C_INCLUDE_PATH}
 ENV CPLUS_INCLUDE_PATH=/usr/local/include:${DLSTREAMER_DIR}/include:${DLSTREAMER_DIR}/include/dlstreamer/gst/metadata:${CPLUS_INCLUDE_PATH}
@@ -432,6 +432,9 @@ RUN \
     make -j "$(nproc)" && \
     usermod -a -G video dlstreamer && \
     chown -R dlstreamer:dlstreamer /home/dlstreamer
+
+# Install python dependencies
+RUN pip3 install --no-cache-dir --break-system-packages --ignore-installed -r "${DLSTREAMER_DIR}/requirements.txt"
 
 # ==============================================================================
 FROM dlstreamer-dev AS deb-builder
@@ -551,7 +554,7 @@ ARG DEBIAN_FRONTEND=noninteractive
 RUN \
     apt-get update -y && \
     apt-get install -y -q --no-install-recommends /debs/*.deb gcc=\* ninja-build=\* libcairo2-dev=\* libgirepository1.0-dev=\* && \
-    pip3 install --no-cache-dir pip==26.1 setuptools==82.0.1 wheel==0.46.2 packaging==24.2 && \
+    pip3 install --no-cache-dir pip==26.1.2 setuptools==84.0.0 wheel==0.46.2 packaging==24.2 && \
     pip3 install --no-cache-dir meson==1.6.1 && \
     pip3 install --no-cache-dir --ignore-installed -r /opt/intel/dlstreamer/requirements.txt && \
     apt-get remove -y gcc ninja-build libcairo2-dev libgirepository1.0-dev && \

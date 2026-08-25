@@ -1,6 +1,6 @@
 #!/bin/bash
 # ==============================================================================
-# Copyright (C) 2020-2025 Intel Corporation
+# Copyright (C) 2020-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
@@ -31,7 +31,7 @@ if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
 fi
 
 MODEL="yolo11s"
-MODEL_PATH="$MODELS_PATH/public/$MODEL/FP32/$MODEL.xml"
+MODEL_PATH="$MODELS_PATH/public/$MODEL/FP16/$MODEL.xml"
 
 if [ ! -f "$MODEL_PATH" ]; then
 	echo "Model not found: $MODEL_PATH" >&2

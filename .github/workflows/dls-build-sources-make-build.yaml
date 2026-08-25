@@ -6,7 +6,7 @@ on:
 
 permissions: {}
 env:
-  dlstreamer-version: "2026.1.0"
+  dlstreamer-version: "2026.2.0"
   DLS_REL_PATH: "./dlstreamer-repo"
 
 jobs:
@@ -17,7 +17,7 @@ jobs:
       should_run: ${{ steps.skip-check.outputs.should_run }}
     steps:
       - name: Check out dlstreamer repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 #7.0.1
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -59,7 +59,7 @@ jobs:
 
       - name: Check out dlstreamer repository
         if: needs.setup.outputs.should_run == 'true'
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # 6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 #7.0.1
         with:
           persist-credentials: false
           path: dlstreamer-repo

@@ -22,7 +22,7 @@ The default pipeline is:
 gst-launch-1.0 -e \
 	multifilesrc location=".../%06d.bin" start-index=2 stop-index=2 caps=application/octet-stream ! \
 	g3dlidarparse ! \
-	g3dinference config=".../pointpillars_ov_config.json" device=CPU score-threshold=0 ! \
+	g3dinference config=".../pointpillars_ov_config.json" device=CPU score-threshold=0.7 ! \
 	gvametaconvert format=json json-indent=2 ! \
 	gvametapublish file-format=2 file-path=".../g3dinference_output.json" ! \
 	fakesink
@@ -31,7 +31,7 @@ gst-launch-1.0 -e \
 `g3dlidarparse` converts the raw point cloud into `application/x-lidar` with `LidarMeta`. `g3dinference` loads the PointPillars runtime from the generated JSON config, runs inference, and attaches metadata. `gvametaconvert` and `gvametapublish` serialize that metadata to JSON.
 Use `multifilesrc` even for a single frame, because `filesrc` may split the input into block-sized chunks.
 The `device` setting currently supports `CPU`, `GPU`, and `GPU.<id>`.
-The `score-threshold` setting uses `0` to keep all post-processing output unchanged.
+The `score-threshold` setting defaults to `0.7`; set it to `0` to keep all post-processing output unchanged.
 
 ## Prerequisites
 
@@ -96,7 +96,7 @@ If `POINTPILLARS_ROOT` is not set, `g3dinference_prepare.sh` first looks for a s
 
 - `g3dinference_prepare.sh` uses the PointPillars source tree as the single source of truth for sample data, pretrained IR files, and the extension build script.
 - `g3dinference_prepare.sh` writes a fresh runtime JSON config with absolute paths, so it does not depend on the upstream `pointpillars_ov_config.json` having usable paths on your machine.
-- If you already downloaded the IR files with `samples/download_public_models.sh`, the preparation script reuses them from `MODELS_PATH/public/pointpillars/FP16`.
+- If you already downloaded the IR files with `download_other_models.sh pointpillars`, the preparation script reuses them from `MODELS_PATH/public/pointpillars/FP16`.
 
 ## See Also
 

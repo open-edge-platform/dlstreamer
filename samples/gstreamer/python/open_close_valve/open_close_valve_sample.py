@@ -27,7 +27,7 @@ class DualStreamController:
         Initialize dual stream controller
         """
 
-        Gst.init(None)
+        Gst.init([])
         self.video_source = video_source
         self.pipeline = None
         self.valve = None
@@ -74,8 +74,7 @@ class DualStreamController:
         queue name=detect_to_classify
             max-size-buffers=20
             leaky=no !
-        gvaclassify model=./models/vehicle-attributes-recognition-barrier-0039.xml
-            model-proc=../../model_proc/intel/vehicle-attributes-recognition-barrier-0039.json
+        gvaclassify model=./models/dima806_vehicle_10_types_image_detection/FP16/dima806_vehicle_10_types_image_detection.xml
             device=CPU 
             inference-interval=1 
             name=pre_view_classify !

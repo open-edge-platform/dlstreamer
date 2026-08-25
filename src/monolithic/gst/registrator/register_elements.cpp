@@ -19,6 +19,7 @@
 #include "gstgvadetect.h"
 #include "gstgvainference.h"
 
+#include "gstgvafpscounter.h"
 #include "gstgvametaaggregate.h"
 #include "gstgvametaconvert.h"
 #include "gstgvatrack.h"
@@ -77,6 +78,8 @@ static gboolean plugin_init(GstPlugin *plugin) {
     if (!gst_element_register(plugin, "gvastreammux", GST_RANK_NONE, GST_TYPE_GVA_STREAMMUX))
         return FALSE;
     if (!gst_element_register(plugin, "gvastreamdemux", GST_RANK_NONE, GST_TYPE_GVA_STREAMDEMUX))
+        return FALSE;
+    if (!gst_element_register(plugin, "gvafpscounter", GST_RANK_NONE, GST_TYPE_GVA_FPSCOUNTER))
         return FALSE;
 
     // register metadata

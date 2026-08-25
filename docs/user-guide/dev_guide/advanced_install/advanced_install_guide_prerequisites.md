@@ -3,7 +3,7 @@
 If you want to leverage GPU and/or NPU for inference or use graphics
 hardware encoding/decoding capabilities, you need to install
 appropriate drivers. The easiest way is to use the automated script described in
-[the installation guide](../../get_started/install/install_guide_ubuntu.md).
+[the installation guide](../../install/install_guide_ubuntu.md).
 The instructions below are intended for performing manual installation.
 
 ## Prerequisite 1 - Intel® GPU drivers for computing and media runtimes
@@ -46,25 +46,6 @@ you need to install Intel® NPU driver:
 > notes and tips in the release notes for the newest [Intel® NPU driver
 > version](https://github.com/intel/linux-npu-driver/releases). Please
 > pay attention to **access to the device as a non-root user**.
-
-Note that the following error can occur when running DL Streamer on
-NPU device:
-
-```bash
-Setting pipeline to PLAYING ...
-New clock: GstSystemClock
-Caught SIGSEGV
-Spinning.
-```
-
-For a temporary workaround, use the following setting:
-
-```bash
-export ZE_ENABLE_ALT_DRIVERS=libze_intel_npu.so
-```
-
-The issue should be fixed with newer versions of Intel® NPU drivers and
-OpenVINO™ NPU plugins.
 
 ------------------------------------------------------------------------
 

@@ -1,7 +1,7 @@
 ---
 name: dlstreamer-coding-agent
 description: "Build new DL Streamer video-analytics applications (Python, C, C++ or GStreamer command line). Use when: user describes a vision AI pipeline, wants to create a new sample app, combine elements from existing samples, add detection/classification/VLM/tracking/alerts/recording to a video pipeline, or create custom GStreamer elements in Python or C++. Translates natural-language pipeline descriptions into working DL Streamer code using established design patterns."
-permissions:
+allowed-tools:
   - write
   - command
 ---
@@ -23,7 +23,7 @@ This skill uses **repo-root-relative paths** to reference files outside the skil
 - User wants to combine elements from multiple existing samples (e.g. detection + VLM + recording)
 - User needs to add custom analytics logic or custom GStreamer elements in Python or C++
 
-See [example prompts](./examples) for inspiration.
+See [example prompts](./example-prompts) for inspiration.
 
 ## Directory Layout for a New Sample App
 
@@ -331,5 +331,5 @@ After the application is working, report timing metrics:
 5. **Total activity time** (phases may overlap, so total ≠ sum of individual phases)
 
 ## Examples
-See [example prompts](./examples) for inspiration and practical demonstrations of the procedure.
+See [example prompts](./example-prompts) for inspiration and practical demonstrations of the procedure.
 

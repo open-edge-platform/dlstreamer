@@ -128,9 +128,12 @@ TEST_F(VideoFrameTest, VideoFrameTestTensors) {
     const std::string field_name = "model_name";
     const std::string model_name = "test_model";
     for (size_t i = 0; i < tensor_meta_size; ++i) {
-        GVA::Tensor tensor = frame->add_tensor();
+        GstStructure *s = gst_structure_new_empty("meta");
+        GVA::Tensor tensor(s);
         std::string test_model = model_name + std::to_string(i);
         gst_structure_set(tensor.gst_structure(), field_name.data(), G_TYPE_STRING, test_model.data(), NULL);
+        frame->add_tensor(tensor);
+        gst_structure_free(s);
     }
 
     std::vector<GVA::Tensor> frame_tensors = frame->tensors();

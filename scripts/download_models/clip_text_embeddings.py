@@ -33,7 +33,7 @@ import torch
 from safetensors.torch import save_file
 from transformers import AutoProcessor, CLIPModel
 
-from hf_utils import resolve_hf_model_ref
+from hf_utils import parse_model_ref
 
 
 def parse_args() -> argparse.Namespace:
@@ -84,9 +84,8 @@ def read_labels(path: Path) -> list[str]:
 
 def main() -> int:
     args = parse_args()
-    repo_id, revision = resolve_hf_model_ref(args.model, args.token)
-    if "@" not in args.model:
-        print(f"Resolved {repo_id} to revision {revision}")
+    repo_id, revision = parse_model_ref(args.model)
+    print(f"Using {repo_id} at revision {revision or 'latest'}")
 
     labels = read_labels(Path(args.labels))
     prompts = [args.prompt.format(label) for label in labels]

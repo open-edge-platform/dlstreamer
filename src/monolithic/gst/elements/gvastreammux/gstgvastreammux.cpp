@@ -212,9 +212,15 @@ static void gst_gva_streammux_init(GstGvaStreammux *mux) {
     mux->output_mode = DEFAULT_OUTPUT_MODE;
 
     mux->num_sink_pads = 0;
+    /* Object is under construction; no other thread can reference it yet, and
+     * mux->lock is not initialised until below. The same applies to the
+     * lock-protected fields set further down. */
+    // coverity[missing_lock]
     mux->started = FALSE;
     mux->send_stream_start = TRUE;
+    // coverity[missing_lock]
     mux->flushing = FALSE;
+    // coverity[missing_lock]
     mux->flushing_pads_count = 0;
     mux->sinkpads = NULL;
     mux->current_caps = NULL;
@@ -222,9 +228,11 @@ static void gst_gva_streammux_init(GstGvaStreammux *mux) {
     mux->segment_sent = FALSE;
     mux->last_output_time = GST_CLOCK_TIME_NONE;
     mux->max_fps_duration = GST_CLOCK_TIME_NONE;
+    // coverity[missing_lock]
     mux->batch_anchor_pts = GST_CLOCK_TIME_NONE;
     mux->batch_start_real_time = 0;
     mux->last_pushed_batch_pts = GST_CLOCK_TIME_NONE;
+    // coverity[missing_lock]
     mux->eos_pad_count = 0;
 
     g_mutex_init(&mux->lock);
@@ -532,6 +540,27 @@ static GstStateChangeReturn gst_gva_streammux_change_state(GstElement *element, 
         break;
     case GST_STATE_CHANGE_PAUSED_TO_PLAYING:
         break;
+    case GST_STATE_CHANGE_PAUSED_TO_READY:
+        /* Tear down our streaming threads BEFORE chaining up, because the
+         * base-class change_state below deactivates the pads and that path
+         * deadlocks against our own threads:
+         *   1. chain() parks in g_cond_wait() on back-pressure while holding a
+         *      sink pad's stream lock; pad deactivation needs that stream lock.
+         *   2. the srcpad output-loop task holds the srcpad stream lock while
+         *      running; the base class deactivating the srcpad grabs the pad
+         *      object lock and waits for that stream lock, while the task waits
+         *      for the object lock -> AB/BA deadlock (observed: set_state(NULL)
+         *      stuck forever in change_state, "mux:src" task owning the stream
+         *      lock).
+         * Set flushing + broadcast so chain() and the loop return immediately,
+         * then stop the srcpad task ourselves so it is fully joined (stream
+         * lock released) before the base class deactivates an idle pad. */
+        g_mutex_lock(&mux->lock);
+        mux->flushing = TRUE;
+        g_cond_broadcast(&mux->cond);
+        g_mutex_unlock(&mux->lock);
+        gst_pad_stop_task(mux->srcpad);
+        break;
     default:
         break;
     }
@@ -542,11 +571,10 @@ static GstStateChangeReturn gst_gva_streammux_change_state(GstElement *element, 
     case GST_STATE_CHANGE_PLAYING_TO_PAUSED:
         break;
     case GST_STATE_CHANGE_PAUSED_TO_READY:
-        g_mutex_lock(&mux->lock);
-        mux->flushing = TRUE;
-        g_cond_broadcast(&mux->cond);
-        g_mutex_unlock(&mux->lock);
-        gst_pad_stop_task(mux->srcpad);
+        /* Streaming threads (chain + srcpad task) were already flushed and the
+         * task stopped before chaining up (see the pre-transition switch), so
+         * here we only reset state and drain the per-pad queues for a possible
+         * restart. */
         g_mutex_lock(&mux->lock);
         gst_gva_streammux_flush_pad_queues(mux);
         mux->started = FALSE;

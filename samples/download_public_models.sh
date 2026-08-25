@@ -408,7 +408,7 @@ pip install --no-cache-dir tqdm==4.67.1       || handle_error $LINENO
 
 # Check and upgrade ultralytics if necessary
 if [[ "${MODEL:-}" =~ yolo.* || "${MODEL:-}" == "all" ]]; then
-  pip install --no-cache-dir --upgrade --extra-index-url https://download.pytorch.org/whl/cpu "ultralytics==8.4.7" || handle_error $LINENO
+  pip install --no-cache-dir --upgrade --extra-index-url https://download.pytorch.org/whl/cpu "ultralytics==8.4.57" || handle_error $LINENO
 fi
 
 # Install PyTorch CPU version
@@ -1085,7 +1085,7 @@ orig_model_path = sys.argv[1]
 
 core = openvino.Core()
 ov_model = core.read_model(model=orig_model_path)
-ov_model.set_rt_info("semantic_mask", ['model_info', 'model_type'])
+ov_model.set_rt_info("semantic_segmentation", ['model_info', 'model_type'])
 
 print(ov_model)
 

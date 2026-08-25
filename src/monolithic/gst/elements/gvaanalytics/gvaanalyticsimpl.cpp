@@ -5,12 +5,17 @@
  ******************************************************************************/
 
 #include "gvaanalyticsimpl.h"
+#include "gvaanalytics.h"
+#include <algorithm>
 
+#include "dlstreamer/gst/metadata/gva_dwelltime_meta.h"
 #include "dlstreamer/gst/metadata/gva_tripwire_meta.h"
 #include "dlstreamer/gst/metadata/gva_zone_meta.h"
 #include "dlstreamer/gst/metadata/watermark_circle_meta.h"
 #include "dlstreamer/gst/metadata/watermark_draw_meta.h"
 #include <gst/gst.h>
+
+#define GST_CAT_DEFAULT gva_analytics_debug_category
 
 // Helper function: Check if point is inside polygon
 bool point_in_polygon(const Point &point, const std::vector<Point> &polygon) {
@@ -125,7 +130,8 @@ void attach_tripwire_drawing_metadata(GstBaseTransform *base, GstBuffer *buf, co
 // Process object detections and check zone membership
 void process_object_detections(GstBaseTransform *base, GstAnalyticsRelationMeta *analytics_meta,
                                const std::vector<Zone> &zones, const std::vector<Tripwire> &tripwires,
-                               std::map<guint64, ObjectTrackingState> &tracking_states) {
+                               std::map<guint64, ObjectTrackingState> &tracking_states,
+                               ObjectEvaluationPoint evaluation_point, gdouble current_time_sec) {
     if (!analytics_meta) {
         GST_DEBUG_OBJECT(base, "No analytics metadata found in buffer");
         return;
@@ -136,21 +142,28 @@ void process_object_detections(GstBaseTransform *base, GstAnalyticsRelationMeta 
     GstAnalyticsODMtd od_mtd;
     while (
         gst_analytics_relation_meta_iterate(analytics_meta, &od_state, gst_analytics_od_mtd_get_mtd_type(), &od_mtd)) {
-        // Extract object center position from OD metadata (bounding box center)
+        // Extract object evaluation point from OD metadata.
         gint x, y, w, h;
         gfloat rotation;
         if (!gst_analytics_od_mtd_get_oriented_location(&od_mtd, &x, &y, &w, &h, &rotation, nullptr)) {
             GST_WARNING_OBJECT(base, "Failed to get OD location, skipping object");
             continue;
         }
-        Point object_center = {x + w / 2, y + h / 2};
 
-        GST_LOG_OBJECT(base, "OD at (%d,%d) size %dx%d, center (%d,%d)", x, y, w, h, object_center.x, object_center.y);
+        Point object_point = {x + w / 2, y + h / 2};
+        if (evaluation_point == EVAL_POINT_BOTTOM_CENTER) {
+            object_point.y = y + h;
+        }
+
+        GST_LOG_OBJECT(base, "OD at (%d,%d) size %dx%d, point (%d,%d), mode=%s", x, y, w, h, object_point.x,
+                       object_point.y, evaluation_point == EVAL_POINT_BOTTOM_CENTER ? "bottom-center" : "center");
+        // Zones with track_dwell_time=true that contain this object; empty when none are configured
+        std::vector<const Zone *> matched_dwell_zones;
 
         // ZONE DETECTION: Check zones (polygon or circular) - works with OD only
         for (const auto &zone : zones) {
-            if (point_in_zone(object_center, zone)) {
-                GST_DEBUG_OBJECT(base, "Object center (%d,%d) is in zone '%s'", object_center.x, object_center.y,
+            if (point_in_zone(object_point, zone)) {
+                GST_DEBUG_OBJECT(base, "Object point (%d,%d) is in zone '%s'", object_point.x, object_point.y,
                                  zone.id.c_str());
 
                 // Create zone metadata in relation meta
@@ -160,6 +173,9 @@ void process_object_detections(GstBaseTransform *base, GstAnalyticsRelationMeta 
                     gst_analytics_relation_meta_set_relation(analytics_meta, GST_ANALYTICS_REL_TYPE_RELATE_TO,
                                                              od_mtd.id, zone_mtd.id);
                 }
+
+                if (zone.track_dwell_time)
+                    matched_dwell_zones.push_back(&zone);
             }
         }
 
@@ -179,11 +195,11 @@ void process_object_detections(GstBaseTransform *base, GstAnalyticsRelationMeta 
                 auto it = tracking_states.find(tracking_id);
                 if (it != tracking_states.end() && it->second.has_previous_position) {
                     // We have previous position, check for crossings
-                    const Point &prev_center = it->second.last_center;
+                    const Point &prev_point = it->second.last_point;
 
                     for (const auto &tripwire : tripwires) {
                         // Check if movement crosses this tripwire
-                        if (segment_intersects_tripwire(prev_center, object_center, tripwire)) {
+                        if (segment_intersects_tripwire(prev_point, object_point, tripwire)) {
                             // Determine crossing direction
                             // Direction: 1 = left to right, -1 = right to left
                             int direction = 0;
@@ -196,8 +212,8 @@ void process_object_detections(GstBaseTransform *base, GstAnalyticsRelationMeta 
                                     return (long)(b.x - a.x) * (p.y - a.y) - (long)(b.y - a.y) * (p.x - a.x);
                                 };
 
-                                long prev_side = get_side(prev_center, t1, t2);
-                                long curr_side = get_side(object_center, t1, t2);
+                                long prev_side = get_side(prev_point, t1, t2);
+                                long curr_side = get_side(object_point, t1, t2);
 
                                 if (prev_side < 0 && curr_side > 0) {
                                     direction = 1; // right-hand side → left-hand side of t1→t2
@@ -223,15 +239,70 @@ void process_object_detections(GstBaseTransform *base, GstAnalyticsRelationMeta 
                     }
                 }
 
-                // Update tracking state with current position
-                ObjectTrackingState state;
+                // DWELL TIME TRACKING: runs per-zone when that zone's track_dwell_time=true
+                if (!matched_dwell_zones.empty()) {
+                    auto &zone_times = tracking_states[tracking_id].zone_entry_times;
+                    for (const Zone *zone : matched_dwell_zones) {
+                        auto [it, inserted] = zone_times.emplace(
+                            zone->id, ZoneDwellState{current_time_sec, current_time_sec, zone->object_retention});
+                        if (!inserted)
+                            it->second.last_seen = current_time_sec;
+                        gdouble first_seen = it->second.first_seen;
+                        gdouble dwell = current_time_sec - first_seen;
+                        GST_DEBUG_OBJECT(base,
+                                         "Dwell zone=%s id=%u tracking_id=%" G_GUINT64_FORMAT
+                                         " inserted=%s first_seen=%.3f last_seen=%.3f dwell=%.3f retention=%.3f",
+                                         zone->id.c_str(), od_mtd.id, tracking_id, inserted ? "true" : "false",
+                                         first_seen, it->second.last_seen, dwell, it->second.object_retention);
+                        GstAnalyticsDwellTimeMtd dwell_mtd;
+                        if (gst_analytics_relation_meta_add_dwelltime_mtd(analytics_meta, zone->id.c_str(), dwell,
+                                                                          first_seen, &dwell_mtd)) {
+                            gst_analytics_relation_meta_set_relation(analytics_meta, GST_ANALYTICS_REL_TYPE_RELATE_TO,
+                                                                     od_mtd.id, dwell_mtd.id);
+                            GST_LOG_OBJECT(base,
+                                           "DwellMeta added zone=%s od_id=%u tracking_id=%" G_GUINT64_FORMAT
+                                           " dwell=%.3f first_seen=%.3f",
+                                           zone->id.c_str(), od_mtd.id, tracking_id, dwell, first_seen);
+                        } else {
+                            GST_WARNING_OBJECT(
+                                base, "Failed to add DwellTimeMtd zone=%s od_id=%u tracking_id=%" G_GUINT64_FORMAT,
+                                zone->id.c_str(), od_mtd.id, tracking_id);
+                        }
+                    }
+                }
+
+                // Prune stale zone_entry_times even when the object is outside all dwell zones
+                auto ts_it = tracking_states.find(tracking_id);
+                if (ts_it != tracking_states.end()) {
+                    auto &zone_times = ts_it->second.zone_entry_times;
+                    for (auto it = zone_times.begin(); it != zone_times.end();) {
+                        bool still_in = std::any_of(matched_dwell_zones.begin(), matched_dwell_zones.end(),
+                                                    [&](const Zone *z) { return z->id == it->first; });
+                        gdouble age = current_time_sec - it->second.last_seen;
+                        bool keep = still_in || age <= it->second.object_retention;
+                        GST_DEBUG_OBJECT(base,
+                                         "Prune check tracking_id=%" G_GUINT64_FORMAT
+                                         " zone=%s still_in=%s age=%.3f retention=%.3f action=%s",
+                                         tracking_id, it->first.c_str(), still_in ? "true" : "false", age,
+                                         it->second.object_retention, keep ? "keep" : "erase");
+                        if (keep)
+                            it = std::next(it);
+                        else
+                            it = zone_times.erase(it);
+                    }
+                }
+
+                // Update tracking state in-place to preserve zone_entry_times
+                ObjectTrackingState &state = tracking_states[tracking_id];
                 state.tracking_id = tracking_id;
-                state.last_center = object_center;
+                state.last_point = object_point;
                 state.has_previous_position = true;
-                tracking_states[tracking_id] = state;
+                GST_LOG_OBJECT(base,
+                               "Tracking state updated id=%" G_GUINT64_FORMAT " point=(%d,%d) zone_state_count=%zu",
+                               tracking_id, state.last_point.x, state.last_point.y, state.zone_entry_times.size());
             }
         } else {
-            GST_LOG_OBJECT(base, "No tracking metadata for this OD, skipping tripwire detection");
+            GST_LOG_OBJECT(base, "No tracking metadata for OD id=%u, skipping tripwire and dwell tracking", od_mtd.id);
         }
     }
 }

@@ -34,7 +34,7 @@ jobs:
     runs-on: dlstreamer
     steps:
       - name: Check out dlstreamer repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 #7.0.1
         with:
           persist-credentials: false
           path: dlstreamer-repo
@@ -62,7 +62,7 @@ jobs:
     runs-on: dlstreamer
     steps:
       - name: Check out dlstreamer repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 #7.0.1
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -101,7 +101,7 @@ jobs:
       docker_changed: ${{ steps.check.outputs.docker_changed }}
     steps:
       - name: Check out dlstreamer repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 #7.0.1
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -190,7 +190,7 @@ jobs:
             output-file: hadolint-dlstreamer-testing-ubuntu.json
     steps:
       - name: Check out dlstreamer repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 #7.0.1
         with:
           persist-credentials: false
 
@@ -212,7 +212,7 @@ jobs:
     runs-on: dlstreamer
     steps:
       - name: Check out dlstreamer repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 #7.0.1
         with:
           persist-credentials: false
           path: dlstreamer-repo
@@ -239,7 +239,7 @@ jobs:
     runs-on: dlstreamer
     steps:
       - name: Check out dlstreamer repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 #7.0.1
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -262,7 +262,7 @@ jobs:
     runs-on: dlstreamer
     steps:
       - name: Check out dlstreamer repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 #7.0.1
         with:
           persist-credentials: false
 
@@ -283,7 +283,7 @@ jobs:
     runs-on: dlstreamer
     steps:
       - name: Check out dlstreamer repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 #7.0.1
         with:
           persist-credentials: false
           path: dlstreamer-repo
@@ -340,12 +340,12 @@ jobs:
     runs-on: dlstreamer
     steps:
       - name: Check out dlstreamer repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 #7.0.1
         with:
           persist-credentials: false
 
       - name: Run Bandit scan
-        uses: open-edge-platform/orch-ci/.github/actions/security/bandit@1871595c6bb5f5f29b957725e9cbb05ef8071ca1
+        uses: open-edge-platform/orch-ci/.github/actions/security/bandit@db3a4eb9966dd1cba2061c16a94d769b7fccf243
         with:
           scan-scope: "all"
           severity-level: "MEDIUM"
@@ -354,6 +354,15 @@ jobs:
           fail-on-findings: true
           paths: .
           report_suffix: dlstreamer
+
+  dls-skill-scan:
+    permissions:
+      contents: read
+    name: "DLS SCAN: Skill Scanner"
+    uses: ./.github/workflows/skill-scan.yaml
+    with:
+      severity: HIGH
+      fail_on_findings: true
 
   #---------------------------------------------------------- DOWNLOAD MODELS TESTS -------------------------------------------------------------
   dls-download-models:
@@ -398,6 +407,7 @@ jobs:
     permissions:
       contents: read
       packages: read
+      actions: write # needed by merge-diff-reports to delete intermediate per-platform artifacts
     name: "DLS BUILD & TEST: .deb pkgs & img"
     uses: ./.github/workflows/dls-build-and-test-deb_pkgs-and-deb_imgs.yaml
     with:
@@ -498,6 +508,78 @@ jobs:
             exit 1
           fi
 
+  check-dev-image-size:
+    needs: dls-build-dev-images-and-run-unit-tests
+    runs-on: dlstreamer
+    name: "Check DEV Image Size"
+    if: always()
+    steps:
+      - name: Validate DEV image sizes
+        env:
+          CURRENT_IMAGE_SIZE_U22: ${{ needs.dls-build-dev-images-and-run-unit-tests.outputs.current-image-size-ubuntu22 }}
+          CURRENT_IMAGE_SIZE_U24: ${{ needs.dls-build-dev-images-and-run-unit-tests.outputs.current-image-size-ubuntu24 }}
+          EXPECTED_SIZE_MB_DEV_U22: ${{ vars.EXPECTED_SIZE_MB_DEV_U22 }}
+          EXPECTED_SIZE_MB_DEV_U24: ${{ vars.EXPECTED_SIZE_MB_DEV_U24 }}
+          THRESHOLD_SIZE_MB: "100"
+          IS_FORK_PR: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork }}
+        run: |
+          if [[ "${IS_FORK_PR}" == "true" ]]; then
+            echo "## 🐳 Docker image size" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "✅ Size check skipped" >> "$GITHUB_STEP_SUMMARY"
+            echo "Reason: Pull request from fork (repository vars are unavailable)." >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "### Manual verification" >> "$GITHUB_STEP_SUMMARY"
+            echo "Current image sizes (from reusable workflow output): ubuntu22=${CURRENT_IMAGE_SIZE_U22:-N/A} MB, ubuntu24=${CURRENT_IMAGE_SIZE_U24:-N/A} MB" >> "$GITHUB_STEP_SUMMARY"
+            echo "- Compare these values with expected DEV image size values manually." >> "$GITHUB_STEP_SUMMARY"
+            echo "- If needed, rerun the same commit in a non-fork branch to run the automatic size gate." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          echo "Current image sizes: ubuntu22=${CURRENT_IMAGE_SIZE_U22:-N/A} MB, ubuntu24=${CURRENT_IMAGE_SIZE_U24:-N/A} MB"
+
+          if [[ -z "${CURRENT_IMAGE_SIZE_U22}" && -z "${CURRENT_IMAGE_SIZE_U24}" ]]; then
+            echo "## 🐳 Docker image size" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "✅ Size check skipped" >> "$GITHUB_STEP_SUMMARY"
+            echo "Reason: Changes only in excluded files." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          FAIL_CHECK=0
+
+          {
+            echo "## 🐳 Docker image size"
+            echo ""
+            echo "| Image | Current | Expected | Abs diff | Threshold |"
+            echo "|-------|---------|----------|----------|-----------|"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [[ -n "${CURRENT_IMAGE_SIZE_U22}" ]]; then
+            U22_DIFF=$(( CURRENT_IMAGE_SIZE_U22 - EXPECTED_SIZE_MB_DEV_U22 ))
+            U22_ABS_DIFF=${U22_DIFF#-}
+            echo "| ubuntu22-dev | **${CURRENT_IMAGE_SIZE_U22} MB** | **${EXPECTED_SIZE_MB_DEV_U22} MB** | ${U22_ABS_DIFF} MB | ${THRESHOLD_SIZE_MB} MB |" >> "$GITHUB_STEP_SUMMARY"
+            if [[ "${U22_ABS_DIFF}" -gt "${THRESHOLD_SIZE_MB}" ]]; then
+              FAIL_CHECK=1
+            fi
+          fi
+
+          if [[ -n "${CURRENT_IMAGE_SIZE_U24}" ]]; then
+            U24_DIFF=$(( CURRENT_IMAGE_SIZE_U24 - EXPECTED_SIZE_MB_DEV_U24 ))
+            U24_ABS_DIFF=${U24_DIFF#-}
+            echo "| ubuntu24-dev | **${CURRENT_IMAGE_SIZE_U24} MB** | **${EXPECTED_SIZE_MB_DEV_U24} MB** | ${U24_ABS_DIFF} MB | ${THRESHOLD_SIZE_MB} MB |" >> "$GITHUB_STEP_SUMMARY"
+            if [[ "${U24_ABS_DIFF}" -gt "${THRESHOLD_SIZE_MB}" ]]; then
+              FAIL_CHECK=1
+            fi
+          fi
+
+          if [[ "${FAIL_CHECK}" -eq 1 ]]; then
+            echo "❌ Docker image size check failed"
+            exit 1
+          fi
+
+          echo "✅ Docker image size check passed"
+
   check-deb-build-status:
     needs: dls-build-and-test-deb-and-deb_img
     runs-on: dlstreamer
@@ -514,6 +596,78 @@ jobs:
             echo "❌ DEB build & test failed with status: ${dls_build_and_test_deb_and_deb_img_result}"
             exit 1
           fi
+
+  check-deb-image-size:
+    needs: dls-build-and-test-deb-and-deb_img
+    runs-on: dlstreamer
+    name: "Check DEB Image Size"
+    if: always()
+    steps:
+      - name: Validate DEB image sizes
+        env:
+          CURRENT_IMAGE_SIZE_U22: ${{ needs.dls-build-and-test-deb-and-deb_img.outputs.current-image-size-ubuntu22 }}
+          CURRENT_IMAGE_SIZE_U24: ${{ needs.dls-build-and-test-deb-and-deb_img.outputs.current-image-size-ubuntu24 }}
+          EXPECTED_SIZE_MB_DEB_U22: ${{ vars.EXPECTED_SIZE_MB_DEB_U22 }}
+          EXPECTED_SIZE_MB_DEB_U24: ${{ vars.EXPECTED_SIZE_MB_DEB_U24 }}
+          THRESHOLD_SIZE_MB: "100"
+          IS_FORK_PR: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork }}
+        run: |
+          if [[ "${IS_FORK_PR}" == "true" ]]; then
+            echo "## 🐳 Docker image size" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "✅ Size check skipped" >> "$GITHUB_STEP_SUMMARY"
+            echo "Reason: Pull request from fork (repository vars are unavailable)." >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "### Manual verification" >> "$GITHUB_STEP_SUMMARY"
+            echo "Current image sizes (from reusable workflow output): ubuntu22=${CURRENT_IMAGE_SIZE_U22:-N/A} MB, ubuntu24=${CURRENT_IMAGE_SIZE_U24:-N/A} MB" >> "$GITHUB_STEP_SUMMARY"
+            echo "- Compare these values with expected DEB image size values manually." >> "$GITHUB_STEP_SUMMARY"
+            echo "- If needed, rerun the same commit in a non-fork branch to run the automatic size gate." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          echo "Current image sizes: ubuntu22=${CURRENT_IMAGE_SIZE_U22:-N/A} MB, ubuntu24=${CURRENT_IMAGE_SIZE_U24:-N/A} MB"
+
+          if [[ -z "${CURRENT_IMAGE_SIZE_U22}" && -z "${CURRENT_IMAGE_SIZE_U24}" ]]; then
+            echo "## 🐳 Docker image size" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "✅ Size check skipped" >> "$GITHUB_STEP_SUMMARY"
+            echo "Reason: Changes only in excluded files." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          FAIL_CHECK=0
+
+          {
+            echo "## 🐳 Docker image size"
+            echo ""
+            echo "| Image | Current | Expected | Abs diff | Threshold |"
+            echo "|-------|---------|----------|----------|-----------|"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [[ -n "${CURRENT_IMAGE_SIZE_U22}" ]]; then
+            U22_DIFF=$(( CURRENT_IMAGE_SIZE_U22 - EXPECTED_SIZE_MB_DEB_U22 ))
+            U22_ABS_DIFF=${U22_DIFF#-}
+            echo "| ubuntu22-deb | **${CURRENT_IMAGE_SIZE_U22} MB** | **${EXPECTED_SIZE_MB_DEB_U22} MB** | ${U22_ABS_DIFF} MB | ${THRESHOLD_SIZE_MB} MB |" >> "$GITHUB_STEP_SUMMARY"
+            if [[ "${U22_ABS_DIFF}" -gt "${THRESHOLD_SIZE_MB}" ]]; then
+              FAIL_CHECK=1
+            fi
+          fi
+
+          if [[ -n "${CURRENT_IMAGE_SIZE_U24}" ]]; then
+            U24_DIFF=$(( CURRENT_IMAGE_SIZE_U24 - EXPECTED_SIZE_MB_DEB_U24 ))
+            U24_ABS_DIFF=${U24_DIFF#-}
+            echo "| ubuntu24-deb | **${CURRENT_IMAGE_SIZE_U24} MB** | **${EXPECTED_SIZE_MB_DEB_U24} MB** | ${U24_ABS_DIFF} MB | ${THRESHOLD_SIZE_MB} MB |" >> "$GITHUB_STEP_SUMMARY"
+            if [[ "${U24_ABS_DIFF}" -gt "${THRESHOLD_SIZE_MB}" ]]; then
+              FAIL_CHECK=1
+            fi
+          fi
+
+          if [[ "${FAIL_CHECK}" -eq 1 ]]; then
+            echo "❌ Docker image size check failed"
+            exit 1
+          fi
+
+          echo "✅ Docker image size check passed"
 
   check-windows-build-status:
     needs: dls-build-and-test-windows

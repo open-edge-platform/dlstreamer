@@ -290,7 +290,7 @@ Model-proc (model processing) JSON files are deprecated; do not use them with in
 
 ## Requirements
 
-Prefer using `==` pins (e.g. `ultralytics==8.4.33`) in `export_requirements.txt` over open ranges like `>=8.3.0`.
+Prefer using `==` pins (e.g. `ultralytics==8.4.57`) in `export_requirements.txt` over open ranges like `>=8.3.0`.
 Open ranges pull untested releases that may change export behavior or break backward compatibility.
 
 ### Version Discovery Procedure
@@ -332,11 +332,11 @@ Typical `requirements.txt` entries by model source:
 --extra-index-url https://download.pytorch.org/whl/cpu
 
 # OpenVINO Python version (pin to match DL Streamer runtime — query with: python3 -c "import openvino; print(openvino.__version__)")
-openvino==2026.0.0
+openvino==2026.2.0
 nncf==3.0.0  # required for int8=True quantization (query with: pip show nncf | grep Version)
 
 # Ultralytics YOLO (query with: pip show ultralytics | grep Version)
-ultralytics==8.4.33
+ultralytics==8.4.57
 
 # HuggingFace transformers + OpenVINO export
 optimum[openvino]

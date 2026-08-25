@@ -17,7 +17,7 @@ Key elements in the pipeline:
 
 ## Models
 
-The sample uses YOLOv8n (resolved via `MODELS_PATH`) or other supported object detection model. The necessary conversion to the OpenVINO™ format can be performed by the `download_public_models.sh` script located in the `samples` directory.
+The sample uses YOLOv8n (resolved via `MODELS_PATH`) or other supported object detection model. The necessary conversion to the OpenVINO™ format can be performed by `scripts/download_models/download_ultralytics_models.py`.
 
 
 ## Usage

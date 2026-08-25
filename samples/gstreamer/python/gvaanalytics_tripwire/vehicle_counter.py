@@ -29,7 +29,7 @@ from gi.repository import Gst, GstBase, GObject, GLib, GstAnalytics, DLStreamerM
 
 from gstgva.region_of_interest import RegionOfInterest 
 
-Gst.init(None)
+Gst.init([])
 Gst.init_python()
 
 # Global counter for vehicles crossing the horizontal tripwire

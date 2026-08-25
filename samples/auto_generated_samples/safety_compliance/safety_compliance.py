@@ -227,7 +227,7 @@ def setup_gst_plugins():
         os.environ["GST_PLUGIN_PATH"] = f"{existing}:{plugins_dir}" if existing else plugins_dir
     os.environ.setdefault("GST_REGISTRY_FORK", "no")
 
-    Gst.init(None)
+    Gst.init([])
 
     reg = Gst.Registry.get()
     if not reg.find_plugin("python"):

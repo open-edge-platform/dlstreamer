@@ -171,7 +171,8 @@ class BBox:
         return True
 
     @ staticmethod
-    def bboxes_is_equal(pr_bboxes: list, gt_bboxes: list, only_number=False, check_additional_info=True):
+    def bboxes_is_equal(pr_bboxes: list, gt_bboxes: list, only_number=False, check_additional_info=True,
+                        check_class_id=True):
         correspondence_matrix = dict()
         if len(pr_bboxes) == len(gt_bboxes):
             if only_number:
@@ -190,7 +191,8 @@ class BBox:
                 iou = BBox.IoU(pr_bbox, gt_bbox)
                 # Different components (OpenVINO™ Toolkit and its plugins, VAS OT, etc.) can change between releases. To track exact accuracy we have Regression Tests.
                 # This IoU check is just sanity check to find out if things really got bad
-                if (iou > 0.7 and iou <= 1 and iou > max_iou and gt_bbox.class_id == pr_bbox.class_id and gt_bbox.tracker_id == pr_bbox.tracker_id):
+                class_id_matches = (gt_bbox.class_id == pr_bbox.class_id) if check_class_id else True
+                if (iou > 0.7 and iou <= 1 and iou > max_iou and class_id_matches and gt_bbox.tracker_id == pr_bbox.tracker_id):
                     max_corresponde_gt_bbox = gt_bbox
                     max_iou = iou
                     max_iou_index = i

@@ -1,5 +1,5 @@
 # ==============================================================================
-# Copyright (C) 2018-2021 Intel Corporation
+# Copyright (C) 2018-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
@@ -16,8 +16,8 @@ class AgeLogger:
             for tensor in roi.tensors():
                 if tensor.name() == 'detection':
                     continue
-                layer_name = tensor.layer_name()
-                if 'age_conv3' == layer_name:
+                # Match by tensor name (set by age_gender_classification.py) or legacy layer name
+                if tensor.name() == 'age' or tensor.layer_name() == 'age_conv3':
                     self.log_file.write(tensor.label() + "\n")
                     continue
         return True

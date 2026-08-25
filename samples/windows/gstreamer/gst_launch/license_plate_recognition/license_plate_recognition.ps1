@@ -48,13 +48,13 @@ $OCR_CLASSIFICATION_MODEL = "$env:MODELS_PATH\public\ch_PP-OCRv4_rec_infer\FP32\
 # Check if models exist
 if (-not (Test-Path $DETECTION_MODEL)) {
     Write-Host "ERROR: Model not found: $DETECTION_MODEL" -ForegroundColor Red
-    Write-Host "Please run download_public_models.bat to download the models first."
+    Write-Host "Please prepare required models with scripts/download_models/download_other_models.sh yolov8_license_plate_detector,ch_PP-OCRv4_rec_infer."
     exit 1
 }
 
 if (-not (Test-Path $OCR_CLASSIFICATION_MODEL)) {
     Write-Host "ERROR: Model not found: $OCR_CLASSIFICATION_MODEL" -ForegroundColor Red
-    Write-Host "Please run download_public_models.bat to download the models first."
+    Write-Host "Please prepare required models with scripts/download_models/download_other_models.sh yolov8_license_plate_detector,ch_PP-OCRv4_rec_infer."
     exit 1
 }
 

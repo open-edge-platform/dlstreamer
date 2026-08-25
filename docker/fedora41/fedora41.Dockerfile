@@ -85,7 +85,7 @@ USER dlstreamer
 
 RUN \
     python3 -m venv /python3venv && \
-    /python3venv/bin/pip3 install --no-cache-dir --upgrade pip==26.1 && \
+    /python3venv/bin/pip3 install --no-cache-dir --upgrade pip==26.1.2 && \
     /python3venv/bin/pip3 install --no-cache-dir --no-dependencies \
     meson==1.4.1 \
     ninja==1.11.1.1 \
@@ -100,7 +100,7 @@ RUN \
     six==1.16.0 \
     pycairo==1.26.0 \
     PyGObject==3.50.0 \
-    setuptools==82.0.1 \
+    setuptools==84.0.0 \
     pytest==8.3.3 \
     pluggy==1.5.0 \
     exceptiongroup==1.2.2 \
@@ -359,7 +359,7 @@ RUN cp -a /usr/local/lib64/librealsense* ./
 # ==============================================================================
 FROM builder AS dlstreamer-dev
 
-ARG DLSTREAMER_VERSION=2026.1.0
+ARG DLSTREAMER_VERSION=2026.2.0
 ARG DLSTREAMER_BUILD_NUMBER
 ARG OPENVINO_VERSION=2026.2.0
 
@@ -440,6 +440,9 @@ RUN \
     make -j "$(nproc)" && \
     usermod -a -G video dlstreamer && \
     chown -R dlstreamer:dlstreamer /home/dlstreamer
+
+# Install python dependencies
+RUN pip3 install --no-cache-dir --break-system-packages --ignore-installed -r "${DLSTREAMER_DIR}/requirements.txt"
 
 WORKDIR /home/dlstreamer
 USER dlstreamer

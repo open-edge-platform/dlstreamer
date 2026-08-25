@@ -77,7 +77,7 @@
 :maxdepth: 2
 :hidden:
 
-coding_agent
+Coding Agent <./coding_agent.md>
 advanced_install/advanced_install_guide_index
 metadata
 model_preparation

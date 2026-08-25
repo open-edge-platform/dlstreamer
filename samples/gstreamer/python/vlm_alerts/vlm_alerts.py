@@ -47,8 +47,12 @@ def download_video(url: str, target_path: Path) -> None:
     parsed = urlparse(url)
     if parsed.scheme != "https" or parsed.hostname not in {"videos.pexels.com", "www.pexels.com"}:
         raise VLMAlertsError(f"Unexpected video URL: {url}")
+    # Some CDNs (e.g. Pexels) reject the default ``Python-urllib`` agent with HTTP 403,
+    # so present a common browser User-Agent instead.
+    user_agent = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    request = urllib.request.Request(url, headers={"User-Agent": user_agent})
     try:
-        with urllib.request.build_opener().open(url, timeout=30) as response, open(target_path, "wb") as file:
+        with urllib.request.build_opener().open(request, timeout=30) as response, open(target_path, "wb") as file:
             shutil.copyfileobj(response, file)
     except (OSError, ValueError) as error:
         raise VLMAlertsError(f"Video download failed: {error}") from error
@@ -59,7 +63,7 @@ def validate_video(video_path: Path) -> None:
     if not video_path.exists() or video_path.stat().st_size == 0:
         raise VLMAlertsError("Video file is missing or empty")
 
-    Gst.init(None)
+    Gst.init([])
     try:
         discoverer = GstPbutils.Discoverer.new(5 * Gst.SECOND)
         info = discoverer.discover_uri(video_path.as_uri())
@@ -202,7 +206,7 @@ def run_pipeline(cfg: PipelineConfig) -> int:
     print(pipeline_str)
     print()
 
-    Gst.init(None)
+    Gst.init([])
 
     try:
         pipeline = Gst.parse_launch(pipeline_str)

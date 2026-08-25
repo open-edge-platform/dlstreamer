@@ -37,7 +37,7 @@ import gi
 gi.require_version("Gst", "1.0")
 from gi.repository import Gst
 
-Gst.init(None)
+Gst.init([])
 pipeline = Gst.parse_launch("filesrc location=... ! decodebin3 ! ... ! autovideosink")
 # ... run event loop ...
 pipeline.set_state(Gst.State.NULL)
@@ -499,7 +499,7 @@ __gstelementfactory__ = ("myanalytics_py", Gst.Rank.NONE, MyAnalytics)
 
 #### Plugin Registration
 
-Add before `Gst.init(None)`. Only needed when the app uses custom Python elements:
+Add before `Gst.init([])`. Only needed when the app uses custom Python elements:
 
 ```python
 plugins_dir = str(Path(__file__).resolve().parent / "plugins")
@@ -507,7 +507,7 @@ if plugins_dir not in os.environ.get("GST_PLUGIN_PATH", ""):
     os.environ["GST_PLUGIN_PATH"] = f"{os.environ.get('GST_PLUGIN_PATH', '')}:{plugins_dir}"
 os.environ.setdefault("GST_REGISTRY_FORK", "no")  # required for Python elements
 
-Gst.init(None)
+Gst.init([])
 reg = Gst.Registry.get()
 if not reg.find_plugin("python"):
     raise RuntimeError("GStreamer 'python' plugin not found. "

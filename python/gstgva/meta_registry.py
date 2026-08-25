@@ -42,4 +42,9 @@ _GstAnalyticsOverride._wrap_mtd(
     '3DODMtd',
     DLStreamerMeta.relation_meta_get_3d_od_mtd
 )
+_GstAnalyticsOverride._wrap_mtd(
+    DLStreamerMeta,
+    'DwellTimeMtd',
+    DLStreamerMeta.relation_meta_get_dwelltime_mtd
+)
 # pylint: enable=protected-access

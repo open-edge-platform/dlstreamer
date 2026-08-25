@@ -17,7 +17,6 @@
 #include "label.h"
 #include "paddle_ocr.h"
 #include "raw_data_copy.h"
-#include "semantic_mask.h"
 #include "semantic_segmentation.h"
 #include "text.h"
 
@@ -67,8 +66,6 @@ BlobToMetaConverter::Ptr BlobToTensorConverter::create(BlobToMetaConverter::Init
         return std::make_unique<TextConverter>(std::move(initializer));
     else if (converter_name == SemanticSegmentationConverter::getName())
         return std::make_unique<SemanticSegmentationConverter>(std::move(initializer));
-    else if (converter_name == SemanticMaskConverter::getName())
-        return std::make_unique<SemanticMaskConverter>(std::move(initializer));
     else if (converter_name == DepthConverter::getName())
         return std::make_unique<DepthConverter>(std::move(initializer));
     else if (converter_name == docTROCRConverter::getName())

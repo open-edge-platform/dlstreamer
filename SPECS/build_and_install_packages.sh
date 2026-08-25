@@ -114,6 +114,9 @@ build_package() {
             ;;
         "gstreamer")
             cp gstreamer-${GSTREAMER_VERSION}.tar.gz ~/rpmbuild/SOURCES/
+            # Copy Intel patches required by gstreamer.spec
+            REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+            cp "$REPO_ROOT"/dependencies/patches/*.patch ~/rpmbuild/SOURCES/
             ;;
         "intel-dlstreamer")
             cp intel-dlstreamer-${DLSTREAMER_VERSION}.tar.gz ~/rpmbuild/SOURCES/
@@ -172,6 +175,7 @@ install_build_deps() {
         "libva2" "intel-compute-runtime" "intel-opencl" 
         "intel-level-zero-gpu" "intel-ocloc-devel"
         "gobject-introspection" "libtiff-devel"
+	    "gobject-introspection-devel"
     )
     
     if command -v dnf &> /dev/null; then
@@ -233,3 +237,4 @@ main() {
 
 # Entrypoint
 main
+
