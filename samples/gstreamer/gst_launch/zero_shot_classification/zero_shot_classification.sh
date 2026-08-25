@@ -46,10 +46,10 @@ for f in "$MODEL" "$EMBEDDINGS"; do
 done
 
 if [[ "$INPUT" == *.jpg || "$INPUT" == *.jpeg || "$INPUT" == *.png || "$INPUT" == *.bmp ]]; then
-  SOURCE="filesrc location=${INPUT} ! decodebin3 ! videoconvert"
+  SOURCE="filesrc location=${INPUT} ! decodebin3"
   SINK="gvametaconvert format=json add-tensor-data=false ! gvametapublish method=file file-path=/dev/stdout ! fakesink sync=false"
 else
-  SOURCE="filesrc location=${INPUT} ! decodebin3 ! videoconvert"
+  SOURCE="filesrc location=${INPUT} ! decodebin3"
   SINK="gvawatermark ! videoconvert ! autovideosink sync=false"
 fi
 

@@ -24,10 +24,21 @@ top-k are cheap host-side operations, which keeps the device graph static-shape 
 
 ## Selecting zero-shot mode
 
-Selection is driven by the **model**, not by a runtime property. An image encoder exported for
-zero-shot carries `model_type=clip_zeroshot` in the `model_info` section of its `model.xml`, which
-resolves to the `clip_zeroshot` converter. There are now two CLIP converters and they must not be
-confused:
+There is a single way to run zero-shot classification, and it has two halves:
+
+1. **`model=`** — required, as for any `gvaclassify` element. It points at the CLIP **image-encoder
+   IR** exported for zero-shot. That IR carries `model_type=clip_zeroshot` in the `model_info`
+   section of its `model.xml`, and that is what selects the `clip_zeroshot` converter.
+2. **`zeroshot-embeddings-file=<file>.safetensors`** — required, supplies the class bank to score
+   against.
+
+```
+gvaclassify model=<clip-image-encoder>.xml zeroshot-embeddings-file=labels.safetensors
+```
+
+Selection is therefore driven by the **model**, not by a runtime property and not by naming the
+converter in a model-proc file. No model-proc file is involved in zero-shot mode at all. There are
+now two CLIP converters and they must not be confused:
 
 | `model_type` | Converter | Model output | Used for |
 |---|---|---|---|
