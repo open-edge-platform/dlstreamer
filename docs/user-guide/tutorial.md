@@ -218,7 +218,7 @@ DL="/opt/intel/dlstreamer/scripts/download_models/download_ultralytics_models.py
 python3 $DL --model yolo11s.pt@v8.4.0          --outdir ${MODELS_PATH}/yolo11s/FP16 --half
 python3 $DL --model yolo11s-seg.pt@v8.4.0      --outdir ${MODELS_PATH}/yolo11s-seg/FP16 --half
 python3 $DL --model yolo11s-pose.pt@v8.4.0     --outdir ${MODELS_PATH}/yolo11s-pose/FP16 --half
-python3 $DL --model yoloe-26s-seg-pf.pt@v8.4.0 --outdir ${MODELS_PATH}/public/yoloe-26s-seg-pf/FP16 --half
+python3 $DL --model yoloe-26s-seg.pt@v8.4.0 --classes "dog,person,backpack" --outdir ${MODELS_PATH}/public/yoloe-26s-seg/FP16 --half
 ```
 
 When they're done, leave the Python environment:
@@ -234,7 +234,7 @@ You now have four ready-to-use models under `${MODELS_PATH}`:
 | `yolo11s` | `${MODELS_PATH}/yolo11s/FP16/yolo11s.xml` | Detects objects (boxes + labels) |
 | `yolo11s-seg` | `${MODELS_PATH}/yolo11s-seg/FP16/yolo11s-seg.xml` | Detects **and** outlines objects pixel-by-pixel |
 | `yolo11s-pose` | `${MODELS_PATH}/yolo11s-pose/FP16/yolo11s-pose.xml` | Detects people and their body keypoints |
-| `yoloe-26s-seg-pf` | `${MODELS_PATH}/public/yoloe-26s-seg-pf/FP16/yoloe-26s-seg-pf.xml` | Open-vocabulary detection using a 4,585-class LVIS vocabulary |
+| `yoloe-26s-seg` | `${MODELS_PATH}/public/yoloe-26s-seg/FP16/yoloe-26s-seg.xml` | Open-vocabulary detection — class baked in at export via `--classes` |
 
 ---
 
@@ -414,8 +414,8 @@ python3 /opt/intel/dlstreamer/samples/gstreamer/python/prompted_detection/prompt
 
 **What you'll see:** a new file `skateboard_output.mp4` in `~/dlstreamer_demo`,
 with the dog boxed and labelled — and nothing else. Try other prompts like
-`"person"` or `"backpack"` (any [LVIS](https://www.lvisdataset.org/dataset)
-class name works)!
+`"person"` or `"backpack"` — all three classes were baked into the model at
+the download step above.
 
 <div align="center">
 

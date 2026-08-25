@@ -49,8 +49,7 @@ curl -L -o 1192116-sd_640_360_30fps.mp4 \
 
 ### Prepare Model
 
-This sample expects `yoloe-26s-seg-pf` in FP16 precision from Ultralytics for open-vocabulary object detection.
-The prompt-free (`-pf`) variant ships with a built-in 4,585-class LVIS vocabulary — no per-prompt model export needed.
+This sample expects `yoloe-26s-seg` in FP16 precision from Ultralytics, exported with the target class baked in via `--classes`.
 
 Use the [Ultralytics model conversion](../../../../scripts/download_models/README.md#2-ultralytics-conversion) to prepare the model.
 
@@ -59,7 +58,7 @@ Use the [Ultralytics model conversion](../../../../scripts/download_models/READM
 ```sh
 python3 prompted_detection.py \
     --input 1192116-sd_640_360_30fps.mp4 \
-    --prompt "car"
+    --prompt "person"
 ```
 
 If `--model` is omitted, it defaults to `$MODELS_PATH/public/yoloe-26s-seg-pf/FP16/yoloe-26s-seg-pf.xml`.

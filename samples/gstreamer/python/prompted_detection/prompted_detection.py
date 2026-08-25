@@ -13,8 +13,8 @@ gi.require_version("Gst", "1.0")
 gi.require_version("GstAnalytics", "1.0")
 from gi.repository import GLib, Gst, GstAnalytics # pylint: disable=no-name-in-module, wrong-import-position
 
-# Prompt-free model variant has a built-in 4,585-class LVIS vocabulary
-WEIGHTS = "yoloe-26s-seg-pf"
+# Default model location relative to $MODELS_PATH (pre-exported with set_classes via download_ultralytics_models.py --classes).
+WEIGHTS = "yoloe-26s-seg"
 # Default model location relative to $MODELS_PATH
 DEFAULT_MODEL_REL = f"public/{WEIGHTS}/FP16/{WEIGHTS}.xml"
 
@@ -47,15 +47,12 @@ def pipeline_loop(pipeline):
                 terminate = True
     pipeline.set_state(Gst.State.NULL)
 
-# called for each new frame received by appsink
-# implements user-defined processing of detection results
+# called for each new frame received by appsink — display mode: print prompt-matching detections
 def on_new_sample(sink, object_to_find):
     sample = sink.emit('pull-sample')
     if sample:
-        # get analytics metadata attached to frame buffer
         buffer = sample.get_buffer()
         rmeta = GstAnalytics.buffer_get_analytics_relation_meta(buffer)
-        # check if any objects were detected in the frame
         if rmeta:
             for mtd in rmeta:
                 if type(mtd) == GstAnalytics.ODMtd:
@@ -63,7 +60,6 @@ def on_new_sample(sink, object_to_find):
                     if object_to_find.lower() in category.lower():
                         print(f"Detected {category} in frame at {buffer.pts}")
         return Gst.FlowReturn.OK
-
     return Gst.FlowReturn.Flushing
 
 # create and run gstreamer pipeline
@@ -87,8 +83,8 @@ def main(args):
     model_path = parsed.model or os.path.join(os.environ.get("MODELS_PATH", "./models"), DEFAULT_MODEL_REL)
     model_file = ensure_file(model_path, "detection model")
 
+    json_file = None
     if output == "json":
-        # Deterministic json-lines output (used for ground-truth comparison)
         output_json = os.path.join(os.getcwd(), "output.json")
         if os.path.isfile(output_json):
             os.remove(output_json)
