@@ -3,6 +3,7 @@
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
-# Explicit subpackage import so that static analysers (e.g. pylint E0611) can
-# resolve `from dlstreamer.onvif import ...` without runtime installation.
-from . import onvif  # noqa: F401
+"""Package shim for :mod:`dlstreamer.onvif.video_engine`."""
+
+from .api import *  # noqa: F401,F403
+from .api import __all__  # noqa: F401
