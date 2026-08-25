@@ -9,7 +9,7 @@
 #include "config.h"
 
 #include "gva_caps.h"
-#include "inference_singleton.h"
+#include "inference_coordinator_pool.h"
 #include "processor_types.h"
 
 #include <gst/base/gstbasetransform.h>

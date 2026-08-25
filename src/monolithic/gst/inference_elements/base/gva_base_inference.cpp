@@ -92,7 +92,7 @@ G_DEFINE_TYPE_WITH_PRIVATE(GvaBaseInference, gva_base_inference, GST_TYPE_BASE_T
 GST_DEBUG_CATEGORY_STATIC(gva_base_inference_debug_category);
 #define GST_CAT_DEFAULT gva_base_inference_debug_category
 
-extern std::shared_ptr<InferenceCoordinator> acquire_inference_instance(GvaBaseInference *base_inference);
+extern std::shared_ptr<InferenceCoordinator> acquire_inference_coordinator(GvaBaseInference *base_inference);
 
 enum {
     PROP_0,
@@ -436,7 +436,7 @@ void gva_base_inference_cleanup(GvaBaseInference *base_inference) {
     GST_DEBUG_OBJECT(base_inference, "gva_base_inference_cleanup");
 
     if (base_inference->inference) {
-        release_inference_instance(base_inference);
+        release_inference_coordinator(base_inference);
         base_inference->inference = nullptr;
     }
 
@@ -1198,7 +1198,7 @@ gboolean gva_base_inference_set_caps(GstBaseTransform *trans, GstCaps *incaps, G
 
     if (base_inference->inference) {
         base_inference->inference->FlushInference();
-        release_inference_instance(base_inference);
+        release_inference_coordinator(base_inference);
         base_inference->inference = nullptr;
     }
 
@@ -1241,7 +1241,7 @@ gboolean gva_base_inference_set_caps(GstBaseTransform *trans, GstCaps *incaps, G
         }
 #endif
 
-        base_inference->inference = acquire_inference_instance(base_inference).get();
+        base_inference->inference = acquire_inference_coordinator(base_inference).get();
         if (!base_inference->inference)
             throw std::runtime_error("inference is NULL.");
 
@@ -1374,7 +1374,7 @@ gboolean gva_base_inference_start(GstBaseTransform *trans) {
         return base_inference->initialized;
     }
 
-    gboolean success = registerElement(base_inference);
+    gboolean success = register_element(base_inference);
     if (!success)
         return base_inference->initialized;
 
