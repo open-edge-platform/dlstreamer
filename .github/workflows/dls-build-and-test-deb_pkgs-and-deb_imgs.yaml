@@ -378,6 +378,11 @@ jobs:
             [ -f "$req" ] && $HOME/.virtualenvs/dlstreamer/bin/pip install --no-cache-dir -r "$req"
           done
 
+          $HOME/.virtualenvs/dlstreamer/bin/pip install --no-cache-dir \ 
+            torchvision==0.28.0 \
+            --index-url https://download.pytorch.org/whl/cpu # Reinstall torchvision after all requirements to ensure version compatibility with torch 2.13.0
+
+
       - name: 🚀 Run on host tests
         if: always() && needs.setup.outputs.should_run == 'true'
         id: run_onhost_tests
