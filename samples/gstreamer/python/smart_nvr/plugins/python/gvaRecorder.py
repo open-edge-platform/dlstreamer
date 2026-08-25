@@ -53,9 +53,12 @@ class Recorder(Gst.Bin):
     def __init__(self):
         super(Recorder, self).__init__()
 
-        # construct pipeline: videoconvert -> vah264enc -> h264parse -> splitmuxsink
+        # construct pipeline: videoconvert -> vah264enc (falls back to openh264enc) -> h264parse -> splitmuxsink
         self._convert = Gst.ElementFactory.make("videoconvert", "convert")
-        self._vah264enc = Gst.ElementFactory.make("vah264enc", "encoder")
+        self._vah264enc = Gst.ElementFactory.make("vah264enc", "encoder") or \
+            Gst.ElementFactory.make("openh264enc", "encoder")
+        if self._vah264enc is None:
+            raise RuntimeError("No H.264 encoder found: install vah264enc (GPU) or openh264enc (CPU)")
         self._h264parse = Gst.ElementFactory.make("h264parse", "h264parse")
         self._filesink = Gst.ElementFactory.make("splitmuxsink", "splitmuxsink")
         self.add(self._convert)
