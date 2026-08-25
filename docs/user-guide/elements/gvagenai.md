@@ -115,7 +115,7 @@ and `pipeline-config`.
 For more information, see [Visual Token Pruning](https://openvinotoolkit.github.io/openvino.genai/docs/concepts/optimization-techniques/visual-token-pruning).
 
 > [!NOTE]
-> Structured output (`json_schema`, `regex`, `grammar`, `backend`), is currently not 
+> Structured output (`json_schema`, `regex`, `grammar`, `backend`), is currently not
 > supported. Those values contain special characters (commas, spaces and `=`)
 > which cannot fit the `KEY=VALUE,KEY=VALUE` grammar.
 
@@ -254,7 +254,7 @@ vision-mode=video chunk-size=16 frame-rate=2
 
 ## Pipeline Examples
 
-A script with source selection, scaling, and all options is provided in [samples/gstreamer/gst_launch/gvagenai](../../../samples/gstreamer/gst_launch/gvagenai).
+A script with source selection, scaling, and all options is provided in [samples/gstreamer/gst_launch/gvagenai](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch/gvagenai).
 
 ### Video summarization to JSON
 

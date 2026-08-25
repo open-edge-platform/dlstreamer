@@ -25,6 +25,9 @@ from gi.repository import GLib, Gst  # pylint: disable=no-name-in-module,wrong-i
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 
+# Default detection model location, relative to $MODELS_PATH (default: ./models).
+DEFAULT_MODEL_REL = "public/PekingU_rtdetr_v2_r50vd/FP16/PekingU_rtdetr_v2_r50vd.xml"
+
 
 # ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -33,10 +36,15 @@ def parse_args():
     """Parse command-line arguments."""
     p = argparse.ArgumentParser(description="Smart NVR — Lane Hogging Detection")
     p.add_argument("--input", required=True, help="Path to input video file")
-    p.add_argument("--model", required=True, help="Path to detection model .xml")
-    p.add_argument("--device", default="GPU", help="Inference device (default: GPU)")
-    p.add_argument("--output", default="output.mp4", help="Output file location pattern (default: output.mp4)")
-    p.add_argument("--max-time", type=int, default=10, help="Chunk duration in seconds (default: 10)")
+    p.add_argument("--model", default=None,
+                   help="Path to detection model .xml (default: $MODELS_PATH/" + DEFAULT_MODEL_REL + ")")
+    p.add_argument("--device", default="GPU", choices=["CPU", "GPU"],
+                   help="Inference device (default: GPU)")
+    p.add_argument("--output", default="display", choices=["display", "json", "file"],
+                   help="Output mode: display, json, or file (default: display)")
+    p.add_argument("--output-location", default="output.mp4",
+                   help="Output file path for file mode (default: output.mp4)")
+    p.add_argument("--max-time", type=int, default=10, help="Chunk duration in seconds for file mode (default: 10)")
     p.add_argument("--threshold", type=float, default=0.7, help="Detection confidence threshold (default: 0.7)")
     p.add_argument("--batch-size", type=int, default=4, help="Inference batch size (default: 4)")
     return p.parse_args()
@@ -107,15 +115,31 @@ def main():
 
     # Prepare assets
     video_file = ensure_file(args.input, "input video")
-    detection_model = ensure_file(args.model, "detection model")
+    model_path = args.model or os.path.join(os.environ.get("MODELS_PATH", "./models"), DEFAULT_MODEL_REL)
+    detection_model = ensure_file(model_path, "detection model")
+
+    # Build sink based on output mode
+    if args.output == "json":
+        sink = (
+            "gvametaconvert add-tensor-data=true ! "
+            "gvametapublish file-format=json-lines file-path=output.json ! "
+            "fakesink async=false"
+        )
+    elif args.output == "file":
+        sink = (
+            f"gvafpscounter ! gvawatermark ! "
+            f'gvarecorder_py location="{args.output_location}" max-time={args.max_time}'
+        )
+    else:
+        sink = "gvafpscounter ! gvawatermark ! videoconvert ! autovideosink sync=false"
 
     # Build pipeline
     pipe = (
-        f'filesrc location="{video_file}" ! decodebin3 caps="video/x-raw(ANY)" ! '
+        f'filesrc location="{video_file}" ! decodebin3 ! '
         f'gvadetect model="{detection_model}" device={args.device} '
         f"batch-size={args.batch_size} threshold={args.threshold} ! queue ! "
-        f"gvaanalytics_py distance=500 angle=-135,-45 ! gvafpscounter ! gvawatermark ! "
-        f'gvarecorder_py location="{args.output}" max-time={args.max_time}'
+        f"gvaanalytics_py distance=500 angle=-135,-45 ! queue ! "
+        f"{sink}"
     )
     print(f'Pipeline: "{pipe}"')
     pipeline = Gst.parse_launch(pipe)
