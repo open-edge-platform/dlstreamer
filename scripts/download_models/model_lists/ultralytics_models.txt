@@ -30,5 +30,4 @@ yolo26n-pose.pt@v8.4.0
 yolo26s-obb.pt@v8.4.0
 yolo26s-seg.pt@v8.4.0
 yolo26s-pose.pt@v8.4.0
-yoloe-26n-seg.pt@v8.4.0
-yoloe-26s-seg.pt@v8.4.0
+yoloe-26s-seg-pf.pt@v8.4.0
