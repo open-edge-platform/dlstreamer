@@ -118,19 +118,10 @@ Install DLStreamer on the host (see [DLStreamer Installation Guide](../../../../
 cd /opt/intel/dlstreamer/samples/gstreamer/python/loitering_detection
 ```
 
-### Create folder and download model from Ultralytics
+### Prepare Model
 
-```sh
-export MODELS_PATH=./models
-mkdir -p ${MODEL_PATH}
-
-python3 -m venv venv  
-source venv/bin/activate
-pip install -r /opt/intel/dlstreamer/scripts/download_models/requirements_download_ultralytics_models.txt 
-
-python3 /opt/intel/dlstreamer/scripts/download_models/download_ultralytics_models.py --model yolo11s --outdir ${MODELS_PATH}/public/yolo11s/FP16 --half
-```
-> **Note:** This may take several seconds depending on your network speed.
+This sample expects `yolo11s` in FP16 precision from Ultralytics for object detection.
+Use the [Ultralytics model conversion](../../../../scripts/download_models/README.md#2-ultralytics-conversion) to prepare the model.
 
 ### Execution
 
@@ -146,7 +137,7 @@ Parameter details:
 - `INPUT`: Input video file path or URL.
   - Default: `https://github.com/open-edge-platform/edge-ai-resources/raw/refs/heads/main/videos/VIRAT_S_000101.mp4`
 - `CONFIG_FILE`: Zone configuration file for loitering detection.
-  - Default: `./virat_s_000101-config.json`
+  - Default: `<sample_dir>/virat_s_000101-config.json`
 - `MODEL`: Path to OpenVINO IR XML model used by `gvadetect`.
   - Default: `${MODELS_PATH}/public/yolo11s/FP16/yolo11s.xml`
   - The default is built from the `MODELS_PATH` environment variable (see below).
