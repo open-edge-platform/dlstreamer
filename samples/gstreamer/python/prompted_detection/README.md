@@ -49,7 +49,8 @@ curl -L -o 1192116-sd_640_360_30fps.mp4 \
 
 ### Prepare Model
 
-This sample expects `yoloe-26s-seg` in FP16 precision from Ultralytics for open-vocabulary object detection.
+This sample expects `yoloe-26s-seg-pf` in FP16 precision from Ultralytics for open-vocabulary object detection.
+The prompt-free (`-pf`) variant ships with a built-in 4,585-class LVIS vocabulary — no per-prompt model export needed.
 
 Use the [Ultralytics model conversion](../../../../scripts/download_models/README.md#2-ultralytics-conversion) to prepare the model.
 
@@ -58,11 +59,10 @@ Use the [Ultralytics model conversion](../../../../scripts/download_models/READM
 ```sh
 python3 prompted_detection.py \
     --input 1192116-sd_640_360_30fps.mp4 \
-    --prompt "white car" \
-    --model "${MODELS_PATH}/public/yoloe-26s-seg/FP16/yoloe-26s-seg.xml"
+    --prompt "car"
 ```
 
-If `--model` is omitted, it defaults to `$MODELS_PATH/public/yoloe-26s-seg/FP16/yoloe-26s-seg.xml`.
+If `--model` is omitted, it defaults to `$MODELS_PATH/public/yoloe-26s-seg-pf/FP16/yoloe-26s-seg-pf.xml`.
 
 > **Note:** Replace the `--model` path with the actual location where you downloaded the model in the [Prepare Model](#prepare-model) step.
 
@@ -80,18 +80,18 @@ Control the output with `--output` (default: `appsink`):
 
 **Appsink (default):**
 ```sh
-python3 prompted_detection.py --input video.mp4 --prompt "white car"
+python3 prompted_detection.py --input video.mp4 --prompt "car"
 ```
 
 **JSON metadata:**
 ```sh
-python3 prompted_detection.py --input video.mp4 --prompt "white car" --output json
+python3 prompted_detection.py --input video.mp4 --prompt "car" --output json
 ```
 Outputs `output.json` in JSON Lines format, one record per frame.
 
 **File output:**
 ```sh
-python3 prompted_detection.py --input video.mp4 --prompt "white car" --output file
+python3 prompted_detection.py --input video.mp4 --prompt "car" --output file
 ```
 
 ## How It Works

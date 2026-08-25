@@ -13,9 +13,9 @@ gi.require_version("Gst", "1.0")
 gi.require_version("GstAnalytics", "1.0")
 from gi.repository import GLib, Gst, GstAnalytics # pylint: disable=no-name-in-module, wrong-import-position
 
-# Pinned weights and export precision to keep deterministic outputs.
-WEIGHTS = "yoloe-26s-seg"
-# Default model location relative to $MODELS_PATH (pre-exported with download_ultralytics_models.py).
+# Prompt-free model variant has a built-in 4,585-class LVIS vocabulary
+WEIGHTS = "yoloe-26s-seg-pf"
+# Default model location relative to $MODELS_PATH
 DEFAULT_MODEL_REL = f"public/{WEIGHTS}/FP16/{WEIGHTS}.xml"
 
 
@@ -49,7 +49,7 @@ def pipeline_loop(pipeline):
 
 # called for each new frame received by appsink
 # implements user-defined processing of detection results
-def on_new_sample(sink, user_data):
+def on_new_sample(sink, object_to_find):
     sample = sink.emit('pull-sample')
     if sample:
         # get analytics metadata attached to frame buffer
@@ -60,7 +60,8 @@ def on_new_sample(sink, user_data):
             for mtd in rmeta:
                 if type(mtd) == GstAnalytics.ODMtd:
                     category = GLib.quark_to_string(mtd.get_obj_type())
-                    print(f"Detected {category} in frame at {buffer.pts}")
+                    if object_to_find.lower() in category.lower():
+                        print(f"Detected {category} in frame at {buffer.pts}")
         return Gst.FlowReturn.OK
 
     return Gst.FlowReturn.Flushing
@@ -116,7 +117,7 @@ def main(args):
     # register user-defined callback function to process results (appsink demo mode)
     appsink = pipeline.get_by_name("appsink0")
     if appsink is not None:
-        appsink.connect("new-sample", on_new_sample, None)
+        appsink.connect("new-sample", on_new_sample, object_to_find)
 
     # execute gstreamer pipeline
     pipeline_loop(pipeline)
