@@ -101,7 +101,7 @@ jobs:
           fetch-depth: 0
 
       - name: Run skill-validator
-        uses: open-edge-platform/geti-ci/actions/skill-validator@3fd1ebf48e46ec6584850e20616763e73ddf94e9 # skill-validator/v0.2.2
+        uses: open-edge-platform/geti-ci/actions/skill-validator@ec607ef51e1596c7202e275bcc7a290bfd7ab886 # skill-validator/v0.2.2
         with:
           skills-path: ${{ matrix.skills-path }}
           fail-on-findings: ${{ inputs.fail_on_findings || 'true' }}
