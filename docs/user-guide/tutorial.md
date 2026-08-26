@@ -523,6 +523,8 @@ Great places to continue:
   Vision-Language Models, and Kafka/MQTT publishing.
 - **[Supported models](supported_models.md)** — the 70+ models you can run out
   of the box.
+- **[Video tutorials on YouTube](https://www.youtube.com/watch?v=1x7LTZhEadI&list=PLg-UKERBljNySiBeQaLtzF0yZGOmKrBRF)** —
+  the DL Streamer playlist with walkthroughs and demos.
 
 Ideas to try right now by editing the commands above:
 
