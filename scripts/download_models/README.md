@@ -122,6 +122,7 @@ python download_ultralytics_models.py \
 - `--model` (required): Ultralytics model reference. Supported forms:
   - `<model>.pt` or `<model>` for latest weights resolved by Ultralytics.
   - `<model>@<revision>` to pin weights from `ultralytics/assets` GitHub release tag.
+  - Hugging Face repo ID (e.g., `user/repo`).
   - Local `.pt` path.
 - `--outdir` (optional, default `.`): Output directory.
 - `--half` (optional): Export in FP16.
