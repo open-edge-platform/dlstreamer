@@ -64,17 +64,6 @@ def parse_model_ref(model_ref: str) -> tuple[str, str | None]:
     return model_ref.strip(), None
 
 
-def normalize_outdir_path(outdir: Path) -> Path:
-    """Remove optional @revision marker from path components used in output dir."""
-    parts: list[str] = []
-    for part in outdir.parts:
-        if "@" in part:
-            parts.append(Path(part.split("@", 1)[0]).stem)
-        else:
-            parts.append(part)
-    return Path(*parts)
-
-
 def normalize_model_filename(model_name: str) -> str:
     """Ensure model filename has a .pt suffix."""
     return model_name if model_name.endswith(".pt") else f"{model_name}.pt"
@@ -115,7 +104,9 @@ def download_pinned_ultralytics_weight(
     return local_weight_path, temp_dir
 
 
-def download_from_hf(model_id: str) -> tuple[Path, Path]:
+def download_from_hf(
+    model_id: str, revision: str | None = None
+) -> tuple[Path, Path]:
     """
     Downloads the first .pt file found in a Hugging Face Hub repository.
 
@@ -145,7 +136,7 @@ def download_from_hf(model_id: str) -> tuple[Path, Path]:
 
     try:
         # Get the list of all files in the repository
-        repo_files = list_repo_files(repo_id=model_id)
+        repo_files = list_repo_files(repo_id=model_id, revision=revision)
         # Find the first file that ends with .pt
         pt_files = [f for f in repo_files if f.endswith(".pt")]
 
@@ -165,7 +156,10 @@ def download_from_hf(model_id: str) -> tuple[Path, Path]:
 
         # Download the file to the temporary directory
         local_path = hf_hub_download(
-            repo_id=model_id, filename=target_filename, cache_dir=temp_dir
+            repo_id=model_id,
+            filename=target_filename,
+            revision=revision,
+            cache_dir=temp_dir,
         )
         return Path(local_path), temp_dir
 
@@ -177,18 +171,19 @@ def download_from_hf(model_id: str) -> tuple[Path, Path]:
 
 
 def resolve_ultralytics_model(model_or_path: str) -> tuple[YOLO, Path | None]:
+    model_ref, revision = parse_model_ref(model_or_path)
 
     # First, check if the model string looks like a Hugging Face repo ID.
     # A simple heuristic is a string containing a '/' that is not an existing local file.
     is_hf_id = (
-        "/" in model_or_path
-        and not Path(model_or_path).is_dir()
-        and not Path(model_or_path).is_file()
+        "/" in model_ref
+        and not Path(model_ref).is_dir()
+        and not Path(model_ref).is_file()
     )
     if is_hf_id:
         # If it looks like an HF ID, use the new download function.
         # This returns the local path to the downloaded file and the temp directory.
-        local_hf_path, temp_dir = download_from_hf(model_or_path)
+        local_hf_path, temp_dir = download_from_hf(model_ref, revision)
         return YOLO(str(local_hf_path)), temp_dir
 
     # If it's not a Hugging Face ID, proceed.
@@ -208,7 +203,7 @@ def resolve_ultralytics_model(model_or_path: str) -> tuple[YOLO, Path | None]:
             raise ValueError("Ultralytics local model must be a .pt file")
         return YOLO(str(path)), None
 
-    model_name, revision = parse_model_ref(model_or_path)
+    model_name = model_ref
     if revision:
         pinned_weight_path, temp_dir = download_pinned_ultralytics_weight(
             model_name, revision
@@ -224,9 +219,26 @@ def is_explicit_local_model_path(model_or_path: str) -> bool:
     return path.is_absolute() or ("/" in model_or_path or "\\" in model_or_path)
 
 
-def move_exported_model(exported_path: Path, outdir: Path) -> Path:
+def get_output_model_name(model_or_path: str) -> str:
+    model_name, _ = parse_model_ref(model_or_path)
+    path = Path(model_name)
+    if path.is_absolute() or "/" in model_name or "\\" in model_name:
+        if "/" in model_name and not path.exists():
+            return model_name.replace("/", "_").replace("\\", "_")
+        return path.stem
+    return path.stem
+
+
+def move_exported_model(
+    exported_path: Path, outdir: Path, model_name: str | None = None
+) -> Path:
     for item in exported_path.iterdir():
-        target = outdir / item.name
+        target_name = (
+            f"{model_name}{item.suffix}"
+            if model_name is not None and item.suffix in {".xml", ".bin"}
+            else item.name
+        )
+        target = outdir / target_name
         if target.exists():
             if target.is_dir():
                 shutil.rmtree(target)
@@ -241,7 +253,8 @@ def move_exported_model(exported_path: Path, outdir: Path) -> Path:
 def main() -> int:
     args = parse_args()
     model_name = args.model
-    outdir = normalize_outdir_path(Path(args.outdir))
+    output_model_name = get_output_model_name(model_name)
+    outdir = Path(args.outdir)
     half = args.half
     int8 = args.int8
     classes = [c.strip() for c in args.classes.split(",")] if args.classes else None
@@ -270,7 +283,11 @@ def main() -> int:
             print(f"Error: Export failed for model '{model_name}' - no output produced")
             return 1
 
-        model_path = move_exported_model(Path(exported_model_path), outdir)
+        model_path = move_exported_model(
+            Path(exported_model_path),
+            outdir,
+            output_model_name if "/" in model_name and not Path(model_name).exists() else None,
+        )
         print(f"Exported model location: {model_path}")
     except FileNotFoundError as exc:
         missing = getattr(exc, "filename", None) or model_name
