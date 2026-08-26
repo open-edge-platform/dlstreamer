@@ -1,0 +1,88 @@
+{
+  "rules": [
+    {
+      "name": "record-on-motion",
+      "camera": {
+        "hostname": "10.0.0.15",
+        "port": 80,
+        "mac": "AA:BB:CC:DD:EE:FF"
+      },
+      "trigger": {
+        "topic_contains": "Motion",
+        "property_operation": "Changed",
+        "data_equals": {
+          "IsMotion": "true"
+        }
+      },
+      "action": "add",
+      "target_binding_id": "front_gate_main:record",
+      "pipeline_ref": "record_on_motion",
+      "profile_name": null,
+      "username": "",
+      "password": ""
+    },
+    {
+      "name": "stop-record-on-motion-clear",
+      "camera": {
+        "hostname": "10.0.0.15",
+        "port": 80,
+        "mac": "AA:BB:CC:DD:EE:FF"
+      },
+      "trigger": {
+        "topic_contains": "Motion",
+        "property_operation": "Changed",
+        "data_equals": {
+          "IsMotion": "false"
+        }
+      },
+      "action": "remove",
+      "target_binding_id": "front_gate_main:record"
+    },
+    {
+      "name": "restart-analytics-on-tamper",
+      "camera": {
+        "hostname": "10.0.0.16",
+        "port": 80
+      },
+      "trigger": {
+        "topic_contains": "Tamper"
+      },
+      "action": "restart",
+      "target_binding_id": "lobby_main"
+    },
+    {
+      "name": "switch-pipeline-on-videomotion",
+      "camera": {
+        "hostname": "10.0.0.16",
+        "port": 80
+      },
+      "trigger": {
+        "topic_contains": "VideoMotion",
+        "data_equals": {
+          "State": "true"
+        }
+      },
+      "action": "modify",
+      "target_binding_id": "lobby_main",
+      "pipeline_ref": "lobby_high_fps"
+    },
+    {
+      "name": "event_mapping_camera_2_name",
+      "camera": {
+        "hostname": "10.91.106.65",
+        "port": 2020
+      },
+      "trigger": {
+        "data_equals": {
+          "IsMotion": "true"
+        }
+      },
+      "action": "add",
+      "target_binding_id": "event_mapping_camera_2_id",
+      "pipeline_ref": "event_mapping_camera_2",
+      "profile_name": "minorStream",
+      "username": "admin",
+      "password": "r00tme"
+    }
+  ]
+}

@@ -179,30 +179,34 @@ Recommended small models for edge: `OpenGVLab/InternVL3_5-2B`, `openbmb/MiniCPM-
 **When to use:** OCR (PaddleOCR) or any PaddlePaddle model from HuggingFace.
 
 **CRITICAL:** PaddlePaddle v3+ uses PIR format (`.json` + `.pdiparams`), not `.pdmodel`.
-`ovc` cannot read PIR directly — use `paddle2onnx → ovc`.
+OpenVINO cannot read PIR directly — convert through ONNX.
 
-**Export pattern — paddle2onnx → ovc (two-step):**
+**Preferred export pattern — PaddlePaddle Python API → OpenVINO Python API (two-step):**
+
+Use `paddle2onnx.export()`, `openvino.convert_model()`, and `openvino.save_model()`
+in generated `export_models.py` scripts. This matches
+`assets/export-models-template.py` and avoids relying on the `paddle2onnx` and
+`ovc` commands being available on `PATH`. Use the command-line tools through
+`subprocess.run()` only when the Python APIs cannot perform a required conversion.
 
 ```python
-import subprocess
+import openvino as ov
+import paddle2onnx
 
 # Step 1: Download entire model repo (contains inference.json + inference.pdiparams)
 snapshot_download(repo_id=model_id, local_dir=str(paddle_dir))
 
-# Step 2: paddle2onnx — PaddlePaddle PIR → ONNX
-subprocess.run([
-    "paddle2onnx",
-    "--model_dir", str(paddle_dir),
-    "--model_filename", "inference.json",      # PIR format, NOT .pdmodel
-    "--params_filename", "inference.pdiparams",
-    "--save_file", str(onnx_file),
-    "--opset_version", "14",
-], check=True)
+# Step 2: paddle2onnx Python API — PaddlePaddle PIR → ONNX
+paddle2onnx.export(
+    model_filename=str(paddle_dir / "inference.json"),  # PIR format, NOT .pdmodel
+    params_filename=str(paddle_dir / "inference.pdiparams"),
+    save_file=str(onnx_file),
+    opset_version=14,
+)
 
-# Step 3: ovc — ONNX → OpenVINO IR
-subprocess.run([
-    "ovc", str(onnx_file), "--output_model", str(ov_model_xml)
-], check=True)
+# Step 3: OpenVINO Python API — ONNX → OpenVINO IR
+ov_ir = ov.convert_model(str(onnx_file))
+ov.save_model(ov_ir, str(ov_model_xml), compress_to_fp16=True)
 ```
 
 **Character dictionary extraction (PaddleOCR):**
