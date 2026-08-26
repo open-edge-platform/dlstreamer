@@ -28,6 +28,14 @@ gi.require_version("GstAnalytics", "1.0")
 from gi.repository import Gst
 
 DEFAULT_VIDEO_URL = "https://videos.pexels.com/video-files/18553046/18553046-hd_1280_720_30fps.mp4"
+DEFAULT_DETECTION_MODEL_REL = (
+    "public/arnabdhar_YOLOv8-Face-Detection/FP16/"
+    "arnabdhar_YOLOv8-Face-Detection.xml"
+)
+DEFAULT_CLASSIFICATION_MODEL_REL = (
+    "public/dima806_fairface_age_image_detection/FP16/"
+    "dima806_fairface_age_image_detection.xml"
+)
 
 
 def get_runtime_dir():
@@ -52,13 +60,13 @@ def parse_args(args):
     parser.add_argument("--output", default="file", help="Output mode: file or json")
     parser.add_argument(
         "--det-model",
-        required=True,
-        help="Path to the face-detection OpenVINO model XML",
+        default=None,
+        help="Path to the face-detection OpenVINO model XML (default: $MODELS_PATH/" + DEFAULT_DETECTION_MODEL_REL + ")",
     )
     parser.add_argument(
         "--cls-model",
-        required=True,
-        help="Path to the age/gender/classification OpenVINO model XML",
+        default=None,
+        help="Path to the age/gender/classification OpenVINO model XML (default: $MODELS_PATH/" + DEFAULT_CLASSIFICATION_MODEL_REL + ")",
     )
     parsed = parser.parse_args(args[1:])
     return parsed.input, parsed.device, parsed.output, parsed.det_model, parsed.cls_model
@@ -106,6 +114,14 @@ def pipeline_loop(pipeline):
 
 # Build and run the DL Streamer GStreamer pipeline
 def main(input_video, device, output, detection_model_path, classification_model_path):
+    models_path = os.environ.get("MODELS_PATH", "./models")
+    runtime_dir = get_runtime_dir()
+    detection_model_path = detection_model_path or os.path.join(
+        models_path, DEFAULT_DETECTION_MODEL_REL
+    )
+    classification_model_path = classification_model_path or os.path.join(
+        models_path, DEFAULT_CLASSIFICATION_MODEL_REL
+    )
 
     ov_detection_model_path = ensure_file(detection_model_path, "detection model")
     ov_classification_model_path = ensure_file(classification_model_path, "classification model")
