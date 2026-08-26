@@ -55,8 +55,6 @@ CUSTOM_CONVERTERS = {
     "rtdetrv2forobjectdetection",
     "depthanythingfordepthestimation",
     "videomaeforvideoclassification",
-    "ultralyticsyolo",
-    "ultralytics-yolo",
 }
 
 
@@ -113,19 +111,9 @@ def parse_model_ref(model_ref: str) -> tuple[str, str | None]:
 
 
 def load_hf_architectures_from_repo_local(local_model_dir: str | Path) -> list[str]:
-    """Load architectures from locally cached model directory.
-
-    Some Hugging Face repos (for example Ultralytics YOLO checkpoints) are packaged as a
-    raw .pt weight file without a standard transformers config.json. In that case, we still
-    want the downloader to classify them as a supported custom-export model and route them
-    through the Ultralytics exporter used by the sample code.
-    """
-    local_model_dir = Path(local_model_dir)
-    config_path = local_model_dir / "config.json"
+    """Load architectures from locally cached model directory."""
+    config_path = Path(local_model_dir) / "config.json"
     if not config_path.exists():
-        model_pt = next(local_model_dir.glob("*.pt"), None)
-        if model_pt is not None:
-            return ["ultralytics-yolo"]
         raise ValueError(f"config.json not found in {local_model_dir}")
 
     with open(config_path) as f:
@@ -314,107 +302,11 @@ def custom_conversion(
                 extra_args=extra_args,
             ),
         ),
-        "ultralyticsyolo": (
-            "an Ultralytics YOLO model",
-            lambda: export_hf_ultralytics_yolo_to_openvino(
-                local_model_dir,
-                export_dir,
-                token,
-                extra_args=extra_args,
-            ),
-        ),
-        "ultralytics-yolo": (
-            "an Ultralytics YOLO model",
-            lambda: export_hf_ultralytics_yolo_to_openvino(
-                local_model_dir,
-                export_dir,
-                token,
-                extra_args=extra_args,
-            ),
-        ),
     }
 
     model_description, export_handler = handlers[primary_arch]
     print(f"Model {repo_id} is {model_description}")
     return export_handler()
-
-
-def export_hf_ultralytics_yolo_to_openvino(
-    local_model_dir: str | Path,
-    outdir: Path,
-    token: str | None,
-    extra_args: list[str] | None = None,
-) -> Path:
-    """Export an Ultralytics YOLO checkpoint hosted on Hugging Face to OpenVINO.
-
-    This path handles repositories that are distributed as a raw `.pt` weight file without a
-    standard `config.json`. It follows the same pattern as the Python sample, while honoring
-    any requested precision override from `--extra_args` (for example `--weight-format fp16`).
-    """
-    outdir.mkdir(parents=True, exist_ok=True)
-    _ = token
-    extra_args = extra_args or []
-    local_model_dir = Path(local_model_dir)
-
-    try:
-        from ultralytics import YOLO
-    except ImportError as exc:
-        raise RuntimeError(
-            "Ultralytics export requires the 'ultralytics' package. "
-            "Install the download_ultralytics_models requirements to use this model."
-        ) from exc
-
-    model_pt = next(local_model_dir.glob("*.pt"), None)
-    if model_pt is None:
-        raise FileNotFoundError(f"No .pt model file found in {local_model_dir}")
-
-    weight_format = "int8"
-    for index, token_arg in enumerate(extra_args):
-        if token_arg == "--weight-format":
-            if index + 1 < len(extra_args):
-                weight_format = extra_args[index + 1].strip().lower()
-                break
-        elif token_arg.startswith("--weight-format="):
-            weight_format = token_arg.split("=", 1)[1].strip().lower()
-            break
-
-    export_kwargs: dict[str, object] = {
-        "format": "openvino",
-        "dynamic": True,
-    }
-    if weight_format == "fp16":
-        export_kwargs["half"] = True
-    elif weight_format == "int8":
-        export_kwargs["int8"] = True
-    elif weight_format == "fp32":
-        pass
-    else:
-        raise ValueError(
-            f"Unsupported Ultralytics YOLO weight format '{weight_format}'. "
-            "Supported values: fp32, fp16, int8"
-        )
-
-    model = YOLO(str(model_pt))
-    exported_model_path = model.export(**export_kwargs)
-    if not exported_model_path:
-        raise RuntimeError(f"Ultralytics export did not produce a model for {model_pt}")
-
-    exported_dir = Path(exported_model_path)
-    if exported_dir.exists() and exported_dir.is_dir():
-        for item in exported_dir.iterdir():
-            target = outdir / item.name
-            if target.exists():
-                if target.is_dir():
-                    shutil.rmtree(target)
-                else:
-                    target.unlink()
-            if item.is_dir():
-                shutil.copytree(item, target, dirs_exist_ok=True)
-            else:
-                shutil.copy2(item, target)
-        return outdir
-
-    return exported_dir
 
 
 def export_hf_clip_to_openvino(

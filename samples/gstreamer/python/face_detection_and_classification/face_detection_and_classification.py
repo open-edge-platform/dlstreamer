@@ -3,11 +3,14 @@
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
-import argparse
-import sys
-import os
+"""Run face detection and classification using pre-exported OpenVINO models."""
 
+import argparse
+import os
+import sys
 from pathlib import Path
+
+import gi
 
 sys.path.insert(
     0,
@@ -19,8 +22,6 @@ sys.path.insert(
 )
 # pylint: disable-next=wrong-import-position
 from shared_utils import download_https
-
-import gi
 
 gi.require_version("Gst", "1.0")
 gi.require_version("GstAnalytics", "1.0")
@@ -39,6 +40,7 @@ DEFAULT_CLASSIFICATION_MODEL_REL = (
 
 
 def get_runtime_dir():
+    """Return the current working directory used as the runtime directory."""
     return os.getcwd()
 
 
@@ -52,6 +54,7 @@ def ensure_file(path, description):
 
 
 def parse_args(args):
+    """Parse command-line arguments for the sample."""
     parser = argparse.ArgumentParser(
         description="Run face detection + classification using pre-exported OpenVINO models."
     )
@@ -72,8 +75,8 @@ def parse_args(args):
     return parsed.input, parsed.device, parsed.output, parsed.det_model, parsed.cls_model
 
 
-# Prepare input video file; download default if none provided
 def prepare_input_video(input_arg):
+    """Prepare the input video, downloading the default clip if needed."""
     runtime_dir = get_runtime_dir()
 
     if input_arg:
@@ -90,8 +93,8 @@ def prepare_input_video(input_arg):
     return input_video
 
 
-# wrapper to run the gstreamer pipeline loop
 def pipeline_loop(pipeline):
+    """Start the GStreamer pipeline and stop it on EOS or ERROR."""
     print("\nStarting Pipeline \n")
     bus = pipeline.get_bus()
     pipeline.set_state(Gst.State.PLAYING)
@@ -112,8 +115,8 @@ def pipeline_loop(pipeline):
     pipeline.set_state(Gst.State.NULL)
 
 
-# Build and run the DL Streamer GStreamer pipeline
 def main(input_video, device, output, detection_model_path, classification_model_path):
+    """Build and run the DL Streamer GStreamer pipeline."""
     models_path = os.environ.get("MODELS_PATH", "./models")
     runtime_dir = get_runtime_dir()
     detection_model_path = detection_model_path or os.path.join(
