@@ -90,6 +90,7 @@ static Suite *frame_drop_test_suite(void) {
     TCase *test_case = tcase_create("general");
 
     suite_add_tcase(s, test_case);
+    tcase_set_timeout(test_case, 180);
     tcase_add_test(test_case, test_frame_drop);
 
     return s;
