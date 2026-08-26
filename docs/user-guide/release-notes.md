@@ -2,7 +2,7 @@
 
 ## Version 2026.2
 
-**Release Date:** August 2026
+**Release Date**: September 9, 2026
 
 ## Key 2026.2 highlights:
 
