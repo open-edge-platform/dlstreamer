@@ -54,7 +54,7 @@ The pipeline stages implement the following functions:
 
 ## Custom Element Architecture
 
-This sample mirrors the [gvaanalytics_tripwire](../gvaanalytics_tripwire) sample, but changes the custom logic from line crossing to dwell-time threshold checking inside analytics zones.
+This sample mirrors the [gvaanalytics_tripwire](../../python/gvaanalytics_tripwire) sample, but changes the custom logic from line crossing to dwell-time threshold checking inside analytics zones.
 
 The `loitering_watermark` element is implemented as an in-place `GstBase.BaseTransform` plugin.
 For each video buffer, it reads analytics relation metadata produced upstream by `gvadetect`, `gvatrack`, and `gvaanalytics`. Since dwell time is computed in `gvaanalytics` and exported as relation metadata `loitering_watermark` is only responsible for threshold checking and result watermarking.
@@ -110,12 +110,12 @@ docker run --init -it --rm \
 
 #### Option B: Native installation
 
-Install DLStreamer on the host (see [DLStreamer Installation Guide](../../../../docs/user-guide/install/install_guide_index.md)).
+Install DLStreamer on the host (see [DLStreamer Installation Guide](../../../../../docs/user-guide/install/install_guide_index.md)).
 
 ### Change to sample folder
 
 ```sh
-cd /opt/intel/dlstreamer/samples/gstreamer/python/loitering_detection
+cd /opt/intel/dlstreamer/samples/gstreamer/gst_launch/python-elements/loitering_detection
 ```
 
 ### Prepare Model
@@ -178,6 +178,6 @@ License: https://data.kitware.com/#collection/56f56db28d777f753209ba9f/folder/56
 ```
 
 ## See also
-* [Samples overview](../../../README.md)
+* [Samples overview](../../../../README.md)
 
 

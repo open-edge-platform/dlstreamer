@@ -47,6 +47,11 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Use INT8 precision for OpenVINO export",
     )
+    parser.add_argument(
+        "--classes",
+        default=None,
+        help="Comma-separated class names to bake into the model via set_classes() (YOLOE text-prompt models only).",
+    )
     return parser.parse_args()
 
 
@@ -154,11 +159,19 @@ def main() -> int:
     outdir = normalize_outdir_path(Path(args.outdir))
     half = args.half
     int8 = args.int8
+    classes = [c.strip() for c in args.classes.split(",")] if args.classes else None
     temp_download_dir: Path | None = None
 
     try:
         outdir.mkdir(parents=True, exist_ok=True)
         model, temp_download_dir = resolve_ultralytics_model(model_name)
+
+        if classes is not None:
+            if not hasattr(model, 'set_classes') or not hasattr(model, 'get_text_pe'):
+                print(f"Error: --classes is only supported for YOLOE text-prompt models (e.g. yoloe-26s-seg)")
+                return 1
+            model.set_classes(classes, model.get_text_pe(classes))
+
         exported_model_path = model.export(
             format="openvino",
             dynamic=True,

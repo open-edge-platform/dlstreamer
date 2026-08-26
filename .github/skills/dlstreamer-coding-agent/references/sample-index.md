@@ -52,4 +52,5 @@ Before generating code, read the relevant existing samples to understand establi
 | motion_detect | Motion region detection (`gvamotiondetect`), ROI-restricted inference | `samples/gstreamer/gst_launch/motion_detect/` |
 | python-elements/face_detection_and_classification | Face detection + classification with custom GStreamer Python element (`gvaagelogger_py`) | `samples/gstreamer/gst_launch/python-elements/face_detection_and_classification/` |
 | python-elements/save_frames_with_ROI_only | Frame saving with custom GStreamer Python element using GstAnalytics API | `samples/gstreamer/gst_launch/python-elements/save_frames_with_ROI_only/` |
+| python-elements/loitering_detection | Dwell-time loitering detection with custom Python watermark element | `samples/gstreamer/gst_launch/python-elements/loitering_detection/` |
 | stream_mux_and_demux | Multi-stream inference through shared pipeline (`gvastreammux` + `gvastreamdemux`) | `samples/gstreamer/gst_launch/stream_mux_and_demux/` |
