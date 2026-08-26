@@ -3,12 +3,11 @@
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
+import argparse
 import sys
 import os
-import subprocess
 
-from huggingface_hub import hf_hub_download, snapshot_download
-from ultralytics import YOLO
+from pathlib import Path
 
 sys.path.insert(
     0,
@@ -29,29 +28,40 @@ gi.require_version("GstAnalytics", "1.0")
 from gi.repository import Gst
 
 DEFAULT_VIDEO_URL = "https://videos.pexels.com/video-files/18553046/18553046-hd_1280_720_30fps.mp4"
-YOLO_FACE_REPO_ID = "arnabdhar/YOLOv8-Face-Detection"
-# Pinned model revisions and export precision to keep deterministic outputs.
-YOLO_FACE_REVISION = "52fa54977207fa4f021de949b515fb19dcab4488"
-FAIRFACE_REPO_ID = "dima806/fairface_age_image_detection"
-FAIRFACE_REVISION = "4e02ab8057ea7fd74b1670940995c5dfda3e6ec0"
 
 
 def get_runtime_dir():
     return os.getcwd()
 
 
-# Parse INPUT, DEVICE and OUTPUT positional arguments
-def parse_args(args):
-    if len(args) > 4:
-        sys.stderr.write(f"usage: {args[0]} [INPUT] [DEVICE] [OUTPUT]\n")
-        sys.stderr.write("  INPUT  - local video file (default: download sample video)\n")
-        sys.stderr.write("  DEVICE - inference device: CPU, GPU or NPU (default: GPU)\n")
-        sys.stderr.write("  OUTPUT - output mode: file or json (default: file)\n")
+def ensure_file(path, description):
+    """Return resolved path if file exists; exit with error otherwise."""
+    p = Path(path)
+    if not p.is_file():
+        sys.stderr.write(f"Error: {description} not found: {path}\n")
         sys.exit(1)
-    input_arg = args[1] if len(args) > 1 and args[1] else None
-    device = args[2] if len(args) > 2 and args[2] else "GPU"
-    output = args[3] if len(args) > 3 and args[3] else "file"
-    return input_arg, device, output
+    return str(p.resolve())
+
+
+def parse_args(args):
+    parser = argparse.ArgumentParser(
+        description="Run face detection + classification using pre-exported OpenVINO models."
+    )
+    parser.add_argument("--input", default=None, help="Path to input video file")
+    parser.add_argument("--device", default="GPU", help="Inference device: CPU, GPU or NPU")
+    parser.add_argument("--output", default="file", help="Output mode: file or json")
+    parser.add_argument(
+        "--det-model",
+        required=True,
+        help="Path to the face-detection OpenVINO model XML",
+    )
+    parser.add_argument(
+        "--cls-model",
+        required=True,
+        help="Path to the age/gender/classification OpenVINO model XML",
+    )
+    parsed = parser.parse_args(args[1:])
+    return parsed.input, parsed.device, parsed.output, parsed.det_model, parsed.cls_model
 
 
 # Prepare input video file; download default if none provided
@@ -94,64 +104,13 @@ def pipeline_loop(pipeline):
     pipeline.set_state(Gst.State.NULL)
 
 
-# Download PyTorch models, convert to OpenVINO IR, create and run gstreamer pipeline
-def main(input_video, device, output):
+# Build and run the DL Streamer GStreamer pipeline
+def main(input_video, device, output, detection_model_path, classification_model_path):
 
-    runtime_dir = get_runtime_dir()
+    ov_detection_model_path = ensure_file(detection_model_path, "detection model")
+    ov_classification_model_path = ensure_file(classification_model_path, "classification model")
 
-    # STEP 1: Prepare face detection model (download + export to OpenVINO IR)
-
-    # Detection model from Hugging Face Model Hub
-    ov_detection_model_path = os.path.join(
-        runtime_dir, "model_int8_openvino_model", "model.xml"
-    )
-    if not os.path.isfile(ov_detection_model_path):
-        print(
-            "\nDownloading the detection model and converting to OpenVINO IR format...\n"
-        )
-        model_path = hf_hub_download(
-            repo_id=YOLO_FACE_REPO_ID,
-            filename="model.pt",
-            local_dir=runtime_dir,
-            revision=YOLO_FACE_REVISION,
-        )
-
-        model = YOLO(str(model_path))
-        exported_model_path = model.export(format="openvino", dynamic=True, int8=True)
-        print(f"Model exported to {exported_model_path}\n")
-
-    # STEP 2: Prepare classification model (download + export to OpenVINO IR)
-
-    ov_classification_model_path = os.path.join(
-        runtime_dir, "fairface_age_image_detection", "openvino_model.xml"
-    )
-    if not os.path.isfile(ov_classification_model_path):
-        print(
-            "\nDownloading classification model and converting to OpenVINO IR format...\n"
-        )
-        # Pin the revision by fetching the exact commit locally, then export from the local snapshot path
-        classification_source = snapshot_download(
-            repo_id=FAIRFACE_REPO_ID,
-            revision=FAIRFACE_REVISION,
-        )
-        subprocess.run(
-            [
-                "optimum-cli",
-                "export",
-                "openvino",
-                "--model",
-                classification_source,
-                "--task",
-                "image-classification",
-                os.path.join(runtime_dir, "fairface_age_image_detection"),
-                "--weight-format",
-                "int8",
-            ],
-            check=True,
-        )
-        print(f"Model exported to {ov_classification_model_path}\n")
-
-    # STEP 3: Build and run the DL Streamer GStreamer pipeline
+    # STEP 1: Build and run the DL Streamer GStreamer pipeline
 
     Gst.init([])
 
@@ -187,6 +146,6 @@ def main(input_video, device, output):
 
 
 if __name__ == "__main__":
-    input_argument, device_argument, output_argument = parse_args(sys.argv)
+    input_argument, device_argument, output_argument, det_model, cls_model = parse_args(sys.argv)
     video_path = prepare_input_video(input_argument)
-    sys.exit(main(video_path, device_argument, output_argument))
+    sys.exit(main(video_path, device_argument, output_argument, det_model, cls_model))

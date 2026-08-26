@@ -34,6 +34,9 @@ dima806/face_emotions_image_detection@a89ee07e59ea73cce21a4d4671576b71f7857a65
 # WhisperForConditionalGeneration (SUPPORTED_HF_MODELS)
 openai/whisper-tiny@169d4a4341b33bc18d8881c4b69c2e104e1cc0af
 
+# YOLOv8ForObjectDetection (SUPPORTED_HF_MODELS / ultralytics export)
+arnabdhar/YOLOv8-Face-Detection@52fa54977207fa4f021de949b515fb19dcab4488
+
 # LlavaForConditionalGeneration (SUPPORTED_HF_MODELS)
 # Suggested VLM for this environment: LLaVA converts under transformers 5.5 because its
 # optimum-intel export config is not version-capped. Runs at inference via gvagenai.
