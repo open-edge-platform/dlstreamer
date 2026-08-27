@@ -4,18 +4,18 @@
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
 
-#include "inference_singleton.h"
+#include "inference_coordinator_pool.h"
 #include "inference_backend/buffer_mapper.h"
 
 #include "gva_base_inference.h"
-#include "inference_impl.h"
+#include "inference_coordinator.h"
 #include "utils.h"
 #include <assert.h>
 #include <set>
 
 struct InferenceRefs {
     std::set<GvaBaseInference *> refs;
-    std::shared_ptr<InferenceImpl> proxy = nullptr;
+    std::shared_ptr<InferenceCoordinator> proxy = nullptr;
     dlstreamer::ContextPtr context = nullptr;
     GstVideoFormat videoFormat = GST_VIDEO_FORMAT_UNKNOWN;
     CapsFeature capsFeature = ANY_CAPS_FEATURE;
@@ -38,7 +38,7 @@ void addBaseInferenceToInfRes(std::shared_ptr<InferenceRefs> infRefs, GvaBaseInf
     GST_INFO_OBJECT(base_inference, "increment numref: refs size = %lu\n", infRefs->refs.size());
 }
 
-std::shared_ptr<InferenceRefs> registerElementUnlocked(GvaBaseInference *base_inference) {
+std::shared_ptr<InferenceRefs> register_element_unlocked(GvaBaseInference *base_inference) {
     std::string name = get_inference_key(base_inference);
     GST_INFO_OBJECT(base_inference, "key: %s\n", name.c_str());
     auto it = inference_pool_.find(name);
@@ -56,11 +56,11 @@ std::shared_ptr<InferenceRefs> registerElementUnlocked(GvaBaseInference *base_in
     return infRefs;
 }
 
-gboolean registerElement(GvaBaseInference *base_inference) {
+gboolean register_element(GvaBaseInference *base_inference) {
     assert(base_inference != nullptr && "Expected a valid pointer to gva_base_inference");
     try {
         std::lock_guard<std::mutex> guard(inference_pool_mutex_);
-        registerElementUnlocked(base_inference);
+        register_element_unlocked(base_inference);
     } catch (const std::exception &e) {
         GST_ELEMENT_ERROR(base_inference, LIBRARY, INIT, ("base_inference based element registration failed"),
                           ("%s", Utils::createNestedErrorMsg(e).c_str()));
@@ -70,10 +70,10 @@ gboolean registerElement(GvaBaseInference *base_inference) {
 }
 
 void fillElementProps(GvaBaseInference *targetElem, GvaBaseInference *masterElem,
-                      std::shared_ptr<InferenceImpl> inference_impl) {
+                      std::shared_ptr<InferenceCoordinator> coordinator) {
     assert(targetElem);
     assert(masterElem);
-    UNUSED(inference_impl);
+    UNUSED(coordinator);
 
     COPY_GSTRING(targetElem->model, masterElem->model);
     COPY_GSTRING(targetElem->device, masterElem->device);
@@ -156,7 +156,7 @@ void check_inference_props_same(const InferenceRefs &inferenceRefs, GstVideoForm
     }
 }
 
-std::shared_ptr<InferenceImpl> acquire_inference_instance(GvaBaseInference *base_inference) {
+std::shared_ptr<InferenceCoordinator> acquire_inference_coordinator(GvaBaseInference *base_inference) {
     try {
         if (!base_inference)
             throw std::invalid_argument("GvaBaseInference is null");
@@ -165,7 +165,7 @@ std::shared_ptr<InferenceImpl> acquire_inference_instance(GvaBaseInference *base
         std::shared_ptr<InferenceRefs> infRefs = nullptr;
         std::string name = get_inference_key(base_inference);
         GST_INFO_OBJECT(base_inference, "key: %s\n", name.c_str());
-        infRefs = registerElementUnlocked(base_inference);
+        infRefs = register_element_unlocked(base_inference);
 
         initInferenceProps(*infRefs, base_inference->info->finfo->format, base_inference->caps_feature);
         check_inference_props_same(*infRefs, base_inference->info->finfo->format, base_inference->caps_feature);
@@ -174,10 +174,10 @@ std::shared_ptr<InferenceImpl> acquire_inference_instance(GvaBaseInference *base
         initExistingElements(infRefs);
 
         if (infRefs->proxy == nullptr) { // no instance for current inference-id acquired yet
-            infRefs->proxy =
-                std::make_shared<InferenceImpl>(base_inference); // one instance for all elements with same inference-id
+            infRefs->proxy = std::make_shared<InferenceCoordinator>(
+                base_inference); // one instance for all elements with same inference-id
         }
-        infRefs->context = InferenceImpl::GetDisplay(base_inference);
+        infRefs->context = InferenceCoordinator::GetDisplay(base_inference);
 
         return infRefs->proxy;
     } catch (const std::exception &e) {
@@ -187,7 +187,7 @@ std::shared_ptr<InferenceImpl> acquire_inference_instance(GvaBaseInference *base
     }
 }
 
-void release_inference_instance(GvaBaseInference *base_inference) {
+void release_inference_coordinator(GvaBaseInference *base_inference) {
     try {
         std::lock_guard<std::mutex> guard(inference_pool_mutex_);
 

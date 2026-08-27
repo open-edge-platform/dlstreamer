@@ -9,7 +9,7 @@
 #include "config.h"
 
 #include "gva_caps.h"
-#include "inference_singleton.h"
+#include "inference_coordinator_pool.h"
 #include "processor_types.h"
 
 #include <gst/base/gstbasetransform.h>
@@ -107,13 +107,13 @@ typedef struct _GvaBaseInference {
     InferenceRegionType effective_inference_region;
     gboolean depth_inference_to_roi_mode;
 
-    InferenceImpl *inference;
+    InferenceCoordinator *inference;
 
     FilterROIFunction is_roi_inference_needed;
     FilterROIFunction specific_roi_filter;
 
     PreProcFunction pre_proc;
-    InputPreprocessorsFactory input_prerocessors_factory;
+    InputPreprocessorsFactory input_processors_factory;
     PostProcessor *post_proc;
 
     gboolean initialized;

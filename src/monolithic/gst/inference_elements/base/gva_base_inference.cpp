@@ -16,7 +16,7 @@
 #include "dlstreamer/gst/frame.h"
 #include "gstgvaclassify.h"
 #include "inference_backend/buffer_mapper.h"
-#include "inference_impl.h"
+#include "inference_coordinator.h"
 #include "model_proc_provider.h"
 
 #include "gva_base_inference_priv.hpp"
@@ -92,7 +92,7 @@ G_DEFINE_TYPE_WITH_PRIVATE(GvaBaseInference, gva_base_inference, GST_TYPE_BASE_T
 GST_DEBUG_CATEGORY_STATIC(gva_base_inference_debug_category);
 #define GST_CAT_DEFAULT gva_base_inference_debug_category
 
-extern std::shared_ptr<InferenceImpl> acquire_inference_instance(GvaBaseInference *base_inference);
+extern std::shared_ptr<InferenceCoordinator> acquire_inference_coordinator(GvaBaseInference *base_inference);
 
 enum {
     PROP_0,
@@ -166,7 +166,7 @@ static bool is_roi_inference_needed(GvaBaseInference *gva_base_inference, guint6
     auto inference = gva_base_inference->inference;
     g_assert(inference != nullptr);
 
-    if (!InferenceImpl::IsRoiSizeValid(roi))
+    if (!InferenceCoordinator::IsRoiSizeValid(roi))
         return false;
     // Check if object-class is the same as roi class label
     if (!inference->FilterObjectClass(roi))
@@ -436,7 +436,7 @@ void gva_base_inference_cleanup(GvaBaseInference *base_inference) {
     GST_DEBUG_OBJECT(base_inference, "gva_base_inference_cleanup");
 
     if (base_inference->inference) {
-        release_inference_instance(base_inference);
+        release_inference_coordinator(base_inference);
         base_inference->inference = nullptr;
     }
 
@@ -620,7 +620,7 @@ void gva_base_inference_init(GvaBaseInference *base_inference) {
     base_inference->specific_roi_filter = nullptr;
 
     base_inference->pre_proc = nullptr;
-    base_inference->input_prerocessors_factory = GET_INPUT_PREPROCESSORS;
+    base_inference->input_processors_factory = GET_INPUT_PREPROCESSORS;
     base_inference->post_proc = nullptr;
 
     base_inference->frame_num = DEFAULT_FIRST_FRAME_NUM;
@@ -1198,7 +1198,7 @@ gboolean gva_base_inference_set_caps(GstBaseTransform *trans, GstCaps *incaps, G
 
     if (base_inference->inference) {
         base_inference->inference->FlushInference();
-        release_inference_instance(base_inference);
+        release_inference_coordinator(base_inference);
         base_inference->inference = nullptr;
     }
 
@@ -1241,7 +1241,7 @@ gboolean gva_base_inference_set_caps(GstBaseTransform *trans, GstCaps *incaps, G
         }
 #endif
 
-        base_inference->inference = acquire_inference_instance(base_inference).get();
+        base_inference->inference = acquire_inference_coordinator(base_inference).get();
         if (!base_inference->inference)
             throw std::runtime_error("inference is NULL.");
 
@@ -1273,7 +1273,7 @@ gboolean gva_base_inference_set_caps(GstBaseTransform *trans, GstCaps *incaps, G
         if (!base_inference->priv->buffer_mapper)
             throw std::runtime_error("couldn't create buffer mapper");
 
-        // We need to set the vector of object classes after InferenceImpl instance acquirement
+        // We need to set the vector of object classes after InferenceCoordinator instance acquirement
         gva_base_inference_update_object_classes(base_inference);
     } catch (const std::exception &e) {
         GST_ELEMENT_ERROR(base_inference, LIBRARY, INIT,
@@ -1374,7 +1374,7 @@ gboolean gva_base_inference_start(GstBaseTransform *trans) {
         return base_inference->initialized;
     }
 
-    gboolean success = registerElement(base_inference);
+    gboolean success = register_element(base_inference);
     if (!success)
         return base_inference->initialized;
 

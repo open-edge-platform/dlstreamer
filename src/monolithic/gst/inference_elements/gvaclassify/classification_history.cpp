@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2018-2025 Intel Corporation
+ * Copyright (C) 2018-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -8,7 +8,7 @@
 #include "gmutex_lock_guard.h"
 #include "gva_utils.h"
 #include "inference_backend/logger.h"
-#include "inference_impl.h"
+#include "inference_coordinator.h"
 #include "utils.h"
 #include <video_frame.h>
 
@@ -96,7 +96,7 @@ void ClassificationHistory::FillROIParams(GstBuffer *buffer) {
             gint id = region.object_id();
             if (!id)
                 continue;
-            InferenceImpl *inference = gva_classify->base_inference.inference;
+            InferenceCoordinator *inference = gva_classify->base_inference.inference;
             assert(inference && "Empty inference instance");
             bool is_appropriate_object_class = inference->FilterObjectClass(region.label());
             if (history.count(id) && is_appropriate_object_class) {

@@ -14,7 +14,7 @@
 #include <memory>
 #include <vector>
 
-class InferenceImpl;
+class InferenceCoordinator;
 typedef struct _GvaBaseInference GvaBaseInference;
 
 namespace post_processing {

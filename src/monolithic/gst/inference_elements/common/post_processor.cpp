@@ -10,7 +10,7 @@
 #include "gstgvadetect.h"
 #include "gva_base_inference.h"
 #include "inference_backend/logger.h"
-#include "inference_impl.h"
+#include "inference_coordinator.h"
 #include "model_proc_provider.h"
 
 #include <map>
@@ -162,12 +162,12 @@ void fillModelLabels(post_processing::PostProcessorImpl::Initializer &initialize
 
 } /* anonymous namespace */
 
-PostProcessor::PostProcessor(InferenceImpl *inference_impl, GvaBaseInference *base_inference) {
+PostProcessor::PostProcessor(InferenceCoordinator *coordinator, GvaBaseInference *base_inference) {
     auto inference_type = base_inference->type;
     auto inference_region = base_inference->inference_region;
 
     /* set model & its name */
-    const auto &model = inference_impl->GetModel();
+    const auto &model = coordinator->GetModel();
     initializer.model_name = model.name;
     /* set input image info */
     model.inference->GetModelImageInputInfo(initializer.image_info.width, initializer.image_info.height,

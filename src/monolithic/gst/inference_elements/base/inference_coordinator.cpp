@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
 
-#include "inference_impl.h"
+#include "inference_coordinator.h"
 
 #include "common/post_processor.h"
 #include "common/post_processor/post_proc_common.h"
@@ -825,9 +825,11 @@ dlstreamer::ContextPtr createVaDisplay(GvaBaseInference *gva_base_inference) {
 
 } // namespace
 
-InferenceImpl::Model InferenceImpl::CreateModel(GvaBaseInference *gva_base_inference, const std::string &model_file,
-                                                const std::string &model_proc_path, const std::string &labels_str,
-                                                const std::string &custom_preproc_lib) {
+InferenceCoordinator::Model InferenceCoordinator::CreateModel(GvaBaseInference *gva_base_inference,
+                                                              const std::string &model_file,
+                                                              const std::string &model_proc_path,
+                                                              const std::string &labels_str,
+                                                              const std::string &custom_preproc_lib) {
     assert(gva_base_inference && "Expected a valid pointer to GvaBaseInference");
 
     if (!Utils::fileExists(model_file))
@@ -938,8 +940,9 @@ InferenceImpl::Model InferenceImpl::CreateModel(GvaBaseInference *gva_base_infer
     SetAffinityMask(gva_base_inference->core_pinning_mask);
 
     auto image_inference = ImageInference::createImageInferenceInstance(
-        memory_type, ie_config, allocator.get(), std::bind(&InferenceImpl::InferenceCompletionCallback, this, _1, _2),
-        std::bind(&InferenceImpl::PushFramesIfInferenceFailed, this, _1), std::move(va_dpy));
+        memory_type, ie_config, allocator.get(),
+        std::bind(&InferenceCoordinator::InferenceCompletionCallback, this, _1, _2),
+        std::bind(&InferenceCoordinator::PushFramesIfInferenceFailed, this, _1), std::move(va_dpy));
     if (!image_inference)
         throw std::runtime_error("Failed to create inference instance");
     model.inference = image_inference;
@@ -953,7 +956,7 @@ InferenceImpl::Model InferenceImpl::CreateModel(GvaBaseInference *gva_base_infer
     return model;
 }
 
-InferenceImpl::InferenceImpl(GvaBaseInference *gva_base_inference) {
+InferenceCoordinator::InferenceCoordinator(GvaBaseInference *gva_base_inference) {
     assert(gva_base_inference != nullptr && "Expected a valid pointer to gva_base_inference");
     if (!gva_base_inference->model) {
         throw std::runtime_error("Model not specified");
@@ -983,26 +986,26 @@ InferenceImpl::InferenceImpl(GvaBaseInference *gva_base_inference) {
     this->model = CreateModel(gva_base_inference, model_file, model_proc, labels_str, custom_preproc_lib);
 }
 
-dlstreamer::ContextPtr InferenceImpl::GetDisplay(GvaBaseInference *gva_base_inference) {
+dlstreamer::ContextPtr InferenceCoordinator::GetDisplay(GvaBaseInference *gva_base_inference) {
 #ifdef _WIN32
     return gva_base_inference->priv->d3d11_device;
 #else
     return gva_base_inference->priv->va_display;
 #endif
 }
-void InferenceImpl::SetDisplay(GvaBaseInference *gva_base_inference, const dlstreamer::ContextPtr &display) {
+void InferenceCoordinator::SetDisplay(GvaBaseInference *gva_base_inference, const dlstreamer::ContextPtr &display) {
     gva_base_inference->priv->va_display = display;
 }
 
-void InferenceImpl::FlushInference() {
+void InferenceCoordinator::FlushInference() {
     model.inference->Flush();
 }
 
-void InferenceImpl::FlushOutputs() {
+void InferenceCoordinator::FlushOutputs() {
     PushOutput();
 }
 
-void InferenceImpl::UpdateObjectClasses(const gchar *obj_classes_str) {
+void InferenceCoordinator::UpdateObjectClasses(const gchar *obj_classes_str) {
     // Lock mutex to avoid data race in case of shared inference instance in multichannel mode
     std::unique_lock<std::mutex> lock(_mutex);
 
@@ -1012,7 +1015,7 @@ void InferenceImpl::UpdateObjectClasses(const gchar *obj_classes_str) {
         object_classes.clear();
 }
 
-void InferenceImpl::UpdateModelReshapeInfo(GvaBaseInference *gva_base_inference) {
+void InferenceCoordinator::UpdateModelReshapeInfo(GvaBaseInference *gva_base_inference) {
     try {
         if (gva_base_inference->reshape)
             return;
@@ -1035,7 +1038,7 @@ void InferenceImpl::UpdateModelReshapeInfo(GvaBaseInference *gva_base_inference)
     }
 }
 
-bool InferenceImpl::FilterObjectClass(GstVideoRegionOfInterestMeta *roi) const {
+bool InferenceCoordinator::FilterObjectClass(GstVideoRegionOfInterestMeta *roi) const {
     if (object_classes.empty())
         return true;
     auto compare_quark_string = [roi](const std::string &str) {
@@ -1045,7 +1048,7 @@ bool InferenceImpl::FilterObjectClass(GstVideoRegionOfInterestMeta *roi) const {
     return std::find_if(object_classes.cbegin(), object_classes.cend(), compare_quark_string) != object_classes.cend();
 }
 
-bool InferenceImpl::FilterObjectClass(GstAnalyticsODMtd roi) const {
+bool InferenceCoordinator::FilterObjectClass(GstAnalyticsODMtd roi) const {
     if (object_classes.empty())
         return true;
     auto compare_quark_string = [roi](const std::string &str) {
@@ -1056,22 +1059,22 @@ bool InferenceImpl::FilterObjectClass(GstAnalyticsODMtd roi) const {
     return std::find_if(object_classes.cbegin(), object_classes.cend(), compare_quark_string) != object_classes.cend();
 }
 
-bool InferenceImpl::FilterObjectClass(const std::string &object_class) const {
+bool InferenceCoordinator::FilterObjectClass(const std::string &object_class) const {
     if (object_classes.empty())
         return true;
     return std::find(object_classes.cbegin(), object_classes.cend(), object_class) != object_classes.cend();
 }
 
-InferenceImpl::~InferenceImpl() {
+InferenceCoordinator::~InferenceCoordinator() {
     for (auto proc : model.output_processor_info)
         gst_structure_free(proc.second);
 }
 
-bool InferenceImpl::IsRoiSizeValid(const GstVideoRegionOfInterestMeta *roi_meta) {
+bool InferenceCoordinator::IsRoiSizeValid(const GstVideoRegionOfInterestMeta *roi_meta) {
     return roi_meta->w > 1 && roi_meta->h > 1;
 }
 
-bool InferenceImpl::IsRoiSizeValid(const GstAnalyticsODMtd roi_meta) {
+bool InferenceCoordinator::IsRoiSizeValid(const GstAnalyticsODMtd roi_meta) {
     gint x, y, w, h;
     if (!gst_analytics_od_mtd_get_location(const_cast<GstAnalyticsODMtd *>(&roi_meta), &x, &y, &w, &h, nullptr)) {
         throw std::runtime_error("Failed to get location of od meta");
@@ -1084,7 +1087,7 @@ bool InferenceImpl::IsRoiSizeValid(const GstAnalyticsODMtd roi_meta) {
  * Pins current thread to the CPU core set as specified by affinity mask.
  */
 #ifndef _WIN32
-void InferenceImpl::SetAffinityMask(const cpu_set_t &mask) {
+void InferenceCoordinator::SetAffinityMask(const cpu_set_t &mask) {
     if (CPU_COUNT(&mask) > 0) {
         GVA_INFO("Setting CPU affinity mask (%d cores set)\n", CPU_COUNT(&mask));
 
@@ -1107,7 +1110,7 @@ void InferenceImpl::SetAffinityMask(const cpu_set_t &mask) {
     }
 }
 #else
-void InferenceImpl::SetAffinityMask(const WinCorePinningMask &mask) {
+void InferenceCoordinator::SetAffinityMask(const WinCorePinningMask &mask) {
     bool has_cores = false;
     for (WORD g = 0; g < mask.num_groups && !has_cores; ++g)
         has_cores = mask.group_mask[g] != 0;
@@ -1145,7 +1148,7 @@ void InferenceImpl::SetAffinityMask(const WinCorePinningMask &mask) {
 /**
  * Acquires output_frames_mutex with std::lock_guard.
  */
-void InferenceImpl::PushOutput() {
+void InferenceCoordinator::PushOutput() {
     ITT_TASK(__FUNCTION__);
     std::lock_guard<std::mutex> guard(output_frames_mutex);
 
@@ -1197,7 +1200,7 @@ void InferenceImpl::PushOutput() {
     }
 }
 
-bool InferenceImpl::CheckSrcPadBlocked(GstObject *src) {
+bool InferenceCoordinator::CheckSrcPadBlocked(GstObject *src) {
     bool blocked = false;
 
     // store peer pad to properly unref it
@@ -1242,7 +1245,7 @@ bool InferenceImpl::CheckSrcPadBlocked(GstObject *src) {
     return blocked;
 }
 
-void InferenceImpl::PushBufferToSrcPad(OutputFrame &output_frame) {
+void InferenceCoordinator::PushBufferToSrcPad(OutputFrame &output_frame) {
     GstBuffer *buffer = output_frame.buffer;
 
     if (!check_gva_base_inference_stopped(output_frame.filter)) {
@@ -1253,10 +1256,10 @@ void InferenceImpl::PushBufferToSrcPad(OutputFrame &output_frame) {
     }
 }
 
-std::shared_ptr<InferenceImpl::InferenceResult>
-InferenceImpl::MakeInferenceResult(GvaBaseInference *gva_base_inference, Model &model,
-                                   GstVideoRegionOfInterestMeta *meta, std::shared_ptr<InferenceBackend::Image> &image,
-                                   GstBuffer *buffer) {
+std::shared_ptr<InferenceCoordinator::InferenceResult>
+InferenceCoordinator::MakeInferenceResult(GvaBaseInference *gva_base_inference, Model &model,
+                                          GstVideoRegionOfInterestMeta *meta,
+                                          std::shared_ptr<InferenceBackend::Image> &image, GstBuffer *buffer) {
     auto result = std::make_shared<InferenceResult>();
     /* expect that std::make_shared must throw instead of returning nullptr */
     assert(result.get() != nullptr && "Expected a valid InferenceResult");
@@ -1276,8 +1279,9 @@ InferenceImpl::MakeInferenceResult(GvaBaseInference *gva_base_inference, Model &
     return result;
 }
 
-GstFlowReturn InferenceImpl::SubmitImages(GvaBaseInference *gva_base_inference,
-                                          const std::vector<GstVideoRegionOfInterestMeta> &metas, GstBuffer *buffer) {
+GstFlowReturn InferenceCoordinator::SubmitImages(GvaBaseInference *gva_base_inference,
+                                                 const std::vector<GstVideoRegionOfInterestMeta> &metas,
+                                                 GstBuffer *buffer) {
     ITT_TASK(__FUNCTION__);
     try {
         if (!gva_base_inference)
@@ -1317,9 +1321,9 @@ GstFlowReturn InferenceImpl::SubmitImages(GvaBaseInference *gva_base_inference,
             if (++i == metas.size())
                 image.reset();
             std::map<std::string, InferenceBackend::InputLayerDesc::Ptr> input_preprocessors;
-            if (!model.input_processor_info.empty() && gva_base_inference->input_prerocessors_factory)
+            if (!model.input_processor_info.empty() && gva_base_inference->input_processors_factory)
                 input_preprocessors =
-                    gva_base_inference->input_prerocessors_factory(model.inference, model.input_processor_info, &meta);
+                    gva_base_inference->input_processors_factory(model.inference, model.input_processor_info, &meta);
             model.inference->SubmitImage(std::move(result), input_preprocessors);
         }
     } catch (const std::exception &e) {
@@ -1330,11 +1334,11 @@ GstFlowReturn InferenceImpl::SubmitImages(GvaBaseInference *gva_base_inference,
     return GST_BASE_TRANSFORM_FLOW_DROPPED;
 }
 
-const InferenceImpl::Model &InferenceImpl::GetModel() const {
+const InferenceCoordinator::Model &InferenceCoordinator::GetModel() const {
     return model;
 }
 
-GstFlowReturn InferenceImpl::TransformFrameIp(GvaBaseInference *gva_base_inference, GstBuffer *buffer) {
+GstFlowReturn InferenceCoordinator::TransformFrameIp(GvaBaseInference *gva_base_inference, GstBuffer *buffer) {
     ITT_TASK(__FUNCTION__);
     std::unique_lock<std::mutex> lock(_mutex);
 
@@ -1349,7 +1353,7 @@ GstFlowReturn InferenceImpl::TransformFrameIp(GvaBaseInference *gva_base_inferen
 
     InferenceStatus status = INFERENCE_EXECUTED;
     {
-        ITT_TASK("InferenceImpl::TransformFrameIp check_skip");
+        ITT_TASK("InferenceCoordinator::TransformFrameIp check_skip");
         if (++gva_base_inference->num_skipped_frames < gva_base_inference->inference_interval) {
             status = INFERENCE_SKIPPED_PER_PROPERTY;
         }
@@ -1367,7 +1371,7 @@ GstFlowReturn InferenceImpl::TransformFrameIp(GvaBaseInference *gva_base_inferen
     std::vector<GstVideoRegionOfInterestMeta> metas;
     GstVideoRegionOfInterestMeta full_frame_meta;
     {
-        ITT_TASK("InferenceImpl::TransformFrameIp collectROIMetas");
+        ITT_TASK("InferenceCoordinator::TransformFrameIp collectROIMetas");
         switch (gva_base_inference->effective_inference_region) {
         case ROI_LIST: {
             /* iterates through buffer's meta and pushes it in vector if inference needed. */
@@ -1409,7 +1413,7 @@ GstFlowReturn InferenceImpl::TransformFrameIp(GvaBaseInference *gva_base_inferen
 
     // push into output_frames queue
     {
-        ITT_TASK("InferenceImpl::TransformFrameIp pushIntoOutputFramesQueue");
+        ITT_TASK("InferenceCoordinator::TransformFrameIp pushIntoOutputFramesQueue");
         std::unique_lock output_lock(output_frames_mutex);
 
         // pause on accepting a new frame if downstream already blocks
@@ -1452,7 +1456,7 @@ GstFlowReturn InferenceImpl::TransformFrameIp(GvaBaseInference *gva_base_inferen
             return GST_FLOW_OK;
         }
 
-        InferenceImpl::OutputFrame output_frame = {
+        InferenceCoordinator::OutputFrame output_frame = {
             .buffer = buffer, .inference_count = inference_count, .filter = gva_base_inference, .inference_rois = {}};
         output_frames.push_back(output_frame);
 
@@ -1467,7 +1471,7 @@ GstFlowReturn InferenceImpl::TransformFrameIp(GvaBaseInference *gva_base_inferen
     return SubmitImages(gva_base_inference, metas, buffer);
 }
 
-void InferenceImpl::PushFramesIfInferenceFailed(
+void InferenceCoordinator::PushFramesIfInferenceFailed(
     std::vector<std::shared_ptr<InferenceBackend::ImageInference::IFrameBase>> frames) {
     std::lock_guard<std::mutex> guard(output_frames_mutex);
     for (auto &frame : frames) {
@@ -1496,7 +1500,7 @@ void InferenceImpl::PushFramesIfInferenceFailed(
  *
  * @param[in] inference_roi - InferenceFrame to provide buffer's and inference element's info
  */
-void InferenceImpl::UpdateOutputFrames(std::shared_ptr<InferenceFrame> &inference_roi) {
+void InferenceCoordinator::UpdateOutputFrames(std::shared_ptr<InferenceFrame> &inference_roi) {
     assert(inference_roi && "Inference frame is null");
     std::lock_guard<std::mutex> guard(output_frames_mutex);
 
@@ -1531,7 +1535,7 @@ void InferenceImpl::UpdateOutputFrames(std::shared_ptr<InferenceFrame> &inferenc
  *
  * @throw throw std::runtime_error when post-processing is failed
  */
-void InferenceImpl::InferenceCompletionCallback(
+void InferenceCoordinator::InferenceCompletionCallback(
     std::map<std::string, InferenceBackend::OutputBlob::Ptr> blobs,
     std::vector<std::shared_ptr<InferenceBackend::ImageInference::IFrameBase>> frames) {
     ITT_TASK(__FUNCTION__);

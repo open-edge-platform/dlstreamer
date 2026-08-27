@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2018-2025 Intel Corporation
+ * Copyright (C) 2018-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -12,9 +12,9 @@
 #include <processor_types.h>
 
 #ifdef __cplusplus
-class InferenceImpl;
+class InferenceCoordinator;
 #else  /* __cplusplus */
-typedef struct InferenceImpl InferenceImpl;
+typedef struct InferenceCoordinator InferenceCoordinator;
 #endif /* __cplusplus */
 
 #ifdef __cplusplus
@@ -24,8 +24,8 @@ extern "C" {
 struct _GvaBaseInference;
 typedef struct _GvaBaseInference GvaBaseInference;
 
-gboolean registerElement(GvaBaseInference *base_inference);
-void release_inference_instance(GvaBaseInference *base_inference);
+gboolean register_element(GvaBaseInference *base_inference);
+void release_inference_coordinator(GvaBaseInference *base_inference);
 
 #ifdef __cplusplus
 } /* extern C */

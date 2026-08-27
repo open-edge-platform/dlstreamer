@@ -21,7 +21,7 @@
 #include <string>
 #include <vector>
 
-class InferenceImpl {
+class InferenceCoordinator {
   public:
     struct Model {
         std::string name;
@@ -31,7 +31,7 @@ class InferenceImpl {
         std::string labels;
     };
 
-    InferenceImpl(GvaBaseInference *gva_base_inference);
+    InferenceCoordinator(GvaBaseInference *gva_base_inference);
 
     static dlstreamer::ContextPtr GetDisplay(GvaBaseInference *gva_base_inference);
     static void SetDisplay(GvaBaseInference *gva_base_inference, const dlstreamer::ContextPtr &display);
@@ -50,7 +50,7 @@ class InferenceImpl {
         return memory_type;
     }
 
-    ~InferenceImpl();
+    ~InferenceCoordinator();
 
     static bool IsRoiSizeValid(const GstVideoRegionOfInterestMeta *roi_meta);
     static bool IsRoiSizeValid(const GstAnalyticsODMtd roi_meta);

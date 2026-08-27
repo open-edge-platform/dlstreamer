@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2018-2025 Intel Corporation
+ * Copyright (C) 2018-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -8,7 +8,7 @@
 
 #include "gstgvadetect.h"
 #include "gva_base_inference.h"
-#include "inference_impl.h"
+#include "inference_coordinator.h"
 
 #include <gst/check/gstcheck.h>
 
@@ -31,7 +31,7 @@ void check_model_input_info(gchar *pipeline_str, const int expected_width, const
     GstGvaDetect *gvadetect = reinterpret_cast<GstGvaDetect *>(gst_bin_get_by_name(GST_BIN(pipeline), "gvadetect"));
     GvaBaseInference *base_inference = reinterpret_cast<GvaBaseInference *>(gvadetect);
 
-    InferenceImpl::Model model = base_inference->inference->GetModel();
+    InferenceCoordinator::Model model = base_inference->inference->GetModel();
     InferenceBackend::ImageInference *openvino_infer = model.inference.get();
     fail_unless(openvino_infer);
 
