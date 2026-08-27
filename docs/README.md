@@ -1,9 +1,5 @@
 # Documentations
 
-## API documentation (Doxygen)
-
-To see Doxygen's API documentation open `doxygen/index.md` file.
-
 ## Project documentation
 
 To see project documentation you need to build `.rst` source files with Sphinx tool.

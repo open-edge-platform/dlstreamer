@@ -131,6 +131,7 @@ default model(s) each sample runs — many samples let you swap in your own.
 |---------|--------|----------------------|--------------|--------|----------|
 | — | [Benchmark](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/benchmark) | Measure the performance of single- or multi-channel video analytics pipelines | `gvadetect`, `gvafpscounter` | `centerface` (configurable) | CLI, Python |
 | ![](_images/sample-e2e-performance-thumb.jpg) | [DL Streamer E2E Performance](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/e2e_performance) | Compare DL Streamer vs. OpenCV + OpenVINO throughput with a YOLO26s INT8 model | `gvadetect` | `yolo26s` (INT8) | Python |
+| — | [Coexistence Benchmark](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/python/coexistence_benchmark) | Measure the maximum number of concurrent LPR streams on systems combining Intel and NVIDIA hardware | `gvadetect` | `yolov8` license-plate detector, `PP-OCRv4` | Python |
 
 ### Interoperability
 
