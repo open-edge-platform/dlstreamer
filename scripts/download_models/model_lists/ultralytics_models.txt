@@ -31,3 +31,4 @@ yolo26n-pose.pt@v8.4.0
 yolo26s-obb.pt@v8.4.0
 yolo26s-seg.pt@v8.4.0
 yolo26s-pose.pt@v8.4.0
+arnabdhar/YOLOv8-Face-Detection@52fa54977207fa4f021de949b515fb19dcab4488
