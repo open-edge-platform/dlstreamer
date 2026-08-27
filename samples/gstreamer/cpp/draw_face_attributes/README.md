@@ -35,7 +35,7 @@ The command-line parameter INPUT_VIDEO allows to change input video and supports
 * web camera device (ex. `/dev/video0`)
 * RTSP camera (URL starting with `rtsp://`) or other streaming source (ex URL starting with `http://`)
 2. [OUTPUT] output mode (default: `json`). Valid values: `display`, `display-and-json`, `json`, `file`.
-3. [DEVICE] inference device (default: `CPU`). Valid values: `CPU`, `GPU`, `NPU`.
+3. [DEVICE] inference device (default: `CPU`).
 4. [OUTPUT_DIRECTORY] directory `output.json` is copied to after the run (default: `/home/dlstreamer/`,
    matching the DL Streamer Docker image's default user home). On a bare-metal install this
    directory likely doesn't exist, so pass an existing writable directory (e.g. `.`) explicitly.
