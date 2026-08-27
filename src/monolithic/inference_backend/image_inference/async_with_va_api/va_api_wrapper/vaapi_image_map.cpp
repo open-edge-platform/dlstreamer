@@ -19,6 +19,9 @@ ImageMap *ImageMap::Create(MemoryType type) {
     case MemoryType::VAAPI:
         map = new VaApiImageMap_VASurface();
         break;
+    case MemoryType::DMA_BUFFER:
+        map = new VaApiImageMap_DmaBuf();
+        break;
     default:
         throw std::invalid_argument("Unsupported format for ImageMap");
     }
@@ -80,4 +83,21 @@ Image VaApiImageMap_VASurface::Map(const Image &image) {
 }
 
 void VaApiImageMap_VASurface::Unmap() {
+}
+
+VaApiImageMap_DmaBuf::VaApiImageMap_DmaBuf() {
+}
+
+VaApiImageMap_DmaBuf::~VaApiImageMap_DmaBuf() {
+    Unmap();
+}
+
+Image VaApiImageMap_DmaBuf::Map(const Image &image) {
+    // Sync VPP output before NPU reads from the same DMA-BUF
+    auto dpy = VaDpyWrapper::fromHandle(image.va_display);
+    VA_CALL(dpy.drvVtable().vaSyncSurface(dpy.drvCtx(), image.va_surface_id));
+    return image;
+}
+
+void VaApiImageMap_DmaBuf::Unmap() {
 }

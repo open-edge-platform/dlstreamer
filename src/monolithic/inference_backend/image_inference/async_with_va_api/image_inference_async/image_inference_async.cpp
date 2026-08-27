@@ -88,7 +88,8 @@ ImageInferenceAsync::ImageInferenceAsync(const InferenceBackend::InferenceConfig
                                          dlstreamer::ContextPtr vadpy_context, ImageInference::Ptr inference)
     : _inference(inference) {
     const auto &pre_process_config = config.at(KEY_PRE_PROCESSOR);
-    if (!Utils::checkAllKeysAreKnown({KEY_VAAPI_THREAD_POOL_SIZE, KEY_VAAPI_FAST_SCALE_LOAD_FACTOR},
+    if (!Utils::checkAllKeysAreKnown({KEY_VAAPI_THREAD_POOL_SIZE, KEY_VAAPI_FAST_SCALE_LOAD_FACTOR,
+                                      KEY_NPU_DMABUF_ZERO_COPY},
                                      pre_process_config)) {
         throw std::invalid_argument("Unknown key in pre-processing configuration.");
     }
@@ -142,7 +143,14 @@ void ImageInferenceAsync::SubmitInference(VaApiImage *va_api_image, IFrameBase::
             GVA_ERROR("Couldn't release VaApiImage: %s", e.what());
         }
     };
-    frame->SetImage(std::shared_ptr<Image>(new Image(va_api_image->Map()), deleter));
+
+    auto mapped = va_api_image->Map();
+    // For DMA-BUF zero-copy: propagate dma_fd so inference can import it as NPU remote tensor
+    if (va_api_image->dma_buf_fd >= 0) {
+        mapped.dma_fd = va_api_image->dma_buf_fd;
+        mapped.type = MemoryType::DMA_BUFFER;
+    }
+    frame->SetImage(std::shared_ptr<Image>(new Image(mapped), deleter));
     _inference->SubmitImage(std::move(frame), input_preprocessors);
 }
 
