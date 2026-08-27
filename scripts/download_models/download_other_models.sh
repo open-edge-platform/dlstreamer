@@ -458,6 +458,9 @@ if array_contains "yolov7" "${MODELS_TO_PROCESS[@]}"; then
     
     # Patch for PyTorch 2.6+ compatibility (weights_only parameter)
     sed -i 's/torch\.load(w, map_location=map_location)/torch.load(w, map_location=map_location, weights_only=False)/g' models/experimental.py
+
+    # Use the legacy ONNX exporter because the YOLOv7 graph is incompatible with Dynamo.
+    sed -i 's/opset_version=12, input_names=/opset_version=12, dynamo=False, input_names=/' export.py
     
     python3 export.py --weights  yolov7.pt  --grid --dynamic-batch
     ovc yolov7.onnx --compress_to_fp16=True
