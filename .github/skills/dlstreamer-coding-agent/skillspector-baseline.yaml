@@ -22,6 +22,10 @@ rules:
       for DL Streamer. The skill intentionally uses :latest so that users
       always pull the most recent stable release without manual version bumps.
 fingerprints:
+  - hash: sha256:f207415bea0d04dfea4798e089ccf13a65845bd4b2443ce48a0a7f85d99e2cdf
+    rule_id: RP1
+    file: SKILL.md
+    reason: intel/dlstreamer:latest is the documented default image tag
   - hash: sha256:969a16c506bf809c5724b37d777338ac3090c375797b1a83f171f56f2b3cbbab
     rule_id: RP1
     file: SKILL.md
