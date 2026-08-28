@@ -1,0 +1,46 @@
+# SkillSpector baseline — findings listed here are suppressed on future scans.
+# Edit 'reason' fields and add glob 'rules' as needed. See docs/SUPPRESSION.md.
+version: 2
+scanner_version: 2.9.6
+rules: []
+fingerprints:
+- hash: sha256:88973bbb8b9d579e0b7fe911dfe16f09bea7fa2f206a8097b23728b2ea9a0706
+  rule_id: RP1
+  file: SKILL.md
+  reason: Accepted finding (auto-generated baseline)
+- hash: sha256:27d6cee265d8fc0b86e867d743a5b2a9f91db6508eef3fdefc12770ad4c19b6a
+  rule_id: RP1
+  file: SKILL.md
+  reason: Accepted finding (auto-generated baseline)
+- hash: sha256:57a2ea6f235e164547ed045a26ecaad64681b465c2c03d97d7ed7beb05393325
+  rule_id: RP1
+  file: SKILL.md
+  reason: Accepted finding (auto-generated baseline)
+- hash: sha256:6d057cfd4dd7897fecf0c0fcc3be3ec00ae523b0d3f0d6200bb74df4594eda7a
+  rule_id: RP1
+  file: references/debugging-hints.md
+  reason: Accepted finding (auto-generated baseline)
+- hash: sha256:129cd9592889f3f85d0e5592ce1ddcd5a579da1a9cbbb06d97d2d4e935384844
+  rule_id: RP1
+  file: references/model-preparation.md
+  reason: Accepted finding (auto-generated baseline)
+- hash: sha256:b2aa794e4cbf1458a9b388610a44748d78dc465a90baa54ad97a621722f29aac
+  rule_id: PE5
+  file: SKILL.md
+  reason: 'Reviewed: the Docker command runs as non-root (-u) with only
+      render-node device access needed for GPU/NPU inference. No privileged
+      mode or container escape vector.'
+- hash: sha256:78bebd120061ba8ad9ab885ba5b0989c4a17eb38ad9c7d2789f2ef27dbe371be
+  rule_id: PE5
+  file: SKILL.md
+  reason: 'Reviewed: the Docker command runs as non-root (-u) with only
+      render-node device access needed for GPU/NPU inference. No privileged
+      mode or container escape vector.'
+- hash: sha256:681193561a4175b5fb851e9152578c28981c5d4247f70a10e7ccd35d3a961c41
+  rule_id: PE5
+  file: references/debugging-hints.md
+  reason: Accepted finding (auto-generated baseline)
+- hash: sha256:e6f73369417cb6763a7df3bbf22f00336259ffc51a45259eb9e9294a4937fcf4
+  rule_id: PE5
+  file: references/pipeline-construction.md
+  reason: Accepted finding (auto-generated baseline)
