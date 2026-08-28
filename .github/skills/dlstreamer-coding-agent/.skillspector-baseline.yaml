@@ -1,0 +1,10 @@
+version: 2
+
+rules:
+  - id: "PE5"
+    path: "SKILL.md"
+    message: "*--device /dev/*"
+    reason: >-
+      False positive: the Docker command runs as non-root (-u) with only
+      render-node device access needed for GPU/NPU inference. No privileged
+      mode or container escape vector.
