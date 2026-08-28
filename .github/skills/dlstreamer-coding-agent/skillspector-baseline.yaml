@@ -5,45 +5,28 @@
 # Edit 'reason' fields and add glob 'rules' as needed. See docs/SUPPRESSION.md.
 version: 2
 scanner_version: 2.9.6
-rules: []
-fingerprints:
-- hash: sha256:f207415bea0d04dfea4798e089ccf13a65845bd4b2443ce48a0a7f85d99e2cdf
-  rule_id: RP1
-  file: SKILL.md
-  reason: Accepted finding (auto-generated baseline)
-- hash: sha256:969a16c506bf809c5724b37d777338ac3090c375797b1a83f171f56f2b3cbbab
-  rule_id: RP1
-  file: SKILL.md
-  reason: Accepted finding (auto-generated baseline)
-- hash: sha256:3dd4cd8b27dae01fbd7ccb959ea5bfd357703b07c8df94a460ad53f9d5e3a82d
-  rule_id: RP1
-  file: SKILL.md
-  reason: Accepted finding (auto-generated baseline)
-- hash: sha256:6d057cfd4dd7897fecf0c0fcc3be3ec00ae523b0d3f0d6200bb74df4594eda7a
-  rule_id: RP1
-  file: references/debugging-hints.md
-  reason: Accepted finding (auto-generated baseline)
-- hash: sha256:129cd9592889f3f85d0e5592ce1ddcd5a579da1a9cbbb06d97d2d4e935384844
-  rule_id: RP1
-  file: references/model-preparation.md
-  reason: Accepted finding (auto-generated baseline)
-- hash: sha256:395f963437d22b769924d80ee52ab6351ae9c5b155416dfb360dfed4d1f4c80a
-  rule_id: PE5
-  file: SKILL.md
-  reason: 'Reviewed: the Docker command runs as non-root (-u) with only
-      render-node device access needed for GPU/NPU inference. No privileged
-      mode or container escape vector.'
-- hash: sha256:370f8d1de35624c4fd03f1aaf7fdbe7f447be07f1f4b91dd805aeaac1b8fdc7a
-  rule_id: PE5
-  file: SKILL.md
-  reason: 'Reviewed: the Docker command runs as non-root (-u) with only
-      render-node device access needed for GPU/NPU inference. No privileged
-      mode or container escape vector.'
-- hash: sha256:681193561a4175b5fb851e9152578c28981c5d4247f70a10e7ccd35d3a961c41
-  rule_id: PE5
-  file: references/debugging-hints.md
-  reason: Accepted finding (auto-generated baseline)
-- hash: sha256:e6f73369417cb6763a7df3bbf22f00336259ffc51a45259eb9e9294a4937fcf4
-  rule_id: PE5
-  file: references/pipeline-construction.md
-  reason: Accepted finding (auto-generated baseline)
+rules:
+  - id: "PE5"
+    message: "*--device /dev/*"
+    reason: >-
+      Reviewed: Docker command runs as non-root (-u) with only render-node
+      device access for GPU/NPU inference. No privileged mode or container
+      escape vector.
+  - id: "PE5"
+    path: "references/*"
+    message: "*--network host*"
+    reason: >-
+      Reviewed: --network host appears in reference docs as a Docker hint
+      for WebRTC signaling connectivity, not executable code.
+  - id: "RP1"
+    message: "*intel/dlstreamer*"
+    reason: >-
+      Reviewed: intel/dlstreamer:latest is the documented default image tag
+      for DL Streamer. The skill intentionally uses :latest so that users
+      always pull the most recent stable release without manual version bumps.
+  - id: "RP1"
+    path: "references/*"
+    reason: >-
+      Reviewed: Docker image references in reference docs are illustrative
+      examples, not pinned deployment manifests. Using :latest (or an
+      abbreviated command) is acceptable for developer-facing documentation.
