@@ -122,14 +122,16 @@ python download_ultralytics_models.py \
 - `--model` (required): Ultralytics model reference. Supported forms:
   - `<model>.pt` or `<model>` for latest weights resolved by Ultralytics.
   - `<model>@<revision>` to pin weights from `ultralytics/assets` GitHub release tag.
+  - Hugging Face repo ID (e.g., `user/repo`).
   - Local `.pt` path.
-- `--outdir` (optional, default `.`): Output directory.
+- `--outdir` (optional, default `.`): Output directory. Callers can point it
+  to a model and precision directory, for example
+  `${MODELS_PATH}/public/yolo11n/FP16`.
 - `--half` (optional): Export in FP16.
 - `--int8` (optional): Export in INT8.
 
-The script moves the exported OpenVINO IR directly into the specified `--outdir`.
-In practice, callers usually point `--outdir` at a precision-specific directory
-such as `${MODELS_PATH}/public/yolo11n/FP16` or `${MODELS_PATH}/public/yolo11n/INT8`.
+For Hugging Face repositories, the exported XML and BIN use the repository ID
+with `/` replaced by `_` instead of the generic `model.xml` and `model.bin`.
 
 DL Streamer auto-conversion supports Ultralytics detection, segmentation, pose, OBB, and classification exports.
 
@@ -140,7 +142,7 @@ DL Streamer auto-conversion supports Ultralytics detection, segmentation, pose, 
 python download_ultralytics_models.py --model yolo11n.pt --outdir ./exports
 
 # Export pinned model from a specific ultralytics/assets release tag
-python download_ultralytics_models.py --model yolo11n.pt@v8.3.0 --outdir ./exports
+python download_ultralytics_models.py --model yolo11n.pt@v8.3.0 --outdir ./exports --half
 
 # Export a local checkpoint in FP16
 python download_ultralytics_models.py --model /path/to/model.pt --outdir ./exports --half

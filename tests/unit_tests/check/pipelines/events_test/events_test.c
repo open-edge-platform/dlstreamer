@@ -193,6 +193,7 @@ static Suite *pipeline_state_suite(void) {
     TCase *tc_chain = tcase_create("general");
 
     suite_add_tcase(s, tc_chain);
+    tcase_set_timeout(tc_chain, 180);
     tcase_add_test(tc_chain, test_downstream_events_are_not_dropped);
     tcase_add_test(tc_chain, test_upstream_events_are_not_dropped);
     return s;

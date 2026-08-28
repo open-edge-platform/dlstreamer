@@ -412,7 +412,7 @@ if [[ "${MODEL:-}" =~ yolo.* || "${MODEL:-}" == "all" ]]; then
 fi
 
 # Install PyTorch CPU version
-pip install --no-cache-dir --upgrade --extra-index-url https://download.pytorch.org/whl/cpu torch==2.8.0 torchaudio==2.8.0 torchvision==0.23.0 || handle_error $LINENO
+pip install --no-cache-dir --upgrade --extra-index-url https://download.pytorch.org/whl/cpu torch==2.13.0 torchaudio==2.11.0 torchvision==0.28.0 || handle_error $LINENO
 
 # Install dependencies for CLIP models
 if [[ "${MODEL:-}" =~ clip.* || "${MODEL:-}" == "all" ]]; then
@@ -442,7 +442,7 @@ if array_contains "yolox-tiny" "${MODELS_TO_PROCESS[@]}" || array_contains "yolo
     source "$HOME/.virtualenvs/dlstreamer_openvino_dev/bin/activate"
     python -m pip install --upgrade pip                 || handle_error $LINENO
     pip install --no-cache-dir "openvino-dev==2024.6.0" || handle_error $LINENO
-    pip install --no-cache-dir --upgrade --extra-index-url https://download.pytorch.org/whl/cpu torch==2.8.0 torchaudio==2.8.0 torchvision==0.23.0 || handle_error $LINENO
+    pip install --no-cache-dir --upgrade --extra-index-url https://download.pytorch.org/whl/cpu torch==2.13.0 torchaudio==2.11.0 torchvision==0.28.0 || handle_error $LINENO
     pip install --no-cache-dir onnxscript==0.5.7        || handle_error $LINENO
 
     omz_downloader --name "$MODEL_NAME"
@@ -703,7 +703,7 @@ for MODEL_NAME in "${YOLOv5_MODELS[@]}"; do
       source "$HOME/.virtualenvs/dlstreamer_yolov5_legacy/bin/activate"
       python -m pip install --upgrade pip                        || handle_error $LINENO
       pip install --no-cache-dir "openvino-dev==2024.6.0"        || handle_error $LINENO
-      pip install --no-cache-dir --upgrade --extra-index-url https://download.pytorch.org/whl/cpu torch==2.8.0 torchaudio==2.8.0 torchvision==0.23.0 || handle_error $LINENO
+      pip install --no-cache-dir --upgrade --extra-index-url https://download.pytorch.org/whl/cpu torch==2.13.0 torchaudio==2.11.0 torchvision==0.28.0 || handle_error $LINENO
       pip install --no-cache-dir -r "$REPO_DIR"/requirements.txt || handle_error $LINENO
 
       # Export FP32 model

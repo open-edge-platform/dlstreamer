@@ -215,9 +215,10 @@ into whatever directory you give it:
 
 ```bash
 DL="/opt/intel/dlstreamer/scripts/download_models/download_ultralytics_models.py"
-python3 $DL --model yolo11s.pt@v8.4.0      --outdir ${MODELS_PATH}/yolo11s/FP16 --half
-python3 $DL --model yolo11s-seg.pt@v8.4.0  --outdir ${MODELS_PATH}/yolo11s-seg/FP16 --half
-python3 $DL --model yolo11s-pose.pt@v8.4.0 --outdir ${MODELS_PATH}/yolo11s-pose/FP16 --half
+python3 $DL --model yolo11s.pt@v8.4.0          --outdir ${MODELS_PATH}/yolo11s/FP16 --half
+python3 $DL --model yolo11s-seg.pt@v8.4.0      --outdir ${MODELS_PATH}/yolo11s-seg/FP16 --half
+python3 $DL --model yolo11s-pose.pt@v8.4.0     --outdir ${MODELS_PATH}/yolo11s-pose/FP16 --half
+python3 $DL --model yoloe-26s-seg.pt@v8.4.0 --classes "dog,person,backpack" --outdir ${MODELS_PATH}/public/yoloe-26s-seg/FP16 --half
 ```
 
 When they're done, leave the Python environment:
@@ -226,13 +227,14 @@ When they're done, leave the Python environment:
 deactivate
 ```
 
-You now have three ready-to-use models under `${MODELS_PATH}`:
+You now have four ready-to-use models under `${MODELS_PATH}`:
 
 | Model | File | What it does |
 |---|---|---|
 | `yolo11s` | `${MODELS_PATH}/yolo11s/FP16/yolo11s.xml` | Detects objects (boxes + labels) |
 | `yolo11s-seg` | `${MODELS_PATH}/yolo11s-seg/FP16/yolo11s-seg.xml` | Detects **and** outlines objects pixel-by-pixel |
 | `yolo11s-pose` | `${MODELS_PATH}/yolo11s-pose/FP16/yolo11s-pose.xml` | Detects people and their body keypoints |
+| `yoloe-26s-seg` | `${MODELS_PATH}/public/yoloe-26s-seg/FP16/yoloe-26s-seg.xml` | Open-vocabulary detection — class baked in at export via `--classes` |
 
 ---
 
@@ -397,43 +399,23 @@ dog and everything else stay sharp — no manual editing required.
 
 This is where the ready-made samples shine. This step runs the **prompt-based
 detection sample** that ships with DL Streamer — it uses an *open-vocabulary*
-model: you describe what to find in plain English, and it detects only that. Our
-skateboard clip has a dog wandering in — let's find it.
+model with a built-in 4,585-class vocabulary: describe what to find in plain
+English and it detects only that. Our skateboard clip has a dog wandering in —
+let's find it.
 
-Set up the sample's Python environment inside a dedicated `prompted_detection`
-subfolder of `~/dlstreamer_demo` (the sample lives under `/opt`, which is
-read-only). Running from its own folder keeps the files the sample creates — the
-downloaded model, the exported OpenVINO model, and the output video — neatly in
-one place. The `--system-site-packages` flag lets the environment **reuse the
-GStreamer Python bindings (PyGObject) already installed on your system**, so we
-only need to add `ultralytics`:
+Now run the sample. `MODELS_PATH` is already set from [Step 2.1](#21-activate-dl-streamer-in-your-terminal),
+so the sample finds the model automatically:
 
 ```bash
-source /opt/intel/dlstreamer/scripts/setup_dls_env.sh
-mkdir -p ~/dlstreamer_demo/prompted_detection
-cd ~/dlstreamer_demo/prompted_detection
-python3 -m venv --system-site-packages .prompt-venv
-source .prompt-venv/bin/activate
-pip install --extra-index-url https://download.pytorch.org/whl/cpu ultralytics==8.4.57
-```
-
-> **Note:** Don't `pip install PyGObject` here — building it from source needs
-> extra system libraries. Thanks to `--system-site-packages`, the version that
-> ships with your system is used automatically. If running the sample later fails
-> with `No module named 'gi'`, install the bindings once with
-> `sudo apt install -y python3-gi python3-gi-cairo`.
-
-Now search the skateboard video for a `dog` and save an annotated video:
-
-```bash
+cd ~/dlstreamer_demo
 python3 /opt/intel/dlstreamer/samples/gstreamer/python/prompted_detection/prompted_detection.py \
-  ${VIDEOS_PATH}/skateboard.mp4 "dog" GPU file
+  --input ${VIDEOS_PATH}/skateboard.mp4 --prompt "dog" --device GPU --output file
 ```
 
-**What you'll see:** a new file `skateboard_output.mp4` in
-`~/dlstreamer_demo/prompted_detection`,
+**What you'll see:** a new file `skateboard_output.mp4` in `~/dlstreamer_demo`,
 with the dog boxed and labelled — and nothing else. Try other prompts like
-`"person"` or `"backpack"`!
+`"person"` or `"backpack"` — all three classes were baked into the model at
+the download step above.
 
 <div align="center">
 
@@ -443,15 +425,9 @@ with the dog boxed and labelled — and nothing else. Try other prompts like
 
 *Prompt-based detection searching the skateboard video for `"dog"`.*
 
-When done, leave the Python environment:
-
-```bash
-deactivate
-```
-
-> **Why a sample here?** Open-vocabulary detection needs a bit of Python glue to
-> turn your prompt into a model. The sample handles that for you — see its
-> [README](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/python/prompted_detection)
+> **Why a sample here?** Open-vocabulary detection needs a pre-exported model and
+> a bit of Python glue to wire the prompt filter. The sample handles that for you
+> — see its [README](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/python/prompted_detection)
 > for details.
 
 ### 4.4 Save results to a file instead of the screen
@@ -547,6 +523,8 @@ Great places to continue:
   Vision-Language Models, and Kafka/MQTT publishing.
 - **[Supported models](supported_models.md)** — the 70+ models you can run out
   of the box.
+- **[Video tutorials on YouTube](https://www.youtube.com/watch?v=1x7LTZhEadI&list=PLg-UKERBljNySiBeQaLtzF0yZGOmKrBRF)** —
+  the DL Streamer playlist with walkthroughs and demos.
 
 Ideas to try right now by editing the commands above:
 

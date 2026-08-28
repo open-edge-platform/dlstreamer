@@ -11,6 +11,7 @@ yolov9c.pt@v8.4.0
 yolov9s.pt@v8.4.0
 yolov10n.pt@v8.4.0
 yolov10s.pt@v8.4.0
+yolo11m.pt@v8.4.0
 yolo11n.pt@v8.4.0
 yolo11s.pt@v8.4.0
 yolo11n-obb.pt@v8.4.0
@@ -30,5 +31,4 @@ yolo26n-pose.pt@v8.4.0
 yolo26s-obb.pt@v8.4.0
 yolo26s-seg.pt@v8.4.0
 yolo26s-pose.pt@v8.4.0
-yoloe-26n-seg.pt@v8.4.0
-yoloe-26s-seg.pt@v8.4.0
+arnabdhar/YOLOv8-Face-Detection@52fa54977207fa4f021de949b515fb19dcab4488

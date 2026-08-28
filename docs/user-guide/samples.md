@@ -51,7 +51,7 @@ default model(s) each sample runs — many samples let you swap in your own.
 | — | [Human Pose Estimation](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch/human_pose_estimation) | Full-frame human pose estimation | `gvaclassify` | `yolo26s-pose` | CLI |
 | — | [Depth Estimation](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch/depth_estimation) | YOLO11n detection followed by Depth Anything V2 depth estimation on detected regions | `gvadetect`, `gvainference` | `yolo11n`, `Depth-Anything-V2-Small-hf` | CLI |
 | — | [License Plate Recognition](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch/license_plate_recognition) | YOLO detector combined with an optical character recognition model | `gvadetect`, `gvainference` | `yolov8` license-plate detector, `PP-OCRv4` | CLI |
-| ![](_images/sample-prompted-detection-thumb.jpg) | [Prompt-based Object Detection](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/python/prompted_detection) | Search a video for user-defined objects using an open-vocabulary model (YOLOE) | `gvadetect` | `yoloe-26s-seg` (open-vocabulary) | Python |
+| ![](_images/sample-prompted-detection-thumb.jpg) | [Prompt-based Object Detection](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/python/prompted_detection) | Search a video for user-defined objects using an open-vocabulary model (YOLOE) | `gvadetect` | `yoloe-26s-seg` (text-prompt, class baked in at export) | Python |
 | ![](_images/sample-geti-deployment-thumb.jpg) | [Deployment of Geti™ models](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch/geti_deployment) | Deploy Geti™-trained models for detection, anomaly detection and classification | `gvadetect`, `gvaclassify` | Geti™-trained (Padim / STFPM / UFlow) | CLI |
 | — | [Motion Detect](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch/motion_detect) | Run detection only over motion ROIs (GPU and CPU paths) | `gvamotiondetect`, `gvadetect` | `yolov8n` | CLI |
 
@@ -62,7 +62,6 @@ default model(s) each sample runs — many samples let you swap in your own.
 | — | [Vehicle and Pedestrian Tracking](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch/vehicle_pedestrian_tracking) | Object tracking across frames | `gvatrack`, `gvadetect`, `gvaclassify` | `yolo26s`, `dima806_vehicle_10_types_image_detection` | CLI |
 | ![](_images/sample-gvaanalytics-tripwire-thumb.jpg) | [Vehicle Counter with gvaanalytics Tripwires](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/python/gvaanalytics_tripwire) | Count vehicles crossing a virtual line in both directions using tripwires | `gvaanalytics`, `gvatrack` | `yolo11n` | Python |
 | ![](_images/sample-smart-nvr-thumb.jpg) | [Smart NVR for Lane Hogging Detection](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/python/smart_nvr) | Build an NVR with custom analytics and video storage to detect lane-hogging events | `gvaanalytics_py`, `gvarecorder_py` | `rtdetr_v2_r50vd` (RT-DETRv2) | Python |
-| ![](_images/sample-loitering-detection-thumb.jpg) | [Loitering detection](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/python/loitering_detection) | Measures object dwell time and render visual alert when dwell time threshold is exceeded. | `gvaanalytics`, `watermark` | `yolo11s` | Python |
 
 ### Vision-Language Models (VLM) & GenAI
 
@@ -123,6 +122,7 @@ default model(s) each sample runs — many samples let you swap in your own.
 | [gvapython — Save Frames with ROI](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch/gvapython/save_frames_with_ROI_only) | Use `gvapython` to save video frames containing detected objects to disk | `gvapython`, `gvadetect` | `centerface` | CLI, Python |
 | [python-elements — Face Detection and Classification](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch/python-elements/face_detection_and_classification) | Build a custom Python GStreamer element using the GstAnalytics metadata API | `gvaagelogger_py`, `gvadetect`, `gvaclassify` | `YOLOv8-Face-Detection`, `fairface_age_image_detection`, `fairface_gender_image_detection` | CLI, Python |
 | [python-elements — Save Frames with ROI](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch/python-elements/save_frames_with_ROI_only) | Build a custom Python GStreamer element to save frames with detected objects | `gvaframesaver_py`, `gvadetect` | `YOLOv8-Face-Detection` | CLI, Python |
+| [python-elements — Loitering Detection](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch/python-elements/loitering_detection) | Measure object dwell time with a custom Python element and render a visual alert when the threshold is exceeded | `gvaanalytics`, `gvawatermark` | `yolo11s` | CLI, Python |
 | [Face Detection and Classification (Python)](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/python/face_detection_and_classification) | Download models from Hugging Face, export to OpenVINO IR, and run inference | `gvadetect`, `gvaclassify` | `YOLOv8-Face-Detection`, `fairface` | Python |
 
 ### Performance & benchmarking
@@ -137,6 +137,7 @@ default model(s) each sample runs — many samples let you swap in your own.
 | Sample | What it demonstrates | Key elements | Models | Language |
 |--------|----------------------|--------------|--------|----------|
 | [DL Streamer and DeepStream Coexistence](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/python/coexistence) | Run pipelines on DL Streamer and/or NVIDIA DeepStream side by side | `gvadetect` | `yolov8` license-plate detector, `PP-OCRv4` | Python |
+| — | [Coexistence Benchmark](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/python/coexistence_benchmark) | Measure the maximum number of concurrent LPR streams on systems combining Intel and NVIDIA hardware | `gvadetect` | `yolov8` license-plate detector, `PP-OCRv4` | Python |
 
 ---
 

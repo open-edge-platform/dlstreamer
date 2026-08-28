@@ -32,7 +32,7 @@
                 "The output provides a complete DL Streamer pipeline.",
                 "The pipeline reads from a local video file.",
                 "The pipeline uses gvadetect for primary inference.",
-                "The gvadetect configuration references a user-supplied YOLO26 model path.",
+                "The gvadetect configuration references a YOLO26 model path, either user-supplied via argument/variable or auto-discovered from a models directory.",
                 "The pipeline converts inference metadata to JSON output file."
             ]
         },
@@ -44,7 +44,7 @@
                 "The output provides a complete DL Streamer pipeline.",
                 "The pipeline reads from a local video file.",
                 "The pipeline uses gvadetect for primary inference.",
-                "The gvadetect configuration references a user-supplied YOLO26 model path.",
+                "The gvadetect configuration references a YOLO26 model path, either user-supplied via argument/variable or auto-discovered from a models directory.",
                 "The pipeline uses gvatrack for object tracking.",
                 "The pipeline converts inference and tracking metadata to JSON output file."
             ]
@@ -64,14 +64,14 @@
         },
         {
             "id": 6,
-            "prompt": "People detection and tracking with YOLO26m and Mars re-ID using DL Streamer pipeline",
-            "expected_output": "A DL Streamer pipeline using YOLO26m for detection and Mars-Small-128 for re-identification tracking.",
+            "prompt": "People detection and tracking with YOLO26m and mars-small128 re-ID (Deep Sort Tracking) using DL Streamer pipeline",
+            "expected_output": "A DL Streamer pipeline using YOLO26m for detection and mars-small128 for re-identification tracking (Deep Sort Tracking).",
             "expectations": [
                 "Generates a valid DL Streamer pipeline.",
                 "Uses YOLO26m model for person detection.",
-                "Uses Mars-Small-128 model for re-identification in gvatrack.",
+                "Uses mars-small128 model for re-identification.",
                 "Annotates output video with tracking results.",
-                "Pipeline includes gvadetect, gvatrack, and gvawatermark elements."
+                "Pipeline includes gvadetect, gvainference, gvatrack, and gvawatermark elements."
             ]
         },
         {

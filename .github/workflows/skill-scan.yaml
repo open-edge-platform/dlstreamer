@@ -7,7 +7,7 @@ on:
         description: "SkillSpector severity level (CRITICAL, HIGH, MEDIUM, LOW)"
         required: false
         type: string
-        default: "HIGH"
+        default: "LOW"
       fail_on_findings:
         description: "Fail the workflow when findings are detected"
         required: false
@@ -18,7 +18,7 @@ on:
       severity:
         description: "SkillSpector severity level (CRITICAL, HIGH, MEDIUM, LOW)"
         required: false
-        default: "HIGH"
+        default: "LOW"
         type: choice
         options:
           - CRITICAL
@@ -76,10 +76,10 @@ jobs:
           fetch-depth: 0
 
       - name: Run SkillSpector scan
-        uses: open-edge-platform/geti-ci/actions/skill-scan@0745e2b1612e4c25c3e83eb37bddeba8743a2439 # skill-scan/v0.1.1
+        uses: open-edge-platform/geti-ci/actions/skill-scan@fd69b9f71343db7a4a88d8d7b984a281dd475a98 # skill-scan/v0.1.2
         with:
           skills-path: ${{ matrix.skills-path }}
-          severity-level: ${{ inputs.severity || 'HIGH' }}
+          severity-level: ${{ inputs.severity || 'LOW' }}
           fail-on-findings: ${{ inputs.fail_on_findings || 'true' }}
 
   skill-validator-scan:
@@ -101,7 +101,7 @@ jobs:
           fetch-depth: 0
 
       - name: Run skill-validator
-        uses: open-edge-platform/geti-ci/actions/skill-validator@c64543e05e9f84c7c4ef212666c3ea5fc869e55a # skill-validator/v0.2.0
+        uses: open-edge-platform/geti-ci/actions/skill-validator@3fd1ebf48e46ec6584850e20616763e73ddf94e9 # skill-validator/v0.2.2
         with:
           skills-path: ${{ matrix.skills-path }}
           fail-on-findings: ${{ inputs.fail_on_findings || 'true' }}
