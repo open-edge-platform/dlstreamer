@@ -13,8 +13,10 @@ _SYSTEM = (
 
 def build_plan(scenario: Scenario, llm: LLMClient, command_timeout: int) -> Plan:
     """Wrap the documented commands as steps; optionally enrich assertions via the LLM."""
-    steps = [Step(command=cmd, workdir=scenario.workdir, timeout=command_timeout)
-             for cmd in scenario.commands]
+    steps = [Step(command=cmd, workdir=scenario.workdir, timeout=command_timeout, is_setup=True)
+             for cmd in scenario.setup]
+    steps += [Step(command=cmd, workdir=scenario.workdir, timeout=command_timeout)
+              for cmd in scenario.commands]
     assertions = list(scenario.expected)
 
     if not llm.offline and llm.remaining_credits > 0:

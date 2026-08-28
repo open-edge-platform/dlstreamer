@@ -9,7 +9,13 @@ from .models import Scenario
 _FENCE_RE = re.compile(r"```(?:bash|sh|shell|console)?\s*\n(.*?)```", re.DOTALL)
 _ENV_RE = re.compile(r"\$\{?([A-Z][A-Z0-9_]+)\}?")
 _PLACEHOLDER_RE = re.compile(r"<[A-Za-z][^>\n]{0,80}>")  # e.g. <path to model> template tokens
-_COMMAND_MARKERS = ("gst-launch-1.0", "gst-inspect-1.0", "./", "python", "python3")
+_ASSIGN_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
+_LAUNCH_BINARIES = ("gst-launch-1.0", "gst-inspect-1.0")
+_SETUP_KEYWORDS = (
+    "wget", "curl", "download_", "pip install", "pip3 install", "apt-get", "apt install",
+    "git clone", "huggingface-cli", "omz_downloader", "model_downloader", "install.sh",
+)
+_PREP_HEADS = ("cd", "export", "source", ".", "set", "unset", "mkdir", "echo")
 
 _CATEGORY_KEYWORDS = {
     "tracking": ("track", "tracking"),
@@ -33,8 +39,41 @@ def _infer_category(path: str) -> str:
     return "other"
 
 
-def _looks_runnable(block: str) -> bool:
-    return any(marker in block for marker in _COMMAND_MARKERS)
+def _cmd_tokens(line: str) -> list[str]:
+    return [t for t in line.strip().split() if not _ASSIGN_RE.match(t)]
+
+
+def _is_launch_line(line: str) -> bool:
+    tokens = _cmd_tokens(line)
+    if not tokens:
+        return False
+    head = tokens[0]
+    if head in _LAUNCH_BINARIES or head.startswith("./"):
+        return True
+    return head in ("python", "python3") and len(tokens) > 1 and tokens[1].startswith("./")
+
+
+def _is_prep_line(line: str) -> bool:
+    stripped = line.strip()
+    if _ASSIGN_RE.match(stripped):
+        return True
+    tokens = stripped.split()
+    return bool(tokens) and tokens[0] in _PREP_HEADS
+
+
+def _classify_block(text: str) -> str | None:
+    """Return 'launch' (runs the product), 'setup' (prepares prerequisites), or None (skip)."""
+    lines = [ln.strip() for ln in text.splitlines()
+             if ln.strip() and not ln.strip().startswith("#")]
+    if not lines:
+        return None
+    if any(_is_launch_line(ln) for ln in lines):
+        return "launch"
+    if any(kw in text.lower() for kw in _SETUP_KEYWORDS):
+        return "setup"
+    if all(_is_prep_line(ln) for ln in lines):
+        return "setup"
+    return None
 
 
 def _clean_commands(block: str) -> list[str]:
@@ -51,26 +90,35 @@ def _clean_commands(block: str) -> list[str]:
 def _extract_scenarios(md_path: Path, repo_root: Path) -> list[Scenario]:
     text = md_path.read_text(encoding="utf-8", errors="replace")
     rel = md_path.relative_to(repo_root).as_posix()
+    workdir = md_path.parent.relative_to(repo_root).as_posix()
+
+    setup_so_far: list[str] = []
     scenarios: list[Scenario] = []
     for idx, match in enumerate(_FENCE_RE.finditer(text)):
         block = match.group(1)
-        if not _looks_runnable(block):
-            continue
         if _PLACEHOLDER_RE.search(block):  # skip template blocks that aren't runnable as-is
             continue
         commands = _clean_commands(block)
         if not commands:
             continue
-        env_reqs = sorted({m.group(1) for m in _ENV_RE.finditer(block)})
+        kind = _classify_block(commands[0])
+        if kind is None:
+            continue
+        if kind == "setup":
+            setup_so_far.append(commands[0])
+            continue
+        env_text = "\n".join(setup_so_far) + "\n" + commands[0]
+        env_reqs = sorted({m.group(1) for m in _ENV_RE.finditer(env_text)})
         scenarios.append(
             Scenario(
                 id=f"{rel}#{idx}",
                 source=rel,
                 category=_infer_category(rel),
-                commands=commands,
+                commands=[commands[0]],
+                setup=list(setup_so_far),
                 env_requirements=env_reqs,
                 expected=["exit 0"],
-                workdir=md_path.parent.relative_to(repo_root).as_posix(),
+                workdir=workdir,
             )
         )
     return scenarios

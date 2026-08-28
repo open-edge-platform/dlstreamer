@@ -5,11 +5,9 @@ import random
 import sys
 
 from .config import build_config
-from .executor import run_step
-from .judge import judge_outcome
 from .llm_client import BudgetExceeded, LLMClient
-from .planner import build_plan
 from .report import write_reports
+from .retry import run_with_retries
 from .scenario_miner import mine_scenarios
 from .scenario_sampler import sample_scenarios
 
@@ -26,6 +24,9 @@ def main(argv: list[str] | None = None) -> int:
 
     all_scenarios = mine_scenarios(cfg.repo_root)
     print(f"[agent] mined {len(all_scenarios)} runnable scenarios")
+    if cfg.filter:
+        all_scenarios = [s for s in all_scenarios if cfg.filter.lower() in s.id.lower()]
+        print(f"[agent] filtered to {len(all_scenarios)} matching '{cfg.filter}'")
     picked = sample_scenarios(all_scenarios, seed, cfg.budget_credits, cfg.max_scenarios)
     print(f"[agent] sampled {len(picked)} scenarios "
           f"({sorted({s.category for s in picked})})")
@@ -36,14 +37,13 @@ def main(argv: list[str] | None = None) -> int:
     for i, scenario in enumerate(picked, 1):
         print(f"[agent] ({i}/{len(picked)}) {scenario.id}")
         try:
-            plan = build_plan(scenario, llm, cfg.command_timeout)
-            results = [run_step(step, cfg) for step in plan.steps]
-            verdict = judge_outcome(scenario, results, llm)
+            verdict = run_with_retries(scenario, cfg, llm, cfg.max_retries)
         except BudgetExceeded:
             print("[agent] budget exhausted; stopping scenario loop")
             break
         verdicts.append(verdict)
-        print(f"        -> {verdict.category} ({verdict.confidence:.2f})")
+        attempts = verdict.evidence.get("attempts", 1)
+        print(f"        -> {verdict.category} ({verdict.confidence:.2f}) in {attempts} attempt(s)")
 
     summary = {
         "seed": seed,

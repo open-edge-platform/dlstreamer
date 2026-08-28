@@ -33,6 +33,12 @@ def _is_allowed(command: str, allowlist: tuple[str, ...]) -> bool:
 
 
 def run_step(step: Step, cfg: AgentConfig) -> ExecResult:
+    result = _run_step(step, cfg)
+    result.is_setup = step.is_setup
+    return result
+
+
+def _run_step(step: Step, cfg: AgentConfig) -> ExecResult:
     if not _is_allowed(step.command, cfg.binary_allowlist):
         return ExecResult(step.command, exit_code=126, stdout="",
                           stderr="blocked: command not in binary allowlist", duration_s=0.0)

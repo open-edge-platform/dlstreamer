@@ -78,6 +78,7 @@ tests/ai_agent/
     executor.py             # run commands in the container; capture logs/exit/artifacts
     judge.py                # LLM: classify outcome (reuses ai_verdict.py patterns)
     proposer.py             # build git diff + rationale; optional PR/Issue draft
+    retry.py                # 'act like a user' retry loop on user-error launches
     report.py               # HTML report (reuses diff-report styling)
     run_agent.py            # CLI entry point / orchestrator
   prompts/
@@ -98,6 +99,13 @@ tests/ai_agent/
 - Output: a normalized `Scenario` object (source path, raw command(s), env requirements,
   expected-outcome hints, difficulty). Deterministic parse first; LLM only to interpret prose
   claims into checkable assertions.
+- **Setup vs launch grouping (prerequisite chaining).** Each fenced block is classified as
+  `launch` (runs the product: `gst-launch-1.0`/`gst-inspect-1.0`, a `./script`, or `python ./x.py`),
+  `setup` (prepares prerequisites: `wget`/`curl`/`download_*`/`pip install`/`apt`/`source setupvars`,
+  or a pure `export`/`cd` block), or skipped. One scenario is emitted **per launch block**, with all
+  preceding setup blocks in the same document chained ahead of it as setup steps — so a launch that
+  needs a model/video isn't run before the block that fetches it. Template blocks containing
+  unresolved `<...>` placeholders are dropped as non-runnable.
 
 ### 3.2 Scenario sampler (`scenario_sampler.py`)
 - Takes the full mined pool and picks a **diverse, randomized** subset for the run — the
@@ -133,6 +141,15 @@ tests/ai_agent/
   - `product-bug` — documented usage is correct but the product misbehaves/crashes → propose a
     code fix or file an Issue with a minimal repro.
   - `flaky` — non-deterministic; re-run N times before deciding.
+- A **setup step that fails** short-circuits to `user-error` ("prerequisite failed before the
+  sample could run") so a missing model/video is never mis-reported as a product defect; the
+  verdict on a launch is judged only from the launch steps' output.
+- **Retry loop (`retry.py`).** While a launch is judged `user-error` and budget/retries remain, the
+  LLM is asked to propose one corrected command (fix a flag/element name, add a missing model or
+  video path) and the launch is re-run — exactly what a real user does. Setup steps are reused, not
+  re-proposed. If the fix looks correct yet it still fails, that is stronger evidence of a real
+  docs/product bug. `--max-retries` (default 2) caps the loop; offline runs skip it (no LLM). The
+  final attempt count is recorded in the verdict evidence.
 - Output: a structured `Verdict` JSON (category, confidence, evidence, minimal repro).
 
 ### 3.6 Proposer (`proposer.py`)
@@ -240,7 +257,8 @@ tests/ai_agent/
   scenarios, executor + deterministic checks, LLM judge, HTML report. No PR automation.
 - **Phase 1 — Sampler + doc-grounded planner + retry.** Full mining of all sample READMEs and
   user-guide; stratified/randomized sampling; "act like a user" retry loop; `user-error` vs
-  real-bug separation.
+  real-bug separation. *(Done: setup/launch grouping with prerequisite chaining; setup failures
+  classified as user-error; LLM-guided retry loop on user-error launches.)*
 - **Phase 2 — Proposals (advisory).** `docs-diff` proposals in the artifact; `product-bug` repros.
 - **Phase 3 — CI + opt-in automation.** Add the weekly Wednesday workflow; enable `--open-pr` /
   `--open-issue` behind flags + secrets.

@@ -45,7 +45,9 @@ class AgentConfig:
     budget_credits: int = 500
     max_scenarios: int = 30
     command_timeout: int = 300
+    max_retries: int = 2
     seed: int | None = None
+    filter: str | None = None
     offline: bool = False  # no LLM calls; deterministic heuristic fallbacks
     dry_run: bool = False  # do not execute scenario commands
     open_pr: bool = False
@@ -74,7 +76,11 @@ def build_config(argv: list[str] | None = None) -> AgentConfig:
     parser.add_argument("--budget-credits", type=int, default=500)
     parser.add_argument("--max-scenarios", type=int, default=30)
     parser.add_argument("--command-timeout", type=int, default=300)
+    parser.add_argument("--max-retries", type=int, default=2,
+                        help="LLM-guided retries when a launch fails as user-error")
     parser.add_argument("--seed", type=int, default=None)
+    parser.add_argument("--filter", default=None,
+                        help="only run scenarios whose id contains this substring")
     parser.add_argument("--offline", action="store_true", help="skip all LLM calls")
     parser.add_argument("--dry-run", action="store_true", help="plan + judge but do not run commands")
     parser.add_argument("--open-pr", action="store_true", help="auto-draft a PR for docs fixes")
@@ -94,7 +100,9 @@ def build_config(argv: list[str] | None = None) -> AgentConfig:
         budget_credits=args.budget_credits,
         max_scenarios=args.max_scenarios,
         command_timeout=args.command_timeout,
+        max_retries=args.max_retries,
         seed=args.seed,
+        filter=args.filter,
         offline=offline,
         dry_run=args.dry_run,
         open_pr=args.open_pr,

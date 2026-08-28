@@ -62,11 +62,18 @@ def judge_outcome(
 ) -> Verdict:
     if not results:
         return Verdict(scenario.id, "user-error", 0.5, "no steps executed")
+    setup_fail = next((r for r in results
+                       if r.is_setup and not r.skipped and r.exit_code != 0), None)
+    if setup_fail:
+        return Verdict(scenario.id, "user-error", 0.5,
+                       "setup/prerequisite step failed before the sample could run",
+                       _evidence(setup_fail))
+    main = [r for r in results if not r.is_setup] or results
     if llm.offline or llm.remaining_credits <= 0:
-        return _heuristic(scenario, results)
+        return _heuristic(scenario, main)
 
     logs = "\n\n".join(f"$ {r.command}\n[exit {r.exit_code}]\n{_evidence(r)['log_excerpt']}"
-                       for r in results)
+                       for r in main)
     user = (
         "Classify the outcome of this documented DL Streamer scenario.\n\n"
         f"Source: {scenario.source}\nExpected: {scenario.expected}\n\n{logs}"
@@ -81,8 +88,8 @@ def judge_outcome(
             category,
             float(data.get("confidence", 0.5)),
             str(data.get("reason", "")),
-            _evidence(results[-1]),
+            _evidence(main[-1]),
             repro=scenario.commands if category in ("docs-bug", "product-bug") else [],
         )
     except Exception:  # on any LLM failure, fall back to the deterministic heuristic
-        return _heuristic(scenario, results)
+        return _heuristic(scenario, main)

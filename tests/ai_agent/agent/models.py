@@ -11,6 +11,7 @@ class Scenario:
     source: str
     category: str
     commands: list[str] = field(default_factory=list)
+    setup: list[str] = field(default_factory=list)
     env_requirements: list[str] = field(default_factory=list)
     expected: list[str] = field(default_factory=list)
     workdir: str = ""
@@ -21,6 +22,7 @@ class Step:
     command: str
     workdir: str = ""
     timeout: int = 300
+    is_setup: bool = False
 
 
 @dataclass
@@ -39,6 +41,7 @@ class ExecResult:
     duration_s: float
     skipped: bool = False
     timed_out: bool = False
+    is_setup: bool = False
 
 
 @dataclass
