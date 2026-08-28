@@ -297,6 +297,7 @@ For all languages:
 ### Step 5 — Run, Debug, and Validate
 
 **Run in Docker**
+
 ```bash
 docker run --init --rm \
     -u "$(id -u):$(id -g)" \
