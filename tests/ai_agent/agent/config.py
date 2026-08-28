@@ -16,6 +16,17 @@ DEFAULT_BINARY_ALLOWLIST = (
     "bash",
     "sh",
     "./",  # sample scripts invoked by relative path
+    # Shell verbs and setup helpers commonly used in the documented command blocks.
+    "cd",
+    "export",
+    "source",
+    ".",
+    "echo",
+    "mkdir",
+    "set",
+    "unset",
+    "wget",
+    "curl",
 )
 
 # Rough pre-run estimate used only to size the sampled set against the budget.

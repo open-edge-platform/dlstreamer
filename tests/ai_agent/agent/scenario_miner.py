@@ -8,6 +8,7 @@ from .models import Scenario
 
 _FENCE_RE = re.compile(r"```(?:bash|sh|shell|console)?\s*\n(.*?)```", re.DOTALL)
 _ENV_RE = re.compile(r"\$\{?([A-Z][A-Z0-9_]+)\}?")
+_PLACEHOLDER_RE = re.compile(r"<[A-Za-z][^>\n]{0,80}>")  # e.g. <path to model> template tokens
 _COMMAND_MARKERS = ("gst-launch-1.0", "gst-inspect-1.0", "./", "python", "python3")
 
 _CATEGORY_KEYWORDS = {
@@ -54,6 +55,8 @@ def _extract_scenarios(md_path: Path, repo_root: Path) -> list[Scenario]:
     for idx, match in enumerate(_FENCE_RE.finditer(text)):
         block = match.group(1)
         if not _looks_runnable(block):
+            continue
+        if _PLACEHOLDER_RE.search(block):  # skip template blocks that aren't runnable as-is
             continue
         commands = _clean_commands(block)
         if not commands:
