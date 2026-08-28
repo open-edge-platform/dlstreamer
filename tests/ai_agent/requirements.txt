@@ -1,0 +1,3 @@
+# Runtime dependency for online (LLM) mode only.
+# Offline / --dry-run runs need none of these.
+openai>=1.40,<2
