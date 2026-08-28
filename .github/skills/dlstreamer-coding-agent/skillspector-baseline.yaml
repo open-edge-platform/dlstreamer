@@ -25,8 +25,8 @@ rules:
       for DL Streamer. The skill intentionally uses :latest so that users
       always pull the most recent stable release without manual version bumps.
   - id: "RP1"
-    path: "references/*"
+    path: "**/*.md"
     reason: >-
-      Reviewed: Docker image references in reference docs are illustrative
-      examples, not pinned deployment manifests. Using :latest (or an
-      abbreviated command) is acceptable for developer-facing documentation.
+      Reviewed: Docker image references in skill markdown files are
+      illustrative examples, not pinned deployment manifests. Using :latest
+      (or an abbreviated command) is acceptable for developer-facing docs.
