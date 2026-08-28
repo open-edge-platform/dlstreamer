@@ -1,6 +1,3 @@
-# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
-# SPDX-License-Identifier: Apache-2.0
-
 # SkillSpector baseline — findings listed here are suppressed on future scans.
 # Edit 'reason' fields and add glob 'rules' as needed. See docs/SUPPRESSION.md.
 version: 2
@@ -19,14 +16,9 @@ rules:
       Reviewed: --network host appears in reference docs as a Docker hint
       for WebRTC signaling connectivity, not executable code.
   - id: "RP1"
+    path: "**/*.md"
     message: "*intel/dlstreamer*"
     reason: >-
       Reviewed: intel/dlstreamer:latest is the documented default image tag
       for DL Streamer. The skill intentionally uses :latest so that users
       always pull the most recent stable release without manual version bumps.
-  - id: "RP1"
-    path: "**/*.md"
-    reason: >-
-      Reviewed: Docker image references in skill markdown files are
-      illustrative examples, not pinned deployment manifests. Using :latest
-      (or an abbreviated command) is acceptable for developer-facing docs.
