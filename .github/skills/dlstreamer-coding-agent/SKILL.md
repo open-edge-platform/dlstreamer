@@ -297,9 +297,6 @@ For all languages:
 ### Step 5 — Run, Debug, and Validate
 
 **Run in Docker**
-
-> **Security note:** The `--device` flags below grant the container access to specific hardware accelerators (GPU render node, NPU). The container runs as a non-root user (`-u`) with only the minimum group membership needed for device access.
-
 ```bash
 docker run --init --rm \
     -u "$(id -u):$(id -g)" \
