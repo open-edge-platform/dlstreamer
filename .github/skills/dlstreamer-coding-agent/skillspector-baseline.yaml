@@ -17,8 +17,28 @@ rules:
       for WebRTC signaling connectivity, not executable code.
   - id: "RP1"
     path: "**/*.md"
-    message: "*intel/dlstreamer*"
     reason: >-
       Reviewed: intel/dlstreamer:latest is the documented default image tag
       for DL Streamer. The skill intentionally uses :latest so that users
       always pull the most recent stable release without manual version bumps.
+fingerprints:
+- hash: sha256:f207415bea0d04dfea4798e089ccf13a65845bd4b2443ce48a0a7f85d99e2cdf
+  rule_id: RP1
+  file: SKILL.md
+  reason: intel/dlstreamer:latest is the documented default image tag
+- hash: sha256:969a16c506bf809c5724b37d777338ac3090c375797b1a83f171f56f2b3cbbab
+  rule_id: RP1
+  file: SKILL.md
+  reason: intel/dlstreamer:latest is the documented default image tag
+- hash: sha256:3dd4cd8b27dae01fbd7ccb959ea5bfd357703b07c8df94a460ad53f9d5e3a82d
+  rule_id: RP1
+  file: SKILL.md
+  reason: intel/dlstreamer:latest is the documented default image tag
+- hash: sha256:6d057cfd4dd7897fecf0c0fcc3be3ec00ae523b0d3f0d6200bb74df4594eda7a
+  rule_id: RP1
+  file: references/debugging-hints.md
+  reason: intel/dlstreamer:latest is the documented default image tag
+- hash: sha256:129cd9592889f3f85d0e5592ce1ddcd5a579da1a9cbbb06d97d2d4e935384844
+  rule_id: RP1
+  file: references/model-preparation.md
+  reason: intel/dlstreamer:latest is the documented default image tag
