@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
 # SkillSpector baseline — findings listed here are suppressed on future scans.
 # Edit 'reason' fields and add glob 'rules' as needed. See docs/SUPPRESSION.md.
 version: 2
@@ -27,11 +30,15 @@ fingerprints:
 - hash: sha256:395f963437d22b769924d80ee52ab6351ae9c5b155416dfb360dfed4d1f4c80a
   rule_id: PE5
   file: SKILL.md
-  reason: Accepted finding (auto-generated baseline)
+  reason: 'Reviewed: the Docker command runs as non-root (-u) with only
+      render-node device access needed for GPU/NPU inference. No privileged
+      mode or container escape vector.'
 - hash: sha256:370f8d1de35624c4fd03f1aaf7fdbe7f447be07f1f4b91dd805aeaac1b8fdc7a
   rule_id: PE5
   file: SKILL.md
-  reason: Accepted finding (auto-generated baseline)
+  reason: 'Reviewed: the Docker command runs as non-root (-u) with only
+      render-node device access needed for GPU/NPU inference. No privileged
+      mode or container escape vector.'
 - hash: sha256:681193561a4175b5fb851e9152578c28981c5d4247f70a10e7ccd35d3a961c41
   rule_id: PE5
   file: references/debugging-hints.md
