@@ -6,7 +6,7 @@ import time
 from pathlib import Path
 
 from .config import AgentConfig
-from .models import ExecResult, Step
+from .models import ExecResult
 
 _ASSIGN = __import__("re").compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
 
@@ -32,36 +32,33 @@ def _is_allowed(command: str, allowlist: tuple[str, ...]) -> bool:
     return True
 
 
-def run_step(step: Step, cfg: AgentConfig) -> ExecResult:
-    result = _run_step(step, cfg)
-    result.is_setup = step.is_setup
-    return result
-
-
-def _run_step(step: Step, cfg: AgentConfig) -> ExecResult:
-    if not _is_allowed(step.command, cfg.binary_allowlist):
-        return ExecResult(step.command, exit_code=126, stdout="",
+def run_script(commands: list[str], workdir: str, timeout: int, cfg: AgentConfig) -> ExecResult:
+    """Run all of a scenario's commands in one shell so source/export/cd persist across them."""
+    script = "\n".join(commands)
+    if not _is_allowed(script, cfg.binary_allowlist):
+        return ExecResult(script, exit_code=126, stdout="",
                           stderr="blocked: command not in binary allowlist", duration_s=0.0)
     if cfg.dry_run:
-        return ExecResult(step.command, exit_code=0, stdout="", stderr="", duration_s=0.0, skipped=True)
+        return ExecResult(script, exit_code=0, stdout="", stderr="", duration_s=0.0, skipped=True)
 
-    cwd = cfg.repo_root / step.workdir if step.workdir else cfg.repo_root
+    cwd = cfg.repo_root / workdir if workdir else cfg.repo_root
     if not Path(cwd).is_dir():
         cwd = cfg.repo_root
     start = time.monotonic()
     try:
         proc = subprocess.run(
-            ["bash", "-c", step.command],
+            ["bash", "-c", script],
             cwd=str(cwd),
             capture_output=True,
             text=True,
-            timeout=step.timeout,
+            timeout=timeout,
         )
-        return ExecResult(step.command, proc.returncode, proc.stdout, proc.stderr,
+        # Exit code of a multi-line bash -c is the last command's (the launch).
+        return ExecResult(script, proc.returncode, proc.stdout, proc.stderr,
                           time.monotonic() - start)
     except subprocess.TimeoutExpired as exc:
-        return ExecResult(step.command, exit_code=124, stdout=exc.stdout or "",
+        return ExecResult(script, exit_code=124, stdout=exc.stdout or "",
                           stderr="timeout", duration_s=time.monotonic() - start, timed_out=True)
     except OSError as exc:
-        return ExecResult(step.command, exit_code=127, stdout="", stderr=str(exc),
+        return ExecResult(script, exit_code=127, stdout="", stderr=str(exc),
                           duration_s=time.monotonic() - start)

@@ -2,11 +2,10 @@
 from __future__ import annotations
 
 from .config import AgentConfig
-from .executor import run_step
+from .executor import run_script
 from .judge import judge_outcome
 from .llm_client import LLMClient
-from .models import Scenario, Step, Verdict
-from .planner import build_plan
+from .models import ExecResult, Scenario, Verdict
 
 _SYSTEM = (
     "You are simulating a DL Streamer user who hit an error running a documented command. Propose "
@@ -18,28 +17,29 @@ _SYSTEM = (
 
 
 def run_with_retries(scenario: Scenario, cfg: AgentConfig, llm: LLMClient, max_retries: int) -> Verdict:
-    """Run the scenario; while it fails as user-error, let the LLM revise the launch and retry."""
-    plan = build_plan(scenario, llm, cfg.command_timeout)
-    results = [run_step(step, cfg) for step in plan.steps]
-    verdict = judge_outcome(scenario, results, llm)
-
-    setup_steps = [step for step in plan.steps if step.is_setup]
-    launch_cmd = scenario.commands[-1] if scenario.commands else ""
+    """Run setup+launch as one shell; while it fails as user-error, let the LLM revise and retry."""
+    launch = scenario.commands[-1] if scenario.commands else ""
+    result = _run(scenario, launch, cfg)
+    verdict = judge_outcome(scenario, result, llm)
     attempts = 1
 
     while (verdict.category == "user-error" and attempts <= max_retries
-           and not llm.offline and llm.remaining_credits > 0 and launch_cmd):
-        revised = _propose_fix(scenario, launch_cmd, verdict, llm)
-        if not revised or revised.strip() == launch_cmd.strip():
+           and not llm.offline and llm.remaining_credits > 0 and launch):
+        revised = _propose_fix(scenario, launch, verdict, llm)
+        if not revised or revised.strip() == launch.strip():
             break
-        launch_cmd = revised
-        launch_step = Step(command=revised, workdir=scenario.workdir, timeout=cfg.command_timeout)
-        results = [run_step(step, cfg) for step in setup_steps] + [run_step(launch_step, cfg)]
-        verdict = judge_outcome(scenario, results, llm)
+        launch = revised
+        result = _run(scenario, launch, cfg)
+        verdict = judge_outcome(scenario, result, llm)
         attempts += 1
 
     verdict.evidence["attempts"] = attempts
     return verdict
+
+
+def _run(scenario: Scenario, launch: str, cfg: AgentConfig) -> ExecResult:
+    commands = list(scenario.setup) + [launch]
+    return run_script(commands, scenario.workdir, cfg.command_timeout, cfg)
 
 
 def _propose_fix(scenario: Scenario, launch_cmd: str, verdict: Verdict, llm: LLMClient) -> str:

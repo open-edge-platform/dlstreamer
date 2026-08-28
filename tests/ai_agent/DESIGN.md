@@ -125,11 +125,14 @@ tests/ai_agent/
   assertion(s) that define success.
 
 ### 3.4 Executor (`executor.py`)
-- Runs each step inside the isolated container against the installed `.deb`.
-- Captures: stdout/stderr, exit code, wall time, produced artifacts (JSON metadata, output video,
-  `gst-inspect` output). Truncates/streams large logs.
+- Runs each scenario's commands (setup blocks + launch) as **one shell session** (`bash -c` with the
+  lines joined), so `source setup_dls_env.sh`, `export MODELS_PATH=...` and `cd` persist across them
+  — exactly like a user running the block. The exit code is the last (launch) command's, and the
+  combined log carries any setup errors as context for the judge.
+- Captures: stdout/stderr, exit code, wall time. Truncates/streams large logs.
 - Hard **allowlist** of binaries (`gst-launch-1.0`, `gst-inspect-1.0`, sample scripts, model
-  download scripts). No arbitrary shell from the LLM without allowlist match.
+  download/`wget`/`curl`, and common shell verbs `cd`/`export`/`source`); `sudo` is not allowed.
+  No arbitrary shell from the LLM without an allowlist match.
 
 ### 3.5 Judge (`judge.py`)
 - Reuses the approach from the existing AI-verdict tooling (a vision-capable model can inspect
@@ -141,9 +144,9 @@ tests/ai_agent/
   - `product-bug` — documented usage is correct but the product misbehaves/crashes → propose a
     code fix or file an Issue with a minimal repro.
   - `flaky` — non-deterministic; re-run N times before deciding.
-- A **setup step that fails** short-circuits to `user-error` ("prerequisite failed before the
-  sample could run") so a missing model/video is never mis-reported as a product defect; the
-  verdict on a launch is judged only from the launch steps' output.
+- Because setup and launch run in one shell, a failed prerequisite (missing model/video, failed
+  download) surfaces in the combined log and is judged `user-error`, so it is never mis-reported as
+  a product defect.
 - **Retry loop (`retry.py`).** While a launch is judged `user-error` and budget/retries remain, the
   LLM is asked to propose one corrected command (fix a flag/element name, add a missing model or
   video path) and the launch is re-run — exactly what a real user does. Setup steps are reused, not
