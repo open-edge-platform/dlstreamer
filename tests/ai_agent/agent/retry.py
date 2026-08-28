@@ -53,5 +53,6 @@ def _propose_fix(scenario: Scenario, launch_cmd: str, verdict: Verdict, llm: LLM
         data = llm.complete_json(_SYSTEM, user)
         cmd = data.get("command", "")
         return cmd if isinstance(cmd, str) else ""
-    except Exception:  # a failed suggestion just ends the retry loop
+    except Exception as exc:  # a failed suggestion just ends the retry loop
+        print(f"[agent] LLM retry suggestion failed ({exc})")
         return ""

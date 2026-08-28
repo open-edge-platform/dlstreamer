@@ -1,6 +1,7 @@
-"""Run scenario steps inside the container, enforcing the binary allowlist."""
+"""Run a scenario's commands in one shell, guarding only against destructive commands."""
 from __future__ import annotations
 
+import re
 import subprocess
 import time
 from pathlib import Path
@@ -8,36 +9,17 @@ from pathlib import Path
 from .config import AgentConfig
 from .models import ExecResult
 
-_ASSIGN = __import__("re").compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
 
-
-def _first_binary(command_line: str) -> str | None:
-    for token in command_line.strip().split():
-        if _ASSIGN.match(token):  # skip leading VAR=value env assignments
-            continue
-        return token
-    return None
-
-
-def _is_allowed(command: str, allowlist: tuple[str, ...]) -> bool:
-    for line in command.splitlines():
-        line = line.strip()
-        if not line or line.startswith("#"):
-            continue
-        binary = _first_binary(line)
-        if binary is None:
-            continue
-        if not any(binary == a or binary.startswith(a) for a in allowlist):
-            return False
-    return True
+def _is_dangerous(script: str, patterns: tuple[str, ...]) -> bool:
+    return any(re.search(pat, script, re.IGNORECASE) for pat in patterns)
 
 
 def run_script(commands: list[str], workdir: str, timeout: int, cfg: AgentConfig) -> ExecResult:
     """Run all of a scenario's commands in one shell so source/export/cd persist across them."""
     script = "\n".join(commands)
-    if not _is_allowed(script, cfg.binary_allowlist):
+    if _is_dangerous(script, cfg.deny_patterns):
         return ExecResult(script, exit_code=126, stdout="",
-                          stderr="blocked: command not in binary allowlist", duration_s=0.0)
+                          stderr="blocked: matched a denied dangerous pattern", duration_s=0.0)
     if cfg.dry_run:
         return ExecResult(script, exit_code=0, stdout="", stderr="", duration_s=0.0, skipped=True)
 
@@ -52,6 +34,7 @@ def run_script(commands: list[str], workdir: str, timeout: int, cfg: AgentConfig
             capture_output=True,
             text=True,
             timeout=timeout,
+            stdin=subprocess.DEVNULL,  # so sudo/other prompts fail fast instead of hanging
         )
         # Exit code of a multi-line bash -c is the last command's (the launch).
         return ExecResult(script, proc.returncode, proc.stdout, proc.stderr,

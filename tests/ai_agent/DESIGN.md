@@ -130,9 +130,12 @@ tests/ai_agent/
   — exactly like a user running the block. The exit code is the last (launch) command's, and the
   combined log carries any setup errors as context for the judge.
 - Captures: stdout/stderr, exit code, wall time. Truncates/streams large logs.
-- Hard **allowlist** of binaries (`gst-launch-1.0`, `gst-inspect-1.0`, sample scripts, model
-  download/`wget`/`curl`, and common shell verbs `cd`/`export`/`source`); `sudo` is not allowed.
-  No arbitrary shell from the LLM without an allowlist match.
+- **Safety by denylist, not allowlist.** Documented commands come from the trusted repo under test,
+  so instead of allowlisting binaries (which blocked legit tools like `pip`/`git`), the executor
+  only refuses a small set of clearly destructive patterns (`rm -rf /`~/*, `mkfs`, `dd if=`,
+  `shutdown`/`reboot`, fork bombs, `curl|sh`, writes to `/dev/sd`). `stdin` is `/dev/null` so `sudo`
+  or other prompts fail fast instead of hanging. The real containment boundary is the isolated CI
+  container. LLM-proposed retry commands pass through the same denylist.
 
 ### 3.5 Judge (`judge.py`)
 - Reuses the approach from the existing AI-verdict tooling (a vision-capable model can inspect
@@ -246,7 +249,9 @@ tests/ai_agent/
 
 - Everything runs in an **isolated CI container**; no network egress except model/video download
   from known hosts (allowlisted).
-- **Binary allowlist** in the executor; the LLM cannot run arbitrary commands.
+- **Denylist** in the executor refuses destructive commands (`rm -rf /`, `mkfs`, `dd`, `shutdown`,
+  fork bombs, `curl|sh`, …); `stdin` is `/dev/null` so interactive prompts can't hang. The isolated
+  container is the real containment boundary.
 - Secrets only via CI secret store; auto-PR/Issue requires an explicit fine-grained PAT and is
   off by default.
 - Doc text is untrusted → treated as data by the LLM; safety enforced by the executor allowlist,

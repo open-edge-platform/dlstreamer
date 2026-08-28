@@ -7,26 +7,17 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 
-# Only these binaries may be invoked by executed scenarios (safety boundary).
-DEFAULT_BINARY_ALLOWLIST = (
-    "gst-launch-1.0",
-    "gst-inspect-1.0",
-    "python",
-    "python3",
-    "bash",
-    "sh",
-    "./",  # sample scripts invoked by relative path
-    # Shell verbs and setup helpers commonly used in the documented command blocks.
-    "cd",
-    "export",
-    "source",
-    ".",
-    "echo",
-    "mkdir",
-    "set",
-    "unset",
-    "wget",
-    "curl",
+# Documented commands come from the trusted repo, so rather than allowlisting binaries (which
+# blocked legit tools like pip/git), only these clearly destructive patterns are refused.
+DEFAULT_DENY_PATTERNS = (
+    r"\brm\s+-[a-z]*r[a-z]*f?\b\s+(/|~|\$HOME|\*)",
+    r"\bmkfs(\.|\b)",
+    r"\bdd\b\s+if=",
+    r"\b(shutdown|reboot|poweroff|halt)\b",
+    r":\(\)\s*\{",
+    r">\s*/dev/sd",
+    r"\bchmod\b\s+-?R?\s*777\s+/",
+    r"(curl|wget)\b[^\n|]*\|\s*(sudo\s+)?(ba)?sh\b",
 )
 
 # Rough pre-run estimate used only to size the sampled set against the budget.
@@ -52,7 +43,7 @@ class AgentConfig:
     dry_run: bool = False  # do not execute scenario commands
     open_pr: bool = False
     open_issue: bool = False
-    binary_allowlist: tuple[str, ...] = field(default_factory=lambda: DEFAULT_BINARY_ALLOWLIST)
+    deny_patterns: tuple[str, ...] = field(default_factory=lambda: DEFAULT_DENY_PATTERNS)
 
     @property
     def api_key(self) -> str | None:

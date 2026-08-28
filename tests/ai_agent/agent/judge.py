@@ -31,7 +31,7 @@ def _heuristic(scenario: Scenario, r: ExecResult) -> Verdict:
     if r.exit_code == 0:
         return Verdict(scenario.id, "pass", 0.6, "command exited 0")
     if r.exit_code == 126:
-        return Verdict(scenario.id, "user-error", 0.9, "blocked by allowlist", _evidence(r))
+        return Verdict(scenario.id, "user-error", 0.9, "blocked (denied dangerous command)", _evidence(r))
     if r.timed_out:
         return Verdict(scenario.id, "flaky", 0.4, "command timed out", _evidence(r))
     blob = (r.stderr + "\n" + r.stdout).lower()
@@ -78,5 +78,6 @@ def judge_outcome(
             _evidence(result),
             repro=scenario.commands if category in ("docs-bug", "product-bug") else [],
         )
-    except Exception:  # on any LLM failure, fall back to the deterministic heuristic
+    except Exception as exc:  # on any LLM failure, warn and fall back to the deterministic heuristic
+        print(f"[agent] LLM judge failed ({exc}); using heuristic")
         return _heuristic(scenario, result)
