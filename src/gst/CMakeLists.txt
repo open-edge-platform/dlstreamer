@@ -14,7 +14,6 @@ add_subdirectory(gst_logger_sink)
 add_subdirectory(metadata)
 add_subdirectory(utils)
 add_subdirectory(lib)
-add_subdirectory(elements)
 add_subdirectory(bins)
 add_subdirectory(tracers/buffer_tracer)
 
