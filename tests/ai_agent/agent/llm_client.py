@@ -14,7 +14,7 @@ class LLMClient:
     """Thin wrapper over the OpenAI chat API; falls back to a mock when offline."""
 
     def __init__(self, model: str, api_key: str | None, budget_credits: int, offline: bool,
-                 base_url: str):
+                 base_url: str | None = None):
         self.model = model
         self.budget_credits = budget_credits
         self.offline = offline
@@ -23,10 +23,10 @@ class LLMClient:
         self._client = None
         if not offline:
             if not api_key:
-                raise ValueError("online mode requires AI_AGENT_LLM_API_KEY (a GitHub token)")
+                raise ValueError("online mode requires AI_AGENT_LLM_API_KEY")
             from openai import OpenAI  # imported lazily so offline runs need no dependency
 
-            self._client = OpenAI(api_key=api_key, base_url=base_url)
+            self._client = OpenAI(api_key=api_key, base_url=base_url) if base_url else OpenAI(api_key=api_key)
 
     @property
     def remaining_credits(self) -> float:

@@ -23,9 +23,11 @@ DEFAULT_DENY_PATTERNS = (
 # Rough pre-run estimate used only to size the sampled set against the budget.
 EST_CREDITS_PER_SCENARIO = 15
 
-# GitHub Models is the only supported LLM back-end (OpenAI-compatible endpoint).
-GITHUB_MODELS_BASE_URL = "https://models.github.ai/inference"
-DEFAULT_MODEL = "openai/gpt-4o"
+# The LLM back-end is any OpenAI-compatible endpoint, selected by env AI_AGENT_LLM_BASE_URL:
+#   - unset            -> OpenAI direct (api.openai.com), model e.g. gpt-4o
+#   - Azure OpenAI     -> https://<resource>.openai.azure.com/... , your deployment name as model
+# (GitHub Models https://models.github.ai/inference is being retired - avoid for durable use.)
+DEFAULT_MODEL = "gpt-4o"
 
 
 @dataclass
@@ -50,8 +52,8 @@ class AgentConfig:
         return os.environ.get("AI_AGENT_LLM_API_KEY")
 
     @property
-    def base_url(self) -> str:
-        return GITHUB_MODELS_BASE_URL
+    def base_url(self) -> str | None:
+        return os.environ.get("AI_AGENT_LLM_BASE_URL")
 
 
 def _default_repo_root() -> Path:

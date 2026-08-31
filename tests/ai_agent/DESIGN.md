@@ -176,17 +176,23 @@ tests/ai_agent/
 
 ---
 
-## 4. LLM provider (GitHub Models)
+## 4. LLM provider (OpenAI-compatible)
 
-- `llm_client.py` talks to **GitHub Models** — the same models Copilot uses — via its
-  OpenAI-compatible endpoint (`https://models.github.ai/inference`), so the OpenAI SDK is reused.
-  This is the **only** supported back-end.
-- Model: **`openai/gpt-4o`** (multimodal, so the judge can inspect output frames).
-- Auth is a **GitHub token**, not an OpenAI key, passed via the secret `AI_AGENT_LLM_API_KEY`:
-  - **CI**: the built-in `GITHUB_TOKEN` with `permissions: models: read` — no PAT needed.
-  - **Local**: a fine-grained PAT with account permission `Models: read`.
-- The key is never logged and never routed through non-secret env expansion. Quota is rate/credit
-  based, which maps naturally onto the 500-credit budget.
+- `llm_client.py` uses the OpenAI SDK against **any OpenAI-compatible endpoint**, selected by env
+  `AI_AGENT_LLM_BASE_URL`:
+  - unset → **OpenAI direct** (`api.openai.com`), `--model gpt-4o`. Works with the current client.
+  - **Azure AI Foundry / Azure OpenAI** → `https://<resource>.openai.azure.com/...`, model = your
+    deployment name. This is the recommended durable successor to GitHub Models (per GitHub's own
+    retirement notice pointing to Microsoft Foundry). NOTE: Azure needs the SDK's `AzureOpenAI`
+    client (endpoint + `api-version` + `api-key` header), so a small client branch is required
+    before Azure can be used.
+  - GitHub Models is **fully retired (July 30, 2026)** — its inference API and BYOK endpoints return
+    HTTP 410 and must not be used.
+- Model: multimodal (e.g. `gpt-4o`) so the judge can inspect output frames.
+- Auth via the secret `AI_AGENT_LLM_API_KEY` (OpenAI/Azure key, or a GitHub token for GitHub
+  Models). Never logged, never routed through non-secret env expansion. If the LLM call fails, the
+  agent prints a visible warning and falls back to the deterministic heuristic judge (no silent
+  masking). Budget is credit-capped (500/run default).
 - Guardrails:
   - **Cost cap: 500 credits per weekly run** (default). The sampler is budget-aware — it picks as
     many varied scenarios as fit within 500 credits rather than running the whole doc corpus, and
