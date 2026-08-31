@@ -1298,6 +1298,7 @@ InferenceImpl::MakeInferenceResult(GvaBaseInference *gva_base_inference, Model &
 
     result->model = &model;
     result->image = image;
+    result->source_tag = gva_base_inference;
     return result;
 }
 
