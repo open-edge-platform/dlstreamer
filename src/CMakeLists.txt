@@ -9,6 +9,3 @@ add_subdirectory(cpu)
 add_subdirectory(gst)
 add_subdirectory(utils)
 
-if(NOT WIN32)
-    add_subdirectory(vaapi)
-endif()
