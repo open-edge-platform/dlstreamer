@@ -120,7 +120,6 @@ PRIVATE
 if(NOT MSVC)
     target_link_libraries(${TARGET_NAME} PRIVATE
         ${GSTVA_LIBRARIES}
-        dlstreamer_vaapi
     )
 endif()
 
