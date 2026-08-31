@@ -2,7 +2,7 @@
 --extra-index-url https://download.pytorch.org/whl/cpu
 
 # OpenVINO Python (pin to match DL Streamer runtime)
-openvino==2026.2.0
+openvino==2026.3.1
 nncf==3.0.0  # required for int8=True quantization
 
 # Ultralytics YOLO (YOLOv11 license plate detection)

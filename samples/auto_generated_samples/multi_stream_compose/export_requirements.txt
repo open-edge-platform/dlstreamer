@@ -2,7 +2,7 @@
 --extra-index-url https://download.pytorch.org/whl/cpu
 
 # OpenVINO + NNCF for INT8 quantization
-openvino==2026.2.0
+openvino==2026.3.1
 nncf==3.0.0
 
 # Ultralytics YOLO model export

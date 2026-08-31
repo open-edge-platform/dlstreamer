@@ -2,7 +2,7 @@
 --extra-index-url https://download.pytorch.org/whl/cpu
 defusedxml>=0.7.1
 huggingface_hub==1.21.0
-openvino==2026.2.0
+openvino==2026.3.1
 optimum-intel==2.1.0
 transformers==5.5.0
 pillow==12.3.0
