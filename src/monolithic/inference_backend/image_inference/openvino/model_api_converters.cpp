@@ -108,7 +108,7 @@ bool yaml2Json(const std::string yaml_file, nlohmann::json &yaml_json) {
 
                             size_t item_first = line.find_first_not_of(" \t");
                             if (item_first == std::string::npos || line[item_first] != '-') {
-                                yaml_stream.seekg(pos); // ✅ Rewind - put the line back
+                                yaml_stream.seekg(pos); // Rewind - put the line back
                                 break;
                             }
 
