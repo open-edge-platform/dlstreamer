@@ -155,5 +155,5 @@ The sample:
 * Logs detected ages to `/tmp/age_log.txt`
 
 ## See also
-* [Samples overview](../../../README.md)
+* [Samples overview](../../../../README.md)
 

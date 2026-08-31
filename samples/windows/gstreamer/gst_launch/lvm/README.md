@@ -81,7 +81,7 @@ The sample:
 
 ## See also
 
-* [Windows Samples overview](../../../README.md)
+* [Windows Samples overview](../../../../README.md)
 * [Linux LVM Sample](../../../../gstreamer/gst_launch/lvm/README.md)
 
 ## Example Usage

@@ -180,6 +180,9 @@ static void gst_g3d_lidar_src_init(GstG3DLidarSrc *self) {
     self->priv = (GstG3DLidarSrcPrivate *)gst_g3d_lidar_src_get_instance_private(self);
     new (&self->priv->queue_mutex) std::mutex();
     new (&self->priv->queue_cond) std::condition_variable();
+    /* Object is under construction; no other thread can reference it yet, so the
+     * queue_mutex-protected state below is initialised without taking the lock. */
+    // coverity[missing_lock]
     new (&self->priv->frame_queue) std::queue<std::shared_ptr<LidarFrame>>();
     self->priv->sdk_handle = nullptr;
     self->priv->rs = nullptr;
@@ -189,6 +192,7 @@ static void gst_g3d_lidar_src_init(GstG3DLidarSrc *self) {
     self->priv->start_fn = nullptr;
     self->priv->stop_fn = nullptr;
     self->priv->destroy_fn = nullptr;
+    // coverity[missing_lock]
     self->priv->flushing = FALSE;
 
     /* Configure as live source */
@@ -488,6 +492,17 @@ static gboolean gst_g3d_lidar_src_start(GstBaseSrc *src) {
         return FALSE;
     }
 
+    /* Initialize timeout tracking and clear any stale flush state *before*
+     * starting the backend: once start_fn() returns, the SDK callback thread may
+     * already be delivering frames, and on_cloud_cb reads `flushing` and writes
+     * `last_frame_time` under queue_mutex. Doing it afterwards both races with
+     * that thread and can drop the first frames if `flushing` was still TRUE. */
+    {
+        std::lock_guard<std::mutex> lock(self->priv->queue_mutex);
+        self->priv->flushing = FALSE;
+        self->priv->last_frame_time = std::chrono::steady_clock::now();
+    }
+
     if (self->priv->start_fn(self->priv->rs) != G3D_LIDAR_OK) {
         GST_ELEMENT_ERROR(self, RESOURCE, OPEN_READ, (NULL), ("Failed to start '%s' backend", cfg.vendor.c_str()));
         self->priv->destroy_fn(self->priv->rs);
@@ -497,9 +512,6 @@ static gboolean gst_g3d_lidar_src_start(GstBaseSrc *src) {
         return FALSE;
     }
 
-    /* Initialize timeout tracking */
-    self->priv->flushing = FALSE;
-    self->priv->last_frame_time = std::chrono::steady_clock::now();
     self->frame_seq = 0;
 
     GST_INFO_OBJECT(self,

@@ -169,4 +169,4 @@ Video preprocessing isn't implemented for this model. Pass frames as independent
 - **Solution:** Use `--vision-mode image` (the default), or switch to a video-capable model such as Qwen2/2.5/3-VL or LLaVA-NeXT-Video
 
 ## See also
-* [Samples overview](../../README.md)
+* [Samples overview](../../../README.md)

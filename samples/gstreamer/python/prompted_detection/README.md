@@ -1,78 +1,120 @@
 # Prompt-based Object Detection
 
-This sample searches a video file for user-defined objects using open vocabulary detection model.
-This sample also demonstrates how to integrate a third-party model with DLStreamer pipeline
+This sample searches a video file for user-defined objects using an open-vocabulary detection model.
+It also demonstrates how to integrate a third-party model with a DLStreamer pipeline.
 
-> filesrc -> decodebin3 -> gvadetect -> appsink
+The pipeline stages implement the following functions:
 
-The individual pipeline stages implement the following functions:
+* __filesrc__ — reads video stream from a local file
+* __decodebin3__ — decodes video stream into individual frames
+* __gvadetect__ — runs an open-vocabulary AI detection model for each frame
+* __appsink / gvametapublish__ — delivers results to a user-defined callback or writes JSON metadata
 
-* __filesrc__ element reads video stream from a local file
-* __decodebin3__ element decodes video stream into individual frames
-* __gvadetect__ element runs an open-vocabulary AI detection model for each frame
-* __autovideosink__ element executes user-defined processing of detection results
+## Prerequisites
+
+### Install DLStreamer
+
+#### Option A: Docker image (recommended)
+
+Pull the latest DLStreamer image and start an interactive container with GPU access:
+
+```sh
+docker pull intel/dlstreamer:latest
+docker run --init -it --rm \
+    --device /dev/dri \
+    --group-add $(stat -c "%g" /dev/dri/render*) \
+    intel/dlstreamer:latest
+cd /opt/intel/dlstreamer/samples/gstreamer/python/prompted_detection
+```
+
+> Note: install Docker Engine if not already available (see [Docker installation guide](https://docs.docker.com/engine/install/)).
+> All subsequent commands run inside this container shell.
+
+#### Option B: Native installation
+
+Install DLStreamer on the host (see [DLStreamer Installation Guide](../../../../docs/user-guide/install/install_guide_index.md)).
+
+```sh
+cd samples/gstreamer/python/prompted_detection
+```
+
+### Download Video
+
+Download example video file:
+
+```sh
+curl -L -o 1192116-sd_640_360_30fps.mp4 \
+    "https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4"
+```
+
+### Prepare Model
+
+This sample expects `yoloe-26s-seg` in FP16 precision from Ultralytics, exported with the target class baked in via `--classes`.
+
+Use the [Ultralytics model conversion](../../../../scripts/download_models/README.md#2-ultralytics-conversion) to prepare the model.
+
+## Run Sample Application
+
+```sh
+python3 prompted_detection.py \
+    --input 1192116-sd_640_360_30fps.mp4 \
+    --prompt "person"
+```
+
+If `--model` is omitted, it defaults to `$MODELS_PATH/public/yoloe-26s-seg-pf/FP16/yoloe-26s-seg-pf.xml`.
+
+> **Note:** Replace the `--model` path with the actual location where you downloaded the model in the [Prepare Model](#prepare-model) step.
+
+Run `python3 prompted_detection.py --help` to see all available options.
+
+### Output Modes
+
+Control the output with `--output` (default: `appsink`):
+
+| Mode | Description |
+|---|---|
+| `appsink` | Detection results processed in a user-defined callback and printed to the terminal |
+| `json` | Writes detection metadata as JSON Lines to `output.json` via `gvametapublish` |
+| `file` | Annotates detected objects with `gvawatermark` and encodes result to `<input_stem>_output.mp4` (requires VA-API) |
+
+**Appsink (default):**
+```sh
+python3 prompted_detection.py --input video.mp4 --prompt "car"
+```
+
+**JSON metadata:**
+```sh
+python3 prompted_detection.py --input video.mp4 --prompt "car" --output json
+```
+Outputs `output.json` in JSON Lines format, one record per frame.
+
+**File output:**
+```sh
+python3 prompted_detection.py --input video.mp4 --prompt "car" --output file
+```
 
 ## How It Works
 
-### STEP 1 - Model download and prompt configuration
+### DLStreamer Pipeline Construction
 
-First, the sample creates a PyTorch YOLOE model and configures it with the user-supplied `<OBJECT_TO_FIND>` prompt.
-Pinning the weights (`yoloe-26s-seg`) and the export precision keeps the exported model consistent across runs: 
+The application creates a GStreamer `pipeline` object configured with the pre-exported detection model and input video file.
 
-    ```code
-    model = YOLO(WEIGHTS + ".pt")
-    names = [object_to_find]
-    model.set_classes(names, model.get_text_pe(names))
-    ```
-
-### STEP 2 - On-the-Fly model export 
-
-The application exports a detection model to OpenVINO format for fast inference: 
-
-    ```code
-    exported_model_path = model.export(format="openvino", dynamic=True, half=True)
-    model_file = f"{exported_model_path}/{weights}.xml"
-    ```
-
-### STEP 3 - DLStreamer Pipeline Construction
-
-Finally, the application creates a GStreamer `pipeline` object configuring it with the created  detection model and an input video file. 
-
-    ```code
-    pipeline = Gst.parse_launch(
-            f"filesrc location={args[1]} ! decodebin3 ! "
-            f"gvadetect model={model_file} device=GPU batch-size=4 ! queue ! "
-            f"appsink emit-signals=true name=appsink0"
-        )
-    pipeline_loop(pipeline)
-    ```code
-
-Please note the application registers a user-defined callback to process prediction results from the pipeline. 
-
-    ```code
-    appsink = pipeline.get_by_name("appsink0")
-    appsink.connect("new-sample", on_new_sample, None)
-    ```code
-
-The 'on_new_sample' callback prints out frame timestamps when a requested object is found. 
-
-## Running
-
-The sample application requires a local input video file and a network connection to download an object detection model.
-Here is an example command line to download assets and execute the sample application.
-
-```sh
-cd <python/prompted_detection directory>
-wget https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4
-python3 ./prompted_detection.py 1192116-sd_640_360_30fps.mp4 "white car" [DEVICE] [OUTPUT]
+```code
+pipeline = Gst.parse_launch(
+        f"filesrc location={video_file} ! decodebin3 ! "
+        f"gvadetect model={model_file} device={device} batch-size=4 ! queue ! "
+        f"{sink}"  # sink depends on --output mode
+    )
 ```
 
-* `OBJECT_TO_FIND` - object to detect using natural language (e.g. `dog`, `white car`).
-* `DEVICE` - inference device, `CPU`, `GPU`, or `NPU` (default: `GPU`).
-* `OUTPUT` - output mode (default: `appsink`):
-  * `appsink` - demo mode; detection results are processed in a user-defined callback and printed to the terminal.
-  * `json` - write deterministic inference results as json-lines to `output.json` in the working directory.
-  * `file` - annotate detected objects with `gvawatermark` and encode the result to `<input_stem>_output.mp4` (requires VA-API).
+A user-defined callback processes detection results in `appsink` mode:
+
+```code
+appsink = pipeline.get_by_name("appsink0")
+appsink.connect("new-sample", on_new_sample, None)
+```
+
+The `on_new_sample` callback prints frame timestamps when the requested object is detected.
 
 ## See also
-* [Samples overview](../../README.md)
+* [Samples overview](../../../README.md)

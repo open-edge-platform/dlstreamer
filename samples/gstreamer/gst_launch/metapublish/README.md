@@ -85,4 +85,4 @@ The sample
 * starts the command and emits inference events that include the evaluated age and gender for each face detected within video input frames.
 
 ## See also
-* [Samples overview](../../README.md)
+* [Samples overview](../../../README.md)

@@ -56,5 +56,5 @@ The sample
 * reports FPS every second and average FPS on exit
 
 ## See also
-* [Windows Samples overview](../../README.md)
+* [Windows Samples overview](../../../README.md)
 * [Linux Benchmark Samples](../../../gstreamer/benchmark/README.md)

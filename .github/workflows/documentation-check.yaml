@@ -29,9 +29,6 @@ jobs:
           fetch-depth: 0
           # Fetch tags
           fetch-tags: true
-          # Checkout the branch that triggered the workflow
-          # to avoid detached HEAD
-          ref: ${{ github.event.pull_request.head.sha || github.head_ref }}
           persist-credentials: false
 
       - name: Check if should skip CI

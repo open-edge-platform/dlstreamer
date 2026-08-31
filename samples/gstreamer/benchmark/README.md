@@ -61,4 +61,4 @@ The sample
 * reports FPS every second and average FPS on exit
 
 ## See also
-* [Samples overview](../README.md)
+* [Samples overview](../../README.md)

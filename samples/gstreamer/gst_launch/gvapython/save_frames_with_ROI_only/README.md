@@ -87,5 +87,5 @@ Saved: saved_frames/frame_00002.jpg (format: NV12, shape: (1080, 1920))
 The saved frames are numbered sequentially and include all detected objects with their bounding boxes and labels.
 
 ## See also
-* [Samples overview](../../../README.md)
+* [Samples overview](../../../../README.md)
 * [gvapython element documentation](../../../../../docs/user-guide/elements/gvapython.md)

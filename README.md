@@ -14,7 +14,7 @@
 
 <img src="./hero.jpg" width="800" alt="DL Streamer sample outputs">
 
-[Get Started](#quick-start---installation) • [Run Your Pipeline](#quick-start---run-your-pipeline) • [Samples](./samples/gstreamer/README.md) • [Elements](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/elements/elements.html) • [Documentation](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/index.html) • [Contributing](./CONTRIBUTING.md)
+[Get Started](#quick-start---installation) • [Run Your Pipeline](#quick-start---run-your-pipeline) • [Samples](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/samples.html) • [Elements](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/elements/elements.html) • [Documentation](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/index.html) • [Contributing](./CONTRIBUTING.md)
 
 </div>
 
@@ -43,6 +43,12 @@
 | **Python-first extensibility** | Add custom logic as Python callbacks or full Python GStreamer elements — no C++ required |
 | **Multi-stream, multi-sensor** | Mux/demux dozens of RTSP streams, LiDAR frames, and radar point clouds in one process |
 | **Geti™, Ultralytics & HuggingFace support** | Deploy models from Geti™ Studio, Ultralytics, Hugging Face, or any ONNX/OpenVINO IR model directly |
+
+<div align="center">
+
+[![Watch DL Streamer videos on YouTube](docs/user-guide/_images/watch-on-youtube.jpg)](https://www.youtube.com/watch?v=1x7LTZhEadI&list=PLg-UKERBljNySiBeQaLtzF0yZGOmKrBRF)
+
+</div>
 
 ---
 
@@ -202,9 +208,9 @@ cat output_from_python.json
 | **Multi-stream** | [Multi-camera deployment](./samples/gstreamer/gst_launch/multi_stream/README.md), [Stream mux/demux](./samples/gstreamer/gst_launch/stream_mux_and_demux/README.md) |
 | **3D Sensors** | [LiDAR parsing](./samples/gstreamer/gst_launch/g3dlidarparse/README.md), [PointPillars 3D detection](./samples/gstreamer/gst_launch/g3dinference/README.md), [Radar processing](./samples/gstreamer/gst_launch/g3dradarprocess/README.md) |
 | **Integration** | [ONVIF camera discovery](./samples/gstreamer/python/onvif_cameras_discovery/README.md), [Geti™ model deployment](./samples/gstreamer/gst_launch/geti_deployment/README.md), [Metadata to MQTT/Kafka](./samples/gstreamer/gst_launch/metapublish/README.md) |
-| **Python extensibility** | [Custom Python GStreamer elements](./samples/gstreamer/gst_launch/python-elements/face_detection_and_classification/README.md), [Smart NVR with recording](./samples/gstreamer/python/smart_nvr/README.md) |
+| **Python extensibility** | [Custom Python GStreamer elements](./samples/gstreamer/gst_launch/python-elements/face_detection_and_classification/README.md), [Smart NVR with recording](./samples/gstreamer/python/smart_nvr/README.md)
 
-[Browse all samples →](./samples/gstreamer/README.md)
+[Browse all samples →](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/samples.html)
 
 ---
 
@@ -232,6 +238,7 @@ Operating systems: **Ubuntu 22.04 / 24.04**, **Windows 11**.
 | Developer Guide | [Developer Guide](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/dev_guide/dev_guide_index.html) |
 | API Reference | [API Reference](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/api_ref/api_reference.html) |
 | Metadata Guide | [Metadata Guide](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/dev_guide/metadata.html) |
+| Video Tutorials | [YouTube Playlist](https://www.youtube.com/playlist?list=PLg-UKERBljNySiBeQaLtzF0yZGOmKrBRF) |
 
 ---
 

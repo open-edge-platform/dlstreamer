@@ -108,7 +108,7 @@ script for new sessions.
 
 You are ready to use Deep Learning Streamer. For further instructions to run
 sample pipeline(s), please go to the [tutorial](../tutorial.md).
-There is need to manually download models.
+There is still a need to manually download models.
 
 ------------------------------------------------------------------------
 

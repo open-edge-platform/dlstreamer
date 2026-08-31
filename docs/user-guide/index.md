@@ -11,7 +11,7 @@
 </div>
 hide_directive-->
 
-[System Requirements](./system_requirements.md) | [Install Guide](./install/install_guide_index.md) | [Tutorial](./tutorial.md) | [Samples](https://github.com/open-edge-platform/dlstreamer/blob/main/samples/gstreamer/README.md) | [Supported Models](./supported_models.md) | [Elements](./elements/elements.md) | [Developer Guide](./dev_guide/dev_guide_index.md) | [API Reference](./api_ref/api_reference.md) | [Release Notes](./release-notes.md)
+[System Requirements](./system_requirements.md) | [Install Guide](./install/install_guide_index.md) | [Tutorial](./tutorial.md) | [Samples](./samples.md) | [Supported Models](./supported_models.md) | [Elements](./elements/elements.md) | [Developer Guide](./dev_guide/dev_guide_index.md) | [API Reference](./api_ref/api_reference.md) | [Release Notes](./release-notes.md)
 
 **Deep Learning Streamer (DL Streamer)** is an open-source media analytics framework built on [GStreamer\*](https://gstreamer.freedesktop.org). It lets you build video and audio intelligence pipelines — from a simple object detection command line to a multi-stream production deployment — with minimal code, running on Intel® CPU, GPU, and NPU. DL Streamer consists of:
 
@@ -88,6 +88,12 @@ Center](https://www.global.ntt/innovation/innovating-today/),
 [Videonetics Technology Pvt. Limited](https://www.videonetics.com/),
 AIVID TECHVISION and others.
 
+<div align="center">
+
+[![Watch DL Streamer videos on YouTube](_images/watch-on-youtube.jpg)](https://www.youtube.com/watch?v=1x7LTZhEadI&list=PLg-UKERBljNySiBeQaLtzF0yZGOmKrBRF)
+
+</div>
+
 ## Testimonials
 
 | ![NTT_Logo](./_images/NTT_Logo.png) | “Deep Learning Streamer (OpenVINO™) is an easy-to-use and extensible application framework, which provides a well-organized set of classes and methods. In particular, Deep Learning Streamer allows us to add user-defined post processing with gvapython elements. This feature will help us develop AI-based video analytics applications for NTT's businesses, addressing various customer demands responsively.”<br>— Takeharu Eda, Senior Research Engineer, NTT Software Innovation Center<br> |
@@ -105,7 +111,7 @@ New to Deep Learning Streamer? Start here:
 
 - [Install Guide](./install/install_guide_index.md) — install DL Streamer on your system.
 - [Tutorial](./tutorial.md) — learn the basics by building your first pipelines.
-- [Samples](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer) — explore ready-to-run sample applications.
+- [Samples](./samples.md) — explore ready-to-run sample applications.
 
 <!--hide_directive
 :::{toctree}
@@ -123,7 +129,7 @@ DL Streamer Overview <https://docs.openedgeplatform.intel.com/dev/edge-ai-librar
 Installation Guide <install/install_guide_index>
 system_requirements
 tutorial
-Samples <https://github.com/open-edge-platform/dlstreamer/blob/main/samples/gstreamer/README.md>
+samples
 
 :::
 

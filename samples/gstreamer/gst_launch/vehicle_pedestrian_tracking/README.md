@@ -18,7 +18,7 @@ Overall this sample builds GStreamer pipeline of the following elements
 * `videoconvert` for converting video frame into different color formats
 * [gvadetect](../../../../docs/user-guide/elements/gvadetect.md) for person and vehicle detection based on OpenVINO™ Toolkit Inference Engine
 * [gvatrack](../../../../docs/user-guide/elements/gvatrack.md) for tracking objects
-* [gvaclassify](../../../../docs/user-guide/elements/gvaclassify.md) inserted into pipeline twice for person and vehicle classification
+* [gvaclassify](../../../../docs/user-guide/elements/gvaclassify.md) inserted into pipeline once for vehicle type classification (filtered to `object-class=person` detections by default in this sample's script)
 * [gvawatermark](../../../../docs/user-guide/elements/gvawatermark.md) for bounding boxes and labels visualization
 * `autovideosink` for rendering output video into screen
 > **NOTE**: `sync=false` property in `autovideosink` element disables real-time synchronization so pipeline runs as fast as possible
@@ -65,4 +65,4 @@ The sample
 * starts the command and visualizes video with bounding boxes around detected objects and text with classification results (color, type and others) for each detected object or prints out fps if you set SINK_ELEMENT = fps
 
 ## See also
-* [Samples overview](../../README.md)
+* [Samples overview](../../../README.md)
