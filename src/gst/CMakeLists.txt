@@ -15,8 +15,4 @@ add_subdirectory(metadata)
 add_subdirectory(utils)
 add_subdirectory(lib)
 add_subdirectory(bins)
-add_subdirectory(tracers/buffer_tracer)
 
-if (${ENABLE_ITT} AND NOT (${CMAKE_SYSTEM_PROCESSOR} STREQUAL "aarch64" OR ${CMAKE_SYSTEM_PROCESSOR} STREQUAL "arm"))
-    add_subdirectory(tracers/gvaitttracer)
-endif()
