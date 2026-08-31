@@ -10,7 +10,6 @@ add_subdirectory(gst)
 add_subdirectory(utils)
 
 if(NOT WIN32)
-    add_subdirectory(openvino)
     add_subdirectory(sycl)
     add_subdirectory(vaapi)
 endif()
