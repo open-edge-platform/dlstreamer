@@ -19,7 +19,6 @@
 #include "roi_split.h"
 #include "video_frames_buffer.h"
 
-#include "gvainference.h"
 
 static gboolean plugin_init(GstPlugin *plugin) {
     if (!gst_element_register(plugin, "batch_create", GST_RANK_NONE, batch_create_get_type()))
@@ -37,10 +36,6 @@ static gboolean plugin_init(GstPlugin *plugin) {
     if (!gst_element_register(plugin, "meta_smooth", GST_RANK_NONE, meta_smooth_get_type()))
         return FALSE;
     if (!gst_element_register(plugin, "video_frames_buffer", GST_RANK_NONE, video_frames_buffer_get_type()))
-        return FALSE;
-
-    // Legacy elements
-    if (!gst_element_register(plugin, "gvainference2", GST_RANK_NONE, gva_inference_get_type()))
         return FALSE;
 
     return TRUE;
