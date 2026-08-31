@@ -5,7 +5,6 @@
 # ==============================================================================
 
 add_subdirectory(base)
-add_subdirectory(cpu)
 add_subdirectory(gst)
 add_subdirectory(utils)
 
