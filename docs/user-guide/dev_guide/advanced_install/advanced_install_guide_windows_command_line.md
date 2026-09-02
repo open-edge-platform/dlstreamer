@@ -16,7 +16,7 @@ Use the `/S` flag to run without the graphical interface.
 
 | Type | Optional Components Included |
 |---|---|
-| `Full` | `python`, `env`, `samples`, `development` |
+| `Full` | `python`, `env`, `samples`, `development`, `sources` |
 | `Typical` | `python`, `env`, `samples` |
 | `Minimal` | *(none)* |
 
@@ -44,7 +44,7 @@ Use the `/S` flag to run without the graphical interface.
 **Install with specific components:**
 
 ```ps1
-.\dlstreamer-<version>-win64.exe /S /COMPONENTS=python,env,samples,development
+.\dlstreamer-<version>-win64.exe /S /COMPONENTS=python,env,samples,development,sources
 ```
 
 **Custom install directory:**

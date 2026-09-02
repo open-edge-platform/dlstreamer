@@ -56,4 +56,19 @@ download_dependency(
     "${GSTREAMER_INSTALLER_HASH}"
 )
 
+# Download GStreamer source archives
+include("${CMAKE_CURRENT_LIST_DIR}/gstreamer_sources.cmake")
+
+file(MAKE_DIRECTORY "${GSTREAMER_SOURCE_STAGE_DIR}")
+
+foreach(MODULE IN LISTS GSTREAMER_SOURCE_MODULES)
+    set(TARBALL "${MODULE}-${GSTREAMER_VERSION}.tar.xz")
+    download_dependency(
+        "${GSTREAMER_SOURCE_BASE_URL}/${MODULE}/${TARBALL}"
+        "${GSTREAMER_SOURCE_STAGE_DIR}/${TARBALL}"
+        "${MODULE} ${GSTREAMER_VERSION} sources"
+        "${GSTREAMER_SRC_HASH_${MODULE}}"
+    )
+endforeach()
+
 message(STATUS "=== All dependencies ready ===")

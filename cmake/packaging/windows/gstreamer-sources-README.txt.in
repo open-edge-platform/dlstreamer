@@ -1,0 +1,48 @@
+GStreamer Source Archives
+=========================
+
+This directory contains the complete corresponding source code for the GStreamer
+@GSTREAMER_VERSION@ binaries installed by the Deep Learning Streamer installer.
+Each module carries its own COPYING file at the root of its archive (LGPL-2.1 or
+later for all modules listed below); individual source files may carry additional
+or differing notices, and gst-plugins-ugly and gst-libav wrap third-party libraries
+whose own terms may be more restrictive. Those files are the authoritative statement
+of the licensing terms.
+
+The archives are the unmodified upstream release tarballs, downloaded from
+https://gstreamer.freedesktop.org/src/<module>/<module>-@GSTREAMER_VERSION@.tar.xz
+Their SHA256 checksums were verified at package time against the .sha256sum files
+published alongside them upstream.
+
+Modules included
+----------------
+  gstreamer                 core framework
+  gst-plugins-base          base plugin set
+  gst-plugins-good          good plugin set
+  gst-plugins-bad           bad plugin set
+  gst-plugins-ugly          ugly plugin set
+  gst-libav                 FFmpeg-based plugins
+  gst-rtsp-server           RTSP server library
+  gst-editing-services      GStreamer Editing Services
+  gst-devtools              validation and debugging tools
+  gst-python                Python bindings
+
+Local modifications
+-------------------
+DL Streamer installs a rebuilt gstanalytics-1.0-0.dll (plus its import library,
+headers, GIR and typelib) on top of the GStreamer installation.
+
+That library is built from the gst-plugins-bad-@GSTREAMER_VERSION@.tar.xz
+archive in this directory, with 0020-gst-analytics.patch (also in this
+directory) applied to the extracted tree. Together they are the complete
+corresponding source for the modified library. The build recipe is
+dependencies/windows/build_gstanalytics_zip.ps1 in the repository.
+
+Rust plugins (gst-plugins-rs)
+-----------------------------
+The GStreamer runtime also ships plugins built from gst-plugins-rs. That module
+is versioned independently of GStreamer @GSTREAMER_VERSION@ and a release tarball 
+is not published, so it is not included here. Its source is available from
+https://gitlab.freedesktop.org/gstreamer/gst-plugins-rs
+Run "gst-inspect-1.0 <plugin>" on any of these plugins to obtain the exact
+version to check out.

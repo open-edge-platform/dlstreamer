@@ -136,6 +136,9 @@ install(DIRECTORY ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/pkgconfig/
 
 set(DLSTREAMER_DEPS_DIR "$ENV{TEMP}/dlstreamer_tmp" CACHE PATH "Directory for downloaded dependencies")
 
+# GStreamer source archive module list, hashes and paths
+include(${CMAKE_CURRENT_LIST_DIR}/gstreamer_sources.cmake)
+
 # Create dependencies directory
 file(MAKE_DIRECTORY ${DLSTREAMER_DEPS_DIR})
 
@@ -148,6 +151,15 @@ add_custom_target(download_installer_deps
         -DGSTREAMER_INSTALLER_HASH=${GSTREAMER_INSTALLER_HASH}
         -DDLSTREAMER_DEPS_DIR=${DLSTREAMER_DEPS_DIR}
         -P ${CMAKE_CURRENT_LIST_DIR}/download_deps.cmake
+)
+
+# Custom target to refresh the source archive hashes after a GStreamer bump
+add_custom_target(update_gstreamer_source_hashes
+    COMMAND ${CMAKE_COMMAND}
+        -DGSTREAMER_VERSION=${GSTREAMER_VERSION}
+        -DDLSTREAMER_DEPS_DIR=${DLSTREAMER_DEPS_DIR}
+        -P ${CMAKE_CURRENT_LIST_DIR}/fetch_source_hashes.cmake
+    COMMENT "Fetching upstream GStreamer ${GSTREAMER_VERSION} source checksums"
 )
 
 file(WRITE ${CMAKE_BINARY_DIR}/gstreamer.txt "")
@@ -188,6 +200,36 @@ install(DIRECTORY
 )
 
 # ============================================================================
+# GStreamer Sources Component
+# ============================================================================
+
+# Corresponding source code for the redistributed GStreamer binaries. Staged by
+# the download_installer_deps target; the files are installed individually so a
+# missing download fails packaging instead of producing an empty component.
+configure_file(
+    ${CMAKE_CURRENT_LIST_DIR}/gstreamer-sources-README.txt.in
+    ${CMAKE_BINARY_DIR}/gstreamer-sources-README.txt
+    @ONLY
+)
+install(FILES ${CMAKE_BINARY_DIR}/gstreamer-sources-README.txt
+    DESTINATION ${GSTREAMER_SOURCE_INSTALL_DIR}
+    RENAME README.txt
+    COMPONENT c06_sources
+)
+
+foreach(MODULE IN LISTS GSTREAMER_SOURCE_MODULES)
+    install(FILES "${GSTREAMER_SOURCE_STAGE_DIR}/${MODULE}-${GSTREAMER_VERSION}.tar.xz"
+        DESTINATION ${GSTREAMER_SOURCE_INSTALL_DIR}
+        COMPONENT c06_sources
+    )
+endforeach()
+
+install(FILES ${CMAKE_SOURCE_DIR}/dependencies/patches/0020-gst-analytics.patch
+    DESTINATION ${GSTREAMER_SOURCE_INSTALL_DIR}
+    COMPONENT c06_sources
+)
+
+# ============================================================================
 # Component-based installation
 # ============================================================================
 
@@ -197,7 +239,7 @@ set(CPACK_INCLUDE_TOPLEVEL_DIRECTORY OFF)
 
 # Define components
 include(CPackComponent)
-set(CPACK_COMPONENTS_ALL c00_gstreamer c01_runtime c02_python c03_env c04_samples c05_development)
+set(CPACK_COMPONENTS_ALL c00_gstreamer c01_runtime c02_python c03_env c04_samples c05_development c06_sources)
 
 # Define install types
 cpack_add_install_type(Full DISPLAY_NAME "Full")
@@ -239,6 +281,13 @@ cpack_add_component(c04_samples
 cpack_add_component(c05_development
     DISPLAY_NAME "Development Files"
     DESCRIPTION "Header files and import libraries for building C++ applications with DL Streamer"
+    DISABLED
+    INSTALL_TYPES Full
+)
+
+cpack_add_component(c06_sources
+    DISPLAY_NAME "GStreamer Sources"
+    DESCRIPTION "Source archives for the bundled GStreamer ${GSTREAMER_VERSION} runtime, installed to src/gstreamer"
     DISABLED
     INSTALL_TYPES Full
 )

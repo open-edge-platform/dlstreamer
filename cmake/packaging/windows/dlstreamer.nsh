@@ -188,6 +188,7 @@ FunctionEnd
       !insertmacro _SilentSetComponent 'env' 'c03_env'
       !insertmacro _SilentSetComponent 'samples' 'c04_samples'
       !insertmacro _SilentSetComponent 'development' 'c05_development'
+      !insertmacro _SilentSetComponent 'sources' 'c06_sources'
     ${EndIf}
   ${EndIf}
 !macroend

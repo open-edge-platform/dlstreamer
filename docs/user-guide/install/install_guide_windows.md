@@ -46,9 +46,10 @@ The installer provides the following components:
 | **Environment Variables** | Set up `DLSTREAMER_DIR`, `GST_PLUGIN_PATH`, and `PATH` environment variables for the current user. |
 | **Samples** | Sample applications and scripts. |
 | **Development Files** | Header files and import libraries for building C++ applications with DL Streamer. |
+| **GStreamer Sources** | Source archives for the bundled GStreamer runtime, installed to `src\gstreamer`. |
 
 Three installation types are available:
-**Typical** (default): All default components; **Full**: All components including Development Files; **Minimal**: Only required components.
+**Typical** (default): All default components; **Full**: All components including Development Files and GStreamer Sources; **Minimal**: Only required components.
 
 > **Note:** Incompatible GStreamer installations (MinGW or 32-bit
 > variants) must be uninstalled before proceeding.
