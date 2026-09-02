@@ -55,7 +55,7 @@ NPU:
 
 More details about the packages can be found in:
 
-- [Intel® Installing Client GPUs](https://dgpu-docs.intel.com/driver/client/overview.html#installing-client-gpus).
+- [Intel® Installing Client GPUs](https://dgpu-docs.intel.com/installation-guides/index.html).
 - [Media](https://github.com/intel/media-driver/releases).
 - [NPU](https://github.com/intel/linux-npu-driver/releases/tag/v1.28.0).
 
