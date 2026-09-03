@@ -41,10 +41,10 @@ struct _GstGvaGenAI {
 
     // Object-class trigger: forces a frame to VLM when upstream detection/classification
     // metadata (GstAnalyticsODMtd) matches one of these classes, regardless of frame-rate.
-    gchar *trigger_classes;            // comma-separated class names, e.g. "person,fire"; NULL/empty = disabled
-    gint trigger_mode;                 // GstGvaGenAITriggerMode: any (OR) or all (AND) of trigger_classes
-    gdouble trigger_min_confidence;    // minimum ODMtd confidence for a match to count [0.0-1.0]
-    gboolean trigger_classes_changed;  // flag: trigger_classes was updated and needs reparsing
+    gchar *trigger_classes;             // comma-separated class names, e.g. "person,fire"; NULL/empty = disabled
+    gint trigger_mode;                  // GstGvaGenAITriggerMode: any (OR) or all (AND) of trigger_classes
+    gdouble trigger_min_confidence;     // minimum ODMtd confidence for a match to count [0.0-1.0]
+    gboolean trigger_classes_changed;   // flag: trigger_classes was updated and needs reparsing
 
     void *backend; // GvaGenAIRuntime * (opaque runtime state; allocated/freed in gstgvagenai.cpp)
 
