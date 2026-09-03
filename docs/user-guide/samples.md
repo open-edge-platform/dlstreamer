@@ -77,7 +77,6 @@ default model(s) each sample runs — many samples let you swap in your own.
 
 | Sample | What it demonstrates | Key elements | Models | Language |
 |--------|----------------------|--------------|--------|----------|
-| [Audio Event Detection](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch/audio_detect) | Audio event detection, converting results to JSON | `gvaaudiodetect`, `gvametaconvert`, `gvametapublish` | `aclnet` | CLI |
 | [Audio Transcription](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch/audio_transcribe) | Speech transcription using an OpenVINO GenAI Whisper model | `gvaaudiotranscribe` | `whisper` | CLI |
 
 ### 3D: LiDAR & radar
