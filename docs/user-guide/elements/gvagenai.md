@@ -119,7 +119,7 @@ and `pipeline-config`.
 For more information, see [Visual Token Pruning](https://openvinotoolkit.github.io/openvino.genai/docs/concepts/optimization-techniques/visual-token-pruning).
 
 > [!NOTE]
-> Structured output (`json_schema`, `regex`, `grammar`, `backend`), is currently not
+> Structured output (`json_schema`, `regex`, `grammar`, `backend`), is currently not 
 > supported. Those values contain special characters (commas, spaces and `=`)
 > which cannot fit the `KEY=VALUE,KEY=VALUE` grammar.
 
@@ -298,54 +298,6 @@ gst-launch-1.0 filesrc location=video.mp4 ! decodebin3 ! \
   fakesink async=false
 ```
 
-The same workflow is available as a sample script:
-
-```bash
-export MODELS_PATH=/path/to/models
-export GENAI_MODEL_PATH=/path/to/vlm-model
-./sample_gvagenai.sh --trigger-classes person --frame-rate 0
-```
-
-#### Using a VLM Server in Docker
-
-Frame selection can also be combined with the `openai-http` backend, so only selected
-frames are sent to an external OpenAI-compatible VLM server. A helper script and detailed
-instructions are available in the
-[gvagenai sample README](https://github.com/open-edge-platform/dlstreamer/blob/main/samples/gstreamer/gst_launch/gvagenai/README.md#running-a-vlm-server-in-docker).
-
-Start a local OpenAI-compatible VLM server in Docker, for example with Ollama:
-
-```bash
-cd samples/gstreamer/gst_launch/gvagenai
-./run_vlm_server_docker.sh --server ollama --port 8000
-```
-
-Then send only event-triggered frames to that server:
-
-```bash
-export MODELS_PATH=/path/to/models
-GENAI_MODEL_NAME=llava ./sample_gvagenai.sh \
-  --backend openai-http \
-  --http-server-url http://localhost:8000/v1 \
-  --trigger-classes person \
-  --frame-rate 0
-```
-
-Equivalent raw `gst-launch-1.0` command line:
-
-```bash
-gst-launch-1.0 filesrc location=video.mp4 ! decodebin3 ! \
-  gvadetect model=${MODELS_PATH}/public/yolov8s/FP16/yolov8s.xml threshold=0.5 ! \
-  gvagenai backend=openai-http \
-    http-server-url=http://localhost:8000/v1 \
-    model-path=llava \
-    prompt="Describe the detected object and whether the scene looks dangerous." \
-    trigger-classes=person trigger-mode=any trigger-min-confidence=0.5 \
-    frame-rate=0 chunk-size=1 ! \
-  gvametapublish file-path=genai_event_driven_http_output.json ! \
-  fakesink async=false
-```
-
 ## Input/Output
 
 - **Input**: `video/x-raw` in `RGB`, `RGBA`, `RGBx`, `BGR`, `BGRA`, `BGRx`, `NV12`, or `I420`; also `video/x-raw(memory:DMABuf)` (`DMA_DRM`) and `video/x-raw(memory:VAMemory)` (`NV12`) on Linux, and `video/x-raw(memory:D3D11Memory)` (`NV12`) on Windows. The element converts the frame to RGB internally; an explicit `videoconvert` is not required.
@@ -362,7 +314,7 @@ gst-launch-1.0 filesrc location=video.mp4 ! decodebin3 ! \
 
 ## Pipeline Examples
 
-A script with source selection, scaling, and all options is provided in [samples/gstreamer/gst_launch/gvagenai](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch/gvagenai).
+A script with source selection, scaling, and all options is provided in [samples/gstreamer/gst_launch/gvagenai](../../../samples/gstreamer/gst_launch/gvagenai).
 
 ### Video summarization to JSON
 
