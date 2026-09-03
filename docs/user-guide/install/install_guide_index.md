@@ -15,6 +15,12 @@
 - [Install Guide Windows](./install_guide_windows.md)
 - [Uninstall Guide Windows](./uninstall_guide_windows.md)
 
+<div align="center">
+
+[![Watch DL Streamer videos on YouTube](../_images/watch-on-youtube.jpg)](https://www.youtube.com/watch?v=NUTy56-vY3o)
+
+</div>
+
 <!--hide_directive
 :::{toctree}
 :maxdepth: 2

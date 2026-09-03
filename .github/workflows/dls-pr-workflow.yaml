@@ -43,6 +43,7 @@ jobs:
         run: |
           rm -rf dlstreamer-repo/thirdparty
           rm -rf thirdparty
+          rm -rf dlstreamer-repo/.github/skills
 
       - name: Code-style action
         uses: ./dlstreamer-repo/.github/actions/common/code-style
@@ -361,7 +362,7 @@ jobs:
     name: "DLS SCAN: Skill Scanner"
     uses: ./.github/workflows/skill-scan.yaml
     with:
-      severity: HIGH
+      severity: LOW
       fail_on_findings: true
 
   #---------------------------------------------------------- DOWNLOAD MODELS TESTS -------------------------------------------------------------

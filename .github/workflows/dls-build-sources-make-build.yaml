@@ -250,15 +250,30 @@ jobs:
           from gi.repository import Gst
           Gst.init([])
           from dlstreamer.onvif import (
-              DlsOnvifDiscoveryEngine,
               discover_onvif_cameras,
               discover_onvif_cameras_async,
               ONVIFProfile,
-              CameraStatus,
-              DlsOnvifCameraEntry,
-              DlsOnvifCameraRegistry,
-              DlsLaunchedPipeline,
-              DlsOnvifConfigManager,
+              CameraProfilesResult,
+              read_camera_profiles,
+              read_camera_profiles_async,
+          )
+          from dlstreamer.onvif.video_engine import (
+              VideoEngine,
+              VideoEngineEvent,
+              create_video_engine,
+          )
+          from dlstreamer.onvif.ptz import (
+              PTZCapableProfile,
+              PTZController,
+              PTZPreset,
+              PTZStatus,
+              PTZVector,
+              find_ptz_capable_profiles,
+          )
+          from dlstreamer.onvif.event_manager import (
+              EventCapableCamera,
+              EventNotification,
+              find_event_capable_cameras,
           )
           print("dlstreamer.onvif imported successfully")
           EOF

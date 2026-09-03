@@ -142,8 +142,9 @@ static void run_pipeline(GstElement *pipe) {
 
     bool running = true;
     while (running) {
-        GstMessage *msg = gst_bus_timed_pop_filtered(bus, 100 * GST_MSECOND,
-                                                     static_cast<GstMessageType>(GST_MESSAGE_ERROR | GST_MESSAGE_EOS));
+        GstMessage *msg = gst_bus_timed_pop_filtered(
+            bus, 100 * GST_MSECOND,
+            static_cast<GstMessageType>(GST_MESSAGE_ERROR | GST_MESSAGE_EOS));
 
         if (!msg)
             continue;

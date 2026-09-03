@@ -36,4 +36,5 @@ Sub-pages:
 
 - [GStreamer Analytics Metadata](../dev_guide/metadata_analytics.md) — recommended API, keypoint descriptors, code examples
 - [Watermark Metadata](../dev_guide/metadata_watermark.md) — custom drawing primitives for `gvawatermark`
+- [3D Sensor Metadata](../dev_guide/metadata_3d.md) — LiDAR/radar point cloud, cluster, tracking and 3D detection metadata
 - [Legacy Metadata](../dev_guide/metadata_legacy.md) — deprecated `GstVideoRegionOfInterestMeta` / `GstGVATensorMeta` API

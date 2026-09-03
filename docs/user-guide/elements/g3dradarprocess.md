@@ -1,7 +1,7 @@
 # g3dradarprocess
 
-Processes millimeter-wave (mmWave) radar signal data and generates point clouds, clusters, and tracking results. 
-The element acts as a bridge between raw radar data ingestion and advanced radar signal processing algorithms, 
+Processes millimeter-wave (mmWave) radar signal data and generates point clouds, clusters, and tracking results.
+The element acts as a bridge between raw radar data ingestion and advanced radar signal processing algorithms,
 handling data reordering, pre-processing, DC (Direct Current) removal, and interfacing with the underlying radar library.
 
 ## Overview
@@ -122,8 +122,8 @@ The element performs the following sequential operations for each buffer:
 5. **Detection**: Calls `radarDetection` to generate point clouds
 6. **Clustering**: Calls `radarClustering` to group points into objects
 7. **Tracking**: Calls `radarTracking` for multi-frame object tracking
-7. **Metadata Attachment**: Attaches results as GStreamer metadata (`GstRadarProcessMeta`)
-8. **Frame Rate Control**: Throttles processing if `frame-rate` is set
+8. **Metadata Attachment**: Attaches results as GStreamer metadata (`GstRadarProcessMeta`)
+9. **Frame Rate Control**: Throttles processing if `frame-rate` is set
 
 ## Downstream Consumption
 
@@ -137,13 +137,13 @@ The metadata can be consumed by downstream GStreamer elements:
 
 ## Element Details (gst-inspect-1.0)
 
-```
+```text
 Pad Templates:
   SINK template: 'sink'
     Availability: Always
     Capabilities:
       application/octet-stream
-  
+
   SRC template: 'src'
     Availability: Always
     Capabilities:
@@ -162,20 +162,20 @@ Element Properties:
 
   frame-rate          : Frame rate for output (0 = no limit)
                         flags: readable, writable
-                        Double. Range:               0 -   1.797693e+308 Default:               0 
-  
+                        Double. Range:               0 -   1.797693e+308 Default:               0
+
   name                : The name of the object
                         flags: readable, writable
                         String. Default: "radarprocess0"
-  
+
   parent              : The parent of the object
                         flags: readable, writable
                         Object of type "GstObject"
-  
+
   qos                 : Handle Quality-of-Service events
                         flags: readable, writable
                         Boolean. Default: false
-  
+
   radar-config        : Path to radar configuration JSON file
                         flags: readable, writable
                         String. Default: null
