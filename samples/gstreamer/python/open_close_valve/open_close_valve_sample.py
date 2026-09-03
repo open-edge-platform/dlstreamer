@@ -11,6 +11,7 @@ This module demonstrates dual GStreamer pipeline control with a valve element
 to dynamically route video streams based on object detection results.
 """
 
+import os
 import sys
 import time
 #from contextlib import contextmanager
@@ -29,6 +30,9 @@ class DualStreamController:
 
         Gst.init([])
         self.video_source = video_source
+        self.models_path = os.environ.get("MODELS_PATH")
+        if not self.models_path:
+            raise RuntimeError("MODELS_PATH environment variable is not set.")
         self.pipeline = None
         self.valve = None
         self.pre_view_classify = None
@@ -61,7 +65,7 @@ class DualStreamController:
             text="Detection Video Stream"
             valignment=bottom halignment=center
             font-desc="Sans Bold 14" color=0xFF000000 !
-        gvadetect model=/home/labrat/models/public/yolo11s/FP32/yolo11s.xml
+        gvadetect model={self.models_path}/public/yolo11s/FP16/yolo11s.xml
             pre-process-backend=opencv
             device=CPU
             threshold=0.6
@@ -74,7 +78,7 @@ class DualStreamController:
         queue name=detect_to_classify
             max-size-buffers=20
             leaky=no !
-        gvaclassify model=./models/dima806_vehicle_10_types_image_detection/FP16/dima806_vehicle_10_types_image_detection.xml
+        gvaclassify model={self.models_path}/public/dima806_vehicle_10_types_image_detection/FP16/dima806_vehicle_10_types_image_detection.xml
             device=CPU 
             inference-interval=1 
             name=pre_view_classify !
@@ -99,7 +103,7 @@ class DualStreamController:
             text="Valve Stream"
             valignment=bottom halignment=center
             font-desc="Sans Bold 14" color=0xFF10FF00 !
-        gvadetect model=/home/labrat/models/public/yolo11s/FP16/yolo11s.xml
+        gvadetect model={self.models_path}/public/yolo11s/FP16/yolo11s.xml
             pre-process-backend=opencv
             device=CPU
             threshold=0.6

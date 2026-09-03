@@ -98,7 +98,7 @@ graph TD
 Deep SORT requires a feature extraction model that generates 128-dimensional feature vectors for person re-identification. The recommended model is **mars-small128**, which can be downloaded using:
 
 ```bash
-./samples/download_public_models.sh --model-name mars-small128
+./samples/download_public_models.sh mars-small128
 ```
 
 This downloads both FP32 and INT8 quantized versions of the model.

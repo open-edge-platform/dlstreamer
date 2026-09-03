@@ -3,4 +3,5 @@
 ultralytics==8.4.57
 openvino==2026.2.0
 nncf==3.0.0
+huggingface_hub==1.21.0
 torch==2.13.0

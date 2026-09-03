@@ -76,8 +76,8 @@ To specify a source file, device, and output:
 
 To specify a URL, device, output and model:
 
-    ./generate_frame_embeddings.sh https://example.com/video.mp4 CPU json clip-vit-large-patch14
+    ./generate_frame_embeddings.sh https://example.com/video.mp4 CPU json openai_clip-vit-large-patch14
 
 To specify a video device, device, output and model:
 
-    ./generate_frame_embeddings.sh /dev/video0 CPU fps clip-vit-base-patch-16
+    ./generate_frame_embeddings.sh /dev/video0 CPU fps openai_clip-vit-base-patch16

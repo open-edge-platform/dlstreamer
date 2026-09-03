@@ -27,10 +27,12 @@ struct _GstG3DInference {
     gchar *device;
     gchar *model_type;
     gfloat score_threshold;
+    guint nireq;
 
     GMutex mutex;
     gboolean initialized;
     gpointer runtime;
+    gpointer async_state;
 };
 
 struct _GstG3DInferenceClass {
