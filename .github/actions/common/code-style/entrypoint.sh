@@ -24,7 +24,7 @@ find "$STYLED_DIR/$SOURCE" \
 output=$(diff -u --recursive "$SOURCE" "$STYLED_DIR/$SOURCE" || true)
 
 if [[ -n "$output" ]]; then
-    diff2html -F "$OUTPUT_DIR/diff.html" -d word -s "side" -i stdin <<< "$output"
+    "${DIFF2HTML_BIN:-diff2html}" -F "$OUTPUT_DIR/diff.html" -d word -s "side" -i stdin <<< "$output"
     sed -i '37d;38i<h1>Code style diff</h1>' "$OUTPUT_DIR/diff.html"
     echo "❌ There are problems with code styles"
     exit 1
