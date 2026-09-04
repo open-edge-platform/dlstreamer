@@ -162,6 +162,7 @@ List of the features and components to be deprecated in the future.
 | Architecture 2.0 elements | end of Q4'2026 | Preserve essential components and ideas |
 | Tiger Lake support | end of Q4'2026 | new supported units: Arrow Lake and Panther Lake |
 | Ubuntu 22.04 | end of Q4'2026 | newer Ubuntu versions, including Ubuntu 26 |
+| Availability of download_public_models.sh and download_omz_models.sh | end of Q4'2026 | new models downloading solution in `scripts/download_models` directory |
 
 ## Legal Information - 2026.2
 
