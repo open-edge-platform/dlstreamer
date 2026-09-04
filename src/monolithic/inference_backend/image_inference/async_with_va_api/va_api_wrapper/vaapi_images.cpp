@@ -6,6 +6,11 @@
 
 #include "vaapi_images.h"
 
+#include <fcntl.h>
+#include <sys/ioctl.h>
+#include <unistd.h>
+#include <linux/dma-heap.h>
+
 using namespace InferenceBackend;
 
 namespace {
@@ -20,6 +25,65 @@ VASurfaceID CreateVASurface(VaDpyWrapper display, uint32_t width, uint32_t heigh
     VASurfaceID va_surface_id;
     VA_CALL(display.drvVtable().vaCreateSurfaces2(display.drvCtx(), rt_format, width, height, &va_surface_id, 1,
                                                   &surface_attrib, 1))
+    return va_surface_id;
+}
+
+// Returns dma-buf fd on success, -1 on failure (e.g. no permission).
+int AllocateDmaBuf(size_t size) {
+    int heap_fd = open("/dev/dma_heap/system", O_RDWR);
+    if (heap_fd < 0)
+        return -1;
+
+    struct dma_heap_allocation_data alloc_data = {};
+    alloc_data.len = size;
+    alloc_data.fd_flags = O_CLOEXEC | O_RDWR;
+    if (ioctl(heap_fd, DMA_HEAP_IOCTL_ALLOC, &alloc_data) < 0) {
+        close(heap_fd);
+        return -1;
+    }
+    close(heap_fd);
+    return static_cast<int>(alloc_data.fd);
+}
+
+VASurfaceID CreateVASurfaceWithDmaBuf(VaDpyWrapper display, uint32_t width, uint32_t height, int pixel_format,
+                                      int rt_format, int dma_buf_fd) {
+    VASurfaceAttribExternalBuffers ext_buf = {};
+    ext_buf.pixel_format = pixel_format;
+    ext_buf.width = width;
+    ext_buf.height = height;
+    ext_buf.num_planes = 3;
+    ext_buf.num_buffers = 1;
+    uintptr_t fd_handle = static_cast<uintptr_t>(dma_buf_fd);
+    ext_buf.buffers = &fd_handle;
+    ext_buf.data_size = width * height * 3; // RGBP/BGRP: 3 planes, each W*H
+
+    ext_buf.pitches[0] = width;
+    ext_buf.offsets[0] = 0;
+    ext_buf.pitches[1] = width;
+    ext_buf.offsets[1] = width * height;
+    ext_buf.pitches[2] = width;
+    ext_buf.offsets[2] = 2 * width * height;
+
+    VASurfaceAttrib attribs[3];
+
+    attribs[0].type = VASurfaceAttribPixelFormat;
+    attribs[0].flags = VA_SURFACE_ATTRIB_SETTABLE;
+    attribs[0].value.type = VAGenericValueTypeInteger;
+    attribs[0].value.value.i = pixel_format;
+
+    attribs[1].type = VASurfaceAttribMemoryType;
+    attribs[1].flags = VA_SURFACE_ATTRIB_SETTABLE;
+    attribs[1].value.type = VAGenericValueTypeInteger;
+    attribs[1].value.value.i = VA_SURFACE_ATTRIB_MEM_TYPE_DRM_PRIME;
+
+    attribs[2].type = VASurfaceAttribExternalBufferDescriptor;
+    attribs[2].flags = VA_SURFACE_ATTRIB_SETTABLE;
+    attribs[2].value.type = VAGenericValueTypePointer;
+    attribs[2].value.value.p = &ext_buf;
+
+    VASurfaceID va_surface_id;
+    VA_CALL(display.drvVtable().vaCreateSurfaces2(display.drvCtx(), rt_format, width, height, &va_surface_id, 1,
+                                                  attribs, 3))
     return va_surface_id;
 }
 
@@ -61,7 +125,30 @@ VaApiImage::VaApiImage(VaApiContext *context_, uint32_t width, uint32_t height, 
     image.height = height;
     image.format = pixel_format;
     image.va_display = context->DisplayRaw();
-    image.va_surface_id = CreateVASurface(context->Display(), width, height, pixel_format, context_->RTFormat());
+
+    if (memory_type == MemoryType::DMA_BUFFER) {
+        size_t buf_size = static_cast<size_t>(width) * height * 3; // RGBP/BGRP
+        dma_buf_fd = AllocateDmaBuf(buf_size);
+        if (dma_buf_fd >= 0) {
+            // DRM_PRIME import requires matching RT format; RGBP/BGRP need VA_RT_FORMAT_RGBP
+            image.va_surface_id = CreateVASurfaceWithDmaBuf(context->Display(), width, height, pixel_format,
+                                                            VA_RT_FORMAT_RGBP, dma_buf_fd);
+            image.dma_fd = dma_buf_fd;
+        } else {
+            GVA_WARNING("DMA-BUF allocation failed (no access to /dev/dma_heap/system?), "
+                        "falling back to VAAPI_SYSTEM path (GPU->CPU copy)");
+            image.type = MemoryType::SYSTEM;
+            image.va_surface_id =
+                CreateVASurface(context->Display(), width, height, pixel_format, context_->RTFormat());
+            image_map = std::unique_ptr<ImageMap>(ImageMap::Create(MemoryType::SYSTEM));
+            completed = true;
+            scaling_flags = scaling_flgs;
+            return;
+        }
+    } else {
+        image.va_surface_id = CreateVASurface(context->Display(), width, height, pixel_format, context_->RTFormat());
+    }
+
     image_map = std::unique_ptr<ImageMap>(ImageMap::Create(memory_type));
     completed = true;
     scaling_flags = scaling_flgs;
@@ -76,6 +163,11 @@ VaApiImage::~VaApiImage() {
         VA_CALL(dpy.drvVtable().vaDestroySurfaces(dpy.drvCtx(), &image.va_surface_id, 1));
     } catch (const std::exception &e) {
         GVA_WARNING("VA surface destroying failed: %s", e.what());
+    }
+
+    if (dma_buf_fd >= 0) {
+        close(dma_buf_fd);
+        dma_buf_fd = -1;
     }
 }
 
@@ -116,6 +208,7 @@ VaApiImagePool::VaApiImagePool(VaApiContext *context, SizeParams size_params, Im
         }
         // In the case when the vaapi memory is requested, we cannot do software color conversion after.
         case InferenceBackend::MemoryType::VAAPI:
+        case InferenceBackend::MemoryType::DMA_BUFFER:
             throw std::runtime_error("Could not set the pixel format for vaapi memory. " + msg);
         default:
             throw std::runtime_error(msg + "Memory type is not supported to select an alternative pixel format.");

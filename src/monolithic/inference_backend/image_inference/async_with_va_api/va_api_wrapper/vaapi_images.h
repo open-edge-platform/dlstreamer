@@ -26,6 +26,7 @@ struct VaApiImage {
     bool completed = true;
     std::unique_ptr<ImageMap> image_map;
     uint32_t scaling_flags = VA_FILTER_SCALING_DEFAULT;
+    int dma_buf_fd = -1; // DMA-BUF fd for zero-copy path, -1 if not used
 
     VaApiImage();
     VaApiImage(VaApiContext *context_, uint32_t width, uint32_t height, int format, MemoryType memory_type,

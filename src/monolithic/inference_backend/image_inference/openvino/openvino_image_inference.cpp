@@ -11,6 +11,8 @@
 #include <cstddef>
 #include <openvino/runtime/properties.hpp>
 
+#include <openvino/runtime/intel_npu/level_zero/level_zero.hpp>
+
 #include <dlstreamer/openvino/context.h>
 #ifdef _WIN32
 #include <dlstreamer/d3d11/context.h>
@@ -74,6 +76,9 @@ struct fmt::formatter<InferenceBackend::ImagePreprocessorType> : formatter<strin
             break;
         case ImagePreprocessorType::D3D11_SURFACE_SHARING:
             name = "D3D11 Surface Sharing";
+            break;
+        case ImagePreprocessorType::VAAPI_NPU_DMABUF:
+            name = "VAAPI NPU DMA-BUF Zero-Copy";
             break;
         }
         return formatter<string_view>::format(name, ctx);
@@ -555,6 +560,7 @@ class OpenVinoNewApiImpl {
 
         switch (_memory_type) {
         case MemoryType::SYSTEM:
+        case MemoryType::DMA_BUFFER:
 #ifndef ENABLE_D3D_NPU_COLOR_CONV
             if (_model_format == "BGR")
                 format = FourCC::FOURCC_BGRP;
@@ -603,6 +609,8 @@ class OpenVinoNewApiImpl {
         switch (image.format) {
         case FourCC::FOURCC_RGBP:
         case FourCC::FOURCC_BGRP:
+            if (image.type == MemoryType::DMA_BUFFER && image.dma_fd >= 0)
+                return {image_rgbp_dmabuf_to_npu_tensor(image)};
             return {image_rgbp_to_tensor(image)};
 
         case FourCC::FOURCC_BGRA:
@@ -648,6 +656,15 @@ class OpenVinoNewApiImpl {
         }
 
         return tensor;
+    }
+
+    // Import DMA-BUF backed RGBP image into NPU as a remote tensor (zero-copy)
+    ov::Tensor image_rgbp_dmabuf_to_npu_tensor(const Image &image) {
+        auto channels_num = get_channels_num(image.format);
+        const ov::Shape shape{1, channels_num, size_t(image.height), size_t(image.width)};
+        ov::intel_npu::level_zero::ZeroContext npu_ctx(core());
+        auto remote_tensor = npu_ctx.create_tensor(ov::element::u8, shape, image.dma_fd);
+        return remote_tensor;
     }
 
     ov::Tensor image_bgrx_to_tensor(const Image &image) {
@@ -936,6 +953,7 @@ class OpenVinoNewApiImpl {
 
         // OPENCV and VAAPI pre-processors handle color coversion and scaling, input tensors in NCHW format
         if (pp_type == ImagePreprocessorType::OPENCV || pp_type == ImagePreprocessorType::VAAPI_SYSTEM ||
+            pp_type == ImagePreprocessorType::VAAPI_NPU_DMABUF ||
             pp_type == ImagePreprocessorType::D3D11) {
             input.tensor().set_layout("NCHW");
         }
