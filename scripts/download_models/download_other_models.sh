@@ -337,8 +337,11 @@ fi
 # Set the name of the virtual environment directory (single venv for all operations)
 VENV_DIR="$HOME/.virtualenvs/dlstreamer"
 
-# Create a Python virtual environment if it doesn't exist
-if [ ! -d "$VENV_DIR" ]; then
+# A directory can exist but be incomplete (e.g. leftover from an interrupted/killed prior run),
+# so check for the activate script itself rather than just the directory.
+if [ ! -f "$VENV_DIR/bin/activate" ]; then
+  echo "Removing stale/incomplete virtual environment in $VENV_DIR..."
+  rm -rf "$VENV_DIR"
   echo "Creating virtual environment in $VENV_DIR..."
   $PYTHON_CREATE_VENV -m venv "$VENV_DIR" || handle_error $LINENO
 fi
