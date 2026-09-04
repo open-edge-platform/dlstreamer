@@ -6,19 +6,19 @@
 
 **Key highlights**:
 
+- Broader standards-based metadata: segmentation, raw tensor (GstAnalyticsTensorMtd) and 3D object detection results are now carried as upstream GstAnalytics metadata, easing migration away from Intel-specific extensions.
+- End-to-end 3D sensor pipeline: three new elements (g3dlidarsrc, g3dobjectfuser, g3drender) complete the LiDAR workflow from source through fusion to rendering entirely within DL Streamer.
 - Heterogeneous multi-sensor batching: gvastreammux was reimplemented on PTS-based cross-stream batching and now multiplexes video and LiDAR streams in a single pipeline.
 - Flexible generative AI deployment: the new gvagenai backend registry with an openai-http backend lets Vision Language Model inference run locally on Intel hardware or be delegated to a remote service without changing the pipeline.
-- Broader standards-based metadata: segmentation, raw tensor (GstAnalyticsTensorMtd) and 3D object detection results are now carried as upstream GstAnalytics metadata, easing migration away from Intel-specific extensions.
 - New analytics capabilities: dwell time and evaluation-point support in gvaanalytics enable time-in-zone and loitering detection use cases, shipped with a ready-to-run sample.
 - Power-aware optimization: the DL Streamer Optimizer can now optimize pipelines against power consumption in addition to throughput.
-- End-to-end 3D sensor pipeline: three new elements (g3dlidarsrc, g3dobjectfuser, g3drender) complete the LiDAR workflow from source through fusion to rendering entirely within DL Streamer.
 - Expanded model coverage: RF-DETR and RF-DETR-SEG converters add modern transformer-based detection and segmentation models.
 - Improved developer onboarding: a new end-to-end tutorial, restructured documentation site, simplified Get Started flow, and per-source model download scripts.
 - Component updates: OpenVINO 2026.2, NPU driver 1.33, and refreshed GPU drivers.
 
-Deep Learning Streamer (DL Streamer) 2026.2 extends the framework beyond classic video analytics into full 3D sensor processing, broadens standards-based metadata coverage, and opens generative AI inference to remote backends.
+Deep Learning Streamer (DL Streamer) 2026.2 extends the framework beyond classic video analytics into full 3D sensor processing, broadens standards-based metadata coverage, and opens generative AI inference to remote backends. It also introduces time-in-zone analytics and power-aware pipeline optimization, widening the range of supported use cases.
 
-Metadata standardization continues: segmentation results, raw tensors and 3D object detections are now carried as upstream GstAnalytics metadata, reducing reliance on Intel-specific extensions ahead of their planned deprecation. The gvagenai element gained a pluggable backend registry with an openai-http backend, so Vision Language Model inference can run locally on Intel hardware or be delegated to a remote service without changing the pipeline.
+Metadata standardization continues: segmentation results, raw tensors (GstAnalyticsTensorMtd) and 3D object detections are now carried as upstream GstAnalytics metadata, reducing reliance on Intel-specific extensions ahead of their planned deprecation. The gvagenai element gained a pluggable backend registry with an openai-http backend, so Vision Language Model inference can run locally on Intel hardware or be delegated to a remote service without changing the pipeline.
 
 This release completes the 3D sensing pipeline with three new elements (g3dlidarsrc, g3dobjectfuser, g3drender), so a LiDAR workload can now be sourced, parsed, inferred, fused and rendered entirely within DL Streamer. The stream multiplexer (gvastreammux) was reimplemented on PTS-based cross-stream batching and gained heterogeneous-source support, allowing video and LiDAR to be batched together in one pipeline.
 
@@ -88,6 +88,7 @@ For installing Pipeline Framework with the prebuilt binaries or Docker* or to bu
 | Coding agent evaluation prompts and benchmark | Added evaluation prompts and a benchmark definition for measuring DL Streamer Coding Agent skill performance. |
 | diff_report CI tool | New CI tool for visual inspection of failing tests, comparing produced JSON output against ground-truth reports. |
 | Latency tracer and gvafpscounter in monolithic build | Latency tracer and gvafpscounter were backported to the monolithic build, making performance instrumentation available in that configuration. |
+| DL Streamer video tutorials | New YouTube video tutorials embedded in the documentation and README to accelerate developer onboarding. |
 
 **Improved**:
 
@@ -108,41 +109,40 @@ For installing Pipeline Framework with the prebuilt binaries or Docker* or to bu
 | API reference documentation | Added detailed API reference documentation covering inference output and metadata. |
 | gvaanalytics documentation and discoverability | Updated gvaanalytics documentation and added the gvaanalytics sample to the top-level Python samples README. |
 | Python samples testability | Selected Python samples updated with additional inputs and pinned model versions, with the CI workflow adjusted accordingly. |
+| ONVIF sample suite | Reworked the ONVIF application into a multi-library suite with dedicated sample apps. |
+| Prompted Detection sample | Removed in-sample model downloading, improved inputs and updated the README. |
+| face_detection sample | Extracted model downloading from the sample and bumped torch to 2.13.0. |
+| Ultralytics from HuggingFace | Model download scripts can now fetch Ultralytics models from HuggingFace. |
 | Smart NVR sample | Updated to comply with DL Streamer Coding Agent guidelines. |
 | Depth estimation sample | Applied changes and fixes to the depth estimation sample. |
 | open_close_valve sample | Updated the model used by the open_close_valve Python sample. |
 | Windows build experience | Enhanced the Windows build script with winget repair and improved Python detection, and added a warning about DLL shadowing. |
-| Dependency updates | Updated pip to 26.1.2, pillow to 12.3.0, onnx to 1.22.0, setuptools, and the GitHub Actions dependency group. |
+| Dependency updates | Updated pip to 26.1.2, pillow to 12.3.0, onnx to 1.22.0, torch to 2.13.0, setuptools, and the GitHub Actions dependency group. |
 | Test execution | Sped up unit tests to avoid timeouts on slow CI machines, standardized test environment setup via setup_dls_env.sh, and adjusted the g3dinference PointPillars test to run with score-threshold=0. |
 
 **Fixed**:
 
 | # | Description |
 | --- | ------------- |
-| 1 | Fixed a deadlock in gvastreammux state change handling. |
-| 2 | Fixed an issue with resource management causing leaks under sustained operation. |
-| 3 | Resolved CodeQL findings raised by static analysis. |
-| 4 | Fixed Coverity missing lock warnings for thread safety. |
-| 5 | Fixed incorrect dimension ordering passed into cv::Size in image processing. |
-| 6 | Fixed HuggingFace model conversion failures. |
-| 7 | Fixed the queue element destination pad name check. |
-| 8 | Forced the RAW converter for gvainference regardless of model metadata, ensuring raw output is produced as expected. |
-| 9 | Fixed failing Windows CI runs. |
-| 10 | Fixed HTTP Error 403 (Forbidden) when retrieving assets in Python samples. |
-| 11 | Fixed Python requirements and the shared_utils path in Smart NVR and Face Detection samples. |
-| 12 | Corrected the setup instructions in the vlm_alerts sample README. |
-| 13 | Fixed the download paths for the pallet defect detection model. |
-| 14 | Corrected the SHA in the HuggingFace download README and improved error handling. |
-| 15 | Correctly handle exported model files and CLI exit codes in model download scripts. |
-| 16 | Fixed template path resolution in add_vs_version_resource and dropped a redundant project() call in a subdirectory CMakeLists. |
-| 17 | Added process checking to prevent installation conflicts. |
-| 18 | Removed references to local GStreamer binaries to avoid conflicts with DL Streamer-installed binaries. |
-| 19 | Preserved environment variables such as proxy settings when adding the Intel GPU PPA repository. |
-| 20 | Fixed broken references in Supported Models and other documentation links. |
-| 21 | Fixed images not rendering in HTML for the Tutorial and Samples docs, and replaced the overview pipeline image with the DL Streamer diagram. |
-| 22 | Added a missing return value. |
-| 23 | Fixed issues in hello_dlstreamer.sh. |
-| 24 | Resolved issues with the Docker image size checker. |
+| 1 | Fixed an issue with resource management causing leaks under sustained operation. |
+| 2 | Resolved CodeQL findings raised by static analysis. |
+| 3 | Fixed incorrect dimension ordering passed into cv::Size in image processing. |
+| 4 | Fixed HuggingFace model conversion failures. |
+| 5 | Fixed the queue element destination pad name check. |
+| 6 | Forced the RAW converter for gvainference regardless of model metadata, ensuring raw output is produced as expected. |
+| 7 | Fixed HTTP Error 403 (Forbidden) when retrieving assets in Python samples. |
+| 8 | Fixed Python requirements and the shared_utils path in Smart NVR and Face Detection samples. |
+| 9 | Corrected the setup instructions in the vlm_alerts sample README. |
+| 10 | Fixed the download paths for the pallet defect detection model. |
+| 11 | Corrected the SHA in the HuggingFace download README and improved error handling. |
+| 12 | Correctly handle exported model files and CLI exit codes in model download scripts. |
+| 13 | Fixed template path resolution in add_vs_version_resource and dropped a redundant project() call in a subdirectory CMakeLists. |
+| 14 | Added process checking to prevent installation conflicts. |
+| 15 | Removed references to local GStreamer binaries to avoid conflicts with DL Streamer-installed binaries. |
+| 16 | Preserved environment variables such as proxy settings when adding the Intel GPU PPA repository. |
+| 17 | Fixed broken references in Supported Models and other documentation links. |
+| 18 | Added a missing return value. |
+| 19 | Fixed issues in hello_dlstreamer.sh. |
 
 **Known Issues**:
 
@@ -150,6 +150,19 @@ For installing Pipeline Framework with the prebuilt binaries or Docker* or to bu
 | ------- | ------------- |
 | Preview Architecture 2.0 samples | Preview Architecture 2.0 samples have known issues with inference results and should not be used as a correctness reference. |
 | Model download script migration | Model downloading moved to new per-source scripts. Automation built on the previous scripts may need to be updated; the earlier scripts were restored for compatibility but are considered legacy. |
+
+**Legacy Features and Deprecation Timeline**:
+
+List of the features and components to be deprecated in the future.
+
+| Feature | Target | Replacement |
+|---------|--------|-------------|
+| gvapython element | end of Q4'2026 | usage of regular GStreamer Python bindings |
+| GstVideoRegionOfInterest meta + Intel extensions | end of Q4'2026 | usage of GstAnalyticsMtd |
+| Architecture 2.0 elements | end of Q4'2026 | Preserve essential components and ideas |
+| Tiger Lake support | end of Q4'2026 | new supported units: Arrow Lake and Panther Lake |
+| Ubuntu 22.04 | end of Q4'2026 | newer Ubuntu versions, including Ubuntu 26 |
+| Availability of download_public_models.sh and download_omz_models.sh | end of Q4'2026 | new models downloading solution in `scripts/download_models` directory |
 
 **Legal Information**:
 
