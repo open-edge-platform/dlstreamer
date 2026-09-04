@@ -7,10 +7,12 @@
 #pragma once
 
 #include "converter_facade.h"
+#include "zeroshot_embeddings.h"
 
 #include "inference_backend/image_inference.h"
 
 #include <map>
+#include <cstdint>
 #include <memory>
 #include <vector>
 
@@ -43,6 +45,11 @@ class PostProcessorImpl {
         double threshold = 0.5;
         bool threshold_explicitly_set = false;
         bool skip_raw_tensors = false;
+        // CLIP zero-shot: the class bank parsed by loadEmbeddingsFromFile(), plus the path it came
+        // from - kept only so a misconfiguration can be reported against the file the user named.
+        ZeroShotEmbeddings zeroshot_embeddings;
+        std::string zeroshot_embeddings_file;
+        uint32_t zeroshot_topk = 1;
 
         std::string custom_postproc_lib;
     };

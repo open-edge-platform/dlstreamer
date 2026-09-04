@@ -10,6 +10,7 @@
 #include "converters/to_roi/boxes_labels.h"
 #include "converters/to_roi/boxes_scores.h"
 #include "converters/to_roi/detection_output.h"
+#include "converters/to_tensor/clip_zeroshot.h"
 #include "converters/to_tensor/raw_data_copy.h"
 
 #include "inference_backend/logger.h"
@@ -25,6 +26,55 @@ using namespace post_processing;
 namespace {
 inline void set_convert_name(GstStructure *s, const std::string &name) {
     gst_structure_set(s, "converter", G_TYPE_STRING, name.c_str(), NULL);
+}
+
+std::string get_convert_name(const GstStructure *s) {
+    if (s == nullptr || !gst_structure_has_field(s, "converter"))
+        return std::string();
+    const gchar *converter = gst_structure_get_string(s, "converter");
+    return converter ? std::string(converter) : std::string();
+}
+
+// The clip_zeroshot converter is selected by the model itself (model_info model_type=clip_zeroshot);
+// the zeroshot-embeddings-file property only supplies the class bank. Reject the two mismatches
+// early and explicitly - in particular pairing a text-embeddings bank with an unprojected clip_token
+// model, which would otherwise silently compute cosine similarities across incompatible vector
+// spaces and only surface as a dimension mismatch (or not at all, when the dimensions happen to
+// agree).
+void validateZeroShotConfiguration(const std::vector<GstStructure *> &model_proc_outputs,
+                                   const PostProcessorImpl::Initializer &initializer) {
+    const bool embeddings_supplied = !initializer.zeroshot_embeddings_file.empty();
+
+    std::string zeroshot_layer;
+    std::string other_converters;
+    for (const auto *model_proc_output : model_proc_outputs) {
+        const std::string converter_name = get_convert_name(model_proc_output);
+        if (converter_name == ClipZeroShotConverter::getName()) {
+            zeroshot_layer = converter_name;
+        } else if (!converter_name.empty()) {
+            if (!other_converters.empty())
+                other_converters += ", ";
+            other_converters += "'" + converter_name + "'";
+        }
+    }
+
+    if (!zeroshot_layer.empty() && !embeddings_supplied) {
+        throw std::runtime_error("The model declares model_type=clip_zeroshot, which selects the '" +
+                                 ClipZeroShotConverter::getName() +
+                                 "' converter, but no class embeddings were supplied. Set gvaclassify "
+                                 "zeroshot-embeddings-file=<labels>.safetensors (generate it with "
+                                 "scripts/download_models/clip_text_embeddings.py using the same CLIP model).");
+    }
+
+    if (embeddings_supplied && zeroshot_layer.empty()) {
+        throw std::runtime_error(
+            "gvaclassify zeroshot-embeddings-file='" + initializer.zeroshot_embeddings_file +
+            "' was supplied, but the model does not declare model_type=clip_zeroshot" +
+            (other_converters.empty() ? std::string() : " (resolved converter: " + other_converters + ")") +
+            ". Zero-shot classification compares the model's projected image embedding against projected text "
+            "embeddings; an unprojected clip_token model lives in a different vector space. Re-export the image "
+            "encoder for zero-shot: python3 download_hf_models.py --model <clip-model> --extra_args --zeroshot");
+    }
 }
 } // namespace
 
@@ -84,6 +134,8 @@ PostProcessorImpl::PostProcessorImpl(Initializer initializer) {
             setDefaultConverter(model_proc_outputs.cbegin()->second, initializer.model_outputs,
                                 initializer.converter_type);
 
+            validateZeroShotConfiguration({model_proc_outputs.cbegin()->second}, initializer);
+
             if (initializer.converter_type == ConverterType::TO_ROI) {
                 // Only set threshold if user explicitly provided one OR model has no threshold
                 if (initializer.threshold_explicitly_set ||
@@ -102,8 +154,15 @@ PostProcessorImpl::PostProcessorImpl(Initializer initializer) {
             converters.emplace_back(layer_names, model_proc_outputs.cbegin()->second, initializer.converter_type,
                                     initializer.attach_type, initializer.image_info, initializer.model_outputs,
                                     initializer.model_name, labels, initializer.custom_postproc_lib,
-                                    initializer.skip_raw_tensors);
+                                    initializer.skip_raw_tensors, initializer.zeroshot_embeddings,
+                                    initializer.zeroshot_topk);
         } else {
+            std::vector<GstStructure *> declared_outputs;
+            declared_outputs.reserve(initializer.output_processors.size());
+            for (const auto &model_proc_output : initializer.output_processors)
+                declared_outputs.push_back(model_proc_output.second);
+            validateZeroShotConfiguration(declared_outputs, initializer);
+
             for (const auto &model_proc_output : initializer.output_processors) {
                 if (model_proc_output.second == nullptr) {
                     throw std::runtime_error("Can not get model_proc output information.");
@@ -126,7 +185,8 @@ PostProcessorImpl::PostProcessorImpl(Initializer initializer) {
 
                 converters.emplace_back(model_proc_output.second, initializer.converter_type, initializer.attach_type,
                                         initializer.image_info, initializer.model_outputs, initializer.model_name,
-                                        labels, initializer.custom_postproc_lib, initializer.skip_raw_tensors);
+                                        labels, initializer.custom_postproc_lib, initializer.skip_raw_tensors,
+                                        initializer.zeroshot_embeddings, initializer.zeroshot_topk);
             }
         }
     } catch (const std::exception &e) {

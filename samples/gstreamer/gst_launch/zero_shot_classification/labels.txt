@@ -1,0 +1,8 @@
+zebra
+horse
+dog
+cat
+car
+bicycle
+cup
+bottle

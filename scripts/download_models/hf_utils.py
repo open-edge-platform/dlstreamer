@@ -23,7 +23,7 @@ from openvino import PartialShape
 from openvino import Type
 from openvino import save_model
 from openvino.tools.ovc import convert_model
-from transformers import AutoModelForDepthEstimation, CLIPVisionModel
+from transformers import AutoModelForDepthEstimation, CLIPModel, CLIPVisionModel
 from transformers import AutoModelForVideoClassification
 from transformers import AutoModelForObjectDetection
 from transformers import AutoConfig
@@ -257,13 +257,22 @@ def custom_conversion(
     primary_arch = architectures[0].lower()
 
     export_dir = outdir / repo_id.replace("/", "_")
+    zeroshot_requested = "--zeroshot" in extra_args or "zeroshot" in extra_args
     handlers: dict[str, tuple[str, Callable[[], Path]]] = {
         "clipmodel": (
             "a CLIP model",
-            lambda: export_hf_clip_to_openvino(
-                local_model_dir,
-                export_dir,
-                token,
+            lambda: (
+                export_hf_clip_zeroshot_to_openvino(
+                    local_model_dir,
+                    export_dir,
+                    token,
+                )
+                if zeroshot_requested
+                else export_hf_clip_to_openvino(
+                    local_model_dir,
+                    export_dir,
+                    token,
+                )
             ),
         ),
         "rtdetrforobjectdetection": (
@@ -354,6 +363,80 @@ def export_hf_clip_to_openvino(
     ov_model.set_rt_info("122.771,116.746,104.094", ["model_info", "mean_values"])
     ov_model.set_rt_info("RGB", ["model_info", "color_space"])
     ov_model.set_rt_info("crop", ["model_info", "resize_type"])
+    model_name = Path(local_model_dir).name
+    save_model(ov_model, str(outdir / f"{model_name}.xml"))
+
+    processor.save_pretrained(str(outdir))
+    return outdir
+
+
+def export_hf_clip_zeroshot_to_openvino(
+    local_model_dir: str | Path,
+    outdir: Path,
+    token: str | None,
+) -> Path:
+    """Export the CLIP image encoder with the visual projection, for zero-shot classification.
+
+    ``export_hf_clip_to_openvino`` exports the unprojected vision tower (the ``clip_token`` path).
+    Zero-shot classification instead needs the projected image embedding, the vector that lives in
+    CLIP's shared image/text space, so it can be compared against text-label embeddings by cosine
+    similarity. This exports ``CLIPModel.get_image_features`` to produce that projected output.
+
+    Preprocessing (CLIP mean/std, RGB, center crop) is written into the model_info section of
+    model.xml, so no DL Streamer model-proc file is required.
+
+    Args:
+        local_model_dir: Path to locally cached CLIP model
+        outdir: Output directory for OpenVINO IR
+        token: Unused, kept for compatibility
+    """
+    outdir.mkdir(parents=True, exist_ok=True)
+
+    # Load from the local cached model directory.
+    clip_model = CLIPModel.from_pretrained(
+        str(local_model_dir)
+    )  # nosec - model pinned via snapshot_download
+
+    clip_model.eval()
+
+    class _CLIPImageEmbedder(torch.nn.Module):
+        """Wrap CLIPModel so the traced graph outputs only the projected image embedding."""
+
+        def __init__(self, model: CLIPModel) -> None:
+            super().__init__()
+            self.model = model
+
+        def forward(self, pixel_values: torch.Tensor) -> torch.Tensor:
+            return self.model.get_image_features(pixel_values=pixel_values)
+
+    embedder = _CLIPImageEmbedder(clip_model)
+    embedder.eval()
+
+    img = Image.new("RGB", (224, 224))
+    processor = AutoProcessor.from_pretrained(
+        str(local_model_dir), local_files_only=True
+    )  # nosec B615 - model pinned via snapshot_download
+
+    batch = processor.image_processor(images=img, return_tensors="pt")["pixel_values"]
+
+    with torch.no_grad():
+        ov_model = convert_model(embedder, example_input=batch)
+
+    # Dynamic batch, static spatial dims, float input.
+    input_shape = PartialShape([-1, batch.shape[1], batch.shape[2], batch.shape[3]])
+    for nn_input in ov_model.inputs:
+        nn_input.get_node().set_partial_shape(input_shape)
+        nn_input.get_node().set_element_type(Type.f32)
+
+    # model_type selects the post-processing converter in the pipeline. Zero-shot models are tagged
+    # clip_zeroshot so they can never be confused with the unprojected clip_token export above.
+    ov_model.set_rt_info("clip_zeroshot", ["model_info", "model_type"])
+    # CLIP preprocessing carried in model_info; scale/mean are the CLIP std/mean x 255.
+    ov_model.set_rt_info("68.500,66.632,70.323", ["model_info", "scale_values"])
+    ov_model.set_rt_info("122.771,116.746,104.094", ["model_info", "mean_values"])
+    ov_model.set_rt_info("RGB", ["model_info", "color_space"])
+    ov_model.set_rt_info("crop", ["model_info", "resize_type"])
+
     model_name = Path(local_model_dir).name
     save_model(ov_model, str(outdir / f"{model_name}.xml"))
 
