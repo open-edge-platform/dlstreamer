@@ -3,5 +3,5 @@
 torch==2.13
 transformers>=4.57
 optimum[onnxruntime]>=2.1
-openvino>=2026.2
+openvino>=2026.3.1
 huggingface-hub>=0.36
