@@ -6,19 +6,19 @@
 
 **Key highlights**:
 
+- Broader standards-based metadata: segmentation, raw tensor (GstAnalyticsTensorMtd) and 3D object detection results are now carried as upstream GstAnalytics metadata, easing migration away from Intel-specific extensions.
+- End-to-end 3D sensor pipeline: three new elements (g3dlidarsrc, g3dobjectfuser, g3drender) complete the LiDAR workflow from source through fusion to rendering entirely within DL Streamer.
 - Heterogeneous multi-sensor batching: gvastreammux was reimplemented on PTS-based cross-stream batching and now multiplexes video and LiDAR streams in a single pipeline.
 - Flexible generative AI deployment: the new gvagenai backend registry with an openai-http backend lets Vision Language Model inference run locally on Intel hardware or be delegated to a remote service without changing the pipeline.
-- Broader standards-based metadata: segmentation, raw tensor (GstAnalyticsTensorMtd) and 3D object detection results are now carried as upstream GstAnalytics metadata, easing migration away from Intel-specific extensions.
 - New analytics capabilities: dwell time and evaluation-point support in gvaanalytics enable time-in-zone and loitering detection use cases, shipped with a ready-to-run sample.
 - Power-aware optimization: the DL Streamer Optimizer can now optimize pipelines against power consumption in addition to throughput.
-- End-to-end 3D sensor pipeline: three new elements (g3dlidarsrc, g3dobjectfuser, g3drender) complete the LiDAR workflow from source through fusion to rendering entirely within DL Streamer.
 - Expanded model coverage: RF-DETR and RF-DETR-SEG converters add modern transformer-based detection and segmentation models.
 - Improved developer onboarding: a new end-to-end tutorial, restructured documentation site, simplified Get Started flow, and per-source model download scripts.
 - Component updates: OpenVINO 2026.2, NPU driver 1.33, and refreshed GPU drivers.
 
-Deep Learning Streamer (DL Streamer) 2026.2 extends the framework beyond classic video analytics into full 3D sensor processing, broadens standards-based metadata coverage, and opens generative AI inference to remote backends.
+Deep Learning Streamer (DL Streamer) 2026.2 extends the framework beyond classic video analytics into full 3D sensor processing, broadens standards-based metadata coverage, and opens generative AI inference to remote backends. It also introduces time-in-zone analytics and power-aware pipeline optimization, widening the range of supported use cases.
 
-Metadata standardization continues: segmentation results, raw tensors and 3D object detections are now carried as upstream GstAnalytics metadata, reducing reliance on Intel-specific extensions ahead of their planned deprecation. The gvagenai element gained a pluggable backend registry with an openai-http backend, so Vision Language Model inference can run locally on Intel hardware or be delegated to a remote service without changing the pipeline.
+Metadata standardization continues: segmentation results, raw tensors (GstAnalyticsTensorMtd) and 3D object detections are now carried as upstream GstAnalytics metadata, reducing reliance on Intel-specific extensions ahead of their planned deprecation. The gvagenai element gained a pluggable backend registry with an openai-http backend, so Vision Language Model inference can run locally on Intel hardware or be delegated to a remote service without changing the pipeline.
 
 This release completes the 3D sensing pipeline with three new elements (g3dlidarsrc, g3dobjectfuser, g3drender), so a LiDAR workload can now be sourced, parsed, inferred, fused and rendered entirely within DL Streamer. The stream multiplexer (gvastreammux) was reimplemented on PTS-based cross-stream batching and gained heterogeneous-source support, allowing video and LiDAR to be batched together in one pipeline.
 
