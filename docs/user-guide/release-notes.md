@@ -151,7 +151,7 @@ For installing Pipeline Framework with the prebuilt binaries or Docker* or to bu
 | Preview Architecture 2.0 samples | Preview Architecture 2.0 samples have known issues with inference results and should not be used as a correctness reference. |
 | Model download script migration | Model downloading moved to new per-source scripts. Automation built on the previous scripts may need to be updated; the earlier scripts were restored for compatibility but are considered legacy. |
 
-## Legacy Features and Deprecation Timeline - 2026.2
+**Legacy Features and Deprecation Timeline**:
 
 List of the features and components to be deprecated in the future.
 
