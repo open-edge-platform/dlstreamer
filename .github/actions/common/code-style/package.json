@@ -1,0 +1,7 @@
+{
+  "name": "dlstreamer-code-style-action",
+  "private": true,
+  "devDependencies": {
+    "diff2html-cli": "5.2.15"
+  }
+}

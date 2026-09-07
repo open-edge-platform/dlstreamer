@@ -8,4 +8,4 @@ transformers>=4.57,<4.58
 # Streamer installation (here 2026.2.0), which is the one gvagenai uses and the
 # one loaded via PYTHONPATH. Adjust to match your OpenVINO runtime, check with:
 #   python3 -c "import openvino; print(openvino.__version__)"
-openvino-tokenizers==2026.2.0.*
+openvino-tokenizers==2026.3.1.*
