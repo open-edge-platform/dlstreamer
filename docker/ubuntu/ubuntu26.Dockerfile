@@ -122,7 +122,7 @@ RUN \
     exceptiongroup==1.2.2 \
     iniconfig==2.0.0 \
     typing-extensions==4.15.0 \
-    openvino==2026.3.0
+    openvino==2026.3.1
 
 # hadolint ignore=DL3002
 USER root
