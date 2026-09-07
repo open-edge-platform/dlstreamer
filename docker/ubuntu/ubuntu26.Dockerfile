@@ -67,7 +67,11 @@ RUN \
 # Intel GPU client drivers and prerequisites installation
 RUN \
     apt-get update && \
-    apt-get install -y --no-install-recommends ocl-icd-libopencl1 intel-opencl-icd
+    apt-get install -y --no-install-recommends \
+    ocl-icd-libopencl1=\* intel-opencl-icd=\* clinfo=\* \
+    intel-media-va-driver-non-free=\* va-driver-all=\* libva-glx2=\* vainfo=\* && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 WORKDIR /
 
@@ -518,7 +522,11 @@ RUN \
 # Intel GPU client drivers and prerequisites installation
 RUN \
     apt-get update && \
-    apt-get install -y --no-install-recommends ocl-icd-libopencl1 intel-opencl-icd
+    apt-get install -y --no-install-recommends \
+    ocl-icd-libopencl1=\* intel-opencl-icd=\* clinfo=\* \
+    intel-media-va-driver-non-free=\* va-driver-all=\* libva-glx2=\* vainfo=\* && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 WORKDIR /
 
