@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2018-2025 Intel Corporation
+ * Copyright (C) 2018-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -88,9 +88,9 @@ ImageInferenceAsync::ImageInferenceAsync(const InferenceBackend::InferenceConfig
                                          dlstreamer::ContextPtr vadpy_context, ImageInference::Ptr inference)
     : _inference(inference) {
     const auto &pre_process_config = config.at(KEY_PRE_PROCESSOR);
-    if (!Utils::checkAllKeysAreKnown({KEY_VAAPI_THREAD_POOL_SIZE, KEY_VAAPI_FAST_SCALE_LOAD_FACTOR,
-                                      KEY_NPU_DMABUF_ZERO_COPY},
-                                     pre_process_config)) {
+    if (!Utils::checkAllKeysAreKnown(
+            {KEY_VAAPI_THREAD_POOL_SIZE, KEY_VAAPI_FAST_SCALE_LOAD_FACTOR, KEY_NPU_DMABUF_ZERO_COPY},
+            pre_process_config)) {
         throw std::invalid_argument("Unknown key in pre-processing configuration.");
     }
 
