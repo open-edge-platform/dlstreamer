@@ -602,6 +602,10 @@ ENV PYTHONPATH=/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:/opt/in
 ENV TERM=xterm
 ENV GI_TYPELIB_PATH=/opt/intel/dlstreamer/gstreamer/lib/girepository-1.0:/opt/intel/dlstreamer/lib/girepository-1.0:/usr/lib/x86_64-linux-gnu/girepository-1.0
 
+# At runtime, pass Intel devices into the container to enable hardware acceleration:
+#   GPU: --device /dev/dri --group-add $(stat -c "%g" /dev/dri/render*)
+#   NPU: --device /dev/accel --group-add $(stat -c "%g" /dev/accel/accel*)
+#   NPU DMA-BUF zero-copy: --device /dev/dma_heap --group-add $(stat -c "%g" /dev/dma_heap/system) (else inference falls back to a slower GPU->CPU copy)
 RUN \
     usermod -a -G video dlstreamer && \
     ln -s /opt/intel/dlstreamer /home/dlstreamer/dlstreamer
