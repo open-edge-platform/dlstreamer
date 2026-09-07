@@ -17,6 +17,7 @@ one text-generation pass per chunk against a text prompt, and attaches the gener
 
 Key operations:
 - **Frame sampling**: `frame-rate` selects how many frames per second are forwarded to the model (`0` = all frames).
+- **Frame selection**: `trigger-classes` can force frames with selected upstream detection metadata to the model. With `frame-rate=0`, only matching frames are analyzed; with `frame-rate>0`, matching frames are analyzed in addition to regular sampling.
 - **Chunking**: `chunk-size` frames are accumulated, then submitted together as one inference. Frames are presented either as independent images or as a single video clip (see [Vision Mode](#vision-mode)).
 - **Text generation**: the prompt (`prompt` or `prompt-path`) and the accumulated frames are passed to the VLM. Decoding is controlled by [`generation-config`](#generation-config); batching/KV-cache behavior by [`scheduler-config`](#scheduler-config); device tuning by [`pipeline-config`](#pipeline-config).
 - **Metadata attachment**: the result is attached as JSON and classification metadata (see [Metadata](#metadata)).
@@ -34,8 +35,11 @@ Key operations:
 | scheduler-config | String | Continuous-batching scheduler parameters as `KEY=VALUE,KEY=VALUE`. Used by the `openvino-genai` backend only. See [Scheduler Config](#scheduler-config). | null |
 | pipeline-config | String | OpenVINO™ device properties as `KEY=VALUE,KEY=VALUE`. Used by the `openvino-genai` backend only. See [Pipeline Config](#pipeline-config). | null |
 | vision-mode | Enum | How accumulated frames are presented to the model: `image` or `video`. See [Vision Mode](#vision-mode). | image |
-| frame-rate | Double | Frames sampled per second for inference. `0` processes all frames. | 0 |
+| frame-rate | Double | Frames sampled per second for inference. `0` processes all frames when `trigger-classes` is unset; when it is set, `0` enables pure event-driven selection. See [Frame Selection](#frame-selection). | 0 |
 | chunk-size | Unsigned Integer | Number of frames accumulated per inference call. | 1 |
+| trigger-classes | String | Comma-separated object class names from upstream `GstAnalyticsODMtd` detection metadata that force matching frames to be sent to the VLM. Empty/unset disables detection-based selection. See [Frame Selection](#frame-selection). | null |
+| trigger-mode | Enum | How `trigger-classes` are combined: `any` triggers when at least one listed class is detected; `all` requires every listed class in the same frame. | any |
+| trigger-min-confidence | Double | Minimum detection confidence `[0.0-1.0]` required for a `trigger-classes` match. | 0 |
 | model-cache-path | String | Directory for caching compiled models (GPU/NPU only). Used by the `openvino-genai` backend only. | ov_cache |
 | metrics | Boolean | Include performance metrics in the JSON output. | false |
 | http-server-url | String | Base URL of the OpenAI-compatible server (e.g. `http://localhost:8000/v1`). Required for the `openai-http` backend. | null |
@@ -115,7 +119,7 @@ and `pipeline-config`.
 For more information, see [Visual Token Pruning](https://openvinotoolkit.github.io/openvino.genai/docs/concepts/optimization-techniques/visual-token-pruning).
 
 > [!NOTE]
-> Structured output (`json_schema`, `regex`, `grammar`, `backend`), is currently not
+> Structured output (`json_schema`, `regex`, `grammar`, `backend`), is currently not 
 > supported. Those values contain special characters (commas, spaces and `=`)
 > which cannot fit the `KEY=VALUE,KEY=VALUE` grammar.
 
@@ -238,6 +242,62 @@ Example:
 vision-mode=video chunk-size=16 frame-rate=2
 ```
 
+### Frame Selection
+
+`gvagenai` supports two complementary frame selection mechanisms:
+
+| Mechanism | Properties | Behavior |
+|-----------|------------|----------|
+| Fixed-rate sampling | `frame-rate` | Sends frames to the VLM at approximately the requested frames per second. `frame-rate=0` means all frames when no trigger is configured. |
+| Detection-driven selection | `trigger-classes`, `trigger-mode`, `trigger-min-confidence` | Sends frames whose upstream object-detection metadata matches selected classes. |
+
+Detection-driven selection expects upstream detection metadata in `GstAnalyticsODMtd`
+format, for example from `gvadetect`. Classification metadata is not used for triggering.
+Class names in `trigger-classes` must match the labels produced by the detector.
+
+When `trigger-classes` is set, `frame-rate` controls the selection mode:
+
+| `frame-rate` value | Behavior |
+|--------------------|----------|
+| `0` | Pure event-driven mode: only frames matching `trigger-classes` are sent to the VLM. |
+| `>0` | Hybrid mode: regular `frame-rate` sampling is used, and matching trigger frames are sent in addition to the sampled frames. |
+
+`trigger-mode=any` sends a frame when at least one configured class is detected.
+`trigger-mode=all` sends a frame only when all configured classes are detected in the
+same frame. `trigger-min-confidence` filters detections below the requested confidence.
+Selected frames follow the regular chunking behavior: `chunk-size=1` submits every
+matching frame immediately, while larger values wait until that many selected frames have
+been accumulated. Consecutive frames containing a matching object can therefore produce
+multiple inference requests; the element does not perform event deduplication or apply a
+trigger cooldown.
+
+Pure event-driven example, where the VLM runs only on frames where `gvadetect` finds a
+person with confidence at least `0.5`:
+
+```bash
+gst-launch-1.0 filesrc location=video.mp4 ! decodebin3 ! \
+  gvadetect model=${MODELS_PATH}/public/yolov8s/FP16/yolov8s.xml threshold=0.5 ! \
+  gvagenai model-path=${GENAI_MODEL_PATH} device=CPU \
+    prompt="Describe the detected object and whether the scene looks dangerous." \
+    trigger-classes=person trigger-mode=any trigger-min-confidence=0.5 \
+    frame-rate=0 chunk-size=1 ! \
+  gvametapublish file-path=genai_event_driven_output.json ! \
+  fakesink async=false
+```
+
+Hybrid example, where the VLM runs at `2` fps and also runs whenever a car is detected:
+
+```bash
+gst-launch-1.0 filesrc location=video.mp4 ! decodebin3 ! \
+  gvadetect model=${MODELS_PATH}/public/yolov8s/FP16/yolov8s.xml threshold=0.5 ! \
+  gvagenai model-path=${GENAI_MODEL_PATH} device=CPU \
+    prompt="Describe the scene." \
+    trigger-classes=car trigger-mode=any trigger-min-confidence=0.5 \
+    frame-rate=2 chunk-size=1 ! \
+  gvametapublish file-path=genai_hybrid_output.json ! \
+  fakesink async=false
+```
+
 ## Input/Output
 
 - **Input**: `video/x-raw` in `RGB`, `RGBA`, `RGBx`, `BGR`, `BGRA`, `BGRx`, `NV12`, or `I420`; also `video/x-raw(memory:DMABuf)` (`DMA_DRM`) and `video/x-raw(memory:VAMemory)` (`NV12`) on Linux, and `video/x-raw(memory:D3D11Memory)` (`NV12`) on Windows. The element converts the frame to RGB internally; an explicit `videoconvert` is not required.
@@ -254,7 +314,7 @@ vision-mode=video chunk-size=16 frame-rate=2
 
 ## Pipeline Examples
 
-A script with source selection, scaling, and all options is provided in [samples/gstreamer/gst_launch/gvagenai](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch/gvagenai).
+A script with source selection, scaling, and all options is provided in [samples/gstreamer/gst_launch/gvagenai](../../../samples/gstreamer/gst_launch/gvagenai).
 
 ### Video summarization to JSON
 
@@ -279,8 +339,8 @@ gst-launch-1.0 filesrc location=video.mp4 ! decodebin3 ! \
 ## Processing Pipeline
 
 1. On `start`, validates `model-path` and the prompt, then constructs the OpenVINO™ GenAI `VLMPipeline` with the parsed `generation-config`, `scheduler-config`, and `pipeline-config`.
-2. For each frame, applies `frame-rate` sampling (frames are skipped to approximate the requested rate; `0` keeps all frames).
-3. Converts each sampled frame to an RGB tensor and appends it to the current chunk.
+2. For each frame, applies fixed-rate sampling and optional detection-driven frame selection from `trigger-classes`.
+3. Converts each selected frame to an RGB tensor and appends it to the current chunk.
 4. When the chunk reaches `chunk-size`, runs one inference over the accumulated frames (as images or as a single video clip per `vision-mode`) with the prompt, and attaches `GstGVAJSONMeta` to that frame.
 5. Attaches `GstAnalyticsClsMtd` carrying the latest result to every frame so downstream elements can render it persistently.
 
@@ -395,6 +455,17 @@ Element Properties:
   scheduler-config    : Scheduler configuration as KEY=VALUE,KEY=VALUE format
                         flags: readable, writable
                         String. Default: null
+  trigger-classes     : Comma-separated object class names from upstream detection metadata (GstAnalyticsODMtd, e.g. gvadetect) that force a frame to be sent to the VLM, e.g. "person,fire". With frame-rate>0 these frames are sent in addition to the time-sampled ones; with frame-rate=0 only matching frames are sent (event-driven). Empty/unset disables the trigger.
+                        flags: readable, writable
+                        String. Default: null
+  trigger-min-confidence: Minimum detection confidence [0.0-1.0] required for a trigger-classes match
+                        flags: readable, writable
+                        Double. Range:               0 -               1 Default:               0
+  trigger-mode        : How trigger-classes are combined: 'any' sends the frame if at least one class is detected, 'all' requires every listed class to be detected in the same frame.
+                        flags: readable, writable
+                        Enum "GstGvaGenAITriggerMode" Default: 0, "any"
+                           (0): any              - Trigger when any of trigger-classes is detected
+                           (1): all              - Trigger only when all trigger-classes are detected
   vision-mode         : How accumulated frames are presented to the model: as independent images, or as one video clip. Video mode requires a video-capable model
                         flags: readable, writable
                         Enum "GstGvaGenAIVisionMode" Default: 0, "image"
