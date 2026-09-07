@@ -449,6 +449,14 @@ adjacent GPU workloads.
 
 ## Notes and Caveats
 
+- **NPU DMA-BUF zero-copy** requires access to `/dev/dma_heap/system`, which is
+  root-only by default. When routing streams to `device=NPU`, grant the `render`
+  group access (the `DLS_install_prerequisites.sh` script does this via a udev
+  rule; manually you can run `sudo chmod 666 /dev/dma_heap/system`), or add
+  `--device /dev/dma_heap --group-add $(stat -c "%g" /dev/dma_heap/system)` when
+  running in a container. Without it, NPU inference falls back to a slower
+  GPU→CPU copy path (a warning is logged).
+
 - GPU tile utilization (GT0/GT1) is measured via `gtidle/idle_residency_ms` sysfs
   counters (xe driver). These counters reflect periods when the entire tile is
   clock-gated idle. Short scheduling gaps between independent pipelines appear as

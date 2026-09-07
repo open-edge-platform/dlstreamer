@@ -306,6 +306,8 @@ docker run --init --rm \
     --group-add $(stat -c "%g" /dev/dri/render*) \
     --device /dev/accel \
     --group-add $(stat -c "%g" /dev/accel/accel*) \
+    --device /dev/dma_heap \
+    --group-add $(stat -c "%g" /dev/dma_heap/system) \
     intel/dlstreamer:latest \
     python3 <app_name>.py
 ```

@@ -17,6 +17,15 @@ gst-launch-1.0 filesrc location=${VIDEO_FILE} ! parsebin ! vah264dec ! "video/x-
 - `pre-process-backend=va` uses the hardware image scaler to resize the VAMemory image into
   input model tensor dimensions.
 
+> **NPU DMA-BUF zero-copy:** When running inference on `device=NPU`, DL Streamer
+> shares the pre-processed image with the NPU through a DMA-BUF allocated from
+> `/dev/dma_heap/system`, avoiding a GPU→CPU copy. This device is root-only by
+> default; grant access with `sudo chmod 666 /dev/dma_heap/system` (per boot) or a
+> persistent udev rule (see the [install guide](../install/install_guide_ubuntu.md#prerequisites)).
+> Inside a container, add `--device /dev/dma_heap --group-add $(stat -c "%g" /dev/dma_heap/system)` to the `docker run` command.
+> If access is unavailable, DL Streamer logs a warning and falls back to the
+> slower GPU→CPU copy path.
+
 When using discrete GPUs, it is recommended to set `pre-process-backend=va-surface-sharing`
 to enforce zero-copy operation between video decoder and AI inference engine. Note that 
 `va-surface-sharing` may be slightly slower than the `va` backend when integrated GPU is used.

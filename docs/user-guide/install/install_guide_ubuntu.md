@@ -59,6 +59,26 @@ More details about the packages can be found in:
 - [Media](https://github.com/intel/media-driver/releases).
 - [NPU](https://github.com/intel/linux-npu-driver/releases/tag/v1.28.0).
 
+> **NPU DMA-BUF zero-copy access:** For the best NPU performance, DL Streamer
+> uses a DMA-BUF zero-copy path that allocates buffers from `/dev/dma_heap/system`.
+> This device is root-only by default. The `DLS_install_prerequisites.sh` script
+> grants the `render` group access to it automatically (via a persistent udev
+> rule). To enable access manually, either run `sudo chmod 666 /dev/dma_heap/system`
+> (resets on reboot) or add a udev rule:
+>
+> ```bash
+> echo 'SUBSYSTEM=="dma_heap", KERNEL=="system", GROUP="render", MODE="0660"' | sudo tee /etc/udev/rules.d/99-dlstreamer-dma-heap.rules
+> sudo udevadm control --reload-rules && sudo udevadm trigger --subsystem-match=dma_heap
+> ```
+>
+> The `render` group is reused (rather than a new dedicated group) because it
+> already exists and owns the related GPU/NPU nodes (`/dev/dri/renderD*` and
+> `/dev/accel/accel*`), so a single group membership grants access to all of them
+> and the same `--group-add` works inside containers.
+>
+> If access is unavailable, DL Streamer logs a warning and falls back to a slower
+> GPU→CPU copy path.
+
 To run Deep Learning Streamer on Intel® Data Center GPU (Flex) you need to use specific
 drivers, and follow the instructions on the
 [Intel® Data Center GPU website](https://dgpu-docs.intel.com/driver/installation.html).
@@ -311,6 +331,22 @@ a container
   ```bash
   docker run -it intel/dlstreamer:latest
   ```
+
+> **Enabling GPU/NPU inside the container:** To run inference on the GPU or NPU,
+> pass the corresponding devices into the container. Add `--device /dev/dri
+> --group-add $(stat -c "%g" /dev/dri/render*)` for the GPU and `--device
+> /dev/accel --group-add $(stat -c "%g" /dev/accel/accel*)` for the NPU. For NPU
+> DMA-BUF zero-copy, also add `--device /dev/dma_heap --group-add $(stat -c "%g"
+> /dev/dma_heap/system)` (otherwise DL Streamer falls back to a slower GPU→CPU
+> copy path). For example:
+>
+> ```bash
+> docker run -it \
+>   --device /dev/dri --group-add $(stat -c "%g" /dev/dri/render*) \
+>   --device /dev/accel --group-add $(stat -c "%g" /dev/accel/accel*) \
+>   --device /dev/dma_heap --group-add $(stat -c "%g" /dev/dma_heap/system) \
+>   intel/dlstreamer:latest
+> ```
 
 In the container, please run the command `gst-inspect-1.0 gvadetect` to confirm
 that GStreamer and Deep Learning Streamer are running
