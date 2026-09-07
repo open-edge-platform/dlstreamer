@@ -189,7 +189,7 @@
 
 ### System Requirements
 
-Please refer to [DL Streamer documentation](../get_started/system_requirements.md).
+Please refer to [DL Streamer documentation](../system_requirements.md).
 
 ## Installation Notes
 
@@ -199,7 +199,7 @@ There are several installation options for Pipeline Framework:
 1. Build Docker image from docker file and run Docker image
 1. Build Pipeline Framework from source code
 
-For more detailed instructions please refer to [DL Streamer Pipeline Framework installation guide](../get_started/install/install_guide_index.md).
+For more detailed instructions please refer to [DL Streamer Pipeline Framework installation guide](../install/install_guide_index.md).
 
 ## Samples
 

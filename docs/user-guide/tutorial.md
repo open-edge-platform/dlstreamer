@@ -109,7 +109,7 @@ Then download and run the prerequisites script:
 ```bash
 mkdir -p ~/dlstreamer_demo
 cd ~/dlstreamer_demo
-wget -O DLS_install_prerequisites.sh https://raw.githubusercontent.com/open-edge-platform/dlstreamer/main/scripts/DLS_install_prerequisites.sh
+wget -O DLS_install_prerequisites.sh https://raw.githubusercontent.com/open-edge-platform/dlstreamer/v2026.2.0/scripts/DLS_install_prerequisites.sh
 chmod +x DLS_install_prerequisites.sh
 ./DLS_install_prerequisites.sh --reinstall-npu-driver=yes
 ```
@@ -427,7 +427,7 @@ the download step above.
 
 > **Why a sample here?** Open-vocabulary detection needs a pre-exported model and
 > a bit of Python glue to wire the prompt filter. The sample handles that for you
-> — see its [README](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/python/prompted_detection)
+> — see its [README](https://github.com/open-edge-platform/dlstreamer/tree/v2026.2.0/samples/gstreamer/python/prompted_detection)
 > for details.
 
 ### 4.4 Save results to a file instead of the screen

@@ -3,19 +3,19 @@
 When getting started with Deep Learning Streamer, the recommended way to obtain
 models ready for use in video analytics pipelines is to use the per-source
 conversion scripts under
-[scripts/download_models](https://github.com/open-edge-platform/dlstreamer/tree/main/scripts/download_models)
+[scripts/download_models](https://github.com/open-edge-platform/dlstreamer/tree/v2026.2.0/scripts/download_models)
 (`download_hf_models.py` for Hugging Face, `download_ultralytics_models.py` for
 Ultralytics YOLO, `download_timm_models.py` for TIMM, and
 `download_other_models.sh` for a handful of other helper models). See
 [Yolo Models](./yolo_models.md), [Transformers](./transformers.md) and the
 script's own
-[README](https://github.com/open-edge-platform/dlstreamer/blob/main/scripts/download_models/README.md)
+[README](https://github.com/open-edge-platform/dlstreamer/blob/v2026.2.0/scripts/download_models/README.md)
 for details.
 
 The older
-[download_omz_models.sh](https://github.com/open-edge-platform/dlstreamer/blob/main/samples/download_omz_models.sh)
+[download_omz_models.sh](https://github.com/open-edge-platform/dlstreamer/blob/v2026.2.0/samples/download_omz_models.sh)
 and
-[download_public_models.sh](https://github.com/open-edge-platform/dlstreamer/blob/main/samples/download_public_models.sh)
+[download_public_models.sh](https://github.com/open-edge-platform/dlstreamer/blob/v2026.2.0/samples/download_public_models.sh)
 scripts are still available for backward compatibility but are considered
 legacy. They download models from
 [Open Model Zoo](https://github.com/openvinotoolkit/open_model_zoo) and other
@@ -26,7 +26,7 @@ This way, you will be able to easily perform the most popular tasks,
 such as object detection and classification, instance segmentation, face
 localization and many others. For examples of how to set up Deep
 Learning Streamer pipelines that carry out these functions, refer to the
-[sample directory](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch).
+[sample directory](https://github.com/open-edge-platform/dlstreamer/tree/v2026.2.0/samples/gstreamer/gst_launch).
 
 If you are interested in designing custom pipelines, make sure to review the
 [Supported Models](../supported_models.md) table for

@@ -16,7 +16,7 @@ handles on the CPU and GPU.
 
 The memory interop sub-component is available via APT installation
 `sudo apt install intel-dlstreamer-cpp` and on
-[github](https://github.com/open-edge-platform/dlstreamer/tree/main/include/dlstreamer).
+[github](https://github.com/open-edge-platform/dlstreamer/tree/v2026.2.0/include/dlstreamer).
 
 > **Note:** This sub-component is implemented as a C++ header-only library. Python
 > bindings for this library will be coming in future releases.
@@ -65,30 +65,30 @@ between media frameworks and OpenCL/SYCL
 
 Deep Learning Streamer hides complexity of dealing with low-level interfaces
 and greatly simplifies memory interop by defining abstract interfaces
-[Tensor](https://github.com/open-edge-platform/dlstreamer/blob/main/include/dlstreamer/tensor.h) and [MemoryMapper](https://github.com/open-edge-platform/dlstreamer/blob/main/include/dlstreamer/memory_mapper.h),
+[Tensor](https://github.com/open-edge-platform/dlstreamer/blob/v2026.2.0/include/dlstreamer/tensor.h) and [MemoryMapper](https://github.com/open-edge-platform/dlstreamer/blob/v2026.2.0/include/dlstreamer/memory_mapper.h),
 and providing header-only implementation of the `Tensor` interface for various frameworks and
 `MemoryMapper` implementation for all technically feasible zero-copy mappings on CPU and GPU and mappings between CPU and GPU:
 
 ![memory_interop](../_images/memory-interop.svg)
 
 All memory mappers implemented under unified interface
-[MemoryMapper](https://github.com/open-edge-platform/dlstreamer/blob/main/include/dlstreamer/memory_mapper.h) with
-[TensorPtr](https://github.com/open-edge-platform/dlstreamer/blob/main/include/dlstreamer/tensor.h) or
-[FramePtr](https://github.com/open-edge-platform/dlstreamer/blob/main/include/dlstreamer/frame.h) as input parameter, but each mapper from framework `AAA` to
+[MemoryMapper](https://github.com/open-edge-platform/dlstreamer/blob/v2026.2.0/include/dlstreamer/memory_mapper.h) with
+[TensorPtr](https://github.com/open-edge-platform/dlstreamer/blob/v2026.2.0/include/dlstreamer/tensor.h) or
+[FramePtr](https://github.com/open-edge-platform/dlstreamer/blob/v2026.2.0/include/dlstreamer/frame.h) as input parameter, but each mapper from framework `AAA` to
 framework `BBB` internally casts input pointer to specific class `AAA`
 Tensor / `AAA` Frame and creates output as specific class `BBB` Tensor /
 `BBB` Frame, see table below for each supported framework/library:
 
-  | Framework / Library | Native memory object | Class implementing [Tensor](https://github.com/open-edge-platform/dlstreamer/blob/main/include/dlstreamer/tensor.h) |  Class implementing [Frame](https://github.com/open-edge-platform/dlstreamer/blob/main/include/dlstreamer/frame.h) |
+  | Framework / Library | Native memory object | Class implementing [Tensor](https://github.com/open-edge-platform/dlstreamer/blob/v2026.2.0/include/dlstreamer/tensor.h) |  Class implementing [Frame](https://github.com/open-edge-platform/dlstreamer/blob/v2026.2.0/include/dlstreamer/frame.h) |
   | --- | --- | --- | --- |
-  |CPU (no framework)|void\*|[CPUTensor](https://github.com/open-edge-platform/dlstreamer/blob/main/include/dlstreamer/cpu/tensor.h)|[BaseFrame](https://github.com/open-edge-platform/dlstreamer/blob/main/include/dlstreamer/base/frame.h)|
-  |GStreamer|GstMemory, GstBuffer|[GSTTensor](https://github.com/open-edge-platform/dlstreamer/blob/main/include/dlstreamer/gst/tensor.h)|[GSTFrame](https://github.com/open-edge-platform/dlstreamer/blob/main/include/dlstreamer/gst/frame.h)|
-  |Level-zero|void\*|[USMTensor](https://github.com/open-edge-platform/dlstreamer/blob/main/include/dlstreamer/level_zero/usm_tensor.h)|[BaseFrame](https://github.com/open-edge-platform/dlstreamer/blob/main/include/dlstreamer/base/frame.h)|
-  |OpenCL|cl_mem|[OpenCLTensor](https://github.com/open-edge-platform/dlstreamer/blob/main/include/dlstreamer/opencl/tensor.h)|[BaseFrame](https://github.com/open-edge-platform/dlstreamer/blob/main/include/dlstreamer/base/frame.h)|
-  |OpenCV|cv::Mat|[OpenCVTensor](https://github.com/open-edge-platform/dlstreamer/blob/main/include/dlstreamer/opencv/tensor.h)|[BaseFrame](https://github.com/open-edge-platform/dlstreamer/blob/main/include/dlstreamer/base/frame.h)|
-  |OpenCV|cv::UMat|[OpenCVUMatTensor](https://github.com/open-edge-platform/dlstreamer/blob/main/include/dlstreamer/opencv_umat/tensor.h)|[BaseFrame](https://github.com/open-edge-platform/dlstreamer/blob/main/include/dlstreamer/base/frame.h)|
-  |OpenVINO™|ov::Tensor|[OpenVINOTensor](https://github.com/open-edge-platform/dlstreamer/blob/main/include/dlstreamer/openvino/tensor.h)|[OpenVINOFrame](https://github.com/open-edge-platform/dlstreamer/blob/main/include/dlstreamer/openvino/frame.h)|
-  |SYCL|void\*|[SYCLUSMTensor](https://github.com/open-edge-platform/dlstreamer/blob/main/include/dlstreamer/sycl/sycl_usm_tensor.h)|[BaseFrame](https://github.com/open-edge-platform/dlstreamer/blob/main/include/dlstreamer/base/frame.h)|
+  |CPU (no framework)|void\*|[CPUTensor](https://github.com/open-edge-platform/dlstreamer/blob/v2026.2.0/include/dlstreamer/cpu/tensor.h)|[BaseFrame](https://github.com/open-edge-platform/dlstreamer/blob/v2026.2.0/include/dlstreamer/base/frame.h)|
+  |GStreamer|GstMemory, GstBuffer|[GSTTensor](https://github.com/open-edge-platform/dlstreamer/blob/v2026.2.0/include/dlstreamer/gst/tensor.h)|[GSTFrame](https://github.com/open-edge-platform/dlstreamer/blob/v2026.2.0/include/dlstreamer/gst/frame.h)|
+  |Level-zero|void\*|[USMTensor](https://github.com/open-edge-platform/dlstreamer/blob/v2026.2.0/include/dlstreamer/level_zero/usm_tensor.h)|[BaseFrame](https://github.com/open-edge-platform/dlstreamer/blob/v2026.2.0/include/dlstreamer/base/frame.h)|
+  |OpenCL|cl_mem|[OpenCLTensor](https://github.com/open-edge-platform/dlstreamer/blob/v2026.2.0/include/dlstreamer/opencl/tensor.h)|[BaseFrame](https://github.com/open-edge-platform/dlstreamer/blob/v2026.2.0/include/dlstreamer/base/frame.h)|
+  |OpenCV|cv::Mat|[OpenCVTensor](https://github.com/open-edge-platform/dlstreamer/blob/v2026.2.0/include/dlstreamer/opencv/tensor.h)|[BaseFrame](https://github.com/open-edge-platform/dlstreamer/blob/v2026.2.0/include/dlstreamer/base/frame.h)|
+  |OpenCV|cv::UMat|[OpenCVUMatTensor](https://github.com/open-edge-platform/dlstreamer/blob/v2026.2.0/include/dlstreamer/opencv_umat/tensor.h)|[BaseFrame](https://github.com/open-edge-platform/dlstreamer/blob/v2026.2.0/include/dlstreamer/base/frame.h)|
+  |OpenVINO™|ov::Tensor|[OpenVINOTensor](https://github.com/open-edge-platform/dlstreamer/blob/v2026.2.0/include/dlstreamer/openvino/tensor.h)|[OpenVINOFrame](https://github.com/open-edge-platform/dlstreamer/blob/v2026.2.0/include/dlstreamer/openvino/frame.h)|
+  |SYCL|void\*|[SYCLUSMTensor](https://github.com/open-edge-platform/dlstreamer/blob/v2026.2.0/include/dlstreamer/sycl/sycl_usm_tensor.h)|[BaseFrame](https://github.com/open-edge-platform/dlstreamer/blob/v2026.2.0/include/dlstreamer/base/frame.h)|
 
 Application can create `Tensor` and `Frame` objects by either passing
 pre-allocated native memory object to C++ constructor (wrap already
@@ -96,13 +96,13 @@ allocated object) or passing allocation parameters to C++ constructor
 (allocate new memory).
 
 Many examples on how to allocate memory and create and use memory mappers
-can be found by searching for the word `mapper` in [samples](https://github.com/open-edge-platform/dlstreamer/tree/main/samples)
-and [src](https://github.com/open-edge-platform/dlstreamer/tree/main/src)
+can be found by searching for the word `mapper` in [samples](https://github.com/open-edge-platform/dlstreamer/tree/v2026.2.0/samples)
+and [src](https://github.com/open-edge-platform/dlstreamer/tree/v2026.2.0/src)
 folders on github source code and almost every C++ element.
 
 There is special mapper
-[MemoryMapperChain](https://github.com/open-edge-platform/dlstreamer/blob/main/include/dlstreamer/memory_mapper_factory.h) implementing unified interface
-[MemoryMapper](https://github.com/open-edge-platform/dlstreamer/blob/main/include/dlstreamer/memory_mapper.h) as arbitrary chain of multiple mappers. As examples,
+[MemoryMapperChain](https://github.com/open-edge-platform/dlstreamer/blob/v2026.2.0/include/dlstreamer/memory_mapper_factory.h) implementing unified interface
+[MemoryMapper](https://github.com/open-edge-platform/dlstreamer/blob/v2026.2.0/include/dlstreamer/memory_mapper.h) as arbitrary chain of multiple mappers. As examples,
 GStreamer to OpenCV UMat is chain of the following mappers:
 
 ![gst-to-usm-memory-mappers-chain](../_images/gst-to-usm-memory-mappers-chain.svg)
@@ -110,11 +110,11 @@ GStreamer to OpenCV UMat is chain of the following mappers:
 ## Abstract interfaces for C++ elements
 
 Additionally, this Deep Learning Streamer sub-component defines abstract
-interfaces [Source](https://github.com/open-edge-platform/dlstreamer/blob/main/include/dlstreamer/source.h) ,
-[Transform](https://github.com/open-edge-platform/dlstreamer/blob/main/include/dlstreamer/transform.h) and [Sink](https://github.com/open-edge-platform/dlstreamer/blob/main/include/dlstreamer/sink.h) used as base interfaces for all C++ and GStreamer elements.
+interfaces [Source](https://github.com/open-edge-platform/dlstreamer/blob/v2026.2.0/include/dlstreamer/source.h) ,
+[Transform](https://github.com/open-edge-platform/dlstreamer/blob/v2026.2.0/include/dlstreamer/transform.h) and [Sink](https://github.com/open-edge-platform/dlstreamer/blob/v2026.2.0/include/dlstreamer/sink.h) used as base interfaces for all C++ and GStreamer elements.
 These interfaces take unified pointers to
-[Tensor](https://github.com/open-edge-platform/dlstreamer/blob/main/include/dlstreamer/tensor.h)
-and [Frame](https://github.com/open-edge-platform/dlstreamer/blob/main/include/dlstreamer/frame.h) objects as input and output parameters in functions
+[Tensor](https://github.com/open-edge-platform/dlstreamer/blob/v2026.2.0/include/dlstreamer/tensor.h)
+and [Frame](https://github.com/open-edge-platform/dlstreamer/blob/v2026.2.0/include/dlstreamer/frame.h) objects as input and output parameters in functions
 [read], [process], [write] and allow to easily build chain of multiple operations. See next page
 [C++ elements](cpp_elements).
 
@@ -169,9 +169,9 @@ include/dlstreamer
 ```
 
 The following header files implement
-[Tensor](https://github.com/open-edge-platform/dlstreamer/blob/main/include/dlstreamer/tensor.h)
+[Tensor](https://github.com/open-edge-platform/dlstreamer/blob/v2026.2.0/include/dlstreamer/tensor.h)
 interface memory objects in various frameworks and
-[MemoryMapper](https://github.com/open-edge-platform/dlstreamer/blob/main/include/dlstreamer/memory_mapper.h) for memory mapping between frameworks. These header files
+[MemoryMapper](https://github.com/open-edge-platform/dlstreamer/blob/v2026.2.0/include/dlstreamer/memory_mapper.h) for memory mapping between frameworks. These header files
 installed under corresponding subfolders of
 `/opt/intel/dlstreamer/include/dlstreamer` by same package
 `intel-dlstreamer-cpp`:

@@ -2,12 +2,12 @@
 
 > **NOTE:** `download_public_models.sh` is kept for backward compatibility and is
 > considered legacy. For new work, prefer the per-source scripts under
-> [scripts/download_models](https://github.com/open-edge-platform/dlstreamer/tree/main/scripts/download_models)
+> [scripts/download_models](https://github.com/open-edge-platform/dlstreamer/tree/v2026.2.0/scripts/download_models)
 > (see [Model Preparation](./model_preparation.md)), which cover Hugging Face,
 > Ultralytics, and TIMM models.
 
 This page provides instructions on how to use the
-[samples/download_public_models.sh](https://github.com/open-edge-platform/dlstreamer/blob/main/samples/download_public_models.sh)
+[samples/download_public_models.sh](https://github.com/open-edge-platform/dlstreamer/blob/v2026.2.0/samples/download_public_models.sh)
 script to download the following models:
 
 - [YOLO](https://docs.ultralytics.com/models/)
@@ -23,7 +23,7 @@ export MODELS_PATH=/path/to/models
 ```
 
 You can refer to the list of
-[supported models](https://github.com/open-edge-platform/dlstreamer/blob/main/samples/download_public_models.sh#L23).
+[supported models](https://github.com/open-edge-platform/dlstreamer/blob/v2026.2.0/samples/download_public_models.sh#L23).
 
 ## Download All Models
 

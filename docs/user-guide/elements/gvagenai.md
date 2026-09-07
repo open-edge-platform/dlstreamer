@@ -254,7 +254,7 @@ vision-mode=video chunk-size=16 frame-rate=2
 
 ## Pipeline Examples
 
-A script with source selection, scaling, and all options is provided in [samples/gstreamer/gst_launch/gvagenai](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch/gvagenai).
+A script with source selection, scaling, and all options is provided in [samples/gstreamer/gst_launch/gvagenai](https://github.com/open-edge-platform/dlstreamer/tree/v2026.2.0/samples/gstreamer/gst_launch/gvagenai).
 
 ### Video summarization to JSON
 

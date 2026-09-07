@@ -107,8 +107,8 @@ The complete solution leverages:
   | [gvarealsense](../elements/gvarealsense.md) | Provides integration with Intel RealSense cameras, enabling video and depth stream capture for use in GStreamer pipelines. |
   | [gvawatermark](../elements/gvawatermark.md) | Overlays the metadata on the video frame to visualize the inference   results. |
 
-For the details on supported platforms, please refer to [System Requirements](../get_started/system_requirements.md).
-For installing Pipeline Framework with the prebuilt binaries or Docker\* or to build the binaries from the open source, refer to [Deep Learning Streamer Pipeline Framework installation guide](../get_started/install/install_guide_index.md).
+For the details on supported platforms, please refer to [System Requirements](../system_requirements.md).
+For installing Pipeline Framework with the prebuilt binaries or Docker\* or to build the binaries from the open source, refer to [Deep Learning Streamer Pipeline Framework installation guide](../install/install_guide_index.md).
 
 **New**
 
@@ -173,9 +173,9 @@ The complete solution leverages:
 | [gvawatermark](../elements/gvawatermark.md) | Overlays the metadata on the video frame to visualize the inference results. |
 
 
-For the details of supported platforms, please refer to [System Requirements](../get_started/system_requirements.md) section.
+For the details of supported platforms, please refer to [System Requirements](../system_requirements.md) section.
 
-For installing Pipeline Framework with the prebuilt binaries or Docker\* or to build the binaries from the open source, please refer to [DL Streamer Pipeline Framework installation guide](../get_started/install/install_guide_index.md)
+For installing Pipeline Framework with the prebuilt binaries or Docker\* or to build the binaries from the open source, please refer to [DL Streamer Pipeline Framework installation guide](../install/install_guide_index.md)
 
 **New**
 

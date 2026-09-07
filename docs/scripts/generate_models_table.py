@@ -12,7 +12,7 @@ import json
 from argparse import ArgumentParser
 from jsonschema import validate
 
-DLSTREAMER_URL='https://github.com/open-edge-platform/dlstreamer/tree/main/'
+DLSTREAMER_URL='https://github.com/open-edge-platform/dlstreamer/tree/v2026.2.0/'
 PIPELINE_ZOO_URL='https://github.com/dlstreamer/pipeline-zoo-models/tree/main/'
 
 dldt_str = 'dl' + 'dt'

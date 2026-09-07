@@ -97,7 +97,7 @@ packages:
 
   ```bash
   cd ~
-  git clone --branch main --recursive https://github.com/open-edge-platform/dlstreamer.git
+  git clone --branch v2026.2.0 --recursive https://github.com/open-edge-platform/dlstreamer.git
   cd dlstreamer
   ```
 
@@ -285,7 +285,7 @@ necessary dependencies using the following commands:
 
 If you want to use the `dlstreamer.onvif` in your own Python code,
 install the `intel-dlstreamer` wheel on top of the DL Streamer.
-See [ONVIF sample](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/python/onvif_cameras_discovery) for more details of ONVIF support.
+See [ONVIF sample](https://github.com/open-edge-platform/dlstreamer/tree/v2026.2.0/samples/gstreamer/python/onvif_cameras_discovery) for more details of ONVIF support.
 
 The easiest way is to download and install the wheel directly from the GitHub Release:
 

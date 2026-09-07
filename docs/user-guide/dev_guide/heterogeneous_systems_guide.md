@@ -128,7 +128,7 @@ Runs a large vision model at a low frame rate (0.5 fps) to answer a
 natural-language question about the video content. This is the heaviest inference
 task and the primary driver of GT0 utilization.
 
-Based on the DL Streamer [VLM alerts sample](https://github.com/open-edge-platform/dlstreamer/blob/main/samples/gstreamer/python/vlm_alerts).
+Based on the DL Streamer [VLM alerts sample](https://github.com/open-edge-platform/dlstreamer/blob/v2026.2.0/samples/gstreamer/python/vlm_alerts).
 
 ```
 filesrc location=Videos/police_highway_1280_720_60fps_loop10.mp4 ! decodebin3
@@ -169,7 +169,7 @@ Processes a separate video feed. This sub-pipeline demonstrates GPU vs NPU
 dispatch: changing only the `device=` (and optionally other parameters) routes the same
 model to a different compute engine.
 
-Based on the DL Streamer [face detection and classification sample](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/python/face_detection_and_classification).
+Based on the DL Streamer [face detection and classification sample](https://github.com/open-edge-platform/dlstreamer/tree/v2026.2.0/samples/gstreamer/python/face_detection_and_classification).
 
 **GPU variant (Case 2):**
 
@@ -463,6 +463,6 @@ adjacent GPU workloads.
 ## References
 
 - [DL Streamer Optimizer](https://docs.openedgeplatform.intel.com/2026.2/edge-ai-libraries/dlstreamer/dev_guide/optimizer.html)
-- [VLM Alerts Sample](https://github.com/open-edge-platform/dlstreamer/blob/main/samples/gstreamer/python/vlm_alerts)
-- [Face Detection and Classification Sample](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/python/face_detection_and_classification)
+- [VLM Alerts Sample](https://github.com/open-edge-platform/dlstreamer/blob/v2026.2.0/samples/gstreamer/python/vlm_alerts)
+- [Face Detection and Classification Sample](https://github.com/open-edge-platform/dlstreamer/tree/v2026.2.0/samples/gstreamer/python/face_detection_and_classification)
 - [Intel OpenVINO](https://github.com/openvinotoolkit/openvino)

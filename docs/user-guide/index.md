@@ -2,10 +2,10 @@
 
 <!--hide_directive
 <div class="component_card_widget">
-  <a class="icon_github" href="https://github.com/open-edge-platform/dlstreamer">
+  <a class="icon_github" href="https://github.com/open-edge-platform/dlstreamer/tree/v2026.2.0/">
      GitHub
   </a>
-  <a class="icon_document" href="https://github.com/open-edge-platform/dlstreamer/blob/main/README.md">
+  <a class="icon_document" href="https://github.com/open-edge-platform/dlstreamer/blob/v2026.2.0/README.md">
      Readme
   </a>
 </div>
@@ -48,7 +48,7 @@ Media analytics — the analysis of video and audio streams to detect, classify,
 
 **DL Streamer** uses OpenVINO™ Runtime inference back-end,
 optimized for Intel hardware platforms and supports over
-[70 NN Intel and open-source community pre-trained models](https://github.com/open-edge-platform/dlstreamer/blob/main/docs/scripts/supported_models.json), and models converted
+[70 NN Intel and open-source community pre-trained models](https://github.com/open-edge-platform/dlstreamer/blob/v2026.2.0/docs/scripts/supported_models.json), and models converted
 [from other training frameworks](https://docs.openvino.ai/2026/openvino-workflow/model-preparation/convert-model-to-ir.html).
 These models include object detection, object classification, human pose
 detection, sound classification, semantic segmentation, and other use
@@ -63,7 +63,7 @@ and in [the documentation](./dev_guide/metadata.md).
 **DL Streamer** provides over 30 samples, demos and
 reference apps for the most common media analytics use cases. They are
 included in
-[Deep Learning Streamer Pipeline Framework](https://github.com/open-edge-platform/dlstreamer/tree/main),
+[Deep Learning Streamer Pipeline Framework](https://github.com/open-edge-platform/dlstreamer/tree/v2026.2.0),
 [Deep Learning Streamer Pipeline Server](https://github.com/open-edge-platform/edge-ai-libraries/tree/release-2026.2.0/microservices/dlstreamer-pipeline-server),
 [Open Visual Cloud](https://github.com/OpenVisualCloud), and
 [Intel® Edge Software Hub](https://www.intel.com/content/www/us/en/edge-computing/edge-software-hub.html)
