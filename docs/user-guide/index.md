@@ -16,7 +16,7 @@ hide_directive-->
 **Deep Learning Streamer (DL Streamer)** is an open-source media analytics framework built on [GStreamer\*](https://gstreamer.freedesktop.org). It lets you build video and audio intelligence pipelines — from a simple object detection command line to a multi-stream production deployment — with minimal code, running on Intel® CPU, GPU, and NPU. DL Streamer consists of:
 
 - [Deep Learning Streamer Pipeline
-  Framework](https://github.com/open-edge-platform/dlstreamer/tree/main)
+  Framework](https://github.com/open-edge-platform/dlstreamer/tree/v2026.2.0)
   for designing, creating, building, and running media analytics
   pipelines. It includes C++ and Python APIs.
 - [Deep Learning Streamer Pipeline
