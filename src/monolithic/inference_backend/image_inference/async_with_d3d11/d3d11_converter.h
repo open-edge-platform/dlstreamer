@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "inference_backend/image.h"
 #include "inference_backend/input_image_layer_descriptor.h"
 
 #include <memory>
@@ -23,8 +24,11 @@ class D3D11Converter {
     D3D11Converter(const D3D11Converter &) = delete;
     D3D11Converter &operator=(const D3D11Converter &) = delete;
 
+    // roi selects the source sub-rectangle to preprocess. A zero-sized roi means "use the
+    // whole surface" (full-frame inference).
     void Convert(GstBuffer *src_buffer, GstBuffer *dst_buffer, const InputImageLayerDesc::Ptr &pre_proc_info = nullptr,
-                 const ImageTransformationParams::Ptr &image_transform_info = nullptr);
+                 const ImageTransformationParams::Ptr &image_transform_info = nullptr,
+                 const Rectangle<uint32_t> &roi = {});
 
     bool IsCompatible(uint32_t src_width, uint32_t src_height, DXGI_FORMAT src_format) const {
         return _src_width == src_width && _src_height == src_height && _src_format == src_format;
