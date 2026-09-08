@@ -9,7 +9,7 @@ The `g3dlidarsrc` element is the live-capture counterpart to `g3dlidarparse`. Wh
 It is implemented as a `GstPushSrc` live source. The current backend is **RoboSense** (via the header-only `rs_driver` SDK), and the only hardware tested so far is the **RSE1 (E1R)**. Other RoboSense models that `rs_driver` advertises support for (RS16, RS32, RS128, RSM1, etc.) are not validated here. The element has **no compile-time dependency** on any vendor SDK: each vendor is a separate backend shared library that the element loads at runtime via `dlopen`, selected by the config's `vendor` field (see [Vendor backends](#vendor-backends) below).
 
 Key operations:
-- **Configuration-driven setup**: A JSON `config` file declares the `vendor`, `model`, and `transport`. 
+- **Configuration-driven setup**: A JSON `config` file declares the `vendor`, `model`, and `transport`.
 - **Real-time capture and decode**: A vendor SDK thread receives and decodes raw packets; completed frames are queued and handed to the pipeline.
 - **Point-cloud conversion**: Each frame is converted into a contiguous `float[x, y, z, intensity]` payload, identical in layout to `g3dlidarparse` output.
 - **Metadata attachment**: Emits `LidarMeta` (point count, frame_id, timestamp, stream_id) on every buffer.
@@ -75,7 +75,7 @@ When `vendor` is `robosense`, the `params` object can carry the following keys t
 
 Keys are parsed and validated by the RoboSense backend on startup: any unrecognized key (typos included) fails the pipeline with an error listing every accepted key.
 
-The fields below are validated on the only model we have tested (**RSE1**). 
+The fields below are validated on the only model we have tested (**RSE1**).
 
 | Key               | Group   | Type    | Default  | Description                                                                                                                                                                                                                                                |
 |-------------------|---------|---------|----------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -255,7 +255,7 @@ Plugin Details:
   License                  MIT/X11
   Source module            dlstreamer
   Binary package           Deep Learning Streamer elements
-  Origin URL               https://github.com/open-edge-platform/dlstreamer/tree/main
+  Origin URL               https://github.com/open-edge-platform/dlstreamer/tree/v2026.2.0
 
 GObject
  +----GInitiallyUnowned
