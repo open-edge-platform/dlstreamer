@@ -131,6 +131,7 @@ ImagePreprocessorType ImagePreprocessorTypeFromString(const std::string &image_p
         {"vaapi-surface-sharing", ImagePreprocessorType::VAAPI_SURFACE_SHARING},
         {"va", ImagePreprocessorType::VAAPI_SYSTEM},
         {"va-surface-sharing", ImagePreprocessorType::VAAPI_SURFACE_SHARING},
+        {"va-npu-dmabuf", ImagePreprocessorType::VAAPI_NPU_DMABUF},
         {"opencv", ImagePreprocessorType::OPENCV},
         {"d3d11", ImagePreprocessorType::D3D11},
         {"d3d11-surface-sharing", ImagePreprocessorType::D3D11_SURFACE_SHARING}};
