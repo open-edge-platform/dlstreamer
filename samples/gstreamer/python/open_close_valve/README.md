@@ -260,24 +260,34 @@ wget -P ./videos https://github.com/open-edge-platform/edge-ai-resources/raw/mai
 ```
 </br>
 
-#### Model file
+#### Model files
+The sample requires two models and expects them under the directory pointed to by the
+`MODELS_PATH` environment variable (see [`scripts/download_models/README.md`](../../../../scripts/download_models/README.md)
+for setup notes - virtual environment, dependencies).
+
+__yolo11s__ (truck/vehicle detection) is prepared with [`download_ultralytics_models.py`](../../../../scripts/download_models/download_ultralytics_models.py):
+
+```
+python download_ultralytics_models.py --model yolo11s --outdir $MODELS_PATH/public
+```
 
 __dima806/vehicle_10_types_image_detection__ is a Hugging Face model and is prepared with [`download_hf_models.py`](../../../../scripts/download_models/download_hf_models.py):
 
 ```
-python download_hf_models.py --model dima806/vehicle_10_types_image_detection --outdir ./models
+python download_hf_models.py --model dima806/vehicle_10_types_image_detection --outdir $MODELS_PATH/public
 ```
 
-This produces `./models/dima806_vehicle_10_types_image_detection/FP16/dima806_vehicle_10_types_image_detection.xml` (and matching `.bin`), the path already referenced by the sample's `gvaclassify` element. No model-proc file is required for this model.
-
-> **NOTE**: See [`scripts/download_models/README.md`](../../../../scripts/download_models/README.md) for setup notes (virtual environment, dependencies).
+This produces `$MODELS_PATH/public/yolo11s/FP16/yolo11s.xml` and
+`$MODELS_PATH/public/dima806_vehicle_10_types_image_detection/FP16/dima806_vehicle_10_types_image_detection.xml`
+(each with a matching `.bin`), the paths referenced by the sample's `gvadetect` and `gvaclassify` elements.
+No model-proc file is required for either model.
 
 ## Sample execution
 
 #### Command line
 
 ```
-<open-close-valve-sample folder>: python3 open_close_valve_sample.py
+<open-close-valve-sample folder>: MODELS_PATH=/path/to/models python3 open_close_valve_sample.py
 ```
 ## Sample Output
 

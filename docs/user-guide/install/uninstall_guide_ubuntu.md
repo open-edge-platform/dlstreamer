@@ -1,7 +1,6 @@
 # Uninstall Guide Ubuntu
 
 ## Option #1: Uninstall Deep Learning Streamer Pipeline Framework from APT repository
-=======
 
 If you installed via APT, just use its uninstall command:
 
@@ -18,7 +17,6 @@ sudo apt-get autoremove
 ```
 
 ## Option #2: Remove Deep Learning Streamer Pipeline Framework Docker image
-=======
 
 If you used docker, you only need to remove the appropriate container and dlstreamer docker
 image:

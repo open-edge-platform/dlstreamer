@@ -337,8 +337,11 @@ fi
 # Set the name of the virtual environment directory (single venv for all operations)
 VENV_DIR="$HOME/.virtualenvs/dlstreamer"
 
-# Create a Python virtual environment if it doesn't exist
-if [ ! -d "$VENV_DIR" ]; then
+# A directory can exist but be incomplete (e.g. leftover from an interrupted/killed prior run),
+# so check for the activate script itself rather than just the directory.
+if [ ! -f "$VENV_DIR/bin/activate" ]; then
+  echo "Removing stale/incomplete virtual environment in $VENV_DIR..."
+  rm -rf "$VENV_DIR"
   echo "Creating virtual environment in $VENV_DIR..."
   $PYTHON_CREATE_VENV -m venv "$VENV_DIR" || handle_error $LINENO
 fi
@@ -350,9 +353,9 @@ source "$VENV_DIR/bin/activate"
 # Install all required packages for main virtual environment
 pip install --no-cache-dir --upgrade pip      || handle_error $LINENO
 pip install --no-cache-dir numpy==2.2.6       || handle_error $LINENO
-pip install --no-cache-dir openvino==2026.2.0 || handle_error $LINENO
+pip install --no-cache-dir openvino==2026.3.1 || handle_error $LINENO
 pip install --no-cache-dir onnx==1.21.0       || handle_error $LINENO
-pip install --no-cache-dir onnxscript==0.5.7  || handle_error $LINENO
+pip install --no-cache-dir onnxscript==0.7.1  || handle_error $LINENO
 pip install --no-cache-dir seaborn==0.13.2    || handle_error $LINENO
 pip install --no-cache-dir opencv-python-headless==4.12.0.88 || handle_error $LINENO
 pip install --no-cache-dir nncf==2.19.0       || handle_error $LINENO
@@ -387,7 +390,7 @@ if array_contains "yolox-tiny" "${MODELS_TO_PROCESS[@]}"; then
     python -m pip install --upgrade pip                 || handle_error $LINENO
     pip install --no-cache-dir "openvino-dev==2024.6.0" || handle_error $LINENO
     pip install --no-cache-dir --upgrade --extra-index-url https://download.pytorch.org/whl/cpu torch==2.13.0 torchaudio==2.11.0 torchvision==0.28.0 || handle_error $LINENO
-    pip install --no-cache-dir onnxscript==0.5.7        || handle_error $LINENO
+    pip install --no-cache-dir onnxscript==0.7.1        || handle_error $LINENO
 
     omz_downloader --name "$MODEL_NAME"
     omz_converter --name "$MODEL_NAME"
@@ -458,6 +461,9 @@ if array_contains "yolov7" "${MODELS_TO_PROCESS[@]}"; then
     
     # Patch for PyTorch 2.6+ compatibility (weights_only parameter)
     sed -i 's/torch\.load(w, map_location=map_location)/torch.load(w, map_location=map_location, weights_only=False)/g' models/experimental.py
+
+    # Use the legacy ONNX exporter because the YOLOv7 graph is incompatible with Dynamo.
+    sed -i 's/opset_version=12, input_names=/opset_version=12, dynamo=False, input_names=/' export.py
     
     python3 export.py --weights  yolov7.pt  --grid --dynamic-batch
     ovc yolov7.onnx --compress_to_fp16=True

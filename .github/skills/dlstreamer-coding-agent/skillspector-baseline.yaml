@@ -1,0 +1,44 @@
+# SkillSpector baseline — findings listed here are suppressed on future scans.
+# Edit 'reason' fields and add glob 'rules' as needed. See docs/SUPPRESSION.md.
+version: 2
+scanner_version: 2.9.6
+rules:
+  - id: "PE5"
+    message: "*--device /dev/*"
+    reason: >-
+      Reviewed: Docker command runs as non-root (-u) with only render-node
+      device access for GPU/NPU inference. No privileged mode or container
+      escape vector.
+  - id: "PE5"
+    path: "references/*"
+    message: "*--network host*"
+    reason: >-
+      Reviewed: --network host appears in reference docs as a Docker hint
+      for WebRTC signaling connectivity, not executable code.
+  - id: "RP1"
+    path: "**/*.md"
+    reason: >-
+      Reviewed: intel/dlstreamer:latest is the documented default image tag
+      for DL Streamer. The skill intentionally uses :latest so that users
+      always pull the most recent stable release without manual version bumps.
+fingerprints:
+  - hash: sha256:88973bbb8b9d579e0b7fe911dfe16f09bea7fa2f206a8097b23728b2ea9a0706
+    rule_id: RP1
+    file: SKILL.md
+    reason: intel/dlstreamer:latest is the documented default image tag
+  - hash: sha256:27d6cee265d8fc0b86e867d743a5b2a9f91db6508eef3fdefc12770ad4c19b6a
+    rule_id: RP1
+    file: SKILL.md
+    reason: intel/dlstreamer:latest is the documented default image tag
+  - hash: sha256:57a2ea6f235e164547ed045a26ecaad64681b465c2c03d97d7ed7beb05393325
+    rule_id: RP1
+    file: SKILL.md
+    reason: intel/dlstreamer:latest is the documented default image tag
+  - hash: sha256:6d057cfd4dd7897fecf0c0fcc3be3ec00ae523b0d3f0d6200bb74df4594eda7a
+    rule_id: RP1
+    file: references/debugging-hints.md
+    reason: intel/dlstreamer:latest is the documented default image tag
+  - hash: sha256:129cd9592889f3f85d0e5592ce1ddcd5a579da1a9cbbb06d97d2d4e935384844
+    rule_id: RP1
+    file: references/model-preparation.md
+    reason: intel/dlstreamer:latest is the documented default image tag

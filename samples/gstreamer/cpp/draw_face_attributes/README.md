@@ -22,18 +22,25 @@ The sample uses by default the following pre-trained models from OpenVINO™ Too
 ## Running
 
 ```sh
-./build_and_run.sh [INPUT_VIDEO]
+./build_and_run.sh [INPUT_VIDEO] [OUTPUT] [DEVICE] [OUTPUT_DIRECTORY]
 ```
 
 The script `build_and_run.sh` compiles the C++ sample into subfolder under `$HOME/intel/dl_streamer`, then runs the executable file.
 
-If no input parameters specified, the sample by default streams video example from HTTPS link (utilizing `urisourcebin` element) so requires internet connection.
+The script takes four command-line *optional* parameters:
+1. [INPUT_VIDEO] input video file.
+If not specified, the sample by default streams video example from HTTPS link (utilizing `urisourcebin` element) so requires internet connection.
 The command-line parameter INPUT_VIDEO allows to change input video and supports
 * local video file
 * web camera device (ex. `/dev/video0`)
 * RTSP camera (URL starting with `rtsp://`) or other streaming source (ex URL starting with `http://`)
+2. [OUTPUT] output mode (default: `json`). Valid values: `display`, `display-and-json`, `json`, `file`.
+3. [DEVICE] inference device (default: `CPU`).
+4. [OUTPUT_DIRECTORY] directory `output.json` is copied to after the run (default: `/home/dlstreamer/`,
+   matching the DL Streamer Docker image's default user home). On a bare-metal install this
+   directory likely doesn't exist, so pass an existing writable directory (e.g. `.`) explicitly.
 
-> **NOTE**: You may need the following dependencies to build the sample:
+> **NOTE:** You may need the following dependencies to build the sample:
 ```sh
 sudo apt install cmake make build-essential
 ## On ubuntu24 you may also need libopencv-dev to build the sample

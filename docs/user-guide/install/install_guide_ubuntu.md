@@ -55,7 +55,7 @@ NPU:
 
 More details about the packages can be found in:
 
-- [Intel® Installing Client GPUs](https://dgpu-docs.intel.com/driver/client/overview.html#installing-client-gpus).
+- [Intel® Installing Client GPUs](https://dgpu-docs.intel.com/installation-guides/index.html).
 - [Media](https://github.com/intel/media-driver/releases).
 - [NPU](https://github.com/intel/linux-npu-driver/releases/tag/v1.28.0).
 
@@ -117,7 +117,7 @@ drivers. For more details see [prerequisites](#prerequisites).
   sudo bash -c 'echo "deb [signed-by=/usr/share/keyrings/intel-gpg-archive-keyring.gpg] https://apt.repos.intel.com/openvino ubuntu24 main" | sudo tee /etc/apt/sources.list.d/intel-openvino.list'
   ```
 
-  > **NOTE:** If you have OpenVINO™ installed in any version other than 2026.2.0,
+  > **NOTE:** If you have OpenVINO™ installed in any version other than 2026.3.1,
   > please uninstall the OpenVINO™ packages using the following commands.
 
   ```bash

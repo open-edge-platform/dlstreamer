@@ -23,13 +23,14 @@ runs:
         sudo apt-get install --no-install-recommends -y clang-format curl ca-certificates build-essential
         curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
         sudo apt-get install -y nodejs
-        npm install -g diff2html-cli
+        cd "${{ github.action_path }}" && npm ci --ignore-scripts
       shell: bash
 
     - name: Run code style check
       id: code-style-check
       env:
         target_dir: ${{ inputs.target_dir }}
+        DIFF2HTML_BIN: ${{ github.action_path }}/node_modules/.bin/diff2html
       run: |
         chmod +x ${target_dir}/.github/actions/common/code-style/entrypoint.sh
         ${target_dir}/.github/actions/common/code-style/entrypoint.sh "${target_dir}" || echo "STYLE_ISSUES=true" >> $GITHUB_OUTPUT
