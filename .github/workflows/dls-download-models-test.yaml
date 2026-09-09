@@ -6,6 +6,9 @@ on:
 
 permissions: {}
 
+env:
+  UV_INDEX_STRATEGY: unsafe-best-match
+
 jobs:
   setup:
     name: Setup models downloading test configuration
