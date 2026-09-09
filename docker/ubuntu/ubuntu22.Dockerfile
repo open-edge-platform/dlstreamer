@@ -101,6 +101,8 @@ RUN \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
+RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin sh
+
 RUN \
     useradd -ms /bin/bash dlstreamer && \
     mkdir /python3venv && \
@@ -110,9 +112,9 @@ RUN \
 USER dlstreamer
 
 RUN \
-    python3 -m venv /python3venv && \
-    /python3venv/bin/pip3 install --no-cache-dir --upgrade pip==26.1.2 && \
-    /python3venv/bin/pip3 install --no-cache-dir --no-dependencies \
+    uv venv /python3venv && \
+    VIRTUAL_ENV=/python3venv uv pip install --no-cache-dir --upgrade pip==26.1.2 && \
+    VIRTUAL_ENV=/python3venv uv pip install --no-cache-dir --no-deps \
     meson==1.4.1 \
     ninja==1.11.1.1 \
     numpy==2.2.0 \
@@ -434,7 +436,7 @@ RUN \
     chown -R dlstreamer:dlstreamer /home/dlstreamer
 
 # Install python dependencies
-RUN pip3 install --no-cache-dir --break-system-packages --ignore-installed -r "${DLSTREAMER_DIR}/requirements.txt"
+RUN uv pip install --system --no-cache-dir --break-system-packages -r "${DLSTREAMER_DIR}/requirements.txt"
 
 # ==============================================================================
 FROM dlstreamer-dev AS deb-builder
@@ -551,12 +553,14 @@ COPY --from=deb-builder /*.deb /debs/
 
 ARG DEBIAN_FRONTEND=noninteractive
 
+RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin sh
+
 RUN \
     apt-get update -y && \
     apt-get install -y -q --no-install-recommends /debs/*.deb gcc=\* ninja-build=\* libcairo2-dev=\* libgirepository1.0-dev=\* && \
-    pip3 install --no-cache-dir pip==26.1.2 setuptools==84.0.0 wheel==0.46.2 packaging==24.2 && \
-    pip3 install --no-cache-dir meson==1.6.1 && \
-    pip3 install --no-cache-dir --ignore-installed -r /opt/intel/dlstreamer/requirements.txt && \
+    uv pip install --system --no-cache-dir pip==26.1.2 setuptools==84.0.0 wheel==0.46.2 packaging==24.2 && \
+    uv pip install --system --no-cache-dir meson==1.6.1 && \
+    uv pip install --system --no-cache-dir -r /opt/intel/dlstreamer/requirements.txt && \
     apt-get remove -y gcc ninja-build libcairo2-dev libgirepository1.0-dev && \
     apt-get autoremove -y && \
     apt-get clean -y && \

@@ -112,13 +112,19 @@ jobs:
             exit 1
           fi
 
+      - name: Ensure uv is installed
+        run: |
+          # Check if uv is installed, if not install it
+          if ! command -v uv >/dev/null 2>&1; then
+            curl -LsSf https://astral.sh/uv/install.sh | sh
+          fi
+
       - name: Set up a Python environment
         if: needs.setup.outputs.should_run == 'true'
         run: |
-          python3 -m venv ~/python3venv
+          uv venv ~/python3venv
           source ~/python3venv/bin/activate
-          pip install --upgrade pip==24.0
-          pip install meson==1.4.1 ninja==1.11.1.1
+          uv pip install meson==1.4.1 ninja==1.11.1.1
 
       - name: Install OpenVINO
         if: needs.setup.outputs.should_run == 'true'
@@ -214,7 +220,7 @@ jobs:
 
           source ~/python3venv/bin/activate
           cd ${{ env.DLS_REL_PATH }}
-          python3 -m pip install -r requirements.txt
+          uv pip install -r requirements.txt
 
       - name: 🐍 Build and test intel-dlstreamer Python wheel
         if: needs.setup.outputs.should_run == 'true'
@@ -222,18 +228,17 @@ jobs:
         run: |
           # Build the wheel from python/pyproject.toml
           source ~/python3venv/bin/activate
-          pip install --quiet build
-          python -m build --wheel ${{ env.DLS_REL_PATH }}/python
+          uv build --wheel ${{ env.DLS_REL_PATH }}/python
           WHL=$(ls ${{ env.DLS_REL_PATH }}/python/dist/intel_dlstreamer-*.whl)
           echo "Built wheel: $WHL"
 
           # Install in isolated venv with access to system gi/GStreamer bindings
-          python3 -m venv --system-site-packages $HOME/.virtualenvs/dlstreamer-whl-test
+          uv venv --system-site-packages $HOME/.virtualenvs/dlstreamer-whl-test
 
           echo "--- site-packages BEFORE wheel install ---"
           ls $HOME/.virtualenvs/dlstreamer-whl-test/lib/python*/site-packages/
 
-          $HOME/.virtualenvs/dlstreamer-whl-test/bin/pip install "$WHL"
+          VIRTUAL_ENV=$HOME/.virtualenvs/dlstreamer-whl-test uv pip install "$WHL"
 
           echo "--- site-packages AFTER wheel install ---"
           ls $HOME/.virtualenvs/dlstreamer-whl-test/lib/python*/site-packages/

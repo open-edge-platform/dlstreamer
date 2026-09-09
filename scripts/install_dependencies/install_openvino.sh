@@ -124,6 +124,16 @@ error() {
     exit 1
 }
 
+ensure_uv_installed() {
+    if command -v uv >/dev/null 2>&1; then
+        return 0
+    fi
+    echo "uv not found, installing..."
+    curl -LsSf https://astral.sh/uv/install.sh | sh || error "ERROR: failed to install uv"
+    export PATH="$HOME/.local/bin:$PATH"
+    command -v uv >/dev/null 2>&1 || error "ERROR: uv installation failed"
+}
+
 get_options "$@"
 
 # ==============================================================================
@@ -232,15 +242,25 @@ fi
 if [ "$INSTALL_DEV_TOOLS" == "true" ]; then
     export DEBIAN_FRONTEND=noninteractive
     $RUN_PREFIX "${update_cmd[@]}"
-    $RUN_PREFIX "${install_cmd[@]}" python3-pip python3-sympy && pip3 install --upgrade pip setuptools
+    $RUN_PREFIX "${install_cmd[@]}" python3-sympy
+    ensure_uv_installed
+
+    # Preserve original pip-based behavior: only force the system interpreter
+    # when no venv is currently active (e.g. this script run via `sudo -E`
+    # with a venv already activated in the calling shell).
+    UV_SYSTEM_FLAGS=()
+    if [ -z "${VIRTUAL_ENV:-}" ]; then
+        UV_SYSTEM_FLAGS=(--system --break-system-packages)
+    fi
+
     if [ -n "$EXTRA_PYPI_INDEX_URL" ]; then
-        $RUN_PREFIX python3 -m pip config set global.extra-index-url "${EXTRA_PYPI_INDEX_URL}"
+        export UV_EXTRA_INDEX_URL="${EXTRA_PYPI_INDEX_URL}"
     fi
     if [ -n "$OV_SHORT_VERSION" ]; then
         echo "Installing explicitly requested developer tools version ${OV_SHORT_VERSION}..."
-        $RUN_PREFIX python3 -m pip install 'openvino-dev[onnx,tensorflow,tensorflow2,pytorch,mxnet,kaldi,caffe]'=="${OV_SHORT_VERSION}"
+        $RUN_PREFIX uv pip install "${UV_SYSTEM_FLAGS[@]}" --no-cache-dir 'openvino-dev[onnx,tensorflow,tensorflow2,pytorch,mxnet,kaldi,caffe]'=="${OV_SHORT_VERSION}"
     else
-        $RUN_PREFIX python3 -m pip install 'openvino-dev[onnx,tensorflow,tensorflow2,pytorch,mxnet,kaldi,caffe]'
+        $RUN_PREFIX uv pip install "${UV_SYSTEM_FLAGS[@]}" --no-cache-dir 'openvino-dev[onnx,tensorflow,tensorflow2,pytorch,mxnet,kaldi,caffe]'
     fi
 fi
 
