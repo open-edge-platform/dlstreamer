@@ -17,6 +17,5 @@ PUBLIC
     model_proc
 PRIVATE
     openvino_inference_backend
-    dlstreamer_cpu
 )
 
