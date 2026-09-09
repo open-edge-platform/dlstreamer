@@ -131,6 +131,13 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Ensure uv is installed
+        run: |
+          # Check if uv is installed, if not install it
+          if ! command -v uv >/dev/null 2>&1; then
+            curl -LsSf https://astral.sh/uv/install.sh | sh
+          fi
+
       - name: Create venv and install Ultralytics script dependencies
         if: needs.setup.outputs.should_run == 'true'
         run: |
@@ -196,6 +203,13 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 #7.0.1
         with:
           persist-credentials: false
+
+      - name: Ensure uv is installed
+        run: |
+          # Check if uv is installed, if not install it
+          if ! command -v uv >/dev/null 2>&1; then
+            curl -LsSf https://astral.sh/uv/install.sh | sh
+          fi
 
       - name: Create venv and install TIMM script dependencies
         if: needs.setup.outputs.should_run == 'true'
@@ -398,6 +412,13 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 #7.0.1
         with:
           persist-credentials: false
+
+      - name: Ensure uv is installed
+        run: |
+          # Check if uv is installed, if not install it
+          if ! command -v uv >/dev/null 2>&1; then
+            curl -LsSf https://astral.sh/uv/install.sh | sh
+          fi
 
       - name: Create venv and install Ultralytics script dependencies
         if: needs.setup.outputs.should_run == 'true'

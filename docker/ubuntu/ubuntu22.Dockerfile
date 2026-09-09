@@ -436,7 +436,7 @@ RUN \
     chown -R dlstreamer:dlstreamer /home/dlstreamer
 
 # Install python dependencies
-RUN uv pip install --system --no-cache-dir --break-system-packages -r "${DLSTREAMER_DIR}/requirements.txt"
+RUN VIRTUAL_ENV=/python3venv uv pip install --no-cache-dir --break-system-packages -r "${DLSTREAMER_DIR}/requirements.txt"
 
 # ==============================================================================
 FROM dlstreamer-dev AS deb-builder

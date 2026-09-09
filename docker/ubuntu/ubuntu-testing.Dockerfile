@@ -38,7 +38,7 @@ COPY ./requirements.txt /home/dlstreamer/requirements.txt
 
 RUN \
     uv venv /python3venv && \
-    VIRTUAL_ENV=/python3venv uv pip install  --no-cache-dir --no-dependencies -r /home/dlstreamer/requirements.txt
+    VIRTUAL_ENV=/python3venv uv pip install  --no-cache-dir --no-deps -r /home/dlstreamer/requirements.txt
 
 ENV PATH=/python3venv/bin:$PATH
 
