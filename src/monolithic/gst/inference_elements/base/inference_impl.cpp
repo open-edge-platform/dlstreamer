@@ -230,10 +230,6 @@ InferenceConfig CreateNestedInferenceConfig(GvaBaseInference *gva_base_inference
     for (const auto &element : Utils::stringToMap(gva_base_inference->pre_proc_config)) {
         if (element.first == KEY_VAAPI_THREAD_POOL_SIZE || element.first == KEY_VAAPI_FAST_SCALE_LOAD_FACTOR)
             preproc[element.first] = element.second;
-        if (element.first == KEY_NPU_DMABUF_ZERO_COPY) {
-            preproc[element.first] = element.second;
-            base[element.first] = element.second;
-        }
     }
 
     config[KEY_BASE] = base;
@@ -350,25 +346,14 @@ GetPreferredImagePreproc(CapsFeature caps, const std::vector<ModelInputProcessor
     case VA_MEMORY_CAPS_FEATURE:
         if ((device.find("NPU") != std::string::npos) || (device.find("AUTO") != std::string::npos) ||
             (device.find("MULTI") != std::string::npos)) {
-            auto zc_it = base_config.find(KEY_NPU_DMABUF_ZERO_COPY);
-            bool npu_zero_copy_disabled = (zc_it != base_config.end() && zc_it->second == "0");
-            if (!npu_zero_copy_disabled && device.find("NPU") != std::string::npos)
-                result = ImagePreprocessorType::VAAPI_NPU_DMABUF;
-            else
-                result = ImagePreprocessorType::VAAPI_SYSTEM;
+            result = ImagePreprocessorType::VAAPI_SYSTEM;
         } else {
             result = ImagePreprocessorType::VAAPI_SURFACE_SHARING;
         }
         break;
-    case DMA_BUF_CAPS_FEATURE: {
-        auto zc_it = base_config.find(KEY_NPU_DMABUF_ZERO_COPY);
-        bool npu_zero_copy_disabled = (zc_it != base_config.end() && zc_it->second == "0");
-        if (!npu_zero_copy_disabled && device.find("NPU") != std::string::npos)
-            result = ImagePreprocessorType::VAAPI_NPU_DMABUF;
-        else
-            result = ImagePreprocessorType::VAAPI_SYSTEM;
+    case DMA_BUF_CAPS_FEATURE:
+        result = ImagePreprocessorType::VAAPI_SYSTEM;
         break;
-    }
     case D3D11_MEMORY_CAPS_FEATURE:
         result = ImagePreprocessorType::D3D11;
         break;
