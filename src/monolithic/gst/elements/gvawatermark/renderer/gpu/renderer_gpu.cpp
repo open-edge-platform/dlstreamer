@@ -1439,6 +1439,13 @@ bool RendererGPU::get_planes(VASurfaceID surface, cl_mem planes[2]) {
     _plane_cache.emplace(surface, imported);
     planes[0] = imported[0];
     planes[1] = imported[1];
+
+    /* The pool is fixed, so this should stop growing within the first few
+     * frames and then never again. A count that keeps climbing over a long run
+     * means surfaces are not being recycled and the imports are a leak, which
+     * is otherwise only visible as GPU memory growth. */
+    GST_DEBUG("gvawatermark GPU renderer: imported surface %u, %zu in the plane cache",
+              static_cast<unsigned>(surface), _plane_cache.size());
     return true;
 }
 
