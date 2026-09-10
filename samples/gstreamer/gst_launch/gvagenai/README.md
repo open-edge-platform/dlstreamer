@@ -158,7 +158,7 @@ Tokenizer::encode is not available
 ```
 - **Cause:** The tokenizer file is missing or corrupted
 - **Solution:** 
-  1. Install sentencepiece: `pip install sentencepiece`
+  1. Install sentencepiece: `uv pip install sentencepiece`
   2. Re-export the model with the required `export-requirements.txt`
 
 **Video preprocessing not implemented:**

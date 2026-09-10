@@ -38,8 +38,7 @@ You can modify the script to use other detection models (e.g., person detection,
 If Python requirements are not installed yet:
 
 ```sh
-python3 -m pip install --upgrade pip
-python3 -m pip install -r ../../../../requirements.txt
+uv pip install -r ../../../../requirements.txt
 ```
 
 Run sample:

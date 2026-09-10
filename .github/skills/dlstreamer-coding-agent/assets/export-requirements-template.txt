@@ -1,8 +1,8 @@
 # Model export dependencies for {{APP_NAME}}
-# Run once before starting the pipeline: pip install -r export_requirements.txt
+# Run once before starting the pipeline: uv pip install -r export_requirements.txt
 
 # IMPORTANT: CPU-only PyTorch — must appear before any torch-dependent package.
-# Without this, pip resolves the default CUDA-enabled PyTorch (multi-GB download).
+# Without this, uv resolves the default CUDA-enabled PyTorch (multi-GB download).
 # Model export only needs CPU inference.
 --extra-index-url https://download.pytorch.org/whl/cpu
 
