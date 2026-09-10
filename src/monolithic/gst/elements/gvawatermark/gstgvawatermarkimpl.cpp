@@ -39,6 +39,13 @@
 #include "renderer/color_converter.h"
 #include "renderer/cpu/create_renderer.h"
 
+// Renders primitives straight into the VA surface planes with OpenCL, with no
+// NV12<->BGR round trip. Needs both VA (for the surface) and OpenCL.
+#if defined(ENABLE_GVAWATERMARK_GPU) && defined(ENABLE_VAAPI) && !defined(_WIN32)
+#define GVA_WATERMARK_GPU_RENDERER 1
+#include "renderer/gpu/renderer_gpu.h"
+#endif
+
 #include <array>
 #include <exception>
 #include <optional>
@@ -130,11 +137,14 @@ InferenceBackend::MemoryType memoryTypeFromCaps(GstCaps *caps) {
 
 struct Impl {
     Impl(GstVideoInfo *info, InferenceBackend::MemoryType mem_type, GstElement *element, bool displ_avgfps,
-         gchar *displ_cfg);
+         gchar *displ_cfg, const gchar *device);
     bool extract_primitives(GstBuffer *buffer);
     int get_num_primitives() const;
     bool render(GstBuffer *buffer);
-    [[nodiscard]] bool render_va(cv::Mat *overlay, cv::UMat *frame);
+    /* Renders into the VA surface with OpenCL. Returns false when the path is
+     * unavailable or the frame contains a primitive it cannot draw yet; the
+     * caller must then fall back to render(). */
+    [[nodiscard]] bool render_gpu(VADisplay display, VASurfaceID surface);
     const std::string &getBackendType() const {
         return _backend_type;
     }
@@ -155,22 +165,23 @@ struct Impl {
 
     std::unique_ptr<Renderer> createRenderer(std::shared_ptr<ColorConverter> converter);
 
-    std::unique_ptr<Renderer> createGPURenderer(dlstreamer::ImageFormat format,
-                                                std::shared_ptr<ColorConverter> converter,
-                                                InferenceBackend::MemoryType mem_type,
-                                                dlstreamer::ContextPtr vaapi_context);
-
-    std::unique_ptr<Renderer> createOpenCVRenderer(std::shared_ptr<ColorConverter> converter);
-
     GstVideoInfo *_vinfo;
     GstElement *_element;
     GstElement *_gvafpscounter_element = nullptr;
     std::string _backend_type;
     InferenceBackend::MemoryType _mem_type;
 
-    SharedObject::Ptr _gpurenderer_loader;
     std::unique_ptr<Renderer> _renderer;
-    std::unique_ptr<Renderer> _renderer_opencv;
+
+    /* Kept alive for the GPU renderer, which is created lazily on the first VA
+     * frame (the VADisplay is not known when Impl is constructed). */
+    std::shared_ptr<ColorConverter> _converter;
+#ifdef GVA_WATERMARK_GPU_RENDERER
+    std::unique_ptr<RendererGPU> _renderer_gpu;
+    bool _renderer_gpu_unavailable = false; // sticky: do not retry creation per frame
+    bool _renderer_gpu_active = false;      // logging only
+    std::string _renderer_gpu_declined;     // logging only, last reported fallback reason
+#endif
 
     std::vector<render::Prim> prims;
 
@@ -383,7 +394,8 @@ static gboolean gst_gva_watermark_impl_set_caps(GstBaseTransform *trans, GstCaps
 
     try {
         gvawatermark->impl = std::make_shared<Impl>(&gvawatermark->info, mem_type, GST_ELEMENT(trans),
-                                                    gvawatermark->displ_avgfps, gvawatermark->displ_cfg);
+                                                    gvawatermark->displ_avgfps, gvawatermark->displ_cfg,
+                                                    gvawatermark->device);
     } catch (const std::exception &e) {
         GST_ELEMENT_ERROR(gvawatermark, CORE, FAILED, ("Could not initialize"),
                           ("Cannot create watermark instance. %s", Utils::createNestedErrorMsg(e).c_str()));
@@ -465,31 +477,6 @@ static void gst_gva_watermark_impl_set_context(GstElement *elem, GstContext *con
         self->vaapi_ctx = std::make_shared<dlstreamer::VAAPIContext>(self->va_dpy);
         self->gst_to_vaapi = std::make_shared<dlstreamer::MemoryMapperGSTToVAAPI>(self->gst_ctx, self->vaapi_ctx);
         GST_INFO_OBJECT(self, "Initialized VAAPI context and GST->VAAPI mapper");
-
-        static bool ocl_ctx_inited = false;
-        if (!ocl_ctx_inited && !g_getenv("VA_GPU_DISABLE_VA_OCL_INIT")) {
-            try {
-                cv::va_intel::ocl::initializeContextFromVA(self->va_dpy, /*interop*/ true);
-                GST_INFO_OBJECT(self, "OpenCV VA/OpenCL context initialized (zero-copy requested)");
-                ocl_ctx_inited = true;
-
-                if (cv::ocl::useOpenCL()) {
-                    cv::ocl::Device dev = cv::ocl::Device::getDefault();
-#if defined(CV_VERSION_MAJOR)
-                    GST_INFO_OBJECT(self, "OpenCL device: %s (vendor=%s version=%s driver=%s)", dev.name().c_str(),
-                                    dev.vendorName().c_str(), dev.version().c_str(), dev.driverVersion().c_str());
-#else
-                    GST_INFO_OBJECT(self, "OpenCL device: %s (vendorID=%d version=%s)", dev.name().c_str(),
-                                    dev.vendorID(), dev.version().c_str());
-#endif
-                } else {
-                    GST_WARNING_OBJECT(self, "OpenCL not active after initializeContextFromVA");
-                }
-            } catch (const cv::Exception &e) {
-                GST_WARNING_OBJECT(self, "initializeContextFromVA failed: %s (will use fallback copies if any)",
-                                   e.what());
-            }
-        }
     }
 #endif // ENABLE_VAAPI && !_WIN32
 
@@ -610,53 +597,14 @@ static GstFlowReturn gst_gva_watermark_impl_transform_ip(GstBaseTransform *trans
         if (use_gpu_path) {
             GST_TRACE_OBJECT(gvawatermark, "Using VA/GPU render path");
 
-            VASurfaceID sid = VA_INVALID_SURFACE;
-            sid = get_surface_from_buffer(buf);
+            VASurfaceID sid = get_surface_from_buffer(buf);
             if (sid == VA_INVALID_SURFACE) {
                 GST_WARNING_OBJECT(gvawatermark,
                                    "Mapped frame is not VAAPIFrame and GstVA fallback failed; pass-through");
                 use_gpu_path = false;
             } else {
-                GST_INFO_OBJECT(gvawatermark, "Using GstVA, VASurfaceID=%d", (int)sid);
-                // At this point you have valid VADisplay (self->va_dpy) and VASurfaceID (sid)
-                GST_LOG_OBJECT(gvawatermark, "Got VADisplay=%p, VASurfaceID=%d", gvawatermark->va_dpy, (int)sid);
-
-                const int width = GST_VIDEO_INFO_WIDTH(&gvawatermark->info);
-                const int height = GST_VIDEO_INFO_HEIGHT(&gvawatermark->info);
-
-                if (!gvawatermark->overlay_ready || gvawatermark->overlay_cpu.empty() ||
-                    gvawatermark->overlay_cpu.cols != width || gvawatermark->overlay_cpu.rows != height ||
-                    gvawatermark->overlay_cpu.type() != CV_8UC3) {
-
-                    gvawatermark->overlay_cpu.create(height, width, CV_8UC3);
-                    gvawatermark->overlay_ready = true;
-                    GST_INFO_OBJECT(gvawatermark, "Allocated CPU overlay (%dx%d CV_8UC3)", width, height);
-                }
-
-                // Clear only once per frame (fast memset on host)
-                gvawatermark->overlay_cpu.setTo(cv::Scalar(0, 0, 0, 0));
-
-                if (!cv::ocl::useOpenCL()) {
-                    GST_WARNING_OBJECT(gvawatermark, "OpenCL not available; skipping GPU render for this frame");
-                    use_gpu_path = false;
-                } else {
-                    cv::UMat u;
-                    cv::va_intel::convertFromVASurface(gvawatermark->va_dpy, sid, cv::Size(width, height), u);
-
-                    bool has_overlay = gvawatermark->impl->render_va(&(gvawatermark->overlay_cpu), &u);
-
-                    if (has_overlay) {
-                        // Upload once (host -> UMat). OpenCL runtime can keep it on device afterward.
-                        gvawatermark->overlay_cpu.copyTo(gvawatermark->overlay_gpu);
-
-                        cv::UMat gray, mask;
-                        cv::cvtColor(gvawatermark->overlay_gpu, gray, cv::COLOR_BGR2GRAY);
-                        cv::threshold(gray, mask, 0, 255, cv::THRESH_BINARY);
-                        gvawatermark->overlay_gpu.copyTo(u, mask);
-                    }
-
-                    cv::va_intel::convertToVASurface(gvawatermark->va_dpy, u, sid, cv::Size(width, height));
-                }
+                GST_TRACE_OBJECT(gvawatermark, "Got VADisplay=%p, VASurfaceID=%d", gvawatermark->va_dpy, (int)sid);
+                use_gpu_path = gvawatermark->impl->render_gpu(gvawatermark->va_dpy, sid);
             }
         }
 #endif // ENABLE_VAAPI
@@ -738,8 +686,9 @@ static void gst_gva_watermark_impl_class_init(GstGvaWatermarkImplClass *klass) {
 }
 
 Impl::Impl(GstVideoInfo *info, InferenceBackend::MemoryType mem_type, GstElement *element, bool displ_avgfps,
-           gchar *displ_cfg)
-    : _vinfo(info), _element(element), _mem_type(mem_type), _displ_avgfps(displ_avgfps), _displ_cfg(displ_cfg) {
+           gchar *displ_cfg, const gchar *device)
+    : _vinfo(info), _element(element), _backend_type(device ? device : DEFAULT_DEVICE), _mem_type(mem_type),
+      _displ_avgfps(displ_avgfps), _displ_cfg(displ_cfg) {
     assert(_vinfo);
     if (GST_VIDEO_INFO_COLORIMETRY(_vinfo).matrix == GstVideoColorMatrix::GST_VIDEO_COLOR_MATRIX_UNKNOWN)
         throw std::runtime_error("GST_VIDEO_COLOR_MATRIX_UNKNOWN");
@@ -749,12 +698,9 @@ Impl::Impl(GstVideoInfo *info, InferenceBackend::MemoryType mem_type, GstElement
     gst_video_color_matrix_get_Kr_Kb(colorimetry.matrix, &Kr, &Kb);
 
     dlstreamer::ImageFormat format = dlstreamer::gst_format_to_video_format(GST_VIDEO_INFO_FORMAT(_vinfo));
-    std::shared_ptr<ColorConverter> converter = create_color_converter(format, color_table, Kr, Kb);
-    std::shared_ptr<ColorConverter> converterBGR =
-        create_color_converter(dlstreamer::ImageFormat::BGR, color_table, Kr, Kb);
+    _converter = create_color_converter(format, color_table, Kr, Kb);
 
-    _renderer = createRenderer(std::move(converter));
-    _renderer_opencv = createOpenCVRenderer(std::move(converterBGR));
+    _renderer = createRenderer(_converter);
 
     // Find gvafpscounter element in the pipeline to put avg-fps on output video
     if (_displ_avgfps)
@@ -906,40 +852,53 @@ bool Impl::render(GstBuffer *buffer) {
     return true;
 }
 
-bool Impl::render_va(cv::Mat *overlay, cv::UMat *frame) {
+bool Impl::render_gpu(VADisplay display, VASurfaceID surface) {
     ITT_TASK(__FUNCTION__);
 
+#ifdef GVA_WATERMARK_GPU_RENDERER
     if (prims.empty())
+        return true;
+    if (_renderer_gpu_unavailable)
         return false;
 
-    // Apply blur directly on the GPU-resident UMat frame (via OpenCL T-API).
-    // Blur must happen before overlay compositing — it modifies existing pixels,
-    // which the black-overlay + binary-mask approach cannot express.
-    bool has_overlay_prims = false;
-    for (auto it = prims.begin(); it != prims.end();) {
-        if (std::holds_alternative<render::Blur>(*it)) {
-            const auto &blur = std::get<render::Blur>(*it);
-            cv::Rect r = blur.rect;
-            if (r.width <= 0 || r.height <= 0) {
-                it = prims.erase(it);
-                continue;
-            }
-            cv::Size ksize = render::computeBlurKernelSize(r.width, r.height);
-            cv::UMat roi(*frame, r);
-            cv::GaussianBlur(roi, roi, ksize, 0, 0);
-            it = prims.erase(it);
-        } else {
-            has_overlay_prims = true;
-            ++it;
+    if (!_renderer_gpu) {
+        // NV12 only; anything else keeps using the CPU renderer.
+        if (GST_VIDEO_INFO_FORMAT(_vinfo) != GST_VIDEO_FORMAT_NV12) {
+            GST_INFO_OBJECT(_element, "OpenCL watermark renderer has no path for %s; using the CPU renderer",
+                            gst_video_format_to_string(GST_VIDEO_INFO_FORMAT(_vinfo)));
+            _renderer_gpu_unavailable = true;
+            return false;
+        }
+        _renderer_gpu = RendererGPU::create(display, GST_VIDEO_INFO_WIDTH(_vinfo), GST_VIDEO_INFO_HEIGHT(_vinfo),
+                                            _converter);
+        if (!_renderer_gpu) {
+            GST_WARNING_OBJECT(_element, "Could not create the OpenCL watermark renderer; using the CPU renderer");
+            _renderer_gpu_unavailable = true;
+            return false;
         }
     }
 
-    // Render remaining (non-blur) primitives onto the CPU overlay
-    if (has_overlay_prims) {
-        _renderer_opencv->draw_va(*overlay, prims);
+    if (_renderer_gpu->draw_surface(surface, prims)) {
+        if (!_renderer_gpu_active) {
+            _renderer_gpu_active = true;
+            GST_INFO_OBJECT(_element, "OpenCL watermark renderer active");
+        }
+        return true;
     }
 
-    return has_overlay_prims;
+    // Only report each distinct reason once: the fallback is per frame, and the
+    // primitive mix is usually the same on every frame.
+    if (_renderer_gpu_declined != _renderer_gpu->last_unsupported()) {
+        _renderer_gpu_declined = _renderer_gpu->last_unsupported();
+        GST_INFO_OBJECT(_element, "OpenCL watermark renderer declined the frame (%s); using the CPU renderer",
+                        _renderer_gpu_declined.c_str());
+    }
+    return false;
+#else
+    UNUSED(display);
+    UNUSED(surface);
+    return false;
+#endif
 }
 
 inline bool Impl::is_ROI_filtered_out(const std::string &label) const {
@@ -1326,13 +1285,6 @@ std::unique_ptr<Renderer> Impl::createRenderer(std::shared_ptr<ColorConverter> c
 
     dlstreamer::ImageFormat format = dlstreamer::gst_format_to_video_format(GST_VIDEO_INFO_FORMAT(_vinfo));
     auto buf_mapper = BufferMapperFactory::createMapper(InferenceBackend::MemoryType::SYSTEM);
-    return create_cpu_renderer(format, converter, std::move(buf_mapper));
-}
-
-std::unique_ptr<Renderer> Impl::createOpenCVRenderer(std::shared_ptr<ColorConverter> converter) {
-
-    auto buf_mapper = BufferMapperFactory::createMapper(InferenceBackend::MemoryType::SYSTEM);
-    auto format = dlstreamer::ImageFormat::BGR;
     return create_cpu_renderer(format, converter, std::move(buf_mapper));
 }
 

@@ -15,11 +15,9 @@
 #ifndef _WIN32
 #include <dlstreamer/gst/context.h>
 #include <dlstreamer/vaapi/context.h>
-#include <opencv2/core/va_intel.hpp>
 #endif
 
 #include <opencv2/core.hpp>
-#include <opencv2/core/ocl.hpp>
 #include <opencv2/imgproc.hpp>
 
 G_BEGIN_DECLS
@@ -51,10 +49,6 @@ struct _GstGvaWatermarkImpl {
     std::shared_ptr<dlstreamer::VAAPIContext> vaapi_ctx;
     std::shared_ptr<dlstreamer::MemoryMapperGSTToVAAPI> gst_to_vaapi;
 #endif
-
-    bool overlay_ready = false;
-    cv::Mat overlay_cpu;
-    cv::UMat overlay_gpu;
 };
 
 struct _GstGvaWatermarkImplClass {
