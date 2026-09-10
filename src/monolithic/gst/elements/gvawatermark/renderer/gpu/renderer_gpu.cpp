@@ -206,8 +206,8 @@ bool RendererGPU::SharedContext::build(VADisplay display) {
      * to the CPU renderer if the extension is missing. */
     for (cl_platform_id platform : platforms) {
         auto ext = [platform](const char *name) { return clGetExtensionFunctionAddressForPlatform(platform, name); };
-        auto get_devices =
-            reinterpret_cast<clGetDeviceIDsFromVA_APIMediaAdapterINTEL_fn>(ext("clGetDeviceIDsFromVA_APIMediaAdapterINTEL"));
+        auto get_devices = reinterpret_cast<clGetDeviceIDsFromVA_APIMediaAdapterINTEL_fn>(
+            ext("clGetDeviceIDsFromVA_APIMediaAdapterINTEL"));
         auto create_surface =
             reinterpret_cast<clCreateFromVA_APIMediaSurfaceINTEL_fn>(ext("clCreateFromVA_APIMediaSurfaceINTEL"));
         auto acquire_fn = reinterpret_cast<clEnqueueAcquireVA_APIMediaSurfacesINTEL_fn>(
@@ -228,10 +228,8 @@ bool RendererGPU::SharedContext::build(VADisplay display) {
          * on the driver, so the acquire/release pair around the kernels is all
          * the sync we need; no explicit vaSyncSurface. */
         cl_context_properties props[] = {CL_CONTEXT_VA_API_DISPLAY_INTEL,
-                                         reinterpret_cast<cl_context_properties>(display),
-                                         CL_CONTEXT_INTEROP_USER_SYNC,
-                                         CL_FALSE,
-                                         0};
+                                         reinterpret_cast<cl_context_properties>(display), CL_CONTEXT_INTEROP_USER_SYNC,
+                                         CL_FALSE, 0};
         cl_context ctx = clCreateContext(props, 1, &dev, nullptr, nullptr, &err);
         if (!ctx || err != CL_SUCCESS) {
             cl_ok(err, "clCreateContext");
@@ -764,7 +762,8 @@ void RendererGPU::insert_span(std::vector<SpanRec> &row, int a, int b, const cl_
             ++i;
             continue;
         }
-        const bool left = x1 < a, right = x2 > b;
+        const bool left = (x1 < a);
+        const bool right = (x2 > b);
         if (left && right) {
             /* The old entry is split in two. Taking a copy of the colour first
              * matters: push_back may reallocate and invalidate row[i]. */
@@ -807,9 +806,8 @@ bool RendererGPU::add_raster(BatchId span_id, const renderer_gpu::Raster &raster
     for (const cv::Point &pt : raster.points)
         _merge.push_back({pt.y, pt.x, pt.x});
 
-    std::sort(_merge.begin(), _merge.end(), [](const Span &a, const Span &b) {
-        return a.y != b.y ? a.y < b.y : a.x1 < b.x1;
-    });
+    std::sort(_merge.begin(), _merge.end(),
+              [](const Span &a, const Span &b) { return a.y != b.y ? a.y < b.y : a.x1 < b.x1; });
 
     /* Runs go into the per-row lists rather than straight into a group, because
      * work items of one NDRange are unordered: two records covering the same
@@ -1090,15 +1088,13 @@ bool RendererGPU::flatten_blur(const render::Blur &blur) {
         /* sepFilter2D takes the integer fixed-point path only when *both*
          * kernels quantize exactly, so the decision is per blur, not per
          * kernel. In practice that means the small kernels of a small ROI. */
-        add_blur(job.id, job.rect, job.cn, job.ksize.width, job.ksize.height, *cx, *cy,
-                 cx->int_valid && cy->int_valid);
+        add_blur(job.id, job.rect, job.cn, job.ksize.width, job.ksize.height, *cx, *cy, cx->int_valid && cy->int_valid);
     }
     return true;
 }
 
 bool RendererGPU::flatten_instance_mask(const render::InstanceSegmantationMask &mask) {
-    if (mask.size.width <= 0 || mask.size.height <= 0 ||
-        mask.data.size() != static_cast<size_t>(mask.size.area())) {
+    if (mask.size.width <= 0 || mask.size.height <= 0 || mask.data.size() != static_cast<size_t>(mask.size.area())) {
         _last_unsupported = "malformed instance segmentation mask";
         return false;
     }
@@ -1140,9 +1136,9 @@ bool RendererGPU::flatten_instance_mask(const render::InstanceSegmantationMask &
         if (roi_uv.width > 0 && roi_uv.height > 0) {
             cv::resize(raw_cls_mask, resized_uv, {half_coord(w) + 1, half_coord(h) + 1});
             const int bx_uv = half_coord(box.x), by_uv = half_coord(box.y);
-            cv::threshold(resized_uv({cv::Point(x0_uv - bx_uv, y0_uv - by_uv),
-                                      cv::Point(x1_uv - bx_uv, y1_uv - by_uv)}),
-                          binary_uv, 0.5f, 1.0f, cv::THRESH_BINARY);
+            cv::threshold(
+                resized_uv({cv::Point(x0_uv - bx_uv, y0_uv - by_uv), cv::Point(x1_uv - bx_uv, y1_uv - by_uv)}),
+                binary_uv, 0.5f, 1.0f, cv::THRESH_BINARY);
             binary_uv.convertTo(binary_uv, CV_8U);
         }
     } catch (const cv::Exception &e) {
@@ -1444,8 +1440,8 @@ bool RendererGPU::get_planes(VASurfaceID surface, cl_mem planes[2]) {
      * frames and then never again. A count that keeps climbing over a long run
      * means surfaces are not being recycled and the imports are a leak, which
      * is otherwise only visible as GPU memory growth. */
-    GST_DEBUG("gvawatermark GPU renderer: imported surface %u, %zu in the plane cache",
-              static_cast<unsigned>(surface), _plane_cache.size());
+    GST_DEBUG("gvawatermark GPU renderer: imported surface %u, %zu in the plane cache", static_cast<unsigned>(surface),
+              _plane_cache.size());
     return true;
 }
 
@@ -1467,8 +1463,7 @@ bool RendererGPU::enqueue(const Group &group, cl_mem image, int image_w, int ima
                                 static_cast<size_t>(p.a.s[3])};
         cl_mem side = is_blur ? _coeff_buffer : _blob_buffer;
         if (!side) {
-            GST_WARNING("gvawatermark GPU renderer: %s dispatch without its data buffer",
-                        is_blur ? "blur" : "blend");
+            GST_WARNING("gvawatermark GPU renderer: %s dispatch without its data buffer", is_blur ? "blur" : "blend");
             return false;
         }
 
@@ -1587,8 +1582,7 @@ bool RendererGPU::draw_surface(VASurfaceID surface, std::vector<render::Prim> pr
 
     /* Release makes the writes visible to VA; the following finish makes them
      * visible to the downstream element. */
-    cl_ok(_shared->release(_queue, n_planes, planes, 0, nullptr, nullptr),
-          "clEnqueueReleaseVA_APIMediaSurfacesINTEL");
+    cl_ok(_shared->release(_queue, n_planes, planes, 0, nullptr, nullptr), "clEnqueueReleaseVA_APIMediaSurfacesINTEL");
     if (!cl_ok(clFinish(_queue), "clFinish"))
         return false;
 

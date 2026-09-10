@@ -155,8 +155,7 @@ inline void line2(P2L pt1, P2L pt2, int w, int h, Raster &out) {
     };
     /* Line2 emits the far endpoint before walking, so a zero-length run still
      * paints one pixel. */
-    put(static_cast<int>((pt2.x + (XY_ONE >> 1)) >> XY_SHIFT),
-        static_cast<int>((pt2.y + (XY_ONE >> 1)) >> XY_SHIFT));
+    put(static_cast<int>((pt2.x + (XY_ONE >> 1)) >> XY_SHIFT), static_cast<int>((pt2.y + (XY_ONE >> 1)) >> XY_SHIFT));
     if (ax > ay) {
         pt1.x >>= XY_SHIFT;
         for (; ecount >= 0; --ecount, ++pt1.x, pt1.y += y_step)
@@ -349,8 +348,8 @@ inline void thick_line(cv::Point pt1, cv::Point pt2, int thickness, int caps, in
     /* drawing.cpp:1650 - a thick line with an endpoint outside the frame is
      * first clipped to a rect grown by `thickness`, which moves the point the
      * cap disc is centred on. Skipping this costs a pixel at the frame border. */
-    if (thickness > 1 && (p0.x < 0 || p0.x >= w || p0.y < 0 || p0.y >= h || p1.x < 0 || p1.x >= w || p1.y < 0 ||
-                          p1.y >= h)) {
+    if (thickness > 1 &&
+        (p0.x < 0 || p0.x >= w || p0.y < 0 || p0.y >= h || p1.x < 0 || p1.x >= w || p1.y < 0 || p1.y >= h)) {
         const long long m = thickness;
         p0.x += m;
         p0.y += m;
@@ -387,10 +386,8 @@ inline void thick_line(cv::Point pt1, cv::Point pt2, int thickness, int caps, in
     if (std::fabs(r) > DBL_EPSILON) {
         r = (th + odd_thickness * XY_ONE * 0.5) / std::sqrt(r);
         const long long dpx = cvRound(ddy * r), dpy = cvRound(ddx * r);
-        const P2L quad[4] = {{p0.x + dpx, p0.y + dpy},
-                             {p0.x - dpx, p0.y - dpy},
-                             {p1.x - dpx, p1.y - dpy},
-                             {p1.x + dpx, p1.y + dpy}};
+        const P2L quad[4] = {
+            {p0.x + dpx, p0.y + dpy}, {p0.x - dpx, p0.y - dpy}, {p1.x - dpx, p1.y - dpy}, {p1.x + dpx, p1.y + dpy}};
         fill_convex_poly(quad, 4, w, h, out);
     }
 

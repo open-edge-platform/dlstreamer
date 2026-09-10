@@ -393,9 +393,9 @@ static gboolean gst_gva_watermark_impl_set_caps(GstBaseTransform *trans, GstCaps
 #endif
 
     try {
-        gvawatermark->impl = std::make_shared<Impl>(&gvawatermark->info, mem_type, GST_ELEMENT(trans),
-                                                    gvawatermark->displ_avgfps, gvawatermark->displ_cfg,
-                                                    gvawatermark->device);
+        gvawatermark->impl =
+            std::make_shared<Impl>(&gvawatermark->info, mem_type, GST_ELEMENT(trans), gvawatermark->displ_avgfps,
+                                   gvawatermark->displ_cfg, gvawatermark->device);
     } catch (const std::exception &e) {
         GST_ELEMENT_ERROR(gvawatermark, CORE, FAILED, ("Could not initialize"),
                           ("Cannot create watermark instance. %s", Utils::createNestedErrorMsg(e).c_str()));
@@ -869,8 +869,8 @@ bool Impl::render_gpu(VADisplay display, VASurfaceID surface) {
             _renderer_gpu_unavailable = true;
             return false;
         }
-        _renderer_gpu = RendererGPU::create(display, GST_VIDEO_INFO_WIDTH(_vinfo), GST_VIDEO_INFO_HEIGHT(_vinfo),
-                                            _converter);
+        _renderer_gpu =
+            RendererGPU::create(display, GST_VIDEO_INFO_WIDTH(_vinfo), GST_VIDEO_INFO_HEIGHT(_vinfo), _converter);
         if (!_renderer_gpu) {
             GST_WARNING_OBJECT(_element, "Could not create the OpenCL watermark renderer; using the CPU renderer");
             _renderer_gpu_unavailable = true;
