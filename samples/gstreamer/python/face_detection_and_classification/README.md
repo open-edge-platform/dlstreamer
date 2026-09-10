@@ -67,14 +67,14 @@ This sample uses two models from Hugging Face:
 Create and activate a virtual environment:
 
 ```sh
-python3 -m venv .face_det_cls_venv
+uv venv .face_det_cls_venv
 source .face_det_cls_venv/bin/activate
 ```
 
 Install dependencies:
 
 ```sh
-pip install -r requirements.txt
+uv pip install -r requirements.txt
 ```
 
 > Note: Dependencies are pinned in [requirements.txt](requirements.txt) for reproducible installs.

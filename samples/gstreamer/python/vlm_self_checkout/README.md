@@ -67,10 +67,10 @@ A **GObject signal bridge** communicates analytics results from Path 2 back to P
 - Python dependencies installed with:
 
 ```bash
-python3 -m venv .vlm-self-checkout-venv
+uv venv .vlm-self-checkout-venv
 source .vlm-self-checkout-venv/bin/activate
 curl -LO https://raw.githubusercontent.com/openvinotoolkit/openvino.genai/refs/heads/releases/2026/3/samples/export-requirements.txt
-pip install -r export-requirements.txt -r requirements.txt
+uv pip install -r export-requirements.txt -r requirements.txt
 ```
 
 ## Model Preparation

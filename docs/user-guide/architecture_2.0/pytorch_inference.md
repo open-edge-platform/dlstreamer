@@ -20,10 +20,11 @@ installing DL Streamer.
    apt-get install -y python3-intel-dlstreamer
    ```
 
-2. Python requirements are installed. If not, install using
+2. Python requirements and `uv` are installed. If not, install using
    `reqirements.txt` file:
 
    ```bash
+   curl -LsSf https://astral.sh/uv/install.sh | sh
    python3 -m pip install --upgrade pip
    python3 -m pip install -r requirements.txt
    ```

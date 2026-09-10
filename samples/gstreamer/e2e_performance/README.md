@@ -127,7 +127,7 @@ the DL Streamer path uses the `gvawatermark` element.
 If any Python packages are missing:
 
 ```
-pip install openvino opencv-python numpy ultralytics
+uv pip install openvino opencv-python numpy ultralytics
 ```
 
 `ultralytics` is only needed for the one-time model export on first run.
