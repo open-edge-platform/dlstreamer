@@ -375,7 +375,7 @@ uv pip install --no-cache-dir requests==2.32.5   || handle_error $LINENO
 uv pip install --no-cache-dir pyyaml==6.0.3   || handle_error $LINENO
 
 # Install PyTorch CPU version
-uv pip install --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cpu torch==2.13.0 torchaudio==2.11.0 torchvision==0.28.0 || handle_error $LINENO
+uv pip install --no-cache-dir --index-strategy unsafe-best-match --extra-index-url https://download.pytorch.org/whl/cpu torch==2.13.0 torchaudio==2.11.0 torchvision==0.28.0 || handle_error $LINENO
 
 echo Downloading models to folder "$MODELS_PATH".
 set -euo pipefail
@@ -399,7 +399,7 @@ if array_contains "yolox-tiny" "${MODELS_TO_PROCESS[@]}"; then
     uv venv "$HOME/.virtualenvs/dlstreamer_openvino_dev" --python "$PYTHON_CREATE_VENV" || handle_error $LINENO
     source "$HOME/.virtualenvs/dlstreamer_openvino_dev/bin/activate"
     uv pip install --no-cache-dir "openvino-dev==2024.6.0" || handle_error $LINENO
-    uv pip install --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cpu torch==2.13.0 torchaudio==2.11.0 torchvision==0.28.0 || handle_error $LINENO
+    uv pip install --no-cache-dir --index-strategy unsafe-best-match --extra-index-url https://download.pytorch.org/whl/cpu torch==2.13.0 torchaudio==2.11.0 torchvision==0.28.0 || handle_error $LINENO
     uv pip install --no-cache-dir onnxscript==0.7.1        || handle_error $LINENO
 
     omz_downloader --name "$MODEL_NAME"
