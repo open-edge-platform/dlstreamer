@@ -56,6 +56,7 @@ python download_hf_models.py \
   --model <huggingface_model_id> \
   [--outdir <output_dir>] \
   [--token <hf_token>] \
+  [--export-variant clip-zeroshot] \
   [--extra_args <arg1> <arg2> ...]
 ```
 
@@ -64,6 +65,7 @@ python download_hf_models.py \
 - `--model` (required): Hugging Face model id. You can pass either a plain repo id such as `google/gemma-3-4b-it` or an explicit `repo_id@revision` override.
 - `--outdir` (optional, default `.`): Output directory.
 - `--token` (optional): HF token for gated/private models.
+- `--export-variant clip-zeroshot` (optional): Export a projected CLIP image encoder for zero-shot classification.
 - `--extra_args` (optional): Extra arguments forwarded to `optimum-cli export openvino` for standard exports. Values that start with `--` are supported.
 
 ### Behavior
@@ -82,6 +84,10 @@ Use `repo_id@revision` to make runs reproducible.
 ```bash
 # Standard HF export
 python download_hf_models.py --model google/gemma-3-4b-it --outdir ./exports
+
+# CLIP image encoder for zero-shot classification
+python download_hf_models.py --model openai/clip-vit-base-patch32 \
+  --export-variant clip-zeroshot --outdir ./exports
 
 # Pass extra args through to optimum-cli
 python download_hf_models.py --model openbmb/MiniCPM-V-2_6 --extra_args --weight-format int4 --outdir ./exports
