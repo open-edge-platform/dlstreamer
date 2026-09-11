@@ -44,9 +44,11 @@
 
 #include <functional>
 #include <iterator>
+#include <mutex>
 #include <regex>
 #include <stdio.h>
 #include <thread>
+#include <unordered_map>
 
 using namespace InferenceBackend;
 
@@ -658,13 +660,25 @@ class OpenVinoNewApiImpl {
         return tensor;
     }
 
-    // Import DMA-BUF backed RGBP image into NPU as a remote tensor (zero-copy)
+    // Import DMA-BUF backed RGBP image into NPU as a remote tensor (zero-copy).
+    // The NPU context is created once and the imported tensor is cached per DMA-BUF fd:
+    // pool buffers keep stable fds for the element lifetime, and the VA-API VPP overwrites
+    // the same memory each frame, so a single import per fd can be reused across frames.
     ov::Tensor image_rgbp_dmabuf_to_npu_tensor(const Image &image) {
+        std::lock_guard<std::mutex> lock(_npu_dmabuf_cache_mutex);
+
+        const auto cached = _npu_dmabuf_tensor_cache.find(image.dma_fd);
+        if (cached != _npu_dmabuf_tensor_cache.end())
+            return cached->second;
+
+        if (!_npu_context)
+            _npu_context = std::make_unique<ov::intel_npu::level_zero::ZeroContext>(core());
+
         auto channels_num = get_channels_num(image.format);
         const ov::Shape shape{1, channels_num, size_t(image.height), size_t(image.width)};
-        ov::intel_npu::level_zero::ZeroContext npu_ctx(core());
-        auto remote_tensor = npu_ctx.create_tensor(ov::element::u8, shape, image.dma_fd);
-        return remote_tensor;
+        ov::Tensor remote_tensor = _npu_context->create_tensor(ov::element::u8, shape, image.dma_fd);
+
+        return _npu_dmabuf_tensor_cache.emplace(image.dma_fd, remote_tensor).first->second;
     }
 
     ov::Tensor image_bgrx_to_tensor(const Image &image) {
@@ -787,6 +801,13 @@ class OpenVinoNewApiImpl {
     dlstreamer::OpenVINOContextPtr _openvino_context;
     ov::CompiledModel _compiled_model;
     MemoryType _memory_type;
+
+    // Persistent NPU Level Zero context and per-DMA-BUF-fd remote tensor cache for the
+    // VAAPI_NPU_DMABUF zero-copy path (avoids re-creating a context and re-importing the fd
+    // on every inference, which leaks NPU imports and stalls inference over time).
+    std::unique_ptr<ov::intel_npu::level_zero::ZeroContext> _npu_context;
+    std::unordered_map<int, ov::Tensor> _npu_dmabuf_tensor_cache;
+    std::mutex _npu_dmabuf_cache_mutex;
 #ifdef ENABLE_D3D_NPU_COLOR_CONV
     InferenceBackend::ImagePreprocessorType _pp_type;
 #endif
