@@ -687,7 +687,10 @@ static void gst_gva_watermark_impl_class_init(GstGvaWatermarkImplClass *klass) {
 
 Impl::Impl(GstVideoInfo *info, InferenceBackend::MemoryType mem_type, GstElement *element, bool displ_avgfps,
            gchar *displ_cfg, const gchar *device)
-    : _vinfo(info), _element(element), _backend_type(device ? device : DEFAULT_DEVICE), _mem_type(mem_type),
+    // The "device" property defaults to NULL on this element, which set_caps reads as
+    // "pick the renderer from the memory type". DEFAULT_DEVICE is that NULL, so it must
+    // not reach the std::string here.
+    : _vinfo(info), _element(element), _backend_type(device ? device : ""), _mem_type(mem_type),
       _displ_avgfps(displ_avgfps), _displ_cfg(displ_cfg) {
     assert(_vinfo);
     if (GST_VIDEO_INFO_COLORIMETRY(_vinfo).matrix == GstVideoColorMatrix::GST_VIDEO_COLOR_MATRIX_UNKNOWN)
