@@ -79,7 +79,6 @@ Element Properties:
                         * enable-blur=<bool> enable ROI blurring for privacy protection, default false
                           NOTE : Blurring is applied only when "enable-blur=true"; if no "show-blur-roi" / "hide-blur-roi" filters are set, all ROIs are blurred
                           NOTE : show-blur-roi takes precedence over hide-blur-roi when both are specified
-                          NOTE : this option is supported only for CPU for now.
                         * show-blur-roi=<string> colon-separated list of object labels to blur (e.g., "face:person")
                         * hide-blur-roi=<string> colon-separated list of labels to exclude from blurring (show-blur-roi takes precedence)
                         * text-x=<float> x position (pixels) for full-frame text (e.g. from gvagenai), default 0
@@ -189,7 +188,7 @@ e.g `displ-cfg=show-labels=true,hide-roi=car`
 
 ### Blur Feature
 
-The gvawatermark element supports privacy protection through region of interest (ROI) blurring using OpenCV GaussianBlur with a dynamic kernel size as ~1/5 of each ROI dimension (minimum 7, always odd)
+The gvawatermark element supports privacy protection through region of interest (ROI) blurring using a Gaussian blur with a dynamic kernel size as ~1/5 of each ROI dimension (minimum 7, always odd)
 so the blur strength scales with the region. This feature is useful for anonymizing faces, license plates, or other sensitive content in video streams.
 
 #### Blur Configuration Parameters
@@ -251,7 +250,12 @@ displ-cfg=enable-blur=true,show-blur-roi=person:face,color-idx=0,font-scale=0.8
 
 ### Performance consideration
 
-**currently objects blur supported only on CPU**
+Blurring runs on whichever device the element is set to, including `device=GPU`.
+
+Unlike the rest of the watermark, the cost of a blur is proportional to the area
+of the regions being blurred, on either device. Blurring a large share of the
+frame is therefore expensive no matter the device, and gets more so with
+resolution.
 
 ### Configuration Examples
 
