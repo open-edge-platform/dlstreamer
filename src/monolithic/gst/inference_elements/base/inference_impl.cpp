@@ -114,6 +114,8 @@ inline std::string ImagePreprocessorTypeToString(ImagePreprocessorType type) {
         return "VA(API)";
     case ImagePreprocessorType::VAAPI_SURFACE_SHARING:
         return "VA(API)_SURFACE_SHARING";
+    case ImagePreprocessorType::VAAPI_NPU_DMABUF:
+        return "VA(API)_NPU_DMABUF";
     case ImagePreprocessorType::OPENCV:
         return "OPENCV";
     default:
@@ -129,6 +131,7 @@ ImagePreprocessorType ImagePreprocessorTypeFromString(const std::string &image_p
         {"vaapi-surface-sharing", ImagePreprocessorType::VAAPI_SURFACE_SHARING},
         {"va", ImagePreprocessorType::VAAPI_SYSTEM},
         {"va-surface-sharing", ImagePreprocessorType::VAAPI_SURFACE_SHARING},
+        {"va-npu-dmabuf", ImagePreprocessorType::VAAPI_NPU_DMABUF},
         {"opencv", ImagePreprocessorType::OPENCV},
         {"d3d11", ImagePreprocessorType::D3D11},
         {"d3d11-surface-sharing", ImagePreprocessorType::D3D11_SURFACE_SHARING}};
@@ -313,6 +316,8 @@ bool IsPreprocSupported(ImagePreprocessorType preproc,
         return !isNpu && !isCustomLib && IsModelProcSupportedForIE(model_input_processor_info, input_video_info);
     case ImagePreprocessorType::VAAPI_SYSTEM:
         return !isCustomLib && IsModelProcSupportedForVaapi(model_input_processor_info, input_video_info);
+    case ImagePreprocessorType::VAAPI_NPU_DMABUF:
+        return !isCustomLib && isNpu && IsModelProcSupportedForVaapi(model_input_processor_info, input_video_info);
     case ImagePreprocessorType::VAAPI_SURFACE_SHARING:
         return !isNpu && !isCustomLib &&
                IsModelProcSupportedForVaapiSurfaceSharing(model_input_processor_info, input_video_info);
@@ -402,6 +407,11 @@ void setPreprocessorType(InferenceConfig &config,
             selected_preprocessor = ImagePreprocessorType::VAAPI_SYSTEM;
             GVA_WARNING("'pre-process-backend=va-surface-sharing' not supported with current settings, falling back "
                         "to 'pre-process-backend=va'");
+        } else if (current == ImagePreprocessorType::VAAPI_NPU_DMABUF &&
+                   IsPreprocSupported(ImagePreprocessorType::VAAPI_SYSTEM, model_input_processor_info, input_video_info,
+                                      config[KEY_BASE])) {
+            selected_preprocessor = ImagePreprocessorType::VAAPI_SYSTEM;
+            GVA_WARNING("NPU DMA-BUF zero-copy not supported with current settings, falling back to VAAPI_SYSTEM");
         } else {
             // Throw an error if no suitable fallback is available
             throw std::runtime_error(
@@ -704,6 +714,7 @@ MemoryType GetMemoryType(MemoryType input_image_memory_type, ImagePreprocessorTy
             break;
         case ImagePreprocessorType::VAAPI_SURFACE_SHARING:
         case ImagePreprocessorType::VAAPI_SYSTEM:
+        case ImagePreprocessorType::VAAPI_NPU_DMABUF:
             type = input_image_memory_type;
             break;
         default:

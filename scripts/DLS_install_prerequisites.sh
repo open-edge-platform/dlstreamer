@@ -588,6 +588,24 @@ if $SUDO_PREFIX dmesg | grep -qi intel_vpu || lspci | grep -qi 'Intel.*NPU'; the
     else
         echo_color "Intel NPU driver is already installed in the correct version ($installed_version) and ready to use." "green"
     fi
+
+    #----------ENABLE NPU DMA-BUF ZERO-COPY ACCESS TO /dev/dma_heap/system----------
+    # The NPU zero-copy path imports a DMA-BUF allocated from /dev/dma_heap/system.
+    # By default this device is only accessible by root, so DL Streamer falls back
+    # to a slower GPU->CPU copy path. Install a persistent udev rule granting the
+    # 'render' group access so the zero-copy path works without root.
+    dma_heap_rule="/etc/udev/rules.d/99-dlstreamer-dma-heap.rules"
+    if [ ! -f "$dma_heap_rule" ]; then
+        echo_color " Configuring access to /dev/dma_heap/system for NPU DMA-BUF zero-copy..." "yellow"
+        echo 'SUBSYSTEM=="dma_heap", KERNEL=="system", GROUP="render", MODE="0660"' | $SUDO_PREFIX tee "$dma_heap_rule" > /dev/null
+        $SUDO_PREFIX udevadm control --reload-rules 2>/dev/null || true
+        $SUDO_PREFIX udevadm trigger --subsystem-match=dma_heap 2>/dev/null || true
+    fi
+    # Apply immediately for the current boot (udev may not retrigger an existing node).
+    if [ -e /dev/dma_heap/system ]; then
+        $SUDO_PREFIX chgrp render /dev/dma_heap/system 2>/dev/null || true
+        $SUDO_PREFIX chmod 0660 /dev/dma_heap/system 2>/dev/null || true
+    fi
 fi
 
 if [ "$need_to_logout" -eq 1 ]; then

@@ -11,6 +11,8 @@
 #include <cstddef>
 #include <openvino/runtime/properties.hpp>
 
+#include <openvino/runtime/intel_npu/level_zero/level_zero.hpp>
+
 #include <dlstreamer/openvino/context.h>
 #ifdef _WIN32
 #include <dlstreamer/d3d11/context.h>
@@ -42,9 +44,11 @@
 
 #include <functional>
 #include <iterator>
+#include <mutex>
 #include <regex>
 #include <stdio.h>
 #include <thread>
+#include <unordered_map>
 
 using namespace InferenceBackend;
 
@@ -74,6 +78,9 @@ struct fmt::formatter<InferenceBackend::ImagePreprocessorType> : formatter<strin
             break;
         case ImagePreprocessorType::D3D11_SURFACE_SHARING:
             name = "D3D11 Surface Sharing";
+            break;
+        case ImagePreprocessorType::VAAPI_NPU_DMABUF:
+            name = "VAAPI NPU DMA-BUF Zero-Copy";
             break;
         }
         return formatter<string_view>::format(name, ctx);
@@ -555,6 +562,7 @@ class OpenVinoNewApiImpl {
 
         switch (_memory_type) {
         case MemoryType::SYSTEM:
+        case MemoryType::DMA_BUFFER:
 #ifndef ENABLE_D3D_NPU_COLOR_CONV
             if (_model_format == "BGR")
                 format = FourCC::FOURCC_BGRP;
@@ -603,6 +611,8 @@ class OpenVinoNewApiImpl {
         switch (image.format) {
         case FourCC::FOURCC_RGBP:
         case FourCC::FOURCC_BGRP:
+            if (image.type == MemoryType::DMA_BUFFER && image.dma_fd >= 0)
+                return {image_rgbp_dmabuf_to_npu_tensor(image)};
             return {image_rgbp_to_tensor(image)};
 
         case FourCC::FOURCC_BGRA:
@@ -648,6 +658,27 @@ class OpenVinoNewApiImpl {
         }
 
         return tensor;
+    }
+
+    // Import DMA-BUF backed RGBP image into NPU as a remote tensor (zero-copy).
+    // The NPU context is created once and the imported tensor is cached per DMA-BUF fd:
+    // pool buffers keep stable fds for the element lifetime, and the VA-API VPP overwrites
+    // the same memory each frame, so a single import per fd can be reused across frames.
+    ov::Tensor image_rgbp_dmabuf_to_npu_tensor(const Image &image) {
+        std::lock_guard<std::mutex> lock(_npu_dmabuf_cache_mutex);
+
+        const auto cached = _npu_dmabuf_tensor_cache.find(image.dma_fd);
+        if (cached != _npu_dmabuf_tensor_cache.end())
+            return cached->second;
+
+        if (!_npu_context)
+            _npu_context = std::make_unique<ov::intel_npu::level_zero::ZeroContext>(core());
+
+        auto channels_num = get_channels_num(image.format);
+        const ov::Shape shape{1, channels_num, size_t(image.height), size_t(image.width)};
+        ov::Tensor remote_tensor = _npu_context->create_tensor(ov::element::u8, shape, image.dma_fd);
+
+        return _npu_dmabuf_tensor_cache.emplace(image.dma_fd, remote_tensor).first->second;
     }
 
     ov::Tensor image_bgrx_to_tensor(const Image &image) {
@@ -770,6 +801,13 @@ class OpenVinoNewApiImpl {
     dlstreamer::OpenVINOContextPtr _openvino_context;
     ov::CompiledModel _compiled_model;
     MemoryType _memory_type;
+
+    // Persistent NPU Level Zero context and per-DMA-BUF-fd remote tensor cache for the
+    // VAAPI_NPU_DMABUF zero-copy path (avoids re-creating a context and re-importing the fd
+    // on every inference, which leaks NPU imports and stalls inference over time).
+    std::unique_ptr<ov::intel_npu::level_zero::ZeroContext> _npu_context;
+    std::unordered_map<int, ov::Tensor> _npu_dmabuf_tensor_cache;
+    std::mutex _npu_dmabuf_cache_mutex;
 #ifdef ENABLE_D3D_NPU_COLOR_CONV
     InferenceBackend::ImagePreprocessorType _pp_type;
 #endif
@@ -936,7 +974,7 @@ class OpenVinoNewApiImpl {
 
         // OPENCV and VAAPI pre-processors handle color coversion and scaling, input tensors in NCHW format
         if (pp_type == ImagePreprocessorType::OPENCV || pp_type == ImagePreprocessorType::VAAPI_SYSTEM ||
-            pp_type == ImagePreprocessorType::D3D11) {
+            pp_type == ImagePreprocessorType::VAAPI_NPU_DMABUF || pp_type == ImagePreprocessorType::D3D11) {
             input.tensor().set_layout("NCHW");
         }
 

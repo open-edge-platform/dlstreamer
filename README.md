@@ -82,7 +82,7 @@ docker run -it --rm \
   intel/dlstreamer:latest
 ```
 
-> To use the NPU, also add `--device /dev/accel --group-add $(stat -c "%g" /dev/accel/accel*)` to the `docker run` command.
+> To use the NPU, also add `--device /dev/accel --group-add $(stat -c "%g" /dev/accel/accel*)` to the `docker run` command. For NPU DMA-BUF zero-copy, also add `--device /dev/dma_heap --group-add $(stat -c "%g" /dev/dma_heap/system)` (otherwise inference falls back to a slower GPU→CPU copy path).
 
 **Option B — Native install (Ubuntu 24.04)**:
 
