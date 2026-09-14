@@ -52,6 +52,8 @@ static GstStateChangeReturn gst_gva_streamdemux_change_state(GstElement *element
 static GstFlowReturn gst_gva_streamdemux_chain(GstPad *pad, GstObject *parent, GstBuffer *buf);
 static gboolean gst_gva_streamdemux_sink_event(GstPad *pad, GstObject *parent, GstEvent *event);
 static gboolean gst_gva_streamdemux_sink_query(GstPad *pad, GstObject *parent, GstQuery *query);
+static void gva_streamdemux_ensure_src_started(GstGvaStreamdemux *demux, GstPad *srcpad, guint index,
+                                               GstCaps *stream_caps);
 
 G_DEFINE_TYPE(GstGvaStreamdemux, gst_gva_streamdemux, GST_TYPE_ELEMENT);
 
@@ -307,28 +309,16 @@ static gboolean gst_gva_streamdemux_sink_event(GstPad *pad, GstObject *parent, G
             return TRUE;
         }
 
-        /* PASSTHROUGH mode: forward video caps to all src pads. Each src pad
-         * gets its own stream-start, caps, segment. */
+        /* PASSTHROUGH mode: all src pads share the sink caps. The first CAPS
+         * event starts each pad with stream-start/caps/segment; a later one
+         * only re-announces the caps, so an upstream format change reaches
+         * downstream without restarting the stream underneath it. */
         g_mutex_lock(&demux->lock);
         for (guint i = 0; i < demux->srcpads->len; i++) {
             GstPad *srcpad = (GstPad *)g_ptr_array_index(demux->srcpads, i);
             if (!srcpad)
                 continue;
-
-            /* Send stream-start */
-            gchar *stream_id = g_strdup_printf("gvastreamdemux/src_%u/%08x", i, g_random_int());
-            gst_pad_push_event(srcpad, gst_event_new_stream_start(stream_id));
-            g_free(stream_id);
-
-            /* Send caps */
-            gst_pad_push_event(srcpad, gst_event_new_caps(caps));
-
-            /* Send segment */
-            GstSegment segment;
-            gst_segment_init(&segment, GST_FORMAT_TIME);
-            gst_pad_push_event(srcpad, gst_event_new_segment(&segment));
-
-            GST_INFO_OBJECT(demux, "Sent stream-start/caps/segment to src_%u", i);
+            gva_streamdemux_ensure_src_started(demux, srcpad, i, caps);
         }
         g_mutex_unlock(&demux->lock);
 
@@ -410,28 +400,55 @@ static gboolean gst_gva_streamdemux_sink_query(GstPad *pad, GstObject *parent, G
     }
 }
 
-/* Ensure stream-start/caps/segment have been sent on a src pad before its first
- * buffer. stream_caps comes from the container stream (CONTAINER mode); if NULL
- * the pad keeps whatever caps were already set. Idempotent per pad via a flag
- * stored on the pad object. */
+/* Bring a src pad up to date before its next buffer is pushed.
+ *
+ * On the pad's first buffer this sends stream-start / caps / segment. On later
+ * buffers it re-sends caps, and only when they actually changed: a source can
+ * renegotiate mid-stream (in CONTAINER mode each stream carries its own caps in
+ * the batch meta), and downstream has to be told or it keeps interpreting the
+ * frames in the old format. stream-start and segment are deliberately not
+ * repeated -- a second stream-start would make downstream treat the change as a
+ * whole new stream, and a second segment would reset its running time.
+ *
+ * What was last announced on the pad is read back from its sticky CAPS event
+ * rather than tracked separately, so the two can never drift apart.
+ *
+ * stream_caps may be NULL, in which case the pad keeps whatever caps it has.
+ * Note that gst_pad_push_event() reports success for sticky events regardless
+ * of what the peer did with them, so a refusal is not visible here; it surfaces
+ * as GST_FLOW_NOT_NEGOTIATED on the following gst_pad_push(). */
 static void gva_streamdemux_ensure_src_started(GstGvaStreamdemux *demux, GstPad *srcpad, guint index,
                                                GstCaps *stream_caps) {
-    if (g_object_get_data(G_OBJECT(srcpad), "demux-started"))
-        return;
+    gboolean started = g_object_get_data(G_OBJECT(srcpad), "demux-started") != NULL;
 
-    gchar *stream_id = g_strdup_printf("gvastreamdemux/src_%u/%08x", index, g_random_int());
-    gst_pad_push_event(srcpad, gst_event_new_stream_start(stream_id));
-    g_free(stream_id);
+    if (!started) {
+        gchar *stream_id = g_strdup_printf("gvastreamdemux/src_%u/%08x", index, g_random_int());
+        gst_pad_push_event(srcpad, gst_event_new_stream_start(stream_id));
+        g_free(stream_id);
+    }
 
-    if (stream_caps)
-        gst_pad_push_event(srcpad, gst_event_new_caps(stream_caps));
+    if (stream_caps) {
+        GstCaps *announced = gst_pad_get_current_caps(srcpad);
+        /* The common case is the very same GstCaps instance every buffer, which
+         * gst_caps_is_equal() settles with a pointer comparison. */
+        if (!announced || !gst_caps_is_equal(announced, stream_caps)) {
+            if (announced)
+                GST_INFO_OBJECT(demux, "src_%u caps changed mid-stream: %" GST_PTR_FORMAT " -> %" GST_PTR_FORMAT, index,
+                                announced, stream_caps);
+            gst_pad_push_event(srcpad, gst_event_new_caps(stream_caps));
+        }
+        if (announced)
+            gst_caps_unref(announced);
+    }
 
-    GstSegment segment;
-    gst_segment_init(&segment, GST_FORMAT_TIME);
-    gst_pad_push_event(srcpad, gst_event_new_segment(&segment));
+    if (!started) {
+        GstSegment segment;
+        gst_segment_init(&segment, GST_FORMAT_TIME);
+        gst_pad_push_event(srcpad, gst_event_new_segment(&segment));
 
-    g_object_set_data(G_OBJECT(srcpad), "demux-started", GINT_TO_POINTER(1));
-    GST_INFO_OBJECT(demux, "Started src_%u (caps: %" GST_PTR_FORMAT ")", index, stream_caps);
+        g_object_set_data(G_OBJECT(srcpad), "demux-started", GINT_TO_POINTER(1));
+        GST_INFO_OBJECT(demux, "Started src_%u (caps: %" GST_PTR_FORMAT ")", index, stream_caps);
+    }
 }
 
 /* CONTAINER-mode chain: unpack a batch container buffer into per-source buffers.
@@ -541,6 +558,16 @@ static GstFlowReturn gst_gva_streamdemux_chain(GstPad *pad, GstObject *parent, G
         gst_buffer_unref(buf);
         return GST_FLOW_ERROR;
     }
+
+    /* The sink event handler announces caps to the pads that exist when the
+     * CAPS event arrives, so a pad requested later -- or one that missed a caps
+     * change because it did not exist yet -- would still be stale here. Doing
+     * it per buffer costs a pointer-equal caps comparison in the steady state
+     * and keeps both output modes on the same code path. */
+    GstCaps *sink_caps = gst_pad_get_current_caps(demux->sinkpad);
+    gva_streamdemux_ensure_src_started(demux, srcpad, source_id, sink_caps);
+    if (sink_caps)
+        gst_caps_unref(sink_caps);
 
     /* Apply FPS throttling (global across all src pads) */
     gst_gva_streamdemux_apply_fps_throttle(demux);
