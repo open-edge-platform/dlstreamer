@@ -49,10 +49,23 @@ GType gst_gva_streammux_output_mode_get_type(void);
 typedef struct _GstGvaStreammux GstGvaStreammux;
 typedef struct _GstGvaStreammuxClass GstGvaStreammuxClass;
 typedef struct _GvaStreammuxPadData GvaStreammuxPadData;
+typedef struct _GvaStreammuxQueueItem GvaStreammuxQueueItem;
+
+/* One entry of a sink pad's queue: a buffer together with the caps that were
+ * active on that pad when the buffer was enqueued. Caps are captured on the
+ * pad's streaming thread (where CAPS events and buffers are serialized) rather
+ * than read back when the batch is assembled, so buffers queued before a
+ * mid-stream caps change keep their own caps instead of inheriting the new
+ * ones. */
+struct _GvaStreammuxQueueItem {
+    GstBuffer *buffer;
+    GstCaps *caps; /* own ref, may be NULL if the pad had no caps yet */
+};
 
 struct _GvaStreammuxPadData {
     GstPad *pad;
     guint pad_index;
+    /* GQueue of GvaStreammuxQueueItem* */
     GQueue buffer_queue;
     gboolean eos;
     gboolean flushing;
@@ -107,6 +120,10 @@ struct _GstGvaStreammux {
      * mode itself is fixed by the "output-mode" property; this only gates the
      * output loop until the (mode-dependent) src caps are known. */
     gboolean caps_negotiated;
+
+    /* Set once the "sink caps changed after negotiation" error has been posted,
+     * so an upstream element that retries per buffer cannot flood the bus. */
+    gboolean caps_change_error_posted;
 
     /* Segment tracking */
     gboolean segment_sent;

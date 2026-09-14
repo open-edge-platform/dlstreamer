@@ -103,6 +103,7 @@ static void gst_gva_streammux_release_pad(GstElement *element, GstPad *pad);
 static GstStateChangeReturn gst_gva_streammux_change_state(GstElement *element, GstStateChange transition);
 static GstFlowReturn gst_gva_streammux_chain(GstPad *pad, GstObject *parent, GstBuffer *buf);
 static gboolean gst_gva_streammux_sink_event(GstPad *pad, GstObject *parent, GstEvent *event);
+static gboolean gst_gva_streammux_sink_query(GstPad *pad, GstObject *parent, GstQuery *query);
 static gboolean gst_gva_streammux_src_query(GstPad *pad, GstObject *parent, GstQuery *query);
 static gboolean gst_gva_streammux_src_event(GstPad *pad, GstObject *parent, GstEvent *event);
 static void gst_gva_streammux_output_loop(gpointer user_data);
@@ -224,6 +225,7 @@ static void gst_gva_streammux_init(GstGvaStreammux *mux) {
     mux->sinkpads = NULL;
     mux->current_caps = NULL;
     mux->caps_negotiated = FALSE;
+    mux->caps_change_error_posted = FALSE;
     mux->segment_sent = FALSE;
     mux->last_output_time = GST_CLOCK_TIME_NONE;
     mux->max_fps_duration = GST_CLOCK_TIME_NONE;
@@ -249,13 +251,34 @@ static void gst_gva_streammux_init(GstGvaStreammux *mux) {
     gst_element_add_pad(GST_ELEMENT(mux), mux->srcpad);
 }
 
+static GvaStreammuxQueueItem *queue_item_new(GstBuffer *buffer, GstCaps *caps) {
+    GvaStreammuxQueueItem *item = g_new0(GvaStreammuxQueueItem, 1);
+    item->buffer = buffer;                         /* takes ownership */
+    item->caps = caps ? gst_caps_ref(caps) : NULL; /* own ref */
+    return item;
+}
+
+static void queue_item_free(GvaStreammuxQueueItem *item) {
+    if (!item)
+        return;
+    if (item->buffer)
+        gst_buffer_unref(item->buffer);
+    if (item->caps)
+        gst_caps_unref(item->caps);
+    g_free(item);
+}
+
+static void flush_pad_queue(GvaStreammuxPadData *pdata) {
+    while (!g_queue_is_empty(&pdata->buffer_queue))
+        queue_item_free((GvaStreammuxQueueItem *)g_queue_pop_head(&pdata->buffer_queue));
+}
+
 static void gst_gva_streammux_flush_pad_queues(GstGvaStreammux *mux) {
     for (guint i = 0; i < mux->pad_data->len; i++) {
         GvaStreammuxPadData *pdata = (GvaStreammuxPadData *)g_ptr_array_index(mux->pad_data, i);
         if (!pdata)
             continue;
-        while (!g_queue_is_empty(&pdata->buffer_queue))
-            gst_buffer_unref((GstBuffer *)g_queue_pop_head(&pdata->buffer_queue));
+        flush_pad_queue(pdata);
     }
 }
 
@@ -442,6 +465,7 @@ static GstPad *gst_gva_streammux_request_new_pad(GstElement *element, GstPadTemp
     sinkpad = gst_pad_new_from_static_template(&gva_streammux_sink_template, name);
     gst_pad_set_chain_function(sinkpad, GST_DEBUG_FUNCPTR(gst_gva_streammux_chain));
     gst_pad_set_event_function(sinkpad, GST_DEBUG_FUNCPTR(gst_gva_streammux_sink_event));
+    gst_pad_set_query_function(sinkpad, GST_DEBUG_FUNCPTR(gst_gva_streammux_sink_query));
 
     /* Create per-pad data */
     GvaStreammuxPadData *pdata = g_new0(GvaStreammuxPadData, 1);
@@ -462,7 +486,11 @@ static GstPad *gst_gva_streammux_request_new_pad(GstElement *element, GstPadTemp
         g_ptr_array_add(mux->pad_data, NULL);
     g_ptr_array_index(mux->pad_data, pad_index) = pdata;
 
-    gst_pad_use_fixed_caps(sinkpad);
+    /* Deliberately no gst_pad_use_fixed_caps() here: it pins a sink pad to the
+     * first caps it ever sees, which is right for PASSTHROUGH but wrong for
+     * CONTAINER, where each stream carries its own caps in the batch meta and
+     * may renegotiate freely. gst_gva_streammux_sink_query() applies the pin
+     * only in the mode that needs it. */
     GST_PAD_SET_PROXY_ALLOCATION(sinkpad);
     gst_element_add_pad(element, sinkpad);
 
@@ -486,22 +514,33 @@ static void gst_gva_streammux_release_pad(GstElement *element, GstPad *pad) {
     if (pdata) {
         if (pdata->flushing && mux->flushing_pads_count > 0)
             mux->flushing_pads_count--;
-        while (!g_queue_is_empty(&pdata->buffer_queue))
-            gst_buffer_unref((GstBuffer *)g_queue_pop_head(&pdata->buffer_queue));
+        /* The pad is going away together with its share of num_sink_pads, so
+         * its EOS must stop counting as well. Leaving it counted lets
+         * eos_pad_count reach the shrunken num_sink_pads while live pads are
+         * still streaming, and the output loop would then push EOS downstream
+         * and pause the task with frames still queued. */
+        if (pdata->eos && mux->eos_pad_count > 0)
+            mux->eos_pad_count--;
+        flush_pad_queue(pdata);
         if (pdata->pad_index < mux->pad_data->len)
             g_ptr_array_index(mux->pad_data, pdata->pad_index) = NULL;
         g_queue_clear(&pdata->buffer_queue);
         if (pdata->caps)
             gst_caps_unref(pdata->caps);
         g_free(pdata);
+        g_object_set_data(G_OBJECT(pad), "mux-pad-data", NULL);
     }
 
     mux->sinkpads = g_list_remove(mux->sinkpads, pad);
     mux->num_sink_pads--;
 
+    /* The set of eligible pads changed; wake the output loop so it re-evaluates
+     * instead of waiting on a pad that no longer exists. */
+    g_cond_broadcast(&mux->cond);
+
     gst_element_remove_pad(element, pad);
 
-    GST_INFO_OBJECT(mux, "Released pad, remaining pads=%u", mux->num_sink_pads);
+    GST_INFO_OBJECT(mux, "Released pad, remaining pads=%u, eos_pads=%u", mux->num_sink_pads, mux->eos_pad_count);
 
     g_mutex_unlock(&mux->lock);
 }
@@ -597,6 +636,7 @@ static GstStateChangeReturn gst_gva_streammux_change_state(GstElement *element, 
             }
         }
         mux->caps_negotiated = FALSE;
+        mux->caps_change_error_posted = FALSE;
         if (mux->current_caps) {
             gst_caps_unref(mux->current_caps);
             mux->current_caps = NULL;
@@ -711,6 +751,7 @@ static gboolean gst_gva_streammux_sink_event(GstPad *pad, GstObject *parent, Gst
         gboolean need_segment = FALSE;
         gboolean caps_mismatch = FALSE;
         GstCaps *caps_to_push = NULL;
+        GstCaps *negotiated_caps = NULL;
 
         g_mutex_lock(&mux->lock);
         if (pdata) {
@@ -725,6 +766,17 @@ static gboolean gst_gva_streammux_sink_event(GstPad *pad, GstObject *parent, Gst
          * its caps (so a passthrough caps-equality check sees all of them). */
         if (!mux->caps_negotiated && all_live_pads_have_caps(mux)) {
             caps_to_push = negotiate_src_caps(mux, &need_stream_start, &need_segment, &caps_mismatch);
+        } else if (mux->caps_negotiated && !mux->caps_change_error_posted &&
+                   mux->output_mode == GVA_STREAMMUX_OUTPUT_PASSTHROUGH && mux->current_caps &&
+                   !gst_caps_is_equal(mux->current_caps, caps)) {
+            /* Passthrough pushes source buffers unmodified under the single src
+             * caps fixed at negotiation time, so it cannot retag a stream that
+             * changes format mid-flight: the buffers would keep flowing while
+             * downstream still believes the old caps. Fail loudly instead.
+             * CONTAINER mode has no such restriction — each buffer carries the
+             * caps captured when it was queued. */
+            negotiated_caps = gst_caps_ref(mux->current_caps);
+            mux->caps_change_error_posted = TRUE;
         }
         g_mutex_unlock(&mux->lock);
 
@@ -732,6 +784,17 @@ static gboolean gst_gva_streammux_sink_event(GstPad *pad, GstObject *parent, Gst
             GST_ELEMENT_ERROR(mux, STREAM, FORMAT, ("Sink pads have mismatched caps"),
                               ("output-mode=passthrough requires all sink pads to share identical caps; "
                                "use output-mode=container for heterogeneous sources"));
+            gst_event_unref(event);
+            return FALSE;
+        }
+
+        if (negotiated_caps) {
+            GST_ELEMENT_ERROR(mux, STREAM, FORMAT, ("Sink pad caps changed after the source pad was negotiated"),
+                              ("pad sink_%u switched to %" GST_PTR_FORMAT " but the source pad is already negotiated "
+                               "as %" GST_PTR_FORMAT "; output-mode=passthrough cannot renegotiate mid-stream, "
+                               "use output-mode=container for sources whose caps can change",
+                               pad_index, caps, negotiated_caps));
+            gst_caps_unref(negotiated_caps);
             gst_event_unref(event);
             return FALSE;
         }
@@ -943,11 +1006,77 @@ static GstFlowReturn gst_gva_streammux_chain(GstPad *pad, GstObject *parent, Gst
         }
     }
 
-    g_queue_push_tail(&pdata->buffer_queue, buf);
+    /* Capture the pad's current caps alongside the buffer: CAPS events and
+     * buffers are serialized on this streaming thread, so pdata->caps is
+     * exactly what upstream negotiated for this buffer. Reading it back when
+     * the batch is assembled would instead tag already-queued buffers with the
+     * caps of a later, mid-stream caps change. */
+    g_queue_push_tail(&pdata->buffer_queue, queue_item_new(buf, pdata->caps));
     g_cond_signal(&mux->cond);
 
     g_mutex_unlock(&mux->lock);
     return GST_FLOW_OK;
+}
+
+/* Returns the caps a sink pad may currently accept (transfer full).
+ *
+ * PASSTHROUGH forwards buffers unmodified under the single src caps fixed at
+ * negotiation time, so once negotiated a sink pad is pinned to exactly those
+ * caps. CONTAINER gives every stream its own caps in the batch meta, so a sink
+ * pad stays open to anything the template allows and may renegotiate at will.
+ * Must be called with mux->lock held. */
+static GstCaps *sink_pad_allowed_caps(GstGvaStreammux *mux, GstPad *pad) {
+    if (mux->output_mode == GVA_STREAMMUX_OUTPUT_PASSTHROUGH && mux->caps_negotiated && mux->current_caps)
+        return gst_caps_ref(mux->current_caps);
+    return gst_pad_get_pad_template_caps(pad);
+}
+
+/* Sink pad query handler.
+ *
+ * This stands in for gst_pad_use_fixed_caps(), which would pin every sink pad
+ * to the first caps it ever saw and so make CONTAINER mode reject the
+ * per-stream renegotiation it is meant to support. */
+static gboolean gst_gva_streammux_sink_query(GstPad *pad, GstObject *parent, GstQuery *query) {
+    GstGvaStreammux *mux = GST_GVA_STREAMMUX(parent);
+
+    switch (GST_QUERY_TYPE(query)) {
+    case GST_QUERY_CAPS: {
+        GstCaps *filter = NULL;
+        gst_query_parse_caps(query, &filter);
+
+        g_mutex_lock(&mux->lock);
+        GstCaps *allowed = sink_pad_allowed_caps(mux, pad);
+        g_mutex_unlock(&mux->lock);
+
+        GstCaps *result = allowed;
+        if (filter) {
+            result = gst_caps_intersect_full(filter, allowed, GST_CAPS_INTERSECT_FIRST);
+            gst_caps_unref(allowed);
+        }
+        gst_query_set_caps_result(query, result);
+        gst_caps_unref(result);
+        return TRUE;
+    }
+    case GST_QUERY_ACCEPT_CAPS: {
+        GstCaps *caps = NULL;
+        gst_query_parse_accept_caps(query, &caps);
+
+        g_mutex_lock(&mux->lock);
+        GstCaps *allowed = sink_pad_allowed_caps(mux, pad);
+        g_mutex_unlock(&mux->lock);
+
+        gboolean accepted = gst_caps_is_subset(caps, allowed);
+        if (!accepted)
+            GST_INFO_OBJECT(mux, "Rejecting caps %" GST_PTR_FORMAT " on %s, allowed: %" GST_PTR_FORMAT, caps,
+                            GST_PAD_NAME(pad), allowed);
+        gst_caps_unref(allowed);
+
+        gst_query_set_accept_caps_result(query, accepted);
+        return TRUE;
+    }
+    default:
+        return gst_pad_query_default(pad, parent, query);
+    }
 }
 
 /* Source pad query handler */
@@ -1126,10 +1255,10 @@ static void gst_gva_streammux_output_loop(gpointer user_data) {
              * queued before EOS must still be batched, not discarded. */
             if (!pdata || (pdata->eos && g_queue_is_empty(&pdata->buffer_queue)))
                 continue;
-            GstBuffer *head = (GstBuffer *)g_queue_peek_head(&pdata->buffer_queue);
+            GvaStreammuxQueueItem *head = (GvaStreammuxQueueItem *)g_queue_peek_head(&pdata->buffer_queue);
             if (head) {
                 any_buffer = TRUE;
-                GstClockTime pts = GST_BUFFER_PTS(head);
+                GstClockTime pts = GST_BUFFER_PTS(head->buffer);
                 if (GST_CLOCK_TIME_IS_VALID(pts) && (!GST_CLOCK_TIME_IS_VALID(earliest) || pts < earliest)) {
                     earliest = pts;
                 }
@@ -1168,9 +1297,9 @@ static void gst_gva_streammux_output_loop(gpointer user_data) {
             if (!pdata || (pdata->eos && g_queue_is_empty(&pdata->buffer_queue)))
                 continue;
             eligible_pads++;
-            GstBuffer *head = (GstBuffer *)g_queue_peek_head(&pdata->buffer_queue);
+            GvaStreammuxQueueItem *head = (GvaStreammuxQueueItem *)g_queue_peek_head(&pdata->buffer_queue);
             if (head) {
-                GstClockTime pts = GST_BUFFER_PTS(head);
+                GstClockTime pts = GST_BUFFER_PTS(head->buffer);
                 if (!GST_CLOCK_TIME_IS_VALID(pts) || !GST_CLOCK_TIME_IS_VALID(mux->batch_anchor_pts) ||
                     pts_abs_diff(pts, mux->batch_anchor_pts) <= mux->pts_tolerance) {
                     contributing_count++;
@@ -1204,15 +1333,20 @@ static void gst_gva_streammux_output_loop(gpointer user_data) {
         GvaStreammuxPadData *pdata = (GvaStreammuxPadData *)g_ptr_array_index(mux->pad_data, i);
         if (!pdata || (pdata->eos && g_queue_is_empty(&pdata->buffer_queue)))
             continue;
-        GstBuffer *head = (GstBuffer *)g_queue_peek_head(&pdata->buffer_queue);
+        GvaStreammuxQueueItem *head = (GvaStreammuxQueueItem *)g_queue_peek_head(&pdata->buffer_queue);
         if (head) {
-            GstClockTime pts = GST_BUFFER_PTS(head);
+            GstClockTime pts = GST_BUFFER_PTS(head->buffer);
             if (!GST_CLOCK_TIME_IS_VALID(pts) || !GST_CLOCK_TIME_IS_VALID(mux->batch_anchor_pts) ||
                 pts_abs_diff(pts, mux->batch_anchor_pts) <= mux->pts_tolerance) {
-                head = (GstBuffer *)g_queue_pop_head(&pdata->buffer_queue);
-                BatchEntry entry = {
-                    head, pdata->pad_index,
-                    (output_mode == GVA_STREAMMUX_OUTPUT_CONTAINER && pdata->caps) ? gst_caps_ref(pdata->caps) : NULL};
+                head = (GvaStreammuxQueueItem *)g_queue_pop_head(&pdata->buffer_queue);
+                /* Only CONTAINER mode carries per-stream caps in the meta; the
+                 * entry takes over the item's buffer ref either way. */
+                BatchEntry entry = {head->buffer, pdata->pad_index, NULL};
+                if (output_mode == GVA_STREAMMUX_OUTPUT_CONTAINER && head->caps)
+                    entry.caps = gst_caps_ref(head->caps);
+                if (head->caps)
+                    gst_caps_unref(head->caps);
+                g_free(head);
                 g_array_append_val(batch, entry);
                 batch_size++;
             }
