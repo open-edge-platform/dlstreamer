@@ -103,6 +103,7 @@ static void gst_gva_streamdemux_init(GstGvaStreamdemux *demux) {
     demux->max_fps_duration = GST_CLOCK_TIME_NONE;
 
     demux->srcpads = g_ptr_array_new();
+    demux->flow_combiner = gst_flow_combiner_new();
 
     g_mutex_init(&demux->lock);
 
@@ -119,6 +120,7 @@ static void gst_gva_streamdemux_finalize(GObject *object) {
 
     g_mutex_clear(&demux->lock);
     g_ptr_array_free(demux->srcpads, TRUE);
+    gst_flow_combiner_free(demux->flow_combiner);
 
     G_OBJECT_CLASS(gst_gva_streamdemux_parent_class)->finalize(object);
 }
@@ -194,6 +196,8 @@ static GstPad *gst_gva_streamdemux_request_new_pad(GstElement *element, GstPadTe
         g_ptr_array_add(demux->srcpads, NULL);
     demux->srcpads->pdata[pad_index] = srcpad;
 
+    gst_flow_combiner_add_pad(demux->flow_combiner, srcpad);
+
     demux->num_src_pads++;
 
     GST_INFO_OBJECT(demux, "Created src pad %s (index=%u), total src pads=%u", name, pad_index, demux->num_src_pads);
@@ -216,6 +220,7 @@ static void gst_gva_streamdemux_release_pad(GstElement *element, GstPad *pad) {
             break;
         }
     }
+    gst_flow_combiner_remove_pad(demux->flow_combiner, pad);
     demux->num_src_pads--;
 
     gst_element_remove_pad(element, pad);
@@ -235,14 +240,12 @@ static GstStateChangeReturn gst_gva_streamdemux_change_state(GstElement *element
         demux->validated = FALSE;
         demux->container_mode = FALSE;
         demux->last_output_time = GST_CLOCK_TIME_NONE;
-        /* Clear the per-pad "started" flag so a restart re-sends
-         * stream-start/caps/segment on each src pad. */
+        /* Nothing to clear for the "already started" state: deactivating the
+         * pads dropped their sticky events, which is what that state is read
+         * from. The flow returns left over from the previous run do have to go,
+         * or a branch that ended NOT_LINKED stays NOT_LINKED forever. */
         g_mutex_lock(&demux->lock);
-        for (guint i = 0; i < demux->srcpads->len; i++) {
-            GstPad *srcpad = (GstPad *)g_ptr_array_index(demux->srcpads, i);
-            if (srcpad)
-                g_object_set_data(G_OBJECT(srcpad), "demux-started", NULL);
-        }
+        gst_flow_combiner_reset(demux->flow_combiner);
         g_mutex_unlock(&demux->lock);
         break;
     default:
@@ -284,6 +287,50 @@ static void gst_gva_streamdemux_update_output_time(GstGvaStreamdemux *demux) {
     }
 }
 
+/* Take a reference to the src pad serving a source, or NULL if there is none.
+ *
+ * The array itself is only safe to touch under the lock -- request_new_pad()
+ * grows it, which reallocates the backing storage, and release_pad() clears
+ * slots -- and the pad has to be reffed before the lock goes away, or it can be
+ * released and finalized between the lookup and the push. */
+static GstPad *gva_streamdemux_ref_srcpad(GstGvaStreamdemux *demux, guint index) {
+    GstPad *srcpad = NULL;
+
+    g_mutex_lock(&demux->lock);
+    if (index < demux->srcpads->len)
+        srcpad = (GstPad *)g_ptr_array_index(demux->srcpads, index);
+    if (srcpad)
+        gst_object_ref(srcpad);
+    g_mutex_unlock(&demux->lock);
+
+    return srcpad;
+}
+
+/* Snapshot of the src pads, reffed, still indexed by source id (holes stay
+ * NULL). Lets the caller push events without holding the lock, which would
+ * otherwise be held across arbitrary downstream code. Release with
+ * gva_streamdemux_free_srcpad_snapshot(). */
+static GPtrArray *gva_streamdemux_ref_srcpads(GstGvaStreamdemux *demux) {
+    g_mutex_lock(&demux->lock);
+    GPtrArray *pads = g_ptr_array_sized_new(demux->srcpads->len);
+    for (guint i = 0; i < demux->srcpads->len; i++) {
+        GstPad *srcpad = (GstPad *)g_ptr_array_index(demux->srcpads, i);
+        g_ptr_array_add(pads, srcpad ? gst_object_ref(srcpad) : NULL);
+    }
+    g_mutex_unlock(&demux->lock);
+
+    return pads;
+}
+
+static void gva_streamdemux_free_srcpad_snapshot(GPtrArray *pads) {
+    for (guint i = 0; i < pads->len; i++) {
+        GstPad *srcpad = (GstPad *)g_ptr_array_index(pads, i);
+        if (srcpad)
+            gst_object_unref(srcpad);
+    }
+    g_ptr_array_free(pads, TRUE);
+}
+
 /* Sink event handler */
 static gboolean gst_gva_streamdemux_sink_event(GstPad *pad, GstObject *parent, GstEvent *event) {
     (void)pad;
@@ -313,29 +360,39 @@ static gboolean gst_gva_streamdemux_sink_event(GstPad *pad, GstObject *parent, G
          * event starts each pad with stream-start/caps/segment; a later one
          * only re-announces the caps, so an upstream format change reaches
          * downstream without restarting the stream underneath it. */
-        g_mutex_lock(&demux->lock);
-        for (guint i = 0; i < demux->srcpads->len; i++) {
-            GstPad *srcpad = (GstPad *)g_ptr_array_index(demux->srcpads, i);
-            if (!srcpad)
-                continue;
-            gva_streamdemux_ensure_src_started(demux, srcpad, i, caps);
+        GPtrArray *pads = gva_streamdemux_ref_srcpads(demux);
+        for (guint i = 0; i < pads->len; i++) {
+            GstPad *srcpad = (GstPad *)g_ptr_array_index(pads, i);
+            if (srcpad)
+                gva_streamdemux_ensure_src_started(demux, srcpad, i, caps);
         }
-        g_mutex_unlock(&demux->lock);
+        gva_streamdemux_free_srcpad_snapshot(pads);
 
         gst_event_unref(event);
         return TRUE;
     }
     case GST_EVENT_EOS: {
         GST_INFO_OBJECT(demux, "Received EOS, forwarding to all src pads");
-        g_mutex_lock(&demux->lock);
-        for (guint i = 0; i < demux->srcpads->len; i++) {
-            GstPad *srcpad = (GstPad *)g_ptr_array_index(demux->srcpads, i);
+        GPtrArray *pads = gva_streamdemux_ref_srcpads(demux);
+        for (guint i = 0; i < pads->len; i++) {
+            GstPad *srcpad = (GstPad *)g_ptr_array_index(pads, i);
             if (srcpad)
                 gst_pad_push_event(srcpad, gst_event_new_eos());
         }
-        g_mutex_unlock(&demux->lock);
+        gva_streamdemux_free_srcpad_snapshot(pads);
         gst_event_unref(event);
         return TRUE;
+    }
+    case GST_EVENT_FLUSH_STOP: {
+        /* Forward first, then drop the flow returns the flushed-out run left
+         * behind -- a branch that had gone EOS or NOT_LINKED must not keep
+         * vetoing the combined return after the flush. */
+        gboolean ret = gst_pad_event_default(pad, parent, event);
+        g_mutex_lock(&demux->lock);
+        gst_flow_combiner_reset(demux->flow_combiner);
+        demux->last_output_time = GST_CLOCK_TIME_NONE;
+        g_mutex_unlock(&demux->lock);
+        return ret;
     }
     case GST_EVENT_SEGMENT: {
         /* Consume: we send our own segments per src pad in CAPS handler */
@@ -349,17 +406,7 @@ static gboolean gst_gva_streamdemux_sink_event(GstPad *pad, GstObject *parent, G
     }
     default:
         /* Forward other events to all src pads */
-        g_mutex_lock(&demux->lock);
-        for (guint i = 0; i < demux->srcpads->len; i++) {
-            GstPad *srcpad = (GstPad *)g_ptr_array_index(demux->srcpads, i);
-            if (srcpad) {
-                gst_event_ref(event);
-                gst_pad_push_event(srcpad, event);
-            }
-        }
-        g_mutex_unlock(&demux->lock);
-        gst_event_unref(event);
-        return TRUE;
+        return gst_pad_event_default(pad, parent, event);
     }
 }
 
@@ -382,17 +429,19 @@ static gboolean gst_gva_streamdemux_sink_query(GstPad *pad, GstObject *parent, G
         return TRUE;
     }
     case GST_QUERY_LATENCY: {
-        /* Forward latency query to the first active src pad's peer */
+        /* Forward latency query to the first active src pad's peer. The query
+         * runs on the snapshot, outside the lock: it reaches arbitrary
+         * downstream code, which must not run with our lock held. */
         gboolean result = FALSE;
-        g_mutex_lock(&demux->lock);
-        for (guint i = 0; i < demux->srcpads->len; i++) {
-            GstPad *srcpad = (GstPad *)g_ptr_array_index(demux->srcpads, i);
+        GPtrArray *pads = gva_streamdemux_ref_srcpads(demux);
+        for (guint i = 0; i < pads->len; i++) {
+            GstPad *srcpad = (GstPad *)g_ptr_array_index(pads, i);
             if (srcpad && gst_pad_is_linked(srcpad)) {
                 result = gst_pad_peer_query(srcpad, query);
                 break;
             }
         }
-        g_mutex_unlock(&demux->lock);
+        gva_streamdemux_free_srcpad_snapshot(pads);
         return result;
     }
     default:
@@ -400,18 +449,23 @@ static gboolean gst_gva_streamdemux_sink_query(GstPad *pad, GstObject *parent, G
     }
 }
 
-/* Bring a src pad up to date before its next buffer is pushed.
+/* Bring a src pad up to date before its next buffer is pushed: send whichever
+ * of stream-start / caps / segment the pad is currently missing, and re-send
+ * caps when they changed.
  *
- * On the pad's first buffer this sends stream-start / caps / segment. On later
- * buffers it re-sends caps, and only when they actually changed: a source can
- * renegotiate mid-stream (in CONTAINER mode each stream carries its own caps in
- * the batch meta), and downstream has to be told or it keeps interpreting the
- * frames in the old format. stream-start and segment are deliberately not
- * repeated -- a second stream-start would make downstream treat the change as a
- * whole new stream, and a second segment would reset its running time.
+ * Everything is decided from the pad's own sticky events rather than from a
+ * flag kept alongside them, so the two can never drift apart and each case
+ * falls out on its own:
  *
- * What was last announced on the pad is read back from its sticky CAPS event
- * rather than tracked separately, so the two can never drift apart.
+ *   first buffer          -- pad has no sticky events, so all three are sent.
+ *   mid-stream caps change -- a source can renegotiate (in CONTAINER mode each
+ *       stream carries its own caps in the batch meta) and downstream has to be
+ *       told, or it keeps interpreting the frames in the old format. Only caps
+ *       are re-sent: a second stream-start would make downstream treat this as
+ *       a whole new stream, and a second segment would reset its running time.
+ *   after a flush         -- FLUSH_STOP drops the sticky segment (and only that
+ *       one), so the segment is re-sent and data can flow again.
+ *   after a restart       -- deactivating the pads dropped every sticky event.
  *
  * stream_caps may be NULL, in which case the pad keeps whatever caps it has.
  * Note that gst_pad_push_event() reports success for sticky events regardless
@@ -419,12 +473,14 @@ static gboolean gst_gva_streamdemux_sink_query(GstPad *pad, GstObject *parent, G
  * as GST_FLOW_NOT_NEGOTIATED on the following gst_pad_push(). */
 static void gva_streamdemux_ensure_src_started(GstGvaStreamdemux *demux, GstPad *srcpad, guint index,
                                                GstCaps *stream_caps) {
-    gboolean started = g_object_get_data(G_OBJECT(srcpad), "demux-started") != NULL;
-
-    if (!started) {
+    GstEvent *sticky = gst_pad_get_sticky_event(srcpad, GST_EVENT_STREAM_START, 0);
+    if (!sticky) {
         gchar *stream_id = g_strdup_printf("gvastreamdemux/src_%u/%08x", index, g_random_int());
         gst_pad_push_event(srcpad, gst_event_new_stream_start(stream_id));
+        GST_INFO_OBJECT(demux, "Started src_%u (caps: %" GST_PTR_FORMAT ")", index, stream_caps);
         g_free(stream_id);
+    } else {
+        gst_event_unref(sticky);
     }
 
     if (stream_caps) {
@@ -441,13 +497,16 @@ static void gva_streamdemux_ensure_src_started(GstGvaStreamdemux *demux, GstPad 
             gst_caps_unref(announced);
     }
 
-    if (!started) {
+    sticky = gst_pad_get_sticky_event(srcpad, GST_EVENT_SEGMENT, 0);
+    if (!sticky) {
+        /* The sink-side segment was consumed rather than forwarded (see the
+         * sink event handler), matching gvastreammux, which likewise synthesises
+         * its own default segment instead of passing one through. */
         GstSegment segment;
         gst_segment_init(&segment, GST_FORMAT_TIME);
         gst_pad_push_event(srcpad, gst_event_new_segment(&segment));
-
-        g_object_set_data(G_OBJECT(srcpad), "demux-started", GINT_TO_POINTER(1));
-        GST_INFO_OBJECT(demux, "Started src_%u (caps: %" GST_PTR_FORMAT ")", index, stream_caps);
+    } else {
+        gst_event_unref(sticky);
     }
 }
 
@@ -474,12 +533,7 @@ static GstFlowReturn gst_gva_streamdemux_chain_container(GstGvaStreamdemux *demu
             continue;
         }
 
-        if (G_UNLIKELY(source_id >= demux->srcpads->len)) {
-            GST_ERROR_OBJECT(demux, "source_id %u out of range (have %u src pads)", source_id, demux->srcpads->len);
-            ret = GST_FLOW_ERROR;
-            break;
-        }
-        GstPad *srcpad = (GstPad *)g_ptr_array_index(demux->srcpads, source_id);
+        GstPad *srcpad = gva_streamdemux_ref_srcpad(demux, source_id);
         if (G_UNLIKELY(!srcpad)) {
             GST_ERROR_OBJECT(demux, "No src pad for source_id %u", source_id);
             ret = GST_FLOW_ERROR;
@@ -497,11 +551,19 @@ static GstFlowReturn gst_gva_streamdemux_chain_container(GstGvaStreamdemux *demu
 
         GstFlowReturn r = gst_pad_push(srcpad, out);
         if (r != GST_FLOW_OK && r != GST_FLOW_FLUSHING) {
-            GST_WARNING_OBJECT(demux, "Push to src_%u failed: %s", source_id, gst_flow_get_name(r));
+            GST_DEBUG_OBJECT(demux, "Push to src_%u returned %s", source_id, gst_flow_get_name(r));
         }
-        /* Propagate the first non-OK return (mirrors aggregator behavior). */
-        if (ret == GST_FLOW_OK && r != GST_FLOW_OK)
-            ret = r;
+        /* Fold in this branch's result: what goes upstream is the combination
+         * over all branches, so one that is unlinked or already done does not
+         * stop the others. Keep the worst of the batch, since only one value
+         * can be returned for a container buffer covering several branches. */
+        g_mutex_lock(&demux->lock);
+        GstFlowReturn combined = gst_flow_combiner_update_pad_flow(demux->flow_combiner, srcpad, r);
+        g_mutex_unlock(&demux->lock);
+        if (ret == GST_FLOW_OK && combined != GST_FLOW_OK)
+            ret = combined;
+
+        gst_object_unref(srcpad);
     }
 
     gst_gva_streamdemux_update_output_time(demux);
@@ -545,16 +607,9 @@ static GstFlowReturn gst_gva_streamdemux_chain(GstPad *pad, GstObject *parent, G
      * with streams[0].index identifying the source. */
     guint source_id = meta->streams[0].index;
 
-    /* Check source_id is in range */
-    if (G_UNLIKELY(source_id >= demux->srcpads->len)) {
-        GST_ERROR_OBJECT(demux, "source_id %u out of range (have %u src pads)", source_id, demux->srcpads->len);
-        gst_buffer_unref(buf);
-        return GST_FLOW_ERROR;
-    }
-
-    GstPad *srcpad = (GstPad *)g_ptr_array_index(demux->srcpads, source_id);
+    GstPad *srcpad = gva_streamdemux_ref_srcpad(demux, source_id);
     if (G_UNLIKELY(!srcpad)) {
-        GST_ERROR_OBJECT(demux, "No src pad for source_id %u", source_id);
+        GST_ERROR_OBJECT(demux, "No src pad for source_id %u (have %u src pads)", source_id, demux->num_src_pads);
         gst_buffer_unref(buf);
         return GST_FLOW_ERROR;
     }
@@ -580,8 +635,17 @@ static GstFlowReturn gst_gva_streamdemux_chain(GstPad *pad, GstObject *parent, G
     gst_gva_streamdemux_update_output_time(demux);
 
     if (ret != GST_FLOW_OK && ret != GST_FLOW_FLUSHING) {
-        GST_WARNING_OBJECT(demux, "Push to src_%u failed: %s", source_id, gst_flow_get_name(ret));
+        GST_DEBUG_OBJECT(demux, "Push to src_%u returned %s", source_id, gst_flow_get_name(ret));
     }
+
+    /* Report the combination over all branches rather than this one's result:
+     * buffers are interleaved across src pads here, so an unlinked or finished
+     * branch would otherwise stop the sources that are still running. */
+    g_mutex_lock(&demux->lock);
+    ret = gst_flow_combiner_update_pad_flow(demux->flow_combiner, srcpad, ret);
+    g_mutex_unlock(&demux->lock);
+
+    gst_object_unref(srcpad);
 
     return ret;
 }

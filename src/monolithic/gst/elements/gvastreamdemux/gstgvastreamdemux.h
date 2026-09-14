@@ -7,6 +7,7 @@
 #ifndef __GST_GVA_STREAMDEMUX_H__
 #define __GST_GVA_STREAMDEMUX_H__
 
+#include <gst/base/gstflowcombiner.h>
 #include <gst/gst.h>
 #include <gst/video/video.h>
 
@@ -54,6 +55,11 @@ struct _GstGvaStreamdemux {
 
     /* Src pads array (indexed by source_id) */
     GPtrArray *srcpads;
+
+    /* Combines the per-src-pad flow returns into the one value the chain
+     * function reports upstream, so a single unlinked or finished branch does
+     * not stop the other ones. Not MT-safe; only touch it with lock held. */
+    GstFlowCombiner *flow_combiner;
 
     /* FPS control */
     GstClockTime last_output_time;
