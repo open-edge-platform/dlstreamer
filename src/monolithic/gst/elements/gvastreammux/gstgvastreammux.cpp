@@ -913,6 +913,9 @@ static gboolean gst_gva_streammux_sink_event(GstPad *pad, GstObject *parent, Gst
         break;
     }
     case GST_EVENT_FLUSH_STOP: {
+        GstSegment flushed_segment;
+        gst_segment_init(&flushed_segment, GST_FORMAT_TIME);
+
         g_mutex_lock(&mux->lock);
         GvaStreammuxPadData *pdata = get_pad_data(mux, pad);
         gboolean last_flush = FALSE;
@@ -936,11 +939,22 @@ static gboolean gst_gva_streammux_sink_event(GstPad *pad, GstObject *parent, Gst
             mux->eos_pad_count = 0;
             mux->batch_anchor_pts = GST_CLOCK_TIME_NONE;
             mux->last_pushed_batch_pts = GST_CLOCK_TIME_NONE;
+            gst_segment_init(&mux->segment, GST_FORMAT_TIME);
+            flushed_segment = mux->segment;
         }
         g_mutex_unlock(&mux->lock);
 
         if (last_flush) {
             ret = gst_pad_push_event(mux->srcpad, event);
+            /* FLUSH_STOP drops the src pad's sticky segment (it is removed
+             * along with EOS in gst_pad_push_event), while stream-start and
+             * caps survive. Nothing else would send a replacement -- the
+             * segment is normally pushed from negotiate_src_caps(), which only
+             * runs while caps are still unnegotiated -- so the next buffer
+             * would hit "data flow before segment event" and downstream would
+             * have no running time to schedule against. Send it here, straight
+             * after the flush that removed it. */
+            gst_pad_push_event(mux->srcpad, gst_event_new_segment(&flushed_segment));
             gst_pad_start_task(mux->srcpad, gst_gva_streammux_output_loop, mux, NULL);
         } else {
             gst_event_unref(event);
@@ -1466,11 +1480,28 @@ static void gst_gva_streammux_output_loop(gpointer user_data) {
         g_array_free(batch, TRUE);
     }
 
-    if (ret == GST_FLOW_OK)
+    if (ret == GST_FLOW_OK) {
         gst_gva_streammux_update_output_time(mux);
-
-    if (ret != GST_FLOW_OK) {
-        GST_INFO_OBJECT(mux, "Pausing output task due to flow return: %s", gst_flow_get_name(ret));
-        gst_pad_pause_task(mux->srcpad);
+        return;
     }
+
+    /* Pausing the task is the end of the line: nothing downstream will ask
+     * again, and upstream only ever sees GST_FLOW_OK from our chain function
+     * because buffers are handed over through the queues. So whatever stopped
+     * the push has to be turned into something visible here, or the pipeline
+     * just stops with an empty bus and no EOS.
+     *
+     * GST_FLOW_FLUSHING is the exception -- it means a flush or a state change
+     * is already tearing the stream down, and that path posts its own
+     * messages. This mirrors what gstbasesrc does with its loop function. */
+    GST_INFO_OBJECT(mux, "Pausing output task due to flow return: %s", gst_flow_get_name(ret));
+
+    if (ret == GST_FLOW_EOS) {
+        gst_pad_push_event(mux->srcpad, gst_event_new_eos());
+    } else if (ret == GST_FLOW_NOT_LINKED || ret < GST_FLOW_EOS) {
+        GST_ELEMENT_FLOW_ERROR(mux, ret);
+        gst_pad_push_event(mux->srcpad, gst_event_new_eos());
+    }
+
+    gst_pad_pause_task(mux->srcpad);
 }
