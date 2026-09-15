@@ -44,6 +44,11 @@ class ImageInference {
             return image_trans_params;
         }
 
+        // Opaque tag identifying the source (e.g. GStreamer element) that produced this frame.
+        // Used by the inference backend for fair batch scheduling across multiple sources.
+        // NOTE: Used as an opaque key for identity comparison only — NEVER dereference.
+        void *source_tag = nullptr;
+
         virtual ~IFrameBase() = default;
     };
 
@@ -76,6 +81,14 @@ class ImageInference {
     virtual bool IsQueueFull() = 0;
     virtual void Flush() = 0;
     virtual void Close() = 0;
+
+    /**
+     * Remove a source from fair-batch tracking
+     * call when stream/element is torn down)
+     */
+    virtual void UnregisterSource(void *source) {
+        (void)source;
+    }
 
     virtual ~ImageInference() = default;
 };

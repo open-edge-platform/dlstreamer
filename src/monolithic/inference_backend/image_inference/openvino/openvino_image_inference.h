@@ -15,6 +15,7 @@
 #include <atomic>
 #include <gst/gst.h>
 #include <map>
+#include <set>
 #include <string>
 #include <thread>
 
@@ -53,6 +54,8 @@ class OpenVINOImageInference : public InferenceBackend::ImageInference {
 
     void Close() override;
 
+    void UnregisterSource(void *source) override;
+
   protected:
     std::unique_ptr<class OpenVinoNewApiImpl> _impl;
 
@@ -60,6 +63,7 @@ class OpenVINOImageInference : public InferenceBackend::ImageInference {
         ov::InferRequest infer_request_new;
         std::vector<IFrameBase::Ptr> buffers;
         std::vector<ov::TensorVector> in_tensors;
+        std::map<void *, size_t> source_counts;
 
         void start_async() {
             return this->infer_request_new.start_async();
@@ -89,6 +93,11 @@ class OpenVINOImageInference : public InferenceBackend::ImageInference {
     std::atomic<unsigned int> requests_processing_;
     std::condition_variable request_processed_;
     std::mutex flush_mutex;
+
+    // Fair batch scheduling: track known sources for per-source cap
+    std::set<void *> known_sources_;
+    std::mutex sources_mutex_;
+    std::condition_variable batch_fair_cv_;
 
   private:
     void FreeRequest(std::shared_ptr<BatchRequest> request);
