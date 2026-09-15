@@ -18,8 +18,7 @@ enum class ImagePreprocessorType : int {
     VAAPI_SYSTEM,
     VAAPI_SURFACE_SHARING,
     D3D11,
-    D3D11_SURFACE_SHARING,
-    VAAPI_NPU_DMABUF
+    D3D11_SURFACE_SHARING
 };
 class ImagePreprocessor {
   public:

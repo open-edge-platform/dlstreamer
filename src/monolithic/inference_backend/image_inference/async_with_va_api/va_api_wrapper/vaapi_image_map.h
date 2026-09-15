@@ -10,8 +10,6 @@
 
 #include "inference_backend/image.h"
 
-#include <functional>
-
 namespace InferenceBackend {
 
 class VaApiImageMap_SystemMemory : public ImageMap {

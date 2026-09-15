@@ -41,6 +41,9 @@ ImageInference::Ptr ImageInference::createImageInferenceInstance(MemoryType inpu
     // Determine the memory type to be used for inference
     MemoryType memory_type_to_use = MemoryType::ANY;
 
+    // Determine if the device is an NPU
+    bool isNpu = (config.at(KEY_BASE).at(KEY_DEVICE).find("NPU") != std::string::npos);
+
     switch (input_image_memory_type) {
     case MemoryType::SYSTEM:
         // Use system memory directly
@@ -63,16 +66,14 @@ ImageInference::Ptr ImageInference::createImageInferenceInstance(MemoryType inpu
         case ImagePreprocessorType::VAAPI_SYSTEM:
             // Use system memory for VAAPI_SYSTEM preprocessor type
             memory_type_to_use = MemoryType::SYSTEM;
+            if (isNpu)
+                // DMA-BUF zero-copy: VPP writes into DMA-BUF, NPU reads from same buffer
+                memory_type_to_use = MemoryType::DMA_BUFFER;
             break;
         case ImagePreprocessorType::VAAPI_SURFACE_SHARING:
             // Use VAAPI memory for VAAPI_SURFACE_SHARING preprocessor type
             memory_type_to_use = MemoryType::VAAPI;
             break;
-        case ImagePreprocessorType::VAAPI_NPU_DMABUF:
-            // DMA-BUF zero-copy: VPP writes into DMA-BUF, NPU reads from same buffer
-            memory_type_to_use = MemoryType::DMA_BUFFER;
-            break;
-
         default:
             throw std::runtime_error("Incorrect pre-process-backend, should be vaapi or vaapi-surface-sharing");
         }

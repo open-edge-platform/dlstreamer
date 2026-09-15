@@ -79,9 +79,6 @@ struct fmt::formatter<InferenceBackend::ImagePreprocessorType> : formatter<strin
         case ImagePreprocessorType::D3D11_SURFACE_SHARING:
             name = "D3D11 Surface Sharing";
             break;
-        case ImagePreprocessorType::VAAPI_NPU_DMABUF:
-            name = "VAAPI NPU DMA-BUF Zero-Copy";
-            break;
         }
         return formatter<string_view>::format(name, ctx);
     }
@@ -611,7 +608,7 @@ class OpenVinoNewApiImpl {
         switch (image.format) {
         case FourCC::FOURCC_RGBP:
         case FourCC::FOURCC_BGRP:
-            if (image.type == MemoryType::DMA_BUFFER && image.dma_fd >= 0)
+            if (image.type == MemoryType::DMA_BUFFER)
                 return {image_rgbp_dmabuf_to_npu_tensor(image)};
             return {image_rgbp_to_tensor(image)};
 
@@ -803,7 +800,7 @@ class OpenVinoNewApiImpl {
     MemoryType _memory_type;
 
     // Persistent NPU Level Zero context and per-DMA-BUF-fd remote tensor cache for the
-    // VAAPI_NPU_DMABUF zero-copy path (avoids re-creating a context and re-importing the fd
+    // VAAPI_SYSTEM zero-copy path (avoids re-creating a context and re-importing the fd
     // on every inference, which leaks NPU imports and stalls inference over time).
     std::unique_ptr<ov::intel_npu::level_zero::ZeroContext> _npu_context;
     std::unordered_map<int, ov::Tensor> _npu_dmabuf_tensor_cache;
@@ -974,7 +971,7 @@ class OpenVinoNewApiImpl {
 
         // OPENCV and VAAPI pre-processors handle color coversion and scaling, input tensors in NCHW format
         if (pp_type == ImagePreprocessorType::OPENCV || pp_type == ImagePreprocessorType::VAAPI_SYSTEM ||
-            pp_type == ImagePreprocessorType::VAAPI_NPU_DMABUF || pp_type == ImagePreprocessorType::D3D11) {
+            pp_type == ImagePreprocessorType::D3D11) {
             input.tensor().set_layout("NCHW");
         }
 

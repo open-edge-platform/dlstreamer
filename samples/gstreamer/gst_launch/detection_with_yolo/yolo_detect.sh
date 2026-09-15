@@ -27,7 +27,7 @@ if [[ "${1:-}" == "--help" ]] || [[ "${1:-}" == "-h" ]]; then
   echo "  DEVICE    - Device (default: GPU). Supported: CPU, GPU, NPU"
   echo "  INPUT     - Input source (default: Pexels video URL)"
   echo "  OUTPUT    - Output type (default: file). Supported: file, display, fps, json, display-and-json"
-  echo "  PPBKEND   - Preprocessing backend (default: auto). Supported: ie, opencv, va, va-npu-dmabuf, va-surface-sharing"
+  echo "  PPBKEND   - Preprocessing backend (default: auto). Supported: ie, opencv, va, va-surface-sharing"
   echo "  PRECISION - Model precision (default: INT8). Supported: INT8, FP32, FP16"
   echo ""
   exit 0
@@ -142,12 +142,12 @@ if [[ -z "$PPBKEND" ]]; then
   case "$DEVICE" in
     "CPU") PREPROC_BACKEND="opencv" ;;
     "GPU") PREPROC_BACKEND="va-surface-sharing" ;;
-    "NPU") PREPROC_BACKEND="va-npu-dmabuf" ;;
+    "NPU") PREPROC_BACKEND="va" ;;
     *) echo "Error: Unsupported DEVICE value: $DEVICE"
        exit 1 ;;
   esac
 else
-  valid_backends=("ie" "opencv" "va" "va-npu-dmabuf" "va-surface-sharing")
+  valid_backends=("ie" "opencv" "va" "va-surface-sharing")
   if [[ " ${valid_backends[*]} " =~  $PPBKEND  ]]; then
     PREPROC_BACKEND="$PPBKEND"
   else

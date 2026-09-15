@@ -492,14 +492,6 @@ What the GPU/NPU passthrough flags do:
 | `--device /dev/dma_heap` | Gives the container access to the DMA-BUF heap for **NPU zero-copy** |
 | `--group-add $(stat -c "%g" /dev/dma_heap/system)` | Grants non-root permission to the DMA-BUF heap; optional — without it inference still runs via a slower GPU→CPU copy |
 
-> **Note:** For the best NPU performance, DL Streamer uses a DMA-BUF zero-copy path
-> that allocates buffers from `/dev/dma_heap/system`. In a container, pass
-> `--device /dev/dma_heap --group-add $(stat -c "%g" /dev/dma_heap/system)` as shown
-> above. On **bare metal**, the `DLS_install_prerequisites.sh` script grants the
-> `render` group access to this device automatically; to enable it manually run
-> `sudo chmod 666 /dev/dma_heap/system` (per boot) or add a udev rule. If access is
-> unavailable, DL Streamer logs a warning and falls back to the GPU→CPU copy path.
-
 Now, **inside the container**, run a pipeline. Since a container is typically
 headless, we output to a file:
 

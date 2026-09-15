@@ -15,38 +15,24 @@ using namespace InferenceBackend;
 
 namespace {
 
-VASurfaceID CreateVASurface(VaDpyWrapper display, uint32_t width, uint32_t height, int pixel_format, int rt_format) {
-    VASurfaceAttrib surface_attrib;
-    surface_attrib.type = VASurfaceAttribPixelFormat;
-    surface_attrib.flags = VA_SURFACE_ATTRIB_SETTABLE;
-    surface_attrib.value.type = VAGenericValueTypeInteger;
-    surface_attrib.value.value.i = pixel_format;
+// Creates a VA surface. When dma_buf_fd >= 0 the surface wraps the given DRM_PRIME DMA-BUF
+// (zero-copy import of RGBP/BGRP planes); otherwise a plain VA-managed surface is allocated.
+VASurfaceID CreateVASurface(VaDpyWrapper display, uint32_t width, uint32_t height, int pixel_format, int rt_format,
+                            int dma_buf_fd = -1) {
+    if (dma_buf_fd < 0) {
+        VASurfaceAttrib surface_attrib;
+        surface_attrib.type = VASurfaceAttribPixelFormat;
+        surface_attrib.flags = VA_SURFACE_ATTRIB_SETTABLE;
+        surface_attrib.value.type = VAGenericValueTypeInteger;
+        surface_attrib.value.value.i = pixel_format;
 
-    VASurfaceID va_surface_id;
-    VA_CALL(display.drvVtable().vaCreateSurfaces2(display.drvCtx(), rt_format, width, height, &va_surface_id, 1,
-                                                  &surface_attrib, 1))
-    return va_surface_id;
-}
-
-// Returns dma-buf fd on success, -1 on failure (e.g. no permission).
-int AllocateDmaBuf(size_t size) {
-    int heap_fd = open("/dev/dma_heap/system", O_RDWR);
-    if (heap_fd < 0)
-        return -1;
-
-    struct dma_heap_allocation_data alloc_data = {};
-    alloc_data.len = size;
-    alloc_data.fd_flags = O_CLOEXEC | O_RDWR;
-    if (ioctl(heap_fd, DMA_HEAP_IOCTL_ALLOC, &alloc_data) < 0) {
-        close(heap_fd);
-        return -1;
+        VASurfaceID va_surface_id;
+        VA_CALL(display.drvVtable().vaCreateSurfaces2(display.drvCtx(), rt_format, width, height, &va_surface_id, 1,
+                                                      &surface_attrib, 1))
+        return va_surface_id;
     }
-    close(heap_fd);
-    return static_cast<int>(alloc_data.fd);
-}
 
-VASurfaceID CreateVASurfaceWithDmaBuf(VaDpyWrapper display, uint32_t width, uint32_t height, int pixel_format,
-                                      int rt_format, int dma_buf_fd) {
+    // zero-copy path for NPU device with DMA_BUFFER memory type
     VASurfaceAttribExternalBuffers ext_buf = {};
     ext_buf.pixel_format = pixel_format;
     ext_buf.width = width;
@@ -85,6 +71,23 @@ VASurfaceID CreateVASurfaceWithDmaBuf(VaDpyWrapper display, uint32_t width, uint
     VA_CALL(display.drvVtable().vaCreateSurfaces2(display.drvCtx(), rt_format, width, height, &va_surface_id, 1,
                                                   attribs, 3))
     return va_surface_id;
+}
+
+// Returns dma-buf fd on success, -1 on failure (e.g. no permission).
+int AllocateDmaBuf(size_t size) {
+    int heap_fd = open("/dev/dma_heap/system", O_RDWR);
+    if (heap_fd < 0)
+        return -1;
+
+    struct dma_heap_allocation_data alloc_data = {};
+    alloc_data.len = size;
+    alloc_data.fd_flags = O_CLOEXEC | O_RDWR;
+    if (ioctl(heap_fd, DMA_HEAP_IOCTL_ALLOC, &alloc_data) < 0) {
+        close(heap_fd);
+        return -1;
+    }
+    close(heap_fd);
+    return static_cast<int>(alloc_data.fd);
 }
 
 struct Format {
@@ -130,24 +133,18 @@ VaApiImage::VaApiImage(VaApiContext *context_, uint32_t width, uint32_t height, 
         size_t buf_size = static_cast<size_t>(width) * height * 3; // RGBP/BGRP
         dma_buf_fd = AllocateDmaBuf(buf_size);
         if (dma_buf_fd >= 0) {
-            // DRM_PRIME import requires matching RT format; RGBP/BGRP need VA_RT_FORMAT_RGBP
-            image.va_surface_id = CreateVASurfaceWithDmaBuf(context->Display(), width, height, pixel_format,
-                                                            VA_RT_FORMAT_RGBP, dma_buf_fd);
             image.dma_fd = dma_buf_fd;
         } else {
-            GVA_WARNING("DMA-BUF allocation failed (no access to /dev/dma_heap/system?), "
-                        "falling back to VAAPI_SYSTEM path (GPU->CPU copy)");
-            image.type = MemoryType::SYSTEM;
-            image.va_surface_id =
-                CreateVASurface(context->Display(), width, height, pixel_format, context_->RTFormat());
-            image_map = std::unique_ptr<ImageMap>(ImageMap::Create(MemoryType::SYSTEM));
-            completed = true;
-            scaling_flags = scaling_flgs;
-            return;
+            GVA_WARNING("Falling back to the slow NPU path (extra GPU->CPU->NPU copies): no access to DMA-BUF. "
+                        "To enable zero-copy, grant access to /dev/dma_heap/system, e.g. "
+                        "'sudo chgrp video /dev/dma_heap/system && sudo chmod 660 /dev/dma_heap/system'.");
+            image.type = memory_type = MemoryType::SYSTEM;
         }
-    } else {
-        image.va_surface_id = CreateVASurface(context->Display(), width, height, pixel_format, context_->RTFormat());
     }
+
+    // DRM_PRIME import requires matching RT format; RGBP/BGRP need VA_RT_FORMAT_RGBP
+    const int rt_format = (dma_buf_fd >= 0) ? VA_RT_FORMAT_RGBP : context_->RTFormat();
+    image.va_surface_id = CreateVASurface(context->Display(), width, height, pixel_format, rt_format, dma_buf_fd);
 
     image_map = std::unique_ptr<ImageMap>(ImageMap::Create(memory_type));
     completed = true;
