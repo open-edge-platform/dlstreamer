@@ -40,6 +40,7 @@
 #endif
 #endif
 
+#include <chrono>
 #include <functional>
 #include <iterator>
 #include <regex>
@@ -1269,6 +1270,7 @@ OpenVINOImageInference::~OpenVINOImageInference() {
 void OpenVINOImageInference::FreeRequest(std::shared_ptr<BatchRequest> request) {
     const size_t buffer_size = request->buffers.size();
     request->buffers.clear();
+    request->source_counts.clear();
     for (auto &in_vec : request->in_tensors) {
         in_vec.clear();
     }
@@ -1449,39 +1451,78 @@ void OpenVINOImageInference::SubmitImage(
     if (!frame)
         throw std::invalid_argument("Invalid frame provided");
 
-    std::unique_lock<std::mutex> lk(requests_mutex_);
-    ++requests_processing_;
-    std::shared_ptr<BatchRequest> request = freeRequests.pop();
-
-    try {
-        if (DoNeedImagePreProcessing(frame->GetImage())) {
-            SubmitImageProcessing(
-                image_layer, request, *frame->GetImage(),
-                getImagePreProcInfo(input_preprocessors), // contain operations order for Custom Image PreProcessing
-                frame->GetImageTransformationParams()     // during CIPP will be filling of crop and aspect-ratio
-                                                          // parameters
-            );
-        } else {
-            BypassImageProcessing(image_layer, request, *frame->GetImage(), safe_convert<size_t>(batch_size));
-        }
-
-        ApplyInputPreprocessors(request, input_preprocessors);
-
-        request->buffers.push_back(frame);
-    } catch (const std::exception &e) {
-        GVA_ERROR("Pre-processing has failed: %s", e.what());
-        std::throw_with_nested(std::runtime_error("Pre-processing was failed."));
+    void *source = frame->source_tag;
+    if (source) {
+        std::lock_guard<std::mutex> sg(sources_mutex_);
+        known_sources_.insert(source);
     }
 
-    try {
-        // start inference asynchronously if enough buffers for batching
-        if (request->buffers.size() >= safe_convert<size_t>(batch_size)) {
-            request->start_async();
-        } else {
-            freeRequests.push_front(request);
+    const int max_retries = batch_size * 4;
+    for (int retry = 0;; ++retry) {
+        std::unique_lock<std::mutex> lk(requests_mutex_);
+        ++requests_processing_;
+        std::shared_ptr<BatchRequest> request = freeRequests.pop();
+
+        // Fair batch cap: yield if this source already has its share of the current batch
+        if (source && batch_size > 1 && retry < max_retries) {
+            size_t num_sources;
+            {
+                std::lock_guard<std::mutex> sg(sources_mutex_);
+                num_sources = known_sources_.size();
+            }
+            if (num_sources > 1) {
+                size_t max_per_source =
+                    std::max(size_t(1), (static_cast<size_t>(batch_size) + num_sources - 1) / num_sources);
+                auto it = request->source_counts.find(source);
+                size_t current = (it != request->source_counts.end()) ? it->second : 0;
+                if (current >= max_per_source) {
+                    freeRequests.push_front(request);
+                    --requests_processing_;
+                    batch_fair_cv_.wait_for(lk, std::chrono::milliseconds(2));
+                    lk.unlock();
+                    continue;
+                }
+            }
         }
-    } catch (const std::exception &e) {
-        std::throw_with_nested(std::runtime_error("Inference async start was failed."));
+
+        try {
+            if (DoNeedImagePreProcessing(frame->GetImage())) {
+                SubmitImageProcessing(
+                    image_layer, request, *frame->GetImage(),
+                    getImagePreProcInfo(input_preprocessors), // contain operations order for Custom Image PreProcessing
+                    frame->GetImageTransformationParams()     // during CIPP will be filling of crop and aspect-ratio
+                                                              // parameters
+                );
+            } else {
+                BypassImageProcessing(image_layer, request, *frame->GetImage(), safe_convert<size_t>(batch_size));
+            }
+
+            ApplyInputPreprocessors(request, input_preprocessors);
+
+            if (source)
+                request->source_counts[source]++;
+            request->buffers.push_back(frame);
+            batch_fair_cv_.notify_all();
+        } catch (...) {
+            handleError(request->buffers);
+            FreeRequest(request);
+            std::throw_with_nested(std::runtime_error("Pre-processing failed in SubmitImage"));
+        }
+
+        try {
+            // start inference asynchronously if enough buffers for batching
+            if (request->buffers.size() >= safe_convert<size_t>(batch_size)) {
+                request->start_async();
+            } else {
+                freeRequests.push_front(request);
+            }
+        } catch (...) {
+            handleError(request->buffers);
+            FreeRequest(request);
+            std::throw_with_nested(std::runtime_error("Inference async start failed in SubmitImage"));
+        }
+
+        break;
     }
 }
 
@@ -1584,6 +1625,13 @@ void OpenVINOImageInference::Close() {
         auto req = freeRequests.pop();
         req->infer_request_new.set_callback([](std::exception_ptr) {});
     }
+}
+
+void OpenVINOImageInference::UnregisterSource(void *source) {
+    if (!source)
+        return;
+    std::lock_guard<std::mutex> sg(sources_mutex_);
+    known_sources_.erase(source);
 }
 
 void OpenVINOImageInference::WorkingFunction(const std::shared_ptr<BatchRequest> &request) {
