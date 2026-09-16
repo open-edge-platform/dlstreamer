@@ -31,7 +31,6 @@ BlockingQueue
 buildtools
 Caffe
 caffe
-capsrelax
 ClassificationMetadata
 CLion
 cls
@@ -108,7 +107,6 @@ gva
 gvaaudiodetect
 gvadetect
 gvaclassify
-gvadrop
 gvafpscounter
 gvainference
 gvametaaggregate
