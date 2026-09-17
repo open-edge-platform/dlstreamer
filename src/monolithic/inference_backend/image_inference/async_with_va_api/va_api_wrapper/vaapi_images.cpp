@@ -131,10 +131,8 @@ VaApiImage::VaApiImage(VaApiContext *context_, uint32_t width, uint32_t height, 
 
     if (memory_type == MemoryType::DMA_BUFFER) {
         size_t buf_size = static_cast<size_t>(width) * height * 3; // RGBP/BGRP
-        dma_buf_fd = AllocateDmaBuf(buf_size);
-        if (dma_buf_fd >= 0) {
-            image.dma_fd = dma_buf_fd;
-        } else {
+        image.dma_fd = AllocateDmaBuf(buf_size);
+        if (image.dma_fd < 0) {
             GVA_WARNING("Falling back to the slow NPU path (extra GPU->CPU->NPU copies): no access to DMA-BUF. "
                         "To enable zero-copy, grant access to /dev/dma_heap/system, e.g. "
                         "'sudo chgrp video /dev/dma_heap/system && sudo chmod 660 /dev/dma_heap/system'.");
@@ -143,8 +141,8 @@ VaApiImage::VaApiImage(VaApiContext *context_, uint32_t width, uint32_t height, 
     }
 
     // DRM_PRIME import requires matching RT format; RGBP/BGRP need VA_RT_FORMAT_RGBP
-    const int rt_format = (dma_buf_fd >= 0) ? VA_RT_FORMAT_RGBP : context_->RTFormat();
-    image.va_surface_id = CreateVASurface(context->Display(), width, height, pixel_format, rt_format, dma_buf_fd);
+    const int rt_format = (image.dma_fd >= 0) ? VA_RT_FORMAT_RGBP : context_->RTFormat();
+    image.va_surface_id = CreateVASurface(context->Display(), width, height, pixel_format, rt_format, image.dma_fd);
 
     image_map = std::unique_ptr<ImageMap>(ImageMap::Create(memory_type));
     completed = true;
@@ -162,9 +160,9 @@ VaApiImage::~VaApiImage() {
         GVA_WARNING("VA surface destroying failed: %s", e.what());
     }
 
-    if (dma_buf_fd >= 0) {
-        close(dma_buf_fd);
-        dma_buf_fd = -1;
+    if (image.dma_fd >= 0) {
+        close(image.dma_fd);
+        image.dma_fd = -1;
     }
 }
 
@@ -173,7 +171,13 @@ void VaApiImage::Unmap() {
 }
 
 Image VaApiImage::Map() {
-    return image_map->Map(image);
+    Image mapped = image_map->Map(image);
+    // For DMA-BUF zero-copy: propagate dma_fd so inference can import it as NPU remote tensor
+    if (image.dma_fd >= 0) {
+        mapped.dma_fd = image.dma_fd;
+        mapped.type = MemoryType::DMA_BUFFER;
+    }
+    return mapped;
 }
 
 VaApiImagePool::VaApiImagePool(VaApiContext *context, SizeParams size_params, ImageInfo info) {

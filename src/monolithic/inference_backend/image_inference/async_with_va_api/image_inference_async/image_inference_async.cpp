@@ -144,11 +144,6 @@ void ImageInferenceAsync::SubmitInference(VaApiImage *va_api_image, IFrameBase::
     };
 
     auto mapped = va_api_image->Map();
-    // For DMA-BUF zero-copy: propagate dma_fd so inference can import it as NPU remote tensor
-    if (va_api_image->dma_buf_fd >= 0) {
-        mapped.dma_fd = va_api_image->dma_buf_fd;
-        mapped.type = MemoryType::DMA_BUFFER;
-    }
     frame->SetImage(std::shared_ptr<Image>(new Image(mapped), deleter));
     _inference->SubmitImage(std::move(frame), input_preprocessors);
 }
