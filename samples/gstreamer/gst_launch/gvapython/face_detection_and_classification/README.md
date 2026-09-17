@@ -25,8 +25,7 @@ The sample uses by default the following pre-trained models from OpenVINO™ Too
 If Python requirements are not installed yet:
 
 ```sh
-python3 -m pip install --upgrade pip
-python3 -m pip install -r ../../../../requirements.txt
+uv pip install -r ../../../../requirements.txt
 cd -
 ```
 Run sample:

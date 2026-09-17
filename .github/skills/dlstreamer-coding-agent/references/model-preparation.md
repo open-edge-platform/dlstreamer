@@ -244,11 +244,12 @@ sudo apt-get update
 sudo apt-get install -y cmake g++
 ```
 
-Rerun the requirements installation with the venv Python to avoid
+Rerun the requirements installation with the venv's `uv pip` to avoid
 system-pip/PEP 668 issues:
 
 ```bash
-./.<app_name>-export-venv/bin/python -m pip install -r export_requirements.txt
+source .<app_name>-export-venv/bin/activate
+uv pip install -r export_requirements.txt
 ```
 
 ### 6. Audio Models for gvaaudiodetect / gvaaudiotranscribe

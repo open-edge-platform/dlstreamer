@@ -107,6 +107,9 @@ RUN \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
+
+RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin sh
+
 RUN \
     useradd -ms /bin/bash dlstreamer && \
     mkdir /python3venv && \
@@ -116,9 +119,9 @@ RUN \
 USER dlstreamer
 
 RUN \
-    python3 -m venv /python3venv && \
-    /python3venv/bin/pip3 install --no-cache-dir --upgrade pip==26.1.2 && \
-    /python3venv/bin/pip3 install --no-cache-dir --no-dependencies \
+    uv venv /python3venv && \
+    VIRTUAL_ENV=/python3venv uv pip install --no-cache-dir --upgrade pip==26.1.2 && \
+    VIRTUAL_ENV=/python3venv uv pip install --no-cache-dir --no-deps \
     meson==1.4.1 \
     ninja==1.11.1.1 \
     numpy==2.2.0 \
@@ -445,7 +448,7 @@ RUN \
        chown -R dlstreamer:dlstreamer /home/dlstreamer
 
 # Install python dependencies
-RUN pip3 install --no-cache-dir --break-system-packages --ignore-installed -r "${DLSTREAMER_DIR}/requirements.txt"
+RUN VIRTUAL_ENV=/python3venv uv pip install --no-cache-dir --break-system-packages -r "${DLSTREAMER_DIR}/requirements.txt"
 
 WORKDIR /home/dlstreamer
 USER dlstreamer
@@ -578,12 +581,14 @@ RUN \
     chown -R dlstreamer: /opt && \
     chmod -R u+rw /opt
 
+RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin sh
+
 # Install onvif-zeep Python package
 RUN \
     apt-get update && \
     apt-get install -y -q --no-install-recommends python3-pip=\* gcc=\* libcairo2-dev=\* libgirepository1.0-dev=\* && \
-    pip3 install --no-cache-dir --break-system-packages onvif-zeep==0.2.12 && \
-    pip3 install --no-cache-dir --break-system-packages --ignore-installed -r /opt/intel/dlstreamer/requirements.txt && \
+    uv pip install --system --no-cache-dir --break-system-packages onvif-zeep==0.2.12 && \
+    uv pip install --system --no-cache-dir --break-system-packages -r /opt/intel/dlstreamer/requirements.txt && \
     apt-get remove -y gcc libcairo2-dev libgirepository1.0-dev && \
     apt-get autoremove -y && \
     cp -r /usr/local/lib/python3.12/site-packages/wsdl /usr/local/lib/python3.12/dist-packages/ && \

@@ -790,7 +790,7 @@ Examples:
   %(prog)s --rtsp-uri rtsp://cam:554/stream1 --model-path ./Gemma3-4B
 
 Model export (run once):
-  pip install optimum-intel openvino
+  uv pip install optimum-intel openvino
   optimum-cli export openvino --model google/gemma-3-4b-it \\
       --weight-format int4 --trust-remote-code Gemma3-4B
 """)

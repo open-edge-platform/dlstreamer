@@ -41,8 +41,7 @@ The sample uses the following pre-trained models from Ultralytics
 If Python requirements are not installed yet:
 
 ```sh
-python3 -m pip install --upgrade pip
-python3 -m pip install -r ../../../../requirements.txt
+uv pip install -r ../../../../requirements.txt
 cd -
 ```
 The sample script __instance_segmentation.sh__ accepts the following command line optional arguments:

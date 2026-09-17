@@ -352,6 +352,13 @@ jobs:
           fi
           echo "Selected test configuration file: $HOST_TEST_CONFIGS" >> $GITHUB_STEP_SUMMARY
 
+      - name: Ensure uv is installed
+        run: |
+          # Check if uv is installed, if not install it
+          if ! command -v uv >/dev/null 2>&1; then
+            curl -LsSf https://astral.sh/uv/install.sh | sh
+          fi
+
       - name: Init host test environment
         if: always() && needs.setup.outputs.should_run == 'true'
         env:
@@ -367,12 +374,11 @@ jobs:
             rm -rf $HOME/.virtualenvs
           fi
           mkdir -p $HOME/.virtualenvs/dlstreamer
-          python3 -m venv $HOME/.virtualenvs/dlstreamer
-          $HOME/.virtualenvs/dlstreamer/bin/pip install --no-cache-dir --upgrade pip -r $DLS_REL_PATH/requirements.txt
-
+          uv venv $HOME/.virtualenvs/dlstreamer
+          VIRTUAL_ENV=$HOME/.virtualenvs/dlstreamer uv pip install --no-cache-dir -r $DLS_REL_PATH/requirements.txt
           for sample in face_detection_and_classification prompted_detection smart_nvr; do
             req="$DLS_REL_PATH/samples/gstreamer/python/$sample/requirements.txt"
-            [ -f "$req" ] && $HOME/.virtualenvs/dlstreamer/bin/pip install --no-cache-dir -r "$req"
+            [ -f "$req" ] &&  VIRTUAL_ENV=$HOME/.virtualenvs/dlstreamer uv pip install --no-cache-dir -r "$req"
           done
 
 
@@ -456,7 +462,7 @@ jobs:
           echo "Failed tests: $FAILED_TESTS"
 
           source $HOME/.virtualenvs/dlstreamer/bin/activate
-          pip install --no-cache-dir opencv-python-headless numpy
+          uv pip install --no-cache-dir opencv-python-headless numpy
 
           TESTS_DIR="$PWD/$DLS_REL_PATH/tests/functional_tests"
           GENERATED_CONFIGS_DIR="$TESTS_DIR/pipeline_test/configs_ov2/generated_configs"
