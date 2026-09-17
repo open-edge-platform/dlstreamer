@@ -140,9 +140,9 @@ packages:
 <!--hide_directive:sync: tab2hide_directive-->
 
   ```bash
-  wget https://storage.openvinotoolkit.org/repositories/openvino/packages/2026.4/linux/openvino_toolkit_ubuntu24_2026.4.0.22476.56d9685302d_x86_64.tgz
-  tar -xvzf openvino_toolkit_ubuntu24_2026.4.0.22476.56d9685302d_x86_64.tgz
-  sudo mv openvino_toolkit_ubuntu24_2026.4.0.22476.56d9685302d_x86_64 /opt/intel/openvino_2026.4.0
+  wget https://storage.openvinotoolkit.org/repositories/openvino/packages/2026.4/linux/openvino_toolkit_ubuntu24_2026.4.0.22959.99c81491cc3_x86_64.tgz
+  tar -xvzf openvino_toolkit_ubuntu24_2026.4.0.22959.99c81491cc3_x86_64.tgz
+  sudo mv openvino_toolkit_ubuntu24_2026.4.0.22959.99c81491cc3_x86_64 /opt/intel/openvino_2026.4.0
   cd /opt/intel/openvino_2026.4.0/
   sudo -E python3 -m pip install -r ./python/requirements.txt
   cd /opt/intel
