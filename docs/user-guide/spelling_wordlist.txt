@@ -17,8 +17,6 @@ BaseElement
 BaseFrame
 BaseMemoryMapper
 BaseMetadata
-BaseSink
-BaseSource
 BaseTensor
 BaseTransform
 BaseTransformInplace
