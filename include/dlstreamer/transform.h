@@ -71,8 +71,6 @@ class Transform : public Element {
     virtual FramePtr process(FramePtr src) = 0;
 };
 
-using TransformPtr = std::shared_ptr<Transform>;
-
 /**
  * @brief Abstract interface for in-place transform elements. Transform element doesn't allocate new frames/tensors,
  * it modified input frames/tensors.
@@ -97,20 +95,5 @@ class TransformInplace : public Element {
      */
     virtual bool process(FramePtr src) = 0;
 };
-
-static inline TransformPtr create_transform(const ElementDesc &desc, const AnyMap &params = AnyMap(),
-                                            const ContextPtr &app_context = nullptr) {
-    Element *element = desc.create(std::make_shared<BaseDictionary>(params), app_context);
-    Transform *transform = dynamic_cast<Transform *>(element);
-    if (!transform)
-        throw std::runtime_error("Error on dynamic_cast<Transform*>");
-    return TransformPtr(transform);
-}
-
-template <class Ty>
-static inline std::unique_ptr<Ty> create_transform(const AnyMap &params = AnyMap(),
-                                                   const ContextPtr &app_context = nullptr) {
-    return std::make_unique<Ty>(std::make_shared<BaseDictionary>(params), app_context);
-}
 
 } // namespace dlstreamer
