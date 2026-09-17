@@ -13,6 +13,6 @@ combination with Intel® Deep Learning Streamer elements.
 :maxdepth: 1
 :hidden:
 
-compositor
+vacompositor
 :::
 hide_directive-->
