@@ -142,7 +142,7 @@ RUN \
     exceptiongroup==1.2.2 \
     iniconfig==2.0.0 \
     typing-extensions==4.15.0 \
-    openvino==2026.3.1
+    openvino==2026.4.0
 
 # hadolint ignore=DL3002
 USER root
@@ -368,7 +368,7 @@ FROM builder AS dlstreamer-dev
 
 ARG DLSTREAMER_VERSION=2026.2.0
 ARG DLSTREAMER_BUILD_NUMBER
-ARG OPENVINO_VERSION=2026.3.1
+ARG OPENVINO_VERSION=2026.4.0
 # DL Streamer development image and build proccess
 
 SHELL ["/bin/bash", "-xo", "pipefail", "-c"]
