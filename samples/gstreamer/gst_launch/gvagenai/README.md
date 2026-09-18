@@ -56,9 +56,20 @@ export GENAI_MODEL_PATH=/path/to/your/model
 - `-V, --vision-mode image|video`: How frames are presented to the model. `video` requires a video-capable model (e.g. Qwen2/2.5/3-VL, LLaVA-NeXT-Video); image-only models such as MiniCPM-V use `image`. Default: `image`. See [Use Image or Video Tags in Prompt](https://openvinotoolkit.github.io/openvino.genai/docs/use-cases/image-processing/#use-image-or-video-tags-in-prompt) for model-specific tags and video support
 - `-A, --pipeline-config KEY=VAL,...`: OpenVINO device/plugin properties passed to the pipeline, as `KEY=VALUE,KEY=VALUE`. Most useful for NPU tuning, where properties are nested per device, e.g. `NPU.MAX_PROMPT_LEN=2048,NPU.MIN_RESPONSE_LEN=512`
 - `-B, --scheduler-config KEY=VAL,...`: Continuous-batching scheduler configuration, as `KEY=VALUE,KEY=VALUE` (e.g. `enable_prefix_caching=true,use_cache_eviction=true`). See the [gvagenai element documentation](../../../../docs/user-guide/elements/gvagenai.md) for the full list of keys
+- `-c, --trigger-classes LIST`: Comma-separated object classes from an upstream `gvadetect` that force VLM analysis, e.g. `"person,car"`. Requires `MODELS_PATH` or `DETECTION_MODEL`. Empty (default) disables frame selection. See [Event-Driven Frame Selection](#event-driven-frame-selection-static-vs-dynamic)
+- `-m, --trigger-mode any|all`: `any` (default) triggers on one detected class, `all` requires every listed class in the same frame
+- `-n, --trigger-min-confidence NUM`: Minimum `gvadetect` confidence `[0.0-1.0]` for a trigger. Default in this script: `0.5` (the `gvagenai` element's own property default is `0.0`)
+- `-t, --threshold NUM`: `gvadetect` detection threshold `[0.0-1.0]`. Default: `0.5`
 - `-O, --output FILE`: Output JSON file path. Default: `genai_output.json`
 - `-M, --metrics`: Include performance metrics in JSON output
 - `-H, --help`: Show help message
+
+**Environment Variables:**
+
+| Variable | Description |
+|----------|-------------|
+| `MODELS_PATH` | Required with `--trigger-classes` (unless `DETECTION_MODEL` is set): root of the downloaded detection models |
+| `DETECTION_MODEL` | Optional. Full path to the `gvadetect` model `.xml`. Default: `$MODELS_PATH/public/yolov8s/FP16/yolov8s.xml` |
 
 **Examples:**
 
@@ -125,6 +136,40 @@ export GENAI_MODEL_PATH=/path/to/your/model
   }
   ```
   Additional fields include `*_std` counterparts and `inference_duration`, `tokenization_duration`, `detokenization_duration`, `prepare_embeddings_duration`, and `ipot` statistics.
+
+## Event-Driven Frame Selection (static vs dynamic)
+
+By default `gvagenai` selects frames statically, at a fixed rate controlled by `frame-rate` (fps). It can also select frames *dynamically*, running the VLM only when an upstream element detects an object of interest. This is driven by per-frame detection metadata (`GstAnalyticsODMtd`, e.g. from `gvadetect`) via three element properties:
+
+- `trigger-classes`: comma-separated object class names that force a frame to the VLM, e.g. `"person,fire"`. Must match the detector's labels. Empty/unset disables the trigger.
+- `trigger-mode`: `any` (default) sends the frame when at least one listed class is detected; `all` requires every listed class to be present in the same frame.
+- `trigger-min-confidence`: minimum detection confidence `[0.0-1.0]` for a match to count. Default (element property) `0.0`; this sample's `--trigger-min-confidence` flag defaults to `0.5`.
+
+How it combines with `frame-rate`:
+
+| `frame-rate` | `trigger-classes` | Behavior |
+|---|---|---|
+| `0` | unset | Static: all frames analyzed (default) |
+| `>0` | unset | Static: fixed-rate sampling |
+| `>0` | set | Hybrid: fixed-rate frames **plus** every frame matching the trigger |
+| `0` | set | Dynamic: **only** frames matching the trigger are analyzed (pure event-driven) |
+
+The script itself builds a `gvadetect ! gvagenai` pipeline when `--trigger-classes` is set, demonstrating both modes:
+
+```bash
+# Pure event-driven: run the VLM only on frames where a person is detected
+export MODELS_PATH=/path/to/models
+export GENAI_MODEL_PATH=/path/to/vlm-model
+./sample_gvagenai.sh --trigger-classes person --frame-rate 0
+
+# Hybrid: analyze every 2 fps AND additionally whenever a car appears
+./sample_gvagenai.sh --trigger-classes car --frame-rate 2
+
+# Trigger only when a person AND a bicycle appear in the same frame
+./sample_gvagenai.sh --trigger-classes person,bicycle --trigger-mode all
+```
+
+The detection model defaults to `$MODELS_PATH/public/yolov8s/FP16/yolov8s.xml` (COCO classes); override it with the `DETECTION_MODEL` environment variable. Run `./sample_gvagenai.sh --help` for the full option list.
 
 ## Troubleshooting
 
