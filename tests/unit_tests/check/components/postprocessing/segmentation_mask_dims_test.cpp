@@ -112,7 +112,7 @@ TEST_F(SegmentationConverterDimsTest, MaskRCNNInstanceMaskDimsAreWidthHeight) {
         {"boxes", std::make_shared<FakeOutputBlob>(std::vector<size_t>{1, 1, 5}, boxes_data, Blob::Precision::FP32)},
         {"labels", std::make_shared<FakeOutputBlob>(std::vector<size_t>{1, 1}, labels_data, Blob::Precision::I64)},
         {"masks", std::make_shared<FakeOutputBlob>(std::vector<size_t>{1, 1, mask_height, mask_width}, masks_data,
-                                                    Blob::Precision::FP32)},
+                                                   Blob::Precision::FP32)},
     };
 
     // labels_data[0]=0 maps to main_class = 0 + 1 = 1, so at least two labels are required.
@@ -145,7 +145,7 @@ TEST_F(SegmentationConverterDimsTest, YoloV8SegInstanceMaskDimsAreWidthHeight) {
     OutputBlobs blobs{
         {"boxes", std::make_shared<FakeOutputBlob>(std::vector<size_t>{1, 6, 1}, boxes_data, Blob::Precision::FP32)},
         {"masks", std::make_shared<FakeOutputBlob>(std::vector<size_t>{1, 1, mask_height, mask_width}, masks_data,
-                                                    Blob::Precision::FP32)},
+                                                   Blob::Precision::FP32)},
     };
 
     YOLOv8SegConverter converter(makeInitializer(input_width, input_height, model_proc_output_info, {"object"}), 0.5,
@@ -178,7 +178,7 @@ TEST_F(SegmentationConverterDimsTest, YoloV26SegInstanceMaskDimsAreWidthHeight) 
     OutputBlobs blobs{
         {"boxes", std::make_shared<FakeOutputBlob>(std::vector<size_t>{1, 1, 7}, boxes_data, Blob::Precision::FP32)},
         {"masks", std::make_shared<FakeOutputBlob>(std::vector<size_t>{1, 1, mask_height, mask_width}, masks_data,
-                                                    Blob::Precision::FP32)},
+                                                   Blob::Precision::FP32)},
     };
 
     YOLOv26SegConverter converter(makeInitializer(input_width, input_height, model_proc_output_info, {"object"}), 0.5,
@@ -212,7 +212,7 @@ TEST_F(SegmentationConverterDimsTest, RfDetrSegInstanceMaskDimsAreWidthHeight) {
          std::make_shared<FakeOutputBlob>(std::vector<size_t>{1, 1, num_classes}, logits_data, Blob::Precision::FP32)},
         {"boxes", std::make_shared<FakeOutputBlob>(std::vector<size_t>{1, 1, 4}, boxes_data, Blob::Precision::FP32)},
         {"masks", std::make_shared<FakeOutputBlob>(std::vector<size_t>{1, 1, mask_height, mask_width}, masks_data,
-                                                    Blob::Precision::FP32)},
+                                                   Blob::Precision::FP32)},
     };
 
     std::vector<std::string> labels(num_classes, "object");
