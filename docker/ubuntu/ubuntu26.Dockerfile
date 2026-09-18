@@ -73,6 +73,20 @@ RUN \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
+# Intel NPU drivers and prerequisites installation
+WORKDIR /tmp/npu_deps
+
+RUN curl -LO https://github.com/intel/linux-npu-driver/releases/download/v1.38.0/linux-npu-driver-v1.38.0.20260910-34487311128-ubuntu2604.tar.gz &&\
+    tar -xf linux-npu-driver-v1.38.0.20260910-34487311128-ubuntu2604.tar.gz && \
+    curl -LO https://snapshot.ppa.launchpadcontent.net/kobuk-team/intel-graphics/ubuntu/20260830T100000Z/pool/main/l/level-zero-loader/libze1_1.32.0-1~24.04~ppa1_amd64.deb && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends libtbb12=\* && \
+    dpkg -i *.deb && \
+    apt-get clean && \
+    curl -LO https://snapshot.ppa.launchpadcontent.net/kobuk-team/intel-graphics/ubuntu/20260830T100000Z/pool/main/l/level-zero-loader/libze1_1.32.0-1~26.04~ppa1_amd64.deb && \
+    dpkg -i libze1_*.deb && \
+    rm -rf /var/lib/apt/lists/* /tmp/npu_deps
+
 WORKDIR /
 
 RUN \
@@ -122,7 +136,7 @@ RUN \
     exceptiongroup==1.2.2 \
     iniconfig==2.0.0 \
     typing-extensions==4.15.0 \
-    openvino==2026.3.1
+    openvino==2026.4.0
 
 # hadolint ignore=DL3002
 USER root
@@ -348,7 +362,7 @@ FROM builder AS dlstreamer-dev
 
 ARG DLSTREAMER_VERSION=2026.2.0
 ARG DLSTREAMER_BUILD_NUMBER
-ARG OPENVINO_VERSION=2026.3.1
+ARG OPENVINO_VERSION=2026.4.0
 # DL Streamer development image and build proccess
 
 SHELL ["/bin/bash", "-xo", "pipefail", "-c"]
@@ -381,7 +395,7 @@ RUN \
 
 # OpenVINO Gen AI
 ARG OPENVINO_GENAI_VER=openvino_genai_ubuntu26_${OPENVINO_VERSION}.0_x86_64
-ARG OPENVINO_GENAI_PKG=https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/2026.3.1/linux/${OPENVINO_GENAI_VER}.tar.gz
+ARG OPENVINO_GENAI_PKG=https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/2026.4/linux/${OPENVINO_GENAI_VER}.tar.gz
 
 RUN curl -L ${OPENVINO_GENAI_PKG} | tar -xz && \
     mv ${OPENVINO_GENAI_VER} /opt/intel/openvino_genai
@@ -527,6 +541,20 @@ RUN \
     intel-media-va-driver-non-free=\* va-driver-all=\* libva-glx2=\* vainfo=\* && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
+
+# Intel NPU drivers and prerequisites installation
+WORKDIR /tmp/npu_deps
+
+RUN curl -LO https://github.com/intel/linux-npu-driver/releases/download/v1.38.0/linux-npu-driver-v1.38.0.20260910-34487311128-ubuntu2604.tar.gz &&\
+    tar -xf linux-npu-driver-v1.38.0.20260910-34487311128-ubuntu2604.tar.gz && \
+    curl -LO https://snapshot.ppa.launchpadcontent.net/kobuk-team/intel-graphics/ubuntu/20260830T100000Z/pool/main/l/level-zero-loader/libze1_1.32.0-1~24.04~ppa1_amd64.deb && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends libtbb12=\* && \
+    dpkg -i *.deb && \
+    apt-get clean && \
+    curl -LO https://snapshot.ppa.launchpadcontent.net/kobuk-team/intel-graphics/ubuntu/20260830T100000Z/pool/main/l/level-zero-loader/libze1_1.32.0-1~26.04~ppa1_amd64.deb && \
+    dpkg -i libze1_*.deb && \
+    rm -rf /var/lib/apt/lists/* /tmp/npu_deps
 
 WORKDIR /
 
