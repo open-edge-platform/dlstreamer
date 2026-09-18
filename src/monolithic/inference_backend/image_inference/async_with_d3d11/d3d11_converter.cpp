@@ -150,8 +150,8 @@ void D3D11Converter::SetupPreprocessing(const InputImageLayerDesc::Ptr &pre_proc
             uint16_t startX = (_src_width - crop_size) / 2;
             uint16_t startY = (_src_height - crop_size) / 2;
 
-            src_rect_x += startX;
-            src_rect_y += startY;
+            src_rect_x = startX;
+            src_rect_y = startY;
             src_rect_w = crop_size;
             src_rect_h = crop_size;
 
@@ -218,7 +218,8 @@ void D3D11Converter::SetupPreprocessing(const InputImageLayerDesc::Ptr &pre_proc
 
 void D3D11Converter::Convert(GstBuffer *src_buffer, GstBuffer *dst_buffer,
                              const InputImageLayerDesc::Ptr &pre_proc_info,
-                             const ImageTransformationParams::Ptr &image_transform_info) {
+                             const ImageTransformationParams::Ptr &image_transform_info,
+                             const Rectangle<uint32_t> &roi) {
     if (!src_buffer || !dst_buffer)
         throw std::invalid_argument("D3D11Converter::Convert: null buffer");
 
@@ -233,13 +234,26 @@ void D3D11Converter::Convert(GstBuffer *src_buffer, GstBuffer *dst_buffer,
     uint32_t src_rect_w = src_desc.Width;
     uint32_t src_rect_h = src_desc.Height;
 
+    if (roi.width > 0 && roi.height > 0) {
+        // Clamp to the surface: ROI coordinates come from detection metadata and may be
+        // rounded outside the frame by a pixel.
+        src_rect_x = (std::min)(roi.x, static_cast<uint32_t>(src_desc.Width));
+        src_rect_y = (std::min)(roi.y, static_cast<uint32_t>(src_desc.Height));
+        src_rect_w = (std::min)(roi.width, static_cast<uint32_t>(src_desc.Width) - src_rect_x);
+        src_rect_h = (std::min)(roi.height, static_cast<uint32_t>(src_desc.Height) - src_rect_y);
+    }
+
+    if (src_rect_w == 0 || src_rect_h == 0)
+        throw std::runtime_error("D3D11Converter::Convert: empty source region");
+
     if (pre_proc_info && pre_proc_info->isDefined()) {
         SetupPreprocessing(pre_proc_info, image_transform_info, src_rect_x, src_rect_y, src_rect_w, src_rect_h);
     } else {
-        // Simple resize: full source to full destination
-        g_object_set(_converter, "src-x", 0, "src-y", 0, "src-width", static_cast<gint>(src_desc.Width), "src-height",
-                     static_cast<gint>(src_desc.Height), "dest-x", 0, "dest-y", 0, "dest-width",
-                     static_cast<gint>(_dst_width), "dest-height", static_cast<gint>(_dst_height), nullptr);
+        // Simple resize: source region (ROI or full surface) to full destination
+        g_object_set(_converter, "src-x", static_cast<gint>(src_rect_x), "src-y", static_cast<gint>(src_rect_y),
+                     "src-width", static_cast<gint>(src_rect_w), "src-height", static_cast<gint>(src_rect_h), "dest-x",
+                     0, "dest-y", 0, "dest-width", static_cast<gint>(_dst_width), "dest-height",
+                     static_cast<gint>(_dst_height), nullptr);
     }
 
     // GstD3D11Converter handles device locking internally

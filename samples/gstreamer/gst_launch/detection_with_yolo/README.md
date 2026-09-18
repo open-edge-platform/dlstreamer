@@ -28,7 +28,7 @@ as described here: [Tutorial](../../../../docs/user-guide/tutorial.md#setup).
 For yolov5nu, yolov8s (8n-obb, 8n-seg), yolov9c, yolov10s, yolo11s (yolo11s-seg, yolo11s-obb, yolo11s-pose), yolo26 variants, and yolo26s-cls it is also necessary to install the ultralytics python package:
 
 ```sh
-pip install ultralytics
+uv pip install ultralytics
 ```
 
 The samples demonstrate deployment and inference with GStreamer command line tool `gst-launch-1.0` and DL Streamer components for the following set of models:

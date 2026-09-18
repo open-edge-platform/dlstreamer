@@ -33,9 +33,13 @@ sudo apt-get remove intel-dlstreamer-gst libpython3-dev python-gi-dev libopencv-
 
 ### Step 2: Uninstall Python dependencies
 
+Python dependencies are installed into an isolated virtual environment
+(`~/python3venv`), so the simplest and safest way to remove them is to delete
+the virtual environment itself — this avoids accidentally touching any
+system-wide packages:
+
 ```bash
-cd ~/intel/dlstreamer_gst
-sudo python3 -m pip uninstall -r requirements.txt
+rm -rf ~/python3venv
 ```
 
 ### Step 3: Uninstall optional components

@@ -1,6 +1,6 @@
 #!/bin/bash
 # ==============================================================================
-# Copyright (C) 2018-2025 Intel Corporation
+# Copyright (C) 2018-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
@@ -20,12 +20,12 @@ wget https://raw.githubusercontent.com/openvinotoolkit/openvino.genai/refs/heads
 wget https://raw.githubusercontent.com/openvinotoolkit/openvino.genai/refs/heads/releases/2025/3/samples/export-requirements.txt
 
 # Create and activate Python virtual environment
-python3 -m venv ~/ov-whisper-env
+uv venv ~/ov-whisper-env
 # shellcheck source=/dev/null
 source ~/ov-whisper-env/bin/activate
 
 # Install requirements
-pip install --upgrade-strategy eager -r requirements.txt
+uv pip install -r requirements.txt
 
 # Download & convert the Whisper model
 optimum-cli export openvino --trust-remote-code --model openai/whisper-base whisper-base

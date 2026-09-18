@@ -1,5 +1,5 @@
 --extra-index-url https://download.pytorch.org/whl/cpu
-openvino==2026.2.0
+openvino==2026.3.1
 nncf==3.0.0
 ultralytics==8.4.57
 torch
