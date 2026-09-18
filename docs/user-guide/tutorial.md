@@ -477,6 +477,8 @@ docker run -it --rm \
   --group-add $(stat -c "%g" /dev/dri/render*) \
   --device /dev/accel \
   --group-add $(stat -c "%g" /dev/accel/accel*) \
+  --device /dev/dma_heap \
+  --group-add $(stat -c "%g" /dev/dma_heap/system) \
   intel/dlstreamer:latest
 ```
 
@@ -488,6 +490,8 @@ What the GPU/NPU passthrough flags do:
 | `--group-add $(stat -c "%g" /dev/dri/render*)` | Grants non-root permission to the GPU |
 | `--device /dev/accel` | Gives the container access to the Intel® **NPU** |
 | `--group-add $(stat -c "%g" /dev/accel/accel*)` | Grants non-root permission to the NPU |
+| `--device /dev/dma_heap` | Gives the container access to the DMA-BUF heap for **NPU zero-copy** |
+| `--group-add $(stat -c "%g" /dev/dma_heap/system)` | Grants non-root permission to the DMA-BUF heap; optional — without it inference still runs via a slower GPU→CPU copy |
 
 Now, **inside the container**, run a pipeline. Since a container is typically
 headless, we output to a file:

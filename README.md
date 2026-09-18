@@ -76,13 +76,15 @@ xhost +local:docker
 docker run -it --rm \
   --device /dev/dri \
   --group-add $(stat -c "%g" /dev/dri/render*) \
+  --device /dev/accel \
+  --group-add $(stat -c "%g" /dev/accel/accel*) \
+  --device /dev/dma_heap \
+  --group-add $(stat -c "%g" /dev/dma_heap/system) \
   -e DISPLAY=$DISPLAY \
   -e XDG_RUNTIME_DIR=/tmp \
   -v /tmp/.X11-unix:/tmp/.X11-unix \
   intel/dlstreamer:latest
 ```
-
-> To use the NPU, also add `--device /dev/accel --group-add $(stat -c "%g" /dev/accel/accel*)` to the `docker run` command.
 
 **Option B — Native install (Ubuntu 24.04)**:
 
