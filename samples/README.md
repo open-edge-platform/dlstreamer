@@ -5,7 +5,7 @@ pipelines with DL Streamer. Each sample lives in its own folder with a `README.m
 (with run instructions) and a run script.
 
 > For the full, browsable catalog — descriptions, elements/models used, and preview images —
-> see the [Samples reference page](../docs/user-guide/samples.md) in the documentation.
+> see the [Available Sample Apps](../docs/user-guide/dev_guide/sample_apps_index.md) in the documentation.
 
 ## Structure
 
@@ -31,7 +31,7 @@ samples/
 
 ## Finding a sample
 
-Browse the [Samples reference page](../docs/user-guide/samples.md) for the full list grouped
+Browse the [Available Sample Apps](../docs/user-guide/dev_guide/sample_apps_index.md) for the full list grouped
 by use case (detection/classification/segmentation, tracking, VLM & GenAI, audio, 3D LiDAR/radar,
 cameras, metadata, customization, benchmarking, interoperability), or open a category folder
 above and read its samples' individual `README.md` files directly.

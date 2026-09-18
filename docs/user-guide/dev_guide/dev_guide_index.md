@@ -1,5 +1,7 @@
 # Developer Guide
 
+- [Using Sample Apps](./using_sample_apps.md)
+- [Available Sample Apps](./sample_apps_index.md)
 - [Coding Agent (Preview)](./coding_agent.md)
 - [Advanced Installation Guide](./advanced_install/advanced_install_guide_index.md)
   - [Ubuntu advanced installation - prerequisites](./advanced_install/advanced_install_guide_prerequisites.md)
