@@ -44,34 +44,38 @@ std::vector<cv::Mat> Renderer::convertBufferToCvMats(dlstreamer::Frame &buffer) 
     return image_planes;
 }
 
-void Renderer::convert_prims_color(std::vector<render::Prim> &prims) {
+void render::convert_prims_color(std::vector<render::Prim> &prims, ColorConverter &converter) {
     for (auto &p : prims) {
         if (std::holds_alternative<render::Line>(p)) {
             render::Line line = std::get<render::Line>(p);
-            line.color = _color_converter->convert(line.color);
+            line.color = converter.convert(line.color);
             p = line;
         } else if (std::holds_alternative<render::Rect>(p)) {
             render::Rect rect = std::get<render::Rect>(p);
-            rect.color = _color_converter->convert(rect.color);
+            rect.color = converter.convert(rect.color);
             p = rect;
         } else if (std::holds_alternative<render::Text>(p)) {
             render::Text text = std::get<render::Text>(p);
-            text.color = _color_converter->convert(text.color);
+            text.color = converter.convert(text.color);
             p = text;
         } else if (std::holds_alternative<render::Circle>(p)) {
             render::Circle circle = std::get<render::Circle>(p);
-            circle.color = _color_converter->convert(circle.color);
+            circle.color = converter.convert(circle.color);
             p = circle;
         } else if (std::holds_alternative<render::Polygon>(p)) {
             render::Polygon polygon = std::get<render::Polygon>(p);
-            polygon.color = _color_converter->convert(polygon.color);
+            polygon.color = converter.convert(polygon.color);
             p = polygon;
         } else if (std::holds_alternative<render::InstanceSegmantationMask>(p)) {
             render::InstanceSegmantationMask mask = std::get<render::InstanceSegmantationMask>(p);
-            mask.color = _color_converter->convert(mask.color);
+            mask.color = converter.convert(mask.color);
             p = mask;
         }
     }
+}
+
+void Renderer::convert_prims_color(std::vector<render::Prim> &prims) {
+    render::convert_prims_color(prims, *_color_converter);
 }
 
 void Renderer::draw(dlstreamer::FramePtr buffer, std::vector<render::Prim> prims) {
