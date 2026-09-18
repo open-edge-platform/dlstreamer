@@ -132,12 +132,11 @@ VaApiImage::VaApiImage(VaApiContext *context_, uint32_t width, uint32_t height, 
     if (memory_type == MemoryType::DMA_BUFFER) {
         size_t buf_size = static_cast<size_t>(width) * height * 3; // RGBP/BGRP
         image.dma_fd = AllocateDmaBuf(buf_size);
-        if (image.dma_fd < 0) {
-            GVA_WARNING("Falling back to the slow NPU path (extra GPU->CPU->NPU copies): no access to DMA-BUF. "
-                        "To enable zero-copy, grant access to /dev/dma_heap/system, e.g. "
-                        "'sudo chgrp video /dev/dma_heap/system && sudo chmod 660 /dev/dma_heap/system'.");
-            image.type = memory_type = MemoryType::SYSTEM;
-        }
+        // DMA-BUF heap access is probed up front (image_inference.cpp) before choosing DMA_BUFFER,
+        // so a failure here is unexpected. A local fallback to SYSTEM would leave the rest of the
+        // pipeline in DMA_BUFFER mode and deadlock inference, so fail hard instead.
+        if (image.dma_fd < 0)
+            throw std::runtime_error("Failed to allocate DMA-BUF for NPU zero-copy from /dev/dma_heap/system");
     }
 
     // DRM_PRIME import requires matching RT format; RGBP/BGRP need VA_RT_FORMAT_RGBP

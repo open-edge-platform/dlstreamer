@@ -66,9 +66,20 @@ ImageInference::Ptr ImageInference::createImageInferenceInstance(MemoryType inpu
         case ImagePreprocessorType::VAAPI_SYSTEM:
             // Use system memory for VAAPI_SYSTEM preprocessor type
             memory_type_to_use = MemoryType::SYSTEM;
-            if (isNpu)
-                // DMA-BUF zero-copy: VPP writes into DMA-BUF, NPU reads from same buffer
-                memory_type_to_use = MemoryType::DMA_BUFFER;
+            // DMA-BUF zero-copy (VPP writes into DMA-BUF, NPU reads from same buffer) is used on NPU
+            // when the DMA-BUF heap is accessible; otherwise fall back to the plain SYSTEM-memory path.
+            // The heap access is probed here (not later, per-surface) so the whole pipeline stays
+            // consistent: a partial fallback would leave the pool/OpenVINO instance in DMA_BUFFER mode
+            // while individual surfaces are SYSTEM, which deadlocks inference.
+            if (isNpu) {
+                if (access("/dev/dma_heap/system", R_OK | W_OK) != 0) {
+                    GVA_WARNING("Falling back to the slow NPU path (extra GPU->CPU->NPU copies): no access to "
+                                "DMA-BUF. To enable zero-copy, grant access to /dev/dma_heap/system, e.g. "
+                                "'sudo chgrp video /dev/dma_heap/system && sudo chmod 660 /dev/dma_heap/system'.");
+                } else {
+                    memory_type_to_use = MemoryType::DMA_BUFFER;
+                }
+            }
             break;
         case ImagePreprocessorType::VAAPI_SURFACE_SHARING:
             // Use VAAPI memory for VAAPI_SURFACE_SHARING preprocessor type
