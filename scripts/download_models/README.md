@@ -44,9 +44,10 @@ Dependencies file: `requirements_download_hf_models.txt`
 ### Setup
 
 ```bash
-python3 -m venv .hf_models_venv
+curl -LsSf https://astral.sh/uv/install.sh | sh
+uv venv .hf_models_venv
 source .hf_models_venv/bin/activate  # On Windows: .hf_models_venv\Scripts\activate
-pip install -r requirements_download_hf_models.txt
+uv pip install --index-strategy unsafe-best-match -r requirements_download_hf_models.txt
 ```
 
 ### Command
@@ -102,9 +103,10 @@ Dependencies file: `requirements_download_ultralytics_models.txt`
 ### Setup
 
 ```bash
-python3 -m venv .ultralytics_models_venv
+curl -LsSf https://astral.sh/uv/install.sh | sh
+uv venv .ultralytics_models_venv
 source .ultralytics_models_venv/bin/activate  # On Windows: .ultralytics_models_venv\Scripts\activate
-pip install -r requirements_download_ultralytics_models.txt
+uv pip install --index-strategy unsafe-best-match -r requirements_download_ultralytics_models.txt
 ```
 
 ### Command
@@ -160,9 +162,9 @@ Dependencies file: `requirements_download_timm_models.txt`
 ### Setup
 
 ```bash
-python3 -m venv .timm_models_venv
+uv venv .timm_models_venv
 source .timm_models_venv/bin/activate  # On Windows: .timm_models_venv\Scripts\activate
-pip install -r requirements_download_timm_models.txt
+uv pip install --index-strategy unsafe-best-match -r requirements_download_timm_models.txt
 ```
 
 This script exports a relevant set of Hugging Face-hosted PyTorch Image Models
