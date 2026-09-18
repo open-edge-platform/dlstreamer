@@ -268,19 +268,24 @@ def _rows_for_logs(logs: list[dict[str, Any]]) -> list[list[str]]:
 
 
 def _rows_for_environment() -> list[list[str]]:
+    SENSITIVE_KEYWORDS = ("PASSWORD", "TOKEN", "SECRET", "KEY", "CREDENTIAL", "PRIVATE")
+
     rows: list[list[str]] = []
     for index, (name, requirement, description) in enumerate(REQUIRED_ENV_VARS + OPTIONAL_ENV_VARS, 1):
         value = os.environ.get(name)
-        if name.endswith("PASSWORD") and value:
+
+        is_sensitive = any(keyword in name.upper() for keyword in SENSITIVE_KEYWORDS)
+
+        if is_sensitive and value:
             rendered_value = "***"
         elif value:
             rendered_value = value
         else:
             rendered_value = "-"
+
         status = "set" if value else ("missing" if requirement == "required" else "unset")
         rows.append([str(index), name, requirement, status, rendered_value[:60], description])
     return rows
-
 
 def _camera_label(camera: dict[str, Any]) -> str:
     hostname = str(camera.get("hostname", camera.get("ip", "-")))

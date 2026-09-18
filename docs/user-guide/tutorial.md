@@ -201,10 +201,11 @@ with DL Streamer at `/opt/intel/dlstreamer/scripts/download_models/`. We just
 need a small Python environment for the one-time conversion:
 
 ```bash
-python3 -m venv ~/dlstreamer_demo/.dls-venv
+curl -LsSf https://astral.sh/uv/install.sh | sh
+uv venv ~/dlstreamer_demo/.dls-venv
 source ~/dlstreamer_demo/.dls-venv/bin/activate
-pip install --upgrade pip
-pip install -r /opt/intel/dlstreamer/scripts/download_models/requirements_download_ultralytics_models.txt
+uv install --upgrade pip
+uv install -r /opt/intel/dlstreamer/scripts/download_models/requirements_download_ultralytics_models.txt
 ```
 
 Now download and convert the three models into `~/dlstreamer_demo/models`. Each

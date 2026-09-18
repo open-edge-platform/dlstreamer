@@ -29,7 +29,7 @@ runs:
     - name: Install Pylint
       run: |
         python -m pip install --upgrade pip
-        pip install pylint==3.3.9
+        pip install pylint==4.0.8
       shell: bash
 
     - name: Run pylint
@@ -46,7 +46,10 @@ runs:
           echo "📝 Found Python files, running pylint..."
           # Save full output to temporary file first
           temp_output="${output_file}.full"
-          find "${path}" -name "*.py" -not -path "*/venv/*" -print0 | xargs -0 pylint --rcfile="${path}/pylintrc" 2>&1 | tee "${temp_output}" || true
+          mapfile -d '' other_python_files < <(
+            find "${path}" -name "*.py" -not -path "${path}/python/*" -not -path "*/venv/*" -print0
+          )
+          pylint --recursive=y --rcfile="${path}/pylintrc" "${path}/python" "${other_python_files[@]}" 2>&1 | tee "${temp_output}" || true
           # Filter only errors (E) and fatal (F) issues to the main output file
           if [ -f "${temp_output}" ]; then
             # Extract errors and fatal issues

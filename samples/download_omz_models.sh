@@ -16,10 +16,16 @@ fi
 
 echo Downloading models to folder "$MODELS_PATH"
 
-if ! python3 -m pip show -qq openvino-dev || ! python3 -m pip show -qq tensorflow; then
+if ! command -v uv >/dev/null 2>&1; then
+  echo "uv not found, installing..."
+  curl -LsSf https://astral.sh/uv/install.sh | sh
+  export PATH="$HOME/.local/bin:$PATH"
+fi
+
+if ! uv pip show -qq openvino-dev || ! uv pip show -qq tensorflow; then
   echo "This script requires the Open Model Zoo Python modules and TensorFlow."
   echo "Please install them using the following command:"
-  echo "python3 -m pip install tensorflow openvino-dev[onnx]"
+  echo "uv pip install tensorflow openvino-dev[onnx]"
   exit 1
 fi
 

@@ -71,6 +71,13 @@ jobs:
           cd dlstreamer-repo
           git submodule update --init thirdparty/spdlog
 
+      - name: Ensure uv is installed
+        run: |
+          # Check if uv is installed, if not install it
+          if ! command -v uv >/dev/null 2>&1; then
+            curl -LsSf https://astral.sh/uv/install.sh | sh
+          fi
+
       - name: Build code manually for dlstreamer
         run: |
           echo "Installing dependencies"
@@ -86,10 +93,9 @@ jobs:
           libswscale-dev libswresample-dev libavutil-dev libavformat-dev libavcodec-dev libtbb12 ocl-icd-opencl-dev
 
           echo "Setting up a Python environment"
-          python3 -m venv python3venv
+          uv venv python3venv
           source python3venv/bin/activate
-          pip install --upgrade pip==24.0
-          pip install meson==1.4.1 ninja==1.11.1.1
+          uv pip install meson==1.4.1 ninja==1.11.1.1
 
           echo "Build gstreamer"
           git clone https://gitlab.freedesktop.org/gstreamer/gstreamer.git
