@@ -7,6 +7,7 @@
 #include "test_common.h"
 #include "test_utils.h"
 #include <cstring>
+#include <dlstreamer/gst/videoanalytics/tensor.h>
 #include <gst/analytics/analytics-meta-prelude.h>
 #include <gst/analytics/gstanalyticsmeta.h>
 #include <gst/analytics/gstanalyticsobjectdetectionmtd.h>
@@ -74,6 +75,115 @@ static gsize count_modified_bytes(GstBuffer *buffer) {
 static void record_modified_bytes(GstBuffer *buffer, gpointer user_data) {
     RenderStats *stats = (RenderStats *)user_data;
     stats->modified = count_modified_bytes(buffer);
+}
+
+/* ========================================================================= */
+/*  Helpers: non-square segmentation mask rendering (regression coverage for */
+/*  commit c0bf460a / PR #1047, which swapped cv::Size(width,height) args).  */
+/*                                                                           */
+/*  A square mask cannot reveal a transposed width/height read, so these     */
+/*  tests use a non-square ROI and an oblong mask (5 wide x 50 tall) whose    */
+/*  "on" region is a full-width band in the bottom 3 mask-rows. A width/     */
+/*  height swap turns a 5x50 buffer into a 50x5 reinterpretation - since the  */
+/*  row length changes so drastically (5 vs 50), the same flat bytes decode   */
+/*  into a band confined to the right ~30% of the width instead of the full  */
+/*  width, which is easy to tell apart with a couple of point samples.       */
+/* ========================================================================= */
+
+constexpr guint SEG_ROI_X = 10, SEG_ROI_Y = 10, SEG_ROI_W = 30, SEG_ROI_H = 60;
+constexpr guint SEG_MASK_W = 5, SEG_MASK_H = 50; // deliberately oblong, decoupled from ROI size
+constexpr guint SEG_MASK_ON_ROWS = 3;            // bottom-most rows of the mask are "on"
+
+/* BGR is packed 3 bytes/pixel; SEG_FRAME_W chosen so width*3 needs no row padding. */
+constexpr guint SEG_FRAME_W = 100, SEG_FRAME_H = 100;
+static Resolution seg_test_resolution = {(gint)SEG_FRAME_W, (gint)SEG_FRAME_H};
+
+static bool pixel_is_colored(GstBuffer *buffer, guint x, guint y) {
+    GstMapInfo info;
+    ck_assert(gst_buffer_map(buffer, &info, GST_MAP_READ));
+    gsize stride = SEG_FRAME_W * 3;
+    gsize offset = y * stride + x * 3;
+    ck_assert(offset + 2 < info.size);
+    bool colored = info.data[offset] != 0 || info.data[offset + 1] != 0 || info.data[offset + 2] != 0;
+    gst_buffer_unmap(buffer, &info);
+    return colored;
+}
+
+struct SegPixelStats {
+    bool bottom_left_colored; // ON only if width/height were read correctly (full-width band)
+    bool top_center_colored;  // must stay OFF - confirms the mask isn't just filling the whole box
+};
+
+static void record_seg_pixel_stats(GstBuffer *buffer, gpointer user_data) {
+    SegPixelStats *stats = (SegPixelStats *)user_data;
+    /* bottom-left corner of the ROI, well inside the "on" band's full-width extent */
+    stats->bottom_left_colored = pixel_is_colored(buffer, SEG_ROI_X + 3, SEG_ROI_Y + SEG_ROI_H - 3);
+    /* top-center of the ROI: never "on" in either the correct or swapped interpretation */
+    stats->top_center_colored = pixel_is_colored(buffer, SEG_ROI_X + SEG_ROI_W / 2, SEG_ROI_Y + 3);
+}
+
+static void add_roi_only(GstBuffer *buffer, guint x, guint y, guint w, guint h) {
+    GstAnalyticsRelationMeta *relation_meta = gst_buffer_add_analytics_relation_meta(buffer);
+    GstAnalyticsODMtd od_mtd;
+    gst_analytics_relation_meta_add_od_mtd(relation_meta, g_quark_from_string("object"), (gint)x, (gint)y, (gint)w,
+                                           (gint)h, 0.95f, &od_mtd);
+    GstVideoRegionOfInterestMeta *roi_meta = gst_buffer_add_video_region_of_interest_meta(buffer, "object", x, y, w, h);
+    roi_meta->id = od_mtd.id;
+
+    return;
+}
+
+/* bottom SEG_MASK_ON_ROWS rows of the mask (all columns) are "on", rest is "off" */
+static void setup_buffer_with_instance_mask(GstBuffer *buffer, gpointer /*user_data*/) {
+    GstMapInfo info;
+    ck_assert(gst_buffer_map(buffer, &info, GST_MAP_WRITE));
+    memset(info.data, 0x00, info.size);
+    gst_buffer_unmap(buffer, &info);
+
+    add_roi_only(buffer, SEG_ROI_X, SEG_ROI_Y, SEG_ROI_W, SEG_ROI_H);
+
+    GstVideoRegionOfInterestMeta *roi_meta = gst_buffer_get_video_region_of_interest_meta_id(buffer, 0);
+    ck_assert(roi_meta != nullptr);
+
+    std::vector<float> mask_data(SEG_MASK_W * SEG_MASK_H);
+    for (guint r = 0; r < SEG_MASK_H; r++)
+        for (guint c = 0; c < SEG_MASK_W; c++)
+            mask_data[r * SEG_MASK_W + c] = (r >= SEG_MASK_H - SEG_MASK_ON_ROWS) ? 1.0f : 0.0f;
+
+    GstStructure *s = gst_structure_new_empty("instance_mask");
+    GVA::Tensor tensor(s);
+    tensor.set_format(GVA::TENSOR_FORMAT_INSTANCE_SEGMENTATION);
+    tensor.set_precision(GVA::Tensor::Precision::FP32);
+    tensor.set_dims({SEG_MASK_W, SEG_MASK_H}); // [W, H], per the fixed convention
+    tensor.set_data(mask_data.data(), mask_data.size() * sizeof(float));
+
+    gst_video_region_of_interest_meta_add_param(roi_meta, s);
+}
+
+static void setup_buffer_with_semantic_mask(GstBuffer *buffer, gpointer /*user_data*/) {
+    GstMapInfo info;
+    ck_assert(gst_buffer_map(buffer, &info, GST_MAP_WRITE));
+    memset(info.data, 0x00, info.size);
+    gst_buffer_unmap(buffer, &info);
+
+    add_roi_only(buffer, SEG_ROI_X, SEG_ROI_Y, SEG_ROI_W, SEG_ROI_H);
+
+    GstVideoRegionOfInterestMeta *roi_meta = gst_buffer_get_video_region_of_interest_meta_id(buffer, 0);
+    ck_assert(roi_meta != nullptr);
+
+    std::vector<int64_t> mask_data(SEG_MASK_W * SEG_MASK_H);
+    for (guint r = 0; r < SEG_MASK_H; r++)
+        for (guint c = 0; c < SEG_MASK_W; c++)
+            mask_data[r * SEG_MASK_W + c] = (r >= SEG_MASK_H - SEG_MASK_ON_ROWS) ? 1 : 0; // class 1 != background
+
+    GstStructure *s = gst_structure_new_empty("semantic_mask");
+    GVA::Tensor tensor(s);
+    tensor.set_format(GVA::TENSOR_FORMAT_SEMANTIC_SEGMENTATION);
+    tensor.set_precision(GVA::Tensor::Precision::I64);
+    tensor.set_dims({1u, SEG_MASK_H, SEG_MASK_W}); // [1, H, W], per the fixed convention
+    tensor.set_data(mask_data.data(), mask_data.size() * sizeof(int64_t));
+
+    gst_video_region_of_interest_meta_add_param(roi_meta, s);
 }
 
 /* ========================================================================= */
@@ -369,6 +479,39 @@ GST_START_TEST(test_show_labels_false_ignores_show_roi) {
 GST_END_TEST;
 
 /* ========================================================================= */
+/*  Test: non-square instance/semantic segmentation masks render at the      */
+/*  correct rows/columns (regression coverage for commit c0bf460a / #1047)   */
+/* ========================================================================= */
+
+GST_START_TEST(test_instance_segmentation_mask_non_square_correct_position) {
+    g_print("Starting test: test_instance_segmentation_mask_non_square_correct_position\n");
+
+    SegPixelStats stats = {false, false};
+    run_test(impl_name, WATERMARK_BGR_CAPS, seg_test_resolution, &srctemplate, &sinktemplate,
+             setup_buffer_with_instance_mask, record_seg_pixel_stats, &stats, NULL);
+
+    /* only colored if width/height were read correctly (full-width band); swapped dims confine
+       the "on" region to the right ~30% of the width instead */
+    ck_assert_msg(stats.bottom_left_colored,
+                  "Expected bottom-left of ROI to be colored - mask width/height were likely swapped");
+    ck_assert_msg(!stats.top_center_colored, "Expected top-center of ROI to remain unmodified");
+}
+GST_END_TEST;
+
+GST_START_TEST(test_semantic_segmentation_mask_non_square_correct_position) {
+    g_print("Starting test: test_semantic_segmentation_mask_non_square_correct_position\n");
+
+    SegPixelStats stats = {false, false};
+    run_test(impl_name, WATERMARK_BGR_CAPS, seg_test_resolution, &srctemplate, &sinktemplate,
+             setup_buffer_with_semantic_mask, record_seg_pixel_stats, &stats, NULL);
+
+    ck_assert_msg(stats.bottom_left_colored,
+                  "Expected bottom-left of ROI to be colored - mask width/height were likely swapped");
+    ck_assert_msg(!stats.top_center_colored, "Expected top-center of ROI to remain unmodified");
+}
+GST_END_TEST;
+
+/* ========================================================================= */
 /*  Suite setup                                                              */
 /* ========================================================================= */
 
@@ -414,6 +557,13 @@ static Suite *watermark_config_testing_suite(void) {
     tcase_set_timeout(tc_thickness, 30);
     suite_add_tcase(s, tc_thickness);
     tcase_add_test(tc_thickness, test_thickness_affects_pixel_count);
+
+    /* Regression: non-square segmentation mask dims order (commit c0bf460a / #1047) */
+    TCase *tc_seg_dims = tcase_create("segmentation_mask_dims");
+    tcase_set_timeout(tc_seg_dims, 30);
+    suite_add_tcase(s, tc_seg_dims);
+    tcase_add_test(tc_seg_dims, test_instance_segmentation_mask_non_square_correct_position);
+    tcase_add_test(tc_seg_dims, test_semantic_segmentation_mask_non_square_correct_position);
 
     return s;
 }
