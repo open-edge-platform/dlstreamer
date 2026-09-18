@@ -11,7 +11,7 @@ media service and populates :class:`ONVIFProfile` instances.
 """
 from typing import List
 
-from .types import ONVIFProfile
+from .types import ONVIFProfile, is_safe_rtsp_url
 
 
 def _fetch_media_profiles(  # pylint: disable=too-many-statements, too-many-locals, too-many-branches
@@ -180,9 +180,19 @@ def _fetch_media_profiles(  # pylint: disable=too-many-statements, too-many-loca
             rtsp_uri = media_service.GetStreamUri(
                 {"StreamSetup": stream_setup, "ProfileToken": profile.token}
             )
-            onvif_profile.rtsp_url = rtsp_uri.Uri
+            # The URI is camera-reported (untrusted) and later gets embedded
+            # in a GStreamer pipeline; discard it if it isn't a well-formed
+            # rtsp:// URL so it can never be used to inject pipeline syntax.
+            if is_safe_rtsp_url(rtsp_uri.Uri):
+                onvif_profile.rtsp_url = rtsp_uri.Uri
+            elif verbose:
+                print(
+                    f"[WARN] Rejected unsafe Stream URI for profile "
+                    f"'{profile.Name}': {rtsp_uri.Uri!r}"
+                )
             if verbose:
                 print(f"        Stream URI: {rtsp_uri.Uri}")
+
         except (
             AttributeError,
             KeyError,
