@@ -72,6 +72,25 @@ build: dependencies ## Compile Deep Learning Streamer
 		-DENABLE_LIDAR_ROBOSENSE=${ENABLE_LIDAR_ROBOSENSE}; \
 	cmake --build build -j$(shell nproc)
 
+.PHONY: rebuild-dls
+rebuild-dls: ## Force full recompile of Deep Learning Streamer code only (skip dependency build)
+	cmake \
+		-B build \
+		-DCMAKE_PREFIX_PATH:PATH="${PROJECT_DIRECTORY}/${DEPENDENCY_DIR}/install;${PROJECT_DIRECTORY}/${DEPENDENCY_DIR}/opencv-bin;${PROJECT_DIRECTORY}/${DEPENDENCY_DIR}/rdkafka-bin" \
+		-DCMAKE_INCLUDE_PATH:PATH=${PROJECT_DIRECTORY}/${DEPENDENCY_DIR}/install/include:${PROJECT_DIRECTORY}/${DEPENDENCY_DIR}/rdkafka-bin/include \
+		-DCMAKE_LIBRARY_PATH:PATH=${PROJECT_DIRECTORY}/${DEPENDENCY_DIR}/install/lib \
+		-DCMAKE_CXX_FLAGS="-I${PROJECT_DIRECTORY}/${DEPENDENCY_DIR}/rdkafka-bin/include" \
+		-DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
+		-DENABLE_PAHO_INSTALLATION=ON \
+		-DENABLE_RDKAFKA_INSTALLATION=ON \
+		-DENABLE_VAAPI=ON \
+		-DENABLE_SAMPLES=ON \
+		-DENABLE_GENAI=${ENABLE_GENAI} \
+		-DGENERATE_GIR_FROM_SOURCE=${BUILD_GIRS} \
+		-DENABLE_TESTS=${ENABLE_TESTS} \
+		-DENABLE_LIDAR_ROBOSENSE=${ENABLE_LIDAR_ROBOSENSE}; \
+	cmake --build build -j$(shell nproc) --clean-first
+
 .PHONY: install
 install: build ## Build and install Deep Learning Streamer
 	@echo "Installing Deep Learning Streamer"
