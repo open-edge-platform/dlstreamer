@@ -15,6 +15,20 @@ pkg_check_modules(GSTRTP gstreamer-rtp-1.0 REQUIRED)
 if(NOT MSVC)
   pkg_check_modules(GSTVA REQUIRED IMPORTED_TARGET gstreamer-va-1.0)
 endif()
+
+# gvawatermark renders straight into VA NV12 planes through OpenCL when both VA
+# and OpenCL are available; without them the element keeps its CPU-only path.
+set(ENABLE_GVAWATERMARK_GPU OFF)
+if(NOT MSVC)
+    find_package(OpenCL QUIET)
+    pkg_check_modules(LIBVA libva)
+    if(OpenCL_FOUND AND LIBVA_FOUND)
+        set(ENABLE_GVAWATERMARK_GPU ON)
+        message(STATUS "gvawatermark: OpenCL NV12 renderer enabled")
+    else()
+        message(STATUS "gvawatermark: OpenCL NV12 renderer disabled (OpenCL or libva not found)")
+    endif()
+endif()
 if(${ENABLE_AUDIO_INFERENCE_ELEMENTS})
         pkg_check_modules(GSTAUDIO gstreamer-audio-1.0>=1.16 REQUIRED)
 endif()
@@ -57,6 +71,13 @@ file (GLOB MAIN_HEADERS
     gvafpsthrottle/*.hpp
     gvaanalytics/*.h
 )
+
+if(ENABLE_GVAWATERMARK_GPU)
+    file (GLOB WATERMARK_GPU_SRC gvawatermark/renderer/gpu/*.cpp)
+    file (GLOB WATERMARK_GPU_HEADERS gvawatermark/renderer/gpu/*.h)
+    list (APPEND MAIN_SRC ${WATERMARK_GPU_SRC})
+    list (APPEND MAIN_HEADERS ${WATERMARK_GPU_HEADERS})
+endif()
 
 if(${ENABLE_AUDIO_INFERENCE_ELEMENTS})
     file (GLOB AUDIO_SRC
@@ -122,6 +143,17 @@ if(NOT MSVC)
         ${GSTVA_LIBRARIES}
         dlstreamer_vaapi
     )
+endif()
+
+if(ENABLE_GVAWATERMARK_GPU)
+    target_include_directories(${TARGET_NAME}
+    PUBLIC
+        gvawatermark/renderer/gpu
+    PRIVATE
+        ${LIBVA_INCLUDE_DIRS}
+    )
+    target_link_libraries(${TARGET_NAME} PRIVATE OpenCL::OpenCL ${LIBVA_LIBRARIES})
+    target_compile_definitions(${TARGET_NAME} PUBLIC ENABLE_GVAWATERMARK_GPU)
 endif()
 
 if(${ENABLE_AUDIO_INFERENCE_ELEMENTS})
