@@ -23,6 +23,8 @@ typedef struct _GstGvaClassify {
     // properties:
     guint reclassify_interval;
     gboolean skip_raw_tensors;
+    gchar *zeroshot_embeddings_file;
+    guint zeroshot_topk;
 
     struct ClassificationHistory *classification_history;
 } GstGvaClassify;
