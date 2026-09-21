@@ -235,6 +235,7 @@ jobs:
           $DLS_REL_PATH/tests/scripts/installation-on-host-entrypoint.sh $DLS_REL_PATH/deb_packages
 
       - name: Ensure uv is installed
+        if: always() && matrix.runner_print_label != 'SKIP'
         run: |
           # Check if uv is installed, if not install it
           if ! command -v uv >/dev/null 2>&1; then
