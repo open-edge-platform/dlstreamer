@@ -151,6 +151,9 @@ jobs:
           - name: dlstreamer_ubuntu24
             path: dlstreamer-repo/docker/ubuntu/ubuntu24.Dockerfile
             output: reports/trivy-DLS_ubuntu24.json
+          - name: dlstreamer_ubuntu26
+            path: dlstreamer-repo/docker/ubuntu/ubuntu26.Dockerfile
+            output: reports/trivy-DLS_ubuntu26.json
           - name: dlstreamer_fedora41
             path: dlstreamer-repo/docker/fedora41/fedora41.Dockerfile
             output: reports/trivy-DLS_fedora41.json
