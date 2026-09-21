@@ -19,6 +19,8 @@ struct _GstGvaWatermark3D {
     GstVideoFilter parent_instance;
     gchar *intrinsics_file;
     cv::Mat K;
+    gchar *calibration_file;
+    cv::Mat P2; // 3x4 KITTI projection matrix for camera-frame 3D boxes
 };
 
 struct _GstGvaWatermark3DClass {

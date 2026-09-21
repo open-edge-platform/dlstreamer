@@ -33,6 +33,7 @@ PRIVATE
     g3dinference
     g3dobjectfuser
     g3drender
+    gvamono3d
     dlstreamer_gst_meta
 )
            

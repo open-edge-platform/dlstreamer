@@ -5,16 +5,24 @@
  ******************************************************************************/
 
 #include "gvawatermark3d.h"
+#include <algorithm>
+#include <cctype>
+#include <cmath>
+#include <cstdio>
+#include <dlstreamer/gst/metadata/camera_3d_od_mtd.h>
 #include <fstream>
+#include <gst/analytics/analytics.h>
 #include <gst/gst.h>
 #include <gst/video/gstvideometa.h>
 #include <gst/video/video.h>
 #include <nlohmann/json.hpp>
 #include <opencv2/core/quaternion.hpp>
+#include <sstream>
 
 enum {
     PROP_0,
     PROP_INTRINSICS_FILE,
+    PROP_CALIBRATION_FILE,
 };
 
 // A generic fallback camera intrinsics matrix (e.g., 1920x1080, fx=fy=1000, cx=960, cy=540)
@@ -151,6 +159,85 @@ static void draw_3d_box(cv::Mat &img, const std::vector<float> &translation, con
     }
 }
 
+// Load a KITTI 3x4 P2 projection matrix: KITTI calib .txt ("P2:" row) or a JSON
+// file with a 3x3 "intrinsic_matrix" (padded to [K | 0]). Returns empty on failure.
+static cv::Mat load_p2_matrix(const gchar *filename) {
+    std::string path(filename ? filename : "");
+    if (path.empty())
+        return cv::Mat();
+
+    std::string lower = path;
+    std::transform(lower.begin(), lower.end(), lower.begin(),
+                   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+
+    cv::Mat P2 = cv::Mat::zeros(3, 4, CV_64F);
+    if (lower.size() >= 5 && lower.compare(lower.size() - 5, 5, ".json") == 0) {
+        std::ifstream f(path);
+        if (!f.is_open())
+            return cv::Mat();
+        nlohmann::json j;
+        f >> j;
+        if (!j.contains("intrinsic_matrix"))
+            return cv::Mat();
+        auto m = j["intrinsic_matrix"];
+        for (int i = 0; i < 3; ++i)
+            for (int k = 0; k < 3; ++k)
+                P2.at<double>(i, k) = m[i][k].get<double>();
+        return P2;
+    }
+
+    std::ifstream f(path);
+    if (!f.is_open())
+        return cv::Mat();
+    std::string line;
+    while (std::getline(f, line)) {
+        if (line.rfind("P2:", 0) == 0) {
+            std::istringstream ss(line.substr(3));
+            for (int i = 0; i < 12; ++i) {
+                double v;
+                if (!(ss >> v))
+                    return cv::Mat();
+                P2.at<double>(i / 4, i % 4) = v;
+            }
+            return P2;
+        }
+    }
+    return cv::Mat();
+}
+
+// Draw a monocular 3D box (KITTI rectified camera frame: x-right, y-down, z-forward;
+// bottom-centre anchor, heading rotation_y about the camera Y axis) projected with the
+// full 3x4 P2. The forward (+length) face is drawn red to indicate heading.
+static void draw_camera_3d_box(cv::Mat &img, float x, float y, float z, float h, float w, float l, float rotation_y,
+                               const cv::Mat &P2) {
+    const float c = std::cos(rotation_y), s = std::sin(rotation_y);
+    // KITTI corner layout (generate_corners3d): forward=+l/2 face is {0,1,4,5}.
+    const float xc[8] = {l / 2, l / 2, -l / 2, -l / 2, l / 2, l / 2, -l / 2, -l / 2};
+    const float yc[8] = {0, 0, 0, 0, -h, -h, -h, -h};
+    const float zc[8] = {w / 2, -w / 2, -w / 2, w / 2, w / 2, -w / 2, -w / 2, w / 2};
+
+    cv::Point2f pts[8];
+    for (int i = 0; i < 8; ++i) {
+        // Ry * corner + centre (bottom-centre).
+        const double X = c * xc[i] + s * zc[i] + x;
+        const double Y = yc[i] + y;
+        const double Z = -s * xc[i] + c * zc[i] + z;
+
+        const double u = P2.at<double>(0, 0) * X + P2.at<double>(0, 1) * Y + P2.at<double>(0, 2) * Z + P2.at<double>(0, 3);
+        const double v = P2.at<double>(1, 0) * X + P2.at<double>(1, 1) * Y + P2.at<double>(1, 2) * Z + P2.at<double>(1, 3);
+        const double sc = P2.at<double>(2, 0) * X + P2.at<double>(2, 1) * Y + P2.at<double>(2, 2) * Z + P2.at<double>(2, 3);
+        if (sc <= 0.0)
+            return; // any corner behind the camera -> skip the box
+        pts[i] = cv::Point2f(static_cast<float>(u / sc), static_cast<float>(v / sc));
+    }
+
+    // 12 box edges plus the two front-face (+length) diagonals as an "X" marking heading.
+    static const int edges[14][2] = {{0, 1}, {1, 2}, {2, 3}, {3, 0}, {4, 5}, {5, 6}, {6, 7},
+                                     {7, 4}, {0, 4}, {1, 5}, {2, 6}, {3, 7}, {0, 5}, {1, 4}};
+    for (const auto &e : edges)
+        cv::line(img, pts[e[0]], pts[e[1]], cv::Scalar(0, 255, 0), 2, cv::LINE_AA);
+}
+
 static void gst_gvawatermark3d_set_property(GObject *object, guint prop_id, const GValue *value, GParamSpec *pspec) {
     GstGvaWatermark3D *self = GST_GVAWATERMARK3D(object);
     switch (prop_id) {
@@ -162,6 +249,19 @@ static void gst_gvawatermark3d_set_property(GObject *object, guint prop_id, cons
             if (self->K.empty()) {
                 GST_WARNING("Failed to load intrinsic matrix from %s", self->intrinsics_file);
             }
+        }
+        break;
+    case PROP_CALIBRATION_FILE:
+        g_free(self->calibration_file);
+        self->calibration_file = g_value_dup_string(value);
+        if (self->calibration_file && strlen(self->calibration_file) > 0) {
+            self->P2 = load_p2_matrix(self->calibration_file);
+            if (self->P2.empty())
+                GST_WARNING("Failed to load P2 matrix from %s", self->calibration_file);
+            else
+                GST_INFO("Loaded P2 from %s: fx=%.2f cx=%.2f tx=%.2f fy=%.2f cy=%.2f", self->calibration_file,
+                         self->P2.at<double>(0, 0), self->P2.at<double>(0, 2), self->P2.at<double>(0, 3),
+                         self->P2.at<double>(1, 1), self->P2.at<double>(1, 2));
         }
         break;
     default:
@@ -176,6 +276,9 @@ static void gst_gvawatermark3d_get_property(GObject *object, guint prop_id, GVal
     case PROP_INTRINSICS_FILE:
         g_value_set_string(value, self->intrinsics_file);
         break;
+    case PROP_CALIBRATION_FILE:
+        g_value_set_string(value, self->calibration_file);
+        break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
         break;
@@ -186,19 +289,16 @@ static GstFlowReturn gst_gvawatermark3d_transform_frame(GstVideoFilter *filter, 
                                                         GstVideoFrame *outframe) {
     (void)filter;
 
-    GstMapInfo in_map, out_map;
-    if (!gst_buffer_map(inframe->buffer, &in_map, GST_MAP_READ))
-        return GST_FLOW_ERROR;
-    if (!gst_buffer_map(outframe->buffer, &out_map, GST_MAP_WRITE)) {
-        gst_buffer_unmap(inframe->buffer, &in_map);
-        return GST_FLOW_ERROR;
-    }
+    const int width = GST_VIDEO_FRAME_WIDTH(inframe);
+    const int height = GST_VIDEO_FRAME_HEIGHT(inframe);
 
-    int width = GST_VIDEO_FRAME_WIDTH(inframe);
-    int height = GST_VIDEO_FRAME_HEIGHT(inframe);
-
-    cv::Mat input(height, width, CV_8UC3, (void *)in_map.data);
-    cv::Mat output = input.clone();
+    // GstVideoFilter hands us already-mapped frames; build OpenCV views that honor the
+    // plane stride (rows may be padded, e.g. width=1242 -> stride 3728, not 3726).
+    cv::Mat input(height, width, CV_8UC3, GST_VIDEO_FRAME_PLANE_DATA(inframe, 0),
+                  GST_VIDEO_FRAME_PLANE_STRIDE(inframe, 0));
+    cv::Mat output(height, width, CV_8UC3, GST_VIDEO_FRAME_PLANE_DATA(outframe, 0),
+                   GST_VIDEO_FRAME_PLANE_STRIDE(outframe, 0));
+    input.copyTo(output);
 
     // Camera intrinsics (replace with your real values if needed)
     GstGvaWatermark3D *self = GST_GVAWATERMARK3D(filter);
@@ -263,11 +363,76 @@ static GstFlowReturn gst_gvawatermark3d_transform_frame(GstVideoFilter *filter, 
         }
     }
 
-    memcpy(out_map.data, output.data, output.total() * output.elemSize());
+    // Monocular 3D detections (e.g. from gvamono3d): project with the full 3x4 P2.
+    // Prefer the loaded calibration P2; otherwise fall back to [K | 0].
+    cv::Mat P2 = self->P2;
+    if (P2.empty()) {
+        P2 = cv::Mat::zeros(3, 4, CV_64F);
+        K.copyTo(P2(cv::Rect(0, 0, 3, 3)));
+    }
+    if (GstAnalyticsRelationMeta *rmeta = gst_buffer_get_analytics_relation_meta(inframe->buffer)) {
+        gpointer mstate = NULL;
+        GstAnalyticsCamera3DODMtd mtd;
+        while (gst_analytics_relation_meta_iterate(rmeta, &mstate, gst_analytics_camera_3d_od_mtd_get_mtd_type(),
+                                                   &mtd)) {
+            gfloat x, y, z, box_h, box_w, box_l, ry, alpha;
+            if (!gst_analytics_camera_3d_od_mtd_get_location(&mtd, &x, &y, &z, &box_h, &box_w, &box_l, &ry, &alpha))
+                continue;
+            draw_camera_3d_box(output, x, y, z, box_h, box_w, box_l, ry, P2);
+
+            // Label near the amodal 2D box top-left: "<class>  z=<..>m  l=<..>m" (matches Python).
+            gint class_id = -1;
+            gfloat confidence = 0.f;
+            gst_analytics_camera_3d_od_mtd_get_class(&mtd, &class_id, &confidence);
+            gfloat bx1 = 0, by1 = 0, bx2 = 0, by2 = 0;
+            gst_analytics_camera_3d_od_mtd_get_box2d(&mtd, &bx1, &by1, &bx2, &by2);
+
+            static const char *kKittiLabels[3] = {"Pedestrian", "Car", "Cyclist"};
+            char label[128];
+            if (class_id >= 0 && class_id < 3)
+                snprintf(label, sizeof(label), "%s  z=%.1fm  l=%.2fm", kKittiLabels[class_id], z, box_l);
+            else
+                snprintf(label, sizeof(label), "class%d  z=%.1fm  l=%.2fm", class_id, z, box_l);
+
+            int baseline = 0;
+            const cv::Size ts = cv::getTextSize(label, cv::FONT_HERSHEY_SIMPLEX, 0.5, 1, &baseline);
+            const cv::Point org(static_cast<int>(bx1), static_cast<int>(by1));
+            cv::rectangle(output, cv::Point(org.x, org.y - ts.height - 4), cv::Point(org.x + ts.width + 4, org.y),
+                          cv::Scalar(64, 64, 255), cv::FILLED);
+            cv::putText(output, label, cv::Point(org.x + 2, org.y - 3), cv::FONT_HERSHEY_SIMPLEX, 0.5,
+                        cv::Scalar(255, 255, 255), 1, cv::LINE_AA);
+        }
+    }
+
     gst_buffer_copy_into(outframe->buffer, inframe->buffer, GST_BUFFER_COPY_META, 0, -1);
-    gst_buffer_unmap(inframe->buffer, &in_map);
-    gst_buffer_unmap(outframe->buffer, &out_map);
     return GST_FLOW_OK;
+}
+
+// Receive the P2 calibration broadcast by an upstream gvamono3d so the file need not be
+// specified twice. An explicit calibration-file (non-empty P2) takes precedence.
+static gboolean gst_gvawatermark3d_sink_event(GstBaseTransform *trans, GstEvent *event) {
+    GstGvaWatermark3D *self = GST_GVAWATERMARK3D(trans);
+    if (GST_EVENT_TYPE(event) == GST_EVENT_CUSTOM_DOWNSTREAM_STICKY ||
+        GST_EVENT_TYPE(event) == GST_EVENT_CUSTOM_DOWNSTREAM) {
+        const GstStructure *s = gst_event_get_structure(event);
+        if (s && gst_structure_has_name(s, "gvamono3d-calibration") && self->P2.empty()) {
+            if (const gchar *p2str = gst_structure_get_string(s, "p2")) {
+                std::istringstream ss(p2str);
+                cv::Mat P2 = cv::Mat::zeros(3, 4, CV_64F);
+                bool ok = true;
+                for (int i = 0; i < 12 && ok; ++i) {
+                    double v;
+                    if (ss >> v)
+                        P2.at<double>(i / 4, i % 4) = v;
+                    else
+                        ok = false;
+                }
+                if (ok)
+                    self->P2 = P2;
+            }
+        }
+    }
+    return GST_BASE_TRANSFORM_CLASS(gst_gvawatermark3d_parent_class)->sink_event(trans, event);
 }
 //
 static void gst_gvawatermark3d_finalize(GObject *object);
@@ -286,6 +451,7 @@ static void gst_gvawatermark3d_class_init(GstGvaWatermark3DClass *klass) {
                                           "Intel® Corporation");
 
     video_filter_class->transform_frame = gst_gvawatermark3d_transform_frame;
+    GST_BASE_TRANSFORM_CLASS(klass)->sink_event = gst_gvawatermark3d_sink_event;
 
     GObjectClass *gobject_class = G_OBJECT_CLASS(klass);
     gobject_class->set_property = gst_gvawatermark3d_set_property;
@@ -296,15 +462,24 @@ static void gst_gvawatermark3d_class_init(GstGvaWatermark3DClass *klass) {
                                     g_param_spec_string("intrinsics-file", "Intrinsics File",
                                                         "Path to JSON file with camera intrinsics", NULL,
                                                         (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+
+    g_object_class_install_property(
+        gobject_class, PROP_CALIBRATION_FILE,
+        g_param_spec_string("calibration-file", "Calibration File",
+                            "KITTI calibration for monocular 3D boxes: .txt (P2 row) or .json intrinsic_matrix", NULL,
+                            (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 }
 
 static void gst_gvawatermark3d_init(GstGvaWatermark3D *self) {
     self->intrinsics_file = NULL;
     self->K = cv::Mat();
+    self->calibration_file = NULL;
+    self->P2 = cv::Mat();
 }
 
 static void gst_gvawatermark3d_finalize(GObject *object) {
     GstGvaWatermark3D *self = GST_GVAWATERMARK3D(object);
     g_free(self->intrinsics_file);
+    g_free(self->calibration_file);
     G_OBJECT_CLASS(gst_gvawatermark3d_parent_class)->finalize(object);
 }
