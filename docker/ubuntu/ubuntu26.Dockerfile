@@ -81,10 +81,10 @@ RUN curl -LO https://github.com/intel/linux-npu-driver/releases/download/v1.38.0
     curl -LO https://snapshot.ppa.launchpadcontent.net/kobuk-team/intel-graphics/ubuntu/20260830T100000Z/pool/main/l/level-zero-loader/libze1_1.32.0-1~24.04~ppa1_amd64.deb && \
     apt-get update && \
     apt-get install -y --no-install-recommends libtbb12=\* && \
-    dpkg -i *.deb && \
+    dpkg -i ./*.deb && \
     apt-get clean && \
     curl -LO https://snapshot.ppa.launchpadcontent.net/kobuk-team/intel-graphics/ubuntu/20260830T100000Z/pool/main/l/level-zero-loader/libze1_1.32.0-1~26.04~ppa1_amd64.deb && \
-    dpkg -i libze1_*.deb && \
+    dpkg -i ./libze1_*.deb && \
     rm -rf /var/lib/apt/lists/* /tmp/npu_deps
 
 WORKDIR /
@@ -551,10 +551,10 @@ RUN curl -LO https://github.com/intel/linux-npu-driver/releases/download/v1.38.0
     curl -LO https://snapshot.ppa.launchpadcontent.net/kobuk-team/intel-graphics/ubuntu/20260830T100000Z/pool/main/l/level-zero-loader/libze1_1.32.0-1~24.04~ppa1_amd64.deb && \
     apt-get update && \
     apt-get install -y --no-install-recommends libtbb12=\* && \
-    dpkg -i *.deb && \
+    dpkg -i ./*.deb && \
     apt-get clean && \
     curl -LO https://snapshot.ppa.launchpadcontent.net/kobuk-team/intel-graphics/ubuntu/20260830T100000Z/pool/main/l/level-zero-loader/libze1_1.32.0-1~26.04~ppa1_amd64.deb && \
-    dpkg -i libze1_*.deb && \
+    dpkg -i ./libze1_*.deb && \
     rm -rf /var/lib/apt/lists/* /tmp/npu_deps
 
 WORKDIR /
