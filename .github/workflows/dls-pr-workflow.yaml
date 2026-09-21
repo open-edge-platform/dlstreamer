@@ -183,6 +183,9 @@ jobs:
           - name: dlstreamer_ubuntu24
             dockerfile: ./docker/ubuntu/ubuntu24.Dockerfile
             output-file: hadolint-dlstreamer_ubuntu24.json
+          - name: dlstreamer_ubuntu26
+            dockerfile: ./docker/ubuntu/ubuntu26.Dockerfile
+            output-file: hadolint-dlstreamer_ubuntu26.json
           - name: dlstreamer_fedora41
             dockerfile: ./docker/fedora41/fedora41.Dockerfile
             output-file: hadolint-dlstreamer_fedora41.json
