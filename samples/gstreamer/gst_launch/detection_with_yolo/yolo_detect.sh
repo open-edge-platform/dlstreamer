@@ -19,16 +19,17 @@ fi
 
 # List help message
 if [[ "${1:-}" == "--help" ]] || [[ "${1:-}" == "-h" ]]; then
-  echo "Usage: $0 [MODEL] [DEVICE] [INPUT] [OUTPUT] [PPBKEND] [PRECISION]"
+  echo "Usage: $0 [MODEL] [DEVICE] [INPUT] [OUTPUT] [PPBKEND] [PRECISION] [OUTPUT_DIRECTORY]"
   echo ""
   echo "Arguments:"
   echo "  MODEL     - Model name (default: yolox_s)"
   echo "            Supported: yolo_all, yolox-tiny, yolox_s, yolov7, yolov8s, yolov8n-obb, yolov8n-seg, yolov9c, yolov10s, yolo11s, yolo11s-obb, yolo11s-seg, yolo11s-pose, yolo26n, yolo26s, yolo26m, yolo26l, yolo26x, yolo26s-obb, yolo26s-seg, yolo26s-pose, yolo26s-cls"
   echo "  DEVICE    - Device (default: GPU). Supported: CPU, GPU, NPU"
   echo "  INPUT     - Input source (default: Pexels video URL)"
-  echo "  OUTPUT    - Output type (default: file). Supported: file, display, fps, json, display-and-json"
+  echo "  OUTPUT    - Output type (default: file). Supported: file, display, fps, json, display-and-json, png"
   echo "  PPBKEND   - Preprocessing backend (default: auto). Supported: ie, opencv, va, va-surface-sharing"
   echo "  PRECISION - Model precision (default: INT8). Supported: INT8, FP32, FP16"
+  echo "  OUTPUT_DIRECTORY - Directory for PNG frames (default: current directory)"
   echo ""
   exit 0
 fi
@@ -39,6 +40,7 @@ INPUT=${3:-"https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30f
 OUTPUT=${4:-"file"}     # Supported values: file, display, fps, json, display-and-json
 PPBKEND=${5:-""}        # Supported values: ie, opencv, va, va-surface-sharing
 PRECISION=${6:-"INT8"}  # Supported values: INT8, FP32, FP16
+OUTPUT_DIRECTORY=${7:-""}
 
 DETECTION_MODEL="$MODEL"
 CLASSIFICATION_MODEL=""
@@ -179,9 +181,12 @@ elif [[ "$OUTPUT" == "json" ]]; then
 elif [[ "$OUTPUT" == "display-and-json" ]]; then
   rm -f output.json
   SINK_ELEMENT="vapostproc ! gvawatermark ! gvametaconvert add-tensor-data=true ! gvametapublish file-format=json-lines file-path=output.json ! videoconvert ! gvafpscounter ! autovideosink sync=false"
+elif [[ "$OUTPUT" == "png" ]]; then
+  mkdir -p "$OUTPUT_DIRECTORY"
+  SINK_ELEMENT="vapostproc ! gvawatermark ! videoconvert ! pngenc ! multifilesink location=${OUTPUT_DIRECTORY}frame_%05d.png"
 else
   echo Error wrong value for SINK_ELEMENT parameter
-  echo Valid values: "file" - render to file, "display" - render to screen, "fps" - print FPS, "json" - write to output.json, "display-and-json" - render to screen and write to output.json
+  echo Valid values: "file" - render to file, "display" - render to screen, "fps" - print FPS, "json" - write to output.json, "display-and-json" - render to screen and write to output.json, "png" - write PNG frames
   exit 1
 fi
 
