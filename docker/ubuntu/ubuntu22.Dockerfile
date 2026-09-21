@@ -101,6 +101,8 @@ RUN \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
+RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin sh
+
 RUN \
     useradd -ms /bin/bash dlstreamer && \
     mkdir /python3venv && \
@@ -110,9 +112,9 @@ RUN \
 USER dlstreamer
 
 RUN \
-    python3 -m venv /python3venv && \
-    /python3venv/bin/pip3 install --no-cache-dir --upgrade pip==26.1 && \
-    /python3venv/bin/pip3 install --no-cache-dir --no-dependencies \
+    uv venv /python3venv && \
+    VIRTUAL_ENV=/python3venv uv pip install --no-cache-dir --upgrade pip==26.1.2 && \
+    VIRTUAL_ENV=/python3venv uv pip install --no-cache-dir --no-deps \
     meson==1.4.1 \
     ninja==1.11.1.1 \
     numpy==2.2.0 \
@@ -127,13 +129,13 @@ RUN \
     six==1.16.0 \
     pycairo==1.26.0 \
     PyGObject==3.50.0 \
-    setuptools==82.0.1 \
+    setuptools==84.0.0 \
     pytest==8.3.3 \
     pluggy==1.5.0 \
     exceptiongroup==1.2.2 \
     iniconfig==2.0.0 \
     typing-extensions==4.15.0 \
-    openvino==2026.1.0
+    openvino==2026.4.0
 
 # hadolint ignore=DL3002
 USER root
@@ -355,9 +357,10 @@ RUN cp -a /usr/local/lib/librealsense* ./
 # ==============================================================================
 FROM builder AS dlstreamer-dev
 
-ARG DLSTREAMER_VERSION=2026.1.0
+ARG DLSTREAMER_VERSION=2026.2.0
 ARG DLSTREAMER_BUILD_NUMBER
-ARG OPENVINO_VERSION=2026.1.0
+ARG OPENVINO_VERSION=2026.4.0
+ARG OPENVINO_VERSION_SHORT=2026.4
 
 SHELL ["/bin/bash", "-xo", "pipefail", "-c"]
 
@@ -386,7 +389,7 @@ RUN \
 
 # OpenVINO Gen AI
 ARG OPENVINO_GENAI_VER=openvino_genai_ubuntu22_${OPENVINO_VERSION}.0_x86_64
-ARG OPENVINO_GENAI_PKG=https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/2026.1/linux/${OPENVINO_GENAI_VER}.tar.gz
+ARG OPENVINO_GENAI_PKG=https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/${OPENVINO_VERSION_SHORT}/linux/${OPENVINO_GENAI_VER}.tar.gz
 
 RUN curl -L ${OPENVINO_GENAI_PKG} | tar -xz && \
     mv ${OPENVINO_GENAI_VER} /opt/intel/openvino_genai
@@ -408,7 +411,7 @@ ENV PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:${LIBDIR}/pkgconfig:/usr/lib/x86_64
 ENV LIBRARY_PATH=${GSTREAMER_DIR}/lib:${LIBDIR}:/usr/lib:/usr/local/lib:${LIBRARY_PATH}
 ENV LD_LIBRARY_PATH=${GSTREAMER_DIR}/lib:${LIBDIR}:/usr/lib:/usr/local/lib:${LD_LIBRARY_PATH}
 ENV LIB_PATH=$LIBDIR
-ENV GST_PLUGIN_PATH=${LIBDIR}:${GSTREAMER_DIR}/lib/gstreamer-1.0:/usr/lib/x86_64-linux-gnu/gstreamer-1.0:${GST_PLUGIN_PATH}
+ENV GST_PLUGIN_PATH=${LIBDIR}:${GSTREAMER_DIR}/lib/gstreamer-1.0:${GST_PLUGIN_PATH}
 ENV LC_NUMERIC=C
 ENV C_INCLUDE_PATH=/usr/local/include:${DLSTREAMER_DIR}/include:${DLSTREAMER_DIR}/include/dlstreamer/gst/metadata:${C_INCLUDE_PATH}
 ENV CPLUS_INCLUDE_PATH=/usr/local/include:${DLSTREAMER_DIR}/include:${DLSTREAMER_DIR}/include/dlstreamer/gst/metadata:${CPLUS_INCLUDE_PATH}
@@ -432,6 +435,9 @@ RUN \
     make -j "$(nproc)" && \
     usermod -a -G video dlstreamer && \
     chown -R dlstreamer:dlstreamer /home/dlstreamer
+
+# Install python dependencies
+RUN VIRTUAL_ENV=/python3venv uv pip install --no-cache-dir --break-system-packages -r "${DLSTREAMER_DIR}/requirements.txt"
 
 # ==============================================================================
 FROM dlstreamer-dev AS deb-builder
@@ -548,12 +554,14 @@ COPY --from=deb-builder /*.deb /debs/
 
 ARG DEBIAN_FRONTEND=noninteractive
 
+RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin sh
+
 RUN \
     apt-get update -y && \
     apt-get install -y -q --no-install-recommends /debs/*.deb gcc=\* ninja-build=\* libcairo2-dev=\* libgirepository1.0-dev=\* && \
-    pip3 install --no-cache-dir pip==26.1 setuptools==82.0.1 wheel==0.46.2 packaging==24.2 && \
-    pip3 install --no-cache-dir meson==1.6.1 && \
-    pip3 install --no-cache-dir --ignore-installed -r /opt/intel/dlstreamer/requirements.txt && \
+    uv pip install --system --no-cache-dir pip==26.1.2 setuptools==84.0.0 wheel==0.46.2 packaging==24.2 && \
+    uv pip install --system --no-cache-dir meson==1.6.1 && \
+    uv pip install --system --no-cache-dir -r /opt/intel/dlstreamer/requirements.txt && \
     apt-get remove -y gcc ninja-build libcairo2-dev libgirepository1.0-dev && \
     apt-get autoremove -y && \
     apt-get clean -y && \

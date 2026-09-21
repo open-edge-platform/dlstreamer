@@ -340,12 +340,18 @@ void ImageInferenceAsyncD3D11::ConvertAndBuildImage(
 
     gst_d3d11_device_lock(conv_device);
 
-    GstBufferPtr src_buf(WrapSourceTexture(*frame->GetImage(), conv_device));
+    const Image &src_image = *frame->GetImage();
+    // Carry the ROI over to the converter: WrapSourceTexture only forwards the texture, so
+    // without this the whole surface would be preprocessed regardless of inference-region.
+    // Must be read before the SetImage(nullptr) below drops the source image.
+    const Rectangle<uint32_t> roi = src_image.rect;
+
+    GstBufferPtr src_buf(WrapSourceTexture(src_image, conv_device));
     GstBufferPtr dst_buf(gst_buffer_new());
     gst_buffer_append_memory(dst_buf.get(), gst_memory_ref(dst_mem));
 
     converter.Convert(src_buf.get(), dst_buf.get(), getImagePreProcInfo(input_preprocessors),
-                      frame->GetImageTransformationParams());
+                      frame->GetImageTransformationParams(), roi);
 
     src_buf.reset();
     dst_buf.reset();

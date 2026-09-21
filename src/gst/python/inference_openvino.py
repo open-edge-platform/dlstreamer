@@ -17,7 +17,7 @@ gi.require_version('GstBase', '1.0')
 gi.require_version('GstVideo', '1.0')
 from gi.repository import Gst, GObject, GLib, GstBase, GstVideo # pylint: disable=no-name-in-module, wrong-import-position
 
-Gst.init(None)
+Gst.init([])
 
 TENSORS_CAPS = Gst.Caps.from_string("other/tensors")
 

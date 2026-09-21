@@ -68,15 +68,29 @@ The `gvagenai` element attaches inference results directly as `GstGVATensorMeta`
 1. Create and activate a virtual environment:
 ```code
 cd samples/gstreamer/python/vlm_alerts
-python3 -m venv .vlm-venv
+uv venv --system-site-packages .vlm-venv
 source .vlm-venv/bin/activate
 ```
 
-2. Install dependencies:
+> The `--system-site-packages` flag is required so the virtual environment can
+> use the GStreamer Python bindings (PyGObject / `gi`) provided by the system
+> DL Streamer installation.
+
+1. Install dependencies:
 ```code
-curl -LO https://raw.githubusercontent.com/openvinotoolkit/openvino.genai/refs/heads/releases/2026/0/samples/export-requirements.txt
-pip install -r export-requirements.txt 
+curl -LO https://raw.githubusercontent.com/openvinotoolkit/openvino.genai/refs/heads/releases/2026/4/samples/export-requirements.txt
+uv pip install -r export-requirements.txt
+uv pip install -r requirements.txt
 ```
+
+> `requirements.txt` pins two packages on top of `export-requirements.txt`:
+> `transformers` (`optimum-intel` supports OpenVINO export only up to
+> `transformers` 4.57.6, while `export-requirements.txt` pins a newer one) and
+> `openvino-tokenizers`, which must match the OpenVINO **runtime** shipped with
+> your DL Streamer installation (here `2026.2.0`) — the one `gvagenai` uses and
+> the one loaded via `PYTHONPATH`. If they differ, `openvino-tokenizers` is not
+> binary compatible. Adjust the pinned version to match your OpenVINO runtime
+> (check with `python3 -c "import openvino; print(openvino.__version__)"`).
 
 > A DL Streamer build that includes the `gvagenai` element is required.
 
@@ -93,7 +107,8 @@ Example:
 ```code
 python3 vlm_alerts.py \
     --video-url https://videos.pexels.com/video-files/2103099/2103099-hd_1280_720_60fps.mp4 \
-    --model-id OpenGVLab/InternVL3_5-2B \
+    --model-id Phi-4-multimodal \
+    --models-dir /home/dlstreamer/
     --prompt "Is there a police car? Answer yes or no."
 ```
 

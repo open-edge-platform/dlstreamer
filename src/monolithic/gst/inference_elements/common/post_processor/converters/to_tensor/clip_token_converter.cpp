@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2025 Intel Corporation
+ * Copyright (C) 2025-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -58,6 +58,9 @@ TensorsTable CLIPTokenConverter::convert(const OutputBlobs &output_blobs) {
                     throw std::runtime_error("Unsupported output blob dimensions for CLIPTokenConverter: " +
                                              std::to_string(blob->GetDims().size()));
                 }
+
+                // Mark as a generic raw tensor so it is mirrored as a GstAnalyticsTensorMtd.
+                gst_structure_set(tensor_data, "type", G_TYPE_STRING, GVA::GST_ANALYTICS_TENSOR_2_TENSOR, NULL);
 
                 // In different versions of GStreamer, tensors_batch are attached to the buffer in a different order.
                 // Thus, we identify our meta using tensor_id.

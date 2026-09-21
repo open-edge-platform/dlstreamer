@@ -33,7 +33,7 @@ def watermark_sink_pad_buffer_probe(pad, info, _u_data):
 
 def main(args):
     # STEP 0 - Initialize GStreamer and check input arguments.
-    Gst.init(None)
+    Gst.init([])
     if len(args) != 3:
         sys.stderr.write("usage: %s <LOCAL_VIDEO_FILE> <LOCAL_MODEL_FILE>\n" % args[0])
         sys.exit(1)

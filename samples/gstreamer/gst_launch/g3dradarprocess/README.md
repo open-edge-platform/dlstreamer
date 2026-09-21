@@ -215,5 +215,5 @@ GST_DEBUG=*:3,g3dradarprocess:5 ./radar_process_sample.sh
 - **oneAPI**: The element leverages Intel oneAPI for optimized signal processing
 
 ## See also
-* [Samples overview](../../README.md)
+* [Samples overview](../../../README.md)
 * [g3dradarprocess element documentation](../../../../docs/user-guide/elements/g3dradarprocess.md)

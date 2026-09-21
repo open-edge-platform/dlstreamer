@@ -2,14 +2,15 @@
 
 ## Overview
 
-The GVA Analytics element is a GStreamer-based analytics plugin that detects tripwire crossings and object presence in configured zones using tracking metadata. It processes video frames with associated object tracking data and generates metadata events for security and surveillance applications.
+The GVA Analytics element is a GStreamer-based analytics plugin that detects tripwire crossings, object presence in configured zones, and optional dwell time using tracking metadata. It processes video frames with associated object tracking data and generates metadata events for security and surveillance applications.
 
 ## Features
 
 - **Tripwire Detection**: Detects when tracked objects cross defined virtual lines
 - **Zone Detection**: Detects when objects enter defined polygon or circular zones
+- **Zone Dwell-Time Tracking**: Tracks per-object dwell time for zones configured with `track-dwell-time=true`
 - **Flexible Configuration**: JSON-based configuration via file or inline property
-- **Metadata Output**: Generates `GstAnalyticsTripwireMtd` and `GstAnalyticsZoneMtd` for downstream processing
+- **Metadata Output**: Generates `GstAnalyticsTripwireMtd`, `GstAnalyticsZoneMtd`, and `GstAnalyticsDwellTimeMtd` for downstream processing
 - **Watermark Support**: Optionally attaches `WatermarkDrawMeta`/`WatermarkCircleMeta` for visualization
 
 ## Properties
@@ -54,6 +55,18 @@ Enable or disable attachment of watermark metadata (WatermarkDrawMeta) for drawi
 ```
 gvaanalytics draw-tripwires=true
 gvaanalytics draw-tripwires=false
+```
+
+### evaluation-point (enum)
+Select which point from each object bounding box is used for zone and tripwire evaluation.
+
+Values:
+- `center` (default): `(x + w/2, y + h/2)`
+- `bottom-center`: `(x + w/2, y + h)`
+
+**Example:**
+```
+gvaanalytics evaluation-point=bottom-center
 ```
 
 ## Configuration Format
@@ -126,6 +139,40 @@ Both polygon and circular zones can be used in the same configuration:
 
 **Note:** If `type` field is omitted, it defaults to "polygon".
 
+#### Zone Optional Parameters
+
+Each zone object can include optional fields:
+
+- `track-dwell-time` (bool, default `false`): enables dwell-time tracking for objects in this zone.
+- `object-retention` (number, seconds, default `0.5`): keeps zone dwell state for a short grace period after an object leaves the zone.
+- `color` (object `{r,g,b}`): drawing color used when zone visualization is enabled.
+- `thickness` (integer): drawing line thickness used when zone visualization is enabled.
+
+Example:
+
+```json
+{
+  "zones": [
+    {
+      "id": "pathway",
+      "type": "polygon",
+      "points": [
+        {"x": 45, "y": 395},
+        {"x": 110, "y": 431},
+        {"x": 445, "y": 323},
+        {"x": 368, "y": 279}
+      ],
+      "track-dwell-time": true,
+      "object-retention": 1.0,
+      "color": {"r": 255, "g": 0, "b": 0},
+      "thickness": 3
+    }
+  ]
+}
+```
+
+Dwell-time tracking requires upstream tracking metadata, so pipelines should include `gvatrack` before `gvaanalytics`.
+
 ### Tripwire Configuration
 
 Tripwires are defined as lines with two endpoints:
@@ -163,6 +210,7 @@ Tripwires are defined as lines with two endpoints:
 - Original video frames with attached:
   - `GstAnalyticsTripwireMtd`: Relation metadata for tripwire crossings (requires tracking)
   - `GstAnalyticsZoneMtd`: Relation metadata for zone presence
+  - `GstAnalyticsDwellTimeMtd`: Relation metadata for per-zone dwell time and first-seen timestamp (for zones with `track-dwell-time=true`)
   - `WatermarkDrawMeta`: Line/polygon visualization (zones and tripwires)
   - `WatermarkCircleMeta`: Circle visualization (circular zones)
 
@@ -194,7 +242,9 @@ gst-launch-1.0 \
         {"x": 800, "y": 200},
         {"x": 800, "y": 600},
         {"x": 400, "y": 600}
-      ]
+      ],
+      "track-dwell-time": true,
+      "object-retention": 1.0
     },
     {
       "id": "danger_zone_center",
@@ -239,7 +289,7 @@ gboolean gst_analytics_tripwire_mtd_get_info(
 ```
 
 ### GstAnalyticsZoneMtd
-Attached as a relation to `GstAnalyticsODMtd` when an object center is inside a zone.
+Attached as a relation to `GstAnalyticsODMtd` when the selected evaluation point is inside a zone.
 
 **Fields:**
 - `zone_id` (string): Zone identifier

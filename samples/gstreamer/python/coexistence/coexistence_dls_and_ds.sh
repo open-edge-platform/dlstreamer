@@ -73,7 +73,6 @@ fi
 # Variable for running commands from DL Streamer Docker
 DLSTREAMER_DOCKER="docker run -i --rm -v ${PWD}:/working_dir ${DEVICE_DRI} ${DEVICE_ACCEL} \
 -v ~/.Xauthority:/root/.Xauthority  -v /tmp/.X11-unix/:/tmp/.X11-unix/  -e DISPLAY=$DISPLAY  -v /dev/bus/usb:/dev/bus/usb \
---env ZE_ENABLE_ALT_DRIVERS=libze_intel_npu.so \
 --env MODELS_PATH=/working_dir \
 intel/dlstreamer:latest /bin/bash -c"
 
@@ -120,7 +119,7 @@ DEEPSTREAM_DOCKER="docker run -i --rm --network=host --gpus all -e DISPLAY=$DISP
 # Check if there are models in current directory and download if necessary
 if [[ ! -e "${PWD}/public/yolov8_license_plate_detector" ]]; then
     printf 'Downloading models....\n'
-    eval "${DLSTREAMER_DOCKER}" + '"/opt/intel/dlstreamer/samples/download_public_models.sh yolov8_license_plate_detector,ch_PP-OCRv4_rec_infer"'
+    eval "${DLSTREAMER_DOCKER}" + '"bash /opt/intel/dlstreamer/scripts/download_models/download_other_models.sh yolov8_license_plate_detector,ch_PP-OCRv4_rec_infer"'
 fi
 
 # Check for Intel and Nvidia hardware

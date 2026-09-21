@@ -58,6 +58,87 @@ Function CheckInstallerAlreadyRunning
   ${EndIf}
 FunctionEnd
 
+; Report whether a process is running, matched by executable name. Uses the
+; ToolHelp API through the System plugin.
+!macro FindProcessFunc un
+Function ${un}FindProcess
+  ; Input:  $R0 = executable name
+  ; Output: $R0 = 1 if a matching process is running, 0 otherwise
+  Push $0  ; snapshot handle
+  Push $1  ; PROCESSENTRY32W pointer
+  Push $2  ; Process32FirstW/NextW result
+  Push $3  ; current process name
+  Push $4  ; target process name
+  StrCpy $4 $R0
+  StrCpy $R0 0
+
+  ; TH32CS_SNAPPROCESS = 0x2
+  System::Call 'kernel32::CreateToolhelp32Snapshot(i 2, i 0) i .r0'
+  ${If} $0 <> -1  ; INVALID_HANDLE_VALUE; on failure just report "not running"
+    System::Alloc 556  ; sizeof(PROCESSENTRY32W) in a 32-bit process
+    Pop $1
+    ${If} $1 <> 0
+      System::Call '*$1(i 556)'  ; set dwSize
+      System::Call 'kernel32::Process32FirstW(i r0, i r1) i .r2'
+      ${DoWhile} $2 <> 0
+        ; Skip the 9 leading DWORD/ULONG_PTR fields, read szExeFile
+        System::Call '*$1(i, i, i, i, i, i, i, i, i, &w260 .r3)'
+        ${If} $3 == $4  ; case-insensitive
+          StrCpy $R0 1
+          ${ExitDo}
+        ${EndIf}
+        System::Call 'kernel32::Process32NextW(i r0, i r1) i .r2'
+      ${Loop}
+      System::Free $1
+    ${EndIf}
+    System::Call 'kernel32::CloseHandle(i r0)'
+  ${EndIf}
+
+  Pop $4
+  Pop $3
+  Pop $2
+  Pop $1
+  Pop $0
+FunctionEnd
+!macroend
+
+!insertmacro FindProcessFunc ''
+!insertmacro FindProcessFunc 'un.'
+
+; Appends '${name}' to the running-process list $R1 if that process is running.
+!macro _AppendIfRunning un name
+  StrCpy $R0 '${name}'
+  Call ${un}FindProcess
+  ${If} $R0 == 1
+    ${If} $R1 == ''
+      StrCpy $R1 '${name}'
+    ${Else}
+      StrCpy $R1 '$R1$\r$\n${name}'
+    ${EndIf}
+  ${EndIf}
+!macroend
+
+!macro CheckGStreamerProcessesFunc un
+Function ${un}CheckGStreamerProcesses
+  ; GStreamer tools keep the GStreamer/DL Streamer DLLs locked, which breaks
+  ; installing over or removing them. Refuse to continue while they are running.
+  CheckGStreamerProcesses_retry:
+  StrCpy $R1 ''
+
+  !insertmacro _AppendIfRunning '${un}' 'gst-launch-1.0.exe'
+  !insertmacro _AppendIfRunning '${un}' 'gst-plugin-scanner.exe'
+  !insertmacro _AppendIfRunning '${un}' 'gst-inspect-1.0.exe'
+
+  ${If} $R1 != ''
+    MessageBox MB_RETRYCANCEL|MB_ICONEXCLAMATION 'The following processes are still running and must be closed before continuing:$\r$\n$\r$\n$R1' /SD IDCANCEL IDRETRY CheckGStreamerProcesses_retry
+    Abort
+  ${EndIf}
+FunctionEnd
+!macroend
+
+!insertmacro CheckGStreamerProcessesFunc ''
+!insertmacro CheckGStreamerProcessesFunc 'un.'
+
 Function CheckOSVersion
   ${IfNot} ${RunningX64}
     MessageBox MB_OK|MB_ICONEXCLAMATION 'The installer requires a 64-bit version of Windows.' /SD IDYES
@@ -117,6 +198,7 @@ FunctionEnd
 
   Call CheckOSVersion
   Call CheckInstallerAlreadyRunning
+  Call CheckGStreamerProcesses
 
   ; Reads components status from registry
   !insertmacro SectionList 'InitSection'
@@ -132,6 +214,8 @@ FunctionEnd
 !macro UnOnInit
   SetRegView 64
   SetShellVarContext all
+
+  Call un.CheckGStreamerProcesses
 
   ; Read the selected language
   !insertmacro MUI_UNGETLANGUAGE
@@ -220,7 +304,7 @@ Function ${un}UninstallGStreamerInno
   ${EndIf}
 
   DetailPrint 'Execute GStreamer uninstaller: $R0'
-  nsExec::ExecToLog '$R0 /VERYSILENT'
+  nsExec::ExecToLog '$R0 /VERYSILENT /NORESTART'
   Pop $R1
   ${If} $R1 != 0
     DetailPrint 'Failed to uninstall GStreamer. Error code: $R1'
@@ -380,6 +464,7 @@ FunctionEnd
   InvokeGStreamerInstaller:
   SetOutPath '$INSTDIR\deps'
   File '${INSTALLER_DEPS_DIR}\gstreamer-1.0-msvc-x86_64-${GSTREAMER_VERSION}.exe'
+  SetOutPath "$INSTDIR"
 
   Push '${GSTREAMER_INSTALLER_HASH}'
   Push '$INSTDIR\deps\gstreamer-1.0-msvc-x86_64-${GSTREAMER_VERSION}.exe'
@@ -390,7 +475,7 @@ FunctionEnd
   ${EndIf}
 
   DetailPrint 'Execute GStreamer ${GSTREAMER_VERSION} installer'
-  nsExec::ExecToLog '$INSTDIR\deps\gstreamer-1.0-msvc-x86_64-${GSTREAMER_VERSION}.exe /VERYSILENT /LOG /TYPE=runtime /ALLUSERS'
+  nsExec::ExecToLog '$INSTDIR\deps\gstreamer-1.0-msvc-x86_64-${GSTREAMER_VERSION}.exe /VERYSILENT /NORESTART /LOG /TYPE=runtime /ALLUSERS'
   Pop $R3
   ${If} $R3 != 0
     DetailPrint 'GStreamer installation failed. Error code: $R3'
@@ -417,6 +502,7 @@ Function SetupEnvironmentVariables
   Pop $0
   ${If} $0 != 0
     DetailPrint 'Environment setup failed. Error code: $0'
+    MessageBox MB_OK|MB_ICONEXCLAMATION 'Environment setup failed. Error code: $0' /SD IDYES
   ${EndIf}
 FunctionEnd
 

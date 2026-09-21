@@ -203,5 +203,5 @@ Monitor checkout counters, ignoring aisles. Define multiple ROIs in `roi_list.js
 
 ## See also
 
-* [Windows Samples overview](../../../README.md)
+* [Windows Samples overview](../../../../README.md)
 * [Linux GVAAttachROI Sample](../../../../gstreamer/gst_launch/gvaattachroi/README.md)

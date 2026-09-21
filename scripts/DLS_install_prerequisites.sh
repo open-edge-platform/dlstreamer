@@ -5,11 +5,11 @@
 # SPDX-License-Identifier: MIT
 # ==============================================================================
 
-npu_driver_version_u24_pkg='https://github.com/intel/linux-npu-driver/releases/download/v1.32.1/linux-npu-driver-v1.32.1.20260422-24767473183-ubuntu2404.tar.gz'
+npu_driver_version_u24_pkg='https://github.com/intel/linux-npu-driver/releases/download/v1.38.0/linux-npu-driver-v1.38.0.20260910-34487311128-ubuntu2404.tar.gz'
 npu_driver_version_u22_pkg='https://github.com/intel/linux-npu-driver/releases/download/v1.26.0/linux-npu-driver-v1.26.0.20251125-19665715237-ubuntu2204.tar.gz'
-npu_libze1_version_pkg='https://snapshot.ppa.launchpadcontent.net/kobuk-team/intel-graphics/ubuntu/20260324T100000Z/pool/main/l/level-zero-loader/libze1_1.27.0-1~24.04~ppa2_amd64.deb'
+npu_libze1_version_pkg='https://snapshot.ppa.launchpadcontent.net/kobuk-team/intel-graphics/ubuntu/20260830T100000Z/pool/main/l/level-zero-loader/libze1_1.32.0-1~24.04~ppa1_amd64.deb'
 npu_driver_version_u22="1.26.0"
-npu_driver_version_u24="1.32.0"
+npu_driver_version_u24="1.38.0"
 reinstall_npu_driver='no'  # Default value for reinstalling the NPU driver
 SUDO_PREFIX="sudo"
 
@@ -287,12 +287,12 @@ setup_gpu(){
     if [ "$ubuntu_version" == "24.04" ]; then
         echo "Installing GPU drivers for Ubuntu 24.04..."
         $SUDO_PREFIX apt-get install -y --no-install-recommends software-properties-common || handle_error "Failed to install software-properties-common"
-        $SUDO_PREFIX add-apt-repository -y "$INTEL_CL_GPU_REPO_URL" || handle_error "Failed to add Intel GPU repository"
+        $SUDO_PREFIX -E add-apt-repository -y "$INTEL_CL_GPU_REPO_URL" || handle_error "Failed to add Intel GPU repository"
         $SUDO_PREFIX apt update || handle_error "Failed to update package lists after adding repository"
-        echo "Snapshot: 20260324T030400Z" | $SUDO_PREFIX tee -a "/etc/apt/sources.list.d/$INTEL_GPU_LIST" || handle_error "Failed to add snapshot information"
+        echo "Snapshot: 20260916T030400Z" | $SUDO_PREFIX tee -a "/etc/apt/sources.list.d/$INTEL_GPU_LIST" || handle_error "Failed to add snapshot information"
         $SUDO_PREFIX apt update || handle_error "Failed to update package lists after adding snapshot"
-        install_packages intel-metrics-discovery=1.14.183-1~24.04~ppa1 intel-gsc=0.9.5-1~24.04~ppa2 libvpl2=1:2.16.0-1~24.04~ppa1 libze-intel-gpu1=26.05.37020.3-1~24.04~ppa3 libze1=1.27.0-1~24.04~ppa2 intel-opencl-icd=26.05.37020.3-1~24.04~ppa3 clinfo=3.0.23.01.25-1build1 \
-            intel-media-va-driver-non-free=26.1.4-1~24.04~ppa1 libmfx-gen1=25.4.0-0ubuntu1~24.04~ppa1 libvpl-tools=1.5.0-1~24.04~ppa1 libva-glx2=2.23.0-1~24.04~ppa5 va-driver-all=2.23.0-1~24.04~ppa5 vainfo=2.23.0-1~24.04~ppa4 || handle_error "Failed to install GPU drivers for Ubuntu 24.04"
+        install_packages intel-metrics-discovery=1.14.188-1~24.04~ppa1 intel-gsc=1.2.0-1~24.04~ppa1 libvpl2=1:2.16.0-1~24.04~ppa1 libze-intel-gpu1=26.31.39395.13-1~24.04~ppa1 libze1=1.32.0-1~24.04~ppa1 intel-opencl-icd=26.31.39395.13-1~24.04~ppa1 clinfo=3.0.23.01.25-1build1 \
+            intel-media-va-driver-non-free=26.3.2-1~24.04~ppa1 libmfx-gen1.2=26.3.2-1~24.04~ppa1 libvpl-tools=1.5.0-1~24.04~ppa1 libva-glx2=2.24.1-1~24.04~ppa2 va-driver-all=2.24.1-1~24.04~ppa2 vainfo=2.24.0-1~24.04~ppa1 || handle_error "Failed to install GPU drivers for Ubuntu 24.04"
     elif [ "$ubuntu_version" == "22.04" ]; then
         echo "Installing GPU drivers for Ubuntu 22.04..."
         configure_repository "$INTEL_CL_GPU_KEY_URL" "$INTEL_GPU_KEYRING_PATH" "$INTEL_CL_GPU_REPO_URL" "$INTEL_GPU_LIST" || handle_error "Failed to configure Intel GPU repository"
@@ -549,7 +549,6 @@ update_package_lists
 if $SUDO_PREFIX dmesg | grep -qi intel_vpu || lspci | grep -qi 'Intel.*NPU'; then
     echo_color " This system contains a Neural Processing Unit." "green"
     intel_npu=1
-    line_to_add="export ZE_ENABLE_ALT_DRIVERS=libze_intel_npu.so"
 
     # Define the .bash_profile file path for the current user
     bash_profile="${HOME}/.bash_profile"
@@ -564,14 +563,6 @@ if $SUDO_PREFIX dmesg | grep -qi intel_vpu || lspci | grep -qi 'Intel.*NPU'; the
             # .profile exists, so use that instead
             bash_profile="${HOME}/.profile"
         fi
-    fi
-
-    # Check if the line already exists in .bash_profile to avoid duplicates
-    if ! grep -qF -- "$line_to_add" "$bash_profile"; then
-        # If the line does not exist, append it to .bash_profile
-        echo "$line_to_add" >> "$bash_profile"
-        # shellcheck disable=SC1090
-        source "$bash_profile"
     fi
 
     repo="intel/linux-npu-driver"  # Replace with the GitHub repository in the format "owner/repo"

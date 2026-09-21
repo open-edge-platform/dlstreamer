@@ -105,4 +105,4 @@ gvawatermark ! gvafpscounter ! vah264enc ! h264parse ! mp4mux ! filesink locatio
 ```
 
 ## See also
-* [Samples overview](../../README.md)
+* [Samples overview](../../../README.md)

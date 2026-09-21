@@ -10,6 +10,7 @@
 #include <gst/base/gstbasetransform.h>
 #include <map>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 // Data structures for zones and tripwires
@@ -28,6 +29,8 @@ struct Tripwire {
     int thickness = 1;
 };
 
+enum ObjectEvaluationPoint { EVAL_POINT_CENTER = 0, EVAL_POINT_BOTTOM_CENTER = 1 };
+
 enum ZoneType { POLYGON, CIRCLE };
 
 struct Zone {
@@ -43,6 +46,8 @@ struct Zone {
     int g = 255;
     int b = 0;
     int thickness = 1;
+    bool track_dwell_time = false;
+    gdouble object_retention = 0.5;
 
     Zone() : type(POLYGON), radius(0) {
     }
@@ -54,11 +59,18 @@ bool point_in_circle(const Point &point, const Point &center, int radius);
 bool point_in_zone(const Point &point, const Zone &zone);
 bool segment_intersects_tripwire(const Point &p1, const Point &p2, const Tripwire &tripwire);
 
-// Structure to store object tracking history for tripwire crossing detection
+struct ZoneDwellState {
+    gdouble first_seen;       // PTS (s) when object first entered the zone
+    gdouble last_seen;        // PTS (s) of most recent frame with object inside
+    gdouble object_retention; // per-zone grace period captured on entry
+};
+
+// Structure to store object tracking history for tripwire crossing and dwell time detection
 struct ObjectTrackingState {
     guint64 tracking_id;
-    Point last_center;
+    Point last_point;
     bool has_previous_position = false;
+    std::unordered_map<std::string, ZoneDwellState> zone_entry_times; // zone_id → dwell state
 };
 
 // Metadata attachment functions
@@ -68,4 +80,5 @@ void attach_tripwire_drawing_metadata(GstBaseTransform *base, GstBuffer *buf, co
 // Detection processing function
 void process_object_detections(GstBaseTransform *base, GstAnalyticsRelationMeta *analytics_meta,
                                const std::vector<Zone> &zones, const std::vector<Tripwire> &tripwires,
-                               std::map<guint64, ObjectTrackingState> &tracking_states);
+                               std::map<guint64, ObjectTrackingState> &tracking_states,
+                               ObjectEvaluationPoint evaluation_point, gdouble current_time_sec);

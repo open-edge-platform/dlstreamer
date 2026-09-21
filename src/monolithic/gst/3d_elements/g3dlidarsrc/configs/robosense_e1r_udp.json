@@ -1,0 +1,9 @@
+{
+  "vendor": "robosense",
+  "model": "RSE1",
+  "transport": {
+    "type": "udp",
+    "bind_address": "0.0.0.0"
+  },
+  "params": {}
+}

@@ -40,9 +40,9 @@ Install Python dependencies:
 
 ```sh
 cd samples/gstreamer/python/watermark_meta
-python3 -m venv .watermark_meta_venv
+uv venv .watermark_meta_venv
 source .watermark_meta_venv/bin/activate
-pip install -r requirements.txt
+uv pip install -r requirements.txt
 ```
 
 ### Run the Sample
@@ -64,7 +64,22 @@ Default output: `/tmp/watermark_meta_output.mp4`
 ### Run Directly with Python
 
 ```bash
-python3 watermark_meta.py <INPUT_VIDEO_URI> <OUTPUT_MP4_FILE>
+python3 watermark_meta.py <INPUT_VIDEO_URI|videotestsrc> <OUTPUT_MP4_FILE|FRAMES_DIR>
+```
+
+The input and output arguments support deterministic testing modes:
+
+* `INPUT`
+  * a video file/URI - decoded and watermarked, or
+  * `videotestsrc` (or `test`) - generates a deterministic white test pattern (`videotestsrc num-buffers=N pattern=white`).
+* `OUTPUT`
+  * a path ending in `.mp4` - the watermarked stream is encoded to an MP4 file, or
+  * any other path - treated as a directory; watermarked frames are written as PNG images (`frame_00000.png`, `frame_00001.png`, ...).
+
+Example producing deterministic PNG frames from a test pattern:
+
+```bash
+python3 watermark_meta.py videotestsrc ./frames
 ```
 
 ## How It Works

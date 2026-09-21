@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# Copyright (C) 2025 Intel Corporation
+# Copyright (C) 2025-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
@@ -36,7 +36,7 @@ DEVICE="GPU"
 SRC="https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4"
 MODEL=""  # if empty we construct from MODELS_PATH
 MODEL_NAME="yolov8n"
-PRECISION="FP32"
+PRECISION="FP16"
 MD_OPTS=""  # additional gvamotiondetect properties, space separated key=value pairs
 OUTPUT="json"  # display or json
 

@@ -8,7 +8,7 @@ Element description can be found in [Elements 2.0 reference](elements_list).
 
 Before using `pytorch_tensor_inference`, make sure that all of the
 following requirements are met. Visit
-[Install Guide](../get_started/install/install_guide_ubuntu.md) for more information about
+[Install Guide](../install/install_guide_ubuntu.md) for more information about
 installing DL Streamer.
 
 1. `intel-dlstreamer-gst-python3-plugin-loader` and
@@ -20,10 +20,11 @@ installing DL Streamer.
    apt-get install -y python3-intel-dlstreamer
    ```
 
-2. Python requirements are installed. If not, install using
+2. Python requirements and `uv` are installed. If not, install using
    `reqirements.txt` file:
 
    ```bash
+   curl -LsSf https://astral.sh/uv/install.sh | sh
    python3 -m pip install --upgrade pip
    python3 -m pip install -r requirements.txt
    ```

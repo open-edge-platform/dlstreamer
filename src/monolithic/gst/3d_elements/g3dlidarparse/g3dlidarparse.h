@@ -36,6 +36,9 @@ struct _GstG3DLidarParse {
     size_t current_index;
     gboolean is_single_file;
     guint stream_id;
+
+    // PTS tracking
+    GstClockTime next_pts;
 };
 
 struct _GstG3DLidarParseClass {

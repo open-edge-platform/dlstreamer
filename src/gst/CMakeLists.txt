@@ -1,5 +1,5 @@
 # ==============================================================================
-# Copyright (C) 2021 Intel Corporation
+# Copyright (C) 2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
@@ -17,7 +17,6 @@ add_subdirectory(lib)
 add_subdirectory(elements)
 add_subdirectory(bins)
 add_subdirectory(tracers/buffer_tracer)
-add_subdirectory(tracers/latency_tracer)
 
 if (${ENABLE_ITT} AND NOT (${CMAKE_SYSTEM_PROCESSOR} STREQUAL "aarch64" OR ${CMAKE_SYSTEM_PROCESSOR} STREQUAL "arm"))
     add_subdirectory(tracers/gvaitttracer)

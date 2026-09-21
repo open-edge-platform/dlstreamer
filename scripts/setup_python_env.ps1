@@ -161,7 +161,7 @@ Test-PythonImport "gstgva" `
 # 6. Check GStreamer element creation
 Write-Host "Checking GStreamer element creation..." -ForegroundColor Yellow
 $gvaCode = "import gi; gi.require_version('Gst', '1.0'); " +
-"from gi.repository import Gst; Gst.init(None); " +
+"from gi.repository import Gst; Gst.init([]); " +
 "e = Gst.ElementFactory.make('gvadetect', 'd'); " +
 "print('success' if e else 'failed')"
 $r = Invoke-Python $gvaCode

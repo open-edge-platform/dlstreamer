@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2020-2025 Intel Corporation
+ * Copyright (C) 2020-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -14,8 +14,8 @@
 #include "test_utils.h"
 
 const char *video_src = "People_On_The_Street.mp4";
-const char *detect_model = "face-detection-adas-0001";
-const char *class_model = "age-gender-recognition-retail-0013";
+const char *detect_model = "centerface";
+const char *class_model = "dima806_fairface_gender_image_detection";
 const char *fp_format = "FP32";
 const unsigned buf_num = 50;
 
@@ -70,7 +70,8 @@ int compare_files(const char *file1, int droprate1, const char *file2, int dropr
     FILE *fptr2 = fopen(file2, "r");
     ck_assert_msg(fptr2 != NULL, opening_error, file2);
 
-    int bufferLength = 2048;
+    // JSON lines with add_tensor_data can be several KB long; buffer must hold a full line.
+    int bufferLength = 65536;
     char buffer1[bufferLength];
     char buffer2[bufferLength];
 

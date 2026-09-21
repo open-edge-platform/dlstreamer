@@ -1,6 +1,6 @@
 #!/bin/bash
 # ==============================================================================
-# Copyright (C) 2020-2025 Intel Corporation
+# Copyright (C) 2020-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
@@ -31,7 +31,7 @@ if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
 fi
 
 DETECT_MODEL="centerface"
-DETECT_MODEL_PATH="$MODELS_PATH/public/$DETECT_MODEL/FP32/$DETECT_MODEL.xml"
+DETECT_MODEL_PATH="$MODELS_PATH/public/$DETECT_MODEL/FP16/$DETECT_MODEL.xml"
 
 if [ ! -f "$DETECT_MODEL_PATH" ]; then
 	echo "Model not found: $DETECT_MODEL_PATH" >&2

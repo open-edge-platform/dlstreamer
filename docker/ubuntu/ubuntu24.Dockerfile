@@ -70,21 +70,21 @@ RUN \
     apt-get install -y --no-install-recommends software-properties-common=0.99.49.4 && \
     add-apt-repository -y ppa:kobuk-team/intel-graphics && \
     apt-get update && \
-    echo "Snapshot: 20260324T030400Z" >> /etc/apt/sources.list.d/kobuk-team-ubuntu-intel-graphics-noble.sources && \
+    echo "Snapshot: 20260916T030400Z" >> /etc/apt/sources.list.d/kobuk-team-ubuntu-intel-graphics-noble.sources && \
     apt-get update && \
     apt-get install -y --no-install-recommends \
-    intel-metrics-discovery=1.14.183-1~24.04~ppa1 intel-gsc=0.9.5-1~24.04~ppa2 libvpl2=1:2.16.0-1~24.04~ppa1 \
-    libze-intel-gpu1=26.05.37020.3-1~24.04~ppa3 libze1=1.27.0-1~24.04~ppa2 intel-opencl-icd=26.05.37020.3-1~24.04~ppa3 clinfo=3.0.23.01.25-1build1 \
-    intel-media-va-driver-non-free=26.1.4-1~24.04~ppa1 libmfx-gen1=25.4.0-0ubuntu1~24.04~ppa1 libvpl-tools=1.5.0-1~24.04~ppa1 libva-glx2=2.23.0-1~24.04~ppa5 va-driver-all=2.23.0-1~24.04~ppa5 vainfo=2.23.0-1~24.04~ppa4 && \
+    intel-metrics-discovery=1.14.188-1~24.04~ppa1 intel-gsc=1.2.0-1~24.04~ppa1 libvpl2=1:2.16.0-1~24.04~ppa1 \
+    libze-intel-gpu1=26.31.39395.13-1~24.04~ppa1 libze1=1.32.0-1~24.04~ppa1 intel-opencl-icd=26.31.39395.13-1~24.04~ppa1 clinfo=3.0.23.01.25-1build1 \
+    intel-media-va-driver-non-free=26.3.2-1~24.04~ppa1 libmfx-gen1.2=26.3.2-1~24.04~ppa1 libvpl-tools=1.5.0-1~24.04~ppa1 libva-glx2=2.24.1-1~24.04~ppa2 va-driver-all=2.24.1-1~24.04~ppa2 vainfo=2.24.0-1~24.04~ppa1 && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
 # Intel NPU drivers and prerequisites installation
 WORKDIR /tmp/npu_deps
 
-RUN curl -LO https://github.com/intel/linux-npu-driver/releases/download/v1.32.1/linux-npu-driver-v1.32.1.20260422-24767473183-ubuntu2404.tar.gz && \
-    tar -xf linux-npu-driver-v1.32.1.20260422-24767473183-ubuntu2404.tar.gz && \
-    curl -LO https://snapshot.ppa.launchpadcontent.net/kobuk-team/intel-graphics/ubuntu/20260324T100000Z/pool/main/l/level-zero-loader/libze1_1.27.0-1~24.04~ppa2_amd64.deb && \
+RUN curl -LO https://github.com/intel/linux-npu-driver/releases/download/v1.38.0/linux-npu-driver-v1.38.0.20260910-34487311128-ubuntu2404.tar.gz && \
+    tar -xf linux-npu-driver-v1.38.0.20260910-34487311128-ubuntu2404.tar.gz && \
+    curl -LO https://snapshot.ppa.launchpadcontent.net/kobuk-team/intel-graphics/ubuntu/20260830T100000Z/pool/main/l/level-zero-loader/libze1_1.32.0-1~24.04~ppa1_amd64.deb && \
     apt-get update && \
     apt-get install -y --no-install-recommends ./intel-*.deb && \
     apt-get clean && \
@@ -107,6 +107,9 @@ RUN \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
+
+RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin sh
+
 RUN \
     useradd -ms /bin/bash dlstreamer && \
     mkdir /python3venv && \
@@ -116,9 +119,9 @@ RUN \
 USER dlstreamer
 
 RUN \
-    python3 -m venv /python3venv && \
-    /python3venv/bin/pip3 install --no-cache-dir --upgrade pip==26.1 && \
-    /python3venv/bin/pip3 install --no-cache-dir --no-dependencies \
+    uv venv /python3venv && \
+    VIRTUAL_ENV=/python3venv uv pip install --no-cache-dir --upgrade pip==26.1.2 && \
+    VIRTUAL_ENV=/python3venv uv pip install --no-cache-dir --no-deps \
     meson==1.4.1 \
     ninja==1.11.1.1 \
     numpy==2.2.0 \
@@ -133,13 +136,13 @@ RUN \
     six==1.16.0 \
     pycairo==1.26.0 \
     PyGObject==3.50.0 \
-    setuptools==82.0.1 \
+    setuptools==84.0.0 \
     pytest==8.3.3 \
     pluggy==1.5.0 \
     exceptiongroup==1.2.2 \
     iniconfig==2.0.0 \
     typing-extensions==4.15.0 \
-    openvino==2026.1.0    
+    openvino==2026.4.0
 
 # hadolint ignore=DL3002
 USER root
@@ -363,9 +366,10 @@ RUN cp -a /usr/local/lib/librealsense* ./
 # ==============================================================================
 FROM builder AS dlstreamer-dev
 
-ARG DLSTREAMER_VERSION=2026.1.0
+ARG DLSTREAMER_VERSION=2026.2.0
 ARG DLSTREAMER_BUILD_NUMBER
-ARG OPENVINO_VERSION=2026.1.0
+ARG OPENVINO_VERSION=2026.4.0
+ARG OPENVINO_VERSION_SHORT=2026.4
 # DL Streamer development image and build proccess
 
 SHELL ["/bin/bash", "-xo", "pipefail", "-c"]
@@ -397,7 +401,7 @@ RUN \
 
 # OpenVINO Gen AI
 ARG OPENVINO_GENAI_VER=openvino_genai_ubuntu24_${OPENVINO_VERSION}.0_x86_64
-ARG OPENVINO_GENAI_PKG=https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/2026.1/linux/${OPENVINO_GENAI_VER}.tar.gz
+ARG OPENVINO_GENAI_PKG=https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/${OPENVINO_VERSION_SHORT}/linux/${OPENVINO_GENAI_VER}.tar.gz
 
 RUN curl -L ${OPENVINO_GENAI_PKG} | tar -xz && \
     mv ${OPENVINO_GENAI_VER} /opt/intel/openvino_genai
@@ -419,7 +423,7 @@ ENV PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:${LIBDIR}/pkgconfig:/usr/lib/x86_64
 ENV LIBRARY_PATH=${GSTREAMER_DIR}/lib:${LIBDIR}:/usr/lib:/usr/local/lib:${LIBRARY_PATH}
 ENV LD_LIBRARY_PATH=${GSTREAMER_DIR}/lib:${LIBDIR}:/usr/lib:/usr/local/lib:${LD_LIBRARY_PATH}
 ENV LIB_PATH=$LIBDIR
-ENV GST_PLUGIN_PATH=${LIBDIR}:${GSTREAMER_DIR}/lib/gstreamer-1.0:/usr/lib/x86_64-linux-gnu/gstreamer-1.0:${GST_PLUGIN_PATH}
+ENV GST_PLUGIN_PATH=${LIBDIR}:${GSTREAMER_DIR}/lib/gstreamer-1.0:${GST_PLUGIN_PATH}
 ENV LC_NUMERIC=C
 ENV C_INCLUDE_PATH=/usr/local/include:${DLSTREAMER_DIR}/include:${DLSTREAMER_DIR}/include/dlstreamer/gst/metadata:${C_INCLUDE_PATH}
 ENV CPLUS_INCLUDE_PATH=/usr/local/include:${DLSTREAMER_DIR}/include:${DLSTREAMER_DIR}/include/dlstreamer/gst/metadata:${CPLUS_INCLUDE_PATH}
@@ -443,6 +447,9 @@ RUN \
        make -j "$(nproc)" && \
        usermod -a -G video dlstreamer && \
        chown -R dlstreamer:dlstreamer /home/dlstreamer
+
+# Install python dependencies
+RUN VIRTUAL_ENV=/python3venv uv pip install --no-cache-dir --break-system-packages -r "${DLSTREAMER_DIR}/requirements.txt"
 
 WORKDIR /home/dlstreamer
 USER dlstreamer
@@ -533,21 +540,21 @@ RUN \
     apt-get install -y --no-install-recommends software-properties-common=0.99.49.4 && \
     add-apt-repository -y ppa:kobuk-team/intel-graphics && \
     apt-get update && \
-    echo "Snapshot: 20260324T030400Z" >> /etc/apt/sources.list.d/kobuk-team-ubuntu-intel-graphics-noble.sources && \
+    echo "Snapshot: 20260916T030400Z" >> /etc/apt/sources.list.d/kobuk-team-ubuntu-intel-graphics-noble.sources && \
     apt-get update && \
     apt-get install -y --no-install-recommends \
-    intel-metrics-discovery=1.14.183-1~24.04~ppa1 intel-gsc=0.9.5-1~24.04~ppa2 libvpl2=1:2.16.0-1~24.04~ppa1 \
-    libze-intel-gpu1=26.05.37020.3-1~24.04~ppa3 libze1=1.27.0-1~24.04~ppa2 intel-opencl-icd=26.05.37020.3-1~24.04~ppa3 clinfo=3.0.23.01.25-1build1 \
-    intel-media-va-driver-non-free=26.1.4-1~24.04~ppa1 libmfx-gen1=25.4.0-0ubuntu1~24.04~ppa1 libvpl-tools=1.5.0-1~24.04~ppa1 libva-glx2=2.23.0-1~24.04~ppa5 va-driver-all=2.23.0-1~24.04~ppa5 vainfo=2.23.0-1~24.04~ppa4 && \
+    intel-metrics-discovery=1.14.188-1~24.04~ppa1 intel-gsc=1.2.0-1~24.04~ppa1 libvpl2=1:2.16.0-1~24.04~ppa1 \
+    libze-intel-gpu1=26.31.39395.13-1~24.04~ppa1 libze1=1.32.0-1~24.04~ppa1 intel-opencl-icd=26.31.39395.13-1~24.04~ppa1 clinfo=3.0.23.01.25-1build1 \
+    intel-media-va-driver-non-free=26.3.2-1~24.04~ppa1 libmfx-gen1.2=26.3.2-1~24.04~ppa1 libvpl-tools=1.5.0-1~24.04~ppa1 libva-glx2=2.24.1-1~24.04~ppa2 va-driver-all=2.24.1-1~24.04~ppa2 vainfo=2.24.0-1~24.04~ppa1 && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
 # Intel NPU drivers and prerequisites installation
 WORKDIR /tmp/npu_deps
 
-RUN curl -LO https://github.com/intel/linux-npu-driver/releases/download/v1.32.1/linux-npu-driver-v1.32.1.20260422-24767473183-ubuntu2404.tar.gz && \
-    tar -xf linux-npu-driver-v1.32.1.20260422-24767473183-ubuntu2404.tar.gz && \
-    curl -LO https://snapshot.ppa.launchpadcontent.net/kobuk-team/intel-graphics/ubuntu/20260324T100000Z/pool/main/l/level-zero-loader/libze1_1.27.0-1~24.04~ppa2_amd64.deb && \
+RUN curl -LO https://github.com/intel/linux-npu-driver/releases/download/v1.38.0/linux-npu-driver-v1.38.0.20260910-34487311128-ubuntu2404.tar.gz && \
+    tar -xf linux-npu-driver-v1.38.0.20260910-34487311128-ubuntu2404.tar.gz && \
+    curl -LO https://snapshot.ppa.launchpadcontent.net/kobuk-team/intel-graphics/ubuntu/20260830T100000Z/pool/main/l/level-zero-loader/libze1_1.32.0-1~24.04~ppa1_amd64.deb && \
     apt-get update && \
     apt-get install -y --no-install-recommends ./intel-*.deb && \
     apt-get clean && \
@@ -575,12 +582,14 @@ RUN \
     chown -R dlstreamer: /opt && \
     chmod -R u+rw /opt
 
+RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin sh
+
 # Install onvif-zeep Python package
 RUN \
     apt-get update && \
     apt-get install -y -q --no-install-recommends python3-pip=\* gcc=\* libcairo2-dev=\* libgirepository1.0-dev=\* && \
-    pip3 install --no-cache-dir --break-system-packages onvif-zeep==0.2.12 && \
-    pip3 install --no-cache-dir --break-system-packages --ignore-installed -r /opt/intel/dlstreamer/requirements.txt && \
+    uv pip install --system --no-cache-dir --break-system-packages onvif-zeep==0.2.12 && \
+    uv pip install --system --no-cache-dir --break-system-packages -r /opt/intel/dlstreamer/requirements.txt && \
     apt-get remove -y gcc libcairo2-dev libgirepository1.0-dev && \
     apt-get autoremove -y && \
     cp -r /usr/local/lib/python3.12/site-packages/wsdl /usr/local/lib/python3.12/dist-packages/ && \

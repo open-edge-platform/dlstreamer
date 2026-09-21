@@ -21,7 +21,7 @@ jobs:
       run-analysis: ${{ steps.detect-langs.outputs.run-analysis }}
     steps:
       - name: Check out dlstreamer repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 #7.0.1
         with:
           persist-credentials: false
           path: dlstreamer-repo
@@ -61,7 +61,7 @@ jobs:
     if: needs.detect-languages.outputs.run-analysis == 'true'
     steps:
       - name: Check out dlstreamer repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 #7.0.1
         with:
           persist-credentials: false
           path: dlstreamer-repo
@@ -70,6 +70,13 @@ jobs:
         run: |
           cd dlstreamer-repo
           git submodule update --init thirdparty/spdlog
+
+      - name: Ensure uv is installed
+        run: |
+          # Check if uv is installed, if not install it
+          if ! command -v uv >/dev/null 2>&1; then
+            curl -LsSf https://astral.sh/uv/install.sh | sh
+          fi
 
       - name: Build code manually for dlstreamer
         run: |
@@ -86,10 +93,9 @@ jobs:
           libswscale-dev libswresample-dev libavutil-dev libavformat-dev libavcodec-dev libtbb12 ocl-icd-opencl-dev
 
           echo "Setting up a Python environment"
-          python3 -m venv python3venv
+          uv venv python3venv
           source python3venv/bin/activate
-          pip install --upgrade pip==24.0
-          pip install meson==1.4.1 ninja==1.11.1.1
+          uv pip install meson==1.4.1 ninja==1.11.1.1
 
           echo "Build gstreamer"
           git clone https://gitlab.freedesktop.org/gstreamer/gstreamer.git
@@ -106,7 +112,7 @@ jobs:
           echo "deb https://apt.repos.intel.com/openvino ubuntu24 main" | sudo tee /etc/apt/sources.list.d/intel-openvino.list
           curl -sSL -O https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB
           sudo apt-key add GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB
-          sudo apt-get update && sudo apt-get install --no-install-recommends -y openvino-2026.1.0
+          sudo apt-get update && sudo apt-get install --no-install-recommends -y openvino-2026.4.0
           sudo apt-get clean
 
       - name: Download Coverity Scan Tool

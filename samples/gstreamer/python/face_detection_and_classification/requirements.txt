@@ -1,2 +1,2 @@
 PyGObject==3.50.0
-ultralytics==8.4.3
+ultralytics==8.4.57

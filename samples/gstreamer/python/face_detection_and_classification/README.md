@@ -1,78 +1,140 @@
 # Face Detection and Classification
 
-This sample demonstrates how to download face detection and classification models from Hugging Face, export them to OpenVINO™ IR, and run inference in a GStreamer pipeline.
+This sample demonstrates how to run face detection and age classification in a GStreamer pipeline using pre-exported OpenVINO™ IR models.
 
-## How It Works
-
-The script demonstrates the full flow for preparing models and running a DL Streamer pipeline in Python. Each stage is marked in code with STEP comments:
-
-**STEP 1 — Prepare face detection model**
-Download the YOLOv8 face detector from Hugging Face and export it to OpenVINO IR using the Ultralytics exporter.
-
-**STEP 2 — Prepare the classification model**
-Use optimum-cli to download the face age classifier from Hugging Face and export it to OpenVINO IR.
-
-**STEP 3 — Build and run the pipeline**
-Use GStreamer and DL Streamer elements to build a pipeline, run inference with `gvadetect` and `gvaclassify`, annotate frames with `gvawatermak`, and encode the output to MP4.
+The pipeline combines `gvadetect` for face detection with `gvaclassify` for age estimation, annotates results with `gvawatermark`, and outputs either annotated video or JSON metadata.
 
 ```mermaid
 graph LR
-    A[filesrc] --> B[decodebin3]
-    B --> C[gvadetect]
-    C --> D[gvaclassify]
-    D --> E[gvafpscounter]
-    E --> F[gvawatermark]
-    F --> G["encode (vah264enc + h264parse + mp4mux)"]
-    G --> H[filesink]
+    A["filesrc"] --> B["decodebin3"]
+    B --> C["gvadetect"]
+    C --> D["gvaclassify"]
+    D --> E["gvafpscounter"]
+    E --> F["gvawatermark"]
+    F --> G{output mode}
+    G -->|file| H["encode + filesink"]
+    G -->|json| I["gvametaconvert + gvametapublish"]
 ```
 
-If no input video is provided, a default video is downloaded and used automatically.
+## Prerequisites
 
-## Models
+### Install DLStreamer
 
-This demo uses the following models from Hugging Face:
+#### Option A: Docker image (recommended)
 
-* Face detection: `arnabdhar/YOLOv8-Face-Detection`
-* Classification: `dima806/fairface_age_image_detection`
+Pull the latest DLStreamer image and start an interactive container with GPU access:
 
-Exported OpenVINO artifacts are stored in the current working directory after the first run.
-
-## Reproducible setup
-
-This project pins all dependencies in [requirements.txt](requirements.txt) for deterministic installs.
-
-### Install
-
-1. Create and activate a virtual environment:
-```code
-   python3 -m venv .face_det_cls_venv
-   source .face_det_cls_venv/bin/activate
-   ```
-
-2. Install dependencies:
-```code
-   curl -LO https://raw.githubusercontent.com/openvinotoolkit/openvino.genai/refs/heads/releases/2026/0/samples/export-requirements.txt
-   pip install -r export-requirements.txt -r requirements.txt
-   ```
-
-If you need to update dependencies, regenerate the pinned versions in [requirements.txt](requirements.txt) from a known-good environment.
-
-## Running
-
-Provide a local video file:
-
-```code
-python3 face_detection_and_classification.py /path/to/video.mp4
+```sh
+docker pull intel/dlstreamer:latest
+docker run --init -it --rm \
+    --device /dev/dri \
+    --group-add $(stat -c "%g" /dev/dri/render*) \
+    intel/dlstreamer:latest
+cd /opt/intel/dlstreamer/samples/gstreamer/python/face_detection_and_classification
 ```
 
-Or run without arguments to download and use a default video:
+> Note: install Docker Engine if not already available (see [Docker installation guide](https://docs.docker.com/engine/install/)).
+> All subsequent commands run inside this container shell.
 
-```code
-python3 face_detection_and_classification.py
+#### Option B: Native installation
+
+Install DLStreamer on the host (see [DLStreamer Installation Guide](../../../../docs/user-guide/install/install_guide_index.md)).
+
+```sh
+cd samples/gstreamer/python/face_detection_and_classification
 ```
 
-The output video will be saved alongside the input file with the suffix `_output.mp4`.
+## Download Video
 
-## Sample Output
+Download example video file:
 
-The script prints the pipeline string and produces an output video annotated with detections and classification results.
+```sh
+curl -L -o input.mp4 "https://videos.pexels.com/video-files/18553046/18553046-hd_1280_720_30fps.mp4"
+```
+
+## Prepare Models
+
+This sample uses two models from Hugging Face:
+
+- **Face detection:** `arnabdhar/YOLOv8-Face-Detection` (Ultralytics YOLO format)
+  - Prepare with [Ultralytics conversion](../../../../scripts/download_models/README.md#2-ultralytics-conversion)
+  
+- **Age classification:** `dima806/fairface_age_image_detection` (Hugging Face Transformers)
+  - Prepare with [Hugging Face model conversion](../../../../scripts/download_models/README.md#1-hugging-face-conversion)
+
+## Install Dependencies
+
+Create and activate a virtual environment:
+
+```sh
+uv venv .face_det_cls_venv
+source .face_det_cls_venv/bin/activate
+```
+
+Install dependencies:
+
+```sh
+uv pip install -r requirements.txt
+```
+
+> Note: Dependencies are pinned in [requirements.txt](requirements.txt) for reproducible installs.
+
+## Run Sample Application
+
+```sh
+python3 face_detection_and_classification.py \
+    --input input.mp4 \
+    --device GPU \
+    --output file \
+    --det-model models/public/arnabdhar_YOLOv8-Face-Detection/FP16/arnabdhar_YOLOv8-Face-Detection.xml \
+    --cls-model models/public/dima806_fairface_age_image_detection/FP16/dima806_fairface_age_image_detection.xml
+```
+
+If `--input` is omitted, the script downloads and uses a default video automatically.
+
+Run `python3 face_detection_and_classification.py --help` to see all available options.
+
+## Output Modes
+
+Control output with `--output` (default: `file`):
+
+| Mode | Description |
+|---|---|
+| `file` | Annotates frames with detection boxes and age labels, encodes to MP4 with suffix `_output.mp4` |
+| `json` | Writes inference results as JSON Lines (one record per frame) to `output.json` |
+
+**File output (default):**
+```sh
+python3 face_detection_and_classification.py \
+    --input input.mp4 \
+    --device GPU \
+    --output file \
+    --det-model models/public/arnabdhar_YOLOv8-Face-Detection/FP16/arnabdhar_YOLOv8-Face-Detection.xml \
+    --cls-model models/public/dima806_fairface_age_image_detection/FP16/dima806_fairface_age_image_detection.xml
+```
+
+Produces `input_output.mp4` with annotated detections and age classification.
+
+**JSON metadata:**
+```sh
+python3 face_detection_and_classification.py \
+    --input input.mp4 \
+    --device CPU \
+    --output json \
+    --det-model models/public/arnabdhar_YOLOv8-Face-Detection/FP32/arnabdhar_YOLOv8-Face-Detection.xml \
+    --cls-model models/public/dima806_fairface_age_image_detection/FP32/dima806_fairface_age_image_detection.xml
+```
+
+Outputs `output.json` in JSON Lines format for downstream processing.
+
+## How It Works
+
+The sample constructs a GStreamer pipeline that:
+
+1. **Decodes** video frames with `decodebin3`
+2. **Detects** faces using `gvadetect` with the YOLOv8 model
+3. **Classifies** detected faces using `gvaclassify` with the fairface model
+4. **Renders** detection boxes and age labels with `gvawatermark`
+5. **Outputs** either annotated video (file mode) or JSON metadata (json mode)
+
+The pipeline automatically handles model loading, inference, and metadata aggregation.

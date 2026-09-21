@@ -10,23 +10,27 @@ import itertools
 import os
 import re
 import warnings
+import requests
 
+from urllib.parse import urljoin
+from requests import RequestException
+from prometheus_client.parser import text_string_to_metric_families
 from preprocess import preprocess_pipeline
 from processors.device import DeviceGenerator
 from processors.batch import BatchGenerator
 from processors.nireq import NireqGenerator
 from processors.utils import add_instance_ids
+from optimization_targets import FpsTarget, PowerTarget
 
 import gi
 gi.require_version("Gst", "1.0")
 from gi.repository import Gst # pylint: disable=no-name-in-module
 
-SINGLE_STREAM = 1
 DEFAULT_SEARCH_DURATION = 300
 
 ####################################### Init ######################################################
 
-Gst.init()
+Gst.init([])
 logger = logging.getLogger(__name__)
 logger.debug("GStreamer initialized successfully")
 gst_version = Gst.version()
@@ -37,7 +41,10 @@ logger.debug("GStreamer version: %d.%d.%d",
 
 ####################################### Helpers ###################################################
 
-class TestHalt(Exception):
+class FaultyPipeline(Exception): # pylint: disable=missing-class-docstring
+    pass
+
+class TestHalt(Exception): # pylint: disable=missing-class-docstring
     pass
 
 ################################### Init and config ###############################################
@@ -47,18 +54,19 @@ class DLSOptimizer:
         # configuration
         self._start_time = time.time()
         self._sample_duration = 10
-        self._multistream_fps_limit = 30
+        self._maximize_streams = False
+        self._fps_limit = None
+        self._power_limit = None
         self._enable_cross_stream_batching = False
         self._detections_error_threshold = 0.95
         self._paused = False
+        self._metrics_url = None
 
         # internal fields
-        self._initial_detections = 0
-        self._initial_fps = 0
         self._initial_pipeline = []
+        self._initial_result = {}
         self._optimal_pipeline = []
-        self._optimal_fps = 0
-        self._optimal_streams = SINGLE_STREAM
+        self._optimal_result = {}
         self._generators = {
             "device": DeviceGenerator(),
             "batch": BatchGenerator(),
@@ -66,10 +74,10 @@ class DLSOptimizer:
         }
 
     def get_baseline_pipeline(self): # pylint: disable=missing-function-docstring
-        return "!".join(self._initial_pipeline), self._initial_fps, SINGLE_STREAM
+        return "!".join(self._initial_pipeline), self._initial_result
 
     def get_optimal_pipeline(self): # pylint: disable=missing-function-docstring
-        return "!".join(self._optimal_pipeline), self._optimal_fps, self._optimal_streams
+        return "!".join(self._optimal_pipeline), self._optimal_result
 
     def enable_cross_stream_batching(self, enable): # pylint: disable=missing-function-docstring
         self._enable_cross_stream_batching = enable
@@ -77,8 +85,14 @@ class DLSOptimizer:
     def set_sample_duration(self, duration): # pylint: disable=missing-function-docstring
         self._sample_duration = duration
 
-    def set_multistream_fps_limit(self, limit): # pylint: disable=missing-function-docstring
-        self._multistream_fps_limit = limit
+    def set_maximize_streams(self, maximize): # pylint: disable=missing-function-docstring
+        self._maximize_streams = maximize
+
+    def set_fps_limit(self, limit): # pylint: disable=missing-function-docstring
+        self._fps_limit = limit
+
+    def set_power_limit(self, limit): # pylint: disable=missing-function-docstring
+        self._power_limit = limit
 
     def set_allowed_devices(self, devices): # pylint: disable=missing-function-docstring
         self._generators["device"].set_allowed_devices(devices)
@@ -91,6 +105,19 @@ class DLSOptimizer:
 
     def set_detections_error_threshold(self, threshold): # pylint: disable=missing-function-docstring
         self._detections_error_threshold = threshold
+
+    def set_metrics_url(self, url): # pylint: disable=missing-function-docstring
+        metrics_url = urljoin(url, "metrics")
+        try:
+            resp = requests.get(metrics_url, timeout=1)
+            resp.raise_for_status()
+            text_string_to_metric_families(resp.text)
+            self._metrics_url = metrics_url
+        except RequestException as e:
+            raise RuntimeError("Couldn't establish connection with power metrics endpoint!") from e
+        except ValueError as e:
+            raise RuntimeError("Endpoint returned invalid Prometheus metrics!") from e
+
 
     # deprecated
     def set_search_duration(self, duration):
@@ -112,54 +139,58 @@ class DLSOptimizer:
     # 6. Any time a better pipeline is found, save it and its performance information.
     # 7. Return the best discovered pipeline.
     def optimize_for_fps(self, pipeline, search_duration = DEFAULT_SEARCH_DURATION):
+        return self._optimize(pipeline, FpsTarget(), search_duration)
+
+    def iter_optimize_for_fps(self, initial_pipeline): # pylint: disable=missing-function-docstring
+        return self._iter_optimize(initial_pipeline, FpsTarget())
+
+    def optimize_for_power(self, pipeline, search_duration = DEFAULT_SEARCH_DURATION): # pylint: disable=missing-function-docstring
+        if self._metrics_url is None:
+            raise RuntimeError("In order to optimize for power, you must provide a valid power metrics endpoint!")
+        return self._optimize(pipeline, PowerTarget(), search_duration)
+
+    def iter_optimize_for_power(self, initial_pipeline): # pylint: disable=missing-function-docstring
+        if self._metrics_url is None:
+            raise RuntimeError("In order to optimize for power, you must provide a valid power metrics endpoint!")
+        return self._iter_optimize(initial_pipeline, PowerTarget())
+
+    def optimize_for_streams(self, pipeline, search_duration = DEFAULT_SEARCH_DURATION): # pylint: disable=missing-function-docstring
+        warnings.warn(
+            "Function optimize_for_streams has been deprecated. "
+            "Please use set_maximize_streams and optimize_for_fps instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        self.set_maximize_streams(True)
+        return self.optimize_for_fps(pipeline, search_duration)
+
+    def iter_optimize_for_streams(self, initial_pipeline): # pylint: disable=missing-function-docstring
+        warnings.warn(
+            "Function iter_optimize_for_streams has been deprecated. "
+            "Please use set_maximize_streams and iter_optimize_for_fps instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        self.set_maximize_streams(True)
+        return self.iter_optimize_for_fps(initial_pipeline)
+
+    def _optimize(self, pipeline, target, search_duration = DEFAULT_SEARCH_DURATION):
         start_time = time.time()
-        for (_, _) in self.iter_optimize_for_fps(pipeline):
+        for (_, _) in self._iter_optimize(pipeline, target):
             cur_time = time.time()
             if cur_time - start_time > search_duration:
                 break
 
-        pipeline, fps, _ = self.get_optimal_pipeline()
-        return pipeline, fps
+        pipeline, result = self.get_optimal_pipeline()
+        return pipeline, result
 
-    def iter_optimize_for_fps(self, pipeline):
-        # Test for tee element presence
-        if re.search("[^a-zA-Z]tee[^a-zA-Z]", pipeline):
-            raise RuntimeError("Pipelines containing the tee element are currently not supported!")
-
-        pipeline = pipeline.split("!")
-
-        # Run pre-optimization steps
-        self._establish_baseline(pipeline)
-        pipeline = self._run_preprocessing(pipeline)
-
-        if self._enable_cross_stream_batching:
-            pipeline = add_instance_ids(pipeline)
-
-        # Perform optimization
-        logger.debug("Starting optimization process for FPS improvements...")
-        self._optimal_pipeline = pipeline.copy()
-        self._optimal_fps = self._initial_fps
-        for (pipeline, fps) in self._optimize_pipeline(pipeline, self._initial_fps, self._initial_detections, 1):
-            if fps > self._optimal_fps:
-                self._optimal_fps = fps
-                self._optimal_pipeline = pipeline
-
-            yield "!".join(pipeline), fps
-
-    def optimize_for_streams(self, pipeline, search_duration = DEFAULT_SEARCH_DURATION):
-        start_time = time.time()
-        for (_, _, _) in self.iter_optimize_for_streams(pipeline):
-            cur_time = time.time()
-            if cur_time - start_time > search_duration:
-                break
-
-        pipeline, fps, streams = self.get_optimal_pipeline()
-        return pipeline, fps, streams
-
-    def iter_optimize_for_streams(self, initial_pipeline):
+    def _iter_optimize(self, initial_pipeline, target):
         # Test for tee element presence
         if re.search("[^a-zA-Z]tee[^a-zA-Z]", initial_pipeline):
             raise RuntimeError("Pipelines containing the tee element are currently not supported!")
+
+        if self._maximize_streams and self._power_limit is None and self._fps_limit is None:
+            raise RuntimeError("When optimizing for streams, configure at least one limit to prevent infinite looping.")
 
         initial_pipeline = initial_pipeline.split("!")
 
@@ -167,40 +198,55 @@ class DLSOptimizer:
         self._establish_baseline(initial_pipeline)
         initial_pipeline = self._run_preprocessing(initial_pipeline)
 
-        initial_pipeline = add_instance_ids(initial_pipeline)
+        if self._enable_cross_stream_batching:
+            initial_pipeline = add_instance_ids(initial_pipeline)
 
-        # Perform optimization
-        start_time = time.time()
-        self._optimal_pipeline = initial_pipeline.copy()
-        self._optimal_fps = self._initial_fps
-        best_streams = 0
-        for streams in range(1, 128):
-            for (pipeline, fps) in self._optimize_pipeline(initial_pipeline, self._initial_fps, self._initial_detections, streams):
-                if fps > self._multistream_fps_limit and (fps > self._optimal_fps or streams > self._optimal_streams):
-                    logger.info(f"limit: {fps > self._multistream_fps_limit}")
-                    logger.info(f"fps: {fps > self._optimal_fps}")
-                    logger.info(f"streams: {streams > self._optimal_streams}")
-                    self._optimal_fps = fps
-                    self._optimal_pipeline = pipeline
-                    self._optimal_streams = streams
+        max_streams = 1
+        if self._maximize_streams:
+            max_streams = 128
+            initial_pipeline = add_instance_ids(initial_pipeline)
+            self._initial_result["streams"] = 1
+            self._optimal_result["streams"] = 1
 
-                yield "!".join(pipeline), fps, streams
+        # iterate over candidates and find the best one
+        for streams in range(1, max_streams + 1): # high end in range function is non-inclusive
+            has_not_changed = True
+            for (pipeline, result) in self._evaluate_candidates(initial_pipeline, target, streams):
+                if result:
+                    if self._maximize_streams:
+                            result["streams"] = streams
 
+                    within_limits = self._passes_limits(result)
+                    scores_better = target.is_better(result, self._optimal_result) 
+                    allows_for_more_streams = (self._maximize_streams and streams > self._optimal_result["streams"])
+                    if within_limits and (scores_better or allows_for_more_streams):
+                        has_not_changed = False
+                        self._optimal_result = result.copy()
+                        self._optimal_pipeline = pipeline.copy()
+
+                yield "!".join(pipeline), result
+            if has_not_changed:
+                break
+
+    def _passes_limits(self, result):
+        fps_pass = self._fps_limit is None or result["fps"] > self._fps_limit
+        power_pass = self._power_limit is None or result["power"] < self._power_limit
+
+        return fps_pass and power_pass
 
     def _establish_baseline(self, pipeline):
         # Measure the performance of the original pipeline
         try:
             logger.debug("Measuring performance of the original pipeline...")
             self._initial_pipeline = pipeline.copy()
-            self._initial_fps, self._initial_detections = self._sample_pipeline([pipeline], self._sample_duration)
-            self._optimal_pipeline = []
-            self._optimal_fps = 0
-            self._optimal_streams = SINGLE_STREAM
+            self._initial_result = self._sample_pipeline([pipeline], self._sample_duration)
+            self._optimal_pipeline = self._initial_pipeline.copy()
+            self._optimal_result = self._initial_result.copy()
         except Exception as e:
             logger.error("Pipeline failed to start, unable to measure fps: %s", e)
             raise RuntimeError("Provided pipeline is not valid") from e
 
-        logger.debug("FPS: %.2f", self._initial_fps)
+        logger.debug("FPS: %.2f", self._initial_result["fps"])
 
     def _run_preprocessing(self, pipeline):
         # Replace elements with known better alternatives.
@@ -209,9 +255,12 @@ class DLSOptimizer:
             preproc_pipeline = preprocess_pipeline(preproc_pipeline)
             preproc_pipeline = preproc_pipeline.split(" ! ")
 
-            if preproc_pipeline != pipeline:
-                logger.info("Measuring performance of the original pipeline after pre-processing optimizations...")
-                self._sample_pipeline([preproc_pipeline], self._sample_duration)
+            if preproc_pipeline == pipeline:
+                logger.debug("Pre-processing didn't manage to improve pipeline.")
+                return pipeline
+
+            logger.info("Measuring performance of the original pipeline after pre-processing optimizations...")
+            self._sample_pipeline([preproc_pipeline], self._sample_duration)
 
             return preproc_pipeline
 
@@ -220,9 +269,9 @@ class DLSOptimizer:
         
         return pipeline
 
-    def _optimize_pipeline(self, initial_pipeline, initial_fps, initial_detections, streams):
+    def _evaluate_candidates(self, initial_pipeline, target, streams):
         best_pipeline = initial_pipeline
-        best_fps = initial_fps
+        best_result = self._initial_result
 
         for generator in self._generators.values():
             generator.init_pipeline(best_pipeline)
@@ -232,22 +281,16 @@ class DLSOptimizer:
                     for _ in range(0, streams):
                         pipelines.append(pipeline)
 
-                    fps, detections = self._sample_pipeline(pipelines, self._sample_duration)
+                    result = self._sample_pipeline(pipelines, self._sample_duration)
 
-                    if initial_detections == 0:
-                        # skip only if we still have zero detections
-                        if detections == 0:
-                            logger.debug("Pipeline reporting detections under error margin, skipping")
-                            continue
-                    elif detections / initial_detections < self._detections_error_threshold:
-                        logger.debug("Pipeline reporting detections under error margin, skipping")
-                        continue
+                    if self._initial_result["detections"] != 0 and result["detections"] / self._initial_result["detections"] < self._detections_error_threshold:
+                        raise FaultyPipeline("Pipeline reporting detections under error margin")
 
-                    if fps > best_fps:
-                        best_fps = fps
+                    if target.is_better(result, best_result):
+                        best_result = result.copy()
                         best_pipeline = pipeline
 
-                    yield pipeline, fps
+                    yield pipeline, result
 
                 except TestHalt:
                     logger.info("Testing process paused.")
@@ -255,7 +298,8 @@ class DLSOptimizer:
                         time.sleep(0.5)
                     logger.info("Testing process restarted.")
                 except Exception as e:
-                    logger.debug("Pipeline failed to start: %s", e)
+                    logger.debug("Pipeline failed sampling: %s", e)
+                    yield pipeline, None
 
 ##################################### Pipeline Running ############################################
 
@@ -286,15 +330,18 @@ class DLSOptimizer:
 
         bus = pipeline.get_bus()
 
-        ret = pipeline.set_state(Gst.State.PLAYING)
-        _, state, _ = pipeline.get_state(Gst.CLOCK_TIME_NONE)
-        logger.debug("Pipeline state: %s, %s", state, ret)
 
-        fps = -1
-        detections = -1
+        ret = pipeline.set_state(Gst.State.PLAYING)
+        logger.debug("Setting pipeline to PLAYING: %s", ret)
+
+        result = None
         try:
             terminate = False
             start_time = time.time()
+            power_total = 0.0
+            power_samples = 0
+            power_sampling_delay = 0.5
+            last_power_sample = time.time()
             while not terminate:
                 if self._paused:
                     raise TestHalt("Interrupt signal received, halting test run")
@@ -319,22 +366,56 @@ class DLSOptimizer:
 
                 # Incorrect pipelines sometimes get stuck in Ready state instead of failing.
                 # Terminate in those cases.
-                _, state, _ = pipeline.get_state(Gst.CLOCK_TIME_NONE)
+                _, state, _ = pipeline.get_state(3 * Gst.SECOND)
                 if state != Gst.State.PLAYING:
-                    raise RuntimeError("Pipeline not healthy, terminating early")
+                    raise FaultyPipeline("Pipeline failed to start properly")
 
                 cur_time = time.time()
                 if cur_time - start_time > sample_duration:
                     terminate = True
+
+                if self._metrics_url is not None and cur_time - last_power_sample > power_sampling_delay:
+                    last_power_sample = cur_time
+                    try:
+                        resp = requests.get(self._metrics_url, timeout=1)
+                        resp.raise_for_status()
+                        power_samples += 1
+                        power_total += _collect_power_info(resp)
+                    except RequestException as e:
+                        logger.warning("Failed to collect power metrics: %s", e)
+            fps = fps_counter.get_property("avg-fps")
+            detections = fps_counter.get_property("detections")
+            logger.debug("Sampled fps: %.2f", fps)
+
+            if power_samples == 0:
+                power_total = None
+            else:
+                power_total = power_total / power_samples
+
+            result = {
+                "fps": fps,
+                "detections": detections,
+                "power": power_total
+            }
+
         finally:
             ret = pipeline.set_state(Gst.State.NULL)
             logger.debug("Setting pipeline to NULL: %s", ret)
-            _, state, _ = pipeline.get_state(Gst.CLOCK_TIME_NONE)
-            logger.debug("Pipeline state: %s", str(state))
 
-            logger.debug("Sampled fps: %.2f", fps)
-            fps = fps_counter.get_property("avg-fps")
-            detections = fps_counter.get_property("detections")
             del pipeline
 
-        return fps, detections
+        return result
+
+
+def _collect_power_info(resp):
+    power_total = 0.0
+    for family in text_string_to_metric_families(resp.text):
+        if family.name == "npu_power":
+            power_total += family.samples[0].value
+
+        if family.name == "gpu_power":
+            for sample in family.samples:
+                if sample.labels["type"] == "pkg_cur_power":
+                    power_total += sample.value
+
+    return power_total

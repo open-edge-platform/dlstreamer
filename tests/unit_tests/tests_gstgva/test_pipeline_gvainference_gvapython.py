@@ -14,16 +14,14 @@ SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 IMAGE_PATH = os.path.join(SCRIPT_DIR, "test_files", "dog_bike_car.jpg")
 MODULE_PATH = os.path.join(SCRIPT_DIR, "test_files",
                            "instance_segmentation_0002_postproc.py")
-MODEL_PROC_PATH = os.path.join(
-    SCRIPT_DIR, "test_files", "instance-segmentation-security-0002.json")
 
-MODEL_NAME = "instance-segmentation-security-0002"
-MODEL_PATH = get_model_path(MODEL_NAME, precision="FP16-INT8")
+MODEL_NAME = "yolo11s-seg"
+MODEL_PATH = get_model_path(MODEL_NAME)
 
 
 PIPELINE_STR = f"""appsrc name=mysrc
 ! decodebin
-! gvainference model={MODEL_PATH} model-proc={MODEL_PROC_PATH}
+! gvainference model={MODEL_PATH}
 ! gvapython module={MODULE_PATH}
 ! appsink name=mysink emit-signals=true sync=false"""
 

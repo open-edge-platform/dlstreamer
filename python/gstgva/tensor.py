@@ -456,19 +456,18 @@ class Tensor:
             tensor["confidence"] = result_confidence
 
             cls_descriptor_mtd = None
-            for cls_descriptor_mtd in mtd.meta:
+            for candidate_mtd in mtd.meta:
                 if (
-                    cls_descriptor_mtd.id == mtd.id
-                    or type(cls_descriptor_mtd) != GstAnalytics.ClsMtd
+                    candidate_mtd.id == mtd.id
+                    or type(candidate_mtd) != GstAnalytics.ClsMtd
                 ):
                     continue
 
-                rel = mtd.meta.get_relation(mtd.id, cls_descriptor_mtd.id)
+                rel = mtd.meta.get_relation(mtd.id, candidate_mtd.id)
 
                 if rel == GstAnalytics.RelTypes.RELATE_TO:
+                    cls_descriptor_mtd = candidate_mtd
                     break
-
-                cls_descriptor_mtd = None
 
             if class_count == 1 and cls_descriptor_mtd is not None:
                 label_id = cls_descriptor_mtd.get_index_by_quark(

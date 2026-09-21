@@ -5,7 +5,7 @@
 # ==============================================================================
 
 param(
-    [string]$Model = "mask_rcnn_inception_resnet_v2_atrous_coco",
+    [string]$Model = "yolo26s-seg",
     [string]$Device = "CPU",
     [string]$InputSource = "https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4",
     [string]$OutputType = "file",
@@ -18,8 +18,8 @@ if ($Model -eq "--help" -or $Model -eq "-h") {
     Write-Host "Usage: instance_segmentation.ps1 [-Model <model>] [-Device <device>] [-InputSource <path>] [-OutputType <type>] [-JsonFile <file>] [-FrameLimiter <element>]"
     Write-Host ""
     Write-Host "Parameters:"
-    Write-Host "  -Model          Model to use (default: mask_rcnn_inception_resnet_v2_atrous_coco)"
-    Write-Host "                  Supported: mask_rcnn_inception_resnet_v2_atrous_coco, mask_rcnn_resnet50_atrous_coco"
+    Write-Host "  -Model          Model to use (default: yolo26s-seg)"
+    Write-Host "                  Supported: yolo26s-seg, yolo11s-seg"
     Write-Host "  -Device         Device (default: CPU). Supported: CPU, GPU, NPU"
     Write-Host "  -InputSource    Input source (default: Pexels video URL)"
     Write-Host "  -OutputType     Output type (default: file). Supported: file, display, fps, json, display-and-json, jpeg"
@@ -37,7 +37,7 @@ if (-not $env:MODELS_PATH) {
 Write-Host "MODELS_PATH: $env:MODELS_PATH"
 
 # Validate model
-$VALID_MODELS = @("mask_rcnn_inception_resnet_v2_atrous_coco", "mask_rcnn_resnet50_atrous_coco")
+$VALID_MODELS = @("yolo26s-seg", "yolo11s-seg")
 if ($VALID_MODELS -notcontains $Model) {
     Write-Host "ERROR: Unsupported model: $Model" -ForegroundColor Red
     Write-Host "Supported models: $($VALID_MODELS -join ', ')"
@@ -54,12 +54,11 @@ if ($VALID_DEVICES -notcontains $Device) {
 
 # Set model paths
 $MODEL_PATH = "$env:MODELS_PATH\public\$Model\FP16\$Model.xml"
-$MODEL_PROC = "$PSScriptRoot\..\..\..\..\gstreamer\model_proc\public\mask-rcnn.json"
 
 # Check if model exists
 if (-not (Test-Path $MODEL_PATH)) {
     Write-Host "ERROR: Model not found: $MODEL_PATH" -ForegroundColor Red
-    Write-Host "Please run download_public_models.bat to download the models first."
+    Write-Host "Please run download_ultralytics_models.py to download the models first."
     exit 1
 }
 
@@ -132,15 +131,14 @@ switch ($OutputType) {
 
 # Convert paths to forward slashes for GStreamer
 $MODEL_PATH = $MODEL_PATH -replace '\\', '/'
-$MODEL_PROC = $MODEL_PROC -replace '\\', '/'
 
 # Build and run pipeline
 Write-Host ""
 Write-Host "Running pipeline:"
-Write-Host "gst-launch-1.0 $SOURCE_ELEMENT ! $DECODE_ELEMENT$FrameLimiter ! gvadetect model=$MODEL_PATH model-proc=$MODEL_PROC device=$Device pre-process-backend=$PREPROC_BACKEND ! queue ! $SINK_ELEMENT"
+Write-Host "gst-launch-1.0 $SOURCE_ELEMENT ! $DECODE_ELEMENT$FrameLimiter ! gvadetect model=$MODEL_PATH device=$Device pre-process-backend=$PREPROC_BACKEND ! queue ! $SINK_ELEMENT"
 Write-Host ""
 
-$CMD = "gst-launch-1.0 $SOURCE_ELEMENT ! $DECODE_ELEMENT$FrameLimiter ! gvadetect model=$MODEL_PATH model-proc=$MODEL_PROC device=$Device pre-process-backend=$PREPROC_BACKEND ! queue ! $SINK_ELEMENT"
+$CMD = "gst-launch-1.0 $SOURCE_ELEMENT ! $DECODE_ELEMENT$FrameLimiter ! gvadetect model=$MODEL_PATH device=$Device pre-process-backend=$PREPROC_BACKEND ! queue ! $SINK_ELEMENT"
 Invoke-Expression $CMD
 
 exit $LASTEXITCODE

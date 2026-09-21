@@ -53,9 +53,12 @@ class Recorder(Gst.Bin):
     def __init__(self):
         super(Recorder, self).__init__()
 
-        # construct pipeline: videoconvert -> vah264enc -> h264parse -> splitmuxsink
+        # construct pipeline: videoconvert -> vah264enc (falls back to openh264enc) -> h264parse -> splitmuxsink
         self._convert = Gst.ElementFactory.make("videoconvert", "convert")
-        self._vah264enc = Gst.ElementFactory.make("vah264enc", "encoder")
+        self._vah264enc = Gst.ElementFactory.make("vah264enc", "encoder") or \
+            Gst.ElementFactory.make("openh264enc", "encoder")
+        if self._vah264enc is None:
+            raise RuntimeError("No H.264 encoder found: install vah264enc (GPU) or openh264enc (CPU)")
         self._h264parse = Gst.ElementFactory.make("h264parse", "h264parse")
         self._filesink = Gst.ElementFactory.make("splitmuxsink", "splitmuxsink")
         self.add(self._convert)
@@ -75,12 +78,11 @@ class Recorder(Gst.Bin):
         self._filesink.connect("format-location", self.format_location_callback, 0)
 
     def save_metadata(self, fragment_id):
-        """Store prediction metadata and clear list of detectd objects."""
+        """Store prediction metadata and clear list of detected objects."""
         if fragment_id > self._last_fragment_id:
             self._last_fragment_id = fragment_id
             with open(f"{self._fileprefix}-{fragment_id:02d}.txt", mode='w', encoding="utf-8") as file:
                 file.write(f"Objects: {self._objectlist}")
-                file.close()
             self._objectlist = []
 
     def buffer_probe(self, _pad, info, _user_data):

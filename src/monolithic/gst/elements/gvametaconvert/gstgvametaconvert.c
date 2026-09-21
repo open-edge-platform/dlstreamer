@@ -432,6 +432,10 @@ static gboolean gst_gva_meta_convert_set_caps(GstBaseTransform *trans, GstCaps *
     } else if (g_strrstr(name, "application/x-lidar")) {
         // Accept lidar data types - no video/audio info needed
         GST_DEBUG_OBJECT(gvametaconvert, "Accepting lidar data type: %s", name);
+    } else if (g_strrstr(name, "multistream/x-analytics-batch")) {
+        // Accept batched multi-stream buffers; per-stream geometry is derived
+        // from each stream's own caps/video meta at convert time.
+        GST_DEBUG_OBJECT(gvametaconvert, "Accepting analytics batch data type: %s", name);
     } else {
         GST_ERROR_OBJECT(gvametaconvert, "Invalid input caps: %s", name);
         return FALSE;

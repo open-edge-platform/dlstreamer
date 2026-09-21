@@ -12,7 +12,6 @@ add_subdirectory(batch_create)
 add_subdirectory(batch_split)
 add_subdirectory(capsrelax)
 add_subdirectory(gvadrop)
-add_subdirectory(gvafpscounter)
 add_subdirectory(meta_aggregate)
 add_subdirectory(roi_split)
 add_subdirectory(video_frames_buffer)
@@ -43,7 +42,6 @@ PRIVATE
     batch_split
     capsrelax
     gvadrop
-    gvafpscounter
     meta_aggregate
     roi_split
     meta_smooth

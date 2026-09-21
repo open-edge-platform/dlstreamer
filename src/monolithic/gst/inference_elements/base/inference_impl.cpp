@@ -424,7 +424,8 @@ std::string three_doubles_to_str(const std::array<double, 3> &v) {
 }
 
 void UpdateConfigWithLayerInfo(const std::vector<ModelInputProcessorInfo::Ptr> &model_input_processor_info,
-                               std::map<std::string, std::map<std::string, std::string>> &config) {
+                               std::map<std::string, std::map<std::string, std::string>> &config,
+                               bool user_provided_reshape = false) {
     std::map<std::string, std::string> input_layer_precision;
     std::map<std::string, std::string> input_format;
     for (const ModelInputProcessorInfo::Ptr &preproc : model_input_processor_info) {
@@ -593,10 +594,22 @@ void UpdateConfigWithLayerInfo(const std::vector<ModelInputProcessorInfo::Ptr> &
     // This enables the backend's standard pre-compile reshape handling, even when the resolved size happens to
     // match the model's original input shape and the reshape becomes an effective no-op.
     if (resolved_static_reshape_shape.first && resolved_static_reshape_shape.second) {
-        config[KEY_BASE][KEY_RESHAPE] = "1";
-        config[KEY_BASE][KEY_RESHAPE_STATIC] = "1";
-        config[KEY_BASE][KEY_RESHAPE_WIDTH] = std::to_string(resolved_static_reshape_shape.first);
-        config[KEY_BASE][KEY_RESHAPE_HEIGHT] = std::to_string(resolved_static_reshape_shape.second);
+        if (user_provided_reshape) {
+            // User explicitly set reshape dimensions
+            // SKIP model metadata overwrite and respect user's values
+            std::string current_reshape_static_str = config[KEY_BASE][KEY_RESHAPE_STATIC];
+            if (current_reshape_static_str.empty()) {
+                config[KEY_BASE][KEY_RESHAPE_STATIC] = "1";
+                config[KEY_BASE][KEY_RESHAPE] = "1";
+            }
+        } else {
+            // No user-specified reshape, apply model metadata values as defaults
+            // This allows model-proc or metadata.yaml to provide reshape configuration
+            config[KEY_BASE][KEY_RESHAPE] = "1";
+            config[KEY_BASE][KEY_RESHAPE_STATIC] = "1";
+            config[KEY_BASE][KEY_RESHAPE_WIDTH] = std::to_string(resolved_static_reshape_shape.first);
+            config[KEY_BASE][KEY_RESHAPE_HEIGHT] = std::to_string(resolved_static_reshape_shape.second);
+        }
     }
 }
 
@@ -953,7 +966,9 @@ InferenceImpl::Model InferenceImpl::CreateModel(GvaBaseInference *gva_base_infer
         ie_config[KEY_BASE]["frame-width"] = std::to_string(gva_base_inference->info->width);
         ie_config[KEY_BASE]["frame-height"] = std::to_string(gva_base_inference->info->height);
     }
-    UpdateConfigWithLayerInfo(model.input_processor_info, ie_config);
+    // Determine if user explicitly provided reshape dimensions (non-zero width or height)
+    bool user_provided_reshape = (gva_base_inference->reshape_width != 0) || (gva_base_inference->reshape_height != 0);
+    UpdateConfigWithLayerInfo(model.input_processor_info, ie_config, user_provided_reshape);
     setPreprocessorType(ie_config, model.input_processor_info, gva_base_inference->info);
     memory_type =
         GetMemoryType(GetMemoryType(static_cast<CapsFeature>(std::stoi(ie_config[KEY_BASE][KEY_CAPS_FEATURE]))),
@@ -1259,22 +1274,45 @@ void InferenceImpl::PushOutput() {
 bool InferenceImpl::CheckSrcPadBlocked(GstObject *src) {
     bool blocked = false;
 
-    GstObject *dst = gst_pad_get_parent(gst_pad_get_peer(GST_BASE_TRANSFORM_SRC_PAD(src)));
+    // store peer pad to properly unref it
+    GstPad *peer_pad = gst_pad_get_peer(GST_BASE_TRANSFORM_SRC_PAD(src));
+    if (peer_pad == nullptr)
+        return false;
+
+    GstObject *dst = gst_pad_get_parent(peer_pad);
+    gst_object_unref(peer_pad); // release peer pad ref
+
     if (dst == nullptr)
         return false;
 
-    if (strcmp(dst->name, "queue") > 0) {
-        guint buf_cnt;
-        g_object_get(dst, "current-level-buffers", &buf_cnt, NULL);
+    // validate dst is actually a GstElement before casting
+    if (!GST_IS_ELEMENT(dst)) {
+        GST_WARNING_OBJECT(src, "Downstream parent is not a GstElement");
+        gst_object_unref(dst);
+        return false;
+    }
+
+    // use factory name for precise queue detection
+    // Handles auto-named instances: queue0, queue1, etc.
+    GstElementFactory *factory = gst_element_get_factory(GST_ELEMENT(dst));
+    const gchar *factory_name = factory ? gst_plugin_feature_get_name(GST_PLUGIN_FEATURE(factory)) : nullptr;
+
+    if (factory_name && strcmp(factory_name, "queue") == 0) {
+        guint buf_cnt = 0;
         GstState state, pending;
-        gst_element_get_state(GST_ELEMENT(dst), &state, &pending, GST_CLOCK_TIME_NONE);
+
+        g_object_get(dst, "current-level-buffers", &buf_cnt, NULL);
+
+        // use timeout instead of GST_CLOCK_TIME_NONE to avoid blocking
+        // NOTE: buf_cnt and state not queried atomically - acceptable as heuristic
+        gst_element_get_state(GST_ELEMENT(dst), &state, &pending, 10 * GST_MSECOND);
 
         if ((buf_cnt > 1) && (state == GST_STATE_PAUSED)) {
             blocked = true;
         }
     }
-    gst_object_unref(dst);
 
+    gst_object_unref(dst);
     return blocked;
 }
 

@@ -1,6 +1,6 @@
 # g3dinference
 
-Runs PointPillars 3D object detection on LiDAR point clouds. The element consumes `application/x-lidar` buffers produced by `g3dlidarparse`, executes a PointPillars inference pipeline with OpenVINO, and attaches tensor metadata for downstream consumers.
+Runs PointPillars 3D object detection on LiDAR point clouds. The element consumes `application/x-lidar` buffers produced by `g3dlidarparse`, executes a PointPillars inference pipeline with OpenVINO, and attaches 3D object-detection analytics metadata for downstream consumers.
 
 ## Overview
 
@@ -9,7 +9,7 @@ The `g3dinference` element is intended for LiDAR-only 3D detection pipelines whe
 Key operations:
 - **LiDAR metadata validation**: Requires `LidarMeta` on each input buffer and validates payload size against `lidar_point_count`
 - **PointPillars inference**: Loads the `extension_lib`, `voxel_model`, `nn_model`, and `postproc_model` entries from a JSON config and executes them in sequence. `voxel_params` document the voxelization settings used when exporting the PointPillars models and are not applied separately by `g3dinference` at runtime.
-- **Tensor metadata attachment**: Attaches detections as `GstGVATensorMeta` with `pointpillars_3d` format
+- **3D detection metadata attachment**: Attaches one `GstAnalytics3DODMtd` per detection to the buffer's `GstAnalyticsRelationMeta`
 - **Pipeline integration**: Preserves the LiDAR payload and metadata so downstream elements can combine point clouds, detections, and converted JSON output
 
 ## Properties
@@ -19,7 +19,8 @@ Key operations:
 | config | String | Path to the PointPillars JSON configuration file. Required. | null |
 | device | String | OpenVINO device used for the neural network stage. Currently `CPU`, `GPU`, and `GPU.<id>` are supported. | CPU |
 | model-type | String | 3D detector model type. Currently only `pointpillars` is supported. | pointpillars |
-| score-threshold | Float | Drops detections below this score. `0.0` keeps all post-processing output unchanged. | 0.0 |
+| score-threshold | Float | Drops detections below this score. `0.0` keeps all post-processing output unchanged. | 0.7 |
+| nireq | Unsigned Integer | Number of inference requests processed concurrently. Sizes the worker pool *and*, when non-zero, is forwarded to OpenVINO as `PERFORMANCE_HINT_NUM_REQUESTS`. `0` derives the value from the compiled network. Range `0 - 1024`. See [Throughput and concurrency](#throughput-and-concurrency). | 0 |
 
 ## Configuration
 
@@ -53,6 +54,52 @@ Example configuration:
 ```
 
 
+## Throughput and concurrency
+
+`g3dinference` processes frames asynchronously. Each buffer is submitted to a pool of workers, and every worker owns a private set of voxelization, network, and post-processing inference requests. Several frames are therefore in flight at once: the CPU-side stages of one frame overlap with the accelerator stage of another, instead of the whole chain running serially on the streaming thread.
+
+All three stages are compiled with OpenVINO's `THROUGHPUT` performance hint so that each one opens several execution streams and the frames in flight really do execute concurrently. This is not configurable: the `LATENCY` hint would restrict every stage to a single execution stream, which caps concurrency at one request per stage and makes `nireq` almost meaningless.
+
+`nireq` has two distinct effects, applied in this order at pipeline start:
+
+1. **It is passed to OpenVINO as a compile-time hint.** When `nireq > 0`, `PERFORMANCE_HINT_NUM_REQUESTS` (`ov::hint::num_requests`) is added to the compile configuration of *all three* stages — the CPU voxelization and post-processing models and the neural network model on `device`. This happens before any request is created, because it changes how the plugins compile the models.
+2. **It sizes the worker pool.** Each worker owns one private voxelization, network, and post-processing request, so the pool size is also the number of frames that may be in flight and the number of request triples allocated.
+
+### How `nireq` is passed to OpenVINO
+
+The hint tells each plugin how many requests will actually be submitted, so it sizes its execution stream pool to this element's worker pool instead of guessing from the device. A plugin that opens more streams than there are workers to feed just splits its threads across streams that stay idle; one told the real request count folds those threads back into the streams that do run.
+
+The hint is only sent when `nireq` is explicit. With `nireq=0` the pool size is itself derived from the plugin's own estimate, so there is nothing to align and the key is omitted.
+
+Alongside it, each stage always receives `PERFORMANCE_HINT` = `THROUGHPUT`. The CPU stages additionally get `ENABLE_CPU_PINNING` = `false`; that key is CPU-plugin specific and is deliberately not sent to the network stage, which may run on GPU and would reject it.
+
+| Compile key | Voxel (CPU) | NN (`device`) | Postproc (CPU) |
+|-------------|-------------|---------------|----------------|
+| `PERFORMANCE_HINT` | `THROUGHPUT` | `THROUGHPUT` | `THROUGHPUT` |
+| `PERFORMANCE_HINT_NUM_REQUESTS` | `nireq` (if > 0) | `nireq` (if > 0) | `nireq` (if > 0) |
+| `ENABLE_CPU_PINNING` | `false` | not set | `false` |
+
+Note that this is a *hint*, not an allocation request: the plugin remains free to pick a different stream count, and the element does not read the value back. The number of requests the element creates always comes from step 2.
+
+### How `nireq` sizes the pool
+
+- `nireq=0` (default) queries `OPTIMAL_NUMBER_OF_INFER_REQUESTS` on the compiled **network** model — the stage that runs on the accelerator, and therefore the one that determines how many frames are worth keeping in flight. If the query fails, the element logs a warning and falls back to a single request.
+- `nireq=1` keeps one frame in flight, which is equivalent to fully serial processing.
+- Higher values keep the accelerator busier at the cost of more memory and more concurrent CPU work.
+
+The submission queue is bounded at twice the resolved pool size: one queued frame per worker on top of the in-flight ones, so a worker finishing a frame always has the next one ready to start. Once the queue is full, the streaming thread blocks on submission until a worker frees a slot, which is what applies backpressure upstream instead of letting an unbounded backlog build up.
+
+The resolved value is visible in the element's `GST_INFO` log line at startup (`Loaded PointPillars runtime with config=... device=... nireq=<resolved>`), which is the way to see what `nireq=0` actually settled on. Reading the property back returns the value that was set, not the resolved pool size.
+
+```bash
+gst-launch-1.0 multifilesrc location="lidar/%06d.bin" caps=application/octet-stream ! \
+  g3dlidarparse ! \
+  g3dinference config=pointpillars_ov_config.json device=GPU nireq=4 ! \
+  fakesink
+```
+
+Concurrency does not change what the element outputs. Buffers are always pushed downstream in the order they arrived, and each buffer carries exactly the same detections it would have carried under serial processing. Raising `nireq` beyond the point where the accelerator saturates stops improving throughput.
+
 ## Pipeline Examples
 
 Use `multifilesrc` for LiDAR input, including single-frame runs, so each frame is delivered as one buffer instead of `filesrc` block fragments.
@@ -72,7 +119,7 @@ gst-launch-1.0 multifilesrc location="lidar/%06d.bin" start-index=0 caps=applica
 gst-launch-1.0 multifilesrc location="lidar/%06d.bin" caps=application/octet-stream ! \
   g3dlidarparse ! \
   g3dinference config=pointpillars_ov_config.json device=GPU score-threshold=0.5 ! \
-  gvametaconvert add-tensor-data=true format=json json-indent=2 ! \  
+  gvametaconvert format=json json-indent=2 ! \
   gvametapublish file-format=2 file-path=pointpillars.json ! \
   fakesink
 ```
@@ -97,37 +144,30 @@ The element operates in-place. It keeps the point cloud payload intact and appen
 
 ### Output metadata
 
-The element adds `GstGVATensorMeta` with:
+The element adds one `GstAnalytics3DODMtd` per detection to the buffer's `GstAnalyticsRelationMeta`. Each `GstAnalytics3DODMtd` carries:
 
-- `element_id = g3dinference`
-- `model_name = pointpillars` or the configured model type
-- `layer_name = pointpillars_3d_detection`
-- `format = pointpillars_3d`
-- `precision = FP32`
-- `dims = [N, 9]`
+- `x, y, z`: 3D bounding box center coordinates (metres, sensor/world frame)
+- `length, width, height`: box extents (metres)
+- `yaw, pitch, roll`: orientation (radians). Only `yaw` is populated by PointPillars; `pitch` and `roll` are `0`.
+- `class_id`: predicted class identifier
+- `confidence`: detection score produced by the model post-processing stage
+- `modality`: sensor modality, set to `GST_ANALYTICS_3D_SENSOR_LIDAR`
 
-Each detection row contains 9 FP32 values. The first dimension `N` is the number of detections in the frame, and the second dimension is fixed at 9 values per detection.
+The PointPillars post-processing emits boxes as `(x, y, z, w, l, h, theta, score, label)`; `g3dinference` maps the model's `w`/`l` onto the metadata's `width`/`length` so the stored `length`/`width` keep their physical meaning.
 
-1. `x`: 3D bounding box center X coordinate
-2. `y`: 3D bounding box center Y coordinate
-3. `z`: 3D bounding box center Z coordinate
-4. `w`: bounding box width
-5. `l`: bounding box length
-6. `h`: bounding box height
-7. `theta`: bounding box rotation angle
-8. `confidence`: detection score produced by the model post-processing stage
-9. `label_id`: predicted class identifier
-
-When `gvametaconvert` converts this tensor to JSON, these values are mapped into a `bbox_3d` object together with `confidence` and `label_id` fields.
+When `gvametaconvert` converts these detections to JSON, each becomes a `bbox_3d` object with `x, y, z, l, w, h, yaw, pitch, roll`, plus `confidence`, `label_id`, and `modality` (`"lidar"`).
 
 ## Processing Pipeline
 
 1. Validates that runtime initialization succeeded and `config` is present
 2. Retrieves `LidarMeta` from the input buffer
 3. Maps the LiDAR payload and verifies its size matches `lidar_point_count * 4 * sizeof(float)`
-4. Runs voxelization, network inference, and post-processing
-5. Flattens detections into `[N, 9]` tensor data and attaches `GstGVATensorMeta`
-6. Pushes the enriched LiDAR buffer downstream for metadata conversion, publishing, or further analytics
+4. Submits the frame to the worker pool and accepts the next buffer without waiting for the result
+5. On a worker thread, runs voxelization, network inference, and post-processing
+6. Attaches one `GstAnalytics3DODMtd` per detection to the buffer's `GstAnalyticsRelationMeta`
+7. Pushes the enriched LiDAR buffer downstream once every earlier frame has been pushed, preserving input order
+
+Steps 1–3 run on the streaming thread, so malformed input still fails the pipeline immediately. Steps 5–7 run concurrently for up to `nireq` frames.
 
 ## Element Details (gst-inspect-1.0)
 
@@ -170,6 +210,10 @@ Element Properties:
                         flags: readable, writable
                         String. Default: "g3dinference0"
 
+  nireq               : Number of inference requests processed concurrently. Frames are kept in flight across this many requests while output order is preserved. 0 derives the value from the compiled network
+                        flags: readable, writable
+                        Unsigned Integer. Range: 0 - 1024 Default: 0
+
   parent              : The parent of the object
                         flags: readable, writable
                         Object of type "GstObject"
@@ -181,5 +225,5 @@ Element Properties:
   score-threshold     : Drop detections below this score (0 keeps all postproc output)
                         flags: readable, writable
                         Float. Range:               0 - 1 
-                        Default:               0
+                        Default:               0.7
 ```

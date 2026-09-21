@@ -16,6 +16,7 @@ add_subdirectory(3d_elements)
 add_subdirectory(inference_elements)
 add_subdirectory(registrator)
 add_subdirectory(3d_registrator)
+add_subdirectory(tracers/latency_tracer)
 
 if(${ENABLE_AUDIO_INFERENCE_ELEMENTS})
     add_subdirectory(audio_inference_elements)

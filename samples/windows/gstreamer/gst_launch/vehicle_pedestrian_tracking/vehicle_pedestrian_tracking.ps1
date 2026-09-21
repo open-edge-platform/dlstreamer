@@ -111,33 +111,29 @@ switch ($OutputType) {
     }
 }
 
-# Set model paths
-$MODEL_1 = "person-vehicle-bike-detection-2004"
-$MODEL_2 = "person-attributes-recognition-crossroad-0230"
-$MODEL_3 = "vehicle-attributes-recognition-barrier-0039"
+# Set model paths (aligned with Linux gst_launch sample)
+$MODEL_1 = "yolo26s"
+$MODEL_2 = "dima806_vehicle_10_types_image_detection"
 
-$DETECTION_MODEL = "$env:MODELS_PATH\intel\$MODEL_1\FP32\$MODEL_1.xml"
-$PERSON_CLASSIFICATION_MODEL = "$env:MODELS_PATH\intel\$MODEL_2\FP32\$MODEL_2.xml"
-$VEHICLE_CLASSIFICATION_MODEL = "$env:MODELS_PATH\intel\$MODEL_3\FP32\$MODEL_3.xml"
-
-$DETECTION_MODEL_PROC = "$PSScriptRoot\model_proc\$MODEL_1.json"
-$PERSON_CLASSIFICATION_MODEL_PROC = "$PSScriptRoot\model_proc\$MODEL_2.json"
-$VEHICLE_CLASSIFICATION_MODEL_PROC = "$PSScriptRoot\model_proc\$MODEL_3.json"
+$DETECTION_MODEL = "$env:MODELS_PATH\public\$MODEL_1\FP16\$MODEL_1.xml"
+$VEHICLE_CLASSIFICATION_MODEL = "$env:MODELS_PATH\public\$MODEL_2\FP16\$MODEL_2.xml"
 
 # Check if models exist
 if (-not (Test-Path $DETECTION_MODEL)) {
     Write-Host "ERROR: Model not found: $DETECTION_MODEL" -ForegroundColor Red
-    Write-Host "Please run download_omz_models.bat to download the models first."
+    Write-Host "Please download models first using scripts/download_models helpers."
+    exit 1
+}
+
+if (-not (Test-Path $VEHICLE_CLASSIFICATION_MODEL)) {
+    Write-Host "ERROR: Model not found: $VEHICLE_CLASSIFICATION_MODEL" -ForegroundColor Red
+    Write-Host "Please download models first using scripts/download_models helpers."
     exit 1
 }
 
 # Convert paths to forward slashes for GStreamer
 $DETECTION_MODEL = $DETECTION_MODEL -replace '\\', '/'
-$PERSON_CLASSIFICATION_MODEL = $PERSON_CLASSIFICATION_MODEL -replace '\\', '/'
 $VEHICLE_CLASSIFICATION_MODEL = $VEHICLE_CLASSIFICATION_MODEL -replace '\\', '/'
-$DETECTION_MODEL_PROC = $DETECTION_MODEL_PROC -replace '\\', '/'
-$PERSON_CLASSIFICATION_MODEL_PROC = $PERSON_CLASSIFICATION_MODEL_PROC -replace '\\', '/'
-$VEHICLE_CLASSIFICATION_MODEL_PROC = $VEHICLE_CLASSIFICATION_MODEL_PROC -replace '\\', '/'
 
 # Reclassify interval (run classification every 10th frame)
 $RECLASSIFY_INTERVAL = 10
@@ -147,7 +143,7 @@ Write-Host ""
 Write-Host "Running pipeline..."
 Write-Host ""
 
-$CMD = "gst-launch-1.0 $SOURCE_ELEMENT ! $DECODE_ELEMENT$FrameLimiter ! queue ! gvadetect model=$DETECTION_MODEL model-proc=$DETECTION_MODEL_PROC inference-interval=$DetectionInterval threshold=0.4 device=$Device pre-process-backend=$PREPROC_BACKEND ! queue ! gvatrack tracking-type=$TrackingType ! queue ! gvaclassify model=$PERSON_CLASSIFICATION_MODEL model-proc=$PERSON_CLASSIFICATION_MODEL_PROC reclassify-interval=$RECLASSIFY_INTERVAL device=$Device pre-process-backend=$PREPROC_BACKEND object-class=person ! queue ! gvaclassify model=$VEHICLE_CLASSIFICATION_MODEL model-proc=$VEHICLE_CLASSIFICATION_MODEL_PROC reclassify-interval=$RECLASSIFY_INTERVAL device=$Device pre-process-backend=$PREPROC_BACKEND object-class=vehicle ! queue ! $SINK_ELEMENT"
+$CMD = "gst-launch-1.0 $SOURCE_ELEMENT ! $DECODE_ELEMENT$FrameLimiter ! queue ! gvadetect model=$DETECTION_MODEL inference-interval=$DetectionInterval threshold=0.4 device=$Device pre-process-backend=$PREPROC_BACKEND ! queue ! gvatrack tracking-type=$TrackingType ! queue ! gvaclassify model=$VEHICLE_CLASSIFICATION_MODEL reclassify-interval=$RECLASSIFY_INTERVAL device=$Device pre-process-backend=$PREPROC_BACKEND object-class=person ! queue ! $SINK_ELEMENT"
 Invoke-Expression $CMD
 
 exit $LASTEXITCODE

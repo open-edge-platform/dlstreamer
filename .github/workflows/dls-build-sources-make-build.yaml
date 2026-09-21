@@ -6,7 +6,7 @@ on:
 
 permissions: {}
 env:
-  dlstreamer-version: "2026.1.0"
+  dlstreamer-version: "2026.2.0"
   DLS_REL_PATH: "./dlstreamer-repo"
 
 jobs:
@@ -17,7 +17,7 @@ jobs:
       should_run: ${{ steps.skip-check.outputs.should_run }}
     steps:
       - name: Check out dlstreamer repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 #7.0.1
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -59,7 +59,7 @@ jobs:
 
       - name: Check out dlstreamer repository
         if: needs.setup.outputs.should_run == 'true'
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # 6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 #7.0.1
         with:
           persist-credentials: false
           path: dlstreamer-repo
@@ -112,13 +112,20 @@ jobs:
             exit 1
           fi
 
+      - name: Ensure uv is installed
+        if: always() && needs.setup.outputs.should_run == 'true'
+        run: |
+          # Check if uv is installed, if not install it
+          if ! command -v uv >/dev/null 2>&1; then
+            curl -LsSf https://astral.sh/uv/install.sh | sh
+          fi
+
       - name: Set up a Python environment
         if: needs.setup.outputs.should_run == 'true'
         run: |
-          python3 -m venv ~/python3venv
+          uv venv ~/python3venv
           source ~/python3venv/bin/activate
-          pip install --upgrade pip==24.0
-          pip install meson==1.4.1 ninja==1.11.1.1
+          uv pip install meson==1.4.1 ninja==1.11.1.1
 
       - name: Install OpenVINO
         if: needs.setup.outputs.should_run == 'true'
@@ -137,13 +144,13 @@ jobs:
           echo "Installing OpenVINO GenAI for ${{ matrix.os }}..."
           if [[ ${{ matrix.os }} == "ubuntu-22.04" ]]; then
             echo "Executing Ubuntu 22.04 specific setup..."
-            wget -O- https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/2026.1/linux/openvino_genai_ubuntu22_2026.1.0.0_x86_64.tar.gz | tar -xz
-            sudo mv openvino_genai_ubuntu22_2026.1.0.0_x86_64 /opt/intel/openvino_genai
+            wget -O- https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/2026.4/linux/openvino_genai_ubuntu22_2026.4.0.0_x86_64.tar.gz | tar -xz
+            sudo mv openvino_genai_ubuntu22_2026.4.0.0_x86_64 /opt/intel/openvino_genai
             source /opt/intel/openvino_genai/setupvars.sh
           elif [[ ${{ matrix.os }} == "ubuntu-24.04" ]]; then
             echo "Executing Ubuntu 24.04 specific setup..."
-            wget -O- https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/2026.1/linux/openvino_genai_ubuntu24_2026.1.0.0_x86_64.tar.gz | tar -xz
-            sudo mv openvino_genai_ubuntu24_2026.1.0.0_x86_64 /opt/intel/openvino_genai
+            wget -O- https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/2026.4/linux/openvino_genai_ubuntu24_2026.4.0.0_x86_64.tar.gz | tar -xz
+            sudo mv openvino_genai_ubuntu24_2026.4.0.0_x86_64 /opt/intel/openvino_genai
             source /opt/intel/openvino_genai/setupvars.sh
           else
             echo "Unknown Ubuntu version: ${{ matrix.os }}"
@@ -214,7 +221,7 @@ jobs:
 
           source ~/python3venv/bin/activate
           cd ${{ env.DLS_REL_PATH }}
-          python3 -m pip install -r requirements.txt
+          uv pip install -r requirements.txt
 
       - name: 🐍 Build and test intel-dlstreamer Python wheel
         if: needs.setup.outputs.should_run == 'true'
@@ -222,18 +229,17 @@ jobs:
         run: |
           # Build the wheel from python/pyproject.toml
           source ~/python3venv/bin/activate
-          pip install --quiet build
-          python -m build --wheel ${{ env.DLS_REL_PATH }}/python
+          uv build --wheel ${{ env.DLS_REL_PATH }}/python
           WHL=$(ls ${{ env.DLS_REL_PATH }}/python/dist/intel_dlstreamer-*.whl)
           echo "Built wheel: $WHL"
 
           # Install in isolated venv with access to system gi/GStreamer bindings
-          python3 -m venv --system-site-packages $HOME/.virtualenvs/dlstreamer-whl-test
+          uv venv --system-site-packages $HOME/.virtualenvs/dlstreamer-whl-test
 
           echo "--- site-packages BEFORE wheel install ---"
           ls $HOME/.virtualenvs/dlstreamer-whl-test/lib/python*/site-packages/
 
-          $HOME/.virtualenvs/dlstreamer-whl-test/bin/pip install "$WHL"
+          VIRTUAL_ENV=$HOME/.virtualenvs/dlstreamer-whl-test uv pip install "$WHL"
 
           echo "--- site-packages AFTER wheel install ---"
           ls $HOME/.virtualenvs/dlstreamer-whl-test/lib/python*/site-packages/
@@ -250,15 +256,30 @@ jobs:
           from gi.repository import Gst
           Gst.init([])
           from dlstreamer.onvif import (
-              DlsOnvifDiscoveryEngine,
               discover_onvif_cameras,
               discover_onvif_cameras_async,
               ONVIFProfile,
-              CameraStatus,
-              DlsOnvifCameraEntry,
-              DlsOnvifCameraRegistry,
-              DlsLaunchedPipeline,
-              DlsOnvifConfigManager,
+              CameraProfilesResult,
+              read_camera_profiles,
+              read_camera_profiles_async,
+          )
+          from dlstreamer.onvif.video_engine import (
+              VideoEngine,
+              VideoEngineEvent,
+              create_video_engine,
+          )
+          from dlstreamer.onvif.ptz import (
+              PTZCapableProfile,
+              PTZController,
+              PTZPreset,
+              PTZStatus,
+              PTZVector,
+              find_ptz_capable_profiles,
+          )
+          from dlstreamer.onvif.event_manager import (
+              EventCapableCamera,
+              EventNotification,
+              find_event_capable_cameras,
           )
           print("dlstreamer.onvif imported successfully")
           EOF

@@ -82,6 +82,18 @@ json convert_tensor(const GVA::Tensor &s_tensor) {
             jobject.push_back(json::object_t::value_type("semantic_tag", semantic_tag));
         }
     }
+    if (s_tensor.has_field("tensor_name")) {
+        std::string tensor_name_value = s_tensor.get_string("tensor_name");
+        if (!tensor_name_value.empty()) {
+            jobject.push_back(json::object_t::value_type("tensor_name", tensor_name_value));
+        }
+    }
+    if (s_tensor.has_field("dims_order")) {
+        std::string dims_order_value = s_tensor.get_string("dims_order");
+        if (!dims_order_value.empty()) {
+            jobject.push_back(json::object_t::value_type("dims_order", dims_order_value));
+        }
+    }
     std::string format_value = s_tensor.format();
     if (!format_value.empty()) {
         jobject.push_back(json::object_t::value_type("format", format_value));

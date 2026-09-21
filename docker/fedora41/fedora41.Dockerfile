@@ -75,6 +75,8 @@ RUN \
     kernel-headers pmix pmix-devel hwloc hwloc-libs hwloc-devel libxcb-devel libX11-devel libatomic intel-media-driver libsoup3 && \
     dnf clean all
 
+RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin sh
+
 RUN \
     useradd -ms /bin/bash dlstreamer && \
     mkdir /python3venv && \
@@ -84,9 +86,9 @@ RUN \
 USER dlstreamer
 
 RUN \
-    python3 -m venv /python3venv && \
-    /python3venv/bin/pip3 install --no-cache-dir --upgrade pip==26.1 && \
-    /python3venv/bin/pip3 install --no-cache-dir --no-dependencies \
+    uv venv /python3venv && \
+    VIRTUAL_ENV=/python3venv uv pip install --no-cache-dir --upgrade pip==26.1.2 && \
+    VIRTUAL_ENV=/python3venv uv pip install --no-cache-dir --no-deps \
     meson==1.4.1 \
     ninja==1.11.1.1 \
     numpy==2.2.0 \
@@ -100,7 +102,7 @@ RUN \
     six==1.16.0 \
     pycairo==1.26.0 \
     PyGObject==3.50.0 \
-    setuptools==82.0.1 \
+    setuptools==84.0.0 \
     pytest==8.3.3 \
     pluggy==1.5.0 \
     exceptiongroup==1.2.2 \
@@ -359,9 +361,9 @@ RUN cp -a /usr/local/lib64/librealsense* ./
 # ==============================================================================
 FROM builder AS dlstreamer-dev
 
-ARG DLSTREAMER_VERSION=2026.1.0
+ARG DLSTREAMER_VERSION=2026.2.0
 ARG DLSTREAMER_BUILD_NUMBER
-ARG OPENVINO_VERSION=2026.1.0
+ARG OPENVINO_VERSION=2026.4.0
 
 SHELL ["/bin/bash", "-xo", "pipefail", "-c"]
 
@@ -440,6 +442,9 @@ RUN \
     make -j "$(nproc)" && \
     usermod -a -G video dlstreamer && \
     chown -R dlstreamer:dlstreamer /home/dlstreamer
+
+# Install python dependencies
+RUN VIRTUAL_ENV=/python3venv uv pip install --no-cache-dir --break-system-packages -r "${DLSTREAMER_DIR}/requirements.txt"
 
 WORKDIR /home/dlstreamer
 USER dlstreamer
@@ -525,10 +530,12 @@ RUN mkdir -p /rpms
 
 COPY --from=rpm-builder /rpms/*.rpm /rpms/
 
+RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin sh
+
 # Download and install DLS rpm package
 RUN \
     dnf install -y /rpms/*.rpm cairo-devel cairo-gobject-devel gobject-introspection-devel && \
-    pip3 install --no-cache-dir --ignore-installed -r /opt/intel/dlstreamer/requirements.txt && \
+    uv pip install --system --no-cache-dir -r /opt/intel/dlstreamer/requirements.txt && \
     dnf remove -y cairo-devel cairo-gobject-devel gobject-introspection-devel && \
     dnf clean all && \
     useradd -ms /bin/bash dlstreamer && \

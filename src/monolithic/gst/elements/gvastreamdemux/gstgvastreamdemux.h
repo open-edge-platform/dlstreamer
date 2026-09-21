@@ -19,6 +19,8 @@ G_BEGIN_DECLS
 #define GST_IS_GVA_STREAMDEMUX(obj) (G_TYPE_CHECK_INSTANCE_TYPE((obj), GST_TYPE_GVA_STREAMDEMUX))
 #define GST_IS_GVA_STREAMDEMUX_CLASS(klass) (G_TYPE_CHECK_CLASS_TYPE((klass), GST_TYPE_GVA_STREAMDEMUX))
 
+#define GST_GVA_STREAMDEMUX_MAX_PAD_INDEX 256
+
 typedef struct _GstGvaStreamdemux GstGvaStreamdemux;
 typedef struct _GstGvaStreamdemuxClass GstGvaStreamdemuxClass;
 
@@ -43,6 +45,9 @@ struct _GstGvaStreamdemux {
     /* Internal state */
     guint num_src_pads;
     gboolean validated;
+    /* TRUE once the sink caps are the multistream batch container
+     * (gvastreammux CONTAINER mode); FALSE for plain video passthrough. */
+    gboolean container_mode;
 
     /* Synchronization */
     GMutex lock;

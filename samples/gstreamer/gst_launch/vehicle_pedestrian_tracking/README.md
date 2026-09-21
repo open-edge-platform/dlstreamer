@@ -18,21 +18,18 @@ Overall this sample builds GStreamer pipeline of the following elements
 * `videoconvert` for converting video frame into different color formats
 * [gvadetect](../../../../docs/user-guide/elements/gvadetect.md) for person and vehicle detection based on OpenVINO™ Toolkit Inference Engine
 * [gvatrack](../../../../docs/user-guide/elements/gvatrack.md) for tracking objects
-* [gvaclassify](../../../../docs/user-guide/elements/gvaclassify.md) inserted into pipeline twice for person and vehicle classification
+* [gvaclassify](../../../../docs/user-guide/elements/gvaclassify.md) inserted into pipeline once for vehicle type classification (filtered to `object-class=person` detections by default in this sample's script)
 * [gvawatermark](../../../../docs/user-guide/elements/gvawatermark.md) for bounding boxes and labels visualization
 * `autovideosink` for rendering output video into screen
 > **NOTE**: `sync=false` property in `autovideosink` element disables real-time synchronization so pipeline runs as fast as possible
 
 ## Models
 
-The sample uses by default the following pre-trained models from OpenVINO™ Toolkit [Open Model Zoo](https://github.com/openvinotoolkit/open_model_zoo)
-*   __person-vehicle-bike-detection-2004__ is primary detection network for detecting persons, vehicles and bikes
-*   __person-attributes-recognition-crossroad-0230__ classifies person attributes
-*   __vehicle-attributes-recognition-barrier-0039__ classifies vehicle attributes
+The sample uses the following pre-trained models by default:
+*   __yolo26s__ is the primary detection network for detecting persons, vehicles, and bikes
+*   __dima806_vehicle_10_types_image_detection__ classifies vehicle types
 
-> **NOTE**: Before running samples (including this one), run script `download_omz_models.sh` once (the script located in `samples` top folder) to download all models required for this and other samples.
-
-The sample contains `model_proc` subfolder with .json files for each model with description of model input/output formats and post-processing rules for classification models.
+> **NOTE**: Before running samples (including this one), prepare required models using scripts in [`scripts/download_models`](../../../../scripts/download_models) and follow the per-script setup notes in [`README`](../../../../scripts/download_models/README.md).
 
 ## Running
 
@@ -68,4 +65,4 @@ The sample
 * starts the command and visualizes video with bounding boxes around detected objects and text with classification results (color, type and others) for each detected object or prints out fps if you set SINK_ELEMENT = fps
 
 ## See also
-* [Samples overview](../../README.md)
+* [Samples overview](../../../README.md)

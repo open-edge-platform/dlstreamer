@@ -1,5 +1,12 @@
 # How to Create Model-proc File
 
+> **WARNING**:
+>
+> The model-proc mechanism described here has been **deprecated**. Avoid using
+> it in new applications; it is maintained only for backwards compatibility.
+> The new method of model preparation is described in the
+> [Model Info Section](./model_info_xml.md).
+
 In this tutorial you will learn how to create model-proc file for your
 own CNN model that can be processed by Deep Learning Streamer
 Pipeline Framework.

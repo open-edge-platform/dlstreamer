@@ -34,7 +34,7 @@ This guide details the steps to:
 
 - Linux system with `dnf` package manager
 - Sudo privileges
-- [OpenVINO 2026.1](https://storage.openvinotoolkit.org/repositories/openvino/packages/2026.1/linux/openvino_toolkit_ubuntu24_2026.1.0.21367.63e31528c62_x86_64.tgz) prebuilt binary
+- [OpenVINO 2026.4.0](https://storage.openvinotoolkit.org/repositories/openvino/packages/2026.4/linux/openvino_toolkit_ubuntu24_2026.4.0.22959.99c81491cc3_x86_64.tgz) prebuilt binary
 
 ---
 
@@ -57,17 +57,17 @@ This script will:
 
 ## Building and Installing Packages (Developer Testing)
 
-### 1. Install OpenVINO 2026.1
+### 1. Install OpenVINO 2026.4.0
 
 ```sh
 sudo rm -rf /opt/intel/openvino*
-wget https://storage.openvinotoolkit.org/repositories/openvino/packages/2026.1/linux/openvino_toolkit_ubuntu24_2026.1.0.21367.63e31528c62_x86_64.tgz
-tar -xvzf openvino_toolkit_ubuntu24_2026.1.0.21367.63e31528c62_x86_64.tgz
-sudo mv openvino_toolkit_ubuntu24_2026.1.0.21367.63e31528c62_x86_64 /opt/intel/openvino_2026.1.0
-cd /opt/intel/openvino_2026.1.0/
+wget https://storage.openvinotoolkit.org/repositories/openvino/packages/2026.4/linux/openvino_toolkit_ubuntu24_2026.4.0.22959.99c81491cc3_x86_64.tgz
+tar -xvzf openvino_toolkit_ubuntu24_2026.4.0.22959.99c81491cc3_x86_64.tgz
+sudo mv openvino_toolkit_ubuntu24_2026.4.0.22959.99c81491cc3_x86_64 /opt/intel/openvino_2026.4.0
+cd /opt/intel/openvino_2026.4.0/
 sudo -E python3 -m pip install -r ./python/requirements.txt
 cd /opt/intel
-sudo ln -s openvino_2026.1.0 openvino_2026
+sudo ln -s openvino_2026.4.0 openvino_2026
 ```
 
 ### 2. Uninstall Existing DL Streamer
@@ -175,7 +175,7 @@ source /opt/intel/dlstreamer/setupvars.sh
 
 After installation, you can try DL Streamer pipelines as described in:
 
-- [Tutorial](../docs/user-guide/get_started/tutorial.md)
+- [Tutorial](../docs/user-guide/tutorial.md)
 - [Performance Guide](../docs/user-guide/dev_guide/performance_guide.md)
 
 These resources provide sample pipelines and performance validation steps for DL Streamer GStreamer elements.

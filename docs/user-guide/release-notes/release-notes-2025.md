@@ -30,8 +30,8 @@ The complete solution leverages:
   | [gvatrack](../elements//gvatrack.md) | Performs object tracking using zero-term, or imageless tracking algorithms.   Assigns unique object IDs to the tracked objects. |
   | [gvawatermark](../elements//gvawatermark.md) | Overlays the metadata on the video frame to visualize the inference   results. |
 
-For the details on supported platforms, please refer to [System Requirements](../get_started/system_requirements.md).
-For installing Pipeline Framework with the prebuilt binaries or Docker\* or to build the binaries from the open source, refer to [DL Streamer Pipeline Framework installation guide](../get_started/install/install_guide_index.md).
+For the details on supported platforms, please refer to [System Requirements](../system_requirements.md).
+For installing Pipeline Framework with the prebuilt binaries or Docker\* or to build the binaries from the open source, refer to [DL Streamer Pipeline Framework installation guide](../install/install_guide_index.md).
 
 **New**
 

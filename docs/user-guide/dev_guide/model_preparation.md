@@ -1,12 +1,23 @@
 # Model Preparation
 
-When getting started with Deep Learning Streamer, the best way to obtain a
-collection of models ready for use in video analytics pipelines is to
-run
+When getting started with Deep Learning Streamer, the recommended way to obtain
+models ready for use in video analytics pipelines is to use the per-source
+conversion scripts under
+[scripts/download_models](https://github.com/open-edge-platform/dlstreamer/tree/main/scripts/download_models)
+(`download_hf_models.py` for Hugging Face, `download_ultralytics_models.py` for
+Ultralytics YOLO, `download_timm_models.py` for TIMM, and
+`download_other_models.sh` for a handful of other helper models). See
+[Yolo Models](./yolo_models.md), [Transformers](./transformers.md) and the
+script's own
+[README](https://github.com/open-edge-platform/dlstreamer/blob/main/scripts/download_models/README.md)
+for details.
+
+The older
 [download_omz_models.sh](https://github.com/open-edge-platform/dlstreamer/blob/main/samples/download_omz_models.sh)
 and
-[download_public_models.sh](https://github.com/open-edge-platform/dlstreamer/blob/main/samples/download_public_models.sh).
-These scripts will download models from
+[download_public_models.sh](https://github.com/open-edge-platform/dlstreamer/blob/main/samples/download_public_models.sh)
+scripts are still available for backward compatibility but are considered
+legacy. They download models from
 [Open Model Zoo](https://github.com/openvinotoolkit/open_model_zoo) and other
 sources, handle the necessary conversions and put model files in a
 directory specified by the `MODELS_PATH` environment variable.

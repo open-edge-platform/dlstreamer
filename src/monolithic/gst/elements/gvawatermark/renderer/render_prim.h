@@ -95,22 +95,15 @@ struct InstanceSegmantationMask {
     }
 };
 
-enum class SemanticMaskPalette {
-    SemanticMask,
-    SemanticSegmentation,
-};
-
 struct SemanticSegmantationMask {
     std::vector<int64_t> data;
     cv::Size size;
     cv::Rect2f box;
-    SemanticMaskPalette palette = SemanticMaskPalette::SemanticMask;
 
     SemanticSegmantationMask() = default;
 
-    SemanticSegmantationMask(const std::vector<int64_t> &data, const cv::Size &size, const cv::Rect2f &box,
-                             SemanticMaskPalette palette = SemanticMaskPalette::SemanticMask)
-        : data(data), size(size), box(box), palette(palette) {
+    SemanticSegmantationMask(const std::vector<int64_t> &data, const cv::Size &size, const cv::Rect2f &box)
+        : data(data), size(size), box(box) {
     }
 };
 
@@ -120,6 +113,14 @@ struct Blur {
     Blur(const cv::Rect &rect) : rect(rect) {
     }
 };
+
+// Compute Gaussian blur kernel size proportional to ROI dimensions.
+// Kernel is ~1/3 of each dimension, minimum 7, always odd.
+inline cv::Size computeBlurKernelSize(int roi_width, int roi_height) {
+    int kw = std::max(7, roi_width / 3) | 1;
+    int kh = std::max(7, roi_height / 3) | 1;
+    return cv::Size(kw, kh);
+}
 
 using Prim = std::variant<Text, Rect, Circle, Line, Polygon, InstanceSegmantationMask, SemanticSegmantationMask, Blur>;
 

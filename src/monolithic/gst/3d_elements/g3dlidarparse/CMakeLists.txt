@@ -4,9 +4,6 @@
 # SPDX-License-Identifier: MIT
 # ==============================================================================
 
-
-project(g3dlidarparse)
-
 add_library(g3dlidarparse STATIC
     g3dlidarparse.cpp
 )

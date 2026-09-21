@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2021-2024 Intel Corporation
+ * Copyright (C) 2021-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -13,7 +13,6 @@
 #include "batch_create.h"
 #include "batch_split.h"
 #include "capsrelax.h"
-#include "gstgvafpscounter.h"
 #include "gvadrop.h"
 #include "meta_aggregate.h"
 #include "meta_smooth.h"
@@ -30,8 +29,6 @@ static gboolean plugin_init(GstPlugin *plugin) {
     if (!gst_element_register(plugin, "capsrelax", GST_RANK_NONE, gst_capsrelax_get_type()))
         return FALSE;
     if (!gst_element_register(plugin, "gvadrop", GST_RANK_NONE, GST_TYPE_GVA_DROP))
-        return FALSE;
-    if (!gst_element_register(plugin, "gvafpscounter", GST_RANK_NONE, gst_gva_fpscounter_get_type()))
         return FALSE;
     if (!gst_element_register(plugin, "meta_aggregate", GST_RANK_NONE, meta_aggregate_get_type()))
         return FALSE;

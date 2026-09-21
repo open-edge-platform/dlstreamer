@@ -24,7 +24,7 @@ class AttachRoi {
   public:
     AttachRoi(const char *filepath, const char *roi_str, Mode mode);
 
-    void attachMetas(GVA::VideoFrame &vframe, GstBuffer *buffer, GstClockTime timestamp);
+    void attachMetas(GVA::VideoFrame &vframe, GstClockTime timestamp);
 
   private:
     void loadJsonFromFile(const char *filepath);
@@ -32,7 +32,7 @@ class AttachRoi {
 
     void addStaticRoi(GVA::VideoFrame &vframe) const;
     void addRoiFromJson(GVA::VideoFrame &vframe, GstClockTime timestamp) const;
-    void addTensorFromJson(GVA::VideoFrame &vframe, GstBuffer *buffer, GstClockTime timestamp) const;
+    void addTensorFromJson(GVA::VideoFrame &vframe, GstClockTime timestamp) const;
 
     std::pair<bool, size_t> findJsonIndex(GstClockTime timestamp) const;
 

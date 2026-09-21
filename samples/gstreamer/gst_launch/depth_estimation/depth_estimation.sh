@@ -21,29 +21,9 @@ if [ $# -gt 0 ] && ([ "$1" = "--help" ] || [ "$1" = "-h" ]); then
   echo ""
   echo "Environment:"
   echo "  MODELS_PATH    - Base directory used to resolve default model locations"
-  echo "  DETECTION_MODEL - Optional full path to yolo11n.xml"
-  echo "  DEPTH_MODEL     - Optional full path to Depth-Anything-V2-Small-hf.xml"
   echo ""
   exit 0
 fi
-
-resolve_model_path() {
-  local label=$1
-  shift
-
-  for candidate in "$@"; do
-    if [ -f "$candidate" ]; then
-      echo "$candidate"
-      return 0
-    fi
-  done
-
-  echo "ERROR - ${label} not found. Checked:" >&2
-  for candidate in "$@"; do
-    echo "  ${candidate}" >&2
-  done
-  exit 1
-}
 
 validate_device() {
   local label=$1
@@ -79,23 +59,13 @@ validate_device "DEPTH_DEVICE" "$DEPTH_DEVICE"
 DETECT_DEVICE=$(fallback_gpu_device "DETECT_DEVICE" "$DETECT_DEVICE")
 DEPTH_DEVICE=$(fallback_gpu_device "DEPTH_DEVICE" "$DEPTH_DEVICE")
 
-if [ -z "${DETECTION_MODEL:-}" ] || [ -z "${DEPTH_MODEL:-}" ]; then
-  if [ -z "${MODELS_PATH:-}" ]; then
-    echo "Error: MODELS_PATH is not set. Set MODELS_PATH or provide DETECTION_MODEL and DEPTH_MODEL." >&2
-    exit 1
-  fi
-
-  echo "MODELS_PATH: $MODELS_PATH"
+if [ -z "${MODELS_PATH:-}" ]; then
+  echo "Error: MODELS_PATH is not set. Please set MODELS_PATH." >&2
+  exit 1
 fi
 
-DETECTION_MODEL=${DETECTION_MODEL:-$(resolve_model_path \
-  "YOLO11n detector model" \
-  "${MODELS_PATH}/public/yolo11n/FP16/yolo11n.xml" \
-  "${MODELS_PATH}/public/yolo11n/FP16/yolo11n_openvino_model/yolo11n.xml")}
-
-DEPTH_MODEL=${DEPTH_MODEL:-$(resolve_model_path \
-  "Depth Anything model" \
-  "${MODELS_PATH}/public/Depth-Anything-V2-Small-hf/Depth-Anything-V2-Small-hf.xml")}
+DETECTION_MODEL="${MODELS_PATH}/public/yolo11n/FP16/yolo11n.xml"
+DEPTH_MODEL="${MODELS_PATH}/public/depth-anything_Depth-Anything-V2-Small-hf/FP16/depth-anything_Depth-Anything-V2-Small-hf.xml"
 
 echo "DETECTION_MODEL: ${DETECTION_MODEL}"
 echo "DEPTH_MODEL: ${DEPTH_MODEL}"
@@ -132,10 +102,10 @@ if [[ $OUTPUT == "display" ]]; then
 elif [[ $OUTPUT == "fps" ]]; then
   SINK_ELEMENT="gvafpscounter ! fakesink async=false"
 elif [[ $OUTPUT == "json" ]]; then
-  SINK_ELEMENT="gvametaconvert format=json json-indent=4 add-tensor-data=true ! gvametapublish method=file file-path=output.json ! fakesink async=false"
+  SINK_ELEMENT="gvametaconvert add-tensor-data=true ! gvametapublish file-format=json-lines file-path=output.json ! fakesink async=false"
 elif [[ $OUTPUT == "display-and-json" ]]; then
   rm -f output.json
-  SINK_ELEMENT="${DISPLAY_PREFIX}gvawatermark ! gvametaconvert format=json json-indent=4 add-tensor-data=true ! gvametapublish method=file file-path=output.json ! videoconvert ! gvafpscounter ! autovideosink sync=false"
+  SINK_ELEMENT="${DISPLAY_PREFIX}gvawatermark ! gvametaconvert add-tensor-data=true ! gvametapublish file-format=json-lines file-path=output.json ! videoconvert ! gvafpscounter ! autovideosink sync=false"
 else
   echo "Error: wrong value for OUTPUT parameter" >&2
   echo "Valid values: display, fps, json, display-and-json" >&2

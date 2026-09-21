@@ -1,6 +1,6 @@
 #!/bin/bash
 # ==============================================================================
-# Copyright (C) 2020-2025 Intel Corporation
+# Copyright (C) 2020-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
@@ -36,9 +36,8 @@ OUTPUT=${4:-display-async}     # Output type, valid values: display, display-asy
 TRACKING_TYPE=${5:-short-term-imageless} # Object tracking type, valid values: short-term-imageless, zero-term, zero-term-imageless
 
 # Models
-MODEL_1=person-vehicle-bike-detection-2004
-MODEL_2=person-attributes-recognition-crossroad-0230
-MODEL_3=vehicle-attributes-recognition-barrier-0039
+MODEL_1=yolo26s
+MODEL_2=dima806_vehicle_10_types_image_detection
 
 # Reclassify interval (run classification every 10th frame)
 RECLASSIFY_INTERVAL=10
@@ -82,46 +81,29 @@ elif [[ $OUTPUT == "file" ]]; then
     echo "Error - VA-API H.264 encoder not found."
     exit
   fi
-  SINK_ELEMENT="vapostproc ! gvawatermark ! gvafpscounter ! ${ENCODER} ! avimux name=mux ! filesink location=vehicle_pedestrian_tracking_${FILE}_${DEVICE}.mp4"
+  SINK_ELEMENT="vapostproc ! gvawatermark ! gvafpscounter ! ${ENCODER} ! avimux name=mux ! filesink location=vehicle_pedestrian_tracking_${FILE}_${DEVICE}_${DETECTION_INTERVAL}.mp4"
 else
   echo Error wrong value for OUTPUT parameter
   echo Valid values: "display" - render to screen, "fps" - print FPS, "json" - write to output.json, "display-and-json" - render to screen and write to output.json
   exit
 fi
 
-PROC_PATH() {
-    echo "$(dirname "$0")"/model_proc/"$1".json
-}
-
-DETECTION_MODEL=${MODELS_PATH}/intel/${MODEL_1}/FP32/${MODEL_1}.xml
-PERSON_CLASSIFICATION_MODEL=${MODELS_PATH}/intel/${MODEL_2}/FP32/${MODEL_2}.xml
-VEHICLE_CLASSIFICATION_MODEL=${MODELS_PATH}/intel/${MODEL_3}/FP32/${MODEL_3}.xml
-
-DETECTION_MODEL_PROC=$(PROC_PATH $MODEL_1)
-PERSON_CLASSIFICATION_MODEL_PROC=$(PROC_PATH $MODEL_2)
-VEHICLE_CLASSIFICATION_MODEL_PROC=$(PROC_PATH $MODEL_3)
+DETECTION_MODEL=${MODELS_PATH}/public/${MODEL_1}/FP16/${MODEL_1}.xml
+VEHICLE_CLASSIFICATION_MODEL=${MODELS_PATH}/public/${MODEL_2}/FP16/${MODEL_2}.xml
 
 PIPELINE="gst-launch-1.0 \
   ${SOURCE_ELEMENT} ! ${DECODE_ELEMENT} ! queue ! \
   gvadetect model=$DETECTION_MODEL \
-            model-proc=$DETECTION_MODEL_PROC \
             inference-interval=${DETECTION_INTERVAL} \
             threshold=0.4 \
             device=${DEVICE} ! \
   queue ! \
   gvatrack tracking-type=${TRACKING_TYPE} ! \
   queue ! \
-  gvaclassify model=$PERSON_CLASSIFICATION_MODEL \
-              model-proc=$PERSON_CLASSIFICATION_MODEL_PROC \
+  gvaclassify model=$VEHICLE_CLASSIFICATION_MODEL \
               reclassify-interval=${RECLASSIFY_INTERVAL} \
               device=${DEVICE} \
               object-class=person ! \
-  queue ! \
-  gvaclassify model=$VEHICLE_CLASSIFICATION_MODEL \
-              model-proc=$VEHICLE_CLASSIFICATION_MODEL_PROC \
-              reclassify-interval=${RECLASSIFY_INTERVAL} \
-              device=${DEVICE} \
-              object-class=vehicle ! \
   queue ! \
   $SINK_ELEMENT"
 

@@ -3,20 +3,25 @@
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
-import sys
+"""Run face detection and classification using pre-exported OpenVINO models."""
+
+import argparse
 import os
-import subprocess
-
-from huggingface_hub import hf_hub_download
-from ultralytics import YOLO
-
-sys.path.insert(
-    0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-)
-# pylint: disable-next=wrong-import-position
-from shared_utils import download_https, resolve_hf_revision
+import sys
+from pathlib import Path
 
 import gi
+
+sys.path.insert(
+    0,
+    os.path.dirname(
+        os.path.dirname(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        )
+    ),
+)
+# pylint: disable-next=wrong-import-position
+from shared_utils import download_https
 
 gi.require_version("Gst", "1.0")
 gi.require_version("GstAnalytics", "1.0")
@@ -24,39 +29,72 @@ gi.require_version("GstAnalytics", "1.0")
 from gi.repository import Gst
 
 DEFAULT_VIDEO_URL = "https://videos.pexels.com/video-files/18553046/18553046-hd_1280_720_30fps.mp4"
-YOLO_FACE_REPO_ID = "arnabdhar/YOLOv8-Face-Detection"
+DEFAULT_DETECTION_MODEL_REL = (
+    "public/arnabdhar_YOLOv8-Face-Detection/FP16/"
+    "arnabdhar_YOLOv8-Face-Detection.xml"
+)
+DEFAULT_CLASSIFICATION_MODEL_REL = (
+    "public/dima806_fairface_age_image_detection/FP16/"
+    "dima806_fairface_age_image_detection.xml"
+)
 
 
 def get_runtime_dir():
+    """Return the current working directory used as the runtime directory."""
     return os.getcwd()
 
 
-# Prepare input video file; download default if none provided
-def prepare_input_video(args):
-
-    # Check input arguments
-    if len(args) > 2:
-        sys.stderr.write(f"usage: {args[0]} [LOCAL_VIDEO_FILE]\n")
+def ensure_file(path, description):
+    """Return resolved path if file exists; exit with error otherwise."""
+    p = Path(path)
+    if not p.is_file():
+        sys.stderr.write(f"Error: {description} not found: {path}\n")
         sys.exit(1)
+    return str(p.resolve())
 
+
+def parse_args(args):
+    """Parse command-line arguments for the sample."""
+    parser = argparse.ArgumentParser(
+        description="Run face detection + classification using pre-exported OpenVINO models."
+    )
+    parser.add_argument("--input", default=None, help="Path to input video file")
+    parser.add_argument("--device", default="GPU", help="Inference device: CPU, GPU or NPU")
+    parser.add_argument("--output", default="file", help="Output mode: file or json")
+    parser.add_argument(
+        "--det-model",
+        default=None,
+        help="Path to the face-detection OpenVINO model XML (default: $MODELS_PATH/" + DEFAULT_DETECTION_MODEL_REL + ")",
+    )
+    parser.add_argument(
+        "--cls-model",
+        default=None,
+        help="Path to the age/gender/classification OpenVINO model XML (default: $MODELS_PATH/" + DEFAULT_CLASSIFICATION_MODEL_REL + ")",
+    )
+    parsed = parser.parse_args(args[1:])
+    return parsed.input, parsed.device, parsed.output, parsed.det_model, parsed.cls_model
+
+
+def prepare_input_video(input_arg):
+    """Prepare the input video, downloading the default clip if needed."""
     runtime_dir = get_runtime_dir()
 
-    if len(args) == 2:
-        input_video = args[1]
-        if not os.path.isfile(input_video):
+    if input_arg:
+        if not os.path.isfile(input_arg):
             sys.stderr.write("Input video file does not exist\n")
             sys.exit(1)
-    else:
-        input_video = os.path.join(runtime_dir, "default_video.mp4")
-        if not os.path.isfile(input_video):
-            print("\nNo input provided. Downloading default video...\n")
-            download_https(DEFAULT_VIDEO_URL, input_video, {"videos.pexels.com"})
+        return input_arg
+
+    input_video = os.path.join(runtime_dir, "default_video.mp4")
+    if not os.path.isfile(input_video):
+        print("\nNo input provided. Downloading default video...\n")
+        download_https(DEFAULT_VIDEO_URL, input_video, {"videos.pexels.com"})
 
     return input_video
 
 
-# wrapper to run the gstreamer pipeline loop
 def pipeline_loop(pipeline):
+    """Start the GStreamer pipeline and stop it on EOS or ERROR."""
     print("\nStarting Pipeline \n")
     bus = pipeline.get_bus()
     pipeline.set_state(Gst.State.PLAYING)
@@ -77,68 +115,46 @@ def pipeline_loop(pipeline):
     pipeline.set_state(Gst.State.NULL)
 
 
-# Download PyTorch models, convert to OpenVINO IR, create and run gstreamer pipeline
-def main(input_video):
-
+def main(input_video, device, output, detection_model_path, classification_model_path):
+    """Build and run the DL Streamer GStreamer pipeline."""
+    models_path = os.environ.get("MODELS_PATH", "./models")
     runtime_dir = get_runtime_dir()
-
-    # STEP 1: Prepare face detection model (download + export to OpenVINO IR)
-
-    # Detection model from Hugging Face Model Hub
-    ov_detection_model_path = os.path.join(
-        runtime_dir, "model_int8_openvino_model", "model.xml"
+    detection_model_path = detection_model_path or os.path.join(
+        models_path, DEFAULT_DETECTION_MODEL_REL
     )
-    if not os.path.isfile(ov_detection_model_path):
-        print(
-            "\nDownloading the detection model and converting to OpenVINO IR format...\n"
-        )
-        model_path = hf_hub_download(
-            repo_id=YOLO_FACE_REPO_ID,
-            filename="model.pt",
-            local_dir=runtime_dir,
-            revision=resolve_hf_revision(YOLO_FACE_REPO_ID),
-        )
-
-        model = YOLO(str(model_path))
-        exported_model_path = model.export(format="openvino", dynamic=True, int8=True)
-        print(f"Model exported to {exported_model_path}\n")
-
-    # STEP 2: Prepare classification model (download + export to OpenVINO IR)
-
-    ov_classification_model_path = os.path.join(
-        runtime_dir, "fairface_age_image_detection", "openvino_model.xml"
+    classification_model_path = classification_model_path or os.path.join(
+        models_path, DEFAULT_CLASSIFICATION_MODEL_REL
     )
-    if not os.path.isfile(ov_classification_model_path):
-        print(
-            "\nDownloading classification model and converting to OpenVINO IR format...\n"
-        )
-        subprocess.run(
-            [
-                "optimum-cli",
-                "export",
-                "openvino",
-                "--model",
-                "dima806/fairface_age_image_detection",
-                os.path.join(runtime_dir, "fairface_age_image_detection"),
-                "--weight-format",
-                "int8",
-            ],
-            check=True,
-        )
-        print(f"Model exported to {ov_classification_model_path}\n")
 
-    # STEP 3: Build and run the DL Streamer GStreamer pipeline
+    ov_detection_model_path = ensure_file(detection_model_path, "detection model")
+    ov_classification_model_path = ensure_file(classification_model_path, "classification model")
 
-    Gst.init(None)
-    output_file = os.path.splitext(input_video)[0] + "_output.mp4"
+    # STEP 1: Build and run the DL Streamer GStreamer pipeline
+
+    Gst.init([])
+
+    if output == "json":
+        output_json = os.path.join(runtime_dir, "output.json")
+        if os.path.isfile(output_json):
+            os.remove(output_json)
+        sink = (
+            "gvafpscounter ! gvametaconvert add-tensor-data=true ! "
+            "gvametapublish file-format=json-lines file-path=output.json ! "
+            "fakesink async=false"
+        )
+    else:
+        output_file = os.path.splitext(input_video)[0] + "_output.mp4"
+        sink = (
+            "gvafpscounter ! gvawatermark ! "
+            "videoconvert ! vah264enc ! h264parse ! mp4mux ! "
+            f"filesink location={output_file}"
+        )
 
     pipeline_string = (
         f"filesrc location={input_video} ! decodebin3 ! "
-        f"gvadetect model={ov_detection_model_path} device=GPU batch-size=4 ! queue ! "
-        f"gvaclassify model={ov_classification_model_path} device=GPU batch-size=4 ! queue ! "
-        f"gvafpscounter ! gvawatermark ! "
-        f"videoconvert ! vah264enc ! h264parse ! mp4mux ! "
-        f"filesink location={output_file}"
+        f"gvadetect model={ov_detection_model_path} device={device} batch-size=4 ! queue ! "
+        f"gvaclassify model={ov_classification_model_path} device={device} batch-size=4 ! queue ! "
+        f"{sink}"
     )
 
     pipeline = Gst.parse_launch(pipeline_string)
@@ -149,5 +165,6 @@ def main(input_video):
 
 
 if __name__ == "__main__":
-    video_path = prepare_input_video(sys.argv)
-    sys.exit(main(video_path))
+    input_argument, device_argument, output_argument, det_model, cls_model = parse_args(sys.argv)
+    video_path = prepare_input_video(input_argument)
+    sys.exit(main(video_path, device_argument, output_argument, det_model, cls_model))

@@ -35,7 +35,7 @@ ROI_COORDS=${4:-""} # Specifies pixel absolute coordinates of ROI in form: x_top
 # If not defined, the roi list file ./roi_list.json will be used
 
 MODEL="yolov8s"
-MODEL_PATH="${MODELS_PATH}/public/$MODEL/FP32/$MODEL.xml"
+MODEL_PATH="${MODELS_PATH}/public/$MODEL/FP16/$MODEL.xml"
 
 if [[ $INPUT == "/dev/video"* ]]; then
   SOURCE_ELEMENT="v4l2src device=${INPUT}"

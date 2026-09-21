@@ -18,7 +18,7 @@ The list available [here](https://huggingface.co/docs/optimum-intel/en/openvino/
 optimum-cli export openvino --model provider_id/model_id --weight-format=int8 output_path
 ```
 
-The directory specified by `output_path` contains all files required to use the model with DL Streamer elements such as `gvaclassify` or `gvagenai`. No further modifications are required. Some Visual Language Models (VLMs) may require additional `optimum-cli` options; see the [OpenVINO™ documentation](https://openvinotoolkit.github.io/openvino.genai/docs/supported-models/#visual-language-models-vlms) for details.
+The directory specified by `output_path` contains all files required to use the model with DL Streamer elements such as `gvaclassify` or `gvagenai`. No further modifications are required. Some Visual Language Models (VLMs) may require additional `optimum-cli` options; see the [OpenVINO™ documentation](https://openvinotoolkit.github.io/openvino.genai/docs/supported-models/#vision-language-models-vlms) for details.
 
 ## RT-DETR and RT-DETRv2 Models
 

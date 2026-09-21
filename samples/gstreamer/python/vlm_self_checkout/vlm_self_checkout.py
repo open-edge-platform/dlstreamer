@@ -312,7 +312,7 @@ def setup_gst_plugins() -> None:
             f"{existing_path}:{plugins_dir}" if existing_path else plugins_dir
         )
 
-    Gst.init(None)
+    Gst.init([])
 
     reg = Gst.Registry.get()
     if not reg.find_plugin("python"):

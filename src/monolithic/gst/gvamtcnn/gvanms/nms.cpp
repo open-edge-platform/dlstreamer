@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2018-2025 Intel Corporation
+ * Copyright (C) 2018-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -259,7 +259,7 @@ gboolean process_onet_nms(GstGvaNms *nms, GstBuffer *buffer) {
 
         GstAnalyticsMtd tensor_mtd;
         GVA::Tensor gva_tensor(params);
-        if (gva_tensor.convert_to_meta(&tensor_mtd, &od_mtd, relation_meta)) {
+        if (gva_tensor.convert_to_meta(&tensor_mtd, relation_meta, c->x, c->y, c->width, c->height)) {
             if (!gst_analytics_relation_meta_set_relation(relation_meta, GST_ANALYTICS_REL_TYPE_CONTAIN, od_mtd.id,
                                                           tensor_mtd.id)) {
                 throw std::runtime_error(

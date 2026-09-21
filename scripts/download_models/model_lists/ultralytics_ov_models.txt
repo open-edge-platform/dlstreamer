@@ -1,0 +1,8 @@
+# Open-vocabulary Ultralytics models that require class prompts baked in at export time.
+# Format: <model@revision>|<classes>
+# Classes are passed to --classes; separate multiple classes with commas.
+# Each model is exported in FP32, FP16, and INT8, placed under public/<base>/{FP32,FP16,INT8}/.
+#
+# Example with three labels:
+# yoloe-26s-seg.pt@v8.4.0|car,person,bicycle
+yoloe-26s-seg.pt@v8.4.0|white car

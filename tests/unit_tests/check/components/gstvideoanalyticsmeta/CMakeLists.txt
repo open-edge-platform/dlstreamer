@@ -10,6 +10,7 @@ find_package(PkgConfig REQUIRED)
 
 pkg_check_modules(GSTCHECK gstreamer-check-1.0 REQUIRED)
 pkg_check_modules(GSTREAMER gstreamer-1.0>=1.16 REQUIRED)
+pkg_check_modules(GSTVIDEO gstreamer-video-1.0 REQUIRED)
 pkg_check_modules(GLIB2 glib-2.0 REQUIRED)
 
 project(${TARGET_NAME})
@@ -33,6 +34,7 @@ PRIVATE
     inference_elements
     gstvideoanalyticsmeta
     ${GSTREAMER_LIBRARIES}
+    ${GSTVIDEO_LIBRARIES}
     ${GSTCHECK_LIBRARIES}
     ${GLIB2_LIBRARIES}
 )
@@ -40,6 +42,7 @@ target_include_directories(${TARGET_NAME}
 PRIVATE
     ${GSTCHECK_INCLUDE_DIRS}
     ${GSTREAMER_INCLUDE_DIRS}
+    ${GSTVIDEO_INCLUDE_DIRS}
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${GLIB2_INCLUDE_DIRS}
     ${DLSTREAMER_BASE_DIR}/src/utils

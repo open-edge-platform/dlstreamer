@@ -1,6 +1,6 @@
 #!/bin/bash
 # ==============================================================================
-# Copyright (C) 2018-2025 Intel Corporation
+# Copyright (C) 2018-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
@@ -17,7 +17,7 @@ then
 fi
 if [ ! -d "$AUDIO_MODELS_PATH" ]
 then
-  echo -e "\e[31mERROR: Invalid model directory $AUDIO_MODELS_PATH , execute $(samples/download_omz_models.sh) to download models\e[0m" 1>&2
+  echo -e "\e[31mERROR: Invalid model directory $AUDIO_MODELS_PATH. Prepare required models via scripts/download_models (see scripts/download_models/README.md).\e[0m" 1>&2
   exit 1
 fi
 

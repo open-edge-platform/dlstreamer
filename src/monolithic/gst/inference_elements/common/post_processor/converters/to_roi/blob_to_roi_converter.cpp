@@ -13,6 +13,7 @@
 #include "detection_output.h"
 #include "mask_rcnn.h"
 #include "mono3d.h"
+#include "rfdetr.h"
 #include "rtdetr.h"
 #include "yolo_base.h"
 #include "yolo_v10.h"
@@ -100,6 +101,10 @@ BlobToMetaConverter::Ptr BlobToROIConverter::create(BlobToMetaConverter::Initial
         return BlobToMetaConverter::Ptr(new RTDETRConverter(std::move(initializer), confidence_threshold));
     else if (converter_name == Mono3DConverter::getName())
         return BlobToMetaConverter::Ptr(new Mono3DConverter(std::move(initializer), confidence_threshold));
+    else if (converter_name == RFDETRConverter::getName())
+        return BlobToMetaConverter::Ptr(new RFDETRConverter(std::move(initializer), confidence_threshold));
+    else if (converter_name == RFDETRSegConverter::getName())
+        return BlobToMetaConverter::Ptr(new RFDETRSegConverter(std::move(initializer), confidence_threshold));
     else if (converter_name == MaskRCNNConverter::getName())
         return BlobToMetaConverter::Ptr(
             new MaskRCNNConverter(std::move(initializer), confidence_threshold, iou_threshold));

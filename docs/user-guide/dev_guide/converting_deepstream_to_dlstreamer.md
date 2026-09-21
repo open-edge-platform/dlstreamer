@@ -89,7 +89,7 @@ The difference lies in which elements are created and linked. In addition, the D
 <thead>
 <tr>
 <th>DeepStream Pipeline Creation in Python</th>
-<th>DLStreamer Pipeline Creation in Python</th>
+<th>DL Streamer Pipeline Creation in Python</th>
 </tr>
 </thead>
 <tbody>
@@ -137,7 +137,7 @@ The probe registration code is again very similar, except that different element
 <thead>
 <tr>
 <th>DeepStream Probe Registration</th>
-<th>DLStreamer Probe Registration</th>
+<th>DL Streamer Probe Registration</th>
 </tr>
 </thead>
 <tbody>
@@ -160,7 +160,7 @@ The probe function iterates over the prediction metadata produced by the AI mode
 <thead>
 <tr>
 <th>DeepStream Probe Implementation</th>
-<th>DLStreamer Probe Implementation</th>
+<th>DL Streamer Probe Implementation</th>
 </tr>
 </thead>
 <tbody>
@@ -196,7 +196,7 @@ Both implementations keep running the pipeline until an end-of-stream message is
 <thead>
 <tr>
 <th>DeepStream Pipeline Execution</th>
-<th>DLStreamer Pipeline Execution</th>
+<th>DL Streamer Pipeline Execution</th>
 </tr>
 </thead>
 <tbody>
@@ -464,7 +464,7 @@ pre- and post-processing steps before/after running inference, as
 documented [here](https://docs.nvidia.com/metropolis/deepstream/dev-guide/text/DS_plugin_gst-nvinfer.html).
 
 Similarly, the Deep Learning Streamer Pipeline Framework uses GStreamer element
-properties for inference settings and [Model Info Section](./model_info_xml.md) 
+properties for inference settings and [Model Info Section](./model_info_xml.md)
 in model's XML file for pre- and post-processing steps.
 
 The following table shows how to map commonly used NVIDIA DeepStream
@@ -484,7 +484,7 @@ configuration properties to Deep Learning Streamer settings.
 </br>
 
 ## AI-Supported Conversions
-In addition to the detailed description of the conversion rules between DeepStream and Deep Learning Streamer applications presented above, we also provide the ability to perform such conversions automatically using a coding agent. As part of the [DL Streamer](https://github.com/open-edge-platform/dlstreamer) project, guidelines for the coding agent have been prepared to support conversion of applications written in **Python**; see [deepstream-python-conversion](https://github.com/open-edge-platform/dlstreamer/tree/main/.github/skills/dlstreamer-coding-agent/examples/deepstream-python-conversion.md). They also support conversion of **C/C++** applications; see [deepstream-cpp-conversion](https://github.com/open-edge-platform/dlstreamer/tree/main/.github/skills/dlstreamer-coding-agent/examples/deepstream-cpp-conversion.md).
+In addition to the detailed description of the conversion rules between DeepStream and Deep Learning Streamer applications presented above, we also provide the ability to perform such conversions automatically using a coding agent. As part of the [DL Streamer](https://github.com/open-edge-platform/dlstreamer) project, guidelines for the coding agent have been prepared to support conversion of applications written in **Python**; see [deepstream-python-conversion](https://github.com/open-edge-platform/dlstreamer/blob/main/.github/skills/dlstreamer-coding-agent/example-prompts/deepstream-python-conversion.md). They also support conversion of **C/C++** applications; see [deepstream-cpp-conversion](https://github.com/open-edge-platform/dlstreamer/blob/main/.github/skills/dlstreamer-coding-agent/example-prompts/deepstream-cpp-conversion.md).
 
 To see examples of DeepStream applications automatically converted by the coding agent, refer to the [auto_generated_samples](../../../samples/auto_generated_samples/) directory, which includes [Python](../../../samples/auto_generated_samples/deepstream_python_conversion/) and [C++](../../../samples/auto_generated_samples/deepstream_cpp_conversion/) conversion examples.
 

@@ -11,13 +11,13 @@ if no neighboring vehicles are present within a specified distance and angle thr
 """
 
 import gi
-import math
 import numpy as np
 import cv2
 
 gi.require_version('GstBase', '1.0')
 gi.require_version("GstAnalytics", "1.0")
-from gi.repository import Gst, GstBase, GObject, GLib, GstAnalytics # pylint: disable=no-name-in-module
+gi.require_version("DLStreamerWatermarkMeta", "1.0")
+from gi.repository import Gst, GstBase, GObject, GLib, GstAnalytics, DLStreamerWatermarkMeta # pylint: disable=no-name-in-module
 Gst.init_python()
 
 class Analytics(GstBase.BaseTransform):
@@ -68,14 +68,8 @@ class Analytics(GstBase.BaseTransform):
     def angle(self, value):
         self._angle = np.array([int(coord) for coord in value.split(",")], dtype=np.float32)
 
-    def __init__(self):
-        super(Analytics, self).__init__()
-        self._framecount = 0
-
     def do_transform_ip(self, buffer):
         """Detect cars in the inspection zone and classify as 'hogging' if no neighbour cars present."""
-        self._framecount = self._framecount + 1
-
         # iterate over analytics metadata attached to a frame buffer
         rmeta = GstAnalytics.buffer_get_analytics_relation_meta(buffer)
         if not rmeta:
@@ -103,7 +97,7 @@ class Analytics(GstBase.BaseTransform):
                             center1 = np.array([x + w/2, y + h/2])
                             center2 = np.array([x2 + w2/2, y2 + h2/2])
                             distance = np.linalg.norm(center2 - center1)
-                            angle = math.degrees(math.atan2(center2[0] - center1[0], center2[1] - center1[1]))
+                            angle = np.degrees(np.arctan2(center2[0] - center1[0], center2[1] - center1[1]))
                             if (0 < distance < self._distance and self._angle[0] < angle < self._angle[1]):
                                 neighbour_found = True
                                         
@@ -111,11 +105,21 @@ class Analytics(GstBase.BaseTransform):
                     if not neighbour_found:
                         rmeta.add_od_mtd(GLib.quark_from_string("hogging"), x, y, w, h, confidence)
 
-        # draw top and bottom lines of the inspection zone as metadata to be used by gvawatermark element
-        rmeta.add_od_mtd(GLib.quark_from_string("start"),
-                         self._zone[0,0], self._zone[0,1], self._zone[1,0] - self._zone[0,0], 2, 0)
-        rmeta.add_od_mtd(GLib.quark_from_string("stop"),
-                         self._zone[3,0], self._zone[3,1], self._zone[2,0] - self._zone[3,0], 2, 0)
+        # draw top and bottom lines of the inspection zone using WatermarkDrawMeta
+        DLStreamerWatermarkMeta.draw_meta_add(
+            buffer,
+            [int(self._zone[0, 0]), int(self._zone[0, 1]), int(self._zone[1, 0]), int(self._zone[1, 1])],
+            r=200, g=0, b=0, thickness=1)
+        DLStreamerWatermarkMeta.text_meta_add(
+            buffer, x=int(self._zone[0, 0]), y=int(self._zone[0, 1]) - 5,
+            text="start", font_scale=0.5, font_type=0, r=200, g=0, b=0, thickness=1, draw_bg=True)
+        DLStreamerWatermarkMeta.draw_meta_add(
+            buffer,
+            [int(self._zone[3, 0]), int(self._zone[3, 1]), int(self._zone[2, 0]), int(self._zone[2, 1])],
+            r=200, g=0, b=0, thickness=1)
+        DLStreamerWatermarkMeta.text_meta_add(
+            buffer, x=int(self._zone[3, 0]), y=int(self._zone[3, 1]) - 5,
+            text="stop", font_scale=0.5, font_type=0, r=200, g=0, b=0, thickness=1, draw_bg=True)
 
         return Gst.FlowReturn.OK
 

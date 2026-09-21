@@ -4,14 +4,28 @@
 # SPDX-License-Identifier: MIT
 # ==============================================================================
 
+import argparse
 import sys
 import os
 
-from ultralytics import YOLO
 import gi
 gi.require_version("Gst", "1.0")
 gi.require_version("GstAnalytics", "1.0")
 from gi.repository import GLib, Gst, GstAnalytics # pylint: disable=no-name-in-module, wrong-import-position
+
+# Default model location relative to $MODELS_PATH (pre-exported with set_classes via download_ultralytics_models.py --classes).
+WEIGHTS = "yoloe-26s-seg"
+# Default model location relative to $MODELS_PATH
+DEFAULT_MODEL_REL = f"public/{WEIGHTS}/FP16/{WEIGHTS}.xml"
+
+
+def ensure_file(path, description):
+    """Return resolved path if file exists; exit with error otherwise."""
+    if not os.path.isfile(path):
+        sys.stderr.write(f"Error: {description} not found: {path}\n")
+        sys.stderr.write("Set MODELS_PATH or prepare the model with download_ultralytics_models.py\n")
+        sys.exit(1)
+    return os.path.abspath(path)
 
 
 # wrapper to run the gstreamer pipeline loop
@@ -33,54 +47,73 @@ def pipeline_loop(pipeline):
                 terminate = True
     pipeline.set_state(Gst.State.NULL)
 
-# called for each new frame received by appsink
-# implements user-defined processing of detection results
-def on_new_sample(sink, user_data):
+# called for each new frame received by appsink — display mode: print prompt-matching detections
+def on_new_sample(sink, object_to_find):
     sample = sink.emit('pull-sample')
     if sample:
-        # get analytics metadata attached to frame buffer
         buffer = sample.get_buffer()
         rmeta = GstAnalytics.buffer_get_analytics_relation_meta(buffer)
-        # check if any objects were detected in the frame
         if rmeta:
             for mtd in rmeta:
                 if type(mtd) == GstAnalytics.ODMtd:
                     category = GLib.quark_to_string(mtd.get_obj_type())
-                    print(f"Detected {category} in frame at {buffer.pts}")
+                    if object_to_find.lower() in category.lower():
+                        print(f"Detected {category} in frame at {buffer.pts}")
         return Gst.FlowReturn.OK
-
     return Gst.FlowReturn.Flushing
 
-# download PyTorch model, convert to OpenVINO IR, create and run gstreamer pipeline
+# create and run gstreamer pipeline
 def main(args):
-    # Check input arguments
-    if len(args) != 3:
-        sys.stderr.write(f"usage: {args[0]} <LOCAL_VIDEO_FILE> <OBJECT_TO_FIND>\n")
-        sys.exit(1)
+    p = argparse.ArgumentParser(description="Prompt-based object detection")
+    p.add_argument("--input", required=True, help="Path to input video file")
+    p.add_argument("--prompt", required=True, help="Object to detect (e.g. 'dog', 'white car')")
+    p.add_argument("--device", default="GPU", choices=["CPU", "GPU", "NPU"],
+                   help="Inference device (default: GPU)")
+    p.add_argument("--output", default="appsink", choices=["appsink", "json", "file"],
+                   help="Output mode (default: appsink)")
+    p.add_argument("--model", default=None,
+                   help="Path to detection model .xml (default: $MODELS_PATH/" + DEFAULT_MODEL_REL + ")")
+    parsed = p.parse_args(args[1:])
 
-    if not os.path.isfile(args[1]):
-        sys.stderr.write("Input video file does not exist\n")
-        sys.exit(1)
+    video_file = ensure_file(parsed.input, "input video")
+    object_to_find = parsed.prompt
+    device = parsed.device
+    output = parsed.output
 
-    # Configure YOLO-E model with requested classes, and export to OpenVINO format
-    weights = "yoloe-26s-seg"
-    model = YOLO(weights+".pt")
-    names = [args[2]]
-    model.set_classes(names, model.get_text_pe(names))
-    exported_model_path = model.export(format="openvino", dynamic=True, half=True)
-    model_file = f"{exported_model_path}/{weights}.xml"
+    model_path = parsed.model or os.path.join(os.environ.get("MODELS_PATH", "./models"), DEFAULT_MODEL_REL)
+    model_file = ensure_file(model_path, "detection model")
+
+    json_file = None
+    if output == "json":
+        output_json = os.path.join(os.getcwd(), "output.json")
+        if os.path.isfile(output_json):
+            os.remove(output_json)
+        sink = (
+            "gvametaconvert add-tensor-data=true ! "
+            "gvametapublish file-format=json-lines file-path=output.json ! "
+            "fakesink async=false"
+        )
+    elif output == "file":
+        output_file = os.path.splitext(os.path.basename(video_file))[0] + "_output.mp4"
+        sink = (
+            "gvawatermark ! videoconvert ! "
+            f"vah264enc ! h264parse ! mp4mux ! filesink location={output_file}"
+        )
+    else:
+        sink = "appsink emit-signals=true name=appsink0"
 
     # Create GStreamer pipeline, pass input video file and OpenVINO model file
-    Gst.init(None)
+    Gst.init([])
     pipeline = Gst.parse_launch(
-            f"filesrc location={args[1]} ! decodebin3 ! "
-            f"gvadetect model={model_file} device=GPU batch-size=4 ! queue ! "
-            f"appsink emit-signals=true name=appsink0"
+            f"filesrc location={video_file} ! decodebin3 ! "
+            f"gvadetect model={model_file} device={device} batch-size=4 ! queue ! "
+            f"{sink}"
         )
 
-    # register user-defined callback function to process results
+    # register user-defined callback function to process results (appsink demo mode)
     appsink = pipeline.get_by_name("appsink0")
-    appsink.connect("new-sample", on_new_sample, None)
+    if appsink is not None:
+        appsink.connect("new-sample", on_new_sample, object_to_find)
 
     # execute gstreamer pipeline
     pipeline_loop(pipeline)

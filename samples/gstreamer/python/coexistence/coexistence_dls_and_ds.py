@@ -87,8 +87,8 @@ display = os.environ["DISPLAY"]
 home_path = os.environ["HOME"]
 dlstreamer_docker=f"""docker run -i --rm -v {cwd}:/working_dir {DEVICE_DRI} {DEVICE_ACCEL}
 -v {home_path}/.Xauthority:/root/.Xauthority -v /tmp/.X11-unix/:/tmp/.X11-unix/ -e 
-DISPLAY={display} -v /dev/bus/usb:/dev/bus/usb --env ZE_ENABLE_ALT_DRIVERS=libze_intel_npu.so
---env MODELS_PATH=/working_dir intel/dlstreamer:latest /bin/bash -c"""
+DISPLAY={display} -v /dev/bus/usb:/dev/bus/usb --env MODELS_PATH=/working_dir
+intel/dlstreamer:latest /bin/bash -c"""
 dlstreamer_docker=dlstreamer_docker.replace("\n", " ")
 
 DEEPSTREAM_SETUP_LPR="""
@@ -168,7 +168,7 @@ def run_dlstreamer_pipeline():
     # Check if there are models in current directory and download if necessary
     if not os.path.exists(f"{cwd}/public/yolov8_license_plate_detector"):
         print("Downloading DL Streamer models....\n")
-        command=f"{dlstreamer_docker} \"/opt/intel/dlstreamer/samples/download_public_models.sh "
+        command=f"{dlstreamer_docker} \"bash /opt/intel/dlstreamer/scripts/download_models/download_other_models.sh "
         command+="yolov8_license_plate_detector,ch_PP-OCRv4_rec_infer \""
         os.system(command) # nosec
 

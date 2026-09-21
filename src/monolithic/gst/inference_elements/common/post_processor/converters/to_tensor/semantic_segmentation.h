@@ -19,7 +19,7 @@ class SemanticSegmentationConverter : public BlobToTensorConverter {
 
   public:
     SemanticSegmentationConverter(BlobToMetaConverter::Initializer initializer)
-        : BlobToTensorConverter(std::move(initializer)), format("semantic_segmentation") {
+        : BlobToTensorConverter(std::move(initializer)), format(GVA::TENSOR_FORMAT_SEMANTIC_SEGMENTATION) {
     }
 
     TensorsTable convert(const OutputBlobs &output_blobs) override;
