@@ -1,0 +1,15 @@
+pyyaml
+scipy
+opencv-python
+numba
+scikit-image
+tqdm
+openvino
+gdown  # convert_monodetr_ov.py: download the upstream checkpoint when --ckpt is omitted
+
+# CPU-only PyTorch. The project's inference path is OpenVINO; PyTorch is
+# used only by monoDETR_PT_demo.py and the IR export script. The CPU
+# wheels are ~200 MB vs >2 GB for the CUDA wheels bundled on PyPI.
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch
+torchvision
