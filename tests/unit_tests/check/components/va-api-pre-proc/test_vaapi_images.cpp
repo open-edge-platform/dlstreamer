@@ -13,6 +13,8 @@
 
 #include <gtest/gtest.h>
 
+#include <unistd.h>
+
 using namespace InferenceBackend;
 
 struct VAAPIImageMapTest : public testing::Test {};
@@ -90,8 +92,15 @@ TEST_F(VAAPIImageTest, VAAPIImageTestRightDefInitialization) {
 TEST_F(VAAPIImageTest, VAAPIImageTestInitialization) {
     VaApiDisplayPtr va_dpy = vaApiCreateVaDisplay(0);
     auto va_context = std::unique_ptr<VaApiContext>(new VaApiContext(va_dpy));
-    ASSERT_NO_THROW(std::unique_ptr<VaApiImage>(
-        new VaApiImage(va_context.get(), 480, 640, FourCC::FOURCC_I420, MemoryType::DMA_BUFFER)));
+    // DMA_BUFFER now fails hard when /dev/dma_heap/system is inaccessible (no silent SYSTEM
+    // fallback), so gate the expectation on actual heap access as the production code does.
+    if (access("/dev/dma_heap/system", R_OK | W_OK) == 0) {
+        ASSERT_NO_THROW(std::unique_ptr<VaApiImage>(
+            new VaApiImage(va_context.get(), 480, 640, FourCC::FOURCC_I420, MemoryType::DMA_BUFFER)));
+    } else {
+        ASSERT_ANY_THROW(std::unique_ptr<VaApiImage>(
+            new VaApiImage(va_context.get(), 480, 640, FourCC::FOURCC_I420, MemoryType::DMA_BUFFER)));
+    }
     ASSERT_NO_THROW(std::unique_ptr<VaApiImage>(
         new VaApiImage(va_context.get(), 480, 640, FourCC::FOURCC_NV12, MemoryType::VAAPI)));
     ASSERT_NO_THROW(std::unique_ptr<VaApiImage>(
