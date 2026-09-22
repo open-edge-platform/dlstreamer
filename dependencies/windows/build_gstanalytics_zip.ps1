@@ -26,7 +26,8 @@
 param(
 	[string]$GStreamerVersion = "1.28.2",
 	[string]$GStreamerDir,
-	[string]$OutputZip
+	[string]$OutputZip,
+	[string]$CMakeExe
 )
 
 $ErrorActionPreference = 'Stop'
@@ -62,8 +63,14 @@ if (-not (Test-Path $RepoGir)) {
 
 $gitCmd = Get-Command git -ErrorAction SilentlyContinue
 if (-not $gitCmd) { throw "git is required to apply the gst-analytics patch" }
-$cmakeCmd = Get-Command cmake -ErrorAction SilentlyContinue
-if (-not $cmakeCmd) { throw "cmake is required to build gstanalytics" }
+if ($CMakeExe) {
+	if (-not (Test-Path -LiteralPath $CMakeExe)) { throw "cmake not found: $CMakeExe" }
+}
+else {
+	$cmakeCmd = Get-Command cmake -ErrorAction SilentlyContinue
+	if (-not $cmakeCmd) { throw "cmake is required to build gstanalytics" }
+	$CMakeExe = $cmakeCmd.Source
+}
 $girCompiler = Join-Path $GStreamerDir "bin\g-ir-compiler.exe"
 if (-not (Test-Path $girCompiler)) {
 	throw "g-ir-compiler.exe not found in GStreamer install: $girCompiler"
@@ -183,17 +190,22 @@ Write-Section "Configuring CMake"
 if (Test-Path $BuildDir) { Remove-Item -LiteralPath $BuildDir -Recurse -Force }
 New-Item -ItemType Directory -Path $BuildDir | Out-Null
 
-& cmake `
+# Hand CMake forward-slash paths. CMakeLists.txt normalizes these too; doing it
+# here keeps older CMake working even if only one of the two files is updated.
+$AnalyticsSrcCMake = $AnalyticsSrc.Replace('\', '/')
+$GStreamerDirCMake = $GStreamerDir.Replace('\', '/')
+
+& $CMakeExe `
 	-S $ScriptDir `
 	-B $BuildDir `
 	-G "NMake Makefiles" `
 	-DCMAKE_BUILD_TYPE=Release `
-	"-DGST_ANALYTICS_SRC_DIR=$AnalyticsSrc" `
-	"-DGSTREAMER_PREFIX=$GStreamerDir"
+	"-DGST_ANALYTICS_SRC_DIR=$AnalyticsSrcCMake" `
+	"-DGSTREAMER_PREFIX=$GStreamerDirCMake"
 if ($LASTEXITCODE -ne 0) { throw "CMake configure failed" }
 
 Write-Section "Building gstanalytics"
-& cmake --build $BuildDir --config Release
+& $CMakeExe --build $BuildDir --config Release
 if ($LASTEXITCODE -ne 0) { throw "CMake build failed" }
 
 $StageDir = Join-Path $BuildDir "stage"

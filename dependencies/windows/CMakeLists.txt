@@ -20,6 +20,10 @@ if(NOT WIN32)
     message(FATAL_ERROR "This CMake project is Windows-only.")
 endif()
 
+# Normalize to forward slashes before the values are used anywhere else.
+file(TO_CMAKE_PATH "${GST_ANALYTICS_SRC_DIR}" GST_ANALYTICS_SRC_DIR)
+file(TO_CMAKE_PATH "${GSTREAMER_PREFIX}" GSTREAMER_PREFIX)
+
 if(NOT GST_ANALYTICS_SRC_DIR OR NOT EXISTS "${GST_ANALYTICS_SRC_DIR}")
     message(FATAL_ERROR "GST_ANALYTICS_SRC_DIR must point to a patched gst-plugins-bad analytics source dir")
 endif()
