@@ -17,7 +17,6 @@
 #include "g3dlidarsrc.h"
 #include "g3dobjectfuser.h"
 #include "g3drender.h"
-#include "gvamono3d.h"
 
 extern "C" {
 
@@ -34,8 +33,6 @@ static gboolean plugin_init(GstPlugin *plugin) {
     if (!gst_element_register(plugin, "g3dobjectfuser", GST_RANK_NONE, GST_TYPE_G3D_OBJECT_FUSER))
         return FALSE;
     if (!gst_element_register(plugin, "g3drender", GST_RANK_NONE, GST_TYPE_G3D_RENDER))
-        return FALSE;
-    if (!gst_element_register(plugin, "gvamono3d", GST_RANK_NONE, GST_TYPE_GVA_MONO3D))
         return FALSE;
 
     // Register metadata

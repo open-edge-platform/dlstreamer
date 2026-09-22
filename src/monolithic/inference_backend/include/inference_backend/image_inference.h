@@ -73,6 +73,12 @@ class ImageInference {
     static std::map<std::string, GstStructure *>
     GetModelInfoPreproc(const std::string model_file, const gchar *pre_proc_config, const gchar *ov_extension_lib);
 
+    // Reads the model's input layer names and shapes directly from the model file, before a backend
+    // instance is created. Used to discover auxiliary inputs (e.g. mono3d calib/img_sizes) that need
+    // custom feeding configured at model-build time.
+    static std::map<std::string, std::vector<size_t>> GetModelInputShapes(const std::string model_file,
+                                                                          const gchar *ov_extension_lib);
+
     virtual bool IsQueueFull() = 0;
     virtual void Flush() = 0;
     virtual void Close() = 0;

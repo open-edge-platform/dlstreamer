@@ -8,9 +8,11 @@
 
 #include "gstgvaclassify.h"
 #include "gstgvadetect.h"
+#include "gstgvamono3d.h"
 #include "gva_base_inference.h"
 #include "inference_backend/logger.h"
 #include "inference_impl.h"
+#include "mono3d_calibration.h"
 #include "model_proc_provider.h"
 
 #include <map>
@@ -184,6 +186,24 @@ PostProcessor::PostProcessor(InferenceImpl *inference_impl, GvaBaseInference *ba
     /* set output labels */
     // NOTE: must be called after setting output_processors
     fillModelLabels(initializer, model.labels);
+    /* mono3d: feed camera calibration (P2 + original image size) to the converter so it can lift
+     * 2D detections into 3D. Comes from the gvamono3d "calibration-file" property. */
+    if (inference_type == InferenceType::GST_GVA_MONO3D_TYPE) {
+        for (const auto &output_processor : initializer.output_processors) {
+            GstStructure *s = output_processor.second;
+            if (!s)
+                continue;
+            const gchar *converter = gst_structure_get_string(s, "converter");
+            if (converter && g_strcmp0(converter, "mono3d") == 0) {
+                const int default_w = base_inference->info ? base_inference->info->width : 0;
+                const int default_h = base_inference->info ? base_inference->info->height : 0;
+                GstGvaMono3d *mono3d = reinterpret_cast<GstGvaMono3d *>(base_inference);
+                const post_processing::Mono3DCalibration calib = post_processing::parseMono3DCalibration(
+                    mono3d->calibration_file ? mono3d->calibration_file : "", default_w, default_h);
+                post_processing::applyMono3DCalibrationToStructure(s, calib);
+            }
+        }
+    }
     /* validate outputs */
     auto validation_result = validateModelProcOutputs(initializer.output_processors, initializer.model_outputs);
     if (validation_result == ModelProcOutputsValidationResult::FAIL) {
@@ -211,6 +231,11 @@ PostProcessor::PostProcessor(InferenceImpl *inference_impl, GvaBaseInference *ba
         initializer.skip_raw_tensors = gva_classify->skip_raw_tensors;
     } else if (inference_type == InferenceType::GST_GVA_INFERENCE_TYPE) {
         initializer.converter_type = ConverterType::RAW;
+    } else if (inference_type == InferenceType::GST_GVA_MONO3D_TYPE) {
+        initializer.converter_type = ConverterType::TO_ROI;
+        GstGvaMono3d *gva_mono3d = reinterpret_cast<GstGvaMono3d *>(base_inference);
+        initializer.threshold = gva_mono3d->threshold;
+        initializer.threshold_explicitly_set = gva_mono3d->threshold_explicitly_set;
     }
 
     if (base_inference->custom_postproc_lib) {

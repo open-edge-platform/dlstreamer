@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2025 Intel Corporation
+ * Copyright (C) 2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -7,24 +7,22 @@
 #ifndef __GST_GVAWATERMARK3D_H__
 #define __GST_GVAWATERMARK3D_H__
 
-#include <gst/video/gstvideofilter.h>
-#include <opencv2/opencv.hpp>
+#include <gst/gst.h>
 
 G_BEGIN_DECLS
 
 #define GST_TYPE_GVAWATERMARK3D (gst_gvawatermark3d_get_type())
-G_DECLARE_FINAL_TYPE(GstGvaWatermark3D, gst_gvawatermark3d, GST, GVAWATERMARK3D, GstVideoFilter)
+G_DECLARE_FINAL_TYPE(GstGvaWatermark3D, gst_gvawatermark3d, GST, GVAWATERMARK3D, GstBin)
 
 struct _GstGvaWatermark3D {
-    GstVideoFilter parent_instance;
-    gchar *intrinsics_file;
-    cv::Mat K;
-    gchar *calibration_file;
-    cv::Mat P2; // 3x4 KITTI projection matrix for camera-frame 3D boxes
-};
-
-struct _GstGvaWatermark3DClass {
-    GstVideoFilterClass parent_class;
+    GstBin parent_instance;
+    GstPad *sinkpad;
+    GstPad *srcpad;
+    GstElement *vaconvert; // optional VA download (NULL when VA unavailable)
+    GstElement *videoconvert;
+    GstElement *capsfilter;
+    GstElement *render; // hidden GstGvaWatermark3DRender
+    GstElement *videoconvert_out; // lets the bin output any format the downstream requests
 };
 
 G_END_DECLS
