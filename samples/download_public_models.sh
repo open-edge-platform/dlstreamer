@@ -396,7 +396,7 @@ else
 fi
 
 # Set the name of the virtual environment directory (single venv for all operations)
-VENV_DIR="$HOME/.virtualenvs/dlstreamer"
+VENV_DIR="${VENV_DIR:-"$HOME/.virtualenvs/dlstreamer"}"
 
 # Create a Python virtual environment if it doesn't exist
 if [ ! -d "$VENV_DIR" ]; then
