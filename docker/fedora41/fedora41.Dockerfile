@@ -332,7 +332,7 @@ RUN cp -a /usr/local/lib/librdkafka* ./
 # ==============================================================================
 FROM builder AS realsense-builder
 
-ARG REALSENSE_VERSION=v2.57.6
+ARG REALSENSE_VERSION=v2.58.4
 
 SHELL ["/bin/bash", "-xo", "pipefail", "-c"]
 
@@ -342,7 +342,7 @@ WORKDIR /home/dlstreamer
 RUN dnf install -y systemd-devel gtk3-devel && \
     dnf clean all
 
-RUN git clone https://github.com/IntelRealSense/librealsense.git librealsense
+RUN git clone https://github.com/realsenseai/librealsense.git librealsense
 
 WORKDIR /home/dlstreamer/librealsense
 
