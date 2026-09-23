@@ -5,5 +5,3 @@
 # ==============================================================================
 
 add_subdirectory(dlstreamer_logger)
-
-add_subdirectory(openvino_inference_backend)
