@@ -10,6 +10,7 @@
 #include "image_inference_async_d3d11.h"
 #else
 #include "image_inference_async/image_inference_async.h"
+#include <unistd.h>
 #endif
 
 using namespace InferenceBackend;
@@ -41,8 +42,10 @@ ImageInference::Ptr ImageInference::createImageInferenceInstance(MemoryType inpu
     // Determine the memory type to be used for inference
     MemoryType memory_type_to_use = MemoryType::ANY;
 
+#ifndef _WIN32
     // Determine if the device is an NPU
     bool isNpu = (config.at(KEY_BASE).at(KEY_DEVICE).find("NPU") != std::string::npos);
+#endif
 
     switch (input_image_memory_type) {
     case MemoryType::SYSTEM:
@@ -66,6 +69,7 @@ ImageInference::Ptr ImageInference::createImageInferenceInstance(MemoryType inpu
         case ImagePreprocessorType::VAAPI_SYSTEM:
             // Use system memory for VAAPI_SYSTEM preprocessor type
             memory_type_to_use = MemoryType::SYSTEM;
+#ifndef _WIN32
             // DMA-BUF zero-copy (VPP writes into DMA-BUF, NPU reads from same buffer) is used on NPU
             // when the DMA-BUF heap is accessible; otherwise fall back to the plain SYSTEM-memory path.
             // The heap access is probed here (not later, per-surface) so the whole pipeline stays
@@ -80,6 +84,7 @@ ImageInference::Ptr ImageInference::createImageInferenceInstance(MemoryType inpu
                     memory_type_to_use = MemoryType::DMA_BUFFER;
                 }
             }
+#endif
             break;
         case ImagePreprocessorType::VAAPI_SURFACE_SHARING:
             // Use VAAPI memory for VAAPI_SURFACE_SHARING preprocessor type
