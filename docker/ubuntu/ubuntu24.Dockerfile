@@ -343,7 +343,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends libssl-dev=\* l
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-RUN git clone https://github.com/IntelRealSense/librealsense.git librealsense
+RUN git clone https://github.com/realsenseai/librealsense.git librealsense
 
 WORKDIR /home/dlstreamer/librealsense
 
