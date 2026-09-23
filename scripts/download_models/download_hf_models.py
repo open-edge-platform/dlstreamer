@@ -57,7 +57,15 @@ SUPPORTED_WEIGHT_FORMATS = {"fp32", "fp16", "int8"}
 
 def parse_args() -> argparse.Namespace:
     raw_argv = sys.argv[1:]
-    script_options = {"-h", "--help", "--model", "--outdir", "--token", "--extra_args"}
+    script_options = {
+        "-h",
+        "--help",
+        "--model",
+        "--outdir",
+        "--token",
+        "--export-variant",
+        "--extra_args",
+    }
     filtered_argv: list[str] = []
     extracted_extra_args: list[str] = []
 
@@ -93,6 +101,12 @@ def parse_args() -> argparse.Namespace:
         help="Hugging Face token for gated/private models",
     )
     parser.add_argument(
+        "--export-variant",
+        choices=("clip-zeroshot",),
+        default=None,
+        help="Select a specialized export variant (clip-zeroshot is valid only for CLIPModel)",
+    )
+    parser.add_argument(
         "--extra_args",
         nargs="*",
         default=[],
@@ -102,6 +116,8 @@ def parse_args() -> argparse.Namespace:
     args = parser.parse_args(filtered_argv)
     if extracted_extra_args:
         args.extra_args.extend(extracted_extra_args)
+    if args.export_variant is not None and args.extra_args:
+        parser.error("--export-variant cannot be combined with --extra_args")
     return args
 
 
@@ -303,6 +319,10 @@ def main() -> int:
 
             match support_level:
                 case 0:
+                    if args.export_variant is not None:
+                        raise ValueError(
+                            f"Export variant '{args.export_variant}' is not supported for model '{model_id}'"
+                        )
                     # Standard export using optimum-cli
                     command = [
                         resolve_optimum_cli(),
@@ -334,6 +354,7 @@ def main() -> int:
                         export_root,
                         token,
                         extra_args=args.extra_args,
+                        export_variant=args.export_variant,
                     )
 
                 case 2:
