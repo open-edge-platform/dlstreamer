@@ -36,6 +36,10 @@ class BlobToROIConverter : public BlobToMetaConverter {
 
         std::vector<GstStructure *> tensors;
 
+        // Optional JSON string with extra (e.g. 3D) parameters attached to the "detection" structure.
+        // Consumed by downstream elements such as gvawatermark3d / gvadeskew.
+        std::string extra_params_json;
+
         DetectedObject(double x, double y, double w, double h, double r, double confidence, size_t label_id,
                        const std::string &label, double w_scale = 1.f, double h_scale = 1.f,
                        bool relative_to_center = false)
@@ -72,6 +76,9 @@ class BlobToROIConverter : public BlobToMetaConverter {
 
             if (not label.empty())
                 gst_structure_set(detection_tensor, "label", G_TYPE_STRING, label.c_str(), NULL);
+
+            if (not extra_params_json.empty())
+                gst_structure_set(detection_tensor, "extra_params_json", G_TYPE_STRING, extra_params_json.c_str(), NULL);
 
             std::vector<GstStructure *> results{detection_tensor};
             for (size_t i = 0; i < tensors.size(); i++)

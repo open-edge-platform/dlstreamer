@@ -51,6 +51,60 @@ InputPreprocessingFunction createSequenceIndexFunction() {
     };
 }
 
+// Feeds the KITTI-style camera projection matrix P2 ([B, 3, 4]) into a model input.
+// The 12 row-major P2 values are taken from the post/pre-processing parameters
+// (populated from the gvadetect "intrinsics-file" property).
+InputPreprocessingFunction createCalibFunction(const GstStructure *params) {
+    std::vector<float> p2(12, 0.0f);
+    // Sensible default: identity-like projection (overwritten when intrinsics are provided).
+    p2[0] = 1.0f;
+    p2[5] = 1.0f;
+    p2[10] = 1.0f;
+
+    GValueArray *arr = nullptr;
+    if (params && gst_structure_get_array(const_cast<GstStructure *>(params), "P2", &arr) && arr) {
+        if (arr->n_values == 12)
+            for (guint i = 0; i < 12; ++i)
+                p2[i] = static_cast<float>(g_value_get_double(g_value_array_get_nth(arr, i)));
+        G_GNUC_BEGIN_IGNORE_DEPRECATIONS
+        g_value_array_free(arr);
+        G_GNUC_END_IGNORE_DEPRECATIONS
+    }
+
+    return [p2](const InputBlob::Ptr &blob) {
+        float *data = reinterpret_cast<float *>(blob->GetData());
+        const auto dims = blob->GetDims();
+        size_t total = 1;
+        for (size_t d : dims)
+            total *= d;
+        // Replicate P2 across the batch dimension.
+        for (size_t i = 0; i < total; ++i)
+            data[i] = p2[i % p2.size()];
+    };
+}
+
+// Feeds the original image size (W, H) into a model input of shape [B, 2].
+InputPreprocessingFunction createImageSizeFunction(const GstStructure *params) {
+    int width = 0;
+    int height = 0;
+    if (params) {
+        gst_structure_get_int(params, "orig_width", &width);
+        gst_structure_get_int(params, "orig_height", &height);
+    }
+
+    return [width, height](const InputBlob::Ptr &blob) {
+        float *data = reinterpret_cast<float *>(blob->GetData());
+        const auto dims = blob->GetDims();
+        size_t total = 1;
+        for (size_t d : dims)
+            total *= d;
+        for (size_t i = 0; i + 1 < total; i += 2) {
+            data[i] = static_cast<float>(width);
+            data[i + 1] = static_cast<float>(height);
+        }
+    };
+}
+
 cv::Mat getTransform(cv::Mat *src, cv::Mat *dst) {
     if (not src or not dst)
         throw std::invalid_argument("Invalid cv::Mat inputs for GetTransform");
@@ -178,6 +232,10 @@ InputPreprocessingFunction getInputPreprocFunctrByLayerType(const std::string &f
         result = createSequenceIndexFunction();
     else if (format == "image_info")
         result = createImageInfoFunction(preproc_params, inference);
+    else if (format == "calib")
+        result = createCalibFunction(preproc_params);
+    else if (format == "img_sizes")
+        result = createImageSizeFunction(preproc_params);
     else
         result = createImageInputFunction(preproc_params, roi);
 

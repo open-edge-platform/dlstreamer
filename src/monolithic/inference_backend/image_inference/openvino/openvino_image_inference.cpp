@@ -1533,6 +1533,23 @@ std::map<std::string, GstStructure *> OpenVINOImageInference::GetModelInfoPrepro
     return info;
 }
 
+std::map<std::string, std::vector<size_t>> OpenVINOImageInference::GetModelInputShapes(const std::string model_file,
+                                                                                       const gchar *ov_extension_lib) {
+    if (ov_extension_lib && ov_extension_lib[0] != '\0') {
+        OpenVinoNewApiImpl::core().add_extension(ov_extension_lib);
+    }
+    std::shared_ptr<ov::Model> model = OpenVinoNewApiImpl::core().read_model(model_file);
+
+    std::map<std::string, std::vector<size_t>> res;
+    for (const auto &input : model->inputs()) {
+        const auto &partial_shape = input.get_partial_shape();
+        const auto &shape = partial_shape.is_dynamic() ? partial_shape.get_min_shape() : partial_shape.get_shape();
+        const std::string name = input.get_names().size() > 0 ? input.get_any_name() : std::string("input");
+        res.emplace(name, std::vector<size_t>(shape.begin(), shape.end()));
+    }
+    return res;
+}
+
 void OpenVINOImageInference::Flush() {
     ITT_TASK(__FUNCTION__);
 

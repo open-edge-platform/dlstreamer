@@ -20,6 +20,7 @@ target_include_directories(${TARGET_NAME}
         PUBLIC
                 ${GSTREAMER_INCLUDE_DIRS}
                 ${GSTVIDEO_INCLUDE_DIRS}
+                ${GSTANALYTICS_INCLUDE_DIRS}
                 ${GLIB2_INCLUDE_DIRS}
         PRIVATE
                 ${GSTALLOC_INCLUDE_DIRS}
