@@ -61,6 +61,7 @@ gst-inspect-1.0 utility.
 gvadetect
 gvaclassify
 gvainference
+gvamono3d
 gvatrack
 gvaaudiodetect
 gvaaudiotranscribe
