@@ -274,13 +274,13 @@ def build_and_load(repo, ckpt):
 
     cfg_path = os.path.join(repo, "configs", "monodetr.yaml")
     with open(cfg_path) as fh:
-        cfg = yaml.load(fh, Loader=yaml.FullLoader)
+        cfg = yaml.safe_load(fh)
     cfg["model"]["device"] = "cpu"
     # DDNLoss.__init__ calls torch.cuda.current_device(); unused at inference.
     torch.cuda.current_device = lambda: torch.device("cpu")
 
     model, _ = build_model(cfg["model"])
-    state = torch.load(ckpt, map_location="cpu", weights_only=False)
+    state = torch.load(ckpt, map_location="cpu", weights_only=True)
     state_dict = state.get("model_state", state.get("state_dict", state))
     missing, unexpected = model.load_state_dict(state_dict, strict=False)
     print(f"[info] loaded checkpoint (missing={len(missing)}, unexpected={len(unexpected)})")
