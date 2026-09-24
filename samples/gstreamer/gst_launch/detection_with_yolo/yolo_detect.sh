@@ -30,6 +30,7 @@ if [[ "${1:-}" == "--help" ]] || [[ "${1:-}" == "-h" ]]; then
   echo "  PPBKEND   - Preprocessing backend (default: auto). Supported: ie, opencv, va, va-surface-sharing"
   echo "  PRECISION - Model precision (default: INT8). Supported: INT8, FP32, FP16"
   echo "  OUTPUT_DIRECTORY - Directory for PNG frames (default: current directory)"
+  echo "  BENCHMARK_SINK - Benchmark sink (default: empty) - e.g., identity eos-after=100"
   echo ""
   exit 0
 fi
