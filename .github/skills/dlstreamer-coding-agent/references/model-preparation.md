@@ -244,11 +244,12 @@ sudo apt-get update
 sudo apt-get install -y cmake g++
 ```
 
-Rerun the requirements installation with the venv Python to avoid
+Rerun the requirements installation with the venv's `uv pip` to avoid
 system-pip/PEP 668 issues:
 
 ```bash
-./.<app_name>-export-venv/bin/python -m pip install -r export_requirements.txt
+source .<app_name>-export-venv/bin/activate
+uv pip install -r export_requirements.txt
 ```
 
 ### 6. Audio Models for gvaaudiodetect / gvaaudiotranscribe
@@ -336,7 +337,7 @@ Typical `requirements.txt` entries by model source:
 --extra-index-url https://download.pytorch.org/whl/cpu
 
 # OpenVINO Python version (pin to match DL Streamer runtime — query with: python3 -c "import openvino; print(openvino.__version__)")
-openvino==2026.2.0
+openvino==2026.4.0
 nncf==3.0.0  # required for int8=True quantization (query with: pip show nncf | grep Version)
 
 # Ultralytics YOLO (query with: pip show ultralytics | grep Version)

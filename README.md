@@ -104,8 +104,9 @@ Full installation guide: [Install Guide for Ubuntu](https://docs.openedgeplatfor
 
 ```bash
 cd ~
-python3 -m venv .dls-venv && source .dls-venv/bin/activate
-pip install -r /opt/intel/dlstreamer/scripts/download_models/requirements_download_ultralytics_models.txt
+curl -LsSf https://astral.sh/uv/install.sh | sh
+uv venv .dls-venv && source .dls-venv/bin/activate
+uv pip install -r /opt/intel/dlstreamer/scripts/download_models/requirements_download_ultralytics_models.txt
 python3 /opt/intel/dlstreamer/scripts/download_models/download_ultralytics_models.py \
   --model yolo11n.pt \
   --outdir ~/models/yolo11n \

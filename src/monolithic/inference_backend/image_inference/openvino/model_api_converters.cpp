@@ -100,10 +100,17 @@ bool yaml2Json(const std::string yaml_file, nlohmann::json &yaml_json) {
                     if (value.empty()) {
                         nlohmann::json array = nlohmann::json::array();
                         // Read array items
-                        while (std::getline(yaml_stream, line)) {
-                            size_t item_first = line.find_first_not_of(" \t");
-                            if (item_first == std::string::npos || line[item_first] != '-')
+                        while (yaml_stream.good()) {
+                            // Peek at next line without consuming it
+                            std::streampos pos = yaml_stream.tellg(); // Save position
+                            if (!std::getline(yaml_stream, line))
                                 break;
+
+                            size_t item_first = line.find_first_not_of(" \t");
+                            if (item_first == std::string::npos || line[item_first] != '-') {
+                                yaml_stream.seekg(pos); // Rewind - put the line back
+                                break;
+                            }
 
                             size_t item_start = line.find_first_not_of(" \t", item_first + 1);
                             if (item_start != std::string::npos) {
@@ -652,6 +659,7 @@ bool convertPaddleOCRMeta2ModelApi(const std::string &model_file, ov::AnyMap &mo
     // Set default PaddleOCR standard normalization
     modelConfig["mean_values"] = ov::Any(std::string("127.5, 127.5, 127.5"));
     modelConfig["scale_values"] = ov::Any(std::string("127.5, 127.5, 127.5"));
+    modelConfig["pad_value"] = ov::Any(127.5);
 
     // PaddleOCR preserves aspect ratio and pads to target width
     modelConfig["resize_type"] = ov::Any(std::string("fit_to_window"));
@@ -948,15 +956,14 @@ std::map<std::string, GstStructure *> get_model_info_preproc(const std::shared_p
             }
         }
         if (element.first == "pad_value") {
-            int pad_value = element.second.as<int>();
-            if (pad_value < 0 || pad_value > 255) {
-                GST_WARNING("[get_model_info_preproc] Invalid pad value: %d. Expected an integer between 0 and 255.",
+            double pad_value = element.second.as<double>();
+            if (pad_value < 0.0 || pad_value > 255.0) {
+                GST_WARNING("[get_model_info_preproc] Invalid pad value: %f. Expected a value between 0 and 255.",
                             pad_value);
-                pad_value = std::clamp(pad_value, 0, 255);
-                GST_INFO("[get_model_info_preproc] ) Pad value after clamping: %d", pad_value);
+                pad_value = std::clamp(pad_value, 0.0, 255.0);
+                GST_INFO("[get_model_info_preproc] Pad value after clamping: %f", pad_value);
             }
-            double d_pad_value = (double)pad_value;
-            std::vector<double> fill_values = {d_pad_value, d_pad_value, d_pad_value};
+            std::vector<double> fill_values = {pad_value, pad_value, pad_value};
             GValue array_value = G_VALUE_INIT;
             g_value_init(&array_value, GST_TYPE_ARRAY);
 
@@ -979,7 +986,7 @@ std::map<std::string, GstStructure *> get_model_info_preproc(const std::shared_p
 
             gst_structure_free(inner);
             g_value_unset(&gvalue);
-            GST_INFO("[get_model_info_preproc] pad_value: %d", pad_value);
+            GST_INFO("[get_model_info_preproc] pad_value: %f", pad_value);
         }
     }
 

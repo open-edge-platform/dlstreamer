@@ -8,6 +8,7 @@ set(TARGET_NAME "g3dinference")
 
 find_package(PkgConfig REQUIRED)
 find_package(OpenVINO REQUIRED Runtime)
+find_package(Threads REQUIRED)
 pkg_check_modules(GSTREAMER REQUIRED gstreamer-1.0)
 pkg_check_modules(GSTREAMER_BASE REQUIRED gstreamer-base-1.0)
 pkg_check_modules(GSTANALYTICS gstreamer-analytics-1.0>=1.28 REQUIRED)
@@ -42,4 +43,5 @@ target_link_libraries(${TARGET_NAME}
         openvino::runtime
         json-hpp
         dlstreamer_gst_meta
+        Threads::Threads
 )
