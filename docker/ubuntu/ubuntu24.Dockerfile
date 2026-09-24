@@ -44,7 +44,6 @@
 # At runtime, pass Intel devices into the container to enable hardware acceleration:
 #   GPU: --device /dev/dri --group-add $(stat -c "%g" /dev/dri/render*)
 #   NPU: --device /dev/accel --group-add $(stat -c "%g" /dev/accel/accel*)
-#   NPU DMA-BUF zero-copy: --device /dev/dma_heap (add --group-add $(stat -c "%g" /dev/dma_heap/system) only if the heap is group-restricted to mode 660; else inference falls back to a slower GPU->CPU copy)
 ARG DOCKER_REGISTRY
 FROM ${DOCKER_REGISTRY}ubuntu:24.04 AS builder
 

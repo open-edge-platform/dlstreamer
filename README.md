@@ -78,7 +78,6 @@ docker run -it --rm \
   --group-add $(stat -c "%g" /dev/dri/render*) \
   --device /dev/accel \
   --group-add $(stat -c "%g" /dev/accel/accel*) \
-  --device /dev/dma_heap \
   -e DISPLAY=$DISPLAY \
   -e XDG_RUNTIME_DIR=/tmp \
   -v /tmp/.X11-unix:/tmp/.X11-unix \

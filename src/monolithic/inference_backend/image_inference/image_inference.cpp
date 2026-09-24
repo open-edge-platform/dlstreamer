@@ -76,10 +76,10 @@ ImageInference::Ptr ImageInference::createImageInferenceInstance(MemoryType inpu
             // The heap access is probed here (not later, per-surface) so the whole pipeline stays
             // consistent: a partial fallback would leave the pool/OpenVINO instance in DMA_BUFFER mode
             // while individual surfaces are SYSTEM, which deadlocks inference.
-            // Zero-copy can be disabled by setting GVA_NPU_ZERO_COPY=0 (enabled by default).
+            // Zero-copy is opt-in: set GVA_NPU_ZERO_COPY=1 to enable it (disabled by default).
             {
                 const char *zero_copy_env = std::getenv("GVA_NPU_ZERO_COPY");
-                bool zero_copy_enabled = !(zero_copy_env && std::string(zero_copy_env) == "0");
+                bool zero_copy_enabled = zero_copy_env && std::string(zero_copy_env) == "1";
                 if (isNpu && zero_copy_enabled) {
                     if (access("/dev/dma_heap/system", R_OK | W_OK) != 0) {
                         GVA_WARNING("Falling back to the slow NPU path (extra GPU->CPU->NPU copies): no access to "
