@@ -163,8 +163,8 @@ void ROIToFrameAttacher::attach(const TensorsTable &tensors, FramesWrapper &fram
                         &cam3d_mtd)) {
                     g_warning("mono3d: failed to add camera-3d detection metadata");
                 } else {
-                    gst_analytics_relation_meta_set_relation(relation_meta, GST_ANALYTICS_REL_TYPE_RELATE_TO,
-                                                             od_mtd.id, cam3d_mtd.id);
+                    gst_analytics_relation_meta_set_relation(relation_meta, GST_ANALYTICS_REL_TYPE_RELATE_TO, od_mtd.id,
+                                                             cam3d_mtd.id);
                 }
             }
 
