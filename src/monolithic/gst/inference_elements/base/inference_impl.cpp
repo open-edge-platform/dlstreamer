@@ -6,9 +6,9 @@
 
 #include "inference_impl.h"
 
+#include "common/mono3d_calibration.h"
 #include "common/post_processor.h"
 #include "common/post_processor/post_proc_common.h"
-#include "common/mono3d_calibration.h"
 #include "common/pre_processor_info_parser.hpp"
 #include "common/pre_processors.h"
 #include "config.h"
@@ -905,8 +905,7 @@ void AppendMono3DAuxInputs(GvaBaseInference *gva_base_inference, const std::stri
     input_processor_info.push_back(make_info(calib_layer, "calib"));
     input_processor_info.push_back(make_info(img_sizes_layer, "img_sizes"));
 
-    GST_INFO_OBJECT(gva_base_inference,
-                    "mono3d: configured inputs image='%s' calib='%s' img_sizes='%s' (image %dx%d)",
+    GST_INFO_OBJECT(gva_base_inference, "mono3d: configured inputs image='%s' calib='%s' img_sizes='%s' (image %dx%d)",
                     image_layer.c_str(), calib_layer.c_str(), img_sizes_layer.c_str(), calib.orig_width,
                     calib.orig_height);
 }

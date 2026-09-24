@@ -15,7 +15,7 @@
 
 #define ELEMENT_LONG_NAME "Monocular 3D object detection (generates GstAnalyticsCamera3DODMtd)"
 #define ELEMENT_DESCRIPTION                                                                                            \
-    "Performs monocular 3D object detection (e.g. MonoDETR). Consumes an image plus camera "                          \
+    "Performs monocular 3D object detection (e.g. MonoDETR). Consumes an image plus camera "                           \
     "calibration and emits 2D detections annotated with 3D cuboids (location, dimensions, orientation)."
 
 enum {

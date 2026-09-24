@@ -223,9 +223,12 @@ static void draw_camera_3d_box(cv::Mat &img, float x, float y, float z, float h,
         const double Y = yc[i] + y;
         const double Z = -s * xc[i] + c * zc[i] + z;
 
-        const double u = P2.at<double>(0, 0) * X + P2.at<double>(0, 1) * Y + P2.at<double>(0, 2) * Z + P2.at<double>(0, 3);
-        const double v = P2.at<double>(1, 0) * X + P2.at<double>(1, 1) * Y + P2.at<double>(1, 2) * Z + P2.at<double>(1, 3);
-        const double sc = P2.at<double>(2, 0) * X + P2.at<double>(2, 1) * Y + P2.at<double>(2, 2) * Z + P2.at<double>(2, 3);
+        const double u =
+            P2.at<double>(0, 0) * X + P2.at<double>(0, 1) * Y + P2.at<double>(0, 2) * Z + P2.at<double>(0, 3);
+        const double v =
+            P2.at<double>(1, 0) * X + P2.at<double>(1, 1) * Y + P2.at<double>(1, 2) * Z + P2.at<double>(1, 3);
+        const double sc =
+            P2.at<double>(2, 0) * X + P2.at<double>(2, 1) * Y + P2.at<double>(2, 2) * Z + P2.at<double>(2, 3);
         if (sc <= 0.0)
             return; // any corner behind the camera -> skip the box
         pts[i] = cv::Point2f(static_cast<float>(u / sc), static_cast<float>(v / sc));
@@ -238,7 +241,8 @@ static void draw_camera_3d_box(cv::Mat &img, float x, float y, float z, float h,
         cv::line(img, pts[e[0]], pts[e[1]], cv::Scalar(0, 255, 0), 2, cv::LINE_AA);
 }
 
-static void gst_gva_watermark3d_render_set_property(GObject *object, guint prop_id, const GValue *value, GParamSpec *pspec) {
+static void gst_gva_watermark3d_render_set_property(GObject *object, guint prop_id, const GValue *value,
+                                                    GParamSpec *pspec) {
     GstGvaWatermark3DRender *self = GST_GVA_WATERMARK3D_RENDER(object);
     switch (prop_id) {
     case PROP_INTRINSICS_FILE:
@@ -286,7 +290,7 @@ static void gst_gva_watermark3d_render_get_property(GObject *object, guint prop_
 }
 
 static GstFlowReturn gst_gva_watermark3d_render_transform_frame(GstVideoFilter *filter, GstVideoFrame *inframe,
-                                                        GstVideoFrame *outframe) {
+                                                                GstVideoFrame *outframe) {
     (void)filter;
 
     const int width = GST_VIDEO_FRAME_WIDTH(inframe);
@@ -373,8 +377,8 @@ static GstFlowReturn gst_gva_watermark3d_render_transform_frame(GstVideoFilter *
     if (GstAnalyticsRelationMeta *rmeta = gst_buffer_get_analytics_relation_meta(inframe->buffer)) {
         gpointer mstate = NULL;
         GstAnalyticsCamera3DODMtd mtd;
-        while (gst_analytics_relation_meta_iterate(rmeta, &mstate, gst_analytics_camera_3d_od_mtd_get_mtd_type(),
-                                                   &mtd)) {
+        while (
+            gst_analytics_relation_meta_iterate(rmeta, &mstate, gst_analytics_camera_3d_od_mtd_get_mtd_type(), &mtd)) {
             gfloat x, y, z, box_h, box_w, box_l, ry, alpha;
             if (!gst_analytics_camera_3d_od_mtd_get_location(&mtd, &x, &y, &z, &box_h, &box_w, &box_l, &ry, &alpha))
                 continue;

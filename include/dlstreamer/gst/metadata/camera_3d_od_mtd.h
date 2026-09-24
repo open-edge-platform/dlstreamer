@@ -21,10 +21,12 @@ typedef struct _GstAnalyticsMtd GstAnalyticsCamera3DODMtd;
 
 DLS_EXPORT GstAnalyticsMtdType gst_analytics_camera_3d_od_mtd_get_mtd_type(void);
 
-DLS_EXPORT gboolean gst_analytics_relation_meta_add_camera_3d_od_mtd(
-    GstAnalyticsRelationMeta *instance, gint class_id, gfloat confidence, gfloat x1, gfloat y1, gfloat x2, gfloat y2,
-    gfloat x, gfloat y, gfloat z, gfloat height, gfloat width, gfloat length, gfloat rotation_y, gfloat alpha,
-    GstAnalyticsCamera3DODMtd *mtd);
+DLS_EXPORT gboolean gst_analytics_relation_meta_add_camera_3d_od_mtd(GstAnalyticsRelationMeta *instance, gint class_id,
+                                                                     gfloat confidence, gfloat x1, gfloat y1, gfloat x2,
+                                                                     gfloat y2, gfloat x, gfloat y, gfloat z,
+                                                                     gfloat height, gfloat width, gfloat length,
+                                                                     gfloat rotation_y, gfloat alpha,
+                                                                     GstAnalyticsCamera3DODMtd *mtd);
 
 DLS_EXPORT gboolean gst_analytics_camera_3d_od_mtd_get_class(const GstAnalyticsCamera3DODMtd *instance, gint *class_id,
                                                              gfloat *confidence);

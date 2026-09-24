@@ -18,8 +18,8 @@
 #include "gva_json_meta.h"
 #include "gva_tensor_meta.h"
 
-#include <dlstreamer/gst/metadata/g3d_od_mtd.h>
 #include <dlstreamer/gst/metadata/camera_3d_od_mtd.h>
+#include <dlstreamer/gst/metadata/g3d_od_mtd.h>
 #include <dlstreamer/gst/metadata/gstanalyticskeypointdescriptor.h>
 #include <gst/analytics/analytics.h>
 #include <gst/analytics/gstanalyticsbatchmeta.h>

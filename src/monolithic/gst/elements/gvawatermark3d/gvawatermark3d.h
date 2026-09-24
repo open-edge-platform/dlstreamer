@@ -21,7 +21,7 @@ struct _GstGvaWatermark3D {
     GstElement *vaconvert; // optional VA download (NULL when VA unavailable)
     GstElement *videoconvert;
     GstElement *capsfilter;
-    GstElement *render; // hidden GstGvaWatermark3DRender
+    GstElement *render;           // hidden GstGvaWatermark3DRender
     GstElement *videoconvert_out; // lets the bin output any format the downstream requests
 };
 
