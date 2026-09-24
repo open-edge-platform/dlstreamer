@@ -68,6 +68,9 @@ void VaApiImageMap_SystemMemory::Unmap() {
         } catch (const std::exception &e) {
             GVA_WARNING("VA buffer unmapping (destroying) failed: %s", e.what());
         }
+        // Clear state so a second Unmap() (e.g. from the destructor) is a no-op.
+        va_display = nullptr;
+        va_image = VAImage();
     }
 }
 

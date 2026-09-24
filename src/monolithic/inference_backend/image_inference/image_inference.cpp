@@ -10,6 +10,7 @@
 #include "image_inference_async_d3d11.h"
 #else
 #include "image_inference_async/image_inference_async.h"
+#include <cstdlib>
 #include <unistd.h>
 #endif
 
@@ -75,13 +76,18 @@ ImageInference::Ptr ImageInference::createImageInferenceInstance(MemoryType inpu
             // The heap access is probed here (not later, per-surface) so the whole pipeline stays
             // consistent: a partial fallback would leave the pool/OpenVINO instance in DMA_BUFFER mode
             // while individual surfaces are SYSTEM, which deadlocks inference.
-            if (isNpu) {
-                if (access("/dev/dma_heap/system", R_OK | W_OK) != 0) {
-                    GVA_WARNING("Falling back to the slow NPU path (extra GPU->CPU->NPU copies): no access to "
-                                "DMA-BUF. To enable zero-copy, grant access to /dev/dma_heap/system, e.g. "
-                                "'sudo chgrp video /dev/dma_heap/system && sudo chmod 660 /dev/dma_heap/system'.");
-                } else {
-                    memory_type_to_use = MemoryType::DMA_BUFFER;
+            // Zero-copy can be disabled by setting GVA_NPU_ZERO_COPY=0 (enabled by default).
+            {
+                const char *zero_copy_env = std::getenv("GVA_NPU_ZERO_COPY");
+                bool zero_copy_enabled = !(zero_copy_env && std::string(zero_copy_env) == "0");
+                if (isNpu && zero_copy_enabled) {
+                    if (access("/dev/dma_heap/system", R_OK | W_OK) != 0) {
+                        GVA_WARNING("Falling back to the slow NPU path (extra GPU->CPU->NPU copies): no access to "
+                                    "DMA-BUF. To enable zero-copy, grant access to /dev/dma_heap/system, e.g. "
+                                    "'sudo chgrp video /dev/dma_heap/system && sudo chmod 660 /dev/dma_heap/system'.");
+                    } else {
+                        memory_type_to_use = MemoryType::DMA_BUFFER;
+                    }
                 }
             }
 #endif
