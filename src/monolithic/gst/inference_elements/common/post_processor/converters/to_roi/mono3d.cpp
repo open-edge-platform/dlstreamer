@@ -26,6 +26,7 @@ using namespace post_processing;
 namespace {
 
 constexpr size_t NUM_HEADING_BIN = 12;
+constexpr double PI = 3.14159265358979323846;
 
 inline float sigmoid(float x) {
     return 1.0f / (1.0f + std::exp(-x));
@@ -63,10 +64,10 @@ std::vector<float> blobToFloat(const InferenceBackend::OutputBlob::Ptr &blob) {
 
 // Inverse of angle2class: angle = cls * (2pi/bins) + residual, wrapped to (-pi, pi].
 float class2angle(size_t cls, float residual) {
-    const float angle_per_class = 2.0f * static_cast<float>(M_PI) / static_cast<float>(NUM_HEADING_BIN);
+    const float angle_per_class = 2.0f * static_cast<float>(PI) / static_cast<float>(NUM_HEADING_BIN);
     float angle = static_cast<float>(cls) * angle_per_class + residual;
-    if (angle > static_cast<float>(M_PI))
-        angle -= 2.0f * static_cast<float>(M_PI);
+    if (angle > static_cast<float>(PI))
+        angle -= 2.0f * static_cast<float>(PI);
     return angle;
 }
 
@@ -222,10 +223,10 @@ void Mono3DConverter::parseOutputs(const float *logits, const std::vector<size_t
         const double alpha = getHeadingAngle(angle + q * 24);
         const double u_ry = ((x1n + x2n) / 2.0) * orig_w;
         double ry = alpha + std::atan2(u_ry - cu, fu);
-        if (ry > M_PI)
-            ry -= 2.0 * M_PI;
-        if (ry < -M_PI)
-            ry += 2.0 * M_PI;
+        if (ry > PI)
+            ry -= 2.0 * PI;
+        if (ry < -PI)
+            ry += 2.0 * PI;
 
         const std::string label = getLabels().empty() ? std::string() : getLabelByLabelId(cls);
 
