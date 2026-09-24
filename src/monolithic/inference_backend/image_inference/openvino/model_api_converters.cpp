@@ -714,7 +714,7 @@ bool convertThirdPartyModelConfig(const std::string model_file, ov::AnyMap &mode
     bool updated = false;
 
     if (!modelConfig.empty()) {
-        if (modelConfig["model_type"] == "YOLO") {
+        if (modelConfig["model_type"].as<std::string>().starts_with("YOLO")) {
             updated = convertYoloMeta2ModelApi(model_file, modelConfig);
         }
     }
