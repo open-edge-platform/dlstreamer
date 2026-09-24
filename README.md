@@ -83,7 +83,7 @@ docker run -it --rm \
   -v /tmp/.X11-unix:/tmp/.X11-unix \
   intel/dlstreamer:latest
 ```
-
+> To use the NPU, also add `--device /dev/accel --group-add $(stat -c "%g" /dev/accel/accel*)` to the `docker run` command.
 **Option B — Native install (Ubuntu 24.04)**:
 
 ```bash
