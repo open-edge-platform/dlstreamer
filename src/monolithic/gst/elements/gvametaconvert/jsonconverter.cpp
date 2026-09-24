@@ -18,6 +18,7 @@
 #include "gva_json_meta.h"
 #include "gva_tensor_meta.h"
 
+#include <dlstreamer/gst/metadata/camera_3d_od_mtd.h>
 #include <dlstreamer/gst/metadata/g3d_od_mtd.h>
 #include <dlstreamer/gst/metadata/gstanalyticskeypointdescriptor.h>
 #include <gst/analytics/analytics.h>
@@ -674,6 +675,49 @@ json convert_3d_od_mtds(GstAnalyticsRelationMeta *rmeta) {
     return objects;
 }
 
+/* Serialize every GstAnalyticsCamera3DODMtd on @rmeta to a JSON array. Each entry
+ * carries the amodal 2D box, the camera-frame 3D box (bottom-centre), heading and
+ * observation angle, class and confidence. */
+json convert_camera_3d_od_mtds(GstAnalyticsRelationMeta *rmeta) {
+    json objects = json::array();
+    if (!rmeta)
+        return objects;
+
+    gpointer state = NULL;
+    GstAnalyticsCamera3DODMtd mtd;
+    while (gst_analytics_relation_meta_iterate(rmeta, &state, gst_analytics_camera_3d_od_mtd_get_mtd_type(), &mtd)) {
+        gint class_id = -1;
+        gfloat confidence = 0.f;
+        gfloat x1 = 0, y1 = 0, x2 = 0, y2 = 0;
+        gfloat x = 0, y = 0, z = 0, height = 0, width = 0, length = 0, rotation_y = 0, alpha = 0;
+
+        if (!gst_analytics_camera_3d_od_mtd_get_location(&mtd, &x, &y, &z, &height, &width, &length, &rotation_y,
+                                                         &alpha))
+            continue;
+        gst_analytics_camera_3d_od_mtd_get_class(&mtd, &class_id, &confidence);
+        gst_analytics_camera_3d_od_mtd_get_box2d(&mtd, &x1, &y1, &x2, &y2);
+
+        json object = json::object({
+            {"id", mtd.id},
+            {"bbox", {{"x1", x1}, {"y1", y1}, {"x2", x2}, {"y2", y2}}},
+            {"bbox_3d",
+             {{"x", x},
+              {"y", y},
+              {"z", z},
+              {"h", height},
+              {"w", width},
+              {"l", length},
+              {"rotation_y", rotation_y},
+              {"alpha", alpha}}},
+            {"confidence", confidence},
+            {"label_id", class_id},
+        });
+        objects.push_back(object);
+    }
+
+    return objects;
+}
+
 json convert_lidar_inference_meta(GstGvaMetaConvert *converter, GstBuffer *buffer) {
     LidarMeta *lidar_meta = reinterpret_cast<LidarMeta *>(gst_buffer_get_meta(buffer, LIDAR_META_API_TYPE));
     if (!lidar_meta)
@@ -878,13 +922,16 @@ gboolean to_json(GstGvaMetaConvert *converter, GstBuffer *buffer) {
                 jframe_objects.push_back(frame_classification);
             }
 
+            /* Monocular 3D detections (e.g. from gvamono3d). */
+            json objects_camera_3d = convert_camera_3d_od_mtds(gst_buffer_get_analytics_relation_meta(buffer));
+
             /* tensors section */
             json jframe_tensors;
             if (converter->add_tensor_data) {
                 jframe_tensors = convert_frame_tensors(converter, buffer);
             }
 
-            if (jframe_objects.empty() && jframe_tensors.empty()) {
+            if (jframe_objects.empty() && jframe_tensors.empty() && objects_camera_3d.empty()) {
                 if (!converter->add_empty_detection_results) {
                     GST_DEBUG_OBJECT(converter, "No detections found. Not posting JSON message");
                     return TRUE;
@@ -894,6 +941,9 @@ gboolean to_json(GstGvaMetaConvert *converter, GstBuffer *buffer) {
             if (!jframe.is_null()) {
                 if (!jframe_objects.empty()) {
                     jframe["objects"] = jframe_objects;
+                }
+                if (!objects_camera_3d.empty()) {
+                    jframe["objects_3d"] = objects_camera_3d;
                 }
                 if (!jframe_tensors.empty()) {
                     jframe["tensors"] = jframe_tensors;

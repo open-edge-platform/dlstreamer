@@ -30,6 +30,8 @@ file (GLOB MAIN_SRC
     ${CMAKE_CURRENT_SOURCE_DIR}/gvadetect/converters/*.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gvainference/*.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gvainference/*.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/gvamono3d/*.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/gvamono3d/*.c
     ${CMAKE_CURRENT_SOURCE_DIR}/gvarealsense/*.cpp
 )
 
@@ -44,6 +46,7 @@ file (GLOB MAIN_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/gvadetect/*.h
     ${CMAKE_CURRENT_SOURCE_DIR}/gvadetect/converters/*.h
     ${CMAKE_CURRENT_SOURCE_DIR}/gvainference/*.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/gvamono3d/*.h
 )
 
 add_library(${TARGET_NAME} STATIC ${MAIN_SRC} ${MAIN_HEADERS})
@@ -63,7 +66,9 @@ PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/gvaclassify/
     ${CMAKE_CURRENT_SOURCE_DIR}/gvadetect/
     ${CMAKE_CURRENT_SOURCE_DIR}/gvainference/
+    ${CMAKE_CURRENT_SOURCE_DIR}/gvamono3d/
     ${CMAKE_CURRENT_SOURCE_DIR}/gvarealsense/
+    ${DLSTREAMER_BASE_DIR}/include
     ${DLSTREAMER_BASE_DIR}/src/base/dlstreamer_logger/
 PRIVATE
     ${GSTREAMER_INCLUDE_DIRS}
@@ -87,6 +92,7 @@ PRIVATE
     pre_proc
     opencv_pre_proc
     logger
+    dlstreamer_gst_meta
     nlohmann_json::nlohmann_json
 PUBLIC
     openvino::runtime

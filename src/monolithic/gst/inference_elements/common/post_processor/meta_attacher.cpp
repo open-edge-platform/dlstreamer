@@ -10,6 +10,7 @@
 #include "gva_base_inference.h"
 #include "gva_utils.h"
 #include "processor_types.h"
+#include <dlstreamer/gst/metadata/camera_3d_od_mtd.h>
 #include <dlstreamer/gst/videoanalytics/tensor.h>
 #include <gst/analytics/analytics.h>
 
@@ -139,6 +140,32 @@ void ROIToFrameAttacher::attach(const TensorsTable &tensors, FramesWrapper &fram
             const std::string &od_model_name = blob_to_meta.getModelName();
             if (!od_model_name.empty()) {
                 gst_analytics_mtd_set_semantic_tag(reinterpret_cast<GstAnalyticsMtd *>(&od_mtd), od_model_name.c_str());
+            }
+
+            // mono3d: emit a typed camera-frame 3D detection alongside the 2D box, linked to it.
+            gboolean has_3d = FALSE;
+            if (gst_structure_get_boolean(detection_tensor, "has_3d", &has_3d) && has_3d) {
+                gint class_id = 0;
+                gst_structure_get_int(detection_tensor, "label_id", &class_id);
+                gdouble d3_x = 0, d3_y = 0, d3_z = 0, d3_h = 0, d3_w = 0, d3_l = 0, d3_ry = 0, d3_alpha = 0;
+                gst_structure_get(detection_tensor, "det3d_x", G_TYPE_DOUBLE, &d3_x, "det3d_y", G_TYPE_DOUBLE, &d3_y,
+                                  "det3d_z", G_TYPE_DOUBLE, &d3_z, "det3d_h", G_TYPE_DOUBLE, &d3_h, "det3d_w",
+                                  G_TYPE_DOUBLE, &d3_w, "det3d_l", G_TYPE_DOUBLE, &d3_l, "det3d_ry", G_TYPE_DOUBLE,
+                                  &d3_ry, "det3d_alpha", G_TYPE_DOUBLE, &d3_alpha, NULL);
+
+                GstAnalyticsCamera3DODMtd cam3d_mtd;
+                if (!gst_analytics_relation_meta_add_camera_3d_od_mtd(
+                        relation_meta, class_id, static_cast<gfloat>(conf), static_cast<gfloat>(x_abs),
+                        static_cast<gfloat>(y_abs), static_cast<gfloat>(x_abs + w_abs),
+                        static_cast<gfloat>(y_abs + h_abs), static_cast<gfloat>(d3_x), static_cast<gfloat>(d3_y),
+                        static_cast<gfloat>(d3_z), static_cast<gfloat>(d3_h), static_cast<gfloat>(d3_w),
+                        static_cast<gfloat>(d3_l), static_cast<gfloat>(d3_ry), static_cast<gfloat>(d3_alpha),
+                        &cam3d_mtd)) {
+                    g_warning("mono3d: failed to add camera-3d detection metadata");
+                } else {
+                    gst_analytics_relation_meta_set_relation(relation_meta, GST_ANALYTICS_REL_TYPE_RELATE_TO, od_mtd.id,
+                                                             cam3d_mtd.id);
+                }
             }
 
             if (label && cls_descriptor_mtd.meta == relation_meta) {

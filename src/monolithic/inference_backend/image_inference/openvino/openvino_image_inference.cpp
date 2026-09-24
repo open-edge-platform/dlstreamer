@@ -822,6 +822,22 @@ class OpenVinoNewApiImpl {
         GVA_DEBUG("Setting batch size of %d to model", _batch_size);
         ov::set_batch(_model, _batch_size);
 
+        // ov::set_batch only pins inputs that carry an 'N' layout. Auxiliary inputs without a
+        // layout (e.g. MonoDETR's calib [N,3,4] and img_sizes [N,2]) keep a dynamic batch, which
+        // breaks internal shape inference (batch 0 vs 1). Pin any remaining dynamic input batch.
+        {
+            std::map<std::string, ov::PartialShape> pinned;
+            for (const auto &input : _model->inputs()) {
+                ov::PartialShape ps = input.get_partial_shape();
+                if (ps.rank().is_static() && ps.size() > 0 && ps[0].is_dynamic()) {
+                    ps[0] = _batch_size;
+                    pinned[input.get_any_name()] = ps;
+                }
+            }
+            if (!pinned.empty())
+                _model->reshape(pinned);
+        }
+
         GVA_DEBUG("Model inputs after configuration:");
         size_t idx = 0;
         for (auto &input : _model->inputs()) {
@@ -1531,6 +1547,23 @@ std::map<std::string, GstStructure *> OpenVINOImageInference::GetModelInfoPrepro
 
     auto info = ModelApiConverters::get_model_info_preproc(std::move(model), model_file, pre_proc_config);
     return info;
+}
+
+std::map<std::string, std::vector<size_t>> OpenVINOImageInference::GetModelInputShapes(const std::string model_file,
+                                                                                       const gchar *ov_extension_lib) {
+    if (ov_extension_lib && ov_extension_lib[0] != '\0') {
+        OpenVinoNewApiImpl::core().add_extension(ov_extension_lib);
+    }
+    std::shared_ptr<ov::Model> model = OpenVinoNewApiImpl::core().read_model(model_file);
+
+    std::map<std::string, std::vector<size_t>> res;
+    for (const auto &input : model->inputs()) {
+        const auto &partial_shape = input.get_partial_shape();
+        const auto &shape = partial_shape.is_dynamic() ? partial_shape.get_min_shape() : partial_shape.get_shape();
+        const std::string name = input.get_names().size() > 0 ? input.get_any_name() : std::string("input");
+        res.emplace(name, std::vector<size_t>(shape.begin(), shape.end()));
+    }
+    return res;
 }
 
 void OpenVINOImageInference::Flush() {
