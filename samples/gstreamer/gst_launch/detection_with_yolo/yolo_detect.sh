@@ -19,7 +19,7 @@ fi
 
 # List help message
 if [[ "${1:-}" == "--help" ]] || [[ "${1:-}" == "-h" ]]; then
-  echo "Usage: $0 [MODEL] [DEVICE] [INPUT] [OUTPUT] [PPBKEND] [PRECISION] [OUTPUT_DIRECTORY]"
+  echo "Usage: $0 [MODEL] [DEVICE] [INPUT] [OUTPUT] [PPBKEND] [PRECISION] [OUTPUT_DIRECTORY] [BENCHMARK_SINK]"
   echo ""
   echo "Arguments:"
   echo "  MODEL     - Model name (default: yolox_s)"
