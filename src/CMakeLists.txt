@@ -4,7 +4,6 @@
 # SPDX-License-Identifier: MIT
 # ==============================================================================
 
-add_subdirectory(base)
 add_subdirectory(gst)
 add_subdirectory(utils)
 

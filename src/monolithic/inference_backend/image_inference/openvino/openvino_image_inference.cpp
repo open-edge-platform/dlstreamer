@@ -4,9 +4,9 @@
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
 
-#include "dlstreamer_logger.h"
 #include "gst/gststructure.h"
 #include "inference_backend/image_inference.h"
+#include <spdlog/fmt/fmt.h>
 
 #include <cstddef>
 #include <openvino/runtime/properties.hpp>
