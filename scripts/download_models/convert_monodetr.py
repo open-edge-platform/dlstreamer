@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 #*******************************************************************************
 # Copyright (C) 2026 Intel Corporation
-# 
+#
 # SPDX-License-Identifier: MIT
 # ******************************************************************************/
 
@@ -36,6 +36,10 @@ If --ckpt is omitted, the upstream checkpoint is downloaded from Google Drive
 `import lib/` resolves to the freshly cloned upstream tree.
 """
 
+# Imports are intentionally deferred until the cloned upstream MonoDETR repo is
+# on sys.path (and heavy deps are loaded lazily), so allow function-level imports.
+# pylint: disable=import-outside-toplevel
+
 import argparse
 import os
 import subprocess
@@ -67,6 +71,7 @@ _DEFAULT_WH = np.array([1242.0, 375.0], dtype=np.float32)  # KITTI original (W, 
 # 1. clone upstream
 # ---------------------------------------------------------------------------
 def clone_upstream(repo, ref=None):
+    """Clone (or reuse) the upstream MonoDETR repo, optionally at a given git ref."""
     if not os.path.isdir(os.path.join(repo, ".git")):
         print(f"[info] cloning {UPSTREAM_URL} -> {repo}")
         subprocess.run(["git", "clone", "--depth", "1", UPSTREAM_URL, repo], check=True)
@@ -84,11 +89,11 @@ def download_checkpoint(dest):
         print(f"[info] using cached checkpoint {dest}")
         return dest
     try:
-        import gdown
-    except ImportError:
+        import gdown  # pylint: disable=import-outside-toplevel
+    except ImportError as exc:
         raise SystemExit(
             "Downloading the default checkpoint requires gdown "
-            "(`pip install gdown`), or pass --ckpt with a local .pth.")
+            "(`pip install gdown`), or pass --ckpt with a local .pth.") from exc
     os.makedirs(os.path.dirname(os.path.abspath(dest)) or ".", exist_ok=True)
     print(f"[info] downloading MonoDETR checkpoint from Google Drive -> {dest}")
     gdown.download(id=_DEFAULT_CKPT_GDRIVE_ID, output=dest, quiet=False)
@@ -102,9 +107,12 @@ def download_checkpoint(dest):
 # ---------------------------------------------------------------------------
 # 2a. pure-PyTorch MSDA op (traceable, CPU) + import shims
 # ---------------------------------------------------------------------------
-def _ms_deform_attn_core_pytorch(value, value_spatial_shapes, sampling_locations, attention_weights):
+def _ms_deform_attn_core_pytorch(value, value_spatial_shapes, sampling_locations, attention_weights):  # pylint: disable=too-many-locals
+    """Pure-PyTorch, CPU/traceable reference implementation of multi-scale deformable attention."""
+    # short tensor-dim names below mirror the upstream Deformable-DETR reference
+    # pylint: disable=invalid-name
     import torch.nn.functional as F
-    N_, S_, M_, D_ = value.shape
+    N_, _, M_, D_ = value.shape
     _, Lq_, M_, L_, P_, _ = sampling_locations.shape
     value_list = value.split([int(H_) * int(W_) for H_, W_ in value_spatial_shapes], dim=1)
     sampling_grids = 2 * sampling_locations - 1
@@ -131,11 +139,12 @@ def install_import_shims():
         types.ModuleType("MultiScaleDeformableAttention"))
     # (b) torch-2.x back-compat for the custom MultiheadAttention version guards,
     #     whichever branch they take.
-    import torch.overrides
-    sys.modules.setdefault("torch._overrides", torch.overrides)
+    import importlib
+    sys.modules.setdefault("torch._overrides", importlib.import_module("torch.overrides"))
     from torch.nn.modules import linear as _lin
     if not hasattr(_lin, "_LinearWithBias"):
-        _lin._LinearWithBias = getattr(_lin, "NonDynamicallyQuantizableLinear", torch.nn.Linear)
+        _lin._LinearWithBias = getattr(  # pylint: disable=protected-access
+            _lin, "NonDynamicallyQuantizableLinear", torch.nn.Linear)
 
 
 def override_msda_function():
@@ -144,10 +153,15 @@ def override_msda_function():
     from lib.models.monodetr.ops.functions import ms_deform_attn_func as f
     from lib.models.monodetr.ops.modules import ms_deform_attn as m
 
-    class MSDeformAttnFunction:
+    class MSDeformAttnFunction:  # pylint: disable=too-few-public-methods
+        """Traceable stand-in for the upstream autograd MSDeformAttnFunction."""
+
         @staticmethod
-        def apply(value, value_spatial_shapes, value_level_start_index,
+        def apply(value, value_spatial_shapes, value_level_start_index,  # pylint: disable=too-many-arguments,too-many-positional-arguments
                   sampling_locations, attention_weights, im2col_step):
+            """Match the upstream .apply() signature; forward to the pure-PyTorch core."""
+            # value_level_start_index / im2col_step are unused by the pure-PyTorch path
+            # pylint: disable=unused-argument
             return _ms_deform_attn_core_pytorch(
                 value, value_spatial_shapes, sampling_locations, attention_weights)
 
@@ -158,9 +172,10 @@ def override_msda_function():
 # ---------------------------------------------------------------------------
 # 2c. forward split (attached to upstream MonoDETR at runtime)
 # ---------------------------------------------------------------------------
-def install_forward_split():
+def install_forward_split():  # pylint: disable=too-many-statements
+    """Attach the traced-friendly forward_backbone/build_masks_pos/forward_head split onto MonoDETR."""
     import torch.nn.functional as F
-    from utils.misc import NestedTensor, inverse_sigmoid
+    from utils.misc import NestedTensor, inverse_sigmoid  # pylint: disable=no-name-in-module
     from lib.models.monodetr.monodetr import MonoDETR
 
     def forward_backbone(self, images):
@@ -194,7 +209,7 @@ def install_forward_split():
             pos.append(self.backbone[1](NestedTensor(src, m)).to(src.dtype))
         return masks, pos
 
-    def forward_head(self, srcs, masks, pos, calibs, img_sizes):
+    def forward_head(self, srcs, masks, pos, calibs, img_sizes):  # pylint: disable=too-many-locals,too-many-arguments,too-many-positional-arguments
         if self.two_stage:
             query_embeds = None
         elif self.use_dab:
@@ -255,7 +270,7 @@ def install_forward_split():
         }
         return out
 
-    def forward(self, images, calibs, targets=None, img_sizes=None, dn_args=None):
+    def forward(self, images, calibs, targets=None, img_sizes=None, dn_args=None):  # pylint: disable=too-many-arguments,too-many-positional-arguments,unused-argument
         srcs, masks, pos = self.forward_backbone(images)
         return self.forward_head(srcs, masks, pos, calibs, img_sizes)
 
@@ -269,11 +284,12 @@ def install_forward_split():
 # 3. build model + example inputs
 # ---------------------------------------------------------------------------
 def build_and_load(repo, ckpt):
+    """Build the MonoDETR model from the upstream config and load the checkpoint weights."""
     import yaml
     from lib.helpers.model_helper import build_model
 
     cfg_path = os.path.join(repo, "configs", "monodetr.yaml")
-    with open(cfg_path) as fh:
+    with open(cfg_path, encoding="utf-8") as fh:
         cfg = yaml.safe_load(fh)
     cfg["model"]["device"] = "cpu"
     # DDNLoss.__init__ calls torch.cuda.current_device(); unused at inference.
@@ -288,25 +304,29 @@ def build_and_load(repo, ckpt):
 
 
 def preprocess_image(path):
+    """Load an image and return a normalized NCHW tensor plus its original (W, H)."""
     from PIL import Image
     img = Image.open(path).convert("RGB")
     orig_wh = np.array(img.size, dtype=np.float32)  # (W, H)
-    img = img.resize((_IN_W, _IN_H), Image.BILINEAR)
+    img = img.resize((_IN_W, _IN_H), Image.Resampling.BILINEAR)
     arr = (np.asarray(img, dtype=np.float32) / 255.0 - _MEAN) / _STD
     return torch.from_numpy(arr.transpose(2, 0, 1))[None], orig_wh
 
 
 def load_p2(path):
+    """Return the 3x4 KITTI P2 projection matrix from a calibration file, or a default."""
     if path is None:
         return _DEFAULT_P2.copy()
-    for line in open(path):
-        if line.startswith("P2:"):
-            vals = [float(x) for x in line.split()[1:]]
-            return np.array(vals, dtype=np.float32).reshape(3, 4)
+    with open(path, encoding="utf-8") as fh:
+        for line in fh:
+            if line.startswith("P2:"):
+                vals = [float(x) for x in line.split()[1:]]
+                return np.array(vals, dtype=np.float32).reshape(3, 4)
     raise ValueError(f"no 'P2:' line found in {path}")
 
 
 def make_example(image, calib):
+    """Build the (images, calibs, img_sizes) example tuple used to trace/convert the model."""
     if image:
         images, orig_wh = preprocess_image(image)
     else:
@@ -321,7 +341,8 @@ def make_example(image, calib):
 # ---------------------------------------------------------------------------
 # 3. export the single mixed-precision IR
 # ---------------------------------------------------------------------------
-def export_mixed_ir(model, out_path, images, calibs, img_sizes, sanity=True):
+def export_mixed_ir(model, out_path, images, calibs, img_sizes, sanity=True):  # pylint: disable=too-many-locals,too-many-statements,too-many-arguments,too-many-positional-arguments
+    """Trace the model and save a single mixed-precision (f32 backbone / f16 head) OpenVINO IR."""
     import openvino as ov
     from openvino import opset13
     from openvino.passes import ConvertFP32ToFP16, Manager
@@ -332,6 +353,7 @@ def export_mixed_ir(model, out_path, images, calibs, img_sizes, sanity=True):
             self.m = m
 
         def forward(self, images):
+            """Return the backbone src feature maps as a tuple."""
             return tuple(self.m.forward_backbone(images)[0])
 
     class _HeadWrap(torch.nn.Module):
@@ -339,7 +361,8 @@ def export_mixed_ir(model, out_path, images, calibs, img_sizes, sanity=True):
             super().__init__()
             self.m = m
 
-        def forward(self, s0, s1, s2, s3, calibs, img_sizes):
+        def forward(self, s0, s1, s2, s3, calibs, img_sizes):  # pylint: disable=too-many-arguments,too-many-positional-arguments
+            """Run masks/pos build + head on the four backbone feature maps."""
             srcs = [s0, s1, s2, s3]
             masks, pos = self.m.build_masks_pos(srcs)
             out = self.m.forward_head(srcs, masks, pos, calibs, img_sizes)
@@ -413,6 +436,7 @@ def export_mixed_ir(model, out_path, images, calibs, img_sizes, sanity=True):
 
 # ---------------------------------------------------------------------------
 def parse_args():
+    """Parse command-line arguments."""
     p = argparse.ArgumentParser(description=__doc__.strip().splitlines()[0])
     p.add_argument("--ckpt", default=None,
                    help="MonoDETR checkpoint .pth (default: download from upstream Google Drive)")
@@ -426,6 +450,7 @@ def parse_args():
 
 
 def main():
+    """Clone upstream, patch it for CPU tracing, build the model and export the IR."""
     args = parse_args()
     repo = clone_upstream(args.repo, args.ref)
     ckpt = args.ckpt or download_checkpoint(os.path.join(repo, "chkpts", _DEFAULT_CKPT_NAME))
