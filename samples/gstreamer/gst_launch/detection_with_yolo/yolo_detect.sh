@@ -41,6 +41,7 @@ OUTPUT=${4:-"file"}     # Supported values: file, display, fps, json, display-an
 PPBKEND=${5:-""}        # Supported values: ie, opencv, va, va-surface-sharing
 PRECISION=${6:-"INT8"}  # Supported values: INT8, FP32, FP16
 OUTPUT_DIRECTORY=${7:-""}
+BENCHMARK_SINK=${8:-""}
 
 DETECTION_MODEL="$MODEL"
 CLASSIFICATION_MODEL=""
@@ -195,7 +196,7 @@ if [[ -n "$CLASSIFICATION_MODEL_PATH" ]]; then
   CLASSIFICATION_ELEMENT=" ! gvaclassify model=$CLASSIFICATION_MODEL_PATH device=$DEVICE pre-process-backend=opencv ! queue"
 fi
 
-PIPELINE="gst-launch-1.0 $SOURCE_ELEMENT $DECODE_ELEMENT \
+PIPELINE="gst-launch-1.0 $SOURCE_ELEMENT $DECODE_ELEMENT $BENCHMARK_SINK \
 gvadetect model=$MODEL_PATH"
 if [[ -n "$MODEL_PROC" ]]; then
   PIPELINE="$PIPELINE model-proc=$MODEL_PROC"
