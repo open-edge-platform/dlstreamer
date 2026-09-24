@@ -3,7 +3,7 @@
 # Copyright (C) 2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
-# ******************************************************************************/
+# ******************************************************************************
 
 """
 Standalone MonoDETR -> OpenVINO converter (starts from the ORIGINAL upstream repo).
