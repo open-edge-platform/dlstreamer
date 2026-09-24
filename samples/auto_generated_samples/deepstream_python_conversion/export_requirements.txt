@@ -5,7 +5,7 @@
 --extra-index-url https://download.pytorch.org/whl/cpu
 
 # OpenVINO Python version (pin to match DL Streamer runtime)
-openvino==2026.3.1
+openvino==2026.4.0
 
 # NNCF for INT8 quantization (required by ultralytics int8=True export)
 nncf==3.0.0
