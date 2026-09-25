@@ -28,6 +28,12 @@ ifeq ($(GENAI_DIR_SET), true)
 endif
 endif
 
+GCC_MAJOR_VERSION := $(shell gcc -dumpversion 2>/dev/null | cut -d. -f1)
+EXTRA_CXX_FLAGS :=
+ifeq ($(shell [ "$(GCC_MAJOR_VERSION)" -ge 15 ] 2>/dev/null && echo yes),yes)
+	EXTRA_CXX_FLAGS := -Wno-free-nonheap-object
+endif
+
 export PATH 					:= ${PROJECT_DIRECTORY}/${DEPENDENCY_DIR}/install/bin:${PROJECT_DIRECTORY}/build/intel64/${BUILD_TYPE}/bin:${HOME}/.local/bin:${HOME}/python3venv/bin:${PATH}
 export GST_PLUGIN_PATH 			:= ${PROJECT_DIRECTORY}/${DEPENDENCY_DIR}/gstreamer-bin/lib/gstreamer-1.0:${PROJECT_DIRECTORY}/build/intel64/${BUILD_TYPE}/lib
 export LIBRARY_PATH 			:= ${PROJECT_DIRECTORY}/${DEPENDENCY_DIR}/install/lib:${PROJECT_DIRECTORY}/${DEPENDENCY_DIR}/gstreamer-bin/lib:${PROJECT_DIRECTORY}/${DEPENDENCY_DIR}/opencv-bin/lib:${PROJECT_DIRECTORY}/${DEPENDENCY_DIR}/rdkafka-bin/lib:${PROJECT_DIRECTORY}/build/intel64/${BUILD_TYPE}/lib:/usr/lib
@@ -60,7 +66,7 @@ build: dependencies ## Compile Deep Learning Streamer
 		-DCMAKE_PREFIX_PATH:PATH="${PROJECT_DIRECTORY}/${DEPENDENCY_DIR}/install;${PROJECT_DIRECTORY}/${DEPENDENCY_DIR}/opencv-bin;${PROJECT_DIRECTORY}/${DEPENDENCY_DIR}/rdkafka-bin" \
 		-DCMAKE_INCLUDE_PATH:PATH=${PROJECT_DIRECTORY}/${DEPENDENCY_DIR}/install/include:${PROJECT_DIRECTORY}/${DEPENDENCY_DIR}/rdkafka-bin/include \
 		-DCMAKE_LIBRARY_PATH:PATH=${PROJECT_DIRECTORY}/${DEPENDENCY_DIR}/install/lib \
-		-DCMAKE_CXX_FLAGS="-I${PROJECT_DIRECTORY}/${DEPENDENCY_DIR}/rdkafka-bin/include" \
+		-DCMAKE_CXX_FLAGS="-I${PROJECT_DIRECTORY}/${DEPENDENCY_DIR}/rdkafka-bin/include ${EXTRA_CXX_FLAGS}" \
 		-DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
 		-DENABLE_PAHO_INSTALLATION=ON \
 		-DENABLE_RDKAFKA_INSTALLATION=ON \

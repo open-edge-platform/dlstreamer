@@ -9,7 +9,13 @@ set -eo pipefail
 
 # shellcheck source=/dev/null
 . /etc/os-release
-if [[ "$ID" == "ubuntu" && "$VERSION_ID" == "24.04" ]]; then
+if [[ "$ID" == "ubuntu" && "$VERSION_ID" == "26.04" ]]; then
+    echo "Ubuntu 26.04 detected"
+    OS="ubuntu26"
+    update_cmd=(apt-get update)
+    install_cmd=(apt-get install -y)
+    DEBIAN_FRONTEND=noninteractive
+elif [[ "$ID" == "ubuntu" && "$VERSION_ID" == "24.04" ]]; then
     echo "Ubuntu 24.04 detected"
     OS="ubuntu24"
     update_cmd=(apt-get update)
