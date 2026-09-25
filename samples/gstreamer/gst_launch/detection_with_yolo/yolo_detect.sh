@@ -19,7 +19,7 @@ fi
 
 # List help message
 if [[ "${1:-}" == "--help" ]] || [[ "${1:-}" == "-h" ]]; then
-  echo "Usage: $0 [MODEL] [DEVICE] [INPUT] [OUTPUT] [PPBKEND] [PRECISION] [OUTPUT_DIRECTORY] [BENCHMARK_SINK]"
+  echo "Usage: $0 [MODEL] [DEVICE] [INPUT] [OUTPUT] [PPBKEND] [PRECISION] [OUTPUT_DIRECTORY] [EOS_LIMIT_ELEMENT]"
   echo ""
   echo "Arguments:"
   echo "  MODEL     - Model name (default: yolox_s)"
@@ -30,7 +30,7 @@ if [[ "${1:-}" == "--help" ]] || [[ "${1:-}" == "-h" ]]; then
   echo "  PPBKEND   - Preprocessing backend (default: auto). Supported: ie, opencv, va, va-surface-sharing"
   echo "  PRECISION - Model precision (default: INT8). Supported: INT8, FP32, FP16"
   echo "  OUTPUT_DIRECTORY - Directory for PNG frames (default: current directory)"
-  echo "  BENCHMARK_SINK - Benchmark sink (default: empty) - e.g., identity eos-after=100"
+  echo "  EOS_LIMIT_ELEMENT - Optional in-pipeline element that ends the stream early (default: empty) - e.g., identity eos-after=100"
   echo ""
   exit 0
 fi
@@ -42,7 +42,7 @@ OUTPUT=${4:-"file"}     # Supported values: file, display, fps, json, display-an
 PPBKEND=${5:-""}        # Supported values: ie, opencv, va, va-surface-sharing
 PRECISION=${6:-"INT8"}  # Supported values: INT8, FP32, FP16
 OUTPUT_DIRECTORY=${7:-""}
-BENCHMARK_SINK=${8:-""}
+EOS_LIMIT_ELEMENT=${8:-""}
 
 DETECTION_MODEL="$MODEL"
 CLASSIFICATION_MODEL=""
@@ -197,7 +197,7 @@ if [[ -n "$CLASSIFICATION_MODEL_PATH" ]]; then
   CLASSIFICATION_ELEMENT=" ! gvaclassify model=$CLASSIFICATION_MODEL_PATH device=$DEVICE pre-process-backend=opencv ! queue"
 fi
 
-PIPELINE="gst-launch-1.0 $SOURCE_ELEMENT $DECODE_ELEMENT $BENCHMARK_SINK \
+PIPELINE="gst-launch-1.0 $SOURCE_ELEMENT $DECODE_ELEMENT $EOS_LIMIT_ELEMENT \
 gvadetect model=$MODEL_PATH"
 if [[ -n "$MODEL_PROC" ]]; then
   PIPELINE="$PIPELINE model-proc=$MODEL_PROC"
