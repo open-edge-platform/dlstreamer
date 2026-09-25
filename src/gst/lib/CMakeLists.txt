@@ -10,7 +10,7 @@ if(WIN32)
     pkg_check_modules(GSTD3D11 gstreamer-d3d11-1.0>=1.16 REQUIRED)
 endif()
 
-add_library(${TARGET_NAME} SHARED allocator.cpp transform_element.cpp)
+add_library(${TARGET_NAME} SHARED allocator.cpp)
 set_compile_flags(${TARGET_NAME})
 if(WIN32)
     add_vs_version_resource(${TARGET_NAME})
@@ -35,9 +35,7 @@ endif()
 target_link_libraries(${TARGET_NAME}
 PUBLIC
         dlstreamer_api
-        dlstreamer_gst_utils
         dlstreamer_gst_meta
-        gst_logger_sink
         ${GSTREAMER_LIBRARIES}
         ${GSTVIDEO_LIBRARIES}
         ${GLIB2_LIBRARIES}
