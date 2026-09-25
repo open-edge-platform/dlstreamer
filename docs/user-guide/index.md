@@ -148,7 +148,6 @@ dev_guide/dev_guide_index
 elements/elements
 supported_models
 api_ref/api_reference
-architecture_2.0/architecture_2.0
 
 :::
 

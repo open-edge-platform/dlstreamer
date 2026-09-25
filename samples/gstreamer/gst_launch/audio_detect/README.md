@@ -16,10 +16,16 @@ This sample builds a GStreamer pipeline using the following elements
 
 ## Model
 
-This sample uses the ACLNet model trained for audio event detection and made available through the Open Model Zoo. For more details see [here](https://github.com/openvinotoolkit/open_model_zoo/blob/master/models/public/aclnet/aclnet.md).
+This sample uses the ACLNet model trained for audio event detection and made available through the Open Model Zoo. For more details see [here](https://github.com/openvinotoolkit/open_model_zoo/blob/master/models/public/aclnet/README.md).
 *   __aclnet_des_53_fp32.onnx__ is end-to-end convolutional neural network architecture for audio classification
 
-> **NOTE**: Before running this sample, prepare required models using scripts in `scripts/download_models` (see `scripts/download_models/README.md`).
+> **NOTE**: Before running this sample, prepare the required model with [`download_other_models.sh`](../../../../scripts/download_models/download_other_models.sh) `aclnet` (see `scripts/download_models/README.md`).
+
+## Environment Variables
+
+This sample requires one of the following environment variables to be set:
+- `AUDIO_MODELS_PATH`: Path to audio models directory (preferred)
+- `MODELS_PATH`: Path to the models directory (fallback if `AUDIO_MODELS_PATH` is not set)
 
 ## Model Proc
 
@@ -30,7 +36,7 @@ Along with the model network and weights, gvaudiodetect uses an additional `mode
 ## Running
 
 ```sh
-./audio_event_detection.sh [INPUT_PATH]
+./audio_event_detection.sh [INPUT_PATH] [OUTPUT_PATH]
 ```
 Where [INPUT_PATH] can be:
 * local audio file ('./example.audio.wav')
@@ -38,8 +44,10 @@ Where [INPUT_PATH] can be:
 
 By default, if no [INPUT_PATH] is specified, the sample uses a local file `how_are_you_doing.wav` (utilizing `filesrc` element).
 
+[OUTPUT_PATH] is an optional path to a JSON file for detection results. If not specified, results are printed to stdout.
+
 ## Sample Output
 
 The sample
 * prints full gst-launch-1.0 command to the console
-* starts the command and outputs audio detection results to the console
+* starts the command and outputs audio detection results to the console (or to [OUTPUT_PATH], if specified)

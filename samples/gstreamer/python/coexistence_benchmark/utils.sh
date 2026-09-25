@@ -5,31 +5,32 @@
 # SPDX-License-Identifier: MIT
 # ==============================================================================
 
-# ==============================================================================
-# Pipeline builders (multi-source single gst-launch-1.0 process).
-#
-# DL Streamer: N independent source branches, each with shared model instances
-#              (model-instance-id) and individual gvafpscounter + fakesink.
-# DeepStream:  N source branches feeding a single nvstreammux with batch-size=N,
-#              followed by shared inference chain + fakesink.
-
-# Build a DL Streamer pipeline with N branches — no encode (fakesink output).
+# Pipeline builders: DLS runs N branches sharing model instances (model-instance-id);
+# DS batches N sources into one nvstreammux + shared inference chain.
 build_dls_pipeline_no_encode() {
     local n="$1"
     local pipeline="gst-launch-1.0"
     local i
+    # Container always has exactly one VA render node, so generic vah264dec/vapostproc bind
+    # correctly; device-suffixed elements need 2+ VA devices and would fail to launch here.
+    local decode_chain
+    if [[ "${DLS_DECODE_CHAIN:-1}" == "2" ]]; then
+        decode_chain="decodebin3 ! vapostproc"
+    else
+        decode_chain="parsebin ! vah264dec ! vapostproc"
+    fi
+
     for i in $(seq 1 "$n"); do
-        pipeline+=" ${SOURCE_DLS} ! decodebin3 ! vapostproc ! video/x-raw\(memory:VAMemory\) ! queue \
+        pipeline+=" ${SOURCE_DLS} ! ${decode_chain} ! video/x-raw\(memory:VAMemory\) ! queue \
 ! gvadetect model=/working_dir/public/yolov8_license_plate_detector/FP32/yolov8_license_plate_detector.xml \
-device=${INTEL_OV_DEVICE} pre-process-backend=va model-instance-id=dls_det scheduling-policy="latency" ! queue ! \
+device=${INTEL_OV_DEVICE} pre-process-backend=va-surface-sharing model-instance-id=dls_det scheduling-policy="latency" ! queue ! \
 gvaclassify model=/working_dir/public/ch_PP-OCRv4_rec_infer/FP32/ch_PP-OCRv4_rec_infer.xml \
-device=${INTEL_OV_DEVICE} pre-process-backend=va model-instance-id=dls_ocr scheduling-policy="latency" ! \
+device=${INTEL_OV_DEVICE} pre-process-backend=va-surface-sharing model-instance-id=dls_ocr scheduling-policy="latency" ! \
 queue ! gvafpscounter name=fpsctr${i} ! fakesink sync=false"
     done
     printf '%s' "$pipeline"
 }
 
-# Build a DeepStream pipeline with N sources — no encode (fakesink output).
 build_ds_pipeline_no_encode() {
     local n="$1"
     local pipeline="gst-launch-1.0"
@@ -48,68 +49,72 @@ unique-id=3 ! queue ! fakesink sync=false"
     printf '%s' "$pipeline"
 }
 
-# Detect available Intel device nodes and prepare docker --device/--group-add args.
 detect_intel_devices_for_docker() {
-    # Check if there is /dev/dri folder to run on Intel GPU
-    if [[ -e "/dev/dri" ]]; then
-        DEVICE_DRI="--device /dev/dri --group-add $(stat -c "%g" /dev/dri/render* | head -1)"
-    fi
+    [[ -e "/dev/dri" ]] && DEVICE_DRI="--device /dev/dri --group-add $(stat -c "%g" /dev/dri/render* | head -1)"
+    [[ -e "/dev/accel" ]] && DEVICE_ACCEL="--device /dev/accel --group-add $(stat -c "%g" /dev/accel/accel* | head -1)"
+}
 
-    # Check if there is /dev/accel folder to run on Intel NPU
-    if [[ -e "/dev/accel" ]]; then
-        DEVICE_ACCEL="--device /dev/accel --group-add $(stat -c "%g" /dev/accel/accel* | head -1)"
+print_detected_gpus() {
+    local gpus gpu pci description
+
+    gpus=$(lspci | grep -Ei 'VGA compatible controller|3D controller|Display controller')
+    printf '\nDetected GPUs:\n'
+    printf '  +------------+--------------------------------------------------------------------+\n'
+    printf '  | PCI Address| GPU                                                                |\n'
+    printf '  +------------+--------------------------------------------------------------------+\n'
+    if [[ -n "$gpus" ]]; then
+        while IFS= read -r gpu; do
+            pci=${gpu%% *}
+            description=${gpu#*: }
+            printf '  | %-10s | %-66s |\n' "$pci" "$description"
+        done <<< "$gpus"
+    else
+        printf '  | %-10s | %-66s |\n' '-' 'None detected'
+    fi
+    printf '  +------------+--------------------------------------------------------------------+\n'
+    printf '\n'
+}
+
+# Usage: _determine_source <input> <source_var_name> <volume_var_name>
+_determine_source() {
+    local input="$1"
+    local -n _source_ref="$2"
+    local -n _volume_ref="$3"
+    local input_dir
+
+    if [[ "$input" =~ 'rtsp://' ]]; then
+        _source_ref="rtspsrc location=$input"
+        _volume_ref=""
+    elif [[ "$input" =~ 'https://' ]]; then
+        _source_ref="urisourcebin buffer-size=4096 uri=$input"
+        _volume_ref=""
+    elif [[ "$input" = /* ]]; then
+        input_dir=$(dirname "$input")
+        _source_ref="filesrc location=$input"
+        _volume_ref="-v ${input_dir}:${input_dir}"
+    else
+        _source_ref="filesrc location=/working_dir/$input"
+        _volume_ref=""
     fi
 }
 
-# Determine DL Streamer input source element and extra bind mount from input arg.
 determine_source_dls() {
-    local input_dls="$1"
-    local input_dir
-
-    if [[ "$input_dls" =~ 'rtsp://' ]]; then
-        SOURCE_DLS="rtspsrc location=$input_dls"
-        EXTRA_INPUT_VOLUME_DLS=""
-    elif [[ "$input_dls" =~ 'https://' ]]; then
-        SOURCE_DLS="urisourcebin buffer-size=4096 uri=$input_dls"
-        EXTRA_INPUT_VOLUME_DLS=""
-    elif [[ "$input_dls" = /* ]]; then
-        input_dir=$(dirname "$input_dls")
-        SOURCE_DLS="filesrc location=$input_dls"
-        EXTRA_INPUT_VOLUME_DLS="-v ${input_dir}:${input_dir}"
-    else
-        SOURCE_DLS="filesrc location=/working_dir/$input_dls"
-        EXTRA_INPUT_VOLUME_DLS=""
-    fi
+    _determine_source "$1" SOURCE_DLS EXTRA_INPUT_VOLUME_DLS
 }
 
-# Determine DeepStream input source element and extra bind mount from input arg.
 determine_source_ds() {
-    local input_ds="$1"
-    local input_dir
-
-    if [[ "$input_ds" =~ 'rtsp://' ]]; then
-        SOURCE_DS="rtspsrc location=$input_ds"
-        EXTRA_INPUT_VOLUME_DS=""
-    elif [[ "$input_ds" =~ 'https://' ]]; then
-        SOURCE_DS="urisourcebin buffer-size=4096 uri=$input_ds"
-        EXTRA_INPUT_VOLUME_DS=""
-    elif [[ "$input_ds" = /* ]]; then
-        input_dir=$(dirname "$input_ds")
-        SOURCE_DS="filesrc location=$input_ds"
-        EXTRA_INPUT_VOLUME_DS="-v ${input_dir}:${input_dir}"
-    else
-        SOURCE_DS="filesrc location=/working_dir/$input_ds"
-        EXTRA_INPUT_VOLUME_DS=""
-    fi
+    _determine_source "$1" SOURCE_DS EXTRA_INPUT_VOLUME_DS
 }
 
-# Detect preferred Intel render device (prefer dGPU over iGPU) and update DRI args.
+# Restrict container to one Intel GPU (dGPU preferred over iGPU) to keep VA-API/OpenVINO aligned.
 detect_preferred_intel_render_device() {
     INTEL_RENDER_DEVICE=""
     INTEL_OV_DEVICE="GPU"
 
-    local _d _vendor _pci _dgpu_group
+    local _d _vendor _pci _card_pci
+    [[ -n "${INTEL_SELECTED_RENDER_DEVICE:-}" ]] && INTEL_RENDER_DEVICE="$INTEL_SELECTED_RENDER_DEVICE"
     for _d in /dev/dri/render*; do
+        [[ -n "$INTEL_RENDER_DEVICE" ]] && break
         _vendor=$(cat /sys/class/drm/$(basename "$_d")/device/vendor 2>/dev/null)
         if [[ "$_vendor" == "0x8086" ]]; then
             _pci=$(basename "$(readlink /sys/class/drm/$(basename "$_d")/device 2>/dev/null)" 2>/dev/null)
@@ -124,14 +129,73 @@ detect_preferred_intel_render_device() {
     printf 'Intel render device: %s  OpenVINO device: %s\n' "${INTEL_RENDER_DEVICE}" "${INTEL_OV_DEVICE}"
 
     if [[ -n "$INTEL_RENDER_DEVICE" ]]; then
-        # Keep full /dev/dri (card* nodes required by iHD driver for VA-API init); GST_VA_DRM_DEVICE selects the GPU.
-        _dgpu_group=$(stat -c "%g" "$INTEL_RENDER_DEVICE")
-        DEVICE_DRI="--device /dev/dri --group-add ${_dgpu_group}"
-        printf 'Using DRI device: %s (group %s)\n' "${INTEL_RENDER_DEVICE}" "${_dgpu_group}"
+        _pci=$(basename "$(readlink /sys/class/drm/$(basename "$INTEL_RENDER_DEVICE")/device 2>/dev/null)")
+        INTEL_CARD_DEVICE=""
+        for _d in /dev/dri/card*; do
+            _card_pci=$(basename "$(readlink /sys/class/drm/$(basename "$_d")/device 2>/dev/null)")
+            if [[ "$_card_pci" == "$_pci" ]]; then
+                INTEL_CARD_DEVICE="$_d"
+                break
+            fi
+        done
+
+        local _render_group _card_group
+        _render_group=$(stat -c "%g" "$INTEL_RENDER_DEVICE")
+        DEVICE_DRI="--device ${INTEL_RENDER_DEVICE} --group-add ${_render_group}"
+        if [[ -n "$INTEL_CARD_DEVICE" ]]; then
+            _card_group=$(stat -c "%g" "$INTEL_CARD_DEVICE")
+            DEVICE_DRI="--device ${INTEL_CARD_DEVICE} ${DEVICE_DRI}"
+            [[ "$_card_group" != "$_render_group" ]] && DEVICE_DRI="${DEVICE_DRI} --group-add ${_card_group}"
+        fi
+        printf 'Using DRI devices: %s %s\n' "${INTEL_CARD_DEVICE}" "${INTEL_RENDER_DEVICE}"
     fi
 }
 
-# Ensure a named docker container does not exist before starting a new round.
+select_intel_gpu() {
+    local _d _vendor _pci _name _choice _index=0
+    local -a _devices=() _names=()
+
+    for _d in /dev/dri/render*; do
+        _vendor=$(cat "/sys/class/drm/$(basename "$_d")/device/vendor" 2>/dev/null)
+        [[ "$_vendor" != "0x8086" ]] && continue
+        _pci=$(basename "$(readlink "/sys/class/drm/$(basename "$_d")/device" 2>/dev/null)" 2>/dev/null)
+        _name=$(lspci -s "$_pci" 2>/dev/null | sed -E 's/^[^:]+: //')
+        [[ -z "$_name" ]] && _name="Intel GPU (${_pci})"
+        _devices+=("$_d")
+        _names+=("$_name")
+    done
+
+    [[ "${#_devices[@]}" -eq 0 ]] && return 0
+
+    if [[ -n "${INTEL_GPU_RENDER_DEVICE:-}" ]]; then
+        INTEL_SELECTED_RENDER_DEVICE="$INTEL_GPU_RENDER_DEVICE"
+        return 0
+    fi
+
+    [[ ! -t 0 ]] && return 0
+
+    printf '\nSelect Intel GPU for DL Streamer:\n'
+    for ((_index = 0; _index < ${#_devices[@]}; _index++)); do
+        printf '  %d) %s [%s]\n' "$((_index + 1))" "${_names[_index]}" "${_devices[_index]}"
+    done
+    printf 'Choice [1-%d, default: dGPU if available]: ' "${#_devices[@]}"
+    read -r _choice
+
+    if [[ -z "$_choice" ]]; then
+        for ((_index = 0; _index < ${#_devices[@]}; _index++)); do
+            [[ "${_names[_index]}" == *"Arc"* ]] && _choice="$((_index + 1))" && break
+        done
+        [[ -z "$_choice" ]] && _choice=1
+    fi
+
+    if [[ "$_choice" =~ ^[0-9]+$ ]] && (( _choice >= 1 && _choice <= ${#_devices[@]} )); then
+        INTEL_SELECTED_RENDER_DEVICE="${_devices[_choice - 1]}"
+        printf 'Selected Intel GPU: %s\n' "${_names[_choice - 1]}"
+    else
+        printf 'Invalid choice; using the default Intel GPU selection.\n'
+    fi
+}
+
 ensure_container_absent() {
     local cname="$1"
     if docker container inspect "${cname}" >/dev/null 2>&1; then
@@ -142,16 +206,13 @@ ensure_container_absent() {
     fi
 }
 
-# Start one DL Streamer round in background.
-# Dependencies expected in caller scope: DLS_ROUND_INDEX, DLS_ACTIVE_CONTAINER,
-# DLS_CONTAINER_NAME, DLSTREAMER_DOCKER.
+# Dependencies expected in caller scope: DLS_ACTIVE_CONTAINER, DLS_CONTAINER_NAME, DLSTREAMER_DOCKER.
 start_dls_round_container() {
     local streams="$1"
     local logfile="$2"
     local pipeline run_cmd
 
-    DLS_ROUND_INDEX=$(( DLS_ROUND_INDEX + 1 ))
-    DLS_ACTIVE_CONTAINER="${DLS_CONTAINER_NAME}_${DLS_ROUND_INDEX}"
+    DLS_ACTIVE_CONTAINER="${DLS_CONTAINER_NAME}_${streams}"
     ensure_container_absent "${DLS_ACTIVE_CONTAINER}"
     pipeline=$(build_dls_pipeline_no_encode "$streams")
     printf "  [Intel / DL Streamer] Starting pipeline with %d stream branch(es)\n" "$streams"
@@ -161,50 +222,46 @@ start_dls_round_container() {
     eval "${run_cmd}" > "$logfile" 2>&1 &
 }
 
-# Start one DeepStream round in background.
-# Dependencies expected in caller scope: DS_ROUND_INDEX, DS_ACTIVE_CONTAINER,
-# DS_CONTAINER_NAME, DEEPSTREAM_DOCKER.
+# Dependencies expected in caller scope: DS_ACTIVE_CONTAINER, DS_CONTAINER_NAME, DEEPSTREAM_DOCKER.
 start_ds_round_container() {
     local streams="$1"
     local logfile="$2"
     local pipeline run_cmd
 
-    DS_ROUND_INDEX=$(( DS_ROUND_INDEX + 1 ))
-    DS_ACTIVE_CONTAINER="${DS_CONTAINER_NAME}_${DS_ROUND_INDEX}"
+    DS_ACTIVE_CONTAINER="${DS_CONTAINER_NAME}_${streams}"
     ensure_container_absent "${DS_ACTIVE_CONTAINER}"
     pipeline=$(build_ds_pipeline_no_encode "$streams")
-    printf "  [NVIDIA / DeepStream] Starting pipeline with %d source(s)\n" "$streams"
+    printf "  [DeepStream] Starting pipeline with %d source(s)\n" "$streams"
     printf "    Pipeline: %s\n\n" "$pipeline"
     run_cmd="${DEEPSTREAM_DOCKER/--name ${DS_CONTAINER_NAME}/--name ${DS_ACTIVE_CONTAINER}} \"${pipeline}\""
     printf "    Docker command: %s\n\n" "${run_cmd}"
     eval "${run_cmd}" > "$logfile" 2>&1 &
 }
 
-# Store round process IDs in global benchmark state.
-# Sets globals in caller scope: ROUND_PID, DLS_PID, DS_PID.
+# Sets globals in caller scope: DLS_PID, DS_PID.
 set_round_process_ids() {
     local platform="$1"
     local pid="$2"
 
-    ROUND_PID=$pid
-    if [[ "$platform" == "dls" ]]; then
-        DLS_PID=$pid
-    else
-        DS_PID=$pid
-    fi
+    [[ "$platform" == "dls" ]] && DLS_PID=$pid || DS_PID=$pid
 }
 
-# Wait for pipeline start, stop early on abort, and print diagnostics if it exits too soon.
 wait_for_round_start_and_warn() {
     local platform="$1"
     local streams="$2"
     local pid="$3"
     local logfile="$4"
     local sync_timeout="$5"
+    local startup_status
 
     printf "    PID: %d\n" "$pid"
     wait_for_pipeline_start "${platform} (${streams} streams)" "$pid" "$logfile" "$sync_timeout"
+    startup_status=$?
     [[ "$ABORT" == true ]] && return 1
+    if (( startup_status != 0 )); then
+        printf "  [warn] %s did not reach the startup milestone.\n" "$platform"
+        return "$startup_status"
+    fi
 
     # Warn if process already died before measurement window starts.
     if ! kill -0 "$pid" 2>/dev/null; then
@@ -213,7 +270,6 @@ wait_for_round_start_and_warn() {
     fi
 }
 
-# Start background live FPS monitor for a running round.
 # Sets global in caller scope: LIVE_MONITOR_PID.
 start_live_fps_monitor() {
     local platform="$1"
@@ -235,9 +291,11 @@ start_live_fps_monitor() {
                     _fps=""
                     _fps_line=""
                     if [[ "$platform" == "dls" ]]; then
-                        # Read last `streams` instantaneous values from full log — combines all counters on one line.
-                        _fps=$(grep 'FpsCounter(last' "$logfile" 2>/dev/null \
-                            | grep -oP 'per-stream=\K[0-9]+\.?[0-9]*' | tail -n "$streams" | paste -sd ',' | sed 's/,/, /g')
+                        # Latest instantaneous line emitted since last poll; per-stream values are in its trailing "(...)".
+                        _fps_line=$(printf '%s\n' "$_new" | grep 'FpsCounter(last' | tail -1)
+                        if [[ -n "$_fps_line" ]]; then
+                            _fps=$(extract_per_stream_values "$_fps_line" | tr ' ' ',' | sed 's/,/, /g')
+                        fi
                     else
                         _perf_line=$(printf '%s\n' "$_new" | grep 'PERF' | tail -1)
                     fi
@@ -255,9 +313,7 @@ start_live_fps_monitor() {
 
             if [[ "$platform" == "ds" ]]; then
                 _diag_tick=$(( _diag_tick + 1 ))
-                if (( _diag_tick % 3 == 0 )); then
-                    print_ds_engine_status "$logfile"
-                fi
+                (( _diag_tick % 3 == 0 )) && print_ds_engine_status "$logfile"
             fi
 
             if (( _alive == 0 )); then
@@ -271,8 +327,7 @@ start_live_fps_monitor() {
     LIVE_MONITOR_PID=$!
 }
 
-# For DeepStream rounds, extend waiting when TensorRT engine build is detected
-# and no FPS has been produced yet.
+# Extends waiting when a DeepStream TensorRT engine build is in progress and no FPS yet.
 # Dependencies expected in caller scope: ABORT, DS_ENGINE_BUILD_GRACE_SECONDS.
 run_ds_warmup_wait_if_needed() {
     local platform="$1"
@@ -285,12 +340,8 @@ run_ds_warmup_wait_if_needed() {
             local _warm_elapsed=0
             while (( _warm_elapsed < DS_ENGINE_BUILD_GRACE_SECONDS )); do
                 [[ "$ABORT" == true ]] && break
-                if ! kill -0 "$pid" 2>/dev/null; then
-                    break
-                fi
-                if is_oom_log "$logfile"; then
-                    break
-                fi
+                ! kill -0 "$pid" 2>/dev/null && break
+                is_oom_log "$logfile" && break
                 if [[ "$(get_avg_fps "$logfile" "$platform")" != "0" ]]; then
                     printf "  [info] DeepStream produced FPS samples after engine build warm-up.\n"
                     break
@@ -302,18 +353,11 @@ run_ds_warmup_wait_if_needed() {
     fi
 }
 
-# Resolve active container name for a given platform.
 active_container_name_for_platform() {
     local platform="$1"
-    if [[ "$platform" == "dls" ]]; then
-        printf "%s" "${DLS_ACTIVE_CONTAINER}"
-    else
-        printf "%s" "${DS_ACTIVE_CONTAINER}"
-    fi
+    [[ "$platform" == "dls" ]] && printf "%s" "${DLS_ACTIVE_CONTAINER}" || printf "%s" "${DS_ACTIVE_CONTAINER}"
 }
 
-# Run DL Streamer and DeepStream containers concurrently using the max stream
-# counts found during the benchmark, with a shared live FPS view for both.
 # Dependencies expected in caller scope: ABORT, MEASURE_SECONDS, DLS_PID, DS_PID.
 run_parallel_max_streams() {
     local dls_streams="$1"
@@ -330,7 +374,6 @@ run_parallel_max_streams() {
     printf " Parallel run — DL Streamer (%d) + DeepStream (%d)\n" "$dls_streams" "$ds_streams"
     printf "######################################################\n\n"
 
-    # Start DL Streamer at its max stream count.
     if (( dls_streams > 0 )); then
         start_dls_round_container "$dls_streams" "$dls_log"
         dls_pid=$!
@@ -338,7 +381,6 @@ run_parallel_max_streams() {
         printf "    DL Streamer PID: %d\n" "$dls_pid"
     fi
 
-    # Start DeepStream at its max stream count.
     if (( ds_streams > 0 )); then
         start_ds_round_container "$ds_streams" "$ds_log"
         ds_pid=$!
@@ -352,7 +394,6 @@ run_parallel_max_streams() {
         return 1
     fi
 
-    # Launch live FPS monitors for whichever platforms are running.
     if [[ -n "$dls_pid" ]]; then
         start_live_fps_monitor "dls" "$dls_streams" "$dls_pid" "$dls_log"
         dls_monitor=$LIVE_MONITOR_PID
@@ -370,18 +411,27 @@ run_parallel_max_streams() {
         _elapsed=$(( _elapsed + 1 ))
     done
 
-    # Stop monitors and running containers for both platforms.
     [[ -n "$dls_monitor" ]] && { kill "$dls_monitor" 2>/dev/null; wait "$dls_monitor" 2>/dev/null; }
     [[ -n "$ds_monitor"  ]] && { kill "$ds_monitor"  2>/dev/null; wait "$ds_monitor"  2>/dev/null; }
     printf "\n"
+
+    if [[ -n "$dls_pid" ]]; then
+        evaluate_round_fps_and_status "dls" "$dls_pid" "$dls_log" "$dls_streams"
+        print_fps_statistics_table "$dls_log" "dls"
+    fi
+    if [[ -n "$ds_pid" ]]; then
+        evaluate_round_fps_and_status "ds" "$ds_pid" "$ds_log" "$ds_streams"
+        print_fps_statistics_table "$ds_log" "ds"
+    fi
+
     [[ -n "$dls_pid" ]] && stop_round_process_and_clear_pid "dls" "$dls_pid"
     [[ -n "$ds_pid"  ]] && stop_round_process_and_clear_pid "ds"  "$ds_pid"
     ensure_container_absent "${DLS_ACTIVE_CONTAINER}"
     ensure_container_absent "${DS_ACTIVE_CONTAINER}"
     rm -rf "${tmpdir}"
+    return 0
 }
 
-# Compute round FPS and status, and print diagnostics when no FPS is available.
 # Sets globals in caller scope: ROUND_FPS, ROUND_STATUS.
 evaluate_round_fps_and_status() {
     local platform="$1"
@@ -390,11 +440,9 @@ evaluate_round_fps_and_status() {
     local streams="$4"
 
     ROUND_FPS=$(get_avg_fps "$logfile" "$platform" "$streams")
-    if [[ "$platform" == "dls" ]]; then
-        printf "  [%s] per-stream FPS (min cumulative average across streams): %s\n" "$platform" "${ROUND_FPS}"
-    else
-        printf "  [%s] avg per-source FPS (same value may repeat across all streams): %s\n" "$platform" "${ROUND_FPS}"
-    fi
+    [[ "$platform" == "dls" ]] \
+        && printf "  [%s] per-stream FPS (min cumulative average across streams): %s\n" "$platform" "${ROUND_FPS}" \
+        || printf "  [%s] avg per-source FPS (same value may repeat across all streams): %s\n" "$platform" "${ROUND_FPS}"
 
     if [[ "${ROUND_FPS}" == "0" ]]; then
         if is_oom_log "$logfile"; then
@@ -405,17 +453,14 @@ evaluate_round_fps_and_status() {
             ROUND_STATUS="no-fps"
         fi
         printf "  [warn] %s produced no FPS samples.\n" "$platform"
-        if kill -0 "$pid" 2>/dev/null; then
-            print_pipeline_diagnostics "${platform}" "$pid" "$logfile" "running-no-fps"
-        else
-            print_pipeline_diagnostics "${platform}" "$pid" "$logfile" "exited-no-fps"
-        fi
+        kill -0 "$pid" 2>/dev/null \
+            && print_pipeline_diagnostics "${platform}" "$pid" "$logfile" "running-no-fps" \
+            || print_pipeline_diagnostics "${platform}" "$pid" "$logfile" "exited-no-fps"
     else
         ROUND_STATUS="ok"
     fi
 }
 
-# Stop running docker client process for a round and clear platform PID state.
 # Sets globals in caller scope: DLS_PID, DS_PID.
 stop_round_process_and_clear_pid() {
     local platform="$1"
@@ -431,14 +476,9 @@ stop_round_process_and_clear_pid() {
         printf "  [log] %s docker PID=%s already stopped, exit code: %s\n" "$platform" "$pid" "$?"
     fi
 
-    if [[ "$platform" == "dls" ]]; then
-        DLS_PID=""
-    else
-        DS_PID=""
-    fi
+    [[ "$platform" == "dls" ]] && DLS_PID="" || DS_PID=""
 }
 
-# Evaluate round FPS against threshold, print decision logs, and update result.
 # Usage: handle_phase_threshold_decision <label> <fps> <threshold> <streams> <result_var_name>
 # Return: 0 when threshold is crossed (caller should break), 1 when next stream should run.
 handle_phase_threshold_decision() {
@@ -466,9 +506,8 @@ handle_phase_threshold_decision() {
     return 1
 }
 
-# Print benchmark configuration summary from caller-provided args and globals.
 # Dependencies expected in caller scope: RUN_DLS, RUN_DS,
-# DLS_FPS_THRESHOLD, DS_FPS_THRESHOLD, MEASURE_SECONDS.
+# DLS_FPS_THRESHOLD, DS_FPS_THRESHOLD, DLS_START_STREAMS, DS_START_STREAMS, MEASURE_SECONDS.
 print_configured_parameters() {
     local input_dls="$1"
     local input_ds="$2"
@@ -481,11 +520,12 @@ print_configured_parameters() {
     printf "\t Platforms     : %s\n" "$( [[ "$RUN_DLS" == true && "$RUN_DS" == true ]] && echo "Intel + NVIDIA" || ( [[ "$RUN_DLS" == true ]] && echo "Intel only" || echo "NVIDIA only" ) )"
     printf "\t DLS mode      : %s\n" "$(printf "benchmark (threshold: %s FPS)" "$DLS_FPS_THRESHOLD")"
     printf "\t DS  mode      : %s\n" "$(printf "benchmark (threshold: %s FPS)" "$DS_FPS_THRESHOLD")"
+    printf "\t DLS start str : %s\n" "${DLS_START_STREAMS}"
+    printf "\t DS  start str : %s\n" "${DS_START_STREAMS}"
     printf "\t Measure time  : %s s\n" "${MEASURE_SECONDS}"
     printf "\n"
 }
 
-# Detect available Intel/NVIDIA hardware and print selected-platform banners.
 # Sets globals in caller scope: INTEL_GPU, NVIDIA_GPU, INTEL_CPU.
 # Usage: detect_available_hardware <argc>
 detect_available_hardware() {
@@ -494,17 +534,6 @@ detect_available_hardware() {
     INTEL_GPU=$(lspci -nn | grep -E 'VGA|3D|Display' | grep -i "Intel")
     NVIDIA_GPU=$(lspci -nn | grep -E 'VGA|3D|Display' | grep -i "NVIDIA")
     INTEL_CPU=$(lscpu | grep -i "Intel")
-
-    if [[ "$RUN_DLS" == true && -n "${INTEL_GPU}" ]]; then
-        printf '%b' "---------------------------------------\n Intel GPU detected. Using DL Streamer\n---------------------------------------\n\n"
-    elif [[ "$RUN_DLS" == true && -e "/dev/accel" ]]; then
-        printf '%b' "---------------------------------------\n Intel NPU detected. Using DL Streamer\n---------------------------------------\n\n"
-    elif [[ "$RUN_DLS" == true && -n "${INTEL_CPU}" ]]; then
-        printf '%b' "---------------------------------------\n Intel CPU detected. Using DL Streamer\n---------------------------------------\n\n"
-    fi
-    if [[ "$RUN_DS" == true && -n "${NVIDIA_GPU}" ]]; then
-        printf '%b' "----------------------------------------\n NVIDIA GPU detected. Using DeepStream\n----------------------------------------\n\n"
-    fi
 
     if [[ -z "${INTEL_GPU}" && -z "${NVIDIA_GPU}" && ! -e "/dev/accel" && -z "${INTEL_CPU}" ]]; then
         if [[ "$argc" -eq 0 ]]; then
@@ -516,35 +545,24 @@ detect_available_hardware() {
     fi
 }
 
-# Build human-readable list of active platforms for summary messages.
-# Sets globals in caller scope: ACTIVE_PLATFORMS, PLATFORM_SCOPE.
-build_active_platform_scope() {
-    ACTIVE_PLATFORMS=()
-    if [[ "$RUN_DLS" == true ]]; then
-        if [[ -n "${INTEL_GPU}" ]]; then
-            ACTIVE_PLATFORMS+=("Intel GPU")
-        elif [[ -e "/dev/accel" ]]; then
-            ACTIVE_PLATFORMS+=("Intel NPU")
-        elif [[ -n "${INTEL_CPU}" ]]; then
-            ACTIVE_PLATFORMS+=("Intel CPU")
-        fi
-    fi
-    if [[ "$RUN_DS" == true && -n "${NVIDIA_GPU}" ]]; then
-        ACTIVE_PLATFORMS+=("NVIDIA GPU")
-    fi
-    if [[ "${#ACTIVE_PLATFORMS[@]}" -gt 0 ]]; then
-        PLATFORM_SCOPE=$(IFS=', '; echo "${ACTIVE_PLATFORMS[*]}")
-    else
-        PLATFORM_SCOPE="detected platform(s)"
-    fi
+# Return 0 (true) when both required DL Streamer LPR model files exist on disk.
+dls_lpr_models_present() {
+    [[ -f "${PWD}/public/yolov8_license_plate_detector/FP32/yolov8_license_plate_detector.xml" \
+        && -f "${PWD}/public/ch_PP-OCRv4_rec_infer/FP32/ch_PP-OCRv4_rec_infer.xml" ]]
 }
 
-# Download DL Streamer LPR models when missing.
-# Dependencies expected in caller scope: RUN_DLS, INTEL_GPU, INTEL_CPU,
-# DLSTREAMER_DOCKER, DLS_CONTAINER_NAME.
+# Return 0 (true) when all required DeepStream TAO LPR model files exist on disk.
+ds_lpr_models_present() {
+    [[ -f "${PWD}/deepstream_tao_apps/models/trafficcamnet/resnet18_trafficcamnet_pruned.onnx" \
+        && -f "${PWD}/deepstream_tao_apps/models/LPD_us/LPDNet_usa_pruned_tao5.onnx" \
+        && -f "${PWD}/deepstream_tao_apps/models/LPR_us/us_lprnet_baseline18_deployable.onnx" \
+        && -f "${PWD}/dict.txt" ]]
+}
+
+# Dependencies expected in caller scope: RUN_DLS, INTEL_GPU, INTEL_CPU, DLSTREAMER_DOCKER, DLS_CONTAINER_NAME.
 dls_download_lpr_models() {
     if [[ "$RUN_DLS" == true && ( -n "${INTEL_GPU}" || -e "/dev/accel" || -n "${INTEL_CPU}" ) ]]; then
-        if [[ ! -e "${PWD}/public/yolov8_license_plate_detector" ]]; then
+        if ! dls_lpr_models_present; then
             printf 'Downloading DL Streamer models....\n'
             eval "${DLSTREAMER_DOCKER/--name ${DLS_CONTAINER_NAME}/--name ${DLS_CONTAINER_NAME}_download} \"/opt/intel/dlstreamer/samples/download_public_models.sh yolov8_license_plate_detector,ch_PP-OCRv4_rec_infer\""
         else
@@ -553,19 +571,23 @@ dls_download_lpr_models() {
     fi
 }
 
-# Download DeepStream TAO LPR models when missing.
-# Dependencies expected in caller scope: RUN_DS, NVIDIA_GPU, DEEPSTREAM_DOCKER,
-# DS_CONTAINER_NAME.
+# Dependencies expected in caller scope: RUN_DS, NVIDIA_GPU, DEEPSTREAM_DOCKER, DS_CONTAINER_NAME.
 ds_download_lpr_models() {
     local DEEPSTREAM_SETUP_LPR
     DEEPSTREAM_SETUP_LPR=$(cat <<'SETUP_EOF'
-if [[ -e "/working_dir/deepstream_tao_apps" ]]; then
+if [[ -f "/working_dir/deepstream_tao_apps/models/trafficcamnet/resnet18_trafficcamnet_pruned.onnx" \
+    && -f "/working_dir/deepstream_tao_apps/models/LPD_us/LPDNet_usa_pruned_tao5.onnx" \
+    && -f "/working_dir/deepstream_tao_apps/models/LPR_us/us_lprnet_baseline18_deployable.onnx" \
+    && -f "/working_dir/dict.txt" ]]; then
     exit 0
 fi
 
-git clone https://github.com/NVIDIA-AI-IOT/deepstream_tao_apps.git
-
 set -e
+
+# Remove any partial clone/download left by a previously interrupted run.
+rm -rf /working_dir/deepstream_tao_apps
+
+git clone https://github.com/NVIDIA-AI-IOT/deepstream_tao_apps.git
 
 cd /working_dir/deepstream_tao_apps
 mkdir -p ./models/trafficcamnet
@@ -594,7 +616,7 @@ SETUP_EOF
 )
 
     if [[ "$RUN_DS" == true && -n "${NVIDIA_GPU}" ]]; then
-        if [[ ! -e "${PWD}/deepstream_tao_apps" ]]; then
+        if ! ds_lpr_models_present; then
             printf 'Downloading DeepStream TAO models....\n'
             eval "${DEEPSTREAM_DOCKER/--name ${DS_CONTAINER_NAME}/--name ${DS_CONTAINER_NAME}_download} \"${DEEPSTREAM_SETUP_LPR}\""
         else
@@ -603,9 +625,7 @@ SETUP_EOF
     fi
 }
 
-# When script is started without required args, print model availability and exit.
-# Usage: check_model_availability_or_exit <argc>
-# Dependencies expected in caller scope: print_usage.
+# Usage: check_model_availability_or_exit <argc> (no-op unless argc==0, then prints availability + usage and exits)
 check_model_availability_or_exit() {
     local argc="$1"
 
@@ -613,12 +633,8 @@ check_model_availability_or_exit() {
         local DLS_MODELS_OK=false
         local DS_MODELS_OK=false
 
-        if [[ -d "${PWD}/public/yolov8_license_plate_detector" && -d "${PWD}/public/ch_PP-OCRv4_rec_infer" ]]; then
-            DLS_MODELS_OK=true
-        fi
-        if [[ -d "${PWD}/deepstream_tao_apps" ]]; then
-            DS_MODELS_OK=true
-        fi
+        dls_lpr_models_present && DLS_MODELS_OK=true
+        ds_lpr_models_present && DS_MODELS_OK=true
 
         printf "\nModel availability check:\n"
         printf "\t DL Streamer models: %s\n" "$( [[ "$DLS_MODELS_OK" == true ]] && echo "available" || echo "missing" )"
@@ -631,9 +647,8 @@ check_model_availability_or_exit() {
     fi
 }
 
-# Wait until a newly-started pipeline reaches a running milestone or fails.
 # Dependencies expected in caller scope: ABORT, is_oom_log, print_ds_engine_status.
-# Returns: 0=ok, 1=error/OOM, 2=timeout
+# Returns: 0=ok, 1=error/OOM, 2=timeout, 3=stalled
 wait_for_pipeline_start() {
     local label="$1"
     local pid="$2"
@@ -641,6 +656,8 @@ wait_for_pipeline_start() {
     local timeout_sec="$4"
     local elapsed=0
     local _fatal_line
+    local log_size=-1
+    local last_log_change=0
 
     printf "    [sync] Waiting for startup of %s (PID=%s, timeout=%ss)\n" "$label" "$pid" "$timeout_sec"
     while (( elapsed < timeout_sec )); do
@@ -656,13 +673,12 @@ wait_for_pipeline_start() {
                 wait "$pid" 2>/dev/null
                 return 1
             fi
-            # Milestone: pipeline is actively running
-            if grep -qE "Setting pipeline to PLAYING|New clock|PERF|FpsCounter" "$logfile"; then
+            if is_pipeline_running_log "$logfile"; then
                 printf "    [sync] %s reached startup milestone.\n" "$label"
                 return 0
             fi
             # Fatal startup errors (filter known benign scanner warnings)
-            _fatal_line=$(grep -iE "ERROR|critical|out of memory|OutOfMemory|\
+            _fatal_line=$(grep -iE "(^|[^[:alpha:]])ERROR([^[:alpha:]]|$)|(^|[^[:alpha:]])critical([^[:alpha:]]|$)|out of memory|OutOfMemory|\
 pipeline doesn't want to preroll|not-negotiated|internal data stream error|\
 segmentation fault|aborted|Device '/dev/v4l2-nvenc' failed during initialization|\
 Failed to create NvDsInferContext|create TRT cuda executionContext failed" \
@@ -675,6 +691,17 @@ libva error|iHD_drv_video|DRM_IOCTL_VERSION|vaGetDriverNames|unsupported drm dev
                 return 1
             fi
         fi
+        if [[ -f "$logfile" ]]; then
+            local current_log_size
+            current_log_size=$(stat -c %s "$logfile" 2>/dev/null || echo 0)
+            if (( current_log_size != log_size )); then
+                log_size=$current_log_size
+                last_log_change=$elapsed
+            elif (( elapsed - last_log_change >= 30 )); then
+                printf "    [sync] %s startup stalled: no new log output for 30s.\n" "$label"
+                return 3
+            fi
+        fi
         # Periodic heartbeat so long startups (e.g. DeepStream TensorRT engine build) show progress.
         if (( elapsed > 0 && elapsed % 5 == 0 )); then
             if [[ -f "$logfile" ]]; then
@@ -682,6 +709,10 @@ libva error|iHD_drv_video|DRM_IOCTL_VERSION|vaGetDriverNames|unsupported drm dev
                 _last=$(grep -aE '.' "$logfile" 2>/dev/null | tail -n 1)
                 if [[ "$label" == ds\ * || "$label" == *DeepStream* ]]; then
                     print_ds_engine_status "$logfile"
+                elif [[ -n "${_last}" ]]; then
+                    printf "    [sync] %s still starting (%ss). Last log: %s\n" "$label" "$elapsed" "${_last}"
+                else
+                    printf "    [sync] %s still starting (%ss); no pipeline logs yet.\n" "$label" "$elapsed"
                 fi
             fi
         fi
@@ -692,40 +723,81 @@ libva error|iHD_drv_video|DRM_IOCTL_VERSION|vaGetDriverNames|unsupported drm dev
     return 2
 }
 
-# Extract average per-stream FPS from a pipeline log file.
-# DL Streamer: each gvafpscounter (one per stream branch) prints independently:
-#              "FpsCounter(average Xs): total=Y fps, number-streams=1, per-stream=Y fps"
-#              Collect all per-stream= values from average lines; take the minimum (slowest stream).
-# DeepStream:  nvdslogger prints "**PERF : FPS_N (XX)" per source per interval.
-#              Average of ALL parenthesised values = per-source average FPS.
-get_avg_fps() {
-    local logfile="$1"
-    local platform="$2"
-    local streams="${3:-0}"  # number of stream branches; limits to final average per counter
-    local values
-    if [[ "$platform" == "dls" ]]; then
-        # Use only the last `streams` values = one final cumulative average per counter (excludes startup transients).
-        values=$(grep 'FpsCounter(average' "$logfile" 2>/dev/null \
-            | grep -oP 'per-stream=\K[0-9]+\.?[0-9]*' \
-            | tail -n "$(( streams > 0 ? streams : 9999 ))")
+# Multi-stream gvafpscounter lines carry a trailing "(a, b, ...)" list; single-stream
+# lines only expose "per-stream=X". Returns space-separated values.
+extract_per_stream_values() {
+    local line="$1"
+    local list
+    list=$(printf '%s' "$line" | grep -oP '\([0-9][0-9.,[:space:]]*\)' | tail -1 | tr -d '()')
+    if [[ -n "$list" ]]; then
+        printf '%s' "$list" | tr ',' ' ' | tr -s ' '
     else
-        values=$(grep 'PERF' "$logfile" 2>/dev/null | grep -oP '\(\K[0-9]+\.?[0-9]*')
-    fi
-    if [[ -z "$values" ]]; then
-        echo "0"
-    else
-        if [[ "$platform" == "dls" ]]; then
-            echo "$values" | awk '{ for (i = 1; i <= NF; i++) { if (min == "" || $i < min) min = $i } } END { printf "%.1f", (min == "" ? 0 : min) }'
-        else
-            echo "$values" | awk '{ sum += $1; n++ } END { printf "%.1f", (n > 0 ? sum/n : 0) }'
-        fi
+        printf '%s' "$line" | grep -oP 'per-stream=\K[0-9]+\.?[0-9]*'
     fi
 }
 
-# Returns 0 (true) if given FPS is strictly below the threshold.
-# Dependencies expected in caller scope: FPS_THRESHOLD.
-fps_below_threshold() {
-    awk -v fps="$1" -v thr="${FPS_THRESHOLD}" 'BEGIN { exit (fps + 0 < thr ? 0 : 1) }'
+# DL Streamer: last cumulative-average line holds the final per-stream averages.
+# DeepStream: nvdslogger prints "**PERF : FPS_N (XX)" per source per interval.
+extract_fps_values_from_log() {
+    local logfile="$1"
+    local platform="$2"
+    if [[ "$platform" == "dls" ]]; then
+        local line
+        line=$(grep 'FpsCounter(average' "$logfile" 2>/dev/null | tail -1)
+        extract_per_stream_values "$line"
+    else
+        grep 'PERF' "$logfile" 2>/dev/null | grep -oP '\(\K[0-9]+\.?[0-9]*'
+    fi
+}
+
+# DL Streamer: uses the last average line, taking the minimum per-stream value (slowest stream).
+# DeepStream: averages all per-source PERF values from the log.
+get_avg_fps() {
+    local logfile="$1"
+    local platform="$2"
+    local streams="${3:-0}"  # kept for backward-compatible call sites
+    local values
+    values=$(extract_fps_values_from_log "$logfile" "$platform")
+    if [[ -z "$values" ]]; then
+        echo "0"
+    elif [[ "$platform" == "dls" ]]; then
+        echo "$values" | awk '{ for (i = 1; i <= NF; i++) { if (min == "" || $i < min) min = $i } } END { printf "%.1f", (min == "" ? 0 : min) }'
+    else
+        echo "$values" | awk '{ sum += $1; n++ } END { printf "%.1f", (n > 0 ? sum/n : 0) }'
+    fi
+}
+
+# Print minimum, maximum, and average FPS from the samples used for a round.
+get_fps_statistics() {
+    local logfile="$1"
+    local platform="$2"
+    local values
+
+    values=$(extract_fps_values_from_log "$logfile" "$platform")
+
+    if [[ -z "$values" ]]; then
+        printf 'min=0.0 max=0.0 avg=0.0'
+    else
+        printf '%s\n' "$values" | awk '
+            { for (i = 1; i <= NF; i++) { value = $i; sum += value; count++; if (min == "" || value < min) min = value; if (max == "" || value > max) max = value } }
+            END { printf "min=%.1f max=%.1f avg=%.1f", min, max, (count > 0 ? sum / count : 0) }
+        '
+    fi
+}
+
+print_fps_statistics_table() {
+    local logfile="$1"
+    local platform="$2"
+    local statistics min_fps max_fps avg_fps
+
+    statistics=$(get_fps_statistics "$logfile" "$platform")
+    read -r min_fps max_fps avg_fps <<< "$statistics"
+    printf "  +----------+----------+----------+----------+\n"
+    printf "  | Metric   | Min FPS  | Max FPS  | Avg FPS  |\n"
+    printf "  +----------+----------+----------+----------+\n"
+    printf "  | FPS      | %-8s | %-8s | %-8s |\n" \
+        "${min_fps#min=}" "${max_fps#max=}" "${avg_fps#avg=}"
+    printf "  +----------+----------+----------+----------+\n"
 }
 
 # Detect CUDA / GPU memory pressure signatures in a stream log.
@@ -739,11 +811,17 @@ out of memory|OutOfMemory|create TRT cuda executionContext failed|defaultAllocat
 
 }
 
+# Detect log evidence the pipeline reached PLAYING/streaming output.
+is_pipeline_running_log() {
+    local logfile="$1"
+    grep -qE "Setting pipeline to PLAYING|New clock|PERF|FpsCounter" "$logfile" 2>/dev/null
+}
+
 # Detect pipeline stalled in PREROLL and never reaching PLAYING.
 is_preroll_stall_log() {
     local logfile="$1"
     grep -qE "Pipeline is PREROLLING|Pipeline is PREROLLED" "$logfile" \
-        && ! grep -qE "Setting pipeline to PLAYING|New clock|PERF|FpsCounter" "$logfile"
+        && ! is_pipeline_running_log "$logfile"
 }
 
 # Detect DeepStream first-run TensorRT engine build in progress.
@@ -768,14 +846,12 @@ ds_engine_state() {
     fi
 }
 
-# Normalize DeepStream PERF line for human-readable display.
 normalize_ds_perf_line() {
     local line="$1"
     printf '%s\n' "$line" \
         | sed -E 's/\r//g; s/\)([0-9]+)FPS_/\)  FPS_/g; s/[[:space:]]+/ /g; s/^ //; s/ $//'
 }
 
-# Cleanup: kill docker processes started by benchmark script.
 # Dependencies expected in caller scope: ABORT, LIVE_MONITOR_PID, DLS_PID, DS_PID, BENCH_TMPDIR.
 cleanup() {
     [[ -n "${_CLEANED}" ]] && return
@@ -785,21 +861,13 @@ cleanup() {
     kill "${LIVE_MONITOR_PID}" 2>/dev/null
     [[ -n "${DLS_PID}" ]] && { kill "${DLS_PID}" 2>/dev/null; wait "${DLS_PID}" 2>/dev/null; }
     [[ -n "${DS_PID}"  ]] && { kill "${DS_PID}"  2>/dev/null; wait "${DS_PID}"  2>/dev/null; }
-    for _cid in $(docker ps -q --filter ancestor=intel/dlstreamer:latest); do
-        printf "[cleanup] Force-killing container %s (intel/dlstreamer:latest)\n" "${_cid}"
-        docker kill "${_cid}" >/dev/null 2>&1
-    done
-    for _cid in $(docker ps -q --filter ancestor=nvcr.io/nvidia/deepstream:8.0-samples-multiarch); do
-        printf "[cleanup] Force-killing container %s (nvcr.io/nvidia/deepstream:8.0-samples-multiarch)\n" "${_cid}"
-        docker kill "${_cid}" >/dev/null 2>&1
-    done
-    # Remove any stopped containers by name pattern (catch stopped containers missed by ancestor filter).
+    # Stop and remove only containers this script could have created (named "benchmark_*"),
+    # instead of matching by image ancestor — that could catch unrelated containers on the host.
     docker ps -a -q --filter "name=^benchmark_" | xargs -r docker rm -f >/dev/null 2>&1 || true
     [[ -n "${BENCH_TMPDIR}" && -d "${BENCH_TMPDIR}" ]] && rm -rf "${BENCH_TMPDIR}"
     printf "Cleanup done.\n"
 }
 
-# Print diagnostics for a failed/stalled pipeline log.
 # Dependencies expected in caller scope: is_oom_log, is_preroll_stall_log.
 print_pipeline_diagnostics() {
     local label="$1"
@@ -835,7 +903,6 @@ print_pipeline_diagnostics() {
     fi
 }
 
-# Report DeepStream engine file readiness for PGIE/SGIEs.
 # Dependencies expected in caller scope: is_ds_engine_build_log, ds_engine_state.
 print_ds_engine_status() {
     local logfile="${1:-}"
@@ -846,31 +913,18 @@ print_ds_engine_status() {
     local build_in_progress="false"
 
     # Nothing to report once every engine file is already compiled.
-    if [[ -f "$pgie" && -f "$lpd" && -f "$lpr" ]]; then
-        return 0
-    fi
+    [[ -f "$pgie" && -f "$lpd" && -f "$lpr" ]] && return 0
 
-    if [[ -n "$logfile" && -f "$logfile" ]] && is_ds_engine_build_log "$logfile"; then
-        build_in_progress="true"
-    fi
+    [[ -n "$logfile" && -f "$logfile" ]] && is_ds_engine_build_log "$logfile" && build_in_progress="true"
 
     printf "  [diag] DS engines: PGIE=%s  LPD=%s  LPR=%s\n" \
         "$(ds_engine_state "$pgie" "$build_in_progress")" \
         "$(ds_engine_state "$lpd" "$build_in_progress")" \
         "$(ds_engine_state "$lpr" "$build_in_progress")"
-
-    # if [[ "$build_in_progress" == "true" ]]; then
-    #     printf "  [diag] DeepStream TensorRT engine build in progress; missing files are expected until build completes.\n"
-    # fi
 }
 
 
-# ==============================================================================
-# Functions:
-
-# Just welcome message
 welcome(){
-    #clear
     printf "========================================\n"
     printf "= Copyright (C) 2026 Intel Corporation =\n"
     printf "=     SPDX-License-Identifier: MIT     =\n"
@@ -880,11 +934,8 @@ welcome(){
     printf "\tDetermines the maximum number of concurrent streams\n"
     printf "\tprocessed in a single gst-launch-1.0 process per platform.\n"
     printf "\n"
-} # welcome
+}
 
-
-# ==============================================================================
-# Just print how to use this script:
 print_usage(){
     printf "Usage:\n"
     printf "\t coexistance_benchmark.sh <INPUT_DLS> <INPUT_DS> LPR [OPTIONS]\n";
@@ -899,6 +950,9 @@ print_usage(){
     printf "\t --ds-only                  Run benchmark only on NVIDIA GPU (DeepStream)\n";
     printf "\t --dls-fps-threshold=N      Minimum acceptable FPS for DL Streamer (default: 30)\n"
     printf "\t --ds-fps-threshold=N       Minimum acceptable FPS for DeepStream (default: 30)\n"
+    printf "\t --dls-start-streams=N      Initial stream count for DL Streamer benchmark (default: 1)\n"
+    printf "\t --ds-start-streams=N       Initial stream count for DeepStream benchmark (default: 1)\n"
+    printf "\t --dls-decode-chain=1|2     DL Streamer decode chain: 1=parsebin ! vah264dec ! vapostproc, 2=decodebin3 ! vapostproc (default: 1)\n"
     printf "\t --measure-seconds=N        Round measurement duration in seconds (default: 20)\n"
     printf "\t (default: fakesink output, run on both platforms, benchmark mode)\n"
     printf "\n"
@@ -908,20 +962,7 @@ print_usage(){
 }
 
 
-# ==============================================================================
-# Validate if provided input file exists:
-validate_input_file(){
-printf "Validate input file...\n"
-if [ -f "$1" ]; then
-    printf "\tSuccess: Input file %s found.\n" "$1"
-else
-    printf "\tError: Input file %s not found!\n" "$1"
-    ERROR_CODE=1
-fi
-}
-
-# ==============================================================================
-# This sample supports only LPR case, so let's check if user is aware of that:
+# Only LPR mode is supported.
 validate_LPR(){
 printf "Validate mode...\n"
 if [ "${1^^}" = "LPR" ]; then
@@ -932,16 +973,24 @@ else
 fi
 }
 
-# ==============================================================================
+# Reject inputs that could break out of the embedded pipeline/eval command string.
+has_unsafe_shell_chars() {
+    [[ "$1" == *'"'* || "$1" == *'`'* || "$1" == *'$('* || "$1" == *';'* || "$1" == *$'\n'* ]]
+}
+
 validate_input_arguments(){
-    # Validate required arguments:
     if [ -z "$1" ] || [ -z "$2" ] || [ -z "$3" ]; then
         printf "Incorrect arguments.\n"
         ERROR_CODE=1
         return 1
     fi
 
-    # Validate Intel input source:
+    if has_unsafe_shell_chars "$1" || has_unsafe_shell_chars "$2"; then
+        printf "Error: input path/URL contains unsafe characters (\", \`, \$(, ;, or newline).\n"
+        ERROR_CODE=1
+        return 1
+    fi
+
     printf "Validate Deep Learning Streamer input source...\n"
     if [[ "$1" =~ ^rtsp:// ]] || [[ "$1" =~ ^https:// ]]; then
         printf "\tSuccess: Input URL %s accepted.\n" "$1"
@@ -951,11 +1000,8 @@ validate_input_arguments(){
         printf "\tError: Deep Learning Streamer input %s is not a valid file or URL!\n" "$1"
         ERROR_CODE=1
     fi
-    if [ $ERROR_CODE -eq 1 ]; then
-        return 1
-    fi
+    [ $ERROR_CODE -eq 1 ] && return 1
 
-    # Validate DeepStream input source:
     printf "Validate DeepStream input source...\n"
     if [[ "$2" =~ ^rtsp:// ]] || [[ "$2" =~ ^https:// ]]; then
         printf "\tSuccess: Input URL %s accepted.\n" "$2"
@@ -965,11 +1011,8 @@ validate_input_arguments(){
         printf "\tError: DeepStream input %s is not a valid file or URL!\n" "$2"
         ERROR_CODE=1
     fi
-    if [ $ERROR_CODE -eq 1 ]; then
-        return 1
-    fi
+    [ $ERROR_CODE -eq 1 ] && return 1
 
-    # Validate mode:
     validate_LPR "$3"
     if [ $ERROR_CODE -eq 1 ]; then
         print_usage
@@ -977,8 +1020,7 @@ validate_input_arguments(){
     fi
 }
 
-# Handle startup argument flow: validate when args are provided,
-# otherwise continue to model-availability check path.
+# When argc==0, skip validation and continue to the model-availability check path.
 handle_startup_arguments() {
     local argc="$1"
     local input_dls="$2"

@@ -25,7 +25,7 @@ if ($InputSource -eq "--help" -or $InputSource -eq "-h") {
 # Check AUDIO_MODELS_PATH or MODELS_PATH
 if (-not $env:AUDIO_MODELS_PATH) {
     if (-not $env:MODELS_PATH) {
-        Write-Host "ERROR: Environment variables AUDIO_MODELS_PATH or MODELS_PATH not specified. Models not found, execute download_audio_models.bat to download models" -ForegroundColor Red
+        Write-Host "ERROR: Environment variables AUDIO_MODELS_PATH or MODELS_PATH not specified. Prepare required models with scripts/download_models/download_other_models.sh aclnet." -ForegroundColor Red
         exit 1
     } else {
         $env:AUDIO_MODELS_PATH = $env:MODELS_PATH
