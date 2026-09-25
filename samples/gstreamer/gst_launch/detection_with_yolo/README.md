@@ -63,7 +63,7 @@ The samples demonstrate deployment and inference with GStreamer command line too
 The sample `yolo_detect.sh` script can be used to build and run an object detection pipeline. For `yolo26s-cls`, it builds a composite pipeline with `yolo26s` detection followed by ROI classification with `yolo26s-cls`.
 
 ```sh
-./yolo_detect.sh <MODEL> <DEVICE> <INPUT> <OUTPUT_TYPE> <PPBKEND> <PRECISION>
+./yolo_detect.sh <MODEL> <DEVICE> <INPUT> <OUTPUT_TYPE> <PPBKEND> <PRECISION> <OUTPUT_DIRECTORY> <EOS_LIMIT_ELEMENT>
 ```
 
 > **NOTE**: Prior to running `yolo_detect.sh`, export the required YOLO model with `scripts/download_models/download_ultralytics_models.py` (see `scripts/download_models/README.md` for commands and venv setup).
