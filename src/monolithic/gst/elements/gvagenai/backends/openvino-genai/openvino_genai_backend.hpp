@@ -10,6 +10,7 @@
 #include "openvino_genai_pipeline.hpp"
 
 #include <memory>
+#include <mutex>
 #include <string>
 
 namespace genai {
@@ -53,6 +54,7 @@ class OpenVINOGenAIBackend : public IGenAIBackend {
 
   private:
     std::unique_ptr<OpenVINOGenAIContext> context_;
+    std::mutex inference_mutex_;
     bool include_metrics_ = false;
 };
 

@@ -32,6 +32,11 @@ typedef struct _GenAIBackendConfig {
     gchar *scheduler_config;
     gchar *pipeline_config;   // OpenVINO device properties passed at pipeline construction
     gboolean include_metrics; // Include performance metrics in JSON output
+    // Identifier for sharing a loaded model instance with other gvagenai elements (same
+    // convention as gvadetect/gvaclassify's model-instance-id). Non-null/non-empty triggers
+    // lookup/registration in GenAIBackendRegistry's cache; null/empty means an isolated
+    // instance. 'openvino-genai' only.
+    gchar *model_instance_id;
 
     // HTTP-specific
     gchar *server_url; // e.g., "http://localhost:8000/v1"
