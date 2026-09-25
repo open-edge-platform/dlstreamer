@@ -53,10 +53,3 @@ if(WIN32)
 endif()
 
 install(TARGETS ${TARGET_NAME} DESTINATION ${DLSTREAMER_PLUGINS_INSTALL_PATH})
-
-execute_process(COMMAND which icpx RESULT_VARIABLE status OUTPUT_VARIABLE out OUTPUT_QUIET )
-if(status EQUAL 0)
-    add_subdirectory(sycl)
-else()
-    message("Intel® oneAPI DPC++ Compiler not found, skipping dlstreamer_gst_sycl library")
-endif()
