@@ -726,7 +726,7 @@ def _collect_all_profiles(
 def _action_list_camera_profiles(state: TestAppState) -> None:
     active = state.engine.get_active_cameras()
     if not active:
-        print("No active cameras. Start discovery first (option 10).")
+        print("No active cameras. Start discovery first (option 12).")
         return
     username = state.username
     password = state.password
@@ -749,7 +749,7 @@ def _action_list_camera_profiles(state: TestAppState) -> None:
 def _action_preview_stream(state: TestAppState) -> None:
     active = state.engine.get_active_cameras()
     if not active:
-        print("No active cameras. Start discovery first (option 10).")
+        print("No active cameras. Start discovery first (option 12).")
         return
 
     print(f"  Reading profiles from {len(active)} camera(s)...", end="\r")
