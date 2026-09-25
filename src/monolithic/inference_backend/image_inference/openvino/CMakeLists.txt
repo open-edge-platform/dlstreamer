@@ -38,7 +38,7 @@ PUBLIC
         openvino::runtime
         utils
         logger
-        dlstreamer_logger
+        spdlog::spdlog
         OpenCL::OpenCL
 )
 

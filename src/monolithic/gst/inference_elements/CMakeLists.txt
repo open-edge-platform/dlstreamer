@@ -64,7 +64,6 @@ PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/gvadetect/
     ${CMAKE_CURRENT_SOURCE_DIR}/gvainference/
     ${CMAKE_CURRENT_SOURCE_DIR}/gvarealsense/
-    ${DLSTREAMER_BASE_DIR}/src/base/dlstreamer_logger/
 PRIVATE
     ${GSTREAMER_INCLUDE_DIRS}
     ${GSTVIDEO_INCLUDE_DIRS}
@@ -80,7 +79,6 @@ PRIVATE
     ${GSTANALYTICS_LIBRARIES}
     ${OpenCV_LIBS}
     dlstreamer_api
-    dlstreamer_logger
     common
     image_inference
     image_inference_openvino
