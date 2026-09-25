@@ -157,6 +157,7 @@ jobs:
         run: |
           cd ${{ env.DLS_REL_PATH }}
           echo "Installing OpenVINO GenAI for ${{ matrix.os }}..."
+          sudo rm -rf /opt/intel/openvino_genai
           if [[ ${{ matrix.os }} == "ubuntu-22.04" ]]; then
             echo "Executing Ubuntu 22.04 specific setup..."
             wget -O- https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/2026.4/linux/openvino_genai_ubuntu22_2026.4.0.0_x86_64.tar.gz | tar -xz
