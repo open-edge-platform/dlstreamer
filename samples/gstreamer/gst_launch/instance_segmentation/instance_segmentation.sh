@@ -11,7 +11,7 @@
 # Allowed choices for arguments
 ALLOWED_MODELS=("yolo26s-seg" "yolo11s-seg")
 ALLOWED_DEVICES=("CPU" "GPU" "NPU")
-ALLOWED_OUTPUTS=("file" "display" "fps" "json" "display-and-json" "jpeg" "png")
+ALLOWED_OUTPUTS=("file" "display" "fps" "json" "display-and-json" "jpeg")
 
 # Default values
 MODEL="yolo26s-seg"
@@ -160,12 +160,7 @@ sink_elements['fps']="gvafpscounter ! fakesink sync=false"
 sink_elements['json']="gvametaconvert add-tensor-data=true ! gvametapublish file-format=json-lines file-path=${OUTPUT_DIRECTORY}output.json ! fakesink sync=false"
 sink_elements['display-and-json']="vapostproc ! gvawatermark ! gvametaconvert add-tensor-data=true ! gvametapublish file-format=json-lines file-path=${OUTPUT_DIRECTORY}instance_segmentation_${FILE}_${DEVICE}.json ! videoconvert ! gvafpscounter ! autovideosink sync=false"
 sink_elements["jpeg"]="vapostproc ! gvawatermark ! jpegenc ! multifilesink location=${OUTPUT_DIRECTORY}instance_segmentation_${FILE}_${DEVICE}_%05d.jpeg"
-sink_elements["png"]="vapostproc ! gvawatermark ! videoconvert ! pngenc ! multifilesink location=${OUTPUT_DIRECTORY}frame_%05d.png"
 SINK_ELEMENT=${sink_elements[$OUTPUT]}
-
-if [[ "$OUTPUT" == "png" ]]; then
-    mkdir -p "$OUTPUT_DIRECTORY"
-fi
 
 # Construct the GStreamer pipeline
 PIPELINE="gst-launch-1.0 ${SOURCE_ELEMENT} ${BENCHMARK_SINK} ${DECODE_ELEMENT} gvadetect model=${MODEL_PATH} "
