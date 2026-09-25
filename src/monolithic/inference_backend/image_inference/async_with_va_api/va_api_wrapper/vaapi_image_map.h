@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2018-2021 Intel Corporation
+ * Copyright (C) 2018-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -29,6 +29,17 @@ class VaApiImageMap_VASurface : public ImageMap {
   public:
     VaApiImageMap_VASurface();
     ~VaApiImageMap_VASurface();
+
+    Image Map(const Image &image) override;
+    void Unmap() override;
+};
+
+// Zero-copy: DMA-BUF backed surface, no GPU→CPU readback needed.
+// The Map() returns an Image whose dma_fd and va_surface_id point to the same physical buffer.
+class VaApiImageMap_DmaBuf : public ImageMap {
+  public:
+    VaApiImageMap_DmaBuf();
+    ~VaApiImageMap_DmaBuf();
 
     Image Map(const Image &image) override;
     void Unmap() override;
