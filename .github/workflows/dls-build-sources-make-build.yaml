@@ -206,7 +206,12 @@ jobs:
 
           cd ${{ env.DLS_REL_PATH }}
           echo "Installing DL Streamer..."
-          sudo -E make install
+          if [[ ${{ matrix.os }} == "ubuntu-26.04" ]]; then
+            # sudo-rs (default on Ubuntu 26.04) ignores -E, so we explicitly preserve the necessary environment variables
+            sudo --preserve-env=PATH,LD_LIBRARY_PATH,PKG_CONFIG_PATH,CPLUS_INCLUDE_PATH,C_INCLUDE_PATH,CMAKE_PREFIX_PATH,OpenVINO_DIR,OpenVINOGenAI_DIR,InferenceEngine_DIR,ngraph_DIR,TBB_DIR,TBBROOT,PYTHONPATH make install
+          else
+            sudo -E make install
+          fi
 
       - name: 🔍 Verify DL Streamer installation
         if: needs.setup.outputs.should_run == 'true'
