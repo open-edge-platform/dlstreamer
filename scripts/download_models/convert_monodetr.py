@@ -409,6 +409,16 @@ def export_mixed_ir(model, out_path, images, calibs, img_sizes, sanity=True):  #
                           "pred_depth", "pred_angle")):
         out.get_tensor().set_names({name})
 
+    # Tag axis 0 as batch (N) on every input so the runtime's ov::set_batch can pin
+    # the batch dimension; without this the aux inputs (and the image) keep a dynamic
+    # batch and shape inference fails (batch 0 vs 1).
+    for p in combined.get_parameters():
+        rank = p.get_partial_shape().rank
+        if not rank.is_static:
+            continue
+        ndims = rank.get_length()
+        p.set_layout(ov.Layout("NCHW") if ndims == 4 else ov.Layout("N" + "?" * (ndims - 1)))
+
     combined.set_rt_info("mono3d", ["model_info", "model_type"])
     combined.set_rt_info("standard", ["model_info", "resize_type"])
     combined.set_rt_info("True", ["model_info", "reverse_input_channels"])

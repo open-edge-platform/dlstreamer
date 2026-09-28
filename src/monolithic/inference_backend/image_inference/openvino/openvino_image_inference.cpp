@@ -822,16 +822,25 @@ class OpenVinoNewApiImpl {
         GVA_DEBUG("Setting batch size of %d to model", _batch_size);
         ov::set_batch(_model, _batch_size);
 
-        // ov::set_batch only pins inputs that carry an 'N' layout. Auxiliary inputs without a
-        // layout (e.g. MonoDETR's calib [N,3,4] and img_sizes [N,2]) keep a dynamic batch, which
-        // breaks internal shape inference (batch 0 vs 1). Pin any remaining dynamic input batch.
+        // ov::set_batch only pins inputs whose layout carries an 'N' (batch) tag. Any input that
+        // lacks such a layout keeps a dynamic batch, which breaks internal shape inference (batch
+        // 0 vs 1). As a best-effort safety net, pin any remaining dynamic axis-0 to the batch size
+        // and warn. NOTE: this assumes axis 0 is the batch, which holds for image and typical aux
+        // inputs (e.g. calib/img_sizes) but NOT for time-major layouts like [T, N, C]. The correct
+        // fix is to tag an 'N' layout (or share a batch symbol) at model conversion time.
         {
-            std::map<std::string, ov::PartialShape> pinned;
+            std::map<ov::Output<ov::Node>, ov::PartialShape> pinned;
             for (const auto &input : _model->inputs()) {
                 ov::PartialShape ps = input.get_partial_shape();
                 if (ps.rank().is_static() && ps.size() > 0 && ps[0].is_dynamic()) {
                     ps[0] = _batch_size;
-                    pinned[input.get_any_name()] = ps;
+                    // get_any_name() throws on unnamed inputs, so guard the display name
+                    const std::string name =
+                        input.get_names().empty() ? std::string("<unnamed>") : input.get_any_name();
+                    GVA_WARNING("Input '%s' has no batch ('N') layout; pinning its dynamic batch to %d. "
+                                "Tag an 'N' layout at model conversion to avoid this.",
+                                name.c_str(), _batch_size);
+                    pinned[input] = ps;
                 }
             }
             if (!pinned.empty())
