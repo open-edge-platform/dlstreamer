@@ -20,9 +20,11 @@ SUDO_PREFIX="sudo"
 INTEL_CL_GPU_KEY_URL="https://repositories.intel.com/gpu/intel-graphics.key"
 INTEL_CL_GPU_REPO_URL_22="https://repositories.intel.com/gpu/ubuntu jammy unified"
 INTEL_CL_GPU_REPO_URL_24="ppa:kobuk-team/intel-graphics"
+INTEL_CL_GPU_REPO_URL_26="ppa:kobuk-team/intel-graphics"
 INTEL_GPU_KEYRING_PATH="/usr/share/keyrings/intel-graphics.gpg"
 INTEL_GPU_LIST_22="intel-gpu-jammy.list"
 INTEL_GPU_LIST_24="kobuk-team-ubuntu-intel-graphics-noble.sources"
+INTEL_GPU_LIST_26="kobuk-team-ubuntu-intel-graphics-resolute.sources"
 CURL_TIMEOUT=60
 APT_UPDATE_TIMEOUT=60
 APT_GET_TIMEOUT=600
@@ -289,8 +291,13 @@ setup_gpu(){
     # Additional packages for Ubuntu 22.04/24.04/26.04
     if [ "$ubuntu_version" == "26.04" ]; then
         echo "Installing GPU drivers for Ubuntu 26.04..."
-        # Ubuntu 26.04's own repos already ship current Intel GPU packages, no PPA needed
-        install_packages ocl-icd-libopencl1 intel-opencl-icd clinfo intel-media-va-driver-non-free va-driver-all libva-glx2 vainfo || handle_error "Failed to install GPU drivers for Ubuntu 26.04"
+        $SUDO_PREFIX apt-get install -y --no-install-recommends software-properties-common || handle_error "Failed to install software-properties-common"
+        $SUDO_PREFIX -E add-apt-repository -y "$INTEL_CL_GPU_REPO_URL" || handle_error "Failed to add Intel GPU repository"
+        $SUDO_PREFIX apt update || handle_error "Failed to update package lists after adding repository"
+        echo "Snapshot: 20260916T030400Z" | $SUDO_PREFIX tee -a "/etc/apt/sources.list.d/$INTEL_GPU_LIST" || handle_error "Failed to add snapshot information"
+        $SUDO_PREFIX apt update || handle_error "Failed to update package lists after adding snapshot"
+        install_packages intel-metrics-discovery=1.14.188-1~26.04~ppa1 intel-gsc=1.2.0-1~26.04~ppa1 libvpl2=1:2.16.0-1 libze-intel-gpu1=26.31.39395.13-1~26.04~ppa1 libze1=1.32.0-1~26.04~ppa1 intel-opencl-icd=26.31.39395.13-1~26.04~ppa1 clinfo=3.0.25.02.14-1build1 \
+            intel-media-va-driver-non-free=26.3.2-1~26.04~ppa1 libmfx-gen1.2=26.3.2-1~26.04~ppa1 libvpl-tools=1.5.0-1 libva-glx2=2.24.1-1~26.04~ppa2 va-driver-all=2.24.1-1~26.04~ppa2 vainfo=2.24.0-1~26.04~ppa1 || handle_error "Failed to install GPU drivers for Ubuntu 26.04"
     elif [ "$ubuntu_version" == "24.04" ]; then
         echo "Installing GPU drivers for Ubuntu 24.04..."
         $SUDO_PREFIX apt-get install -y --no-install-recommends software-properties-common || handle_error "Failed to install software-properties-common"
@@ -430,7 +437,8 @@ echo_color "\n CPU is ($cpu_model_name).\n" "yellow"
 case "$ubuntu_version" in
     26.04)
         echo_color " Detected Ubuntu version: $ubuntu_version. " "green"
-        # No PPA/keyring needed; GPU packages are installed straight from Ubuntu 26.04's repos
+        INTEL_CL_GPU_REPO_URL=$INTEL_CL_GPU_REPO_URL_26
+        INTEL_GPU_LIST=$INTEL_GPU_LIST_26
         ;;
     24.04)
         echo_color " Detected Ubuntu version: $ubuntu_version. " "green"
