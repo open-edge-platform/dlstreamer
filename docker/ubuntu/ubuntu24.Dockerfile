@@ -70,11 +70,11 @@ RUN \
     apt-get install -y --no-install-recommends software-properties-common=0.99.49.4 && \
     add-apt-repository -y ppa:kobuk-team/intel-graphics && \
     apt-get update && \
-    echo "Snapshot: 20260916T030400Z" >> /etc/apt/sources.list.d/kobuk-team-ubuntu-intel-graphics-noble.sources && \
+    echo "Snapshot: 20260928T030400Z" >> /etc/apt/sources.list.d/kobuk-team-ubuntu-intel-graphics-noble.sources && \
     apt-get update && \
     apt-get install -y --no-install-recommends \
     intel-metrics-discovery=1.14.188-1~24.04~ppa1 intel-gsc=1.2.0-1~24.04~ppa1 libvpl2=1:2.16.0-1~24.04~ppa1 \
-    libze-intel-gpu1=26.31.39395.13-1~24.04~ppa1 libze1=1.32.0-1~24.04~ppa1 intel-opencl-icd=26.31.39395.13-1~24.04~ppa1 clinfo=3.0.23.01.25-1build1 \
+    libze-intel-gpu1=26.31.39395.14-1~24.04~ppa1 libze1=1.32.0-1~24.04~ppa1 intel-opencl-icd=26.31.39395.14-1~24.04~ppa1 clinfo=3.0.23.01.25-1build1 \
     intel-media-va-driver-non-free=26.3.2-1~24.04~ppa1 libmfx-gen1.2=26.3.2-1~24.04~ppa1 libvpl-tools=1.5.0-1~24.04~ppa1 libva-glx2=2.24.1-1~24.04~ppa2 va-driver-all=2.24.1-1~24.04~ppa2 vainfo=2.24.0-1~24.04~ppa1 && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
@@ -540,11 +540,11 @@ RUN \
     apt-get install -y --no-install-recommends software-properties-common=0.99.49.4 && \
     add-apt-repository -y ppa:kobuk-team/intel-graphics && \
     apt-get update && \
-    echo "Snapshot: 20260916T030400Z" >> /etc/apt/sources.list.d/kobuk-team-ubuntu-intel-graphics-noble.sources && \
+    echo "Snapshot: 20260928T030400Z" >> /etc/apt/sources.list.d/kobuk-team-ubuntu-intel-graphics-noble.sources && \
     apt-get update && \
     apt-get install -y --no-install-recommends \
     intel-metrics-discovery=1.14.188-1~24.04~ppa1 intel-gsc=1.2.0-1~24.04~ppa1 libvpl2=1:2.16.0-1~24.04~ppa1 \
-    libze-intel-gpu1=26.31.39395.13-1~24.04~ppa1 libze1=1.32.0-1~24.04~ppa1 intel-opencl-icd=26.31.39395.13-1~24.04~ppa1 clinfo=3.0.23.01.25-1build1 \
+    libze-intel-gpu1=26.31.39395.14-1~24.04~ppa1 libze1=1.32.0-1~24.04~ppa1 intel-opencl-icd=26.31.39395.14-1~24.04~ppa1 clinfo=3.0.23.01.25-1build1 \
     intel-media-va-driver-non-free=26.3.2-1~24.04~ppa1 libmfx-gen1.2=26.3.2-1~24.04~ppa1 libvpl-tools=1.5.0-1~24.04~ppa1 libva-glx2=2.24.1-1~24.04~ppa2 va-driver-all=2.24.1-1~24.04~ppa2 vainfo=2.24.0-1~24.04~ppa1 && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
