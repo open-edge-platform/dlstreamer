@@ -820,32 +820,9 @@ class OpenVinoNewApiImpl {
         }
 
         GVA_DEBUG("Setting batch size of %d to model", _batch_size);
+        // Every input carries an 'N' layout by now (image via configure_image_input, aux inputs tagged
+        // in configure_model_inputs), so set_batch pins the batch axis on all of them.
         ov::set_batch(_model, _batch_size);
-
-        // ov::set_batch only pins inputs whose layout carries an 'N' (batch) tag. Any input that
-        // lacks such a layout keeps a dynamic batch, which breaks internal shape inference (batch
-        // 0 vs 1). As a best-effort safety net, pin any remaining dynamic axis-0 to the batch size
-        // and warn. NOTE: this assumes axis 0 is the batch, which holds for image and typical aux
-        // inputs (e.g. calib/img_sizes) but NOT for time-major layouts like [T, N, C]. The correct
-        // fix is to tag an 'N' layout (or share a batch symbol) at model conversion time.
-        {
-            std::map<ov::Output<ov::Node>, ov::PartialShape> pinned;
-            for (const auto &input : _model->inputs()) {
-                ov::PartialShape ps = input.get_partial_shape();
-                if (ps.rank().is_static() && ps.size() > 0 && ps[0].is_dynamic()) {
-                    ps[0] = _batch_size;
-                    // get_any_name() throws on unnamed inputs, so guard the display name
-                    const std::string name =
-                        input.get_names().empty() ? std::string("<unnamed>") : input.get_any_name();
-                    GVA_WARNING("Input '%s' has no batch ('N') layout; pinning its dynamic batch to %d. "
-                                "Tag an 'N' layout at model conversion to avoid this.",
-                                name.c_str(), _batch_size);
-                    pinned[input] = ps;
-                }
-            }
-            if (!pinned.empty())
-                _model->reshape(pinned);
-        }
 
         GVA_DEBUG("Model inputs after configuration:");
         size_t idx = 0;
@@ -897,6 +874,14 @@ class OpenVinoNewApiImpl {
                 GVA_DEBUG("Found image input: %s, layout: %s", _image_input_name.c_str(),
                           get_ov_node_layout(item).to_string().c_str());
                 configure_image_input(config, in, in_cfg, item);
+            } else {
+                // Auxiliary (non-image) input (e.g. MonoDETR's calib/img_sizes): tag a batch ('N')
+                // layout so the later ov::set_batch can pin its batch axis. Only when axis 0 is dynamic
+                // and no layout is set, to avoid rewriting a legitimately fixed leading dimension.
+                const auto &pshape = item.get_partial_shape();
+                if (get_ov_node_layout(item).empty() && pshape.rank().is_static() && pshape.size() > 0 &&
+                    pshape[0].is_dynamic())
+                    in.model().set_layout(ov::Layout("N" + std::string(pshape.size() - 1, '?')));
             }
         }
 
@@ -1042,7 +1027,20 @@ class OpenVinoNewApiImpl {
             input.preprocess().scale(scale);
         }
 
-        // OV preprocessor does implicit layout conversion. If original layout is unknown, assume it is NCHW.
+        // Layout lifecycle (why there are two set_layout calls in this function):
+        //   - input.tensor().set_layout(...)  = the TENSOR layout, i.e. the axis order of the
+        //     incoming data buffer (NCHW for OPENCV/VAAPI, NHWC for IE/surface-sharing). Set above
+        //     depending on pp_type.
+        //   - input.model().set_layout(...)   = a HINT about the original network body's layout,
+        //     used by ppp.build() only to decide whether to insert a transpose.
+        // ppp.build() (in configure_model) reconciles the two: the resulting Parameter ends up
+        // carrying the TENSOR layout, and that is what ov::set_batch later reads. Since both NCHW
+        // and NHWC put 'N' at axis 0, set_batch always finds the batch on the image input.
+        // The "??HW" hint below is transient: only H/W placement matters for the model side, so we
+        // leave N/C unspecified. It does not become the Parameter's final layout.
+        // NOTE: this whole function only runs for the image input (data_format == KEY_image); aux
+        // inputs (e.g. calib/img_sizes) get their batch ('N') layout tagged in configure_model_inputs
+        // instead, so ov::set_batch can pin their batch axis too.
         ov::Layout model_layout = get_ov_node_layout(node);
         if (model_layout.empty()) {
             // Need to specify H and W dimensions in model, others are not important

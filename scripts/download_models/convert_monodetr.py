@@ -28,7 +28,7 @@ Run the produced IR with EXECUTION_MODE_HINT=ACCURACY (DLStreamer:
 everything to f16 and re-overflows the backbone to NaN.
 
 Example:
-    python convert_monodetr_ov.py --ckpt checkpoint_best.pth --output monodetr.xml
+    python convert_monodetr.py --ckpt checkpoint_best.pth --outdir ./models
 
 If --ckpt is omitted, the upstream checkpoint is downloaded from Google Drive
 (requires `gdown`). Run this OUTSIDE an existing MonoDETR checkout so
@@ -282,6 +282,25 @@ def install_forward_split():  # pylint: disable=too-many-statements
 # ---------------------------------------------------------------------------
 # 3. build model + example inputs
 # ---------------------------------------------------------------------------
+def _load_checkpoint(ckpt):
+    """torch.load with weights_only=True, allowlisting the numpy globals the checkpoint embeds."""
+    import importlib
+
+    # Upstream checkpoints store scalars (epoch, metrics) as numpy objects; allowlist just those
+    # reconstruction globals so weights_only stays on (no arbitrary code execution on load). numpy 2.x
+    # reports scalar as numpy._core.multiarray.scalar, but the checkpoint pickles the pre-2.0 name, so
+    # register it under that exact string via the (callable, name) form to match.
+    scalar = importlib.import_module("numpy.core.multiarray").scalar
+    safe_globals = [np.dtype, (scalar, "numpy.core.multiarray.scalar")]
+    try:
+        np_dtypes = importlib.import_module("numpy.dtypes")
+        safe_globals += [v for v in vars(np_dtypes).values() if isinstance(v, type)]
+    except ImportError:
+        pass  # numpy < 1.25 reconstructs dtypes via numpy.dtype alone
+    with torch.serialization.safe_globals(safe_globals):
+        return torch.load(ckpt, map_location="cpu", weights_only=True)
+
+
 def build_and_load(repo, ckpt):
     """Build the MonoDETR model from the upstream config and load the checkpoint weights."""
     import yaml
@@ -295,7 +314,7 @@ def build_and_load(repo, ckpt):
     torch.cuda.current_device = lambda: torch.device("cpu")
 
     model, _ = build_model(cfg["model"])
-    state = torch.load(ckpt, map_location="cpu", weights_only=True)
+    state = _load_checkpoint(ckpt)
     state_dict = state.get("model_state", state.get("state_dict", state))
     missing, unexpected = model.load_state_dict(state_dict, strict=False)
     print(f"[info] loaded checkpoint (missing={len(missing)}, unexpected={len(unexpected)})")
@@ -449,7 +468,7 @@ def parse_args():
     p = argparse.ArgumentParser(description=__doc__.strip().splitlines()[0])
     p.add_argument("--ckpt", default=None,
                    help="MonoDETR checkpoint .pth (default: download from upstream Google Drive)")
-    p.add_argument("--output", default="monodetr.xml", help="output IR path (.xml)")
+    p.add_argument("--outdir", default=".", help="output directory for monodetr.xml (and .bin)")
     p.add_argument("--repo", default="MonoDETR_upstream", help="where to clone upstream")
     p.add_argument("--ref", default=None, help="git ref (commit/tag/branch) to check out")
     p.add_argument("--image", default=None, help="example image for tracing (optional)")
@@ -471,7 +490,9 @@ def main():
 
     model = build_and_load(repo, ckpt)
     images, calibs, img_sizes = make_example(args.image, args.calib)
-    export_mixed_ir(model, os.path.abspath(args.output),
+    os.makedirs(args.outdir, exist_ok=True)
+    out_path = os.path.join(args.outdir, "monodetr.xml")
+    export_mixed_ir(model, os.path.abspath(out_path),
                     images, calibs, img_sizes, sanity=not args.no_sanity)
 
 

@@ -159,8 +159,9 @@ static void draw_3d_box(cv::Mat &img, const std::vector<float> &translation, con
     }
 }
 
-// Load a KITTI 3x4 P2 projection matrix: KITTI calib .txt ("P2:" row) or a JSON
-// file with a 3x3 "intrinsic_matrix" (padded to [K | 0]). Returns empty on failure.
+// Load a KITTI 3x4 P2 projection matrix: KITTI calib .txt ("P2:" row) or a JSON file with a 3x4
+// "projection_matrix" (takes precedence) or a 3x3 "intrinsic_matrix" (padded to [K | 0]). Returns
+// empty on failure.
 static cv::Mat load_p2_matrix(const gchar *filename) {
     std::string path(filename ? filename : "");
     if (path.empty())
@@ -177,6 +178,13 @@ static cv::Mat load_p2_matrix(const gchar *filename) {
             return cv::Mat();
         nlohmann::json j;
         f >> j;
+        if (j.contains("projection_matrix")) {
+            auto m = j["projection_matrix"];
+            for (int i = 0; i < 3; ++i)
+                for (int k = 0; k < 4; ++k)
+                    P2.at<double>(i, k) = m[i][k].get<double>();
+            return P2;
+        }
         if (!j.contains("intrinsic_matrix"))
             return cv::Mat();
         auto m = j["intrinsic_matrix"];
