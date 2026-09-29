@@ -148,6 +148,25 @@ deb22: ## Build the Deep Learning Streamer DEB package for Ubuntu 22.04
 	docker cp deb-builder:/intel-dlstreamer_${DLSTREAMER_VERSION}.1_amd64.deb ./build/packages/deb
 	docker rm deb-builder
 
+.PHONY: deb26
+deb26: ## Build the Deep Learning Streamer DEB package for Ubuntu 26.04
+	mkdir -p build/packages/deb
+	docker build . \
+		-f docker/ubuntu/ubuntu26.Dockerfile \
+		-t deb-builder \
+		--target deb-builder \
+		--build-arg http_proxy=${http_proxy} \
+		--build-arg https_proxy=${https_proxy} \
+		--build-arg DLSTREAMER_VERSION=${DLSTREAMER_VERSION} \
+		--build-arg DLSTREAMER_BUILD_NUMBER=1 \
+		--build-arg DEV_MODE=true \
+		--build-arg DOCKER_PRIVATE_REGISTRY=${DOCKER_PRIVATE_REGISTRY}
+	docker create \
+		--name deb-builder \
+		deb-builder
+	docker cp deb-builder:/intel-dlstreamer_${DLSTREAMER_VERSION}.1_amd64.deb ./build/packages/deb
+	docker rm deb-builder
+
 .PHONY: rpm
 rpm: ## Build the Deep Learning Streamer RPM package
 	mkdir -p build/packages/rpm
@@ -184,6 +203,19 @@ image: ## Build the Deep Learning Streamer docker image based on Ubuntu 24.04
 image22: ## Build the Deep Learning Streamer docker image based on Ubuntu 22.04
 	docker build . \
 		-f docker/ubuntu/ubuntu22.Dockerfile \
+		-t dlstreamer:dev \
+		--target dlstreamer \
+		--build-arg http_proxy=${http_proxy} \
+		--build-arg https_proxy=${https_proxy} \
+		--build-arg DLSTREAMER_VERSION=${DLSTREAMER_VERSION} \
+		--build-arg DLSTREAMER_BUILD_NUMBER=1 \
+		--build-arg DEV_MODE=true \
+		--build-arg DOCKER_PRIVATE_REGISTRY=${DOCKER_PRIVATE_REGISTRY}
+
+.PHONY: image26
+image26: ## Build the Deep Learning Streamer docker image based on Ubuntu 26.04
+	docker build . \
+		-f docker/ubuntu/ubuntu26.Dockerfile \
 		-t dlstreamer:dev \
 		--target dlstreamer \
 		--build-arg http_proxy=${http_proxy} \
