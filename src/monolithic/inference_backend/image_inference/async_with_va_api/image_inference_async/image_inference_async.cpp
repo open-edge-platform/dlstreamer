@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2018-2025 Intel Corporation
+ * Copyright (C) 2018-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -142,7 +142,9 @@ void ImageInferenceAsync::SubmitInference(VaApiImage *va_api_image, IFrameBase::
             GVA_ERROR("Couldn't release VaApiImage: %s", e.what());
         }
     };
-    frame->SetImage(std::shared_ptr<Image>(new Image(va_api_image->Map()), deleter));
+
+    auto mapped = va_api_image->Map();
+    frame->SetImage(std::shared_ptr<Image>(new Image(mapped), deleter));
     _inference->SubmitImage(std::move(frame), input_preprocessors);
 }
 

@@ -85,7 +85,6 @@ PRIVATE
     ${GSTANALYTICS_LIBRARIES}
     ${OpenCV_LIBS}
     dlstreamer_api
-    dlstreamer_logger
     common
     image_inference
     image_inference_openvino

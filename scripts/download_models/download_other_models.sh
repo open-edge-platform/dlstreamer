@@ -44,6 +44,7 @@ SUPPORTED_MODELS=(
   "centerface"
   "hsemotion"
   "deeplabv3"
+  "aclnet" # Sound classification model for audio event detection sample
   "pallet_defect_detection" # Custom model for pallet defect detection
   "colorcls2" # Color classification model
   "mars-small128" # DeepSORT person re-identification model (uses convert_mars_deepsort.py)
@@ -665,6 +666,31 @@ EOF
     deactivate 2>/dev/null || true
     rm -rf "$HOME/.virtualenvs/dlstreamer_openvino_dev" 2>/dev/null || true
     source "$VENV_DIR/bin/activate" 
+  else
+    model_status="cached"
+    echo_color "\nModel already exists: $MODEL_DIR.\n" "yellow"
+  fi
+fi
+
+# ================================= AclNet FP16 & FP32 =================================
+if array_contains "aclnet" "${MODELS_TO_PROCESS[@]}"; then
+  display_header "Downloading AclNet model"
+  MODEL_NAME="aclnet"
+  model_status="ok"
+  MODEL_DIR="$MODELS_PATH/public/$MODEL_NAME"
+  DST_FILE1="$MODEL_DIR/FP16/$MODEL_NAME.xml"
+  DST_FILE2="$MODEL_DIR/FP32/$MODEL_NAME.xml"
+
+  if [[ ! -f "$DST_FILE1" || ! -f "$DST_FILE2" ]]; then
+    mkdir -p "$MODEL_DIR/FP16" "$MODEL_DIR/FP32"
+    cd "$MODEL_DIR"
+    echo "Downloading and converting: ${MODEL_DIR}"
+    download_binary_file \
+      "https://storage.openvinotoolkit.org/models_contrib/sound_classification/aclnet/2021-02-04/aclnet_des_53_fp32.onnx" \
+      "aclnet_des_53.onnx" || handle_error "failed to download aclnet_des_53.onnx"
+    ovc aclnet_des_53.onnx --input "[1,1,1,16000]" --output_model "FP16/${MODEL_NAME}.xml" --compress_to_fp16=True || handle_error $LINENO
+    ovc aclnet_des_53.onnx --input "[1,1,1,16000]" --output_model "FP32/${MODEL_NAME}.xml" --compress_to_fp16=False || handle_error $LINENO
+    rm -f aclnet_des_53.onnx
   else
     model_status="cached"
     echo_color "\nModel already exists: $MODEL_DIR.\n" "yellow"

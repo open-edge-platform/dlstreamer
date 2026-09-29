@@ -5,7 +5,7 @@ SPDX-License-Identifier: MIT
 
 ## Overview
 
-`coexistance_benchmark.sh` is a benchmark script that measures the (potantial) maximum number of concurrent video analytics streams that can be executed on a system equipped with a combination of Intel and NVIDIA hardware.
+`coexistance_benchmark.sh` is a benchmark script that measures the potential maximum number of concurrent video analytics streams that can be executed on a system equipped with a combination of Intel and NVIDIA hardware.
 
 The script automatically detects available hardware and runs the appropriate inference pipeline:
 
@@ -58,6 +58,8 @@ Both pipelines run inside Docker containers.
 | `<INPUT_DS>` | Input video for DeepStream — local file path, `rtsp://` URL, or `https://` URL | `video_ds.mp4` |
 | `LPR` | Pipeline mode — currently only `LPR` is supported | `LPR` |
 
+`<INPUT_DLS>`/`<INPUT_DS>` must not contain `"`, `` ` ``, `$(`, `;`, or newline characters — these are rejected to prevent shell injection when the input is embedded in the generated pipeline command.
+
 ### Options
 
 | Option | Description | Default |
@@ -66,11 +68,14 @@ Both pipelines run inside Docker containers.
 | `--ds-only` | Run DeepStream only (skip DL Streamer) | both platforms |
 | `--dls-fps-threshold=N` | Minimum acceptable per-stream FPS for DL Streamer | `30` |
 | `--ds-fps-threshold=N` | Minimum acceptable per-source FPS for DeepStream | `30` |
+| `--dls-start-streams=N` | Initial stream count for the DL Streamer benchmark | `1` |
+| `--ds-start-streams=N` | Initial stream count for the DeepStream benchmark | `1` |
+| `--dls-decode-chain=1\|2` | DL Streamer decode chain: `1` uses `parsebin ! vah264dec ! vapostproc`; `2` uses `decodebin3 ! vapostproc` | `1` |
 | `--measure-seconds=N` | Measurement duration per round, in seconds (positive integer) | `20` |
 
 ### Examples
 
-Benchmark both platforms (first Deep Leearning Streamer, next DeepStream):
+Benchmark both platforms (first DL Streamer, then DeepStream):
 ```bash
 ./coexistance_benchmark.sh video_dls.mp4 video_ds.mp4 LPR
 ```
@@ -90,6 +95,16 @@ Custom measurement duration per round:
 ./coexistance_benchmark.sh video_dls.mp4 video_ds.mp4 LPR --measure-seconds=30
 ```
 
+Start the benchmark at a higher stream count:
+```bash
+./coexistance_benchmark.sh video_dls.mp4 video_ds.mp4 LPR --dls-start-streams=2 --ds-start-streams=2
+```
+
+Use the alternative DL Streamer decode chain:
+```bash
+./coexistance_benchmark.sh video_dls.mp4 video_ds.mp4 LPR --dls-decode-chain=2
+```
+
 RTSP stream:
 ```bash
 ./coexistance_benchmark.sh rtsp://192.168.1.10:8554/stream rtsp://192.168.1.10:8554/stream LPR
@@ -102,9 +117,29 @@ To save everything displayed on screen to a log file while still seeing it in th
 ./coexistance_benchmark.sh video_dls.mp4 video_ds.mp4 LPR 2>&1 | tee <LOG_FILE.LOG>
 ```
 
+### Running without arguments
+
+Running the script with no arguments skips the benchmark and instead reports whether
+the DL Streamer and DeepStream models are already downloaded, then prints usage and exits:
+```bash
+./coexistance_benchmark.sh
+```
+```text
+Model availability check:
+	 DL Streamer models: available
+	 DeepStream models : missing
+```
+
+### Selecting an Intel GPU
+
+When more than one Intel GPU is present, the script lists them and prompts for a
+choice (defaults to the discrete GPU, if any, when run non-interactively or with no
+selection). Set the `INTEL_GPU_RENDER_DEVICE` environment variable (e.g.
+`/dev/dri/renderD129`) to pick a device without the interactive prompt.
+
 ## First-run Setup (Automatic)
 
-On first run the script automatically downloads all required models inside Docker containers. This requires an internet connection and may take several minutes.
+On first run the script automatically downloads all required models inside Docker containers. This requires an internet connection and may take several minutes. A download interrupted mid-way (e.g. network error) is automatically retried from scratch on the next run.
 
 Download containers use dedicated names (`benchmark_dls_download`, `benchmark_ds_download`) separate from benchmark containers.
 
@@ -147,74 +182,19 @@ Run DL Streamer (N) and DeepStream (M) containers in parallel now? [y/N]
 
 - Answering `y` / `Y` launches one DL Streamer container and one DeepStream container
   concurrently, each at its found maximum, and displays a live FPS view for both for
-  `--measure-seconds` seconds before stopping and cleaning up.
+  180 seconds before stopping and cleaning up.
 - Any other answer skips the parallel run.
 - The prompt appears only when at least one platform reached a result greater than `0`.
 - A platform whose maximum is `0` is skipped in the parallel run.
 
-## Execution Flow
 
-### Overall script flow
 
-```mermaid
-flowchart TD
-    A([Start]) --> D0["Source utils.sh<br/>Defines helpers, pipeline builders, welcome / usage"]
-    D0 --> B["detect_intel_devices_for_docker<br/>/dev/dri → DEVICE_DRI, /dev/accel → DEVICE_ACCEL"]
-    B --> C["determine_source_dls / determine_source_ds<br/>SOURCE + EXTRA_INPUT_VOLUME from INPUT_DLS / INPUT_DS"]
-    C --> C2["detect_preferred_intel_render_device<br/>prefer dGPU over iGPU → INTEL_RENDER_DEVICE"]
-    C2 --> D["Build DLSTREAMER_DOCKER / DEEPSTREAM_DOCKER<br/>(main script; embeds DEVICE_* / EXTRA_INPUT_VOLUME_*)"]
-    D --> E["Parse arguments<br/>RUN_DLS / RUN_DS, FPS thresholds, --measure-seconds"]
-    E --> F[Validate input arguments]
-    F --> G["Detect hardware<br/>lspci → INTEL_GPU / NVIDIA_GPU<br/>lscpu → INTEL_CPU"]
-    G --> H{Models present?}
-    H -- DLS missing --> I["Download DL Streamer models<br/>benchmark_dls_download container"]
-    H -- DS missing --> J["Download DeepStream TAO models<br/>benchmark_ds_download container"]
-    I --> N{RUN_DLS?}
-    J --> N
-    H -- all present --> N
-    N -- yes --> O[run_phase dls]
-    N -- no --> P{RUN_DS?}
-    O --> P
-    P -- yes --> Q[run_phase ds]
-    P -- no --> R[Print BENCHMARK RESULTS]
-    Q --> R
-    R --> T{Run in parallel?<br/>y/N prompt}
-    T -- yes --> U["run_parallel_max_streams<br/>DLS_MAX_STREAMS + DS_MAX_STREAMS"]
-    T -- no --> S([End])
-    U --> S
-```
-
-### run_phase — benchmark loop
-
-```mermaid
-flowchart TD
-    A([run_phase platform]) --> F[streams = 1]
-    F --> G[run_one_round platform streams]
-    G --> H["_finish_round<br/>collect FPS"]
-    H --> I{FPS < threshold?}
-    I -- yes --> J[Report max = streams - 1]
-    J --> E([Return])
-    I -- no --> K[streams++]
-    K --> G
-```
-
-### run_one_round — single measurement round
-
-```mermaid
-flowchart TD
-    A(["run_one_round platform streams"]) --> B["Build pipeline string<br/>build_dls_pipeline_no_encode<br/>build_ds_pipeline_no_encode"]
-    B --> C["Start Docker container<br/>benchmark_dls_N or benchmark_ds_N"]
-    C --> D["wait_for_pipeline_start<br/>wait for FpsCounter / PERF / New clock"]
-    D --> E{Startup OK?}
-    E -- error/OOM --> F["Abort round<br/>return error"]
-    E -- ok --> G["Start live FPS monitor<br/>background subshell<br/>reads FpsCounter last lines"]
-    G --> J["Sleep MEASURE_SECONDS<br/>live FPS displayed"]
-    J --> K{DS engine build detected?}
-    K -- yes --> L[Extend wait up to 420s]
-    L --> M["kill live monitor<br/>_finish_round"]
-    K -- no --> M
-    M --> N(["Return ROUND_FPS / ROUND_STATUS"])
-```
-
-> **Note:** `utils.sh` is sourced first (it only defines functions). The device/source detection steps then run before the `DLSTREAMER_DOCKER` / `DEEPSTREAM_DOCKER` command strings are declared in the main script, because those strings embed `${DEVICE_DRI}`, `${DEVICE_ACCEL}` and `${EXTRA_INPUT_VOLUME_DLS}` / `${EXTRA_INPUT_VOLUME_DS}` by value at declaration time. The pipeline builders in `utils.sh` expand `${SOURCE_DLS}` / `${SOURCE_DS}` when called, not at source time.
+> **Note:** Startup order: input arguments are validated first (or, with no arguments, model
+> availability is reported and the script exits) before anything hardware-related runs.
+> Only then are Intel devices detected, the Intel GPU selection prompt shown, and the
+> `DLSTREAMER_DOCKER` / `DEEPSTREAM_DOCKER` command strings declared — those strings embed
+> `${DEVICE_DRI}`, `${DEVICE_ACCEL}` and `${EXTRA_INPUT_VOLUME_DLS}` / `${EXTRA_INPUT_VOLUME_DS}`
+> by value at declaration time, so they must come after device/source detection and GPU
+> selection. The pipeline builders in `utils.sh` expand `${SOURCE_DLS}` / `${SOURCE_DS}` when
+> called, not at source time.
 
