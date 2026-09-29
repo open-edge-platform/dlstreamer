@@ -9,7 +9,7 @@ npu_driver_version_u26_pkg='https://github.com/intel/linux-npu-driver/releases/d
 npu_driver_version_u24_pkg='https://github.com/intel/linux-npu-driver/releases/download/v1.38.0/linux-npu-driver-v1.38.0.20260910-34487311128-ubuntu2404.tar.gz'
 npu_driver_version_u22_pkg='https://github.com/intel/linux-npu-driver/releases/download/v1.26.0/linux-npu-driver-v1.26.0.20251125-19665715237-ubuntu2204.tar.gz'
 npu_libze1_version_u26_pkg='https://snapshot.ppa.launchpadcontent.net/kobuk-team/intel-graphics/ubuntu/20260830T100000Z/pool/main/l/level-zero-loader/libze1_1.32.0-1~26.04~ppa1_amd64.deb'
-npu_libze1_version_pkg='https://snapshot.ppa.launchpadcontent.net/kobuk-team/intel-graphics/ubuntu/20260830T100000Z/pool/main/l/level-zero-loader/libze1_1.32.0-1~24.04~ppa1_amd64.deb'
+npu_libze1_version_u24_pkg='https://snapshot.ppa.launchpadcontent.net/kobuk-team/intel-graphics/ubuntu/20260830T100000Z/pool/main/l/level-zero-loader/libze1_1.32.0-1~24.04~ppa1_amd64.deb'
 npu_driver_version_u22="1.26.0"
 npu_driver_version_u24="1.38.0"
 npu_driver_version_u26="1.38.0"
@@ -382,7 +382,7 @@ install_npu() {
         wget "$npu_libze1_version_u26_pkg" || echo_color "Failed to download libze1 package" "red"
         $SUDO_PREFIX apt install -y ./intel-*.deb || echo_color "Failed to install NPU and libze1 packages" "red"
     elif [[ "$ubuntu_version" == "24.04" ]]; then
-        wget "$npu_libze1_version_pkg" || echo_color "Failed to download libze1 package" "red"
+        wget "$npu_libze1_version_u24_pkg" || echo_color "Failed to download libze1 package" "red"
         $SUDO_PREFIX apt install -y ./intel-*.deb || echo_color "Failed to install NPU and libze1 packages" "red"
     elif [[ "$ubuntu_version" == "22.04" ]]; then
         $SUDO_PREFIX apt-get install -y libtbb12 || echo_color "Failed to install libtbb12" "red"
