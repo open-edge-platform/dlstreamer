@@ -134,7 +134,7 @@ echo_color "Starting to configure OpenVINO™ repository access before DL Stream
 sudo -E wget -O- https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB | gpg --dearmor | sudo tee /usr/share/keyrings/intel-gpg-archive-keyring.gpg > /dev/null
 
 . /etc/os-release
-if [[ ! " jammy noble " =~  ${VERSION_CODENAME}  ]]; then
+if [[ ! " jammy noble resolute " =~  ${VERSION_CODENAME}  ]]; then
     echo_color "Ubuntu version ${VERSION_CODENAME} not supported" "red"
 else
     if [[ "${VERSION_CODENAME}" == "jammy" ]]; then
@@ -144,6 +144,10 @@ else
     if [[ "${VERSION_CODENAME}" == "noble" ]]; then
         sudo bash -c 'echo "deb [signed-by=/usr/share/keyrings/intel-gpg-archive-keyring.gpg] https://apt.repos.intel.com/openvino ubuntu24 main" | sudo tee /etc/apt/sources.list.d/intel-openvino.list'
         echo_color "Completed to configure OpenVINO™ repository access before DL Streamer installation for Ubuntu 24" "magenta"
+    fi
+    if [[ "${VERSION_CODENAME}" == "resolute" ]]; then
+        sudo bash -c 'echo "deb [signed-by=/usr/share/keyrings/intel-gpg-archive-keyring.gpg] https://apt.repos.intel.com/openvino ubuntu26 main" | sudo tee /etc/apt/sources.list.d/intel-openvino.list'
+        echo_color "Completed to configure OpenVINO™ repository access before DL Streamer installation for Ubuntu 26" "magenta"
     fi
 fi
 
