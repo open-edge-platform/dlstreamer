@@ -2,6 +2,12 @@ name: "[DLS] [U22/24] Build dev imgs and run Unit Tests"
 run-name: "[DLS] [U22/24] Build dev imgs and run Unit Tests(by ${{ github.actor }})"
 on:
   workflow_call:
+    inputs:
+      run-unit-tests:
+        description: "Whether to run unit tests (skipped when PR changes only touch the samples/ folder)"
+        required: false
+        type: string
+        default: "true"
     outputs:
       current-image-size-ubuntu22:
         description: "Current DEV image size in MB for ubuntu22"
@@ -146,8 +152,14 @@ jobs:
             ./dlstreamer-repo
 
       # ====================================================== UNIT TESTS ============================================================
+      - name: Skip unit tests notice
+        if: needs.setup.outputs.should_run == 'true' && inputs.run-unit-tests != 'true'
+        run: |
+          echo "## ⏭️ Unit tests skipped" >> $GITHUB_STEP_SUMMARY
+          echo "**Reason:** PR changes only touch the samples/ folder" >> $GITHUB_STEP_SUMMARY
+
       - name: Check models
-        if: needs.setup.outputs.should_run == 'true'
+        if: needs.setup.outputs.should_run == 'true' && inputs.run-unit-tests == 'true'
         run: |
           echo "## Basic checks" >> $GITHUB_STEP_SUMMARY
           if [ -d "${{ env.MODELS_PATH }}" ] && [ "$(ls -A "${{ env.MODELS_PATH }}")" ]; then
@@ -160,7 +172,7 @@ jobs:
           fi
 
       - name: Check videos
-        if: needs.setup.outputs.should_run == 'true'
+        if: needs.setup.outputs.should_run == 'true' && inputs.run-unit-tests == 'true'
         run: |
           if [ -d "${{ env.VIDEO_INPUTS_PATH }}" ] && [ "$(ls -A "${{ env.VIDEO_INPUTS_PATH }}")" ]; then
             echo "Tests input videos: found ✅" >> $GITHUB_STEP_SUMMARY
@@ -170,7 +182,7 @@ jobs:
           fi
 
       - name: Create test results folder
-        if: needs.setup.outputs.should_run == 'true'
+        if: needs.setup.outputs.should_run == 'true' && inputs.run-unit-tests == 'true'
         env:
           RESULTS_DIR: test-results
         run: |
@@ -178,7 +190,7 @@ jobs:
           chmod -R 777 ${RESULTS_DIR}
 
       - name: Run tests
-        if: needs.setup.outputs.should_run == 'true'
+        if: needs.setup.outputs.should_run == 'true' && inputs.run-unit-tests == 'true'
         id: run-tests
         env:
           dev_debug_img: ghcr.io/${{ github.repository }}/dev-debug-img-${{ matrix.ubuntu_version }}:${{ github.sha }}
@@ -203,7 +215,7 @@ jobs:
 
       #this script creates output file called unit_test_summary.txt
       - name: Run python script to get Unit Test results
-        if: needs.setup.outputs.should_run == 'true'
+        if: needs.setup.outputs.should_run == 'true' && inputs.run-unit-tests == 'true'
         env:
           dev_debug_img: ghcr.io/${{ github.repository }}/dev-debug-img-${{ matrix.ubuntu_version }}:${{ github.sha }}
           MAPPED_RESULTS_DIR: /home/dlstreamer/test-results
@@ -260,7 +272,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Check and display unit test results
-        if: always() && needs.setup.outputs.should_run == 'true'
+        if: always() && needs.setup.outputs.should_run == 'true' && inputs.run-unit-tests == 'true'
         env:
           RESULTS_DIR: test-results
         run: |
@@ -281,7 +293,7 @@ jobs:
           fi
 
       - name: Upload test results
-        if: always() && needs.setup.outputs.should_run == 'true'
+        if: always() && needs.setup.outputs.should_run == 'true' && inputs.run-unit-tests == 'true'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a #7.0.1
         env:
           RESULTS_DIR: test-results
