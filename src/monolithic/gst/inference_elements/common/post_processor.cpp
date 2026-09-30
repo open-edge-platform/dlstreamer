@@ -12,7 +12,12 @@
 #include "inference_backend/logger.h"
 #include "inference_impl.h"
 #include "model_proc_provider.h"
+#include "post_processor/safetensors_reader.h"
+#include "post_processor/zeroshot_embeddings.h"
 
+#include <algorithm>
+#include <cmath>
+#include <limits>
 #include <map>
 #include <regex>
 #include <string>
@@ -162,6 +167,84 @@ void fillModelLabels(post_processing::PostProcessorImpl::Initializer &initialize
 
 } /* anonymous namespace */
 
+namespace post_processing {
+
+// Sibling of loadLabelsFromFile: turns the zero-shot class-embeddings artifact into data, so the
+// clip_zeroshot converter never has to know about files or the safetensors format. The rows are the
+// projected text embeddings of the class prompts; logit_scale and unknown_threshold ride along in
+// the file's __metadata__.
+ZeroShotEmbeddings loadEmbeddingsFromFile(const std::string &embeddings_file) {
+    if (embeddings_file.empty())
+        throw std::invalid_argument("Zero-shot embeddings file is not set.");
+
+    if (!Utils::fileExists(embeddings_file))
+        throw std::invalid_argument("Zero-shot embeddings file '" + embeddings_file + "' does not exist");
+
+    if (Utils::symLink(embeddings_file))
+        throw std::invalid_argument("Zero-shot embeddings file '" + embeddings_file + "' is a symbolic link");
+
+    static const std::vector<std::string> kEmbeddingTensorNames = {"embeddings", "label_embeddings", "E_text",
+                                                                   "text_embeddings"};
+    SafetensorsMatrix matrix;
+    try {
+        matrix = load_safetensors_matrix(embeddings_file, kEmbeddingTensorNames);
+    } catch (const std::exception &e) {
+        throw std::runtime_error("Failed to load zero-shot embeddings from '" + embeddings_file + "': " + e.what());
+    }
+
+    if (matrix.rows == 0 || matrix.cols == 0)
+        throw std::runtime_error("Zero-shot embeddings in '" + embeddings_file + "' are empty.");
+    if (matrix.data.size() != matrix.rows * matrix.cols)
+        throw std::runtime_error("Zero-shot embeddings in '" + embeddings_file +
+                                 "' are not a 2-D [num_classes, embedding_dim] matrix.");
+
+    ZeroShotEmbeddings embeddings;
+    embeddings.num_classes = matrix.rows;
+    embeddings.embedding_dim = matrix.cols;
+    embeddings.class_embeddings = std::move(matrix.data);
+
+    // Defensive L2-normalization of each class prototype (cheap; tolerates un-normalized inputs).
+    for (std::size_t row = 0; row < embeddings.num_classes; ++row) {
+        float *row_ptr = embeddings.class_embeddings.data() + row * embeddings.embedding_dim;
+        double norm_sq = 0.0;
+        for (std::size_t col = 0; col < embeddings.embedding_dim; ++col)
+            norm_sq += static_cast<double>(row_ptr[col]) * static_cast<double>(row_ptr[col]);
+
+        const double norm = std::sqrt(norm_sq);
+        if (norm <= std::numeric_limits<double>::epsilon())
+            throw std::runtime_error("Zero-shot embeddings row " + std::to_string(row) + " in '" + embeddings_file +
+                                     "' has zero norm.");
+
+        for (std::size_t col = 0; col < embeddings.embedding_dim; ++col)
+            row_ptr[col] = static_cast<float>(row_ptr[col] / norm);
+    }
+
+    const auto logit_scale_it = matrix.metadata.find("logit_scale");
+    if (logit_scale_it != matrix.metadata.end()) {
+        try {
+            embeddings.logit_scale = std::stof(logit_scale_it->second);
+        } catch (const std::exception &) {
+            GVA_WARNING("Zero-shot: could not parse logit_scale metadata value '%s'.", logit_scale_it->second.c_str());
+        }
+    }
+
+    // Optional rejection threshold: if the top-1 cosine similarity is below it, the result is
+    // labelled "unknown" (label_id -1). Negative disables it.
+    const auto unknown_threshold_it = matrix.metadata.find("unknown_threshold");
+    if (unknown_threshold_it != matrix.metadata.end()) {
+        try {
+            embeddings.unknown_threshold = std::stod(unknown_threshold_it->second);
+        } catch (const std::exception &) {
+            GVA_WARNING("Zero-shot: could not parse unknown_threshold metadata value '%s'.",
+                        unknown_threshold_it->second.c_str());
+        }
+    }
+
+    return embeddings;
+}
+
+} // namespace post_processing
+
 PostProcessor::PostProcessor(InferenceImpl *inference_impl, GvaBaseInference *base_inference) {
     auto inference_type = base_inference->type;
     auto inference_region = base_inference->inference_region;
@@ -209,6 +292,12 @@ PostProcessor::PostProcessor(InferenceImpl *inference_impl, GvaBaseInference *ba
         initializer.converter_type = ConverterType::TO_TENSOR;
         GstGvaClassify *gva_classify = reinterpret_cast<GstGvaClassify *>(base_inference);
         initializer.skip_raw_tensors = gva_classify->skip_raw_tensors;
+        initializer.zeroshot_embeddings_file =
+            gva_classify->zeroshot_embeddings_file ? gva_classify->zeroshot_embeddings_file : "";
+        // Files become data here, like the labels above; the converter only ever sees the class bank.
+        if (!initializer.zeroshot_embeddings_file.empty())
+            initializer.zeroshot_embeddings = loadEmbeddingsFromFile(initializer.zeroshot_embeddings_file);
+        initializer.zeroshot_topk = gva_classify->zeroshot_topk;
     } else if (inference_type == InferenceType::GST_GVA_INFERENCE_TYPE) {
         initializer.converter_type = ConverterType::RAW;
     }

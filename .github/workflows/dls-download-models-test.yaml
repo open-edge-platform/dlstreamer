@@ -6,6 +6,9 @@ on:
 
 permissions: {}
 
+env:
+  UV_INDEX_STRATEGY: unsafe-best-match
+
 jobs:
   setup:
     name: Setup models downloading test configuration
@@ -14,7 +17,7 @@ jobs:
       should_run: ${{ steps.skip-check.outputs.should_run }}
     steps:
       - name: Check out dlstreamer repository
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 #7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 #7.0.1
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -47,13 +50,20 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Ensure uv is installed
+        if: always() && needs.setup.outputs.should_run == 'true'
+        run: |
+          # Check if uv is installed, if not install it
+          if ! command -v uv >/dev/null 2>&1; then
+            curl -LsSf https://astral.sh/uv/install.sh | sh
+          fi
+
       - name: Create venv and install HF script dependencies
         if: needs.setup.outputs.should_run == 'true'
         run: |
-          python3 -m venv "$HF_VENV"
+          uv venv "$HF_VENV"
           source "$HF_VENV/bin/activate"
-          python -m pip install --upgrade pip
-          pip install -r scripts/download_models/requirements_download_hf_models.txt
+          uv pip install -r scripts/download_models/requirements_download_hf_models.txt
 
       - name: "README §1 - standard HF export"
         if: needs.setup.outputs.should_run == 'true'
@@ -122,13 +132,20 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Ensure uv is installed
+        if: always() && needs.setup.outputs.should_run == 'true'
+        run: |
+          # Check if uv is installed, if not install it
+          if ! command -v uv >/dev/null 2>&1; then
+            curl -LsSf https://astral.sh/uv/install.sh | sh
+          fi
+
       - name: Create venv and install Ultralytics script dependencies
         if: needs.setup.outputs.should_run == 'true'
         run: |
-          python3 -m venv "$ULT_VENV"
+          uv venv "$ULT_VENV"
           source "$ULT_VENV/bin/activate"
-          python -m pip install --upgrade pip
-          pip install -r scripts/download_models/requirements_download_ultralytics_models.txt
+          uv pip install -r scripts/download_models/requirements_download_ultralytics_models.txt
 
       - name: "README §2 - export by model name"
         if: needs.setup.outputs.should_run == 'true'
@@ -189,13 +206,20 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Ensure uv is installed
+        if: always() && needs.setup.outputs.should_run == 'true'
+        run: |
+          # Check if uv is installed, if not install it
+          if ! command -v uv >/dev/null 2>&1; then
+            curl -LsSf https://astral.sh/uv/install.sh | sh
+          fi
+
       - name: Create venv and install TIMM script dependencies
         if: needs.setup.outputs.should_run == 'true'
         run: |
-          python3 -m venv "$TIMM_VENV"
+          uv venv "$TIMM_VENV"
           source "$TIMM_VENV/bin/activate"
-          python -m pip install --upgrade pip
-          pip install -r scripts/download_models/requirements_download_timm_models.txt
+          uv pip install -r scripts/download_models/requirements_download_timm_models.txt
 
       - name: "README §3 - list-models"
         if: needs.setup.outputs.should_run == 'true'
@@ -392,13 +416,20 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Ensure uv is installed
+        if: always() && needs.setup.outputs.should_run == 'true'
+        run: |
+          # Check if uv is installed, if not install it
+          if ! command -v uv >/dev/null 2>&1; then
+            curl -LsSf https://astral.sh/uv/install.sh | sh
+          fi
+
       - name: Create venv and install Ultralytics script dependencies
         if: needs.setup.outputs.should_run == 'true'
         run: |
-          python3 -m venv "$U22_ULT_VENV"
+          uv venv "$U22_ULT_VENV"
           source "$U22_ULT_VENV/bin/activate"
-          python -m pip install --upgrade pip
-          pip install -r scripts/download_models/requirements_download_ultralytics_models.txt
+          uv pip install -r scripts/download_models/requirements_download_ultralytics_models.txt
 
       - name: "README §2 - export by model name (Ubuntu 22.04)"
         if: needs.setup.outputs.should_run == 'true'

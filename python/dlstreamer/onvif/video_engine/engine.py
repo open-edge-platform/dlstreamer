@@ -24,6 +24,7 @@ from urllib.parse import quote, urlsplit, urlunsplit
 
 from ..discovery import discover_onvif_cameras
 from ..camera_profiles import read_camera_profiles
+from ..camera_profiles.types import is_safe_rtsp_url
 
 from .types import (
     CameraEventDefinition,
@@ -579,6 +580,11 @@ class VideoEngine:  # pylint: disable=too-many-instance-attributes,too-many-publ
     ) -> PipelineBinding:
         profile_name = str(getattr(profile, "name", "")) if profile is not None else ""
         rtsp_url = str(getattr(profile, "rtsp_url", "")) if profile is not None else ""
+        # Defense in depth: never let a camera-reported URL that fails
+        # validation reach a pipeline description, even if it slipped past
+        # the profile-fetching layer.
+        if rtsp_url and not is_safe_rtsp_url(rtsp_url):
+            rtsp_url = ""
         mac = identity.mac or ""
 
         substitutions = {
@@ -937,6 +943,8 @@ class VideoEngine:  # pylint: disable=too-many-instance-attributes,too-many-publ
             for profile in result.profiles:
                 available.append(profile.name)
                 if profile.name == profile_name:
+                    if profile.rtsp_url and not is_safe_rtsp_url(profile.rtsp_url):
+                        return None, f"profile '{profile_name}' on {target} has an unsafe RTSP URL"
                     if profile.rtsp_url:
                         url = self._inject_rtsp_credentials(profile.rtsp_url, username, password)
                         return url, ""

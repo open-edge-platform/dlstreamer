@@ -40,7 +40,7 @@ The sample uses the **YOLOv11s** model from Ultralytics, which should be availab
 For the YOLOv11s model, it is also necessary to install the Ultralytics Python package:
 
 ```sh
-pip install ultralytics
+uv pip install ultralytics
 ```
 
 Use [`download_ultralytics_models.py`](../../../../../scripts/download_models/download_ultralytics_models.py) to export YOLO models. To do this, please follow [`README`](../../../../../scripts/download_models/README.md). To prepare YOLOv11s in FP32, execute:

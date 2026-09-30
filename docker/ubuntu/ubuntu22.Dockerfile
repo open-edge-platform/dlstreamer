@@ -101,6 +101,8 @@ RUN \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
+RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin sh
+
 RUN \
     useradd -ms /bin/bash dlstreamer && \
     mkdir /python3venv && \
@@ -110,9 +112,9 @@ RUN \
 USER dlstreamer
 
 RUN \
-    python3 -m venv /python3venv && \
-    /python3venv/bin/pip3 install --no-cache-dir --upgrade pip==26.1.2 && \
-    /python3venv/bin/pip3 install --no-cache-dir --no-dependencies \
+    uv venv /python3venv && \
+    VIRTUAL_ENV=/python3venv uv pip install --no-cache-dir --upgrade pip==26.1.2 && \
+    VIRTUAL_ENV=/python3venv uv pip install --no-cache-dir --no-deps \
     meson==1.4.1 \
     ninja==1.11.1.1 \
     numpy==2.2.0 \
@@ -133,7 +135,7 @@ RUN \
     exceptiongroup==1.2.2 \
     iniconfig==2.0.0 \
     typing-extensions==4.15.0 \
-    openvino==2026.2.0
+    openvino==2026.4.0
 
 # hadolint ignore=DL3002
 USER root
@@ -323,7 +325,7 @@ RUN cp -a /usr/local/lib/librdkafka* ./
 # ==============================================================================
 FROM builder AS realsense-builder
 
-ARG REALSENSE_VERSION=v2.57.6
+ARG REALSENSE_VERSION=v2.58.4
 
 SHELL ["/bin/bash", "-xo", "pipefail", "-c"]
 
@@ -334,7 +336,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends libssl-dev=\* l
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-RUN git clone https://github.com/IntelRealSense/librealsense.git librealsense
+RUN git clone https://github.com/realsenseai/librealsense.git librealsense
 
 WORKDIR /home/dlstreamer/librealsense
 
@@ -357,7 +359,8 @@ FROM builder AS dlstreamer-dev
 
 ARG DLSTREAMER_VERSION=2026.2.0
 ARG DLSTREAMER_BUILD_NUMBER
-ARG OPENVINO_VERSION=2026.2.0
+ARG OPENVINO_VERSION=2026.4.0
+ARG OPENVINO_VERSION_SHORT=2026.4
 
 SHELL ["/bin/bash", "-xo", "pipefail", "-c"]
 
@@ -386,7 +389,7 @@ RUN \
 
 # OpenVINO Gen AI
 ARG OPENVINO_GENAI_VER=openvino_genai_ubuntu22_${OPENVINO_VERSION}.0_x86_64
-ARG OPENVINO_GENAI_PKG=https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/2026.2/linux/${OPENVINO_GENAI_VER}.tar.gz
+ARG OPENVINO_GENAI_PKG=https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/${OPENVINO_VERSION_SHORT}/linux/${OPENVINO_GENAI_VER}.tar.gz
 
 RUN curl -L ${OPENVINO_GENAI_PKG} | tar -xz && \
     mv ${OPENVINO_GENAI_VER} /opt/intel/openvino_genai
@@ -434,7 +437,7 @@ RUN \
     chown -R dlstreamer:dlstreamer /home/dlstreamer
 
 # Install python dependencies
-RUN pip3 install --no-cache-dir --break-system-packages --ignore-installed -r "${DLSTREAMER_DIR}/requirements.txt"
+RUN VIRTUAL_ENV=/python3venv uv pip install --no-cache-dir --break-system-packages -r "${DLSTREAMER_DIR}/requirements.txt"
 
 # ==============================================================================
 FROM dlstreamer-dev AS deb-builder
@@ -551,12 +554,14 @@ COPY --from=deb-builder /*.deb /debs/
 
 ARG DEBIAN_FRONTEND=noninteractive
 
+RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin sh
+
 RUN \
     apt-get update -y && \
     apt-get install -y -q --no-install-recommends /debs/*.deb gcc=\* ninja-build=\* libcairo2-dev=\* libgirepository1.0-dev=\* && \
-    pip3 install --no-cache-dir pip==26.1.2 setuptools==84.0.0 wheel==0.46.2 packaging==24.2 && \
-    pip3 install --no-cache-dir meson==1.6.1 && \
-    pip3 install --no-cache-dir --ignore-installed -r /opt/intel/dlstreamer/requirements.txt && \
+    uv pip install --system --no-cache-dir pip==26.1.2 setuptools==84.0.0 wheel==0.46.2 packaging==24.2 && \
+    uv pip install --system --no-cache-dir meson==1.6.1 && \
+    uv pip install --system --no-cache-dir -r /opt/intel/dlstreamer/requirements.txt && \
     apt-get remove -y gcc ninja-build libcairo2-dev libgirepository1.0-dev && \
     apt-get autoremove -y && \
     apt-get clean -y && \

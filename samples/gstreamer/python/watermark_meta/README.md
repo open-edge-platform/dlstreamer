@@ -40,9 +40,9 @@ Install Python dependencies:
 
 ```sh
 cd samples/gstreamer/python/watermark_meta
-python3 -m venv .watermark_meta_venv
+uv venv .watermark_meta_venv
 source .watermark_meta_venv/bin/activate
-pip install -r requirements.txt
+uv pip install -r requirements.txt
 ```
 
 ### Run the Sample

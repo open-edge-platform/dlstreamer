@@ -75,6 +75,8 @@ RUN \
     kernel-headers pmix pmix-devel hwloc hwloc-libs hwloc-devel libxcb-devel libX11-devel libatomic intel-media-driver libsoup3 && \
     dnf clean all
 
+RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin sh
+
 RUN \
     useradd -ms /bin/bash dlstreamer && \
     mkdir /python3venv && \
@@ -84,9 +86,9 @@ RUN \
 USER dlstreamer
 
 RUN \
-    python3 -m venv /python3venv && \
-    /python3venv/bin/pip3 install --no-cache-dir --upgrade pip==26.1.2 && \
-    /python3venv/bin/pip3 install --no-cache-dir --no-dependencies \
+    uv venv /python3venv && \
+    VIRTUAL_ENV=/python3venv uv pip install --no-cache-dir --upgrade pip==26.1.2 && \
+    VIRTUAL_ENV=/python3venv uv pip install --no-cache-dir --no-deps \
     meson==1.4.1 \
     ninja==1.11.1.1 \
     numpy==2.2.0 \
@@ -330,7 +332,7 @@ RUN cp -a /usr/local/lib/librdkafka* ./
 # ==============================================================================
 FROM builder AS realsense-builder
 
-ARG REALSENSE_VERSION=v2.57.6
+ARG REALSENSE_VERSION=v2.58.4
 
 SHELL ["/bin/bash", "-xo", "pipefail", "-c"]
 
@@ -340,7 +342,7 @@ WORKDIR /home/dlstreamer
 RUN dnf install -y systemd-devel gtk3-devel && \
     dnf clean all
 
-RUN git clone https://github.com/IntelRealSense/librealsense.git librealsense
+RUN git clone https://github.com/realsenseai/librealsense.git librealsense
 
 WORKDIR /home/dlstreamer/librealsense
 
@@ -361,7 +363,7 @@ FROM builder AS dlstreamer-dev
 
 ARG DLSTREAMER_VERSION=2026.2.0
 ARG DLSTREAMER_BUILD_NUMBER
-ARG OPENVINO_VERSION=2026.2.0
+ARG OPENVINO_VERSION=2026.4.0
 
 SHELL ["/bin/bash", "-xo", "pipefail", "-c"]
 
@@ -442,7 +444,7 @@ RUN \
     chown -R dlstreamer:dlstreamer /home/dlstreamer
 
 # Install python dependencies
-RUN pip3 install --no-cache-dir --break-system-packages --ignore-installed -r "${DLSTREAMER_DIR}/requirements.txt"
+RUN VIRTUAL_ENV=/python3venv uv pip install --no-cache-dir --break-system-packages -r "${DLSTREAMER_DIR}/requirements.txt"
 
 WORKDIR /home/dlstreamer
 USER dlstreamer
@@ -528,10 +530,12 @@ RUN mkdir -p /rpms
 
 COPY --from=rpm-builder /rpms/*.rpm /rpms/
 
+RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin sh
+
 # Download and install DLS rpm package
 RUN \
     dnf install -y /rpms/*.rpm cairo-devel cairo-gobject-devel gobject-introspection-devel && \
-    pip3 install --no-cache-dir --ignore-installed -r /opt/intel/dlstreamer/requirements.txt && \
+    uv pip install --system --no-cache-dir -r /opt/intel/dlstreamer/requirements.txt && \
     dnf remove -y cairo-devel cairo-gobject-devel gobject-introspection-devel && \
     dnf clean all && \
     useradd -ms /bin/bash dlstreamer && \

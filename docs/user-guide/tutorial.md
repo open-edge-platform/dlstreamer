@@ -201,10 +201,11 @@ with DL Streamer at `/opt/intel/dlstreamer/scripts/download_models/`. We just
 need a small Python environment for the one-time conversion:
 
 ```bash
-python3 -m venv ~/dlstreamer_demo/.dls-venv
+curl -LsSf https://astral.sh/uv/install.sh | sh
+uv venv ~/dlstreamer_demo/.dls-venv
 source ~/dlstreamer_demo/.dls-venv/bin/activate
-pip install --upgrade pip
-pip install -r /opt/intel/dlstreamer/scripts/download_models/requirements_download_ultralytics_models.txt
+uv install --upgrade pip
+uv install -r /opt/intel/dlstreamer/scripts/download_models/requirements_download_ultralytics_models.txt
 ```
 
 Now download and convert the three models into `~/dlstreamer_demo/models`. Each
@@ -518,7 +519,7 @@ Great places to continue:
 
 - **[Elements reference](elements/elements.md)** — the full catalog of `gva`
   elements you can mix and match (classification, audio, GenAI, and more).
-- **[Samples](samples.md)** —
+- **[Available Sample Apps](dev_guide/sample_apps_index.md)** —
   30+ ready-to-run examples: multi-stream, face analysis, LiDAR, radar,
   Vision-Language Models, and Kafka/MQTT publishing.
 - **[Supported models](supported_models.md)** — the 70+ models you can run out

@@ -61,14 +61,14 @@ before starting it — the dependency graph below is the single source of truth.
 Step 0 (gather requirements — interactive)
   │
   ├──► Step 1  (Docker pull — async) ───────────────────────────────────────┐
-  ├──► Step 2a (export scripts + pip install — async) ──► Step 2c (export)──┤
+  ├──► Step 2a (export scripts + uv pip install — async) ──► Step 2c (export)──┤
   ├──► Step 2b (video download — async) ────────────────────────────────────┤───► Step 5 (run & validate)
   └──► Step 3  (design pipeline — reasoning) ──► Step 4 (generate app) ─────┘
 ```
 
 Parallelization rules:
 - Steps 1, 2a, 2b, and 3 are fully independent — start them all immediately after Step 0
-- Step 2c (model export) depends on Step 2a (pip install) completing
+- Step 2c (model export) depends on Step 2a (uv pip install) completing
 - Step 4 (generate app) depends on Step 3 (pipeline design) completing
 - Step 5 (run and validate) depends on Steps 1, 2c, and 4 all completing
 
@@ -155,7 +155,7 @@ and suggest checking Docker login and network connectivity before retrying.
 
 ### Step 2 — Prepare Models and Video (async)
 
-#### 2a — Create export scripts and kick off venv + pip install
+#### 2a — Create export scripts and kick off venv + uv pip install
 
 Check whether the requested models (or similar ones) appear in the model exporters bundled with DL Streamer.
 
@@ -172,16 +172,19 @@ Create the `export_requirements.txt` file using the [Export Requirements Templat
 
 > **CRITICAL — CPU-only PyTorch:** The **first line** of `export_requirements.txt` must be
 > `--extra-index-url https://download.pytorch.org/whl/cpu`
-> (before any torch-dependent package like `ultralytics` or `nncf`). Without this, pip pulls multi-GB GPU libraries not needed for model export.
+> (before any torch-dependent package like `ultralytics` or `nncf`). Without this, uv pulls multi-GB GPU libraries not needed for model export.
 > See [Model Preparation Reference → Requirements](./references/model-preparation.md#requirements) for the full template.
 
-Once both files are written, start venv creation and pip install in an **async terminal**:
+> **Prerequisite — `uv` installed:** If `uv` is not available, install it first:
+> `curl -LsSf https://astral.sh/uv/install.sh | sh`
+
+Once both files are written, start venv creation and `uv pip install` in an **async terminal**:
 
 ```bash
 # Run in async mode — do NOT wait for completion
-python3 -m venv .<app_name>-export-venv && \
+uv venv .<app_name>-export-venv && \
 source .<app_name>-export-venv/bin/activate && \
-pip install -r export_requirements.txt
+uv pip install -r export_requirements.txt
 ```
 
 #### 2b — Download video to local directory
@@ -209,9 +212,9 @@ pointing to a local file or RTSP URI. Document download steps in the README.
 > video data. Verify: `file videos/sample.mp4 | grep -q "ISO Media"`.
 > Prefer Pexels direct URLs as default test videos.
 
-Proceed to Step 3 while `pip install` and `docker pull` run in the background.
+Proceed to Step 3 while `uv pip install` and `docker pull` run in the background.
 
-#### 2c — Run model export (after pip install completes)
+#### 2c — Run model export (after uv pip install completes)
 
 Before running the export, confirm the async terminal from Step 2a has completed successfully.
 If the install failed, diagnose and re-run before continuing.
@@ -313,7 +316,7 @@ docker run --init --rm \
 > **Autonomous execution — never wait for user confirmation.**
 > Launch in async mode, poll `get_terminal_output` every 15–30s until completion.
 > Only ask the user when a **decision** is needed (e.g. device change after OOM).
-> This applies to all long-running commands: `docker run`, `docker pull`, `pip install`, model export.
+> This applies to all long-running commands: `docker run`, `docker pull`, `uv pip install`, model export.
 
 **Validate:** check that output matches the user's expected results. Use the [Debugging Hints](./references/debugging-hints.md) and [Validation Checklist](./references/debugging-hints.md#validation-checklist) for common gotchas. For continuous or long inputs, send EOS to finalize.
 
@@ -327,7 +330,7 @@ docker run --init --rm \
 After the application is working, report timing metrics:
 
 1. **AI reasoning time** — understanding the prompt, designing the pipeline, writing code
-2. **Environment setup time** — waiting for `pip install`, model export, Docker image pull
+2. **Environment setup time** — waiting for `uv pip install`, model export, Docker image pull
 3. **Debug and validation time** — running the application, checking outputs, fixing issues
 4. **User wait time** — waiting for user input or confirmation
 5. **Total activity time** (phases may overlap, so total ≠ sum of individual phases)
