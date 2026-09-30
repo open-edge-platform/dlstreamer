@@ -142,7 +142,7 @@ RUN \
     exceptiongroup==1.2.2 \
     iniconfig==2.0.0 \
     typing-extensions==4.15.0 \
-    openvino==2026.4.0
+    openvino==2026.3.1
 
 # hadolint ignore=DL3002
 USER root
@@ -368,8 +368,7 @@ FROM builder AS dlstreamer-dev
 
 ARG DLSTREAMER_VERSION=2026.2.0
 ARG DLSTREAMER_BUILD_NUMBER
-ARG OPENVINO_VERSION=2026.4.0
-ARG OPENVINO_VERSION_SHORT=2026.4
+ARG OPENVINO_VERSION=2026.3.1
 # DL Streamer development image and build proccess
 
 SHELL ["/bin/bash", "-xo", "pipefail", "-c"]
@@ -401,7 +400,7 @@ RUN \
 
 # OpenVINO Gen AI
 ARG OPENVINO_GENAI_VER=openvino_genai_ubuntu24_${OPENVINO_VERSION}.0_x86_64
-ARG OPENVINO_GENAI_PKG=https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/${OPENVINO_VERSION_SHORT}/linux/${OPENVINO_GENAI_VER}.tar.gz
+ARG OPENVINO_GENAI_PKG=https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/${OPENVINO_VERSION}/linux/${OPENVINO_GENAI_VER}.tar.gz
 
 RUN curl -L ${OPENVINO_GENAI_PKG} | tar -xz && \
     mv ${OPENVINO_GENAI_VER} /opt/intel/openvino_genai
