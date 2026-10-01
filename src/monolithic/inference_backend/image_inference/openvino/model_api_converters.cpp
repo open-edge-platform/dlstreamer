@@ -795,6 +795,19 @@ std::map<std::string, GstStructure *> get_model_info_preproc(const std::shared_p
     std::setlocale(LC_ALL, "C");
 
     for (auto &element : modelConfig) {
+        if (element.first == "intensity_mode" && element.second.as<std::string>() == "scale_to_unit") {
+            GValue range = G_VALUE_INIT;
+            g_value_init(&range, GST_TYPE_ARRAY);
+            for (double bound : {0.0, 1.0}) {
+                GValue value = G_VALUE_INIT;
+                g_value_init(&value, G_TYPE_DOUBLE);
+                g_value_set_double(&value, bound);
+                gst_value_array_append_value(&range, &value);
+                g_value_unset(&value);
+            }
+            gst_structure_set_value(s, "range", &range);
+            g_value_unset(&range);
+        }
         if (element.first == "scale_values") {
             std::vector<std::string> values = extractNumbers(element.second.as<std::string>());
             if (values.size() == 1) {
