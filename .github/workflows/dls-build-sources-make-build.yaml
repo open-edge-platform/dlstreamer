@@ -149,7 +149,13 @@ jobs:
           sudo ./scripts/install_dependencies/install_openvino.sh
           echo " "
           echo "Installing OpenVINO dependencies..."
-          sudo -E /opt/intel/openvino_2026/install_dependencies/install_openvino_dependencies.sh
+          if [[ ${{ matrix.os }} == "ubuntu-26.04" ]]; then
+            # The script bundled with 2026.3.1 lacks Ubuntu 26.04 support
+            wget -O /tmp/install_openvino_dependencies.sh https://raw.githubusercontent.com/openvinotoolkit/openvino/2026.4.0/scripts/install_dependencies/install_openvino_dependencies.sh
+            sudo bash /tmp/install_openvino_dependencies.sh -y
+          else
+            sudo -E /opt/intel/openvino_2026/install_dependencies/install_openvino_dependencies.sh
+          fi
 
       - name: Install OpenVINO GenAI
         if: needs.setup.outputs.should_run == 'true'
@@ -169,8 +175,8 @@ jobs:
             source /opt/intel/openvino_genai/setupvars.sh
           elif [[ ${{ matrix.os }} == "ubuntu-26.04" ]]; then
             echo "Executing Ubuntu 26.04 specific setup..."
-            wget -O- https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/2026.4/linux/openvino_genai_ubuntu26_2026.4.0.0_x86_64.tar.gz | tar -xz
-            sudo mv openvino_genai_ubuntu26_2026.4.0.0_x86_64 /opt/intel/openvino_genai
+            wget -O- https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/2026.3.1/linux/openvino_genai_ubuntu26_2026.3.1.0_x86_64.tar.gz | tar -xz
+            sudo mv openvino_genai_ubuntu26_2026.3.1.0_x86_64 /opt/intel/openvino_genai
             source /opt/intel/openvino_genai/setupvars.sh
           else
             echo "Unknown Ubuntu version: ${{ matrix.os }}"
