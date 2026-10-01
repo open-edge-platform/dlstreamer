@@ -144,7 +144,9 @@ If you want to execute sample pipelines, download the yolo11s model as the sampl
 mkdir $HOME/models
 export MODELS_PATH=$HOME/models
 sudo apt install -y python3.12-venv
-/opt/intel/dlstreamer/samples/download_public_models.sh yolo11s coco128
+cd /opt/intel/dlstreamer/scripts/download_models
+python3 download_ultralytics_models.py --model yolo11s.pt \
+	--outdir "$MODELS_PATH/public/yolo11s/FP16" --half
 ```
 
 ### Step 8: Execute sample pipelines
