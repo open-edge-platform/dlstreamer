@@ -37,7 +37,7 @@ PROC_PATH() {
     echo "$AUDIO_MODEL_PROC_PATH"
 }
 
-MODEL_PATH=${MODELS_PATH}/public/aclnet/FP32/aclnet.xml
+MODEL_PATH=${AUDIO_MODELS_PATH}/public/aclnet/FP32/aclnet.xml
 
 MODEL_PROC_PATH=$(PROC_PATH $MODEL)
 

@@ -14,7 +14,7 @@ set OUTPUT=%2
 
 if NOT DEFINED AUDIO_MODELS_PATH (
     if NOT DEFINED MODELS_PATH (
-        echo [91mERROR: Environment variables AUDIO_MODELS_PATH or MODELS_PATH not specified. Models not found, execute download_audio_models.bat to download models[0m
+        echo [91mERROR: Environment variables AUDIO_MODELS_PATH or MODELS_PATH not specified. Prepare required models with scripts/download_models/download_other_models.sh aclnet.[0m
         EXIT /B 1
     ) else ( set "AUDIO_MODELS_PATH=%MODELS_PATH%" )
 )
