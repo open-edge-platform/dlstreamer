@@ -14,12 +14,12 @@ filesrc (assembled mp4) ! decodebin3 ! videoconvert ! gvamono3d ! gvawatermark3d
 The sample fetches **front-camera frames and their intrinsics** from
 [PandaSet](https://pandaset.org) (© Hesai & Scale AI, **CC BY 4.0**) at runtime,
 using HTTP range requests so only a few MB are transferred — the 44 GB archive
-is never downloaded and **no media is stored in this repository**. The frames
+is never downloaded. The frames
 are then assembled into a short mp4 (`data/pandaset_<seq>.mp4`, ~10 fps) that the
 pipeline runs on as video.
 
 MonoDETR is KITTI-trained, and its learned depth heads expect KITTI's wide field
-of view (~81° horizontal). PandaSet's front camera is much narrower (~52°), which
+of view (81° horizontal). PandaSet's front camera is much narrower (52°), which
 makes objects look ~1.8× larger and biases predicted depth toward the camera. To
 make the sample work out of the box, the downloader **reprojects each frame onto
 KITTI's canonical intrinsics** — a pinhole→pinhole resample (scale about the
@@ -79,7 +79,7 @@ Then pass its path as the first argument (or place it at
 | Argument   | Default                                             | Notes |
 |------------|-----------------------------------------------------|-------|
 | MODEL      | `${MODELS_PATH}/public/monodetr/FP16/monodetr.xml`  | Path to `monodetr.xml` |
-| DEVICE     | `GPU`                                               | `CPU`, `GPU`, `NPU` (GPU auto-applies `EXECUTION_MODE_HINT=ACCURACY`) |
+| DEVICE     | `GPU`                                               | `CPU`, `GPU` (GPU auto-applies `EXECUTION_MODE_HINT=ACCURACY`) |
 | OUTPUT     | `file`                                              | `file`, `display`, `json`, `display-and-json` |
 | THRESHOLD  | `0.3`                                               | Detection confidence threshold |
 | SEQUENCE   | `001`                                               | PandaSet sequence id |
