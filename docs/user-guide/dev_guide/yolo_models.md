@@ -1,7 +1,11 @@
-# YOLO Models
+```{eval-rst}
+.. meta::
+   :description: Prepare YOLO-family models for deployment in Deep Learning Streamer pipelines by converting or exporting them to OpenVINO IR format and configuring any required model metadata files.
+```
 
-This article describes how to prepare models from the **YOLO** family for
-integration with the Deep Learning Streamer pipeline.
+# Prepare YOLO Models
+
+This section describes how to prepare YOLO family models for use with Deep Learning Streamer pipelines. It covers exporting Ultralytics YOLO models to OpenVINO IR format and converting other supported models, including YOLOv7, older YOLOv5 releases, and YOLOX, into the OpenVINO IR format for inference with Deep Learning Streamer.
 
 ## Ultralytics Model Preparation
 
