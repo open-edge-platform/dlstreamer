@@ -5,11 +5,14 @@
 # SPDX-License-Identifier: MIT
 # ==============================================================================
 
+npu_driver_version_u26_pkg='https://github.com/intel/linux-npu-driver/releases/download/v1.38.0/linux-npu-driver-v1.38.0.20260910-34487311128-ubuntu2604.tar.gz'
 npu_driver_version_u24_pkg='https://github.com/intel/linux-npu-driver/releases/download/v1.38.0/linux-npu-driver-v1.38.0.20260910-34487311128-ubuntu2404.tar.gz'
 npu_driver_version_u22_pkg='https://github.com/intel/linux-npu-driver/releases/download/v1.26.0/linux-npu-driver-v1.26.0.20251125-19665715237-ubuntu2204.tar.gz'
-npu_libze1_version_pkg='https://snapshot.ppa.launchpadcontent.net/kobuk-team/intel-graphics/ubuntu/20260830T100000Z/pool/main/l/level-zero-loader/libze1_1.32.0-1~24.04~ppa1_amd64.deb'
+npu_libze1_version_u26_pkg='https://snapshot.ppa.launchpadcontent.net/kobuk-team/intel-graphics/ubuntu/20260830T100000Z/pool/main/l/level-zero-loader/libze1_1.32.0-1~26.04~ppa1_amd64.deb'
+npu_libze1_version_u24_pkg='https://snapshot.ppa.launchpadcontent.net/kobuk-team/intel-graphics/ubuntu/20260830T100000Z/pool/main/l/level-zero-loader/libze1_1.32.0-1~24.04~ppa1_amd64.deb'
 npu_driver_version_u22="1.26.0"
 npu_driver_version_u24="1.38.0"
+npu_driver_version_u26="1.38.0"
 reinstall_npu_driver='no'  # Default value for reinstalling the NPU driver
 SUDO_PREFIX="sudo"
 
@@ -17,9 +20,11 @@ SUDO_PREFIX="sudo"
 INTEL_CL_GPU_KEY_URL="https://repositories.intel.com/gpu/intel-graphics.key"
 INTEL_CL_GPU_REPO_URL_22="https://repositories.intel.com/gpu/ubuntu jammy unified"
 INTEL_CL_GPU_REPO_URL_24="ppa:kobuk-team/intel-graphics"
+INTEL_CL_GPU_REPO_URL_26="ppa:kobuk-team/intel-graphics"
 INTEL_GPU_KEYRING_PATH="/usr/share/keyrings/intel-graphics.gpg"
 INTEL_GPU_LIST_22="intel-gpu-jammy.list"
 INTEL_GPU_LIST_24="kobuk-team-ubuntu-intel-graphics-noble.sources"
+INTEL_GPU_LIST_26="kobuk-team-ubuntu-intel-graphics-resolute.sources"
 CURL_TIMEOUT=60
 APT_UPDATE_TIMEOUT=60
 APT_GET_TIMEOUT=600
@@ -283,8 +288,17 @@ setup_gpu(){
     echo "Updating package lists..."
     $SUDO_PREFIX apt update || handle_error "Failed to update package lists"
 
-    # Additional packages for Ubuntu 22.04/24.04
-    if [ "$ubuntu_version" == "24.04" ]; then
+    # Additional packages for Ubuntu 22.04/24.04/26.04
+    if [ "$ubuntu_version" == "26.04" ]; then
+        echo "Installing GPU drivers for Ubuntu 26.04..."
+        $SUDO_PREFIX apt-get install -y --no-install-recommends software-properties-common || handle_error "Failed to install software-properties-common"
+        $SUDO_PREFIX -E add-apt-repository -y "$INTEL_CL_GPU_REPO_URL" || handle_error "Failed to add Intel GPU repository"
+        $SUDO_PREFIX apt update || handle_error "Failed to update package lists after adding repository"
+        echo "Snapshot: 20260916T030400Z" | $SUDO_PREFIX tee -a "/etc/apt/sources.list.d/$INTEL_GPU_LIST" || handle_error "Failed to add snapshot information"
+        $SUDO_PREFIX apt update || handle_error "Failed to update package lists after adding snapshot"
+        install_packages intel-metrics-discovery=1.14.188-1~26.04~ppa1 intel-gsc=1.2.0-1~26.04~ppa1 libvpl2=1:2.16.0-1 libze-intel-gpu1=26.31.39395.13-1~26.04~ppa1 libze1=1.32.0-1~26.04~ppa1 intel-opencl-icd=26.31.39395.13-1~26.04~ppa1 clinfo=3.0.25.02.14-1build1 \
+            intel-media-va-driver-non-free=26.3.2-1~26.04~ppa1 libmfx-gen1.2=26.3.2-1~26.04~ppa1 libvpl-tools=1.5.0-1 libva-glx2=2.24.1-1~26.04~ppa2 va-driver-all=2.24.1-1~26.04~ppa2 vainfo=2.24.0-1~26.04~ppa1 || handle_error "Failed to install GPU drivers for Ubuntu 26.04"
+    elif [ "$ubuntu_version" == "24.04" ]; then
         echo "Installing GPU drivers for Ubuntu 24.04..."
         $SUDO_PREFIX apt-get install -y --no-install-recommends software-properties-common || handle_error "Failed to install software-properties-common"
         $SUDO_PREFIX -E add-apt-repository -y "$INTEL_CL_GPU_REPO_URL" || handle_error "Failed to add Intel GPU repository"
@@ -364,8 +378,11 @@ install_npu() {
     
     $SUDO_PREFIX apt update || echo_color "Failed to update package list" "red"
     
-    if [[ "$ubuntu_version" == "24.04" ]]; then
-        wget "$npu_libze1_version_pkg" || echo_color "Failed to download libze1 package" "red"
+    if [[ "$ubuntu_version" == "26.04" ]]; then
+        wget "$npu_libze1_version_u26_pkg" || echo_color "Failed to download libze1 package" "red"
+        $SUDO_PREFIX apt install -y ./intel-*.deb || echo_color "Failed to install NPU and libze1 packages" "red"
+    elif [[ "$ubuntu_version" == "24.04" ]]; then
+        wget "$npu_libze1_version_u24_pkg" || echo_color "Failed to download libze1 package" "red"
         $SUDO_PREFIX apt install -y ./intel-*.deb || echo_color "Failed to install NPU and libze1 packages" "red"
     elif [[ "$ubuntu_version" == "22.04" ]]; then
         $SUDO_PREFIX apt-get install -y libtbb12 || echo_color "Failed to install libtbb12" "red"
@@ -404,6 +421,9 @@ if [[ "$ubuntu_version" == "22.04" ]]; then
 elif [[ "$ubuntu_version" == "24.04" ]]; then
     npu_driver_version_pkg="$npu_driver_version_u24_pkg"
     npu_driver_version="$npu_driver_version_u24"
+elif [[ "$ubuntu_version" == "26.04" ]]; then
+    npu_driver_version_pkg="$npu_driver_version_u26_pkg"
+    npu_driver_version="$npu_driver_version_u26"
 else
     echo_color "Unsupported Ubuntu version: $ubuntu_version" "bred"
     exit 1
@@ -415,6 +435,11 @@ echo_color "\n CPU is ($cpu_model_name).\n" "yellow"
 
 # Choose the package list based on the Ubuntu version
 case "$ubuntu_version" in
+    26.04)
+        echo_color " Detected Ubuntu version: $ubuntu_version. " "green"
+        INTEL_CL_GPU_REPO_URL=$INTEL_CL_GPU_REPO_URL_26
+        INTEL_GPU_LIST=$INTEL_GPU_LIST_26
+        ;;
     24.04)
         echo_color " Detected Ubuntu version: $ubuntu_version. " "green"
         INTEL_CL_GPU_REPO_URL=$INTEL_CL_GPU_REPO_URL_24
@@ -573,7 +598,7 @@ if $SUDO_PREFIX dmesg | grep -qi intel_vpu || lspci | grep -qi 'Intel.*NPU'; the
     installed_version=$(get_installed_version "$package_name")
     installed_version=$(echo "$installed_version" | grep -oP '^\d+\.\d+\.\d+') # This extracts the version number in the format X.Y.Z
 
-    echo "Latest version of '$package_name' from GitHub: $latest_version. DLStreamer is tested with $npu_driver_version_u24 on Ubuntu24 and $npu_driver_version_u22 on Ubuntu22. The last version which supports Ubuntu22 is $npu_driver_version_u22"
+    echo "Latest version of '$package_name' from GitHub: $latest_version. DLStreamer is tested with $npu_driver_version_u26 on Ubuntu26, $npu_driver_version_u24 on Ubuntu24 and $npu_driver_version_u22 on Ubuntu22. The last version which supports Ubuntu22 is $npu_driver_version_u22"
 
     if [[ "$reinstall_npu_driver" =~ ^[Yy][Ee][Ss]$ ]]; then
         echo_color "Reinstalling NPU driver..." "green"
