@@ -6,6 +6,7 @@
 
 #include "inference_impl.h"
 
+#include "common/mono3d_calibration.h"
 #include "common/post_processor.h"
 #include "common/post_processor/post_proc_common.h"
 #include "common/pre_processor_info_parser.hpp"
@@ -13,6 +14,7 @@
 #include "config.h"
 #include "gmutex_lock_guard.h"
 #include "gst_allocator_wrapper.h"
+#include "gstgvamono3d.h"
 #include "gva_base_inference.h"
 #include "gva_base_inference_priv.hpp"
 #include "gva_caps.h"
@@ -836,6 +838,78 @@ dlstreamer::ContextPtr createVaDisplay(GvaBaseInference *gva_base_inference) {
     return display;
 }
 
+// Detects the MonoDETR-style auxiliary inputs (a 3x4 camera-projection "calib" input and a [B,2]
+// "img_sizes" input) from the model file and, when present, appends ModelInputProcessorInfo entries
+// so the backend feeds them. Values come from the gvamono3d "calibration-file" property (falling
+// back to the source frame size). Only runs for the gvamono3d element.
+void AppendMono3DAuxInputs(GvaBaseInference *gva_base_inference, const std::string &model_file,
+                           std::vector<ModelInputProcessorInfo::Ptr> &input_processor_info) {
+    if (gva_base_inference->type != GST_GVA_MONO3D_TYPE)
+        return;
+
+    std::map<std::string, std::vector<size_t>> input_shapes;
+    try {
+        input_shapes = ImageInference::GetModelInputShapes(model_file, gva_base_inference->ov_extension_lib);
+    } catch (const std::exception &e) {
+        GST_WARNING_OBJECT(gva_base_inference, "mono3d: failed to read model input shapes: %s", e.what());
+        return;
+    }
+
+    std::string calib_layer, img_sizes_layer, image_layer;
+    for (const auto &kv : input_shapes) {
+        const auto &dims = kv.second;
+        if (dims.size() == 3 && dims[1] == 3 && dims[2] == 4)
+            calib_layer = kv.first;
+        else if (dims.size() == 2 && dims[1] == 2)
+            img_sizes_layer = kv.first;
+        else if (dims.size() == 4)
+            image_layer = kv.first; // NCHW/NHWC image input
+    }
+
+    // Only a model that exposes BOTH auxiliary inputs is treated as MonoDETR-style.
+    if (calib_layer.empty() || img_sizes_layer.empty())
+        return;
+
+    // Don't override inputs already configured (e.g. via a model-proc file).
+    for (const auto &p : input_processor_info)
+        if (p->layer_name == calib_layer || p->layer_name == img_sizes_layer || p->layer_name == image_layer)
+            return;
+
+    const int default_w = gva_base_inference->info ? gva_base_inference->info->width : 0;
+    const int default_h = gva_base_inference->info ? gva_base_inference->info->height : 0;
+    GstGvaMono3d *mono3d = reinterpret_cast<GstGvaMono3d *>(gva_base_inference);
+    const post_processing::Mono3DCalibration calib = post_processing::parseMono3DCalibration(
+        mono3d->calibration_file ? mono3d->calibration_file : "", default_w, default_h);
+
+    const auto make_info = [&calib](const std::string &layer, const std::string &fmt) {
+        auto info = std::make_shared<ModelInputProcessorInfo>();
+        info->format = fmt;
+        info->layer_name = layer;
+        info->precision = "FP32";
+        info->params = gst_structure_new_empty(fmt.c_str());
+        post_processing::applyMono3DCalibrationToStructure(info->params, calib);
+        return info;
+    };
+
+    // Multi-input models require every input declared; mark the image input explicitly so the
+    // backend applies standard image pre-processing (resize/CSC/normalize) to it.
+    if (!image_layer.empty()) {
+        auto image_info = std::make_shared<ModelInputProcessorInfo>();
+        image_info->format = "image";
+        image_info->layer_name = image_layer;
+        image_info->precision = "U8";
+        image_info->params = gst_structure_new_empty("image");
+        input_processor_info.push_back(image_info);
+    }
+
+    input_processor_info.push_back(make_info(calib_layer, "calib"));
+    input_processor_info.push_back(make_info(img_sizes_layer, "img_sizes"));
+
+    GST_INFO_OBJECT(gva_base_inference, "mono3d: configured inputs image='%s' calib='%s' img_sizes='%s' (image %dx%d)",
+                    image_layer.c_str(), calib_layer.c_str(), img_sizes_layer.c_str(), calib.orig_width,
+                    calib.orig_height);
+}
+
 } // namespace
 
 InferenceImpl::Model InferenceImpl::CreateModel(GvaBaseInference *gva_base_inference, const std::string &model_file,
@@ -889,8 +963,20 @@ InferenceImpl::Model InferenceImpl::CreateModel(GvaBaseInference *gva_base_infer
     // It will be parsed in PostProcessor
     model.labels = labels_str;
 
+    // For MonoDETR-style models, append feeders for the camera-calibration and image-size inputs.
+    AppendMono3DAuxInputs(gva_base_inference, model_file, model.input_processor_info);
+
     UpdateModelReshapeInfo(gva_base_inference);
     InferenceConfig ie_config = CreateNestedInferenceConfig(gva_base_inference, model_file, custom_preproc_lib);
+
+    // MonoDETR's backbone overflows f16 on GPU under the default PERFORMANCE mode (NaN outputs);
+    // default the execution mode to ACCURACY unless the user set it explicitly via ie-config.
+    if (gva_base_inference->type == GST_GVA_MONO3D_TYPE && gva_base_inference->device &&
+        std::string(gva_base_inference->device).find("GPU") != std::string::npos) {
+        auto &inference_cfg = ie_config[KEY_INFERENCE];
+        if (inference_cfg.find("EXECUTION_MODE_HINT") == inference_cfg.end())
+            inference_cfg["EXECUTION_MODE_HINT"] = "ACCURACY";
+    }
     // Use the resolved execution region, not the raw property value.
     //
     // 'inference_region' tells us what the user requested, but the backend configuration must
