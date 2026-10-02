@@ -15,7 +15,9 @@
 
 #include <future>
 #include <memory>
+#include <mutex>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace genai {
@@ -101,6 +103,9 @@ struct OpenVINOBackendParams {
     std::string scheduler_config;
     std::string pipeline_config;  // OpenVINO device properties passed at pipeline construction
     bool include_metrics = false; // Include performance metrics in JSON output
+    // Non-empty triggers lookup/registration in the shared-backend cache (matching the
+    // model-instance-id convention used by gvadetect/gvaclassify); empty means isolated.
+    std::string model_instance_id;
 };
 
 /**
@@ -118,12 +123,12 @@ struct HttpBackendParams {
 /**
  * @brief Process-wide registry for GenAI backends
  *
- * Factory for backend instances. Every call to create_backend() returns a
- * freshly created backend (OpenVINO and HTTP alike) with per-element
- * ownership. Backends are stateless per request (frames are carried in GenRequest),
- * and instances are not cached/shared by design to keep configuration and any
- * internal resources (OpenVINO pipelines, HTTP settings, etc.) element-scoped.
- * No caching/sharing is performed by design.
+ * Factory for backend instances. OpenVINO backends sharing the same non-empty
+ * model-instance-id share one process-wide model instance (same convention as
+ * gvadetect/gvaclassify's model-instance-id property: callers are responsible
+ * for only reusing an id across elements with matching model configuration).
+ * HTTP backends remain element-scoped. Shared OpenVINO inference is serialized
+ * because the underlying pipeline and its metrics are mutable.
  *
  * Example usage:
  *   GenAIBackendConfig cfg = {};
@@ -142,9 +147,7 @@ class GenAIBackendRegistry {
     /**
      * @brief Create a new backend from a plain-C config
      *
-     * Dispatches on config.backend ("openvino-genai" / "openai-http"). Always
-     * creates a fresh instance - see class documentation for why backends
-     * are never shared/cached.
+     * Dispatches on config.backend ("openvino-genai" / "openai-http").
      *
      * @param config Backend configuration (element property storage)
      * @return Shared pointer to the backend
@@ -163,6 +166,10 @@ class GenAIBackendRegistry {
     // Backend-specific creation helpers (called by create_backend)
     std::shared_ptr<IGenAIBackend> get_openvino_backend(const OpenVINOBackendParams &params);
     std::shared_ptr<IGenAIBackend> get_http_backend(const HttpBackendParams &params);
+
+    std::mutex openvino_backends_mutex_;
+    std::unordered_map<std::string, std::weak_ptr<IGenAIBackend>> openvino_backends_;
+    std::unordered_map<std::string, std::shared_ptr<std::mutex>> openvino_backend_key_mutexes_;
 };
 
 } // namespace genai

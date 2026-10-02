@@ -37,6 +37,7 @@ Key operations:
 | frame-rate | Double | Frames sampled per second for inference. `0` processes all frames. | 0 |
 | chunk-size | Unsigned Integer | Number of frames accumulated per inference call. | 1 |
 | model-cache-path | String | Directory for caching compiled models (GPU/NPU only). Used by the `openvino-genai` backend only. | ov_cache |
+| model-instance-id | String | Identifier for sharing a loaded model instance with other `gvagenai` elements, instead of loading a separate copy. Used by the `openvino-genai` backend only. See [Model Sharing](#model-sharing). | null |
 | metrics | Boolean | Include performance metrics in the JSON output. | false |
 | http-server-url | String | Base URL of the OpenAI-compatible server (e.g. `http://localhost:8000/v1`). Required for the `openai-http` backend. | null |
 | http-api-key | String | Optional Bearer token / API key for the HTTP server. `openai-http` backend only. | null |
@@ -62,6 +63,28 @@ The diagram below shows the high-level architecture (HLD) of how a chunk of fram
 from `gvagenai` through the `openai-http` backend to the remote server:
 
 ![openai-http backend architecture diagram](http-backend-diagram.png)
+
+### Model Sharing
+
+By default (`model-instance-id` unset), each `gvagenai` element loads its own isolated
+model instance. Set the same non-empty `model-instance-id` string on multiple `gvagenai`
+elements (using the `openvino-genai` backend) in the same process — the same convention
+used by `gvadetect`/`gvaclassify` — to make them share one loaded model instance instead of
+each loading a redundant copy. This avoids duplicating model weights (which can be several
+GB) when multiple streams (e.g. branches after a `tee`) use the same model.
+
+Elements sharing a `model-instance-id` are expected to use matching `model-path`, `device`,
+`model-cache-path`, `scheduler-config`, and `pipeline-config` — the value is used verbatim
+as the cache key, so mismatched configuration under the same id is not detected and results
+in whichever element built the instance first silently determining its behavior for all
+sharers. `prompt` and `prompt-path` remain independent per element even when the underlying
+model is shared. Inference calls on a shared instance are serialized across the elements
+using it, so throughput per stream can drop under heavy multi-stream load — a trade-off for
+lower memory usage.
+
+This property is ignored by the `openai-http` backend, which is already stateless per
+element; to share a model across separate **processes**, point multiple `openai-http`
+elements at the same server (e.g. OVMS, vLLM) via `http-server-url` instead.
 
 ### Generation Config
 
@@ -371,6 +394,9 @@ Element Properties:
   model-cache-path    : Path for caching compiled models (GPU/NPU only)
                         flags: readable, writable
                         String. Default: "ov_cache"
+  model-instance-id   : Identifier for sharing a loaded model instance between gvagenai elements of the same type. Elements with the same model-instance-id will share the model and inference engine (avoiding redundant model loads); leave unset (default) for an isolated, unshared instance. Ignored by the 'openai-http' backend.
+                        flags: readable, writable
+                        String. Default: null
   model-path          : Path to the local GenAI model ('openvino-genai' backend), or the model name to request from the server ('openai-http' backend)
                         flags: readable, writable
                         String. Default: null

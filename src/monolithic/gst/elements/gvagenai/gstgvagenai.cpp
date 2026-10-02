@@ -41,7 +41,8 @@ enum {
     PROP_HTTP_SERVER_URL,
     PROP_HTTP_API_KEY,
     PROP_HTTP_TIMEOUT,
-    PROP_VISION_MODE
+    PROP_VISION_MODE,
+    PROP_MODEL_INSTANCE_ID
 };
 
 // How accumulated frames are presented to the VLM. Determines the native vision tag the
@@ -217,6 +218,15 @@ static void gst_gvagenai_class_init(GstGvaGenAIClass *klass) {
                           "video clip. Video mode requires a video-capable model.",
                           GST_TYPE_GVAGENAI_VISION_MODE, GVAGENAI_VISION_MODE_IMAGE, G_PARAM_READWRITE));
 
+    g_object_class_install_property(
+        gobject_class, PROP_MODEL_INSTANCE_ID,
+        g_param_spec_string("model-instance-id", "Model Instance Id",
+                            "Identifier for sharing a loaded model instance between gvagenai elements of the same "
+                            "type. Elements with the same model-instance-id will share the model and inference "
+                            "engine (avoiding redundant model loads); leave unset (default) for an isolated, "
+                            "unshared instance. Ignored by the 'openai-http' backend.",
+                            NULL, G_PARAM_READWRITE));
+
     GST_DEBUG_CATEGORY_INIT(gst_gvagenai_debug, "gvagenai", 0, "OpenVINO™ GenAI Inference");
 }
 
@@ -234,6 +244,7 @@ static void gst_gvagenai_init(GstGvaGenAI *gvagenai) {
     gvagenai->config.api_key = NULL;
     gvagenai->config.timeout_ms = NULL;
     gvagenai->config.vision_mode = GVAGENAI_VISION_MODE_IMAGE; // Send frames as images by default
+    gvagenai->config.model_instance_id = NULL;                 // Unset by default: isolated (unshared) instance
 
     gvagenai->prompt = NULL;
     gvagenai->prompt_path = NULL;
@@ -369,6 +380,10 @@ static void gst_gvagenai_set_property(GObject *object, guint prop_id, const GVal
     case PROP_VISION_MODE:
         gvagenai->config.vision_mode = g_value_get_enum(value);
         break;
+    case PROP_MODEL_INSTANCE_ID:
+        g_free(gvagenai->config.model_instance_id);
+        gvagenai->config.model_instance_id = g_value_dup_string(value);
+        break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
         break;
@@ -427,6 +442,9 @@ static void gst_gvagenai_get_property(GObject *object, guint prop_id, GValue *va
     case PROP_VISION_MODE:
         g_value_set_enum(value, gvagenai->config.vision_mode);
         break;
+    case PROP_MODEL_INSTANCE_ID:
+        g_value_set_string(value, gvagenai->config.model_instance_id);
+        break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
         break;
@@ -446,6 +464,7 @@ static void gst_gvagenai_finalize(GObject *object) {
     g_free(gvagenai->config.server_url);
     g_free(gvagenai->config.api_key);
     g_free(gvagenai->config.timeout_ms);
+    g_free(gvagenai->config.model_instance_id);
 
     g_free(gvagenai->prompt);
     g_free(gvagenai->prompt_path);
