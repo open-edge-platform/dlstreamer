@@ -175,8 +175,20 @@ static void gst_gvagenai_class_init(GstGvaGenAIClass *klass) {
 
     g_object_class_install_property(gobject_class, PROP_FRAME_RATE,
                                     g_param_spec_double("frame-rate", "Frame Rate",
-                                                        "Number of frames sampled per second for inference "
-                                                        "(0 = process all frames)",
+                                                        "Target inference rate in frames per second "
+                                                        "(approximate; sampling uses a whole-number "
+                                                        "input-frame interval, so the actual rate "
+                                                        "is usually slightly lower). "
+                                                        "Example with a 30 fps input: "
+                                                        " 10: sample every 3rd input frame (10 sampled frames/s); "
+                                                        "  2: sample every 15th input frame (2 sampled frames/s); "
+                                                        "  1: sample every 30th input frame (1 sampled frame/s); "
+                                                        "0.5: sample every 60th input frame (1 sampled frame every 2 s); "
+                                                        "0.1: sample every 300th input frame (1 sampled frame every 10 s); "
+                                                        "  0: process every input frame (30 sampled frames/s). "
+                                                        "Higher values result in more frequent inference "
+                                                        "and higher computational cost; "
+                                                        "Lower values mean less frequent, cheaper sampling. ",
                                                         0.0, G_MAXDOUBLE, 0.0, G_PARAM_READWRITE));
 
     g_object_class_install_property(gobject_class, PROP_CHUNK_SIZE,
