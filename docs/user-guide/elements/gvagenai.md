@@ -16,7 +16,7 @@ one text-generation pass per chunk against a text prompt, and attaches the gener
 (plus optional performance metrics) as metadata. Pixel data is not modified.
 
 Key operations:
-- **Frame sampling**: `frame-rate` selects how many frames per second are forwarded to the model (`0` = all frames).
+- **Frame sampling**: `frame-rate` sets the target sampling rate in frames per second. Sampling uses whole input-frame intervals, so the actual rate may be lower; 0 keeps all frames.
 - **Chunking**: `chunk-size` frames are accumulated, then submitted together as one inference. Frames are presented either as independent images or as a single video clip (see [Vision Mode](#vision-mode)).
 - **Text generation**: the prompt (`prompt` or `prompt-path`) and the accumulated frames are passed to the VLM. Decoding is controlled by [`generation-config`](#generation-config); batching/KV-cache behavior by [`scheduler-config`](#scheduler-config); device tuning by [`pipeline-config`](#pipeline-config).
 - **Metadata attachment**: the result is attached as JSON and classification metadata (see [Metadata](#metadata)).
@@ -34,7 +34,7 @@ Key operations:
 | scheduler-config | String | Continuous-batching scheduler parameters as `KEY=VALUE,KEY=VALUE`. Used by the `openvino-genai` backend only. See [Scheduler Config](#scheduler-config). | null |
 | pipeline-config | String | OpenVINO™ device properties as `KEY=VALUE,KEY=VALUE`. Used by the `openvino-genai` backend only. See [Pipeline Config](#pipeline-config). | null |
 | vision-mode | Enum | How accumulated frames are presented to the model: `image` or `video`. See [Vision Mode](#vision-mode). | image |
-| frame-rate | Double | Frames sampled per second for inference. `0` processes all frames. | 0 |
+| frame-rate | Double | Target frame-sampling rate in frames/s (approximate; the actual rate may be lower because sampling uses whole input-frame intervals). For 30 fps input: 10 samples every 3rd frame; 2 every 15th; 1 every 30th; 0.5 every 60th; 0.1 every 300th. 0 processes all frames. | 0 |
 | chunk-size | Unsigned Integer | Number of frames accumulated per inference call. | 1 |
 | model-cache-path | String | Directory for caching compiled models (GPU/NPU only). Used by the `openvino-genai` backend only. | ov_cache |
 | metrics | Boolean | Include performance metrics in the JSON output. | false |
@@ -279,7 +279,7 @@ gst-launch-1.0 filesrc location=video.mp4 ! decodebin3 ! \
 ## Processing Pipeline
 
 1. On `start`, validates `model-path` and the prompt, then constructs the OpenVINO™ GenAI `VLMPipeline` with the parsed `generation-config`, `scheduler-config`, and `pipeline-config`.
-2. For each frame, applies `frame-rate` sampling (frames are skipped to approximate the requested rate; `0` keeps all frames).
+2. For each frame, applies `frame-rate` sampling. The interval is rounded up to a whole number of input frames, so the actual rate may be lower than requested; 0 keeps all frames.
 3. Converts each sampled frame to an RGB tensor and appends it to the current chunk.
 4. When the chunk reaches `chunk-size`, runs one inference over the accumulated frames (as images or as a single video clip per `vision-mode`) with the prompt, and attaches `GstGVAJSONMeta` to that frame.
 5. Attaches `GstAnalyticsClsMtd` carrying the latest result to every frame so downstream elements can render it persistently.
@@ -350,7 +350,20 @@ Element Properties:
   device              : Device to use (CPU, GPU, NPU, etc.)
                         flags: readable, writable
                         String. Default: "CPU"
-  frame-rate          : Number of frames sampled per second for inference (0 = process all frames)
+  frame-rate          : Target frame-sampling rate in frames/s (approximate; 0 = process all frames)
+                        (approximate; sampling uses a whole-number
+                        input-frame interval, so the actual rate
+                        is usually slightly lower).
+                        Example with a 30 fps input:
+                        10 - sample every 3rd input frame (10 sampled frames/s);
+                        2 - sample every 15th input frame (2 sampled frames/s);
+                        1 - sample every 30th input frame (1 sampled frame/s);
+                        0.5 - sample every 60th input frame (1 sampled frame every 2 s);
+                        0.1 - sample every 300th input frame (1 sampled frame every 10 s);
+                        0 - process every input frame (30 sampled frames/s).
+                        Higher values result in more frequent inference
+                        and higher computational cost;
+                        Lower values mean less frequent, cheaper sampling.
                         flags: readable, writable
                         Double. Range:               0 -   1.797693e+308 Default:               0
   generation-config   : Generation configuration as KEY=VALUE,KEY=VALUE format
