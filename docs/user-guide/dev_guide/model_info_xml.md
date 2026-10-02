@@ -37,7 +37,38 @@ info section:
 | `labels` | string list | person bicycle … | List of labels for predicted object classes. | labels |
 | `resize_type` | string | <br>crop<br>standard<br>fit_to_window<br>fit_to_window_letterbox<br><br> | Resize method to map input video images to model input tensor. | resize |
 | `reverse_input_channels` | boolean | <br>True<br>False<br><br> | Convert input video image to RGB format (model trained with RGB images) | color_space=”RGB” |
-| `scale` | float | 255.0 | Divide input image values by ‘scale’ before mapping to model input tensor<br>(typically used when model was trained with input data normalized in &lt;0,1&gt; range). | range: [0.0, 1.0] |
+| `intensity_mode` | string | scale_to_unit | Divide 8-bit pixel values by 255 before mean/std normalization. | range: [0.0, 1.0] |
+| `mean_values` | string list | 0.485 0.456 0.406 | Three per-channel means, used together with three-channel `scale_values`. | mean |
+| `scale_values` | string list | 255 or 0.229 0.224 0.225 | One scalar divisor, or three per-channel std divisors used together with `mean_values`. | scale or std |
+
+## Input Normalization
+
+For 8-bit image inputs, DL Streamer does not implicitly divide pixels by 255
+when applying mean/std normalization. Without `intensity_mode="scale_to_unit"`,
+three-channel mean and scale values apply directly in the pixel domain:
+`(pixel - mean_values[channel]) / scale_values[channel]`.
+
+For models requiring unit-domain mean/std, use:
+
+```xml
+<intensity_mode value="scale_to_unit" />
+<mean_values value="0.485 0.456 0.406" />
+<scale_values value="0.229 0.224 0.225" />
+```
+
+This computes `(pixel / 255 - mean_values[channel]) / scale_values[channel]`.
+The final normalized values can be outside the 0-1 range. The equivalent
+pixel-domain configuration, without `intensity_mode`, is:
+
+```xml
+<mean_values value="123.675 116.28 103.53" />
+<scale_values value="58.395 57.12 57.375" />
+```
+
+For division by 255 alone, a single `scale_values` value of `255` is sufficient.
+Do not combine it with `intensity_mode="scale_to_unit"` unless two divisions
+by 255 are intended. Only the `scale_to_unit` intensity mode is supported;
+this does not add support for other `intensity_*` settings.
 
 You can also refer to
 [OpenVINO™ Model API](https://github.com/open-edge-platform/model_api/blob/master/model_api/docs/source/guides/model-configuration.md)
