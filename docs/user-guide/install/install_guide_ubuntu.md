@@ -147,11 +147,15 @@ using the following command:
 >   MODELS_PATH and execute the `hello_dlstreamer.sh` script.
 
 ```bash
-mkdir -p /home/${USER}/models
-export MODELS_PATH=/home/${USER}/models
-cd /opt/intel/dlstreamer/scripts/download_models
-python3 download_ultralytics_models.py --model yolo11s.pt \
-  --outdir "$MODELS_PATH/public/yolo11s/FP16" --half
+sudo apt install -y python3-venv
+mkdir -p "$HOME/.virtualenvs/download-models" "$HOME/models"
+python3 -m venv "$HOME/.virtualenvs/download-models"
+"$HOME/.virtualenvs/download-models/bin/pip" install --no-cache-dir --upgrade pip \
+  -r /opt/intel/dlstreamer/scripts/download_models/requirements_download_ultralytics_models.txt
+source "$HOME/.virtualenvs/download-models/bin/activate"
+export MODELS_PATH="$HOME/models"
+python3 /opt/intel/dlstreamer/scripts/download_models/download_ultralytics_models.py \
+  --model yolo11s --int8 --outdir "$MODELS_PATH/public/yolo11s/INT8"
 ```
 
 The `hello_dlstreamer.sh` script will set up the required environment

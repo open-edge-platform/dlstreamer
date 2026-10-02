@@ -81,10 +81,11 @@ The table provides links to model preparation instructions describing download a
 | Qwen2_5_VLForConditionalGeneration                                              | [Model Conversion Scripts](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/dev_guide/download_public_models.html) | [Qwen/​Qwen2.5-VL-3B-Instruct](https://huggingface.co/Qwen/Qwen2.5-VL-3B-Instruct)                                               | [Gvagenai Demo](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch/gvagenai)                                                                          |
 | Gemma3ForConditionalGeneration                                                  | [Model Conversion Scripts](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/dev_guide/download_public_models.html) | [google/​gemma-3-4b-it](https://huggingface.co/google/gemma-3-4b-it)                                                             | [Gvagenai Demo](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch/gvagenai)                                                                          |
 
-## Additional Models
+## OMZ Models
 
-The table below lists additional supported models and their associated labels,
-model-proc files, and sample applications.
+The table below lists supported models from [OpenVINO™ Open Model Zoo](https://github.com/openvinotoolkit/open_model_zoo/).
+
+> **NOTE:** The OMZ models listed below were last validated with DL Streamer release 2026.1. Compatibility with later releases has not been verified.
 
 | Model Name                                                                                                                                            | labels-file                                                                                                        | model-proc                                                                                                                                                                               | Demo App                                                                                                                                                              |
 |-------------------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------|
