@@ -44,6 +44,9 @@ class ImageInference {
             return image_trans_params;
         }
 
+        // Opaque key identifying the source element — used for fair batch scheduling, NEVER dereference
+        void *source_tag = nullptr;
+
         virtual ~IFrameBase() = default;
     };
 
@@ -76,6 +79,10 @@ class ImageInference {
     virtual bool IsQueueFull() = 0;
     virtual void Flush() = 0;
     virtual void Close() = 0;
+
+    virtual void UnregisterSource(void *source) {
+        (void)source;
+    }
 
     virtual ~ImageInference() = default;
 };
