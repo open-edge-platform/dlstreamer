@@ -19,6 +19,28 @@ PekingU/rtdetr_v2_r18vd@5650961749fa93567c0d46fc7f43ea4f9e914107
 # Used in samples/gstreamer/python/smart_nvr/smart_nvr.py
 PekingU/rtdetr_v2_r50vd@282494075698cab9faa1096ae26856890030c817
 
+# YOLO11 detection models (pre-converted OpenVINO IR)
+OpenVINO/YOLO11s-fp16-ov@5f3f07b1b39aeb77dd9dec2ea0c80ac1f293cb9e
+OpenVINO/YOLO11s-int8-ov@c0b5ee29346cd82b1178acc8d992adadf61e921a
+OpenVINO/YOLO11l-fp16-ov@c78a85d213723950af9b610f307dc37b64410dd7
+OpenVINO/YOLO11l-int8-ov@719c72bbfcc5d7faaf8250872582333ca405d9cf
+OpenVINO/YOLO11m-fp16-ov@027d38d26476fb184ffc67cf215c1fb31be83266
+OpenVINO/YOLO11m-int8-ov@df75a8e69b6c8ef0e4bf146783cc866f36bc7902
+OpenVINO/YOLO11n-fp16-ov@3d5885633eaced3312d65ea6dd28bae15222b19f
+OpenVINO/YOLO11n-int8-ov@5e4c7d2828a8f9322a64846c02f4b6556995565b
+OpenVINO/YOLO11x-fp16-ov@248a8580a6810049bd7ec37e9508d0a01331e5a3
+OpenVINO/YOLO11x-int8-ov@cb49fd4699a8304c5e95517474ee6c91e819693e
+
+# YOLOX detection models (pre-converted OpenVINO IR)
+OpenVINO/yolox_x-fp16-ov@e836fd9dbf66ba9ffad63ae0d12c873375c15f13
+OpenVINO/yolox_x-int8-ov@d6c536ddc89ce01c596f5d2594f3ae1acddab593
+OpenVINO/yolox_l-fp16-ov@782b44d520bb636f02338cde513530f9cbcf0a50
+OpenVINO/yolox_l-int8-ov@32cd72ee7ef6542a9db491395579c31ba5ce4d8c
+OpenVINO/yolox_s-fp16-ov@84b21868fbcad2a2078ab61e77418bbc301836ef
+OpenVINO/yolox_s-int8-ov@66effd8d1d7c7b1fbf4ac0967bd6e494a9ea0027
+OpenVINO/yolox_tiny-fp16-ov@d2bd6e014e6ac22de458d9829ec8deaea96be57d
+OpenVINO/yolox_tiny-int8-ov@f8270641771bf65e0fa6daf60111602744c9d1f3
+
 # DepthAnythingForDepthEstimation (CUSTOM_CONVERTERS: depthanythingfordepthestimation)
 LiheYoung/depth-anything-small-hf@25216a913fa218ccb7d58cce818d52b728b6c1f6
 # Used in samples/gstreamer/gst_launch/depth_estimation/README.md
