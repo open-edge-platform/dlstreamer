@@ -44,6 +44,7 @@ SUPPORTED_MODELS=(
   "centerface"
   "hsemotion"
   "deeplabv3"
+  "aclnet" # Sound classification model for audio event detection sample
   "pallet_defect_detection" # Custom model for pallet defect detection
   "colorcls2" # Color classification model
   "mars-small128" # DeepSORT person re-identification model (uses convert_mars_deepsort.py)
@@ -87,6 +88,17 @@ echo_color() {
 handle_error() {
     echo -e "\e[31mError occurred: $1\e[0m"
     exit 1
+}
+
+# Function to check for uv and install it if missing
+ensure_uv_installed() {
+    if command -v uv >/dev/null 2>&1; then
+        return 0
+    fi
+    echo "uv not found, installing..."
+    curl -LsSf https://astral.sh/uv/install.sh | sh || handle_error $LINENO
+    export PATH="$HOME/.local/bin:$PATH"
+    command -v uv >/dev/null 2>&1 || handle_error $LINENO
 }
 
 download_binary_file() {
@@ -327,9 +339,10 @@ fi
 
 set -u  # Re-enable nounset option: treat any attempt to use an unset variable as an error
 
+ensure_uv_installed
+
 if [ "$ID" == "fedora" ]; then
   export PYTHON_CREATE_VENV=/usr/bin/python3.10
-  $PYTHON_CREATE_VENV -m ensurepip --upgrade || handle_error $LINENO
 else
   export PYTHON_CREATE_VENV=python3
 fi
@@ -343,7 +356,7 @@ if [ ! -f "$VENV_DIR/bin/activate" ]; then
   echo "Removing stale/incomplete virtual environment in $VENV_DIR..."
   rm -rf "$VENV_DIR"
   echo "Creating virtual environment in $VENV_DIR..."
-  $PYTHON_CREATE_VENV -m venv "$VENV_DIR" || handle_error $LINENO
+  uv venv "$VENV_DIR" --python "$PYTHON_CREATE_VENV" || handle_error $LINENO
 fi
 
 # Activate the virtual environment
@@ -351,20 +364,19 @@ echo "Activating virtual environment in $VENV_DIR..."
 source "$VENV_DIR/bin/activate"
 
 # Install all required packages for main virtual environment
-pip install --no-cache-dir --upgrade pip      || handle_error $LINENO
-pip install --no-cache-dir numpy==2.2.6       || handle_error $LINENO
-pip install --no-cache-dir openvino==2026.3.1 || handle_error $LINENO
-pip install --no-cache-dir onnx==1.21.0       || handle_error $LINENO
-pip install --no-cache-dir onnxscript==0.7.1  || handle_error $LINENO
-pip install --no-cache-dir seaborn==0.13.2    || handle_error $LINENO
-pip install --no-cache-dir opencv-python-headless==4.12.0.88 || handle_error $LINENO
-pip install --no-cache-dir nncf==2.19.0       || handle_error $LINENO
-pip install --no-cache-dir tqdm==4.67.1       || handle_error $LINENO
-pip install --no-cache-dir requests==2.32.5   || handle_error $LINENO
-pip install --no-cache-dir pyyaml==6.0.3   || handle_error $LINENO
+uv pip install --no-cache-dir numpy==2.2.6       || handle_error $LINENO
+uv pip install --no-cache-dir openvino==2026.3.1 || handle_error $LINENO
+uv pip install --no-cache-dir onnx==1.21.0       || handle_error $LINENO
+uv pip install --no-cache-dir onnxscript==0.7.1  || handle_error $LINENO
+uv pip install --no-cache-dir seaborn==0.13.2    || handle_error $LINENO
+uv pip install --no-cache-dir opencv-python-headless==4.12.0.88 || handle_error $LINENO
+uv pip install --no-cache-dir nncf==2.19.0       || handle_error $LINENO
+uv pip install --no-cache-dir tqdm==4.67.1       || handle_error $LINENO
+uv pip install --no-cache-dir requests==2.32.5   || handle_error $LINENO
+uv pip install --no-cache-dir pyyaml==6.0.3   || handle_error $LINENO
 
 # Install PyTorch CPU version
-pip install --no-cache-dir --upgrade --extra-index-url https://download.pytorch.org/whl/cpu torch==2.13.0 torchaudio==2.11.0 torchvision==0.28.0 || handle_error $LINENO
+uv pip install --no-cache-dir --index-strategy unsafe-best-match --extra-index-url https://download.pytorch.org/whl/cpu torch==2.13.0 torchaudio==2.11.0 torchvision==0.28.0 || handle_error $LINENO
 
 echo Downloading models to folder "$MODELS_PATH".
 set -euo pipefail
@@ -385,12 +397,11 @@ if array_contains "yolox-tiny" "${MODELS_TO_PROCESS[@]}"; then
 
     # Create temporary new Python virtual environment for omz tools
     deactivate 2>/dev/null || true
-    $PYTHON_CREATE_VENV -m venv "$HOME/.virtualenvs/dlstreamer_openvino_dev" || handle_error $LINENO
+    uv venv "$HOME/.virtualenvs/dlstreamer_openvino_dev" --python "$PYTHON_CREATE_VENV" || handle_error $LINENO
     source "$HOME/.virtualenvs/dlstreamer_openvino_dev/bin/activate"
-    python -m pip install --upgrade pip                 || handle_error $LINENO
-    pip install --no-cache-dir "openvino-dev==2024.6.0" || handle_error $LINENO
-    pip install --no-cache-dir --upgrade --extra-index-url https://download.pytorch.org/whl/cpu torch==2.13.0 torchaudio==2.11.0 torchvision==0.28.0 || handle_error $LINENO
-    pip install --no-cache-dir onnxscript==0.7.1        || handle_error $LINENO
+    uv pip install --no-cache-dir "openvino-dev==2024.6.0" || handle_error $LINENO
+    uv pip install --no-cache-dir --index-strategy unsafe-best-match --extra-index-url https://download.pytorch.org/whl/cpu torch==2.13.0 torchaudio==2.11.0 torchvision==0.28.0 || handle_error $LINENO
+    uv pip install --no-cache-dir onnxscript==0.7.1        || handle_error $LINENO
 
     omz_downloader --name "$MODEL_NAME"
     omz_converter --name "$MODEL_NAME"
@@ -624,11 +635,10 @@ if array_contains "deeplabv3" "${MODELS_TO_PROCESS[@]}"; then
 
     # Create temporary new Python virtual environment for omz tools
     deactivate 2>/dev/null || true
-    $PYTHON_CREATE_VENV -m venv "$HOME/.virtualenvs/dlstreamer_openvino_dev" || handle_error $LINENO
+    uv venv "$HOME/.virtualenvs/dlstreamer_openvino_dev" --python "$PYTHON_CREATE_VENV" || handle_error $LINENO
     source "$HOME/.virtualenvs/dlstreamer_openvino_dev/bin/activate"
-    python -m pip install --upgrade pip                 || handle_error $LINENO
-    pip install --no-cache-dir "openvino-dev==2024.6.0" || handle_error $LINENO
-    pip install --no-cache-dir tensorflow==2.20.0       || handle_error $LINENO
+    uv pip install --no-cache-dir "openvino-dev==2024.6.0" || handle_error $LINENO
+    uv pip install --no-cache-dir tensorflow==2.20.0       || handle_error $LINENO
 
     omz_downloader --name "$MODEL_NAME"
     omz_converter --name "$MODEL_NAME"
@@ -656,6 +666,31 @@ EOF
     deactivate 2>/dev/null || true
     rm -rf "$HOME/.virtualenvs/dlstreamer_openvino_dev" 2>/dev/null || true
     source "$VENV_DIR/bin/activate" 
+  else
+    model_status="cached"
+    echo_color "\nModel already exists: $MODEL_DIR.\n" "yellow"
+  fi
+fi
+
+# ================================= AclNet FP16 & FP32 =================================
+if array_contains "aclnet" "${MODELS_TO_PROCESS[@]}"; then
+  display_header "Downloading AclNet model"
+  MODEL_NAME="aclnet"
+  model_status="ok"
+  MODEL_DIR="$MODELS_PATH/public/$MODEL_NAME"
+  DST_FILE1="$MODEL_DIR/FP16/$MODEL_NAME.xml"
+  DST_FILE2="$MODEL_DIR/FP32/$MODEL_NAME.xml"
+
+  if [[ ! -f "$DST_FILE1" || ! -f "$DST_FILE2" ]]; then
+    mkdir -p "$MODEL_DIR/FP16" "$MODEL_DIR/FP32"
+    cd "$MODEL_DIR"
+    echo "Downloading and converting: ${MODEL_DIR}"
+    download_binary_file \
+      "https://storage.openvinotoolkit.org/models_contrib/sound_classification/aclnet/2021-02-04/aclnet_des_53_fp32.onnx" \
+      "aclnet_des_53.onnx" || handle_error "failed to download aclnet_des_53.onnx"
+    ovc aclnet_des_53.onnx --input "[1,1,1,16000]" --output_model "FP16/${MODEL_NAME}.xml" --compress_to_fp16=True || handle_error $LINENO
+    ovc aclnet_des_53.onnx --input "[1,1,1,16000]" --output_model "FP32/${MODEL_NAME}.xml" --compress_to_fp16=False || handle_error $LINENO
+    rm -f aclnet_des_53.onnx
   else
     model_status="cached"
     echo_color "\nModel already exists: $MODEL_DIR.\n" "yellow"
@@ -710,7 +745,7 @@ export_ppocr_v5_model() {
     cd "$MODEL_DIR"
 
     # Dependencies required for PaddlePaddle PIR -> ONNX conversion.
-    pip install --no-cache-dir paddlepaddle paddle2onnx huggingface_hub || handle_error $LINENO
+    uv pip install --no-cache-dir paddlepaddle paddle2onnx huggingface_hub || handle_error $LINENO
 
     echo_color "[1/4] Downloading PaddlePaddle/$MODEL_NAME from HuggingFace..." "cyan"
     python3 - <<EOF "$MODEL_NAME"

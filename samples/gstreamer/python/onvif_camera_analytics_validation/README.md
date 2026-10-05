@@ -78,10 +78,10 @@ environment described there:
 ```bash
 export MODELS_PATH="$HOME/models"
 cd /opt/intel/dlstreamer/scripts/download_models
-python3 -m venv .model_download_venv
+uv venv .model_download_venv
 source .model_download_venv/bin/activate
 curl -LO https://raw.githubusercontent.com/openvinotoolkit/openvino.genai/refs/heads/releases/2026/3/samples/export-requirements.txt
-pip install -r export-requirements.txt -r requirements.txt
+uv pip install -r export-requirements.txt -r requirements.txt
 
 python download_hf_models.py \
     --model OpenVINO/gemma-3-4b-it-int8-ov \
@@ -102,9 +102,9 @@ Gemma 3 4B (~3.3 GB in int4) is recommended and fits well on
 ### 5. Create virtual environment and install dependencies
 
 ```bash
-python3 -m venv --system-site-packages .venv
+uv venv --system-site-packages .venv
 source .venv/bin/activate
-pip install -r requirements.txt
+uv pip install -r requirements.txt
 ```
 
 ## Quick Start

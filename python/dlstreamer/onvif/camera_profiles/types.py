@@ -8,6 +8,31 @@ ONVIF camera profile data structure.
 """
 
 from dataclasses import dataclass, field
+from urllib.parse import urlsplit
+
+# Characters that must never appear in a stream URI we accept from a camera:
+# they let an untrusted `GetStreamUri` response break out of the single
+# argv token it is substituted into and inject extra pipeline syntax
+# (e.g. additional GStreamer elements) when the pipeline is described as text.
+_UNSAFE_URI_CHARS = set(" \t\r\n'\"!|;")
+
+
+def is_safe_rtsp_url(uri: str) -> bool:
+    """Return whether ``uri`` is safe to use as a camera stream RTSP URL.
+
+    Camera-reported values (notably ONVIF ``GetStreamUri`` responses) are
+    untrusted input. This rejects anything that is not a plain
+    ``rtsp://host[:port][/path]`` URI, has no host, or contains whitespace,
+    quote characters or GStreamer pipeline-syntax characters that could be
+    used to inject additional pipeline elements when the URL is substituted
+    into a textual pipeline description.
+    """
+    if not uri or any(ch in _UNSAFE_URI_CHARS for ch in uri):
+        return False
+    parts = urlsplit(uri)
+    if parts.scheme.lower() != "rtsp":
+        return False
+    return bool(parts.hostname)
 
 
 @dataclass(eq=False)

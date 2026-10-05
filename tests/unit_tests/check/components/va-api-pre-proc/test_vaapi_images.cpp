@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2020-2025 Intel Corporation
+ * Copyright (C) 2020-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -12,6 +12,8 @@
 #include "vaapi_context.h"
 
 #include <gtest/gtest.h>
+
+#include <unistd.h>
 
 using namespace InferenceBackend;
 
@@ -29,13 +31,13 @@ TEST_F(VAAPIImageMapTest, VAAPIImageMapTestRightInitialization) {
 TEST_F(VAAPIImageMapTest, VAAPIImageMapTestCreation) {
     ASSERT_NO_THROW(std::unique_ptr<ImageMap>(ImageMap::Create(MemoryType::VAAPI)));
     ASSERT_NO_THROW(std::unique_ptr<ImageMap>(ImageMap::Create(MemoryType::SYSTEM)));
-    ASSERT_ANY_THROW(std::unique_ptr<ImageMap>(ImageMap::Create(MemoryType::DMA_BUFFER)));
+    ASSERT_NO_THROW(std::unique_ptr<ImageMap>(ImageMap::Create(MemoryType::DMA_BUFFER)));
     ASSERT_ANY_THROW(std::unique_ptr<ImageMap>(ImageMap::Create(MemoryType::ANY)));
 }
 
 TEST_F(VAAPIImageMapTest, VAAPIImageMapTestRightCreation) {
     ASSERT_ANY_THROW(ImageMap::Create(MemoryType::ANY));
-    ASSERT_ANY_THROW(ImageMap::Create(MemoryType::DMA_BUFFER));
+    ASSERT_NO_THROW(ImageMap::Create(MemoryType::DMA_BUFFER));
     ASSERT_NO_THROW(ImageMap::Create(MemoryType::VAAPI));
     ASSERT_NO_THROW(ImageMap::Create(MemoryType::SYSTEM));
 }
@@ -90,8 +92,15 @@ TEST_F(VAAPIImageTest, VAAPIImageTestRightDefInitialization) {
 TEST_F(VAAPIImageTest, VAAPIImageTestInitialization) {
     VaApiDisplayPtr va_dpy = vaApiCreateVaDisplay(0);
     auto va_context = std::unique_ptr<VaApiContext>(new VaApiContext(va_dpy));
-    ASSERT_ANY_THROW(std::unique_ptr<VaApiImage>(
-        new VaApiImage(va_context.get(), 480, 640, FourCC::FOURCC_I420, MemoryType::DMA_BUFFER)));
+    // DMA_BUFFER now fails hard when /dev/dma_heap/system is inaccessible (no silent SYSTEM
+    // fallback), so gate the expectation on actual heap access as the production code does.
+    if (access("/dev/dma_heap/system", R_OK | W_OK) == 0) {
+        ASSERT_NO_THROW(std::unique_ptr<VaApiImage>(
+            new VaApiImage(va_context.get(), 480, 640, FourCC::FOURCC_I420, MemoryType::DMA_BUFFER)));
+    } else {
+        ASSERT_ANY_THROW(std::unique_ptr<VaApiImage>(
+            new VaApiImage(va_context.get(), 480, 640, FourCC::FOURCC_I420, MemoryType::DMA_BUFFER)));
+    }
     ASSERT_NO_THROW(std::unique_ptr<VaApiImage>(
         new VaApiImage(va_context.get(), 480, 640, FourCC::FOURCC_NV12, MemoryType::VAAPI)));
     ASSERT_NO_THROW(std::unique_ptr<VaApiImage>(

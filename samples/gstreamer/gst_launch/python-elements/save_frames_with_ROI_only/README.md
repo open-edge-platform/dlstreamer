@@ -80,8 +80,7 @@ The GStreamer Python plugin (`libgstpython.so`) must be available in `GST_PLUGIN
 If Python requirements are not installed yet:
 
 ```sh
-python3 -m pip install --upgrade pip
-python3 -m pip install opencv-python-headless numpy
+uv pip install opencv-python-headless numpy
 ```
 
 ## Running

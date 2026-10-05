@@ -155,12 +155,25 @@ function Invoke-DownloadFile {
 	}
 }
 
+# Inno uninstall key of GStreamer 1.28+.
+$GSTREAMER_INNO_UNINSTALL_KEY = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\c20a66dc-b249-4e6d-a68a-d0f836b2b3cf_is1"
+# GStreamer Inno setup type to install and to require. "debug" is the complete
+# set (runtime + devel + debug)
+$GSTREAMER_SETUP_TYPE = "debug"
+
+function Get-GStreamerSetupType {
+	$setupType = (Get-ItemProperty -Path $GSTREAMER_INNO_UNINSTALL_KEY -Name "Inno Setup: Setup Type" -ErrorAction SilentlyContinue)."Inno Setup: Setup Type"
+	if ($setupType) {
+		return $setupType.Trim().ToLowerInvariant()
+	}
+	return $null
+}
+
 function Uninstall-GStreamer {
 	$installDir = (Get-ItemProperty -Path "HKLM:\SOFTWARE\GStreamer1.0\x86_64" -Name "InstallDir" -ErrorAction SilentlyContinue).InstallDir
 
 	# Check if this is an Inno installation (GStreamer 1.28+)
-	$innoUninstallKey = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\c20a66dc-b249-4e6d-a68a-d0f836b2b3cf_is1"
-	$quietUninstall = (Get-ItemProperty -Path $innoUninstallKey -Name "QuietUninstallString" -ErrorAction SilentlyContinue).QuietUninstallString
+	$quietUninstall = (Get-ItemProperty -Path $GSTREAMER_INNO_UNINSTALL_KEY -Name "QuietUninstallString" -ErrorAction SilentlyContinue).QuietUninstallString
 
 	if ($quietUninstall) {
 		Write-Host "Uninstalling GStreamer (Inno)..."
@@ -304,8 +317,24 @@ try {
 				$GSTREAMER_NEEDS_INSTALL = $true
 			}
 			else {
-				Write-Host "GStreamer version $regVersion verified (matches required $GSTREAMER_VERSION)"
-				$GSTREAMER_NEEDS_INSTALL = $false
+				# The version matches, but the install may still be runtime-only.
+				$gstSetupType = Get-GStreamerSetupType
+				if ($gstSetupType -eq $GSTREAMER_SETUP_TYPE) {
+					Write-Host "GStreamer version $regVersion verified (matches required $GSTREAMER_VERSION, setup type: $gstSetupType)"
+					$GSTREAMER_NEEDS_INSTALL = $false
+				}
+				else {
+					if ($gstSetupType) {
+						Write-Host "GStreamer $regVersion was installed with setup type '$gstSetupType' - '$GSTREAMER_SETUP_TYPE' is required to build DL Streamer"
+					}
+					else {
+						Write-Host "GStreamer $regVersion setup type could not be read from $GSTREAMER_INNO_UNINSTALL_KEY - assuming it is incomplete"
+					}
+					Write-Host "Reinstalling GStreamer with /TYPE=$GSTREAMER_SETUP_TYPE"
+					Uninstall-GStreamer
+					$GSTREAMER_NEEDS_INSTALL = $true
+					$GSTREAMER_DEST_FOLDER = "$env:ProgramFiles\gstreamer\1.0\msvc_x86_64"
+				}
 			}
 		}
 	}
@@ -328,7 +357,7 @@ if ($GSTREAMER_NEEDS_INSTALL) {
 	Invoke-DownloadFile -UserAgent "curl/8.5.0" -OutFile $GSTREAMER_INSTALLER -Uri "https://gstreamer.freedesktop.org/data/pkg/windows/${GSTREAMER_VERSION}/msvc/gstreamer-1.0-msvc-x86_64-${GSTREAMER_VERSION}.exe"
 
 	Write-Host "Installing GStreamer..."
-	$process = Start-Process -Wait -PassThru -FilePath $GSTREAMER_INSTALLER -ArgumentList "/SILENT", "/LOG", "/TYPE=full", "/ALLUSERS"
+	$process = Start-Process -Wait -PassThru -FilePath $GSTREAMER_INSTALLER -ArgumentList "/SILENT", "/LOG", "/TYPE=$GSTREAMER_SETUP_TYPE", "/ALLUSERS"
 	if ($process.ExitCode -ne 0) {
 		Write-Error "GStreamer installation failed with exit code: $($process.ExitCode)"
 	}
@@ -343,6 +372,15 @@ if ($GSTREAMER_NEEDS_INSTALL) {
 else {
 	Write-Section "GStreamer ${GSTREAMER_VERSION} already installed"
 }
+
+# Whichever path we took, the install has to be the complete one.
+$gstSetupType = Get-GStreamerSetupType
+if ($gstSetupType -ne $GSTREAMER_SETUP_TYPE) {
+	$reportedSetupType = if ($gstSetupType) { "'$gstSetupType'" } else { "unknown" }
+	Write-Error "GStreamer at $GSTREAMER_DEST_FOLDER has setup type $reportedSetupType instead of '$GSTREAMER_SETUP_TYPE' - reinstall GStreamer ${GSTREAMER_VERSION} with /TYPE=$GSTREAMER_SETUP_TYPE"
+	exit 1
+}
+Write-Host "GStreamer setup type: $gstSetupType"
 
 # ============================================================================
 # OpenVINO
@@ -450,17 +488,64 @@ if ($null -ne (Get-Command git -ErrorAction SilentlyContinue)) {
 # ============================================================================
 # CMake
 # ============================================================================
-$cmakeInstalled = $null -ne (Get-Command cmake -ErrorAction SilentlyContinue)
-if (-Not $cmakeInstalled) {
+# Prefer the winget-managed Kitware.CMake install over whatever cmake happens to
+# be first on PATH.
+function Get-WinGetCMakePath {
+	# "winget list <id> --details" prints the install location, but only as a
+	# "Installed Location: <path>" text line. Match on the value instead of the
+	# label: any "<label>: <value>" line whose value is an absolute directory
+	# holding bin\cmake.exe. Returns $null when the package is not installed.
+	$details = winget list Kitware.CMake --details 2>$null
+	if (-Not $details) {
+		return $null
+	}
+	foreach ($line in $details) {
+		if ($line -notmatch '^\s*[^:]+:\s*(\S.*?)\s*$') {
+			continue
+		}
+		try {
+			$value = $Matches[1]
+			if (-Not [System.IO.Path]::IsPathRooted($value)) {
+				continue
+			}
+			$candidate = Join-Path $value "bin\cmake.exe"
+			if (Test-Path -LiteralPath $candidate) {
+				return $candidate
+			}
+		}
+		catch {
+			# Not a usable path (illegal characters) - keep looking.
+			continue
+		}
+	}
+	return $null
+}
+
+$CMAKE_EXE = Get-WinGetCMakePath
+if (-Not $CMAKE_EXE) {
 	Write-Section "Installing CMake"
 	winget install --id Kitware.CMake --source winget --silent --accept-package-agreements --accept-source-agreements
 	Update-Path
+	$CMAKE_EXE = Get-WinGetCMakePath
 	Write-Section "Done"
 }
-else {
-	cmake --version
-	Write-Section "CMake already installed"
+
+if ($CMAKE_EXE) {
+	Write-Host "Using CMake from winget install: $CMAKE_EXE"
 }
+else {
+	# Fallback: whatever is on PATH. Everything downstream is given the resolved
+	# path explicitly so the same binary is used throughout.
+	$cmakeOnPath = Get-Command cmake -ErrorAction SilentlyContinue
+	if (-Not $cmakeOnPath) {
+		Write-Error "CMake not found - the winget install did not succeed and no cmake is on PATH"
+		exit 1
+	}
+	$CMAKE_EXE = $cmakeOnPath.Source
+	Write-Host "Warning: Kitware.CMake install not found; falling back to CMake on PATH: $CMAKE_EXE"
+}
+& $CMAKE_EXE --version
+Write-Section "CMake ready"
 
 # ============================================================================
 # NSIS
@@ -553,9 +638,12 @@ Write-Section "Building gstanalytics zip"
 & powershell -ExecutionPolicy Bypass -File $GSTANALYTICS_BUILD_SCRIPT `
 	-GStreamerVersion $GSTREAMER_VERSION `
 	-GStreamerDir     $GSTREAMER_DEST_FOLDER `
-	-OutputZip        $GSTANALYTICS_ZIP | Out-Host
+	-OutputZip        $GSTANALYTICS_ZIP `
+	-CMakeExe         $CMAKE_EXE | Out-Host
+# Stop here rather than carrying on
 if ($LASTEXITCODE -ne 0) {
 	Write-Error "gstanalytics build failed with exit code: $LASTEXITCODE"
+	exit 1
 }
 
 & powershell -ExecutionPolicy Bypass -File $GSTANALYTICS_PATCH_SCRIPT `
@@ -565,6 +653,7 @@ if ($LASTEXITCODE -ne 0) {
 		-Mode Install -GStreamerDir $GSTREAMER_DEST_FOLDER | Out-Host
 	if ($LASTEXITCODE -ne 0) {
 		Write-Error "gstanalytics patch installation failed with exit code: $LASTEXITCODE"
+		exit 1
 	}
 }
 Write-Section "Done"
@@ -575,13 +664,28 @@ Write-Section "Done"
 Write-Section "Preparing build directory"
 $DLSTREAMER_BUILD = "${DLSTREAMER_SRC_LOCATION}\build"
 if (Test-Path $DLSTREAMER_BUILD) {
-	Remove-Item -LiteralPath $DLSTREAMER_BUILD -Recurse
+	Remove-Item -LiteralPath $DLSTREAMER_BUILD -Recurse -Force -ErrorAction SilentlyContinue
+	if (Test-Path $DLSTREAMER_BUILD) {
+		# Second chance - rmdir copes with a few cases Remove-Item does not.
+		& cmd /c rmdir /s /q "$DLSTREAMER_BUILD" 2>&1 | Out-Null
+	}
+	if (Test-Path $DLSTREAMER_BUILD) {
+		Write-Error "Could not delete the build directory $DLSTREAMER_BUILD - close any Visual Studio instance holding build\.vs (or whatever else has files there open) and re-run"
+		exit 1
+	}
 }
 mkdir $DLSTREAMER_BUILD
 
 Write-Section "Running CMake"
-$VCPKG_CMAKE = Join-Path $vsPath "VC\vcpkg\scripts\buildsystems\vcpkg.cmake"
-$buildArgs = @("-DCMAKE_TOOLCHAIN_FILE=$VCPKG_CMAKE", "-S", "$DLSTREAMER_SRC_LOCATION", "-B", "$DLSTREAMER_BUILD")
+# Pass paths to CMake with forward slashes. CMake before 4.0 re-lexes the
+# expansion of an unquoted argument, so a native Windows path can surface as an
+# invalid escape sequence ("Invalid character escape '\U'" for C:\Users\...).
+$VCPKG_CMAKE = (Join-Path $vsPath "VC\vcpkg\scripts\buildsystems\vcpkg.cmake").Replace('\', '/')
+$buildArgs = @(
+	"-DCMAKE_TOOLCHAIN_FILE=$VCPKG_CMAKE",
+	"-S", $DLSTREAMER_SRC_LOCATION.Replace('\', '/'),
+	"-B", $DLSTREAMER_BUILD.Replace('\', '/')
+)
 # RoboSense LiDAR backend: OFF by default, ON when -enableLidarRobosense is passed
 # (CI does this for the installer). Passed explicitly either way so a reused build
 # directory can't carry a stale cached value.
@@ -592,6 +696,8 @@ if ($enableLidarRobosense) {
 }
 if ($buildInstaller -and $installerSkipCompression) {
 	$buildArgs += "-DNSIS_SKIP_COMPRESSION=ON"
+} else {
+	$buildArgs += "-DNSIS_SKIP_COMPRESSION=OFF"
 }
 if ($buildInstaller -and $installerCodeSignScript) {
 	if (-Not (Test-Path $installerCodeSignScript)) {
@@ -599,13 +705,15 @@ if ($buildInstaller -and $installerCodeSignScript) {
 		exit 1
 	}
 	$resolvedSignScript = (Resolve-Path $installerCodeSignScript).Path
-	$buildArgs += "-DCODE_SIGN_SCRIPT=$resolvedSignScript"
+	$buildArgs += "-DCODE_SIGN_SCRIPT=$($resolvedSignScript.Replace('\', '/'))"
 	Write-Host "Code sign enabled: $resolvedSignScript"
+} else {
+	$buildArgs += "-DCODE_SIGN_SCRIPT="
 }
-cmake @buildArgs
+& $CMAKE_EXE @buildArgs
 if ($LASTEXITCODE -eq 0) {
 	Write-Section "Building DL Streamer"
-	cmake --build $DLSTREAMER_BUILD --parallel $env:NUMBER_OF_PROCESSORS --target ALL_BUILD --config Release
+	& $CMAKE_EXE --build $DLSTREAMER_BUILD --parallel $env:NUMBER_OF_PROCESSORS --target ALL_BUILD --config Release
 	if ($LASTEXITCODE -ne 0) {
 		Write-Error "Build failed with exit code: $LASTEXITCODE"
 		exit $LASTEXITCODE
@@ -613,12 +721,12 @@ if ($LASTEXITCODE -eq 0) {
 
 	if ($buildInstaller) {
 		Write-Section "Packaging DL Streamer"
-		cmake --build $DLSTREAMER_BUILD --target download_installer_deps --config Release
+		& $CMAKE_EXE --build $DLSTREAMER_BUILD --target download_installer_deps --config Release
 		if ($LASTEXITCODE -ne 0) {
 			Write-Error "Downloading installer dependencies failed with exit code: $LASTEXITCODE"
 			exit $LASTEXITCODE
 		}
-		cmake --build $DLSTREAMER_BUILD --target package_all --config Release
+		& $CMAKE_EXE --build $DLSTREAMER_BUILD --target package_all --config Release
 		if ($LASTEXITCODE -ne 0) {
 			$nsisLog = "$DLSTREAMER_BUILD\_CPack_Packages\win64\NSIS\NSISOutput.log"
 			if (Test-Path $nsisLog) {

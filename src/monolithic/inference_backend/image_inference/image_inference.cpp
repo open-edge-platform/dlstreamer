@@ -10,6 +10,8 @@
 #include "image_inference_async_d3d11.h"
 #else
 #include "image_inference_async/image_inference_async.h"
+#include <cstdlib>
+#include <unistd.h>
 #endif
 
 using namespace InferenceBackend;
@@ -31,6 +33,11 @@ std::map<std::string, GstStructure *> ImageInference::GetModelInfoPreproc(const 
     return OpenVINOImageInference::GetModelInfoPreproc(model_file, preproc_config, ov_extension_lib);
 }
 
+std::map<std::string, std::vector<size_t>> ImageInference::GetModelInputShapes(const std::string model_file,
+                                                                               const gchar *ov_extension_lib) {
+    return OpenVINOImageInference::GetModelInputShapes(model_file, ov_extension_lib);
+}
+
 ImageInference::Ptr ImageInference::createImageInferenceInstance(MemoryType input_image_memory_type,
                                                                  const InferenceConfig &config, Allocator *allocator,
                                                                  CallbackFunc callback, ErrorHandlingFunc error_handler,
@@ -40,6 +47,11 @@ ImageInference::Ptr ImageInference::createImageInferenceInstance(MemoryType inpu
 
     // Determine the memory type to be used for inference
     MemoryType memory_type_to_use = MemoryType::ANY;
+
+#ifndef _WIN32
+    // Determine if the device is an NPU
+    bool isNpu = (config.at(KEY_BASE).at(KEY_DEVICE).find("NPU") != std::string::npos);
+#endif
 
     switch (input_image_memory_type) {
     case MemoryType::SYSTEM:
@@ -63,12 +75,30 @@ ImageInference::Ptr ImageInference::createImageInferenceInstance(MemoryType inpu
         case ImagePreprocessorType::VAAPI_SYSTEM:
             // Use system memory for VAAPI_SYSTEM preprocessor type
             memory_type_to_use = MemoryType::SYSTEM;
+#ifndef _WIN32
+            // DMA-BUF zero-copy (VPP writes into DMA-BUF, NPU reads from same buffer) is used on NPU
+            // when the DMA-BUF heap is accessible; otherwise fall back to the plain SYSTEM-memory path.
+            // The heap access is probed here (not later, per-surface) so the whole pipeline stays
+            // consistent: a partial fallback would leave the pool/OpenVINO instance in DMA_BUFFER mode
+            // while individual surfaces are SYSTEM, which deadlocks inference.
+            {
+                bool zero_copy_enabled = false; // currently disabled
+                if (isNpu && zero_copy_enabled) {
+                    if (access("/dev/dma_heap/system", R_OK | W_OK) != 0) {
+                        GVA_WARNING("Falling back to the slow NPU path (extra GPU->CPU->NPU copies): no access to "
+                                    "DMA-BUF. To enable zero-copy, grant access to /dev/dma_heap/system, e.g. "
+                                    "'sudo chgrp video /dev/dma_heap/system && sudo chmod 660 /dev/dma_heap/system'.");
+                    } else {
+                        memory_type_to_use = MemoryType::DMA_BUFFER;
+                    }
+                }
+            }
+#endif
             break;
         case ImagePreprocessorType::VAAPI_SURFACE_SHARING:
             // Use VAAPI memory for VAAPI_SURFACE_SHARING preprocessor type
             memory_type_to_use = MemoryType::VAAPI;
             break;
-
         default:
             throw std::runtime_error("Incorrect pre-process-backend, should be vaapi or vaapi-surface-sharing");
         }

@@ -4,12 +4,14 @@
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
 
-#include "dlstreamer_logger.h"
 #include "gst/gststructure.h"
 #include "inference_backend/image_inference.h"
+#include <spdlog/fmt/fmt.h>
 
 #include <cstddef>
 #include <openvino/runtime/properties.hpp>
+
+#include <openvino/runtime/intel_npu/level_zero/level_zero.hpp>
 
 #include <dlstreamer/openvino/context.h>
 #ifdef _WIN32
@@ -42,9 +44,11 @@
 
 #include <functional>
 #include <iterator>
+#include <mutex>
 #include <regex>
 #include <stdio.h>
 #include <thread>
+#include <unordered_map>
 
 using namespace InferenceBackend;
 
@@ -555,6 +559,7 @@ class OpenVinoNewApiImpl {
 
         switch (_memory_type) {
         case MemoryType::SYSTEM:
+        case MemoryType::DMA_BUFFER:
 #ifndef ENABLE_D3D_NPU_COLOR_CONV
             if (_model_format == "BGR")
                 format = FourCC::FOURCC_BGRP;
@@ -603,6 +608,8 @@ class OpenVinoNewApiImpl {
         switch (image.format) {
         case FourCC::FOURCC_RGBP:
         case FourCC::FOURCC_BGRP:
+            if (image.type == MemoryType::DMA_BUFFER)
+                return {image_rgbp_dmabuf_to_npu_tensor(image)};
             return {image_rgbp_to_tensor(image)};
 
         case FourCC::FOURCC_BGRA:
@@ -648,6 +655,27 @@ class OpenVinoNewApiImpl {
         }
 
         return tensor;
+    }
+
+    // Import DMA-BUF backed RGBP image into NPU as a remote tensor (zero-copy).
+    // The NPU context is created once and the imported tensor is cached per DMA-BUF fd:
+    // pool buffers keep stable fds for the element lifetime, and the VA-API VPP overwrites
+    // the same memory each frame, so a single import per fd can be reused across frames.
+    ov::Tensor image_rgbp_dmabuf_to_npu_tensor(const Image &image) {
+        std::lock_guard<std::mutex> lock(_npu_dmabuf_cache_mutex);
+
+        const auto cached = _npu_dmabuf_tensor_cache.find(image.dma_fd);
+        if (cached != _npu_dmabuf_tensor_cache.end())
+            return cached->second;
+
+        if (!_npu_context)
+            _npu_context = std::make_unique<ov::intel_npu::level_zero::ZeroContext>(core());
+
+        auto channels_num = get_channels_num(image.format);
+        const ov::Shape shape{1, channels_num, size_t(image.height), size_t(image.width)};
+        ov::Tensor remote_tensor = _npu_context->create_tensor(ov::element::u8, shape, image.dma_fd);
+
+        return _npu_dmabuf_tensor_cache.emplace(image.dma_fd, remote_tensor).first->second;
     }
 
     ov::Tensor image_bgrx_to_tensor(const Image &image) {
@@ -770,6 +798,13 @@ class OpenVinoNewApiImpl {
     dlstreamer::OpenVINOContextPtr _openvino_context;
     ov::CompiledModel _compiled_model;
     MemoryType _memory_type;
+
+    // Persistent NPU Level Zero context and per-DMA-BUF-fd remote tensor cache for the
+    // VAAPI_SYSTEM zero-copy path (avoids re-creating a context and re-importing the fd
+    // on every inference, which leaks NPU imports and stalls inference over time).
+    std::unique_ptr<ov::intel_npu::level_zero::ZeroContext> _npu_context;
+    std::unordered_map<int, ov::Tensor> _npu_dmabuf_tensor_cache;
+    std::mutex _npu_dmabuf_cache_mutex;
 #ifdef ENABLE_D3D_NPU_COLOR_CONV
     InferenceBackend::ImagePreprocessorType _pp_type;
 #endif
@@ -820,6 +855,8 @@ class OpenVinoNewApiImpl {
         }
 
         GVA_DEBUG("Setting batch size of %d to model", _batch_size);
+        // Every input carries an 'N' layout by now (image via configure_image_input, aux inputs tagged
+        // in configure_model_inputs), so set_batch pins the batch axis on all of them.
         ov::set_batch(_model, _batch_size);
 
         GVA_DEBUG("Model inputs after configuration:");
@@ -872,6 +909,14 @@ class OpenVinoNewApiImpl {
                 GVA_DEBUG("Found image input: %s, layout: %s", _image_input_name.c_str(),
                           get_ov_node_layout(item).to_string().c_str());
                 configure_image_input(config, in, in_cfg, item);
+            } else {
+                // Auxiliary (non-image) input (e.g. MonoDETR's calib/img_sizes): tag a batch ('N')
+                // layout so the later ov::set_batch can pin its batch axis. Only when axis 0 is dynamic
+                // and no layout is set, to avoid rewriting a legitimately fixed leading dimension.
+                const auto &pshape = item.get_partial_shape();
+                if (get_ov_node_layout(item).empty() && pshape.rank().is_static() && pshape.size() > 0 &&
+                    pshape[0].is_dynamic())
+                    in.model().set_layout(ov::Layout("N" + std::string(pshape.size() - 1, '?')));
             }
         }
 
@@ -1017,7 +1062,20 @@ class OpenVinoNewApiImpl {
             input.preprocess().scale(scale);
         }
 
-        // OV preprocessor does implicit layout conversion. If original layout is unknown, assume it is NCHW.
+        // Layout lifecycle (why there are two set_layout calls in this function):
+        //   - input.tensor().set_layout(...)  = the TENSOR layout, i.e. the axis order of the
+        //     incoming data buffer (NCHW for OPENCV/VAAPI, NHWC for IE/surface-sharing). Set above
+        //     depending on pp_type.
+        //   - input.model().set_layout(...)   = a HINT about the original network body's layout,
+        //     used by ppp.build() only to decide whether to insert a transpose.
+        // ppp.build() (in configure_model) reconciles the two: the resulting Parameter ends up
+        // carrying the TENSOR layout, and that is what ov::set_batch later reads. Since both NCHW
+        // and NHWC put 'N' at axis 0, set_batch always finds the batch on the image input.
+        // The "??HW" hint below is transient: only H/W placement matters for the model side, so we
+        // leave N/C unspecified. It does not become the Parameter's final layout.
+        // NOTE: this whole function only runs for the image input (data_format == KEY_image); aux
+        // inputs (e.g. calib/img_sizes) get their batch ('N') layout tagged in configure_model_inputs
+        // instead, so ov::set_batch can pin their batch axis too.
         ov::Layout model_layout = get_ov_node_layout(node);
         if (model_layout.empty()) {
             // Need to specify H and W dimensions in model, others are not important
@@ -1531,6 +1589,23 @@ std::map<std::string, GstStructure *> OpenVINOImageInference::GetModelInfoPrepro
 
     auto info = ModelApiConverters::get_model_info_preproc(std::move(model), model_file, pre_proc_config);
     return info;
+}
+
+std::map<std::string, std::vector<size_t>> OpenVINOImageInference::GetModelInputShapes(const std::string model_file,
+                                                                                       const gchar *ov_extension_lib) {
+    if (ov_extension_lib && ov_extension_lib[0] != '\0') {
+        OpenVinoNewApiImpl::core().add_extension(ov_extension_lib);
+    }
+    std::shared_ptr<ov::Model> model = OpenVinoNewApiImpl::core().read_model(model_file);
+
+    std::map<std::string, std::vector<size_t>> res;
+    for (const auto &input : model->inputs()) {
+        const auto &partial_shape = input.get_partial_shape();
+        const auto &shape = partial_shape.is_dynamic() ? partial_shape.get_min_shape() : partial_shape.get_shape();
+        const std::string name = input.get_names().size() > 0 ? input.get_any_name() : std::string("input");
+        res.emplace(name, std::vector<size_t>(shape.begin(), shape.end()));
+    }
+    return res;
 }
 
 void OpenVINOImageInference::Flush() {

@@ -82,15 +82,19 @@ Follow the instructions in
 
 ## Step 3: Set up a Python environment
 
+For crating wirtual enviroment `uv` tool is recomended, and needs to be instaled:
+
+   ```bash
+  curl -LsSf https://astral.sh/uv/install.sh | sh
+  ```
 Create a Python virtual environment and install required Python
 packages:
 
   ```bash
-  python3 -m venv ~/python3venv
+  uv venv ~/python3venv
   source ~/python3venv/bin/activate
 
-  pip install --upgrade pip==24.0
-  pip install meson==1.4.1 ninja==1.11.1.1
+  uv pip install meson==1.4.1 ninja==1.11.1.1
   ```
 
 ## Step 4: Clone Deep Learning Streamer repository
@@ -270,6 +274,10 @@ Set up the required environment variables:
 If you intend to use Python elements or samples, you need to install the
 necessary dependencies using the following commands:
 
+> **NOTE:** This step requires the `~/python3venv` virtual environment and the
+> `uv` tool set up in [Step 3](#step-3-set-up-a-python-environment). If you
+> skipped that step, install `uv` and create the virtual environment first.
+
   ```bash
   sudo apt-get update 
   sudo apt-get install -y -q --no-install-recommends gcc cmake python3-full python-gi-dev python3-dev python3-pip \
@@ -278,7 +286,7 @@ necessary dependencies using the following commands:
 
   source ~/python3venv/bin/activate
   cd ~/dlstreamer
-  python3 -m pip install -r requirements.txt
+  uv pip install -r requirements.txt
   ```
 
 ### (Optional) Install DL Streamer ONVIF Python package
@@ -290,15 +298,14 @@ See [ONVIF sample](https://github.com/open-edge-platform/dlstreamer/tree/main/sa
 The easiest way is to download and install the wheel directly from the GitHub Release:
 
   ```bash
-  pip install https://github.com/open-edge-platform/dlstreamer/releases/download/v2026.2.0/intel_dlstreamer-2026.2.0-py3-none-any.whl
+  uv pip install https://github.com/open-edge-platform/dlstreamer/releases/download/v2026.2.0/intel_dlstreamer-2026.2.0-py3-none-any.whl
   ```
 
 Alternatively, build the wheel from the cloned sources:
 
   ```bash
-  pip install build
-  python -m build --wheel ~/dlstreamer/python
-  pip install ~/dlstreamer/python/dist/intel_dlstreamer-*.whl
+  uv build --wheel ~/dlstreamer/python
+  uv pip install ~/dlstreamer/python/dist/intel_dlstreamer-*.whl
   ```
 
 This installs:

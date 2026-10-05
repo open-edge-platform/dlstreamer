@@ -29,10 +29,12 @@
 > Ultralytics, PaddlePaddle), needed only for one-time model conversion.
 > `requirements.txt` contains only lightweight runtime dependencies.
 
+Requires [`uv`](https://astral.sh/uv) (`curl -LsSf https://astral.sh/uv/install.sh | sh`):
+
 ```bash
-python3 -m venv .{{APP_NAME}}-venv
+uv venv .{{APP_NAME}}-venv
 source .{{APP_NAME}}-venv/bin/activate
-pip install -r export_requirements.txt -r requirements.txt
+uv pip install -r export_requirements.txt -r requirements.txt
 ```
 
 ## Prepare Video and Models (One-Time Setup)

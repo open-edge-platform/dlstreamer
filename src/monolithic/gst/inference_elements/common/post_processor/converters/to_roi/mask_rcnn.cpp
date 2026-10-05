@@ -149,9 +149,10 @@ TensorsTable MaskRCNNConverter::convert(const OutputBlobs &output_blobs) {
                 GValueArray *data = g_value_array_new(2);
                 GValue gvalue = G_VALUE_INIT;
                 g_value_init(&gvalue, G_TYPE_UINT);
-                g_value_set_uint(&gvalue, safe_convert<uint32_t>(masks_height));
-                g_value_array_append(data, &gvalue);
+                // dims = [W, H], matching the convention used by other instance-segmentation converters
                 g_value_set_uint(&gvalue, safe_convert<uint32_t>(masks_width));
+                g_value_array_append(data, &gvalue);
+                g_value_set_uint(&gvalue, safe_convert<uint32_t>(masks_height));
                 g_value_array_append(data, &gvalue);
                 gst_structure_set_array(tensor, "dims", data);
                 g_value_array_free(data);
