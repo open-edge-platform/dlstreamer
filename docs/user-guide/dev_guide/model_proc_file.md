@@ -37,8 +37,7 @@ listed in `"labels"`.
 See the
 [samples/gstreamer/model_proc](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/model_proc)
 for examples of .json files using various models from
-[Open Model Zoo](https://github.com/openvinotoolkit/open_model_zoo) and some public
-models.
+public and pre-trained model sources.
 
 ```javascript
 {
