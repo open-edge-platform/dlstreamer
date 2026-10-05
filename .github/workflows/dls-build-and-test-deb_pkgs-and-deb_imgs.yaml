@@ -90,7 +90,7 @@ jobs:
                   "path_dockerfile": "./dlstreamer/docker/ubuntu/ubuntu26.Dockerfile",
                   "ubuntu_version": "ubuntu26",
                   "runner_labels": ["arl-ubuntu24"],
-                  "runner_print_label": "ARL"
+                  "runner_print_label": "ARL-U26"
                 }
               ]
             }' | jq -c .)
