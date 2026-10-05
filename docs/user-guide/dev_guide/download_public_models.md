@@ -1,70 +1,46 @@
-# Download Public Models
+# Download and Convert Models
 
-> **NOTE:** `download_public_models.sh` is kept for backward compatibility and is
-> considered legacy. For new work, prefer the per-source scripts under
-> [scripts/download_models](https://github.com/open-edge-platform/dlstreamer/tree/main/scripts/download_models)
-> (see [Model Preparation](./model_preparation.md)), which cover Hugging Face,
-> Ultralytics, and TIMM models.
+The recommended way to obtain models for Deep Learning Streamer is to use the
+standalone conversion scripts in
+[`scripts/download_models`](https://github.com/open-edge-platform/dlstreamer/tree/main/scripts/download_models).
+They download models from their original sources, convert them to OpenVINO IR,
+and save the resulting files in the requested output directory.
 
-This page provides instructions on how to use the
-[samples/download_public_models.sh](https://github.com/open-edge-platform/dlstreamer/blob/main/samples/download_public_models.sh)
-script to download the following models:
+For the complete setup, command reference, supported options, and examples, see
+the [Model Conversion Scripts README](https://github.com/open-edge-platform/dlstreamer/blob/main/scripts/download_models/README.md).
 
-- [YOLO](https://docs.ultralytics.com/models/)
-- [CenterFace](https://github.com/Star-Clouds/CenterFace)
-- [Deeplabv3](https://github.com/openvinotoolkit/open_model_zoo/blob/master/models/public/deeplabv3/README.md#deeplabv3)
+## Available Scripts
 
-The script downloads the models from their respective sources, handles the
-necessary conversions, and places the model files in a directory
-which you need to specify in the `MODELS_PATH` environment variable:
+- `download_hf_models.py` converts supported Hugging Face models with
+	`optimum-cli`. It also provides custom conversion paths for selected models,
+	including CLIP and RT-DETR.
+- `download_ultralytics_models.py` converts Ultralytics models, including YOLO
+	detection, segmentation, pose, OBB, classification, and YOLOE models. It
+	supports model names, local `.pt` files, and Hugging Face repositories.
+- `download_timm_models.py` converts supported TIMM image-classification
+	models hosted on Hugging Face.
+- `download_other_models.sh` downloads and converts selected helper models that
+	are not handled by the other scripts, including `yolox-tiny`, `yolox_s`, and
+	`yolov7`.
 
-```bash
-export MODELS_PATH=/path/to/models
-```
+## Reproducible Downloads
 
-You can refer to the list of
-[supported models](https://github.com/open-edge-platform/dlstreamer/blob/main/samples/download_public_models.sh#L23).
+Model references can include an `@...` suffix to pin the source version:
 
-## Download All Models
+- Hugging Face and TIMM use `repo_id@revision`, typically a commit SHA.
+- Ultralytics uses `model.pt@tag`, where `tag` is an `ultralytics/assets`
+	GitHub release tag.
+- `download_other_models.sh` uses sources and tool versions defined in the
+	script and does not support per-model version suffixes.
 
-To download all supported models (FP32 and FP16), run the script without any parameters:
+Without a pinned revision, the Hugging Face, TIMM, and Ultralytics scripts may
+resolve the latest available model at runtime.
 
-```bash
-./samples/download_public_models.sh
-```
+## Model Usage
 
-> **NOTE:** This will download all YOLO models, CenterFace, HSEmotion, Deeplabv3,
-> and other supported models. This may take a significant amount of time and disk space.
-
-## Download a Specific Model
-
-To download a specific model, pass the model name as the first parameter.
-For example, to download the YOLOv11s model, use:
-
-```bash
-./samples/download_public_models.sh yolo11s
-```
-
-## Quantization
-
-You can perform INT8 quantization on some of the models by specifying a
-second parameter with a dataset to be used for the quantization process.
-
-```bash
-./samples/download_public_models.sh yolo11s coco128
-```
-
-Currently available datasets are `coco` and `coco128`.
-
-> **NOTE:** `coco` is a very large dataset of over 20GB and containing more than a
-> 100,000 images. Quantization on this dataset can take a very long time.
-> For development purposes, it is recommended to use `coco128` instead,
-> which is much lighter.
-
-Below are models which currently support quantization:
-
-- **YOLOv5:** nu, su, mu, lu, xu, n6u, s6u, m6u, l6u, x6u
-- **YOLOv8:** n, s, m, l, x
-- **YOLOV9:** t, s, m, c, e
-- **YOLOv10:** n, s, m, b, l, x
-- **YOLOv11:** n, s, m, l, x
+After conversion, use the generated OpenVINO `.xml` file with the appropriate
+Deep Learning Streamer inference element. The matching `.bin` file must remain
+in the same directory. See the
+[Supported Models](../supported_models.md) table and the
+[GStreamer samples](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch)
+for model-specific elements and pipeline examples.

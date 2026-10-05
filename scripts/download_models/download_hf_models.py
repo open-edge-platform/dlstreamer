@@ -286,6 +286,19 @@ def main() -> int:
         )
         print(f"Model cached at: {local_model_dir}")
 
+        model_name = repo_id.replace("/", "_")
+        output_root = Path(args.outdir)
+        output_root.mkdir(parents=True, exist_ok=True)
+        final_model_dir = output_root / model_name
+
+        if find_exported_xmls(Path(local_model_dir)):
+            shutil.copytree(local_model_dir, final_model_dir, dirs_exist_ok=True)
+            print(
+                "Repository already contains OpenVINO IR files; "
+                f"downloaded model location: {final_model_dir}"
+            )
+            return 0
+
         # Install model-specific dependencies
         install_model_dependencies(repo_id)
 
@@ -306,11 +319,6 @@ def main() -> int:
                 "transformers and install optimum-intel==1.27.0 to convert it."
             )
             return 1
-
-        model_name = repo_id.replace("/", "_")
-        output_root = Path(args.outdir)
-        output_root.mkdir(parents=True, exist_ok=True)
-        final_model_dir = output_root / model_name
 
         with tempfile.TemporaryDirectory(
             prefix=f".{model_name}-", dir=output_root

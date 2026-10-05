@@ -492,30 +492,20 @@ void UpdateConfigWithLayerInfo(const std::vector<ModelInputProcessorInfo::Ptr> &
         // conversion to OpenCV format
         double affine_multiply = 1.0;
         double affine_add = 0.0;
-        bool had_range_or_scale = false;
         if (input_desc && input_desc->doNeedRangeNormalization()) {
             const auto &range = input_desc->getRangeNormalization();
             affine_multiply = (range.max - range.min) / 255.0;
             affine_add += range.min;
-            had_range_or_scale = true;
         }
         double scale = 0;
         if (gst_structure_get_double(it->params, "scale", &scale)) {
             affine_multiply /= scale;
             affine_add /= scale;
-            had_range_or_scale = true;
         }
         std::array<double, 3> affine_add_3 = {affine_add, affine_add, affine_add};
         std::array<double, 3> affine_multiply_3 = {affine_multiply, affine_multiply, affine_multiply};
 
         if (input_desc && input_desc->doNeedDistribNormalization()) {
-
-            // If no range nor scale are given but distrib normalization is specified, normalize values to 0..1 range so
-            // that distrib normalization works same as in Pytorch and matches what one would expect from our own
-            // documentation
-            if (!had_range_or_scale)
-                affine_multiply /= 255.0;
-
             // mean and std works as
             // v ' = (v-mean)/std
             // v ' = (v-mean) * 1/std
