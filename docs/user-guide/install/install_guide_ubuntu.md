@@ -140,20 +140,22 @@ using the following command:
 
 > **NOTE:**
 >
-> - The `download_public_models.sh` script will download the YOLO11s model
->   from the Ultralytics website along with other required components and
+> - The Ultralytics conversion script will download the YOLO11s model and
 >   convert it to the OpenVINO™ format.
->
-> - If you add the `coco128` argument to the script, the downloaded model
->   will also be quantized to the INT8 precision.
 >
 > - If you already have the model, skip this step and simply export the
 >   MODELS_PATH and execute the `hello_dlstreamer.sh` script.
 
 ```bash
-mkdir -p /home/${USER}/models
-export MODELS_PATH=/home/${USER}/models
-/opt/intel/dlstreamer/samples/download_public_models.sh yolo11s coco128
+sudo apt install -y python3-venv
+mkdir -p "$HOME/.virtualenvs/download-models" "$HOME/models"
+python3 -m venv "$HOME/.virtualenvs/download-models"
+"$HOME/.virtualenvs/download-models/bin/pip" install --no-cache-dir --upgrade pip \
+  -r /opt/intel/dlstreamer/scripts/download_models/requirements_download_ultralytics_models.txt
+source "$HOME/.virtualenvs/download-models/bin/activate"
+export MODELS_PATH="$HOME/models"
+python3 /opt/intel/dlstreamer/scripts/download_models/download_ultralytics_models.py \
+  --model yolo11s --int8 --outdir "$MODELS_PATH/public/yolo11s/INT8"
 ```
 
 The `hello_dlstreamer.sh` script will set up the required environment
