@@ -17,6 +17,7 @@ gst-inspect-1.0 utility.
 | [gvadetect](./gvadetect.md)      | Performs object detection and *optionally* object classification/segmentation/pose estimation. Inputs: ROIs (regions of interest) or full frame. Output: object bounding box detection along with prediction metadata. The `queue` element must be put directly after the `gvadetect` element in pipeline.<br>Example:<br> gst-launch-1.0 … ! decodebin3 ! gvadetect model=$mDetect device=GPU[CPU,NPU] ! queue ! … OUT<br>                                                           |
 | [gvaclassify](./gvaclassify.md)    | Performs object classification/segmentation/pose estimation. Inputs: ROIs or full frame. Output: prediction metadata. The `queue` element must be put directly after the `gvaclassify` element in the pipeline.<br>Example:<br> gst-launch-1.0 … ! decodebin3 ! gvadetect model=$mDetect device=GPU ! queue ! gvaclassify model=$mClassify device=CPU ! queue ! … OUT<br>                                                                                                           |
 | [gvainference](./gvainference.md)   | Executes any inference model and outputs raw results. Does not interpret data and does not generate metadata. The `queue` element must be put directly after the `gvainference` element in the pipeline.<br>Example:<br> gst-launch-1.0 … ! decodebin3 ! gvadetect model=$mDetect device=GPU ! queue ! gvainference model=$mHeadPoseEst device=CPU ! queue ! … OUT<br>                                                                                                            |
+| [gvamono3d](./gvamono3d.md)     | Performs monocular 3D object detection (e.g. MonoDETR) from a single camera image plus its calibration. Output: 2D detections annotated with 3D cuboids (location, dimensions, orientation) as `GstAnalyticsCamera3DODMtd`, rendered by `gvawatermark3d`. Runs on the shared inference engine (batching, VA, model sharing); on GPU the execution mode defaults to `ACCURACY`.<br>Example:<br> gst-launch-1.0 … ! decodebin3 ! gvamono3d model=$mMono3D device=GPU calibration-file=$calib ! gvawatermark3d calibration-file=$calib ! … OUT<br> |
 | [gvatrack](./gvatrack.md)       | Tracks objects across video frames using zero-term or short-term tracking algorithms. Zero-term tracking assigns unique object IDs and requires object detection to run on every frame. Short-term tracking allows for tracking objects between frames, reducing the need to run object detection on each frame.<br>Example:<br> gst-launch-1.0 … ! decodebin3 ! gvadetect model=$mDetect device=GPU ! gvatrack tracking-type=short-term-imageless ! … OUT<br> |
 | [gvaaudiodetect](./gvaaudiodetect.md) | Legacy plugin. Performs audio event detection using the `AclNet` model.<br>Example:<br> gst-launch-1.0 … ! decodebin3 ! audioresample ! audioconvert ! audio/x-raw … ! audiomixer … ! gvaaudiodetect model=$mAudioDetect ! … OUT<br>
 | [gvaaudiotranscribe](./gvaaudiotranscribe.md) | ASR plugin. Performs audio transcription using `Whisper` model.<br>Example:<br> gst-launch-1.0 … ! decodebin3 ! audioresample ! audioconvert ! audio/x-raw … ! audiomixer … ! gvaaudiotranscribe model=$mASR device=CPU ! … OUT<br>                                                                                                                                                                                                                                   |
@@ -50,6 +51,7 @@ gst-inspect-1.0 utility.
 | [gvapython](./gvapython.md)        | Provides a callback to execute user-defined Python functions on every frame. It is used to augment DL Streamer with user-defined algorithms (e.g. metadata conversion, inference post-processing).<br>Example:<br> gst-launch-1.0 … !  gvaclassify ! gvapython module={gvapython.callback_module.classAge_pp} ! … OUT<br>                                                             |
 | [gvarealsense](./gvarealsense.md) | Provides integration with Intel RealSense cameras, enabling video and depth stream capture for use in GStreamer pipelines. |
 | [gvawatermark](./gvawatermark.md)     | Overlays the metadata on the video frame to visualize the inference results.<br>Example:<br> gst-launch-1.0 … ! decodebin3 ! gvadetect … ! gvawatermark ! … |
+| [gvawatermark3d](./gvawatermark3d.md) | Overlays camera-space 3D object detections as projected wire-frame cuboids and labels. It renders `GstAnalyticsCamera3DODMtd` produced by `gvamono3d` and supports KITTI or JSON camera calibration.<br>Example:<br> gst-launch-1.0 … ! gvamono3d model=$mMono3D calibration-file=$calib ! gvawatermark3d calibration-file=$calib ! … OUT<br> |
 | [gvamotiondetect](./gvamotiondetect.md) | Performs lightweight motion detection on NV12 frames and emits motion ROIs as analytics metadata. Uses VA-API acceleration when VAMemory caps are negotiated, otherwise system-memory path.<br>Example:<br> gst-launch-1.0 … ! vah264dec ! gvamotiondetect confirm-frames=2 motion-threshold=0.08 ! gvawatermark ! … |
 
 <!--hide_directive
@@ -60,6 +62,7 @@ gst-inspect-1.0 utility.
 gvadetect
 gvaclassify
 gvainference
+gvamono3d
 gvatrack
 gvaaudiodetect
 gvaaudiotranscribe
@@ -82,6 +85,7 @@ gvametapublish
 gvapython
 gvarealsense
 gvawatermark
+gvawatermark3d
 gvamotiondetect
 gstelements
 :::
