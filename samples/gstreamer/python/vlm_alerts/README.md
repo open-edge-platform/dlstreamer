@@ -78,7 +78,7 @@ source .vlm-venv/bin/activate
 
 1. Install dependencies:
 ```code
-curl -LO https://raw.githubusercontent.com/openvinotoolkit/openvino.genai/refs/heads/releases/2026/3/samples/export-requirements.txt
+curl -LO https://raw.githubusercontent.com/openvinotoolkit/openvino.genai/refs/heads/releases/2026/4/samples/export-requirements.txt
 uv pip install -r export-requirements.txt
 uv pip install -r requirements.txt
 ```
