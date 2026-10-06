@@ -36,6 +36,14 @@ class BlobToROIConverter : public BlobToMetaConverter {
 
         std::vector<GstStructure *> tensors;
 
+        // Optional monocular-3D cuboid (mono3d/MonoDETR). When has_3d is set, the meta attacher
+        // also emits a GstAnalyticsCamera3DODMtd. Location is bottom-centre in the rectified
+        // camera frame (metres); dimensions in metres; angles in radians.
+        bool has_3d = false;
+        double loc_x = 0.0, loc_y = 0.0, loc_z = 0.0;
+        double dim_h = 0.0, dim_w = 0.0, dim_l = 0.0;
+        double rotation_y = 0.0, alpha = 0.0;
+
         DetectedObject(double x, double y, double w, double h, double r, double confidence, size_t label_id,
                        const std::string &label, double w_scale = 1.f, double h_scale = 1.f,
                        bool relative_to_center = false)
@@ -72,6 +80,13 @@ class BlobToROIConverter : public BlobToMetaConverter {
 
             if (not label.empty())
                 gst_structure_set(detection_tensor, "label", G_TYPE_STRING, label.c_str(), NULL);
+
+            if (has_3d)
+                gst_structure_set(detection_tensor, "has_3d", G_TYPE_BOOLEAN, TRUE, "det3d_x", G_TYPE_DOUBLE, loc_x,
+                                  "det3d_y", G_TYPE_DOUBLE, loc_y, "det3d_z", G_TYPE_DOUBLE, loc_z, "det3d_h",
+                                  G_TYPE_DOUBLE, dim_h, "det3d_w", G_TYPE_DOUBLE, dim_w, "det3d_l", G_TYPE_DOUBLE,
+                                  dim_l, "det3d_ry", G_TYPE_DOUBLE, rotation_y, "det3d_alpha", G_TYPE_DOUBLE, alpha,
+                                  NULL);
 
             std::vector<GstStructure *> results{detection_tensor};
             for (size_t i = 0; i < tensors.size(); i++)
