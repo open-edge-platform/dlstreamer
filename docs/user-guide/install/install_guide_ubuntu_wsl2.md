@@ -141,10 +141,15 @@ sudo apt install intel-dlstreamer
 If you want to execute sample pipelines, download the yolo11s model as the sample one for these pipelines:
 
 ```bash
-mkdir $HOME/models
-export MODELS_PATH=$HOME/models
-sudo apt install -y python3.12-venv
-/opt/intel/dlstreamer/samples/download_public_models.sh yolo11s coco128
+sudo apt install -y python3-venv
+mkdir -p "$HOME/.virtualenvs/download-models" "$HOME/models"
+python3 -m venv "$HOME/.virtualenvs/download-models"
+"$HOME/.virtualenvs/download-models/bin/pip" install --no-cache-dir --upgrade pip \
+	-r /opt/intel/dlstreamer/scripts/download_models/requirements_download_ultralytics_models.txt
+source "$HOME/.virtualenvs/download-models/bin/activate"
+export MODELS_PATH="$HOME/models"
+python3 /opt/intel/dlstreamer/scripts/download_models/download_ultralytics_models.py \
+	--model yolo11s --int8 --outdir "$MODELS_PATH/public/yolo11s/INT8"
 ```
 
 ### Step 8: Execute sample pipelines

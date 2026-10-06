@@ -855,6 +855,8 @@ class OpenVinoNewApiImpl {
         }
 
         GVA_DEBUG("Setting batch size of %d to model", _batch_size);
+        // Every input carries an 'N' layout by now (image via configure_image_input, aux inputs tagged
+        // in configure_model_inputs), so set_batch pins the batch axis on all of them.
         ov::set_batch(_model, _batch_size);
 
         GVA_DEBUG("Model inputs after configuration:");
@@ -907,6 +909,14 @@ class OpenVinoNewApiImpl {
                 GVA_DEBUG("Found image input: %s, layout: %s", _image_input_name.c_str(),
                           get_ov_node_layout(item).to_string().c_str());
                 configure_image_input(config, in, in_cfg, item);
+            } else {
+                // Auxiliary (non-image) input (e.g. MonoDETR's calib/img_sizes): tag a batch ('N')
+                // layout so the later ov::set_batch can pin its batch axis. Only when axis 0 is dynamic
+                // and no layout is set, to avoid rewriting a legitimately fixed leading dimension.
+                const auto &pshape = item.get_partial_shape();
+                if (get_ov_node_layout(item).empty() && pshape.rank().is_static() && pshape.size() > 0 &&
+                    pshape[0].is_dynamic())
+                    in.model().set_layout(ov::Layout("N" + std::string(pshape.size() - 1, '?')));
             }
         }
 
@@ -1052,7 +1062,20 @@ class OpenVinoNewApiImpl {
             input.preprocess().scale(scale);
         }
 
-        // OV preprocessor does implicit layout conversion. If original layout is unknown, assume it is NCHW.
+        // Layout lifecycle (why there are two set_layout calls in this function):
+        //   - input.tensor().set_layout(...)  = the TENSOR layout, i.e. the axis order of the
+        //     incoming data buffer (NCHW for OPENCV/VAAPI, NHWC for IE/surface-sharing). Set above
+        //     depending on pp_type.
+        //   - input.model().set_layout(...)   = a HINT about the original network body's layout,
+        //     used by ppp.build() only to decide whether to insert a transpose.
+        // ppp.build() (in configure_model) reconciles the two: the resulting Parameter ends up
+        // carrying the TENSOR layout, and that is what ov::set_batch later reads. Since both NCHW
+        // and NHWC put 'N' at axis 0, set_batch always finds the batch on the image input.
+        // The "??HW" hint below is transient: only H/W placement matters for the model side, so we
+        // leave N/C unspecified. It does not become the Parameter's final layout.
+        // NOTE: this whole function only runs for the image input (data_format == KEY_image); aux
+        // inputs (e.g. calib/img_sizes) get their batch ('N') layout tagged in configure_model_inputs
+        // instead, so ov::set_batch can pin their batch axis too.
         ov::Layout model_layout = get_ov_node_layout(node);
         if (model_layout.empty()) {
             // Need to specify H and W dimensions in model, others are not important
@@ -1566,6 +1589,23 @@ std::map<std::string, GstStructure *> OpenVINOImageInference::GetModelInfoPrepro
 
     auto info = ModelApiConverters::get_model_info_preproc(std::move(model), model_file, pre_proc_config);
     return info;
+}
+
+std::map<std::string, std::vector<size_t>> OpenVINOImageInference::GetModelInputShapes(const std::string model_file,
+                                                                                       const gchar *ov_extension_lib) {
+    if (ov_extension_lib && ov_extension_lib[0] != '\0') {
+        OpenVinoNewApiImpl::core().add_extension(ov_extension_lib);
+    }
+    std::shared_ptr<ov::Model> model = OpenVinoNewApiImpl::core().read_model(model_file);
+
+    std::map<std::string, std::vector<size_t>> res;
+    for (const auto &input : model->inputs()) {
+        const auto &partial_shape = input.get_partial_shape();
+        const auto &shape = partial_shape.is_dynamic() ? partial_shape.get_min_shape() : partial_shape.get_shape();
+        const std::string name = input.get_names().size() > 0 ? input.get_any_name() : std::string("input");
+        res.emplace(name, std::vector<size_t>(shape.begin(), shape.end()));
+    }
+    return res;
 }
 
 void OpenVINOImageInference::Flush() {

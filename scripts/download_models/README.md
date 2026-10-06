@@ -91,7 +91,7 @@ python download_hf_models.py --model openai/clip-vit-base-patch32 \
   --export-variant clip-zeroshot --outdir ./exports
 
 # Pass extra args through to optimum-cli
-python download_hf_models.py --model openbmb/MiniCPM-V-2_6 --extra_args --weight-format int4 --outdir ./exports
+python download_hf_models.py --model openbmb/MiniCPM-V-2_6 --extra_args --weight-format int8 --outdir ./exports
 
 # Private/gated model
 python download_hf_models.py --model <org/private-model> --token <HF_TOKEN> --outdir ./exports
