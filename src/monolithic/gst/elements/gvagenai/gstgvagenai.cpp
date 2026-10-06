@@ -46,9 +46,8 @@ enum {
     PROP_HTTP_API_KEY,
     PROP_HTTP_TIMEOUT,
     PROP_VISION_MODE,
-    PROP_TRIGGER_CLASSES,
-    PROP_TRIGGER_MODE,
-    PROP_TRIGGER_MIN_CONFIDENCE
+    PROP_TRIGGER_OBJ_CLASSES,
+    PROP_TRIGGER_MODE
 };
 
 // How accumulated frames are presented to the VLM. Determines the native vision tag the
@@ -72,7 +71,7 @@ static GType gst_gvagenai_vision_mode_get_type(void) {
     return vision_mode_type;
 }
 
-// How trigger_classes are combined to decide whether a frame is forced to the VLM.
+// How trigger_obj_classes are combined to decide whether a frame is forced to the VLM.
 enum GstGvaGenAITriggerMode {
     GVAGENAI_TRIGGER_MODE_ANY = 0, // send frame if at least one trigger class is detected (OR)
     GVAGENAI_TRIGGER_MODE_ALL = 1  // send frame only if all trigger classes are detected together (AND)
@@ -83,8 +82,8 @@ static GType gst_gvagenai_trigger_mode_get_type(void) {
     static GType trigger_mode_type = 0;
     if (g_once_init_enter(&trigger_mode_type)) {
         static const GEnumValue modes[] = {
-            {GVAGENAI_TRIGGER_MODE_ANY, "Trigger when any of trigger-classes is detected", "any"},
-            {GVAGENAI_TRIGGER_MODE_ALL, "Trigger only when all trigger-classes are detected", "all"},
+            {GVAGENAI_TRIGGER_MODE_ANY, "Trigger when any of trigger-obj-classes is detected", "any"},
+            {GVAGENAI_TRIGGER_MODE_ALL, "Trigger only when all trigger-obj-classes are detected", "all"},
             {0, NULL, NULL}};
         GType type = g_enum_register_static("GstGvaGenAITriggerMode", modes);
         g_once_init_leave(&trigger_mode_type, type);
@@ -118,7 +117,7 @@ struct GvaGenAIRuntime {
     BackendPtr backend;
     std::shared_ptr<dlstreamer::MemoryMapperGSTToCPU> mapper;
     std::vector<ov::Tensor> frames;
-    std::vector<std::string> trigger_classes; // parsed/cached copy of gvagenai->trigger_classes
+    std::vector<std::string> trigger_obj_classes; // parsed/cached copy of gvagenai->trigger_obj_classes
 };
 
 // GObject vmethod implementations
@@ -134,8 +133,8 @@ static gboolean gst_gvagenai_set_caps(GstBaseTransform *base, GstCaps *incaps, G
 
 // Utility functions
 static gboolean load_effective_prompt(GstGvaGenAI *gvagenai);
-static void reload_trigger_classes(GstGvaGenAI *gvagenai, GvaGenAIRuntime *runtime);
-static gboolean frame_matches_trigger_classes(GstGvaGenAI *gvagenai, GvaGenAIRuntime *runtime, GstBuffer *buf);
+static void reload_trigger_obj_classes(GstGvaGenAI *gvagenai, GvaGenAIRuntime *runtime);
+static gboolean frame_matches_trigger_obj_classes(GstGvaGenAI *gvagenai, GvaGenAIRuntime *runtime, GstBuffer *buf);
 
 // Initialize the element class
 static void gst_gvagenai_class_init(GstGvaGenAIClass *klass) {
@@ -248,8 +247,8 @@ static void gst_gvagenai_class_init(GstGvaGenAIClass *klass) {
                           GST_TYPE_GVAGENAI_VISION_MODE, GVAGENAI_VISION_MODE_IMAGE, G_PARAM_READWRITE));
 
     g_object_class_install_property(
-        gobject_class, PROP_TRIGGER_CLASSES,
-        g_param_spec_string("trigger-classes", "Trigger Classes",
+        gobject_class, PROP_TRIGGER_OBJ_CLASSES,
+        g_param_spec_string("trigger-obj-classes", "Trigger Object Classes",
                             "Comma-separated object class names from upstream detection metadata "
                             "(GstAnalyticsODMtd, e.g. gvadetect) that force a frame to be sent to the VLM, "
                             "e.g. \"person,fire\". With frame-rate>0 these frames are sent in addition to the "
@@ -260,15 +259,9 @@ static void gst_gvagenai_class_init(GstGvaGenAIClass *klass) {
     g_object_class_install_property(
         gobject_class, PROP_TRIGGER_MODE,
         g_param_spec_enum("trigger-mode", "Trigger Mode",
-                          "How trigger-classes are combined: 'any' sends the frame if at least one class is "
+                          "How trigger-obj-classes are combined: 'any' sends the frame if at least one class is "
                           "detected, 'all' requires every listed class to be detected in the same frame.",
                           GST_TYPE_GVAGENAI_TRIGGER_MODE, GVAGENAI_TRIGGER_MODE_ANY, G_PARAM_READWRITE));
-
-    g_object_class_install_property(
-        gobject_class, PROP_TRIGGER_MIN_CONFIDENCE,
-        g_param_spec_double("trigger-min-confidence", "Trigger Minimum Confidence",
-                            "Minimum detection confidence [0.0-1.0] required for a trigger-classes match", 0.0, 1.0,
-                            0.0, G_PARAM_READWRITE));
 
     GST_DEBUG_CATEGORY_INIT(gst_gvagenai_debug, "gvagenai", 0, "OpenVINO™ GenAI Inference");
 }
@@ -297,10 +290,9 @@ static void gst_gvagenai_init(GstGvaGenAI *gvagenai) {
     gvagenai->prompt_string = NULL;
     gvagenai->prompt_changed = FALSE;
 
-    gvagenai->trigger_classes = NULL;
+    gvagenai->trigger_obj_classes = NULL;
     gvagenai->trigger_mode = GVAGENAI_TRIGGER_MODE_ANY;
-    gvagenai->trigger_min_confidence = 0.0;
-    gvagenai->trigger_classes_changed = FALSE;
+    gvagenai->trigger_obj_classes_changed = FALSE;
 
     gvagenai->backend = NULL;
     gvagenai->last_result = NULL;
@@ -359,52 +351,47 @@ static gboolean load_effective_prompt(GstGvaGenAI *gvagenai) {
 }
 
 // Split "person, fire ,car" into a trimmed, non-empty list of class names.
-static void reload_trigger_classes(GstGvaGenAI *gvagenai, GvaGenAIRuntime *runtime) {
-    runtime->trigger_classes.clear();
+static void reload_trigger_obj_classes(GstGvaGenAI *gvagenai, GvaGenAIRuntime *runtime) {
+    runtime->trigger_obj_classes.clear();
 
-    if (!gvagenai->trigger_classes)
+    if (!gvagenai->trigger_obj_classes)
         return;
 
-    std::stringstream ss(gvagenai->trigger_classes);
+    std::stringstream ss(gvagenai->trigger_obj_classes);
     std::string token;
     while (std::getline(ss, token, ',')) {
         const size_t begin = token.find_first_not_of(" \t");
         const size_t end = token.find_last_not_of(" \t");
         if (begin == std::string::npos)
             continue;
-        runtime->trigger_classes.push_back(token.substr(begin, end - begin + 1));
+        runtime->trigger_obj_classes.push_back(token.substr(begin, end - begin + 1));
     }
 
-    GST_INFO_OBJECT(gvagenai, "Using %zu trigger class(es)", runtime->trigger_classes.size());
+    GST_INFO_OBJECT(gvagenai, "Using %zu trigger class(es)", runtime->trigger_obj_classes.size());
 }
 
 // Checks upstream object-detection metadata (GstAnalyticsODMtd, e.g. from gvadetect) against
-// trigger_classes. Classification-only metadata (GstAnalyticsClsMtd) is not considered.
-// Returns FALSE (no override) when trigger_classes is empty, so frame-rate sampling is unaffected.
-static gboolean frame_matches_trigger_classes(GstGvaGenAI *gvagenai, GvaGenAIRuntime *runtime, GstBuffer *buf) {
-    if (runtime->trigger_classes.empty())
+// trigger_obj_classes. Classification-only metadata (GstAnalyticsClsMtd) is not considered.
+// Returns FALSE (no override) when trigger_obj_classes is empty, so frame-rate sampling is unaffected.
+static gboolean frame_matches_trigger_obj_classes(GstGvaGenAI *gvagenai, GvaGenAIRuntime *runtime, GstBuffer *buf) {
+    if (runtime->trigger_obj_classes.empty())
         return FALSE;
 
     GstAnalyticsRelationMeta *rmeta = gst_buffer_get_analytics_relation_meta(buf);
     if (!rmeta)
         return FALSE;
 
-    std::vector<gboolean> matched(runtime->trigger_classes.size(), FALSE);
+    std::vector<gboolean> matched(runtime->trigger_obj_classes.size(), FALSE);
     gpointer state = NULL;
     GstAnalyticsMtd mtd;
     while (gst_analytics_relation_meta_iterate(rmeta, &state, gst_analytics_od_mtd_get_mtd_type(), &mtd)) {
         auto *od_mtd = reinterpret_cast<GstAnalyticsODMtd *>(&mtd);
 
-        gfloat confidence = 1.0f;
-        gst_analytics_od_mtd_get_confidence_lvl(od_mtd, &confidence);
-        if (confidence < gvagenai->trigger_min_confidence)
-            continue;
-
         GQuark label_quark = gst_analytics_od_mtd_get_obj_type(od_mtd);
         const gchar *label = label_quark ? g_quark_to_string(label_quark) : "";
 
-        for (size_t i = 0; i < runtime->trigger_classes.size(); ++i) {
-            if (!matched[i] && runtime->trigger_classes[i] == label)
+        for (size_t i = 0; i < runtime->trigger_obj_classes.size(); ++i) {
+            if (!matched[i] && runtime->trigger_obj_classes[i] == label)
                 matched[i] = TRUE;
         }
     }
@@ -484,19 +471,16 @@ static void gst_gvagenai_set_property(GObject *object, guint prop_id, const GVal
     case PROP_VISION_MODE:
         gvagenai->config.vision_mode = g_value_get_enum(value);
         break;
-    case PROP_TRIGGER_CLASSES:
+    case PROP_TRIGGER_OBJ_CLASSES:
         // Lock to synchronize with transform function, same as prompt updates
         GST_OBJECT_LOCK(gvagenai);
-        g_free(gvagenai->trigger_classes);
-        gvagenai->trigger_classes = g_value_dup_string(value);
-        gvagenai->trigger_classes_changed = TRUE;
+        g_free(gvagenai->trigger_obj_classes);
+        gvagenai->trigger_obj_classes = g_value_dup_string(value);
+        gvagenai->trigger_obj_classes_changed = TRUE;
         GST_OBJECT_UNLOCK(gvagenai);
         break;
     case PROP_TRIGGER_MODE:
         gvagenai->trigger_mode = g_value_get_enum(value);
-        break;
-    case PROP_TRIGGER_MIN_CONFIDENCE:
-        gvagenai->trigger_min_confidence = g_value_get_double(value);
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -556,14 +540,11 @@ static void gst_gvagenai_get_property(GObject *object, guint prop_id, GValue *va
     case PROP_VISION_MODE:
         g_value_set_enum(value, gvagenai->config.vision_mode);
         break;
-    case PROP_TRIGGER_CLASSES:
-        g_value_set_string(value, gvagenai->trigger_classes);
+    case PROP_TRIGGER_OBJ_CLASSES:
+        g_value_set_string(value, gvagenai->trigger_obj_classes);
         break;
     case PROP_TRIGGER_MODE:
         g_value_set_enum(value, gvagenai->trigger_mode);
-        break;
-    case PROP_TRIGGER_MIN_CONFIDENCE:
-        g_value_set_double(value, gvagenai->trigger_min_confidence);
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -587,7 +568,7 @@ static void gst_gvagenai_finalize(GObject *object) {
 
     g_free(gvagenai->prompt);
     g_free(gvagenai->prompt_path);
-    g_free(gvagenai->trigger_classes);
+    g_free(gvagenai->trigger_obj_classes);
 
     // Clean up backend and cached state
     g_free(gvagenai->prompt_string);
@@ -638,8 +619,8 @@ static gboolean gst_gvagenai_start(GstBaseTransform *base) {
         auto *runtime = new GvaGenAIRuntime();
         runtime->backend = std::move(backend);
         runtime->mapper = std::make_shared<dlstreamer::MemoryMapperGSTToCPU>(nullptr, nullptr);
-        reload_trigger_classes(gvagenai, runtime);
-        gvagenai->trigger_classes_changed = FALSE;
+        reload_trigger_obj_classes(gvagenai, runtime);
+        gvagenai->trigger_obj_classes_changed = FALSE;
         gvagenai->backend = runtime;
     } catch (const std::exception &e) {
         GST_ELEMENT_ERROR(gvagenai, LIBRARY, INIT, ("Failed to initialize GenAI backend"), ("%s", e.what()));
@@ -682,9 +663,9 @@ static GstFlowReturn gst_gvagenai_transform_ip(GstBaseTransform *base, GstBuffer
         _success = load_effective_prompt(gvagenai);
         gvagenai->prompt_changed = FALSE;
     }
-    if (gvagenai->trigger_classes_changed) {
-        reload_trigger_classes(gvagenai, runtime);
-        gvagenai->trigger_classes_changed = FALSE;
+    if (gvagenai->trigger_obj_classes_changed) {
+        reload_trigger_obj_classes(gvagenai, runtime);
+        gvagenai->trigger_obj_classes_changed = FALSE;
     }
     GST_OBJECT_UNLOCK(gvagenai);
     if (!_success) {
@@ -703,8 +684,8 @@ static GstFlowReturn gst_gvagenai_transform_ip(GstBaseTransform *base, GstBuffer
 
     gvagenai->frame_counter++;
 
-    // Object-class triggering is active when trigger-classes is set.
-    const gboolean trigger_active = !runtime->trigger_classes.empty();
+    // Object-class triggering is active when trigger-obj-classes is set.
+    const gboolean trigger_active = !runtime->trigger_obj_classes.empty();
 
     // Calculate frame sampling based on frame_rate
     gboolean skip_frame = FALSE;
@@ -718,14 +699,14 @@ static GstFlowReturn gst_gvagenai_transform_ip(GstBaseTransform *base, GstBuffer
             skip_frame = TRUE;
         }
     } else if (trigger_active) {
-        // frame-rate=0 with trigger-classes set => pure event-driven: skip by default so that
-        // only frames matching trigger-classes are forwarded to the VLM.
+        // frame-rate=0 with trigger-obj-classes set => pure event-driven: skip by default so that
+        // only frames matching trigger-obj-classes are forwarded to the VLM.
         skip_frame = TRUE;
     }
 
     // Object-class trigger: a matching detection forces the frame through regardless of sampling.
-    if (skip_frame && trigger_active && frame_matches_trigger_classes(gvagenai, runtime, buf)) {
-        GST_DEBUG_OBJECT(gvagenai, "Frame %u forced by trigger-classes match", gvagenai->frame_counter);
+    if (skip_frame && trigger_active && frame_matches_trigger_obj_classes(gvagenai, runtime, buf)) {
+        GST_DEBUG_OBJECT(gvagenai, "Frame %u forced by trigger-obj-classes match", gvagenai->frame_counter);
         skip_frame = FALSE;
     }
 

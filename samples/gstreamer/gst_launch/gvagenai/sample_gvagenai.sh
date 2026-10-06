@@ -21,9 +21,8 @@ DEFAULT_PIPELINE_CONFIG=""  # empty = no extra device/plugin properties
 DEFAULT_SCHEDULER_CONFIG="" # empty = no continuous-batching scheduler config
 DEFAULT_BACKEND="openvino-genai" # or "openai-http" for an external VLM service
 DEFAULT_HTTP_SERVER_URL="http://localhost:8000/v1"
-DEFAULT_TRIGGER_CLASSES=""  # empty = no detection-based frame selection (frame-rate sampling only)
+DEFAULT_TRIGGER_OBJ_CLASSES=""  # empty = no detection-based frame selection (frame-rate sampling only)
 DEFAULT_TRIGGER_MODE="any"
-DEFAULT_TRIGGER_MIN_CONFIDENCE="0.5"
 DEFAULT_DETECT_THRESHOLD="0.5"
 DEFAULT_OUTPUT="genai_output.json"
 
@@ -53,12 +52,11 @@ show_usage() {
     echo "                                    (external OpenAI-compatible server). Default: openvino-genai"
     echo "  -U, --http-server-url URL         Base URL of the external server (openai-http backend),"
     echo "                                    e.g. http://localhost:8000/v1"
-    echo "  -c, --trigger-classes LIST        Comma-separated object classes from an upstream gvadetect that"
+    echo "  -c, --trigger-obj-classes LIST    Comma-separated object classes from an upstream gvadetect that"
     echo "                                    force VLM analysis, e.g. \"person,car\". Requires MODELS_PATH or"
     echo "                                    DETECTION_MODEL. Empty (default) disables frame selection"
     echo "  -m, --trigger-mode any|all        'any' triggers on one detected class, 'all' requires every listed"
     echo "                                    class in the same frame. Default: any"
-    echo "  -n, --trigger-min-confidence NUM  Minimum gvadetect confidence [0.0-1.0] for a trigger. Default: 0.5"
     echo "  -t, --threshold NUM               gvadetect detection threshold [0.0-1.0]. Default: 0.5"
     echo "  -O, --output FILE                 Output JSON file path. Default: genai_output.json"
     echo "  -M, --metrics                     Include performance metrics in JSON output"
@@ -68,7 +66,7 @@ show_usage() {
     echo "  GENAI_MODEL_PATH   Required for the local 'openvino-genai' backend: path to the VLM model"
     echo "  GENAI_MODEL_NAME   Optional model name for the 'openai-http' backend (default: GENAI_MODEL_PATH or 'vlm')"
     echo "  HTTP_API_KEY       Optional. Bearer token / API key for the 'openai-http' backend"
-    echo "  MODELS_PATH        Required with --trigger-classes (unless DETECTION_MODEL is set): root of the"
+    echo "  MODELS_PATH        Required with --trigger-obj-classes (unless DETECTION_MODEL is set): root of the"
     echo "                     downloaded detection models"
     echo "  DETECTION_MODEL    Optional. Full path to the gvadetect model .xml"
     echo "                     (default: \$MODELS_PATH/public/yolov8s/FP16/yolov8s.xml)"
@@ -81,9 +79,9 @@ show_usage() {
     echo "  $0 --vision-mode video --chunk-size 16 --frame-rate 2"
     echo "  $0 --device NPU --pipeline-config NPU.MAX_PROMPT_LEN=2048,NPU.MIN_RESPONSE_LEN=512"
     echo "  $0 --scheduler-config enable_prefix_caching=true --output results.json"
-    echo "  $0 --trigger-classes person --frame-rate 0   # event-driven: VLM only when a person is detected"
-    echo "  $0 --trigger-classes car --frame-rate 2       # hybrid: fixed-rate sampling plus car-triggered frames"
-    echo "  $0 --backend openai-http --http-server-url http://localhost:8000/v1 --trigger-classes person"
+    echo "  $0 --trigger-obj-classes person --frame-rate 0   # event-driven: VLM only when a person is detected"
+    echo "  $0 --trigger-obj-classes car --frame-rate 2       # hybrid: fixed-rate sampling plus car-triggered frames"
+    echo "  $0 --backend openai-http --http-server-url http://localhost:8000/v1 --trigger-obj-classes person"
     echo ""
 }
 
@@ -101,9 +99,8 @@ PIPELINE_CONFIG="$DEFAULT_PIPELINE_CONFIG"
 SCHEDULER_CONFIG="$DEFAULT_SCHEDULER_CONFIG"
 BACKEND="$DEFAULT_BACKEND"
 HTTP_SERVER_URL="$DEFAULT_HTTP_SERVER_URL"
-TRIGGER_CLASSES="$DEFAULT_TRIGGER_CLASSES"
+TRIGGER_OBJ_CLASSES="$DEFAULT_TRIGGER_OBJ_CLASSES"
 TRIGGER_MODE="$DEFAULT_TRIGGER_MODE"
-TRIGGER_MIN_CONFIDENCE="$DEFAULT_TRIGGER_MIN_CONFIDENCE"
 DETECT_THRESHOLD="$DEFAULT_DETECT_THRESHOLD"
 OUTPUT_FILE="$DEFAULT_OUTPUT"
 
@@ -158,16 +155,12 @@ while [[ $# -gt 0 ]]; do
             HTTP_SERVER_URL="$2"
             shift 2
             ;;
-        -c|--trigger-classes)
-            TRIGGER_CLASSES="$2"
+        -c|--trigger-obj-classes)
+            TRIGGER_OBJ_CLASSES="$2"
             shift 2
             ;;
         -m|--trigger-mode)
             TRIGGER_MODE="$2"
-            shift 2
-            ;;
-        -n|--trigger-min-confidence)
-            TRIGGER_MIN_CONFIDENCE="$2"
             shift 2
             ;;
         -t|--threshold)
@@ -220,10 +213,10 @@ if [[ -n "$RESOLUTION" && ! "$RESOLUTION" =~ ^[0-9]+x[0-9]+$ ]]; then
     exit 1
 fi
 
-# Detection model, needed only when --trigger-classes selects frames via gvadetect
-if [[ -n "$TRIGGER_CLASSES" ]]; then
+# Detection model, needed only when --trigger-obj-classes selects frames via gvadetect
+if [[ -n "$TRIGGER_OBJ_CLASSES" ]]; then
     if [ -z "${MODELS_PATH:-}" ] && [ -z "${DETECTION_MODEL:-}" ]; then
-        echo "ERROR - MODELS_PATH or DETECTION_MODEL must be set to use --trigger-classes (needed for gvadetect)." >&2
+        echo "ERROR - MODELS_PATH or DETECTION_MODEL must be set to use --trigger-obj-classes (needed for gvadetect)." >&2
         exit 1
     fi
     DETECTION_MODEL="${DETECTION_MODEL:-${MODELS_PATH}/public/yolov8s/FP16/yolov8s.xml}"
@@ -282,10 +275,9 @@ if [[ "$BACKEND" == "openvino-genai" ]]; then
 else
     echo "HTTP Server URL: $HTTP_SERVER_URL"
 fi
-echo "Trigger Classes: ${TRIGGER_CLASSES:-none (frame-rate sampling only)}"
-if [[ -n "$TRIGGER_CLASSES" ]]; then
+echo "Trigger Classes: ${TRIGGER_OBJ_CLASSES:-none (frame-rate sampling only)}"
+if [[ -n "$TRIGGER_OBJ_CLASSES" ]]; then
     echo "Trigger Mode: $TRIGGER_MODE"
-    echo "Trigger Min Confidence: $TRIGGER_MIN_CONFIDENCE"
     echo "Detection Model: $DETECTION_MODEL"
     echo "Detection Threshold: $DETECT_THRESHOLD"
 fi
@@ -331,18 +323,16 @@ if [[ -n "$SCHEDULER_CONFIG" ]]; then
     SCHEDULER_CONFIG_PROP="scheduler-config=\"$SCHEDULER_CONFIG\""
 fi
 
-# Optional detection stage: only added when --trigger-classes selects frames by object class.
+# Optional detection stage: only added when --trigger-obj-classes selects frames by object class.
 # gvadetect attaches per-frame object metadata (GstAnalyticsODMtd); gvagenai reads it and
 # forwards matching frames to the VLM backend regardless of frame-rate sampling.
 DETECT_ELEMENT=""
-TRIGGER_CLASSES_PROP=""
+TRIGGER_OBJ_CLASSES_PROP=""
 TRIGGER_MODE_PROP=""
-TRIGGER_MIN_CONFIDENCE_PROP=""
-if [[ -n "$TRIGGER_CLASSES" ]]; then
+if [[ -n "$TRIGGER_OBJ_CLASSES" ]]; then
     DETECT_ELEMENT="gvadetect model=$DETECTION_MODEL device=$DEVICE threshold=$DETECT_THRESHOLD ! queue ! "
-    TRIGGER_CLASSES_PROP="trigger-classes=\"$TRIGGER_CLASSES\""
+    TRIGGER_OBJ_CLASSES_PROP="trigger-obj-classes=\"$TRIGGER_OBJ_CLASSES\""
     TRIGGER_MODE_PROP="trigger-mode=$TRIGGER_MODE"
-    TRIGGER_MIN_CONFIDENCE_PROP="trigger-min-confidence=$TRIGGER_MIN_CONFIDENCE"
 fi
 
 PIPELINE="gst-launch-1.0 \
@@ -360,9 +350,8 @@ PIPELINE="gst-launch-1.0 \
         vision-mode=$VISION_MODE \
         $PIPELINE_CONFIG_PROP \
         $SCHEDULER_CONFIG_PROP \
-        $TRIGGER_CLASSES_PROP \
+        $TRIGGER_OBJ_CLASSES_PROP \
         $TRIGGER_MODE_PROP \
-        $TRIGGER_MIN_CONFIDENCE_PROP \
         metrics=$METRICS ! \
     gvametapublish file-path=$OUTPUT_FILE ! \
     fakesink async=false"
