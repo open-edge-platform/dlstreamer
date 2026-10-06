@@ -7,7 +7,7 @@
 #include "blob_to_meta_converter.h"
 
 #include "converters/to_roi/blob_to_roi_converter.h"
-#include "converters/to_roi/boxes_labels.h"
+#include "converters/to_roi/boxes_labels_scores.h"
 #include "converters/to_roi/detection_output.h"
 #include "converters/to_roi/mask_rcnn.h"
 #include "converters/to_roi/yolo_v2.h"
@@ -80,15 +80,24 @@ void updateTensorNameIfNeeded(GstStructure *s, const std::string &default_name) 
     gst_structure_set_name(s, default_name.c_str());
 }
 
-std::string checkOnNameDeprecation(const std::string &converter_name) {
-    const std::string GetiDetection = "ssd";
-    const std::string GetiClassification = "Classification";
-    const std::string GetiInstanceSegmentation = "MaskRCNN";
-    const std::string GetiSemanticSegmentation = "Segmentation";
-    const std::string GetiOBB = "rotated_detection";
-    const std::unordered_map<std::string, std::string> deprecatedNameToName = {
+std::string resolveConverterName(const std::string &requested) {
+    // model_type values from model_info metadata.
+    static const std::unordered_map<std::string, std::string> model_type_to_converter = {
+        {"ssd", BoxesLabelsScoresConverter::getName()},      // Geti / Model API detection
+        {"Classification", LabelConverter::getName()},       // Geti / Model API classification
+        {"MaskRCNN", MaskRCNNConverter::getName()},          // Geti / Model API instance segmentation
+        {"Segmentation", "semantic_segmentation"},           // Geti / Model API semantic segmentation
+        {"rotated_detection", MaskRCNNConverter::getName()}, // Geti oriented detection
+        {"YOLOv8", YOLOv8Converter::getName()},              // older DL Streamer download scripts (Ultralytics)
+        {"YOLOv8-OBB", YOLOv8ObbConverter::getName()},       // older DL Streamer download scripts (Ultralytics)
+        {"YOLOv8-SEG", YOLOv8SegConverter::getName()}};      // older DL Streamer download scripts (Ultralytics)
+
+    // Old converter names typed by users in model-proc files; still accepted, with a deprecation warning.
+    static const std::unordered_map<std::string, std::string> legacy_converter_names = {
         {DetectionOutputConverter::getDeprecatedName(), DetectionOutputConverter::getName()},
-        {BoxesLabelsConverter::getDeprecatedName(), BoxesLabelsConverter::getName()},
+        {"tensor_to_bbox_atss", BoxesLabelsScoresConverter::getName()},
+        {"boxes", BoxesLabelsScoresConverter::getName()},
+        {"boxes_labels", BoxesLabelsScoresConverter::getName()},
         {YOLOv2Converter::getDeprecatedName(), YOLOv2Converter::getName()},
         {YOLOv3Converter::getDeprecatedName(), YOLOv3Converter::getName()},
         {LabelConverter::getDeprecatedName(), LabelConverter::getName()},
@@ -96,24 +105,18 @@ std::string checkOnNameDeprecation(const std::string &converter_name) {
         {KeypointsHRnetConverter::getDeprecatedName(), KeypointsHRnetConverter::getName()},
         {Keypoints3DConverter::getDeprecatedName(), Keypoints3DConverter::getName()},
         {KeypointsOpenPoseConverter::getDeprecatedName(), KeypointsOpenPoseConverter::getName()},
-        {GetiDetection, BoxesLabelsConverter::getName()},
-        {GetiClassification, LabelConverter::getName()},
-        {GetiInstanceSegmentation, MaskRCNNConverter::getName()},
-        {GetiSemanticSegmentation, "semantic_segmentation"},
-        {GetiOBB, MaskRCNNConverter::getName()},
-        {"semantic_mask", "semantic_segmentation"},
-        {"YOLOv8", YOLOv8Converter::getName()},
-        {"YOLOv8-OBB", YOLOv8ObbConverter::getName()},
-        {"YOLOv8-SEG", YOLOv8SegConverter::getName()}};
+        {"semantic_mask", "semantic_segmentation"}}; // renamed in 2026; still written by download_other_models.sh
 
-    const auto it = deprecatedNameToName.find(converter_name);
-    if (it != deprecatedNameToName.cend()) {
-        GVA_WARNING("The '%s' - is deprecated converter name. Please use '%s' instead.", converter_name.c_str(),
+    if (const auto it = model_type_to_converter.find(requested); it != model_type_to_converter.cend())
+        return it->second;
+
+    if (const auto it = legacy_converter_names.find(requested); it != legacy_converter_names.cend()) {
+        GVA_WARNING("The '%s' - is deprecated converter name. Please use '%s' instead.", requested.c_str(),
                     it->second.c_str());
         return it->second;
     }
 
-    return converter_name;
+    return requested;
 }
 } // namespace
 
@@ -129,7 +132,7 @@ BlobToMetaConverter::Ptr BlobToMetaConverter::create(Initializer initializer, Co
                                                      const std::string &custom_postproc_lib) {
     GstStructureUniquePtr &tensor = initializer.model_proc_output_info;
 
-    const std::string converter_name = checkOnNameDeprecation(getConverterType(tensor.get()));
+    const std::string converter_name = resolveConverterName(getConverterType(tensor.get()));
     const std::string default_name = converterTypeToTensorName(converter_type, displayed_layer_name_in_meta);
 
     if (tensor.get() == nullptr) {
