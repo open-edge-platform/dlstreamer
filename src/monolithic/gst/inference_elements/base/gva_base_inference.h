@@ -41,7 +41,7 @@ G_BEGIN_DECLS
 
 typedef void (*OnBaseInferenceInitializedFunction)(GvaBaseInference *base_inference);
 
-typedef enum { GST_GVA_DETECT_TYPE, GST_GVA_CLASSIFY_TYPE, GST_GVA_INFERENCE_TYPE } InferenceType;
+typedef enum { GST_GVA_DETECT_TYPE, GST_GVA_CLASSIFY_TYPE, GST_GVA_INFERENCE_TYPE, GST_GVA_MONO3D_TYPE } InferenceType;
 typedef enum { FULL_FRAME, ROI_LIST } InferenceRegionType;
 
 typedef struct _GvaBaseInference {

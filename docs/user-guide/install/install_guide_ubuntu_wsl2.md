@@ -1,7 +1,15 @@
-# Install Guide Ubuntu 24.04 on WSL2
+```{eval-rst}
+.. meta::
+   :description: Install and configure Deep Learning Streamer on Ubuntu OS version 24.04 running under WSL2, including Intel® GPU support, required repositories, framework installation, and validation using a sample YOLO inference pipeline.
+```
 
-This page describes steps required to install Deep Learning Streamer Pipeline
-Framework on Ubuntu, when hosted on a Windows machine using WSL2.
+# Install Deep Learning Streamer on Ubuntu OS Version 24.04 under WSL2
+
+The section shows how to install Deep Learning Streamer on
+Ubuntu OS version 24.04 under Windows Subsystem for Linux 2 (WSL2) by
+configuring Windows GPU drivers and Ubuntu OS access, adding
+Intel® repositories, installing the framework and sample YOLO model, and
+running a CPU inference pipeline.
 
 ## On Windows Host System
 
@@ -141,10 +149,15 @@ sudo apt install intel-dlstreamer
 If you want to execute sample pipelines, download the yolo11s model as the sample one for these pipelines:
 
 ```bash
-mkdir $HOME/models
-export MODELS_PATH=$HOME/models
-sudo apt install -y python3.12-venv
-/opt/intel/dlstreamer/samples/download_public_models.sh yolo11s coco128
+sudo apt install -y python3-venv
+mkdir -p "$HOME/.virtualenvs/download-models" "$HOME/models"
+python3 -m venv "$HOME/.virtualenvs/download-models"
+"$HOME/.virtualenvs/download-models/bin/pip" install --no-cache-dir --upgrade pip \
+	-r /opt/intel/dlstreamer/scripts/download_models/requirements_download_ultralytics_models.txt
+source "$HOME/.virtualenvs/download-models/bin/activate"
+export MODELS_PATH="$HOME/models"
+python3 /opt/intel/dlstreamer/scripts/download_models/download_ultralytics_models.py \
+	--model yolo11s --int8 --outdir "$MODELS_PATH/public/yolo11s/INT8"
 ```
 
 ### Step 8: Execute sample pipelines

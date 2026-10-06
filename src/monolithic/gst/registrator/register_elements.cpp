@@ -18,6 +18,7 @@
 #include "gstgvaclassify.h"
 #include "gstgvadetect.h"
 #include "gstgvainference.h"
+#include "gstgvamono3d.h"
 
 #include "gstgvafpscounter.h"
 #include "gstgvametaaggregate.h"
@@ -46,6 +47,8 @@ static gboolean plugin_init(GstPlugin *plugin) {
     if (!gst_element_register(plugin, "gvadetect", GST_RANK_NONE, gst_gva_detect_get_type()))
         return FALSE;
     if (!gst_element_register(plugin, "gvaclassify", GST_RANK_NONE, gst_gva_classify_get_type()))
+        return FALSE;
+    if (!gst_element_register(plugin, "gvamono3d", GST_RANK_NONE, gst_gva_mono3d_get_type()))
         return FALSE;
     if (!gst_element_register(plugin, "gvaaudiodetect", GST_RANK_NONE, gst_gva_audio_detect_get_type()))
         return FALSE;
