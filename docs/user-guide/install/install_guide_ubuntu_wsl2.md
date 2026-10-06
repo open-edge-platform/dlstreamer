@@ -1,7 +1,15 @@
-# Install Guide Ubuntu 24.04 on WSL2
+```{eval-rst}
+.. meta::
+   :description: Install and configure Deep Learning Streamer on Ubuntu OS version 24.04 running under WSL2, including Intel® GPU support, required repositories, framework installation, and validation using a sample YOLO inference pipeline.
+```
 
-This page describes steps required to install Deep Learning Streamer Pipeline
-Framework on Ubuntu, when hosted on a Windows machine using WSL2.
+# Install Deep Learning Streamer on Ubuntu OS Version 24.04 under WSL2
+
+The section shows how to install Deep Learning Streamer on
+Ubuntu OS version 24.04 under Windows Subsystem for Linux 2 (WSL2) by
+configuring Windows GPU drivers and Ubuntu OS access, adding
+Intel® repositories, installing the framework and sample YOLO model, and
+running a CPU inference pipeline.
 
 ## On Windows Host System
 
