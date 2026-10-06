@@ -135,6 +135,52 @@ jobs:
         run: |
           sudo rm -rf dlstreamer-repo
 
+  dls-filter-unit-test-related-changes:
+    permissions:
+      contents: read
+    name: "DLS SCAN: detect changes impacting unit tests"
+    runs-on: dlstreamer
+    outputs:
+      run_unit_tests: ${{ steps.check.outputs.run_unit_tests }}
+    steps:
+      - name: Check out dlstreamer repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 #7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+          path: dlstreamer-repo
+
+      - name: Fetch main branch for comparison
+        run: |
+          cd dlstreamer-repo
+          git fetch origin main
+
+      - name: Detect changes outside samples directory
+        id: check
+        run: |
+          echo "🔍 Checking whether PR changes may impact unit tests"
+          cd dlstreamer-repo
+          ALL_CHANGED_FILES=$(git diff --name-only origin/main...HEAD)
+          CHANGED_FILES_NON_SAMPLES=$(git diff --name-only origin/main...HEAD -- . ':(exclude)samples/')
+
+          RUN_UNIT_TESTS=true
+          if [ -n "${ALL_CHANGED_FILES}" ] && [ -z "${CHANGED_FILES_NON_SAMPLES}" ]; then
+            echo "📄 Only samples/ changes detected - unit tests will be skipped."
+            RUN_UNIT_TESTS=false
+          else
+            echo "🔄 Changes may impact unit tests - unit tests will run."
+            if [ -n "${CHANGED_FILES_NON_SAMPLES}" ]; then
+              echo "📄 Changed files outside samples/:"
+              echo "${CHANGED_FILES_NON_SAMPLES}"
+            fi
+          fi
+
+          echo "run_unit_tests=${RUN_UNIT_TESTS}" >> "$GITHUB_OUTPUT"
+
+      - name: Clean up
+        run: |
+          sudo rm -rf dlstreamer-repo
+
   dls-trivy-config-scan:
     permissions:
       contents: read
@@ -401,8 +447,11 @@ jobs:
     permissions:
       contents: read
       packages: read
+    needs: [dls-filter-unit-test-related-changes]
     name: "DLS BUILD: dev imgs & run unit tests"
     uses: ./.github/workflows/dls-build-dev-docker-images-and-run-unit.yaml
+    with:
+      run-unit-tests: ${{ needs.dls-filter-unit-test-related-changes.outputs.run_unit_tests }}
 
   dls-build-and-test-deb-and-deb_img:
     permissions:
