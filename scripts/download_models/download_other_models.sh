@@ -415,7 +415,7 @@ if array_contains "yolox-tiny" "${MODELS_TO_PROCESS[@]}"; then
     # Cleanup temporary virtual environment
     deactivate 2>/dev/null || true
     rm -rf "$HOME/.virtualenvs/dlstreamer_openvino_dev" 2>/dev/null || true
-    source "$VENV_DIR/bin/activate" 
+    source "$VENV_DIR/bin/activate"
   else
     model_status="cached"
     echo_color "\nModel already exists: $MODEL_DIR.\n" "yellow"
@@ -469,13 +469,13 @@ if array_contains "yolov7" "${MODELS_TO_PROCESS[@]}"; then
     echo "Downloading and converting: ${MODEL_DIR}"
     git clone https://github.com/WongKinYiu/yolov7.git
     cd yolov7
-    
+
     # Patch for PyTorch 2.6+ compatibility (weights_only parameter)
     sed -i 's/torch\.load(w, map_location=map_location)/torch.load(w, map_location=map_location, weights_only=False)/g' models/experimental.py
 
     # Use the legacy ONNX exporter because the YOLOv7 graph is incompatible with Dynamo.
     sed -i 's/opset_version=12, input_names=/opset_version=12, dynamo=False, input_names=/' export.py
-    
+
     python3 export.py --weights  yolov7.pt  --grid --dynamic-batch
     ovc yolov7.onnx --compress_to_fp16=True
     mv yolov7.xml "$MODEL_DIR/FP16"
@@ -665,7 +665,7 @@ EOF
     # Cleanup temporary virtual environment
     deactivate 2>/dev/null || true
     rm -rf "$HOME/.virtualenvs/dlstreamer_openvino_dev" 2>/dev/null || true
-    source "$VENV_DIR/bin/activate" 
+    source "$VENV_DIR/bin/activate"
   else
     model_status="cached"
     echo_color "\nModel already exists: $MODEL_DIR.\n" "yellow"
@@ -880,7 +880,7 @@ os.remove('${MODEL_NAME}.zip')
   fi
 fi
 
-# ================================= Colorcls2 FP32 - Edge AI Suites =================================
+# ================================= Colorcls2 FP32 - Metro AI Suite =================================
 if array_contains "colorcls2" "${MODELS_TO_PROCESS[@]}"; then
   display_header "Downloading Colorcls2 model"
   MODEL_NAME="colorcls2"
@@ -894,10 +894,10 @@ if array_contains "colorcls2" "${MODELS_TO_PROCESS[@]}"; then
     cd "$MODEL_DIR"
 
     download_binary_file \
-      "https://github.com/open-edge-platform/edge-ai-suites/raw/main/metro-ai-suite/metro-vision-ai-app-recipe/smart-parking/src/dlstreamer-pipeline-server/models/colorcls2/colorcls2.bin" \
+      "https://github.com/open-edge-platform/metro-ai-suite/raw/main/metro-vision-ai-app-recipe/smart-parking/src/dlstreamer-pipeline-server/models/colorcls2/colorcls2.bin" \
       "colorcls2.bin" || handle_error "failed to download colorcls2.bin"
     download_binary_file \
-      "https://github.com/open-edge-platform/edge-ai-suites/raw/main/metro-ai-suite/metro-vision-ai-app-recipe/smart-parking/src/dlstreamer-pipeline-server/models/colorcls2/colorcls2.xml" \
+      "https://github.com/open-edge-platform/metro-ai-suite/raw/main/metro-vision-ai-app-recipe/smart-parking/src/dlstreamer-pipeline-server/models/colorcls2/colorcls2.xml" \
       "colorcls2.xml" || handle_error "failed to download colorcls2.xml"
 
     cd ..
