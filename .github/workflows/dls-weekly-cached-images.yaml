@@ -1,5 +1,5 @@
-name: "[DLS] [U22/U24] Build weekly cache imgs"
-run-name: "[DLS] [U22/U24] Build weekly cache imgs"
+name: "[DLS] [U24] Build weekly cache imgs"
+run-name: "[DLS] [U24] Build weekly cache imgs"
 on:
   schedule:
     - cron: '0 5 * * MON' # 5:00 UTC each Monday
@@ -20,8 +20,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - path_dockerfile: ./dlstreamer-repo/docker/ubuntu/ubuntu22.Dockerfile
-            ubuntu_version: ubuntu22
           - path_dockerfile: ./dlstreamer-repo/docker/ubuntu/ubuntu24.Dockerfile
             ubuntu_version: ubuntu24
     steps:
@@ -74,9 +72,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - path_dockerfile: ./dlstreamer-repo/docker/ubuntu/ubuntu22.Dockerfile
-            ubuntu_version: ubuntu22
-            build_arg: Debug
           - path_dockerfile: ./dlstreamer-repo/docker/ubuntu/ubuntu24.Dockerfile
             ubuntu_version: ubuntu24
             build_arg: Debug

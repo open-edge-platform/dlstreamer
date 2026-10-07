@@ -191,9 +191,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: dlstreamer_ubuntu22
-            path: dlstreamer-repo/docker/ubuntu/ubuntu22.Dockerfile
-            output: reports/trivy-DLS_ubuntu22.json
           - name: dlstreamer_ubuntu24
             path: dlstreamer-repo/docker/ubuntu/ubuntu24.Dockerfile
             output: reports/trivy-DLS_ubuntu24.json
@@ -226,9 +223,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: dlstreamer_ubuntu22
-            dockerfile: ./docker/ubuntu/ubuntu22.Dockerfile
-            output-file: hadolint-dlstreamer_ubuntu22.json
           - name: dlstreamer_ubuntu24
             dockerfile: ./docker/ubuntu/ubuntu24.Dockerfile
             output-file: hadolint-dlstreamer_ubuntu24.json
@@ -572,10 +566,8 @@ jobs:
     steps:
       - name: Validate DEV image sizes
         env:
-          CURRENT_IMAGE_SIZE_U22: ${{ needs.dls-build-dev-images-and-run-unit-tests.outputs.current-image-size-ubuntu22 }}
           CURRENT_IMAGE_SIZE_U24: ${{ needs.dls-build-dev-images-and-run-unit-tests.outputs.current-image-size-ubuntu24 }}
           CURRENT_IMAGE_SIZE_U26: ${{ needs.dls-build-dev-images-and-run-unit-tests.outputs.current-image-size-ubuntu26 }}
-          EXPECTED_SIZE_MB_DEV_U22: ${{ vars.EXPECTED_SIZE_MB_DEV_U22 }}
           EXPECTED_SIZE_MB_DEV_U24: ${{ vars.EXPECTED_SIZE_MB_DEV_U24 }}
           EXPECTED_SIZE_MB_DEV_U26: ${{ vars.EXPECTED_SIZE_MB_DEV_U26 }}
           THRESHOLD_SIZE_MB: "100"
@@ -588,15 +580,15 @@ jobs:
             echo "Reason: Pull request from fork (repository vars are unavailable)." >> "$GITHUB_STEP_SUMMARY"
             echo "" >> "$GITHUB_STEP_SUMMARY"
             echo "### Manual verification" >> "$GITHUB_STEP_SUMMARY"
-            echo "Current image sizes (from reusable workflow output): ubuntu22=${CURRENT_IMAGE_SIZE_U22:-N/A} MB, ubuntu24=${CURRENT_IMAGE_SIZE_U24:-N/A} MB, ubuntu26=${CURRENT_IMAGE_SIZE_U26:-N/A} MB" >> "$GITHUB_STEP_SUMMARY"
+            echo "Current image sizes (from reusable workflow output): ubuntu24=${CURRENT_IMAGE_SIZE_U24:-N/A} MB, ubuntu26=${CURRENT_IMAGE_SIZE_U26:-N/A} MB" >> "$GITHUB_STEP_SUMMARY"
             echo "- Compare these values with expected DEV image size values manually." >> "$GITHUB_STEP_SUMMARY"
             echo "- If needed, rerun the same commit in a non-fork branch to run the automatic size gate." >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
 
-          echo "Current image sizes: ubuntu22=${CURRENT_IMAGE_SIZE_U22:-N/A} MB, ubuntu24=${CURRENT_IMAGE_SIZE_U24:-N/A} MB, ubuntu26=${CURRENT_IMAGE_SIZE_U26:-N/A} MB"
+          echo "Current image sizes: ubuntu24=${CURRENT_IMAGE_SIZE_U24:-N/A} MB, ubuntu26=${CURRENT_IMAGE_SIZE_U26:-N/A} MB"
 
-          if [[ -z "${CURRENT_IMAGE_SIZE_U22}" && -z "${CURRENT_IMAGE_SIZE_U24}" && -z "${CURRENT_IMAGE_SIZE_U26}" ]]; then
+          if [[ -z "${CURRENT_IMAGE_SIZE_U24}" && -z "${CURRENT_IMAGE_SIZE_U26}" ]]; then
             echo "## 🐳 Docker image size" >> "$GITHUB_STEP_SUMMARY"
             echo "" >> "$GITHUB_STEP_SUMMARY"
             echo "✅ Size check skipped" >> "$GITHUB_STEP_SUMMARY"
@@ -612,15 +604,6 @@ jobs:
             echo "| Image | Current | Expected | Abs diff | Threshold |"
             echo "|-------|---------|----------|----------|-----------|"
           } >> "$GITHUB_STEP_SUMMARY"
-
-          if [[ -n "${CURRENT_IMAGE_SIZE_U22}" ]]; then
-            U22_DIFF=$(( CURRENT_IMAGE_SIZE_U22 - EXPECTED_SIZE_MB_DEV_U22 ))
-            U22_ABS_DIFF=${U22_DIFF#-}
-            echo "| ubuntu22-dev | **${CURRENT_IMAGE_SIZE_U22} MB** | **${EXPECTED_SIZE_MB_DEV_U22} MB** | ${U22_ABS_DIFF} MB | ${THRESHOLD_SIZE_MB} MB |" >> "$GITHUB_STEP_SUMMARY"
-            if [[ "${U22_ABS_DIFF}" -gt "${THRESHOLD_SIZE_MB}" ]]; then
-              FAIL_CHECK=1
-            fi
-          fi
 
           if [[ -n "${CURRENT_IMAGE_SIZE_U24}" ]]; then
             U24_DIFF=$(( CURRENT_IMAGE_SIZE_U24 - EXPECTED_SIZE_MB_DEV_U24 ))
@@ -672,10 +655,8 @@ jobs:
     steps:
       - name: Validate DEB image sizes
         env:
-          CURRENT_IMAGE_SIZE_U22: ${{ needs.dls-build-and-test-deb-and-deb_img.outputs.current-image-size-ubuntu22 }}
           CURRENT_IMAGE_SIZE_U24: ${{ needs.dls-build-and-test-deb-and-deb_img.outputs.current-image-size-ubuntu24 }}
           CURRENT_IMAGE_SIZE_U26: ${{ needs.dls-build-and-test-deb-and-deb_img.outputs.current-image-size-ubuntu26 }}
-          EXPECTED_SIZE_MB_DEB_U22: ${{ vars.EXPECTED_SIZE_MB_DEB_U22 }}
           EXPECTED_SIZE_MB_DEB_U24: ${{ vars.EXPECTED_SIZE_MB_DEB_U24 }}
           EXPECTED_SIZE_MB_DEB_U26: ${{ vars.EXPECTED_SIZE_MB_DEB_U26 }}
           THRESHOLD_SIZE_MB: "100"
@@ -688,15 +669,15 @@ jobs:
             echo "Reason: Pull request from fork (repository vars are unavailable)." >> "$GITHUB_STEP_SUMMARY"
             echo "" >> "$GITHUB_STEP_SUMMARY"
             echo "### Manual verification" >> "$GITHUB_STEP_SUMMARY"
-            echo "Current image sizes (from reusable workflow output): ubuntu22=${CURRENT_IMAGE_SIZE_U22:-N/A} MB, ubuntu24=${CURRENT_IMAGE_SIZE_U24:-N/A} MB, ubuntu26=${CURRENT_IMAGE_SIZE_U26:-N/A} MB" >> "$GITHUB_STEP_SUMMARY"
+            echo "Current image sizes (from reusable workflow output): ubuntu24=${CURRENT_IMAGE_SIZE_U24:-N/A} MB, ubuntu26=${CURRENT_IMAGE_SIZE_U26:-N/A} MB" >> "$GITHUB_STEP_SUMMARY"
             echo "- Compare these values with expected DEB image size values manually." >> "$GITHUB_STEP_SUMMARY"
             echo "- If needed, rerun the same commit in a non-fork branch to run the automatic size gate." >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
 
-          echo "Current image sizes: ubuntu22=${CURRENT_IMAGE_SIZE_U22:-N/A} MB, ubuntu24=${CURRENT_IMAGE_SIZE_U24:-N/A} MB, ubuntu26=${CURRENT_IMAGE_SIZE_U26:-N/A} MB"
+          echo "Current image sizes: ubuntu24=${CURRENT_IMAGE_SIZE_U24:-N/A} MB, ubuntu26=${CURRENT_IMAGE_SIZE_U26:-N/A} MB"
 
-          if [[ -z "${CURRENT_IMAGE_SIZE_U22}" && -z "${CURRENT_IMAGE_SIZE_U24}" && -z "${CURRENT_IMAGE_SIZE_U26}" ]]; then
+          if [[ -z "${CURRENT_IMAGE_SIZE_U24}" && -z "${CURRENT_IMAGE_SIZE_U26}" ]]; then
             echo "## 🐳 Docker image size" >> "$GITHUB_STEP_SUMMARY"
             echo "" >> "$GITHUB_STEP_SUMMARY"
             echo "✅ Size check skipped" >> "$GITHUB_STEP_SUMMARY"
@@ -712,15 +693,6 @@ jobs:
             echo "| Image | Current | Expected | Abs diff | Threshold |"
             echo "|-------|---------|----------|----------|-----------|"
           } >> "$GITHUB_STEP_SUMMARY"
-
-          if [[ -n "${CURRENT_IMAGE_SIZE_U22}" ]]; then
-            U22_DIFF=$(( CURRENT_IMAGE_SIZE_U22 - EXPECTED_SIZE_MB_DEB_U22 ))
-            U22_ABS_DIFF=${U22_DIFF#-}
-            echo "| ubuntu22-deb | **${CURRENT_IMAGE_SIZE_U22} MB** | **${EXPECTED_SIZE_MB_DEB_U22} MB** | ${U22_ABS_DIFF} MB | ${THRESHOLD_SIZE_MB} MB |" >> "$GITHUB_STEP_SUMMARY"
-            if [[ "${U22_ABS_DIFF}" -gt "${THRESHOLD_SIZE_MB}" ]]; then
-              FAIL_CHECK=1
-            fi
-          fi
 
           if [[ -n "${CURRENT_IMAGE_SIZE_U24}" ]]; then
             U24_DIFF=$(( CURRENT_IMAGE_SIZE_U24 - EXPECTED_SIZE_MB_DEB_U24 ))

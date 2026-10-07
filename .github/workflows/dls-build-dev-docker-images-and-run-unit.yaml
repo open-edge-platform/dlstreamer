@@ -1,5 +1,5 @@
-name: "[DLS] [U22/24] Build dev imgs and run Unit Tests"
-run-name: "[DLS] [U22/24] Build dev imgs and run Unit Tests(by ${{ github.actor }})"
+name: "[DLS] [U24] Build dev imgs and run Unit Tests"
+run-name: "[DLS] [U24] Build dev imgs and run Unit Tests(by ${{ github.actor }})"
 on:
   workflow_call:
     inputs:
@@ -9,9 +9,6 @@ on:
         type: string
         default: "true"
     outputs:
-      current-image-size-ubuntu22:
-        description: "Current DEV image size in MB for ubuntu22"
-        value: ${{ jobs.build.outputs.current-image-size-ubuntu22 }}
       current-image-size-ubuntu24:
         description: "Current DEV image size in MB for ubuntu24"
         value: ${{ jobs.build.outputs.current-image-size-ubuntu24 }}
@@ -55,8 +52,8 @@ jobs:
             MATRIX=$(jq -n '{
               "include": [
                 {
-                  "path_dockerfile": "./dlstreamer-repo/docker/ubuntu/ubuntu22.Dockerfile",
-                  "ubuntu_version": "ubuntu22",
+                  "path_dockerfile": "./dlstreamer-repo/docker/ubuntu/ubuntu24.Dockerfile",
+                  "ubuntu_version": "ubuntu24",
                   "runner_labels": ["dlstreamer"],
                   "runner_print_label": "SKIP"
                 }
@@ -65,12 +62,6 @@ jobs:
           else
             MATRIX=$(jq -n '{
               "include": [
-                {
-                  "path_dockerfile": "./dlstreamer-repo/docker/ubuntu/ubuntu22.Dockerfile",
-                  "ubuntu_version": "ubuntu22",
-                  "runner_labels": ["tgl-ubuntu22"],
-                  "runner_print_label": "TGL"
-                },
                 {
                   "path_dockerfile": "./dlstreamer-repo/docker/ubuntu/ubuntu24.Dockerfile",
                   "ubuntu_version": "ubuntu24",
@@ -100,7 +91,6 @@ jobs:
       fail-fast: false
       matrix: ${{ fromJson(needs.setup.outputs.matrix) }}
     outputs:
-      current-image-size-ubuntu22: ${{ steps.check-size.outputs.current-image-size-ubuntu22 || steps.skip-size.outputs.current-image-size-ubuntu22 }}
       current-image-size-ubuntu24: ${{ steps.check-size.outputs.current-image-size-ubuntu24 || steps.skip-size.outputs.current-image-size-ubuntu24 }}
       current-image-size-ubuntu26: ${{ steps.check-size.outputs.current-image-size-ubuntu26 || steps.skip-size.outputs.current-image-size-ubuntu26 }}
     steps:
@@ -110,7 +100,6 @@ jobs:
         run: |
           echo "## ✅ Ubuntu Build and Test Skipped" >> $GITHUB_STEP_SUMMARY
           echo "**Reason:** Changes only in excluded files" >> $GITHUB_STEP_SUMMARY
-          echo 'current-image-size-ubuntu22=' >> "$GITHUB_OUTPUT"
           echo 'current-image-size-ubuntu24=' >> "$GITHUB_OUTPUT"
           echo 'current-image-size-ubuntu26=' >> "$GITHUB_OUTPUT"
           exit 0
@@ -290,7 +279,7 @@ jobs:
           RESULTS_FILE="$PWD/${RESULTS_DIR}/unit_test_summary.txt"
 
           # Add results to summary
-          echo "## Test Summary for Unit Tests on TGL" >> $GITHUB_STEP_SUMMARY
+          echo "## Test Summary for Unit Tests on ${{ matrix.runner_print_label }}" >> $GITHUB_STEP_SUMMARY
           cat "$RESULTS_FILE" >> $GITHUB_STEP_SUMMARY
 
           # Check for failures and fail if any
