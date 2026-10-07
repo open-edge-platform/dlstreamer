@@ -275,11 +275,12 @@ jobs:
         if: always() && needs.setup.outputs.should_run == 'true' && inputs.run-unit-tests == 'true'
         env:
           RESULTS_DIR: test-results
+          RUNNER_PRINT_LABEL: ${{ matrix.runner_print_label }}
         run: |
           RESULTS_FILE="$PWD/${RESULTS_DIR}/unit_test_summary.txt"
 
           # Add results to summary
-          echo "## Test Summary for Unit Tests on ${{ matrix.runner_print_label }}" >> $GITHUB_STEP_SUMMARY
+          echo "## Test Summary for Unit Tests on ${RUNNER_PRINT_LABEL}" >> $GITHUB_STEP_SUMMARY
           cat "$RESULTS_FILE" >> $GITHUB_STEP_SUMMARY
 
           # Check for failures and fail if any
