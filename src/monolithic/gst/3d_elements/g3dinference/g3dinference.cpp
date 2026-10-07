@@ -135,6 +135,10 @@ class TaskQueue {
         _tasks.pop_front();
         lock.unlock();
         _not_full.notify_one();
+        /* unique_lock tracks its own ownership: the explicit unlock() above
+         * leaves the guard disengaged, so the destructor running here does not
+         * unlock the mutex a second time. */
+        // coverity[double_unlock]
         return true;
     }
 
@@ -171,6 +175,16 @@ class TaskQueue {
 
 class PointPillarsRuntime {
   public:
+    PointPillarsRuntime() = default;
+
+    /* Owns the worker threads and their InferChain pool, so it is neither
+     * copyable nor movable: a copy would run shutdown() twice over the same
+     * threads. */
+    PointPillarsRuntime(const PointPillarsRuntime &) = delete;
+    PointPillarsRuntime &operator=(const PointPillarsRuntime &) = delete;
+    PointPillarsRuntime(PointPillarsRuntime &&) = delete;
+    PointPillarsRuntime &operator=(PointPillarsRuntime &&) = delete;
+
     ~PointPillarsRuntime() {
         shutdown();
     }
@@ -334,9 +348,16 @@ class PointPillarsRuntime {
      * on one CPU while the rest of the machine sits idle. */
     static void reset_thread_affinity() {
 #ifdef __linux__
-        const long cores = sysconf(_SC_NPROCESSORS_ONLN);
-        if (cores <= 0)
+        /* CPU_ALLOC()/CPU_ALLOC_SIZE() take the CPU count as an int, so the long
+         * returned by sysconf() is clamped before it is narrowed: an unbounded
+         * value would otherwise overflow the allocation size and leave the set
+         * smaller than the range CPU_SET_S() writes below. */
+        constexpr long MAX_SUPPORTED_CPUS = 4096;
+        const long online_cores = sysconf(_SC_NPROCESSORS_ONLN);
+        if (online_cores <= 0)
             return;
+
+        const int cores = static_cast<int>(std::min(online_cores, MAX_SUPPORTED_CPUS));
 
         cpu_set_t *set = CPU_ALLOC(cores);
         if (!set)
@@ -344,7 +365,7 @@ class PointPillarsRuntime {
 
         const size_t size = CPU_ALLOC_SIZE(cores);
         CPU_ZERO_S(size, set);
-        for (long cpu = 0; cpu < cores; ++cpu)
+        for (int cpu = 0; cpu < cores; ++cpu)
             CPU_SET_S(cpu, size, set);
 
         if (pthread_setaffinity_np(pthread_self(), size, set) != 0)
@@ -667,8 +688,13 @@ void push_ready_frames(GstG3DInference *filter) {
              * mutex held so skipped its own push. Re-acquiring closes that
              * window; if there is still nothing, we are genuinely done. */
             push_lock.unlock();
-            if (!state->queue.has_ready())
+            if (!state->queue.has_ready()) {
+                /* unique_lock tracks its own ownership: the explicit unlock()
+                 * above leaves the guard disengaged, so the destructor running
+                 * here does not unlock the mutex a second time. */
+                // coverity[double_unlock]
                 return;
+            }
             push_lock.lock();
             continue;
         }
