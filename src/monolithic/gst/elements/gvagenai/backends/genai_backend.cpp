@@ -21,8 +21,6 @@ GenAIBackendRegistry &GenAIBackendRegistry::instance() {
     return registry;
 }
 
-GenAIBackendRegistry::~GenAIBackendRegistry() = default;
-
 std::shared_ptr<IGenAIBackend> GenAIBackendRegistry::create_backend(const GenAIBackendConfig &config) {
     // Helper: NULL gchar* -> empty string
     auto str = [](const gchar *s) { return std::string(s ? s : ""); };

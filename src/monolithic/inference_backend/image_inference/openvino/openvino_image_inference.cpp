@@ -226,12 +226,6 @@ struct ConfigHelper {
 
     ConfigHelper(const InferenceBackend::InferenceConfig &cfg) : config(cfg) {
     }
-    ~ConfigHelper();
-    // NO COPY / MOVE
-    ConfigHelper(const ConfigHelper &) = delete;
-    ConfigHelper &operator=(const ConfigHelper &) = delete;
-    ConfigHelper(ConfigHelper &&) = delete;
-    ConfigHelper &operator=(ConfigHelper &&) = delete;
 
     const std::string &device() const {
         return base_config.at(KEY_DEVICE);
@@ -411,8 +405,6 @@ struct ConfigHelper {
         return base_get_or_empty(dlstreamer::param::logger_name);
     }
 };
-
-ConfigHelper::~ConfigHelper() = default;
 
 } // namespace
 
