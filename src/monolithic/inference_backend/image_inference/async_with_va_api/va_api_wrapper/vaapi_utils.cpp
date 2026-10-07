@@ -19,6 +19,8 @@ VaApiLibBinderImpl::VaApiLibBinderImpl() {
     _libva_drm_so = SharedObject::getLibrary("libva-drm.so.2");
 }
 
+VaApiLibBinderImpl::~VaApiLibBinderImpl() = default;
+
 VADisplay VaApiLibBinderImpl::GetDisplayDRM(int file_descriptor) {
     auto dpy = _libva_drm_so->invoke<VADisplay(int)>("vaGetDisplayDRM", file_descriptor);
     if (!dpy) {

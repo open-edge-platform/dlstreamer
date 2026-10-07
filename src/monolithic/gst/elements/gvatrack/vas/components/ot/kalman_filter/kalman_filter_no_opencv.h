@@ -43,13 +43,6 @@ class KalmanFilterNoOpencv {
     explicit KalmanFilterNoOpencv(const cv::Rect2f &initial_rect);
     KalmanFilterNoOpencv() = delete;
 
-    KalmanFilterNoOpencv(const KalmanFilterNoOpencv &) = delete;
-    KalmanFilterNoOpencv &operator=(const KalmanFilterNoOpencv &) = delete;
-
-    /* @brief Destroy Kalman filter kernel
-     */
-    ~KalmanFilterNoOpencv() = default;
-
     /*
      * This function computes a predicted state.
      * input 'delta_t' is not used.

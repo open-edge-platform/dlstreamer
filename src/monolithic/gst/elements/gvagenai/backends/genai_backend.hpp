@@ -154,11 +154,13 @@ class GenAIBackendRegistry {
 
   private:
     GenAIBackendRegistry() = default;
-    ~GenAIBackendRegistry() = default;
+    ~GenAIBackendRegistry();
 
-    // Prevent copying
+    // Prevent copying and moving
     GenAIBackendRegistry(const GenAIBackendRegistry &) = delete;
     GenAIBackendRegistry &operator=(const GenAIBackendRegistry &) = delete;
+    GenAIBackendRegistry(GenAIBackendRegistry &&) = delete;
+    GenAIBackendRegistry &operator=(GenAIBackendRegistry &&) = delete;
 
     // Backend-specific creation helpers (called by create_backend)
     std::shared_ptr<IGenAIBackend> get_openvino_backend(const OpenVINOBackendParams &params);

@@ -255,6 +255,8 @@ static void gst_gvagenai_init(GstGvaGenAI *gvagenai) {
     gvagenai->frame_counter = 0;
     gvagenai->input_fps = 0.0; // Unknown until caps are set
     gvagenai->prompt_string = NULL;
+    /* Object is under construction; no other thread can reference it yet. */
+    // coverity[missing_lock]
     gvagenai->prompt_changed = FALSE;
 
     gvagenai->backend = NULL;
