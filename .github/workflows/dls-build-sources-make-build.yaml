@@ -1,5 +1,5 @@
-name: "[DLS] [U22/24] Build from sources using make build"
-run-name: "[DLS] [U22/24] Build from sources using make build (by ${{ github.actor }})"
+name: "[DLS] [U24] Build from sources using make build"
+run-name: "[DLS] [U24] Build from sources using make build (by ${{ github.actor }})"
 on:
   workflow_call:
   workflow_dispatch:
@@ -40,8 +40,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-22.04
-            runner: ubuntu-22.04
           - os: ubuntu-24.04
             runner: dlstreamer
           - os: ubuntu-26.04
@@ -83,20 +81,7 @@ jobs:
         if: needs.setup.outputs.should_run == 'true'
         run: |
           echo "Installing build dependencies for ${{ matrix.os }}"
-          if [[ ${{ matrix.os }} == "ubuntu-22.04" ]]; then
-            echo "Executing Ubuntu 22.04 specific setup..."
-            sudo apt-get update && \
-            sudo apt-get install -y wget vainfo xz-utils python3-pip python3-gi gcc-multilib libglib2.0-dev \
-                flex bison autoconf automake libtool libogg-dev make g++ libva-dev yasm libglx-dev libdrm-dev \
-                python-gi-dev python3-dev unzip libgflags-dev \
-                libgirepository1.0-dev libx265-dev libx264-dev libde265-dev gudev-1.0 libusb-1.0 nasm python3-venv \
-                libcairo2-dev libxt-dev libgirepository1.0-dev libgles2-mesa-dev wayland-protocols libcurl4-openssl-dev \
-                libssh2-1-dev cmake git valgrind numactl libvpx-dev libopus-dev libsrtp2-dev libxv-dev \
-                linux-libc-dev libpmix2 libhwloc15 libhwloc-plugins libxcb1-dev libx11-xcb-dev \
-                ffmpeg libpaho-mqtt-dev libpostproc-dev libavfilter-dev libavdevice-dev \
-                libswscale-dev libswresample-dev libavutil-dev libavformat-dev libavcodec-dev libtbb12 libxml2-dev ocl-icd-opencl-dev \
-                opencl-headers
-          elif [[ ${{ matrix.os }} == "ubuntu-24.04" ]]; then
+          if [[ ${{ matrix.os }} == "ubuntu-24.04" ]]; then
             echo "Executing Ubuntu 24.04 specific setup..."
             sudo apt-get update && \
             sudo apt-get install -y wget vainfo xz-utils python3-pip python3-gi gcc-multilib libglib2.0-dev \
@@ -163,12 +148,7 @@ jobs:
           cd ${{ env.DLS_REL_PATH }}
           echo "Installing OpenVINO GenAI for ${{ matrix.os }}..."
           sudo rm -rf /opt/intel/openvino_genai
-          if [[ ${{ matrix.os }} == "ubuntu-22.04" ]]; then
-            echo "Executing Ubuntu 22.04 specific setup..."
-            wget -O- https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/2026.3.1/linux/openvino_genai_ubuntu22_2026.3.1.0_x86_64.tar.gz | tar -xz
-            sudo mv openvino_genai_ubuntu22_2026.3.1.0_x86_64 /opt/intel/openvino_genai
-            source /opt/intel/openvino_genai/setupvars.sh
-          elif [[ ${{ matrix.os }} == "ubuntu-24.04" ]]; then
+          if [[ ${{ matrix.os }} == "ubuntu-24.04" ]]; then
             echo "Executing Ubuntu 24.04 specific setup..."
             wget -O- https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/2026.3.1/linux/openvino_genai_ubuntu24_2026.3.1.0_x86_64.tar.gz | tar -xz
             sudo mv openvino_genai_ubuntu24_2026.3.1.0_x86_64 /opt/intel/openvino_genai
