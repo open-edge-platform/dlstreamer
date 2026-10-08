@@ -2,7 +2,7 @@ name: "[DLS] [U24] Build weekly cache imgs"
 run-name: "[DLS] [U24] Build weekly cache imgs"
 on:
   schedule:
-    - cron: '0 5 * * MON' # 5:00 UTC each Monday
+    - cron: '0 3 * * *' # 3:00 UTC every day
   workflow_dispatch:
 permissions: {}
 env:
