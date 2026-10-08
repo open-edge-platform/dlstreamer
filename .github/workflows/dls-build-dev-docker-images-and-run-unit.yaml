@@ -71,8 +71,8 @@ jobs:
                 {
                   "path_dockerfile": "./dlstreamer-repo/docker/ubuntu/ubuntu26.Dockerfile",
                   "ubuntu_version": "ubuntu26",
-                  "runner_labels": ["arl-ubuntu24"],
-                  "runner_print_label": "ARL"
+                  "runner_labels": ["ptl-ubuntu26"],
+                  "runner_print_label": "PTL"
                 }
               ]
             }' | jq -c .)

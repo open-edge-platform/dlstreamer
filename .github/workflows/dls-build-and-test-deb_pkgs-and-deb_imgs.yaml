@@ -80,8 +80,8 @@ jobs:
                 {
                   "path_dockerfile": "./dlstreamer/docker/ubuntu/ubuntu26.Dockerfile",
                   "ubuntu_version": "ubuntu26",
-                  "runner_labels": ["arl-ubuntu24"],
-                  "runner_print_label": "ARL-U26"
+                  "runner_labels": ["ptl-ubuntu26"],
+                  "runner_print_label": "PTL"
                 }
               ]
             }' | jq -c .)
@@ -293,7 +293,7 @@ jobs:
 
       # ======================================================== ON HOST TESTING PART ========================================================
       - name: Link DL Streamer to home directory
-        if: always() && needs.setup.outputs.should_run == 'true' && matrix.ubuntu_version != 'ubuntu26'
+        if: always() && needs.setup.outputs.should_run == 'true'
         run: |
           TARGET="$HOME/$(basename $DLS_REL_PATH)"
           if [ -e "$TARGET" ] || [ -L "$TARGET" ]; then
@@ -302,12 +302,12 @@ jobs:
           ln -s "$PWD/$DLS_REL_PATH" "$TARGET"
 
       - name: Install DL Streamer on-host
-        if: always() && needs.setup.outputs.should_run == 'true' && matrix.ubuntu_version != 'ubuntu26'
+        if: always() && needs.setup.outputs.should_run == 'true'
         run: |
           $DLS_REL_PATH/tests/scripts/installation-on-host-entrypoint.sh $DLS_REL_PATH/deb_packages
 
       - name: 👋 Test hello_dlstreamer script on host
-        if: always() && needs.setup.outputs.should_run == 'true' && matrix.ubuntu_version != 'ubuntu26'
+        if: always() && needs.setup.outputs.should_run == 'true'
         id: test_hello_dlstreamer_script
         env:
           runner_print_label: ${{ matrix.runner_print_label }}
@@ -335,13 +335,13 @@ jobs:
 
       - name: Upload hello_dlstreamer output video
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a #7.0.1
-        if: always() && needs.setup.outputs.should_run == 'true' && matrix.ubuntu_version != 'ubuntu26'
+        if: always() && needs.setup.outputs.should_run == 'true'
         with:
           name: DLS_hello_dlstreamer_output_video_${{ matrix.runner_print_label }}_${{ matrix.ubuntu_version }}_CPU_yolo11s
           path: ${{ env.DLS_REL_PATH }}/test_hello_dlstreamer
 
       - name: Init on host tests configurations
-        if: always() && needs.setup.outputs.should_run == 'true' && matrix.ubuntu_version != 'ubuntu26'
+        if: always() && needs.setup.outputs.should_run == 'true'
         env:
           runner_print_label: ${{ matrix.runner_print_label }}
         run: |
@@ -360,7 +360,7 @@ jobs:
           fi
 
       - name: Init host test environment
-        if: always() && needs.setup.outputs.should_run == 'true' && matrix.ubuntu_version != 'ubuntu26'
+        if: always() && needs.setup.outputs.should_run == 'true'
         env:
           ubuntu_version: ${{ matrix.ubuntu_version }}
         run: |
@@ -382,7 +382,7 @@ jobs:
           done
 
       - name: 🚀 Run on host tests
-        if: always() && needs.setup.outputs.should_run == 'true' && matrix.ubuntu_version != 'ubuntu26'
+        if: always() && needs.setup.outputs.should_run == 'true'
         id: run_onhost_tests
         env:
           HOST_TEST_CONFIGS: ${{ env.HOST_TEST_CONFIGS }}
@@ -408,13 +408,13 @@ jobs:
 
       - name: Upload host test results
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a #7.0.1
-        if: always() && needs.setup.outputs.should_run == 'true' && matrix.ubuntu_version != 'ubuntu26'
+        if: always() && needs.setup.outputs.should_run == 'true'
         with:
           name: DLS_functional_tests_${{ matrix.runner_print_label }}_on_host_${{ matrix.ubuntu_version }}_results
           path: "${{ env.DLS_TESTS_RESULTS_PATH }}"
 
       - name: Check and display host test results
-        if: always() && needs.setup.outputs.should_run == 'true' && matrix.ubuntu_version != 'ubuntu26'
+        if: always() && needs.setup.outputs.should_run == 'true'
         env:
           dls_tests_results_path: ${{ env.DLS_TESTS_RESULTS_PATH }}
           test_repo_branch: ${{ inputs.test-repo-branch }}
@@ -434,7 +434,7 @@ jobs:
           fi
 
       - name: 🔍 Generate visual diff reports for failed host tests
-        if: always() && needs.setup.outputs.should_run == 'true' && matrix.ubuntu_version != 'ubuntu26'
+        if: always() && needs.setup.outputs.should_run == 'true'
         env:
           dls_tests_results_path: ${{ env.DLS_TESTS_RESULTS_PATH }}
           runner_print_label: ${{ matrix.runner_print_label }}
@@ -561,14 +561,14 @@ jobs:
 
       - name: Upload diff reports for failed host tests
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a #7.0.1
-        if: always() && needs.setup.outputs.should_run == 'true' && matrix.ubuntu_version != 'ubuntu26'
+        if: always() && needs.setup.outputs.should_run == 'true'
         with:
           name: DLS_functional_tests_${{ matrix.runner_print_label }}_on_host_${{ matrix.ubuntu_version }}_diff_reports
           path: "${{ env.DLS_TESTS_RESULTS_PATH }}/diff_reports"
           if-no-files-found: ignore
 
       - name: Uninstall dlstreamer
-        if: always() && needs.setup.outputs.should_run == 'true' && matrix.ubuntu_version != 'ubuntu26'
+        if: always() && needs.setup.outputs.should_run == 'true'
         run: |
           $DLS_REL_PATH/tests/scripts/uninstall-dlstreamer.sh
 
