@@ -5,9 +5,7 @@
  ******************************************************************************/
 
 #include "blob_to_roi_converter.h"
-#include "boxes.h"
-#include "boxes_labels.h"
-#include "boxes_scores.h"
+#include "boxes_labels_scores.h"
 #include "centerface.h"
 #include "custom_to_roi.h"
 #include "detection_output.h"
@@ -58,15 +56,9 @@ BlobToMetaConverter::Ptr BlobToROIConverter::create(BlobToMetaConverter::Initial
             new CustomToRoiConverter(std::move(initializer), confidence_threshold, iou_threshold, custom_postproc_lib));
     else if (converter_name == DetectionOutputConverter::getName())
         return BlobToMetaConverter::Ptr(new DetectionOutputConverter(std::move(initializer), confidence_threshold));
-    else if (converter_name == BoxesLabelsConverter::getName())
+    else if (converter_name == BoxesLabelsScoresConverter::getName())
         return BlobToMetaConverter::Ptr(
-            new BoxesLabelsConverter(std::move(initializer), confidence_threshold, iou_threshold));
-    else if (converter_name == BoxesScoresConverter::getName())
-        return BlobToMetaConverter::Ptr(
-            new BoxesScoresConverter(std::move(initializer), confidence_threshold, iou_threshold));
-    else if (converter_name == BoxesConverter::getName())
-        return BlobToMetaConverter::Ptr(
-            new BoxesConverter(std::move(initializer), confidence_threshold, iou_threshold));
+            new BoxesLabelsScoresConverter(std::move(initializer), confidence_threshold, iou_threshold));
     else if (converter_name == YOLOv2Converter::getName() || converter_name == YOLOv3Converter::getName() ||
              converter_name == YOLOv4Converter::getName() || converter_name == YOLOv5Converter::getName())
         return YOLOBaseConverter::create(std::move(initializer), converter_name, confidence_threshold);

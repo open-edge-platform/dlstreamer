@@ -41,6 +41,14 @@ OpenVINO/yolox_s-int8-ov@66effd8d1d7c7b1fbf4ac0967bd6e494a9ea0027
 OpenVINO/yolox_tiny-fp16-ov@d2bd6e014e6ac22de458d9829ec8deaea96be57d
 OpenVINO/yolox_tiny-int8-ov@f8270641771bf65e0fa6daf60111602744c9d1f3
 
+# D-FINE detection models (pre-converted OpenVINO IR from HF Vision collection - https://huggingface.co/collections/OpenVINO/vision)
+OpenVINO/deim_dfine_l-fp16-ov@bc69ec0aeff6e265171405e18df907a41923a678
+OpenVINO/deim_dfine_l-int8-ov@0a870f040b6663d1ae0bbb2253e6aae159998894
+OpenVINO/deim_dfine_m-fp16-ov@3eb412a88947fbe4ad42884cfda350515978094c
+OpenVINO/deim_dfine_m-int8-ov@aa2dbb1f753e85bca6f88abf8e7602135f8c711a
+OpenVINO/deim_dfine_x-fp16-ov@3b3469bedb311314d7620a86a13625a5df302174
+OpenVINO/deim_dfine_x-int8-ov@fe1ad605818d4dec41d20f161cc8dc56aa7eb319
+
 # DepthAnythingForDepthEstimation (CUSTOM_CONVERTERS: depthanythingfordepthestimation)
 LiheYoung/depth-anything-small-hf@25216a913fa218ccb7d58cce818d52b728b6c1f6
 # Used in samples/gstreamer/gst_launch/depth_estimation/README.md

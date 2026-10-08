@@ -6,9 +6,7 @@
 
 #include "post_processor.h"
 
-#include "converters/to_roi/boxes.h"
-#include "converters/to_roi/boxes_labels.h"
-#include "converters/to_roi/boxes_scores.h"
+#include "converters/to_roi/boxes_labels_scores.h"
 #include "converters/to_roi/detection_output.h"
 #include "converters/to_tensor/clip_zeroshot.h"
 #include "converters/to_tensor/raw_data_copy.h"
@@ -92,17 +90,18 @@ void PostProcessorImpl::setDefaultConverter(GstStructure *model_proc_output, con
 
     switch (converter_type) {
     case ConverterType::TO_ROI: {
-        if (BoxesLabelsConverter::isValidModelOutputs(model_outputs)) {
-            set_convert_name(model_proc_output, BoxesLabelsConverter::getName());
-        } else if (BoxesConverter::isValidModelOutputs(model_outputs)) {
-            set_convert_name(model_proc_output, BoxesConverter::getName());
-        } else if (BoxesScoresConverter::isValidModelOutputs(model_outputs)) {
-            set_convert_name(model_proc_output, BoxesScoresConverter::getName());
+        // No converter declared: infer it from the outputs. The two formats are disjoint, so order doesn't matter.
+        if (BoxesLabelsScoresConverter::isValidModelOutputs(model_outputs)) {
+            set_convert_name(model_proc_output, BoxesLabelsScoresConverter::getName());
         } else if (DetectionOutputConverter::isValidModelOutputs(model_outputs)) {
             set_convert_name(model_proc_output, DetectionOutputConverter::getName());
         } else {
-            throw std::runtime_error("Failed to determine the default detection converter. "
-                                     "Please specify it yourself in the 'model-proc' file.");
+            throw std::runtime_error(
+                "Failed to determine the detection converter: model outputs match neither '" +
+                BoxesLabelsScoresConverter::getName() +
+                "' ('boxes' or 'bboxes' with optional 'labels' and 'scores') nor '" +
+                DetectionOutputConverter::getName() +
+                "' ([..., N, 7]). Declare the converter in the model's model_info metadata (model_type).");
         }
     } break;
     case ConverterType::RAW:
