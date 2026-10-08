@@ -366,7 +366,7 @@ RUN cp -a /usr/local/lib/librealsense* ./
 # ==============================================================================
 FROM builder AS dlstreamer-dev
 
-ARG DLSTREAMER_VERSION=2026.2.0
+ARG DLSTREAMER_VERSION=2026.3.0
 ARG DLSTREAMER_BUILD_NUMBER
 ARG OPENVINO_VERSION=2026.3.1
 # DL Streamer development image and build proccess
