@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2018-2022 Intel Corporation
+ * Copyright (C) 2018-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -42,13 +42,6 @@ class KalmanFilterNoOpencv {
      */
     explicit KalmanFilterNoOpencv(const cv::Rect2f &initial_rect);
     KalmanFilterNoOpencv() = delete;
-
-    KalmanFilterNoOpencv(const KalmanFilterNoOpencv &) = delete;
-    KalmanFilterNoOpencv &operator=(const KalmanFilterNoOpencv &) = delete;
-
-    /* @brief Destroy Kalman filter kernel
-     */
-    ~KalmanFilterNoOpencv() = default;
 
     /*
      * This function computes a predicted state.

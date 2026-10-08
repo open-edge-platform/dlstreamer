@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -77,8 +77,11 @@ class gst_sink : public spdlog::sinks::base_sink<spdlog::details::null_mutex> {
 
         const char *filename = msg.source.filename ? msg.source.filename : "";
         const char *funcname = msg.source.funcname ? msg.source.funcname : "";
-        // use string format with length, remove latest symbol of new line.
-        gst_debug_log(_category, level, filename, funcname, msg.source.line, _object, "%.*s", int(formatted.size() - 1),
+        // use string format with length, remove trailing new line symbol if present.
+        size_t length = formatted.size();
+        if (length > 0 && formatted.data()[length - 1] == '\n')
+            --length;
+        gst_debug_log(_category, level, filename, funcname, msg.source.line, _object, "%.*s", static_cast<int>(length),
                       formatted.data());
     }
 

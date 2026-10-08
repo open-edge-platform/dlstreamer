@@ -226,9 +226,6 @@ struct ConfigHelper {
 
     ConfigHelper(const InferenceBackend::InferenceConfig &cfg) : config(cfg) {
     }
-    // NO COPY
-    ConfigHelper(const ConfigHelper &) = delete;
-    ConfigHelper &operator=(const ConfigHelper &) = delete;
 
     const std::string &device() const {
         return base_config.at(KEY_DEVICE);
