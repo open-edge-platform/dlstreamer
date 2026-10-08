@@ -388,6 +388,7 @@ jobs:
           HOST_TEST_CONFIGS: ${{ env.HOST_TEST_CONFIGS }}
           runner_print_label: ${{ matrix.runner_print_label }}
           ubuntu_version: ${{ matrix.ubuntu_version }}
+          HOST_TESTS_MAX_RETRIES: 2
         run: |
           cd $PWD/$DLS_REL_PATH/tests
           mkdir functional_tests_results
@@ -396,14 +397,51 @@ jobs:
           echo "DLS_TESTS_RESULTS_PATH=$DLS_TESTS_RESULTS_PATH" >> $GITHUB_ENV
           cd ../functional_tests
           source $HOME/.virtualenvs/dlstreamer/bin/activate
-          ./run_tests.sh \
-            --models-path=${{ env.MODELS_PATH }} \
-            --video-examples-path=${{ env.VIDEO_INPUTS_PATH }} \
-            --meta-configs="$HOST_TEST_CONFIGS" \
-            --platform-type="${runner_print_label}" \
-            --results-path="$DLS_TESTS_RESULTS_PATH" \
-            --report-name="DLS_functional_tests_${runner_print_label}_on_host_${ubuntu_version}_results" \
-            --on-host
+          REPORT_NAME="DLS_functional_tests_${runner_print_label}_on_host_${ubuntu_version}_results"
+          run_host_tests() {
+            ./run_tests.sh \
+              --models-path=${{ env.MODELS_PATH }} \
+              --video-examples-path=${{ env.VIDEO_INPUTS_PATH }} \
+              --meta-configs="$HOST_TEST_CONFIGS" \
+              --platform-type="${runner_print_label}" \
+              --results-path="$DLS_TESTS_RESULTS_PATH" \
+              --on-host \
+              "$@"
+          }
+          run_host_tests --report-name="$REPORT_NAME"
+
+          # Re-run only failed tests. Retry outputs land in the same metadata dir (overwriting
+          # the failed attempt), and each retry gets its own report (<report>_retryN.*).
+          REPORT_BASE="$DLS_TESTS_RESULTS_PATH/$REPORT_NAME"
+          LAST_RESULTS_FILE="$REPORT_BASE.txt"
+          RETRY_XLSX_REPORTS=()
+          for attempt in $(seq 1 "$HOST_TESTS_MAX_RETRIES"); do
+            FAILED_TESTS=$(grep -oP '^\[! FAIL !\] \K\S+' "$LAST_RESULTS_FILE" | sort -u | paste -sd, - || true)
+            [ -z "$FAILED_TESTS" ] && break
+            echo "::warning::Retry $attempt/$HOST_TESTS_MAX_RETRIES of failed host tests: $FAILED_TESTS"
+            RETRY_REPORT_NAME="${REPORT_NAME}_retry${attempt}"
+            if ! run_host_tests --report-name="$RETRY_REPORT_NAME" --only-tests="$FAILED_TESTS" \
+                || [ ! -f "$DLS_TESTS_RESULTS_PATH/$RETRY_REPORT_NAME.xlsx" ]; then
+              echo "::warning::Retry $attempt could not be executed - keeping previous results"
+              break
+            fi
+            LAST_RESULTS_FILE="$DLS_TESTS_RESULTS_PATH/$RETRY_REPORT_NAME.txt"
+            RETRY_XLSX_REPORTS+=("$DLS_TESTS_RESULTS_PATH/$RETRY_REPORT_NAME.xlsx")
+          done
+
+          # Merge retry results into the full report (<report>.xlsx/.txt); first run is kept as <report>_initial.*
+          if [ "${#RETRY_XLSX_REPORTS[@]}" -gt 0 ]; then
+            cp "$REPORT_BASE.xlsx" "${REPORT_BASE}_initial.xlsx"
+            cp "$REPORT_BASE.txt" "${REPORT_BASE}_initial.txt"
+            if ! python3 ./merge_retry_reports.py \
+                --base "${REPORT_BASE}_initial.xlsx" \
+                --retries "${RETRY_XLSX_REPORTS[@]}" \
+                --output "$REPORT_BASE.xlsx"; then
+              echo "::warning::Merging retry results failed - full report contains first run results only"
+              cp "${REPORT_BASE}_initial.xlsx" "$REPORT_BASE.xlsx"
+              cp "${REPORT_BASE}_initial.txt" "$REPORT_BASE.txt"
+            fi
+          fi
           deactivate
 
       - name: Upload host test results
@@ -424,9 +462,15 @@ jobs:
           RESULTS_FILE="${dls_tests_results_path}/DLS_functional_tests_${runner_print_label}_on_host_${ubuntu_version}_results.txt"
 
           # Add results to summary with emoji replacements
-          sed 's/\[pass\]/:white_check_mark:/g; s/\[\! FAIL \!\]/:x:/g' "$RESULTS_FILE" >> $GITHUB_STEP_SUMMARY
+          sed 's/\[pass\]/:white_check_mark:/g; s/\[\! FAIL \!\]/:x:/g; s/^\[flaky\]/:warning:/' "$RESULTS_FILE" >> $GITHUB_STEP_SUMMARY
 
-          # Check for failures and fail if any
+          # Tests that failed but passed on retry (listed by merge_retry_reports.py)
+          FLAKY_TESTS=$(grep -oP '^\[flaky\] \K\S+' "$RESULTS_FILE" | sort -u | paste -sd' ' - || true)
+          if [ -n "$FLAKY_TESTS" ]; then
+            echo "::warning::Flaky tests (failed, then passed on retry): $FLAKY_TESTS"
+          fi
+
+          # Check for failures (after retries) and fail if any
           FAILED_COUNT=$(grep "^Failed:" "$RESULTS_FILE" | awk '{print $2}')
           if [ "$FAILED_COUNT" -gt 0 ]; then
             echo "::error::$FAILED_COUNT test(s) failed"
