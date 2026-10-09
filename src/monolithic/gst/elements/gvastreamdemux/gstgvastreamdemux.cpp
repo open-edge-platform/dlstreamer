@@ -535,9 +535,12 @@ static GstFlowReturn gst_gva_streamdemux_chain_container(GstGvaStreamdemux *demu
 
         GstPad *srcpad = gva_streamdemux_ref_srcpad(demux, source_id);
         if (G_UNLIKELY(!srcpad)) {
-            GST_ERROR_OBJECT(demux, "No src pad for source_id %u", source_id);
-            ret = GST_FLOW_ERROR;
-            break;
+            /* Skip, like the two checks above do: a batch may legitimately
+             * carry a source this demuxer has no pad for, because the
+             * application only requested the branches it cares about. Failing
+             * the whole buffer would stop every other source as well. */
+            GST_WARNING_OBJECT(demux, "No src pad for source_id %u, skipping that stream", source_id);
+            continue;
         }
 
         GstCaps *stream_caps = gst_analytics_batch_stream_get_caps(stream);
