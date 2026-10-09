@@ -114,7 +114,14 @@ static inline GstClockTime pts_abs_diff(GstClockTime a, GstClockTime b) {
     return (a > b) ? (a - b) : (b - a);
 }
 
+/* Look up a sink pad's muxer-owned data.
+ *
+ * Must be called with mux->lock held, and the result must not be kept across a
+ * release of that lock: release_pad frees the data and clears the pad's
+ * reference to it under the same lock, so a pointer fetched earlier can be
+ * dangling by the time it is dereferenced. */
 static GvaStreammuxPadData *get_pad_data(GstGvaStreammux *mux, GstPad *pad) {
+    (void)mux;
     return (GvaStreammuxPadData *)g_object_get_data(G_OBJECT(pad), "mux-pad-data");
 }
 
@@ -474,6 +481,7 @@ static GstPad *gst_gva_streammux_request_new_pad(GstElement *element, GstPadTemp
     g_queue_init(&pdata->buffer_queue);
     pdata->eos = FALSE;
     pdata->flushing = FALSE;
+    pdata->released = FALSE;
     pdata->first_pts_set = FALSE;
     pdata->first_pts = GST_CLOCK_TIME_NONE;
     pdata->segment_start = GST_CLOCK_TIME_NONE;
@@ -508,9 +516,27 @@ static GstPad *gst_gva_streammux_request_new_pad(GstElement *element, GstPadTemp
 static void gst_gva_streammux_release_pad(GstElement *element, GstPad *pad) {
     GstGvaStreammux *mux = GST_GVA_STREAMMUX(element);
 
+    /* Step 1: tell a chain function parked on this pad's back-pressure to give
+     * up, and wake it. This has to happen before the pad is deactivated:
+     * deactivation waits for the pad's stream lock, which that chain function
+     * holds for as long as it sits on the condition variable, so deactivating
+     * first would leave the two waiting on each other. */
+    g_mutex_lock(&mux->lock);
+    GvaStreammuxPadData *pdata = get_pad_data(mux, pad);
+    if (pdata)
+        pdata->released = TRUE;
+    g_cond_broadcast(&mux->cond);
+    g_mutex_unlock(&mux->lock);
+
+    /* Step 2: stop the streaming thread. Once this returns, no chain or event
+     * function is running on the pad and none can be entered again, so the
+     * data behind it can be torn down without racing against them. */
+    gst_pad_set_active(pad, FALSE);
+
+    /* Step 3: drop the pad's bookkeeping. */
     g_mutex_lock(&mux->lock);
 
-    GvaStreammuxPadData *pdata = get_pad_data(mux, pad);
+    pdata = get_pad_data(mux, pad);
     if (pdata) {
         if (pdata->flushing && mux->flushing_pads_count > 0)
             mux->flushing_pads_count--;
@@ -538,11 +564,13 @@ static void gst_gva_streammux_release_pad(GstElement *element, GstPad *pad) {
      * instead of waiting on a pad that no longer exists. */
     g_cond_broadcast(&mux->cond);
 
-    gst_element_remove_pad(element, pad);
-
     GST_INFO_OBJECT(mux, "Released pad, remaining pads=%u, eos_pads=%u", mux->num_sink_pads, mux->eos_pad_count);
 
     g_mutex_unlock(&mux->lock);
+
+    /* Outside the lock: removing a pad emits signals and takes the element's
+     * own locks, neither of which should run underneath mux->lock. */
+    gst_element_remove_pad(element, pad);
 }
 
 /* State changes */
@@ -743,9 +771,6 @@ static gboolean gst_gva_streammux_sink_event(GstPad *pad, GstObject *parent, Gst
     case GST_EVENT_CAPS: {
         GstCaps *caps = NULL;
         gst_event_parse_caps(event, &caps);
-        GvaStreammuxPadData *pdata = get_pad_data(mux, pad);
-        guint pad_index = pdata ? pdata->pad_index : 0;
-        GST_INFO_OBJECT(mux, "Received caps on pad sink_%u: %" GST_PTR_FORMAT, pad_index, caps);
 
         gboolean need_stream_start = FALSE;
         gboolean need_segment = FALSE;
@@ -754,6 +779,11 @@ static gboolean gst_gva_streammux_sink_event(GstPad *pad, GstObject *parent, Gst
         GstCaps *negotiated_caps = NULL;
 
         g_mutex_lock(&mux->lock);
+        GvaStreammuxPadData *pdata = get_pad_data(mux, pad);
+        /* Copied out because it is still needed for the error messages below,
+         * which are reported after the lock is dropped. */
+        guint pad_index = pdata ? pdata->pad_index : 0;
+        GST_INFO_OBJECT(mux, "Received caps on pad sink_%u: %" GST_PTR_FORMAT, pad_index, caps);
         if (pdata) {
             /* Store this pad's caps (replacing any previous, e.g. on
              * renegotiation). */
@@ -973,20 +1003,22 @@ static gboolean gst_gva_streammux_sink_event(GstPad *pad, GstObject *parent, Gst
 /* Chain function: receives buffers from upstream */
 static GstFlowReturn gst_gva_streammux_chain(GstPad *pad, GstObject *parent, GstBuffer *buf) {
     GstGvaStreammux *mux = GST_GVA_STREAMMUX(parent);
-    GvaStreammuxPadData *pdata = get_pad_data(mux, pad);
 
+    /* Making the buffer writable does not touch the pad data, so it can stay
+     * outside the lock; normalize_buffer_pts reads and writes that data and so
+     * has to move inside it. */
+    if (mux->sync_mode != GVA_STREAMMUX_SYNC_MODE_NONE)
+        buf = gst_buffer_make_writable(buf);
+
+    g_mutex_lock(&mux->lock);
+
+    GvaStreammuxPadData *pdata = get_pad_data(mux, pad);
     if (!pdata) {
+        g_mutex_unlock(&mux->lock);
         GST_ERROR_OBJECT(mux, "No pad data for pad %s", GST_PAD_NAME(pad));
         gst_buffer_unref(buf);
         return GST_FLOW_ERROR;
     }
-
-    if (mux->sync_mode != GVA_STREAMMUX_SYNC_MODE_NONE) {
-        buf = gst_buffer_make_writable(buf);
-        normalize_buffer_pts(mux, pdata, buf);
-    }
-
-    g_mutex_lock(&mux->lock);
 
     if (mux->flushing) {
         g_mutex_unlock(&mux->lock);
@@ -994,12 +1026,26 @@ static GstFlowReturn gst_gva_streammux_chain(GstPad *pad, GstObject *parent, Gst
         return GST_FLOW_FLUSHING;
     }
 
-    /* Back-pressure: block if queue is full */
-    while (g_queue_get_length(&pdata->buffer_queue) >= mux->max_queue_size && !mux->flushing) {
+    if (mux->sync_mode != GVA_STREAMMUX_SYNC_MODE_NONE)
+        normalize_buffer_pts(mux, pdata, buf);
+
+    /* Back-pressure: block if queue is full.
+     *
+     * The lock is dropped while waiting, so the pad data has to be looked up
+     * again on every wake-up: release_pad can free it in the meantime, and
+     * this loop would otherwise go straight back to reading the freed queue. */
+    while (g_queue_get_length(&pdata->buffer_queue) >= mux->max_queue_size && !mux->flushing && !pdata->released) {
         g_cond_wait(&mux->cond, &mux->lock);
+        pdata = get_pad_data(mux, pad);
+        if (!pdata) {
+            g_mutex_unlock(&mux->lock);
+            GST_DEBUG_OBJECT(mux, "Pad %s was released while waiting for queue space", GST_PAD_NAME(pad));
+            gst_buffer_unref(buf);
+            return GST_FLOW_FLUSHING;
+        }
     }
 
-    if (mux->flushing) {
+    if (mux->flushing || pdata->released) {
         g_mutex_unlock(&mux->lock);
         gst_buffer_unref(buf);
         return GST_FLOW_FLUSHING;

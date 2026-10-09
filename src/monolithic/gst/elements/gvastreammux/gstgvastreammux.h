@@ -69,6 +69,10 @@ struct _GvaStreammuxPadData {
     GQueue buffer_queue;
     gboolean eos;
     gboolean flushing;
+    /* Set by release_pad before it deactivates the pad, so a chain function
+     * parked on this pad's back-pressure knows to give up instead of waiting
+     * for room that will never be made. */
+    gboolean released;
 
     /* PTS normalization state (used by sync-mode) */
     gboolean first_pts_set;
