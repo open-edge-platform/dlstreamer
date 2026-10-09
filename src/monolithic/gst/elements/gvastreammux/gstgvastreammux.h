@@ -99,7 +99,6 @@ struct _GstGvaStreammux {
 
     /* Internal state */
     guint num_sink_pads;
-    gboolean started;
     gboolean send_stream_start;
     gboolean flushing;
 
@@ -154,9 +153,6 @@ struct _GstGvaStreammux {
     GstClockTime batch_anchor_pts;
     gint64 batch_start_real_time;
     GstClockTime last_pushed_batch_pts;
-
-    /* Output task */
-    guint eos_pad_count;
 };
 
 struct _GstGvaStreammuxClass {
