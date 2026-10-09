@@ -145,6 +145,10 @@ jobs:
           cp -r dl-streamer-tests-repo/functional_tests $PWD/$DLS_REL_PATH/tests
 
       # ======================================================== BUILDING PART ========================================================
+      - name: Pre-pull BuildKit image
+        if: needs.setup.outputs.should_run == 'true'
+        uses: ./dlstreamer/.github/actions/common/pull-buildkit-image
+
       - name: Set up Docker Buildx
         if: needs.setup.outputs.should_run == 'true'
         uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e #4.3.0
@@ -388,6 +392,7 @@ jobs:
           HOST_TEST_CONFIGS: ${{ env.HOST_TEST_CONFIGS }}
           runner_print_label: ${{ matrix.runner_print_label }}
           ubuntu_version: ${{ matrix.ubuntu_version }}
+          HOST_TESTS_MAX_RETRIES: 2
         run: |
           cd $PWD/$DLS_REL_PATH/tests
           mkdir functional_tests_results
@@ -396,14 +401,48 @@ jobs:
           echo "DLS_TESTS_RESULTS_PATH=$DLS_TESTS_RESULTS_PATH" >> $GITHUB_ENV
           cd ../functional_tests
           source $HOME/.virtualenvs/dlstreamer/bin/activate
-          ./run_tests.sh \
-            --models-path=${{ env.MODELS_PATH }} \
-            --video-examples-path=${{ env.VIDEO_INPUTS_PATH }} \
-            --meta-configs="$HOST_TEST_CONFIGS" \
-            --platform-type="${runner_print_label}" \
-            --results-path="$DLS_TESTS_RESULTS_PATH" \
-            --report-name="DLS_functional_tests_${runner_print_label}_on_host_${ubuntu_version}_results" \
-            --on-host
+          REPORT_NAME="DLS_functional_tests_${runner_print_label}_on_host_${ubuntu_version}_results"
+          run_host_tests() {
+            ./run_tests.sh \
+              --models-path=${{ env.MODELS_PATH }} \
+              --video-examples-path=${{ env.VIDEO_INPUTS_PATH }} \
+              --meta-configs="$HOST_TEST_CONFIGS" \
+              --platform-type="${runner_print_label}" \
+              --results-path="$DLS_TESTS_RESULTS_PATH" \
+              --on-host \
+              "$@"
+          }
+          # Reports: <report>_initial.* - first run, <report>_final.* - first run merged with retries
+          REPORT_BASE="$DLS_TESTS_RESULTS_PATH/$REPORT_NAME"
+          run_host_tests --report-name="${REPORT_NAME}_initial"
+
+          # Re-run only failed tests. Retry outputs land in the same metadata dir (overwriting
+          # the failed attempt), and each retry gets its own report (<report>_retryN.*).
+          LAST_RESULTS_FILE="${REPORT_BASE}_initial.txt"
+          RETRY_XLSX_REPORTS=()
+          for attempt in $(seq 1 "$HOST_TESTS_MAX_RETRIES"); do
+            FAILED_TESTS=$(grep -oP '^\[! FAIL !\] \K\S+' "$LAST_RESULTS_FILE" | sort -u | paste -sd, - || true)
+            [ -z "$FAILED_TESTS" ] && break
+            echo "::warning::Retry $attempt/$HOST_TESTS_MAX_RETRIES of failed host tests: $FAILED_TESTS"
+            RETRY_REPORT_NAME="${REPORT_NAME}_retry${attempt}"
+            if ! run_host_tests --report-name="$RETRY_REPORT_NAME" --only-tests="$FAILED_TESTS" \
+                || [ ! -f "$DLS_TESTS_RESULTS_PATH/$RETRY_REPORT_NAME.xlsx" ]; then
+              echo "::warning::Retry $attempt could not be executed - keeping previous results"
+              break
+            fi
+            LAST_RESULTS_FILE="$DLS_TESTS_RESULTS_PATH/$RETRY_REPORT_NAME.txt"
+            RETRY_XLSX_REPORTS+=("$DLS_TESTS_RESULTS_PATH/$RETRY_REPORT_NAME.xlsx")
+          done
+
+          # Merge retry results into the final report; no retries - final report isn't produced, initial is used as-is
+          if [ "${#RETRY_XLSX_REPORTS[@]}" -gt 0 ]; then
+            if ! python3 ./pipeline_test/regression_test/merge_retry_reports.py \
+                --base "${REPORT_BASE}_initial.xlsx" \
+                --retries "${RETRY_XLSX_REPORTS[@]}" \
+                --output "${REPORT_BASE}_final.xlsx"; then
+              echo "::warning::Merging retry results failed - initial report (first run) will be used instead"
+            fi
+          fi
           deactivate
 
       - name: Upload host test results
@@ -411,7 +450,10 @@ jobs:
         if: always() && needs.setup.outputs.should_run == 'true' && matrix.ubuntu_version != 'ubuntu26'
         with:
           name: DLS_functional_tests_${{ matrix.runner_print_label }}_on_host_${{ matrix.ubuntu_version }}_results
-          path: "${{ env.DLS_TESTS_RESULTS_PATH }}"
+          # Upload *_initial.* (first run) always; *_final.* (merged with retries) only exists when retries happened
+          path: |
+            ${{ env.DLS_TESTS_RESULTS_PATH }}
+            !${{ env.DLS_TESTS_RESULTS_PATH }}/*_retry[0-9]*.*
 
       - name: Check and display host test results
         if: always() && needs.setup.outputs.should_run == 'true' && matrix.ubuntu_version != 'ubuntu26'
@@ -421,12 +463,20 @@ jobs:
           runner_print_label: ${{ matrix.runner_print_label }}
           ubuntu_version: ${{ matrix.ubuntu_version }}
         run: |
-          RESULTS_FILE="${dls_tests_results_path}/DLS_functional_tests_${runner_print_label}_on_host_${ubuntu_version}_results.txt"
+          # Prefer the final (merged) report; without retries only the initial report exists
+          RESULTS_FILE="${dls_tests_results_path}/DLS_functional_tests_${runner_print_label}_on_host_${ubuntu_version}_results_final.txt"
+          [ -f "$RESULTS_FILE" ] || RESULTS_FILE="${dls_tests_results_path}/DLS_functional_tests_${runner_print_label}_on_host_${ubuntu_version}_results_initial.txt"
 
           # Add results to summary with emoji replacements
-          sed 's/\[pass\]/:white_check_mark:/g; s/\[\! FAIL \!\]/:x:/g' "$RESULTS_FILE" >> $GITHUB_STEP_SUMMARY
+          sed 's/\[pass\]/:white_check_mark:/g; s/\[\! FAIL \!\]/:x:/g; s/^\[flaky\]/:warning:/' "$RESULTS_FILE" >> $GITHUB_STEP_SUMMARY
 
-          # Check for failures and fail if any
+          # Tests that failed but passed on retry (listed by merge_retry_reports.py)
+          FLAKY_TESTS=$(grep -oP '^\[flaky\] \K\S+' "$RESULTS_FILE" | sort -u | paste -sd' ' - || true)
+          if [ -n "$FLAKY_TESTS" ]; then
+            echo "::warning::Flaky tests (failed, then passed on retry): $FLAKY_TESTS"
+          fi
+
+          # Check for failures (after retries) and fail if any
           FAILED_COUNT=$(grep "^Failed:" "$RESULTS_FILE" | awk '{print $2}')
           if [ "$FAILED_COUNT" -gt 0 ]; then
             echo "::error::$FAILED_COUNT test(s) failed"
@@ -443,7 +493,9 @@ jobs:
           dls_commit: ${{ github.sha }}
           test_repo_branch: ${{ inputs.test-repo-branch }}
         run: |
-          RESULTS_FILE="${dls_tests_results_path}/DLS_functional_tests_${runner_print_label}_on_host_${ubuntu_version}_results.txt"
+          # Prefer the final (merged) report; without retries only the initial report exists
+          RESULTS_FILE="${dls_tests_results_path}/DLS_functional_tests_${runner_print_label}_on_host_${ubuntu_version}_results_final.txt"
+          [ -f "$RESULTS_FILE" ] || RESULTS_FILE="${dls_tests_results_path}/DLS_functional_tests_${runner_print_label}_on_host_${ubuntu_version}_results_initial.txt"
           if [ ! -f "$RESULTS_FILE" ]; then
             echo "No results file at $RESULTS_FILE, skipping diff report generation."
             exit 0
