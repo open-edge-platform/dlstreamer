@@ -146,6 +146,7 @@ class DeepSortTracker : public ITracker {
     // Deep SORT algorithm components
     std::vector<std::unique_ptr<Track>> tracks_;
     int next_id_;
+    int frame_num_ = 0;
 
     // Re-ID gallery: deleted tracks saved for re-identification
     std::vector<GalleryEntry> reid_gallery_;

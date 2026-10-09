@@ -323,7 +323,6 @@ void DeepSortTracker::track(dlstreamer::FramePtr buffer, GVA::VideoFrame &frame_
     if (!buffer) {
         throw std::invalid_argument("DeepSortTracker: buffer is nullptr");
     }
-    static int frame_num_ = 0;
     frame_num_++;
 
     // Expire old re-ID gallery entries
