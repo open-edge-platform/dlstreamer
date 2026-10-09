@@ -494,6 +494,11 @@ std::vector<Detection> DeepSortTracker::convert_detections(const std::vector<GVA
             std::string tensor_name = tensor.name();
             std::string layer_name = tensor.layer_name();
 
+            if (tensor.type() == GVA::GST_ANALYTICS_TENSOR_2_TENSOR && tensor.has_field("tensor_name")) {
+                layer_name = tensor.get_string("tensor_name");
+                tensor_name = "inference_layer_name:" + layer_name;
+            }
+
             // Match feature tensor by layer name
             if (((layer_name.find("output") != std::string::npos &&
                   tensor_name.find("inference_layer_name:output") != std::string::npos)) ||
