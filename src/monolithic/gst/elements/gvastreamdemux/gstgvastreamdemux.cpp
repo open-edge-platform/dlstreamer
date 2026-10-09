@@ -54,6 +54,7 @@ static gboolean gst_gva_streamdemux_sink_event(GstPad *pad, GstObject *parent, G
 static gboolean gst_gva_streamdemux_sink_query(GstPad *pad, GstObject *parent, GstQuery *query);
 static void gva_streamdemux_ensure_src_started(GstGvaStreamdemux *demux, GstPad *srcpad, guint index,
                                                GstCaps *stream_caps);
+static void gva_streamdemux_reset_output_times(GstGvaStreamdemux *demux);
 
 G_DEFINE_TYPE(GstGvaStreamdemux, gst_gva_streamdemux, GST_TYPE_ELEMENT);
 
@@ -99,10 +100,11 @@ static void gst_gva_streamdemux_init(GstGvaStreamdemux *demux) {
     demux->num_src_pads = 0;
     demux->validated = FALSE;
     demux->container_mode = FALSE;
-    demux->last_output_time = GST_CLOCK_TIME_NONE;
+    demux->last_batch_output_time = GST_CLOCK_TIME_NONE;
     demux->max_fps_duration = GST_CLOCK_TIME_NONE;
 
     demux->srcpads = g_ptr_array_new();
+    demux->last_output_times = g_array_new(FALSE, FALSE, sizeof(GstClockTime));
     demux->flow_combiner = gst_flow_combiner_new();
 
     g_mutex_init(&demux->lock);
@@ -120,6 +122,7 @@ static void gst_gva_streamdemux_finalize(GObject *object) {
 
     g_mutex_clear(&demux->lock);
     g_ptr_array_free(demux->srcpads, TRUE);
+    g_array_free(demux->last_output_times, TRUE);
     gst_flow_combiner_free(demux->flow_combiner);
 
     G_OBJECT_CLASS(gst_gva_streamdemux_parent_class)->finalize(object);
@@ -239,13 +242,13 @@ static GstStateChangeReturn gst_gva_streamdemux_change_state(GstElement *element
     case GST_STATE_CHANGE_READY_TO_PAUSED:
         demux->validated = FALSE;
         demux->container_mode = FALSE;
-        demux->last_output_time = GST_CLOCK_TIME_NONE;
         /* Nothing to clear for the "already started" state: deactivating the
          * pads dropped their sticky events, which is what that state is read
          * from. The flow returns left over from the previous run do have to go,
          * or a branch that ended NOT_LINKED stays NOT_LINKED forever. */
         g_mutex_lock(&demux->lock);
         gst_flow_combiner_reset(demux->flow_combiner);
+        gva_streamdemux_reset_output_times(demux);
         g_mutex_unlock(&demux->lock);
         break;
     default:
@@ -257,8 +260,32 @@ static GstStateChangeReturn gst_gva_streamdemux_change_state(GstElement *element
     return ret;
 }
 
-/* Apply max-fps throttling */
-static void gst_gva_streamdemux_apply_fps_throttle(GstGvaStreamdemux *demux) {
+/* Forget every source's last output time, so the next buffer after a restart
+ * or a flush is not throttled against a timestamp from the previous run.
+ * Must be called with demux->lock held. */
+static void gva_streamdemux_reset_output_times(GstGvaStreamdemux *demux) {
+    demux->last_batch_output_time = GST_CLOCK_TIME_NONE;
+    for (guint i = 0; i < demux->last_output_times->len; i++)
+        g_array_index(demux->last_output_times, GstClockTime, i) = GST_CLOCK_TIME_NONE;
+}
+
+/* The slot holding the last output time a given push is throttled against.
+ * source_id < 0 selects the whole-batch slot used by CONTAINER mode.
+ * Must be called with demux->lock held; the pointer is only valid under it. */
+static GstClockTime *gva_streamdemux_output_time_slot(GstGvaStreamdemux *demux, gint source_id) {
+    if (source_id < 0)
+        return &demux->last_batch_output_time;
+
+    guint index = (guint)source_id;
+    while (demux->last_output_times->len <= index) {
+        GstClockTime unset = GST_CLOCK_TIME_NONE;
+        g_array_append_val(demux->last_output_times, unset);
+    }
+    return &g_array_index(demux->last_output_times, GstClockTime, index);
+}
+
+/* Hold this push back until max-fps allows it. */
+static void gst_gva_streamdemux_apply_fps_throttle(GstGvaStreamdemux *demux, gint source_id) {
     if (!GST_CLOCK_TIME_IS_VALID(demux->max_fps_duration))
         return;
 
@@ -269,22 +296,28 @@ static void gst_gva_streamdemux_apply_fps_throttle(GstGvaStreamdemux *demux) {
     GstClockTime now = gst_clock_get_time(clock);
     gst_object_unref(clock);
 
-    if (GST_CLOCK_TIME_IS_VALID(demux->last_output_time)) {
-        GstClockTime elapsed = now - demux->last_output_time;
-        if (elapsed < demux->max_fps_duration) {
-            GstClockTime wait = demux->max_fps_duration - elapsed;
-            GST_LOG_OBJECT(demux, "FPS throttle: waiting %" GST_TIME_FORMAT, GST_TIME_ARGS(wait));
-            g_usleep(GST_TIME_AS_USECONDS(wait));
-        }
+    g_mutex_lock(&demux->lock);
+    GstClockTime last = *gva_streamdemux_output_time_slot(demux, source_id);
+    g_mutex_unlock(&demux->lock);
+
+    if (GST_CLOCK_TIME_IS_VALID(last) && now - last < demux->max_fps_duration) {
+        GstClockTime wait = demux->max_fps_duration - (now - last);
+        GST_LOG_OBJECT(demux, "FPS throttle on source %d: waiting %" GST_TIME_FORMAT, source_id, GST_TIME_ARGS(wait));
+        g_usleep(GST_TIME_AS_USECONDS(wait));
     }
 }
 
-static void gst_gva_streamdemux_update_output_time(GstGvaStreamdemux *demux) {
+static void gst_gva_streamdemux_update_output_time(GstGvaStreamdemux *demux, gint source_id) {
     GstClock *clock = gst_element_get_clock(GST_ELEMENT(demux));
-    if (clock) {
-        demux->last_output_time = gst_clock_get_time(clock);
-        gst_object_unref(clock);
-    }
+    if (!clock)
+        return;
+
+    GstClockTime now = gst_clock_get_time(clock);
+    gst_object_unref(clock);
+
+    g_mutex_lock(&demux->lock);
+    *gva_streamdemux_output_time_slot(demux, source_id) = now;
+    g_mutex_unlock(&demux->lock);
 }
 
 /* Take a reference to the src pad serving a source, or NULL if there is none.
@@ -390,7 +423,7 @@ static gboolean gst_gva_streamdemux_sink_event(GstPad *pad, GstObject *parent, G
         gboolean ret = gst_pad_event_default(pad, parent, event);
         g_mutex_lock(&demux->lock);
         gst_flow_combiner_reset(demux->flow_combiner);
-        demux->last_output_time = GST_CLOCK_TIME_NONE;
+        gva_streamdemux_reset_output_times(demux);
         g_mutex_unlock(&demux->lock);
         return ret;
     }
@@ -593,7 +626,7 @@ static GstFlowReturn gst_gva_streamdemux_chain_container(GstGvaStreamdemux *demu
                                                          GstAnalyticsBatchMeta *meta) {
     GstFlowReturn ret = GST_FLOW_OK;
 
-    gst_gva_streamdemux_apply_fps_throttle(demux);
+    gst_gva_streamdemux_apply_fps_throttle(demux, -1);
 
     for (gsize i = 0; i < meta->n_streams; i++) {
         GstAnalyticsBatchStream *stream = &meta->streams[i];
@@ -645,7 +678,7 @@ static GstFlowReturn gst_gva_streamdemux_chain_container(GstGvaStreamdemux *demu
         gst_object_unref(srcpad);
     }
 
-    gst_gva_streamdemux_update_output_time(demux);
+    gst_gva_streamdemux_update_output_time(demux, -1);
     gst_buffer_unref(buf);
     return ret;
 }
@@ -703,15 +736,15 @@ static GstFlowReturn gst_gva_streamdemux_chain(GstPad *pad, GstObject *parent, G
     if (sink_caps)
         gst_caps_unref(sink_caps);
 
-    /* Apply FPS throttling (global across all src pads) */
-    gst_gva_streamdemux_apply_fps_throttle(demux);
+    /* Apply FPS throttling for this source */
+    gst_gva_streamdemux_apply_fps_throttle(demux, (gint)source_id);
 
     GST_LOG_OBJECT(demux, "Routing buffer to src_%u (pts=%" GST_TIME_FORMAT ")", source_id,
                    GST_TIME_ARGS(GST_BUFFER_PTS(buf)));
 
     GstFlowReturn ret = gst_pad_push(srcpad, buf);
 
-    gst_gva_streamdemux_update_output_time(demux);
+    gst_gva_streamdemux_update_output_time(demux, (gint)source_id);
 
     if (ret != GST_FLOW_OK && ret != GST_FLOW_FLUSHING) {
         GST_DEBUG_OBJECT(demux, "Push to src_%u returned %s", source_id, gst_flow_get_name(ret));

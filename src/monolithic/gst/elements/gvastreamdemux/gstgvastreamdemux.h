@@ -61,8 +61,15 @@ struct _GstGvaStreamdemux {
      * not stop the other ones. Not MT-safe; only touch it with lock held. */
     GstFlowCombiner *flow_combiner;
 
-    /* FPS control */
-    GstClockTime last_output_time;
+    /* FPS control.
+     *
+     * PASSTHROUGH carries one source per buffer, so each source is throttled
+     * against its own last output time, indexed by source id -- a single
+     * shared time would divide max-fps between the sources instead of
+     * applying it to each. CONTAINER carries every source in one buffer, so
+     * one time covers the whole batch and therefore every source in it. */
+    GArray *last_output_times;
+    GstClockTime last_batch_output_time;
     GstClockTime max_fps_duration;
 };
 
