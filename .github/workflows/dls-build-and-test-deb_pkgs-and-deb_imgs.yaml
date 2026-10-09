@@ -353,6 +353,7 @@ jobs:
           echo "Selected test configuration file: $HOST_TEST_CONFIGS" >> $GITHUB_STEP_SUMMARY
 
       - name: Ensure uv is installed
+        if: always() && needs.setup.outputs.should_run == 'true'
         run: |
           # Check if uv is installed, if not install it
           if ! command -v uv >/dev/null 2>&1; then
