@@ -1225,8 +1225,17 @@ static gboolean gst_gva_streammux_src_query(GstPad *pad, GstObject *parent, GstQ
         GstCaps *filter;
         gst_query_parse_caps(query, &filter);
         GstCaps *caps = gst_pad_get_pad_template_caps(pad);
-        if (mux->current_caps) {
-            GstCaps *result = gst_caps_intersect(caps, mux->current_caps);
+
+        /* This query arrives on whatever thread downstream happens to use,
+         * while a flush or a state change can be dropping the last reference
+         * to current_caps. Take a reference under the lock and work on that. */
+        g_mutex_lock(&mux->lock);
+        GstCaps *negotiated = mux->current_caps ? gst_caps_ref(mux->current_caps) : NULL;
+        g_mutex_unlock(&mux->lock);
+
+        if (negotiated) {
+            GstCaps *result = gst_caps_intersect(caps, negotiated);
+            gst_caps_unref(negotiated);
             gst_caps_unref(caps);
             caps = result;
         }
