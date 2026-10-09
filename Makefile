@@ -28,6 +28,12 @@ ifeq ($(GENAI_DIR_SET), true)
 endif
 endif
 
+GCC_MAJOR_VERSION := $(shell gcc -dumpversion 2>/dev/null | cut -d. -f1)
+EXTRA_CXX_FLAGS :=
+ifeq ($(shell [ "$(GCC_MAJOR_VERSION)" -ge 15 ] 2>/dev/null && echo yes),yes)
+	EXTRA_CXX_FLAGS := -Wno-free-nonheap-object
+endif
+
 export PATH 					:= ${PROJECT_DIRECTORY}/${DEPENDENCY_DIR}/install/bin:${PROJECT_DIRECTORY}/build/intel64/${BUILD_TYPE}/bin:${HOME}/.local/bin:${HOME}/python3venv/bin:${PATH}
 export GST_PLUGIN_PATH 			:= ${PROJECT_DIRECTORY}/${DEPENDENCY_DIR}/gstreamer-bin/lib/gstreamer-1.0:${PROJECT_DIRECTORY}/build/intel64/${BUILD_TYPE}/lib
 export LIBRARY_PATH 			:= ${PROJECT_DIRECTORY}/${DEPENDENCY_DIR}/install/lib:${PROJECT_DIRECTORY}/${DEPENDENCY_DIR}/gstreamer-bin/lib:${PROJECT_DIRECTORY}/${DEPENDENCY_DIR}/opencv-bin/lib:${PROJECT_DIRECTORY}/${DEPENDENCY_DIR}/rdkafka-bin/lib:${PROJECT_DIRECTORY}/build/intel64/${BUILD_TYPE}/lib:/usr/lib
@@ -60,7 +66,7 @@ build: dependencies ## Compile Deep Learning Streamer
 		-DCMAKE_PREFIX_PATH:PATH="${PROJECT_DIRECTORY}/${DEPENDENCY_DIR}/install;${PROJECT_DIRECTORY}/${DEPENDENCY_DIR}/opencv-bin;${PROJECT_DIRECTORY}/${DEPENDENCY_DIR}/rdkafka-bin" \
 		-DCMAKE_INCLUDE_PATH:PATH=${PROJECT_DIRECTORY}/${DEPENDENCY_DIR}/install/include:${PROJECT_DIRECTORY}/${DEPENDENCY_DIR}/rdkafka-bin/include \
 		-DCMAKE_LIBRARY_PATH:PATH=${PROJECT_DIRECTORY}/${DEPENDENCY_DIR}/install/lib \
-		-DCMAKE_CXX_FLAGS="-I${PROJECT_DIRECTORY}/${DEPENDENCY_DIR}/rdkafka-bin/include" \
+		-DCMAKE_CXX_FLAGS="-I${PROJECT_DIRECTORY}/${DEPENDENCY_DIR}/rdkafka-bin/include ${EXTRA_CXX_FLAGS}" \
 		-DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
 		-DENABLE_PAHO_INSTALLATION=ON \
 		-DENABLE_RDKAFKA_INSTALLATION=ON \
@@ -142,6 +148,25 @@ deb22: ## Build the Deep Learning Streamer DEB package for Ubuntu 22.04
 	docker cp deb-builder:/intel-dlstreamer_${DLSTREAMER_VERSION}.1_amd64.deb ./build/packages/deb
 	docker rm deb-builder
 
+.PHONY: deb26
+deb26: ## Build the Deep Learning Streamer DEB package for Ubuntu 26.04
+	mkdir -p build/packages/deb
+	docker build . \
+		-f docker/ubuntu/ubuntu26.Dockerfile \
+		-t deb-builder \
+		--target deb-builder \
+		--build-arg http_proxy=${http_proxy} \
+		--build-arg https_proxy=${https_proxy} \
+		--build-arg DLSTREAMER_VERSION=${DLSTREAMER_VERSION} \
+		--build-arg DLSTREAMER_BUILD_NUMBER=1 \
+		--build-arg DEV_MODE=true \
+		--build-arg DOCKER_PRIVATE_REGISTRY=${DOCKER_PRIVATE_REGISTRY}
+	docker create \
+		--name deb-builder \
+		deb-builder
+	docker cp deb-builder:/intel-dlstreamer_${DLSTREAMER_VERSION}.1_amd64.deb ./build/packages/deb
+	docker rm deb-builder
+
 .PHONY: rpm
 rpm: ## Build the Deep Learning Streamer RPM package
 	mkdir -p build/packages/rpm
@@ -178,6 +203,19 @@ image: ## Build the Deep Learning Streamer docker image based on Ubuntu 24.04
 image22: ## Build the Deep Learning Streamer docker image based on Ubuntu 22.04
 	docker build . \
 		-f docker/ubuntu/ubuntu22.Dockerfile \
+		-t dlstreamer:dev \
+		--target dlstreamer \
+		--build-arg http_proxy=${http_proxy} \
+		--build-arg https_proxy=${https_proxy} \
+		--build-arg DLSTREAMER_VERSION=${DLSTREAMER_VERSION} \
+		--build-arg DLSTREAMER_BUILD_NUMBER=1 \
+		--build-arg DEV_MODE=true \
+		--build-arg DOCKER_PRIVATE_REGISTRY=${DOCKER_PRIVATE_REGISTRY}
+
+.PHONY: image26
+image26: ## Build the Deep Learning Streamer docker image based on Ubuntu 26.04
+	docker build . \
+		-f docker/ubuntu/ubuntu26.Dockerfile \
 		-t dlstreamer:dev \
 		--target dlstreamer \
 		--build-arg http_proxy=${http_proxy} \

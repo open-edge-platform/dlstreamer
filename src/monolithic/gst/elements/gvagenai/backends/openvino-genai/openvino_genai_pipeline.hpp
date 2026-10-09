@@ -33,7 +33,6 @@ class OpenVINOGenAIContext {
     OpenVINOGenAIContext(const std::string &model_path, const std::string &device,
                          const std::string &cache_path = "ov_cache", const std::string &generation_config_str = "",
                          const std::string &scheduler_config_str = "", const std::string &pipeline_config_str = "");
-    ~OpenVINOGenAIContext();
 
     /**
      * @brief Run inference on a set of RGB frame tensors

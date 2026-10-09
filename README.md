@@ -1,3 +1,6 @@
+> [!NOTE]
+> The `main` branch is under active development and may be unstable. For production use, please pick a stable version from the [Releases](https://github.com/open-edge-platform/dlstreamer/releases) page.
+
 <div align="center">
 
 # Deep Learning Streamer (DL Streamer)

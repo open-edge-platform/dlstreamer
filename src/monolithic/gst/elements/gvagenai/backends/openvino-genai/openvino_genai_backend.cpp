@@ -32,6 +32,8 @@ std::future<GenAIResult> OpenVINOGenAIBackend::submit(GenRequest req) {
 
     // Synchronous backend: compute now and return an already-satisfied future.
     try {
+        std::lock_guard<std::mutex> lock(inference_mutex_);
+
         if (req.frames.empty()) {
             throw std::runtime_error("Cannot run inference with no accumulated frames");
         }
@@ -54,6 +56,7 @@ std::future<GenAIResult> OpenVINOGenAIBackend::submit(GenRequest req) {
 }
 
 void OpenVINOGenAIBackend::set_generation_config(const std::string &cfg) {
+    std::lock_guard<std::mutex> lock(inference_mutex_);
     context_->set_generation_config(cfg);
 }
 

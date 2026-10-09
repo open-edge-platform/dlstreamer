@@ -7,7 +7,6 @@
 #include "gstgvastreammux.h"
 #include <gst/analytics/gstanalyticsbatchmeta.h>
 
-#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 
@@ -419,10 +418,13 @@ static GstPad *gst_gva_streammux_request_new_pad(GstElement *element, GstPadTemp
     GstPad *sinkpad;
     gchar *name;
     guint pad_index;
+    guint64 parsed_index = 0;
 
     g_mutex_lock(&mux->lock);
 
-    if (req_name && sscanf(req_name, "sink_%u", &pad_index) == 1) {
+    if (req_name && g_str_has_prefix(req_name, "sink_") &&
+        g_ascii_string_to_unsigned(req_name + strlen("sink_"), 10, 0, G_MAXUINT, &parsed_index, NULL)) {
+        pad_index = (guint)parsed_index;
         name = g_strdup(req_name);
     } else {
         pad_index = mux->num_sink_pads;

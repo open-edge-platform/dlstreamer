@@ -40,6 +40,7 @@ Key operations:
 | trigger-obj-classes | String | Comma-separated object class names from upstream `GstAnalyticsODMtd` detection metadata that force matching frames to be sent to the VLM. Empty/unset disables detection-based selection. See [Frame Selection](#frame-selection). | null |
 | trigger-mode | Enum | How `trigger-obj-classes` are combined: `any` triggers when at least one listed class is detected; `all` requires every listed class in the same frame. | any |
 | model-cache-path | String | Directory for caching compiled models (GPU/NPU only). Used by the `openvino-genai` backend only. | ov_cache |
+| model-instance-id | String | Identifier for sharing a loaded model instance with other `gvagenai` elements, instead of loading a separate copy. Used by the `openvino-genai` backend only. See [Model Sharing](#model-sharing). | null |
 | metrics | Boolean | Include performance metrics in the JSON output. | false |
 | http-server-url | String | Base URL of the OpenAI-compatible server (e.g. `http://localhost:8000/v1`). Required for the `openai-http` backend. | null |
 | http-api-key | String | Optional Bearer token / API key for the HTTP server. `openai-http` backend only. | null |
@@ -65,6 +66,28 @@ The diagram below shows the high-level architecture (HLD) of how a chunk of fram
 from `gvagenai` through the `openai-http` backend to the remote server:
 
 ![openai-http backend architecture diagram](http-backend-diagram.png)
+
+### Model Sharing
+
+By default (`model-instance-id` unset), each `gvagenai` element loads its own isolated
+model instance. Set the same non-empty `model-instance-id` string on multiple `gvagenai`
+elements (using the `openvino-genai` backend) in the same process — the same convention
+used by `gvadetect`/`gvaclassify` — to make them share one loaded model instance instead of
+each loading a redundant copy. This avoids duplicating model weights (which can be several
+GB) when multiple streams (e.g. branches after a `tee`) use the same model.
+
+Elements sharing a `model-instance-id` are expected to use matching `model-path`, `device`,
+`model-cache-path`, `scheduler-config`, and `pipeline-config` — the value is used verbatim
+as the cache key, so mismatched configuration under the same id is not detected and results
+in whichever element built the instance first silently determining its behavior for all
+sharers. `prompt` and `prompt-path` remain independent per element even when the underlying
+model is shared. Inference calls on a shared instance are serialized across the elements
+using it, so throughput per stream can drop under heavy multi-stream load — a trade-off for
+lower memory usage.
+
+This property is ignored by the `openai-http` backend, which is already stateless per
+element; to share a model across separate **processes**, point multiple `openai-http`
+elements at the same server (e.g. OVMS, vLLM) via `http-server-url` instead.
 
 ### Generation Config
 
@@ -409,7 +432,20 @@ Element Properties:
   device              : Device to use (CPU, GPU, NPU, etc.)
                         flags: readable, writable
                         String. Default: "CPU"
-  frame-rate          : Number of frames sampled per second for inference (0 = process all frames)
+  frame-rate          : Target frame-sampling rate in frames/s (approximate; 0 = process all frames)
+                        (approximate; sampling uses a whole-number
+                        input-frame interval, so the actual rate
+                        is usually slightly lower).
+                        Example with a 30 fps input:
+                        10 - sample every 3rd input frame (10 sampled frames/s);
+                        2 - sample every 15th input frame (2 sampled frames/s);
+                        1 - sample every 30th input frame (1 sampled frame/s);
+                        0.5 - sample every 60th input frame (1 sampled frame every 2 s);
+                        0.1 - sample every 300th input frame (1 sampled frame every 10 s);
+                        0 - process every input frame (30 sampled frames/s).
+                        Higher values result in more frequent inference
+                        and higher computational cost;
+                        Lower values mean less frequent, cheaper sampling.
                         flags: readable, writable
                         Double. Range:               0 -   1.797693e+308 Default:               0
   generation-config   : Generation configuration as KEY=VALUE,KEY=VALUE format
@@ -430,6 +466,9 @@ Element Properties:
   model-cache-path    : Path for caching compiled models (GPU/NPU only)
                         flags: readable, writable
                         String. Default: "ov_cache"
+  model-instance-id   : Identifier for sharing a loaded model instance between gvagenai elements of the same type. Elements with the same model-instance-id will share the model and inference engine (avoiding redundant model loads); leave unset (default) for an isolated, unshared instance. Ignored by the 'openai-http' backend.
+                        flags: readable, writable
+                        String. Default: null
   model-path          : Path to the local GenAI model ('openvino-genai' backend), or the model name to request from the server ('openai-http' backend)
                         flags: readable, writable
                         String. Default: null

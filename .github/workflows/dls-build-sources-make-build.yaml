@@ -1,12 +1,12 @@
-name: "[DLS] [U22/24] Build from sources using make build"
-run-name: "[DLS] [U22/24] Build from sources using make build (by ${{ github.actor }})"
+name: "[DLS] [U24] Build from sources using make build"
+run-name: "[DLS] [U24] Build from sources using make build (by ${{ github.actor }})"
 on:
   workflow_call:
   workflow_dispatch:
 
 permissions: {}
 env:
-  dlstreamer-version: "2026.2.0"
+  dlstreamer-version: "2026.3.0"
   DLS_REL_PATH: "./dlstreamer-repo"
 
 jobs:
@@ -40,10 +40,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-22.04
-            runner: ubuntu-22.04
           - os: ubuntu-24.04
             runner: dlstreamer
+          - os: ubuntu-26.04
+            runner: ubuntu-26.04
     steps:
       - name: Skip or execute based on configuration
         if: needs.setup.outputs.should_run == 'false'
@@ -81,20 +81,7 @@ jobs:
         if: needs.setup.outputs.should_run == 'true'
         run: |
           echo "Installing build dependencies for ${{ matrix.os }}"
-          if [[ ${{ matrix.os }} == "ubuntu-22.04" ]]; then
-            echo "Executing Ubuntu 22.04 specific setup..."
-            sudo apt-get update && \
-            sudo apt-get install -y wget vainfo xz-utils python3-pip python3-gi gcc-multilib libglib2.0-dev \
-                flex bison autoconf automake libtool libogg-dev make g++ libva-dev yasm libglx-dev libdrm-dev \
-                python-gi-dev python3-dev unzip libgflags-dev \
-                libgirepository1.0-dev libx265-dev libx264-dev libde265-dev gudev-1.0 libusb-1.0 nasm python3-venv \
-                libcairo2-dev libxt-dev libgirepository1.0-dev libgles2-mesa-dev wayland-protocols libcurl4-openssl-dev \
-                libssh2-1-dev cmake git valgrind numactl libvpx-dev libopus-dev libsrtp2-dev libxv-dev \
-                linux-libc-dev libpmix2 libhwloc15 libhwloc-plugins libxcb1-dev libx11-xcb-dev \
-                ffmpeg libpaho-mqtt-dev libpostproc-dev libavfilter-dev libavdevice-dev \
-                libswscale-dev libswresample-dev libavutil-dev libavformat-dev libavcodec-dev libtbb12 libxml2-dev ocl-icd-opencl-dev \
-                opencl-headers
-          elif [[ ${{ matrix.os }} == "ubuntu-24.04" ]]; then
+          if [[ ${{ matrix.os }} == "ubuntu-24.04" ]]; then
             echo "Executing Ubuntu 24.04 specific setup..."
             sudo apt-get update && \
             sudo apt-get install -y wget vainfo xz-utils python3-pip python3-gi gcc-multilib libglib2.0-dev \
@@ -107,6 +94,19 @@ jobs:
                 ffmpeg libpaho-mqtt-dev libopencv-dev libpostproc-dev libavfilter-dev libavdevice-dev \
                 libswscale-dev libswresample-dev libavutil-dev libavformat-dev libavcodec-dev libtbb12 libxml2-dev \
                 ocl-icd-opencl-dev
+          elif [[ ${{ matrix.os }} == "ubuntu-26.04" ]]; then
+            echo "Executing Ubuntu 26.04 specific setup..."
+            sudo apt-get update && \
+            sudo apt-get install -y wget vainfo xz-utils python3-pip python3-gi gcc-multilib libglib2.0-dev \
+                flex bison autoconf automake libtool libogg-dev make g++ libva-dev yasm libglx-dev libdrm-dev \
+                python-gi-dev python3-dev unzip libgflags-dev libcurl4-openssl-dev gobject-introspection \
+                libgirepository1.0-dev libx265-dev libx264-dev libde265-dev libgudev-1.0-dev libusb-1.0 nasm python3-venv \
+                libcairo2-dev libxt-dev libgirepository1.0-dev libgles2-mesa-dev wayland-protocols \
+                libssh2-1-dev cmake git valgrind numactl libvpx-dev libopus-dev libsrtp2-dev libxv-dev \
+                linux-libc-dev libpmix2t64 libhwloc15 libhwloc-plugins libxcb1-dev libx11-xcb-dev \
+                ffmpeg libpaho-mqtt-dev libavfilter-dev libavdevice-dev \
+                libswscale-dev libswresample-dev libavutil-dev libavformat-dev libavcodec-dev libtbb12 libxml2-dev \
+                libsoup-3.0-0 ocl-icd-opencl-dev
           else
             echo "Unknown Ubuntu version: ${{ matrix.os }}"
             exit 1
@@ -134,22 +134,29 @@ jobs:
           sudo ./scripts/install_dependencies/install_openvino.sh
           echo " "
           echo "Installing OpenVINO dependencies..."
-          sudo -E /opt/intel/openvino_2026/install_dependencies/install_openvino_dependencies.sh
+          if [[ ${{ matrix.os }} == "ubuntu-26.04" ]]; then
+            # The script bundled with 2026.3.1 lacks Ubuntu 26.04 support
+            wget -O /tmp/install_openvino_dependencies.sh https://raw.githubusercontent.com/openvinotoolkit/openvino/2026.4.0/scripts/install_dependencies/install_openvino_dependencies.sh
+            sudo bash /tmp/install_openvino_dependencies.sh -y
+          else
+            sudo -E /opt/intel/openvino_2026/install_dependencies/install_openvino_dependencies.sh
+          fi
 
       - name: Install OpenVINO GenAI
         if: needs.setup.outputs.should_run == 'true'
         run: |
           cd ${{ env.DLS_REL_PATH }}
           echo "Installing OpenVINO GenAI for ${{ matrix.os }}..."
-          if [[ ${{ matrix.os }} == "ubuntu-22.04" ]]; then
-            echo "Executing Ubuntu 22.04 specific setup..."
-            wget -O- https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/2026.3.1/linux/openvino_genai_ubuntu22_2026.3.1.0_x86_64.tar.gz | tar -xz
-            sudo mv openvino_genai_ubuntu22_2026.3.1.0_x86_64 /opt/intel/openvino_genai
-            source /opt/intel/openvino_genai/setupvars.sh
-          elif [[ ${{ matrix.os }} == "ubuntu-24.04" ]]; then
+          sudo rm -rf /opt/intel/openvino_genai
+          if [[ ${{ matrix.os }} == "ubuntu-24.04" ]]; then
             echo "Executing Ubuntu 24.04 specific setup..."
             wget -O- https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/2026.3.1/linux/openvino_genai_ubuntu24_2026.3.1.0_x86_64.tar.gz | tar -xz
             sudo mv openvino_genai_ubuntu24_2026.3.1.0_x86_64 /opt/intel/openvino_genai
+            source /opt/intel/openvino_genai/setupvars.sh
+          elif [[ ${{ matrix.os }} == "ubuntu-26.04" ]]; then
+            echo "Executing Ubuntu 26.04 specific setup..."
+            wget -O- https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/2026.3.1/linux/openvino_genai_ubuntu26_2026.3.1.0_x86_64.tar.gz | tar -xz
+            sudo mv openvino_genai_ubuntu26_2026.3.1.0_x86_64 /opt/intel/openvino_genai
             source /opt/intel/openvino_genai/setupvars.sh
           else
             echo "Unknown Ubuntu version: ${{ matrix.os }}"
@@ -184,7 +191,12 @@ jobs:
 
           cd ${{ env.DLS_REL_PATH }}
           echo "Installing DL Streamer..."
-          sudo -E make install
+          if [[ ${{ matrix.os }} == "ubuntu-26.04" ]]; then
+            # sudo-rs (default on Ubuntu 26.04) ignores -E, so we explicitly preserve the necessary environment variables
+            sudo --preserve-env=PATH,LD_LIBRARY_PATH,PKG_CONFIG_PATH,CPLUS_INCLUDE_PATH,C_INCLUDE_PATH,CMAKE_PREFIX_PATH,OpenVINO_DIR,OpenVINOGenAI_DIR,InferenceEngine_DIR,ngraph_DIR,TBB_DIR,TBBROOT,PYTHONPATH make install
+          else
+            sudo -E make install
+          fi
 
       - name: 🔍 Verify DL Streamer installation
         if: needs.setup.outputs.should_run == 'true'

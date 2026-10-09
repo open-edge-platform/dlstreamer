@@ -9,6 +9,7 @@ It shows how to:
 - Run inference inside a DL Streamer pipeline
 - Generate structured JSON alerts per processed frame, including a confidence score
 - Produce MP4 output with the inference result overlaid on each frame
+- Run a single video stream (default) or four streams grouped into two model-sharing groups
 
 ## Use Case: Alert-Based Monitoring
 
@@ -43,56 +44,108 @@ Similarly to model, provide either:
 - `--video-path` for a local file
 - `--video-url` to download automatically
 
-Downloaded videos are cached under `videos/`. 
+Both flags are repeatable; extra inputs are only used by the four-stream scenario
+(**`--stream-groups`**). Downloaded videos are cached under **`videos/`**.
 
 ## Pipeline Architecture
 
-The pipeline is built dynamically in Python using `Gst.parse_launch`.
+The pipeline is built dynamically in Python using **`Gst.parse_launch`**. Two scenarios
+are supported.
+
+### Scenario 1 (default): single stream
+
+One independent source, decoder, inference element, JSONL file, and MP4 file. Each
+**`gvagenai`** loads its own isolated model instance.
 
 ```mermaid
 graph LR
-    A[filesrc] --> B[decodebin3]
-    B --> C[videoconvertscale]
-    C --> D[gvagenai]
-    D --> E[gvametapublish]
-    E --> F[gvafpscounter]
-    F --> G[gvawatermark]
-    G --> H["encode (vah264enc + h264parse + mp4mux)"]
-    H --> I[filesink]
+    subgraph single[Single stream: isolated model instance]
+        A[video] --> B[decodebin3]
+        B --> C[videoconvertscale]
+        C --> D[gvagenai]
+        D --> E[gvametapublish]
+        E --> F[watermark and encode]
+        F --> G[JSONL + MP4]
+    end
 ```
 
-The `gvagenai` element attaches inference results directly as `GstGVATensorMeta`, which `gvawatermark` reads to render the label and confidence percentage on every frame.
+### Scenario 2 (**`--stream-groups`**): four streams, two model-sharing groups
+
+Four independent streams split into two groups of two:
+
+- Streams 1 and 2 use **`model-instance-id=stream-grp-1`**
+- Streams 3 and 4 use **`model-instance-id=stream-grp-2`**
+
+Within each group, the two **`gvagenai`** elements share one loaded OpenVINO model instance;
+inference calls on a shared instance are serialized, which reduces memory use but can
+limit throughput. The two groups load separate model instances. Provide up to four inputs
+by repeating **`--video-path`**/**`--video-url`**; if fewer are given, they are cycled to fill the
+four streams.
+
+```mermaid
+graph LR
+    subgraph pipeline[gst-launch-1.0]
+        S3[stream 4] --> A3[decode and convert]
+        S4[stream 3] --> A4[decode and convert]
+        subgraph modelgrp2[shared inference instance: stream-grp-2]
+            D3[gvagenai]
+            D4[gvagenai]
+            D3 -. uses .-> M2[shared model instance]
+            D4 -. uses .-> M2
+        end
+        A3 --> D3
+        A4 --> D4
+        M2 --> P3[gvametapublish]
+        P3 --> W3[watermark and encode] --> V3[MP4 stream 3]
+        M2 --> P4[gvametapublish]
+        P4 --> W4[watermark and encode] --> V4[MP4 stream 4]
+        S1[stream 2] --> A1[decode and convert]
+        S2[stream 1] --> A2[decode and convert]
+        subgraph modelgrp1[shared inference instance: stream-grp-1]
+            D1[gvagenai]
+            D2[gvagenai]
+            D1 -. uses .-> M1[shared model instance]
+            D2 -. uses .-> M1
+        end
+        A1 --> D1
+        A2 --> D2
+        M1 --> P1[gvametapublish]
+        P1 --> W1[watermark and encode] --> V1[MP4 stream 1]
+        M1 --> P2[gvametapublish]
+        P2 --> W2[watermark and encode] --> V2[MP4 stream 2]
+    end
+```
+
+Each stream has an independent source, decoder, inference element, and MP4
+file. The branches run in one process and contain queues around the inference/output
+stages.
 
 ## Setup
 
-1. Create and activate a virtual environment:
+<u>1. Create and activate a virtual environment:</u>
 ```code
 cd samples/gstreamer/python/vlm_alerts
 uv venv --system-site-packages .vlm-venv
 source .vlm-venv/bin/activate
 ```
 
-> The `--system-site-packages` flag is required so the virtual environment can
-> use the GStreamer Python bindings (PyGObject / `gi`) provided by the system
-> DL Streamer installation.
+**Note**:  The **`--system-site-packages`** flag is required so the virtual environment can
+ use the GStreamer Python bindings (PyGObject / `gi`) provided by the system
+ DL Streamer installation.
 
-1. Install dependencies:
+<u>2. Install dependencies:</u>
 ```code
 curl -LO https://raw.githubusercontent.com/openvinotoolkit/openvino.genai/refs/heads/releases/2026/3/samples/export-requirements.txt
 uv pip install -r export-requirements.txt
 uv pip install -r requirements.txt
 ```
 
-> `requirements.txt` pins two packages on top of `export-requirements.txt`:
-> `transformers` (`optimum-intel` supports OpenVINO export only up to
-> `transformers` 4.57.6, while `export-requirements.txt` pins a newer one) and
-> `openvino-tokenizers`, which must match the OpenVINO **runtime** shipped with
-> your DL Streamer installation (here `2026.2.0`) — the one `gvagenai` uses and
-> the one loaded via `PYTHONPATH`. If they differ, `openvino-tokenizers` is not
-> binary compatible. Adjust the pinned version to match your OpenVINO runtime
-> (check with `python3 -c "import openvino; print(openvino.__version__)"`).
+`requirements.txt` overrides two packages from `export-requirements.txt`:
 
-> A DL Streamer build that includes the `gvagenai` element is required.
+- `transformers` must be compatible with `optimum-intel` for OpenVINO export.
+- `openvino-tokenizers` must match the OpenVINO runtime used by DL Streamer to avoid binary incompatibility.
+
+A DL Streamer build that includes the `gvagenai` element is required.
 
 ## Running
 
@@ -102,7 +155,9 @@ Required arguments:
 - `--video-path` or `--video-url`
 - `--model-id` or `--model-path`
 
-Example:
+### Single stream (default)
+
+Run one video stream with an isolated model instance:
 
 ```code
 python3 vlm_alerts.py \
@@ -112,10 +167,30 @@ python3 vlm_alerts.py \
     --prompt "Is there a police car? Answer yes or no."
 ```
 
+### Four streams in two model-sharing groups
+
+Use **`--stream-groups`** to run four video branches in one pipeline. Repeat
+**`--video-path`** or **`--video-url`** to provide up to four inputs; if fewer are provided,
+the inputs are cycled to fill all four streams. Each pair of **`gvagenai`** elements shares
+one model instance: streams 1-2 use **`model-instance-id=stream-grp-1`**, and streams 3-4
+use **`model-instance-id=stream-grp-2`**.
+
+```code
+python3 vlm_alerts.py \
+    --stream-groups \
+    --video-url https://videos.pexels.com/video-files/2103099/2103099-hd_1280_720_60fps.mp4 \
+    --model-id OpenGVLab/InternVL3_5-2B \
+    --prompt "Is there a police car? Answer yes or no."
+```
+
+Each stream writes `<ModelName>-<video_stem>-stream<N>.jsonl` and
+`<ModelName>-<video_stem>-stream<N>.mp4`.
+
 Optional arguments:
 
 | Argument | Default | Description |
 |---|---|---|
+| `--stream-groups` | off | Run four streams split into two model-sharing groups of two, each group with its own `model-instance-id` |
 | `--device` | `GPU` | Inference device |
 | `--max-tokens` | `1` | Maximum tokens in the model response |
 | `--num-beams` | `4` | Beam search width. Values ≥ 2 enable beam search and produce a confidence score; `1` means greedy decoding with no confidence |
@@ -126,9 +201,18 @@ Optional arguments:
 
 ## Output
 
+Default single-stream scenario:
+
 ```
 results/<ModelName>-<video_stem>.jsonl
 results/<ModelName>-<video_stem>.mp4
+```
+
+Four-stream scenario (`--stream-groups`), one pair per stream:
+
+```
+results/<ModelName>-<video_stem>-stream<N>.jsonl
+results/<ModelName>-<video_stem>-stream<N>.mp4
 ```
 
 The `.jsonl` file contains one JSON record per processed frame. 

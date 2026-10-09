@@ -226,9 +226,6 @@ struct ConfigHelper {
 
     ConfigHelper(const InferenceBackend::InferenceConfig &cfg) : config(cfg) {
     }
-    // NO COPY
-    ConfigHelper(const ConfigHelper &) = delete;
-    ConfigHelper &operator=(const ConfigHelper &) = delete;
 
     const std::string &device() const {
         return base_config.at(KEY_DEVICE);
@@ -373,13 +370,13 @@ struct ConfigHelper {
                        item.first == ov::intel_gpu::hint::queue_priority.name() ||
                        item.first == ov::intel_gpu::hint::host_task_priority.name() ||
                        item.first == ov::intel_gpu::hint::enable_sdpa_optimization.name() ||
-                       item.first == ov::intel_npu::turbo.name()) {
+                       item.first == ov::intel_npu::turbo.name() || item.first == ov::intel_npu::tiles.name() ||
+                       item.first == ov::intel_npu::compilation_mode_params.name()) {
                 m.emplace(item.first, item.second);
             } else if (item.first == ov::optimal_batch_size.name() || item.first == ov::max_batch_size.name() ||
                        item.first == ov::auto_batch_timeout.name() || item.first == ov::inference_num_threads.name() ||
                        item.first == ov::compilation_num_threads.name() ||
-                       item.first == ov::hint::num_requests.name() ||
-                       item.first == ov::intel_npu::compilation_mode_params.name()) {
+                       item.first == ov::hint::num_requests.name()) {
                 m.emplace(item.first, stoi(item.second));
             } else {
                 throw std::runtime_error("Unsupported inference param " + item.first);

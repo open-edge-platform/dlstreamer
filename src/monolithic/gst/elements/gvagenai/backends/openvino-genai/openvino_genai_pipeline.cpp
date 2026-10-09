@@ -56,8 +56,6 @@ OpenVINOGenAIContext::OpenVINOGenAIContext(const std::string &model_path, const 
     GST_INFO("OpenVINO™ GenAI VLM pipeline initialized successfully");
 }
 
-OpenVINOGenAIContext::~OpenVINOGenAIContext() = default;
-
 void OpenVINOGenAIContext::inference_tensor_vector(const std::vector<ov::Tensor> &frames, const std::string &prompt,
                                                    bool as_video, float fps) {
     if (frames.empty()) {

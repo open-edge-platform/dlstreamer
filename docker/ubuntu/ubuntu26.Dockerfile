@@ -1,12 +1,12 @@
 # ==============================================================================
-# Copyright (C) 2025-2026 Intel Corporation
+# Copyright (C) 2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
 
 # ==============================================================================
 # Build flow:
-#                ubuntu:24.04
+#                ubuntu:26.04
 #                     |
 #                     |
 #                     V
@@ -41,7 +41,7 @@
 # REALSENSE_VERSION       # RealSense
 # KAFKA_VERSION           # librdkafka
 ARG DOCKER_REGISTRY
-FROM ${DOCKER_REGISTRY}ubuntu:24.04 AS builder
+FROM ${DOCKER_REGISTRY}ubuntu:26.04 AS builder
 
 ARG DEBIAN_FRONTEND=noninteractive
 ARG BUILD_ARG=Release
@@ -67,27 +67,29 @@ RUN \
 # Intel GPU client drivers and prerequisites installation
 RUN \
     apt-get update && \
-    apt-get install -y --no-install-recommends software-properties-common=0.99.49.4 && \
+    apt-get install -y --no-install-recommends software-properties-common=\* && \
     add-apt-repository -y ppa:kobuk-team/intel-graphics && \
     apt-get update && \
-    echo "Snapshot: 20260916T030400Z" >> /etc/apt/sources.list.d/kobuk-team-ubuntu-intel-graphics-noble.sources && \
+    echo "Snapshot: 20260916T030400Z" >> /etc/apt/sources.list.d/kobuk-team-ubuntu-intel-graphics-resolute.sources && \
     apt-get update && \
     apt-get install -y --no-install-recommends \
-    intel-metrics-discovery=1.14.188-1~24.04~ppa1 intel-gsc=1.2.0-1~24.04~ppa1 libvpl2=1:2.16.0-1~24.04~ppa1 \
-    libze-intel-gpu1=26.31.39395.13-1~24.04~ppa1 libze1=1.32.0-1~24.04~ppa1 intel-opencl-icd=26.31.39395.13-1~24.04~ppa1 clinfo=3.0.23.01.25-1build1 \
-    intel-media-va-driver-non-free=26.3.2-1~24.04~ppa1 libmfx-gen1.2=26.3.2-1~24.04~ppa1 libvpl-tools=1.5.0-1~24.04~ppa1 libva-glx2=2.24.1-1~24.04~ppa2 va-driver-all=2.24.1-1~24.04~ppa2 vainfo=2.24.0-1~24.04~ppa1 && \
+    intel-metrics-discovery=1.14.188-1~26.04~ppa1 intel-gsc=1.2.0-1~26.04~ppa1 libvpl2=1:2.16.0-1 \
+    libze-intel-gpu1=26.31.39395.13-1~26.04~ppa1 libze1=1.32.0-1~26.04~ppa1 intel-opencl-icd=26.31.39395.13-1~26.04~ppa1 clinfo=3.0.25.02.14-1build1 \
+    intel-media-va-driver-non-free=26.3.2-1~26.04~ppa1 libmfx-gen1.2=26.3.2-1~26.04~ppa1 libvpl-tools=1.5.0-1 libva-glx2=2.24.1-1~26.04~ppa2 va-driver-all=2.24.1-1~26.04~ppa2 vainfo=2.24.0-1~26.04~ppa1 && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
 # Intel NPU drivers and prerequisites installation
 WORKDIR /tmp/npu_deps
 
-RUN curl -LO https://github.com/intel/linux-npu-driver/releases/download/v1.38.0/linux-npu-driver-v1.38.0.20260910-34487311128-ubuntu2404.tar.gz && \
-    tar -xf linux-npu-driver-v1.38.0.20260910-34487311128-ubuntu2404.tar.gz && \
-    curl -LO https://snapshot.ppa.launchpadcontent.net/kobuk-team/intel-graphics/ubuntu/20260830T100000Z/pool/main/l/level-zero-loader/libze1_1.32.0-1~24.04~ppa1_amd64.deb && \
+RUN curl -fLO https://github.com/intel/linux-npu-driver/releases/download/v1.38.0/linux-npu-driver-v1.38.0.20260910-34487311128-ubuntu2604.tar.gz && \
+    tar -xf linux-npu-driver-v1.38.0.20260910-34487311128-ubuntu2604.tar.gz && \
     apt-get update && \
-    apt-get install -y --no-install-recommends ./intel-*.deb && \
+    apt-get install -y --no-install-recommends libtbb12=\* && \
+    dpkg -i ./*.deb && \
     apt-get clean && \
+    curl -fLO https://snapshot.ppa.launchpadcontent.net/kobuk-team/intel-graphics/ubuntu/20260830T100000Z/pool/main/l/level-zero-loader/libze1_1.32.0-1~26.04~ppa1_amd64.deb && \
+    dpkg -i ./libze1_*.deb && \
     rm -rf /var/lib/apt/lists/* /tmp/npu_deps
 
 WORKDIR /
@@ -97,18 +99,15 @@ RUN \
     apt-get install -y -q --no-install-recommends xz-utils=\* python3-pip=\* python3-gi=\* gcc-multilib=\* libglib2.0-dev=\* \
     flex=\* bison=\* autoconf=\* automake=\* libtool=\* libogg-dev=\* make=\* g++=\* libva-dev=\* yasm=\* libglx-dev=\* libdrm-dev=\* \
     python-gi-dev=\* python3-dev=\* unzip=\* libgflags-dev=\* libcurl4-openssl-dev=\* \
-    gobject-introspection=\* libgirepository1.0-dev=\* libx265-dev=\* libx264-dev=\* libde265-dev=\* gudev-1.0=\* libusb-1.0=\* nasm=\* python3-venv=\* \
+    gobject-introspection=\* libgirepository1.0-dev=\* libx265-dev=\* libx264-dev=\* libde265-dev=\* libusb-1.0=\* nasm=\* python3-venv=\* \
     libcairo2-dev=\* libxt-dev=\* libgirepository1.0-dev=\* libgles2-mesa-dev=\* wayland-protocols=\* \
     libssh2-1-dev=\* cmake=\* git=\* valgrind=\* numactl=\* libvpx-dev=\* libopus-dev=\* libsrtp2-dev=\* libxv-dev=\* \
     linux-libc-dev=\* libpmix2t64=\* libhwloc15=\* libhwloc-plugins=\* libxcb1-dev=\* libx11-xcb-dev=\* \
-    ffmpeg=\* libpaho-mqtt-dev=\* libpostproc-dev=\* libavfilter-dev=\* libavdevice-dev=\* \
+    ffmpeg=\* libpaho-mqtt-dev=\* libavfilter-dev=\* libavdevice-dev=\* libgudev-1.0-dev=\* \
     libswscale-dev=\* libswresample-dev=\* libavutil-dev=\* libavformat-dev=\* libavcodec-dev=\* libxml2-dev=\* libsoup-3.0-0=\* \
     ocl-icd-opencl-dev=\* &&  \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
-
-
-RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin sh
 
 RUN \
     useradd -ms /bin/bash dlstreamer && \
@@ -116,11 +115,12 @@ RUN \
     chown dlstreamer: /python3venv && \
     chmod u+w /python3venv
 
+RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin sh
+
 USER dlstreamer
 
 RUN \
     uv venv /python3venv && \
-    VIRTUAL_ENV=/python3venv uv pip install --no-cache-dir --upgrade pip==26.1.2 && \
     VIRTUAL_ENV=/python3venv uv pip install --no-cache-dir --no-deps \
     meson==1.4.1 \
     ninja==1.11.1.1 \
@@ -335,7 +335,7 @@ RUN cp -a /usr/local/lib/librdkafka* ./
 # ==============================================================================
 FROM builder AS realsense-builder
 
-ARG REALSENSE_VERSION=v2.58.4
+ARG REALSENSE_VERSION=v2.57.6
 
 SHELL ["/bin/bash", "-xo", "pipefail", "-c"]
 
@@ -346,7 +346,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends libssl-dev=\* l
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-RUN git clone https://github.com/realsenseai/librealsense.git librealsense
+RUN git clone https://github.com/IntelRealSense/librealsense.git librealsense
 
 WORKDIR /home/dlstreamer/librealsense
 
@@ -391,15 +391,16 @@ RUN apt-get update && apt-get install --no-install-recommends -y gnupg=\* && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 RUN \
-    echo "deb https://apt.repos.intel.com/openvino ubuntu24 main" | tee /etc/apt/sources.list.d/intel-openvino.list && \
-    curl -sSL -O https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB && \
-    apt-key add GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB && \
+    curl -fsSL https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB | \
+    gpg --dearmor -o /usr/share/keyrings/intel-sw-products.gpg && \
+    echo "deb [signed-by=/usr/share/keyrings/intel-sw-products.gpg] https://apt.repos.intel.com/openvino ubuntu26 main" \
+    > /etc/apt/sources.list.d/intel-openvino.list && \
     apt-get update && apt-get install --no-install-recommends -y "openvino-${OPENVINO_VERSION}"=\* && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
 # OpenVINO Gen AI
-ARG OPENVINO_GENAI_VER=openvino_genai_ubuntu24_${OPENVINO_VERSION}.0_x86_64
+ARG OPENVINO_GENAI_VER=openvino_genai_ubuntu26_${OPENVINO_VERSION}.0_x86_64
 ARG OPENVINO_GENAI_PKG=https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/${OPENVINO_VERSION}/linux/${OPENVINO_GENAI_VER}.tar.gz
 
 RUN curl -L ${OPENVINO_GENAI_PKG} | tar -xz && \
@@ -436,6 +437,7 @@ RUN \
     source /opt/intel/openvino_genai/setupvars.sh && \
     cmake \
        -DCMAKE_BUILD_TYPE="${BUILD_ARG}" \
+       -DCMAKE_CXX_FLAGS="-Wno-free-nonheap-object" \
        -DENABLE_PAHO_INSTALLATION=ON \
        -DENABLE_RDKAFKA_INSTALLATION=ON \
        -DENABLE_VAAPI=ON \
@@ -511,12 +513,16 @@ RUN \
 WORKDIR /deb-pkg
 
 RUN \
+    rm ./debian/control && \
+    mv ./debian/control-ubuntu26 ./debian/control
+
+RUN \
     debuild -z1 -us -uc && \
     mv "/intel-dlstreamer_${DLSTREAMER_VERSION}_amd64.deb" "/intel-dlstreamer_${DLSTREAMER_VERSION}.${DLSTREAMER_BUILD_NUMBER}_amd64.deb"
 
 # ==============================================================================
 ARG DOCKER_REGISTRY
-FROM ${DOCKER_REGISTRY}ubuntu:24.04 AS dlstreamer
+FROM ${DOCKER_REGISTRY}ubuntu:26.04 AS dlstreamer
 ARG DLSTREAMER_VERSION
 ARG DLSTREAMER_BUILD_NUMBER
 # Build final image for dlstreamer - using .deb packages for installation
@@ -536,34 +542,36 @@ RUN \
 # Intel GPU client drivers and prerequisites installation
 RUN \
     apt-get update && \
-    apt-get install -y --no-install-recommends software-properties-common=0.99.49.4 && \
+    apt-get install -y --no-install-recommends software-properties-common=\* && \
     add-apt-repository -y ppa:kobuk-team/intel-graphics && \
     apt-get update && \
-    echo "Snapshot: 20260916T030400Z" >> /etc/apt/sources.list.d/kobuk-team-ubuntu-intel-graphics-noble.sources && \
+    echo "Snapshot: 20260916T030400Z" >> /etc/apt/sources.list.d/kobuk-team-ubuntu-intel-graphics-resolute.sources && \
     apt-get update && \
     apt-get install -y --no-install-recommends \
-    intel-metrics-discovery=1.14.188-1~24.04~ppa1 intel-gsc=1.2.0-1~24.04~ppa1 libvpl2=1:2.16.0-1~24.04~ppa1 \
-    libze-intel-gpu1=26.31.39395.13-1~24.04~ppa1 libze1=1.32.0-1~24.04~ppa1 intel-opencl-icd=26.31.39395.13-1~24.04~ppa1 clinfo=3.0.23.01.25-1build1 \
-    intel-media-va-driver-non-free=26.3.2-1~24.04~ppa1 libmfx-gen1.2=26.3.2-1~24.04~ppa1 libvpl-tools=1.5.0-1~24.04~ppa1 libva-glx2=2.24.1-1~24.04~ppa2 va-driver-all=2.24.1-1~24.04~ppa2 vainfo=2.24.0-1~24.04~ppa1 && \
+    intel-metrics-discovery=1.14.188-1~26.04~ppa1 intel-gsc=1.2.0-1~26.04~ppa1 libvpl2=1:2.16.0-1 \
+    libze-intel-gpu1=26.31.39395.13-1~26.04~ppa1 libze1=1.32.0-1~26.04~ppa1 intel-opencl-icd=26.31.39395.13-1~26.04~ppa1 clinfo=3.0.25.02.14-1build1 \
+    intel-media-va-driver-non-free=26.3.2-1~26.04~ppa1 libmfx-gen1.2=26.3.2-1~26.04~ppa1 libvpl-tools=1.5.0-1 libva-glx2=2.24.1-1~26.04~ppa2 va-driver-all=2.24.1-1~26.04~ppa2 vainfo=2.24.0-1~26.04~ppa1 && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
 # Intel NPU drivers and prerequisites installation
 WORKDIR /tmp/npu_deps
 
-RUN curl -LO https://github.com/intel/linux-npu-driver/releases/download/v1.38.0/linux-npu-driver-v1.38.0.20260910-34487311128-ubuntu2404.tar.gz && \
-    tar -xf linux-npu-driver-v1.38.0.20260910-34487311128-ubuntu2404.tar.gz && \
-    curl -LO https://snapshot.ppa.launchpadcontent.net/kobuk-team/intel-graphics/ubuntu/20260830T100000Z/pool/main/l/level-zero-loader/libze1_1.32.0-1~24.04~ppa1_amd64.deb && \
+RUN curl -fLO https://github.com/intel/linux-npu-driver/releases/download/v1.38.0/linux-npu-driver-v1.38.0.20260910-34487311128-ubuntu2604.tar.gz && \
+    tar -xf linux-npu-driver-v1.38.0.20260910-34487311128-ubuntu2604.tar.gz && \
     apt-get update && \
-    apt-get install -y --no-install-recommends ./intel-*.deb && \
+    apt-get install -y --no-install-recommends libtbb12=\* && \
+    dpkg -i ./*.deb && \
     apt-get clean && \
+    curl -fLO https://snapshot.ppa.launchpadcontent.net/kobuk-team/intel-graphics/ubuntu/20260830T100000Z/pool/main/l/level-zero-loader/libze1_1.32.0-1~26.04~ppa1_amd64.deb && \
+    dpkg -i ./libze1_*.deb && \
     rm -rf /var/lib/apt/lists/* /tmp/npu_deps
 
 WORKDIR /
 
 RUN curl -fsSL https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB | \
     gpg --dearmor -o /usr/share/keyrings/intel-sw-products.gpg && \
-    echo "deb [signed-by=/usr/share/keyrings/intel-sw-products.gpg] https://apt.repos.intel.com/openvino ubuntu24 main" \
+    echo "deb [signed-by=/usr/share/keyrings/intel-sw-products.gpg] https://apt.repos.intel.com/openvino ubuntu26 main" \
     > /etc/apt/sources.list.d/intel-openvino.list
 
 RUN mkdir -p /debs
@@ -591,7 +599,8 @@ RUN \
     uv pip install --system --no-cache-dir --break-system-packages -r /opt/intel/dlstreamer/requirements.txt && \
     apt-get remove -y gcc libcairo2-dev libgirepository1.0-dev && \
     apt-get autoremove -y && \
-    cp -r /usr/local/lib/python3.12/site-packages/wsdl /usr/local/lib/python3.12/dist-packages/ && \
+    PYTHON_SITE_PACKAGES=$(python3 -c "import site; print(site.getsitepackages()[0])") && \
+    if [ -d "$PYTHON_SITE_PACKAGES/wsdl" ]; then cp -r "$PYTHON_SITE_PACKAGES/wsdl" /usr/local/lib/python3*/dist-packages/; fi && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 

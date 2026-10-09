@@ -55,12 +55,6 @@ class ConverterFacade {
     void convert(const OutputBlobs &all_output_blobs, FramesWrapper &frames) const;
 
     ConverterFacade() = default;
-    ConverterFacade(const ConverterFacade &) = delete;
-    ConverterFacade(ConverterFacade &&) = default;
-    ConverterFacade &operator=(const ConverterFacade &) = delete;
-    ConverterFacade &operator=(ConverterFacade &&) = default;
-
-    ~ConverterFacade() = default;
 };
 
 } // namespace post_processing

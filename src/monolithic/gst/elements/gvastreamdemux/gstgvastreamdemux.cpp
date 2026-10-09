@@ -7,7 +7,6 @@
 #include "gstgvastreamdemux.h"
 #include <gst/analytics/gstanalyticsbatchmeta.h>
 
-#include <cstdio>
 #include <string.h>
 
 GST_DEBUG_CATEGORY_STATIC(gst_gva_streamdemux_debug);
@@ -163,10 +162,13 @@ static GstPad *gst_gva_streamdemux_request_new_pad(GstElement *element, GstPadTe
     GstPad *srcpad;
     gchar *name;
     guint pad_index;
+    guint64 parsed_index = 0;
 
     g_mutex_lock(&demux->lock);
 
-    if (req_name && sscanf(req_name, "src_%u", &pad_index) == 1) {
+    if (req_name && g_str_has_prefix(req_name, "src_") &&
+        g_ascii_string_to_unsigned(req_name + strlen("src_"), 10, 0, G_MAXUINT, &parsed_index, NULL)) {
+        pad_index = (guint)parsed_index;
         name = g_strdup(req_name);
     } else {
         pad_index = demux->num_src_pads;

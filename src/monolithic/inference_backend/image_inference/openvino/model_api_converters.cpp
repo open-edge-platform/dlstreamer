@@ -1095,6 +1095,12 @@ std::map<std::string, GstStructure *> get_model_info_postproc(const std::shared_
             GST_INFO("[get_model_info_postproc] iou_threshold: %f", element.second.as<double>());
             g_value_unset(&gvalue);
         }
+        // Model API semantics: True means NMS must run in post-processing (not that the model already did it).
+        if (element.first == "nms_execute") {
+            const gboolean nms_execute = element.second.as<std::string>().find("True") != std::string::npos;
+            gst_structure_set(s, "nms_execute", G_TYPE_BOOLEAN, nms_execute, NULL);
+            GST_INFO("[get_model_info_postproc] nms_execute: %d", nms_execute);
+        }
         if (element.first.find("image_threshold") != std::string::npos) {
             GValue gvalue = G_VALUE_INIT;
             g_value_init(&gvalue, G_TYPE_DOUBLE);

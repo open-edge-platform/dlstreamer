@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2018-2022 Intel Corporation
+ * Copyright (C) 2018-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -27,8 +27,11 @@ namespace internal {
 class VaApiLibBinderImpl {
   public:
     VaApiLibBinderImpl();
-    VaApiLibBinderImpl(VaApiLibBinderImpl &) = delete;
+    ~VaApiLibBinderImpl();
+    VaApiLibBinderImpl(const VaApiLibBinderImpl &) = delete;
     VaApiLibBinderImpl(VaApiLibBinderImpl &&) = delete;
+    VaApiLibBinderImpl &operator=(const VaApiLibBinderImpl &) = delete;
+    VaApiLibBinderImpl &operator=(VaApiLibBinderImpl &&) = delete;
 
     VADisplay GetDisplayDRM(int file_descriptor);
     VAStatus Initialize(VADisplay dpy, int *major_version, int *minor_version);

@@ -1,0 +1,32 @@
+name: 'Pre-pull BuildKit image'
+description: >
+  Pulls the moby/buildkit image used by docker/setup-buildx-action with retries, so a transient
+  registry/network hiccup (e.g. TLS handshake timeout) during buildx bootstrap doesn't fail the job.
+  Docker only pulls an image if it isn't already present locally, so a successful pull here lets the
+  subsequent buildx bootstrap reuse the cached image instead of hitting the network again.
+inputs:
+  image:
+    description: 'BuildKit image to pre-pull (must match the one setup-buildx-action will use)'
+    required: false
+    default: 'moby/buildkit:buildx-stable-1'
+  retries:
+    description: 'Number of pull attempts'
+    required: false
+    default: '5'
+runs:
+  using: 'composite'
+  steps:
+    - name: Pull buildkit image with retries
+      shell: bash
+      env:
+        IMAGE: ${{ inputs.image }}
+        RETRIES: ${{ inputs.retries }}
+      run: |
+        for attempt in $(seq 1 "$RETRIES"); do
+          if docker pull "$IMAGE"; then
+            exit 0
+          fi
+          echo "::warning::docker pull $IMAGE failed (attempt $attempt/$RETRIES)"
+          sleep $((attempt * 10))
+        done
+        echo "::warning::Could not pre-pull $IMAGE after $RETRIES attempts - continuing, buildx bootstrap will retry the pull itself"
