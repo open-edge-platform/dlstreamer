@@ -39,14 +39,15 @@ Download the sample lidar binary dataset:
 DATA_DIR=velodyne
 echo "Downloading sample LiDAR frames to ${DATA_DIR}..."
 TMP_DIR=$(mktemp -d)
-git clone --depth 1 --filter=blob:none --sparse https://github.com/open-edge-platform/edge-ai-suites.git "${TMP_DIR}/edge-ai-suites"
-pushd "${TMP_DIR}/edge-ai-suites" >/dev/null
-git sparse-checkout set metro-ai-suite/sensor-fusion-for-traffic-management/ai_inference/test/demo/kitti360/velodyne
+git clone --depth 1 --filter=blob:none --sparse https://github.com/open-edge-platform/metro-ai-suite.git "${TMP_DIR}/metro-ai-suite"
+pushd "${TMP_DIR}/metro-ai-suite" >/dev/null
+git sparse-checkout set sensor-fusion-for-traffic-management/post-fusion/ai_inference/test/demo/kitti360/velodyne
 popd >/dev/null
 mkdir -p "${DATA_DIR}"
-cp -a "${TMP_DIR}/edge-ai-suites/metro-ai-suite/sensor-fusion-for-traffic-management/ai_inference/test/demo/kitti360/velodyne"/* "${DATA_DIR}/"
+cp -a "${TMP_DIR}/metro-ai-suite/sensor-fusion-for-traffic-management/post-fusion/ai_inference/test/demo/kitti360/velodyne"/* "${DATA_DIR}/"
 rm -rf "${TMP_DIR}"
 ```
+
 This will create a `velodyne` directory containing the binary files of the lidar data.
 
 ### Environment Variables
