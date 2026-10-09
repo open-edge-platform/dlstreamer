@@ -29,7 +29,7 @@ namespace {
 
 // Function to find the maximum element in the data and set the corresponding label, label_id, and confidence.
 template <typename DataType>
-void max_method(const DataType *data, size_t size, const std::vector<std::string> &labels, GVA::Tensor &result) {
+void apply_max(const DataType *data, size_t size, const std::vector<std::string> &labels, GVA::Tensor &result) {
     auto max_elem = std::max_element(data, data + size);
     auto index = std::distance(data, max_elem);
     result.set_string("label", labels.at(index));
@@ -37,9 +37,25 @@ void max_method(const DataType *data, size_t size, const std::vector<std::string
     result.set_double("confidence", *max_elem);
 }
 
+// Same check as Model API is_softmaxed(): values in [0, 1] summing to 1.
+template <typename DataType>
+bool is_softmaxed(const DataType *data, size_t size) {
+    double sum = 0;
+    for (size_t i = 0; i < size; ++i) {
+        if (!(data[i] >= 0 && data[i] <= 1))
+            return false;
+        sum += data[i];
+    }
+    return std::abs(sum - 1.0) <= 2e-5; // np.allclose(atol=1e-5, rtol=1e-5)
+}
+
 // Function to apply softmax to the data and set the label with the highest probability.
 template <typename DataType>
-void soft_max_method(const DataType *data, size_t size, const std::vector<std::string> &labels, GVA::Tensor &result) {
+void apply_softmax(const DataType *data, size_t size, const std::vector<std::string> &labels, GVA::Tensor &result) {
+    if (is_softmaxed(data, size)) {
+        apply_max(data, size, labels, result);
+        return;
+    }
     auto max_confidence = std::max_element(data, data + size);
     std::vector<float> sftm_arr(size);
     float sum = 0;
@@ -59,10 +75,10 @@ void soft_max_method(const DataType *data, size_t size, const std::vector<std::s
     result.set_double("confidence", *max_elem);
 }
 
-// Function to select compound labels based on a confidence threshold.
+// Joins per-output label pairs: labels[2j] if score >= threshold, labels[2j+1] if 0 < score < threshold.
 template <typename DataType>
-void compound_method(const DataType *data, size_t size, const std::vector<std::string> &labels, double threshold,
-                     GVA::Tensor &result) {
+void apply_compound(const DataType *data, size_t size, const std::vector<std::string> &labels, double threshold,
+                    GVA::Tensor &result) {
     std::string result_label;
     double confidence = 0;
     for (size_t j = 0; j < size; j++) {
@@ -86,8 +102,8 @@ void compound_method(const DataType *data, size_t size, const std::vector<std::s
 
 // Function to select multiple labels based on a confidence threshold.
 template <typename DataType>
-void multi_method(const DataType *data, size_t size, const std::vector<std::string> &labels, double threshold,
-                  GVA::Tensor &result) {
+void apply_multi(const DataType *data, size_t size, const std::vector<std::string> &labels, double threshold,
+                 GVA::Tensor &result) {
     std::string result_label;
     double confidence = 0;
     for (size_t j = 0; j < size; j++) {
@@ -109,8 +125,8 @@ void multi_method(const DataType *data, size_t size, const std::vector<std::stri
 
 // Function to apply softmax and select multiple labels based on a confidence threshold.
 template <typename DataType>
-void softmax_multi_method(const DataType *data, size_t size, const std::vector<std::string> &labels, double threshold,
-                          GVA::Tensor &result) {
+void apply_softmax_multi(const DataType *data, size_t size, const std::vector<std::string> &labels, double threshold,
+                         GVA::Tensor &result) {
     auto max_confidence = std::max_element(data, data + size);
     float *sftm_arr = new float[size];
     float sum = 0;
@@ -123,14 +139,14 @@ void softmax_multi_method(const DataType *data, size_t size, const std::vector<s
             sftm_arr[i] /= sum;
         }
     }
-    multi_method<float>(sftm_arr, size, labels, threshold, result);
+    apply_multi<float>(sftm_arr, size, labels, threshold, result);
     delete[] sftm_arr;
 }
 
 // Function to use integer indices from the data to select labels.
 template <typename DataType>
-void index_method([[maybe_unused]] const DataType *data, size_t size, const std::vector<std::string> &labels,
-                  GVA::Tensor &result) {
+void apply_index([[maybe_unused]] const DataType *data, size_t size, const std::vector<std::string> &labels,
+                 GVA::Tensor &result) {
     std::string result_label;
     int max_value = 0;
     for (size_t j = 0; j < size; j++) {
@@ -213,23 +229,22 @@ void LabelConverter::ExecuteMethod(const T *data, const std::string &layer_name,
 
         switch (_method) {
         case Method::SoftMax:
-            soft_max_method<T>(item_data, item_data_size, labels_raw, classification_result);
+            apply_softmax<T>(item_data, item_data_size, labels_raw, classification_result);
             break;
         case Method::Compound:
-            compound_method<T>(item_data, item_data_size, labels_raw, _confidence_threshold, classification_result);
+            apply_compound<T>(item_data, item_data_size, labels_raw, _confidence_threshold, classification_result);
             break;
         case Method::Multi:
-            multi_method<T>(item_data, item_data_size, labels_raw, _confidence_threshold, classification_result);
+            apply_multi<T>(item_data, item_data_size, labels_raw, _confidence_threshold, classification_result);
             break;
         case Method::SoftMaxMulti:
-            softmax_multi_method<T>(item_data, item_data_size, labels_raw, _confidence_threshold,
-                                    classification_result);
+            apply_softmax_multi<T>(item_data, item_data_size, labels_raw, _confidence_threshold, classification_result);
             break;
         case Method::Index:
-            index_method<T>(item_data, item_data_size, labels_raw, classification_result);
+            apply_index<T>(item_data, item_data_size, labels_raw, classification_result);
             break;
         case Method::Max:
-            max_method<T>(item_data, item_data_size, labels_raw, classification_result);
+            apply_max<T>(item_data, item_data_size, labels_raw, classification_result);
             break;
         default:
             throw std::runtime_error("Unknown method for 'to label' converter");
