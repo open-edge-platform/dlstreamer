@@ -434,23 +434,14 @@ jobs:
             RETRY_XLSX_REPORTS+=("$DLS_TESTS_RESULTS_PATH/$RETRY_REPORT_NAME.xlsx")
           done
 
-          # Merge retry results into the final report; without retries final = initial
-          copy_initial_to_final() {
-            for ext in xlsx txt; do
-              [ -f "${REPORT_BASE}_initial.$ext" ] && cp "${REPORT_BASE}_initial.$ext" "${REPORT_BASE}_final.$ext"
-            done
-            return 0
-          }
+          # Merge retry results into the final report; no retries - final report isn't produced, initial is used as-is
           if [ "${#RETRY_XLSX_REPORTS[@]}" -gt 0 ]; then
             if ! python3 ./pipeline_test/regression_test/merge_retry_reports.py \
                 --base "${REPORT_BASE}_initial.xlsx" \
                 --retries "${RETRY_XLSX_REPORTS[@]}" \
                 --output "${REPORT_BASE}_final.xlsx"; then
-              echo "::warning::Merging retry results failed - final report contains first run results only"
-              copy_initial_to_final
+              echo "::warning::Merging retry results failed - initial report (first run) will be used instead"
             fi
-          else
-            copy_initial_to_final
           fi
           deactivate
 
@@ -459,7 +450,7 @@ jobs:
         if: always() && needs.setup.outputs.should_run == 'true' && matrix.ubuntu_version != 'ubuntu26'
         with:
           name: DLS_functional_tests_${{ matrix.runner_print_label }}_on_host_${{ matrix.ubuntu_version }}_results
-          # Upload *_initial.* (first run) and *_final.* (merged with retries); per-retry reports are skipped
+          # Upload *_initial.* (first run) always; *_final.* (merged with retries) only exists when retries happened
           path: |
             ${{ env.DLS_TESTS_RESULTS_PATH }}
             !${{ env.DLS_TESTS_RESULTS_PATH }}/*_retry[0-9]*.*
@@ -472,7 +463,9 @@ jobs:
           runner_print_label: ${{ matrix.runner_print_label }}
           ubuntu_version: ${{ matrix.ubuntu_version }}
         run: |
+          # Prefer the final (merged) report; without retries only the initial report exists
           RESULTS_FILE="${dls_tests_results_path}/DLS_functional_tests_${runner_print_label}_on_host_${ubuntu_version}_results_final.txt"
+          [ -f "$RESULTS_FILE" ] || RESULTS_FILE="${dls_tests_results_path}/DLS_functional_tests_${runner_print_label}_on_host_${ubuntu_version}_results_initial.txt"
 
           # Add results to summary with emoji replacements
           sed 's/\[pass\]/:white_check_mark:/g; s/\[\! FAIL \!\]/:x:/g; s/^\[flaky\]/:warning:/' "$RESULTS_FILE" >> $GITHUB_STEP_SUMMARY
@@ -500,7 +493,9 @@ jobs:
           dls_commit: ${{ github.sha }}
           test_repo_branch: ${{ inputs.test-repo-branch }}
         run: |
+          # Prefer the final (merged) report; without retries only the initial report exists
           RESULTS_FILE="${dls_tests_results_path}/DLS_functional_tests_${runner_print_label}_on_host_${ubuntu_version}_results_final.txt"
+          [ -f "$RESULTS_FILE" ] || RESULTS_FILE="${dls_tests_results_path}/DLS_functional_tests_${runner_print_label}_on_host_${ubuntu_version}_results_initial.txt"
           if [ ! -f "$RESULTS_FILE" ]; then
             echo "No results file at $RESULTS_FILE, skipping diff report generation."
             exit 0
