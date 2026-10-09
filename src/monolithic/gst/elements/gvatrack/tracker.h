@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2018-2022 Intel Corporation
+ * Copyright (C) 2018-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -28,6 +28,8 @@ class Tracker : public ITracker {
   private:
     std::unique_ptr<class TrackerBackend> _impl;
     std::unordered_map<int, std::string> labels;
+    // Last detection confidence per tracking_id
+    std::unordered_map<uint64_t, double> confidences;
 };
 
 } // namespace VasWrapper

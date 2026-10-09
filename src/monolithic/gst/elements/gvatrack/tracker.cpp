@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2018-2025 Intel Corporation
+ * Copyright (C) 2018-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -58,9 +58,10 @@ std::vector<vas::ot::DetectedObject> convertRoisToDetectedObjects(std::vector<GV
     return detected_objects;
 }
 
-void append(GVA::VideoFrame &video_frame, const vas::ot::Object &tracked_object, const std::string &label) {
+void append(GVA::VideoFrame &video_frame, const vas::ot::Object &tracked_object, const std::string &label,
+            double confidence) {
     auto roi = video_frame.add_region(tracked_object.rect.x, tracked_object.rect.y, tracked_object.rect.width,
-                                      tracked_object.rect.height, label, 1.0);
+                                      tracked_object.rect.height, label, confidence);
     roi.detection().set_int("label_id", tracked_object.class_label);
     roi.set_object_id(tracked_object.tracking_id);
 }
@@ -187,17 +188,33 @@ void Tracker::track(dls::FramePtr buffer, GVA::VideoFrame &frame_meta) {
         throw std::runtime_error("Track: error while tracking objects");
     }
 
+    // Tracker itself does not produce confidence, so for objects without associated detection on this frame
+    // the confidence of the last detection associated with the same track is carried forward.
+    std::unordered_map<uint64_t, double> alive_confidences;
     for (const auto &tracked_object : tracked_objects) {
+        const bool associated = tracked_object.association_idx != NO_ASSOCIATION;
+        double confidence = 0.0;
+        if (associated) {
+            confidence = regions[tracked_object.association_idx].confidence();
+        } else {
+            auto it = confidences.find(tracked_object.tracking_id);
+            if (it != confidences.end())
+                confidence = it->second;
+        }
+        alive_confidences[tracked_object.tracking_id] = confidence;
+
         if (tracked_object.status == vas::ot::TrackingStatus::LOST)
             continue;
-        if (tracked_object.association_idx != NO_ASSOCIATION) {
+        if (associated) {
             regions[tracked_object.association_idx].set_object_id(tracked_object.tracking_id);
         } else {
             auto it = labels.find(tracked_object.class_label);
             std::string label = it != labels.end() ? it->second : std::string();
-            append(frame_meta, tracked_object, label);
+            append(frame_meta, tracked_object, label, confidence);
         }
     }
+    // Drop entries of tracks that are no longer reported by the tracker
+    confidences = std::move(alive_confidences);
 }
 
 } // namespace VasWrapper
