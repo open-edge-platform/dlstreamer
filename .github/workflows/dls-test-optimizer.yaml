@@ -131,7 +131,7 @@ jobs:
       # ======================================================== BUILDING PART ========================================================
       - name: Pre-pull BuildKit image
         if: matrix.runner_print_label != 'SKIP'
-        uses: ./.github/actions/common/pull-buildkit-image
+        uses: ./dlstreamer/.github/actions/common/pull-buildkit-image
 
       - name: Set up Docker Buildx
         if: matrix.runner_print_label != 'SKIP'

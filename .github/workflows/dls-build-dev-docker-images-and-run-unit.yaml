@@ -125,7 +125,7 @@ jobs:
 
       - name: Pre-pull BuildKit image
         if: needs.setup.outputs.should_run == 'true'
-        uses: ./.github/actions/common/pull-buildkit-image
+        uses: ./dlstreamer-repo/.github/actions/common/pull-buildkit-image
 
       - name: Set up Docker Buildx
         if: needs.setup.outputs.should_run == 'true'
