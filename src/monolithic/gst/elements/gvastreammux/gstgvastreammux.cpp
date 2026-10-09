@@ -1023,7 +1023,14 @@ static gboolean gst_gva_streammux_sink_event(GstPad *pad, GstObject *parent, Gst
              * have no running time to schedule against. Send it here, straight
              * after the flush that removed it. */
             gst_pad_push_event(mux->srcpad, gst_event_new_segment(&flushed_segment));
-            gst_pad_start_task(mux->srcpad, gst_gva_streammux_output_loop, mux, NULL);
+            /* Only restart the task if the pad is still active. A flush that
+             * races a shutdown would otherwise spawn a streaming thread on a
+             * pad that has just been deactivated, and nothing would stop it
+             * again: deactivation already happened. */
+            if (gst_pad_is_active(mux->srcpad))
+                gst_pad_start_task(mux->srcpad, gst_gva_streammux_output_loop, mux, NULL);
+            else
+                GST_DEBUG_OBJECT(mux, "Source pad is no longer active; not restarting the output task");
         } else {
             gst_event_unref(event);
             ret = TRUE;
