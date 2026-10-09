@@ -419,6 +419,48 @@ static gboolean gst_gva_streamdemux_sink_query(GstPad *pad, GstObject *parent, G
         GstCaps *filter;
         gst_query_parse_caps(query, &filter);
         GstCaps *caps = gst_pad_get_pad_template_caps(pad);
+
+        /* Narrow the template by what the branches can actually take. Without
+         * this the demuxer claims to accept anything the template allows, so
+         * upstream can settle on a format no branch supports and nothing
+         * notices until the first buffer is pushed and fails to negotiate.
+         *
+         * Only the passthrough half of the template is narrowed. The batch
+         * container caps describe the wrapper, while the branches describe
+         * the streams inside it, so asking a branch about them is meaningless
+         * -- and the mode is not even known yet when this query runs, since
+         * container_mode is only decided once the caps event arrives. The
+         * container alternative is therefore kept as-is and the two are
+         * offered side by side, exactly as the template does.
+         *
+         * A buffer goes to one branch but any branch may receive any format,
+         * so a format has to suit all of them: intersect, do not union.
+         *
+         * The peer queries reach arbitrary downstream code, so they run on the
+         * snapshot with the lock dropped. */
+        GstCaps *batch_caps = gst_caps_from_string(STREAMDEMUX_BATCH_CAPS);
+        GstCaps *container_part = gst_caps_intersect(caps, batch_caps);
+        GstCaps *stream_part = gst_caps_subtract(caps, batch_caps);
+        gst_caps_unref(batch_caps);
+        gst_caps_unref(caps);
+
+        GPtrArray *pads = gva_streamdemux_ref_srcpads(demux);
+        for (guint i = 0; i < pads->len; i++) {
+            GstPad *srcpad = (GstPad *)g_ptr_array_index(pads, i);
+            if (!srcpad || !gst_pad_is_linked(srcpad))
+                continue;
+            GstCaps *peer = gst_pad_peer_query_caps(srcpad, NULL);
+            if (peer) {
+                GstCaps *result = gst_caps_intersect(stream_part, peer);
+                gst_caps_unref(peer);
+                gst_caps_unref(stream_part);
+                stream_part = result;
+            }
+        }
+        gva_streamdemux_free_srcpad_snapshot(pads);
+
+        caps = gst_caps_merge(stream_part, container_part);
+
         if (filter) {
             GstCaps *result = gst_caps_intersect(caps, filter);
             gst_caps_unref(caps);
