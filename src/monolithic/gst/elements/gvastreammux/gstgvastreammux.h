@@ -49,13 +49,30 @@ GType gst_gva_streammux_output_mode_get_type(void);
 typedef struct _GstGvaStreammux GstGvaStreammux;
 typedef struct _GstGvaStreammuxClass GstGvaStreammuxClass;
 typedef struct _GvaStreammuxPadData GvaStreammuxPadData;
+typedef struct _GvaStreammuxQueueItem GvaStreammuxQueueItem;
+
+/* One entry of a sink pad's queue: a buffer together with the caps that were
+ * active on that pad when the buffer was enqueued. Caps are captured on the
+ * pad's streaming thread (where CAPS events and buffers are serialized) rather
+ * than read back when the batch is assembled, so buffers queued before a
+ * mid-stream caps change keep their own caps instead of inheriting the new
+ * ones. */
+struct _GvaStreammuxQueueItem {
+    GstBuffer *buffer;
+    GstCaps *caps; /* own ref, may be NULL if the pad had no caps yet */
+};
 
 struct _GvaStreammuxPadData {
     GstPad *pad;
     guint pad_index;
+    /* GQueue of GvaStreammuxQueueItem* */
     GQueue buffer_queue;
     gboolean eos;
     gboolean flushing;
+    /* Set by release_pad before it deactivates the pad, so a chain function
+     * parked on this pad's back-pressure knows to give up instead of waiting
+     * for room that will never be made. */
+    gboolean released;
 
     /* PTS normalization state (used by sync-mode) */
     gboolean first_pts_set;
@@ -82,7 +99,6 @@ struct _GstGvaStreammux {
 
     /* Internal state */
     guint num_sink_pads;
-    gboolean started;
     gboolean send_stream_start;
     gboolean flushing;
 
@@ -108,9 +124,26 @@ struct _GstGvaStreammux {
      * output loop until the (mode-dependent) src caps are known. */
     gboolean caps_negotiated;
 
+    /* TRUE once stream-start, caps and segment have actually been pushed on the
+     * source pad. caps_negotiated is set while mux->lock is held but the events
+     * can only be pushed after it is dropped, so the output loop has to gate on
+     * this rather than on caps_negotiated: otherwise it can slip into that
+     * window and push a buffer ahead of the events that describe it. */
+    gboolean events_pushed;
+
+    /* Set once the "sink caps changed after negotiation" error has been posted,
+     * so an upstream element that retries per buffer cannot flood the bus. */
+    gboolean caps_change_error_posted;
+
     /* Segment tracking */
     gboolean segment_sent;
     GstSegment segment;
+
+    /* TRUE once an upstream segment has been adopted as the source segment.
+     * Only sync-mode=none does this: the other modes rewrite every PTS onto a
+     * zero-based timeline, for which a zero-based segment is the correct
+     * description. Reset by a flush, so a seek adopts the new one. */
+    gboolean segment_adopted;
 
     /* FPS control */
     GstClockTime last_output_time;
@@ -120,9 +153,6 @@ struct _GstGvaStreammux {
     GstClockTime batch_anchor_pts;
     gint64 batch_start_real_time;
     GstClockTime last_pushed_batch_pts;
-
-    /* Output task */
-    guint eos_pad_count;
 };
 
 struct _GstGvaStreammuxClass {

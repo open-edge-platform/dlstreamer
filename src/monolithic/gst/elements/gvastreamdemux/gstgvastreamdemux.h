@@ -7,6 +7,7 @@
 #ifndef __GST_GVA_STREAMDEMUX_H__
 #define __GST_GVA_STREAMDEMUX_H__
 
+#include <gst/base/gstflowcombiner.h>
 #include <gst/gst.h>
 #include <gst/video/video.h>
 
@@ -55,8 +56,20 @@ struct _GstGvaStreamdemux {
     /* Src pads array (indexed by source_id) */
     GPtrArray *srcpads;
 
-    /* FPS control */
-    GstClockTime last_output_time;
+    /* Combines the per-src-pad flow returns into the one value the chain
+     * function reports upstream, so a single unlinked or finished branch does
+     * not stop the other ones. Not MT-safe; only touch it with lock held. */
+    GstFlowCombiner *flow_combiner;
+
+    /* FPS control.
+     *
+     * PASSTHROUGH carries one source per buffer, so each source is throttled
+     * against its own last output time, indexed by source id -- a single
+     * shared time would divide max-fps between the sources instead of
+     * applying it to each. CONTAINER carries every source in one buffer, so
+     * one time covers the whole batch and therefore every source in it. */
+    GArray *last_output_times;
+    GstClockTime last_batch_output_time;
     GstClockTime max_fps_duration;
 };
 
