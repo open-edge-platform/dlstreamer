@@ -1003,6 +1003,13 @@ std::map<std::string, GstStructure *> get_model_info_preproc(const std::shared_p
         }
     }
 
+    // Model API defaults resize_type to "standard"; without a resize, frames not matching the input size fail.
+    if (s != nullptr && gst_structure_n_fields(s) > 0 && !gst_structure_has_field(s, "resize") &&
+        !gst_structure_has_field(s, "crop")) {
+        gst_structure_set(s, "resize", G_TYPE_STRING, "no-aspect-ratio", NULL);
+        GST_INFO("[get_model_info_preproc] resize_type not set, defaulting to standard (no-aspect-ratio)");
+    }
+
     // restore system locale
     std::setlocale(LC_ALL, oldlocale.c_str());
 
@@ -1063,8 +1070,7 @@ std::map<std::string, GstStructure *> get_model_info_postproc(const std::shared_
             GST_INFO("[get_model_info_postproc] method: %s", g_value_get_string(&gvalue));
             g_value_unset(&gvalue);
         }
-        // Model API uses the standardized output_raw_scores key for classification logits.
-        // In dlstreamer this means the label converter should apply softmax-based postprocessing.
+        // In Model API this flag only adds raw_scores to results; kept as a softmax request for compatibility.
         if ((element.first.find("output_raw_scores") != std::string::npos) &&
             (element.second.as<std::string>().find("True") != std::string::npos)) {
             GValue gvalue = G_VALUE_INIT;
@@ -1171,6 +1177,15 @@ std::map<std::string, GstStructure *> get_model_info_postproc(const std::shared_
             gst_structure_set_value(s, "character_dict", &gvalue);
             GST_INFO("[get_model_info_postproc] character_dict: %zu characters", char_dict.size());
             g_value_unset(&gvalue);
+        }
+    }
+
+    // Model API softmaxes single-label classification output unless it is already softmaxed.
+    if (s != nullptr && !gst_structure_has_field(s, "method")) {
+        const gchar *converter = gst_structure_get_string(s, "converter");
+        if (converter != nullptr && strcmp(converter, "Classification") == 0) {
+            gst_structure_set(s, "method", G_TYPE_STRING, "softmax", NULL);
+            GST_INFO("[get_model_info_postproc] method: softmax (Classification default)");
         }
     }
 
