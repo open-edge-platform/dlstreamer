@@ -235,6 +235,7 @@ static void gst_gva_streammux_init(GstGvaStreammux *mux) {
     mux->events_pushed = FALSE;
     mux->caps_change_error_posted = FALSE;
     mux->segment_sent = FALSE;
+    mux->segment_adopted = FALSE;
     mux->last_output_time = GST_CLOCK_TIME_NONE;
     mux->max_fps_duration = GST_CLOCK_TIME_NONE;
     // coverity[missing_lock]
@@ -587,6 +588,7 @@ static GstStateChangeReturn gst_gva_streammux_change_state(GstElement *element, 
         mux->started = FALSE;
         mux->send_stream_start = TRUE;
         mux->segment_sent = FALSE;
+        mux->segment_adopted = FALSE;
         mux->caps_negotiated = FALSE;
         mux->events_pushed = FALSE;
         mux->flushing = FALSE;
@@ -759,7 +761,8 @@ static GstCaps *negotiate_src_caps(GstGvaStreammux *mux, gboolean *need_stream_s
     mux->send_stream_start = FALSE;
     *need_segment = !mux->segment_sent;
     mux->segment_sent = TRUE;
-    if (*need_segment)
+    /* Leave a segment already adopted from upstream (sync-mode=none) alone. */
+    if (*need_segment && !mux->segment_adopted)
         gst_segment_init(&mux->segment, GST_FORMAT_TIME);
 
     return src_caps;
@@ -859,6 +862,9 @@ static gboolean gst_gva_streammux_sink_event(GstPad *pad, GstObject *parent, Gst
     }
     case GST_EVENT_SEGMENT: {
         GstSegment seg;
+        GstSegment src_segment;
+        gboolean push_src_segment = FALSE;
+
         gst_event_copy_segment(event, &seg);
         g_mutex_lock(&mux->lock);
         GvaStreammuxPadData *pdata = get_pad_data(mux, pad);
@@ -867,7 +873,32 @@ static gboolean gst_gva_streammux_sink_event(GstPad *pad, GstObject *parent, Gst
             GST_DEBUG_OBJECT(mux, "Pad sink_%u segment.start=%" GST_TIME_FORMAT, pdata->pad_index,
                              GST_TIME_ARGS(seg.start));
         }
+
+        /* sync-mode=none passes every PTS through untouched, so the source pad
+         * has to carry the upstream timeline as well: with a zero-based
+         * segment downstream would read a buffer seeked to T as having a
+         * running time of T and wait that long before rendering it. The other
+         * sync modes rewrite PTS onto a zero-based timeline, which a
+         * zero-based segment already describes correctly.
+         *
+         * The first segment of the current run wins; the rest are assumed to
+         * share its timeline, which is the same assumption batching already
+         * makes about the sources. */
+        if (mux->sync_mode == GVA_STREAMMUX_SYNC_MODE_NONE && !mux->segment_adopted && seg.format == GST_FORMAT_TIME) {
+            mux->segment = seg;
+            mux->segment_adopted = TRUE;
+            src_segment = mux->segment;
+            /* If the events have not gone out yet, whoever sends them will
+             * pick this segment up; otherwise it has to be sent as an update. */
+            push_src_segment = mux->events_pushed;
+            GST_DEBUG_OBJECT(mux, "Adopted segment from sink_%u as the source segment: start=%" GST_TIME_FORMAT,
+                             pdata ? pdata->pad_index : 0, GST_TIME_ARGS(seg.start));
+        }
         g_mutex_unlock(&mux->lock);
+
+        if (push_src_segment)
+            gst_pad_push_event(mux->srcpad, gst_event_new_segment(&src_segment));
+
         gst_event_unref(event);
         ret = TRUE;
         break;
@@ -975,6 +1006,7 @@ static gboolean gst_gva_streammux_sink_event(GstPad *pad, GstObject *parent, Gst
             mux->eos_pad_count = 0;
             mux->batch_anchor_pts = GST_CLOCK_TIME_NONE;
             mux->last_pushed_batch_pts = GST_CLOCK_TIME_NONE;
+            mux->segment_adopted = FALSE;
             gst_segment_init(&mux->segment, GST_FORMAT_TIME);
             flushed_segment = mux->segment;
         }

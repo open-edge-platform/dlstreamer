@@ -140,6 +140,12 @@ struct _GstGvaStreammux {
     gboolean segment_sent;
     GstSegment segment;
 
+    /* TRUE once an upstream segment has been adopted as the source segment.
+     * Only sync-mode=none does this: the other modes rewrite every PTS onto a
+     * zero-based timeline, for which a zero-based segment is the correct
+     * description. Reset by a flush, so a seek adopts the new one. */
+    gboolean segment_adopted;
+
     /* FPS control */
     GstClockTime last_output_time;
     GstClockTime max_fps_duration;
