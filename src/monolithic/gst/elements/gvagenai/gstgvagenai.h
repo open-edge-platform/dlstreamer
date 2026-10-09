@@ -39,6 +39,12 @@ struct _GstGvaGenAI {
     gboolean prompt_changed; // flag to indicate if prompt was updated and needs to be reloaded
     gchar *prompt_string;
 
+    // Object-class trigger: forces a frame to VLM when upstream detection/classification
+    // metadata (GstAnalyticsODMtd) matches one of these classes, regardless of frame-rate.
+    gchar *trigger_obj_classes;           // comma-separated class names, e.g. "person,fire"; NULL/empty = disabled
+    gint trigger_mode;                    // GstGvaGenAITriggerMode: any (OR) or all (AND) of trigger_obj_classes
+    gboolean trigger_obj_classes_changed; // flag: trigger_obj_classes was updated and needs reparsing
+
     void *backend; // GvaGenAIRuntime * (opaque runtime state; allocated/freed in gstgvagenai.cpp)
 
     // Last inference result, persisted so gvawatermark renders across frames
