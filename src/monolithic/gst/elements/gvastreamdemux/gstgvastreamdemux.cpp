@@ -429,20 +429,54 @@ static gboolean gst_gva_streamdemux_sink_query(GstPad *pad, GstObject *parent, G
         return TRUE;
     }
     case GST_QUERY_LATENCY: {
-        /* Forward latency query to the first active src pad's peer. The query
-         * runs on the snapshot, outside the lock: it reaches arbitrary
-         * downstream code, which must not run with our lock held. */
-        gboolean result = FALSE;
+        /* Aggregate over every linked branch instead of answering with
+         * whichever one happens to come first: upstream has to budget for the
+         * slowest of them, and branches routinely differ (one feeds a display,
+         * another a file). The queries run on the snapshot, outside the lock,
+         * because they reach arbitrary downstream code. */
+        gboolean answered = FALSE;
+        gboolean live = FALSE;
+        GstClockTime min_latency = 0;
+        GstClockTime max_latency = GST_CLOCK_TIME_NONE;
+
         GPtrArray *pads = gva_streamdemux_ref_srcpads(demux);
         for (guint i = 0; i < pads->len; i++) {
             GstPad *srcpad = (GstPad *)g_ptr_array_index(pads, i);
-            if (srcpad && gst_pad_is_linked(srcpad)) {
-                result = gst_pad_peer_query(srcpad, query);
-                break;
+            if (!srcpad || !gst_pad_is_linked(srcpad))
+                continue;
+
+            GstQuery *peer_query = gst_query_new_latency();
+            if (gst_pad_peer_query(srcpad, peer_query)) {
+                gboolean peer_live;
+                GstClockTime peer_min, peer_max;
+                gst_query_parse_latency(peer_query, &peer_live, &peer_min, &peer_max);
+                answered = TRUE;
+                live = live || peer_live;
+                min_latency = MAX(min_latency, peer_min);
+                if (GST_CLOCK_TIME_IS_VALID(peer_max)) {
+                    if (GST_CLOCK_TIME_IS_VALID(max_latency))
+                        max_latency = MAX(max_latency, peer_max);
+                    else
+                        max_latency = peer_max;
+                }
             }
+            gst_query_unref(peer_query);
         }
         gva_streamdemux_free_srcpad_snapshot(pads);
-        return result;
+
+        if (!answered)
+            return FALSE;
+
+        /* max-fps holds each buffer back by up to one frame interval, which is
+         * latency this element adds and has to declare. */
+        if (GST_CLOCK_TIME_IS_VALID(demux->max_fps_duration)) {
+            min_latency += demux->max_fps_duration;
+            if (GST_CLOCK_TIME_IS_VALID(max_latency))
+                max_latency += demux->max_fps_duration;
+        }
+
+        gst_query_set_latency(query, live, min_latency, max_latency);
+        return TRUE;
     }
     default:
         return gst_pad_query_default(pad, parent, query);
