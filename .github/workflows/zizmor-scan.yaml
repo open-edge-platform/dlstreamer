@@ -33,7 +33,7 @@ jobs:
         with:
           persist-credentials: false
       - name: "Run Zizmor scan"
-        uses: open-edge-platform/geti-ci/actions/zizmor@cffbec1b3b7c155efa789cd2ea67a2a765a4369f # zizmor/v0.1.4
+        uses: open-edge-platform/geti-ci/actions/zizmor@27a17d738348699840c32f98edc9947f21278154 # zizmor/v0.1.5
         with:
           scan-scope: all
           severity-level: LOW
