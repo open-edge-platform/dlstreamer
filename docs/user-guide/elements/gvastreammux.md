@@ -57,7 +57,25 @@ Key design points:
    all pads are EOS and all queues are drained, the src pad emits EOS and the task pauses.
 5. Per-pad `FLUSH_START` / `FLUSH_STOP` events are coalesced — the downstream flush, task
    pause, queue reset and task restart each happen exactly once per flush cycle no matter
-   how many sink pads receive the events.
+   how many sink pads receive the events. A flush removes the sticky segment from the `src`
+   pad, so the muxer sends a replacement immediately afterwards.
+
+### Adding and Removing Sources at Runtime
+
+Sink pads can be requested and released while the pipeline is running.
+
+- Releasing a pad that has already reached EOS does **not** end the stream: the muxer only
+  emits EOS once every pad that is still attached has finished. Releasing finished sources one
+  at a time, as a long-running pipeline recycles them, therefore keeps the live ones running.
+- A pad may be released while its upstream is still pushing. Its chain function is told to
+  stop first, so a source that is still delivering is not left waiting for queue space that
+  will never be freed.
+- Requesting an index that is already in use is rejected (`request_new_pad` returns `NULL`)
+  rather than replacing the existing pad. Request pads without a name to get the first free
+  index.
+- If every pad reaches EOS before any of them reported caps, the source caps can never be
+  negotiated. The muxer ends the stream itself, sending stream-start and a segment (and, in
+  `container` mode, the batch caps) ahead of the EOS.
 
 ## Output Modes
 
@@ -75,6 +93,12 @@ anything until then.
 > (`gvadetect`, `gvawatermark`, …) may follow the mux directly. Insert `gvastreamdemux` to recover
 > the per-source streams (e.g. video → `gvadetect`, lidar → `g3dinference`) first.
 
+> **Caps changes mid-stream (`passthrough` mode):** the `src` caps are fixed at negotiation and
+> cannot be changed afterwards, because buffers already queued were accepted under the old
+> caps. If a sink pad reports different caps later — an RTSP source reconnecting at another
+> resolution, for instance — the element posts an error instead of silently forwarding
+> mismatched buffers. Use `container` mode for sources whose caps can change.
+
 > **Choosing the mode:** use `passthrough` when every source produces the same caps (the common
 > all-video case) and you want plain buffers downstream. Use `container` whenever the sources are
 > heterogeneous (mixed media types or differing caps) — a `passthrough` mux with mismatched sink
@@ -87,7 +111,7 @@ one-buffer-per-batch carrying all sources.
 
 | Property        | Type     | Default     | Description |
 |-----------------|----------|-------------|-------------|
-| `max-fps`       | Double   | `0`         | Output rate cap (0 = unlimited). Only set for local file sources; setting on RTSP/live sources can stall the pipeline. |
+| `max-fps`       | Double   | `0`         | Output rate cap on the assembled batches (0 = unlimited). Only set for local file sources; setting on RTSP/live sources can stall the pipeline. |
 | `pts-tolerance` | UInt64 (ns) | `20000000` (20 ms) | Max `\|pts - anchor\|` for a buffer to count as contributing to the current batch. |
 | `max-wait-time` | UInt64 (ns) | `40000000` (40 ms) | Max time the output task waits for late pads after the anchor is set. After timeout the partial batch is pushed. |
 | `max-queue-size`| UInt    | `2`         | Maximum buffers per pad queue. When reached, upstream blocks (back-pressure). |
@@ -112,6 +136,12 @@ single-stream). `sync-mode` selects the normalization policy.
 
 Per-pad normalization state (first PTS, segment start) is reset on `FLUSH_STOP` and on
 `PAUSED → READY`, so seek and pipeline restart establish fresh baselines.
+
+The segment on the `src` pad follows from the mode. `first-pts`, `segment` and `pipeline`
+rewrite every PTS onto a zero-based timeline, so the muxer sends a zero-based segment to match.
+`none` passes PTS through untouched, so it forwards the upstream segment instead — otherwise a
+downstream sink would read a buffer seeked to T as having a running time of T and wait that
+long before rendering it. A flush starts a new run, so a seek adopts the new segment.
 
 ## Buffer Metadata
 
