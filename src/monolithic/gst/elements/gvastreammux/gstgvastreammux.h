@@ -125,6 +125,13 @@ struct _GstGvaStreammux {
      * output loop until the (mode-dependent) src caps are known. */
     gboolean caps_negotiated;
 
+    /* TRUE once stream-start, caps and segment have actually been pushed on the
+     * source pad. caps_negotiated is set while mux->lock is held but the events
+     * can only be pushed after it is dropped, so the output loop has to gate on
+     * this rather than on caps_negotiated: otherwise it can slip into that
+     * window and push a buffer ahead of the events that describe it. */
+    gboolean events_pushed;
+
     /* Set once the "sink caps changed after negotiation" error has been posted,
      * so an upstream element that retries per buffer cannot flood the bus. */
     gboolean caps_change_error_posted;

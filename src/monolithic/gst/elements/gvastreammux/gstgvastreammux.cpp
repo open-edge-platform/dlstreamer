@@ -232,6 +232,7 @@ static void gst_gva_streammux_init(GstGvaStreammux *mux) {
     mux->sinkpads = NULL;
     mux->current_caps = NULL;
     mux->caps_negotiated = FALSE;
+    mux->events_pushed = FALSE;
     mux->caps_change_error_posted = FALSE;
     mux->segment_sent = FALSE;
     mux->last_output_time = GST_CLOCK_TIME_NONE;
@@ -587,6 +588,7 @@ static GstStateChangeReturn gst_gva_streammux_change_state(GstElement *element, 
         mux->send_stream_start = TRUE;
         mux->segment_sent = FALSE;
         mux->caps_negotiated = FALSE;
+        mux->events_pushed = FALSE;
         mux->flushing = FALSE;
         mux->last_output_time = GST_CLOCK_TIME_NONE;
         mux->batch_anchor_pts = GST_CLOCK_TIME_NONE;
@@ -664,6 +666,7 @@ static GstStateChangeReturn gst_gva_streammux_change_state(GstElement *element, 
             }
         }
         mux->caps_negotiated = FALSE;
+        mux->events_pushed = FALSE;
         mux->caps_change_error_posted = FALSE;
         if (mux->current_caps) {
             gst_caps_unref(mux->current_caps);
@@ -843,8 +846,9 @@ static gboolean gst_gva_streammux_sink_event(GstPad *pad, GstObject *parent, Gst
                 gst_pad_push_event(mux->srcpad, gst_event_new_segment(&mux->segment));
                 GST_INFO_OBJECT(mux, "Sent segment event");
             }
-            /* Unblock the output loop, which waits until the mode is decided. */
+            /* The events are on the pad now, so open the output gate. */
             g_mutex_lock(&mux->lock);
+            mux->events_pushed = TRUE;
             g_cond_broadcast(&mux->cond);
             g_mutex_unlock(&mux->lock);
         }
@@ -909,7 +913,9 @@ static gboolean gst_gva_streammux_sink_event(GstPad *pad, GstObject *parent, Gst
             gst_caps_unref(caps_to_push);
             if (need_segment)
                 gst_pad_push_event(mux->srcpad, gst_event_new_segment(&mux->segment));
+            /* The events are on the pad now, so open the output gate. */
             g_mutex_lock(&mux->lock);
+            mux->events_pushed = TRUE;
             g_cond_broadcast(&mux->cond);
             g_mutex_unlock(&mux->lock);
         }
@@ -1285,10 +1291,13 @@ static void gst_gva_streammux_output_loop(gpointer user_data) {
         return;
     }
 
-    /* Gate: don't assemble or push anything until src caps are negotiated
-     * (i.e. all live sink pads have reported caps). This guarantees the first
-     * downstream buffer is preceded by the correct caps. */
-    if (!mux->caps_negotiated) {
+    /* Gate: don't assemble or push anything until stream-start, caps and
+     * segment have been pushed on the source pad. Gating on caps_negotiated
+     * instead would let this task through as soon as the negotiating thread
+     * sets that flag, which happens under the lock while the events can only
+     * be pushed after it is released -- long enough to get a buffer out in
+     * front of them. */
+    if (!mux->events_pushed) {
         /* Degenerate case: every pad reached EOS before any caps were seen, so
          * caps can never be negotiated. Forward EOS and stop instead of
          * waiting forever. */
