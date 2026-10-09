@@ -6,6 +6,7 @@
 
 #include "gva_base_inference.h"
 
+#include "auto_tune.h"
 #include "common/post_processor/post_processor_c.h"
 #include "common/pre_processors.h"
 #include "config.h"
@@ -590,6 +591,7 @@ void gva_base_inference_init(GvaBaseInference *base_inference) {
 
     base_inference->model = g_strdup(DEFAULT_MODEL);
     base_inference->device = g_strdup(DEFAULT_DEVICE);
+    base_inference->device_user_set = FALSE;
     base_inference->model_proc = g_strdup(DEFAULT_MODEL_PROC);
     base_inference->inference_interval = DEFAULT_INFERENCE_INTERVAL;
     base_inference->reshape = DEFAULT_RESHAPE;
@@ -870,6 +872,7 @@ void gva_base_inference_set_property(GObject *object, guint property_id, const G
     case PROP_DEVICE:
         g_free(base_inference->device);
         base_inference->device = g_value_dup_string(value);
+        base_inference->device_user_set = TRUE;
         break;
     case PROP_INFERENCE_INTERVAL:
         base_inference->inference_interval = g_value_get_uint(value);
@@ -1157,6 +1160,19 @@ gboolean gva_base_inference_set_caps(GstBaseTransform *trans, GstCaps *incaps, G
 
         if (!gst_video_info_dma_drm_to_video_info(&dma_info, &video_info))
             return FALSE;
+    }
+
+    // Tier 0 static auto-tuning: when enabled and the user has not pinned a
+    // device, resolve the best available accelerator. The pre-process-backend
+    // auto-selection downstream then derives the matching zero-copy memory path.
+    if (!base_inference->device_user_set && dlstreamer::autotune::static_tuning_enabled()) {
+        const std::string best = dlstreamer::autotune::select_best_device();
+        if (!best.empty() && g_strcmp0(base_inference->device, best.c_str()) != 0) {
+            GST_INFO_OBJECT(base_inference, "Auto-tuning selected device '%s' (was '%s')", best.c_str(),
+                            base_inference->device ? base_inference->device : "");
+            g_free(base_inference->device);
+            base_inference->device = g_strdup(best.c_str());
+        }
     }
 
     // Check if the caps are compatible with the device

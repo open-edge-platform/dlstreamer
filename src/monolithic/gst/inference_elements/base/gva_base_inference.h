@@ -67,6 +67,9 @@ typedef struct _GvaBaseInference {
     gchar *model;
     gchar *model_proc;
     gchar *device;
+    // TRUE once the user explicitly sets the 'device' property, so static
+    // auto-tuning only overrides the default and never a user choice.
+    gboolean device_user_set;
     gchar *model_instance_id;
     gchar *scheduling_policy;
     gchar *ie_config;
