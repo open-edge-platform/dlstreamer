@@ -194,6 +194,12 @@ void release_inference_instance(GvaBaseInference *base_inference) {
         for (auto it = inference_pool_.begin(); it != inference_pool_.end();) {
             auto infRefs = it->second;
             infRefs->refs.erase(base_inference);
+
+            // Unregister this element from fair-batch source tracking
+            if (infRefs->proxy && infRefs->proxy->GetModel().inference) {
+                infRefs->proxy->GetModel().inference->UnregisterSource(base_inference);
+            }
+
             if (infRefs->refs.empty()) {
                 infRefs->proxy.reset();
                 infRefs.reset();
