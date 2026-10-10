@@ -7,6 +7,7 @@
 set (TARGET_NAME "elements")
 
 find_package(OpenCV REQUIRED core imgproc calib3d)
+find_package(OpenVINO REQUIRED Runtime)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(GSTREAMER gstreamer-1.0>=1.16 REQUIRED)
 pkg_check_modules(GSTVIDEO gstreamer-video-1.0>=1.16 REQUIRED)
@@ -33,6 +34,7 @@ file (GLOB MAIN_SRC
     gvawatermark3d/*.c
     gvadeskew/*.cpp
     gvadeskew/*.c
+    gvaupscale/*.cpp
     gvafpsthrottle/*.cpp
     gvaanalytics/*.cpp
 )
@@ -53,6 +55,7 @@ file (GLOB MAIN_HEADERS
     gvawatermark/meta_extractor/*.h
     gvawatermark3d/*.h
     gvadeskew/*.h
+    gvaupscale/*.h
     gvamotiondetect/*.h
     gvafpsthrottle/*.hpp
     gvaanalytics/*.h
@@ -82,6 +85,7 @@ PUBLIC
     gvametaaggregate
     gvawatermark3d
     gvadeskew
+    gvaupscale
     gvamotiondetect
     gvaanalytics
 PRIVATE
@@ -105,6 +109,7 @@ PRIVATE
     ${GSTALLOC_LIBRARIES}
     ${GSTRTP_LIBRARIES}
     ${OpenCV_LIBS}
+    openvino::runtime
     dlstreamer_api
     common
     image_inference
