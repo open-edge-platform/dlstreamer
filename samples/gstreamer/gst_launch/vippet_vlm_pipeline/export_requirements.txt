@@ -1,0 +1,25 @@
+# Model export dependencies for cv_triggered_vlm
+# Run once before starting the pipeline: pip install -r export_requirements.txt
+
+# IMPORTANT: CPU-only PyTorch — must appear before any torch-dependent package.
+--extra-index-url https://download.pytorch.org/whl/cpu
+
+# Ultralytics YOLO (for yolov11s detection model export)
+ultralytics==8.4.57
+
+# NNCF for INT8 quantization (required by ultralytics int8=True export)
+nncf==3.0.0
+
+# OpenVINO Python (pin to match DL Streamer runtime and openvino-tokenizers)
+openvino==2026.2.1
+
+# HuggingFace optimum for VLM model export (InternVL3_5-2B)
+openvino-tokenizers[transformers]~=2026.2.1.0.dev
+https://github.com/huggingface/optimum-intel/archive/f50a0b326df82d4b05c461a9184a97f616bfa63a.tar.gz#egg=optimum-intel
+einops==0.8.2
+transformers_stream_generator==0.0.5
+diffusers==0.38.0
+timm==1.0.26
+torchvision==0.26.0
+transformers<5.0.0  # For exporting InternVL3_5
+hf_transfer==0.1.9  # for faster models download, should used with env var HF_HUB_ENABLE_HF_TRANSFER=1
