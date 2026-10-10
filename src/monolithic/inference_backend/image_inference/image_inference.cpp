@@ -82,7 +82,15 @@ ImageInference::Ptr ImageInference::createImageInferenceInstance(MemoryType inpu
             // consistent: a partial fallback would leave the pool/OpenVINO instance in DMA_BUFFER mode
             // while individual surfaces are SYSTEM, which deadlocks inference.
             {
-                bool zero_copy_enabled = false; // currently disabled
+                // Enabled by default; opt-out via env var.
+                const char *zc_env = std::getenv("NPU_ZERO_COPY");
+                bool zero_copy_enabled = !zc_env || !(std::string(zc_env) == "0" || std::string(zc_env) == "false");
+                if (zero_copy_enabled) {
+                    GVA_WARNING("Zero-copy enabled for NPU.");
+                } else {
+                    GVA_WARNING("Zero-copy disabled for NPU.");
+                }
+
                 if (isNpu && zero_copy_enabled) {
                     if (access("/dev/dma_heap/system", R_OK | W_OK) != 0) {
                         GVA_WARNING("Falling back to the slow NPU path (extra GPU->CPU->NPU copies): no access to "
