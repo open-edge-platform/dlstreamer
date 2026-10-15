@@ -32,7 +32,7 @@ Color RGBtoBGRColorConverter::convert(Color input_color) {
     return Color(input_color[2], input_color[1], input_color[0]);
 }
 
-RGBtoYUVColorConverter::RGBtoYUVColorConverter(const std::vector<Color> &rgb_colors, double Kb, double Kr) {
+RGBtoYUVColorConverter::RGBtoYUVColorConverter(const std::vector<Color> &rgb_colors, double Kr, double Kb) {
     convert_colors_rgb_to_yuv(Kr, Kb, rgb_colors, color_table, coefficient_matrix);
 }
 

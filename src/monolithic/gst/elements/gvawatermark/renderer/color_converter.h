@@ -53,7 +53,7 @@ class RGBtoBGRColorConverter : public ColorConverter {
 
 class RGBtoYUVColorConverter : public ColorConverter {
   public:
-    RGBtoYUVColorConverter(const std::vector<Color> &rgb_colors, double Kb, double Kr);
+    RGBtoYUVColorConverter(const std::vector<Color> &rgb_colors, double Kr, double Kb);
     Color convert(Color input_color) override;
 
   private:
