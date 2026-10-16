@@ -25,6 +25,8 @@
 #include "gstgvametaconvert.h"
 #include "gstgvatrack.h"
 #include "gstgvawatermarkimpl.h"
+#include "gstgvatagger.h"
+#include "gstgvatrigger.h"
 #include "gvadeskew.h"
 #include "gvafpsthrottle.hpp"
 #include "gvamotiondetect.h"
@@ -83,6 +85,10 @@ static gboolean plugin_init(GstPlugin *plugin) {
     if (!gst_element_register(plugin, "gvastreamdemux", GST_RANK_NONE, GST_TYPE_GVA_STREAMDEMUX))
         return FALSE;
     if (!gst_element_register(plugin, "gvafpscounter", GST_RANK_NONE, GST_TYPE_GVA_FPSCOUNTER))
+        return FALSE;
+    if (!gst_element_register(plugin, "gvatagger", GST_RANK_NONE, gst_gva_tagger_get_type()))
+        return FALSE;
+    if (!gst_element_register(plugin, "gvatrigger", GST_RANK_NONE, gst_gva_trigger_get_type()))
         return FALSE;
 
     // register metadata
