@@ -104,6 +104,9 @@ For reference documentation of the legacy API, see
 | `gvainference` (roi-list) | Generic inference per ROI | GstBuffer + ROI + ODMtd | GstAnalyticsTensorMtd | extended ROI params |
 | `gvatrack` | Object tracking | GstBuffer + ROI + ODMtd | TrackingMtd | ROI + object_id param |
 | `gvaanalytics` | Zone and tripwire analytics | GstBuffer + ODMtd + TrackingMtd | ZoneMtd, TripwireMtd, WatermarkDrawMeta, WatermarkCircleMeta | — |
+| `gvaeventrecorder` | Event recording, forwards EVENT frames only | GstBuffer + ODMtd | frame-level ClsMtd (semantic tags `event`, `event_trigger`) | — |
+| `gvaframeselect` | Frame sampling of the event stream | GstBuffer | — (stream frame number in `GST_BUFFER_OFFSET`) | — |
+| `gvaroiscale` | Crop and scale detected ROIs | GstBuffer (RGB) + ODMtd | ODMtd (one per output crop) | — |
 | `gvametaconvert` | Metadata → JSON | GstBuffer + ROI + ODMtd + ClsMtd + GstAnalyticsGroupMtd + GstAnalyticsKeypointMtd + TrackingMtd + GstAnalyticsSegmentationMtd + GstAnalyticsTensorMtd + ZoneMtd + TripwireMtd + 3DODMtd + LidarMeta + GstRadarProcessMeta + GstAnalyticsBatchMeta + GstGVATensorMeta | — | GstGVAJSONMeta |
 | `gvametapublish` | JSON → MQTT/Kafka/File | GstBuffer + GstGVAJSONMeta | — | — |
 | `gvametaaggregate` | Merge from multiple streams | GstBuffer + ROI + GstGVATensorMeta + ODMtd + ClsMtd + GstAnalyticsGroupMtd + GstAnalyticsKeypointMtd + GstAnalyticsSegmentationMtd + GstAnalyticsTensorMtd | ODMtd, ClsMtd, GstAnalyticsGroupMtd, GstAnalyticsKeypointMtd, GstAnalyticsSegmentationMtd, GstAnalyticsTensorMtd | ROI + GstStructure params, GstGVATensorMeta |

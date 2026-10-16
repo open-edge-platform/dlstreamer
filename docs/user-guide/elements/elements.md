@@ -41,6 +41,9 @@ gst-inspect-1.0 utility.
 |------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | [gvaanalytics](./gvaanalytics.md)     | Performs video analytics using tripwires and zones. Analyzes object trajectories and attaches watermark metadata for visualization of configured tripwires and zones.<br>Example:<br> gst-launch-1.0 … ! decodebin3 ! gvadetect … ! gvaanalytics config=analytics.json ! gvawatermark ! … OUT<br> |
 | [gvaattachroi](./gvaattachroi.md)     | Adds user-defined regions of interest to perform inference on (instead of full frame). Example: monitoring road traffic in a city camera feed; splitting large image into smaller pieces, and running inference on each piece (healthcare cell analytics).<br>Example:<br> gst-launch-1.0 … ! decodebin3 ! gvaattachroi roi=xtl,ytl,xbr,ybr gvadetect inference-region=1 ! … OUT<br> |
+| [gvaeventrecorder](./gvaeventrecorder.md) | Caches and records PRE/EVENT/POST video, optionally saving forwarded EVENT frames separately.<br>Example:<br> gst-launch-1.0 … ! gvadetect model=$mDetect device=NPU ! gvaeventrecorder target-classes=person,vehicle full-clip-output-dir=./events downstream-output-dir=./downstream_events ! gvaframeselect sub-stream-frames=900 frame-budget=8 ! videoconvert ! video/x-raw,format=RGB ! gvaroiscale out-width=448 out-height=448 ! gvagenai model-path=$mVLM device=GPU ! … OUT<br> |
+| [gvaframeselect](./gvaframeselect.md) | Samples a fixed budget of evenly spaced frames from each event sub-stream. |
+| [gvaroiscale](./gvaroiscale.md) | Crops the first detected ROI and letterboxes it to the configured RGB dimensions for downstream VLM inference. |
 | [gvafpscounter](./gvafpscounter.md)    | Measures frames per second across multiple video streams in a single GStreamer process.<br>Example:<br> gst-launch-1.0 … ! decodebin3 ! gvadetect … ! gvafpscounter ! … OUT<br> |
 | [gvafpsthrottle](./gvafpsthrottle.md)   | Throttles the framerate of video streams by enforcing a maximum frames-per-second (FPS) rate. Useful for rate limiting in pipelines or for testing at specific processing framerates.<br>Example:<br> gst-launch-1.0 … ! decodebin3 ! gvafpsthrottle target-fps=10 ! … OUT<br> |
 | [gvastreammux](./gvastreammux.md)       | Muxes multiple video streams into a single pipeline by assembling PTS-aligned batches across pads, with configurable PTS normalization (`sync-mode`). Each output buffer carries `GstAnalyticsBatchMeta` (`streams[0].index` = source pad index, `n_streams` = batch size).<br>Example:<br> gst-launch-1.0 gvastreammux name=mux sync-mode=first-pts ! queue ! gvadetect model=$mDetect device=GPU ! gvafpscounter ! fakesink rtspsrc location=rtsp://host:8554/stream ! … ! mux.sink_0 rtspsrc location=rtsp://host:8555/stream ! … ! mux.sink_1<br> |
@@ -67,6 +70,7 @@ gvatrack
 gvaaudiodetect
 gvaaudiotranscribe
 gvagenai
+gvaroiscale
 g3dradarprocess
 g3dlidarsrc
 g3dlidarparse
@@ -75,6 +79,8 @@ g3dobjectfuser
 g3drender
 gvaanalytics
 gvaattachroi
+gvaeventrecorder
+gvaframeselect
 gvafpscounter
 gvafpsthrottle
 gvastreammux
