@@ -480,9 +480,19 @@ static bool parseHFpreprocessing(const nlohmann::json &config_json, const nlohma
         rescale_factor = preproc_json["rescale_factor"].get<double>();
     }
 
+    const bool do_normalize = !(preproc_json.contains("do_normalize") && preproc_json["do_normalize"].is_boolean() &&
+                                !preproc_json["do_normalize"].get<bool>());
+    const bool do_rescale = !(preproc_json.contains("do_rescale") && preproc_json["do_rescale"].is_boolean() &&
+                              !preproc_json["do_rescale"].get<bool>());
+    if (!do_normalize && do_rescale) {
+        const std::string scale = std::to_string(1.0 / rescale_factor);
+        modelConfig["mean_values"] = ov::Any(std::string("0 0 0"));
+        modelConfig["scale_values"] = ov::Any(scale + " " + scale + " " + scale);
+    }
+
     const bool has_image_mean = preproc_json.contains("image_mean") && preproc_json["image_mean"].is_array();
     const bool has_mean = preproc_json.contains("mean") && preproc_json["mean"].is_array();
-    if (has_image_mean || has_mean) {
+    if (do_normalize && (has_image_mean || has_mean)) {
         std::vector<std::string> mean_values;
         const auto &mean_json = has_image_mean ? preproc_json["image_mean"] : preproc_json["mean"];
         for (const auto &val : mean_json) {
@@ -503,7 +513,7 @@ static bool parseHFpreprocessing(const nlohmann::json &config_json, const nlohma
 
     const bool has_image_std = preproc_json.contains("image_std") && preproc_json["image_std"].is_array();
     const bool has_std = preproc_json.contains("std") && preproc_json["std"].is_array();
-    if (has_image_std || has_std) {
+    if (do_normalize && (has_image_std || has_std)) {
         std::vector<std::string> std_values;
         const auto &std_json = has_image_std ? preproc_json["image_std"] : preproc_json["std"];
         for (const auto &val : std_json) {
@@ -558,10 +568,17 @@ bool convertHuggingFaceMeta2ModelApi(const std::string &model_file, ov::AnyMap &
         modelConfig["model_type"] = ov::Any(std::string("label"));
         modelConfig["output_raw_scores"] = ov::Any(std::string(
             "True")); // meaning the model outputs raw classification scores (logits) that need softmax post-processing
-    } else if ((architecture == "RTDetrForObjectDetection") || (architecture == "RtDetrV2ForObjectDetection")) {
+    } else if ((architecture == "RTDetrForObjectDetection") || (architecture == "RtDetrV2ForObjectDetection") ||
+               (architecture == "DFineForObjectDetection")) {
+        // D-FINE in transformers shares RT-DETR's outputs: logits [B,Q,C] and pred_boxes [B,Q,4] (cx,cy,w,h).
         modelConfig["model_type"] = ov::Any(std::string("rtdetr"));
         modelConfig["output_raw_scores"] =
             ov::Any(std::string("False")); // meaning the model outputs processed detection results (no softmax needed)
+        // transformers defaults use_focal_loss to true: sigmoid scores instead of softmax with a no-object class
+        const bool use_focal_loss =
+            !(config_json.contains("use_focal_loss") && config_json["use_focal_loss"].is_boolean() &&
+              !config_json["use_focal_loss"].get<bool>());
+        modelConfig["use_focal_loss"] = ov::Any(std::string(use_focal_loss ? "True" : "False"));
     } else if (architecture == "RfDetrForObjectDetection") {
         modelConfig["model_type"] = ov::Any(std::string("rfdetr"));
         modelConfig["output_raw_scores"] =
@@ -1106,6 +1123,11 @@ std::map<std::string, GstStructure *> get_model_info_postproc(const std::shared_
             const gboolean nms_execute = element.second.as<std::string>().find("True") != std::string::npos;
             gst_structure_set(s, "nms_execute", G_TYPE_BOOLEAN, nms_execute, NULL);
             GST_INFO("[get_model_info_postproc] nms_execute: %d", nms_execute);
+        }
+        if (element.first == "use_focal_loss") {
+            const gboolean use_focal_loss = element.second.as<std::string>() == "True";
+            gst_structure_set(s, "use_focal_loss", G_TYPE_BOOLEAN, use_focal_loss, NULL);
+            GST_INFO("[get_model_info_postproc] use_focal_loss: %d", use_focal_loss);
         }
         if (element.first.find("image_threshold") != std::string::npos) {
             GValue gvalue = G_VALUE_INIT;

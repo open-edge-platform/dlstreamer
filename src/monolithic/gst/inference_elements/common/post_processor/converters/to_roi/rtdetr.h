@@ -14,20 +14,21 @@
 namespace post_processing {
 
 /*
-RT-DETR tensor output layout:
+RT-DETR / D-FINE tensor output layout:
     logits: [B, N, C] or [N, C]
     boxes:  [B, N, 4] or [N, 4] in normalized cxcywh
-    where C may include an extra "no-object" class at the end.
+    With use_focal_loss, scores are per-class sigmoids (as in transformers post_process_object_detection);
+    otherwise softmax, where C may include an extra "no-object" class at the end.
 */
 class RTDETRConverter : public BlobToROIConverter {
   protected:
+    bool use_focal_loss = false;
+
     void parseOutputBlobs(const float *logits_data, const std::vector<size_t> &logits_dims, const float *boxes_data,
                           const std::vector<size_t> &boxes_dims, std::vector<DetectedObject> &objects) const;
 
   public:
-    RTDETRConverter(BlobToMetaConverter::Initializer initializer, double confidence_threshold)
-        : BlobToROIConverter(std::move(initializer), confidence_threshold, false, 0.0) {
-    }
+    RTDETRConverter(BlobToMetaConverter::Initializer initializer, double confidence_threshold);
 
     TensorsTable convert(const OutputBlobs &output_blobs) override;
 
