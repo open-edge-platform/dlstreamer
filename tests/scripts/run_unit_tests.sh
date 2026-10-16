@@ -88,8 +88,12 @@ if [[ "${UNIT_TESTS_DUMP_GT:-0}" == "1" ]]; then
 fi
 
 pushd "$SRC_DIR"/tests/unit_tests/tests_gstgva
+# TODO: test_pipeline_optimizer.py::TestOptimizer::test_iter_optimize_for_streams_with_timeout_and_get_baseline_pipeline
+# is temporarily disabled: it aborts with CL_OUT_OF_RESOURCES on PTL's iGPU.
+# Remove the --deselect line below to re-enable.
 py.test -v -s --tb=short \
   --deselect=test_pipeline_custom_preproc.py::TestCustomPreProcPipeline::test_custom_opencv_resnet_pipeline \
+  --deselect=test_pipeline_optimizer.py::TestOptimizer::test_iter_optimize_for_streams_with_timeout_and_get_baseline_pipeline \
   --junitxml="$result_path"/python_tests_results.xml || ret_code=$?
 popd
 
